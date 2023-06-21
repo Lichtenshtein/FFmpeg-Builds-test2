@@ -50,7 +50,7 @@ rm -f "$TESTFILE"
 rm -rf ffbuild
 mkdir ffbuild
 
-FFMPEG_REPO="${FFMPEG_REPO:-https://github.com/FFmpeg/FFmpeg.git}"
+FFMPEG_REPO="${FFMPEG_REPO:-https://github.com/MartinEesmaa/FFmpeg.git}"
 FFMPEG_REPO="${FFMPEG_REPO_OVERRIDE:-$FFMPEG_REPO}"
 GIT_BRANCH="${GIT_BRANCH:-master}"
 GIT_BRANCH="${GIT_BRANCH_OVERRIDE:-$GIT_BRANCH}"
@@ -69,7 +69,7 @@ cat <<EOF >"$BUILD_SCRIPT"
     ./configure --prefix=/ffbuild/prefix --pkg-config-flags="--static" \$FFBUILD_TARGET_FLAGS $FF_CONFIGURE \
         --extra-cflags='$FF_CFLAGS' --extra-cxxflags='$FF_CXXFLAGS' \
         --extra-ldflags='$FF_LDFLAGS' --extra-ldexeflags='$FF_LDEXEFLAGS' --extra-libs='$FF_LIBS' \
-        --extra-version="\$(date +%Y%m%d)"
+        --extra-version="VVCEasy"
     make -j\$(nproc) V=1
     make install install-doc
 EOF
