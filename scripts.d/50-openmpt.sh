@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/OpenMPT/OpenMPT.git"
+SCRIPT_REPO="https://github.com/OpenMPT/openmpt.git"
 
 ffbuild_enabled() {
     return 0
