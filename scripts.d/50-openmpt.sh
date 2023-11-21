@@ -7,7 +7,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
-    cd "$FFBUILD_DLDIR"/openmpt
+    cd "$FFBUILD_DLDIR/$SELF"
 
     local myconf=(
         PREFIX="$FFBUILD_PREFIX"
