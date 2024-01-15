@@ -3,6 +3,7 @@
 SCRIPT_REPO="https://github.com/TimothyGu/libilbc"
 
 ffbuild_enabled() {
+    [[ $TARGET == win* ]] || return 1
     return 0
 }
 
