@@ -11,6 +11,7 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --bindir="$FFBUILD_PREFIX\bin\flite"
         --disable-shared
         --with-pic
     )
