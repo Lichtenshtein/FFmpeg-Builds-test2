@@ -35,22 +35,22 @@ ffbuild_dockerbuild() {
 
     if [[ $TARGET == win64 ]]; then
         myconf+=(
-            --target=x86_64-win64-gcc
+            --target="$FFBUILD_TOOLCHAIN"
         )
         export CROSS="$FFBUILD_CROSS_PREFIX"
     elif [[ $TARGET == win32 ]]; then
         myconf+=(
-            --target=x86-win32-gcc
+            --target="$FFBUILD_TOOLCHAIN"
         )
         export CROSS="$FFBUILD_CROSS_PREFIX"
     elif [[ $TARGET == linux64 ]]; then
         myconf+=(
-            --target=x86_64-linux-gcc
+            --target="$FFBUILD_TOOLCHAIN"
         )
         export CROSS="$FFBUILD_CROSS_PREFIX"
     elif [[ $TARGET == linuxarm64 ]]; then
         myconf+=(
-            --target=arm64-linux-gcc
+            --target="$FFBUILD_TOOLCHAIN"
         )
         export CROSS="$FFBUILD_CROSS_PREFIX"
     else
