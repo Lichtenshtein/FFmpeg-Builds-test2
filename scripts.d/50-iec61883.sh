@@ -7,7 +7,10 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
+    if [ ! -d libraw1394 ]; then
     git clone --depth=1 https://git.kernel.org/pub/scm/libs/ieee1394/libraw1394.git
+    fi
+
     cd libraw1394
     autoreconf -if
     ./configure "${myconf[@]}"
