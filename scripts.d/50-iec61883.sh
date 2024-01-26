@@ -7,6 +7,14 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
+    git clone --depth=1 https://git.kernel.org/pub/scm/libs/ieee1394/libraw1394.git
+    cd libraw1394
+    autoreconf -if
+    ./configure "${myconf[@]}"
+    make -j$(nproc)
+    make install
+    cd ..
+
     autoreconf -if
 
     local myconf=(
