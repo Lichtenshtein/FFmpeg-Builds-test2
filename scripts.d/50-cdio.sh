@@ -34,6 +34,7 @@ ffbuild_dockerbuild() {
     fi
 
     ./configure "${myconf[@]}"
+    cd doc && make stamp-vti && cd ..
     make -j$(nproc)
     make install
 }
