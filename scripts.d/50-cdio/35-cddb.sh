@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://git.savannah.gnu.org/git/libcdio.git"
+SCRIPT_REPO="https://github.com/Distrotech/libcddb"
 
 ffbuild_enabled() {
     return 0
@@ -14,13 +14,7 @@ ffbuild_dockerbuild() {
         --disable-shared
         --enable-static
         --disable-maintainer-mode
-        --without-cd-drive
-        --without-cd-info
-        --without-cdda-player
-        --without-cd-read
-        --without-iso-info
-        --without-iso-read
-        --disable-cpp-progs
+        --without-cdio
         --with-pic
     )
 
@@ -34,15 +28,6 @@ ffbuild_dockerbuild() {
     fi
 
     ./configure "${myconf[@]}"
-    cd doc && make stamp-vti && cd ..
     make -j$(nproc)
     make install
-}
-
-ffbuild_configure() {
-    echo --enable-libcdio
-}
-
-ffbuild_unconfigure() {
-    echo --disable-libcdio
 }
