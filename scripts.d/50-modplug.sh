@@ -37,3 +37,7 @@ ffbuild_configure() {
 ffbuild_unconfigure() {
     echo --disable-libmodplug
 }
+
+ffbuild_cflags() {
+    echo -DMODPLUG_STATIC
+}
