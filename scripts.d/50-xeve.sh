@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/MartinEesmaa/xeve"
+SCRIPT_REPO="https://github.com/mpeg5/xeve"
 
 ffbuild_enabled() {
     return 0
