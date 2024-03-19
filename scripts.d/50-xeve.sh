@@ -3,7 +3,6 @@
 SCRIPT_REPO="https://github.com/mpeg5/xeve"
 
 ffbuild_enabled() {
-    [[ $TARGET == win* ]] || return 1
     return 0
 }
 
@@ -20,6 +19,15 @@ ffbuild_dockerbuild() {
     cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" ..
     make -j$(nproc)
     make install
+
+    if [[ $TARGET == win* ]]; then
+        rm -r "$FFBUILD_PREFIX"/bin "$FFBUILD_PREFIX"/{lib/libxeve.dll,lib/libxeve.dll.a}
+    elif [[ $TARGET == linux* ]]; then
+        rm -r "$FFBUILD_PREFIX"/bin "$FFBUILD_PREFIX"/lib/*.so*
+    else
+        echo "Unknown target"
+        return -1
+    fi
 }
 
 ffbuild_configure() {
