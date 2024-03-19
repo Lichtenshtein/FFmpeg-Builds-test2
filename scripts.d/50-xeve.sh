@@ -21,7 +21,7 @@ ffbuild_dockerbuild() {
     make install
 
     if [[ $TARGET == win* ]]; then
-        rm -r "$FFBUILD_PREFIX"/bin "$FFBUILD_PREFIX"/{lib/libxeve.dll,lib/libxeve.dll.a}
+        rm -r "$FFBUILD_PREFIX"/bin "$FFBUILD_PREFIX"/lib/libxeve.dll.a
         mv "$FFBUILD_PREFIX"/lib/xeve/libxeve.a "$FFBUILD_PREFIX"/lib/libxeve.a
     elif [[ $TARGET == linux* ]]; then
         rm -r "$FFBUILD_PREFIX"/bin "$FFBUILD_PREFIX"/lib/*.so*
