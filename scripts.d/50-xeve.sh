@@ -22,8 +22,10 @@ ffbuild_dockerbuild() {
 
     if [[ $TARGET == win* ]]; then
         rm -r "$FFBUILD_PREFIX"/bin "$FFBUILD_PREFIX"/{lib/libxeve.dll,lib/libxeve.dll.a}
+        mv -r "$FFBUILD_PREFIX"/lib/xeve/libxeve.a "$FFBUILD_PREFIX"/lib/libxeve.a
     elif [[ $TARGET == linux* ]]; then
         rm -r "$FFBUILD_PREFIX"/bin "$FFBUILD_PREFIX"/lib/*.so*
+        mv -r "$FFBUILD_PREFIX"/lib/xeve/libxeve.a "$FFBUILD_PREFIX"/lib/libxeve.a
     else
         echo "Unknown target"
         return -1
