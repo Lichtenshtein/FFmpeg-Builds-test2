@@ -3,6 +3,7 @@
 SCRIPT_REPO="https://github.com/OpenMPT/openmpt.git"
 
 ffbuild_enabled() {
+    [[ $TARGET == winarm64 ]] && return -1
     return 0
 }
 
@@ -38,7 +39,13 @@ ffbuild_dockerbuild() {
         NO_FLAC=1
     )
 
-    if [[ $TARGET == win* ]]; then
+    if [[ $TARGET == winarm64 ]]; then
+        myconf+=(
+            CONFIG=mingw64-win64
+            WINDOWS_ARCH=arm64
+        )
+        export CPPFLAGS="$CPPFLAGS -DMPT_WITH_MINGWSTDTHREADS"
+    elif [[ $TARGET == win* ]]; then
         myconf+=(
             CONFIG=mingw64-"$TARGET"
         )
