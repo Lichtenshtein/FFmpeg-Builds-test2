@@ -3,6 +3,7 @@
 SCRIPT_REPO="https://github.com/xiph/speex"
 
 ffbuild_enabled() {
+    [[ $TARGET == *arm64 ]] && return -1
     return 0
 }
 
