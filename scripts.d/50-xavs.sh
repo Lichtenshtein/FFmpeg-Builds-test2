@@ -4,6 +4,7 @@ SCRIPT_REPO="https://svn.code.sf.net/p/xavs/code/trunk"
 SCRIPT_REV="55"
 
 ffbuild_enabled() {
+    [[ $TARGET == *arm64 ]] && return -1
     return 0
 }
 
