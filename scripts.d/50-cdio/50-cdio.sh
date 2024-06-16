@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/MartinEesmaa/libcdio-paranoia"
+SCRIPT_REPO="https://github.com/rocky/libcdio-paranoia"
 
 ffbuild_enabled() {
     return 0
