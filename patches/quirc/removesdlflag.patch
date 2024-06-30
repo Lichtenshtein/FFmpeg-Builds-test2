@@ -1,0 +1,20 @@
+diff --git a/Makefile b/Makefile
+index a334b30..562dbcb 100644
+--- a/Makefile
++++ b/Makefile
+@@ -15,13 +15,13 @@
+ 
+ CC ?= gcc
+ PREFIX ?= /usr/local
+-SDL_CFLAGS := $(shell pkg-config --cflags sdl 2>&1)
++#SDL_CFLAGS := $(shell pkg-config --cflags sdl 2>&1)
+ SDL_LIBS = $(shell pkg-config --libs sdl)
+ 
+ LIB_VERSION = 1.2
+ 
+ CFLAGS ?= -O3 -Wall -fPIC
+-QUIRC_CFLAGS = -Ilib $(CFLAGS) $(SDL_CFLAGS)
++QUIRC_CFLAGS = -Ilib $(CFLAGS)
+ LIB_OBJ = \
+     lib/decode.o \
+     lib/identify.o \
