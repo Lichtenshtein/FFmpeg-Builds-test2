@@ -6,6 +6,10 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerstage() {
+	to_df "RUN --mount=src=${SELF},dst=/stage.sh --mount=src=${SELFCACHE},dst=/cache.tar.xz --mount=src=patches/quirc,dst=/patches run_stage /stage.sh"
+}
+
 ffbuild_dockerbuild() {
 
     for patch in /patches/*.patch; do
