@@ -3,7 +3,7 @@
 SCRIPT_REPO="https://github.com/OpenVisualCloud/SVT-JPEG-XS"
 
 ffbuild_enabled() {
-    [[ $TARGET == *arm64 ]] && return -1
+    [[ $TARGET == * ]] && return -1
     return 0
 }
 
