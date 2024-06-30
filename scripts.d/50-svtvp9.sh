@@ -3,6 +3,7 @@
 SCRIPT_REPO="https://github.com/OpenVisualCloud/SVT-VP9"
 
 ffbuild_enabled() {
+    [[ $TARGET == *arm64 ]] && return -1
     return 0
 }
 
