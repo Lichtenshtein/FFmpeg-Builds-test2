@@ -4,6 +4,8 @@ SCRIPT_REPO="https://aomedia.googlesource.com/aom"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm64 ]] && return -1
+    # GCC segfaults, remove when fixed
+    [[ $TARGET == linuxarm64 ]] && return -1
     return 0
 }
 
