@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# crosstool-NG 1.26.0.65_ecc5e41 Configuration
+# crosstool-NG 1.26.0.106_ed12fa6 Configuration
 #
 CT_CONFIGURE_has_static_link=y
 CT_CONFIGURE_has_cxx11=y
@@ -27,7 +27,7 @@ CT_CONFIGURE_has_sha1sum=y
 CT_CONFIGURE_has_sha256sum=y
 CT_CONFIGURE_has_sha512sum=y
 CT_CONFIGURE_has_install_with_strip_program=y
-CT_VERSION="1.26.0.65_ecc5e41"
+CT_VERSION="1.26.0.106_ed12fa6"
 CT_VCHECK=""
 CT_CONFIG_VERSION_ENV="4"
 CT_CONFIG_VERSION_CURRENT="4"
