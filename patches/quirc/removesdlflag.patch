@@ -1,8 +1,8 @@
 diff --git a/Makefile b/Makefile
-index a334b30..562dbcb 100644
+index 8327b4e..83061b1 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -15,13 +15,13 @@
+@@ -15,7 +15,7 @@
  
  CC ?= gcc
  PREFIX ?= /usr/local
@@ -11,6 +11,8 @@ index a334b30..562dbcb 100644
  SDL_LIBS = $(shell pkg-config --libs sdl)
  
  LIB_VERSION = 1.2
+@@ -29,7 +29,7 @@ else
+ endif
  
  CFLAGS ?= -O3 -Wall -fPIC
 -QUIRC_CFLAGS = -Ilib $(CFLAGS) $(SDL_CFLAGS)
