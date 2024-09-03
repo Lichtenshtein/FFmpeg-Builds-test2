@@ -3,7 +3,6 @@
 SCRIPT_REPO="https://github.com/fraunhoferhhi/vvdec"
 
 ffbuild_enabled() {
-    [[ $TARGET != *32 ]] || return -1
     (( $(ffbuild_ffver) > 700 )) || return -1
     return 0
 }
