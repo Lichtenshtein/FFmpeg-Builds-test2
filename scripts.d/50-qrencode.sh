@@ -32,7 +32,7 @@ ffbuild_dockerbuild() {
 }
 
 ffbuild_configure() {
-    echo --enable-libqrenocde
+    echo --enable-libqrencode
 }
 
 ffbuild_unconfigure() {
