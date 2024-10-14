@@ -49,9 +49,19 @@ EOF
 
 docker run --rm -i $TTY_ARG "${UIDARGS[@]}" -v "$PWD/ffbuild":/ffbuild -v "$BUILD_SCRIPT":/build.sh "$IMAGE" bash /build.sh
 
+if [[ "${TARGET}" == win* ]]; then
+    mv /ffbuild/prefix/bin/ffmpeg.exe /ffbuild/prefix/bin/ffmpeg_vvceasy.exe
+    mv /ffbuild/prefix/bin/ffprobe.exe /ffbuild/prefix/bin/ffprobe_vvceasy.exe
+    mv /ffbuild/prefix/bin/ffplay.exe /ffbuild/prefix/bin/ffplay_vvceasy.exe
+else
+    mv /ffbuild/prefix/bin/ffmpeg /ffbuild/prefix/bin/ffmpeg_vvceasy
+    mv /ffbuild/prefix/bin/ffprobe /ffbuild/prefix/bin/ffprobe_vvceasy
+    mv /ffbuild/prefix/bin/ffplay /ffbuild/prefix/bin/ffplay_vvceasy
+fi
+
 mkdir -p artifacts
 ARTIFACTS_PATH="$PWD/artifacts"
-BUILD_NAME="ffmpeg-$(./ffbuild/ffmpeg/ffbuild/version.sh ffbuild/ffmpeg)-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
+BUILD_NAME="ffmpeg_vvceasy-$(./ffbuild/ffmpeg/ffbuild/version.sh ffbuild/ffmpeg)-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
 
 mkdir -p "ffbuild/pkgroot/$BUILD_NAME"
 package_variant ffbuild/prefix "ffbuild/pkgroot/$BUILD_NAME"
