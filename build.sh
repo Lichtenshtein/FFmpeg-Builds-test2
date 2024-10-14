@@ -45,19 +45,22 @@ cat <<EOF >"$BUILD_SCRIPT"
     make install install-doc
 EOF
 
+cat <<EOF >"$RENAME_VVCEASY"
+    if [[ "${TARGET}" == win* ]]; then
+        mv /ffbuild/prefix/bin/ffmpeg.exe /ffbuild/prefix/bin/ffmpeg_vvceasy.exe
+        mv /ffbuild/prefix/bin/ffprobe.exe /ffbuild/prefix/bin/ffprobe_vvceasy.exe
+        mv /ffbuild/prefix/bin/ffplay.exe /ffbuild/prefix/bin/ffplay_vvceasy.exe
+    else
+        mv /ffbuild/prefix/bin/ffmpeg /ffbuild/prefix/bin/ffmpeg_vvceasy
+        mv /ffbuild/prefix/bin/ffprobe /ffbuild/prefix/bin/ffprobe_vvceasy
+        mv /ffbuild/prefix/bin/ffplay /ffbuild/prefix/bin/ffplay_vvceasy
+    fi
+EOF
+
 [[ -t 1 ]] && TTY_ARG="-t" || TTY_ARG=""
 
 docker run --rm -i $TTY_ARG "${UIDARGS[@]}" -v "$PWD/ffbuild":/ffbuild -v "$BUILD_SCRIPT":/build.sh "$IMAGE" bash /build.sh
-
-if [[ "${TARGET}" == win* ]]; then
-    mv /ffbuild/prefix/bin/ffmpeg.exe /ffbuild/prefix/bin/ffmpeg_vvceasy.exe
-    mv /ffbuild/prefix/bin/ffprobe.exe /ffbuild/prefix/bin/ffprobe_vvceasy.exe
-    mv /ffbuild/prefix/bin/ffplay.exe /ffbuild/prefix/bin/ffplay_vvceasy.exe
-else
-    mv /ffbuild/prefix/bin/ffmpeg /ffbuild/prefix/bin/ffmpeg_vvceasy
-    mv /ffbuild/prefix/bin/ffprobe /ffbuild/prefix/bin/ffprobe_vvceasy
-    mv /ffbuild/prefix/bin/ffplay /ffbuild/prefix/bin/ffplay_vvceasy
-fi
+docker run --rm -i $TTY_ARG "${UIDARGS[@]}" -v "$PWD/ffbuild":/ffbuild -v "$RENAME_VVCEASY" "$IMAGE"
 
 mkdir -p artifacts
 ARTIFACTS_PATH="$PWD/artifacts"
