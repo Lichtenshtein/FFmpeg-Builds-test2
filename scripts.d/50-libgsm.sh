@@ -16,7 +16,7 @@ ffbuild_dockerbuild() {
     mkdir -p "$FFBUILD_PREFIX/include/gsm"
     cp lib/libgsm.a "$FFBUILD_PREFIX/lib/"
     cp include/gsm/*.h "$FFBUILD_PREFIX/include/gsm"
-    cp include/gsm.h "$FFBUILD_PREFIX/include/"
+    cp include/gsm/gsm.h "$FFBUILD_PREFIX/include/"
 }
 
 ffbuild_configure() {
