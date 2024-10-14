@@ -10,6 +10,7 @@ ffbuild_dockerbuild() {
 
     export CCFLAGS="-DNeedFunctionPrototypes=1 -c -DSASR -DWAV49 -Wno-comment"
     export INSTALL_ROOT="$FFBUILD_PREFIX"
+    export CC="${FFBUILD_TOOLCHAIN}-gcc"
 
     make libgsm -j$(nproc)
     
