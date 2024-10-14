@@ -25,7 +25,9 @@ GIT_BRANCH="${GIT_BRANCH:-master}"
 GIT_BRANCH="${GIT_BRANCH_OVERRIDE:-$GIT_BRANCH}"
 
 BUILD_SCRIPT="$(mktemp)"
+RENAME_VVCEASY="$(mktemp)"
 trap "rm -f -- '$BUILD_SCRIPT'" EXIT
+trap "rm -f -- '$RENAME_VVCEASY'" EXIT
 
 cat <<EOF >"$BUILD_SCRIPT"
     set -xe
