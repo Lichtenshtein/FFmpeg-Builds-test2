@@ -59,17 +59,17 @@ package_variant ffbuild/prefix "ffbuild/pkgroot/$BUILD_NAME"
 [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "ffbuild/pkgroot/$BUILD_NAME/LICENSE.txt"
 
 cd ffbuild/pkgroot
+
+for bin in ffmpeg ffprobe ffplay; do
+    [[ -f ./$BUILD_NAME/bin/$bin.exe ]] && mv ./$BUILD_NAME/bin/$bin.exe ./$BUILD_NAME/bin/${bin}_vvceasy.exe
+    [[ -f ./$BUILD_NAME/bin/$bin ]] && mv ./$BUILD_NAME/bin/$bin ./$BUILD_NAME/bin/${bin}_vvceasy
+done
+
 if [[ "${TARGET}" == win* ]]; then
     OUTPUT_FNAME="${BUILD_NAME}.zip"
-    [[ -f bin/ffmpeg.exe ]] && mv bin/ffmpeg.exe bin/ffmpeg_vvceasy.exe
-    [[ -f bin/ffprobe.exe ]] && mv bin/ffprobe.exe bin/ffprobe_vvceasy.exe
-    [[ -f bin/ffplay.exe ]] && mv bin/ffplay.exe bin/ffplay_vvceasy.exe
     docker run --rm -i $TTY_ARG "${UIDARGS[@]}" -v "${ARTIFACTS_PATH}":/out -v "${PWD}/${BUILD_NAME}":"/${BUILD_NAME}" -w / "$IMAGE" zip -9 -r "/out/${OUTPUT_FNAME}" "$BUILD_NAME"
 else
     OUTPUT_FNAME="${BUILD_NAME}.tar.xz"
-    [[ -f bin/ffmpeg ]] && mv bin/ffmpeg bin/ffmpeg_vvceasy
-    [[ -f bin/ffprobe ]] && mv bin/ffprobe bin/ffprobe_vvceasy
-    [[ -f bin/ffplay ]] && mv bin/ffplay bin/ffplay_vvceasy
     docker run --rm -i $TTY_ARG "${UIDARGS[@]}" -v "${ARTIFACTS_PATH}":/out -v "${PWD}/${BUILD_NAME}":"/${BUILD_NAME}" -w / "$IMAGE" tar cJf "/out/${OUTPUT_FNAME}" "$BUILD_NAME"
 fi
 cd -
