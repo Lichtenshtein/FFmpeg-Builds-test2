@@ -255,7 +255,7 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ffmpeg-${{ steps.strs.outputs.artifact_slug }}
+          name: ffmpeg_vvceasy-${{ steps.strs.outputs.artifact_slug }}
           overwrite: true
           path: artifacts/*
   publish_release:
@@ -271,7 +271,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          pattern: ffmpeg-*
+          pattern: ffmpeg_vvceasy-*
           merge-multiple: true
           path: artifacts
       - name: Create release
