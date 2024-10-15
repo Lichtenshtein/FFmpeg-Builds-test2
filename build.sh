@@ -61,9 +61,15 @@ package_variant ffbuild/prefix "ffbuild/pkgroot/$BUILD_NAME"
 cd ffbuild/pkgroot
 if [[ "${TARGET}" == win* ]]; then
     OUTPUT_FNAME="${BUILD_NAME}.zip"
+    [[ -f bin/ffmpeg.exe ]] && mv bin/ffmpeg.exe bin/ffmpeg_vvceasy.exe
+    [[ -f bin/ffprobe.exe ]] && mv bin/ffprobe.exe bin/ffprobe_vvceasy.exe
+    [[ -f bin/ffplay.exe ]] && mv bin/ffplay.exe bin/ffplay_vvceasy.exe
     docker run --rm -i $TTY_ARG "${UIDARGS[@]}" -v "${ARTIFACTS_PATH}":/out -v "${PWD}/${BUILD_NAME}":"/${BUILD_NAME}" -w / "$IMAGE" zip -9 -r "/out/${OUTPUT_FNAME}" "$BUILD_NAME"
 else
     OUTPUT_FNAME="${BUILD_NAME}.tar.xz"
+    [[ -f bin/ffmpeg ]] && mv bin/ffmpeg bin/ffmpeg_vvceasy
+    [[ -f bin/ffprobe ]] && mv bin/ffprobe bin/ffprobe_vvceasy
+    [[ -f bin/ffplay ]] && mv bin/ffplay bin/ffplay_vvceasy
     docker run --rm -i $TTY_ARG "${UIDARGS[@]}" -v "${ARTIFACTS_PATH}":/out -v "${PWD}/${BUILD_NAME}":"/${BUILD_NAME}" -w / "$IMAGE" tar cJf "/out/${OUTPUT_FNAME}" "$BUILD_NAME"
 fi
 cd -
