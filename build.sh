@@ -25,9 +25,7 @@ GIT_BRANCH="${GIT_BRANCH:-master}"
 GIT_BRANCH="${GIT_BRANCH_OVERRIDE:-$GIT_BRANCH}"
 
 BUILD_SCRIPT="$(mktemp)"
-RENAME_VVCEASY="$(mktemp)"
 trap "rm -f -- '$BUILD_SCRIPT'" EXIT
-trap "rm -f -- '$RENAME_VVCEASY'" EXIT
 
 cat <<EOF >"$BUILD_SCRIPT"
     set -xe
@@ -45,13 +43,6 @@ cat <<EOF >"$BUILD_SCRIPT"
         --extra-version="VVCEasy"
     make -j\$(nproc) V=1
     make install install-doc
-
-    [[ -f /ffbuild/prefix/bin/ffmpeg.exe ]] && mv /ffbuild/prefix/bin/ffmpeg.exe /ffbuild/prefix/bin/ffmpeg_vvceasy.exe
-    [[ -f /ffbuild/prefix/bin/ffprobe.exe ]] && mv /ffbuild/prefix/bin/ffprobe.exe /ffbuild/prefix/bin/ffprobe_vvceasy.exe
-    [[ -f /ffbuild/prefix/bin/ffplay.exe ]] && mv /ffbuild/prefix/bin/ffplay.exe /ffbuild/prefix/bin/ffplay_vvceasy.exe
-    [[ -f /ffbuild/prefix/bin/ffmpeg ]] && mv /ffbuild/prefix/bin/ffmpeg /ffbuild/prefix/bin/ffmpeg_vvceasy
-    [[ -f /ffbuild/prefix/bin/ffprobe ]] && mv /ffbuild/prefix/bin/ffprobe /ffbuild/prefix/bin/ffprobe_vvceasy
-    [[ -f /ffbuild/prefix/bin/ffplay ]] && mv /ffbuild/prefix/bin/ffplay /ffbuild/prefix/bin/ffplay_vvceasy
 EOF
 
 [[ -t 1 ]] && TTY_ARG="-t" || TTY_ARG=""
