@@ -24,7 +24,6 @@ ffbuild_dockerbuild() {
         rm "$FFBUILD_PREFIX"/bin/libxevd.dll
         rm "$FFBUILD_PREFIX"/lib/libxevd.dll.a
     elif [[ $TARGET == linux* ]]; then
-        rm "$FFBUILD_PREFIX"/bin/libxevd.so*
         rm "$FFBUILD_PREFIX"/lib/libxevd.so*
     fi
 }
