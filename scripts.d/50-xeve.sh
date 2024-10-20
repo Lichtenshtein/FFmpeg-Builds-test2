@@ -18,7 +18,7 @@ ffbuild_dockerbuild() {
     make -j$(nproc)
     make install
 
-    mv "$FFBUILD_PREFIX"/lib/xevd/libxeve.a "$FFBUILD_PREFIX"/lib
+    mv "$FFBUILD_PREFIX"/lib/xeve/libxeve.a "$FFBUILD_PREFIX"/lib
     
     if [[ $TARGET == win* ]]; then
         rm "$FFBUILD_PREFIX"/bin/libxeve.dll
