@@ -8,7 +8,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
-    ./autogen.sh
+    autoreconf -if
     
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
