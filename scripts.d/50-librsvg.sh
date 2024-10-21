@@ -1,14 +1,14 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/GNOME/librsvg"
-GIT_BRANCH="librsvg-2.58"
+SCRIPT_REPO="https://gitlab.gnome.org/GNOME/librsvg"
+SCRIPT_COMMIT="56057d474d428e44aff0087dea637a062b5b042a"
 
 ffbuild_enabled() {
     return 0
 }
 
 ffbuild_dockerbuild() {
-    autoreconf -if
+    ./autogen.sh
     
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
