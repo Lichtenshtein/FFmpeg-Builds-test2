@@ -10,7 +10,7 @@ ffbuild_dockerbuild() {
     cd encoder
     
     for mpeghe in *.c; do
-        "$CC" "$CFLAGS" -I. "$mpeghe" -o "${mpeghe%.c}.o"
+        "$CC" $CFLAGS -I. "$mpeghe" -o "${mpeghe%.c}.o"
     done
 
     "$AR" rcs libia_mpegh.a *.o
