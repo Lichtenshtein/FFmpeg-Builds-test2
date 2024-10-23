@@ -230,7 +230,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [win64,linux64,linuxarm64]
+        target: [win64,winarm64,linux64,linuxarm64,win32]
         variant: [nonfree]
     steps:
       - name: Free Disk-Space
