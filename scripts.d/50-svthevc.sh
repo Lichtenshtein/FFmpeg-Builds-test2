@@ -3,6 +3,7 @@
 SCRIPT_REPO="https://github.com/OpenVisualCloud/SVT-HEVC"
 
 ffbuild_enabled() {
+    [[ $TARGET == win32 ]] && return -1
     [[ $TARGET == *arm64 ]] && return -1
     return 0
 }
