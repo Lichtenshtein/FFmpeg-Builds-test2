@@ -3,6 +3,7 @@
 SCRIPT_REPO="https://github.com/dlbeer/quirc"
 
 ffbuild_enabled() {
+    [[ $TARGET == winarm64 ]] && return -1
     return 0
 }
 
