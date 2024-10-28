@@ -16,6 +16,11 @@ ffbuild_dockerbuild() {
     if [[ $TARGET == *arm64 ]]; then
     fixarm64=(
         -DVVENC_ENABLE_ARM_SIMD=ON
+
+        if [[ "$CC" != *clang* ]]; then
+            export CFLAGS="$CFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
+            export CXXFLAGS="$CXXFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
+        fi
     )
     fi
 
