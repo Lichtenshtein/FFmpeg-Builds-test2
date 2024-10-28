@@ -15,8 +15,7 @@ ffbuild_dockerbuild() {
     
     if [[ $TARGET == *arm64 ]]; then
     fixarm64=(
-        -DVVENC_ENABLE_X86_SIMD=OFF 
-        -DVVENC_ENABLE_ARM_SIMD=OFF
+        -DVVENC_ENABLE_ARM_SIMD=ON
     )
     fi
 
