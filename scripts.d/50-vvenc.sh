@@ -12,7 +12,7 @@ ffbuild_dockerbuild() {
 
     local armsimd=()
     if [[ $TARGET == *arm* ]]; then
-        armsimd+=( -DVVENC_ENABLE_ARM_SIMD=ON )
+        armsimd+=( -DVVENC_ENABLE_ARM_SIMD=ON -DVVENC_ENABLE_X86_SIMD=OFF )
 
         if [[ "$CC" != *clang* ]]; then
             export CFLAGS="$CFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
