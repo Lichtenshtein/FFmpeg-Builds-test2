@@ -17,6 +17,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc)
     make install
 
+
+    # Just in case to detect header files default before FFmpeg
     cp -f "$FFBUILD_PREFIX"/include/uavs3e/uavs3e.h "$FFBUILD_PREFIX"/include
     cp -f "$FFBUILD_PREFIX"/include/uavs3e/com_api.h "$FFBUILD_PREFIX"/include
 }
