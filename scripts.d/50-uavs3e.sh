@@ -16,6 +16,9 @@ ffbuild_dockerbuild() {
         -DCOMPILE_10BIT=1 -DCOMPILE_FFMPEG=ON -DBUILD_SHARED_LIBS=NO ../..
     make -j$(nproc)
     make install
+
+    cp -f "$FFBUILD_PREFIX"/include/uavs3e/uavs3e.h "$FFBUILD_PREFIX"/include
+    cp -f "$FFBUILD_PREFIX"/include/uavs3e/com_api.h "$FFBUILD_PREFIX"/include
 }
 
 ffbuild_configure() {
