@@ -5,7 +5,8 @@ SCRIPT_COMMIT="eca828b2cf05ebb7fef2e2505e3ee2a2156ba2b1"
 
 ffbuild_enabled() {
     [[ $TARGET == win32 ]] && return -1
-    [[ $TARGET == *arm64 ]] && return -1
+    [[ $TARGET == winarm64 ]] && return -1
+    [[ $TARGET == linuxarm64 ]] && return -1
     return 0
 }
 
