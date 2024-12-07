@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/fraunhoferhhi/vvenc"
-SCRIPT_COMMIT="7cf1e5ffc5aeb33b81fa9401df9fd53ef1dae6d1"
+SCRIPT_COMMIT="7fcb538e613dd36408363b4fd1ab6dc99c664058"
 
 ffbuild_enabled() {
     return 0
