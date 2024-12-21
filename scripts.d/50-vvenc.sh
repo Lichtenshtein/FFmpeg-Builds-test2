@@ -5,6 +5,10 @@ SCRIPT_COMMIT="7fcb538e613dd36408363b4fd1ab6dc99c664058"
 
 ffbuild_enabled() {
     return 0
+    # vvenc force-enabled avx2 and equivalent compiler options, and uses a static initializer that promptly
+    # runs such instructions. Making resulting binaries malfunction on any but the very latest CPUs.
+    # Until upstream fixes this behaviour, force-disable vvenc.
+    # I force enabled just in case cause BtBn force disabled vvenc for avx2 enabled reason.
 }
 
 fixarm64=()
