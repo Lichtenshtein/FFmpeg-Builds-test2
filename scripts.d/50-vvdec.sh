@@ -13,7 +13,7 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     local armsimd=()
-    if [[ $TARGET == *arm* ]]; then
+    if [[ $TARGET == linuxarm64 ]]; then
         armsimd+=( -DVVDEC_ENABLE_ARM_SIMD=ON )
 
         if [[ "$CC" != *clang* ]]; then
