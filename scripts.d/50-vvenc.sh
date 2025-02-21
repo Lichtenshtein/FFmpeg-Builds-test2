@@ -4,6 +4,7 @@ SCRIPT_REPO="https://github.com/fraunhoferhhi/vvenc.git"
 SCRIPT_COMMIT="70a690eaaf00da22b76c90a107b912931f47b9f6"
 
 ffbuild_enabled() {
+    [[ $TARGET == winarm* ]] && return -1
     return 0
     # vvenc force-enabled avx2 and equivalent compiler options, and uses a static initializer that promptly
     # runs such instructions. Making resulting binaries malfunction on any but the very latest CPUs.
