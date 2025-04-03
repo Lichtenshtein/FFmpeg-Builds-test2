@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/fraunhoferhhi/vvenc.git"
-SCRIPT_COMMIT="22de8fc9e1f5ab7c4ca1cef6cecf0d9d9e42ca9d"
+SCRIPT_COMMIT="ebce395254d9d7be7dc00cec7b49c7ed1d9eebec"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm* ]] && return -1
@@ -13,21 +13,22 @@ ffbuild_enabled() {
     # I force enabled just in case cause BtBn force disabled vvenc for avx2 enabled reason.
 }
 
-fixarm64=()
-
 ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
+    local armsimd=()
     if [[ $TARGET == *arm64 ]]; then
-    fixarm64=(
-        -DVVENC_ENABLE_X86_SIMD=OFF 
-        -DVVENC_ENABLE_ARM_SIMD=OFF
-    )
+        armsimd+=( -DVVENC_ENABLE_ARM_SIMD=ON )
+
+        if [[ "$CC" != *clang* ]]; then
+            export CFLAGS="$CFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
+            export CXXFLAGS="$CXXFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
+        fi
     fi
 
     cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_SHARED_LIBS=OFF -DVVENC_LIBRARY_ONLY=ON -DVVENC_ENABLE_LINK_TIME_OPT=OFF -DEXTRALIBS="-lstdc++" "${fixarm64[@]}" ..
+        -DBUILD_SHARED_LIBS=OFF -DVVENC_LIBRARY_ONLY=ON -DVVENC_ENABLE_LINK_TIME_OPT=OFF -DEXTRALIBS="-lstdc++" "${armsimd[@]}" ..
 
     make -j$(nproc)
     make install
