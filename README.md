@@ -7,6 +7,18 @@ The minimum supported version is Windows 10 22H2, no guarantees on anything olde
 
 Linux builds are targetting RHEL/CentOS 8 (glibc-2.28 + linux-4.18) and anything more recent.
 
+## Features of Martin Eesmaa's custom FFmpeg automated builds
+
+- External support to SVT encoders of HEVC and VP9
+- Includes nonfree binaries with fdkaac (Fraunhofer AAC library)
+- Dolby AC4 native experimental decoding support
+- Additional automated Windows builds of x86 and ARM64.
+- Additional external features follows libbsb2, CD reading, ModPlug, QR encoding/decoding.
+- External features of video by AVS3, Fraunhofer HHI VVDEC, AVS, MPEG5 EVC.
+- External features of audio by ILBC, Google LC3, Microsoft GSM, MP3 Shine, Speex and AMR-WB.
+
+Note: MPEG-H Encoder from Ittiam and SVT of JPEG-XS encoder from OpenVisualCloud will be later coming support to automated builds.
+
 ## Auto-Builds
 
 Builds run daily at 12:00 UTC (or GitHubs idea of that time) and are automatically released on success.
