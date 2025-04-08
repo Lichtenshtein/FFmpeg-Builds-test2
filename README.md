@@ -19,6 +19,16 @@ Linux builds are targetting RHEL/CentOS 8 (glibc-2.28 + linux-4.18) and anything
 
 Note: MPEG-H Encoder from Ittiam and SVT of JPEG-XS encoder from OpenVisualCloud will be later coming support to automated builds.
 
+Implement features in future:
+
+```
+ladspa lcms2 libcaca libcelt libcodec2 libdc1394
+libflite libglslang libiec61883 libklvanc liblcevc-dec 
+liblensfun libopencv libopenvino librsvg librtmp
+libsmbclient libtensorflow libtesseract libtorch 
+ia_mpegh opencl pocketsphinx libsvtjpegxs
+```
+
 ## Auto-Builds
 
 Builds run daily at 12:00 UTC (or GitHubs idea of that time) and are automatically released on success.
