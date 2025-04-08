@@ -4,6 +4,7 @@ SCRIPT_REPO="https://gitlab.xiph.org/xiph/celt.git"
 SCRIPT_COMMIT="e18de7747fb1655e66bf8d291560587036bfe53c"
 
 ffbuild_enabled() {
+    [[ $TARGET == linux* ]] || return 1
     return 0
 }
 
