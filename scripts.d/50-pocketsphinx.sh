@@ -22,6 +22,7 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc)
     ninja install
 
+    cp -f ../include/pocketsphinx.h "$FFBUILD_PREFIX"/include/pocketsphinx/
     rm -f "$FFBUILD_PREFIX"/bin/pocketsphin*
 }
 
