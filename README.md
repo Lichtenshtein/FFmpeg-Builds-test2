@@ -12,6 +12,7 @@ Linux builds are targetting RHEL/CentOS 8 (glibc-2.28 + linux-4.18) and anything
 - External support to SVT encoders of HEVC and VP9
 - Includes nonfree binaries with fdkaac (Fraunhofer AAC library)
 - Dolby AC4 native experimental decoding support
+- Apple AAC AudioToolbox encoder support (Windows only, requires iTunes or 8 dll files*)
 - Additional automated Windows builds of x86 and ARM64.
 - Additional external features follows libbsb2, CD reading, ModPlug, QR encoding/decoding.
 - External features of video by AVS3, Fraunhofer HHI VVDEC, AVS, MPEG5 EVC.
@@ -33,6 +34,18 @@ Old features or some errors due to compilation or/and limited which didn't fit:
 
 * `libcelt` - CELT is audio codec until 2012 moved into Opus.
 * `libcaca` - Only Linux builds works, but Windows compilation error.
+
+For AudioToolbox encoder, it is only Windows support.
+
+Two choices for to install iTunes or use portable DLL files from iTunes without installed.
+
+DLL files without iTunes installed needs require 8 DLL files to order encoder `aac_at`:
+
+It can be found on: `C:\Program Files\iTunes\`:
+
+```
+CoreAudioToolbox.dll libdispatch.dll CoreFoundation.dll objc.dll libicuin.dll ASL.dll libicuuc.dll icudt62.dll
+```
 
 ## Auto-Builds
 
