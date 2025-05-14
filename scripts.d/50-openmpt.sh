@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/OpenMPT/openmpt"
-SCRIPT_COMMIT="dead9922d0c84dca5d3f6927550957f445364bdb"
+SCRIPT_COMMIT="04e4148959367a1da9c8391c9a736304b99d8e86"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm64 ]] && return -1
