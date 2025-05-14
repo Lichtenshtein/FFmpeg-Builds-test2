@@ -47,6 +47,8 @@ It can be found on: `C:\Program Files\iTunes\`:
 CoreAudioToolbox.dll libdispatch.dll CoreFoundation.dll objc.dll libicuin.dll ASL.dll libicuuc.dll icudt62.dll
 ```
 
+**Hint:** You can copy these DLL files from iTunes right next to qaac.exe or/and ffmpeg.exe.
+
 ## Auto-Builds
 
 Builds run daily at 12:00 UTC (or GitHubs idea of that time) and are automatically released on success.
