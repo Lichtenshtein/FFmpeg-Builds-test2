@@ -26,7 +26,7 @@ ladspa lcms2 libcodec2 libdc1394
 libflite libglslang libiec61883 libklvanc liblcevc-dec 
 liblensfun libopencv libopenvino librsvg librtmp
 libsmbclient libtensorflow libtesseract libtorch 
-ia_mpegh opencl pocketsphinx libsvtjpegxs
+ia_mpegh opencl libsvtjpegxs
 ```
 
 Old features or some errors due to compilation or/and limited which didn't fit:
@@ -38,7 +38,7 @@ Old features or some errors due to compilation or/and limited which didn't fit:
 
 Builds run daily at 12:00 UTC (or GitHubs idea of that time) and are automatically released on success.
 
-**Auto-Builds run ONLY for win64 and linux(arm)64. There are no win32/x86 auto-builds, though you can produce win32 builds yourself following the instructions below.**
+**Auto-Builds run ONLY for win32, win64 and linux(arm)64. There is no linux 32-bit auto-builds, I will try to add support linux 32-bit support**
 
 ### Release Retention Policy
 
