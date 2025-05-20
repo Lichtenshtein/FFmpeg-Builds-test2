@@ -37,7 +37,13 @@ Old features or some errors due to compilation or/and limited which didn't fit:
 
 For AudioToolbox encoder, it is only Windows support.
 
-Two choices for to install iTunes or use portable DLL files from iTunes without installed.
+Two choices for to install [iTunes](https://www.apple.com/itunes/) or use portable DLL files from iTunes without installed which is called [QTFiles](https://github.com/AnimMouse/QTFiles).
+
+Note: Install iTunes using Windows version, but Microsoft Store version may be not kinda sure.
+
+Or another method is to install [QTFiles](https://github.com/AnimMouse/QTFiles) for iTunes DLL portables for use QAAC and FFmpeg, see the instructions by link.
+
+The third option is you can manually copy DLL files from iTunes:
 
 DLL files without iTunes installed needs require 8 DLL files to order encoder `aac_at`:
 
