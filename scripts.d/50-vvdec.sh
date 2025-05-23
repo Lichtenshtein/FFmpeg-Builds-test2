@@ -4,6 +4,7 @@ SCRIPT_REPO="https://github.com/fraunhoferhhi/vvdec"
 SCRIPT_COMMIT="17f2ca78b3ad29fe0210a8d297fcf01f7465138f"
 
 ffbuild_enabled() {
+    [[ $TARGET == win32 ]] && return -1
     [[ $TARGET == winarm* ]] && return -1
     (( $(ffbuild_ffver) > 700 )) || return -1
     return 0
