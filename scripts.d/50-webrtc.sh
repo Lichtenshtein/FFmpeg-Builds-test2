@@ -1,7 +1,8 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/paullouisageneau/libdatachannel"
-SCRIPT_COMMIT="62eaf521b09c467c03e1cf7532142343fe7e7a49"
+SCRIPT_COMMIT="v0.22.6"
+SCRIPT_TAGFILTER="v0.*"
 
 ffbuild_enabled() {
     (( $(ffbuild_ffver) > 701 )) || return -1
