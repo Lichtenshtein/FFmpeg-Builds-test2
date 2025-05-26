@@ -16,24 +16,25 @@ Linux builds are targetting RHEL/CentOS 8 (glibc-2.28 + linux-4.18) and anything
 - Additional automated Windows builds of x86 and ARM64.
 - Additional external features follows libbsb2, CD reading, ModPlug, QR encoding/decoding.
 - External features of video by AVS3, Fraunhofer HHI VVDEC, AVS, MPEG5 EVC.
-- External features of audio by ILBC, Google LC3, Microsoft GSM, MP3 Shine, Speex and AMR-WB.
-
-Note: MPEG-H Encoder from Ittiam and SVT of JPEG-XS encoder from OpenVisualCloud will be later coming support to automated builds.
+- External features of audio by ILBC, Google LC3, Microsoft GSM, MP3 Shine, Speex, AMR-WB and MPEG-H 3D Audio encoder from Ittiam.
 
 Implement missing features in future:
 
 ```
-ladspa lcms2 libcodec2 libdc1394
-libflite libglslang libiec61883 libklvanc liblcevc-dec 
-liblensfun libopencv libopenvino librsvg librtmp
-libsmbclient libtensorflow libtesseract libtorch 
-ia_mpegh opencl libsvtjpegxs
+ladspa lcms2 libcodec2 libdc1394 libflite
+libglslang libiec61883 libklvanc liblensfun
+libopencv libopenvino librsvg libsmbclient
+libtensorflow libtesseract libtorch opencl
 ```
 
 Old features or some errors due to compilation or/and limited which didn't fit:
 
 * `libcelt` - CELT is audio codec until 2012 moved into Opus.
 * `libcaca` - Only Linux builds works, but Windows compilation error.
+* `liblcevc_dec` - Compilation error for reason undefined reference.
+* `libsvtjpgxs` - Segmentation error after test of encode and also decoding shows weird corrupted image result of code on FFplay.
+* `libdatachannel` - Compilation error for reason undefined reference.
+* `librtmp` - No need to enable external RTMP feature, FFmpeg has already have native RTMP feature implemented.
 
 For AudioToolbox encoder, it is only Windows support.
 
