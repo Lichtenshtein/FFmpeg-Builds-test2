@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/MartinEesmaa/LCEVCdec.git"
-SCRIPT_COMMIT="cd3159e77f9fc66bd90d84b34ad3cf7d7398f8f1"
+SCRIPT_COMMIT="9ab94c08c1f92e92fea0068397dda67559a018ee"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm* ]] && return -1
@@ -27,7 +27,7 @@ ffbuild_dockerbuild() {
     echo "Description: LCEVC Decoder SDK" >> lcevc_dec.pc
     echo "Version: 3.3.7" >> lcevc_dec.pc
     echo "Libs: -L\${libdir} -llcevc_dec_api -lstdc++ -lm" >> lcevc_dec.pc
-    echo "Cflags: -I\${includedir}" >> lcevc_dec.pc
+    echo "Cflags: -I\${includedir} -DVNEnablePublicAPIExport" >> lcevc_dec.pc
 
     mv lcevc_dec.pc "$FFBUILD_PREFIX"/lib/pkgconfig/lcevc_dec.pc
 }
