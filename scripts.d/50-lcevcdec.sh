@@ -21,10 +21,10 @@ ffbuild_dockerbuild() {
 }
 
 ffbuild_configure() {
-    echo --enable-lcevc_dec
+    echo --enable-liblcevc_dec
 }
 
 ffbuild_unconfigure() {
     (( $(ffbuild_ffver) > 701 )) || return 0
-    echo --disable-lcevc_dec
+    echo --disable-liblcevc_dec
 }
