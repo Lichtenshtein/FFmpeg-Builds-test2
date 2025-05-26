@@ -4,6 +4,7 @@ SCRIPT_REPO="https://github.com/MartinEesmaa/LCEVCdec.git"
 SCRIPT_COMMIT="557c1b56994cbd3aefb8bd2106829df19360efe6"
 
 ffbuild_enabled() {
+    [[ $TARGET == winarm* ]] && return -1
     (( $(ffbuild_ffver) > 701 )) || return -1
     return 0
 }
