@@ -18,6 +18,18 @@ ffbuild_dockerbuild() {
 
     ninja -j$(nproc)
     ninja install
+
+    echo "prefix=$FFBUILD_PREFIX" > lcevc_dec.pc
+    echo "libdir=\${exec_prefix}/lib" >> lcevc_dec.pc
+    echo "includedir=\${prefix}/include" >> lcevc_dec.pc
+    echo >> lcevc_dec.pc
+    echo "Name: lcevc_dec" >> lcevc_dec.pc
+    echo "Description: LCEVC Decoder SDK" >> lcevc_dec.pc
+    echo "Version: 3.3.7" >> lcevc_dec.pc
+    echo "Libs: -L\${libdir} -llcevc_dec_api -lstdc++ -lm" >> lcevc_dec.pc
+    echo "Cflags: -I\${includedir}" >> lcevc_dec.pc
+
+    mv lcevc_dec.pc "$FFBUILD_PREFIX"/lib/pkgconfig/lcevc_dec.pc
 }
 
 ffbuild_configure() {
