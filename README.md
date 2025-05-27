@@ -23,18 +23,19 @@ Implement missing features in future:
 ```
 ladspa lcms2 libcodec2 libdc1394 libflite
 libglslang libiec61883 libklvanc liblensfun
-libopencv libopenvino librsvg libsmbclient
-libtensorflow libtesseract libtorch opencl
-librabbitmq libmysofa libklvanc opengl
+libopencv libopenvino librsvg libtensorflow 
+libtesseract libtorch opengl librabbitmq 
 ```
 
 Old features or some errors due to compilation or/and limited which didn't fit:
 
-* `libcelt` - CELT is audio codec until 2012 moved into Opus.
+* `libcelt` - Only Linux builds works, but Windows of automake configuration syntax error.
 * `libcaca` - Only Linux builds works, but Windows compilation error.
 * `libsvtjpgxs` - Segmentation error after test of encode and also decoding shows weird corrupted image result of code on FFplay.
 * `libdatachannel` - Compilation error for reason undefined reference.
 * `librtmp` - No need to enable external RTMP feature, FFmpeg has already have native RTMP feature implemented.
+* `libklvanc` - Windows build failed to compile, but Linux works and it is not yet enabled until DeckLick Linux feature is available.
+* `libsmbclient` - Too complicated for to install little bit, later...
 
 For AudioToolbox encoder, it is only Windows support.
 
