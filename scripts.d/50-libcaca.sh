@@ -4,11 +4,15 @@ SCRIPT_REPO="https://github.com/cacalabs/libcaca.git"
 SCRIPT_COMMIT="f42aa68fc798db63b7b2a789ae8cf5b90b57b752"
 
 ffbuild_enabled() {
-    [[ $TARGET == linux* ]] || return 1
     return 0
 }
 
 ffbuild_dockerbuild() {
+    cd caca
+    sed -i.bak "s/__declspec(dllexport)//g" *.h
+    sed -i.bak "s/__declspec(dllimport)//g" *.h
+    cd ..
+
     ./bootstrap
 
     local myconf=(
