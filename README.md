@@ -7,6 +7,8 @@ The minimum supported version is Windows 10 22H2, no guarantees on anything olde
 
 Linux builds are targetting RHEL/CentOS 8 (glibc-2.28 + linux-4.18) and anything more recent.
 
+Sometimes rarely I had to manually fix older compatibility issues like Windows from coming external features.
+
 ## Features of Martin Eesmaa's custom FFmpeg automated builds
 
 - External support to SVT encoders of HEVC and VP9
