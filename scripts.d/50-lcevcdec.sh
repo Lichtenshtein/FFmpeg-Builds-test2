@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/MartinEesmaa/LCEVCdec.git"
-SCRIPT_COMMIT="6ea2c40c95b46081d8df64ef6dcb8d002e7aae3f"
+SCRIPT_COMMIT="5ee432d5662268ac238791a93f2c829bcf75b6e3"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm* ]] && return -1
