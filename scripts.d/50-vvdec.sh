@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/fraunhoferhhi/vvdec"
-SCRIPT_COMMIT="7e2cf0ca4c8f5df645baed74d2ff17d284af1856"
+SCRIPT_COMMIT="55856a3377a827d98e7b79c7e6becff72c2c2df2"
 
 ffbuild_enabled() {
     [[ $TARGET == win32 ]] && return -1
@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
     fi
 
     cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_SHARED_LIBS=OFF -DEXTRALIBS="-lstdc++" "${armsimd[@]}" ..
+        -DBUILD_SHARED_LIBS=OFF -DEXTRALIBS="-lstdc++" -DVVDEC_ENABLE_LINK_TIME_OPT=OFF "${armsimd[@]}" ..
 
     make -j$(nproc)
     make install
