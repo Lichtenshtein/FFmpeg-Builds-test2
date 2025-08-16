@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/OpenMPT/openmpt"
-SCRIPT_COMMIT="4b04c0366f186dde9263a4b22873b995633ecbc5"
+SCRIPT_COMMIT="ec2e90539989fd1deced07723165a2358a67f3eb"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm64 ]] && return -1
@@ -61,8 +61,8 @@ ffbuild_dockerbuild() {
         return -1
     fi
 
-    make -j$(nproc) "${myconf[@]}" all install
-    rm -r "$FFBUILD_PREFIX"/share/doc/libopenmpt
+    make -j$(nproc) "${myconf[@]}" all install DESTDIR="$FFBUILD_DESTDIR"
+    rm -r "$FFBUILD_DESTPREFIX"/share/doc/libopenmpt
 }
 
 ffbuild_configure() {
