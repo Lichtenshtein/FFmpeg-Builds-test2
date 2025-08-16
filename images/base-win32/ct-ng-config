@@ -631,6 +631,7 @@ CT_GMP_ARCHIVE_FILENAME="@{pkg_name}-@{version}"
 CT_GMP_ARCHIVE_DIRNAME="@{pkg_name}-@{version}"
 CT_GMP_ARCHIVE_FORMATS=".tar.xz .tar.lz .tar.bz2"
 CT_GMP_SIGNATURE_FORMAT="packed/.sig"
+CT_GMP_EXTRA_CFLAGS="-std=gnu17"
 CT_COMP_LIBS_ISL=y
 CT_COMP_LIBS_ISL_PKG_KSYM="ISL"
 CT_ISL_DIR_NAME="isl"
