@@ -717,35 +717,7 @@ CT_CC_LANG_OTHERS=""
 #
 # BFD enabled in binutils
 #
-CT_LINKER_MOLD=y
-CT_LINKER_MOLD_PKG_KSYM="MOLD"
-CT_MOLD_DIR_NAME="mold"
-CT_MOLD_PKG_NAME="mold"
-CT_MOLD_SRC_RELEASE=y
-# CT_MOLD_SRC_DEVEL is not set
-# CT_MOLD_SRC_CUSTOM is not set
-CT_MOLD_PATCH_GLOBAL=y
-# CT_MOLD_PATCH_BUNDLED is not set
-# CT_MOLD_PATCH_LOCAL is not set
-# CT_MOLD_PATCH_BUNDLED_LOCAL is not set
-# CT_MOLD_PATCH_LOCAL_BUNDLED is not set
-# CT_MOLD_PATCH_NONE is not set
-CT_MOLD_PATCH_ORDER="global"
-CT_MOLD_V_2_40_1=y
-# CT_MOLD_V_2_39_1 is not set
-# CT_MOLD_V_2_38_1 is not set
-# CT_MOLD_V_2_37_1 is not set
-# CT_MOLD_V_2_36_0 is not set
-# CT_MOLD_V_2_33_0 is not set
-# CT_MOLD_V_2_32_0 is not set
-# CT_MOLD_V_2_31_0 is not set
-CT_MOLD_VERSION="2.40.3"
-CT_MOLD_MIRRORS="https://github.com/rui314/mold/archive/refs/tags"
-CT_MOLD_ARCHIVE_FILENAME="v@{version}"
-CT_MOLD_ARCHIVE_DIRNAME="@{pkg_name}-@{version}"
-CT_MOLD_ARCHIVE_FORMATS=".tar.gz"
-CT_MOLD_SIGNATURE_FORMAT=""
-CT_LINKER_MOLD_has_cmake=y
+# CT_LINKER_MOLD is not set
 CT_ALL_LINKER_CHOICES="MOLD"
 # end of Linkers
 
@@ -826,7 +798,6 @@ CT_GMP_ARCHIVE_FILENAME="@{pkg_name}-@{version}"
 CT_GMP_ARCHIVE_DIRNAME="@{pkg_name}-@{version}"
 CT_GMP_ARCHIVE_FORMATS=".tar.xz .tar.lz .tar.bz2"
 CT_GMP_SIGNATURE_FORMAT="packed/.sig"
-CT_GMP_EXTRA_CFLAGS="-std=gnu17"
 CT_COMP_LIBS_ISL=y
 CT_COMP_LIBS_ISL_PKG_KSYM="ISL"
 CT_ISL_DIR_NAME="isl"
@@ -956,7 +927,7 @@ CT_NCURSES_MIRRORS="https://invisible-mirror.net/archives/ncurses $(CT_Mirrors G
 CT_NCURSES_ARCHIVE_FILENAME="@{pkg_name}-@{version}"
 CT_NCURSES_ARCHIVE_DIRNAME="@{pkg_name}-@{version}"
 CT_NCURSES_ARCHIVE_FORMATS=".tar.gz"
-CT_NCURSES_SIGNATURE_FORMAT="packed/.asc"
+CT_NCURSES_SIGNATURE_FORMAT="packed/.sig"
 # CT_NCURSES_NEW_ABI is not set
 CT_NCURSES_HOST_CONFIG_ARGS=""
 CT_NCURSES_HOST_DISABLE_DB=y
@@ -964,7 +935,6 @@ CT_NCURSES_HOST_FALLBACKS="linux,xterm,xterm-color,xterm-256color,vt100"
 CT_NCURSES_TARGET_CONFIG_ARGS=""
 # CT_NCURSES_TARGET_DISABLE_DB is not set
 CT_NCURSES_TARGET_FALLBACKS=""
-CT_NCURSES_EXTRA_CFLAGS="-std=gnu17"
 CT_COMP_LIBS_ZLIB=y
 CT_COMP_LIBS_ZLIB_PKG_KSYM="ZLIB"
 CT_ZLIB_DIR_NAME="zlib"
@@ -1001,12 +971,11 @@ CT_ZSTD_PATCH_GLOBAL=y
 # CT_ZSTD_PATCH_LOCAL_BUNDLED is not set
 # CT_ZSTD_PATCH_NONE is not set
 CT_ZSTD_PATCH_ORDER="global"
-CT_ZSTD_V_1_5_7=y
-# CT_ZSTD_V_1_5_6 is not set
+CT_ZSTD_V_1_5_6=y
 # CT_ZSTD_V_1_5_5 is not set
 # CT_ZSTD_V_1_5_2 is not set
-CT_ZSTD_VERSION="1.5.7"
-CT_ZSTD_MIRRORS="https://github.com/facebook/zstd/releases/download/v${CT_ZSTD_VERSION} https://downloads.sourceforge.net/project/zstandard.mirror/v${CT_ZSTD_VERSION}"
+CT_ZSTD_VERSION="1.5.6"
+CT_ZSTD_MIRRORS="https://github.com/facebook/zstd/releases/download/v${CT_ZSTD_VERSION} https://www.zstd.net/"
 CT_ZSTD_ARCHIVE_FILENAME="@{pkg_name}-@{version}"
 CT_ZSTD_ARCHIVE_DIRNAME="@{pkg_name}-@{version}"
 CT_ZSTD_ARCHIVE_FORMATS=".tar.gz"
