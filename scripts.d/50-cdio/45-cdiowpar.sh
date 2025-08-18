@@ -36,5 +36,5 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}"
     cd doc && make stamp-vti && cd ..
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
 }

@@ -9,15 +9,15 @@ ffbuild_enabled() {
 ffbuild_dockerbuild() {
 
     export CCFLAGS="$CFLAGS -DNeedFunctionPrototypes=1 -c -DSASR -DWAV49 -Wno-comment"
-    export INSTALL_ROOT="$FFBUILD_PREFIX"
+    export INSTALL_ROOT="$FFBUILD_DESTPREFIX"
     export CC="${FFBUILD_TOOLCHAIN}-gcc"
 
     make libgsm -j$(nproc)
     
-    mkdir -p "$FFBUILD_PREFIX/include/gsm"
-    cp lib/libgsm.a "$FFBUILD_PREFIX/lib/"
-    cp include/gsm/*.h "$FFBUILD_PREFIX/include/gsm"
-    cp include/gsm/gsm.h "$FFBUILD_PREFIX/include/"
+    mkdir -p "$FFBUILD_DESTPREFIX/include/gsm"
+    cp lib/libgsm.a "$FFBUILD_DESTPREFIX/lib/"
+    cp include/gsm/*.h "$FFBUILD_DESTPREFIX/include/gsm"
+    cp include/gsm/gsm.h "$FFBUILD_DESTPREFIX/include/"
 }
 
 ffbuild_configure() {

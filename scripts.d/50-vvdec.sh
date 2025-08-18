@@ -27,7 +27,7 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=OFF -DEXTRALIBS="-lstdc++" -DVVDEC_ENABLE_LINK_TIME_OPT=OFF "${armsimd[@]}" ..
 
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
 }
 
 ffbuild_configure() {
