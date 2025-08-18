@@ -20,10 +20,10 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=OFF ..
 
     ninja -j$(nproc)
-    ninja install
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
 
-    cp -f ../include/pocketsphinx.h "$FFBUILD_PREFIX"/include/pocketsphinx/
-    rm -f "$FFBUILD_PREFIX"/bin/pocketsphin*
+    cp -f ../include/pocketsphinx.h "$FFBUILD_DESTPREFIX"/include/pocketsphinx/
+    rm -f "$FFBUILD_DESTPREFIX"/bin/pocketsphin*
 }
 
 ffbuild_configure() {

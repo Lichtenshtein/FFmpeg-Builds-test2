@@ -21,12 +21,12 @@ ffbuild_dockerbuild() {
     cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DCOMPILE_10BIT=1 -DCOMPILE_FFMPEG=ON -DBUILD_SHARED_LIBS=NO ../..
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
 
 
     # Just in case to detect header files default before FFmpeg
-    cp -f "$FFBUILD_PREFIX"/include/uavs3e/uavs3e.h "$FFBUILD_PREFIX"/include
-    cp -f "$FFBUILD_PREFIX"/include/uavs3e/com_api.h "$FFBUILD_PREFIX"/include
+    cp -f "$FFBUILD_DESTPREFIX"/include/uavs3e/uavs3e.h "$FFBUILD_DESTPREFIX"/include
+    cp -f "$FFBUILD_DESTPREFIX"/include/uavs3e/com_api.h "$FFBUILD_DESTPREFIX"/include
 }
 
 ffbuild_configure() {

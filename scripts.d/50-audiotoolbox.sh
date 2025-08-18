@@ -13,9 +13,9 @@ ffbuild_dockerbuild() {
 
     cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" .. -G Ninja
     ninja -j$(nproc)
-    ninja install
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
 
-    rm "$FFBUILD_PREFIX"/bin/atw_ldwrapper
+    rm "$FFBUILD_DESTPREFIX"/bin/atw_ldwrapper
 }
 
 ffbuild_configure() {

@@ -17,15 +17,15 @@ ffbuild_dockerbuild() {
 
     cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" ..
     make -j$(nproc)
-    make install
+    make install DESTDIR="$FFBUILD_DESTDIR"
 
-    mv "$FFBUILD_PREFIX"/lib/xeve/libxeve.a "$FFBUILD_PREFIX"/lib
+    mv "$FFBUILD_DESTPREFIX"/lib/xeve/libxeve.a "$FFBUILD_DESTPREFIX"/lib
     
     if [[ $TARGET == win* ]]; then
-        rm "$FFBUILD_PREFIX"/bin/libxeve.dll
-        rm "$FFBUILD_PREFIX"/lib/libxeve.dll.a
+        rm "$FFBUILD_DESTPREFIX"/bin/libxeve.dll
+        rm "$FFBUILD_DESTPREFIX"/lib/libxeve.dll.a
     elif [[ $TARGET == linux* ]]; then
-        rm "$FFBUILD_PREFIX"/lib/libxeve.so*
+        rm "$FFBUILD_DESTPREFIX"/lib/libxeve.so*
     fi
 }
 

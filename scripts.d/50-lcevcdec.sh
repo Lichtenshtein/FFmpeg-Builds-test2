@@ -17,9 +17,9 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=OFF -DVN_SDK_FFMPEG_LIBS_PACKAGE="" -DVN_SDK_{JSON_CONFIG,EXECUTABLES,UNIT_TESTS,SAMPLE_SOURCE}=OFF .. -G Ninja
 
     ninja -j$(nproc)
-    ninja install
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
 
-    echo "prefix=$FFBUILD_PREFIX" > lcevc_dec.pc
+    echo "prefix=$FFBUILD_DESTPREFIX" > lcevc_dec.pc
     echo "libdir=\${exec_prefix}/lib" >> lcevc_dec.pc
     echo "includedir=\${prefix}/include" >> lcevc_dec.pc
     echo >> lcevc_dec.pc
@@ -29,7 +29,7 @@ ffbuild_dockerbuild() {
     echo "Libs: -L\${libdir} -llcevc_dec_api -lstdc++ -lm" >> lcevc_dec.pc
     echo "Cflags: -I\${includedir} -DVNEnablePublicAPIExport" >> lcevc_dec.pc
 
-    mv lcevc_dec.pc "$FFBUILD_PREFIX"/lib/pkgconfig/lcevc_dec.pc
+    mv lcevc_dec.pc "$FFBUILD_DESTPREFIX"/lib/pkgconfig/lcevc_dec.pc
 }
 
 ffbuild_configure() {
