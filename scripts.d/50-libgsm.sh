@@ -15,6 +15,7 @@ ffbuild_dockerbuild() {
     make libgsm -j$(nproc)
     
     mkdir -p "$FFBUILD_DESTPREFIX/include/gsm"
+    mkdir -p "$FFBUILD_DESTPREFIX/lib"
     cp lib/libgsm.a "$FFBUILD_DESTPREFIX/lib/"
     cp include/gsm/*.h "$FFBUILD_DESTPREFIX/include/gsm"
     cp include/gsm/gsm.h "$FFBUILD_DESTPREFIX/include/"

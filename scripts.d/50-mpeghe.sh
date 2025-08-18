@@ -18,7 +18,7 @@ ffbuild_dockerbuild() {
     "$AR" -r libia_mpegh.a *.o
     rm -f *.o
 
-    cp libia_mpegh.a "$FFBUILD_PREFIX"/lib
+    cp libia_mpegh.a "$FFBUILD_DESTPREFIX"/lib
 }
 
 ffbuild_configure() {
