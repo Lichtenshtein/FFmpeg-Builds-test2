@@ -11,7 +11,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
-    make PREFIX="$FFBUILD_PREFIX" install
+    make PREFIX="$FFBUILD_DESTPREFIX" install
 }
 
 ffbuild_configure() {
