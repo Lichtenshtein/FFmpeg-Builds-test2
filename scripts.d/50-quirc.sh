@@ -22,6 +22,8 @@ ffbuild_dockerbuild() {
     export CFLAGS="$CFLAGS"
 
     make libquirc.a -j$(nproc)
+    mkdir -p "$FFBUILD_DESTPREFIX/lib/"
+    mkdir -p "$FFBUILD_DESTPREFIX/include/"
     cp libquirc.a "$FFBUILD_DESTPREFIX/lib/"
     cp lib/quirc.h "$FFBUILD_DESTPREFIX/include/"
 }

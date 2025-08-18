@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/MartinEesmaa/celt.git"
-SCRIPT_COMMIT="e4dcd52ac70203b869ffff1d833d028fd926750d"
+SCRIPT_COMMIT="ff82b30af5943dffd640c5495fb865e502f1660c"
 
 ffbuild_enabled() {
     [[ $TARGET != linux* ]] && return -1
