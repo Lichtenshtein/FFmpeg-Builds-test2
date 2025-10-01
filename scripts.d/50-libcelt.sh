@@ -4,7 +4,6 @@ SCRIPT_REPO="https://github.com/MartinEesmaa/celt.git"
 SCRIPT_COMMIT="ff82b30af5943dffd640c5495fb865e502f1660c"
 
 ffbuild_enabled() {
-    [[ $TARGET != linux* ]] && return -1
     return 0
 }
 
