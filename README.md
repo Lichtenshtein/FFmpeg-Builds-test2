@@ -18,7 +18,7 @@ Sometimes rarely I had to manually fix older compatibility issues like Windows f
 - Additional automated Windows builds of x86 and ARM64.
 - Additional external features follows libbsb2, CD reading, ModPlug, QR encoding/decoding.
 - External features of video by AVS3, Fraunhofer HHI VVDEC, AVS, MPEG-5 EVC, MPEG-5 LCEVC decoder.
-- External features of audio by ILBC, Google LC3, Microsoft GSM, MP3 Shine, Speex, AMR-WB and MPEG-H 3D Audio encoder from Ittiam.
+- External features of audio by ILBC, Google LC3, Microsoft GSM, MP3 Shine, Speex, AMR-WB, CELT and MPEG-H 3D Audio encoder from Ittiam.
 
 Implement missing features in future:
 
@@ -31,7 +31,6 @@ libtesseract libtorch opengl librabbitmq
 
 Old features or some errors due to compilation or/and limited which didn't fit:
 
-* `libcelt` - Only Linux builds works, but Windows of automake configuration syntax error.
 * `libcaca` - Only Linux builds works, but Windows compilation error.
 * `libsvtjpgxs` - Segmentation error after test of encode and also decoding shows weird corrupted image result of code on FFplay.
 * `libdatachannel` - Compilation error for reason undefined reference.
