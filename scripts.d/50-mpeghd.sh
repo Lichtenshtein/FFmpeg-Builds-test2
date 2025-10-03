@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/MartinEesmaa/mpeghdec"
-SCRIPT_COMMIT="b7b64ecf7a8e2260a8acea7676103bcdbe454fc3"
+SCRIPT_COMMIT="639b7a9ff12887adc0bd6b086691f2dc4e1c95b2"
 
 ffbuild_enabled() {
     [[ $TARGET == win32 ]] && return -1
