@@ -14,6 +14,7 @@ Sometimes rarely I had to manually fix older compatibility issues like Windows f
 - External support to SVT encoders of HEVC and VP9
 - Includes nonfree binaries with fdkaac (Fraunhofer AAC library)
 - Dolby AC4 native experimental decoding support
+- Experimental Fraunhofer IIS MPEG-H 3D Audio decoding support (requires command argument: `-channel_layout`)
 - Apple AAC AudioToolbox encoder support (Windows only, requires iTunes or 8 dll files*)
 - Additional automated Windows builds of x86 and ARM64.
 - Additional external features follows libbsb2, CD reading, ModPlug, QR encoding/decoding.
@@ -37,6 +38,7 @@ Old features or some errors due to compilation or/and limited which didn't fit:
 * `librtmp` - No need to enable external RTMP feature, FFmpeg has already have native RTMP feature implemented.
 * `libklvanc` - Windows build failed to compile, but Linux works and it is not yet enabled until DeckLick Linux feature is available.
 * `libsmbclient` - Too complicated for to install little bit, later...
+* `libmpeghdec` - Only Windows & Linux 64-bit architectures works, but others are not working due to error compilations.
 
 For AudioToolbox encoder, it is only Windows support.
 
@@ -57,6 +59,23 @@ CoreAudioToolbox.dll libdispatch.dll CoreFoundation.dll objc.dll libicuin.dll AS
 ```
 
 **Hint:** You can copy these DLL files from iTunes right next to qaac.exe or/and ffmpeg.exe.
+
+## Fraunhofer IIS MPEG-H decoder
+
+Please note that FFmpeg doesn't have demux support of MPEG-H 3D Audio channels only.
+
+You can only decode via command argument `-channel_layout`.
+
+For example, ensure to have MediaInfo for audio channels count:
+
+```
+# Mono audio channel file
+ffmpeg_vvceasy -channel_layout mono -i MHM.mp4 MHM.wav
+# Stereo audio channel file
+ffmpeg_vvceasy -channel_layout stereo -i MHM.mp4 MHM.wav
+```
+
+See the more info of manual standard channel layouts [here](https://trac.ffmpeg.org/wiki/AudioChannelManipulation#Listchannelnamesandstandardchannellayouts).
 
 ## Auto-Builds
 
