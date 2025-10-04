@@ -6,6 +6,7 @@ SCRIPT_COMMIT="639b7a9ff12887adc0bd6b086691f2dc4e1c95b2"
 ffbuild_enabled() {
     [[ $TARGET == win32 ]] && return -1
     [[ $TARGET == winarm64 ]] && return -1
+    [[ $VARIANT == nonfree* ]] || return -1
     return 0
 }
 
