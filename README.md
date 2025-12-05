@@ -83,7 +83,7 @@ See the more info of manual standard channel layouts [here](https://trac.ffmpeg.
 
 Builds run daily at 12:00 UTC (or GitHubs idea of that time) and are automatically released on success.
 
-**Auto-Builds run ONLY for win32, win64 and linux(arm)64. There is no linux 32-bit auto-builds, I will try to add support linux 32-bit support**
+**Auto-Builds run ONLY for win32, win(arm)64 and linux(arm)64. There is no linux 32-bit auto-builds, I will try to add support linux 32-bit support**
 
 ### Release Retention Policy
 
