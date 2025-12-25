@@ -1,0 +1,22 @@
+From cc351000e1e2a7a78eefc9523599565ebbfda9b2 Mon Sep 17 00:00:00 2001
+From: Zac <zacharygillions@gmail.com>
+Date: Wed, 18 Oct 2023 20:57:44 +1300
+Subject: [PATCH] Update caca.h
+
+Fixed caca.h so that it can be compiled. Tested on Beyond Linux From Scratch 12.0
+---
+ caca/caca.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/caca/caca.h b/caca/caca.h
+index 9f79be20..339f71de 100644
+--- a/caca/caca.h
++++ b/caca/caca.h
+@@ -241,6 +241,7 @@ __extern uint32_t const * caca_get_canvas_attrs(caca_canvas_t const *);
+ __extern int caca_free_canvas(caca_canvas_t *);
+ __extern int caca_rand(int, int);
+ __extern char const * caca_get_version(void);
++__extern void *_caca_alloc2d(size_t width, size_t height, size_t elem_size);
+ /*  @} */
+
+ /** \defgroup caca_canvas libcaca canvas drawing

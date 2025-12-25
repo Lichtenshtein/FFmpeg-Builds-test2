@@ -1,0 +1,22 @@
+From 929b12321daa7d2e4da6bcb1504cf5d3b4bfd1e6 Mon Sep 17 00:00:00 2001
+From: Steve Lhomme <robux4@ycbcr.xyz>
+Date: Tue, 18 Jun 2024 07:04:41 +0200
+Subject: [PATCH] stubs: include winsock2.h to get htons/htonl declaration
+
+---
+ caca/caca_stubs.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/caca/caca_stubs.h b/caca/caca_stubs.h
+index bba32981..2cf0a590 100644
+--- a/caca/caca_stubs.h
++++ b/caca/caca_stubs.h
+@@ -34,6 +34,8 @@ static inline int geterrno(void) { return errno; }
+ #       include <arpa/inet.h>
+ #   elif defined HAVE_NETINET_IN_H
+ #       include <netinet/in.h>
++#   elif defined HAVE_WINSOCK2_H
++#       include <winsock2.h>
+ #   endif
+ #   define hton16 htons
+ #   define hton32 htonl

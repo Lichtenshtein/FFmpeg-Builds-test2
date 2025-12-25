@@ -1,14 +1,35 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/cacalabs/libcaca.git"
-SCRIPT_COMMIT="f42aa68fc798db63b7b2a789ae8cf5b90b57b752"
+SCRIPT_COMMIT="69a42132350da166a98afe4ab36d89008197b5f2"
+
+# ffbuild_enabled() {
+    # [[ $TARGET == win* ]] || return 1
+    # return 0
+# }
+
+# ffbuild_enabled() {
+    # [[ $TARGET == linux* ]] || return 1
+    # return 0
+# }
 
 ffbuild_enabled() {
-    [[ $TARGET == linux* ]] || return 1
-    return 0
+    return -1
+}
+
+ffbuild_dockerstage() {
+    to_df "RUN --mount=src=${SELF},dst=/stage.sh --mount=src=${SELFCACHE},dst=/cache.tar.xz --mount=src=patches/libcaca,dst=/patches run_stage /stage.sh"
 }
 
 ffbuild_dockerbuild() {
+
+#    apt install -y freeglut3-dev mesa-utils
+
+    for patch in /patches/*.patch; do
+        echo "Applying $patch"
+        patch -p1 < "$patch"
+    done
+
     ./bootstrap
 
     local myconf=(

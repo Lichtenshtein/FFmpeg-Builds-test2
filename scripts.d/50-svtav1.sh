@@ -1,7 +1,11 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://gitlab.com/AOMediaCodec/SVT-AV1.git"
-SCRIPT_COMMIT="b7328c60c417ede0d3673119eeee305cce82c215"
+# SCRIPT_REPO="https://gitlab.com/AOMediaCodec/SVT-AV1.git"
+# SCRIPT_COMMIT="b7328c60c417ede0d3673119eeee305cce82c215"
+# SCRIPT_REPO="https://github.com/juliobbv-p/svt-av1-hdr.git"
+# SCRIPT_COMMIT="16b4c9449883298c87dde012a76e64ec0d8c78da"
+SCRIPT_REPO="https://github.com/BlueSwordM/svt-av1-psyex.git"
+SCRIPT_COMMIT="fedc23378247b6ab504cbcdfedf428efab9ad452"
 
 ffbuild_enabled() {
     [[ $TARGET == win32 ]] && return -1

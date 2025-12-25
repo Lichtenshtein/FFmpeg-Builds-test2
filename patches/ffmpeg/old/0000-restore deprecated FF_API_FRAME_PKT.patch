@@ -1,0 +1,980 @@
+From ebd6d07ab9493dd2703f73c137699920896993c9 Mon Sep 17 00:00:00 2001
+From: James Almer <jamrial@gmail.com>
+Date: Wed, 19 Feb 2025 13:43:23 -0300
+Subject: [PATCH] avutil: restore deprecated FF_API_FRAME_PKT
+
+Deprecated since 2023-03-20.
+
+Signed-off-by: James Almer <jamrial@gmail.com>
+---
+ libavcodec/av1dec.c           |  6 ----
+ libavcodec/cuviddec.c         |  6 ----
+ libavcodec/decode.c           | 27 ------------------
+ libavcodec/libuavs3d.c        | 12 --------
+ libavdevice/lavfi.c           | 10 -------
+ libavfilter/af_volume.c       | 15 ----------
+ libavfilter/af_volume.h       |  3 --
+ libavfilter/avfilter.c        | 14 ---------
+ libavfilter/f_select.c        | 11 -------
+ libavfilter/f_sendcmd.c       | 11 -------
+ libavfilter/setpts.c          | 11 -------
+ libavfilter/vf_crop.c         | 15 ----------
+ libavfilter/vf_drawtext.c     | 18 ------------
+ libavfilter/vf_eq.c           |  8 ------
+ libavfilter/vf_eq.h           |  6 ----
+ libavfilter/vf_overlay.c      | 14 ---------
+ libavfilter/vf_overlay.h      |  3 --
+ libavfilter/vf_overlay_cuda.c | 18 ------------
+ libavfilter/vf_scale.c        | 41 ++------------------------
+ libavfilter/vf_scale_npp.c    | 54 +++--------------------------------
+ libavfilter/vf_swaprect.c     | 17 ++---------
+ libavutil/frame.c             | 12 --------
+ libavutil/frame.h             | 26 -----------------
+ libavutil/version.h           |  1 -
+ 24 files changed, 8 insertions(+), 351 deletions(-)
+
+diff --git a/libavcodec/av1dec.c b/libavcodec/av1dec.c
+index ed00278ed3e79..8ff1bf394c5c5 100644
+--- a/libavcodec/av1dec.c
++++ b/libavcodec/av1dec.c
+@@ -1196,6 +1196,12 @@ static int set_output_frame(AVCodecContext *avctx, AVFrame *frame)
+
+     frame->pts = pkt->pts;
+     frame->pkt_dts = pkt->dts;
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++    frame->pkt_size = pkt->size;
++    frame->pkt_pos = pkt->pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+
+     av_packet_unref(pkt);
+
+diff --git a/libavcodec/cuviddec.c b/libavcodec/cuviddec.c
+index a8a201422a698..6575f0f6b14a9 100644
+--- a/libavcodec/cuviddec.c
++++ b/libavcodec/cuviddec.c
+@@ -697,6 +697,12 @@ static int cuvid_output_frame(AVCodecContext *avctx, AVFrame *frame)
+          * So set pkt_pts and clear all the other pkt_ fields.
+          */
+         frame->duration = 0;
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++        frame->pkt_pos = -1;
++        frame->pkt_size = -1;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+
+         if (!parsed_frame.is_deinterlacing && !parsed_frame.dispinfo.progressive_frame)
+             frame->flags |= AV_FRAME_FLAG_INTERLACED;
+diff --git a/libavcodec/decode.c b/libavcodec/decode.c
+index d4f521ada985f..c9d247513eae3 100644
+--- a/libavcodec/decode.c
++++ b/libavcodec/decode.c
+@@ -172,6 +172,10 @@ static int extract_packet_props(AVCodecInternal *avci, const AVPacket *pkt)
+     av_packet_unref(avci->last_pkt_props);
+     if (pkt) {
+         ret = av_packet_copy_props(avci->last_pkt_props, pkt);
++#if FF_API_FRAME_PKT
++        if (!ret)
++            avci->last_pkt_props->stream_index = pkt->size; // Needed for ff_decode_frame_props().
++#endif
+     }
+     return ret;
+ }
+@@ -444,6 +440,14 @@ static inline int decode_simple_internal(AVCodecContext *avctx, AVFrame *frame,
+
+     if (!(codec->caps_internal & FF_CODEC_CAP_SETS_PKT_DTS))
+         frame->pkt_dts = pkt->dts;
++    if (avctx->codec->type == AVMEDIA_TYPE_VIDEO) {
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++        if(!avctx->has_b_frames)
++            frame->pkt_pos = pkt->pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
++    }
+     emms_c();
+
+     if (avctx->codec->type == AVMEDIA_TYPE_VIDEO) {
+@@ -507,6 +495,10 @@ FF_ENABLE_DEPRECATION_WARNINGS
+         pkt->pts                  = AV_NOPTS_VALUE;
+         pkt->dts                  = AV_NOPTS_VALUE;
+         if (!(codec->caps_internal & FF_CODEC_CAP_SETS_FRAME_PROPS)) {
++#if FF_API_FRAME_PKT
++            // See extract_packet_props() comment.
++            avci->last_pkt_props->stream_index = avci->last_pkt_props->stream_index - consumed;
++#endif
+             avci->last_pkt_props->pts = AV_NOPTS_VALUE;
+             avci->last_pkt_props->dts = AV_NOPTS_VALUE;
+         }
+@@ -1480,6 +1464,12 @@ int ff_decode_frame_props_from_pkt(const AVCodecContext *avctx,
+
+     frame->pts          = pkt->pts;
+     frame->duration     = pkt->duration;
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++    frame->pkt_pos      = pkt->pos;
++    frame->pkt_size     = pkt->size;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+
+     ret = side_data_map(frame, pkt->side_data, pkt->side_data_elems, ff_sd_global_map);
+     if (ret < 0)
+@@ -1535,6 +1513,11 @@ int ff_decode_frame_props(AVCodecContext *avctx, AVFrame *frame)
+         ret = ff_decode_frame_props_from_pkt(avctx, frame, pkt);
+         if (ret < 0)
+             return ret;
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++        frame->pkt_size = pkt->stream_index;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+     }
+
+     ret = fill_frame_props(avctx, frame);
+diff --git a/libavcodec/libuavs3d.c b/libavcodec/libuavs3d.c
+index 24f39ef4926a7..3eea2051b0267 100644
+--- a/libavcodec/libuavs3d.c
++++ b/libavcodec/libuavs3d.c
+@@ -79,6 +79,12 @@ static void uavs3d_output_callback(uavs3d_io_frm_t *dec_frame) {
+
+     frm->pts       = dec_frame->pts;
+     frm->pkt_dts   = dec_frame->dts;
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++    frm->pkt_pos   = dec_frame->pkt_pos;
++    frm->pkt_size  = dec_frame->pkt_size;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+
+     if (dec_frame->type < 0 || dec_frame->type >= FF_ARRAY_ELEMS(ff_avs3_image_type)) {
+         av_log(NULL, AV_LOG_WARNING, "Error frame type in uavs3d: %d.\n", dec_frame->type);
+@@ -263,6 +257,12 @@ static int libuavs3d_decode_frame(AVCodecContext *avctx, AVFrame *frm,
+         uavs3d_io_frm_t *frm_dec = &h->dec_frame;
+
+         buf_end = buf + buf_size;
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++        frm_dec->pkt_pos  = avpkt->pos;
++        frm_dec->pkt_size = avpkt->size;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+
+         while (!finish) {
+             int bs_len;
+diff --git a/libavdevice/lavfi.c b/libavdevice/lavfi.c
+index 17657a063813b..548183d633545 100644
+--- a/libavdevice/lavfi.c
++++ b/libavdevice/lavfi.c
+@@ -353,6 +353,11 @@ static int create_subcc_packet(AVFormatContext *avctx, AVFrame *frame,
+     memcpy(lavfi->subcc_packet.data, sd->data, sd->size);
+     lavfi->subcc_packet.stream_index = stream_idx;
+     lavfi->subcc_packet.pts = frame->pts;
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++    lavfi->subcc_packet.pos = frame->pkt_pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+     return 0;
+ }
+
+@@ -466,6 +461,11 @@ static int lavfi_read_packet(AVFormatContext *avctx, AVPacket *pkt)
+
+     pkt->stream_index = stream_idx;
+     pkt->pts = frame->pts;
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++    pkt->pos = frame->pkt_pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+
+     av_frame_free(&frame_to_free);
+
+diff --git a/libavfilter/af_volume.c b/libavfilter/af_volume.c
+index 18b1616cab61d..471bffeceb530 100644
+--- a/libavfilter/af_volume.c
++++ b/libavfilter/af_volume.c
+@@ -48,6 +48,9 @@ static const char *const var_names[] = {
+     "nb_channels",         ///< number of channels
+     "nb_consumed_samples", ///< number of samples consumed by the filter
+     "nb_samples",          ///< number of samples in the current frame
++#if FF_API_FRAME_PKT
++    "pos",                 ///< position in the file of the frame
++#endif
+     "pts",                 ///< frame presentation timestamp
+     "sample_rate",         ///< sample rate
+     "startpts",            ///< PTS at start of stream
+@@ -289,6 +286,9 @@ static int config_output(AVFilterLink *outlink)
+     vol->var_values[VAR_N] =
+     vol->var_values[VAR_NB_CONSUMED_SAMPLES] =
+     vol->var_values[VAR_NB_SAMPLES] =
++#if FF_API_FRAME_PKT
++    vol->var_values[VAR_POS] =
++#endif
+     vol->var_values[VAR_PTS] =
+     vol->var_values[VAR_STARTPTS] =
+     vol->var_values[VAR_STARTT] =
+@@ -383,6 +377,15 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *buf)
+     vol->var_values[VAR_T  ] = TS2T(buf->pts, inlink->time_base);
+     vol->var_values[VAR_N  ] = inl->frame_count_out;
+
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++    {
++        int64_t pos;
++        pos = buf->pkt_pos;
++        vol->var_values[VAR_POS] = pos == -1 ? NAN : pos;
++    }
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+     if (vol->eval_mode == EVAL_MODE_FRAME)
+         set_volume(ctx);
+
+diff --git a/libavfilter/af_volume.h b/libavfilter/af_volume.h
+index c3756ee969673..e9527eea8a24f 100644
+--- a/libavfilter/af_volume.h
++++ b/libavfilter/af_volume.h
+@@ -47,6 +47,9 @@ enum VolumeVarName {
+     VAR_NB_CHANNELS,
+     VAR_NB_CONSUMED_SAMPLES,
+     VAR_NB_SAMPLES,
++#if FF_API_FRAME_PKT
++    VAR_POS,
++#endif
+     VAR_PTS,
+     VAR_SAMPLE_RATE,
+     VAR_STARTPTS,
+diff --git a/libavfilter/avfilter.c b/libavfilter/avfilter.c
+index cac5cf8997967..64c1075c40879 100644
+--- a/libavfilter/avfilter.c
++++ b/libavfilter/avfilter.c
+@@ -550,6 +550,9 @@ static int request_frame_to_filter(AVFilterLink *link)
+ static const char *const var_names[] = {
+     "t",
+     "n",
++#if FF_API_FRAME_PKT
++    "pos",
++#endif
+     "w",
+     "h",
+     NULL
+@@ -561,6 +558,9 @@ static const char *const var_names[] = {
+ enum {
+     VAR_T,
+     VAR_N,
++#if FF_API_FRAME_PKT
++    VAR_POS,
++#endif
+     VAR_W,
+     VAR_H,
+     VAR_VARS_NB
+@@ -1012,6 +1006,11 @@ static int evaluate_timeline_at_frame(AVFilterLink *link, const AVFrame *frame)
+     AVFilterContext *dstctx = link->dst;
+     FFFilterContext *dsti = fffilterctx(dstctx);
+     int64_t pts = frame->pts;
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++    int64_t pos = frame->pkt_pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+
+     if (!dstctx->enable_str)
+         return 1;
+@@ -1025,6 +1014,9 @@ FF_ENABLE_DEPRECATION_WARNINGS
+     dsti->var_values[VAR_T] = pts == AV_NOPTS_VALUE ? NAN : pts * av_q2d(link->time_base);
+     dsti->var_values[VAR_W] = link->w;
+     dsti->var_values[VAR_H] = link->h;
++#if FF_API_FRAME_PKT
++    dsti->var_values[VAR_POS] = pos == -1 ? NAN : pos;
++#endif
+
+     return fabs(av_expr_eval(dsti->enable, dsti->var_values, NULL)) >= 0.5;
+ }
+diff --git a/libavfilter/f_select.c b/libavfilter/f_select.c
+index 1f2a9a59fce71..aa374c6ad0be5 100644
+--- a/libavfilter/f_select.c
++++ b/libavfilter/f_select.c
+@@ -82,6 +82,9 @@ static const char *const var_names[] = {
+     "prev_selected_n",   ///< number of the last selected frame
+
+     "key",               ///< tell if the frame is a key frame
++#if FF_API_FRAME_PKT
++    "pos",               ///< original position in the file of the frame
++#endif
+
+     "scene",
+
+@@ -141,6 +138,9 @@ enum var_name {
+     VAR_PREV_SELECTED_N,
+
+     VAR_KEY,
++#if FF_API_FRAME_PKT
++    VAR_POS,
++#endif
+
+     VAR_SCENE,
+
+@@ -350,6 +350,11 @@ static void select_frame(AVFilterContext *ctx, AVFrame *frame)
+     select->var_values[VAR_PTS] = TS2D(frame->pts);
+     select->var_values[VAR_T  ] = TS2D(frame->pts) * av_q2d(inlink->time_base);
+     select->var_values[VAR_KEY] = !!(frame->flags & AV_FRAME_FLAG_KEY);
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++    select->var_values[VAR_POS] = frame->pkt_pos == -1 ? NAN : frame->pkt_pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+     select->var_values[VAR_CONCATDEC_SELECT] = get_concatdec_select(frame, av_rescale_q(frame->pts, inlink->time_base, AV_TIME_BASE_Q));
+
+     switch (inlink->type) {
+diff --git a/libavfilter/f_sendcmd.c b/libavfilter/f_sendcmd.c
+index d5d72e6410c6c..9201fb5381494 100644
+--- a/libavfilter/f_sendcmd.c
++++ b/libavfilter/f_sendcmd.c
+@@ -44,6 +44,9 @@
+ static const char *const var_names[] = {
+     "N",     /* frame number */
+     "T",     /* frame time in seconds */
++#if FF_API_FRAME_PKT
++    "POS",   /* original position in the file of the frame */
++#endif
+     "PTS",   /* frame pts */
+     "TS",    /* interval start time in seconds */
+     "TE",    /* interval end time in seconds */
+@@ -59,6 +56,9 @@ static const char *const var_names[] = {
+ enum var_name {
+     VAR_N,
+     VAR_T,
++#if FF_API_FRAME_PKT
++    VAR_POS,
++#endif
+     VAR_PTS,
+     VAR_TS,
+     VAR_TE,
+@@ -537,6 +531,11 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *ref)
+                         double current = TS2T(ref->pts, inlink->time_base);
+
+                         var_values[VAR_N]   = inl->frame_count_in;
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++                        var_values[VAR_POS] = ref->pkt_pos == -1 ? NAN : ref->pkt_pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+                         var_values[VAR_PTS] = TS2D(ref->pts);
+                         var_values[VAR_T]   = current;
+                         var_values[VAR_TS]  = start;
+diff --git a/libavfilter/setpts.c b/libavfilter/setpts.c
+index 397be5c8175fc..0565533ed2154 100644
+--- a/libavfilter/setpts.c
++++ b/libavfilter/setpts.c
+@@ -44,6 +44,9 @@ static const char *const var_names[] = {
+     "N",           ///< frame / sample number (starting at zero)
+     "NB_CONSUMED_SAMPLES", ///< number of samples consumed by the filter (only audio)
+     "NB_SAMPLES",  ///< number of samples in the current frame (only audio)
++#if FF_API_FRAME_PKT
++    "POS",         ///< original position in the file of the frame
++#endif
+     "PREV_INPTS",  ///< previous  input PTS
+     "PREV_INT",    ///< previous  input time in seconds
+     "PREV_OUTPTS", ///< previous output PTS
+@@ -72,6 +69,9 @@ enum var_name {
+     VAR_N,
+     VAR_NB_CONSUMED_SAMPLES,
+     VAR_NB_SAMPLES,
++#if FF_API_FRAME_PKT
++    VAR_POS,
++#endif
+     VAR_PREV_INPTS,
+     VAR_PREV_INT,
+     VAR_PREV_OUTPTS,
+@@ -182,6 +176,11 @@ static double eval_pts(SetPTSContext *setpts, AVFilterLink *inlink, AVFrame *fra
+     }
+     V(PTS       ) = TS2D(pts);
+     V(T         ) = TS2T(pts, inlink->time_base);
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++    V(POS       ) = !frame || frame->pkt_pos == -1 ? NAN : frame->pkt_pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+     V(RTCTIME   ) = av_gettime();
+
+     if (frame) {
+diff --git a/libavfilter/vf_crop.c b/libavfilter/vf_crop.c
+index fd0750c755879..fb3f30a758f1b 100644
+--- a/libavfilter/vf_crop.c
++++ b/libavfilter/vf_crop.c
+@@ -50,6 +50,9 @@ static const char *const var_names[] = {
+     "x",
+     "y",
+     "n",            ///< number of frame
++#if FF_API_FRAME_PKT
++    "pos",          ///< position in the file
++#endif
+     "t",            ///< timestamp expressed in seconds
+     NULL
+ };
+@@ -70,6 +67,9 @@ enum var_name {
+     VAR_X,
+     VAR_Y,
+     VAR_N,
++#if FF_API_FRAME_PKT
++    VAR_POS,
++#endif
+     VAR_T,
+     VAR_VARS_NB
+ };
+@@ -152,6 +146,9 @@ static int config_input(AVFilterLink *link)
+     s->var_values[VAR_OUT_H] = s->var_values[VAR_OH] = NAN;
+     s->var_values[VAR_N]     = 0;
+     s->var_values[VAR_T]     = NAN;
++#if FF_API_FRAME_PKT
++    s->var_values[VAR_POS]   = NAN;
++#endif
+
+     av_image_fill_max_pixsteps(s->max_step, NULL, pix_desc);
+
+@@ -267,6 +258,12 @@ static int filter_frame(AVFilterLink *link, AVFrame *frame)
+     s->var_values[VAR_N] = l->frame_count_out;
+     s->var_values[VAR_T] = frame->pts == AV_NOPTS_VALUE ?
+         NAN : frame->pts * av_q2d(link->time_base);
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++    s->var_values[VAR_POS] = frame->pkt_pos == -1 ?
++        NAN : frame->pkt_pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+     s->var_values[VAR_X] = av_expr_eval(s->x_pexpr, s->var_values, NULL);
+     s->var_values[VAR_Y] = av_expr_eval(s->y_pexpr, s->var_values, NULL);
+     /* It is necessary if x is expressed from y  */
+diff --git a/libavfilter/vf_drawtext.c b/libavfilter/vf_drawtext.c
+index 9f5d8d99983eb..029076bf9700d 100644
+--- a/libavfilter/vf_drawtext.c
++++ b/libavfilter/vf_drawtext.c
+@@ -102,6 +102,12 @@ static const char *const var_names[] = {
+     "x",
+     "y",
+     "pict_type",
++#if FF_API_FRAME_PKT
++    "pkt_pos",
++#endif
++#if FF_API_FRAME_PKT
++    "pkt_size",
++#endif
+     "duration",
+     NULL
+ };
+@@ -150,6 +144,12 @@ enum var_name {
+     VAR_X,
+     VAR_Y,
+     VAR_PICT_TYPE,
++#if FF_API_FRAME_PKT
++    VAR_PKT_POS,
++#endif
++#if FF_API_FRAME_PKT
++    VAR_PKT_SIZE,
++#endif
+     VAR_DURATION,
+     VAR_VARS_NB
+ };
+@@ -1882,6 +1870,12 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *frame)
+         NAN : frame->pts * av_q2d(inlink->time_base);
+
+     s->var_values[VAR_PICT_TYPE] = frame->pict_type;
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++    s->var_values[VAR_PKT_POS] = frame->pkt_pos;
++    s->var_values[VAR_PKT_SIZE] = frame->pkt_size;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+     s->var_values[VAR_DURATION] = frame->duration * av_q2d(inlink->time_base);
+
+     s->metadata = frame->metadata;
+diff --git a/libavfilter/vf_eq.c b/libavfilter/vf_eq.c
+index 2d6822348f8a0..c9922c41b1253 100644
+--- a/libavfilter/vf_eq.c
++++ b/libavfilter/vf_eq.c
+@@ -238,6 +238,14 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
+     desc = av_pix_fmt_desc_get(inlink->format);
+
+     eq->var_values[VAR_N]   = inl->frame_count_out;
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++    {
++        int64_t pos = in->pkt_pos;
++        eq->var_values[VAR_POS] = pos == -1 ? NAN : pos;
++    }
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+     eq->var_values[VAR_T]   = TS2T(in->pts, inlink->time_base);
+
+     if (eq->eval_mode == EVAL_MODE_FRAME) {
+diff --git a/libavfilter/vf_eq.h b/libavfilter/vf_eq.h
+index 50850ea42c315..cbca3bc27c71d 100644
+--- a/libavfilter/vf_eq.h
++++ b/libavfilter/vf_eq.h
+@@ -30,6 +30,9 @@
+
+ static const char *const var_names[] = {
+     "n",   // frame count
++#if FF_API_FRAME_PKT
++    "pos", // frame position
++#endif
+     "r",   // frame rate
+     "t",   // timestamp expressed in seconds
+     NULL
+@@ -40,6 +37,9 @@ static const char *const var_names[] = {
+
+ enum var_name {
+     VAR_N,
++#if FF_API_FRAME_PKT
++    VAR_POS,
++#endif
+     VAR_R,
+     VAR_T,
+     VAR_NB
+diff --git a/libavfilter/vf_overlay.c b/libavfilter/vf_overlay.c
+index 528b845c6c9f7..8560ed7c173d9 100644
+--- a/libavfilter/vf_overlay.c
++++ b/libavfilter/vf_overlay.c
+@@ -55,6 +55,9 @@ static const char *const var_names[] = {
+     "x",
+     "y",
+     "n",            ///< number of frame
++#if FF_API_FRAME_PKT
++    "pos",          ///< position in the file
++#endif
+     "t",            ///< timestamp expressed in seconds
+     NULL
+ };
+@@ -305,6 +302,9 @@ static int config_input_overlay(AVFilterLink *inlink)
+     s->var_values[VAR_Y]     = NAN;
+     s->var_values[VAR_N]     = 0;
+     s->var_values[VAR_T]     = NAN;
++#if FF_API_FRAME_PKT
++    s->var_values[VAR_POS]   = NAN;
++#endif
+
+     if ((ret = set_expr(&s->x_pexpr,      s->x_expr,      "x",      ctx)) < 0 ||
+         (ret = set_expr(&s->y_pexpr,      s->y_expr,      "y",      ctx)) < 0)
+@@ -897,6 +891,14 @@ static int do_blend(FFFrameSync *fs)
+         s->var_values[VAR_N] = inl->frame_count_out;
+         s->var_values[VAR_T] = mainpic->pts == AV_NOPTS_VALUE ?
+             NAN : mainpic->pts * av_q2d(inlink->time_base);
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++        {
++            int64_t pos = mainpic->pkt_pos;
++            s->var_values[VAR_POS] = pos == -1 ? NAN : pos;
++        }
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+
+         s->var_values[VAR_OVERLAY_W] = s->var_values[VAR_OW] = second->width;
+         s->var_values[VAR_OVERLAY_H] = s->var_values[VAR_OH] = second->height;
+diff --git a/libavfilter/vf_overlay.h b/libavfilter/vf_overlay.h
+index 59749648c328d..3ad378ce42877 100644
+--- a/libavfilter/vf_overlay.h
++++ b/libavfilter/vf_overlay.h
+@@ -34,6 +34,9 @@ enum var_name {
+     VAR_X,
+     VAR_Y,
+     VAR_N,
++#if FF_API_FRAME_PKT
++    VAR_POS,
++#endif
+     VAR_T,
+     VAR_VARS_NB
+ };
+diff --git a/libavfilter/vf_overlay_cuda.c b/libavfilter/vf_overlay_cuda.c
+index 8680fc0c4ae50..4708b34d3057f 100644
+--- a/libavfilter/vf_overlay_cuda.c
++++ b/libavfilter/vf_overlay_cuda.c
+@@ -67,6 +67,9 @@ enum var_name {
+     VAR_X,
+     VAR_Y,
+     VAR_N,
++#if FF_API_FRAME_PKT
++    VAR_POS,
++#endif
+     VAR_T,
+     VAR_VARS_NB
+ };
+@@ -88,6 +85,9 @@ static const char *const var_names[] = {
+     "x",
+     "y",
+     "n",            ///< number of frame
++#if FF_API_FRAME_PKT
++    "pos",          ///< position in the file
++#endif
+     "t",            ///< timestamp expressed in seconds
+     NULL
+ };
+@@ -274,6 +268,15 @@ static int overlay_cuda_blend(FFFrameSync *fs)
+         ctx->var_values[VAR_T] = input_main->pts == AV_NOPTS_VALUE ?
+             NAN : input_main->pts * av_q2d(inlink->time_base);
+
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++        {
++            int64_t pos = input_main->pkt_pos;
++            ctx->var_values[VAR_POS] = pos == -1 ? NAN : pos;
++        }
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
++
+         ctx->var_values[VAR_OVERLAY_W] = ctx->var_values[VAR_OW] = input_overlay->width;
+         ctx->var_values[VAR_OVERLAY_H] = ctx->var_values[VAR_OH] = input_overlay->height;
+         ctx->var_values[VAR_MAIN_W   ] = ctx->var_values[VAR_MW] = input_main->width;
+@@ -365,6 +350,9 @@ static int config_input_overlay(AVFilterLink *inlink)
+     s->var_values[VAR_Y]   = NAN;
+     s->var_values[VAR_N]   = 0;
+     s->var_values[VAR_T]   = NAN;
++#if FF_API_FRAME_PKT
++    s->var_values[VAR_POS] = NAN;
++#endif
+
+     if ((ret = set_expr(&s->x_pexpr, s->x_expr, "x", ctx)) < 0 ||
+         (ret = set_expr(&s->y_pexpr, s->y_expr, "y", ctx)) < 0)
+diff --git a/libavfilter/vf_scale.c b/libavfilter/vf_scale.c
+index 293eb11a4e6eb..62aa872c77dad 100644
+--- a/libavfilter/vf_scale.c
++++ b/libavfilter/vf_scale.c
+@@ -57,6 +57,9 @@ static const char *const var_names[] = {
+     "ovsub",
+     "n",
+     "t",
++#if FF_API_FRAME_PKT
++    "pos",
++#endif
+     "ref_w", "rw",
+     "ref_h", "rh",
+     "ref_a",
+@@ -98,6 +95,9 @@ enum var_name {
+     VAR_OVSUB,
+     VAR_N,
+     VAR_T,
++#if FF_API_FRAME_PKT
++    VAR_POS,
++#endif
+     VAR_REF_W, VAR_RW,
+     VAR_REF_H, VAR_RH,
+     VAR_REF_A,
+@@ -250,6 +244,9 @@ static int check_exprs(AVFilterContext *ctx)
+     if (scale->eval_mode == EVAL_MODE_INIT &&
+         (vars_w[VAR_N]            || vars_h[VAR_N]           ||
+          vars_w[VAR_T]            || vars_h[VAR_T]           ||
++#if FF_API_FRAME_PKT
++         vars_w[VAR_POS]          || vars_h[VAR_POS]         ||
++#endif
+          vars_w[VAR_S2R_MAIN_N]   || vars_h[VAR_S2R_MAIN_N]  ||
+          vars_w[VAR_S2R_MAIN_T]   || vars_h[VAR_S2R_MAIN_T]  ||
+          vars_w[VAR_S2R_MAIN_POS] || vars_h[VAR_S2R_MAIN_POS]) ) {
+@@ -774,8 +765,16 @@ static int scale_frame(AVFilterLink *link, AVFrame **frame_in,
+         if (scale->eval_mode == EVAL_MODE_FRAME &&
+             !frame_changed &&
+             !IS_SCALE2REF(ctx) &&
++            !(vars_w[VAR_N] || vars_w[VAR_T]
++#if FF_API_FRAME_PKT
++              || vars_w[VAR_POS]
++#endif
++              ) &&
++            !(vars_h[VAR_N] || vars_h[VAR_T]
++#if FF_API_FRAME_PKT
++              || vars_h[VAR_POS]
++#endif
++              ) &&
+-            !(vars_w[VAR_N] || vars_w[VAR_T]) &&
+-            !(vars_h[VAR_N] || vars_h[VAR_T]) &&
+             scale->w && scale->h)
+             goto scale;
+
+@@ -805,9 +788,19 @@ static int scale_frame(AVFilterLink *link, AVFrame **frame_in,
+         if (IS_SCALE2REF(ctx)) {
+             scale->var_values[VAR_S2R_MAIN_N] = inl->frame_count_out;
+             scale->var_values[VAR_S2R_MAIN_T] = TS2T(in->pts, link->time_base);
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++            scale->var_values[VAR_S2R_MAIN_POS] = in->pkt_pos == -1 ? NAN : in->pkt_pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+         } else {
+             scale->var_values[VAR_N] = inl->frame_count_out;
+             scale->var_values[VAR_T] = TS2T(in->pts, link->time_base);
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++            scale->var_values[VAR_POS] = in->pkt_pos == -1 ? NAN : in->pkt_pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+         }
+
+         link->dst->inputs[0]->format        = in->format;
+@@ -959,6 +932,11 @@ static int do_scale(FFFrameSync *fs)
+         if (scale->eval_mode == EVAL_MODE_FRAME) {
+             scale->var_values[VAR_REF_N] = rl->frame_count_out;
+             scale->var_values[VAR_REF_T] = TS2T(ref->pts, reflink->time_base);
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++            scale->var_values[VAR_REF_POS] = ref->pkt_pos == -1 ? NAN : ref->pkt_pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+         }
+     }
+
+@@ -1024,6 +992,11 @@ static int filter_frame_ref(AVFilterLink *link, AVFrame *in)
+     if (scale->eval_mode == EVAL_MODE_FRAME) {
+         scale->var_values[VAR_N] = l->frame_count_out;
+         scale->var_values[VAR_T] = TS2T(in->pts, link->time_base);
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++        scale->var_values[VAR_POS] = in->pkt_pos == -1 ? NAN : in->pkt_pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+     }
+
+     return ff_filter_frame(outlink, in);
+diff --git a/libavfilter/vf_scale_npp.c b/libavfilter/vf_scale_npp.c
+index 618788bc364ba..1b1b7b9fc9146 100644
+--- a/libavfilter/vf_scale_npp.c
++++ b/libavfilter/vf_scale_npp.c
+@@ -85,6 +85,9 @@ static const char *const var_names[] = {
+     "dar",
+     "n",
+     "t",
++#if FF_API_FRAME_PKT
++    "pos",
++#endif
+     "main_w",
+     "main_h",
+     "main_a",
+@@ -95,6 +92,9 @@ static const char *const var_names[] = {
+     "main_dar", "mdar",
+     "main_n",
+     "main_t",
++#if FF_API_FRAME_PKT
++    "main_pos",
++#endif
+     NULL
+ };
+
+@@ -111,6 +105,9 @@ enum var_name {
+     VAR_DAR,
+     VAR_N,
+     VAR_T,
++#if FF_API_FRAME_PKT
++    VAR_POS,
++#endif
+     VAR_S2R_MAIN_W,
+     VAR_S2R_MAIN_H,
+     VAR_S2R_MAIN_A,
+@@ -121,6 +112,9 @@ enum var_name {
+     VAR_S2R_MAIN_DAR, VAR_S2R_MDAR,
+     VAR_S2R_MAIN_N,
+     VAR_S2R_MAIN_T,
++#if FF_API_FRAME_PKT
++    VAR_S2R_MAIN_POS,
++#endif
+     VARS_NB
+ };
+
+@@ -215,7 +203,11 @@ static int check_exprs(AVFilterContext* ctx)
+          vars_w[VAR_S2R_MAIN_DAR] || vars_h[VAR_S2R_MAIN_DAR] ||
+          vars_w[VAR_S2R_MDAR]     || vars_h[VAR_S2R_MDAR]     ||
+          vars_w[VAR_S2R_MAIN_N]   || vars_h[VAR_S2R_MAIN_N]   ||
++         vars_w[VAR_S2R_MAIN_T]   || vars_h[VAR_S2R_MAIN_T]
++#if FF_API_FRAME_PKT
++         || vars_w[VAR_S2R_MAIN_POS] || vars_h[VAR_S2R_MAIN_POS]
++#endif
++         )) {
+-         vars_w[VAR_S2R_MAIN_T]   || vars_h[VAR_S2R_MAIN_T])) {
+         av_log(ctx, AV_LOG_ERROR, "Expressions with scale2ref_npp variables are not valid in scale_npp filter.\n");
+         return AVERROR(EINVAL);
+     }
+@@ -227,8 +211,15 @@ static int check_exprs(AVFilterContext* ctx)
+     if (scale->eval_mode == EVAL_MODE_INIT &&
+         (vars_w[VAR_N]            || vars_h[VAR_N]           ||
+          vars_w[VAR_T]            || vars_h[VAR_T]           ||
++#if FF_API_FRAME_PKT
++         vars_w[VAR_POS]          || vars_h[VAR_POS]         ||
++#endif
+          vars_w[VAR_S2R_MAIN_N]   || vars_h[VAR_S2R_MAIN_N]  ||
++         vars_w[VAR_S2R_MAIN_T]   || vars_h[VAR_S2R_MAIN_T]
++#if FF_API_FRAME_PKT
++         || vars_w[VAR_S2R_MAIN_POS] || vars_h[VAR_S2R_MAIN_POS]
++#endif
++         ) ) {
+-         vars_w[VAR_S2R_MAIN_T]   || vars_h[VAR_S2R_MAIN_T])) {
+         av_log(ctx, AV_LOG_ERROR, "Expressions with frame variables 'n', 't', are not valid in init eval_mode.\n");
+         return AVERROR(EINVAL);
+     }
+@@ -821,8 +798,16 @@ static int nppscale_scale(AVFilterLink *link, AVFrame *out, AVFrame *in)
+         av_expr_count_vars(s->h_pexpr, vars_h, VARS_NB);
+
+         if (s->eval_mode == EVAL_MODE_FRAME && !frame_changed && !IS_SCALE2REF(ctx) &&
++            !(vars_w[VAR_N] || vars_w[VAR_T]
++#if FF_API_FRAME_PKT
++              || vars_w[VAR_POS]
++#endif
++              ) &&
++            !(vars_h[VAR_N] || vars_h[VAR_T]
++#if FF_API_FRAME_PKT
++              || vars_h[VAR_POS]
++#endif
++              ) && s->w && s->h)
+-            !(vars_w[VAR_N] || vars_w[VAR_T]) &&
+-            !(vars_h[VAR_N] || vars_h[VAR_T]) && s->w && s->h)
+             goto scale;
+
+         if (s->eval_mode == EVAL_MODE_INIT) {
+@@ -851,9 +820,19 @@ static int nppscale_scale(AVFilterLink *link, AVFrame *out, AVFrame *in)
+         if (IS_SCALE2REF(ctx)) {
+             s->var_values[VAR_S2R_MAIN_N] = inl->frame_count_out;
+             s->var_values[VAR_S2R_MAIN_T] = TS2T(in->pts, link->time_base);
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++            s->var_values[VAR_S2R_MAIN_POS] = in->pkt_pos == -1 ? NAN : in->pkt_pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+         } else {
+             s->var_values[VAR_N] = inl->frame_count_out;
+             s->var_values[VAR_T] = TS2T(in->pts, link->time_base);
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++            s->var_values[VAR_POS] = in->pkt_pos == -1 ? NAN : in->pkt_pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+         }
+
+         link->format = in->format;
+@@ -985,6 +944,11 @@ static int nppscale_filter_frame_ref(AVFilterLink *link, AVFrame *in)
+     if (scale->eval_mode == EVAL_MODE_FRAME) {
+         scale->var_values[VAR_N] = inl->frame_count_out;
+         scale->var_values[VAR_T] = TS2T(in->pts, link->time_base);
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++        scale->var_values[VAR_POS] = in->pkt_pos == -1 ? NAN : in->pkt_pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+     }
+
+     return ff_filter_frame(outlink, in);
+diff --git a/libavfilter/vf_swaprect.c b/libavfilter/vf_swaprect.c
+index 83afe49ec1656..5d93f51c30f5e 100644
+--- a/libavfilter/vf_swaprect.c
++++ b/libavfilter/vf_swaprect.c
+@@ -68,8 +68,16 @@ static int query_formats(const AVFilterContext *ctx,
+                                   ff_formats_pixdesc_filter(0, reject_flags));
+ }
+
++static const char *const var_names[] = {   "w",   "h",   "a",   "n",   "t",
++#if FF_API_FRAME_PKT
++                                                                           "pos",
++#endif
++                                                                                      "sar",   "dar",        NULL };
++enum                                   { VAR_W, VAR_H, VAR_A, VAR_N, VAR_T,
++#if FF_API_FRAME_PKT
++                                                                           VAR_POS,
++#endif
++                                                                                    VAR_SAR, VAR_DAR, VAR_VARS_NB };
+-static const char *const var_names[] = {   "w",   "h",   "a",   "n",   "t",   "sar",   "dar",        NULL };
+-enum                                   { VAR_W, VAR_H, VAR_A, VAR_N, VAR_T, VAR_SAR, VAR_DAR, VAR_VARS_NB };
+
+ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
+ {
+@@ -103,6 +95,11 @@ static int filter_frame(AVFilterLink *inlink, AVFrame *in)
+     var_values[VAR_DAR] = var_values[VAR_A] * var_values[VAR_SAR];
+     var_values[VAR_N]   = inl->frame_count_out;
+     var_values[VAR_T]   = in->pts == AV_NOPTS_VALUE ? NAN : in->pts * av_q2d(inlink->time_base);
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++    var_values[VAR_POS] = in->pkt_pos == -1 ? NAN : in->pkt_pos;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+
+     ret = av_expr_parse_and_eval(&dw, s->w,
+                                  var_names, &var_values[0],
+diff --git a/libavutil/frame.c b/libavutil/frame.c
+index 71bde48f8bc05..ef1c88bf5065b 100644
+--- a/libavutil/frame.c
++++ b/libavutil/frame.c
+@@ -37,6 +37,12 @@ static void get_frame_defaults(AVFrame *frame)
+     frame->pkt_dts               = AV_NOPTS_VALUE;
+     frame->best_effort_timestamp = AV_NOPTS_VALUE;
+     frame->duration            = 0;
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++    frame->pkt_pos             = -1;
++    frame->pkt_size            = -1;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+     frame->time_base           = (AVRational){ 0, 1 };
+     frame->sample_aspect_ratio = (AVRational){ 0, 1 };
+     frame->format              = -1; /* unknown */
+@@ -255,6 +249,12 @@ FF_ENABLE_DEPRECATION_WARNINGS
+     dst->sample_rate            = src->sample_rate;
+     dst->opaque                 = src->opaque;
+     dst->pkt_dts                = src->pkt_dts;
++#if FF_API_FRAME_PKT
++FF_DISABLE_DEPRECATION_WARNINGS
++    dst->pkt_pos                = src->pkt_pos;
++    dst->pkt_size               = src->pkt_size;
++FF_ENABLE_DEPRECATION_WARNINGS
++#endif
+     dst->time_base              = src->time_base;
+     dst->quality                = src->quality;
+     dst->best_effort_timestamp  = src->best_effort_timestamp;
+diff --git a/libavutil/frame.h b/libavutil/frame.h
+index 49260ae2dd521..5f89acbe2ff71 100644
+--- a/libavutil/frame.h
++++ b/libavutil/frame.h
+@@ -716,6 +716,18 @@ typedef struct AVFrame {
+      */
+     int64_t best_effort_timestamp;
+
++#if FF_API_FRAME_PKT
++    /**
++     * reordered pos from the last AVPacket that has been input into the decoder
++     * - encoding: unused
++     * - decoding: Read by user.
++     * @deprecated use AV_CODEC_FLAG_COPY_OPAQUE to pass through arbitrary user
++     *             data from packets to frames
++     */
++    attribute_deprecated
++    int64_t pkt_pos;
++#endif
++
+     /**
+      * metadata.
+      * - encoding: Set by user.
+@@ -748,6 +736,20 @@ typedef struct AVFrame {
+ #define FF_DECODE_ERROR_CONCEALMENT_ACTIVE  4
+ #define FF_DECODE_ERROR_DECODE_SLICES       8
+
++#if FF_API_FRAME_PKT
++    /**
++     * size of the corresponding packet containing the compressed
++     * frame.
++     * It is set to a negative value if unknown.
++     * - encoding: unused
++     * - decoding: set by libavcodec, read by user.
++     * @deprecated use AV_CODEC_FLAG_COPY_OPAQUE to pass through arbitrary user
++     *             data from packets to frames
++     */
++    attribute_deprecated
++    int pkt_size;
++#endif
++
+     /**
+      * For hwaccel-format frames, this should be a reference to the
+      * AVHWFramesContext describing the frame.
+diff --git a/libavutil/version.h b/libavutil/version.h
+index f203fa38eeb8d..fd53ed2d263ea 100644
+--- a/libavutil/version.h
++++ b/libavutil/version.h
+@@ -105,6 +105,7 @@
+  * @{
+  */
+
++#define FF_API_FRAME_PKT                (LIBAVUTIL_VERSION_MAJOR < 61)
+ #define FF_API_MOD_UINTP2               (LIBAVUTIL_VERSION_MAJOR < 61)
+ #define FF_API_RISCV_FD_ZBA             (LIBAVUTIL_VERSION_MAJOR < 61)
+ #define FF_API_VULKAN_FIXED_QUEUES      (LIBAVUTIL_VERSION_MAJOR < 61)

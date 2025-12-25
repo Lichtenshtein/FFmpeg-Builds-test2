@@ -1,0 +1,76 @@
+From 1ff7aa801c1a52d51fba6df2709f3ed035217797 Mon Sep 17 00:00:00 2001
+From: Unknown <altruumann@protonmail.com>
+Date: Fri, 5 Dec 2025 02:14:39 +0300
+Subject: [PATCH] Add force cfr flag
+
+---
+
+diff --git a/fftools/ffmpeg.h b/fftools/ffmpeg.h
+index 25604e05a5..fedd4d4308 100644
+--- a/fftools/ffmpeg.h
++++ b/fftools/ffmpeg.h
+@@ -258,6 +258,9 @@ typedef struct OptionsContext {
+     SpecifierOptList enc_stats_pre_fmt;
+     SpecifierOptList enc_stats_post_fmt;
+     SpecifierOptList mux_stats_fmt;
++    SpecifierOpt *force_cfr;
++    int         nb_force_cfr;
++
+ } OptionsContext;
+
+ enum IFilterFlags {
+@@ -707,6 +710,7 @@ typedef struct OutputFile {
+
+     int64_t recording_time;  ///< desired length of the resulting file in microseconds == AV_TIME_BASE units
+     int64_t start_time;      ///< start time in microseconds == AV_TIME_BASE units
++    double force_cfr;
+
+     int bitexact;
+ } OutputFile;
+diff --git a/fftools/ffmpeg_demux.c b/fftools/ffmpeg_demux.c
+index 350f233ab7..2c1e1a1d3e 100644
+--- a/fftools/ffmpeg_demux.c
++++ b/fftools/ffmpeg_demux.c
+@@ -2059,6 +2059,9 @@ int ifile_open(const OptionsContext *o, const char *filename, Scheduler *sch)
+     f->input_ts_offset = o->input_ts_offset;
+     f->ts_offset  = o->input_ts_offset - (copy_ts ? (start_at_zero && ic->start_time != AV_NOPTS_VALUE ? ic->start_time : 0) : timestamp);
+     d->accurate_seek   = o->accurate_seek;
++    if (o->force_cfr) {
++        f->force_cfr = o->force_cfr[o->nb_force_cfr-1].u.dbl;
++    }
+     d->loop = o->loop;
+     d->nb_streams_warn = ic->nb_streams;
+
+diff --git a/fftools/ffmpeg_filter.c b/fftools/ffmpeg_filter.c
+index c738fc3397..b4527aba09 100644
+--- a/fftools/ffmpeg_filter.c
++++ b/fftools/ffmpeg_filter.c
+@@ -1950,6 +1950,14 @@ static int configure_input_video_filter(FilterGraph *fg, AVFilterGraph *graph,
+         ifp->displaymatrix_applied = 1;
+     }
+
++    if (f->force_cfr > 0) {
++        char fps_buf[20];
++        snprintf(fps_buf,sizeof(fps_buf),"%0.4f",f->force_cfr);
++        ret = insert_filter(&last_filter, &pad_idx, "fps", fps_buf);
++        if (ret < 0)
++            goto fail;
++    }
++
+     snprintf(name, sizeof(name), "trim_in_%s", ifp->opts.name);
+     ret = insert_trim(fg, ifp->opts.trim_start_us, ifp->opts.trim_end_us,
+                       &last_filter, &pad_idx, name);
+diff --git a/fftools/ffmpeg_opt.c b/fftools/ffmpeg_opt.c
+index 304471dd03..0a8f461493 100644
+--- a/fftools/ffmpeg_opt.c
++++ b/fftools/ffmpeg_opt.c
+@@ -2163,6 +2163,9 @@ const OptionDef options[] = {
+     { "filter_hw_device", OPT_TYPE_FUNC, OPT_FUNC_ARG | OPT_EXPERT,
+         { .func_arg = opt_filter_hw_device },
+         "set hardware device used when filtering", "device" },
++    { "force_cfr",            OPT_VIDEO | HAS_ARG  | OPT_DOUBLE | OPT_SPEC |
++                      OPT_INPUT,                                    { .off = OFFSET(force_cfr) },
++      "set frame rate (Hz value, fraction or abbreviation)", "rate" },
+
+     // deprecated options
+ #if FFMPEG_OPT_ADRIFT_THRESHOLD

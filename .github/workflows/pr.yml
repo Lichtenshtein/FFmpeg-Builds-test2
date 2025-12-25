@@ -1,11 +1,12 @@
 name: Test Full Build
 on:
-  pull_request:
-    branches:
-      - master
-    paths-ignore:
-      - '**.md'
-      - 'LICENSE'
+#  pull_request:
+#    branches:
+#      - master
+#    paths-ignore:
+#      - '**.md'
+#      - 'LICENSE'
+  workflow_dispatch:
 
 env:
   DOCKER_BUILDKIT: 1
@@ -17,19 +18,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target: [win64,winarm64,linux64,linuxarm64,win32]
-        variant: [nonfree,nonfree-shared]
+        target: [win64]
+        variant: [nonfree]
+#        target: [win64,winarm64,linux64,linuxarm64,win32]
+#        variant: [nonfree,nonfree-shared]
         quickbuild: [1]
         include:
           - target: win64
             variant: gpl
             quickbuild: ''
-          - target: linux64
-            variant: gpl
-            quickbuild: ''
-          - target: linuxarm64
-            variant: gpl
-            quickbuild: ''
+#          - target: linux64
+#            variant: gpl
+#            quickbuild: ''
+#          - target: linuxarm64
+#            variant: gpl
+#            quickbuild: ''
     steps:
       - name: Free Disk-Space
         run: df -h && sudo apt-get clean && docker system prune -a -f && sudo rm -rf /opt/ghc /usr/local/.ghcup /usr/local/lib/android && df -h
