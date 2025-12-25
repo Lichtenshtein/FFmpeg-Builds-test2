@@ -1,6 +1,9 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/Konstanty/libmodplug"
+#SCRIPT_REPO="https://github.com/Konstanty/libmodplug"
+
+SCRIPT_REPO="https://github.com/mywave82/libmodplug.git"
+SCRIPT_COMMIT="dadf7058372c04ab28ee1fb5475d05e5e191e72e"
 
 ffbuild_enabled() {
     return 0

@@ -1,0 +1,25 @@
+From 6456ce9b09e5045ecae0c99d2a635be44e154744 Mon Sep 17 00:00:00 2001
+From: Richard Barnes <rbarnes@umn.edu>
+Date: Tue, 30 Jul 2024 12:01:19 -0700
+Subject: [PATCH] Mark fallthroughs as explicit in charset.c
+
+Allows code to compile with LLVM's `-Wimplicit-fallthrough`.
+---
+ caca/charset.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/caca/charset.c b/caca/charset.c
+index 617b2b68..3e6e067f 100644
+--- a/caca/charset.c
++++ b/caca/charset.c
+@@ -169,8 +169,8 @@ size_t caca_utf32_to_utf8(char *buf, uint32_t ch)
+
+     switch(bytes)
+     {
+-        case 4: *--parser = (ch | 0x80) & 0xbf; ch >>= 6;
+-        case 3: *--parser = (ch | 0x80) & 0xbf; ch >>= 6;
++        case 4: *--parser = (ch | 0x80) & 0xbf; ch >>= 6; __attribute__((fallthrough));
++        case 3: *--parser = (ch | 0x80) & 0xbf; ch >>= 6; __attribute__((fallthrough));
+         case 2: *--parser = (ch | 0x80) & 0xbf; ch >>= 6;
+     }
+     *--parser = ch | mark[bytes];

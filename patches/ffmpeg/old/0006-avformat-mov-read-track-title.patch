@@ -1,0 +1,18 @@
+From 17babeab7ee4cf290e7c9f9276500414fbedcb29 Mon Sep 17 00:00:00 2001
+From: Unknown <wbsecg1@gmail.com>
+Date: Thu, 16 Jan 2025 14:22:47 +0800
+Subject: [PATCH] avformat mov read track title
+
+---
+diff --git a/libavformat/mov.c b/libavformat/mov.c
+index 0f7b910a79..2f2d0e254a 100644
+--- a/libavformat/mov.c
++++ b/libavformat/mov.c
+@@ -392,6 +392,7 @@ static int mov_read_udta_string(MOVContext *c, AVIOContext *pb, MOVAtom atom)
+         return mov_metadata_loci(c, pb, atom.size);
+     case MKTAG( 'm','a','n','u'): key = "make"; break;
+     case MKTAG( 'm','o','d','l'): key = "model"; break;
++	case MKTAG( 'n','a','m','e'): key = "title"; raw = 1; break;
+     case MKTAG( 'n','a','m','e'): key = "name"; break;
+     case MKTAG( 'p','c','s','t'): key = "podcast";
+         parse = mov_metadata_int8_no_padding; break;

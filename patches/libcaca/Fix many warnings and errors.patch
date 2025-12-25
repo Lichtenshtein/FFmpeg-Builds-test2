@@ -1,0 +1,260 @@
+From 9de9d0e79d5a9dc01563f80f585b376832486c5d Mon Sep 17 00:00:00 2001
+From: Serhii Ivanov <icegood1980@gmail.com>
+Date: Sat, 10 Aug 2024 09:47:09 +0300
+Subject: [PATCH] Fix many warnings and errors
+
+---
+ caca/caca.c           |  2 +-
+ caca/caca_internals.h |  2 +-
+ caca/codec/import.c   | 18 ++++++++----------
+ caca/dither.c         |  8 +++-----
+ caca/figfont.c        |  3 +--
+ caca/string.c         |  6 +-----
+ configure.ac          |  7 ++++++-
+ examples/conio.c      |  2 +-
+ examples/swallow.c    |  2 +-
+ src/cacaserver.c      |  4 ++--
+ src/common-image.c    |  1 +
+ 11 files changed, 26 insertions(+), 29 deletions(-)
+
+diff --git a/caca/caca.c b/caca/caca.c
+index 327a8f9f..f7699379 100644
+--- a/caca/caca.c
++++ b/caca/caca.c
+@@ -284,7 +284,7 @@ char const * caca_get_version(void)
+  * XXX: The following functions are private.
+  */
+
+-extern void *_caca_alloc2d(size_t width, size_t height, size_t elem_size)
++void* _caca_alloc2d(size_t width, size_t height, size_t elem_size)
+ {
+     if (width == 0 || height == 0 || elem_size == 0 || SIZE_MAX / width / height < elem_size)
+         return NULL;
+diff --git a/caca/caca_internals.h b/caca/caca_internals.h
+index 7b74b9e9..0bd7f6c8 100644
+--- a/caca/caca_internals.h
++++ b/caca/caca_internals.h
+@@ -268,7 +268,7 @@ extern int _caca_pop_event(caca_display_t *, caca_privevent_t *);
+ extern void _caca_set_term_title(char const *);
+
+ /* Internal memory function */
+-extern void *_caca_alloc2d(size_t width, size_t height, size_t elem_size);
++__extern void *_caca_alloc2d(size_t width, size_t height, size_t elem_size);
+
+ /* Profiling functions */
+ #if defined PROF
+diff --git a/caca/codec/import.c b/caca/codec/import.c
+index d7605461..64017278 100644
+--- a/caca/codec/import.c
++++ b/caca/codec/import.c
+@@ -299,7 +299,6 @@ static ssize_t import_caca(caca_canvas_t *cv, void const *data, size_t size)
+     uint8_t const *buf = (uint8_t const *)data;
+     size_t control_size, data_size, expected_size;
+     unsigned int frames, f, n, offset;
+-    uint16_t version, flags;
+     int32_t xmin = 0, ymin = 0, xmax = 0, ymax = 0;
+
+     if(size < 20)
+@@ -313,9 +312,9 @@ static ssize_t import_caca(caca_canvas_t *cv, void const *data, size_t size)
+
+     control_size = sscanu32(buf + 4);
+     data_size = sscanu32(buf + 8);
+-    version = sscanu16(buf + 12);
++    (void)sscanu16(buf + 12);
+     frames = sscanu32(buf + 14);
+-    flags = sscanu16(buf + 18);
++    (void) sscanu16(buf + 18);
+
+     if(size < 4 + control_size + data_size)
+         return 0;
+@@ -329,16 +328,15 @@ static ssize_t import_caca(caca_canvas_t *cv, void const *data, size_t size)
+
+     for(expected_size = 0, f = 0; f < frames; f++)
+     {
+-        unsigned int width, height, duration;
+-        uint32_t attr;
+-        int x, y, handlex, handley;
++        unsigned int width, height;
++        int handlex, handley;
+
+         width = sscanu32(buf + 4 + 16 + f * 32);
+         height = sscanu32(buf + 4 + 16 + f * 32 + 4);
+-        duration = sscanu32(buf + 4 + 16 + f * 32 + 8);
+-        attr = sscanu32(buf + 4 + 16 + f * 32 + 12);
+-        x = (int32_t)sscanu32(buf + 4 + 16 + f * 32 + 16);
+-        y = (int32_t)sscanu32(buf + 4 + 16 + f * 32 + 20);
++        (void)sscanu32(buf + 4 + 16 + f * 32 + 8);
++        (void)sscanu32(buf + 4 + 16 + f * 32 + 12);
++        (void)sscanu32(buf + 4 + 16 + f * 32 + 16);
++        (void)sscanu32(buf + 4 + 16 + f * 32 + 20);
+         handlex = (int32_t)sscanu32(buf + 4 + 16 + f * 32 + 24);
+         handley = (int32_t)sscanu32(buf + 4 + 16 + f * 32 + 28);
+         expected_size += width * height * 8;
+diff --git a/caca/dither.c b/caca/dither.c
+index b2e24e55..4871408e 100644
+--- a/caca/dither.c
++++ b/caca/dither.c
+@@ -209,9 +209,8 @@ static inline void rgb2hsv_default(int r, int g, int b,
+ {
+     int min, max, delta;
+
+-    min = r; max = r;
+-    if(min > g) min = g; if(max < g) max = g;
+-    if(min > b) min = b; if(max < b) max = b;
++    min = (r < g ? (r < b ? r : b) : (g < b ? g : b));
++    max = (r > g ? (r > b ? r : b) : (g > b ? g : b));
+
+     delta = max - min; /* 0 - 0xfff */
+     *val = max; /* 0 - 0xfff */
+@@ -943,7 +942,7 @@ int caca_dither_bitmap(caca_canvas_t *cv, int x, int y, int w, int h,
+     int *floyd_steinberg, *fs_r, *fs_g, *fs_b;
+     uint32_t savedattr;
+     int fs_length;
+-    int x1, y1, x2, y2, pitch, deltax, deltay, dchmax;
++    int x1, y1, x2, y2, deltax, deltay, dchmax;
+
+     if(!d || !pixels)
+         return 0;
+@@ -956,7 +955,6 @@ int caca_dither_bitmap(caca_canvas_t *cv, int x, int y, int w, int h,
+     /* FIXME: do not overwrite arguments */
+     w = d->w;
+     h = d->h;
+-    pitch = d->pitch;
+
+     deltax = x2 - x1 + 1;
+     deltay = y2 - y1 + 1;
+diff --git a/caca/figfont.c b/caca/figfont.c
+index c880aa75..2df7fe04 100644
+--- a/caca/figfont.c
++++ b/caca/figfont.c
+@@ -147,7 +147,7 @@ int caca_set_figfont_smush(caca_canvas_t *cv, char const *mode)
+ int caca_put_figchar(caca_canvas_t *cv, uint32_t ch)
+ {
+     caca_charfont_t *ff = cv->ff;
+-    int c, w, h, x, y, overlap, extra, xleft, xright;
++    int c, w, h, x, y, overlap, xleft, xright;
+
+     if (!ff)
+         return -1;
+@@ -190,7 +190,6 @@ int caca_put_figchar(caca_canvas_t *cv, uint32_t ch)
+     case H_SMUSH:
+     case H_KERN:
+     case H_OVERLAP:
+-        extra = (ff->hmode == H_OVERLAP);
+         overlap = w;
+         for(y = 0; y < h; y++)
+         {
+diff --git a/caca/string.c b/caca/string.c
+index b7c75b12..abd26741 100644
+--- a/caca/string.c
++++ b/caca/string.c
+@@ -459,7 +459,7 @@ int caca_get_canvas_handle_y(caca_canvas_t const *cv)
+ int caca_blit(caca_canvas_t *dst, int x, int y,
+               caca_canvas_t const *src, caca_canvas_t const *mask)
+ {
+-    int i, j, starti, startj, endi, endj, stride, bleed_left, bleed_right;
++    int i, j, starti, startj, endi, endj, stride;
+
+     if(mask && (src->width != mask->width || src->height != mask->height))
+     {
+@@ -480,8 +480,6 @@ int caca_blit(caca_canvas_t *dst, int x, int y,
+         || starti >= endi || startj >= endj)
+         return 0;
+
+-    bleed_left = bleed_right = 0;
+-
+     for(j = startj; j < endj; j++)
+     {
+         int dstix = (j + y) * dst->width + starti + x;
+@@ -491,14 +489,12 @@ int caca_blit(caca_canvas_t *dst, int x, int y,
+         if((starti + x) && dst->chars[dstix] == CACA_MAGIC_FULLWIDTH)
+         {
+             dst->chars[dstix - 1] = ' ';
+-            bleed_left = 1;
+         }
+
+         if(endi + x < dst->width
+                 && dst->chars[dstix + stride] == CACA_MAGIC_FULLWIDTH)
+         {
+             dst->chars[dstix + stride] = ' ';
+-            bleed_right = 1;
+         }
+
+         if(mask)
+diff --git a/configure.ac b/configure.ac
+index 27b8d5b4..235c5c1d 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -389,7 +389,12 @@ AC_SUBST(GL_CFLAGS)
+ AC_SUBST(GL_LIBS)
+
+ # Optimizations
+-CFLAGS="${CFLAGS} -g -O2 -fno-strength-reduce -fomit-frame-pointer"
++if test "${enable_debug}" = "yes"; then
++    CFLAGS="${CFLAGS} -g"
++else
++    CFLAGS="${CFLAGS} -O3 -fomit-frame-pointer"
++fi
++
+ # Code qui fait des warnings == code de porc == deux baffes dans ta gueule
+ CFLAGS="${CFLAGS} -Wall -Wpointer-arith -Wcast-align -Wcast-qual -Wstrict-prototypes -Wshadow -Waggregate-return -Wmissing-prototypes -Wnested-externs -Wsign-compare"
+ CXXFLAGS="${CXXFLAGS} -Wall -Wpointer-arith -Wcast-align -Wcast-qual -Wshadow -Wsign-compare"
+diff --git a/examples/conio.c b/examples/conio.c
+index 388983f3..c41f1431 100644
+--- a/examples/conio.c
++++ b/examples/conio.c
+@@ -591,7 +591,7 @@ void makeMove(int who, int x, int xsquare[Y_BOARD][X_BOARD])
+     xsquare[y-1][x] = BASE;
+ }
+
+-void sorting(int n[])
++void sorting(int n[X_BOARD])
+ {
+   int i, j, alpha;
+   int store[X_BOARD];
+diff --git a/examples/swallow.c b/examples/swallow.c
+index 01dd873a..0476d30b 100644
+--- a/examples/swallow.c
++++ b/examples/swallow.c
+@@ -100,7 +100,7 @@ int main(int argc, char **argv)
+             else if(bytes[i] == 0)
+             {
+                 buf[i] = realloc(buf[i], total[i] + 128);
+-                fread(buf[i] + total[i], 128, 1, f[i]);
++                (void)fread(buf[i] + total[i], 128, 1, f[i]);
+                 total[i] += 128;
+             }
+             else
+diff --git a/src/cacaserver.c b/src/cacaserver.c
+index e195cf71..4980ec3c 100644
+--- a/src/cacaserver.c
++++ b/src/cacaserver.c
+@@ -242,7 +242,7 @@ int main(void)
+         /* Read data from stdin */
+         if(server->read < 12)
+         {
+-            read(0, server->input + server->read, 12 - server->read);
++            (void)read(0, server->input + server->read, 12 - server->read);
+             server->read = 12;
+         }
+
+@@ -250,7 +250,7 @@ int main(void)
+                                              server->read, "caca") < 0)
+         {
+             memmove(server->input, server->input + 1, server->read - 1);
+-            read(0, server->input + server->read - 1, 1);
++            (void)read(0, server->input + server->read - 1, 1);
+         }
+
+         for(;;)
+diff --git a/src/common-image.c b/src/common-image.c
+index 7059bf40..d40eba12 100644
+--- a/src/common-image.c
++++ b/src/common-image.c
+@@ -22,6 +22,7 @@
+ #endif
+
+ #include "caca.h"
++#include "caca_internals.h"
+
+ #include "common-image.h"
