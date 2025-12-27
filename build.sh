@@ -54,10 +54,10 @@ cat <<EOF >"$BUILD_SCRIPT"
 
     ./configure --prefix=/ffbuild/prefix --pkg-config-flags="--static" \$FFBUILD_TARGET_FLAGS \$FF_CONFIGURE \
         --enable-filter=vpp_amf --enable-filter=sr_amf \
-        --disable-runtime-cpudetect --strip=strip --disable-safe-bitstream-reader --enable-hardcoded-tables \
+        --disable-runtime-cpudetect --strip="strip --strip-debug --strip-unneeded" \
         --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 \
         --extra-cflags="\$FF_CFLAGS -march=broadwell -mtune=broadwell" --extra-cxxflags="\$FF_CXXFLAGS -march=broadwell -mtune=broadwell" --extra-libs="\$FF_LIBS" \
-        --extra-ldflags="\$FF_LDFLAGS -march=broadwell -mtune=broadwell -s" --extra-ldexeflags="\$FF_LDEXEFLAGS" \
+        --extra-ldflags="\$FF_LDFLAGS -march=broadwell -mtune=broadwell" --extra-ldexeflags="\$FF_LDEXEFLAGS" \
         --cc="\$CC" --cxx="\$CXX" --ar="\$AR" --ranlib="\$RANLIB" --nm="\$NM" \
         --extra-version="VVCEasy"
     make -j\$(nproc) V=1
