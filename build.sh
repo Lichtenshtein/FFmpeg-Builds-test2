@@ -54,7 +54,7 @@ cat <<EOF >"$BUILD_SCRIPT"
 
     ./configure --prefix=/ffbuild/prefix --pkg-config-flags="--static" \$FFBUILD_TARGET_FLAGS \$FF_CONFIGURE \
         --enable-filter=vpp_amf --enable-filter=sr_amf \
-        --disable-runtime-cpudetect --strip="strip --strip-debug --strip-unneeded" \
+        --disable-runtime-cpudetect \
         --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 \
         --extra-cflags="\$FF_CFLAGS -march=broadwell -mtune=broadwell" --extra-cxxflags="\$FF_CXXFLAGS -march=broadwell -mtune=broadwell" --extra-libs="\$FF_LIBS" \
         --extra-ldflags="\$FF_LDFLAGS -march=broadwell -mtune=broadwell" --extra-ldexeflags="\$FF_LDEXEFLAGS" \
@@ -93,8 +93,8 @@ package_variant ffbuild/prefix "ffbuild/pkgroot/$BUILD_NAME"
 cd ffbuild/pkgroot
 
 for bin in ffmpeg ffprobe ffplay; do
-    [[ -f ./$BUILD_NAME/bin/$bin.exe ]] && mv ./$BUILD_NAME/bin/$bin.exe ./$BUILD_NAME/bin/${bin}_vvceasy.exe
-    [[ -f ./$BUILD_NAME/bin/$bin ]] && mv ./$BUILD_NAME/bin/$bin ./$BUILD_NAME/bin/${bin}_vvceasy
+    [[ -f ./$BUILD_NAME/bin/$bin.exe ]] && strip --strip-debug --strip-unneeded ./$BUILD_NAME/bin/$bin.exe
+    [[ -f ./$BUILD_NAME/bin/$bin ]] && strip --strip-debug --strip-unneeded ./$BUILD_NAME/bin/$bin
 done
 
 if [[ "${TARGET}" == win* ]]; then
