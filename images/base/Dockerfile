@@ -16,7 +16,10 @@ RUN \
         gperf itstool ragel libc6-dev zlib1g-dev libssl-dev \
         gtk-doc-tools gobject-introspection gawk \
         ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent p7zip-full zstd \
-        python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 && \
+        python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
+        gcc-14 g++-14 && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100 && \
     curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
     apt-get -y install nodejs && \
     apt-get -y clean && \
@@ -31,7 +34,7 @@ RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path && \
 RUN --mount=src=.,dst=/input \
     for s in /input/*.sh; do cp $s /usr/bin/$(echo $s | sed -e 's|.*/||' -e 's/\.sh$//'); done
 
-ENV HOST_CC="gcc" \
-    HOST_CXX="g++" \
+ENV HOST_CC="gcc-14" \
+    HOST_CXX="g++-14" \
     HOST_CFLAGS="-O2 -pipe" \
     HOST_CXXFLAGS="-O2 -pipe"
