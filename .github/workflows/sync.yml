@@ -1,0 +1,78 @@
+name: Sync with Upstream
+
+on:
+  schedule:
+    # Run every week at 5:00 AM UTC
+    - cron: '0 5 * * 0'
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'Branch to sync (leave empty for all)'
+        required: false
+        default: ''
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        branch: [personal]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.branch }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/MartinEesmaa/FFmpeg-Builds.git || true
+          git fetch upstream master
+
+      - name: Check for new commits
+        id: check
+        run: |
+          # Get the latest upstream commit
+          UPSTREAM_COMMIT=$(git rev-parse upstream/master)
+          echo "upstream_commit=$UPSTREAM_COMMIT" >> $GITHUB_OUTPUT
+
+          # Check if we already have this commit
+          if git merge-base --is-ancestor $UPSTREAM_COMMIT HEAD; then
+            echo "already_synced=true" >> $GITHUB_OUTPUT
+            echo "✅ Already up to date with upstream"
+          else
+            echo "already_synced=false" >> $GITHUB_OUTPUT
+            echo "📥 New commits available from upstream"
+          fi
+
+      - name: Merge upstream changes
+        if: steps.check.outputs.already_synced == 'false'
+        run: |
+          echo "🔄 Merging upstream/master into ${{ matrix.branch }}..."
+          git merge upstream/master -m "Sync: merge upstream MartinEesmaa/FFmpeg-Builds" --no-edit || {
+            echo "⚠️ Merge conflict detected! Creating PR instead..."
+            git merge --abort
+            exit 1
+          }
+
+      - name: Push changes
+        if: steps.check.outputs.already_synced == 'false'
+        run: |
+          git push origin ${{ matrix.branch }}
+          echo "✅ Successfully synced ${{ matrix.branch }} with upstream"
+
+      - name: Summary
+        run: |
+          echo "## Sync Summary for ${{ matrix.branch }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check.outputs.already_synced }}" == "true" ]; then
+            echo "✅ Already up to date" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "📥 Synced with upstream commit: ${{ steps.check.outputs.upstream_commit }}" >> $GITHUB_STEP_SUMMARY
+          fi
