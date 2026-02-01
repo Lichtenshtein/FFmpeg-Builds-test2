@@ -47,7 +47,7 @@ ffbuild_dockerbuild() {
         -Dshaderc=enabled
         -Dglslang=enabled     # Включить, если 56-glslang собрался
         -Dlcms2=enabled       # Обычно есть в 45-lcms2.sh
-        -Dvk-proc-addr=disabled
+        -Dvk-proc-addr=enabled
         -Dvulkan-registry="$FFBUILD_PREFIX"/share/vulkan/registry/vk.xml
         -Ddemos=false
         -Dtests=false
