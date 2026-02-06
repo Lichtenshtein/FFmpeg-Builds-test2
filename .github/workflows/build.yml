@@ -149,8 +149,8 @@ jobs:
         run: ./build.sh win64 nonfree
 
       - name: Upload Final Artifacts
-          uses: actions/upload-artifact@v4
-          with:
+        uses: actions/upload-artifact@v4
+        with:
           name: ffmpeg-win64-nonfree
           path: artifacts/*.7z
           if-no-files-found: error
