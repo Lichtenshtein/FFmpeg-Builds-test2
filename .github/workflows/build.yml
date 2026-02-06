@@ -87,7 +87,7 @@ jobs:
       - name: Download sources
         run: |
           ./download.sh
-          ./util/clean_cache.sh
+          # ./util/clean_cache.sh
 
       - name: Generate Dockerfile
         run: ./generate.sh win64 nonfree
@@ -96,13 +96,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-context
-          path: |
-            ./Dockerfile
-            ./build.sh
-            ./util/
-            ./scripts.d/
-            ./variants/
-            ./.cache/downloads/ # sources if don't use external caches
+          path: .
+          # path: |
+            # ./Dockerfile
+            # ./build.sh
+            # ./util/
+            # ./scripts.d/
+            # ./variants/
+            # ./.cache/downloads/ # sources if don't use external caches
           retention-days: 1 # store it only until the end of the workflow
 
   build_ffmpeg:
@@ -130,6 +131,13 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ github.token }}
+
+      - name: Debug Context
+        run: |
+          echo "Checking for zvbi tarball..."
+          ls -R .cache/downloads/ | grep zvbi
+          ls -l .cache/downloads/50-zvbi_*.tar.xz || echo "FILE MISSING!"
+          # if the file is not here, it means it was not downloaded or was not transferred by an artifact
 
       - name: Build and Export
         uses: docker/build-push-action@v6
