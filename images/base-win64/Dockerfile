@@ -30,7 +30,20 @@ RUN rustup target add "$FFBUILD_RUST_TARGET" && \
 ADD toolchain.cmake /toolchain.cmake
 ADD cross.meson /cross.meson
 
-ENV PATH="/opt/ct-ng/bin:${PATH}" \
+# configuring ccache symlinks for Mingw compilers
+RUN ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc && \
+    ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-g++ && \
+    ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-ar && \
+    ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-nm && \
+    ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-ranlib
+
+# ccache settings
+ENV CCACHE_DIR=/root/.cache/ccache \
+    CCACHE_MAXSIZE=1248M \
+    CCACHE_COMPRESS=1 \
+    CCACHE_SLOPPINESS=file_macro,time_macros,include_file_mtime,include_file_ctime
+
+ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
     FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32" \
     FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}- \
     FFBUILD_PREFIX=/opt/ffbuild \

@@ -1,5 +1,3 @@
-
-
 name: Build FFmpeg
 
 on:
@@ -15,35 +13,19 @@ env:
   DOCKER_BUILDKIT: 1
 
 jobs:
-  build_all:
-    name: Build FFmpeg Win64
+  prepare_and_base:
+    name: Build Base Images
     runs-on: ubuntu-latest
     permissions:
       packages: write
-      contents: write
+    outputs:
+      repo_lc: ${{ steps.images.outputs.repo_lc }}
+      base: ${{ steps.images.outputs.base }}
+      target_base: ${{ steps.images.outputs.target_base }}
+      variant: ${{ steps.images.outputs.variant }}
     steps:
-      - name: Free Disk Space
-        run: |
-          df -h
-          sudo apt-get clean
-          docker system prune -a -f
-          sudo rm -rf /opt/ghc /usr/local/.ghcup /usr/local/lib/android
-          df -h
-
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Buildx
-        uses: docker/setup-buildx-action@v3
-        with:
-          buildkitd-config: .github/buildkit.toml
-
-      - name: Login to Docker
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
 
       - name: Set Image Names
         id: images
@@ -54,70 +36,127 @@ jobs:
           echo "target_base=ghcr.io/${REPO_LC}/base-win64:latest" >> $GITHUB_OUTPUT
           echo "variant=ghcr.io/${REPO_LC}/win64-nonfree:latest" >> $GITHUB_OUTPUT
 
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Build Base Image
+        uses: docker/build-push-action@v6
+        with:
+          context: images/base
+          push: true
+          tags: ${{ steps.images.outputs.base }}
+          cache-from: type=registry,ref=${{ steps.images.outputs.base }}-cache
+          cache-to: type=registry,mode=max,ref=${{ steps.images.outputs.base }}-cache
+
+      - name: Build Win64 Base Image
+        uses: docker/build-push-action@v6
+        with:
+          context: images/base-win64
+          push: true
+          tags: ${{ steps.images.outputs.target_base }}
+          build-args: GH_REPO=${{ steps.images.outputs.repo_lc }}
+          cache-from: type=registry,ref=${{ steps.images.outputs.target_base }}-cache
+          cache-to: type=registry,mode=max,ref=${{ steps.images.outputs.target_base }}-cache
+
+  generate_and_cache:
+    name: Generate and Cache
+    needs: prepare_and_base
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Get Download Cache Key
         id: dl_cache
         run: echo "key=$(./util/get_dl_cache_tag.sh)" >> $GITHUB_OUTPUT
 
-      - name: Restore Download Cache
+      - name: Restore/Update Download Cache
         uses: actions/cache@v4
         with:
           path: .cache/downloads
           key: download-cache-${{ steps.dl_cache.outputs.key }}
           restore-keys: download-cache-
 
-      - name: Update Download Cache
+      - name: Download sources
         run: |
           ./download.sh
           ./util/clean_cache.sh
 
-      - name: Build Base Image
-        uses: docker/build-push-action@v6
-        with:
-          context: images/base
-          pull: true
-          push: true
-          provenance: false
-          tags: ${{ steps.images.outputs.base }}
-          cache-to: type=registry,mode=max,ref=${{ steps.images.outputs.base }}-cache
-          cache-from: type=registry,ref=${{ steps.images.outputs.base }}-cache
-      
-      - name: Build Win64 Base Image
-        uses: docker/build-push-action@v6
-        with:
-          context: images/base-win64
-          pull: true
-          push: true
-          provenance: false
-          tags: ${{ steps.images.outputs.target_base }}
-          cache-to: type=registry,mode=max,ref=${{ steps.images.outputs.target_base }}-cache
-          cache-from: type=registry,ref=${{ steps.images.outputs.target_base }}-cache
-          build-args: GH_REPO=${{ steps.images.outputs.repo_lc }}
-
       - name: Generate Dockerfile
         run: ./generate.sh win64 nonfree
+
+      - name: Save build context
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-context
+          path: |
+            ./Dockerfile
+            ./build.sh
+            ./util/
+            ./scripts.d/
+            ./variants/
+            ./.cache/downloads/ # sources if don't use external caches
+          retention-days: 1 # store it only until the end of the workflow
+
+  build_ffmpeg:
+    name: Compile FFmpeg
+    needs: [prepare_and_base, generate_and_cache]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download build context
+        uses: actions/download-artifact@v4
+        with:
+          name: build-context
+
+      - name: Setup Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       - name: Build Variant Image
         uses: docker/build-push-action@v6
         with:
           context: .
-          pull: true
           push: true
-          provenance: false
-          tags: ${{ steps.images.outputs.variant }}
-          cache-to: type=registry,mode=max,ref=${{ steps.images.outputs.variant }}-cache
-          cache-from: type=registry,ref=${{ steps.images.outputs.variant }}-cache
+          tags: ${{ needs.prepare_and_base.outputs.variant }}
+          # enable export of GitHub Actions cache directly to Docker layers
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          # grab artifacts from the image to the local folder
+          outputs: type=local,dest=artifacts/
+          build-args: |
+            BUILDKIT_STEP_LOG_MAX_SIZE=20485760
 
       - name: Build FFmpeg
         run: ./build.sh win64 nonfree
 
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v4
-        with:
+      - name: Upload Final Artifacts
+          uses: actions/upload-artifact@v4
+          with:
           name: ffmpeg-win64-nonfree
-          path: artifacts/*
+          path: artifacts/*.7z
+          if-no-files-found: error
 
       - name: Create Release
-        if: ${{ github.event.inputs.doRelease == 'true' && !cancelled() && needs.build_ffmpeg.result == 'success' }}
+        if: ${{ github.event.inputs.doRelease == 'true' && success() }}
         run: |
           RELDATE="$(date +'%Y-%m-%d %H:%M')"
           TAGNAME="autobuild-$(date +'%Y-%m-%d-%H-%M')"

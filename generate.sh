@@ -146,3 +146,11 @@ to_df "    FF_CXXFLAGS=\"$FF_CXXFLAGS\" \\"
 to_df "    FF_LDFLAGS=\"$FF_LDFLAGS\" \\"
 to_df "    FF_LDEXEFLAGS=\"$FF_LDEXEFLAGS\" \\"
 to_df "    FF_LIBS=\"$FF_LIBS\""
+
+to_df "RUN --mount=type=cache,target=/root/.cache/ccache ./build.sh $TARGET $VARIANT"
+
+# artifact export stage
+to_df ""
+to_df "# Final stage for artifact extraction"
+to_df "FROM scratch AS artifacts"
+to_df "COPY --from=base /opt/ffdest/ /"
