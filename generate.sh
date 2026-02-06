@@ -98,6 +98,8 @@ for ID in $(ls -1d scripts.d/??-* | sed -s 's|^.*/\(..\).*|\1|' | sort -u); do
 done
 
 # to_df "FROM base"
+# write the stage that inherits the last layer scripts.d instead of FROM base
+to_df "FROM $PREVLAYER AS build_stage"
 
 sed "s/__PREVLAYER__/$PREVLAYER/g" Dockerfile.final | sort -u >> Dockerfile
 rm Dockerfile.final
@@ -154,4 +156,4 @@ to_df "RUN --mount=type=cache,target=/root/.cache/ccache ./build.sh $TARGET $VAR
 to_df ""
 to_df "# Final stage for artifact extraction"
 to_df "FROM scratch AS artifacts"
-to_df "COPY --from=base /opt/ffdest/ /"
+to_df "COPY --from=build_stage /opt/ffdest/ /"
