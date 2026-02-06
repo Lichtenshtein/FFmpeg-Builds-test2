@@ -194,8 +194,8 @@ CT_ARCH_SUPPORTS_WITH_ARCH=y
 CT_ARCH_SUPPORTS_WITH_CPU=y
 CT_ARCH_SUPPORTS_WITH_TUNE=y
 CT_ARCH_ARCH=""
-CT_TARGET_CFLAGS="-march=broadwell -mtune=broadwell"
-CT_TARGET_LDFLAGS="-march=broadwell -mtune=broadwell"
+CT_TARGET_CFLAGS=""
+CT_TARGET_LDFLAGS=""
 # end of Target options
 
 #

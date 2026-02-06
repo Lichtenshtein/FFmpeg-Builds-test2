@@ -1,6 +1,6 @@
 #!/bin/bash
 set -xe
-shopt -s globstar
+# shopt -s globstar
 cd "$(dirname "$0")"
 source util/vars.sh
 
@@ -27,60 +27,93 @@ GIT_BRANCH="${GIT_BRANCH_OVERRIDE:-$GIT_BRANCH}"
 BUILD_SCRIPT="$(mktemp)"
 trap "rm -f -- '$BUILD_SCRIPT'" EXIT
 
-cat <<EOF >"$BUILD_SCRIPT"
+cat <<'EOF' >"$BUILD_SCRIPT"
     set -xe
 #    shopt -s nullglob
     cd /ffbuild
     rm -rf ffmpeg prefix
 
-    git clone --filter=blob:none --branch='$GIT_BRANCH' '$FFMPEG_REPO' ffmpeg
+    git clone --filter=blob:none --depth=1 --branch='$GIT_BRANCH' '$FFMPEG_REPO' ffmpeg
     cd ffmpeg
 
     git config user.email "builder@localhost"
     git config user.name "Builder"
 
-    PATCHES=('/patches/$GIT_BRANCH'/*.patch)
-    if [[ "\${#PATCHES[@]}" = 0 ]]; then
-        echo 'No patches found for $GIT_BRANCH'
-    fi
-    for patch in "\${PATCHES[@]}"; do
+#    PATCHES=('/patches/$GIT_BRANCH'/*.patch)
+#    if [[ "\${#PATCHES[@]}" = 0 ]]; then
+#        echo 'No patches found for $GIT_BRANCH'
+#    fi
+#    for patch in "\${PATCHES[@]}"; do
+#        echo "Applying \$patch"
+#        git apply --whitespace=fix --ignore-space-change --ignore-whitespace "\$patch"
+#    done
+
+# Apply patches if they exist
+if compgen -G "/patches/$GIT_BRANCH/*.patch" > /dev/null; then
+    for patch in /patches/$GIT_BRANCH/*.patch; do
         echo "Applying \$patch"
-        git apply --whitespace=fix --ignore-space-change --ignore-whitespace "\$patch"
+        git apply --whitespace=fix --ignore-space-change --ignore-whitespace "\$patch" || true
     done
+else
+    echo "No patches found for $GIT_BRANCH"
+fi
 
-    chmod +x configure
+chmod +x configure
 
-#    --strip="strip --strip-debug --strip-unneeded"
+# Optimized flags for cross-compilation to Windows x64
+# Target modern x86-64 with SSE4.2, AVX, AVX2 (Broadwell features)
 
-    ./configure --prefix=/ffbuild/prefix --pkg-config-flags="--static" \$FFBUILD_TARGET_FLAGS \$FF_CONFIGURE \
-        --enable-filter=vpp_amf --enable-filter=sr_amf \
-        --disable-runtime-cpudetect \
-        --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 \
-        --extra-cflags="\$FF_CFLAGS -march=broadwell -mtune=broadwell" --extra-cxxflags="\$FF_CXXFLAGS -march=broadwell -mtune=broadwell" --extra-libs="\$FF_LIBS" \
-        --extra-ldflags="\$FF_LDFLAGS -march=broadwell -mtune=broadwell" --extra-ldexeflags="\$FF_LDEXEFLAGS" \
-        --cc="\$CC" --cxx="\$CXX" --ar="\$AR" --ranlib="\$RANLIB" --nm="\$NM" \
-        --extra-version="VVCEasy"
-    make -j\$(nproc) V=1
-    make install install-doc
+OPTIM_CFLAGS="-O3 -fno-strict-aliasing -fno-math-errno -fno-signed-zeros -fno-tree-vectorize"
+OPTIM_CFLAGS="\$OPTIM_CFLAGS -msse4.2 -mavx -mavx2 -mfma -mbmi -mbmi2 -mlzcnt"
+OPTIM_CFLAGS="\$OPTIM_CFLAGS -ffunction-sections -fdata-sections"
+
+OPTIM_LDFLAGS="-Wl,--gc-sections -Wl,--as-needed"
+
+./configure \
+    --prefix=/ffbuild/prefix \
+    --pkg-config-flags="--static" \
+    \$FFBUILD_TARGET_FLAGS \
+    \$FF_CONFIGURE \
+    --enable-filter=vpp_amf \
+    --enable-filter=sr_amf \
+    --enable-runtime-cpudetect \
+    --enable-lto \
+    --h264-max-bit-depth=14 \
+    --h265-bit-depths=8,9,10,12 \
+    --extra-cflags="\$FF_CFLAGS \$OPTIM_CFLAGS" \
+    --extra-cxxflags="\$FF_CXXFLAGS \$OPTIM_CFLAGS" \
+    --extra-ldflags="\$FF_LDFLAGS \$OPTIM_LDFLAGS" \
+    --extra-ldexeflags="\$FF_LDEXEFLAGS" \
+    --extra-libs="\$FF_LIBS" \
+    --cc="\$CC" \
+    --cxx="\$CXX" \
+    --ar="\$AR" \
+    --ranlib="\$RANLIB" \
+    --nm="\$NM" \
+    --extra-version="VVCEasy"
+
+make -j\$(nproc) V=1
+make install install-doc
 EOF
 
+# Substitute variables in the script
+sed -i "s|\$GIT_BRANCH|$GIT_BRANCH|g" "$BUILD_SCRIPT"
+sed -i "s|\$FFMPEG_REPO|$FFMPEG_REPO|g" "$BUILD_SCRIPT"
+
 # Log the build script contents
-echo "Displaying the contents of the build script:"
+echo "=== Build Script ==="
 cat "$BUILD_SCRIPT"
-echo "End of the build script contents."
+echo "===================="
 
 [[ -t 1 ]] && TTY_ARG="-t" || TTY_ARG=""
 
-docker run --rm -i $TTY_ARG "${UIDARGS[@]}" -v "$PWD/ffbuild":/ffbuild -v "$PWD/patches/ffmpeg":/patches -v "$BUILD_SCRIPT":/build.sh "$IMAGE" bash /build.sh
+docker run --rm -i $TTY_ARG "${UIDARGS[@]}" \
+    -v "$PWD/ffbuild":/ffbuild \
+    -v "$PWD/patches/ffmpeg":/patches \
+    -v "$BUILD_SCRIPT":/build.sh \
+    "$IMAGE" bash /build.sh
 
-if [[ -n "$FFBUILD_OUTPUT_DIR" ]]; then
-    mkdir -p "$FFBUILD_OUTPUT_DIR"
-    package_variant ffbuild/prefix "$FFBUILD_OUTPUT_DIR"
-    [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "$FFBUILD_OUTPUT_DIR/LICENSE.txt"
-    rm -rf ffbuild
-    exit 0
-fi
-
+# Package artifacts
 mkdir -p artifacts
 ARTIFACTS_PATH="$PWD/artifacts"
 BUILD_NAME="ffmpeg_vvceasy-$(./ffbuild/ffmpeg/ffbuild/version.sh ffbuild/ffmpeg)-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
@@ -92,20 +125,34 @@ package_variant ffbuild/prefix "ffbuild/pkgroot/$BUILD_NAME"
 
 cd ffbuild/pkgroot
 
+# Strip binaries
 for bin in ffmpeg ffprobe ffplay; do
-    [[ -f ./$BUILD_NAME/bin/$bin.exe ]] && strip --strip-debug --strip-unneeded ./$BUILD_NAME/bin/$bin.exe
-    [[ -f ./$BUILD_NAME/bin/$bin ]] && strip --strip-debug --strip-unneeded ./$BUILD_NAME/bin/$bin
+    if [[ -f ./$BUILD_NAME/bin/$bin.exe ]]; then
+        ${FFBUILD_CROSS_PREFIX}strip --strip-unneeded ./$BUILD_NAME/bin/$bin.exe
+    fi
+    if [[ -f ./$BUILD_NAME/bin/$bin ]]; then
+        strip --strip-unneeded ./$BUILD_NAME/bin/$bin
+    fi
 done
 
+# Create archive
 if [[ "${TARGET}" == win* ]]; then
     OUTPUT_FNAME="${BUILD_NAME}.7z"
-    docker run --rm -i $TTY_ARG "${UIDARGS[@]}" -v "${ARTIFACTS_PATH}":/out -v "${PWD}/${BUILD_NAME}":"/${BUILD_NAME}" -w / "$IMAGE" 7z a -mx -stl "/out/${OUTPUT_FNAME}" "$BUILD_NAME"
+    docker run --rm -i $TTY_ARG "${UIDARGS[@]}" \
+        -v "${ARTIFACTS_PATH}":/out \
+        -v "${PWD}/${BUILD_NAME}":"/${BUILD_NAME}" \
+        -w / "$IMAGE" \
+        7z a -mx9 -mmt=on "/out/${OUTPUT_FNAME}" "$BUILD_NAME"
 else
     OUTPUT_FNAME="${BUILD_NAME}.tar.xz"
-    docker run --rm -i $TTY_ARG "${UIDARGS[@]}" -v "${ARTIFACTS_PATH}":/out -v "${PWD}/${BUILD_NAME}":"/${BUILD_NAME}" -w / "$IMAGE" tar cJf "/out/${OUTPUT_FNAME}" "$BUILD_NAME"
+    docker run --rm -i $TTY_ARG "${UIDARGS[@]}" \
+        -v "${ARTIFACTS_PATH}":/out \
+        -v "${PWD}/${BUILD_NAME}":"/${BUILD_NAME}" \
+        -w / "$IMAGE" \
+        tar -I "xz -9 -T0" -cf "/out/${OUTPUT_FNAME}" "$BUILD_NAME"
 fi
-cd -
 
+cd - > /dev/null
 rm -rf ffbuild
 
 if [[ -n "$GITHUB_ACTIONS" ]]; then
