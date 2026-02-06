@@ -131,23 +131,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Build Variant Image
+      - name: Build and Export
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
-          target: artifacts
           tags: ${{ needs.prepare_and_base.outputs.variant }}
-          # enable export of GitHub Actions cache directly to Docker layers
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          # grab artifacts from the image to the local folder
-          outputs: type=local,dest=artifacts/
+          # Configuring export:
+          # 'type=registry' pushes the image from the 'tags' tag
+          # 'type=local' uploads files from the 'artifacts' stage to a folder on runner
+          outputs: |
+            type=registry
+            type=local,dest=artifacts/,srcpath=artifacts
           build-args: |
             BUILDKIT_STEP_LOG_MAX_SIZE=20485760
-
-      - name: Build FFmpeg
-        run: ./build.sh win64 nonfree
 
       - name: Upload Final Artifacts
         uses: actions/upload-artifact@v4
@@ -161,8 +160,10 @@ jobs:
         run: |
           RELDATE="$(date +'%Y-%m-%d %H:%M')"
           TAGNAME="autobuild-$(date +'%Y-%m-%d-%H-%M')"
+          # check for file availability before release
+          ls -R artifacts/
           (cd artifacts && sha256sum *.7z > checksums.sha256)
           gh release create "$TAGNAME" --target "${{ github.ref_name }}" \
-            --title "Auto-Build $RELDATE" artifacts/*.7z artifacts/checksums.*
+            --title "Auto-Build $RELDATE" artifacts/*.7z artifacts/checksums.sha256
         env:
           GITHUB_TOKEN: ${{ github.token }}
