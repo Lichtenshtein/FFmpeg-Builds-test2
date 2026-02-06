@@ -97,7 +97,8 @@ for ID in $(ls -1d scripts.d/??-* | sed -s 's|^.*/\(..\).*|\1|' | sort -u); do
     PREVLAYER="$LAYER"
 done
 
-to_df "FROM base"
+# to_df "FROM base"
+
 sed "s/__PREVLAYER__/$PREVLAYER/g" Dockerfile.final | sort -u >> Dockerfile
 rm Dockerfile.final
 

@@ -144,6 +144,7 @@ package_variant ffbuild/prefix "ffbuild/pkgroot/$BUILD_NAME"
 [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "ffbuild/pkgroot/$BUILD_NAME/LICENSE.txt"
 
 # Strip binaries
+# cd ffbuild/pkgroot
 pushd ffbuild/pkgroot
 for bin in ffmpeg ffprobe ffplay; do
     if [[ -f ./$BUILD_NAME/bin/$bin.exe ]]; then
