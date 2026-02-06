@@ -96,15 +96,18 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-context
-          path: .
-          # path: |
+          path: |
+            ./
+            .cache/
+          include-hidden-files: true
+          retention-days: 1 # store it only until the end of the workflow
+
             # ./Dockerfile
             # ./build.sh
             # ./util/
             # ./scripts.d/
             # ./variants/
             # ./.cache/downloads/ # sources if don't use external caches
-          retention-days: 1 # store it only until the end of the workflow
 
   build_ffmpeg:
     name: Compile FFmpeg
@@ -121,6 +124,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: build-context
+          path: . 
 
       - name: Setup Buildx
         uses: docker/setup-buildx-action@v3
@@ -134,9 +138,10 @@ jobs:
 
       - name: Debug Context
         run: |
-          echo "Checking for zvbi tarball..."
-          ls -R .cache/downloads/ | grep zvbi
-          ls -l .cache/downloads/50-zvbi_*.tar.xz || echo "FILE MISSING!"
+          echo "Checking context..."
+          pwd
+          ls -a
+          ls -R .cache/downloads/ | grep zvbi || echo "STILL MISSING"
           # if the file is not here, it means it was not downloaded or was not transferred by an artifact
 
       - name: Build and Export
