@@ -1,3 +1,5 @@
+
+
 name: Build FFmpeg
 
 on:
@@ -46,10 +48,11 @@ jobs:
       - name: Set Image Names
         id: images
         run: |
-          REPO="${GITHUB_REPOSITORY,,}"
-          echo "base=ghcr.io/${REPO}/base:latest" >> $GITHUB_OUTPUT
-          echo "target_base=ghcr.io/${REPO}/base-win64:latest" >> $GITHUB_OUTPUT
-          echo "variant=ghcr.io/${REPO}/win64-nonfree:latest" >> $GITHUB_OUTPUT
+          REPO_LC="${GITHUB_REPOSITORY,,}"
+          echo "repo_lc=ghcr.io/${REPO_LC}" >> $GITHUB_OUTPUT
+          echo "base=ghcr.io/${REPO_LC}/base:latest" >> $GITHUB_OUTPUT
+          echo "target_base=ghcr.io/${REPO_LC}/base-win64:latest" >> $GITHUB_OUTPUT
+          echo "variant=ghcr.io/${REPO_LC}/win64-nonfree:latest" >> $GITHUB_OUTPUT
 
       - name: Get Download Cache Key
         id: dl_cache
@@ -77,7 +80,7 @@ jobs:
           tags: ${{ steps.images.outputs.base }}
           cache-to: type=registry,mode=max,ref=${{ steps.images.outputs.base }}-cache
           cache-from: type=registry,ref=${{ steps.images.outputs.base }}-cache
-
+      
       - name: Build Win64 Base Image
         uses: docker/build-push-action@v6
         with:
@@ -88,7 +91,7 @@ jobs:
           tags: ${{ steps.images.outputs.target_base }}
           cache-to: type=registry,mode=max,ref=${{ steps.images.outputs.target_base }}-cache
           cache-from: type=registry,ref=${{ steps.images.outputs.target_base }}-cache
-          build-args: GH_REPO=ghcr.io/${{ github.repository }}
+          build-args: GH_REPO=${{ steps.images.outputs.repo_lc }}
 
       - name: Generate Dockerfile
         run: ./generate.sh win64 nonfree
