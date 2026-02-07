@@ -1,63 +1,54 @@
 #!/bin/bash
-set -xe
+set -e
 cd "$(dirname "$0")"
 source util/vars.sh dl only
 
-if docker info -f "{{println .SecurityOptions}}" | grep rootless >/dev/null 2>&1; then
-    UIDARGS=()
-else
-    UIDARGS=( -u "$(id -u):$(id -g)" )
-fi
+# Создаем папку для кэша
+mkdir -p .cache/downloads
+DL_DIR="$PWD/.cache/downloads"
 
-[[ -t 1 ]] && TTY_ARG="-t" || TTY_ARG=""
+# Функция для имитации ffbuild_dockerdl локально
+# (Подразумевается, что на раннере есть git, curl, wget)
+source util/dl_functions.sh
 
-DL_SCRIPT_DIR="$(mktemp -d)"
-trap "rm -rf -- '$DL_SCRIPT_DIR'" EXIT
-
-mkdir -p "${PWD}"/.cache/downloads
+echo "Downloading sources for all enabled stages..."
 
 for STAGE in scripts.d/*.sh scripts.d/*/*.sh; do
-	STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
+    (
+        source "$STAGE"
+        STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
+        
+        # Проверяем, включен ли этап для текущей цели
+        if ! ffbuild_enabled; then continue; fi
+        
+        DL_COMMAND="$(ffbuild_dockerdl)"
+        if [[ -z "$DL_COMMAND" ]]; then continue; fi
+        
+        # Вычисляем хэш команды загрузки для проверки актуальности
+        DL_HASH="$(echo "$DL_COMMAND" | sha256sum | cut -d" " -f1)"
+        TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.xz"
+        LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.xz"
 
-	cat <<-EOF >"${DL_SCRIPT_DIR}/${STAGENAME}.sh"
-		set -xe -o pipefail
-		shopt -s dotglob
+        if [[ -f "$TGT_FILE" ]]; then
+            echo "Cache hit for $STAGENAME"
+            ln -sf "${STAGENAME}_${DL_HASH}.tar.xz" "$LATEST_LINK"
+            continue
+        fi
 
-		source /dl_functions.sh
-		source "/$STAGE"
-		STG="\$(ffbuild_dockerdl)"
-
-		if [[ -z "\$STG" ]]; then
-			exit 0
-		fi
-
-		DLHASH="\$(sha256sum <<<"\$STG" | cut -d" " -f1)"
-		DLNAME="$STAGENAME"
-
-		if [[ "$1" == "hashonly" ]]; then
-			echo "\$DLHASH"
-			exit 0
-		fi
-
-		TGT="/dldir/\${DLNAME}_\${DLHASH}.tar.xz"
-		if [[ -f "\$TGT" ]]; then
-			rm -f "/dldir/\${DLNAME}.tar.xz"
-			ln -s "\${DLNAME}_\${DLHASH}.tar.xz" "/dldir/\${DLNAME}.tar.xz"
-			exit 0
-		fi
-
-		WORKDIR="\$(mktemp -d)"
-		trap "rm -rf -- '\$WORKDIR'" EXIT
-		cd "\$WORKDIR"
-
-		eval "set -e; \$STG"
-
-		tar cpJf "\$TGT.tmp" .
-		mv "\$TGT.tmp" "\$TGT"
-		rm -f "/dldir/\${DLNAME}.tar.xz"
-		ln -s "\${DLNAME}_\${DLHASH}.tar.xz" "/dldir/\${DLNAME}.tar.xz"
-	EOF
+        echo "Downloading $STAGENAME..."
+        WORK_DIR=$(mktemp -d)
+        cd "$WORK_DIR"
+        
+        # Выполняем команду загрузки
+        eval "$DL_COMMAND"
+        
+        # Архивируем результат
+        tar -cpJf "$TGT_FILE" .
+        ln -sf "${STAGENAME}_${DL_HASH}.tar.xz" "$LATEST_LINK"
+        
+        rm -rf "$WORK_DIR"
+    )
 done
 
-docker run -i $TTY_ARG --rm "${UIDARGS[@]}" -v "${DL_SCRIPT_DIR}":/stages -v "${PWD}/.cache/downloads":/dldir -v "${PWD}/scripts.d":/scripts.d -v "${PWD}/util/dl_functions.sh":/dl_functions.sh "${REGISTRY}/${REPO}/base:latest" \
-	bash -c 'set -xe && for STAGE in /stages/*.sh; do bash $STAGE; done'
+# Очистка старых версий кэша
+./util/clean_cache.sh

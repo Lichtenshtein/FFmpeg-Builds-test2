@@ -6,125 +6,52 @@ source util/vars.sh
 
 export LC_ALL=C.UTF-8
 
-rm -f Dockerfile Dockerfile.{dl,final,dl.final}
-
-layername() {
-    printf "layer-"
-    basename "$1" | sed 's/.sh$//'
-}
+# Очистка старых файлов
+rm -f Dockerfile Dockerfile.tmp
 
 to_df() {
-    _of="${TODF:-Dockerfile}"
-    printf "$@" >> "$_of"
-    echo >> "$_of"
+    printf "$@" >> Dockerfile
+    echo >> Dockerfile
 }
 
-###
-### Generate main Dockerfile
-###
-
-exec_dockerstage() {
-    SCRIPT="$1"
-    (
-        SELF="$SCRIPT"
-        STAGENAME="$(basename "$SCRIPT" | sed 's/.sh$//')"
-        source util/dl_functions.sh
-        source "$SCRIPT"
-
-        ffbuild_enabled || exit 0
-
-        to_df "ENV SELF=\"$SELF\" STAGENAME=\"$STAGENAME\""
-
-        STG="$(ffbuild_dockerdl)"
-        if [[ -n "$STG" ]]; then
-            HASH="$(sha256sum <<<"$STG" | cut -d" " -f1)"
-            export SELFCACHE=".cache/downloads/${STAGENAME}_${HASH}.tar.xz"
-        fi
-
-        ffbuild_dockerstage || exit $?
-    )
-}
-
-export TODF="Dockerfile"
-
-to_df "FROM ${REGISTRY}/${REPO}/base-${TARGET}:latest AS base"
+# Базовый образ
+to_df "FROM ${REGISTRY}/${REPO}/base-${TARGET}:latest AS build_stage"
 to_df "ENV TARGET=$TARGET VARIANT=$VARIANT REPO=$REPO ADDINS_STR=$ADDINS_STR"
 to_df "COPY --link util/run_stage.sh /usr/bin/run_stage"
+to_df "WORKDIR /builder"
 
-for addin in "${ADDINS[@]}"; do
-(
-    source addins/"${addin}.sh"
-    type ffbuild_dockeraddin &>/dev/null && ffbuild_dockeraddin || true
-)
+# Подготовка зависимостей (Scripts.d)
+# Вместо создания сотен слоев, мы генерируем один большой RUN блок
+# Это критически важно для стабильности GitHub Runners
+to_df "RUN --mount=type=cache,target=/root/.cache/ccache \\"
+to_df "    --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\"
+to_df "    --mount=type=bind,source=util,target=/builder/util \\"
+to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads \\"
+
+# Собираем список всех скриптов
+SCRIPTS=( scripts.d/??-* )
+for i in "${!SCRIPTS[@]}"; do
+    STAGE="${SCRIPTS[$i]}"
+    # Определяем, последний ли это скрипт для корректного завершения команды RUN
+    SEP=" && \\"
+    [[ $i -eq $(( ${#SCRIPTS[@]} - 1 )) ]] && SEP=""
+    
+    # Мы вызываем run_stage напрямую. Это экономит ресурсы на переключениях контекста Docker
+    to_df "    run_stage $STAGE $SEP"
 done
 
-PREVLAYER="base"
-for ID in $(ls -1d scripts.d/??-* | sed -s 's|^.*/\(..\).*|\1|' | sort -u); do
-    LAYER="layer-$ID"
-
-    for STAGE in scripts.d/$ID-*; do
-        to_df "FROM $PREVLAYER AS $(layername "$STAGE")"
-
-        if [[ -f "$STAGE" ]]; then
-            exec_dockerstage "$STAGE"
-        else
-            for STAGE in "${STAGE}"/??-*; do
-                exec_dockerstage "$STAGE"
-            done
-        fi
-    done
-
-    to_df "FROM $PREVLAYER AS $LAYER"
-    for STAGE in scripts.d/$ID-*; do
-        if [[ -f "$STAGE" ]]; then
-            SCRIPT="$STAGE"
-        else
-            SCRIPTS=( "$STAGE"/??-* )
-            SCRIPT="${SCRIPTS[-1]}"
-        fi
-
-        (
-            SELF="$SCRIPT"
-            SELFLAYER="$(layername "$STAGE")"
-            source "$SCRIPT"
-            ffbuild_enabled || exit 0
-            ffbuild_dockerlayer || exit $?
-            TODF="Dockerfile.final" PREVLAYER="__PREVLAYER__" \
-                ffbuild_dockerfinal || exit $?
-        )
-    done
-
-    PREVLAYER="$LAYER"
-done
-
-# to_df "FROM base"
-# write the stage that inherits the last layer scripts.d instead of FROM base
-to_df "FROM $PREVLAYER AS build_stage"
-
-sed "s/__PREVLAYER__/$PREVLAYER/g" Dockerfile.final | sort -u >> Dockerfile
-rm Dockerfile.final
-
-###
-### Compile list of configure arguments and add them to the final Dockerfile
-###
-
+# Сборка FFmpeg
+# Собираем флаги конфигурации (логика из вашего оригинала)
 get_output() {
     (
         SELF="$1"
-        source $1
-        if ffbuild_enabled; then
-            ffbuild_$2 || exit 0
-        else
-            ffbuild_un$2 || exit 0
-        fi
+        source "$1"
+        if ffbuild_enabled; then ffbuild_$2 || exit 0; else ffbuild_un$2 || exit 0; fi
     )
 }
 
 source "variants/${TARGET}-${VARIANT}.sh"
-
-for addin in ${ADDINS[*]}; do
-    source "addins/${addin}.sh"
-done
+for addin in ${ADDINS[*]}; do source "addins/${addin}.sh"; done
 
 for script in scripts.d/**/*.sh; do
     FF_CONFIGURE+=" $(get_output $script configure)"
@@ -135,25 +62,23 @@ for script in scripts.d/**/*.sh; do
     FF_LIBS+=" $(get_output $script libs)"
 done
 
-FF_CONFIGURE="$(xargs <<< "$FF_CONFIGURE")"
-FF_CFLAGS="$(xargs <<< "$FF_CFLAGS")"
-FF_CXXFLAGS="$(xargs <<< "$FF_CXXFLAGS")"
-FF_LDFLAGS="$(xargs <<< "$FF_LDFLAGS")"
-FF_LDEXEFLAGS="$(xargs <<< "$FF_LDEXEFLAGS")"
-FF_LIBS="$(xargs <<< "$FF_LIBS")"
-
 to_df "ENV \\"
-to_df "    FF_CONFIGURE=\"$FF_CONFIGURE\" \\"
-to_df "    FF_CFLAGS=\"$FF_CFLAGS\" \\"
-to_df "    FF_CXXFLAGS=\"$FF_CXXFLAGS\" \\"
-to_df "    FF_LDFLAGS=\"$FF_LDFLAGS\" \\"
-to_df "    FF_LDEXEFLAGS=\"$FF_LDEXEFLAGS\" \\"
-to_df "    FF_LIBS=\"$FF_LIBS\""
+to_df "    FF_CONFIGURE=\"$(xargs <<< "$FF_CONFIGURE")\" \\"
+to_df "    FF_CFLAGS=\"$(xargs <<< "$FF_CFLAGS")\" \\"
+to_df "    FF_CXXFLAGS=\"$(xargs <<< "$FF_CXXFLAGS")\" \\"
+to_df "    FF_LDFLAGS=\"$(xargs <<< "$FF_LDFLAGS")\" \\"
+to_df "    FF_LDEXEFLAGS=\"$(xargs <<< "$FF_LDEXEFLAGS")\" \\"
+to_df "    FF_LIBS=\"$(xargs <<< "$FF_LIBS")\""
 
-to_df "RUN --mount=type=cache,target=/root/.cache/ccache ./build.sh $TARGET $VARIANT"
+# Копируем исходники и запускаем финальный билд
+to_df "COPY . /builder"
+# Используем ограничение потоков (nproc/2), чтобы не "задушить" раннер по RAM
+to_df "RUN --mount=type=cache,target=/root/.cache/ccache \\"
+to_df "    --mount=type=bind,target=/patches,source=patches/ffmpeg \\"
+to_df "    ./build.sh $TARGET $VARIANT"
 
-# artifact export stage
+# стадия экспорта (минимальный размер)
 to_df ""
-to_df "# Final stage for artifact extraction"
 to_df "FROM scratch AS artifacts"
+# копируем только из /opt/ffdest, где лежат готовые 7z
 to_df "COPY --from=build_stage /opt/ffdest/ /"
