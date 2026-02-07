@@ -1,16 +1,15 @@
 #!/bin/bash
 
 default_dl() {
-    # Проверяем, существует ли git-mini-clone
+    local TARGET_DIR="${1:-.}" # Если аргумент пуст, используем точку
     if command -v git-mini-clone >/dev/null 2>&1; then
-        echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" \"$1\""
+        echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" \"$TARGET_DIR\""
     else
-        # Эмуляция git-mini-clone через стандартный git
-        # $1 - это целевая папка (обычно ".")
-        echo "git clone --filter=blob:none --quiet \"$SCRIPT_REPO\" \"$1\" && cd \"$1\" && git checkout --quiet \"$SCRIPT_COMMIT\""
+        # Используем git clone и checkout с явным указанием путей
+        echo "git clone --filter=blob:none --quiet \"$SCRIPT_REPO\" \"$TARGET_DIR\" && cd \"$TARGET_DIR\" && git checkout --quiet \"$SCRIPT_COMMIT\""
     fi
 }
 
 ffbuild_dockerdl() {
-    default_dl .
+    default_dl "."
 }

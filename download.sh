@@ -29,14 +29,13 @@ for STAGE in "${STAGES[@]}"; do
     fi
     
     # Получаем команду загрузки
-    DL_COMMAND=$( ( source "$STAGE" && ffbuild_dockerdl ) )
+    DL_COMMAND=$( ( source "$STAGE" && ffbuild_dockerdl "." ) )
     
     if [[ -z "$DL_COMMAND" ]]; then
         continue
     fi
     
-    # Очистка команды от специфичных для контейнера утилит
-    # Удаляем retry-tool, если он есть
+    # Очистка команды от специфичных префиксов
     DL_COMMAND="${DL_COMMAND//retry-tool /}"
     
     DL_HASH="$(echo "$DL_COMMAND" | sha256sum | cut -d" " -f1)"
@@ -52,12 +51,13 @@ for STAGE in "${STAGES[@]}"; do
     echo "Downloading $STAGENAME..."
     WORK_DIR=$(mktemp -d)
     
-    # Выполняем загрузку
-    if ( cd "$WORK_DIR" && eval "$DL_COMMAND" ); then
+    # Выполняем загрузку в изолированном окружении
+    # Используем bash -c для стабильного eval внутри временной папки
+    if ( cd "$WORK_DIR" && bash -c "$DL_COMMAND" ); then
         tar -cpJf "$TGT_FILE" -C "$WORK_DIR" .
         ln -sf "${STAGENAME}_${DL_HASH}.tar.xz" "$LATEST_LINK"
     else
-        echo "Failed to download $STAGENAME"
+        echo "Failed to download $STAGENAME. Command was: $DL_COMMAND"
         rm -rf "$WORK_DIR"
         exit 1
     fi
