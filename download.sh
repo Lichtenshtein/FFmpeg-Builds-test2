@@ -2,53 +2,67 @@
 set -e
 cd "$(dirname "$0")"
 source util/vars.sh dl only
+source util/dl_functions.sh
 
-# Создаем папку для кэша
 mkdir -p .cache/downloads
 DL_DIR="$PWD/.cache/downloads"
 
-# Функция для имитации ffbuild_dockerdl локально
-# (Подразумевается, что на раннере есть git, curl, wget)
-source util/dl_functions.sh
+echo "Downloading sources..."
 
-echo "Downloading sources for all enabled stages..."
+# Массив всех скриптов (рекурсивно)
+mapfile -t STAGES < <(find scripts.d -name "*.sh")
 
-for STAGE in scripts.d/*.sh scripts.d/*/*.sh; do
-    (
-        source "$STAGE"
-        STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
-        
-        # Проверяем, включен ли этап для текущей цели
-        if ! ffbuild_enabled; then continue; fi
-        
-        DL_COMMAND="$(ffbuild_dockerdl)"
-        if [[ -z "$DL_COMMAND" ]]; then continue; fi
-        
-        # Вычисляем хэш команды загрузки для проверки актуальности
-        DL_HASH="$(echo "$DL_COMMAND" | sha256sum | cut -d" " -f1)"
-        TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.xz"
-        LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.xz"
+for STAGE in "${STAGES[@]}"; do
+    # Пропускаем, если файл не существует
+    [[ -f "$STAGE" ]] || continue
+    
+    # Сбрасываем переменные перед загрузкой нового скрипта
+    unset SCRIPT_REPO SCRIPT_COMMIT
+    
+    # Загружаем скрипт этапа в subshell, чтобы не загрязнять окружение, 
+    # но результат (команду) выводим наружу
+    STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
+    
+    # Проверяем, включен ли этап (выполняем в subshell)
+    if ! ( source "$STAGE" && ffbuild_enabled ); then
+        continue
+    fi
+    
+    # Получаем команду загрузки
+    DL_COMMAND=$( ( source "$STAGE" && ffbuild_dockerdl ) )
+    
+    if [[ -z "$DL_COMMAND" ]]; then
+        continue
+    fi
+    
+    # Очистка команды от специфичных для контейнера утилит
+    # Удаляем retry-tool, если он есть
+    DL_COMMAND="${DL_COMMAND//retry-tool /}"
+    
+    DL_HASH="$(echo "$DL_COMMAND" | sha256sum | cut -d" " -f1)"
+    TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.xz"
+    LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.xz"
 
-        if [[ -f "$TGT_FILE" ]]; then
-            echo "Cache hit for $STAGENAME"
-            ln -sf "${STAGENAME}_${DL_HASH}.tar.xz" "$LATEST_LINK"
-            continue
-        fi
-
-        echo "Downloading $STAGENAME..."
-        WORK_DIR=$(mktemp -d)
-        cd "$WORK_DIR"
-        
-        # Выполняем команду загрузки
-        eval "$DL_COMMAND"
-        
-        # Архивируем результат
-        tar -cpJf "$TGT_FILE" .
+    if [[ -f "$TGT_FILE" ]]; then
+        echo "Cache hit for $STAGENAME"
         ln -sf "${STAGENAME}_${DL_HASH}.tar.xz" "$LATEST_LINK"
-        
+        continue
+    fi
+
+    echo "Downloading $STAGENAME..."
+    WORK_DIR=$(mktemp -d)
+    
+    # Выполняем загрузку
+    if ( cd "$WORK_DIR" && eval "$DL_COMMAND" ); then
+        tar -cpJf "$TGT_FILE" -C "$WORK_DIR" .
+        ln -sf "${STAGENAME}_${DL_HASH}.tar.xz" "$LATEST_LINK"
+    else
+        echo "Failed to download $STAGENAME"
         rm -rf "$WORK_DIR"
-    )
+        exit 1
+    fi
+    
+    rm -rf "$WORK_DIR"
 done
 
-# Очистка старых версий кэша
-./util/clean_cache.sh
+echo "All downloads finished successfully."
