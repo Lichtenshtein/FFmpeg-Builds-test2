@@ -11,6 +11,8 @@ on:
 
 env:
   DOCKER_BUILDKIT: 1
+  TARGET: win64
+  VARIANT: nonfree
 
 jobs:
   build_all:
@@ -22,6 +24,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          # remove unused Docker images left over from the Base and Win64-Base builds
+          docker image prune -af
 
       - name: Set Image Names
         id: images
@@ -42,85 +54,37 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Build Base Image
-        uses: docker/build-push-action@v6
-        with:
-          context: images/base
-          push: true
-          tags: ${{ steps.images.outputs.base }}
-          cache-from: type=registry,ref=${{ steps.images.outputs.base }}-cache
-          cache-to: type=registry,mode=max,ref=${{ steps.images.outputs.base }}-cache
-
-      - name: Build Win64 Base Image
-        uses: docker/build-push-action@v6
-        with:
-          context: images/base-win64
-          push: true
-          tags: ${{ steps.images.outputs.target_base }}
-          build-args: GH_REPO=${{ steps.images.outputs.repo_lc }}
-          cache-from: type=registry,ref=${{ steps.images.outputs.target_base }}-cache
-          cache-to: type=registry,mode=max,ref=${{ steps.images.outputs.target_base }}-cache
+      - name: Build Base Images
+        run: |
+          docker build -t ${{ steps.images.outputs.base }} images/base
+          docker build -t ${{ steps.images.outputs.target_base }} \
+            --build-arg GH_REPO=${{ steps.images.outputs.repo_lc }} images/base-win64
+          docker push ${{ steps.images.outputs.base }}
+          docker push ${{ steps.images.outputs.target_base }}
 
       - name: Get Download Cache Key
         id: dl_cache
         run: echo "key=$(./util/get_dl_cache_tag.sh)" >> $GITHUB_OUTPUT
 
-      - name: Restore Download Cache
+      - name: Restore/Save Source Cache
         uses: actions/cache@v4
         with:
           path: .cache/downloads
-          key: download-cache-${{ steps.dl_cache.outputs.key }}
-          restore-keys: download-cache-
+          key: dl-cache-${{ steps.dl_cache.outputs.key }}
+          restore-keys: dl-cache-
 
-      - name: Download sources
+      - name: Prepare and Build
         run: |
           ./download.sh
-          # ./util/clean_cache.sh
-
-      - name: Generate Dockerfile
-        run: ./generate.sh win64 nonfree
-
-#      - name: Save build context
-#        uses: actions/upload-artifact@v4
-#        with:
-#          name: build-context
-#          path: |
-#            ./
-#            .cache/
-#          include-hidden-files: true
-#          retention-days: 1 # store it only until the end of the workflow
-#
-#            # ./Dockerfile
-#            # ./build.sh
-#            # ./util/
-#            # ./scripts.d/
-#            # ./variants/
-#            # ./.cache/downloads/ # sources if don't use external caches
-
-#      - name: Debug Context
-#        run: |
-#          echo "Checking context..."
-#          pwd
-#          ls -a
-#          ls -R .cache/downloads/ | grep zvbi || echo "STILL MISSING"
-#          # if the file is not here, it means it was not downloaded or was not transferred by an artifact
-
-      - name: Build and Export FFmpeg
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.images.outputs.variant }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          # Configuring export:
-          # 'type=registry' pushes the image from the 'tags' tag
-          # 'type=local' uploads files from the 'artifacts' stage to a folder on runner
-          outputs: |
-            type=registry
-            type=local,dest=artifacts/,srcpath=artifacts
-          build-args: |
-            BUILDKIT_STEP_LOG_MAX_SIZE=20485760
+          ./generate.sh win64 nonfree
+          # Run the build via Buildx with artifact export
+          # Use cache-from=gha for ccache
+          docker buildx build \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            --tag ${{ steps.images.outputs.variant }} \
+            --output type=local,dest=artifacts/ \
+            --file Dockerfile .
 
       - name: Upload Final Artifacts
         uses: actions/upload-artifact@v4

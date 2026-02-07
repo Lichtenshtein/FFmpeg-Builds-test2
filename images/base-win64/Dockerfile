@@ -39,9 +39,8 @@ RUN ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc && \
 
 # ccache settings
 ENV CCACHE_DIR=/root/.cache/ccache \
-    CCACHE_MAXSIZE=1248M \
-    CCACHE_COMPRESS=1 \
-    CCACHE_SLOPPINESS=file_macro,time_macros,include_file_mtime,include_file_ctime
+    CCACHE_MAXSIZE=2G \
+    CCACHE_COMPRESS=1
 
 ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
     FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32" \
@@ -60,8 +59,8 @@ ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
     NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
     DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool" \
     GENDEF="${FFBUILD_TOOLCHAIN}-gendef" \
-    CFLAGS="-static-libgcc -static-libstdc++ -I/opt/ffbuild/include -O2 -pipe -fstack-protector-strong" \
-    CXXFLAGS="-static-libgcc -static-libstdc++ -I/opt/ffbuild/include -O2 -pipe -fstack-protector-strong" \
-    LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -O2 -pipe -fstack-protector-strong" \
+    CFLAGS="-static-libgcc -static-libstdc++ -I/opt/ffbuild/include -O3 -pipe -fstack-protector-strong -fno-tree-vectorize -msse4.2 -mavx -mavx2 -mfma -mbmi -mbmi2 -mlzcnt -flto" \
+    CXXFLAGS="-static-libgcc -static-libstdc++ -I/opt/ffbuild/include -O3 -pipe -fstack-protector-strong -fno-tree-vectorize -msse4.2 -mavx -mavx2 -mfma -mbmi -mbmi2 -mlzcnt -flto" \
+    LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -O3 -pipe -fstack-protector-strong -fno-tree-vectorize -Wl,--gc-sections -Wl,--as-needed -flto" \
     STAGE_CFLAGS="-fno-semantic-interposition" \
     STAGE_CXXFLAGS="-fno-semantic-interposition"
