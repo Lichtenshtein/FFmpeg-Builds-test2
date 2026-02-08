@@ -1,6 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/mstorsjo/vo-amrwbenc"
+SCRIPT_REPO="https://github.com/mstorsjo/vo-amrwbenc.git"
+SCRIPT_COMMIT="884dd247dbeb6b2bd2cd3291c4872de95700291f"
 
 ffbuild_enabled() {
     return 0

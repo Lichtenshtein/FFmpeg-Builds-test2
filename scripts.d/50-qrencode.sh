@@ -1,6 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/fukuchi/libqrencode"
+SCRIPT_REPO="https://github.com/GerHobbelt/libqrencode.git"
+SCRIPT_COMMIT="21c31742474699306cafb64ca2e7b293cd96c57d"
 
 ffbuild_enabled() {
     return 0

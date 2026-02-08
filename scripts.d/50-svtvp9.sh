@@ -1,6 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/OpenVisualCloud/SVT-VP9"
+SCRIPT_REPO="https://github.com/OpenVisualCloud/SVT-VP9.git"
+SCRIPT_COMMIT="7917f95c3849768ab569ccc4a5adecb8854b65f6"
 
 ffbuild_enabled() {
     [[ $TARGET == win32 ]] && return -1

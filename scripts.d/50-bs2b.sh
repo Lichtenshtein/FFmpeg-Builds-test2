@@ -1,6 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/alexmarsev/libbs2b"
+SCRIPT_REPO="https://github.com/alexmarsev/libbs2b.git"
+SCRIPT_COMMIT="5ca2d59888df047f1e4b028e3a2fd5be8b5a7277"
 
 ffbuild_enabled() {
     return 0

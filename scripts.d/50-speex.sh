@@ -1,6 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/xiph/speex"
+SCRIPT_REPO="https://github.com/xiph/speex.git"
+SCRIPT_COMMIT="05895229896dc942d453446eba6f9f5ddcf95422"
 
 ffbuild_enabled() {
     [[ $TARGET == *arm64 ]] && return -1

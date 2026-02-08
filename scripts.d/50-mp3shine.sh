@@ -1,6 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/toots/shine"
+SCRIPT_REPO="https://github.com/toots/shine.git"
+SCRIPT_COMMIT="ab5e3526b64af1a2eaa43aa6f441a7312e013519"
 
 ffbuild_enabled() {
     return 0
