@@ -32,15 +32,29 @@ echo "Downloading sources..."
 mapfile -t STAGES < <(find scripts.d -name "*.sh" | sort)
 
 for STAGE in "${STAGES[@]}"; do
-    [[ -f "$STAGE" ]] || continue
+
+    # Сбрасываем переменные перед загрузкой, чтобы не было мусора от прошлых стадий
     unset SCRIPT_REPO SCRIPT_COMMIT SCRIPT_REPO2 SCRIPT_COMMIT2
     
     STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
     
-    if ! ( source "$STAGE" && ffbuild_enabled ); then continue; fi
+    # ПОДГРУЖАЕМ функции вместе со скриптом в одном процессе
+    if ! ( source util/dl_functions.sh && source "$STAGE" && ffbuild_enabled ); then
+        continue
+    fi
     
-    DL_COMMAND=$( ( source util/dl_functions.sh && source "$STAGE" && ffbuild_dockerdl ) )
-    [[ -z "$DL_COMMAND" ]] && continue
+    # ПОЛУЧАЕМ команду загрузки (теперь она точно не будет пустой)
+    DL_COMMAND=$( ( 
+        source util/vars.sh "$TARGET" "$VARIANT" && \
+        source util/dl_functions.sh && \
+        source "$STAGE" && \
+        ffbuild_enabled && \
+        ffbuild_dockerdl 
+    ) )
+    
+    if [[ -z "$DL_COMMAND" ]]; then
+        continue
+    fi
     
     # Очистка команды
     DL_COMMAND="${DL_COMMAND//retry-tool /}"

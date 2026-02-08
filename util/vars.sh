@@ -140,3 +140,8 @@ ffbuild_libs() {
 ffbuild_unlibs() {
     return 0
 }
+ffbuild_dockerdl() {
+    if [[ -n "$SCRIPT_REPO" ]]; then
+        default_dl .
+    fi
+}
