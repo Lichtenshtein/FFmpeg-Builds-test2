@@ -31,7 +31,7 @@ else
     echo "Looked for: ${CACHE_DIR}/${STAGENAME}.tar.xz or ${STAGENAME}_*.tar.xz"
     # Выведем список похожих файлов для отладки
     echo "Available files for this prefix:"
-    ls -l "$CACHE_DIR" | grep "^.* ${STAGENAME}" || echo "No files starting with $STAGENAME"
+    ls -l "$CACHE_DIR" | grep "^.* ${STAGENAME}" || echo "No files starting with $STAGENAME" || true
     exit 1 # ПАДАЕМ СРАЗУ, чтобы не гадать по ошибке cp
 fi
 
