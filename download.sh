@@ -7,15 +7,22 @@ source util/dl_functions.sh
 mkdir -p .cache/downloads
 DL_DIR="$PWD/.cache/downloads"
 
-# Эмуляция git-mini-clone для хоста (GitHub Runner)
+# Улучшенная эмуляция git-mini-clone
 git-mini-clone() {
     local REPO="$1"
     local COMMIT="$2"
-    local TARGET="${3:-.}"
-    echo "Cloning $REPO ($COMMIT) into $TARGET..."
-    git clone --filter=blob:none --quiet "$REPO" "$TARGET"
-    if [[ -n "$COMMIT" ]]; then
-        ( cd "$TARGET" && git checkout --quiet "$COMMIT" )
+    local TARGET_DIR="${3:-.}"
+    
+    # Исправляем путь, если передана точка
+    [[ "$TARGET_DIR" == "." ]] && TARGET_DIR="./"
+
+    echo "Cloning $REPO ($COMMIT) into $TARGET_DIR..."
+    
+    # Используем обычный клон, но без блобов (быстро и полная история)
+    git clone --filter=blob:none --quiet "$REPO" "$TARGET_DIR"
+    
+    if [[ -n "$COMMIT" && "$COMMIT" != "master" && "$COMMIT" != "main" ]]; then
+        ( cd "$TARGET_DIR" && git checkout --quiet "$COMMIT" )
     fi
 }
 export -f git-mini-clone
@@ -30,15 +37,17 @@ for STAGE in "${STAGES[@]}"; do
     
     STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
     
-    # Проверка включенности
     if ! ( source "$STAGE" && ffbuild_enabled ); then continue; fi
     
-    # Получаем команду загрузки
     DL_COMMAND=$( ( source "$STAGE" && ffbuild_dockerdl ) )
     [[ -z "$DL_COMMAND" ]] && continue
     
-    # Удаляем retry-tool, если он есть в строке
+    # Очистка команды
     DL_COMMAND="${DL_COMMAND//retry-tool /}"
+    
+    # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: 
+    # Игнорируем --unshallow, так как наш клон и так не shallow
+    DL_COMMAND="${DL_COMMAND//git fetch --unshallow/true}"
     
     DL_HASH="$(echo "$DL_COMMAND" | sha256sum | cut -d" " -f1)"
     TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.xz"
@@ -53,12 +62,12 @@ for STAGE in "${STAGES[@]}"; do
     echo "Downloading $STAGENAME..."
     WORK_DIR=$(mktemp -d)
     
-    # Выполняем загрузку, прокидывая нашу функцию эмуляции
+    # Выполнение
     if ( cd "$WORK_DIR" && eval "$DL_COMMAND" ); then
         tar -cpJf "$TGT_FILE" -C "$WORK_DIR" .
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
     else
-        echo "Failed to download $STAGENAME."
+        echo "Failed to download $STAGENAME. Command was: $DL_COMMAND"
         rm -rf "$WORK_DIR"
         exit 1
     fi
