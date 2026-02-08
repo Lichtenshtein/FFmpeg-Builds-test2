@@ -68,7 +68,7 @@ to_df "    FF_CONFIGURE=\"$(xargs <<< "$FF_CONFIGURE")\" \\"
 to_df "    FF_CFLAGS=\"$(xargs <<< "$FF_CFLAGS")\" \\"
 to_df "    FF_CXXFLAGS=\"$(xargs <<< "$FF_CXXFLAGS")\" \\"
 to_df "    FF_LDFLAGS=\"$(xargs <<< "$FF_LDFLAGS")\" \\"
-to_df "    FF_LDEXEFLAGS=\"$(xargs <<< "$FF_LDFLAGS")\" \\"
+to_df "    FF_LDEXEFLAGS=\"$(xargs <<< "$FF_LDEXEFLAGS")\" \\"
 to_df "    FF_LIBS=\"$(xargs <<< "$FF_LIBS")\""
 
 # Копируем исходники проекта (включая build.sh и patches)

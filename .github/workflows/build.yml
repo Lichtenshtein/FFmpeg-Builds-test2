@@ -75,7 +75,10 @@ jobs:
 
       - name: Get Download Cache Key
         id: dl_cache
-        run: echo "key=$(./util/get_dl_cache_tag.sh)" >> $GITHUB_OUTPUT
+        run: |
+          KEY=$(./util/get_dl_cache_tag.sh)
+          echo "Cache Key: $KEY"
+          echo "key=$KEY" >> $GITHUB_OUTPUT
 
       - name: Restore/Save Source Cache
         uses: actions/cache@v4
