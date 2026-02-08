@@ -59,8 +59,8 @@ ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
     NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
     DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool" \
     GENDEF="${FFBUILD_TOOLCHAIN}-gendef" \
-    CFLAGS="-static-libgcc -static-libstdc++ -I/opt/ffbuild/include -O3 -pipe -fstack-protector-strong -fno-tree-vectorize -msse4.2 -mavx -mavx2 -mfma -mbmi -mbmi2 -mlzcnt -flto" \
-    CXXFLAGS="-static-libgcc -static-libstdc++ -I/opt/ffbuild/include -O3 -pipe -fstack-protector-strong -fno-tree-vectorize -msse4.2 -mavx -mavx2 -mfma -mbmi -mbmi2 -mlzcnt -flto" \
-    LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -O3 -pipe -fstack-protector-strong -fno-tree-vectorize -Wl,--gc-sections -Wl,--as-needed -flto" \
+    CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -ffast-math -flto=auto -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
+    CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -ffast-math -flto=auto -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
+    LDFLAGS="-O3 -march=broadwell -flto=auto -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -Wl,--gc-sections -Wl,--as-needed" \
     STAGE_CFLAGS="-fno-semantic-interposition" \
     STAGE_CXXFLAGS="-fno-semantic-interposition"
