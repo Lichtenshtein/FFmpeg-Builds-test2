@@ -18,8 +18,15 @@ ffbuild_dockerbuild() {
     mkdir build/linux
     cd build/linux
 
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DCOMPILE_10BIT=1 -DCOMPILE_FFMPEG=ON -DBUILD_SHARED_LIBS=NO ../..
+    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_C_FLAGS="$CFLAGS" \
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
+        -DCOMPILE_10BIT=1 \
+        -DCOMPILE_FFMPEG=ON \
+        -DBUILD_SHARED_LIBS=NO ../..
     make -j$(nproc)
     make install DESTDIR="$FFBUILD_DESTDIR"
 

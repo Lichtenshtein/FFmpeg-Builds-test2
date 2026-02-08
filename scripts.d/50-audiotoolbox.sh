@@ -11,7 +11,11 @@ ffbuild_enabled() {
 ffbuild_dockerbuild() {
     mkdir build && cd build
 
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" .. -G Ninja
+    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
+        -DCMAKE_C_FLAGS="$CFLAGS" \
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" .. -G Ninja
     ninja -j$(nproc)
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
