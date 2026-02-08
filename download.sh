@@ -39,7 +39,7 @@ for STAGE in "${STAGES[@]}"; do
     
     if ! ( source "$STAGE" && ffbuild_enabled ); then continue; fi
     
-    DL_COMMAND=$( ( source "$STAGE" && ffbuild_dockerdl ) )
+    DL_COMMAND=$( ( source util/dl_functions.sh && source "$STAGE" && ffbuild_dockerdl ) )
     [[ -z "$DL_COMMAND" ]] && continue
     
     # Очистка команды
