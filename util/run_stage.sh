@@ -19,8 +19,8 @@ if [[ -f "$REAL_CACHE" ]]; then
     tar xaf "$REAL_CACHE" -C .
 else
     echo "Warning: No source cache found for $STAGENAME at $DL_CACHE_PATTERN"
-    ls -l .cache/downloads
-    # Если это критический этап (как mingw), билд упадет дальше сам
+    # используем АБСОЛЮТНЫЙ путь для отладки
+    ls -l /root/.cache/downloads || true
 fi
 
 # Настройка флагов
