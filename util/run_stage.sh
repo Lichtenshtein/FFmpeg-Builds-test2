@@ -35,6 +35,17 @@ else
     exit 1 # ПАДАЕМ СРАЗУ, чтобы не гадать по ошибке cp
 fi
 
+# if [[ -n "$REAL_CACHE" && -f "$REAL_CACHE" ]]; then
+    # echo "Unpacking cache: $REAL_CACHE"
+    # tar xaf "$REAL_CACHE" -C .
+    # if [[ $(ls -1 | wc -l) -eq 1 && -d $(ls -1) ]]; then
+        # cd $(ls -1)
+    # fi
+# else
+    # echo "ERROR: Source cache NOT FOUND for $STAGENAME"
+    # exit 1
+# fi
+
 # Настройка флагов
 export RAW_CFLAGS="$CFLAGS"
 export RAW_CXXFLAGS="$CXXFLAGS"
