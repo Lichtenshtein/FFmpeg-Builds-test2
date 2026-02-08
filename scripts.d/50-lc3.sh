@@ -1,6 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/google/liblc3"
+SCRIPT_REPO="https://github.com/google/liblc3.git"
+SCRIPT_COMMIT="ce2e41faf8c06d038df9f32504c61109a14130be"
 
 ffbuild_enabled() {
     return 0

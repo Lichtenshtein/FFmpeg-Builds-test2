@@ -1,6 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/OpenVisualCloud/SVT-HEVC"
+SCRIPT_REPO="https://github.com/Brainiarc7/SVT-HEVC.git"
+SCRIPT_COMMIT="ee950558a2e3d0f0e3d78365b61a8f6020bd24de"
 
 ffbuild_enabled() {
     [[ $TARGET == win32 ]] && return -1

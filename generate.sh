@@ -58,7 +58,7 @@ for script in "${SCRIPTS[@]}"; do
         FF_CFLAGS+=" $( (source "$script" && ffbuild_cflags) )"
         FF_CXXFLAGS+=" $( (source "$script" && ffbuild_cxxflags) )"
         FF_LDFLAGS+=" $( (source "$script" && ffbuild_ldflags) )"
-        FF_LDEXEFLAGS+=" $( (get_output $script ldexeflags) )"
+        FF_LDEXEFLAGS+=" $( (source "$script" && ffbuild_ldexeflags) )"
         FF_LIBS+=" $( (source "$script" && ffbuild_libs) )"
     fi
 done
