@@ -13,6 +13,9 @@ cd "/build/$STAGENAME"
 CACHE_DIR="/root/.cache/downloads"
 REAL_CACHE=""
 
+# DL_CACHE_PATTERN="/root/.cache/downloads/${STAGENAME}*.tar.xz"
+# REAL_CACHE=$(ls $DL_CACHE_PATTERN 2>/dev/null | head -n 1)
+
 if [[ -f "${CACHE_DIR}/${STAGENAME}.tar.xz" ]]; then
     REAL_CACHE="${CACHE_DIR}/${STAGENAME}.tar.xz"
 else
