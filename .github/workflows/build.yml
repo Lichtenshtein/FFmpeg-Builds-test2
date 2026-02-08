@@ -61,11 +61,17 @@ jobs:
 
       - name: Build Base Images
         run: |
-          docker build -t ${{ steps.images.outputs.base }} images/base
-          docker build -t ${{ steps.images.outputs.target_base }} \
-            --build-arg GH_REPO=${{ steps.images.outputs.repo_lc }} images/base-win64
-          docker push ${{ steps.images.outputs.base }}
-          docker push ${{ steps.images.outputs.target_base }}
+          # try to download ready-made images. If they are not available (first run), build them
+          if ! docker pull ${{ steps.images.outputs.base }}; then
+            docker build -t ${{ steps.images.outputs.base }} images/base
+            docker push ${{ steps.images.outputs.base }}
+          fi
+          
+          if ! docker pull ${{ steps.images.outputs.target_base }}; then
+            docker build -t ${{ steps.images.outputs.target_base }} \
+              --build-arg GH_REPO=${{ steps.images.outputs.repo_lc }} images/base-win64
+            docker push ${{ steps.images.outputs.target_base }}
+          fi
 
       - name: Get Download Cache Key
         id: dl_cache
