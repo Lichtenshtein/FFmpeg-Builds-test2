@@ -8,7 +8,6 @@ ffbuild_depends() {
 }
 
 ffbuild_enabled() {
-    [[ $TARGET == win* ]] || return -1
     return 0
 }
 
