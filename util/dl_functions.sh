@@ -1,12 +1,17 @@
 #!/bin/bash
 
 default_dl() {
-    local TARGET_DIR="${1:-.}" # Если аргумент пуст, используем точку
+    local TARGET_DIR="${1:-.}"
     if command -v git-mini-clone >/dev/null 2>&1; then
-        echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" \"$TARGET_DIR\""
+        # Если используем внутреннюю утилиту (в докере)
+        echo "git-mini-clone \"$SCRIPT_REPO\" \"${SCRIPT_COMMIT:-master}\" \"$TARGET_DIR\""
     else
-        # Используем git clone и checkout с явным указанием путей
-        echo "git clone --filter=blob:none --quiet \"$SCRIPT_REPO\" \"$TARGET_DIR\" && cd \"$TARGET_DIR\" && git checkout --quiet \"$SCRIPT_COMMIT\""
+        # Эмуляция на хосте (GitHub Runner)
+        local CMD="git clone --filter=blob:none --quiet \"$SCRIPT_REPO\" \"$TARGET_DIR\""
+        if [[ -n "$SCRIPT_COMMIT" ]]; then
+            CMD="$CMD && cd \"$TARGET_DIR\" && git checkout --quiet \"$SCRIPT_COMMIT\""
+        fi
+        echo "$CMD"
     fi
 }
 
