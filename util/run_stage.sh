@@ -8,19 +8,28 @@ STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
 mkdir -p "/build/$STAGENAME"
 cd "/build/$STAGENAME"
 
-# Распаковка исходников (Ищем файл STAGENAME*.tar.xz)
-# Мы используем поиск по маске в смонтированном кэше
-DL_CACHE_PATTERN="/root/.cache/downloads/${STAGENAME}*.tar.xz"
-# Берем первый найденный файл
-REAL_CACHE=$(ls $DL_CACHE_PATTERN 2>/dev/null | head -n 1)
+# Поиск кэша
+# Проверяем два варианта: с хэшем и чистый симлинк
+CACHE_DIR="/root/.cache/downloads"
+REAL_CACHE=""
 
-if [[ -f "$REAL_CACHE" ]]; then
-    echo "Unpacking cache: $REAL_CACHE"
-    tar xaf "$REAL_CACHE" -C .
+if [[ -f "${CACHE_DIR}/${STAGENAME}.tar.xz" ]]; then
+    REAL_CACHE="${CACHE_DIR}/${STAGENAME}.tar.xz"
 else
-    echo "Warning: No source cache found for $STAGENAME at $DL_CACHE_PATTERN"
-    # используем АБСОЛЮТНЫЙ путь для отладки
-    ls -l /root/.cache/downloads || true
+    # Ищем по маске, если симлинк не создался
+    REAL_CACHE=$(find "$CACHE_DIR" -name "${STAGENAME}_*.tar.xz" | head -n 1)
+fi
+
+if [[ -n "$REAL_CACHE" && -f "$REAL_CACHE" ]]; then
+    echo "Found cache for $STAGENAME: $REAL_CACHE"
+    tar xaf "$REAL_CACHE" -C . --strip-components=0
+else
+    echo "ERROR: Source cache NOT FOUND for $STAGENAME"
+    echo "Looked for: ${CACHE_DIR}/${STAGENAME}.tar.xz or ${STAGENAME}_*.tar.xz"
+    # Выведем список похожих файлов для отладки
+    echo "Available files for this prefix:"
+    ls -l "$CACHE_DIR" | grep "^.* ${STAGENAME}" || echo "No files starting with $STAGENAME"
+    exit 1 # ПАДАЕМ СРАЗУ, чтобы не гадать по ошибке cp
 fi
 
 # Настройка флагов
