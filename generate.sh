@@ -6,8 +6,7 @@ source util/vars.sh
 
 export LC_ALL=C.UTF-8
 
-# Очистка старых файлов
-rm -f Dockerfile Dockerfile.tmp
+rm -f Dockerfile
 
 to_df() {
     printf "$@" >> Dockerfile
@@ -20,46 +19,48 @@ to_df "ENV TARGET=$TARGET VARIANT=$VARIANT REPO=$REPO ADDINS_STR=$ADDINS_STR"
 to_df "COPY --link util/run_stage.sh /usr/bin/run_stage"
 to_df "WORKDIR /builder"
 
-# Подготовка зависимостей (Scripts.d)
-# Вместо создания сотен слоев, мы генерируем один большой RUN блок
-# Это критически важно для стабильности GitHub Runners
+# Подготовка этапов сборки (Scripts.d)
 to_df "RUN --mount=type=cache,target=/root/.cache/ccache \\"
 to_df "    --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\"
 to_df "    --mount=type=bind,source=util,target=/builder/util \\"
+to_df "    --mount=type=bind,source=patches,target=patches/ffmpeg \\"
 to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads \\"
 
-# Собираем список всех скриптов
-SCRIPTS=( scripts.d/??-* )
+# Находим все .sh файлы, сортируем их по имени (это обеспечит порядок 10, 20, 45, 50...)
+# Мы используем -lexical сортировку, чтобы scripts.d/45-fonts/01-xx шел перед 50-xx
+SCRIPTS=( $(find scripts.d -name "*.sh" | sort) )
+
 for i in "${!SCRIPTS[@]}"; do
     STAGE="${SCRIPTS[$i]}"
-    # Определяем, последний ли это скрипт для корректного завершения команды RUN
+    
+    # Проверка, включен ли скрипт для данной цели (win64/nonfree)
+    # Это важно сделать на этапе генерации, чтобы не плодить пустые RUN
+    if ! ( source "$STAGE" && ffbuild_enabled ); then
+        continue
+    fi
+
     SEP=" && \\"
     [[ $i -eq $(( ${#SCRIPTS[@]} - 1 )) ]] && SEP=""
     
-    # Мы вызываем run_stage напрямую. Это экономит ресурсы на переключениях контекста Docker
-    to_df "    run_stage $STAGE $SEP"
+    # Используем абсолютный путь внутри контейнера (/builder/...)
+    to_df "    run_stage /builder/$STAGE $SEP"
 done
 
-# Сборка FFmpeg
-# Собираем флаги конфигурации (логика из вашего оригинала)
-get_output() {
-    (
-        SELF="$1"
-        source "$1"
-        if ffbuild_enabled; then ffbuild_$2 || exit 0; else ffbuild_un$2 || exit 0; fi
-    )
-}
-
+# Сборка FFmpeg (Флаги конфигурации)
+# Собираем переменные для финального ./configure FFmpeg
 source "variants/${TARGET}-${VARIANT}.sh"
 for addin in ${ADDINS[*]}; do source "addins/${addin}.sh"; done
 
-for script in scripts.d/**/*.sh; do
-    FF_CONFIGURE+=" $(get_output $script configure)"
-    FF_CFLAGS+=" $(get_output $script cflags)"
-    FF_CXXFLAGS+=" $(get_output $script cxxflags)"
-    FF_LDFLAGS+=" $(get_output $script ldflags)"
-    FF_LDEXEFLAGS+=" $(get_output $script ldexeflags)"
-    FF_LIBS+=" $(get_output $script libs)"
+# Собираем флаги из всех активных скриптов
+for script in "${SCRIPTS[@]}"; do
+    if ( source "$script" && ffbuild_enabled ); then
+        FF_CONFIGURE+=" $( (source "$script" && ffbuild_configure) )"
+        FF_CFLAGS+=" $( (source "$script" && ffbuild_cflags) )"
+        FF_CXXFLAGS+=" $( (source "$script" && ffbuild_cxxflags) )"
+        FF_LDFLAGS+=" $( (source "$script" && ffbuild_ldflags) )"
+        FF_LDEXEFLAGS+=" $( (get_output $script ldexeflags) )"
+        FF_LIBS+=" $( (source "$script" && ffbuild_libs) )"
+    fi
 done
 
 to_df "ENV \\"
@@ -67,18 +68,17 @@ to_df "    FF_CONFIGURE=\"$(xargs <<< "$FF_CONFIGURE")\" \\"
 to_df "    FF_CFLAGS=\"$(xargs <<< "$FF_CFLAGS")\" \\"
 to_df "    FF_CXXFLAGS=\"$(xargs <<< "$FF_CXXFLAGS")\" \\"
 to_df "    FF_LDFLAGS=\"$(xargs <<< "$FF_LDFLAGS")\" \\"
-to_df "    FF_LDEXEFLAGS=\"$(xargs <<< "$FF_LDEXEFLAGS")\" \\"
+to_df "    FF_LDEXEFLAGS=\"$(xargs <<< "$FF_LDFLAGS")\" \\"
 to_df "    FF_LIBS=\"$(xargs <<< "$FF_LIBS")\""
 
-# Копируем исходники и запускаем финальный билд
+# Копируем исходники проекта (включая build.sh и patches)
 to_df "COPY . /builder"
-# Используем ограничение потоков (nproc/2), чтобы не "задушить" раннер по RAM
+
+# Запуск финальной сборки FFmpeg
 to_df "RUN --mount=type=cache,target=/root/.cache/ccache \\"
-to_df "    --mount=type=bind,target=/patches,source=patches/ffmpeg \\"
 to_df "    ./build.sh $TARGET $VARIANT"
 
-# стадия экспорта (минимальный размер)
+# 4. Экспорт артефактов
 to_df ""
 to_df "FROM scratch AS artifacts"
-# копируем только из /opt/ffdest, где лежат готовые 7z
 to_df "COPY --from=build_stage /opt/ffdest/ /"
