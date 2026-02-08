@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 cd "$(dirname "$0")"
-source util/vars.sh dl only
+source util/vars.sh "$TARGET" "$VARIANT"
 source util/dl_functions.sh
 
 mkdir -p .cache/downloads
@@ -27,22 +27,18 @@ git-mini-clone() {
 }
 export -f git-mini-clone
 
-echo "Downloading sources..."
+echo "Downloading sources for TARGET=$TARGET VARIANT=$VARIANT..."
 
 mapfile -t STAGES < <(find scripts.d -name "*.sh" | sort)
 
 for STAGE in "${STAGES[@]}"; do
 
+    [[ -f "$STAGE" ]] || continue
     # Сбрасываем переменные перед загрузкой, чтобы не было мусора от прошлых стадий
     unset SCRIPT_REPO SCRIPT_COMMIT SCRIPT_REPO2 SCRIPT_COMMIT2
     
     STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
-    
-    # ПОДГРУЖАЕМ функции вместе со скриптом в одном процессе
-    if ! ( source util/dl_functions.sh && source "$STAGE" && ffbuild_enabled ); then
-        continue
-    fi
-    
+
     # ПОЛУЧАЕМ команду загрузки (теперь она точно не будет пустой)
     DL_COMMAND=$( ( 
         source util/vars.sh "$TARGET" "$VARIANT" && \
@@ -52,15 +48,10 @@ for STAGE in "${STAGES[@]}"; do
         ffbuild_dockerdl 
     ) )
     
-    if [[ -z "$DL_COMMAND" ]]; then
-        continue
-    fi
+    [[ -z "$DL_COMMAND" ]] && continue
     
     # Очистка команды
     DL_COMMAND="${DL_COMMAND//retry-tool /}"
-    
-    # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: 
-    # Игнорируем --unshallow, так как наш клон и так не shallow
     DL_COMMAND="${DL_COMMAND//git fetch --unshallow/true}"
     
     DL_HASH="$(echo "$DL_COMMAND" | sha256sum | cut -d" " -f1)"
