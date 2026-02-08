@@ -34,6 +34,8 @@ ffbuild_dockerbuild() {
     unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
     unset PKG_CONFIG_LIBDIR
 
+    [[ -d mingw ]] && cd mingw
+
     ###
     ### mingw-w64-headers
     ###
