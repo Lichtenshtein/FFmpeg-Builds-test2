@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --libdir=lib
         --cross-compile-prefix="$FFBUILD_CROSS_PREFIX"
-    
+    )
 
     if [[ $TARGET == win64 ]]; then
         myconf+=( mingw64 )
@@ -79,23 +79,9 @@ EOF
     export CFLAGS="$CFLAGS -fno-strict-aliasing"
     export CXXFLAGS="$CXXFLAGS -fno-strict-aliasing"
 
-    # OpenSSL build system prepends the cross prefix itself
-    # export CC="${CC/${FFBUILD_CROSS_PREFIX}/}"
-    # export CXX="${CXX/${FFBUILD_CROSS_PREFIX}/}"
-    # export AR="${AR/${FFBUILD_CROSS_PREFIX}/}"
-    # export RANLIB="${RANLIB/${FFBUILD_CROSS_PREFIX}/}"
-
-    # ./Configure "${myconf[@]}"
-
-    # sed -i -e "/^CFLAGS=/s|=.*|=${CFLAGS}|" -e "/^LDFLAGS=/s|=[[:space:]]*$|=${LDFLAGS}|" Makefile
-
-    # make -j$(nproc) build_sw
-
-    # НЕ убираем префиксы из CC/CXX! 
-    # Просто запускаем Configure, он сам подхватит переменные окружения.
     ./Configure "${myconf[@]}" "$CFLAGS" "$LDFLAGS"
 
-    make -j$(nproc)
+    make -j$(nproc) build_sw
     make install_sw DESTDIR="$FFBUILD_DESTDIR"
 }
 
