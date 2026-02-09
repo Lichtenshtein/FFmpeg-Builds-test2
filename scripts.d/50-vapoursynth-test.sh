@@ -18,7 +18,8 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     # Клонируем тег R73 прямо в корень
-    echo "git clone --filter=blob:none --depth 1 --branch \"$SCRIPT_COMMIT\" \"$SCRIPT_REPO\" ."
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+    # echo "git clone --filter=blob:none --depth 1 --branch \"$SCRIPT_COMMIT\" \"$SCRIPT_REPO\" ."
 }
 
 ffbuild_dockerbuild() {

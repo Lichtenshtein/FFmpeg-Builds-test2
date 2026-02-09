@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://code.videolan.org/videolan/libplacebo.git"
-SCRIPT_COMMIT="bc90ef94944a3dcaab324b86d3e3769ad1d8698b"
+SCRIPT_REPO="https://github.com/haasn/libplacebo.git"
+SCRIPT_COMMIT="b2ea27dceb6418aabfe9121174c6dbb232942998"
 
 ffbuild_depends() {
     echo base
@@ -14,8 +14,11 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    default_dl .
-    echo "git submodule update --init --recursive --depth=1 --filter=blob:none"
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+    # —начала клонируем основной репозиторий с историей (глубина 1)
+    # echo "git clone --filter=blob:none --depth=1 \"$SCRIPT_REPO\" ."
+    # «атем принудительно инициализируем подмодули без лишних фильтров, которые могут не поддерживатьс€ старыми верси€ми git
+    # echo "git submodule update --init --recursive --depth=1"
 }
 
 ffbuild_dockerbuild() {
