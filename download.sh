@@ -2,7 +2,7 @@
 set -e
 cd "$(dirname "$0")"
 
-# Подгружаем переменные, игнорируя попытку завершить весь скрипт
+# Подгружаем переменные и функции
 source util/vars.sh "$TARGET" "$VARIANT" || true
 source util/dl_functions.sh
 
@@ -20,24 +20,29 @@ git-mini-clone() {
         ( cd "$TARGET_DIR" && git checkout --quiet "$COMMIT" )
     fi
 }
-export -f git-mini-clone
 
-echo "Downloading sources for TARGET=$TARGET VARIANT=$VARIANT..."
+# single thread
+# echo "Downloading sources for TARGET=$TARGET VARIANT=$VARIANT..."
+# mapfile -t STAGES < <(find scripts.d -name "*.sh" | sort)
 
-mapfile -t STAGES < <(find scripts.d -name "*.sh" | sort)
-
-for STAGE in "${STAGES[@]}"; do
-    [[ -f "$STAGE" ]] || continue
+# Функция для обработки ОДНОГО скрипта (экспортируем для xargs)
+download_stage() {
+    local STAGE="$1"
+    local TARGET="$2"
+    local VARIANT="$3"
+    local DL_DIR="$4"
+    
     STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
-    
+
     # Очищаем переменные
-    unset SCRIPT_REPO SCRIPT_COMMIT SCRIPT_REPO2 SCRIPT_COMMIT2
-    
+    # unset SCRIPT_REPO SCRIPT_COMMIT SCRIPT_REPO2 SCRIPT_COMMIT2
+
     # Получаем команду, подавляя выход всего скрипта при ошибке в subshell
     DL_COMMAND=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; source util/dl_functions.sh; source \"$STAGE\"; ffbuild_enabled && ffbuild_dockerdl" || echo "")
     
-    [[ -z "$DL_COMMAND" ]] && continue
+    [[ -z "$DL_COMMAND" ]] && return 0
     
+    # Очистка команды
     DL_COMMAND="${DL_COMMAND//retry-tool /}"
     DL_COMMAND="${DL_COMMAND//git fetch --unshallow/true}"
     
@@ -46,18 +51,32 @@ for STAGE in "${STAGES[@]}"; do
     LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.xz"
 
     if [[ -f "$TGT_FILE" ]]; then
-        echo "Cache hit for $STAGENAME"
+        echo "Cache hit: $STAGENAME"
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
-        continue
+        return 0
     fi
 
-    echo "Downloading $STAGENAME..."
+    echo "Downloading: $STAGENAME..."
     WORK_DIR=$(mktemp -d)
-    if ( cd "$WORK_DIR" && eval "$DL_COMMAND" ); then
+    if ( cd "$WORK_DIR" && eval "$DL_COMMAND" ) >/dev/null 2>&1; then
         tar -cpJf "$TGT_FILE" -C "$WORK_DIR" .
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
+        echo "Done: $STAGENAME"
     else
-        echo "Failed to download $STAGENAME."
+        echo "FAILED: $STAGENAME"
+        rm -rf "$WORK_DIR"
+        return 1
     fi
     rm -rf "$WORK_DIR"
-done
+}
+
+export -f download_stage
+export -f git-mini-clone
+
+echo "Starting parallel downloads for $TARGET-$VARIANT..."
+
+# Находим все включенные скрипты и запускаем в 8 потоков
+find scripts.d -name "*.sh" | sort | \
+    xargs -I{} -P 8 bash -c "download_stage '{}' '$TARGET' '$VARIANT' '$DL_DIR'"
+
+echo "All downloads finished."
