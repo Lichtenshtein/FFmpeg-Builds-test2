@@ -26,7 +26,7 @@ git clone --filter=blob:none --depth=1 --branch="$GIT_BRANCH" "$FFMPEG_REPO" ffb
 cd ffbuild/ffmpeg
 
 # Применяем патчи
-PATCHES=("../../patches/ffmpeg/$GIT_BRANCH"/*.patch)
+PATCHES=("/builder/patches/ffmpeg/$GIT_BRANCH"/*.patch)
 for patch in "${PATCHES[@]}"; do
     if [[ -f "$patch" ]]; then
         echo "Applying $patch"
