@@ -17,6 +17,12 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/libtiff" ]]; then
+        for patch in /builder/patches/libtiff/*.patch; do
+            echo "Applying $patch"
+            patch -p1 < "$patch"
+        done
+    fi
     mkdir build && cd build
 
     local myconf=(

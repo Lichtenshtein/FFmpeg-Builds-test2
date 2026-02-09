@@ -1,0 +1,25 @@
+From 9e06c72f61d25fb485d2fa6d92a6fcb8cb59cc8a Mon Sep 17 00:00:00 2001
+From: Robert Davidson <rdavidson@accusoft.com>
+Date: Sun, 8 Aug 2021 01:38:53 -0400
+Subject: [PATCH] Add command-line word break support
+
+---
+ src/synth/cst_synth.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/src/synth/cst_synth.c b/src/synth/cst_synth.c
+index 9e529ee..c8ae788 100644
+--- a/src/synth/cst_synth.c
++++ b/src/synth/cst_synth.c
+@@ -648,6 +648,11 @@ static cst_utterance *tokentosegs(cst_utterance *u)
+ 	{
+ 	    sylitem = 0;  /* syllable break */
+ 	}
++    else if (cst_streq(name,"-word-"))
++    {
++        sylitem = 0; /* syllable break */
++        worditem = 0; /* word break */
++    }
+     else if (
+         cst_strlen(name) == 6
+         && name[0] == '-' && name[1] == 'f' && name[5] == '-'

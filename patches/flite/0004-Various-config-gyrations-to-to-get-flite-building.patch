@@ -1,0 +1,220 @@
+From 71a9398e89aec32bcee4424e026c4050db2d928a Mon Sep 17 00:00:00 2001
+From: Robert Davidson <rdavidson@accusoft.com>
+Date: Sun, 8 Aug 2021 01:33:26 -0400
+Subject: [PATCH] Various config gyrations to to get flite building
+
+Hopefully it works for others as well.
+---
+ flite.sln                | 20 ++++++++------
+ fliteDll.vcxproj         | 60 ++++++++++++++++++++--------------------
+ fliteDll.vcxproj.filters | 12 ++++----
+ 3 files changed, 47 insertions(+), 45 deletions(-)
+
+diff --git a/flite.sln b/flite.sln
+index e7ffd22..69db7fd 100644
+--- a/flite.sln
++++ b/flite.sln
+@@ -1,17 +1,9 @@
+ ﻿
+ Microsoft Visual Studio Solution File, Format Version 12.00
+ # Visual Studio 14
+-VisualStudioVersion = 14.0.23107.0
++VisualStudioVersion = 14.0.25420.1
+ MinimumVisualStudioVersion = 10.0.40219.1
+ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "fliteDll", "fliteDll.vcxproj", "{FAEFFFEB-D98F-4641-A0CF-04E31C8F90F2}"
+-	ProjectSection(WebsiteProperties) = preProject
+-		Debug.AspNetCompiler.Debug = "True"
+-		Release.AspNetCompiler.Debug = "False"
+-	EndProjectSection
+-	ProjectSection(WebsiteProperties) = preProject
+-		Debug.AspNetCompiler.Debug = "True"
+-		Release.AspNetCompiler.Debug = "False"
+-	EndProjectSection
+ EndProject
+ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cmu_us_rms", "lang\cmu_us_rms\cmu_us_rms.vcxproj", "{596A15AB-57B8-4EC2-BEC5-C34689D7ED5C}"
+ EndProject
+@@ -24,21 +16,31 @@ EndProject
+ Global
+ 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+ 		Debug|Win32 = Debug|Win32
++		Debug|x64 = Debug|x64
+ 		Release|Win32 = Release|Win32
++		Release|x64 = Release|x64
+ 	EndGlobalSection
+ 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+ 		{FAEFFFEB-D98F-4641-A0CF-04E31C8F90F2}.Debug|Win32.ActiveCfg = Debug|Win32
+ 		{FAEFFFEB-D98F-4641-A0CF-04E31C8F90F2}.Debug|Win32.Build.0 = Debug|Win32
++		{FAEFFFEB-D98F-4641-A0CF-04E31C8F90F2}.Debug|x64.ActiveCfg = Debug|x64
++		{FAEFFFEB-D98F-4641-A0CF-04E31C8F90F2}.Debug|x64.Build.0 = Debug|x64
+ 		{FAEFFFEB-D98F-4641-A0CF-04E31C8F90F2}.Release|Win32.ActiveCfg = Release|Win32
+ 		{FAEFFFEB-D98F-4641-A0CF-04E31C8F90F2}.Release|Win32.Build.0 = Release|Win32
++		{FAEFFFEB-D98F-4641-A0CF-04E31C8F90F2}.Release|x64.ActiveCfg = Release|x64
++		{FAEFFFEB-D98F-4641-A0CF-04E31C8F90F2}.Release|x64.Build.0 = Release|x64
+ 		{596A15AB-57B8-4EC2-BEC5-C34689D7ED5C}.Debug|Win32.ActiveCfg = Debug|Win32
+ 		{596A15AB-57B8-4EC2-BEC5-C34689D7ED5C}.Debug|Win32.Build.0 = Debug|Win32
++		{596A15AB-57B8-4EC2-BEC5-C34689D7ED5C}.Debug|x64.ActiveCfg = Debug|Win32
+ 		{596A15AB-57B8-4EC2-BEC5-C34689D7ED5C}.Release|Win32.ActiveCfg = Release|Win32
+ 		{596A15AB-57B8-4EC2-BEC5-C34689D7ED5C}.Release|Win32.Build.0 = Release|Win32
++		{596A15AB-57B8-4EC2-BEC5-C34689D7ED5C}.Release|x64.ActiveCfg = Release|Win32
+ 		{053E27FE-907D-4863-B99E-F39A01E5951A}.Debug|Win32.ActiveCfg = Debug|Win32
+ 		{053E27FE-907D-4863-B99E-F39A01E5951A}.Debug|Win32.Build.0 = Debug|Win32
++		{053E27FE-907D-4863-B99E-F39A01E5951A}.Debug|x64.ActiveCfg = Debug|Win32
+ 		{053E27FE-907D-4863-B99E-F39A01E5951A}.Release|Win32.ActiveCfg = Release|Win32
+ 		{053E27FE-907D-4863-B99E-F39A01E5951A}.Release|Win32.Build.0 = Release|Win32
++		{053E27FE-907D-4863-B99E-F39A01E5951A}.Release|x64.ActiveCfg = Release|Win32
+ 	EndGlobalSection
+ 	GlobalSection(SolutionProperties) = preSolution
+ 		HideSolutionNode = FALSE
+diff --git a/fliteDll.vcxproj b/fliteDll.vcxproj
+index 0723cfd..9ba8d7b 100755
+--- a/fliteDll.vcxproj
++++ b/fliteDll.vcxproj
+@@ -29,7 +29,7 @@
+   <PropertyGroup Label="Globals">
+     <SccProjectName />
+     <SccLocalPath />
+-    <ProjectGuid>{190BF306-14E8-449F-B343-5A42ECCD87C9}</ProjectGuid>
++    <ProjectGuid>{FAEFFFEB-D98F-4641-A0CF-04E31C8F90F2}</ProjectGuid>
+     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+   </PropertyGroup>
+   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+@@ -121,7 +121,7 @@
+       <WarningLevel>Level3</WarningLevel>
+       <MinimalRebuild>true</MinimalRebuild>
+       <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+-      <AdditionalIncludeDirectories>..\..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories>.\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <AssemblerListingLocation>.\Debug\</AssemblerListingLocation>
+       <PrecompiledHeaderOutputFile>.\Debug\FliteTTSEngineObj.pch</PrecompiledHeaderOutputFile>
+@@ -151,7 +151,7 @@
+       <SuppressStartupBanner>true</SuppressStartupBanner>
+       <WarningLevel>Level3</WarningLevel>
+       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+-      <AdditionalIncludeDirectories>..\..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories>.\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+       <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <AssemblerListingLocation>.\Debug\</AssemblerListingLocation>
+       <PrecompiledHeaderOutputFile>.\Debug\FliteTTSEngineObj.pch</PrecompiledHeaderOutputFile>
+@@ -181,7 +181,7 @@
+       <Optimization>MaxSpeed</Optimization>
+       <SuppressStartupBanner>true</SuppressStartupBanner>
+       <WarningLevel>Level3</WarningLevel>
+-      <AdditionalIncludeDirectories>..\..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories>.\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+       <PrecompiledHeaderOutputFile>.\Release\FliteTTSEngineObj.pch</PrecompiledHeaderOutputFile>
+@@ -210,7 +210,7 @@
+       <Optimization>MaxSpeed</Optimization>
+       <SuppressStartupBanner>true</SuppressStartupBanner>
+       <WarningLevel>Level3</WarningLevel>
+-      <AdditionalIncludeDirectories>..\..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories>.\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+       <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+       <AssemblerListingLocation>$(IntDir)</AssemblerListingLocation>
+       <PrecompiledHeaderOutputFile>.\Release\FliteTTSEngineObj.pch</PrecompiledHeaderOutputFile>
+@@ -232,42 +232,42 @@
+   </ItemDefinitionGroup>
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Template|Win32'">
+     <ClCompile>
+-      <AdditionalIncludeDirectories>..\..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories>.\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ClCompile>
+   </ItemDefinitionGroup>
+   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Template|x64'">
+     <ClCompile>
+-      <AdditionalIncludeDirectories>..\..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
++      <AdditionalIncludeDirectories>.\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+     </ClCompile>
+   </ItemDefinitionGroup>
+   <ItemGroup>
+-    <ClCompile Include="..\..\lang\cmu_grapheme_lang\cmu_grapheme_lang.c" />
+-    <ClCompile Include="..\..\lang\cmu_grapheme_lang\cmu_grapheme_phoneset.c" />
+-    <ClCompile Include="..\..\lang\cmu_grapheme_lang\cmu_grapheme_phrasing_cart.c" />
+-    <ClCompile Include="..\..\lang\cmu_grapheme_lex\cmu_grapheme_lex.c" />
+-    <ClCompile Include="..\..\lang\cmu_grapheme_lex\grapheme_unitran_tables.c" />
+-    <ClCompile Include="..\..\lang\cmu_indic_lang\cmu_indic_lang.c" />
+-    <ClCompile Include="..\..\lang\cmu_indic_lang\cmu_indic_phoneset.c" />
+-    <ClCompile Include="..\..\lang\cmu_indic_lang\cmu_indic_phrasing_cart.c" />
+-    <ClCompile Include="..\..\lang\cmu_indic_lex\cmu_indic_lex.c" />
++    <ClCompile Include="lang\cmu_grapheme_lang\cmu_grapheme_lang.c" />
++    <ClCompile Include=".\lang\cmu_grapheme_lang\cmu_grapheme_phoneset.c" />
++    <ClCompile Include=".\lang\cmu_grapheme_lang\cmu_grapheme_phrasing_cart.c" />
++    <ClCompile Include="lang\cmu_grapheme_lex\cmu_grapheme_lex.c" />
++    <ClCompile Include=".\lang\cmu_grapheme_lex\grapheme_unitran_tables.c" />
++    <ClCompile Include=".\lang\cmu_indic_lang\cmu_indic_lang.c" />
++    <ClCompile Include=".\lang\cmu_indic_lang\cmu_indic_phoneset.c" />
++    <ClCompile Include=".\lang\cmu_indic_lang\cmu_indic_phrasing_cart.c" />
++    <ClCompile Include=".\lang\cmu_indic_lex\cmu_indic_lex.c" />
+     <ClCompile Include="FliteTTSEngineObj.cpp" />
+     <ClCompile Include="flite_sapi_usenglish.c" />
+   </ItemGroup>
+   <ItemGroup>
+-    <ClInclude Include="..\..\lang\cmu_grapheme_lang\cmu_grapheme_lang.h" />
+-    <ClInclude Include="..\..\lang\cmu_grapheme_lang\cmu_grapheme_phrasing_cart.h" />
+-    <ClInclude Include="..\..\lang\cmu_grapheme_lex\cmu_grapheme_lex.h" />
+-    <ClInclude Include="..\..\lang\cmu_indic_lang\cmu_indic_lang.h" />
+-    <ClInclude Include="..\..\lang\cmu_indic_lang\cmu_indic_phrasing_cart.h" />
+-    <ClInclude Include="..\..\lang\cmu_indic_lang\indic_eng_num_table.h" />
+-    <ClInclude Include="..\..\lang\cmu_indic_lang\indic_guj_num_table.h" />
+-    <ClInclude Include="..\..\lang\cmu_indic_lang\indic_hin_num_table.h" />
+-    <ClInclude Include="..\..\lang\cmu_indic_lang\indic_kan_num_table.h" />
+-    <ClInclude Include="..\..\lang\cmu_indic_lang\indic_mar_num_table.h" />
+-    <ClInclude Include="..\..\lang\cmu_indic_lang\indic_num_table.h" />
+-    <ClInclude Include="..\..\lang\cmu_indic_lang\indic_tam_num_table.h" />
+-    <ClInclude Include="..\..\lang\cmu_indic_lang\indic_tel_num_table.h" />
+-    <ClInclude Include="..\..\lang\cmu_indic_lex\cmu_indic_lex.h" />
++    <ClInclude Include=".\lang\cmu_grapheme_lang\cmu_grapheme_lang.h" />
++    <ClInclude Include=".\lang\cmu_grapheme_lang\cmu_grapheme_phrasing_cart.h" />
++    <ClInclude Include=".\lang\cmu_grapheme_lex\cmu_grapheme_lex.h" />
++    <ClInclude Include=".\lang\cmu_indic_lang\cmu_indic_lang.h" />
++    <ClInclude Include=".\lang\cmu_indic_lang\cmu_indic_phrasing_cart.h" />
++    <ClInclude Include=".\lang\cmu_indic_lang\indic_eng_num_table.h" />
++    <ClInclude Include=".\lang\cmu_indic_lang\indic_guj_num_table.h" />
++    <ClInclude Include=".\lang\cmu_indic_lang\indic_hin_num_table.h" />
++    <ClInclude Include=".\lang\cmu_indic_lang\indic_kan_num_table.h" />
++    <ClInclude Include=".\lang\cmu_indic_lang\indic_mar_num_table.h" />
++    <ClInclude Include=".\lang\cmu_indic_lang\indic_num_table.h" />
++    <ClInclude Include=".\lang\cmu_indic_lang\indic_tam_num_table.h" />
++    <ClInclude Include=".\lang\cmu_indic_lang\indic_tel_num_table.h" />
++    <ClInclude Include=".\lang\cmu_indic_lex\cmu_indic_lex.h" />
+     <ClInclude Include="FliteTTSEngineObj.h" />
+     <ClInclude Include="flite_sapi_usenglish.h" />
+   </ItemGroup>
+diff --git a/fliteDll.vcxproj.filters b/fliteDll.vcxproj.filters
+index b4a6a61..ab74d82 100755
+--- a/fliteDll.vcxproj.filters
++++ b/fliteDll.vcxproj.filters
+@@ -17,18 +17,12 @@
+     <ClCompile Include="FliteTTSEngineObj.cpp">
+       <Filter>Source Files</Filter>
+     </ClCompile>
+-    <ClCompile Include="..\..\lang\cmu_grapheme_lang\cmu_grapheme_lang.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+     <ClCompile Include="..\..\lang\cmu_grapheme_lang\cmu_grapheme_phoneset.c">
+       <Filter>Source Files</Filter>
+     </ClCompile>
+     <ClCompile Include="..\..\lang\cmu_grapheme_lang\cmu_grapheme_phrasing_cart.c">
+       <Filter>Source Files</Filter>
+     </ClCompile>
+-    <ClCompile Include="..\..\lang\cmu_grapheme_lex\cmu_grapheme_lex.c">
+-      <Filter>Source Files</Filter>
+-    </ClCompile>
+     <ClCompile Include="..\..\lang\cmu_grapheme_lex\grapheme_unitran_tables.c">
+       <Filter>Source Files</Filter>
+     </ClCompile>
+@@ -44,6 +38,12 @@
+     <ClCompile Include="..\..\lang\cmu_indic_lex\cmu_indic_lex.c">
+       <Filter>Source Files</Filter>
+     </ClCompile>
++    <ClCompile Include="lang\cmu_grapheme_lang\cmu_grapheme_lang.c">
++      <Filter>Source Files</Filter>
++    </ClCompile>
++    <ClCompile Include="lang\cmu_grapheme_lex\cmu_grapheme_lex.c">
++      <Filter>Source Files</Filter>
++    </ClCompile>
+   </ItemGroup>
+   <ItemGroup>
+     <ClInclude Include="flite_sapi_usenglish.h">

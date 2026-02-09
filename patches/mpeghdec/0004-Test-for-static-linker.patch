@@ -1,0 +1,37 @@
+From f5c2d6311d125191b04a8351673bdc8e62a4881e Mon Sep 17 00:00:00 2001
+From: Andrija Milovanovic <andrija@streamsoft.rs>
+Date: Mon, 25 Nov 2024 17:23:57 +0100
+Subject: [PATCH] Test for static linker
+
+---
+ CMakeLists.txt      | 2 ++
+ demo/CMakeLists.txt | 5 ++++-
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index dcfe15e..bb9025c 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,6 +1,8 @@
+ cmake_minimum_required(VERSION 3.16)
+ project(mpeghdec LANGUAGES CXX)
+ set (CMAKE_CXX_STANDARD 11)
++set (CMAKE_EXE_LINKER_FLAGS "-static")
++set (CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+ 
+ # Set output directories
+ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
+diff --git a/demo/CMakeLists.txt b/demo/CMakeLists.txt
+index 3c0d423..e67dda9 100755
+--- a/demo/CMakeLists.txt
++++ b/demo/CMakeLists.txt
+@@ -10,5 +10,8 @@ if(${mpeghdec_BUILD_UIMANAGER})
+     "mpeghUiManager/main_mpeghUiManager.cpp"
+     "mpeghUiManager/interactivityScriptParser.h"
+   )
+-  target_link_libraries(mpeghUiManager mpeghdec mmtisobmff ilo)
++  target_link_libraries(mpeghUiManager mpeghdec mmtisobmff ilo 
++    -static-libgcc
++    -static-libstdc++
++  )
+ endif()

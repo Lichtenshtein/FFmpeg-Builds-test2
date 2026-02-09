@@ -13,15 +13,16 @@ ffbuild_enabled() {
     return -1
 }
 
-ffbuild_dockerstage() {
-    to_df "RUN --mount=src=${SELF},dst=/stage.sh --mount=src=${SELFCACHE},dst=/cache.tar.xz --mount=src=patches/aom,dst=/patches run_stage /stage.sh"
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
 ffbuild_dockerbuild() {
-    for patch in /patches/*.patch; do
-        echo "Applying $patch"
-        git am < "$patch"
-    done
+    if [[ -d "/builder/patches/aom" ]]; then
+        for patch in /builder/patches/aom/*.patch; do
+            patch -p1 < "$patch"
+        done
+    fi
 
     mkdir cmbuild && cd cmbuild
 

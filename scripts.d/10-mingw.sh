@@ -20,7 +20,8 @@ ffbuild_dockerfinal() {
 }
 
 ffbuild_dockerdl() {
-    echo "retry-tool sh -c \"rm -rf mingw && git clone '$SCRIPT_REPO' mingw\" && cd mingw && git checkout \"$SCRIPT_COMMIT\""
+    # Клонируем прямо в текущую директорию (.)
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
 ffbuild_dockerbuild() {
@@ -33,8 +34,6 @@ ffbuild_dockerbuild() {
     unset CC CXX LD AR CPP LIBS CCAS
     unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
     unset PKG_CONFIG_LIBDIR
-
-    [[ -d mingw ]] && cd mingw
 
     ###
     ### mingw-w64-headers

@@ -1,0 +1,18 @@
+From d0b59dd75e9fef5008c4d57b9f2ad2d8223b9e6d Mon Sep 17 00:00:00 2001
+From: Christopher Degawa <ccom@randomderp.com>
+Date: Tue, 8 Sep 2020 21:29:30 +0000
+Subject: [PATCH] sox_version: fold function into sox_version_info
+
+Signed-off-by: Christopher Degawa <ccom@randomderp.com>
+---
+--- sox/src/formats.c.orig	2021-04-16 20:44:08.479849800 +0200
++++ sox/src/formats.c	2021-04-16 20:49:01.077926700 +0200
+@@ -464,7 +464,7 @@
+   fp->_r += PIPE_AUTO_DETECT_SIZE;
+ #elif defined __GLIBC__
+   fp->_IO_read_ptr = fp->_IO_read_base;
+-#elif defined _MSC_VER && _MSC_VER >= 1900
++#elif (defined _MSC_VER && _MSC_VER >= 1900) || defined _UCRT
+   #define NO_REWIND_PIPE
+ #elif defined _MSC_VER || defined _WIN32 || defined _WIN64 || \
+       defined _ISO_STDIO_ISO_H || defined __sgi

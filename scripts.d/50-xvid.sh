@@ -8,8 +8,12 @@ ffbuild_enabled() {
     return 0
 }
 
+# ffbuild_dockerdl() {
+    # echo "retry-tool sh -c \"rm -rf xvid && svn --non-interactive checkout --username 'anonymous' --password '' '${SCRIPT_REPO}@${SCRIPT_REV}' xvid\" && cd xvid"
+# }
+
 ffbuild_dockerdl() {
-    echo "retry-tool sh -c \"rm -rf xvid && svn --non-interactive checkout --username 'anonymous' --password '' '${SCRIPT_REPO}@${SCRIPT_REV}' xvid\" && cd xvid"
+    echo "retry-tool svn --non-interactive checkout --username 'anonymous' --password '' '${SCRIPT_REPO}@${SCRIPT_REV}' ."
 }
 
 ffbuild_dockerbuild() {

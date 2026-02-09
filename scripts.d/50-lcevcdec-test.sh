@@ -9,6 +9,10 @@ ffbuild_enabled() {
     return -1
 }
 
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+}
+
 ffbuild_dockerbuild() {
     mkdir build
     cd build

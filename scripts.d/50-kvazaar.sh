@@ -7,7 +7,17 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+}
+
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/kvazaar" ]]; then
+        for patch in /builder/patches/kvazaar/*.patch; do
+            echo "Applying $patch"
+            patch -p1 < "$patch"
+        done
+    fi
     ./autogen.sh
 
     local myconf=(

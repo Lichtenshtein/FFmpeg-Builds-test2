@@ -20,5 +20,7 @@ default_dl() {
 
 # Эта функция ДОЛЖНА БЫТЬ ОПРЕДЕЛЕНА, чтобы download.sh её видел
 ffbuild_dockerdl() {
-    default_dl .
+    if [[ -n "$SCRIPT_REPO" ]]; then
+        default_dl .
+    fi
 }

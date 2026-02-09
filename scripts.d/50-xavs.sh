@@ -8,11 +8,21 @@ ffbuild_enabled() {
     return 0
 }
 
+# ffbuild_dockerdl() {
+    # echo "retry-tool sh -c \"rm -rf xavs && svn checkout '${SCRIPT_REPO}@${SCRIPT_REV}' xavs\" && cd xavs"
+# }
+
 ffbuild_dockerdl() {
-    echo "retry-tool sh -c \"rm -rf xavs && svn checkout '${SCRIPT_REPO}@${SCRIPT_REV}' xavs\" && cd xavs"
+    echo "retry-tool svn checkout '${SCRIPT_REPO}@${SCRIPT_REV}' ."
 }
 
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/xavs" ]]; then
+        for patch in /builder/patches/xavs/*.patch; do
+            echo "Applying $patch"
+            patch -p1 < "$patch"
+        done
+    fi
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"

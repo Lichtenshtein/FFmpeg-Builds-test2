@@ -1,0 +1,57 @@
+From b7b64ecf7a8e2260a8acea7676103bcdbe454fc3 Mon Sep 17 00:00:00 2001
+From: MartinEesmaa <martin.eesmaa@protonmail.com>
+Date: Fri, 3 Oct 2025 02:58:36 +0300
+Subject: [PATCH] Fix one more multiple definition
+
+Now it should resolve the problem by fixing multiple definition on FFmpeg.
+
+- Martin Eesmaa
+---
+ src/libFDK/include/FDK_matrixCalloc.h | 2 +-
+ src/libFDK/src/FDK_matrixCalloc.cpp   | 8 ++++----
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/src/libFDK/include/FDK_matrixCalloc.h b/src/libFDK/include/FDK_matrixCalloc.h
+index 2566363..23d02f6 100644
+--- a/src/libFDK/include/FDK_matrixCalloc.h
++++ b/src/libFDK/include/FDK_matrixCalloc.h
+@@ -96,7 +96,7 @@ amm-info@iis.fraunhofer.de
+ 
+ void* mpegh_fdkCallocMatrix1D(UINT dim1, UINT size);
+ void* mpegh_fdkCallocMatrix1D_aligned(UINT dim1, UINT size);
+-void fdkFreeMatrix1D(void* p);
++void mpegh_fdkFreeMatrix1D(void* p);
+ void mpegh_fdkFreeMatrix1D_aligned(void* p);
+ 
+ void** mpegh_fdkCallocMatrix2D(UINT dim1, UINT dim2, UINT size);
+diff --git a/src/libFDK/src/FDK_matrixCalloc.cpp b/src/libFDK/src/FDK_matrixCalloc.cpp
+index 758dfc1..1e415b7 100644
+--- a/src/libFDK/src/FDK_matrixCalloc.cpp
++++ b/src/libFDK/src/FDK_matrixCalloc.cpp
+@@ -96,7 +96,7 @@ void* mpegh_fdkCallocMatrix1D_aligned(UINT dim1, UINT size) {
+   return mpegh_FDKaalloc(dim1 * size, ALIGNMENT_DEFAULT);
+ }
+ 
+-void fdkFreeMatrix1D(void* p) {
++void mpegh_fdkFreeMatrix1D(void* p) {
+   if (p != NULL) {
+     mpegh_FDKfree_L(p);
+   }
+@@ -122,7 +122,7 @@ void** mpegh_fdkCallocMatrix2D(UINT dim1, UINT dim2, UINT size) {
+     goto bail;
+   }
+   if ((p2 = (char*)mpegh_fdkCallocMatrix1D(dim1 * dim2, size)) == NULL) {
+-    fdkFreeMatrix1D(p1);
++    mpegh_fdkFreeMatrix1D(p1);
+     p1 = NULL;
+     goto bail;
+   }
+@@ -136,6 +136,6 @@ void** mpegh_fdkCallocMatrix2D(UINT dim1, UINT dim2, UINT size) {
+ 
+ void mpegh_fdkFreeMatrix2D(void** p) {
+   if (!p) return;
+-  fdkFreeMatrix1D(p[0]);
+-  fdkFreeMatrix1D(p);
++  mpegh_fdkFreeMatrix1D(p[0]);
++  mpegh_fdkFreeMatrix1D(p);
+ }

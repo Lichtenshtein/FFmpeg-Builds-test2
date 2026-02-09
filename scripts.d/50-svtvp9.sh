@@ -11,7 +11,17 @@ ffbuild_enabled() {
 
 fixarm64=()
 
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+}
+
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/libsvtvp9" ]]; then
+        for patch in /builder/patches/libsvtvp9/*.patch; do
+            echo "Applying $patch"
+            patch -p1 < "$patch"
+        done
+    fi
 
     mkdir build1 && cd build1
 

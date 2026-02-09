@@ -1,0 +1,32 @@
+From 4eb4c35b95b18ad34e57134ec7465697235f3c8b Mon Sep 17 00:00:00 2001
+From: nobody <42721712+L4cache@users.noreply.github.com>
+Date: Tue, 19 Nov 2024 02:41:49 +0800
+Subject: [PATCH] mpeghexport Patch
+
+---
+diff --git a/include/mpeghexport.h b/include/mpeghexport.h
+index 1e70a76..88a7c81 100644
+--- a/include/mpeghexport.h
++++ b/include/mpeghexport.h
+@@ -88,7 +88,7 @@ amm-info@iis.fraunhofer.de
+  * @brief  Symbol export definitions for the public API of the mpeghdec library.
+  */
+ 
+-#if defined _WIN32 || defined __CYGWIN__
++#if (defined _WIN32 || defined __CYGWIN__) && !defined(__MINGW64__)
+ #if defined MPEGHDEC_STATIC
+ #define MPEGHDEC_EXPORT /* nothing */
+ #elif defined MPEGHDEC_INTERNAL
+diff --git i/src/libFDK/include/common_fix.h w/src/libFDK/include/common_fix.h
+index 786d758..935cc4e 100644
+--- i/src/libFDK/include/common_fix.h
++++ w/src/libFDK/include/common_fix.h
+@@ -450,7 +450,7 @@ FDK_INLINE INT fMax(INT a, INT b) {
+ FDK_INLINE INT fMin(INT a, INT b) {
+   return fixmin_I(a, b);
+ }
+-#if !defined(_MSC_VER) && defined(__x86_64__)
++#if !defined(_MSC_VER) && !defined(__MINGW64__) && defined(__x86_64__)
+ FDK_INLINE SHORT fMax(SHORT a, SHORT b) {
+   return fixmax_S(a, b);
+ }

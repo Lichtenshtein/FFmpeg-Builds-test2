@@ -1,0 +1,17 @@
+From 9ae13c9b829cd4fc544b8ee0d138d9e78d171549 Mon Sep 17 00:00:00 2001
+From: Alexpux <ccom@randomderp.com>
+Date: Mon, 14 Sep 2020 02:40:17 +0000
+Subject: [PATCH] skip-termcap
+
+---
+--- lame-3.100/frontend/console.c.orig	2017-10-15 12:56:52 +0200
++++ lame-3.100/frontend/console.c	2017-10-15 12:57:16 +0200
+@@ -145,7 +145,7 @@
+ 
+     strcpy(mfp->str_up, "\033[A");
+ 
+-#ifdef HAVE_TERMCAP
++#if defined(HAVE_TERMCAP) && !defined(_WIN32)
+     apply_termcap_settings(mfp);
+ #endif /* TERMCAP_AVAILABLE */
+ 

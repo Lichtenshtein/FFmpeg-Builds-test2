@@ -1,0 +1,58 @@
+From 5915d69d7c5f8256fc2c4edae11ade973b5ef567 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?IOhannes=20m=20zm=C3=B6lnig?= <zmoelnig@iem.at>
+Date: Tue, 8 Nov 2022 10:25:18 +0100
+Subject: [PATCH] W32: prevent "dllexport" from being added to globalvardefs if
+ building for static linking
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Closes: https://github.com/festvox/flite/issues/83
+
+Signed-off-by: IOhannes m zmölnig <zmoelnig@iem.at>
+---
+ include/flite.h   | 4 ++++
+ src/synth/flite.c | 4 ++++
+ 2 files changed, 8 insertions(+)
+
+diff --git a/include/flite.h b/include/flite.h
+index 8814d97..cee88fb 100644
+--- a/include/flite.h
++++ b/include/flite.h
+@@ -65,11 +65,15 @@ extern "C" {
+ #include "cst_units.h"
+ #include "cst_tokenstream.h"
+ 
++#ifdef FLITE_STATIC
++#define GLOBALVARDEF
++#else
+ #ifdef WIN32
+ /* For Visual Studio 2012 global variable definitions */
+ #define GLOBALVARDEF __declspec(dllexport)
+ #else
+ #define GLOBALVARDEF
++#endif
+ #endif
+  extern GLOBALVARDEF cst_val *flite_voice_list;
+  extern GLOBALVARDEF cst_lang flite_lang_list[20];
+diff --git a/src/synth/flite.c b/src/synth/flite.c
+index d85fe1a..2eb57f2 100644
+--- a/src/synth/flite.c
++++ b/src/synth/flite.c
+@@ -44,12 +44,16 @@
+ #include "cst_clunits.h"
+ #include "cst_cg.h"
+ 
++#ifdef FLITE_STATIC
++#define GLOBALVARDEF
++#else
+ #ifdef WIN32
+ /* For Visual Studio 2012 global variable definitions */
+ #define GLOBALVARDEF __declspec(dllexport)
+ #else
+ #define GLOBALVARDEF
+ #endif
++#endif
+ 
+ /* This is a global, which isn't ideal, this may change */
+ /* It is set when flite_set_voice_list() is called which happens in */
