@@ -7,7 +7,17 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+}
+
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/sox" ]]; then
+        for patch in /builder/patches/sox/*.patch; do
+            echo "Applying $patch"
+            git apply "$patch" || patch -p1 < "$patch"
+        done
+    fi
     # Short-circuit the check to generate a .pc file. We always want it.
     sed -i 's/NOT WIN32/1/g' src/CMakeLists.txt
 
@@ -27,7 +37,7 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     if [[ $TARGET != winarm64 ]]; then
-        echo "Libs.private: -lgomp" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/soxr.pc
+        echo "Libs.private: -lgomp -lmingwthrd" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/soxr.pc
     fi
 }
 

@@ -1,0 +1,26 @@
+From c3d61d038d9ae9a8a104e18c1e91ec7b3b7bf854 Mon Sep 17 00:00:00 2001
+From: Robert Davidson <rdavidson@accusoft.com>
+Date: Sun, 8 Aug 2021 01:39:40 -0400
+Subject: [PATCH] Add support for secondary stress.
+
+Felt cute, might revert later.
+---
+ src/synth/cst_synth.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/src/synth/cst_synth.c b/src/synth/cst_synth.c
+index c8ae788..551f8cb 100644
+--- a/src/synth/cst_synth.c
++++ b/src/synth/cst_synth.c
+@@ -638,6 +638,11 @@ static cst_utterance *tokentosegs(cst_utterance *u)
+ 	    item_set_string(sssyl,"stress","1");
+ 	    name[cst_strlen(name)-1] = '\0';
+ 	}
++    else if (name[cst_strlen(name)-1] == '2')
++	{
++	    item_set_string(sssyl,"stress","2");
++	    name[cst_strlen(name)-1] = '\0';
++	}
+ 	else if (name[cst_strlen(name)-1] == '0')
+ 	{
+ 	    item_set_string(sssyl,"stress","0");

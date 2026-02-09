@@ -1,21 +1,25 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/nkoriyama/aribb24.git"
-SCRIPT_COMMIT="5e9be272f96e00f15a2f3c5f8ba7e124862aec38"
+SCRIPT_REPO="https://github.com/scimmia9286/aribb24.git"
+SCRIPT_COMMIT="add-multi-DRCS-plane"
+
+ffbuild_dockerdl() {
+    # Клонируем конкретную ветку
+    echo "git clone --filter=blob:none --branch \"$SCRIPT_COMMIT\" \"$SCRIPT_REPO\" ."
+}
 
 ffbuild_enabled() {
     return 0
 }
 
-ffbuild_dockerstage() {
-    to_df "RUN --mount=src=${SELF},dst=/stage.sh --mount=src=${SELFCACHE},dst=/cache.tar.xz --mount=src=patches/aribb24,dst=/patches run_stage /stage.sh"
-}
-
 ffbuild_dockerbuild() {
-    for patch in /patches/*.patch; do
-        echo "Applying $patch"
-        git am < "$patch"
-    done
+    # Путь к патчам теперь фиксированный из generate.sh
+    if [[ -d "/builder/patches/aribb24" ]]; then
+        for patch in /builder/patches/aribb24/*.patch; do
+            echo "Applying $patch"
+            git apply "$patch"
+        done
+    fi
 
     # Library switched to LGPL on master, but didn't bump version since.
     # FFmpeg checks for >1.0.3 to allow LGPL builds.

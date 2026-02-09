@@ -19,6 +19,13 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/libplacebo" ]]; then
+        for patch in /builder/patches/libplacebo/*.patch; do
+            echo "Applying $patch"
+            patch -p1 < "$patch"
+        done
+    fi
+
     sed -i 's/DPL_EXPORT/DPL_STATIC/' src/meson.build
 
     mkdir build && cd build

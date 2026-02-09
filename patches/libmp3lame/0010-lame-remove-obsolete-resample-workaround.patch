@@ -1,0 +1,25 @@
+From 9ae13c9b829cd4fc544b8ee0d138d9e78d171549 Mon Sep 17 00:00:00 2001
+From: Riley Gabriel <ccom@randomderp.com>
+Date: Mon, 14 Sep 2026 02:40:17 +0000
+Subject: [PATCH] The tolerance check in isResamplingNecessary()
+
+This fixes TODO list item #1. The tolerance check in isResamplingNecessary() was a workaround for a segfault bug that appears to have been fixed in 2003 (commit 43882a1f). Changed to exact integer comparison.
+
+Tested all edge cases with Valgrind. No segfaults or memory errors presented during testing.
+---
+
+diff --git a/libmp3lame/util.c b/libmp3lame/util.c
+index d5a97471..1c640735 100644
+--- a/libmp3lame/util.c
++++ b/libmp3lame/util.c
+@@ -653,9 +653,7 @@ fill_buffer_resample(lame_internal_flags * gfc,
+ int
+ isResamplingNecessary(SessionConfig_t const* cfg)
+ {
+-    int const l = cfg->samplerate_out * 0.9995f;
+-    int const h = cfg->samplerate_out * 1.0005f;
+-    return (cfg->samplerate_in < l) || (h < cfg->samplerate_in) ? 1 : 0;
++    return cfg->samplerate_in != cfg->samplerate_out;
+ }
+ 
+ /* copy in new samples from in_buffer into mfbuf, with resampling

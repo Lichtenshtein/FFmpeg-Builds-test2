@@ -1,0 +1,30 @@
+From 3e6d7b030cf5cdb80ddf056f38b44b2b38859f89 Mon Sep 17 00:00:00 2001
+From: Aidan Pine <hello@aidanpine.ca>
+Date: Wed, 26 May 2021 09:48:22 -0700
+Subject: [PATCH] Update cmu_lex.c
+
+apply "does" patch
+---
+ lang/cmulex/cmu_lex.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/lang/cmulex/cmu_lex.c b/lang/cmulex/cmu_lex.c
+index 7dfdfc1..95b2688 100644
+--- a/lang/cmulex/cmu_lex.c
++++ b/lang/cmulex/cmu_lex.c
+@@ -99,6 +99,7 @@ static const char * const addenda38[] = { "0_a","ey",NULL};
+ static const char * const addenda39[] = { "vhavent","hh","ae1","v","ax","n","t",NULL};
+ static const char * const addenda40[] = { "nemail","iy1","m","ey1","l",NULL};
+ static const char * const addenda41[] = { "nshit","sh","ih1","t",NULL};
++static const char * const addenda42[] = { "0does","d","ah1","z",NULL};
+ 
+ static const char * const * const addenda[] = {
+     addenda0,
+@@ -144,6 +145,7 @@ static const char * const * const addenda[] = {
+     addenda39,
+     addenda40,
+     addenda41,
++    addenda42,
+     NULL };
+ 
+ static int cmu_is_silence(const char *p)

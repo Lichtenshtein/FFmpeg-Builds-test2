@@ -12,11 +12,22 @@ ffbuild_enabled() {
     return 0
 }
 
+# ffbuild_dockerdl() {
+    # echo "retry-tool sh -c \"rm -rf lame && svn checkout '${SCRIPT_REPO}@${SCRIPT_REV}' lame\" && cd lame"
+# }
+
 ffbuild_dockerdl() {
-    echo "retry-tool sh -c \"rm -rf lame && svn checkout '${SCRIPT_REPO}@${SCRIPT_REV}' lame\" && cd lame"
+    echo "retry-tool svn checkout '${SCRIPT_REPO}@${SCRIPT_REV}' ."
 }
 
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/libmp3lame" ]]; then
+        for patch in /builder/patches/libmp3lame/*.patch; do
+            echo "Applying $patch"
+            git apply "$patch" || patch -p1 < "$patch"
+        done
+    fi
+
     autoreconf -i
 
     local myconf=(
@@ -39,7 +50,7 @@ ffbuild_dockerbuild() {
         return -1
     fi
 
-    export CFLAGS="$CFLAGS -DNDEBUG -Wno-error=incompatible-pointer-types"
+    export CFLAGS="$CFLAGS -DNDEBUG -D_ALLOW_INTERNAL_OPTIONS -Wno-error=incompatible-pointer-types"
 
     ./configure "${myconf[@]}"
     make -j$(nproc)

@@ -7,6 +7,10 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+}
+
 ffbuild_dockerbuild() {
     git submodule update --init --recursive --depth=1
     mkdir build && cd build

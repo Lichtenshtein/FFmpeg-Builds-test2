@@ -14,6 +14,14 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+
+    if [[ -d "/builder/patches/shaderc" ]]; then
+        for patch in /builder/patches/shaderc/*.patch; do
+            echo "Applying $patch"
+            patch -p1 < "$patch"
+        done
+    fi
+
     mkdir build && cd build
 
     cmake -GNinja \

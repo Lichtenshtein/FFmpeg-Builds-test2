@@ -1,0 +1,30 @@
+From a21d595eaeb63d89f0ee0b32db652972d47ea1b5 Mon Sep 17 00:00:00 2001
+From: Robert Davidson <rdavidson@accusoft.com>
+Date: Sun, 21 Feb 2021 15:38:52 -0500
+Subject: [PATCH] Prevent empty segments from being added for syllable breaks
+ when inputting phones.
+
+---
+ src/synth/cst_synth.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/synth/cst_synth.c b/src/synth/cst_synth.c
+index 0619a4b..e3fa8fe 100644
+--- a/src/synth/cst_synth.c
++++ b/src/synth/cst_synth.c
+@@ -618,7 +618,6 @@ static cst_utterance *tokentosegs(cst_utterance *u)
+     sssyl = sylitem = worditem = sylstructureitem = 0;
+     for (t = relation_head(utt_relation(u, "Token")); t; t = item_next(t)) 
+     {
+-	cst_item *segitem = relation_append(seg, NULL);
+ 	char const *pname = item_feat_string(t, "name");
+ 	char *name = cst_strdup(pname);
+ 
+@@ -656,6 +655,7 @@ static cst_utterance *tokentosegs(cst_utterance *u)
+ 	}
+ 	else
+ 	{
++	    cst_item *segitem = relation_append(seg, NULL);
+ 	    item_add_daughter(sssyl,segitem);
+ 	    item_set_string(segitem, "name", name);
+ 	}

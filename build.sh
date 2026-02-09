@@ -39,6 +39,10 @@ export CCACHE_DIR=/root/.cache/ccache
 export CCACHE_MAXSIZE=1248M
 ccache -z # Сброс статистики для чистого лога
 
+# Force update of pkg-config paths
+export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
+export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig"
+
 # Сборка FFmpeg
 chmod +x configure
 

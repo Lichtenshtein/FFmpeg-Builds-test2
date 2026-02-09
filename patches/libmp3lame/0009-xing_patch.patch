@@ -1,0 +1,62 @@
+From 9ae13c9b829cd4fc544b8ee0d138d9e78d171549 Mon Sep 17 00:00:00 2001
+From: Vincent HO-SUNE <ccom@randomderp.com>
+Date: Mon, 21 Sep 2025 02:40:17 +0000
+Subject: [PATCH] updated the Xing Header flags to handle the Info tag
+updated from Helix MP3 Encoder
+
+---
+Index: libmp3lame/VbrTag.c
+===================================================================
+--- libmp3lame/VbrTag.c	(revision 6531)
++++ libmp3lame/VbrTag.c	(working copy)
+@@ -48,13 +48,13 @@
+ /*
+  *    4 bytes for Header Tag
+  *    4 bytes for Header Flags
+- *  100 bytes for entry (NUMTOCENTRIES)
+  *    4 bytes for FRAME SIZE
+  *    4 bytes for STREAM_SIZE
++ *    100 bytes for entry (NUMTOCENTRIES)
+  *    4 bytes for VBR SCALE. a VBR quality indicator: 0=best 100=worst
+- *   20 bytes for LAME tag.  for example, "LAME3.12 (beta 6)"
+- * ___________
+- *  140 bytes
++ *   36 bytes for LAME Info tag
++ * ----
++ *  156 bytes
+ */
+ #define VBRHEADERSIZE (NUMTOCENTRIES+4+4+4+4+4)
+ 
+@@ -950,7 +950,7 @@
+     }
+ 
+     /* Put header flags */
+-    CreateI4(&buffer[nStreamIndex], FRAMES_FLAG + BYTES_FLAG + TOC_FLAG + VBR_SCALE_FLAG);
++    CreateI4(&buffer[nStreamIndex], FRAMES_FLAG + BYTES_FLAG + TOC_FLAG + VBR_SCALE_FLAG + INFOTAG_FLAG);
+     nStreamIndex += 4;
+ 
+     /* Put Total Number of frames */
+Index: libmp3lame/VbrTag.h
+===================================================================
+--- libmp3lame/VbrTag.h	(revision 6531)
++++ libmp3lame/VbrTag.h	(working copy)
+@@ -40,11 +40,15 @@
+  */
+ 
+ 
+-#define FRAMES_FLAG     0x0001
+-#define BYTES_FLAG      0x0002
+-#define TOC_FLAG        0x0004
+-#define VBR_SCALE_FLAG  0x0008
++#define FRAMES_FLAG         0x0001
++#define BYTES_FLAG          0x0002
++#define TOC_FLAG            0x0004
++#define VBR_SCALE_FLAG      0x0008
++#define VBR_RESERVEDA_FLAG  0x0010
++#define VBR_RESERVEDB_FLAG  0x0020
++#define INFOTAG_FLAG        0x0040
+ 
++
+ #define NUMTOCENTRIES 100
+ 
+ #ifndef lame_internal_flags_defined

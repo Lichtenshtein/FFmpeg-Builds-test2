@@ -19,19 +19,19 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # Применяем патчи, если они есть в папке patches/aom (как в оригинале)
-    # В новом формате generate.sh папка монтируется в /builder/patches
+    # РџСЂРёРјРµРЅСЏРµРј РїР°С‚С‡Рё, РµСЃР»Рё РѕРЅРё РµСЃС‚СЊ РІ РїР°РїРєРµ patches/aom (РєР°Рє РІ РѕСЂРёРіРёРЅР°Р»Рµ)
+    # Р’ РЅРѕРІРѕРј С„РѕСЂРјР°С‚Рµ generate.sh РїР°РїРєР° РјРѕРЅС‚РёСЂСѓРµС‚СЃСЏ РІ /builder/patches
     if [[ -d "/builder/patches/aom" ]]; then
         for patch in /builder/patches/aom/*.patch; do
             echo "Applying $patch"
-            git apply "$patch" || patch -p1 < "$patch"
+            patch -p1 < "$patch"
         done
     fi
 
     mkdir cmbuild && cd cmbuild
 
-    # Пробрасываем пути к VMAF, как в оригинальном скрипте
-    # Это лечит проблемы поиска заголовков при сборке самого AOM
+    # РџСЂРѕР±СЂР°СЃС‹РІР°РµРј РїСѓС‚Рё Рє VMAF, РєР°Рє РІ РѕСЂРёРіРёРЅР°Р»СЊРЅРѕРј СЃРєСЂРёРїС‚Рµ
+    # Р­С‚Рѕ Р»РµС‡РёС‚ РїСЂРѕР±Р»РµРјС‹ РїРѕРёСЃРєР° Р·Р°РіРѕР»РѕРІРєРѕРІ РїСЂРё СЃР±РѕСЂРєРµ СЃР°РјРѕРіРѕ AOM
     export CFLAGS="$CFLAGS -pthread -I/opt/ffbuild/include/libvmaf"
 
     local myconf=(
@@ -56,7 +56,7 @@ ffbuild_dockerbuild() {
     make -j$(nproc)
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # Добавляем VMAF в pkg-config, иначе FFmpeg не соберется статикой
+    # Р”РѕР±Р°РІР»СЏРµРј VMAF РІ pkg-config, РёРЅР°С‡Рµ FFmpeg РЅРµ СЃРѕР±РµСЂРµС‚СЃСЏ СЃС‚Р°С‚РёРєРѕР№
     echo "Requires.private: libvmaf" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/aom.pc
 }
 

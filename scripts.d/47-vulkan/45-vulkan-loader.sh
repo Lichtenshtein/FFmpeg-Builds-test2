@@ -18,6 +18,20 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+
+    if [[ -d "/builder/patches/vulkan_loader" ]]; then
+        for patch in /builder/patches/vulkan_loader/*.patch; do
+            echo "Applying $patch"
+            patch -p1 < "$patch"
+        done
+    fi
+
+    # Сначала копируем заголовки в префикс, чтобы лоадер и другие (libplacebo) их видели
+    mkdir -p "$FFBUILD_DESTPREFIX"/include
+    cp -r Vulkan-Headers/include/* "$FFBUILD_DESTPREFIX"/include/
+    mkdir -p "$FFBUILD_DESTPREFIX"/share/vulkan/registry
+    cp Vulkan-Headers/registry/vk.xml "$FFBUILD_DESTPREFIX"/share/vulkan/registry/
+
     mkdir build && cd build
 
     cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \

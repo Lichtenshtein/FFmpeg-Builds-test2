@@ -1,11 +1,15 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/ittiam-systems/libmpeghe"
+SCRIPT_REPO="https://github.com/ittiam-systems/libmpeghe.git"
 SCRIPT_COMMIT="603275bb7647cdf8db86dbdf2291495d8fdcfa7f"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm* ]] && return -1
     return 0
+}
+
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
 ffbuild_dockerbuild() {

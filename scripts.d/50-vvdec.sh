@@ -10,7 +10,18 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+}
+
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/libvvdec" ]]; then
+        for patch in /builder/patches/libvvdec/*.patch; do
+            echo "Applying $patch"
+            patch -p1 < "$patch"
+        done
+    fi
+
     mkdir build && cd build
 
     local armsimd=()

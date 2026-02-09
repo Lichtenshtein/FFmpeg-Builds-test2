@@ -1,0 +1,141 @@
+From 9ae13c9b829cd4fc544b8ee0d138d9e78d171549 Mon Sep 17 00:00:00 2001
+From: Elio Blanca <ccom@randomderp.com>
+Date: Mon, 14 Sep 2018 02:40:17 +0000
+Subject: [PATCH] lame_disable_padding
+
+As an answer to the question
+https://sourceforge.net/p/lame/mailman/message/35767332/
+
+I created this patch some time ago. Now I fixed it to be mergeable with current trunk.
+This basically re-enables the ability to disable padding during encoding (using command line option '-d'), this possibility was disabled many years ago. Still the default behaviour is adaptive padding.
+---
+diff -ur lame_orig/frontend/parse.c lame/frontend/parse.c
+--- lame_orig/frontend/parse.c	2018-04-06 01:31:57.000000000 +0200
++++ lame/frontend/parse.c	2018-04-24 11:42:51.611006318 +0200
+@@ -848,6 +848,7 @@
+             "    -o              mark as non-original\n"
+             "    -p              error protection.  adds 16 bit checksum to every frame\n"
+             "                    (the checksum is computed correctly)\n"
++            "    -d              disable padding\n"
+             "    --nores         disable the bit reservoir\n"
+             "    --strictly-enforce-ISO   comply as much as possible to ISO MPEG spec\n");
+     fprintf(fp,
+@@ -2380,7 +2381,7 @@
+                         autoconvert = 1;
+                         (void) lame_set_mode(gfp, MONO);
+                         break;
+-                    case 'd':   /*(void) lame_set_allow_diff_short( gfp, 1 ); */
++                    //case 'd':   /*(void) lame_set_allow_diff_short( gfp, 1 ); */
+                     case 'k':   /*lame_set_lowpassfreq(gfp, -1);
+                                   lame_set_highpassfreq(gfp, -1); */
+                         error_printf("WARNING: -%c is obsolete.\n", c);
+@@ -2446,6 +2447,9 @@
+                     case 'o':
+                         lame_set_original(gfp, 0);
+                         break;
++                    case 'd':
++                        lame_set_padding_type(gfp, PAD_NO);
++                        break;
+ 
+                     case '?':
+                         long_help(gfp, stdout, ProgramName, 0 /* LESSMODE=NO */ );
+Only in lame/frontend: parse.c.orig
+diff -ur lame_orig/include/lame.h lame/include/lame.h
+--- lame_orig/include/lame.h	2017-08-31 16:14:46.000000000 +0200
++++ lame/include/lame.h	2018-04-24 11:42:51.611006318 +0200
+@@ -376,12 +376,9 @@
+ int CDECL lame_set_error_protection(lame_global_flags *, int);
+ int CDECL lame_get_error_protection(const lame_global_flags *);
+ 
+-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
+-#else
+ /* padding_type. 0=pad no frames  1=pad all frames 2=adjust padding(default) */
+ int CDECL lame_set_padding_type(lame_global_flags *, Padding_type);
+ Padding_type CDECL lame_get_padding_type(const lame_global_flags *);
+-#endif
+ 
+ /* MP3 'private extension' bit  Meaningless.  default=0 */
+ int CDECL lame_set_extension(lame_global_flags *, int);
+diff -ur lame_orig/libmp3lame/encoder.c lame/libmp3lame/encoder.c
+--- lame_orig/libmp3lame/encoder.c	2017-08-26 12:54:57.000000000 +0200
++++ lame/libmp3lame/encoder.c	2018-04-24 11:42:51.611006318 +0200
+@@ -346,7 +346,7 @@
+      * Robert Hegemann 2000-06-22
+      */
+     gfc->ov_enc.padding = FALSE;
+-    if ((gfc->sv_enc.slot_lag -= gfc->sv_enc.frac_SpF) < 0) {
++    if ((gfc->sv_enc.slot_lag -= gfc->sv_enc.frac_SpF) <  0 && gfc->padding_type != PAD_NO) {
+         gfc->sv_enc.slot_lag += cfg->samplerate_out;
+         gfc->ov_enc.padding = TRUE;
+     }
+diff -ur lame_orig/libmp3lame/lame.c lame/libmp3lame/lame.c
+--- lame_orig/libmp3lame/lame.c	2017-09-26 14:14:02.000000000 +0200
++++ lame/libmp3lame/lame.c	2018-04-24 11:42:51.611006318 +0200
+@@ -2364,6 +2364,8 @@
+     gfc->ov_rpg.noclipGainChange = 0;
+     gfc->ov_rpg.noclipScale = -1.0;
+ 
++    gfc->padding_type = PAD_ADJUST;
++
+     gfc->ATH = lame_calloc(ATH_t, 1);
+     if (NULL == gfc->ATH)
+         return -2;      /* maybe error codes should be enumerated in lame.h ?? */
+diff -ur lame_orig/libmp3lame/set_get.c lame/libmp3lame/set_get.c
+--- lame_orig/libmp3lame/set_get.c	2018-04-06 01:31:57.000000000 +0200
++++ lame/libmp3lame/set_get.c	2018-04-24 11:42:51.611006318 +0200
+@@ -847,32 +847,30 @@
+ }
+ 
+ 
+-#if DEPRECATED_OR_OBSOLETE_CODE_REMOVED
+-/* padding_type. 0=pad no frames  1=pad all frames 2=adjust padding(default) */
+-int CDECL lame_set_padding_type(lame_global_flags *, Padding_type);
+-Padding_type CDECL lame_get_padding_type(const lame_global_flags *);
+-#else
+-#endif
+-
+ /*
+  * padding_type.
+- *  PAD_NO     = pad no frames
+- *  PAD_ALL    = pad all frames
+- *  PAD_ADJUST = adjust padding
++ *  PAD_NO     = 0: pad no frames
++ *  PAD_ALL    = 1: pad all frames
++ *  PAD_ADJUST = 2: adjust padding
+  */
+ int
+ lame_set_padding_type(lame_global_flags * gfp, Padding_type padding_type)
+ {
+-    (void) gfp;
+-    (void) padding_type;
++    lame_internal_flags *ifp=gfp->internal_flags;
++
++    if (padding_type)
++        ifp->padding_type = PAD_ADJUST;
++    else
++        ifp->padding_type = PAD_NO;
+     return 0;
+ }
+ 
+ Padding_type
+ lame_get_padding_type(const lame_global_flags * gfp)
+ {
+-    (void) gfp;
+-    return PAD_ADJUST;
++    lame_internal_flags *ifp=gfp->internal_flags;
++
++    return (Padding_type)ifp->padding_type;
+ }
+ 
+ 
+diff -ur lame_orig/libmp3lame/util.h lame/libmp3lame/util.h
+--- lame_orig/libmp3lame/util.h	2018-04-06 01:31:57.000000000 +0200
++++ lame/libmp3lame/util.h	2018-04-24 11:42:51.611006318 +0200
+@@ -541,6 +541,7 @@
+         lame_report_function report_msg;
+         lame_report_function report_dbg;
+         lame_report_function report_err;
++        int     padding_type;    /* PAD_NO, PAD_ALL, PAD_ADJUST [default] */
+     };
+ 
+ #ifndef lame_internal_flags_defined

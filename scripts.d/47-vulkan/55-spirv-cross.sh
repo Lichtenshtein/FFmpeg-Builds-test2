@@ -9,6 +9,13 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/spirv_cross" ]]; then
+        for patch in /builder/patches/spirv_cross/*.patch; do
+            echo "Applying $patch"
+            patch -p1 < "$patch"
+        done
+    fi
+
     VER_MAJ="$(grep 'set(spirv-cross-abi-major' CMakeLists.txt | sed -re 's/.* ([0-9]+)\)/\1/')"
     VER_MIN="$(grep 'set(spirv-cross-abi-minor' CMakeLists.txt | sed -re 's/.* ([0-9]+)\)/\1/')"
     VER_PCH="$(grep 'set(spirv-cross-abi-patch' CMakeLists.txt | sed -re 's/.* ([0-9]+)\)/\1/')"

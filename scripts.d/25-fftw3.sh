@@ -7,6 +7,10 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+}
+
 ffbuild_dockerbuild() {
     sed -i 's/-libs nums/-use-ocamlfind -package num/' genfft/Makefile.am
 

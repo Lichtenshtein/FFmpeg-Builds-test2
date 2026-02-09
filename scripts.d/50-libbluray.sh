@@ -14,7 +14,17 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+}
+
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/libbluray" ]]; then
+        for patch in /builder/patches/libbluray/*.patch; do
+            echo "Applying $patch"
+            patch -p1 < "$patch"
+        done
+    fi
     # stop the static library from exporting symbols when linked into a shared lib
     sed -i 's/-DBLURAY_API_EXPORT/-DBLURAY_API_EXPORT_DISABLED/g' src/meson.build
 

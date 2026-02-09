@@ -1,0 +1,65 @@
+From 9ae13c9b829cd4fc544b8ee0d138d9e78d171549 Mon Sep 17 00:00:00 2001
+From: Elio Blanca <ccom@randomderp.com>
+Date: Mon, 14 Sep 2021 02:40:17 +0000
+Subject: [PATCH] lame_vbr_accurate_bitrate
+
+I just created this patch which allows lame frontend to show more accurate bitrate during encoding, expecially when vbr. In fact, when encoding a bunch of my files it used to happen sometimes to get a different value for bitrate in lame and in mp3guessenc (slightly different, truth be told). The root of this discrepancy was the bitrate calculation in lame which is still good for cbr encodings, but for vbr ones it appears to be different from the usual rule of bitrate=(amount of data)/(duration).
+In order to do this, I added a simple function to the lame library, `lame_get_bytes_so_far' which returns the encoded bytes up to that point in time. This is needed for a precise calculation of actual bitrate in real time.
+When performing cbr encodings, the old bitrate calculation is still used.
+Hope this is useful!
+---
+
+diff -urN lame-svn-orig/frontend/brhist.c lame-svn/frontend/brhist.c
+--- lame-svn-orig/frontend/brhist.c	2021-02-15 16:56:47.142855771 +0100
++++ lame-svn/frontend/brhist.c	2021-02-15 18:34:55.888510981 +0100
+@@ -325,12 +325,13 @@
+     frames = most_often = 0;
+     for (i = 0; i < BRHIST_WIDTH; i++) {
+         frames += br_hist[i];
+-        sum += br_hist[i] * brhist.kbps[i];
+         if (most_often < br_hist[i])
+             most_often = br_hist[i];
+         if (br_hist[i])
+             ++lines_used;
+     }
++    /* better `sum' will show more accurate bitrate calculation */
++    sum = (double)lame_get_bytes_so_far(gf) * 0.008 * (double)lame_get_out_samplerate(gf) / (double)lame_get_framesize(gf);
+ 
+     for (i = 0; i < BRHIST_WIDTH; i++) {
+         int     show = br_hist[i];
+diff -urN lame-svn-orig/include/lame.h lame-svn/include/lame.h
+--- lame-svn-orig/include/lame.h	2021-02-15 16:56:49.810891380 +0100
++++ lame-svn/include/lame.h	2021-02-15 18:32:56.408807292 +0100
+@@ -596,6 +593,9 @@
+ /* number of frames encoded so far */
+ int CDECL lame_get_frameNum(const lame_global_flags *);
+ 
++/* bytes encoded so far */
++unsigned long CDECL lame_get_bytes_so_far(const lame_global_flags *);
++
+ /*
+   lame's estimate of the total number of frames to be encoded
+    only valid if calling program set num_samples
+diff -urN lame-svn-orig/libmp3lame/set_get.c lame-svn/libmp3lame/set_get.c
+--- lame-svn-orig/libmp3lame/set_get.c	2021-02-15 16:56:58.331006435 +0100
++++ lame-svn/libmp3lame/set_get.c	2021-02-15 18:32:56.408807292 +0100
+@@ -2031,6 +2029,19 @@
+         }
+     }
+     return 0;
++}
++
++/* Bytes encoded so far. */
++unsigned long
++lame_get_bytes_so_far(const lame_global_flags * gfp)
++{
++    if (is_lame_global_flags_valid(gfp)) {
++        lame_internal_flags const *const gfc = gfp->internal_flags;
++        if (is_lame_internal_flags_valid(gfc)) {
++            return gfc->VBR_seek_table.nBytesWritten;
++        }
++    }
++    return 0;
+ }
+ 
+ int

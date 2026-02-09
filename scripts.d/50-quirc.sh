@@ -8,23 +8,21 @@ ffbuild_enabled() {
     return 0
 }
 
-ffbuild_dockerstage() {
-	to_df "RUN --mount=src=${SELF},dst=/stage.sh --mount=src=${SELFCACHE},dst=/cache.tar.xz --mount=src=patches/quirc,dst=/patches run_stage /stage.sh"
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/quirc" ]]; then
+        for patch in /builder/patches/quirc/*.patch; do
+            patch -p1 < "$patch"
+        done
+    fi
 
-    for patch in /patches/*.patch; do
-        echo "Applying $patch"
-        patch -p1 < "$patch"
-    done
-
-    export CC="$CC"
-    export CFLAGS="$CFLAGS"
-
-    make libquirc.a -j$(nproc)
-    mkdir -p "$FFBUILD_DESTPREFIX/lib/"
-    mkdir -p "$FFBUILD_DESTPREFIX/include/"
+    # Явно передаем инструменты, чтобы quirc не собрался под хост (Linux)
+    make libquirc.a -j$(nproc) CC="$CC" AR="$AR" CFLAGS="$CFLAGS"
+    
+    mkdir -p "$FFBUILD_DESTPREFIX/lib/" "$FFBUILD_DESTPREFIX/include/"
     cp libquirc.a "$FFBUILD_DESTPREFIX/lib/"
     cp lib/quirc.h "$FFBUILD_DESTPREFIX/include/"
 }

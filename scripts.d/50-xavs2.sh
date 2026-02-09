@@ -16,6 +16,13 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/xavs2" ]]; then
+        for patch in /builder/patches/xavs2/*.patch; do
+            echo "Applying $patch"
+            patch -p1 < "$patch"
+        done
+    fi
+
     cd build/linux
 
     local myconf=(

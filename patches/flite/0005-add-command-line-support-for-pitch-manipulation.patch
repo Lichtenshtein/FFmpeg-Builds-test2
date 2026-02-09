@@ -1,0 +1,64 @@
+From 731ca0342520c3a47b441b1cf66e82bc655929c0 Mon Sep 17 00:00:00 2001
+From: Robert Davidson <rdavidson@accusoft.com>
+Date: Sun, 8 Aug 2021 01:37:18 -0400
+Subject: [PATCH] add command-line support for pitch manipulation
+
+---
+ src/cg/cst_cg.c       |  8 ++++++--
+ src/synth/cst_synth.c | 12 ++++++++++++
+ 2 files changed, 18 insertions(+), 2 deletions(-)
+
+diff --git a/src/cg/cst_cg.c b/src/cg/cst_cg.c
+index dfa1c10..062314a 100644
+--- a/src/cg/cst_cg.c
++++ b/src/cg/cst_cg.c
+@@ -364,6 +364,10 @@ static void cg_F0_interpolate_spline(cst_utterance *utt,
+ 
+     for (syl=utt_rel_head(utt,"Syllable"); syl; syl=item_next(syl))
+     {
++        double factor = 1.0;
++        if (item_feat_present(syl, "pitch_factor")) {
++            factor = item_feat_float(syl, "pitch_factor");
++        }
+         start_index = ffeature_int(syl,"R:SylStructure.daughter1.R:segstate.daughter1.R:mcep_link.daughter1.frame_number");
+         end_index = ffeature_int(syl,"R:SylStructure.daughtern.R:segstate.daughtern.R:mcep_link.daughtern.frame_number");
+         mid_index = (int)((start_index + end_index)/2.0);
+@@ -396,13 +400,13 @@ static void cg_F0_interpolate_spline(cst_utterance *utt,
+         m = 1.0 / (mid_index - start_index);
+         for (i=0; ((start_index+i)<mid_index); i++)
+             param_track->frames[start_index+i][0] = 
+-                 catmull_rom_spline(i*m,pmid_f0,start_f0,mid_f0,end_f0);
++                 catmull_rom_spline(i*m,pmid_f0*factor,start_f0*factor,mid_f0*factor,end_f0*factor);
+         
+         /* mid syl to end */
+         m = 1.0 / (end_index - mid_index);
+         for (i=0; ((mid_index+i)<end_index); i++)
+             param_track->frames[mid_index+i][0] = 
+-                catmull_rom_spline(i*m,start_f0,mid_f0,end_f0,nmid_f0);
++                catmull_rom_spline(i*m,start_f0*factor,mid_f0*factor,end_f0*factor,nmid_f0*factor);
+     }
+ 
+     return;
+diff --git a/src/synth/cst_synth.c b/src/synth/cst_synth.c
+index e3fa8fe..9e529ee 100644
+--- a/src/synth/cst_synth.c
++++ b/src/synth/cst_synth.c
+@@ -648,6 +648,18 @@ static cst_utterance *tokentosegs(cst_utterance *u)
+ 	{
+ 	    sylitem = 0;  /* syllable break */
+ 	}
++    else if (
++        cst_strlen(name) == 6
++        && name[0] == '-' && name[1] == 'f' && name[5] == '-'
++    )
++    {
++        int hundreds = name[2] - '0';
++        int tens = name[3] - '0';
++        int ones = name[4] - '0';
++        float pitch_val = 1.0 * hundreds + 0.1 * tens + 0.01 * ones;
++        item_set_float(sssyl, "pitch_factor", pitch_val);
++        // float base_f0 = item_feat_float(sssyl, "local_f0_mean");
++    }
+ 	else if (phone_id(ps, name) == -1) 
+ 	{
+ 	    cst_errmsg("Phone `%s' not in phoneset\n", pname);
