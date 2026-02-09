@@ -1,14 +1,18 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/OpenVisualCloud/SVT-JPEG-XS.git"
-SCRIPT_COMMIT="HEAD"  # Use specific commit hash for reproducible builds
+SCRIPT_COMMIT="b1b227840463d3b74a4da13d8d1f17610697a793"  # Use specific commit hash for reproducible builds
 
 ffbuild_enabled() {
+    [[ $TARGET == win32 ]] && return -1
     return 0
 }
 
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+}
+
 ffbuild_dockerbuild() {
-    # Create build directory
     mkdir build && cd build
 
     local cmake_flags=(
@@ -18,58 +22,28 @@ ffbuild_dockerbuild() {
         -DCMAKE_CXX_FLAGS="$CXXFLAGS"
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=OFF
-        -DUNIX=OFF
+        -DBUILD_TESTING=OFF
+        -DBUILD_APPS=OFF
     )
 
-    # Platform-specific configurations
-    if [[ $TARGET == win* ]]; then
-        cmake_flags+=(
-            -DCMAKE_SYSTEM_NAME=Windows
-        )
-    elif [[ $TARGET == linux* ]]; then
-        cmake_flags+=(
-            -DCMAKE_SYSTEM_NAME=Linux
-        )
-    fi
-
-    # Configure with CMake
     cmake "${cmake_flags[@]}" ..
-    
-    # Build
     make -j$(nproc)
-    
-    # Install
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # Check library names - SVT-JPEG-XS might use different library names
-    ls $FFBUILD_DESTPREFIX/lib/libSvt*
-    #Check header locations:
-    ls $FFBUILD_DESTPREFIX/include/svt-jpegxs/
-
-    echo "=== Installed files ==="
-    find "$FFBUILD_DESTDIR" -type f
-
-    # Fix pkg-config file if it exists
-    if [[ -f "${FFBUILD_DESTPREFIX}/lib/pkgconfig/SvtJpegxsEnc.pc" ]]; then
-        if [[ $TARGET == win* ]]; then
-            echo "Libs.private: -lstdc++ -lpthread" >> "${FFBUILD_DESTPREFIX}/lib/pkgconfig/SvtJpegxsEnc.pc"
-        else
-            echo "Libs.private: -lstdc++ -lpthread -lm" >> "${FFBUILD_DESTPREFIX}/lib/pkgconfig/SvtJpegxsEnc.pc"
-        fi
-    fi
-
-    if [[ -f "${FFBUILD_DESTPREFIX}/lib/pkgconfig/SvtJpegxsDec.pc" ]]; then
-        if [[ $TARGET == win* ]]; then
-            echo "Libs.private: -lstdc++ -lpthread" >> "${FFBUILD_DESTPREFIX}/lib/pkgconfig/SvtJpegxsDec.pc"
-        else
-            echo "Libs.private: -lstdc++ -lpthread -lm" >> "${FFBUILD_DESTPREFIX}/lib/pkgconfig/SvtJpegxsDec.pc"
-        fi
-    fi
+    # Исправляем pkg-config для статической линковки
+    # SVT-JPEG-XS генерирует SvtJpegxsEnc.pc и SvtJpegxsDec.pc
+    for pc in "${FFBUILD_DESTPREFIX}/lib/pkgconfig/"SvtJpegxs*.pc; do
+        [[ -f "$pc" ]] || continue
+        # MinGW требует явного указания стандартных библиотек C++ и потоков
+        echo "Libs.private: -lstdc++ -lpthread" >> "$pc"
+        # Убираем возможные абсолютные пути билда
+        sed -i "s|prefix=.*|prefix=$FFBUILD_PREFIX|" "$pc"
+    done
 }
 
 ffbuild_configure() {
+    # Обычно это --enable-libsvtjpegxs
     echo --enable-libsvtjpegxs
 }
 
