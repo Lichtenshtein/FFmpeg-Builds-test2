@@ -25,6 +25,12 @@ if [[ "$SCRIPT_SKIP" != "1" ]]; then
     if [[ -n "$REAL_CACHE" && -f "$REAL_CACHE" ]]; then
         echo "Unpacking $STAGENAME from $REAL_CACHE"
         tar xaf "$REAL_CACHE" -C . --strip-components=0
+        # Если после распаковки в директории всего одна папка — заходим в неё
+        if [[ $(ls -1 | wc -l) -eq 1 && -d $(ls -1) ]]; then
+            SUBDIR=$(ls -1)
+            echo "Moving into subdirectory: $SUBDIR"
+            cd "$SUBDIR"
+        fi
     else
         # Если загрузка была предусмотрена (ffbuild_dockerdl не пуст), но файла нет - это ошибка
         DL_CHECK=$(ffbuild_dockerdl)
