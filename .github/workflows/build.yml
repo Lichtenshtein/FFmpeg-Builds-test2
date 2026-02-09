@@ -91,6 +91,8 @@ jobs:
         run: |
           ./download.sh
           ./generate.sh win64 nonfree
+          # check flag generation
+          cat Dockerfile | grep "run_stage"
           # Run the build via Buildx with artifact export
           # Use cache-from=gha for ccache
           docker buildx build \
