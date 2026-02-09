@@ -4,49 +4,42 @@ set -e
 SCRIPT_PATH="$1"
 STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
 
-# Подготовка папки сборки
+# Подгружаем скрипт заранее, чтобы проверить SCRIPT_SKIP
+source "$SCRIPT_PATH"
+
 mkdir -p "/build/$STAGENAME"
 cd "/build/$STAGENAME"
 
-# Поиск кэша
-# Проверяем два варианта: с хэшем и чистый симлинк
 CACHE_DIR="/root/.cache/downloads"
 REAL_CACHE=""
 
-# DL_CACHE_PATTERN="/root/.cache/downloads/${STAGENAME}*.tar.xz"
-# REAL_CACHE=$(ls $DL_CACHE_PATTERN 2>/dev/null | head -n 1)
+# Если скрипт НЕ помечен как SKIP, ищем для него исходники
+if [[ "$SCRIPT_SKIP" != "1" ]]; then
+    if [[ -f "${CACHE_DIR}/${STAGENAME}.tar.xz" ]]; then
+        REAL_CACHE="${CACHE_DIR}/${STAGENAME}.tar.xz"
+    else
+        # Ищем по маске, если симлинк не создался
+        REAL_CACHE=$(find "$CACHE_DIR" -name "${STAGENAME}_*.tar.xz" | head -n 1)
+    fi
 
-if [[ -f "${CACHE_DIR}/${STAGENAME}.tar.xz" ]]; then
-    REAL_CACHE="${CACHE_DIR}/${STAGENAME}.tar.xz"
-else
-    # Ищем по маске, если симлинк не создался
-    REAL_CACHE=$(find "$CACHE_DIR" -name "${STAGENAME}_*.tar.xz" | head -n 1)
+    if [[ -n "$REAL_CACHE" && -f "$REAL_CACHE" ]]; then
+        echo "Unpacking $STAGENAME from $REAL_CACHE"
+        tar xaf "$REAL_CACHE" -C . --strip-components=0
+    else
+        # Если загрузка была предусмотрена (ffbuild_dockerdl не пуст), но файла нет - это ошибка
+        DL_CHECK=$(ffbuild_dockerdl)
+        if [[ -n "$DL_CHECK" ]]; then
+            echo "ERROR: Source cache NOT FOUND for $STAGENAME"
+            echo "Full content of $CACHE_DIR:"
+            ls -F "$CACHE_DIR"
+            # ПАДАЕМ СРАЗУ, чтобы не гадать по ошибке cp
+            exit 1
+        fi
+        echo "No source archive for $STAGENAME (meta-package), continuing..."
+    fi
 fi
 
-if [[ -n "$REAL_CACHE" && -f "$REAL_CACHE" ]]; then
-    echo "Found cache for $STAGENAME: $REAL_CACHE"
-    tar xaf "$REAL_CACHE" -C . --strip-components=0
-else
-    echo "ERROR: Source cache NOT FOUND for $STAGENAME"
-    echo "Looked for: ${CACHE_DIR}/${STAGENAME}.tar.xz or ${STAGENAME}_*.tar.xz"
-    # Выведем список похожих файлов для отладки
-    echo "Available files for this prefix:"
-    ls -l "$CACHE_DIR" | grep "^.* ${STAGENAME}" || echo "No files starting with $STAGENAME" || true
-    exit 1 # ПАДАЕМ СРАЗУ, чтобы не гадать по ошибке cp
-fi
-
-# if [[ -n "$REAL_CACHE" && -f "$REAL_CACHE" ]]; then
-    # echo "Unpacking cache: $REAL_CACHE"
-    # tar xaf "$REAL_CACHE" -C .
-    # if [[ $(ls -1 | wc -l) -eq 1 && -d $(ls -1) ]]; then
-        # cd $(ls -1)
-    # fi
-# else
-    # echo "ERROR: Source cache NOT FOUND for $STAGENAME"
-    # exit 1
-# fi
-
-# Настройка флагов
+# Применяем флаги
 export RAW_CFLAGS="$CFLAGS"
 export RAW_CXXFLAGS="$CXXFLAGS"
 export RAW_LDFLAGS="$LDFLAGS"
@@ -56,9 +49,7 @@ export RAW_LDEXEFLAGS="$LDEXEFLAGS"
 [[ -n "$STAGE_LDFLAGS" ]] && export LDFLAGS="$LDFLAGS $STAGE_LDFLAGS"
 [[ -n "$STAGE_LDEXEFLAGS" ]] && export LDEXEFLAGS="$LDEXEFLAGS $STAGE_LDEXEFLAGS"
 
-# Загрузка и выполнение
-source "$SCRIPT_PATH"
-
+# Выполняем сборку
 if [[ -z "$2" ]]; then
     ffbuild_dockerbuild
 else
