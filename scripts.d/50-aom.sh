@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
     if [[ -d "/builder/patches/aom" ]]; then
         for patch in /builder/patches/aom/*.patch; do
             echo "Applying $patch"
-            git am < "$patch" || git apply "$patch"
+            git apply "$patch" || patch -p1 < "$patch"
         done
     fi
 
