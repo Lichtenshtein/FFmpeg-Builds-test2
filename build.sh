@@ -50,12 +50,15 @@ chmod +x configure
     --enable-filter=vpp_amf \
     --enable-filter=sr_amf \
     --enable-runtime-cpudetect \
+    --enable-pic \
+    --enable-pthreads \
+    --disable-w32threads \
     --enable-lto \
     --h264-max-bit-depth=14 \
     --h265-bit-depths=8,9,10,12 \
-    --extra-cflags="$FF_CFLAGS $OPTIM_CFLAGS" \
-    --extra-cxxflags="$FF_CXXFLAGS $OPTIM_CFLAGS" \
-    --extra-ldflags="$FF_LDFLAGS $OPTIM_LDFLAGS" \
+    --extra-cflags="$FF_CFLAGS" \
+    --extra-cxxflags="$FF_CXXFLAGS" \
+    --extra-ldflags="$FF_LDFLAGS" \
     --extra-ldexeflags="$FF_LDEXEFLAGS" \
     --extra-libs="$FF_LIBS" \
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" \

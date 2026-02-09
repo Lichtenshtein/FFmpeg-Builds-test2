@@ -54,6 +54,7 @@ ffbuild_depends() {
     echo libssh
     echo libtheora
     echo libvpx
+    echo libsvtjpegxs
     echo libwebp
     echo libzmq
     echo lilv
