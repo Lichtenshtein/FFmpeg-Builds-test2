@@ -25,7 +25,7 @@ to_df "RUN --mount=type=cache,target=/root/.cache/ccache \\"
 to_df "    --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\"
 to_df "    --mount=type=bind,source=util,target=/builder/util \\"
 to_df "    --mount=type=bind,source=patches,target=/builder/patches \\"
-to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads \\"
+to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads,ro \\" # Добавлен ,ro
 
 active_scripts=()
 for STAGE in "${SCRIPTS[@]}"; do

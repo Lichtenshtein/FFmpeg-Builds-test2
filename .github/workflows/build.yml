@@ -96,9 +96,17 @@ jobs:
           docker buildx build \
             --cache-from type=gha \
             --cache-to type=gha,mode=max \
+            --build-context downloads=.cache/downloads \
             --tag ${{ steps.images.outputs.variant }} \
             --output type=local,dest=artifacts/ \
             --file Dockerfile .
+
+      - name: Force Save Cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/downloads
+          key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
 
       - name: Upload Final Artifacts
         uses: actions/upload-artifact@v4
