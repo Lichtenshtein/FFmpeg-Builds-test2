@@ -58,7 +58,8 @@ download_stage() {
 
     echo "Downloading: $STAGENAME..."
     WORK_DIR=$(mktemp -d)
-    if ( cd "$WORK_DIR" && eval "$DL_COMMAND" ) >/dev/null 2>&1; then
+    if ( cd "$WORK_DIR" && eval "$DL_COMMAND" ); then
+    # if ( cd "$WORK_DIR" && eval "$DL_COMMAND" ) >/dev/null 2>&1; then
         tar -cpJf "$TGT_FILE" -C "$WORK_DIR" .
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
         echo "Done: $STAGENAME"
