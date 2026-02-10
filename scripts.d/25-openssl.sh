@@ -57,9 +57,6 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) build_sw
     make install_sw DESTDIR="$FFBUILD_DESTDIR"
-
-    # Копируем результат в префикс текущего слоя
-    cp -r "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/. "$FFBUILD_PREFIX"/
 }
 
 ffbuild_configure() {

@@ -4,6 +4,13 @@ shopt -s globstar
 cd "$(dirname "$0")"
 source util/vars.sh
 
+# Определяем цвета и символы
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color (сброс цвета)
+CHECK_MARK='\u2714'
+CROSS_MARK='\u2718'
+
 # Определяем целевой вариант
 source "variants/${TARGET}-${VARIANT}.sh"
 for addin in ${ADDINS[*]}; do
@@ -26,13 +33,31 @@ git clone --filter=blob:none --depth=1 --branch="$GIT_BRANCH" "$FFMPEG_REPO" ffb
 cd ffbuild/ffmpeg
 
 # Применяем патчи
-PATCHES=("/builder/patches/ffmpeg/$GIT_BRANCH"/*.patch)
-for patch in "${PATCHES[@]}"; do
-    if [[ -f "$patch" ]]; then
-        echo "Applying $patch"
-        git apply --whitespace=fix --ignore-space-change --ignore-whitespace "$patch"
-    fi
-done
+# PATCHES=("/builder/patches/ffmpeg/$GIT_BRANCH"/*.patch)
+# for patch in "${PATCHES[@]}"; do
+    # if [[ -f "$patch" ]]; then
+        # echo "Applying $patch"
+        # git apply --whitespace=fix --ignore-space-change --ignore-whitespace "$patch"
+    # fi
+# done
+
+if [[ -d "/builder/patches/ffmpeg/$GIT_BRANCH" ]]; then
+    for patch in /builder/patches/ffmpeg/$GIT_BRANCH/*.patch; do
+        echo -e "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        echo "~~~ APPLYING PATCH: $patch"
+        
+        # Выполняем патч и проверяем код выхода
+        if patch -p1 < "$patch"; then
+            echo -e "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+        else
+            echo -e "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+            echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+            # exit 1 # если нужно прервать сборку при ошибке
+        fi
+        
+        echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    done
+fi
 
 # Конфигурация ccache
 export CCACHE_DIR=/root/.cache/ccache
