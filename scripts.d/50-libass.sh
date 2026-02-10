@@ -23,6 +23,7 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN" # Добавлено для явного указания кросс-компиляции
         --disable-shared
         --enable-static
         --with-pic

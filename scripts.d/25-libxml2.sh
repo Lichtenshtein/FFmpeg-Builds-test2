@@ -19,22 +19,25 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
         --without-python
         --disable-maintainer-mode
+        --without-modules
         --disable-shared
         --enable-static
+        --with-pic
+        --with-icu=no
+        --with-zlib=yes
+        --with-lzma=yes
+        --with-iconv="$FFBUILD_PREFIX" # Указываем наш префикс явно
     )
 
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --host="$FFBUILD_TOOLCHAIN"
-        )
-    else
-        echo "Unknown target"
-        return -1
-    fi
-
     ./autogen.sh "${myconf[@]}"
+
+    # Исправляем Makefile, если он решит, что iconv — это часть libc (в Windows это не так)
+    sed -i 's/-liconv//g' Makefile
+    sed -i 's/LIBS = /LIBS = -liconv /' Makefile
+
     make -j$(nproc)
     make install DESTDIR="$FFBUILD_DESTDIR"
 }

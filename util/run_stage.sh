@@ -62,6 +62,16 @@ else
     "$2"
 fi
 
+if ! ffbuild_dockerbuild; then
+    echo "ERROR: Build failed for $STAGENAME"
+    if [[ -f "config.log" ]]; then
+        echo "--- START OF CONFIG.LOG ---"
+        cat config.log
+        echo "--- END OF CONFIG.LOG ---"
+    fi
+    exit 1
+fi
+
 # Очистка
 cd /
 rm -rf "/build/$STAGENAME"
