@@ -12,9 +12,9 @@ to_df() {
     echo >> Dockerfile
 }
 
-to_df "ENV C_INCLUDE_PATH=/opt/ffbuild/include CPPPATH=/opt/ffbuild/include"
 to_df "FROM ${REGISTRY}/${REPO}/base-${TARGET}:latest AS build_stage"
 to_df "ENV TARGET=$TARGET VARIANT=$VARIANT REPO=$REPO ADDINS_STR=$ADDINS_STR"
+to_df "ENV C_INCLUDE_PATH=/opt/ffbuild/include CPPPATH=/opt/ffbuild/include"
 to_df "COPY --link util/run_stage.sh /usr/bin/run_stage"
 to_df "WORKDIR /builder"
 
