@@ -12,27 +12,34 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    unset CC CXX LD AR AS NM RANLIB
-    # Очищаем переменные, чтобы CMake не пытался использовать хостовые флаги
-    # Но оставляем CFLAGS/CXXFLAGS, которые мы настроили для Broadwell
-    local ORIG_CFLAGS="$CFLAGS"
-    local ORIG_CXXFLAGS="$CXXFLAGS"
+    # Уходим в корень сборки этапа, чтобы сбросить любые cd из предыдущих скриптов
+    cd "/build/$STAGENAME"
 
-    mkdir build && cd build
+    # Сброс инструментов для чистоты CMake
+    # unset CC CXX LD AR AS NM RANLIB
+    
+    mkdir -p build_zlib
+    cd build_zlib
 
+    # Используем абсолютный путь к исходникам (..)
     cmake -G Ninja \
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DBUILD_SHARED_LIBS=OFF \
         -DZLIB_COMPAT=ON \
         -DZLIB_ENABLE_TESTS=OFF \
         -DWITH_NATIVE_INSTRUCTIONS=OFF \
         -DWITH_AVX512=OFF \
         -DWITH_AVX512VNNI=OFF \
         -DWITH_VPCLMULQDQ=OFF \
-        -DCMAKE_C_FLAGS="$ORIG_CFLAGS" \
+        -DCMAKE_C_FLAGS="$CFLAGS" \
         ..
+
+    # Проверяем, создался ли файл перед запуском
+    if [[ ! -f "build.ninja" ]]; then
+        echo "ERROR: CMake failed to generate build.ninja"
+        exit 1
+    fi
 
     ninja -j$(nproc)
     DESTDIR="$FFBUILD_DESTDIR" ninja install
