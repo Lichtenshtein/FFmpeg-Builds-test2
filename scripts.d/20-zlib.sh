@@ -12,7 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # unset CC CXX LD AR AS NM RANLIB
+    unset CC CXX LD AR AS NM RANLIB
     # Очищаем переменные, чтобы CMake не пытался использовать хостовые флаги
     # Но оставляем CFLAGS/CXXFLAGS, которые мы настроили для Broadwell
     local ORIG_CFLAGS="$CFLAGS"
