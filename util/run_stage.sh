@@ -55,19 +55,19 @@ export RAW_LDEXEFLAGS="$LDEXEFLAGS"
 [[ -n "$STAGE_LDFLAGS" ]] && export LDFLAGS="$LDFLAGS $STAGE_LDFLAGS"
 [[ -n "$STAGE_LDEXEFLAGS" ]] && export LDEXEFLAGS="$LDEXEFLAGS $STAGE_LDEXEFLAGS"
 
-# Выполняем сборку
-if [[ -z "$2" ]]; then
-    ffbuild_dockerbuild
-else
-    "$2"
-fi
+# Выполняем сборку ОДИН РАЗ с проверкой статуса
+build_cmd="ffbuild_dockerbuild"
+[[ -n "$2" ]] && build_cmd="$2"
 
-if ! ffbuild_dockerbuild; then
+echo "===> Starting build function: $build_cmd"
+
+if ! $build_cmd; then
     echo "ERROR: Build failed for $STAGENAME"
+    # Пытаемся найти логи ошибок (для Autotools или CMake)
     if [[ -f "config.log" ]]; then
-        echo "--- START OF CONFIG.LOG ---"
         cat config.log
-        echo "--- END OF CONFIG.LOG ---"
+    elif [[ -f "build/CMakeFiles/CMakeError.log" ]]; then
+        cat build/CMakeFiles/CMakeError.log
     fi
     exit 1
 fi
