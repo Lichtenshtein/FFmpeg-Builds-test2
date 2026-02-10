@@ -17,24 +17,29 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
         --without-python
-        --disable-maintainer-mode
+        --without-icu
         --without-modules
+        --disable-maintainer-mode
         --disable-shared
         --enable-static
         --with-pic
         --with-icu=no
-        --with-zlib="$FFBUILD_PREFIX"   # Явно указываем путь к zlib
-        --with-lzma="$FFBUILD_PREFIX"   # Явно указываем путь к xz/lzma
-        --with-iconv="$FFBUILD_PREFIX"  # Явно указываем путь к iconv
+        --with-zlib=yes
+        --with-lzma=yes
+        --with-iconv=yes
     )
 
     # Принудительно подтягиваем флаги из pkg-config, чтобы застраховаться
     export CFLAGS="$CFLAGS $(pkg-config --cflags zlib liblzma)"
-    export LDFLAGS="$LDFLAGS $(pkg-config --libs zlib liblzma)"
+    # export LDFLAGS="$LDFLAGS $(pkg-config --libs zlib liblzma)"
+    export CPPFLAGS="-I$FFBUILD_PREFIX/include"
+    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
 
     ./autogen.sh "${myconf[@]}"
 
@@ -44,6 +49,9 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc)
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    # копируем результат в префикс для следующих скриптов
+    cp -r "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/. "$FFBUILD_PREFIX"/
 }
 
 ffbuild_configure() {
