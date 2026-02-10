@@ -27,10 +27,14 @@ ffbuild_dockerbuild() {
         --enable-static
         --with-pic
         --with-icu=no
-        --with-zlib=yes
-        --with-lzma=yes
-        --with-iconv="$FFBUILD_PREFIX" # Указываем наш префикс явно
+        --with-zlib="$FFBUILD_PREFIX"   # Явно указываем путь к zlib
+        --with-lzma="$FFBUILD_PREFIX"   # Явно указываем путь к xz/lzma
+        --with-iconv="$FFBUILD_PREFIX"  # Явно указываем путь к iconv
     )
+
+    # Принудительно подтягиваем флаги из pkg-config, чтобы застраховаться
+    export CFLAGS="$CFLAGS $(pkg-config --cflags zlib liblzma)"
+    export LDFLAGS="$LDFLAGS $(pkg-config --libs zlib liblzma)"
 
     ./autogen.sh "${myconf[@]}"
 
