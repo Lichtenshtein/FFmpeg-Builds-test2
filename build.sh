@@ -8,8 +8,8 @@ source util/vars.sh
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color (сброс цвета)
-CHECK_MARK='\u2714'
-CROSS_MARK='\u2718'
+CHECK_MARK='✅'
+CROSS_MARK='❌'
 
 # Определяем целевой вариант
 source "variants/${TARGET}-${VARIANT}.sh"
@@ -43,19 +43,17 @@ cd ffbuild/ffmpeg
 
 if [[ -d "/builder/patches/ffmpeg/$GIT_BRANCH" ]]; then
     for patch in /builder/patches/ffmpeg/$GIT_BRANCH/*.patch; do
-        echo -e "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        echo -e "\n-----------------------------------"
         echo "~~~ APPLYING PATCH: $patch"
-        
         # Выполняем патч и проверяем код выхода
         if patch -p1 < "$patch"; then
             echo -e "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+            echo "-----------------------------------"
         else
             echo -e "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-            echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+            echo "-----------------------------------"
             # exit 1 # если нужно прервать сборку при ошибке
         fi
-        
-        echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     done
 fi
 

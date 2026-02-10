@@ -8,10 +8,11 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
-    # Иногда старые версии m4 мешают, очистим
-    find . -name "config.cache" -delete
-
     autoreconf -if
+
+    # В MinGW clock_gettime находится в libwinpthread
+    # добавляем -lpthread, чтобы линковщик нашел clock_gettime
+    export LIBS="$LIBS -lpthread"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -26,9 +27,15 @@ ffbuild_dockerbuild() {
     )
 
     ./configure "${myconf[@]}"
-    echo "--- Running Make ---"
+
+    # Хак для исправления 'unknown type name clockid_t' под MinGW
+    # Мы принудительно вставляем заголовок в сгенерированный конфиг
+    if [ -f "config.h" ]; then
+        echo "#include <pthread.h>" >> config.h
+        echo "#define HAVE_CLOCK_GETTIME 1" >> config.h
+    fi
+
     make -j$(nproc) V=1
-    echo "--- Running Make Install ---"
     make install DESTDIR="$FFBUILD_DESTDIR"
 }
 
