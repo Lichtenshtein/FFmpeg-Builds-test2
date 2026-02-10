@@ -43,7 +43,7 @@ ffbuild_dockerbuild() {
     export CFLAGS="$CFLAGS -std=gnu99"
 
     ./configure "${myconf[@]}"
-    make -j$(nproc)
+    make -j$(nproc) V=1
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     if [[ $TARGET == win* ]]; then

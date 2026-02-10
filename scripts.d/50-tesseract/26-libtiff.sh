@@ -56,7 +56,7 @@ CROSS_MARK='\u2718'
     )
 
     cmake "${myconf[@]}" -DCMAKE_C_FLAGS="$CFLAGS" ..
-    make -j$(nproc)
+    make -j$(nproc) V=1
     make install DESTDIR="$FFBUILD_DESTDIR"
 }
 

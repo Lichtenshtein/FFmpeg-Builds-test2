@@ -8,28 +8,27 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
+    # Иногда старые версии m4 мешают, очистим
+    find . -name "config.cache" -delete
+
     autoreconf -if
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
         --disable-shared
         --enable-static
-        --disable-maintainer-mode
         --disable-example-progs
+        --disable-maintainer-mode
+        --disable-test-progs
+        --without-versioned-libs
         --with-pic
     )
 
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --host="$FFBUILD_TOOLCHAIN"
-        )
-    else
-        echo "Unknown target"
-        return -1
-    fi
-
     ./configure "${myconf[@]}"
-    make -j$(nproc)
+    echo "--- Running Make ---"
+    make -j$(nproc) V=1
+    echo "--- Running Make Install ---"
     make install DESTDIR="$FFBUILD_DESTDIR"
 }
 

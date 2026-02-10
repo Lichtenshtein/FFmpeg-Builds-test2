@@ -21,28 +21,36 @@ to_df "WORKDIR /builder"
 # Находим все скрипты
 SCRIPTS=( $(find scripts.d -name "*.sh" | sort) )
 
-# Общие монтирования для каждого RUN
-MOUNTS="--mount=type=cache,target=/root/.cache/ccache \\
-    --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\
-    --mount=type=bind,source=util,target=/builder/util \\
-    --mount=type=bind,source=patches,target=/builder/patches \\
-    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads,ro"  # Добавлен ,ro
+# Генерируем один большой слой RUN для всех зависимостей
+to_df "RUN --mount=type=cache,target=/root/.cache/ccache \\"
+to_df "    --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\"
+to_df "    --mount=type=bind,source=util,target=/builder/util \\"
+to_df "    --mount=type=bind,source=patches,target=/builder/patches \\"
+to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads,ro \\" # Добавлен ,ro
 
 active_scripts=()
 for STAGE in "${SCRIPTS[@]}"; do
     # Проверка, включен ли скрипт для данной цели (win64/nonfree)
     # Это важно сделать на этапе генерации, чтобы не плодить пустые RUN
     if ( source "$STAGE" && ffbuild_enabled ); then
+        # Проверяем, есть ли у скрипта что скачивать. 
+        # Если ffbuild_dockerdl пуст, значит архив не создавался, и run_stage не нужен.
+        DL_CHECK=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; source util/dl_functions.sh; source \"$STAGE\"; ffbuild_dockerdl" || echo "")
+        
         # Если это не пропуск (SCRIPT_SKIP) и есть загрузка, или если это важный системный скрипт
         active_scripts+=("$STAGE")
     fi
 done
 
-# Генерируем ОТДЕЛЬНЫЙ RUN для каждого активного скрипта
-for STAGE in "${active_scripts[@]}"; do
+for i in "${!active_scripts[@]}"; do
+    STAGE="${active_scripts[$i]}"
     STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')" # Получаем имя для лога
-    to_df "RUN $MOUNTS \\"
-    to_df "    echo '>>> $STAGENAME <<<' && run_stage /builder/$STAGE"
+    SEP=" && \\"
+    [[ $i -eq $(( ${#active_scripts[@]} - 1 )) ]] && SEP=""
+    # Используем абсолютный путь внутри контейнера (/builder/...)
+    # Добавляем вывод имени этапа перед запуском
+    # Добавляем пустую строку и явный маркер в Dockerfile
+    to_df "    echo '>>> $STAGENAME <<<' && run_stage /builder/$STAGE $SEP"
 done
 
 # Сборка FFmpeg (Флаги конфигурации)
@@ -52,7 +60,7 @@ for addin in ${ADDINS[*]}; do source "addins/${addin}.sh"; done
 
 # Собираем конфигурацию для финального билда
 FF_CONFIGURE=""
-for script in "${active_scripts[@]}"; do
+for script in "${SCRIPTS[@]}"; do
     if ( source "$script" && ffbuild_enabled ); then
         FF_CONFIGURE+=" $( (source "$script" && ffbuild_configure) )"
         FF_CFLAGS+=" $( (source "$script" && ffbuild_cflags) )"

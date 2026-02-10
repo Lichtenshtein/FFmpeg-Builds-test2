@@ -30,7 +30,7 @@ ffbuild_dockerbuild() {
         -DBUILD_TOOLS=OFF \
         -DBUILD_TESTS=OFF \
         -DFFT_LIB=fftw3 ..
-    make -j$(nproc)
+    make -j$(nproc) V=1
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     echo "Libs.private: -lfftw3 -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libchromaprint.pc

@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
         -DINSTALL_EXAMPLES=OFF \
         ..
 
-    make -j$(nproc)
+    make -j$(nproc) V=1
     make install DESTDIR="$FFBUILD_DESTDIR"
 }
 

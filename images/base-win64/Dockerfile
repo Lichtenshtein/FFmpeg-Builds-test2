@@ -39,9 +39,11 @@ RUN ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc && \
 
 # ccache settings
 ENV CCACHE_DIR=/root/.cache/ccache \
-    CCACHE_MAXSIZE=2G \
+    CCACHE_MAXSIZE=6G \
     CCACHE_COMPRESS=1
 
+# disable -fPIC, -ffast-math, -flto=auto if troubles occur
+# add -D_FORTIFY_SOURCE=2 for security
 ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
     FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32" \
     FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}- \
@@ -59,8 +61,8 @@ ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
     NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
     DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool" \
     GENDEF="${FFBUILD_TOOLCHAIN}-gendef" \
-    CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -ffast-math -flto=auto -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong -fPIC" \
-    CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -ffast-math -flto=auto -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong -fPIC" \
+    CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -ffast-math -flto=auto -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong -fPIC" \
+    CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -ffast-math -flto=auto -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong -fPIC" \
     LDFLAGS="-O3 -march=broadwell -flto=auto -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -Wl,--gc-sections -Wl,--as-needed" \
     STAGE_CFLAGS="-fno-semantic-interposition" \
     STAGE_CXXFLAGS="-fno-semantic-interposition"

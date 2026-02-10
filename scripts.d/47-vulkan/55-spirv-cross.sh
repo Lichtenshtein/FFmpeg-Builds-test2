@@ -53,7 +53,7 @@ CROSS_MARK='\u2718'
         -DSPIRV_CROSS_ENABLE_TESTS=OFF \
         -DSPIRV_CROSS_FORCE_PIC=ON \
         -DSPIRV_CROSS_ENABLE_CPP=OFF ..
-    make -j$(nproc)
+    make -j$(nproc) V=1
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     cat >"$FFBUILD_DESTPREFIX"/lib/pkgconfig/spirv-cross-c-shared.pc <<EOF

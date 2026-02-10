@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
         -DOPENCL_ICD_LOADER_PIC=ON \
         -DOPENCL_ICD_LOADER_BUILD_TESTING=OFF \
         -DBUILD_TESTING=OFF ..
-    make -j$(nproc)
+    make -j$(nproc) V=1
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     echo "prefix=$FFBUILD_PREFIX" > OpenCL.pc

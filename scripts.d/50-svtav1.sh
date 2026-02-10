@@ -31,7 +31,7 @@ ffbuild_dockerbuild() {
         -DBUILD_APPS=OFF \
         -DENABLE_AVX512=OFF \
         -DSVT_AV1_LTO=OFF ..
-    make -j$(nproc)
+    make -j$(nproc) V=1
     make install DESTDIR="$FFBUILD_DESTDIR"
 #        -DENABLE_AVX512=ON \
 }
