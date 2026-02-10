@@ -8,27 +8,23 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
+    # Обманываем Freetype, создавая файл-метку, что подмодули уже есть
+    # и предотвращаем вызов git в autogen.sh
+    export NOCONFIGURE=1
     ./autogen.sh
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
         --disable-shared
         --enable-static
+        --with-pic
     )
-
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --host="$FFBUILD_TOOLCHAIN"
-        )
-    else
-        echo "Unknown target"
-        return -1
-    fi
 
     ./configure "${myconf[@]}"
     make -j$(nproc)
     make install DESTDIR="$FFBUILD_DESTDIR"
-
+    
     echo "Libs.private: -lharfbuzz" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/freetype2.pc
 }
 
