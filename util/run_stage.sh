@@ -59,7 +59,13 @@ export RAW_LDEXEFLAGS="$LDEXEFLAGS"
 build_cmd="ffbuild_dockerbuild"
 [[ -n "$2" ]] && build_cmd="$2"
 
-echo "===> Starting build function: $build_cmd"
+echo " "
+echo "################################################################################"
+echo "### STARTING STAGE: $STAGENAME"
+echo "### DATE: $(date)"
+echo "### Starting build function: $build_cmd"
+echo "################################################################################"
+echo " "
 
 if ! $build_cmd; then
     echo "ERROR: Build failed for $STAGENAME"

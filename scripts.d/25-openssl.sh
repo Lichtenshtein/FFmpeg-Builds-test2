@@ -19,6 +19,12 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    # Убираем префикс из имен инструментов, так как OpenSSL добавит его сам
+    local CLEAN_CC="${CC#$FFBUILD_CROSS_PREFIX}"
+    local CLEAN_CXX="${CXX#$FFBUILD_CROSS_PREFIX}"
+    local CLEAN_AR="${AR#$FFBUILD_CROSS_PREFIX}"
+    local CLEAN_RANLIB="${RANLIB#$FFBUILD_CROSS_PREFIX}"
+
     local myconf=(
         threads
         zlib
@@ -40,49 +46,20 @@ ffbuild_dockerbuild() {
         myconf+=( mingw64 )
     elif [[ $TARGET == win32 ]]; then
         myconf+=( mingw )
-    elif [[ $TARGET == winarm64 ]]; then
-        myconf+=(
-            --cross-compile-prefix="$FFBUILD_CROSS_PREFIX"
-            mingwarm64
-        )
-
-        cat <<EOF >Configurations/50-win-arm-mingw.conf
-my %targets = (
-    "mingwarm64" => {
-        inherit_from     => [ "mingw-common" ],
-        cflags           => "",
-        sys_id           => "MINGWARM64",
-        bn_ops           => add("SIXTY_FOUR_BIT"),
-        asm_arch         => 'aarch64',
-        uplink_arch      => 'armv8',
-        perlasm_scheme   => "win64",
-        shared_rcflag    => "",
-        multilib         => "-arm64",
-    },
-);
-EOF
-    elif [[ $TARGET == linux64 ]]; then
-        myconf+=(
-            --cross-compile-prefix="$FFBUILD_CROSS_PREFIX"
-            linux-x86_64
-        )
-    elif [[ $TARGET == linuxarm64 ]]; then
-        myconf+=(
-            --cross-compile-prefix="$FFBUILD_CROSS_PREFIX"
-            linux-aarch64
-        )
-    else
-        echo "Unknown target"
-        return -1
     fi
 
     export CFLAGS="$CFLAGS -fno-strict-aliasing"
     export CXXFLAGS="$CXXFLAGS -fno-strict-aliasing"
 
+    # Передаем "чистые" имена инструментов
+    CC="$CLEAN_CC" CXX="$CLEAN_CXX" AR="$CLEAN_AR" RANLIB="$CLEAN_RANLIB" \
     ./Configure "${myconf[@]}" "$CFLAGS" "$LDFLAGS"
 
     make -j$(nproc) build_sw
     make install_sw DESTDIR="$FFBUILD_DESTDIR"
+
+    # Копируем результат в префикс текущего слоя
+    cp -r "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/. "$FFBUILD_PREFIX"/
 }
 
 ffbuild_configure() {
