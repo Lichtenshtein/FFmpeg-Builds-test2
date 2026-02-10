@@ -48,6 +48,21 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}"
     make -j$(nproc)
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    # ‚ђ“—Ќ“ћ создаем pkg-config файл, так как libiconv этого не делает
+    mkdir -p "$FFBUILD_DESTPREFIX/lib/pkgconfig"
+    cat <<EOF > "$FFBUILD_DESTPREFIX/lib/pkgconfig/iconv.pc"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: iconv
+Description: Character set conversion library
+Version: 1.17
+Libs: -L\${libdir} -liconv
+Cflags: -I\${includedir}
+EOF
 }
 
 ffbuild_configure() {

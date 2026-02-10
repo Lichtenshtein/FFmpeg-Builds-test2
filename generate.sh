@@ -43,10 +43,12 @@ done
 
 for i in "${!active_scripts[@]}"; do
     STAGE="${active_scripts[$i]}"
+    STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')" # Получаем имя для лога
     SEP=" && \\"
     [[ $i -eq $(( ${#active_scripts[@]} - 1 )) ]] && SEP=""
     # Используем абсолютный путь внутри контейнера (/builder/...)
-    to_df "    run_stage /builder/$STAGE $SEP"
+    # Добавляем вывод имени этапа перед запуском
+    to_df "    echo '===> Building stage: $STAGENAME' && run_stage /builder/$STAGE $SEP"
 done
 
 # Сборка FFmpeg (Флаги конфигурации)
