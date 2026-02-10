@@ -38,7 +38,7 @@ ffbuild_dockerbuild() {
     fi
 
     meson "${myconf[@]}" ../libvmaf || cat meson-logs/meson-log.txt
-    ninja -j"$(nproc)"
+    ninja -j"$(nproc)" --verbose
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     sed -i 's/Libs.private:/Libs.private: -lstdc++/; t; $ a Libs.private: -lstdc++' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libvmaf.pc

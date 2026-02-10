@@ -43,7 +43,7 @@ all: 12bit/libx265.a 10bit/libx265.a 8bit/libx265.a
 .PHONY: all
 EOF
 
-        make -j$(nproc)
+        make -j$(nproc) V=1
 
         cd 8bit
         mv ../12bit/libx265.a ../8bit/libx265_main12.a

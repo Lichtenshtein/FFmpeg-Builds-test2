@@ -4,7 +4,7 @@ set -e
 SCRIPT_PATH="$1"
 STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
 
-# Подгружаем скрипт заранее, чтобы проверить SCRIPT_SKIP
+# РџРѕРґРіСЂСѓР¶Р°РµРј СЃРєСЂРёРїС‚ Р·Р°СЂР°РЅРµРµ, С‡С‚РѕР±С‹ РїСЂРѕРІРµСЂРёС‚СЊ SCRIPT_SKIP
 source "$SCRIPT_PATH"
 
 mkdir -p "/build/$STAGENAME"
@@ -13,39 +13,39 @@ cd "/build/$STAGENAME"
 CACHE_DIR="/root/.cache/downloads"
 REAL_CACHE=""
 
-# Если скрипт НЕ помечен как SKIP, ищем для него исходники
+# Р•СЃР»Рё СЃРєСЂРёРїС‚ РќР• РїРѕРјРµС‡РµРЅ РєР°Рє SKIP, РёС‰РµРј РґР»СЏ РЅРµРіРѕ РёСЃС…РѕРґРЅРёРєРё
 if [[ "$SCRIPT_SKIP" != "1" ]]; then
     if [[ -f "${CACHE_DIR}/${STAGENAME}.tar.xz" ]]; then
         REAL_CACHE="${CACHE_DIR}/${STAGENAME}.tar.xz"
     else
-        # Ищем по маске, если симлинк не создался
+        # РС‰РµРј РїРѕ РјР°СЃРєРµ, РµСЃР»Рё СЃРёРјР»РёРЅРє РЅРµ СЃРѕР·РґР°Р»СЃСЏ
         REAL_CACHE=$(find "$CACHE_DIR" -name "${STAGENAME}_*.tar.xz" | head -n 1)
     fi
 
     if [[ -n "$REAL_CACHE" && -f "$REAL_CACHE" ]]; then
         echo "Unpacking $STAGENAME from $REAL_CACHE"
         tar xaf "$REAL_CACHE" -C . --strip-components=0
-        # Если после распаковки в директории всего одна папка — заходим в неё
+        # Р•СЃР»Рё РїРѕСЃР»Рµ СЂР°СЃРїР°РєРѕРІРєРё РІ РґРёСЂРµРєС‚РѕСЂРёРё РІСЃРµРіРѕ РѕРґРЅР° РїР°РїРєР° вЂ” Р·Р°С…РѕРґРёРј РІ РЅРµС‘
         if [[ $(ls -1 | wc -l) -eq 1 && -d $(ls -1) ]]; then
             SUBDIR=$(ls -1)
             echo "Moving into subdirectory: $SUBDIR"
             cd "$SUBDIR"
         fi
     else
-        # Если загрузка была предусмотрена (ffbuild_dockerdl не пуст), но файла нет - это ошибка
+        # Р•СЃР»Рё Р·Р°РіСЂСѓР·РєР° Р±С‹Р»Р° РїСЂРµРґСѓСЃРјРѕС‚СЂРµРЅР° (ffbuild_dockerdl РЅРµ РїСѓСЃС‚), РЅРѕ С„Р°Р№Р»Р° РЅРµС‚ - СЌС‚Рѕ РѕС€РёР±РєР°
         DL_CHECK=$(ffbuild_dockerdl)
         if [[ -n "$DL_CHECK" ]]; then
             echo "ERROR: Source cache NOT FOUND for $STAGENAME"
             echo "Full content of $CACHE_DIR:"
             ls -F "$CACHE_DIR"
-            # ПАДАЕМ СРАЗУ, чтобы не гадать по ошибке cp
+            # РџРђР”РђР•Рњ РЎР РђР—РЈ, С‡С‚РѕР±С‹ РЅРµ РіР°РґР°С‚СЊ РїРѕ РѕС€РёР±РєРµ cp
             exit 1
         fi
         echo "No source archive for $STAGENAME (meta-package), continuing..."
     fi
 fi
 
-# Применяем флаги
+# РџСЂРёРјРµРЅСЏРµРј С„Р»Р°РіРё
 export RAW_CFLAGS="$CFLAGS"
 export RAW_CXXFLAGS="$CXXFLAGS"
 export RAW_LDFLAGS="$LDFLAGS"
@@ -55,7 +55,7 @@ export RAW_LDEXEFLAGS="$LDEXEFLAGS"
 [[ -n "$STAGE_LDFLAGS" ]] && export LDFLAGS="$LDFLAGS $STAGE_LDFLAGS"
 [[ -n "$STAGE_LDEXEFLAGS" ]] && export LDEXEFLAGS="$LDEXEFLAGS $STAGE_LDEXEFLAGS"
 
-# Выполняем сборку ОДИН РАЗ с проверкой статуса
+# Р’С‹РїРѕР»РЅСЏРµРј СЃР±РѕСЂРєСѓ РћР”РРќ Р РђР— СЃ РїСЂРѕРІРµСЂРєРѕР№ СЃС‚Р°С‚СѓСЃР°
 build_cmd="ffbuild_dockerbuild"
 [[ -n "$2" ]] && build_cmd="$2"
 
@@ -68,22 +68,31 @@ echo "##########################################################################
 echo " "
 
 if ! $build_cmd; then
-    echo "ERROR: Build failed for $STAGENAME"
-    # Пытаемся найти логи ошибок (для Autotools или CMake)
+    echo " "
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    echo "!!! ERROR: Build failed for $STAGENAME"
+    echo "!!! Tail of config.log (if exists):"
+    echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+    
+    # РџС‹С‚Р°РµРјСЃСЏ РЅР°Р№С‚Рё Рё РІС‹РІРµСЃС‚Рё Р»РѕРіРё РѕС€РёР±РѕРє РІ Р·Р°РІРёСЃРёРјРѕСЃС‚Рё РѕС‚ СЃРёСЃС‚РµРјС‹ СЃР±РѕСЂРєРё
     if [[ -f "config.log" ]]; then
-        cat config.log
+        tail -n 100 config.log
     elif [[ -f "build/CMakeFiles/CMakeError.log" ]]; then
         cat build/CMakeFiles/CMakeError.log
+    elif [[ -f "meson-logs/meson-log.txt" ]]; then
+        tail -n 100 meson-logs/meson-log.txt
     fi
+    
     exit 1
 fi
 
-# Автоматическая синхронизация префиксов после успешной сборки
+# РђРІС‚РѕРјР°С‚РёС‡РµСЃРєР°СЏ СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ РїСЂРµС„РёРєСЃРѕРІ РїРѕСЃР»Рµ СѓСЃРїРµС€РЅРѕР№ СЃР±РѕСЂРєРё
+# РљР°Р¶РґС‹Р№ СЃРєСЂРёРїС‚ РІ scripts.d РѕР±СЏР·Р°РЅ СѓСЃС‚Р°РЅР°РІР»РёРІР°С‚СЊ С„Р°Р№Р»С‹ (make install) РІ РїСѓС‚СЊ, РЅР°С‡РёРЅР°СЋС‰РёР№СЃСЏ СЃ $FFBUILD_DESTDIR$FFBUILD_PREFIX (РѕР±С‹С‡РЅРѕ СЌС‚Рѕ /opt/ffdest/opt/ffbuild), РёРЅР°С‡Рµ СЃРёСЃС‚РµРјР° РЅРµ СѓРІРёРґРёС‚ СѓСЃС‚Р°РЅРѕРІР»РµРЅРЅСѓСЋ Р±РёР±Р»РёРѕС‚РµРєСѓ РґР»СЏ СЃР»РµРґСѓСЋС‰РµРіРѕ СЌС‚Р°РїР°.
 if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
     echo "===> Syncing $STAGENAME to system prefix..."
     cp -r "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/. "$FFBUILD_PREFIX"/
 fi
 
-# Очистка
+# РћС‡РёСЃС‚РєР°
 cd /
 rm -rf "/build/$STAGENAME"

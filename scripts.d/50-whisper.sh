@@ -40,7 +40,7 @@ ffbuild_dockerbuild() {
         -DGGML_BMI2=ON \
         -DGGML_FMA=ON ..
 
-    ninja -j$(nproc)
+    ninja -j$(nproc) --verbose
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     # For some reason, these lack the lib prefix on Windows

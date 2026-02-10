@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=OFF \
         -DBUILD_TESTS=OFF ..
 
-    make -j$(nproc)
+    make -j$(nproc) V=1
     make install DESTDIR="$FFBUILD_DESTDIR"
 }
 

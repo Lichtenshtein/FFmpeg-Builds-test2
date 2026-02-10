@@ -33,20 +33,24 @@ ffbuild_depends() {
     echo dvd
     echo fdk-aac
     echo ffnvcodec
+    echo flite-test
     echo frei0r
     echo gme
     echo ilbc
     echo kvazaar
     echo lc3
+    echo lensfun-test
     echo libaribcaption
     echo libass
     echo libbluray
     echo libcaca
     echo libcelt
+    echo libcodec2-test
     echo libgsm
     echo libjxl
     echo libmad
     echo libmp3lame
+    echo libmpeghdec-test
     echo libmysofa
     echo libopus
     echo libplacebo
@@ -54,7 +58,6 @@ ffbuild_depends() {
     echo libssh
     echo libtheora
     echo libvpx
-    echo libsvtjpegxs
     echo libwebp
     echo libzmq
     echo lilv
@@ -81,11 +84,14 @@ ffbuild_depends() {
     echo srt
     echo svtav1
     echo svthevc
+    echo svtjpegxs-test
     echo svtvp9
+    echo tesseract-test
     echo twolame
     echo uavs3d
     echo uavs3e
     echo vaapi
+    echo vapoursynth-test
     echo vidstab
     echo vo-amrwb
     echo vvdec

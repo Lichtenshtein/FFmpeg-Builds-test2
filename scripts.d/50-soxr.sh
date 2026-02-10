@@ -52,7 +52,7 @@ CROSS_MARK='\u2718'
         -DBUILD_TESTS=OFF \
         -DBUILD_EXAMPLES=OFF \
         -DBUILD_SHARED_LIBS=OFF ..
-    make -j$(nproc)
+    make -j$(nproc) V=1
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     if [[ $TARGET != winarm64 ]]; then

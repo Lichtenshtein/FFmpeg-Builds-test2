@@ -36,7 +36,7 @@ ffbuild_dockerbuild() {
     export LDFLAFS="$RAW_LDFLAGS"
 
     meson setup "${myconf[@]}" ..
-    ninja -j$(nproc)
+    ninja -j$(nproc) --verbose
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     gen-implib "$FFBUILD_DESTPREFIX"/lib/{libpciaccess.so.0,libpciaccess.a}

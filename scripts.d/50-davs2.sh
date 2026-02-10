@@ -40,7 +40,7 @@ ffbuild_dockerbuild() {
     sed -i -e 's/EGIB/bss/g' -e 's/naidnePF/bss/g' configure
 
     ./configure "${myconf[@]}"
-    make -j$(nproc)
+    make -j$(nproc) V=1
     make install DESTDIR="$FFBUILD_DESTDIR"
 }
 

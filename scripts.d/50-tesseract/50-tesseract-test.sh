@@ -38,7 +38,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         ..
 
-    make -j$(nproc)
+    make -j$(nproc) V=1
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     # Исправляем pkg-config для статической линковки в FFmpeg

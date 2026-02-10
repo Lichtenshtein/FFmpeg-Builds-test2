@@ -29,7 +29,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DBUILD_SHARED_LIBS=OFF ..
 
-    ninja -j$(nproc)
+    ninja -j$(nproc) --verbose
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     cp -f ../include/pocketsphinx.h "$FFBUILD_DESTPREFIX"/include/pocketsphinx/

@@ -25,7 +25,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DHEADERS_ONLY=ON ..
-    make -j$(nproc)
+    make -j$(nproc) V=1
     make VersionGen install DESTDIR="$FFBUILD_DESTDIR"
 }
 

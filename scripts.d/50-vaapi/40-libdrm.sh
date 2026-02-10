@@ -40,7 +40,7 @@ ffbuild_dockerbuild() {
     export LDFLAFS="$RAW_LDFLAGS"
 
     meson "${myconf[@]}" ..
-    ninja -j$(nproc)
+    ninja -j$(nproc) --verbose
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     gen-implib "$FFBUILD_DESTPREFIX"/lib/{libdrm.so.2,libdrm.a}

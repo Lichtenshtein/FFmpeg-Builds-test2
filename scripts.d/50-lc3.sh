@@ -30,7 +30,7 @@ ffbuild_dockerbuild() {
     fi
 
     meson "${myconf[@]}" ..
-    ninja -j$(nproc)
+    ninja -j$(nproc) --verbose
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 }
 

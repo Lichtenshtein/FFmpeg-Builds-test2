@@ -77,6 +77,7 @@ export -f git-mini-clone
 echo "Starting parallel downloads for $TARGET-$VARIANT..."
 
 # Находим все включенные скрипты и запускаем в 8 потоков
+# Если два скрипта (например, 45-vulkan-loader.sh и 40-vulkan-headers.sh) имеют одинаковую команду загрузки (один и тот же репозиторий и коммит), они могут попытаться писать в один и тот же временный файл или конфликтовать. Но благодаря mktemp -d в download.sh это безопасно.
 find scripts.d -name "*.sh" | sort | \
     xargs -I{} -P 8 bash -c "download_stage '{}' '$TARGET' '$VARIANT' '$DL_DIR'"
 

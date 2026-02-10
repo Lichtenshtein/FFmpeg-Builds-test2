@@ -52,7 +52,7 @@ CROSS_MARK='\u2718'
         -DLIBTYPE=STATIC \
         -DALSOFT_UTILS=OFF \
         -DALSOFT_EXAMPLES=OFF  ..
-    make -j$(nproc)
+    make -j$(nproc) V=1
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     echo "Libs.private: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/openal.pc
