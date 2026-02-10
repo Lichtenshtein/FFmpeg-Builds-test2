@@ -49,7 +49,8 @@ for i in "${!active_scripts[@]}"; do
     [[ $i -eq $(( ${#active_scripts[@]} - 1 )) ]] && SEP=""
     # Используем абсолютный путь внутри контейнера (/builder/...)
     # Добавляем вывод имени этапа перед запуском
-    to_df "    echo '===> Building stage: $STAGENAME' && run_stage /builder/$STAGE $SEP"
+    # Добавляем пустую строку и явный маркер в Dockerfile
+    to_df "    echo '>>> $STAGENAME <<<' && run_stage /builder/$STAGE $SEP"
 done
 
 # Сборка FFmpeg (Флаги конфигурации)
