@@ -13,11 +13,28 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
-    # Путь к патчам теперь фиксированный из generate.sh
+# Определяем цвета и символы
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color (сброс цвета)
+CHECK_MARK='\u2714'
+CROSS_MARK='\u2718'
+    
     if [[ -d "/builder/patches/aribb24" ]]; then
         for patch in /builder/patches/aribb24/*.patch; do
-            echo "Applying $patch"
-            git apply "$patch"
+            echo -e "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+            echo "~~~ APPLYING PATCH: $patch"
+            
+            # Выполняем патч и проверяем код выхода
+            if patch -p1 < "$patch"; then
+                echo -e "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+            else
+                echo -e "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+                echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+                # exit 1 # если нужно прервать сборку при ошибке
+            fi
+            
+            echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
         done
     fi
 
@@ -27,21 +44,18 @@ ffbuild_dockerbuild() {
 
     autoreconf -i
 
+    # Явно указываем пути к pkg-config и инклудам
+    export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
+    export CFLAGS="$CFLAGS -I$FFBUILD_PREFIX/include"
+    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
         --disable-shared
         --enable-static
         --with-pic
     )
-
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --host="$FFBUILD_TOOLCHAIN"
-        )
-    else
-        echo "Unknown target"
-        return -1
-    fi
 
     ./configure "${myconf[@]}"
     make -j$(nproc)

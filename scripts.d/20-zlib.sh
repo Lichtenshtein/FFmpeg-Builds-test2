@@ -43,9 +43,6 @@ ffbuild_dockerbuild() {
 
     ninja -j$(nproc)
     DESTDIR="$FFBUILD_DESTDIR" ninja install
-
-    # Копируем установленные файлы в системный префикс текущего слоя
-    cp -r "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/. "$FFBUILD_PREFIX"/
 }
 
 ffbuild_configure() {

@@ -49,9 +49,6 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc)
     make install DESTDIR="$FFBUILD_DESTDIR"
-
-    # копируем результат в префикс для следующих скриптов
-    cp -r "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/. "$FFBUILD_PREFIX"/
 }
 
 ffbuild_configure() {

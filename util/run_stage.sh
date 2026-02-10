@@ -78,6 +78,12 @@ if ! $build_cmd; then
     exit 1
 fi
 
+# Автоматическая синхронизация префиксов после успешной сборки
+if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
+    echo "===> Syncing $STAGENAME to system prefix..."
+    cp -r "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/. "$FFBUILD_PREFIX"/
+fi
+
 # Очистка
 cd /
 rm -rf "/build/$STAGENAME"

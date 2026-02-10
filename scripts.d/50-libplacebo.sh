@@ -15,17 +15,35 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
-    # Сначала клонируем основной репозиторий с историей (глубина 1)
+    # РЎРЅР°С‡Р°Р»Р° РєР»РѕРЅРёСЂСѓРµРј РѕСЃРЅРѕРІРЅРѕР№ СЂРµРїРѕР·РёС‚РѕСЂРёР№ СЃ РёСЃС‚РѕСЂРёРµР№ (РіР»СѓР±РёРЅР° 1)
     # echo "git clone --filter=blob:none --depth=1 \"$SCRIPT_REPO\" ."
-    # Затем принудительно инициализируем подмодули без лишних фильтров, которые могут не поддерживаться старыми версиями git
+    # Р—Р°С‚РµРј РїСЂРёРЅСѓРґРёС‚РµР»СЊРЅРѕ РёРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј РїРѕРґРјРѕРґСѓР»Рё Р±РµР· Р»РёС€РЅРёС… С„РёР»СЊС‚СЂРѕРІ, РєРѕС‚РѕСЂС‹Рµ РјРѕРіСѓС‚ РЅРµ РїРѕРґРґРµСЂР¶РёРІР°С‚СЊСЃСЏ СЃС‚Р°СЂС‹РјРё РІРµСЂСЃРёСЏРјРё git
     # echo "git submodule update --init --recursive --depth=1"
 }
 
 ffbuild_dockerbuild() {
+# РћРїСЂРµРґРµР»СЏРµРј С†РІРµС‚Р° Рё СЃРёРјРІРѕР»С‹
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color (СЃР±СЂРѕСЃ С†РІРµС‚Р°)
+CHECK_MARK='\u2714'
+CROSS_MARK='\u2718'
+    
     if [[ -d "/builder/patches/libplacebo" ]]; then
         for patch in /builder/patches/libplacebo/*.patch; do
-            echo "Applying $patch"
-            patch -p1 < "$patch"
+            echo -e "\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+            echo "~~~ APPLYING PATCH: $patch"
+            
+            # Р’С‹РїРѕР»РЅСЏРµРј РїР°С‚С‡ Рё РїСЂРѕРІРµСЂСЏРµРј РєРѕРґ РІС‹С…РѕРґР°
+            if patch -p1 < "$patch"; then
+                echo -e "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+            else
+                echo -e "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+                echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+                # exit 1 # РµСЃР»Рё РЅСѓР¶РЅРѕ РїСЂРµСЂРІР°С‚СЊ СЃР±РѕСЂРєСѓ РїСЂРё РѕС€РёР±РєРµ
+            fi
+            
+            echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
         done
     fi
 
