@@ -9,8 +9,13 @@ ffbuild_enabled() {
 ffbuild_dockerbuild() {
     autoreconf -if
 
+    # В MinGW clock_gettime находится в libwinpthread
+    # добавляем -lpthread, чтобы линковщик нашел clock_gettime
+    export LIBS="$LIBS -lpthread"
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
         --disable-shared
         --enable-static
         --disable-maintainer-mode
@@ -24,17 +29,11 @@ ffbuild_dockerbuild() {
         --with-pic
     )
 
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --host="$FFBUILD_TOOLCHAIN"
-        )
-    else
-        echo "Unknown target"
-        return -1
-    fi
-
     ./configure "${myconf[@]}"
-    cd doc && make stamp-vti && cd ..
-    make -j$(nproc)
+
+    # Исправление для документации, чтобы не падал make
+    mkdir -p doc && touch doc/stamp-vti
+
+    make -j$(nproc) V=1
     make install DESTDIR="$FFBUILD_DESTDIR"
 }
