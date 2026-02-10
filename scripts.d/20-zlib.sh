@@ -12,20 +12,30 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # Для zlib-ng используем cmake, чтобы он правильно определил AVX2
+    # unset CC CXX LD AR AS NM RANLIB
+    # Очищаем переменные, чтобы CMake не пытался использовать хостовые флаги
+    # Но оставляем CFLAGS/CXXFLAGS, которые мы настроили для Broadwell
+    local ORIG_CFLAGS="$CFLAGS"
+    local ORIG_CXXFLAGS="$CXXFLAGS"
+
     mkdir build && cd build
 
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
+    cmake -G Ninja \
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DBUILD_SHARED_LIBS=OFF \
         -DZLIB_COMPAT=ON \
         -DZLIB_ENABLE_TESTS=OFF \
         -DWITH_NATIVE_INSTRUCTIONS=OFF \
-        -DCMAKE_C_FLAGS="$CFLAGS" ..
+        -DWITH_AVX512=OFF \
+        -DWITH_AVX512VNNI=OFF \
+        -DWITH_VPCLMULQDQ=OFF \
+        -DCMAKE_C_FLAGS="$ORIG_CFLAGS" \
+        ..
 
-    make -j$(nproc)
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    ninja -j$(nproc)
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
 }
 
 ffbuild_configure() {
