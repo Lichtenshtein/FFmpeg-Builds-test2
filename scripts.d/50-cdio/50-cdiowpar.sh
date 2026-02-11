@@ -13,7 +13,7 @@ ffbuild_dockerbuild() {
     # Добавляем pthread в линковку, чтобы тесты в configure прошли успешно
     # Используем -include для принудительного включения pthread.h во все файлы
     # Это гарантирует наличие CLOCK_MONOTONIC и clock_gettime
-    export CFLAGS="$CFLAGS -include pthread.h"
+    export CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=199309L -std=gnu11 -std=gnu99 -include pthread.h"
     export LIBS="$LIBS -lpthread"
 
     local myconf=(
