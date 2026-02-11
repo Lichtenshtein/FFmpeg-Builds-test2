@@ -158,3 +158,5 @@ else
     export NINJA_V=""
     export CARGO_V=""
 fi
+
+export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
