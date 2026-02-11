@@ -59,6 +59,7 @@ ffbuild_depends() {
     echo librsvg-test
     echo libssh
     echo libtheora
+    echo libtorch-test
     echo libvpx
     echo libwebp
     echo libzmq

@@ -1,6 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://storage.openvinotoolkit.org"
+# Прямая ссылка на архив Runtime 2024.6.0
+SCRIPT_REPO="https://storage.openvinotoolkit.org/repositories/openvino/packages/2024.6/windows/w_openvino_toolkit_windows_2024.6.0.17404.4c0f47d2335_x86_64.zip"
 
 ffbuild_enabled() {
     (( $(ffbuild_ffver) >= 404 )) || return -1
@@ -8,28 +9,20 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    # Используем wget, так как это прямой URL на zip
-    echo "wget -O openvino.zip \"$SCRIPT_REPO\" && unzip openvino.zip && mv w_openvino_* openvino_src"
+    # Скачиваем с проверкой, что это действительно ZIP
+    echo "curl -L \"$SCRIPT_REPO\" --output openvino.zip && unzip -qq openvino.zip && mv w_openvino_* openvino_src"
 }
 
 ffbuild_dockerbuild() {
     cd openvino_src
 
-    # Копируем заголовки в префикс
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
+    # Инсталляция заголовков и библиотек
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{include,lib,bin}
     cp -r runtime/include/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
-
-    # Копируем библиотеки (DLL и LIB)
-    # FFmpeg при линковке с MinGW будет искать .lib или .dll.a
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
     cp runtime/lib/intel64/Release/*.lib "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
-    
-    # Копируем рантайм-библиотеки в bin, чтобы они попали в финальный архив
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
     cp runtime/bin/intel64/Release/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
     cp runtime/3rdparty/tbb/bin/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
 
-    # Генерируем заглушку .pc файла, чтобы FFmpeg нашел openvino через pkg-config
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
     cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/openvino.pc"
 prefix=$FFBUILD_PREFIX
@@ -38,8 +31,8 @@ libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
 Name: OpenVINO
-Description: Intel(R) Distribution of OpenVINO(TM) Toolkit
-Version: 2024.4.0
+Description: Intel Distribution of OpenVINO Toolkit
+Version: 2024.6.0
 Libs: -L\${libdir} -lopenvino
 Cflags: -I\${includedir}
 EOF
