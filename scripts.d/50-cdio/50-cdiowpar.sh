@@ -8,25 +8,35 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    # Добавляем фиктивный эхо-коммит, чтобы сбросить кэш загрузки
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v3-force-patch'"
+    # Сбрасываем кэш еще раз для надежности
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v4-win32-fix'"
 }
 
 ffbuild_dockerbuild() {
-    # Распаковка уже произошла. Теперь ПРАВИМ исходники.
-    echo "Applying aggressive patches to source..."
+    # заменяем реализацию gettime в utils.c на пустую/совместимую
+    # Это уберет ошибку компиляции, так как clock_gettime больше не будет вызываться
+    echo "Patching utils.c to bypass clock_gettime..."
     
-    # Исправляем все файлы, где может быть clock_gettime
-    find . -name "*.c" -o -name "*.h" | xargs sed -i '1i#define _POSIX_C_SOURCE 199309L\n#include <time.h>\n#include <pthread.h>'
+    cat <<EOF > lib/cdda_interface/utils.c.patch
+--- lib/cdda_interface/utils.c
++++ lib/cdda_interface/utils.c
+@@ -176,11 +176,7 @@
+ static void
+ gettime (struct timespec *ts)
+ {
+-#if defined(HAVE_CLOCK_GETTIME) && defined(CLOCK_MONOTONIC)
+-  static clockid_t clock = (clockid_t)-1;
+-  if ((int)clock == -1) clock = (clock_gettime(CLOCK_MONOTONIC, ts) < 0 ? CLOCK_REALTIME : CLOCK_MONOTONIC);
+-  clock_gettime(clock, ts);
+-#elif defined(HAVE_GETTIMEOFDAY)
++#if defined(HAVE_GETTIMEOFDAY)
+   struct timeval tv;
+   gettimeofday (&tv, NULL);
+   ts->tv_sec = tv.tv_sec;
+EOF
+    patch -p0 < lib/cdda_interface/utils.c.patch
 
     autoreconf -if
-
-    # Вставляем инклуды в начало КАЖДОГО .c файла в папке lib
-    # find lib -name "*.c" -exec sed -i '1i#define _POSIX_C_SOURCE 199309L\n#include <time.h>\n#include <pthread.h>' {} +
-
-    export LIBS="$LIBS -lpthread"
-    # Принудительно передаем флаги в среду компиляции
-    export CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=199309L -include time.h -include pthread.h"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -37,6 +47,7 @@ ffbuild_dockerbuild() {
         --disable-maintainer-mode
         --enable-cpp-progs=no
         --with-pic
+        ac_cv_func_clock_gettime=no
     )
 
     ./configure "${myconf[@]}"
