@@ -73,6 +73,7 @@ ffbuild_depends() {
     echo openh264
     echo openjpeg
     echo openmpt
+    echo openvino-test
     echo pocketsphinx
     echo qrencode
     echo quirc
