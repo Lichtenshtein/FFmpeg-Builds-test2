@@ -12,28 +12,32 @@ to_df() {
     echo >> Dockerfile
 }
 
+# Базовый образ
 to_df "FROM ${REGISTRY}/${REPO}/base-${TARGET}:latest AS build_stage"
 to_df "ENV TARGET=$TARGET VARIANT=$VARIANT REPO=$REPO ADDINS_STR=$ADDINS_STR"
 to_df "ENV C_INCLUDE_PATH=/opt/ffbuild/include CPATH=/opt/ffbuild/include LIBRARY_PATH=/opt/ffbuild/lib"
-to_df "COPY --link util/run_stage.sh /usr/bin/run_stage"
+
+# Копируем утилиту один раз. Это стабильная точка для кэша.
+to_df "COPY util/run_stage.sh /usr/bin/run_stage"
+to_df "RUN chmod +x /usr/bin/run_stage"
 to_df "WORKDIR /builder"
 
 # Находим все скрипты
-SCRIPTS=( $(find scripts.d -name "*.sh" | sort) )
+# SCRIPTS=( $(find scripts.d -name "*.sh" | sort) )
+# Временно для тестов в generate.sh:
+SCRIPTS=( scripts.d/10-mingw.sh scripts.d/20-zlib.sh scripts.d/45-cdio.sh )
 
-# Общие монтирования для каждого RUN
+# Общие монтирования (BIND) для каждого RUN. 
+# Кэш сработает, если содержимое монтируемых файлов не менялось.
 MOUNTS="--mount=type=cache,target=/root/.cache/ccache \\
     --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\
     --mount=type=bind,source=util,target=/builder/util \\
     --mount=type=bind,source=patches,target=/builder/patches \\
-    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads,ro"  # Добавлен ,ro
+    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads,ro" # Добавлен ,ro
 
 active_scripts=()
 for STAGE in "${SCRIPTS[@]}"; do
-    # Проверка, включен ли скрипт для данной цели (win64/nonfree)
-    # Это важно сделать на этапе генерации, чтобы не плодить пустые RUN
     if ( source "$STAGE" && ffbuild_enabled ); then
-        # Если это не пропуск (SCRIPT_SKIP) и есть загрузка, или если это важный системный скрипт
         active_scripts+=("$STAGE")
     fi
 done
@@ -51,6 +55,7 @@ source "variants/${TARGET}-${VARIANT}.sh"
 for addin in ${ADDINS[*]}; do source "addins/${addin}.sh"; done
 
 # Собираем конфигурацию для финального билда
+
 FF_CONFIGURE=""
 for script in "${active_scripts[@]}"; do
     if ( source "$script" && ffbuild_enabled ); then
@@ -60,7 +65,7 @@ for script in "${active_scripts[@]}"; do
         FF_LDFLAGS+=" $( (source "$script" && ffbuild_ldflags) )"
         FF_LDEXEFLAGS+=" $( (source "$script" && ffbuild_ldexeflags) )"
         FF_LIBS+=" $( (source "$script" && ffbuild_libs) )"
-    fi
+   fi
 done
 
 to_df "ENV \\"
@@ -72,7 +77,11 @@ to_df "    FF_LDEXEFLAGS=\"$(xargs <<< "$FF_LDEXEFLAGS")\" \\"
 to_df "    FF_LIBS=\"$(xargs <<< "$FF_LIBS")\""
 
 # Копируем исходники проекта (включая build.sh и patches)
-to_df "COPY . /builder"
+# to_df "COPY . /builder"
+# Только в самом конце копируем остальное для финального шага билда
+to_df "COPY build.sh /builder/build.sh"
+to_df "COPY util /builder/util"
+to_df "COPY patches /builder/patches"
 to_df "RUN --mount=type=cache,target=/root/.cache/ccache ./build.sh $TARGET $VARIANT"
 
 to_df "FROM scratch AS artifacts"

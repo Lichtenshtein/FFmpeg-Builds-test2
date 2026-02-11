@@ -31,9 +31,18 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}"
 
-    # Исправление для документации, чтобы не падал make
-    mkdir -p doc && touch doc/stamp-vti
+    # Подменяем MAKEINFO на true, чтобы пропустить генерацию документации
+    # и очищаем переменную в Makefile
+    sed -i 's/MAKEINFO = .*/MAKEINFO = true/g' Makefile
+    sed -i 's/SUBDIRS = .*/SUBDIRS = include lib/g' Makefile
 
     make -j$(nproc) V=1
-    make install DESTDIR="$FFBUILD_DESTDIR"
+
+    # Устанавливаем только библиотеку и заголовки, игнорируя doc
+    make -C include install DESTDIR="$FFBUILD_DESTDIR"
+    make -C lib install DESTDIR="$FFBUILD_DESTDIR"
+    
+    # Вручную устанавливаем .pc файлы, так как мы пропустили корень
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    cp *.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/"
 }
