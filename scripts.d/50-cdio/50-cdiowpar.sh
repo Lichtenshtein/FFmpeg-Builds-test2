@@ -20,7 +20,7 @@ ffbuild_dockerbuild() {
         --enable-static
         --disable-example-progs
         --disable-maintainer-mode
-        --disable-test-progs
+        --enable-cpp-progs=no
         --with-pic
     )
 
@@ -33,7 +33,7 @@ ffbuild_dockerbuild() {
     fi
 
     make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make install DESTDIR="$FFBUILD_DESTDIR" $MAKE_V
 }
 
 ffbuild_configure() {
