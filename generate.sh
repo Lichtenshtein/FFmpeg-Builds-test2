@@ -23,9 +23,9 @@ to_df "RUN chmod +x /usr/bin/run_stage"
 to_df "WORKDIR /builder"
 
 # Находим все скрипты
-# SCRIPTS=( $(find scripts.d -name "*.sh" | sort) )
+SCRIPTS=( $(find scripts.d -name "*.sh" | sort) )
 # Временно для тестов в generate.sh:
-SCRIPTS=( scripts.d/10-mingw.sh scripts.d/20-zlib.sh scripts.d/45-cdio.sh )
+# SCRIPTS=( scripts.d/10-mingw.sh scripts.d/20-zlib.sh scripts.d/45-cdio.sh )
 
 # Общие монтирования (BIND) для каждого RUN. 
 # Кэш сработает, если содержимое монтируемых файлов не менялось.
