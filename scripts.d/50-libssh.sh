@@ -33,7 +33,7 @@ ffbuild_dockerbuild() {
         -DWITH_SFTP=ON \
         -DWITH_ZLIB=ON ..
 
-    ninja -j$(nproc) --verbose
+    ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     {

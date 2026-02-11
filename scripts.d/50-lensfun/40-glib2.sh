@@ -45,7 +45,7 @@ EOF
         -Dlibmount=disabled \
         -Dnls=enabled
 
-    ninja -j$(nproc) --verbose -C build
+    ninja -j$(nproc) $NINJA_V -C build
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
 
     # Хак для статической линковки: удаляем .dll.a если пролезли

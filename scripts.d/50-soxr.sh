@@ -50,7 +50,7 @@ CROSS_MARK='❌'
         -DBUILD_TESTS=OFF \
         -DBUILD_EXAMPLES=OFF \
         -DBUILD_SHARED_LIBS=OFF ..
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     if [[ $TARGET != winarm64 ]]; then

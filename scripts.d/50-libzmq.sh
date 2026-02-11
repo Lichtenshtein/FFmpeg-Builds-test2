@@ -37,7 +37,7 @@ ffbuild_dockerbuild() {
     fi
 
     cmake "${myconf[@]}" ..
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     {

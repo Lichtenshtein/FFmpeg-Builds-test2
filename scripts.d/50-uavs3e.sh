@@ -27,7 +27,7 @@ ffbuild_dockerbuild() {
         -DCOMPILE_10BIT=1 \
         -DCOMPILE_FFMPEG=ON \
         -DBUILD_SHARED_LIBS=NO ../..
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
 

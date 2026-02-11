@@ -25,7 +25,7 @@ to_df "WORKDIR /builder"
 # Находим все скрипты
 # SCRIPTS=( $(find scripts.d -name "*.sh" | sort) )
 # Временно для тестов в generate.sh:
-SCRIPTS=( scripts.d/10-mingw.sh scripts.d/10-mingw-std-threads.sh scripts.d/45-x11/10-xcbproto.sh scripts.d/10-xorg-macros.sh scripts.d/45-x11/10-xproto.sh scripts.d/45-x11/10-xtrans.sh scripts.d/15-base.sh scripts.d/20-libiconv.sh scripts.d/20-zlib.sh scripts.d/45-fonts/25-freetype.sh scripts.d/50-cdio/45-cdio.sh scripts.d/50-cdio/50-cdiowpar.sh )
+SCRIPTS=( scripts.d/10-mingw.sh scripts.d/10-mingw-std-threads.sh scripts.d/15-base.sh scripts.d/20-libiconv.sh scripts.d/20-zlib.sh scripts.d/45-fonts/25-freetype.sh scripts.d/50-cdio/45-cdio.sh scripts.d/50-cdio/50-cdiowpar.sh )
 
 # Общие монтирования (BIND) для каждого RUN. 
 # Кэш сработает, если содержимое монтируемых файлов не менялось.

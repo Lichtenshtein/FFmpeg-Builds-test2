@@ -52,7 +52,7 @@ ffbuild_dockerbuild() {
         -DJPEGXL_BUNDLE_LIBPNG=OFF \
         -DJPEGXL_ENABLE_SJPEG=OFF \
         -DJPEGXL_FORCE_SYSTEM_BROTLI=ON ..
-    ninja -j$(nproc) --verbose
+    ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     if [[ $TARGET == win* ]]; then

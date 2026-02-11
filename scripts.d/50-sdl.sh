@@ -54,7 +54,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" "${mycmake[@]}" ..
 
-    ninja -j$(nproc) --verbose
+    ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     if [[ $TARGET == linux* ]]; then

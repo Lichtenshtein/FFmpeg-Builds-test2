@@ -54,7 +54,7 @@ CROSS_MARK='❌'
         -DSPIRV_SKIP_EXECUTABLES=ON \
         -DSPIRV_TOOLS_BUILD_STATIC=ON \
         -DBUILD_SHARED_LIBS=OFF ..
-    ninja -j$(nproc) --verbose
+    ninja -j$(nproc) $NINJA_V
 
     export DESTDIR="/tmp/staging$FFBUILD_DESTDIR"
     ninja install

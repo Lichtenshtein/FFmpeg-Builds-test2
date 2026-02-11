@@ -28,7 +28,7 @@ ffbuild_dockerbuild() {
     )
 
     cmake "${cmake_flags[@]}" ..
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     # Исправляем pkg-config для статической линковки

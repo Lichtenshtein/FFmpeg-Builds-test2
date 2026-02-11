@@ -46,7 +46,7 @@ ffbuild_dockerbuild() {
         CXXFLAGS="$CXXFLAGS" \
         LDFLAGS="$LDFLAGS"
 
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     # FFmpeg ищет Vapoursynth через pkg-config

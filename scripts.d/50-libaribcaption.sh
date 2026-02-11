@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
         -DARIBCC_USE_FREETYPE=ON \
         -DARIBCC_USE_EMBEDDED_FREETYPE=OFF ..
 
-    ninja -j$(nproc) --verbose
+    ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     echo "Libs.private: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libaribcaption.pc

@@ -14,6 +14,6 @@ ffbuild_dockerbuild() {
         --enable-static \
         --disable-shared \
         --with-pic
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 }

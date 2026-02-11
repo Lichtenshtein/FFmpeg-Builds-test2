@@ -10,8 +10,7 @@ ffbuild_enabled() {
 ffbuild_dockerbuild() {
     autoreconf -if
 
-    # В MinGW clock_gettime находится в libwinpthread
-    # добавляем -lpthread, чтобы линковщик нашел clock_gettime
+    # Добавляем pthread в линковку, чтобы тесты в configure прошли успешно
     export LIBS="$LIBS -lpthread"
 
     local myconf=(
@@ -22,20 +21,18 @@ ffbuild_dockerbuild() {
         --disable-example-progs
         --disable-maintainer-mode
         --disable-test-progs
-        --without-versioned-libs
         --with-pic
     )
 
     ./configure "${myconf[@]}"
 
-    # Хак для исправления 'unknown type name clockid_t' под MinGW
-    # Мы принудительно вставляем заголовок в сгенерированный конфиг
-    if [ -f "config.h" ]; then
-        echo "#include <pthread.h>" >> config.h
-        echo "#define HAVE_CLOCK_GETTIME 1" >> config.h
+    # Вставляем pthread.h в сгенерированный config.h
+    # Это решает проблему "CLOCK_MONOTONIC undeclared"
+    if [[ -f "config.h" ]]; then
+        sed -i '1i#include <pthread.h>' config.h
     fi
 
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 }
 

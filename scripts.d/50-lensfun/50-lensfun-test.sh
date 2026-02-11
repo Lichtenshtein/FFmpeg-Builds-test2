@@ -53,7 +53,7 @@ CROSS_MARK='❌'
         -DBUILD_FOR_SSE2=ON \
         ..
 
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     # В lensfun.pc часто не хватает зависимости от glib-2.0 при статической сборке

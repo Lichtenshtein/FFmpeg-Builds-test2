@@ -48,7 +48,7 @@ CROSS_MARK='❌'
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         ..
 
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
     
     # MPEG-H часто не генерирует .pc файл. Проверим и создадим, если нужно

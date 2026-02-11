@@ -57,7 +57,7 @@ CROSS_MARK='❌'
         -DENABLE_TESTS=NO \
         -DENABLE_TOOLS=NO \
         -DCONFIG_TUNE_VMAF=1 ..
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     echo "Requires.private: libvmaf" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/aom.pc

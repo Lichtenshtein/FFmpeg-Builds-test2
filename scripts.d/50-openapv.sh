@@ -32,7 +32,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DOAPV_APP_STATIC_BUILD=ON -DENABLE_TESTS=OFF ..
 
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     mv "$FFBUILD_DESTPREFIX"/lib{/oapv/liboapv.a,}

@@ -25,7 +25,7 @@ ffbuild_dockerbuild() {
         -DWITH_AUDIO=OFF \
         ..
 
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
     
     # FFmpeg ожидает flite.pc, но cmake-порт может его не создать.

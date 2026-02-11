@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_DISABLE_FIND_PACKAGE_SDL2=1 \
         -DBUILD_SHARED_LIBS=OFF \
         -DENABLE_UBSAN=OFF ..
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 }
 

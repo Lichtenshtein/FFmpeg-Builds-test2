@@ -145,3 +145,16 @@ ffbuild_dockerdl() {
         default_dl .
     fi
 }
+
+# 1 для подробных логов, в 0 для кратких
+export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
+
+if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
+    export MAKE_V="V=1"
+    export NINJA_V="-v"
+    export CARGO_V="-v"
+else
+    export MAKE_V=""
+    export NINJA_V=""
+    export CARGO_V=""
+fi
