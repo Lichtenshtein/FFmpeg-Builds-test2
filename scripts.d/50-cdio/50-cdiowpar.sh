@@ -10,9 +10,9 @@ ffbuild_enabled() {
 ffbuild_dockerbuild() {
     autoreconf -if
 
-    # POSIX_C_SOURCE открывает clock_gettime в time.h MinGW
-    # -include time.h гарантирует, что заголовок будет прочитан первым
-    export CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=199309L -include time.h -include pthread.h"
+    # Вставляем инклуды в начало КАЖДОГО .c файла в папке lib
+    find lib -name "*.c" -exec sed -i '1i#define _POSIX_C_SOURCE 199309L\n#include <time.h>\n#include <pthread.h>' {} +
+
     export LIBS="$LIBS -lpthread"
 
     local myconf=(
@@ -26,10 +26,7 @@ ffbuild_dockerbuild() {
         --with-pic
     )
 
-    ./configure "${myconf[@]}"
-
-    # Если вдруг configure сбросит CFLAGS, применим sed как "план Б" для конкретного файла
-    sed -i '1i#define _POSIX_C_SOURCE 199309L\n#include <time.h>\n#include <pthread.h>' lib/cdda_interface/utils.c
+    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=199309L"
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR" $MAKE_V
