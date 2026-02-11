@@ -27,5 +27,5 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}"
 
     make -j$(nproc) $MAKE_V MAKEINFO=true
-    make install DESTDIR="$FFBUILD_DESTDIR" MAKEINFO=true
+    make install DESTDIR="$FFBUILD_DESTDIR" MAKEINFO=true $MAKE_V
 }
