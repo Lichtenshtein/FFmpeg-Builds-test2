@@ -7,13 +7,26 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    # Добавляем фиктивный эхо-коммит, чтобы сбросить кэш загрузки
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v3-force-patch'"
+}
+
 ffbuild_dockerbuild() {
+    # Распаковка уже произошла. Теперь ПРАВИМ исходники.
+    echo "Applying aggressive patches to source..."
+    
+    # Исправляем все файлы, где может быть clock_gettime
+    find . -name "*.c" -o -name "*.h" | xargs sed -i '1i#define _POSIX_C_SOURCE 199309L\n#include <time.h>\n#include <pthread.h>'
+
     autoreconf -if
 
     # Вставляем инклуды в начало КАЖДОГО .c файла в папке lib
-    find lib -name "*.c" -exec sed -i '1i#define _POSIX_C_SOURCE 199309L\n#include <time.h>\n#include <pthread.h>' {} +
+    # find lib -name "*.c" -exec sed -i '1i#define _POSIX_C_SOURCE 199309L\n#include <time.h>\n#include <pthread.h>' {} +
 
     export LIBS="$LIBS -lpthread"
+    # Принудительно передаем флаги в среду компиляции
+    export CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=199309L -include time.h -include pthread.h"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -26,10 +39,10 @@ ffbuild_dockerbuild() {
         --with-pic
     )
 
-    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=199309L"
+    ./configure "${myconf[@]}"
 
     make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR" $MAKE_V
+    make install DESTDIR="$FFBUILD_DESTDIR"
 }
 
 ffbuild_configure() {
