@@ -96,8 +96,8 @@ jobs:
           # Run the build via Buildx with artifact export
           # Use cache-from=gha for ccache
           docker buildx build \
-            --cache-from type=gha \
-            --cache-to type=gha,mode=max \
+            --cache-from type=gha,scope=ffmpeg-build \
+            --cache-to type=gha,mode=max,scope=ffmpeg-build \
             --build-context downloads=.cache/downloads \
             --tag ${{ steps.images.outputs.variant }} \
             --output type=local,dest=artifacts/ \
