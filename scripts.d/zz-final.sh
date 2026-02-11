@@ -48,6 +48,7 @@ ffbuild_depends() {
     echo libcodec2-test
     echo libgsm
     echo libjxl
+    echo libklvanc-test
     echo libmad
     echo libmp3lame
     echo libmpeghdec-test
@@ -55,6 +56,7 @@ ffbuild_depends() {
     echo libopus
     echo libplacebo
     echo librist
+    echo librsvg-test
     echo libssh
     echo libtheora
     echo libvpx
