@@ -11,6 +11,9 @@ ffbuild_dockerbuild() {
     autoreconf -if
 
     # Добавляем pthread в линковку, чтобы тесты в configure прошли успешно
+    # Используем -include для принудительного включения pthread.h во все файлы
+    # Это гарантирует наличие CLOCK_MONOTONIC и clock_gettime
+    export CFLAGS="$CFLAGS -include pthread.h"
     export LIBS="$LIBS -lpthread"
 
     local myconf=(
@@ -28,9 +31,9 @@ ffbuild_dockerbuild() {
 
     # Вставляем pthread.h в сгенерированный config.h
     # Это решает проблему "CLOCK_MONOTONIC undeclared"
-    if [[ -f "config.h" ]]; then
-        sed -i '1i#include <pthread.h>' config.h
-    fi
+    # if [[ -f "config.h" ]]; then
+        # sed -i '1i#include <pthread.h>' config.h
+    # fi
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR" $MAKE_V
