@@ -71,6 +71,7 @@ ffbuild_depends() {
     echo openal
     echo openapv
     echo opencore-amr
+    echo opencv-test
     echo openh264
     echo openjpeg
     echo openmpt
