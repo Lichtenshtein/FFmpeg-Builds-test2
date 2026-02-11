@@ -27,7 +27,7 @@ ffbuild_dockerbuild() {
         -DVN_SDK_FFMPEG_LIBS_PACKAGE="" \
         -DVN_SDK_{JSON_CONFIG,EXECUTABLES,UNIT_TESTS,SAMPLE_SOURCE}=OFF .. -G Ninja
 
-    ninja -j$(nproc) --verbose
+    ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     echo "prefix=$FFBUILD_DESTPREFIX" > lcevc_dec.pc

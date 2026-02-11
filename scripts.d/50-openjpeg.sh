@@ -25,7 +25,7 @@ ffbuild_dockerbuild() {
         -DBUILD_CODEC=OFF \
         -DWITH_ASTYLE=OFF \
         -DBUILD_TESTING=OFF ..
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 }
 

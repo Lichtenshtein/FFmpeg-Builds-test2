@@ -31,7 +31,7 @@ ffbuild_dockerbuild() {
         -DUSE_STATIC_LIBSTDCXX=ON \
         -DENABLE_ENCRYPTION=ON \
         -DENABLE_APPS=OFF ..
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     echo "Libs.private: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/srt.pc

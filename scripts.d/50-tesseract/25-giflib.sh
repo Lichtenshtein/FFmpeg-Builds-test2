@@ -17,7 +17,7 @@ ffbuild_dockerbuild() {
     sed -i "s|AR      = ar|AR      = $AR|" Makefile
     sed -i "s|RANLIB  = ranlib|RANLIB  = $RANLIB|" Makefile
 
-    make -j$(nproc) V=1 libgif.a
+    make -j$(nproc) $MAKE_V libgif.a
     
     # Ручная установка, так как штатный install хочет в /usr/local
     mkdir -p "$FFBUILD_DESTPREFIX"/include "$FFBUILD_DESTPREFIX"/lib

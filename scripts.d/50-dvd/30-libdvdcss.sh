@@ -35,6 +35,6 @@ ffbuild_dockerbuild() {
     export CFLAGS="$CFLAGS -Dprint_error=dvdcss_print_error -Dprint_debug=dvdcss_print_debug"
 
     meson setup "${myconf[@]}" ..
-    ninja -j$(nproc) --verbose
+    ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 }

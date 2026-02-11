@@ -69,7 +69,7 @@ CROSS_MARK='❌'
     )
 
     cmake "${myconf[@]}" ..
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     # Добавляем VMAF в pkg-config, иначе FFmpeg не соберется статикой

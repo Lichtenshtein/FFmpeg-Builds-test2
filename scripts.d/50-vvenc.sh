@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
         -DVVENC_ENABLE_LINK_TIME_OPT=OFF \
         -DEXTRALIBS="-lstdc++" "${armsimd[@]}" ..
 
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 }
 

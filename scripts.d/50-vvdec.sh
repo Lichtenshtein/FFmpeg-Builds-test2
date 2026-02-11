@@ -60,7 +60,7 @@ CROSS_MARK='❌'
          -DEXTRALIBS="-lstdc++" \
          -DVVDEC_ENABLE_LINK_TIME_OPT=OFF "${armsimd[@]}" ..
 
-    make -j$(nproc) V=1
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 }
 

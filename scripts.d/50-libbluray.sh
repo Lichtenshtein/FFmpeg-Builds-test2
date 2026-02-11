@@ -72,7 +72,7 @@ CROSS_MARK='❌'
     export CPPFLAGS="${CPPFLAGS} -Ddec_init=libbr_dec_init"
 
     meson setup "${myconf[@]}" ..
-    ninja -j$(nproc) --verbose
+    ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 }
 

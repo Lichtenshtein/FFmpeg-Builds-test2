@@ -17,7 +17,7 @@ ffbuild_dockerbuild() {
     export INSTALL_ROOT="$FFBUILD_DESTPREFIX"
     export CC="${FFBUILD_TOOLCHAIN}-gcc"
 
-    make libgsm -j$(nproc) V=1
+    make libgsm -j$(nproc) $MAKE_V
     
     mkdir -p "$FFBUILD_DESTPREFIX/include/gsm"
     mkdir -p "$FFBUILD_DESTPREFIX/lib"
