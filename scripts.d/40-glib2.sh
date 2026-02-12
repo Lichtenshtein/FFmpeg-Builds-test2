@@ -32,7 +32,6 @@ ffbuild_dockerbuild() {
 
     # Удаляем только pcre2 из субпроектов, чтобы заставить использовать наш билд
     rm -rf subprojects/pcre2*
-    # rm -rf subprojects/gvdb*
 
     # Подготавливаем строки аргументов заранее
     # Превращаем "-O3 -march=broadwell" в "'-O3', '-march=broadwell'"
@@ -93,6 +92,7 @@ EOF
         -Dtests=false \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
+        -Diconv=external \
         -Dnls=disabled
 
     ninja -C build -j$(nproc) $NINJA_V
@@ -114,5 +114,5 @@ ffbuild_cflags() {
 
 ffbuild_ldflags() {
     # Glib требует системные библиотеки Windows при линковке
-    echo "-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl"
+    echo "-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl -liconv"
 }
