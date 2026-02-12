@@ -14,23 +14,20 @@ NC='\033[0m' # No Color (сброс цвета)
 CHECK_MARK='✅'
 CROSS_MARK='❌'
 
-    # Применяем патчи, если они есть в папке patches/aom (как в оригинале)
-    # В новом формате generate.sh папка монтируется в /builder/patches
-    if [[ -d "/builder/patches/liblensfun" ]]; then
-        for patch in /builder/patches/liblensfun/*.patch; do
-            echo -e "\n-----------------------------------"
-            echo "~~~ APPLYING PATCH: $patch"
-            # Выполняем патч и проверяем код выхода
-            if patch -p1 < "$patch"; then
-                echo -e "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-                echo "-----------------------------------"
-            else
-                echo -e "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                echo "-----------------------------------"
+    # if [[ -d "/builder/patches/liblensfun" ]]; then
+        # for patch in /builder/patches/liblensfun/*.patch; do
+            # echo -e "\n-----------------------------------"
+            # echo "~~~ APPLYING PATCH: $patch"
+            # if patch -p1 < "$patch"; then
+                # echo -e "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+                # echo "-----------------------------------"
+            # else
+                # echo -e "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+                # echo "-----------------------------------"
                 # exit 1 # если нужно прервать сборку при ошибке
-            fi
-        done
-    fi
+            # fi
+        # done
+    # fi
     mkdir build && cd build
 
     # Явно добавляем флаги для Broadwell и статической GLib
