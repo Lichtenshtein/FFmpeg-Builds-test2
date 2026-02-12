@@ -74,6 +74,7 @@ ffbuild_depends() {
     echo openapv
     echo opencore-amr
     echo opencv-test
+    echo opengl-test
     echo openh264
     echo openjpeg
     echo openmpt
@@ -105,6 +106,7 @@ ffbuild_depends() {
     echo vo-amrwb
     echo vvdec
     echo vvenc
+    echo wasapi
     echo whisper
     echo x264
     echo x265
