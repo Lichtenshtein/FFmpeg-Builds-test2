@@ -38,8 +38,16 @@ RUN ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc && \
     ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-ranlib
 
 # ccache settings
+# агрессивные настройки для vars.sh через export или Dockerfile:
+# sloppiness: разрешает использовать кэш, даже если время изменения заголовочных файлов сдвинулось (критично для Docker-билдов).
+# compilercheck=content: ccache будет проверять хэш самого бинарника компилятора, а не дату его создания.
+# "Depend Mode": если добавить export CCACHE_DEPEND=1, ccache будет быстрее определять промахи, не запуская препроцессор полностью.
 ENV CCACHE_DIR=/root/.cache/ccache \
-    CCACHE_MAXSIZE=6G \
+    CCACHE_MAXSIZE=20G \
+    CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros" \
+    CCACHE_BASEDIR="/builder" \
+    CCACHE_COMPILERCHECK="content" \
+    CCACHE_DEPEND=1 \
     CCACHE_COMPRESS=1
 
 # disable -fPIC, -ffast-math, -flto=auto if troubles occur

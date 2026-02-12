@@ -59,7 +59,7 @@ fi
 
 # Конфигурация ccache
 export CCACHE_DIR=/root/.cache/ccache
-export CCACHE_MAXSIZE=4248M
+export CCACHE_MAXSIZE=15G
 ccache -z # Сброс статистики для чистого лога
 
 # Force update of pkg-config paths
