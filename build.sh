@@ -92,7 +92,7 @@ chmod +x configure
     --extra-version="VVCEasy"
 
 # Используем 2 потока, чтобы не перегружать RAM раннера (7GB RAM / 2 ядра)
-make -j$(nproc) V=1
+make -j$(nproc) $MAKE_V
 make install install-doc
 ccache -s
 
