@@ -1,7 +1,7 @@
 #!/bin/bash
 SCRIPT_REPO="https://github.com/GNOME/glib.git"
-SCRIPT_COMMIT="6b11cae1b3bf3e9cff9485481dd1c0f7e806c361"
-# SCRIPT_COMMIT="2.80.0"
+# SCRIPT_COMMIT="6b11cae1b3bf3e9cff9485481dd1c0f7e806c361"
+SCRIPT_COMMIT="2.80.0"
 
 ffbuild_enabled() {
     return 0
@@ -9,7 +9,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     # Изменить 'v1' на 'v2', чтобы сбросить кэш загрузки
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v11-meson-upgrade'"
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v12-meson-upgrade'"
 }
 
 ffbuild_dockerbuild() {
@@ -88,7 +88,7 @@ EOF
         --cross-file cross_file.txt \
         --buildtype release \
         --default-library static \
-        -Dintl=built-in \
+        -Diconv=external \
         -Dtests=false \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
