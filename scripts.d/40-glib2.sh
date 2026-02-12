@@ -13,12 +13,22 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    # Исправляем проблему "dubious ownership" для Git
+    git config --global --add safe.directory /build/40-glib2
+
     # ОБНОВЛЯЕМ MESON до последней версии
     pip3 install --break-system-packages --upgrade meson
 
     # ИНИЦИАЛИЗИРУЕМ ПОДМОДУЛИ (GVDB)
     # Если папка пустая, git выкачает нужные исходники gvdb
     git submodule update --init --recursive
+
+    # Пытаемся оживить подмодули. Если не выйдет - качаем GVDB вручную
+    if ! git submodule update --init --recursive; then
+        echo "Submodule update failed, downloading GVDB manually..."
+        rm -rf subprojects/gvdb
+        git clone --depth 1 https://github.com/GNOME/glib.git subprojects/gvdb
+    fi
 
     # Удаляем только pcre2 из субпроектов, чтобы заставить использовать наш билд
     rm -rf subprojects/pcre2*
