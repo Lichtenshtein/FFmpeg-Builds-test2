@@ -6,7 +6,7 @@ SCRIPT_COMMIT="b2ec81729399eab4f1f4c706837a0fb7f3d72c37"
 ffbuild_enabled() {
     (( $(ffbuild_ffver) >= 800 )) || return -1
     [[ $TARGET != winarm* ]] || return -1
-    return -1
+    return 0
 }
 
 ffbuild_dockerdl() {

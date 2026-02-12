@@ -6,7 +6,14 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    # Изменить 'v1' на 'v2', чтобы сбросить кэш загрузки
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'force-recache-v2'"
+}
+
 ffbuild_dockerbuild() {
+    # УДАЛЯЕМ папку subprojects, чтобы Meson не путался
+    rm -rf subprojects
     # Подготавливаем строки аргументов заранее
     # Превращаем "-O3 -march=broadwell" в "'-O3', '-march=broadwell'"
     MESON_C_ARGS=$(echo $CFLAGS | xargs -n1 | sed "s/.*/'&'/" | paste -sd, -)
@@ -64,8 +71,7 @@ EOF
         -Dtests=false \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
-        -Dnls=disabled \
-        -Druntime_libdir=""
+        -Dnls=disabled
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install

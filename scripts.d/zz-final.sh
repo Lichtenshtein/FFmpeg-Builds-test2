@@ -12,7 +12,8 @@ ffbuild_depends() {
     echo openssl
     echo xz
     echo fonts
-    echo lcevcdec
+    # echo lcevcdec
+    echo lcevcdec-test
     echo libvorbis
     echo opencl
     echo pulseaudio
@@ -57,7 +58,7 @@ ffbuild_depends() {
     echo libopus
     echo libplacebo
     echo librist
-    echo librsvg-test
+    # echo librsvg-test
     echo libssh
     echo libtheora
     echo libtorch-test
