@@ -7,13 +7,18 @@ ffbuild_enabled() {
     return 0
 }
 
+# ffbuild_dockerdl() {
+    # echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+# }
 ffbuild_dockerdl() {
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+    # Изменить 'v1' на 'v2', чтобы сбросить кэш загрузки
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'force-recache-v2'"
 }
 
 ffbuild_dockerbuild() {
     # Kill build of unused and broken tools
-    echo > libvmaf/tools/meson.build
+    # echo > libvmaf/tools/meson.build
+    sed -i 's/subdir(.tools.)//' libvmaf/meson.build
 
     mkdir build && cd build
 
@@ -41,7 +46,8 @@ ffbuild_dockerbuild() {
     ninja -j"$(nproc)" $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
-    sed -i 's/Libs.private:/Libs.private: -lstdc++/; t; $ a Libs.private: -lstdc++' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libvmaf.pc
+    # sed -i 's/Libs.private:/Libs.private: -lstdc++/; t; $ a Libs.private: -lstdc++' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libvmaf.pc
+    sed -i 's/Libs.private:/Libs.private: -lstdc++/; t; $ a Libs.private: -lstdc++' "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libvmaf.pc"
 }
 
 ffbuild_configure() {
