@@ -17,7 +17,7 @@ ffbuild_dockerbuild() {
     cd openvino_src
 
     # Инсталляция заголовков и библиотек
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{include,lib,bin}
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{include,lib,bin,cmake}
     cp -r runtime/include/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
     cp runtime/lib/intel64/Release/*.lib "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
     cp runtime/bin/intel64/Release/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
