@@ -9,15 +9,19 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     # Изменить 'v1' на 'v2', чтобы сбросить кэш загрузки
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'force-recache-v2'"
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v5-meson-upgrade'"
 }
 
 ffbuild_dockerbuild() {
-    pip install "meson>=1.4.0"
-    ENV PATH="/root/.local/bin:${PATH}"
+    # ОБНОВЛЯЕМ MESON до последней версии
+    pip3 install --break-system-packages --upgrade meson
+
+    # Удаляем только pcre2 из субпроектов, чтобы заставить использовать наш билд
+    # Но НЕ трогаем gvdb
+    rm -rf subprojects/pcre2*
+
     meson subprojects download
-    # УДАЛЯЕМ папку subprojects, чтобы Meson не путался
-    # rm -rf subprojects
+
     # Подготавливаем строки аргументов заранее
     # Превращаем "-O3 -march=broadwell" в "'-O3', '-march=broadwell'"
     MESON_C_ARGS=$(echo $CFLAGS | xargs -n1 | sed "s/.*/'&'/" | paste -sd, -)
@@ -67,6 +71,7 @@ EOF
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
 
 #         --wrap-mode nodownload
+    # Используем -Dwrap_mode=nofallback чтобы не скачивал ничего лишнего
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
         --cross-file cross_file.txt \
