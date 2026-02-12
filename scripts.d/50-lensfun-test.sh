@@ -33,9 +33,7 @@ CROSS_MARK='❌'
             fi
         done
     fi
-    # ПРИНУДИТЕЛЬНО ОТКЛЮЧАЕМ СБОРКУ APPS И PYTHON
-    # Это уберет ошибку "No module named build.__main__"
-    sed -i '/add_subdirectory(apps)/d' CMakeLists.txt
+    python3 -m pip install build
 
     mkdir build && cd build
 
