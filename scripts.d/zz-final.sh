@@ -38,6 +38,7 @@ ffbuild_depends() {
     echo gme
     echo ilbc
     echo kvazaar
+    echo glslang-test
     echo lc3
     echo lensfun-test
     echo libaribcaption
