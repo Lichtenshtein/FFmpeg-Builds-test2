@@ -7,12 +7,12 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
-    # Функция для преобразования строки флагов в массив Meson ["flag1", "flag2"]
-    to_meson_array() {
-        echo '$1' | xargs -n1 | jq -R . | jq -s -c .
-    }
+    # Подготавливаем строки аргументов заранее
+    # Превращаем "-O3 -march=broadwell" в "'-O3', '-march=broadwell'"
+    MESON_C_ARGS=$(echo $CFLAGS | xargs -n1 | sed "s/.*/'&'/" | paste -sd, -)
+    MESON_CXX_ARGS=$(echo $CXXFLAGS | xargs -n1 | sed "s/.*/'&'/" | paste -sd, -)
+    MESON_L_ARGS=$(echo $LDFLAGS | xargs -n1 | sed "s/.*/'&'/" | paste -sd, -)
 
-    # Генерируем кросс-файл без лишних пробелов
     cat <<EOF > cross_file.txt
 [host_machine]
 system = 'windows'
@@ -31,15 +31,20 @@ nm = '${FFBUILD_TOOLCHAIN}-gcc-nm'
 ranlib = '${FFBUILD_TOOLCHAIN}-gcc-ranlib'
 
 [built-in options]
-c_args = $(to_meson_array "$CFLAGS")
-cpp_args = $(to_meson_array "$CXXFLAGS")
-c_link_args = $(to_meson_array "$LDFLAGS")
-cpp_link_args = $(to_meson_array "$LDFLAGS")
+c_args = [$MESON_C_ARGS]
+cpp_args = [$MESON_CXX_ARGS]
+c_link_args = [$MESON_L_ARGS]
+cpp_link_args = [$MESON_L_ARGS]
 EOF
 
-    # Добавляем принудительные инклуды для libffi, если meson их не увидит
+    # Проверка созданного файла в логах (для отладки)
+    echo "--- CROSS FILE START ---"
+    cat cross_file.txt
+    echo "--- CROSS FILE END ---"
+
     export CPATH="$FFBUILD_PREFIX/include"
     export LIBRARY_PATH="$FFBUILD_PREFIX/lib"
+    export PKG_CONFIG_LIBDIR="$FFBUILD_PREFIX/lib/pkgconfig"
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
