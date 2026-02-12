@@ -72,5 +72,5 @@ CROSS_MARK='❌'
 ffbuild_configure() { echo --enable-liblensfun; }
 ffbuild_unconfigure() { echo --disable-liblensfun; }
 
-ffbuild_cflags() { echo "-DGLIB_STATIC_COMPILATION"; }
-ffbuild_cxxflags() { echo "-DGLIB_STATIC_COMPILATION"; }
+ffbuild_cflags() { echo "-DGLIB_STATIC_COMPILATION -mms-bitfields"; }
+ffbuild_cxxflags() { echo "-DGLIB_STATIC_COMPILATION -mms-bitfields"; }

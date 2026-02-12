@@ -27,8 +27,8 @@ ffbuild_dockerbuild() {
     fi
     # Выкачиваем proxy-libintl вручную
     # Это решит ошибку "Subproject proxy-libintl is buildable: NO"
-    rm -rf subprojects/proxy-libintl
-    git clone --depth 1 https://github.com/frida/proxy-libintl.git subprojects/proxy-libintl
+    # rm -rf subprojects/proxy-libintl
+    # git clone --depth 1 https://github.com/frida/proxy-libintl.git subprojects/proxy-libintl
 
     # Удаляем только pcre2 из субпроектов, чтобы заставить использовать наш билд
     rm -rf subprojects/pcre2*
@@ -69,6 +69,8 @@ c_link_args = [$MESON_L_ARGS]
 cpp_link_args = [$MESON_L_ARGS]
 EOF
 
+#        --wrap-mode nodownload \
+
     export PKG_CONFIG_LIBDIR="$FFBUILD_PREFIX/lib/pkgconfig"
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
 
@@ -77,7 +79,6 @@ EOF
         --cross-file cross_file.txt \
         --buildtype release \
         --default-library static \
-        --wrap-mode nodownload \
         -Dtests=false \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
