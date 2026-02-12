@@ -6,7 +6,11 @@ SCRIPT_COMMIT="2.60.0"
 ffbuild_enabled() {
     # librsvg требует Rust, убедимся что он есть
     [[ -n "$FFBUILD_RUST_TARGET" ]] || return -1
-    return 0
+    # sripts to write
+    # 20-pixman.sh (нужен для Cairo).
+    # 25-cairo.sh (нужен для Pango/Rsvg).
+    # 40-pango.sh (нужен для Rsvg).
+    return -1
 }
 
 ffbuild_dockerbuild() {
