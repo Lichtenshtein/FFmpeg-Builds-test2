@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/GNOME/librsvg.git"
-SCRIPT_COMMIT="v2.54.5"
+SCRIPT_COMMIT="v2.60.0"
 
 ffbuild_enabled() {
     # librsvg требует Rust, убедимся что он есть
