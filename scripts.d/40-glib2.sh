@@ -9,7 +9,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     # Изменить 'v1' на 'v2', чтобы сбросить кэш загрузки
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v9-meson-upgrade'"
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v10-meson-upgrade'"
 }
 
 ffbuild_dockerbuild() {
@@ -92,7 +92,6 @@ EOF
         -Dtests=false \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
-        -Diconv=external \
         -Dnls=disabled
 
     ninja -C build -j$(nproc) $NINJA_V
@@ -114,5 +113,5 @@ ffbuild_cflags() {
 
 ffbuild_ldflags() {
     # Glib требует системные библиотеки Windows при линковке
-    echo "-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl -liconv"
+    echo "-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl"
 }
