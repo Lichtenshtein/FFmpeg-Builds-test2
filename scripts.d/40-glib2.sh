@@ -25,6 +25,11 @@ ffbuild_dockerbuild() {
         rm -rf subprojects/gvdb
         git clone --depth 1 https://github.com/GNOME/gvdb.git subprojects/gvdb
     fi
+    # Выкачиваем proxy-libintl вручную
+    # Это решит ошибку "Subproject proxy-libintl is buildable: NO"
+    rm -rf subprojects/proxy-libintl
+    git clone --depth 1 https://github.com/frida/proxy-libintl.git subprojects/proxy-libintl
+
     # Удаляем только pcre2 из субпроектов, чтобы заставить использовать наш билд
     rm -rf subprojects/pcre2*
 
