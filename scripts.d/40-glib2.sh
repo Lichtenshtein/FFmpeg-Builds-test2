@@ -9,19 +9,20 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     # Изменить 'v1' на 'v2', чтобы сбросить кэш загрузки
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v7-meson-upgrade'"
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v8-meson-upgrade'"
 }
 
 ffbuild_dockerbuild() {
     # ОБНОВЛЯЕМ MESON до последней версии
     pip3 install --break-system-packages --upgrade meson
 
-    # Удаляем только pcre2 из субпроектов, чтобы заставить использовать наш билд
-    # Но НЕ трогаем gvdb
-    # rm -rf subprojects/pcre2*
-    # rm -rf subprojects/gvdb*
+    # ИНИЦИАЛИЗИРУЕМ ПОДМОДУЛИ (GVDB)
+    # Если папка пустая, git выкачает нужные исходники gvdb
+    git submodule update --init --recursive
 
-    # meson subprojects download
+    # Удаляем только pcre2 из субпроектов, чтобы заставить использовать наш билд
+    rm -rf subprojects/pcre2*
+    # rm -rf subprojects/gvdb*
 
     # Подготавливаем строки аргументов заранее
     # Превращаем "-O3 -march=broadwell" в "'-O3', '-march=broadwell'"
@@ -77,7 +78,7 @@ EOF
         --prefix="$FFBUILD_PREFIX" \
         --cross-file cross_file.txt \
         --buildtype release \
-        --wrap-mode nodownload
+        --wrap-mode nodownload \
         --default-library static \
         -Dtests=false \
         -Dintrospection=disabled \
@@ -103,5 +104,5 @@ ffbuild_cflags() {
 
 ffbuild_ldflags() {
     # Glib требует системные библиотеки Windows при линковке
-    echo "-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi"
+    echo "-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl"
 }
