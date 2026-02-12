@@ -79,8 +79,8 @@ if ! $build_cmd; then
         tail -n 100 config.log
     elif [[ -f "build/CMakeFiles/CMakeError.log" ]]; then
         cat build/CMakeFiles/CMakeError.log
-    elif [[ -f "meson-logs/meson-log.txt" ]]; then
-        tail -n 100 meson-logs/meson-log.txt
+    elif [[ -f "build/meson-logs/meson-log.txt" ]]; then
+        tail -n 100 build/meson-logs/meson-log.txt
     fi
     
     exit 1

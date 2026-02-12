@@ -164,3 +164,12 @@ else
 fi
 
 export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
+# Агрессивные настройки ccache для Docker
+export CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros,file_macro"
+export CCACHE_BASEDIR="/builder"
+export CCACHE_COMPILERCHECK="content"
+export CCACHE_DEPEND="1"
+
+# Вывод статистики в конце каждой стадии (опционально)
+# Это покажет Hit Rate прямо в логах GitHub
+alias ccache_stats="ccache -s | grep 'cache hit rate'"
