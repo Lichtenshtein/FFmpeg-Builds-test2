@@ -7,9 +7,12 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
-    # Подготавливаем кросс-файл более надежным способом
-    # Используем уже имеющийся в образе /cross.meson как базу или создаем свой
-    
+    # Функция для преобразования строки флагов в массив Meson ["flag1", "flag2"]
+    to_meson_array() {
+        echo "$1" | xargs -n1 | jq -R . | jq -s -c .
+    }
+
+    # Генерируем кросс-файл без лишних пробелов
     cat <<EOF > cross_file.txt
 [host_machine]
 system = 'windows'
@@ -21,21 +24,22 @@ endian = 'little'
 c = '${FFBUILD_TOOLCHAIN}-gcc'
 cpp = '${FFBUILD_TOOLCHAIN}-g++'
 ar = '${FFBUILD_TOOLCHAIN}-gcc-ar'
-pkgconfig = 'pkg-config'
+pkg-config = 'pkg-config'
 strip = '${FFBUILD_TOOLCHAIN}-strip'
 windres = '${FFBUILD_TOOLCHAIN}-windres'
 nm = '${FFBUILD_TOOLCHAIN}-gcc-nm'
 ranlib = '${FFBUILD_TOOLCHAIN}-gcc-ranlib'
 
-[properties]
-needs_exe_wrapper = true
-
 [built-in options]
-c_args = [$(echo $CFLAGS | sed "s/[^ ]* /'&', /g;s/[^ ]*$/'&'/")]
-cpp_args = [$(echo $CXXFLAGS | sed "s/[^ ]* /'&', /g;s/[^ ]*$/'&'/")]
-c_link_args = [$(echo $LDFLAGS | sed "s/[^ ]* /'&', /g;s/[^ ]*$/'&'/")]
-cpp_link_args = [$(echo $LDFLAGS | sed "s/[^ ]* /'&', /g;s/[^ ]*$/'&'/")]
+c_args = $(to_meson_array "$CFLAGS")
+cpp_args = $(to_meson_array "$CXXFLAGS")
+c_link_args = $(to_meson_array "$LDFLAGS")
+cpp_link_args = $(to_meson_array "$LDFLAGS")
 EOF
+
+    # Добавляем принудительные инклуды для libffi, если meson их не увидит
+    export CPATH="$FFBUILD_PREFIX/include"
+    export LIBRARY_PATH="$FFBUILD_PREFIX/lib"
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
