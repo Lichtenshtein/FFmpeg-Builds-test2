@@ -13,7 +13,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     # УДАЛЯЕМ папку subprojects, чтобы Meson не путался
-    rm -rf subprojects
+    # rm -rf subprojects
     # Подготавливаем строки аргументов заранее
     # Превращаем "-O3 -march=broadwell" в "'-O3', '-march=broadwell'"
     MESON_C_ARGS=$(echo $CFLAGS | xargs -n1 | sed "s/.*/'&'/" | paste -sd, -)
