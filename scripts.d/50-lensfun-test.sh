@@ -8,7 +8,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     # Изменить 'v1' на 'v2', чтобы сбросить кэш загрузки
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v2-meson-upgrade'"
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v3-meson-upgrade'"
 }
 
 ffbuild_dockerbuild() {
@@ -33,7 +33,7 @@ CROSS_MARK='❌'
             fi
         done
     fi
-    python3 -m pip install build
+    python3 -m pip install build --break-system-packages
 
     mkdir build && cd build
 
