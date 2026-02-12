@@ -30,6 +30,13 @@ windres = '${FFBUILD_TOOLCHAIN}-windres'
 nm = '${FFBUILD_TOOLCHAIN}-gcc-nm'
 ranlib = '${FFBUILD_TOOLCHAIN}-gcc-ranlib'
 
+[properties]
+# Эти параметры критичны для кросс-компиляции GLib 2.80+
+growing_stack = false
+have_c99_snprintf = true
+have_c99_vsnprintf = true
+va_val_copy = true
+
 [built-in options]
 c_args = [$MESON_C_ARGS]
 cpp_args = [$MESON_CXX_ARGS]
@@ -45,17 +52,23 @@ EOF
     export CPATH="$FFBUILD_PREFIX/include"
     export LIBRARY_PATH="$FFBUILD_PREFIX/lib"
     export PKG_CONFIG_LIBDIR="$FFBUILD_PREFIX/lib/pkgconfig"
+    # перед meson setup, чтобы он увидел pcre2
+    export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
 
+    # Используем -Dinternal_pcre=true, чтобы не качать subprojects
+    # В новых версиях GLib это может называться -Dforce_posix_threads=true (уже есть)
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
         --cross-file cross_file.txt \
         --buildtype release \
+        --wrap-mode nodownload \
         --default-library static \
+        -Dinternal_pcre=true \
         -Dtests=false \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
         -Dnls=disabled \
-        -Dforce_posix_threads=true
+        -Druntime_libdir=""
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
