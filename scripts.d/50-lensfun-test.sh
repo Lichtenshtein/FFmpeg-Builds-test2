@@ -6,6 +6,11 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    # Изменить 'v1' на 'v2', чтобы сбросить кэш загрузки
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v2-meson-upgrade'"
+}
+
 ffbuild_dockerbuild() {
 # Определяем цвета и символы
 RED='\033[0;31m'
@@ -28,6 +33,10 @@ CROSS_MARK='❌'
             fi
         done
     fi
+    # ПРИНУДИТЕЛЬНО ОТКЛЮЧАЕМ СБОРКУ APPS И PYTHON
+    # Это уберет ошибку "No module named build.__main__"
+    sed -i '/add_subdirectory(apps)/d' CMakeLists.txt
+
     mkdir build && cd build
 
     # нужно передать ДВА пути к инклудам Glib
