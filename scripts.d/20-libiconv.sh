@@ -16,9 +16,9 @@ ffbuild_dockerdl() {
     # echo "retry-tool sh -c \"rm -rf iconv && git clone '$SCRIPT_MIRROR' iconv\" && git -C iconv checkout \"$SCRIPT_COMMIT\""
     # echo "cd iconv && retry-tool sh -c \"rm -rf gnulib && git clone --filter=blob:none '$SCRIPT_MIRROR2' gnulib\" && git -C gnulib checkout \"$SCRIPT_COMMIT2\" && rm -rf gnulib/.git"
 
-    # Скачиваем iconv прямо в корень (.)
+    # РЎРєР°С‡РёРІР°РµРј iconv РїСЂСЏРјРѕ РІ РєРѕСЂРµРЅСЊ (.)
     echo "git clone '$SCRIPT_MIRROR' . && git checkout \"$SCRIPT_COMMIT\""
-    # Скачиваем gnulib внутрь
+    # РЎРєР°С‡РёРІР°РµРј gnulib РІРЅСѓС‚СЂСЊ
     echo "git clone --filter=blob:none '$SCRIPT_MIRROR2' gnulib && git -C gnulib checkout \"$SCRIPT_COMMIT2\" && rm -rf gnulib/.git"
 }
 
@@ -49,7 +49,7 @@ ffbuild_dockerbuild() {
     make -j$(nproc)
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # ‚ђ“—Ќ“ћ создаем pkg-config файл, так как libiconv этого не делает
+    # СЃРѕР·РґР°РµРј pkg-config С„Р°Р№Р», С‚Р°Рє РєР°Рє libiconv СЌС‚РѕРіРѕ РЅРµ РґРµР»Р°РµС‚
     mkdir -p "$FFBUILD_DESTPREFIX/lib/pkgconfig"
     cat <<EOF > "$FFBUILD_DESTPREFIX/lib/pkgconfig/iconv.pc"
 prefix=$FFBUILD_PREFIX
