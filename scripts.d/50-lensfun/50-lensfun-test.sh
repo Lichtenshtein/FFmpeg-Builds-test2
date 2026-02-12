@@ -33,47 +33,44 @@ CROSS_MARK='❌'
     fi
     mkdir build && cd build
 
-    # Нам нужно принудительно сказать lensfun, что glib статический
-    export CFLAGS="$CFLAGS -DGLIB_STATIC_COMPILATION"
-    export CXXFLAGS="$CXXFLAGS -DGLIB_STATIC_COMPILATION"
+    # Явно добавляем флаги для Broadwell и статической GLib
+    local mycmake=(
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_C_FLAGS="$CFLAGS"
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS"
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
+        -DBUILD_STATIC=ON
+        -DBUILD_TESTS=OFF
+        -DBUILD_LENSTOOL=OFF
+        -DBUILD_DOC=OFF
+        # Оптимизации под CPU
+        -DBUILD_FOR_SSE=ON
+        -DBUILD_FOR_SSE2=ON
+        -DINSTALL_HELPER_SCRIPTS=OFF
+        # Помогаем найти GLib
+        -DGLIB2_LIBRARIES="$FFBUILD_PREFIX/lib/libglib-2.0.a"
+        -DGLIB2_INCLUDE_DIRS="$FFBUILD_PREFIX/include/glib-2.0"
+    )
 
-    cmake \
-        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
-        -DBUILD_STATIC=ON \
-        -DBUILD_TESTS=OFF \
-        -DBUILD_LENSTOOL=OFF \
-        -DBUILD_DOC=OFF \
-        -DINSTALL_HELPER_SCRIPTS=OFF \
-        -DBUILD_FOR_SSE=ON \
-        -DBUILD_FOR_SSE2=ON \
-        ..
-
+    cmake "${mycmake[@]}" ..
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # В lensfun.pc часто не хватает зависимости от glib-2.0 при статической сборке
-    if ! grep -q "glib-2.0" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lensfun.pc"; then
-        sed -i 's/Requires:/Requires: glib-2.0 /' "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lensfun.pc"
+    # Исправляем lensfun.pc для статической линковки FFmpeg
+    # Добавляем также -lws2_32 и прочие, так как lensfun тянет glib
+    local pc_file="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lensfun.pc"
+    if [[ -f "$pc_file" ]]; then
+        sed -i 's/Libs: /Libs: -L${libdir} -llensfun -lstdc++ /' "$pc_file"
+        if ! grep -q "glib-2.0" "$pc_file"; then
+            sed -i '/^Requires:/ s/$/ glib-2.0/' "$pc_file"
+        fi
     fi
 }
 
-ffbuild_configure() {
-    echo --enable-liblensfun
-}
+ffbuild_configure() { echo --enable-liblensfun; }
+ffbuild_unconfigure() { echo --disable-liblensfun; }
 
-ffbuild_unconfigure() {
-    echo --disable-liblensfun
-}
-
-# Добавляем флаг статики для всех последующих стадий, использующих lensfun
-ffbuild_cflags() {
-    echo "-DGLIB_STATIC_COMPILATION"
-}
-ffbuild_cxxflags() {
-    echo "-DGLIB_STATIC_COMPILATION"
-}
+ffbuild_cflags() { echo "-DGLIB_STATIC_COMPILATION"; }
+ffbuild_cxxflags() { echo "-DGLIB_STATIC_COMPILATION"; }
