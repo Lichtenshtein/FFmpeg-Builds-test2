@@ -1,14 +1,14 @@
 #!/bin/bash
 SCRIPT_REPO="https://github.com/GNOME/glib.git"
-SCRIPT_COMMIT="2.80.0" # Стабильная версия
+SCRIPT_COMMIT="2.80.0"
 
 ffbuild_enabled() {
     return 0
 }
 
 ffbuild_dockerbuild() {
-    # Создаем cross-file для meson на лету, если его нет
-    # Хотя у вас в Dockerfile упоминается cross.meson, используем стандартные переменные
+    # Подготавливаем кросс-файл более надежным способом
+    # Используем уже имеющийся в образе /cross.meson как базу или создаем свой
     
     cat <<EOF > cross_file.txt
 [host_machine]
@@ -24,35 +24,51 @@ ar = '${FFBUILD_TOOLCHAIN}-gcc-ar'
 pkgconfig = 'pkg-config'
 strip = '${FFBUILD_TOOLCHAIN}-strip'
 windres = '${FFBUILD_TOOLCHAIN}-windres'
+nm = '${FFBUILD_TOOLCHAIN}-gcc-nm'
+ranlib = '${FFBUILD_TOOLCHAIN}-gcc-ranlib'
+
+[properties]
+needs_exe_wrapper = true
 
 [built-in options]
-c_args = $(echo $CFLAGS | jq -R -c 'split(" ")' | sed 's/\\//g')
-cpp_args = $(echo $CXXFLAGS | jq -R -c 'split(" ")' | sed 's/\\//g')
-c_link_args = $(echo $LDFLAGS | jq -R -c 'split(" ")' | sed 's/\\//g')
-cpp_link_args = $(echo $LDFLAGS | jq -R -c 'split(" ")' | sed 's/\\//g')
+c_args = [$(echo $CFLAGS | sed "s/[^ ]* /'&', /g;s/[^ ]*$/'&'/")]
+cpp_args = [$(echo $CXXFLAGS | sed "s/[^ ]* /'&', /g;s/[^ ]*$/'&'/")]
+c_link_args = [$(echo $LDFLAGS | sed "s/[^ ]* /'&', /g;s/[^ ]*$/'&'/")]
+cpp_link_args = [$(echo $LDFLAGS | sed "s/[^ ]* /'&', /g;s/[^ ]*$/'&'/")]
 EOF
 
+    # Настройка Meson
+    # Добавляем -Dglib_static=true для корректных макросов в заголовках
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
         --cross-file cross_file.txt \
         --buildtype release \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         --default-library static \
         -Dtests=false \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
-        -Dnls=enabled
+        -Dglib_static=true \
+        -Dnls=disabled \
+        -Dforce_posix_threads=true
 
-    ninja -j$(nproc) $NINJA_V -C build
+    ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
 
-    # Хак для статической линковки: удаляем .dll.a если пролезли
+    # Очистка префикса (удаляем импортные библиотеки DLL, если они создались)
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a.p" -rmdir 2>/dev/null || true
 }
 
-# Важно для всех, кто линкуется с glib
+ffbuild_configure() {
+    # Для FFmpeg важно знать, что glib статическая
+    echo "--enable-libglib"
+}
+
 ffbuild_cflags() {
     echo "-DGLIB_STATIC_COMPILATION"
+}
+
+ffbuild_ldflags() {
+    # Glib требует системные библиотеки Windows при линковке
+    echo "-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi"
 }
