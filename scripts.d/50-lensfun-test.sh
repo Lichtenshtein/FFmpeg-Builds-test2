@@ -14,52 +14,57 @@ NC='\033[0m' # No Color (сброс цвета)
 CHECK_MARK='✅'
 CROSS_MARK='❌'
 
-    # if [[ -d "/builder/patches/liblensfun" ]]; then
-        # for patch in /builder/patches/liblensfun/*.patch; do
-            # echo -e "\n-----------------------------------"
-            # echo "~~~ APPLYING PATCH: $patch"
-            # if patch -p1 < "$patch"; then
-                # echo -e "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-                # echo "-----------------------------------"
-            # else
-                # echo -e "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # echo "-----------------------------------"
+    if [[ -d "/builder/patches/liblensfun" ]]; then
+        for patch in /builder/patches/liblensfun/*.patch; do
+            echo -e "\n-----------------------------------"
+            echo "~~~ APPLYING PATCH: $patch"
+            if patch -p1 < "$patch"; then
+                echo -e "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+                echo "-----------------------------------"
+            else
+                echo -e "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+                echo "-----------------------------------"
                 # exit 1 # если нужно прервать сборку при ошибке
-            # fi
-        # done
-    # fi
+            fi
+        done
+    fi
     mkdir build && cd build
 
-    # Явно добавляем флаги для Broadwell и статической GLib
+    # нужно передать ДВА пути к инклудам Glib
+    local GLIB_INCLUDES="-I$FFBUILD_PREFIX/include/glib-2.0 -I$FFBUILD_PREFIX/lib/glib-2.0/include"
+
     local mycmake=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
-        -DCMAKE_C_FLAGS="$CFLAGS"
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS"
+        # Добавляем пути к glibconfig.h через C_FLAGS
+        -DCMAKE_C_FLAGS="$CFLAGS $GLIB_INCLUDES"
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS $GLIB_INCLUDES"
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
         -DBUILD_STATIC=ON
         -DBUILD_TESTS=OFF
         -DBUILD_LENSTOOL=OFF
         -DBUILD_DOC=OFF
-        # Оптимизации под CPU
         -DBUILD_FOR_SSE=ON
         -DBUILD_FOR_SSE2=ON
         -DINSTALL_HELPER_SCRIPTS=OFF
-        # Помогаем найти GLib
+        # Отключаем Python принудительно
+        -DPYTHON_EXECUTABLE=OFF
+        # Уточняем пути для CMake-модуля поиска Glib
         -DGLIB2_LIBRARIES="$FFBUILD_PREFIX/lib/libglib-2.0.a"
-        -DGLIB2_INCLUDE_DIRS="$FFBUILD_PREFIX/include/glib-2.0"
+        -DGLIB2_BASE_INCLUDE_DIR="$FFBUILD_PREFIX/include/glib-2.0"
+        -DGLIB2_INTERNAL_INCLUDE_DIR="$FFBUILD_PREFIX/lib/glib-2.0/include"
     )
 
     cmake "${mycmake[@]}" ..
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # Исправляем lensfun.pc для статической линковки FFmpeg
-    # Добавляем также -lws2_32 и прочие, так как lensfun тянет glib
+    # Исправляем .pc файл
     local pc_file="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lensfun.pc"
     if [[ -f "$pc_file" ]]; then
-        sed -i 's/Libs: /Libs: -L${libdir} -llensfun -lstdc++ /' "$pc_file"
+        # Добавляем путь к glibconfig.h в Cflags .pc файла
+        sed -i "s|Cflags: |Cflags: -I${FFBUILD_PREFIX}/lib/glib-2.0/include |" "$pc_file"
         if ! grep -q "glib-2.0" "$pc_file"; then
             sed -i '/^Requires:/ s/$/ glib-2.0/' "$pc_file"
         fi
@@ -69,5 +74,6 @@ CROSS_MARK='❌'
 ffbuild_configure() { echo --enable-liblensfun; }
 ffbuild_unconfigure() { echo --disable-liblensfun; }
 
-ffbuild_cflags() { echo "-DGLIB_STATIC_COMPILATION -mms-bitfields"; }
-ffbuild_cxxflags() { echo "-DGLIB_STATIC_COMPILATION -mms-bitfields"; }
+# прокидываем пути для всех последующих стадий
+ffbuild_cflags() { echo "-I$FFBUILD_PREFIX/lib/glib-2.0/include -DGLIB_STATIC_COMPILATION -mms-bitfields"; }
+ffbuild_cxxflags() { echo "-I$FFBUILD_PREFIX/lib/glib-2.0/include -DGLIB_STATIC_COMPILATION -mms-bitfields"; }
