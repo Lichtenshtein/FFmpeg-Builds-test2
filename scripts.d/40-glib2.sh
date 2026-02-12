@@ -37,8 +37,6 @@ c_link_args = [$(echo $LDFLAGS | sed "s/[^ ]* /'&', /g;s/[^ ]*$/'&'/")]
 cpp_link_args = [$(echo $LDFLAGS | sed "s/[^ ]* /'&', /g;s/[^ ]*$/'&'/")]
 EOF
 
-    # Настройка Meson
-    # Добавляем -Dglib_static=true для корректных макросов в заголовках
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
         --cross-file cross_file.txt \
@@ -47,7 +45,6 @@ EOF
         -Dtests=false \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
-        -Dglib_static=true \
         -Dnls=disabled \
         -Dforce_posix_threads=true
 
