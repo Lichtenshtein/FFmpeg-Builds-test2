@@ -55,15 +55,12 @@ EOF
     # перед meson setup, чтобы он увидел pcre2
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
 
-    # Используем -Dinternal_pcre=true, чтобы не качать subprojects
-    # В новых версиях GLib это может называться -Dforce_posix_threads=true (уже есть)
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
         --cross-file cross_file.txt \
         --buildtype release \
         --wrap-mode nodownload \
         --default-library static \
-        -Dinternal_pcre=true \
         -Dtests=false \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
