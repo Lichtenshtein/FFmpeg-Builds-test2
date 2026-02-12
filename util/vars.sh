@@ -102,7 +102,9 @@ ffbuild_unconfigure() {
 }
 
 ffbuild_cflags() {
-    return 0
+    # Глобальный макрос для всех, кто включает заголовки glib
+    echo "-DGLIB_STATIC_COMPILATION"
+    # return 0
 }
 
 ffbuild_uncflags() {
@@ -126,7 +128,9 @@ ffbuild_unldexeflags() {
 }
 
 ffbuild_ldflags() {
-    return 0
+    # Эти флаги нужны для статической линковки glib, так как она используется во многих фильтрах
+    echo "-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi"
+    # return 0
 }
 
 ffbuild_unldflags() {
