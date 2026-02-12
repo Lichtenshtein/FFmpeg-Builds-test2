@@ -13,6 +13,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    pip install "meson>=1.4.0"
+    ENV PATH="/root/.local/bin:${PATH}"
     meson subprojects download
     # УДАЛЯЕМ папку subprojects, чтобы Meson не путался
     # rm -rf subprojects
