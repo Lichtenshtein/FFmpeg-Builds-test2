@@ -9,7 +9,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     # Изменить 'v1' на 'v2', чтобы сбросить кэш загрузки
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v6-meson-upgrade'"
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v7-meson-upgrade'"
 }
 
 ffbuild_dockerbuild() {
@@ -19,7 +19,7 @@ ffbuild_dockerbuild() {
     # Удаляем только pcre2 из субпроектов, чтобы заставить использовать наш билд
     # Но НЕ трогаем gvdb
     # rm -rf subprojects/pcre2*
-    rm -rf subprojects/gvdb*
+    # rm -rf subprojects/gvdb*
 
     # meson subprojects download
 
