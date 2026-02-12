@@ -1,6 +1,7 @@
 #!/bin/bash
 SCRIPT_REPO="https://github.com/GNOME/glib.git"
-SCRIPT_COMMIT="2.80.0"
+SCRIPT_COMMIT="6b11cae1b3bf3e9cff9485481dd1c0f7e806c361"
+# SCRIPT_COMMIT="2.80.0"
 
 ffbuild_enabled() {
     return 0
@@ -12,6 +13,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    meson subprojects download
     # УДАЛЯЕМ папку subprojects, чтобы Meson не путался
     # rm -rf subprojects
     # Подготавливаем строки аргументов заранее
@@ -62,11 +64,11 @@ EOF
     # перед meson setup, чтобы он увидел pcre2
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
 
+#         --wrap-mode nodownload
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
         --cross-file cross_file.txt \
         --buildtype release \
-        --wrap-mode nodownload \
         --default-library static \
         -Dtests=false \
         -Dintrospection=disabled \
