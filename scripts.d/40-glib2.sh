@@ -9,7 +9,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     # Изменить 'v1' на 'v2', чтобы сбросить кэш загрузки
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v10-meson-upgrade'"
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v11-meson-upgrade'"
 }
 
 ffbuild_dockerbuild() {
@@ -87,8 +87,8 @@ EOF
         --prefix="$FFBUILD_PREFIX" \
         --cross-file cross_file.txt \
         --buildtype release \
-        --wrap-mode nodownload \
         --default-library static \
+        -Dintl=built-in \
         -Dtests=false \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
@@ -113,5 +113,5 @@ ffbuild_cflags() {
 
 ffbuild_ldflags() {
     # Glib требует системные библиотеки Windows при линковке
-    echo "-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl"
+    echo "-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl -liconv -lpthread"
 }
