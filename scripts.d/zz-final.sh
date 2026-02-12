@@ -79,6 +79,7 @@ ffbuild_depends() {
     echo pocketsphinx
     echo qrencode
     echo quirc
+    echo librabbitmq-test
     echo rav1e
     echo rubberband
     echo schannel
@@ -91,6 +92,7 @@ ffbuild_depends() {
     echo svthevc
     echo svtjpegxs-test
     echo svtvp9
+    echo libtensorflow-test
     echo tesseract-test
     echo twolame
     echo uavs3d

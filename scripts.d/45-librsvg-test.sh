@@ -31,7 +31,7 @@ ffbuild_dockerbuild() {
 
     # Сборка может быть тяжелой для RAM, ограничим потоки если нужно
     make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR" $MAKE_V
+    make install DESTDIR="$FFBUILD_DESTDIR"
 }
 
 ffbuild_configure() {
