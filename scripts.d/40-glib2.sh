@@ -9,7 +9,7 @@ ffbuild_enabled() {
 ffbuild_dockerbuild() {
     # Функция для преобразования строки флагов в массив Meson ["flag1", "flag2"]
     to_meson_array() {
-        echo "$1" | xargs -n1 | jq -R . | jq -s -c .
+        echo '$1' | xargs -n1 | jq -R . | jq -s -c .
     }
 
     # Генерируем кросс-файл без лишних пробелов
