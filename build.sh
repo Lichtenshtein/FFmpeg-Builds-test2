@@ -33,14 +33,6 @@ git clone --filter=blob:none --depth=1 --branch="$GIT_BRANCH" "$FFMPEG_REPO" ffb
 cd ffbuild/ffmpeg
 
 # Применяем патчи
-# PATCHES=("/builder/patches/ffmpeg/$GIT_BRANCH"/*.patch)
-# for patch in "${PATCHES[@]}"; do
-    # if [[ -f "$patch" ]]; then
-        # echo "Applying $patch"
-        # git apply --whitespace=fix --ignore-space-change --ignore-whitespace "$patch"
-    # fi
-# done
-
 if [[ -d "/builder/patches/ffmpeg/$GIT_BRANCH" ]]; then
     for patch in /builder/patches/ffmpeg/$GIT_BRANCH/*.patch; do
         echo -e "\n-----------------------------------"

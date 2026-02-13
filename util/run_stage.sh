@@ -30,6 +30,9 @@ if [[ "$SCRIPT_SKIP" != "1" ]]; then
             SUBDIR=$(ls -1)
             echo "Moving into subdirectory: $SUBDIR"
             cd "$SUBDIR"
+            echo "DEBUG: Current build directory: $(pwd)"
+            # позволит сразу понять в логах GitHub, правильно ли распаковался исходник.
+            ls -F
         fi
     else
         # Если загрузка была предусмотрена (ffbuild_dockerdl не пуст), но файла нет - это ошибка

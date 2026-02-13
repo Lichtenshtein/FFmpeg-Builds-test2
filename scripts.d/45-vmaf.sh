@@ -42,7 +42,7 @@ ffbuild_dockerbuild() {
         return -1
     fi
 
-    meson "${myconf[@]}" ../libvmaf || cat meson-logs/meson-log.txt
+    meson setup "${myconf[@]}" ../libvmaf || cat meson-logs/meson-log.txt
     ninja -j"$(nproc)" $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 

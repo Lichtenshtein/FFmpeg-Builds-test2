@@ -40,7 +40,8 @@ MOUNTS="--mount=type=cache,target=/root/.cache/ccache \\
     --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\
     --mount=type=bind,source=util,target=/builder/util \\
     --mount=type=bind,source=patches,target=/builder/patches \\
-    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads,ro" # Добавлен ,ro
+    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads" 
+   # Добавлен ,ro к /root/.cache/downloads,ro . Eсли какой-то скрипт в scripts.d во время фазы run_stage пытается докачать патч или обновить индекс внутри этой папки, билд упадет с Read-only file system.
 
 active_scripts=()
 for STAGE in "${SCRIPTS[@]}"; do

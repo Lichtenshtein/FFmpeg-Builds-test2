@@ -21,11 +21,17 @@ ffbuild_dockerbuild() {
         -DENABLE_GLSLANG_BINARIES=OFF
         -DENABLE_PCH=OFF
         -DENABLE_CTEST=OFF
+        -DALLOW_EXTERNAL_SPIRV_TOOLS=ON # Разрешаем искать SPIRV-Tools в системе
+        -DENABLE_OPT=OFF                # Для FFmpeg оптимизатор glslang обычно не критичен, 
+                                        # его отключение решает 90% проблем сборки
     )
 
     cmake "${mycmake[@]}" ..
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    # Исправление для корректной линковки в FFmpeg (иногда CMake не копирует все хедеры)
+    cp -r ../glslang/Public "$FFBUILD_DESTPREFIX/include/glslang"
 }
 
 ffbuild_configure() {
