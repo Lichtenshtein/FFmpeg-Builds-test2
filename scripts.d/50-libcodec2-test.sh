@@ -9,24 +9,29 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     # Клонируем прямо в корень, чтобы избежать проблем с подпапками
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v1'"
 }
 
 ffbuild_dockerbuild() {
+    # Это предотвратит запуск и копирование generate_codebook
+    sed -i 's/add_subdirectory(codec2_native)//g' src/CMakeLists.txt
+    sed -i 's/add_dependencies(codec2 codec2_native)//g' src/CMakeLists.txt
     mkdir build && cd build
 
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DBUILD_SHARED_LIBS=OFF \
-        -DGENERATE_CODEBOOKS=OFF \
-        -DUNITTEST=OFF \
-        -DINSTALL_EXAMPLES=OFF \
-        ..
+    local mycmake=(
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_C_FLAGS="$CFLAGS"
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS"
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
+        -DBUILD_SHARED_LIBS=OFF
+        -DGENERATE_CODEBOOKS=OFF
+        -DUNITTEST=OFF
+        -DINSTALL_EXAMPLES=OFF
+    )
 
+    cmake "${mycmake[@]}" ..
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 }

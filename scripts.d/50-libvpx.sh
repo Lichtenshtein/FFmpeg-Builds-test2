@@ -19,44 +19,31 @@ ffbuild_dockerbuild() {
         --disable-unit-tests
         --enable-vp9-highbitdepth
         --prefix="$FFBUILD_PREFIX"
+        # ВКЛЮЧАЕМ ОПТИМИЗАЦИИ
+        --enable-realtime-only
+        --enable-runtime-cpu-detect
+        --enable-postproc
+        --enable-multi-res-encoding
+        --enable-vp9-temporal-denoising
     )
 
     if [[ $TARGET == win64 ]]; then
-        myconf+=(
-            --target=x86_64-win64-gcc
-        )
-        export CROSS="$FFBUILD_CROSS_PREFIX"
-    elif [[ $TARGET == win32 ]]; then
-        myconf+=(
-            --target=x86-win32-gcc
-        )
-        export CROSS="$FFBUILD_CROSS_PREFIX"
-    elif [[ $TARGET == winarm64 ]]; then
-        myconf+=(
-            --target=arm64-win64-gcc
-        )
-        export CROSS="$FFBUILD_CROSS_PREFIX"
-    elif [[ $TARGET == linux64 ]]; then
-        myconf+=(
-            --target=x86_64-linux-gcc
-        )
-        export CROSS="$FFBUILD_CROSS_PREFIX"
-    elif [[ $TARGET == linuxarm64 ]]; then
-        myconf+=(
-            --target=arm64-linux-gcc
-        )
-        export CROSS="$FFBUILD_CROSS_PREFIX"
-    else
-        echo "Unknown target"
-        return -1
+        myconf+=( --target=x86_64-win64-gcc )
+        # Принудительно передаем флаги Broadwell через окружение для configure
+        export CFLAGS="$CFLAGS -march=broadwell -mtune=broadwell"
+        export CXXFLAGS="$CXXFLAGS -march=broadwell -mtune=broadwell"
     fi
 
-    ./configure "${myconf[@]}"
+    # libvpx не любит стандартный CROSS, ему нужен конкретный префикс
+    CROSS="$FFBUILD_CROSS_PREFIX" ./configure "${myconf[@]}"
+
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    # Исправление для LTO
     # Work around strip breaking LTO symbol index
-    "$RANLIB" "$FFBUILD_DESTPREFIX"/lib/libvpx.a
+    # "$RANLIB" "$FFBUILD_DESTPREFIX"/lib/libvpx.a
+    "$RANLIB" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libvpx.a"
 }
 
 ffbuild_configure() {
