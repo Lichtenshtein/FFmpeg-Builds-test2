@@ -135,6 +135,8 @@ if [[ -n "$GITHUB_ACTIONS" ]]; then
     echo "${OUTPUT_FNAME}" > "${FINAL_DEST}/${TARGET}-${VARIANT}.txt"
 fi
 
+ccache -s
+
 # Очистка рабочего пространства ПЕРЕД завершением слоя Docker
 # Это освободит место на диске раннера до того, как он начнет экспорт
 rm -rf ffbuild

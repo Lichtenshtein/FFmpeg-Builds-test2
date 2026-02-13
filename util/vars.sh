@@ -170,6 +170,3 @@ export CCACHE_BASEDIR="/builder"
 export CCACHE_COMPILERCHECK="content"
 export CCACHE_DEPEND="1"
 
-# ¬ывод статистики в конце каждой стадии (опционально)
-# Ёто покажет Hit Rate пр€мо в логах GitHub
-alias ccache_stats="ccache -s | grep 'cache hit rate'"
