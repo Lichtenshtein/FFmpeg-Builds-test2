@@ -23,4 +23,5 @@ find scripts.d variants addins -type f -name "*.sh" -print0 | sort -z | xargs -0
 
 # Старая логика
 # Если изменяется хотя бы один символ в любом .sh файле в scripts.d, GitHub Actions сочтет кэш невалидным и начнет скачивать всё заново (если не найдет restore-keys). Однако workflow.yaml использует restore-keys: dl-cache-, что спасает ситуацию.
-find scripts.d variants addins -type f -name "*.sh" -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d" " -f1
+
+# find scripts.d variants addins -type f -name "*.sh" -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d" " -f1
