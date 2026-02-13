@@ -23,10 +23,9 @@ to_df "RUN chmod +x /usr/bin/run_stage"
 to_df "WORKDIR /builder"
 
 # Находим все скрипты
-SCRIPTS=( $(find scripts.d -name "*.sh" | sort) )
+# SCRIPTS=( $(find scripts.d -name "*.sh" | sort) )
 # Временно для тестов в generate.sh:
-# SCRIPTS=( scripts.d/10-mingw.sh scripts.d/10-mingw-std-threads.sh scripts.d/15-base.sh scripts.d/50-libcodec2-test.sh )
-
+SCRIPTS=( scripts.d/10-mingw.sh scripts.d/10-mingw-std-threads.sh scripts.d/15-base.sh scripts.d/45-fonts/25-freetype.sh scripts.d/47-vulkan/40-vulkan-headers.sh scripts.d/45-fonts/45-harfbuzz.sh scripts.d/47-vulkan/45-vulkan-loader.sh scripts.d/47-vulkan/50-shaderc.sh scripts.d/45-fonts/50-freetype.sh scripts.d/50-libcodec2-test.sh scripts.d/47-vulkan/55-spirv-cross.sh scripts.d/47-vulkan/56-glslang-test.sh )
 
 # SCRIPTS=( scripts.d/10-mingw.sh scripts.d/10-mingw-std-threads.sh scripts.d/15-base.sh scripts.d/20-libiconv.sh scripts.d/20-zlib.sh scripts.d/30-libffi.sh scripts.d/20-pcre2.sh scripts.d/40-glib2.sh scripts.d/50-lensfun-test.sh )
 
@@ -40,7 +39,7 @@ MOUNTS="--mount=type=cache,target=/root/.cache/ccache \\
     --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\
     --mount=type=bind,source=util,target=/builder/util \\
     --mount=type=bind,source=patches,target=/builder/patches \\
-    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads" 
+    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads,ro" 
    # Добавлен ,ro к /root/.cache/downloads,ro . Eсли какой-то скрипт в scripts.d во время фазы run_stage пытается докачать патч или обновить индекс внутри этой папки, билд упадет с Read-only file system.
 
 active_scripts=()
@@ -90,9 +89,12 @@ to_df "    FF_LIBS=\"$(xargs <<< "$FF_LIBS")\""
 to_df "COPY build.sh /builder/build.sh"
 to_df "COPY util /builder/util"
 to_df "COPY patches /builder/patches"
+# раскомментировать после отладки для сборки FFmpeg
 # to_df "COPY variants /builder/variants"
 # to_df "COPY addins /builder/addins"
-to_df "RUN --mount=type=cache,target=/root/.cache/ccache ./build.sh $TARGET $VARIANT"
+to_df "RUN --mount=type=cache,target=/root/.cache/ccache \\"
+to_df "    --mount=from=ffmpeg_src,target=/builder/ffbuild/ffmpeg \\" # Монтируем контекст FFmpeg
+to_df "    ./build.sh $TARGET $VARIANT"
 
 to_df "FROM scratch AS artifacts"
 to_df "COPY --from=build_stage /opt/ffdest/ /"

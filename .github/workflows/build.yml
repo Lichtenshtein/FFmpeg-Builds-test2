@@ -59,19 +59,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Build Base Images
-        run: |
-          # try to download ready-made images. If they are not available (first run), build them
-          if ! docker pull ${{ steps.images.outputs.base }}; then
-            docker build -t ${{ steps.images.outputs.base }} images/base
-            docker push ${{ steps.images.outputs.base }}
-          fi
+      # - name: Build Base Images
+        # run: |
+          # if ! docker pull ${{ steps.images.outputs.base }}; then
+            # docker build -t ${{ steps.images.outputs.base }} images/base
+            # docker push ${{ steps.images.outputs.base }}
+          # fi
           
-          if ! docker pull ${{ steps.images.outputs.target_base }}; then
-            docker build -t ${{ steps.images.outputs.target_base }} \
-              --build-arg GH_REPO=${{ steps.images.outputs.repo_lc }} images/base-win64
-            docker push ${{ steps.images.outputs.target_base }}
-          fi
+          # if ! docker pull ${{ steps.images.outputs.target_base }}; then
+            # docker build -t ${{ steps.images.outputs.target_base }} \
+              # --build-arg GH_REPO=${{ steps.images.outputs.repo_lc }} images/base-win64
+            # docker push ${{ steps.images.outputs.target_base }}
+          # fi
+
+      - name: Build Base Image
+        uses: docker/build-push-action@v5
+        with:
+          context: images/base
+          push: true
+          tags: ${{ steps.images.outputs.base }}
+          cache-from: type=gha,scope=base
+          cache-to: type=gha,mode=max,scope=base
 
       - name: Get Download Cache Key
         id: dl_cache
@@ -84,24 +92,39 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .cache/downloads
+          # точный хэш значимых строк
           key: dl-cache-${{ steps.dl_cache.outputs.key }}
+          # Если точного совпадения нет, берем ЛЮБОЙ последний кэш, 
+          # чтобы download.sh докачал только измененные файлы, а не всё с нуля
           restore-keys: dl-cache-
 
       - name: Prepare and Build
-        run: |
-          ./download.sh
-          ./generate.sh win64 nonfree
-          # check flag generation
-          cat Dockerfile | grep "run_stage"
-          # Run the build via Buildx with artifact export
-          # Use cache-from=gha for ccache
-          docker buildx build \
-            --cache-from type=gha,scope=ffmpeg-build \
-            --cache-to type=gha,mode=max,scope=ffmpeg-build \
-            --build-context downloads=.cache/downloads \
-            --tag ${{ steps.images.outputs.variant }} \
-            --output type=local,dest=artifacts/ \
-            --file Dockerfile .
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          tags: ${{ steps.images.outputs.variant }}
+          cache-from: type=gha,scope=ffmpeg-build
+          cache-to: type=gha,mode=max,scope=ffmpeg-build
+          # Добавляем второй контекст для FFmpeg через вертикальную черту |
+          build-contexts: |
+            downloads=.cache/downloads
+            ffmpeg_src=.cache/ffmpeg
+          outputs: type=local,dest=artifacts/
+
+      # - name: Prepare and Build
+        # run: |
+          # ./download.sh
+          # ./generate.sh win64 nonfree
+          # cat Dockerfile | grep "run_stage"
+          # docker buildx build \
+            # --cache-from type=gha,scope=ffmpeg-build \
+            # --cache-to type=gha,mode=max,scope=ffmpeg-build \
+            # --build-context downloads=.cache/downloads \
+            # --tag ${{ steps.images.outputs.variant }} \
+            # --output type=local,dest=artifacts/ \
+            # --file Dockerfile .
 
       - name: Force Save Cache
         if: always()
