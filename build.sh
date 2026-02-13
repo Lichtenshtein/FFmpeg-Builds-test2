@@ -27,14 +27,13 @@ FFMPEG_REPO="${FFMPEG_REPO:-https://github.com/MartinEesmaa/FFmpeg.git}"
 GIT_BRANCH="${GIT_BRANCH:-master}"
 
 # Клонирование и патчинг (прямо в текущем слое Docker)
-echo "Cloning FFmpeg..."
-rm -rf ffbuild/ffmpeg
-git clone --filter=blob:none --depth=1 --branch="$GIT_BRANCH" "$FFMPEG_REPO" ffbuild/ffmpeg
+echo "Using pre-mounted FFmpeg source..."
 cd ffbuild/ffmpeg
 
 # Применяем патчи
 if [[ -d "/builder/patches/ffmpeg/$GIT_BRANCH" ]]; then
     for patch in /builder/patches/ffmpeg/$GIT_BRANCH/*.patch; do
+        git checkout .
         echo -e "\n-----------------------------------"
         echo "~~~ APPLYING PATCH: $patch"
         # Выполняем патч и проверяем код выхода

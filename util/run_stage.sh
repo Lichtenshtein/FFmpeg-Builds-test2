@@ -13,38 +13,50 @@ cd "/build/$STAGENAME"
 CACHE_DIR="/root/.cache/downloads"
 REAL_CACHE=""
 
-# Если скрипт НЕ помечен как SKIP, ищем для него исходники
 if [[ "$SCRIPT_SKIP" != "1" ]]; then
-    if [[ -f "${CACHE_DIR}/${STAGENAME}.tar.xz" ]]; then
-        REAL_CACHE="${CACHE_DIR}/${STAGENAME}.tar.xz"
+    echo "--- DEBUG: Searching source for $STAGENAME ---"
+    
+    # Сначала ищем по точному симлинку (быстрый путь)
+    if [[ -L "${CACHE_DIR}/${STAGENAME}.tar.xz" ]]; then
+        REAL_CACHE=$(readlink -f "${CACHE_DIR}/${STAGENAME}.tar.xz")
+        echo "Found symlink: ${STAGENAME}.tar.xz -> $REAL_CACHE"
+    # Если симлинка нет, ищем любой файл, начинающийся с имени стейджа (для надежности)
     else
-        # Ищем по маске, если симлинк не создался
-        REAL_CACHE=$(find "$CACHE_DIR" -name "${STAGENAME}_*.tar.xz" | head -n 1)
+        echo "No symlink found. Searching by glob: ${STAGENAME}_*.tar.xz"
+        REAL_CACHE=$(find "$CACHE_DIR" -name "${STAGENAME}_*.tar.xz" -type f | sort -r | head -n 1)
     fi
 
     if [[ -n "$REAL_CACHE" && -f "$REAL_CACHE" ]]; then
-        echo "Unpacking $STAGENAME from $REAL_CACHE"
+        echo "Unpacking $STAGENAME from $REAL_CACHE (Size: $(du -h "$REAL_CACHE" | cut -f1))"
         tar xaf "$REAL_CACHE" -C . --strip-components=0
-        # Если после распаковки в директории всего одна папка — заходим в неё
+        
+        # Проверка структуры после распаковки
+        if [[ $(ls -1 | wc -l) -eq 0 ]]; then
+            echo "ERROR: Archive $REAL_CACHE is empty!"
+            exit 1
+        fi
+
         if [[ $(ls -1 | wc -l) -eq 1 && -d $(ls -1) ]]; then
             SUBDIR=$(ls -1)
-            echo "Moving into subdirectory: $SUBDIR"
+            echo "Entering subdirectory: $SUBDIR"
             cd "$SUBDIR"
             echo "DEBUG: Current build directory: $(pwd)"
             # позволит сразу понять в логах GitHub, правильно ли распаковался исходник.
             ls -F
         fi
     else
-        # Если загрузка была предусмотрена (ffbuild_dockerdl не пуст), но файла нет - это ошибка
+        # Если загрузка была предусмотрена (ffbuild_dockerdl не пуст), но файла нет
         DL_CHECK=$(ffbuild_dockerdl)
         if [[ -n "$DL_CHECK" ]]; then
-            echo "ERROR: Source cache NOT FOUND for $STAGENAME"
-            echo "Full content of $CACHE_DIR:"
-            ls -F "$CACHE_DIR"
-            # ПАДАЕМ СРАЗУ, чтобы не гадать по ошибке cp
+            echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            echo "CRITICAL ERROR: Source cache NOT FOUND for $STAGENAME"
+            echo "Expected: ${CACHE_DIR}/${STAGENAME}.tar.xz"
+            echo "Available files in cache:"
+            ls -lh "$CACHE_DIR" | grep "$STAGENAME" || echo "No files matching $STAGENAME found at all."
+            echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
             exit 1
         fi
-        echo "No source archive for $STAGENAME (meta-package), continuing..."
+        echo "No source archive required for $STAGENAME (meta-package)."
     fi
 fi
 
@@ -75,24 +87,28 @@ if ! $build_cmd; then
     echo "!!! ERROR: Build failed for $STAGENAME"
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
     
-    # Ищем логи везде, где они могут быть
-    LOG_FOUND=0
-    for logfile in "config.log" "../config.log" "build/meson-logs/meson-log.txt" "meson-logs/meson-log.txt" "build/CMakeFiles/CMakeError.log" "CMakeFiles/CMakeError.log"; do
-        if [[ -f "$logfile" ]]; then
-            echo "--- Found log: $logfile ---"
-            tail -n 100 "$logfile"
-            LOG_FOUND=1
-            break
-        fi
-    done
+    # Выводим текущую директорию и структуру файлов, чтобы понять, где мы
+    echo "Current directory: $(pwd)"
+    
+    # Используем 'find' для поиска любых логов ошибок рекурсивно
+    # Это найдет логи, даже если они в build/meson-logs или глубоко в CMakeFiles
+    LOG_FILES=$(find . -maxdepth 4 -name "config.log" -o -name "meson-log.txt" -o -name "CMakeError.log" -o -name "CMakeOutput.log")
 
-    if [[ $LOG_FOUND -eq 0 ]]; then
-        echo "No specific build logs found (checked config.log, meson-log, CMakeError.log)."
+    if [[ -n "$LOG_FILES" ]]; then
+        for logfile in $LOG_FILES; do
+            echo " "
+            echo "--- CONTENT OF $logfile (last 150 lines) ---"
+            tail -n 150 "$logfile"
+            echo "--- END OF $logfile ---"
+            echo " "
+        done
+    else
+        echo "No standard build logs found. Listing all files in current directory to debug:"
+        ls -R
     fi
     
     exit 1
 fi
-
 
 # Автоматическая синхронизация префиксов после успешной сборки
 # Каждый скрипт в scripts.d обязан устанавливать файлы (make install) в путь, начинающийся с $FFBUILD_DESTDIR$FFBUILD_PREFIX (обычно это /opt/ffdest/opt/ffbuild), иначе система не увидит установленную библиотеку для следующего этапа.

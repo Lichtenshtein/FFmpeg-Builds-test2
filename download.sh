@@ -21,10 +21,6 @@ git-mini-clone() {
     fi
 }
 
-# single thread
-# echo "Downloading sources for TARGET=$TARGET VARIANT=$VARIANT..."
-# mapfile -t STAGES < <(find scripts.d -name "*.sh" | sort)
-
 # Функция для обработки ОДНОГО скрипта (экспортируем для xargs)
 download_stage() {
     local STAGE="$1"
@@ -34,10 +30,7 @@ download_stage() {
     
     STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
 
-    # Очищаем переменные
-    # unset SCRIPT_REPO SCRIPT_COMMIT SCRIPT_REPO2 SCRIPT_COMMIT2
-
-    # Получаем команду, подавляя выход всего скрипта при ошибке в subshell
+    # Запускаем в чистом subshell, чтобы переменные одного скрипта не влияли на другой
     DL_COMMAND=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; source util/dl_functions.sh; source \"$STAGE\"; ffbuild_enabled && ffbuild_dockerdl" || echo "")
     
     [[ -z "$DL_COMMAND" ]] && return 0
@@ -50,25 +43,38 @@ download_stage() {
     TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.xz"
     LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.xz"
 
+    # ЛОГИКА КЭША
     if [[ -f "$TGT_FILE" ]]; then
         echo "Cache hit: $STAGENAME"
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
-        return 0
+        # Проверка валидности (важно для RO-маунтов в Docker)
+        [[ -e "$LATEST_LINK" ]] && return 0 || echo "Symlink broken, re-downloading..."
     fi
 
     echo "Downloading: $STAGENAME..."
     WORK_DIR=$(mktemp -d)
+    
     if ( cd "$WORK_DIR" && eval "$DL_COMMAND" ); then
-    # if ( cd "$WORK_DIR" && eval "$DL_COMMAND" ) >/dev/null 2>&1; then
+        # Упаковка
         tar -cpJf "$TGT_FILE" -C "$WORK_DIR" .
+        
+        # СОЗДАНИЕ СИМЛИНКА (теперь внутри блока успеха)
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
-        echo "Done: $STAGENAME"
+        
+        if [[ -e "$LATEST_LINK" ]]; then
+            echo "Done: $STAGENAME (Link: $(basename "$TGT_FILE"))"
+            rm -rf "$WORK_DIR"
+            return 0
+        else
+            echo "ERROR: Symlink creation failed for $STAGENAME"
+            rm -rf "$WORK_DIR"
+            return 1
+        fi
     else
-        echo "FAILED: $STAGENAME"
+        echo "FAILED: $STAGENAME (Command: $DL_COMMAND)"
         rm -rf "$WORK_DIR"
         return 1
     fi
-    rm -rf "$WORK_DIR"
 }
 
 export -f download_stage
@@ -82,3 +88,15 @@ find scripts.d -name "*.sh" | sort | \
     xargs -I{} -P 8 bash -c "download_stage '{}' '$TARGET' '$VARIANT' '$DL_DIR'"
 
 echo "All downloads finished."
+
+# не будем упаковывать FFmpeg в .tar.xz, а просто оставим в папке .cache/ffmpeg
+FFMPEG_REPO="${FFMPEG_REPO:-https://github.com/MartinEesmaa/FFmpeg.git}"
+FFMPEG_BRANCH="${GIT_BRANCH:-master}"
+FFMPEG_DIR=".cache/ffmpeg"
+if [[ ! -d "$FFMPEG_DIR" ]]; then
+    echo "Cloning FFmpeg ($FFMPEG_BRANCH)..."
+    git clone --filter=blob:none --depth=1 --branch="$FFMPEG_BRANCH" "$FFMPEG_REPO" "$FFMPEG_DIR"
+else
+    echo "Updating FFmpeg..."
+    ( cd "$FFMPEG_DIR" && git fetch --depth=1 origin "$FFMPEG_BRANCH" && git reset --hard FETCH_HEAD )
+fi

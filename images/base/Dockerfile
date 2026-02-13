@@ -29,7 +29,12 @@ RUN \
 
 ENV CARGO_HOME="/opt/cargo" RUSTUP_HOME="/opt/rustup" PATH="/opt/cargo/bin:${PATH}"
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path && \
-    cargo install cargo-c && rm -rf "${CARGO_HOME}"/registry "${CARGO_HOME}"/git
+    # Динамическое получение последней версии через GitHub API
+    export CARGO_C_URL=$(curl -fsSL https://api.github.com/repos/lu-zero/cargo-c/releases/latest | \
+    jq -r '.assets[] | select(.name | test("x86_64-unknown-linux-musl\\.tar\\.gz$")) | .browser_download_url') && \
+    curl -fsSL "$CARGO_C_URL" | tar -xz -C /opt/cargo/bin && \
+    # Очистка кэша Rust
+    rm -rf "${CARGO_HOME}"/registry "${CARGO_HOME}"/git
 
 RUN --mount=src=.,dst=/input \
     for s in /input/*.sh; do cp $s /usr/bin/$(echo $s | sed -e 's|.*/||' -e 's/\.sh$//'); done

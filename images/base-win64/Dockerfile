@@ -38,10 +38,10 @@ RUN ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc && \
     ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-ranlib
 
 # ccache settings
-# агрессивные настройки для vars.sh через export или Dockerfile:
-# sloppiness: разрешает использовать кэш, даже если время изменения заголовочных файлов сдвинулось (критично для Docker-билдов).
-# compilercheck=content: ccache будет проверять хэш самого бинарника компилятора, а не дату его создания.
-# "Depend Mode": если добавить export CCACHE_DEPEND=1, ccache будет быстрее определять промахи, не запуская препроцессор полностью.
+# Р°РіСЂРµСЃСЃРёРІРЅС‹Рµ РЅР°СЃС‚СЂРѕР№РєРё РґР»СЏ vars.sh С‡РµСЂРµР· export РёР»Рё Dockerfile:
+# sloppiness: СЂР°Р·СЂРµС€Р°РµС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РєСЌС€, РґР°Р¶Рµ РµСЃР»Рё РІСЂРµРјСЏ РёР·РјРµРЅРµРЅРёСЏ Р·Р°РіРѕР»РѕРІРѕС‡РЅС‹С… С„Р°Р№Р»РѕРІ СЃРґРІРёРЅСѓР»РѕСЃСЊ (РєСЂРёС‚РёС‡РЅРѕ РґР»СЏ Docker-Р±РёР»РґРѕРІ).
+# compilercheck=content: ccache Р±СѓРґРµС‚ РїСЂРѕРІРµСЂСЏС‚СЊ С…СЌС€ СЃР°РјРѕРіРѕ Р±РёРЅР°СЂРЅРёРєР° РєРѕРјРїРёР»СЏС‚РѕСЂР°, Р° РЅРµ РґР°С‚Сѓ РµРіРѕ СЃРѕР·РґР°РЅРёСЏ.
+# "Depend Mode": РµСЃР»Рё РґРѕР±Р°РІРёС‚СЊ export CCACHE_DEPEND=1, ccache Р±СѓРґРµС‚ Р±С‹СЃС‚СЂРµРµ РѕРїСЂРµРґРµР»СЏС‚СЊ РїСЂРѕРјР°С…Рё, РЅРµ Р·Р°РїСѓСЃРєР°СЏ РїСЂРµРїСЂРѕС†РµСЃСЃРѕСЂ РїРѕР»РЅРѕСЃС‚СЊСЋ.
 ENV CCACHE_DIR=/root/.cache/ccache \
     CCACHE_MAXSIZE=20G \
     CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros" \
