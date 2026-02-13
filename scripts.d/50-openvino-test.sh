@@ -11,7 +11,8 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     # Скачиваем с проверкой, что это действительно ZIP
-    echo "curl -L \"$SCRIPT_REPO\" --output openvino.zip && unzip -qq openvino.zip && mv w_openvino_* openvino_src"
+    # echo "curl -L \"$SCRIPT_REPO\" --output openvino.zip && unzip -qq openvino.zip && mv w_openvino_* openvino_src"
+    echo "curl -L \"$SCRIPT_REPO\" --output openvino.zip && unzip -qq openvino.zip && mv openvino_* openvino_src"
 }
 
 ffbuild_dockerbuild() {

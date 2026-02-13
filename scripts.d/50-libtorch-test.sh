@@ -17,7 +17,9 @@ ffbuild_dockerbuild() {
     
     # Копируем всё содержимое
     cp -r include/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
+    # Копируем заголовочные файлы
     cp lib/*.lib "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+    # Копируем DLL в bin, чтобы их подхватил финальный упаковщик
     cp lib/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
 
     # LibTorch требует много флагов, создаем .pc файл
