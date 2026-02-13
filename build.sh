@@ -107,6 +107,13 @@ package_variant ffbuild/prefix "$PKG_DIR"
 # Копируем лицензию
 [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"
 
+echo "Collecting external DLLs for runtime dependencies..."
+# Копируем все DLL из нашего сборочного префикса в папку с бинарниками
+# Это подхватит DLL от OpenVINO, TBB, TensorFlow, LibTorch и других
+find "/opt/ffbuild/bin" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \;
+# Проверяем наличие критических библиотек (для отладки в логах)
+ls -lh "$PKG_DIR/bin/"
+
 # Стриппинг бинарников (удаление отладочных символов)
 pushd "$PKG_DIR/bin"
 for bin in *.exe; do
