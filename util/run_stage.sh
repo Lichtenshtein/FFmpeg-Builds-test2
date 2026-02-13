@@ -96,7 +96,7 @@ fi
 # Вывод статистики в конце каждой стадии (опционально)
 # Это покажет Hit Rate прямо в логах GitHub
 echo "--- CCACHE STATISTICS ---"
-ccache -s | grep 'cache hit rate'
+ccache -s
 
 # Очистка
 cd /
