@@ -63,10 +63,17 @@ CROSS_MARK='❌'
         -DENABLE_DOCS=NO
         -DENABLE_TOOLS=NO
         -DENABLE_CCACHE=ON
-        -DCONFIG_TUNE_VMAF=1
-        -DCONFIG_AV1_DECODER=ON
         -DENABLE_NASM=ON
+        # Используем 1 вместо ON для внутренних флагов AOM
+        -DCONFIG_TUNE_VMAF=1
+        -DCONFIG_AV1_DECODER=1
+        -DCONFIG_AV1_ENCODER=1
+        -DCONFIG_PIC=1
     )
+
+    # Принудительно передаем правильный путь к VMAF через переменную среды CMake
+    # если обычный pkg-config в CMake сбоит
+    export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig"
 
     cmake "${myconf[@]}" ..
     make -j$(nproc) $MAKE_V

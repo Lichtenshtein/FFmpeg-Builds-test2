@@ -17,13 +17,12 @@ ffbuild_dockerbuild() {
         -DCMAKE_C_FLAGS="$CFLAGS"
         -DCMAKE_CXX_FLAGS="$CXXFLAGS"
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
+        -DENABLE_OPT=OFF # оптимизатор, который требует SPIRV-Tools
+        -DALLOW_EXTERNAL_SPIRV_TOOLS=OFF # ЗАПРЕЩАЕМ искать внешние SPIRV-Tools
         -DBUILD_SHARED_LIBS=OFF
         -DENABLE_GLSLANG_BINARIES=OFF
         -DENABLE_PCH=OFF
         -DENABLE_CTEST=OFF
-        -DALLOW_EXTERNAL_SPIRV_TOOLS=ON # Разрешаем искать SPIRV-Tools в системе
-        -DENABLE_OPT=OFF                # Для FFmpeg оптимизатор glslang обычно не критичен, 
-                                        # его отключение решает 90% проблем сборки
     )
 
     cmake "${mycmake[@]}" ..

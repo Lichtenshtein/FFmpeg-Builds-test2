@@ -20,7 +20,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     mkdir build && cd build
 
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
+    cmake -G "Unix Makefiles" \
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
@@ -30,10 +31,11 @@ ffbuild_dockerbuild() {
         -DBUILD_TESTING=OFF \
         -DBUILD_APPS=OFF \
         -DENABLE_AVX512=OFF \
+        -DENABLE_NASM=ON \
         -DSVT_AV1_LTO=OFF ..
+
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
-#        -DENABLE_AVX512=ON \
 }
 
 ffbuild_configure() {

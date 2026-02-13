@@ -40,6 +40,8 @@ if [[ "$SCRIPT_SKIP" != "1" ]]; then
             SUBDIR=$(ls -1)
             echo "Entering subdirectory: $SUBDIR"
             cd "$SUBDIR"
+            # fix постоянной проблемы 'dubious ownership' (сомнительное владение) в Git
+            git config --global --add safe.directory "*"
             echo "DEBUG: Current build directory: $(pwd)"
             # позволит сразу понять в логах GitHub, правильно ли распаковался исходник.
             ls -F

@@ -6,6 +6,7 @@ SCRIPT_COMMIT="b2ea27dceb6418aabfe9121174c6dbb232942998"
 ffbuild_depends() {
     echo base
     echo vulkan
+    echo shaderc
 }
 
 ffbuild_enabled() {
@@ -53,15 +54,19 @@ CROSS_MARK='❌'
         --prefix="$FFBUILD_PREFIX"
         --buildtype=release
         --default-library=static
+        --cross-file=/cross.meson
         -Dvulkan=enabled
+        -Dshaderc=enabled
+        -Dglslang=enabled     # Включить, если 56-glslang собрался
+        -Dlcms2=enabled       # Обычно есть в 45-lcms2.sh
         -Dvk-proc-addr=disabled
         -Dvulkan-registry="$FFBUILD_PREFIX"/share/vulkan/registry/vk.xml
-        -Dshaderc=enabled
-        -Dglslang=disabled
         -Ddemos=false
         -Dtests=false
         -Dbench=false
         -Dfuzz=false
+        -Dlibdovi=disabled    # Отключить, если нет отдельного скрипта
+        -Dxxhash=disabled     # Мезон найдет системный, если он есть
     )
 
     if [[ $TARGET == win* ]]; then
@@ -83,7 +88,9 @@ CROSS_MARK='❌'
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
-    echo "Libs.private: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libplacebo.pc
+    # Принудительно добавляем зависимости в pkg-config для статической линковки
+    sed -i 's/Libs:/Libs: -lshaderc_combined -lspirv-cross-c -lspirv-cross-glsl -lspirv-cross-core /' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libplacebo.pc
+    echo "Libs.private: -lstdc++ -lm -lshlwapi" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libplacebo.pc
 }
 
 ffbuild_configure() {

@@ -39,18 +39,19 @@ CROSS_MARK='❌'
 
     mkdir build && cd build
 
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
+    cmake -G "Unix Makefiles" \
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DSPIRV_CROSS_SHARED=OFF \
         -DSPIRV_CROSS_STATIC=ON \
         -DSPIRV_CROSS_CLI=OFF \
         -DSPIRV_CROSS_ENABLE_TESTS=OFF \
-        -DSPIRV_CROSS_FORCE_PIC=ON \
-        -DSPIRV_CROSS_ENABLE_CPP=OFF ..
+        -DSPIRV_CROSS_ENABLE_C=ON \
+        -DSPIRV_CROSS_ENABLE_CPP=ON .. # FFmpeg иногда требует CPP обертки
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
