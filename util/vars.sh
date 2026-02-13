@@ -102,7 +102,7 @@ ffbuild_unconfigure() {
 }
 
 ffbuild_cflags() {
-    # Глобальный макрос для всех, кто включает заголовки glib
+    # РіР»РѕР±Р°Р»СЊРЅС‹Р№ РјР°РєСЂРѕСЃ РґР»СЏ РІСЃРµС…, РєС‚Рѕ РІРєР»СЋС‡Р°РµС‚ Р·Р°РіРѕР»РѕРІРєРё glib
     echo "-DGLIB_STATIC_COMPILATION -mms-bitfields"
     # return 0
 }
@@ -128,8 +128,9 @@ ffbuild_unldexeflags() {
 }
 
 ffbuild_ldflags() {
-    # Эти флаги нужны для статической линковки glib, так как она используется во многих фильтрах
-    echo "-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl -liconv -lpthread"
+    # Р­С‚Рё С„Р»Р°РіРё РЅСѓР¶РЅС‹ РґР»СЏ СЃС‚Р°С‚РёС‡РµСЃРєРѕР№ Р»РёРЅРєРѕРІРєРё glib, С‚Р°Рє РєР°Рє РѕРЅР° РёСЃРїРѕР»СЊР·СѓРµС‚СЃВ¤ РІРѕ РјРЅРѕРіРёС… С„РёР»СЊС‚СЂР°С…
+    # -lintl -liconv С‡Р°СЃС‚Рѕ РєРѕРЅС„Р»РёРєС‚СѓСЋС‚ СЃ РІРЅСѓС‚СЂРµРЅРЅРёРјРё С„СѓРЅРєС†РёСЏРјРё glibc РёР»Рё СЃР°РјРѕРіРѕ РєРѕРјРїРёР»СЏС‚РѕСЂР°, РµСЃР»Рё РѕРЅРё РЅРµ Р±С‹Р»Рё СЃРѕР±СЂР°РЅС‹ РєР°Рє СЃС‚СЂРѕРіРѕ СЃС‚Р°С‚РёС‡РµСЃРєРёРµ.
+    echo "-lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl -liconv -lpthread -lws2_32"
     # return 0
 }
 
@@ -150,7 +151,7 @@ ffbuild_dockerdl() {
     fi
 }
 
-# 1 для подробных логов, в 0 для кратких
+# 1 РґР»СЏ РїРѕРґСЂРѕР±РЅС‹С… Р»РѕРіРѕРІ, РІ 0 РґР»СЏ РєСЂР°С‚РєРёС…
 export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
 
 if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
@@ -164,9 +165,11 @@ else
 fi
 
 export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
-# Агрессивные настройки ccache для Docker
+# Р°РіСЂРµСЃСЃРёРІРЅС‹Рµ РЅР°СЃС‚СЂРѕР№РєРё ccache РґР»СЏ Docker
 export CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros,file_macro"
 export CCACHE_BASEDIR="/builder"
 export CCACHE_COMPILERCHECK="content"
 export CCACHE_DEPEND="1"
 
+# СЌРєСЃРїРѕСЂС‚ РІР°Р¶РЅС‹С… РїРµСЂРµРјРµРЅРЅС‹С… MinGW, С‡С‚РѕР±С‹ РѕРЅРё РїСЂРѕР±СЂР°СЃС‹РІР°Р»РёСЃСЊ РІ download.sh Рё run_stage.sh:
+export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE

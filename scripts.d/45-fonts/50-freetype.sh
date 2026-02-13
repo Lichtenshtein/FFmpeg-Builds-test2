@@ -7,10 +7,26 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    # Изменить 'v1' на 'v2', чтобы сбросить кэш загрузки
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v1'"
+}
+
+
 ffbuild_dockerbuild() {
-    # ���������� Freetype, �������� ����-�����, ��� ��������� ��� ����
-    # � ������������� ����� git � autogen.sh
-    export NOCONFIGURE=1
+    # Исправляем проблему "dubious ownership" для Git
+    git config --global --add safe.directory /build/50-freetype
+
+    # инициализация подмодуля dlg
+    mkdir -p subprojects/dlg
+    if [[ ! -f "subprojects/dlg/include/dlg/dlg.h" ]]; then
+        git clone --depth 1 https://github.com/nyorain/dlg.git subprojects/dlg
+    fi
+
+    # Обманываем Freetype, создавая файл-метку, что подмодули уже есть
+    # и предотвращаем вызов git в autogen.sh
+    # export NOCONFIGURE=1
+
     ./autogen.sh
 
     local myconf=(
