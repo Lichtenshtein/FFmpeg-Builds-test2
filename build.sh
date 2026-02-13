@@ -113,6 +113,9 @@ echo "Collecting external DLLs for runtime dependencies..."
 find "/opt/ffbuild/bin" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \;
 # Проверяем наличие критических библиотек (для отладки в логах)
 ls -lh "$PKG_DIR/bin/"
+# Скачиваем модели для ИИ
+# MODELS_FINAL_DIR="$PKG_DIR/models"
+# /builder/util/download_models.sh "$MODELS_FINAL_DIR"
 
 # Стриппинг бинарников (удаление отладочных символов)
 pushd "$PKG_DIR/bin"
@@ -133,6 +136,8 @@ OUTPUT_FNAME="${BUILD_NAME}.7z"
 if [[ -n "$GITHUB_ACTIONS" ]]; then
     echo "build_name=${BUILD_NAME}" >> "$GITHUB_OUTPUT"
     echo "${OUTPUT_FNAME}" > "${FINAL_DEST}/${TARGET}-${VARIANT}.txt"
+    # Вывод статистики ccache (теперь через прямую команду)
+    echo "--- CCACHE STATISTICS ---"
     ccache -s
 fi
 

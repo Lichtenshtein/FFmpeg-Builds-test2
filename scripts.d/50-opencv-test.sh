@@ -29,6 +29,9 @@ ffbuild_dockerbuild() {
         -DBUILD_opencv_java=OFF
         # Включаем интеграцию с OpenVINO (Inference Engine)
         -DWITH_OPENVINO=ON
+        -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake/OpenVINO"
+        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake/OpenVINO"
+        -Dngraph_DIR="$FFBUILD_PREFIX/lib/cmake/ngraph"
         -DOPENVINO_LIB_DIRS="$FFBUILD_PREFIX/lib"
         -DOPENVINO_INCLUDE_DIRS="$FFBUILD_PREFIX/include"
         # Оптимизация под ваш Xeon Broadwell
