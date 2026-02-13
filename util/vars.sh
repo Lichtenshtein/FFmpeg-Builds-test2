@@ -103,7 +103,7 @@ ffbuild_unconfigure() {
 
 ffbuild_cflags() {
     # Глобальный макрос для всех, кто включает заголовки glib
-    echo "-DGLIB_STATIC_COMPILATION"
+    echo "-DGLIB_STATIC_COMPILATION -mms-bitfields"
     # return 0
 }
 
@@ -129,7 +129,7 @@ ffbuild_unldexeflags() {
 
 ffbuild_ldflags() {
     # Эти флаги нужны для статической линковки glib, так как она используется во многих фильтрах
-    echo "-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi"
+    echo "-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl -liconv -lpthread"
     # return 0
 }
 

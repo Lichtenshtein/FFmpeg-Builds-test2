@@ -93,6 +93,9 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
     cp -r "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/. "$FFBUILD_PREFIX"/
 fi
 
+echo "--- CCACHE STATISTICS ---"
+ccache -s
+
 # Очистка
 cd /
 rm -rf "/build/$STAGENAME"

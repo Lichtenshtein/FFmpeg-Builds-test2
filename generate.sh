@@ -25,7 +25,7 @@ to_df "WORKDIR /builder"
 # Находим все скрипты
 # SCRIPTS=( $(find scripts.d -name "*.sh" | sort) )
 # Временно для тестов в generate.sh:
-SCRIPTS=( scripts.d/10-mingw.sh scripts.d/10-mingw-std-threads.sh scripts.d/15-base.sh scripts.d/50-openvino-test.sh scripts.d/50-libtensorflow-test.sh scripts.d/50-libtorch-test.sh )
+SCRIPTS=( scripts.d/10-mingw.sh scripts.d/10-mingw-std-threads.sh scripts.d/15-base.sh 50-libcodec2-test.sh )
 
 
 # SCRIPTS=( scripts.d/10-mingw.sh scripts.d/10-mingw-std-threads.sh scripts.d/15-base.sh scripts.d/20-libiconv.sh scripts.d/20-zlib.sh scripts.d/30-libffi.sh scripts.d/20-pcre2.sh scripts.d/40-glib2.sh scripts.d/50-lensfun-test.sh )
@@ -89,6 +89,8 @@ to_df "    FF_LIBS=\"$(xargs <<< "$FF_LIBS")\""
 to_df "COPY build.sh /builder/build.sh"
 to_df "COPY util /builder/util"
 to_df "COPY patches /builder/patches"
+# to_df "COPY variants /builder/variants"
+# to_df "COPY addins /builder/addins"
 to_df "RUN --mount=type=cache,target=/root/.cache/ccache ./build.sh $TARGET $VARIANT"
 
 to_df "FROM scratch AS artifacts"
