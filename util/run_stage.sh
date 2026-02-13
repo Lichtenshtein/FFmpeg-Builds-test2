@@ -68,23 +68,28 @@ echo "##########################################################################
 echo " "
 
 if ! $build_cmd; then
-    echo " "
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
     echo "!!! ERROR: Build failed for $STAGENAME"
-    echo "!!! Tail of config.log (if exists):"
     echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
     
-    # Пытаемся найти и вывести логи ошибок в зависимости от системы сборки
-    if [[ -f "config.log" ]]; then
-        tail -n 100 config.log
-    elif [[ -f "build/CMakeFiles/CMakeError.log" ]]; then
-        cat build/CMakeFiles/CMakeError.log
-    elif [[ -f "build/meson-logs/meson-log.txt" ]]; then
-        tail -n 100 build/meson-logs/meson-log.txt
+    # Ищем логи везде, где они могут быть
+    LOG_FOUND=0
+    for logfile in "config.log" "../config.log" "build/meson-logs/meson-log.txt" "meson-logs/meson-log.txt" "build/CMakeFiles/CMakeError.log" "CMakeFiles/CMakeError.log"; do
+        if [[ -f "$logfile" ]]; then
+            echo "--- Found log: $logfile ---"
+            tail -n 100 "$logfile"
+            LOG_FOUND=1
+            break
+        fi
+    done
+
+    if [[ $LOG_FOUND -eq 0 ]]; then
+        echo "No specific build logs found (checked config.log, meson-log, CMakeError.log)."
     fi
     
     exit 1
 fi
+
 
 # Автоматическая синхронизация префиксов после успешной сборки
 # Каждый скрипт в scripts.d обязан устанавливать файлы (make install) в путь, начинающийся с $FFBUILD_DESTDIR$FFBUILD_PREFIX (обычно это /opt/ffdest/opt/ffbuild), иначе система не увидит установленную библиотеку для следующего этапа.

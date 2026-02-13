@@ -22,6 +22,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DBUILD_SHARED_LIBS=OFF \
+        -DGENERATE_CODEBOOKS=OFF \
         -DUNITTEST=OFF \
         -DINSTALL_EXAMPLES=OFF \
         ..
