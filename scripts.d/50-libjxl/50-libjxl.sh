@@ -32,26 +32,27 @@ ffbuild_dockerbuild() {
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-        -DJPEGXL_ENABLE_SKCMS=OFF \
-        -DJPEGXL_FORCE_SYSTEM_LCMS2=ON \
         -DBUILD_SHARED_LIBS=OFF \
-        -DJPEGXL_STATIC=OFF \
+        -DJPEGXL_BUNDLE_LIBPNG=OFF \
+        -DJPEGXL_EMSCRIPTEN=OFF \
+        -DJPEGXL_ENABLE_BENCHMARK=OFF \
+        -DJPEGXL_ENABLE_DEVTOOLS=OFF \
+        -DJPEGXL_ENABLE_EXAMPLES=OFF \
+        -DJPEGXL_ENABLE_DOXYGEN=OFF \
+        -DJPEGXL_ENABLE_JNI=OFF \
+        -DJPEGXL_ENABLE_JPEGLI=OFF \
+        -DJPEGXL_ENABLE_MANPAGES=OFF \
+        -DJPEGXL_ENABLE_PLUGINS=OFF \
+        -DJPEGXL_ENABLE_SJPEG=OFF \
+        -DJPEGXL_ENABLE_SKCMS=OFF \
         -DJPEGXL_ENABLE_TOOLS=OFF \
         -DJPEGXL_ENABLE_VIEWERS=OFF \
-        -DJPEGXL_EMSCRIPTEN=OFF \
-        -DJPEGXL_ENABLE_DOXYGEN=OFF \
-        -DJPEGXL_ENABLE_JPEGLI=OFF \
-        -DBUILD_TESTING=OFF \
-        -DJPEGXL_ENABLE_EXAMPLES=OFF \
-        -DJPEGXL_ENABLE_MANPAGES=OFF \
-        -DJPEGXL_ENABLE_JNI=OFF \
-        -DJPEGXL_ENABLE_PLUGINS=OFF \
-        -DJPEGXL_ENABLE_DEVTOOLS=OFF \
-        -DJPEGXL_ENABLE_BENCHMARK=OFF \
-        -DJPEGXL_BUNDLE_LIBPNG=OFF \
-        -DJPEGXL_ENABLE_SJPEG=OFF \
-        -DJPEGXL_FORCE_SYSTEM_BROTLI=ON ..
+        -DJPEGXL_FORCE_SYSTEM_BROTLI=ON \
+        -DJPEGXL_FORCE_SYSTEM_HWY=OFF \
+        -DJPEGXL_FORCE_SYSTEM_LCMS2=ON \
+        -DJPEGXL_STATIC=ON \
+        -DBUILD_TESTING=OFF ..
+
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
@@ -64,6 +65,10 @@ ffbuild_dockerbuild() {
     fi
 
     echo "Requires.private: lcms2" >> "${FFBUILD_DESTPREFIX}"/lib/pkgconfig/libjxl_cms.pc
+    # Фикс для статической линковки: FFmpeg должен знать о Highway
+    sed -i 's/Libs:/Libs: -lhwy /' "${FFBUILD_DESTPREFIX}"/lib/pkgconfig/libjxl.pc
+    # Brotli в зависимости
+    sed -i 's/Requires.private:/Requires.private: libbrotlidec libbrotlienc /' "${FFBUILD_DESTPREFIX}"/lib/pkgconfig/libjxl.pc
 }
 
 ffbuild_configure() {
