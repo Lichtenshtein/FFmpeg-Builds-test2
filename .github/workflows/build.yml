@@ -91,12 +91,14 @@ jobs:
       - name: Restore/Save Source Cache
         uses: actions/cache@v4
         with:
-          path: .cache/downloads
-          # точный хэш значимых строк
+          path: |
+            .cache/downloads
+            .cache/ffmpeg
           key: dl-cache-${{ steps.dl_cache.outputs.key }}
           # Если точного совпадения нет, берем ЛЮБОЙ последний кэш, 
           # чтобы download.sh докачал только измененные файлы, а не всё с нуля
-          restore-keys: dl-cache-
+          restore-keys: |
+            dl-cache-
 
       - name: Prepare and Build
         uses: docker/build-push-action@v5
