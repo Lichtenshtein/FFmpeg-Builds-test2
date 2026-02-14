@@ -2,6 +2,14 @@
 SCRIPT_REPO="https://gitlab.freedesktop.org/cairo/cairo.git"
 SCRIPT_COMMIT="2a4589266388622f8c779721c8a4e090966fae79"
 
+ffbuild_enabled() {
+    return 0
+}
+
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+}
+
 ffbuild_dockerbuild() {
     mkdir build && cd build
 

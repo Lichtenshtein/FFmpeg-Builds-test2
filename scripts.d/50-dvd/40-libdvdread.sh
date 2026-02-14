@@ -4,9 +4,11 @@ SCRIPT_REPO="https://code.videolan.org/videolan/libdvdread.git"
 SCRIPT_COMMIT="935042af3e7b28f636895a2917307ac6f5931e6c"
 
 ffbuild_enabled() {
-    [[ $VARIANT == lgpl* ]] && return -1
-    (( $(ffbuild_ffver) >= 700 )) || return -1
     return 0
+}
+
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
 ffbuild_dockerbuild() {

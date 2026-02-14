@@ -1,8 +1,5 @@
 #!/bin/bash
 
-#SCRIPT_REPO="https://github.com/libgme/game-music-emu.git"
-#SCRIPT_COMMIT="da7606bce80794cf1b78865666761b1ba61d82da"
-
 SCRIPT_REPO="https://github.com/myQwil/game-music-emu.git"
 SCRIPT_COMMIT="c6b70bf66fc681f9450eec64fc4d6e19d753662a"
 

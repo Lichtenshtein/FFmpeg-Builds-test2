@@ -8,6 +8,10 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+}
+
 ffbuild_dockerbuild() {
     # Исправляем POSIX-зависимость в сокетах для Windows
     # отключаем содержимое файла, так как WITH_AUDIO=OFF все равно делает его ненужным

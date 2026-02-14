@@ -2,10 +2,8 @@
 
 SCRIPT_REPO="https://github.com/cynagenautes/AudioToolboxWrapper.git"
 SCRIPT_COMMIT="191aa1bf840e093cad48a5d34c961086641bacbd"
-# Forked repo, original author: dantmnf
 
 ffbuild_enabled() {
-    [[ $TARGET == win* ]] || return 1
     return 0
 }
 

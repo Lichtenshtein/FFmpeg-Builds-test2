@@ -4,7 +4,6 @@ SCRIPT_REPO="https://github.com/sezero/libmad.git"
 SCRIPT_COMMIT="486f902c6c686eafced3450851849527e29bc7f6"
 
 ffbuild_enabled() {
-    (( $(ffbuild_ffver) > 701 )) || return -1
     return 0
 }
 

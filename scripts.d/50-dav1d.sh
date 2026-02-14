@@ -4,7 +4,6 @@ SCRIPT_REPO="https://code.videolan.org/videolan/dav1d.git"
 SCRIPT_COMMIT="5e8c380e4b70f62ab7c7d881394ecb891e200a5c"
 
 ffbuild_enabled() {
-    (( $(ffbuild_ffver) >= 404 )) || return -1
     return 0
 }
 

@@ -4,13 +4,12 @@ SCRIPT_REPO="https://github.com/libjxl/libjxl.git"
 SCRIPT_COMMIT="53042ec537712e0df08709524f4df097d42174bc"
 
 ffbuild_enabled() {
-    (( $(ffbuild_ffver) > 600 )) || return -1
     return 0
 }
 
 ffbuild_dockerdl() {
-    default_dl .
-    echo "git submodule update --init --recursive --depth 1 --recommend-shallow third_party/highway"
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+    echo "git submodule update --init --recursive --depth 1 --recommend-shallow third_party/highway --quiet"
 }
 
 ffbuild_dockerbuild() {

@@ -4,12 +4,12 @@ SCRIPT_REPO="https://github.com/scimmia9286/aribb24.git"
 SCRIPT_COMMIT="fa54dee41aa38560f02868b24f911a24c33780a8"
 SCRIPT_BRANCH="add-multi-DRCS-plane"
 
-ffbuild_dockerdl() {
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
-}
-
 ffbuild_enabled() {
     return 0
+}
+
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
 ffbuild_dockerbuild() {

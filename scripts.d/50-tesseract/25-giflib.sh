@@ -8,7 +8,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     # giflib качается архивом, так проще
-    echo "curl -L \"$SCRIPT_REPO\" | tar xz --strip-components=1"
+    echo "curl -sL \"$SCRIPT_REPO\" | tar xz --strip-components=1"
 }
 
 ffbuild_dockerbuild() {

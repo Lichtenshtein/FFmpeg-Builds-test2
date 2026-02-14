@@ -10,6 +10,10 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+}
+
 ffbuild_dockerbuild() {
     # Librsvg требует Rust. Мы настроили его в Base Image.
     # Включаем кросс-линковку для Rust через переменные

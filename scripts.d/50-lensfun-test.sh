@@ -7,8 +7,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    # Изменить 'v1' на 'v2', чтобы сбросить кэш загрузки
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v3-meson-upgrade'"
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
 ffbuild_dockerbuild() {

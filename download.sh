@@ -2,47 +2,12 @@
 set -e
 cd "$(dirname "$0")"
 
-# Подгружаем переменные и функции
 source util/vars.sh "$TARGET" "$VARIANT" || true
 source util/dl_functions.sh
 
 mkdir -p .cache/downloads
 DL_DIR="$PWD/.cache/downloads"
 
-git-mini-clone() {
-    local REPO="$1"
-    local COMMIT="$2"
-    local TARGET_DIR="${3:-.}"
-    # Подхватываем BRANCH из окружения, если она есть (как в SDL)
-    local BRANCH="${SCRIPT_BRANCH:-}"
-
-    [[ "$TARGET_DIR" == "." ]] && TARGET_DIR="./"
-    
-    echo "Cloning $REPO (Branch: ${BRANCH:-default}, Target: $COMMIT) into $TARGET_DIR..."
-
-    # Если указана ветка, пробуем сначала ее с глубиной 1
-    if [[ -n "$BRANCH" ]]; then
-        if git clone --filter=blob:none --depth=1 --branch "$BRANCH" "$REPO" "$TARGET_DIR" 2>/dev/null; then
-            if [[ -n "$COMMIT" && "$COMMIT" != "$BRANCH" ]]; then
-                ( cd "$TARGET_DIR" && git fetch --depth=1 origin "$COMMIT" && git checkout FETCH_HEAD )
-            fi
-            return 0
-        fi
-    fi
-
-    # Если ветки нет или клон ветки не удался, пробуем клон по COMMIT (если это тег или ветка)
-    if git clone --filter=blob:none --depth=1 --branch "$COMMIT" "$REPO" "$TARGET_DIR" 2>/dev/null; then
-        return 0
-    fi
-
-    # клонируем дефолтную ветку и забираем нужный коммит
-    git clone --filter=blob:none --depth=1 "$REPO" "$TARGET_DIR"
-    cd "$TARGET_DIR"
-    git fetch --depth=1 origin "$COMMIT"
-    git checkout FETCH_HEAD
-}
-
-# Функция для обработки ОДНОГО скрипта (экспортируем для xargs)
 download_stage() {
     local STAGE="$1"
     local TARGET="$2"
@@ -51,76 +16,57 @@ download_stage() {
     
     STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
 
-    # Запускаем в чистом subshell, чтобы переменные одного скрипта не влияли на другой
+    # Получаем команду загрузки
     DL_COMMAND=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; source util/dl_functions.sh; source \"$STAGE\"; ffbuild_enabled && ffbuild_dockerdl" || echo "")
     
     [[ -z "$DL_COMMAND" ]] && return 0
     
-    # Очистка команды
     DL_COMMAND="${DL_COMMAND//retry-tool /}"
     DL_COMMAND="${DL_COMMAND//git fetch --unshallow/true}"
     
-    DL_HASH="$(echo "$DL_COMMAND" | sha256sum | cut -d" " -f1)"
+    # УМНЫЙ ХЭШ: учитывает и команду загрузки, и содержимое файла скрипта (логику сборки)
+    DL_HASH=$( (echo "$DL_COMMAND"; sha256sum "$STAGE") | sha256sum | cut -d" " -f1 | cut -c1-16)
+    
     TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.xz"
     LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.xz"
 
-    # ЛОГИКА КЭША
     if [[ -f "$TGT_FILE" ]]; then
-        echo "Cache hit: $STAGENAME"
+        echo "Cache hit: $STAGENAME (Hash: $DL_HASH)"
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
-        # Проверка валидности (важно для RO-маунтов в Docker)
-        [[ -e "$LATEST_LINK" ]] && return 0 || echo "Symlink broken, re-downloading..."
+        [[ -e "$LATEST_LINK" ]] && return 0
     fi
 
-    echo "Downloading: $STAGENAME..."
+    echo "Downloading: $STAGENAME (Hash: $DL_HASH)..."
     WORK_DIR=$(mktemp -d)
     
+    # Выполняем загрузку через eval
     if ( cd "$WORK_DIR" && eval "$DL_COMMAND" ); then
-        # Удаление метаданных .git перед упаковкой, они не нужны для компиляции
         find "$WORK_DIR" -name ".git" -type d -exec rm -rf {} +
-        # Упаковка
         tar -cpJf "$TGT_FILE" -C "$WORK_DIR" .
-        
-        # СОЗДАНИЕ СИМЛИНКА (теперь внутри блока успеха)
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
-        
-        if [[ -e "$LATEST_LINK" ]]; then
-            echo "Done: $STAGENAME (Link: $(basename "$TGT_FILE"))"
-            rm -rf "$WORK_DIR"
-            return 0
-        else
-            echo "ERROR: Symlink creation failed for $STAGENAME"
-            rm -rf "$WORK_DIR"
-            return 1
-        fi
+        echo "Done: $STAGENAME (Link: $(basename "$TGT_FILE"))"
+        rm -rf "$WORK_DIR"
+        return 0
     else
-        echo "FAILED: $STAGENAME (Command: $DL_COMMAND)"
+        echo "ERROR: Symlink creation failed for $STAGENAME"
         rm -rf "$WORK_DIR"
         return 1
     fi
 }
 
 export -f download_stage
-export -f git-mini-clone
+# git-mini-clone экспортируется автоматически, так как она в dl_functions.sh
 
 echo "Starting parallel downloads for $TARGET-$VARIANT..."
+find scripts.d -name "*.sh" | sort | xargs -I{} -P 8 bash -c "download_stage '{}' '$TARGET' '$VARIANT' '$DL_DIR'"
 
-# Находим все включенные скрипты и запускаем в 8 потоков
-# Если два скрипта (например, 45-vulkan-loader.sh и 40-vulkan-headers.sh) имеют одинаковую команду загрузки (один и тот же репозиторий и коммит), они могут попытаться писать в один и тот же временный файл или конфликтовать. Но благодаря mktemp -d в download.sh это безопасно.
-find scripts.d -name "*.sh" | sort | \
-    xargs -I{} -P 8 bash -c "download_stage '{}' '$TARGET' '$VARIANT' '$DL_DIR'"
-
-echo "All downloads finished."
-
-# не будем упаковывать FFmpeg в .tar.xz, а просто оставим в папке .cache/ffmpeg
-FFMPEG_REPO="${FFMPEG_REPO:-https://github.com/MartinEesmaa/FFmpeg.git}"
-FFMPEG_BRANCH="${GIT_BRANCH:-master}"
+# FFmpeg update (добавил --quiet для чистоты логов)
 FFMPEG_DIR=".cache/ffmpeg"
-mkdir -p "$FFMPEG_DIR" # ГАРАНТИРУЕМ, ЧТО ПАПКА СУЩЕСТВУЕТ ДЛЯ DOCKER
+mkdir -p "$FFMPEG_DIR"
 if [[ ! -d "$FFMPEG_DIR/.git" ]]; then
-    echo "Cloning FFmpeg ($FFMPEG_BRANCH)..."
-    git clone --filter=blob:none --depth=1 --branch="$FFMPEG_BRANCH" "$FFMPEG_REPO" "$FFMPEG_DIR"
+    git clone --quiet --filter=blob:none --depth=1 --branch="${GIT_BRANCH:-master}" "${FFMPEG_REPO:-https://github.com/MartinEesmaa/FFmpeg.git}" "$FFMPEG_DIR"
 else
     echo "Updating FFmpeg..."
-    ( cd "$FFMPEG_DIR" && git fetch --depth=1 origin "$FFMPEG_BRANCH" && git reset --hard FETCH_HEAD )
+    ( cd "$FFMPEG_DIR" && git fetch --quiet --depth=1 origin "${GIT_BRANCH:-master}" && git reset --hard FETCH_HEAD )
 fi
+echo "All downloads finished."

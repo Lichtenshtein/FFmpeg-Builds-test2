@@ -8,7 +8,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    echo "curl -L \"$SCRIPT_REPO\" --output tensorflow.zip && unzip -qq tensorflow.zip -d tf_src"
+    echo "curl -sL \"$SCRIPT_REPO\" --output tensorflow.zip && unzip -qq tensorflow.zip -d tf_src"
 }
 
 ffbuild_dockerbuild() {

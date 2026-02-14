@@ -7,12 +7,8 @@ ffbuild_enabled() {
     return 0
 }
 
-# ffbuild_dockerdl() {
-    # echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
-# }
 ffbuild_dockerdl() {
-    # Изменить 'v1' на 'v2', чтобы сбросить кэш загрузки
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'force-recache-v2'"
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
 ffbuild_dockerbuild() {

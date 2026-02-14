@@ -4,7 +4,6 @@ SCRIPT_REPO="https://github.com/cacalabs/libcaca.git"
 SCRIPT_COMMIT="69a42132350da166a98afe4ab36d89008197b5f2"
 
 ffbuild_enabled() {
-    [[ $TARGET == win* ]] || return 1
     return 0
 }
 
