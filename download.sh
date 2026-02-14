@@ -2,7 +2,7 @@
 set -e
 cd "$(dirname "$0")"
 
-ROOT_DIR="$PWD"
+export ROOT_DIR="$PWD"
 
 source util/vars.sh "$TARGET" "$VARIANT" || true
 source util/dl_functions.sh
@@ -67,7 +67,8 @@ export -f download_stage
 # git-mini-clone экспортируется автоматически, так как она в dl_functions.sh
 
 echo "Starting parallel downloads for $TARGET-$VARIANT..."
-find scripts.d -name "*.sh" | sort | xargs -I{} -P 8 bash -c "download_stage '{}' '$TARGET' '$VARIANT' '$DL_DIR'"
+find scripts.d -name "*.sh" | sort | \
+    xargs -I{} -P 8 bash -c "ROOT_DIR='$ROOT_DIR' download_stage '{}' '$TARGET' '$VARIANT' '$DL_DIR'"
 
 # FFmpeg update (добавил --quiet для чистоты логов)
 FFMPEG_DIR=".cache/ffmpeg"
