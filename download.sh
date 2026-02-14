@@ -93,7 +93,8 @@ echo "All downloads finished."
 FFMPEG_REPO="${FFMPEG_REPO:-https://github.com/MartinEesmaa/FFmpeg.git}"
 FFMPEG_BRANCH="${GIT_BRANCH:-master}"
 FFMPEG_DIR=".cache/ffmpeg"
-if [[ ! -d "$FFMPEG_DIR" ]]; then
+mkdir -p "$FFMPEG_DIR" # ГАРАНТИРУЕМ, ЧТО ПАПКА СУЩЕСТВУЕТ ДЛЯ DOCKER
+if [[ ! -d "$FFMPEG_DIR/.git" ]]; then
     echo "Cloning FFmpeg ($FFMPEG_BRANCH)..."
     git clone --filter=blob:none --depth=1 --branch="$FFMPEG_BRANCH" "$FFMPEG_REPO" "$FFMPEG_DIR"
 else
