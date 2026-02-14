@@ -10,11 +10,12 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
+    # Исправляем проблему "dubious ownership" для Git
+    git config --global --add safe.directory /build/40-libdvdread.sh
+    # удаляем папку .git, чтобы Meson даже не пытался запускать git команды
+    rm -rf .git
     # stop the static library from exporting symbols when linked into a shared lib
     sed -i 's/-DDVDREAD_API_EXPORT/-DDVDREAD_API_EXPORT_DISABLED/g' src/meson.build
-    # Отключаем генерацию ChangeLog, которая требует Git
-    # просто подменяем команду на 'true', чтобы Meson не падал
-    sed -i "s/command : \[git, 'log'\]/command : ['true']/" meson.build
 
     mkdir build && cd build
 
@@ -26,6 +27,7 @@ ffbuild_dockerbuild() {
         -Dwerror=false           # Гарантируем, что предупреждения не прервут билд
         -Denable_docs=false
         -Dlibdvdcss=enabled
+        --cross-file=/cross.meson
     )
 
     if [[ $TARGET == win* || $TARGET == linux* ]]; then

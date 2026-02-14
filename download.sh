@@ -55,6 +55,8 @@ download_stage() {
     WORK_DIR=$(mktemp -d)
     
     if ( cd "$WORK_DIR" && eval "$DL_COMMAND" ); then
+        # Удаление метаданных .git перед упаковкой, они не нужны для компиляции
+        find "$WORK_DIR" -name ".git" -type d -exec rm -rf {} +
         # Упаковка
         tar -cpJf "$TGT_FILE" -C "$WORK_DIR" .
         
