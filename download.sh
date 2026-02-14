@@ -2,6 +2,8 @@
 set -e
 cd "$(dirname "$0")"
 
+ROOT_DIR="$PWD"
+
 source util/vars.sh "$TARGET" "$VARIANT" || true
 source util/dl_functions.sh
 
@@ -24,7 +26,7 @@ download_stage() {
     DL_COMMAND="${DL_COMMAND//retry-tool /}"
     DL_COMMAND="${DL_COMMAND//git fetch --unshallow/true}"
     
-    # УМНЫЙ ХЭШ: учитывает и команду загрузки, и содержимое файла скрипта (логику сборки)
+    # УМНЫЙ ХЭШ
     DL_HASH=$( (echo "$DL_COMMAND"; sha256sum "$STAGE") | sha256sum | cut -d" " -f1 | cut -c1-16)
     
     TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.xz"
@@ -39,13 +41,12 @@ download_stage() {
     echo "Downloading: $STAGENAME (Hash: $DL_HASH)..."
     WORK_DIR=$(mktemp -d)
     
-    # Выполняем загрузку через eval
-    if ( cd "$WORK_DIR" && eval "source ../../util/dl_functions.sh; $DL_COMMAND" ); then
+    # ИСПОЛЬЗУЕМ АБСОЛЮТНЫЙ ПУТЬ К ФУНКЦИЯМ
+    # Передаем ROOT_DIR внутрь subshell через экспорт или переменную
+    if ( cd "$WORK_DIR" && eval "source \"$ROOT_DIR/util/dl_functions.sh\"; $DL_COMMAND" ); then
         find "$WORK_DIR" -name ".git" -type d -exec rm -rf {} +
         tar -cpJf "$TGT_FILE" -C "$WORK_DIR" .
-        
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
-        
         if [[ -e "$LATEST_LINK" ]]; then
             echo "Done: $STAGENAME (Link: $(basename "$TGT_FILE"))"
             rm -rf "$WORK_DIR"
