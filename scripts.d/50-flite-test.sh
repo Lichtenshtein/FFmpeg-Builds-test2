@@ -9,10 +9,15 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
+    # Исправляем POSIX-зависимость в сокетах для Windows
+    # отключаем содержимое файла, так как WITH_AUDIO=OFF все равно делает его ненужным
+    echo "/* Disabled for MinGW */" > src/utils/cst_socket.c
+
     # Создаем стандартную структуру для CMake
     mkdir build && cd build
 
     # Настраиваем CMake для MinGW
+    # -DCMAKE_POSITION_INDEPENDENT_CODE=ON для статики
     cmake \
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
@@ -23,16 +28,23 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=OFF \
         -DINSTALL_EXAMPLES=OFF \
         -DWITH_AUDIO=OFF \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
         ..
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
-    
-    # FFmpeg ожидает flite.pc, но cmake-порт может его не создать.
-    # Если его нет, создадим вручную минимальный файл для pkg-config
+
+    # некоторые порты Flite ставят либы в /lib/x86_64-w64-mingw32/
+    # Переносим их в стандартный /lib, чтобы FFmpeg их нашел
+    if [ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/x86_64-w64-mingw32" ]; then
+        mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/x86_64-w64-mingw32"/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+        rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/x86_64-w64-mingw32"
+    fi
+    # Генерация правильного pkg-config (добавляем все необходимые части либы)
+    # Flite после сборки CMake часто разбивается на несколько .a файлов, 
+    # но нам нужен основной flite
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    if [ ! -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/flite.pc" ]; then
-        cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/flite.pc"
+    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/flite.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
@@ -41,10 +53,9 @@ includedir=\${prefix}/include
 Name: flite
 Description: Festival Lite Speech Synthesis System
 Version: 2.1.0
-Libs: -L\${libdir} -lflite -lm
+Libs: -L\${libdir} -lflite -lm -lws2_32
 Cflags: -I\${includedir}
 EOF
-    fi
 }
 
 ffbuild_configure() {

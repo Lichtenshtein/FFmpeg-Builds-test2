@@ -26,20 +26,18 @@ ffbuild_dockerbuild() {
     # Vapoursynth требует автогенерации скриптов сборки
     ./autogen.sh
 
-    # Настройка параметров для Win64
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
         --enable-static
         --disable-shared
-        --disable-vsscript
-        --disable-python-module
-        --disable-core
-        --disable-plugins
+        --disable-vsscript       # Оставляем выключенным для экономии места
+        --disable-python-module  # Python в статичном FFmpeg под Win64 почти невозможен
+        --disable-core           # Мы используем Vapoursynth как интерфейс загрузки скриптов
     )
 
     # Для FFmpeg нам нужны только хедеры и интерфейс линковки (VSRuntime)
-    # Если вам нужен полный Core внутри FFmpeg, настройки будут сложнее
+    # Если нужен полный Core внутри FFmpeg, настройки будут сложнее
     
     ./configure "${myconf[@]}" \
         CFLAGS="$CFLAGS" \
@@ -52,6 +50,9 @@ ffbuild_dockerbuild() {
     # FFmpeg ищет Vapoursynth через pkg-config
     # Исправляем путь в .pc файле, если он криво сгенерировался
     sed -i "s|prefix=.*|prefix=$FFBUILD_PREFIX|" "$FFBUILD_DESTPREFIX"/lib/pkgconfig/vapoursynth.pc
+    # FFmpeg не увидит Vapoursynth, если не будет правильных флагов в .pc
+    # Добавляем -lstdc++ и убираем динамические зависимости
+    sed -i "s/Libs: .*/Libs: -L\${libdir} -lvapoursynth -lstdc++/" "$FFBUILD_DESTPREFIX"/lib/pkgconfig/vapoursynth.pc
 }
 
 ffbuild_configure() {

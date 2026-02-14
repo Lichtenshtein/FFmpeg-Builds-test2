@@ -47,6 +47,7 @@ CROSS_MARK='❌'
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
+        -DENABLE_AVX512=OFF \
         -DBUILD_SHARED_LIBS=OFF ..
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"

@@ -44,29 +44,27 @@ CROSS_MARK='❌'
         done
     fi
 
-    autoreconf -i
+    # Принудительно чиним конфиг для современных систем
+    sed -i 's/AC_PREREQ(2.69)/AC_PREREQ(2.71)/' configure.in || true
+    
+    # Исправляем баг в Makefile, который может пытаться собрать документацию
+    sed -i 's/SUBDIRS = mpglib libmp3lame frontend include doc dev/SUBDIRS = mpglib libmp3lame include/' Makefile.am
+
+    autoreconf -fi
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
         --disable-shared
         --enable-static
         --enable-nasm
         --disable-gtktest
-        --disable-cpml
         --disable-frontend
-        --disable-decoder
     )
 
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --host="$FFBUILD_TOOLCHAIN"
-        )
-    else
-        echo "Unknown target"
-        return -1
-    fi
-
-    export CFLAGS="$CFLAGS -DNDEBUG -D_ALLOW_INTERNAL_OPTIONS -Wno-error=incompatible-pointer-types"
+    # export CFLAGS="$CFLAGS -DNDEBUG -D_ALLOW_INTERNAL_OPTIONS -Wno-error=incompatible-pointer-types"
+    # GCC 14 требует более мягких проверок для старого кода LAME
+    export CFLAGS="$CFLAGS -O3 -ffast-math -Wno-implicit-function-declaration -Wno-int-conversion -Wno-error=incompatible-pointer-types"
 
     ./configure "${myconf[@]}"
     make -j$(nproc) $MAKE_V
