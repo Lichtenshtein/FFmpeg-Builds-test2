@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/DanBloomberg/leptonica.git"
-SCRIPT_COMMIT="1.84.1" # Стабильная версия
+SCRIPT_COMMIT="13275a278eb55b5746e33f95fbf5a2c8f604b3ab" # Стабильная версия
 
 ffbuild_depends() {
     echo zlib
