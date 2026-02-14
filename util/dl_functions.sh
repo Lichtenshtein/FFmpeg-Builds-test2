@@ -9,9 +9,12 @@ git-mini-clone() {
     [[ "$TARGET_DIR" == "." ]] && TARGET_DIR="./"
     mkdir -p "$TARGET_DIR"
 
-    # Если есть BRANCH, пробуем ее (depth 1)
+    # Добавляем --no-tags для ускорения и уменьшения мусора
+    local GIT_OPTS="--quiet --filter=blob:none --no-tags"
+
+    # Если есть BRANCH
     if [[ -n "$BRANCH" ]]; then
-        if git clone --quiet --filter=blob:none --depth=1 --branch "$BRANCH" "$REPO" "$TARGET_DIR" 2>/dev/null; then
+        if git clone $GIT_OPTS --depth=1 --branch "$BRANCH" "$REPO" "$TARGET_DIR" 2>/dev/null; then
             if [[ -n "$COMMIT" && "$COMMIT" != "$BRANCH" ]]; then
                 ( cd "$TARGET_DIR" && git fetch --quiet --depth=1 origin "$COMMIT" && git checkout --quiet FETCH_HEAD )
             fi
@@ -19,13 +22,13 @@ git-mini-clone() {
         fi
     fi
 
-    # Пробуем напрямую по COMMIT (теги/ветки)
-    if git clone --quiet --filter=blob:none --depth=1 --branch "$COMMIT" "$REPO" "$TARGET_DIR" 2>/dev/null; then
+    # По COMMIT (тег/ветка)
+    if git clone $GIT_OPTS --depth=1 --branch "$COMMIT" "$REPO" "$TARGET_DIR" 2>/dev/null; then
         return 0
     fi
 
-    # Фолбэк для специфических хэшей коммитов
-    git clone --quiet --filter=blob:none --depth=1 "$REPO" "$TARGET_DIR" 2>/dev/null || git clone --quiet "$REPO" "$TARGET_DIR"
+    # Фолбэк
+    git clone $GIT_OPTS --depth=1 "$REPO" "$TARGET_DIR" 2>/dev/null || git clone --quiet "$REPO" "$TARGET_DIR"
     cd "$TARGET_DIR"
     git fetch --quiet --depth=1 origin "$COMMIT" 2>/dev/null || git fetch --quiet origin "$COMMIT"
     git checkout --quiet FETCH_HEAD

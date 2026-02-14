@@ -40,15 +40,23 @@ download_stage() {
     WORK_DIR=$(mktemp -d)
     
     # Выполняем загрузку через eval
-    if ( cd "$WORK_DIR" && eval "$DL_COMMAND" ); then
+    if ( cd "$WORK_DIR" && eval "source ../../util/dl_functions.sh; $DL_COMMAND" ); then
         find "$WORK_DIR" -name ".git" -type d -exec rm -rf {} +
         tar -cpJf "$TGT_FILE" -C "$WORK_DIR" .
+        
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
-        echo "Done: $STAGENAME (Link: $(basename "$TGT_FILE"))"
-        rm -rf "$WORK_DIR"
-        return 0
+        
+        if [[ -e "$LATEST_LINK" ]]; then
+            echo "Done: $STAGENAME (Link: $(basename "$TGT_FILE"))"
+            rm -rf "$WORK_DIR"
+            return 0
+        else
+            echo "ERROR: Symlink creation failed for $STAGENAME"
+            rm -rf "$WORK_DIR"
+            return 1
+        fi
     else
-        echo "ERROR: Symlink creation failed for $STAGENAME"
+        echo "FAILED: $STAGENAME (Command: $DL_COMMAND)"
         rm -rf "$WORK_DIR"
         return 1
     fi
