@@ -1,8 +1,8 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/openssl/openssl.git"
-SCRIPT_COMMIT="openssl-3.5.4"
-SCRIPT_TAGFILTER="openssl-3.5.*"
+SCRIPT_COMMIT="openssl-3.5.5"
+# SCRIPT_TAGFILTER="openssl-3.5.*"
 
 ffbuild_depends() {
     echo base
@@ -19,7 +19,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # Убираем префикс из имен инструментов, так как OpenSSL добавит его сам
+    # РЈР±РёСЂР°РµРј РїСЂРµС„РёРєСЃ РёР· РёРјРµРЅ РёРЅСЃС‚СЂСѓРјРµРЅС‚РѕРІ, С‚Р°Рє РєР°Рє OpenSSL РґРѕР±Р°РІРёС‚ РµРіРѕ СЃР°Рј
     local CLEAN_CC="${CC#$FFBUILD_CROSS_PREFIX}"
     local CLEAN_CXX="${CXX#$FFBUILD_CROSS_PREFIX}"
     local CLEAN_AR="${AR#$FFBUILD_CROSS_PREFIX}"
@@ -33,7 +33,7 @@ ffbuild_dockerbuild() {
         no-apps
         no-legacy
         no-ssl3
-        no-async # Важно для стабильности на MinGW
+        no-async # Р’Р°Р¶РЅРѕ РґР»СЏ СЃС‚Р°Р±РёР»СЊРЅРѕСЃС‚Рё РЅР° MinGW
         enable-camellia
         enable-ec
         enable-srp
@@ -51,7 +51,7 @@ ffbuild_dockerbuild() {
     export CFLAGS="$CFLAGS -fno-strict-aliasing"
     export CXXFLAGS="$CXXFLAGS -fno-strict-aliasing"
 
-    # Передаем "чистые" имена инструментов
+    # РџРµСЂРµРґР°РµРј "С‡РёСЃС‚С‹Рµ" РёРјРµРЅР° РёРЅСЃС‚СЂСѓРјРµРЅС‚РѕРІ
     CC="$CLEAN_CC" CXX="$CLEAN_CXX" AR="$CLEAN_AR" RANLIB="$CLEAN_RANLIB" \
     ./Configure "${myconf[@]}" "$CFLAGS" "$LDFLAGS"
 

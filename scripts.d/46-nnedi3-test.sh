@@ -1,7 +1,8 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/Jamaika1/AviSynthPlus-NNEDI3CL.git"
-SCRIPT_COMMIT="patch-1"
+SCRIPT_COMMIT="ae51fe937f44bfa8e9099a52f39897c1f181a80a"
+SCRIPT_BRANCH="patch-1"
 
 ffbuild_enabled() {
     # Этот фильтр требует OpenCL (45-opencl.sh)
@@ -9,7 +10,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    echo "git clone --filter=blob:none --branch \"$SCRIPT_COMMIT\" \"$SCRIPT_REPO\" ."
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
 ffbuild_dockerdl() {
