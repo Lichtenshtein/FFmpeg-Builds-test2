@@ -151,6 +151,10 @@ ffbuild_dockerdl() {
     fi
 }
 
+ffbuild_enabled() {
+    return 0
+}
+
 # 1 для подробных логов, в 0 для кратких
 export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
 
