@@ -100,6 +100,19 @@ jobs:
           restore-keys: |
             dl-cache-
 
+      - name: Run Download and Generate
+        run: |
+          # Создаем директории на случай, если кэш пустой
+          mkdir -p .cache/downloads
+          mkdir -p .cache/ffmpeg
+          # Запускаем логику загрузки и генерации Dockerfile
+          ./download.sh
+          ./generate.sh win64 nonfree
+          cat Dockerfile | grep "run_stage"
+        env:
+          TARGET: win64
+          VARIANT: nonfree
+
       - name: Prepare and Build
         uses: docker/build-push-action@v5
         with:
