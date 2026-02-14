@@ -59,19 +59,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      # - name: Build Base Images
-        # run: |
-          # if ! docker pull ${{ steps.images.outputs.base }}; then
-            # docker build -t ${{ steps.images.outputs.base }} images/base
-            # docker push ${{ steps.images.outputs.base }}
-          # fi
-          
-          # if ! docker pull ${{ steps.images.outputs.target_base }}; then
-            # docker build -t ${{ steps.images.outputs.target_base }} \
-              # --build-arg GH_REPO=${{ steps.images.outputs.repo_lc }} images/base-win64
-            # docker push ${{ steps.images.outputs.target_base }}
-          # fi
-
       - name: Build Base Image
         uses: docker/build-push-action@v5
         with:
@@ -94,10 +81,9 @@ jobs:
           path: |
             .cache/downloads
             .cache/ffmpeg
-          key: dl-cache-${{ steps.dl_cache.outputs.key }}
-          # Если точного совпадения нет, берем ЛЮБОЙ последний кэш, 
-          # чтобы download.sh докачал только измененные файлы, а не всё с нуля
+          key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
           restore-keys: |
+            dl-cache-${{ steps.dl_cache.outputs.key }}-
             dl-cache-
 
       - name: Run Download and Generate
@@ -133,25 +119,31 @@ jobs:
             ffmpeg_src=.cache/ffmpeg
           outputs: type=local,dest=artifacts/
 
-      # - name: Prepare and Build
-        # run: |
-          # ./download.sh
-          # ./generate.sh win64 nonfree
-          # cat Dockerfile | grep "run_stage"
-          # docker buildx build \
-            # --cache-from type=gha,scope=ffmpeg-build \
-            # --cache-to type=gha,mode=max,scope=ffmpeg-build \
-            # --build-context downloads=.cache/downloads \
-            # --tag ${{ steps.images.outputs.variant }} \
-            # --output type=local,dest=artifacts/ \
-            # --file Dockerfile .
-
       - name: Force Save Cache
         if: always()
         uses: actions/cache/save@v4
         with:
           path: .cache/downloads
           key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
+
+      - name: Cleanup Old Caches
+        if: always()
+        run: |
+          gh extension install actions/gh-actions-cache || true
+          echo "Fetching list of caches..."
+          caches=$(gh actions-cache list --limit 100 --order desc | cut -f 1)
+          
+          # Оставляем только 5 последних кэшей, остальные удаляем
+          count=0
+          for cache in $caches; do
+            ((count++))
+              if [ $count -gt 5 ]; then
+                echo "Deleting old cache: $cache"
+                gh actions-cache delete "$cache" --confirm
+              fi
+          done
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
 
       - name: Upload Final Artifacts
         uses: actions/upload-artifact@v4
