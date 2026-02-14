@@ -102,6 +102,7 @@ jobs:
 
       - name: Run Download and Generate
         run: |
+          git config --global advice.detachedHead false
           # Создаем директории на случай, если кэш пустой
           mkdir -p .cache/downloads
           mkdir -p .cache/ffmpeg

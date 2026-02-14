@@ -5,10 +5,10 @@ set -eo pipefail
 cd "$(dirname "$0")/.."
 
 # Проверяем, что папки существуют, прежде чем запускать find
-if [ ! -d "scripts.d" ]; then
-    echo "ERROR: scripts.d not found at $(pwd)" >&2
-    exit 1
-fi
+# if [ ! -d "scripts.d" ]; then
+    # echo "ERROR: scripts.d not found at $(pwd)" >&2
+    # exit 1
+# fi
 
 # будем хэшировать только те строки, которые начинаются с SCRIPT_ или ffbuild_dockerdl. Это те части кода, которые определяют, что скачивать
 # Извлекаем только значимые для загрузки строки:
