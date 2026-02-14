@@ -5,7 +5,7 @@ SCRIPT_COMMIT="5.5.0" # Актуальный стабильный релиз
 
 ffbuild_depends() {
     echo leptonica # Tesseract не живет без Leptonica
-    echo libarchive
+    # echo libarchive
     echo pango # Если нужен качественный рендеринг текста
 }
 
@@ -27,11 +27,16 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=OFF
         -DENABLE_TERMINAL_REPORTING=OFF
-        -DOPENMP=ON 
+        -DOPENMP=ON
+        -DCPPAN_BUILD=OFF
         -DGRAPHICS_OPTIMIZATIONS=ON
         -DSW_BUILD=OFF
         -DBUILD_TRAINING_TOOLS=OFF
+        -DENABLE_LTO=ON
     )
+
+    # Принудительно отключаем поиск Pango, если не хотим проблем с линковкой
+    # cmake "${myconf[@]}" -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica" ..
 
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS" \

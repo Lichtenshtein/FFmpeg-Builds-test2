@@ -13,28 +13,30 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     cd libtorch_src
 
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{include,lib,bin}
+    mkdir -p "$FFBUILD_DESTPREFIX"/{include,lib,bin}
     
     # Копируем всё содержимое
-    cp -r include/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
+    cp -r include/* "$FFBUILD_DESTPREFIX/include/"
     # Копируем заголовочные файлы
-    cp lib/*.lib "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
-    # Копируем DLL в bin, чтобы их подхватил финальный упаковщик
-    cp lib/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
+    # Для MinGW важно, чтобы .lib файлы имели префикс lib, иначе -l не всегда их видит
+    for f in lib/*.lib; do cp "$f" "$FFBUILD_DESTPREFIX/lib/lib$(basename "$f")"; done
+    cp lib/*.dll "$FFBUILD_DESTPREFIX/bin/"
 
     # LibTorch требует много флагов, создаем .pc файл
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libtorch.pc"
+    mkdir -p "$FFBUILD_DESTPREFIX/lib/pkgconfig"
+    cat <<EOF > "$FFBUILD_DESTPREFIX/lib/pkgconfig/libtorch.pc"
 prefix=$FFBUILD_PREFIX
-exec_prefix=\${prefix}
-libdir=\${exec_prefix}/lib
+libdir=\${prefix}/lib
 includedir=\${prefix}/include
 
 Name: LibTorch
 Description: PyTorch C++ API
-Version: 2.5.1
+Version: 2.10.0
+# Переносим основные либы в Libs, чтобы они всегда были видны
 Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10
-Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include
+# Добавляем необходимые системные либы Windows в private
+Libs.private: -lshlwapi -luser32 -ladvapi32
+Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1
 EOF
 }
 

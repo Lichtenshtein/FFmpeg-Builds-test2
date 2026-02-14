@@ -19,12 +19,16 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if (( $FFVER < 800 )); then
+    # Получаем версию через функцию, так как переменная FFVER пуста
+    local current_ffver=$(ffbuild_ffver)
+
+    if (( current_ffver < 800 )); then
         cd ffnvcodec4
     else
         cd ffnvcodec
     fi
 
+    # ffnvcodec - это просто заголовки, Makefile простой.
     make PREFIX="$FFBUILD_PREFIX" DESTDIR="$FFBUILD_DESTDIR" install
 }
 

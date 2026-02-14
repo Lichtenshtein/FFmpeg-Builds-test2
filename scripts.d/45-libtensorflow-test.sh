@@ -12,25 +12,24 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    cd tf_src
+    # Структура архива обычно содержит папку 'lib' и 'include'
+    
+    mkdir -p "$FFBUILD_DESTPREFIX"/{include/tensorflow/c,lib,bin}
 
-    # Подготавливаем структуру префикса
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{include/tensorflow/c,lib,bin}
+    # Копируем заголовки (сохраняя структуру)
+    cp -r include/* "$FFBUILD_DESTPREFIX/include/"
 
-    # 1. Копируем заголовки
-    cp -r include/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
+    # Библиотеки и DLL
+    # Для MinGW лучше сделать копию .lib с префиксом 'lib'
+    cp lib/tensorflow.lib "$FFBUILD_DESTPREFIX/lib/libtensorflow.lib"
+    # Сама DLL должна быть в bin, чтобы попасть в финальный архив
+    cp lib/tensorflow.dll "$FFBUILD_DESTPREFIX/bin/"
 
-    # 2. Библиотеки и DLL
-    # Для TensorFlow на Windows используется tensorflow.lib и tensorflow.dll
-    cp lib/tensorflow.lib "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
-    cp lib/tensorflow.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
-
-    # 3. Генерируем .pc файл для FFmpeg
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/tensorflow.pc"
+    # Генерируем .pc файл
+    # ВАЖНО: Добавляем -ltensorflow.lib явно для линковщика
+    cat <<EOF > "$FFBUILD_DESTPREFIX/lib/pkgconfig/tensorflow.pc"
 prefix=$FFBUILD_PREFIX
-exec_prefix=\${prefix}
-libdir=\${exec_prefix}/lib
+libdir=\${prefix}/lib
 includedir=\${prefix}/include
 
 Name: TensorFlow

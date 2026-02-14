@@ -4,22 +4,23 @@ SCRIPT_REPO="https://github.com/GNOME/librsvg.git"
 SCRIPT_COMMIT="2.60.0"
 
 ffbuild_enabled() {
-    # librsvg требует Rust, убедимся что он есть
-    [[ -n "$FFBUILD_RUST_TARGET" ]] || return -1
-    # sripts to write
     # 20-pixman.sh (нужен для Cairo).
     # 25-cairo.sh (нужен для Pango/Rsvg).
     # 40-pango.sh (нужен для Rsvg).
-    return -1
+    return 0
 }
 
 ffbuild_dockerbuild() {
-    # librsvg сейчас использует Autotools, который вызывает Cargo внутри
-    ./autogen.sh
-    
-    # нужно подсказать Rust, какой таргет использовать
+    # Librsvg требует Rust. Мы настроили его в Base Image.
+    # Включаем кросс-линковку для Rust через переменные
     export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="${FFBUILD_TOOLCHAIN}-gcc"
-    
+    export PKG_CONFIG_ALLOW_CROSS=1
+
+    # В новых версиях librsvg лучше использовать Meson, если он есть, 
+    # но официальный релиз 2.60 еще опирается на Autotools/Make
+    ./autogen.sh
+
+        # --disable-tools
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
@@ -27,7 +28,6 @@ ffbuild_dockerbuild() {
         --disable-shared
         --disable-introspection
         --disable-pixbuf-loader
-        --disable-tools
         --with-rust-target="$FFBUILD_RUST_TARGET"
     )
 

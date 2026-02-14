@@ -19,26 +19,30 @@ ffbuild_dockerbuild() {
     cd openvino_src
 
     # Инсталляция заголовков и библиотек
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{include,lib,bin}
-    cp -r runtime/include/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
-    cp runtime/lib/intel64/Release/*.lib "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
-    cp runtime/bin/intel64/Release/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
-    cp runtime/3rdparty/tbb/bin/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
-    # Создаем именно lib/cmake и копируем туда
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake"
-    cp -r runtime/cmake/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake/"
+    mkdir -p "$FFBUILD_DESTPREFIX"/{include,lib,bin}
 
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/openvino.pc"
+    cp -r runtime/include/* "$FFBUILD_DESTPREFIX/include/"
+    # Фикс имен для MinGW
+    for f in runtime/lib/intel64/Release/*.lib; do cp "$f" "$FFBUILD_DESTPREFIX/lib/lib$(basename "$f")"; done
+    
+    # Копируем ВСЕ DLL (включая TBB и плагины)
+    cp runtime/bin/intel64/Release/*.dll "$FFBUILD_DESTPREFIX/bin/"
+    cp runtime/3rdparty/tbb/bin/*.dll "$FFBUILD_DESTPREFIX/bin/"
+    # Создаем именно lib/cmake и копируем туда
+    mkdir -p "$FFBUILD_DESTPREFIX/lib/cmake"
+    cp -r runtime/cmake/* "$FFBUILD_DESTPREFIX/lib/cmake/"
+
+    mkdir -p "$FFBUILD_DESTPREFIX/lib/pkgconfig"
+    cat <<EOF > "$FFBUILD_DESTPREFIX/lib/pkgconfig/openvino.pc"
 prefix=$FFBUILD_PREFIX
-exec_prefix=\${prefix}
-libdir=\${exec_prefix}/lib
+libdir=\${prefix}/lib
 includedir=\${prefix}/include
 
 Name: OpenVINO
-Description: Intel Distribution of OpenVINO Toolkit
-Version: 2024.6.0
-Libs: -L\${libdir} -lopenvino
+Description: Intel OpenVINO Runtime
+Version: 2025.4.1
+Libs: -L\${libdir} -lopenvino -lopenvino_c
+Libs.private: -ltbb
 Cflags: -I\${includedir}
 EOF
 }
