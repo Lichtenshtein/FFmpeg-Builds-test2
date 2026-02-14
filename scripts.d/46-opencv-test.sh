@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/opencv/opencv.git"
-SCRIPT_COMMIT="4.13.0"
+SCRIPT_COMMIT="a8d26a042bb1f23c5621d1708a6c9155fc8dae19"
 
 ffbuild_enabled() {
     return 0

@@ -1,11 +1,11 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/scimmia9286/aribb24.git"
-SCRIPT_COMMIT="add-multi-DRCS-plane"
+SCRIPT_COMMIT="fa54dee41aa38560f02868b24f911a24c33780a8"
+SCRIPT_BRANCH="add-multi-DRCS-plane"
 
 ffbuild_dockerdl() {
-    # Клонируем конкретную ветку
-    echo "git clone --filter=blob:none --branch \"$SCRIPT_COMMIT\" \"$SCRIPT_REPO\" ."
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
 ffbuild_enabled() {

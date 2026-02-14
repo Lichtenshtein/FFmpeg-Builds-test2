@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/GNOME/librsvg.git"
-SCRIPT_COMMIT="2.60.0"
+SCRIPT_COMMIT="28b37154cddfda8a0782ee684f34a18964384b41"
 
 ffbuild_enabled() {
     # 20-pixman.sh (нужен для Cairo).
