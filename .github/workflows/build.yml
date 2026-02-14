@@ -109,10 +109,14 @@ jobs:
           # Запускаем логику загрузки и генерации Dockerfile
           ./download.sh
           ./generate.sh win64 nonfree
-          cat Dockerfile | grep "run_stage"
         env:
           TARGET: win64
           VARIANT: nonfree
+
+      - name: Inspect Dockerfile
+        run: head -n 5 Dockerfile
+
+            # ghcr.io/${{ steps.images.outputs.repo_lc }}/base-win64:latest=docker-image://${{ steps.images.outputs.target_base }}
 
       - name: Prepare and Build
         uses: docker/build-push-action@v5
@@ -123,8 +127,8 @@ jobs:
           tags: ${{ steps.images.outputs.variant }}
           cache-from: type=gha,scope=ffmpeg-build
           cache-to: type=gha,mode=max,scope=ffmpeg-build
-          # Добавляем второй контекст для FFmpeg через вертикальную черту |
           build-contexts: |
+            ${{ steps.images.outputs.target_base }}=docker-image://${{ steps.images.outputs.target_base }}
             downloads=.cache/downloads
             ffmpeg_src=.cache/ffmpeg
           outputs: type=local,dest=artifacts/
