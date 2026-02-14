@@ -2,10 +2,16 @@
 set -e
 shopt -s globstar
 cd "$(dirname "$0")"
-source util/vars.sh
+
+# Сначала загружаем переменные (включая вариант), 
+# но перенаправляем их стандартный вывод в никуда, 
+# чтобы случайные echo не попали в поток генерации.
+source util/vars.sh "$@" > /dev/null 2>&1
 
 export LC_ALL=C.UTF-8
-rm -f Dockerfile
+
+# Явно очищаем файл перед началом записи
+echo -n "" > Dockerfile
 
 to_df() {
     printf "$@" >> Dockerfile
@@ -13,7 +19,8 @@ to_df() {
 }
 
 # Базовый образ
-to_df "FROM ${REGISTRY}/${REPO}/base-${TARGET}:latest AS build_stage"
+to_df "FROM ${TARGET_IMAGE} AS build_stage"
+# to_df "FROM ${REGISTRY}/${REPO}/base-${TARGET}:latest AS build_stage"
 to_df "ENV TARGET=$TARGET VARIANT=$VARIANT REPO=$REPO ADDINS_STR=$ADDINS_STR"
 to_df "ENV C_INCLUDE_PATH=/opt/ffbuild/include CPATH=/opt/ffbuild/include LIBRARY_PATH=/opt/ffbuild/lib"
 
