@@ -58,7 +58,7 @@ ffbuild_depends() {
     echo libopus
     echo libplacebo
     echo librist
-    # echo librsvg-test
+    echo librsvg-test
     echo libssh
     echo libtheora
     echo libtorch-test
@@ -69,6 +69,7 @@ ffbuild_depends() {
     echo modplug
     echo mp3shine
     echo mpeghe
+    echo nnedi3-test
     echo onevpl
     echo openal
     echo openapv

@@ -48,7 +48,10 @@ ffbuild_dockerbuild() {
 
     # Исправляем pkg-config для статической линковки Tesseract
     # Leptonica иногда не прописывает зависимости в Libs.private
-    sed -i 's/Libs.private:/& -lpng16 -ljpeg -ltiff -lwebp -lgif -lz /' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/lept.pc
+    sed -i 's/Libs.private:/Libs.private: -lwebp -lsharpyuv -ltiff -ljpeg -lpng16 -lgif -lz -lm -lshlwapi /' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/lept.pc
+    
+    # Создаем симлинк, если Tesseract ищет leptonica.pc вместо lept.pc
+    ln -sf lept.pc "$FFBUILD_DESTPREFIX"/lib/pkgconfig/leptonica.pc
 }
 
 ffbuild_configure() {

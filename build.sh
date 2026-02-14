@@ -56,6 +56,9 @@ ccache -z # Сброс статистики для чистого лога
 # Force update of pkg-config paths
 export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
 export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig"
+# Полустатический режим с --extra-libs="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32"
+# Перед запуском configure убедимся, что линковщик видит DLL-импорты
+export LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition"
 
 # Сборка FFmpeg
 chmod +x configure
@@ -64,6 +67,7 @@ chmod +x configure
     --prefix="$PWD/../prefix" \
     --pkg-config-flags="--static" \
     $FFBUILD_TARGET_FLAGS \
+    --extra-libs="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32" \
     $FF_CONFIGURE \
     --enable-filter=vpp_amf \
     --enable-filter=sr_amf \
@@ -78,7 +82,6 @@ chmod +x configure
     --extra-cxxflags="$FF_CXXFLAGS" \
     --extra-ldflags="$FF_LDFLAGS" \
     --extra-ldexeflags="$FF_LDEXEFLAGS" \
-    --extra-libs="$FF_LIBS" \
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" \
     --extra-version="VVCEasy"
 
@@ -98,7 +101,8 @@ package_variant ffbuild/prefix "$PKG_DIR"
 # Копируем лицензию
 [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"
 
-echo "Collecting external DLLs for runtime dependencies..."
+echo "Collecting external DLLs for AI support..."
+mkdir -p "$PKG_DIR/bin"
 # Копируем все DLL из нашего сборочного префикса в папку с бинарниками
 # Это подхватит DLL от OpenVINO, TBB, TensorFlow, LibTorch и других
 find "/opt/ffbuild/bin" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \;
