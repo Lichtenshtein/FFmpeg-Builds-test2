@@ -9,7 +9,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    echo "git clone --filter=blob:none \"$SCRIPT_REPO\" ."
+    echo "git clone --depth 1 \"$SCRIPT_REPO\" ."
 }
 
 ffbuild_dockerbuild() {
@@ -29,30 +29,33 @@ ffbuild_dockerbuild() {
     sed -i '1i#include <cstdint>' source/dynamicHDR10/json11/json11.cpp
 
     if [[ $TARGET != *32 ]]; then
-        mkdir 8bit 10bit 12bit
+        mkdir -p 8bit 10bit 12bit
+        
+        # 12-bit core
         cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -DMAIN12=ON -S source -B 12bit
+        make -C 12bit -j$(nproc)
+
+        # 10-bit core
         cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -S source -B 10bit
-        cmake "${common_config[@]}" -DEXTRA_LIB="x265_main10.a;x265_main12.a" -DEXTRA_LINK_FLAGS=-L. -DLINKED_10BIT=ON -DLINKED_12BIT=ON -S source -B 8bit
+        make -C 10bit -j$(nproc)
 
-        cat >Makefile <<"EOF"
-all: 12bit/libx265.a 10bit/libx265.a 8bit/libx265.a
+        # 8-bit main (linking to 10 and 12)
+        # Копируем либы в корень 8bit, чтобы CMake их увидел через -DEXTRA_LIB
+        cp 12bit/libx265.a 8bit/libx265_main12.a
+        cp 10bit/libx265.a 8bit/libx265_main10.a
+        
+        cmake "${common_config[@]}" \
+            -DEXTRA_LIB="libx265_main10.a;libx265_main12.a" \
+            -DLINKED_10BIT=ON -DLINKED_12BIT=ON \
+            -S source -B 8bit
+        make -C 8bit -j$(nproc)
 
-%/libx265.a:
-	$(MAKE) -C $(subst /libx265.a,,$@)
-
-.PHONY: all
-EOF
-
-        make -j$(nproc) $MAKE_V
-
+        # Объединяем в финальную либу
         cd 8bit
-        mv ../12bit/libx265.a ../8bit/libx265_main12.a
-        mv ../10bit/libx265.a ../8bit/libx265_main10.a
-        mv libx265.a libx265_main.a
-
+        mv libx265.a libx265_8bit.a
         ${AR} -M <<EOF
 CREATE libx265.a
-ADDLIB libx265_main.a
+ADDLIB libx265_8bit.a
 ADDLIB libx265_main10.a
 ADDLIB libx265_main12.a
 SAVE

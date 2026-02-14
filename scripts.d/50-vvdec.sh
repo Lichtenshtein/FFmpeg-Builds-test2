@@ -40,15 +40,8 @@ CROSS_MARK='❌'
 
     mkdir build && cd build
 
-    local armsimd=()
-    if [[ $TARGET == linuxarm64 ]]; then
-        armsimd+=( -DVVDEC_ENABLE_ARM_SIMD=ON )
-
-        if [[ "$CC" != *clang* ]]; then
-            export CFLAGS="$CFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
-            export CXXFLAGS="$CXXFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
-        fi
-    fi
+    export CFLAGS="$CFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
+    export CXXFLAGS="$CXXFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
 
     cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
          -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
@@ -58,7 +51,9 @@ CROSS_MARK='❌'
          -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
          -DBUILD_SHARED_LIBS=OFF \
          -DEXTRALIBS="-lstdc++" \
-         -DVVDEC_ENABLE_LINK_TIME_OPT=OFF "${armsimd[@]}" ..
+         -DVVDEC_ENABLE_LINK_TIME_OPT=ON ..
+
+# -DVVDEC_ENABLE_LINK_TIME_OPT=OFF
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"

@@ -36,7 +36,7 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
-    rm -rf rm "$FFBUILD_DESTPREFIX"/share
+    rm -rf "$FFBUILD_DESTPREFIX"/share
 }
 
 ffbuild_configure() {

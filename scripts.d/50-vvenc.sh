@@ -17,17 +17,11 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
-    local armsimd=()
-    if [[ $TARGET == *arm64 ]]; then
-        armsimd+=( -DVVENC_ENABLE_ARM_SIMD=ON )
+    export CFLAGS="$CFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
+    export CXXFLAGS="$CXXFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
 
-        if [[ "$CC" != *clang* ]]; then
-            export CFLAGS="$CFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
-            export CXXFLAGS="$CXXFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
-        fi
-    fi
-
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
+    cmake -G "Unix Makefiles" \
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_C_FLAGS="$CFLAGS" \
@@ -36,8 +30,10 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=OFF \
         -DVVENC_LIBRARY_ONLY=ON \
         -DVVENC_ENABLE_WERROR=OFF \
-        -DVVENC_ENABLE_LINK_TIME_OPT=OFF \
-        -DEXTRALIBS="-lstdc++" "${armsimd[@]}" ..
+        -DVVENC_ENABLE_LINK_TIME_OPT=ON \
+        -DEXTRALIBS="-lstdc++ -lm" .. # -lm для математики
+
+        # -DVVENC_ENABLE_LINK_TIME_OPT=OFF
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"

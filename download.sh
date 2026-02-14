@@ -15,7 +15,7 @@ git-mini-clone() {
     local TARGET_DIR="${3:-.}"
     [[ "$TARGET_DIR" == "." ]] && TARGET_DIR="./"
     echo "Cloning $REPO ($COMMIT) into $TARGET_DIR..."
-    git clone --filter=blob:none --quiet "$REPO" "$TARGET_DIR"
+    git clone --filter=blob:none --depth=1 --quiet "$REPO" "$TARGET_DIR"
     if [[ -n "$COMMIT" && "$COMMIT" != "master" && "$COMMIT" != "main" ]]; then
         ( cd "$TARGET_DIR" && git checkout --quiet "$COMMIT" )
     fi
