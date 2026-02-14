@@ -8,8 +8,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    # Клонируем прямо в корень, чтобы избежать проблем с подпапками
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v1'"
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
 ffbuild_dockerbuild() {

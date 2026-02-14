@@ -1,8 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/openssl/openssl.git"
-SCRIPT_COMMIT="openssl-3.5.5"
-# SCRIPT_TAGFILTER="openssl-3.5.*"
+SCRIPT_COMMIT="67b5686b4419b4cb8caa502711c41815f5279751"
 
 ffbuild_depends() {
     echo base
@@ -14,8 +13,8 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    default_dl .
-    echo "git submodule update --init --recursive --depth=1"
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+    echo "git submodule update --init --recursive --depth=1 --quiet"
 }
 
 ffbuild_dockerbuild() {

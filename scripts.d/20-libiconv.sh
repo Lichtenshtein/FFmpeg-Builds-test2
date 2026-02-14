@@ -13,8 +13,8 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    git-mini-clone "$SCRIPT_MIRROR" "$SCRIPT_COMMIT" .
-    git-mini-clone "$SCRIPT_MIRROR2" "$SCRIPT_COMMIT2" gnulib
+    echo "git-mini-clone \"$SCRIPT_MIRROR\" \"$SCRIPT_COMMIT\" ."
+    echo "git-mini-clone \"$SCRIPT_MIRROR2\" \"$SCRIPT_COMMIT2\" gnulib"
 }
 
 ffbuild_dockerbuild() {

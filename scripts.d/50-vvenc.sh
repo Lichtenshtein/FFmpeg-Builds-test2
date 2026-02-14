@@ -13,6 +13,10 @@ ffbuild_enabled() {
     # I force enabled just in case cause BtBn force disabled vvenc for avx2 enabled reason.
 }
 
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+}
+
 ffbuild_dockerbuild() {
 
     mkdir build && cd build

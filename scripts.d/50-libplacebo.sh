@@ -16,10 +16,6 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
-    # Сначала клонируем основной репозиторий с историей (глубина 1)
-    # echo "git clone --filter=blob:none --depth=1 \"$SCRIPT_REPO\" ."
-    # Затем принудительно инициализируем подмодули без лишних фильтров, которые могут не поддерживаться старыми версиями git
-    # echo "git submodule update --init --recursive --depth=1"
 }
 
 ffbuild_dockerbuild() {

@@ -11,52 +11,59 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    default_dl headers
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" headers"
     echo "git-mini-clone \"$SCRIPT_REPO2\" \"$SCRIPT_COMMIT2\" loader"
 }
 
 ffbuild_dockerbuild() {
-    mkdir -p "$FFBUILD_DESTPREFIX"/include/CL
-    cp -r headers/CL/* "$FFBUILD_DESTPREFIX"/include/CL/.
+    mkdir -p "$FFBUILD_DESTPREFIX/include/CL"
+    cp -r headers/CL/* "$FFBUILD_DESTPREFIX/include/CL/."
 
     cd loader
     mkdir build && cd build
 
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
+    # Собираем лоадер статически
+    cmake -GNinja \
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DOPENCL_ICD_LOADER_HEADERS_DIR="$FFBUILD_DESTPREFIX"/include \
+        -DOPENCL_ICD_LOADER_HEADERS_DIR="$FFBUILD_DESTPREFIX/include" \
         -DOPENCL_ICD_LOADER_BUILD_SHARED_LIBS=OFF \
         -DOPENCL_ICD_LOADER_DISABLE_OPENCLON12=ON \
         -DOPENCL_ICD_LOADER_PIC=ON \
         -DOPENCL_ICD_LOADER_BUILD_TESTING=OFF \
         -DBUILD_TESTING=OFF ..
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    
+    ninja -j$(nproc) $NINJA_V
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
 
-    echo "prefix=$FFBUILD_PREFIX" > OpenCL.pc
-    echo "exec_prefix=\${prefix}" >> OpenCL.pc
-    echo "libdir=\${exec_prefix}/lib" >> OpenCL.pc
-    echo "includedir=\${prefix}/include" >> OpenCL.pc
-    echo >> OpenCL.pc
-    echo "Name: OpenCL" >> OpenCL.pc
-    echo "Description: OpenCL ICD Loader" >> OpenCL.pc
-    echo "Version: 9999" >> OpenCL.pc
-    echo "Cflags: -I\${includedir}" >> OpenCL.pc
+    # Генерация .pc файла (исправлено цитирование)
+    cat <<EOF > OpenCL.pc
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: OpenCL
+Description: OpenCL ICD Loader
+Version: 3.0
+Cflags: -I\${includedir}
+EOF
 
     if [[ $TARGET == linux* ]]; then
         echo "Libs: -L\${libdir} -lOpenCL" >> OpenCL.pc
         echo "Libs.private: -ldl" >> OpenCL.pc
     elif [[ $TARGET == win* ]]; then
-        echo "Libs: -L\${libdir} -l:OpenCL.a" >> OpenCL.pc
+        # Важно для Broadwell/Win64: форсируем статическую линку
+        echo "Libs: -L\${libdir} -lOpenCL" >> OpenCL.pc
         echo "Libs.private: -lole32 -lshlwapi -lcfgmgr32" >> OpenCL.pc
     fi
 
-    mkdir -p "$FFBUILD_DESTPREFIX"/lib/pkgconfig
-    mv OpenCL.pc "$FFBUILD_DESTPREFIX"/lib/pkgconfig/OpenCL.pc
+    mkdir -p "$FFBUILD_DESTPREFIX/lib/pkgconfig"
+    mv OpenCL.pc "$FFBUILD_DESTPREFIX/lib/pkgconfig/OpenCL.pc"
 }
 
 ffbuild_configure() {

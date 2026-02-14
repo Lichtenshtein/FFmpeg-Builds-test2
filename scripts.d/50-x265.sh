@@ -9,7 +9,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    echo "git clone --depth 1 \"$SCRIPT_REPO\" ."
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
 ffbuild_dockerbuild() {

@@ -7,7 +7,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    echo "curl -L \"$SCRIPT_REPO\" --output libtorch.zip && unzip -qq libtorch.zip && mv libtorch libtorch_src"
+    echo "curl -sL \"$SCRIPT_REPO\" --output libtorch.zip && unzip -qq libtorch.zip && mv libtorch libtorch_src"
 }
 
 ffbuild_dockerbuild() {

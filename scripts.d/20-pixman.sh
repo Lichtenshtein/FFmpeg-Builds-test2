@@ -2,6 +2,10 @@
 SCRIPT_REPO="https://gitlab.freedesktop.org/pixman/pixman.git"
 SCRIPT_COMMIT="f824cac6478971c0f71e4dfe8a60ebf70224076a"
 
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+}
+
 ffbuild_dockerbuild() {
     mkdir build && cd build
 
