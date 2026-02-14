@@ -13,13 +13,8 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    # echo "retry-tool sh -c \"rm -rf iconv && git clone '$SCRIPT_MIRROR' iconv\" && git -C iconv checkout \"$SCRIPT_COMMIT\""
-    # echo "cd iconv && retry-tool sh -c \"rm -rf gnulib && git clone --filter=blob:none '$SCRIPT_MIRROR2' gnulib\" && git -C gnulib checkout \"$SCRIPT_COMMIT2\" && rm -rf gnulib/.git"
-
-    # Скачиваем iconv прямо в корень (.)
-    echo "git clone '$SCRIPT_MIRROR' . && git checkout \"$SCRIPT_COMMIT\""
-    # Скачиваем gnulib внутрь
-    echo "git clone --filter=blob:none '$SCRIPT_MIRROR2' gnulib && git -C gnulib checkout \"$SCRIPT_COMMIT2\" && rm -rf gnulib/.git"
+    git-mini-clone "$SCRIPT_MIRROR" "$SCRIPT_COMMIT" .
+    git-mini-clone "$SCRIPT_MIRROR2" "$SCRIPT_COMMIT2" gnulib
 }
 
 ffbuild_dockerbuild() {

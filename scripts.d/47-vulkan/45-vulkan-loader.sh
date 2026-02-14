@@ -14,8 +14,13 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    default_dl .
-    echo "git-mini-clone \"$SCRIPT_REPO2\" \"$SCRIPT_COMMIT2\" Vulkan-Headers"
+    # Загружаем лоадер в корень (.)
+    git-mini-clone "$SCRIPT_REPO" "$SCRIPT_COMMIT" .
+    
+    # Загружаем хедеры в подпапку, как того ожидает сборка лоадера
+    # Используем переменные с индексом 2
+    SCRIPT_BRANCH="" # Сбрасываем, чтобы не мешала первой загрузке
+    git-mini-clone "$SCRIPT_REPO2" "$SCRIPT_COMMIT2" "external/Vulkan-Headers"
 }
 
 ffbuild_dockerbuild() {

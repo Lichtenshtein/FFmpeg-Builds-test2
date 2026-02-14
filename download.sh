@@ -13,25 +13,33 @@ git-mini-clone() {
     local REPO="$1"
     local COMMIT="$2"
     local TARGET_DIR="${3:-.}"
-    # Подхватываем SCRIPT_BRANCH из окружения (он будет доступен, так как мы source скрипт)
-    local BRANCH="${SCRIPT_BRANCH:-}" 
+    # Подхватываем BRANCH из окружения, если она есть (как в SDL)
+    local BRANCH="${SCRIPT_BRANCH:-}"
 
     [[ "$TARGET_DIR" == "." ]] && TARGET_DIR="./"
     
-    echo "Cloning $REPO (Branch: ${BRANCH:-default}, Commit: $COMMIT) into $TARGET_DIR..."
+    echo "Cloning $REPO (Branch: ${BRANCH:-default}, Target: $COMMIT) into $TARGET_DIR..."
 
+    # Если указана ветка, пробуем сначала ее с глубиной 1
     if [[ -n "$BRANCH" ]]; then
-        # Если ветка указана, клонируем именно её с глубиной 1
-        git clone --filter=blob:none --depth=1 --branch "$BRANCH" --quiet "$REPO" "$TARGET_DIR"
-    else
-        # Иначе стандартный клон ветки по умолчанию
-        git clone --filter=blob:none --depth=1 --quiet "$REPO" "$TARGET_DIR"
+        if git clone --filter=blob:none --depth=1 --branch "$BRANCH" "$REPO" "$TARGET_DIR" 2>/dev/null; then
+            if [[ -n "$COMMIT" && "$COMMIT" != "$BRANCH" ]]; then
+                ( cd "$TARGET_DIR" && git fetch --depth=1 origin "$COMMIT" && git checkout FETCH_HEAD )
+            fi
+            return 0
+        fi
     fi
 
-    # Переключаемся на конкретный хэш, если он не совпадает с головой ветки
-    if [[ -n "$COMMIT" && "$COMMIT" != "master" && "$COMMIT" != "main" && "$COMMIT" != "$BRANCH" ]]; then
-        ( cd "$TARGET_DIR" && git fetch --depth=1 origin "$COMMIT" && git checkout --quiet "$COMMIT" )
+    # Если ветки нет или клон ветки не удался, пробуем клон по COMMIT (если это тег или ветка)
+    if git clone --filter=blob:none --depth=1 --branch "$COMMIT" "$REPO" "$TARGET_DIR" 2>/dev/null; then
+        return 0
     fi
+
+    # клонируем дефолтную ветку и забираем нужный коммит
+    git clone --filter=blob:none --depth=1 "$REPO" "$TARGET_DIR"
+    cd "$TARGET_DIR"
+    git fetch --depth=1 origin "$COMMIT"
+    git checkout FETCH_HEAD
 }
 
 # Функция для обработки ОДНОГО скрипта (экспортируем для xargs)
