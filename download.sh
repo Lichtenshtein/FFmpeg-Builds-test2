@@ -48,7 +48,7 @@ download_stage() {
         tar -cpJf "$TGT_FILE" -C "$WORK_DIR" .
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
         if [[ -e "$LATEST_LINK" ]]; then
-            echo "Done: $STAGENAME (Link: $(basename "$TGT_FILE"))"
+            echo "Done: $STAGENAME (Name: $(basename "$TGT_FILE"))"
             rm -rf "$WORK_DIR"
             return 0
         else

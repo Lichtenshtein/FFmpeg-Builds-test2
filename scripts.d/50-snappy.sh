@@ -12,7 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    git submodule update --init --recursive --depth=1
+    git submodule --quiet update --init --recursive --depth=1
     mkdir build && cd build
 
     cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \

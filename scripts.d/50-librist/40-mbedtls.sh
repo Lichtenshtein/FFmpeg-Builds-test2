@@ -9,8 +9,8 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    default_dl .
-    echo "git submodule update --init --recursive --depth=1"
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+    echo "git submodule --quiet update --init --recursive --depth=1"
 }
 
 ffbuild_dockerbuild() {
