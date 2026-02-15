@@ -114,7 +114,7 @@ jobs:
           cache-from: type=gha,scope=ffmpeg-build
           cache-to: type=gha,mode=max,scope=ffmpeg-build
           build-contexts: |
-            ${{ steps.images.outputs.target_base }}=docker-image://${{ steps.images.outputs.target_base }}
+            base-win64=docker-image://${{ steps.images.outputs.target_base }}
             downloads=.cache/downloads
             ffmpeg_src=.cache/ffmpeg
           outputs: type=local,dest=artifacts/
@@ -128,6 +128,7 @@ jobs:
 
       - name: Cleanup Old Caches
         if: always()
+        continue-on-error: true
         run: |
           gh extension install actions/gh-actions-cache || true
           echo "Fetching list of caches..."
@@ -139,7 +140,7 @@ jobs:
             ((count++))
               if [ $count -gt 5 ]; then
                 echo "Deleting old cache: $cache"
-                gh actions-cache delete "$cache" --confirm
+                gh actions-cache delete "$cache" --confirm || true
               fi
           done
         env:
