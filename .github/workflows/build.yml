@@ -62,11 +62,18 @@ jobs:
       - name: Build Base Image
         uses: docker/build-push-action@v5
         with:
-          context: images/base
-          push: true
-          tags: ${{ steps.images.outputs.base }}
+          build-args: GH_REPO=${{ steps.images.outputs.repo_lc }}
           cache-from: type=gha,scope=base
           cache-to: type=gha,mode=max,scope=base
+          context: images/base-win64
+          push: false # Для отладки не пушим, а просто собираем
+          load: true   # Загружаем в локальный Docker
+          tags: base-win64:local
+
+          # context: images/base-win64
+          # push: true
+          # load: true
+          # tags: ${{ steps.images.outputs.target_base }}
 
       - name: Get Download Cache Key
         id: dl_cache
@@ -113,10 +120,20 @@ jobs:
           cache-from: type=gha,scope=ffmpeg-build
           cache-to: type=gha,mode=max,scope=ffmpeg-build
           build-contexts: |
-            base-image=docker-image://${{ steps.images.outputs.target_base }}
+            base-image=docker-image://base-win64:local
             downloads=.cache/downloads
             ffmpeg_src=.cache/ffmpeg
           outputs: type=local,dest=artifacts/
+          provenance: false
+          
+          # build-contexts: |
+            # base-image=docker-image://${{ steps.images.outputs.target_base }}
+            # downloads=.cache/downloads
+            # ffmpeg_src=.cache/ffmpeg
+          # outputs: type=local,dest=artifacts/
+          # provenance: false
+
+
 
       - name: Force Save Cache
         if: always()
@@ -134,7 +151,7 @@ jobs:
         run: |
           gh extension install actions/gh-actions-cache || true
           echo "Fetching list of caches..."
-          caches=$(gh actions-cache list --limit 100 --order desc | cut -f 1)
+          caches=$(gh actions-cache list --limit 100 --order desc | cut -f 1) || true
           
           # Оставляем только 5 последних кэшей, остальные удаляем
           count=0
@@ -145,6 +162,7 @@ jobs:
                 gh actions-cache delete "$cache" --confirm || true
               fi
           done
+          if [ -z "$caches" ]; then echo "No caches to cleanup"; exit 0; fi
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
