@@ -68,7 +68,6 @@ jobs:
           context: images/base-win64
           push: false
           load: true
-          outputs: type=docker,dest=base-image.tar
           tags: base-win64:local
 
           # tags: ${{ steps.images.outputs.target_base }}
