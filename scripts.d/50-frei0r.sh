@@ -34,6 +34,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
+        -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4" \ 
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
         -DWITHOUT_GAVL=ON \
         ..

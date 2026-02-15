@@ -32,10 +32,23 @@ download_stage() {
     TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.xz"
     LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.xz"
 
+    # --- DEBUG SECTION ---
+    echo "--- Debug for $STAGENAME ---"
+    if [[ ! -d "$DL_DIR" ]]; then
+        echo "[DEBUG] ERROR: DL_DIR ($DL_DIR) does not exist!"
+    else
+        echo "[DEBUG] Files in cache for $STAGENAME:"
+        ls -F "$DL_DIR" | grep "$STAGENAME" || echo "[DEBUG] No files matching $STAGENAME found in $DL_DIR"
+    fi
+    # ----------------------
+
     if [[ -f "$TGT_FILE" ]]; then
-        echo "Cache hit: $STAGENAME (Hash: $DL_HASH)"
+        echo "Cache hit: $STAGENAME (File exists: $(basename "$TGT_FILE"))"
+        echo "Cache hit: $STAGENAME (Hash matched: $DL_HASH)"
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
         [[ -e "$LATEST_LINK" ]] && return 0
+    else
+        echo "Cache miss: $STAGENAME (Target file $TGT_FILE not found)"
     fi
 
     echo "Downloading: $STAGENAME (Hash: $DL_HASH)..."

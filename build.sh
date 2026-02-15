@@ -73,8 +73,6 @@ chmod +x configure
     --enable-filter=sr_amf \
     --enable-runtime-cpudetect \
     --enable-pic \
-    --enable-pthreads \
-    --disable-w32threads \
     --enable-lto \
     --h264-max-bit-depth=14 \
     --h265-bit-depths=8,9,10,12 \

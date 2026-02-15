@@ -14,34 +14,37 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # No need to build this
+    # Очищаем CMakeLists для приложений, чтобы не собирать лишний мусор
     echo > app/CMakeLists.txt
 
     mkdir build && cd build
 
-    if [[ $TARGET == *32 ]]; then
-        export CFLAGS="$CFLAGS -msse -msse2"
-        export CXXFLAGS="$CXXFLAGS -msse -msse2"
-    fi
-
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
+    cmake -G Ninja \
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
-        -DOAPV_APP_STATIC_BUILD=ON -DENABLE_TESTS=OFF ..
+        -DOAPV_APP_STATIC_BUILD=ON \
+        -DENABLE_TESTS=OFF ..
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    ninja -j$(nproc) $NINJA_V
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
 
-    mv "$FFBUILD_DESTPREFIX"/lib{/oapv/liboapv.a,}
-    rm -rf "$FFBUILD_DESTPREFIX"/{bin,lib/oapv,include/oapv/oapv_exports.h,lib/liboapv.so*}
+    # Безопасное перемещение библиотеки
+    if [[ -f "$FFBUILD_DESTPREFIX/lib/oapv/liboapv.a" ]]; then
+        mv "$FFBUILD_DESTPREFIX/lib/oapv/liboapv.a" "$FFBUILD_DESTPREFIX/lib/liboapv.a"
+    fi
+    
+    # Очистка динамических библиотек и мусора
+    rm -rf "$FFBUILD_DESTPREFIX"/{bin,lib/oapv,lib/liboapv.so*}
 
-    {
-        echo "Libs.private: -lm"
-        echo "Cflags.private: -DOAPV_STATIC_DEFINE"
-    } >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/oapv.pc
+    # Фикс pkg-config для статической линковки
+    if [[ -f "$FFBUILD_DESTPREFIX/lib/pkgconfig/oapv.pc" ]]; then
+        sed -i 's/Libs: /Libs.private: -lm\nLibs: /' "$FFBUILD_DESTPREFIX/lib/pkgconfig/oapv.pc"
+        echo "Cflags.private: -DOAPV_STATIC_DEFINE" >> "$FFBUILD_DESTPREFIX/lib/pkgconfig/oapv.pc"
+    fi
 }
 
 ffbuild_configure() {
