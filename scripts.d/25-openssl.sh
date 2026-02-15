@@ -9,6 +9,7 @@ ffbuild_depends() {
 }
 
 ffbuild_enabled() {
+    [[ $VARIANT == nonfree* ]] || return 0
     return 0
 }
 
@@ -18,6 +19,10 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    # MinGW-w64 пока не знает про SIO_UDP_NETRESET (нужно для QUIC)
+    # Вставляем дефайн в системный заголовок внутри OpenSSL
+    sed -i '1i#ifndef SIO_UDP_NETRESET\n#define SIO_UDP_NETRESET _WSAIOW(IOC_VENDOR, 15)\n#endif' include/internal/sockets.h
+
     # Убираем префикс из имен инструментов, так как OpenSSL добавит его сам
     local CLEAN_CC="${CC#$FFBUILD_CROSS_PREFIX}"
     local CLEAN_CXX="${CXX#$FFBUILD_CROSS_PREFIX}"
@@ -47,6 +52,7 @@ ffbuild_dockerbuild() {
         myconf+=( mingw )
     fi
 
+    # GCC 14 может ругаться на строгие алиасы в старом коде OpenSSL
     export CFLAGS="$CFLAGS -fno-strict-aliasing"
     export CXXFLAGS="$CXXFLAGS -fno-strict-aliasing"
 
