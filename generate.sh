@@ -19,7 +19,7 @@ to_df() {
 }
 
 # Базовый образ
-to_df "FROM base-image AS build_stage"
+to_df "FROM base-win64:local AS build_stage"
 # to_df "FROM ${REGISTRY}/${REPO}/base-${TARGET}:latest AS build_stage"
 to_df "ENV TARGET=$TARGET VARIANT=$VARIANT REPO=$REPO ADDINS_STR=$ADDINS_STR"
 to_df "ENV C_INCLUDE_PATH=/opt/ffbuild/include CPATH=/opt/ffbuild/include LIBRARY_PATH=/opt/ffbuild/lib"
