@@ -4,13 +4,6 @@ shopt -s globstar
 cd "$(dirname "$0")"
 source util/vars.sh
 
-# Определяем цвета и символы
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-NC='\033[0m' # No Color (сброс цвета)
-CHECK_MARK='✅'
-CROSS_MARK='❌'
-
 # Определяем целевой вариант
 source "variants/${TARGET}-${VARIANT}.sh"
 for addin in ${ADDINS[*]}; do
@@ -27,22 +20,22 @@ FFMPEG_REPO="${FFMPEG_REPO:-https://github.com/MartinEesmaa/FFmpeg.git}"
 GIT_BRANCH="${GIT_BRANCH:-master}"
 
 # Клонирование и патчинг (прямо в текущем слое Docker)
-echo "Using pre-mounted FFmpeg source..."
+log_info "Using pre-mounted FFmpeg source..."
 cd ffbuild/ffmpeg
 
 # Применяем патчи
 if [[ -d "/builder/patches/ffmpeg/$GIT_BRANCH" ]]; then
     for patch in /builder/patches/ffmpeg/$GIT_BRANCH/*.patch; do
         git checkout .
-        echo -e "\n-----------------------------------"
-        echo "~~~ APPLYING PATCH: $patch"
+        log_info "\n-----------------------------------"
+        log_info "~~~ APPLYING PATCH: $patch"
         # Выполняем патч и проверяем код выхода
         if patch -p1 < "$patch"; then
-            echo -e "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            echo "-----------------------------------"
+            log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+            log_info "-----------------------------------"
         else
-            echo -e "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-            echo "-----------------------------------"
+            log_info "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+            log_info "-----------------------------------"
             # exit 1 # если нужно прервать сборку при ошибке
         fi
     done
@@ -99,7 +92,7 @@ package_variant ffbuild/prefix "$PKG_DIR"
 # Копируем лицензию
 [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"
 
-echo "Collecting external DLLs for AI support..."
+log_info "Collecting external DLLs for AI support..."
 mkdir -p "$PKG_DIR/bin"
 # Копируем все DLL из нашего сборочного префикса в папку с бинарниками
 # Это подхватит DLL от OpenVINO, TBB, TensorFlow, LibTorch и других
@@ -107,6 +100,7 @@ find "/opt/ffbuild/bin" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \;
 # Проверяем наличие критических библиотек (для отладки в логах)
 ls -lh "$PKG_DIR/bin/"
 # Скачиваем модели для ИИ
+# log_info "Downloading Additional Models for AI..."
 # MODELS_FINAL_DIR="$PKG_DIR/models"
 # /builder/util/download_models.sh "$MODELS_FINAL_DIR"
 
@@ -130,7 +124,7 @@ if [[ -n "$GITHUB_ACTIONS" ]]; then
     echo "build_name=${BUILD_NAME}" >> "$GITHUB_OUTPUT"
     echo "${OUTPUT_FNAME}" > "${FINAL_DEST}/${TARGET}-${VARIANT}.txt"
     # Вывод статистики ccache (теперь через прямую команду)
-    echo "--- CCACHE STATISTICS ---"
+    log_info "--- CCACHE STATISTICS ---"
     ccache -s
 fi
 

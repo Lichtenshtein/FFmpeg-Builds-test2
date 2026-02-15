@@ -13,24 +13,16 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-# Определяем цвета и символы
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-NC='\033[0m' # No Color (сброс цвета)
-CHECK_MARK='✅'
-CROSS_MARK='❌'
-    
     if [[ -d "/builder/patches/zimg" ]]; then
         for patch in /builder/patches/zimg/*.patch; do
-            echo -e "\n-----------------------------------"
-            echo "~~~ APPLYING PATCH: $patch"
-            # Выполняем патч и проверяем код выхода
+            log_info "\n-----------------------------------"
+            log_info "~~~ APPLYING PATCH: $patch"
             if patch -p1 < "$patch"; then
-                echo -e "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-                echo "-----------------------------------"
+                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+                log_info "-----------------------------------"
             else
-                echo -e "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                echo "-----------------------------------"
+                log_info "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+                log_info "-----------------------------------"
                 # exit 1 # если нужно прервать сборку при ошибке
             fi
         done

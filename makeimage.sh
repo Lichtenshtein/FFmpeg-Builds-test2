@@ -14,15 +14,15 @@ if [[ -z "$GITHUB_ACTIONS" ]]; then
 fi
 
 # Загрузка исходников (теперь на хосте, без Docker)
-echo "Step: Downloading sources..."
+log_info "Step: Downloading sources..."
 ./download.sh
 
 # Генерация Dockerfile (наш новый линейный формат)
-echo "Step: Generating Dockerfile..."
+log_info "Step: Generating Dockerfile..."
 ./generate.sh "$TARGET" "$VARIANT" "${ADDINS[@]}"
 
 # Сборка финального образа и экспорт
-echo "Step: Building FFmpeg..."
+log_info "Step: Building FFmpeg..."
 
 # Если мы в GitHub Actions, мы используем билд через обычный docker build
 # или позволяем workflow самому вызвать docker buildx.
@@ -33,4 +33,4 @@ DOCKER_BUILDKIT=1 docker build \
     --output type=local,dest=artifacts/ \
     --tag "$IMAGE" .
 
-echo "Build finished. Artifacts are in artifacts/ directory."
+log_info "Build finished. Artifacts are in artifacts/ directory."
