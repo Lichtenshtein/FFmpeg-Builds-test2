@@ -60,7 +60,7 @@ done
 for STAGE in "${active_scripts[@]}"; do
     STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')" # Получаем имя для лога
     to_df "RUN $MOUNTS \\"
-    to_df "    echo '>>> $STAGENAME <<<' && run_stage /builder/$STAGE"
+    to_df "    log_info '>>> $STAGENAME <<<' && run_stage /builder/$STAGE"
 done
 
 # Сборка FFmpeg (Флаги конфигурации)

@@ -28,6 +28,11 @@ ffbuild_dockerbuild() {
     # Удаляем только pcre2 из субпроектов, чтобы заставить использовать наш билд
     rm -rf subprojects/pcre2*
 
+    # Принудительно отключаем использование AppContainer и WinRT API
+    # Это уберет ошибку windows.applicationmodel.core.h
+    export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW"
+    export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW"
+
     # Подготавливаем строки аргументов заранее
     # Превращаем "-O3 -march=broadwell" в "'-O3', '-march=broadwell'"
     MESON_C_ARGS=$(echo $CFLAGS | xargs -n1 | sed "s/.*/'&'/" | paste -sd, -)
@@ -76,7 +81,12 @@ EOF
         -Dtests=false \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
-        -Dnls=disabled
+        -Dnls=disabled \
+        -Dglib-networking=disabled \
+        -Dgnutls=disabled \
+        -Druntime_libdir="" \
+        -Dlocalstatedir=/var \
+        -Dsysconfdir=/etc
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install

@@ -33,25 +33,25 @@ download_stage() {
     LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.xz"
 
     # --- DEBUG SECTION ---
-    echo "--- Debug for $STAGENAME ---"
+    log_debug "Checking cache for $STAGENAME in $DL_DIR..."
     if [[ ! -d "$DL_DIR" ]]; then
-        echo "[ERROR]: DL_DIR ($DL_DIR) does not exist!"
+        log_error "DL_DIR ($DL_DIR) does not exist!"
     else
-        echo "[DEBUG] Files in cache for $STAGENAME:"
-        ls -F "$DL_DIR" | grep "$STAGENAME" || echo "[DEBUG] No files matching $STAGENAME found in $DL_DIR"
+        log_info "Files in cache for $STAGENAME:"
+        ls -F "$DL_DIR" | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found"
     fi
     # ----------------------
 
     if [[ -f "$TGT_FILE" ]]; then
-        echo "Cache hit: $STAGENAME (File exists: $(basename "$TGT_FILE"))"
-        echo "Cache hit: $STAGENAME (Hash matched: $DL_HASH)"
+        log_info "Cache hit: $STAGENAME (File exists: $(basename "$TGT_FILE"))"
+        log_info "Cache hit: $STAGENAME (Hash matched: $DL_HASH)"
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
         [[ -e "$LATEST_LINK" ]] && return 0
     else
-        echo "Cache miss: $STAGENAME (Target file $TGT_FILE not found)"
+        log_warn "Cache miss: $STAGENAME (Target file $TGT_FILE not found)"
     fi
 
-    echo "Downloading: $STAGENAME (Hash: $DL_HASH)..."
+    log_info "Downloading: $STAGENAME (Hash: $DL_HASH)..."
     WORK_DIR=$(mktemp -d)
     
     # ИСПОЛЬЗУЕМ АБСОЛЮТНЫЙ ПУТЬ К ФУНКЦИЯМ
@@ -61,16 +61,16 @@ download_stage() {
         tar -cpJf "$TGT_FILE" -C "$WORK_DIR" .
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
         if [[ -e "$LATEST_LINK" ]]; then
-            echo "Done: $STAGENAME (Name: $(basename "$TGT_FILE"))"
+            log_info "Done: $STAGENAME (Name: $(basename "$TGT_FILE"))"
             rm -rf "$WORK_DIR"
             return 0
         else
-            echo "[ERROR]: Symlink creation failed for $STAGENAME"
+            log_error "ERROR: Symlink creation failed for $STAGENAME"
             rm -rf "$WORK_DIR"
             return 1
         fi
     else
-        echo "FAILED: $STAGENAME (Command: $DL_COMMAND)"
+        log_error "FAILED: $STAGENAME (Command: $DL_COMMAND)"
         rm -rf "$WORK_DIR"
         return 1
     fi
@@ -79,7 +79,7 @@ download_stage() {
 export -f download_stage
 # git-mini-clone экспортируется автоматически, так как она в dl_functions.sh
 
-echo "Starting parallel downloads for $TARGET-$VARIANT..."
+log_info "Starting parallel downloads for $TARGET-$VARIANT..."
 find scripts.d -name "*.sh" | sort | \
     xargs -I{} -P 8 bash -c "ROOT_DIR='$ROOT_DIR' download_stage '{}' '$TARGET' '$VARIANT' '$DL_DIR'"
 
@@ -89,7 +89,7 @@ mkdir -p "$FFMPEG_DIR"
 if [[ ! -d "$FFMPEG_DIR/.git" ]]; then
     git clone --quiet --filter=blob:none --depth=1 --branch="${GIT_BRANCH:-master}" "${FFMPEG_REPO:-https://github.com/MartinEesmaa/FFmpeg.git}" "$FFMPEG_DIR"
 else
-    echo "Updating FFmpeg..."
+    log_info "Updating FFmpeg..."
     ( cd "$FFMPEG_DIR" && git fetch --quiet --depth=1 origin "${GIT_BRANCH:-master}" && git reset --hard FETCH_HEAD )
 fi
-echo "All downloads finished."
+log_info "All downloads finished."

@@ -1,5 +1,23 @@
 #!/bin/bash
 
+# ANSI Color Codes
+export LOG_DEBUG='\033[1;35m'  # Purple (Bold)
+export LOG_INFO='\033[1;32m'   # Green (Bold)
+export LOG_WARN='\033[1;33m'   # Yellow (Bold)
+export LOG_ERROR='\033[1;31m'  # Red (Bold)
+export LOG_NC='\033[0m'        # No Color (Reset)
+export RED='\033[0;31m'        # Red
+export GREEN='\033[0;32m'      # Green
+export NC='\033[0m'            # No Color (Reset)
+export CHECK_MARK='✅'
+export CROSS_MARK='❌'
+
+# Функции для логирования
+log_info()  { echo -e "${LOG_INFO}[INFO]${LOG_NC}  $*"; }
+log_warn()  { echo -e "${LOG_WARN}[WARN]${LOG_NC}  $*"; }
+log_error() { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} $*"; }
+log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*"; }
+
 if [[ $# -lt 2 ]]; then
     echo "Invalid Arguments"
     exit -1

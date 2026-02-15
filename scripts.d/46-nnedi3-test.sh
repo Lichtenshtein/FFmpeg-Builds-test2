@@ -13,10 +13,6 @@ ffbuild_dockerdl() {
     echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
-ffbuild_dockerdl() {
-    default_dl .
-}
-
 ffbuild_dockerbuild() {
     mkdir build && cd build
 

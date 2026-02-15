@@ -8,16 +8,27 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+    # echo "git submodule --quiet update --init --recursive --depth=1"
 }
 
 ffbuild_dockerbuild() {
+    # Отключаем WinRT, который требует отсутствующий заголовок
+    # Мы подменяем проверку в meson.build или передаем через CFLAGS
+    export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW"
+    export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW"
+
     mkdir build && cd build
 
     meson setup --prefix="$FFBUILD_PREFIX" \
         --cross-file=/cross.meson \
         --default-library=static \
+        --buildtype=release \
+        --wrap-mode=nodownload \
         -Dintrospection=disabled \
-        -Dfontconfig=enabled ..
+        -Dfontconfig=enabled \
+        -Dsysprof=disabled \
+        -Dgtk_doc=false \
+        ..
 
     ninja -j$(nproc)  $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
