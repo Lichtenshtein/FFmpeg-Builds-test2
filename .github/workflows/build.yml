@@ -66,8 +66,8 @@ jobs:
           cache-from: type=gha,scope=base
           cache-to: type=gha,mode=max,scope=base
           context: images/base-win64
-          push: false # Для отладки не пушим, а просто собираем
-          load: true   # Загружаем в локальный Docker
+          push: false
+          outputs: type=docker,dest=base-image.tar
           tags: base-win64:local
 
           # context: images/base-win64
@@ -120,7 +120,7 @@ jobs:
           cache-from: type=gha,scope=ffmpeg-build
           cache-to: type=gha,mode=max,scope=ffmpeg-build
           build-contexts: |
-            base-image=docker-image://base-win64:local
+            base-image=tar://base-image.tar
             downloads=.cache/downloads
             ffmpeg_src=.cache/ffmpeg
           outputs: type=local,dest=artifacts/
@@ -133,8 +133,6 @@ jobs:
           # outputs: type=local,dest=artifacts/
           # provenance: false
 
-
-
       - name: Force Save Cache
         if: always()
         uses: actions/cache/save@v4
@@ -144,25 +142,26 @@ jobs:
             .cache/ffmpeg
           key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
 
-
       - name: Cleanup Old Caches
         if: always()
         continue-on-error: true
         run: |
           gh extension install actions/gh-actions-cache || true
           echo "Fetching list of caches..."
-          caches=$(gh actions-cache list --limit 100 --order desc | cut -f 1) || true
+          caches=$(gh actions-cache list --limit 100 --order desc 2>/dev/null | cut -f 1) || true
           
-          # Оставляем только 5 последних кэшей, остальные удаляем
-          count=0
-          for cache in $caches; do
-            ((count++))
+          if [ -z "$caches" ]; then
+            echo "No caches found."
+          else
+            count=0
+            for cache in $caches; do
+              ((count++))
               if [ $count -gt 5 ]; then
                 echo "Deleting old cache: $cache"
                 gh actions-cache delete "$cache" --confirm || true
               fi
-          done
-          if [ -z "$caches" ]; then echo "No caches to cleanup"; exit 0; fi
+            done
+          fi
         env:
           GITHUB_TOKEN: ${{ github.token }}
 
