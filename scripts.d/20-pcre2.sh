@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/PCRE2Project/pcre2.git"
-SCRIPT_COMMIT="f454e231fe5006dd7ff8f4693fd2b8eb94333429"
+SCRIPT_COMMIT="d8a443253783718f62f970b10bec2fcf34f077e3"
 
 ffbuild_enabled() {
     return 0
@@ -9,6 +9,8 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+    # Принудительно подтягиваем sljit, так как без него JIT не соберется
+    echo "git submodule --quiet update --init --recursive --depth=1"
 }
 
 ffbuild_dockerbuild() {
