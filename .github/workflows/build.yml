@@ -75,15 +75,14 @@ jobs:
           echo "Cache Key: $KEY"
           echo "key=$KEY" >> $GITHUB_OUTPUT
 
-      - name: Restore/Save Source Cache
-        uses: actions/cache@v4
+      - name: Restore Source Cache
+        uses: actions/cache/restore@v4
         with:
           path: |
             .cache/downloads
             .cache/ffmpeg
-          key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
+          key: dl-cache-${{ steps.dl_cache.outputs.key }}
           restore-keys: |
-            dl-cache-${{ steps.dl_cache.outputs.key }}-
             dl-cache-
 
       - name: Run Download and Generate
@@ -114,7 +113,7 @@ jobs:
           cache-from: type=gha,scope=ffmpeg-build
           cache-to: type=gha,mode=max,scope=ffmpeg-build
           build-contexts: |
-            base-win64=docker-image://${{ steps.images.outputs.target_base }}
+            base-image=docker-image://${{ steps.images.outputs.target_base }}
             downloads=.cache/downloads
             ffmpeg_src=.cache/ffmpeg
           outputs: type=local,dest=artifacts/
@@ -123,8 +122,11 @@ jobs:
         if: always()
         uses: actions/cache/save@v4
         with:
-          path: .cache/downloads
+          path: |
+            .cache/downloads
+            .cache/ffmpeg
           key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
+
 
       - name: Cleanup Old Caches
         if: always()

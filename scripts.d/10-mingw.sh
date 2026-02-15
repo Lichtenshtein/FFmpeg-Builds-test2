@@ -10,8 +10,9 @@ ffbuild_enabled() {
 
 ffbuild_dockerlayer() {
     [[ $TARGET == winarm* ]] && return 0
+    # to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /"
+    # to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /opt/mingw"
     to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /"
-    to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /opt/mingw"
 }
 
 ffbuild_dockerfinal() {
@@ -27,10 +28,13 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     [[ $TARGET == winarm* ]] && return 0
 
-    if [[ -z "$COMPILER_SYSROOT" ]]; then
-        COMPILER_SYSROOT="$(${CC} -print-sysroot)/usr/${FFBUILD_TOOLCHAIN}"
-    fi
+    # if [[ -z "$COMPILER_SYSROOT" ]]; then
+        # COMPILER_SYSROOT="$(${CC} -print-sysroot)/usr/${FFBUILD_TOOLCHAIN}"
+    # fi
+    # Определяем sysroot тулчейна (обычно /opt/ct-ng/x86_64-w64-mingw32)
+    local SYSROOT=$(${CC} -print-sysroot)
 
+    # Сбрасываем флаги, чтобы системная сборка не подхватила лишнего
     unset CC CXX LD AR CPP LIBS CCAS
     unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
     unset PKG_CONFIG_LIBDIR
@@ -41,21 +45,20 @@ ffbuild_dockerbuild() {
     (
         cd mingw-w64-headers
 
-        local myconf=(
-            --prefix="$COMPILER_SYSROOT"
-            --host="$FFBUILD_TOOLCHAIN"
-            --with-default-win32-winnt="0x601"
-            --with-default-msvcrt=ucrt
-            --enable-idl
-            --enable-sdk=all
-            --enable-secure-api
-        )
-
-        ./configure "${myconf[@]}"
-        make -j$(nproc)
+            # --prefix="$COMPILER_SYSROOT"
+        ./configure \
+            --prefix="$SYSROOT" \
+            --host="$FFBUILD_TOOLCHAIN" \
+            --with-default-win32-winnt="0x601" \
+            --with-default-msvcrt=ucrt \
+            --enable-idl --enable-sdk=all --enable-secure-api
+        
+        # Устанавливаем в /opt/mingw, сохраняя структуру относительно корня
+        make -j$(nproc) $MAKE_V
         make install DESTDIR="/opt/mingw"
     )
 
+    # Синхронизируем для сборки следующих этапов внутри этого же скрипта
     cp -a /opt/mingw/. /
 
     ###
@@ -63,37 +66,26 @@ ffbuild_dockerbuild() {
     ###
     (
         cd mingw-w64-crt
-
-        local myconf=(
-            --prefix="$COMPILER_SYSROOT"
-            --host="$FFBUILD_TOOLCHAIN"
-            --with-default-msvcrt=ucrt
+        ./configure \
+            --prefix="$SYSROOT" \
+            --host="$FFBUILD_TOOLCHAIN" \
+            --with-default-msvcrt=ucrt \
             --enable-wildcard
-        )
-
-        ./configure "${myconf[@]}"
-        make -j$(nproc)
+        make -j$(nproc) $MAKE_V
         make install DESTDIR="/opt/mingw"
     )
-
     cp -a /opt/mingw/. /
 
     ###
-    ### mingw-w64-libraries/winpthreads
+    ### mingw-w64-libraries/winpthreads (Важно для FFmpeg)
     ###
     (
         cd mingw-w64-libraries/winpthreads
-
-        local myconf=(
-            --prefix="$COMPILER_SYSROOT"
-            --host="$FFBUILD_TOOLCHAIN"
-            --with-pic
-            --disable-shared
-            --enable-static
-        )
-
-        ./configure "${myconf[@]}"
-        make -j$(nproc)
+        ./configure \
+            --prefix="$SYSROOT" \
+            --host="$FFBUILD_TOOLCHAIN" \
+            --with-pic --disable-shared --enable-static
+        make -j$(nproc) $MAKE_V
         make install DESTDIR="/opt/mingw"
     )
 }
