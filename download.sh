@@ -35,7 +35,7 @@ download_stage() {
     # --- DEBUG SECTION ---
     echo "--- Debug for $STAGENAME ---"
     if [[ ! -d "$DL_DIR" ]]; then
-        echo "[DEBUG] ERROR: DL_DIR ($DL_DIR) does not exist!"
+        echo "[ERROR]: DL_DIR ($DL_DIR) does not exist!"
     else
         echo "[DEBUG] Files in cache for $STAGENAME:"
         ls -F "$DL_DIR" | grep "$STAGENAME" || echo "[DEBUG] No files matching $STAGENAME found in $DL_DIR"
@@ -65,7 +65,7 @@ download_stage() {
             rm -rf "$WORK_DIR"
             return 0
         else
-            echo "ERROR: Symlink creation failed for $STAGENAME"
+            echo "[ERROR]: Symlink creation failed for $STAGENAME"
             rm -rf "$WORK_DIR"
             return 1
         fi

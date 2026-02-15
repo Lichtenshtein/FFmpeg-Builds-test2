@@ -12,24 +12,17 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    # Удаляем флаг -fforce-mem, который GCC 14 не поддерживает
+    sed -i 's/-fforce-mem//g' configure
     autoreconf -if
 
-    local myconf=(
-        --prefix="$FFBUILD_PREFIX"
-        --disable-shared
-        --enable-static
-    )
+    ./configure \
+        --prefix="$FFBUILD_PREFIX" \
+        --host="$FFBUILD_TOOLCHAIN" \
+        --disable-shared \
+        --enable-static \
+        --enable-fpm=64bit # Оптимизация для 64-бит
 
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --host="$FFBUILD_TOOLCHAIN"
-        )
-    else
-        echo "Unknown target"
-        return -1
-    fi
-
-    ./configure "${myconf[@]}"
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 }
