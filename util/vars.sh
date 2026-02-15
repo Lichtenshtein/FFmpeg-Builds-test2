@@ -13,10 +13,10 @@ export CHECK_MARK='✅'
 export CROSS_MARK='❌'
 
 # Функции для логирования
-log_info()  { echo -e "${LOG_INFO}[INFO]${LOG_NC}  $*"; }
-log_warn()  { echo -e "${LOG_WARN}[WARN]${LOG_NC}  $*"; }
-log_error() { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} $*"; }
-log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*"; }
+export log_info()  { echo -e "${LOG_INFO}[INFO]${LOG_NC}  $*"; }
+export log_warn()  { echo -e "${LOG_WARN}[WARN]${LOG_NC}  $*"; }
+export log_error() { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} $*"; }
+export log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*"; }
 
 if [[ $# -lt 2 ]]; then
     echo "Invalid Arguments"
