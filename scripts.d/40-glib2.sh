@@ -19,7 +19,7 @@ ffbuild_dockerbuild() {
     pip3 install --break-system-packages --upgrade meson
 
     # инициализация подмодуля gvdb
-    if ! git submodule update --init --recursive; then
+    if ! git submodule --quiet update --init --recursive; then
         echo "Submodule update failed, downloading GVDB manually..."
         rm -rf subprojects/gvdb
         git clone --depth 1 https://github.com/GNOME/gvdb.git subprojects/gvdb

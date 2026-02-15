@@ -17,7 +17,7 @@ ffbuild_enabled() {
 # }
 
 ffbuild_dockerdl() {
-    echo "retry-tool svn checkout '${SCRIPT_REPO}@${SCRIPT_REV}' ."
+    echo "retry-tool svn checkout '${SCRIPT_REPO}@${SCRIPT_REV}' . --quiet"
 }
 
 ffbuild_dockerbuild() {

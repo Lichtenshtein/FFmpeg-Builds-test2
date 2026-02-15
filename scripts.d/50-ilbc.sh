@@ -12,7 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    git submodule update --init
+    git submodule --quiet update --init
 
     mkdir build && cd build
 
