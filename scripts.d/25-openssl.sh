@@ -64,7 +64,11 @@ ffbuild_dockerbuild() {
     make install_sw DESTDIR="$FFBUILD_DESTDIR"
 }
 
+ffbuild_libs() {
+    # Эти флаги нужны FFmpeg, чтобы слинковаться с libcrypto.a и libssl.a
+    echo "-lgdi32 -lcrypt32 -lbcrypt"
+}
+
 ffbuild_configure() {
-    [[ $TARGET == win* ]] && return 0
-    echo --enable-openssl
+    echo "--enable-openssl"
 }

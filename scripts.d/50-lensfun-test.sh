@@ -62,10 +62,21 @@ ffbuild_dockerbuild() {
     # Исправляем .pc файл
     local pc_file="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lensfun.pc"
     if [[ -f "$pc_file" ]]; then
-        # Добавляем путь к glibconfig.h в Cflags .pc файла
-        sed -i "s|Cflags: |Cflags: -I${FFBUILD_PREFIX}/lib/glib-2.0/include |" "$pc_file"
-        if ! grep -q "glib-2.0" "$pc_file"; then
+        log_info "Patching lensfun.pc for static MinGW build..."
+        
+        # Добавляем glib-2.0 в зависимости, чтобы пути -I подтянулись автоматически
+        if ! grep -q "Requires:" "$pc_file"; then
+            echo "Requires: glib-2.0" >> "$pc_file"
+        else
             sed -i '/^Requires:/ s/$/ glib-2.0/' "$pc_file"
+        fi
+
+        # Добавляем системные либы и C++ рантайм в Libs.private
+        # Это нужно, чтобы FFmpeg знал, что lensfun требует их при статической линковке
+        if ! grep -q "Libs.private:" "$pc_file"; then
+            echo "Libs.private: -lstdc++ -lm -lws2_32 -lole32 -lshlwapi" >> "$pc_file"
+        else
+            sed -i '/^Libs.private:/ s/$/ -lstdc++ -lm -lws2_32 -lole32 -lshlwapi/' "$pc_file"
         fi
     fi
 }
@@ -73,6 +84,6 @@ ffbuild_dockerbuild() {
 ffbuild_configure() { echo --enable-liblensfun; }
 ffbuild_unconfigure() { echo --disable-liblensfun; }
 
-# прокидываем пути для всех последующих стадий
-ffbuild_cflags() { echo "-I$FFBUILD_PREFIX/lib/glib-2.0/include -DGLIB_STATIC_COMPILATION -mms-bitfields"; }
-ffbuild_cxxflags() { echo "-I$FFBUILD_PREFIX/lib/glib-2.0/include -DGLIB_STATIC_COMPILATION -mms-bitfields"; }
+ffbuild_libs() {
+    echo "-lstdc++"
+}

@@ -20,9 +20,9 @@ to_df() {
 
 # Базовый образ
 to_df "FROM base-win64:local AS build_stage"
-# to_df "FROM ${REGISTRY}/${REPO}/base-${TARGET}:latest AS build_stage"
 to_df "ENV TARGET=$TARGET VARIANT=$VARIANT REPO=$REPO ADDINS_STR=$ADDINS_STR"
 to_df "ENV C_INCLUDE_PATH=/opt/ffbuild/include CPATH=/opt/ffbuild/include LIBRARY_PATH=/opt/ffbuild/lib"
+to_df "ENV BASH_ENV=/builder/util/vars.sh" 
 
 # Копируем утилиту один раз. Это стабильная точка для кэша.
 to_df "COPY util/run_stage.sh /usr/bin/run_stage"
@@ -31,23 +31,17 @@ to_df "WORKDIR /builder"
 
 # Находим все скрипты
 SCRIPTS=( $(find scripts.d -name "*.sh" | sort) )
-# Временно для тестов в generate.sh:
-# SCRIPTS=( scripts.d/20-zlib.sh scripts.d/47-vulkan/40-vulkan-headers.sh scripts.d/50-dvd/40-libdvdread.sh scripts.d/47-vulkan/45-vulkan-loader.sh scripts.d/45-vmaf.sh scripts.d/47-vulkan/46-glslang-test.sh scripts.d/47-vulkan/47-shaderc.sh scripts.d/50-aom.sh scripts.d/50-libcodec2-test.sh scripts.d/50-flite-test.sh scripts.d/47-vulkan/55-spirv-cross.sh )
 
-# SCRIPTS=( scripts.d/10-mingw.sh scripts.d/10-mingw-std-threads.sh scripts.d/15-base.sh scripts.d/20-libiconv.sh scripts.d/20-zlib.sh scripts.d/30-libffi.sh scripts.d/20-pcre2.sh scripts.d/40-glib2.sh scripts.d/50-lensfun-test.sh )
-
-
-# scripts.d/20-libiconv.sh lame and glib2 need it
-# scripts.d/45-fonts/25-freetype.sh
+# Создаем папку на хосте перед билдом, чтобы Docker не создал её от имени root с кривыми правами
+mkdir -p .cache/ccache
 
 # Общие монтирования (BIND) для каждого RUN. 
 # Кэш сработает, если содержимое монтируемых файлов не менялось.
-MOUNTS="--mount=type=cache,target=/root/.cache/ccache \\
+MOUNTS="--mount=type=bind,source=.cache/ccache,target=/root/.cache/ccache \\
     --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\
     --mount=type=bind,source=util,target=/builder/util \\
     --mount=type=bind,source=patches,target=/builder/patches \\
-    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads,ro" 
-   # Добавлен ,ro к /root/.cache/downloads,ro . Eсли какой-то скрипт в scripts.d во время фазы run_stage пытается докачать патч или обновить индекс внутри этой папки, билд упадет с Read-only file system.
+    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads"
 
 active_scripts=()
 for STAGE in "${SCRIPTS[@]}"; do
@@ -56,39 +50,85 @@ for STAGE in "${SCRIPTS[@]}"; do
     fi
 done
 
+if [[ -n "$ONLY_STAGE" ]]; then
+    log_info "Filtering stages by pattern: $ONLY_STAGE"
+    active_scripts=( $(printf '%s\n' "${active_scripts[@]}" | grep -E "$ONLY_STAGE") )
+fi
+
 # Генерируем ОТДЕЛЬНЫЙ RUN для каждого активного скрипта
 for STAGE in "${active_scripts[@]}"; do
     STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')" # Получаем имя для лога
+    SCRIPT_HASH=$(sha256sum "$STAGE" | cut -c1-8)
+    to_df "# Hash: $SCRIPT_HASH"
     to_df "RUN $MOUNTS \\"
+    to_df "    source /builder/util/vars.sh $TARGET $VARIANT &>/dev/null && \\"
     to_df "    log_info '>>> $STAGENAME <<<' && run_stage /builder/$STAGE"
 done
 
 # Сборка FFmpeg (Флаги конфигурации)
 # Собираем переменные для финального ./configure FFmpeg
+# Инициализируем пустые массивы
+conf_args=()
+cflags_args=()
+ldflags_args=()
+cxxflags_args=()
+ldexeflags_args=()
+libs_args=()
+
+
+# Собираем конфигурацию из вариантов и аддинов
+# (Предположим, функции ffbuild_... внутри них тоже возвращают строки)
 source "variants/${TARGET}-${VARIANT}.sh"
-for addin in ${ADDINS[*]}; do source "addins/${addin}.sh"; done
+conf_args+=( $(ffbuild_configure) )
 
-# Собираем конфигурацию для финального билда
+for addin in ${ADDINS[*]}; do 
+    source "addins/${addin}.sh"
+    conf_args+=( $(ffbuild_configure) )
+done
 
-FF_CONFIGURE=""
+# Наполняем массивы из активных скриптов для финального билда
 for script in "${active_scripts[@]}"; do
     if ( source "$script" && ffbuild_enabled ); then
-        FF_CONFIGURE+=" $( (source "$script" && ffbuild_configure) )"
-        FF_CFLAGS+=" $( (source "$script" && ffbuild_cflags) )"
-        FF_CXXFLAGS+=" $( (source "$script" && ffbuild_cxxflags) )"
-        FF_LDFLAGS+=" $( (source "$script" && ffbuild_ldflags) )"
-        FF_LDEXEFLAGS+=" $( (source "$script" && ffbuild_ldexeflags) )"
-        FF_LIBS+=" $( (source "$script" && ffbuild_libs) )"
+        # Используем подстановку, которая корректно разбивает строку на элементы массива
+        # Внимание: здесь мы полагаемся на то, что функции возвращают пробелы как разделители
+        read -a cfg <<< "$(source "$script" && ffbuild_configure)"
+        conf_args+=("${cfg[@]}")
+        
+        read -a cfl <<< "$(source "$script" && ffbuild_cflags)"
+        cflags_args+=("${cfl[@]}")
+
+        read -a ldf <<< "$(source "$script" && ffbuild_ldflags)"
+        ldflags_args+=("${ldf[@]}")
+
+        read -a cxx <<< "$(source "$script" && ffbuild_cxxflags)"
+        cxxflags_args+=("${cxx[@]}")
+
+        read -a ldexe <<< "$(source "$script" && ffbuild_ldexeflags)"
+        ldexeflags_args+=("${ldexe[@]}")
+
+        read -a libs <<< "$(source "$script" && ffbuild_libs)"
+        libs_args+=("${libs[@]}")
+
    fi
 done
 
+# Превращаем массивы в ОДНУ правильно экранированную строку для Dockerfile
+# Команда printf '%q ' экранирует все спецсимволы, сохраняя пробелы внутри кавычек
+FF_CONFIGURE_SAFE=$(printf '%q ' "${conf_args[@]}")
+FF_CFLAGS_SAFE=$(printf '%q ' "${cflags_args[@]}")
+FF_LDFLAGS_SAFE=$(printf '%q ' "${ldflags_args[@]}")
+FF_CXXFLAGS_SAFE=$(printf '%q ' "${cxxflags_args[@]}")
+FF_LDEXEFLAGS_SAFE=$(printf '%q ' "${ldexeflags_args[@]}")
+FF_LIBS_SAFE=$(printf '%q ' "${libs_args[@]}")
+
+# Записываем в Dockerfile
 to_df "ENV \\"
-to_df "    FF_CONFIGURE=\"$(xargs <<< "$FF_CONFIGURE")\" \\"
-to_df "    FF_CFLAGS=\"$(xargs <<< "$FF_CFLAGS")\" \\"
-to_df "    FF_CXXFLAGS=\"$(xargs <<< "$FF_CXXFLAGS")\" \\"
-to_df "    FF_LDFLAGS=\"$(xargs <<< "$FF_LDFLAGS")\" \\"
-to_df "    FF_LDEXEFLAGS=\"$(xargs <<< "$FF_LDEXEFLAGS")\" \\"
-to_df "    FF_LIBS=\"$(xargs <<< "$FF_LIBS")\""
+to_df "    FF_CONFIGURE=\"$FF_CONFIGURE_SAFE\" \\"
+to_df "    FF_CFLAGS=\"$FF_CFLAGS_SAFE\" \\"
+to_df "    FF_LDFLAGS=\"$FF_LDFLAGS_SAFE\" \\"
+to_df "    FF_CXXFLAGS=\"$FF_CXXFLAGS_SAFE\" \\"
+to_df "    FF_LDEXEFLAGS=\"$FF_LDEXEFLAGS_SAFE\" \\"
+to_df "    FF_LIBS=\"$FF_LIBS_SAFE\""
 
 # Копируем исходники проекта (включая build.sh и patches)
 # to_df "COPY . /builder"
@@ -99,7 +139,7 @@ to_df "COPY patches /builder/patches"
 # раскомментировать после отладки для сборки FFmpeg
 # to_df "COPY variants /builder/variants"
 # to_df "COPY addins /builder/addins"
-to_df "RUN --mount=type=cache,target=/root/.cache/ccache \\"
+to_df "RUN --mount=type=bind,source=.cache/ccache,target=/root/.cache/ccache \\"
 to_df "    --mount=from=ffmpeg_src,target=/builder/ffbuild/ffmpeg \\" # Монтируем контекст FFmpeg
 to_df "    ./build.sh $TARGET $VARIANT"
 

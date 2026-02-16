@@ -3,6 +3,8 @@ set -xe
 shopt -s globstar
 cd "$(dirname "$0")"
 source util/vars.sh
+# Если "Hits" всегда 0, значит, монтирование --mount=type=cache в generate.sh не пробрасывается в build.sh (проверить совпадение путей /root/.cache/ccache).
+ccache -s
 
 # Определяем целевой вариант
 source "variants/${TARGET}-${VARIANT}.sh"
@@ -41,32 +43,41 @@ if [[ -d "/builder/patches/ffmpeg/$GIT_BRANCH" ]]; then
     done
 fi
 
-# Конфигурация ccache
-export CCACHE_DIR=/root/.cache/ccache
-export CCACHE_MAXSIZE=20G
 ccache -z # Сброс статистики для чистого лога
+log_info "Cleaning up potential prefix pollution..."
+# Удаляем пустые папки или старые логи, если они остались
+find /opt/ffbuild -type d -empty -delete
 
 # Force update of pkg-config paths
 export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
 export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig"
-# Полустатический режим с --extra-libs="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32"
 # Перед запуском configure убедимся, что линковщик видит DLL-импорты
+# Эти флаги до -Wl нужны для статической линковки glib, так как она используется во многих фильтрах. -lintl -liconv часто конфликтуют с внутренними функциями glibc или самого компилятора, если они не были собраны как строго статические.
+# Если линковка падает с "undefined reference", добавить -Wl,--copy-dt-needed-entries в LDFLAGS
 export LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition"
 
 # Сборка FFmpeg
 chmod +x configure
 
+# Полустатический режим
+# --extra-libs="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32" - системный минимум
+# Библиотеки ИИ
+# -lshlwapi, -luser32, -ladvapi32 - критичны для LibTorch.
+# -lbcrypt - часто нужен для современных версий TensorFlow и OpenSSL.
+# -ldbghelp - нужен для обработки исключений в LibTorch.
+# --extra-libs="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32 -lshlwapi -luser32 -ladvapi32 -lbcrypt -lsetupapi -ldbghelp"
+
+# линковка с --enable-lto может потребовать более 16-32 ГБ RAM. Стандартный раннер GitHub имеет всего 7 ГБ
 ./configure \
     --prefix="$PWD/../prefix" \
     --pkg-config-flags="--static" \
     $FFBUILD_TARGET_FLAGS \
-    --extra-libs="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32" \
+    --extra-libs="$FF_LIBS" \
     $FF_CONFIGURE \
     --enable-filter=vpp_amf \
     --enable-filter=sr_amf \
     --enable-runtime-cpudetect \
     --enable-pic \
-    --enable-lto \
     --h264-max-bit-depth=14 \
     --h265-bit-depths=8,9,10,12 \
     --extra-cflags="$FF_CFLAGS" \
@@ -96,6 +107,10 @@ log_info "Collecting external DLLs for AI support..."
 mkdir -p "$PKG_DIR/bin"
 # Копируем все DLL из нашего сборочного префикса в папку с бинарниками
 # Это подхватит DLL от OpenVINO, TBB, TensorFlow, LibTorch и других
+log_info "Copying OpenVINO plugins..."
+# OpenVINO часто ищет файлы openvino_intel_cpu_plugin.dll в той же папке
+# Если они лежат в /opt/ffbuild/bin, то всё ок. 
+# Но если они в подпапках (runtime/bin/intel64/...), нужно убедиться, что они попали в $PKG_DIR/bin/
 find "/opt/ffbuild/bin" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \;
 # Проверяем наличие критических библиотек (для отладки в логах)
 ls -lh "$PKG_DIR/bin/"

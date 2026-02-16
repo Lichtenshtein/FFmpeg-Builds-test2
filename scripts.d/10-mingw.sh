@@ -33,6 +33,8 @@ ffbuild_dockerbuild() {
     # fi
     # Определяем sysroot тулчейна (обычно /opt/ct-ng/x86_64-w64-mingw32)
     local SYSROOT=$(${CC} -print-sysroot)
+    local TEMP_INSTALL="/opt/mingw_build"
+    mkdir -p "$TEMP_INSTALL"
 
     # Сбрасываем флаги, чтобы системная сборка не подхватила лишнего
     unset CC CXX LD AR CPP LIBS CCAS
@@ -55,11 +57,8 @@ ffbuild_dockerbuild() {
         
         # Устанавливаем в /opt/mingw, сохраняя структуру относительно корня
         make -j$(nproc) $MAKE_V
-        make install DESTDIR="/opt/mingw"
+        make install DESTDIR="$TEMP_INSTALL"
     )
-
-    # Синхронизируем для сборки следующих этапов внутри этого же скрипта
-    cp -a /opt/mingw/. /
 
     ###
     ### mingw-w64-crt
@@ -72,7 +71,7 @@ ffbuild_dockerbuild() {
             --with-default-msvcrt=ucrt \
             --enable-wildcard
         make -j$(nproc) $MAKE_V
-        make install DESTDIR="/opt/mingw"
+        make install DESTDIR="$TEMP_INSTALL"
     )
     cp -a /opt/mingw/. /
 
@@ -86,8 +85,15 @@ ffbuild_dockerbuild() {
             --host="$FFBUILD_TOOLCHAIN" \
             --with-pic --disable-shared --enable-static
         make -j$(nproc) $MAKE_V
-        make install DESTDIR="/opt/mingw"
+        make install DESTDIR="$TEMP_INSTALL"
     )
+    # Синхронизация: копируем только содержимое sysroot обратно в систему
+    # Это предотвратит повреждение системных библиотек Docker-образа
+    cp -a "$TEMP_INSTALL/$SYSROOT/." "$SYSROOT/"
+    
+    # Создаем чистый префикс для экспорта в Docker (для ffbuild_dockerlayer)
+    mkdir -p /opt/mingw
+    cp -a "$TEMP_INSTALL/$SYSROOT/." /opt/mingw/
 }
 
 ffbuild_configure() {

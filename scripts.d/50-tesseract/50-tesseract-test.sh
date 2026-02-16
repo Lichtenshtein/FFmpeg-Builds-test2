@@ -32,7 +32,7 @@ ffbuild_dockerbuild() {
         -DGRAPHICS_OPTIMIZATIONS=ON
         -DSW_BUILD=OFF
         -DBUILD_TRAINING_TOOLS=OFF
-        -DENABLE_LTO=ON
+        -DENABLE_LTO=OFF
     )
 
     # Принудительно отключаем поиск Pango, если не хотим проблем с линковкой

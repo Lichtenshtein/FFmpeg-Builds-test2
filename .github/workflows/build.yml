@@ -3,6 +3,14 @@ name: Build FFmpeg
 on:
   workflow_dispatch:
     inputs:
+      only_stage:
+        description: 'Regex for ONLY_STAGE (e.g. "10-mingw|50-x264")'
+        required: false
+        default: '.*'
+      doClean:
+        description: 'Clean cache before build (Full Rebuild)'
+        type: boolean
+        default: false
       doRelease:
         description: 'Publish new release'
         type: boolean
@@ -37,7 +45,6 @@ jobs:
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
-          # remove unused Docker images left over from the Base and Win64-Base builds
           docker image prune -af
 
       - name: Set Image Names
@@ -49,9 +56,6 @@ jobs:
           echo "target_base=ghcr.io/${REPO_LC}/base-win64:latest" >> $GITHUB_OUTPUT
           echo "variant=ghcr.io/${REPO_LC}/win64-nonfree:latest" >> $GITHUB_OUTPUT
 
-      # - name: Setup Buildx
-        # uses: docker/setup-buildx-action@v3
-
       - name: Login to Docker
         uses: docker/login-action@v3
         with:
@@ -62,15 +66,15 @@ jobs:
       - name: Build Base Image
         uses: docker/build-push-action@v5
         with:
-          build-args: GH_REPO=${{ steps.images.outputs.repo_lc }}
+          context: images/base-win64
+          build-args: |
+            CARGO_C_VERSION=0.10.20
+            GH_REPO=${{ steps.images.outputs.repo_lc }}
           cache-from: type=gha,scope=base
           cache-to: type=gha,mode=max,scope=base
-          context: images/base-win64
           push: false
           load: true
           tags: base-win64:local
-
-          # tags: ${{ steps.images.outputs.target_base }}
 
       - name: Get Download Cache Key
         id: dl_cache
@@ -85,18 +89,38 @@ jobs:
           path: |
             .cache/downloads
             .cache/ffmpeg
+          # Ключ зависит ТОЛЬКО от содержимого скриптов (через хешер)
           key: dl-cache-${{ steps.dl_cache.outputs.key }}
+          # Если точного совпадения нет, берется самый свежий кэш с таким префиксом
           restore-keys: |
             dl-cache-
 
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: .cache/ccache
+          # Ключ включает TARGET, чтобы кэш Win64 не смешивался с другими (если будут)
+          key: ccache-${{ env.TARGET }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ env.TARGET }}-
+
       - name: Run Download and Generate
         run: |
-          git config --global advice.detachedHead false
+          # Если выбран Clean, удаляем локальные копии кэша
+          if [[ "${{ github.event.inputs.doClean }}" == "true" ]]; then
+            echo "--- CLEAN BUILD REQUESTED ---"
+            rm -rf .cache/downloads/*
+            rm -rf .cache/ffmpeg/*
+            rm -rf .cache/ccache/*
+          fi
+          export ONLY_STAGE="${{ github.event.inputs.only_stage }}"
           # Создаем директории на случай, если кэш пустой
           mkdir -p .cache/downloads
           mkdir -p .cache/ffmpeg
           # Запускаем логику загрузки и генерации Dockerfile
+          chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh
           ./download.sh
+          ./util/clean_cache.sh
           ./generate.sh win64 nonfree
         env:
           TARGET: win64
@@ -104,8 +128,6 @@ jobs:
 
       - name: Inspect Dockerfile
         run: head -n 5 Dockerfile
-
-            # ghcr.io/${{ steps.images.outputs.repo_lc }}/base-win64:latest=docker-image://${{ steps.images.outputs.target_base }}
 
       - name: Prepare and Build
         uses: docker/build-push-action@v5
@@ -117,17 +139,9 @@ jobs:
           cache-from: type=gha,scope=ffmpeg-build
           cache-to: type=gha,mode=max,scope=ffmpeg-build
           build-contexts: |
-            downloads=.cache/downloads
             ffmpeg_src=.cache/ffmpeg
           outputs: type=local,dest=artifacts/
           provenance: false
-          
-          # build-contexts: |
-            # base-image=docker-image://${{ steps.images.outputs.target_base }}
-            # downloads=.cache/downloads
-            # ffmpeg_src=.cache/ffmpeg
-          # outputs: type=local,dest=artifacts/
-          # provenance: false
 
       - name: Force Save Cache
         if: always()
@@ -136,7 +150,10 @@ jobs:
           path: |
             .cache/downloads
             .cache/ffmpeg
-          key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
+          # Сохраняем под тем же ключом. 
+          # Если билд не скачал ничего нового, этот шаг просто пропустится (Cache Hit).
+          # Если что-то изменилось, ключ хеша (outputs.key) будет другим, и кэш сохранится.
+          key: dl-cache-${{ steps.dl_cache.outputs.key }}
 
       - name: Cleanup Old Caches
         if: always()
@@ -160,6 +177,17 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Fix ccache permissions
+        if: always()
+        run: sudo chown -R $USER:$USER .cache/ccache
+
+      - name: Save ccache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .cache/ccache
+          key: ccache-${{ env.TARGET }}-${{ github.sha }}
 
       - name: Upload Final Artifacts
         uses: actions/upload-artifact@v4

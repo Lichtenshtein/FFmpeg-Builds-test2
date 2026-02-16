@@ -19,18 +19,25 @@ download_stage() {
     STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
 
     # Получаем команду загрузки
-    DL_COMMAND=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; source util/dl_functions.sh; source \"$STAGE\"; ffbuild_enabled && ffbuild_dockerdl" || echo "")
-    
+    DL_COMMAND=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
+                          source util/dl_functions.sh; \
+                          source \"$STAGE\"; \
+                          ffbuild_enabled && ffbuild_dockerdl" || echo "")
+
     [[ -z "$DL_COMMAND" ]] && return 0
     
     DL_COMMAND="${DL_COMMAND//retry-tool /}"
     DL_COMMAND="${DL_COMMAND//git fetch --unshallow/true}"
     
-    # УМНЫЙ ХЭШ
-    DL_HASH=$( (echo "$DL_COMMAND"; sha256sum "$STAGE") | sha256sum | cut -d" " -f1 | cut -c1-16)
+    # УМНЫЙ ХЭШ (Версия для глубокой отладки)
+    # Берем DL_COMMAND (там сидят REPO и COMMIT)
+    # Берем содержимое скрипта, но вырезаем комментарии и пустые строки
+    # Это позволит менять логику сборки в ffbuild_dockerbuild и вызывать перекачку исходников
+    SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE" | grep -v '^[[:space:]]*$')
+    DL_HASH=$( (echo "$DL_COMMAND"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16)
     
-    TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.xz"
-    LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.xz"
+    TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.zst"
+    LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.zst"
 
     # --- DEBUG SECTION ---
     log_debug "Checking cache for $STAGENAME in $DL_DIR..."
@@ -57,8 +64,10 @@ download_stage() {
     # ИСПОЛЬЗУЕМ АБСОЛЮТНЫЙ ПУТЬ К ФУНКЦИЯМ
     # Передаем ROOT_DIR внутрь subshell через экспорт или переменную
     if ( cd "$WORK_DIR" && eval "source \"$ROOT_DIR/util/dl_functions.sh\"; $DL_COMMAND" ); then
-        find "$WORK_DIR" -name ".git" -type d -exec rm -rf {} +
-        tar -cpJf "$TGT_FILE" -C "$WORK_DIR" .
+        find "$WORK_DIR" -name ".git*" -exec rm -rf {} +
+        # -c: создать, -f: файл
+        # -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
+        tar -I 'zstd -T0 -3' -cf "$TGT_FILE" -C "$WORK_DIR" .
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
         if [[ -e "$LATEST_LINK" ]]; then
             log_info "Done: $STAGENAME (Name: $(basename "$TGT_FILE"))"
@@ -70,18 +79,20 @@ download_stage() {
             return 1
         fi
     else
-        log_error "FAILED: $STAGENAME (Command: $DL_COMMAND)"
+        log_error "FAILED to download $STAGENAME (Command: $DL_COMMAND)"
         rm -rf "$WORK_DIR"
         return 1
     fi
 }
 
 export -f download_stage
-# git-mini-clone экспортируется автоматически, так как она в dl_functions.sh
 
 log_info "Starting parallel downloads for $TARGET-$VARIANT..."
+# Внутри xargs нужно делать source util/vars.sh ПЕРЕД вызовом функции
 find scripts.d -name "*.sh" | sort | \
-    xargs -I{} -P 8 bash -c "ROOT_DIR='$ROOT_DIR' download_stage '{}' '$TARGET' '$VARIANT' '$DL_DIR'"
+    xargs -I{} -P 8 bash -c 'export TARGET="'$TARGET'"; export VARIANT="'$VARIANT'"; export ROOT_DIR="'$ROOT_DIR'"; source util/vars.sh "$TARGET" "$VARIANT" &>/dev/null; source util/dl_functions.sh; download_stage "{}" "$TARGET" "$VARIANT" "$DL_DIR"'
+
+    # xargs -I{} -P 8 bash -c "export TARGET='$TARGET'; export VARIANT='$VARIANT'; export ROOT_DIR='$ROOT_DIR'; source util/vars.sh \$TARGET \$VARIANT &>/dev/null; source util/dl_functions.sh; download_stage '{}' '$TARGET' '$VARIANT' '$DL_DIR'"
 
 # FFmpeg update (добавил --quiet для чистоты логов)
 FFMPEG_DIR=".cache/ffmpeg"

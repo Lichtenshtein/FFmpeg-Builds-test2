@@ -12,9 +12,6 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # Исправляем проблему "dubious ownership" для Git
-    git config --global --add safe.directory /build/40-glib2
-
     # ОБНОВЛЯЕМ MESON до последней версии
     pip3 install --break-system-packages --upgrade meson
 
@@ -93,6 +90,8 @@ EOF
 
     # Очистка префикса (удаляем импортные библиотеки DLL, если они создались)
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete
+
+    sed -i "s/Libs:/Libs: -lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl -liconv -lpthread /" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/glib-2.0.pc"
 }
 
 ffbuild_configure() {
@@ -105,6 +104,11 @@ ffbuild_cflags() {
 }
 
 ffbuild_ldflags() {
-    # Glib требует системные библиотеки Windows при линковке
-    echo "-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl -liconv -lpthread";
+    return 0 # Очищаем ldflags, чтобы не дублировать
+}
+
+ffbuild_libs() {
+    # Эти флаги попадут в переменную $FF_LIBS, которая в build.sh 
+    # подставляется в самый конец команды ./configure
+    echo "-lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl -liconv -lpthread"
 }

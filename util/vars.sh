@@ -12,14 +12,14 @@ export NC='\033[0m'            # No Color (Reset)
 export CHECK_MARK='✅'
 export CROSS_MARK='❌'
 
-# Функции для логирования
-export log_info()  { echo -e "${LOG_INFO}[INFO]${LOG_NC}  $*"; }
-export log_warn()  { echo -e "${LOG_WARN}[WARN]${LOG_NC}  $*"; }
-export log_error() { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} $*"; }
-export log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*"; }
+# Функции для логирования пишут в stderr (>&2)
+log_info()  { echo -e "${LOG_INFO}[INFO]${LOG_NC}  $*" >&2; }
+log_warn()  { echo -e "${LOG_WARN}[WARN]${LOG_NC}  $*" >&2; }
+log_error() { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} $*" >&2; }
+log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 
 if [[ $# -lt 2 ]]; then
-    echo "Invalid Arguments"
+    log_error "Invalid Arguments"
     exit -1
 fi
 
@@ -28,7 +28,7 @@ VARIANT="$2"
 shift 2
 
 if ! [[ -f "variants/${TARGET}-${VARIANT}.sh" ]]; then
-    echo "Invalid target/variant"
+    log_error "Invalid target/variant"
     exit -1
 fi
 
@@ -38,7 +38,7 @@ ADDINS=()
 ADDINS_STR=""
 while [[ "$#" -gt 0 ]]; do
     if ! [[ -f "addins/${1}.sh" ]]; then
-        echo "Invalid addin: $1"
+        log_error "Invalid addin: $1"
         exit -1
     fi
 
@@ -97,7 +97,7 @@ ffbuild_depends() {
 
 ffbuild_dockerstage() {
     if [[ -n "$SELFCACHE" ]]; then
-        to_df "RUN --mount=src=${SELF},dst=/stage.sh --mount=src=${SELFCACHE},dst=/cache.tar.xz run_stage /stage.sh"
+        to_df "RUN --mount=src=${SELF},dst=/stage.sh --mount=src=${SELFCACHE},dst=/cache.tar.zst run_stage /stage.sh"
     else
         to_df "RUN --mount=src=${SELF},dst=/stage.sh run_stage /stage.sh"
     fi
@@ -121,7 +121,7 @@ ffbuild_unconfigure() {
 
 ffbuild_cflags() {
     # глобальный макрос для всех, кто включает заголовки glib
-    echo "-DGLIB_STATIC_COMPILATION -mms-bitfields"
+    log_info "-DGLIB_STATIC_COMPILATION -mms-bitfields"
     # return 0
 }
 
@@ -146,10 +146,7 @@ ffbuild_unldexeflags() {
 }
 
 ffbuild_ldflags() {
-    # Эти флаги нужны для статической линковки glib, так как она используетс¤ во многих фильтрах
-    # -lintl -liconv часто конфликтуют с внутренними функциями glibc или самого компилятора, если они не были собраны как строго статические.
-    echo "-lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl -liconv -lpthread -lws2_32"
-    # return 0
+    return 0
 }
 
 ffbuild_unldflags() {
@@ -157,7 +154,7 @@ ffbuild_unldflags() {
 }
 
 ffbuild_libs() {
-    return 0
+    log_info "-lsetupapi -lstdc++ -lm -lws2_32"
 }
 
 ffbuild_unlibs() {
@@ -187,11 +184,15 @@ else
 fi
 
 export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
-# агрессивные настройки ccache для Docker
-export CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros,file_macro"
+
+# Конфигурация ccache
+export CCACHE_DIR=/root/.cache/ccache
+export CCACHE_MAXSIZE=20G
+export CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros,file_macro,pch_defines"
 export CCACHE_BASEDIR="/builder"
 export CCACHE_COMPILERCHECK="content"
 export CCACHE_DEPEND="1"
+export CCACHE_COMPRESS=1
 
 # экспорт важных переменных MinGW, чтобы они пробрасывались в download.sh и run_stage.sh:
 export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE
