@@ -1,5 +1,6 @@
 FROM ubuntu:24.04
 
+ARG CARGO_C_VERSION=0.10.20
 ARG TARGETPLATFORM
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -14,10 +15,11 @@ RUN \
         clang llvm lcov lld qemu-user \
         texinfo texi2html help2man flex bison groff \
         gperf itstool ragel libc6-dev zlib1g-dev libssl-dev \
-        gtk-doc-tools gobject-introspection gawk \
+        gtk-doc-tools gobject-introspection gawk wine64-tools wine64 \
         ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent p7zip-full zstd \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
         gcc-14 g++-14 && \
+    pip3 install --break-system-packages --upgrade meson \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 && \
     update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-14 100 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100 && \
@@ -27,16 +29,18 @@ RUN \
     apt-get -y clean && \
     git config --global user.email "builder@localhost" && \
     git config --global user.name "Builder" && \
-    git config --global advice.detachedHead false
+    git config --global advice.detachedHead false \
+    git config --global --add safe.directory "*"
 
 ENV CARGO_HOME="/opt/cargo" RUSTUP_HOME="/opt/rustup" PATH="/opt/cargo/bin:${PATH}"
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path && \
-    # Динамическое получение последней версии через GitHub API
-    export CARGO_C_URL=$(curl -fsSL https://api.github.com/repos/lu-zero/cargo-c/releases/latest | \
-    jq -r '.assets[] | select(.name | test("x86_64-unknown-linux-musl\\.tar\\.gz$")) | .browser_download_url') && \
-    curl -fsSL "$CARGO_C_URL" | tar -xz -C /opt/cargo/bin && \
-    # Очистка кэша Rust
+    curl -fsSL "https://github.com/lu-zero/cargo-c/releases/download/v{CARGO_C_VERSION}/cargo-c-x86_64-unknown-linux-musl.tar.gz" | tar -xz -C /opt/cargo/bin && \
     rm -rf "${CARGO_HOME}"/registry "${CARGO_HOME}"/git
+
+    # Динамическое получение последней версии через GitHub API
+    # export CARGO_C_URL=$(curl -fsSL https://api.github.com/repos/lu-zero/cargo-c/releases/latest | \
+    # jq -r '.assets[] | select(.name | test("x86_64-unknown-linux-musl\\.tar\\.gz$")) | .browser_download_url') && \
+    # curl -fsSL "$CARGO_C_URL" | tar -xz -C /opt/cargo/bin && \
 
 RUN --mount=src=.,dst=/input \
     for s in /input/*.sh; do cp $s /usr/bin/$(echo $s | sed -e 's|.*/||' -e 's/\.sh$//'); done

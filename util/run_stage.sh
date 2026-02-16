@@ -20,18 +20,19 @@ if [[ "$SCRIPT_SKIP" != "1" ]]; then
     log_debug "--- DEBUG: Searching source for $STAGENAME ---"
     
     # Сначала ищем по точному симлинку (быстрый путь)
-    if [[ -L "${CACHE_DIR}/${STAGENAME}.tar.xz" ]]; then
-        REAL_CACHE=$(readlink -f "${CACHE_DIR}/${STAGENAME}.tar.xz")
-        log_info "Found symlink: ${STAGENAME}.tar.xz -> $REAL_CACHE"
+    if [[ -L "${CACHE_DIR}/${STAGENAME}.tar.zst" ]]; then
+        REAL_CACHE=$(readlink -f "${CACHE_DIR}/${STAGENAME}.tar.zst")
+        log_info "Found symlink: ${STAGENAME}.tar.zst -> $REAL_CACHE"
     # Если симлинка нет, ищем любой файл, начинающийся с имени стейджа (для надежности)
     else
-        log_warn "No symlink found. Searching by glob: ${STAGENAME}_*.tar.xz"
-        REAL_CACHE=$(find "$CACHE_DIR" -name "${STAGENAME}_*.tar.xz" -type f | sort -r | head -n 1)
+        log_warn "No symlink found. Searching by glob: ${STAGENAME}_*.tar.zst"
+        REAL_CACHE=$(find "$CACHE_DIR" -name "${STAGENAME}_*.tar.zst" -type f | sort -r | head -n 1)
     fi
 
     if [[ -n "$REAL_CACHE" && -f "$REAL_CACHE" ]]; then
         log_info "Unpacking $STAGENAME from $REAL_CACHE (Size: $(du -h "$REAL_CACHE" | cut -f1))"
-        tar xaf "$REAL_CACHE" -C . --strip-components=0
+        # tar автоматически вызовет zstd, если он установлен в системе
+        tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C . --strip-components=0
         
         # Проверка структуры после распаковки
         if [[ $(ls -1 | wc -l) -eq 0 ]]; then
@@ -43,8 +44,6 @@ if [[ "$SCRIPT_SKIP" != "1" ]]; then
             SUBDIR=$(ls -1)
             log_info "Entering subdirectory: $SUBDIR"
             cd "$SUBDIR"
-            # fix постоянной проблемы 'dubious ownership' (сомнительное владение) в Git
-            git config --global --add safe.directory "*"
             log_debug "DEBUG: Current build directory: $(pwd)"
             # позволит сразу понять в логах GitHub, правильно ли распаковался исходник.
             ls -F
@@ -120,8 +119,32 @@ fi
 # Автоматическая синхронизация префиксов после успешной сборки
 # Каждый скрипт в scripts.d обязан устанавливать файлы (make install) в путь, начинающийся с $FFBUILD_DESTDIR$FFBUILD_PREFIX (обычно это /opt/ffdest/opt/ffbuild), иначе система не увидит установленную библиотеку для следующего этапа.
 if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
-    log_info "===> Syncing $STAGENAME to system prefix..."
-    cp -r "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/. "$FFBUILD_PREFIX"/
+    log_info "################################################################"
+    log_info "===> SYNCING STAGE: $STAGENAME"
+    
+    # Проверяем, не пуста ли папка перед синхронизацией
+    if [ "$(ls -A "$FFBUILD_DESTDIR$FFBUILD_PREFIX")" ]; then
+        log_debug "Source: $FFBUILD_DESTDIR$FFBUILD_PREFIX"
+        log_debug "Target: $FFBUILD_PREFIX"
+
+        # rsync опции:
+        # -a: архивный режим (сохраняет симлинки, права, даты)
+        # -v: подробный вывод (покажет каждый файл в логе)
+        # --ignore-existing: можно убрать, если нужно обновлять либы
+        if rsync -av "$FFBUILD_DESTDIR$FFBUILD_PREFIX/" "$FFBUILD_PREFIX/"; then
+            log_info "${GREEN}${CHECK_MARK} Sync completed successfully.${NC}"
+            
+            # Расширенный лог: показывает, что именно добавилось (первые 10 файлов для краткости)
+            log_debug "New files in prefix (top 10):"
+            ls -R "$FFBUILD_PREFIX" | head -n 10
+        else
+            log_error "${CROSS_MARK} Rsync failed for $STAGENAME!"
+            exit 1
+        fi
+    else
+        log_warn "Stage $STAGENAME finished but produced NO files in $FFBUILD_DESTDIR$FFBUILD_PREFIX"
+    fi
+    log_info "################################################################"
 fi
 
 # Вывод статистики в конце каждой стадии (опционально)

@@ -16,6 +16,9 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    # Включаем расширенный glob (если еще не включен)
+    shopt -s extglob
+
     cd openvino_src
 
     # Инсталляция заголовков и библиотек
@@ -23,11 +26,14 @@ ffbuild_dockerbuild() {
 
     cp -r runtime/include/* "$FFBUILD_DESTPREFIX/include/"
     # Фикс имен для MinGW
-    for f in runtime/lib/intel64/Release/*.lib; do cp "$f" "$FFBUILD_DESTPREFIX/lib/lib$(basename "$f")"; done
-    
+    for f in runtime/lib/intel64/Release/*.lib; do 
+        cp "$f" "$FFBUILD_DESTPREFIX/lib/lib$(basename "$f" .lib).dll.a"
+    done
     # Копируем ВСЕ DLL (включая TBB и плагины)
     cp runtime/bin/intel64/Release/*.dll "$FFBUILD_DESTPREFIX/bin/"
-    cp runtime/3rdparty/tbb/bin/*.dll "$FFBUILD_DESTPREFIX/bin/"
+    # Копируем всё, что заканчивается на .dll, НО не содержит _debug перед расширением
+    cp runtime/3rdparty/tbb/bin/!(*_debug).dll "$FFBUILD_DESTPREFIX/bin/"
+
     # Создаем именно lib/cmake и копируем туда
     mkdir -p "$FFBUILD_DESTPREFIX/lib/cmake"
     cp -r runtime/cmake/* "$FFBUILD_DESTPREFIX/lib/cmake/"

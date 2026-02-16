@@ -21,7 +21,7 @@ ffbuild_dockerbuild() {
 
     # Библиотеки и DLL
     # Для MinGW лучше сделать копию .lib с префиксом 'lib'
-    cp lib/tensorflow.lib "$FFBUILD_DESTPREFIX/lib/libtensorflow.lib"
+    cp lib/tensorflow.lib "$FFBUILD_DESTPREFIX/lib/libtensorflow.dll.a"
     # Сама DLL должна быть в bin, чтобы попасть в финальный архив
     cp lib/tensorflow.dll "$FFBUILD_DESTPREFIX/bin/"
 
@@ -46,4 +46,8 @@ ffbuild_configure() {
 
 ffbuild_unconfigure() {
     echo --disable-libtensorflow
+}
+
+ffbuild_libs() {
+    echo "-lbcrypt -ldbghelp"
 }

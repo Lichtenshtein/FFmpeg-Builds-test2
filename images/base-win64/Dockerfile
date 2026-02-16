@@ -16,10 +16,7 @@ RUN --mount=src=ct-ng-config,dst=/.config \
 RUN find /opt/ct-ng -name "*.dll" -or -name "*.dll.a" -delete && \
     mkdir -p /opt/ffbuild
 
-RUN apt-get -y update && \
-    apt-get -y install --no-install-recommends wine-stable && \
-    apt-get -y clean && \
-    rm -rf /var/lib/apt/lists/*
+RUN rm -rf /var/lib/apt/lists/*
 
 ENV FFBUILD_TOOLCHAIN=x86_64-w64-mingw32 \
     FFBUILD_RUST_TARGET=x86_64-pc-windows-gnu
@@ -44,7 +41,7 @@ RUN ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc && \
 # "Depend Mode": если добавить export CCACHE_DEPEND=1, ccache будет быстрее определять промахи, не запуская препроцессор полностью.
 ENV CCACHE_DIR=/root/.cache/ccache \
     CCACHE_MAXSIZE=20G \
-    CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros" \
+    CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros,file_macro,pch_defines" \
     CCACHE_BASEDIR="/builder" \
     CCACHE_COMPILERCHECK="content" \
     CCACHE_DEPEND=1 \
@@ -73,8 +70,8 @@ ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
     NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
     DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool" \
     GENDEF="${FFBUILD_TOOLCHAIN}-gendef" \
-    CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -ffast-math -flto=auto -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
-    CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -ffast-math -flto=auto -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
-    LDFLAGS="-O3 -march=broadwell -flto=auto -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -Wl,--gc-sections -Wl,--as-needed" \
+    CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -ffast-math -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
+    CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -ffast-math -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
+    LDFLAGS="-O3 -march=broadwell -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -Wl,--gc-sections -Wl,--as-needed" \
     STAGE_CFLAGS="-fno-semantic-interposition" \
     STAGE_CXXFLAGS="-fno-semantic-interposition"

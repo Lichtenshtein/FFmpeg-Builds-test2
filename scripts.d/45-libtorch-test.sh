@@ -19,7 +19,9 @@ ffbuild_dockerbuild() {
     cp -r include/* "$FFBUILD_DESTPREFIX/include/"
     # Копируем заголовочные файлы
     # Для MinGW важно, чтобы .lib файлы имели префикс lib, иначе -l не всегда их видит
-    for f in lib/*.lib; do cp "$f" "$FFBUILD_DESTPREFIX/lib/lib$(basename "$f")"; done
+    for f in lib/*.lib; do 
+        cp "$f" "$FFBUILD_DESTPREFIX/lib/lib$(basename "$f" .lib).dll.a"
+    done
     cp lib/*.dll "$FFBUILD_DESTPREFIX/bin/"
 
     # LibTorch требует много флагов, создаем .pc файл
@@ -35,10 +37,15 @@ Version: 2.10.0
 # Переносим основные либы в Libs, чтобы они всегда были видны
 Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10
 # Добавляем необходимые системные либы Windows в private
-Libs.private: -lshlwapi -luser32 -ladvapi32
+# Все зависимости, которые нужны только при статической линковке самого FFmpeg к этим DLL
+Libs.private: -lshlwapi -luser32 -ladvapi32 -lstdc++
 Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1
 EOF
 }
 
 ffbuild_configure() { echo --enable-libtorch; }
 ffbuild_unconfigure() { echo --disable-libtorch; }
+
+ffbuild_libs() {
+    echo "-lshlwapi, -luser32, -ladvapi32"
+}
