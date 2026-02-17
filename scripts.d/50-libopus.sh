@@ -4,7 +4,7 @@ SCRIPT_REPO="https://github.com/xiph/opus.git"
 SCRIPT_COMMIT="59f13a3eb0eed3a56cf46bd68cc2f29f18d83ba2"
 
 ffbuild_enabled() {
-    return -1
+    return 1
 }
 
 ffbuild_dockerdl() {

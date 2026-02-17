@@ -106,10 +106,20 @@ log_info "Starting parallel downloads for $TARGET-$VARIANT..."
      # source util/dl_functions.sh; \
      # download_stage {} '$TARGET' '$VARIANT' '$DL_DIR'"
 
-for s in scripts.d/*.sh; do
-    echo "Testing $s..."
-    ./download.sh "$s" # Или вызовите функцию напрямую
+# Находим все файлы и перебираем их по одному
+for STAGE_PATH in $(find scripts.d -name "*.sh" | sort); do
+    log_info "--- Checking stage: $STAGE_PATH ---"
+    
+    # Вызываем функцию напрямую (она уже экспортирована выше в скрипте)
+    # Мы передаем те же аргументы, что давали в Parallel
+    if ! download_stage "$STAGE_PATH" "$TARGET" "$VARIANT" "$DL_DIR"; then
+        log_error "CRITICAL FAILURE at $STAGE_PATH"
+        exit 1 # Сразу выходим, чтобы увидеть причину
+    fi
 done
+
+log_info "All sequential downloads finished successfully."
+
 # Используем стандартный xargs. 
 # Чтобы xargs прекратил работу при ошибке, bash-команда должна вернуть exit 255.
 # find scripts.d -name "*.sh" | sort | \
