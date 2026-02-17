@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -e
 shopt -s globstar
 cd "$(dirname "$0")"
@@ -22,7 +23,6 @@ to_df() {
 to_df "FROM base-win64:local AS build_stage"
 to_df "ENV TARGET=$TARGET VARIANT=$VARIANT REPO=$REPO ADDINS_STR=$ADDINS_STR"
 to_df "ENV C_INCLUDE_PATH=/opt/ffbuild/include CPATH=/opt/ffbuild/include LIBRARY_PATH=/opt/ffbuild/lib"
-to_df "ENV BASH_ENV=/builder/util/vars.sh" 
 
 # Копируем утилиту один раз. Это стабильная точка для кэша.
 to_df "COPY util/run_stage.sh /usr/bin/run_stage"
@@ -37,7 +37,7 @@ mkdir -p .cache/ccache
 
 # Общие монтирования (BIND) для каждого RUN. 
 # Кэш сработает, если содержимое монтируемых файлов не менялось.
-MOUNTS="--mount=type=bind,source=.cache/ccache,target=/root/.cache/ccache \\
+MOUNTS="--mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\
     --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\
     --mount=type=bind,source=util,target=/builder/util \\
     --mount=type=bind,source=patches,target=/builder/patches \\
@@ -55,14 +55,28 @@ if [[ -n "$ONLY_STAGE" ]]; then
     active_scripts=( $(printf '%s\n' "${active_scripts[@]}" | grep -E "$ONLY_STAGE") )
 fi
 
-# Генерируем ОТДЕЛЬНЫЙ RUN для каждого активного скрипта
+# Считаем хеши для инвалидации кэша слоев Docker
+# Если поменяется vars.sh или любой патч - все последующие RUN пересоберутся
+VARS_HASH=$(sha256sum util/vars.sh util/run_stage.sh | sha256sum | cut -c1-8)
+# Проверка на наличие патчей, чтобы find не упал, если папка пуста
+PATCH_HASH=$(find patches -type f 2>/dev/null | sort | xargs sha256sum 2>/dev/null | sha256sum | cut -c1-8 || echo "empty")
+
+# Генерируем блоки RUN для каждой стадии
 for STAGE in "${active_scripts[@]}"; do
     STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')" # Получаем имя для лога
     SCRIPT_HASH=$(sha256sum "$STAGE" | cut -c1-8)
-    to_df "# Hash: $SCRIPT_HASH"
-    to_df "RUN $MOUNTS \\"
-    to_df "    source /builder/util/vars.sh $TARGET $VARIANT &>/dev/null && \\"
-    to_df "    log_info '>>> $STAGENAME <<<' && run_stage /builder/$STAGE"
+
+    to_df "# Stage: $STAGENAME | ScriptHash: $SCRIPT_HASH | DepsHash: $VARS_HASH"
+    
+    # Используем type=cache для ccache — это нативный и самый быстрый способ
+    # Используем type=bind для исходников и утилит — они Read-Only
+    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
+    to_df "    --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\"
+    to_df "    --mount=type=bind,source=util,target=/builder/util \\"
+    to_df "    --mount=type=bind,source=patches,target=/builder/patches \\"
+    to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads \\"
+    # Инъекция переменной _H заставляет Docker пересобрать слой, если изменился скрипт или vars.sh
+    to_df "    _H=$SCRIPT_HASH:$VARS_HASH:$PATCH_HASH source /builder/util/vars.sh $TARGET $VARIANT &>/dev/null && run_stage /builder/$STAGE"
 done
 
 # Сборка FFmpeg (Флаги конфигурации)
@@ -74,7 +88,6 @@ ldflags_args=()
 cxxflags_args=()
 ldexeflags_args=()
 libs_args=()
-
 
 # Собираем конфигурацию из вариантов и аддинов
 # (Предположим, функции ffbuild_... внутри них тоже возвращают строки)
@@ -91,24 +104,23 @@ for script in "${active_scripts[@]}"; do
     if ( source "$script" && ffbuild_enabled ); then
         # Используем подстановку, которая корректно разбивает строку на элементы массива
         # Внимание: здесь мы полагаемся на то, что функции возвращают пробелы как разделители
-        read -a cfg <<< "$(source "$script" && ffbuild_configure)"
+        mapfile -t cfg < <( (source "$script" && ffbuild_configure) | xargs printf '%s\n')
         conf_args+=("${cfg[@]}")
-        
-        read -a cfl <<< "$(source "$script" && ffbuild_cflags)"
+
+        mapfile -t cfl < <( (source "$script" && ffbuild_cflags) | xargs printf '%s\n')
         cflags_args+=("${cfl[@]}")
 
-        read -a ldf <<< "$(source "$script" && ffbuild_ldflags)"
+        mapfile -t ldf < <( (source "$script" && ffbuild_ldflags) | xargs printf '%s\n')
         ldflags_args+=("${ldf[@]}")
 
-        read -a cxx <<< "$(source "$script" && ffbuild_cxxflags)"
+        mapfile -t cxx < <( (source "$script" && ffbuild_cxxflags) | xargs printf '%s\n')
         cxxflags_args+=("${cxx[@]}")
 
-        read -a ldexe <<< "$(source "$script" && ffbuild_ldexeflags)"
+        mapfile -t ldexe < <( (source "$script" && ffbuild_ldexeflags) | xargs printf '%s\n')
         ldexeflags_args+=("${ldexe[@]}")
 
-        read -a libs <<< "$(source "$script" && ffbuild_libs)"
+        mapfile -t libs < <( (source "$script" && ffbuild_libs) | xargs printf '%s\n')
         libs_args+=("${libs[@]}")
-
    fi
 done
 
@@ -139,7 +151,8 @@ to_df "COPY patches /builder/patches"
 # раскомментировать после отладки для сборки FFmpeg
 # to_df "COPY variants /builder/variants"
 # to_df "COPY addins /builder/addins"
-to_df "RUN --mount=type=bind,source=.cache/ccache,target=/root/.cache/ccache \\"
+
+to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
 to_df "    --mount=from=ffmpeg_src,target=/builder/ffbuild/ffmpeg \\" # Монтируем контекст FFmpeg
 to_df "    ./build.sh $TARGET $VARIANT"
 

@@ -1,17 +1,43 @@
 #!/bin/bash
 set -e
 
+# Если переменные еще не подгружены (например, функции логирования), подгружаем их
+if [[ -z "$FFBUILD_PREFIX" ]]; then
+    # Пробуем найти vars.sh относительно текущего скрипта
+    source "$(dirname "$0")/vars.sh" "$TARGET" "$VARIANT" > /dev/null 2>&1 || true
+fi
+
 SCRIPT_PATH="$1"
+# получаем абсолютный путь, так как мы будем менять cd
+ABS_SCRIPT_PATH=$(readlink -f "$SCRIPT_PATH")
 STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
 
-# Подгружаем скрипт заранее, чтобы проверить SCRIPT_SKIP
-source "$SCRIPT_PATH"
-
+# Создаем и входим в директорию сборки ДО загрузки скрипта
 mkdir -p "/build/$STAGENAME"
 cd "/build/$STAGENAME"
 
+# Подгружаем скрипт заранее, чтобы проверить SCRIPT_SKIP
+# любые $(pwd) или относительные пути внутри скрипта будут указывать на /build/STAGENAME
+source "$SCRIPT_PATH"
+
+# Проверка на пропуск (теперь переменная SCRIPT_SKIP подгружена в контексте нужной папки)
+if [[ "$SCRIPT_SKIP" == "1" ]]; then
+    log_info "Skipping stage $STAGENAME as requested by script."
+    exit 0
+fi
+
+# Очищаем временный приемник файлов, чтобы избежать "паразитного" копирования 
+# артефактов из предыдущих слоев Docker (если они попали в кэш слоя)
+if [[ -d "$FFBUILD_DESTDIR" ]]; then
+    log_debug "Cleaning up temporary DESTDIR: $FFBUILD_DESTDIR"
+    rm -rf "${FFBUILD_DESTDIR:?}"/*
+fi
+mkdir -p "$FFBUILD_DESTDIR"
+
 CACHE_DIR="/root/.cache/downloads"
 REAL_CACHE=""
+
+ccache -z
 
 # Начало группы в логах GitHub
 echo "::group::$STAGENAME"
@@ -31,23 +57,27 @@ if [[ "$SCRIPT_SKIP" != "1" ]]; then
 
     if [[ -n "$REAL_CACHE" && -f "$REAL_CACHE" ]]; then
         log_info "Unpacking $STAGENAME from $REAL_CACHE (Size: $(du -h "$REAL_CACHE" | cut -f1))"
-        # tar автоматически вызовет zstd, если он установлен в системе
-        tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C . --strip-components=0
+
+        # Распаковываем без лишних флагов --strip-components
+        tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C .
         
-        # Проверка структуры после распаковки
-        if [[ $(ls -1 | wc -l) -eq 0 ]]; then
-            log_error "ERROR: Archive $REAL_CACHE is empty!"
-            exit 1
+        # УМНЫЙ ПОИСК ДИРЕКТОРИИ ИСХОДНИКОВ
+        # Ищем папку, в которой лежат типичные файлы конфигурации
+        SRC_DIR=$(find . -maxdepth 2 -name "configure" -o -name "CMakeLists.txt" -o -name "meson.build" | head -n 1 | xargs dirname 2>/dev/null || echo ".")
+
+        if [[ "$SRC_DIR" != "." ]]; then
+            log_info "Source files detected in: $SRC_DIR. Entering..."
+            cd "$SRC_DIR"
         fi
 
-        if [[ $(ls -1 | wc -l) -eq 1 && -d $(ls -1) ]]; then
-            SUBDIR=$(ls -1)
-            log_info "Entering subdirectory: $SUBDIR"
-            cd "$SUBDIR"
-            log_debug "DEBUG: Current build directory: $(pwd)"
-            # позволит сразу понять в логах GitHub, правильно ли распаковался исходник.
-            ls -F
+        # Финальная проверка не пуста ли папка после распаковки
+        if [[ $(ls -A | wc -l) -eq 0 ]]; then
+            log_error "ERROR: Archive $REAL_CACHE is empty or failed to unpack!"
+            exit 1
         fi
+        
+        log_debug "Final build directory: $(pwd)"
+        ls -F | head -n 5
     else
         # Если загрузка была предусмотрена (ffbuild_dockerdl не пуст), но файла нет
         DL_CHECK=$(ffbuild_dockerdl)
@@ -122,27 +152,32 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
     log_info "################################################################"
     log_info "===> SYNCING STAGE: $STAGENAME"
     
-    # Проверяем, не пуста ли папка перед синхронизацией
-    if [ "$(ls -A "$FFBUILD_DESTDIR$FFBUILD_PREFIX")" ]; then
+    # Проверяем наличие файлов (игнорируя пустые директории)
+    if [[ -n $(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -print -quit) ]]; then
         log_debug "Source: $FFBUILD_DESTDIR$FFBUILD_PREFIX"
         log_debug "Target: $FFBUILD_PREFIX"
 
-        # rsync опции:
-        # -a: архивный режим (сохраняет симлинки, права, даты)
-        # -v: подробный вывод (покажет каждый файл в логе)
+        # Продвинутые флаги rsync:
+        # -a: архив (права, даты, симлинки)
+        # -v: подробный лог (поможет увидеть, ЧТО именно установила либа)
+        # --update: НЕ перезаписывать файлы в таргете, если они новее
+        # --ignore-times: но если размер/дата отличаются - обновить
         # --ignore-existing: можно убрать, если нужно обновлять либы
-        if rsync -av "$FFBUILD_DESTDIR$FFBUILD_PREFIX/" "$FFBUILD_PREFIX/"; then
-            log_info "${GREEN}${CHECK_MARK} Sync completed successfully.${NC}"
-            
+        if rsync -av --update "$FFBUILD_DESTDIR$FFBUILD_PREFIX/" "$FFBUILD_PREFIX/"; then
+            log_info "${GREEN}${CHECK_MARK} Sync completed. Artifacts moved to global prefix.${NC}"
             # Расширенный лог: показывает, что именно добавилось (первые 10 файлов для краткости)
             log_debug "New files in prefix (top 10):"
             ls -R "$FFBUILD_PREFIX" | head -n 10
         else
-            log_error "${CROSS_MARK} Rsync failed for $STAGENAME!"
+            log_error "${CROSS_MARK} Sync failed for $STAGENAME!"
             exit 1
         fi
+        
+        # Очищаем DESTDIR сразу после копирования, 
+        # чтобы освободить место в текущем слое Docker перед финализацией
+        rm -rf "${FFBUILD_DESTDIR:?}"/*
     else
-        log_warn "Stage $STAGENAME finished but produced NO files in $FFBUILD_DESTDIR$FFBUILD_PREFIX"
+        log_warn "Stage $STAGENAME finished but $FFBUILD_DESTDIR$FFBUILD_PREFIX is empty."
     fi
     log_info "################################################################"
 fi

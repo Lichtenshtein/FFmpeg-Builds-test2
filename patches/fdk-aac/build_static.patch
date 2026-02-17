@@ -1,0 +1,31 @@
+From 22b174868ea14dd77f3845e8e7f785317286bf4a Mon Sep 17 00:00:00 2001
+From: linxing <linxing@52tt.com>
+Date: Sun, 29 Sep 2024 12:00:01 +0800
+Subject: [PATCH] =?UTF-8?q?cmake=E4=BF=AE=E6=94=B9?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ CMakeLists.txt | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 03f46ccc..f31638b0 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -61,7 +61,13 @@ include(CPack)
+ 
+ # Options
+ 
+-option(BUILD_SHARED_LIBS "Build shared library" ON)
++if(BUILD_SHARED_LIBS)
++  set(LIBRARY_BUILD_TYPE SHARED)
++else()
++  set(LIBRARY_BUILD_TYPE STATIC)
++endif()
++
++#option(BUILD_SHARED_LIBS "Build shared library" ON)
+ option(BUILD_PROGRAMS "Build extra utilities" OFF)
+ option(FDK_AAC_INSTALL_CMAKE_CONFIG_MODULE "Install CMake package configuration file" ON)
+ option(FDK_AAC_INSTALL_PKGCONFIG_MODULE "Install pkg-config .pc file" ON)

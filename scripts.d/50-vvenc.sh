@@ -5,7 +5,7 @@ SCRIPT_COMMIT="6627583b7d2b607a7fb04b97ab29d66bdcb113cf"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm* ]] && return -1
-    (( $(ffbuild_ffver) > 700 )) || return -1
+    # (( $(ffbuild_ffver) > 700 )) || return -1
     return 0
     # vvenc force-enabled avx2 and equivalent compiler options, and uses a static initializer that promptly
     # runs such instructions. Making resulting binaries malfunction on any but the very latest CPUs.

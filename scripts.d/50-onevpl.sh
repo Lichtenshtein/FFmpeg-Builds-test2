@@ -5,7 +5,7 @@ SCRIPT_COMMIT="778a66d6c6537f08eabb91955dbbf1bce3812894"
 
 ffbuild_enabled() {
     [[ $TARGET == *arm64 ]] && return -1
-    (( $(ffbuild_ffver) >= 600 )) || return -1
+    # (( $(ffbuild_ffver) >= 600 )) || return -1
     return 0
 }
 

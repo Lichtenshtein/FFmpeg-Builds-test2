@@ -12,9 +12,6 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # ОБНОВЛЯЕМ MESON до последней версии
-    pip3 install --break-system-packages --upgrade meson
-
     # инициализация подмодуля gvdb
     if ! git submodule --quiet update --init --recursive; then
         echo "Submodule update failed, downloading GVDB manually..."
@@ -32,9 +29,9 @@ ffbuild_dockerbuild() {
 
     # Подготавливаем строки аргументов заранее
     # Превращаем "-O3 -march=broadwell" в "'-O3', '-march=broadwell'"
-    MESON_C_ARGS=$(echo $CFLAGS | xargs -n1 | sed "s/.*/'&'/" | paste -sd, -)
-    MESON_CXX_ARGS=$(echo $CXXFLAGS | xargs -n1 | sed "s/.*/'&'/" | paste -sd, -)
-    MESON_L_ARGS=$(echo $LDFLAGS | xargs -n1 | sed "s/.*/'&'/" | paste -sd, -)
+    MESON_C_ARGS=$(printf "'%s', " $CFLAGS | sed 's/, $//')
+    MESON_CXX_ARGS=$(printf "'%s', " $CXXFLAGS | sed 's/, $//')
+    MESON_L_ARGS=$(printf "'%s', " $LDFLAGS | sed 's/, $//')
 
     cat <<EOF > cross_file.txt
 [host_machine]
@@ -76,6 +73,7 @@ EOF
         --buildtype release \
         --default-library static \
         -Dtests=false \
+        -Dpython.install_env=auto \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
         -Dnls=disabled \
@@ -96,19 +94,13 @@ EOF
 
 ffbuild_configure() {
     # Для FFmpeg важно знать, что glib статическая
-    echo "--enable-libglib";
+    echo --enable-libglib
 }
 
 ffbuild_cflags() {
-    echo "-DGLIB_STATIC_COMPILATION";
-}
-
-ffbuild_ldflags() {
-    return 0 # Очищаем ldflags, чтобы не дублировать
+    echo "-DGLIB_STATIC_COMPILATION"
 }
 
 ffbuild_libs() {
-    # Эти флаги попадут в переменную $FF_LIBS, которая в build.sh 
-    # подставляется в самый конец команды ./configure
-    echo "-lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl -liconv -lpthread"
+    echo "-luserenv -liphlpapi -lintl -liconv -lpthread"
 }

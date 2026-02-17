@@ -23,13 +23,26 @@ if [[ $# -lt 2 ]]; then
     exit -1
 fi
 
-TARGET="$1"
-VARIANT="$2"
-shift 2
+# Улучшенная проверка: приоритет аргументам, иначе берем из ENV
+TARGET="${1:-$TARGET}"
+VARIANT="${2:-$VARIANT}"
 
+# Валидация: если ни аргументов, ни переменных нет — тогда ошибка
+if [[ -z "$TARGET" || -z "$VARIANT" ]]; then
+    log_error "Missing TARGET or VARIANT. Usage: source vars.sh [target] [variant]"
+    # Не используем exit -1, чтобы не закрывать сессию терминала при source
+    return 1 2>/dev/null || exit 1
+fi
+
+# Сдвигаем аргументы только если они были переданы
+if [[ $# -ge 2 ]]; then
+    shift 2
+fi
+
+# Проверка файла варианта
 if ! [[ -f "variants/${TARGET}-${VARIANT}.sh" ]]; then
-    log_error "Invalid target/variant"
-    exit -1
+    log_error "Invalid target/variant: ${TARGET}-${VARIANT}"
+    return 1 2>/dev/null || exit 1
 fi
 
 LICENSE_FILE="COPYING.LGPLv2.1"
@@ -120,9 +133,9 @@ ffbuild_unconfigure() {
 }
 
 ffbuild_cflags() {
+    log_debug "Applying global CFLAGS for $STAGENAME" >&2
     # глобальный макрос для всех, кто включает заголовки glib
-    log_info "-DGLIB_STATIC_COMPILATION -mms-bitfields"
-    # return 0
+    echo "-DGLIB_STATIC_COMPILATION -mms-bitfields"
 }
 
 ffbuild_uncflags() {
@@ -154,7 +167,9 @@ ffbuild_unldflags() {
 }
 
 ffbuild_libs() {
-    log_info "-lsetupapi -lstdc++ -lm -lws2_32"
+    log_debug "Adding system libraries for Win64" >&2
+    # Только системные либы
+    echo "-lsetupapi -lstdc++ -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32"
 }
 
 ffbuild_unlibs() {

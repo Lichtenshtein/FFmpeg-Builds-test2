@@ -9,7 +9,7 @@ SCRIPT_COMMIT="fedc23378247b6ab504cbcdfedf428efab9ad452"
 
 ffbuild_enabled() {
     [[ $TARGET == win32 ]] && return -1
-    (( $(ffbuild_ffver) > 700 )) || return -1
+    # (( $(ffbuild_ffver) > 700 )) || return -1
     return 0
 }
 

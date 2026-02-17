@@ -5,7 +5,6 @@
 SCRIPT_REPO="https://storage.openvinotoolkit.org/repositories/openvino/packages/2025.4.1/windows/openvino_toolkit_windows_2025.4.1.20426.82bbf0292c5_x86_64.zip"
 
 ffbuild_enabled() {
-    (( $(ffbuild_ffver) >= 404 )) || return -1
     return 0
 }
 
@@ -27,10 +26,13 @@ ffbuild_dockerbuild() {
     cp -r runtime/include/* "$FFBUILD_DESTPREFIX/include/"
     # Фикс имен для MinGW
     for f in runtime/lib/intel64/Release/*.lib; do 
-        cp "$f" "$FFBUILD_DESTPREFIX/lib/lib$(basename "$f" .lib).dll.a"
+        # убираем 'lib' из basename, если он там уже есть, или добавляем аккуратно
+        NAME=$(basename "$f" .lib)
+        cp "$f" "$FFBUILD_DESTPREFIX/lib/lib${NAME}.dll.a"
     done
     # Копируем ВСЕ DLL (включая TBB и плагины)
     cp runtime/bin/intel64/Release/*.dll "$FFBUILD_DESTPREFIX/bin/"
+    cp runtime/bin/intel64/Release/openvino_intel_cpu_plugin.dll "$FFBUILD_DESTPREFIX/bin/" 2>/dev/null || true
     # Копируем всё, что заканчивается на .dll, НО не содержит _debug перед расширением
     cp runtime/3rdparty/tbb/bin/!(*_debug).dll "$FFBUILD_DESTPREFIX/bin/"
 
