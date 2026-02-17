@@ -78,6 +78,13 @@ git-mini-clone() {
     fi
 }
 
+download_file() {
+    local URL="$1"
+    local DEST="$2"
+    log_info "Downloading external file: $(basename "$DEST")..."
+    curl -sL --retry 3 "$URL" -o "$DEST" || { log_error "Failed to download $URL"; return 1; }
+}
+
 default_dl() {
     local TARGET_DIR="${1:-.}"
     [[ -z "$SCRIPT_REPO" ]] && return 0
