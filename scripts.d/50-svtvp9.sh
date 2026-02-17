@@ -4,8 +4,8 @@ SCRIPT_REPO="https://github.com/OpenVisualCloud/SVT-VP9.git"
 SCRIPT_COMMIT="7917f95c3849768ab569ccc4a5adecb8854b65f6"
 
 ffbuild_enabled() {
-    [[ $TARGET == win32 ]] && return -1
-    [[ $TARGET == *arm64 ]] && return -1
+    [[ $TARGET == win32 ]] && return 1
+    [[ $TARGET == *arm64 ]] && return 1
     return 0
 }
 
@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
             else
                 log_info "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
                 log_info "-----------------------------------"
-                # exit 1 # если нужно прервать сборку при ошибке
+                # return 1 # если нужно прервать сборку при ошибке
             fi
         done
     fi

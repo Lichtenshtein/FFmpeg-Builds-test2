@@ -3,7 +3,8 @@
 SCRIPT_SKIP="1"
 
 ffbuild_enabled() {
-    [[ $TARGET == linux* ]]
+    [[ $TARGET == win64 ]] || return 1
+    return 0
 }
 
 ffbuild_dockerfinal() {

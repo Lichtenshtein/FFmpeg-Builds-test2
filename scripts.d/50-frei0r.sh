@@ -4,8 +4,8 @@ SCRIPT_REPO="https://github.com/dyne/frei0r.git"
 SCRIPT_COMMIT="ced05b4fcb94481d9b8fb81b4af3e63bd8026491"
 
 ffbuild_enabled() {
-    [[ $VARIANT == lgpl* ]] && return -1
-    (( $(ffbuild_ffver) >= 500 )) || return -1
+    [[ $VARIANT == lgpl* ]] && return 1
+    (( $(ffbuild_ffver) >= 500 )) || return 1
     return 0
 }
 

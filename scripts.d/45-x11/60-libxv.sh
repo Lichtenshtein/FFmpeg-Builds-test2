@@ -4,8 +4,8 @@ SCRIPT_REPO="https://gitlab.freedesktop.org/xorg/lib/libxv.git"
 SCRIPT_COMMIT="d709b8efab4e28b3ad324ca30acdb81a527f69a4"
 
 ffbuild_enabled() {
-    [[ $TARGET != linux* ]] && return -1
-    [[ $ADDINS_STR == *4.4* ]] && return -1
+    [[ $TARGET != linux* ]] && return 1
+    [[ $ADDINS_STR == *4.4* ]] && return 1
     return 0
 }
 
@@ -32,7 +32,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     export CFLAGS="$RAW_CFLAGS"

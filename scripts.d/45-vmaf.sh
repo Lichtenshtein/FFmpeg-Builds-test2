@@ -35,7 +35,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     meson setup "${myconf[@]}" ../libvmaf || cat meson-logs/meson-log.txt

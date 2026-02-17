@@ -41,7 +41,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     sed -i 's/windows.h/process.h/' configure.ac

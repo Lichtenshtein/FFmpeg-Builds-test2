@@ -4,7 +4,7 @@ SCRIPT_REPO="https://github.com/georgmartius/vid.stab.git"
 SCRIPT_COMMIT="6686ba880a3506f9c701b640f67f5cad48f07959"
 
 ffbuild_enabled() {
-    [[ $VARIANT == lgpl* ]] && return -1
+    [[ $VARIANT == lgpl* ]] && return 1
     return 0
 }
 

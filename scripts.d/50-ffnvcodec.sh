@@ -8,8 +8,8 @@ SCRIPT_COMMIT4="9934f17316b66ce6de12f3b82203a298bc9351d8"
 SCRIPT_BRANCH4="sdk/12.2"
 
 ffbuild_enabled() {
-    [[ $TARGET == winarm64 ]] && return -1
-    (( $(ffbuild_ffver) >= 404 )) || return -1
+    [[ $TARGET == winarm64 ]] && return 1
+    (( $(ffbuild_ffver) >= 404 )) || return 1
     return 0
 }
 

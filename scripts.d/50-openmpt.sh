@@ -11,7 +11,7 @@ ffbuild_depends() {
 }
 
 ffbuild_enabled() {
-    [[ $TARGET == winarm64 ]] && return -1
+    [[ $TARGET == winarm64 ]] && return 1
     return 0
 }
 
@@ -69,7 +69,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     make $MAKE_V -j$(nproc) "${myconf[@]}" all install DESTDIR="$FFBUILD_DESTDIR"

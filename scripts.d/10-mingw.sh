@@ -4,8 +4,8 @@ SCRIPT_REPO="https://git.code.sf.net/p/mingw-w64/mingw-w64.git"
 SCRIPT_COMMIT="b45abfec4e116b33620de597b99b1f0af3ab6a6a"
 
 ffbuild_enabled() {
-    # [[ $TARGET == win* ]] || return -1
-    return 1
+    # [[ $TARGET == win* ]] || return 1
+    return 0
 }
 
 ffbuild_dockerlayer() {

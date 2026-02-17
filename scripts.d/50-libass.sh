@@ -36,7 +36,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     export CFLAGS="$CFLAGS -Dread_file=libass_internal_read_file"
