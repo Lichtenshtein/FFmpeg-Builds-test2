@@ -14,8 +14,8 @@ RUN --mount=src=ct-ng-config,dst=/.config \
 
 # Remove DLLs to force static linking
 # RUN find /opt/ct-ng -name "*.dll" -or -name "*.dll.a" -delete && \
-    mkdir -p /opt/ffbuild
-RUN mkdir -p /opt/ffbuild
+#    mkdir -p /opt/ffbuild
+RUN mkdir -p /opt/ffbuild /opt/ffdest
 
 RUN rm -rf /var/lib/apt/lists/*
 
