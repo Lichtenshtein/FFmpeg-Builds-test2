@@ -26,20 +26,27 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     
     STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
     
-    # Имитируем логику генерации хеша из download.sh
-    # Это гарантирует, что мы не удалим файлы, которые download.sh только что создал
+    # Получаем команду загрузки
     DL_COMMAND=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
                           source util/dl_functions.sh; \
                           source \"$STAGE\"; \
                           ffbuild_enabled && ffbuild_dockerdl" || echo "")
 
-    if [[ -n "$DL_COMMAND" ]]; then
+    if [[ -z "$DL_COMMAND" ]]; then
+        # Это мета-пакет. Защищаем ВСЕ файлы, начинающиеся на его имя,
+        # чтобы случайно не удалить локальные аддоны или базовый тулчейн.
+        log_debug "Protecting meta-package: $STAGENAME"
+        echo "${STAGENAME}.tar.zst" >> "$KEEP_LIST"
+        # Защищаем все существующие хешированные версии этого стейджа
+        ls "$CACHE_DIR"/${STAGENAME}_*.tar.zst 2>/dev/null | xargs -n1 basename 2>/dev/null >> "$KEEP_LIST" || true
+    else
+        # Это обычный пакет с загрузкой из сети. Вычисляем текущий валидный хеш.
         SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE" | grep -v '^[[:space:]]*$')
         DL_HASH=$( (echo "$DL_COMMAND"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16)
         
-        # Добавляем имя файла в список исключений для удаления
-        echo "${STAGENAME}_${DL_HASH}.tar.zst" >> "$KEEP_LIST"
-        log_debug "Protecting: ${STAGENAME}_${DL_HASH}.tar.zst"
+        VALID_FILE="${STAGENAME}_${DL_HASH}.tar.zst"
+        echo "$VALID_FILE" >> "$KEEP_LIST"
+        log_debug "Protecting active source: $VALID_FILE"
     fi
 done
 
