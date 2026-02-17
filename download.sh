@@ -1,8 +1,5 @@
 #!/bin/bash
 set -e
-export PS4='+ ${BASH_SOURCE}:${LINENO}: ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
-set -x
-
 
 # фикс проблем с git 
 git config --global advice.detachedHead false
@@ -98,28 +95,26 @@ download_stage() {
 export -f download_stage
 
 log_info "Starting parallel downloads for $TARGET-$VARIANT..."
-# find scripts.d -name "*.sh" | sort | \
+find scripts.d -name "*.sh" | sort | \
     # --halt now,fail=1 меняем на --halt soon,fail=20%
     # Это даст шанс остальным докачаться, даже если один упал
-    # parallel --halt soon,fail=20% --jobs 8 \
-    # "export TARGET='$TARGET'; \
-     # export VARIANT='$VARIANT'; \
-     # export ROOT_DIR='$ROOT_DIR'; \
-     # source util/vars.sh \$TARGET \$VARIANT &>/dev/null; \
-     # source util/dl_functions.sh; \
-     # download_stage {} '$TARGET' '$VARIANT' '$DL_DIR'"
+    parallel --halt soon,fail=20% --jobs 8 \
+    "export TARGET='$TARGET'; \
+     export VARIANT='$VARIANT'; \
+     export ROOT_DIR='$ROOT_DIR'; \
+     source util/vars.sh \$TARGET \$VARIANT &>/dev/null; \
+     source util/dl_functions.sh; \
+     download_stage {} '$TARGET' '$VARIANT' '$DL_DIR'"
 
-# Находим все файлы и перебираем их по одному
-for STAGE_PATH in $(find scripts.d -name "*.sh" | sort); do
-    log_info "--- Checking stage: $STAGE_PATH ---"
-    
-    # Вызываем функцию напрямую (она уже экспортирована выше в скрипте)
-    # Мы передаем те же аргументы, что давали в Parallel
-    if ! download_stage "$STAGE_PATH" "$TARGET" "$VARIANT" "$DL_DIR"; then
-        log_error "CRITICAL FAILURE at $STAGE_PATH"
-        exit 1 # Сразу выходим, чтобы увидеть причину
-    fi
-done
+## Находим все файлы и перебираем их по одному
+# for STAGE_PATH in $(find scripts.d -name "*.sh" | sort); do
+    # log_info "--- Checking stage: $STAGE_PATH ---"
+
+    # if ! download_stage "$STAGE_PATH" "$TARGET" "$VARIANT" "$DL_DIR"; then
+        # log_error "CRITICAL FAILURE at $STAGE_PATH"
+        # exit 1 # Сразу выходим, чтобы увидеть причину
+    # fi
+# done
 
 log_info "All sequential downloads finished successfully."
 
