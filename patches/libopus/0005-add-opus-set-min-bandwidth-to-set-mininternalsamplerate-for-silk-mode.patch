@@ -1,0 +1,135 @@
+From 60b45c0b35acf736dcca8109b55c351be4ec1f22 Mon Sep 17 00:00:00 2001
+From: tiennd3 <tiennd3@vng.com.vn>
+Date: Fri, 25 Oct 2024 16:12:07 +0700
+Subject: [PATCH] Add OPUS_SET_MIN_BANDWIDTH to set minInternalSampleRate for
+ Silk mode (which is using NARROWBAND)
+
+- Implement OPUS_SET_MIN_BANDWIDTH to OPUS_BANDWIDTH_WIDEBAND to allow configuration of minInternalSampleRate in Silk mode during encoding.
+- This enables additional options for decoding, supporting both LACE and NOLACE modes, which require Wideband audio.
+---
+ include/opus_defines.h | 25 +++++++++++++++++++++++++
+ src/opus_encoder.c     | 40 +++++++++++++++++++++++++++++++++++++++-
+ 2 files changed, 64 insertions(+), 1 deletion(-)
+
+diff --git a/include/opus_defines.h b/include/opus_defines.h
+index cd8f4dde8..4f35fd7b2 100644
+--- a/include/opus_defines.h
++++ b/include/opus_defines.h
+@@ -133,6 +133,8 @@ extern "C" {
+ #define OPUS_GET_BITRATE_REQUEST             4003
+ #define OPUS_SET_MAX_BANDWIDTH_REQUEST       4004
+ #define OPUS_GET_MAX_BANDWIDTH_REQUEST       4005
++#define OPUS_SET_MIN_BANDWIDTH_REQUEST       40050
++#define OPUS_GET_MIN_BANDWIDTH_REQUEST       40051
+ #define OPUS_SET_VBR_REQUEST                 4006
+ #define OPUS_GET_VBR_REQUEST                 4007
+ #define OPUS_SET_BANDWIDTH_REQUEST           4008
+@@ -420,6 +420,29 @@ extern "C" {
+   * @hideinitializer */
+ #define OPUS_GET_MAX_BANDWIDTH(x) OPUS_GET_MAX_BANDWIDTH_REQUEST, opus_check_int_ptr(x)
+ 
++ /** Configures the minimum bandpass that the encoder will select automatically.
++  * LACE and NoLACE are currently only applied when the frame size is 20 ms (the default) 
++  * and the bandwidth is at least wideband, to use LACE and NOLACE for low bandwidth
++  * and keep OPUS_AUTO for other bandwidth, we may need OPUS_SET_MIN_BANDWIDTH
++  * @see OPUS_GET_MIN_BANDWIDTH
++  * @param[in] x <tt>opus_int32</tt>: Allowed values:
++  * <dl>
++  * <dt>OPUS_BANDWIDTH_NARROWBAND</dt>    <dd>4 kHz passband</dd>
++  * <dt>OPUS_BANDWIDTH_WIDEBAND</dt>      <dd>8 kHz passband</dd>
++  * </dl>
++  * @hideinitializer */
++#define OPUS_SET_MIN_BANDWIDTH(x) OPUS_SET_MIN_BANDWIDTH_REQUEST, __opus_check_int(x)
++
++/** Gets the encoder's configured minimum allowed bandpass.
++  * @see OPUS_SET_MIN_BANDWIDTH
++  * @param[out] x <tt>opus_int32 *</tt>: Allowed values:
++  * <dl>
++  * <dt>#OPUS_BANDWIDTH_NARROWBAND</dt>    <dd>4 kHz passband</dd>
++  * <dt>#OPUS_BANDWIDTH_WIDEBAND</dt>      <dd>8 kHz passband</dd>
++  * </dl>
++  * @hideinitializer */
++#define OPUS_GET_MIN_BANDWIDTH(x) OPUS_GET_MIN_BANDWIDTH_REQUEST, __opus_check_int_ptr(x)
++
+ /** Sets the encoder's bandpass to a specific value.
+   * This prevents the encoder from automatically selecting the bandpass based
+   * on the available bitrate. If an application knows the bandpass of the input
+diff --git a/src/opus_encoder.c b/src/opus_encoder.c
+index d18d582f0..745766a21 100644
+--- a/src/opus_encoder.c
++++ b/src/opus_encoder.c
+@@ -85,6 +85,7 @@ struct OpusEncoder {
+     int          signal_type;
+     int          user_bandwidth;
+     int          max_bandwidth;
++    int          min_bandwidth;
+     int          user_forced_mode;
+     int          voice_ratio;
+     opus_int32   Fs;
+@@ -270,6 +271,7 @@ int opus_encoder_init(OpusEncoder* st, opus_int32 Fs, int channels, int applicat
+     st->signal_type = OPUS_AUTO;
+     st->user_bandwidth = OPUS_AUTO;
+     st->max_bandwidth = OPUS_BANDWIDTH_FULLBAND;
++    st->min_bandwidth = OPUS_BANDWIDTH_NARROWBAND;
+     st->force_channels = OPUS_AUTO;
+     st->user_forced_mode = OPUS_AUTO;
+     st->voice_ratio = -1;
+@@ -1476,6 +1478,9 @@ opus_int32 opus_encode_native(OpusEncoder *st, const opus_val16 *pcm, int frame_
+            mode transitions. */
+         if (bandwidth == OPUS_BANDWIDTH_MEDIUMBAND)
+            bandwidth = OPUS_BANDWIDTH_WIDEBAND;
++        /* If have minbandwidth (currently just use wideband to apply LACE & NOLACE)*/
++        if(st->min_bandwidth == OPUS_BANDWIDTH_WIDEBAND && bandwidth < st->min_bandwidth)
++           bandwidth = st->min_bandwidth;
+         st->bandwidth = st->auto_bandwidth = bandwidth;
+         /* Prevents any transition to SWB/FB until the SILK layer has fully
+            switched to WB mode and turned the variable LP filter off */
+@@ -1948,7 +1953,13 @@ static opus_int32 opus_encode_frame_native(OpusEncoder *st, const opus_val16 *pc
+             /* Don't allow bandwidth reduction at lowest bitrates in hybrid mode */
+             st->silk_mode.minInternalSampleRate = 16000;
+         } else {
+-            st->silk_mode.minInternalSampleRate = 8000;
++            if (st->min_bandwidth == OPUS_BANDWIDTH_WIDEBAND) {
++                st->silk_mode.minInternalSampleRate = 16000;
++            }
++            else {
++                st->silk_mode.minInternalSampleRate = 8000;
++            }
++            
+         }
+ 
+         st->silk_mode.maxInternalSampleRate = 16000;
+@@ -2641,6 +2652,33 @@ int opus_encoder_ctl(OpusEncoder *st, int request, ...)
+             *value = st->max_bandwidth;
+         }
+         break;
++        case OPUS_SET_MIN_BANDWIDTH_REQUEST:
++        {
++            opus_int32 value = va_arg(ap, opus_int32);
++            if (value < OPUS_BANDWIDTH_NARROWBAND || value > OPUS_BANDWIDTH_FULLBAND)
++            {
++                goto bad_arg;
++            }
++            if (value == OPUS_BANDWIDTH_WIDEBAND) {
++                st->min_bandwidth = OPUS_BANDWIDTH_WIDEBAND;
++                st->silk_mode.minInternalSampleRate = 16000;
++            }
++            else {
++                st->min_bandwidth = OPUS_BANDWIDTH_NARROWBAND;
++                st->silk_mode.minInternalSampleRate = 8000;
++            }
++        }
++        break;
++        case OPUS_GET_MIN_BANDWIDTH_REQUEST:
++        {
++            opus_int32* value = va_arg(ap, opus_int32*);
++            if (!value)
++            {
++                goto bad_arg;
++            }
++            *value = st->min_bandwidth;
++        }
++        break;
+         case OPUS_SET_BANDWIDTH_REQUEST:
+         {
+             opus_int32 value = va_arg(ap, opus_int32);

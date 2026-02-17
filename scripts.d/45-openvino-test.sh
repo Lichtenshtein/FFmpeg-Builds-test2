@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
     cp runtime/bin/intel64/Release/*.dll "$FFBUILD_DESTPREFIX/bin/"
     cp runtime/bin/intel64/Release/openvino_intel_cpu_plugin.dll "$FFBUILD_DESTPREFIX/bin/" 2>/dev/null || true
     # Копируем всё, что заканчивается на .dll, НО не содержит _debug перед расширением
-    cp runtime/3rdparty/tbb/bin/!(*_debug).dll "$FFBUILD_DESTPREFIX/bin/"
+    find runtime/3rdparty/tbb/bin/ -name "*.dll" ! -name "*_debug.dll" -exec cp {} "$FFBUILD_DESTPREFIX/bin/" \;
 
     # Создаем именно lib/cmake и копируем туда
     mkdir -p "$FFBUILD_DESTPREFIX/lib/cmake"

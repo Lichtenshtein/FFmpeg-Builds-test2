@@ -107,14 +107,13 @@ jobs:
           restore-keys: |
             dl-cache-
 
-      - name: Restore ccache
-        uses: actions/cache/restore@v4
-        with:
-          path: .cache/ccache
-          # Ключ включает TARGET, чтобы кэш Win64 не смешивался с другими (если будут)
-          key: ccache-${{ env.TARGET }}-${{ github.sha }}
-          restore-keys: |
-            ccache-${{ env.TARGET }}-
+      # - name: Restore ccache
+        # uses: actions/cache/restore@v4
+        # with:
+          # path: .cache/ccache
+          # key: ccache-${{ env.TARGET }}-${{ github.sha }}
+          # restore-keys: |
+            # ccache-${{ env.TARGET }}-
 
       - name: Run Download and Generate
         run: |
@@ -194,12 +193,12 @@ jobs:
         if: always()
         run: sudo chown -R $USER:$USER .cache/ccache
 
-      - name: Save ccache
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: .cache/ccache
-          key: ccache-${{ env.TARGET }}-${{ github.sha }}
+      # - name: Save ccache
+        # if: always()
+        # uses: actions/cache/save@v4
+        # with:
+          # path: .cache/ccache
+          # key: ccache-${{ env.TARGET }}-${{ github.sha }}
 
       - name: Upload Final Artifacts
         uses: actions/upload-artifact@v4

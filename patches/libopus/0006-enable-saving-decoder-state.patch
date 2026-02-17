@@ -1,0 +1,85 @@
+From cafbe695e0f1fcab4bfa9f7f21f1b6120e89b9cf Mon Sep 17 00:00:00 2001
+From: ouroboros-audio <>
+Date: Thu, 8 Jan 2026 15:20:39 +0100
+Subject: [PATCH] Enable saving decoder state
+
+---
+ include/opus.h     | 27 +++++++++++++++++++++++++++
+ src/opus_decoder.c | 26 ++++++++++++++++++++++++++
+ 2 files changed, 53 insertions(+)
+
+diff --git a/include/opus.h b/include/opus.h
+index 802be9f95..55460bc7c 100644
+--- a/include/opus.h
++++ b/include/opus.h
+@@ -590,6 +590,33 @@ OPUS_EXPORT int opus_decoder_ctl(OpusDecoder *st, int request, ...) OPUS_ARG_NON
+   */
+ OPUS_EXPORT void opus_decoder_destroy(OpusDecoder *st);
+ 
++/** Save the internal decoder state into a byte buffer.
++  * @param [in] st <tt>OpusDecoder*</tt>: Decoder state.
++  * @param [out] dst <tt>unsigned char*</tt>: Destination buffer.
++  * @param [in] max_bytes <tt>opus_int32</tt>: Size of destination buffer in bytes.
++  * @retval #OPUS_OK Success.
++  * @retval #OPUS_BUFFER_TOO_SMALL <tt>max_bytes</tt> was insufficient.
++  * @retval #OPUS_BAD_ARG Invalid arguments.
++  */
++OPUS_EXPORT OPUS_WARN_UNUSED_RESULT int opus_decoder_save_state(
++    const OpusDecoder *st,
++    unsigned char *dst,
++    opus_int32 max_bytes
++) OPUS_ARG_NONNULL(1) OPUS_ARG_NONNULL(2);
++
++/** Restore a previously saved decoder state from a byte buffer.
++  * @param [in,out] st <tt>OpusDecoder*</tt>: Decoder state.
++  * @param [in] src <tt>unsigned char*</tt>: Source buffer.
++  * @param [in] size <tt>opus_int32</tt>: Number of bytes in source buffer.
++  * @retval #OPUS_OK Success.
++  * @retval #OPUS_BAD_ARG Invalid arguments.
++  */
++OPUS_EXPORT OPUS_WARN_UNUSED_RESULT int opus_decoder_load_state(
++    OpusDecoder *st,
++    const unsigned char *src,
++    opus_int32 size
++) OPUS_ARG_NONNULL(1) OPUS_ARG_NONNULL(2);
++
+ /** Gets the size of an <code>OpusDREDDecoder</code> structure.
+   * @returns The size in bytes.
+   */
+diff --git a/src/opus_decoder.c b/src/opus_decoder.c
+index 60b9b18bc..3560a0843 100644
+--- a/src/opus_decoder.c
++++ b/src/opus_decoder.c
+@@ -1245,6 +1245,32 @@ void opus_decoder_destroy(OpusDecoder *st)
+    opus_free(st);
+ }
+ 
++int opus_decoder_save_state(const OpusDecoder *st, unsigned char *dst, opus_int32 max_bytes)
++{
++   int size;
++   if (st == NULL || dst == NULL)
++      return OPUS_BAD_ARG;
++   size = opus_decoder_get_size(st->channels);
++   if (size <= 0)
++      return OPUS_BAD_ARG;
++   if (max_bytes < size)
++      return OPUS_BUFFER_TOO_SMALL;
++   OPUS_COPY(dst, (const unsigned char *)st, size);
++   return OPUS_OK;
++}
++
++int opus_decoder_load_state(OpusDecoder *st, const unsigned char *src, opus_int32 size)
++{
++   int expected;
++   if (st == NULL || src == NULL)
++      return OPUS_BAD_ARG;
++   expected = opus_decoder_get_size(st->channels);
++   if (expected <= 0 || size != expected)
++      return OPUS_BAD_ARG;
++   OPUS_COPY((unsigned char *)st, src, size);
++   return OPUS_OK;
++}
++
+ 
+ int opus_packet_get_bandwidth(const unsigned char *data)
+ {

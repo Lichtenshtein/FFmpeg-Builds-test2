@@ -1,0 +1,177 @@
+From ebdcee7d46ba4deae55e8be709bb4d2107cc0a6d Mon Sep 17 00:00:00 2001
+From: Mr-Z-2697 <74594146+Mr-Z-2697@users.noreply.github.com>
+Date: Wed, 28 Jan 2026 03:31:48 +0800
+Subject: [PATCH] encoder: add dc_reject filter control
+
+---
+ include/opus_defines.h         | 12 ++++++++++++
+ src/opus_demo.c                |  8 ++++++++
+ src/opus_encoder.c             | 33 +++++++++++++++++++++++++++++----
+ src/opus_multistream_encoder.c |  2 ++
+ 4 files changed, 51 insertions(+), 4 deletions(-)
+
+diff --git a/include/opus_defines.h b/include/opus_defines.h
+index 4a61406db..678bd5463 100644
+--- a/include/opus_defines.h
++++ b/include/opus_defines.h
+@@ -180,6 +180,10 @@ extern "C" {
+ #define OPUS_SET_IGNORE_EXTENSIONS_REQUEST 4058
+ #define OPUS_GET_IGNORE_EXTENSIONS_REQUEST 4059
+ 
++/* mod */
++#define OPUS_SET_DC_FILTER_REQUEST 32000
++#define OPUS_GET_DC_FILTER_REQUEST 32001
++
+ /** Defines for the presence of extended APIs. */
+ #define OPUS_HAVE_OPUS_PROJECTION_H
+ 
+@@ -666,6 +670,14 @@ extern "C" {
+   * @hideinitializer */
+ #define OPUS_GET_QEXT(x) OPUS_GET_QEXT_REQUEST, opus_check_int_ptr(x)
+ 
++/** Configures the encoder's use of dc_reject filter.
++  * @hideinitializer */
++#define OPUS_SET_DC_FILTER(x) OPUS_SET_DC_FILTER_REQUEST, opus_check_int(x)
++/** Gets the encoder's configured dc_reject filter status.
++  * @hideinitializer */
++#define OPUS_GET_DC_FILTER(x) OPUS_GET_DC_FILTER_REQUEST, opus_check_int_ptr(x)
++
++
+ /**@}*/
+ 
+ /** @defgroup opus_genericctls Generic CTLs
+diff --git a/src/opus_demo.c b/src/opus_demo.c
+index f040f9f2b..835cdb942 100644
+--- a/src/opus_demo.c
++++ b/src/opus_demo.c
+@@ -131,6 +131,7 @@ void print_usage( char* argv[] )
+     fprintf(stderr, "-d                   : only runs the decoder (reads the bit-stream as input)\n" );
+     fprintf(stderr, "-cbr                 : enable constant bitrate; default: variable bitrate\n" );
+     fprintf(stderr, "-cvbr                : enable constrained variable bitrate; default: unconstrained\n" );
++    fprintf(stderr, "-dc_filter           : enable dc reject filter; default: false\n" );
+     fprintf(stderr, "-delayed-decision    : use look-ahead for speech/music detection (experts only); default: disabled\n" );
+     fprintf(stderr, "-bandwidth <NB|MB|WB|SWB|FB> : audio bandwidth (from narrowband to fullband); default: sampling rate\n" );
+     fprintf(stderr, "-framesize <2.5|5|10|20|40|60|80|100|120> : frame size in ms; default: 20 \n" );
+@@ -412,6 +413,7 @@ int main(int argc, char *argv[])
+     unsigned char *fbytes=NULL;
+     opus_int32 sampling_rate;
+     int use_vbr;
++    int dc_filter;
+     int max_payload_bytes;
+     int complexity;
+     int dec_complexity;
+@@ -560,6 +562,7 @@ int main(int argc, char *argv[])
+ 
+     /* defaults: */
+     use_vbr = 1;
++    dc_filter = 0;
+     max_payload_bytes = MAX_PACKET;
+     complexity = 10;
+     dec_complexity = 0;
+@@ -574,6 +577,10 @@ int main(int argc, char *argv[])
+             check_encoder_option(decode_only, "-cbr");
+             use_vbr = 0;
+             args++;
++        } else if ( strcmp( argv[ args ], "-dc_filter" ) == 0 ) {
++            check_encoder_option(decode_only, "-dc_filter");
++            dc_filter = 1;
++            ++args;
+         } else if( strcmp( argv[ args ], "-bandwidth" ) == 0 ) {
+             check_encoder_option(decode_only, "-bandwidth");
+             if (strcmp(argv[ args + 1 ], "NB")==0)
+@@ -817,6 +824,7 @@ int main(int argc, char *argv[])
+        opus_encoder_ctl(enc, OPUS_SET_BITRATE(bitrate_bps));
+        opus_encoder_ctl(enc, OPUS_SET_BANDWIDTH(bandwidth));
+        opus_encoder_ctl(enc, OPUS_SET_VBR(use_vbr));
++       opus_encoder_ctl(enc, OPUS_SET_DC_FILTER(dc_filter));
+        opus_encoder_ctl(enc, OPUS_SET_VBR_CONSTRAINT(cvbr));
+        opus_encoder_ctl(enc, OPUS_SET_COMPLEXITY(complexity));
+        opus_encoder_ctl(enc, OPUS_SET_INBAND_FEC(use_inbandfec));
+diff --git a/src/opus_encoder.c b/src/opus_encoder.c
+index a74631fc2..c67d946f4 100644
+--- a/src/opus_encoder.c
++++ b/src/opus_encoder.c
+@@ -141,6 +141,7 @@ struct OpusEncoder {
+ #endif
+     int          nonfinal_frame; /* current frame is not the final in a packet */
+     opus_uint32  rangeFinal;
++    int dc_filter;
+     /* Needs to be the last field because it may be partially or completely omitted. */
+     opus_res     delay_buffer[MAX_ENCODER_BUFFER*2];
+ };
+@@ -318,6 +319,7 @@ int opus_encoder_init(OpusEncoder* st, opus_int32 Fs, int channels, int applicat
+     st->first = 1;
+     st->mode = MODE_HYBRID;
+     st->bandwidth = OPUS_BANDWIDTH_FULLBAND;
++    st->dc_filter = 0;
+ 
+ #ifndef DISABLE_FLOAT_API
+     tonality_analysis_init(&st->analysis, st->Fs);
+@@ -1999,13 +2001,16 @@ static opus_int32 opus_encode_frame_native(OpusEncoder *st, const opus_res *pcm,
+          }
+        }
+ #endif
+-    } else {
+ #ifdef ENABLE_QEXT
+-       /* FIXME: Avoid glitching when we switch qext on/off dynamically. */
+-       if (st->enable_qext) OPUS_COPY(&pcm_buf[total_buffer*st->channels], pcm, frame_size*st->channels);
+-       else
++      /* FIXME: Avoid glitching when we switch qext on/off dynamically. */
++    } else if (st->dc_filter && !st->enable_qext) {
++#else
++      /* FIXME: Avoid glitching when we switch dc_filter on/off dynamically. */
++    } else if (st->dc_filter) {
+ #endif
+        dc_reject(pcm, 3, &pcm_buf[total_buffer*st->channels], st->hp_mem, frame_size, st->channels, st->Fs);
++    } else {
++       OPUS_COPY(&pcm_buf[total_buffer*st->channels], pcm, frame_size*st->channels);
+     }
+ #ifndef FIXED_POINT
+     if (float_api)
+@@ -3019,6 +3024,26 @@ int opus_encoder_ctl(OpusEncoder *st, int request, ...)
+             *value = st->use_vbr;
+         }
+         break;
++        case OPUS_SET_DC_FILTER_REQUEST:
++        {
++            opus_int32 value = va_arg(ap, opus_int32);
++            if(value<0 || value>1)
++            {
++               goto bad_arg;
++            }
++            st->dc_filter = value;
++        }
++        break;
++        case OPUS_GET_DC_FILTER_REQUEST:
++        {
++            opus_int32 *value = va_arg(ap, opus_int32*);
++            if (!value)
++            {
++               goto bad_arg;
++            }
++            *value = st->dc_filter;
++        }
++        break;
+         case OPUS_SET_VOICE_RATIO_REQUEST:
+         {
+             opus_int32 value = va_arg(ap, opus_int32);
+diff --git a/src/opus_multistream_encoder.c b/src/opus_multistream_encoder.c
+index 79c0d3b7d..81b41717f 100644
+--- a/src/opus_multistream_encoder.c
++++ b/src/opus_multistream_encoder.c
+@@ -1210,6 +1210,7 @@ int opus_multistream_encoder_ctl_va_list(OpusMSEncoder *st, int request,
+    case OPUS_GET_PREDICTION_DISABLED_REQUEST:
+    case OPUS_GET_PHASE_INVERSION_DISABLED_REQUEST:
+    case OPUS_GET_QEXT_REQUEST:
++   case OPUS_GET_DC_FILTER_REQUEST:
+    {
+       OpusEncoder *enc;
+       /* For int32* GET params, just query the first stream */
+@@ -1258,6 +1259,7 @@ int opus_multistream_encoder_ctl_va_list(OpusMSEncoder *st, int request,
+    case OPUS_SET_PREDICTION_DISABLED_REQUEST:
+    case OPUS_SET_PHASE_INVERSION_DISABLED_REQUEST:
+    case OPUS_SET_QEXT_REQUEST:
++   case OPUS_SET_DC_FILTER_REQUEST:
+    {
+       int s;
+       /* This works for int32 params */
