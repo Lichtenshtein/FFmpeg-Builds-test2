@@ -108,9 +108,6 @@ export RAW_LDEXEFLAGS="$LDEXEFLAGS"
 build_cmd="ffbuild_dockerbuild"
 [[ -n "$2" ]] && build_cmd="$2"
 
-# Конец группы в логах GitHub
-echo "::endgroup::"
-
 log_info "################################################################################"
 log_info "### STARTING STAGE: $STAGENAME"
 log_info "### DATE: $(date)"
@@ -145,6 +142,19 @@ if ! $build_cmd; then
     
     exit 1
 fi
+
+# Очистка динамических библиотек для каждого статического скрипта с белым списком
+# Проверяем, не является ли текущая стадия "защищенной" (ИИ или драйверы)
+case "$STAGENAME" in
+    *openvino*|*libtorch*|*tensorflow*|*vulkan*|*amf*|*nvcodec*)
+        log_info "Preserving DLLs for $STAGENAME (Dynamic link stage)"
+        ;;
+    *)
+        log_debug "Cleaning unwanted DLLs from $STAGENAME..."
+        # Удаляем DLL только если это не ИИ-библиотека
+        find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete
+        ;;
+esac
 
 # Автоматическая синхронизация префиксов после успешной сборки
 # Каждый скрипт в scripts.d обязан устанавливать файлы (make install) в путь, начинающийся с $FFBUILD_DESTDIR$FFBUILD_PREFIX (обычно это /opt/ffdest/opt/ffbuild), иначе система не увидит установленную библиотеку для следующего этапа.
@@ -186,6 +196,10 @@ fi
 # Это покажет Hit Rate прямо в логах GitHub
 log_info "--- CCACHE STATISTICS ---"
 ccache -s
+
+# Конец группы в логах GitHub
+echo "::endgroup::"
+
 
 # Очистка
 cd /
