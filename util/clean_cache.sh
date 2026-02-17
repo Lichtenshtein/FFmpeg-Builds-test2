@@ -62,10 +62,17 @@ cd "$CACHE_DIR" || exit 0
 deleted_count=0
 
 # Читаем все файлы в массив, чтобы избежать проблем с Broken Pipe
-mapfile -t FILES < <(ls *_*.tar.zst 2>/dev/null)
+mapfile -t ALL_FILES < <(ls *_*.tar.zst 2>/dev/null)
 
-for f in *_*.tar.zst; do
-    [[ -e "$f" ]] || continue
+# Если файлов нет - выходим
+if [[ ${#ALL_FILES[@]} -eq 0 ]]; then
+    log_info "No cache files to clean."
+    rm "$KEEP_LIST"
+    exit 0
+fi
+
+for f in "${ALL_FILES[@]}"; do
+    [[ -f "$f" ]] || continue
 
     # Проверка на свежесть (5 минут)
     if [[ -n $(find "$f" -mmin -5 2>/dev/null) ]]; then
@@ -73,16 +80,20 @@ for f in *_*.tar.zst; do
         continue
     fi
 
-    if ! grep -qxF "$f" "$KEEP_LIST"; then
+    # Проверка наличия в списке (используем || true, чтобы grep не ронял скрипт по set -e)
+    if ! grep -qxF "$f" "$KEEP_LIST" 2>/dev/null; then
         log_info "Deleting orphaned cache: $f"
         rm -f "$f" || true
-        # Также удаляем старый симлинк, если он есть и ведет на этот файл
+        
+        # Удаляем симлинк, если он ведет на этот файл (битый)
         STAGENAME_BASE="${f%_*}"
-        [[ -L "${STAGENAME_BASE}.tar.zst" ]] && rm "${STAGENAME_BASE}.tar.zst"
+        if [[ -L "${STAGENAME_BASE}.tar.zst" ]]; then
+            rm "${STAGENAME_BASE}.tar.zst" || true
+        fi
         ((deleted_count++))
     fi
 done
 
 log_info "Cleanup finished. Removed $deleted_count orphaned files."
 rm "$KEEP_LIST"
-exit 0
+exit 0 # Явный успех
