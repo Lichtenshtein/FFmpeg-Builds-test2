@@ -159,7 +159,7 @@ jobs:
           cache-from: type=gha,scope=ffmpeg-build
           cache-to: type=gha,mode=max,scope=ffmpeg-build
           build-contexts: |
-            ffmpeg_src=.cache/ffmpeg
+            ffmpeg_src=${{ github.workspace }}/.cache/ffmpeg
           outputs: type=local,dest=artifacts/
           provenance: false
 

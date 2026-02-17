@@ -75,8 +75,10 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    --mount=type=bind,source=patches,target=/builder/patches \\"
     to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads \\"
     # Сама команда:
-    to_df "    export _H=$SCRIPT_HASH:$VARS_HASH:$PATCH_HASH && . /builder/util/vars.sh $TARGET $VARIANT &>/dev/null && run_stage /builder/$STAGE"
+    to_df "    export _H=$SCRIPT_HASH:$VARS_HASH:$PATCH_HASH && . /builder/util/vars.sh $TARGET $VARIANT && run_stage /builder/$STAGE"
 done
+
+# &>/dev/null
 
 # Сборка FFmpeg (Флаги конфигурации)
 # Собираем переменные для финального ./configure FFmpeg
@@ -155,7 +157,7 @@ to_df "COPY patches /builder/patches"
 # to_df "COPY addins /builder/addins"
 
 to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
-to_df "    --mount=from=ffmpeg_src,target=/builder/ffbuild/ffmpeg \\" # Монтируем контекст FFmpeg
+to_df "    --mount=from=ffmpeg_src,target=/builder/ffbuild/ffmpeg \\"
 to_df "    ./build.sh $TARGET $VARIANT"
 
 to_df "FROM scratch AS artifacts"
