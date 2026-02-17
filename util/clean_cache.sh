@@ -62,43 +62,26 @@ cd "$CACHE_DIR" || { log_warn "Cannot cd to cache"; exit 0; }
 log_info "Cleaning up orphaned cache files..."
 deleted_count=0
 
-# Читаем все файлы в массив, чтобы избежать проблем с Broken Pipe
-mapfile -t ALL_FILES < <(ls *_*.tar.zst 2>/dev/null)
+# Собираем список файлов в массив
+ALL_ZST=( *_*.tar.zst )
 
-# Если файлов нет - выходим
-if [[ ${#ALL_FILES[@]} -eq 0 ]]; then
-    log_info "No cache files to clean."
-    rm "$KEEP_LIST"
-    exit 0
-fi
-
-for f in "${ALL_FILES[@]}"; do
+for f in "${ALL_ZST[@]}"; do
+    # Если файлов нет, Bash может вернуть саму маску, проверяем наличие
     [[ -f "$f" ]] || continue
 
-    # Защита "свежих" файлов (5 минут). 
-    # В GHA find может вернуть ошибку, если файл исчез, поэтому || true
-    IS_NEW=$(find "$f" -mmin -5 2>/dev/null || echo "")
-    if [[ -n "$IS_NEW" ]]; then
-        log_debug "Skipping new file: $f"
+    # Пропускаем новые (5 мин)
+    if [[ -n $(find "$f" -mmin -5 2>/dev/null) ]]; then
         continue
     fi
 
-    # Проверка по списку (используем grep внутри if, это безопасно для set -e)
-    if ! grep -qxF "$f" "$KEEP_LIST"; then
+    # Проверяем наличие в списке. Добавляем || true, чтобы гарантировать успех строки
+    if ! grep -qxF "$f" "$KEEP_LIST" 2>/dev/null; then
         log_info "Deleting orphaned cache: $f"
+        rm -f "$f"
         
-        # Удаляем файл
-        rm -f "$f" || true
-        
-        # Удаляем симлинк, если он вел на этот файл (STAGENAME.tar.zst)
-        # Получаем базу имени (все до первого нижнего подчеркивания)
         STAGENAME_BASE="${f%%_*}"
         if [[ -L "${STAGENAME_BASE}.tar.zst" ]]; then
-            # Проверяем, куда ведет симлинк. Если на удаленный файл - стираем его.
-            TARGET_LINK=$(readlink "${STAGENAME_BASE}.tar.zst")
-            if [[ "$TARGET_LINK" == "$f" ]]; then
-                rm "${STAGENAME_BASE}.tar.zst" || true
-            fi
+            rm "${STAGENAME_BASE}.tar.zst"
         fi
         ((deleted_count++))
     fi
