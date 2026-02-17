@@ -69,15 +69,13 @@ for STAGE in "${active_scripts[@]}"; do
 
     to_df "# Stage: $STAGENAME | ScriptHash: $SCRIPT_HASH | DepsHash: $VARS_HASH"
     
-    # Используем type=cache для ccache — это нативный и самый быстрый способ
-    # Используем type=bind для исходников и утилит — они Read-Only
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
     to_df "    --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=/builder/util \\"
     to_df "    --mount=type=bind,source=patches,target=/builder/patches \\"
     to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads \\"
-    # Инъекция переменной _H заставляет Docker пересобрать слой, если изменился скрипт или vars.sh
-    to_df "    _H=$SCRIPT_HASH:$VARS_HASH:$PATCH_HASH . /builder/util/vars.sh $TARGET $VARIANT &>/dev/null && run_stage /builder/$STAGE"
+    # Сама команда:
+    to_df "    export _H=$SCRIPT_HASH:$VARS_HASH:$PATCH_HASH && . /builder/util/vars.sh $TARGET $VARIANT &>/dev/null && run_stage /builder/$STAGE"
 done
 
 # Сборка FFmpeg (Флаги конфигурации)
