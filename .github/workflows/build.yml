@@ -147,7 +147,7 @@ jobs:
           VARIANT: nonfree
 
       - name: Inspect Dockerfile
-        run: head -n 5 Dockerfile
+        run: head -n 30 Dockerfile
 
       - name: Prepare and Build
         uses: docker/build-push-action@v5
