@@ -96,7 +96,9 @@ export -f download_stage
 
 log_info "Starting parallel downloads for $TARGET-$VARIANT..."
 find scripts.d -name "*.sh" | sort | \
-    parallel --halt now,fail=1 --jobs 8 \
+    # --halt now,fail=1 меняем на --halt soon,fail=20%
+    # Это даст шанс остальным докачаться, даже если один упал
+    parallel --halt soon,fail=20% --jobs 8 \
     "export TARGET='$TARGET'; \
      export VARIANT='$VARIANT'; \
      export ROOT_DIR='$ROOT_DIR'; \
