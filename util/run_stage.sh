@@ -143,18 +143,15 @@ if ! $build_cmd; then
     exit 1
 fi
 
+# Список стадий, которым РАЗРЕШЕНО иметь DLL (ИИ, драйверы, системные компоненты)
+WHITELIST="openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|onevpl"
 # Очистка динамических библиотек для каждого статического скрипта с белым списком
-# Проверяем, не является ли текущая стадия "защищенной" (ИИ или драйверы)
-case "$STAGENAME" in
-    *openvino*|*libtorch*|*tensorflow*|*vulkan*|*amf*|*nvcodec*)
-        log_info "Preserving DLLs for $STAGENAME (Dynamic link stage)"
-        ;;
-    *)
-        log_debug "Cleaning unwanted DLLs from $STAGENAME..."
-        # Удаляем DLL только если это не ИИ-библиотека
-        find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete
-        ;;
-esac
+if [[ ! "$STAGENAME" =~ $WHITELIST ]]; then
+    log_debug "Cleaning unwanted DLLs from static stage: $STAGENAME"
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete
+else
+    log_info "Preserving DLLs for dynamic stage: $STAGENAME"
+fi
 
 # Автоматическая синхронизация префиксов после успешной сборки
 # Каждый скрипт в scripts.d обязан устанавливать файлы (make install) в путь, начинающийся с $FFBUILD_DESTDIR$FFBUILD_PREFIX (обычно это /opt/ffdest/opt/ffbuild), иначе система не увидит установленную библиотеку для следующего этапа.

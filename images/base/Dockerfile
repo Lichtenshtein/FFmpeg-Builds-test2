@@ -11,7 +11,7 @@ RUN \
         $([ "$TARGETPLATFORM" != "linux/amd64" ] || echo gcc-multilib g++-multilib) \
         build-essential yasm nasm ccache \
         xxd pkgconf curl wget unzip zip git subversion mercurial rsync jq \
-        autoconf automake libtool libtool-bin autopoint gettext cmake meson ninja-build \
+        autoconf automake libtool libtool-bin autopoint gettext parallel cmake meson ninja-build \
         clang llvm lcov lld qemu-user \
         texinfo texi2html help2man flex bison groff \
         gperf itstool ragel libc6-dev zlib1g-dev libssl-dev \

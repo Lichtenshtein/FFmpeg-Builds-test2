@@ -90,13 +90,29 @@ download_stage() {
 export -f download_stage
 
 log_info "Starting parallel downloads for $TARGET-$VARIANT..."
-# Внутри xargs нужно делать source util/vars.sh ПЕРЕД вызовом функции
-# -n 1: обрабатывать ровно один аргумент за раз.
-# --halt once,fail=1: Если хотя бы один процесс завершится с ненулевым кодом (exit 1), xargs немедленно прекратит запуск новых задач и завершит работу.
 find scripts.d -name "*.sh" | sort | \
-    xargs -I{} -P 8 -n 1 --halt once,fail=1 bash -c 'export TARGET="'$TARGET'"; export VARIANT="'$VARIANT'"; export ROOT_DIR="'$ROOT_DIR'"; source util/vars.sh "$TARGET" "$VARIANT" &>/dev/null; source util/dl_functions.sh; download_stage "{}" "$TARGET" "$VARIANT" "$DL_DIR"'
+    parallel --halt now,fail=1 --jobs 8 \
+    "export TARGET='$TARGET'; \
+     export VARIANT='$VARIANT'; \
+     export ROOT_DIR='$ROOT_DIR'; \
+     source util/vars.sh \$TARGET \$VARIANT &>/dev/null; \
+     source util/dl_functions.sh; \
+     download_stage {} '$TARGET' '$VARIANT' '$DL_DIR'"
 
-    # xargs -I{} -P 8 -n 1 --halt once,fail=1 bash -c "export TARGET='$TARGET'; export VARIANT='$VARIANT'; export ROOT_DIR='$ROOT_DIR'; source util/vars.sh \$TARGET \$VARIANT &>/dev/null; source util/dl_functions.sh; download_stage '{}' '$TARGET' '$VARIANT' '$DL_DIR'"
+# Используем стандартный xargs. 
+# Чтобы xargs прекратил работу при ошибке, bash-команда должна вернуть exit 255.
+# find scripts.d -name "*.sh" | sort | \
+    # xargs -I{} -P 8 bash -c '
+        # export TARGET="'$TARGET'"
+        # export VARIANT="'$VARIANT'"
+        # export ROOT_DIR="'$ROOT_DIR'"
+        # source util/vars.sh "$TARGET" "$VARIANT" &>/dev/null
+        # source util/dl_functions.sh
+        # if ! download_stage "{}" "$TARGET" "$VARIANT" "$DL_DIR"; then
+            # echo "::error::Download failed for {}"
+            # exit 255
+        # fi
+    # '
 
 # FFmpeg update (добавил --quiet для чистоты логов)
 FFMPEG_DIR=".cache/ffmpeg"
