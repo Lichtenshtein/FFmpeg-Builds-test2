@@ -78,7 +78,6 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    --mount=type=bind,source=variants,target=/builder/variants \\"
     to_df "    --mount=type=bind,source=addins,target=/builder/addins \\"
     to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads \\"
-    # Сама команда:
     to_df "    export _H=$SCRIPT_HASH:$VARS_HASH:$PATCH_HASH && . /builder/util/vars.sh $TARGET $VARIANT && run_stage /builder/$STAGE"
 done
 

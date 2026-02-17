@@ -2,9 +2,8 @@
 set -e
 
 # Если переменные еще не подгружены (например, функции логирования), подгружаем их
-if [[ -z "$FFBUILD_PREFIX" ]]; then
-    # Пробуем найти vars.sh относительно текущего скрипта
-    source "$(dirname "$0")/vars.sh" "$TARGET" "$VARIANT" > /dev/null 2>&1 || true
+if ! declare -F log_info >/dev/null; then
+    . "$(dirname "$0")/vars.sh" "$TARGET" "$VARIANT" > /dev/null 2>&1 || true
 fi
 
 SCRIPT_PATH="$1"

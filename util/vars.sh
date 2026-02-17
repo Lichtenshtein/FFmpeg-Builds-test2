@@ -18,6 +18,8 @@ log_warn()  { echo -e "${LOG_WARN}[WARN]${LOG_NC}  $*" >&2; }
 log_error() { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} $*" >&2; }
 log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 
+export -f log_info log_warn log_error log_debug
+
 if [[ $# -lt 2 ]]; then
     log_error "Invalid Arguments"
     exit -1
