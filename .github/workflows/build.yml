@@ -38,36 +38,29 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y subversion subversion-tools nasm yasm
 
-      # - name: Free Disk Space
-        # uses: jlumbroso/free-disk-space@main
-        # with:
-          # tool-cache: true
-          # android: true
-          # dotnet: true
-          # haskell: true
-          # large-packages: true
-          # docker-images: true
-          # swap-storage: false
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: false
 
-      - name: Final Deep Clean and Space Check
-        run: |
-          # Параллельное удаление остатков с низким приоритетом I/O (ionice -c 3)
-          # Это предотвращает "зависание" системы во время массового удаления
-          sudo ionice -c 3 rm -rf /usr/share/dotnet &
-          sudo ionice -c 3 rm -rf /usr/local/lib/android &
-          sudo ionice -c 3 rm -rf /opt/ghc &
-          sudo ionice -c 3 rm -rf "/usr/local/share/boost" &
-          sudo ionice -c 3 rm -rf "$AGENT_TOOLSDIRECTORY" &
-          
-          # Очистка Docker (удаляем неиспользуемые слои от предыдущих запусков)
-          docker image prune -af &
-          
-          wait # Ждем завершения всех фоновых процессов
-          
-          # Проверка свободного места (Space-freeness check)
-          echo "--- FINAL DISK SPACE REPORT ---"
-          df -h /
-          echo "-------------------------------"
+      # - name: Final Deep Clean and Space Check
+        # run: |
+          # sudo ionice -c 3 rm -rf /usr/share/dotnet &
+          # sudo ionice -c 3 rm -rf /usr/local/lib/android &
+          # sudo ionice -c 3 rm -rf /opt/ghc &
+          # sudo ionice -c 3 rm -rf "/usr/local/share/boost" &
+          # sudo ionice -c 3 rm -rf "$AGENT_TOOLSDIRECTORY" &
+          # docker image prune -af &
+          # wait
+          # echo "--- FINAL DISK SPACE REPORT ---"
+          # df -h /
+          # echo "-------------------------------"
 
       - name: Set Image Names
         id: images

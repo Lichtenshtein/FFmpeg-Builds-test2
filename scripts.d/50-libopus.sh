@@ -13,7 +13,7 @@ ffbuild_dockerdl() {
     # This is where they decided to put downloads for external dependencies, so it needs to run here
     # Fix freaking 11000 lines of dot wall
     # echo "alias wget='wget -q --show-progress --progress=bar:force' && alias curl='curl -fsSL' && ./autogen.sh"
-    echo "touch .wgetrc && WGETRC=.wgetrc wget -nv ./autogen.sh || export CURL_HOME=$PWD && touch .curlrc && echo '-sS' > .curlrc && ./autogen.sh || ./autogen.sh"
+    echo "WGET_OPTS='-nv --progress=bar:force' ./autogen.sh"
 }
 
 ffbuild_dockerbuild() {

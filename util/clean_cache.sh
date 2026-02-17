@@ -55,7 +55,13 @@ cd "$CACHE_DIR"
 deleted_count=0
 for f in *_*.tar.zst; do
     [[ -e "$f" ]] || continue
-    
+
+    # Проверка: если файл новее 5 минут, пропускаем (защита от удаления текущего билда)
+    if [[ $(find "$f" -mmin -5) ]]; then
+        log_debug "Skipping recently created file: $f"
+        continue
+    fi
+
     if ! grep -qxF "$f" "$KEEP_LIST"; then
         log_info "Deleting orphaned cache: $f"
         rm -f "$f"
