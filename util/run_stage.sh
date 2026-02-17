@@ -6,6 +6,11 @@ if ! declare -F log_info >/dev/null; then
     . "$(dirname "$0")/vars.sh" "$TARGET" "$VARIANT" > /dev/null 2>&1 || true
 fi
 
+# Подгружаем функции загрузки, так как скрипты в scripts.d 
+if ! declare -F default_dl >/dev/null; then
+    . "$(dirname "$0")/dl_functions.sh" > /dev/null 2>&1 || true
+fi
+
 SCRIPT_PATH="$1"
 # получаем абсолютный путь, так как мы будем менять cd
 ABS_SCRIPT_PATH=$(readlink -f "$SCRIPT_PATH")
