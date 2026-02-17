@@ -2,16 +2,15 @@
 set -e
 
 SCRIPT_PATH="$1"
-# получаем абсолютный путь, так как мы будем менять cd
-UTIL_DIR=$(cd "$(dirname "$0")" && pwd)
 STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
 
 # Подгружаем утилиты, используя абсолютный путь
 if ! declare -F log_info >/dev/null; then
-    . "$UTIL_DIR/vars.sh" "$TARGET" "$VARIANT" > /dev/null 2>&1 || true
+    . /builder/util/vars.sh "$TARGET" "$VARIANT" > /dev/null 2>&1 || true
 fi
+
 if ! declare -F default_dl >/dev/null; then
-    . "$UTIL_DIR/dl_functions.sh" > /dev/null 2>&1 || true
+    . /builder/util/dl_functions.sh > /dev/null 2>&1 || true
 fi
 
 # Создаем и входим в директорию сборки ДО загрузки скрипта
