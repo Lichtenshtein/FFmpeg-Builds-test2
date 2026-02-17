@@ -58,20 +58,24 @@ if [[ ! -s "$KEEP_LIST" ]]; then
 fi
 
 # Удаляем только те файлы, которых нет в KEEP_LIST
-cd "$CACHE_DIR"
+cd "$CACHE_DIR" || exit 0
 deleted_count=0
+
+# Читаем все файлы в массив, чтобы избежать проблем с Broken Pipe
+mapfile -t FILES < <(ls *_*.tar.zst 2>/dev/null)
+
 for f in *_*.tar.zst; do
     [[ -e "$f" ]] || continue
 
-    # Проверка: если файл новее 5 минут, пропускаем (защита от удаления текущего билда)
-    if [[ $(find "$f" -mmin -5) ]]; then
+    # Проверка на свежесть (5 минут)
+    if [[ -n $(find "$f" -mmin -5 2>/dev/null) ]]; then
         log_debug "Skipping recently created file: $f"
         continue
     fi
 
     if ! grep -qxF "$f" "$KEEP_LIST"; then
         log_info "Deleting orphaned cache: $f"
-        rm -f "$f"
+        rm -f "$f" || true
         # Также удаляем старый симлинк, если он есть и ведет на этот файл
         STAGENAME_BASE="${f%_*}"
         [[ -L "${STAGENAME_BASE}.tar.zst" ]] && rm "${STAGENAME_BASE}.tar.zst"
@@ -81,3 +85,4 @@ done
 
 log_info "Cleanup finished. Removed $deleted_count orphaned files."
 rm "$KEEP_LIST"
+exit 0
