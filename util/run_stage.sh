@@ -1,20 +1,18 @@
 #!/bin/bash
 set -e
 
-# Если переменные еще не подгружены (например, функции логирования), подгружаем их
-if ! declare -F log_info >/dev/null; then
-    . "$(dirname "$0")/vars.sh" "$TARGET" "$VARIANT" > /dev/null 2>&1 || true
-fi
-
-# Подгружаем функции загрузки, так как скрипты в scripts.d 
-if ! declare -F default_dl >/dev/null; then
-    . "$(dirname "$0")/dl_functions.sh" > /dev/null 2>&1 || true
-fi
-
 SCRIPT_PATH="$1"
 # получаем абсолютный путь, так как мы будем менять cd
-ABS_SCRIPT_PATH=$(readlink -f "$SCRIPT_PATH")
+UTIL_DIR=$(cd "$(dirname "$0")" && pwd)
 STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
+
+# Подгружаем утилиты, используя абсолютный путь
+if ! declare -F log_info >/dev/null; then
+    . "$UTIL_DIR/vars.sh" "$TARGET" "$VARIANT" > /dev/null 2>&1 || true
+fi
+if ! declare -F default_dl >/dev/null; then
+    . "$UTIL_DIR/dl_functions.sh" > /dev/null 2>&1 || true
+fi
 
 # Создаем и входим в директорию сборки ДО загрузки скрипта
 mkdir -p "/build/$STAGENAME"
@@ -22,7 +20,8 @@ cd "/build/$STAGENAME"
 
 # Подгружаем скрипт заранее, чтобы проверить SCRIPT_SKIP
 # любые $(pwd) или относительные пути внутри скрипта будут указывать на /build/STAGENAME
-source "$SCRIPT_PATH"
+# Используем абсолютный путь к скрипту, так как мы уже сменили cd
+source "$(readlink -f "$SCRIPT_PATH")"
 
 # Проверка на пропуск (теперь переменная SCRIPT_SKIP подгружена в контексте нужной папки)
 if [[ "$SCRIPT_SKIP" == "1" ]]; then
