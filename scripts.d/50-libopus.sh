@@ -9,9 +9,10 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    # Скачиваем модель напрямую в кэш исходников
-    echo "mkdir -p dnn && download_file \"https://media.xiph.org/opus/models/opus_data-a5177ec6fb7d15058e99e57029746100121f68e4890b1467d4094aa336b6013e.tar.gz\" \"dnn/opus_data-a5177ec6fb7d15058e99e57029746100121f68e4890b1467d4094aa336b6013e.tar.gz\""
+    # Используем curl напрямую с проверкой успеха
+    echo "mkdir -p dnn && curl -sL --retry 5 https://media.xiph.org/opus/models/opus_data-a5177ec6fb7d15058e99e57029746100121f68e4890b1467d4094aa336b6013e.tar.gz -o dnn/opus_data-a5177ec6fb7d15058e99e57029746100121f68e4890b1467d4094aa336b6013e.tar.gz"
 }
+
 
 ffbuild_dockerbuild() {
     if [[ -d "/builder/patches/libopus" ]]; then

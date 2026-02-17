@@ -104,6 +104,6 @@ for f in "${ALL_FILES[@]}"; do
     fi
 done
 
-log_info "Cleanup finished. Removed $deleted_count orphaned files."
 rm -f "$KEEP_LIST" || true
-exit 0 # Явный успех
+log_info "Cleanup finished successfully."
+exit 0
