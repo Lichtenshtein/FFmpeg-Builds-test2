@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# clean_cache.sh удалит старые версии либ (например, если обновился коммит в скрипте), чтобы они не занимали место в 10ГБ лимите GitHub.
-
 set -e
 
 # Подгружаем переменные, чтобы знать TARGET/VARIANT
@@ -26,34 +24,35 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     
     STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
     
-    # Получаем команду загрузки
-    DL_COMMAND=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
-                          source util/dl_functions.sh; \
-                          source \"$STAGE\"; \
-                          ffbuild_enabled && ffbuild_dockerdl" || echo "")
+    # Пытаемся вычислить хеш (как в download.sh)
+    # Добавляем экспорт переменных прямо в вызов для надежности
+    DL_COMMAND=$(bash -c "export TARGET='$TARGET'; export VARIANT='$VARIANT'; source util/vars.sh \$TARGET \$VARIANT &>/dev/null; source util/dl_functions.sh; source '$STAGE'; ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")
 
-    if [[ -z "$DL_COMMAND" ]]; then
-        # Это мета-пакет. Защищаем ВСЕ файлы, начинающиеся на его имя,
-        # чтобы случайно не удалить локальные аддоны или базовый тулчейн.
-        log_debug "Protecting meta-package: $STAGENAME"
-        echo "${STAGENAME}.tar.zst" >> "$KEEP_LIST"
-        # Защищаем все существующие хешированные версии этого стейджа
-        ls "$CACHE_DIR"/${STAGENAME}_*.tar.zst 2>/dev/null | xargs -n1 basename 2>/dev/null >> "$KEEP_LIST" || true
-    else
-        # Это обычный пакет с загрузкой из сети. Вычисляем текущий валидный хеш.
-        SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE" | grep -v '^[[:space:]]*$')
-        DL_HASH=$( (echo "$DL_COMMAND"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16)
+    # Проверяем, включен ли скрипт вообще
+    # Если скрипт включен, мы ОБЯЗАНЫ защитить его файлы
+    if ( export TARGET="$TARGET"; export VARIANT="$VARIANT"; source "$STAGE" >/dev/null 2>&1 && ffbuild_enabled ); then
         
-        VALID_FILE="${STAGENAME}_${DL_HASH}.tar.zst"
-        echo "$VALID_FILE" >> "$KEEP_LIST"
-        log_debug "Protecting active source: $VALID_FILE"
+        if [[ -n "$DL_COMMAND" ]]; then
+            # Вариант 1: Пакет с загрузкой. Считаем хеш и защищаем конкретный файл.
+            SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE" | grep -v '^[[:space:]]*$')
+            DL_HASH=$( (echo "$DL_COMMAND"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16)
+            echo "${STAGENAME}_${DL_HASH}.tar.zst" >> "$KEEP_LIST"
+            log_debug "Protecting by hash: ${STAGENAME}_${DL_HASH}.tar.zst"
+        fi
+
+        # Резервная защита (Мета-пакеты и "свежак"). 
+        # Защищаем все файлы, которые начинаются на STAGENAME_
+        # Это спасет от удаления, если расчет хеша выше сорвался.
+        ls "$CACHE_DIR"/${STAGENAME}_*.tar.zst 2>/dev/null | xargs -n1 basename 2>/dev/null >> "$KEEP_LIST" || true
+        # Защищаем базовый симлинк
+        echo "${STAGENAME}.tar.zst" >> "$KEEP_LIST"
     fi
 done
 
-# Проверка на "пустой список" (защита от случайной очистки всего кэша)
+# Проверка на пустой список (безопасность)
 if [[ ! -s "$KEEP_LIST" ]]; then
-    log_error "Safety trigger: No active source files identified. Refusing to delete anything."
-    rm "$KEEP_LIST"
+    log_error "Safety trigger: KEEP_LIST is empty. Refusing to delete."
+    rm -f "$KEEP_LIST"
     exit 1
 fi
 
@@ -64,16 +63,8 @@ deleted_count=0
 
 # Отключаем set -e только на время цикла очистки, чтобы избежать случайных вылетов
 set +e
-
 # Читаем все файлы в массив, чтобы избежать проблем с Broken Pipe
 mapfile -t ALL_FILES < <(ls *_*.tar.zst 2>/dev/null)
-
-# Если файлов нет - выходим
-if [[ ${#ALL_FILES[@]} -eq 0 ]]; then
-    log_info "No cache files to clean."
-    rm "$KEEP_LIST"
-    exit 0
-fi
 
 for f in "${ALL_FILES[@]}"; do
     [[ -f "$f" ]] || continue
@@ -86,20 +77,15 @@ for f in "${ALL_FILES[@]}"; do
         continue
     fi
 
-    # Проверка по списку (используем grep внутри if, это безопасно для set -e)
+    # Сверяем со списком защиты
     if ! grep -qxF "$f" "$KEEP_LIST"; then
         log_info "Deleting orphaned cache: $f"
-        
-        # Удаляем файл
         rm -f "$f" || true
         
-        # Удаляем симлинк, если он вел на этот файл (STAGENAME.tar.zst)
-        # Получаем базу имени (все до первого нижнего подчеркивания)
+        # Чистим битые симлинки
         STAGENAME_BASE="${f%%_*}"
         if [[ -L "${STAGENAME_BASE}.tar.zst" ]]; then
-            # Проверяем, куда ведет симлинк. Если на удаленный файл - стираем его.
-            TARGET_LINK=$(readlink "${STAGENAME_BASE}.tar.zst")
-            if [[ "$TARGET_LINK" == "$f" ]]; then
+            if [[ "$(readlink "${STAGENAME_BASE}.tar.zst")" == "$f" ]]; then
                 rm "${STAGENAME_BASE}.tar.zst" || true
             fi
         fi
@@ -108,6 +94,6 @@ for f in "${ALL_FILES[@]}"; do
 done
 
 set -e
-rm -f "$KEEP_LIST" || true
-log_info "Cleanup finished successfully."
+rm -f "$KEEP_LIST"
+log_info "Cleanup finished successfully. Removed $deleted_count files."
 exit 0
