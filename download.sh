@@ -95,17 +95,21 @@ download_stage() {
 export -f download_stage
 
 log_info "Starting parallel downloads for $TARGET-$VARIANT..."
-find scripts.d -name "*.sh" | sort | \
+# find scripts.d -name "*.sh" | sort | \
     # --halt now,fail=1 меняем на --halt soon,fail=20%
     # Это даст шанс остальным докачаться, даже если один упал
-    parallel --halt soon,fail=20% --jobs 8 \
-    "export TARGET='$TARGET'; \
-     export VARIANT='$VARIANT'; \
-     export ROOT_DIR='$ROOT_DIR'; \
-     source util/vars.sh \$TARGET \$VARIANT &>/dev/null; \
-     source util/dl_functions.sh; \
-     download_stage {} '$TARGET' '$VARIANT' '$DL_DIR'"
+    # parallel --halt soon,fail=20% --jobs 8 \
+    # "export TARGET='$TARGET'; \
+     # export VARIANT='$VARIANT'; \
+     # export ROOT_DIR='$ROOT_DIR'; \
+     # source util/vars.sh \$TARGET \$VARIANT &>/dev/null; \
+     # source util/dl_functions.sh; \
+     # download_stage {} '$TARGET' '$VARIANT' '$DL_DIR'"
 
+for s in scripts.d/*.sh; do
+    echo "Testing $s..."
+    ./download.sh "$s" # Или вызовите функцию напрямую
+done
 # Используем стандартный xargs. 
 # Чтобы xargs прекратил работу при ошибке, bash-команда должна вернуть exit 255.
 # find scripts.d -name "*.sh" | sort | \
