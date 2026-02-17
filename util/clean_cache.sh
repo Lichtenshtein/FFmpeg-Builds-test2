@@ -104,6 +104,7 @@ for f in "${ALL_FILES[@]}"; do
     fi
 done
 
+set -e
 rm -f "$KEEP_LIST" || true
 log_info "Cleanup finished successfully."
 exit 0
