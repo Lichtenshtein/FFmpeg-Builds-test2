@@ -21,6 +21,7 @@ to_df() {
 
 # Базовый образ
 to_df "FROM base-win64:local AS build_stage"
+to_df "SHELL [\"/bin/bash\", \"-c\"]"
 to_df "ENV TARGET=$TARGET VARIANT=$VARIANT REPO=$REPO ADDINS_STR=$ADDINS_STR"
 to_df "ENV C_INCLUDE_PATH=/opt/ffbuild/include CPATH=/opt/ffbuild/include LIBRARY_PATH=/opt/ffbuild/lib"
 
@@ -76,7 +77,7 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    --mount=type=bind,source=patches,target=/builder/patches \\"
     to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads \\"
     # Инъекция переменной _H заставляет Docker пересобрать слой, если изменился скрипт или vars.sh
-    to_df "    _H=$SCRIPT_HASH:$VARS_HASH:$PATCH_HASH source /builder/util/vars.sh $TARGET $VARIANT &>/dev/null && run_stage /builder/$STAGE"
+    to_df "    _H=$SCRIPT_HASH:$VARS_HASH:$PATCH_HASH . /builder/util/vars.sh $TARGET $VARIANT &>/dev/null && run_stage /builder/$STAGE"
 done
 
 # Сборка FFmpeg (Флаги конфигурации)
@@ -91,8 +92,10 @@ libs_args=()
 
 # Собираем конфигурацию из вариантов и аддинов
 # (Предположим, функции ffbuild_... внутри них тоже возвращают строки)
-source "variants/${TARGET}-${VARIANT}.sh"
-conf_args+=( $(ffbuild_configure) )
+# source "variants/${TARGET}-${VARIANT}.sh"
+# conf_args+=( $(ffbuild_configure) )
+mapfile -t v_cfg < <( (source "variants/${TARGET}-${VARIANT}.sh" && ffbuild_configure) 2>/dev/null | xargs printf '%s\n' 2>/dev/null)
+conf_args+=("${v_cfg[@]}")
 
 for addin in ${ADDINS[*]}; do 
     source "addins/${addin}.sh"
@@ -101,25 +104,26 @@ done
 
 # Наполняем массивы из активных скриптов для финального билда
 for script in "${active_scripts[@]}"; do
-    if ( source "$script" && ffbuild_enabled ); then
-        # Используем подстановку, которая корректно разбивает строку на элементы массива
-        # Внимание: здесь мы полагаемся на то, что функции возвращают пробелы как разделители
-        mapfile -t cfg < <( (source "$script" && ffbuild_configure) | xargs printf '%s\n')
+    # Проверяем ffbuild_enabled, подавляя отладочный вывод
+    if ( source "$script" >/dev/null 2>&1 && ffbuild_enabled ); then
+        
+        # Для каждого вызова добавляем 2>/dev/null ПЕРЕД конвейером xargs
+        mapfile -t cfg < <( (source "$script" && ffbuild_configure) 2>/dev/null | xargs printf '%s\n' 2>/dev/null)
         conf_args+=("${cfg[@]}")
 
-        mapfile -t cfl < <( (source "$script" && ffbuild_cflags) | xargs printf '%s\n')
+        mapfile -t cfl < <( (source "$script" && ffbuild_cflags) 2>/dev/null | xargs printf '%s\n' 2>/dev/null)
         cflags_args+=("${cfl[@]}")
 
-        mapfile -t ldf < <( (source "$script" && ffbuild_ldflags) | xargs printf '%s\n')
+        mapfile -t ldf < <( (source "$script" && ffbuild_ldflags) 2>/dev/null | xargs printf '%s\n' 2>/dev/null)
         ldflags_args+=("${ldf[@]}")
 
-        mapfile -t cxx < <( (source "$script" && ffbuild_cxxflags) | xargs printf '%s\n')
+        mapfile -t cxx < <( (source "$script" && ffbuild_cxxflags) 2>/dev/null | xargs printf '%s\n' 2>/dev/null)
         cxxflags_args+=("${cxx[@]}")
 
-        mapfile -t ldexe < <( (source "$script" && ffbuild_ldexeflags) | xargs printf '%s\n')
+        mapfile -t ldexe < <( (source "$script" && ffbuild_ldexeflags) 2>/dev/null | xargs printf '%s\n' 2>/dev/null)
         ldexeflags_args+=("${ldexe[@]}")
 
-        mapfile -t libs < <( (source "$script" && ffbuild_libs) | xargs printf '%s\n')
+        mapfile -t libs < <( (source "$script" && ffbuild_libs) 2>/dev/null | xargs printf '%s\n' 2>/dev/null)
         libs_args+=("${libs[@]}")
    fi
 done
