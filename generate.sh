@@ -42,6 +42,8 @@ MOUNTS="--mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\
     --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\
     --mount=type=bind,source=util,target=/builder/util \\
     --mount=type=bind,source=patches,target=/builder/patches \\
+    --mount=type=bind,source=variants,target=/builder/variants \\
+    --mount=type=bind,source=addins,target=/builder/addins \\
     --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads"
 
 active_scripts=()
@@ -73,6 +75,8 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=/builder/util \\"
     to_df "    --mount=type=bind,source=patches,target=/builder/patches \\"
+    to_df "    --mount=type=bind,source=variants,target=/builder/variants \\"
+    to_df "    --mount=type=bind,source=addins,target=/builder/addins \\"
     to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads \\"
     # Сама команда:
     to_df "    export _H=$SCRIPT_HASH:$VARS_HASH:$PATCH_HASH && . /builder/util/vars.sh $TARGET $VARIANT && run_stage /builder/$STAGE"
