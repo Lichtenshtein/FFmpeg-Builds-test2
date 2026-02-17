@@ -5,7 +5,7 @@ SCRIPT_COMMIT="b45abfec4e116b33620de597b99b1f0af3ab6a6a"
 
 ffbuild_enabled() {
     # [[ $TARGET == win* ]] || return -1
-    return 0
+    return -1
 }
 
 ffbuild_dockerlayer() {
