@@ -1,0 +1,28 @@
+From bde778a4fdb70d480b1856e7ffc1181e78fd0764 Mon Sep 17 00:00:00 2001
+From: Mr-Z-2697 <74594146+Mr-Z-2697@users.noreply.github.com>
+Date: Wed, 28 Jan 2026 03:47:02 +0800
+Subject: [PATCH] encoder: don't force the QEXT to disable dc_reject filter
+
+Since we have an option specifically for this purpose
+---
+ src/opus_encoder.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/src/opus_encoder.c b/src/opus_encoder.c
+index c67d946f4..dff204371 100644
+--- a/src/opus_encoder.c
++++ b/src/opus_encoder.c
+@@ -2001,13 +2001,8 @@ static opus_int32 opus_encode_frame_native(OpusEncoder *st, const opus_res *pcm,
+          }
+        }
+ #endif
+-#ifdef ENABLE_QEXT
+-      /* FIXME: Avoid glitching when we switch qext on/off dynamically. */
+-    } else if (st->dc_filter && !st->enable_qext) {
+-#else
+       /* FIXME: Avoid glitching when we switch dc_filter on/off dynamically. */
+     } else if (st->dc_filter) {
+-#endif
+        dc_reject(pcm, 3, &pcm_buf[total_buffer*st->channels], st->hp_mem, frame_size, st->channels, st->Fs);
+     } else {
+        OPUS_COPY(&pcm_buf[total_buffer*st->channels], pcm, frame_size*st->channels);
