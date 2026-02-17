@@ -4,7 +4,7 @@ SCRIPT_REPO="https://gitlab.freedesktop.org/xorg/lib/libx11.git"
 SCRIPT_COMMIT="369c6a806554429798b531cbf4267d8c8fcf6ed1"
 
 ffbuild_enabled() {
-    [[ $TARGET != linux* ]] && return -1
+    [[ $TARGET != linux* ]] && return 1
     return 0
 }
 
@@ -36,7 +36,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     export CFLAGS="$RAW_CFLAGS"

@@ -4,7 +4,7 @@ SCRIPT_REPO="https://github.com/OpenVisualCloud/SVT-JPEG-XS.git"
 SCRIPT_COMMIT="HEAD"
 
 ffbuild_enabled() {
-    return -1
+    return 1
 }
 
 ffbuild_dockerbuild() {

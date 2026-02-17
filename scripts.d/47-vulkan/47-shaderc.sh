@@ -4,7 +4,6 @@ SCRIPT_REPO="https://github.com/google/shaderc.git"
 SCRIPT_COMMIT="e0a5092b4b05dbcc448b0883f3575163634f8e86"
 
 ffbuild_enabled() {
-    (( $(ffbuild_ffver) > 404 )) || return -1
     return 0
 }
 
@@ -24,7 +23,7 @@ ffbuild_dockerbuild() {
             else
                 log_info "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
                 log_info "-----------------------------------"
-                # exit 1 # если нужно прервать сборку при ошибке
+                # return 1 # если нужно прервать сборку при ошибке
             fi
         done
     fi
@@ -60,10 +59,10 @@ ffbuild_dockerbuild() {
         rm -r "${DESTDIR}${FFBUILD_PREFIX}"/bin "${DESTDIR}${FFBUILD_PREFIX}"/lib/*.so*
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
-    cp -al "$DESTDIR"/. "$FFBUILD_DESTDIR"
+    cp -a "$DESTDIR"/. "$FFBUILD_DESTDIR"
     rm -rf "$DESTDIR"
     unset DESTDIR
 

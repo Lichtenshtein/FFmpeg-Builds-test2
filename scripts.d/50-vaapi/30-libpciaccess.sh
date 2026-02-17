@@ -9,7 +9,7 @@ ffbuild_depends() {
 }
 
 ffbuild_enabled() {
-    [[ $TARGET != linux* ]] && return -1
+    [[ $TARGET != linux* ]] && return 1
     return 0
 }
 
@@ -29,7 +29,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     export CFLAGS="$RAW_CFLAGS"

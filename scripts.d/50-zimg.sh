@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
             else
                 log_info "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
                 log_info "-----------------------------------"
-                # exit 1 # если нужно прервать сборку при ошибке
+                # return 1 # если нужно прервать сборку при ошибке
             fi
         done
     fi
@@ -44,7 +44,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     ./configure "${myconf[@]}"

@@ -4,7 +4,7 @@ SCRIPT_REPO="https://github.com/mccakit/fdk-aac.git"
 SCRIPT_COMMIT="61d2f80c677a1b0d75214f27edd48dedf24528e9"
 
 ffbuild_enabled() {
-    # [[ $VARIANT == nonfree* ]] || return -1
+    # [[ $VARIANT == nonfree* ]] || return 1
     return 0
 }
 
@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
             else
                 log_info "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
                 log_info "-----------------------------------"
-                # exit 1 # если нужно прервать сборку при ошибке
+                # return 1 # если нужно прервать сборку при ошибке
             fi
         done
     fi

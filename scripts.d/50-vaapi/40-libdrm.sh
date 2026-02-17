@@ -4,7 +4,7 @@ SCRIPT_REPO="https://gitlab.freedesktop.org/mesa/drm.git"
 SCRIPT_COMMIT="369990d9660a387f618d0eedc341eb285016243b"
 
 ffbuild_enabled() {
-    [[ $TARGET != linux* ]] && return -1
+    [[ $TARGET != linux* ]] && return 1
     return 0
 }
 
@@ -33,7 +33,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     export CFLAGS="$RAW_CFLAGS"

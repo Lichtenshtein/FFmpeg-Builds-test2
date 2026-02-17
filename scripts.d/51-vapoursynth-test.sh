@@ -12,7 +12,7 @@ ffbuild_depends() {
 
 ffbuild_enabled() {
     # Vapoursynth обычно не собирают под x86 (32-bit) из-за лимитов памяти
-    [[ $TARGET == win32 ]] && return -1
+    [[ $TARGET == win32 ]] && return 1
     return 0
 }
 

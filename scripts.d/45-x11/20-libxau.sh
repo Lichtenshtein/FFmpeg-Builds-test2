@@ -4,7 +4,7 @@ SCRIPT_REPO="https://gitlab.freedesktop.org/xorg/lib/libxau.git"
 SCRIPT_COMMIT="962b015d498b1f186aea8e3b0b46fb9791831552"
 
 ffbuild_enabled() {
-    [[ $TARGET != linux* ]] && return -1
+    [[ $TARGET != linux* ]] && return 1
     return 0
 }
 
@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     export CFLAGS="$RAW_CFLAGS"

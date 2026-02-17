@@ -38,7 +38,7 @@ ffbuild_dockerbuild() {
     # Проверяем, создался ли файл перед запуском
     if [[ ! -f "build.ninja" ]]; then
         echo "ERROR: CMake failed to generate build.ninja"
-        exit 1
+        return 1
     fi
 
     ninja -j$(nproc)

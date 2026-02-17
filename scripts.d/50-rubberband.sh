@@ -10,7 +10,7 @@ ffbuild_depends() {
 }
 
 ffbuild_enabled() {
-    [[ $VARIANT == lgpl* ]] && return -1
+    [[ $VARIANT == lgpl* ]] && return 1
     return 0
 }
 
@@ -30,7 +30,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     meson setup "${myconf[@]}" ..

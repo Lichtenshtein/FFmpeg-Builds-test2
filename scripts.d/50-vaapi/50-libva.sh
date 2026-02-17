@@ -9,11 +9,11 @@ ffbuild_depends() {
 }
 
 ffbuild_enabled() {
-    [[ $ADDINS_STR == *4.4* && $TARGET == win* ]] && return -1
-    [[ $ADDINS_STR == *5.0* && $TARGET == win* ]] && return -1
-    [[ $ADDINS_STR == *5.1* && $TARGET == win* ]] && return -1
-    [[ $ADDINS_STR == *6.0* && $TARGET == win* ]] && return -1
-    [[ $TARGET == linuxarm64 ]] && return -1
+    [[ $ADDINS_STR == *4.4* && $TARGET == win* ]] && return 1
+    [[ $ADDINS_STR == *5.0* && $TARGET == win* ]] && return 1
+    [[ $ADDINS_STR == *5.1* && $TARGET == win* ]] && return 1
+    [[ $ADDINS_STR == *6.0* && $TARGET == win* ]] && return 1
+    [[ $TARGET == linuxarm64 ]] && return 1
     return 0
 }
 
@@ -54,7 +54,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     export CFLAGS="$RAW_CFLAGS"

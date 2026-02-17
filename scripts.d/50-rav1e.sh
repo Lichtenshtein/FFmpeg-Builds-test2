@@ -4,7 +4,7 @@ SCRIPT_REPO="https://github.com/xiph/rav1e.git"
 SCRIPT_COMMIT="564ae3b0007ae2b06893fd7166bf88c5a84c5b63"
 
 ffbuild_enabled() {
-    [[ $TARGET == win32 ]] && return -1
+    [[ $TARGET == win32 ]] && return 1
     return 0
 }
 

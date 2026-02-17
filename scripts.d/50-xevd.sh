@@ -4,7 +4,7 @@ SCRIPT_REPO="https://github.com/mpeg5/xevd.git"
 SCRIPT_COMMIT="4087f635624cf4ee6ebe3f9ea165ff939b32117f"
 
 ffbuild_enabled() {
-    [[ $TARGET == *arm64 ]] && return -1
+    [[ $TARGET == *arm64 ]] && return 1
     return 0
 }
 

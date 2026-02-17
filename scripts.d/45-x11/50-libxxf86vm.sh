@@ -4,7 +4,7 @@ SCRIPT_REPO="https://gitlab.freedesktop.org/xorg/lib/libxxf86vm.git"
 SCRIPT_COMMIT="63134ba6acf046099fc112e08942ff6549f2286a"
 
 ffbuild_enabled() {
-    [[ $TARGET != linux* ]] && return -1
+    [[ $TARGET != linux* ]] && return 1
     return 0
 }
 
@@ -30,7 +30,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     export CFLAGS="$RAW_CFLAGS"

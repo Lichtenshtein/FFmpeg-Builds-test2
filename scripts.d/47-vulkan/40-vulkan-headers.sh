@@ -6,7 +6,7 @@ SCRIPT_COMMIT="49f1a381e2aec33ef32adf4a377b5a39ec016ec4"
 # SCRIPT_TAGFILTER="v?.*.*"
 
 ffbuild_enabled() {
-    (( $(ffbuild_ffver) > 404 )) || return -1
+    (( $(ffbuild_ffver) > 404 )) || return 1
     return 0
 }
 

@@ -4,8 +4,8 @@ SCRIPT_REPO="https://code.videolan.org/videolan/libdvdnav.git"
 SCRIPT_COMMIT="cf112772bf626f76a913efca5b883a381e4c123a"
 
 ffbuild_enabled() {
-    [[ $VARIANT == lgpl* ]] && return -1
-    (( $(ffbuild_ffver) >= 700 )) || return -1
+    [[ $VARIANT == lgpl* ]] && return 1
+    (( $(ffbuild_ffver) >= 700 )) || return 1
     return 0
 }
 
@@ -29,7 +29,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     meson setup "${myconf[@]}" ..

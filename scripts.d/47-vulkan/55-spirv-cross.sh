@@ -4,7 +4,7 @@ SCRIPT_REPO="https://github.com/KhronosGroup/SPIRV-Cross.git"
 SCRIPT_COMMIT="28184c1e138f18c330256eeb2f56b9f9fbc53921"
 
 ffbuild_enabled() {
-    (( $(ffbuild_ffver) > 404 )) || return -1
+    (( $(ffbuild_ffver) > 404 )) || return 1
     return 0
 }
 
@@ -19,7 +19,7 @@ ffbuild_dockerbuild() {
             else
                 log_info "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
                 log_info "-----------------------------------"
-                # exit 1 # если нужно прервать сборку при ошибке
+                # return 1 # если нужно прервать сборку при ошибке
             fi
         done
     fi

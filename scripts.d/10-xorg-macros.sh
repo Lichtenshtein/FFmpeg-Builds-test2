@@ -8,7 +8,7 @@ ffbuild_depends() {
 }
 
 ffbuild_enabled() {
-    [[ $TARGET != linux* ]] && return -1
+    [[ $TARGET != linux* ]] && return 1
     return 0
 }
 

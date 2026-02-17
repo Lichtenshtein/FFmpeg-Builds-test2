@@ -5,7 +5,7 @@ SCRIPT_COMMIT="6ced85a8e5d73e882aa999a1fbc95b9312461804"
 
 ffbuild_enabled() {
     # [[ $TARGET == win* ]] || return 1
-    return -1
+    return 1
 }
 
 
@@ -27,7 +27,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     export CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include"

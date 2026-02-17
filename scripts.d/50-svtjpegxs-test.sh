@@ -4,7 +4,7 @@ SCRIPT_REPO="https://github.com/OpenVisualCloud/SVT-JPEG-XS.git"
 SCRIPT_COMMIT="b1b227840463d3b74a4da13d8d1f17610697a793"  # Use specific commit hash for reproducible builds
 
 ffbuild_enabled() {
-    [[ $TARGET == win32 ]] && return -1
+    [[ $TARGET == win32 ]] && return 1
     return 0
 }
 

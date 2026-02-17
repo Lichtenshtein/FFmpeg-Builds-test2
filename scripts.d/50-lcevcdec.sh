@@ -4,9 +4,9 @@ SCRIPT_REPO="https://github.com/MartinEesmaa/LCEVCdec.git"
 SCRIPT_COMMIT="5ee432d5662268ac238791a93f2c829bcf75b6e3"
 
 ffbuild_enabled() {
-    [[ $TARGET == winarm* ]] && return -1
-    (( $(ffbuild_ffver) > 800 )) || return -1
-    return -1
+    [[ $TARGET == winarm* ]] && return 1
+    (( $(ffbuild_ffver) > 800 )) || return 1
+    return 1
 }
 
 ffbuild_dockerdl() {

@@ -4,7 +4,7 @@ SCRIPT_REPO="https://gitlab.freedesktop.org/xorg/lib/libxrender.git"
 SCRIPT_COMMIT="01c4bb5b30bbb09921ca4042da369a60a73faefa"
 
 ffbuild_enabled() {
-    [[ $TARGET != linux* ]] && return -1
+    [[ $TARGET != linux* ]] && return 1
     return 0
 }
 
@@ -30,7 +30,7 @@ ffbuild_dockerbuild() {
         )
     else
         echo "Unknown target"
-        return -1
+        return 1
     fi
 
     export CFLAGS="$RAW_CFLAGS"
