@@ -1,0 +1,23 @@
+From 39a046e718b3fcaa0155c3ec518ee11d5cf65b64 Mon Sep 17 00:00:00 2001
+From: whppr <20403402+whppr@users.noreply.github.com>
+Date: Wed, 12 Mar 2025 17:12:37 +0100
+Subject: [PATCH] Update bandwidth.cpp
+
+Changed VBR 5 cutoff to 20000 Hz.
+---
+ libAACenc/src/bandwidth.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libAACenc/src/bandwidth.cpp b/libAACenc/src/bandwidth.cpp
+index e814f0519..0a26724f3 100644
+--- a/libAACenc/src/bandwidth.cpp
++++ b/libAACenc/src/bandwidth.cpp
+@@ -155,7 +155,7 @@ static const BANDWIDTH_TAB_VBR bandWidthTableVBR[] = {
+     {AACENC_BR_MODE_VBR_2, 13000, 13000},
+     {AACENC_BR_MODE_VBR_3, 15750, 15750},
+     {AACENC_BR_MODE_VBR_4, 16500, 16500},
+-    {AACENC_BR_MODE_VBR_5, 19293, 19293},
++    {AACENC_BR_MODE_VBR_5, 20000, 20000},
+     {AACENC_BR_MODE_SFR, 0, 0},
+     {AACENC_BR_MODE_FF, 0, 0}
+ 

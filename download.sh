@@ -59,8 +59,10 @@ download_stage() {
     fi
 
     log_info "Downloading: $STAGENAME (Hash: $DL_HASH)..."
-    WORK_DIR=$(mktemp -d)
-    
+    # Создаем временную папку внутри проекта
+    mkdir -p .cache/tmp
+    WORK_DIR=$(mktemp -d -p "$ROOT_DIR/.cache/tmp")
+
     # ИСПОЛЬЗУЕМ АБСОЛЮТНЫЙ ПУТЬ К ФУНКЦИЯМ
     # Передаем ROOT_DIR внутрь subshell через экспорт или переменную
     if ( cd "$WORK_DIR" && eval "source \"$ROOT_DIR/util/dl_functions.sh\"; $DL_COMMAND" ); then
@@ -81,7 +83,7 @@ download_stage() {
     else
         log_error "FAILED to download $STAGENAME (Command: $DL_COMMAND)"
         rm -rf "$WORK_DIR"
-        return 1
+        exit 1 # exit 1, чтобы xargs поймал ошибку
     fi
 }
 
@@ -89,10 +91,12 @@ export -f download_stage
 
 log_info "Starting parallel downloads for $TARGET-$VARIANT..."
 # Внутри xargs нужно делать source util/vars.sh ПЕРЕД вызовом функции
+# -n 1: обрабатывать ровно один аргумент за раз.
+# --halt once,fail=1: Если хотя бы один процесс завершится с ненулевым кодом (exit 1), xargs немедленно прекратит запуск новых задач и завершит работу.
 find scripts.d -name "*.sh" | sort | \
-    xargs -I{} -P 8 bash -c 'export TARGET="'$TARGET'"; export VARIANT="'$VARIANT'"; export ROOT_DIR="'$ROOT_DIR'"; source util/vars.sh "$TARGET" "$VARIANT" &>/dev/null; source util/dl_functions.sh; download_stage "{}" "$TARGET" "$VARIANT" "$DL_DIR"'
+    xargs -I{} -P 8 -n 1 --halt once,fail=1 bash -c 'export TARGET="'$TARGET'"; export VARIANT="'$VARIANT'"; export ROOT_DIR="'$ROOT_DIR'"; source util/vars.sh "$TARGET" "$VARIANT" &>/dev/null; source util/dl_functions.sh; download_stage "{}" "$TARGET" "$VARIANT" "$DL_DIR"'
 
-    # xargs -I{} -P 8 bash -c "export TARGET='$TARGET'; export VARIANT='$VARIANT'; export ROOT_DIR='$ROOT_DIR'; source util/vars.sh \$TARGET \$VARIANT &>/dev/null; source util/dl_functions.sh; download_stage '{}' '$TARGET' '$VARIANT' '$DL_DIR'"
+    # xargs -I{} -P 8 -n 1 --halt once,fail=1 bash -c "export TARGET='$TARGET'; export VARIANT='$VARIANT'; export ROOT_DIR='$ROOT_DIR'; source util/vars.sh \$TARGET \$VARIANT &>/dev/null; source util/dl_functions.sh; download_stage '{}' '$TARGET' '$VARIANT' '$DL_DIR'"
 
 # FFmpeg update (добавил --quiet для чистоты логов)
 FFMPEG_DIR=".cache/ffmpeg"
@@ -104,3 +108,6 @@ else
     ( cd "$FFMPEG_DIR" && git fetch --quiet --depth=1 origin "${GIT_BRANCH:-master}" && git reset --hard FETCH_HEAD )
 fi
 log_info "All downloads finished."
+
+# очистка временной папки
+rm -rf .cache/tmp

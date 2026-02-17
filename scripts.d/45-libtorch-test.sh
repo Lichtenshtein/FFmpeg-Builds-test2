@@ -39,7 +39,7 @@ Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10
 # Добавляем необходимые системные либы Windows в private
 # Все зависимости, которые нужны только при статической линковке самого FFmpeg к этим DLL
 Libs.private: -lshlwapi -luser32 -ladvapi32 -lstdc++
-Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1
+Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX
 EOF
 }
 

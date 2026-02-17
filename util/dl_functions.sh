@@ -18,45 +18,64 @@ git-mini-clone() {
     [[ -n "$SCRIPT_REV" ]] && { log_warn "SVN detected, skipping git"; return 0; }
 
     mkdir -p "$TARGET_DIR"
-    # Используем subshell ( ), чтобы cd не менял путь основного процесса
-    (
-        cd "$TARGET_DIR" || exit 1
-        git init -q
-        git remote add origin "$REPO"
 
-        # Добавляем все возможные зеркала
-        [[ -n "$SCRIPT_MIRROR" ]] && git remote set-url --add origin "$SCRIPT_MIRROR"
-        [[ -n "$SCRIPT_MIRROR1" ]] && git remote set-url --add origin "$SCRIPT_MIRROR1"
-        [[ -n "$SCRIPT_MIRROR2" ]] && git remote set-url --add origin "$SCRIPT_MIRROR2"
-        [[ -n "$SCRIPT_MIRROR3" ]] && git remote set-url --add origin "$SCRIPT_MIRROR3"
-        [[ -n "$SCRIPT_MIRROR4" ]] && git remote set-url --add origin "$SCRIPT_MIRROR4"
+    # Сохраняем текущий путь, чтобы вернуться в него в конце функции
+    pushd "$TARGET_DIR" > /dev/null || return 1
 
-        # Логика с TAGFILTER
-        if [[ -n "$TAGFILTER" ]]; then
-            COMMIT=$(git ls-remote --tags --sort="v:refname" origin "$TAGFILTER" | tail -n1 | sed 's/.*\///')
+    # Инициализация
+    git init -q
+    # Очищаем старые origin, если папка переиспользуется
+    git remote remove origin 2>/dev/null || true
+    git remote add origin "$REPO"
+
+    # Добавляем все возможные зеркала
+    [[ -n "$SCRIPT_MIRROR" ]] && git remote set-url --add origin "$SCRIPT_MIRROR"
+    [[ -n "$SCRIPT_MIRROR1" ]] && git remote set-url --add origin "$SCRIPT_MIRROR1"
+    [[ -n "$SCRIPT_MIRROR2" ]] && git remote set-url --add origin "$SCRIPT_MIRROR2"
+    [[ -n "$SCRIPT_MIRROR3" ]] && git remote set-url --add origin "$SCRIPT_MIRROR3"
+    [[ -n "$SCRIPT_MIRROR4" ]] && git remote set-url --add origin "$SCRIPT_MIRROR4"
+
+    if [[ -n "$TAGFILTER" ]]; then
+        COMMIT=$(git ls-remote --tags --sort="v:refname" origin "$TAGFILTER" | tail -n1 | sed 's/.*\///')
+    fi
+
+    local success=0
+    # Получаем все URL и пробуем fetch
+    mapfile -t URLS < <(git remote get-url --all origin)
+    
+    for url in "${URLS[@]}"; do
+        log_debug "Trying fetch from $url (Commit: $COMMIT)..."
+        # Прямая проверка команды без subshell
+        if git fetch --quiet --depth=1 "$url" "$COMMIT" 2>/dev/null; then
+            git checkout --quiet FETCH_HEAD
+            success=1 && break
         fi
+    done
 
-        # Цикл попыток Fetch по всем зеркалам/URL
-        local success=0
-        for url in $(git remote get-url --all origin); do
-            log_debug "Trying fetch from $url (Commit: $COMMIT)..."
-            if git fetch --quiet --depth=1 "$url" "$COMMIT" 2>/dev/null; then
-                git checkout --quiet FETCH_HEAD
-                success=1 && break
-            fi
-        done
-
-        if [[ $success -eq 0 && -n "$BRANCH" ]]; then
-            log_warn "Direct commit fetch failed, trying branch: $BRANCH"
-            git fetch --quiet --depth=1 origin "$BRANCH" && git checkout --quiet "$COMMIT" && success=1
+    # Fallback на ветку
+    if [[ $success -eq 0 && -n "$BRANCH" ]]; then
+        log_warn "Direct commit fetch failed, trying branch: $BRANCH"
+        if git fetch --quiet --depth=1 origin "$BRANCH"; then
+             git checkout --quiet "$COMMIT" && success=1
         fi
+    fi
 
-        if [[ $success -eq 0 ]]; then
-            log_warn "Shallow fetch failed. Performing fallback full fetch..."
-            git fetch --quiet --tags origin || git fetch --quiet origin
-            git checkout --quiet "$COMMIT"
+    # Последний шанс: Full Fetch
+    if [[ $success -eq 0 ]]; then
+        log_warn "Shallow fetch failed. Performing fallback full fetch..."
+        if git fetch --quiet --tags origin || git fetch --quiet origin; then
+            git checkout --quiet "$COMMIT" && success=1
         fi
-    )
+    fi
+
+    # Возвращаемся в исходную директорию
+    popd > /dev/null
+
+    # Если ничего не помогло — возвращаем ошибку основному скрипту
+    if [[ $success -eq 0 ]]; then
+        log_error "Failed to clone $REPO at $COMMIT"
+        return 1
+    fi
 }
 
 default_dl() {

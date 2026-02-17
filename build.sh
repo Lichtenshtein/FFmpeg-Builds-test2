@@ -2,7 +2,7 @@
 set -xe
 shopt -s globstar
 cd "$(dirname "$0")"
-source util/vars.sh
+source util/vars.sh "$1" "$2"
 # Если "Hits" всегда 0, значит, монтирование --mount=type=cache в generate.sh не пробрасывается в build.sh (проверить совпадение путей /root/.cache/ccache).
 ccache -s
 
@@ -54,7 +54,8 @@ export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig"
 # Перед запуском configure убедимся, что линковщик видит DLL-импорты
 # Эти флаги до -Wl нужны для статической линковки glib, так как она используется во многих фильтрах. -lintl -liconv часто конфликтуют с внутренними функциями glibc или самого компилятора, если они не были собраны как строго статические.
 # Если линковка падает с "undefined reference", добавить -Wl,--copy-dt-needed-entries в LDFLAGS
-export LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition"
+# Позволяем линкеру искать DLL для конкретных библиотек -Wl,--copy-dt-needed-entries -Wl,--dynamicbase -Wl,--nxcompat
+export LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition -Wl,--copy-dt-needed-entries -Wl,--dynamicbase -Wl,--nxcompat"
 
 # Сборка FFmpeg
 chmod +x configure
@@ -72,7 +73,6 @@ chmod +x configure
     --prefix="$PWD/../prefix" \
     --pkg-config-flags="--static" \
     $FFBUILD_TARGET_FLAGS \
-    --extra-libs="$FF_LIBS" \
     $FF_CONFIGURE \
     --enable-filter=vpp_amf \
     --enable-filter=sr_amf \
@@ -84,6 +84,7 @@ chmod +x configure
     --extra-cxxflags="$FF_CXXFLAGS" \
     --extra-ldflags="$FF_LDFLAGS" \
     --extra-ldexeflags="$FF_LDEXEFLAGS" \
+    --extra-libs="$FF_LIBS" \
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" \
     --extra-version="VVCEasy"
 

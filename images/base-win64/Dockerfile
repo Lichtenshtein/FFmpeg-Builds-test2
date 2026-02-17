@@ -13,8 +13,9 @@ RUN --mount=src=ct-ng-config,dst=/.config \
     rm -rf ct-ng
 
 # Remove DLLs to force static linking
-RUN find /opt/ct-ng -name "*.dll" -or -name "*.dll.a" -delete && \
+# RUN find /opt/ct-ng -name "*.dll" -or -name "*.dll.a" -delete && \
     mkdir -p /opt/ffbuild
+RUN mkdir -p /opt/ffbuild
 
 RUN rm -rf /var/lib/apt/lists/*
 
@@ -22,7 +23,7 @@ ENV FFBUILD_TOOLCHAIN=x86_64-w64-mingw32 \
     FFBUILD_RUST_TARGET=x86_64-pc-windows-gnu
 
 RUN rustup target add "$FFBUILD_RUST_TARGET" && \
-    echo "[target.$FFBUILD_RUST_TARGET]\nlinker = \"${FFBUILD_TOOLCHAIN}-gcc\"\nar = \"${FFBUILD_TOOLCHAIN}-gcc-ar\"\n" > "$CARGO_HOME"/config.toml
+    printf "[target.%s]\nlinker = \"%s-gcc\"\nar = \"%s-gcc-ar\"\n" "$FFBUILD_RUST_TARGET" "$FFBUILD_TOOLCHAIN" "$FFBUILD_TOOLCHAIN" > "$CARGO_HOME"/config.toml
 
 ADD toolchain.cmake /toolchain.cmake
 ADD cross.meson /cross.meson
@@ -72,6 +73,6 @@ ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
     GENDEF="${FFBUILD_TOOLCHAIN}-gendef" \
     CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -ffast-math -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
     CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -ffast-math -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
-    LDFLAGS="-O3 -march=broadwell -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -Wl,--gc-sections -Wl,--as-needed" \
+    LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -Wl,--gc-sections -Wl,--as-needed -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216" \
     STAGE_CFLAGS="-fno-semantic-interposition" \
     STAGE_CXXFLAGS="-fno-semantic-interposition"

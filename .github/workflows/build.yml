@@ -63,7 +63,19 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      - name: Build Base Image
+      - name: Build Root Base Image
+        uses: docker/build-push-action@v5
+        with:
+          context: images/base
+          build-args: |
+            CARGO_C_VERSION=0.10.20
+          tags: ${{ steps.images.outputs.repo_lc }}/base:latest
+          push: false 
+          load: true
+          cache-from: type=gha,scope=base-root
+          cache-to: type=gha,mode=max,scope=base-root
+
+      - name: Build Base Win64 Image
         uses: docker/build-push-action@v5
         with:
           context: images/base-win64

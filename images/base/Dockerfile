@@ -19,7 +19,7 @@ RUN \
         ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent p7zip-full zstd \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
         gcc-14 g++-14 && \
-    pip3 install --break-system-packages --upgrade meson \
+    pip3 install --break-system-packages --upgrade meson  && \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 && \
     update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-14 100 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100 && \
@@ -29,12 +29,12 @@ RUN \
     apt-get -y clean && \
     git config --global user.email "builder@localhost" && \
     git config --global user.name "Builder" && \
-    git config --global advice.detachedHead false \
+    git config --global advice.detachedHead false && \
     git config --global --add safe.directory "*"
 
 ENV CARGO_HOME="/opt/cargo" RUSTUP_HOME="/opt/rustup" PATH="/opt/cargo/bin:${PATH}"
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path && \
-    curl -fsSL "https://github.com/lu-zero/cargo-c/releases/download/v{CARGO_C_VERSION}/cargo-c-x86_64-unknown-linux-musl.tar.gz" | tar -xz -C /opt/cargo/bin && \
+    curl -fsSL "https://github.com/lu-zero/cargo-c/releases/download/v${CARGO_C_VERSION}/cargo-c-x86_64-unknown-linux-musl.tar.gz" | tar -xz -C /opt/cargo/bin && \
     rm -rf "${CARGO_HOME}"/registry "${CARGO_HOME}"/git
 
     # Динамическое получение последней версии через GitHub API
