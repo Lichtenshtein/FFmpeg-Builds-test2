@@ -9,11 +9,8 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-
-    # This is where they decided to put downloads for external dependencies, so it needs to run here
-    # Fix freaking 11000 lines of dot wall
-    # echo "alias wget='wget -q --show-progress --progress=bar:force' && alias curl='curl -fsSL' && ./autogen.sh"
-    echo "WGET_OPTS='-nv --progress=bar:force' ./autogen.sh"
+    # Скачиваем модель заранее штатными средствами, чтобы wget не мусорил в лог
+    echo "mkdir -p dnn && curl -sL https://media.xiph.org/opus/models/opus_data-a5177ec6fb7d15058e99e57029746100121f68e4890b1467d4094aa336b6013e.tar.gz -o dnn/opus_data-a5177ec6fb7d15058e99e57029746100121f68e4890b1467d4094aa336b6013e.tar.gz && ./autogen.sh"
 }
 
 ffbuild_dockerbuild() {

@@ -4,7 +4,7 @@ SCRIPT_REPO="https://git.code.sf.net/p/mingw-w64/mingw-w64.git"
 SCRIPT_COMMIT="b45abfec4e116b33620de597b99b1f0af3ab6a6a"
 
 ffbuild_enabled() {
-    [[ $TARGET == win* ]] || return -1
+    # [[ $TARGET == win* ]] || return -1
     return 0
 }
 
@@ -21,7 +21,6 @@ ffbuild_dockerfinal() {
 }
 
 ffbuild_dockerdl() {
-    # Клонируем прямо в текущую директорию (.)
     echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
@@ -33,7 +32,10 @@ ffbuild_dockerbuild() {
     # fi
     # Определяем sysroot тулчейна (обычно /opt/ct-ng/x86_64-w64-mingw32)
     local SYSROOT=$(${CC} -print-sysroot)
-    local TEMP_INSTALL="/opt/mingw_build"
+    # Нам нужен относительный путь для DESTDIR
+    local REL_SYSROOT=${SYSROOT#/} 
+    local TEMP_INSTALL="/tmp/mingw_install"
+    
     mkdir -p "$TEMP_INSTALL"
 
     # Сбрасываем флаги, чтобы системная сборка не подхватила лишнего
@@ -73,7 +75,7 @@ ffbuild_dockerbuild() {
         make -j$(nproc) $MAKE_V
         make install DESTDIR="$TEMP_INSTALL"
     )
-    cp -a /opt/mingw/. /
+    # cp -a /opt/mingw/. /
 
     ###
     ### mingw-w64-libraries/winpthreads (Важно для FFmpeg)
@@ -87,13 +89,14 @@ ffbuild_dockerbuild() {
         make -j$(nproc) $MAKE_V
         make install DESTDIR="$TEMP_INSTALL"
     )
-    # Синхронизация: копируем только содержимое sysroot обратно в систему
-    # Это предотвратит повреждение системных библиотек Docker-образа
-    cp -a "$TEMP_INSTALL/$SYSROOT/." "$SYSROOT/"
+    # СИНХРОНИЗАЦИЯ
+    log_info "Syncing Mingw-w64 headers and CRT to sysroot..."
+    # Копируем из временной папки в реальный sysroot компилятора
+    cp -a "$TEMP_INSTALL/$REL_SYSROOT/." "$SYSROOT/"
     
-    # Создаем чистый префикс для экспорта в Docker (для ffbuild_dockerlayer)
+    # Создаем артефакт для Docker-слоя (чтобы ffbuild_dockerlayer подхватил это)
     mkdir -p /opt/mingw
-    cp -a "$TEMP_INSTALL/$SYSROOT/." /opt/mingw/
+    cp -a "$SYSROOT/." /opt/mingw/
 }
 
 ffbuild_configure() {

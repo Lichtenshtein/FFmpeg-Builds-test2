@@ -38,16 +38,16 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y subversion subversion-tools nasm yasm
 
-      - name: Free Disk Space
-        uses: jlumbroso/free-disk-space@main
-        with:
-          tool-cache: true
-          android: true
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: false
+      # - name: Free Disk Space
+        # uses: jlumbroso/free-disk-space@main
+        # with:
+          # tool-cache: true
+          # android: true
+          # dotnet: true
+          # haskell: true
+          # large-packages: true
+          # docker-images: true
+          # swap-storage: false
 
       # - name: Final Deep Clean and Space Check
         # run: |
