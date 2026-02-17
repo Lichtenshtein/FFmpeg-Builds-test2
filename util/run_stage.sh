@@ -149,8 +149,13 @@ fi
 WHITELIST="openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|onevpl"
 # Очистка динамических библиотек для каждого статического скрипта с белым списком
 if [[ ! "$STAGENAME" =~ $WHITELIST ]]; then
-    log_debug "Cleaning unwanted DLLs from static stage: $STAGENAME"
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete
+    # Проверяем существование директории ПЕРЕД запуском find
+    if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
+        log_debug "Cleaning unwanted DLLs from static stage: $STAGENAME"
+        find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
+    else
+        log_debug "No standard prefix directory to clean for $STAGENAME"
+    fi
 else
     log_info "Preserving DLLs for dynamic stage: $STAGENAME"
 fi
@@ -191,14 +196,13 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
     log_info "################################################################"
 fi
 
+# Конец группы в логах GitHub
+echo "::endgroup::"
+
 # Вывод статистики в конце каждой стадии (опционально)
 # Это покажет Hit Rate прямо в логах GitHub
 log_info "--- CCACHE STATISTICS ---"
 ccache -s
-
-# Конец группы в логах GitHub
-echo "::endgroup::"
-
 
 # Очистка
 cd /
