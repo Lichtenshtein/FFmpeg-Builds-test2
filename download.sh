@@ -1,5 +1,10 @@
 #!/bin/bash
 set -e
+
+# фикс проблем с git 
+git config --global advice.detachedHead false
+git config --global --add safe.directory "*"
+
 cd "$(dirname "$0")"
 
 export ROOT_DIR="$PWD"
