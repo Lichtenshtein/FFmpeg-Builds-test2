@@ -58,7 +58,8 @@ if [[ ! -s "$KEEP_LIST" ]]; then
 fi
 
 # Удаляем только те файлы, которых нет в KEEP_LIST
-cd "$CACHE_DIR" || exit 0
+cd "$CACHE_DIR" || { log_warn "Cannot cd to cache"; exit 0; }
+log_info "Cleaning up orphaned cache files..."
 deleted_count=0
 
 # Читаем все файлы в массив, чтобы избежать проблем с Broken Pipe
@@ -74,26 +75,35 @@ fi
 for f in "${ALL_FILES[@]}"; do
     [[ -f "$f" ]] || continue
 
-    # Проверка на свежесть (5 минут)
-    if [[ -n $(find "$f" -mmin -5 2>/dev/null) ]]; then
-        log_debug "Skipping recently created file: $f"
+    # Защита "свежих" файлов (5 минут). 
+    # В GHA find может вернуть ошибку, если файл исчез, поэтому || true
+    IS_NEW=$(find "$f" -mmin -5 2>/dev/null || echo "")
+    if [[ -n "$IS_NEW" ]]; then
+        log_debug "Skipping new file: $f"
         continue
     fi
 
-    # Проверка наличия в списке (используем || true, чтобы grep не ронял скрипт по set -e)
-    if ! grep -qxF "$f" "$KEEP_LIST" 2>/dev/null; then
+    # Проверка по списку (используем grep внутри if, это безопасно для set -e)
+    if ! grep -qxF "$f" "$KEEP_LIST"; then
         log_info "Deleting orphaned cache: $f"
+        
+        # Удаляем файл
         rm -f "$f" || true
         
-        # Удаляем симлинк, если он ведет на этот файл (битый)
-        STAGENAME_BASE="${f%_*}"
+        # Удаляем симлинк, если он вел на этот файл (STAGENAME.tar.zst)
+        # Получаем базу имени (все до первого нижнего подчеркивания)
+        STAGENAME_BASE="${f%%_*}"
         if [[ -L "${STAGENAME_BASE}.tar.zst" ]]; then
-            rm "${STAGENAME_BASE}.tar.zst" || true
+            # Проверяем, куда ведет симлинк. Если на удаленный файл - стираем его.
+            TARGET_LINK=$(readlink "${STAGENAME_BASE}.tar.zst")
+            if [[ "$TARGET_LINK" == "$f" ]]; then
+                rm "${STAGENAME_BASE}.tar.zst" || true
+            fi
         fi
         ((deleted_count++))
     fi
 done
 
 log_info "Cleanup finished. Removed $deleted_count orphaned files."
-rm "$KEEP_LIST"
+rm -f "$KEEP_LIST" || true
 exit 0 # Явный успех
