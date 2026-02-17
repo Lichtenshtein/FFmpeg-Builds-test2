@@ -107,14 +107,6 @@ jobs:
           restore-keys: |
             dl-cache-
 
-      # - name: Restore ccache
-        # uses: actions/cache/restore@v4
-        # with:
-          # path: .cache/ccache
-          # key: ccache-${{ env.TARGET }}-${{ github.sha }}
-          # restore-keys: |
-            # ccache-${{ env.TARGET }}-
-
       - name: Run Download and Generate
         run: |
           # Если выбран Clean, удаляем локальные копии кэша
@@ -188,17 +180,6 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ github.token }}
-
-      - name: Fix ccache permissions
-        if: always()
-        run: sudo chown -R $USER:$USER .cache/ccache
-
-      # - name: Save ccache
-        # if: always()
-        # uses: actions/cache/save@v4
-        # with:
-          # path: .cache/ccache
-          # key: ccache-${{ env.TARGET }}-${{ github.sha }}
 
       - name: Upload Final Artifacts
         uses: actions/upload-artifact@v4
