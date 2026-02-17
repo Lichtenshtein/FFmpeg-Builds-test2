@@ -140,7 +140,7 @@ jobs:
           # Запускаем логику загрузки и генерации Dockerfile
           chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh
           ./download.sh
-          # ./util/clean_cache.sh
+          ./util/clean_cache.sh
           ./generate.sh win64 nonfree
         env:
           TARGET: win64

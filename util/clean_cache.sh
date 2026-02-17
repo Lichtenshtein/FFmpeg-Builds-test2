@@ -3,7 +3,9 @@
 set -e
 
 # Подгружаем переменные, чтобы знать TARGET/VARIANT
-source "$(dirname "$0")/vars.sh" "$TARGET" "$VARIANT" > /dev/null 2>&1
+TARGET="${1:-$TARGET}"
+VARIANT="${2:-$VARIANT}"
+source "$(dirname "$0")/vars.sh" "$TARGET" "$VARIANT" > /dev/null 2>&1 || true
 
 CACHE_DIR="$(dirname "$0")/../.cache/downloads"
 SCRIPTS_DIR="$(dirname "$0")/../scripts.d"
@@ -21,73 +23,58 @@ KEEP_LIST=$(mktemp)
 
 for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     [[ -e "$STAGE" ]] || continue
-    
     STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
-    
-    # Пытаемся вычислить хеш (как в download.sh)
-    # Добавляем экспорт переменных прямо в вызов для надежности
-    DL_COMMAND=$(bash -c "export TARGET='$TARGET'; export VARIANT='$VARIANT'; source util/vars.sh \$TARGET \$VARIANT &>/dev/null; source util/dl_functions.sh; source '$STAGE'; ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")
 
-    # Проверяем, включен ли скрипт вообще
-    # Если скрипт включен, мы ОБЯЗАНЫ защитить его файлы
-    if ( export TARGET="$TARGET"; export VARIANT="$VARIANT"; source "$STAGE" >/dev/null 2>&1 && ffbuild_enabled ); then
+    # Проверяем, включен ли скрипт для текущего таргета
+    # Экспортируем переменные явно для подпроцесса
+    if ( export TARGET="$TARGET" VARIANT="$VARIANT"; source "$STAGE" >/dev/null 2>&1 && ffbuild_enabled ); then
         
+        # Получаем команду загрузки (с явным пробросом контекста)
+        DL_COMMAND=$(export TARGET="$TARGET" VARIANT="$VARIANT"; bash -c "source util/vars.sh \$TARGET \$VARIANT &>/dev/null; source util/dl_functions.sh; source '$STAGE'; ffbuild_dockerdl" 2>/dev/null || echo "")
+
         if [[ -n "$DL_COMMAND" ]]; then
-            # Вариант 1: Пакет с загрузкой. Считаем хеш и защищаем конкретный файл.
+            # Пакет с загрузкой: вычисляем хеш
             SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE" | grep -v '^[[:space:]]*$')
             DL_HASH=$( (echo "$DL_COMMAND"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16)
             echo "${STAGENAME}_${DL_HASH}.tar.zst" >> "$KEEP_LIST"
-            log_debug "Protecting by hash: ${STAGENAME}_${DL_HASH}.tar.zst"
+            log_debug "Protecting hash: ${STAGENAME}_${DL_HASH}.tar.zst"
         fi
 
-        # Резервная защита (Мета-пакеты и "свежак"). 
-        # Защищаем все файлы, которые начинаются на STAGENAME_
-        # Это спасет от удаления, если расчет хеша выше сорвался.
+        # РЕЗЕРВНАЯ ЗАЩИТА (Белый список по имени)
+        # Защищаем любой файл, который начинается на имя активного скрипта.
+        # Это предотвратит удаление, если расчет хеша выше дал сбой.
         ls "$CACHE_DIR"/${STAGENAME}_*.tar.zst 2>/dev/null | xargs -n1 basename 2>/dev/null >> "$KEEP_LIST" || true
         # Защищаем базовый симлинк
         echo "${STAGENAME}.tar.zst" >> "$KEEP_LIST"
     fi
 done
 
-# Проверка на пустой список (безопасность)
-if [[ ! -s "$KEEP_LIST" ]]; then
-    log_error "Safety trigger: KEEP_LIST is empty. Refusing to delete."
-    rm -f "$KEEP_LIST"
-    exit 1
-fi
-
 # Удаляем только те файлы, которых нет в KEEP_LIST
-cd "$CACHE_DIR" || { log_warn "Cannot cd to cache"; exit 0; }
+cd "$CACHE_DIR" || exit 0
 log_info "Cleaning up orphaned cache files..."
 deleted_count=0
 
-# Отключаем set -e только на время цикла очистки, чтобы избежать случайных вылетов
+# Отключаем set -e для цикла удаления
 set +e
-# Читаем все файлы в массив, чтобы избежать проблем с Broken Pipe
 mapfile -t ALL_FILES < <(ls *_*.tar.zst 2>/dev/null)
 
 for f in "${ALL_FILES[@]}"; do
     [[ -f "$f" ]] || continue
 
-    # Защита "свежих" файлов (5 минут). 
-    # В GHA find может вернуть ошибку, если файл исчез, поэтому || true
-    IS_NEW=$(find "$f" -mmin -5 2>/dev/null || echo "")
-    if [[ -n "$IS_NEW" ]]; then
-        log_debug "Skipping new file: $f"
+    # Защита новых файлов (15 минут вместо 5, для надежности в GHA)
+    if [[ -n $(find "$f" -mmin -15 2>/dev/null) ]]; then
         continue
     fi
 
-    # Сверяем со списком защиты
-    if ! grep -qxF "$f" "$KEEP_LIST"; then
+    # Если файла НЕТ в списке защиты — удаляем
+    if ! grep -qxF "$f" "$KEEP_LIST" 2>/dev/null; then
         log_info "Deleting orphaned cache: $f"
-        rm -f "$f" || true
+        rm -f "$f"
         
-        # Чистим битые симлинки
-        STAGENAME_BASE="${f%%_*}"
-        if [[ -L "${STAGENAME_BASE}.tar.zst" ]]; then
-            if [[ "$(readlink "${STAGENAME_BASE}.tar.zst")" == "$f" ]]; then
-                rm "${STAGENAME_BASE}.tar.zst" || true
-            fi
+        # Чистим соответствующий симлинк, если он ведет "в никуда"
+        BASE="${f%%_*}"
+        if [[ -L "${BASE}.tar.zst" && "$(readlink "${BASE}.tar.zst")" == "$f" ]]; then
+            rm "${BASE}.tar.zst"
         fi
         ((deleted_count++))
     fi
