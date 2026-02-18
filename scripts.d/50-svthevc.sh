@@ -16,8 +16,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/svt-hevc" ]]; then
-        for patch in /builder/patches/svt-hevc/*.patch; do
+    if [[ -d "/builder/patches/svthevc" ]]; then
+        for patch in /builder/patches/svthevc/*.patch; do
             log_info "\n-----------------------------------"
             log_info "~~~ APPLYING PATCH: $patch"
             if patch -p1 < "$patch"; then

@@ -18,26 +18,23 @@ FINAL_DEST="/opt/ffdest"
 mkdir -p "$FINAL_DEST"
 mkdir -p ffbuild
 
-FFMPEG_REPO="${FFMPEG_REPO:-https://github.com/MartinEesmaa/FFmpeg.git}"
-GIT_BRANCH="${GIT_BRANCH:-master}"
-
 # Клонирование и патчинг (прямо в текущем слое Docker)
 log_info "Using pre-mounted FFmpeg source..."
 cd ffbuild/ffmpeg
 
-# Применяем патчи
-if [[ -d "/builder/patches/ffmpeg/$GIT_BRANCH" ]]; then
-    for patch in /builder/patches/ffmpeg/$GIT_BRANCH/*.patch; do
-        git checkout .
+# Патчи теперь ищем по имени ветки, пришедшей из ENV
+if [[ -d "/builder/patches/ffmpeg/$FFMPEG_BRANCH" ]]; then
+    git checkout .
+    for patch in "/builder/patches/ffmpeg/$FFMPEG_BRANCH"/*.patch; do
+        [[ -e "$patch" ]] || continue
         log_info "\n-----------------------------------"
-        log_info "~~~ APPLYING PATCH: $patch"
-        # Выполняем патч и проверяем код выхода
+        log_info "~~~ APPLYING PATCH: $(basename "$patch")"
         if patch -p1 < "$patch"; then
             log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            log_info "-----------------------------------"
+            log_info "\n-----------------------------------"
         else
-            log_info "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-            log_info "-----------------------------------"
+            log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+            log_info "\n-----------------------------------"
             # exit 1 # если нужно прервать сборку при ошибке
         fi
     done
@@ -73,6 +70,11 @@ chmod +x configure
     --prefix="$PWD/../prefix" \
     --pkg-config-flags="--static" \
     $FFBUILD_TARGET_FLAGS \
+    --extra-cflags="$FF_CFLAGS" \
+    --extra-ldflags="$FF_LDFLAGS" \
+    --extra-cxxflags="$FF_CXXFLAGS" \
+    --extra-ldexeflags="$FF_LDEXEFLAGS" \
+    --extra-libs="$FF_LIBS" \
     $FF_CONFIGURE \
     --enable-filter=vpp_amf \
     --enable-filter=sr_amf \
@@ -80,13 +82,14 @@ chmod +x configure
     --enable-pic \
     --h264-max-bit-depth=14 \
     --h265-bit-depths=8,9,10,12 \
-    --extra-cflags="$FF_CFLAGS" \
-    --extra-cxxflags="$FF_CXXFLAGS" \
-    --extra-ldflags="$FF_LDFLAGS" \
-    --extra-ldexeflags="$FF_LDEXEFLAGS" \
-    --extra-libs="$FF_LIBS" \
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" \
     --extra-version="VVCEasy"
+
+    if ! ./configure ... ; then
+        log_error "Configure failed! Check ffbuild/config.log"
+        tail -n 100 ffbuild/config.log
+        exit 1
+    fi
 
 # Используем 2 потока, чтобы не перегружать RAM раннера (7GB RAM / 2 ядра)
 make -j$(nproc) $MAKE_V

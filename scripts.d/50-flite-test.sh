@@ -13,6 +13,21 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/flite-test" ]]; then
+        for patch in /builder/patches/flite-test/*.patch; do
+            log_info "\n-----------------------------------"
+            log_info "~~~ APPLYING PATCH: $patch"
+            if patch -p1 < "$patch"; then
+                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+                log_info "-----------------------------------"
+            else
+                log_info "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+                log_info "-----------------------------------"
+                # return 1 # если нужно прервать сборку при ошибке
+            fi
+        done
+    fi
+
     # Исправляем POSIX-зависимость в сокетах для Windows
     # отключаем содержимое файла, так как WITH_AUDIO=OFF все равно делает его ненужным
     echo "/* Disabled for MinGW */" > src/utils/cst_socket.c

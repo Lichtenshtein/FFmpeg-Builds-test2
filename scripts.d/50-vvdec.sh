@@ -15,8 +15,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/libvvdec" ]]; then
-        for patch in /builder/patches/libvvdec/*.patch; do
+    if [[ -d "/builder/patches/vvdec" ]]; then
+        for patch in /builder/patches/vvdec/*.patch; do
             log_info "\n-----------------------------------"
             log_info "~~~ APPLYING PATCH: $patch"
             if patch -p1 < "$patch"; then
