@@ -66,32 +66,33 @@ cd "$CACHE_DIR" || exit 0
 log_info "Cleaning up orphaned and outdated cache files..."
 deleted_count=0
 
-# Читаем список файлов в массив для скорости
-mapfile -t FILES_IN_CACHE < <(ls *.tar.zst 2>/dev/null)
+# Используем глоб напрямую, чтобы избежать проблем с пустыми переменными
+for f in *.tar.zst; do
+    [[ -f "$f" ]] || continue # Пропускаем, если это не файл (например, если папка пуста)
+    [[ -L "$f" ]] && continue # Пропускаем симлинки в этом цикле, займемся ими позже
 
-for f in "${FILES_IN_CACHE[@]}"; do
-    [[ -e "$f" ]] || continue
-
-    # Проверяем, есть ли файл в нашем списке разрешенных
-    # Использование 'comm' или 'grep -Fq' на отсортированном списке очень быстрое
     if ! grep -qxF "$f" "$FINAL_KEEP_LIST"; then
-        
-        # удаляем только если файл не слишком свежий (запас 15 мин)
-        # Это защищает файлы, которые качаются ПРЯМО СЕЙЧАС в параллельном процессе
+        # Удаляем только если файл старше 15 минут
         if [[ -z $(find "$f" -mmin -15 2>/dev/null) ]]; then
             log_info "Deleting orphaned/old cache: $f"
-            rm -f "$f"
+            rm -f "$f" || true
             
-            # Если это был файл, на который указывал битый симлинк удаляем и симлинк
+            # Безопасный инкремент (не роняет скрипт при set -e)
+            deleted_count=$((deleted_count + 1))
+            
+            # Удаляем "осиротевший" симлинк, если он указывал на этот файл
             BASE="${f%%_*}"
-            if [[ -L "${BASE}.tar.zst" && ! -e "${BASE}.tar.zst" ]]; then
-                rm "${BASE}.tar.zst"
+            if [[ -L "${BASE}.tar.zst" ]]; then
+                # Если ссылка ведет в никуда после удаления файла — удаляем её
+                if [[ ! -e "${BASE}.tar.zst" ]]; then
+                    log_debug "Removing broken symlink: ${BASE}.tar.zst"
+                    rm -f "${BASE}.tar.zst" || true
+                fi
             fi
-            
-            ((deleted_count++))
         fi
     fi
 done
 
 rm -f "$FINAL_KEEP_LIST"
 log_info "Cleanup finished. Removed $deleted_count orphaned files."
+exit 0
