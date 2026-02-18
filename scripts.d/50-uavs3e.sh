@@ -11,7 +11,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    echo "git clone \"$SCRIPT_REPO\" . && git checkout \"$SCRIPT_COMMIT\""
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
 ffbuild_dockerbuild() {

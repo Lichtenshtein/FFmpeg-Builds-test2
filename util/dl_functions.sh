@@ -128,7 +128,7 @@ svn-mini-clone() {
     mkdir -p "$TARGET_DIR"
     
     # Используем --non-interactive и --trust-server-cert для работы в CI
-    if retry-tool svn export --non-interactive --trust-server-cert-failures=unknown-ca,cn-mismatch,expired,not-yet-valid \
+    if retry-tool svn export --non-interactive --trust-server-cert-failures=unknown-ca,cn-mismatch,expired,not-yet-valid,other \
         "$REPO@$REV" "$TARGET_DIR" --force --quiet; then
         log_info "SVN export successful."
         return 0
@@ -142,10 +142,8 @@ default_dl() {
     local TARGET_DIR="${1:-.}"
     
     if [[ -n "$SCRIPT_REV" ]]; then
-        # Если задана ревизия, это SVN
         echo "svn-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_REV\" \"$TARGET_DIR\""
-    elif [[ -n "$SCRIPT_REPO" ]]; then
-        # Иначе Git
+    else
         echo "git-mini-clone \"$SCRIPT_REPO\" \"${SCRIPT_COMMIT:-master}\" \"$TARGET_DIR\""
     fi
 }
