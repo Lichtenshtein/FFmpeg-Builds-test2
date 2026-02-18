@@ -120,16 +120,16 @@ svn-mini-clone() {
     local REV="$2"
     local TARGET_DIR="${3:-.}"
 
-    # Если ревизия не указана, берем HEAD
     [[ -z "$REV" ]] && REV="HEAD"
 
-    log_info "Fetching SVN repository: $REPO (Revision: $REV)..."
-    
+    log_info "Fetching SVN: $REPO (Revision: $REV)..."
     mkdir -p "$TARGET_DIR"
-    
-    # Используем --non-interactive и --trust-server-cert для работы в CI
-    if retry-tool svn export --non-interactive --trust-server-cert-failures=unknown-ca,cn-mismatch,expired,not-yet-valid,other \
-        "$REPO@$REV" "$TARGET_DIR" --force --quiet; then
+
+    # Добавляем --trust-server-cert и --trust-server-cert-failures для CI
+    if svn export --non-interactive \
+        --trust-server-cert \
+        --trust-server-cert-failures=unknown-ca,cn-mismatch,expired,not-yet-valid,other \
+        "$REPO@$REV" "$TARGET_DIR" --force; then
         log_info "SVN export successful."
         return 0
     else
