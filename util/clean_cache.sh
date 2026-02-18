@@ -30,7 +30,7 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     if ( export TARGET="$TARGET" VARIANT="$VARIANT"; source "$STAGE" >/dev/null 2>&1 && ffbuild_enabled ); then
         
         # Генерируем команду загрузки (с явным пробросом контекста) точно так же, как в download.sh
-        DL_COMMAND=$(export TARGET="$TARGET" VARIANT="$VARIANT"; \
+        DL_COMMANDS=$(export TARGET="$TARGET" VARIANT="$VARIANT"; \
         bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
                       source util/dl_functions.sh; \
                       source \"$STAGE\"; \
@@ -41,8 +41,11 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
             DL_COMMANDS="${DL_COMMANDS//retry-tool /}"
             DL_COMMANDS="${DL_COMMANDS//git fetch --unshallow/true}"
             # Пакет с загрузкой: вычисляем хеш
-            SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE" | grep -v '^[[:space:]]*$')
-            DL_HASH=$( (echo "$DL_COMMAND"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16)
+            # ИДЕНТИЧНАЯ очистка кода скрипта (удаление пробелов и \r)
+            SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE" | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' | grep -v '^[[:space:]]*$')
+            SCRIPT_CODE=$(echo "$SCRIPT_CODE" | tr -d '\r')
+            # Генерация хеша
+            DL_HASH=$( (echo "$DL_COMMANDS"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16)
             CURRENT_FILE="${STAGENAME}_${DL_HASH}.tar.zst"
             # Добавляем в список текущий файл и симлинк
             log_debug "Protecting hash: ${STAGENAME}_${DL_HASH}.tar.zst"
