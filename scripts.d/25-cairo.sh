@@ -24,10 +24,8 @@ ffbuild_dockerbuild() {
         -Dpng=enabled \
         -Dfontconfig=enabled \
         -Dfreetype=enabled \
-        -Dwin32-backend=enabled \
         -Dtee=enabled \
         -Dglib=enabled \
-        -Dx11=disabled \
         -Dxcb=disabled \
         -Dxlib=disabled
 
