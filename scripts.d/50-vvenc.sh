@@ -1,16 +1,12 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/fraunhoferhhi/vvenc.git"
-SCRIPT_COMMIT="6627583b7d2b607a7fb04b97ab29d66bdcb113cf"
+SCRIPT_COMMIT="ace59e100ab541e344060d78836774b45acb8a86"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm* ]] && return 1
     # (( $(ffbuild_ffver) > 700 )) || return 1
     return 0
-    # vvenc force-enabled avx2 and equivalent compiler options, and uses a static initializer that promptly
-    # runs such instructions. Making resulting binaries malfunction on any but the very latest CPUs.
-    # Until upstream fixes this behaviour, force-disable vvenc.
-    # I force enabled just in case cause BtBn force disabled vvenc for avx2 enabled reason.
 }
 
 ffbuild_dockerdl() {
