@@ -22,6 +22,8 @@ ffbuild_dockerbuild() {
     cd loader
     mkdir build && cd build
 
+    export CFLAGS="$CFLAGS -DDllMain=OpenCL_DllMain"
+
     # Собираем лоадер статически
     cmake -GNinja \
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
