@@ -16,7 +16,6 @@ echo -n "" > Dockerfile
 
 to_df() {
     echo "$*" >> Dockerfile
-    echo >> Dockerfile
 }
 
 # Базовый образ

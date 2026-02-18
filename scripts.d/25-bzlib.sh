@@ -14,20 +14,20 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     mkdir build && cd build
 
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
+    cmake .. -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
+        -DCMAKE_C_FLAGS="$CFLAGS -Wno-conversion" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DENABLE_STATIC_LIB=ON \
         -DENABLE_SHARED_LIB=OFF \
-        -DENABLE_LIB_ONLY=1 ..
+        -DENABLE_LIB_ONLY=1
 
-    make -j$(nproc)
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    mv "$FFBUILD_DESTPREFIX"/lib/libbz2_static.a "$FFBUILD_DESTPREFIX"/lib/libbz2.a
+    if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libbz2_static.a" ]]; then
+        mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libbz2_static.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libbz2.a"
+    fi
 }
 
 ffbuild_configure() {
