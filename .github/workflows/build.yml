@@ -3,14 +3,28 @@ name: Build FFmpeg
 on:
   workflow_dispatch:
     inputs:
+      ffmpeg_repo:
+        description: 'FFmpeg Repository URL'
+        default: 'https://github.com/MartinEesmaa/FFmpeg.git'
+      ffmpeg_branch:
+        description: 'FFmpeg Branch'
+        default: 'master'
       only_stage:
-        description: 'Regex for ONLY_STAGE (e.g. "10-mingw|50-x264")'
+        description: 'Regex for ONLY_STAGE ("10-mingw|50-x264")'
         required: false
         default: '.*'
       doClean:
         description: 'Clean cache before build (Full Rebuild)'
         type: boolean
         default: false
+      use_lto:
+        description: 'Enable LTO optimization'
+        type: boolean
+        default: false
+      verbosity:
+        description: 'Log Verbosity (1: Full, 0: Quiet)'
+        required: false
+        default: '1'
       doRelease:
         description: 'Publish new release'
         type: boolean
@@ -21,6 +35,14 @@ env:
   DOCKER_BUILDKIT: 1
   TARGET: win64
   VARIANT: nonfree
+  FFMPEG_REPO: ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg.git' }}
+  FFMPEG_BRANCH: ${{ github.event.inputs.ffmpeg_branch || 'master' }}
+  # Список для удаления лишних .git (в download.sh)
+  GIT_PRESERVE_LIST: "glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf"
+  # Список для сохранения DLL (в run_stage.sh)
+  DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|onevpl|glib2"
+  FFBUILD_VERBOSE: ${{ github.event.inputs.verbosity || '1' }}
+  ONLY_STAGE="${{ github.event.inputs.only_stage }}"
 
 jobs:
   build_all:
@@ -134,6 +156,10 @@ jobs:
             rm -rf .cache/ccache/*
           fi
           export ONLY_STAGE="${{ github.event.inputs.only_stage }}"
+          LTO_PARAM=""
+          if [[ "${{ github.event.inputs.use_lto }}" == "true" ]]; then
+            LTO_PARAM="lto"
+          fi
           # Создаем директории на случай, если кэш пустой
           mkdir -p .cache/downloads
           mkdir -p .cache/ffmpeg
@@ -141,10 +167,16 @@ jobs:
           chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
-          ./generate.sh win64 nonfree
+          ./generate.sh win64 nonfree $LTO_PARAM
         env:
           TARGET: win64
           VARIANT: nonfree
+          ONLY_STAGE="${{ github.event.inputs.only_stage }}"
+          GIT_PRESERVE_LIST: "glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf"
+          DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|onevpl|glib2"
+          FFMPEG_REPO: ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg.git' }}
+          FFMPEG_BRANCH: ${{ github.event.inputs.ffmpeg_branch || 'master' }}
+          FFBUILD_VERBOSE: ${{ github.event.inputs.verbosity || '1' }}
 
       - name: Inspect Dockerfile
         run: head -n 30 Dockerfile

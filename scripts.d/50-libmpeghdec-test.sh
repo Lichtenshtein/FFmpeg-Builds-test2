@@ -12,8 +12,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/mpeghdec" ]]; then
-        for patch in /builder/patches/mpeghdec/*.patch; do
+    if [[ -d "/builder/patches/mpeghdec-test" ]]; then
+        for patch in /builder/patches/mpeghdec-test/*.patch; do
             log_info "\n-----------------------------------"
             log_info "~~~ APPLYING PATCH: $patch"
             if patch -p1 < "$patch"; then

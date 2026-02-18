@@ -21,26 +21,26 @@ download_stage() {
     local VARIANT="$3"
     local DL_DIR="$4"
     
-    STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
+    STAGENAME="$(basename "$STAGE" .sh)"
 
     # Получаем команду загрузки
-    DL_COMMAND=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
-                          source util/dl_functions.sh; \
-                          source \"$STAGE\"; \
-                          ffbuild_enabled && ffbuild_dockerdl" || echo "")
+    DL_COMMANDS=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
+                      source util/dl_functions.sh; \
+                      source \"$STAGE\"; \
+                      ffbuild_enabled && ffbuild_dockerdl" || echo "")
 
-    [[ -z "$DL_COMMAND" ]] && return 0
-    
-    DL_COMMAND="${DL_COMMAND//retry-tool /}"
-    DL_COMMAND="${DL_COMMAND//git fetch --unshallow/true}"
+    [[ -z "$DL_COMMANDS" ]] && return 0
+
+    # Очистка команд от лишнего
+    DL_COMMANDS="${DL_COMMANDS//retry-tool /}"
+    DL_COMMANDS="${DL_COMMANDS//git fetch --unshallow/true}"
     
     # УМНЫЙ ХЭШ (Версия для глубокой отладки)
     # Берем DL_COMMAND (там сидят REPO и COMMIT)
     # Берем содержимое скрипта, но вырезаем комментарии и пустые строки
     # Это позволит менять логику сборки в ffbuild_dockerbuild и вызывать перекачку исходников
     SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE" | grep -v '^[[:space:]]*$')
-    DL_HASH=$( (echo "$DL_COMMAND"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16)
-    
+    DL_HASH=$( (echo "$DL_COMMANDS"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16)
     TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.zst"
     LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.zst"
 
@@ -58,20 +58,39 @@ download_stage() {
         log_info "Cache hit: $STAGENAME (File exists: $(basename "$TGT_FILE"))"
         log_info "Cache hit: $STAGENAME (Hash matched: $DL_HASH)"
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
-        [[ -e "$LATEST_LINK" ]] && return 0
+        return 0
     else
         log_warn "Cache miss: $STAGENAME (Target file $TGT_FILE not found)"
     fi
 
     log_info "Downloading: $STAGENAME (Hash: $DL_HASH)..."
+
     # Создаем временную папку внутри проекта
     mkdir -p .cache/tmp
     WORK_DIR=$(mktemp -d -p "$ROOT_DIR/.cache/tmp")
 
-    # ИСПОЛЬЗУЕМ АБСОЛЮТНЫЙ ПУТЬ К ФУНКЦИЯМ
-    # Передаем ROOT_DIR внутрь subshell через экспорт или переменную
-    if ( cd "$WORK_DIR" && eval "source \"$ROOT_DIR/util/dl_functions.sh\"; $DL_COMMAND" ); then
-        find "$WORK_DIR" -name ".git*" -exec rm -rf {} +
+    # сохраняем команды во временный скрипт и запускаем его
+    if ( 
+        cd "$WORK_DIR"
+        echo "set -e" > run_dl.sh
+        echo "source \"$ROOT_DIR/util/dl_functions.sh\"" >> run_dl.sh
+        echo "$DL_COMMANDS" >> run_dl.sh
+        bash run_dl.sh
+    ); then
+        
+        # --- КОРРЕКТНЫЙ WHITELIST ДЛЯ METADATA ---
+        # glib (подмодули), x264/x265 (versioning), opus (иногда dnn fetch)
+        PRESERVE_PATTERN="${GIT_PRESERVE_LIST:-glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf}"
+
+        if [[ "$STAGENAME" =~ $PRESERVE_PATTERN ]]; then
+            log_info "Preserving Git metadata for $STAGENAME (Whitelist match)"
+        else
+            log_debug "Removing Git metadata for $STAGENAME to save cache space"
+            # Удаляем .git папки и .gitignore файлы
+            find "$WORK_DIR" -name ".git*" -exec rm -rf {} +
+        fi
+        # Удаляем сам скрипт загрузки перед упаковкой
+        rm -f "$WORK_DIR/run_dl.sh"
         # -c: создать, -f: файл
         # -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
         tar -I 'zstd -T0 -3' -cf "$TGT_FILE" -C "$WORK_DIR" .
@@ -136,11 +155,19 @@ log_info "All sequential downloads finished successfully."
 # FFmpeg update (добавил --quiet для чистоты логов)
 FFMPEG_DIR=".cache/ffmpeg"
 mkdir -p "$FFMPEG_DIR"
+# Используем переменные из workflow.yaml
+REPO_URL="${FFMPEG_REPO}"
+BRANCH_NAME="${FFMPEG_BRANCH}"
+
 if [[ ! -d "$FFMPEG_DIR/.git" ]]; then
-    git clone --quiet --filter=blob:none --depth=1 --branch="${GIT_BRANCH:-master}" "${FFMPEG_REPO:-https://github.com/MartinEesmaa/FFmpeg.git}" "$FFMPEG_DIR"
+    log_info "Cloning FFmpeg from $REPO_URL ($BRANCH_NAME)..."
+    git clone --quiet --filter=blob:none --depth=1 --branch="$BRANCH_NAME" "$REPO_URL" "$FFMPEG_DIR"
 else
-    log_info "Updating FFmpeg..."
-    ( cd "$FFMPEG_DIR" && git fetch --quiet --depth=1 origin "${GIT_BRANCH:-master}" && git reset --hard FETCH_HEAD )
+    log_info "Updating FFmpeg from $REPO_URL..."
+    ( cd "$FFMPEG_DIR" && \
+      git remote set-url origin "$REPO_URL" && \
+      git fetch --quiet --depth=1 origin "$BRANCH_NAME" && \
+      git reset --hard FETCH_HEAD )
 fi
 log_info "All downloads finished."
 

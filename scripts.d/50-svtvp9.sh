@@ -16,8 +16,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/libsvtvp9" ]]; then
-        for patch in /builder/patches/libsvtvp9/*.patch; do
+    if [[ -d "/builder/patches/svtvp9" ]]; then
+        for patch in /builder/patches/svtvp9/*.patch; do
             log_info "\n-----------------------------------"
             log_info "~~~ APPLYING PATCH: $patch"
             if patch -p1 < "$patch"; then

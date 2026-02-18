@@ -63,7 +63,7 @@ while [[ "$#" -gt 0 ]]; do
     shift
 done
 
-REPO="${GITHUB_REPOSITORY}"
+REPO="${GITHUB_REPOSITORY:-lichtenshtein/ffmpeg-build}"
 REPO="${REPO,,}"
 REGISTRY="${REGISTRY_OVERRIDE:-ghcr.io}"
 BASE_IMAGE="${REGISTRY}/${REPO}/base:latest"
@@ -137,7 +137,7 @@ ffbuild_unconfigure() {
 ffbuild_cflags() {
     log_debug "Applying global CFLAGS for $STAGENAME" >&2
     # глобальный макрос для всех, кто включает заголовки glib
-    echo "-DGLIB_STATIC_COMPILATION -mms-bitfields"
+    echo "-DGLIB_STATIC_COMPILATION -mms-bitfields -D_WIN32_WINNT=0x0601"
 }
 
 ffbuild_uncflags() {
@@ -188,8 +188,8 @@ ffbuild_enabled() {
 }
 
 # 1 для подробных логов, в 0 для кратких
-export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
-
+# export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
+# Значение FFBUILD_VERBOSE уже пришло из Docker ENV
 if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
     export MAKE_V="V=1"
     export NINJA_V="-v"

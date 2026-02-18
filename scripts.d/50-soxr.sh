@@ -12,8 +12,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/sox" ]]; then
-        for patch in /builder/patches/sox/*.patch; do
+    if [[ -d "/builder/patches/soxr" ]]; then
+        for patch in /builder/patches/soxr/*.patch; do
             log_info "\n-----------------------------------"
             log_info "~~~ APPLYING PATCH: $patch"
             if patch -p1 < "$patch"; then

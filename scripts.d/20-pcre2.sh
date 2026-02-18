@@ -9,7 +9,6 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
-    # Принудительно подтягиваем sljit, так как без него JIT не соберется
     echo "git submodule --quiet update --init --recursive --depth=1"
 }
 

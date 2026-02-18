@@ -18,13 +18,13 @@ RUN \
         gtk-doc-tools gobject-introspection gawk wine64-tools wine64 \
         ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent p7zip-full zstd \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
-        gcc-14 g++-14 && \
+        gcc-14 g++-14 dos2unix && \
     pip3 install --break-system-packages --upgrade meson  && \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 && \
     update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-14 100 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100 && \
     update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-14 100 && \
-    curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get -y install nodejs && \
     apt-get -y clean && \
     git config --global user.email "builder@localhost" && \
@@ -34,8 +34,10 @@ RUN \
 
 ENV CARGO_HOME="/opt/cargo" RUSTUP_HOME="/opt/rustup" PATH="/opt/cargo/bin:${PATH}"
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path && \
-    curl -fsSL "https://github.com/lu-zero/cargo-c/releases/download/v${CARGO_C_VERSION}/cargo-c-x86_64-unknown-linux-musl.tar.gz" | tar -xz -C /opt/cargo/bin && \
-    rm -rf "${CARGO_HOME}"/registry "${CARGO_HOME}"/git
+    curl -fsSL "https://github.com/lu-zero/cargo-c/releases/download/v${CARGO_C_VERSION}/cargo-c-x86_64-unknown-linux-musl.tar.gz" | tar -xz -C /opt/cargo/bin
+
+    # it forces every sub-script that uses Rust (like rav1e or cargo-c builds) to re-download crates unless mapped CARGO_HOME to a persistent GitHub Action cache
+    # && \ rm -rf "${CARGO_HOME}"/registry "${CARGO_HOME}"/git
 
     # Динамическое получение последней версии через GitHub API
     # export CARGO_C_URL=$(curl -fsSL https://api.github.com/repos/lu-zero/cargo-c/releases/latest | \
@@ -43,7 +45,10 @@ RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path && \
     # curl -fsSL "$CARGO_C_URL" | tar -xz -C /opt/cargo/bin && \
 
 RUN --mount=src=.,dst=/input \
-    for s in /input/*.sh; do cp $s /usr/bin/$(echo $s | sed -e 's|.*/||' -e 's/\.sh$//'); done
+    for s in /input/*.sh; do \
+        dest="/usr/bin/$(basename $s .sh)"; \
+        cp "$s" "$dest" && chmod +x "$dest" && dos2unix "$dest"; \
+    done
 
 ENV HOST_CC="gcc-14" \
     HOST_CXX="g++-14" \

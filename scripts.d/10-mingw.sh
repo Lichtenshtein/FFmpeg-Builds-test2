@@ -9,14 +9,12 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerlayer() {
-    [[ $TARGET == winarm* ]] && return 0
     # to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /"
     # to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /opt/mingw"
     to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /"
 }
 
 ffbuild_dockerfinal() {
-    [[ $TARGET == winarm* ]] && return 0
     to_df "COPY --link --from=${PREVLAYER} /opt/mingw/. /"
 }
 
@@ -25,8 +23,6 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    [[ $TARGET == winarm* ]] && return 0
-
     # if [[ -z "$COMPILER_SYSROOT" ]]; then
         # COMPILER_SYSROOT="$(${CC} -print-sysroot)/usr/${FFBUILD_TOOLCHAIN}"
     # fi
@@ -42,58 +38,59 @@ ffbuild_dockerbuild() {
     unset CC CXX LD AR CPP LIBS CCAS
     unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
     unset PKG_CONFIG_LIBDIR
+    # Важно: используем инструменты тулчейна напрямую
+    local HOST_TRIPLET="$FFBUILD_TOOLCHAIN"
 
-    ###
-    ### mingw-w64-headers
-    ###
+    ### 1. mingw-w64-headers
     (
         cd mingw-w64-headers
-
-            # --prefix="$COMPILER_SYSROOT"
         ./configure \
             --prefix="$SYSROOT" \
-            --host="$FFBUILD_TOOLCHAIN" \
+            --host="$HOST_TRIPLET" \
             --with-default-win32-winnt="0x601" \
             --with-default-msvcrt=ucrt \
-            --enable-idl --enable-sdk=all --enable-secure-api
+            --enable-idl --enable-sdk=all
         
-        # Устанавливаем в /opt/mingw, сохраняя структуру относительно корня
         make -j$(nproc) $MAKE_V
         make install DESTDIR="$TEMP_INSTALL"
+        cp -a "$TEMP_INSTALL/$REL_SYSROOT/." "$SYSROOT/"
     )
 
-    ###
-    ### mingw-w64-crt
-    ###
+    ### 2. mingw-w64-crt
     (
         cd mingw-w64-crt
+        # Добавляем CPPFLAGS чтобы принудительно искать в обновленном sysroot
+        export CPPFLAGS="-I$SYSROOT/include"
+        
         ./configure \
             --prefix="$SYSROOT" \
-            --host="$FFBUILD_TOOLCHAIN" \
+            --host="$HOST_TRIPLET" \
             --with-default-msvcrt=ucrt \
-            --enable-wildcard
+            --enable-wildcard \
+            --disable-lib32 \
+            --enable-lib64
+            
         make -j$(nproc) $MAKE_V
         make install DESTDIR="$TEMP_INSTALL"
     )
-    # cp -a /opt/mingw/. /
 
-    ###
-    ### mingw-w64-libraries/winpthreads (Важно для FFmpeg)
-    ###
+    ### 3. winpthreads
     (
         cd mingw-w64-libraries/winpthreads
+        export CPPFLAGS="-I$SYSROOT/include"
         ./configure \
             --prefix="$SYSROOT" \
             --host="$FFBUILD_TOOLCHAIN" \
             --with-pic --disable-shared --enable-static
+
         make -j$(nproc) $MAKE_V
         make install DESTDIR="$TEMP_INSTALL"
     )
-    # СИНХРОНИЗАЦИЯ
+
     log_info "Syncing Mingw-w64 headers and CRT to sysroot..."
     # Копируем из временной папки в реальный sysroot компилятора
     cp -a "$TEMP_INSTALL/$REL_SYSROOT/." "$SYSROOT/"
-    
+
     # Создаем артефакт для Docker-слоя (чтобы ffbuild_dockerlayer подхватил это)
     mkdir -p /opt/mingw
     cp -a "$SYSROOT/." /opt/mingw/

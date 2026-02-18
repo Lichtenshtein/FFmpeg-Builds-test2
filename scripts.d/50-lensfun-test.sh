@@ -11,8 +11,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/liblensfun" ]]; then
-        for patch in /builder/patches/liblensfun/*.patch; do
+    if [[ -d "/builder/patches/lensfun-test" ]]; then
+        for patch in /builder/patches/lensfun-test/*.patch; do
             log_info "\n-----------------------------------"
             log_info "~~~ APPLYING PATCH: $patch"
             if patch -p1 < "$patch"; then

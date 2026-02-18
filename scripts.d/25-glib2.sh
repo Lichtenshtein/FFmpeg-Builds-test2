@@ -9,18 +9,21 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+    echo "git submodule update --quiet --init --recursive --depth 1"
 }
 
 ffbuild_dockerbuild() {
-    # инициализация подмодуля gvdb
-    if ! git submodule --quiet update --init --recursive; then
-        echo "Submodule update failed, downloading GVDB manually..."
-        rm -rf subprojects/gvdb
-        git clone --depth 1 https://github.com/GNOME/gvdb.git subprojects/gvdb
-    fi
-
     # Удаляем только pcre2 из субпроектов, чтобы заставить использовать наш билд
     rm -rf subprojects/pcre2*
+
+    # Явно заходим в корень, если мы в него не попали
+    [[ -f "meson.build" ]] || cd glib 2>/dev/null || true
+
+    # Подмодули уже должны быть скачаны через ffbuild_dockerdl
+    if [[ ! -d "subprojects/gvdb" ]]; then
+        log_error "GVDB submodule missing! Check your download.sh logic."
+        exit 1
+    fi
 
     # Принудительно отключаем использование AppContainer и WinRT API
     # Это уберет ошибку windows.applicationmodel.core.h
@@ -77,8 +80,6 @@ EOF
         -Dintrospection=disabled \
         -Dlibmount=disabled \
         -Dnls=disabled \
-        -Dglib-networking=disabled \
-        -Dgnutls=disabled \
         -Druntime_libdir="" \
         -Dlocalstatedir=/var \
         -Dsysconfdir=/etc

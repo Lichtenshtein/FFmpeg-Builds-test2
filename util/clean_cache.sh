@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+shopt -s globstar  # Гарантируем поддержку вложенных папок
 
 # Подгружаем переменные, чтобы знать TARGET/VARIANT
 TARGET="${1:-$TARGET}"
@@ -18,69 +19,76 @@ fi
 log_info "Starting smart cleanup in $CACHE_DIR..."
 
 # Собираем список всех актуальных хешей для активных скриптов
-# Мы создадим временный список имен файлов, которые НУЖНО оставить.
-KEEP_LIST=$(mktemp)
+# Временный файл для накопления имен
+RAW_KEEP_LIST=$(mktemp)
 
 for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
-    [[ -e "$STAGE" ]] || continue
-    STAGENAME="$(basename "$STAGE" | sed 's/.sh$//')"
+    [[ -f "$STAGE" ]] || continue
+    STAGENAME="$(basename "$STAGE" .sh)"
 
-    # Проверяем, включен ли скрипт для текущего таргета
-    # Экспортируем переменные явно для подпроцесса
+    # Проверяем, включен ли компонент
     if ( export TARGET="$TARGET" VARIANT="$VARIANT"; source "$STAGE" >/dev/null 2>&1 && ffbuild_enabled ); then
         
-        # Получаем команду загрузки (с явным пробросом контекста)
-        DL_COMMAND=$(export TARGET="$TARGET" VARIANT="$VARIANT"; bash -c "source util/vars.sh \$TARGET \$VARIANT &>/dev/null; source util/dl_functions.sh; source '$STAGE'; ffbuild_dockerdl" 2>/dev/null || echo "")
+        # Генерируем команду загрузки (с явным пробросом контекста) точно так же, как в download.sh
+        DL_COMMAND=$(export TARGET="$TARGET" VARIANT="$VARIANT"; \
+        bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
+                      source util/dl_functions.sh; \
+                      source \"$STAGE\"; \
+                      ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")
 
-        if [[ -n "$DL_COMMAND" ]]; then
+        if [[ -n "$DL_COMMANDS" ]]; then
+            # Синхронизируем фильтры с download.sh
+            DL_COMMANDS="${DL_COMMANDS//retry-tool /}"
+            DL_COMMANDS="${DL_COMMANDS//git fetch --unshallow/true}"
             # Пакет с загрузкой: вычисляем хеш
             SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE" | grep -v '^[[:space:]]*$')
             DL_HASH=$( (echo "$DL_COMMAND"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16)
-            echo "${STAGENAME}_${DL_HASH}.tar.zst" >> "$KEEP_LIST"
+            CURRENT_FILE="${STAGENAME}_${DL_HASH}.tar.zst"
+            # Добавляем в список текущий файл и симлинк
             log_debug "Protecting hash: ${STAGENAME}_${DL_HASH}.tar.zst"
+            echo "$CURRENT_FILE" >> "$RAW_KEEP_LIST"
+            # Также защищаем символическую ссылку, если она есть
+            echo "${STAGENAME}.tar.zst" >> "$RAW_KEEP_LIST"
+            log_debug "Protecting current version: $CURRENT_FILE"
         fi
-
-        # РЕЗЕРВНАЯ ЗАЩИТА (Белый список по имени)
-        # Защищаем любой файл, который начинается на имя активного скрипта.
-        # Это предотвратит удаление, если расчет хеша выше дал сбой.
-        ls "$CACHE_DIR"/${STAGENAME}_*.tar.zst 2>/dev/null | xargs -n1 basename 2>/dev/null >> "$KEEP_LIST" || true
-        # Защищаем базовый симлинк
-        echo "${STAGENAME}.tar.zst" >> "$KEEP_LIST"
     fi
 done
 
+# Сортируем и удаляем дубликаты один раз
+FINAL_KEEP_LIST=$(mktemp)
+sort -u "$RAW_KEEP_LIST" > "$FINAL_KEEP_LIST"
+rm -f "$RAW_KEEP_LIST"
 # Удаляем только те файлы, которых нет в KEEP_LIST
 cd "$CACHE_DIR" || exit 0
-log_info "Cleaning up orphaned cache files..."
+log_info "Cleaning up orphaned and outdated cache files..."
 deleted_count=0
 
-# Отключаем set -e для цикла удаления
-set +e
-mapfile -t ALL_FILES < <(ls *_*.tar.zst 2>/dev/null)
+# Читаем список файлов в массив для скорости
+mapfile -t FILES_IN_CACHE < <(ls *.tar.zst 2>/dev/null)
 
-for f in "${ALL_FILES[@]}"; do
-    [[ -f "$f" ]] || continue
+for f in "${FILES_IN_CACHE[@]}"; do
+    [[ -e "$f" ]] || continue
 
-    # Защита новых файлов (15 минут вместо 5, для надежности в GHA)
-    if [[ -n $(find "$f" -mmin -15 2>/dev/null) ]]; then
-        continue
-    fi
-
-    # Если файла НЕТ в списке защиты — удаляем
-    if ! grep -qxF "$f" "$KEEP_LIST" 2>/dev/null; then
-        log_info "Deleting orphaned cache: $f"
-        rm -f "$f"
+    # Проверяем, есть ли файл в нашем списке разрешенных
+    # Использование 'comm' или 'grep -Fq' на отсортированном списке очень быстрое
+    if ! grep -qxF "$f" "$FINAL_KEEP_LIST"; then
         
-        # Чистим соответствующий симлинк, если он ведет "в никуда"
-        BASE="${f%%_*}"
-        if [[ -L "${BASE}.tar.zst" && "$(readlink "${BASE}.tar.zst")" == "$f" ]]; then
-            rm "${BASE}.tar.zst"
+        # удаляем только если файл не слишком свежий (запас 15 мин)
+        # Это защищает файлы, которые качаются ПРЯМО СЕЙЧАС в параллельном процессе
+        if [[ -z $(find "$f" -mmin -15 2>/dev/null) ]]; then
+            log_info "Deleting orphaned/old cache: $f"
+            rm -f "$f"
+            
+            # Если это был файл, на который указывал битый симлинк удаляем и симлинк
+            BASE="${f%%_*}"
+            if [[ -L "${BASE}.tar.zst" && ! -e "${BASE}.tar.zst" ]]; then
+                rm "${BASE}.tar.zst"
+            fi
+            
+            ((deleted_count++))
         fi
-        ((deleted_count++))
     fi
 done
 
-set -e
-rm -f "$KEEP_LIST"
-log_info "Cleanup finished successfully. Removed $deleted_count files."
-exit 0
+rm -f "$FINAL_KEEP_LIST"
+log_info "Cleanup finished. Removed $deleted_count orphaned files."
