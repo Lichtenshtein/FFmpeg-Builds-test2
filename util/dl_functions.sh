@@ -131,7 +131,7 @@ svn-mini-clone() {
         --username 'anonymous' --password '' \
         --trust-server-cert \
         --trust-server-cert-failures=unknown-ca,cn-mismatch,expired,not-yet-valid,other \
-        "$REPO@$REV" "$TARGET_DIR" --force; then
+        "$REPO@$REV" "$TARGET_DIR" --force --quiet; then
         log_info "SVN export successful."
         return 0
     else
