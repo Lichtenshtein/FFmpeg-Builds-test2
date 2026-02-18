@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/haasn/libplacebo.git"
-SCRIPT_COMMIT="b2ea27dceb6418aabfe9121174c6dbb232942998"
+SCRIPT_COMMIT="c93aa134ab62365ce1177efff99b8e1e66a818e7"
 
 ffbuild_depends() {
     echo base
@@ -16,6 +16,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+	echo "git submodule --quiet update --init --recursive --depth=1"
 }
 
 ffbuild_dockerbuild() {

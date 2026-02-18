@@ -3,7 +3,6 @@
 SCRIPT_SKIP="1"
 
 ffbuild_enabled() {
-    [[ $TARGET == win64 ]] || return 1
     return 0
 }
 

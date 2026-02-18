@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/myQwil/game-music-emu.git"
-SCRIPT_COMMIT="c6b70bf66fc681f9450eec64fc4d6e19d753662a"
+SCRIPT_COMMIT="8079e370d3db85348566d428df2b0f01bcd0d292"
 
 ffbuild_enabled() {
     return 0

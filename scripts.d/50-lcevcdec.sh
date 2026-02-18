@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/MartinEesmaa/LCEVCdec.git"
-SCRIPT_COMMIT="5ee432d5662268ac238791a93f2c829bcf75b6e3"
+SCRIPT_REPO="https://github.com/v-novaltd/LCEVCdec.git"
+SCRIPT_COMMIT="655f029d0008f00da9c976567ea159437aa86a36"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm* ]] && return 1
