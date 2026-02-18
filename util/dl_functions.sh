@@ -122,28 +122,31 @@ svn-mini-clone() {
 
     [[ -z "$REV" ]] && REV="HEAD"
 
-    log_info "Fetching SVN: $REPO (Revision: $REV)..."
+    log_info "Fetching SVN (Anonymous): $REPO (Rev: $REV)..."
     mkdir -p "$TARGET_DIR"
 
-    # Добавляем --trust-server-cert и --trust-server-cert-failures для CI
+    # Добавляем --username 'anonymous' и --password '' как в оригинале
+    # Добавляем --trust-server-cert для обхода проблем с SSL
     if svn export --non-interactive \
+        --username 'anonymous' --password '' \
         --trust-server-cert \
         --trust-server-cert-failures=unknown-ca,cn-mismatch,expired,not-yet-valid,other \
         "$REPO@$REV" "$TARGET_DIR" --force; then
         log_info "SVN export successful."
         return 0
     else
-        log_error "Failed to export SVN: $REPO"
+        log_error "Failed to export SVN: $REPO (Check credentials or URL)"
         return 1
     fi
 }
 
 default_dl() {
     local TARGET_DIR="${1:-.}"
-    
     if [[ -n "$SCRIPT_REV" ]]; then
+        # Если есть ревизия — это SVN, вызываем нашу новую функцию
         echo "svn-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_REV\" \"$TARGET_DIR\""
-    else
+    elif [[ -n "$SCRIPT_REPO" ]]; then
+        # Если ревизии нет, но есть репо — это Git
         echo "git-mini-clone \"$SCRIPT_REPO\" \"${SCRIPT_COMMIT:-master}\" \"$TARGET_DIR\""
     fi
 }
