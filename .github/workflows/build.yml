@@ -42,7 +42,7 @@ env:
   # Список для сохранения DLL (в run_stage.sh)
   DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|onevpl|glib2"
   FFBUILD_VERBOSE: ${{ github.event.inputs.verbosity || '1' }}
-  ONLY_STAGE="${{ github.event.inputs.only_stage }}"
+  ONLY_STAGE: ${{ github.event.inputs.only_stage }}
 
 jobs:
   build_all:
@@ -171,7 +171,7 @@ jobs:
         env:
           TARGET: win64
           VARIANT: nonfree
-          ONLY_STAGE="${{ github.event.inputs.only_stage }}"
+          ONLY_STAGE: ${{ github.event.inputs.only_stage }}
           GIT_PRESERVE_LIST: "glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf"
           DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|onevpl|glib2"
           FFMPEG_REPO: ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg.git' }}
