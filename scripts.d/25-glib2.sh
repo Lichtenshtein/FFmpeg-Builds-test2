@@ -13,21 +13,15 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Удаляем только pcre2 из субпроектов, чтобы заставить использовать наш билд
     rm -rf subprojects/pcre2*
 
-    # Явно заходим в корень, если мы в него не попали
-    [[ -f "meson.build" ]] || cd glib 2>/dev/null || true
-
-    # Подмодули уже должны быть скачаны через ffbuild_dockerdl
-    if [[ ! -d "subprojects/gvdb" ]]; then
-        log_error "GVDB submodule missing! Check your download.sh logic."
-        exit 1
-    fi
-
-    # Принудительно отключаем использование AppContainer и WinRT API
-    # Это уберет ошибку windows.applicationmodel.core.h
-    export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW"
+    # Заставляем Meson использовать наш pcre2, zlib и libiconv через pkg-config
+    export PKG_CONFIG_LIBDIR="$FFBUILD_PREFIX/lib/pkgconfig"
+    
+    # Исправляем CFLAGS для корректной работы с MinGW
+    export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW -fdir-control"
     export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW"
 
     # Подготавливаем строки аргументов заранее
@@ -66,10 +60,6 @@ c_link_args = [$MESON_L_ARGS]
 cpp_link_args = [$MESON_L_ARGS]
 EOF
 
-
-    export PKG_CONFIG_LIBDIR="$FFBUILD_PREFIX/lib/pkgconfig"
-    export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
-
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
         --cross-file cross_file.txt \
@@ -82,15 +72,21 @@ EOF
         -Dnls=disabled \
         -Druntime_libdir="" \
         -Dlocalstatedir=/var \
-        -Dsysconfdir=/etc
+        -Dsysconfdir=/etc \
+        -Dgio_module_dir="$FFBUILD_PREFIX/lib/gio/modules"
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
 
-    # Очистка префикса (удаляем импортные библиотеки DLL, если они создались)
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete
+    # Проверяем наличие файла перед sed
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/glib-2.0.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        # Добавляем системные либы для статики, чтобы FFmpeg мог линковаться
+        sed -i "s/Libs:/Libs: -lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl -liconv -lpthread /" "$PC_FILE"
+    fi
 
-    sed -i "s/Libs:/Libs: -lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl -liconv -lpthread /" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/glib-2.0.pc"
+    # Чистим мусор
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete || true
 }
 
 ffbuild_configure() {

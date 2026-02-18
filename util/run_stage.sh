@@ -121,19 +121,16 @@ log_info "######################################################################
 
 if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
     log_info "Verbose mode active. Build output will be shown in real-time."
-    if ! $build_cmd; then
+    if ! ( set -e; $build_cmd ); then
         echo "::error file=$SCRIPT_PATH::Build failed for $STAGENAME"
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         log_error "!!! ${RED}ERROR${NC}: Build failed for $STAGENAME"
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        
         # Выводим текущую директорию и структуру файлов, чтобы понять, где мы
         log_debug "Current directory: $(pwd)"
-        
         # Используем 'find' для поиска любых логов ошибок рекурсивно
         # Это найдет логи, даже если они в build/meson-logs или глубоко в CMakeFiles
         LOG_FILES=$(find . -maxdepth 4 -name "config.log" -o -name "meson-log.txt" -o -name "CMakeError.log" -o -name "CMakeOutput.log")
-    
         if [[ -n "$LOG_FILES" ]]; then
             for logfile in $LOG_FILES; do
                 echo " "
@@ -146,12 +143,11 @@ if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
             log_warn "No standard build logs found. Listing all files in current directory to debug:"
             ls -R
         fi
-        
         exit 1
     fi
 else
     # Тихий режим с дампом лога только при ошибке
-    if ! $build_cmd > /tmp/stage_build.log 2>&1; then
+    if ! ( set -e; $build_cmd > /tmp/stage_build.log 2>&1 ); then
         cat /tmp/stage_build.log
         exit 1
     fi
