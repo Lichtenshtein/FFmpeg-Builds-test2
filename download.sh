@@ -39,7 +39,10 @@ download_stage() {
     # Берем DL_COMMAND (там сидят REPO и COMMIT)
     # Берем содержимое скрипта, но вырезаем комментарии и пустые строки
     # Это позволит менять логику сборки в ffbuild_dockerbuild и вызывать перекачку исходников
-    SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE" | grep -v '^[[:space:]]*$')
+    # Удаляем все комментарии, пустые строки И лишние пробелы в начале/конце каждой строки
+    SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE" | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' | grep -v '^[[:space:]]*$')
+    # Добавим нормализацию окончаний строк (на случай Windows-редакторов)
+    SCRIPT_CODE=$(echo "$SCRIPT_CODE" | tr -d '\r')
     DL_HASH=$( (echo "$DL_COMMANDS"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16)
     TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.zst"
     LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.zst"
