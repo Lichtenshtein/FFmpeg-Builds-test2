@@ -24,6 +24,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # No automake 1.18 packaged anywhere yet.
     # sed -i 's/-1.18/-1.17/' Makefile.devel libcharset/Makefile.devel
 

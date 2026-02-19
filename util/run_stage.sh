@@ -63,12 +63,12 @@ if [[ "$SCRIPT_SKIP" != "1" ]]; then
 
         # Распаковываем без лишних флагов --strip-components
         tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C .
-        
+
         # Пытаемся найти корень проекта, только если в текущей папке пусто
-        if [[ ! -f "meson.build" && ! -f "configure" && ! -f "CMakeLists.txt" ]]; then
+        if [[ ! -f "Configure" && ! -f "configure" && ! -f "CMakeLists.txt" && ! -f "meson.build" ]]; then
             log_warn "No build file in root. Searching one level deeper..."
             # Ищем строго на 1 уровень глубже (maxdepth 2)
-            CANDIDATE=$(find . -maxdepth 2 \( -name "meson.build" -o -name "configure" -o -name "CMakeLists.txt" \) -printf '%h\n' | head -n 1)
+            CANDIDATE=$(find . -maxdepth 2 \( -name "Configure" -o -name "configure" -o -name "CMakeLists.txt" -o -name "meson.build" \) -printf '%h\n' | head -n 1)
             if [[ -n "$CANDIDATE" ]]; then
                 log_info "Project root found at $CANDIDATE. Entering..."
                 cd "$CANDIDATE"
