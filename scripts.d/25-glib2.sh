@@ -53,12 +53,12 @@ nm = '${FFBUILD_TOOLCHAIN}-gcc-nm'
 ranlib = '${FFBUILD_TOOLCHAIN}-gcc-ranlib'
 
 [properties]
-# КРИТИЧНО для кросс-компиляции Glib: отвечаем на вопросы, которые он не может проверить запуском
 posix_memalign_with_alignment = false
 growstack = false
 have_c99_snprintf = true
 have_c99_vsnprintf = true
 va_val_copy = true
+growing_stack = false
 
 [built-in options]
 c_args = [$MESON_C_ARGS]
