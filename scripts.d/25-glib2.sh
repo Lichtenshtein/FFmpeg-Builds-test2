@@ -24,11 +24,16 @@ ffbuild_dockerbuild() {
     export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW -fdir-control"
     export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW"
 
-    # Подготавливаем строки аргументов заранее
-    # Превращаем "-O3 -march=broadwell" в "'-O3', '-march=broadwell'"
-    MESON_C_ARGS=$(printf "'%s', " $CFLAGS | sed 's/, $//')
-    MESON_CXX_ARGS=$(printf "'%s', " $CXXFLAGS | sed 's/, $//')
-    MESON_L_ARGS=$(printf "'%s', " $LDFLAGS | sed 's/, $//')
+    # Превращаем строку CFLAGS в массив для Meson ['flag1', 'flag2']
+    # Это более надежный способ обработки пробелов
+    read -ra CFLAGS_ARR <<< "$CFLAGS"
+    MESON_C_ARGS=$(printf "'%s', " "${CFLAGS_ARR[@]}" | sed 's/, $//')
+    
+    read -ra CXXFLAGS_ARR <<< "$CXXFLAGS"
+    MESON_CXX_ARGS=$(printf "'%s', " "${CXXFLAGS_ARR[@]}" | sed 's/, $//')
+    
+    read -ra LDFLAGS_ARR <<< "$LDFLAGS"
+    MESON_L_ARGS=$(printf "'%s', " "${LDFLAGS_ARR[@]}" | sed 's/, $//')
 
     cat <<EOF > cross_file.txt
 [host_machine]
@@ -48,7 +53,9 @@ nm = '${FFBUILD_TOOLCHAIN}-gcc-nm'
 ranlib = '${FFBUILD_TOOLCHAIN}-gcc-ranlib'
 
 [properties]
-growing_stack = false
+# КРИТИЧНО для кросс-компиляции Glib: отвечаем на вопросы, которые он не может проверить запуском
+posix_memalign_with_alignment = false
+growstack = false
 have_c99_snprintf = true
 have_c99_vsnprintf = true
 va_val_copy = true
@@ -70,7 +77,6 @@ EOF
         -Dintrospection=disabled \
         -Dlibmount=disabled \
         -Dnls=disabled \
-        -Druntime_libdir="" \
         -Dlocalstatedir=/var \
         -Dsysconfdir=/etc \
         -Dgio_module_dir="$FFBUILD_PREFIX/lib/gio/modules"

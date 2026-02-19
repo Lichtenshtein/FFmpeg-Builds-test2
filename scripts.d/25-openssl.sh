@@ -14,12 +14,31 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
-    echo "git submodule --quiet update --init --recursive --depth=1"
+    # echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+    # echo "git submodule --quiet update --init --recursive --depth=1"
+    default_dl .
 }
 
 ffbuild_dockerbuild() {
     set -e
+
+    # ПРИНУДИТЕЛЬНО возвращаемся в корень распаковки, если find завел нас не туда
+    cd "/build/$STAGENAME"
+    
+    # Если OpenSSL лежит в подпапке (например, openssl-3.x), заходим в нее
+    # Ищем конкретно файл Configure, который есть только у OpenSSL
+    local REAL_ROOT=$(find . -maxdepth 2 -name "Configure" -exec dirname {} \; | head -n 1)
+    if [[ -n "$REAL_ROOT" ]]; then
+        cd "$REAL_ROOT"
+    fi
+
+    # Проверка, что мы в нужном месте
+    if [[ ! -f "Configure" ]]; then
+        log_error "CRITICAL: OpenSSL Configure script not found in $(pwd)"
+        ls -F
+        exit 1
+    fi
+
     # MinGW-w64 пока не знает про SIO_UDP_NETRESET (нужно для QUIC)
     # Вставляем дефайн в системный заголовок внутри OpenSSL
     sed -i '1i#ifndef SIO_UDP_NETRESET\n#define SIO_UDP_NETRESET _WSAIOW(IOC_VENDOR, 15)\n#endif' include/internal/sockets.h

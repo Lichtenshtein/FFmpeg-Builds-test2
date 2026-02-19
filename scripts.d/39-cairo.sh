@@ -11,6 +11,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     # Отключаем X11, так как мы собираем под Windows (GDI/Win32)
@@ -18,6 +19,7 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX" \
         --cross-file=/cross.meson \
         --buildtype=release \
+        --wrap-mode=nodownload \
         --default-library=static \
         -Dtests=disabled \
         -Dzlib=enabled \
