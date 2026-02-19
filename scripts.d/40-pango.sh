@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Отключаем WinRT, который требует отсутствующий заголовок
     # Мы подменяем проверку в meson.build или передаем через CFLAGS
     export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW"
