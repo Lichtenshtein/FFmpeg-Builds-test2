@@ -17,9 +17,16 @@ ffbuild_dockerbuild() {
     # Удаляем только pcre2 из субпроектов, чтобы заставить использовать наш билд
     rm -rf subprojects/pcre2*
 
+    # инициализация подмодуля gvdb
+    if ! git submodule update --init --recursive; then
+        echo "Submodule update failed, downloading GVDB manually..."
+        rm -rf subprojects/gvdb
+        git clone --depth 1 https://github.com/GNOME/gvdb.git subprojects/gvdb
+    fi
+
     # Заставляем Meson использовать наш pcre2, zlib и libiconv через pkg-config
     export PKG_CONFIG_LIBDIR="$FFBUILD_PREFIX/lib/pkgconfig"
-    
+    export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
     # Исправляем CFLAGS для корректной работы с MinGW
     export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW -fdir-control"
     export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW"
@@ -73,12 +80,9 @@ EOF
         --buildtype release \
         --default-library static \
         -Dtests=false \
-        -Dpython.install_env=auto \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
         -Dnls=disabled \
-        -Dlocalstatedir=/var \
-        -Dsysconfdir=/etc \
         -Dgio_module_dir="$FFBUILD_PREFIX/lib/gio/modules"
 
     ninja -C build -j$(nproc) $NINJA_V
@@ -97,7 +101,7 @@ EOF
 
 ffbuild_configure() {
     # Для FFmpeg важно знать, что glib статическая
-    echo --enable-libglib
+    echo "--enable-libglib";
 }
 
 ffbuild_cflags() {
