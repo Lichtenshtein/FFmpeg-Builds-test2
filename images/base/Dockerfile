@@ -26,7 +26,8 @@ RUN \
     update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-14 100 && \
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get -y install nodejs && \
-    npm update ffi-napi && \
+    npm cache clean --force && \
+    npm install -g ffi-napi@latest && \
     apt-get -y clean && \
     git config --global user.email "builder@localhost" && \
     git config --global user.name "Builder" && \
