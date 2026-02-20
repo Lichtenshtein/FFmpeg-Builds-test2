@@ -9,6 +9,11 @@ cd "$(dirname "$0")"
 # чтобы случайные echo не попали в поток генерации.
 source util/vars.sh "$@" > /dev/null 2>&1
 
+SKIP_FFMPEG=0
+for arg in "$@"; do
+    [[ "$arg" == "skip_ffmpeg" ]] && SKIP_FFMPEG=1
+done
+
 export LC_ALL=C.UTF-8
 
 # Явно очищаем файл перед началом записи
@@ -32,8 +37,10 @@ to_df "ENV TARGET=$TARGET VARIANT=$VARIANT REPO=$REPO ADDINS_STR=$ADDINS_STR \\
     DLL_PRESERVE_LIST=\"$DLL_PRESERVE_LIST\" \\
     GIT_PRESERVE_LIST=\"$GIT_PRESERVE_LIST\""
 
-to_df "ENV C_INCLUDE_PATH=/opt/ffbuild/include CPATH=/opt/ffbuild/include LIBRARY_PATH=/opt/ffbuild/lib"
-
+# Обновленная строка для generate.sh:
+to_df "ENV C_INCLUDE_PATH=/opt/ffbuild/include:/opt/mingw/include \\
+    CPATH=/opt/ffbuild/include:/opt/mingw/include \\
+    LIBRARY_PATH=/opt/ffbuild/lib:/opt/mingw/lib"
 
 # Копируем утилиту один раз. Это стабильная точка для кэша.
 to_df "COPY util/run_stage.sh /usr/bin/run_stage"
@@ -101,8 +108,6 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads \\"
     to_df "    set -e; export _H=$SCRIPT_HASH:$VARS_HASH:$COMPONENT_PATCH_HASH && . /builder/util/vars.sh $TARGET $VARIANT && run_stage /builder/$STAGE"
 done
-
-# &>/dev/null
 
 # Сборка флагов конфигурации FFmpeg
 # Временные файлы для сбора
@@ -181,19 +186,22 @@ to_df "ENV FF_LIBS=\"$FF_LIBS\""
 
 rm .conf .cflags .ldflags .libs .cxxflags .ldexeflags
 
-# Копируем исходники проекта (включая build.sh и patches)
-# to_df "COPY . /builder"
-# Только в самом конце копируем остальное для финального шага билда
-to_df "COPY build.sh /builder/build.sh"
-to_df "COPY util /builder/util"
-to_df "COPY patches /builder/patches"
-# раскомментировать после отладки для сборки FFmpeg
-# to_df "COPY variants /builder/variants"
-# to_df "COPY addins /builder/addins"
+if [[ $SKIP_FFMPEG -eq 1 ]]; then
+    log_info "Option 'skip_ffmpeg' is active. Final build stage will be omitted."
+    # Создаем пустой файл в artifacts, чтобы экшн загрузки не падал
+    to_df "RUN mkdir -p /opt/ffdest && touch /opt/ffdest/COMPONENTS_BUILD_SUCCESS"
+else
+    # Копируем всё необходимое для финальной сборки
+    to_df "COPY variants /builder/variants"
+    to_df "COPY addins /builder/addins"
+    to_df "COPY build.sh /builder/build.sh"
+    to_df "COPY util /builder/util"
+    to_df "COPY patches /builder/patches"
 
-to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
-to_df "    --mount=from=ffmpeg_src,target=/builder/ffbuild/ffmpeg \\"
-to_df "    ./build.sh $TARGET $VARIANT"
+    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
+    to_df "    --mount=from=ffmpeg_src,target=/builder/ffbuild/ffmpeg \\"
+    to_df "    ./build.sh $TARGET $VARIANT"
+fi
 
 to_df "FROM scratch AS artifacts"
 to_df "COPY --from=build_stage /opt/ffdest/ /"

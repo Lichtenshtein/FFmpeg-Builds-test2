@@ -47,7 +47,7 @@ ffbuild_dockerbuild() {
         ./configure \
             --prefix="$SYSROOT" \
             --host="$HOST_TRIPLET" \
-            --with-default-win32-winnt="0x601" \
+            --with-default-win32-winnt="0x0A00" \
             --with-default-msvcrt=ucrt \
             --enable-idl --enable-sdk=all
         
