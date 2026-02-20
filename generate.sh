@@ -4,18 +4,21 @@ set -e
 shopt -s globstar
 cd "$(dirname "$0")"
 
+# Забираем аргументы для локального использования
+TARGET="${1:-$TARGET}"
+VARIANT="${2:-$VARIANT}"
+LTO_INPUT="${3:-nolto}"
+SKIP_FFMPEG_INPUT="${4:-false}"
+
 # Сначала загружаем переменные (включая вариант), 
 # но перенаправляем их стандартный вывод в никуда, 
 # чтобы случайные echo не попали в поток генерации.
 source util/vars.sh "$@" > /dev/null 2>&1
 
-TARGET="${1:-$TARGET}"
-VARIANT="${2:-$VARIANT}"
-LTO="${3:-nolto}"
-SKIP_FFMPEG_INPUT="${4:-false}"
-
 SKIP_FFMPEG=0
 [[ "$SKIP_FFMPEG_INPUT" == "skip_ffmpeg" ]] && SKIP_FFMPEG=1
+USE_LTO=0
+[[ "$LTO_INPUT" == "lto" ]] && USE_LTO=1
 
 export LC_ALL=C.UTF-8
 
