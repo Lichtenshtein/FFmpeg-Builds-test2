@@ -137,7 +137,7 @@ ffbuild_unconfigure() {
 ffbuild_cflags() {
     log_debug "Applying global CFLAGS for $STAGENAME" >&2
     # глобальный макрос для всех, кто включает заголовки glib
-    echo "-DGLIB_STATIC_COMPILATION -mms-bitfields -D_WIN32_WINNT=0x0601"
+    echo "-DGLIB_STATIC_COMPILATION -mms-bitfields -D_WIN32_WINNT=0x0A00"
 }
 
 ffbuild_uncflags() {
@@ -171,7 +171,7 @@ ffbuild_unldflags() {
 ffbuild_libs() {
     log_debug "Adding system libraries for Win64" >&2
     # Только системные либы
-    echo "-lsetupapi -lstdc++ -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32"
+    echo "-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lstdc++ -lws2_32"
 }
 
 ffbuild_unlibs() {
