@@ -27,7 +27,7 @@ RUN \
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get -y install nodejs && \
     npm cache clean --force && \
-    npm install -g ffi-napi@latest && \
+    npm install -g @napi-ffi/ffi-napi --unsafe-perm --build-from-source --CXXFLAGS="-fpermissive" && \
     apt-get -y clean && \
     git config --global user.email "builder@localhost" && \
     git config --global user.name "Builder" && \
