@@ -10,7 +10,7 @@ on:
         description: 'FFmpeg Branch'
         default: 'master'
       only_stage:
-        description: 'Regex for ONLY_STAGE ("10-mingw|50-x264")'
+        description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
         default: '.*'
       doClean:
@@ -55,10 +55,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
+          buildkitd-flags: --debug
+
       - name: Install Host Tools
         run: |
           sudo apt-get update
           sudo apt-get install -y subversion subversion-tools nasm yasm
+
+      - name: Set Image Names
+        id: images
+        run: |
+          REPO_LC="${GITHUB_REPOSITORY,,}"
+          echo "repo_lc=ghcr.io/${REPO_LC}" >> $GITHUB_OUTPUT
+          echo "base=ghcr.io/${REPO_LC}/base:latest" >> $GITHUB_OUTPUT
+          echo "target_base=ghcr.io/${REPO_LC}/base-win64:latest" >> $GITHUB_OUTPUT
+          # echo "variant=ghcr.io/${REPO_LC}/win64-nonfree:latest" >> $GITHUB_OUTPUT
+
+      - name: Login to Docker
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
 
       ## This cleans ~24Gb
       # - name: Free Disk Space
@@ -86,22 +108,6 @@ jobs:
           # df -h /
           # echo "-------------------------------"
 
-      - name: Set Image Names
-        id: images
-        run: |
-          REPO_LC="${GITHUB_REPOSITORY,,}"
-          echo "repo_lc=ghcr.io/${REPO_LC}" >> $GITHUB_OUTPUT
-          echo "base=ghcr.io/${REPO_LC}/base:latest" >> $GITHUB_OUTPUT
-          echo "target_base=ghcr.io/${REPO_LC}/base-win64:latest" >> $GITHUB_OUTPUT
-          echo "variant=ghcr.io/${REPO_LC}/win64-nonfree:latest" >> $GITHUB_OUTPUT
-
-      - name: Login to Docker
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ github.token }}
-
       - name: Build Root Base Image
         uses: docker/build-push-action@v5
         with:
@@ -109,10 +115,13 @@ jobs:
           build-args: |
             CARGO_C_VERSION=0.10.20
           tags: ${{ steps.images.outputs.repo_lc }}/base:latest
-          push: false 
-          load: true
+          # push: false
+          push: true
+          # load: true
+          load: false
           cache-from: type=gha,scope=base-root
-          cache-to: type=gha,mode=max,scope=base-root
+          # cache-to: type=gha,mode=max,scope=base-root
+          cache-to: type=gha,mode=min,scope=base-root
 
       - name: Build Base Win64 Image
         uses: docker/build-push-action@v5
@@ -122,9 +131,12 @@ jobs:
             CARGO_C_VERSION=0.10.20
             GH_REPO=${{ steps.images.outputs.repo_lc }}
           cache-from: type=gha,scope=base
-          cache-to: type=gha,mode=max,scope=base
-          push: false
-          load: true
+          # cache-to: type=gha,mode=max,scope=base
+          cache-to: type=gha,mode=min,scope=base
+          # push: false
+          push: true
+          # load: true
+          load: false
           tags: base-win64:local
 
       - name: Get Download Cache Key
@@ -178,25 +190,9 @@ jobs:
           FFMPEG_BRANCH: ${{ github.event.inputs.ffmpeg_branch || 'master' }}
           FFBUILD_VERBOSE: ${{ github.event.inputs.verbosity || '1' }}
 
-      - name: Inspect Dockerfile
-        run: head -n 30 Dockerfile
-
-      - name: Prepare and Build
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: Dockerfile
-          push: false
-          tags: ${{ steps.images.outputs.variant }}
-          cache-from: type=gha,scope=ffmpeg-build
-          cache-to: type=gha,mode=max,scope=ffmpeg-build
-          build-contexts: |
-            ffmpeg_src=${{ github.workspace }}/.cache/ffmpeg
-          outputs: type=local,dest=artifacts/
-          provenance: false
-
       - name: Force Save Cache
-        if: always()
+        # if: always()
+        if: success()
         uses: actions/cache/save@v4
         with:
           path: |
@@ -207,6 +203,26 @@ jobs:
           # Если что-то изменилось, ключ хеша (outputs.key) будет другим, и кэш сохранится.
           key: dl-cache-${{ steps.dl_cache.outputs.key }}
 
+      - name: Inspect Dockerfile
+        run: head -n 30 Dockerfile
+
+      - name: Prepare and Build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile
+          push: false
+          tags: ffmpeg-final:local
+          # tags: ${{ steps.images.outputs.variant }}
+          cache-from: type=gha,scope=ffmpeg-build
+          # cache-to: type=gha,mode=max,scope=ffmpeg-build
+          cache-to: type=gha,mode=min,scope=ffmpeg-build
+          build-contexts: |
+            base-win64:docker-image://${{ steps.images.outputs.target_base }}
+            ffmpeg_src=${{ github.workspace }}/.cache/ffmpeg
+          outputs: type=local,dest=artifacts/
+          provenance: false
+
       - name: Cleanup Old Caches
         if: always()
         continue-on-error: true
@@ -214,7 +230,6 @@ jobs:
           gh extension install actions/gh-actions-cache || true
           echo "Fetching list of caches..."
           caches=$(gh actions-cache list --limit 100 --order desc 2>/dev/null | cut -f 1) || true
-          
           if [ -z "$caches" ]; then
             echo "No caches found."
           else
@@ -227,6 +242,17 @@ jobs:
               fi
             done
           fi
+          # Удаляем только старые версии кэша, оставляя 3 последних для каждой области. Используем фильтрацию по префиксу области (scope)
+          for scope in "base-root" "base" "ffmpeg-build"; do
+            echo "Checking scope: $scope"
+            cache_ids=$(gh actions-cache list --key "$scope" --limit 100 | cut -f 1 | tail -n +4)
+            for id in $cache_ids; do
+              echo "Deleting old cache ID: $id"
+              gh actions-cache delete "$id" --confirm
+            done
+          done
+          # Удалить ВСЕ кэши, содержащие "buildkit" (blobs) в названии
+          # gh actions-cache delete --github-token ${{ secrets.GITHUB_TOKEN }} --keyword "buildkit" --confirm
         env:
           GITHUB_TOKEN: ${{ github.token }}
 

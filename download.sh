@@ -3,6 +3,7 @@ set -e
 
 # фикс проблем с git 
 git config --global advice.detachedHead false
+git config --global core.autocrlf false
 git config --global --add safe.directory "*"
 
 cd "$(dirname "$0")"
