@@ -187,7 +187,7 @@ jobs:
           chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
-          bash -x ./generate.sh win64 nonfree "${LTO_PARAM:-nolto}" "$SKIP_PARAM"
+          ./generate.sh win64 nonfree "${LTO_PARAM:-nolto}" "$SKIP_PARAM"
         env:
           TARGET: win64
           VARIANT: nonfree
