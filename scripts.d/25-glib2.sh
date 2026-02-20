@@ -13,34 +13,12 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    set -e
-    # Удаляем только pcre2 из субпроектов, чтобы заставить использовать наш билд
-    rm -rf subprojects/pcre2*
-
     # инициализация подмодуля gvdb
     if ! git submodule update --init --recursive; then
         echo "Submodule update failed, downloading GVDB manually..."
         rm -rf subprojects/gvdb
         git clone --depth 1 https://github.com/GNOME/gvdb.git subprojects/gvdb
     fi
-
-    # Заставляем Meson использовать наш pcre2, zlib и libiconv через pkg-config
-    export PKG_CONFIG_LIBDIR="$FFBUILD_PREFIX/lib/pkgconfig"
-    export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
-    # Исправляем CFLAGS для корректной работы с MinGW
-    export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0A00 -DG_WIN32_IS_STRICT_MINGW"
-    export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0A00 -DG_WIN32_IS_STRICT_MINGW"
-
-    # Превращаем строку CFLAGS в массив для Meson ['flag1', 'flag2']
-    # Это более надежный способ обработки пробелов
-    read -ra CFLAGS_ARR <<< "$CFLAGS"
-    MESON_C_ARGS=$(printf "'%s', " "${CFLAGS_ARR[@]}" | sed 's/, $//')
-    
-    read -ra CXXFLAGS_ARR <<< "$CXXFLAGS"
-    MESON_CXX_ARGS=$(printf "'%s', " "${CXXFLAGS_ARR[@]}" | sed 's/, $//')
-    
-    read -ra LDFLAGS_ARR <<< "$LDFLAGS"
-    MESON_L_ARGS=$(printf "'%s', " "${LDFLAGS_ARR[@]}" | sed 's/, $//')
 
     cat <<EOF > cross_file.txt
 [host_machine]
@@ -66,44 +44,46 @@ have_c99_snprintf = true
 have_c99_vsnprintf = true
 va_val_copy = true
 growing_stack = false
+needs_exe_wrapper = true
 
 [built-in options]
-c_args = [$MESON_C_ARGS]
-cpp_args = [$MESON_CXX_ARGS]
-c_link_args = [$MESON_L_ARGS]
-cpp_link_args = [$MESON_L_ARGS]
+c_args = []
+cpp_args = []
+c_link_args = []
+cpp_link_args = []
 EOF
-    unset CC CXX CPP LD AR NM RANLIB STRIP
 
+    # Настройка окружения для Meson
+    export PKG_CONFIG_LIBDIR="$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_PREFIX/share/pkgconfig"
+    export PKG_CONFIG_PATH="" # Очищаем, чтобы не было конфликтов
+    export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0A00 -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
+    export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0A00 -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
 
-echo "int main(){return 0;}" > test.c
-${FFBUILD_TOOLCHAIN}-gcc $CFLAGS test.c -o test.exe || (log_error "GCC is broken with current CFLAGS: $CFLAGS"; exit 1)
-
-
+    # Удаляем субпроекты, которые ломают сборку
+    rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
         --cross-file cross_file.txt \
         --buildtype release \
         --default-library static \
+        --wrap-mode=nodownload \
         -Dtests=false \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
-        -Dnls=disabled \
-        -Dgio_module_dir="$FFBUILD_PREFIX/lib/gio/modules"
+        -Dnls=disabled
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
 
-    # Проверяем наличие файла перед sed
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/glib-2.0.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        # Добавляем системные либы для статики, чтобы FFmpeg мог линковаться
-        sed -i "s/Libs:/Libs: -lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lintl -liconv -lpthread /" "$PC_FILE"
-    fi
-
     # Чистим мусор
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete || true
+    # Фикс .pc файла (обязательно для статической линковки FFmpeg)
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/glib-2.0.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        # Добавляем зависимости, которые Meson часто забывает для static win64
+        sed -i 's/^Libs:/Libs: -lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi /' "$PC_FILE"
+    fi
 }
 
 ffbuild_configure() {
