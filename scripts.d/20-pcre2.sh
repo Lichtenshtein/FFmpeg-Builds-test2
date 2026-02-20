@@ -24,7 +24,6 @@ ffbuild_dockerbuild() {
         --enable-pcre2-16
         --enable-pcre2-32
         --enable-jit
-        --disable-stack-for-recursion
     )
 
     ./configure "${myconf[@]}"

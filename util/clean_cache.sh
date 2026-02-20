@@ -29,30 +29,15 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     # Проверяем, включен ли компонент
     if ( export TARGET="$TARGET" VARIANT="$VARIANT"; source "$STAGE" >/dev/null 2>&1 && ffbuild_enabled ); then
         
-        # Генерируем команду загрузки (с явным пробросом контекста) точно так же, как в download.sh
-        DL_COMMANDS=$(export TARGET="$TARGET" VARIANT="$VARIANT"; \
-        bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
-                      source util/dl_functions.sh; \
-                      source \"$STAGE\"; \
-                      ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")
-
-        if [[ -n "$DL_COMMANDS" ]]; then
-            # Синхронизируем фильтры с download.sh
-            DL_COMMANDS="${DL_COMMANDS//retry-tool /}"
-            DL_COMMANDS="${DL_COMMANDS//git fetch --unshallow/true}"
-            # Пакет с загрузкой: вычисляем хеш
-            # ИДЕНТИЧНАЯ очистка кода скрипта (удаление пробелов и \r)
-            SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE" | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' | grep -v '^[[:space:]]*$')
-            SCRIPT_CODE=$(echo "$SCRIPT_CODE" | tr -d '\r')
-            # Генерация хеша
-            DL_HASH=$( (echo "$DL_COMMANDS"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16)
+        DL_HASH=$(get_stage_hash "$STAGE")
+        if [[ -n "$DL_HASH" ]]; then
             CURRENT_FILE="${STAGENAME}_${DL_HASH}.tar.zst"
             # Добавляем в список текущий файл и симлинк
             log_debug "Protecting hash: ${STAGENAME}_${DL_HASH}.tar.zst"
             echo "$CURRENT_FILE" >> "$RAW_KEEP_LIST"
             # Также защищаем символическую ссылку, если она есть
-            echo "${STAGENAME}.tar.zst" >> "$RAW_KEEP_LIST"
             log_debug "Protecting current version: $CURRENT_FILE"
+            echo "${STAGENAME}.tar.zst" >> "$RAW_KEEP_LIST"
         fi
     fi
 done
@@ -68,28 +53,26 @@ deleted_count=0
 
 # Используем глоб напрямую, чтобы избежать проблем с пустыми переменными
 for f in *.tar.zst; do
-    [[ -f "$f" ]] || continue # Пропускаем, если это не файл (например, если папка пуста)
-    [[ -L "$f" ]] && continue # Пропускаем симлинки в этом цикле, займемся ими позже
+    [[ -f "$f" ]] || continue
+    [[ -L "$f" ]] && continue # Пропускаем симлинки, их проверим отдельно
 
+    # Если файла нет в списке актуальных
     if ! grep -qxF "$f" "$FINAL_KEEP_LIST"; then
-        # Удаляем только если файл старше 15 минут
+        # Удаляем только если файл старше 15 минут (защита от параллельных процессов)
         if [[ -z $(find "$f" -mmin -15 2>/dev/null) ]]; then
             log_info "Deleting orphaned/old cache: $f"
             rm -f "$f" || true
-            
             # Безопасный инкремент (не роняет скрипт при set -e)
             deleted_count=$((deleted_count + 1))
-            
-            # Удаляем "осиротевший" симлинк, если он указывал на этот файл
-            BASE="${f%%_*}"
-            if [[ -L "${BASE}.tar.zst" ]]; then
-                # Если ссылка ведет в никуда после удаления файла — удаляем её
-                if [[ ! -e "${BASE}.tar.zst" ]]; then
-                    log_debug "Removing broken symlink: ${BASE}.tar.zst"
-                    rm -f "${BASE}.tar.zst" || true
-                fi
-            fi
         fi
+    fi
+done
+
+# Дополнительная чистка битых симлинков
+for l in *.tar.zst; do
+    if [[ -L "$l" && ! -e "$l" ]]; then
+        log_debug "Removing broken symlink: $l"
+        rm -f "$l"
     fi
 done
 

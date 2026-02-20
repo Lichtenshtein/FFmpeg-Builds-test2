@@ -77,6 +77,7 @@ VARS_HASH=$(sha256sum util/vars.sh util/run_stage.sh | sha256sum | cut -c1-8)
 for STAGE in "${active_scripts[@]}"; do
     STAGENAME="$(basename "$STAGE" .sh)"
     SCRIPT_HASH=$(sha256sum "$STAGE" | cut -c1-8)
+    DL_HASH=$(get_stage_hash "$STAGE")
     # Извлекаем имя компонента (напр., из 50-libmp3lame получаем libmp3lame)
     # Используем sed, чтобы отрезать все до первого дефиса включительно
     COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
@@ -89,7 +90,7 @@ for STAGE in "${active_scripts[@]}"; do
     ) | sort | xargs sha256sum 2>/dev/null | sha256sum | cut -c1-8 || echo "none")
 
     # Для отладки в Dockerfile
-    to_df "# Stage: $STAGENAME | Component: $COMPONENT_NAME | ScriptHash: $SCRIPT_HASH | DepsHash: $VARS_HASH | PatchHash: $COMPONENT_PATCH_HASH"
+    to_df "# Stage: $STAGENAME | Component: $COMPONENT_NAME | ScriptHash: $SCRIPT_HASH | DepsHash: $VARS_HASH | PatchHash: $COMPONENT_PATCH_HASH | DL_Hash: $DL_HASH | ScriptHash: $SCRIPT_HASH"
     
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
     to_df "    --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\"
@@ -98,7 +99,7 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    --mount=type=bind,source=variants,target=/builder/variants \\"
     to_df "    --mount=type=bind,source=addins,target=/builder/addins \\"
     to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads \\"
-    to_df "    export _H=$SCRIPT_HASH:$VARS_HASH:$COMPONENT_PATCH_HASH && . /builder/util/vars.sh $TARGET $VARIANT && run_stage /builder/$STAGE"
+    to_df "    set -e; export _H=$SCRIPT_HASH:$VARS_HASH:$COMPONENT_PATCH_HASH && . /builder/util/vars.sh $TARGET $VARIANT && run_stage /builder/$STAGE"
 done
 
 # &>/dev/null

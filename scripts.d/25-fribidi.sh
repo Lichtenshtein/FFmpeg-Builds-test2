@@ -1,7 +1,9 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/fribidi/fribidi.git"
-SCRIPT_COMMIT="b28f43bd3e8e31a5967830f721bab218c1aa114c"
+# SCRIPT_REPO="https://github.com/fribidi/fribidi.git"
+# SCRIPT_COMMIT="b28f43bd3e8e31a5967830f721bab218c1aa114c"
+SCRIPT_REPO="https://github.com/Treata11/fribidi.git"
+SCRIPT_COMMIT="1a1ac31d25eeee9efd3d496b04b3b29ae81b8809"
 
 ffbuild_enabled() {
     return 0
@@ -32,10 +34,13 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --buildtype=release
-        --default-library=static
-        -Dbin=false
-        -Ddocs=false
-        -Dtests=false
+        --DFRIBIDI_BUILD_BIN=OFF
+        --FRIBIDI_BUILD_DOCS=OFF
+        --FRIBIDI_BUILD_TESTS=OFF
+        # --default-library=static
+        # -Dbin=false
+        # -Ddocs=false
+        # -Dtests=false
     )
 
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
@@ -47,8 +52,8 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    meson "${myconf[@]}" ..
-    ninja -j$(nproc)
+    meson setup "${myconf[@]}" ..
+    ninja -j$(nproc) $MAKE_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     sed -i 's/Cflags:/Cflags: -DFRIBIDI_LIB_STATIC/' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/fribidi.pc

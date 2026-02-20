@@ -105,7 +105,6 @@ ffbuild_ffver() {
     esac
 }
 
-
 ffbuild_depends() {
     echo base
 }
@@ -187,6 +186,29 @@ ffbuild_enabled() {
     return 0
 }
 
+get_stage_hash() {
+    local STAGE_PATH="$1"
+    local STAGENAME=$(basename "$STAGE_PATH" .sh)
+    
+    # Получаем команды загрузки (ffbuild_dockerdl) в чистом окружении
+    # Используем bash -c, чтобы не засорять текущую оболочку
+    local DL_COMMANDS=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
+                      source util/dl_functions.sh; \
+                      source \"$STAGE_PATH\"; \
+                      ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")
+    
+    # Очистка команд от мусора
+    DL_COMMANDS="${DL_COMMANDS//retry-tool /}"
+    DL_COMMANDS="${DL_COMMANDS//git fetch --unshallow/true}"
+
+    # Получаем чистый код скрипта (без комментов, пробелов в конце и \r)
+    local SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE_PATH" | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' | grep -v '^[[:space:]]*$' | tr -d '\r')
+
+    # Генерируем финальный хеш (16 символов)
+    (echo "$DL_COMMANDS"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16
+}
+export -f get_stage_hash
+
 # 1 для подробных логов, в 0 для кратких
 # export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
 # Значение FFBUILD_VERBOSE уже пришло из Docker ENV
@@ -210,6 +232,18 @@ export CCACHE_BASEDIR="/builder"
 export CCACHE_COMPILERCHECK="content"
 export CCACHE_DEPEND="1"
 export CCACHE_COMPRESS=1
+
+# Явно задаем хост-систему для Autotools
+export CHOST="$FFBUILD_TOOLCHAIN"
+
+# Убеждаемся, что все инструменты имеют префикс
+export CC="${FFBUILD_TOOLCHAIN}-gcc"
+export CXX="${FFBUILD_TOOLCHAIN}-g++"
+export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
+export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
+export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
+export OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump"
+export STRIP="${FFBUILD_TOOLCHAIN}-strip"
 
 # экспорт важных переменных MinGW, чтобы они пробрасывались в download.sh и run_stage.sh:
 export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE

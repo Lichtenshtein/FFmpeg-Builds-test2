@@ -12,6 +12,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    autoupdate
+    autoreconf -i
     ./.bootstrap
 
     local myconf=(
@@ -32,7 +34,7 @@ ffbuild_dockerbuild() {
     fi
 
     ./configure "${myconf[@]}"
-    make -j$(nproc)
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 }
 

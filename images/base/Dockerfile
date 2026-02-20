@@ -12,7 +12,7 @@ RUN \
         build-essential yasm nasm ccache \
         xxd pkgconf curl wget unzip zip git subversion mercurial rsync jq \
         autoconf automake libtool libtool-bin autopoint gettext parallel cmake meson ninja-build \
-        clang llvm lcov lld qemu-user \
+        clang llvm lcov lld qemu-user libunwind-dev \
         texinfo texi2html help2man flex bison groff \
         gperf itstool ragel libc6-dev zlib1g-dev libssl-dev \
         gtk-doc-tools gobject-introspection gawk wine64-tools wine64 \
@@ -26,10 +26,12 @@ RUN \
     update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-14 100 && \
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get -y install nodejs && \
+    npm update ffi-napi && \
     apt-get -y clean && \
     git config --global user.email "builder@localhost" && \
     git config --global user.name "Builder" && \
     git config --global advice.detachedHead false && \
+    git config --global core.autocrlf false && \
     git config --global --add safe.directory "*"
 
 ENV CARGO_HOME="/opt/cargo" RUSTUP_HOME="/opt/rustup" PATH="/opt/cargo/bin:${PATH}"

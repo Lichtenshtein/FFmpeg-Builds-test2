@@ -1,3 +1,7 @@
+Are there any errors or inaccuracies in my current download.sh?:
+
+Also, where did 'local TARGET="$2"' and 'local VARIANT="$3"' go?
+
 #!/bin/bash
 set -e
 
@@ -18,35 +22,21 @@ DL_DIR="$PWD/.cache/downloads"
 
 download_stage() {
     local STAGE="$1"
-    local TARGET="$2"
-    local VARIANT="$3"
-    local DL_DIR="$4"
-    
-    STAGENAME="$(basename "$STAGE" .sh)"
+    local DL_DIR="$2"
+    local STAGENAME=$(basename "$STAGE" .sh)
 
-    # Получаем команду загрузки
-    DL_COMMANDS=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
+    # считаем хеш (он включает в себя вызов ffbuild_dockerdl внутри get_stage_hash)
+    local DL_HASH=$(get_stage_hash "$STAGE")
+    local DL_COMMANDS=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
                       source util/dl_functions.sh; \
                       source \"$STAGE\"; \
-                      ffbuild_enabled && ffbuild_dockerdl" || echo "")
+                      ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")
 
+    # Если команд нет — это стадия без исходников (мета-пакет), выходим
     [[ -z "$DL_COMMANDS" ]] && return 0
 
-    # Очистка команд от лишнего
-    DL_COMMANDS="${DL_COMMANDS//retry-tool /}"
-    DL_COMMANDS="${DL_COMMANDS//git fetch --unshallow/true}"
-    
-    # УМНЫЙ ХЭШ (Версия для глубокой отладки)
-    # Берем DL_COMMAND (там сидят REPO и COMMIT)
-    # Берем содержимое скрипта, но вырезаем комментарии и пустые строки
-    # Это позволит менять логику сборки в ffbuild_dockerbuild и вызывать перекачку исходников
-    # Удаляем все комментарии, пустые строки И лишние пробелы в начале/конце каждой строки
-    SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE" | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' | grep -v '^[[:space:]]*$')
-    # Добавим нормализацию окончаний строк (на случай Windows-редакторов)
-    SCRIPT_CODE=$(echo "$SCRIPT_CODE" | tr -d '\r')
-    DL_HASH=$( (echo "$DL_COMMANDS"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16)
-    TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.zst"
-    LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.zst"
+    local TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.zst"
+    local LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.zst"
 
     # --- DEBUG SECTION ---
     log_debug "Checking cache for $STAGENAME in $DL_DIR..."
@@ -78,6 +68,8 @@ download_stage() {
         cd "$WORK_DIR"
         echo "set -e" > run_dl.sh
         echo "source \"$ROOT_DIR/util/dl_functions.sh\"" >> run_dl.sh
+        DL_COMMANDS="${DL_COMMANDS//retry-tool /}"
+        DL_COMMANDS="${DL_COMMANDS//git fetch --unshallow/true}"
         echo "$DL_COMMANDS" >> run_dl.sh
         bash run_dl.sh
     ); then
@@ -127,34 +119,9 @@ find scripts.d -name "*.sh" | sort | \
      export ROOT_DIR='$ROOT_DIR'; \
      source util/vars.sh \$TARGET \$VARIANT &>/dev/null; \
      source util/dl_functions.sh; \
-     download_stage {} '$TARGET' '$VARIANT' '$DL_DIR'"
-
-## Находим все файлы и перебираем их по одному
-# for STAGE_PATH in $(find scripts.d -name "*.sh" | sort); do
-    # log_info "--- Checking stage: $STAGE_PATH ---"
-
-    # if ! download_stage "$STAGE_PATH" "$TARGET" "$VARIANT" "$DL_DIR"; then
-        # log_error "CRITICAL FAILURE at $STAGE_PATH"
-        # exit 1 # Сразу выходим, чтобы увидеть причину
-    # fi
-# done
+     download_stage {} '$DL_DIR'"
 
 log_info "All sequential downloads finished successfully."
-
-# Используем стандартный xargs. 
-# Чтобы xargs прекратил работу при ошибке, bash-команда должна вернуть exit 255.
-# find scripts.d -name "*.sh" | sort | \
-    # xargs -I{} -P 8 bash -c '
-        # export TARGET="'$TARGET'"
-        # export VARIANT="'$VARIANT'"
-        # export ROOT_DIR="'$ROOT_DIR'"
-        # source util/vars.sh "$TARGET" "$VARIANT" &>/dev/null
-        # source util/dl_functions.sh
-        # if ! download_stage "{}" "$TARGET" "$VARIANT" "$DL_DIR"; then
-            # echo "::error::Download failed for {}"
-            # exit 255
-        # fi
-    # '
 
 # FFmpeg update (добавил --quiet для чистоты логов)
 FFMPEG_DIR=".cache/ffmpeg"
