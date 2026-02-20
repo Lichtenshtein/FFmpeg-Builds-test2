@@ -223,6 +223,8 @@ else
 fi
 
 export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
+export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
+export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
 
 # Конфигурация ccache
 export CCACHE_DIR=/root/.cache/ccache

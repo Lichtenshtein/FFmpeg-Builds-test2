@@ -1,4 +1,5 @@
 #!/bin/bash
+
 SCRIPT_REPO="https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz"
 
 ffbuild_enabled() {
@@ -17,12 +18,17 @@ ffbuild_dockerbuild() {
         --enable-static \
         --disable-shared \
         --disable-docs \
+        --with-gcc-arch=broadwell \
         --disable-multi-os-directory
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # Исправляем пути инклудов
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
-    cp -r "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/libffi-*/include/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/" 2>/dev/null || true
+    # Переносим хедеры в корень include, чтобы glib их увидел
+    # libffi по умолчанию прячет их в /lib/libffi-3.5.2/include
+    local FFI_INC=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "ffi.h" -printf "%h")
+    if [[ -n "$FFI_INC" ]]; then
+        mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
+        cp -af "$FFI_INC"/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
+    fi
 }
