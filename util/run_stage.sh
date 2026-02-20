@@ -42,61 +42,66 @@ mkdir -p "$FFBUILD_DESTDIR"
 
 CACHE_DIR="/root/.cache/downloads"
 REAL_CACHE=""
+CURRENT_HASH=$(get_stage_hash "$SCRIPT_PATH")
+TGT_FILE="${CACHE_DIR}/${STAGENAME}_${CURRENT_HASH}.tar.zst"
+LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
+
+log_debug "--- DEBUG: Searching source for $STAGENAME ---"
+if [[ -f "$TGT_FILE" ]]; then
+    REAL_CACHE="$TGT_FILE"
+    log_info "Exact cache match found: $(basename "$REAL_CACHE")"
+elif [[ -L "$LATEST_LINK" ]]; then
+    REAL_CACHE=$(readlink -f "$LATEST_LINK")
+    log_warn "Exact hash $CURRENT_HASH not found. Falling back to latest symlink: $(basename "$REAL_CACHE")"
+else
+    # Если это не мета-пакет (у которого есть ffbuild_dockerdl), кидаем ошибку
+    if [[ -n "$(ffbuild_dockerdl)" ]]; then
+        log_error "CRITICAL: No source cache found for $STAGENAME (Expected hash: $CURRENT_HASH)"
+        exit 1
+    fi
+fi
 
 ccache -z
 
-if [[ "$SCRIPT_SKIP" != "1" ]]; then
-    log_debug "--- DEBUG: Searching source for $STAGENAME ---"
-    
-    # Сначала ищем по точному симлинку (быстрый путь)
-    if [[ -L "${CACHE_DIR}/${STAGENAME}.tar.zst" ]]; then
-        REAL_CACHE=$(readlink -f "${CACHE_DIR}/${STAGENAME}.tar.zst")
-        log_info "Found symlink: ${STAGENAME}.tar.zst -> $REAL_CACHE"
-    # Если симлинка нет, ищем любой файл, начинающийся с имени стейджа (для надежности)
-    else
-        log_warn "No symlink found. Searching by glob: ${STAGENAME}_*.tar.zst"
-        REAL_CACHE=$(find "$CACHE_DIR" -name "${STAGENAME}_*.tar.zst" -type f | sort -r | head -n 1)
-    fi
-
-    if [[ -n "$REAL_CACHE" && -f "$REAL_CACHE" ]]; then
-        log_info "Unpacking $STAGENAME from $REAL_CACHE (Size: $(du -h "$REAL_CACHE" | cut -f1))"
-
-        # Распаковываем без лишних флагов --strip-components
-        tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C .
-
-        # Пытаемся найти корень проекта, только если в текущей папке пусто
-        if [[ ! -f "Configure" && ! -f "configure" && ! -f "CMakeLists.txt" && ! -f "meson.build" ]]; then
-            log_warn "No build file in root. Searching one level deeper..."
-            # Ищем строго на 1 уровень глубже (maxdepth 2)
-            CANDIDATE=$(find . -maxdepth 2 \( -name "Configure" -o -name "configure" -o -name "CMakeLists.txt" -o -name "meson.build" \) -printf '%h\n' | head -n 1)
-            if [[ -n "$CANDIDATE" ]]; then
-                log_info "Project root found at $CANDIDATE. Entering..."
-                cd "$CANDIDATE"
-            fi
-        fi
-
-        # Финальная проверка не пуста ли папка после распаковки
-        if [[ $(ls -A | wc -l) -eq 0 ]]; then
-            log_error "ERROR: Archive $REAL_CACHE is empty or failed to unpack!"
-            exit 1
-        fi
-        
-        log_debug "Final build directory: $(pwd)"
-        ls -F | head -n 5
-    else
-        # Если загрузка была предусмотрена (ffbuild_dockerdl не пуст), но файла нет
-        DL_CHECK=$(ffbuild_dockerdl)
-        if [[ -n "$DL_CHECK" ]]; then
-            log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-            log_error "CRITICAL ${RED}ERROR${NC}: Source cache NOT FOUND for $STAGENAME"
-            log_error "Expected: ${CACHE_DIR}/${STAGENAME}.tar.zst"
-            log_error "Available files in cache:"
+# Проверка: нужен ли вообще архив для этой стадии?
+DL_CHECK=$(ffbuild_dockerdl)
+if [[ -n "$DL_CHECK" ]]; then
+    if [[ -z "$REAL_CACHE" || ! -f "$REAL_CACHE" ]]; then
+        log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        log_error "CRITICAL ${RED}ERROR${NC}: Source cache NOT FOUND for $STAGENAME"
+        log_error "Expected hash: $CURRENT_HASH"
+        log_error "Expected: ${CACHE_DIR}/${STAGENAME}.tar.zst"
+        log_error "Searched for: $TGT_FILE"
+        log_error "Available files in cache:"
             ls -lh "$CACHE_DIR" | grep "$STAGENAME" || log_debug "No files matching $STAGENAME found at all."
-            log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-            exit 1
-        fi
-        log_info "No source archive required for $STAGENAME (meta-package)."
+        log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        exit 1
     fi
+
+    # Распаковка (только если REAL_CACHE найден)
+    log_info "Unpacking $STAGENAME from $REAL_CACHE..."
+    tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C .
+    
+    # Пытаемся найти корень проекта, только если в текущей папке пусто
+    if [[ ! -f "Configure" && ! -f "configure" && ! -f "CMakeLists.txt" && ! -f "meson.build" ]]; then
+        log_warn "No build file in root. Searching one level deeper..."
+        # Ищем строго на 1 уровень глубже (maxdepth 2)
+        CANDIDATE=$(find . -maxdepth 2 \( -name "Configure" -o -name "configure" -o -name "CMakeLists.txt" -o -name "meson.build" \) -printf '%h\n' | head -n 1)
+        if [[ -n "$CANDIDATE" ]]; then
+            log_info "Project root found at $CANDIDATE. Entering..."
+            cd "$CANDIDATE"
+        fi
+    fi
+    # Финальная проверка не пуста ли папка после распаковки
+    if [[ $(ls -A | wc -l) -eq 0 ]]; then
+        log_error "ERROR: Archive $REAL_CACHE is empty or failed to unpack!"
+        exit 1
+    fi
+    
+    log_debug "Final build directory: $(pwd)"
+    ls -F | head -n 5
+else
+    log_info "No source archive required for $STAGENAME (meta-package)."
 fi
 
 # Применяем флаги
@@ -146,9 +151,13 @@ if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
         exit 1
     fi
 else
-    # Тихий режим с дампом лога только при ошибке
+    # Тихий режим: вывод лога только в случае падения
+    log_info "Quiet mode active. Output is redirected to /tmp/stage_build.log"
     if ! ( set -e; $build_cmd > /tmp/stage_build.log 2>&1 ); then
+        log_error "Build failed! Dumping build log:"
+        echo "--------------------------------------------------------------------------------"
         cat /tmp/stage_build.log
+        echo "--------------------------------------------------------------------------------"
         exit 1
     fi
 fi

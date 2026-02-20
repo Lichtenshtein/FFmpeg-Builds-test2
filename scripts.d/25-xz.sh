@@ -17,6 +17,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    autoupdate
+    autoreconf -i
     ./autogen.sh --no-po4a --no-doxygen
 
     local myconf=(
