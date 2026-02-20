@@ -9,10 +9,13 @@ cd "$(dirname "$0")"
 # чтобы случайные echo не попали в поток генерации.
 source util/vars.sh "$@" > /dev/null 2>&1
 
+TARGET="${1:-$TARGET}"
+VARIANT="${2:-$VARIANT}"
+LTO="${3:-nolto}"
+SKIP_FFMPEG_INPUT="${4:-false}"
+
 SKIP_FFMPEG=0
-for arg in "$@"; do
-    [[ "$arg" == "skip_ffmpeg" ]] && SKIP_FFMPEG=1
-done
+[[ "$SKIP_FFMPEG_INPUT" == "skip_ffmpeg" ]] && SKIP_FFMPEG=1
 
 export LC_ALL=C.UTF-8
 
@@ -32,7 +35,6 @@ to_df "ENV TARGET=$TARGET VARIANT=$VARIANT REPO=$REPO ADDINS_STR=$ADDINS_STR \\
     FFBUILD_VERBOSE=$FFBUILD_VERBOSE \\
     FFMPEG_REPO=$FFMPEG_REPO \\
     FFMPEG_BRANCH=$FFMPEG_BRANCH \\
-    FFBUILD_VERBOSE=$FFBUILD_VERBOSE \\
     ONLY_STAGE=\"$ONLY_STAGE\" \\
     DLL_PRESERVE_LIST=\"$DLL_PRESERVE_LIST\" \\
     GIT_PRESERVE_LIST=\"$GIT_PRESERVE_LIST\""

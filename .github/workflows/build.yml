@@ -176,9 +176,9 @@ jobs:
           if [[ "${{ github.event.inputs.use_lto }}" == "true" ]]; then
             LTO_PARAM="lto"
           fi
-          SKIP_FFMPEG_PARAM=""
+          SKIP_PARAM="false"
           if [[ "${{ github.event.inputs.skip_ffmpeg }}" == "true" ]]; then
-            SKIP_FFMPEG_PARAM="skip_ffmpeg"
+            SKIP_PARAM="skip_ffmpeg"
           fi
           # Создаем директории на случай, если кэш пустой
           mkdir -p .cache/downloads
@@ -187,7 +187,7 @@ jobs:
           chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
-          ./generate.sh win64 nonfree $LTO_PARAM "$SKIP_FFMPEG_PARAM"
+          bash -x ./generate.sh win64 nonfree "${LTO_PARAM:-nolto}" "$SKIP_PARAM"
         env:
           TARGET: win64
           VARIANT: nonfree
