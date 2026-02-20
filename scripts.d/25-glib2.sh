@@ -28,8 +28,8 @@ ffbuild_dockerbuild() {
     export PKG_CONFIG_LIBDIR="$FFBUILD_PREFIX/lib/pkgconfig"
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
     # Исправляем CFLAGS для корректной работы с MinGW
-    export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW -fdir-control"
-    export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW"
+    export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0A00 -DG_WIN32_IS_STRICT_MINGW"
+    export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0A00 -DG_WIN32_IS_STRICT_MINGW"
 
     # Превращаем строку CFLAGS в массив для Meson ['flag1', 'flag2']
     # Это более надежный способ обработки пробелов
@@ -73,6 +73,13 @@ cpp_args = [$MESON_CXX_ARGS]
 c_link_args = [$MESON_L_ARGS]
 cpp_link_args = [$MESON_L_ARGS]
 EOF
+    unset CC CXX CPP LD AR NM RANLIB STRIP
+
+
+echo "int main(){return 0;}" > test.c
+${FFBUILD_TOOLCHAIN}-gcc $CFLAGS test.c -o test.exe || (log_error "GCC is broken with current CFLAGS: $CFLAGS"; exit 1)
+
+
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
