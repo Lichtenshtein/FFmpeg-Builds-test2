@@ -25,6 +25,10 @@ on:
         description: 'Log Verbosity (1: Full, 0: Quiet)'
         required: false
         default: '1'
+      skip_ffmpeg:
+        description: 'Skip final FFmpeg compilation (Component test only)'
+        type: boolean
+        default: true
       doRelease:
         description: 'Publish new release'
         type: boolean
@@ -172,6 +176,10 @@ jobs:
           if [[ "${{ github.event.inputs.use_lto }}" == "true" ]]; then
             LTO_PARAM="lto"
           fi
+          SKIP_FFMPEG_PARAM=""
+          if [[ "${{ github.event.inputs.skip_ffmpeg }}" == "true" ]]; then
+            SKIP_FFMPEG_PARAM="skip_ffmpeg"
+          fi
           # Создаем директории на случай, если кэш пустой
           mkdir -p .cache/downloads
           mkdir -p .cache/ffmpeg
@@ -179,7 +187,7 @@ jobs:
           chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
-          ./generate.sh win64 nonfree $LTO_PARAM
+          ./generate.sh win64 nonfree $LTO_PARAM "$SKIP_FFMPEG_PARAM"
         env:
           TARGET: win64
           VARIANT: nonfree
