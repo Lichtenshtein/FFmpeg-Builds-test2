@@ -1,7 +1,3 @@
-Are there any errors or inaccuracies in my current download.sh?:
-
-Also, where did 'local TARGET="$2"' and 'local VARIANT="$3"' go?
-
 #!/bin/bash
 set -e
 
