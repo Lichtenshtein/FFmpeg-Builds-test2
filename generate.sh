@@ -19,7 +19,7 @@ to_df() {
 }
 
 # Базовый образ
-to_df "FROM base-win64:local AS build_stage"
+to_df "FROM base-win64 AS build_stage"
 to_df "SHELL [\"/bin/bash\", \"-c\"]"
 
 # Объединяем все ENV в одну команду для оптимизации слоев
