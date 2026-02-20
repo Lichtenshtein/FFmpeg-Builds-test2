@@ -4,9 +4,12 @@ set -e
 shopt -s globstar  # Гарантируем поддержку вложенных папок
 
 # Подгружаем переменные, чтобы знать TARGET/VARIANT
-TARGET="${1:-$TARGET}"
-VARIANT="${2:-$VARIANT}"
-source "$(dirname "$0")/vars.sh" "$TARGET" "$VARIANT" > /dev/null 2>&1 || true
+# Очищаем входные аргументы от возможных флагов lto/skip
+# Берем только первое и второе слово
+CLEAN_TARGET=$(echo "${1:-$TARGET}" | awk '{print $1}')
+CLEAN_VARIANT=$(echo "${2:-$VARIANT}" | awk '{print $1}')
+
+source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" > /dev/null 2>&1 || true
 
 CACHE_DIR="$(dirname "$0")/../.cache/downloads"
 SCRIPTS_DIR="$(dirname "$0")/../scripts.d"
@@ -27,9 +30,10 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     STAGENAME="$(basename "$STAGE" .sh)"
 
     # Проверяем, включен ли компонент
-    if ( export TARGET="$TARGET" VARIANT="$VARIANT"; source "$STAGE" >/dev/null 2>&1 && ffbuild_enabled ); then
-        
+    if ( export TARGET="$CLEAN_TARGET" VARIANT="$CLEAN_VARIANT"; source "$STAGE" >/dev/null 2>&1 && ffbuild_enabled ); then
+
         DL_HASH=$(get_stage_hash "$STAGE")
+
         if [[ -n "$DL_HASH" ]]; then
             CURRENT_FILE="${STAGENAME}_${DL_HASH}.tar.zst"
             # Добавляем в список текущий файл и симлинк

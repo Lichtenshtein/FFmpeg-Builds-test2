@@ -52,14 +52,14 @@ LICENSE_FILE="COPYING.LGPLv2.1"
 ADDINS=()
 ADDINS_STR=""
 while [[ "$#" -gt 0 ]]; do
-    if ! [[ -f "addins/${1}.sh" ]]; then
-        log_error "Invalid addin: $1"
-        exit -1
+    # Проверяем, существует ли файл в addins
+    if [[ -f "addins/${1}.sh" ]]; then
+        ADDINS+=( "$1" )
+        ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}$1"
+    else
+        # Если файла нет, просто пропускаем (это может быть lto или skip_ffmpeg)
+        log_debug "Note: Argument '$1' is not a valid addin, ignoring."
     fi
-
-    ADDINS+=( "$1" )
-    ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}$1"
-
     shift
 done
 
