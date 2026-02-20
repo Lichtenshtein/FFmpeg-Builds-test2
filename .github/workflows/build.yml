@@ -137,7 +137,7 @@ jobs:
           push: true
           # load: true
           load: false
-          tags: base-win64:local
+          tags: ${{ steps.images.outputs.target_base }} 
 
       - name: Get Download Cache Key
         id: dl_cache
@@ -218,7 +218,7 @@ jobs:
           # cache-to: type=gha,mode=max,scope=ffmpeg-build
           cache-to: type=gha,mode=min,scope=ffmpeg-build
           build-contexts: |
-            base-win64:docker-image://${{ steps.images.outputs.target_base }}
+            base-win64=docker-image://${{ steps.images.outputs.target_base }}
             ffmpeg_src=${{ github.workspace }}/.cache/ffmpeg
           outputs: type=local,dest=artifacts/
           provenance: false
