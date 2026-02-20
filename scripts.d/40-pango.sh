@@ -28,7 +28,10 @@ ffbuild_dockerbuild() {
         -Dintrospection=disabled \
         -Dfontconfig=enabled \
         -Dsysprof=disabled \
-        -Dgtk_doc=false \
+        -Ddocumentation=false \
+        -Dbuild-testsuite=false \
+        -Dbuild-examples=false \
+        -Dman-pages=false \
         ..
 
     ninja -j$(nproc)  $NINJA_V

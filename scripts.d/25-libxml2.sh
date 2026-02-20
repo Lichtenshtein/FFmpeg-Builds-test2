@@ -31,7 +31,6 @@ ffbuild_dockerbuild() {
         --with-pic
         --with-icu=no
         --with-zlib=yes
-        --with-lzma=yes
         --with-iconv=yes
     )
 
