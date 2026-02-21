@@ -13,6 +13,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     pkg-config --cflags --libs intl
     # инициализация подмодуля gvdb
     if ! git submodule update --init --recursive; then
@@ -66,12 +67,18 @@ EOF
     # Удаляем субпроекты, которые ломают сборку
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
 
-    # Удаляем проблемный бэкенд уведомлений из сборки GIO
-    sed -i "/'gwin32notificationbackend.c'/d" gio/meson.build
-    sed -i "/'gwin32packageparser.c'/d" gio/meson.build
+    # Заглушаем функции WinRT в коде, чтобы не было undefined reference
+    # Исправляем giomodule.c (удаляем регистрацию бэкенда уведомлений)
+    sed -i '/g_win32_notification_backend_get_type/d' gio/giomodule.c
     
-    # Также уберем вызовы этих функций, чтобы не было ошибок линковки
-    sed -i "s/if g_win32_is_windows_10_rs3_or_later/if (0)/" gio/gwin32notificationbackend.c 2>/dev/null || true
+    # Исправляем gwin32appinfo.c (заглушаем парсер пакетов)
+    # Мы заменяем вызов функции на пустой список/ошибку
+    sed -i 's/g_win32_package_parser_enum_packages/NULL; \/\/ g_win32_package_parser_enum_packages/g' gio/gwin32appinfo.c
+
+    # Чтобы Meson не пытался даже заглядывать в эти файлы, 
+    # мы создадим пустые файлы-заглушки вместо удаления их из meson.build
+    echo "unsigned int g_win32_notification_backend_get_type(void){return 0;}" > gio/gwin32notificationbackend.c
+    echo "void* g_win32_package_parser_enum_packages(void* a, void* b, void* c){return 0;}" > gio/gwin32packageparser.c
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
