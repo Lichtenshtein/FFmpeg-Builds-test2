@@ -58,8 +58,7 @@ RUN \
     apt-get -y update && \
     apt-get -y install --no-install-recommends \
         wine-stable \
-        xvfb && \
-    dpkg -L wine-stable
+        xvfb
 
 ENV PATH="/opt/wine-stable/bin:${PATH}" \
     WINEARCH=win64 \
@@ -67,9 +66,11 @@ ENV PATH="/opt/wine-stable/bin:${PATH}" \
     DISPLAY=:99 \
     WINEDEBUG=-all
 
-RUN ln -sf /opt/wine-stable/bin/wine64 /usr/bin/wine64 && \
+# 2. Создаем ссылки на то, что РЕАЛЬНО есть в системе (судя по вашему dpkg -L)
+RUN ln -sf /opt/wine-stable/bin/wine /usr/bin/wine64 && \
     ln -sf /opt/wine-stable/bin/wine /usr/bin/wine && \
     ln -sf /opt/wine-stable/bin/wineboot /usr/bin/wineboot && \
     ln -sf /opt/wine-stable/bin/wineserver /usr/bin/wineserver && \
-    # Теперь ошибки 127 быть не может
-    wine64 --version
+    # Проверка: используем wine вместо wine64, если его нет
+    wine --version && \
+    echo "Wine binaries linked successfully."
