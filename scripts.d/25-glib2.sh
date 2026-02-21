@@ -75,6 +75,7 @@ EOF
         -Dnls=disabled \
         -Dtests=false \
         -Dintrospection=disabled \
+        -Dwin32_notifications=disabled \
         -Dlibmount=disabled \
         -Dglib_debug=disabled \
         -Dgio_module_dir="$FFBUILD_PREFIX/lib/gio/modules"
