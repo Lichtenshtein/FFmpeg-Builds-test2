@@ -56,19 +56,25 @@ ENV HOST_CC="gcc-14" \
     HOST_CFLAGS="-O2 -pipe" \
     HOST_CXXFLAGS="-O2 -pipe"
 
-# Настройка Wine и путей
+# Настройка путей для WineHQ (критично для загрузки kernel32.dll)
 ENV WINEARCH=win64 \
     WINEPREFIX=/root/.wine \
     DISPLAY=:99 \
-    WINEDEBUG=-all
+    WINEDEBUG=-all \
+    PATH="/opt/wine-stable/bin:${PATH}" \
+    LD_LIBRARY_PATH="/opt/wine-stable/lib:/opt/wine-stable/lib64:${LD_LIBRARY_PATH}"
 
+# Создаем симлинки и инициализируем префикс
 RUN ln -sf /opt/wine-stable/bin/wine64 /usr/bin/wine64 && \
     ln -sf /opt/wine-stable/bin/wine /usr/bin/wine && \
     ln -sf /opt/wine-stable/bin/wineboot /usr/bin/wineboot && \
     ln -sf /opt/wine-stable/bin/wineserver /usr/bin/wineserver && \
-    # Запуск виртуального дисплея и создание префикса
+    # Запуск Xvfb в фоне и инициализация
     (Xvfb :99 -screen 0 1024x768x16 &) && \
-    sleep 2 && \
-    wineboot -i && \
-    wineserver -w && \
-    ls -l /root/.wine
+    sleep 3 && \
+    # Мы используем полный путь к wineboot, чтобы избежать путаницы
+    /opt/wine-stable/bin/wineboot -i && \
+    # Ждем завершения (wineserver -w дождется закрытия wineboot)
+    /opt/wine-stable/bin/wineserver -w && \
+    # Финальная проверка наличия реестра
+    ls -l /root/.wine/system.reg
