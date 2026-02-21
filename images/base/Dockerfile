@@ -7,6 +7,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN \
     apt-get -y update && \
     apt-get -y install --no-install-recommends ca-certificates curl gnupg && \
+    dpkg --add-architecture i386 && \
     mkdir -pm755 /etc/apt/keyrings && \
     curl -fsSL https://dl.winehq.org/wine-builds/winehq.key -o /etc/apt/keyrings/winehq-archive.key && \
     curl -fsSL "https://dl.winehq.org/wine-builds/ubuntu/dists/noble/winehq-noble.sources" -o /etc/apt/sources.list.d/winehq-noble.sources && \
