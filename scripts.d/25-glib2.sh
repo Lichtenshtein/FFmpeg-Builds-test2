@@ -78,7 +78,6 @@ EOF
         --wrap-mode=nodownload \
         -Dnls=disabled \
         -Dtests=false \
-        -Dtests=disabled \
         -Db_coverage=false \
         -Dman-pages=disabled \
         -Dintrospection=disabled \
