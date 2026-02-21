@@ -1,7 +1,7 @@
 #!/bin/bash
+
 SCRIPT_REPO="https://github.com/GNOME/glib.git"
 SCRIPT_COMMIT="6b11cae1b3bf3e9cff9485481dd1c0f7e806c361"
-# SCRIPT_COMMIT="2.80.0"
 
 ffbuild_enabled() {
     return 0
@@ -68,12 +68,13 @@ EOF
         --buildtype release \
         --default-library static \
         --wrap-mode=nodownload \
+        --wrap-mode=nodownload \
+        -Dnls=disabled \
         -Dtests=false \
         -Dintrospection=disabled \
-        -Diconv=external \
-        -Dintl=external \
         -Dlibmount=disabled \
-        -Dnls=disabled
+        -Dglib_debug=disabled \
+        -Dgio_module_dir="$FFBUILD_PREFIX/lib/gio/modules"
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
