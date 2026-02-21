@@ -67,18 +67,24 @@ EOF
     # Удаляем субпроекты, которые ломают сборку
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
 
-    # Заглушаем функции WinRT в коде, чтобы не было undefined reference
+    # Исправляем gwin32appinfo.c
+    # Заменяем вызов функции внутри if на (1), чтобы условие всегда проходило
+    sed -i 's/g_win32_package_parser_enum_packages *(.*)/1/g' gio/gwin32appinfo.c
+    
     # Исправляем giomodule.c (удаляем регистрацию бэкенда уведомлений)
     sed -i '/g_win32_notification_backend_get_type/d' gio/giomodule.c
-    
-    # Исправляем gwin32appinfo.c (заглушаем парсер пакетов)
-    # Мы заменяем вызов функции на пустой список/ошибку
-    sed -i 's/g_win32_package_parser_enum_packages/NULL; \/\/ g_win32_package_parser_enum_packages/g' gio/gwin32appinfo.c
 
-    # Чтобы Meson не пытался даже заглядывать в эти файлы, 
-    # мы создадим пустые файлы-заглушки вместо удаления их из meson.build
-    echo "unsigned int g_win32_notification_backend_get_type(void){return 0;}" > gio/gwin32notificationbackend.c
-    echo "void* g_win32_package_parser_enum_packages(void* a, void* b, void* c){return 0;}" > gio/gwin32packageparser.c
+    # Создаем физические заглушки в файлах, чтобы компилятор не искал WinRT заголовки
+    # Мы полностью перезаписываем файлы минимальным валидным C-кодом
+    cat <<EOF > gio/gwin32notificationbackend.c
+#include <glib.h>
+size_t g_win32_notification_backend_get_type(void) { return 0; }
+EOF
+
+    cat <<EOF > gio/gwin32packageparser.c
+#include <glib.h>
+int g_win32_package_parser_enum_packages(void* a, void* b, void* c) { return 1; }
+EOF
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
