@@ -9,14 +9,11 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     # Изменить 'v1' на 'v2', чтобы сбросить кэш загрузки
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v1'"
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . "
 }
 
 
 ffbuild_dockerbuild() {
-    # Исправляем проблему "dubious ownership" для Git
-    git config --global --add safe.directory /build/50-freetype
-
     # инициализация подмодуля dlg
     mkdir -p subprojects/dlg
     if [[ ! -f "subprojects/dlg/include/dlg/dlg.h" ]]; then
@@ -32,6 +29,8 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
+        --build=x86_64-pc-linux-gnu
+        CC_BUILD=gcc
         --disable-shared
         --enable-static
         --with-pic

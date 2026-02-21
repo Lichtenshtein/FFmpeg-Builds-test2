@@ -10,8 +10,8 @@ ffbuild_enabled() {
 
 ffbuild_dockerlayer() {
     # to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /"
-    # to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /opt/mingw"
-    to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /"
+    # Копируем прямо в структуру тулчейна ct-ng
+    to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/sys-root/mingw/"
 }
 
 ffbuild_dockerfinal() {
