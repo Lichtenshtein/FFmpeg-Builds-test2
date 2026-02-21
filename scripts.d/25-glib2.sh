@@ -66,6 +66,13 @@ EOF
     # Удаляем субпроекты, которые ломают сборку
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
 
+    # Удаляем проблемный бэкенд уведомлений из сборки GIO
+    sed -i "/'gwin32notificationbackend.c'/d" gio/meson.build
+    sed -i "/'gwin32packageparser.c'/d" gio/meson.build
+    
+    # Также уберем вызовы этих функций, чтобы не было ошибок линковки
+    sed -i "s/if g_win32_is_windows_10_rs3_or_later/if (0)/" gio/gwin32notificationbackend.c 2>/dev/null || true
+
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
         --cross-file cross_file.txt \
