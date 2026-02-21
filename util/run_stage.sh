@@ -1,11 +1,17 @@
 #!/bin/bash
 set -e
 
-# Запуск Xvfb, если он еще не запущен
-if ! pgrep -x "Xvfb" > /dev/null; then
-    Xvfb :99 -screen 0 1024x768x16 &
-    export DISPLAY=:99
-    sleep 1
+# Инициализация Wine прямо перед сборкой стадии
+if [[ -n "$(ffbuild_dockerdl)" ]]; then
+    if ! pgrep -x "Xvfb" > /dev/null; then
+        Xvfb :99 -screen 0 1024x768x16 &
+        sleep 2
+    fi
+    # Быстрая инициализация без ожидания всех сервисов
+    if [[ ! -d "$WINEPREFIX" ]]; then
+        log_info "Initializing Wine prefix for $STAGENAME..."
+        wineboot -u && wineserver -w
+    fi
 fi
 
 # Подавляем лишние логи Wine (чтобы не засорять логи GitHub)

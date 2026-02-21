@@ -11,16 +11,14 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    set -e
     mkdir build && cd build
 
-    # Отключаем X11, так как мы собираем под Windows (GDI/Win32)
-    meson setup .. \
+    meson setup build \
         --prefix="$FFBUILD_PREFIX" \
-        --cross-file=/cross.meson \
+        --cross-file="$FFBUILD_CMAKE_TOOLCHAIN" \
         --buildtype=release \
-        --wrap-mode=nodownload \
         --default-library=static \
+        --wrap-mode=nodownload \
         -Dtests=disabled \
         -Dzlib=enabled \
         -Dpng=enabled \
@@ -28,22 +26,20 @@ ffbuild_dockerbuild() {
         -Dfreetype=enabled \
         -Dtee=enabled \
         -Dglib=enabled \
-        -Dlzo=disabled \
         -Dxcb=disabled \
-        -Dxlib=disabled
+        -Dxlib=disabled \
+        -Dpixman=enabled \
+        .. \
+        || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
 
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -C build -j$(nproc) $NINJA_V
+    DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
 
     # для статической линковки Cairo в FFmpeg под Windows
     # Cairo часто забывает прописать системные зависимости в .pc файл
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/cairo.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Добавляем необходимые системные библиотеки Windows
-        sed -i "s/Libs.private:/Libs.private: -lgdi32 -lmsimg32 -luser32 /" "$PC_FILE"
+        # Добавляем gdi32 и msimg32 (нужны для win32-surface)
+        sed -i 's/^Libs:.*/& -lgdi32 -lmsimg32 -luser32/' "$PC_FILE"
     fi
-}
-
-ffbuild_configure() {
-    return 0
 }
