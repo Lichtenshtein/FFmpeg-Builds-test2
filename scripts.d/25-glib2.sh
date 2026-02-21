@@ -1,7 +1,8 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/GNOME/glib.git"
-SCRIPT_COMMIT="6b11cae1b3bf3e9cff9485481dd1c0f7e806c361"
+SCRIPT_COMMIT="05da47c2d0d333cec6363e09bcf9eed6952e74ce"
+# SCRIPT_COMMIT="6b11cae1b3bf3e9cff9485481dd1c0f7e806c361"
 
 ffbuild_enabled() {
     return 0
@@ -13,6 +14,11 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+which wine
+which qemu-system-x86_64
+which qemu
+whereis wine
+whereis qemu
     set -e
     pkg-config --cflags --libs intl
     # инициализация подмодуля gvdb
@@ -45,14 +51,15 @@ ranlib = '${FFBUILD_TOOLCHAIN}-gcc-ranlib'
 [properties]
 posix_memalign_with_alignment = false
 growstack = false
-have_c99_snprintf = true
-have_c99_vsnprintf = true
+# have_c99_snprintf = true
+# have_c99_vsnprintf = true
 va_val_copy = true
 growing_stack = false
 needs_exe_wrapper = true
-#has_function_gettext = true
-#has_function_ngettext = true
-#has_function_bindtextdomain = true
+# has_function_gettext = true
+# has_function_ngettext = true
+# has_function_bindtextdomain = true
+# exe_wrapper = '/usr/bin/qemu-aarch64'
 
 [built-in options]
 c_args = ['-I${FFBUILD_PREFIX}/include']
