@@ -12,28 +12,37 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    set -e
+
     # Отключаем WinRT, который требует отсутствующий заголовок
     # Мы подменяем проверку в meson.build или передаем через CFLAGS
-    export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW"
-    export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WIN32_IS_STRICT_MINGW"
+    export CFLAGS="$CFLAGS -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
+    export CXXFLAGS="$CXXFLAGS -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
 
     mkdir build && cd build
 
-    meson setup --prefix="$FFBUILD_PREFIX" \
-        --cross-file=/cross.meson \
-        --default-library=static \
+    meson setup build \
+        --prefix="$FFBUILD_PREFIX" \
+        --cross-file="$FFBUILD_CMAKE_TOOLCHAIN" \
         --buildtype=release \
+        --default-library=static \
         --wrap-mode=nodownload \
         -Dintrospection=disabled \
         -Dfontconfig=enabled \
+        -Dfreetype=enabled \
         -Dsysprof=disabled \
         -Ddocumentation=false \
         -Dbuild-testsuite=false \
         -Dbuild-examples=false \
         -Dman-pages=false \
-        ..
+        .. \
+        || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
 
-    ninja -j$(nproc)  $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -C build -j$(nproc) $NINJA_V
+    DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
+
+    # Линковка Pango в FFmpeg требует Uniscribe
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/pango.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i 's/^Libs:.*/& -lusp10 -lshlwapi -lsetupapi/' "$PC_FILE"
+    fi
 }

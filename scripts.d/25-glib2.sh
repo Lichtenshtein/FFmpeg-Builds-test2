@@ -55,7 +55,10 @@ EOF
 
     # Настройка окружения для Meson
     export PKG_CONFIG_LIBDIR="$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_PREFIX/share/pkgconfig"
-    unset PKG_CONFIG_PATH 
+    unset PKG_CONFIG_PATH
+
+    export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0A00 -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
+    export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0A00 -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
 
     # Удаляем субпроекты, которые ломают сборку
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
