@@ -28,6 +28,7 @@ ffbuild_dockerbuild() {
         -Dfreetype=enabled \
         -Dtee=enabled \
         -Dglib=enabled \
+        -Dlzo=disabled \
         -Dxcb=disabled \
         -Dxlib=disabled
 
