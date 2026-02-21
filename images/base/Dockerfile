@@ -6,12 +6,6 @@ ARG TARGETPLATFORM
 ENV DEBIAN_FRONTEND=noninteractive
 RUN \
     apt-get -y update && \
-    apt-get -y install --no-install-recommends ca-certificates curl gnupg && \
-    dpkg --add-architecture i386 && \
-    mkdir -pm755 /etc/apt/keyrings && \
-    curl -fsSL https://dl.winehq.org/wine-builds/winehq.key -o /etc/apt/keyrings/winehq-archive.key && \
-    curl -fsSL "https://dl.winehq.org/wine-builds/ubuntu/dists/noble/winehq-noble.sources" -o /etc/apt/sources.list.d/winehq-noble.sources && \
-    apt-get -y update && \
     apt-get -y dist-upgrade && \
     apt-get -y install --no-install-recommends \
         $([ "$TARGETPLATFORM" != "linux/amd64" ] || echo gcc-multilib g++-multilib) \
@@ -21,7 +15,7 @@ RUN \
         clang llvm lcov lld qemu-user libunwind-dev \
         texinfo texi2html help2man flex bison groff \
         gperf itstool ragel libc6-dev zlib1g-dev libssl-dev \
-        gtk-doc-tools gobject-introspection gawk winehq-stable xvfb \
+        gtk-doc-tools gobject-introspection gawk \
         ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent p7zip-full zstd \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
         gcc-14 g++-14 dos2unix re2c && \
@@ -56,16 +50,32 @@ ENV HOST_CC="gcc-14" \
     HOST_CFLAGS="-O2 -pipe" \
     HOST_CXXFLAGS="-O2 -pipe"
 
-ENV WINEARCH=win64 \
+RUN dpkg --add-architecture i386 && \
+    mkdir -pm755 /etc/apt/keyrings && \
+    curl -fsSL "https://dl.winehq.org/wine-builds/winehq.key" -o /etc/apt/keyrings/winehq-archive.key && \
+    curl -fsSL "https://dl.winehq.org/wine-builds/ubuntu/dists/noble/winehq-noble.sources" -o /etc/apt/sources.list.d/winehq-noble.sources && \
+    apt-get -y update && \
+    # Явно устанавливаем amd64 версию, чтобы избежать пустых метапакетов
+    apt-get -y install --no-install-recommends \
+        wine-stable-amd64 \
+        wine-stable \
+        winehq-stable \
+        xvfb && \
+    # ПРОВЕРКА: где на самом деле лежат файлы?
+    find /opt /usr -name "wine64"
+
+RUN WINE_BIN_PATH=$(find /opt /usr/lib -name wine64 -type f -print -quit | xargs dirname) && \
+    echo "Actual Wine path found: $WINE_BIN_PATH" && \
+    ln -sf "$WINE_BIN_PATH/wine64" /usr/bin/wine64 && \
+    ln -sf "$WINE_BIN_PATH/wine" /usr/bin/wine && \
+    ln -sf "$WINE_BIN_PATH/wineboot" /usr/bin/wineboot && \
+    ln -sf "$WINE_BIN_PATH/wineserver" /usr/bin/wineserver && \
+    # Проверка работоспособности
+    /usr/bin/wine64 --version
+
+# Настройка окружения, чтобы Wine всегда видел свои библиотеки
+ENV PATH="/usr/bin:${PATH}" \
+    WINEARCH=win64 \
     WINEPREFIX=/root/.wine \
     DISPLAY=:99 \
-    WINEDEBUG=-all \
-    PATH="/opt/wine-stable/bin:${PATH}"
-
-# Создаем симлинки и просто проверяем работоспособность версии
-RUN ln -sf /opt/wine-stable/bin/wine64 /usr/bin/wine64 && \
-    ln -sf /opt/wine-stable/bin/wine /usr/bin/wine && \
-    ln -sf /opt/wine-stable/bin/wineboot /usr/bin/wineboot && \
-    ln -sf /opt/wine-stable/bin/wineserver /usr/bin/wineserver && \
-    # Проверка: если wine --version сработает, значит пути к либам в порядке
-    wine64 --version
+    WINEDEBUG=-all
