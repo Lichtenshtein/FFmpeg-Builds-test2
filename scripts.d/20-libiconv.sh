@@ -1,5 +1,3 @@
-20-libiconv.sh
-
 #!/bin/bash
 
 SCRIPT_REPO="https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.18.tar.gz"
