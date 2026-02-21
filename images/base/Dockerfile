@@ -57,15 +57,15 @@ ENV WINEARCH=win64 \
     WINEDEBUG=-all
 
 # Создаем симлинки (force) и сразу инициализируем префикс
-RUN ln -sf /usr/lib/wine/wine64 /usr/bin/wine64 && \
-    ln -sf /usr/lib/wine/wineboot /usr/bin/wineboot && \
-    ln -sf /usr/lib/wine/wineserver /usr/bin/wineserver && \
+RUN WINE_PATH=$(find /usr/lib -name wineboot -type f -print -quit | xargs dirname) && \
+    echo "Wine found in: $WINE_PATH" && \
+    ln -sf "$WINE_PATH/wine64" /usr/bin/wine64 && \
+    ln -sf "$WINE_PATH/wineboot" /usr/bin/wineboot && \
+    ln -sf "$WINE_PATH/wineserver" /usr/bin/wineserver && \
     ln -sf /usr/bin/wine64 /usr/bin/wine && \
-    # Запуск виртуального дисплея и инициализация
     (Xvfb :99 -screen 0 1024x768x16 &) && \
+    export DISPLAY=:99 && \
     sleep 2 && \
-    wineboot -i && \
-    # Ждем завершения процессов wine, чтобы слой зафиксировался чистым
-    wineserver -w && \
-    # Убеждаемся, что префикс создан
-    ls -l $WINEPREFIX
+    /usr/bin/wineboot -i && \
+    /usr/bin/wineserver -w && \
+    ls -l /root/.wine
