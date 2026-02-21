@@ -60,7 +60,6 @@ ENV HOST_CC="gcc-14" \
 ENV WINEARCH=win64 \
     WINEPREFIX=/root/.wine \
     DISPLAY=:99 \
-    WINEDEBUG=-all \
     PATH="/opt/wine-stable/bin:${PATH}" \
     LD_LIBRARY_PATH="/opt/wine-stable/lib:/opt/wine-stable/lib64:${LD_LIBRARY_PATH}"
 
