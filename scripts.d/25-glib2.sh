@@ -90,7 +90,6 @@ EOF
         -Dnls=enabled \
         -Dglib_debug=disabled \
         -Dforce_posix_threads=true \
-        -Dglib_asserts=false \
         -Dglib_checks=false \
         -Druntime_libdir="" \
         -Dman-pages=disabled \
