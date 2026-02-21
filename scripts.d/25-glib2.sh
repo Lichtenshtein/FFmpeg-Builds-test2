@@ -13,6 +13,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    pkg-config --cflags --libs intl
     # инициализация подмодуля gvdb
     if ! git submodule update --init --recursive; then
         echo "Submodule update failed, downloading GVDB manually..."
@@ -47,15 +48,15 @@ growing_stack = false
 needs_exe_wrapper = true
 
 [built-in options]
-c_args = []
+c_args = ['-I${FFBUILD_PREFIX}/include']
 cpp_args = []
-c_link_args = []
-cpp_link_args = []
+c_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv']
+cpp_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv']
 EOF
 
     # Настройка окружения для Meson
     export PKG_CONFIG_LIBDIR="$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_PREFIX/share/pkgconfig"
-    export PKG_CONFIG_PATH="" # Очищаем, чтобы не было конфликтов
+    unset PKG_CONFIG_PATH 
     export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0A00 -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
     export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0A00 -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
 
@@ -68,7 +69,7 @@ EOF
         --buildtype release \
         --default-library static \
         --wrap-mode=nodownload \
-        --wrap-mode=nodownload \
+        -Dintl=external \
         -Dnls=disabled \
         -Dtests=false \
         -Dintrospection=disabled \
