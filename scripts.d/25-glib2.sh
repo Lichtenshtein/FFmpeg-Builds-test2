@@ -43,7 +43,7 @@ nm = '${FFBUILD_TOOLCHAIN}-gcc-nm'
 ranlib = '${FFBUILD_TOOLCHAIN}-gcc-ranlib'
 
 [properties]
-posix_memalign_with_alignment = false
+posix_memalign_with_alignment = true
 growstack = false
 have_c99_snprintf = true
 have_c99_vsnprintf = true
@@ -85,11 +85,11 @@ EOF
         --wrap-mode=nodownload \
         -Dtests=false \
         -Db_vscrt=static_fallback \
-        -Dx_uwp=false \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
         -Dnls=enabled \
         -Dglib_debug=disabled \
+        -Dforce_posix_threads=true \
         -Dglib_asserts=false \
         -Dglib_checks=false \
         -Druntime_libdir="" \
