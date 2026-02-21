@@ -189,23 +189,39 @@ ffbuild_enabled() {
 get_stage_hash() {
     local STAGE_PATH="$1"
     local STAGENAME=$(basename "$STAGE_PATH" .sh)
+    # Извлекаем имя компонента (напр., из 50-libmp3lame получаем libmp3lame)
+    # Используем sed, чтобы отрезать все до первого дефиса включительно
+    local COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
     
-    # Получаем команды загрузки (ffbuild_dockerdl) в чистом окружении
-    # Используем bash -c, чтобы не засорять текущую оболочку
+    # КОМАНДЫ ЗАГРУЗКИ (для download.sh)
+    # Выполняем в чистом окружении, чтобы получить только то, что сгенерирует ffbuild_dockerdl
     local DL_COMMANDS=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
                       source util/dl_functions.sh; \
                       source \"$STAGE_PATH\"; \
                       ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")
     
-    # Очистка команд от мусора
+    # Очистка команд (как в вашей текущей версии)
     DL_COMMANDS="${DL_COMMANDS//retry-tool /}"
     DL_COMMANDS="${DL_COMMANDS//git fetch --unshallow/true}"
 
     # Получаем чистый код скрипта (без комментов, пробелов в конце и \r)
     local SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE_PATH" | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' | grep -v '^[[:space:]]*$' | tr -d '\r')
 
-    # Генерируем финальный хеш (16 символов)
-    (echo "$DL_COMMANDS"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16
+    # ХЕШ ПАТЧЕЙ (критично для run_stage.sh)
+    # Ищем патчи в двух местах:
+    #    а) В папке с именем компонента (patches/libmp3lame/*)
+    #    б) Файлы, начинающиеся с имени компонента (patches/libmp3lame-custom.patch)
+    local PATCH_HASH=$( (
+        find "patches/$COMPONENT_NAME" -type f 2>/dev/null
+        find "patches" -maxdepth 1 -name "${COMPONENT_NAME}*" -type f 2>/dev/null
+    ) | sort | xargs sha256sum 2>/dev/null | sha256sum | cut -d" " -f1 | cut -c1-16 || echo "no-patches")
+
+    # ХЕШ ГЛОБАЛЬНЫХ НАСТРОЕК (vars.sh и dl_functions.sh)
+    # Если вы измените CFLAGS в vars.sh, хеш всех стадий изменится.
+    local UTILS_HASH=$(sha256sum util/vars.sh util/dl_functions.sh 2>/dev/null | sha256sum | cut -c1-16)
+
+    # Генерируем финальный комбинированный хеш (16 символов)
+    echo -e "$DL_COMMANDS\n$SCRIPT_CODE\n$PATCH_HASH\n$UTILS_HASH" | sha256sum | cut -d" " -f1 | cut -c1-16
 }
 export -f get_stage_hash
 
@@ -234,6 +250,7 @@ export CCACHE_BASEDIR="/builder"
 export CCACHE_COMPILERCHECK="content"
 export CCACHE_DEPEND="1"
 export CCACHE_COMPRESS=1
+export CCACHE_NOHASHDIR=1
 
 # Явно задаем хост-систему для Autotools
 export CHOST="$FFBUILD_TOOLCHAIN"

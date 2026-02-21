@@ -1,6 +1,16 @@
 #!/bin/bash
 set -e
 
+# Запуск Xvfb, если он еще не запущен
+if ! pgrep -x "Xvfb" > /dev/null; then
+    Xvfb :99 -screen 0 1024x768x16 &
+    export DISPLAY=:99
+    sleep 1
+fi
+
+# Подавляем лишние логи Wine (чтобы не засорять логи GitHub)
+export WINEDEBUG=-all
+
 SCRIPT_PATH="$1"
 STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
 
@@ -16,6 +26,8 @@ fi
 # Создаем и входим в директорию сборки ДО загрузки скрипта
 mkdir -p "/build/$STAGENAME"
 cd "/build/$STAGENAME"
+
+ccache -z > /dev/null
 
 # Подгружаем скрипт заранее, чтобы проверить SCRIPT_SKIP
 # любые $(pwd) или относительные пути внутри скрипта будут указывать на /build/STAGENAME
@@ -60,8 +72,6 @@ else
         exit 1
     fi
 fi
-
-ccache -z
 
 # Проверка: нужен ли вообще архив для этой стадии?
 DL_CHECK=$(ffbuild_dockerdl)
@@ -117,6 +127,11 @@ export RAW_LDEXEFLAGS="$LDEXEFLAGS"
 # Выполняем сборку ОДИН РАЗ с проверкой статуса
 build_cmd="ffbuild_dockerbuild"
 [[ -n "$2" ]] && build_cmd="$2"
+
+# Вывод статистики в конце каждой стадии
+# Это покажет Hit Rate прямо в логах GitHub
+log_info "--- CCACHE STATISTICS ---"
+ccache -s
 
 log_info "################################################################################"
 log_info "### STARTING STAGE: $STAGENAME"
@@ -218,8 +233,3 @@ rm -rf "/build/$STAGENAME"
 
 # Конец группы в логах GitHub
 echo "::endgroup::"
-
-# Вывод статистики в конце каждой стадии
-# Это покажет Hit Rate прямо в логах GitHub
-log_info "--- CCACHE STATISTICS ---"
-ccache -s
