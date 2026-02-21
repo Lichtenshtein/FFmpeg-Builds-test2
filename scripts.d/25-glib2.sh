@@ -56,35 +56,27 @@ c_args = ['-I${FFBUILD_PREFIX}/include']
 cpp_args = []
 c_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv']
 cpp_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv']
+
+[binaries]
+exe_wrapper = 'wine'
+
+[host_machine]
+system = 'windows'
+subsystem = 'windows'
+kernel = 'nt'
+cpu_family = 'x86_64'
+cpu = 'i686'
+endian = 'little'
 EOF
 
     # Настройка окружения для Meson
     export PKG_CONFIG_LIBDIR="$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_PREFIX/share/pkgconfig"
     unset PKG_CONFIG_PATH 
-    export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0A00 -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
-    export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0A00 -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
+    export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0A00 -DG_WINAPI_ONLY_APP=false -DGLIB_STATIC_COMPILATION"
+    export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0A00 -DG_WINAPI_ONLY_APP=false -DGLIB_STATIC_COMPILATION"
 
     # Удаляем субпроекты, которые ломают сборку
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
-
-    # Исправляем gwin32appinfo.c
-    # Заменяем вызов функции внутри if на (1), чтобы условие всегда проходило
-    sed -i 's/g_win32_package_parser_enum_packages *(.*)/1/g' gio/gwin32appinfo.c
-    
-    # Исправляем giomodule.c (удаляем регистрацию бэкенда уведомлений)
-    sed -i '/g_win32_notification_backend_get_type/d' gio/giomodule.c
-
-    # Создаем физические заглушки в файлах, чтобы компилятор не искал WinRT заголовки
-    # Мы полностью перезаписываем файлы минимальным валидным C-кодом
-    cat <<EOF > gio/gwin32notificationbackend.c
-#include <glib.h>
-size_t g_win32_notification_backend_get_type(void) { return 0; }
-EOF
-
-    cat <<EOF > gio/gwin32packageparser.c
-#include <glib.h>
-int g_win32_package_parser_enum_packages(void* a, void* b, void* c) { return 1; }
-EOF
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
@@ -92,8 +84,12 @@ EOF
         --buildtype release \
         --default-library static \
         --wrap-mode=nodownload \
+        --with-libiconv \
         -Dnls=disabled \
         -Dtests=false \
+        -Dtests=disabled \
+        -Db_coverage=false \
+        -Dman-pages=disabled \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
         -Dglib_debug=disabled \
