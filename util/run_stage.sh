@@ -140,7 +140,7 @@ if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
             for logfile in $LOG_FILES; do
                 echo " "
                 log_debug "--- CONTENT OF $logfile (last 150 lines) ---"
-                tail -n 150 "$logfile"
+                tail -n 1150 "$logfile"
                 log_debug "--- END OF $logfile ---"
                 echo " "
             done

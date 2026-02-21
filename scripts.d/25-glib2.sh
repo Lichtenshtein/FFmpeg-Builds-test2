@@ -1,8 +1,8 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/GNOME/glib.git"
-SCRIPT_COMMIT="05da47c2d0d333cec6363e09bcf9eed6952e74ce"
-# SCRIPT_COMMIT="6b11cae1b3bf3e9cff9485481dd1c0f7e806c361"
+# SCRIPT_COMMIT="05da47c2d0d333cec6363e09bcf9eed6952e74ce"
+SCRIPT_COMMIT="6b11cae1b3bf3e9cff9485481dd1c0f7e806c361"
 
 ffbuild_enabled() {
     return 0
@@ -67,8 +67,8 @@ EOF
     # Настройка окружения для Meson
     export PKG_CONFIG_LIBDIR="$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_PREFIX/share/pkgconfig"
     unset PKG_CONFIG_PATH 
-    export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0A00 -DG_WINAPI_ONLY_APP=false -DGLIB_STATIC_COMPILATION"
-    export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0A00 -DG_WINAPI_ONLY_APP=false -DGLIB_STATIC_COMPILATION"
+    export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WINAPI_ONLY_APP=false -DGLIB_STATIC_COMPILATION"
+    export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0601 -DG_WINAPI_ONLY_APP=false -DGLIB_STATIC_COMPILATION"
 
     # Удаляем субпроекты, которые ломают сборку
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
