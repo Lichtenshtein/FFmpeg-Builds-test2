@@ -1,18 +1,22 @@
 #!/bin/bash
 set -e
 
-# if [[ -n "$(ffbuild_dockerdl)" ]]; then
-    # if ! pgrep -x "Xvfb" > /dev/null; then
-        # Xvfb :99 -screen 0 1024x768x16 &
-        # sleep 2
-    # fi
-    # if [[ ! -d "$WINEPREFIX" ]]; then
-        # log_info "Initializing Wine prefix for $STAGENAME..."
-        # wineboot -u && wineserver -w
-    # fi
-# fi
+# Инициализация графического окружения для Wine (нужно для Meson/CMake тестов)
+if ! pgrep -x "Xvfb" > /dev/null; then
+    log_debug "Starting Xvfb for Wine..."
+    Xvfb :99 -screen 0 1024x768x16 &
+    export DISPLAY=:99
+    sleep 1
+fi
 
-# Подавляем лишние логи Wine (чтобы не засорять логи GitHub)
+# Инициализация префикса, если его еще нет (только один раз за весь билд)
+if [[ ! -d "$WINEPREFIX" ]]; then
+    log_info "Initializing Wine prefix (once)..."
+    wineboot -u >/dev/null 2>&1
+    wineserver -w
+fi
+
+# Подавляем мусорные логи Wine, чтобы видеть только ошибки компиляции
 export WINEDEBUG=-all
 
 SCRIPT_PATH="$1"
