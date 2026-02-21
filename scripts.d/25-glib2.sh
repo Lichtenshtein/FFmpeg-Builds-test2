@@ -84,7 +84,6 @@ EOF
         --buildtype release \
         --default-library static \
         --wrap-mode=nodownload \
-        --with-libiconv \
         -Dnls=disabled \
         -Dtests=false \
         -Dtests=disabled \
