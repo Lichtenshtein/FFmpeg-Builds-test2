@@ -15,7 +15,7 @@ RUN \
         clang llvm lcov lld qemu-user libunwind-dev \
         texinfo texi2html help2man flex bison groff \
         gperf itstool ragel libc6-dev zlib1g-dev libssl-dev \
-        gtk-doc-tools gobject-introspection gawk wine64-tools wine64 \
+        gtk-doc-tools gobject-introspection gawk wine64-tools xvfb wine64 \
         ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent p7zip-full zstd \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
         gcc-14 g++-14 dos2unix re2c && \
@@ -39,14 +39,6 @@ ENV CARGO_HOME="/opt/cargo" RUSTUP_HOME="/opt/rustup" PATH="/opt/cargo/bin:${PAT
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path && \
     curl -fsSL "https://github.com/lu-zero/cargo-c/releases/download/v${CARGO_C_VERSION}/cargo-c-x86_64-unknown-linux-musl.tar.gz" | tar -xz -C /opt/cargo/bin
 
-    # it forces every sub-script that uses Rust (like rav1e or cargo-c builds) to re-download crates unless mapped CARGO_HOME to a persistent GitHub Action cache
-    # && \ rm -rf "${CARGO_HOME}"/registry "${CARGO_HOME}"/git
-
-    # Динамическое получение последней версии через GitHub API
-    # export CARGO_C_URL=$(curl -fsSL https://api.github.com/repos/lu-zero/cargo-c/releases/latest | \
-    # jq -r '.assets[] | select(.name | test("x86_64-unknown-linux-musl\\.tar\\.gz$")) | .browser_download_url') && \
-    # curl -fsSL "$CARGO_C_URL" | tar -xz -C /opt/cargo/bin && \
-
 RUN --mount=src=.,dst=/input \
     for s in /input/*.sh; do \
         dest="/usr/bin/$(basename $s .sh)"; \
@@ -57,3 +49,14 @@ ENV HOST_CC="gcc-14" \
     HOST_CXX="g++-14" \
     HOST_CFLAGS="-O2 -pipe" \
     HOST_CXXFLAGS="-O2 -pipe"
+
+# Настройка Wine в headless режиме
+ENV WINEARCH=win64 \
+    WINEPREFIX=/root/.wine \
+    DISPLAY=:99
+
+# Инициализация префикса (без этого Wine будет тормозить при первом запуске каждого скрипта)
+RUN Xvfb :99 -screen 0 1024x768x16 & \
+    sleep 2 && \
+    wineboot -i && \
+    wineserver -w

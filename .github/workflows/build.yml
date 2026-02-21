@@ -232,6 +232,9 @@ jobs:
           outputs: type=local,dest=artifacts/
           provenance: false
 
+      - name: Final Ccache Stats
+        run: docker run --rm --mount=type=cache,id=ccache-${{ env.TARGET }},target=/root/.cache/ccache base-win64 ccache -s
+
       - name: Cleanup Old Caches
         if: always()
         continue-on-error: true
