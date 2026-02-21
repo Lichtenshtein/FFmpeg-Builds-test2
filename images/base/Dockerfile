@@ -57,19 +57,20 @@ RUN \
     apt-get -y update && \
     apt-get -y install --no-install-recommends \
         wine-stable-amd64 \
+        wine-stable \
         xvfb && \
+    ls -l /opt/wine-stable/bin/wine64 && \
     dpkg -L wine-stable-amd64
 
-RUN WINE_BIN=$(which wine64 || find /usr -name "wine64" -type f | head -n 1) && \
-    WINE_DIR=$(dirname "$WINE_BIN") && \
-    ln -sf "$WINE_BIN" /usr/bin/wine64 && \
-    ln -sf "$WINE_DIR/wineboot" /usr/bin/wineboot && \
-    ln -sf "$WINE_DIR/wineserver" /usr/bin/wineserver && \
-    wine64 --version
-
-# Настройка окружения, чтобы Wine всегда видел свои библиотеки
-ENV PATH="/usr/bin:${PATH}" \
+ENV PATH="/opt/wine-stable/bin:${PATH}" \
     WINEARCH=win64 \
     WINEPREFIX=/root/.wine \
     DISPLAY=:99 \
     WINEDEBUG=-all
+
+RUN ln -sf /opt/wine-stable/bin/wine64 /usr/bin/wine64 && \
+    ln -sf /opt/wine-stable/bin/wine /usr/bin/wine && \
+    ln -sf /opt/wine-stable/bin/wineboot /usr/bin/wineboot && \
+    ln -sf /opt/wine-stable/bin/wineserver /usr/bin/wineserver && \
+    # Теперь эта команда ОБЯЗАНА сработать
+    wine64 --version
