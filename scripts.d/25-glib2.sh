@@ -46,6 +46,9 @@ have_c99_vsnprintf = true
 va_val_copy = true
 growing_stack = false
 needs_exe_wrapper = true
+#has_function_gettext = true
+#has_function_ngettext = true
+#has_function_bindtextdomain = true
 
 [built-in options]
 c_args = ['-I${FFBUILD_PREFIX}/include']
@@ -69,7 +72,6 @@ EOF
         --buildtype release \
         --default-library static \
         --wrap-mode=nodownload \
-        -Dintl=external \
         -Dnls=disabled \
         -Dtests=false \
         -Dintrospection=disabled \
