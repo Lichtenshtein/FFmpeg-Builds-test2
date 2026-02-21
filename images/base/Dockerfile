@@ -6,6 +6,11 @@ ARG TARGETPLATFORM
 ENV DEBIAN_FRONTEND=noninteractive
 RUN \
     apt-get -y update && \
+    apt-get -y install --no-install-recommends ca-certificates curl gnupg && \
+    mkdir -pm755 /etc/apt/keyrings && \
+    curl -fsSL https://dl.winehq.org/wine-builds/winehq.key -o /etc/apt/keyrings/winehq-archive.key && \
+    curl -fsSL "https://dl.winehq.org/wine-builds/ubuntu/dists/noble/winehq-noble.sources" -o /etc/apt/sources.list.d/winehq-noble.sources && \
+    apt-get -y update && \
     apt-get -y dist-upgrade && \
     apt-get -y install --no-install-recommends \
         $([ "$TARGETPLATFORM" != "linux/amd64" ] || echo gcc-multilib g++-multilib) \
@@ -15,7 +20,7 @@ RUN \
         clang llvm lcov lld qemu-user libunwind-dev \
         texinfo texi2html help2man flex bison groff \
         gperf itstool ragel libc6-dev zlib1g-dev libssl-dev \
-        gtk-doc-tools gobject-introspection gawk wine64-tools wine64 wine xvfb \
+        gtk-doc-tools gobject-introspection gawk winehq-stable xvfb \
         ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent p7zip-full zstd \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
         gcc-14 g++-14 dos2unix re2c && \
@@ -56,16 +61,13 @@ ENV WINEARCH=win64 \
     DISPLAY=:99 \
     WINEDEBUG=-all
 
-# Создаем симлинки (force) и сразу инициализируем префикс
-RUN WINE_PATH=$(find /usr/lib -name wineboot -type f -print -quit | xargs dirname) && \
-    echo "Wine found in: $WINE_PATH" && \
-    ln -sf "$WINE_PATH/wine64" /usr/bin/wine64 && \
-    ln -sf "$WINE_PATH/wineboot" /usr/bin/wineboot && \
-    ln -sf "$WINE_PATH/wineserver" /usr/bin/wineserver && \
-    ln -sf /usr/bin/wine64 /usr/bin/wine && \
+RUN ln -sf /opt/wine-stable/bin/wine64 /usr/bin/wine64 && \
+    ln -sf /opt/wine-stable/bin/wine /usr/bin/wine && \
+    ln -sf /opt/wine-stable/bin/wineboot /usr/bin/wineboot && \
+    ln -sf /opt/wine-stable/bin/wineserver /usr/bin/wineserver && \
+    # Запуск виртуального дисплея и создание префикса
     (Xvfb :99 -screen 0 1024x768x16 &) && \
-    export DISPLAY=:99 && \
     sleep 2 && \
-    /usr/bin/wineboot -i && \
-    /usr/bin/wineserver -w && \
+    wineboot -i && \
+    wineserver -w && \
     ls -l /root/.wine
