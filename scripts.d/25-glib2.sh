@@ -14,12 +14,6 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-which wine
-which qemu-system-x86_64
-which qemu
-whereis wine
-whereis qemu
-    set -e
     pkg-config --cflags --libs intl
     # инициализация подмодуля gvdb
     if ! git submodule update --init --recursive; then
@@ -59,7 +53,9 @@ needs_exe_wrapper = true
 # has_function_gettext = true
 # has_function_ngettext = true
 # has_function_bindtextdomain = true
-# exe_wrapper = '/usr/bin/qemu-aarch64'
+# exe_wrapper = '/usr/libexec/wine'
+exe_wrapper = '/usr/lib/x86_64-linux-gnu/wine'
+# /usr/lib/wine /usr/include/wine
 
 [built-in options]
 c_args = ['-I${FFBUILD_PREFIX}/include']
