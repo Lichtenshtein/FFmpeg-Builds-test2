@@ -42,10 +42,7 @@ to_df "ENV TARGET=$TARGET VARIANT=$VARIANT REPO=$REPO ADDINS_STR=$ADDINS_STR \\
     DLL_PRESERVE_LIST=\"$DLL_PRESERVE_LIST\" \\
     GIT_PRESERVE_LIST=\"$GIT_PRESERVE_LIST\""
 
-# Обновленная строка для generate.sh:
-to_df "ENV C_INCLUDE_PATH=/opt/ffbuild/include:/opt/mingw/include \\
-    CPATH=/opt/ffbuild/include:/opt/mingw/include \\
-    LIBRARY_PATH=/opt/ffbuild/lib:/opt/mingw/lib"
+to_df "ENV C_INCLUDE_PATH=/opt/ffbuild/include CPATH=/opt/ffbuild/include LIBRARY_PATH=/opt/ffbuild/lib"
 
 # Копируем утилиту один раз. Это стабильная точка для кэша.
 to_df "COPY util/run_stage.sh /usr/bin/run_stage"
