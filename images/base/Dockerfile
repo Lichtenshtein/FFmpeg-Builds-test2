@@ -55,12 +55,10 @@ RUN \
     curl -fsSL "https://dl.winehq.org/wine-builds/winehq.key" -o /etc/apt/keyrings/winehq-archive.key && \
     curl -fsSL "https://dl.winehq.org/wine-builds/ubuntu/dists/noble/winehq-noble.sources" -o /etc/apt/sources.list.d/winehq-noble.sources && \
     apt-get -y update && \
-    # Явно устанавливаем amd64 версию, чтобы избежать пустых метапакетов
     apt-get -y install --no-install-recommends \
         wine-stable-amd64 \
         xvfb && \
-    # ПРОВЕРКА: где на самом деле лежат файлы?
-    dpkg -L wine-stable-amd64 | grep bin/wine
+    dpkg -L wine-stable-amd64
 
 RUN WINE_BIN=$(which wine64 || find /usr -name "wine64" -type f | head -n 1) && \
     WINE_DIR=$(dirname "$WINE_BIN") && \
