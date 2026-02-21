@@ -51,15 +51,14 @@ ENV HOST_CC="gcc-14" \
     HOST_CXXFLAGS="-O2 -pipe"
 
 RUN \
+    dpkg --add-architecture i386 && \
     mkdir -pm755 /etc/apt/keyrings && \
     curl -fsSL "https://dl.winehq.org/wine-builds/winehq.key" -o /etc/apt/keyrings/winehq-archive.key && \
     curl -fsSL "https://dl.winehq.org/wine-builds/ubuntu/dists/noble/winehq-noble.sources" -o /etc/apt/sources.list.d/winehq-noble.sources && \
     apt-get -y update && \
     apt-get -y install --no-install-recommends \
-        wine-stable-amd64 \
         wine-stable \
         xvfb && \
-    ls -l /opt/wine-stable/bin/wine64 && \
     dpkg -L wine-stable-amd64
 
 ENV PATH="/opt/wine-stable/bin:${PATH}" \
@@ -72,5 +71,5 @@ RUN ln -sf /opt/wine-stable/bin/wine64 /usr/bin/wine64 && \
     ln -sf /opt/wine-stable/bin/wine /usr/bin/wine && \
     ln -sf /opt/wine-stable/bin/wineboot /usr/bin/wineboot && \
     ln -sf /opt/wine-stable/bin/wineserver /usr/bin/wineserver && \
-    # Теперь эта команда ОБЯЗАНА сработать
+    # Теперь ошибки 127 быть не может
     wine64 --version
