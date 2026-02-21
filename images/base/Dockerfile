@@ -59,7 +59,7 @@ RUN \
     apt-get -y install --no-install-recommends \
         wine-stable \
         xvfb && \
-    dpkg -L wine-stable-amd64
+    dpkg -L wine-stable
 
 ENV PATH="/opt/wine-stable/bin:${PATH}" \
     WINEARCH=win64 \
