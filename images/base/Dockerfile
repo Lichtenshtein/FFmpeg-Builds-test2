@@ -50,21 +50,22 @@ ENV HOST_CC="gcc-14" \
     HOST_CFLAGS="-O2 -pipe" \
     HOST_CXXFLAGS="-O2 -pipe"
 
-# Wine доступен глобально
-RUN ln -s /usr/lib/wine/wine64 /usr/bin/wine64 && \
-    ln -s /usr/lib/wine/wineboot /usr/bin/wineboot && \
-    ln -s /usr/lib/wine/wineserver /usr/bin/wineserver && \
-    ln -s /usr/bin/wine64 /usr/bin/wine
-
-# Настройка Wine в headless режиме
+# Настройка Wine и путей
 ENV WINEARCH=win64 \
     WINEPREFIX=/root/.wine \
-    DISPLAY=:99
+    DISPLAY=:99 \
+    WINEDEBUG=-all
 
-# Инициализация префикса (без этого Wine будет тормозить при первом запуске каждого скрипта)
-ENV WINEDEBUG=-all
-RUN Xvfb :99 -screen 0 1024x768x16 & \
-    export DISPLAY=:99 && \
+# Создаем симлинки (force) и сразу инициализируем префикс
+RUN ln -sf /usr/lib/wine/wine64 /usr/bin/wine64 && \
+    ln -sf /usr/lib/wine/wineboot /usr/bin/wineboot && \
+    ln -sf /usr/lib/wine/wineserver /usr/bin/wineserver && \
+    ln -sf /usr/bin/wine64 /usr/bin/wine && \
+    # Запуск виртуального дисплея и инициализация
+    (Xvfb :99 -screen 0 1024x768x16 &) && \
     sleep 2 && \
     wineboot -i && \
-    wineserver -w
+    # Ждем завершения процессов wine, чтобы слой зафиксировался чистым
+    wineserver -w && \
+    # Убеждаемся, что префикс создан
+    ls -l $WINEPREFIX
