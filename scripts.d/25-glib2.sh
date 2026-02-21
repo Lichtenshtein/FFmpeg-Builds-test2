@@ -25,11 +25,14 @@ ffbuild_dockerbuild() {
     cat <<EOF > cross_file.txt
 [host_machine]
 system = 'windows'
+subsystem = 'windows'
+kernel = 'nt'
 cpu_family = 'x86_64'
 cpu = 'x86_64'
 endian = 'little'
 
 [binaries]
+exe_wrapper = 'wine'
 c = '${FFBUILD_TOOLCHAIN}-gcc'
 cpp = '${FFBUILD_TOOLCHAIN}-g++'
 ar = '${FFBUILD_TOOLCHAIN}-gcc-ar'
@@ -56,17 +59,6 @@ c_args = ['-I${FFBUILD_PREFIX}/include']
 cpp_args = []
 c_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv']
 cpp_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv']
-
-[binaries]
-exe_wrapper = 'wine'
-
-[host_machine]
-system = 'windows'
-subsystem = 'windows'
-kernel = 'nt'
-cpu_family = 'x86_64'
-cpu = 'i686'
-endian = 'little'
 EOF
 
     # Настройка окружения для Meson
