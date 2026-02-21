@@ -50,7 +50,7 @@ ENV HOST_CC="gcc-14" \
     HOST_CFLAGS="-O2 -pipe" \
     HOST_CXXFLAGS="-O2 -pipe"
 
-RUN dpkg --add-architecture i386 && \
+RUN \
     mkdir -pm755 /etc/apt/keyrings && \
     curl -fsSL "https://dl.winehq.org/wine-builds/winehq.key" -o /etc/apt/keyrings/winehq-archive.key && \
     curl -fsSL "https://dl.winehq.org/wine-builds/ubuntu/dists/noble/winehq-noble.sources" -o /etc/apt/sources.list.d/winehq-noble.sources && \
@@ -58,20 +58,16 @@ RUN dpkg --add-architecture i386 && \
     # Явно устанавливаем amd64 версию, чтобы избежать пустых метапакетов
     apt-get -y install --no-install-recommends \
         wine-stable-amd64 \
-        wine-stable \
-        winehq-stable \
         xvfb && \
     # ПРОВЕРКА: где на самом деле лежат файлы?
-    find /opt /usr -name "wine64"
+    dpkg -L wine-stable-amd64 | grep bin/wine
 
-RUN WINE_BIN_PATH=$(find /opt /usr/lib -name wine64 -type f -print -quit | xargs dirname) && \
-    echo "Actual Wine path found: $WINE_BIN_PATH" && \
-    ln -sf "$WINE_BIN_PATH/wine64" /usr/bin/wine64 && \
-    ln -sf "$WINE_BIN_PATH/wine" /usr/bin/wine && \
-    ln -sf "$WINE_BIN_PATH/wineboot" /usr/bin/wineboot && \
-    ln -sf "$WINE_BIN_PATH/wineserver" /usr/bin/wineserver && \
-    # Проверка работоспособности
-    /usr/bin/wine64 --version
+RUN WINE_BIN=$(which wine64 || find /usr -name "wine64" -type f | head -n 1) && \
+    WINE_DIR=$(dirname "$WINE_BIN") && \
+    ln -sf "$WINE_BIN" /usr/bin/wine64 && \
+    ln -sf "$WINE_DIR/wineboot" /usr/bin/wineboot && \
+    ln -sf "$WINE_DIR/wineserver" /usr/bin/wineserver && \
+    wine64 --version
 
 # Настройка окружения, чтобы Wine всегда видел свои библиотеки
 ENV PATH="/usr/bin:${PATH}" \

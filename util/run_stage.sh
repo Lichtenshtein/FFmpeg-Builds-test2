@@ -1,18 +1,16 @@
 #!/bin/bash
 set -e
 
-# Инициализация Wine прямо перед сборкой стадии
-if [[ -n "$(ffbuild_dockerdl)" ]]; then
-    if ! pgrep -x "Xvfb" > /dev/null; then
-        Xvfb :99 -screen 0 1024x768x16 &
-        sleep 2
-    fi
-    # Быстрая инициализация без ожидания всех сервисов
-    if [[ ! -d "$WINEPREFIX" ]]; then
-        log_info "Initializing Wine prefix for $STAGENAME..."
-        wineboot -u && wineserver -w
-    fi
-fi
+# if [[ -n "$(ffbuild_dockerdl)" ]]; then
+    # if ! pgrep -x "Xvfb" > /dev/null; then
+        # Xvfb :99 -screen 0 1024x768x16 &
+        # sleep 2
+    # fi
+    # if [[ ! -d "$WINEPREFIX" ]]; then
+        # log_info "Initializing Wine prefix for $STAGENAME..."
+        # wineboot -u && wineserver -w
+    # fi
+# fi
 
 # Подавляем лишние логи Wine (чтобы не засорять логи GitHub)
 export WINEDEBUG=-all
