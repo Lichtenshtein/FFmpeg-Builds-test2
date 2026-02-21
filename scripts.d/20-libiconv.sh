@@ -1,3 +1,5 @@
+20-libiconv.sh
+
 #!/bin/bash
 
 SCRIPT_REPO="https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.18.tar.gz"
@@ -24,7 +26,6 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    set -e
     # No automake 1.18 packaged anywhere yet.
     # sed -i 's/-1.18/-1.17/' Makefile.devel libcharset/Makefile.devel
 
@@ -56,6 +57,7 @@ Name: iconv
 Description: Character set conversion library
 Version: 1.18
 Libs: -L\${libdir} -liconv
+Libs.private: -liconv
 Cflags: -I\${includedir}
 EOF
 }

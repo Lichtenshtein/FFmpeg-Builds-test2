@@ -70,6 +70,8 @@ EOF
         --wrap-mode=nodownload \
         -Dtests=false \
         -Dintrospection=disabled \
+        -Diconv=external \
+        -Dintl=external \
         -Dlibmount=disabled \
         -Dnls=disabled
 
