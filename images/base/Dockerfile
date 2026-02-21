@@ -15,7 +15,7 @@ RUN \
         clang llvm lcov lld qemu-user libunwind-dev \
         texinfo texi2html help2man flex bison groff \
         gperf itstool ragel libc6-dev zlib1g-dev libssl-dev \
-        gtk-doc-tools gobject-introspection gawk wine64-tools xvfb wine64 \
+        gtk-doc-tools gobject-introspection gawk wine64-tools wine64 wine xvfb \
         ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent p7zip-full zstd \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
         gcc-14 g++-14 dos2unix re2c && \
@@ -50,13 +50,21 @@ ENV HOST_CC="gcc-14" \
     HOST_CFLAGS="-O2 -pipe" \
     HOST_CXXFLAGS="-O2 -pipe"
 
+# Wine доступен глобально
+RUN ln -s /usr/lib/wine/wine64 /usr/bin/wine64 && \
+    ln -s /usr/lib/wine/wineboot /usr/bin/wineboot && \
+    ln -s /usr/lib/wine/wineserver /usr/bin/wineserver && \
+    ln -s /usr/bin/wine64 /usr/bin/wine
+
 # Настройка Wine в headless режиме
 ENV WINEARCH=win64 \
     WINEPREFIX=/root/.wine \
     DISPLAY=:99
 
 # Инициализация префикса (без этого Wine будет тормозить при первом запуске каждого скрипта)
+ENV WINEDEBUG=-all
 RUN Xvfb :99 -screen 0 1024x768x16 & \
+    export DISPLAY=:99 && \
     sleep 2 && \
     wineboot -i && \
     wineserver -w
