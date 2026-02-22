@@ -26,6 +26,10 @@ on:
         description: 'Log Verbosity (1: Full, 0: Quiet)'
         required: false
         default: '1'
+      debug_no_hash:
+        description: 'Debug: Don't recalculate VARS_HASH (Preserve Docker cache)'
+        type: boolean
+        default: true
       skip_ffmpeg:
         description: 'Skip final FFmpeg compilation (Component test only)'
         type: boolean
@@ -173,6 +177,7 @@ jobs:
             rm -rf .cache/ccache/*
           fi
           export ONLY_STAGE="${{ github.event.inputs.only_stage }}"
+          export DEBUG_NO_HASH="${{ github.event.inputs.debug_no_hash }}"
           LTO_PARAM=""
           if [[ "${{ github.event.inputs.use_lto }}" == "true" ]]; then
             LTO_PARAM="lto"
@@ -198,6 +203,7 @@ jobs:
           FFMPEG_REPO: ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg.git' }}
           FFMPEG_BRANCH: ${{ github.event.inputs.ffmpeg_branch || 'master' }}
           FFBUILD_VERBOSE: ${{ github.event.inputs.verbosity || '1' }}
+          DEBUG_NO_HASH: ${{ github.event.inputs.debug_no_hash }}
 
       - name: Force Save Cache
         # if: always()

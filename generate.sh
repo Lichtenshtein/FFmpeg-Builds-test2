@@ -78,9 +78,14 @@ if [[ -n "$ONLY_STAGE" ]]; then
     active_scripts=( $(printf '%s\n' "${active_scripts[@]}" | grep -E "$ONLY_STAGE") )
 fi
 
-# Считаем хеши для инвалидации кэша слоев Docker
+# Считаем хеши для инвалидации кэша слоев Docker. Импорт из workflow.
 # Если поменяется vars.sh или любой патч - все последующие RUN пересоберутся
-VARS_HASH=$(sha256sum util/vars.sh util/run_stage.sh | sha256sum | cut -c1-8)
+if [[ "$DEBUG_NO_HASH" == "true" ]]; then
+    log_warn "DEBUG MODE: VARS_HASH is hardcoded to 'debug_static' to preserve cache."
+    VARS_HASH="debug_static"
+else
+    VARS_HASH=$(sha256sum util/vars.sh util/run_stage.sh | sha256sum | cut -c1-8)
+fi
 
 # Генерируем блоки RUN для каждой стадии
 for STAGE in "${active_scripts[@]}"; do

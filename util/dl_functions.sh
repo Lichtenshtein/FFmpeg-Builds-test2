@@ -101,19 +101,52 @@ download_file() {
 }
 
 git-submodule-clone() {
-    # Эта функция вызывается ПОСЛЕ того, как основной репозиторий уже склонирован в текущую директорию
-    log_info "Synchronizing submodules (shallow)..."
-    
-    # Инициализируем подмодули
-    git submodule init
-    
-    # Получаем список путей подмодулей и скачиваем их по одному с глубиной 1
+    log_info "Starting robust submodule synchronization..."
+
+    # Принудительно обновляем URL подмодулей из файла .gitmodules
+    # Это решает проблему, если в репозитории изменились адреса подмодулей
+    log_info "Syncing submodule URLs..."
+    git submodule sync --recursive
+
+    # Попытка стандартного обновления
+    # --force поможет, если локально были внесены небольшие изменения
+    log_info "Attempting standard update..."
+    if git submodule update --quiet --init --recursive --depth 1; then
+        log_info "Submodules synchronized successfully via standard update."
+        return 0
+    fi
+
+    # Если не помогло, пробуем более агрессивный метод
+    log_warn "Standard update failed. Attempting manual fetch and reset..."
+
+    # используем || return 1, чтобы если foreach упадет, функция сразу вернула ошибку
     git submodule foreach --recursive '
-        remote_url=$(git config --get remote.origin.url)
-        git fetch --depth=1 origin
-        git checkout -q FETCH_HEAD
+        echo "Processing submodule: $name"
+        # Сброс локальных изменений, которые могут мешать checkout
+        git reset --hard HEAD
+        git clean -fd
+
+        # Получаем данные напрямую
+        if git fetch --quiet --depth=1 origin; then
+            # Пытаемся переключиться на нужный коммит (записанный в основном репозитории)
+            # Обычно это FETCH_HEAD после fetch, если мы тянем конкретный коммит
+            git checkout -q FETCH_HEAD || git checkout -q $(git config -f $top_level/.gitmodules submodule.$name.branch || echo "master")
+        else
+            echo "Failed to fetch submodule $name"
+            exit 1
+        fi
     '
+
+    # Финальная проверка
+    if [ $? -eq 0 ]; then
+        log_info "Submodules synchronized after manual intervention."
+        return 0
+    else
+        log_error "Critical failure: Could not synchronize submodules."
+        return 1
+    fi
 }
+
 
 svn-mini-clone() {
     local REPO="$1"
