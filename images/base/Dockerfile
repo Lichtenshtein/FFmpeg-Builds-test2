@@ -15,7 +15,7 @@ RUN \
         clang llvm lcov lld qemu-user libunwind-dev \
         texinfo texi2html help2man flex bison groff \
         gperf itstool ragel libc6-dev zlib1g-dev libssl-dev \
-        gtk-doc-tools gobject-introspection gawk \
+        gtk-doc-tools gobject-introspection gawk procps \
         ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent p7zip-full zstd \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
         gcc-14 g++-14 dos2unix re2c && \
@@ -60,18 +60,13 @@ RUN \
         wine-stable \
         xvfb
 
-ENV PATH="/opt/wine-stable/bin:${PATH}" \
-    WINEARCH=win64 \
-    WINEPREFIX=/root/.wine \
-    DISPLAY=:99 \
-    WINEDEBUG=-all
-
-# Создаем ссылки на то, что РЕАЛЬНО есть в системе (судя по вашему dpkg -L)
-RUN ln -sf /opt/wine-stable/bin/wine /usr/bin/wine64 && \
+# Создаем ссылки на то, что РЕАЛЬНО есть в системе (судя по dpkg -L)
+RUN \
+    chmod -R 777 /root/.wine && \
+    ln -sf /opt/wine-stable/bin/wine /usr/bin/wine64 && \
     ln -sf /opt/wine-stable/bin/wine /usr/bin/wine && \
     ln -sf /opt/wine-stable/bin/wineboot /usr/bin/wineboot && \
     ln -sf /opt/wine-stable/bin/wineserver /usr/bin/wineserver && \
     # Проверка: используем wine вместо wine64, если его нет
     wine --version && \
     echo "Wine binaries linked successfully."
-

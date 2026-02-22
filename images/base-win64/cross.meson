@@ -11,8 +11,8 @@ pkgconfig = 'pkg-config'
 # exe_wrapper = 'wine' 
 
 [properties]
-# Самое важное: Meson не будет пытаться запускать тесты для проверки возможностей
-needs_exe_wrapper = false 
+# Это КЛЮЧЕВОЙ параметр. Он говорит Meson: "Верь мне на слово, кросс-компилятор работает".
+needs_exe_wrapper = true
 
 [host_machine]
 system = 'windows'
