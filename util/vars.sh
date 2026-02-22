@@ -250,6 +250,23 @@ export WINEARCH=win64
 export WINEPREFIX="/root/.wine"
 export DISPLAY=:99
 export WINEDEBUG=-all  # Отключаем шумные логи Wine для CI
+# Указываем Wine, где искать DLL тулчейна и уже собранные либы
+# Автоматический поиск путей к DLL тулчейна для Wine
+# Ищем директорию bin внутри sys-root, где лежат рантайм DLL (pthread, gcc_s и т.д.)
+MINGW_BIN_PATH=$(find /opt/ct-ng -type d -path "*/sys-root/mingw/bin" -print -quit)
+if [ -n "$MINGW_BIN_PATH" ]; then
+    export WINEPATH="${MINGW_BIN_PATH};/opt/ffbuild/bin"
+    log_info "WINEPATH set to: $WINEPATH"
+else
+    # Если ct-ng имеет другую структуру, пробуем найти по файлу
+    LIB_DIR=$(dirname $(find /opt/ct-ng -name "libwinpthread-*.dll" -print -quit))
+    if [ -n "$LIB_DIR" ]; then
+        export WINEPATH="${LIB_DIR};/opt/ffbuild/bin"
+        log_info "WINEPATH found via dll: $WINEPATH"
+    else
+        log_warn "Could not find MinGW DLL directory for WINEPATH"
+    fi
+fi
 
 # Явно задаем хост-систему для Autotools
 export CHOST="$FFBUILD_TOOLCHAIN"

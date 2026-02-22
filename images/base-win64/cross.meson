@@ -6,10 +6,13 @@ ranlib = 'x86_64-w64-mingw32-gcc-ranlib'
 strip = 'x86_64-w64-mingw32-strip'
 windres = 'x86_64-w64-mingw32-windres'
 dlltool = 'x86_64-w64-mingw32-dlltool'
-exe_wrapper = ['wine']
+pkgconfig = 'pkg-config'
+# Заменяем wine на заглушку или убираем, если тесты не нужны
+# exe_wrapper = 'wine' 
 
 [properties]
-needs_exe_wrapper = true
+# Самое важное: Meson не будет пытаться запускать тесты для проверки возможностей
+needs_exe_wrapper = false 
 
 [host_machine]
 system = 'windows'

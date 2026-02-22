@@ -17,6 +17,10 @@ RUN --mount=src=ct-ng-config,dst=/.config \
 #    mkdir -p /opt/ffbuild
 RUN mkdir -p /opt/ffbuild /opt/ffdest
 
+RUN echo "--- Toolchain Search ---" && \
+    find /opt/ct-ng -name "libwinpthread-*.dll" -o -name "kernel32.dll" || true && \
+    echo "--- Search Finished ---"
+
 RUN rm -rf /var/lib/apt/lists/*
 
 ENV FFBUILD_TOOLCHAIN=x86_64-w64-mingw32 \
@@ -36,10 +40,6 @@ RUN ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc && \
     ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-ranlib
 
 # ccache settings
-# агрессивные настройки для vars.sh через export или Dockerfile:
-# sloppiness: разрешает использовать кэш, даже если время изменения заголовочных файлов сдвинулось (критично для Docker-билдов).
-# compilercheck=content: ccache будет проверять хэш самого бинарника компилятора, а не дату его создания.
-# "Depend Mode": если добавить export CCACHE_DEPEND=1, ccache будет быстрее определять промахи, не запуская препроцессор полностью.
 ENV CCACHE_DIR=/root/.cache/ccache \
     CCACHE_MAXSIZE=20G \
     CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros,file_macro,pch_defines" \
