@@ -165,6 +165,7 @@ jobs:
           key: dl-cache-${{ steps.dl_cache.outputs.key }}
           # Если точного совпадения нет, берется самый свежий кэш с таким префиксом
           restore-keys: |
+            dl-cache-${{ steps.dl_cache.outputs.key }}-
             dl-cache-
 
       - name: Run Download and Generate
@@ -219,7 +220,7 @@ jobs:
           # Сохраняем под тем же ключом. 
           # Если билд не скачал ничего нового, этот шаг просто пропустится (Cache Hit).
           # Если что-то изменилось, ключ хеша (outputs.key) будет другим, и кэш сохранится.
-          key: dl-cache-${{ steps.dl_cache.outputs.key }}
+          key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
 
       - name: Prepare and Build
         uses: docker/build-push-action@v5
@@ -239,7 +240,9 @@ jobs:
           provenance: false
 
       - name: Final Ccache Stats
-        run: docker run --rm --mount=type=cache,id=ccache-${{ env.TARGET }},target=/root/.cache/ccache base-win64 ccache -s
+        run: |
+          echo "RUN --mount=type=cache,id=ccache-win64,target=/root/.cache/ccache ccache -s" > stats.Dockerfile
+          docker buildx build --no-cache --progress=plain -f stats.Dockerfile .
 
       - name: Cleanup Old Caches
         if: always()
