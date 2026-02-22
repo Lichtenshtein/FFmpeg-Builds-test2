@@ -17,26 +17,26 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    autoupdate
-    autoreconf -i
+    # Удаляем старые вспомогательные файлы, чтобы libtoolize и autoconf пересоздали их
+    rm -rf build-aux
+    mkdir -p build-aux
+
+    # В xz autogen.sh сам вызывает все нужные инструменты в правильном порядке
+    # Мы пропускаем генерацию документации и переводов для скорости
     ./autogen.sh --no-po4a --no-doxygen
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
+        --build=x86_64-pc-linux-gnu
         --disable-symbol-versions
         --disable-shared
         --enable-static
         --with-pic
+        --disable-nls
+        --disable-scripts
+        --disable-doc
     )
-
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --host="$FFBUILD_TOOLCHAIN"
-        )
-    else
-        echo "Unknown target"
-        return 1
-    fi
 
     ./configure "${myconf[@]}"
     make -j$(nproc) $MAKE_V
