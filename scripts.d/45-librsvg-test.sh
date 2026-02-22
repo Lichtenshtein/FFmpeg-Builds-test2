@@ -21,35 +21,32 @@ ffbuild_dockerbuild() {
     # указываем Cargo, где искать либы, через RUSTFLAGS
     export RUSTFLAGS="-L native=$FFBUILD_PREFIX/lib -C linker=${FFBUILD_TOOLCHAIN}-gcc"
 
-    # В новых версиях librsvg лучше использовать Meson, если он есть, 
-    # но официальный релиз 2.60 еще опирается на Autotools/Make
-    ./autogen.sh
+    meson setup build \
+        --prefix="$FFBUILD_PREFIX" \
+        --cross-file="$FFBUILD_CMAKE_TOOLCHAIN" \
+        --buildtype=release \
+        --default-library=static \
+        --wrap-mode=nodownload \
+        -Dintrospection=disabled \
+        -Dpixbuf=disabled \
+        -Dpixbuf-loader=disabled \
+        -Dvala=disabled \
+        -Ddocs=disabled \
+        -Dtests=false \
+        -Drsvg-convert=disabled \
+        -Davif=enabled \
+        -Dtriplet="$FFBUILD_RUST_TARGET" \
+        || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
 
-    # --disable-pixbuf-loader экономит кучу места и убирает зависимость от gdk-pixbuf # --disable-tools
-    local myconf=(
-        --prefix="$FFBUILD_PREFIX"
-        --host="$FFBUILD_TOOLCHAIN"
-        --enable-static
-        --disable-shared
-        --disable-introspection
-        --disable-pixbuf-loader
-        --disable-tools
-        --with-rust-target="$FFBUILD_RUST_TARGET"
-        CFLAGS="$CFLAGS -DGLIB_STATIC_COMPILATION"
-    )
-
-    ./configure "${myconf[@]}" || (cat config.log && exit 1)
-
-    # Сборка может быть тяжелой для RAM, ограничим потоки если нужно
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    ninja -C build -j$(nproc) $NINJA_V
+    DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
 
     # Исправление .pc файла. 
     # librsvg-2.0.pc после сборки часто не содержит Cairo/Pango в Requires.private
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/librsvg-2.0.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Добавляем необходимые системные либы для статической линковки
-        sed -i 's/^Libs:.*/& -lxml2 -lpangocairo-1.0 -lpango-1.0 -lcairo -lgobject-2.0 -lglib-2.0 -lintl -liconv -lws2_32 -luserenv/' "$PC_FILE"
+        # Добавлены -lusp10 и -lshlwapi (нужны для Pango) и -lxml2
+        sed -i 's/^Libs:.*/& -lxml2 -lpangocairo-1.0 -lpango-1.0 -lcairo -lgobject-2.0 -lglib-2.0 -lintl -liconv -lws2_32 -luserenv -lusp10 -lshlwapi -lsetupapi -lruntimeobject/' "$PC_FILE"
     fi
 }
 
