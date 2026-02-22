@@ -136,11 +136,6 @@ export RAW_LDEXEFLAGS="$LDEXEFLAGS"
 build_cmd="ffbuild_dockerbuild"
 [[ -n "$2" ]] && build_cmd="$2"
 
-# Вывод статистики в конце каждой стадии
-# Это покажет Hit Rate прямо в логах GitHub
-log_info "--- CCACHE STATISTICS ---"
-ccache -s
-
 log_info "################################################################################"
 log_info "### STARTING STAGE: $STAGENAME"
 log_info "### DATE: $(date)"
@@ -198,6 +193,11 @@ if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
 else
     log_info "Preserving DLLs for dynamic stage: $STAGENAME"
 fi
+
+# Вывод статистики в конце каждой стадии
+# Это покажет Hit Rate прямо в логах GitHub
+log_info "--- CCACHE STATISTICS ---"
+ccache -s
 
 # Автоматическая синхронизация префиксов после успешной сборки
 # Каждый скрипт в scripts.d обязан устанавливать файлы (make install) в путь, начинающийся с $FFBUILD_DESTDIR$FFBUILD_PREFIX (обычно это /opt/ffdest/opt/ffbuild), иначе система не увидит установленную библиотеку для следующего этапа.

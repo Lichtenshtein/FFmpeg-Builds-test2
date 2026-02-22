@@ -18,7 +18,7 @@ ffbuild_dockerbuild() {
     export CFLAGS="$CFLAGS -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
     export CXXFLAGS="$CXXFLAGS -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
 
-    mkdir build && cd build
+    # mkdir build && cd build
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
@@ -34,7 +34,6 @@ ffbuild_dockerbuild() {
         -Dbuild-testsuite=false \
         -Dbuild-examples=false \
         -Dman-pages=false \
-        .. \
         || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
 
     ninja -C build -j$(nproc) $NINJA_V

@@ -14,6 +14,13 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    # Запуск виртуального дисплея (обязательно для Wine в Docker)
+    Xvfb :99 -screen 0 1024x768x16 &
+    export DISPLAY=:99
+    
+    # Даем Wine создать префикс, если его нет
+    wineboot -u && wineserver -w
+
     cat <<EOF > cross_file.txt
 [host_machine]
 system = 'windows'
@@ -22,7 +29,7 @@ cpu = 'x86_64'
 endian = 'little'
 
 [binaries]
-# exe_wrapper = 'wine'
+exe_wrapper = 'wine'
 c = '${FFBUILD_TOOLCHAIN}-gcc'
 cpp = '${FFBUILD_TOOLCHAIN}-g++'
 ar = '${FFBUILD_TOOLCHAIN}-gcc-ar'
@@ -33,18 +40,26 @@ nm = '${FFBUILD_TOOLCHAIN}-gcc-nm'
 ranlib = '${FFBUILD_TOOLCHAIN}-gcc-ranlib'
 
 [properties]
+# growstack = false
+# posix_memalign_with_alignment = false
+# printf_has_large_precisions = true
+# printf_has_ls_format = true
+# have_c99_vsnprintf = true
+
 have_c99_snprintf = true
 have_c99_vsnprintf = true
 va_val_copy = true
 int_res_1 = 4
 int_res_2 = 8
-needs_exe_wrapper = false
+needs_exe_wrapper = true
 # has_function_gettext = true
 # has_function_ngettext = true
 # has_function_bindtextdomain = true
 # exe_wrapper = '/usr/libexec/wine'
 # exe_wrapper = '/usr/lib/x86_64-linux-gnu/wine'
 # /usr/lib/wine /usr/include/wine
+printf_has_glibc_res1 = true
+printf_has_glibc_res2 = true
 
 [built-in options]
 c_args = ['-I${FFBUILD_PREFIX}/include', '-DGLIB_STATIC_COMPILATION', '-D_WIN32_WINNT=0x0A00']
