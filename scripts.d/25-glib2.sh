@@ -1,8 +1,8 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/GNOME/glib.git"
-SCRIPT_COMMIT="2.82.4" # Стабильная ветка
-# SCRIPT_COMMIT="6b11cae1b3bf3e9cff9485481dd1c0f7e806c361"
+# SCRIPT_COMMIT="2.82.4" # Стабильная ветка
+SCRIPT_COMMIT="6b11cae1b3bf3e9cff9485481dd1c0f7e806c361"
 
 ffbuild_enabled() {
     return 0
@@ -55,8 +55,8 @@ printf_has_glibc_res1 = true
 printf_has_glibc_res2 = true
 
 [built-in options]
-c_args = ['-I${FFBUILD_PREFIX}/include', '-DGLIB_STATIC_COMPILATION', '-D_WIN32_WINNT=0x0A00', '-DG_WIN32_IS_STRICT_MINGW']
-cpp_args = ['-I${FFBUILD_PREFIX}/include', '-DGLIB_STATIC_COMPILATION', '-D_WIN32_WINNT=0x0A00', '-DG_WIN32_IS_STRICT_MINGW']
+c_args = ['-I${FFBUILD_PREFIX}/include', '-DGLIB_STATIC_COMPILATION', '-DG_WIN32_IS_STRICT_MINGW']
+cpp_args = ['-I${FFBUILD_PREFIX}/include', '-DGLIB_STATIC_COMPILATION', '-DG_WIN32_IS_STRICT_MINGW']
 c_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv', '-lffi', '-lpcre2-8']
 cpp_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv', '-lffi', '-lpcre2-8']
 EOF

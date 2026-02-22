@@ -18,6 +18,7 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --buildtype=release
         --default-library=static
+        -Denable_asm=true
     )
 
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
