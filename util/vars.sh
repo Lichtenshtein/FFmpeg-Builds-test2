@@ -205,6 +205,7 @@ export -f get_dl_hash
 # Хеш для сборки (включает всё)
 get_stage_hash() {
     local STAGE_PATH="$1"
+    [[ -z "$STAGE_PATH" ]] && return 0 # Защита от пустого вызова
     local STAGENAME=$(basename "$STAGE_PATH" .sh)
     # Извлекаем имя компонента (напр., из 50-libmp3lame получаем libmp3lame)
     # Используем sed, чтобы отрезать все до первого дефиса включительно
