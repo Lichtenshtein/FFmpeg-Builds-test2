@@ -205,6 +205,9 @@ jobs:
           FFBUILD_VERBOSE: ${{ github.event.inputs.verbosity || '1' }}
           DEBUG_NO_HASH: ${{ github.event.inputs.debug_no_hash }}
 
+      - name: Inspect Dockerfile
+        run: head -n 30 Dockerfile
+
       - name: Force Save Cache
         # if: always()
         if: success()
@@ -217,9 +220,6 @@ jobs:
           # Если билд не скачал ничего нового, этот шаг просто пропустится (Cache Hit).
           # Если что-то изменилось, ключ хеша (outputs.key) будет другим, и кэш сохранится.
           key: dl-cache-${{ steps.dl_cache.outputs.key }}
-
-      - name: Inspect Dockerfile
-        run: head -n 30 Dockerfile
 
       - name: Prepare and Build
         uses: docker/build-push-action@v5
