@@ -16,26 +16,7 @@ ffbuild_dockerbuild() {
     # Мы подменяем проверку в meson.build или передаем через CFLAGS
     export CFLAGS="$CFLAGS -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
     export CXXFLAGS="$CXXFLAGS -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
-
-    cat <<EOF > cross_file.txt
-[host_machine]
-system = 'windows'
-cpu_family = 'x86_64'
-cpu = 'x86_64'
-endian = 'little'
-
-[binaries]
-c = '${FFBUILD_TOOLCHAIN}-gcc'
-cpp = '${FFBUILD_TOOLCHAIN}-g++'
-ar = '${FFBUILD_TOOLCHAIN}-gcc-ar'
-pkgconfig = 'pkg-config'
-strip = '${FFBUILD_TOOLCHAIN}-strip'
-
-[built-in options]
-# Добавляем системные либы Windows здесь
-c_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv', '-lusp10', '-lgdi32']
-cpp_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv', '-lusp10', '-lgdi32']
-EOF
+    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lintl -liconv -lusp10 -lshlwapi"
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
@@ -51,7 +32,8 @@ EOF
         -Dbuild-testsuite=false \
         -Dbuild-examples=false \
         -Dman-pages=false \
-        -Dc_link_args="-lintl -liconv -lusp10 -lshlwapi" \
+        -Dc_link_args="$EXTRA_LDFLAGS" \
+        -Dcpp_link_args="$EXTRA_LDFLAGS" \
         || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
 
     ninja -C build -j$(nproc) $NINJA_V
