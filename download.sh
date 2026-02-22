@@ -22,7 +22,7 @@ download_stage() {
     local STAGENAME=$(basename "$STAGE" .sh)
 
     # считаем хеш (он включает в себя вызов ffbuild_dockerdl внутри get_stage_hash)
-    local DL_HASH=$(get_stage_hash "$STAGE")
+    local DL_HASH=$(get_dl_hash "$STAGE")
     local DL_COMMANDS=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
                       source util/dl_functions.sh; \
                       source \"$STAGE\"; \
