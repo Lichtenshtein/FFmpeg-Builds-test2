@@ -252,6 +252,21 @@ export CCACHE_DEPEND="1"
 export CCACHE_COMPRESS=1
 export CCACHE_NOHASHDIR=1
 
+# WineHQ Configuration for Ubuntu 24.04 (Noble)
+export WINE_BIN_DIR="/opt/wine-stable/bin"
+export WINE_LIB_DIR="/opt/wine-stable/lib64:/opt/wine-stable/lib"
+export PATH="$WINE_BIN_DIR:${PATH}"
+# Критично для загрузки kernel32.dll из /opt
+if [[ -z "$LD_LIBRARY_PATH" ]]; then
+    export LD_LIBRARY_PATH="$WINE_LIB_DIR"
+else
+    export LD_LIBRARY_PATH="$WINE_LIB_DIR:${LD_LIBRARY_PATH}"
+fi
+export WINEARCH=win64
+export WINEPREFIX="/root/.wine"
+export DISPLAY=:99
+export WINEDEBUG=-all  # Отключаем шумные логи Wine для CI
+
 # Явно задаем хост-систему для Autotools
 export CHOST="$FFBUILD_TOOLCHAIN"
 
