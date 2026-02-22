@@ -46,7 +46,6 @@ EOF
         --default-library=static \
         --wrap-mode=nodownload \
         -Dintrospection=disabled \
-        -Dwin32=enabled \
         -Dfontconfig=enabled \
         -Ddirectwrite=disabled \
         -Dfreetype=enabled \

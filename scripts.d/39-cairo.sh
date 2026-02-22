@@ -28,7 +28,6 @@ ffbuild_dockerbuild() {
         -Dglib=enabled \
         -Dxcb=disabled \
         -Dxlib=disabled \
-        -Dpixman=enabled \
         || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
 
     ninja -C build -j$(nproc) $NINJA_V
