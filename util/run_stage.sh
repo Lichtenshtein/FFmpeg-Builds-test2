@@ -11,19 +11,20 @@ fi
 
 # Инициализация графического окружения (Xvfb) только если это нужно
 # Проверяем, использует ли скрипт системы сборки, требующие запуска тестов (Wine)
+# Инициализация Wine только для сборочных систем
 if grep -qE "meson|cmake|configure" "$SCRIPT_PATH"; then
     if ! pgrep -x "Xvfb" > /dev/null; then
-        log_debug "Starting Xvfb for Wine/GUI tests..."
-        Xvfb :99 -screen 0 1024x768x16 &
+        Xvfb :99 -screen 0 1024x768x16 > /dev/null 2>&1 &
         export DISPLAY=:99
         sleep 2
     fi
-    # Минимальная инициализация префикса, если он отсутствует
+
     if [[ ! -d "$WINEPREFIX" ]]; then
-        log_info "Initializing Wine prefix for $(basename "$SCRIPT_PATH")..."
-        # --init создаёт базовый реестр без запуска GUI-диалогов
-        wineboot --init >/dev/null 2>&1
-        wineserver -w
+        log_info "Initializing Wine prefix (timeout-protected)..."
+        # Используем timeout, чтобы инициализация не вешала билд
+        timeout 60s wineboot --init > /dev/null 2>&1 || log_warn "Wineboot init reached timeout"
+        # Запускаем сервер в фоне и сразу продолжаем
+        wineserver -p
     fi
 fi
 
