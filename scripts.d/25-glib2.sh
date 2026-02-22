@@ -14,12 +14,6 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # Запуск виртуального дисплея (обязательно для Wine в Docker)
-    Xvfb :99 -screen 0 1024x768x16 &
-    export DISPLAY=:99
-    
-    # Даем Wine создать префикс, если его нет
-    wineboot -u && wineserver -w
 
     cat <<EOF > cross_file.txt
 [host_machine]
@@ -29,7 +23,7 @@ cpu = 'x86_64'
 endian = 'little'
 
 [binaries]
-exe_wrapper = 'wine'
+# exe_wrapper = 'wine'
 c = '${FFBUILD_TOOLCHAIN}-gcc'
 cpp = '${FFBUILD_TOOLCHAIN}-g++'
 ar = '${FFBUILD_TOOLCHAIN}-gcc-ar'
@@ -45,7 +39,6 @@ ranlib = '${FFBUILD_TOOLCHAIN}-gcc-ranlib'
 # printf_has_large_precisions = true
 # printf_has_ls_format = true
 # have_c99_vsnprintf = true
-
 have_c99_snprintf = true
 have_c99_vsnprintf = true
 va_val_copy = true
@@ -62,18 +55,15 @@ printf_has_glibc_res1 = true
 printf_has_glibc_res2 = true
 
 [built-in options]
-c_args = ['-I${FFBUILD_PREFIX}/include', '-DGLIB_STATIC_COMPILATION', '-D_WIN32_WINNT=0x0A00']
-cpp_args = ['-I${FFBUILD_PREFIX}/include', '-DGLIB_STATIC_COMPILATION', '-D_WIN32_WINNT=0x0A00']
-c_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv']
-cpp_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv']
+c_args = ['-I${FFBUILD_PREFIX}/include', '-DGLIB_STATIC_COMPILATION', '-D_WIN32_WINNT=0x0A00', '-DG_WIN32_IS_STRICT_MINGW']
+cpp_args = ['-I${FFBUILD_PREFIX}/include', '-DGLIB_STATIC_COMPILATION', '-D_WIN32_WINNT=0x0A00', '-DG_WIN32_IS_STRICT_MINGW']
+c_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv', '-lffi', '-lpcre2-8']
+cpp_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv', '-lffi', '-lpcre2-8']
 EOF
 
     # Настройка окружения для Meson
     export PKG_CONFIG_LIBDIR="$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_PREFIX/share/pkgconfig"
     unset PKG_CONFIG_PATH
-
-    export CFLAGS="$CFLAGS -D_G_WIN32_WINNT=0x0A00 -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
-    export CXXFLAGS="$CXXFLAGS -D_G_WIN32_WINNT=0x0A00 -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
 
     # Удаляем субпроекты, которые ломают сборку
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
@@ -85,7 +75,7 @@ EOF
         --default-library static \
         --wrap-mode=nodownload \
         -Dtests=false \
-        -Dinstalled_tests=fals \
+        -Dinstalled_tests=false \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
         -Dnls=enabled \
@@ -94,6 +84,7 @@ EOF
         -Dman-pages=disabled \
         -Dselinux=disabled \
         -Dsysprof=disabled \
+        -Dinternal_pcre=false \
         || (tail -n 500 build/meson-logs/meson-log.txt && exit 1)
 
     ninja -C build -j$(nproc) $NINJA_V
@@ -106,6 +97,8 @@ EOF
     if [[ -f "$PC_FILE" ]]; then
         # Добавляем зависимости, которые Meson часто забывает для static win64
         sed -i 's/^Libs:/Libs: -lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lwinmm -ldnsapi -lruntimeobject/' "$PC_FILE"
+        # Убеждаемся, что зависимости тоже вписаны
+        sed -i 's/^Requires.private:/Requires.private: libffi, libpcre2-8,/' "$PC_FILE" || true
     fi
 }
 
