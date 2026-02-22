@@ -66,7 +66,7 @@ ENV PATH="/opt/wine-stable/bin:${PATH}" \
     DISPLAY=:99 \
     WINEDEBUG=-all
 
-# 2. Создаем ссылки на то, что РЕАЛЬНО есть в системе (судя по вашему dpkg -L)
+# Создаем ссылки на то, что РЕАЛЬНО есть в системе (судя по вашему dpkg -L)
 RUN ln -sf /opt/wine-stable/bin/wine /usr/bin/wine64 && \
     ln -sf /opt/wine-stable/bin/wine /usr/bin/wine && \
     ln -sf /opt/wine-stable/bin/wineboot /usr/bin/wineboot && \
@@ -74,3 +74,13 @@ RUN ln -sf /opt/wine-stable/bin/wine /usr/bin/wine64 && \
     # Проверка: используем wine вместо wine64, если его нет
     wine --version && \
     echo "Wine binaries linked successfully."
+
+# Инициализация Wine префикса
+# RUN Xvfb :99 -screen 0 1024x768x16 & \
+#    DISPLAY=:99 wineboot -u && \
+#    # Ожидаем завершения настройки (wineserver может работать в фоне)
+#    wineserver -w && \
+#    echo "Wine prefix initialized"
+
+# Предварительная инициализация префикса, чтобы не тратить время при билде
+RUN xvfb-run sh -c "wine64 wineboot -i && wineserver -w"

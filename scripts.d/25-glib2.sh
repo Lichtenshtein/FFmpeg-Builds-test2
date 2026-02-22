@@ -85,6 +85,7 @@ EOF
         --default-library static \
         --wrap-mode=nodownload \
         -Dtests=false \
+        -Dinstalled_tests=fals \
         -Dintrospection=disabled \
         -Dlibmount=disabled \
         -Dnls=enabled \
