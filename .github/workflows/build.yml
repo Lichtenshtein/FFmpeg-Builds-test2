@@ -239,11 +239,6 @@ jobs:
           outputs: type=local,dest=artifacts/
           provenance: false
 
-      - name: Final Ccache Stats
-        run: |
-          echo "RUN --mount=type=cache,id=ccache-win64,target=/root/.cache/ccache ccache -s" > stats.Dockerfile
-          docker buildx build --no-cache --progress=plain -f stats.Dockerfile .
-
       - name: Cleanup Old Caches
         if: always()
         continue-on-error: true
