@@ -11,7 +11,28 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # mkdir build && cd build
+
+    export LDFLAGS="$LDFLAGS -lintl -liconv -lshlwapi"
+
+    cat <<EOF > cairo_cross.txt
+[host_machine]
+system = 'windows'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+
+[binaries]
+c = '${FFBUILD_TOOLCHAIN}-gcc'
+cpp = '${FFBUILD_TOOLCHAIN}-g++'
+ar = '${FFBUILD_TOOLCHAIN}-gcc-ar'
+pkgconfig = 'pkg-config'
+strip = '${FFBUILD_TOOLCHAIN}-strip'
+
+[built-in options]
+# Добавляем -lintl и -liconv, чтобы Fontconfig внутри Cairo слинковался
+c_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv']
+cpp_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv']
+EOF
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
@@ -28,6 +49,8 @@ ffbuild_dockerbuild() {
         -Dglib=enabled \
         -Dxcb=disabled \
         -Dxlib=disabled \
+        -Dc_link_args="-lintl -liconv" \
+        -Dcpp_link_args="-lintl -liconv" \
         || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
 
     ninja -C build -j$(nproc) $NINJA_V
@@ -38,6 +61,6 @@ ffbuild_dockerbuild() {
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/cairo.pc"
     if [[ -f "$PC_FILE" ]]; then
         # Добавляем gdi32 и msimg32 (нужны для win32-surface)
-        sed -i 's/^Libs:.*/& -lgdi32 -lmsimg32 -luser32/' "$PC_FILE"
+        sed -i 's/^Libs:.*/& -lgdi32 -lmsimg32 -luser32 -ldwrite -ld2d1 -lwindowscodecs -lole32/' "$PC_FILE"
     fi
 }
