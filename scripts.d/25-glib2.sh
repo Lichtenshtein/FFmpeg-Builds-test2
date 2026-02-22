@@ -84,7 +84,6 @@ EOF
         -Dman-pages=disabled \
         -Dselinux=disabled \
         -Dsysprof=disabled \
-        -Dinternal_pcre=false \
         || (tail -n 500 build/meson-logs/meson-log.txt && exit 1)
 
     ninja -C build -j$(nproc) $NINJA_V
