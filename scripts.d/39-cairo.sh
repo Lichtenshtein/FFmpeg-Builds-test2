@@ -1,6 +1,6 @@
 #!/bin/bash
 SCRIPT_REPO="https://gitlab.freedesktop.org/cairo/cairo.git"
-SCRIPT_COMMIT="2a4589266388622f8c779721c8a4e090966fae79"
+SCRIPT_COMMIT="8f8a1cdb2ae01c6bb858abec03d99acd8a3316e2942d"
 
 ffbuild_enabled() {
     return 0
@@ -12,7 +12,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
 
-    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lintl -liconv"
+    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lintl -liconv -lxml2 -llzma"
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
