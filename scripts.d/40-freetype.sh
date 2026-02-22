@@ -8,39 +8,33 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    # Изменить 'v1' на 'v2', чтобы сбросить кэш загрузки
     echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . "
+    echo "git-mini-clone \"https://github.com/nyorain/dlg.git\" \"master\" subprojects/dlg"
 }
 
-
 ffbuild_dockerbuild() {
-    # инициализация подмодуля dlg
-    mkdir -p subprojects/dlg
-    if [[ ! -f "subprojects/dlg/include/dlg/dlg.h" ]]; then
-        git clone --depth 1 https://github.com/nyorain/dlg.git subprojects/dlg
-    fi
-
-    # Обманываем Freetype, создавая файл-метку, что подмодули уже есть
-    # и предотвращаем вызов git в autogen.sh
-    # export NOCONFIGURE=1
-
     ./autogen.sh
 
-    local myconf=(
-        --prefix="$FFBUILD_PREFIX"
-        --host="$FFBUILD_TOOLCHAIN"
-        --build=x86_64-pc-linux-gnu
-        CC_BUILD=gcc
-        --disable-shared
-        --enable-static
-        --with-pic
+    ./configure \
+        --prefix="$FFBUILD_PREFIX" \
+        --host="$FFBUILD_TOOLCHAIN" \
+        --disable-shared \
+        --enable-static \
+        --with-harfbuzz \
+        --with-pic \
+        --with-png \
+        --with-zlib \
+        --with-bzip2 \
+        --with-brotli \
+        LDFLAGS="-L$FFBUILD_PREFIX/lib" \
+        CPPFLAGS="-I$FFBUILD_PREFIX/include"
     )
 
-    ./configure "${myconf[@]}"
-    make -j$(nproc)
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
     
-    echo "Libs.private: -lharfbuzz" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/freetype2.pc
+    # Важно для статической линковки FFmpeg
+    sed -i 's/-lfreetype/-lfreetype -lharfbuzz -lpng -lz -lbz2 -lbrotlidec -lbrotlicommon/' "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype2.pc"
 }
 
 ffbuild_configure() {

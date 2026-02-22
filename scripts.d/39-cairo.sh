@@ -15,7 +15,7 @@ ffbuild_dockerbuild() {
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
-        --cross-file="$FFBUILD_CMAKE_TOOLCHAIN" \
+        --cross-file=/cross.meson \
         --buildtype=release \
         --default-library=static \
         --wrap-mode=nodownload \

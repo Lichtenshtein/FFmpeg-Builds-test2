@@ -13,10 +13,11 @@ ffbuild_dockerbuild() {
     local myconf=(
         --cross-file=/cross.meson
         --prefix="$FFBUILD_PREFIX"
+        --libdir=lib
         --buildtype=release
         --default-library=static
         -Dfreetype=enabled
-        -Dglib=disabled
+        -Dglib=enabled
         -Dgobject=disabled
         -Dcairo=disabled
         -Dchafa=disabled
@@ -34,10 +35,10 @@ ffbuild_dockerbuild() {
     fi
 
     meson setup "${myconf[@]}" ..
-    ninja -j"$(nproc)" $NINJA_V
+    ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
-    echo "Libs.private: -lpthread" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/harfbuzz.pc
+    # echo "Libs.private: -lpthread" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/harfbuzz.pc
 }
 
 ffbuild_configure() {

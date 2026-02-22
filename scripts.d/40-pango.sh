@@ -12,7 +12,6 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-
     # Отключаем WinRT, который требует отсутствующий заголовок
     # Мы подменяем проверку в meson.build или передаем через CFLAGS
     export CFLAGS="$CFLAGS -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
@@ -20,14 +19,36 @@ ffbuild_dockerbuild() {
 
     # mkdir build && cd build
 
+    cat <<EOF > cross_file.txt
+[host_machine]
+system = 'windows'
+cpu_family = 'x86_64'
+cpu = 'x86_64'
+endian = 'little'
+
+[binaries]
+c = '${FFBUILD_TOOLCHAIN}-gcc'
+cpp = '${FFBUILD_TOOLCHAIN}-g++'
+ar = '${FFBUILD_TOOLCHAIN}-gcc-ar'
+pkgconfig = 'pkg-config'
+strip = '${FFBUILD_TOOLCHAIN}-strip'
+
+[built-in options]
+# Добавляем системные либы Windows здесь
+c_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lusp10', '-lgdi32']
+cpp_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lusp10', '-lgdi32']
+EOF
+
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
-        --cross-file="$FFBUILD_CMAKE_TOOLCHAIN" \
+        --cross-file=/cross.meson \
         --buildtype=release \
         --default-library=static \
         --wrap-mode=nodownload \
         -Dintrospection=disabled \
+        -Dwin32=enabled \
         -Dfontconfig=enabled \
+        -Ddirectwrite=disabled \
         -Dfreetype=enabled \
         -Dsysprof=disabled \
         -Ddocumentation=false \
