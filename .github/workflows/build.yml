@@ -27,7 +27,7 @@ on:
         required: false
         default: '1'
       debug_no_hash:
-        description: 'Debug: Don't recalculate VARS_HASH (Preserve Docker cache)'
+        description: 'Debug: Do not recalculate VARS_HASH (Preserve Docker cache)'
         type: boolean
         default: true
       skip_ffmpeg:
