@@ -76,3 +76,9 @@ ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
     LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -Wl,--gc-sections -Wl,--as-needed -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216" \
     STAGE_CFLAGS="-fno-semantic-interposition" \
     STAGE_CXXFLAGS="-fno-semantic-interposition"
+
+# Инициализация Wine префикса
+RUN Xvfb :99 -screen 0 1024x768x16 & \
+    DISPLAY=:99 wine64 wineboot -u && \
+    wineserver -w && \
+    echo "Wine prefix pre-initialized successfully."
