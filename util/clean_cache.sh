@@ -9,7 +9,20 @@ shopt -s globstar  # Гарантируем поддержку вложенны�
 CLEAN_TARGET=$(echo "${1:-$TARGET}" | awk '{print $1}')
 CLEAN_VARIANT=$(echo "${2:-$VARIANT}" | awk '{print $1}')
 
-source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" > /dev/null 2>&1 || true
+# если таргет или вариант не определены, выходим.
+# Без этого vars.sh может вернуть ошибку или инициализироваться неверно, 
+# что приведет к удалению ВСЕГО кеша (так как список PROTECTED будет пустым).
+if [[ -z "$CLEAN_TARGET" || -z "$CLEAN_VARIANT" ]]; then
+    echo -e "\033[1;31m[ERROR]\033[0m Cleanup aborted: TARGET and VARIANT must be specified." >&2
+    echo "Usage: ./clean_cache.sh <target> <variant>" >&2
+    exit 1
+fi
+
+# передаем аргументы явно, чтобы vars.sh не пытался читать их из контекста
+if ! source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" > /dev/null 2>&1; then
+    echo -e "\033[1;31m[ERROR]\033[0m Failed to source vars.sh for $CLEAN_TARGET-$CLEAN_VARIANT" >&2
+    exit 1
+fi
 
 CACHE_DIR="$(dirname "$0")/../.cache/downloads"
 SCRIPTS_DIR="$(dirname "$0")/../scripts.d"
