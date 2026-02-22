@@ -49,7 +49,8 @@ ffbuild_dockerbuild() {
             --host="$HOST_TRIPLET" \
             --with-default-win32-winnt="0x0A00" \
             --with-default-msvcrt=ucrt \
-            --enable-idl --enable-sdk=all
+            --enable-idl --enable-sdk=all \
+            --with-sysroot="$SYSROOT"
         
         make -j$(nproc) $MAKE_V
         make install DESTDIR="$TEMP_INSTALL"
@@ -68,8 +69,9 @@ ffbuild_dockerbuild() {
             --with-default-msvcrt=ucrt \
             --enable-wildcard \
             --disable-lib32 \
-            --enable-lib64
-            
+            --enable-lib64 \
+            --with-sysroot="$SYSROOT" \
+            --disable-dependency-tracking # удалить про проблемах. Ускоряет и убирает лишние проверки
         make -j$(nproc) $MAKE_V
         make install DESTDIR="$TEMP_INSTALL"
     )

@@ -20,10 +20,9 @@ if grep -qE "meson setup|cmake|./configure" "$SCRIPT_PATH"; then
     fi
 
     if [[ ! -d "$WINEPREFIX" ]]; then
-        log_info "Initializing Wine prefix for $STAGENAME..."
-        # Используем wineboot -u (update), он легче чем полная инициализация
-        # Добавляем || true, чтобы таймаут не ронял ВЕСЬ билд
-        timeout 30s wineboot -u > /dev/null 2>&1 || log_warn "Wineboot reached timeout, continuing anyway..."
+        log_info "Fast Wine init..."
+        # Используем wineboot -n (no-wait) или очень короткий таймаут
+        timeout 5s wineboot -u > /dev/null 2>&1 || true
     fi
 else
     log_debug "Stage $STAGENAME does not require Wine. Skipping initialization."
