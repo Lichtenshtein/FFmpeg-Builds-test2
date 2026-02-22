@@ -1,24 +1,32 @@
 #!/bin/bash
 set -e
 
+SCRIPT_PATH="$1"
+
+# Сначала убедимся, что путь к скрипту вообще есть
+if [[ -z "$SCRIPT_PATH" || ! -f "$SCRIPT_PATH" ]]; then
+    log_error "Usage: run_stage <script_path>"
+    exit 1
+fi
+
 # Инициализация графического окружения (Xvfb) только если это нужно
 # Проверяем, использует ли скрипт системы сборки, требующие запуска тестов (Wine)
 if grep -qE "meson|cmake|configure" "$SCRIPT_PATH"; then
     if ! pgrep -x "Xvfb" > /dev/null; then
         log_debug "Starting Xvfb for Wine/GUI tests..."
         Xvfb :99 -screen 0 1024x768x16 &
+        export DISPLAY=:99
         sleep 2
     fi
     # Минимальная инициализация префикса, если он отсутствует
     if [[ ! -d "$WINEPREFIX" ]]; then
-        log_info "Initializing Wine prefix for $STAGENAME..."
+        log_info "Initializing Wine prefix for $(basename "$SCRIPT_PATH")..."
         # --init создаёт базовый реестр без запуска GUI-диалогов
         wineboot --init >/dev/null 2>&1
         wineserver -w
     fi
 fi
 
-SCRIPT_PATH="$1"
 STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
 
 # Подгружаем утилиты, используя абсолютный путь
