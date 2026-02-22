@@ -17,8 +17,6 @@ ffbuild_dockerbuild() {
     export CFLAGS="$CFLAGS -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
     export CXXFLAGS="$CXXFLAGS -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
 
-    # mkdir build && cd build
-
     cat <<EOF > cross_file.txt
 [host_machine]
 system = 'windows'
@@ -35,8 +33,8 @@ strip = '${FFBUILD_TOOLCHAIN}-strip'
 
 [built-in options]
 # Добавляем системные либы Windows здесь
-c_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lusp10', '-lgdi32']
-cpp_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lusp10', '-lgdi32']
+c_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv', '-lusp10', '-lgdi32']
+cpp_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv', '-lusp10', '-lgdi32']
 EOF
 
     meson setup build \
@@ -47,13 +45,13 @@ EOF
         --wrap-mode=nodownload \
         -Dintrospection=disabled \
         -Dfontconfig=enabled \
-        -Ddirectwrite=disabled \
         -Dfreetype=enabled \
         -Dsysprof=disabled \
         -Ddocumentation=false \
         -Dbuild-testsuite=false \
         -Dbuild-examples=false \
         -Dman-pages=false \
+        -Dc_link_args="-lintl -liconv -lusp10 -lshlwapi" \
         || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
 
     ninja -C build -j$(nproc) $NINJA_V
