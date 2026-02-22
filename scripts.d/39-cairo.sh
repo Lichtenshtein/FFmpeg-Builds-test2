@@ -12,27 +12,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
 
-    export LDFLAGS="$LDFLAGS -lintl -liconv -lshlwapi"
-
-    cat <<EOF > cairo_cross.txt
-[host_machine]
-system = 'windows'
-cpu_family = 'x86_64'
-cpu = 'x86_64'
-endian = 'little'
-
-[binaries]
-c = '${FFBUILD_TOOLCHAIN}-gcc'
-cpp = '${FFBUILD_TOOLCHAIN}-g++'
-ar = '${FFBUILD_TOOLCHAIN}-gcc-ar'
-pkgconfig = 'pkg-config'
-strip = '${FFBUILD_TOOLCHAIN}-strip'
-
-[built-in options]
-# Добавляем -lintl и -liconv, чтобы Fontconfig внутри Cairo слинковался
-c_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv']
-cpp_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv']
-EOF
+    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lintl -liconv"
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
@@ -49,8 +29,8 @@ EOF
         -Dglib=enabled \
         -Dxcb=disabled \
         -Dxlib=disabled \
-        -Dc_link_args="-lintl -liconv" \
-        -Dcpp_link_args="-lintl -liconv" \
+        -Dc_link_args="$EXTRA_LDFLAGS" \
+        -Dcpp_link_args="$EXTRA_LDFLAGS" \
         || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
 
     ninja -C build -j$(nproc) $NINJA_V
