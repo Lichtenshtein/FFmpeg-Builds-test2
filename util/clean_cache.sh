@@ -32,7 +32,7 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     # Проверяем, включен ли компонент
     if ( export TARGET="$CLEAN_TARGET" VARIANT="$CLEAN_VARIANT"; source "$STAGE" >/dev/null 2>&1 && ffbuild_enabled ); then
 
-        DL_HASH=$(get_dl_hash "$STAGE")
+        DL_HASH=$(get_stage_hash "$STAGE")
 
         if [[ -n "$DL_HASH" ]]; then
             CURRENT_FILE="${STAGENAME}_${DL_HASH}.tar.zst"

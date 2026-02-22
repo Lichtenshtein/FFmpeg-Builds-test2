@@ -9,23 +9,24 @@ if [[ -z "$SCRIPT_PATH" || ! -f "$SCRIPT_PATH" ]]; then
     exit 1
 fi
 
-# Инициализация графического окружения (Xvfb) только если это нужно
-# Проверяем, использует ли скрипт системы сборки, требующие запуска тестов (Wine)
-# Инициализация Wine только для сборочных систем
-if grep -qE "meson|cmake|configure" "$SCRIPT_PATH"; then
+# Инициализируем Wine ТОЛЬКО если это реально необходимо
+# Проверяем наличие ключевых слов систем сборки в тексте скрипта
+if grep -qE "meson setup|cmake|./configure" "$SCRIPT_PATH"; then
     if ! pgrep -x "Xvfb" > /dev/null; then
+        log_debug "Starting Xvfb for $STAGENAME..."
         Xvfb :99 -screen 0 1024x768x16 > /dev/null 2>&1 &
         export DISPLAY=:99
         sleep 2
     fi
 
     if [[ ! -d "$WINEPREFIX" ]]; then
-        log_info "Initializing Wine prefix (timeout-protected)..."
-        # Используем timeout, чтобы инициализация не вешала билд
-        timeout 60s wineboot --init > /dev/null 2>&1 || log_warn "Wineboot init reached timeout"
-        # Запускаем сервер в фоне и сразу продолжаем
-        wineserver -p
+        log_info "Initializing Wine prefix for $STAGENAME..."
+        # Используем wineboot -u (update), он легче чем полная инициализация
+        # Добавляем || true, чтобы таймаут не ронял ВЕСЬ билд
+        timeout 30s wineboot -u > /dev/null 2>&1 || log_warn "Wineboot reached timeout, continuing anyway..."
     fi
+else
+    log_debug "Stage $STAGENAME does not require Wine. Skipping initialization."
 fi
 
 STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"

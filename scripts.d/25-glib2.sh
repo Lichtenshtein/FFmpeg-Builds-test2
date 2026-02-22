@@ -15,11 +15,11 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     # Запуск виртуального дисплея (обязательно для Wine в Docker)
-    Xvfb :99 -screen 0 1024x768x16 &
-    export DISPLAY=:99
+    # Xvfb :99 -screen 0 1024x768x16 &
+    # export DISPLAY=:99
     
     # Даем Wine создать префикс, если его нет
-    wineboot -u && wineserver -w
+    # wineboot -u && wineserver -w
 
     cat <<EOF > cross_file.txt
 [host_machine]
