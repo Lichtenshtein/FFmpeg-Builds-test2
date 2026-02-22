@@ -236,36 +236,28 @@ export CCACHE_DEPEND="1"
 export CCACHE_COMPRESS=1
 export CCACHE_NOHASHDIR=1
 
-# WineHQ Configuration for Ubuntu 24.04 (Noble)
-export WINE_BIN_DIR="/opt/wine-stable/bin"
-export WINE_LIB_DIR="/opt/wine-stable/lib64:/opt/wine-stable/lib"
-export PATH="$WINE_BIN_DIR:${PATH}"
-# Критично для загрузки kernel32.dll из /opt
-if [[ -z "$LD_LIBRARY_PATH" ]]; then
-    export LD_LIBRARY_PATH="$WINE_LIB_DIR"
-else
-    export LD_LIBRARY_PATH="$WINE_LIB_DIR:${LD_LIBRARY_PATH}"
-fi
+# Базовые настройки Wine
 export WINEARCH=win64
 export WINEPREFIX="/root/.wine"
 export DISPLAY=:99
-export WINEDEBUG=-all  # Отключаем шумные логи Wine для CI
-# Указываем Wine, где искать DLL тулчейна и уже собранные либы
-# Автоматический поиск путей к DLL тулчейна для Wine
-# Ищем директорию bin внутри sys-root, где лежат рантайм DLL (pthread, gcc_s и т.д.)
-MINGW_BIN_PATH=$(find /opt/ct-ng -type d -path "*/sys-root/mingw/bin" -print -quit)
+export WINEDEBUG=-all
+export WINEDLLOVERRIDES="mscoree,mshtml=" # Отключаем попытки скачивания Mono/Gecko
+# Пути к бинарникам Wine (Noble)
+export WINE_BIN_DIR="/opt/wine-stable/bin"
+export PATH="$WINE_BIN_DIR:${PATH}"
+# Пути к библиотекам Wine (нужны для работы самого wine64)
+export LD_LIBRARY_PATH="/opt/wine-stable/lib64:/opt/wine-stable/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+# Динамическое определение путей тулчейна
+# Ищем, где реально лежат заголовочные файлы и либы mingw в вашем образе
+# В ct-ng это обычно /opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/bin
+MINGW_BIN_PATH=$(find /opt/ct-ng -maxdepth 3 -type d -name "bin" | grep "x86_64-w64-mingw32/bin" | head -n 1)
 if [ -n "$MINGW_BIN_PATH" ]; then
-    export WINEPATH="${MINGW_BIN_PATH};/opt/ffbuild/bin"
-    log_info "WINEPATH set to: $WINEPATH"
+    # WINEPATH требует ';' как разделитель. 
+    # Используем формат Unix-путей, Wine сам их сопоставит с 'Z:\'
+    export WINEPATH="${MINGW_BIN_PATH};${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib"
+    log_info "WINEPATH unified to: $WINEPATH"
 else
-    # Если ct-ng имеет другую структуру, пробуем найти по файлу
-    LIB_DIR=$(dirname $(find /opt/ct-ng -name "libwinpthread-*.dll" -print -quit))
-    if [ -n "$LIB_DIR" ]; then
-        export WINEPATH="${LIB_DIR};/opt/ffbuild/bin"
-        log_info "WINEPATH found via dll: $WINEPATH"
-    else
-        log_warn "Could not find MinGW DLL directory for WINEPATH"
-    fi
+    log_warn "Could not find MinGW BIN directory for WINEPATH"
 fi
 
 # Явно задаем хост-систему для Autotools

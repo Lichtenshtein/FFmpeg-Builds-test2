@@ -10,26 +10,18 @@ if [[ -z "$SCRIPT_PATH" || ! -f "$SCRIPT_PATH" ]]; then
 fi
 
 # Инициализируем Wine ТОЛЬКО если это реально необходимо
-# Проверяем наличие ключевых слов систем сборки в тексте скрипта
 if grep -qE "meson setup|cmake|./configure" "$SCRIPT_PATH"; then
+    # Проверка Xvfb
     if ! pgrep -x "Xvfb" > /dev/null; then
-        log_debug "Starting Xvfb for $STAGENAME..."
-        # Используем xvfb-run если он есть, или надежный запуск &
         Xvfb :99 -screen 0 1024x768x16 > /dev/null 2>&1 &
-        export DISPLAY=:99
-        sleep 3
+        sleep 2
     fi
-    # Если префикса всё еще нет (например, другой VOLUME), инициализируем без таймаута
-    if [[ ! -d "$WINEPREFIX" || ! -f "$WINEPREFIX/system.reg" ]]; then
-        log_info "Wine prefix missing or broken. Initializing..."
-        wine64 wineboot -u && wineserver -w
+    # Инициализация префикса, если его нет
+    if [[ ! -d "$WINEPREFIX/drive_c" ]]; then
+        log_info "Initializing Wine prefix..."
+        wine64 wineboot --init && wineserver -w
     fi
-else
-    log_debug "Stage $STAGENAME does not require Wine. Skipping initialization."
 fi
-export MINGW_BIN=$(find /opt/ct-ng -type d -path "*/sys-root/mingw/bin" -print -quit)
-export WINEPATH="${MINGW_BIN};${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib"
-log_debug "Runtime WINEPATH: $WINEPATH"
 
 STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
 
