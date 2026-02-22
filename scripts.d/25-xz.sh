@@ -18,8 +18,8 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     # Удаляем старые вспомогательные файлы, чтобы libtoolize и autoconf пересоздали их
-    rm -rf build-aux
-    mkdir -p build-aux
+    # rm -rf build-aux
+    # mkdir -p build-aux
 
     # В xz autogen.sh сам вызывает все нужные инструменты в правильном порядке
     # Мы пропускаем генерацию документации и переводов для скорости
@@ -28,12 +28,10 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --build=x86_64-pc-linux-gnu
         --disable-symbol-versions
         --disable-shared
         --enable-static
         --with-pic
-        --disable-nls
         --disable-scripts
         --disable-doc
     )
