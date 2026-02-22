@@ -62,7 +62,7 @@ RUN \
 
 # Создаем ссылки на то, что РЕАЛЬНО есть в системе (судя по dpkg -L)
 RUN \
-    chmod -R 777 /root/.wine && \
+    mkdir -p /root/.wine && chmod -R 777 /root/.wine && \
     ln -sf /opt/wine-stable/bin/wine /usr/bin/wine64 && \
     ln -sf /opt/wine-stable/bin/wine /usr/bin/wine && \
     ln -sf /opt/wine-stable/bin/wineboot /usr/bin/wineboot && \
