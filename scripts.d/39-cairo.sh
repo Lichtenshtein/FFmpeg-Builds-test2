@@ -1,6 +1,6 @@
 #!/bin/bash
 SCRIPT_REPO="https://gitlab.freedesktop.org/cairo/cairo.git"
-SCRIPT_COMMIT="8f8a1cdb2ae01c6bb858abec03d99acd8a3316e2942d"
+SCRIPT_COMMIT="2a4589266388622f8c779721c8a4e090966fae79"
 
 ffbuild_enabled() {
     return 0
