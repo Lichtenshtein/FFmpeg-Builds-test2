@@ -12,8 +12,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    autoupdate
-    autoreconf -i
+    # autoupdate
+    # autoreconf -i
     ./.bootstrap
 
     local myconf=(
