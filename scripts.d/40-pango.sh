@@ -12,11 +12,13 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # Отключаем WinRT, который требует отсутствующий заголовок
-    # Мы подменяем проверку в meson.build или передаем через CFLAGS
-    export CFLAGS="$CFLAGS -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
-    export CXXFLAGS="$CXXFLAGS -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
-    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lintl -liconv -lxml2 -llzma -lbcrypt -lws2_32 -lusp10 -lshlwapi"
+
+    export CFLAGS="$CFLAGS -DCAIRO_WIN32_STATIC_BUILD -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW -DHARFBUZZ_STATIC"
+    export CXXFLAGS="$CXXFLAGS -DCAIRO_WIN32_STATIC_BUILD -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW -DHARFBUZZ_STATIC"
+
+    # Полный список либ для прохождения проверок Meson
+    # Порядок ВАЖЕН: pango -> pangocairo -> cairo -> fontconfig -> freetype -> pixman ...
+    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lcairo -lfontconfig -lfreetype -lharfbuzz -lpixman-1 -lpng -lz -lbz2 -lbrotlidec -lbrotlicommon -lxml2 -llzma -liconv -lintl -lbcrypt -lws2_32 -lusp10 -lshlwapi -ldwrite -ld2d1 -lwindowscodecs -lgdi32 -lmsimg32 -lole32 -luser32 -lsetupapi -lruntimeobject"
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
@@ -39,9 +41,10 @@ ffbuild_dockerbuild() {
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
 
-    # Линковка Pango в FFmpeg требует Uniscribe
+    # Фикс .pc файла для FFmpeg
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/pango.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i 's/^Libs:.*/& -lusp10 -lshlwapi -lsetupapi/' "$PC_FILE"
+        # Добавляем всё, что нужно для финальной линковки FFmpeg
+        sed -i 's/^Libs:.*/& -lusp10 -lshlwapi -lsetupapi -lruntimeobject -ldwrite -lgdi32/' "$PC_FILE"
     fi
 }
