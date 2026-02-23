@@ -80,18 +80,6 @@ ffmpeg_vvceasy -channel_layout stereo -i MHM.mp4 MHM.wav
 
 See the more info of manual standard channel layouts [here](https://trac.ffmpeg.org/wiki/AudioChannelManipulation#Listchannelnamesandstandardchannellayouts).
 
-## Auto-Builds
-
-Builds run daily at 12:00 UTC (or GitHubs idea of that time) and are automatically released on success.
-
-**Auto-Builds run ONLY for win32, win(arm)64 and linux(arm)64. There is no linux 32-bit auto-builds, I will try to add support linux 32-bit support**
-
-### Release Retention Policy
-
-- The last build of each month is kept for two years.
-- The last 14 daily builds are kept.
-- The special "latest" build floats and provides consistent URLs always pointing to the latest build.
-
 ## Package List
 
 For a list of included dependencies check the scripts.d directory.
@@ -139,3 +127,16 @@ All of those can be optionally combined with any combination of addins:
 * `4.4`/`5.0`/`5.1`/`6.0`/`6.1`/`7.0`/`7.1` to build from the respective release branch instead of master.
 * `debug` to not strip debug symbols from the binaries. This increases the output size by about 250MB.
 * `lto` build all dependencies and ffmpeg with -flto=auto (HIGHLY EXPERIMENTAL, broken for Windows, sometimes works for Linux)
+
+### Testet dependency chains for manual builds
+
+* `The System Core` (Foundation; always build first). Without this, nothing will work.
+
+```
+10-mingw|10-mingw-std-threads|15-base|20-zlib|
+```
+
+* `librsvg`
+```
+10-mingw|10-mingw-std-threads|15-base|20-zlib|20-libiconv|21-gettext|20-pcre2|20-pixman|24-libffi|25-freetype|25-fribidi|25-libpng|25-bzlib|24-xz|25-libxml2|25-glib2|35-fontconfig|35-harfbuzz|38-brotli|40-freetype|39-cairo|40-pango|44-dav1d|45-librsvg-cargo-test
+```
