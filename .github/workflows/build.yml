@@ -52,6 +52,7 @@ env:
   DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|onevpl|glib2"
   FFBUILD_VERBOSE: ${{ github.event.inputs.verbosity || '1' }}
   ONLY_STAGE: ${{ github.event.inputs.only_stage }}
+  DEBUG_NO_HASH: ${{ github.event.inputs.debug_no_hash }}
 
 jobs:
   build_all:
@@ -170,41 +171,23 @@ jobs:
 
       - name: Run Download and Generate
         run: |
-          # Если выбран Clean, удаляем локальные копии кэша
           if [[ "${{ github.event.inputs.doClean }}" == "true" ]]; then
-            echo "--- CLEAN BUILD REQUESTED ---"
-            rm -rf .cache/downloads/*
-            rm -rf .cache/ffmpeg/*
-            rm -rf .cache/ccache/*
+            echo "### CLEAN BUILD REQUESTED ###"
+            rm -rf .cache/downloads/* .cache/ffmpeg/* .cache/ccache/*
           fi
           export ONLY_STAGE="${{ github.event.inputs.only_stage }}"
           export DEBUG_NO_HASH="${{ github.event.inputs.debug_no_hash }}"
-          LTO_PARAM=""
-          if [[ "${{ github.event.inputs.use_lto }}" == "true" ]]; then
-            LTO_PARAM="lto"
-          fi
+          LTO_PARAM="nolto"
+          [[ "${{ github.event.inputs.use_lto }}" == "true" ]] && LTO_PARAM="lto"
           SKIP_PARAM="false"
-          if [[ "${{ github.event.inputs.skip_ffmpeg }}" == "true" ]]; then
-            SKIP_PARAM="skip_ffmpeg"
-          fi
+          [[ "${{ github.event.inputs.skip_ffmpeg }}" == "true" ]] && SKIP_PARAM="skip_ffmpeg"
           # Создаем директории на случай, если кэш пустой
-          mkdir -p .cache/downloads
-          mkdir -p .cache/ffmpeg
+          mkdir -p .cache/downloads .cache/ffmpeg
           # Запускаем логику загрузки и генерации Dockerfile
           chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
-          ./generate.sh win64 nonfree "${LTO_PARAM:-nolto}" "$SKIP_PARAM"
-        env:
-          TARGET: win64
-          VARIANT: nonfree
-          ONLY_STAGE: ${{ github.event.inputs.only_stage }}
-          GIT_PRESERVE_LIST: "glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo"
-          DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|onevpl|glib2"
-          FFMPEG_REPO: ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg.git' }}
-          FFMPEG_BRANCH: ${{ github.event.inputs.ffmpeg_branch || 'master' }}
-          FFBUILD_VERBOSE: ${{ github.event.inputs.verbosity || '1' }}
-          DEBUG_NO_HASH: ${{ github.event.inputs.debug_no_hash }}
+          ./generate.sh win64 nonfree "$LTO_PARAM" "$SKIP_PARAM"
 
       - name: Inspect Dockerfile
         run: head -n 30 Dockerfile
