@@ -2,7 +2,7 @@
 
 # Используем R73 (релизный тег)
 SCRIPT_REPO="https://github.com/vapoursynth/vapoursynth.git"
-SCRIPT_COMMIT="877a177e6f9f6e654973e0b611f571901509fb12"
+SCRIPT_COMMIT="42a3bba6f0fffe3a397fa3494aadb7be1e2af8de"
 
 ffbuild_depends() {
     # Vapoursynth сильно зависит от zimg
