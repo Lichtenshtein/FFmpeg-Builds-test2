@@ -12,7 +12,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
 
-    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lintl -liconv -lxml2 -llzma"
+    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lintl -liconv -lxml2 -llzma -lbcrypt -lws2_32"
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
