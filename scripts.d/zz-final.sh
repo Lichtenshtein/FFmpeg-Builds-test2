@@ -58,7 +58,8 @@ ffbuild_depends() {
     echo libopus
     echo libplacebo
     echo librist
-    echo librsvg-test
+    echo librsvg-cargo-test
+    # echo librsvg-test
     echo libssh
     echo libtheora
     echo libtorch-test
