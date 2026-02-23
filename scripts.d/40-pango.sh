@@ -16,7 +16,7 @@ ffbuild_dockerbuild() {
     # Мы подменяем проверку в meson.build или передаем через CFLAGS
     export CFLAGS="$CFLAGS -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
     export CXXFLAGS="$CXXFLAGS -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
-    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lintl -liconv -lxml2 -llzma -lusp10 -lshlwapi"
+    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lintl -liconv -lxml2 -llzma -lbcrypt -lws2_32 -lusp10 -lshlwapi"
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
