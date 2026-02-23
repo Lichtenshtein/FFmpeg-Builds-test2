@@ -18,7 +18,7 @@ ffbuild_dockerbuild() {
 
     # Полный список либ для прохождения проверок Meson
     # Порядок ВАЖЕН: pango -> pangocairo -> cairo -> fontconfig -> freetype -> pixman ...
-    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lcairo -lfontconfig -lfreetype -lharfbuzz -lpixman-1 -lpng -lz -lbz2 -lbrotlidec -lbrotlicommon -lxml2 -llzma -liconv -lintl -lbcrypt -lws2_32 -lusp10 -lshlwapi -ldwrite -ld2d1 -lwindowscodecs -lgdi32 -lmsimg32 -lole32 -luser32 -lsetupapi -lruntimeobject"
+    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lcairo -lfontconfig -lfreetype -lharfbuzz -lpixman-1 -lpng -lz -lbz2 -lbrotlidec -lbrotlicommon -lxml2 -llzma -liconv -lintl -lbcrypt -lws2_32 -lusp10 -lshlwapi -ldwrite -ld2d1 -lwindowscodecs -lgdi32 -lmsimg32 -lole32 -luser32 -lsetupapi -lruntimeobject -lstdc++"
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
@@ -45,6 +45,6 @@ ffbuild_dockerbuild() {
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/pango.pc"
     if [[ -f "$PC_FILE" ]]; then
         # Добавляем всё, что нужно для финальной линковки FFmpeg
-        sed -i 's/^Libs:.*/& -lusp10 -lshlwapi -lsetupapi -lruntimeobject -ldwrite -lgdi32/' "$PC_FILE"
+        sed -i 's/^Libs:.*/& -lusp10 -lshlwapi -lsetupapi -lruntimeobject -ldwrite -lgdi32 -lstdc++/' "$PC_FILE"
     fi
 }
