@@ -4,7 +4,7 @@ SCRIPT_REPO="https://github.com/GNOME/librsvg.git"
 SCRIPT_COMMIT="28b37154cddfda8a0782ee684f34a18964384b41"
 
 ffbuild_enabled() {
-    return 1
+    return 0
 }
 
 ffbuild_dockerdl() {
@@ -24,25 +24,13 @@ ffbuild_dockerbuild() {
     # Помогаем Rust найти либы C через переменные окружения
     export RUSTFLAGS="-L native=$FFBUILD_PREFIX/lib -C linker=${FFBUILD_TOOLCHAIN}-gcc"
 
-    meson setup build \
+    cargo cinstall --release \
+        --target="x86_64-pc-windows-gnu" \
         --prefix="$FFBUILD_PREFIX" \
-        --cross-file=/cross.meson \
-        --buildtype=release \
-        --default-library=static \
-        --wrap-mode=nodownload \
-        -Dintrospection=disabled \
-        -Dpixbuf=disabled \
-        -Dpixbuf-loader=disabled \
-        -Dvala=disabled \
-        -Ddocs=disabled \
-        -Dtests=false \
-        -Drsvg-convert=disabled \
-        -Davif=enabled \
-        -Dtriplet="$FFBUILD_RUST_TARGET" \
-        || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
-
-    ninja -C build -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+        --destdir="$FFBUILD_DESTDIR" \
+        --library-type=staticlib \
+        --features=avif \
+        -p librsvg-c
 
     # Исправление .pc файла. 
     # librsvg-2.0.pc после сборки часто не содержит Cairo/Pango в Requires.private
