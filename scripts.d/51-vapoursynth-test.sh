@@ -20,6 +20,38 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
 
+    # _python_ver=3.13.11
+    # _python_lib=python313
+    # _vsver=73
+        # create_build_dir
+        # declare -A _pc_vars=(
+            # [vapoursynth-name]=vapoursynth
+            # [vapoursynth-description]='A frameserver for the 21st century'
+            # [vapoursynth-cflags]="-DVS_CORE_EXPORTS"
+
+            # [vsscript-name]=vapoursynth-script
+            # [vsscript-description]='Library for interfacing VapourSynth with Python'
+            # [vsscript-private]="-l$_python_lib"
+        # )
+        # for _file in vapoursynth vsscript; do
+            # gendef - "../$_file.dll" 2>/dev/null |
+                # sed -E 's|^_||;s|@[1-9]+$||' > "${_file}.def"
+            # do_dlltool "lib${_file}.a" "${_file}.def"
+            # [[ -f lib${_file}.a ]] && do_install "lib${_file}.a"
+            # printf '%s\n' \
+               # "prefix=$LOCALDESTDIR" \
+               # 'exec_prefix=${prefix}' \
+               # 'libdir=${exec_prefix}/lib' \
+               # 'includedir=${prefix}/include/vapoursynth' \
+               # "Name: ${_pc_vars[${_file}-name]}" \
+               # "Description: ${_pc_vars[${_file}-description]}" \
+               # "Version: $_vsver" \
+               # "Libs: -L\${libdir} -l${_file}" \
+               # "Libs.private: ${_pc_vars[${_file}-private]}" \
+               # "Cflags: -I\${includedir} ${_pc_vars[${_file}-cflags]}" \
+               # > "${_pc_vars[${_file}-name]}.pc"
+        # done
+
     # Чтобы FFmpeg работал с Vapoursynth, ему нужна библиотека VSScript.
     # Но VSScript требует Python. Мы отключаем модуль Python, но оставляем VSScript 
     # в режиме 'headers only' или минимальной статики, если это позволит Meson.
@@ -28,6 +60,8 @@ ffbuild_dockerbuild() {
     export LT_SYS_LIBRARY_PATH="$FFBUILD_PREFIX/lib"
 
         # --cross-file="$FFBUILD_CROSS_PREFIX"cross.meson
+        # -Dcore=false
+        # -Dtests=false
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
@@ -38,8 +72,6 @@ ffbuild_dockerbuild() {
         -Denable_vsscript=true \
         -Denable_vspipe=false \
         -Denable_python_module=false \
-        -Dcore=false \
-        -Dtests=false \
         || (tail -n 500 build/meson-logs/meson-log.txt && exit 1)
 
     ninja -C build -j$(nproc) $NINJA_V
