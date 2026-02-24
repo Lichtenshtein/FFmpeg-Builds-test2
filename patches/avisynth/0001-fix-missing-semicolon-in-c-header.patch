@@ -1,0 +1,22 @@
+From 29ea1f58a0c1a86a4751614e4b0336d353583a90 Mon Sep 17 00:00:00 2001
+From: BtbN <btbn@btbn.de>
+Date: Mon, 3 Mar 2025 23:24:23 +0100
+Subject: [PATCH] Fix missing semicolon in C header
+
+---
+ avs_core/include/avisynth_c.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/avs_core/include/avisynth_c.h b/avs_core/include/avisynth_c.h
+index 69bbf9bdf..0eaae28a4 100644
+--- a/avs_core/include/avisynth_c.h
++++ b/avs_core/include/avisynth_c.h
+@@ -1622,7 +1622,7 @@ struct AVS_Library {
+   AVSC_DECLARE_FUNC(avs_set_to_array);
+   AVSC_DECLARE_FUNC(avs_set_to_void);
+   // getters for all basic types. note: avs_get_as_float returns double
+-  AVSC_DECLARE_FUNC(avs_get_as_error)
++  AVSC_DECLARE_FUNC(avs_get_as_error);
+   AVSC_DECLARE_FUNC(avs_get_as_array);
+   AVSC_DECLARE_FUNC(avs_get_as_bool);
+   AVSC_DECLARE_FUNC(avs_get_as_clip);

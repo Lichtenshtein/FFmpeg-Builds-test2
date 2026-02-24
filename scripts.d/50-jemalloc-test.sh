@@ -8,6 +8,9 @@ ffbuild_enabled() {
     return 1
 }
 
+ffbuild_dockerdl() {
+    default_dl .
+}
 
 ffbuild_dockerbuild() {
 

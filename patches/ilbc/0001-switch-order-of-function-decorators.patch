@@ -1,0 +1,25 @@
+From 856c3b04c51f3fa3bba4dc311cf4a478eb2cee35 Mon Sep 17 00:00:00 2001
+From: BtbN <timo@rothenpieler.org>
+Date: Sat, 27 Jan 2024 17:45:31 +0100
+Subject: [PATCH] Switch order of function decorators
+
+The USE_RESULT macro can be an attribute, given recent enough gcc.
+Those have to come first, otherwise the signature is invalid.
+---
+ modules/audio_coding/codecs/ilbc/decode.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/modules/audio_coding/codecs/ilbc/decode.h b/modules/audio_coding/codecs/ilbc/decode.h
+index 0c8b40523d..ea02a88aa3 100644
+--- a/modules/audio_coding/codecs/ilbc/decode.h
++++ b/modules/audio_coding/codecs/ilbc/decode.h
+@@ -31,8 +31,8 @@
+  *---------------------------------------------------------------*/
+ 
+ // Returns 0 on success, -1 on error.
+-ILBC_EXPORT
+ ABSL_MUST_USE_RESULT
++ILBC_EXPORT
+ int WebRtcIlbcfix_DecodeImpl(
+     int16_t* decblock,         /* (o) decoded signal block */
+     const uint16_t* bytes,     /* (i) encoded signal bits */

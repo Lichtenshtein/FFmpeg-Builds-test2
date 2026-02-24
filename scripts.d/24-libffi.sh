@@ -7,7 +7,8 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    echo "curl -sL \"$SCRIPT_REPO\" --output libffi.tar.gz && tar xzf libffi.tar.gz --strip-components=1"
+    echo "download_file \"$SCRIPT_REPO\" \"libffi.tar.gz\""
+    echo "tar xzf libffi.tar.gz --strip-components=1"
 }
 
 ffbuild_dockerbuild() {

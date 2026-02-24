@@ -19,8 +19,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     if [[ -d "/builder/patches/zimg" ]]; then
         for patch in "/builder/patches/zimg"/*.patch; do
-            log_info "\n-----------------------------------"
-            log_info "~~~ APPLYING PATCH: $patch"
+            log_info "-----------------------------------"
+            log_info "APPLYING PATCH: $patch"
             if patch -p1 < "$patch"; then
                 log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
                 log_info "-----------------------------------"
@@ -40,9 +40,9 @@ ffbuild_dockerbuild() {
         --disable-shared
         --enable-static
         --with-pic
-        --disable-avx512
         --enable-simd
         --disable-testapp
+        --disable-unit-test
         --disable-example
     )
 

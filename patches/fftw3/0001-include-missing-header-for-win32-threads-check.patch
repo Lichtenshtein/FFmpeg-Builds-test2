@@ -1,0 +1,24 @@
+From 7282d84322a204b7b2f1a50b39570e11d330ffc2 Mon Sep 17 00:00:00 2001
+From: BtbN <btbn@btbn.de>
+Date: Mon, 18 Mar 2024 22:13:54 +0100
+Subject: [PATCH] Include missing header for Win32 Threads check
+
+Recent compilers (mostly clang) just abort on implicit function declaration. So this check could never succeed there, since the proper header for the tested function was not included.
+---
+ configure.ac | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/configure.ac b/configure.ac
+index 7ccb6272c..5e33b1c2b 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -700,7 +700,8 @@ if test "$enable_threads" = "yes"; then
+         # Win32 threads are the default on Windows:
+     if test -z "$THREADLIBS"; then
+         AC_MSG_CHECKING([for Win32 threads])
+-        AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <windows.h>]], [[_beginthreadex(0,0,0,0,0,0);]])],[THREADLIBS=" "; AC_MSG_RESULT(yes)],[AC_MSG_RESULT(no)])
++        AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <windows.h>
++                                          #include <process.h>]], [[_beginthreadex(0,0,0,0,0,0);]])],[THREADLIBS=" "; AC_MSG_RESULT(yes)],[AC_MSG_RESULT(no)])
+     fi
+ 
+     # POSIX threads, the default choice everywhere else:

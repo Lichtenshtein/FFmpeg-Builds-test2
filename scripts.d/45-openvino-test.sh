@@ -22,7 +22,7 @@ ffbuild_dockerbuild() {
     # Распаковываем (unzip должен быть в base образе)
     unzip -qq openvino.zip
     # Находим папку (имя может меняться в зависимости от билда)
-    local OV_DIR=$(find . -maxdepth 1 -type d -name "openvino_*" | head -n 1)
+    local OV_DIR=$(find . -maxdepth 1 -type d -name "*openvino_*" | head -n 1)
     cd "$OV_DIR"
 
     log_info "Installing OpenVINO Runtime to $FFBUILD_PREFIX"

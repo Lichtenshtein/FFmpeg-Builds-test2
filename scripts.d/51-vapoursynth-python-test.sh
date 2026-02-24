@@ -19,7 +19,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+    default_dl .
     # Загружаем Windows-версию Python (embed), чтобы забрать оттуда dll и либы для кросс-компиляции
     echo "download_file \"https://www.python.org/ftp/python/{PY_FULL_VER}/python-{PY_FULL_VER}-embed-amd64.zip\" \"python_embed.zip\""
 }

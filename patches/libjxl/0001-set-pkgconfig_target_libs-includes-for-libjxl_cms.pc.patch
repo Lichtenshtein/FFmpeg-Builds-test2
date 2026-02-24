@@ -1,0 +1,34 @@
+From 89278f92a21f461fb25b2868ba431403550a01c3 Mon Sep 17 00:00:00 2001
+From: Timo Rothenpieler <timo@rothenpieler.org>
+Date: Tue, 24 Oct 2023 12:26:34 +0200
+Subject: [PATCH] Set PKGCONFIG_TARGET_LIBS/INCLUDES for libjxl_cms.pc
+
+---
+ lib/jxl_cms.cmake | 14 ++++++++++++++
+ 1 file changed, 14 insertions(+)
+
+diff --git a/lib/jxl_cms.cmake b/lib/jxl_cms.cmake
+index 1eef9176367..0c051f6c820 100644
+--- a/lib/jxl_cms.cmake
++++ b/lib/jxl_cms.cmake
+@@ -86,6 +86,20 @@ add_library(jxl_cms ALIAS jxl_cms-static)
+ endif()  # BUILD_SHARED_LIBS
+ 
+ set(JPEGXL_CMS_LIBRARY_REQUIRES "")
++
++# Allow adding prefix if CMAKE_INSTALL_INCLUDEDIR not absolute.
++if(IS_ABSOLUTE "${CMAKE_INSTALL_INCLUDEDIR}")
++    set(PKGCONFIG_TARGET_INCLUDES "${CMAKE_INSTALL_INCLUDEDIR}")
++else()
++    set(PKGCONFIG_TARGET_INCLUDES "\${prefix}/${CMAKE_INSTALL_INCLUDEDIR}")
++endif()
++# Allow adding prefix if CMAKE_INSTALL_LIBDIR not absolute.
++if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
++    set(PKGCONFIG_TARGET_LIBS "${CMAKE_INSTALL_LIBDIR}")
++else()
++    set(PKGCONFIG_TARGET_LIBS "\${exec_prefix}/${CMAKE_INSTALL_LIBDIR}")
++endif()
++
+ configure_file("${CMAKE_CURRENT_SOURCE_DIR}/jxl/libjxl_cms.pc.in"
+                "libjxl_cms.pc" @ONLY)
+ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libjxl_cms.pc"

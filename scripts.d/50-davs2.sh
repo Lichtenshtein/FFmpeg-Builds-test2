@@ -20,14 +20,14 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     if [[ -d "/builder/patches/davs2" ]]; then
         for patch in "/builder/patches/davs2"/*.patch; do
-            log_info "\n-----------------------------------"
-            log_info "~~~ APPLYING PATCH: $patch"
+            log_info "-----------------------------------"
+            log_info "APPLYING PATCH: $patch"
             if patch -p1 < "$patch"; then
                 log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
                 log_info "-----------------------------------"
             else
                 log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                log_error "-----------------------------------"
+                log_info "-----------------------------------"
                 # return 1 # если нужно прервать сборку при ошибке
             fi
         done
@@ -41,6 +41,7 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --disable-cli
+        --bit-depth=10
         --enable-pic
         --host="$FFBUILD_TOOLCHAIN"
         --cross-prefix="$FFBUILD_CROSS_PREFIX"
