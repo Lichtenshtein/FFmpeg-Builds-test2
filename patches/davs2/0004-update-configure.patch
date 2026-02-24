@@ -31,7 +31,7 @@ index 66665d3..c550590 100644
  # MMX/SSE optims
  ifneq ($(AS),)
  # asm --------------------------------------------------------------
-@@ -68,15 +78,7 @@ endif
+@@ -68,15 +68,7 @@ endif
  ## Until now, we do not have 64-bit asm
  ifeq ($(SYS_ARCH),X86_64)
  ARCH_X86 = yes
@@ -47,7 +47,7 @@ index 66665d3..c550590 100644
 +SRCS     += $(SRC_SSE)
  
  SRCSAVX = common/vec/intrinsic_sao_avx2.cc \
- 		  common/vec/intrinsic_deblock_avx2.cc \
+ 		  common/vec/intrinsic_alf_avx2.c \
 @@ -131,9 +133,9 @@ ASMSRC += common/aarch64/bitstream-a.S \
            common/aarch64/pixel-a.S   \
            common/aarch64/predict-a.S \
@@ -5554,15 +5554,6 @@ index ac90f74..74e45fe 100755
          --disable-interlaced)
              interlaced="no"
              ;;
-@@ -466,7 +471,7 @@ for opt do
-             if [ "$bit_depth" -lt "8" -o "$bit_depth" -gt "10" ]; then
-                 echo "Supplied bit depth must be in range [8,10]."
-                 exit 1
--            elif [[ "$bit_depth" = "9" || "$bit_depth" = "10" ]]; then
-+            elif [[ "$bit_depth" = "9" ]]; then
-                 echo "BitDepth $bit_depth not supported currently."
-                 exit 1
-             fi
 @@ -890,6 +895,10 @@ if [ $asm = auto -a $ARCH = AARCH64 ] ; then
      fi
  fi
