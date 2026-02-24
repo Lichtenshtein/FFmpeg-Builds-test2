@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://deac-fra.dl.sourceforge.net/project/giflib/giflib-5.2.2.tar.gz"
+SCRIPT_REPO="https://downloads.sourceforge.net/project/giflib/giflib-5.2.2.tar.gz"
 
 ffbuild_enabled() {
     return 0
@@ -8,7 +8,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     echo "download_file \"$SCRIPT_REPO\" \"giflib.tar.gz\""
-    echo "tar xz giflib.tar.gz --strip-components=1"
+    echo "tar -xof giflib.tar.gz --strip-components=1 || (echo 'Tar failed' && return 1)"
 }
 
 ffbuild_dockerbuild() {
