@@ -47,6 +47,7 @@ EOF
     export LT_SYS_LIBRARY_PATH="$FFBUILD_PREFIX/lib"
 
         # --cross-file="$FFBUILD_CROSS_PREFIX"cross.meson
+        # -Dcore=true
 
     # Мы собираем vsscript как SHARED, так как он ОБЯЗАН грузить python3.dll
     meson setup build \
@@ -55,7 +56,6 @@ EOF
         --cross-file python_cross.ini \
         --buildtype release \
         --default-library static \
-        -Dcore=true \
         -Denable_vsscript=true \
         -Denable_python_module=true \
         -Dpython3_bin='/usr/bin/python3' \

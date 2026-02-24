@@ -1,0 +1,578 @@
+From 59178dea5d50dffc9dc27939057e61809394021c Mon Sep 17 00:00:00 2001
+From: Jamaika1 <lukaszcz18@wp.pl>
+Date: Wed, 23 Oct 2024 22:35:59 +0200
+Subject: [PATCH] Jamaika1's patches and fixes
+
+---
+diff --git a/avs_core/core/PluginManager.cpp b/avs_core/core/PluginManager.cpp
+index 1e3f8682..028febc2 100644
+--- a/avs_core/core/PluginManager.cpp
++++ b/avs_core/core/PluginManager.cpp
+@@ -535,7 +535,7 @@ bool AVSFunction::ArgNameMatch(const char* param_types, size_t args_names_count,
+           p += 1;
+           const char* q = strchr(p, ']');
+           if (!q) return false;
+-          if (len == q-p && !_strnicmp(arg_names[i], p, q-p)) {
++          if ((len == strlen((const char*)(q-p))) && !_strnicmp(arg_names[i], p, strlen((const char*)(q-p)))) {
+             found = true;
+             break;
+           }
+diff --git a/avs_core/core/audio.cpp b/avs_core/core/audio.cpp
+index 49c5539d..e73a51d4 100644
+--- a/avs_core/core/audio.cpp
++++ b/avs_core/core/audio.cpp
+@@ -167,7 +167,7 @@ static const struct channel_layout_name channel_layout_map[] = {
+ constexpr auto channel_layout_map_size = sizeof(channel_layout_map) / sizeof(channel_layout_name);
+ 
+ static unsigned int av_get_default_channel_layout(int nb_channels) {
+-  for (int i = 0; i < channel_layout_map_size; i++)
++  for (int i = 0; i < (int)channel_layout_map_size; i++)
+     if (nb_channels == channel_layout_map[i].layout.nb_channels)
+       return channel_layout_map[i].layout.mask;
+   return 0;
+@@ -177,13 +177,13 @@ static unsigned int av_get_default_channel_layout(int nb_channels) {
+ static unsigned int get_channel_layout_single(const char* name, size_t name_len)
+ {
+   // combined layout name
+-  for (int i = 0; i < channel_layout_map_size; i++) {
++  for (int i = 0; i < (int)channel_layout_map_size; i++) {
+     if (strlen(channel_layout_map[i].name) == name_len &&
+       !memcmp(channel_layout_map[i].name, name, name_len))
+       return channel_layout_map[i].layout.mask;
+   }
+   // individual channel name
+-  for (int i = 0; i < channel_names_size; i++)
++  for (int i = 0; i < (int)channel_names_size; i++)
+     if (channel_names[i].name &&
+       strlen(channel_names[i].name) == name_len &&
+       !memcmp(channel_names[i].name, name, name_len))
+@@ -194,13 +194,13 @@ static unsigned int get_channel_layout_single(const char* name, size_t name_len)
+   errno = 0;
+   long i = std::strtol(name, &end, 10);
+ 
+-  if (!errno && (end + 1 - name == name_len && *end == 'c'))
++  if (!errno && ((name_len == (size_t)(end + 1 - name)) && *end == 'c'))
+     return av_get_default_channel_layout(i);
+ 
+   // return the directly given mask
+   errno = 0;
+   long long layout = std::strtoll(name, &end, 0);
+-  if (!errno && end - name == name_len) {
++  if (!errno && (name_len == (size_t)(end - name))) {
+     if (layout > std::numeric_limits<unsigned int>::max())
+       return 0;
+     return (unsigned int)std::max(layout, 0LL);
+@@ -295,7 +295,7 @@ std::string channel_layout_to_str(const unsigned int channel_layout_mask)
+     return "speaker_all";
+ 
+   // find direct match
+-  for (int i = 0; i < channel_layout_map_size; i++) {
++  for (int i = 0; i < (int)channel_layout_map_size; i++) {
+     if (channel_layout_mask == channel_layout_map[i].layout.mask) {
+       return channel_layout_map[i].name;
+     }
+@@ -1812,7 +1812,7 @@ nofix:
+     v       += FilterUD(Xp + ch + q, (short)(( -pos) & Pmask),   ch);  /* Perform right-wing inner product */
+     *dst++ = v;     /* deposit output */
+     }
+-    if ((dtberror += dtbe) >= (1 << 31)) { // Don't be a creep ;-)
++    if ((dtberror += dtbe) >= (1u << 31)) { // Don't be a creep ;-)
+     dtberror -= (1u << 31);
+     pos += dtb + 1;   /* Move to next sample by time increment + error adjustment */
+     }
+diff --git a/avs_core/core/avisynth.cpp b/avs_core/core/avisynth.cpp
+index 8b593961..ee6a5e42 100644
+--- a/avs_core/core/avisynth.cpp
++++ b/avs_core/core/avisynth.cpp
+@@ -1016,10 +1016,10 @@ public:
+       if (data && (device->device_type == DEV_TYPE_CPU)) {
+         // check buffer overrun
+         int* pInt = (int*)(data + margin + data_size);
+-        if (pInt[0] != 0xDEADBEEF ||
+-          pInt[1] != 0xDEADBEEF ||
+-          pInt[2] != 0xDEADBEEF ||
+-          pInt[3] != 0xDEADBEEF)
++        if (pInt[0] != (int)0xDEADBEEF ||
++          pInt[1] != (int)0xDEADBEEF ||
++          pInt[2] != (int)0xDEADBEEF ||
++          pInt[3] != (int)0xDEADBEEF)
+         {
+           printf("Buffer overrun!!!\n");
+         }
+@@ -3551,7 +3551,7 @@ void ScriptEnvironment::ListFrameRegistry(size_t min_size, size_t max_size, bool
+               DebugOut(buf);
+             }
+           }
+-          else if (inner_frame_count == inner_frame_count_size - 1)
++          else if (inner_frame_count == (int)(inner_frame_count_size - 1))
+           {
+             // log the last one
+             if (frame->refcount > 0)
+@@ -4714,14 +4714,13 @@ const Function* ScriptEnvironment::Lookup(const char* search_name, const AVSValu
+         return result;
+ 
+       // then, look for a built-in function
+-      for (int i = 0; i < sizeof(builtin_functions)/sizeof(builtin_functions[0]); ++i)
++      for (int i = 0; i < (int)(sizeof(builtin_functions)/sizeof(builtin_functions[0])); ++i)
+         for (const AVSFunction* j = builtin_functions[i]; !j->empty(); ++j)
+         {
+-          if (streqi(j->name, search_name)) {
++          if (streqi(j->name, search_name))
+             if (AVSFunction::TypeMatch(j->param_types, args, num_args, pstrict, ctx) &&
+               AVSFunction::ArgNameMatch(j->param_types, args_names_count, arg_names))
+-              return j;
+-          }
++                return j;
+         }
+     }
+     // Try again without arg name matching
+@@ -4838,6 +4837,51 @@ bool ScriptEnvironment::Invoke_(AVSValue *result, const AVSValue& implicit_last,
+   args2[0] = implicit_last;
+   Flatten(args, args2.data() + 1, 0, 0, arg_names);
+ 
++      for (int i = 0; i < (int)(sizeof(builtin_functions)/sizeof(builtin_functions[0])); ++i)
++        for (const AVSFunction* j = builtin_functions[i]; !j->empty(); ++j)
++        {
++          if (strcmp(j->name, "Eval") &&
++              strcmp(j->name, "Import") &&
++              strcmp(j->name, "Default") &&
++              strcmp(j->name, "Dissolve") &&
++              strcmp(j->name, "OnCPU") &&
++              strcmp(j->name, "UnalignedSplice") &&
++              streqi(j->name, name))
++          {
++            int info = 0;
++            for (int k = 0; k < args_names_count; k++)
++            {
++              if ((args[k].IsBool() || args[k].IsInt() || args[k].IsString() || args[k].IsFloat()) && ((k < args_names_count) && (info == 0)))
++              {
++                printf("  Avisynth function: \033[37;1m%s\033[0m [", j->name); // Short info for ffmpeg
++                for (int k1 = 1; k1 < args_names_count; k1++)
++                  if (k == k1)
++                    k = k - k1;
++                }
++                ++info;
++              }
++
++              if (args[k].IsBool())
++                printf("%s", (args[k].AsBool()) ? "true" : "false");
++              else if (args[k].IsInt())
++                printf("%d", args[k].AsInt());
++              else if (args[k].IsString())
++                printf("%s", args[k].AsString());
++              else if (args[k].IsFloat())
++                printf("%f", args[k].AsFloatf());
++              else if (info != 0)
++                printf("\033[33;1;116mfunction\033[0m");
++
++              if ((info != 0) && (k < args_names_count - 1))
++                printf(", ");
++              else if (k == args_names_count - 1)
++                goto info;
++            }
++info:
++            if (info != 0)
++              printf("]\n");
++          }
++        }
+ #ifdef LISTARGUMENTS
+   // debug list of Invoke arguments before-after flattening
+   int level = 0;
+@@ -5110,7 +5154,7 @@ bool ScriptEnvironment::Invoke_(AVSValue *result, const AVSValue& implicit_last,
+           p += 1;
+           const char* q = strchr(p, ']');
+           if (!q) break;
+-          if (strlen(arg_names[i]) == size_t(q - p) && !_strnicmp(arg_names[i], p, q - p)) {
++          if ((strlen(arg_names[i]) == strlen((const char*)(q-p))) && !_strnicmp(arg_names[i], p, strlen((const char*)(q-p))) {
+             // we have a match
+             if (args3[named_arg_index].Defined() && args3_really_filled[named_arg_index]) {
+               // when a parameter like named array was filled as an empty array
+@@ -5474,7 +5518,7 @@ bool ScriptEnvironment::FunctionExists(const char* name)
+ 
+ bool ScriptEnvironment::InternalFunctionExists(const char* name)
+ {
+-  for (int i = 0; i < sizeof(builtin_functions)/sizeof(builtin_functions[0]); ++i)
++  for (int i = 0; i < (int)(sizeof(builtin_functions)/sizeof(builtin_functions[0])); ++i)
+     for (const AVSFunction* j = builtin_functions[i]; !j->empty(); ++j)
+       if (streqi(j->name, name))
+         return true;
+diff --git a/avs_core/core/avisynth_c.cpp b/avs_core/core/avisynth_c.cpp
+index 7f291826..73cbc4a7 100644
+--- a/avs_core/core/avisynth_c.cpp
++++ b/avs_core/core/avisynth_c.cpp
+@@ -65,113 +65,113 @@ int AVSC_CC avs_is_rgb64(const AVS_VideoInfo * p)
+ extern "C"
+ int AVSC_CC avs_is_yv24(const AVS_VideoInfo * p)
+ {
+-  return (p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YV24 & AVS_CS_PLANAR_FILTER);
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YV24 & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_yv16(const AVS_VideoInfo * p)
+ {
+-  return (p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YV16 & AVS_CS_PLANAR_FILTER);
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YV16 & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_yv12(const AVS_VideoInfo * p)
+ {
+-  return (p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YV12 & AVS_CS_PLANAR_FILTER);
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YV12 & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_yv411(const AVS_VideoInfo * p)
+ {
+-  return (p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YV411 & AVS_CS_PLANAR_FILTER);
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YV411 & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_y8(const AVS_VideoInfo * p)
+ {
+-  return (p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_Y8 & AVS_CS_PLANAR_FILTER);
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_Y8 & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_yuv444p16(const AVS_VideoInfo * p)
+ {
+-  return (p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YUV444P16 & AVS_CS_PLANAR_FILTER);
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YUV444P16 & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_yuv422p16(const AVS_VideoInfo * p)
+ {
+-  return (p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YUV422P16 & AVS_CS_PLANAR_FILTER);
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YUV422P16 & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_yuv420p16(const AVS_VideoInfo * p)
+ {
+-  return (p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YUV420P16 & AVS_CS_PLANAR_FILTER);
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YUV420P16 & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_y16(const AVS_VideoInfo * p)
+ {
+-  return (p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_Y16 & AVS_CS_PLANAR_FILTER);
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_Y16 & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_yuv444ps(const AVS_VideoInfo * p)
+ {
+-  return (p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YUV444PS & AVS_CS_PLANAR_FILTER);
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YUV444PS & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_yuv422ps(const AVS_VideoInfo * p)
+ {
+-  return (p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YUV422PS & AVS_CS_PLANAR_FILTER);
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YUV422PS & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_yuv420ps(const AVS_VideoInfo * p)
+ {
+-  return (p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YUV420PS & AVS_CS_PLANAR_FILTER);
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_YUV420PS & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_y32(const AVS_VideoInfo * p)
+ {
+-  return (p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_Y32 & AVS_CS_PLANAR_FILTER);
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK) == (AVS_CS_Y32 & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_444(const AVS_VideoInfo * p)
+ {
+-  return ((p->pixel_type & AVS_CS_PLANAR_MASK & ~AVS_CS_SAMPLE_BITS_MASK) == (AVS_CS_GENERIC_YUV444 & AVS_CS_PLANAR_FILTER)) ||
+-    ((p->pixel_type & AVS_CS_PLANAR_MASK & ~AVS_CS_SAMPLE_BITS_MASK) == (AVS_CS_GENERIC_YUVA444 & AVS_CS_PLANAR_FILTER));
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK & ~AVS_CS_SAMPLE_BITS_MASK) == (AVS_CS_GENERIC_YUV444 & ~AVS_CS_PLANAR_FILTER)) ||
++    ((p->pixel_type & AVS_CS_PLANAR_MASK & ~AVS_CS_SAMPLE_BITS_MASK) == (AVS_CS_GENERIC_YUVA444 & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_422(const AVS_VideoInfo * p)
+ {
+-  return ((p->pixel_type & AVS_CS_PLANAR_MASK & ~AVS_CS_SAMPLE_BITS_MASK) == (AVS_CS_GENERIC_YUV422 & AVS_CS_PLANAR_FILTER)) ||
+-    ((p->pixel_type & AVS_CS_PLANAR_MASK & ~AVS_CS_SAMPLE_BITS_MASK) == (AVS_CS_GENERIC_YUVA422 & AVS_CS_PLANAR_FILTER));
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK & ~AVS_CS_SAMPLE_BITS_MASK) == (AVS_CS_GENERIC_YUV422 & ~AVS_CS_PLANAR_FILTER)) ||
++    ((p->pixel_type & AVS_CS_PLANAR_MASK & ~AVS_CS_SAMPLE_BITS_MASK) == (AVS_CS_GENERIC_YUVA422 & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_420(const AVS_VideoInfo * p)
+ {
+-  return ((p->pixel_type & AVS_CS_PLANAR_MASK & ~AVS_CS_SAMPLE_BITS_MASK) == (AVS_CS_GENERIC_YUV420 & AVS_CS_PLANAR_FILTER)) ||
+-    ((p->pixel_type & AVS_CS_PLANAR_MASK & ~AVS_CS_SAMPLE_BITS_MASK) == (AVS_CS_GENERIC_YUVA420 & AVS_CS_PLANAR_FILTER));
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK & ~AVS_CS_SAMPLE_BITS_MASK) == (AVS_CS_GENERIC_YUV420 & ~AVS_CS_PLANAR_FILTER)) ||
++    ((p->pixel_type & AVS_CS_PLANAR_MASK & ~AVS_CS_SAMPLE_BITS_MASK) == (AVS_CS_GENERIC_YUVA420 & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_y(const AVS_VideoInfo * p)
+ {
+-  return (p->pixel_type & AVS_CS_PLANAR_MASK & ~AVS_CS_SAMPLE_BITS_MASK) == (AVS_CS_GENERIC_Y & AVS_CS_PLANAR_FILTER);
++  return ((p->pixel_type & AVS_CS_PLANAR_MASK & ~AVS_CS_SAMPLE_BITS_MASK) == (AVS_CS_GENERIC_Y & ~AVS_CS_PLANAR_FILTER));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_color_space(const AVS_VideoInfo * p, int c_space)
+ {
+   return avs_is_planar(p) ?
+-    ((p->pixel_type & AVS_CS_PLANAR_MASK) == (c_space & AVS_CS_PLANAR_FILTER))
++    ((p->pixel_type & AVS_CS_PLANAR_MASK) == (c_space & ~AVS_CS_PLANAR_FILTER))
+     :
+     (((p->pixel_type & ~AVS_CS_SAMPLE_BITS_MASK & c_space) == (c_space & ~AVS_CS_SAMPLE_BITS_MASK)) && // RGB got sample bits
+       ((p->pixel_type & AVS_CS_SAMPLE_BITS_MASK) == (c_space & AVS_CS_SAMPLE_BITS_MASK)));
+@@ -186,13 +186,13 @@ int AVSC_CC avs_is_yuva(const AVS_VideoInfo * p)
+ extern "C"
+ int AVSC_CC avs_is_planar_rgb(const AVS_VideoInfo * p)
+ {
+-  return !!(p->pixel_type & AVS_CS_PLANAR) && !!(p->pixel_type & AVS_CS_BGR) && !!(p->pixel_type & AVS_CS_RGB_TYPE);
++  return (!!(p->pixel_type & AVS_CS_PLANAR) && !!(p->pixel_type & AVS_CS_BGR) && !!(p->pixel_type & AVS_CS_RGB_TYPE));
+ }
+ 
+ extern "C"
+ int AVSC_CC avs_is_planar_rgba(const AVS_VideoInfo * p)
+ {
+-  return !!(p->pixel_type & AVS_CS_PLANAR) && !!(p->pixel_type & AVS_CS_BGR) && !!(p->pixel_type & AVS_CS_RGBA_TYPE);
++  return (!!(p->pixel_type & AVS_CS_PLANAR) && !!(p->pixel_type & AVS_CS_BGR) && !!(p->pixel_type & AVS_CS_RGBA_TYPE));
+ }
+ 
+ extern "C"
+diff --git a/avs_core/core/cpuid.cpp b/avs_core/core/cpuid.cpp
+index a369ad53..e4add6fd 100644
+--- a/avs_core/core/cpuid.cpp
++++ b/avs_core/core/cpuid.cpp
+@@ -423,10 +423,10 @@ static int64_t X86CheckForExtensions()
+ 
+ #if defined(X86_32) || defined(X86_64)
+   // Check CPUID Extended Leaf 0x80000001 (for 3DNow! and FMA4)
+-  __cpuid(cpuinfo, 0x80000000);
+-  if (cpuinfo[0] >= 0x80000001)
++  __cpuid(cpuinfo, (int)0x80000000);
++  if (cpuinfo[0] >= (int)0x80000001)
+   {
+-    __cpuid(cpuinfo, 0x80000001);
++    __cpuid(cpuinfo, (int)0x80000001);
+ 
+     if (IS_BIT_SET(cpuinfo[3], 31))
+       result |= CPUF_3DNOW;
+diff --git a/avs_core/core/interface.cpp b/avs_core/core/interface.cpp
+index f252bca3..a03911ab 100644
+--- a/avs_core/core/interface.cpp
++++ b/avs_core/core/interface.cpp
+@@ -623,10 +623,10 @@ int VideoFrame::CheckMemory() const {
+   if (vfb->data && vfb->device->device_type == DEV_TYPE_CPU) {
+     // check buffer overrun
+     int *pInt = (int *)(vfb->data + vfb->data_size);
+-    if (pInt[0] != 0xDEADBEEF ||
+-      pInt[1] != 0xDEADBEEF ||
+-      pInt[2] != 0xDEADBEEF ||
+-      pInt[3] != 0xDEADBEEF)
++    if (pInt[0] != (int)0xDEADBEEF ||
++      pInt[1] != (int)0xDEADBEEF ||
++      pInt[2] != (int)0xDEADBEEF ||
++      pInt[3] != (int)0xDEADBEEF)
+     {
+       return 1;
+     }
+diff --git a/avs_core/filters/AviSource/AVIReadHandler.cpp b/avs_core/filters/AviSource/AVIReadHandler.cpp
+index b6991930..f1110960 100644
+--- a/avs_core/filters/AviSource/AVIReadHandler.cpp
++++ b/avs_core/filters/AviSource/AVIReadHandler.cpp
+@@ -856,7 +856,7 @@ HRESULT AVIReadStream::Info(AVISTREAMINFO *pasi, long lSize) {
+ 	asi.rcFrame.right		= psnData->hdr.rcFrame.right;
+ 	asi.rcFrame.bottom		= psnData->hdr.rcFrame.bottom;
+ 
+-	if (lSize < sizeof asi)
++	if (lSize < (long)sizeof asi)
+ 		memcpy(pasi, &asi, lSize);
+ 	else {
+ 		memcpy(pasi, &asi, sizeof asi);
+diff --git a/avs_core/filters/AviSource/File64.cpp b/avs_core/filters/AviSource/File64.cpp
+index 08184abc..c2b953c6 100644
+--- a/avs_core/filters/AviSource/File64.cpp
++++ b/avs_core/filters/AviSource/File64.cpp
+@@ -77,7 +77,7 @@ void File64::_seekFile(__int64 i64NewPos) {
+ 	LONG lHi = (LONG)(i64NewPos>>32);
+ 	DWORD dwError;
+ 
+-	if (0xFFFFFFFF == SetFilePointer(hFile, (LONG)i64NewPos, &lHi, FILE_BEGIN))
++	if (0xFFFFFFFFL == (unsigned)SetFilePointer(hFile, (LONG)i64NewPos, &lHi, FILE_BEGIN))
+ 		if ((dwError = GetLastError()) != NO_ERROR)
+ 			throw MyWin32Error("File64: %%s", dwError);
+ 
+@@ -90,7 +90,7 @@ bool File64::_seekFile2(__int64 i64NewPos) {
+ 
+ //	_RPT1(0,"Seeking to %" PRIu64 "\n", i64NewPos);
+ 
+-	if (0xFFFFFFFF == SetFilePointer(hFile, (LONG)i64NewPos, &lHi, FILE_BEGIN))
++	if (0xFFFFFFFFL == (unsigned)SetFilePointer(hFile, (LONG)i64NewPos, &lHi, FILE_BEGIN))
+ 		if ((dwError = GetLastError()) != NO_ERROR)
+ 			return false;
+ 
+@@ -104,7 +104,7 @@ void File64::_skipFile(__int64 bytes) {
+ 	DWORD dwError;
+ 	LONG lNewLow;
+ 
+-	if (0xFFFFFFFF == (lNewLow = SetFilePointer(hFile, (LONG)bytes, &lHi, FILE_CURRENT)))
++	if (0xFFFFFFFFL == (unsigned)(lNewLow = SetFilePointer(hFile, (LONG)bytes, &lHi, FILE_CURRENT)))
+ 		if ((dwError = GetLastError()) != NO_ERROR)
+ 			throw MyWin32Error("File64: %%s", dwError);
+ 
+@@ -116,7 +116,7 @@ bool File64::_skipFile2(__int64 bytes) {
+ 	DWORD dwError;
+ 	LONG lNewLow;
+ 
+-	if (0xFFFFFFFF == (lNewLow = SetFilePointer(hFile, (LONG)bytes, &lHi, FILE_CURRENT)))
++	if (0xFFFFFFFFL == (unsigned)(lNewLow = SetFilePointer(hFile, (LONG)bytes, &lHi, FILE_CURRENT)))
+ 		if ((dwError = GetLastError()) != NO_ERROR)
+ 			return false;
+ 
+diff --git a/avs_core/filters/AviSource/VD_Audio.cpp b/avs_core/filters/AviSource/VD_Audio.cpp
+index 4238b58b..541dff61 100644
+--- a/avs_core/filters/AviSource/VD_Audio.cpp
++++ b/avs_core/filters/AviSource/VD_Audio.cpp
+@@ -17,7 +17,9 @@
+ 
+ //#include "VirtualDub.h"
+ 
++#undef _DEBUG
+ #include <crtdbg.h>
++#define _DEBUG 1
+ #include <cassert>
+ #include <limits>
+ #include <new>
+diff --git a/avs_core/filters/AviSource/avi_source.cpp b/avs_core/filters/AviSource/avi_source.cpp
+index eb5acdec..0d547f16 100644
+--- a/avs_core/filters/AviSource/avi_source.cpp
++++ b/avs_core/filters/AviSource/avi_source.cpp
+@@ -305,6 +305,7 @@ static PVideoFrame AdjustFrameAlignment(TemporalBuffer* frame, const VideoInfo&
+ }
+ 
+ #ifndef MSVC
++#ifndef GCC
+ static __inline LRESULT
+ ICDecompressEx(HIC hic,DWORD dwFlags,LPBITMAPINFOHEADER lpbiSrc,LPVOID lpSrc,INT xSrc,INT ySrc,INT dxSrc,INT dySrc,LPBITMAPINFOHEADER lpbiDst,LPVOID lpDst,INT xDst,INT yDst,INT dxDst,INT dyDst)
+ {
+@@ -344,6 +345,7 @@ ICDecompressExBegin(HIC hic,DWORD dwFlags,LPBITMAPINFOHEADER lpbiSrc,LPVOID lpSr
+   ic.dyDst = dyDst;
+   return ICSendMessage(hic,ICM_DECOMPRESSEX_BEGIN,(DWORD_PTR)&ic,sizeof(ic));
+ }
++#endif // GCC
+ #endif // MSVC
+ 
+ LRESULT AVISource::DecompressBegin(LPBITMAPINFOHEADER lpbiSrc, LPBITMAPINFOHEADER lpbiDst) {
+diff --git a/avs_core/filters/AviSource/list.h b/avs_core/filters/AviSource/list.h
+index d0b9ff92..7fb3c4d1 100644
+--- a/avs_core/filters/AviSource/list.h
++++ b/avs_core/filters/AviSource/list.h
+@@ -99,8 +99,8 @@ template<class T>
+ class ListNode2 : public ListNode {
+ friend List2<T>;
+ public:
+-	ListNode2<T>() {}
+-	ListNode2<T>(void *pv) : ListNode(pv) {}
++	(ListNode2<T>)() {}
++	(ListNode2<T>)(void *pv) : ListNode(pv) {}
+ 
+ 	void InsertBefore(ListNode2<T> *node) { ListNode::InsertBefore(node); }
+ 	void InsertAfter(ListNode2<T> *node) { ListNode::InsertAfter(node); }
+@@ -113,7 +113,7 @@ public:
+ template<class T>
+ class List2 : public List {
+ public:
+-	List2<T>() {}
++	(List2<T>)() {}
+ 
+ 	void AddHead(ListNode2<T> *node) { List::AddHead(node); }
+ 	void AddTail(ListNode2<T> *node) { List::AddTail(node); }
+diff --git a/avs_core/filters/conditional/conditional_reader.cpp b/avs_core/filters/conditional/conditional_reader.cpp
+index 682793b0..88276956 100644
+--- a/avs_core/filters/conditional/conditional_reader.cpp
++++ b/avs_core/filters/conditional/conditional_reader.cpp
+@@ -1029,7 +1029,7 @@ PVideoFrame __stdcall SetProperty::GetFrame(int n, IScriptEnvironment* env)
+         if (val_to_set == nullptr) break;
+         auto length_to_set = strlen(val_to_set);
+         auto length = env->propGetDataSize(avsmap_r, name, 0, nullptr);
+-        if (length != length_to_set) break; // different size
++        if (length != (int)length_to_set) break; // different size
+         const char* val_storage = env->propGetData(avsmap_r, name, 0, nullptr);
+         if(std::memcmp(val_to_set, val_storage, length) == 0) return frame; // value match -> return unaltered
+       }
+diff --git a/avs_core/filters/convolution.cpp b/avs_core/filters/convolution.cpp
+index 64254baf..86c2b8e9 100644
+--- a/avs_core/filters/convolution.cpp
++++ b/avs_core/filters/convolution.cpp
+@@ -533,7 +533,7 @@ void GeneralConvolution::setMatrix(const char * _matrix, bool _isInteger, IScrip
+   for (auto &s : out) {
+     if (s.length() == 0) continue; // first string can be empty is matrix string is starting with separators
+ 
+-    if (nSize == maxsize) {
++    if (nSize == (size_t)maxsize) {
+       if (dim == MAX_DIMENSION) {
+         env->ThrowError("GeneralConvolution: matrix too big, maximum %dx%d elements allowed", MAX_DIMENSION, MAX_DIMENSION);
+       }
+@@ -564,7 +564,7 @@ void GeneralConvolution::setMatrix(const char * _matrix, bool _isInteger, IScrip
+ 
+   if (nSize < 9)
+     env->ThrowError("GeneralConvolution: matrix too small, need at least 3x3 elements");
+-  else if (nSize != maxsize)
++  else if (nSize != (size_t)maxsize)
+     env->ThrowError("GeneralConvolution: matrix incomplete, possible size %dx%d but element count %d", dim, dim, nSize);
+ }
+ 
+diff --git a/avs_core/filters/levels.cpp b/avs_core/filters/levels.cpp
+index b4a9a202..e31aeb47 100644
+--- a/avs_core/filters/levels.cpp
++++ b/avs_core/filters/levels.cpp
+@@ -62,7 +62,7 @@ extern const AVSFunction Levels_filters[] = {
+ };
+ 
+ 
+-avs_alignas(64) static const BYTE ditherMap[256] = {
++avs_alignas(FRAME_ALIGN) static const BYTE ditherMap[256] = {
+ #if 0
+   // default 0231 recursed table
+   0x00, 0x80, 0x20, 0xA0,  0x08, 0x88, 0x28, 0xA8,  0x02, 0x82, 0x22, 0xA2,  0x0A, 0x8A, 0x2A, 0xAA,
+diff --git a/avs_core/filters/text-overlay.cpp b/avs_core/filters/text-overlay.cpp
+index fab78e46..921e1912 100644
+--- a/avs_core/filters/text-overlay.cpp
++++ b/avs_core/filters/text-overlay.cpp
+@@ -1865,7 +1865,7 @@ void Subtitle::InitAntialiaser(IScriptEnvironment* env)
+     case 9: al = TA_TOP      | TA_RIGHT; break;		// ----`
+     default: al= TA_BASELINE | TA_LEFT; break;		// .____
+   }
+-  if (SetTextCharacterExtra(hdcAntialias, spc) == 0x80000000) goto GDIError;
++  if (SetTextCharacterExtra(hdcAntialias, spc) == (int)0x80000000) goto GDIError;
+   if (SetTextAlign(hdcAntialias, al) == GDI_ERROR) goto GDIError;
+ 
+   // multiline is filter parameter, true when lsp is given.
+diff --git a/avs_core/include/avs/config.h b/avs_core/include/avs/config.h
+index b5ffe144..58f39ab0 100644
+--- a/avs_core/include/avs/config.h
++++ b/avs_core/include/avs/config.h
+@@ -42,7 +42,11 @@
+ // alignment. They should always request the exact alignment value they need.
+ // This is to make sure that plugins work over the widest range of AviSynth
+ // builds possible.
++#if defined(__AVX512F__)
+ #define FRAME_ALIGN 64
++#else
++#define FRAME_ALIGN 32
++#endif
+ 
+ #if   defined(_M_AMD64) || defined(__x86_64)
+ #   define X86_64
