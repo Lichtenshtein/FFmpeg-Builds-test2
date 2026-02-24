@@ -49,7 +49,6 @@ ffbuild_dockerbuild() {
         -DSPIRV_TOOLS_LIBRARY_TYPE=STATIC \
         -DGLSLANG_ENABLE_INSTALL=ON ..
 
-
     export DESTDIR="/tmp/staging$FFBUILD_DESTDIR"
     ninja install
 

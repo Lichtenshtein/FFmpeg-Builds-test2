@@ -1,0 +1,23 @@
+From 7e3f27009ebb906b1b33963b10eb45019a4c613e Mon Sep 17 00:00:00 2001
+From: BlueSwordM <zakdjeb@gmail.com>
+Date: Wed, 11 Feb 2026 23:22:53 -0500
+Subject: [PATCH] test: disabling unipred-bias for VQ focused tunes
+
+---
+ Source/Lib/Globals/enc_handle.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/Source/Lib/Globals/enc_handle.c b/Source/Lib/Globals/enc_handle.c
+index 6744769f8..3d9a2105d 100644
+--- a/Source/Lib/Globals/enc_handle.c
++++ b/Source/Lib/Globals/enc_handle.c
+@@ -3263,7 +3263,8 @@ static void derive_vq_params(SequenceControlSet* scs) {
+         // Sharpness
+         vq_ctrl->sharpness_ctrls.scene_transition = 1;
+         vq_ctrl->sharpness_ctrls.tf               = 1;
+-        vq_ctrl->sharpness_ctrls.unipred_bias     = 1;
++        //Temporarily disabling for tune VQ testing
++        vq_ctrl->sharpness_ctrls.unipred_bias     = 0;
+         vq_ctrl->sharpness_ctrls.ifs              = 1;
+         vq_ctrl->sharpness_ctrls.cdef             = 1;
+         vq_ctrl->sharpness_ctrls.restoration      = 1;

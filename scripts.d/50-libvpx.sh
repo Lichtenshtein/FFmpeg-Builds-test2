@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://chromium.googlesource.com/webm/libvpx"
-SCRIPT_COMMIT="53b5de7d75742b0b5dff237c7ea3d96577050e4f"
+SCRIPT_REPO="https://github.com/webmproject/libvpx.git"
+SCRIPT_COMMIT="30f3852521b11b5e361ec1eaeef5a12730bfe90f"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm64 ]] && return 1
@@ -23,11 +23,14 @@ ffbuild_dockerbuild() {
         --disable-unit-tests
         --enable-vp9-highbitdepth
         --prefix="$FFBUILD_PREFIX"
-        # ¬ Àﬁ◊¿≈Ã Œœ“»Ã»«¿÷»»
         --enable-realtime-only
         --enable-runtime-cpu-detect
         --enable-postproc
         --enable-multi-res-encoding
+        --enable-multithread
+        --enable-better-hw-compatibility
+        --enable-webm-io
+        --enable-postproc-visualizer
         --enable-vp9-temporal-denoising
     )
 
