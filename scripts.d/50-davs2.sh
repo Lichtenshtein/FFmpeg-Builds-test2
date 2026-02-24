@@ -1,7 +1,8 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/pkuvcl/davs2.git"
-SCRIPT_COMMIT="b41cf117452e2d73d827f02d3e30aa20f1c721ac"
+SCRIPT_REPO="https://github.com/netony/davs2.git"
+SCRIPT_COMMIT="0a9f952f09343156575e75a2d733d95529ba2d8a"
+
 
 ffbuild_enabled() {
     [[ $VARIANT == lgpl* ]] && return 1
@@ -13,12 +14,28 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "git fetch --unshallow"
+    # echo "git fetch --unshallow"
 }
 
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/zimg" ]]; then
+        for patch in "/builder/patches/zimg"/*.patch; do
+            log_info "\n-----------------------------------"
+            log_info "~~~ APPLYING PATCH: $patch"
+            if patch -p1 < "$patch"; then
+                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+                log_info "-----------------------------------"
+            else
+                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+                log_error "-----------------------------------"
+                # return 1 # если нужно прервать сборку при ошибке
+            fi
+        done
+    fi
+
     cd build/linux
 
+  # --enable-lto
     local myconf=(
         --disable-cli
         --enable-pic

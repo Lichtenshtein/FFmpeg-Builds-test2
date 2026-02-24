@@ -1,5 +1,3 @@
-Also 45-openvino-test.sh script for possible usage with whisper.cpp:
-
 #!/bin/bash
 
 # Прямая ссылка на архив Runtime 2024.6.0
