@@ -28,7 +28,6 @@ ffbuild_dockerbuild() {
         --with-brotli \
         LDFLAGS="-L$FFBUILD_PREFIX/lib" \
         CPPFLAGS="-I$FFBUILD_PREFIX/include"
-    )
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"

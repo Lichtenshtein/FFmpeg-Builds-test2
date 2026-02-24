@@ -1,0 +1,52 @@
+From 566fb0304e0691ccf9f02f49502d569b55c0e344 Mon Sep 17 00:00:00 2001
+From: Qian Qian <qiqian82@gmail.com>
+Date: Tue, 23 Jan 2024 18:58:35 +0800
+Subject: [PATCH] fix static link
+
+---
+ source/configw.h | 6 +++---
+ source/davs2.h   | 4 +++-
+ 2 files changed, 6 insertions(+), 4 deletions(-)
+
+diff --git a/source/configw.h b/source/configw.h
+index c935ad0..c346e96 100644
+--- a/source/configw.h
++++ b/source/configw.h
+@@ -42,7 +42,7 @@
+ #define ARCH_UltraSPARC         0
+ 
+ /* system */
+-#define SYS_WINDOWS             1
++#define SYS_WINDOWS             !!(_MSC_VER)
+ #define SYS_LINUX               0
+ #define SYS_MACOSX              0
+ #define SYS_BEOS                0
+@@ -63,10 +63,10 @@
+ /* thread */
+ #define HAVE_THREAD             1
+ #define HAVE_WIN32THREAD        1
+-#define HAVE_PTHREAD            0
++#define HAVE_PTHREAD            1
+ #define HAVE_BEOSTHREAD         0
+ #define HAVE_POSIXTHREAD        0
+-#define PTW32_STATIC_LIB        0
++#define PTW32_STATIC_LIB        1
+ 
+ /* interlace support */
+ #define HAVE_INTERLACED         1
+diff --git a/source/davs2.h b/source/davs2.h
+index d4b6811..3e76d23 100644
+--- a/source/davs2.h
++++ b/source/davs2.h
+@@ -61,8 +61,10 @@ extern "C" {    // only need to export C interface if used by C++ source code
+ #else
+ #  ifdef __GNUC__                     /* for Linux   */
+ #    define DAVS2_API
+-#  else                               /* for windows */
++#  elif defined(DAVS2_EXPORTS)                              /* for windows */
+ #    define DAVS2_API __declspec(dllimport)
++#  else
++#    define DAVS2_API
+ #  endif
+ #endif
+ 

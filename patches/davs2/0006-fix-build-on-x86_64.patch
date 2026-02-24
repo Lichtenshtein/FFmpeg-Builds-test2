@@ -1,0 +1,182 @@
+From ab855926d4fdc8b3acb33aafe3d3f47d93f32a58 Mon Sep 17 00:00:00 2001
+From: Rainbaby <rainbaby@outlook.jp>
+Date: Sat, 4 Feb 2023 04:14:36 +0800
+Subject: [PATCH] build: fix build on x86_64
+
+---
+ build/linux/Makefile                                      | 4 +++-
+ build/linux/configure                                     | 3 ++-
+ build/vs2013/libdavs2_intrin_avx.vcxproj                  | 2 +-
+ build/vs2013/libdavs2_intrin_avx.vcxproj.filters          | 2 +-
+ source/common/alf.cc                                      | 6 +++---
+ source/common/intra.cc                                    | 2 +-
+ source/common/mc.cc                                       | 2 +-
+ source/common/pixel.cc                                    | 8 ++++----
+ source/common/sao.cc                                      | 2 +-
+ .../vec/{intrinsic_alf_avx2.c => intrinsic_alf_avx2.cc}   | 0
+ 10 files changed, 17 insertions(+), 14 deletions(-)
+ rename source/common/vec/{intrinsic_alf_avx2.c => intrinsic_alf_avx2.cc} (100%)
+
+diff --git a/build/linux/Makefile b/build/linux/Makefile
+index c550590..7523044 100644
+--- a/build/linux/Makefile
++++ b/build/linux/Makefile
+@@ -85,9 +85,11 @@ SRCSAVX = common/vec/intrinsic_sao_avx2.cc \
+ 		  common/vec/intrinsic_intra-pred_avx2.cc \
+ 		  common/vec/intrinsic_inter_pred_avx2.cc \
+ 		  common/vec/intrinsic_pixel_avx.cc \
+-		  common/vec/intrinsic_idct_avx2.cc
++		  common/vec/intrinsic_idct_avx2.cc \
++		  common/vec/intrinsic_alf_avx2.cc
+ 
+ CFLAGS += -mmmx -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -msse4a -mssse3 -mavx
++CFLAGS += -fpermissive
+ # ASMSRC   = $(X86SRC:-32.asm=-64.asm)
+ ASMSRC   = $(X86SRC)
+ ASFLAGS += -DARCH_X86_64=1
+diff --git a/build/linux/configure b/build/linux/configure
+index fbdcd0a..b5ed726 100755
+--- a/build/linux/configure
++++ b/build/linux/configure
+@@ -896,8 +896,9 @@ if [ $asm = auto -a $ARCH = AARCH64 ] ; then
+     asm="no"
+ fi
+ 
++define HAVE_SSE2NEON 0
+ if [ $asm = no ] && [ $sse2neon = yes ] && [ $ARCH = AARCH64 ] ; then
+-    define HAVE_SSE2NEON
++    define HAVE_SSE2NEON 1
+ fi
+ 
+ if [ $asm = auto -a \( $ARCH = ARM -o $ARCH = AARCH64 \) ] ; then
+diff --git a/build/vs2013/libdavs2_intrin_avx.vcxproj b/build/vs2013/libdavs2_intrin_avx.vcxproj
+index 9913909..4f6c467 100644
+--- a/build/vs2013/libdavs2_intrin_avx.vcxproj
++++ b/build/vs2013/libdavs2_intrin_avx.vcxproj
+@@ -19,7 +19,7 @@
+     </ProjectConfiguration>
+   </ItemGroup>
+   <ItemGroup>
+-    <ClCompile Include="..\..\source\common\vec\intrinsic_alf_avx2.c" />
++    <ClCompile Include="..\..\source\common\vec\intrinsic_alf_avx2.cc" />
+     <ClCompile Include="..\..\source\common\vec\intrinsic_deblock_avx2.cc" />
+     <ClCompile Include="..\..\source\common\vec\intrinsic_idct_avx2.cc" />
+     <ClCompile Include="..\..\source\common\vec\intrinsic_inter_pred_avx2.cc" />
+diff --git a/build/vs2013/libdavs2_intrin_avx.vcxproj.filters b/build/vs2013/libdavs2_intrin_avx.vcxproj.filters
+index e7ad592..1e814df 100644
+--- a/build/vs2013/libdavs2_intrin_avx.vcxproj.filters
++++ b/build/vs2013/libdavs2_intrin_avx.vcxproj.filters
+@@ -25,7 +25,7 @@
+     <ClCompile Include="..\..\source\common\vec\intrinsic_pixel_avx.cc">
+       <Filter>vec</Filter>
+     </ClCompile>
+-    <ClCompile Include="..\..\source\common\vec\intrinsic_alf_avx2.c">
++    <ClCompile Include="..\..\source\common\vec\intrinsic_alf_avx2.cc">
+       <Filter>vec</Filter>
+     </ClCompile>
+   </ItemGroup>
+diff --git a/source/common/alf.cc b/source/common/alf.cc
+index 09dbe7a..da3d097 100644
+--- a/source/common/alf.cc
++++ b/source/common/alf.cc
+@@ -515,14 +515,14 @@ void davs2_alf_init(uint32_t cpuid, ao_funcs_t *fh)
+     /* init asm function handles */
+ #if HAVE_MMX || HAVE_SSE2NEON
+ #if HIGH_BIT_DEPTH
+-        if (cpuid & DAVS2_CPU_SSE4 || HAVE_SSE2NEON) {
++        if ((cpuid & DAVS2_CPU_SSE4) || HAVE_SSE2NEON) {
+             fh->alf_block[0] = alf_filter_block_sse128_10bit;
+         }
+-        if (cpuid & (DAVS2_CPU_AVX2) && !HAVE_SSE2NEON) {
++        if ((cpuid & DAVS2_CPU_AVX2) && !HAVE_SSE2NEON) {
+             fh->alf_block[0] = alf_filter_block_avx2_10bit;
+         }
+ #else
+-    if (cpuid & DAVS2_CPU_SSE4) {
++    if ((cpuid & DAVS2_CPU_SSE4) || HAVE_SSE2NEON) {
+         fh->alf_block[0] = alf_filter_block_sse128;
+     }
+ #endif
+diff --git a/source/common/intra.cc b/source/common/intra.cc
+index 3f0ab4e..7b8db97 100644
+--- a/source/common/intra.cc
++++ b/source/common/intra.cc
+@@ -2632,7 +2632,7 @@ void davs2_intra_pred_init(uint32_t cpuid, ao_funcs_t *pf)
+     ipred[INTRA_ANG_Y_32]  = intra_pred_ang_y_32_c;
+ 
+ #if HAVE_MMX || HAVE_SSE2NEON
+-    if (cpuid & DAVS2_CPU_SSE4 || HAVE_SSE2NEON){
++    if ((cpuid & DAVS2_CPU_SSE4) || HAVE_SSE2NEON){
+ #if !HIGH_BIT_DEPTH
+         ipred[DC_PRED   ] = intra_pred_dc_sse128;
+         ipred[PLANE_PRED] = intra_pred_plane_sse128;
+diff --git a/source/common/mc.cc b/source/common/mc.cc
+index 5206251..d30147b 100644
+--- a/source/common/mc.cc
++++ b/source/common/mc.cc
+@@ -676,7 +676,7 @@ void davs2_mc_init(uint32_t cpuid, ao_funcs_t *pf)
+ 
+     /* init asm function handles */
+ #if HAVE_MMX || HAVE_SSE2NEON
+-    if (cpuid & DAVS2_CPU_SSE42 || HAVE_SSE2NEON){
++    if ((cpuid & DAVS2_CPU_SSE42) || HAVE_SSE2NEON){
+ #if HIGH_BIT_DEPTH
+         //10bit assemble
+ #else
+diff --git a/source/common/pixel.cc b/source/common/pixel.cc
+index a9bc2e8..01c5587 100644
+--- a/source/common/pixel.cc
++++ b/source/common/pixel.cc
+@@ -192,7 +192,7 @@ void davs2_pixel_init(uint32_t cpuid, ao_funcs_t* pixf)
+     ALL_LUMA_PU(copy_ss, blockcopy_ss, );
+ 
+ #if HAVE_MMX || HAVE_SSE2NEON
+-    if (cpuid & DAVS2_CPU_SSE2 && !HAVE_SSE2NEON) {
++    if ((cpuid & DAVS2_CPU_SSE2) && !HAVE_SSE2NEON) {
+ #if HIGH_BIT_DEPTH
+         //10bit assemble
+         if (sizeof(pel_t) == sizeof(int16_t) && cpuid) {
+@@ -255,7 +255,7 @@ void davs2_pixel_init(uint32_t cpuid, ao_funcs_t* pixf)
+ #endif
+     }
+ 
+-    if (cpuid & DAVS2_CPU_SSE4 || HAVE_SSE2NEON) {
++    if ((cpuid & DAVS2_CPU_SSE4) || HAVE_SSE2NEON) {
+ #if HIGH_BIT_DEPTH
+         //10bit assemble
+ #else
+@@ -282,7 +282,7 @@ void davs2_pixel_init(uint32_t cpuid, ao_funcs_t* pixf)
+ #endif
+     }
+     
+-    if (cpuid & DAVS2_CPU_AVX && !HAVE_SSE2NEON) {
++    if ((cpuid & DAVS2_CPU_AVX) && !HAVE_SSE2NEON) {
+ #if HIGH_BIT_DEPTH
+         //10bit assemble
+         if (sizeof(pel_t) == sizeof(int16_t) && cpuid) {
+@@ -355,7 +355,7 @@ void davs2_pixel_init(uint32_t cpuid, ao_funcs_t* pixf)
+ #endif
+     }
+ 
+-    if (cpuid & DAVS2_CPU_AVX2 && !HAVE_SSE2NEON) {
++    if ((cpuid & DAVS2_CPU_AVX2) && !HAVE_SSE2NEON) {
+ #if HIGH_BIT_DEPTH
+         //10bit assemble
+ #else
+diff --git a/source/common/sao.cc b/source/common/sao.cc
+index a4a4f7e..9637e5c 100644
+--- a/source/common/sao.cc
++++ b/source/common/sao.cc
+@@ -646,7 +646,7 @@ void davs2_sao_init(uint32_t cpuid, ao_funcs_t *fh)
+ 
+     /* init asm function handles */
+ #if HAVE_MMX || HAVE_SSE2NEON
+-    if (cpuid & DAVS2_CPU_SSE4 || HAVE_SSE2NEON){
++    if ((cpuid & DAVS2_CPU_SSE4) || HAVE_SSE2NEON){
+ #if !HIGH_BIT_DEPTH
+         fh->sao_block_bo                   = SAO_on_block_bo_sse128;
+         fh->sao_filter_eo[SAO_TYPE_EO_0]   = SAO_on_block_eo_0_sse128;
+diff --git a/source/common/vec/intrinsic_alf_avx2.c b/source/common/vec/intrinsic_alf_avx2.cc
+similarity index 100%
+rename from source/common/vec/intrinsic_alf_avx2.c
+rename to source/common/vec/intrinsic_alf_avx2.cc
