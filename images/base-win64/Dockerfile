@@ -1,5 +1,5 @@
 ARG GH_REPO
-FROM $GH_REPO/base:latest
+FROM ${GH_REPO}/base:latest
 
 RUN --mount=src=ct-ng-config,dst=/.config \
     git clone --filter=blob:none --depth=1 https://github.com/crosstool-ng/crosstool-ng.git /ct-ng && \

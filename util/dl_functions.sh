@@ -56,7 +56,7 @@ git-mini-clone() {
     local OLD_PWD=$(pwd)
     cd "$TARGET_DIR" || return 1
     # Функция для безопасного выхода (замена popd)
-    _cleanup_git_clone() {cd "$OLD_PWD"}
+    _cleanup_git_clone() { cd "$OLD_PWD"; }
 
     # Удаляем возможные локи от прошлых неудачных запусков
     [[ -d ".git" ]] && rm -f .git/index.lock

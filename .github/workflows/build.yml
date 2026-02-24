@@ -147,7 +147,6 @@ jobs:
         with:
           context: images/base-win64
           build-args: |
-            CARGO_C_VERSION=0.10.20
             GH_REPO=${{ steps.images.outputs.repo_lc }}
           cache-from: type=gha,scope=base
           # cache-to: type=gha,mode=max,scope=base

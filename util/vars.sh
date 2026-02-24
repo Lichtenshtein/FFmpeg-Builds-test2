@@ -236,15 +236,19 @@ export PATH="$WINE_BIN_DIR:${PATH}"
 export LD_LIBRARY_PATH="/opt/wine-stable/lib64:/opt/wine-stable/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 # Динамическое определение путей тулчейна
 # Ищем, где реально лежат заголовочные файлы и либы mingw в вашем образе
-# В ct-ng это обычно /opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/bin
-MINGW_BIN_PATH=$(find /opt/ct-ng -maxdepth 3 -type d -name "bin" | grep "x86_64-w64-mingw32/bin" | head -n 1)
-if [ -n "$MINGW_BIN_PATH" ]; then
-    # WINEPATH требует ';' как разделитель. 
-    # Используем формат Unix-путей, Wine сам их сопоставит с 'Z:\'
-    export WINEPATH="${MINGW_BIN_PATH};${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib"
-    log_info "WINEPATH unified to: $WINEPATH"
+# /opt/ct-ng/x86_64-w64-mingw32/sysroot/usr/x86_64-w64-mingw32/bin/
+# Проверяем, находимся ли мы внутри Docker (где есть тулчейн)
+if [ -d "/opt/ct-ng" ]; then
+    MINGW_BIN_PATH=$(find /opt/ct-ng -maxdepth 5 -type d -name "bin" | grep "x86_64-w64-mingw32/bin" | head -n 1)
+    if [ -n "$MINGW_BIN_PATH" ]; then
+        export WINEPATH="${MINGW_BIN_PATH};${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib"
+        log_info "WINEPATH unified to: $WINEPATH"
+    else
+        log_warn "Could not find MinGW BIN directory for WINEPATH"
+    fi
 else
-    log_warn "Could not find MinGW BIN directory for WINEPATH"
+    # Если мы на хосте (этап генерации/загрузки), просто игнорируем тулчейн
+    log_debug "Running outside of build container, skipping toolchain path discovery."
 fi
 
 # Явно задаем хост-систему для Autotools
