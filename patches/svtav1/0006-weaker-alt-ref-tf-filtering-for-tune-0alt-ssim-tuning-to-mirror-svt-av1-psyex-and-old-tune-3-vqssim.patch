@@ -1,0 +1,24 @@
+From 1c5a762cb47ffcf48b2ee82044ea53b600fb29e6 Mon Sep 17 00:00:00 2001
+From: BlueSwordM <zakdjeb@gmail.com>
+Date: Sat, 17 Jan 2026 17:05:45 -0500
+Subject: [PATCH] feat: weaker alt-ref TF filtering for tune 0/alt-ssim tuning
+ to mirror svt-av1-psyex and old tune 3 vqssim
+
+---
+ Source/Lib/Codec/temporal_filtering.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/Source/Lib/Codec/temporal_filtering.c b/Source/Lib/Codec/temporal_filtering.c
+index 63f8aba71..b8735b3f2 100644
+--- a/Source/Lib/Codec/temporal_filtering.c
++++ b/Source/Lib/Codec/temporal_filtering.c
+@@ -2786,7 +2786,8 @@ static EbErrorType produce_temporally_filtered_pic(
+     };
+     int decay_control[COLOR_CHANNELS];
+ 
+-    if (scs->vq_ctrls.sharpness_ctrls.tf && centre_pcs->is_noise_level && scs->calculate_variance && centre_pcs->pic_avg_variance < VQ_PIC_AVG_VARIANCE_TH) {
++    if (scs->vq_ctrls.sharpness_ctrls.tf && centre_pcs->is_noise_level && scs->calculate_variance && centre_pcs->pic_avg_variance < VQ_PIC_AVG_VARIANCE_TH ||
++    scs->static_config.tune == TUNE_VQ || (scs->static_config.alt_ssim_tuning && scs->static_config.tune == TUNE_SSIM)) {
+ 
+         decay_control[C_Y] = 1;
+         decay_control[C_U] = 1;

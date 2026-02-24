@@ -32,8 +32,10 @@ ffbuild_dockerbuild() {
         -DGRAPHICS_OPTIMIZATIONS=ON
         -DSW_BUILD=OFF
         -DBUILD_TRAINING_TOOLS=OFF
-        -DENABLE_LTO=OFF
     )
+
+    # Добавляем LTO если включено в workflow
+    [[ "$USE_LTO" == "1" ]] && myconf+=( -DENABLE_LTO=ON )
 
     # Принудительно отключаем поиск Pango, если не хотим проблем с линковкой
     # cmake "${myconf[@]}" -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica" ..
