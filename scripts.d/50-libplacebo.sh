@@ -16,20 +16,17 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    git-submodule-clone
+    echo "git-submodule-clone"
 }
 
 ffbuild_dockerbuild() {
     if [[ -d "/builder/patches/libplacebo" ]]; then
         for patch in /builder/patches/libplacebo/*.patch; do
-            log_info "-----------------------------------"
             log_info "APPLYING PATCH: $patch"
-            if patch -p1 < "$patch"; then
+            if patch -p1 -N -r - < "$patch"; then
                 log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-                log_info "-----------------------------------"
             else
                 log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                log_info "-----------------------------------"
                 # return 1 # если нужно прервать сборку при ошибке
             fi
         done

@@ -9,7 +9,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    git-submodule-clone
+    echo "git-submodule-clone"
     # echo "git submodule --quiet update --init --recursive --depth=1"
 }
 

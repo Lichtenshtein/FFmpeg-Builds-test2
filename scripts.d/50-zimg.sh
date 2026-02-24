@@ -13,20 +13,17 @@ ffbuild_depends() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "git submodule --quiet update --init --recursive --depth=1"
+    echo "git-submodule-clone"
 }
 
 ffbuild_dockerbuild() {
     if [[ -d "/builder/patches/zimg" ]]; then
         for patch in "/builder/patches/zimg"/*.patch; do
-            log_info "-----------------------------------"
             log_info "APPLYING PATCH: $patch"
-            if patch -p1 < "$patch"; then
+            if patch -p1 -N -r - < "$patch"; then
                 log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-                log_info "-----------------------------------"
             else
                 log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                log_error "-----------------------------------"
                 # return 1 # если нужно прервать сборку при ошибке
             fi
         done

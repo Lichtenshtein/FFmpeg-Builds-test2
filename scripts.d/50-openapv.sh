@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/AcademySoftwareFoundation/openapv.git"
-SCRIPT_COMMIT="e04b3e84743e3c6306e7c06e38bc6d369161ce91"
+SCRIPT_COMMIT="3e87fa5101c3fe4038035b562cf552755fcf2060"
 
 ffbuild_enabled() {
     # (( $(ffbuild_ffver) > 701 )) || return 1
@@ -10,7 +10,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "git fetch --unshallow --filter=blob:none"
+    # echo "git fetch --unshallow --filter=blob:none"
 }
 
 ffbuild_dockerbuild() {
