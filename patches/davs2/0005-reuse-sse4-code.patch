@@ -75,10 +75,10 @@ index 75a7ab3..7a3c9b7 100644
   * DCT pattern */
  enum dct_pattern_e {
      DCT_DEAULT,      /* default */
--    DCT_HALF,        /* ���ο�����Ͻ�1/2���ߣ����1/4���� �Ƿ��ο�Ϊ���Ͻ�1/2�����1/2�� */
--    DCT_QUAD,        /* ���ο�����Ͻ�1/4���ߣ����1/16�����Ƿ��ο�Ϊ���Ͻ�1/4�����1/4�� */
-+    DCT_HALF,        /* ���ο�����Ͻ�1/2��ߣ����1/4���� �Ƿ��ο�Ϊ���Ͻ�1/2�����1/2�� */
-+    DCT_QUAD,        /* ���ο�����Ͻ�1/4��ߣ����1/16�����Ƿ��ο�Ϊ���Ͻ�1/4�����1/4�� */
+-    DCT_HALF,        /* 方形块仅左上角1/2宽高（面积1/4）， 非方形块为左上角1/2（面积1/2） */
+-    DCT_QUAD,        /* 方形块仅左上角1/4宽高（面积1/16），非方形块为左上角1/4（面积1/4） */
++    DCT_HALF,        /* 锟斤拷锟轿匡拷锟斤拷锟斤拷辖锟�1/2锟斤拷撸锟斤拷锟斤拷1/4锟斤拷锟斤拷 锟角凤拷锟轿匡拷为锟斤拷锟较斤拷1/2锟斤拷锟斤拷锟�1/2锟斤拷 */
++    DCT_QUAD,        /* 锟斤拷锟轿匡拷锟斤拷锟斤拷辖锟�1/4锟斤拷撸锟斤拷锟斤拷1/16锟斤拷锟斤拷锟角凤拷锟轿匡拷为锟斤拷锟较斤拷1/4锟斤拷锟斤拷锟�1/4锟斤拷 */
      /* max number of DCT pattern */
      DCT_PATTERN_NUM
  };
@@ -86,8 +86,8 @@ index 75a7ab3..7a3c9b7 100644
  #define NUM_CUTYPE_CTX          6
  #define NUM_SPLIT_CTX           3     // CU depth
  #define NUM_INTRA_PU_TYPE_CTX   1
--/* Ԥ�� */
-+/* Ԥ�� */
+-/* 预测 */
++/* 预锟斤拷 */
  #define NUM_MVD_CTX             3
  #define NUM_REF_NO_CTX          3
  #define NUM_DELTA_QP_CTX        4
@@ -95,8 +95,8 @@ index 75a7ab3..7a3c9b7 100644
  #define NUM_TU_SPLIT_CTX        3
  #define WPM_NUM                 3
  #define NUM_DIR_SKIP_CTX        4     /* B Skip mode, F Skip mode */
--/* �任ϵ�� */
-+/* �任ϵ�� */
+-/* 变换系数 */
++/* 锟戒换系锟斤拷 */
  #define NUM_BLOCK_TYPES         3
  #define NUM_MAP_CTX             11
  #define NUM_LAST_CG_CTX_LUMA    6
@@ -104,8 +104,8 @@ index 75a7ab3..7a3c9b7 100644
  #define NUM_LAST_CG_CTX         (NUM_LAST_CG_CTX_LUMA+NUM_LAST_CG_CTX_CHROMA)
  #define NUM_SIGCG_CTX           (NUM_SIGCG_CTX_LUMA+NUM_SIGCG_CTX_CHROMA)
  #define NUM_LAST_POS_CTX        (NUM_LAST_POS_CTX_LUMA+NUM_LAST_POS_CTX_CHROMA)
--/* ���� */
-+/* ���� */
+-/* 后处理 */
++/* 锟斤拷锟斤拷 */
  #define NUM_SAO_MERGE_FLAG_CTX  3
  #define NUM_SAO_MODE_CTX        1
  #define NUM_SAO_OFFSET_CTX      2
@@ -113,8 +113,8 @@ index 75a7ab3..7a3c9b7 100644
  /* ---------------------------------------------------------------------------
   * syntax context management */
  typedef struct context_set_t {
--    /* CU�� */
-+    /* CU�� */
+-    /* CU级 */
++    /* CU锟斤拷 */
      context_t cu_type_contexts         [NUM_CUTYPE_CTX];
      context_t intra_pu_type_contexts   [NUM_INTRA_PU_TYPE_CTX];
      context_t cu_split_flag            [NUM_SPLIT_CTX];
@@ -122,27 +122,27 @@ index 75a7ab3..7a3c9b7 100644
      context_t pu_reference_index       [NUM_REF_NO_CTX];
      context_t cbp_contexts             [NUM_CTP_CTX];
      context_t mvd_contexts          [2][NUM_MVD_CTX];
--    /* ֡��Ԥ�� */
-+    /* ֡��Ԥ�� */
+-    /* 帧间预测 */
++    /* 帧锟斤拷预锟斤拷 */
      context_t pu_type_index            [NUM_INTER_DIR_CTX];    // b_pu_type_index[15] = f_pu_type_index[3] + dir_multi_hypothesis_mode[12]
      context_t b_pu_type_min_index      [NUM_INTER_DIR_MIN_CTX];
--    context_t cu_subtype_index         [NUM_DIR_SKIP_CTX];  // B_Skip/B_Direct, F_Skip/F_Direct ����
-+    context_t cu_subtype_index         [NUM_DIR_SKIP_CTX];  // B_Skip/B_Direct, F_Skip/F_Direct ����
+-    context_t cu_subtype_index         [NUM_DIR_SKIP_CTX];  // B_Skip/B_Direct, F_Skip/F_Direct 公用
++    context_t cu_subtype_index         [NUM_DIR_SKIP_CTX];  // B_Skip/B_Direct, F_Skip/F_Direct 锟斤拷锟斤拷
      context_t weighted_skip_mode       [WPM_NUM];
      context_t delta_qp_contexts        [NUM_DELTA_QP_CTX];
--    /* ֡��Ԥ�� */
-+    /* ֡��Ԥ�� */
+-    /* 帧内预测 */
++    /* 帧锟斤拷预锟斤拷 */
      context_t intra_luma_pred_mode     [NUM_INTRA_MODE_CTX];
      context_t intra_chroma_pred_mode   [NUM_C_INTRA_MODE_CTX];
--    /* �任ϵ�� */
-+    /* �任ϵ�� */
+-    /* 变换系数 */
++    /* 锟戒换系锟斤拷 */
      context_t coeff_run             [2][NUM_BLOCK_TYPES][NUM_MAP_CTX];
      context_t coeff_level              [NUM_COEFF_LEVEL_CTX];
      context_t last_cg_contexts         [NUM_LAST_CG_CTX];
      context_t sig_cg_contexts          [NUM_SIGCG_CTX];
      context_t last_coeff_pos           [NUM_LAST_POS_CTX];
--    /* ���� */
-+    /* ���� */
+-    /* 后处理 */
++    /* 锟斤拷锟斤拷 */
      context_t sao_mergeflag_context    [NUM_SAO_MERGE_FLAG_CTX];
      context_t sao_mode_context         [NUM_SAO_MODE_CTX];
      context_t sao_offset_context       [NUM_SAO_OFFSET_CTX];
@@ -150,8 +150,8 @@ index 75a7ab3..7a3c9b7 100644
      int         filters_per_group;
      int         componentID;
      int         filterPattern[ALF_NUM_VARS];
--    int         coeffmulti[ALF_NUM_VARS][ALF_MAX_NUM_COEF];  // ���ȷ���16�ף�ɫ�ȷ�����1��
-+    int         coeffmulti[ALF_NUM_VARS][ALF_MAX_NUM_COEF];  // ���ȷ���16�ף�ɫ�ȷ�����1��
+-    int         coeffmulti[ALF_NUM_VARS][ALF_MAX_NUM_COEF];  // 亮度分量16套，色度分量各1套
++    int         coeffmulti[ALF_NUM_VARS][ALF_MAX_NUM_COEF];  // 锟斤拷锟饺凤拷锟斤拷16锟阶ｏ拷色锟饺凤拷锟斤拷锟斤拷1锟斤拷
  } alf_param_t;
  
  
@@ -159,8 +159,8 @@ index 75a7ab3..7a3c9b7 100644
  /* ---------------------------------------------------------------------------
   * Run-Level info */
  typedef struct runlevel_t {
--    ALIGN32(runlevel_pair_t  run_level[16]);     /* ���任ϵ����Ϊ32x32 */
-+    ALIGN32(runlevel_pair_t  run_level[16]);     /* ���任ϵ����Ϊ32x32 */
+-    ALIGN32(runlevel_pair_t  run_level[16]);     /* 最大变换系数块为32x32 */
++    ALIGN32(runlevel_pair_t  run_level[16]);     /* 锟斤拷锟戒换系锟斤拷锟斤拷为32x32 */
      int         num_nonzero_cg;  // number of CGs with non-zero coefficients
      uint32_t    reserved;
      /* contexts pointer */
@@ -168,8 +168,8 @@ index 75a7ab3..7a3c9b7 100644
       * decoding */
      davs2_bs_t   *p_bs;               /* input bitstream pointer */
      aec_t         aec;                /* arithmetic entropy decoder */
--    int           decoding_error;     /* ����ֵ��ʾ�����˽������ */
-+    int           decoding_error;     /* ����ֵ��ʾ�����˽������ */
+-    int           decoding_error;     /* 非零值表示遇到了解码错误 */
++    int           decoding_error;     /* 锟斤拷锟斤拷值锟斤拷示锟斤拷锟斤拷锟剿斤拷锟斤拷锟斤拷锟� */
  
      /* -------------------------------------------------------------
       * field */
@@ -177,13 +177,13 @@ index 75a7ab3..7a3c9b7 100644
  {
  #if SYS_WINDOWS
      LARGE_INTEGER nFreq;
--    if (QueryPerformanceFrequency(&nFreq)) { // ���ط����ʾӲ��֧�ָ߾��ȼ�����
-+    if (QueryPerformanceFrequency(&nFreq)) { // ���ط����ʾӲ��֧�ָ߾��ȼ�����
+-    if (QueryPerformanceFrequency(&nFreq)) { // 返回非零表示硬件支持高精度计数器
++    if (QueryPerformanceFrequency(&nFreq)) { // 锟斤拷锟截凤拷锟斤拷锟绞居诧拷锟街э拷指呔锟斤拷燃锟斤拷锟斤拷锟�
          LARGE_INTEGER t1;
          QueryPerformanceCounter(&t1);
          return (int64_t)(1000000 * t1.QuadPart / (double)nFreq.QuadPart);
--    } else {  // Ӳ����֧������£�ʹ�ú��뼶ϵͳʱ��
-+    } else {  // Ӳ����֧������£�ʹ�ú��뼶ϵͳʱ��
+-    } else {  // 硬件不支持情况下，使用毫秒级系统时间
++    } else {  // 硬锟斤拷锟斤拷支锟斤拷锟斤拷锟斤拷拢锟绞癸拷煤锟斤拷爰断低呈憋拷锟�
          int64_t tm = clock();
          return (tm * (1000000 / CLOCKS_PER_SEC));
      }
@@ -191,22 +191,22 @@ index 75a7ab3..7a3c9b7 100644
      return b;
  }
  
--// ������ֵ�ķ���λ����������-1�����򷵻�1
-+// ������ֵ�ķ���λ����������-1�����򷵻�1
+-// 返回数值的符号位，负数返回-1，否则返回1
++// 锟斤拷锟斤拷锟斤拷值锟侥凤拷锟斤拷位锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷-1锟斤拷锟斤拷锟津返伙拷1
  static ALWAYS_INLINE int davs2_sign2(int val)
  {
      return ((val >> 31) << 1) + 1;
  }
  
--// ������ֵ�ķ���λ����������-1��0ֵ����0����������1
-+// ������ֵ�ķ���λ����������-1��0ֵ����0����������1
+-// 返回数值的符号位，负数返回-1，0值返回0，正数返回1
++// 锟斤拷锟斤拷锟斤拷值锟侥凤拷锟斤拷位锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷-1锟斤拷0值锟斤拷锟斤拷0锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷1
  static ALWAYS_INLINE int davs2_sign3(int val)
  {
      return (val >> 31) | (int)(((uint32_t)-val) >> 31u);
  }
  
--// ������������log2ֵ��0��1ʱ����0����������log2(val)
-+// ������������log2ֵ��0��1ʱ����0����������log2(val)
+-// 计算正整数的log2值，0和1时返回0，其他返回log2(val)
++// 锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷log2值锟斤拷0锟斤拷1时锟斤拷锟斤拷0锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷log2(val)
  #define davs2_log2u(val)  davs2_ctz(val)
  
  
@@ -227,8 +227,8 @@ index 8d60583..92781e2 100644
          b_filter_flag[1] = lf_skip_filter(h, scuP, scuQ, dir, (scu_x << 1) + dir, (scu_y << 1) + !dir);
  
          if (!b_filter_flag[0] && !b_filter_flag[1]) {
--            return;  // �������8x4�������˲�������Ҫ�������ú���ĺ���
-+            return;  // �������8x4�������˲�������Ҫ�������ú���ĺ���
+-            return;  // 如果两个8x4都跳过滤波，则不需要继续调用后面的函数
++            return;  // 锟斤拷锟斤拷锟斤拷锟�8x4锟斤拷锟斤拷锟斤拷锟剿诧拷锟斤拷锟斤拷锟斤拷要锟斤拷锟斤拷锟斤拷锟矫猴拷锟斤拷暮锟斤拷锟�
          }
  
          /* deblock luma edge */
@@ -247,8 +247,8 @@ index 8d60583..92781e2 100644
      }
      if ((cpuid & DAVS2_CPU_AVX2) && !HDR_CHROMA_DELTA_QP) {
  #if !HIGH_BIT_DEPTH
--        // fh->deblock_luma[0] = deblock_edge_ver_avx2;  // @luofl i7-6700K �˺������� sse128
-+        // fh->deblock_luma[0] = deblock_edge_ver_avx2;  // @luofl i7-6700K �˺������� sse128
+-        // fh->deblock_luma[0] = deblock_edge_ver_avx2;  // @luofl i7-6700K 此函数慢于 sse128
++        // fh->deblock_luma[0] = deblock_edge_ver_avx2;  // @luofl i7-6700K 锟剿猴拷锟斤拷锟斤拷锟斤拷 sse128
          // fh->deblock_luma[1] = deblock_edge_hor_avx2;
          // fh->deblock_chroma[0] = deblock_edge_ver_c_avx2;
          // fh->deblock_chroma[1] = deblock_edge_hor_c_avx2;
@@ -260,8 +260,8 @@ index ed760dc..3f0ab4e 100644
  static ALWAYS_INLINE
  uint32_t get_intra_neighbors(davs2_t *h, int x_4x4, int y_4x4, int bsx, int bsy, int cur_slice_idx)
  {
--    /* 1. ������ڿ��Ƿ�����ͬһ��Slice */
-+    /* 1. ������ڿ��Ƿ�����ͬһ��Slice */
+-    /* 1. 检查相邻块是否属于同一个Slice */
++    /* 1. 锟斤拷锟斤拷锟斤拷诳锟斤拷欠锟斤拷锟斤拷锟酵伙拷锟絊lice */
      int b_LEFT      = is_block_available(h, x_4x4, y_4x4, -1, 0, cur_slice_idx);
      int b_TOP       = is_block_available(h, x_4x4, y_4x4,  0, -1, cur_slice_idx);
      int b_TOP_LEFT  = is_block_available(h, x_4x4, y_4x4, -1, -1, cur_slice_idx);
@@ -269,8 +269,8 @@ index ed760dc..3f0ab4e 100644
      int log2_lcu_size_in_spu = (h->i_lcu_level - B4X4_IN_BIT);
      int i_lcu_mask = (1 << log2_lcu_size_in_spu) - 1;
  
--    /* 2. ������ڿ��Ƿ��ڵ�ǰ��֮ǰ�ع� */
-+    /* 2. ������ڿ��Ƿ��ڵ�ǰ��֮ǰ�ع� */
+-    /* 2. 检查相邻块是否在当前块之前重构 */
++    /* 2. 锟斤拷锟斤拷锟斤拷诳锟斤拷欠锟斤拷诘锟角帮拷锟街帮拷毓锟� */
      x_4x4 = x_4x4 & i_lcu_mask;
      y_4x4 = y_4x4 & i_lcu_mask;
  
@@ -278,8 +278,8 @@ index ed760dc..3f0ab4e 100644
  
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU�����ϱ߽��PU
-+ * LCU�����ϱ߽��PU
+- * LCU内在上边界的PU
++ * LCU锟斤拷锟斤拷锟较边斤拷锟絇U
   */
  static 
  void fill_reference_samples_0_c(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
@@ -287,8 +287,8 @@ index ed760dc..3f0ab4e 100644
  
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU�����ϱ߽��PU
-+ * LCU�����ϱ߽��PU
+- * LCU内在上边界的PU
++ * LCU锟斤拷锟斤拷锟较边斤拷锟絇U
   */
  static 
  void fill_reference_samples_x_c(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
@@ -296,8 +296,8 @@ index ed760dc..3f0ab4e 100644
  
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU������߽��ϵ�PU
-+ * LCU������߽��ϵ�PU
+- * LCU内在左边界上的PU
++ * LCU锟斤拷锟斤拷锟斤拷呓锟斤拷系锟絇U
   */
  static 
  void fill_reference_samples_y_c(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
@@ -305,8 +305,8 @@ index ed760dc..3f0ab4e 100644
  
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU�ڲ��ڱ߽��ϵ�PU
-+ * LCU�ڲ��ڱ߽��ϵ�PU
+- * LCU内不在边界上的PU
++ * LCU锟节诧拷锟节边斤拷锟较碉拷PU
   */
  static 
  void fill_reference_samples_xy_c(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
@@ -314,27 +314,27 @@ index ed760dc..3f0ab4e 100644
      int real_mode   = (chroma_mode == DM_PRED_C) ? luma_mode : TAB_CHROMA_MODE_TO_REAL_MODE[chroma_mode];
      uint32_t avail;
  
--    /* Ԥ���λ�� */
-+    /* Ԥ���λ�� */
+-    /* 预测块位置 */
++    /* 预锟斤拷锟轿伙拷锟� */
      int i_pred      = row_rec->ctu.i_fdec[1];
      pel_t *p_pred_u = row_rec->ctu.p_fdec[1] + ctu_c_y * i_pred + ctu_c_x;
      pel_t *p_pred_v = row_rec->ctu.p_fdec[2] + ctu_c_y * i_pred + ctu_c_x;
  
--    /* ����U��V���������Ͻ����ص��λ�� */
-+    /* ����U��V���������Ͻ����ص��λ�� */
+-    /* 计算U、V分量的左上角像素点的位置 */
++    /* 锟斤拷锟斤拷U锟斤拷V锟斤拷锟斤拷锟斤拷锟斤拷锟较斤拷锟斤拷锟截碉拷锟轿伙拷锟� */
      int i_src       = i_pred;
      pel_t *pTL_u    = p_pred_u - i_src - 1;
      pel_t *pTL_v    = p_pred_v - i_src - 1;
  
--    /* �ο��߽�������ж���ο��߽���� */
-+    /* �ο��߽�������ж���ο��߽���� */
+-    /* 参考边界可用性判断与参考边界填充 */
++    /* 锟轿匡拷锟竭斤拷锟斤拷锟斤拷锟斤拷卸锟斤拷锟轿匡拷锟竭斤拷锟斤拷锟� */
      avail = get_intra_neighbors(row_rec->h, b8_x, b8_y, bsize_c << 1, bsize_c << 1, p_cu->i_slice_nr);
  
      gf_davs2.fill_edge_f[xy](pTL_u, i_src, row_rec->ctu_border[1].rec_top + ctu_c_x - ctu_c_y, EP_u, avail, bsize_c, bsize_c);
      gf_davs2.fill_edge_f[xy](pTL_v, i_src, row_rec->ctu_border[2].rec_top + ctu_c_x - ctu_c_y, EP_v, avail, bsize_c, bsize_c);
  
--    /* ִ��Ԥ�� */
-+    /* ִ��Ԥ�� */
+-    /* 执行预测 */
++    /* 执锟斤拷预锟斤拷 */
      intra_pred(EP_u, p_pred_u, i_pred, real_mode, bsize_c, bsize_c, avail);
      intra_pred(EP_v, p_pred_v, i_pred, real_mode, bsize_c, bsize_c, avail);
  }
@@ -371,8 +371,8 @@ index 55c1da7..5206251 100644
  static void
  intpl_chroma_block_ext_c(pel_t *dst, int i_dst, pel_t *src, int i_src, int width, int height, const int8_t *coeff_h, const int8_t *coeff_v)
  {
--    // TODO: ��lumaͳһ��������
-+    // TODO: ��lumaͳһ��������
+-    // TODO: 与luma统一数据类型
++    // TODO: 锟斤拷luma统一锟斤拷锟斤拷锟斤拷锟斤拷
      ALIGN16(int32_t tmp_res[(32 + 3) * 32]);
      int32_t *tmp = tmp_res;
      const int shift1 = g_bit_depth - 8;
@@ -391,10 +391,10 @@ index 55c1da7..5206251 100644
          pf->intpl_luma_hor[0][2] = intpl_luma_block_hor_sse128;
          pf->intpl_luma_ext[0] = intpl_luma_block_ext_sse128;
  
--        /*������ֵ�����в�ƥ�����⡣
--          �޸�ʱ��ע��ر�avx2��ຯ����
-+        /*������ֵ�����в�ƥ�����⡣
-+          �޸�ʱ��ע��ر�avx2��ຯ����
+-        /*两个差值函数有不匹配问题。
+-          修改时请注意关闭avx2汇编函数。
++        /*锟斤拷锟斤拷锟斤拷值锟斤拷锟斤拷锟叫诧拷匹锟斤拷锟斤拷锟解。
++          锟睫革拷时锟斤拷注锟斤拷乇锟絘vx2锟斤拷嗪拷锟斤拷锟�
           */
          //pf->intpl_chroma_ver[0] = intpl_chroma_block_ver_sse128;
          pf->intpl_chroma_hor[0] = intpl_chroma_block_hor_sse128;
@@ -461,8 +461,8 @@ index cbbbae9..a4a4f7e 100644
      int width_c = width >> 1;
      int height_c = height >> 1;
  
--    /* �����Ի�ȡ */
-+    /* �����Ի�ȡ */
+-    /* 可用性获取 */
++    /* 锟斤拷锟斤拷锟皆伙拷取 */
      p_avail->b_left = i_lcu_x != 0;
      p_avail->b_top  = i_lcu_y != 0;
      p_avail->b_right = (i_lcu_x < h->i_width_in_lcu - 1);
@@ -470,8 +470,8 @@ index cbbbae9..a4a4f7e 100644
      p_avail->b_down_left = p_avail->b_down && p_avail->b_left;
      p_avail->b_right_down = p_avail->b_down && p_avail->b_right;
  
--    /* �˲�����ĵ��� */
-+    /* �˲�����ĵ��� */
+-    /* 滤波区域的调整 */
++    /* 锟剿诧拷锟斤拷锟斤拷牡锟斤拷锟� */
      if (!p_avail->b_right) {
          width += SAO_SHIFT_PIX_NUM;
          width_c += SAO_SHIFT_PIX_NUM;
@@ -508,8 +508,8 @@ index 1dd6acb..865d7fa 100644
          }
      }
  
--    /* TODO: ��ʼ����Ĭ��DCTģ�� */
-+    /* TODO: ��ʼ����Ĭ��DCTģ�� */
+-    /* TODO: 初始化非默认DCT模板 */
++    /* TODO: 锟斤拷始锟斤拷锟斤拷默锟斤拷DCT模锟斤拷 */
      if (cpuid & DAVS2_CPU_SSE2) {
          /* square */
          fh->idct[PART_8x8  ][DCT_HALF] = idct_8x8_half_sse128;
@@ -517,8 +517,8 @@ index 1dd6acb..865d7fa 100644
          fh->idct[PART_64x64][DCT_DEAULT] = idct_64x64_avx2;
          fh->idct[PART_64x16][DCT_DEAULT] = idct_64x16_avx2;
          fh->idct[PART_16x64][DCT_DEAULT] = idct_16x64_avx2;
--        fh->idct[PART_32x32][DCT_DEAULT] = idct_32x32_avx2;    // @luofl i7-6700k �ٶȱ�sse128��һ��
-+        fh->idct[PART_32x32][DCT_DEAULT] = idct_32x32_avx2;    // @luofl i7-6700k �ٶȱ�sse128��һ��
+-        fh->idct[PART_32x32][DCT_DEAULT] = idct_32x32_avx2;    // @luofl i7-6700k 速度比sse128快一倍
++        fh->idct[PART_32x32][DCT_DEAULT] = idct_32x32_avx2;    // @luofl i7-6700k 锟劫度憋拷sse128锟斤拷一锟斤拷
  
          /* square */
          // fh->idct[PART_8x8  ][DCT_HALF] = idct_8x8_half_avx2;
@@ -565,27 +565,27 @@ index 5089167..c73d2b8 100644
          imgPad5 = p_src + (yBottom - y) * stride;
          imgPad6 = p_src + (yUp     - y) * stride;
  
--        // ����176x144ʱ��V�������ֲ�ƥ�䣬�ĺ�ƥ��
-+        // ����176x144ʱ��V�������ֲ�ƥ�䣬�ĺ�ƥ��
+-        // 测试176x144时，V分量出现不匹配，改后匹配
++        // 锟斤拷锟斤拷176x144时锟斤拷V锟斤拷锟斤拷锟斤拷锟街诧拷匹锟戒，锟侥猴拷匹锟斤拷
          //for (x = lcu_pix_x; x < xPosEnd - 15; x += 16) {
          for (x = 0; x < lcu_width; x += 16) {
              T00 = _mm_loadu_si128((__m128i*)&imgPad6[x]);
              T01 = _mm_loadu_si128((__m128i*)&imgPad5[x]);
              E00 = _mm_unpacklo_epi8(T00, T01);
              E01 = _mm_unpackhi_epi8(T00, T01);
--            S00 = _mm_maddubs_epi16(E00, C0);//ǰ8����������C0*P0�Ľ��
--            S01 = _mm_maddubs_epi16(E01, C0);//��8����������C0*P0�Ľ��
-+            S00 = _mm_maddubs_epi16(E00, C0);//ǰ8����������C0*P0�Ľ��
-+            S01 = _mm_maddubs_epi16(E01, C0);//��8����������C0*P0�Ľ��
+-            S00 = _mm_maddubs_epi16(E00, C0);//前8个像素所有C0*P0的结果
+-            S01 = _mm_maddubs_epi16(E01, C0);//后8个像素所有C0*P0的结果
++            S00 = _mm_maddubs_epi16(E00, C0);//前8锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷C0*P0锟侥斤拷锟�
++            S01 = _mm_maddubs_epi16(E01, C0);//锟斤拷8锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷C0*P0锟侥斤拷锟�
  
              T10 = _mm_loadu_si128((__m128i*)&imgPad4[x]);
              T11 = _mm_loadu_si128((__m128i*)&imgPad3[x]);
              E10 = _mm_unpacklo_epi8(T10, T11);
              E11 = _mm_unpackhi_epi8(T10, T11);
--            S10 = _mm_maddubs_epi16(E10, C1);//ǰ8����������C1*P1�Ľ��
--            S11 = _mm_maddubs_epi16(E11, C1);//��8����������C1*P1�Ľ��
-+            S10 = _mm_maddubs_epi16(E10, C1);//ǰ8����������C1*P1�Ľ��
-+            S11 = _mm_maddubs_epi16(E11, C1);//��8����������C1*P1�Ľ��
+-            S10 = _mm_maddubs_epi16(E10, C1);//前8个像素所有C1*P1的结果
+-            S11 = _mm_maddubs_epi16(E11, C1);//后8个像素所有C1*P1的结果
++            S10 = _mm_maddubs_epi16(E10, C1);//前8锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷C1*P1锟侥斤拷锟�
++            S11 = _mm_maddubs_epi16(E11, C1);//锟斤拷8锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷C1*P1锟侥斤拷锟�
  
              T20 = _mm_loadu_si128((__m128i*)&imgPad2[x - 1]);
              T21 = _mm_loadu_si128((__m128i*)&imgPad1[x + 1]);
@@ -593,30 +593,30 @@ index 5089167..c73d2b8 100644
              S8  = _mm_maddubs_epi16(T4, C33);
              S50 = _mm_hadds_epi16(S5, S6);
              S51 = _mm_hadds_epi16(S7, S8);
--            S5  = _mm_hadds_epi16(S50, S51);//ǰ8��
-+            S5  = _mm_hadds_epi16(S50, S51);//ǰ8��
+-            S5  = _mm_hadds_epi16(S50, S51);//前8个
++            S5  = _mm_hadds_epi16(S50, S51);//前8锟斤拷
              S4  = _mm_maddubs_epi16(T5, C33);
              S6  = _mm_maddubs_epi16(T6, C33);
              S7  = _mm_maddubs_epi16(T7, C33);
              S8  = _mm_maddubs_epi16(T8, C33);
              S60 = _mm_hadds_epi16(S4, S6);
              S61 = _mm_hadds_epi16(S7, S8);
--            S6  = _mm_hadds_epi16(S60, S61);//��8��
-+            S6  = _mm_hadds_epi16(S60, S61);//��8��
+-            S6  = _mm_hadds_epi16(S60, S61);//后8个
++            S6  = _mm_hadds_epi16(S60, S61);//锟斤拷8锟斤拷
  
              S0  = _mm_adds_epi16(S00, S10);
              S1  = _mm_adds_epi16(S30, S20);
              S2  = _mm_adds_epi16(S40, S5);
              S3  = _mm_adds_epi16(S1, S0);
--            SS1 = _mm_adds_epi16(S2, S3);//ǰ8��
-+            SS1 = _mm_adds_epi16(S2, S3);//ǰ8��
+-            SS1 = _mm_adds_epi16(S2, S3);//前8个
++            SS1 = _mm_adds_epi16(S2, S3);//前8锟斤拷
  
              S0  = _mm_adds_epi16(S01, S11);
              S1  = _mm_adds_epi16(S31, S21);
              S2  = _mm_adds_epi16(S41, S6);
              S3  = _mm_adds_epi16(S1, S0);
--            SS2 = _mm_adds_epi16(S2, S3);//��8��
-+            SS2 = _mm_adds_epi16(S2, S3);//��8��
+-            SS2 = _mm_adds_epi16(S2, S3);//后8个
++            SS2 = _mm_adds_epi16(S2, S3);//锟斤拷8锟斤拷
  
  
              SS1 = _mm_adds_epi16(SS1, mAddOffset);
@@ -643,8 +643,8 @@ index 6ad916c..cb0ccbd 100644
  *  Project Leader: Ronggang Wang <rgwang@pkusz.edu.cn>
  *
  *  Main Authors: Zhenyu Wang <wangzhenyu@pkusz.edu.cn>, Kui Fan <kuifan@pku.edu.cn>
--*               Shenghao Zhang <1219759986@qq.com>�� Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
-+*               Shenghao Zhang <1219759986@qq.com>�� Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
+-*               Shenghao Zhang <1219759986@qq.com>， Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
++*               Shenghao Zhang <1219759986@qq.com>锟斤拷 Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
  *               Jing Su, Jiaying Yan, Junru Li
  *
  * This program is free software; you can redistribute it and/or modify
@@ -671,8 +671,8 @@ index f49f72a..e34bd03 100644
  void idct_4x16_half_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/2��С�����Ͻǵ�4x8�з���ϵ��
-+    // ��1/2��С�����Ͻǵ�4x8�з���ϵ��
+-    // 仅1/2大小，左上角的4x8有非零系数
++    // 锟斤拷1/2锟斤拷小锟斤拷锟斤拷锟较角碉拷4x8锟叫凤拷锟斤拷系锟斤拷
      idct_4x16_sse128(src, dst, i_dst);
  }
  
@@ -680,8 +680,8 @@ index f49f72a..e34bd03 100644
  void idct_4x16_quad_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/4��С�����Ͻǵ�4x4�з���ϵ��
-+    // ��1/4��С�����Ͻǵ�4x4�з���ϵ��
+-    // 仅1/4大小，左上角的4x4有非零系数
++    // 锟斤拷1/4锟斤拷小锟斤拷锟斤拷锟较角碉拷4x4锟叫凤拷锟斤拷系锟斤拷
      idct_4x16_half_sse128(src, dst, i_dst);
  }
  
@@ -689,8 +689,8 @@ index f49f72a..e34bd03 100644
  void idct_16x4_half_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/2��С�����Ͻǵ�8x4�з���ϵ��
-+    // ��1/2��С�����Ͻǵ�8x4�з���ϵ��
+-    // 仅1/2大小，左上角的8x4有非零系数
++    // 锟斤拷1/2锟斤拷小锟斤拷锟斤拷锟较角碉拷8x4锟叫凤拷锟斤拷系锟斤拷
      idct_16x4_sse128(src, dst, i_dst);
  }
  
@@ -698,8 +698,8 @@ index f49f72a..e34bd03 100644
  void idct_16x4_quad_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/4��С�����Ͻǵ�4x4�з���ϵ��
-+    // ��1/4��С�����Ͻǵ�4x4�з���ϵ��
+-    // 仅1/4大小，左上角的4x4有非零系数
++    // 锟斤拷1/4锟斤拷小锟斤拷锟斤拷锟较角碉拷4x4锟叫凤拷锟斤拷系锟斤拷
      idct_16x4_half_sse128(src, dst, i_dst);
  }
  
@@ -707,8 +707,8 @@ index f49f72a..e34bd03 100644
      E2l = _mm_add_epi32(E2l, mAdd);
      E2h = _mm_sub_epi32(EE1h, E01h);
      E2h = _mm_add_epi32(E2h, mAdd);
--    S0 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));  // �״η��任��λ��
-+    S0 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));  // �״η��任��λ��
+-    S0 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));  // 首次反变换移位数
++    S0 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));  // 锟阶次凤拷锟戒换锟斤拷位锟斤拷
      S7 = _mm_packs_epi32(_mm_srai_epi32(_mm_sub_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_sub_epi32(E0h, O0h), 5));
      S1 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E1l, O1l), 5), _mm_srai_epi32(_mm_add_epi32(E1h, O1h), 5));
      S6 = _mm_packs_epi32(_mm_srai_epi32(_mm_sub_epi32(E1l, O1l), 5), _mm_srai_epi32(_mm_sub_epi32(E1h, O1h), 5));
@@ -716,8 +716,8 @@ index f49f72a..e34bd03 100644
  void idct_8x8_half_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/2��С�����Ͻǵ�4x4�з���ϵ��
-+    // ��1/2��С�����Ͻǵ�4x4�з���ϵ��
+-    // 仅1/2大小，左上角的4x4有非零系数
++    // 锟斤拷1/2锟斤拷小锟斤拷锟斤拷锟较角碉拷4x4锟叫凤拷锟斤拷系锟斤拷
      idct_8x8_sse128(src, dst, i_dst);
  }
  
@@ -725,8 +725,8 @@ index f49f72a..e34bd03 100644
  void idct_8x8_quad_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/4��С�����Ͻǵ�2x2�з���ϵ��
-+    // ��1/4��С�����Ͻǵ�2x2�з���ϵ��
+-    // 仅1/4大小，左上角的2x2有非零系数
++    // 锟斤拷1/4锟斤拷小锟斤拷锟斤拷锟较角碉拷2x2锟叫凤拷锟斤拷系锟斤拷
      idct_8x8_half_sse128(src, dst, i_dst);
  }
  
@@ -734,8 +734,8 @@ index f49f72a..e34bd03 100644
  void idct_16x16_half_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/2��С�����Ͻǵ�8x8�з���ϵ��
-+    // ��1/2��С�����Ͻǵ�8x8�з���ϵ��
+-    // 仅1/2大小，左上角的8x8有非零系数
++    // 锟斤拷1/2锟斤拷小锟斤拷锟斤拷锟较角碉拷8x8锟叫凤拷锟斤拷系锟斤拷
      //idct_16x16_sse128(src, dst, i_dst);
  
  
@@ -743,8 +743,8 @@ index f49f72a..e34bd03 100644
  void idct_16x16_quad_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/4��С�����Ͻǵ�4x4�з���ϵ��
-+    // ��1/4��С�����Ͻǵ�4x4�з���ϵ��
+-    // 仅1/4大小，左上角的4x4有非零系数
++    // 锟斤拷1/4锟斤拷小锟斤拷锟斤拷锟较角碉拷4x4锟叫凤拷锟斤拷系锟斤拷
      //idct_16x16_half_sse128(src, dst, i_dst);
  
      const int shift1 = 5;
@@ -752,8 +752,8 @@ index f49f72a..e34bd03 100644
  void idct_32x32_half_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/2��С�����Ͻǵ�16x16�з���ϵ��
-+    // ��1/2��С�����Ͻǵ�16x16�з���ϵ��
+-    // 仅1/2大小，左上角的16x16有非零系数
++    // 锟斤拷1/2锟斤拷小锟斤拷锟斤拷锟较角碉拷16x16锟叫凤拷锟斤拷系锟斤拷
      int a_flag = i_dst & 0x01;
      int shift2 = 20 - g_bit_depth - a_flag;
      int clip_depth2 = g_bit_depth + 1 + a_flag;
@@ -761,8 +761,8 @@ index f49f72a..e34bd03 100644
  void idct_32x32_quad_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/4��С�����Ͻǵ�8x8�з���ϵ��
-+    // ��1/4��С�����Ͻǵ�8x8�з���ϵ��
+-    // 仅1/4大小，左上角的8x8有非零系数
++    // 锟斤拷1/4锟斤拷小锟斤拷锟斤拷锟较角碉拷8x8锟叫凤拷锟斤拷系锟斤拷
      int a_flag = i_dst & 0x01;
      int shift2 = 20 - g_bit_depth - a_flag;
      int clip_depth2 = g_bit_depth + 1 + a_flag;
@@ -770,8 +770,8 @@ index f49f72a..e34bd03 100644
          E2h = _mm_sub_epi32(EE1h, E01h);
          E2h = _mm_add_epi32(E2h,  m128iAdd);
  
--        m128iS0[pass] = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));    // �״η��任��λ��
-+        m128iS0[pass] = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));    // �״η��任��λ��
+-        m128iS0[pass] = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));    // 首次反变换移位数
++        m128iS0[pass] = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));    // 锟阶次凤拷锟戒换锟斤拷位锟斤拷
          m128iS7[pass] = _mm_packs_epi32(_mm_srai_epi32(_mm_sub_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_sub_epi32(E0h, O0h), 5));
          m128iS1[pass] = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E1l, O1l), 5), _mm_srai_epi32(_mm_add_epi32(E1h, O1h), 5));
          m128iS6[pass] = _mm_packs_epi32(_mm_srai_epi32(_mm_sub_epi32(E1l, O1l), 5), _mm_srai_epi32(_mm_sub_epi32(E1h, O1h), 5));
@@ -779,8 +779,8 @@ index f49f72a..e34bd03 100644
  void idct_32x8_half_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/2��С�����Ͻǵ�16x8�з���ϵ��
-+    // ��1/2��С�����Ͻǵ�16x8�з���ϵ��
+-    // 仅1/2大小，左上角的16x8有非零系数
++    // 锟斤拷1/2锟斤拷小锟斤拷锟斤拷锟较角碉拷16x8锟叫凤拷锟斤拷系锟斤拷
      idct_32x8_sse128(src, dst, i_dst);
  }
  
@@ -788,8 +788,8 @@ index f49f72a..e34bd03 100644
  void idct_32x8_quad_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/4��С�����Ͻǵ�8x8�з���ϵ��
-+    // ��1/4��С�����Ͻǵ�8x8�з���ϵ��
+-    // 仅1/4大小，左上角的8x8有非零系数
++    // 锟斤拷1/4锟斤拷小锟斤拷锟斤拷锟较角碉拷8x8锟叫凤拷锟斤拷系锟斤拷
      idct_32x8_half_sse128(src, dst, i_dst);
  }
  
@@ -797,8 +797,8 @@ index f49f72a..e34bd03 100644
              E2l = _mm_add_epi32(E2l, c32_rnd);
              E2h = _mm_sub_epi32(EE1h, E01h);
              E2h = _mm_add_epi32(E2h, c32_rnd);
--            in00 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), nShift), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), nShift));     // �״η��任��λ��
-+            in00 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), nShift), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), nShift));     // �״η��任��λ��
+-            in00 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), nShift), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), nShift));     // 首次反变换移位数
++            in00 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), nShift), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), nShift));     // 锟阶次凤拷锟戒换锟斤拷位锟斤拷
              in07 = _mm_packs_epi32(_mm_srai_epi32(_mm_sub_epi32(E0l, O0l), nShift), _mm_srai_epi32(_mm_sub_epi32(E0h, O0h), nShift));
              in01 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E1l, O1l), nShift), _mm_srai_epi32(_mm_add_epi32(E1h, O1h), nShift));
              in06 = _mm_packs_epi32(_mm_srai_epi32(_mm_sub_epi32(E1l, O1l), nShift), _mm_srai_epi32(_mm_sub_epi32(E1h, O1h), nShift));
@@ -806,8 +806,8 @@ index f49f72a..e34bd03 100644
  void idct_8x32_half_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/2��С�����Ͻǵ�8x16�з���ϵ��
-+    // ��1/2��С�����Ͻǵ�8x16�з���ϵ��
+-    // 仅1/2大小，左上角的8x16有非零系数
++    // 锟斤拷1/2锟斤拷小锟斤拷锟斤拷锟较角碉拷8x16锟叫凤拷锟斤拷系锟斤拷
      idct_8x32_sse128(src, dst, i_dst);
  }
  
@@ -815,8 +815,8 @@ index f49f72a..e34bd03 100644
  void idct_8x32_quad_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/4��С�����Ͻǵ�8x8�з���ϵ��
-+    // ��1/4��С�����Ͻǵ�8x8�з���ϵ��
+-    // 仅1/4大小，左上角的8x8有非零系数
++    // 锟斤拷1/4锟斤拷小锟斤拷锟斤拷锟较角碉拷8x8锟叫凤拷锟斤拷系锟斤拷
      idct_8x32_half_sse128(src, dst, i_dst);
  }
  
@@ -824,12 +824,12 @@ index f49f72a..e34bd03 100644
  void inv_wavelet_64x64_sse128(coeff_t *coeff)
  {
      int i;
--    //���� 64*64
-+    //���� 64*64
+-    //按行 64*64
++    //锟斤拷锟斤拷 64*64
      __m128i T00[8], T01[8], T02[8], T03[8], T04[8], T05[8], T06[8], T07[8], T08[8], T09[8], T10[8], T11[8], T12[8], T13[8], T14[8], T15[8], T16[8], T17[8], T18[8], T19[8], T20[8], T21[8], T22[8], T23[8], T24[8], T25[8], T26[8], T27[8], T28[8], T29[8], T30[8], T31[8], T32[8], T33[8], T34[8], T35[8], T36[8], T37[8], T38[8], T39[8], T40[8], T41[8], T42[8], T43[8], T44[8], T45[8], T46[8], T47[8], T48[8], T49[8], T50[8], T51[8], T52[8], T53[8], T54[8], T55[8], T56[8], T57[8], T58[8], T59[8], T60[8], T61[8], T62[8], T63[8];
  
--    //���� 16*64
-+    //���� 16*64
+-    //按列 16*64
++    //锟斤拷锟斤拷 16*64
      __m128i V00[8], V01[8], V02[8], V03[8], V04[8], V05[8], V06[8], V07[8], V08[8], V09[8], V10[8], V11[8], V12[8], V13[8], V14[8], V15[8], V16[8], V17[8], V18[8], V19[8], V20[8], V21[8], V22[8], V23[8], V24[8], V25[8], V26[8], V27[8], V28[8], V29[8], V30[8], V31[8], V32[8], V33[8], V34[8], V35[8], V36[8], V37[8], V38[8], V39[8], V40[8], V41[8], V42[8], V43[8], V44[8], V45[8], V46[8], V47[8], V48[8], V49[8], V50[8], V51[8], V52[8], V53[8], V54[8], V55[8], V56[8], V57[8], V58[8], V59[8], V60[8], V61[8], V62[8], V63[8];
  
      __m128i tr0_0, tr0_1, tr0_2, tr0_3, tr0_4, tr0_5, tr0_6, tr0_7;
@@ -837,12 +837,12 @@ index f49f72a..e34bd03 100644
  void inv_wavelet_64x16_sse128(coeff_t *coeff)
  {
      int i;
--    //���� 64*16
-+    //���� 64*16
+-    //按行 64*16
++    //锟斤拷锟斤拷 64*16
      __m128i T00[8], T01[8], T02[8], T03[8], T04[8], T05[8], T06[8], T07[8], T08[8], T09[8], T10[8], T11[8], T12[8], T13[8], T14[8], T15[8];
  
--    //���� 16*64
-+    //���� 16*64
+-    //按列 16*64
++    //锟斤拷锟斤拷 16*64
      __m128i V00[2], V01[2], V02[2], V03[2], V04[2], V05[2], V06[2], V07[2], V08[2], V09[2], V10[2], V11[2], V12[2], V13[2], V14[2], V15[2], V16[2], V17[2], V18[2], V19[2], V20[2], V21[2], V22[2], V23[2], V24[2], V25[2], V26[2], V27[2], V28[2], V29[2], V30[2], V31[2], V32[2], V33[2], V34[2], V35[2], V36[2], V37[2], V38[2], V39[2], V40[2], V41[2], V42[2], V43[2], V44[2], V45[2], V46[2], V47[2], V48[2], V49[2], V50[2], V51[2], V52[2], V53[2], V54[2], V55[2], V56[2], V57[2], V58[2], V59[2], V60[2], V61[2], V62[2], V63[2];
  
      __m128i tr0_0, tr0_1, tr0_2, tr0_3, tr0_4, tr0_5, tr0_6, tr0_7;
@@ -850,12 +850,12 @@ index f49f72a..e34bd03 100644
      __m128i S00, S01, S02, S03, S04, S05, S06, S07, S08, S09, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19, S20, S21, S22, S23, S24, S25, S26, S27, S28, S29, S30, S31;
      __m128i S32, S33, S34, S35, S36, S37, S38, S39, S40, S41, S42, S43, S44, S45, S46, S47, S48, S49, S50, S51, S52, S53, S54, S55, S56, S57, S58, S59, S60, S61, S62, S63;
  
--    //���� 64*16
-+    //���� 64*16
+-    //按行 64*16
++    //锟斤拷锟斤拷 64*16
      __m128i T00[8], T01[8], T02[8], T03[8], T04[8], T05[8], T06[8], T07[8], T08[8], T09[8], T10[8], T11[8], T12[8], T13[8], T14[8], T15[8];
  
--    //���� 16*64
-+    //���� 16*64
+-    //按列 16*64
++    //锟斤拷锟斤拷 16*64
      __m128i V00[2], V01[2], V02[2], V03[2], V04[2], V05[2], V06[2], V07[2], V08[2], V09[2], V10[2], V11[2], V12[2], V13[2], V14[2], V15[2], V16[2], V17[2], V18[2], V19[2], V20[2], V21[2], V22[2], V23[2], V24[2], V25[2], V26[2], V27[2], V28[2], V29[2], V30[2], V31[2], V32[2], V33[2], V34[2], V35[2], V36[2], V37[2], V38[2], V39[2], V40[2], V41[2], V42[2], V43[2], V44[2], V45[2], V46[2], V47[2], V48[2], V49[2], V50[2], V51[2], V52[2], V53[2], V54[2], V55[2], V56[2], V57[2], V58[2], V59[2], V60[2], V61[2], V62[2], V63[2];
  
      __m128i tr0_0, tr0_1, tr0_2, tr0_3, tr0_4, tr0_5, tr0_6, tr0_7;
@@ -890,8 +890,8 @@ index 3996e1c..7e6bc83 100644
  
              T00 = _mm_adds_epi16(_mm_cvtepu8_epi16(T00), _mm_cvtepu8_epi16(T70));
              T10 = _mm_adds_epi16(_mm_cvtepu8_epi16(T10), _mm_cvtepu8_epi16(T60));
--            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//����������ԭ����12��Ϊ9
-+            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//����������ԭ����12��Ϊ9
+-            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//运算周期由原来的12减为9
++            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷原锟斤拷锟斤拷12锟斤拷为9
              T20 = _mm_maddubs_epi16(_mm_unpacklo_epi8(T20, T30), coeff1);
              T30 = _mm_maddubs_epi16(_mm_unpacklo_epi8(T40, T50), coeff2);
              
@@ -899,8 +899,8 @@ index 3996e1c..7e6bc83 100644
  
              T00 = _mm_adds_epi16(_mm_cvtepu8_epi16(T00), _mm_cvtepu8_epi16(T70));
              T10 = _mm_adds_epi16(_mm_cvtepu8_epi16(T10), _mm_cvtepu8_epi16(T60));
--            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//����������ԭ����12��Ϊ9
-+            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//����������ԭ����12��Ϊ9
+-            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//运算周期由原来的12减为9
++            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//锟斤拷锟斤拷锟斤拷锟斤拷锟斤拷原锟斤拷锟斤拷12锟斤拷为9
              T20 = _mm_maddubs_epi16(_mm_unpacklo_epi8(T20, T30), coeff1);
              T30 = _mm_maddubs_epi16(_mm_unpacklo_epi8(T40, T50), coeff2);
  
@@ -925,8 +925,8 @@ index 57da3e9..f2009c6 100644
  #if !HIGH_BIT_DEPTH
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU������߽��ϵ�PU
-+ * LCU������߽��ϵ�PU
+- * LCU内在左边界上的PU
++ * LCU锟斤拷锟斤拷锟斤拷呓锟斤拷系锟絇U
   */
  void fill_edge_samples_0_sse128(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
  {
@@ -934,8 +934,8 @@ index 57da3e9..f2009c6 100644
  
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU������߽��ϵ�PU
-+ * LCU������߽��ϵ�PU
+- * LCU内在左边界上的PU
++ * LCU锟斤拷锟斤拷锟斤拷呓锟斤拷系锟絇U
   */
  void fill_edge_samples_x_sse128(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
  {
@@ -943,8 +943,8 @@ index 57da3e9..f2009c6 100644
  
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU������߽��ϵ�PU
-+ * LCU������߽��ϵ�PU
+- * LCU内在左边界上的PU
++ * LCU锟斤拷锟斤拷锟斤拷呓锟斤拷系锟絇U
   */
  void fill_edge_samples_y_sse128(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
  {
@@ -952,8 +952,8 @@ index 57da3e9..f2009c6 100644
  
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU������߽��ϵ�PU
-+ * LCU������߽��ϵ�PU
+- * LCU内在左边界上的PU
++ * LCU锟斤拷锟斤拷锟斤拷呓锟斤拷系锟絇U
   */
  void fill_edge_samples_xy_sse128(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
  {
@@ -965,8 +965,8 @@ index 5a46584..ab6d86f 100644
   *  Project Leader: Ronggang Wang <rgwang@pkusz.edu.cn>
   *
   *  Main Authors: Zhenyu Wang <wangzhenyu@pkusz.edu.cn>, Kui Fan <kuifan@pku.edu.cn>
-- *               Shenghao Zhang <1219759986@qq.com>�� Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
-+ *               Shenghao Zhang <1219759986@qq.com>�� Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
+- *               Shenghao Zhang <1219759986@qq.com>， Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
++ *               Shenghao Zhang <1219759986@qq.com>锟斤拷 Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
   *               Jing Su, Jiaying Yan, Junru Li
   *
   * This program is free software; you can redistribute it and/or modify
@@ -991,8 +991,8 @@ index 5a46584..ab6d86f 100644
      __m128i T, T1, T2, T3, C1, C2, ADD;
      __m128i ZERO = _mm_setzero_si128();
  
--    /* TODO: Ϊʲô�⼸������Ĵ�С��Ҫ���ӵ� 32���Ƿ��б�Ҫ�� */
-+    /* TODO: Ϊʲô�⼸������Ĵ�С��Ҫ���ӵ� 32���Ƿ��б�Ҫ�� */
+-    /* TODO: 为什么这几个数组的大小需要增加到 32，是否有必要？ */
++    /* TODO: 为什么锟解几锟斤拷锟斤拷锟斤拷拇锟叫★拷锟揭拷锟斤拷拥锟� 32锟斤拷锟角凤拷锟叫憋拷要锟斤拷 */
      ALIGN32(itr_t pTop [MAX_CU_SIZE + 32]);
      ALIGN32(itr_t pLeft[MAX_CU_SIZE + 32]);
      ALIGN32(itr_t pT   [MAX_CU_SIZE + 32]);
@@ -1000,8 +1000,8 @@ index 5a46584..ab6d86f 100644
              ((int*)&pfirst[3][i])[0] = _mm_cvtsi128_si32(p00);
          }
  
--        if (i < left_size) { //ʹ��c���Կ��ܻ����
-+        if (i < left_size) { //ʹ��c���Կ��ܻ����
+-        if (i < left_size) { //使用c语言可能会更优
++        if (i < left_size) { //使锟斤拷c锟斤拷锟皆匡拷锟杰伙拷锟斤拷锟�
              __m128i p00, p01, p10;
              __m128i p20, p30;
              __m128i S0 = _mm_loadu_si128((__m128i*)(src - 1));
@@ -1041,8 +1041,8 @@ index 365a69b..75fcc83 100644
   *  Project Leader: Ronggang Wang <rgwang@pkusz.edu.cn>
   *
   *  Main Authors: Zhenyu Wang <wangzhenyu@pkusz.edu.cn>, Kui Fan <kuifan@pku.edu.cn>
-- *               Shenghao Zhang <1219759986@qq.com>�� Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
-+ *               Shenghao Zhang <1219759986@qq.com>�� Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
+- *               Shenghao Zhang <1219759986@qq.com>， Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
++ *               Shenghao Zhang <1219759986@qq.com>锟斤拷 Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
   *               Jing Su, Jiaying Yan, Junru Li
   *
   * This program is free software; you can redistribute it and/or modify
@@ -1060,8 +1060,8 @@ index 365a69b..75fcc83 100644
 +#endif
  
  #ifdef _MSC_VER
--#pragma warning(disable:4244)  // TODO: ��������warning
-+#pragma warning(disable:4244)  // TODO: ��������warning
+-#pragma warning(disable:4244)  // TODO: 修正编译warning
++#pragma warning(disable:4244)  // TODO: 锟斤拷锟斤拷锟斤拷锟斤拷warning
  #endif
  
   /* ---------------------------------------------------------------------------
@@ -1091,7 +1091,7 @@ index 0000000..f5941cf
 +//   Sebastian Pop <spop@amazon.com>
 +//   Developer Ecosystem Engineering <DeveloperEcosystemEngineering@apple.com>
 +//   Danila Kutenin <danilak@google.com>
-+//   François Turban (JishinMaster) <francois.turban@gmail.com>
++//   Fran莽ois Turban (JishinMaster) <francois.turban@gmail.com>
 +//   Pei-Hsuan Hung <afcidk@gmail.com>
 +//   Yang-Hao Yuan <yuanyanghau@gmail.com>
 +//   Syoyo Fujita <syoyo@lighttransport.com>
