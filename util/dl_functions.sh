@@ -1,5 +1,10 @@
 #!/bin/bash
 
+retry-tool() {
+    _retry "$@"
+}
+export -f retry-tool
+
 # Вспомогательная функция для надежного выполнения сетевых команд
 _retry() {
     local n=1
@@ -94,7 +99,7 @@ git-mini-clone() {
 
     # Прямой fetch коммита
     log_debug "Attempting direct fetch: $COMMIT"
-    if _retry git fetch --quiet --no-tags --depth=1 origin "$COMMIT" 2>/dev/null; then
+    if _retry git -c advice.detachedHead=false fetch --quiet --no-tags --no-show-forced-updates --depth=1 origin "$COMMIT" >/dev/null 2>&1; then
         git checkout --quiet FETCH_HEAD && success=1
     fi
 

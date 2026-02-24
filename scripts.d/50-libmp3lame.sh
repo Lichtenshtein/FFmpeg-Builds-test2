@@ -13,7 +13,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    echo "retry-tool svn checkout '${SCRIPT_REPO}@${SCRIPT_REV}' . --quiet"
+    default_dl .
 }
 
 ffbuild_dockerbuild() {
