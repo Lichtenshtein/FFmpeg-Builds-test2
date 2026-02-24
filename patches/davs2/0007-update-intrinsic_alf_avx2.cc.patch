@@ -1,0 +1,23 @@
+From f50435051b72c168c2b566c544e27fcff71ba61a Mon Sep 17 00:00:00 2001
+From: Rainbaby <rainbaby@outlook.jp>
+Date: Thu, 28 Sep 2023 12:17:15 +0800
+Subject: [PATCH] Update intrinsic_alf_avx2.cc
+
+Add const to pel_t
+---
+ source/common/vec/intrinsic_alf_avx2.cc | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/source/common/vec/intrinsic_alf_avx2.cc b/source/common/vec/intrinsic_alf_avx2.cc
+index 3c50ea1..8c8cfb3 100644
+--- a/source/common/vec/intrinsic_alf_avx2.cc
++++ b/source/common/vec/intrinsic_alf_avx2.cc
+@@ -52,7 +52,7 @@ void alf_filter_block_avx2_10bit(pel_t* p_dst, const pel_t* p_src, int stride,
+     int lcu_pix_x, int lcu_pix_y, int lcu_width, int lcu_height,
+     int* alf_coeff, int b_top_avail, int b_down_avail)
+ {
+-    pel_t *imgPad1, *imgPad2, *imgPad3, *imgPad4, *imgPad5, *imgPad6;
++    const pel_t *imgPad1, *imgPad2, *imgPad3, *imgPad4, *imgPad5, *imgPad6;
+ 
+     __m256i T00, T01, T10, T11, T20, T21, T30, T31, T40, T41;
+     __m256i E00, E01, E10, E11, E20, E21, E30, E31, E40, E41;

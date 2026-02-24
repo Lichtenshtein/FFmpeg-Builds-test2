@@ -91,6 +91,8 @@ if [[ -f "$TGT_FILE" ]]; then
     REAL_CACHE="$TGT_FILE"
     log_info "Exact cache match found: $(basename "$REAL_CACHE")"
     ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
+    # fix for Docker ro filesystem
+    # ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK" 2>/dev/null || true
 # Ищем по хешу (если скрипт переименован, например 25-glib2 -> 24-glib2)
 else
     EXISTING_BY_HASH=$(find "$CACHE_DIR" -maxdepth 1 -name "*_${CURRENT_HASH}.tar.zst" -print -quit)
