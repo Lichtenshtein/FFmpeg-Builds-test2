@@ -1,0 +1,22 @@
+From c72fa6b28c174ffda69f6aa83d46d425c3afefdd Mon Sep 17 00:00:00 2001
+From: BlueSwordM <zakdjeb@gmail.com>
+Date: Wed, 11 Feb 2026 23:10:31 -0500
+Subject: [PATCH] fix: adding the sharpness flag to light_rdoq to fix the
+ blocking bug
+
+---
+ Source/Lib/Codec/full_loop.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/Source/Lib/Codec/full_loop.c b/Source/Lib/Codec/full_loop.c
+index 578227958..8b1559c76 100644
+--- a/Source/Lib/Codec/full_loop.c
++++ b/Source/Lib/Codec/full_loop.c
+@@ -1129,6 +1129,7 @@ static void svt_av1_optimize_b(PictureControlSet *pcs, ModeDecisionContext *ctx,
+     }
+ 
+     if (light_rdoq) {
++        sharpness = 1;
+         rweight = 10;
+     }
+ 

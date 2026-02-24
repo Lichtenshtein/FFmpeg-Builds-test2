@@ -1,0 +1,22 @@
+From be0e89a574364fa6b5853532de3f5b83c3f6ec9e Mon Sep 17 00:00:00 2001
+From: BlueSwordM <zakdjeb@gmail.com>
+Date: Sun, 18 Jan 2026 23:36:56 -0500
+Subject: [PATCH] fix: correcting that conditional for decay_control
+
+---
+ Source/Lib/Codec/temporal_filtering.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Source/Lib/Codec/temporal_filtering.c b/Source/Lib/Codec/temporal_filtering.c
+index b8735b3f2..5d37ebf31 100644
+--- a/Source/Lib/Codec/temporal_filtering.c
++++ b/Source/Lib/Codec/temporal_filtering.c
+@@ -2786,7 +2786,7 @@ static EbErrorType produce_temporally_filtered_pic(
+     };
+     int decay_control[COLOR_CHANNELS];
+ 
+-    if (scs->vq_ctrls.sharpness_ctrls.tf && centre_pcs->is_noise_level && scs->calculate_variance && centre_pcs->pic_avg_variance < VQ_PIC_AVG_VARIANCE_TH ||
++    if ((scs->vq_ctrls.sharpness_ctrls.tf && centre_pcs->is_noise_level && scs->calculate_variance && centre_pcs->pic_avg_variance < VQ_PIC_AVG_VARIANCE_TH) ||
+     scs->static_config.tune == TUNE_VQ || (scs->static_config.alt_ssim_tuning && scs->static_config.tune == TUNE_SSIM)) {
+ 
+         decay_control[C_Y] = 1;
