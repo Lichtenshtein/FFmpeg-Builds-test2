@@ -1,0 +1,41 @@
+name: Auto-Bump Dependencies
+
+on:
+  # schedule:
+    # - cron: '0 0 * * 0' # Каждое воскресенье в полночь
+  workflow_dispatch:
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Update Script
+        run: |
+          chmod +x util/update_scripts_test.sh
+          ./util/update_scripts_test.sh
+
+      - name: Check for changes
+        id: git-check
+        run: |
+          git diff --exit-code || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Create Pull Request
+        if: steps.git-check.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ github.token }}
+          commit-message: "chore: auto-update component hashes"
+          title: "🤖 Auto-Bump Dependencies"
+          body: |
+            This is an automated PR to update library commits to their latest versions.
+            Please check if the build still passes.
+          branch: auto-bump-deps
+          base: personal
+          delete-branch: true
