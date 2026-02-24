@@ -21,8 +21,6 @@ RUN echo "--- Toolchain Search ---" && \
     find /opt/ct-ng -name "libwinpthread-*.dll" -o -name "kernel32.dll" || true && \
     echo "--- Search Finished ---"
 
-RUN rm -rf /var/lib/apt/lists/*
-
 ENV FFBUILD_TOOLCHAIN=x86_64-w64-mingw32 \
     FFBUILD_RUST_TARGET=x86_64-pc-windows-gnu
 
@@ -71,8 +69,8 @@ ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
     NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
     DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool" \
     GENDEF="${FFBUILD_TOOLCHAIN}-gendef" \
-    CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -ffast-math -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
-    CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -ffast-math -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
+    CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
+    CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
     LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -Wl,--gc-sections -Wl,--as-needed -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216" \
     STAGE_CFLAGS="-fno-semantic-interposition" \
     STAGE_CXXFLAGS="-fno-semantic-interposition"

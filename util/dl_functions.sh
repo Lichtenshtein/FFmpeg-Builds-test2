@@ -52,9 +52,14 @@ git-mini-clone() {
 
     mkdir -p "$TARGET_DIR"
 
-    # Сохраняем текущий путь, чтобы вернуться в него в конце функции
-    pushd "$TARGET_DIR" > /dev/null || return 1
+    # Запоминаем, где мы были
+    local OLD_PWD=$(pwd)
+    cd "$TARGET_DIR" || return 1
+    # Функция для безопасного выхода (замена popd)
+    _cleanup_git_clone() {cd "$OLD_PWD"}
 
+    # Удаляем возможные локи от прошлых неудачных запусков
+    [[ -d ".git" ]] && rm -f .git/index.lock
     # Инициализируем один раз
     [[ ! -d ".git" ]] && git init -q
 
@@ -81,7 +86,7 @@ git-mini-clone() {
             COMMIT="$RESOLVED_COMMIT"
         else
             log_error "Tag filter '$TAGFILTER' returned nothing"
-            popd >/dev/null; return 1
+            _cleanup_git_clone; return 1
         fi
     fi
 
@@ -89,15 +94,14 @@ git-mini-clone() {
 
     # Прямой fetch коммита
     log_debug "Attempting direct fetch: $COMMIT"
-    if _retry git fetch --quiet --depth=1 origin "$COMMIT" 2>/dev/null; then
-        git checkout --quiet FETCH_HEAD
-        success=1
+    if _retry git fetch --quiet --no-tags --depth=1 origin "$COMMIT" 2>/dev/null; then
+        git checkout --quiet FETCH_HEAD && success=1
     fi
 
     # Если не вышло, пробуем через ветку
     if [[ $success -eq 0 && -n "$BRANCH" ]]; then
         log_warn "Direct fetch failed, trying branch: $BRANCH"
-        if _retry git fetch --quiet --depth=1 origin "$BRANCH"; then
+        if _retry git fetch --quiet --no-tags --depth=1 origin "$BRANCH"; then
              git checkout --quiet "$COMMIT" && success=1
         fi
     fi
@@ -111,7 +115,7 @@ git-mini-clone() {
     fi
 
     # Возвращаемся в исходную директорию
-    popd > /dev/null
+    _cleanup_git_clone
     if [[ $success -eq 0 ]]; then
         log_error "Error: Failed to clone $REPO at $COMMIT"
         return 1
@@ -175,7 +179,7 @@ git-submodule-clone() {
         git reset --hard HEAD && git clean -fd
 
         # Получаем данные напрямую
-        if _retry git fetch --quiet --depth=1 origin; then
+        if _retry git fetch --quiet --no-tags --depth=1 origin; then
             # Пытаемся переключиться на нужный коммит (записанный в основном репозитории)
             # Обычно это FETCH_HEAD после fetch, если мы тянем конкретный коммит
             git checkout -q FETCH_HEAD || git checkout -q $(git config -f $top_level/.gitmodules submodule.$name.branch || echo "master")

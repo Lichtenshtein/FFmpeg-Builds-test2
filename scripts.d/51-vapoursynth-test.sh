@@ -1,19 +1,17 @@
 #!/bin/bash
 
-# Используем R73 (релизный тег)
 SCRIPT_REPO="https://github.com/vapoursynth/vapoursynth.git"
 SCRIPT_COMMIT="42a3bba6f0fffe3a397fa3494aadb7be1e2af8de"
 
 ffbuild_depends() {
-    # Vapoursynth сильно зависит от zimg
     echo zlib
     echo zimg
 }
 
 ffbuild_enabled() {
-    # Vapoursynth обычно не собирают под x86 (32-bit) из-за лимитов памяти
-    [[ $TARGET == win32 ]] && return 1
-    return 0
+    # Поддерживаем только x86_64
+    [[ $TARGET == win64 ]] && return 0
+    return 1
 }
 
 ffbuild_dockerdl() {
@@ -21,36 +19,45 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # Vapoursynth требует автогенерации скриптов сборки
-    ./autogen.sh
 
-    local myconf=(
-        --prefix="$FFBUILD_PREFIX"
-        --host="$FFBUILD_TOOLCHAIN"
-        --enable-static
-        --disable-shared
-        --disable-vsscript       # Оставляем выключенным для экономии места
-        --disable-python-module  # Python в статичном FFmpeg под Win64 почти невозможен
-        --disable-core           # Мы используем Vapoursynth как интерфейс загрузки скриптов
-    )
+    # Чтобы FFmpeg работал с Vapoursynth, ему нужна библиотека VSScript.
+    # Но VSScript требует Python. Мы отключаем модуль Python, но оставляем VSScript 
+    # в режиме 'headers only' или минимальной статики, если это позволит Meson.
 
-    # Для FFmpeg нам нужны только хедеры и интерфейс линковки (VSRuntime)
-    # Если нужен полный Core внутри FFmpeg, настройки будут сложнее
-    
-    ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS" \
-        CXXFLAGS="$CXXFLAGS" \
-        LDFLAGS="$LDFLAGS"
+    # Исправляем баг libtool/linker path для MinGW
+    export LT_SYS_LIBRARY_PATH="$FFBUILD_PREFIX/lib"
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    meson setup build \
+        --prefix="$FFBUILD_PREFIX" \
+        --cross-file="$FFBUILD_CROSS_PREFIX"cross.meson \
+        --buildtype release \
+        --default-library static \
+        -Denable_x86_asm=true \
+        -Denable_vsscript=true \
+        -Denable_vspipe=false \
+        -Denable_python_module=false \
+        -Dcore=false \
+        -Dtests=false \
+        || (tail -n 500 build/meson-logs/meson-log.txt && exit 1)
 
-    # FFmpeg ищет Vapoursynth через pkg-config
-    # Исправляем путь в .pc файле, если он криво сгенерировался
-    sed -i "s|prefix=.*|prefix=$FFBUILD_PREFIX|" "$FFBUILD_DESTPREFIX"/lib/pkgconfig/vapoursynth.pc
-    # FFmpeg не увидит Vapoursynth, если не будет правильных флагов в .pc
-    # Добавляем -lstdc++ и убираем динамические зависимости
-    sed -i "s/Libs: .*/Libs: -L\${libdir} -lvapoursynth -lstdc++/" "$FFBUILD_DESTPREFIX"/lib/pkgconfig/vapoursynth.pc
+    ninja -C build -j$(nproc) $NINJA_V
+    DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
+
+    # Исправление pkg-config для статической линковки FFmpeg
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/vapoursynth.pc"
+    local VSS_PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/vapoursynth-script.pc"
+
+    if [[ -f "$PC_FILE" ]]; then
+        # Убеждаемся, что пути корректны
+        sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
+        # Добавляем стандартную библиотеку C++, так как VS написан на ней
+        sed -i "s|^Libs:.*|Libs: -L\${libdir} -lvapoursynth -lstdc++|" "$PC_FILE"
+    fi
+
+    if [[ -f "$VSS_PC_FILE" ]]; then
+        sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$VSS_PC_FILE"
+        sed -i "s|^Libs:.*|Libs: -L\${libdir} -lvsscript -lstdc++|" "$VSS_PC_FILE"
+    fi
 }
 
 ffbuild_configure() {
@@ -59,4 +66,9 @@ ffbuild_configure() {
 
 ffbuild_unconfigure() {
     echo --disable-vapoursynth
+}
+
+ffbuild_cflags() {
+    # Флаг для статической сборки, чтобы избежать __declspec(dllimport)
+    echo "-DVAPOURSYNTH_STATIC"
 }

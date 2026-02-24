@@ -21,8 +21,9 @@ download_stage() {
     local DL_DIR="$2"
     local STAGENAME=$(basename "$STAGE" .sh)
 
-    # считаем хеш (он включает в себя вызов ffbuild_dockerdl внутри get_stage_hash)
+    # Единый хеш (зависит от всего файла скрипта благодаря новой vars.sh)
     local DL_HASH=$(get_stage_hash "$STAGE")
+
     local DL_COMMANDS=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
                       source util/dl_functions.sh; \
                       source \"$STAGE\"; \
@@ -34,7 +35,6 @@ download_stage() {
     local TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.zst"
     local LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.zst"
 
-    # --- DEBUG SECTION ---
     log_debug "Checking cache for $STAGENAME in $DL_DIR..."
     if [[ ! -d "$DL_DIR" ]]; then
         log_error "DL_DIR ($DL_DIR) does not exist!"
@@ -42,67 +42,56 @@ download_stage() {
         log_info "Files in cache for $STAGENAME:"
         ls -F "$DL_DIR" | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found"
     fi
-    # ----------------------
 
     if [[ -f "$TGT_FILE" ]]; then
-        log_info "Cache hit: $STAGENAME (File exists: $(basename "$TGT_FILE"))"
-        log_info "Cache hit: $STAGENAME (Hash matched: $DL_HASH)"
+        log_info "Cache hit: $STAGENAME ($DL_HASH); File: $(basename "$TGT_FILE"))"
+        # Обновляем mtime, чтобы clean_cache не удалил его как старый
+        touch "$TGT_FILE" 
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
         return 0
     else
         log_warn "Cache miss: $STAGENAME (Target file $TGT_FILE not found)"
     fi
 
-    log_info "Downloading: $STAGENAME (Hash: $DL_HASH)..."
+    log_info "Changes detected or missing cache (Hash: $DL_HASH) for $STAGENAME. Downloading..."
 
     # Создаем временную папку внутри проекта
     mkdir -p .cache/tmp
     WORK_DIR=$(mktemp -d -p "$ROOT_DIR/.cache/tmp")
 
-    # сохраняем команды во временный скрипт и запускаем его
-    if ( 
+    # Выполняем загрузку
+    if (
         cd "$WORK_DIR"
-        echo "set -e" > run_dl.sh
-        echo "source \"$ROOT_DIR/util/dl_functions.sh\"" >> run_dl.sh
-        DL_COMMANDS="${DL_COMMANDS//retry-tool /}"
-        DL_COMMANDS="${DL_COMMANDS//git fetch --unshallow/true}"
-        echo "$DL_COMMANDS" >> run_dl.sh
-        bash run_dl.sh
+        # Явно подгружаем функции внутри подоболочки для надежности в Parallel
+        source "$ROOT_DIR/util/dl_functions.sh"
+        source "$ROOT_DIR/util/vars.sh" "$TARGET" "$VARIANT" &>/dev/null
+        eval "$DL_COMMANDS"
     ); then
-        
-        # --- КОРРЕКТНЫЙ WHITELIST ДЛЯ METADATA ---
-        # glib (подмодули), x264/x265 (versioning), opus (иногда dnn fetch)
-        PRESERVE_PATTERN="${GIT_PRESERVE_LIST:-glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf}"
+        # Whitelist метаданных (добавил dav1d и ffmpeg)
+        local PRESERVE_PATTERN="${GIT_PRESERVE_LIST:-ffmpeg |glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo}"
 
         if [[ "$STAGENAME" =~ $PRESERVE_PATTERN ]]; then
             log_info "Preserving Git metadata for $STAGENAME (Whitelist match)"
         else
-            log_debug "Removing Git metadata for $STAGENAME to save cache space"
+            log_debug "Stripping Git metadata for $STAGENAME to save cache space"
             # Удаляем .git папки и .gitignore файлы
             find "$WORK_DIR" -name ".git*" -exec rm -rf {} +
         fi
-        # Удаляем сам скрипт загрузки перед упаковкой
-        rm -f "$WORK_DIR/run_dl.sh"
-        # -c: создать, -f: файл
-        # -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
+
+        # Упаковка; -c: создать, -f: файл, -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
         tar -I 'zstd -T0 -3' -cf "$TGT_FILE" -C "$WORK_DIR" .
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
-        if [[ -e "$LATEST_LINK" ]]; then
-            log_info "Done: $STAGENAME (Name: $(basename "$TGT_FILE"))"
-            rm -rf "$WORK_DIR"
-            return 0
-        else
-            log_error "ERROR: Symlink creation failed for $STAGENAME"
-            rm -rf "$WORK_DIR"
-            return 1
-        fi
-    else
-        log_error "FAILED to download $STAGENAME (Command: $DL_COMMAND)"
+
+        log_info "Cached $STAGENAME (Name: $(basename "$TGT_FILE"))"
         rm -rf "$WORK_DIR"
-        exit 1 # exit 1, чтобы xargs поймал ошибку
+        return 0
+    else
+        log_error "FAILED to download $STAGENAME. Commands attempted:"
+        log_error "$DL_COMMANDS"
+        rm -rf "$WORK_DIR"
+        return 1 # return 1 для параллельного запуска
     fi
 }
-
 export -f download_stage
 
 log_info "Starting parallel downloads for $TARGET-$VARIANT..."

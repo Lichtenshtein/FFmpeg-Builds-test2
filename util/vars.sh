@@ -170,7 +170,7 @@ ffbuild_unldflags() {
 ffbuild_libs() {
     log_debug "Adding system libraries for Win64" >&2
     # Только системные либы
-    echo "-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lstdc++ -lws2_32"
+    echo "-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lstdc++ -lws2_32 -lbcrypt -lpthread"
 }
 
 ffbuild_unlibs() {
@@ -188,24 +188,11 @@ ffbuild_enabled() {
 
 get_stage_hash() {
     local STAGE_PATH="$1"
-    local STAGENAME=$(basename "$STAGE_PATH" .sh)
-    
-    # Получаем команды загрузки (ffbuild_dockerdl) в чистом окружении
-    # Используем bash -c, чтобы не засорять текущую оболочку
-    local DL_COMMANDS=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
-                      source util/dl_functions.sh; \
-                      source \"$STAGE_PATH\"; \
-                      ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")
-    
-    # Очистка команд от мусора
-    DL_COMMANDS="${DL_COMMANDS//retry-tool /}"
-    DL_COMMANDS="${DL_COMMANDS//git fetch --unshallow/true}"
-
-    # Получаем чистый код скрипта (без комментов, пробелов в конце и \r)
-    local SCRIPT_CODE=$(grep -v '^[[:space:]]*#' "$STAGE_PATH" | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' | grep -v '^[[:space:]]*$' | tr -d '\r')
-
-    # Генерируем финальный хеш (16 символов)
-    (echo "$DL_COMMANDS"; echo "$SCRIPT_CODE") | sha256sum | cut -d" " -f1 | cut -c1-16
+    # Берем весь контент файла
+    # Удаляем \r (защита от Windows-переносов)
+    # Удаляем пустые строки и комментарии (чтобы пробелы не ломали кэш)
+    # Считаем хеш от всего остального
+    grep -v '^[[:space:]]*#' "$STAGE_PATH" | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' | grep -v '^[[:space:]]*$' | tr -d '\r' | sha256sum | cut -c1-16
 }
 export -f get_stage_hash
 
