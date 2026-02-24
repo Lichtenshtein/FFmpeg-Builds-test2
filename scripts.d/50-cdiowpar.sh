@@ -7,10 +7,9 @@ ffbuild_enabled() {
     return 0
 }
 
-# Сбрасываем кэш еще раз для надежности
-# ffbuild_dockerdl() {
-    # echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" . && echo 'v4-win32-fix'"
-# }
+ffbuild_dockerdl() {
+    default_dl .
+}
 
 ffbuild_dockerbuild() {
     # заменяем реализацию gettime в utils.c на пустую/совместимую

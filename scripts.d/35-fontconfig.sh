@@ -13,6 +13,10 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    default_dl .
+}
+
 ffbuild_dockerbuild() {
     ./autogen.sh --noconf
 

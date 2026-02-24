@@ -8,10 +8,18 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    echo "curl -sL \"$SCRIPT_REPO\" --output tensorflow.zip && unzip -qq tensorflow.zip -d tf_src"
+    # echo "curl -sL \"$SCRIPT_REPO\" --output tensorflow.zip && unzip -qq tensorflow.zip -d tf_src"
+    echo "download_file \"$SCRIPT_REPO\" \"tensorflow.zip\""
 }
 
 ffbuild_dockerbuild() {
+
+    # Распаковываем (unzip должен быть в base образе)
+    unzip -qq tensorflow.zip -d tf_src
+    # Находим папку (имя может меняться в зависимости от билда)
+    local TF_DIR=$(find . -maxdepth 1 -type d -name "tf_src*" | head -n 1)
+    cd "$TF_DIR"
+
     # Структура архива обычно содержит папку 'lib' и 'include'
     
     mkdir -p "$FFBUILD_DESTPREFIX"/{include/tensorflow/c,lib,bin}

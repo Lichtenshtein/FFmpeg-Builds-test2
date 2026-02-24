@@ -1,0 +1,25 @@
+From 3b0347a3dcbc83a36ba0fed0f21b9eac1c12a2d0 Mon Sep 17 00:00:00 2001
+From: Jamaika1 <lukaszcz18@wp.pl>
+Date: Sun, 27 Oct 2024 15:12:21 +0100
+Subject: [PATCH] Added define __AVX512F__
+
+---
+ src/zimg/common/align.h | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/src/zimg/common/align.h b/src/zimg/common/align.h
+index 0db0df76..8f0e6bd6 100644
+--- a/src/zimg/common/align.h
++++ b/src/zimg/common/align.h
+@@ -9,7 +9,11 @@ namespace zimg {
+  * 64-byte alignment allows the use of instructions up to AVX-512.
+  */
+ #if defined(ZIMG_X86)
++#if defined(__AVX512F__)
+ constexpr int ALIGNMENT = 64;
++#else
++constexpr int ALIGNMENT = 32;
++#endif
+ constexpr int ALIGNMENT_RELAXED = 32;
+ #elif defined(ZIMG_ARM)
+ constexpr int ALIGNMENT = 16;

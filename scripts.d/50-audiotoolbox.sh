@@ -10,7 +10,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+    default_dl .
     echo "download_file \"$QTFILES_URL\" \"qtfiles64.7z\""
 }
 

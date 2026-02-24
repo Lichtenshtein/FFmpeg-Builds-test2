@@ -8,11 +8,26 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+    default_dl .
     echo "git submodule --quiet update --init --recursive --depth 1 --recommend-shallow third_party/highway"
 }
 
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/libjxl" ]]; then
+        for patch in "/builder/patches/libjxl"/*.patch; do
+            log_info "-----------------------------------"
+            log_info "APPLYING PATCH: $patch"
+            if patch -p1 < "$patch"; then
+                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+                log_info "-----------------------------------"
+            else
+                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+                log_info "-----------------------------------"
+                # return 1 # если нужно прервать сборку при ошибке
+            fi
+        done
+    fi
+
     mkdir build && cd build
 
     if [[ $TARGET == linux* ]]; then
