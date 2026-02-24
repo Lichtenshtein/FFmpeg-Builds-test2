@@ -8,19 +8,19 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
+    default_dl .
 }
 
 ffbuild_dockerbuild() {
     if [[ -d "/builder/patches/bs2b" ]]; then
         for patch in /builder/patches/bs2b/*.patch; do
-            log_info "\n-----------------------------------"
-            log_info "~~~ APPLYING PATCH: $patch"
+            log_info "-----------------------------------"
+            log_info "APPLYING PATCH: $patch"
             if patch -p1 < "$patch"; then
                 log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
                 log_info "-----------------------------------"
             else
-                log_infoe "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
                 log_info "-----------------------------------"
                 # return 1 # если нужно прервать сборку при ошибке
             fi

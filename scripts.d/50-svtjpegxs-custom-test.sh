@@ -7,6 +7,10 @@ ffbuild_enabled() {
     return 1
 }
 
+ffbuild_dockerdl() {
+    default_dl .
+}
+
 ffbuild_dockerbuild() {
     # SVT-JPEG-XS uses Build/linux/build.sh
     # need to adapt it for cross-compilation

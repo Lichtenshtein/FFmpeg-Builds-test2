@@ -17,6 +17,10 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    default_dl .
+}
+
 ffbuild_dockerbuild() {
     # This works around an issue of our libxcb-dri3 implib-wrapper not exporting data symbols.
     # Under normal circumstances, this would break horribly.

@@ -71,7 +71,7 @@ git-mini-clone() {
     # Настройка всех зеркал сразу
     git remote remove origin 2>/dev/null || true
     git remote add origin "$REPO"
-    
+
     # Добавляем все зеркала в один список для перебора (SCRIPT_MIRROR)
     local i=1
     while :; do

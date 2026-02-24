@@ -21,13 +21,8 @@ diff --git a/build/linux/Makefile b/build/linux/Makefile
 index c550590..7523044 100644
 --- a/build/linux/Makefile
 +++ b/build/linux/Makefile
-@@ -85,9 +85,11 @@ SRCSAVX = common/vec/intrinsic_sao_avx2.cc \
- 		  common/vec/intrinsic_intra-pred_avx2.cc \
- 		  common/vec/intrinsic_inter_pred_avx2.cc \
- 		  common/vec/intrinsic_pixel_avx.cc \
--		  common/vec/intrinsic_idct_avx2.cc
-+		  common/vec/intrinsic_idct_avx2.cc \
-+		  common/vec/intrinsic_alf_avx2.cc
+@@ -85,6 +85,7 @@ SRCSAVX = common/vec/intrinsic_sao_avx2.cc \
+ 		  common/vec/intrinsic_alf_avx2.cc
  
  CFLAGS += -mmmx -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -msse4a -mssse3 -mavx
 +CFLAGS += -fpermissive
@@ -39,7 +34,7 @@ index fbdcd0a..b5ed726 100755
 --- a/build/linux/configure
 +++ b/build/linux/configure
 @@ -896,8 +896,9 @@ if [ $asm = auto -a $ARCH = AARCH64 ] ; then
-     asm="no"
+    fi
  fi
  
 +define HAVE_SSE2NEON 0
@@ -176,7 +171,3 @@ index a4a4f7e..9637e5c 100644
  #if !HIGH_BIT_DEPTH
          fh->sao_block_bo                   = SAO_on_block_bo_sse128;
          fh->sao_filter_eo[SAO_TYPE_EO_0]   = SAO_on_block_eo_0_sse128;
-diff --git a/source/common/vec/intrinsic_alf_avx2.c b/source/common/vec/intrinsic_alf_avx2.cc
-similarity index 100%
-rename from source/common/vec/intrinsic_alf_avx2.c
-rename to source/common/vec/intrinsic_alf_avx2.cc

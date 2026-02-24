@@ -9,6 +9,10 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_dockerdl() {
+    default_dl .
+}
+
 ffbuild_dockerbuild() {
     # stop the static library from exporting symbols when linked into a shared lib
     sed -i 's/SUPPORT_ATTRIBUTE_VISIBILITY_DEFAULT/SUPPORT_ATTRIBUTE_VISIBILITY_DEFAULT_DISABLED/g' meson.build
