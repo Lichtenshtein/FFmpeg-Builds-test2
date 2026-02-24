@@ -9,6 +9,7 @@ TARGET="${1:-$TARGET}"
 VARIANT="${2:-$VARIANT}"
 LTO_INPUT="${3:-nolto}"
 SKIP_FFMPEG_INPUT="${4:-false}"
+DEDUPE_INPUT="${5:-true}"
 
 # Сначала загружаем переменные (включая вариант), 
 # но перенаправляем их стандартный вывод в никуда, 
@@ -38,6 +39,7 @@ to_df "ENV TARGET=$TARGET VARIANT=$VARIANT REPO=$REPO ADDINS_STR=$ADDINS_STR \\
     FFBUILD_VERBOSE=$FFBUILD_VERBOSE \\
     FFMPEG_REPO=$FFMPEG_REPO \\
     FFMPEG_BRANCH=$FFMPEG_BRANCH \\
+    DEBUG_NO_HASH=$DEBUG_NO_HASH \\
     ONLY_STAGE=\"$ONLY_STAGE\" \\
     DLL_PRESERVE_LIST=\"$DLL_PRESERVE_LIST\" \\
     GIT_PRESERVE_LIST=\"$GIT_PRESERVE_LIST\""
@@ -90,8 +92,10 @@ fi
 # Генерируем блоки RUN для каждой стадии
 for STAGE in "${active_scripts[@]}"; do
     STAGENAME="$(basename "$STAGE" .sh)"
-    SCRIPT_HASH=$(sha256sum "$STAGE" | cut -c1-8)
-    DL_HASH=$(get_stage_hash "$STAGE")
+
+    # ИСПОЛЬЗУЕМ ЕДИНУЮ ФУНКЦИЮ ДЛЯ ВСЕГО
+    FULL_HASH=$(get_stage_hash "$STAGE")
+
     # Извлекаем имя компонента (напр., из 50-libmp3lame получаем libmp3lame)
     # Используем sed, чтобы отрезать все до первого дефиса включительно
     COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
@@ -102,10 +106,10 @@ for STAGE in "${active_scripts[@]}"; do
         find "patches/$COMPONENT_NAME" -type f 2>/dev/null
         find "patches" -maxdepth 1 -name "${COMPONENT_NAME}*" -type f 2>/dev/null
     ) | sort | xargs sha256sum 2>/dev/null | sha256sum | cut -c1-8 || echo "none")
+    # Если изменится vars.sh ($VARS_HASH), Docker пересоберет слой.
+    # Если изменится скрипт ($FULL_HASH), Docker пересоберет слой.
+    to_df "# Stage: $STAGENAME | Component: $COMPONENT_NAME | Vars Hash: $VARS_HASH | Patches Hash: $COMPONENT_PATCH_HASH | Full Hash: $FULL_HASH"
 
-    # Для отладки в Dockerfile
-    to_df "# Stage: $STAGENAME | Component: $COMPONENT_NAME | ScriptHash: $SCRIPT_HASH | DepsHash: $VARS_HASH | PatchHash: $COMPONENT_PATCH_HASH | DL_Hash: $DL_HASH | ScriptHash: $SCRIPT_HASH"
-    
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
     to_df "    --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=/builder/util \\"
@@ -113,7 +117,7 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    --mount=type=bind,source=variants,target=/builder/variants \\"
     to_df "    --mount=type=bind,source=addins,target=/builder/addins \\"
     to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads \\"
-    to_df "    set -e; export _H=$SCRIPT_HASH:$VARS_HASH:$COMPONENT_PATCH_HASH && . /builder/util/vars.sh $TARGET $VARIANT && run_stage /builder/$STAGE"
+    to_df "    set -e; export _H=$FULL_HASH:$VARS_HASH:$COMPONENT_PATCH_HASH && . /builder/util/vars.sh $TARGET $VARIANT && run_stage /builder/$STAGE"
 done
 
 # Сборка флагов конфигурации FFmpeg
@@ -140,7 +144,10 @@ collect_all_flags() {
             local func=$1
             local out_file=$2
             if declare -F "$func" >/dev/null; then
-                local res=$($func 2>/dev/null | xargs)
+                # Выполняем функцию.
+                # Весь stderr оставляем как есть.
+                # Из stdout берем только ПОСЛЕДНЮЮ непустую строку.
+                local res=$($func 2>&1 | tee /dev/stderr | grep -vE "^\[(INFO|DEBUG|WARN)\]" | tail -n 1 | xargs)
                 [[ -n "$res" ]] && echo "$res" >> "$out_file"
             fi
         }
@@ -171,17 +178,30 @@ for script in "${active_scripts[@]}"; do
 done
 
 # Функция для удаления дубликатов с сохранением порядка
+# Для флагов компиляции (CFLAGS) порядок менее важен, 
+# но для LDFLAGS/LIBS мы просто склеиваем строки, 
+# удаляя лишние пробелы, но сохраняя последовательность.
 dedupe() {
-    echo "$1" | printf "%s\n" $(cat) | awk '!x[$0]++' | xargs
+    echo "$1" | xargs | tr ' ' '\n' | awk '!x[$0]++' | xargs
+}
+smart_dedupe() {
+    local input="$1"
+    if [[ "$DEDUPE_INPUT" == "true" ]]; then
+        # Удаляем дубликаты, сохраняя ПЕРВОЕ вхождение (традиционный подход)
+        echo "$input" | xargs -n1 | awk '!x[$0]++' | xargs
+    else
+        # Просто склеиваем в одну строку, убирая лишние пробелы
+        echo "$input" | xargs
+    fi
 }
 
 # Читаем и очищаем итоговые строки
 FF_CONFIGURE=$(dedupe "$FF_CONFIGURE")
 FF_CFLAGS=$(dedupe "$FF_CFLAGS")
-FF_LDFLAGS=$(dedupe "$FF_LDFLAGS")
+FF_LDFLAGS=$(smart_dedupe "$FF_LDFLAGS")
 FF_CXXFLAGS=$(dedupe "$FF_CXXFLAGS")
 FF_LDEXEFLAGS=$(dedupe "$FF_LDEXEFLAGS")
-FF_LIBS=$(dedupe "$FF_LIBS")
+FF_LIBS=$(smart_dedupe "$FF_LIBS")
 
 # Записываем в Dockerfile
 to_df "ENV FF_CONFIGURE=\"$FF_CONFIGURE\""

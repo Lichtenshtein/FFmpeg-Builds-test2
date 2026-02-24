@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '10-mingw|10-mingw-std-threads|15-base|20-zlib|20-libiconv|21-gettext|20-pcre2|20-pixman|24-libffi|25-freetype|25-fribidi|25-libpng|25-bzlib|24-xz|25-libxml2|25-glib2|35-fontconfig|35-harfbuzz|38-brotli|40-freetype|39-cairo|40-pango|44-dav1d|45-librsvg-cargo-test'
+        default: '10-mingw|10-mingw-std-threads|15-base|20-zlib|50-avisynth|50-zimg|51-vapoursynth-test'
         # default: '.*'
       doClean:
         description: 'Clean cache before build (Full Rebuild)'
@@ -29,11 +29,19 @@ on:
       debug_no_hash:
         description: 'Debug: Do not recalculate VARS_HASH (Preserve Docker cache)'
         type: boolean
-        default: true
+        default: false
       skip_ffmpeg:
         description: 'Skip final FFmpeg compilation (Component test only)'
         type: boolean
         default: true
+      dedupe_flags:
+        description: 'Deduplicate LDFLAGS/LIBS (Disable if link errors occur)'
+        type: boolean
+        default: true
+      use_wine:
+        description: 'Enable Wine for tests/conftest (auto/on/off)'
+        required: false
+        default: 'auto'
       doRelease:
         description: 'Publish new release'
         type: boolean
@@ -47,12 +55,13 @@ env:
   FFMPEG_REPO: ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg.git' }}
   FFMPEG_BRANCH: ${{ github.event.inputs.ffmpeg_branch || 'master' }}
   # Список для удаления лишних .git (в download.sh)
-  GIT_PRESERVE_LIST: "glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo"
+  GIT_PRESERVE_LIST: "ffmpeg |glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo"
   # Список для сохранения DLL (в run_stage.sh)
-  DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|onevpl|glib2"
+  DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|onevpl|glib2|audiotoolbox"
   FFBUILD_VERBOSE: ${{ github.event.inputs.verbosity || '1' }}
   ONLY_STAGE: ${{ github.event.inputs.only_stage }}
   DEBUG_NO_HASH: ${{ github.event.inputs.debug_no_hash }}
+  DEDUPE_FLAGS: ${{ github.event.inputs.dedupe_flags }}
 
 jobs:
   build_all:
@@ -177,6 +186,7 @@ jobs:
           fi
           export ONLY_STAGE="${{ github.event.inputs.only_stage }}"
           export DEBUG_NO_HASH="${{ github.event.inputs.debug_no_hash }}"
+          export DEDUPE_FLAGS="${{ github.event.inputs.dedupe_flags }}"
           LTO_PARAM="nolto"
           [[ "${{ github.event.inputs.use_lto }}" == "true" ]] && LTO_PARAM="lto"
           SKIP_PARAM="false"
@@ -187,7 +197,7 @@ jobs:
           chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
-          ./generate.sh win64 nonfree "$LTO_PARAM" "$SKIP_PARAM"
+          ./generate.sh win64 nonfree "$LTO_PARAM" "$SKIP_PARAM" 
 
       - name: Inspect Dockerfile
         run: head -n 30 Dockerfile
@@ -203,7 +213,8 @@ jobs:
           # Сохраняем под тем же ключом. 
           # Если билд не скачал ничего нового, этот шаг просто пропустится (Cache Hit).
           # Если что-то изменилось, ключ хеша (outputs.key) будет другим, и кэш сохранится.
-          key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
+          # key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
+          key: dl-cache-${{ steps.dl_cache.outputs.key }}
 
       - name: Prepare and Build
         uses: docker/build-push-action@v5

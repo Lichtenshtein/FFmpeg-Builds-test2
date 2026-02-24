@@ -2,25 +2,16 @@
 set -eo pipefail
 cd "$(dirname "$0")/.."
 
-# Очищаем временный файл перед началом
-echo -n "" > cache_state.tmp
+# Состояние кэша зависит только от:
+# Списка файлов (если добавили новый скрипт - кэш обновится)
+# Названия таргета и варианта
+# Версии FFmpeg (так как она качается отдельно в .cache/ffmpeg)
 
-# Добавляем TARGET и VARIANT в состояние кэша.
-# Используем >>, чтобы не затереть предыдущую запись.
-echo "$TARGET-$VARIANT" >> cache_state.tmp
+{
+    echo "$TARGET-$VARIANT"
+    echo "$FFMPEG_REPO-$FFMPEG_BRANCH"
+    find scripts.d patches -type f -name "*.sh" -o -name "*.patch" | sort
+} > cache_state.tmp
 
-# Хешируем все скрипты и утилиты.
-# Добавлена папка patches, так как изменение патча должно инвалидировать кэш.
-# Используем -type f, чтобы не хешировать директории.
-find scripts.d util variants patches -type f -name "*.sh" -o -name "*.patch" -print0 | sort -z | xargs -0 sha256sum >> cache_state.tmp
-
-# Добавляем основной скрипт загрузки
-if [[ -f "download.sh" ]]; then
-    sha256sum download.sh >> cache_state.tmp
-fi
-
-# Генерируем финальный хеш и выводим его (этот вывод перехватывает GitHub Actions)
-sha256sum cache_state.tmp | cut -d" " -f1
-
-# Удаляем временный файл
+sha256sum cache_state.tmp | cut -d" " -f1 | cut -c1-16
 rm cache_state.tmp

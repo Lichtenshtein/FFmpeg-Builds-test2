@@ -75,8 +75,8 @@ for f in *.tar.zst; do
 
     # Если файла нет в списке актуальных
     if ! grep -qxF "$f" "$FINAL_KEEP_LIST"; then
-        # Удаляем только если файл старше 15 минут (защита от параллельных процессов)
-        if [[ -z $(find "$f" -mmin -15 2>/dev/null) ]]; then
+        # Удаляем только если файл старше 60 минут (защита от параллельных процессов)
+        if [[ -z $(find "$f" -mmin -60 2>/dev/null) ]]; then
             log_info "Deleting orphaned/old cache: $f"
             rm -f "$f" || true
             # Безопасный инкремент (не роняет скрипт при set -e)

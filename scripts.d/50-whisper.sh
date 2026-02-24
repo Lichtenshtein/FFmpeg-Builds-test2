@@ -7,11 +7,16 @@ ffbuild_depends() {
     echo base
     echo vulkan
     echo opencl
+    echo openvino
 }
 
 ffbuild_enabled() {
-    # [[ $TARGET != *32 ]] || return 1
+    [[ $TARGET != *32 ]] || return 1
     return 0
+}
+
+ffbuild_dockerdl() {
+    echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
 }
 
 ffbuild_dockerbuild() {
@@ -28,6 +33,7 @@ ffbuild_dockerbuild() {
         -DWHISPER_BUILD_EXAMPLES=OFF \
         -DWHISPER_BUILD_SERVER=OFF \
         -DWHISPER_USE_SYSTEM_GGML=OFF \
+        -DWHISPER_OPENVINO=ON \
         -DGGML_CCACHE=OFF \
         -DGGML_OPENCL=ON \
         -DGGML_VULKAN=ON \
@@ -42,16 +48,33 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
-    # For some reason, these lack the lib prefix on Windows
-    shopt -s nullglob
-    for libfile in "$FFBUILD_DESTPREFIX"/lib/ggml*.a; do
-        mv "${libfile}" "$(dirname "${libfile}")/lib$(basename "${libfile}")"
-    done
+    # Исправление имен файлов библиотек (MinGW prefix fix)
+    # CMake в Windows часто сохраняет их как ggml-base.a, а линковщик ищет -lggml-base (т.е. libggml-base.a)
+    log_info "Fixing library prefixes for MinGW..."
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "ggml*.a" -not -name "lib*" -execdir mv {} lib{} \;
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "whisper.a" -not -name "lib*" -execdir mv {} lib{} \;
 
-    # Linking order is all wrong
-    sed -i -e 's/^\(Libs:\).*$/\1 -L${libdir} -lwhisper/' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/whisper.pc
-    echo "Libs.private: -lggml -lggml-base -lggml-cpu -lggml-vulkan -lggml-opencl -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/whisper.pc
-    echo "Requires: vulkan OpenCL" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/whisper.pc
+    # Исправление pkg-config для FFmpeg
+    # FFmpeg должен знать обо всех внутренних компонентах GGML
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/whisper.pc"
+    
+    # Полный список компонентов GGML, которые создаются при сборке
+    local GGML_LIBS="-lggml -lggml-base -lggml-cpu -lggml-vulkan -lggml-opencl"
+    
+    # Переписываем Libs и добавляем зависимости
+    sed -i "s|^Libs:.*|Libs: -L\${libdir} -lwhisper $GGML_LIBS|" "$PC_FILE"
+    
+    # Добавляем системные зависимости Windows
+    if ! grep -q "Libs.private" "$PC_FILE"; then
+        echo "Libs.private: -lstdc++ -lsetupapi -lshlwapi" >> "$PC_FILE"
+    fi
+    
+    # Указываем Requires для pkg-config, чтобы подтянулись флаги Vulkan и OpenCL
+    if ! grep -q "Requires:" "$PC_FILE"; then
+        echo "Requires: vulkan OpenCL" >> "$PC_FILE"
+    else
+        sed -i "s|^Requires:.*|Requires: vulkan OpenCL|" "$PC_FILE"
+    fi
 }
 
 ffbuild_configure() {
