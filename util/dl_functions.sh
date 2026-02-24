@@ -8,9 +8,9 @@ export -f retry-tool
 # Вспомогательная функция для надежного выполнения сетевых команд
 _retry() {
     local n=1
-    local max=15  # Достаточно для нестабильных соединений
+    local max=3  # Достаточно для нестабильных соединений
     local delay=5
-    local timeout_val=1200 # 20 минут на одну операцию
+    local timeout_val=300 # 20 минут на одну операцию
     
     while true; do
         if timeout "$timeout_val" "$@"; then

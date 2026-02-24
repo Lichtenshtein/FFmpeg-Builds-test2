@@ -13,7 +13,7 @@ ffbuild_depends() {
 
 ffbuild_dockerdl() {
     default_dl .
-    git-submodule-clone
+    echo "git submodule --quiet update --init --recursive --depth=1"
 }
 
 ffbuild_dockerbuild() {

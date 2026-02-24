@@ -55,7 +55,7 @@ env:
   FFMPEG_REPO: ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg.git' }}
   FFMPEG_BRANCH: ${{ github.event.inputs.ffmpeg_branch || 'master' }}
   # Список для удаления лишних .git (в download.sh)
-  GIT_PRESERVE_LIST: "ffmpeg |glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo"
+  GIT_PRESERVE_LIST: "ffmpeg |glib2|x264|x265|opus|mbedtls|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo"
   # Список для сохранения DLL (в run_stage.sh)
   DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|onevpl|glib2|audiotoolbox"
   FFBUILD_VERBOSE: ${{ github.event.inputs.verbosity || '1' }}
