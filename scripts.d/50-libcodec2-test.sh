@@ -35,8 +35,8 @@ ffbuild_dockerbuild() {
 
     # Это предотвратит запуск и копирование generate_codebook
     # Раскомментировать если папка src/codec2_native всё еще вызывает ошибки линковки:
-    # sed -i 's/add_subdirectory(codec2_native)//g' src/CMakeLists.txt
-    # sed -i 's/add_dependencies(codec2 codec2_native)//g' src/CMakeLists.txt
+    sed -i 's/add_subdirectory(codec2_native)//g' src/CMakeLists.txt
+    sed -i 's/add_dependencies(codec2 codec2_native)//g' src/CMakeLists.txt
 
     # Вместо удаления subdirectories, мы принудительно отключаем поиск 
     # инструментов, которые должны запускаться на хосте.
