@@ -65,17 +65,7 @@ download_stage() {
         # Явно подгружаем функции внутри подоболочки для надежности в Parallel
         source "$ROOT_DIR/util/dl_functions.sh"
         source "$ROOT_DIR/util/vars.sh" "$TARGET" "$VARIANT" &>/dev/null
-        # Сначала выполняем скачивание Git/SVN (default_dl)
-        # Если в DL_COMMANDS есть и Git, и curl, нам нужно разделить их,
-        # либо запускать очистку ТОЛЬКО для Git-директории.
         eval "$DL_COMMANDS"
-        # Очищаем ТОЛЬКО если есть .git и делаем это аккуратно
-        if [[ -d ".git" ]]; then
-            log_debug "Cleaning Git artifacts..."
-            # Мы не используем -x здесь, чтобы не удалить свежескачанные внешние файлы,
-            # либо делаем очистку ВНУТРИ папки, если она была скачана в поддиректорию.
-            git clean -fd
-        fi
     ); then
 
         # Whitelist метаданных (добавил dav1d и ffmpeg)
