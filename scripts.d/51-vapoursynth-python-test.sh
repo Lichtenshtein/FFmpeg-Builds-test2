@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# CACHE_BUSTER: 2026-02-25-v2 (если нужно снова сбросить кэш)
+
 SCRIPT_REPO="https://github.com/vapoursynth/vapoursynth.git"
 SCRIPT_COMMIT="42a3bba6f0fffe3a397fa3494aadb7be1e2af8de"
 
@@ -21,14 +23,17 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    # Добавляем команду очистки ПЕРЕД скачиванием тяжелых файлов
+    echo "git clean -fdx"
     # Загружаем Windows-версию Python (embed), чтобы забрать оттуда dll и либы для кросс-компиляции
     echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}-embed-amd64.zip\" \"python_embed.zip\""
     echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}-amd64.exe\" \"python_win.exe\""
 }
 
 ffbuild_dockerbuild() {
-    if [[ ! -f python_embed.zip ]]; then
-        log_error "python_embed.zip NOT FOUND. Download failed or cache is stale."
+    if [[ ! -f python_embed.zip || ! -f python_win.exe ]]; then
+        log_error "Required Python files not found in build directory!"
+        ls -lh
         exit 1
     fi
 
