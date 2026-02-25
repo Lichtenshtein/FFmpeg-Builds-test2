@@ -37,8 +37,7 @@ ffbuild_dockerbuild() {
             # fi
         # done
     # fi
-
-    rm -rf build && mkdir build && cd build
+    mkdir build && cd build
 
     # Создаем "заглушку" для генератора кодов. 
     # не нужно ничего генерировать, так как в репо уже есть пред-сгенерированные файлы.
