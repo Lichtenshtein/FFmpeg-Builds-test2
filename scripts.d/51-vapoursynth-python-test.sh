@@ -27,6 +27,10 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    if [[ ! -f python_embed.zip ]]; then
+        log_error "python_embed.zip NOT FOUND. Download failed or cache is stale."
+        exit 1
+    fi
 
     # Готовим окружение Python для кросс-компиляции
     mkdir -p python_win/bin
@@ -35,8 +39,8 @@ ffbuild_dockerbuild() {
     # Извлекаем Include файлы из инсталлера
     7z x python_win.exe -opython_win include/*.h -r
     [[ -d python_win/include/include ]] && mv python_win/include/include/* python_win/include/
-    
-    # Создаем импортную библиотеку
+
+    # Генерируем либу
     ${FFBUILD_CROSS_PREFIX}gendef python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
     ${FFBUILD_CROSS_PREFIX}dlltool -d ${PY_LIB}.def -l lib${PY_LIB}.a -D ${PY_LIB}.dll
 
@@ -44,12 +48,16 @@ ffbuild_dockerbuild() {
 
     # Создаем файл-заглушку, чтобы pkg-config не нашел системный питон
     mkdir -p fake_pkgconfig
-    echo "Name: python3" > fake_pkgconfig/python3.pc
-    echo "Version: ${PY_VER}" >> fake_pkgconfig/python3.pc
-    echo "Description: Fake Python for Cross-compilation" >> fake_pkgconfig/python3.pc
+    cat <<EOF > fake_pkgconfig/python3.pc
+Name: python3
+Description: Fake Python
+Version: ${PY_VER}
+Libs: -L${CUR_DIR} -l${PY_LIB}
+Cflags: -I${CUR_DIR}/python_win/include
+EOF
+    ln -sf python3.pc fake_pkgconfig/python-3.12.pc
+    ln -sf python3.pc fake_pkgconfig/python-3.12-embed.pc
 
-    # Создаем файл конфигурации для Meson, чтобы он "нашел" Python
-    # Мы обманываем Meson, подсовывая ему пути к системным хедерам и виндовым либам
     cat <<EOF > python_fix.ini
 [binaries]
 pkgconfig = 'pkg-config'
@@ -59,9 +67,6 @@ c_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DPy_NO_ENABLE
 cpp_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DPy_NO_ENABLE_SHARED']
 c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
-
-[properties]
-needs_exe_wrapper = true
 EOF
 
     mkdir -p build
@@ -80,7 +85,6 @@ EOF
         -Denable_vspipe=false \
         -Denable_x86_asm=true \
         -Denable_python_module=false \
-        -Dpython=disabled \
         || (tail -n 500 build/meson-logs/meson-log.txt && exit 1)
 
     ninja -C build -j$(nproc) $NINJA_V
