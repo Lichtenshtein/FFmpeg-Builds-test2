@@ -1,0 +1,42 @@
+From cf2fe6392ba553358f4b3b6c314f0122c33e312d Mon Sep 17 00:00:00 2001
+From: Rafael Diniz <rafael@riseup.net>
+Date: Tue, 17 Feb 2026 22:57:27 +0000
+Subject: [PATCH] Get FREEDV_MODE_FSK_LDPC working with freedv data API
+
+---
+ src/freedv_fsk.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/src/freedv_fsk.c b/src/freedv_fsk.c
+index 06132630..db011754 100644
+--- a/src/freedv_fsk.c
++++ b/src/freedv_fsk.c
+@@ -612,9 +612,13 @@ int freedv_rx_fsk_ldpc_data(struct freedv *f, COMP demod_in[]) {
+       for (int i = 0; i < 8; i++) seq |= f->rx_payload_bits[8 + i] << (7 - i);
+     }
+ 
+-    if (f->fsk_ldpc_state == 1)
++    if (f->fsk_ldpc_state == 1) {
+       rx_status |=
+           FREEDV_RX_SYNC; /* need this set before verbose logging fprintf() */
++      f->sync = 1;
++    } else {
++      f->sync = 0;
++    }
+     if (((f->verbose == 1) && (rx_status & FREEDV_RX_BITS)) ||
+         (f->verbose == 2)) {
+       fprintf(stderr,
+@@ -628,7 +632,12 @@ int freedv_rx_fsk_ldpc_data(struct freedv *f, COMP demod_in[]) {
+     }
+   } else {
+     /* set RX_SYNC flag even if we don't perform frame processing */
+-    if (f->fsk_ldpc_state == 1) rx_status |= FREEDV_RX_SYNC;
++    if (f->fsk_ldpc_state == 1) {
++      rx_status |= FREEDV_RX_SYNC;
++      f->sync = 1;
++    } else {
++      f->sync = 0;
++    }
+   }
+ 
+   FREE(rx_filt);
