@@ -31,37 +31,40 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # Подготовка файлов Python
+    mkdir -p python_win/bin python_win/include
+    
     if [[ ! -f python_embed.zip || ! -f python_win.exe ]]; then
         log_error "Python files missing! Check download stage."
         exit 1
     fi
 
-    mkdir -p python_win/bin
     unzip -qo python_embed.zip -d python_win/bin
     
-    # Распаковка хедеров
-    7z x python_win.exe -opython_win include/*.h -r
+    # Извлечение хедеров (7z требует аккуратности с путями)
+    # Распаковываем всё содержимое, а потом забираем нужное, так надежнее
+    7z x python_win.exe -opython_win_tmp include/*.h -r > /dev/null
     
-    # Убеждаемся, что Python.h лежит прямо в python_win/include
-    if [[ -d python_win/include/include ]]; then
-        mv python_win/include/include/* python_win/include/
+    # Перемещаем хедеры в правильное место, избавляясь от вложенности
+    find python_win_tmp -name "*.h" -exec mv {} python_win/include/ \;
+    rm -rf python_win_tmp
+
+    # Решение проблемы с Windows.h (Case-sensitivity)
+    # Ищем, где реально лежит windows.h в тулчейне
+    local SYSTEM_WIN_H=$(find /opt/ct-ng -name "windows.h" | head -n 1)
+    if [[ -f "$SYSTEM_WIN_H" ]]; then
+        log_info "Linking system windows.h to Windows.h..."
+        ln -sf "$SYSTEM_WIN_H" python_win/include/Windows.h
+    else
+        log_warn "Could not find system windows.h to create symlink!"
     fi
 
-    # Windows.h: MinGW чувствителен к регистру (Windows.h vs windows.h)
-    # Создаем симлинк в нашей папке include, чтобы VapourSynth нашел его
-    local MINGW_INCLUDE=$($CC -print-sysroot)/mingw/include
-    if [[ -f "$MINGW_INCLUDE/windows.h" ]]; then
-        ln -sf "$MINGW_INCLUDE/windows.h" python_win/include/Windows.h
-    fi
-
-    # Генерируем импортную либу
+    # Создание импортной либы
     ${FFBUILD_CROSS_PREFIX}gendef python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
     ${FFBUILD_CROSS_PREFIX}dlltool -d ${PY_LIB}.def -l lib${PY_LIB}.a -D ${PY_LIB}.dll
 
     local CUR_DIR=$(pwd)
 
-    # 2. Настройка Meson (fake_pkgconfig)
+    # 5. Настройка Meson (fake_pkgconfig)
     mkdir -p fake_pkgconfig
     cat <<EOF > fake_pkgconfig/python3.pc
 Name: python3
@@ -78,7 +81,6 @@ EOF
 pkgconfig = 'pkg-config'
 
 [built-in options]
-# ПУТЬ ПРОВЕРЕН: ${CUR_DIR}/python_win/include
 c_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DPy_NO_ENABLE_SHARED']
 cpp_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DPy_NO_ENABLE_SHARED']
 c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
