@@ -1,13 +1,16 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/arancormonk/codec2.git"
-SCRIPT_COMMIT="6a787012632b8941aa24a4ea781440b61de40f57"
+# SCRIPT_REPO="https://github.com/arancormonk/codec2.git"
+# SCRIPT_COMMIT="6a787012632b8941aa24a4ea781440b61de40f57"
 
 # SCRIPT_REPO2="https://github.com/rhythmcache/codec2.git"
 # SCRIPT_COMMIT2="6e0a0e09c065aa5401eb9c30d724240fffe890f1"
 
 # SCRIPT_REPO3="https://github.com/zups/codec2.git"
 # SCRIPT_COMMIT3="371c82ae557f1b033cf4b625be435bb4b88ef70b"
+
+SCRIPT_REPO4="https://github.com/Alex-Pennington/codec2.git"
+SCRIPT_COMMIT4="19571e0a2b42340597fd762803f6eb9d030ee4c5"
 
 ffbuild_enabled() {
     return 0
