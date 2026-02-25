@@ -9,8 +9,11 @@
 # SCRIPT_REPO3="https://github.com/zups/codec2.git"
 # SCRIPT_COMMIT3="371c82ae557f1b033cf4b625be435bb4b88ef70b"
 
-SCRIPT_REPO="https://github.com/Alex-Pennington/codec2.git"
-SCRIPT_COMMIT="19571e0a2b42340597fd762803f6eb9d030ee4c5"
+# SCRIPT_REPO="https://github.com/Alex-Pennington/codec2.git"
+# SCRIPT_COMMIT="19571e0a2b42340597fd762803f6eb9d030ee4c5"
+
+SCRIPT_REPO="https://github.com/drowe67/codec2.git"
+SCRIPT_COMMIT="96e8a19c2487fd83bd981ce570f257aef42618f9"
 
 ffbuild_enabled() {
     return 0
@@ -21,22 +24,21 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/libcodec2-test" ]]; then
-        for patch in "/builder/patches/libcodec2-test"/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # return 1 # если нужно прервать сборку при ошибке
-            fi
-        done
-    fi
+    # if [[ -d "/builder/patches/libcodec2-test" ]]; then
+        # for patch in "/builder/patches/libcodec2-test"/*.patch; do
+            # log_info "APPLYING PATCH: $patch"
+            # if patch -p1 -N -r - < "$patch"; then
+                # log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+            # else
+                # log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+            # fi
+        # done
+    # fi
 
     # Это предотвратит запуск и копирование generate_codebook
     # Раскомментировать если папка src/codec2_native всё еще вызывает ошибки линковки:
-    sed -i 's/add_subdirectory(codec2_native)//g' src/CMakeLists.txt
-    sed -i 's/add_dependencies(codec2 codec2_native)//g' src/CMakeLists.txt
+    # sed -i 's/add_subdirectory(codec2_native)//g' src/CMakeLists.txt
+    # sed -i 's/add_dependencies(codec2 codec2_native)//g' src/CMakeLists.txt
 
     # Вместо удаления subdirectories, мы принудительно отключаем поиск 
     # инструментов, которые должны запускаться на хосте.
