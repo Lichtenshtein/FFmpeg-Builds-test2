@@ -37,12 +37,15 @@ ffbuild_dockerbuild() {
 
     # Создаем "заглушку" для генератора кодов. 
     # не нужно ничего генерировать, так как в репо уже есть пред-сгенерированные файлы.
-    echo -e "#!/bin/sh\nexit 0" > fake_gen
+    cat <<EOF > fake_gen
+#!/bin/sh
+exit 0
+EOF
     chmod +x fake_gen
 
     # вырезаем ExternalProject, который мучает билд
     # Удаляем все упоминания codec2_native из всех файлов
-    find . -name "CMakeLists.txt" -exec sed -i '/codec2_native/d' {} +
+    # find . -name "CMakeLists.txt" -exec sed -i '/codec2_native/d' {} +
 
     mkdir build && cd build
 
