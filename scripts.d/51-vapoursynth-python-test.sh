@@ -27,42 +27,49 @@ ffbuild_dockerdl() {
     echo "git clean -fdx"
     # Загружаем Windows-версию Python (embed), чтобы забрать оттуда dll и либы для кросс-компиляции
     echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}-embed-amd64.zip\" \"python_embed.zip\""
-    echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}.tar.xz\" \"python_src.tar.xz\""
+    # echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}.tar.xz\" \"python_src.tar.xz\""
+    # Хедеры из официального репозитория (ветка 3.12)
+    echo "download_file \"https://github.com/python/cpython/archive/refs/tags/v${PY_FULL_VER}.zip\" \"python_hdrs.zip\""
 }
 
 ffbuild_dockerbuild() {
     mkdir -p python_win/bin python_win/include
     
-    if [[ ! -f python_embed.zip || ! -f python_src.tar.xz ]]; then
-        log_error "Required files missing!"
+    if [[ ! -f python_embed.zip || ! -f python_hdrs.zip ]]; then
+        log_error "Required Python files missing!"
         exit 1
     fi
 
     # Распаковка DLL
     unzip -qo python_embed.zip -d python_win/bin
     
-    # Распаковка хедеров из исходников
-    tar -xJf python_src.tar.xz --strip-components=1 "Python-${PY_FULL_VER}/Include"
-    mv Include/* python_win/include/
-    # Python.h требует pyconfig.h. В Windows версии он специфичный.
-    # Мы создадим минимальный pyconfig.h, который скажет использовать настройки Windows
+    # Распаковка хедеров (из репозитория cpython-3.12)
+    mkdir -p temp_hdrs
+    unzip -qo python_hdrs.zip -d temp_hdrs
+    # Перемещаем содержимое папки Include в нашу рабочую папку
+    mv temp_hdrs/cpython-3.12/Include/* python_win/include/
+    # Также нужны некоторые файлы из корня (patchlevel.h)
+    cp temp_hdrs/cpython-3.12/pyconfig.h.in python_win/include/pyconfig.h 2>/dev/null || true
+    rm -rf temp_hdrs
+
+    # Настройка pyconfig.h для Windows
     cat <<EOF > python_win/include/pyconfig.h
 #ifndef Py_PYCONFIG_H
 #define Py_PYCONFIG_H
-#include <io.h>
 #define MS_WIN64
 #define MS_WINDOWS
+#define Py_ENABLE_SHARED
 #include <patchlevel.h>
 #endif
 EOF
 
-    # Симлинк для Windows.h (Case-sensitivity)
+    # Симлинк для Windows.h
     local SYSTEM_WIN_H=$(find /opt/ct-ng -name "windows.h" | head -n 1)
     if [[ -f "$SYSTEM_WIN_H" ]]; then
         ln -sf "$SYSTEM_WIN_H" python_win/include/Windows.h
     fi
 
-    # Библиотека импорта
+    # Импортная библиотека
     ${FFBUILD_CROSS_PREFIX}gendef python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
     ${FFBUILD_CROSS_PREFIX}dlltool -d ${PY_LIB}.def -l lib${PY_LIB}.a -D ${PY_LIB}.dll
 
@@ -78,21 +85,20 @@ Libs: -L${CUR_DIR} -l${PY_LIB}
 Cflags: -I${CUR_DIR}/python_win/include
 EOF
     ln -sf python3.pc fake_pkgconfig/python-3.12.pc
-    ln -sf python3.pc fake_pkgconfig/python-3.12-embed.pc
 
     cat <<EOF > python_fix.ini
 [binaries]
 pkgconfig = 'pkg-config'
 
 [built-in options]
-c_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS', '-DPy_NO_ENABLE_SHARED']
-cpp_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS', '-DPy_NO_ENABLE_SHARED']
+c_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
+cpp_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
 c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 EOF
 
+    export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig"
     mkdir -p build
-    export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig:${PKG_CONFIG_PATH}"
 
     # Мы собираем vsscript как SHARED, так как он ОБЯЗАН грузить python3.dll
     meson setup build \
