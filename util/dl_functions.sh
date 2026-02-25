@@ -33,13 +33,11 @@ git-mini-clone() {
     local REPO="$1"
     local COMMIT="$2"
     local TARGET_DIR="${3:-.}"
-    local BRANCH_ARG="$4" # Четвертый аргумент имеет приоритет
+    local BRANCH_ARG="$4"
 
     if [[ -d "$TARGET_DIR/.git" ]]; then
         # Проверяем, не тот ли это уже коммит, который нам нужен
-        local CURRENT_LOCAL_HEAD
-        CURRENT_LOCAL_HEAD=$(cd "$TARGET_DIR" && git rev-parse HEAD 2>/dev/null || echo "none")
-        
+        local CURRENT_LOCAL_HEAD=$(cd "$TARGET_DIR" && git rev-parse HEAD 2>/dev/null || echo "none")
         if [[ "$CURRENT_LOCAL_HEAD" == "$COMMIT" ]]; then
             log_info "Git cache hit for $(basename "$REPO"): Commit $COMMIT already present."
             return 0
@@ -67,6 +65,7 @@ git-mini-clone() {
     # Пропуск если SVN
     [[ -n "$SCRIPT_REV" ]] && { log_warn "SVN detected, skipping git"; return 0; }
 
+    log_info "Trying to fetch from: $REPO @ $COMMIT"
     mkdir -p "$TARGET_DIR"
 
     # Запоминаем, где мы были
@@ -243,13 +242,42 @@ svn-mini-clone() {
 
 default_dl() {
     local TARGET_DIR="${1:-.}"
+
+    # Если это SVN
     if [[ -n "$SCRIPT_REV" ]]; then
-        # Если есть ревизия — это SVN, вызываем нашу новую функцию
         echo "svn-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_REV\" \"$TARGET_DIR\""
-    elif [[ -n "$SCRIPT_REPO" ]]; then
-        # Если ревизии нет, но есть репо — это Git
-        echo "git-mini-clone \"$SCRIPT_REPO\" \"${SCRIPT_COMMIT:-master}\" \"$TARGET_DIR\""
+        return
     fi
+
+    # Формируем цепочку попыток для Git
+    local CMDS=()
+
+    # Основной Git репозиторий
+    CMDS+=( "git-mini-clone \"$SCRIPT_REPO\" \"${SCRIPT_COMMIT:-master}\" \"$TARGET_DIR\"" )
+
+    # Перебор индексов 1..4 (или больше, если нужно)
+    for i in {1..4}; do
+        local R_VAR="SCRIPT_REPO$i"
+        local C_VAR="SCRIPT_COMMIT$i"
+        # Если переменная репозитория существует (не пустая)
+        if [[ -n "${!R_VAR}" ]]; then
+            # Используем коммит этого индекса, или основной, если индексного нет
+            local TARGET_COMMIT="${!C_VAR:-$SCRIPT_COMMIT}"
+            CMDS+=( "git-mini-clone \"${!R_VAR}\" \"$TARGET_COMMIT\" \"$TARGET_DIR\"" )
+        fi
+    done
+
+    # Скрипт будет пробовать их по очереди, пока одна не вернет 0 (успех)
+    local FINAL_CHAIN=""
+    for cmd in "${CMDS[@]}"; do
+        if [[ -z "$FINAL_CHAIN" ]]; then
+            FINAL_CHAIN="$cmd"
+        else
+            FINAL_CHAIN="$FINAL_CHAIN || $cmd"
+        fi
+    done
+
+    echo "$FINAL_CHAIN"
 }
 
 ffbuild_dockerdl() {
