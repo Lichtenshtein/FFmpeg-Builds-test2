@@ -37,21 +37,22 @@ ffbuild_dockerbuild() {
     # Нам нужны хедеры. В Ubuntu они в /usr/include/python3.12
     # Но нам нужно убедиться, что Meson видит их для Windows
     local PY_INCLUDE="/usr/include/python${PY_VER}"
-    # Исправляем баг libtool/linker path для MinGW
-    export LT_SYS_LIBRARY_PATH="$FFBUILD_PREFIX/lib"
-    export CFLAGS="$CFLAGS -I$FFBUILD_PREFIX/include"
-    export CXXFLAGS="$CXXFLAGS -I$FFBUILD_PREFIX/include"
+    local CUR_DIR=$(pwd)
 
     # Создаем файл конфигурации для Meson, чтобы он "нашел" Python
     # Мы обманываем Meson, подсовывая ему пути к системным хедерам и виндовым либам
-    cat <<EOF > python_cross.ini
+    cat <<EOF > python_fix.ini
 [binaries]
 python3 = '/usr/bin/python3'
 
+[built-in options]
+c_args = ['-I${PY_INCLUDE}', '-DMS_WIN64']
+cpp_args = ['-I${PY_INCLUDE}', '-DMS_WIN64']
+c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
+cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
+
 [properties]
-# Форсируем пути для кросс-компиляции
-python_includedir = '$PY_INCLUDE'
-python_libdir = '$(pwd)'
+needs_exe_wrapper = true
 EOF
 
     mkdir -p build
@@ -63,14 +64,13 @@ EOF
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
         --cross-file=/cross.meson \
-        --cross-file python_cross.ini \
+        --cross-file python_fix.ini \
         --buildtype release \
         --default-library static \
         -Denable_vsscript=true \
         -Denable_vspipe=false \
         -Denable_x86_asm=true \
         -Denable_python_module=false \
-        -Dpython3_bin='/usr/bin/python3' \
         || (tail -n 500 build/meson-logs/meson-log.txt && exit 1)
 
     ninja -C build -j$(nproc) $NINJA_V
@@ -78,14 +78,18 @@ EOF
 
     # Копируем необходимые DLL для работы .vpy
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
+    cp python_win/${PY_LIB}.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
     cp python_win/python3.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
-    cp python_win/python${PY_VER//./}.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" 2>/dev/null || true
     # cp python_win/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
+
+    # Ручная генерация .pc, чтобы избежать мусора Meson
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
 
     # Генерация правильных .pc файлов вручную, чтобы FFmpeg не запутался
     cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/vapoursynth.pc"
 prefix=$FFBUILD_PREFIX
-libdir=\${prefix}/lib
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include/vapoursynth
 Name: vapoursynth
 Description: A frameserver for the 21st century
@@ -97,13 +101,14 @@ EOF
 
     cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/vapoursynth-script.pc"
 prefix=$FFBUILD_PREFIX
-libdir=\${prefix}/lib
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include/vapoursynth
 Name: vapoursynth-script
 Description: Library for interfacing VapourSynth with Python
 Version: 74
 Libs: -L\${libdir} -lvsscript
-Libs.private: -L$(pwd) -l${PY_LIB} -lstdc++
+Libs.private: -l${PY_LIB} -lstdc++
 Cflags: -I\${includedir}
 EOF
 }
