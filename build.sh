@@ -63,30 +63,33 @@ chmod +x configure
 # --extra-libs="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32 -lshlwapi -luser32 -ladvapi32 -lbcrypt -lsetupapi -ldbghelp"
 
 # линковка с --enable-lto может потребовать более 16-32 ГБ RAM. Стандартный раннер GitHub имеет всего 7 ГБ
-./configure \
-    --prefix="$PWD/../prefix" \
-    --pkg-config-flags="--static" \
-    $FFBUILD_TARGET_FLAGS \
-    --extra-cflags="$FF_CFLAGS" \
-    --extra-ldflags="$FF_LDFLAGS" \
-    --extra-cxxflags="$FF_CXXFLAGS" \
-    --extra-ldexeflags="$FF_LDEXEFLAGS" \
-    --extra-libs="$FF_LIBS" \
-    $FF_CONFIGURE \
-    --enable-filter=vpp_amf \
-    --enable-filter=sr_amf \
-    --enable-runtime-cpudetect \
-    --enable-pic \
-    --h264-max-bit-depth=14 \
-    --h265-bit-depths=8,9,10,12 \
-    --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" \
+CONF_FLAGS=(
+    --prefix="$PWD/../prefix"
+    --pkg-config-flags="--static"
+    $FFBUILD_TARGET_FLAGS
+    --extra-cflags="$FF_CFLAGS"
+    --extra-ldflags="$FF_LDFLAGS"
+    --extra-cxxflags="$FF_CXXFLAGS"
+    --extra-ldexeflags="$FF_LDEXEFLAGS"
+    --extra-libs="$FF_LIBS"
+    $FF_CONFIGURE
+    --enable-filter=vpp_amf
+    --enable-filter=sr_amf
+    --enable-runtime-cpudetect
+    --enable-pic
+    --h264-max-bit-depth=14
+    --h265-bit-depths=8,9,10,12
+    --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
     --extra-version="VVCEasy"
+)
 
-    if ! ./configure ... ; then
-        log_error "Configure failed! Check ffbuild/config.log"
-        tail -n 100 ffbuild/config.log
-        exit 1
-    fi
+log_info "Running FFmpeg configure..."
+if ! ./configure "${CONF_FLAGS[@]}"; then
+    log_error "Configure failed! Check ffbuild/config.log"
+    # Выводим последние ошибки из лога (часто там ошибки нехватки библиотек)
+    grep "error:" ffbuild/config.log | tail -n 100
+    exit 1
+fi
 
 # Используем 2 потока, чтобы не перегружать RAM раннера (7GB RAM / 2 ядра)
 make -j$(nproc) $MAKE_V

@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
 
     # Готовим окружение Python для кросс-компиляции
     mkdir -p python_win/bin
-    unzip -q python_embed.zip -d python_win/bin
+    unzip -qo python_embed.zip -d python_win/bin
     
     # Извлекаем Include файлы из инсталлера
     7z x python_win.exe -opython_win include/*.h -r
