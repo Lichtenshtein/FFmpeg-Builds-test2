@@ -1,7 +1,11 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://svn.xvid.org/trunk/xvidcore"
-SCRIPT_REV="2202"
+# SCRIPT_REPO="https://svn.xvid.org/trunk/xvidcore"
+# SCRIPT_REV="2202"
+
+SCRIPT_REPO="https://github.com/m-ab-s/xvid.git"
+SCRIPT_COMMIT="04bccf378d628d78efe28e39b0a94f0c206664a9"
+SCRIPT_BRANCH="mabs"
 
 ffbuild_enabled() {
     return 0
