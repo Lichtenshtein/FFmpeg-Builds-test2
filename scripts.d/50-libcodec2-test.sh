@@ -68,7 +68,21 @@ EOF
     )
 
     cmake "${mycmake[@]}" ..
-    make -j$(nproc) codec2 $MAKE_V
+
+    # Мы позволяем ExternalProject создаться, но подменяем результат
+    # Создаем структуру папок, которую ожидает ошибочная команда копирования
+    mkdir -p src/codec2_native/src
+    
+    # Создаем пустой файл, который CMake пытается скопировать
+    # Это предотвратит ошибку "Error copying file"
+    touch src/codec2_native/src/generate_codebook
+    chmod +x src/codec2_native/src/generate_codebook
+
+    make -j$(nproc) codec2 $MAKE_V || true
+
+    # Повторный проход на случай, если параллельная сборка что-то пропустила
+    # и финальное "затыкание" дыр
+    touch src/generate_codebook
 
     # Проверяем, создалась ли библиотека и есть ли в ней символы
     if ${FFBUILD_CROSS_PREFIX}nm src/libcodec2.a | grep -q "lsp_cb"; then
@@ -82,6 +96,7 @@ EOF
         done
     fi
 
+    make -j$(nproc) codec2 $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     # Исправление .pc файла (Codec2 иногда забывает про -lm)
