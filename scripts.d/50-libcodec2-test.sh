@@ -9,8 +9,8 @@
 # SCRIPT_REPO3="https://github.com/zups/codec2.git"
 # SCRIPT_COMMIT3="371c82ae557f1b033cf4b625be435bb4b88ef70b"
 
-SCRIPT_REPO4="https://github.com/Alex-Pennington/codec2.git"
-SCRIPT_COMMIT4="19571e0a2b42340597fd762803f6eb9d030ee4c5"
+SCRIPT_REPO="https://github.com/Alex-Pennington/codec2.git"
+SCRIPT_COMMIT="19571e0a2b42340597fd762803f6eb9d030ee4c5"
 
 ffbuild_enabled() {
     return 0
@@ -45,7 +45,6 @@ ffbuild_dockerbuild() {
     # Исправляем CMakeLists, чтобы он не пытался собирать тесты и инструменты хоста
     sed -i 's/add_subdirectory(unittest)//g' CMakeLists.txt
     sed -i 's/add_subdirectory(demo)//g' CMakeLists.txt
-
 
     mkdir build && cd build
 
