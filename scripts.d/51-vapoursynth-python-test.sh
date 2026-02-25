@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# CACHE_BUSTER: 2026-02-25-v2 (если нужно снова сбросить кэш)
+# CACHE_BUSTER: 2026-02-25-v3 (если нужно снова сбросить кэш)
 
 SCRIPT_REPO="https://github.com/vapoursynth/vapoursynth.git"
 SCRIPT_COMMIT="42a3bba6f0fffe3a397fa3494aadb7be1e2af8de"
@@ -36,46 +36,50 @@ ffbuild_dockerbuild() {
     mkdir -p python_win/bin python_win/include
     
     if [[ ! -f python_embed.zip || ! -f python_hdrs.zip ]]; then
-        log_error "Required Python files missing!"
+        log_error "Required Python files missing! Check your download stage."
         exit 1
     fi
 
     # Распаковка DLL
     unzip -qo python_embed.zip -d python_win/bin
     
-    # Распаковка хедеров (из репозитория cpython-3.12)
+    # Распаковка хедеров (используем универсальный путь через *)
     mkdir -p temp_hdrs
     unzip -qo python_hdrs.zip -d temp_hdrs
-    # Перемещаем содержимое папки Include в нашу рабочую папку
-    mv temp_hdrs/cpython-3.12/Include/* python_win/include/
-    # Также нужны некоторые файлы из корня (patchlevel.h)
-    cp temp_hdrs/cpython-3.12/pyconfig.h.in python_win/include/pyconfig.h 2>/dev/null || true
+    
+    # чтобы не зависеть от того, cpython-3.12 это или cpython-3.12.3
+    mv temp_hdrs/cpython-*/Include/* python_win/include/
+    
+    # Проверяем, есть ли там PC/pyconfig.h (иногда он там) или создаем свой
+    # В Windows-сборке CPython pyconfig.h обычно генерируется, нам нужен статический вариант
+    cp temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true
     rm -rf temp_hdrs
 
-    # Настройка pyconfig.h для Windows
+    # ПРИНУДИТЕЛЬНЫЙ pyconfig.h (чтобы Meson не лез в системный /usr/include)
     cat <<EOF > python_win/include/pyconfig.h
 #ifndef Py_PYCONFIG_H
 #define Py_PYCONFIG_H
 #define MS_WIN64
 #define MS_WINDOWS
 #define Py_ENABLE_SHARED
+#define SIZEOF_WCHAR_T 2
 #include <patchlevel.h>
 #endif
 EOF
 
-    # Симлинк для Windows.h
+    # Решаем проблему Windows.h (Case-sensitivity)
     local SYSTEM_WIN_H=$(find /opt/ct-ng -name "windows.h" | head -n 1)
     if [[ -f "$SYSTEM_WIN_H" ]]; then
         ln -sf "$SYSTEM_WIN_H" python_win/include/Windows.h
     fi
 
-    # Импортная библиотека
+    # Генерируем библиотеку импорта
     ${FFBUILD_CROSS_PREFIX}gendef python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
     ${FFBUILD_CROSS_PREFIX}dlltool -d ${PY_LIB}.def -l lib${PY_LIB}.a -D ${PY_LIB}.dll
 
     local CUR_DIR=$(pwd)
 
-    # Meson & Fake Pkg-Config
+    # Настройка Meson (fake_pkgconfig)
     mkdir -p fake_pkgconfig
     cat <<EOF > fake_pkgconfig/python3.pc
 Name: python3
@@ -84,15 +88,17 @@ Description: Fake Python
 Libs: -L${CUR_DIR} -l${PY_LIB}
 Cflags: -I${CUR_DIR}/python_win/include
 EOF
+    # Создаем все возможные варианты имен .pc файлов
     ln -sf python3.pc fake_pkgconfig/python-3.12.pc
+    ln -sf python3.pc fake_pkgconfig/python-3.12-embed.pc
 
     cat <<EOF > python_fix.ini
 [binaries]
 pkgconfig = 'pkg-config'
 
 [built-in options]
-c_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
-cpp_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
+c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
+cpp_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
 c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 EOF
