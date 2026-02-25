@@ -103,8 +103,8 @@ ffbuild_depends() {
     echo uavs3d
     echo uavs3e
     echo vaapi
-    echo vapoursynth-test
-    # echo vapoursynth-python-test
+    # echo vapoursynth-test
+    echo vapoursynth-python-test
     echo vidstab
     echo vo-amrwb
     echo vvdec

@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# CACHE_BUSTER: 2026-02-25-v3 (если нужно снова сбросить кэш)
-
 SCRIPT_REPO="https://github.com/vapoursynth/vapoursynth.git"
 SCRIPT_COMMIT="42a3bba6f0fffe3a397fa3494aadb7be1e2af8de"
 
@@ -27,7 +25,6 @@ ffbuild_dockerdl() {
     echo "git clean -fdx"
     # Загружаем Windows-версию Python (embed), чтобы забрать оттуда dll и либы для кросс-компиляции
     echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}-embed-amd64.zip\" \"python_embed.zip\""
-    # echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}.tar.xz\" \"python_src.tar.xz\""
     # Хедеры из официального репозитория (ветка 3.12)
     echo "download_file \"https://github.com/python/cpython/archive/refs/tags/v${PY_FULL_VER}.zip\" \"python_hdrs.zip\""
 }
@@ -122,11 +119,17 @@ EOF
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
 
-    # Копируем необходимые DLL для работы .vpy
+    # Копируем DLL и критически важные файлы окружения Python
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
-    # cp python_win/bin/${PY_LIB}.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
-    # cp python_win/bin/python3.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
-    cp python_win/bin/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
+    
+    # Все DLL (python312, python3, sqlite, ffi, ssl и т.д.)
+    cp -v python_win/bin/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
+    
+    # Стандартная библиотека Python (БЕЗ НЕЁ НЕ ЗАРАБОТАЕТ)
+    cp -v python_win/bin/python312.zip "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
+    
+    # Расширения .pyd, если они нужны внутри .vpy скриптов
+    cp -v python_win/bin/*.pyd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" 2>/dev/null || true
 
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
     
