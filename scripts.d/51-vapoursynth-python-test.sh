@@ -27,44 +27,48 @@ ffbuild_dockerdl() {
     echo "git clean -fdx"
     # Загружаем Windows-версию Python (embed), чтобы забрать оттуда dll и либы для кросс-компиляции
     echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}-embed-amd64.zip\" \"python_embed.zip\""
-    echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}-amd64.exe\" \"python_win.exe\""
+    echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}.tar.xz\" \"python_src.tar.xz\""
 }
 
 ffbuild_dockerbuild() {
     mkdir -p python_win/bin python_win/include
     
-    if [[ ! -f python_embed.zip || ! -f python_win.exe ]]; then
-        log_error "Python files missing! Check download stage."
+    if [[ ! -f python_embed.zip || ! -f python_src.tar.xz ]]; then
+        log_error "Required files missing!"
         exit 1
     fi
 
+    # Распаковка DLL
     unzip -qo python_embed.zip -d python_win/bin
     
-    # Извлечение хедеров (7z требует аккуратности с путями)
-    # Распаковываем всё содержимое, а потом забираем нужное, так надежнее
-    7z x python_win.exe -opython_win_tmp include/*.h -r > /dev/null
-    
-    # Перемещаем хедеры в правильное место, избавляясь от вложенности
-    find python_win_tmp -name "*.h" -exec mv {} python_win/include/ \;
-    rm -rf python_win_tmp
+    # Распаковка хедеров из исходников
+    tar -xJf python_src.tar.xz --strip-components=1 "Python-${PY_FULL_VER}/Include"
+    mv Include/* python_win/include/
+    # Python.h требует pyconfig.h. В Windows версии он специфичный.
+    # Мы создадим минимальный pyconfig.h, который скажет использовать настройки Windows
+    cat <<EOF > python_win/include/pyconfig.h
+#ifndef Py_PYCONFIG_H
+#define Py_PYCONFIG_H
+#include <io.h>
+#define MS_WIN64
+#define MS_WINDOWS
+#include <patchlevel.h>
+#endif
+EOF
 
-    # Решение проблемы с Windows.h (Case-sensitivity)
-    # Ищем, где реально лежит windows.h в тулчейне
+    # Симлинк для Windows.h (Case-sensitivity)
     local SYSTEM_WIN_H=$(find /opt/ct-ng -name "windows.h" | head -n 1)
     if [[ -f "$SYSTEM_WIN_H" ]]; then
-        log_info "Linking system windows.h to Windows.h..."
         ln -sf "$SYSTEM_WIN_H" python_win/include/Windows.h
-    else
-        log_warn "Could not find system windows.h to create symlink!"
     fi
 
-    # Создание импортной либы
+    # Библиотека импорта
     ${FFBUILD_CROSS_PREFIX}gendef python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
     ${FFBUILD_CROSS_PREFIX}dlltool -d ${PY_LIB}.def -l lib${PY_LIB}.a -D ${PY_LIB}.dll
 
     local CUR_DIR=$(pwd)
 
-    # 5. Настройка Meson (fake_pkgconfig)
+    # Meson & Fake Pkg-Config
     mkdir -p fake_pkgconfig
     cat <<EOF > fake_pkgconfig/python3.pc
 Name: python3
@@ -81,8 +85,8 @@ EOF
 pkgconfig = 'pkg-config'
 
 [built-in options]
-c_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DPy_NO_ENABLE_SHARED']
-cpp_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DPy_NO_ENABLE_SHARED']
+c_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS', '-DPy_NO_ENABLE_SHARED']
+cpp_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS', '-DPy_NO_ENABLE_SHARED']
 c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 EOF
