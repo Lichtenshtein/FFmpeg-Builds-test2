@@ -22,21 +22,23 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     # Загружаем Windows-версию Python (embed), чтобы забрать оттуда dll и либы для кросс-компиляции
-    echo "download_file \"https://www.python.org/ftp/python/{PY_FULL_VER}/python-{PY_FULL_VER}-embed-amd64.zip\" \"python_embed.zip\""
+    echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}-embed-amd64.zip\" \"python_embed.zip\""
+    echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}-amd64.exe\" \"python_win.exe\""
 }
 
 ffbuild_dockerbuild() {
 
     # Готовим окружение Python для кросс-компиляции
-    mkdir -p python_win && unzip -q python_embed.zip -d python_win
-
-    # Создаем импортную либу для линкера из python312.dll
-    ${FFBUILD_CROSS_PREFIX}gendef python_win/${PY_LIB}.dll > ${PY_LIB}.def
+    mkdir -p python_win/bin
+    unzip -q python_embed.zip -d python_win/bin
+    
+    # Извлекаем Include файлы из инсталлера (exe - это 7z архив)
+    7z x python_win.exe -opython_win include/*.h -r
+    
+    # Создаем импортную библиотеку
+    ${FFBUILD_CROSS_PREFIX}gendef python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
     ${FFBUILD_CROSS_PREFIX}dlltool -d ${PY_LIB}.def -l lib${PY_LIB}.a -D ${PY_LIB}.dll
 
-    # Нам нужны хедеры. В Ubuntu они в /usr/include/python3.12
-    # Но нам нужно убедиться, что Meson видит их для Windows
-    local PY_INCLUDE="/usr/include/python${PY_VER}"
     local CUR_DIR=$(pwd)
 
     # Создаем файл конфигурации для Meson, чтобы он "нашел" Python
@@ -46,8 +48,8 @@ ffbuild_dockerbuild() {
 python3 = '/usr/bin/python3'
 
 [built-in options]
-c_args = ['-I${PY_INCLUDE}', '-DMS_WIN64']
-cpp_args = ['-I${PY_INCLUDE}', '-DMS_WIN64']
+c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DPy_NO_ENABLE_SHARED']
+cpp_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DPy_NO_ENABLE_SHARED']
 c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 
@@ -56,9 +58,6 @@ needs_exe_wrapper = true
 EOF
 
     mkdir -p build
-
-        # --cross-file="$FFBUILD_CROSS_PREFIX"cross.meson
-        # -Dcore=true
 
     # Мы собираем vsscript как SHARED, так как он ОБЯЗАН грузить python3.dll
     meson setup build \
@@ -78,18 +77,15 @@ EOF
 
     # Копируем необходимые DLL для работы .vpy
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
-    cp python_win/${PY_LIB}.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
-    cp python_win/python3.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
-    # cp python_win/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
+    # cp python_win/bin/${PY_LIB}.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
+    # cp python_win/bin/python3.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
+    cp python_win/bin/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
 
-    # Ручная генерация .pc, чтобы избежать мусора Meson
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-
-    # Генерация правильных .pc файлов вручную, чтобы FFmpeg не запутался
+    
     cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/vapoursynth.pc"
 prefix=$FFBUILD_PREFIX
-exec_prefix=\${prefix}
-libdir=\${exec_prefix}/lib
+libdir=\${prefix}/lib
 includedir=\${prefix}/include/vapoursynth
 Name: vapoursynth
 Description: A frameserver for the 21st century
@@ -101,8 +97,7 @@ EOF
 
     cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/vapoursynth-script.pc"
 prefix=$FFBUILD_PREFIX
-exec_prefix=\${prefix}
-libdir=\${exec_prefix}/lib
+libdir=\${prefix}/lib
 includedir=\${prefix}/include/vapoursynth
 Name: vapoursynth-script
 Description: Library for interfacing VapourSynth with Python
