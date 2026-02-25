@@ -37,11 +37,11 @@ ffbuild_dockerbuild() {
 
     # Создаем "заглушку" для генератора кодов. 
     # не нужно ничего генерировать, так как в репо уже есть пред-сгенерированные файлы.
-    cat <<EOF > fake_gen
-#!/bin/sh
-exit 0
-EOF
-    chmod +x fake_gen
+    # cat <<EOF > fake_gen
+## !/bin/sh
+# exit 0
+# EOF
+    # chmod +x fake_gen
 
     # вырезаем ExternalProject, который мучает билд
     # Удаляем все упоминания codec2_native из всех файлов
@@ -57,7 +57,7 @@ EOF
         -DCMAKE_CXX_FLAGS="$CXXFLAGS"
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
         -DBUILD_SHARED_LIBS=OFF
-        -DGENERATE_CODEBOOK="$(pwd)/../fake_gen"
+        # -DGENERATE_CODEBOOK="$(pwd)/../fake_gen"
         -DUNITTEST=OFF
         -DINSTALL_EXAMPLES=OFF
         # Дополнительные флаги для кросс-компиляции
@@ -65,6 +65,24 @@ EOF
     )
 
     cmake "${mycmake[@]}" ..
+
+    # Мы позволяем ExternalProject создаться, но подменяем результат
+    # Создаем структуру папок, которую ожидает ошибочная команда копирования
+    mkdir -p src/codec2_native/src
+    
+    # Создаем пустой файл, который CMake пытается скопировать
+    # Это предотвратит ошибку "Error copying file"
+    touch src/codec2_native/src/generate_codebook
+    chmod +x src/codec2_native/src/generate_codebook
+
+    # Теперь запускаем сборку. Даже если он попробует собрать настоящий 
+    # generate_codebook.exe, наш пустой файл без расширения уже будет лежать на месте.
+    make -j$(nproc) codec2 || true
+    
+    # Повторный проход на случай, если параллельная сборка что-то пропустила
+    # и финальное "затыкание" дыр
+    touch src/generate_codebook
+
     make -j$(nproc) codec2 $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
