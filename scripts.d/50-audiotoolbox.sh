@@ -11,6 +11,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "git clean -fdx"
     echo "download_file \"$QTFILES_URL\" \"qtfiles64.7z\""
 }
 
