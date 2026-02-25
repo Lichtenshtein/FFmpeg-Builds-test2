@@ -41,15 +41,15 @@ ffbuild_dockerbuild() {
 
     # Создаем "заглушку" для генератора кодов. 
     # не нужно ничего генерировать, так как в репо уже есть пред-сгенерированные файлы.
-    cat <<EOF > fake_gen
-# !/bin/sh
-exit 0
-EOF
-    chmod +x fake_gen
+    # cat <<EOF > fake_gen
+## !/bin/sh
+# exit 0
+# EOF
+    # chmod +x fake_gen
 
     # вырезаем ExternalProject, который мучает билд
     # Удаляем все упоминания codec2_native из всех файлов
-    # find . -name "CMakeLists.txt" -exec sed -i '/codec2_native/d' {} +
+    # find . -name "src/CMakeLists.txt" -exec sed -i '/codec2_native/d' {} +
 
     local mycmake=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -60,7 +60,8 @@ EOF
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
         -DBUILD_SHARED_LIBS=OFF
         # -DGENERATE_CODEBOOKS=OFF
-        -DGENERATE_CODEBOOK="$(pwd)/../fake_gen"
+        -DGENERATE_CODEBOOK=../build_linux/src/generate_codebook
+        # -DGENERATE_CODEBOOK="$(pwd)/../fake_gen"
         -DUNITTEST=OFF
         -DINSTALL_EXAMPLES=OFF
         # Дополнительные флаги для кросс-компиляции
@@ -71,30 +72,30 @@ EOF
 
     # Мы позволяем ExternalProject создаться, но подменяем результат
     # Создаем структуру папок, которую ожидает ошибочная команда копирования
-    mkdir -p src/codec2_native/src
+    # mkdir -p src/codec2_native/src
     
     # Создаем пустой файл, который CMake пытается скопировать
     # Это предотвратит ошибку "Error copying file"
-    touch src/codec2_native/src/generate_codebook
-    chmod +x src/codec2_native/src/generate_codebook
+    # touch src/codec2_native/src/generate_codebook
+    # chmod +x src/codec2_native/src/generate_codebook
 
-    make -j$(nproc) codec2 $MAKE_V || true
+    # make -j$(nproc) codec2 $MAKE_V || true
 
     # Повторный проход на случай, если параллельная сборка что-то пропустила
     # и финальное "затыкание" дыр
-    touch src/generate_codebook
+    # touch src/generate_codebook
 
     # Проверяем, создалась ли библиотека и есть ли в ней символы
-    if ${FFBUILD_CROSS_PREFIX}nm src/libcodec2.a | grep -q "lsp_cb"; then
-        log_info "Codec2 library looks good (symbols found)."
-    else
-        log_warn "Symbols missing in libcodec2.a, forcing object compilation..."
+    # if ${FFBUILD_CROSS_PREFIX}nm src/libcodec2.a | grep -q "lsp_cb"; then
+        # log_info "Codec2 library looks good (symbols found)."
+    # else
+        # log_warn "Symbols missing in libcodec2.a, forcing object compilation..."
         # Если символов нет, принудительно компилируем codebook.c из папки src
-        for f in ../src/codebook*.c; do
-            ${CC} ${CFLAGS} -c "$f" -o "src/$(basename $f).obj"
-            ${AR} rcs src/libcodec2.a "src/$(basename $f).obj"
-        done
-    fi
+        # for f in ../src/codebook*.c; do
+            # ${CC} ${CFLAGS} -c "$f" -o "src/$(basename $f).obj"
+            # ${AR} rcs src/libcodec2.a "src/$(basename $f).obj"
+        # done
+    # fi
 
     make -j$(nproc) codec2 $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
