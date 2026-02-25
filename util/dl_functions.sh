@@ -17,7 +17,7 @@ _retry() {
             return 0
         else
             if [[ $n -lt $max ]]; then
-                log_warn "Warning: Command '$1' failed. Attempt $n/$max. Retrying in ${delay}s..."
+                log_warn "Warning: Command failed: '$*'. Attempt $n/$max. Retrying in ${delay}s..."
                 sleep "$delay"
                 ((n++))
                 delay=$((delay + 10)) # Экспоненциальная задержка
@@ -34,6 +34,18 @@ git-mini-clone() {
     local COMMIT="$2"
     local TARGET_DIR="${3:-.}"
     local BRANCH_ARG="$4" # Четвертый аргумент имеет приоритет
+
+    if [[ -d "$TARGET_DIR/.git" ]]; then
+        # Проверяем, не тот ли это уже коммит, который нам нужен
+        local CURRENT_LOCAL_HEAD
+        CURRENT_LOCAL_HEAD=$(cd "$TARGET_DIR" && git rev-parse HEAD 2>/dev/null || echo "none")
+        
+        if [[ "$CURRENT_LOCAL_HEAD" == "$COMMIT" ]]; then
+            log_info "Git cache hit for $(basename "$REPO"): Commit $COMMIT already present."
+            return 0
+        fi
+        log_debug "Cache miss for $(basename "$REPO"): Local=$CURRENT_LOCAL_HEAD Target=$COMMIT"
+    fi
 
     local BRANCH="$BRANCH_ARG"
     if [[ -z "$BRANCH" ]]; then
@@ -98,7 +110,7 @@ git-mini-clone() {
     local success=0
 
     # Прямой fetch коммита
-    log_debug "Attempting direct fetch: $COMMIT"
+    log_info "Fetching $(basename "$REPO") @ $COMMIT..."
     if _retry git -c advice.detachedHead=false fetch --quiet --no-tags --no-show-forced-updates --depth=1 origin "$COMMIT" >/dev/null 2>&1; then
         git checkout --quiet FETCH_HEAD && success=1
     fi
@@ -113,7 +125,7 @@ git-mini-clone() {
 
     # Полный fallback (если сервер не поддерживает shallow fetch для коммитов)
     if [[ $success -eq 0 ]]; then
-        log_warn "Shallow fetch failed. Performing fallback..."
+        log_warn "Shallow fetch failed. Performing full fallback for $REPO..."
         if _retry git fetch --quiet --tags origin || _retry git fetch --quiet origin; then
             git checkout --quiet "$COMMIT" && success=1
         fi

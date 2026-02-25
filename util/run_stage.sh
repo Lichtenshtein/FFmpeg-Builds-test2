@@ -9,6 +9,8 @@ if [[ -z "$SCRIPT_PATH" || ! -f "$SCRIPT_PATH" ]]; then
     exit 1
 fi
 
+STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
+
 # Определяем режим работы Wine (берем из ENV или ставим auto по умолчанию)
 USE_WINE_VAL="${USE_WINE:-auto}"
 # Функция для принятия решения о запуске графического окружения и Wine
@@ -25,7 +27,7 @@ if should_run_wine; then
         log_info "Starting Xvfb (Display :99) for Wine/Build tests..."
         Xvfb :99 -screen 0 1024x768x16 > /dev/null 2>&1 &
         # Даем немного времени на инициализацию дисплея
-        sleep 2
+        sleep 5
     fi
     # Инициализация префикса Wine, если он еще не создан (drive_c отсутствует)
     if [[ ! -d "$WINEPREFIX/drive_c" ]]; then
@@ -37,8 +39,6 @@ if should_run_wine; then
 else
     log_debug "Stage $STAGENAME: Wine/Xvfb initialization skipped (Mode: $USE_WINE_VAL)."
 fi
-
-STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
 
 # Подгружаем утилиты, используя абсолютный путь
 if ! declare -F log_info >/dev/null; then
@@ -119,6 +119,11 @@ if [[ -n "$DL_COMMANDS" ]]; then
         # Пытаемся скачать исходники "на лету"
         if eval "$DL_COMMANDS"; then
             log_info "Direct download successful for $STAGENAME."
+            # Очистка перед сохранением в кэш
+            if [[ -d ".git" ]]; then
+                log_debug "Running git clean -fdx for $STAGENAME..."
+                git clean -fdx
+            fi
             # Сразу создаем архив в кэше, чтобы в следующий раз он подхватился мгновенно
             log_info "Creating new cache archive for $STAGENAME..."
             tar -I 'zstd -T0 -3' -cf "$TGT_FILE" .

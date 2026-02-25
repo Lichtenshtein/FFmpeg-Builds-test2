@@ -42,16 +42,16 @@ ffbuild_dockerbuild() {
 
     local CUR_DIR=$(pwd)
 
-    # создаем пустой файл, чтобы Meson не нашел pkg-config хоста для python
+    # Создаем файл-заглушку, чтобы pkg-config не нашел системный питон
     mkdir -p fake_pkgconfig
-    ln -sf /bin/false fake_pkgconfig/python-3.12.pc
-    ln -sf /bin/false fake_pkgconfig/python3.pc
+    echo "Name: python3" > fake_pkgconfig/python3.pc
+    echo "Version: ${PY_VER}" >> fake_pkgconfig/python3.pc
+    echo "Description: Fake Python for Cross-compilation" >> fake_pkgconfig/python3.pc
 
     # Создаем файл конфигурации для Meson, чтобы он "нашел" Python
     # Мы обманываем Meson, подсовывая ему пути к системным хедерам и виндовым либам
     cat <<EOF > python_fix.ini
 [binaries]
-python3 = '/bin/false'
 pkgconfig = 'pkg-config'
 
 [built-in options]
@@ -64,15 +64,10 @@ cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 needs_exe_wrapper = true
 EOF
 
-    # Удаляем упоминание python из meson.build, чтобы он не искал его через dependency()
-    # Это гарантирует, что Meson будет использовать только наши c_args/c_link_args
-    sed -i "s/dependency('python[^']*')/declare_dependency()/g" meson.build
-    sed -i "s/import('python').find_installation([^)]*)/declare_dependency()/g" meson.build
-
     mkdir -p build
 
     # Добавляем наш фейковый путь в PKG_CONFIG_PATH
-    export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig:${PKG_CONFIG_PATH}"
+    export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig"
 
     # Мы собираем vsscript как SHARED, так как он ОБЯЗАН грузить python3.dll
     meson setup build \
@@ -85,6 +80,7 @@ EOF
         -Denable_vspipe=false \
         -Denable_x86_asm=true \
         -Denable_python_module=false \
+        -Dpython=disabled \
         || (tail -n 500 build/meson-logs/meson-log.txt && exit 1)
 
     ninja -C build -j$(nproc) $NINJA_V
