@@ -33,11 +33,11 @@ ffbuild_dockerbuild() {
         
         # 12-bit core
         cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -DMAIN12=ON -S source -B 12bit
-        make -C 12bit -j$(nproc)
+        make -C 12bit -j$(nproc) $MAKE_V
 
         # 10-bit core
         cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -S source -B 10bit
-        make -C 10bit -j$(nproc)
+        make -C 10bit -j$(nproc) $MAKE_V
 
         # 8-bit main (linking to 10 and 12)
         # Копируем либы в корень 8bit, чтобы CMake их увидел через -DEXTRA_LIB
@@ -48,7 +48,7 @@ ffbuild_dockerbuild() {
             -DEXTRA_LIB="libx265_main10.a;libx265_main12.a" \
             -DLINKED_10BIT=ON -DLINKED_12BIT=ON \
             -S source -B 8bit
-        make -C 8bit -j$(nproc)
+        make -C 8bit -j$(nproc) $MAKE_V
 
         # Объединяем в финальную либу
         cd 8bit
@@ -65,7 +65,7 @@ EOF
         mkdir 8bit
         cd 8bit
         cmake "${common_config[@]}" ../source
-        make -j$(nproc)
+        make -j$(nproc) $MAKE_V
     fi
 
     make install DESTDIR="$FFBUILD_DESTDIR"
