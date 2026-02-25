@@ -31,32 +31,42 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    # Подготовка файлов Python
     if [[ ! -f python_embed.zip || ! -f python_win.exe ]]; then
-        log_error "Required Python files not found in build directory!"
-        ls -lh
+        log_error "Python files missing! Check download stage."
         exit 1
     fi
 
-    # Готовим окружение Python для кросс-компиляции
     mkdir -p python_win/bin
     unzip -qo python_embed.zip -d python_win/bin
     
-    # Извлекаем Include файлы из инсталлера
+    # Распаковка хедеров
     7z x python_win.exe -opython_win include/*.h -r
-    [[ -d python_win/include/include ]] && mv python_win/include/include/* python_win/include/
+    
+    # Убеждаемся, что Python.h лежит прямо в python_win/include
+    if [[ -d python_win/include/include ]]; then
+        mv python_win/include/include/* python_win/include/
+    fi
 
-    # Генерируем либу
+    # Windows.h: MinGW чувствителен к регистру (Windows.h vs windows.h)
+    # Создаем симлинк в нашей папке include, чтобы VapourSynth нашел его
+    local MINGW_INCLUDE=$($CC -print-sysroot)/mingw/include
+    if [[ -f "$MINGW_INCLUDE/windows.h" ]]; then
+        ln -sf "$MINGW_INCLUDE/windows.h" python_win/include/Windows.h
+    fi
+
+    # Генерируем импортную либу
     ${FFBUILD_CROSS_PREFIX}gendef python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
     ${FFBUILD_CROSS_PREFIX}dlltool -d ${PY_LIB}.def -l lib${PY_LIB}.a -D ${PY_LIB}.dll
 
     local CUR_DIR=$(pwd)
 
-    # Создаем файл-заглушку, чтобы pkg-config не нашел системный питон
+    # 2. Настройка Meson (fake_pkgconfig)
     mkdir -p fake_pkgconfig
     cat <<EOF > fake_pkgconfig/python3.pc
 Name: python3
-Description: Fake Python
 Version: ${PY_VER}
+Description: Fake Python
 Libs: -L${CUR_DIR} -l${PY_LIB}
 Cflags: -I${CUR_DIR}/python_win/include
 EOF
@@ -68,6 +78,7 @@ EOF
 pkgconfig = 'pkg-config'
 
 [built-in options]
+# ПУТЬ ПРОВЕРЕН: ${CUR_DIR}/python_win/include
 c_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DPy_NO_ENABLE_SHARED']
 cpp_args = ['-isystem${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DPy_NO_ENABLE_SHARED']
 c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
@@ -75,9 +86,7 @@ cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 EOF
 
     mkdir -p build
-
-    # Добавляем наш фейковый путь в PKG_CONFIG_PATH
-    export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig"
+    export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig:${PKG_CONFIG_PATH}"
 
     # Мы собираем vsscript как SHARED, так как он ОБЯЗАН грузить python3.dll
     meson setup build \
