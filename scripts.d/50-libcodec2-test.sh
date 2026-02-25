@@ -35,18 +35,14 @@ ffbuild_dockerbuild() {
         # done
     # fi
 
-    # Это предотвратит запуск и копирование generate_codebook
-    # Раскомментировать если папка src/codec2_native всё еще вызывает ошибки линковки:
-    sed -i 's/add_subdirectory(codec2_native)//g' src/CMakeLists.txt
-    sed -i 's/add_dependencies(codec2 codec2_native)//g' src/CMakeLists.txt
+    # Создаем "заглушку" для генератора кодов. 
+    # не нужно ничего генерировать, так как в репо уже есть пред-сгенерированные файлы.
+    echo -e "#!/bin/sh\nexit 0" > fake_gen
+    chmod +x fake_gen
 
-    # Вместо удаления subdirectories, мы принудительно отключаем поиск 
-    # инструментов, которые должны запускаться на хосте.
-    # В этом форке CMakeLists может игнорировать -DGENERATE_CODEBOOKS=OFF в некоторых местах.
-
-    # Исправляем CMakeLists, чтобы он не пытался собирать тесты и инструменты хоста
-    sed -i 's/add_subdirectory(unittest)//g' CMakeLists.txt
-    sed -i 's/add_subdirectory(demo)//g' CMakeLists.txt
+    # вырезаем ExternalProject, который мучает билд
+    # Удаляем все упоминания codec2_native из всех файлов
+    find . -name "CMakeLists.txt" -exec sed -i '/codec2_native/d' {} +
 
     mkdir build && cd build
 
@@ -58,7 +54,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_CXX_FLAGS="$CXXFLAGS"
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
         -DBUILD_SHARED_LIBS=OFF
-        -DGENERATE_CODEBOOKS=OFF
+        -DGENERATE_CODEBOOK="$(pwd)/../fake_gen"
         -DUNITTEST=OFF
         -DINSTALL_EXAMPLES=OFF
         # Дополнительные флаги для кросс-компиляции
@@ -66,7 +62,7 @@ ffbuild_dockerbuild() {
     )
 
     cmake "${mycmake[@]}" ..
-    make -j$(nproc) $MAKE_V
+    make -j$(nproc) codec2 $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     # Исправление .pc файла (Codec2 иногда забывает про -lm)
