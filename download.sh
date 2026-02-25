@@ -44,7 +44,7 @@ download_stage() {
     fi
 
     if [[ -f "$TGT_FILE" ]]; then
-        log_info "Cache hit: $STAGENAME ($DL_HASH); File: $(basename "$TGT_FILE"))"
+        log_info "Cache hit: $STAGENAME ($DL_HASH); Size: $(du -sh "$TGT_FILE" | cut -f1)"
         # Обновляем mtime, чтобы clean_cache не удалил его как старый
         touch "$TGT_FILE" 
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
@@ -67,6 +67,12 @@ download_stage() {
         source "$ROOT_DIR/util/vars.sh" "$TARGET" "$VARIANT" &>/dev/null
         eval "$DL_COMMANDS"
     ); then
+
+        if [[ -d "$WORK_DIR/.git" ]]; then
+            log_debug "Cleaning up build artifacts in $STAGENAME before caching..."
+            ( cd "$WORK_DIR" && git clean -fdx )
+        fi
+
         # Whitelist метаданных (добавил dav1d и ffmpeg)
         local PRESERVE_PATTERN="${GIT_PRESERVE_LIST:-ffmpeg |glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo}"
 

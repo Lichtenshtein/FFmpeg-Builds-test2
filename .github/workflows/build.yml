@@ -92,7 +92,6 @@ jobs:
           echo "repo_lc=ghcr.io/${REPO_LC}" >> $GITHUB_OUTPUT
           echo "base=ghcr.io/${REPO_LC}/base:latest" >> $GITHUB_OUTPUT
           echo "target_base=ghcr.io/${REPO_LC}/base-win64:latest" >> $GITHUB_OUTPUT
-          # echo "variant=ghcr.io/${REPO_LC}/win64-nonfree:latest" >> $GITHUB_OUTPUT
 
       - name: Login to Docker
         uses: docker/login-action@v3
@@ -139,8 +138,8 @@ jobs:
           # load: true
           load: false
           cache-from: type=gha,scope=base-root
-          # cache-to: type=gha,mode=max,scope=base-root
-          cache-to: type=gha,mode=min,scope=base-root
+          # min сохраняет только слои, участвующие в финальном образе. max сохраняет все промежуточные слои (даже те, что в build-stage).
+          cache-to: type=gha,mode=max,scope=base-root
 
       - name: Build Base Win64 Image
         uses: docker/build-push-action@v5
@@ -149,8 +148,7 @@ jobs:
           build-args: |
             GH_REPO=${{ steps.images.outputs.repo_lc }}
           cache-from: type=gha,scope=base
-          # cache-to: type=gha,mode=max,scope=base
-          cache-to: type=gha,mode=min,scope=base
+          cache-to: type=gha,mode=max,scope=base
           # push: false
           push: true
           # load: true
@@ -170,7 +168,6 @@ jobs:
           path: |
             .cache/downloads
             .cache/ffmpeg
-          # Ключ зависит ТОЛЬКО от содержимого скриптов (через хешер)
           key: dl-cache-${{ steps.dl_cache.outputs.key }}
           # Если точного совпадения нет, берется самый свежий кэш с таким префиксом
           restore-keys: |
@@ -190,9 +187,7 @@ jobs:
           [[ "${{ github.event.inputs.use_lto }}" == "true" ]] && LTO_PARAM="lto"
           SKIP_PARAM="false"
           [[ "${{ github.event.inputs.skip_ffmpeg }}" == "true" ]] && SKIP_PARAM="skip_ffmpeg"
-          # Создаем директории на случай, если кэш пустой
           mkdir -p .cache/downloads .cache/ffmpeg
-          # Запускаем логику загрузки и генерации Dockerfile
           chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
@@ -222,10 +217,8 @@ jobs:
           file: Dockerfile
           push: false
           tags: ffmpeg-final:local
-          # tags: ${{ steps.images.outputs.variant }}
           cache-from: type=gha,scope=ffmpeg-build
-          # cache-to: type=gha,mode=max,scope=ffmpeg-build
-          cache-to: type=gha,mode=min,scope=ffmpeg-build
+          cache-to: type=gha,mode=max,scope=ffmpeg-build
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
             ffmpeg_src=${{ github.workspace }}/.cache/ffmpeg

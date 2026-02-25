@@ -129,7 +129,10 @@ collect_all_flags() {
     local script_path="$1"
     (
         # Загружаем скрипт
-        source "$script_path" > /dev/null 2>&1
+        if ! source "$script_path" > /dev/null; then
+            log_error "Syntax error in script: $script_path"
+            exit 1
+        fi
 
         # Извлекаем флаги из переменных (для файлов из variants/ и addins/)
         [[ -n "$FF_CONFIGURE" ]] && echo "$FF_CONFIGURE" >> .conf
