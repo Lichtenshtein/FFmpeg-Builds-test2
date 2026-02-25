@@ -20,44 +20,14 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
 
-    # _python_ver=3.13.11
-    # _python_lib=python313
-    # _vsver=73
-        # create_build_dir
-        # declare -A _pc_vars=(
-            # [vapoursynth-name]=vapoursynth
-            # [vapoursynth-description]='A frameserver for the 21st century'
-            # [vapoursynth-cflags]="-DVS_CORE_EXPORTS"
-
-            # [vsscript-name]=vapoursynth-script
-            # [vsscript-description]='Library for interfacing VapourSynth with Python'
-            # [vsscript-private]="-l$_python_lib"
-        # )
-        # for _file in vapoursynth vsscript; do
-            # gendef - "../$_file.dll" 2>/dev/null |
-                # sed -E 's|^_||;s|@[1-9]+$||' > "${_file}.def"
-            # do_dlltool "lib${_file}.a" "${_file}.def"
-            # [[ -f lib${_file}.a ]] && do_install "lib${_file}.a"
-            # printf '%s\n' \
-               # "prefix=$LOCALDESTDIR" \
-               # 'exec_prefix=${prefix}' \
-               # 'libdir=${exec_prefix}/lib' \
-               # 'includedir=${prefix}/include/vapoursynth' \
-               # "Name: ${_pc_vars[${_file}-name]}" \
-               # "Description: ${_pc_vars[${_file}-description]}" \
-               # "Version: $_vsver" \
-               # "Libs: -L\${libdir} -l${_file}" \
-               # "Libs.private: ${_pc_vars[${_file}-private]}" \
-               # "Cflags: -I\${includedir} ${_pc_vars[${_file}-cflags]}" \
-               # > "${_pc_vars[${_file}-name]}.pc"
-        # done
-
     # Чтобы FFmpeg работал с Vapoursynth, ему нужна библиотека VSScript.
     # Но VSScript требует Python. Мы отключаем модуль Python, но оставляем VSScript 
     # в режиме 'headers only' или минимальной статики, если это позволит Meson.
-
+    mkdir -p build
     # Исправляем баг libtool/linker path для MinGW
     export LT_SYS_LIBRARY_PATH="$FFBUILD_PREFIX/lib"
+    export CFLAGS="$CFLAGS -I$FFBUILD_PREFIX/include"
+    export CXXFLAGS="$CXXFLAGS -I$FFBUILD_PREFIX/include"
 
         # --cross-file="$FFBUILD_CROSS_PREFIX"cross.meson
         # -Dcore=false
@@ -69,7 +39,7 @@ ffbuild_dockerbuild() {
         --buildtype release \
         --default-library static \
         -Denable_x86_asm=true \
-        -Denable_vsscript=true \
+        -Denable_vsscript=false \
         -Denable_vspipe=false \
         -Denable_python_module=false \
         || (tail -n 500 build/meson-logs/meson-log.txt && exit 1)
@@ -79,18 +49,12 @@ ffbuild_dockerbuild() {
 
     # Исправление pkg-config для статической линковки FFmpeg
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/vapoursynth.pc"
-    local VSS_PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/vapoursynth-script.pc"
 
     if [[ -f "$PC_FILE" ]]; then
         # Убеждаемся, что пути корректны
-        sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
+        sed -i "s|/usr/include/python3.12||g" "$PC_FILE"
         # Добавляем стандартную библиотеку C++, так как VS написан на ней
-        sed -i "s|^Libs:.*|Libs: -L\${libdir} -lvapoursynth -lstdc++|" "$PC_FILE"
-    fi
-
-    if [[ -f "$VSS_PC_FILE" ]]; then
-        sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$VSS_PC_FILE"
-        sed -i "s|^Libs:.*|Libs: -L\${libdir} -lvsscript -lstdc++|" "$VSS_PC_FILE"
+        sed -i "s|^Libs:.*|Libs: -L\${libdir} -lvapoursynth -lstdc++ -lwinmm|" "$PC_FILE"
     fi
 }
 
