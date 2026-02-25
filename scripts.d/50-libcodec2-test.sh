@@ -1,19 +1,22 @@
 #!/bin/bash
 
+SCRIPT_REPO="$SCRIPT_REPO4"
+SCRIPT_COMMIT="$SCRIPT_COMMIT4"
+
 # SCRIPT_REPO="https://github.com/arancormonk/codec2.git"
 # SCRIPT_COMMIT="6a787012632b8941aa24a4ea781440b61de40f57"
 
-# SCRIPT_REPO2="https://github.com/rhythmcache/codec2.git"
-# SCRIPT_COMMIT2="6e0a0e09c065aa5401eb9c30d724240fffe890f1"
+# SCRIPT_REPO1="https://github.com/rhythmcache/codec2.git"
+# SCRIPT_COMMIT1="6e0a0e09c065aa5401eb9c30d724240fffe890f1"
 
-# SCRIPT_REPO3="https://github.com/zups/codec2.git"
-# SCRIPT_COMMIT3="371c82ae557f1b033cf4b625be435bb4b88ef70b"
+# SCRIPT_REPO2="https://github.com/zups/codec2.git"
+# SCRIPT_COMMIT2="371c82ae557f1b033cf4b625be435bb4b88ef70b"
 
-# SCRIPT_REPO="https://github.com/Alex-Pennington/codec2.git"
-# SCRIPT_COMMIT="19571e0a2b42340597fd762803f6eb9d030ee4c5"
+# SCRIPT_REPO3="https://github.com/Alex-Pennington/codec2.git"
+# SCRIPT_COMMIT3="19571e0a2b42340597fd762803f6eb9d030ee4c5"
 
-SCRIPT_REPO="https://github.com/drowe67/codec2.git"
-SCRIPT_COMMIT="96e8a19c2487fd83bd981ce570f257aef42618f9"
+SCRIPT_REPO4="https://github.com/drowe67/codec2.git"
+SCRIPT_COMMIT4="96e8a19c2487fd83bd981ce570f257aef42618f9"
 
 ffbuild_enabled() {
     return 0
@@ -35,6 +38,8 @@ ffbuild_dockerbuild() {
         # done
     # fi
 
+    rm -rf build && mkdir build && cd build
+
     # Создаем "заглушку" для генератора кодов. 
     # не нужно ничего генерировать, так как в репо уже есть пред-сгенерированные файлы.
     # cat <<EOF > fake_gen
@@ -47,8 +52,6 @@ ffbuild_dockerbuild() {
     # Удаляем все упоминания codec2_native из всех файлов
     # find . -name "CMakeLists.txt" -exec sed -i '/codec2_native/d' {} +
 
-    mkdir build && cd build
-
     local mycmake=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
@@ -57,6 +60,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_CXX_FLAGS="$CXXFLAGS"
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
         -DBUILD_SHARED_LIBS=OFF
+        -DGENERATE_CODEBOOKS=OFF
         # -DGENERATE_CODEBOOK="$(pwd)/../fake_gen"
         -DUNITTEST=OFF
         -DINSTALL_EXAMPLES=OFF
@@ -65,25 +69,20 @@ ffbuild_dockerbuild() {
     )
 
     cmake "${mycmake[@]}" ..
-
-    # Мы позволяем ExternalProject создаться, но подменяем результат
-    # Создаем структуру папок, которую ожидает ошибочная команда копирования
-    mkdir -p src/codec2_native/src
-    
-    # Создаем пустой файл, который CMake пытается скопировать
-    # Это предотвратит ошибку "Error copying file"
-    touch src/codec2_native/src/generate_codebook
-    chmod +x src/codec2_native/src/generate_codebook
-
-    # Теперь запускаем сборку. Даже если он попробует собрать настоящий 
-    # generate_codebook.exe, наш пустой файл без расширения уже будет лежать на месте.
-    make -j$(nproc) codec2 || true
-    
-    # Повторный проход на случай, если параллельная сборка что-то пропустила
-    # и финальное "затыкание" дыр
-    touch src/generate_codebook
-
     make -j$(nproc) codec2 $MAKE_V
+
+    # Проверяем, создалась ли библиотека и есть ли в ней символы
+    if ${FFBUILD_CROSS_PREFIX}nm src/libcodec2.a | grep -q "lsp_cb"; then
+        log_info "Codec2 library looks good (symbols found)."
+    else
+        log_warn "Symbols missing in libcodec2.a, forcing object compilation..."
+        # Если символов нет, принудительно компилируем codebook.c из папки src
+        for f in ../src/codebook*.c; do
+            ${CC} ${CFLAGS} -c "$f" -o "src/$(basename $f).obj"
+            ${AR} rcs src/libcodec2.a "src/$(basename $f).obj"
+        done
+    fi
+
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     # Исправление .pc файла (Codec2 иногда забывает про -lm)
