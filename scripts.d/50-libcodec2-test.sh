@@ -34,11 +34,12 @@ ffbuild_dockerbuild() {
             # fi
         # done
     # fi
-    mkdir build && cd build
 
     # Исправляем CMakeLists.txt прямо в исходниках, чтобы вырезать ExternalProject
     # Это надежнее, чем пытаться подсунуть флаги, которые CMake игнорирует
     sed -i '/if(CMAKE_CROSSCOMPILING)/,/endif(CMAKE_CROSSCOMPILING)/c\add_executable(generate_codebook IMPORTED)\nset_target_properties(generate_codebook PROPERTIES IMPORTED_LOCATION /usr/bin/true)' src/CMakeLists.txt
+
+    mkdir build && cd build
 
     # Создаем "заглушку" для генератора кодов. 
     # не нужно ничего генерировать, так как в репо уже есть пред-сгенерированные файлы.
