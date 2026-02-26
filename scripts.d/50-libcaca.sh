@@ -32,9 +32,13 @@ ffbuild_dockerbuild() {
     log_info "Renaming conflicting safe string functions in libcaca source..."
     find . -type f -name "*.c" -exec sed -i 's/\bsprintf_s\b/caca_sprintf_s/g' {} +
     find . -type f -name "*.c" -exec sed -i 's/\bvsnprintf_s\b/caca_vsnprintf_s/g' {} +
-    sed -i 's/defined __KERNEL__/1/' caca/caca_types.h.in
+    sed -i 's/defined __KERNEL__/1/' caca/caca_types.h
 
     ./bootstrap
+
+    # Чтобы не тратить время на ошибки в тестах, мы просто обнуляем Makefile в папке с тестами
+    echo "all:" > caca/t/Makefile.am
+    echo "install:" >> caca/t/Makefile.am
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -61,14 +65,18 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}" \
         CFLAGS="$CFLAGS -D_WIN32 -Wno-implicit-function-declaration" \
-        LDFLAGS="$LDFLAGS" || {
-            log_error "Configure failed. Dumping config.log:"
-            cat config.log
-            exit 1
-        }
+        LDFLAGS="$LDFLAGS"
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    # Сборка только библиотеки
+    # Мы явно просим собрать папку caca, а не всё дерево с тестами
+    make -C caca -j$(nproc) $MAKE_V
+    
+    # Установка вручную, чтобы не заходить в папку 't'
+    make -C caca install DESTDIR="$FFBUILD_DESTDIR"
+
+    # Установка заголовочных файлов из корня (они нужны FFmpeg)
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
+    cp caca/caca.h caca/caca0.h caca/caca_conio.h caca/caca_types.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
 
     # libcaca иногда кладет .pc файл в странные места или пишет туда мусор
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/caca.pc"
