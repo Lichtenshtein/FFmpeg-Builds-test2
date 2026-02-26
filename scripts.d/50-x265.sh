@@ -47,7 +47,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_C_FLAGS="$CFLAGS"
         -DCMAKE_CXX_FLAGS="$CXXFLAGS"
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -Wno-dev"
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
         -DCMAKE_BUILD_TYPE=Release
         -DENABLE_SHARED=OFF
         -DENABLE_CLI=OFF
@@ -58,6 +58,7 @@ ffbuild_dockerbuild() {
         -DX265_LATEST_TAG="3.5"
         -DX265_TAG_DISTANCE="0"
         -DCHROME_APP=OFF
+        -Wno-dev
     )
 
     mkdir -p 8bit 10bit 12bit
@@ -106,10 +107,21 @@ EOF
     # Установка из папки 8bit (которая содержит объединенную либу)
     make -C 8bit install DESTDIR="$FFBUILD_DESTDIR"
 
-    # Фикс pkg-config для статической линковки
-    if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/x265.pc" ]]; then
-        sed -i 's/Libs: /Libs.private: -lstdc++ -lgcc_s -lgcc -lmingwex -lmingw32\nLibs: /' "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/x265.pc"
-    fi
+    # Гарантируем наличие pkg-config файла
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/x265.pc"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: x265
+Description: H.265/HEVC video encoder
+Version: 3.5
+Libs: -L\${libdir} -lx265
+Libs.private: -lstdc++ -lm -lgcc -lmingwex -lmingw32 -luser32 -ladvapi32 -lshell32
+Cflags: -I\${includedir}
+EOF
 }
 
 ffbuild_configure() {

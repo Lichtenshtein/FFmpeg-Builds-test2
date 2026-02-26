@@ -20,7 +20,7 @@ index 8161c0f..53c76c1 100644
 @@ -634,7 +634,11 @@ static void ncurses_uninstall_terminal(caca_display_t *dp)
      if(!dp->drv.p->term)
          return;
-
+ 
 +#if defined(HAVE_SNPRINTF)
      snprintf(termenv, 1023, "TERM=%s", dp->drv.p->term);
 +#else
@@ -36,7 +36,7 @@ index 4dd9fb6..cf38ecf 100644
 @@ -576,7 +576,11 @@ static void slang_uninstall_terminal(caca_display_t *dp)
      if(!dp->drv.p->term)
          return;
-
+ 
 +#if defined(HAVE_SNPRINTF)
      snprintf(termenv, 1023, "TERM=%s", dp->drv.p->term);
 +#else
@@ -50,7 +50,7 @@ index 6bd04cf..24bcdbf 100644
 --- a/caca/driver/x11.c
 +++ b/caca/driver/x11.c
 @@ -155,7 +155,11 @@ static int x11_init_graphics(caca_display_t *dp)
-
+ 
              if (dp->drv.p->font_set)
                  XFreeFontSet(dp->drv.p->dpy, dp->drv.p->font_set);
 +#if defined(HAVE_SNPRINTF)
@@ -76,7 +76,7 @@ index 4581aaf..6aaa295 100644
 +#endif
      s->name[127] = '\0';
      va_end(args);
-
+ 
 --
 1.9.1
 
@@ -104,7 +104,7 @@ index caa44d5..4e10186 100644
 @@ -29,15 +29,6 @@
  #include "caca.h"
  #include "caca_internals.h"
-
+ 
 -#if defined _WIN32 && defined __GNUC__ && __GNUC__ >= 3
 -#   if !HAVE_SPRINTF_S
 -int sprintf_s(char *s, size_t n, const char *fmt, ...) CACA_WEAK;
@@ -120,7 +120,7 @@ index caa44d5..4e10186 100644
 @@ -640,24 +640,4 @@ static uint32_t hsmush(uint32_t ch1, uint32_t ch2, int rule)
   * Functions for the mingw32 runtime
   */
-
+ 
 -#if defined _WIN32 && defined __GNUC__ && __GNUC__ >= 3
 -#   if !HAVE_SPRINTF_S
 -int sprintf_s(char *s, size_t n, const char *fmt, ...)
@@ -141,7 +141,7 @@ index caa44d5..4e10186 100644
 -}
 -#   endif
 -#endif
-
+ 
 diff --git a/caca/string.c b/caca/string.c
 index 22e0af2..db79e30 100644
 --- a/caca/string.c
@@ -149,7 +149,7 @@ index 22e0af2..db79e30 100644
 @@ -36,16 +36,6 @@
  #include "caca.h"
  #include "caca_internals.h"
-
+ 
 -#if defined _WIN32 && defined __GNUC__ && __GNUC__ >= 3
 -#   if !HAVE_VSNPRINTF_S
 -int vsnprintf_s(char *s, size_t n, size_t c,
@@ -166,7 +166,7 @@ index 22e0af2..db79e30 100644
 @@ -614,19 +604,4 @@ int caca_set_canvas_boundaries(caca_canvas_t *cv, int x, int y, int w, int h)
   * Functions for the mingw32 runtime
   */
-
+ 
 -#if defined _WIN32 && defined __GNUC__ && __GNUC__ >= 3
 -#   if !HAVE_VSNPRINTF_S
 -int vsnprintf_s(char *s, size_t n, size_t c, const char *fmt, va_list ap)
@@ -182,6 +182,6 @@ index 22e0af2..db79e30 100644
 -}
 -#   endif
 -#endif
-
+ 
 --
 1.9.1
