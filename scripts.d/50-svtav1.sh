@@ -38,10 +38,16 @@ ffbuild_dockerbuild() {
         done
     fi
 
+    # ФИКС ВЕРСИИ (SVT-AV1 специфичный)
+    # Если нет .git, CMakeLists.txt не сможет определить версию. 
+    # Запишем её принудительно в файл, который ожидает система сборки (если он есть)
+    # или через параметры CMake.
+    local SVT_VER="2.1.0-tritium"
+
     mkdir build && cd build
 
     local myconf=(
-        "Unix Makefiles"
+        -G "Unix Makefiles"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_C_FLAGS="$CFLAGS"
@@ -50,17 +56,39 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_TESTING=OFF
+        # -DBUILD_DEC=OFF
+        # -DBUILD_ENC=ON
         -DBUILD_APPS=OFF 
         -DENABLE_AVX512=OFF
         -DENABLE_NASM=ON
     )
-    # Добавляем LTO если включено в workflow
-    [[ "$USE_LTO" == "1" ]] && myconf+=( -DSVT_AV1_LTO=ON )
+    # Исправляем проблему с пустой версией в pkg-config
+    myconf+=( -DVERSION="$SVT_VER" )
 
-    cmake -G "${myconf[@]}" ..
+    # Добавляем LTO если включено
+    if [[ "$USE_LTO" == "1" ]]; then
+        myconf+=( -DSVT_AV1_LTO=ON )
+    else
+        myconf+=( -DSVT_AV1_LTO=OFF )
+    fi
+
+    cmake "${myconf[@]}" ..
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    # ФИКС pkg-config
+    # SVT-AV1 иногда генерирует SvtAv1Enc.pc вместо svtav1.pc
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/SvtAv1Enc.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        # FFmpeg ищет "SvtAv1Enc" (в новых версиях) или "svtav1"
+        # Сделаем копию для совместимости
+        cp "$PC_FILE" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/svtav1.pc"
+        
+        # Добавляем системные либы для статической линковки
+        echo "Libs.private: -lstdc++ -lm" >> "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/svtav1.pc"
+        echo "Libs.private: -lstdc++ -lm" >> "$PC_FILE"
+    fi
 }
 
 ffbuild_configure() {
