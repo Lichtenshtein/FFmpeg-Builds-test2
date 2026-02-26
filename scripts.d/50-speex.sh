@@ -1,3 +1,5 @@
+50-speex.sh:
+
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/xiph/speex.git"
@@ -17,25 +19,28 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
         --disable-shared
         --enable-static
-        --enable-sse
-        --disable-binaries
         --with-pic
+        --disable-binaries
+        --enable-sse
     )
 
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --host="$FFBUILD_TOOLCHAIN"
-        )
-    else
-        echo "Unknown target"
-        return 1
-    fi
+    # Конфигурация. Добавляем CFLAGS для стабильности плавающей точки
+    ./configure "${myconf[@]}" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
 
-    ./configure "${myconf[@]}"
+    # Сборка
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    # ФИКС pkg-config (Критично для FFmpeg)
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/speex.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
+        # Добавляем математическую либу для статики
+        echo "Libs.private: -lm" >> "$PC_FILE"
+    fi
 }
 
 ffbuild_configure() {

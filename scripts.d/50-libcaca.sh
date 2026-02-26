@@ -12,17 +12,20 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/libcaca" ]]; then
-        for patch in /builder/patches/libcaca/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # return 1 # если нужно прервать сборку при ошибке
-            fi
-        done
-    fi
+    # if [[ -d "/builder/patches/libcaca" ]]; then
+        # for patch in /builder/patches/libcaca/*.patch; do
+            # log_info "APPLYING PATCH: $patch"
+            # if patch -p1 -N -r - < "$patch"; then
+                # log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+            # else
+                # log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+            # fi
+        # done
+    # fi
+
+    # Отключаем попытку собрать плагины, которые требуют нативного X11/GL во время кросс-компиляции
+    export ac_cv_header_x11_xlib_h=no
+    export ac_cv_header_gl_gl_h=no
 
     # Исправляем конфликты типов для MinGW
     # libcaca часто переопределяет то, что уже есть в Windows заголовках
