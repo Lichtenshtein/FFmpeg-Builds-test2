@@ -23,6 +23,10 @@ ffbuild_dockerbuild() {
         # done
     # fi
 
+    # Устраняем конфликт vsnprintf_s с MinGW
+    # переименуем внутреннюю функцию libcaca, чтобы она не конфликтовала с системной
+    sed -i 's/vsnprintf_s/caca_vsnprintf_s/g' caca/string.c
+
     # Отключаем попытку собрать плагины, которые требуют нативного X11/GL во время кросс-компиляции
     export ac_cv_header_x11_xlib_h=no
     export ac_cv_header_gl_gl_h=no
@@ -39,7 +43,6 @@ ffbuild_dockerbuild() {
         --disable-shared
         --enable-static
         --disable-doc
-        --disable-cpp
         --disable-csharp
         --disable-java
         --disable-python
@@ -55,9 +58,8 @@ ffbuild_dockerbuild() {
     )
 
     # Конфигурация с подавлением ошибок путей
-    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -D_WIN32" LDFLAGS="$LDFLAGS"
+    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -D_WIN32 -Wno-error" LDFLAGS="$LDFLAGS"
 
-    # Сборка
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
