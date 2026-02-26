@@ -9,11 +9,11 @@
 # SCRIPT_REPO2="https://github.com/zups/codec2.git"
 # SCRIPT_COMMIT2="371c82ae557f1b033cf4b625be435bb4b88ef70b"
 
-SCRIPT_REPO3="https://github.com/Alex-Pennington/codec2.git"
-SCRIPT_COMMIT3="19571e0a2b42340597fd762803f6eb9d030ee4c5"
+# SCRIPT_REPO3="https://github.com/Alex-Pennington/codec2.git"
+# SCRIPT_COMMIT3="19571e0a2b42340597fd762803f6eb9d030ee4c5"
 
-# SCRIPT_REPO4="https://github.com/drowe67/codec2.git"
-# SCRIPT_COMMIT4="96e8a19c2487fd83bd981ce570f257aef42618f9"
+SCRIPT_REPO4="https://github.com/drowe67/codec2.git"
+SCRIPT_COMMIT4="96e8a19c2487fd83bd981ce570f257aef42618f9"
 
 ffbuild_enabled() {
     return 0
@@ -24,16 +24,16 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # if [[ -d "/builder/patches/libcodec2-test" ]]; then
-        # for patch in "/builder/patches/libcodec2-test"/*.patch; do
-            # log_info "APPLYING PATCH: $patch"
-            # if patch -p1 -N -r - < "$patch"; then
-                # log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            # else
-                # log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-            # fi
-        # done
-    # fi
+    if [[ -d "/builder/patches/libcodec2-test" ]]; then
+        for patch in "/builder/patches/libcodec2-test"/*.patch; do
+            log_info "APPLYING PATCH: $patch"
+            if patch -p1 -N -r - < "$patch"; then
+                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+            else
+                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+            fi
+        done
+    fi
 
     # Исправляем CMakeLists.txt прямо в исходниках, чтобы вырезать ExternalProject
     # Это надежнее, чем пытаться подсунуть флаги, которые CMake игнорирует
