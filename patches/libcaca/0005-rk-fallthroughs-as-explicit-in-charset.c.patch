@@ -13,7 +13,7 @@ index 617b2b68..3e6e067f 100644
 --- a/caca/charset.c
 +++ b/caca/charset.c
 @@ -169,8 +169,8 @@ size_t caca_utf32_to_utf8(char *buf, uint32_t ch)
-
+ 
      switch(bytes)
      {
 -        case 4: *--parser = (ch | 0x80) & 0xbf; ch >>= 6;
@@ -23,3 +23,4 @@ index 617b2b68..3e6e067f 100644
          case 2: *--parser = (ch | 0x80) & 0xbf; ch >>= 6;
      }
      *--parser = ch | mark[bytes];
+ 
