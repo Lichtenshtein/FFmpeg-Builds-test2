@@ -23,9 +23,9 @@ ffbuild_dockerbuild() {
         # done
     # fi
 
-    # Устраняем конфликт vsnprintf_s с MinGW
-    # переименуем внутреннюю функцию libcaca, чтобы она не конфликтовала с системной
-    sed -i 's/vsnprintf_s/caca_vsnprintf_s/g' caca/string.c
+    # Устраняем конфликты безопасных строковых функций с MinGW
+    # Мы переименовываем ВСЕ внутренние реализации libcaca, чтобы они не мешали системным
+    log_info "Renaming conflicting safe string functions in libcaca source..."
 
     # Отключаем попытку собрать плагины, которые требуют нативного X11/GL во время кросс-компиляции
     export ac_cv_header_x11_xlib_h=no
@@ -34,6 +34,16 @@ ffbuild_dockerbuild() {
     # Исправляем конфликты типов для MinGW
     # libcaca часто переопределяет то, что уже есть в Windows заголовках
     sed -i 's/defined __KERNEL__/1/' caca/caca_types.h
+
+    # Исправляем vsnprintf_s в string.c
+    if [[ -f caca/string.c ]]; then
+        sed -i 's/\bvsnprintf_s\b/caca_vsnprintf_s/g' caca/string.c
+    fi
+
+    # Исправляем sprintf_s в figfont.c (на чем упал текущий билд)
+    if [[ -f caca/figfont.c ]]; then
+        sed -i 's/\bsprintf_s\b/caca_sprintf_s/g' caca/figfont.c
+    fi
 
     ./bootstrap
 
@@ -58,7 +68,7 @@ ffbuild_dockerbuild() {
     )
 
     # Конфигурация с подавлением ошибок путей
-    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -D_WIN32 -Wno-error" LDFLAGS="$LDFLAGS"
+    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -D_WIN32 -Wno-error-implicit-function-declaration" LDFLAGS="$LDFLAGS"
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
