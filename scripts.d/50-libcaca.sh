@@ -24,7 +24,9 @@ ffbuild_dockerbuild() {
         done
     fi
 
-#    apt install -y freeglut3-dev mesa-utils
+    # Исправляем конфликты типов для MinGW
+    # libcaca часто переопределяет то, что уже есть в Windows заголовках
+    sed -i 's/defined __KERNEL__/1/' caca/caca_types.h.in
 
     ./bootstrap
 
@@ -33,16 +35,37 @@ ffbuild_dockerbuild() {
         --host="$FFBUILD_TOOLCHAIN"
         --disable-shared
         --enable-static
-        --disable-doc
         --disable-extra-programs
+        --disable-doc
+        --disable-cpp
+        --disable-csharp
+        --disable-java
+        --disable-python
+        --disable-ruby
+        --disable-imlib2
         --disable-x11
         --disable-gl
         --disable-ncurses
+        --disable-slang
+        --disable-conio
+        # Для Windows оставляем только win32 драйвер или вообще отключаем всё лишнее
+        --enable-win32
     )
 
-    ./configure "${myconf[@]}"
+    # Конфигурация с подавлением ошибок путей
+    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -D_WIN32" LDFLAGS="$LDFLAGS"
+
+    # Сборка
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    # libcaca иногда кладет .pc файл в странные места или пишет туда мусор
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/caca.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
+        # FFmpeg требует явного указания системных либ для статики
+        echo "Libs.private: -lgdi32" >> "$PC_FILE"
+    fi
 }
 
 ffbuild_configure() {

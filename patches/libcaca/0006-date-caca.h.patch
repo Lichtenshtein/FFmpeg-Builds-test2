@@ -18,5 +18,6 @@ index 9f79be20..339f71de 100644
  __extern char const * caca_get_version(void);
 +__extern void *_caca_alloc2d(size_t width, size_t height, size_t elem_size);
  /*  @} */
-
+ 
  /** \defgroup caca_canvas libcaca canvas drawing
+ 

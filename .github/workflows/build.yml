@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '10-mingw|10-mingw-std-threads|15-base|20-zlib|50-x265'
+        default: '10-mingw|10-mingw-std-threads|15-base|20-zlib|50-libcaca'
         # default: '.*'
       doClean:
         description: 'Clean cache before build (Full Rebuild)'
@@ -29,7 +29,7 @@ on:
       debug_no_hash:
         description: 'Debug: Do not recalculate VARS_HASH (Preserve Docker cache)'
         type: boolean
-        default: false
+        default: true
       skip_ffmpeg:
         description: 'Skip final FFmpeg compilation (Component test only)'
         type: boolean

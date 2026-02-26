@@ -24,7 +24,7 @@ index 327a8f9f..f7699379 100644
 @@ -284,7 +284,7 @@ char const * caca_get_version(void)
   * XXX: The following functions are private.
   */
-
+ 
 -extern void *_caca_alloc2d(size_t width, size_t height, size_t elem_size)
 +void* _caca_alloc2d(size_t width, size_t height, size_t elem_size)
  {
@@ -36,11 +36,11 @@ index 7b74b9e9..0bd7f6c8 100644
 +++ b/caca/caca_internals.h
 @@ -268,7 +268,7 @@ extern int _caca_pop_event(caca_display_t *, caca_privevent_t *);
  extern void _caca_set_term_title(char const *);
-
+ 
  /* Internal memory function */
 -extern void *_caca_alloc2d(size_t width, size_t height, size_t elem_size);
 +__extern void *_caca_alloc2d(size_t width, size_t height, size_t elem_size);
-
+ 
  /* Profiling functions */
  #if defined PROF
 diff --git a/caca/codec/import.c b/caca/codec/import.c
@@ -53,10 +53,10 @@ index d7605461..64017278 100644
      unsigned int frames, f, n, offset;
 -    uint16_t version, flags;
      int32_t xmin = 0, ymin = 0, xmax = 0, ymax = 0;
-
+ 
      if(size < 20)
 @@ -313,9 +312,9 @@ static ssize_t import_caca(caca_canvas_t *cv, void const *data, size_t size)
-
+ 
      control_size = sscanu32(buf + 4);
      data_size = sscanu32(buf + 8);
 -    version = sscanu16(buf + 12);
@@ -64,11 +64,11 @@ index d7605461..64017278 100644
      frames = sscanu32(buf + 14);
 -    flags = sscanu16(buf + 18);
 +    (void) sscanu16(buf + 18);
-
+ 
      if(size < 4 + control_size + data_size)
          return 0;
 @@ -329,16 +328,15 @@ static ssize_t import_caca(caca_canvas_t *cv, void const *data, size_t size)
-
+ 
      for(expected_size = 0, f = 0; f < frames; f++)
      {
 -        unsigned int width, height, duration;
@@ -76,7 +76,7 @@ index d7605461..64017278 100644
 -        int x, y, handlex, handley;
 +        unsigned int width, height;
 +        int handlex, handley;
-
+ 
          width = sscanu32(buf + 4 + 16 + f * 32);
          height = sscanu32(buf + 4 + 16 + f * 32 + 4);
 -        duration = sscanu32(buf + 4 + 16 + f * 32 + 8);
@@ -97,13 +97,13 @@ index b2e24e55..4871408e 100644
 @@ -209,9 +209,8 @@ static inline void rgb2hsv_default(int r, int g, int b,
  {
      int min, max, delta;
-
+ 
 -    min = r; max = r;
 -    if(min > g) min = g; if(max < g) max = g;
 -    if(min > b) min = b; if(max < b) max = b;
 +    min = (r < g ? (r < b ? r : b) : (g < b ? g : b));
 +    max = (r > g ? (r > b ? r : b) : (g > b ? g : b));
-
+ 
      delta = max - min; /* 0 - 0xfff */
      *val = max; /* 0 - 0xfff */
 @@ -943,7 +942,7 @@ int caca_dither_bitmap(caca_canvas_t *cv, int x, int y, int w, int h,
@@ -112,7 +112,7 @@ index b2e24e55..4871408e 100644
      int fs_length;
 -    int x1, y1, x2, y2, pitch, deltax, deltay, dchmax;
 +    int x1, y1, x2, y2, deltax, deltay, dchmax;
-
+ 
      if(!d || !pixels)
          return 0;
 @@ -956,7 +955,6 @@ int caca_dither_bitmap(caca_canvas_t *cv, int x, int y, int w, int h,
@@ -120,7 +120,7 @@ index b2e24e55..4871408e 100644
      w = d->w;
      h = d->h;
 -    pitch = d->pitch;
-
+ 
      deltax = x2 - x1 + 1;
      deltay = y2 - y1 + 1;
 diff --git a/caca/figfont.c b/caca/figfont.c
@@ -133,7 +133,7 @@ index c880aa75..2df7fe04 100644
      caca_charfont_t *ff = cv->ff;
 -    int c, w, h, x, y, overlap, extra, xleft, xright;
 +    int c, w, h, x, y, overlap, xleft, xright;
-
+ 
      if (!ff)
          return -1;
 @@ -190,7 +190,6 @@ int caca_put_figchar(caca_canvas_t *cv, uint32_t ch)
@@ -154,13 +154,13 @@ index b7c75b12..abd26741 100644
  {
 -    int i, j, starti, startj, endi, endj, stride, bleed_left, bleed_right;
 +    int i, j, starti, startj, endi, endj, stride;
-
+ 
      if(mask && (src->width != mask->width || src->height != mask->height))
      {
 @@ -480,8 +480,6 @@ int caca_blit(caca_canvas_t *dst, int x, int y,
          || starti >= endi || startj >= endj)
          return 0;
-
+ 
 -    bleed_left = bleed_right = 0;
 -
      for(j = startj; j < endj; j++)
@@ -172,14 +172,14 @@ index b7c75b12..abd26741 100644
              dst->chars[dstix - 1] = ' ';
 -            bleed_left = 1;
          }
-
+ 
          if(endi + x < dst->width
                  && dst->chars[dstix + stride] == CACA_MAGIC_FULLWIDTH)
          {
              dst->chars[dstix + stride] = ' ';
 -            bleed_right = 1;
          }
-
+ 
          if(mask)
 diff --git a/configure.ac b/configure.ac
 index 27b8d5b4..235c5c1d 100644
@@ -187,7 +187,7 @@ index 27b8d5b4..235c5c1d 100644
 +++ b/configure.ac
 @@ -389,7 +389,12 @@ AC_SUBST(GL_CFLAGS)
  AC_SUBST(GL_LIBS)
-
+ 
  # Optimizations
 -CFLAGS="${CFLAGS} -g -O2 -fno-strength-reduce -fomit-frame-pointer"
 +if test "${enable_debug}" = "yes"; then
@@ -206,7 +206,7 @@ index 388983f3..c41f1431 100644
 @@ -591,7 +591,7 @@ void makeMove(int who, int x, int xsquare[Y_BOARD][X_BOARD])
      xsquare[y-1][x] = BASE;
  }
-
+ 
 -void sorting(int n[])
 +void sorting(int n[X_BOARD])
  {
@@ -237,7 +237,7 @@ index e195cf71..4980ec3c 100644
 +            (void)read(0, server->input + server->read, 12 - server->read);
              server->read = 12;
          }
-
+ 
 @@ -250,7 +250,7 @@ int main(void)
                                               server->read, "caca") < 0)
          {
@@ -245,7 +245,7 @@ index e195cf71..4980ec3c 100644
 -            read(0, server->input + server->read - 1, 1);
 +            (void)read(0, server->input + server->read - 1, 1);
          }
-
+ 
          for(;;)
 diff --git a/src/common-image.c b/src/common-image.c
 index 7059bf40..d40eba12 100644
@@ -253,8 +253,10 @@ index 7059bf40..d40eba12 100644
 +++ b/src/common-image.c
 @@ -22,6 +22,7 @@
  #endif
-
+ 
  #include "caca.h"
 +#include "caca_internals.h"
-
+ 
  #include "common-image.h"
+ 
+ 
