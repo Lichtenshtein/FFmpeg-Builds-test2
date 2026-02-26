@@ -5,6 +5,11 @@ set -e
 git config --global advice.detachedHead false
 git config --global core.autocrlf false
 git config --global --add safe.directory "*"
+# Если скорость ниже 1Кб/сек в течение 30 секунд — обрываем соединение
+git config --global http.lowSpeedLimit 1000
+git config --global http.lowSpeedTime 30
+# Увеличиваем буфер для тяжелых объектов (актуально для ffmpeg/torch)
+git config --global http.postBuffer 524288000
 
 cd "$(dirname "$0")"
 
@@ -69,7 +74,7 @@ download_stage() {
     ); then
 
         # Whitelist метаданных (добавил dav1d и ffmpeg)
-        local PRESERVE_PATTERN="${GIT_PRESERVE_LIST:-ffmpeg |glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo}"
+        local PRESERVE_PATTERN="${GIT_PRESERVE_LIST:-ffmpeg|glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo}"
 
         if [[ "$STAGENAME" =~ $PRESERVE_PATTERN ]]; then
             log_info "Preserving Git metadata for $STAGENAME (Whitelist match)"

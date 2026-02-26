@@ -13,7 +13,7 @@ _retry() {
     local timeout_val=300
     
     while true; do
-        if timeout "$timeout_val" "$@"; then
+        if timeout -s 9 "$timeout_val" "$@"; then
             return 0
         else
             if [[ $n -lt $max ]]; then
@@ -240,46 +240,47 @@ svn-mini-clone() {
 
 default_dl() {
     local TARGET_DIR="${1:-.}"
-    # Формируем цепочку попыток для Git
-    local CMDS=()
 
-    # Если это SVN
+    # Если задан SVN
     if [[ -n "$SCRIPT_REV" ]]; then
         echo "svn-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_REV\" \"$TARGET_DIR\""
-        return
+        return 0
     fi
 
-    # Собираем основной репозиторий
+    # Иначе работаем с Git
+    local CMDS=()
+    
+    # Основной репозиторий
     if [[ -n "$SCRIPT_REPO" ]]; then
-        CMDS+=( "git-mini-clone \"$SCRIPT_REPO\" \"${SCRIPT_COMMIT:-master}\" \"$TARGET_DIR\"" )
+        local BASE_COMMIT="${SCRIPT_COMMIT:-master}"
+        CMDS+=( "git-mini-clone \"$SCRIPT_REPO\" \"$BASE_COMMIT\" \"$TARGET_DIR\"" )
     fi
 
-    # Перебор индексов 1..4 (или больше, если нужно)
+    # Зеркала 1..4
     for i in {1..4}; do
         local R_VAR="SCRIPT_REPO$i"
         local C_VAR="SCRIPT_COMMIT$i"
         if [[ -n "${!R_VAR}" ]]; then
-            # Если для зеркала не указан коммит, берем основной SCRIPT_COMMIT
-            local TARGET_COMMIT="${!C_VAR:-$SCRIPT_COMMIT}"
-            # Если и основного нет, тогда master
-            TARGET_COMMIT="${TARGET_COMMIT:-master}"
+            # Приоритет: Специфичный коммит зеркала -> Общий коммит -> master
+            local TARGET_COMMIT="${!C_VAR:-${SCRIPT_COMMIT:-master}}"
             CMDS+=( "git-mini-clone \"${!R_VAR}\" \"$TARGET_COMMIT\" \"$TARGET_DIR\"" )
         fi
     done
 
-    # Формируем цепочку выполнения
+    # Валидация
     if [[ ${#CMDS[@]} -eq 0 ]]; then
-        log_error "No SCRIPT_REPO defined for stage!"
+        # Пишем в stderr, чтобы не сломать eval/stdout
+        log_error "No SCRIPT_REPO defined for stage!" >&2
         return 1
     fi
 
-    # Скрипт будет пробовать их по очереди, пока одна не вернет 0 (успех)
+    # Формирование цепочки
     local FINAL_CHAIN=""
-    for i in "${!CMDS[@]}"; do
-        if [[ $i -eq 0 ]]; then
-            FINAL_CHAIN="${CMDS[$i]}"
+    for cmd in "${CMDS[@]}"; do
+        if [[ -z "$FINAL_CHAIN" ]]; then
+            FINAL_CHAIN="$cmd"
         else
-            FINAL_CHAIN="$FINAL_CHAIN || ${CMDS[$i]}"
+            FINAL_CHAIN="$FINAL_CHAIN || $cmd"
         fi
     done
 
