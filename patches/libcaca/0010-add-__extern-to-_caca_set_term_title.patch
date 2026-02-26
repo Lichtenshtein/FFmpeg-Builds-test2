@@ -1,0 +1,22 @@
+From 2d4d9add68630bd28f2c8ac7d5887e926f430e8d Mon Sep 17 00:00:00 2001
+From: Anthony Sorge <asorgejr@gmail.com>
+Date: Thu, 14 Dec 2023 22:38:51 -0800
+Subject: [PATCH] Add __extern to _caca_set_term_title
+
+---
+ caca/caca_internals.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/caca/caca_internals.h b/caca/caca_internals.h
+index 6ef510d7..9912743b 100644
+--- a/caca/caca_internals.h
++++ b/caca/caca_internals.h
+@@ -269,7 +269,7 @@ extern int _caca_pop_event(caca_display_t *, caca_privevent_t *);
+ #endif
+ 
+ /* Internal window functions */
+-extern void _caca_set_term_title(char const *);
++__extern void _caca_set_term_title(char const *);
+ 
+ /* Internal memory function */
+ __extern void *_caca_alloc2d(size_t width, size_t height, size_t elem_size);
