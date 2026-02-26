@@ -16,15 +16,38 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --libdir="$FFBUILD_PREFIX/lib"
         --cross-file=/cross.meson
         --buildtype=release
         --default-library=static
         -Denable_asm=true
+        -Denable_tools=false
+        -Denable_tests=false
     )
 
+    # Обработка LTO (Meson использует b_lto)
+    if [[ "$USE_LTO" == "1" ]]; then
+        myconf+=( -Db_lto=true )
+    fi
+
+    # Принудительно указываем путь к nasm, если Meson его "теряет"
+    export NASM="/usr/bin/nasm"
+
+    # Запуск meson setup
     meson setup "${myconf[@]}" ..
+
+    # Сборка и установка
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    # Проверяем, что пути в dav1d.pc корректны для кросс-сборки
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/dav1d.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        # Исправляем возможные абсолютные пути хоста на пути префикса
+        sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
+        # Для статической линковки иногда нужны дополнительные флаги
+        echo "Libs.private: -lm" >> "$PC_FILE"
+    fi
 }
 
 ffbuild_configure() {

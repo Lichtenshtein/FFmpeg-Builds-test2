@@ -25,15 +25,19 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    # Создаем файл версии вручную, чтобы CMake не вызывал Git
-    # Это решает ошибку "list GET given empty list"
-    cat <<EOF > "$X265_ROOT/x265_version.txt"
-3.5
-3.5+20-afa0028
-EOF
-    # Подменяем скрипт версии, чтобы он просто читал наш файл
-    echo 'echo -n 3.5+20-afa0028' > "$X265_ROOT/../version.sh"
-    chmod +x "$X265_ROOT/../version.sh"
+    # Проверяем, почему пропал .git (для логов отладки)
+    if [[ ! -d ".git" ]]; then
+        log_warn "DEBUG: .git directory is MISSING in $(pwd). Preservation failed?"
+        # Если .git нет, создаем файл версии, чтобы CMake не падал
+        echo "3.5" > "$X265_ROOT/x265_version.txt"
+    else
+        log_info "DEBUG: .git directory found. Version should be detected automatically."
+    fi
+
+    # Полностью вырезаем блок определения версии в CMakeLists.txt, 
+    # который вызывает ошибку "list GET", если нет .git
+    sed -i '/if(X265_LATEST_TAG)/,/endif(X265_LATEST_TAG)/d' "$X265_ROOT/CMakeLists.txt"
+    sed -i 's/list(GET /#list(GET /g' "$X265_ROOT/CMakeLists.txt"
 
     # Фикс заголовка json11
     find "$X265_ROOT" -name "json11.cpp" -exec sed -i '1i#include <cstdint>' {} +
@@ -43,13 +47,17 @@ EOF
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_C_FLAGS="$CFLAGS"
         -DCMAKE_CXX_FLAGS="$CXXFLAGS"
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -Wno-dev"
         -DCMAKE_BUILD_TYPE=Release
         -DENABLE_SHARED=OFF
         -DENABLE_CLI=OFF
         -DCMAKE_ASM_NASM_FLAGS=-w-macro-params-legacy
         -DENABLE_ALPHA=ON
         -DENABLE_PIC=ON
+        -DX265_VERSION="3.5"
+        -DX265_LATEST_TAG="3.5"
+        -DX265_TAG_DISTANCE="0"
+        -DCHROME_APP=OFF
     )
 
     mkdir -p 8bit 10bit 12bit
