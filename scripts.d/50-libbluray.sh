@@ -6,7 +6,9 @@ SCRIPT_COMMIT="4dfb9b0123b006ce5d66592dc8058f61e5c0cdc8"
 ffbuild_depends() {
     echo base
     echo libxml2
-    echo fonts
+    echo freetype
+    echo fontconfig
+    echo harfbuzz
     echo libudfread
 }
 

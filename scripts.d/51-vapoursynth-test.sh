@@ -5,6 +5,7 @@ SCRIPT_COMMIT="42a3bba6f0fffe3a397fa3494aadb7be1e2af8de"
 
 ffbuild_depends() {
     echo zlib
+    echo avisynth
     echo zimg
 }
 

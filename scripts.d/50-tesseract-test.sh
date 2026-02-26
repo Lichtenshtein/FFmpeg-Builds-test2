@@ -1,12 +1,15 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/tesseract-ocr/tesseract.git"
-SCRIPT_COMMIT="6e1d56a847e697de07b38619356550e5cf4e8633"
+SCRIPT_COMMIT="397887939a357f166f4674bc1d66bb155795f325"
 
 ffbuild_depends() {
     echo leptonica # Tesseract не живет без Leptonica
     # echo libarchive
-    echo pango # Если нужен качественный рендеринг текста
+    echo libtensorflow-test
+    echo pango
+    echo cairo
+    echo libtiff
 }
 
 ffbuild_enabled() {

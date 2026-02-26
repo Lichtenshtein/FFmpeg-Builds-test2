@@ -44,7 +44,7 @@ find /opt/ffbuild -type d -empty -delete
 
 # Force update of pkg-config paths
 export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
-export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig"
+export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
 # Перед запуском configure убедимся, что линковщик видит DLL-импорты
 # Эти флаги до -Wl нужны для статической линковки glib, так как она используется во многих фильтрах. -lintl -liconv часто конфликтуют с внутренними функциями glibc или самого компилятора, если они не были собраны как строго статические.
 # Если линковка падает с "undefined reference", добавить -Wl,--copy-dt-needed-entries в LDFLAGS

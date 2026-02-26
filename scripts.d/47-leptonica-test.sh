@@ -1,13 +1,15 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/DanBloomberg/leptonica.git"
-SCRIPT_COMMIT="13275a278eb55b5746e33f95fbf5a2c8f604b3ab" # Стабильная версия
+SCRIPT_COMMIT="d85e6c31397f13f9860b0789564d25401fec4d24"
 
 ffbuild_depends() {
     echo zlib
     echo libpng
-    echo libjpeg-turbo # Убедитесь, что у вас есть скрипт для jpeg (например, libjpeg-turbo)
+    echo libjpeg-turbo
     echo libtiff
+    echo brotli
+    echo lcms2
     echo libwebp
     echo giflib
 }
