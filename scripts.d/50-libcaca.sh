@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
 
     # Исправляем конфликты типов для MinGW
     # libcaca часто переопределяет то, что уже есть в Windows заголовках
-    sed -i 's/defined __KERNEL__/1/' caca/caca_types.h.in
+    sed -i 's/defined __KERNEL__/1/' caca/caca_types.h
 
     ./bootstrap
 
@@ -35,7 +35,6 @@ ffbuild_dockerbuild() {
         --host="$FFBUILD_TOOLCHAIN"
         --disable-shared
         --enable-static
-        --disable-extra-programs
         --disable-doc
         --disable-cpp
         --disable-csharp
