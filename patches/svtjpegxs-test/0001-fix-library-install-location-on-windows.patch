@@ -1,0 +1,28 @@
+From e9405aa6bb3a2eee59e86c8510d3ddd2fdafe373 Mon Sep 17 00:00:00 2001
+From: Christoph Reiter <reiter.christoph@gmail.com>
+Date: Thu, 4 Dec 2025 11:12:41 +0100
+Subject: [PATCH] build: fix library install location on Windows
+
+Explicitly specify RUNTIME, ARCHIVE, and LIBRARY destinations
+to ensure proper installation paths on all platforms, particularly
+Windows where DLLs should go in bin/ and import libraries in lib/.
+---
+ Source/Lib/CMakeLists.txt | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/Source/Lib/CMakeLists.txt b/Source/Lib/CMakeLists.txt
+index ba57c0e0..9fea07ff 100644
+--- a/Source/Lib/CMakeLists.txt
++++ b/Source/Lib/CMakeLists.txt
+@@ -88,7 +88,10 @@ if (BUILD_SHARED_LIBS)
+     set(LIB_PKG_CONFIG_EXTRA_CFLAGS " -DDEF_DLL")
+ endif()
+ 
+-install(TARGETS SvtJpegxsLib DESTINATION "${CMAKE_INSTALL_LIBDIR}")
++install(TARGETS SvtJpegxsLib
++      RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
++      ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
++      LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+ 
+ configure_file(pkg-config.pc.in ${CMAKE_BINARY_DIR}/SvtJpegxs.pc @ONLY)
+ install(FILES ${CMAKE_BINARY_DIR}/SvtJpegxs.pc DESTINATION "${CMAKE_INSTALL_LIBDIR}/pkgconfig")

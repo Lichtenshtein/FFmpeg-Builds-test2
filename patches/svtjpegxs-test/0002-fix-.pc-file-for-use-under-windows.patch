@@ -1,0 +1,28 @@
+From 0e98135527cfcec51ca3b078edceba0a34a8dee8 Mon Sep 17 00:00:00 2001
+From: Christoph Reiter <reiter.christoph@gmail.com>
+Date: Thu, 4 Dec 2025 11:08:07 +0100
+Subject: [PATCH] Fix .pc file for use under Windows
+
+Include LIB_PKG_CONFIG_EXTRA_CFLAGS as DEC_PKG_CONFIG_EXTRA_CFLAGS
+does not exist. On Windows this will expand to "-DDEF_DLL" so that
+"dllimport" is enabled in "SvtJpegxs.h".
+
+Rename "EB_DLL" to "DEF_DLL" in Cflags.private. "EB_DLL" does not exist
+and by unsetting "DEF_DLL" we make sure that "dllimport" is not used
+when linking the static lib.
+---
+ Source/Lib/pkg-config.pc.in | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/Source/Lib/pkg-config.pc.in b/Source/Lib/pkg-config.pc.in
+index b5463d6c..9e5d3ba4 100644
+--- a/Source/Lib/pkg-config.pc.in
++++ b/Source/Lib/pkg-config.pc.in
+@@ -8,5 +8,5 @@ Description: SVT (Scalable Video Technology) for JPEG XS library
+ Version: @SVT_LIB_VERSION_MAJOR@.@SVT_LIB_VERSION_MINOR@.@SVT_LIB_VERSION_PATCH@
+ Libs: -L${libdir} -lSvtJpegxs
+ Libs.private: @LIBS_PRIVATE@
+-Cflags: -I${includedir}/svt-jpegxs@DEC_PKG_CONFIG_EXTRA_CFLAGS@
+-Cflags.private: -UEB_DLL
++Cflags: -I${includedir}/svt-jpegxs @LIB_PKG_CONFIG_EXTRA_CFLAGS@
++Cflags.private: -UDEF_DLL
