@@ -45,14 +45,15 @@ find /opt/ffbuild -type d -empty -delete
 # Force update of pkg-config paths
 export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
 export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
+
 # Перед запуском configure убедимся, что линковщик видит DLL-импорты
 # Эти флаги до -Wl нужны для статической линковки glib, так как она используется во многих фильтрах. -lintl -liconv часто конфликтуют с внутренними функциями glibc или самого компилятора, если они не были собраны как строго статические.
 # Если линковка падает с "undefined reference", добавить -Wl,--copy-dt-needed-entries в LDFLAGS
 # Позволяем линкеру искать DLL для конкретных библиотек -Wl,--copy-dt-needed-entries -Wl,--dynamicbase -Wl,--nxcompat
-export LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition -Wl,--copy-dt-needed-entries -Wl,--dynamicbase -Wl,--nxcompat"
-
-# Сборка FFmpeg
-chmod +x configure
+export LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++ -Wl,--allow-multiple-definition -Wl,--copy-dt-needed-entries -Wl,--dynamicbase -Wl,--nxcompat"
+# Расширяем список системных библиотек для ИИ и Сети
+# Это поможет, если какой-то .pc файл (например, openssl или tensorflow) не указал их
+FINAL_EXTRA_LIBS="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32 -lshlwapi -luser32 -ladvapi32 -lbcrypt -lsetupapi -ldbghelp -lpsapi -lruntimeobject"
 
 # Полустатический режим
 # --extra-libs="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32" - системный минимум
@@ -61,6 +62,9 @@ chmod +x configure
 # -lbcrypt - часто нужен для современных версий TensorFlow и OpenSSL.
 # -ldbghelp - нужен для обработки исключений в LibTorch.
 # --extra-libs="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32 -lshlwapi -luser32 -ladvapi32 -lbcrypt -lsetupapi -ldbghelp"
+
+# Сборка FFmpeg
+chmod +x configure
 
 # линковка с --enable-lto может потребовать более 16-32 ГБ RAM. Стандартный раннер GitHub имеет всего 7 ГБ
 CONF_FLAGS=(
@@ -71,7 +75,7 @@ CONF_FLAGS=(
     --extra-ldflags="$FF_LDFLAGS"
     --extra-cxxflags="$FF_CXXFLAGS"
     --extra-ldexeflags="$FF_LDEXEFLAGS"
-    --extra-libs="$FF_LIBS"
+    --extra-libs="$FINAL_EXTRA_LIBS"
     $FF_CONFIGURE
     --enable-filter=vpp_amf
     --enable-filter=sr_amf
@@ -84,15 +88,22 @@ CONF_FLAGS=(
 )
 
 log_info "Running FFmpeg configure..."
-if ! ./configure "${CONF_FLAGS[@]}"; then
+# Перенаправляем stderr в config.log для полноты картины
+if ! ./configure "${CONF_FLAGS[@]}" 2>>ffbuild/config.log; then
     log_error "Configure failed! Check ffbuild/config.log"
     # Выводим последние ошибки из лога (часто там ошибки нехватки библиотек)
-    grep "error:" ffbuild/config.log | tail -n 100
+    tail -n 100 ffbuild/config.log
     exit 1
 fi
 
 # Используем 2 потока, чтобы не перегружать RAM раннера (7GB RAM / 2 ядра)
-make -j$(nproc) $MAKE_V
+# лучше ограничить параллелизм или вовсе собирать в 1 поток, если включен LTO
+if [[ "$FF_CONFIGURE" == *"--enable-lto"* || "$USE_LTO" == "1" ]]; then
+    log_warn "LTO detected. Using single-thread build to prevent OOM Killer."
+    make -j1 $MAKE_V
+else
+    make -j$(nproc) $MAKE_V
+fi
 make install install-doc
 ccache -s
 

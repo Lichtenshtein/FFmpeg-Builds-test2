@@ -22,7 +22,8 @@ export -f log_info log_warn log_error log_debug
 
 if [[ $# -lt 2 ]]; then
     log_error "Invalid Arguments"
-    exit -1
+    # exit -1
+    return 1 2>/dev/null || exit 1
 fi
 
 # Улучшенная проверка: приоритет аргументам, иначе берем из ENV
