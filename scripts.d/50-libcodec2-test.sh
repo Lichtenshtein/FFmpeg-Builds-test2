@@ -35,9 +35,13 @@ ffbuild_dockerbuild() {
         # done
     # fi
 
-    # Исправляем CMakeLists.txt прямо в исходниках, чтобы вырезать ExternalProject
-    # Это надежнее, чем пытаться подсунуть флаги, которые CMake игнорирует
+    # Вырезаем ExternalProject и заменяем его на пустышку
     sed -i '/if(CMAKE_CROSSCOMPILING)/,/endif(CMAKE_CROSSCOMPILING)/c\add_executable(generate_codebook IMPORTED)\nset_target_properties(generate_codebook PROPERTIES IMPORTED_LOCATION /usr/bin/true)' src/CMakeLists.txt
+
+    # Включаем все файлы кодовых книг в список исходников библиотеки.
+    # По умолчанию CMake ждет их генерации в папку build, но мы возьмем их из src.
+    # Мы добавляем их в переменную CODEC2_SRCS прямо в CMakeLists.txt
+    sed -i '/set(CODEC2_SRCS/a \    codebook0.c\n    codebook1.c\n    codebook2.c\n    codebook3.c\n    codebook4.c\n    codebookd.c\n    codebookdt.c\n    codebookge.c\n    codebookjvm.c\n    codebooknewamp1.c\n    codebooknewamp1_energy.c' src/CMakeLists.txt
 
     mkdir build && cd build
 
@@ -71,20 +75,32 @@ ffbuild_dockerbuild() {
 
     cmake "${mycmake[@]}" ..
 
-    # Мы позволяем ExternalProject создаться, но подменяем результат
-    # Создаем структуру папок, которую ожидает ошибочная команда копирования
-    # mkdir -p src/codec2_native/src
+    # Сборка только самой библиотеки (избегаем сборки демо-экзешников, которые и вызывают ошибку LD)
+    # Нам нужен только libcodec2.a для FFmpeg
+    make -j$(nproc) codec2 $MAKE_V
+
+    # Ручная установка, если 'make install' захочет собрать c2enc/c2dec
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/codec2"
+    cp src/libcodec2.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+    cp ../src/codec2.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/codec2/"
     
-    # Создаем пустой файл, который CMake пытается скопировать
-    # Это предотвратит ошибку "Error copying file"
-    # touch src/codec2_native/src/generate_codebook
-    # chmod +x src/codec2_native/src/generate_codebook
+    # Создаем pkg-config файл вручную, так как стандартный может не создаться без полной установки
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/codec2.pc"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
 
-    # make -j$(nproc) codec2 $MAKE_V || true
+Name: codec2
+Description: Next generation digital radio voice codec
+Version: 1.2.0
+Libs: -L\${libdir} -lcodec2
+Cflags: -I\${includedir}/codec2
+EOF
 
-    # Повторный проход на случай, если параллельная сборка что-то пропустила
-    # и финальное "затыкание" дыр
-    # touch src/generate_codebook
+    log_info "SUCCESS: libcodec2.a and pkgconfig manually prepared."
 
     # Проверяем, создалась ли библиотека и есть ли в ней символы
     # if ${FFBUILD_CROSS_PREFIX}nm src/libcodec2.a | grep -q "lsp_cb"; then
@@ -98,8 +114,7 @@ ffbuild_dockerbuild() {
         # done
     # fi
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    # make install DESTDIR="$FFBUILD_DESTDIR"
 
     # Проверка результата (важно для отладки)
     if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libcodec2.a" ]]; then
