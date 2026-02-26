@@ -28,7 +28,14 @@ ffbuild_dockerbuild() {
         done
     fi
 
+    # Фикс для современных компиляторов (json11)
+    # Ищем файл во всем дереве, так как путь может варьироваться
+    find . -name "json11.cpp" -exec sed -i '1i#include <cstdint>' {} +
+
     cd build/linux
+
+    # Фикс проверки endianness
+    sed -i -e 's/EGIB/bss/g' -e 's/naidnePF/bss/g' configure
 
     local myconf=(
         --disable-cli
@@ -44,23 +51,28 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
     )
 
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
+    if [[ $TARGET == win* ]]; then
         myconf+=(
             --host="$FFBUILD_TOOLCHAIN"
             --cross-prefix="$FFBUILD_CROSS_PREFIX"
         )
-    else
-        echo "Unknown target"
-        return 1
+        # Явно указываем ассемблер, чтобы не пропустить оптимизации
+        export AS="nasm" 
     fi
 
-    # Work around configure endian check failing on modern gcc/binutils.
-    # Assumes all supported archs are little endian.
-    sed -i -e 's/EGIB/bss/g' -e 's/naidnePF/bss/g' configure
+    # Добавляем глобальные флаги через --extra-cflags
+    ./configure "${myconf[@]}" --extra-cflags="$CFLAGS" --extra-ldflags="$LDFLAGS"
 
-    ./configure "${myconf[@]}"
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    # Проверка и фикс pkg-config
+    # xavs2 иногда пишет неверные пути в .pc файл при использовании DESTDIR
+    if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/xavs2.pc" ]]; then
+        sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/xavs2.pc"
+        # Для статической линковки в FFmpeg
+        echo "Libs.private: -lstdc++ -lm" >> "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/xavs2.pc"
+    fi
 }
 
 ffbuild_configure() {

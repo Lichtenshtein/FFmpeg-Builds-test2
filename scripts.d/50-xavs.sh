@@ -24,24 +24,53 @@ ffbuild_dockerbuild() {
         done
     fi
 
+    # Исправляем configure, чтобы он не игнорировал внешние CFLAGS (частая беда xavs)
+    sed -i 's/CFLAGS="$CFLAGS -Wall/CFLAGS="$CFLAGS -Wall $EXTRA_CFLAGS/' configure
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --enable-pic
+        --enable-static
+        --disable-shared
     )
 
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
+    if [[ $TARGET == win* ]]; then
         myconf+=(
             --host="$FFBUILD_TOOLCHAIN"
             --cross-prefix="$FFBUILD_CROSS_PREFIX"
         )
-    else
-        echo "Unknown target"
-        return 1
+        # Форсируем использование правильного компилятора через переменные окружения
+        export CC="${FFBUILD_CROSS_PREFIX}gcc"
+        export AR="${FFBUILD_CROSS_PREFIX}ar"
+        export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
     fi
 
-    ./configure "${myconf[@]}"
+    # xavs требует явного указания архитектуры в некоторых случаях
+    ./configure "${myconf[@]}" --extra-cflags="$CFLAGS" --extra-ldflags="$LDFLAGS"
+
     make -j$(nproc) $MAKE_V
+    
+    # Установка
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    # xavs часто не создает корректный pkg-config файл или ставит его не туда.
+    # Если xavs.pc отсутствует, FFmpeg его не найдет.
+    if [[ ! -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/xavs.pc" ]]; then
+        log_info "Creating missing xavs.pc manually..."
+        mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+        cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/xavs.pc"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: xavs
+Description: AVS (Audio Video Standard) encoder library
+Version: r$SCRIPT_REV
+Libs: -L\${libdir} -lxavs -lm
+Cflags: -I\${includedir}
+EOF
+    fi
 }
 
 ffbuild_configure() {
