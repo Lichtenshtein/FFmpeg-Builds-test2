@@ -10,8 +10,10 @@ ffbuild_depends() {
     echo gmp
     echo libxml2
     echo openssl
+    echo freetype
+    echo fontconfig
+    echo harfbuzz
     echo xz
-    echo fonts
     # echo lcevcdec
     echo lcevcdec-test
     echo libvorbis
@@ -19,20 +21,31 @@ ffbuild_depends() {
     echo pulseaudio
     echo vmaf
     echo x11
-    echo vulkan
+    echo vulkan-headers
+    echo vulkan-loader
+    echo shaderc
+    echo spirv-cross
+    echo enable
     echo amf
     echo aom
-    echo aribb24
+    echo libaribb
+    echo libpng
     echo audiotoolbox
     echo avisynth
     echo bs2b
+    echo cdiowpar
     echo cdio
     echo chromaprint
     echo dav1d
     echo davs2
     echo decklink
-    echo dvd
+    echo libdvdcss
+    echo libdvdread
+    echo libdvdnav
+    echo libtiff
+    echo libjpeg-turbo
     echo fdk-aac
+    echo giflib
     echo ffnvcodec
     echo flite-test
     echo frei0r
@@ -49,6 +62,8 @@ ffbuild_depends() {
     echo libcelt
     echo libcodec2-test
     echo libgsm
+    echo brotli
+    echo lcms2
     echo libjxl
     echo libklvanc-test
     echo libmad
@@ -66,7 +81,16 @@ ffbuild_depends() {
     echo libvpx
     echo libwebp
     echo libzmq
+    echo lv2
+    echo serd
+    echo zix
+    echo sord
+    echo sratom
     echo lilv
+    echo mbedtls
+    echo librist
+    echo pango
+    echo cairo
     echo modplug
     echo mp3shine
     echo mpeghe
@@ -102,7 +126,10 @@ ffbuild_depends() {
     echo twolame
     echo uavs3d
     echo uavs3e
-    echo vaapi
+    echo libpciaccess
+    echo libdrm
+    echo libva
+    echo finalize
     # echo vapoursynth-test
     echo vapoursynth-python-test
     echo vidstab

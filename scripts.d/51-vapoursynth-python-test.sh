@@ -10,6 +10,7 @@ PY_LIB="python312" # Без точки для линковки
 
 ffbuild_depends() {
     echo zlib
+    echo avisynth
     echo zimg
 }
 

@@ -4,6 +4,10 @@ SCRIPT_REPO="https://github.com/scimmia9286/aribb24.git"
 SCRIPT_COMMIT="fa54dee41aa38560f02868b24f911a24c33780a8"
 SCRIPT_BRANCH="add-multi-DRCS-plane"
 
+ffbuild_depends() {
+    echo libpng
+}
+
 ffbuild_enabled() {
     return 0
 }
