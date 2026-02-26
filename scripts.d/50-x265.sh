@@ -25,8 +25,18 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    # теперь путь всегда верный относительно корня
-    sed -i '1i#include <cstdint>' "$X265_ROOT/dynamicHDR10/json11/json11.cpp" || true
+    # Создаем файл версии вручную, чтобы CMake не вызывал Git
+    # Это решает ошибку "list GET given empty list"
+    cat <<EOF > "$X265_ROOT/x265_version.txt"
+3.5
+3.5+20-afa0028
+EOF
+    # Подменяем скрипт версии, чтобы он просто читал наш файл
+    echo 'echo -n 3.5+20-afa0028' > "$X265_ROOT/../version.sh"
+    chmod +x "$X265_ROOT/../version.sh"
+
+    # Фикс заголовка json11
+    find "$X265_ROOT" -name "json11.cpp" -exec sed -i '1i#include <cstdint>' {} +
 
     local common_config=(
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
