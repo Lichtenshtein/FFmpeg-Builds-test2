@@ -13,6 +13,21 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+
+    # Определяем реальный корень исходников (там, где папка 'source')
+    if [[ -d "source" ]]; then
+        X265_ROOT="$PWD/source"
+    elif [[ -f "CMakeLists.txt" && "$PWD" == *"/source" ]]; then
+        X265_ROOT="$PWD"
+        cd ..
+    else
+        log_error "Could not find x265 source directory"
+        return 1
+    fi
+
+    # теперь путь всегда верный относительно корня
+    sed -i '1i#include <cstdint>' "$X265_ROOT/dynamicHDR10/json11/json11.cpp" || true
+
     local common_config=(
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -24,33 +39,34 @@ ffbuild_dockerbuild() {
         -DENABLE_CLI=OFF
         -DCMAKE_ASM_NASM_FLAGS=-w-macro-params-legacy
         -DENABLE_ALPHA=ON
+        -DENABLE_PIC=ON
     )
 
-    sed -i '1i#include <cstdint>' source/dynamicHDR10/json11/json11.cpp
+    mkdir -p 8bit 10bit 12bit
 
     if [[ $TARGET != *32 ]]; then
-        mkdir -p 8bit 10bit 12bit
-        
-        # 12-bit core
-        cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -DMAIN12=ON -S source -B 12bit
+
+        log_info "Building 12-bit x265..."
+        cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -DMAIN12=ON -S "$X265_ROOT" -B 12bit
         make -C 12bit -j$(nproc) $MAKE_V
 
-        # 10-bit core
-        cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -S source -B 10bit
+        log_info "Building 10-bit x265..."
+        cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -S "$X265_ROOT" -B 10bit
         make -C 10bit -j$(nproc) $MAKE_V
 
-        # 8-bit main (linking to 10 and 12)
-        # Копируем либы в корень 8bit, чтобы CMake их увидел через -DEXTRA_LIB
+        log_info "Building 8-bit x265 (combined)..."
+        # Копируем либы для финальной линковки
         cp 12bit/libx265.a 8bit/libx265_main12.a
         cp 10bit/libx265.a 8bit/libx265_main10.a
-        
+
         cmake "${common_config[@]}" \
             -DEXTRA_LIB="libx265_main10.a;libx265_main12.a" \
             -DLINKED_10BIT=ON -DLINKED_12BIT=ON \
-            -S source -B 8bit
+            -S "$X265_ROOT" -B 8bit
         make -C 8bit -j$(nproc) $MAKE_V
 
-        # Объединяем в финальную либу
+        # Объединяем библиотеки через MRI скрипт для ar
+        # используем кросс-архивный AR
         cd 8bit
         mv libx265.a libx265_8bit.a
         ${AR} -M <<EOF
@@ -61,16 +77,21 @@ ADDLIB libx265_main12.a
 SAVE
 END
 EOF
+        # Возвращаемся в корень билда
+        cd ..
     else
-        mkdir 8bit
-        cd 8bit
-        cmake "${common_config[@]}" ../source
-        make -j$(nproc) $MAKE_V
+        log_info "Building 8-bit x265 (32-bit target)..."
+        cmake "${common_config[@]}" -S "$X265_ROOT" -B 8bit
+        make -C 8bit -j$(nproc) $MAKE_V
     fi
 
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    # Установка из папки 8bit (которая содержит объединенную либу)
+    make -C 8bit install DESTDIR="$FFBUILD_DESTDIR"
 
-    echo "Libs.private: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/x265.pc
+    # Фикс pkg-config для статической линковки
+    if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/x265.pc" ]]; then
+        sed -i 's/Libs: /Libs.private: -lstdc++ -lgcc_s -lgcc -lmingwex -lmingw32\nLibs: /' "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/x265.pc"
+    fi
 }
 
 ffbuild_configure() {
@@ -79,12 +100,4 @@ ffbuild_configure() {
 
 ffbuild_unconfigure() {
     echo --disable-libx265
-}
-
-ffbuild_cflags() {
-    return 0
-}
-
-ffbuild_ldflags() {
-    return 0
 }
