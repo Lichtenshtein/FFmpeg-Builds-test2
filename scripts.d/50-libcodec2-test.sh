@@ -24,16 +24,16 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/libcodec2-test" ]]; then
-        for patch in "/builder/patches/libcodec2-test"/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-            fi
-        done
-    fi
+    # if [[ -d "/builder/patches/libcodec2-test" ]]; then
+        # for patch in "/builder/patches/libcodec2-test"/*.patch; do
+            # log_info "APPLYING PATCH: $patch"
+            # if patch -p1 -N -r - < "$patch"; then
+                # log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+            # else
+                # log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+            # fi
+        # done
+    # fi
 
     # Исправляем CMakeLists.txt прямо в исходниках, чтобы вырезать ExternalProject
     # Это надежнее, чем пытаться подсунуть флаги, которые CMake игнорирует
