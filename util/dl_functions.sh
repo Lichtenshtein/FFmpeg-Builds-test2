@@ -8,9 +8,9 @@ export -f retry-tool
 # Вспомогательная функция для надежного выполнения сетевых команд
 _retry() {
     local n=1
-    local max=3  # Достаточно для нестабильных соединений
+    local max=3
     local delay=5
-    local timeout_val=300 # 20 минут на одну операцию
+    local timeout_val=300
     
     while true; do
         if timeout "$timeout_val" "$@"; then
@@ -20,7 +20,7 @@ _retry() {
                 log_warn "Warning: Command failed: '$*'. Attempt $n/$max. Retrying in ${delay}s..."
                 sleep "$delay"
                 ((n++))
-                delay=$((delay + 10)) # Экспоненциальная задержка
+                delay=$((delay + 10))
             else
                 log_error "Error: Command '$1' failed after $max attempts: $*"
                 return 1
@@ -144,7 +144,6 @@ download_file() {
     local DEST="$2"
     local SHA512="$3"
 
-    # Проверка существующего файла (логика из check-wget.sh)
     if [[ -f "$DEST" ]]; then
         if [[ -n "$SHA512" ]]; then
             if echo "$SHA512  $DEST" | sha512sum -c --status 2>/dev/null; then
@@ -189,15 +188,14 @@ git-submodule-clone() {
     log_warn "Standard submodule update failed, trying manual foreach..."
 
     # используем || return 1, чтобы если foreach упадет, функция сразу вернула ошибку
+    # 1. Сброс локальных изменений, которые могут мешать checkout
+    # 2. Получаем данные напрямую
+    # 3. Пытаемся переключиться на нужный коммит (записанный в основном репозитории)
+    # Обычно это FETCH_HEAD после fetch, если мы тянем конкретный коммит
     git submodule foreach --recursive '
         echo "Processing submodule: $name"
-        # Сброс локальных изменений, которые могут мешать checkout
         git reset --hard HEAD && git clean -fd
-
-        # Получаем данные напрямую
         if _retry git fetch --quiet --no-tags --depth=1 origin; then
-            # Пытаемся переключиться на нужный коммит (записанный в основном репозитории)
-            # Обычно это FETCH_HEAD после fetch, если мы тянем конкретный коммит
             git checkout -q FETCH_HEAD || git checkout -q $(git config -f $top_level/.gitmodules submodule.$name.branch || echo "master")
         else
             echo "Failed to fetch submodule $name"
@@ -225,7 +223,7 @@ svn-mini-clone() {
     log_info "Fetching SVN: $REPO@$REV"
     mkdir -p "$TARGET_DIR"
 
-    # Добавляем --username 'anonymous' и --password '' как в оригинале
+    # Добавляем --username 'anonymous' и --password ''
     # Добавляем --trust-server-cert для обхода проблем с SSL
     if _retry svn export --non-interactive \
         --username 'anonymous' --password '' \
@@ -242,6 +240,8 @@ svn-mini-clone() {
 
 default_dl() {
     local TARGET_DIR="${1:-.}"
+    # Формируем цепочку попыток для Git
+    local CMDS=()
 
     # Если это SVN
     if [[ -n "$SCRIPT_REV" ]]; then
@@ -249,31 +249,37 @@ default_dl() {
         return
     fi
 
-    # Формируем цепочку попыток для Git
-    local CMDS=()
-
-    # Основной Git репозиторий
-    CMDS+=( "git-mini-clone \"$SCRIPT_REPO\" \"${SCRIPT_COMMIT:-master}\" \"$TARGET_DIR\"" )
+    # Собираем основной репозиторий
+    if [[ -n "$SCRIPT_REPO" ]]; then
+        CMDS+=( "git-mini-clone \"$SCRIPT_REPO\" \"${SCRIPT_COMMIT:-master}\" \"$TARGET_DIR\"" )
+    fi
 
     # Перебор индексов 1..4 (или больше, если нужно)
     for i in {1..4}; do
         local R_VAR="SCRIPT_REPO$i"
         local C_VAR="SCRIPT_COMMIT$i"
-        # Если переменная репозитория существует (не пустая)
         if [[ -n "${!R_VAR}" ]]; then
-            # Используем коммит этого индекса, или основной, если индексного нет
+            # Если для зеркала не указан коммит, берем основной SCRIPT_COMMIT
             local TARGET_COMMIT="${!C_VAR:-$SCRIPT_COMMIT}"
+            # Если и основного нет, тогда master
+            TARGET_COMMIT="${TARGET_COMMIT:-master}"
             CMDS+=( "git-mini-clone \"${!R_VAR}\" \"$TARGET_COMMIT\" \"$TARGET_DIR\"" )
         fi
     done
 
+    # Формируем цепочку выполнения
+    if [[ ${#CMDS[@]} -eq 0 ]]; then
+        log_error "No SCRIPT_REPO defined for stage!"
+        return 1
+    fi
+
     # Скрипт будет пробовать их по очереди, пока одна не вернет 0 (успех)
     local FINAL_CHAIN=""
-    for cmd in "${CMDS[@]}"; do
-        if [[ -z "$FINAL_CHAIN" ]]; then
-            FINAL_CHAIN="$cmd"
+    for i in "${!CMDS[@]}"; do
+        if [[ $i -eq 0 ]]; then
+            FINAL_CHAIN="${CMDS[$i]}"
         else
-            FINAL_CHAIN="$FINAL_CHAIN || $cmd"
+            FINAL_CHAIN="$FINAL_CHAIN || ${CMDS[$i]}"
         fi
     done
 

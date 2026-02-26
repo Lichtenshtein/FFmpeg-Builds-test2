@@ -5,7 +5,11 @@ SCRIPT_COMMIT="aa1bc0d1a6dfd70dbb9f60c11df12441e03a9075"
 
 ffbuild_depends() {
     echo base
-    echo vulkan
+    echo vulkan-headers
+    echo vulkan-loader
+    echo glslang-test
+    echo shaderc
+    echo spirv-cross
     echo opencl
     echo openvino
 }

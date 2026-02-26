@@ -5,9 +5,11 @@ SCRIPT_COMMIT="fadc390583f24eb5cf98f16925fd3adee50bca88"
 
 ffbuild_depends() {
     echo base
-    echo fonts
-    echo fribidi
     echo libiconv
+    echo freetype
+    echo fontconfig
+    echo harfbuzz
+    echo fribidi
 }
 
 ffbuild_enabled() {

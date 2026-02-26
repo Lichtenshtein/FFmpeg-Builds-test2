@@ -5,7 +5,9 @@ SCRIPT_COMMIT="27cf3cab26084d636905335d92c375ecbc3633ea"
 
 ffbuild_depends() {
     echo base
-    echo fonts
+    echo freetype
+    echo fontconfig
+    echo harfbuzz
 }
 
 ffbuild_enabled() {

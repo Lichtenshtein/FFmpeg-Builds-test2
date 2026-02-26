@@ -9,6 +9,11 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_depends() {
+    echo libdvdcss
+    echo libdvdread
+}
+
 ffbuild_dockerdl() {
     default_dl .
 }

@@ -7,6 +7,10 @@ ffbuild_enabled() {
     return 0
 }
 
+ffbuild_depends() {
+    echo libdvdcss
+}
+
 ffbuild_dockerdl() {
     default_dl .
 }
