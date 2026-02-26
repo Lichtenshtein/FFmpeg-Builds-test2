@@ -35,27 +35,17 @@ ffbuild_dockerbuild() {
         # done
     # fi
 
-    # Вырезаем ExternalProject и заменяем его на пустышку
+    # Сначала полностью вырезаем проблемный блок ExternalProject
+    # Мы заменяем его на пустышку, чтобы CMake не ругался на отсутствие цели generate_codebook
     sed -i '/if(CMAKE_CROSSCOMPILING)/,/endif(CMAKE_CROSSCOMPILING)/c\add_executable(generate_codebook IMPORTED)\nset_target_properties(generate_codebook PROPERTIES IMPORTED_LOCATION /usr/bin/true)' src/CMakeLists.txt
-
-    # Включаем все файлы кодовых книг в список исходников библиотеки.
-    # По умолчанию CMake ждет их генерации в папку build, но мы возьмем их из src.
-    # Мы добавляем их в переменную CODEC2_SRCS прямо в CMakeLists.txt
-    sed -i '/set(CODEC2_SRCS/a \    codebook0.c\n    codebook1.c\n    codebook2.c\n    codebook3.c\n    codebook4.c\n    codebookd.c\n    codebookdt.c\n    codebookge.c\n    codebookjvm.c\n    codebooknewamp1.c\n    codebooknewamp1_energy.c' src/CMakeLists.txt
 
     mkdir build && cd build
 
-    # Создаем "заглушку" для генератора кодов. 
-    # не нужно ничего генерировать, так как в репо уже есть пред-сгенерированные файлы.
-    # cat <<EOF > fake_gen
-## !/bin/sh
-# exit 0
-# EOF
-    # chmod +x fake_gen
-
-    # вырезаем ExternalProject, который мучает билд
-    # Удаляем все упоминания codec2_native из всех файлов
-    # find . -name "src/CMakeLists.txt" -exec sed -i '/codec2_native/d' {} +
+    # В репозитории codec2 файлы кодовых книг лежат в папке 'src'.
+    # Мы создадим в папке build симлинки на них, чтобы CMake их увидел как "сгенерированные"
+    for f in ../src/codebook*.c; do
+        ln -sf "$f" "$(basename "$f")"
+    done
 
     local mycmake=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -67,6 +57,7 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=OFF
         # -DGENERATE_CODEBOOKS=OFF
         # -DGENERATE_CODEBOOK="$(pwd)/../fake_gen"
+        -DGENERATE_CODEBOOK=/usr/bin/true
         -DUNITTEST=OFF
         -DINSTALL_EXAMPLES=OFF
         # Дополнительные флаги для кросс-компиляции
@@ -75,18 +66,33 @@ ffbuild_dockerbuild() {
 
     cmake "${mycmake[@]}" ..
 
-    # Сборка только самой библиотеки (избегаем сборки демо-экзешников, которые и вызывают ошибку LD)
-    # Нам нужен только libcodec2.a для FFmpeg
-    make -j$(nproc) codec2 $MAKE_V
+    # Сборка только библиотеки. 
+    # Если 'make codec2' все еще капризничает из-за отсутствия исходников,
+    # мы скомпилируем их вручную и добавим в архив.
+    if ! make -j$(nproc) codec2 $MAKE_V; then
+        log_warn "Standard make failed, performing manual object compilation..."
+        # Компилируем все .c файлы из папки src
+        for f in ../src/*.c; do
+            [[ "$f" == *"generate_codebook.c"* ]] && continue
+            ${CC} ${CFLAGS} -I../src -I. -c "$f" -o "$(basename "${f%.c}.obj")"
+        done
+        ${AR} rcs src/libcodec2.a *.obj
+    fi
 
-    # Ручная установка, если 'make install' захочет собрать c2enc/c2dec
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
+    # Установка
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/codec2"
-    cp src/libcodec2.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+    
+    # Проверяем, где в итоге оказался файл
+    if [[ -f "src/libcodec2.a" ]]; then
+        cp src/libcodec2.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+    elif [[ -f "libcodec2.a" ]]; then
+        cp libcodec2.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+    fi
+
     cp ../src/codec2.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/codec2/"
     
-    # Создаем pkg-config файл вручную, так как стандартный может не создаться без полной установки
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    # Генерируем pkg-config
     cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/codec2.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
@@ -100,28 +106,11 @@ Libs: -L\${libdir} -lcodec2
 Cflags: -I\${includedir}/codec2
 EOF
 
-    log_info "SUCCESS: libcodec2.a and pkgconfig manually prepared."
-
-    # Проверяем, создалась ли библиотека и есть ли в ней символы
-    # if ${FFBUILD_CROSS_PREFIX}nm src/libcodec2.a | grep -q "lsp_cb"; then
-        # log_info "Codec2 library looks good (symbols found)."
-    # else
-        # log_warn "Symbols missing in libcodec2.a, forcing object compilation..."
-        # Если символов нет, принудительно компилируем codebook.c из папки src
-        # for f in ../src/codebook*.c; do
-            # ${CC} ${CFLAGS} -c "$f" -o "src/$(basename $f).obj"
-            # ${AR} rcs src/libcodec2.a "src/$(basename $f).obj"
-        # done
-    # fi
-
-    # make install DESTDIR="$FFBUILD_DESTDIR"
-
-    # Проверка результата (важно для отладки)
+    # Проверка финального наличия
     if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libcodec2.a" ]]; then
-        log_info "SUCCESS: libcodec2.a created."
+        log_info "SUCCESS: libcodec2.a is ready."
     else
-        log_error "FAILURE: libcodec2.a not found in destdir."
-        ls -R "$FFBUILD_DESTDIR"
+        log_error "CRITICAL: libcodec2.a still missing!"
         exit 1
     fi
 
