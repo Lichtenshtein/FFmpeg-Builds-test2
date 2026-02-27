@@ -1,0 +1,26 @@
+From 74d03cbe9215cece3f0e1d78c43bcb4f2b06c471 Mon Sep 17 00:00:00 2001
+From: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Date: Sun, 15 Feb 2026 19:50:05 +0000
+Subject: [PATCH] Fix memory leak: delete utterance on synthesis failure in
+ flite_text_to_ipa
+
+Co-Authored-By: tom mottes <tom.mottes@gmail.com>
+---
+ src/synth/flite.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/src/synth/flite.c b/src/synth/flite.c
+index 99c946e..9cb1fe4 100644
+--- a/src/synth/flite.c
++++ b/src/synth/flite.c
+@@ -533,7 +533,10 @@ void flite_text_to_ipa(const char *text,
+              uttfunc_val(&ipa_no_op_synth));
+ 
+     if (utt_synth(u) == NULL)
++    {
++        delete_utterance(u);
+         return;
++    }
+ 
+     if (cst_streq(outtype,"play") || cst_streq(outtype,"stream") || cst_streq(outtype,"none"))
+         print_ipa_transcription(u, stdout);
