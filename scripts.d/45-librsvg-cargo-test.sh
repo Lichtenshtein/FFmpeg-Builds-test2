@@ -3,6 +3,18 @@
 SCRIPT_REPO="https://github.com/GNOME/librsvg.git"
 SCRIPT_COMMIT="28b37154cddfda8a0782ee684f34a18964384b41"
 
+ffbuild_depends() {
+    echo zlib
+    echo xz
+    echo bzlib
+    echo libxml2
+    echo glib2
+    echo brotli
+    echo cairo
+    echo pango
+    echo dav1d
+}
+
 ffbuild_enabled() {
     return 0
 }

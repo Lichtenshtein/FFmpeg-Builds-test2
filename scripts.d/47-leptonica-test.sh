@@ -12,6 +12,7 @@ ffbuild_depends() {
     echo lcms2
     echo libwebp
     echo giflib
+    echo libarchive
 }
 
 ffbuild_enabled() {
@@ -38,7 +39,11 @@ ffbuild_dockerbuild() {
         -DENABLE_WEBP=ON
         -DENABLE_GIF=ON
         -DENABLE_ZLIB=ON
+        -DENABLE_LIBARCHIVE=ON
     )
+
+    # Добавляем LTO если включено в workflow
+    [[ "$USE_LTO" == "1" ]] && myconf+=( -DENABLE_LTO=ON )
 
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS" \
@@ -50,10 +55,19 @@ ffbuild_dockerbuild() {
 
     # Исправляем pkg-config для статической линковки Tesseract
     # Leptonica иногда не прописывает зависимости в Libs.private
-    sed -i 's/Libs.private:/Libs.private: -lwebp -lsharpyuv -ltiff -ljpeg -lpng16 -lgif -lz -lm -lshlwapi /' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/lept.pc
-    
+    # sed -i 's/Libs.private:/Libs.private: -lwebp -lsharpyuv -ltiff -ljpeg -lpng16 -lgif -lz -lm -lshlwapi /' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/lept.pc
+
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lept.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        # Добавляем системные либы Windows
+        sed -i 's/Libs.private:/& -lshlwapi -lws2_32 /' "$PC_FILE"
+        # Указываем зависимости через Requires.private (предпочтительный способ)
+        sed -i '/^Requires.private:/ s/$/ libwebp libsharpyuv libtiff-4 libpng16 zlib /' "$PC_FILE" || \
+        echo "Requires.private: libwebp libsharpyuv libtiff-4 libpng16 zlib" >> "$PC_FILE"
+    fi
+
     # Создаем симлинк, если Tesseract ищет leptonica.pc вместо lept.pc
-    ln -sf lept.pc "$FFBUILD_DESTPREFIX"/lib/pkgconfig/leptonica.pc
+    ln -sf lept.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/leptonica.pc"
 }
 
 ffbuild_configure() {
