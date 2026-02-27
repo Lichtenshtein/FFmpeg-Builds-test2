@@ -40,8 +40,8 @@ index d85fe1a..2eb57f2 100644
 --- a/src/synth/flite.c
 +++ b/src/synth/flite.c
 @@ -44,12 +44,16 @@
- #include "cst_clunits.h"
- #include "cst_cg.h"
+     return u;
+ }
  
 +#ifdef FLITE_STATIC
 +#define GLOBALVARDEF

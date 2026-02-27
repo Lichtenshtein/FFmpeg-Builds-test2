@@ -1,0 +1,29 @@
+From e7144f0c43f6c9c8f33ecbbf907772cf5e43c6ef Mon Sep 17 00:00:00 2001
+From: Claude Heiland-Allen <claude@mathr.co.uk>
+Date: Sat, 11 Nov 2023 15:09:00 +0000
+Subject: [PATCH] add EXEEXT when installing binaries
+
+---
+ main/Makefile | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/main/Makefile b/main/Makefile
+index 8166182..a4fb491 100644
+--- a/main/Makefile
++++ b/main/Makefile
+@@ -152,12 +152,12 @@ $(BINDIR)/flite_${VOICE}: flite_main.o flite_lang_list $(flite_LIBS_deps)
+ 
+ install:
+ #       The basic binaries
+-	@ $(INSTALL) -m 755 $(BINDIR)/flite $(DESTDIR)$(INSTALLBINDIR)
++	@ $(INSTALL) -m 755 $(BINDIR)/flite$(EXEEXT) $(DESTDIR)$(INSTALLBINDIR)
+ 	@ for i in $(VOICES) ; \
+ 	do \
+-	   $(INSTALL) $(BINDIR)/flite_$$i $(DESTDIR)$(INSTALLBINDIR); \
++	   $(INSTALL) $(BINDIR)/flite_$$i$(EXEEXT) $(DESTDIR)$(INSTALLBINDIR); \
+ 	done
+-	$(INSTALL) -m 755 $(BINDIR)/flite_time $(DESTDIR)$(INSTALLBINDIR)
++	$(INSTALL) -m 755 $(BINDIR)/flite_time$(EXEEXT) $(DESTDIR)$(INSTALLBINDIR)
+ #       The libraries: static and shared (if built)
+ 	cp $(CP_FLAGS) $(flite_LIBS_deps) $(DESTDIR)$(INSTALLLIBDIR)
+ ifdef SHFLAGS

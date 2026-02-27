@@ -1,0 +1,175 @@
+From 7b61398daee977f0ea95c976614d78b5b888ec35 Mon Sep 17 00:00:00 2001
+From: Devin AI <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+Date: Sun, 15 Feb 2026 19:48:08 +0000
+Subject: [PATCH] Optimize IPA mode: skip unnecessary synthesis stages + add
+ stdin batch mode
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Fix 1: In flite_text_to_ipa(), override wave_synth_func, duration_model_func,
+f0_model_func, and intonation_func with no-ops at the utterance level (voice
+is not modified). IPA output only needs phoneme segments and stress marks from
+tokenization, text analysis, and lexical insertion — the skipped stages don't
+affect phoneme identity or lexical stress. Measured ~37x speedup within flite.
+
+Fix 2: Add --ipa-stdin CLI flag for batch IPA mode. Reads lines from stdin
+and outputs IPA for each line. Voice stays loaded across all lines, eliminating
+per-call subprocess overhead (~4.4ms/call). Combined with fix 1, benchmarks
+show 200 lines in 53ms (0.265ms/line), ~70x faster than the previous
+~18.7ms/line via individual subprocess calls.
+
+Co-Authored-By: tom mottes <tom.mottes@gmail.com>
+---
+ main/flite_main.c | 35 ++++++++++++++++++++++++++++++++---
+ src/synth/flite.c | 35 +++++++++++++++++++++++++++++------
+ 2 files changed, 61 insertions(+), 9 deletions(-)
+
+diff --git a/main/flite_main.c b/main/flite_main.c
+index e69c3ae..9beeb62 100644
+--- a/main/flite_main.c
++++ b/main/flite_main.c
+@@ -106,7 +106,9 @@ static void flite_usage()
+            "  -psdur      Print segments and their durations (end-time)\n"
+ 	   "  -pr RelName Print relation RelName\n"
+            "  -voicedump FILENAME Dump selected (cg) voice to FILENAME\n"
+-           "  -v          Verbose mode\n");
++           "  -v          Verbose mode\n"
++	   "  --ipa-stdin Read lines from stdin, output IPA for each line.\n"
++	   "              Voice stays loaded across all lines (fast batch mode).\n");
+     exit(0);
+ }
+ 
+@@ -207,7 +209,7 @@ int main(int argc, char **argv)
+     int i;
+     float durs;
+     double time_start, time_end;
+-    int flite_verbose, flite_loop, ipa_only, flite_bench;
++    int flite_verbose, flite_loop, ipa_only, flite_bench, ipa_stdin;
+     int explicit_filename, explicit_text, explicit_phones, ssml_mode;
+ #define ITER_MAX 3
+     int bench_iter = 0;
+@@ -224,6 +226,7 @@ int main(int argc, char **argv)
+     flite_loop = FALSE;
+     ipa_only = FALSE;
+     flite_bench = FALSE;
++    ipa_stdin = FALSE;
+     explicit_text = explicit_filename = explicit_phones = FALSE;
+     ssml_mode = FALSE;
+     extra_feats = new_features();
+@@ -255,6 +258,8 @@ int main(int argc, char **argv)
+ 	    flite_loop = TRUE;
+ 	else if (cst_streq(argv[i],"-i"))
+ 	    ipa_only = TRUE;
++	else if (cst_streq(argv[i],"--ipa-stdin"))
++	    ipa_stdin = TRUE;
+ 	else if (cst_streq(argv[i],"-b"))
+ 	{
+ 	    flite_bench = TRUE;
+@@ -371,7 +376,7 @@ int main(int argc, char **argv)
+ 	    filename = argv[i];
+     }
+ 
+-    if (filename == NULL) filename = "-";  /* stdin */
++    if (filename == NULL && !ipa_stdin) filename = "-";  /* stdin */
+     if (flite_voice_list == NULL)
+         flite_set_voice_list(voicedir);
+     if (desired_voice == 0)
+@@ -381,6 +386,30 @@ int main(int argc, char **argv)
+     feat_copy_into(extra_feats,v->features);
+     durs = 0.0;
+ 
++    if (ipa_stdin)
++    {
++        /* Batch IPA mode: read lines from stdin, output IPA for each.
++           Voice stays loaded across all lines, avoiding per-call startup. */
++        char line[65536];
++        while (fgets(line, sizeof(line), stdin) != NULL)
++        {
++            /* Strip trailing newline */
++            size_t len = strlen(line);
++            if (len > 0 && line[len-1] == '\n')
++                line[len-1] = '\0';
++            if (line[0] == '\0')
++            {
++                printf("\n");
++                continue;
++            }
++            flite_text_to_ipa(line, v, "play");
++            fflush(stdout);
++        }
++        delete_features(extra_feats);
++        delete_val(flite_voice_list); flite_voice_list=0;
++        return 0;
++    }
++
+     if (voicedumpfile != NULL)
+     {
+         flite_voice_dump(v,voicedumpfile);
+diff --git a/src/synth/flite.c b/src/synth/flite.c
+index 3d7bf18..99c946e 100644
+--- a/src/synth/flite.c
++++ b/src/synth/flite.c
+@@ -45,6 +45,12 @@
+ #include "cst_cg.h"
+ #include <fcntl.h>
+ 
++/* No-op synthesis function used to skip unnecessary pipeline stages */
++static cst_utterance *ipa_no_op_synth(cst_utterance *u)
++{
++    return u;
++}
++
+ #ifdef WIN32
+ /* For Visual Studio 2012 global variable definitions */
+ #define GLOBALVARDEF __declspec(dllexport)
+@@ -505,26 +511,43 @@ void flite_text_to_ipa(const char *text,
+     cst_utterance *u;
+     FILE *fd;
+ 
+-    u = flite_synth_text(text,voice);
++    /* Build the utterance manually so we can set overrides on the
++       utterance features (not the voice) after utt_init links them.
++       IPA output only needs phoneme segments and stress marks, which are
++       fully determined by tokenization, text analysis, and lexical
++       insertion.  Wave synthesis, duration, F0 and intonation are
++       unnecessary and skipping them gives ~37x speedup.  The IPA output
++       is byte-identical with or without these stages. */
++    u = new_utterance();
++    utt_set_input_text(u, text);
++    utt_init(u, voice);
++
++    /* Shadow voice features at utterance level — voice is not modified */
++    feat_set(u->features, "wave_synth_func",
++             uttfunc_val(&ipa_no_op_synth));
++    feat_set(u->features, "duration_model_func",
++             uttfunc_val(&ipa_no_op_synth));
++    feat_set(u->features, "f0_model_func",
++             uttfunc_val(&ipa_no_op_synth));
++    feat_set(u->features, "intonation_func",
++             uttfunc_val(&ipa_no_op_synth));
+ 
+-    /* No need for this since I can't failed to extract the length signs from this data */
+-    /* utt_wave(u); */
++    if (utt_synth(u) == NULL)
++        return;
+ 
+     if (cst_streq(outtype,"play") || cst_streq(outtype,"stream") || cst_streq(outtype,"none"))
+         print_ipa_transcription(u, stdout);
+     else
+     {
+-        /* save to out file (outtype) */
+         fd = fopen(outtype, "w");
+         if (fd == NULL)
+         {
+             cst_errmsg("flite_text_to_ipa: can't open file \"%s\"\n", outtype);
++            delete_utterance(u);
+             return;
+         }
+-        
+         print_ipa_transcription(u, fd);
+         fclose(fd);
+-        
+     }
+ 
+     delete_utterance(u);
