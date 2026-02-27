@@ -7,6 +7,7 @@ ffbuild_depends() {
     echo zlib
     echo libpng
     echo libjpeg-turbo
+    echo openjpeg
     echo libtiff
     echo brotli
     echo lcms2
@@ -40,6 +41,8 @@ ffbuild_dockerbuild() {
         -DENABLE_GIF=ON
         -DENABLE_ZLIB=ON
         -DENABLE_LIBARCHIVE=ON
+        -DCMAKE_PREFIX_PATH="$FFBUILD_PREFIX"
+        -DPKG_CONFIG_EXECUTABLE=$(which pkg-config)
     )
 
     # Добавляем LTO если включено в workflow
