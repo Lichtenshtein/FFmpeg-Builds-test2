@@ -10,14 +10,23 @@ This fork is an advanced FFmpeg build system optimized for the Intel Xeon E5 (Br
 
 - LTO (Link Time Optimization) support: Stable LTO support for Windows (MinGW) has been implemented, which allows you to reduce the size of binaries and increase code execution speed through inter-module optimization.
 
-- Improved AI and OCR integration:
-Tesseract OCR 5.x: Full OCR support (including Leptonica, Pango, Cairo and Libarchive dependencies).
+### Successfully Implemented:
+
+- Improved AI and OCR integration: Tesseract OCR 5.x: Full OCR support (including Leptonica, Pango, Cairo and Libarchive dependencies).
 
 - Libflite: Integration of Speech Synthesis with support for all built-in voices (including CMU Arctic).
 
 - QTFiles Automation: The build now automatically includes and packages the necessary DLLs (CoreAudioToolbox, etc.) from the QTFiles project, allowing the aac_at encoder to work out of the box without installing iTunes.
 
 - Fixed dependency chains: Successfully resolved compilation issues for complex components such as libarchive (with CNG/Crypto support) and zstd (with multithreading support).
+
+- zstd (v1.6.0): Implemented full multithreading support (ZSTD_MULTITHREAD) for Windows. Optimized for BMI2 (Xeon Broadwell) instructions. Fixed critical CMake configuration error (CXX initialization). Static linking with correct forwarding -lpthread to libzstd.pc.
+
+- libarchive (v3.7.x): Includes support for Windows CNG (Crypto Next Generation) for hardware encryption. Integrated support for formats: zstd, xz, bzip2, openssl and libxml2. Cleared of unnecessary utilities (bsdtar/bsdcpio), leaving only a clean static library for FFmpeg.
+
+- lcms2 (v2.18): Built with support for multithreading (threaded) and acceleration of floating point calculations (fast_float). Full static linking, optimized for SSE2 and modern Broadwell instructions.
+
+- librsvg (Cargo-based): Completed cross-compiled Rust build chain, including cairo and pango dependencies.
 
 ### Implementation status:
 
