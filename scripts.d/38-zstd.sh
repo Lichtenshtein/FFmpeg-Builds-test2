@@ -27,6 +27,8 @@ ffbuild_dockerbuild() {
         -DZSTD_BUILD_CONTRIB=OFF
         -DZSTD_MULTITHREAD_SUPPORT=ON
         -DZSTD_LEGACY_SUPPORT=ON
+        # Принудительно включаем CXX на уровне языков проекта
+        -DCMAKE_CXX_COMPILER="$CXX"
     )
 
     # Добавляем LTO если включено в workflow
@@ -36,11 +38,15 @@ ffbuild_dockerbuild() {
 
     # Добавляем -DCMAKE_CXX_COMPILER, чтобы CMake инициализировал CXX
     # и не падал на проверке флагов AddZstdCompilationFlags
+    # Если CMake все еще сопротивляется, добавим явную инициализацию языков
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        -DCMAKE_CXX_COMPILER="$CXX" \
-        ..
+        .. || {
+            log_warn "Standard CMake failed, trying with forced languages..."
+            # Альтернативный подход: передаем языки через командную строку
+            cmake "${myconf[@]}" -DLANGUAGES="C;CXX" ..
+        }
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
