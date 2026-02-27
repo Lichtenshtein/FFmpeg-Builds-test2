@@ -61,11 +61,13 @@ ffbuild_depends() {
     echo libcaca
     echo libcelt
     echo libcodec2-test
+    echo libarchive
     echo libgsm
     echo brotli
     echo lcms2
     echo libjxl
     echo libklvanc-test
+    echo zstd
     echo libmad
     echo libmp3lame
     echo libmpeghdec-test

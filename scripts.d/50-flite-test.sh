@@ -16,7 +16,7 @@ ffbuild_dockerbuild() {
     if [[ -d "/builder/patches/flite-test" ]]; then
         for patch in /builder/patches/flite-test/*.patch; do
             log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
+            if patch -p1 -N -r - -l < "$patch"; then
                 log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
             else
                 log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
@@ -60,7 +60,7 @@ ffbuild_dockerbuild() {
         cp -v "$BUILDIR"/*.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
     else
         log_error "Could not find compiled libraries in build/ folder!"
-        exit 1
+        return 1
     fi
 
     # Копируем заголовки

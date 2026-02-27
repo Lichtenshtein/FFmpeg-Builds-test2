@@ -4,12 +4,13 @@ SCRIPT_REPO="https://github.com/tesseract-ocr/tesseract.git"
 SCRIPT_COMMIT="397887939a357f166f4674bc1d66bb155795f325"
 
 ffbuild_depends() {
-    echo leptonica # Tesseract не живет без Leptonica
-    # echo libarchive
+    echo leptonica-test
+    echo libarchive
     echo libtensorflow-test
     echo pango
     echo cairo
     echo libtiff
+    echo openssl
 }
 
 ffbuild_enabled() {
@@ -23,18 +24,23 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     mkdir build && cd build
 
-    # Tesseract требует C++17 и выше
+    # Настройка флагов для C++17 и статики
+    export CXXFLAGS="$CXXFLAGS -std=c++17 -D_WIN32"
+
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=OFF
-        -DENABLE_TERMINAL_REPORTING=OFF
-        -DOPENMP=ON
-        -DCPPAN_BUILD=OFF
-        -DGRAPHICS_OPTIMIZATIONS=ON
-        -DSW_BUILD=OFF
+        -DBUILD_TESTS=OFF
         -DBUILD_TRAINING_TOOLS=OFF
+        -DCPPAN_BUILD=OFF
+        -DENABLE_TERMINAL_REPORTING=OFF
+        -DGRAPHICS_OPTIMIZATIONS=ON
+        -DOPENMP=ON
+        -DSW_BUILD=OFF
+        # Явно указываем зависимости, чтобы CMake не искал системные
+        -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica"
     )
 
     # Добавляем LTO если включено в workflow
@@ -43,6 +49,7 @@ ffbuild_dockerbuild() {
     # Принудительно отключаем поиск Pango, если не хотим проблем с линковкой
     # cmake "${myconf[@]}" -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica" ..
 
+    # Tesseract должен найти Leptonica через pkg-config
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
@@ -51,10 +58,20 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # Исправляем pkg-config для статической линковки в FFmpeg
-    # Tesseract часто забывает прописать зависимости leptonica в Requires.private
-    if ! grep -q "leptonica" "$FFBUILD_DESTPREFIX"/lib/pkgconfig/tesseract.pc; then
-        sed -i 's/Libs.private:/& -lleptonica -larchive -lpng16 -ljpeg -lz -lws2_32 /' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/tesseract.pc
+    # Корректируем tesseract.pc для статической линковки
+    # используем Requires.private, чтобы pkg-config сам вытянул зависимости зависимостей
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/tesseract.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        log_info "Patching tesseract.pc for static linking..."
+        # Добавляем необходимые системные либы для Windows и зависимости
+        sed -i '/Libs.private:/ s/$/ -lws2_32 -lbcrypt -luser32 -ladvapi32/' "$PC_FILE"
+        # Убеждаемся, что leptonica в списке зависимостей
+        # FFmpeg должен знать, что tesseract требует leptonica, pango и libarchive
+        if ! grep -q "Requires.private:" "$PC_FILE"; then
+            echo "Requires.private: leptonica pango cairo libarchive" >> "$PC_FILE"
+        else
+            sed -i '/^Requires.private:/ s/$/ leptonica pango cairo libarchive/' "$PC_FILE"
+        fi
     fi
 }
 
