@@ -14,7 +14,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     # zstd требует запуска CMake из поддиректории build/cmake
     cd build/cmake
-    mkdir builddir && cd builddir
+    rm -rf builddir && mkdir builddir && cd builddir
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -34,9 +34,12 @@ ffbuild_dockerbuild() {
         myconf+=( -DZSTD_USE_LTO=ON )
     fi
 
+    # Добавляем -DCMAKE_CXX_COMPILER, чтобы CMake инициализировал CXX
+    # и не падал на проверке флагов AddZstdCompilationFlags
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
+        -DCMAKE_CXX_COMPILER="$CXX" \
         ..
 
     make -j$(nproc) $MAKE_V
