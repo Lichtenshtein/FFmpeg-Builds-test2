@@ -1,3 +1,37 @@
+## FFmpeg Custom Build
+
+This fork is an advanced FFmpeg build system optimized for the Intel Xeon E5 (Broadwell) architecture using GCC 14 and Ubuntu 24.04.
+
+### Key changes and improvements:
+
+- Architectural optimization: All components are built with the -march=broadwell -mtune=broadwell -O3 flags, which ensures maximum performance on Xeon E5 v4 series processors.
+
+- Docker Build Kit Infrastructure: Using --mount=type=cache for ccache and downloads, which reduces rebuild time on GitHub Actions by 60-80%.
+
+- LTO (Link Time Optimization) support: Stable LTO support for Windows (MinGW) has been implemented, which allows you to reduce the size of binaries and increase code execution speed through inter-module optimization.
+
+- Improved AI and OCR integration:
+Tesseract OCR 5.x: Full OCR support (including Leptonica, Pango, Cairo and Libarchive dependencies).
+
+- Libflite: Integration of Speech Synthesis with support for all built-in voices (including CMU Arctic).
+
+- QTFiles Automation: The build now automatically includes and packages the necessary DLLs (CoreAudioToolbox, etc.) from the QTFiles project, allowing the aac_at encoder to work out of the box without installing iTunes.
+
+- Fixed dependency chains: Successfully resolved compilation issues for complex components such as libarchive (with CNG/Crypto support) and zstd (with multithreading support).
+
+### Implementation status:
+
+Added to the current build:
+
+[x] libflite (Speech Synthesis)
+[x] zstd (libzstd with activated multithreading for static builds)
+[x] libarchive (Universal Archive Support)
+[x] lcms2 (Little CMS)
+[x] pango / cairo (Advanced Text Rendering)
+[_] libtesseract (OCR Engine)
+
+---
+
 # FFmpeg Static Auto-Builds
 
 Static Windows (x86_64) and Linux (x86_64) Builds of ffmpeg master and latest release branch.
