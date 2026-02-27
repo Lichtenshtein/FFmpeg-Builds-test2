@@ -34,4 +34,6 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}"
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    ln -sf libpng.pc "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libpng16.pc
 }
