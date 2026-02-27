@@ -13,53 +13,63 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # if [[ -d "/builder/patches/flite-test" ]]; then
-        # for patch in /builder/patches/flite-test/*.patch; do
-            # log_info "APPLYING PATCH: $patch"
-            # if patch -p1 -N -r - < "$patch"; then
-                # log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            # else
-                # log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-            # fi
-        # done
-    # fi
+    if [[ -d "/builder/patches/flite-test" ]]; then
+        for patch in /builder/patches/flite-test/*.patch; do
+            log_info "APPLYING PATCH: $patch"
+            if patch -p1 -N -r - < "$patch"; then
+                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+            else
+                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+            fi
+        done
+    fi
 
-    ./configure \
-        --host="$FFBUILD_TOOLCHAIN" \
-        --prefix="$FFBUILD_PREFIX" \
-        --with-audio=none \
-        --with-mmap=win32 \
-        --with-lang=usenglish \
-        --with-lex=cmulex \
-        --with-vox=all \
-        --enable-shared=no \
-        --enable-static=yes \
-        --with-pic \
-        --disable-sockets \
-        CFLAGS="$CFLAGS -D_WIN32 -DWAIT_ANY=-1" \
-        LDFLAGS="$LDFLAGS"
+    local myconf=(
+        --host="$FFBUILD_TOOLCHAIN"
+        --prefix="$FFBUILD_PREFIX"
+        --with-audio=none
+        --with-mmap=win32
+        --with-lang=usenglish
+        --with-lex=cmulex
+        --with-vox=all
+        --enable-shared=no
+        --with-pic
+        --disable-sockets
+    )
 
-    # В оригинальном flite make install часто не создает папки, создадим их заранее
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{lib,include/flite,lib/pkgconfig}
+    # Добавляем LTO если включено в workflow
+    if [[ "$USE_LTO" == "1" ]]; then
+        log_info "LTO is enabled for $STAGENAME"
+        export CFLAGS="$CFLAGS -flto"
+        export LDFLAGS="$LDFLAGS -flto"
+    fi
+
+    # Flite не понимает --enable-static, он делает её по умолчанию при --enable-shared=no
+    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -D_WIN32 -DWAIT_ANY=-1" LDFLAGS="$LDFLAGS"
+
+    # Предварительное создание структуры
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{lib/pkgconfig,include/flite}
 
     make -j$(nproc) $MAKE_V
     # make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # Ручная установка (так надежнее для кросс-компиляции flite)
-    # Копируем основную библиотеку и библиотеки голосов
-    find build/x86_64-w64-mingw32/lib -name "*.a" -exec cp -v {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/" \;
+    # Динамический поиск папки с либами (fix для x86_64-mingw32 vs x86_64-w64-mingw32)
+    local BUILDIR=$(find build -maxdepth 2 -type d -name "lib" | head -n 1)
+    if [[ -d "$BUILDIR" ]]; then
+        log_info "Found build libraries in $BUILDIR"
+        cp -v "$BUILDIR"/*.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+    else
+        log_error "Could not find compiled libraries in build/ folder!"
+        exit 1
+    fi
 
     # Копируем заголовки
     cp -v include/*.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/flite/"
 
-    # Чтобы FFmpeg увидел все возможности, нужно перечислить основные библиотеки
-    # Мы добавляем -lflite_cmu_us_kal (стандарт) и другие найденные при сборке $VOX_LIBS
-    local VOX_LIBS=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "libflite_*.a" | sed 's/.*lib\/\(lib\)\(.*\)\.a/-l\2/' | xargs)
+    # Собираем список всех библиотек для Libs (согласно flite.pc.in и реальности)
+    # Порядок важен: сначала голоса и лексиконы, в конце -lflite
+    local VOX_LIBS=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "libflite_*.a" | sed "s|.*/lib\(flite_.*\)\.a|-l\1|" | xargs)
 
-    # Генерация правильного pkg-config (добавляем все необходимые части либы)
-    # Flite после сборки CMake часто разбивается на несколько .a файлов, 
-    # но нам нужен основной flite
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
     cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/flite.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
@@ -67,10 +77,9 @@ libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include/flite
 
 Name: flite
-Description: Festival Lite Speech Synthesis System
+Description: a text to speech library
 Version: 2.3.0
-Libs: -L\${libdir} -lflite -lflite_cmu_grapheme_lang -lflite_cmu_grapheme_lex -lflite_cmu_indic_lang -lflite_cmu_indic_lex -lflite_cmulex -lflite_cmu_time_awb -lflite_cmu_us_awb -lflite_cmu_us_kal16 -lflite_cmu_us_kal -lflite_cmu_us_rms -lflite_cmu_us_slt -lflite_usenglish -lm -lws2_32 
-Libs.private: -lm
+Libs: -L\${libdir} $VOX_LIBS -lflite -lm -lws2_32
 Cflags: -I\${includedir}
 EOF
 }
