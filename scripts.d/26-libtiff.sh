@@ -42,7 +42,9 @@ ffbuild_dockerbuild() {
         -Dtiff-tools=OFF
         -Dtiff-tests=OFF
         -Dtiff-docs=OFF
+        -Dtiff-opengl=ON
         -Djpeg=ON
+        -Dzstd=ON
         -Dzlib=ON
         -Dlzma=ON
         -Dwebp=OFF
@@ -53,6 +55,9 @@ ffbuild_dockerbuild() {
     cmake "${myconf[@]}" -DCMAKE_C_FLAGS="$CFLAGS" -S . -B tiff_build
     make -C tiff_build -j$(nproc) $MAKE_V
     make -C tiff_build install DESTDIR="$FFBUILD_DESTDIR"
+
+    # проверить, как называется созданный .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
+    ln -sf libtiff-4.pc "$FFBUILD_DESTPREFIX"/lib/pkgconfig/tiff.pc
 }
 
 ffbuild_configure() {

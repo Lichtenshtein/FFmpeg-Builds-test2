@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://chromium.googlesource.com/webm/libwebp"
-SCRIPT_COMMIT="45102247a82396fabac5241c64305b13ed711335"
+SCRIPT_REPO="https://github.com/webmproject/libwebp.git"
+SCRIPT_COMMIT="f342dfc1756785df8803d25478bf664c0de629de"
 
 ffbuild_enabled() {
     return 0
@@ -16,28 +16,22 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
         --disable-shared
         --enable-static
         --with-pic
-        --enable-libwebpmux
-        --disable-libwebpextras
-        --disable-libwebpdemux
-        --disable-sdl
-        --disable-gl
-        --disable-png
-        --disable-jpeg
-        --disable-tiff
-        --disable-gif
+        # --enable-libwebpmux
+        # --enable-libwebpextras
+        # --enable-libwebpdemux
+        --enable-everything
+        --enable-sdl
+        # --disable-gl
+        --with-gl
+        --enable-png
+        --enable-jpeg
+        --enable-tiff
+        --enable-gif
     )
-
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --host="$FFBUILD_TOOLCHAIN"
-        )
-    else
-        echo "Unknown target"
-        return 1
-    fi
 
     ./configure "${myconf[@]}"
     make -j$(nproc) $MAKE_V

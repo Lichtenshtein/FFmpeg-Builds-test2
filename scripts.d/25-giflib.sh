@@ -37,9 +37,6 @@ Version: 5.2.2
 Libs: -L\${libdir} -lgif
 Cflags: -I\${includedir}
 EOF
-
-    # проверить, как называется созданный им .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
-    ln -sf libtiff-4.pc "$FFBUILD_DESTPREFIX"/lib/pkgconfig/tiff.pc
 }
 
 ffbuild_configure() {

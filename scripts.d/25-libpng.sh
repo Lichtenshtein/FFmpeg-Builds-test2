@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/glennrp/libpng.git"
-SCRIPT_COMMIT="0f07f70aa55e4771d00b0f8a238dca992fbb60e4"
+SCRIPT_COMMIT="0094fdbf3743c238effb88aa92cf2a2ea23ade4a"
 
 ffbuild_depends() {
     echo base
@@ -24,6 +24,8 @@ ffbuild_dockerbuild() {
         --host="$FFBUILD_TOOLCHAIN"
         --disable-shared
         --enable-static
+        --disable-tests
+        --disable-tools
         --with-pic
     )
 
