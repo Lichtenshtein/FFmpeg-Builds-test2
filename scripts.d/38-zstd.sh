@@ -12,6 +12,10 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    # Исправляем CMakeLists.txt ПЕРЕД запуском, чтобы избежать ошибки CXX
+    # Добавляем CXX в список языков проекта
+    sed -i '/LANGUAGES C/s/C/C CXX/' build/cmake/CMakeLists.txt
+
     # zstd требует запуска CMake из поддиректории build/cmake
     cd build/cmake
     rm -rf builddir && mkdir builddir && cd builddir
@@ -25,10 +29,14 @@ ffbuild_dockerbuild() {
         -DZSTD_BUILD_PROGRAMS=OFF
         -DZSTD_BUILD_TESTS=OFF
         -DZSTD_BUILD_CONTRIB=OFF
-        -DZSTD_MULTITHREAD_SUPPORT=ON
-        -DZSTD_LEGACY_SUPPORT=ON
         # Принудительно включаем CXX на уровне языков проекта
         -DCMAKE_CXX_COMPILER="$CXX"
+        # Включаем многопоточность (важно для FFmpeg)
+        -DZSTD_MULTITHREAD_SUPPORT=ON
+        # Включаем поддержку старых форматов для совместимости
+        -DZSTD_LEGACY_SUPPORT=ON
+        # Оптимизация под современные CPU (Xeon Broadwell поддерживает BMI2)
+        -DZSTD_SPECIAL_TARGET=OFF
     )
 
     # Добавляем LTO если включено в workflow
@@ -38,24 +46,28 @@ ffbuild_dockerbuild() {
 
     # Добавляем -DCMAKE_CXX_COMPILER, чтобы CMake инициализировал CXX
     # и не падал на проверке флагов AddZstdCompilationFlags
-    # Если CMake все еще сопротивляется, добавим явную инициализацию языков
+    # Принудительно передаем CXX компилятор
     cmake "${myconf[@]}" \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
+        -DCMAKE_C_FLAGS="$CFLAGS -DZSTD_MULTITHREAD" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        .. || {
-            log_warn "Standard CMake failed, trying with forced languages..."
-            # Альтернативный подход: передаем языки через командную строку
-            cmake "${myconf[@]}" -DLANGUAGES="C;CXX" ..
-        }
+        -DCMAKE_CXX_COMPILER="$CXX" \
+        ..
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # Исправляем pkg-config для Windows (добавляем pthread, если включен multithreading)
+    # --- КОРРЕКЦИЯ PKG-CONFIG (Согласно Readme для MT=1) ---
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libzstd.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # В MinGW для мультипоточности нужен pthread
-        sed -i 's/Libs.private:/& -lpthread /' "$PC_FILE"
+        log_info "Applying multithreaded flags to libzstd.pc"
+        # Для статической линковки в MinGW обязательно нужен -lpthread
+        if ! grep -q "\-lpthread" "$PC_FILE"; then
+            sed -i 's/Libs.private:/& -lpthread /' "$PC_FILE"
+        fi
+        # Добавляем макрос многопоточности в флаги компиляции
+        if ! grep -q "\-DZSTD_MULTITHREAD" "$PC_FILE"; then
+            sed -i 's/Cflags:/& -DZSTD_MULTITHREAD /' "$PC_FILE"
+        fi
     fi
 }
 
