@@ -29,7 +29,7 @@ on:
       debug_no_hash:
         description: 'Debug: Do not recalculate VARS_HASH (Preserve Docker cache)'
         type: boolean
-        default: false
+        default: true
       skip_ffmpeg:
         description: 'Skip final FFmpeg compilation (Component test only)'
         type: boolean
@@ -37,7 +37,7 @@ on:
       dedupe_flags:
         description: 'Deduplicate LDFLAGS/LIBS (Disable if link errors occur)'
         type: boolean
-        default: true
+        default: false
       use_wine:
         description: 'Enable Wine for tests/conftest (auto/on/off)'
         required: false
