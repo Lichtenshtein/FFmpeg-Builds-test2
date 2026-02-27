@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
         -Dfreetype=enabled
         -Dglib=enabled
         -Dgobject=disabled
-        -Dcairo=disabled
+        -Dcairo=enabled
         -Dchafa=disabled
         -Dtests=disabled
         -Dintrospection=disabled
