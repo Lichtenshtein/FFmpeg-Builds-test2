@@ -12,17 +12,34 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # Правим Makefile для кросс-компиляции
-    sed -i "s|CC      = gcc|CC      = $CC|" Makefile
-    sed -i "s|AR      = ar|AR      = $AR|" Makefile
-    sed -i "s|RANLIB  = ranlib|RANLIB  = $RANLIB|" Makefile
+    # Принудительно используем кросс-инструменты
+    sed -i "s|^CC      =.*|CC      = $CC|" Makefile
+    sed -i "s|^AR      =.*|AR      = $AR|" Makefile
+    sed -i "s|^RANLIB  =.*|RANLIB  = $RANLIB|" Makefile
 
     make -j$(nproc) $MAKE_V libgif.a
-    
+
     # Ручная установка, так как штатный install хочет в /usr/local
-    mkdir -p "$FFBUILD_DESTPREFIX"/include "$FFBUILD_DESTPREFIX"/lib
-    cp gif_lib.h "$FFBUILD_DESTPREFIX"/include/
-    cp libgif.a "$FFBUILD_DESTPREFIX"/lib/
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{include,lib,lib/pkgconfig}
+    cp gif_lib.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
+    cp libgif.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+
+    # Генерируем pkg-config файл вручную
+    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/giflib.pc"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: giflib
+Description: Library for reading and writing GIF files
+Version: 5.2.2
+Libs: -L\${libdir} -lgif
+Cflags: -I\${includedir}
+EOF
+
+    # проверить, как называется созданный им .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
+    ln -sf libtiff-4.pc "$FFBUILD_DESTPREFIX"/lib/pkgconfig/tiff.pc
 }
 
 ffbuild_configure() {
