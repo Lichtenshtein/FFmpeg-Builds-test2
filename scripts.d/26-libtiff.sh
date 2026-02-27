@@ -5,6 +5,7 @@ SCRIPT_COMMIT="258102cceb42584ee29abba411a0a609f4c432a9"
 
 ffbuild_depends() {
     echo zlib
+    echo xz
     echo libjpeg-turbo
 }
 
