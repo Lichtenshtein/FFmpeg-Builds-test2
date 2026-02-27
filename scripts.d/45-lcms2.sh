@@ -20,6 +20,7 @@ ffbuild_dockerbuild() {
         -Dutils=false
         -Dfastfloat=true
         -Dthreaded=true
+        -Dtests=false
     )
 
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
