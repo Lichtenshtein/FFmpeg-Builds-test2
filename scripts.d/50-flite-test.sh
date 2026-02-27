@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Используем CMake-порт для стабильной кросс-компиляции
-SCRIPT_REPO="https://github.com/univrsal/flite.git"
-SCRIPT_COMMIT="a9d8a3b60a859ee1bd1d4a1379996902c4acb6e2"
+SCRIPT_REPO="https://github.com/Tomotz/flite.git"
+SCRIPT_COMMIT="6ff94c999339a26281180c8b4ba3c89f2e1fcdf9"
+SCRIPT_BRANCH="tomm-dump-ipa"
 
 ffbuild_enabled() {
     return 0
@@ -13,49 +13,49 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/flite-test" ]]; then
-        for patch in /builder/patches/flite-test/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # return 1 # если нужно прервать сборку при ошибке
-            fi
-        done
-    fi
+    # if [[ -d "/builder/patches/flite-test" ]]; then
+        # for patch in /builder/patches/flite-test/*.patch; do
+            # log_info "APPLYING PATCH: $patch"
+            # if patch -p1 -N -r - < "$patch"; then
+                # log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+            # else
+                # log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+            # fi
+        # done
+    # fi
 
-    # Исправляем POSIX-зависимость в сокетах для Windows
-    # отключаем содержимое файла, так как WITH_AUDIO=OFF все равно делает его ненужным
-    echo "/* Disabled for MinGW */" > src/utils/cst_socket.c
+    ./configure \
+        --host="$FFBUILD_TOOLCHAIN" \
+        --prefix="$FFBUILD_PREFIX" \
+        --with-audio=none \
+        --with-mmap=win32 \
+        --with-lang=usenglish \
+        --with-lex=cmulex \
+        --with-vox=all \
+        --enable-shared=no \
+        --enable-static=yes \
+        --with-pic \
+        --disable-sockets \
+        CFLAGS="$CFLAGS -D_WIN32 -DWAIT_ANY=-1" \
+        LDFLAGS="$LDFLAGS"
 
-    # Создаем стандартную структуру для CMake
-    mkdir build && cd build
-
-    # Настраиваем CMake для MinGW
-    # -DCMAKE_POSITION_INDEPENDENT_CODE=ON для статики
-    cmake \
-        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
-        -DBUILD_SHARED_LIBS=OFF \
-        -DINSTALL_EXAMPLES=OFF \
-        -DWITH_AUDIO=OFF \
-        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-        ..
+    # В оригинальном flite make install часто не создает папки, создадим их заранее
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{lib,include/flite,lib/pkgconfig}
 
     make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    # make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # некоторые порты Flite ставят либы в /lib/x86_64-w64-mingw32/
-    # Переносим их в стандартный /lib, чтобы FFmpeg их нашел
-    if [ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/x86_64-w64-mingw32" ]; then
-        mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/x86_64-w64-mingw32"/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
-        rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/x86_64-w64-mingw32"
-    fi
+    # Ручная установка (так надежнее для кросс-компиляции flite)
+    # Копируем основную библиотеку и библиотеки голосов
+    find build/x86_64-w64-mingw32/lib -name "*.a" -exec cp -v {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/" \;
+
+    # Копируем заголовки
+    cp -v include/*.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/flite/"
+
+    # Чтобы FFmpeg увидел все возможности, нужно перечислить основные библиотеки
+    # Мы добавляем -lflite_cmu_us_kal (стандарт) и другие найденные при сборке $VOX_LIBS
+    local VOX_LIBS=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "libflite_*.a" | sed 's/.*lib\/\(lib\)\(.*\)\.a/-l\2/' | xargs)
+
     # Генерация правильного pkg-config (добавляем все необходимые части либы)
     # Flite после сборки CMake часто разбивается на несколько .a файлов, 
     # но нам нужен основной flite
@@ -64,12 +64,13 @@ ffbuild_dockerbuild() {
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
-includedir=\${prefix}/include
+includedir=\${prefix}/include/flite
 
 Name: flite
 Description: Festival Lite Speech Synthesis System
-Version: 2.1.0
-Libs: -L\${libdir} -lflite -lm -lws2_32
+Version: 2.3.0
+Libs: -L\${libdir} -lflite -lflite_cmu_grapheme_lang -lflite_cmu_grapheme_lex -lflite_cmu_indic_lang -lflite_cmu_indic_lex -lflite_cmulex -lflite_cmu_time_awb -lflite_cmu_us_awb -lflite_cmu_us_kal16 -lflite_cmu_us_kal -lflite_cmu_us_rms -lflite_cmu_us_slt -lflite_usenglish -lm -lws2_32 
+Libs.private: -lm
 Cflags: -I\${includedir}
 EOF
 }

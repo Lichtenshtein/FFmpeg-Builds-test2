@@ -1,0 +1,23 @@
+From e67e10636f37f9e21e62a45bc8984f8c3c5c52a2 Mon Sep 17 00:00:00 2001
+From: Daniel Finke <danielfinke2011@gmail.com>
+Date: Wed, 18 Feb 2026 12:29:59 -0800
+Subject: [PATCH] newer texi2html compat fix
+
+`-number` -> `-number-sections`
+---
+ doc/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/doc/Makefile b/doc/Makefile
+index 3ac77bb..8cf9eb4 100644
+--- a/doc/Makefile
++++ b/doc/Makefile
+@@ -50,7 +50,7 @@ doc: flite.html flite.pdf
+ flite.html: flite.texi
+ 	@ if [ ! -d html ] ; \
+           then mkdir -p html ; fi
+-	(cd html; texi2any --set-customization-variable TEXI2HTML=1  --split=chapter ../flite.texi)
++	(cd html; texi2any --set-customization-variable TEXI2HTML=1 -number-sections --split=chapter ../flite.texi)
+ 	@ if [ -d html/flite ] ; \
+ 	  then mv html/flite/*.html html ; \
+                rmdir html/flite; fi
