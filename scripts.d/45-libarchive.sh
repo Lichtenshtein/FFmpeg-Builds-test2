@@ -21,7 +21,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    mkdir build && cd build
+    rm -rf build_dir
+    mkdir build_dir
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -53,10 +54,10 @@ ffbuild_dockerbuild() {
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        ..
+        -S . -B build_dir
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -C build_dir -j$(nproc) $MAKE_V
+    make -C build_dir install DESTDIR="$FFBUILD_DESTDIR"
 
     # Исправляем .pc файл для статической линковки
     # Libarchive часто не прописывает зависимости от системных либ Windows
