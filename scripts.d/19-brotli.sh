@@ -25,3 +25,7 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 }
+
+ffbuild_cflags() {
+    echo "-DBROTLI_STATIC"
+}

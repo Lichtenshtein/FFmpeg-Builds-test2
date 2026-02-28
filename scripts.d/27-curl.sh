@@ -8,6 +8,7 @@ ffbuild_depends() {
     echo zlib
     echo zstd
     echo brotli
+    echo libssh
 }
 
 ffbuild_enabled() {
@@ -21,6 +22,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     # Генерируем configure, так как работаем с git-репозиторием
     autoreconf -fi
+
+    export CFLAGS="$CFLAGS -DLIBSSH_STATIC -DBROTLI_STATIC"
+
+    export LIBS="-lssh -lbrotlidec -lbrotlicommon -lws2_32 -lcrypt32 -lwldap32 -lnormaliz -lbcrypt -liphlpapi"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -37,8 +42,14 @@ ffbuild_dockerbuild() {
         --with-zstd
         --with-openssl
         --with-libssh
+        --with-brotli
         --without-libpsl
         --enable-doh
+        --enable-ech
+        --with-ngtcp2
+        --with-nghttp3
+        --with-quiche
+        --with-nghttp2
         --enable-cookies
         --enable-aws
         --enable-ntlm
@@ -52,20 +63,15 @@ ffbuild_dockerbuild() {
         --disable-docs
     )
 
-    # Принудительная статическая линковка зависимостей
-    export LIBS="-lws2_32 -lcrypt32 -lwldap32 -lnormaliz -lbcrypt"
-
     ./configure "${myconf[@]}" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # Патчим .pc файл для корректной линковки FFmpeg с curl
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libcurl.pc"
     if [[ -f "$PC_FILE" ]]; then
         log_info "Patching libcurl.pc for static linking..."
-        # Гарантируем наличие всех системных библиотек Windows в Libs.private
-        sed -i '/Libs.private:/ s/$/ -lws2_32 -lcrypt32 -lwldap32 -lnormaliz -lbcrypt/' "$PC_FILE"
+        sed -i '/Libs.private:/ s/$/ -lssh -lbrotlidec -lbrotlicommon -lws2_32 -lcrypt32 -lwldap32 -lnormaliz -lbcrypt -liphlpapi/' "$PC_FILE"
     fi
 }
 
