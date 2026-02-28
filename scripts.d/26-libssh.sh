@@ -41,6 +41,7 @@ ffbuild_dockerbuild() {
         sed -i '/^Cflags:/ s/$/ -DLIBSSH_STATIC/' "$PC_FILE"
         echo "Libs.private: -lws2_32 -liphlpapi -lpthread" >> "$PC_FILE"
     fi
+}
 
 ffbuild_cflags() {
     echo "-DLIBSSH_STATIC"
