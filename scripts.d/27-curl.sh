@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/lexiforest/curl-impersonate.git"
-SCRIPT_COMMIT="78ff740b21c0911d63c6ee31b55a11a7c2f293cf"
+SCRIPT_REPO="https://github.com/curl/curl.git"
+SCRIPT_COMMIT="bcc8144b896a49738cd60cbbe8e4f8e6f70461ef"
 
 ffbuild_depends() {
     echo openssl
