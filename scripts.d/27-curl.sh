@@ -23,8 +23,10 @@ ffbuild_dockerbuild() {
     # Генерируем configure, так как работаем с git-репозиторием
     autoreconf -fi
 
-    export CPPFLAGS="$CPPFLAGS -DLIBSSH_STATIC -DBROTLI_STATIC -I$FFBUILD_PREFIX/include"
-    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
+    unset CFLAGS CPPFLAGS
+    export CPPFLAGS="$CPPFLAGS -DLIBSSH_STATIC -DBROTLI_STATIC -I$FFBUILD_PREFIX/include -D_FORTIFY_SOURCE=2"
+    export CFLAGS="-O3 -march=broadwell -mtune=broadwell -static-libgcc -static-libstdc++ -pipe -fstack-protector-strong"
+    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib -static"
     export LIBS="-lssh -lbrotlidec -lbrotlicommon -lzstd -lws2_32 -lcrypt32 -lwldap32 -lnormaliz -lbcrypt -liphlpapi"
 
     local myconf=(
@@ -47,9 +49,9 @@ ffbuild_dockerbuild() {
         --enable-doh
         --enable-ech
         --with-ngtcp2
-        --with-nghttp3
-        --with-quiche
-        --with-nghttp2
+        # --with-nghttp3
+        # --with-quiche
+        # --with-nghttp2
         --enable-cookies
         --enable-aws
         --enable-ntlm
@@ -63,7 +65,11 @@ ffbuild_dockerbuild() {
         --disable-docs
     )
 
-    ./configure "${myconf[@]}" CPPFLAGS="$CPPFLAGS" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS"
+    ./configure "${myconf[@]}" \
+        CPPFLAGS="$CPPFLAGS" \
+        CFLAGS="$CFLAGS" \
+        LDFLAGS="$LDFLAGS" \
+        LIBS="$LIBS"
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
