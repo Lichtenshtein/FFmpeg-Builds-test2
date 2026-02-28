@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '10-mingw-std-threads|10-mingw|15-base|18-zlib|16-libicu|23-jbigkit'
+        default: '10-mingw-std-threads|10-mingw|15-base|16-libicu'
         # default: '.*'
       doClean:
         description: 'Clean cache before build (Full Rebuild)'
