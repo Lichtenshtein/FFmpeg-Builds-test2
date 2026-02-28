@@ -7,6 +7,7 @@ ffbuild_depends() {
     echo zlib
     echo xz
     echo libjpeg-turbo
+    echo jbigkit
 }
 
 ffbuild_enabled() {
