@@ -23,9 +23,9 @@ ffbuild_dockerbuild() {
     # Генерируем configure, так как работаем с git-репозиторием
     autoreconf -fi
 
-    export CFLAGS="$CFLAGS -DLIBSSH_STATIC -DBROTLI_STATIC"
-
-    export LIBS="-lssh -lbrotlidec -lbrotlicommon -lws2_32 -lcrypt32 -lwldap32 -lnormaliz -lbcrypt -liphlpapi"
+    export CPPFLAGS="$CPPFLAGS -DLIBSSH_STATIC -DBROTLI_STATIC -I$FFBUILD_PREFIX/include"
+    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
+    export LIBS="-lssh -lbrotlidec -lbrotlicommon -lzstd -lws2_32 -lcrypt32 -lwldap32 -lnormaliz -lbcrypt -liphlpapi"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -63,7 +63,7 @@ ffbuild_dockerbuild() {
         --disable-docs
     )
 
-    ./configure "${myconf[@]}" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
+    ./configure "${myconf[@]}" CPPFLAGS="$CPPFLAGS" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" LIBS="$LIBS"
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
