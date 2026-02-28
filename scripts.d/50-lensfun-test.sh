@@ -29,7 +29,8 @@ ffbuild_dockerbuild() {
             fi
         done
     fi
-    python3 -m pip install build --break-system-packages
+
+    # python3 -m pip install build --break-system-packages
 
     mkdir build && cd build
 
@@ -87,7 +88,3 @@ ffbuild_dockerbuild() {
 
 ffbuild_configure() { echo --enable-liblensfun; }
 ffbuild_unconfigure() { echo --disable-liblensfun; }
-
-ffbuild_libs() {
-    echo "-lstdc++"
-}
