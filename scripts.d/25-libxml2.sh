@@ -47,7 +47,7 @@ ffbuild_dockerbuild() {
     sed -i 's/-liconv//g' Makefile
     sed -i 's/LIBS = /LIBS = -liconv /' Makefile
 
-    make -j$(nproc)
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 }
 
