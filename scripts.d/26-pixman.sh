@@ -2,6 +2,11 @@
 SCRIPT_REPO="https://gitlab.freedesktop.org/pixman/pixman.git"
 SCRIPT_COMMIT="f824cac6478971c0f71e4dfe8a60ebf70224076a"
 
+ffbuild_depends() {
+    echo libpng
+    echo glib2
+}
+
 ffbuild_dockerdl() {
     default_dl .
 }

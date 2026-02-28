@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/zlib-ng/zlib-ng"
-SCRIPT_COMMIT="0aa53126240348f8dda1cfdb5ea2df1c951e8d3d"
+SCRIPT_REPO="https://github.com/zlib-ng/zlib-ng.git"
+SCRIPT_COMMIT="d225a913909176588060c2d5eb1d58bacd11c8c8"
 
 ffbuild_enabled() {
     return 0
@@ -27,8 +27,18 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DZLIB_COMPAT=ON \
-        -DZLIB_ENABLE_TESTS=OFF \
+        -DBUILD_TESTING=OFF \
+        -DWITH_NEW_STRATEGIES=ON \
+        -DWITH_CRC32_CHORBA=ON \
         -DWITH_NATIVE_INSTRUCTIONS=OFF \
+        -DWITH_RUNTIME_CPU_DETECTION=ON \
+        -DWITH_OPTIM=ON \
+        -DWITH_SSE2=ON \
+        -DWITH_SSSE3=ON \
+        -DWITH_SSE41=ON \
+        -DWITH_SSE42=ON \
+        -DWITH_PCLMULQDQ=ON \
+        -DWITH_AVX2=ON \
         -DWITH_AVX512=OFF \
         -DWITH_AVX512VNNI=OFF \
         -DWITH_VPCLMULQDQ=OFF \

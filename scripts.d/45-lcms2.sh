@@ -3,6 +3,11 @@
 SCRIPT_REPO="https://github.com/mm2/Little-CMS.git"
 SCRIPT_COMMIT="6ae7e97cc1b0a44f1996d51160de9fbab97bb7b8"
 
+ffbuild_depends() {
+    echo libjpeg-turbo
+    echo libtiff
+}
+
 ffbuild_enabled() {
     return 0
 }
@@ -16,21 +21,13 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --cross-file=/cross.meson
         -Ddefault_library=static
         -Dutils=false
         -Dfastfloat=true
         -Dthreaded=true
-        -Dtests=false
+        -Dtests=disabled
     )
-
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --cross-file=/cross.meson
-        )
-    else
-        echo "Unknown target"
-        return 1
-    fi
 
     # export CFLAGS="$CFLAGS -fpermissive"
 

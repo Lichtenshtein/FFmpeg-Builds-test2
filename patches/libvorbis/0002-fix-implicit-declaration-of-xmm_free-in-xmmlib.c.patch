@@ -1,0 +1,70 @@
+From 68d839043db316290946662a51aff6d16a232cf3 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Alejandro=20Gonz=C3=A1lez?=
+ <AlexTMjugador@users.noreply.github.com>
+Date: Mon, 15 Aug 2022 23:24:49 +0200
+Subject: [PATCH] Fix implicit declaration of xmm_free in xmmlib.c
+
+This causes compilation errors when cross-compiling to Apple Silicon
+from x64 MacOS hosts.
+---
+ lib/xmmlib.c | 24 ++++++++++++------------
+ lib/xmmlib.h |  2 +-
+ 2 files changed, 13 insertions(+), 13 deletions(-)
+
+diff --git a/lib/xmmlib.c b/lib/xmmlib.c
+index caff7a89e..18e40e8c1 100644
+--- a/lib/xmmlib.c
++++ b/lib/xmmlib.c
+@@ -199,6 +199,18 @@ void* xmm_calloc(size_t nitems, size_t size)
+ 	return	(void*)t_RetPtr;
+ }
+ /*---------------------------------------------------------------------------
++// 16Byte Allignment free
++//-------------------------------------------------------------------------*/
++void xmm_free(void* a_AlignedPtr)
++{
++    if(a_AlignedPtr)
++#ifdef _WIN32
++        _aligned_free(a_AlignedPtr);
++#else
++        free(((void**)a_AlignedPtr)[-2]);
++#endif
++}
++/*---------------------------------------------------------------------------
+ // 16Byte Allignment realloc
+ //-------------------------------------------------------------------------*/
+ void* xmm_realloc(void *block, size_t size)
+@@ -218,18 +230,6 @@ void* xmm_realloc(void *block, size_t size)
+ #endif
+ }
+ /*---------------------------------------------------------------------------
+-// 16Byte Allignment free
+-//-------------------------------------------------------------------------*/
+-void xmm_free(void* a_AlignedPtr)
+-{
+-	if(a_AlignedPtr)
+-#ifdef _WIN32
+-		_aligned_free(a_AlignedPtr);
+-#else
+-		free(((void**)a_AlignedPtr)[-2]);
+-#endif
+-}
+-/*---------------------------------------------------------------------------
+ // 16Byte Allignment alloca
+ //-------------------------------------------------------------------------*/
+ void* xmm_align(void *t_Ptr)
+diff --git a/lib/xmmlib.h b/lib/xmmlib.h
+index ec478e757..5c4c939ea 100644
+--- a/lib/xmmlib.h
++++ b/lib/xmmlib.h
+@@ -120,9 +120,9 @@ extern const int bitCountTable[16];
+ 
+ extern void* xmm_malloc(size_t);
+ extern void* xmm_calloc(size_t, size_t);
++extern void xmm_free(void*);
+ extern void* xmm_realloc(void*, size_t);
+ extern void* xmm_align(void*);
+-extern void xmm_free(void*);
+ 
+ STIN __m128 _mm_todB_ps(__m128 x)
+ {

@@ -30,27 +30,16 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --cross-file=/cross.meson
         --buildtype=release
-        # --DFRIBIDI_BUILD_BIN=OFF
-        # --FRIBIDI_BUILD_DOCS=OFF
-        # --FRIBIDI_BUILD_TESTS=OFF
         --default-library=static
         -Dbin=false
         -Ddocs=false
         -Dtests=false
     )
 
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --cross-file=/cross.meson
-        )
-    else
-        echo "Unknown target"
-        return 1
-    fi
-
     meson setup "${myconf[@]}" ..
-    ninja -j$(nproc) $MAKE_V
+    ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     sed -i 's/Cflags:/Cflags: -DFRIBIDI_LIB_STATIC/' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/fribidi.pc

@@ -1,0 +1,1184 @@
+From cc27a38324d1cd654286894c8a297e2c3f232bab Mon Sep 17 00:00:00 2001
+From: remijang <wuet0829@gmail.com>
+Date: Tue, 23 Dec 2025 22:18:34 +0800
+Subject: [PATCH] add mc cuda
+
+---
+diff --git a/.gitignore b/.gitignore
+index f841751..31a5c73 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -82,3 +82,5 @@ tests/granulepos_theoraenc
+ tests/noop
+ tests/noop_theora
+ tests/noop_theoraenc
++
++examples/cuda_test
+diff --git a/configure.ac b/configure.ac
+index 3d2a413..0fc3e8f 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -571,6 +571,37 @@ AC_ARG_ENABLE(examples,
+      [ ac_enable_examples=$enableval ], [ ac_enable_examples=yes] )
+ AM_CONDITIONAL(THEORA_ENABLE_EXAMPLES, [test "x${ac_enable_examples}" != xno])
+ 
++dnl Configuration option for cuda
++
++ac_enable_cuda=auto
++AC_ARG_ENABLE(cuda,
++     AS_HELP_STRING([--enable-cuda], [Build with Cuda]),
++     [ ac_enable_cuda=$enableval ], [ ac_enable_cuda=no] )
++
++AC_PATH_PROG([NVCC], [nvcc], [])
++
++HAVE_CUDA=no
++if test "x${ac_enable_cuda}" != xno; then
++  if test "x$NVCC" != "x"; then
++    HAVE_CUDA=yes
++    AC_DEFINE([HAVE_CUDA], [1], [Enable CUDA support])
++  elif test "x${ac_enable_cuda}" = xyes; then
++    AC_MSG_ERROR([nvcc not found, skip this option])
++  fi
++fi
++
++CUDA_CFLAGS=""
++CUDA_LIBS=""
++if test "x$HAVE_CUDA" = xyes; then
++  CUDA_CFLAGS="-Xcompiler -fPIC"
++  CUDA_LIBS="-L/usr/local/cuda/lib64 -lcudart -lstdc++"
++fi
++
++AM_CONDITIONAL(HAVE_CUDA, [test "x$HAVE_CUDA" != xno])
++AC_SUBST([CUDA_CFLAGS])
++AC_SUBST([CUDA_LIBS])
++AC_SUBST([NVCC])
++
+ dnl --------------------------------------------------
+ dnl Check for headers
+ dnl --------------------------------------------------
+@@ -622,6 +653,9 @@ fi
+ if test x$HAVE_TIFF = xyes; then
+   BUILDABLE_EXAMPLES="$BUILDABLE_EXAMPLES tiff2theora\$(EXEEXT)"
+ fi
++if test x$HAVE_CUDA = xyes; then
++  BUILDABLE_EXAMPLES="$BUILDABLE_EXAMPLES cuda_test\$(EXEEXT)"
++fi
+ AC_SUBST(BUILDABLE_EXAMPLES)
+ 
+ dnl --------------------------------------------------
+diff --git a/examples/Makefile.am b/examples/Makefile.am
+index 999b0d9..c8001b7 100644
+--- a/examples/Makefile.am
++++ b/examples/Makefile.am
+@@ -4,7 +4,10 @@ noinst_PROGRAMS = dump_video dump_psnr libtheora_info \
+ 	$(BUILDABLE_EXAMPLES)
+ 
+ # possible contents of BUILDABLE_EXAMPLES:
+-EXTRA_PROGRAMS = player_example encoder_example png2theora tiff2theora
++EXTRA_PROGRAMS = player_example encoder_example png2theora tiff2theora cuda_test
++if HAVE_CUDA
++EXTRA_PROGRAMS += cuda_test
++endif
+ EXTRA_DIST = encoder_example_ffmpeg
+ 
+ AM_CPPFLAGS = -I$(top_srcdir)/include
+@@ -41,6 +44,29 @@ tiff2theora_SOURCES = tiff2theora.c
+ tiff2theora_CFLAGS = $(OGG_CFLAGS) $(TIFF_CFLAGS)
+ tiff2theora_LDADD = $(GETOPT_OBJS) $(LDADDENC) $(TIFF_LIBS) -lm
+ 
++if HAVE_CUDA
++cuda_test_CPPFLAGS = $(OGG_CFLAGS) $(CUDA_CFLAGS)
++cuda_test_LDFLAGS = -L$(top_builddir)/lib/.libs -Xlinker -rpath -Xlinker $(abs_top_builddir)/lib/.libs
++cuda_test_LDADD = -ltheora -ltheoradec -ltheoraenc $(OGG_LIBS) $(CUDA_LIBS) \
++	$(top_builddir)/lib/idct_cuda.o $(top_builddir)/lib/mc_cuda.o $(top_builddir)/lib/cuda_helper.o
++
++cuda_test: cuda_test.cu
++	$(NVCC) $(AM_CPPFLAGS) $(cuda_test_CPPFLAGS) $(cuda_test_LDFLAGS) -o $@ $< $(cuda_test_LDADD)
++
++dump_video_CUDA_LIBS = $(GETOPT_OBJS) \
++                       -L$(top_builddir)/lib/.libs -ltheoradec \
++                       $(OGG_LIBS) $(COMPAT_LIBS) $(CUDA_LIBS) \
++                       $(top_builddir)/lib/idct_cuda.o $(top_builddir)/lib/mc_cuda.o \
++					   $(top_builddir)/lib/cuda_helper.o
++dump_video_LDFLAGS = -L$(top_builddir)/lib/.libs \
++                     -Xlinker -rpath -Xlinker $(abs_top_builddir)/lib/.libs
++
++dump_video: dump_video.c
++	$(NVCC) $(AM_CPPFLAGS) $(dump_video_CPPFLAGS) $(dump_video_LDFLAGS) \
++		-o $@ $< $(dump_video_CUDA_LIBS)
++
++endif
++
+ debug:
+ 	$(MAKE) all CFLAGS="@DEBUG@"
+ 
+diff --git a/examples/cuda_test.cu b/examples/cuda_test.cu
+new file mode 100644
+index 0000000..dde515e
+--- /dev/null
++++ b/examples/cuda_test.cu
+@@ -0,0 +1,262 @@
++#include <bits/stdc++.h>
++#include <cuda_runtime.h>
++#include "../lib/mc_cuda.h"
++
++// from lib/idct_cuda.cu
++extern "C" void idct8x8_batch(const int16_t *d_in, int16_t *d_out, int n);
++
++static void check(cudaError_t err) {
++  if (err != cudaSuccess) {
++    fprintf(stderr, "%s\n", cudaGetErrorString(err));
++    exit(1);
++  }
++}
++
++// from lib/idct.c
++static void idct8_host(int16_t *y, int16_t *x) {
++  const int32_t C1 = 64277;
++  const int32_t C2 = 60547;
++  const int32_t C3 = 54491;
++  const int32_t C4 = 46341;
++  const int32_t C5 = 36410;
++  const int32_t C6 = 25080;
++  const int32_t C7 = 12785;
++  
++  int32_t t[8], r, w[64];
++  
++  // horizontal
++  for (int i = 0; i < 8; ++i) {
++    const int16_t *_x = x + (i << 3);
++    t[0] = (C4 * (int16_t) (_x[0] + _x[4])) >> 16;
++    t[1] = (C4 * (int16_t) (_x[0] - _x[4])) >> 16;
++    t[2] = ((C6 * _x[2]) >> 16) - ((C2 * _x[6]) >> 16);
++    t[3] = ((C2 * _x[2]) >> 16) + ((C6 * _x[6]) >> 16);
++    t[4] = ((C7 * _x[1]) >> 16) - ((C1 * _x[7]) >> 16);
++    t[5] = ((C3 * _x[5]) >> 16) - ((C5 * _x[3]) >> 16);
++    t[6] = ((C5 * _x[5]) >> 16) + ((C3 * _x[3]) >> 16);
++    t[7] = ((C1 * _x[1]) >> 16) + ((C7 * _x[7]) >> 16);
++    r = t[4] + t[5];
++    t[5] = (C4 * (int16_t) (t[4] - t[5])) >> 16;
++    t[4] = r;
++    r = t[7] + t[6];
++    t[6] = (C4 * (int16_t) (t[7] - t[6])) >> 16;
++    t[7] = r;
++    r = t[0] + t[3];
++    t[3] = t[0] - t[3];
++    t[0] = r;
++    r = t[1] + t[2];
++    t[2] = t[1] - t[2];
++    t[1] = r;
++    r = t[6] + t[5];
++    t[5] = t[6] - t[5];
++    t[6] = r;
++    w[(0 << 3) + i] = t[0] + t[7];
++    w[(1 << 3) + i] = t[1] + t[6];
++    w[(2 << 3) + i] = t[2] + t[5];
++    w[(3 << 3) + i] = t[3] + t[4];
++    w[(4 << 3) + i] = t[3] - t[4];
++    w[(5 << 3) + i] = t[2] - t[5];
++    w[(6 << 3) + i] = t[1] - t[6];
++    w[(7 << 3) + i] = t[0] - t[7];
++  }
++
++  // vertical
++  for (int i = 0; i < 8; ++i) {
++    int32_t *_x = w + (i << 3);
++    t[0] = (C4 * (int16_t)(_x[0] + _x[4])) >> 16;
++    t[1] = (C4 * (int16_t)(_x[0] - _x[4])) >> 16;
++    t[2] = ((C6 * _x[2]) >> 16) - ((C2 * _x[6]) >> 16);
++    t[3] = ((C2 * _x[2]) >> 16) + ((C6 * _x[6]) >> 16);
++    t[4] = ((C7 * _x[1]) >> 16) - ((C1 * _x[7]) >> 16);
++    t[5] = ((C3 * _x[5]) >> 16) - ((C5 * _x[3]) >> 16);
++    t[6] = ((C5 * _x[5]) >> 16) + ((C3 * _x[3]) >> 16);
++    t[7] = ((C1 * _x[1]) >> 16) + ((C7 * _x[7]) >> 16);
++    r = t[4] + t[5];
++    t[5] = (C4 * (int16_t) (t[4] - t[5])) >> 16;
++    t[4] = r;
++    r = t[7] + t[6];
++    t[6] = (C4 * (int16_t) (t[7] - t[6])) >> 16;
++    t[7] = r;
++    r = t[0] + t[3];
++    t[3] = t[0] - t[3];
++    t[0] = r;
++    r = t[1] + t[2];
++    t[2] = t[1] - t[2];
++    t[1] = r;
++    r = t[6] + t[5];
++    t[5] = t[6] - t[5];
++    t[6] = r;
++    int32_t y0 = t[0] + t[7];
++    int32_t y1 = t[1] + t[6];
++    int32_t y2 = t[2] + t[5];
++    int32_t y3 = t[3] + t[4];
++    int32_t y4 = t[3] - t[4];
++    int32_t y5 = t[2] - t[5];
++    int32_t y6 = t[1] - t[6];
++    int32_t y7 = t[0] - t[7];
++    y[(0 << 3) + i] = (int16_t)((y0 + 8) >> 4);
++    y[(1 << 3) + i] = (int16_t)((y1 + 8) >> 4);
++    y[(2 << 3) + i] = (int16_t)((y2 + 8) >> 4);
++    y[(3 << 3) + i] = (int16_t)((y3 + 8) >> 4);
++    y[(4 << 3) + i] = (int16_t)((y4 + 8) >> 4);
++    y[(5 << 3) + i] = (int16_t)((y5 + 8) >> 4);
++    y[(6 << 3) + i] = (int16_t)((y6 + 8) >> 4);
++    y[(7 << 3) + i] = (int16_t)((y7 + 8) >> 4);
++  }
++}
++
++static void mc_intra_whole_pixel(uint8_t *dst, uint8_t *ref, int16_t *res, int stride){
++  for (int y = 0; y < 8; ++y) {
++    for (int x = 0; x < 8; ++x) {
++      // intra predictor
++      int v = 128;
++      // PRED + RES
++      if (ref) v = ref[y * stride + x];
++      v += res[y * 8 + x];
++      // clamp
++      v = v < 0 ? 0 : (v > 255 ? 255 : v);
++
++      dst[y * stride + x] = (uint8_t) v;
++    }
++  }
++}
++
++int main(void) {
++  // dct coefficient
++  int16_t h_in[64];
++  // idct result
++  int16_t h_idct[64];
++  int16_t h_idct_gpu[64];
++  // reference frame
++  uint8_t h_ref[64];
++  // mc result
++  uint8_t h_dst[64];
++  uint8_t h_dst_cpu[64];
++  // 
++  int h_mv1[1] = {0};
++  int h_mv2[1] = {0};
++  int h_refi[1] = {2};
++  int h_plane[1] = {0};
++  int h_ystride[3] = {8, 8, 8};
++  ptrdiff_t h_off[1] = {0};
++
++  std::mt19937 rng(48763);
++  std::uniform_int_distribution<int> rng1(-256, 256);
++  std::uniform_int_distribution<int> rng2(0, 255);
++
++  for (int i = 0; i < 64; ++i)
++    h_in[i] = (int16_t) rng1(rng);
++  h_in[0] = 512;
++
++  for (int i = 0; i < 64; ++i) {
++    if (h_refi[0] != 2) h_ref[i] = (uint8_t) rng2(rng);
++    else h_ref[i] = 0;
++  }
++
++  int16_t *d_in = NULL;
++  int16_t *d_out = NULL;
++  uint8_t *d_ref = NULL;
++  uint8_t *d_dst = NULL;
++  int *d_mv1 = NULL;
++  int *d_mv2 = NULL;
++  int *d_refi = NULL;
++  int *d_plane = NULL;
++  int *d_ystride = NULL;
++  ptrdiff_t *d_off = NULL;
++
++  check( cudaMalloc(&d_in, 64 * sizeof(int16_t)) );
++  check( cudaMalloc(&d_out, 64 * sizeof(int16_t)) );
++  check( cudaMalloc(&d_ref, 64 * sizeof(uint8_t)) );
++  check( cudaMalloc(&d_dst, 64 * sizeof(uint8_t)) );
++  check( cudaMalloc(&d_mv1, 1 * sizeof(int)) );
++  check( cudaMalloc(&d_mv2, 1 * sizeof(int)) );
++  check( cudaMalloc(&d_refi, 1 * sizeof(int)) );
++  check( cudaMalloc(&d_plane, 1 * sizeof(int)) );
++  check( cudaMalloc(&d_ystride, 3 * sizeof(int)) );
++  check( cudaMalloc(&d_off, 1 * sizeof(ptrdiff_t)) );
++
++  mc_pack p = {
++    .ref0 = {d_ref, NULL, NULL},
++    .ref1 = {NULL, NULL, NULL},
++    .dst = {d_dst, NULL, NULL},
++    .residue = d_out,
++    .mv1 = d_mv1,
++    .mv2 = d_mv2,
++    .refi = d_refi,
++    .frag_offsets = d_off,
++    .frag_plane = d_plane,
++    .ystride = d_ystride,
++    .nfrags = 1
++  };
++
++  // idct gpu
++  check( cudaMemcpy(d_in, h_in, 64 * sizeof(int16_t), cudaMemcpyHostToDevice) );
++  idct8x8_batch(d_in, d_out, 1);
++  check( cudaMemcpy(h_idct_gpu, d_out, 64 * sizeof(int16_t), cudaMemcpyDeviceToHost) );
++
++  // mc gpu
++  check( cudaMemcpy(d_ref, h_ref, 64, cudaMemcpyHostToDevice) );
++  check( cudaMemcpy(d_mv1, h_mv1, 1 * sizeof(int), cudaMemcpyHostToDevice) );
++  check( cudaMemcpy(d_mv2, h_mv2, 1 * sizeof(int), cudaMemcpyHostToDevice) );
++  check( cudaMemcpy(d_refi, h_refi, 1 * sizeof(int), cudaMemcpyHostToDevice) );
++  check( cudaMemcpy(d_plane, h_plane, 1 * sizeof(int), cudaMemcpyHostToDevice) );
++  check( cudaMemcpy(d_ystride, h_ystride, 3 * sizeof(int), cudaMemcpyHostToDevice) );
++  check( cudaMemcpy(d_off, h_off, 1 * sizeof(ptrdiff_t), cudaMemcpyHostToDevice) );
++  mc_cuda_launch(p);
++  check( cudaMemcpy(h_dst, d_dst, 64 * sizeof(uint8_t), cudaMemcpyDeviceToHost) );
++
++  // idct cpu + mc cpu
++  idct8_host(h_idct, h_in);
++  mc_intra_whole_pixel(h_dst_cpu, (h_refi[0] == 2) ? NULL : h_ref, h_idct, 8);
++
++  // compare results
++  int mis_count = 0;
++  for (int i = 0; i < 64; ++i) {
++    if (h_dst[i] != h_dst_cpu[i]) ++mis_count;
++    if (h_idct_gpu[i] != h_idct[i]) ++mis_count;
++  }
++  printf("mismatch count: %d\n", mis_count);
++
++  // calulate time
++  const int iters = 1000000;
++  cudaEvent_t start_gpu, stop_gpu;
++  cudaEventCreate(&start_gpu);
++  cudaEventCreate(&stop_gpu);
++
++  cudaEventRecord(start_gpu);
++  for(int i = 0; i < iters; ++i){
++    idct8x8_batch(d_in, d_out, 1);
++    mc_cuda_launch(p);
++  }
++  cudaEventRecord(stop_gpu);
++  cudaEventSynchronize(stop_gpu);
++  
++  float total_time = 0;
++  cudaEventElapsedTime(&total_time, start_gpu, stop_gpu);
++  cudaEventDestroy(start_gpu);
++  cudaEventDestroy(stop_gpu);
++
++  auto start_cpu = std::chrono::high_resolution_clock::now();
++  for (int i = 0; i < iters; ++i) {
++    idct8_host(h_idct, h_in);
++    mc_intra_whole_pixel(h_dst_cpu, (h_refi[0] == 2) ? NULL : h_ref, h_idct, 8);
++  }
++  auto end_cpu = std::chrono::high_resolution_clock::now();
++  std::chrono::duration<double, std::micro> diff_cpu = end_cpu - start_cpu;
++
++  printf("gpu average time: %.3f us\n", (total_time * 1000.0f) / iters);
++  printf("cpu average time: %.3f us\n", diff_cpu.count() / iters);
++  
++  cudaFree(d_in);
++  cudaFree(d_out);
++  cudaFree(d_ref);
++  cudaFree(d_dst);
++  cudaFree(d_mv1);
++  cudaFree(d_mv2);
++  cudaFree(d_refi);
++  cudaFree(d_plane);
++  cudaFree(d_ystride);
++  cudaFree(d_off);
++  return 0;
++}
++
+diff --git a/lib/Makefile.am b/lib/Makefile.am
+index 258da53..59f1ee6 100644
+--- a/lib/Makefile.am
++++ b/lib/Makefile.am
+@@ -2,6 +2,7 @@ AUTOMAKE_OPTIONS = subdir-objects
+ 
+ AM_CPPFLAGS = -I$(top_srcdir)/include
+ AM_CFLAGS = $(OGG_CFLAGS) $(CAIRO_CFLAGS)
++BUILT_SOURCES =
+ 
+ EXTRA_DIST = \
+ 	encoder_disabled.c \
+@@ -308,3 +309,25 @@ armenquant-gnu.S: armopts-gnu.S
+ # Special case for armopts.s, because it is built by configure
+ armopts-gnu.S: arm/armopts.s
+ 	$(srcdir)/arm/arm2gnu.pl < $< > $@
++
++if HAVE_CUDA
++AM_CPPFLAGS += -DHAVE_CUDA
++CUDA_CFLAGS += -DHAVE_CUDA
++BUILT_SOURCES += idct_cuda.o
++
++idct_cuda.o: idct_cuda.cu
++	$(NVCC) -Xcompiler -fPIC $(AM_CPPFLAGS) $(CUDA_CFLAGS) -c $< -o $@
++
++BUILT_SOURCES += mc_cuda.o
++
++mc_cuda.o: mc_cuda.cu
++	$(NVCC) -Xcompiler -fPIC $(AM_CPPFLAGS) $(CUDA_CFLAGS) -c $< -o $@
++
++BUILT_SOURCES += cuda_helper.o
++
++cuda_helper.o: cuda_helper.cu
++	$(NVCC) -Xcompiler -fPIC $(AM_CPPFLAGS) $(CUDA_CFLAGS) -c $< -o $@
++
++libtheoradec_la_LIBADD = idct_cuda.o mc_cuda.o cuda_helper.o $(CUDA_LIBS)
++libtheora_la_LIBADD = idct_cuda.o mc_cuda.o cuda_helper.o $(CUDA_LIBS)
++endif
+diff --git a/lib/cuda_helper.cu b/lib/cuda_helper.cu
+new file mode 100644
+index 0000000..de3880c
+--- /dev/null
++++ b/lib/cuda_helper.cu
+@@ -0,0 +1,355 @@
++#include <cuda_runtime.h>
++#include <ogg/ogg.h>
++#include <stdlib.h>
++#include <string.h>
++#include <stdint.h>
++#include <stdio.h>
++
++/*Ensure C linkage for the C headers when compiling with NVCC (C++).*/
++extern "C" {
++#include "state.h"
++#include "decint.h"
++}
++
++#include "mc_cuda.h"
++#include "cuda_helper.h"
++
++extern "C" void idct8x8_batch(
++  const int16_t *in,
++  int16_t *out,
++  int n
++);
++
++// from state.c
++static const signed char OC_MVMAP[2][64]={
++  {
++        -15,-15,-14,-14,-13,-13,-12,-12,-11,-11,-10,-10, -9, -9, -8,
++     -8, -7, -7, -6, -6, -5, -5, -4, -4, -3, -3, -2, -2, -1, -1,  0,
++      0,  0,  1,  1,  2,  2,  3,  3,  4,  4,  5,  5,  6,  6,  7,  7,
++      8,  8,  9,  9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15
++  },
++  {
++         -7, -7, -7, -7, -6, -6, -6, -6, -5, -5, -5, -5, -4, -4, -4,
++     -4, -3, -3, -3, -3, -2, -2, -2, -2, -1, -1, -1, -1,  0,  0,  0,
++      0,  0,  0,  0,  1,  1,  1,  1,  2,  2,  2,  2,  3,  3,  3,  3,
++      4,  4,  4,  4,  5,  5,  5,  5,  6,  6,  6,  6,  7,  7,  7,  7
++  }
++};
++static const signed char OC_MVMAP2[2][64]={
++  {
++      -1, 0,-1,  0,-1, 0,-1,  0,-1, 0,-1,  0,-1, 0,-1,
++    0,-1, 0,-1,  0,-1, 0,-1,  0,-1, 0,-1,  0,-1, 0,-1,
++    0, 1, 0, 1,  0, 1, 0, 1,  0, 1, 0, 1,  0, 1, 0, 1,
++    0, 1, 0, 1,  0, 1, 0, 1,  0, 1, 0, 1,  0, 1, 0, 1
++  },
++  {
++      -1,-1,-1,  0,-1,-1,-1,  0,-1,-1,-1,  0,-1,-1,-1,
++    0,-1,-1,-1,  0,-1,-1,-1,  0,-1,-1,-1,  0,-1,-1,-1,
++    0, 1, 1, 1,  0, 1, 1, 1,  0, 1, 1, 1,  0, 1, 1, 1,
++    0, 1, 1, 1,  0, 1, 1, 1,  0, 1, 1, 1,  0, 1, 1, 1
++  }
++};
++
++extern "C" {
++
++void cuda_init(oc_dec_ctx *_dec, oc_dec_pipeline_state *_pipe) {
++  _pipe->cuda_n = 0;
++  _pipe->cuda_count = 0;
++  _pipe->cuda_in = NULL;
++  _pipe->cuda_out = NULL;
++  _pipe->cuda_in_dev = NULL;
++  _pipe->cuda_out_dev = NULL;
++  _pipe->cuda_fragment_indices = NULL;
++  _pipe->cuda_plane_indices = NULL;
++
++  _pipe->use_cuda_mc = 1;
++  for (int i = 0; i < 3; ++i) {
++    _pipe->cuda_ref_dev[i] = NULL;
++    _pipe->cuda_ref_gold_dev[i] = NULL;
++    _pipe->cuda_dst_dev[i] = NULL;
++  }
++  _pipe->cuda_mv1_dev = NULL;
++  _pipe->cuda_mv2_dev = NULL;
++  _pipe->cuda_refi_dev = NULL;
++  _pipe->cuda_plane_dev = NULL;
++  _pipe->cuda_ystride_dev = NULL;
++  _pipe->cuda_off_dev = NULL;
++  _pipe->cuda_mv1_host = NULL;
++  _pipe->cuda_mv2_host = NULL;
++  _pipe->cuda_refi_host = NULL;
++  _pipe->cuda_plane_host = NULL;
++  _pipe->cuda_off_host = NULL;
++
++  size_t blocks = (size_t) _dec->state.nfrags;
++  if(blocks > 0) {
++    _pipe->cuda_n = blocks;
++    _pipe->cuda_in = (int16_t *) _ogg_malloc(blocks * 64 * sizeof(int16_t));
++    _pipe->cuda_out = (int16_t *) _ogg_malloc(blocks * 64 * sizeof(int16_t));
++    cudaMalloc(&_pipe->cuda_in_dev, blocks * 64 * sizeof(int16_t));
++    cudaMalloc(&_pipe->cuda_out_dev, blocks * 64 * sizeof(int16_t));
++    _pipe->cuda_fragment_indices = (ptrdiff_t *) _ogg_malloc(blocks * sizeof(ptrdiff_t));
++    _pipe->cuda_plane_indices = (unsigned char *) _ogg_malloc(blocks * sizeof(unsigned char));
++    
++    for (int i = 0; i < 3; ++i) {
++      ptrdiff_t stride =_dec->state.ref_ystride[i];
++      size_t plane_bytes = (size_t) (stride < 0 ? -stride : stride) * (_dec->state.fplanes[i].nvfrags << 3);
++      cudaMalloc(&_pipe->cuda_ref_dev[i], plane_bytes);
++      cudaMalloc(&_pipe->cuda_ref_gold_dev[i], plane_bytes);
++      cudaMalloc(&_pipe->cuda_dst_dev[i], plane_bytes);
++    }
++    cudaMalloc(&_pipe->cuda_mv1_dev, blocks * sizeof(int));
++    cudaMalloc(&_pipe->cuda_mv2_dev, blocks * sizeof(int));
++    cudaMalloc(&_pipe->cuda_refi_dev, blocks * sizeof(int));
++    cudaMalloc(&_pipe->cuda_plane_dev, blocks * sizeof(int));
++    cudaMalloc(&_pipe->cuda_ystride_dev, 3 * sizeof(int));
++    cudaMalloc(&_pipe->cuda_off_dev, blocks * sizeof(ptrdiff_t));
++    _pipe->cuda_mv1_host = (int *) _ogg_malloc(blocks * sizeof(int));
++    _pipe->cuda_mv2_host = (int *) _ogg_malloc(blocks * sizeof(int));
++    _pipe->cuda_refi_host = (int *) _ogg_malloc(blocks * sizeof(int));
++    _pipe->cuda_plane_host = (int *) _ogg_malloc(blocks * sizeof(int));
++    _pipe->cuda_off_host = (ptrdiff_t *) _ogg_malloc(blocks * sizeof(ptrdiff_t));
++
++
++
++    if(
++      !_pipe->cuda_in || !_pipe->cuda_out || !_pipe->cuda_in_dev || !_pipe->cuda_out_dev ||
++      !_pipe->cuda_fragment_indices || !_pipe->cuda_plane_indices ||
++      !_pipe->cuda_ref_dev[0] || !_pipe->cuda_ref_dev[1] || !_pipe->cuda_ref_dev[2] ||
++      !_pipe->cuda_ref_gold_dev[0] || !_pipe->cuda_ref_gold_dev[1] || !_pipe->cuda_ref_gold_dev[2] ||
++      !_pipe->cuda_dst_dev[0] || !_pipe->cuda_dst_dev[1] || !_pipe->cuda_dst_dev[2] ||
++      !_pipe->cuda_mv1_dev || !_pipe->cuda_mv2_dev || !_pipe->cuda_refi_dev ||
++      !_pipe->cuda_plane_dev || !_pipe->cuda_ystride_dev || !_pipe->cuda_off_dev ||
++      !_pipe->cuda_mv1_host || !_pipe->cuda_mv2_host ||
++      !_pipe->cuda_refi_host || !_pipe->cuda_plane_host || !_pipe->cuda_off_host
++    ){
++      _ogg_free(_pipe->cuda_in);
++      _ogg_free(_pipe->cuda_out);
++      if(_pipe->cuda_in_dev) cudaFree(_pipe->cuda_in_dev);
++      if(_pipe->cuda_out_dev) cudaFree(_pipe->cuda_out_dev);
++      _ogg_free(_pipe->cuda_fragment_indices);
++      _ogg_free(_pipe->cuda_plane_indices);
++
++      for (int i = 0; i < 3; ++i) {
++        if(_pipe->cuda_ref_dev[i])cudaFree(_pipe->cuda_ref_dev[i]);
++        if(_pipe->cuda_ref_gold_dev[i])cudaFree(_pipe->cuda_ref_gold_dev[i]);
++        if(_pipe->cuda_dst_dev[i])cudaFree(_pipe->cuda_dst_dev[i]);
++      }
++      if(_pipe->cuda_mv1_dev) cudaFree(_pipe->cuda_mv1_dev);
++      if(_pipe->cuda_mv2_dev) cudaFree(_pipe->cuda_mv2_dev);
++      if(_pipe->cuda_refi_dev) cudaFree(_pipe->cuda_refi_dev);
++      if(_pipe->cuda_plane_dev) cudaFree(_pipe->cuda_plane_dev);
++      if(_pipe->cuda_ystride_dev) cudaFree(_pipe->cuda_ystride_dev);
++      if(_pipe->cuda_off_dev) cudaFree(_pipe->cuda_off_dev);
++      _ogg_free(_pipe->cuda_mv1_host);
++      _ogg_free(_pipe->cuda_mv2_host);
++      _ogg_free(_pipe->cuda_refi_host);
++      _ogg_free(_pipe->cuda_plane_host);
++      _ogg_free(_pipe->cuda_off_host);
++
++      _pipe->cuda_n = 0;
++      _pipe->cuda_count = 0;
++      _pipe->cuda_in = NULL;
++      _pipe->cuda_out = NULL;
++      _pipe->cuda_in_dev = NULL;
++      _pipe->cuda_out_dev = NULL;
++      _pipe->cuda_fragment_indices = NULL;
++      _pipe->cuda_plane_indices = NULL;
++
++      _pipe->use_cuda_mc = 0;
++      for (int i = 0; i < 3; ++i) {
++        _pipe->cuda_ref_dev[i] = NULL;
++        _pipe->cuda_ref_gold_dev[i] = NULL;
++        _pipe->cuda_dst_dev[i] = NULL;
++      }
++      _pipe->cuda_mv1_dev = NULL;
++      _pipe->cuda_mv2_dev = NULL;
++      _pipe->cuda_refi_dev = NULL;
++      _pipe->cuda_plane_dev = NULL;
++      _pipe->cuda_ystride_dev = NULL; 
++      _pipe->cuda_off_dev = NULL;
++      _pipe->cuda_mv1_host = NULL;
++      _pipe->cuda_mv2_host = NULL;
++      _pipe->cuda_refi_host = NULL;
++      _pipe->cuda_plane_host = NULL;
++      _pipe->cuda_off_host = NULL;
++    }
++  }
++}
++
++void cuda_clear(oc_dec_ctx *_dec) {
++  _dec->pipe.cuda_n = 0;
++  _dec->pipe.cuda_count = 0;
++  _ogg_free(_dec->pipe.cuda_in);
++  _ogg_free(_dec->pipe.cuda_out);
++  if (_dec->pipe.cuda_in_dev) {
++    cudaFree(_dec->pipe.cuda_in_dev);
++    _dec->pipe.cuda_in_dev = NULL;
++  }
++  if (_dec->pipe.cuda_out_dev) {
++    cudaFree(_dec->pipe.cuda_out_dev);
++    _dec->pipe.cuda_out_dev = NULL;
++  }
++  _ogg_free(_dec->pipe.cuda_fragment_indices);
++  _ogg_free(_dec->pipe.cuda_plane_indices);
++
++  _dec->pipe.use_cuda_mc = 1;
++  for (int i = 0; i < 3; ++i) {
++    if (_dec->pipe.cuda_ref_dev[i]) {
++      cudaFree(_dec->pipe.cuda_ref_dev[i]);
++      _dec->pipe.cuda_ref_dev[i] = NULL;
++    }
++    if (_dec->pipe.cuda_ref_gold_dev[i]) {
++      cudaFree(_dec->pipe.cuda_ref_gold_dev[i]);
++      _dec->pipe.cuda_ref_gold_dev[i] = NULL;
++    }
++    if (_dec->pipe.cuda_dst_dev[i]) {
++      cudaFree(_dec->pipe.cuda_dst_dev[i]);
++      _dec->pipe.cuda_dst_dev[i] = NULL;
++    }
++  }
++  if (_dec->pipe.cuda_mv1_dev) {
++    cudaFree(_dec->pipe.cuda_mv1_dev);
++    _dec->pipe.cuda_mv1_dev = NULL;
++  }
++  if (_dec->pipe.cuda_mv2_dev) {
++    cudaFree(_dec->pipe.cuda_mv2_dev);
++    _dec->pipe.cuda_mv2_dev = NULL;
++  }
++  if (_dec->pipe.cuda_refi_dev) {
++    cudaFree(_dec->pipe.cuda_refi_dev);
++    _dec->pipe.cuda_refi_dev = NULL;
++  }
++  if (_dec->pipe.cuda_plane_dev) {
++    cudaFree(_dec->pipe.cuda_plane_dev);
++    _dec->pipe.cuda_plane_dev = NULL;
++  }
++  if (_dec->pipe.cuda_ystride_dev) {
++    cudaFree(_dec->pipe.cuda_ystride_dev);
++    _dec->pipe.cuda_ystride_dev = NULL;
++  }
++  _ogg_free(_dec->pipe.cuda_mv1_host);
++  _ogg_free(_dec->pipe.cuda_mv2_host);
++  _ogg_free(_dec->pipe.cuda_refi_host);
++  _ogg_free(_dec->pipe.cuda_plane_host);
++  _ogg_free(_dec->pipe.cuda_off_host);
++}
++
++void cuda_transfer_to_device(oc_dec_ctx *_dec){
++  int ystride_host[3];
++  int prev_idx = _dec->state.ref_frame_idx[OC_FRAME_PREV];
++  int gold_idx = _dec->state.ref_frame_idx[OC_FRAME_GOLD];
++
++  for (int i = 0; i < 3; ++i) {
++    unsigned char *prev_data = prev_idx >= 0 ? _dec->state.ref_frame_bufs[prev_idx][i].data : NULL;
++    unsigned char *gold_data = gold_idx >= 0 ? _dec->state.ref_frame_bufs[gold_idx][i].data : NULL;
++    
++    ptrdiff_t stride = _dec->state.ref_ystride[i];
++    size_t plane_bytes = (size_t) (stride < 0 ? -stride : stride) * (_dec->state.fplanes[i].nvfrags << 3);
++
++    if (prev_data) cudaMemcpy(_dec->pipe.cuda_ref_dev[i], prev_data, plane_bytes, cudaMemcpyHostToDevice);
++    if (gold_data) cudaMemcpy(_dec->pipe.cuda_ref_gold_dev[i], gold_data, plane_bytes, cudaMemcpyHostToDevice);
++    else if (prev_data) cudaMemcpy(_dec->pipe.cuda_ref_gold_dev[i], prev_data, plane_bytes, cudaMemcpyHostToDevice);
++
++    ystride_host[i] = _dec->state.ref_ystride[i];
++  }
++  cudaMemcpy(_dec->pipe.cuda_ystride_dev, ystride_host, sizeof(ystride_host), cudaMemcpyHostToDevice);
++}
++
++void cuda_transfer_to_host(oc_dec_ctx *_dec){
++  int dst_idx = _dec->state.ref_frame_idx[OC_FRAME_SELF];
++  for (int i = 0; i < 3; ++i) {
++    ptrdiff_t stride = _dec->state.ref_ystride[i];
++    size_t plane_bytes = (size_t) (stride < 0 ? -stride : stride) * (_dec->state.fplanes[i].nvfrags << 3);
++    cudaMemcpy(_dec->state.ref_frame_bufs[dst_idx][i].data, _dec->pipe.cuda_dst_dev[i], plane_bytes, cudaMemcpyDeviceToHost);
++  }
++}
++
++int cuda_mv_off(const oc_theora_state *_state, int _offsets[2], int _pli, oc_mv _mv){
++  int qpx = _pli != 0 && !(_state->info.pixel_fmt & 2);
++  int qpy = _pli != 0 && !(_state->info.pixel_fmt & 1);
++  int mx = OC_MVMAP[qpx][OC_MV_X(_mv) + 31];
++  int my = OC_MVMAP[qpy][OC_MV_Y(_mv) + 31];
++  int mx2 = OC_MVMAP2[qpx][OC_MV_X(_mv) + 31];
++  int my2 = OC_MVMAP2[qpy][OC_MV_Y(_mv) + 31];
++  int offs = my * _state->ref_ystride[_pli] + mx;
++  if (mx2 || my2) {
++    _offsets[1] = offs + my2 * _state->ref_ystride[_pli] + mx2;
++    _offsets[0] = offs;
++    return 2;
++  }
++  _offsets[0] = offs;
++  return 1;
++}
++
++void cuda_process(
++  oc_dec_ctx *_dec,
++  oc_dec_pipeline_state *_pipe,
++  int _pli
++) {
++  int count = _pipe->cuda_count;
++  if (count <= 0 || _pipe->cuda_n <= 0) return;
++
++  size_t bytes = (size_t) count * 64 * sizeof(int16_t);
++  cudaMemcpy(_pipe->cuda_in_dev, _pipe->cuda_in, bytes, cudaMemcpyHostToDevice);
++  idct8x8_batch(_pipe->cuda_in_dev, _pipe->cuda_out_dev, count);
++
++  cuda_transfer_to_device(_dec);
++  cudaMemcpy(_pipe->cuda_mv1_dev, _pipe->cuda_mv1_host, count * sizeof(int), cudaMemcpyHostToDevice);
++  cudaMemcpy(_pipe->cuda_mv2_dev, _pipe->cuda_mv2_host, count * sizeof(int), cudaMemcpyHostToDevice);
++  cudaMemcpy(_pipe->cuda_plane_dev, _pipe->cuda_plane_host, count * sizeof(int), cudaMemcpyHostToDevice);
++  cudaMemcpy(_pipe->cuda_refi_dev, _pipe->cuda_refi_host, count * sizeof(int), cudaMemcpyHostToDevice);
++  cudaMemcpy(_pipe->cuda_off_dev, _pipe->cuda_off_host, count * sizeof(ptrdiff_t), cudaMemcpyHostToDevice);
++  mc_pack p = {
++    .ref0 = {_pipe->cuda_ref_dev[0], _pipe->cuda_ref_dev[1], _pipe->cuda_ref_dev[2]},
++    .ref1 = {_pipe->cuda_ref_gold_dev[0], _pipe->cuda_ref_gold_dev[1], _pipe->cuda_ref_gold_dev[2]},
++    .dst = {_pipe->cuda_dst_dev[0], _pipe->cuda_dst_dev[1], _pipe->cuda_dst_dev[2]},
++    .residue = _pipe->cuda_out_dev,
++    .mv1 = _pipe->cuda_mv1_dev,
++    .mv2 = _pipe->cuda_mv2_dev,
++    .refi = _pipe->cuda_refi_dev,
++    .frag_offsets = _pipe->cuda_off_dev,
++    .frag_plane = _pipe->cuda_plane_dev,
++    .ystride = _pipe->cuda_ystride_dev,
++    .nfrags = count
++  };
++  mc_cuda_launch(p);
++  cuda_transfer_to_host(_dec);
++  _pipe->cuda_count = 0;
++}
++
++void cuda_enqueue(
++  oc_dec_ctx *_dec,
++  oc_dec_pipeline_state *_pipe,
++  int _pli,
++  ptrdiff_t _fragi,
++  int16_t _dct_coeffs[128],
++  int _last_zzi,
++  uint16_t _dc_quant
++) {
++  if (_pipe->cuda_n <= 0) return;
++
++  int16_t tmp[64];
++  int idx = _pipe->cuda_count++;
++
++  tmp[0] = (int16_t) (_dct_coeffs[0] * (int32_t) _dc_quant);
++  for(int i = 1; i < 64; ++i)
++    tmp[i] = _dct_coeffs[i];
++
++  memcpy(_pipe->cuda_in + idx * 64, tmp, 64 * sizeof(int16_t));
++  _pipe->cuda_fragment_indices[idx] = _fragi;
++  _pipe->cuda_plane_indices[idx] = (unsigned char) _pli;
++
++  int mv_off[2];
++  int opt = cuda_mv_off(&_dec->state, mv_off, _pli, _dec->state.frag_mvs[_fragi]);
++  _pipe->cuda_mv1_host[idx] = mv_off[0];
++  _pipe->cuda_mv2_host[idx] = (opt == 2) ? mv_off[1] : mv_off[0];
++  
++  _pipe->cuda_refi_host[idx] = _dec->state.frags[_fragi].refi;
++  _pipe->cuda_plane_host[idx] = _pli;
++  
++  int ref_idx_self = _dec->state.ref_frame_idx[OC_FRAME_SELF];
++  ptrdiff_t plane_off = _dec->state.ref_frame_bufs[ref_idx_self][_pli].data - _dec->state.ref_frame_data[ref_idx_self];
++  _pipe->cuda_off_host[idx] = _dec->state.frag_buf_offs[_fragi]-plane_off;
++}
++
++}
+\ No newline at end of file
+diff --git a/lib/cuda_helper.h b/lib/cuda_helper.h
+new file mode 100644
+index 0000000..79789d3
+--- /dev/null
++++ b/lib/cuda_helper.h
+@@ -0,0 +1,40 @@
++#ifndef CUDA_HELPER_H
++#define CUDA_HELPER_H
++
++#include "decint.h"
++#include <stdint.h>
++#include <stddef.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++void cuda_init(oc_dec_ctx *_dec, oc_dec_pipeline_state *_pipe);
++
++void cuda_clear(oc_dec_ctx *_dec);
++
++void cuda_transfer_to_device(oc_dec_ctx *_dec);
++
++void cuda_transfer_to_host(oc_dec_ctx *_dec);
++
++void cuda_process(
++  oc_dec_ctx *_dec,
++  oc_dec_pipeline_state *_pipe,
++  int _pli
++);
++
++void cuda_enqueue(
++  oc_dec_ctx *_dec,
++  oc_dec_pipeline_state *_pipe,
++  int _pli,
++  ptrdiff_t _fragi,
++  int16_t _dct_coeffs[128],
++  int _last_zzi,
++  uint16_t _dc_quant
++);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/lib/decint.h b/lib/decint.h
+index e4178b2..03ecd3a 100644
+--- a/lib/decint.h
++++ b/lib/decint.h
+@@ -109,6 +109,34 @@ struct oc_dec_pipeline_state{
+   int                 mcu_nvfrags;
+   int                 loop_filter;
+   int                 pp_level;
++
++# if defined(HAVE_CUDA)
++  int                 cuda_n;
++  int                 cuda_count;
++  int16_t             *cuda_in;
++  int16_t             *cuda_out;
++  int16_t             *cuda_in_dev;
++  int16_t             *cuda_out_dev;
++  ptrdiff_t           *cuda_fragment_indices;
++  unsigned char       *cuda_plane_indices;
++  
++  int                  use_cuda_mc;
++  uint8_t             *cuda_ref_dev[3];
++  uint8_t             *cuda_ref_gold_dev[3];
++  uint8_t             *cuda_dst_dev[3];
++  int                 *cuda_mv1_dev;
++  int                 *cuda_mv2_dev;
++  int                 *cuda_refi_dev;
++  int                 *cuda_plane_dev;
++  int                 *cuda_ystride_dev;
++  ptrdiff_t           *cuda_off_dev;
++  int                 *cuda_mv1_host;
++  int                 *cuda_mv2_host;
++  int                 *cuda_refi_host;
++  int                 *cuda_plane_host;
++  ptrdiff_t           *cuda_off_host;
++# endif
++
+ };
+ 
+ 
+diff --git a/lib/decode.c b/lib/decode.c
+index 3e9ec99..30383f7 100644
+--- a/lib/decode.c
++++ b/lib/decode.c
+@@ -27,6 +27,17 @@
+ # include <cairo.h>
+ #endif
+ 
++#if defined(HAVE_CUDA)
++#include "mc_cuda.h"
++#include "cuda_helper.h"
++
++extern void idct8x8_batch(
++  const int16_t *in,
++  int16_t *out,
++  int n
++);
++#endif
++
+ 
+ /*No post-processing.*/
+ #define OC_PP_LEVEL_DISABLED  (0)
+@@ -434,6 +445,11 @@ static void oc_dec_clear(oc_dec_ctx *_dec){
+   _ogg_free(_dec->variances);
+   _ogg_free(_dec->dc_qis);
+   _ogg_free(_dec->dct_tokens);
++
++#if defined(HAVE_CUDA)
++  cuda_clear(_dec);
++#endif
++
+   oc_huff_trees_clear(_dec->huff_tables);
+   oc_state_clear(&_dec->state);
+ }
+@@ -1381,6 +1397,11 @@ static void oc_dec_pipeline_init(oc_dec_ctx *_dec,
+      _dec->state.ref_frame_bufs[_dec->state.ref_frame_idx[OC_FRAME_SELF]],
+      sizeof(_dec->pp_frame_buf[0])*3);
+   }
++
++#if defined(HAVE_CUDA)
++  cuda_init(_dec, _pipe);
++#endif
++
+   /*Clear down the DCT coefficient buffer for the first block.*/
+   for(zzi=0;zzi<64;zzi++)_pipe->dct_coeffs[zzi]=0;
+ }
+@@ -1581,8 +1602,26 @@ static void oc_dec_frags_recon_mcu_plane(oc_dec_ctx *_dec,
+     _pipe->dct_coeffs[0]=(ogg_int16_t)frags[fragi].dc;
+     /*last_zzi is always initialized.
+       If your compiler thinks otherwise, it is dumb.*/
++
++#if defined(HAVE_CUDA)
++    if(_pipe->cuda_n > 0 && last_zzi>=2 && _pipe->use_cuda_mc){
++      cuda_enqueue(
++        _dec,
++        _pipe,
++        _pli,fragi,
++        _pipe->dct_coeffs,
++        (int) last_zzi,
++        (uint16_t) dc_quant[qti]
++      );
++    }
++    else {
++#endif
+     oc_state_frag_recon(&_dec->state,fragi,_pli,
+      _pipe->dct_coeffs,last_zzi,dc_quant[qti]);
++#if defined(HAVE_CUDA)
++    }
++#endif
++
+   }
+   _pipe->coded_fragis[_pli]+=ncoded_fragis;
+   /*Right now the reconstructed MCU has only the coded blocks in it.*/
+@@ -2875,6 +2914,13 @@ int th_decode_packetin(th_dec_ctx *_dec,const ogg_packet *_op,
+          _dec->pipe.fragy0[pli]+(_dec->pipe.mcu_nvfrags>>frag_shift));
+         oc_dec_dc_unpredict_mcu_plane(_dec,&_dec->pipe,pli);
+         oc_dec_frags_recon_mcu_plane(_dec,&_dec->pipe,pli);
++
++#if defined(HAVE_CUDA)
++        if(_dec->pipe.cuda_count){
++          cuda_process(_dec, &_dec->pipe, pli);
++        }
++#endif
++
+         sdelay=edelay=0;
+         if(_dec->pipe.loop_filter){
+           sdelay+=notstart;
+diff --git a/lib/idct_cuda.cu b/lib/idct_cuda.cu
+new file mode 100644
+index 0000000..1bff5ac
+--- /dev/null
++++ b/lib/idct_cuda.cu
+@@ -0,0 +1,122 @@
++#include <stdlib.h>
++#include <string.h>
++#include "state.h"
++#include "dct.h"
++#include <cuda_runtime.h>
++
++__global__ void idct8x8_batch_kernel(
++    const int16_t* in, 
++    int16_t* out, 
++    int n
++) {
++    int idx = blockIdx.x * blockDim.x + threadIdx.x;
++    if (idx >= n) return;
++
++    const int16_t* p_in = in + (idx * 64);
++    int16_t* p_out = out + (idx * 64);
++
++    int32_t block[64];
++
++    // horizontal
++    #pragma unroll 8
++    for (int i = 0; i < 8; i++) {
++        int32_t t[8], r;
++        const int16_t* _x = p_in + (i << 3);
++
++        t[0] = (OC_C4S4 * (int16_t)(_x[0] + _x[4])) >> 16;
++        t[1] = (OC_C4S4 * (int16_t)(_x[0] - _x[4])) >> 16;
++        t[2] = (OC_C6S2 * _x[2] >> 16) - (OC_C2S6 * _x[6] >> 16);
++        t[3] = (OC_C2S6 * _x[2] >> 16) + (OC_C6S2 * _x[6] >> 16);
++        t[4] = (OC_C7S1 * _x[1] >> 16) - (OC_C1S7 * _x[7] >> 16);
++        t[5] = (OC_C3S5 * _x[5] >> 16) - (OC_C5S3 * _x[3] >> 16);
++        t[6] = (OC_C5S3 * _x[5] >> 16) + (OC_C3S5 * _x[3] >> 16);
++        t[7] = (OC_C1S7 * _x[1] >> 16) + (OC_C7S1 * _x[7] >> 16);
++
++        r = t[4] + t[5];
++        t[5] = (OC_C4S4 * (int16_t)(t[4] - t[5])) >> 16;
++        t[4] = r;
++        r = t[7] + t[6];
++        t[6] = (OC_C4S4 * (int16_t)(t[7] - t[6])) >> 16;
++        t[7] = r;
++
++        r = t[0] + t[3];
++        t[3] = t[0] - t[3];
++        t[0] = r;
++        r = t[1] + t[2];
++        t[2] = t[1] - t[2];
++        t[1] = r;
++        r = t[6] + t[5];
++        t[5] = t[6] - t[5];
++        t[6] = r;
++
++        block[(0 << 3) + i] = t[0] + t[7];
++        block[(1 << 3) + i] = t[1] + t[6];
++        block[(2 << 3) + i] = t[2] + t[5];
++        block[(3 << 3) + i] = t[3] + t[4];
++        block[(4 << 3) + i] = t[3] - t[4];
++        block[(5 << 3) + i] = t[2] - t[5];
++        block[(6 << 3) + i] = t[1] - t[6];
++        block[(7 << 3) + i] = t[0] - t[7];
++    }
++
++    // vertical
++    #pragma unroll 8
++    for (int i = 0; i < 8; i++) {
++        int32_t t[8], r;
++        int32_t* _x = block + (i << 3);
++
++        t[0] = (OC_C4S4 * (int16_t)(_x[0] + _x[4])) >> 16;
++        t[1] = (OC_C4S4 * (int16_t)(_x[0] - _x[4])) >> 16;
++        t[2] = (OC_C6S2 * _x[2] >> 16) - (OC_C2S6 * _x[6] >> 16);
++        t[3] = (OC_C2S6 * _x[2] >> 16) + (OC_C6S2 * _x[6] >> 16);
++        t[4] = (OC_C7S1 * _x[1] >> 16) - (OC_C1S7 * _x[7] >> 16);
++        t[5] = (OC_C3S5 * _x[5] >> 16) - (OC_C5S3 * _x[3] >> 16);
++        t[6] = (OC_C5S3 * _x[5] >> 16) + (OC_C3S5 * _x[3] >> 16);
++        t[7] = (OC_C1S7 * _x[1] >> 16) + (OC_C7S1 * _x[7] >> 16);
++
++        r = t[4] + t[5];
++        t[5] = (OC_C4S4 * (int16_t)(t[4] - t[5])) >> 16;
++        t[4] = r;
++        r = t[7] + t[6];
++        t[6] = (OC_C4S4 * (int16_t)(t[7] - t[6])) >> 16;
++        t[7] = r;
++
++        r = t[0] + t[3];
++        t[3] = t[0] - t[3];
++        t[0] = r;
++        r = t[1] + t[2];
++        t[2] = t[1] - t[2];
++        t[1] = r;
++        r = t[6] + t[5];
++        t[5] = t[6] - t[5];
++        t[6] = r;
++
++        int32_t y0 = t[0] + t[7];
++        int32_t y1 = t[1] + t[6];
++        int32_t y2 = t[2] + t[5];
++        int32_t y3 = t[3] + t[4];
++        int32_t y4 = t[3] - t[4];
++        int32_t y5 = t[2] - t[5];
++        int32_t y6 = t[1] - t[6];
++        int32_t y7 = t[0] - t[7];
++        // scalar fixing
++        p_out[(0 << 3) + i] = (int16_t)((y0 + 8) >> 4);
++        p_out[(1 << 3) + i] = (int16_t)((y1 + 8) >> 4);
++        p_out[(2 << 3) + i] = (int16_t)((y2 + 8) >> 4);
++        p_out[(3 << 3) + i] = (int16_t)((y3 + 8) >> 4);
++        p_out[(4 << 3) + i] = (int16_t)((y4 + 8) >> 4);
++        p_out[(5 << 3) + i] = (int16_t)((y5 + 8) >> 4);
++        p_out[(6 << 3) + i] = (int16_t)((y6 + 8) >> 4);
++        p_out[(7 << 3) + i] = (int16_t)((y7 + 8) >> 4);
++    }
++}
++
++extern "C" void idct8x8_batch(
++    const ogg_int16_t *d_in,
++    ogg_int16_t *d_out,
++    int n
++){
++    int threads = 128;
++    int blocks = (n + threads - 1) / threads;
++    idct8x8_batch_kernel<<<blocks, threads>>>(d_in, d_out, n);
++}
+\ No newline at end of file
+diff --git a/lib/mc_cuda.cu b/lib/mc_cuda.cu
+new file mode 100644
+index 0000000..db7c704
+--- /dev/null
++++ b/lib/mc_cuda.cu
+@@ -0,0 +1,57 @@
++#include <cuda_runtime.h>
++#include <stdint.h>
++#include "state.h"
++#include "mc_cuda.h"
++
++__global__ void mc_kernel(const mc_pack p) {
++  int idx = blockIdx.x * blockDim.x + threadIdx.x;
++  if (idx >= p.nfrags) return;
++
++  int mv1 = p.mv1[idx];
++  int mv2 = p.mv2[idx];
++  ptrdiff_t offset = p.frag_offsets[idx];
++  int plane_idx = p.frag_plane[idx];
++  int ystride = p.ystride[plane_idx];
++  int reference_idx = p.refi[idx];
++
++  const uint8_t *base = NULL;
++  if (reference_idx == OC_FRAME_PREV)
++    base = p.ref0[plane_idx];
++  else if (reference_idx == OC_FRAME_GOLD)
++    base = p.ref1[plane_idx];
++
++  const uint8_t *src1 = base ? base + offset + mv1 : NULL;
++  const uint8_t *src2 = base ? base + offset + mv2 : NULL;
++  const int16_t *res = p.residue + idx * 64;
++  uint8_t *dst = p.dst[plane_idx] + offset;
++  bool use_avg = src1 && src2 && mv1 != mv2;
++
++  for (int y = 0; y < 8; ++y) {
++    #pragma unroll
++    for (int x = 0; x < 8; ++x) {
++      // intra predictor
++      int pred = 128;
++      if (base) {
++        int tmp = src1[y * ystride + x];
++        // half-pixel predictor
++        if (use_avg) pred = (tmp + src2[y * ystride + x]) >> 1;
++        // whole-pixel predictor
++        else pred = tmp;
++      }
++      // PRED + RES
++      int v = pred + res[y * 8 + x];
++      // clamp
++      v = v < 0 ? 0 : (v > 255 ? 255 : v);
++      
++      dst[y * ystride + x] = (uint8_t)v;
++    }
++  }
++}
++
++extern "C" void mc_cuda_launch(const mc_pack params) {
++  int threads = 128;
++  int blocks = (params.nfrags + threads - 1) / threads;
++  mc_kernel<<<blocks, threads>>>(params);
++}
++
++
+diff --git a/lib/mc_cuda.h b/lib/mc_cuda.h
+new file mode 100644
+index 0000000..7599b86
+--- /dev/null
++++ b/lib/mc_cuda.h
+@@ -0,0 +1,32 @@
++#ifndef MC_CUDA_H_
++#define MC_CUDA_H_
++
++#include <stdint.h>
++#include <stddef.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++typedef struct mc_pack {
++  uint8_t *ref0[3];
++  uint8_t *ref1[3];
++  uint8_t *dst[3];
++  int16_t *residue;
++  int *mv1;
++  int *mv2;
++  int *refi;
++  ptrdiff_t *frag_offsets;
++  int *frag_plane;
++  int *ystride;
++  int nfrags;
++} mc_pack;
++
++void mc_cuda_launch(const mc_pack params);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
++

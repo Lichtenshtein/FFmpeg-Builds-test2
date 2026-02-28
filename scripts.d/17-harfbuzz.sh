@@ -20,7 +20,7 @@ ffbuild_dockerbuild() {
         --libdir=lib
         --buildtype=release
         --default-library=static
-        -Dfreetype=disabled
+        -Dfreetype=enabled
         -Dglib=disabled
         -Dgobject=disabled
         -Dcairo=disabled
