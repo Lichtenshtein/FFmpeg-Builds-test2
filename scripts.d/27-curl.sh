@@ -47,8 +47,8 @@ ffbuild_dockerbuild() {
         --with-brotli
         --without-libpsl
         --enable-doh
-        --enable-ech
-        --with-ngtcp2
+        # --enable-ech
+        # --with-ngtcp2
         # --with-nghttp3
         # --with-quiche
         # --with-nghttp2
