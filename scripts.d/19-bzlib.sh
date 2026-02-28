@@ -20,7 +20,11 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DENABLE_STATIC_LIB=ON \
         -DENABLE_SHARED_LIB=OFF \
-        -DENABLE_LIB_ONLY=1
+        -DENABLE_EXAMPLES=OFF \
+        -DENABLE_DOCS=OFF \
+        -DENABLE_APP=OFF \
+        -DENABLE_STATIC_LIB_IS_PIC=ON \
+        -DENABLE_LIB_ONLY=ON
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"

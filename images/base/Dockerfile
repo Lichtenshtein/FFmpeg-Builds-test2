@@ -20,7 +20,7 @@ RUN \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
         gcc-14 g++-14 dos2unix re2c && \
     pip3 install --break-system-packages --upgrade meson  && \
-    pip3 install Cython --break-system-packages && \
+    pip3 install Cython pytest build --break-system-packages && \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 && \
     update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-14 100 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100 && \
