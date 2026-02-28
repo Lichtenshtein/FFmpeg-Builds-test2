@@ -14,13 +14,21 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     cd source
 
+    unset CC CXX LD AR CPP LIBS CCAS
+    unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
     # ICU требует сборку под хост-систему (Linux) для генерации данных
     mkdir -p host-build && cd host-build
-    ../configure --prefix="$(pwd)/install" --disable-tests --disable-samples
-    make -j$(nproc) $MAKE_V
+
+    ../configure --prefix="$(pwd)/install" \
+        --disable-tests \
+        --disable-samples \
+        --disable-icuio \
+        --disable-extras \
+        --disable-tools
+    
+    make -j$(nproc)
     make install
     cd ..
-
     # Теперь основная сборка под Windows (Target)
     mkdir -p target-build && cd target-build
 
