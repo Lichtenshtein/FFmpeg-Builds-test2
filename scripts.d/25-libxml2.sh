@@ -7,6 +7,7 @@ ffbuild_depends() {
     echo base
     echo libiconv
     echo zlib
+    echo libicu
 }
 
 ffbuild_enabled() {
@@ -24,13 +25,13 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
         --without-python
-        --without-icu
+        # --without-icu
         --without-modules
         --disable-maintainer-mode
         --disable-shared
         --enable-static
         --with-pic
-        --with-icu=no
+        # --with-icu=no
         --with-zlib=yes
         --with-iconv=yes
     )
