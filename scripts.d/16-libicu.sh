@@ -12,15 +12,17 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    cd source
+
     # ICU требует сборку под хост-систему (Linux) для генерации данных
-    mkdir host-build && cd host-build
-    ../source/configure --prefix=$(pwd)/install
+    mkdir -p host-build && cd host-build
+    ../configure --prefix="$(pwd)/install" --disable-tests --disable-samples
     make -j$(nproc) $MAKE_V
     make install
     cd ..
 
     # Теперь основная сборка под Windows (Target)
-    mkdir target-build && cd target-build
+    mkdir -p target-build && cd target-build
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -40,22 +42,20 @@ ffbuild_dockerbuild() {
         --with-data-packaging=static
     )
 
-    # Применяем флаги компилятора
-    export CFLAGS="$CFLAGS"
-    export CXXFLAGS="$CXXFLAGS"
-
-    ../source/configure "${myconf[@]}"
+    ../configure "${myconf[@]}" CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS"
     
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     # Исправляем pkg-config файлы для статической линковки
-    # ICU генерирует несколько файлов: icu-i18n.pc, icu-uc.pc и т.д.
+    # ICU по умолчанию создает icu-uc.pc, icu-i18n.pc
     for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/icu-*.pc; do
         if [[ -f "$pc" ]]; then
-            log_info "Patching $(basename "$pc") for static linking..."
-            # В Windows статической ICU часто нужны либы advapi32 и т.д.
-            sed -i '/Libs.private:/ s/$/ -ladvapi32 -lws2_32/' "$pc"
+            log_info "Patching $(basename "$pc") for static Windows linking..."
+            # Добавляем необходимые системные библиотеки Windows для статики
+            sed -i '/Libs.private:/ s/$/ -lpthread -lm -ladvapi32 -lws2_32/' "$pc"
+            # Иногда ICU не прописывает -licudt (данные) в Libs, добавим на всякий случай
+            sed -i '/Libs:/ s/$/ -licudt/' "$pc"
         fi
     done
 }
