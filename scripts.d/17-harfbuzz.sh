@@ -20,34 +20,22 @@ ffbuild_dockerbuild() {
         --libdir=lib
         --buildtype=release
         --default-library=static
-        -Dfreetype=enabled
-        -Dglib=enabled
+        -Dfreetype=disabled
+        -Dglib=disabled
         -Dgobject=disabled
-        -Dcairo=enabled
+        -Dcairo=disabled
         -Dchafa=disabled
         -Dtests=disabled
         -Dintrospection=disabled
         -Ddocs=disabled
         -Ddoc_tests=false
         -Dutilities=disabled
-        -Ddirectwrite=enabled
-        -Dgdi=enabled
+        -Ddirectwrite=disabled
+        -Dgdi=disabled
         -Dbenchmark=disabled
     )
 
     meson setup "${myconf[@]}" ..
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
-
-    # echo "Libs.private: -lpthread" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/harfbuzz.pc
-}
-
-ffbuild_configure() {
-    (( $(ffbuild_ffver) > 600 )) || return 0
-    echo --enable-libharfbuzz
-}
-
-ffbuild_unconfigure() {
-    (( $(ffbuild_ffver) > 600 )) || return 0
-    echo --disable-libharfbuzz
 }

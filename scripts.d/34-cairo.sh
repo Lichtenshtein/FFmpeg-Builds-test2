@@ -9,6 +9,7 @@ ffbuild_depends() {
     echo freetype
     echo libpng
     echo pixman
+    echo harfbuzz
 }
 
 ffbuild_enabled() {
