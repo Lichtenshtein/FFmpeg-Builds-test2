@@ -10,6 +10,7 @@ ffbuild_depends() {
     echo giflib
     echo zlib
     echo zstd
+    echo xz
 }
 
 ffbuild_enabled() {
@@ -24,11 +25,11 @@ ffbuild_dockerbuild() {
     ./autogen.sh
 
     # Помогаем Autotools найти статические либы в нашем префиксе
-    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
+    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib -llzma"
     export CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include"
 
     # передаем зависимости libtiff, чтобы тесты линковки не падали
-    export LIBS="-ltiff -ljpeg -lzstd -lpng16 -lz -lm"
+    export LIBS="-ltiff -ljpeg -llzma -lzstd -lpng16 -lz -lm"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
