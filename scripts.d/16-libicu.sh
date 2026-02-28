@@ -38,11 +38,15 @@ ffbuild_dockerbuild() {
     # Проверка: если icupkg не собрался, дальше идти нет смысла
     if [[ ! -f "host-build/bin/icupkg" ]]; then
         echo "ERROR: icupkg not found in host-build/bin!"
-        exit 1
+        return 1
     fi
 
     # Теперь основная сборка под Windows (Target)
     mkdir -p target-build && cd target-build
+
+    # ПРЕДВАРИТЕЛЬНО создаем структуру папок, чтобы install не падал
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -67,20 +71,30 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    # Исправление и перемещение библиотек
+    # ICU иногда кидает sicudt.a в /bin, переместим её в /lib
+    if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/sicudt.a" ]]; then
+        mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/sicudt.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libsicudt.a"
+    fi
+
     # Исправляем pkg-config файлы для статической линковки
     # ICU по умолчанию создает icu-uc.pc, icu-i18n.pc
+    # Патчим .pc файлы для корректной работы с FFmpeg
     for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/icu-*.pc; do
         if [[ -f "$pc" ]]; then
-            log_info "Patching $(basename "$pc") for static Windows linking..."
-            # Заменяем имена либ на статические префиксы 's', которые использует ICU в Windows
+            log_info "Patching $(basename "$pc") for FFmpeg static linking..."
+            # Заменяем стандартные имена на статические префиксы 's'
             sed -i 's/-licuin/-lsicuin/g' "$pc"
             sed -i 's/-licuuc/-lsicuuc/g' "$pc"
             sed -i 's/-licudata/-lsicudata/g' "$pc"
+            # Если в файле упоминается icudt, меняем на sicudt
             sed -i 's/-licudt/-lsicudt/g' "$pc"
             
-            # Системные зависимости
+            # Добавляем системные либы и обеспечиваем наличие -lsicudt
             sed -i '/Libs.private:/ s/$/ -lpthread -lm -ladvapi32 -lws2_32/' "$pc"
-            sed -i '/Libs:/ s/$/ -licudt/' "$pc"
+            if ! grep -q -- "-lsicudt" "$pc"; then
+                sed -i '/Libs:/ s/$/ -lsicudt/' "$pc"
+            fi
         fi
     done
 }
