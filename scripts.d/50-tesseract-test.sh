@@ -1,9 +1,3 @@
-I'm using a fairly complex third-party build script that utilizes Docker, ccache and uses the shell (bash) to cross-compile FFmpeg with a large list of different components. The build is done on GitHub servers using Github actions with its workflow.yaml. The targeting platform is Win64 with Xeon E5 2690v4 cpu.
-
-Each component is a build script in the scripts.d folder. My goal is to check each of these scripts for correct paths, commands, variables and bugs, and edit them accordingly to ensure successful compilation - first of them — and then the final FFmpeg compilation.
-
-I'll give you an example script for libtesseract: 50-tesseract-test.sh:
-
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/tesseract-ocr/tesseract.git"
@@ -17,6 +11,7 @@ ffbuild_depends() {
     echo cairo
     echo libtiff
     echo openssl
+    echo libicu
 }
 
 ffbuild_enabled() {
@@ -89,24 +84,3 @@ ffbuild_configure() {
 ffbuild_unconfigure() {
     echo --disable-libtesseract
 }
-
-Could you help me write some scripts for components that serve as dependencies for other components?
-
-In total I need to write 3 scripts: for libicu, libcurl, jbigkit.
-
-libicu
-SCRIPT_REPO="https://github.com/winlibs/icu4c.git"
-SCRIPT_COMMIT="25b56cd344f49183b7c20909cb0558bf81d93673"
-
-jbigkit
-SCRIPT_REPO="https://github.com/zdenop/jbigkit.git"
-SCRIPT_COMMIT="4690140176ddbc3943d2b794d4b31993d7a509e1"
-
-option(BUILD_PROGRAMS "Build programs." ON)
-option(BUILD_TOOLS "Build pbm tools." ON)
-chdir jbigkit
-cmake -Bbuild -DCMAKE_PREFIX_PATH=%INSTALL_DIR% -DCMAKE_INSTALL_PREFIX=%INSTALL_DIR% -DBUILD_PROGRAMS=OFF -DBUILD_TOOLS=OFF -DCMAKE_WARN_DEPRECATED=OFF
-cmake --build build --config Release --target install
-chdir ..
-
-libcurl
