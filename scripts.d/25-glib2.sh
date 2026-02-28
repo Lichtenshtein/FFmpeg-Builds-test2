@@ -4,6 +4,14 @@ SCRIPT_REPO="https://github.com/GNOME/glib.git"
 SCRIPT_COMMIT="2.82.4" # Стабильная ветка
 # SCRIPT_COMMIT="6b11cae1b3bf3e9cff9485481dd1c0f7e806c361"
 
+ffbuild_depends() {
+    echo zlib
+    echo pcre2
+    echo libffi
+    echo gettext
+    echo libiconv
+}
+
 ffbuild_enabled() {
     return 0
 }

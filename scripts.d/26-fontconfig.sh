@@ -7,6 +7,8 @@ ffbuild_depends() {
     echo base
     echo libxml2
     echo libiconv
+    echo freetype
+    echo gettext
 }
 
 ffbuild_enabled() {

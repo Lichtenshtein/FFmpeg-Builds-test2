@@ -1,0 +1,6167 @@
+From 73e22c19f86ebdc7237e78bb8ad30eeffc2b6413 Mon Sep 17 00:00:00 2001
+From: Mike Will <myQwil@gmail.com>
+Date: Sun, 16 Feb 2025 17:20:11 -0500
+Subject: [PATCH] myQwil's modified player
+
+---
+diff --git a/.github/workflows/CI-Linux.yml b/.github/workflows/CI-Linux.yml
+index e032d36..52e2439 100644
+--- a/.github/workflows/CI-Linux.yml
++++ b/.github/workflows/CI-Linux.yml
+@@ -1,51 +1,21 @@
+-name: CI Linux
++name: Linux Build
+ 
+ on: [push, pull_request]
+ 
+ jobs:
+   build:
+-    name: Linux (${{ matrix.configuration }})
+-    runs-on: ${{ matrix.os }}
+-    strategy:
+-      matrix:
+-        configuration: [Debug, Release]
+-        include:
+-          - generator: Ninja
+-            os: ubuntu-latest
++    runs-on: ubuntu-latest
++
++    name: Build on ubuntu-latest
+ 
+     steps:
+-    - uses: actions/checkout@v3
+-    - name: Install dependencies
+-      run: |
+-          sudo apt-get update
+-          sudo apt-get install build-essential g++ cmake ninja-build libsdl2-dev
+-    - name: Build Shared
+-      run: |
+-        mkdir build
+-        cd build
+-        cmake -G ${{ matrix.generator }} -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} ..
+-        cmake --build .
+-        cmake --build . --target demo
+-        cmake --build . --target demo_mem
+-        cmake --build . --target demo_multi
+-        cmake --build . --target gme_player
+-    - name: Build Shared w/o Zlib
+-      run: |
+-        mkdir build-nozlib
+-        cd build-nozlib
+-        cmake -G ${{ matrix.generator }} -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DGME_ZLIB=OFF ..
+-        cmake --build .
+-        cmake --build . --target demo
+-        cmake --build . --target demo_mem
+-        cmake --build . --target demo_multi
+-        cmake --build . --target gme_player
+-    - name: Build Static
+-      run: |
+-        mkdir build-static
+-        cd build-static
+-        cmake -G ${{ matrix.generator }} -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DBUILD_SHARED_LIBS=OFF ..
+-        cmake --build .
+-        cmake --build . --target demo
+-        cmake --build . --target demo_mem
+-        cmake --build . --target demo_multi
+-        cmake --build . --target gme_player
++      - uses: actions/checkout@v4
++
++      - name: Setup Zig
++        uses: mlugg/setup-zig@v2
++
++      - name: Build static library
++        run: zig build -Dlinkage=static
++
++      - name: Build shared library
++        run: zig build -Dlinkage=dynamic
+diff --git a/.github/workflows/CI-MacOS.yml b/.github/workflows/CI-MacOS.yml
+index 85a6f2e..bd23aca 100644
+--- a/.github/workflows/CI-MacOS.yml
++++ b/.github/workflows/CI-MacOS.yml
+@@ -1,56 +1,21 @@
+-name: CI macOS
++name: MacOS Build
+ 
+ on: [push, pull_request]
+ 
+ jobs:
+   build:
+-    name: macOS (${{ matrix.configuration }})
+-    runs-on: ${{ matrix.os }}
+-    strategy:
+-      matrix:
+-        configuration: [Debug, Release]
+-        include:
+-          - generator: Xcode
+-            os: macos-latest
++    runs-on: macos-latest
++
++    name: Build on macos-latest
+ 
+     steps:
+-    - uses: actions/checkout@v3
+-    - name: Install dependencies
+-      env:
+-        HOMEBREW_NO_ANALYTICS: 1
+-        HOMEBREW_NO_INSTALL_CLEANUP: 1
+-      run: |
+-        unset HOMEBREW_NO_INSTALL_FROM_API
+-        brew update
+-        brew upgrade || true
+-        brew install sdl2
+-    - name: Build Shared
+-      run: |
+-        mkdir build
+-        cd build
+-        cmake -G ${{ matrix.generator }} -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} ..
+-        cmake --build .
+-        cmake --build . --target demo
+-        cmake --build . --target demo_mem
+-        cmake --build . --target demo_multi
+-        cmake --build . --target gme_player
+-    - name: Build Shared w/o Zlib
+-      run: |
+-        mkdir build-nozlib
+-        cd build-nozlib
+-        cmake -G ${{ matrix.generator }} -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DGME_ZLIB=OFF ..
+-        cmake --build .
+-        cmake --build . --target demo
+-        cmake --build . --target demo_mem
+-        cmake --build . --target demo_multi
+-        cmake --build . --target gme_player
+-    - name: Build Static
+-      run: |
+-        mkdir build-static
+-        cd build-static
+-        cmake -G ${{ matrix.generator }} -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DBUILD_SHARED_LIBS=OFF ..
+-        cmake --build .
+-        cmake --build . --target demo
+-        cmake --build . --target demo_mem
+-        cmake --build . --target demo_multi
+-        cmake --build . --target gme_player
++      - uses: actions/checkout@v4
++
++      - name: Setup Zig
++        uses: mlugg/setup-zig@v2
++
++      - name: Build static library
++        run: zig build -Dlinkage=static
++
++      - name: Build shared library
++        run: zig build -Dlinkage=dynamic
+diff --git a/.github/workflows/CI-MinGW.yml b/.github/workflows/CI-MinGW.yml
+deleted file mode 100644
+index 267caca..0000000
+--- a/.github/workflows/CI-MinGW.yml
++++ /dev/null
+@@ -1,59 +0,0 @@
+-name: CI MinGW
+-
+-on: [push, pull_request]
+-
+-jobs:
+-  build:
+-    name: MinGW-w64 (${{ matrix.configuration }})
+-    runs-on: ${{ matrix.os }}
+-    strategy:
+-      matrix:
+-        configuration: [Debug, Release]
+-        include:
+-          - generator: MSYS Makefiles
+-            os: windows-latest
+-    defaults:
+-      run:
+-        shell: msys2 {0}
+-
+-    steps:
+-    - uses: msys2/setup-msys2@v2
+-      with:
+-        update: true
+-        install: >-
+-          git
+-          base-devel
+-          mingw-w64-x86_64-toolchain
+-          mingw-w64-x86_64-cmake
+-          mingw-w64-x86_64-SDL2
+-    - uses: actions/checkout@v3
+-    - name: Build Shared
+-      run: |
+-        mkdir build
+-        cd build
+-        cmake -G "${{ matrix.generator }}" -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} ..
+-        cmake --build .
+-        cmake --build . --target demo
+-        cmake --build . --target demo_mem
+-        cmake --build . --target demo_multi
+-        cmake --build . --target gme_player
+-    - name: Build Shared w/o Zlib
+-      run: |
+-        mkdir build-nozlib
+-        cd build-nozlib
+-        cmake -G "${{ matrix.generator }}" -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DGME_ZLIB=OFF ..
+-        cmake --build .
+-        cmake --build . --target demo
+-        cmake --build . --target demo_mem
+-        cmake --build . --target demo_multi
+-        cmake --build . --target gme_player
+-    - name: Build Static
+-      run: |
+-        mkdir build-static
+-        cd build-static
+-        cmake -G "${{ matrix.generator }}" -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DBUILD_SHARED_LIBS=OFF ..
+-        cmake --build .
+-        cmake --build . --target demo
+-        cmake --build . --target demo_mem
+-        cmake --build . --target demo_multi
+-        cmake --build . --target gme_player
+diff --git a/.github/workflows/CI-Windows.yml b/.github/workflows/CI-Windows.yml
+index 0cb9ecc..9bbe036 100644
+--- a/.github/workflows/CI-Windows.yml
++++ b/.github/workflows/CI-Windows.yml
+@@ -1,29 +1,22 @@
+-name: CI Windows
++name: Windows Build
+ 
+ on: [push, pull_request]
+ 
+ jobs:
+   build:
+-    name: MSVC (${{ matrix.configuration }})
+     runs-on: windows-latest
+-    strategy:
+-      matrix:
+-        configuration: [Debug, Release]
++
++    name: Build on windows-latest
+ 
+     steps:
+-    - uses: actions/checkout@v3
+-    - name: Install dependencies
+-      run: |
+-          vcpkg install sdl2 zlib
+-    - name: Build Shared
+-      run: |
+-        cmake -B build -DCMAKE_TOOLCHAIN_FILE=C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.configuration }}
+-        cmake --build build/
+-    - name: Build Shared w/o Zlib
+-      run: |
+-        cmake -B build-nozlib -DCMAKE_TOOLCHAIN_FILE=C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DGME_ZLIB=OFF
+-        cmake --build build-nozlib/
+-    - name: Build Static
+-      run: |
+-        cmake -B build-static -DCMAKE_TOOLCHAIN_FILE=C:\\vcpkg\\scripts\\buildsystems\\vcpkg.cmake -DCMAKE_BUILD_TYPE=${{ matrix.configuration }} -DBUILD_SHARED_LIBS=OFF
+-        cmake --build build-static/
++      - uses: actions/checkout@v4
++
++      - name: Setup Zig
++        uses: mlugg/setup-zig@v2
++
++      - name: Build static library
++        # avoid safe build on windows: https://github.com/ziglang/zig/issues/23138
++        run: zig build --release=fast -Dlinkage=static
++
++      - name: Build shared library
++        run: zig build --release=fast -Dlinkage=dynamic
+diff --git a/.gitignore b/.gitignore
+index 3af3c0e..7dae775 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -20,3 +20,16 @@ test/newm/*
+ .DS_Store
+ Thumbs.db
+ desktop.ini
++
++# Auto-generated by KDE
++.directory
++
++# Zig folders
++.zig-cache/
++zig-out/
++
++# VSCode folder
++.vscode
++
++# Clangd cache folder
++.cache
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c07e223..2ddaa93 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -12,10 +12,18 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+ 
+ include(CMakePushCheckState)
+ include(CheckCXXSourceCompiles)
++include(CheckCXXCompilerFlag)
+ include(TestBigEndian)
+ include(GNUInstallDirs)
+ include(CTest)
+ 
++macro(gme_add_cxx_warning_flag WARNINGFLAG WARNING_VAR)
++    check_cxx_compiler_flag("-W${WARNINGFLAG}" HAVE_CXXW_${WARNING_VAR})
++    if(HAVE_CXXW_${WARNING_VAR})
++        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -W${WARNINGFLAG}")
++    endif()
++endmacro()
++
+ file(READ "gme/gme.h" GME_GME_H)
+ string(REGEX MATCH "/\\* Game_Music_Emu ([0-9]+)\\.([0-9]+).([0-9]+) \\*/" RE_GME_VERSION "${GME_GME_H}")
+ if(NOT RE_GME_VERSION)
+@@ -74,6 +82,8 @@ set(CMAKE_CXX_STANDARD 11)
+ set(CMAKE_CXX_STANDARD_REQUIRED ON)
+ set(CMAKE_CXX_EXTENSIONS OFF)
+ 
++set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
++
+ test_big_endian(WORDS_BIGENDIAN)
+ 
+ if(MSVC)
+@@ -101,13 +111,16 @@ elseif(MSVC)
+ endif()
+ 
+ # Check for GCC/Clang "visibility" support.
+-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND GME_ENABLE_UBSAN)
++if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
++  gme_add_cxx_warning_flag(zero-as-null-pointer-constant ZERO_AS_NULLPTR_CONSTANT)
++  if(GME_ENABLE_UBSAN)
+     # GCC needs -static-libubsan
+     if(NOT GME_BUILD_SHARED AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined -static-libubsan")
+     else()
+         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
+     endif()
++  endif()
+ endif()
+ 
+ # Shared library defined here
+diff --git a/build.zig b/build.zig
+new file mode 100644
+index 0000000..e378357
+--- /dev/null
++++ b/build.zig
+@@ -0,0 +1,380 @@
++const std = @import("std");
++const LinkMode = std.builtin.LinkMode;
++
++const Ym2612Emu = enum {
++	mame,
++	nuked,
++	gens,
++};
++
++const Options = struct {
++	// Default emulators to build (all of them! ;)
++	ay: bool = true,
++	gbs: bool = true,
++	gym: bool = true,
++	hes: bool = true,
++	kss: bool = true,
++	nsf: bool = true,
++	nsfe: bool = true,
++	sap: bool = true,
++	spc: bool = true,
++	vgm: bool = true,
++
++	linkage: LinkMode = .static,
++	ym2612_emu: Ym2612Emu = .mame,
++	spc_isolated_echo_buffer: bool = false,
++
++	fn init(b: *std.Build) Options {
++		const default: Options = .{};
++		var opt: Options = .{
++			.ay = b.option(bool, "ay",
++				"Enable support for Spectrum ZX music emulation"
++			) orelse default.ay,
++
++			.gbs = b.option(bool, "gbs",
++				"Enable support for Game Boy music emulation"
++			) orelse default.gbs,
++
++			.gym = b.option(bool, "gym",
++				"Enable Sega MegaDrive/Genesis music emulation"
++			) orelse default.gym,
++
++			.hes = b.option(bool, "hes",
++				"Enable PC Engine/TurboGrafx-16 music emulation"
++			) orelse default.hes,
++
++			.kss = b.option(bool, "kss",
++				"Enable MSX or other Z80 systems music emulation"
++			) orelse default.kss,
++
++			.nsf = b.option(bool, "nsf",
++				"Enable NES NSF music emulation"
++			) orelse default.nsf,
++
++			.nsfe = b.option(bool, "nsfe",
++				"Enable NES NSFE and NSF music emulation"
++			) orelse default.nsfe,
++
++			.sap = b.option(bool, "sap",
++				"Enable Atari SAP music emulation"
++			) orelse default.sap,
++
++			.spc = b.option(bool, "spc",
++				"Enable SNES SPC music emulation"
++			) orelse default.spc,
++
++			.vgm = b.option(bool, "vgm",
++				"Enable Sega VGM/VGZ music emulation"
++			) orelse default.vgm,
++
++			.linkage = b.option(LinkMode, "linkage",
++				"Library linking method"
++			) orelse default.linkage,
++
++			.ym2612_emu = b.option(Ym2612Emu, "ym2612_emu",
++				"Which YM2612 emulator to use."
++			) orelse default.ym2612_emu,
++
++			.spc_isolated_echo_buffer = b.option(bool, "spc_isolated_echo_buffer",
++				"Enable isolated echo buffer on SPC emulator to allow correct playing of " ++
++				"\"dodgy\" SPC files made for various ROM hacks ran on ZSNES"
++			) orelse default.spc_isolated_echo_buffer,
++		};
++
++		if (opt.nsfe and !opt.nsf) {
++			std.debug.print("NSFE support requires NSF, enabling NSF support.\n", .{});
++			opt.nsf = true;
++		}
++		return opt;
++	}
++};
++
++pub fn build(b: *std.Build) !void {
++	const target = b.standardTargetOptions(.{});
++	const optimize = b.standardOptimizeOption(.{});
++	const opt: Options = .init(b);
++
++	const zlib_dep = b.dependency("zlib", .{
++		.target = target,
++		.optimize = optimize,
++	});
++
++	const mod_args: std.Build.Module.CreateOptions = .{
++		.target = target,
++		.optimize = optimize,
++		.link_libcpp = true,
++	};
++
++	//---------------------------------------------------------------------------
++	// Library
++	const lib = blk: {
++		const mod = b.createModule(mod_args);
++
++		const mem = b.allocator;
++		var files: std.ArrayList([]const u8) = try .initCapacity(mem, 0);
++		defer files.deinit(mem);
++
++		try files.appendSlice(mem, &src.main);
++
++		if (opt.ay or opt.kss) {
++			try files.appendSlice(mem, &src.ay_apu);
++		}
++		if (opt.vgm or opt.gym) switch (opt.ym2612_emu) {
++			.nuked => {
++				try files.appendSlice(mem, &src.ym_nuked);
++				mod.addCMacro("VGM_YM2612_NUKED", "1");
++			},
++			.mame => {
++				try files.appendSlice(mem, &src.ym_mame);
++				mod.addCMacro("VGM_YM2612_MAME", "1");
++			},
++			.gens => {
++				try files.appendSlice(mem, &src.ym_gens);
++				mod.addCMacro("VGM_YM2612_GENS", "1");
++			},
++		};
++		if (opt.vgm or opt.gym or opt.kss) {
++			try files.appendSlice(mem, &src.sms);
++		}
++		if (opt.ay) {
++			try files.appendSlice(mem, &src.ay);
++		}
++		if (opt.gbs) {
++			try files.appendSlice(mem, &src.gbs);
++		}
++		if (opt.gym) {
++			try files.appendSlice(mem, &src.gym);
++		}
++		if (opt.hes) {
++			try files.appendSlice(mem, &src.hes);
++		}
++		if (opt.kss) {
++			try files.appendSlice(mem, &src.kss);
++		}
++		if (opt.nsf or opt.nsfe) {
++			try files.appendSlice(mem, &src.nsf);
++		}
++		if (opt.nsfe) {
++			try files.appendSlice(mem, &src.nsfe);
++		}
++		if (opt.sap) {
++			try files.appendSlice(mem, &src.sap);
++		}
++		if (opt.spc) {
++			try files.appendSlice(mem, &src.spc);
++			if (opt.spc_isolated_echo_buffer) {
++				mod.addCMacro("SPC_ISOLATED_ECHO_BUFFER", "1");
++			}
++		}
++		if (opt.vgm) {
++			try files.appendSlice(mem, &src.vgm);
++		}
++
++		switch (target.result.cpu.arch.endian()) {
++			.little => mod.addCMacro("BLARGG_LITTLE_ENDIAN", "1"),
++			.big => mod.addCMacro("BLARGG_BIG_ENDIAN", "1"),
++		}
++
++		mod.addCSourceFiles(.{
++			.files = files.items,
++			.flags = &.{
++				"-fno-sanitize=undefined",
++				"-Wzero-as-null-pointer-constant",
++				"-Werror",
++			},
++		});
++
++		mod.linkLibrary(zlib_dep.artifact("z"));
++		mod.addCMacro("HAVE_ZLIB_H", "1");
++
++		const lib = b.addLibrary(.{
++			.name = "gme",
++			.linkage = opt.linkage,
++			.root_module = mod,
++		});
++		b.installArtifact(lib);
++		break :blk lib;
++	};
++
++	//---------------------------------------------------------------------------
++	// Player demo
++	{
++		const mod = b.createModule(mod_args);
++		mod.linkLibrary(lib);
++		mod.linkLibrary(zlib_dep.artifact("z"));
++		mod.linkSystemLibrary("SDL2", .{});
++		mod.linkSystemLibrary("archive", .{});
++
++		mod.addCMacro("HAVE_ZLIB_H", "1");
++		mod.addCMacro("HAVE_LIBARCHIVE", "1");
++
++		mod.linkLibrary(b.dependency("unrar", .{
++			.target = target,
++			.optimize = optimize,
++			.linkage = opt.linkage,
++		}).artifact("unrar"));
++		mod.addCMacro("RARDLL", "1");
++		mod.addCMacro("RAR_HDR_DLL_HPP", "1");
++
++		mod.addCSourceFiles(.{
++			.files = &src.player,
++			.flags = &.{
++				"-Wzero-as-null-pointer-constant",
++				"-Werror",
++			},
++		});
++		mod.addIncludePath(b.path("."));
++
++		addSteps(b, b.addExecutable(.{
++			.name = "gme_player",
++			.root_module = mod,
++		}), "player", "the player demo");
++	}
++
++	//---------------------------------------------------------------------------
++	// Zig example
++	{
++		const zig_mod = b.addModule("gme", .{
++			.root_source_file = b.path("gme.zig"),
++			.target = target,
++			.optimize = optimize,
++		});
++		zig_mod.linkLibrary(lib);
++
++		const basics = b.addExecutable(.{
++			.name = "basics",
++			.root_module = b.createModule(.{
++				.root_source_file = b.path("demo/basics.zig"),
++				.target = target,
++				.optimize = optimize,
++				.imports = &.{ .{ .name = "gme", .module = zig_mod } },
++			}),
++		});
++		addSteps(b, basics, "basics", "the zig example");
++	}
++}
++
++fn addSteps(
++	b: *std.Build,
++	exe: *std.Build.Step.Compile,
++	name: []const u8,
++	desc: []const u8,
++) void {
++	const install = b.addInstallArtifact(exe, .{});
++	const step_install = b.step(name, b.fmt("Build {s}", .{ desc }));
++	step_install.dependOn(&install.step);
++
++	const run = b.addRunArtifact(exe);
++	run.step.dependOn(&install.step);
++	const step_run = b.step(
++		b.fmt("run_{s}", .{name}), b.fmt("Build and run {s}", .{ desc }) );
++	step_run.dependOn(&run.step);
++	if (b.args) |args| {
++		run.addArgs(args);
++	}
++}
++
++const src = struct {
++	const main = [_][]const u8{
++		"gme/Blip_Buffer.cpp",
++		"gme/Classic_Emu.cpp",
++		"gme/Data_Reader.cpp",
++		"gme/Dual_Resampler.cpp",
++		"gme/Effects_Buffer.cpp",
++		"gme/Fir_Resampler.cpp",
++		"gme/gme.cpp",
++		"gme/Gme_File.cpp",
++		"gme/M3u_Playlist.cpp",
++		"gme/Multi_Buffer.cpp",
++		"gme/Music_Emu.cpp",
++	};
++
++	const ay = [_][]const u8{
++		"gme/Ay_Cpu.cpp",
++		"gme/Ay_Emu.cpp",
++	};
++	const ay_apu = [_][]const u8{
++		"gme/Ay_Apu.cpp",
++	};
++
++	const ym_nuked = [_][]const u8{
++		"gme/Ym2612_Nuked.cpp",
++	};
++	const ym_mame = [_][]const u8{
++		"gme/Ym2612_MAME.cpp",
++	};
++	const ym_gens = [_][]const u8{
++		"gme/Ym2612_GENS.cpp",
++	};
++
++	const sms = [_][]const u8{
++		"gme/Sms_Apu.cpp",
++	};
++
++	const vgm = [_][]const u8{
++		"gme/Vgm_Emu.cpp",
++		"gme/Vgm_Emu_Impl.cpp",
++		"gme/Ym2413_Emu.cpp",
++	};
++
++	const gym = [_][]const u8{
++		"gme/Gym_Emu.cpp",
++	};
++
++	const kss = [_][]const u8{
++		"gme/Kss_Cpu.cpp",
++		"gme/Kss_Emu.cpp",
++		"gme/Kss_Scc_Apu.cpp"
++	};
++
++	const gbs = [_][]const u8{
++		"gme/Gb_Apu.cpp",
++		"gme/Gb_Cpu.cpp",
++		"gme/Gb_Oscs.cpp",
++		"gme/Gbs_Emu.cpp",
++	};
++
++	const hes = [_][]const u8{
++		"gme/Hes_Apu.cpp",
++		"gme/Hes_Cpu.cpp",
++		"gme/Hes_Emu.cpp",
++	};
++
++	const nsf = [_][]const u8{
++		"gme/Nsf_Emu.cpp",
++		"gme/Nes_Cpu.cpp",
++		"gme/Nes_Oscs.cpp",
++		"gme/Nes_Apu.cpp",
++		"gme/Nes_Fme7_Apu.cpp",
++		"gme/Nes_Namco_Apu.cpp",
++		"gme/Nes_Vrc6_Apu.cpp",
++		"gme/Nes_Fds_Apu.cpp",
++		"gme/Nes_Vrc7_Apu.cpp",
++		"gme/ext/emu2413.c",
++		"gme/ext/panning.c",
++	};
++	const nsfe = [_][]const u8{
++		"gme/Nsfe_Emu.cpp",
++	};
++
++	const sap = [_][]const u8 {
++		"gme/Sap_Apu.cpp",
++		"gme/Sap_Cpu.cpp",
++		"gme/Sap_Emu.cpp",
++	};
++
++	const spc = [_][]const u8{
++		"gme/Snes_Spc.cpp",
++		"gme/Spc_Cpu.cpp",
++		"gme/Spc_Dsp.cpp",
++		"gme/Spc_Emu.cpp",
++		"gme/Spc_Filter.cpp",
++	};
++
++	const player = [_][]const u8{
++		"player/Audio_Scope.cpp",
++		"player/Music_Player.cpp",
++		"player/Archive_Reader.cpp",
++		"player/player.cpp",
++	};
++};
+diff --git a/build.zig.zon b/build.zig.zon
+new file mode 100644
+index 0000000..06d47bf
+--- /dev/null
++++ b/build.zig.zon
+@@ -0,0 +1,25 @@
++.{
++	.name = .game_music_emu,
++	.version = "0.6.4",
++	.fingerprint = 0x7c9433740065d361,
++	.minimum_zig_version = "0.16.0-dev.2368+380ea6fb5",
++	.dependencies = .{
++		.zlib = .{
++			.url = "git+https://github.com/allyourcodebase/zlib#c5115f4b69ef660f72a835c6638f80508ef284c7",
++			.hash = "zlib-1.3.1-1-ZZQ7ldENAAA7qJjUXP6E6xnRuV-jDL9dyoJFc_eb3zQ6",
++		},
++		.unrar = .{
++			.url = "git+https://github.com/myQwil/unrar#982411e5b06e07b70abd772ae9c0945dea2e5b55",
++			.hash = "unrar-7.2.3-zNpgmV8xAABKyGjync_Q11svESFcC8dmoq1mFjlqsQiv",
++		},
++	},
++	.paths = .{
++		"gme",
++		"build.zig",
++		"build.zig.zon",
++		"gme.zig",
++		"license.gpl2.txt",
++		"license.txt",
++		"readme.txt",
++	},
++}
+diff --git a/demo/Wave_Writer.cpp b/demo/Wave_Writer.cpp
+index 4b8c611..f127d96 100644
+--- a/demo/Wave_Writer.cpp
++++ b/demo/Wave_Writer.cpp
+@@ -2,9 +2,9 @@
+ 
+ #include "Wave_Writer.h"
+ 
+-#include <assert.h>
+-#include <stdint.h>
+-#include <stdlib.h>
++#include <cassert>
++#include <cstdint>
++#include <cstdlib>
+ 
+ /* Copyright (C) 2003-2006 by Shay Green. Permission is hereby granted, free
+ of charge, to any person obtaining a copy of this software and associated
+@@ -44,7 +44,7 @@ Wave_Writer::Wave_Writer( long sample_rate, const char* filename )
+ 	if ( !file )
+ 		exit_with_error( "Couldn't open WAVE file for writing" );
+ 
+-	setvbuf( file, 0, _IOFBF, 32 * 1024L );
++	setvbuf( file, nullptr, _IOFBF, 32 * 1024L );
+ }
+ 
+ void Wave_Writer::flush()
+@@ -151,7 +151,7 @@ void Wave_Writer::close()
+ 		fwrite( header, sizeof header, 1, file );
+ 
+ 		fclose( file );
+-		file = 0;
++		file = nullptr;
+ 		free( buf );
+ 	}
+ }
+@@ -180,5 +180,5 @@ void wave_write( const short* buf, long count ) { ww->write( buf, count ); }
+ void wave_close()
+ {
+ 	delete ww;
+-	ww = 0;
++	ww = nullptr;
+ }
+diff --git a/demo/Wave_Writer.h b/demo/Wave_Writer.h
+index 8e28757..d34c983 100644
+--- a/demo/Wave_Writer.h
++++ b/demo/Wave_Writer.h
+@@ -19,8 +19,8 @@ void wave_close( void );
+ #endif
+ 
+ #ifdef __cplusplus
+-#include <stddef.h>
+-#include <stdio.h>
++#include <cstddef>
++#include <cstdio>
+ 
+ /* C++ interface */
+ class Wave_Writer {
+diff --git a/demo/basics.c b/demo/basics.c
+index 8906a2c..1a07760 100644
+--- a/demo/basics.c
++++ b/demo/basics.c
+@@ -6,7 +6,7 @@
+ #include <stdlib.h>
+ #include <stdio.h>
+ 
+-void handle_error( const char* str );
++void handle_error( int );
+ 
+ int main(int argc, char *argv[])
+ {
+@@ -50,11 +50,11 @@ int main(int argc, char *argv[])
+ 	return 0;
+ }
+ 
+-void handle_error( const char* str )
++void handle_error( int err )
+ {
+-	if ( str )
++	if ( err )
+ 	{
+-		printf( "Error: %s\n", str ); getchar();
++		printf( "Error: %s\n", gme_strerror( err ) ); getchar();
+ 		exit( EXIT_FAILURE );
+ 	}
+ }
+diff --git a/demo/basics.zig b/demo/basics.zig
+new file mode 100644
+index 0000000..dbe2648
+--- /dev/null
++++ b/demo/basics.zig
+@@ -0,0 +1,70 @@
++//! opens a game music file and records 10 seconds to "out.wav"
++const std = @import("std");
++const gme = @import("gme");
++
++const header_size = 44;
++const duration_secs = 10;
++const channel_count = 2;
++const sample_rate = 48000;
++
++const Sample = i16;
++
++pub fn main(init: std.process.Init) !void {
++	const arena: std.mem.Allocator = init.arena.allocator();
++	const args = try init.minimal.args.toSlice(arena);
++
++	const filename = if (args.len > 1) args[1] else "test.nsf";
++	const track = if (args.len > 2) try std.fmt.parseInt(u32, args[2], 10) else 0;
++
++	// Open music file in new emulator
++	const emu = try gme.Emu.fromFile(filename.ptr, sample_rate);
++	defer emu.deinit();
++
++	// Start track
++	try emu.startTrack(track);
++
++	// Create buffer
++	const buf_size = 4000;
++	var buf: [buf_size]Sample = undefined;
++	const bytes = @as([*]u8, @ptrCast(&buf))[0..buf_size * @sizeOf(Sample)];
++
++	// Create a wave file
++	const io = init.io;
++	const file = try std.Io.Dir.cwd().createFile(io, "out.wav", .{});
++	defer file.close(io);
++
++	var wbuf: [1024]u8 = undefined;
++	var w = file.writer(io, &wbuf);
++
++	// Record 10 seconds of track
++	try w.seekTo(header_size);
++	const total_samples = duration_secs * channel_count * sample_rate;
++	while (emu.tellSamples() < total_samples) {
++		try emu.play(&buf);
++		try w.interface.writeAll(bytes);
++	}
++
++	// Write the header
++	try w.seekTo(0);
++	const data_size = emu.tellSamples() * @sizeOf(Sample);
++	const file_size = header_size + data_size - 8;
++	const frame_size = channel_count * @sizeOf(Sample);
++	const bytes_per_second = sample_rate * frame_size;
++
++	try w.interface.writeAll("RIFF");
++	try w.interface.writeInt(u32, file_size, .little);
++	try w.interface.writeAll("WAVE");
++
++	try w.interface.writeAll("fmt ");
++	try w.interface.writeInt(u32, 16, .little); // size of section following this number
++	try w.interface.writeInt(u16, 1, .little); // 1 = PCM
++	try w.interface.writeInt(u16, channel_count, .little);
++	try w.interface.writeInt(u32, sample_rate, .little);
++	try w.interface.writeInt(u32, bytes_per_second, .little);
++	try w.interface.writeInt(u16, frame_size, .little);
++	try w.interface.writeInt(u16, @bitSizeOf(Sample), .little);
++
++	try w.interface.writeAll("data");
++	try w.interface.writeInt(u32, data_size, .little);
++	try w.interface.flush();
++}
+diff --git a/demo/basics_mem.c b/demo/basics_mem.c
+index 6e638ff..e80ecdb 100644
+--- a/demo/basics_mem.c
++++ b/demo/basics_mem.c
+@@ -6,7 +6,7 @@
+ #include <stdlib.h>
+ #include <stdio.h>
+ 
+-void handle_error( const char* str );
++void handle_error( int );
+ 
+ char * dump_file(const char*file_path, size_t *size)
+ {
+@@ -74,11 +74,11 @@ int main(int argc, char *argv[])
+ 	return 0;
+ }
+ 
+-void handle_error( const char* str )
++void handle_error( int err )
+ {
+-	if ( str )
++	if ( err )
+ 	{
+-		printf( "Error: %s\n", str ); getchar();
++		printf( "Error: %s\n", gme_strerror( err ) ); getchar();
+ 		exit( EXIT_FAILURE );
+ 	}
+ }
+diff --git a/demo/basics_multi.c b/demo/basics_multi.c
+index bf5da19..ebaab78 100644
+--- a/demo/basics_multi.c
++++ b/demo/basics_multi.c
+@@ -7,11 +7,11 @@
+ #include <stdio.h>
+ #include <string.h>
+ 
+-void handle_error( const char *str )
++void handle_error( int err )
+ {
+-	if ( str )
++	if ( err )
+ 	{
+-		printf( "Error: %s\n", str ); getchar();
++		printf( "Error: %s\n", gme_strerror( err ) ); getchar();
+ 		exit( EXIT_FAILURE );
+ 	}
+ }
+diff --git a/demo/features.c b/demo/features.c
+index 9afb59c..513c129 100644
+--- a/demo/features.c
++++ b/demo/features.c
+@@ -11,7 +11,7 @@ static char playlist [] = "test.m3u"; /* uses this playlist, if present*/
+ #include <stdlib.h>
+ #include <stdio.h>
+ 
+-void handle_error( const char* );
++void handle_error( int );
+ 
+ /* Example of loading from memory, which would be useful if using a zip file or
+ other custom format. In this example it's silly because we could just use
+@@ -146,11 +146,11 @@ int main()
+ 	return 0;
+ }
+ 
+-void handle_error( const char* str )
++void handle_error( int err )
+ {
+-	if ( str )
++	if ( err )
+ 	{
+-		printf( "Error: %s\n", str ); getchar();
++		printf( "Error: %s\n", gme_strerror( err ) ); getchar();
+ 		exit( EXIT_FAILURE );
+ 	}
+ }
+diff --git a/gme.txt b/gme.txt
+index 1fa73d2..785c53a 100644
+--- a/gme.txt
++++ b/gme.txt
+@@ -71,11 +71,11 @@ errors, incompatible file data). Your code should check all error
+ values.
+ 
+ When loading a music file in the wrong emulator or trying to load a
+-non-music file, gme_wrong_file_type is returned. You can check for this
++non-music file, ERR_FILE_WRONG_TYPE is returned. You can check for this
+ error in C++ like this:
+ 
+ 	gme_err_t err = gme_open_file( path, &emu );
+-	if ( err == gme_wrong_file_type )
++	if ( err == ERR_FILE_WRONG_TYPE )
+ 		...
+ 
+ To check for minor problems, call gme_warning() to get a string
+diff --git a/gme.zig b/gme.zig
+new file mode 100644
+index 0000000..d32ac33
+--- /dev/null
++++ b/gme.zig
+@@ -0,0 +1,518 @@
++const std = @import("std");
++
++pub const Reader = ?*const fn (
++	in: [*]u8,
++	out: [*]u8,
++	count: c_int
++) callconv(.c) c_uint;
++
++pub const Cleanup = ?*const fn (user_data: *anyopaque) callconv(.c) void;
++
++/// Determine likely game music type based on first four bytes of file.
++/// Returns string containing proper file suffix (i.e. "NSF", "SPC", etc.)
++/// or "" if file header is not recognized.
++pub const identifyHeader = gme_identify_header;
++extern fn gme_identify_header(header: [*]const u8) [*:0]const u8;
++
++const err_offset = 1;
++const warn_offset = 1;
++
++pub const Error = error {
++	AddressInvalidInit,
++	AddressInvalidMusic,
++	AddressInvalidPlay,
++	BlipbufResize,
++	DigimusicNotSupported,
++	EmuInstructionIllegal,
++	EndOfFile,
++	FastplayValueInvalid,
++	FileCantGetSize,
++	FileCantOpen,
++	FileCantRead,
++	FileCantSeek,
++	FileCorrupt,
++	FileDataMissing,
++	FileNotLoaded,
++	FileWrongType,
++	GymPackedNotSupported,
++	GzCantRead,
++	GzCantSeek,
++	M3uPlaylistInvalid,
++	M3uTrackInvalid,
++	MultichannelNotSupported,
++	OutOfMemory,
++	PlayerTypeNotSupported,
++	ReadFail,
++	RomDataMissing,
++	SpcEmulation,
++	TrackCountInvalid,
++	TrackDataMissing,
++	TrackInvalid,
++	TrackSingleOnly,
++	UseFullEmulatorForPlayback,
++	Ym2413FmNotSupported,
++	NewEmu,
++};
++
++const error_list = [_]Error {
++	Error.AddressInvalidInit,
++	Error.AddressInvalidMusic,
++	Error.AddressInvalidPlay,
++	Error.BlipbufResize,
++	Error.DigimusicNotSupported,
++	Error.EmuInstructionIllegal,
++	Error.EndOfFile,
++	Error.FastplayValueInvalid,
++	Error.FileCantGetSize,
++	Error.FileCantOpen,
++	Error.FileCantRead,
++	Error.FileCantSeek,
++	Error.FileCorrupt,
++	Error.FileDataMissing,
++	Error.FileNotLoaded,
++	Error.FileWrongType,
++	Error.GymPackedNotSupported,
++	Error.GzCantRead,
++	Error.GzCantSeek,
++	Error.M3uPlaylistInvalid,
++	Error.M3uTrackInvalid,
++	Error.MultichannelNotSupported,
++	Error.OutOfMemory,
++	Error.PlayerTypeNotSupported,
++	Error.ReadFail,
++	Error.RomDataMissing,
++	Error.SpcEmulation,
++	Error.TrackCountInvalid,
++	Error.TrackDataMissing,
++	Error.TrackInvalid,
++	Error.TrackSingleOnly,
++	Error.UseFullEmulatorForPlayback,
++	Error.Ym2413FmNotSupported,
++};
++
++inline fn wrap(result: c_uint) Error!void {
++	const success = 0;
++	if (result != success) {
++		return error_list[result - err_offset];
++	}
++}
++
++/// Convert the error number into a string.
++pub fn strError(err: Error) ?[*:0]const u8 {
++	for (0..error_list.len) |i| {
++		if (error_list[i] == err) {
++			return gme_strerror(@intCast(i + err_offset));
++		}
++	}
++	return null;
++}
++extern fn gme_strerror(c_uint) ?[*:0]const u8;
++
++pub const Warning = enum(c_uint) {
++	AddressInvalid = warn_offset,
++	AddressInvalidLoadInitPlay,
++	BankDataMissing,
++	BankInvalid,
++	DataBadBlockSize,
++	DataHeaderMissing,
++	DataSizeExcessive,
++	EmuInstructionIllegal,
++	ExpansionHardwareNotSupported,
++	FileDataBlockInvalid,
++	FileDataMissing,
++	FileExtraData,
++	FileVersionUnknown,
++	FmNotSupported,
++	HeaderDataUnknown,
++	M3uAtLine,
++	MultipleDataNotSupported,
++	ScanlineInterruptNotSupported,
++	SizeInvalid,
++	StreamEndEventMissing,
++	StreamEventUnknown,
++	TimerModeInvalid,
++};
++
++pub const strWarn = gme_strwarn;
++extern fn gme_strwarn(Warning) ?[*:0]const u8;
++
++pub const Equalizer = struct {
++	treble: f64,
++	bass: f64,
++	d2: f64,
++	d3: f64,
++	d4: f64,
++	d5: f64,
++	d6: f64,
++	d7: f64,
++	d8: f64,
++	d9: f64,
++};
++
++pub const Type = opaque {
++	pub const emu = Emu.init;
++	pub const emuInfo = Emu.initInfo;
++	pub const emuMultiChannel = Emu.initMultiChannel;
++
++	/// Get corresponding music type for file path or extension passed in.
++	pub const fromExtension = gme_identify_extension;
++	extern fn gme_identify_extension([*:0]const u8) ?*const Type;
++
++	/// Get corresponding music type from a file's extension or header
++	/// (if extension isn't recognized).
++	/// Returns type, or null if unrecognized, or error.
++	pub fn fromFile(path: [*:0]const u8) Error!?*const Type {
++		var type_out: ?*const Type = undefined;
++		try wrap(gme_identify_file(path, &type_out));
++		return type_out;
++	}
++	extern fn gme_identify_file([*:0]const u8, *?*const Type) c_uint;
++
++	/// Name of game system for this music file type.
++	pub const system = gme_type_system;
++	extern fn gme_type_system(*const Type) [*:0]const u8;
++
++	/// True if this music file type supports multiple tracks.
++	pub fn isMultiTrack(self: *const Type) bool {
++		return (gme_type_multitrack(self) != 0);
++	}
++	extern fn gme_type_multitrack(*const Type) c_uint;
++
++	/// Get typical file extension for a given music type.  This is not a replacement
++	/// for a file content identification library (but see `identifyHeader()`).
++	pub const extension = gme_type_extension;
++	extern fn gme_type_extension(*const Type) [*:0]const u8;
++
++	/// Return the fixed track count of an emu file type.
++	pub const trackCount = gme_fixed_track_count;
++	extern fn gme_fixed_track_count(*const Type) c_uint;
++
++	pub const ay = &gme_ay_type;
++	pub const gbs = &gme_gbs_type;
++	pub const gym = &gme_gym_type;
++	pub const hes = &gme_hes_type;
++	pub const kss = &gme_kss_type;
++	pub const nsf = &gme_nsf_type;
++	pub const nsfe = &gme_nsfe_type;
++	pub const sap = &gme_sap_type;
++	pub const spc = &gme_spc_type;
++	pub const vgm = &gme_vgm_type;
++	pub const vgz = &gme_vgz_type;
++};
++
++pub const emu = Emu.init;
++pub const emuInfo = Emu.initInfo;
++pub const emuMultiChannel = Emu.initMultiChannel;
++
++pub extern const gme_ay_type: *const Type;
++pub extern const gme_gbs_type: *const Type;
++pub extern const gme_gym_type: *const Type;
++pub extern const gme_hes_type: *const Type;
++pub extern const gme_kss_type: *const Type;
++pub extern const gme_nsf_type: *const Type;
++pub extern const gme_nsfe_type: *const Type;
++pub extern const gme_sap_type: *const Type;
++pub extern const gme_spc_type: *const Type;
++pub extern const gme_vgm_type: *const Type;
++pub extern const gme_vgz_type: *const Type;
++
++pub const Info = extern struct {
++	length: c_int,
++	intro_length: c_int,
++	loop_length: c_int,
++	play_length: c_int,
++	fade_length: c_int,
++	i5: c_int,
++	i6: c_int,
++	i7: c_int,
++	i8: c_int,
++	i9: c_int,
++	i10: c_int,
++	i11: c_int,
++	i12: c_int,
++	i13: c_int,
++	i14: c_int,
++	i15: c_int,
++	system: [*:0]const u8,
++	game: [*:0]const u8,
++	song: [*:0]const u8,
++	author: [*:0]const u8,
++	copyright: [*:0]const u8,
++	comment: [*:0]const u8,
++	dumper: [*:0]const u8,
++	s7: [*:0]const u8,
++	s8: [*:0]const u8,
++	s9: [*:0]const u8,
++	s10: [*:0]const u8,
++	s11: [*:0]const u8,
++	s12: [*:0]const u8,
++	s13: [*:0]const u8,
++	s14: [*:0]const u8,
++	s15: [*:0]const u8,
++
++	/// Gets information for a particular track (length, name, author, etc.).
++	/// Must be freed after use.
++	pub fn init(em: *const Emu, track: c_uint) Error!*Info {
++		var info: ?*Info = null;
++		try wrap(gme_track_info(em, &info, track));
++		return info.?;
++	}
++	extern fn gme_track_info(*const Emu, *?*Info, c_uint) c_uint;
++
++	/// Frees track information.
++	pub const deinit = gme_free_info;
++	extern fn gme_free_info(*Info) void;
++};
++
++pub const Emu = opaque {
++	pub const trackInfo = Info.init;
++
++	/// Create new emulator and set sample rate.
++	/// Returns an error if out of memory.
++	pub fn init(self: *const Type, sample_rate: c_uint) Error!*Emu {
++		return gme_new_emu(self, @intCast(sample_rate)) orelse Error.NewEmu;
++	}
++	extern fn gme_new_emu(*const Type, c_int) ?*Emu;
++
++	/// Create new multichannel emulator and set sample rate.
++	/// Returns an error if out of memory.
++	pub fn initMultiChannel(self: *const Type, sample_rate: c_uint) Error!*Emu {
++		return gme_new_emu_multi_channel(self, sample_rate) orelse Error.NewEmu;
++	}
++	extern fn gme_new_emu_multi_channel(*const Type, c_uint) ?*Emu;
++
++	/// Create an info-only emulator.
++	pub fn initInfo(self: *const Type) Error!*Emu {
++		return gme_new_emu(self, -1) orelse Error.NewEmu;
++	}
++
++	/// Finish using emulator and free memory.
++	pub const deinit = gme_delete;
++	extern fn gme_delete(*Emu) void;
++
++	/// Clear any loaded m3u playlist and any internal playlist
++	/// that the music format supports (NSFE for example).
++	pub const clearPlaylist = gme_clear_playlist;
++	extern fn gme_clear_playlist(*Emu) void;
++
++	/// Adjust stereo echo depth, where 0.0 = off and 1.0 = maximum.
++	/// Has no effect for GYM, SPC, and Sega Genesis VGM music.
++	pub const setStereoDepth = gme_set_stereo_depth;
++	extern fn gme_set_stereo_depth(*Emu, depth: f64) void;
++
++	/// Adjust song tempo, where 1.0 = normal, 0.5 = half speed, 2.0 = double speed.
++	/// Track length as returned by `trackInfo()` assumes a tempo of 1.0.
++	pub const setTempo = gme_set_tempo;
++	extern fn gme_set_tempo(*Emu, tempo: f64) void;
++
++	/// Get current frequency equalizater parameters.
++	pub const equalizer = gme_equalizer;
++	extern fn gme_equalizer(*const Emu, out: *Equalizer) void;
++
++	/// Change frequency equalizer parameters.
++	pub const setEqualizer = gme_set_equalizer;
++	extern fn gme_set_equalizer(*Emu, eq: *const Equalizer) void;
++
++	/// Type of this emulator.
++	pub const toType = gme_type;
++	extern fn gme_type(*const Emu) *const Type;
++
++	/// Set pointer to data you want to associate with this emulator.
++	/// You can use this for whatever you want.
++	pub const setUserData = gme_set_user_data;
++	extern fn gme_set_user_data(*Emu, new_user_data: *anyopaque) void;
++
++	/// Get pointer to user data associated with this emulator.
++	pub const userData = gme_user_data;
++	extern fn gme_user_data(*const Emu) ?*anyopaque;
++
++	/// Register cleanup function to be called when deleting emulator,
++	/// or `null` to clear it. Passes user_data to cleanup function.
++	pub const setUserCleanup = gme_set_user_cleanup;
++	extern fn gme_set_user_cleanup(*Emu, func: Cleanup) void;
++
++	/// Returns an emulator with game music file/data loaded into it.
++	pub fn fromFile(path: [*:0]const u8, samplerate: c_uint) Error!*Emu {
++		var self: ?*Emu = null;
++		try wrap(gme_open_file(path, &self, samplerate));
++		return self.?;
++	}
++	extern fn gme_open_file([*:0]const u8, *?*Emu, c_uint) c_uint;
++
++	/// Same as `fromFile()`, but uses file data already in memory. Makes copy of data.
++	pub fn fromData(data: []const u8, samplerate: c_uint) Error!*Emu {
++		var self: ?*Emu = null;
++		try wrap(gme_open_data(data.ptr, data.len, &self, samplerate));
++		return self.?;
++	}
++	extern fn gme_open_data(*const u8, c_ulong, *?*Emu, c_uint) c_uint;
++
++	/// Number of tracks available.
++	pub const trackCount = gme_track_count;
++	extern fn gme_track_count(*const Emu) c_uint;
++
++	/// Start a track, where 0 is the first track.
++	pub fn startTrack(self: *Emu, index: c_uint) Error!void {
++		try wrap(gme_start_track(self, index));
++	}
++	extern fn gme_start_track(*Emu, c_uint) c_uint;
++
++	/// Generate 16-bit signed samples into `out`. Output is in stereo.
++	pub fn play(self: *Emu, out: []i16) Error!void {
++		try wrap(gme_play(self, @intCast(out.len), @ptrCast(out.ptr)));
++	}
++	extern fn gme_play(*Emu, c_uint, [*]c_short) c_uint;
++
++	/// Set fade-out start time and duration. Once fade ends `trackEnded()` returns true.
++	/// Fade time can be changed while track is playing.
++	/// Set `start_msec` to -1 to prevent fading and play forever
++	pub const setFade = gme_set_fade_msecs;
++	extern fn gme_set_fade_msecs(*Emu, start_msec: c_int, length_msec: c_uint) void;
++
++	/// Set time to start fading track out. Once fade ends `trackEnded()` returns true.
++	/// Fade time can be changed while track is playing.
++	/// Set `start_msec` to -1 to prevent fading and play forever
++	pub const setFadeStart = gme_set_fade;
++	extern fn gme_set_fade(*Emu, c_int) void;
++
++	/// If true, then automatically load track length
++	/// metadata (if present) and terminate playback once the track length has been
++	/// reached. Otherwise playback will continue for an arbitrary period of time
++	/// until a prolonged period of silence is detected.
++	///
++	/// Not all individual emulators support this setting.
++	///
++	/// By default, playback limits are loaded and applied.
++	pub fn setAutoloadPlaybackLimit(self: *Emu, state: bool) void {
++		gme_set_autoload_playback_limit(self, @intFromBool(state));
++	}
++	extern fn gme_set_autoload_playback_limit(*Emu, c_uint) void;
++
++	/// Get the state of autoload playback limit. See `setAutoloadPlaybackLimit()`.
++	pub fn autoloadPlaybackLimit(self: *const Emu) bool {
++		return (gme_autoload_playback_limit(self) != 0);
++	}
++	extern fn gme_autoload_playback_limit(*const Emu) c_uint;
++
++	/// True if a track has reached its end.
++	pub fn trackEnded(self: *const Emu) bool {
++		return (gme_track_ended(self) != 0);
++	}
++	extern fn gme_track_ended(*const Emu) c_uint;
++
++	/// Number of milliseconds (1000 = one second) played since beginning of track.
++	pub const tell = gme_tell;
++	extern fn gme_tell(*const Emu) c_uint;
++
++	/// Number of samples generated since beginning of track.
++	pub const tellSamples = gme_tell_samples;
++	extern fn gme_tell_samples(*const Emu) c_uint;
++
++	/// Seek to new time in track. Seeking backwards or far forward can take a while.
++	pub fn seek(self: *Emu, msec: c_uint) Error!void {
++		try wrap(gme_seek(self, msec));
++	}
++	extern fn gme_seek(*Emu, c_uint) c_uint;
++
++	/// Equivalent to restarting track then skipping n samples
++	pub fn seekSamples(self: *Emu, samples: c_uint) Error!void {
++		try wrap(gme_seek_samples(self, samples));
++	}
++	extern fn gme_seek_samples(*Emu, c_uint) c_uint;
++
++	/// Seek to new time in track (scaled with tempo).
++	pub fn seekScaled(self: *Emu, msec: c_uint) Error!void {
++		try wrap(gme_seek_scaled(self, msec));
++	}
++	extern fn gme_seek_scaled(*Emu, c_uint) c_uint;
++
++	/// Most recent warning string, or null if none.
++	/// Clears current warning after returning.
++	/// Warning is also cleared when loading a file and starting a track.
++	pub const warning = gme_warning;
++	extern fn gme_warning(*Emu) Warning;
++
++	/// Load m3u playlist file (must be done after loading music).
++	pub fn loadM3u(self: *Emu, path: [*:0]const u8) Error!void {
++		try wrap(gme_load_m3u(self, path));
++	}
++	extern fn gme_load_m3u(*Emu, [*:0]const u8) c_uint;
++
++	/// Disable automatic end-of-track detection and skipping of silence at beginning.
++	pub fn ignoreSilence(self: *Emu, ignore: bool) void {
++		gme_ignore_silence(self, @intFromBool(ignore));
++	}
++	extern fn gme_ignore_silence(*Emu, c_uint) void;
++
++	/// Number of voices used by currently loaded file.
++	pub const voiceCount = gme_voice_count;
++	extern fn gme_voice_count(*const Emu) c_uint;
++
++	/// Name of voice i, from 0 to `voiceCount()` - 1
++	pub const voiceName = gme_voice_name;
++	extern fn gme_voice_name(*const Emu, c_uint) [*:0]const u8;
++
++	pub fn muteVoice(self: *Emu, index: c_uint, mute: bool) void {
++		gme_mute_voice(self, index, @intFromBool(mute));
++	}
++	extern fn gme_mute_voice(*Emu, c_uint, c_uint) void;
++
++	/// Mute/unmute voice i, where voice 0 is first voice.
++	pub const muteVoices = gme_mute_voices;
++	extern fn gme_mute_voices(*Emu, muting_mask: c_uint) void;
++
++	/// Disable/Enable echo effect for SPC files.
++	pub fn disableEcho(self: *Emu, disable: bool) void {
++		gme_disable_echo(self, @intFromBool(disable));
++	}
++	extern fn gme_disable_echo(*Emu, c_uint) void;
++
++	/// Enables/disables most accurate sound emulation options.
++	pub fn enableAccuracy(self: *Emu, enable: bool) void {
++		gme_enable_accuracy(self, @intFromBool(enable));
++	}
++	extern fn gme_enable_accuracy(*Emu, c_uint) void;
++
++	/// whether the pcm output retrieved by gme_play() will have all 8 voices
++	/// rendered to their individual stereo channel or (if false) these voices
++	/// get mixed into one single stereo channel.
++	pub fn isMultiChannel(self: *const Emu) bool {
++		return (gme_multi_channel(self) != 0);
++	}
++	extern fn gme_multi_channel(*const Emu) c_uint;
++
++	/// Load music file into emulator.
++	pub fn loadFile(self: *Emu, path: [*:0]const u8) Error!void {
++		try wrap(gme_load_file(self, path));
++	}
++	extern fn gme_load_file(*Emu, [*:0]const u8) c_uint;
++
++	/// Load music file from memory into emulator. Makes a copy of data passed.
++	pub fn loadData(self: *Emu, data: []const u8) Error!void {
++		try wrap(gme_load_data(self, data.ptr, @intCast(data.len)));
++	}
++	extern fn gme_load_data(*Emu, [*]const u8, c_ulong) c_uint;
++
++	/// Load multiple single-track music files from memory into emulator.
++	pub fn loadTracks(
++		self: *Emu,
++		data: [*]const u8,
++		sizes: []c_ulong,
++	) Error!void {
++		try wrap(gme_load_tracks(self, data, sizes.ptr, @intCast(sizes.len)));
++	}
++	extern fn gme_load_tracks(*Emu, [*]const u8, [*]c_ulong, c_uint) c_uint;
++
++	/// Load music file using custom data reader function that will be called to
++	/// read file data. Most emulators load the entire file in one read call.
++	pub fn loadCustom(self: *Emu, func: Reader, data: []u8) Error!void {
++		try wrap(gme_load_custom(self, func, data.len, data.ptr));
++	}
++	extern fn gme_load_custom(*Emu, Reader, c_ulong, [*]u8) c_uint;
++
++	/// Load m3u playlist file from memory (must be done after loading music).
++	pub fn loadM3uData(self: *Emu, data: []const u8) Error!void {
++		try wrap(gme_load_m3u_data(self, data.ptr, @intCast(data.len)));
++	}
++	extern fn gme_load_m3u_data(*Emu, [*]const u8, c_ulong) c_uint;
++};
+diff --git a/gme/Ay_Apu.cpp b/gme/Ay_Apu.cpp
+index 9d60eb8..04ca300 100644
+--- a/gme/Ay_Apu.cpp
++++ b/gme/Ay_Apu.cpp
+@@ -13,6 +13,7 @@ details. You should have received a copy of the GNU Lesser General Public
+ License along with this module; if not, write to the Free Software Foundation,
+ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ 
++#include "blargg_common.h"
+ #include "blargg_source.h"
+ 
+ // Emulation inaccuracies:
+@@ -89,7 +90,7 @@ Ay_Apu::Ay_Apu()
+ 		}
+ 	}
+ 
+-	output( 0 );
++	output( nullptr );
+ 	volume( 1.0 );
+ 	reset();
+ }
+diff --git a/gme/Ay_Apu.h b/gme/Ay_Apu.h
+index 65f3b7f..b79103e 100644
+--- a/gme/Ay_Apu.h
++++ b/gme/Ay_Apu.h
+@@ -4,8 +4,8 @@
+ #ifndef AY_APU_H
+ #define AY_APU_H
+ 
+-#include "blargg_common.h"
+ #include "Blip_Buffer.h"
++#include <cstdint>
+ 
+ class Ay_Apu {
+ public:
+diff --git a/gme/Ay_Cpu.cpp b/gme/Ay_Cpu.cpp
+index a2c6b3b..d074e7d 100644
+--- a/gme/Ay_Cpu.cpp
++++ b/gme/Ay_Cpu.cpp
+@@ -8,8 +8,9 @@ Last validated with zexall 2006.11.21 5:26 PM
+ 
+ #include "Ay_Cpu.h"
+ 
++#include "blargg_common.h"
+ #include "blargg_endian.h"
+-#include <string.h>
++#include <cstring>
+ 
+ //#include "z80_cpu_log.h"
+ 
+diff --git a/gme/Ay_Cpu.h b/gme/Ay_Cpu.h
+index 5180a0d..a024aca 100644
+--- a/gme/Ay_Cpu.h
++++ b/gme/Ay_Cpu.h
+@@ -4,7 +4,7 @@
+ #ifndef AY_CPU_H
+ #define AY_CPU_H
+ 
+-#include "blargg_endian.h"
++#include <cstdint>
+ 
+ typedef int32_t cpu_time_t;
+ 
+diff --git a/gme/Ay_Emu.cpp b/gme/Ay_Emu.cpp
+index e99b6fd..4dd7c1b 100644
+--- a/gme/Ay_Emu.cpp
++++ b/gme/Ay_Emu.cpp
+@@ -3,7 +3,7 @@
+ #include "Ay_Emu.h"
+ 
+ #include "blargg_endian.h"
+-#include <string.h>
++#include <cstring>
+ 
+ #include <algorithm> // min, max
+ 
+@@ -27,11 +27,10 @@ static unsigned const ram_start = 0x4000;
+ static int const osc_count = Ay_Apu::osc_count + 1;
+ 
+ using std::min;
+-using std::max;
+ 
+ Ay_Emu::Ay_Emu()
+ {
+-	beeper_output = 0;
++	beeper_output = nullptr;
+ 	set_type( gme_ay_type );
+ 
+ 	static const char* const names [osc_count] = {
+@@ -57,7 +56,7 @@ static byte const* get_data( Ay_Emu::file_t const& file, byte const* ptr, int mi
+ 	assert( (unsigned long) pos <= (unsigned long) file_size - 2 );
+ 	int offset = (int16_t) get_be16( ptr );
+ 	if ( !offset || uint32_t (pos + offset) > uint32_t (file_size - min_size) )
+-		return 0;
++		return nullptr;
+ 	return ptr + offset;
+ }
+ 
+@@ -68,15 +67,15 @@ static blargg_err_t parse_header( byte const* in, long size, Ay_Emu::file_t* out
+ 	out->end    = in + size;
+ 
+ 	if ( size < Ay_Emu::header_size )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 
+ 	header_t const& h = *(header_t const*) in;
+ 	if ( memcmp( h.tag, "ZXAYEMUL", 8 ) )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 
+ 	out->tracks = get_data( *out, h.track_info, (h.max_track + 1) * 4 );
+ 	if ( !out->tracks )
+-		return "Missing track data";
++		return ERR_TRACK_DATA_MISSING;
+ 
+ 	return 0;
+ }
+@@ -134,7 +133,7 @@ blargg_err_t Ay_Emu::load_mem_( byte const* in, long size )
+ 	set_track_count( file.header->max_track + 1 );
+ 
+ 	if ( file.header->vers > 2 )
+-		set_warning( "Unknown file version" );
++		set_warning( WARN_FILE_VERSION_UNKNOWN );
+ 
+ 	set_voice_count( osc_count );
+ 	apu.volume( gain() );
+@@ -159,7 +158,7 @@ void Ay_Emu::set_voice( int i, Blip_Buffer* center, Blip_Buffer*, Blip_Buffer* )
+ 
+ void Ay_Emu::set_tempo_( double t )
+ {
+-	play_period = blip_time_t (clock_rate() / 50 / t);
++	play_period = blip_time_t (clock_rate() / (50 * t));
+ }
+ 
+ blargg_err_t Ay_Emu::start_track_( int track )
+@@ -174,13 +173,13 @@ blargg_err_t Ay_Emu::start_track_( int track )
+ 
+ 	// locate data blocks
+ 	byte const* const data = get_data( file, file.tracks + track * 4 + 2, 14 );
+-	if ( !data ) return "File data missing";
++	if ( !data ) return ERR_FILE_DATA_MISSING;
+ 
+ 	byte const* const more_data = get_data( file, data + 10, 6 );
+-	if ( !more_data ) return "File data missing";
++	if ( !more_data ) return ERR_FILE_DATA_MISSING;
+ 
+ 	byte const* blocks = get_data( file, data + 12, 8 );
+-	if ( !blocks ) return "File data missing";
++	if ( !blocks ) return ERR_FILE_DATA_MISSING;
+ 
+ 	// initial addresses
+ 	cpu::reset( mem.ram );
+@@ -191,7 +190,7 @@ blargg_err_t Ay_Emu::start_track_( int track )
+ 	r.ix = r.iy = r.w.hl;
+ 
+ 	unsigned addr = get_be16( blocks );
+-	if ( !addr ) return "File data missing";
++	if ( !addr ) return ERR_FILE_DATA_MISSING;
+ 
+ 	unsigned init = get_be16( more_data + 2 );
+ 	if ( !init )
+@@ -204,14 +203,14 @@ blargg_err_t Ay_Emu::start_track_( int track )
+ 		unsigned len = get_be16( blocks ); blocks += 2;
+ 		if ( addr + len > 0x10000 )
+ 		{
+-			set_warning( "Bad data block size" );
++			set_warning( WARN_DATA_BAD_BLOCK_SIZE );
+ 			len = 0x10000 - addr;
+ 		}
+ 		check( len );
+ 		byte const* in = get_data( file, blocks, 0 ); blocks += 2;
+ 		if ( len > uint32_t (file.end - in) )
+ 		{
+-			set_warning( "Missing file data" );
++			set_warning( WARN_FILE_DATA_MISSING );
+ 			len = file.end - in;
+ 		}
+ 		//debug_printf( "addr: $%04X, len: $%04X\n", addr, len );
+@@ -221,7 +220,7 @@ blargg_err_t Ay_Emu::start_track_( int track )
+ 
+ 		if ( file.end - blocks < 8 )
+ 		{
+-			set_warning( "Missing file data" );
++			set_warning( WARN_FILE_DATA_MISSING );
+ 			break;
+ 		}
+ 	}
+diff --git a/gme/Blip_Buffer.cpp b/gme/Blip_Buffer.cpp
+index 34de533..5dac403 100644
+--- a/gme/Blip_Buffer.cpp
++++ b/gme/Blip_Buffer.cpp
+@@ -2,11 +2,9 @@
+ 
+ #include "Blip_Buffer.h"
+ 
+-#include <assert.h>
+-#include <limits.h>
+-#include <string.h>
+-#include <stdlib.h>
+-#include <math.h>
++#include <cstring>
++#include <cstdlib>
++#include <cmath>
+ 
+ /* Copyright (C) 2003-2006 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+@@ -29,7 +27,7 @@ Blip_Buffer::Blip_Buffer()
+ {
+ 	factor_       = (blip_ulong)-1 / 2;
+ 	offset_       = 0;
+-	buffer_       = 0;
++	buffer_       = nullptr;
+ 	buffer_size_  = 0;
+ 	sample_rate_  = 0;
+ 	reader_accum_ = 0;
+@@ -76,12 +74,12 @@ void Blip_Buffer::clear( int entire_buffer )
+ 	}
+ }
+ 
+-Blip_Buffer::blargg_err_t Blip_Buffer::set_sample_rate( long new_rate, int msec )
++blargg_err_t Blip_Buffer::set_sample_rate( long new_rate, int msec )
+ {
+ 	if ( buffer_size_ == silent_buf_size )
+ 	{
+ 		assert( 0 );
+-		return "Internal (tried to resize Silent_Blip_Buffer)";
++		return ERR_BLIPBUF_RESIZE;
+ 	}
+ 
+ 	// start with maximum length that resampled time can represent
+@@ -99,7 +97,7 @@ Blip_Buffer::blargg_err_t Blip_Buffer::set_sample_rate( long new_rate, int msec
+ 	{
+ 		void* p = realloc( buffer_, (new_size + blip_buffer_extra_) * sizeof *buffer_ );
+ 		if ( !p )
+-			return "Out of memory";
++			return ERR_OUT_OF_MEMORY;
+ 		buffer_ = (buf_t_*) p;
+ 	}
+ 
+@@ -190,7 +188,7 @@ void Blip_Buffer::remove_samples( long count )
+ 
+ Blip_Synth_Fast_::Blip_Synth_Fast_()
+ {
+-	buf = 0;
++	buf = nullptr;
+ 	last_amp = 0;
+ 	delta_factor = 0;
+ }
+@@ -208,7 +206,7 @@ Blip_Synth_::Blip_Synth_( short* p, int w ) :
+ {
+ 	volume_unit_ = 0.0;
+ 	kernel_unit = 0;
+-	buf = 0;
++	buf = nullptr;
+ 	last_amp = 0;
+ 	delta_factor = 0;
+ }
+diff --git a/gme/Blip_Buffer.h b/gme/Blip_Buffer.h
+index 50e31e8..2e5d9a0 100644
+--- a/gme/Blip_Buffer.h
++++ b/gme/Blip_Buffer.h
+@@ -6,7 +6,7 @@
+ #define BLIP_BUFFER_H
+ 
+ 	// internal
+-	#include <limits.h>
++	#include <climits>
+ 	#include <stdint.h>
+ 	#if INT_MAX < 0x7FFFFFFF
+ 		#error "int must be at least 32 bits"
+@@ -14,6 +14,8 @@
+ 	typedef int blip_long;
+ 	typedef unsigned blip_ulong;
+ 
++#include "blargg_err.h"
++
+ // Time unit at source clock rate
+ typedef blip_long blip_time_t;
+ 
+@@ -23,8 +25,6 @@ enum { blip_sample_max = 32767 };
+ 
+ class Blip_Buffer {
+ public:
+-	typedef const char* blargg_err_t;
+-
+ 	// Set output sample rate and buffer length in milliseconds (1/1000 sec, defaults
+ 	// to 1/4 second), then clear buffer. Returns NULL on success, otherwise if there
+ 	// isn't enough memory, returns error without affecting current buffer setup.
+@@ -336,7 +336,7 @@ private:
+ 
+ // End of public interface
+ 
+-#include <assert.h>
++#include <cassert>
+ 
+ template<int quality,int range>
+ inline void Blip_Synth<quality,range>::offset_resampled( blip_resampled_time_t time,
+diff --git a/gme/Classic_Emu.cpp b/gme/Classic_Emu.cpp
+index 716157e..974c6ad 100644
+--- a/gme/Classic_Emu.cpp
++++ b/gme/Classic_Emu.cpp
+@@ -3,7 +3,7 @@
+ #include "Classic_Emu.h"
+ 
+ #include "Multi_Buffer.h"
+-#include <string.h>
++#include <cstring>
+ 
+ /* Copyright (C) 2003-2006 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+@@ -20,9 +20,9 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ 
+ Classic_Emu::Classic_Emu()
+ {
+-	buf           = 0;
+-	stereo_buffer = 0;
+-	voice_types   = 0;
++	buf           = nullptr;
++	stereo_buffer = nullptr;
++	voice_types   = nullptr;
+ 
+ 	// avoid inconsistency in our duplicated constants
+ 	blaarg_static_assert( (int) wave_type  == (int) Multi_Buffer::wave_type, "wave_type inconsistent across two classes using it" );
+@@ -67,7 +67,7 @@ void Classic_Emu::mute_voices_( int mask )
+ 	{
+ 		if ( mask & (1 << i) )
+ 		{
+-			set_voice( i, 0, 0, 0 );
++			set_voice( i, nullptr, nullptr, nullptr );
+ 		}
+ 		else
+ 		{
+@@ -138,7 +138,7 @@ blargg_err_t Rom_Data_::load_rom_data_( Data_Reader& in,
+ 
+ 	file_size_ = in.remain();
+ 	if ( file_size_ <= header_size ) // <= because there must be data after header
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 	blargg_err_t err = rom.resize( file_offset + file_size_ + pad_size );
+ 	if ( !err )
+ 		err = in.read( rom.begin() + file_offset, file_size_ );
+diff --git a/gme/Data_Reader.cpp b/gme/Data_Reader.cpp
+index 6c4e608..e9d95f7 100644
+--- a/gme/Data_Reader.cpp
++++ b/gme/Data_Reader.cpp
+@@ -3,9 +3,9 @@
+ #include "Data_Reader.h"
+ 
+ #include "blargg_endian.h"
+-#include <assert.h>
+-#include <string.h>
+-#include <stdio.h>
++#include <climits>
++#include <cstring>
++#include <cstdio>
+ #include <algorithm>
+ 
+ /* Copyright (C) 2005-2006 Shay Green. This module is free software; you
+@@ -23,18 +23,14 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ 
+ #ifdef HAVE_ZLIB_H
+ #include <zlib.h>
+-#include <stdlib.h>
+-#include <errno.h>
++#include <cstdlib>
+ static const unsigned char gz_magic[2] = {0x1f, 0x8b}; /* gzip magic header */
+ #endif /* HAVE_ZLIB_H */
+ 
+-using std::min;
+ using std::max;
+ 
+-const char Data_Reader::eof_error [] = "Unexpected end of file";
+-
+ #define RETURN_VALIDITY_CHECK( cond ) \
+-	do { if ( unlikely( !(cond) ) ) return "Corrupt file"; } while(0)
++	do { if ( unlikely( !(cond) ) ) return ERR_FILE_CORRUPT; } while(0)
+ 
+ blargg_err_t Data_Reader::read( void* p, long s )
+ {
+@@ -44,9 +40,9 @@ blargg_err_t Data_Reader::read( void* p, long s )
+ 	if ( result != s )
+ 	{
+ 		if ( result >= 0 && result < s )
+-			return eof_error;
++			return ERR_EOF;
+ 
+-		return "Read error";
++		return ERR_READ;
+ 	}
+ 
+ 	return 0;
+@@ -195,7 +191,7 @@ blargg_err_t Mem_File_Reader::seek( long n )
+ {
+ 	RETURN_VALIDITY_CHECK( n >= 0 );
+ 	if ( n > m_size )
+-		return eof_error;
++		return ERR_EOF;
+ 	m_pos = n;
+ 	return 0;
+ }
+@@ -224,8 +220,8 @@ bool Mem_File_Reader::gz_decompress()
+ 	strm.next_in   = const_cast<Bytef *>( reinterpret_cast<const Bytef *>( m_begin ) );
+ 	strm.avail_in  = static_cast<uInt>( m_size );
+ 	strm.total_out = 0;
+-	strm.zalloc    = Z_NULL;
+-	strm.zfree     = Z_NULL;
++	strm.zalloc    = nullptr;
++	strm.zfree     = nullptr;
+ 
+ 	bool done = false;
+ 
+@@ -299,7 +295,7 @@ blargg_err_t Callback_Reader::read( void* out, long count )
+ {
+ 	RETURN_VALIDITY_CHECK( count >= 0 );
+ 	if ( count > remain_ )
+-		return eof_error;
++		return ERR_EOF;
+ 	return callback( data, out, (int) count );
+ }
+ 
+@@ -307,11 +303,11 @@ blargg_err_t Callback_Reader::read( void* out, long count )
+ 
+ #ifdef HAVE_ZLIB_H
+ 
+-static const char* get_gzip_eof( const char* path, long* eof )
++static blargg_err_t get_gzip_eof( const char* path, long* eof )
+ {
+ 	FILE* file = fopen( path, "rb" );
+ 	if ( !file )
+-		return "Couldn't open file";
++		return ERR_FILE_CANT_OPEN;
+ 
+ 	unsigned char buf [4];
+ 	bool found_eof = false;
+@@ -328,7 +324,7 @@ static const char* get_gzip_eof( const char* path, long* eof )
+ 		fseek( file, 0, SEEK_END );
+ 		*eof = ftell( file );
+ 	}
+-	const char* err = (ferror( file ) || feof( file )) ? "Couldn't get file size" : nullptr;
++	blargg_err_t err = (ferror( file ) || feof( file )) ? ERR_FILE_CANT_GET_SIZE : 0;
+ 	fclose( file );
+ 	return err;
+ }
+@@ -356,8 +352,8 @@ blargg_err_t Std_File_Reader::open( const char* path )
+ #endif
+ 
+ 	if ( !file_ )
+-		return "Couldn't open file";
+-	return nullptr;
++		return ERR_FILE_CANT_OPEN;
++	return 0;
+ }
+ 
+ long Std_File_Reader::size() const
+@@ -393,23 +389,23 @@ long Std_File_Reader::read_avail( void* p, long s )
+ blargg_err_t Std_File_Reader::read( void* p, long s )
+ {
+ 	if ( !file_ )
+-		return "NULL FILE pointer";
++		return ERR_FILE_NULL_PTR;
+ 
+ 	RETURN_VALIDITY_CHECK( s > 0 && static_cast<unsigned long>(s) <= UINT_MAX );
+ #ifdef HAVE_ZLIB_H
+ 	const auto &gzfile = reinterpret_cast<gzFile>( file_ );
+ 	if ( s == gzread( gzfile, p, static_cast<unsigned>( s ) ) )
+-		return nullptr;
++		return 0;
+ 	if ( gzeof( gzfile ) )
+-		return eof_error;
+-	return "Couldn't read from GZ file";
++		return ERR_EOF;
++	return ERR_GZ_CANT_READ;
+ #else
+ 	const auto &file = reinterpret_cast<FILE*>( file_ );
+ 	if ( s == static_cast<long>( fread( p, 1, static_cast<size_t>(s), file ) ) )
+ 		return 0;
+ 	if ( feof( file ) )
+-		return eof_error;
+-	return "Couldn't read from file";
++		return ERR_EOF;
++	return ERR_FILE_CANT_READ;
+ #endif
+ }
+ 
+@@ -427,19 +423,19 @@ long Std_File_Reader::tell() const
+ blargg_err_t Std_File_Reader::seek( long n )
+ {
+ 	if ( !file_ )
+-		return "NULL FILE pointer";
++		return ERR_FILE_NULL_PTR;
+ #ifdef HAVE_ZLIB_H
+ 	if ( gzseek( reinterpret_cast<gzFile>( file_ ), n, SEEK_SET ) >= 0 )
+-		return nullptr;
++		return 0;
+ 	if ( n > size_ )
+-		return eof_error;
+-	return "Error seeking in GZ file";
++		return ERR_EOF;
++	return ERR_GZ_CANT_SEEK;
+ #else
+ 	if ( !fseek( reinterpret_cast<FILE*>( file_ ), n, SEEK_SET ) )
+-		return nullptr;
++		return 0;
+ 	if ( n > size() )
+-		return eof_error;
+-	return "Error seeking in file";
++		return ERR_EOF;
++	return ERR_FILE_CANT_SEEK;
+ #endif
+ }
+ 
+diff --git a/gme/Data_Reader.h b/gme/Data_Reader.h
+index 45a87f2..3052ac2 100644
+--- a/gme/Data_Reader.h
++++ b/gme/Data_Reader.h
+@@ -15,8 +15,6 @@ class Data_Reader {
+ public:
+ 	virtual ~Data_Reader() { }
+ 
+-	static const char eof_error []; // returned by read() when request goes beyond end
+-
+ 	// Read at most count bytes and return number actually read, or <= 0 if error
+ 	virtual long read_avail( void*, long n ) = 0;
+ 
+@@ -134,8 +132,8 @@ private:
+ // Invokes callback function to read data. Size of data must be specified in advance.
+ class Callback_Reader : public Data_Reader {
+ public:
+-	typedef const char* (*callback_t)( void* data, void* out, int count );
+-	Callback_Reader( callback_t, long size, void* data = 0 );
++	typedef int (*callback_t)( void* data, void* out, int count );
++	Callback_Reader( callback_t, long size, void* data = nullptr );
+ public:
+ 	long read_avail( void*, long );
+ 	blargg_err_t read( void*, long );
+diff --git a/gme/Dual_Resampler.cpp b/gme/Dual_Resampler.cpp
+index 9af40be..a2e62f0 100644
+--- a/gme/Dual_Resampler.cpp
++++ b/gme/Dual_Resampler.cpp
+@@ -2,8 +2,8 @@
+ 
+ #include "Dual_Resampler.h"
+ 
+-#include <stdlib.h>
+-#include <string.h>
++#include <cstdlib>
++#include <cstring>
+ 
+ /* Copyright (C) 2003-2006 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+diff --git a/gme/Effects_Buffer.cpp b/gme/Effects_Buffer.cpp
+index 3b8fffa..1bb7dac 100644
+--- a/gme/Effects_Buffer.cpp
++++ b/gme/Effects_Buffer.cpp
+@@ -2,7 +2,8 @@
+ 
+ #include "Effects_Buffer.h"
+ 
+-#include <string.h>
++#include <cstring>
++#include <cstdint>
+ #include <algorithm>
+ 
+ /* Copyright (C) 2003-2006 Shay Green. This module is free software; you
+@@ -104,7 +105,7 @@ blargg_err_t Effects_Buffer::set_sample_rate( long rate, int msec ) noexcept
+ 
+ 		if ( !echo_buf[i].size() || !reverb_buf[i].size() )
+ 		{
+-			return "Out of memory";
++			return ERR_OUT_OF_MEMORY;
+ 		}
+ 	}
+ 
+@@ -362,10 +363,18 @@ long Effects_Buffer::read_samples( blip_sample_t* out, long total_samples )
+ 	return total_samples * n_channels;
+ }
+ 
++#define BLIP_MONO_READ( i ) \
++	s = BLIP_READER_READ( c ); \
++	BLIP_READER_NEXT( c, bass ); \
++	if ( (int16_t) s != s ) \
++		s = 0x7FFF - (s >> 24); \
++	((uint32_t*) out) [i] = ((uint16_t) s) | (uint16_t(s) << 16)
++
+ void Effects_Buffer::mix_mono( blip_sample_t* out_, int32_t count )
+ {
+     for(int i=0; i<max_voices; i++)
+     {
++	int32_t s;
+ 	blip_sample_t* BLIP_RESTRICT out = out_;
+ 	int const bass = BLIP_READER_BASS( bufs [i*max_buf_count+0] );
+ 	BLIP_READER_BEGIN( c, bufs [i*max_buf_count+0] );
+@@ -373,30 +382,14 @@ void Effects_Buffer::mix_mono( blip_sample_t* out_, int32_t count )
+ 	// unrolled loop
+ 	for ( int32_t n = count >> 1; n; --n )
+ 	{
+-		int32_t cs0 = BLIP_READER_READ( c );
+-		BLIP_READER_NEXT( c, bass );
+-
+-		int32_t cs1 = BLIP_READER_READ( c );
+-		BLIP_READER_NEXT( c, bass );
+-
+-		if ( (int16_t) cs0 != cs0 )
+-			cs0 = 0x7FFF - (cs0 >> 24);
+-		((uint32_t*) out) [i] = ((uint16_t) cs0) | (uint16_t(cs0) << 16);
+-
+-		if ( (int16_t) cs1 != cs1 )
+-			cs1 = 0x7FFF - (cs1 >> 24);
+-		((uint32_t*) out) [i+max_voices] = ((uint16_t) cs1) | (uint16_t(cs1) << 16);
++		BLIP_MONO_READ( i );
++		BLIP_MONO_READ( i + max_voices );
+ 		out += max_voices*4;
+ 	}
+ 
+ 	if ( count & 1 )
+ 	{
+-		int s = BLIP_READER_READ( c );
+-		BLIP_READER_NEXT( c, bass );
+-		if ( (int16_t) s != s )
+-			s = 0x7FFF - (s >> 24);
+-		out [i*2+0] = s;
+-		out [i*2+1] = s;
++		BLIP_MONO_READ( i );
+ 	}
+ 
+ 	BLIP_READER_END( c, bufs [i*max_buf_count+0] );
+diff --git a/gme/Fir_Resampler.cpp b/gme/Fir_Resampler.cpp
+index 915017e..bd17b4e 100644
+--- a/gme/Fir_Resampler.cpp
++++ b/gme/Fir_Resampler.cpp
+@@ -2,10 +2,9 @@
+ 
+ #include "Fir_Resampler.h"
+ 
+-#include <string.h>
+-#include <stdlib.h>
+-#include <stdio.h>
+-#include <math.h>
++#include <cstring>
++#include <cstdlib>
++#include <cmath>
+ 
+ /* Copyright (C) 2004-2006 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+@@ -32,7 +31,7 @@ static void gen_sinc( double rolloff, int width, double offset, double spacing,
+ 	double const pow_a_n = pow( rolloff, maxh );
+ 	scale /= maxh * 2;
+ 
+-	double angle = (count / 2 - 1 + offset) * -step;
++	double angle = ((int)(count / 2) - 1 + offset) * -step;
+ 	while ( count-- )
+ 	{
+ 		*out++ = 0;
+@@ -57,7 +56,7 @@ Fir_Resampler_::Fir_Resampler_( int width, sample_t* impulses_ ) :
+ 	write_offset( width * stereo - stereo ),
+ 	impulses( impulses_ )
+ {
+-	write_pos = 0;
++	write_pos = nullptr;
+ 	res       = 1;
+ 	imp_phase = 0;
+ 	skip_bits = 0;
+diff --git a/gme/Fir_Resampler.h b/gme/Fir_Resampler.h
+index 9ec50c8..e3a0f49 100644
+--- a/gme/Fir_Resampler.h
++++ b/gme/Fir_Resampler.h
+@@ -5,7 +5,8 @@
+ #define FIR_RESAMPLER_H
+ 
+ #include "blargg_common.h"
+-#include <string.h>
++#include <cstring>
++#include <cstdint>
+ 
+ class Fir_Resampler_ {
+ public:
+diff --git a/gme/Gb_Apu.cpp b/gme/Gb_Apu.cpp
+index 60688e4..f00efbd 100644
+--- a/gme/Gb_Apu.cpp
++++ b/gme/Gb_Apu.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include "Gb_Apu.h"
+ 
+-#include <string.h>
++#include <cstring>
+ #include <algorithm>
+ 
+ /* Copyright (C) 2003-2006 Shay Green. This module is free software; you
+@@ -21,7 +21,6 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ static unsigned const vol_reg    = 0xFF24;
+ static unsigned const status_reg = 0xFF26;
+ 
+-using std::min;
+ using std::max;
+ 
+ Gb_Apu::Gb_Apu()
+@@ -42,11 +41,11 @@ Gb_Apu::Gb_Apu()
+ 	{
+ 		Gb_Osc& osc = *oscs [i];
+ 		osc.regs = &regs [i * 5];
+-		osc.output = 0;
+-		osc.outputs [0] = 0;
+-		osc.outputs [1] = 0;
+-		osc.outputs [2] = 0;
+-		osc.outputs [3] = 0;
++		osc.output = nullptr;
++		osc.outputs [0] = nullptr;
++		osc.outputs [1] = nullptr;
++		osc.outputs [2] = nullptr;
++		osc.outputs [3] = nullptr;
+ 	}
+ 
+ 	set_tempo( 1.0 );
+diff --git a/gme/Gb_Cpu.cpp b/gme/Gb_Cpu.cpp
+index cea1a6a..f9f18dc 100644
+--- a/gme/Gb_Cpu.cpp
++++ b/gme/Gb_Cpu.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include "Gb_Cpu.h"
+ 
+-#include <string.h>
++#include <cstring>
+ 
+ //#include "gb_cpu_log.h"
+ 
+@@ -20,6 +20,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ #include "gb_cpu_io.h"
+ 
+ #include "blargg_source.h"
++#include "blargg_endian.h"
+ 
+ // Common instructions:
+ //
+diff --git a/gme/Gb_Cpu.h b/gme/Gb_Cpu.h
+index 6c2e061..0f45557 100644
+--- a/gme/Gb_Cpu.h
++++ b/gme/Gb_Cpu.h
+@@ -5,8 +5,7 @@
+ #ifndef GB_CPU_H
+ #define GB_CPU_H
+ 
+-#include "blargg_common.h"
+-#include "blargg_endian.h"
++#include <cstdint>
+ 
+ typedef unsigned gb_addr_t; // 16-bit CPU address
+ 
+@@ -14,7 +13,7 @@ class Gb_Cpu {
+ 	enum { clocks_per_instr = 4 };
+ public:
+ 	// Clear registers and map all pages to unmapped
+-	void reset( void* unmapped = 0 );
++	void reset( void* unmapped = nullptr );
+ 
+ 	// Map code memory (memory accessed via the program counter). Start and size
+ 	// must be multiple of page_size.
+diff --git a/gme/Gb_Oscs.cpp b/gme/Gb_Oscs.cpp
+index e38ccb2..6df2795 100644
+--- a/gme/Gb_Oscs.cpp
++++ b/gme/Gb_Oscs.cpp
+@@ -2,8 +2,6 @@
+ 
+ #include "Gb_Apu.h"
+ 
+-#include <string.h>
+-
+ /* Copyright (C) 2003-2006 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+ General Public License as published by the Free Software Foundation; either
+@@ -15,8 +13,6 @@ details. You should have received a copy of the GNU Lesser General Public
+ License along with this module; if not, write to the Free Software Foundation,
+ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ 
+-#include "blargg_source.h"
+-
+ // Gb_Osc
+ 
+ void Gb_Osc::reset()
+diff --git a/gme/Gb_Oscs.h b/gme/Gb_Oscs.h
+index cd5c1c3..4fca54b 100644
+--- a/gme/Gb_Oscs.h
++++ b/gme/Gb_Oscs.h
+@@ -4,8 +4,8 @@
+ #ifndef GB_OSCS_H
+ #define GB_OSCS_H
+ 
+-#include "blargg_common.h"
+ #include "Blip_Buffer.h"
++#include <cstdint>
+ 
+ struct Gb_Osc
+ {
+diff --git a/gme/Gbs_Emu.cpp b/gme/Gbs_Emu.cpp
+index 3e2a7ea..f68a770 100644
+--- a/gme/Gbs_Emu.cpp
++++ b/gme/Gbs_Emu.cpp
+@@ -3,7 +3,7 @@
+ #include "Gbs_Emu.h"
+ 
+ #include "blargg_endian.h"
+-#include <string.h>
++#include <cstring>
+ 
+ /* Copyright (C) 2003-2006 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+@@ -70,7 +70,7 @@ blargg_err_t Gbs_Emu::track_info_( track_info_t* out, int ) const
+ static blargg_err_t check_gbs_header( void const* header )
+ {
+ 	if ( memcmp( header, "GBS", 3 ) )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 	return 0;
+ }
+ 
+@@ -84,7 +84,7 @@ struct Gbs_File : Gme_Info_
+ 	{
+ 		blargg_err_t err = in.read( &h, Gbs_Emu::header_size );
+ 		if ( err )
+-			return (err == in.eof_error ? gme_wrong_file_type : err);
++			return (err == ERR_EOF ? ERR_FILE_WRONG_TYPE : err);
+ 
+ 		set_track_count( h.track_count );
+ 		return check_gbs_header( &h );
+@@ -114,15 +114,15 @@ blargg_err_t Gbs_Emu::load_( Data_Reader& in )
+ 	RETURN_ERR( check_gbs_header( &header_ ) );
+ 
+ 	if ( header_.vers != 1 )
+-		set_warning( "Unknown file version" );
++		set_warning( WARN_FILE_VERSION_UNKNOWN );
+ 
+ 	if ( header_.timer_mode & 0x78 )
+-		set_warning( "Invalid timer mode" );
++		set_warning( WARN_TIMER_MODE_INVALID );
+ 
+ 	unsigned load_addr = get_le16( header_.load_addr );
+ 	if ( (header_.load_addr [1] | header_.init_addr [1] | header_.play_addr [1]) > 0x7F ||
+ 			load_addr < 0x400 )
+-		set_warning( "Invalid load/init/play address" );
++		set_warning( WARN_ADDRESS_INVALID_LOADINITPLAY );
+ 
+ 	set_voice_count( Gb_Apu::osc_count );
+ 
+@@ -274,7 +274,7 @@ blargg_err_t Gbs_Emu::run_clocks( blip_time_t& duration, int )
+ 			}
+ 			else
+ 			{
+-				set_warning( "Emulation error (illegal/unsupported instruction)" );
++				set_warning( WARN_EMU_INSTRUCTION_ILLEGAL );
+ 				debug_printf( "Bad opcode $%.2x at $%.4x\n",
+ 						(int) *cpu::get_code( cpu::r.pc ), (int) cpu::r.pc );
+ 				cpu::r.pc = (cpu::r.pc + 1) & 0xFFFF;
+diff --git a/gme/Gme_File.cpp b/gme/Gme_File.cpp
+index d027b5a..57b68a0 100644
+--- a/gme/Gme_File.cpp
++++ b/gme/Gme_File.cpp
+@@ -3,7 +3,7 @@
+ #include "Gme_File.h"
+ 
+ #include "blargg_endian.h"
+-#include <string.h>
++#include <cstring>
+ 
+ /* Copyright (C) 2003-2006 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+@@ -18,8 +18,6 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ 
+ #include "blargg_source.h"
+ 
+-const char* const gme_wrong_file_type = "Wrong file type for this emulator";
+-
+ void Gme_File::clear_playlist()
+ {
+ 	playlist.clear();
+@@ -37,9 +35,9 @@ void Gme_File::unload()
+ 
+ Gme_File::Gme_File()
+ {
+-	type_         = 0;
+-	user_data_    = 0;
+-	user_cleanup_ = 0;
++	type_         = nullptr;
++	user_data_    = nullptr;
++	user_cleanup_ = nullptr;
+ 	unload(); // clears fields
+ 	blargg_verify_byte_order(); // used by most emulator types, so save them the trouble
+ }
+@@ -99,7 +97,7 @@ blargg_err_t Gme_File::load_tracks( void const* in, long* sizes, int count )
+ {
+ 	pre_load();
+ 	if ( type()->track_count != 1 )
+-		return "File type must have a fixed track count of 1";
++		return ERR_TRACK_SINGLE_ONLY;
+ 	set_track_count( count );
+ 	RETURN_ERR( tracks.resize( count + 1 ) );
+ 	long size = 0;
+@@ -175,7 +173,7 @@ void Gme_File::copy_field_( char* out, const char* in )
+ blargg_err_t Gme_File::remap_track_( int* track_io ) const
+ {
+ 	if ( (unsigned) *track_io >= (unsigned) track_count() )
+-		return "Invalid track";
++		return ERR_TRACK_INVALID;
+ 
+ 	if ( (unsigned) *track_io < (unsigned) playlist.size() )
+ 	{
+@@ -188,7 +186,7 @@ blargg_err_t Gme_File::remap_track_( int* track_io ) const
+ 				*track_io -= e.decimal_track;
+ 		}
+ 		if ( *track_io >= raw_track_count_ )
+-			return "Invalid track in m3u playlist";
++			return ERR_M3U_TRACK_INVALID;
+ 	}
+ 	else
+ 	{
+diff --git a/gme/Gme_File.h b/gme/Gme_File.h
+index 6ce3935..45fc026 100644
+--- a/gme/Gme_File.h
++++ b/gme/Gme_File.h
+@@ -8,9 +8,10 @@
+ #include "blargg_common.h"
+ #include "Data_Reader.h"
+ #include "M3u_Playlist.h"
++#include <cstdint>
+ 
+ // Error returned if file is wrong type
+-//extern const char gme_wrong_file_type []; // declared in gme.h
++// ERR_FILE_WRONG_TYPE // declared in blargg_err.h
+ 
+ struct gme_type_t_
+ {
+@@ -96,7 +97,10 @@ public:
+ 
+ 	// Most recent warning string, or NULL if none. Clears current warning after
+ 	// returning.
+-	const char* warning();
++	blargg_err_t warning();
++
++	// Most recent m3u error line when an m3u related parsing error occurs
++	int m3u_error_line();
+ 
+ 	// Number of tracks or 0 if no file has been loaded
+ 	int track_count() const;
+@@ -127,7 +131,7 @@ public:
+ protected:
+ 	// Services
+ 	void set_track_count( int n )       { track_count_ = raw_track_count_ = n; }
+-	void set_warning( const char* s )   { warning_ = s; }
++	void set_warning( blargg_err_t e )  { warning_ = e; }
+ 	void set_type( gme_type_t t )       { type_ = t; }
+ 	blargg_err_t load_remaining_( void const* header, long header_size, Data_Reader& remaining );
+ 
+@@ -153,7 +157,8 @@ private:
+ 	gme_type_t type_;
+ 	int track_count_;
+ 	int raw_track_count_;
+-	const char* warning_;
++	int m3u_error_line_;
++	blargg_err_t warning_;
+ 	void* user_data_;
+ 	gme_user_cleanup_t user_cleanup_;
+ 	M3u_Playlist playlist;
+@@ -163,6 +168,7 @@ private:
+ 
+ 	blargg_err_t load_m3u_( blargg_err_t );
+ 	blargg_err_t post_load( blargg_err_t err );
++	void set_m3u_error_line( int e ) { m3u_error_line_ = e; };
+ public:
+ 	// track_info field copying
+ 	enum { max_field_ = 255 };
+@@ -185,11 +191,18 @@ inline gme_type_t Gme_File::type() const            { return type_; }
+ inline int Gme_File::error_count() const            { return warning_ != 0; }
+ inline int Gme_File::track_count() const            { return track_count_; }
+ 
+-inline const char* Gme_File::warning()
++inline blargg_err_t Gme_File::warning()
+ {
+-	const char* s = warning_;
++	blargg_err_t w = warning_;
+ 	warning_ = 0;
+-	return s;
++	return w;
++}
++
++inline int Gme_File::m3u_error_line()
++{
++	int e = m3u_error_line_;
++	m3u_error_line_ = 0;
++	return e;
+ }
+ 
+ #endif
+diff --git a/gme/Gym_Emu.cpp b/gme/Gym_Emu.cpp
+index 2e12fb3..9b34708 100644
+--- a/gme/Gym_Emu.cpp
++++ b/gme/Gym_Emu.cpp
+@@ -3,7 +3,7 @@
+ #include "Gym_Emu.h"
+ 
+ #include "blargg_endian.h"
+-#include <string.h>
++#include <cstring>
+ 
+ /* Copyright (C) 2003-2006 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+@@ -27,8 +27,8 @@ static const long clock_rate = base_clock / 15;
+ 
+ Gym_Emu::Gym_Emu()
+ {
+-	data = 0;
+-	pos  = 0;
++	data = nullptr;
++	pos  = nullptr;
+ 	set_type( gme_gym_type );
+ 
+ 	static const char* const names [] = {
+@@ -110,25 +110,25 @@ static long gym_track_length( byte const* p, byte const* end )
+ 
+ long Gym_Emu::track_length() const { return gym_track_length( data, data_end ); }
+ 
+-static blargg_err_t check_header( byte const* in, long size, int* data_offset = 0 )
++static blargg_err_t check_header( byte const* in, long size, int* data_offset = nullptr )
+ {
+ 	if ( size < 4 )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 
+ 	if ( memcmp( in, "GYMX", 4 ) == 0 )
+ 	{
+ 		if ( size < Gym_Emu::header_size + 1 )
+-			return gme_wrong_file_type;
++			return ERR_FILE_WRONG_TYPE;
+ 
+ 		if ( memcmp( ((Gym_Emu::header_t const*) in)->packed, "\0\0\0\0", 4 ) != 0 )
+-			return "Packed GYM file not supported";
++			return ERR_GYM_PACKED_NOT_SUPPORTED;
+ 
+ 		if ( data_offset )
+ 			*data_offset = Gym_Emu::header_size;
+ 	}
+ 	else if ( *in > 3 )
+ 	{
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 	}
+ 
+ 	return 0;
+@@ -195,7 +195,7 @@ void Gym_Emu::set_tempo_( double t )
+ 
+ 	if ( blip_buf.sample_rate() )
+ 	{
+-		clocks_per_frame = long (clock_rate / 60 / tempo());
++		clocks_per_frame = long (clock_rate / (60 * tempo()));
+ 		Dual_Resampler::resize( long (sample_rate() / (60.0 * tempo())) );
+ 	}
+ }
+@@ -205,7 +205,7 @@ void Gym_Emu::mute_voices_( int mask )
+ 	Music_Emu::mute_voices_( mask );
+ 	fm.mute_voices( mask );
+ 	dac_muted = (mask & 0x40) != 0;
+-	apu.output( (mask & 0x80) ? 0 : &blip_buf );
++	apu.output( (mask & 0x80) ? nullptr : &blip_buf );
+ }
+ 
+ blargg_err_t Gym_Emu::load_mem_( byte const* in, long size )
+@@ -217,7 +217,7 @@ blargg_err_t Gym_Emu::load_mem_( byte const* in, long size )
+ 
+ 	data     = in + offset;
+ 	data_end = in + size;
+-	loop_begin = 0;
++	loop_begin = nullptr;
+ 
+ 	if ( offset )
+ 		header_ = *(header_t const*) in;
+diff --git a/gme/Hes_Apu.cpp b/gme/Hes_Apu.cpp
+index 39b3fd2..dba2c38 100644
+--- a/gme/Hes_Apu.cpp
++++ b/gme/Hes_Apu.cpp
+@@ -2,7 +2,8 @@
+ 
+ #include "Hes_Apu.h"
+ 
+-#include <string.h>
++#include <cstring>
++#include <cstdint>
+ 
+ /* Copyright (C) 2006 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+@@ -15,6 +16,7 @@ details. You should have received a copy of the GNU Lesser General Public
+ License along with this module; if not, write to the Free Software Foundation,
+ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ 
++#include "blargg_common.h"
+ #include "blargg_source.h"
+ 
+ static bool const center_waves = true; // reduces asymmetry and clamping when starting notes
+@@ -25,11 +27,11 @@ Hes_Apu::Hes_Apu()
+ 	do
+ 	{
+ 		osc--;
+-		osc->outputs [0] = 0;
+-		osc->outputs [1] = 0;
+-		osc->chans [0] = 0;
+-		osc->chans [1] = 0;
+-		osc->chans [2] = 0;
++		osc->outputs [0] = nullptr;
++		osc->outputs [1] = nullptr;
++		osc->chans [0] = nullptr;
++		osc->chans [1] = nullptr;
++		osc->chans [2] = nullptr;
+ 	}
+ 	while ( osc != oscs );
+ 
+@@ -209,7 +211,7 @@ void Hes_Apu::balance_changed( Hes_Osc& osc )
+ 	// optimizing for the common case of being centered also allows easy
+ 	// panning using Effects_Buffer
+ 	osc.outputs [0] = osc.chans [0]; // center
+-	osc.outputs [1] = 0;
++	osc.outputs [1] = nullptr;
+ 	if ( left != right )
+ 	{
+ 		osc.outputs [0] = osc.chans [1]; // left
+diff --git a/gme/Hes_Apu.h b/gme/Hes_Apu.h
+index 4d9d1d1..d0dd7ad 100644
+--- a/gme/Hes_Apu.h
++++ b/gme/Hes_Apu.h
+@@ -4,7 +4,6 @@
+ #ifndef HES_APU_H
+ #define HES_APU_H
+ 
+-#include "blargg_common.h"
+ #include "Blip_Buffer.h"
+ 
+ struct Hes_Osc
+diff --git a/gme/Hes_Cpu.h b/gme/Hes_Cpu.h
+index 9f0b055..1d66aa6 100644
+--- a/gme/Hes_Cpu.h
++++ b/gme/Hes_Cpu.h
+@@ -4,7 +4,9 @@
+ #ifndef HES_CPU_H
+ #define HES_CPU_H
+ 
+-#include "blargg_common.h"
++#include <cassert>
++#include <climits>
++#include <cstdint>
+ 
+ typedef int32_t hes_time_t; // clock cycle count
+ typedef unsigned hes_addr_t; // 16-bit address
+diff --git a/gme/Hes_Emu.cpp b/gme/Hes_Emu.cpp
+index b68cef6..28283d3 100644
+--- a/gme/Hes_Emu.cpp
++++ b/gme/Hes_Emu.cpp
+@@ -3,7 +3,7 @@
+ #include "Hes_Emu.h"
+ 
+ #include "blargg_endian.h"
+-#include <string.h>
++#include <cstring>
+ #include <algorithm>
+ 
+ /* Copyright (C) 2006 Shay Green. This module is free software; you
+@@ -27,7 +27,6 @@ static int const unmapped    = 0xFF;
+ static long const period_60hz = 262 * 455L; // scanlines * clocks per scanline
+ 
+ using std::min;
+-using std::max;
+ 
+ Hes_Emu::Hes_Emu()
+ {
+@@ -72,11 +71,11 @@ static byte const* copy_field( byte const* in, char* out )
+ 		int i = 0;
+ 		for ( i = 0; i < len && in [i]; i++ )
+ 			if ( ((in [i] + 1) & 0xFF) < ' ' + 1 ) // also treat 0xFF as non-text
+-				return 0; // non-ASCII found
++				return nullptr; // non-ASCII found
+ 
+ 		for ( ; i < len; i++ )
+ 			if ( in [i] )
+-				return 0; // data after terminator
++				return nullptr; // data after terminator
+ 
+ 		Gme_File::copy_field_( out, (char const*) in, len );
+ 		in += len;
+@@ -103,7 +102,7 @@ blargg_err_t Hes_Emu::track_info_( track_info_t* out, int ) const
+ static blargg_err_t check_hes_header( void const* header )
+ {
+ 	if ( memcmp( header, "HESM", 4 ) )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 	return 0;
+ }
+ 
+@@ -122,7 +121,7 @@ struct Hes_File : Gme_Info_
+ 		blaarg_static_assert( offsetof (header_t,fields) == Hes_Emu::header_size + 0x20, "HES header layout is incorrect!" );
+ 		blargg_err_t err = in.read( &h, sizeof h );
+ 		if ( err )
+-			return (err == in.eof_error ? gme_wrong_file_type : err);
++			return (err == ERR_EOF ? ERR_FILE_WRONG_TYPE : err);
+ 		return check_hes_header( &h );
+ 	}
+ 
+@@ -150,13 +149,13 @@ blargg_err_t Hes_Emu::load_( Data_Reader& in )
+ 	RETURN_ERR( check_hes_header( header_.tag ) );
+ 
+ 	if ( header_.vers != 0 )
+-		set_warning( "Unknown file version" );
++		set_warning( WARN_FILE_VERSION_UNKNOWN );
+ 
+ 	if ( memcmp( header_.data_tag, "DATA", 4 ) )
+-		set_warning( "Data header missing" );
++		set_warning( WARN_DATA_HEADER_MISSING );
+ 
+ 	if ( memcmp( header_.unused, "\0\0\0\0", 4 ) )
+-		set_warning( "Unknown header data" );
++		set_warning( WARN_HEADER_DATA_UNKNOWN );
+ 
+ 	// File spec supports multiple blocks, but I haven't found any, and
+ 	// many files have bad sizes in the only block, so it's simpler to
+@@ -167,20 +166,20 @@ blargg_err_t Hes_Emu::load_( Data_Reader& in )
+ 	long const rom_max = 0x100000;
+ 	if ( addr & ~(rom_max - 1) )
+ 	{
+-		set_warning( "Invalid address" );
++		set_warning( WARN_ADDRESS_INVALID );
+ 		addr &= rom_max - 1;
+ 	}
+ 	if ( (unsigned long) (addr + size) > (unsigned long) rom_max )
+-		set_warning( "Invalid size" );
++		set_warning( WARN_SIZE_INVALID );
+ 
+ 	if ( size != rom.file_size() )
+ 	{
+ 		if ( size <= rom.file_size() - 4 && !memcmp( rom.begin() + size, "DATA", 4 ) )
+-			set_warning( "Multiple DATA not supported" );
++			set_warning( WARN_MULTIPLE_DATA_NOT_SUPPORTED );
+ 		else if ( size < rom.file_size() )
+-			set_warning( "Extra file data" );
++			set_warning( WARN_FILE_EXTRA_DATA );
+ 		else
+-			set_warning( "Missing file data" );
++			set_warning( WARN_FILE_DATA_MISSING );
+ 	}
+ 
+ 	rom.set_addr( addr );
+@@ -270,7 +269,7 @@ void Hes_Emu::cpu_write_vdp( int addr, int data )
+ 		if ( vdp.latch == 5 )
+ 		{
+ 			if ( data & 0x04 )
+-				set_warning( "Scanline interrupt unsupported" );
++				set_warning( WARN_SCANLINE_INTERRUPT_NOT_SUPPORTED );
+ 			run_until( time() );
+ 			vdp.control = data;
+ 			irq_changed();
+@@ -513,7 +512,7 @@ blargg_err_t Hes_Emu::run_clocks( blip_time_t& duration_, int )
+ 	blip_time_t const duration = duration_; // cache
+ 
+ 	if ( cpu::run( duration ) )
+-		set_warning( "Emulation error (illegal instruction)" );
++		set_warning( WARN_EMU_INSTRUCTION_ILLEGAL );
+ 
+ 	check( time() >= duration );
+ 	//check( time() - duration < 20 ); // Txx instruction could cause going way over
+diff --git a/gme/Kss_Cpu.cpp b/gme/Kss_Cpu.cpp
+index e883690..a6015cb 100644
+--- a/gme/Kss_Cpu.cpp
++++ b/gme/Kss_Cpu.cpp
+@@ -8,8 +8,9 @@ Last validated with zexall 2006.11.14 2:19 PM
+ 
+ #include "Kss_Cpu.h"
+ 
++#include "blargg_common.h"
+ #include "blargg_endian.h"
+-#include <string.h>
++#include <cstring>
+ 
+ //#include "z80_cpu_log.h"
+ 
+diff --git a/gme/Kss_Cpu.h b/gme/Kss_Cpu.h
+index 40d754f..3530d10 100644
+--- a/gme/Kss_Cpu.h
++++ b/gme/Kss_Cpu.h
+@@ -4,7 +4,7 @@
+ #ifndef KSS_CPU_H
+ #define KSS_CPU_H
+ 
+-#include "blargg_endian.h"
++#include <cstdint>
+ 
+ typedef int32_t cpu_time_t;
+ 
+diff --git a/gme/Kss_Emu.cpp b/gme/Kss_Emu.cpp
+index a683418..57d8c9f 100644
+--- a/gme/Kss_Emu.cpp
++++ b/gme/Kss_Emu.cpp
+@@ -3,7 +3,7 @@
+ #include "Kss_Emu.h"
+ 
+ #include "blargg_endian.h"
+-#include <string.h>
++#include <cstring>
+ #include <algorithm>
+ 
+ /* Copyright (C) 2006 Shay Green. This module is free software; you
+@@ -23,11 +23,10 @@ static long const clock_rate = 3579545;
+ static int const osc_count = Ay_Apu::osc_count + Scc_Apu::osc_count;
+ 
+ using std::min;
+-using std::max;
+ 
+ Kss_Emu::Kss_Emu()
+ {
+-	sn = 0;
++	sn = nullptr;
+ 	set_type( gme_kss_type );
+ 	set_silence_lookahead( 6 );
+ 	static const char* const names [osc_count] = {
+@@ -50,7 +49,7 @@ Kss_Emu::~Kss_Emu() { unload(); }
+ void Kss_Emu::unload()
+ {
+ 	delete sn;
+-	sn = 0;
++	sn = nullptr;
+ 	Classic_Emu::unload();
+ }
+ 
+@@ -80,7 +79,7 @@ blargg_err_t Kss_Emu::track_info_( track_info_t* out, int ) const
+ static blargg_err_t check_kss_header( void const* header )
+ {
+ 	if ( memcmp( header, "KSCC", 4 ) && memcmp( header, "KSSX", 4 ) )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 	return 0;
+ }
+ 
+@@ -94,7 +93,7 @@ struct Kss_File : Gme_Info_
+ 	{
+ 		blargg_err_t err = in.read( &header_, Kss_Emu::header_size );
+ 		if ( err )
+-			return (err == in.eof_error ? gme_wrong_file_type : err);
++			return (err == ERR_EOF ? ERR_FILE_WRONG_TYPE : err);
+ 		return check_kss_header( &header_ );
+ 	}
+ 
+@@ -139,12 +138,12 @@ blargg_err_t Kss_Emu::load_( Data_Reader& in )
+ 		if ( header_.extra_header )
+ 		{
+ 			header_.extra_header = 0;
+-			set_warning( "Unknown data in header" );
++			set_warning( WARN_HEADER_DATA_UNKNOWN );
+ 		}
+ 		if ( header_.device_flags & ~0x0F )
+ 		{
+ 			header_.device_flags &= 0x0F;
+-			set_warning( "Unknown data in header" );
++			set_warning( WARN_HEADER_DATA_UNKNOWN );
+ 		}
+ 	}
+ 	else
+@@ -152,11 +151,11 @@ blargg_err_t Kss_Emu::load_( Data_Reader& in )
+ 		ext_header_t& ext = header_;
+ 		memcpy( &ext, rom.begin(), min( (int) ext_header_size, (int) header_.extra_header ) );
+ 		if ( header_.extra_header > 0x10 )
+-			set_warning( "Unknown data in header" );
++			set_warning( WARN_HEADER_DATA_UNKNOWN );
+ 	}
+ 
+ 	if ( header_.device_flags & 0x09 )
+-		set_warning( "FM sound not supported" );
++		set_warning( WARN_FM_NOT_SUPPORTED );
+ 
+ 	scc_enabled = 0xC000;
+ 	if ( header_.device_flags & 0x04 )
+@@ -223,7 +222,7 @@ blargg_err_t Kss_Emu::start_track_( int track )
+ 	long load_size = min( orig_load_size, rom.file_size() );
+ 	load_size = min( load_size, long (mem_size - load_addr) );
+ 	if ( load_size != orig_load_size )
+-		set_warning( "Excessive data size" );
++		set_warning( WARN_DATA_SIZE_EXCESSIVE );
+ 	memcpy( ram + load_addr, rom.begin() + header_.extra_header, load_size );
+ 
+ 	rom.set_addr( -load_size - header_.extra_header );
+@@ -235,7 +234,7 @@ blargg_err_t Kss_Emu::start_track_( int track )
+ 	if ( bank_count > max_banks )
+ 	{
+ 		bank_count = max_banks;
+-		set_warning( "Bank data missing" );
++		set_warning( WARN_BANK_DATA_MISSING );
+ 	}
+ 	//debug_printf( "load_size : $%X\n", load_size );
+ 	//debug_printf( "bank_size : $%X\n", bank_size );
+diff --git a/gme/Kss_Scc_Apu.cpp b/gme/Kss_Scc_Apu.cpp
+index 37c8785..388535e 100644
+--- a/gme/Kss_Scc_Apu.cpp
++++ b/gme/Kss_Scc_Apu.cpp
+@@ -1,6 +1,7 @@
+ // Game_Music_Emu https://bitbucket.org/mpyne/game-music-emu/
+ 
+ #include "Kss_Scc_Apu.h"
++#include <cstdint>
+ 
+ /* Copyright (C) 2006 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+@@ -13,8 +14,6 @@ details. You should have received a copy of the GNU Lesser General Public
+ License along with this module; if not, write to the Free Software Foundation,
+ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ 
+-#include "blargg_source.h"
+-
+ // Tones above this frequency are treated as disabled tone at half volume.
+ // Power of two is more efficient (avoids division).
+ static unsigned const inaudible_freq = 16384;
+diff --git a/gme/Kss_Scc_Apu.h b/gme/Kss_Scc_Apu.h
+index 865a300..ab619c8 100644
+--- a/gme/Kss_Scc_Apu.h
++++ b/gme/Kss_Scc_Apu.h
+@@ -4,9 +4,9 @@
+ #ifndef KSS_SCC_APU_H
+ #define KSS_SCC_APU_H
+ 
+-#include "blargg_common.h"
+ #include "Blip_Buffer.h"
+-#include <string.h>
++#include <cstring>
++#include <cstddef>
+ 
+ class Scc_Apu {
+ public:
+@@ -90,7 +90,7 @@ inline void Scc_Apu::output( Blip_Buffer* buf )
+ 
+ inline Scc_Apu::Scc_Apu()
+ {
+-	output( 0 );
++	output( nullptr );
+ }
+ 
+ inline void Scc_Apu::reset()
+diff --git a/gme/M3u_Playlist.cpp b/gme/M3u_Playlist.cpp
+index 874343c..20cd023 100644
+--- a/gme/M3u_Playlist.cpp
++++ b/gme/M3u_Playlist.cpp
+@@ -3,7 +3,7 @@
+ #include "M3u_Playlist.h"
+ #include "Music_Emu.h"
+ 
+-#include <string.h>
++#include <cstring>
+ 
+ /* Copyright (C) 2006 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+@@ -32,17 +32,8 @@ blargg_err_t Gme_File::load_m3u_( blargg_err_t err )
+ 		int line = playlist.first_error();
+ 		if ( line )
+ 		{
+-			// avoid using bloated printf()
+-			char* out = &playlist_warning [sizeof playlist_warning];
+-			*--out = 0;
+-			do {
+-				*--out = line % 10 + '0';
+-			} while ( (line /= 10) > 0 );
+-
+-			static const char str [] = "Problem in m3u at line ";
+-			out -= sizeof str - 1;
+-			memcpy( out, str, sizeof str - 1 );
+-			set_warning( out );
++			set_m3u_error_line( line );
++			set_warning( WARN_M3U_AT_LINE );
+ 		}
+ 	}
+ 	return err;
+@@ -342,7 +333,7 @@ static void parse_comment( char* in, M3u_Playlist::info_t& info, char *& last_co
+ 		if ( *text )
+ 		{
+ 			*in = 0;
+-				 if ( !strcmp( "Composer" , field ) ) info.composer  = text;
++			if      ( !strcmp( "Composer" , field ) ) info.composer  = text;
+ 			else if ( !strcmp( "Engineer" , field ) ) info.engineer  = text;
+ 			else if ( !strcmp( "Ripping"  , field ) ) info.ripping   = text;
+ 			else if ( !strcmp( "Tagging"  , field ) ) info.tagging   = text;
+@@ -350,7 +341,7 @@ static void parse_comment( char* in, M3u_Playlist::info_t& info, char *& last_co
+ 			else if ( !strcmp( "Artist"   , field ) ) info.artist    = text;
+ 			else if ( !strcmp( "Copyright", field ) ) info.copyright = text;
+ 			else
+-				text = 0;
++				text = nullptr;
+ 			if ( text )
+ 				return;
+ 			*in = ':';
+@@ -366,7 +357,7 @@ static void parse_comment( char* in, M3u_Playlist::info_t& info, char *& last_co
+ 		if ( *text )
+ 		{
+ 			*in = 0;
+-				 if ( !strcmp( "TITLE"    , field ) ) info.title     = text;
++			if      ( !strcmp( "TITLE"    , field ) ) info.title     = text;
+ 			else if ( !strcmp( "ARTIST"   , field ) ) info.artist    = text;
+ 			else if ( !strcmp( "DATE"     , field ) ) info.date      = text;
+ 			else if ( !strcmp( "COMPOSER" , field ) ) info.composer  = text;
+@@ -375,7 +366,7 @@ static void parse_comment( char* in, M3u_Playlist::info_t& info, char *& last_co
+ 			else if ( !strcmp( "RIPPER"   , field ) ) info.ripping   = text;
+ 			else if ( !strcmp( "TAGGER"   , field ) ) info.tagging   = text;
+ 			else
+-				text = 0;
++				text = nullptr;
+ 			if ( text )
+ 			{
+ 				last_comment_value = (char*)text;
+@@ -420,7 +411,7 @@ blargg_err_t M3u_Playlist::parse_()
+ 	int line  = 0;
+ 	int count = 0;
+ 	char* in  = data.begin();
+-	char* last_comment_value = 0;
++	char* last_comment_value = nullptr;
+ 	while ( in < data.end() )
+ 	{
+ 		// find end of line and terminate it
+@@ -429,7 +420,7 @@ blargg_err_t M3u_Playlist::parse_()
+ 		while ( *in != CR && *in != LF )
+ 		{
+ 			if ( !*in )
+-				return "Not an m3u playlist";
++				return ERR_M3U_PLAYLIST_INVALID;
+ 			in++;
+ 		}
+ 		if ( in [0] == CR && in [1] == LF ) // treat CR,LF as a single line
+@@ -453,10 +444,10 @@ blargg_err_t M3u_Playlist::parse_()
+ 				first_error_ = line;
+ 			first_comment = false;
+ 		}
+-		else last_comment_value = 0;
++		else last_comment_value = nullptr;
+ 	}
+ 	if ( count <= 0 )
+-		return "Not an m3u playlist";
++		return ERR_M3U_PLAYLIST_INVALID;
+ 
+ 	if ( !(info_.composer [0] | info_.engineer [0] | info_.ripping [0] | info_.tagging [0]) )
+ 		info_.title = "";
+diff --git a/gme/M3u_Playlist.h b/gme/M3u_Playlist.h
+index 2af7480..66790b1 100644
+--- a/gme/M3u_Playlist.h
++++ b/gme/M3u_Playlist.h
+@@ -4,7 +4,6 @@
+ #ifndef M3U_PLAYLIST_H
+ #define M3U_PLAYLIST_H
+ 
+-#include "blargg_common.h"
+ #include "Data_Reader.h"
+ 
+ class M3u_Playlist {
+diff --git a/gme/Multi_Buffer.cpp b/gme/Multi_Buffer.cpp
+index a6c9349..23ce83e 100644
+--- a/gme/Multi_Buffer.cpp
++++ b/gme/Multi_Buffer.cpp
+@@ -33,9 +33,9 @@ blargg_err_t Multi_Buffer::set_channel_count( int ) { return 0; }
+ Silent_Buffer::Silent_Buffer() : Multi_Buffer( 1 ) // 0 channels would probably confuse
+ {
+ 	// TODO: better to use empty Blip_Buffer so caller never has to check for NULL?
+-	chan.left   = 0;
+-	chan.center = 0;
+-	chan.right  = 0;
++	chan.left   = nullptr;
++	chan.center = nullptr;
++	chan.right  = nullptr;
+ }
+ 
+ // Mono_Buffer
+diff --git a/gme/Multi_Buffer.h b/gme/Multi_Buffer.h
+index 29f65bd..703eae5 100644
+--- a/gme/Multi_Buffer.h
++++ b/gme/Multi_Buffer.h
+@@ -6,6 +6,7 @@
+ 
+ #include "blargg_common.h"
+ #include "Blip_Buffer.h"
++#include <cstdint>
+ 
+ // Interface to one or more Blip_Buffers mapped to one or more channels
+ // consisting of left, center, and right buffers.
+diff --git a/gme/Music_Emu.cpp b/gme/Music_Emu.cpp
+index c42f9ad..3729ca6 100644
+--- a/gme/Music_Emu.cpp
++++ b/gme/Music_Emu.cpp
+@@ -3,7 +3,7 @@
+ #include "Music_Emu.h"
+ 
+ #include "Multi_Buffer.h"
+-#include <string.h>
++#include <cstring>
+ #include <algorithm>
+ 
+ /* Copyright (C) 2003-2006 Shay Green. This module is free software; you
+@@ -55,7 +55,7 @@ void Music_Emu::unload()
+ 
+ Music_Emu::Music_Emu()
+ {
+-	effects_buffer = 0;
++	effects_buffer = nullptr;
+ 	multi_channel_ = false;
+ 	sample_rate_ = 0;
+ 	mute_mask_   = 0;
+@@ -110,7 +110,7 @@ bool Music_Emu::multi_channel() const
+ blargg_err_t Music_Emu::set_multi_channel( bool )
+ {
+ 	// by default not supported, derived may override this
+-	return "unsupported for this emulator type";
++	return ERR_MULTICHANNEL_NOT_SUPPORTED;
+ }
+ 
+ blargg_err_t Music_Emu::set_multi_channel_( bool isEnabled )
+@@ -447,7 +447,7 @@ blargg_err_t Music_Emu::play( long out_count, sample_t* out )
+ 			emu_play( remain, out + pos );
+ 			track_ended_ |= emu_track_ended_;
+ 
+-			if ( !ignore_silence_ || out_time > fade_start )
++			if ( !ignore_silence_ && out_time > fade_start )
+ 			{
+ 				// check end for a new run of silence
+ 				long silence = count_silence( out + pos, remain );
+@@ -476,6 +476,6 @@ void         Gme_Info_::set_equalizer_( equalizer_t const& ){ check( false ); }
+ void         Gme_Info_::enable_accuracy_( bool )            { check( false ); }
+ void         Gme_Info_::mute_voices_( int )                 { check( false ); }
+ void         Gme_Info_::set_tempo_( double )                { }
+-blargg_err_t Gme_Info_::start_track_( int )                 { return "Use full emulator for playback"; }
+-blargg_err_t Gme_Info_::play_( long, sample_t* )            { return "Use full emulator for playback"; }
++blargg_err_t Gme_Info_::start_track_( int )                 { return ERR_USE_FULL_EMULATOR_FOR_PLAYBACK; }
++blargg_err_t Gme_Info_::play_( long, sample_t* )            { return ERR_USE_FULL_EMULATOR_FOR_PLAYBACK; }
+ 
+diff --git a/gme/Nes_Apu.cpp b/gme/Nes_Apu.cpp
+index 0718aa0..374ee8a 100644
+--- a/gme/Nes_Apu.cpp
++++ b/gme/Nes_Apu.cpp
+@@ -23,8 +23,8 @@ Nes_Apu::Nes_Apu() :
+ {
+ 	tempo_ = 1.0;
+ 	dmc.apu = this;
+-	dmc.prg_reader = NULL;
+-	irq_notifier_ = NULL;
++	dmc.prg_reader = nullptr;
++	irq_notifier_ = nullptr;
+ 
+ 	oscs [0] = &square1;
+ 	oscs [1] = &square2;
+@@ -32,7 +32,7 @@ Nes_Apu::Nes_Apu() :
+ 	oscs [3] = &noise;
+ 	oscs [4] = &dmc;
+ 
+-	output( NULL );
++	output( nullptr );
+ 	volume( 1.0 );
+ 	reset( false );
+ }
+diff --git a/gme/Nes_Apu.h b/gme/Nes_Apu.h
+index 1650e6b..f807f0c 100644
+--- a/gme/Nes_Apu.h
++++ b/gme/Nes_Apu.h
+@@ -5,10 +5,6 @@
+ #define NES_APU_H
+ 
+ #include "blargg_common.h"
+-
+-typedef int32_t nes_time_t; // CPU clock cycle count
+-typedef unsigned nes_addr_t; // 16-bit memory address
+-
+ #include "Nes_Oscs.h"
+ 
+ struct apu_state_t;
+@@ -22,7 +18,7 @@ public:
+ 	// Set memory reader callback used by DMC oscillator to fetch samples.
+ 	// When callback is invoked, 'user_data' is passed unchanged as the
+ 	// first parameter.
+-	void dmc_reader( int (*callback)( void* user_data, nes_addr_t ), void* user_data = NULL );
++	void dmc_reader( int (*callback)( void* user_data, nes_addr_t ), void* user_data = nullptr );
+ 
+ 	// All time values are the number of CPU clock cycles relative to the
+ 	// beginning of the current time frame. Before resetting the CPU clock
+@@ -73,7 +69,7 @@ public:
+ 	// Set IRQ time callback that is invoked when the time of earliest IRQ
+ 	// may have changed, or NULL to disable. When callback is invoked,
+ 	// 'user_data' is passed unchanged as the first parameter.
+-	void irq_notifier( void (*callback)( void* user_data ), void* user_data = NULL );
++	void irq_notifier( void (*callback)( void* user_data ), void* user_data = nullptr );
+ 
+ 	// Get time that APU-generated IRQ will occur if no further register reads
+ 	// or writes occur. If IRQ is already pending, returns irq_waiting. If no
+@@ -85,7 +81,7 @@ public:
+ 	// Count number of DMC reads that would occur if 'run_until( t )' were executed.
+ 	// If last_read is not NULL, set *last_read to the earliest time that
+ 	// 'count_dmc_reads( time )' would result in the same result.
+-	int count_dmc_reads( nes_time_t t, nes_time_t* last_read = NULL ) const;
++	int count_dmc_reads( nes_time_t t, nes_time_t* last_read = nullptr ) const;
+ 
+ 	// Time when next DMC memory read will occur
+ 	nes_time_t next_dmc_read_time() const;
+diff --git a/gme/Nes_Cpu.cpp b/gme/Nes_Cpu.cpp
+index c3c7e8a..aebc645 100644
+--- a/gme/Nes_Cpu.cpp
++++ b/gme/Nes_Cpu.cpp
+@@ -3,7 +3,7 @@
+ #include "Nes_Cpu.h"
+ 
+ #include "blargg_endian.h"
+-#include <limits.h>
++#include <climits>
+ 
+ #define BLARGG_CPU_X86 1
+ 
+diff --git a/gme/Nes_Cpu.h b/gme/Nes_Cpu.h
+index 231a9f4..69fd7a8 100644
+--- a/gme/Nes_Cpu.h
++++ b/gme/Nes_Cpu.h
+@@ -4,7 +4,8 @@
+ #ifndef NES_CPU_H
+ #define NES_CPU_H
+ 
+-#include "blargg_common.h"
++#include <cstdint>
++#include <climits>
+ 
+ typedef int32_t nes_time_t; // clock cycle count
+ typedef unsigned nes_addr_t; // 16-bit address
+@@ -14,7 +15,7 @@ class Nes_Cpu {
+ public:
+ 	// Clear registers, map low memory and its three mirrors to address 0,
+ 	// and mirror unmapped_page in remaining memory
+-	void reset( void const* unmapped_page = 0 );
++	void reset( void const* unmapped_page = nullptr );
+ 
+ 	// Map code memory (memory accessed via the program counter). Start and size
+ 	// must be multiple of page_size. If mirror is true, repeats code page
+diff --git a/gme/Nes_Fds_Apu.cpp b/gme/Nes_Fds_Apu.cpp
+index 82632a6..e95601c 100644
+--- a/gme/Nes_Fds_Apu.cpp
++++ b/gme/Nes_Fds_Apu.cpp
+@@ -15,7 +15,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ 
+ #include "blargg_source.h"
+ 
+-#include <string.h>
++#include <cstring>
+ 
+ static int const fract_range = 65536;
+ 
+diff --git a/gme/Nes_Fds_Apu.h b/gme/Nes_Fds_Apu.h
+index b12cf93..a28bc29 100644
+--- a/gme/Nes_Fds_Apu.h
++++ b/gme/Nes_Fds_Apu.h
+@@ -124,7 +124,7 @@ inline int Nes_Fds_Apu::read( blip_time_t time, unsigned addr )
+ inline Nes_Fds_Apu::Nes_Fds_Apu()
+ {
+ 	lfo_tempo = lfo_base_tempo;
+-	osc_output( 0, NULL );
++	osc_output( 0, nullptr );
+ 	volume( 1.0 );
+ 	reset();
+ }
+diff --git a/gme/Nes_Fme7_Apu.cpp b/gme/Nes_Fme7_Apu.cpp
+index a51f54e..efb21d1 100644
+--- a/gme/Nes_Fme7_Apu.cpp
++++ b/gme/Nes_Fme7_Apu.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include "Nes_Fme7_Apu.h"
+ 
+-#include <string.h>
++#include <cstring>
+ 
+ /* Copyright (C) 2003-2006 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+diff --git a/gme/Nes_Fme7_Apu.h b/gme/Nes_Fme7_Apu.h
+index adadc1d..0a82077 100644
+--- a/gme/Nes_Fme7_Apu.h
++++ b/gme/Nes_Fme7_Apu.h
+@@ -6,6 +6,7 @@
+ 
+ #include "blargg_common.h"
+ #include "Blip_Buffer.h"
++#include <cstdint>
+ 
+ struct fme7_apu_state_t
+ {
+@@ -86,7 +87,7 @@ inline void Nes_Fme7_Apu::output( Blip_Buffer* buf )
+ 
+ inline Nes_Fme7_Apu::Nes_Fme7_Apu()
+ {
+-	output( NULL );
++	output( nullptr );
+ 	volume( 1.0 );
+ 	reset();
+ }
+diff --git a/gme/Nes_Mmc5_Apu.h b/gme/Nes_Mmc5_Apu.h
+index c335071..e4e81fd 100644
+--- a/gme/Nes_Mmc5_Apu.h
++++ b/gme/Nes_Mmc5_Apu.h
+@@ -5,7 +5,6 @@
+ #ifndef NES_MMC5_APU_H
+ #define NES_MMC5_APU_H
+ 
+-#include "blargg_common.h"
+ #include "Nes_Apu.h"
+ 
+ class Nes_Mmc5_Apu : public Nes_Apu {
+diff --git a/gme/Nes_Namco_Apu.cpp b/gme/Nes_Namco_Apu.cpp
+index 61d5931..6286862 100644
+--- a/gme/Nes_Namco_Apu.cpp
++++ b/gme/Nes_Namco_Apu.cpp
+@@ -13,11 +13,9 @@ details. You should have received a copy of the GNU Lesser General Public
+ License along with this module; if not, write to the Free Software Foundation,
+ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ 
+-#include "blargg_source.h"
+-
+ Nes_Namco_Apu::Nes_Namco_Apu()
+ {
+-	output( NULL );
++	output( nullptr );
+ 	volume( 1.0 );
+ 	reset();
+ }
+diff --git a/gme/Nes_Namco_Apu.h b/gme/Nes_Namco_Apu.h
+index 83be1ab..8c9de5e 100644
+--- a/gme/Nes_Namco_Apu.h
++++ b/gme/Nes_Namco_Apu.h
+@@ -6,6 +6,7 @@
+ 
+ #include "blargg_common.h"
+ #include "Blip_Buffer.h"
++#include <cstdint>
+ 
+ struct namco_state_t;
+ 
+diff --git a/gme/Nes_Oscs.cpp b/gme/Nes_Oscs.cpp
+index 153606d..0bc708c 100644
+--- a/gme/Nes_Oscs.cpp
++++ b/gme/Nes_Oscs.cpp
+@@ -311,8 +311,8 @@ int Nes_Dmc::count_reads( nes_time_t time, nes_time_t* last_read ) const
+ 	{
+ 		*last_read = first_read + (count - 1) * (period * 8) + 1;
+ 		check( *last_read <= time );
+-		check( count == count_reads( *last_read, NULL ) );
+-		check( count - 1 == count_reads( *last_read - 1, NULL ) );
++		check( count == count_reads( *last_read, nullptr ) );
++		check( count - 1 == count_reads( *last_read - 1, nullptr ) );
+ 	}
+ 
+ 	return count;
+diff --git a/gme/Nes_Oscs.h b/gme/Nes_Oscs.h
+index 36a0d7d..c86007f 100644
+--- a/gme/Nes_Oscs.h
++++ b/gme/Nes_Oscs.h
+@@ -4,8 +4,11 @@
+ #ifndef NES_OSCS_H
+ #define NES_OSCS_H
+ 
+-#include "blargg_common.h"
+ #include "Blip_Buffer.h"
++#include <cstdint>
++
++typedef int32_t nes_time_t; // CPU clock cycle count
++typedef unsigned nes_addr_t; // 16-bit memory address
+ 
+ class Nes_Apu;
+ 
+diff --git a/gme/Nes_Vrc6_Apu.cpp b/gme/Nes_Vrc6_Apu.cpp
+index d0268a4..a7f12c8 100644
+--- a/gme/Nes_Vrc6_Apu.cpp
++++ b/gme/Nes_Vrc6_Apu.cpp
+@@ -17,7 +17,7 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ 
+ Nes_Vrc6_Apu::Nes_Vrc6_Apu()
+ {
+-	output( NULL );
++	output( nullptr );
+ 	volume( 1.0 );
+ 	reset();
+ }
+diff --git a/gme/Nes_Vrc6_Apu.h b/gme/Nes_Vrc6_Apu.h
+index 5952044..5b0f29a 100644
+--- a/gme/Nes_Vrc6_Apu.h
++++ b/gme/Nes_Vrc6_Apu.h
+@@ -6,6 +6,7 @@
+ 
+ #include "blargg_common.h"
+ #include "Blip_Buffer.h"
++#include <cstdint>
+ 
+ struct vrc6_apu_state_t;
+ 
+diff --git a/gme/Nes_Vrc7_Apu.cpp b/gme/Nes_Vrc7_Apu.cpp
+index bd0bd65..c090c39 100644
+--- a/gme/Nes_Vrc7_Apu.cpp
++++ b/gme/Nes_Vrc7_Apu.cpp
+@@ -4,7 +4,7 @@ extern "C" {
+ #include "ext/emu2413.h"
+ }
+ 
+-#include <string.h>
++#include <cstring>
+ 
+ #include "blargg_source.h"
+ 
+@@ -17,7 +17,7 @@ static int const period = 36; // NES CPU clocks per FM clock
+ 
+ Nes_Vrc7_Apu::Nes_Vrc7_Apu()
+ {
+-	opll = 0;
++	opll = nullptr;
+ }
+ 
+ blargg_err_t Nes_Vrc7_Apu::init()
+@@ -26,7 +26,7 @@ blargg_err_t Nes_Vrc7_Apu::init()
+ 	OPLL_SetChipMode((OPLL *) opll, 1);
+ 	OPLL_setPatch((OPLL *) opll, vrc7_inst);
+ 
+-	set_output( 0 );
++	set_output( nullptr );
+ 	volume( 1.0 );
+ 	reset();
+ 	return 0;
+@@ -52,7 +52,7 @@ void Nes_Vrc7_Apu::output_changed()
+ 	{
+ 		if ( mono.output != oscs [i].output )
+ 		{
+-			mono.output = 0;
++			mono.output = nullptr;
+ 			break;
+ 		}
+ 	}
+diff --git a/gme/Nes_Vrc7_Apu.h b/gme/Nes_Vrc7_Apu.h
+index 52a3489..40e54db 100644
+--- a/gme/Nes_Vrc7_Apu.h
++++ b/gme/Nes_Vrc7_Apu.h
+@@ -7,6 +7,7 @@
+ 
+ #include "blargg_common.h"
+ #include "Blip_Buffer.h"
++#include <cstdint>
+ 
+ struct vrc7_snapshot_t;
+ 
+diff --git a/gme/Nsf_Emu.cpp b/gme/Nsf_Emu.cpp
+index 796de61..3a4f894 100644
+--- a/gme/Nsf_Emu.cpp
++++ b/gme/Nsf_Emu.cpp
+@@ -3,8 +3,7 @@
+ #include "Nsf_Emu.h"
+ 
+ #include "blargg_endian.h"
+-#include <string.h>
+-#include <stdio.h>
++#include <cstring>
+ #include <algorithm>
+ 
+ #if !NSF_EMU_APU_ONLY
+@@ -39,7 +38,6 @@ static int const fme7_flag  = 0x20;
+ static long const clock_divisor = 12;
+ 
+ using std::min;
+-using std::max;
+ 
+ Nsf_Emu::equalizer_t const Nsf_Emu::nes_eq     =
+ 	Music_Emu::make_equalizer( -1.0, 80 );
+@@ -53,12 +51,12 @@ int Nsf_Emu::pcm_read( void* emu, nes_addr_t addr )
+ 
+ Nsf_Emu::Nsf_Emu()
+ {
+-	vrc6  = 0;
+-	namco = 0;
+-	fme7  = 0;
+-	fds   = 0;
+-	mmc5  = 0;
+-	vrc7  = 0;
++	vrc6  = nullptr;
++	namco = nullptr;
++	fme7  = nullptr;
++	fds   = nullptr;
++	mmc5  = nullptr;
++	vrc7  = nullptr;
+ 
+ 	set_type( gme_nsf_type );
+ 	set_silence_lookahead( 6 );
+@@ -75,22 +73,22 @@ void Nsf_Emu::unload()
+ 	#if !NSF_EMU_APU_ONLY
+ 	{
+ 		delete vrc6;
+-		vrc6  = 0;
++		vrc6  = nullptr;
+ 
+ 		delete namco;
+-		namco = 0;
++		namco = nullptr;
+ 
+ 		delete fme7;
+-		fme7  = 0;
++		fme7  = nullptr;
+ 
+ 		delete fds;
+-		fds   = 0;
++		fds   = nullptr;
+ 
+ 		delete mmc5;
+-		mmc5  = 0;
++		mmc5  = nullptr;
+ 
+ 		delete vrc7;
+-		vrc7  = 0;
++		vrc7  = nullptr;
+ 	}
+ 	#endif
+ 
+@@ -118,7 +116,7 @@ blargg_err_t Nsf_Emu::track_info_( track_info_t* out, int ) const
+ static blargg_err_t check_nsf_header( void const* header )
+ {
+ 	if ( memcmp( header, "NESM\x1A", 5 ) )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 	return 0;
+ }
+ 
+@@ -132,10 +130,10 @@ struct Nsf_File : Gme_Info_
+ 	{
+ 		blargg_err_t err = in.read( &h, Nsf_Emu::header_size );
+ 		if ( err )
+-			return (err == in.eof_error ? gme_wrong_file_type : err);
++			return (err == ERR_EOF ? ERR_FILE_WRONG_TYPE : err);
+ 
+ 		if ( h.chip_flags & ~(namco_flag | vrc6_flag | fme7_flag | fds_flag | mmc5_flag | vrc7_flag) )
+-			set_warning( "Uses unsupported audio expansion hardware" );
++			set_warning( WARN_EXPANSION_HARDWARE_NOT_SUPPORTED );
+ 
+ 		set_track_count( h.track_count );
+ 		return check_nsf_header( &h );
+@@ -184,7 +182,7 @@ void Nsf_Emu::set_tempo_( double t )
+ blargg_err_t Nsf_Emu::init_sound()
+ {
+ 	if ( header_.chip_flags & ~(namco_flag | vrc6_flag | fme7_flag | fds_flag | mmc5_flag | vrc7_flag) )
+-		set_warning( "Uses unsupported audio expansion hardware" );
++		set_warning( WARN_EXPANSION_HARDWARE_NOT_SUPPORTED );
+ 
+ #ifdef NSF_EMU_APU_ONLY
+ 	int const count_total = Nes_Apu::osc_count;
+@@ -338,7 +336,7 @@ blargg_err_t Nsf_Emu::load_( Data_Reader& in )
+ 	RETURN_ERR( check_nsf_header( &header_ ) );
+ 
+ 	if ( header_.vers != 1 )
+-		set_warning( "Unknown file version" );
++		set_warning( WARN_FILE_VERSION_UNKNOWN );
+ 
+ 	// sound and memory
+ 	blargg_err_t err = init_sound();
+@@ -354,9 +352,9 @@ blargg_err_t Nsf_Emu::load_( Data_Reader& in )
+ 	if ( !play_addr ) play_addr = rom_begin;
+ 	if ( load_addr < rom_begin || init_addr < rom_begin )
+ 	{
+-		const char* w = warning();
++		blargg_err_t w = warning();
+ 		if ( !w )
+-			w = "Corrupt file (invalid load/init/play address)";
++			w = WARN_ADDRESS_INVALID_LOADINITPLAY;
+ 		return w;
+ 	}
+ 
+@@ -626,7 +624,7 @@ blargg_err_t Nsf_Emu::run_clocks( blip_time_t& duration, int )
+ 		{
+ 			if ( r.pc != badop_addr )
+ 			{
+-				set_warning( "Emulation error (illegal instruction)" );
++				set_warning( WARN_EMU_INSTRUCTION_ILLEGAL );
+ 				r.pc++;
+ 			}
+ 			else
+@@ -666,7 +664,7 @@ blargg_err_t Nsf_Emu::run_clocks( blip_time_t& duration, int )
+ 	if ( cpu::error_count() )
+ 	{
+ 		cpu::clear_error_count();
+-		set_warning( "Emulation error (illegal instruction)" );
++		set_warning( WARN_EMU_INSTRUCTION_ILLEGAL );
+ 	}
+ 
+ 	duration = time();
+diff --git a/gme/Nsfe_Emu.cpp b/gme/Nsfe_Emu.cpp
+index 8f36605..4dbcf90 100644
+--- a/gme/Nsfe_Emu.cpp
++++ b/gme/Nsfe_Emu.cpp
+@@ -3,8 +3,7 @@
+ #include "Nsfe_Emu.h"
+ 
+ #include "blargg_endian.h"
+-#include <string.h>
+-#include <ctype.h>
++#include <cstring>
+ #include <algorithm>
+ 
+ /* Copyright (C) 2005-2006 Shay Green. This module is free software; you
+@@ -21,7 +20,6 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ #include "blargg_source.h"
+ 
+ using std::min;
+-using std::max;
+ 
+ Nsfe_Info::Nsfe_Info() { playlist_disabled = false; }
+ 
+@@ -102,9 +100,9 @@ blargg_err_t Nsfe_Info::load( Data_Reader& in, Nsf_Emu* nsf_emu )
+ 	byte signature [4];
+ 	blargg_err_t err = in.read( signature, sizeof signature );
+ 	if ( err )
+-		return (err == in.eof_error ? gme_wrong_file_type : err);
++		return (err == ERR_EOF ? ERR_FILE_WRONG_TYPE : err);
+ 	if ( memcmp( signature, "NSFE", 4 ) )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 
+ 	// free previous info
+ 	track_name_data.clear();
+@@ -140,7 +138,7 @@ blargg_err_t Nsfe_Info::load( Data_Reader& in, Nsf_Emu* nsf_emu )
+ 		int32_t tag  = get_le32( block_header [1] );
+ 
+ 		if ( size < 0 )
+-			return "Corrupt file";
++			return ERR_FILE_CORRUPT;
+ 
+ 		//debug_printf( "tag: %c%c%c%c\n", char(tag), char(tag>>8), char(tag>>16), char(tag>>24) );
+ 
+@@ -149,7 +147,7 @@ blargg_err_t Nsfe_Info::load( Data_Reader& in, Nsf_Emu* nsf_emu )
+ 			case BLARGG_4CHAR('O','F','N','I'): {
+ 				check( phase == 0 );
+ 				if ( size < 8 )
+-					return "Corrupt file";
++					return ERR_FILE_CORRUPT;
+ 
+ 				nsfe_info_t finfo;
+ 				finfo.track_count = 1;
+@@ -170,7 +168,7 @@ blargg_err_t Nsfe_Info::load( Data_Reader& in, Nsf_Emu* nsf_emu )
+ 
+ 			case BLARGG_4CHAR('K','N','A','B'):
+ 				if ( size > (int) sizeof info.banks )
+-					return "Corrupt file";
++					return ERR_FILE_CORRUPT;
+ 				RETURN_ERR( in.read( info.banks, size ) );
+ 				break;
+ 
+@@ -289,7 +287,7 @@ struct Nsfe_File : Gme_Info_
+ 
+ 	blargg_err_t load_( Data_Reader& in )
+ 	{
+-		RETURN_ERR( info.load( in, 0 ) );
++		RETURN_ERR( info.load( in, nullptr ) );
+ 		info.disable_playlist( false );
+ 		set_track_count( info.info.track_count );
+ 		return 0;
+diff --git a/gme/Sap_Apu.cpp b/gme/Sap_Apu.cpp
+index f312258..2d4f8e1 100644
+--- a/gme/Sap_Apu.cpp
++++ b/gme/Sap_Apu.cpp
+@@ -2,7 +2,8 @@
+ 
+ #include "Sap_Apu.h"
+ 
+-#include <string.h>
++#include <cstring>
++#include <cstdint>
+ 
+ /* Copyright (C) 2006 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+@@ -15,6 +16,7 @@ details. You should have received a copy of the GNU Lesser General Public
+ License along with this module; if not, write to the Free Software Foundation,
+ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ 
++#include "blargg_common.h"
+ #include "blargg_source.h"
+ 
+ static int const max_frequency = 12000; // pure waves above this frequency are silenced
+@@ -72,9 +74,9 @@ Sap_Apu_Impl::Sap_Apu_Impl()
+ 
+ Sap_Apu::Sap_Apu()
+ {
+-	impl = 0;
++	impl = nullptr;
+ 	for ( int i = 0; i < osc_count; i++ )
+-		osc_output( i, 0 );
++		osc_output( i, nullptr );
+ }
+ 
+ void Sap_Apu::reset( Sap_Apu_Impl* new_impl )
+diff --git a/gme/Sap_Apu.h b/gme/Sap_Apu.h
+index f451143..dc1edc6 100644
+--- a/gme/Sap_Apu.h
++++ b/gme/Sap_Apu.h
+@@ -4,7 +4,6 @@
+ #ifndef SAP_APU_H
+ #define SAP_APU_H
+ 
+-#include "blargg_common.h"
+ #include "Blip_Buffer.h"
+ 
+ class Sap_Apu_Impl;
+diff --git a/gme/Sap_Cpu.cpp b/gme/Sap_Cpu.cpp
+index 4febfdb..19219dc 100644
+--- a/gme/Sap_Cpu.cpp
++++ b/gme/Sap_Cpu.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include "Sap_Cpu.h"
+ 
+-#include <limits.h>
++#include <climits>
+ #include "blargg_endian.h"
+ 
+ //#include "nes_cpu_log.h"
+diff --git a/gme/Sap_Cpu.h b/gme/Sap_Cpu.h
+index 355b6e1..d3cc1db 100644
+--- a/gme/Sap_Cpu.h
++++ b/gme/Sap_Cpu.h
+@@ -4,7 +4,8 @@
+ #ifndef SAP_CPU_H
+ #define SAP_CPU_H
+ 
+-#include "blargg_common.h"
++#include <cstdint>
++#include <climits>
+ 
+ typedef int32_t sap_time_t; // clock cycle count
+ typedef unsigned sap_addr_t; // 16-bit address
+diff --git a/gme/Sap_Emu.cpp b/gme/Sap_Emu.cpp
+index c1a2c87..b474a07 100644
+--- a/gme/Sap_Emu.cpp
++++ b/gme/Sap_Emu.cpp
+@@ -3,7 +3,7 @@
+ #include "Sap_Emu.h"
+ 
+ #include "blargg_endian.h"
+-#include <string.h>
++#include <cstring>
+ #include <algorithm>
+ 
+ /* Copyright (C) 2006 Shay Green. This module is free software; you
+@@ -22,7 +22,6 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ static long const base_scanline_period = 114;
+ 
+ using std::min;
+-using std::max;
+ 
+ Sap_Emu::Sap_Emu()
+ {
+@@ -110,7 +109,7 @@ static blargg_err_t parse_info( byte const* in, long size, Sap_Emu::info_t* out
+ 	out->copyright [0] = 0;
+ 
+ 	if ( size < 16 || memcmp( in, "SAP\x0D\x0A", 5 ) )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 
+ 	byte const* file_end = in + size - 5;
+ 	in += 5;
+@@ -135,25 +134,25 @@ static blargg_err_t parse_info( byte const* in, long size, Sap_Emu::info_t* out
+ 		{
+ 			out->init_addr = from_hex( in );
+ 			if ( (unsigned long) out->init_addr > 0xFFFF )
+-				return "Invalid init address";
++				return ERR_ADDRESS_INVALID_INIT;
+ 		}
+ 		else if ( !strncmp( "PLAYER", tag, tag_len ) )
+ 		{
+ 			out->play_addr = from_hex( in );
+ 			if ( (unsigned long) out->play_addr > 0xFFFF )
+-				return "Invalid play address";
++				return ERR_ADDRESS_INVALID_PLAY;
+ 		}
+ 		else if ( !strncmp( "MUSIC", tag, tag_len ) )
+ 		{
+ 			out->music_addr = from_hex( in );
+ 			if ( (unsigned long) out->music_addr > 0xFFFF )
+-				return "Invalid music address";
++				return ERR_ADDRESS_INVALID_MUSIC;
+ 		}
+ 		else if ( !strncmp( "SONGS", tag, tag_len ) )
+ 		{
+ 			out->track_count = from_dec( in, line_end );
+ 			if ( out->track_count <= 0 )
+-				return "Invalid track count";
++				return ERR_TRACK_COUNT_INVALID;
+ 		}
+ 		else if ( !strncmp( "TYPE", tag, tag_len ) )
+ 		{
+@@ -164,10 +163,10 @@ static blargg_err_t parse_info( byte const* in, long size, Sap_Emu::info_t* out
+ 				break;
+ 
+ 			case 'D':
+-				return "Digimusic not supported";
++				return ERR_DIGIMUSIC_NOT_SUPPORTED;
+ 
+ 			default:
+-				return "Unsupported player type";
++				return ERR_PLAYER_TYPE_NOT_SUPPORTED;
+ 			}
+ 		}
+ 		else if ( !strncmp( "STEREO", tag, tag_len ) )
+@@ -178,7 +177,7 @@ static blargg_err_t parse_info( byte const* in, long size, Sap_Emu::info_t* out
+ 		{
+ 			out->fastplay = from_dec( in, line_end );
+ 			if ( out->fastplay <= 0 )
+-				return "Invalid fastplay value";
++				return ERR_FASTPLAY_VALUE_INVALID;
+ 		}
+ 		else if ( !strncmp( "AUTHOR", tag, tag_len ) )
+ 		{
+@@ -197,7 +196,7 @@ static blargg_err_t parse_info( byte const* in, long size, Sap_Emu::info_t* out
+ 	}
+ 
+ 	if ( in [0] != 0xFF || in [1] != 0xFF )
+-		return "ROM data missing";
++		return ERR_ROM_DATA_MISSING;
+ 	out->rom_data = in + 2;
+ 
+ 	return 0;
+@@ -343,13 +342,13 @@ blargg_err_t Sap_Emu::start_track_( int track )
+ 		in += 4;
+ 		if ( end < start )
+ 		{
+-			set_warning( "Invalid file data block" );
++			set_warning( WARN_FILE_DATA_BLOCK_INVALID );
+ 			break;
+ 		}
+ 		long len = end - start + 1;
+ 		if ( len > file_end - in )
+ 		{
+-			set_warning( "Invalid file data block" );
++			set_warning( WARN_FILE_DATA_BLOCK_INVALID );
+ 			break;
+ 		}
+ 
+@@ -416,7 +415,7 @@ blargg_err_t Sap_Emu::run_clocks( blip_time_t& duration, int )
+ 	while ( time() < duration )
+ 	{
+ 		if ( cpu::run( duration ) || r.pc > idle_addr )
+-			return "Emulation error (illegal instruction)";
++			return ERR_EMU_INSTRUCTION_ILLEGAL;
+ 
+ 		if ( r.pc == idle_addr )
+ 		{
+diff --git a/gme/Sap_Emu.h b/gme/Sap_Emu.h
+index d4be14a..e54cef9 100644
+--- a/gme/Sap_Emu.h
++++ b/gme/Sap_Emu.h
+@@ -17,7 +17,7 @@ public:
+ 	~Sap_Emu();
+ 	struct info_t {
+ 		byte const* rom_data;
+-		const char* warning;
++		blargg_err_t warning;
+ 		long init_addr;
+ 		long play_addr;
+ 		long music_addr;
+diff --git a/gme/Sms_Apu.cpp b/gme/Sms_Apu.cpp
+index f42bdad..2528830 100644
+--- a/gme/Sms_Apu.cpp
++++ b/gme/Sms_Apu.cpp
+@@ -13,17 +13,18 @@ details. You should have received a copy of the GNU Lesser General Public
+ License along with this module; if not, write to the Free Software Foundation,
+ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ 
++#include "blargg_common.h"
+ #include "blargg_source.h"
+ 
+ // Sms_Osc
+ 
+ Sms_Osc::Sms_Osc()
+ {
+-	output = 0;
+-	outputs [0] = 0; // always stays NULL
+-	outputs [1] = 0;
+-	outputs [2] = 0;
+-	outputs [3] = 0;
++	output = nullptr;
++	outputs [0] = nullptr; // always stays nullptr
++	outputs [1] = nullptr;
++	outputs [2] = nullptr;
++	outputs [3] = nullptr;
+ }
+ 
+ void Sms_Osc::reset()
+diff --git a/gme/Sms_Oscs.h b/gme/Sms_Oscs.h
+index 282cb18..daf1bfc 100644
+--- a/gme/Sms_Oscs.h
++++ b/gme/Sms_Oscs.h
+@@ -4,7 +4,6 @@
+ #ifndef SMS_OSCS_H
+ #define SMS_OSCS_H
+ 
+-#include "blargg_common.h"
+ #include "Blip_Buffer.h"
+ 
+ struct Sms_Osc
+diff --git a/gme/Snes_Spc.cpp b/gme/Snes_Spc.cpp
+index a2a7597..03fc9bb 100644
+--- a/gme/Snes_Spc.cpp
++++ b/gme/Snes_Spc.cpp
+@@ -4,7 +4,7 @@
+ 
+ #include "Snes_Spc.h"
+ 
+-#include <string.h>
++#include <cstring>
+ 
+ /* Copyright (C) 2004-2007 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+@@ -221,10 +221,10 @@ blargg_err_t Snes_Spc::load_spc( void const* data, long size )
+ 
+ 	// Check signature and file size
+ 	if ( size < signature_size || memcmp( spc, signature, 27 ) )
+-		return "Not an SPC file";
++		return ERR_FILE_WRONG_TYPE;
+ 
+ 	if ( size < spc_min_file_size )
+-		return "Corrupt SPC file";
++		return ERR_FILE_CORRUPT;
+ 
+ 	// CPU registers
+ 	m.cpu_regs.pc  = spc->pch * 0x100 + spc->pcl;
+@@ -272,9 +272,9 @@ void Snes_Spc::reset_buf()
+ 		*out++ = 0;
+ 
+ 	m.extra_pos = out;
+-	m.buf_begin = 0;
++	m.buf_begin = nullptr;
+ 
+-	dsp.set_output( 0, 0 );
++	dsp.set_output( nullptr, 0 );
+ }
+ 
+ void Snes_Spc::set_output( sample_t* out, int size )
+@@ -346,7 +346,7 @@ blargg_err_t Snes_Spc::play( int count, sample_t* out )
+ 		end_frame( count * (clocks_per_sample / 2) );
+ 	}
+ 
+-	const char* err = m.cpu_error;
++	blargg_err_t err = m.cpu_error;
+ 	m.cpu_error = 0;
+ 	return err;
+ }
+@@ -356,7 +356,7 @@ blargg_err_t Snes_Spc::skip( int count )
+ 	#if SPC_LESS_ACCURATE
+ 	if ( count > 2 * sample_rate * 2 )
+ 	{
+-		set_output( 0, 0 );
++		set_output( nullptr, 0 );
+ 
+ 		// Skip a multiple of 4 samples
+ 		time_t end = count;
+@@ -379,5 +379,5 @@ blargg_err_t Snes_Spc::skip( int count )
+ 	}
+ 	#endif
+ 
+-	return play( count, 0 );
++	return play( count, nullptr );
+ }
+diff --git a/gme/Snes_Spc.h b/gme/Snes_Spc.h
+index ec2db1b..9520084 100644
+--- a/gme/Snes_Spc.h
++++ b/gme/Snes_Spc.h
+@@ -5,9 +5,7 @@
+ #define SNES_SPC_H
+ 
+ #include "Spc_Dsp.h"
+-#include "blargg_endian.h"
+-
+-#include <stdint.h>
++#include <cstdint>
+ 
+ struct Snes_Spc {
+ public:
+@@ -168,7 +166,7 @@ private:
+ 		int         tempo;
+ 		int         skipped_kon;
+ 		int         skipped_koff;
+-		const char* cpu_error;
++		blargg_err_t cpu_error;
+ 
+ 		int         extra_clocks;
+ 		sample_t*   buf_begin;
+@@ -258,7 +256,7 @@ private:
+ 	void save_regs( uint8_t out [reg_count] );
+ };
+ 
+-#include <assert.h>
++#include <cassert>
+ 
+ inline int Snes_Spc::sample_count() const { return (m.extra_clocks >> 5) * 2; }
+ 
+diff --git a/gme/Spc_Cpu.cpp b/gme/Spc_Cpu.cpp
+index 206601b..957bbe6 100644
+--- a/gme/Spc_Cpu.cpp
++++ b/gme/Spc_Cpu.cpp
+@@ -4,7 +4,7 @@
+ 
+ #include "Snes_Spc.h"
+ 
+-#include <string.h>
++#include <cstring>
+ 
+ /* Copyright (C) 2004-2007 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+diff --git a/gme/Spc_Cpu.h b/gme/Spc_Cpu.h
+index 48e173e..0a38174 100644
+--- a/gme/Spc_Cpu.h
++++ b/gme/Spc_Cpu.h
+@@ -13,6 +13,8 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ 
+ //// Memory access
+ 
++#include <cstdint>
++
+ #if SPC_MORE_ACCURACY
+ 	#define SUSPICIOUS_OPCODE( name ) ((void) 0)
+ #else
+@@ -1157,7 +1159,7 @@ loop:
+ 		SUSPICIOUS_OPCODE( "STOP/SLEEP" );
+ 		--pc;
+ 		rel_time = 0;
+-		m.cpu_error = "SPC emulation error";
++		m.cpu_error = ERR_SPC_EMULATION;
+ 		goto stop;
+ 	} // switch
+ 
+diff --git a/gme/Spc_Dsp.cpp b/gme/Spc_Dsp.cpp
+index 6b41ead..3247d94 100644
+--- a/gme/Spc_Dsp.cpp
++++ b/gme/Spc_Dsp.cpp
+@@ -3,7 +3,8 @@
+ #include "Spc_Dsp.h"
+ 
+ #include "blargg_endian.h"
+-#include <string.h>
++#include <cstring>
++#include <climits>
+ 
+ /* Copyright (C) 2007 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+@@ -669,7 +670,7 @@ void Spc_Dsp::init( void* ram_64k )
+ 	mute_voices( 0 );
+ 	disable_surround( false );
+ 	disable_echo( false );
+-	set_output( 0, 0 );
++	set_output( nullptr, 0 );
+ 	reset();
+ 
+ 	// be sure this sign-extends
+diff --git a/gme/Spc_Dsp.h b/gme/Spc_Dsp.h
+index 8e05114..c4488df 100644
+--- a/gme/Spc_Dsp.h
++++ b/gme/Spc_Dsp.h
+@@ -5,6 +5,7 @@
+ #define SPC_DSP_H
+ 
+ #include "blargg_common.h"
++#include <cstdint>
+ 
+ struct Spc_Dsp {
+ public:
+@@ -156,7 +157,7 @@ private:
+ 	void update_voice_vol( int addr );
+ };
+ 
+-#include <assert.h>
++#include <cassert>
+ 
+ inline int Spc_Dsp::sample_count() const { return m.out - m.out_begin; }
+ 
+diff --git a/gme/Spc_Emu.cpp b/gme/Spc_Emu.cpp
+index 0b69e30..87866ac 100644
+--- a/gme/Spc_Emu.cpp
++++ b/gme/Spc_Emu.cpp
+@@ -3,8 +3,8 @@
+ #include "Spc_Emu.h"
+ 
+ #include "blargg_endian.h"
+-#include <stdlib.h>
+-#include <string.h>
++#include <cstdlib>
++#include <cstring>
+ #include <algorithm>
+ 
+ /* Copyright (C) 2004-2006 Shay Green. This module is free software; you
+@@ -85,7 +85,7 @@ static void get_spc_xid6( byte const* begin, long size, track_info_t* out )
+ 		}
+ 
+ 		// handle specific block types
+-		char* field = 0;
++		char* field = nullptr;
+ 		switch ( id )
+ 		{
+ 			case 0x01: field = out->song;    break;
+@@ -217,7 +217,7 @@ blargg_err_t Spc_Emu::track_info_( track_info_t* out, int ) const
+ static blargg_err_t check_spc_header( void const* header )
+ {
+ 	if ( memcmp( header, "SNES-SPC700 Sound File Data", 27 ) )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 	return 0;
+ }
+ 
+@@ -232,7 +232,7 @@ struct Spc_File : Gme_Info_
+ 	{
+ 		long file_size = in.remain();
+ 		if ( file_size < Snes_Spc::spc_min_file_size )
+-			return gme_wrong_file_type;
++			return ERR_FILE_WRONG_TYPE;
+ 		RETURN_ERR( in.read( &header, head_size ) );
+ 		RETURN_ERR( check_spc_header( header.tag ) );
+ 		long xid6_size = file_size - spc_size;
+@@ -297,7 +297,7 @@ blargg_err_t Spc_Emu::load_mem_( byte const* in, long size )
+ 	file_size = size;
+ 	set_voice_count( Snes_Spc::voice_count );
+ 	if ( size < Snes_Spc::spc_min_file_size )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 	return check_spc_header( in );
+ }
+ 
+diff --git a/gme/Spc_Filter.cpp b/gme/Spc_Filter.cpp
+index 1951bd1..44da523 100644
+--- a/gme/Spc_Filter.cpp
++++ b/gme/Spc_Filter.cpp
+@@ -2,7 +2,7 @@
+ 
+ #include "Spc_Filter.h"
+ 
+-#include <string.h>
++#include <cstring>
+ 
+ /* Copyright (C) 2007 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+diff --git a/gme/Vgm_Emu.cpp b/gme/Vgm_Emu.cpp
+index bbaec38..9a07cb1 100644
+--- a/gme/Vgm_Emu.cpp
++++ b/gme/Vgm_Emu.cpp
+@@ -3,8 +3,8 @@
+ #include "Vgm_Emu.h"
+ 
+ #include "blargg_endian.h"
+-#include <string.h>
+-#include <math.h>
++#include <cstring>
++#include <cmath>
+ #include <algorithm>
+ 
+ /* Copyright (C) 2003-2006 Shay Green. This module is free software; you
+@@ -25,7 +25,6 @@ static double const rolloff = 0.990;
+ static double const oversample_factor = 1.0;
+ 
+ using std::min;
+-using std::max;
+ 
+ Vgm_Emu::Vgm_Emu()
+ {
+@@ -111,12 +110,12 @@ byte const* Vgm_Emu::gd3_data( int* size ) const
+ 
+ 	long gd3_offset = get_le32( header().gd3_offset ) - 0x2C;
+ 	if ( gd3_offset < 0 )
+-		return 0;
++		return nullptr;
+ 
+ 	byte const* gd3 = data + header_size + gd3_offset;
+ 	long gd3_size = check_gd3_header( gd3, data_end - gd3 );
+ 	if ( !gd3_size )
+-		return 0;
++		return nullptr;
+ 
+ 	if ( size )
+ 		*size = gd3_size + gd3_header_size;
+@@ -140,6 +139,7 @@ static void get_vgm_length( Vgm_Emu::header_t const& h, track_info_t* out )
+ 			out->length = length; // 1000 / 44100 (VGM files used 44100 as timebase)
+ 			out->intro_length = length; // make it clear that track is no longer than length
+ 			out->loop_length = 0;
++			out->fade_length = 0;
+ 		}
+ 	}
+ }
+@@ -159,7 +159,7 @@ blargg_err_t Vgm_Emu::track_info_( track_info_t* out, int ) const
+ static blargg_err_t check_vgm_header( Vgm_Emu::header_t const& h )
+ {
+ 	if ( memcmp( h.tag, "Vgm ", 4 ) )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 	return 0;
+ }
+ 
+@@ -174,7 +174,7 @@ struct Vgm_File : Gme_Info_
+ 	{
+ 		long file_size = in.remain();
+ 		if ( file_size <= Vgm_Emu::header_size )
+-			return gme_wrong_file_type;
++			return ERR_FILE_WRONG_TYPE;
+ 
+ 		RETURN_ERR( in.read( &h, Vgm_Emu::header_size ) );
+ 		RETURN_ERR( check_vgm_header( h ) );
+@@ -254,7 +254,7 @@ blargg_err_t Vgm_Emu::set_multi_channel ( bool is_enabled )
+ #endif
+ 	{
+ 		(void) is_enabled;
+-		return "multichannel rendering not supported for YM2*** FM sound chip emulators";
++		return ERR_MULTICHANNEL_NOT_SUPPORTED;
+ 	}
+ }
+ 
+@@ -300,9 +300,9 @@ void Vgm_Emu::mute_voices_( int mask )
+ 	dac_synth.output( &blip_buf );
+ 	if ( uses_fm )
+ 	{
+-		psg[0].output( (mask & 0x80) ? 0 : &blip_buf );
++		psg[0].output( (mask & 0x80) ? nullptr : &blip_buf );
+ 		if ( psg_dual )
+-			psg[1].output( (mask & 0x80) ? 0 : &blip_buf );
++			psg[1].output( (mask & 0x80) ? nullptr : &blip_buf );
+ 		if ( ym2612[0].enabled() )
+ 		{
+ 			dac_synth.volume( (mask & 0x40) ? 0.0 : 0.1115 / 256 * fm_gain * gain() );
+@@ -329,7 +329,7 @@ blargg_err_t Vgm_Emu::load_mem_( byte const* new_data, long new_size )
+ 	blaarg_static_assert( offsetof (header_t,unused2 [8]) == header_size, "VGM Header layout incorrect!" );
+ 
+ 	if ( new_size <= header_size )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 
+ 	header_t const& h = *(header_t const*) new_data;
+ 
+@@ -407,16 +407,16 @@ blargg_err_t Vgm_Emu::setup_fm()
+ 		Dual_Resampler::setup( fm_rate / blip_buf.sample_rate(), rolloff, fm_gain * gain() );
+ 		int result = ym2413[0].set_rate( fm_rate, ym2413_rate );
+ 		if ( result == 2 )
+-			return "YM2413 FM sound isn't supported";
+-		CHECK_ALLOC( !result );
++			return ERR_YM2413_FM_NOT_SUPPORTED;
++		RETURN_ERR( result ? ERR_OUT_OF_MEMORY : 0 );
+ 		ym2413[0].enable( true );
+ 		if ( ym2413_dual )
+ 		{
+ 			ym2413[1].enable( true );
+ 			int result = ym2413[1].set_rate( fm_rate, ym2413_rate );
+ 			if ( result == 2 )
+-				return "YM2413 FM sound isn't supported";
+-			CHECK_ALLOC( !result );
++				return ERR_YM2413_FM_NOT_SUPPORTED;
++			RETURN_ERR( result ? ERR_OUT_OF_MEMORY : 0 );
+ 		}
+ 		set_voice_count( 8 );
+ 	}
+diff --git a/gme/Vgm_Emu.h b/gme/Vgm_Emu.h
+index 12a686f..9db327c 100644
+--- a/gme/Vgm_Emu.h
++++ b/gme/Vgm_Emu.h
+@@ -56,7 +56,7 @@ public:
+ 	using Music_Emu::load;
+ 	blargg_err_t load( header_t const& h, Data_Reader& in ) // use Remaining_Reader
+ 			{ return load_remaining_( &h, sizeof h, in ); }
+-	byte const* gd3_data( int* size_out = 0 ) const; // use track_info()
++	byte const* gd3_data( int* size_out = nullptr ) const; // use track_info()
+ 
+ public:
+ 	Vgm_Emu();
+diff --git a/gme/Vgm_Emu_Impl.cpp b/gme/Vgm_Emu_Impl.cpp
+index 81a3a61..c7c00ca 100644
+--- a/gme/Vgm_Emu_Impl.cpp
++++ b/gme/Vgm_Emu_Impl.cpp
+@@ -1,9 +1,9 @@
+ // Game_Music_Emu https://bitbucket.org/mpyne/game-music-emu/
+ 
+-#include "Vgm_Emu.h"
++#include "Vgm_Emu_Impl.h"
+ 
+-#include <math.h>
+-#include <string.h>
++#include <cmath>
++#include <cstring>
+ #include "blargg_endian.h"
+ 
+ /* Copyright (C) 2003-2006 Shay Green. This module is free software; you
+@@ -126,7 +126,7 @@ blip_time_t Vgm_Emu_Impl::run_commands( vgm_time_t end_time )
+ 	{
+ 		set_track_ended();
+ 		if ( pos > data_end )
+-			set_warning( "Stream lacked end event" );
++			set_warning( WARN_STREAM_END_EVENT_MISSING );
+ 	}
+ 
+ 	while ( vgm_time < end_time && pos < data_end )
+@@ -266,7 +266,7 @@ blip_time_t Vgm_Emu_Impl::run_commands( vgm_time_t end_time )
+ 
+ 				default:
+ 					pos += command_len( cmd ) - 1;
+-					set_warning( "Unknown stream event" );
++					set_warning( WARN_STREAM_EVENT_UNKNOWN );
+ 			}
+ 		}
+ 	}
+diff --git a/gme/Vgm_Emu_Impl.h b/gme/Vgm_Emu_Impl.h
+index a8588d4..71c1ff7 100644
+--- a/gme/Vgm_Emu_Impl.h
++++ b/gme/Vgm_Emu_Impl.h
+@@ -17,7 +17,7 @@ protected:
+ 	short* out;
+ 	enum { disabled_time = -1 };
+ public:
+-	Ym_Emu()                        : last_time( disabled_time ), out( NULL ) { }
++	Ym_Emu()                        : last_time( disabled_time ), out( nullptr ) { }
+ 	void enable( bool b )           { last_time = b ? 0 : disabled_time; }
+ 	bool enabled() const            { return last_time != disabled_time; }
+ 	void begin_frame( short* p );
+diff --git a/gme/Ym2612_GENS.cpp b/gme/Ym2612_GENS.cpp
+index 30fa887..411b60c 100644
+--- a/gme/Ym2612_GENS.cpp
++++ b/gme/Ym2612_GENS.cpp
+@@ -6,12 +6,12 @@
+ 
+ #include "Ym2612_GENS.h"
+ 
+-#include <assert.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <limits.h>
+-#include <stdio.h>
+-#include <math.h>
++#include <cassert>
++#include <cstdlib>
++#include <cstring>
++#include <climits>
++#include <cstdio>
++#include <cmath>
+ 
+ /* Copyright (C) 2002 Stéphane Dallongeville (gens AT consolemul.com) */
+ /* Copyright (C) 2004-2006 Shay Green. This module is free software; you
+@@ -826,13 +826,13 @@ void Ym2612_GENS_Impl::set_rate( double sample_rate, double clock_rate )
+ 	reset();
+ }
+ 
+-const char* Ym2612_GENS_Emu::set_rate( double sample_rate, double clock_rate )
++blargg_err_t Ym2612_GENS_Emu::set_rate( double sample_rate, double clock_rate )
+ {
+ 	if ( !impl )
+ 	{
+ 		impl = (Ym2612_GENS_Impl*) malloc( sizeof *impl );
+ 		if ( !impl )
+-			return "Out of memory";
++			return ERR_OUT_OF_MEMORY;
+ 		impl->mute_mask = 0;
+ 	}
+ 	memset( &impl->YM2612, 0, sizeof impl->YM2612 );
+diff --git a/gme/Ym2612_GENS.h b/gme/Ym2612_GENS.h
+index 4cb2e8a..e490bca 100644
+--- a/gme/Ym2612_GENS.h
++++ b/gme/Ym2612_GENS.h
+@@ -4,17 +4,19 @@
+ #ifndef YM2612_EMU_H
+ #define YM2612_EMU_H
+ 
++#include "blargg_err.h"
++
+ struct Ym2612_GENS_Impl;
+ 
+ class Ym2612_GENS_Emu  {
+ 	Ym2612_GENS_Impl* impl;
+ public:
+-	Ym2612_GENS_Emu() { impl = 0; }
++	Ym2612_GENS_Emu() { impl = nullptr; }
+ 	~Ym2612_GENS_Emu();
+ 
+ 	// Set output sample rate and chip clock rates, in Hz. Returns non-zero
+ 	// if error.
+-	const char* set_rate( double sample_rate, double clock_rate );
++	blargg_err_t set_rate( double sample_rate, double clock_rate );
+ 
+ 	// Reset to power-up state
+ 	void reset();
+diff --git a/gme/Ym2612_MAME.cpp b/gme/Ym2612_MAME.cpp
+index 7b99107..8c93efd 100644
+--- a/gme/Ym2612_MAME.cpp
++++ b/gme/Ym2612_MAME.cpp
+@@ -138,11 +138,10 @@
+ /*    YM2610B : PSG:3ch FM:6ch ADPCM(18.5KHz):6ch DeltaT ADPCM:1ch      */
+ /************************************************************************/
+ 
+-#include <stdlib.h>
+-#include <string.h>	/* for memset */
+-#include <stddef.h>	/* for NULL */
+-#include <math.h>
+-#include <stdint.h>
++#include <cstdlib>
++#include <cstring>	/* for memset */
++#include <cmath>
++#include <cstdint>
+ 
+ namespace Ym2612_MameImpl
+ {
+@@ -356,7 +355,7 @@ static void ym2612_setoptions(UINT8 Flags);
+ #endif
+ 
+ 
+-static stream_sample_t *DUMMYBUF = NULL;
++static stream_sample_t *DUMMYBUF = nullptr;
+ 
+ /* shared function building option */
+ #define BUILD_OPN (BUILD_YM2203||BUILD_YM2608||BUILD_YM2610||BUILD_YM2610B||BUILD_YM2612||BUILD_YM3438)
+@@ -954,7 +953,7 @@ typedef struct
+ static UINT8 IsVGMInit = 0;
+ #endif
+ static UINT8 PseudoSt = 0x00;
+-/*#include <stdio.h>
++/*#include <cstdio>
+ static FILE* hFile;
+ static UINT32 FileSample;*/
+ 
+@@ -1334,7 +1333,7 @@ INLINE void setup_connection( FM_OPN *OPN, FM_CH *CH, int ch )
+ 		/*    +----C1----+     */
+ 		/* M1-+-MEM---M2-+-OUT */
+ 		/*    +----C2----+     */
+-		*om1 = 0;	/* special mark */
++		*om1 = nullptr;	/* special mark */
+ 		*oc1 = carrier;
+ 		*om2 = carrier;
+ 		*memc= &OPN->m2;
+@@ -2720,7 +2719,7 @@ void ym2612_generate_one_native(void *chip, FMSAMPLE buffer[2])
+ 	/* timer A control */
+ 	/* INTERNAL_TIMER_A( &OPN->ST , cch[2] ) */
+ 	{
+-		if( OPN->ST.TAC &&  (OPN->ST.timer_handler==0) )
++		if( OPN->ST.TAC &&  (OPN->ST.timer_handler == nullptr) )
+ 			if( (OPN->ST.TAC -= (int)(OPN->ST.freqbase*4096)) <= 0 )
+ 			{
+ 				TimerAOver( &OPN->ST );
+@@ -2803,13 +2802,13 @@ static void * ym2612_init(void *param, int clock, int rate,
+ 	YM2612 *F2612;
+ 
+ 	if (clock <= 0 || rate <= 0)
+-		return NULL; /* Forbid zero clock and sample rate */
++		return nullptr; /* Forbid zero clock and sample rate */
+ 
+ 	/* allocate extend state space */
+ 	/* F2612 = auto_alloc_clear(device->machine, YM2612); */
+ 	F2612 = (YM2612 *)malloc(sizeof(YM2612));
+-	if (F2612 == NULL)
+-		return NULL;
++	if (F2612 == nullptr)
++		return nullptr;
+ 	memset(F2612, 0x00, sizeof(YM2612));
+ 	/* allocate total level table (128kb space) */
+ 	init_tables();
+@@ -3064,19 +3063,19 @@ static void ym2612_setoptions(UINT8 Flags)
+ } // Ym2612_MameImpl
+ 
+ 
+-Ym2612_MAME_Emu::Ym2612_MAME_Emu() { impl = 0; }
++Ym2612_MAME_Emu::Ym2612_MAME_Emu() { impl = nullptr; }
+ 
+ Ym2612_MAME_Emu::~Ym2612_MAME_Emu()
+ {
+ 	if ( impl ) Ym2612_MameImpl::ym2612_shutdown( impl );
+ }
+ 
+-const char *Ym2612_MAME_Emu::set_rate(double sample_rate, double clock_rate)
++blargg_err_t Ym2612_MAME_Emu::set_rate(double sample_rate, double clock_rate)
+ {
+ 	if ( impl ) Ym2612_MameImpl::ym2612_shutdown( impl );
+-	impl = Ym2612_MameImpl::ym2612_init( NULL, static_cast<int>(clock_rate), static_cast<int>(sample_rate), NULL, NULL );
++	impl = Ym2612_MameImpl::ym2612_init( nullptr, static_cast<int>(clock_rate), static_cast<int>(sample_rate), nullptr, nullptr );
+ 	if ( !impl )
+-		return "Out of memory";
++		return ERR_OUT_OF_MEMORY;
+ 	return 0;
+ }
+ 
+diff --git a/gme/Ym2612_MAME.h b/gme/Ym2612_MAME.h
+index 0383106..795e649 100644
+--- a/gme/Ym2612_MAME.h
++++ b/gme/Ym2612_MAME.h
+@@ -4,6 +4,8 @@
+ #ifndef YM2612_EMU_H
+ #define YM2612_EMU_H
+ 
++#include "blargg_err.h"
++
+ typedef void Ym2612_MAME_Impl;
+ 
+ class Ym2612_MAME_Emu  {
+@@ -14,7 +16,7 @@ public:
+ 
+ 	// Set output sample rate and chip clock rates, in Hz. Returns non-zero
+ 	// if error.
+-	const char* set_rate( double sample_rate, double clock_rate );
++	blargg_err_t set_rate( double sample_rate, double clock_rate );
+ 
+ 	// Reset to power-up state
+ 	void reset();
+diff --git a/gme/Ym2612_Nuked.cpp b/gme/Ym2612_Nuked.cpp
+index d691fe6..6bd9975 100644
+--- a/gme/Ym2612_Nuked.cpp
++++ b/gme/Ym2612_Nuked.cpp
+@@ -35,8 +35,8 @@
+  */
+ 
+ 
+-#include <stdint.h>
+-#include <string.h>
++#include <cstdint>
++#include <cstring>
+ 
+ typedef uintptr_t       Bitu;
+ typedef intptr_t        Bits;
+@@ -1827,11 +1827,11 @@ Ym2612_Nuked_Emu::~Ym2612_Nuked_Emu()
+ 	if ( chip_r ) delete chip_r;
+ }
+ 
+-const char *Ym2612_Nuked_Emu::set_rate(double sample_rate, double clock_rate)
++blargg_err_t Ym2612_Nuked_Emu::set_rate(double sample_rate, double clock_rate)
+ {
+ 	Ym2612_NukedImpl::ym3438_t *chip_r = reinterpret_cast<Ym2612_NukedImpl::ym3438_t*>(impl);
+ 	if ( !chip_r )
+-		return "Out of memory";
++		return ERR_OUT_OF_MEMORY;
+ 	prev_sample_rate = sample_rate;
+ 	prev_clock_rate = clock_rate;
+ 	Ym2612_NukedImpl::OPN2_Reset( chip_r, static_cast<Bit32u>(sample_rate), static_cast<Bit32u>(clock_rate) );
+diff --git a/gme/Ym2612_Nuked.h b/gme/Ym2612_Nuked.h
+index 6c265b1..e8e5de3 100644
+--- a/gme/Ym2612_Nuked.h
++++ b/gme/Ym2612_Nuked.h
+@@ -4,6 +4,8 @@
+ #ifndef YM2612_EMU_H
+ #define YM2612_EMU_H
+ 
++#include "blargg_err.h"
++
+ typedef void Ym2612_Nuked_Impl;
+ 
+ class Ym2612_Nuked_Emu  {
+@@ -16,7 +18,7 @@ public:
+ 
+ 	// Set output sample rate and chip clock rates, in Hz. Returns non-zero
+ 	// if error.
+-	const char* set_rate( double sample_rate, double clock_rate );
++	blargg_err_t set_rate( double sample_rate, double clock_rate );
+ 
+ 	// Reset to power-up state
+ 	void reset();
+diff --git a/gme/blargg_common.h b/gme/blargg_common.h
+index 5bcfd48..7e19d82 100644
+--- a/gme/blargg_common.h
++++ b/gme/blargg_common.h
+@@ -4,19 +4,10 @@
+ #ifndef BLARGG_COMMON_H
+ #define BLARGG_COMMON_H
+ 
+-#include "blargg_config.h"
+-
+-#include <stddef.h>
+-#include <stdlib.h>
+-#include <stdint.h>
+-#include <assert.h>
+-#include <limits.h>
+-
+-#if defined(__GNUC__)
+-#define BLARGG_PRINTFN(x,y) __attribute__((__format__(__printf__,x,y)))
+-#else
+-#define BLARGG_PRINTFN(x,y)
+-#endif
++#include <cstddef>
++#include <cstdlib>
++#include <stdint.h>
++#include <cassert>
+ 
+ // BLARGG_RESTRICT: equivalent to restrict, where supported
+ #if (defined(__GNUC__) && (__GNUC__ >= 3)) || \
+@@ -36,9 +27,9 @@
+ 	#define blaarg_static_assert(cond, msg) assert(cond)
+ #endif
+ 
+-// blargg_err_t (0 on success, otherwise error string)
++// blargg_err_t (0 on success, otherwise error enum)
+ #ifndef blargg_err_t
+-	typedef const char* blargg_err_t;
++#include "blargg_err.h"
+ #endif
+ 
+ // Apply minus sign to unsigned type and prevent the warning being shown
+@@ -54,7 +45,7 @@ class blargg_vector {
+ 	T* begin_;
+ 	size_t size_;
+ public:
+-	blargg_vector() : begin_( 0 ), size_( 0 ) { }
++	blargg_vector() : begin_( nullptr ), size_( 0 ) { }
+ 	~blargg_vector() { free( begin_ ); }
+ 	size_t size() const { return size_; }
+ 	T* begin() const { return begin_; }
+@@ -63,7 +54,7 @@ public:
+ 	{
+ 		void* p = realloc( begin_, n * sizeof (T) );
+ 		if ( !p && n )
+-			return "Out of memory";
++			return ERR_OUT_OF_MEMORY;
+ 		begin_ = (T*) p;
+ 		size_ = n;
+ 		return 0;
+@@ -96,7 +87,4 @@ public:
+ #define BLARGG_2CHAR( a, b ) \
+ 	((a&0xFF)*0x100L + (b&0xFF))
+ 
+-// int8_t etc.
+-#include <stdint.h>
+-
+ #endif
+diff --git a/gme/blargg_endian.h b/gme/blargg_endian.h
+index c81f551..e0bcf55 100644
+--- a/gme/blargg_endian.h
++++ b/gme/blargg_endian.h
+@@ -3,7 +3,8 @@
+ #ifndef BLARGG_ENDIAN
+ #define BLARGG_ENDIAN
+ 
+-#include "blargg_common.h"
++#include <cstdint>
++#include <cassert>
+ 
+ // BLARGG_CPU_CISC: Defined if CPU has very few general-purpose registers (< 16)
+ #if defined (__i386__) || defined (__x86_64__) || defined (_M_IX86) || defined (_M_X64)
+diff --git a/gme/blargg_err.h b/gme/blargg_err.h
+new file mode 100644
+index 0000000..60c92b9
+--- /dev/null
++++ b/gme/blargg_err.h
+@@ -0,0 +1,74 @@
++// Sets up common environment for Shay Green's libraries.
++// To change configuration options, modify blargg_config.h, not this file.
++
++#ifndef BLARGG_ERR_H
++#define BLARGG_ERR_H
++
++typedef int blargg_err_t;
++
++enum {
++	ERR_FIRST = 1,
++	ERR_ADDRESS_INVALID_INIT = ERR_FIRST,
++	ERR_ADDRESS_INVALID_MUSIC,
++	ERR_ADDRESS_INVALID_PLAY,
++	ERR_BLIPBUF_RESIZE,
++	ERR_DIGIMUSIC_NOT_SUPPORTED,
++	ERR_EMU_INSTRUCTION_ILLEGAL,
++	ERR_EOF,
++	ERR_FASTPLAY_VALUE_INVALID,
++	ERR_FILE_CANT_GET_SIZE,
++	ERR_FILE_CANT_OPEN,
++	ERR_FILE_CANT_READ,
++	ERR_FILE_CANT_SEEK,
++	ERR_FILE_CORRUPT,
++	ERR_FILE_DATA_MISSING,
++	ERR_FILE_NULL_PTR,
++	ERR_FILE_WRONG_TYPE,
++	ERR_GYM_PACKED_NOT_SUPPORTED,
++	ERR_GZ_CANT_READ,
++	ERR_GZ_CANT_SEEK,
++	ERR_M3U_PLAYLIST_INVALID,
++	ERR_M3U_TRACK_INVALID,
++	ERR_MULTICHANNEL_NOT_SUPPORTED,
++	ERR_OUT_OF_MEMORY,
++	ERR_PLAYER_TYPE_NOT_SUPPORTED,
++	ERR_READ,
++	ERR_ROM_DATA_MISSING,
++	ERR_SPC_EMULATION,
++	ERR_TRACK_COUNT_INVALID,
++	ERR_TRACK_DATA_MISSING,
++	ERR_TRACK_INVALID,
++	ERR_TRACK_SINGLE_ONLY,
++	ERR_USE_FULL_EMULATOR_FOR_PLAYBACK,
++	ERR_YM2413_FM_NOT_SUPPORTED,
++	ERR_LAST = ERR_YM2413_FM_NOT_SUPPORTED
++};
++
++enum {
++	WARN_FIRST = 1,
++	WARN_ADDRESS_INVALID = WARN_FIRST,
++	WARN_ADDRESS_INVALID_LOADINITPLAY,
++	WARN_BANK_DATA_MISSING,
++	WARN_BANK_INVALID,
++	WARN_DATA_BAD_BLOCK_SIZE,
++	WARN_DATA_HEADER_MISSING,
++	WARN_DATA_SIZE_EXCESSIVE,
++	WARN_EMU_INSTRUCTION_ILLEGAL,
++	WARN_EXPANSION_HARDWARE_NOT_SUPPORTED,
++	WARN_FILE_DATA_BLOCK_INVALID,
++	WARN_FILE_DATA_MISSING,
++	WARN_FILE_EXTRA_DATA,
++	WARN_FILE_VERSION_UNKNOWN,
++	WARN_FM_NOT_SUPPORTED,
++	WARN_HEADER_DATA_UNKNOWN,
++	WARN_M3U_AT_LINE,
++	WARN_MULTIPLE_DATA_NOT_SUPPORTED,
++	WARN_SCANLINE_INTERRUPT_NOT_SUPPORTED,
++	WARN_SIZE_INVALID,
++	WARN_STREAM_END_EVENT_MISSING,
++	WARN_STREAM_EVENT_UNKNOWN,
++	WARN_TIMER_MODE_INVALID,
++	WARN_LAST = WARN_TIMER_MODE_INVALID
++};
++
++#endif
+diff --git a/gme/blargg_source.h b/gme/blargg_source.h
+index 8c28a0d..30b323d 100644
+--- a/gme/blargg_source.h
++++ b/gme/blargg_source.h
+@@ -9,7 +9,7 @@
+ /* If debugging is enabled, abort program if expr is false. Meant for checking
+  * internal state and consistency. A failed assertion indicates a bug in the module.
+  * void assert( bool expr ); */
+-#include <assert.h>
++#include <cassert>
+ 
+ /* If debugging is enabled and expr is false, abort program. Meant for checking
+  * caller-supplied parameters and operations that are outside the control of the
+@@ -34,8 +34,13 @@
+ /* Like printf() except output goes to debug log file. Might be defined to do
+  * nothing (not even evaluate its arguments).
+  * void debug_printf( const char* format, ... ); */
+-static inline void BLARGG_PRINTFN(1,2)
++#if defined(__GNUC__)
++	static inline void __attribute__((__format__(__printf__,1,2)))
+ 		blargg_dprintf_( const char* fmt_str, ... ) { (void) fmt_str; }
++#else
++	static inline void blargg_dprintf_( const char* fmt_str, ... ) { (void) fmt_str; }
++#endif
++
+ #undef debug_printf
+ #define debug_printf (1) ? (void) 0 : blargg_dprintf_
+ 
+@@ -54,7 +59,9 @@ static inline void BLARGG_PRINTFN(1,2)
+ 
+ /* If ptr is 0, return out of memory error string. */
+ #undef CHECK_ALLOC
+-#define CHECK_ALLOC( ptr ) do { if ( (ptr) == 0 ) return "Out of memory"; } while ( 0 )
++#define CHECK_ALLOC( ptr ) do {                         \
++		if ( (ptr) == nullptr ) return ERR_OUT_OF_MEMORY; \
++	} while ( 0 )
+ 
+ /* TODO: good idea? bad idea? */
+ #undef byte
+diff --git a/gme/gme.cpp b/gme/gme.cpp
+index 78914b2..a74b883 100644
+--- a/gme/gme.cpp
++++ b/gme/gme.cpp
+@@ -11,8 +11,8 @@
+ #include "Effects_Buffer.h"
+ #endif
+ #include "blargg_endian.h"
+-#include <string.h>
+-#include <ctype.h>
++#include <cstring>
++#include <cctype>
+ 
+ /* Copyright (C) 2003-2006 Shay Green. This module is free software; you
+ can redistribute it and/or modify it under the terms of the GNU Lesser
+@@ -27,6 +27,77 @@ Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA */
+ 
+ #include "blargg_source.h"
+ 
++static const char* const blargg_errmsg[] = {
++	"Invalid init address",                 // ERR_ADDRESS_INVALID_INIT
++	"Invalid music address",                // ERR_ADDRESS_INVALID_MUSIC
++	"Invalid play address",                 // ERR_ADDRESS_INVALID_PLAY
++	"Internal (tried to resize Silent_Blip_Buffer)", // ERR_BLIPBUF_RESIZE
++	"Digimusic not supported",              // ERR_DIGIMUSIC_NOT_SUPPORTED
++	"Emulation error (illegal instruction)", // ERR_EMU_INSTRUCTION_ILLEGAL
++	"Unexpected end of file",               // ERR_EOF
++	"Invalid fastplay value",               // ERR_FASTPLAY_VALUE_INVALID
++	"Couldn't get file size",               // ERR_FILE_CANT_GET_SIZE
++	"Couldn't open file",                   // ERR_FILE_CANT_OPEN
++	"Couldn't read from file",              // ERR_FILE_CANT_READ
++	"Error seeking in file",                // ERR_FILE_CANT_SEEK
++	"Corrupt file",                         // ERR_FILE_CORRUPT
++	"File data missing",                    // ERR_FILE_DATA_MISSING
++	"File not loaded",                      // ERR_FILE_NOT_LOADED
++	"Wrong file type for this emulator",    // ERR_FILE_WRONG_TYPE
++	"Packed GYM file not supported",        // ERR_GYM_PACKED_NOT_SUPPORTED
++	"Couldn't read from GZ file",           // ERR_GZ_CANT_READ
++	"Error seeking in GZ file",             // ERR_GZ_CANT_SEEK
++	"Not an m3u playlist",                  // ERR_M3U_PLAYLIST_INVALID
++	"Invalid track in m3u playlist",        // ERR_M3U_TRACK_INVALID
++	"Multichannel rendering not supported", // ERR_MULTICHANNEL_NOT_SUPPORTED
++	"Out of memory",                        // ERR_OUT_OF_MEMORY
++	"Unsupported player type",              // ERR_PLAYER_TYPE_NOT_SUPPORTED
++	"Read error",                           // ERR_READ
++	"ROM data missing",                     // ERR_ROM_DATA_MISSING
++	"SPC emulation error",                  // ERR_SPC_EMULATION
++	"Invalid track count",                  // ERR_TRACK_COUNT_INVALID
++	"Missing track data",                   // ERR_TRACK_DATA_MISSING
++	"Invalid track",                        // ERR_TRACK_INVALID
++	"File type must have a fixed track count of 1", // ERR_TRACK_SINGLE_ONLY
++	"Use full emulator for playback",       // ERR_USE_FULL_EMULATOR_FOR_PLAYBACK
++	"YM2413 FM sound isn't supported"       // ERR_YM2413_FM_NOT_SUPPORTED
++};
++
++static const char* const blargg_warnmsg[] = {
++	"Invalid address",                      // WARN_ADDRESS_INVALID
++	"Corrupt file (invalid load/init/play address)", // WARN_ADDRESS_INVALID_LOADINITPLAY
++	"Bank data missing",                    // WARN_BANK_DATA_MISSING
++	"Invalid bank",                         // WARN_BANK_INVALID
++	"Bad data block size",                  // WARN_DATA_BAD_BLOCK_SIZE
++	"Data header missing",                  // WARN_DATA_HEADER_MISSING
++	"Excessive data size",                  // WARN_DATA_SIZE_EXCESSIVE
++	blargg_errmsg[ERR_EMU_INSTRUCTION_ILLEGAL - ERR_FIRST], // WARN_EMU_INSTRUCTION_ILLEGAL
++	"Uses unsupported audio expansion hardware", // WARN_EXPANSION_HARDWARE_NOT_SUPPORTED
++	"Invalid file data block",              // WARN_FILE_DATA_BLOCK_INVALID
++	"Missing file data",                    // WARN_FILE_DATA_MISSING
++	"Extra file data",                      // WARN_FILE_EXTRA_DATA
++	"Unknown file version",                 // WARN_FILE_VERSION_UNKNOWN
++	"FM sound not supported",               // WARN_FM_NOT_SUPPORTED
++	"Unknown header data",                  // WARN_HEADER_DATA_UNKNOWN
++	"Problem in m3u (check m3u_error_line())", // WARN_M3U_AT_LINE
++	"Multiple DATA not supported",          // WARN_MULTIPLE_DATA_NOT_SUPPORTED
++	"Scanline interrupt not supported",     // WARN_SCANLINE_INTERRUPT_NOT_SUPPORTED
++	"Invalid size",                         // WARN_SIZE_INVALID
++	"Stream lacked end event",              // WARN_STREAM_END_EVENT_MISSING
++	"Unknown stream event",                 // WARN_STREAM_EVENT_UNKNOWN
++	"Invalid timer mode"                    // WARN_TIMER_MODE_INVALID
++};
++
++const char* gme_strerror( gme_err_t err ) {
++	return ( ERR_FIRST <= err && err <= ERR_LAST ) ?
++		blargg_errmsg[err - ERR_FIRST] : nullptr;
++}
++
++const char* gme_strwarn( gme_err_t warn ) {
++	return ( WARN_FIRST <= warn && warn <= WARN_LAST ) ?
++		blargg_warnmsg[warn - WARN_FIRST] : nullptr;
++}
++
+ gme_type_t const* gme_type_list( void )
+ {
+ 	static gme_type_t const gme_type_list_ [] = {
+@@ -65,7 +136,7 @@ gme_type_t const* gme_type_list( void )
+ 	            gme_vgz_type,
+ 	#endif
+ #endif
+-        0
++        nullptr
+     };
+ 
+ 	return gme_type_list_;
+@@ -114,7 +185,7 @@ gme_type_t gme_identify_extension( const char* extension_ )
+ 	for ( gme_type_t const* types = gme_type_list(); *types; types++ )
+ 		if ( !strcmp( extension, (*types)->extension_ ) )
+ 			return *types;
+-	return 0;
++	return nullptr;
+ }
+ 
+ const char *gme_type_extension( gme_type_t music_type )
+@@ -143,13 +214,13 @@ gme_err_t gme_identify_file( const char* path, gme_type_t* type_out )
+ gme_err_t gme_open_data( void const* data, long size, Music_Emu** out, int sample_rate )
+ {
+ 	require( (data || !size) && out );
+-	*out = 0;
++	*out = nullptr;
+ 
+-	gme_type_t file_type = 0;
++	gme_type_t file_type = nullptr;
+ 	if ( size >= 4 )
+ 		file_type = gme_identify_extension( gme_identify_header( data ) );
+ 	if ( !file_type )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 
+ 	Music_Emu* emu = gme_new_emu( file_type, sample_rate );
+ 	CHECK_ALLOC( emu );
+@@ -167,7 +238,7 @@ gme_err_t gme_open_data( void const* data, long size, Music_Emu** out, int sampl
+ gme_err_t gme_open_file( const char* path, Music_Emu** out, int sample_rate )
+ {
+ 	require( path && out );
+-	*out = 0;
++	*out = nullptr;
+ 
+ 	GME_FILE_READER in;
+ 	RETURN_ERR( in.open( path ) );
+@@ -182,7 +253,7 @@ gme_err_t gme_open_file( const char* path, Music_Emu** out, int sample_rate )
+ 		RETURN_ERR( in.read( header, sizeof header ) );
+ 		file_type = gme_identify_extension( gme_identify_header( header ) );
+ 		if ( !file_type )
+-			return gme_wrong_file_type;
++			return ERR_FILE_WRONG_TYPE;
+ 	}
+ 
+ 	Music_Emu* emu = gme_new_emu( file_type, sample_rate );
+@@ -251,7 +322,7 @@ Music_Emu* gme_internal_new_emu_( gme_type_t type, int rate, bool multi_channel
+ 			delete me;
+ 		}
+ 	}
+-	return 0;
++	return nullptr;
+ }
+ 
+ Music_Emu* gme_new_emu( gme_type_t type, int rate )
+@@ -294,7 +365,9 @@ void gme_delete( Music_Emu* me ) { delete me; }
+ 
+ gme_type_t gme_type( Music_Emu const* me ) { return me->type(); }
+ 
+-const char* gme_warning( Music_Emu* me ) { return me->warning(); }
++gme_err_t gme_warning( Music_Emu* me ) { return me->warning(); }
++
++int gme_m3u_error_line( Music_Emu* me ) { return me->m3u_error_line(); }
+ 
+ int gme_track_count( Music_Emu const* me ) { return me->track_count(); }
+ 
+@@ -307,7 +380,7 @@ struct gme_info_t_ : gme_info_t
+ 
+ gme_err_t gme_track_info( Music_Emu const* me, gme_info_t** out, int track )
+ {
+-	*out = NULL;
++	*out = nullptr;
+ 
+ 	gme_info_t_* info = BLARGG_NEW gme_info_t_;
+ 	CHECK_ALLOC( info );
+diff --git a/gme/gme.exports b/gme/gme.exports
+index 2da5a1b..773187e 100644
+--- a/gme/gme.exports
++++ b/gme/gme.exports
+@@ -14,6 +14,7 @@ gme_load_data
+ gme_load_file
+ gme_load_m3u
+ gme_load_m3u_data
++gme_m3u_error_line
+ gme_multi_channel
+ gme_mute_voice
+ gme_mute_voices
+@@ -32,6 +33,8 @@ gme_set_tempo
+ gme_set_user_cleanup
+ gme_set_user_data
+ gme_start_track
++gme_strerror
++gme_strwarn
+ gme_tell
+ gme_tell_samples
+ gme_track_count
+@@ -46,7 +49,6 @@ gme_user_data
+ gme_voice_count
+ gme_voice_name
+ gme_warning
+-gme_wrong_file_type
+ gme_ay_type
+ gme_gbs_type
+ gme_gym_type
+diff --git a/gme/gme.h b/gme/gme.h
+index c6f2c82..4e71921 100644
+--- a/gme/gme.h
++++ b/gme/gme.h
+@@ -11,7 +11,7 @@
+ #define GME_VERSION 0x000604 /* 1 byte major, 1 byte minor, 1 byte patch-level */
+ 
+ /* Error string returned by library functions, or NULL if no error (success) */
+-typedef const char* gme_err_t;
++typedef int gme_err_t;
+ 
+ /* First parameter of most gme_ functions is a pointer to the Music_Emu */
+ typedef struct Music_Emu Music_Emu;
+@@ -114,7 +114,10 @@ enum { gme_info_only = -1 };
+ 
+ /* Most recent warning string, or NULL if none. Clears current warning after returning.
+ Warning is also cleared when loading a file and starting a track. */
+-BLARGG_EXPORT const char* gme_warning( Music_Emu* );
++BLARGG_EXPORT gme_err_t gme_warning( Music_Emu* );
++
++/* Get m3u error line when an m3u parsing error occurs (WARN_M3U_AT_LINE) */
++BLARGG_EXPORT int gme_m3u_error_line( Music_Emu* );
+ 
+ /* Load m3u playlist file (must be done after loading music) */
+ BLARGG_EXPORT gme_err_t gme_load_m3u( Music_Emu*, const char path [] );
+@@ -250,9 +253,6 @@ BLARGG_EXPORT int gme_multi_channel( Music_Emu const* );
+ 
+ /******** Advanced file loading ********/
+ 
+-/* Error returned if file type is not supported */
+-extern BLARGG_EXPORT const char* const gme_wrong_file_type;
+-
+ /* Same as gme_open_file(), but uses file data already in memory. Makes copy of data.
+  * The resulting Music_Emu object will be set to single channel mode. */
+ BLARGG_EXPORT gme_err_t gme_open_data( void const* data, long size, Music_Emu** out, int sample_rate );
+@@ -305,6 +305,16 @@ BLARGG_EXPORT gme_err_t gme_load_tracks( Music_Emu* me,
+  */
+ BLARGG_EXPORT int gme_fixed_track_count( gme_type_t );
+ 
++/* Return the string representation of an error value, or null if out of bounds
++ * @since 0.6.4
++ */
++BLARGG_EXPORT const char* gme_strerror( gme_err_t );
++
++/* Return the string representation of a warning value, or null if out of bounds
++ * @since 0.6.4
++ */
++BLARGG_EXPORT const char* gme_strwarn( gme_err_t );
++
+ /* Load music file using custom data reader function that will be called to
+ read file data. Most emulators load the entire file in one read call. */
+ typedef gme_err_t (*gme_reader_t)( void* your_data, void* out, int count );
+diff --git a/gme/hes_cpu_io.h b/gme/hes_cpu_io.h
+index db01f3d..8ad632c 100644
+--- a/gme/hes_cpu_io.h
++++ b/gme/hes_cpu_io.h
+@@ -25,11 +25,11 @@ void Hes_Emu::cpu_write( hes_addr_t addr, int data )
+ 
+ inline byte const* Hes_Emu::cpu_set_mmr( int page, int bank )
+ {
+-	write_pages [page] = 0;
++	write_pages [page] = nullptr;
+ 	if ( bank < 0x80 )
+ 		return rom.at_addr( bank * (int32_t) page_size );
+ 
+-	byte* data = 0;
++	byte* data = nullptr;
+ 	switch ( bank )
+ 	{
+ 		case 0xF8:
+diff --git a/gme/nes_cpu_io.h b/gme/nes_cpu_io.h
+index 6f8b08f..fadd6ab 100644
+--- a/gme/nes_cpu_io.h
++++ b/gme/nes_cpu_io.h
+@@ -28,21 +28,21 @@ int Nsf_Emu::cpu_read( nes_addr_t addr )
+ 	if ( addr == Nes_Apu::status_addr )
+ 		return apu.read_status( cpu::time() );
+ 
+-	#if !NSF_EMU_APU_ONLY
+-		if ( addr == Nes_Namco_Apu::data_reg_addr && namco )
+-			return namco->read_data();
++#if !NSF_EMU_APU_ONLY
++	if ( addr == Nes_Namco_Apu::data_reg_addr && namco )
++		return namco->read_data();
+ 
+-		if ( (unsigned) (addr - Nes_Fds_Apu::io_addr) < Nes_Fds_Apu::io_size && fds )
+-			return fds->read( time(), addr );
++	if ( (unsigned) (addr - Nes_Fds_Apu::io_addr) < Nes_Fds_Apu::io_size && fds )
++		return fds->read( time(), addr );
+ 
+-		i = addr - 0x5C00;
+-		if ( (unsigned) i < mmc5->exram_size && mmc5 )
+-			return mmc5->exram [i];
++	i = addr - 0x5C00;
++	if ( (unsigned) i < mmc5->exram_size && mmc5 )
++		return mmc5->exram [i];
+ 
+-		i = addr - 0x5205;
+-		if ( (unsigned) i < 2 && mmc5 )
+-			return ((mmc5_mul [0] * mmc5_mul [1]) >> (i * 8)) & 0xFF;
+-	#endif
++	i = addr - 0x5205;
++	if ( (unsigned) i < 2 && mmc5 )
++		return ((mmc5_mul [0] * mmc5_mul [1]) >> (i * 8)) & 0xFF;
++#endif
+ 
+ 	result = addr >> 8; // simulate open bus
+ 
+@@ -84,7 +84,7 @@ void Nsf_Emu::cpu_write( nes_addr_t addr, int data )
+ 	{
+ 		int32_t offset = rom.mask_addr( data * (int32_t) bank_size );
+ 		if ( offset >= rom.size() )
+-			set_warning( "Invalid bank" );
++			set_warning( WARN_BANK_INVALID );
+ 		cpu::map_code( (bank + 8) * bank_size, bank_size, rom.at_addr( offset ) );
+ 		return;
+ 	}
+diff --git a/player/Archive_Reader.cpp b/player/Archive_Reader.cpp
+index c6e6283..629324c 100644
+--- a/player/Archive_Reader.cpp
++++ b/player/Archive_Reader.cpp
+@@ -1,8 +1,31 @@
+ #include "Archive_Reader.h"
+ 
++#include <cstring>
++
++const char* const arc_eof = "Archive: End of file";
++
+ #ifdef RARDLL
+ 
+-#include <string.h>
++static const int erar_offset = 10;
++static const char* const erar_handle = "Failed to instantiate RAR handle";
++static const char* const erars[] = {
++	arc_eof,                      // ERAR_END_ARCHIVE        10
++	"RAR: Out of memory",         // ERAR_NO_MEMORY          11
++	"RAR: Bad data",              // ERAR_BAD_DATA           12
++	"RAR: Bad archive",           // ERAR_BAD_ARCHIVE        13
++	"RAR: Unknown format",        // ERAR_UNKNOWN_FORMAT     14
++	"RAR: Could not open",        // ERAR_EOPEN              15
++	"RAR: Could not create",      // ERAR_ECREATE            16
++	"RAR: Could not close",       // ERAR_ECLOSE             17
++	"RAR: Could not read",        // ERAR_EREAD              18
++	"RAR: Could not write",       // ERAR_EWRITE             19
++	"RAR: Buffer too small",      // ERAR_SMALL_BUF          20
++	"RAR: Unknown error",         // ERAR_UNKNOWN            21
++	"RAR: Missing password",      // ERAR_MISSING_PASSWORD   22
++	"RAR: Bad reference record",  // ERAR_EREFERENCE         23
++	"RAR: Bad password",          // ERAR_BAD_PASSWORD       24
++	"RAR: Dictionary too large",  // ERAR_LARGE_DICT         25
++};
+ 
+ static int CALLBACK call_rar( UINT msg, LPARAM UserData, LPARAM P1, LPARAM P2 )
+ {
+@@ -14,45 +37,187 @@ static int CALLBACK call_rar( UINT msg, LPARAM UserData, LPARAM P1, LPARAM P2 )
+ 	return 0;
+ }
+ 
+-gme_err_t Rar_Reader::restart( RAROpenArchiveData* data )
+-{
+-	if ( rar )
+-		close();
+-	rar = RAROpenArchive( data );
+-	if ( !rar )
+-		return "Failed to instantiate RAR handle";
+-	RARSetCallback( rar, call_rar, (LPARAM)&bp );
+-	return nullptr;
+-}
+-
+-gme_err_t Rar_Reader::open( const char* path, bool skip )
++const char* Rar_Reader::open( const char* path )
+ {
+-	gme_err_t err;
+ 	RAROpenArchiveData data;
+ 	memset( &data, 0, sizeof data );
+ 	data.ArcName = (char *)path;
++	data.OpenMode = RAR_OM_LIST;
++	if ( !(rar = RAROpenArchive( &data )) )
++		return erar_handle;
+ 
+ 	// determine space needed for the unpacked size and file count.
+-	data.OpenMode = RAR_OM_LIST;
+-	if ( (err = restart( &data )) )
+-		return err;
+-	while ( RARReadHeader( rar, &head ) == ERAR_SUCCESS )
++	int res;
++	while ( (res = RARReadHeader( rar, &head )) == ERAR_SUCCESS )
+ 	{
+-		RARProcessFile( rar, RAR_SKIP, nullptr, nullptr );
+-		count_++, size_ += head.UnpSize;
++		if ( (res = RARProcessFile( rar, RAR_SKIP, nullptr, nullptr )) != ERAR_SUCCESS )
++			break;
++		size_ += head.UnpSize;
++		count_ += 1;
+ 	}
++	if ( res != ERAR_END_ARCHIVE || (res = RARCloseArchive( rar )) != ERAR_SUCCESS )
++		return erars[res - erar_offset];
+ 
+ 	// prepare for extraction
+-	data.OpenMode = skip ? RAR_OM_LIST : RAR_OM_EXTRACT;
+-	return restart( &data );
++	data.OpenMode = RAR_OM_EXTRACT;
++	if ( !(rar = RAROpenArchive( &data )) )
++		return erar_handle;
++	RARSetCallback( rar, call_rar, (LPARAM)&buf_ptr );
++	return nullptr;
+ }
+ 
+-gme_err_t Rar_Reader::read( void* p )
++const char* Rar_Reader::next( void* bp, arc_entry_t* entry )
+ {
+-	bp = p;
+-	if ( RARProcessFile( rar, -1, nullptr, nullptr ) != ERAR_SUCCESS )
+-		return "Error processing RAR file";
++	// if prev entry was not a music emu file, buf_ptr returns to prev position
++	buf_ptr = bp;
++	int res;
++	if ( (res = RARReadHeader( rar, &head )) != ERAR_SUCCESS
++	|| (res = RARProcessFile( rar, RAR_TEST, nullptr, nullptr )) != ERAR_SUCCESS )
++		return erars[res - erar_offset];
++
++	entry->name = head.FileName;
++	entry->size = head.UnpSize;
+ 	return nullptr;
+ }
+ 
++Rar_Reader::~Rar_Reader() {
++	RARCloseArchive( rar );
++}
++
+ #endif // RARDLL
++
++
++#ifdef HAVE_LIBARCHIVE
++
++const char* zip_err_struct = "Failed to create archive struct";
++
++#if ARCHIVE_VERSION_NUMBER < 3000000
++#define archive_read_free archive_read_finish
++#define archive_read_support_filter_all archive_read_support_compression_all
++#endif
++
++#ifdef HAVE_ZLIB_H
++
++#include <zlib.h>
++
++static const uint16_t gz_signature = GME_2CHAR( 0x1f, 0x8b );
++
++static const int zerr_offset = -6;
++static const char* const zerrs[] = {
++	"GZ: Bad version",       // Z_VERSION_ERROR (-6)
++	"GZ: Buffer too small",  // Z_BUF_ERROR     (-5)
++	"GZ: Out of memory",     // Z_MEM_ERROR     (-4)
++	"GZ: Bad Data",          // Z_DATA_ERROR    (-3)
++	"GZ: Stream error",      // Z_STREAM_ERROR  (-2)
++};
++#endif // HAVE_ZLIB_H
++
++const char* Zip_Reader::open_zip( const char* path ) {
++	if ( !(zip = archive_read_new()) )
++		return zip_err_struct;
++	if ( archive_read_support_filter_all( zip ) != ARCHIVE_OK
++	|| archive_read_support_format_zip( zip ) != ARCHIVE_OK
++	|| archive_read_open_filename( zip, path, 10240 ) != ARCHIVE_OK )
++		return archive_error_string( zip );
++	return nullptr;
++}
++
++const char* Zip_Reader::open( const char* path )
++{
++	const char* err;
++	if ( (err = open_zip( path )) )
++		return err;
++
++	// determine space needed for the unpacked size and file count.
++	int res;
++	while ( (res = archive_read_next_header( zip, &head )) == ARCHIVE_OK )
++	{
++#ifdef HAVE_ZLIB_H
++		char h[3];
++		archive_read_data( zip, &h, 3 );
++		if ( GME_2CHAR( h[0], h[1] ) == gz_signature && h[2] == 8 )
++		{
++			// gzip puts its uncompressed file size in the footer
++			gme_vector<uint8_t> buf;
++			if ( (err = buf.resize( archive_entry_size( head ) - 3 )) )
++				return err;
++			archive_read_data( zip, buf.begin(), buf.size() );
++			const uint8_t* b = buf.end() - 4;
++			size_ += GME_4CHAR(b[3], b[2], b[1], b[0]);
++		}
++		else
++#endif // HAVE_ZLIB_H
++		{
++			size_ += archive_entry_size( head );
++		}
++		count_ += 1;
++	}
++	if ( res != ARCHIVE_EOF || archive_read_free( zip ) != ARCHIVE_OK )
++		return archive_error_string( zip );
++	return (err = open_zip( path )) ? err : nullptr;
++}
++
++const char* Zip_Reader::next( void* buf_ptr, arc_entry_t* entry )
++{
++	ptrdiff_t res;
++	if ( (res = archive_read_next_header( zip, &head )) != ARCHIVE_OK )
++		return (res == ARCHIVE_EOF) ? arc_eof : archive_error_string( zip );
++
++	uint8_t* bp = (uint8_t*)buf_ptr;
++	size_t siz = archive_entry_size( head );
++	size_t pos = 0;
++#ifdef HAVE_ZLIB_H
++	if ( (res = archive_read_data( zip, bp, 3 )) < 0 )
++		return archive_error_string( zip );
++	pos += res;
++	if ( GME_2CHAR( bp[0], bp[1] ) == gz_signature && bp[2] == 8 )
++	{
++		// load the gzip file into a separate buffer
++		const char* err;
++		gme_vector<uint8_t> buf;
++		if ( (err = buf.resize( siz )) )
++			return err;
++		memcpy( &buf[0], bp, pos );
++		if ( (res = archive_read_data( zip, &buf[0] + pos, buf.size() - pos )) < 0 )
++			return archive_error_string( zip );
++		const uint8_t* b = buf.end() - 4;
++		siz = GME_4CHAR(b[3], b[2], b[1], b[0]);
++
++		z_stream stream;
++		memset( &stream, 0, sizeof stream );
++		stream.next_in = buf.begin();
++		stream.avail_in = buf.size();
++		stream.next_out = bp;
++		stream.avail_out = siz;
++
++		// 15 window bits, and the +32 tells zlib to to detect if using gzip or zlib
++		if ( (res = inflateInit2( &stream, 15 + 32 )) != Z_OK
++		|| (res = inflate( &stream, Z_FINISH )) != Z_STREAM_END )
++		{
++			inflateEnd( &stream );
++			return zerrs[res - zerr_offset];
++		}
++		pos = stream.total_out;
++		inflateEnd( &stream );
++	}
++	else
++#endif // HAVE_ZLIB_H
++	{
++		if ( (res = archive_read_data( zip, bp + pos, siz - pos )) < 0 )
++			return archive_error_string( zip );
++		pos += res;
++	}
++	if ( pos != siz )
++		return "ZIP: header size does not match total bytes read";
++
++	entry->name = archive_entry_pathname( head );
++	entry->size = siz;
++	return nullptr;
++}
++
++Zip_Reader::~Zip_Reader()
++{
++	archive_read_free( zip );
++}
++
++#endif // HAVE_LIBARCHIVE
+diff --git a/player/Archive_Reader.h b/player/Archive_Reader.h
+index d68ee56..9c9f4e7 100644
+--- a/player/Archive_Reader.h
++++ b/player/Archive_Reader.h
+@@ -1,22 +1,59 @@
+-#include "gme/gme.h"
+-#include <stdint.h>
++#include <cassert>
++#include <cstdint>
++#include <cstdlib>
++
++// GME_4CHAR('a','b','c','d') = 'abcd' (four character integer constant)
++#define GME_4CHAR( a, b, c, d ) \
++	((a&0xFF)*0x1000000 + (b&0xFF)*0x10000 + (c&0xFF)*0x100 + (d&0xFF))
++
++// GME_2CHAR('a','b') = 'ab' (two character integer constant)
++#define GME_2CHAR( a, b ) \
++	((a&0xFF)*0x100 + (b&0xFF))
++
++// gme_vector - very lightweight vector of POD types (no constructor/destructor)
++template<class T>
++class gme_vector {
++	T* begin_;
++	size_t size_;
++public:
++	gme_vector() : begin_( nullptr ), size_( 0 ) { }
++	~gme_vector() { free( begin_ ); }
++	size_t size() const { return size_; }
++	T* begin() const { return begin_; }
++	T* end() const { return begin_ + size_; }
++	const char* resize( size_t n )
++	{
++		void* p = realloc( begin_, n * sizeof (T) );
++		if ( !p && n )
++			return "Out of memory";
++		begin_ = (T*) p;
++		size_ = n;
++		return nullptr;
++	}
++	void clear() { free( begin_ ); begin_ = nullptr; size_ = 0; }
++	T& operator [] ( size_t n ) const
++	{
++		assert( n <= size_ ); // <= to allow past-the-end value
++		return begin_ [n];
++	}
++};
++
++extern const char* const arc_eof; // indicates end of archive, not actually an error
++
++struct arc_entry_t {
++	const char* name;
++	size_t size;
++};
+ 
+ class Archive_Reader {
+ protected:
+-	int count_;
+-	long size_;
++	int count_ = 0;
++	size_t size_ = 0;
+ public:
+-	Archive_Reader() : count_( 0 ), size_( 0L ) { }
+ 	int count() const { return count_; }
+-	long size() const { return size_; }
+-public:
+-	virtual gme_err_t open( const char* path, bool skip = false ) = 0;
+-	virtual gme_err_t read( void* ) = 0;
+-
+-	virtual const char* entry_name() const = 0;
+-	virtual long entry_size() const = 0;
+-	virtual bool next_entry() = 0;
+-	virtual void close() { }
++	size_t size() const { return size_; }
++	virtual const char* open( const char* path ) = 0;
++	virtual const char* next( void* buf_ptr, arc_entry_t* entry ) = 0;
+ 	virtual ~Archive_Reader() { }
+ };
+ 
+@@ -49,17 +86,31 @@ public:
+ class Rar_Reader : public Archive_Reader {
+ 	RARHeaderData head;
+ 	void* rar = nullptr;
+-	void* bp = nullptr;
+-	gme_err_t restart( RAROpenArchiveData* );
++	void* buf_ptr = nullptr;
+ public:
+-	gme_err_t open( const char* path, bool skip );
+-	gme_err_t read( void* );
+-
+-	const char* entry_name() const { return head.FileName; }
+-	long entry_size() const { return head.UnpSize; }
+-	bool next_entry() { return RARReadHeader( rar, &head ) == ERAR_SUCCESS; }
+-	void close() { RARCloseArchive( rar ); rar = nullptr; }
+-	~Rar_Reader() { close(); }
++	static const uint32_t signature = GME_4CHAR( 'R', 'a', 'r', '!' );
++	const char* open( const char* path );
++	const char* next( void* buf_ptr, arc_entry_t* entry );
++	~Rar_Reader();
+ };
+ 
+ #endif // RARDLL
++
++
++#ifdef HAVE_LIBARCHIVE
++
++#include <archive.h>
++#include <archive_entry.h>
++
++class Zip_Reader : public Archive_Reader {
++	archive* zip = nullptr;
++	archive_entry* head = nullptr;
++public:
++	static const uint32_t signature = GME_4CHAR( 'P', 'K', 0x3, 0x4 );
++	const char* open_zip( const char* path );
++	const char* open( const char* path );
++	const char* next( void* buf_ptr, arc_entry_t* entry );
++	~Zip_Reader();
++};
++
++#endif // HAVE_LIBARCHIVE
+diff --git a/player/Audio_Scope.cpp b/player/Audio_Scope.cpp
+index 5eb3d30..0c9b612 100644
+--- a/player/Audio_Scope.cpp
++++ b/player/Audio_Scope.cpp
+@@ -2,8 +2,8 @@
+ 
+ #include "Audio_Scope.h"
+ 
+-#include <assert.h>
+-#include <stdlib.h>
++#include <cassert>
++#include <cstdlib>
+ #include <sstream>
+ 
+ /* Copyright (C) 2005-2006 by Shay Green. Permission is hereby granted, free of
+@@ -122,7 +122,7 @@ std::string Audio_Scope::init( int width, int height )
+ 	return std::string(); // success
+ }
+ 
+-const char* Audio_Scope::draw( const short* in, long count, int step )
++const char* Audio_Scope::draw( const short* in, uint32_t count, int step )
+ {
+ 	if ( count >= buf_size )
+ 	{
+@@ -138,12 +138,12 @@ const char* Audio_Scope::draw( const short* in, long count, int step )
+ 
+ 	SDL_RenderPresent( window_renderer );
+ 
+-	return 0; // success
++	return nullptr; // success
+ }
+ 
+-void Audio_Scope::render( short const* in, long count, int step )
++void Audio_Scope::render( short const* in, uint32_t count, int step )
+ {
+-	for( long i = 0; i < count; i++ )
++	for( uint32_t i = 0; i < count; i++ )
+ 	{
+ 		// Average left, right channels
+ 		int sample = (0x7FFF * 2 - in [i * step] - in [i * step + 1]) >> sample_shift;
+diff --git a/player/Audio_Scope.h b/player/Audio_Scope.h
+index aa3b1f1..e824464 100644
+--- a/player/Audio_Scope.h
++++ b/player/Audio_Scope.h
+@@ -3,8 +3,8 @@
+ #ifndef AUDIO_SCOPE_H
+ #define AUDIO_SCOPE_H
+ 
+-#include "SDL.h"
+-#include "gme/gme.h"
++#include <SDL2/SDL_render.h>
++#include <SDL2/SDL_video.h>
+ 
+ #include <string>
+ 
+@@ -17,7 +17,7 @@ public:
+ 	// Draw at most 'count' samples from 'in', skipping 'step' samples after
+ 	// each sample drawn. Step should be 2 but wouldn't be hard to adapt
+ 	// to be 1.
+-	gme_err_t draw( const short* in, long count, int step = 2 );
++	const char* draw( const short* in, uint32_t count, int step = 2 );
+ 
+ 	Audio_Scope();
+ 	~Audio_Scope();
+@@ -29,12 +29,12 @@ private:
+ 	SDL_Window* window;
+ 	SDL_Renderer* window_renderer;
+ 	SDL_Point* scope_lines = nullptr; // lines to be drawn each frame
+-	int buf_size;
++	unsigned int buf_size;
+ 	int scope_height;
+ 	int sample_shift;
+ 	int v_offset;
+ 
+-	void render( short const* in, long count, int step );
++	void render( short const* in, uint32_t count, int step );
+ };
+ 
+ #endif
+diff --git a/player/CMakeLists.txt b/player/CMakeLists.txt
+index 2b38aaf..38c45ea 100644
+--- a/player/CMakeLists.txt
++++ b/player/CMakeLists.txt
+@@ -1,4 +1,5 @@
+ option(GME_UNRAR "Enable RAR file format (optional, requires UnRAR library)" ON)
++option(GME_ARCHIVE "Enable ZIP file format (optional, requires LibArchive library)" ON)
+ 
+ find_package(SDL2)
+ 
+@@ -6,6 +7,10 @@ if (GME_UNRAR)
+     find_package(UNRAR QUIET)
+ endif()
+ 
++if(GME_ARCHIVE)
++    find_package(LibArchive QUIET)
++    find_package(ZLIB QUIET)
++endif()
+ 
+ set(player_SRCS Audio_Scope.cpp
+                 Audio_Scope.h
+@@ -51,6 +56,25 @@ if(SDL2_FOUND)
+       message(STATUS "RAR file format excluded")
+     endif()
+ 
++    if(GME_ARCHIVE)
++      if(LibArchive_FOUND)
++          message(STATUS "LibArchive library located, player demo will support the ZIP file format")
++          target_compile_definitions(gme_player PRIVATE HAVE_LIBARCHIVE)
++          target_link_libraries(gme_player PRIVATE ${LibArchive_LIBRARIES})
++          # Is not to be installed though
++          list(APPEND PC_LIBS -larchive) # for libgme.pc
++          if(ZLIB_FOUND)
++            target_compile_definitions(gme_player PRIVATE HAVE_ZLIB_H)
++            target_link_libraries(gme_player PRIVATE ZLIB::ZLIB)
++            list(APPEND PC_LIBS -lz)
++          endif()
++      else()
++          message(STATUS "** LibArchive library not found, player demo will not support zip files")
++      endif()
++    else()
++      message(STATUS "Zip extraction not supported")
++    endif()
++
+ else()
+     message(STATUS "** SDL library not found, disabling player demo build")
+ endif()
+diff --git a/player/Music_Player.cpp b/player/Music_Player.cpp
+index 899bde0..78505dd 100644
+--- a/player/Music_Player.cpp
++++ b/player/Music_Player.cpp
+@@ -2,9 +2,11 @@
+ 
+ #include "Music_Player.h"
+ 
+-#include <string.h>
+-#include <ctype.h>
+-#include "SDL_rwops.h"
++#include <new>
++#include <memory>
++#include <cstring>
++#include <cctype>
++#include <SDL2/SDL_rwops.h>
+ #include "Archive_Reader.h"
+ 
+ /* Copyright (C) 2005-2010 by Shay Green. Permission is hereby granted, free of
+@@ -25,11 +27,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. */
+ #undef RETURN_ERR
+ #define RETURN_ERR( expr ) \
+ 	do {\
+-		gme_err_t err_ = (expr);\
++		const char* err_ = (expr);\
+ 		if ( err_ )\
+ 			return err_;\
+ 	} while ( 0 )
+ 
++#undef RETURN_GME_ERR
++#define RETURN_GME_ERR( expr ) \
++	do {\
++		gme_err_t err_ = (expr);\
++		if ( err_ )\
++			return gme_strerror( err_ );\
++	} while ( 0 )
++
+ // Number of audio buffers per second. Adjust if you encounter audio skipping.
+ // Note that this sets the floor on how often you'll see changes to the audio
+ // scope
+@@ -37,40 +47,36 @@ static const int fill_rate = 80;
+ 
+ // Simple sound driver using SDL
+ typedef void (*sound_callback_t)( void* data, short* out, int count );
+-static const char* sound_init( long sample_rate, int buf_size, sound_callback_t, void* data );
++static const char* sound_init( uint32_t sample_rate, int buf_size, sound_callback_t, void* data );
+ static void sound_start();
+ static void sound_stop();
+ static void sound_cleanup();
+ 
+-// GME_4CHAR('a','b','c','d') = 'abcd' (four character integer constant)
+-#define GME_4CHAR( a, b, c, d ) \
+-	((a&0xFF)*0x1000000L + (b&0xFF)*0x10000L + (c&0xFF)*0x100L + (d&0xFF))
+-
+ struct arc_type_t {
+-	long header;
++	uint32_t signature;
+ 	Archive_Reader* (*new_arc)();
+ };
+ 
+-#ifdef RARDLL
+-static Archive_Reader* new_rar_reader() { return GME_NEW Rar_Reader; }
+-#endif
+-
+ static const arc_type_t arcs[] = {
+ #ifdef RARDLL
+-	{ GME_4CHAR('R','a','r','!'), &new_rar_reader },
++	{ Rar_Reader::signature, []{ return (Archive_Reader*)new (std::nothrow) Rar_Reader; } },
++#endif
++#ifdef HAVE_LIBARCHIVE
++	{ Zip_Reader::signature, []{ return (Archive_Reader*)new (std::nothrow) Zip_Reader; } },
+ #endif
+ 	{ 0, nullptr }
+ };
+ 
+ Music_Player::Music_Player()
+ {
+-	emu_        = 0;
+-	scope_buf   = 0;
++	emu_        = nullptr;
++	scope_buf   = nullptr;
+ 	paused      = false;
+-	track_info_ = NULL;
++	track_info_ = nullptr;
++	volume      = 0;
+ }
+ 
+-gme_err_t Music_Player::init( long rate )
++const char* Music_Player::init( uint32_t rate )
+ {
+ 	sample_rate = rate;
+ 
+@@ -86,7 +92,7 @@ void Music_Player::stop()
+ {
+ 	sound_stop();
+ 	gme_delete( emu_ );
+-	emu_ = NULL;
++	emu_ = nullptr;
+ }
+ 
+ Music_Player::~Music_Player()
+@@ -99,21 +105,24 @@ Music_Player::~Music_Player()
+ // check if file is an archive
+ const arc_type_t* identify_archive( const char* path )
+ {
+-	long header;
+-	char h[4];
+ 	FILE *in = fopen( path, "rb" );
+ 	if ( !in )
+ 		return nullptr;
+-	fread( h, 1, sizeof h, in );
++
++	char h[4];
++	size_t read = fread( h, sizeof( char ), sizeof h, in );
+ 	fclose( in );
+-	header = GME_4CHAR( h[0], h[1], h[2], h[3] );
+-	for ( const arc_type_t* arc = arcs; arc->header; arc++ )
+-		if ( arc->header == header )
++	if ( read != sizeof h )
++		return nullptr;
++
++	uint32_t signature = GME_4CHAR( h[0], h[1], h[2], h[3] );
++	for ( const arc_type_t* arc = arcs; arc->signature; arc++ )
++		if ( arc->signature == signature )
+ 			return arc;
+ 	return nullptr;
+ }
+ 
+-gme_err_t Music_Player::load_file(const char* path , bool by_mem)
++const char* Music_Player::load_file(const char* path , bool by_mem)
+ {
+ 	stop();
+ 
+@@ -142,9 +151,9 @@ gme_err_t Music_Player::load_file(const char* path , bool by_mem)
+ 
+ 		SDL_RWclose(file);
+ 
+-		const char *ret = gme_open_data( buf, (long)fileSize, &emu_, sample_rate );
++		gme_err_t ret = gme_open_data( buf, (long)fileSize, &emu_, sample_rate );
+ 		SDL_free(buf);
+-		RETURN_ERR( ret );
++		RETURN_GME_ERR( ret );
+ 	}
+ 	else
+ 	{
+@@ -154,7 +163,7 @@ gme_err_t Music_Player::load_file(const char* path , bool by_mem)
+ 		const arc_type_t* arc = identify_archive( path );
+ 		if ( arc )
+ 		{
+-			Archive_Reader* ptr = arc->new_arc();
++			std::unique_ptr<Archive_Reader> ptr(arc->new_arc());
+ 			if ( !ptr )
+ 				return "Failed to create archive reader";
+ 			Archive_Reader& in = *ptr;
+@@ -167,30 +176,33 @@ gme_err_t Music_Player::load_file(const char* path , bool by_mem)
+ 			int n = 0;
+ 			uint8_t *bp = buf.begin();
+ 			gme_type_t emu_type = nullptr;
+-			while( in.next_entry() )
++			arc_entry_t entry;
++			const char* res;
++			while ( !(res = in.next( bp, &entry )) )
+ 			{ // copy data and file sizes
+ 				gme_type_t t;
+-				RETURN_ERR( in.read( bp ) );
+-				if ( (t = gme_identify_extension( in.entry_name() ))
+-				&& gme_fixed_track_count( t ) == 1 )
+-				{
+-					if ( !emu_type )
+-						emu_type = t;
+-					if ( t == emu_type )
+-						bp += (sizes[n++] = in.entry_size());
+-				}
++				if ( !(t = gme_identify_extension( entry.name )) )
++					continue;
++				if ( !emu_type )
++					emu_type = t;
++				if ( t == emu_type )
++					bp += (sizes[n++] = entry.size);
+ 			}
+-			delete ptr;
++			if ( res != arc_eof )
++				return res;
+ 
+ 			if ( !emu_type )
+-				return gme_wrong_file_type;
++				return "Wrong file type";
+ 			emu_ = gme_new_emu( emu_type, sample_rate );
+ 			if ( !emu_ )
+ 				return "Out of memory";
+-			RETURN_ERR( gme_load_tracks( emu_, buf.begin(), sizes.begin(), n ) );
++			if ( gme_fixed_track_count( emu_type ) == 1 )
++				RETURN_GME_ERR( gme_load_tracks( emu_, buf.begin(), sizes.begin(), n ) );
++			else
++				RETURN_GME_ERR( gme_load_data( emu_, buf.begin(), sizes[0] ) );
+ 		}
+ 		else
+-			RETURN_ERR( gme_open_file( path, &emu_, sample_rate ) );
++			RETURN_GME_ERR( gme_open_file( path, &emu_, sample_rate ) );
+ 	}
+ 
+ 	char m3u_path [256 + 5];
+@@ -202,7 +214,7 @@ gme_err_t Music_Player::load_file(const char* path , bool by_mem)
+ 	strcpy( p, ".m3u" );
+ 	if ( gme_load_m3u( emu_, m3u_path ) ) { } // ignore error
+ 
+-	return 0;
++	return nullptr;
+ }
+ 
+ int Music_Player::track_count() const
+@@ -210,17 +222,17 @@ int Music_Player::track_count() const
+ 	return emu_ ? gme_track_count( emu_ ) : false;
+ }
+ 
+-gme_err_t Music_Player::start_track( int track )
++const char* Music_Player::start_track( int track )
+ {
+ 	if ( emu_ )
+ 	{
+ 		// Sound must not be running when operating on emulator
+ 		sound_stop();
+-		RETURN_ERR( gme_start_track( emu_, track ) );
++		RETURN_GME_ERR( gme_start_track( emu_, track ) );
+ 
+ 		gme_free_info( track_info_ );
+ 		track_info_ = nullptr;
+-		RETURN_ERR( gme_track_info( emu_, &track_info_, track ) );
++		RETURN_GME_ERR( gme_track_info( emu_, &track_info_, track ) );
+ 
+ 		// Calculate track length
+ 		if ( track_info_->length <= 0 )
+@@ -228,13 +240,13 @@ gme_err_t Music_Player::start_track( int track )
+ 						track_info_->loop_length * 2;
+ 
+ 		if ( track_info_->length <= 0 )
+-			track_info_->length = (long) (2.5 * 60 * 1000);
++			track_info_->length = (uint32_t) (2.5 * 60 * 1000);
+ 		gme_set_fade_msecs( emu_, track_info_->length, 8000 );
+ 
+ 		paused = false;
+ 		sound_start();
+ 	}
+-	return 0;
++	return nullptr;
+ }
+ 
+ void Music_Player::pause( int b )
+@@ -291,6 +303,11 @@ void Music_Player::set_echo_disable( bool d )
+ 	resume();
+ }
+ 
++void Music_Player::set_volume( double vol )
++{
++	volume = vol;
++}
++
+ void Music_Player::mute_voices( int mask )
+ {
+ 	suspend();
+@@ -331,12 +348,14 @@ void Music_Player::fill_buffer( void* data, sample_t* out, int count )
+ 
+ 		if ( self->scope_buf )
+ 			memcpy( self->scope_buf, out, self->scope_buf_size * sizeof *self->scope_buf );
++
++		while ( count-- ) out[count] *= self->volume;
+ 	}
+ }
+ 
+ // Sound output driver using SDL
+ 
+-#include "SDL.h"
++#include <SDL2/SDL_audio.h>
+ 
+ static sound_callback_t sound_callback;
+ static void* sound_callback_data;
+@@ -347,7 +366,7 @@ static void sdl_callback( void* /* data */, Uint8* out, int count )
+ 		sound_callback( sound_callback_data, (short*) out, count / 2 );
+ }
+ 
+-static const char* sound_init( long sample_rate, int buf_size,
++static const char* sound_init( uint32_t sample_rate, int buf_size,
+ 		sound_callback_t cb, void* data )
+ {
+ 	sound_callback = cb;
+@@ -359,7 +378,7 @@ static const char* sound_init( long sample_rate, int buf_size,
+ 	as.channels = 2;
+ 	as.callback = sdl_callback;
+ 	as.samples  = buf_size;
+-	if ( SDL_OpenAudio( &as, 0 ) < 0 )
++	if ( SDL_OpenAudio( &as, nullptr ) < 0 )
+ 	{
+ 		const char* err = SDL_GetError();
+ 		if ( !err )
+@@ -367,7 +386,7 @@ static const char* sound_init( long sample_rate, int buf_size,
+ 		return err;
+ 	}
+ 
+-	return 0;
++	return nullptr;
+ }
+ 
+ static void sound_start()
+diff --git a/player/Music_Player.h b/player/Music_Player.h
+index c9e95c0..4d441e3 100644
+--- a/player/Music_Player.h
++++ b/player/Music_Player.h
+@@ -4,21 +4,19 @@
+ #ifndef MUSIC_PLAYER_H
+ #define MUSIC_PLAYER_H
+ 
+-#include <stddef.h>
+-#include <assert.h>
+-#include <stdlib.h>
+ #include "gme/gme.h"
++#include <cstdint>
+ 
+ class Music_Player {
+ public:
+ 	// Initialize player and set sample rate
+-	gme_err_t init( long sample_rate = 44100 );
++	const char* init( uint32_t sample_rate = 44100 );
+ 
+ 	// Load game music file. NULL on success, otherwise error string.
+-	gme_err_t load_file( const char* path, bool by_mem );
++	const char* load_file( const char* path, bool by_mem );
+ 
+ 	// (Re)start playing track. Tracks are numbered from 0 to track_count() - 1.
+-	gme_err_t start_track( int track );
++	const char* start_track( int track );
+ 
+ 	// Stop playing current file
+ 	void stop();
+@@ -52,6 +50,9 @@ public:
+ 	// Disable echo at SPC files
+ 	void set_echo_disable( bool );
+ 
++	// Set volume, 0 for silence and 1 for full volume
++	void set_volume( double );
++
+ 	// Set voice muting bitmask
+ 	void mute_voices( int );
+ 
+@@ -75,46 +76,15 @@ public:
+ private:
+ 	Music_Emu* emu_;
+ 	sample_t* scope_buf;
+-	long sample_rate;
++	uint32_t sample_rate;
+ 	int scope_buf_size;
+ 	bool paused;
+ 	gme_info_t* track_info_;
++	double volume;
+ 
+ 	void suspend();
+ 	void resume();
+ 	static void fill_buffer( void*, sample_t*, int );
+ };
+ 
+-// Use to force disable exceptions for a specific allocation no matter what class
+-#include <new>
+-#define GME_NEW new (std::nothrow)
+-
+-// gme_vector - very lightweight vector of POD types (no constructor/destructor)
+-template<class T>
+-class gme_vector {
+-	T* begin_;
+-	size_t size_;
+-public:
+-	gme_vector() : begin_( 0 ), size_( 0 ) { }
+-	~gme_vector() { free( begin_ ); }
+-	size_t size() const { return size_; }
+-	T* begin() const { return begin_; }
+-	T* end() const { return begin_ + size_; }
+-	gme_err_t resize( size_t n )
+-	{
+-		void* p = realloc( begin_, n * sizeof (T) );
+-		if ( !p && n )
+-			return "Out of memory";
+-		begin_ = (T*) p;
+-		size_ = n;
+-		return 0;
+-	}
+-	void clear() { free( begin_ ); begin_ = nullptr; size_ = 0; }
+-	T& operator [] ( size_t n ) const
+-	{
+-		assert( n <= size_ ); // <= to allow past-the-end value
+-		return begin_ [n];
+-	}
+-};
+-
+ #endif
+diff --git a/player/player.cpp b/player/player.cpp
+index 9400b54..7263b1d 100644
+--- a/player/player.cpp
++++ b/player/player.cpp
+@@ -23,10 +23,12 @@ static int const scope_height = 512;
+ #include "Music_Player.h"
+ #include "Audio_Scope.h"
+ 
+-#include <string.h>
+-#include <stdlib.h>
+-#include <stdio.h>
+-#include "SDL.h"
++#include <new>
++#include <cstring>
++#include <cstdlib>
++#include <cstdio>
++#include <cmath>
++#include <SDL2/SDL.h>
+ 
+ static const char *usage = R"(
+ Left/Right  Change track
+@@ -57,7 +59,7 @@ static void init( void )
+ 	atexit( SDL_Quit );
+ 
+ 	// Init scope
+-	scope = GME_NEW Audio_Scope;
++	scope = new (std::nothrow) Audio_Scope;
+ 	if ( !scope )
+ 		handle_error( "Out of memory" );
+ 	std::string err_msg = scope->init( scope_width, scope_height );
+@@ -66,21 +68,16 @@ static void init( void )
+ 	memset( scope_buf, 0, sizeof scope_buf );
+ 
+ 	// Create player
+-	player = GME_NEW Music_Player;
++	player = new (std::nothrow) Music_Player;
+ 	if ( !player )
+ 		handle_error( "Out of memory" );
+ 	handle_error( player->init() );
+ 	player->set_scope_buffer( scope_buf, scope_width * 2 );
+ }
+ 
+-static void start_track( int track, const char* path )
++static void update_window_title(  int track, const char* path, int dB )
+ {
+-	paused = false;
+-	handle_error( player->start_track( track - 1 ) );
+-
+-	// update window title with track info
+-
+-	long seconds = player->track_info().length / 1000;
++	uint32_t seconds = player->track_info().length / 1000;
+ 	const char* game = player->track_info().game;
+ 	if ( !*game )
+ 	{
+@@ -94,15 +91,30 @@ static void start_track( int track, const char* path )
+ 			game++; // skip path separator
+ 	}
+ 
++	char decibel [12];
++	if (dB <= -60)
++	{
++		memcpy(decibel, "-∞", 5);
++	}
++	else
++		snprintf(decibel, sizeof decibel, "%+d", dB);
++
+ 	char title [512];
+-	if ( 0 < snprintf( title, sizeof title, "%s: %d/%d %s (%ld:%02ld)",
++	if ( 0 < snprintf( title, sizeof title, "%s: %d/%d %s (%d:%02d) %s dB",
+ 			game, track, player->track_count(), player->track_info().song,
+-			seconds / 60, seconds % 60 ) )
++			seconds / 60, seconds % 60, decibel ) )
+ 	{
+ 		scope->set_caption( title );
+ 	}
+ }
+ 
++static void start_track( int track, const char* path, int dB )
++{
++	paused = false;
++	handle_error( player->start_track( track - 1 ) );
++	update_window_title( track, path, dB );
++}
++
+ int main( int argc, char** argv )
+ {
+ 	init();
+@@ -118,9 +130,14 @@ int main( int argc, char** argv )
+ 			path = argv[i];
+ 	}
+ 
++	// Set volume
++	int dB = -20;
++	const double k = log( 10 ) / 20;
++	player->set_volume( exp( k * dB ) );
++
+ 	// Load file
+ 	handle_error( player->load_file( path, by_mem ) );
+-	start_track( 1, path );
++	start_track( 1, path, dB );
+ 
+ 	// Main loop
+ 	int track = 1;
+@@ -140,7 +157,7 @@ int main( int argc, char** argv )
+ 		if ( player->track_ended() )
+ 		{
+ 			if ( track < player->track_count() )
+-				start_track( ++track, path );
++				start_track( ++track, path, dB );
+ 			else
+ 				player->pause( paused = true );
+ 		}
+@@ -167,12 +184,12 @@ int main( int argc, char** argv )
+ 				case SDL_SCANCODE_LEFT: // prev track
+ 					if ( !paused && !--track )
+ 						track = 1;
+-					start_track( track, path );
++					start_track( track, path, dB );
+ 					break;
+ 
+ 				case SDL_SCANCODE_RIGHT: // next track
+ 					if ( track < player->track_count() )
+-						start_track( ++track, path );
++						start_track( ++track, path, dB );
+ 					break;
+ 
+ 				case SDL_SCANCODE_MINUS: // reduce tempo
+@@ -226,12 +243,16 @@ int main( int argc, char** argv )
+ 					player->mute_voices( muting_mask );
+ 					break;
+ 
+-				case SDL_SCANCODE_DOWN: // Seek back
+-					player->seek_backward();
++				case SDL_SCANCODE_DOWN: // Volume down
++					dB = std::max(-60, dB - 1);
++					player->set_volume( dB <= -60 ? 0 : exp( k * dB ) );
++					update_window_title( track, path, dB );
+ 					break;
+ 
+-				case SDL_SCANCODE_UP: // Seek forward
+-					player->seek_forward();
++				case SDL_SCANCODE_UP: // Volume up
++					dB = std::min(dB + 1, 0);
++					player->set_volume( exp( k * dB ) );
++					update_window_title( track, path, dB );
+ 					break;
+ 
+ 				case SDL_SCANCODE_H: // help
+diff --git a/test.m3u b/test.m3u
+index 19938a6..580a94c 100644
+--- a/test.m3u
++++ b/test.m3u
+@@ -1,2 +1,2 @@
+ # filename,track number,track name,track time
+-test.nsf,$00,BGM C,0:01:16.78
++test.nsf,$00,BGM C,0:01:16.78,,1.5
+diff --git a/test/Wave_Writer.cpp b/test/Wave_Writer.cpp
+index 9cd435b..a889e70 100644
+--- a/test/Wave_Writer.cpp
++++ b/test/Wave_Writer.cpp
+@@ -2,9 +2,9 @@
+ 
+ #include "Wave_Writer.h"
+ 
+-#include <assert.h>
+-#include <stdint.h>
+-#include <stdlib.h>
++#include <cassert>
++#include <cstdint>
++#include <cstdlib>
+ 
+ /* Copyright (C) 2003-2006 by Shay Green. Permission is hereby granted, free
+ of charge, to any person obtaining a copy of this software and associated
+diff --git a/test/Wave_Writer.h b/test/Wave_Writer.h
+index 8e28757..68f5bf3 100644
+--- a/test/Wave_Writer.h
++++ b/test/Wave_Writer.h
+@@ -19,8 +19,7 @@ void wave_close( void );
+ #endif
+ 
+ #ifdef __cplusplus
+-#include <stddef.h>
+-#include <stdio.h>
++#include <cstdio>
+ 
+ /* C++ interface */
+ class Wave_Writer {

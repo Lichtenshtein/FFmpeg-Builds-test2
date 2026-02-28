@@ -1,0 +1,1145 @@
+From dc0a1079cc9de20236022870138b72ab4a6b8e02 Mon Sep 17 00:00:00 2001
+From: DX Lim <dxlim@outlook.com>
+Date: Fri, 18 Jul 2025 13:32:47 -0700
+Subject: [PATCH] Modified demo player for the GME library
+
+https://github.com/melvinlim/game-music-emu
+---
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 9128a6e..1e12a19 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -42,6 +42,7 @@ option(GME_SPC_ISOLATED_ECHO_BUFFER "Enable isolated echo buffer on SPC emulator
+ option(GME_ZLIB "Enable GME to support compressed sound formats" ON)
+ 
+ set(GME_YM2612_EMU "Nuked" CACHE STRING "Which YM2612 emulator to use: \"Nuked\" (LGPLv2.1+), \"MAME\" (GPLv2+), or \"GENS\" (LGPLv2.1+)")
++#set(GME_YM2612_EMU "GENS" CACHE STRING "Which YM2612 emulator to use: \"Nuked\" (LGPLv2.1+), \"MAME\" (GPLv2+), or \"GENS\" (LGPLv2.1+)")
+ set(GME_YM2612_EMU_CHOICES "Nuked;MAME;GENS")
+ set_property(CACHE GME_YM2612_EMU PROPERTY STRINGS "${GME_YM2612_EMU_CHOICES}")
+ 
+diff --git a/gme/Music_Emu.cpp b/gme/Music_Emu.cpp
+index 0062e4b..a061f21 100644
+--- a/gme/Music_Emu.cpp
++++ b/gme/Music_Emu.cpp
+@@ -322,6 +322,7 @@ blargg_err_t Music_Emu::skip_( long count )
+ void Music_Emu::set_fade( long start_msec, long length_msec )
+ {
+ 	fade_step = max(1L, sample_rate() * length_msec / (fade_block_size * fade_shift * 1000 / out_channels()));
++	if(fade_step < 1)	fade_step = 1;
+ 	fade_start = msec_to_samples( start_msec );
+ }
+ 
+@@ -460,7 +460,9 @@ blargg_err_t Music_Emu::play( long out_count, sample_t* out )
+ 		}
+ 
+ 		if ( fade_start >= 0 && out_time > fade_start )
++		{
+ 			handle_fade( out_count, out );
++		}
+ 	}
+ 	out_time += out_count;
+ 	out_time_scaled += int32_t(out_count * tempo_ / out_channels());
+diff --git a/gme/Vgm_Emu_Impl.cpp b/gme/Vgm_Emu_Impl.cpp
+index 81a3a61..37b6c7e 100644
+--- a/gme/Vgm_Emu_Impl.cpp
++++ b/gme/Vgm_Emu_Impl.cpp
+@@ -48,6 +48,24 @@ enum {
+ 
+ static inline int command_len( int command )
+ {
++	switch ( command)
++	{
++		case 0x50:
++		case 0x94:
++			return 2;
++		case 0x40:
++			return 3;
++		case 0x90:
++		case 0x91:
++		case 0x95:
++			return 5;
++		case 0x92:
++			return 6;
++		case 0x93:
++			return 11;
++		case 0x68:
++			return 12;
++	}
+ 	switch ( command >> 4 )
+ 	{
+ 		case 0x03:
+@@ -265,8 +265,17 @@ blip_time_t Vgm_Emu_Impl::run_commands( vgm_time_t end_time )
+ 					break;
+ 
+ 				default:
+-					pos += command_len( cmd ) - 1;
+-					set_warning( WARN_STREAM_EVENT_UNKNOWN );
++					pos += command_len( cmd ) - 1;		//cmd = pos [-1].  see above.  also pos pointer was incremented by one way back at the switch statement.
++					if(pos > data_end)	pos = data_end;
++					if(cmd >= 0x30)		//0x30 is the smallest vgm opcode according to https://vgmrips.net/wiki/VGM_Specification#Commands
++					{
++						snprintf(errstr, sizeof errstr, "Unknown stream event: 0x%x", cmd);
++						set_warning( errstr );
++					}
++					else
++					{
++						set_warning( "Tried to execute data" );
++					}
+ 			}
+ 		}
+ 	}
+diff --git a/gme/Vgm_Emu_Impl.h b/gme/Vgm_Emu_Impl.h
+index a8588d4..c4335fa 100644
+--- a/gme/Vgm_Emu_Impl.h
++++ b/gme/Vgm_Emu_Impl.h
+@@ -10,6 +10,10 @@
+ #include "Ym2612_Emu.h"
+ #include "Sms_Apu.h"
+ 
++#include <stdio.h>
++
++static char errstr[256];
++
+ template<class Emu>
+ class Ym_Emu : public Emu {
+ protected:
+diff --git a/gme/gme.cpp b/gme/gme.cpp
+index 35fb517..2c5766e 100644
+--- a/gme/gme.cpp
++++ b/gme/gme.cpp
+@@ -325,6 +325,7 @@ gme_err_t gme_track_info( Music_Emu const* me, gme_info_t** out, int track )
+ 	COPY( intro_length );
+ 	COPY( loop_length );
+ 	COPY( fade_length );
++	COPY( play_length );
+ 
+ 	info->i5  = -1;
+ 	info->i6  = -1;
+@@ -358,14 +359,6 @@ gme_err_t gme_track_info( Music_Emu const* me, gme_info_t** out, int track )
+ 
+ 	#undef COPY
+ 
+-	info->play_length = info->length;
+-	if ( info->play_length <= 0 )
+-	{
+-		info->play_length = info->intro_length + 2 * info->loop_length; // intro + 2 loops
+-		if ( info->play_length <= 0 )
+-			info->play_length = 150 * 1000; // 2.5 minutes
+-	}
+-
+ 	*out = info;
+ 
+ 	return 0;
+diff --git a/player/Audio_Scope.cpp b/player/Audio_Scope.cpp
+index 5eb3d30..efbf0c3 100644
+--- a/player/Audio_Scope.cpp
++++ b/player/Audio_Scope.cpp
+@@ -79,6 +79,8 @@ Audio_Scope::Audio_Scope()
+ {
+ }
+ 
++#define SDL_FLAGS SDL_WINDOW_ALWAYS_ON_TOP
++
+ Audio_Scope::~Audio_Scope()
+ {
+ 	free( scope_lines );
+@@ -108,11 +110,11 @@ std::string Audio_Scope::init( int width, int height )
+ 	v_offset = (height - largest_power_of_2_within(height)) / 2;
+ 
+ 	// What the user will see
+-	window = SDL_CreateWindow( "libgme sample player",
++	window = SDL_CreateWindow( "libgme player",
+ 			SDL_WINDOWPOS_UNDEFINED,
+ 			SDL_WINDOWPOS_UNDEFINED,
+ 			width, height,
+-			0 /* no flags */ );
++			SDL_FLAGS );
+ 	RETURN_SDL_ERR( window, "Couldn't create output window" );
+ 
+ 	// Render object used to update window (perhaps in video or GPU ram)
+diff --git a/player/CMakeLists.txt b/player/CMakeLists.txt
+index 2b38aaf..6b61ae9 100644
+--- a/player/CMakeLists.txt
++++ b/player/CMakeLists.txt
+@@ -13,6 +13,8 @@ set(player_SRCS Audio_Scope.cpp
+                 Music_Player.h
+                 Archive_Reader.cpp
+                 Archive_Reader.h
++								Utils.cpp
++								Utils.h
+                 player.cpp)
+ 
+ if(SDL2_FOUND)
+@@ -24,9 +26,11 @@ if(SDL2_FOUND)
+         ${PROJECT_SOURCE_DIR}/gme
+     )
+     set_property(TARGET gme_player PROPERTY CXX_STANDARD_REQUIRED ON)
+-    set_property(TARGET gme_player PROPERTY CXX_STANDARD 11)
++		#set_property(TARGET gme_player PROPERTY CXX_STANDARD 11)
++    set_property(TARGET gme_player PROPERTY CXX_STANDARD 17)
+     target_link_libraries(gme_player PRIVATE ${SDL2_LIBRARIES} gme::gme)
+     # Is not to be installed though
++    target_link_libraries(gme_player PRIVATE ncurses)
+ 
+     if(GME_UNRAR)
+       if(UNRAR_FOUND)
+diff --git a/player/Music_Player.cpp b/player/Music_Player.cpp
+index 899bde0..4b6efa6 100644
+--- a/player/Music_Player.cpp
++++ b/player/Music_Player.cpp
+@@ -119,8 +119,6 @@ gme_err_t Music_Player::load_file(const char* path , bool by_mem)
+ 
+ 	if ( by_mem )
+ 	{
+-		printf( "Loading file %s by memory...\n", path );
+-		fflush( stdout );
+ 
+ 		SDL_RWops *file = SDL_RWFromFile(path, "rb");
+ 
+@@ -148,8 +146,6 @@ gme_err_t Music_Player::load_file(const char* path , bool by_mem)
+ 	}
+ 	else
+ 	{
+-		printf( "Loading file %s by file path...\n", path );
+-		fflush( stdout );
+ 
+ 		const arc_type_t* arc = identify_archive( path );
+ 		if ( arc )
+@@ -202,6 +198,7 @@ gme_err_t Music_Player::load_file(const char* path , bool by_mem)
+ 	strcpy( p, ".m3u" );
+ 	if ( gme_load_m3u( emu_, m3u_path ) ) { } // ignore error
+ 
++	//gme_ignore_silence(emu_, 1);
+ 	return nullptr;
+ }
+ 
+@@ -235,13 +235,18 @@ const char* Music_Player::start_track( int track )
+ 		RETURN_GME_ERR( gme_track_info( emu_, &track_info_, track ) );
+ 
+ 		// Calculate track length
+-		if ( track_info_->length <= 0 )
+-			track_info_->length = track_info_->intro_length +
+-						track_info_->loop_length * 2;
+-
+-		if ( track_info_->length <= 0 )
+-			track_info_->length = (uint32_t) (2.5 * 60 * 1000);
+-		gme_set_fade_msecs( emu_, track_info_->length, 8000 );
++		if ( track_info_->play_length > 0 )
++			playtime = track_info_->play_length;
++		else
++			playtime = track_info_->intro_length +	track_info_->loop_length * 1;
++		
++		if ( playtime <= 0 )
++			playtime = track_info_->length;
++
++		if ( playtime <= 0 )
++			playtime = (uint32_t) (60 * 1000);
++			//track_info_->length = (uint32_t) (2.5 * 60 * 1000);
++		//gme_set_fade_msecs( emu_, track_info_->length, 1 );
+ 
+ 		paused = false;
+ 		sound_start();
+@@ -241,9 +243,13 @@ void Music_Player::pause( int b )
+ {
+ 	paused = b;
+ 	if ( b )
++	{
+ 		sound_stop();
++	}
+ 	else
++	{
+ 		sound_start();
++	}
+ }
+ 
+ void Music_Player::suspend()
+@@ -299,6 +305,16 @@ void Music_Player::mute_voices( int mask )
+ 	resume();
+ }
+ 
++int Music_Player::get_voice_count()
++{
++	return gme_voice_count(emu_);
++}
++
++const char* Music_Player::get_voice_name(int i)
++{
++	return gme_voice_name(emu_, i);
++}
++
+ void Music_Player::seek_forward()
+ {
+ 	suspend();
+@@ -334,25 +334,43 @@ void Music_Player::seek_backward()
+ 	resume();
+ }
+ 
+-void Music_Player::set_fadeout( bool fade )
++void Music_Player::set_fadeout( int fadems )
+ {
+-	gme_set_fade_msecs( emu_, fade ? track_info_->length : -1, 8000 );
++	if(track_info_)
++		gme_set_fade_msecs(emu_, playtime - fadems, fadems);
++		//gme_set_fade_msecs(emu_, playtime, fadems);
+ }
+ 
+ void Music_Player::fill_buffer( void* data, sample_t* out, int count )
+ {
+ 	Music_Player* self = (Music_Player*) data;
++	self->maxval=0;
+ 	if ( self->emu_ )
+ 	{
+ 		if ( gme_play( self->emu_, count, out ) ) { } // ignore error
+ 
+ 		if ( self->scope_buf )
+ 			memcpy( self->scope_buf, out, self->scope_buf_size * sizeof *self->scope_buf );
+-
++		for(int i=0; i<count; i++)
++		{
++			if(out[i] > self->maxval)	self->maxval = out[i];
++		}
++		//printf("%d\n", self->maxval);
+ 		while ( count-- ) out[count] *= self->volume;
+ 	}
+ }
+ 
++int Music_Player::get_time()
++{
++	int pos = gme_tell( emu_ );
++	return pos;
++}
++
++const char* Music_Player::get_error()
++{
++	return gme_warning( emu_ );
++}
++
+ // Sound output driver using SDL
+ 
+ #include <SDL2/SDL_audio.h>
+diff --git a/player/Music_Player.h b/player/Music_Player.h
+index c9e95c0..159c614 100644
+--- a/player/Music_Player.h
++++ b/player/Music_Player.h
+@@ -61,14 +61,25 @@ public:
+ 	// Move back to 1 second
+ 	void seek_backward();
+ 
+-	// Toggle whether fadeout is used or not. If used, stops at track length,
+-	// if not used, loop forever
+-	void set_fadeout( bool do_fade );
++	// Set fadeout length in milliseconds.  Set to 1 to turn off fadeout.
++	void set_fadeout( int fadems );
+ 
+ 	// Set buffer to copy samples from each buffer into, or NULL to disable
+ 	typedef short sample_t;
+ 	void set_scope_buffer( sample_t* buf, int size ) { scope_buf = buf; scope_buf_size = size; }
+ 
++	int get_time();
++
++	const char *get_error();
++
++	int get_voice_count();
++
++	const char* get_voice_name(int i);
++
++	int get_maxval()	{ return maxval; }
++
++	int playtime;
++
+ public:
+ 	Music_Player();
+ 	~Music_Player();
+@@ -83,6 +94,8 @@ private:
+ 	void suspend();
+ 	void resume();
+ 	static void fill_buffer( void*, sample_t*, int );
++
++	int maxval;
+ };
+ 
+ #endif
+diff --git a/player/Utils.cpp b/player/Utils.cpp
+new file mode 100644
+index 0000000..4d0651f
+--- /dev/null
++++ b/player/Utils.cpp
+@@ -0,0 +1,53 @@
++#include "Utils.h"
++
++//	https://stackoverflow.com/questions/2347770/how-do-you-clear-the-console-screen-in-c
++void ClearScreen()
++{
++	if (!cur_term)
++	{
++		int result;
++		setupterm( NULL, STDOUT_FILENO, &result );
++		if (result <= 0) return;
++	}
++
++	putp( tigetstr( "clear" ) );
++}
++
++namespace fs = std::filesystem;
++
++std::vector<std::string> supportedExt = {".nsf", ".vgm", ".vgz", ".spc", ".gbs"};
++
++std::list<std::string> getFileList()
++{
++	std::list<std::string> result;
++
++	std::filesystem::path directory_path = std::filesystem::current_path();
++	directory_path = std::filesystem::current_path();
++
++	if (!fs::exists(directory_path) || !fs::is_directory(directory_path)) {
++		std::cerr << "Error: Directory does not exist or is not a directory." << std::endl;
++		return result;
++	}
++
++	for (const auto& entry : fs::recursive_directory_iterator(directory_path)) {
++		if (fs::is_regular_file(entry.status())) {
++			std::string filename = entry.path().filename().string();
++			std::string extension = entry.path().extension().string();
++
++			//std::cout << "File: " << filename;
++			if (!extension.empty()) {
++				//std::cout << " (Extension: " << extension << ")";
++				auto finder = std::find(supportedExt.begin(), supportedExt.end(), extension);
++				if(finder != supportedExt.end()){
++					//result.push_back(filename);
++					result.push_back(entry.path().string());
++				}
++			}
++			std::cout << std::endl;
++		}
++	}
++
++	result.sort();
++
++	return result;
++}
+diff --git a/player/Utils.h b/player/Utils.h
+new file mode 100644
+index 0000000..5dd457b
+--- /dev/null
++++ b/player/Utils.h
+@@ -0,0 +1,19 @@
++#ifndef UTILS_H
++#define UTILS_H
++
++#include <unistd.h>
++#include <term.h>
++
++#include <iostream>
++#include <filesystem>
++#include <string>
++#include <list>
++#include <vector>
++#include <algorithm>
++
++//	https://stackoverflow.com/questions/2347770/how-do-you-clear-the-console-screen-in-c
++void ClearScreen();
++
++std::list<std::string> getFileList();
++
++#endif
+diff --git a/player/player.cpp b/player/player.cpp
+index 9400b54..5719480 100644
+--- a/player/player.cpp
++++ b/player/player.cpp
+@@ -22,24 +22,28 @@ static int const scope_height = 512;
+ #include "Audio_Scope.h"
++#include "Utils.h"
+ 
+ #include <new>
+ #include <cstring>
+ #include <cstdlib>
+ #include <cstdio>
+ #include <cmath>
++#include <ncurses.h>
++#include <time.h>
+ #include <SDL2/SDL.h>
+ 
+ static const char *usage = R"(
+ Left/Right  Change track
+-Up/Down     Seek to one second forward/backward (if possible)
++Up/Down     Seek one second forward/backward (if possible)
++N/P         Play next/previous file
+ Space       Pause/unpause
+ E           Normal/slight stereo echo/more stereo echo
+ D           Toggle echo processing
+ A           Enable/disable accurate emulation
+-H           Show help message
+ L           Toggle track looping (infinite playback)
+ -/=         Adjust tempo
+ 1-9         Toggle channel on/off
+-0           Reset tempo and turn channels back on */
++0           Reset tempo and turn channels back on
++Q/Esc       Quit
+ )";
+ 
+ static void handle_error( const char* );
+@@ -49,8 +53,110 @@ static Audio_Scope* scope;
+ static Music_Player* player;
+ static short scope_buf [scope_width * 2];
+ 
++#define TBSZ 4096
++static char textBuffer[TBSZ] = {0};
++
++static std:: string nextFile;
++static char title [512];
++static char info_track_num[256] = {0};
++static char errorstr[256] = {0};
++static char extra_info[512] = {0};
++
++static int loadedFiles = 0;
++
++// Main loop
++std::list<std::string> files;
++std::list<std::string>::iterator filePointer;
++static bool by_mem = false;
++static char path[1024] = {0};
++static int track = 0;
++static double tempo = 1.0;
++static bool running = true;
++static double stereo_depth = 0.0;
++static bool accurate = true;
++static bool echo_disabled = false;
++static bool fading_out = true;
++static int muting_mask = 0;
++static bool looping = false;
++static bool shuffle = true;
++static int prevFileOffset = 0;
++
++static char errBuffer[4096] = {0};
++static char* errBufPtr = errBuffer;
++
++//static int songMaxval = 0;
++
++static void printTime(int seconds)
++{
++	printw("(%02d:%02d)", seconds / 60, seconds % 60 );
++}
++static void printInfo()
++{
++	//ClearScreen();
++	move(0,0);
++	printw( "%s\n", usage );
++	//printw("%d\n", player->get_time());
++	printTime(player->get_time()/1000);
++	long seconds = player->playtime / 1000;
++	printw("/");
++	printTime(seconds);
++	printw("\n");
++	printw("%s\n", path);
++	printw("\n%s\n", extra_info);
++	printw("\n%s\n", info_track_num);
++	printw("%s\n", textBuffer);
++
++	printw("songlen:  %d\n",player->track_info().length);
++	printw("looplen:  %d\n",player->track_info().loop_length);
++	printw("introlen: %d\n",player->track_info().intro_length);
++	printw("fadelen:  %d\n",player->track_info().fade_length);
++	printw("playlen:  %d\n",player->track_info().play_length);
++	printw("\n");
++
++/*
++	if(player->track_info().fade_length > 0)
++	{
++		printw("fadelen:  %d\n",player->track_info().fade_length);
++	}
++*/
++
++	int voicecount=player->get_voice_count();
++	printw("voice count: %d\n",voicecount);
++	for(int i=0;i<voicecount;i++)
++	{
++		printw("voice %d: %s %s\n", i+1, player->get_voice_name(i), (muting_mask&(1<<i)) ? "[MUTED]" : "");
++	}
++	for(int i=voicecount;i<8;i++){
++		clrtoeol();
++		printw("\n");
++	}
++	printw("\n");
++
++	clrtoeol();
++	printw( "%.*s \n", int (player->get_maxval()*40/16384), "**************************************************************************************" );				//16384 = 2**16/4
++	//if( player->get_maxval() > songMaxval )	songMaxval = player->get_maxval();
++	//printw( "%d \n", songMaxval );
++
++	const char *errPtr=player->get_error();
++	static char errStr[2048] = {0};
++	if(errPtr){
++		time_t seconds_since_epoch = time(0);
++		snprintf(errStr, sizeof errStr, "%ld: %s: %s\n", seconds_since_epoch, path, errPtr);
++		snprintf(errBufPtr, errBuffer + sizeof errBuffer - errBufPtr, "%s", errStr);
++		errBufPtr += strlen(errStr);
++		if(errBufPtr > errBuffer + sizeof errBuffer)	errBufPtr = errBuffer;
++	}
++	printw("\n%s", errBuffer);
++
++	refresh();
++}
++
+ static void init( void )
+ {
++	initscr();	//initialize ncurses
++	noecho();		//turn off echo
++	nl();				//translate \n to \r\n
++
+ 	// Start SDL
+ 	if ( SDL_Init( SDL_INIT_VIDEO | SDL_INIT_AUDIO ) < 0 )
+ 		exit( EXIT_FAILURE );
+@@ -77,7 +77,7 @@ static void init( void )
+ 
+ static void update_window_title(  int track, const char* path, int dB )
+ {
+-	uint32_t seconds = player->track_info().length / 1000;
++	uint32_t seconds = player->playtime / 1000;
+ 	const char* game = player->track_info().game;
+ 	if ( !*game )
+ 	{
+@@ -111,7 +111,8 @@ static void update_window_title(  int track, const char* path, int dB )
+ static void start_track( int track, const char* path, int dB )
+ {
+ 	paused = false;
+-	handle_error( player->start_track( track - 1 ) );
++	handle_error( player->start_track( track ) );
++	snprintf(info_track_num, sizeof info_track_num, "Playing track %d / %d.", track+1, player->track_count());
+ 	update_window_title( track, path, dB );
+ }
+ 
+diff --git i/player/player.cpp w/player/player.cpp
+index 7263b1d..33b1ed6 100644
+--- i/player/player.cpp
++++ w/player/player.cpp
+@@ -99,13 +99,65 @@ static void update_window_title(  int track, const char* path, int dB )
+ 	else
+ 		snprintf(decibel, sizeof decibel, "%+d", dB);
+ 
+-	char title [512];
+ 	if ( 0 < snprintf( title, sizeof title, "%s: %d/%d %s (%d:%02d) %s dB",
+-			game, track, player->track_count(), player->track_info().song,
++			game, track+1, player->track_count(), player->track_info().song,
+ 			seconds / 60, seconds % 60, decibel ) )
+ 	{
++		//snprintf( extra_info, sizeof extra_info, "%s, %s, %s, author: %s, %s, %s, ripper: %s",
++		snprintf( extra_info, sizeof extra_info,"\
++	system: %s\n\
++	game:   %s\n\
++	song:   %s\n\
++	author: %s\n\
++	%s\n\
++	%s\n\
++	ripper: %s",
++			player->track_info().system,
++			player->track_info().game,
++			*player->track_info().song ? player->track_info().song : game,
++			player->track_info().author,
++			player->track_info().copyright,
++			player->track_info().comment,
++			player->track_info().dumper
++		);
++		
+ 		scope->set_caption( title );
+ 	}
++	if(player->track_info().fade_length >= 0)
++	{
++		player->set_fadeout(player->track_info().fade_length);
++	}
++	else
++	{
++		player->set_fadeout(fading_out ? 2000 : 1);
++	}
++}
++
++static void loadAndPlay(){
++	muting_mask = 0;
++	if(shuffle)
++	{
++		filePointer = files.begin();
++		int randOffset=0;
++		randOffset = rand() % loadedFiles;
++		if(randOffset == 0)
++		{
++			randOffset = 1;
++		}
++		randOffset = (prevFileOffset + randOffset) % loadedFiles;
++		prevFileOffset = randOffset;
++		for(int ivar = 0; ivar++ < randOffset ; filePointer++);
++		nextFile = *filePointer;
++		nextFile.copy(path, nextFile.length());
++		path[nextFile.length()]='\0';
++	}
++	handle_error( player->load_file( path, by_mem ) );
++	if(shuffle)
++	{
++		track = rand() % player->track_count();
++	}
++	player->enable_accuracy( accurate );
++	start_track( track++, path );
+ }
+ 
+ static void start_track( int track, const char* path, int dB )
+@@ -119,15 +171,26 @@ int main( int argc, char** argv )
+ {
+ 	init();
+ 
+-	bool by_mem = false;
+-	const char* path = "test.nsf";
++	files = getFileList();
++	filePointer = files.begin();
++	loadedFiles = files.size();
++	if(loadedFiles > 0)
++	{
++		nextFile = *filePointer;
++		nextFile.copy(path, nextFile.length());
++		path[nextFile.length()]='\0';
++	}
++	else
++	{
++		handle_error("failed to locate any files in the current directory.  please run this application from a directory containing nsf/smc/vgm/vgz files.");
++	}
+ 
+ 	for ( int i = 1; i < argc; ++i )
+ 	{
+ 		if ( SDL_strcmp( "-m", argv[i] ) == 0 )
+ 			by_mem = true;
+-		else
+-			path = argv[i];
++		//else
++			//path = argv[i];
+ 	}
+ 
+ 	// Set volume
+@@ -135,31 +198,45 @@ int main( int argc, char** argv )
+ 	const double k = log( 10 ) / 20;
+ 	player->set_volume( exp( k * dB ) );
+ 
+-	// Load file
+-	handle_error( player->load_file( path, by_mem ) );
+-	start_track( 1, path, dB );
+-
+-	// Main loop
+-	int track = 1;
+-	double tempo = 1.0;
+-	bool running = true;
+-	double stereo_depth = 0.0;
+-	bool accurate = false;
+-	bool echo_disabled = false;
+-	bool fading_out = true;
+-	int muting_mask = 0;
++	srand(time(0));
++
++	loadAndPlay();
++
+ 	while ( running )
+ 	{
++		printInfo();
+ 		// Update scope
+ 		scope->draw( scope_buf, scope_width, 2 );
+ 
+-		// Automatically go to next track when current one ends
+ 		if ( player->track_ended() )
+ 		{
+-			if ( track < player->track_count() )
+-				start_track( ++track, path, dB );
++			if(looping)
++			{
++				snprintf(textBuffer, TBSZ, "Looping.\n");
++				track--;
++				start_track( track++, path );
++			}
++			else if ((shuffle) || (track >= player->track_count()))
++			{
++				track=0;
++				filePointer++;
++				if(filePointer != files.end())
++				{
++					nextFile = *filePointer;
++				}
++				else
++				{
++					filePointer=files.begin();
++					nextFile = *filePointer;
++				}
++				nextFile.copy(path, nextFile.length());
++				path[nextFile.length()]='\0';
++				loadAndPlay();
++			}
+ 			else
+-				player->pause( paused = true );
++			{
++				start_track( track++, path );
++			}
+ 		}
+ 
+ 		// Handle keyboard input
+@@ -182,14 +182,16 @@ int main( int argc, char** argv )
+ 					break;
+ 
+ 				case SDL_SCANCODE_LEFT: // prev track
+-					if ( !paused && !--track )
+-						track = 1;
+-					start_track( track, path, dB );
++					if(--track < 0)
++						track = 0;
++					if(--track < 0)
++						track = 0;
++					start_track( track++, path );
+ 					break;
+ 
+ 				case SDL_SCANCODE_RIGHT: // next track
+ 					if ( track < player->track_count() )
+-						start_track( ++track, path, dB );
++						start_track( track++, path );
+ 					break;
+ 
+ 				case SDL_SCANCODE_MINUS: // reduce tempo
+@@ -191,6 +377,7 @@ int main( int argc, char** argv )
+ 
+ 				case SDL_SCANCODE_SPACE: // toggle pause
+ 					paused = !paused;
++					snprintf(textBuffer, TBSZ, paused ? "Music paused.\n": "Music unpaused.\n");
+ 					player->pause( paused );
+ 					break;
+ 
+@@ -209,14 +396,46 @@ int main( int argc, char** argv )
+ 				case SDL_SCANCODE_D: // toggle echo on/off
+ 					echo_disabled = !echo_disabled;
+ 					player->set_echo_disable(echo_disabled);
+-					printf( "%s\n", echo_disabled ? "SPC echo is disabled" : "SPC echo is enabled" );
+-					fflush( stdout );
++					snprintf(textBuffer, TBSZ,  "%s\n", echo_disabled ? "SPC echo is disabled" : "SPC echo is enabled" );
++					break;
++
++				case SDL_SCANCODE_F: // toggle fadeout
++					fading_out = !fading_out;
++					player->set_fadeout(fading_out ? 2000 : 1);
++					snprintf(textBuffer, TBSZ,  "%s\n", fading_out ? "2 seconds of fade out between songs." : "No fade out between songs." );
+ 					break;
+ 
+ 				case SDL_SCANCODE_L: // toggle loop
+-					player->set_fadeout( fading_out = !fading_out );
+-					printf( "%s\n", fading_out ? "Will stop at track end" : "Playing forever" );
+-					fflush( stdout );
++					looping = !looping;
++					snprintf(textBuffer, TBSZ,  "%s\n", looping ? "Playing current track forever" : "Will play next file or track at track end");
++					break;
++
++				case SDL_SCANCODE_P: // prev file
++					track=0;
++					if(filePointer != files.begin()){
++						filePointer--;
++					}
++					nextFile = *filePointer;
++					nextFile.copy(path, nextFile.length());
++					path[nextFile.length()]='\0';
++					loadAndPlay();
++					break;
++
++				case SDL_SCANCODE_N: // next file
++					track=0;
++					filePointer++;
++					if(filePointer != files.end())
++					{
++						nextFile = *filePointer;
++					}
++					else
++					{
++						filePointer=files.begin();
++						nextFile = *filePointer;
++					}
++					nextFile.copy(path, nextFile.length());
++					path[nextFile.length()]='\0';
++					loadAndPlay();
+ 					break;
+ 
+ 				case SDL_SCANCODE_0: // reset tempo and muting
+@@ -255,9 +255,9 @@ int main( int argc, char** argv )
+ 					update_window_title( track, path, dB );
+ 					break;
+ 
+-				case SDL_SCANCODE_H: // help
+-					printf( "%s\n", usage );
+-					fflush( stdout );
++				case SDL_SCANCODE_S:
++					shuffle = !shuffle;
++					snprintf(textBuffer, TBSZ, "Shuffle mode %s.\n", (shuffle ? "on" : "off"));
+ 					break;
+ 
+ 				default:
+@@ -256,6 +473,8 @@ int main( int argc, char** argv )
+ 	delete player;
+ 	delete scope;
+ 
++	endwin();
++
+ 	return 0;
+ }
+ 
+@@ -277,6 +496,7 @@ static void handle_error( const char* error )
+ 		}
+ 		while ( e.type != SDL_QUIT && e.type != SDL_KEYDOWN && e.type != SDL_MOUSEBUTTONDOWN );
+ 
++		endwin();
+ 		exit( EXIT_FAILURE );
+ 	}
+ }
+diff --git a/readme.txt b/readme.txt
+index 169f854..ac8a9a5 100644
+--- a/readme.txt
++++ b/readme.txt
+@@ -1,241 +1,14 @@
+-Game_Music_Emu 0.6.4: Game Music Emulators
+-------------------------------------------
+-Game_Music_Emu is a collection of video game music file emulators that
+-support the following formats and systems:
++I am trying to modify the demo player for the GME library at https://github.com/libgme/game-music-emu by Shay Green and maintained by Vitaly Novichkov and Michael Pyne.
+ 
+-AY        ZX Spectrum/Amstrad CPC
+-GBS       Nintendo Game Boy
+-GYM       Sega Genesis/Mega Drive
+-HES       NEC TurboGrafx-16/PC Engine
+-KSS       MSX Home Computer/other Z80 systems (doesn't support FM sound)
+-NSF/NSFE  Nintendo NES/Famicom (with VRC 6, Namco 106, and FME-7 sound)
+-SAP       Atari systems using POKEY sound chip
+-SPC       Super Nintendo/Super Famicom
+-VGM/VGZ   Sega Master System/Mark III, Sega Genesis/Mega Drive,BBC Micro
++to build and test the player in linux:
+ 
+-Features:
+-* C interface for use in C, C++, and other compatible languages
+-* High emphasis has been placed on making the library very easy to use
+-* One set of common functions work with all emulators the same way
+-* Several code examples, including music player using SDL
+-* Portable code for use on any system with modern or older C++ compilers
+-* Adjustable output sample rate using quality band-limited resampling
+-* Uniform access to text information fields and track timing information
+-* End-of-track fading and automatic look ahead silence detection
+-* Treble/bass and stereo echo for AY/GBS/HES/KSS/NSF/NSFE/SAP/VGM
+-* Tempo can be adjusted and individual voices can be muted while playing
+-* Can read music data from file, memory, or custom reader function/class
+-* Can access track information without having to load into full emulator
+-* M3U track listing support for multi-track formats
+-* Modular design allows elimination of unneeded emulators/features
++from this directory:
+ 
+-This library has been used in game music players for Windows, Linux on
+-several architectures, Mac OS, MorphOS, Xbox, PlayStation Portable,
+-GP2X, and Nintendo DS.
+-
+-Author : Shay Green <gblargg@gmail.com>
+-Website: https://github.com/libgme/game-music-emu/wiki
+-License: GNU Lesser General Public License (LGPL)
+-
+-Note: When you will use MAME YM2612 emulator, the license of library
+-will be GNU General Public License (GPL) v2.0+!
+-
+-Current Maintainers: Vitaly Novichkov <admin@wohlnet.ru>, Michael Pyne <mpyne@purinchu.net>
+-
+-Getting Started
+----------------
+-Build a program consisting of demo/basics.c, demo/Wave_Writer.cpp, and
+-all source files in gme/.
+-
+-Or, if you have CMake 3.3 or later, execute at a command prompt (from the
+-extracted source directory):
+-
+-    mkdir build
+-    cd build
+-    cmake ../         # <-- Pass any needed CMake flags here
+-    make              # To build the library
+-    cd demo
+-    make              # To build the demo itself
+-
+-Be sure "test.nsf" is in the same directory as the demo program. Running it
+-should generate the recording "out.wav".
+-
+-You can use "make install" to install the library. To choose where to install
+-the library to, use the CMake argument "-DCMAKE_INSTALL_PREFIX=/usr/local"
+-(and replace /usr/local with the base path you wish to use). Alternately, you
+-can specify the base path to install to when you run "make install" by passing
+-'DESTDIR=/usr/local' on the make install command line (again, replace
+-/usr/local as appropriate).
+-
+-To build a static library instead of shared (the default), pass
+--DBUILD_SHARED_LIBS=OFF to the cmake command when running cmake.
+-
+-A slightly more extensive demo application is available in the player/
+-directory.  It requires SDL to build.
+-
+-Read gme.txt for more information. Post to the discussion forum for
+-assistance.
+-
+-Files
+------
+-gme.txt               General notes about the library
+-changes.txt           Changes made since previous releases
+-design.txt            Library design notes
+-license.txt           GNU Lesser General Public License
+-CMakeLists.txt        CMake build rules
+-
+-test.nsf              Test file for NSF emulator
+-test.m3u              Test m3u playlist for features.c demo
+-
+-demo/
+-  basics.c            Records NSF file to wave sound file
+-  features.c          Demonstrates many additional features
+-  Wave_Writer.h       WAVE sound file writer used for demo output
+-  Wave_Writer.cpp
+-  CMakeLists.txt      CMake build rules
+-
+-player/               Player using the SDL multimedia library
+-  player.cpp          Simple music player with waveform display
+-  Music_Player.cpp    Stand alone player for background music
+-  Music_Player.h
+-  Audio_Scope.cpp     Audio waveform scope
+-  Audio_Scope.h
+-  CMakeLists.txt      CMake build rules
+-
+-gme/
+-  blargg_config.h     Library configuration (modify this file as needed)
+-
+-  gme.h               Library interface header file
+-  gme.cpp
+-
+-  Ay_Emu.h            ZX Spectrum AY emulator
+-  Ay_Emu.cpp
+-  Ay_Apu.cpp
+-  Ay_Apu.h
+-  Ay_Cpu.cpp
+-  Ay_Cpu.h
+-
+-  Gbs_Emu.h           Nintendo Game Boy GBS emulator
+-  Gbs_Emu.cpp
+-  Gb_Apu.cpp
+-  Gb_Apu.h
+-  Gb_Cpu.cpp
+-  Gb_Cpu.h
+-  gb_cpu_io.h
+-  Gb_Oscs.cpp
+-  Gb_Oscs.h
+-
+-  Hes_Emu.h           TurboGrafx-16/PC Engine HES emulator
+-  Hes_Apu.cpp
+-  Hes_Apu.h
+-  Hes_Cpu.cpp
+-  Hes_Cpu.h
+-  hes_cpu_io.h
+-  Hes_Emu.cpp
+-
+-  Kss_Emu.h           MSX Home Computer/other Z80 systems KSS emulator
+-  Kss_Emu.cpp
+-  Kss_Cpu.cpp
+-  Kss_Cpu.h
+-  Kss_Scc_Apu.cpp
+-  Kss_Scc_Apu.h
+-  Ay_Apu.h
+-  Ay_Apu.cpp
+-  Sms_Apu.h
+-  Sms_Apu.cpp
+-  Sms_Oscs.h
+-
+-  Nsf_Emu.h           Nintendo NES NSF/NSFE emulator
+-  Nsf_Emu.cpp
+-  Nes_Apu.cpp
+-  Nes_Apu.h
+-  Nes_Cpu.cpp
+-  Nes_Cpu.h
+-  nes_cpu_io.h
+-  Nes_Oscs.cpp
+-  Nes_Oscs.h
+-  Nes_Fme7_Apu.cpp
+-  Nes_Fme7_Apu.h
+-  Nes_Namco_Apu.cpp
+-  Nes_Namco_Apu.h
+-  Nes_Vrc6_Apu.cpp
+-  Nes_Vrc6_Apu.h
+-  Nsfe_Emu.h          NSFE support
+-  Nsfe_Emu.cpp
+-
+-  Spc_Emu.h           Super Nintendo SPC emulator
+-  Spc_Emu.cpp
+-  Snes_Spc.cpp
+-  Snes_Spc.h
+-  Spc_Cpu.cpp
+-  Spc_Cpu.h
+-  Spc_Dsp.cpp
+-  Spc_Dsp.h
+-  Fir_Resampler.cpp
+-  Fir_Resampler.h
+-
+-  Sap_Emu.h           Atari SAP emulator
+-  Sap_Emu.cpp
+-  Sap_Apu.cpp
+-  Sap_Apu.h
+-  Sap_Cpu.cpp
+-  Sap_Cpu.h
+-  sap_cpu_io.h
+-
+-  Vgm_Emu.h           Sega VGM emulator
+-  Vgm_Emu_Impl.cpp
+-  Vgm_Emu_Impl.h
+-  Vgm_Emu.cpp
+-  Ym2413_Emu.cpp
+-  Ym2413_Emu.h
+-  Gym_Emu.h           Sega Genesis GYM emulator
+-  Gym_Emu.cpp
+-  Sms_Apu.cpp         Common Sega emulator files
+-  Sms_Apu.h
+-  Sms_Oscs.h
+-  Ym2612_Emu.h
+-  Ym2612_GENS.cpp     GENS 2.10 YM2612 emulator (LGPLv2.1+ license)
+-  Ym2612_GENS.h
+-  Ym2612_MAME.cpp     MAME YM2612 emulator (GPLv2.0+ license)
+-  Ym2612_MAME.h
+-  Ym2612_Nuked.cpp    Nuked OPN2 emulator (LGPLv2.1+ license)
+-  Ym2612_Nuked.h
+-  Dual_Resampler.cpp
+-  Dual_Resampler.h
+-  Fir_Resampler.cpp
+-  Fir_Resampler.h
+-
+-  M3u_Playlist.h      M3U playlist support
+-  M3u_Playlist.cpp
+-
+-  Effects_Buffer.h    Sound buffer with stereo echo and panning
+-  Effects_Buffer.cpp
+-
+-  blargg_common.h     Common files needed by all emulators
+-  blargg_endian.h
+-  blargg_source.h
+-  Blip_Buffer.cpp
+-  Blip_Buffer.h
+-  Gme_File.h
+-  Gme_File.cpp
+-  Music_Emu.h
+-  Music_Emu.cpp
+-  Classic_Emu.h
+-  Classic_Emu.cpp
+-  Multi_Buffer.h
+-  Multi_Buffer.cpp
+-  Data_Reader.h
+-  Data_Reader.cpp
+-
+-  CMakeLists.txt      CMake build rules
+-
+-
+-Legal
+------
+-Game_Music_Emu library copyright (C) 2003-2009 Shay Green.
+-Sega Genesis YM2612 emulator copyright (C) 2002 Stephane Dallongeville.
+-MAME YM2612 emulator copyright (C) 2003 Jarek Burczynski, Tatsuyuki Satoh
+-Nuked OPN2 emulator copyright (C) 2017 Alexey Khokholov (Nuke.YKT)
+-
+---
+-Shay Green <gblargg@gmail.com>
++mkdir build
++cd build
++cmake ..
++make
++cd player
++make
++cp ../../test.nsf .
++./gme_player

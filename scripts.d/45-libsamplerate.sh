@@ -23,6 +23,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DBUILD_SHARED_LIBS=NO \
         -DBUILD_TESTING=NO \
+        -DLIBSAMPLERATE_SSE2_LRINT=ON \
         -DLIBSAMPLERATE_EXAMPLES=OFF \
         -DLIBSAMPLERATE_INSTALL=YES ..
     make -j$(nproc) $MAKE_V
