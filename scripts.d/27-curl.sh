@@ -37,6 +37,7 @@ ffbuild_dockerbuild() {
         --with-zstd
         --with-openssl
         --with-libssh
+        --without-libpsl
         --enable-doh
         --enable-cookies
         --enable-aws
