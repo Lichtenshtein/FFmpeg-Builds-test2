@@ -12,23 +12,35 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    cd source
+    [[ -d "source" ]] && cd source
 
     unset CC CXX LD AR CPP LIBS CCAS
     unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
-    # ICU требует сборку под хост-систему (Linux) для генерации данных
+    # Используем runConfigureICU для правильной инициализации под Linux
     mkdir -p host-build && cd host-build
-
-    ../configure --prefix="$(pwd)/install" \
+    
+    # Нам НУЖНЫ tools на хосте, чтобы создать icupkg
+    CC=gcc CXX=g++ AR=ar RANLIB=ranlib CFLAGS="" CXXFLAGS="" LDFLAGS="" \
+    ../runConfigureICU Linux --prefix="$(pwd)/install" \
+        --enable-tools \
         --disable-tests \
         --disable-samples \
         --disable-icuio \
         --disable-extras \
-        --disable-tools
+        --enable-static \
+        --enable-shared
     
+    # Собираем только самое необходимое для инструментов
     make -j$(nproc)
     make install
     cd ..
+
+    # Проверка: если icupkg не собрался, дальше идти нет смысла
+    if [[ ! -f "host-build/bin/icupkg" ]]; then
+        echo "ERROR: icupkg not found in host-build/bin!"
+        exit 1
+    fi
+
     # Теперь основная сборка под Windows (Target)
     mkdir -p target-build && cd target-build
 
@@ -60,9 +72,14 @@ ffbuild_dockerbuild() {
     for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/icu-*.pc; do
         if [[ -f "$pc" ]]; then
             log_info "Patching $(basename "$pc") for static Windows linking..."
-            # Добавляем необходимые системные библиотеки Windows для статики
+            # Заменяем имена либ на статические префиксы 's', которые использует ICU в Windows
+            sed -i 's/-licuin/-lsicuin/g' "$pc"
+            sed -i 's/-licuuc/-lsicuuc/g' "$pc"
+            sed -i 's/-licudata/-lsicudata/g' "$pc"
+            sed -i 's/-licudt/-lsicudt/g' "$pc"
+            
+            # Системные зависимости
             sed -i '/Libs.private:/ s/$/ -lpthread -lm -ladvapi32 -lws2_32/' "$pc"
-            # Иногда ICU не прописывает -licudt (данные) в Libs, добавим на всякий случай
             sed -i '/Libs:/ s/$/ -licudt/' "$pc"
         fi
     done
