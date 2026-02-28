@@ -1,0 +1,48 @@
+From f17b7f37030d8d4fba72a9ac548294564761bbba Mon Sep 17 00:00:00 2001
+From: Michael Pollind <mpollind@gmail.com>
+Date: Tue, 7 Jan 2025 20:35:52 -0800
+Subject: [PATCH] CMake: handle check for HAVE_ALLOCA
+
+Signed-off-by: Michael Pollind <mpollind@gmail.com>
+---
+ CMakeLists.txt     |  2 ++
+ lib/CMakeLists.txt | 13 +++++++++++++
+ 2 files changed, 15 insertions(+)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 33f684f5..011645ee 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -8,6 +8,8 @@ include(CTest)
+ include(GNUInstallDirs)
+ include(CheckIncludeFiles)
+ include(CheckLibraryExists)
++include(CheckIncludeFile)
++include(CheckSymbolExists)
+ 
+ # Build options
+ option(BUILD_SHARED_LIBS "Build shared library" OFF)
+diff --git a/lib/CMakeLists.txt b/lib/CMakeLists.txt
+index daa7d715..e64c6c84 100644
+--- a/lib/CMakeLists.txt
++++ b/lib/CMakeLists.txt
+@@ -73,6 +73,19 @@ if(MSVC)
+     add_definitions(-D_CRT_NONSTDC_NO_DEPRECATE)
+ endif()
+ 
++if(NOT APPLE)
++      check_include_file(alloca.h HAVE_ALLOCA_H)
++      check_symbol_exists(alloca "alloca.h" HAVE_ALLOCA1)
++      check_symbol_exists(alloca "stdlib.h" HAVE_ALLOCA2)
++      check_symbol_exists(alloca "malloc.h" HAVE_ALLOCA3)
++      if(HAVE_ALLOCA1 OR HAVE_ALLOCA2 OR HAVE_ALLOCA3)
++        add_definitions(-DHAVE_ALLOCA_H)
++      endif()
++else()
++    add_definitions(-DHAVE_ALLOCA_H)
++endif()
++
++
+ if (NOT BUILD_FRAMEWORK)
+     add_library(vorbis ${VORBIS_HEADERS} ${VORBIS_SOURCES})
+     add_library(vorbisenc ${VORBISENC_SOURCES})

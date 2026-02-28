@@ -1,12 +1,11 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/OpenMPT/openmpt.git"
-SCRIPT_COMMIT="345cc52ff5d5932b10a78ea1c7e3e79618ed16bb"
+SCRIPT_COMMIT="1a84bde480b558951392aa2b3187b92f746fb690"
 
 ffbuild_depends() {
     echo base
     echo zlib
-    echo libogg
     echo libvorbis
 }
 
@@ -33,7 +32,9 @@ ffbuild_dockerbuild() {
         IN_OPENMPT=0
         XMP_OPENMPT=0
         DEBUG=0
-        OPTIMIZE=1
+        NATIVE=0
+        OPTIMIZE=vectorize
+        OPTIMIZE_FASTMATH=1
         TEST=0
         MODERN=1
         FORCE_DEPS=1
@@ -50,6 +51,8 @@ ffbuild_dockerbuild() {
         NO_PORTAUDIOCPP=1
         NO_FLAC=1
     )
+
+    [[ "$USE_LTO" == "1" ]] && myconf+=( OPTIMIZE_LTO=1 )
 
     if [[ $TARGET == winarm64 ]]; then
         myconf+=(

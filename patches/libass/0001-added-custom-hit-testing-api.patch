@@ -1,0 +1,715 @@
+From 2530567b0b4f1f20956bb14422d467fd328c4f27 Mon Sep 17 00:00:00 2001
+From: Kenkrik <jakub.mrakota@seznam.cz>
+Date: Wed, 17 Dec 2025 17:16:52 +0100
+Subject: [PATCH] Added custom hit testing api
+
+---
+diff --git a/libass/Makefile_library.am b/libass/Makefile_library.am
+index 738d935..e977d22 100644
+--- a/libass/Makefile_library.am
++++ b/libass/Makefile_library.am
+@@ -3,7 +3,7 @@ LIBASS_LT_REVISION = 1
+ LIBASS_LT_AGE = 4
+ 
+ .asm.lo:
+-	$(nasm_verbose)$(LIBTOOL) $(AM_V_lt) --tag=CC --mode=compile $(top_srcdir)/ltnasm.sh $(AS) $(ASFLAGS) -I$(top_srcdir)/libass/ -Dprivate_prefix=ass -o $@ $<
++    $(nasm_verbose)$(LIBTOOL) $(AM_V_lt) --tag=CC --mode=compile $(top_srcdir)/ltnasm.sh $(AS) $(ASFLAGS) -I$(top_srcdir)/libass/ -Dprivate_prefix=ass -o $@ $<
+ 
+ noinst_LTLIBRARIES += libass/libass_internal.la
+ libass_libass_internal_la_SOURCES = \
+@@ -30,6 +30,10 @@ libass_libass_internal_la_SOURCES = \
+     libass/c/blur_template.h libass/c/c_blur.c \
+     libass/wyhash.h
+ 
++# --- ADDED: Compile the new hittest implementation ---
++libass_libass_internal_la_SOURCES += \
++    libass/ass_hittest.c
++
+ if ASM
+ if X86
+ libass_libass_internal_la_SOURCES += \
+@@ -71,8 +75,9 @@ libass_libass_la_LDFLAGS = -no-undefined -version-info $(LIBASS_LT_CURRENT):$(LI
+ libass_libass_la_LDFLAGS += -export-symbols $(top_srcdir)/libass/libass.sym
+ 
+ assheadersdir = $(includedir)/ass
+-dist_assheaders_HEADERS = libass/ass_types.h libass/ass.h
++# --- UPDATED: Add ass_hittest.h here so it gets installed ---
++dist_assheaders_HEADERS = libass/ass_types.h libass/ass.h libass/ass_hittest.h
+ 
+ EXTRA_DIST += \
+     libass/x86/x86inc.asm libass/x86/utils.asm \
+-    libass/libass.sym
++    libass/libass.sym
+\ No newline at end of file
+diff --git a/libass/ass_hittest.c b/libass/ass_hittest.c
+new file mode 100644
+index 0000000..6298f14
+--- /dev/null
++++ b/libass/ass_hittest.c
+@@ -0,0 +1,128 @@
++/*
++ * Copyright (C) 2025 libass contributors
++ *
++ * This file is part of libass.
++ *
++ * Permission to use, copy, modify, and distribute this software for any
++ * purpose with or without fee is hereby granted, provided that the above
++ * copyright notice and this permission notice appear in all copies.
++ */
++
++#include "config.h"
++#include "ass_compat.h"
++
++#include <stdlib.h>
++#include <string.h>
++
++#include "ass.h"
++#include "ass_hittest.h"
++#include "ass_render.h"
++#include "ass_utils.h"
++
++
++
++
++/**
++ * Public API Implementation
++ */
++
++AssCharacterBox* ass_get_current_fragment_boxes(
++    ASS_Renderer *render,
++    int64_t time_ms,
++    int *count_out)
++{
++    if (!render || !count_out) {
++        if (count_out)
++            *count_out = 0;
++        return NULL;
++    }
++    
++    // Ensure we have up-to-date rendering data
++    int detect_change;
++    ASS_Track *track = render->track;
++    
++    if (!track) {
++        *count_out = 0;
++        return NULL;
++    }
++    
++    // Trigger rendering to populate char_boxes
++    ass_render_frame(render, track, time_ms, &detect_change);
++    
++    CharacterBoxStorage *storage = &render->char_boxes;
++    
++    if (storage->count == 0) {
++        *count_out = 0;
++        return NULL;
++    }
++    
++    // Allocate output array
++    AssCharacterBox *boxes = ass_malloc(storage->count * sizeof(AssCharacterBox));
++    if (!boxes) {
++        *count_out = 0;
++        return NULL;
++    }
++    
++    // Convert internal format to public API format
++    for (size_t i = 0; i < storage->count; i++) {
++        CharacterBoxData *src = &storage->boxes[i];
++        AssCharacterBox *dst = &boxes[i];
++        
++        // Convert bounding box (already in 26.6 format)
++        dst->x = src->bbox.x_min;
++        dst->y = src->bbox.y_min;
++        dst->w = src->bbox.x_max - src->bbox.x_min;
++        dst->h = src->bbox.y_max - src->bbox.y_min;
++
++        // Copy rotated vertices
++        dst->top_left = src->c1;
++        dst->top_right = src->c2;
++        dst->bottom_right = src->c3;
++        dst->bottom_left = src->c4;
++        
++        // FIX: Calculate array index instead of casting pointer to int
++        // Pointer arithmetic: (EventPtr - BasePtr) = Index
++        if (src->event >= track->events && 
++            src->event < (track->events + track->n_events)) {
++            dst->line_id = (int)(src->event - track->events);
++        } else {
++            dst->line_id = -1; // Fallback for safety
++        }
++        
++        // Text indices
++        dst->char_start_index = src->text_start;
++        dst->char_end_index = src->text_end;
++    }
++    
++    *count_out = (int)storage->count;
++    return boxes;
++}
++
++
++char* ass_get_dialogue_plaintext(
++    ASS_Renderer *render,
++    int line_id)
++{
++    if (!render || !render->track)
++        return NULL;
++    
++    ASS_Track *track = render->track;
++
++    if (line_id < 0 || line_id >= track->n_events)
++        return NULL;
++
++    ASS_Event *target_event = &track->events[line_id];
++    
++    // Find the clean text from char_boxes storage
++    CharacterBoxStorage *storage = &render->char_boxes;
++    
++    for (size_t i = 0; i < storage->count; i++) {
++        if (storage->boxes[i].event == target_event && storage->boxes[i].clean_text) {
++            // Found it! Return a copy
++            return strdup(storage->boxes[i].clean_text);
++        }
++    }
++    
++    // Fallback: event not rendered or no boxes
++    return NULL;
++}
+\ No newline at end of file
+diff --git a/libass/ass_hittest.h b/libass/ass_hittest.h
+new file mode 100644
+index 0000000..ae9d670
+--- /dev/null
++++ b/libass/ass_hittest.h
+@@ -0,0 +1,98 @@
++/*
++ * Copyright (C) 2025 libass contributors
++ *
++ * This file is part of libass.
++ *
++ * Permission to use, copy, modify, and distribute this software for any
++ * purpose with or without fee is hereby granted, provided that the above
++ * copyright notice and this permission notice appear in all copies.
++ */
++
++#ifndef LIBASS_HITTEST_H
++#define LIBASS_HITTEST_H
++
++#include <stdint.h>
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/**
++ * \brief Point in 26.6 fixed-point format
++ */
++typedef struct ass_box_point {
++    int32_t x;
++    int32_t y;
++} AssBoxPoint;
++
++/**
++ * \brief Structure representing a character fragment's bounding box
++ * * This structure contains the geometry and text mapping information
++ * for a single rendered character or text fragment.
++ */
++typedef struct ass_character_box {
++    /** Bounding box x-coordinate in 26.6 fixed-point format */
++    int32_t x;
++    
++    /** Bounding box y-coordinate in 26.6 fixed-point format */
++    int32_t y;
++    
++    /** Bounding box width in 26.6 fixed-point format */
++    int32_t w;
++    
++    /** Bounding box height in 26.6 fixed-point format */
++    int32_t h;
++    
++    /** Rotated quad vertices in 26.6 fixed-point format (screen space) */
++    AssBoxPoint top_left;
++    AssBoxPoint top_right;
++    AssBoxPoint bottom_left;
++    AssBoxPoint bottom_right;
++
++    /** Unique identifier for the source subtitle line */
++    int line_id;
++    
++    /** Start index in unformatted dialogue text (inclusive) */
++    int char_start_index;
++    
++    /** End index in unformatted dialogue text (exclusive) */
++    int char_end_index;
++} AssCharacterBox;
++
++/**
++ * \brief Get bounding boxes for all visible character fragments
++ * * This function returns an array of bounding boxes for all visible
++ * characters/fragments at the given timestamp. The boxes include
++ * mapping information back to the source text.
++ * * \param render The renderer instance
++ * \param time_ms Current playback time in milliseconds
++ * \param count_out Output pointer for the number of boxes returned
++ * \return Dynamically allocated array of AssCharacterBox structures,
++ * or NULL on failure. Must be freed by caller using ass_free().
++ */
++AssCharacterBox* ass_get_current_fragment_boxes(
++    ASS_Renderer *render,
++    int64_t time_ms,
++    int *count_out
++);
++
++/**
++ * \brief Get the plain text content of a subtitle line
++ * * Returns the unformatted, tag-stripped text content of the subtitle
++ * line identified by line_id. This text corresponds to the indices
++ * provided in AssCharacterBox structures.
++ * * \param render The renderer instance
++ * \param line_id The line identifier from AssCharacterBox
++ * \return Dynamically allocated UTF-8 string, or NULL if not found.
++ * Must be freed by caller using ass_free().
++ */
++char* ass_get_dialogue_plaintext(
++    ASS_Renderer *render,
++    int line_id
++);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* LIBASS_HITTEST_H */
+\ No newline at end of file
+diff --git a/libass/ass_render.c b/libass/ass_render.c
+index c291d26..66fc4e4 100644
+--- a/libass/ass_render.c
++++ b/libass/ass_render.c
+@@ -48,6 +48,110 @@
+ /* #define ASS_RND_DEBUG */
+ 
+ 
++static inline bool is_harfbuzz_ignorable(unsigned symbol) {
++    switch (symbol >> 8) {
++        case 0x00: return symbol == 0x00AD;
++        case 0x03: return symbol == 0x034F;
++        case 0x06: return symbol == 0x061C;
++        case 0x17: return symbol >= 0x17B4 && symbol <= 0x17B5;
++        case 0x18: return symbol >= 0x180B && symbol <= 0x180E;
++        case 0x20: return (symbol >= 0x200B && symbol <= 0x200F) ||
++                          (symbol >= 0x202A && symbol <= 0x202E) ||
++                          (symbol >= 0x2060 && symbol <= 0x206F);
++        case 0xFE: return (symbol >= 0xFE00 && symbol <= 0xFE0F) ||
++                          symbol == 0xFEFF;
++        case 0xFF: return symbol >= 0xFFF0 && symbol <= 0xFFF8;
++        case 0x1D1: return symbol >= 0x1D173 && symbol <= 0x1D17A;
++        default: return symbol >= 0xE0000 && symbol <= 0xE0FFF;
++    }
++}
++
++/**
++ * \brief Initialize character box storage
++ */
++static bool init_character_box_storage(CharacterBoxStorage *storage)
++{
++    storage->capacity = 256; // Initial capacity
++    storage->count = 0;
++    storage->boxes = calloc(storage->capacity, sizeof(CharacterBoxData));
++    return storage->boxes != NULL;
++}
++
++/**
++ * \brief Clear character box storage (keep allocation)
++ */
++static void clear_character_box_storage(CharacterBoxStorage *storage)
++{
++    storage->count = 0;
++    // Keep the allocation for reuse
++}
++
++/**
++ * \brief Free character box storage
++ */
++static void free_character_box_storage(CharacterBoxStorage *storage)
++{
++    if (storage->boxes) {
++        // Free unique clean_text strings
++        const char *last_text = NULL;
++        for (size_t i = 0; i < storage->count; i++) {
++            if (storage->boxes[i].clean_text != last_text) {
++                free(storage->boxes[i].clean_text);
++                last_text = storage->boxes[i].clean_text;
++            }
++        }
++        free(storage->boxes);
++    }
++    storage->boxes = NULL;
++    storage->count = 0;
++    storage->capacity = 0;
++}
++
++/**
++ * \brief Add a character box to storage
++ */
++
++static bool add_character_box(CharacterBoxStorage *storage,
++                              int text_start, int text_end,
++                              const ASS_Rect *bbox, 
++                              const AssBoxPoint *quad,
++                              ASS_Event *event,
++                              const char *clean_text)  // NEW parameter
++{
++    if (storage->count >= storage->capacity) {
++        size_t new_capacity = storage->capacity * 2;
++        CharacterBoxData *new_boxes = realloc(storage->boxes,
++                                              new_capacity * sizeof(CharacterBoxData));
++        if (!new_boxes)
++            return false;
++        storage->boxes = new_boxes;
++        storage->capacity = new_capacity;
++    }
++    
++    CharacterBoxData *box = &storage->boxes[storage->count];
++    box->text_start = text_start;
++    box->text_end = text_end;
++    box->bbox = *bbox;
++    box->event = event;
++    
++    box->c1 = quad[0];
++    box->c2 = quad[1];
++    box->c3 = quad[2];
++    box->c4 = quad[3];
++    
++    // Store clean text (or reference to it)
++    // Only store once per unique text (dedup by pointer comparison)
++    if (storage->count == 0 || storage->boxes[storage->count - 1].clean_text != clean_text) {
++        box->clean_text = (char *)clean_text;
++    } else {
++        // Reuse the same pointer for same event
++        box->clean_text = storage->boxes[storage->count - 1].clean_text;
++    }
++    
++    storage->count++;
++    return true;
++}
++
+ static bool text_info_init(TextInfo* text_info)
+ {
+     text_info->max_bitmaps = MAX_BITMAPS_INITIAL;
+@@ -153,6 +257,9 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
+     if (!render_context_init(&priv->state, priv))
+         goto fail;
+ 
++    if (!init_character_box_storage(&priv->char_boxes))
++        goto fail;
++
+     priv->user_override_style.Name = "OverrideStyle"; // name insignificant
+ 
+     priv->settings.font_size_coeff = 1.;
+@@ -200,6 +307,8 @@ void ass_renderer_done(ASS_Renderer *render_priv)
+ 
+     free(render_priv->user_override_style.FontName);
+ 
++    free_character_box_storage(&render_priv->char_boxes);
++    
+     free(render_priv);
+ }
+ 
+@@ -2631,6 +2740,181 @@ static void render_and_combine_glyphs(RenderContext *state,
+     text_info->n_bitmaps = nb_bitmaps;
+ }
+ 
++
++/**
++ * \brief Helper to transform a point using the layout matrix
++ */
++static void transform_point(double m[3][3], double x, double y, AssBoxPoint *out)
++{
++    double z = m[2][0] * x + m[2][1] * y + m[2][2];
++    if (fabs(z) < 0.0001) z = 1.0;
++    
++    double tx = (m[0][0] * x + m[0][1] * y + m[0][2]) / z;
++    double ty = (m[1][0] * x + m[1][1] * y + m[1][2]) / z;
++    
++    // FIX: The matrix 'm' already outputs coordinates in 26.6 format.
++    // Do NOT use double_to_d6 here, or you multiply by 64 twice.
++    // Just round to the nearest integer.
++    out->x = (int32_t)lrint(tx);
++    out->y = (int32_t)lrint(ty);
++}
++
++/**
++ * \brief Collect character box data from TextInfo
++ * * This function extracts bounding box information for each character
++ * cluster in the rendered text, mapping it back to source text indices.
++ * It handles the complex glyph-to-character relationships created by
++ * ligatures, combining marks, and bidi reordering.
++ * * \param state Render context
++ * \param event Source subtitle event
++ */
++static void collect_character_boxes(RenderContext *state, ASS_Event *event)
++{
++    ASS_Renderer *render_priv = state->renderer;
++    TextInfo *text_info = &state->text_info;
++    
++    if (!text_info->length)
++        return;
++    
++    FriBidiStrIndex *cmap = ass_shaper_get_reorder_map(state->shaper);
++    if (!cmap)
++        return;
++
++    // Convert text_info->event_text (UTF-32) to UTF-8
++    char *clean_text_utf8 = NULL;
++    if (text_info->length > 0) {
++        // Allocate maximum possible size (4 bytes per UTF-32 char + null terminator)
++        size_t max_size = text_info->length * 4 + 1;
++        clean_text_utf8 = malloc(max_size);
++        if (!clean_text_utf8)
++            return;
++        
++        char *out = clean_text_utf8;
++        for (int i = 0; i < text_info->length; i++) {
++            FriBidiChar c = text_info->event_text[i];
++            
++            // Convert UTF-32 to UTF-8
++            if (c < 0x80) {
++                *out++ = (char)c;
++            } else if (c < 0x800) {
++                *out++ = (char)(0xC0 | (c >> 6));
++                *out++ = (char)(0x80 | (c & 0x3F));
++            } else if (c < 0x10000) {
++                *out++ = (char)(0xE0 | (c >> 12));
++                *out++ = (char)(0x80 | ((c >> 6) & 0x3F));
++                *out++ = (char)(0x80 | (c & 0x3F));
++            } else if (c < 0x110000) {
++                *out++ = (char)(0xF0 | (c >> 18));
++                *out++ = (char)(0x80 | ((c >> 12) & 0x3F));
++                *out++ = (char)(0x80 | ((c >> 6) & 0x3F));
++                *out++ = (char)(0x80 | (c & 0x3F));
++            }
++        }
++        *out = '\0';
++    }
++    
++    bool *processed = calloc(text_info->length, sizeof(bool));
++    if (!processed)
++        return;
++    
++    for (int visual_idx = 0; visual_idx < text_info->length; visual_idx++) {
++        int logical_idx = cmap[visual_idx];
++        
++        if (processed[logical_idx])
++            continue;
++        
++        GlyphInfo *info = &text_info->glyphs[logical_idx];
++        
++        if (info->skip || is_harfbuzz_ignorable(info->symbol))
++            continue;
++        
++        int cluster_start = logical_idx;
++        int cluster_end = logical_idx + 1;
++        
++        // 1. Get the Raw Control Box (in Font Units)
++        ASS_Rect raw_cbox = {0, 0, 0, 0};
++        if (info->outline) {
++            raw_cbox = info->outline->cbox;
++        }
++
++        // 2. Extend cluster (Ligatures/Combining marks)
++        while (cluster_end < text_info->length) {
++            GlyphInfo *next = &text_info->glyphs[cluster_end];
++            if (next->starts_new_run || next->linebreak)
++                break;
++            
++            bool same_cluster = (next->pos.x == info->pos.x &&
++                                 next->pos.y == info->pos.y);
++            
++            if (!same_cluster)
++                break;
++            
++            if (next->outline) {
++                if (raw_cbox.x_min == 0 && raw_cbox.x_max == 0) {
++                    raw_cbox = next->outline->cbox;
++                } else {
++                    raw_cbox.x_min = FFMIN(raw_cbox.x_min, next->outline->cbox.x_min);
++                    raw_cbox.y_min = FFMIN(raw_cbox.y_min, next->outline->cbox.y_min);
++                    raw_cbox.x_max = FFMAX(raw_cbox.x_max, next->outline->cbox.x_max);
++                    raw_cbox.y_max = FFMAX(raw_cbox.y_max, next->outline->cbox.y_max);
++                }
++            }
++            cluster_end++;
++        }
++        
++        for (int i = cluster_start; i < cluster_end; i++) {
++            processed[i] = true;
++        }
++
++        // 3. Calculate the Full Transformation Matrix
++        // We must replicate the logic from get_bitmap_glyph to handle Scale & Offset correctly.
++        double m1[3][3], m[3][3];
++        const ASS_Transform *tr = &info->transform;
++
++        // A. Base Matrix (Rotation, Position, Shear)
++        calc_transform_matrix(state, info, m1);
++
++        // B. Apply Glyph Specific Scale & Offset (Fixes Size and Alignment)
++        for (int i = 0; i < 3; i++) {
++            m[i][0] = m1[i][0] * tr->scale.x;
++            m[i][1] = m1[i][1] * tr->scale.y;
++            m[i][2] = m1[i][0] * tr->offset.x + m1[i][1] * tr->offset.y + m1[i][2];
++        }
++
++        // 4. Transform the 4 Corners
++        AssBoxPoint quad[4];
++        
++        // Use raw cbox (Font Units). The matrix 'm' handles the scaling to pixels.
++        double x1 = (double)raw_cbox.x_min;
++        double y1 = (double)raw_cbox.y_min;
++        double x2 = (double)raw_cbox.x_max;
++        double y2 = (double)raw_cbox.y_max;
++
++        transform_point(m, x1, y1, &quad[0]); // Top-Left
++        transform_point(m, x2, y1, &quad[1]); // Top-Right
++        transform_point(m, x2, y2, &quad[2]); // Bottom-Right
++        transform_point(m, x1, y2, &quad[3]); // Bottom-Left
++
++        // 5. Calculate AABB for API compatibility
++        ASS_Rect final_bbox;
++        final_bbox.x_min = FFMIN(FFMIN(quad[0].x, quad[1].x), FFMIN(quad[2].x, quad[3].x));
++        final_bbox.x_max = FFMAX(FFMAX(quad[0].x, quad[1].x), FFMAX(quad[2].x, quad[3].x));
++        final_bbox.y_min = FFMIN(FFMIN(quad[0].y, quad[1].y), FFMIN(quad[2].y, quad[3].y));
++        final_bbox.y_max = FFMAX(FFMAX(quad[0].y, quad[1].y), FFMAX(quad[2].y, quad[3].y));
++        
++        // Pass the clean_text to add_character_box
++        if (!add_character_box(&render_priv->char_boxes,
++                              cluster_start, cluster_end,
++                              &final_bbox, quad, event, clean_text_utf8)) {
++            free(clean_text_utf8);
++            free(processed);
++            return;
++        }
++    }
++    
++    free(processed);
++}
++
+ static inline void rectangle_combine(ASS_Rect *rect, const Bitmap *bm, ASS_Vector pos)
+ {
+     pos.x += bm->left;
+@@ -3031,6 +3315,8 @@ ass_render_event(RenderContext *state, ASS_Event *event,
+     event_images->imgs_rgba = NULL;
+     ASS_ImageRGBA **rgba_ptr = want_rgba ? &event_images->imgs_rgba : NULL;
+     event_images->imgs = render_text(state, rgba_ptr);
++    
++    collect_character_boxes(state, event);
+ 
+     if (state->border_style == 4)
+         add_background(state, event_images,
+@@ -3090,6 +3376,8 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
+     render_priv->frame_needs_rgba = false;
+
+     ass_lazy_track_init(render_priv->library, render_priv->track);
++
++    clear_character_box_storage(&render_priv->char_boxes);
+ 
+     if (render_priv->library->num_fontdata != render_priv->num_emfonts) {
+         assert(render_priv->library->num_fontdata > render_priv->num_emfonts);
+@@ -3099,6 +3387,7 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
+ 
+     setup_shaper(render_priv->state.shaper, render_priv);
+ 
++
+     // PAR correction
+     double par = render_priv->settings.par;
+     bool lr_track = track->LayoutResX > 0 && track->LayoutResY > 0;
+diff --git a/libass/ass_render.h b/libass/ass_render.h
+index 1ed343e..2353baa 100644
+--- a/libass/ass_render.h
++++ b/libass/ass_render.h
+@@ -39,6 +39,7 @@
+ #include "ass_bitmap.h"
+ #include "ass_rasterizer.h"
+ #include "gradient.h"
++#include "ass_hittest.h"
+ 
+ #define cmp_event_layer ass_cmp_event_layer
+ #define fix_collisions ass_fix_collisions
+@@ -49,6 +50,9 @@
+ #define PARSED_FADE (1<<0)
+ #define PARSED_A    (1<<1)
+ 
++
++
++
+ typedef struct {
+     ASS_Image result;
+     CompositeHashValue *source;
+@@ -180,6 +184,48 @@ typedef struct glyph_info {
+     struct glyph_info *next;
+ } GlyphInfo;
+ 
++/**
++ * \brief Character-to-text mapping information
++ * * Tracks the relationship between a rendered glyph cluster and
++ * the original source text indices.
++ */
++typedef struct {
++    /** Start byte offset in unformatted text */
++    int text_start;
++    
++    /** End byte offset in unformatted text (exclusive) */
++    int text_end;
++    
++    /** Character bounding box in 26.6 fixed-point */
++    ASS_Rect bbox;
++
++    /** Rotated corners in 26.6 fixed-point */
++    AssBoxPoint c1, c2, c3, c4;
++    
++    /** Pointer to the source event */
++    ASS_Event *event;
++    
++    // UTF-8 clean text for this event
++    char *clean_text;
++} CharacterBoxData;
++
++/**
++ * \brief Storage for character box data during rendering
++ * * This structure maintains the mapping between rendered characters
++ * and their source text positions for hit-testing purposes.
++ */
++typedef struct {
++    /** Array of character box data */
++    CharacterBoxData *boxes;
++    
++    /** Number of boxes currently used */
++    size_t count;
++    
++    /** Maximum number of boxes allocated */
++    size_t capacity;
++} CharacterBoxStorage;
++
++
+ typedef struct {
+     double asc, desc;
+     int offset, len;
+@@ -335,6 +381,7 @@ struct ass_renderer {
+ 
+     RenderContext state;
+     CacheStore cache;
++    CharacterBoxStorage char_boxes;  // Character box data for hit-testing
+ 
+     BitmapEngine engine;
+ 
+diff --git a/libass/libass.sym b/libass/libass.sym
+index 4cc6215..5f0b074 100644
+--- a/libass/libass.sym
++++ b/libass/libass.sym
+@@ -48,3 +48,5 @@ ass_malloc
+ ass_prune_events
+ ass_configure_prune
+ ass_distort_map_point
++ass_get_current_fragment_boxes
++ass_get_dialogue_plaintext
+\ No newline at end of file
