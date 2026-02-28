@@ -18,9 +18,12 @@ ffbuild_depends() {
     echo lcevcdec-test
     echo libvorbis
     echo opencl
+    echo jbigkit
+    echo libicu
     echo pulseaudio
     echo vmaf
     echo x11
+    echo curl
     echo vulkan-headers
     echo vulkan-loader
     echo shaderc
