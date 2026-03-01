@@ -45,10 +45,15 @@ ffbuild_dockerbuild() {
         -DGRAPHICS_OPTIMIZATIONS=ON
         -DOPENMP=ON
         -DSW_BUILD=OFF
-        # Явно указываем зависимости, чтобы CMake не искал системные
+        # Явно указываем зависимости, чтобы CMake не искал системные (сломано)
         # -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica"
         # tell Tesseract NOT to use Leptonica's CMake files
         -DLeptonica_DIR=OFF
+        # Явные пути для подстраховки (Fallbacks)
+        -DLeptonica_INCLUDE_DIRS="$FFBUILD_PREFIX/include;$FFBUILD_PREFIX/include/leptonica"
+        -DLeptonica_LIBRARIES="-lleptonica"
+        # Помогаем PkgConfig
+        -DPKG_CONFIG_EXECUTABLE=$(which pkg-config)
     )
 
     # Добавляем LTO если включено в workflow
