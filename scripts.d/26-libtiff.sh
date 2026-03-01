@@ -60,7 +60,7 @@ ffbuild_dockerbuild() {
     # проверить, как называется созданный .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
     ln -sf libtiff-4.pc "$FFBUILD_DESTPREFIX"/lib/pkgconfig/tiff.pc
 
-    log_info "################################################################################"
+    log_info "################################################################"
     log_debug "Dependencies for $STAGENAME: ${0##*/}"
     # Показываем все сгенерированные .pc файлы и их зависимости
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "!!! {} !!!" \; -exec cat {} \;
@@ -70,7 +70,7 @@ ffbuild_dockerbuild() {
         echo '!!! Symbols in {} !!!';
         ${FFBUILD_TOOLCHAIN}-nm {} | grep ' U ' | awk '{print \$2}' | sort -u | head -n 20
     "
-    log_info "################################################################################"
+    log_info "################################################################"
 }
 
 ffbuild_configure() {

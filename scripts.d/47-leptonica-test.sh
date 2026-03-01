@@ -104,14 +104,13 @@ Libs: -L\${libdir} -lleptonica
 Libs.private: -lwebp -lwebpmux -lsharpyuv -ltiff -ljpeg -lpng16 -lopenjp2 -lgif -llzma -lzstd -ljbig -lz -lshlwapi -lws2_32 -lm
 Cflags: -I\${includedir} -I\${includedir}/leptonica
 EOF
-    fi
 
     # Создаем симлинк, если Tesseract ищет leptonica.pc вместо lept.pc
     ln -sf lept.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/leptonica.pc"
     # Удаляем CMake-файлы Leptonica. Это заставит Tesseract использовать pkg-config (lept.pc).
     rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake/leptonica"
 
-    log_info "################################################################################"
+    log_info "################################################################"
     log_debug "Dependencies for $STAGENAME: ${0##*/}"
     # Показываем все сгенерированные .pc файлы и их зависимости
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "!!! {} !!!" \; -exec cat {} \;
@@ -121,7 +120,7 @@ EOF
         echo '!!! Symbols in {} !!!';
         ${FFBUILD_TOOLCHAIN}-nm {} | grep ' U ' | awk '{print \$2}' | sort -u | head -n 20
     "
-    log_info "################################################################################"
+    log_info "################################################################"
 }
 
 ffbuild_configure() {
