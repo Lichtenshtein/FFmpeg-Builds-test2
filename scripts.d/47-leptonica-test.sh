@@ -38,21 +38,28 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
-    # Создаем временный файл с описанием недостающих таргетов
-    cat <<EOF > extra_targets.cmake
-add_library(JBIG::JBIG STATIC IMPORTED)
-set_target_properties(JBIG::JBIG PROPERTIES 
-    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libjbig.a"
-    INTERFACE_INCLUDE_DIRECTORIES "$FFBUILD_PREFIX/include")
+    # Удаляем "ядовитые" CMake-конфиги TIFF и других либ, 
+    # которые заставляют линкер искать ZLIB::ZLIB
+    rm -rf "$FFBUILD_PREFIX/lib/cmake/tiff"
 
-add_library(ZLIB::ZLIB STATIC IMPORTED)
-set_target_properties(ZLIB::ZLIB PROPERTIES 
-    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libz.a"
-    INTERFACE_INCLUDE_DIRECTORIES "$FFBUILD_PREFIX/include")
-EOF
+    # Создаем фиктивные цели, чтобы удовлетворить TiffConfig.cmake
+    # Прописываем пути к реальным файлам для этих целей
+    # cat <<EOF > extra_targets.cmake
+# foreach(tgt JBIG::JBIG ZLIB::ZLIB liblzma::liblzma ZSTD::ZSTD JPEG::JPEG)
+    # if(NOT TARGET \${tgt})
+        # add_library(\${tgt} STATIC IMPORTED)
+    # endif()
+# endforeach()
+
+# set_target_properties(JBIG::JBIG PROPERTIES IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libjbig.a")
+# set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libz.a")
+# set_target_properties(liblzma::liblzma PROPERTIES IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/liblzma.a")
+# set_target_properties(ZSTD::ZSTD PROPERTIES IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libzstd.a")
+# set_target_properties(JPEG::JPEG PROPERTIES IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libjpeg.a")
+# EOF
 
     local myconf=(
-        -DCMAKE_PROJECT_INCLUDE="${PWD}/extra_targets.cmake"
+        # -DCMAKE_PROJECT_INCLUDE="${PWD}/extra_targets.cmake"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
