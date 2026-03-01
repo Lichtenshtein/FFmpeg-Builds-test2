@@ -28,6 +28,10 @@ ffbuild_dockerbuild() {
     # Настройка флагов для C++17 и статики
     export CXXFLAGS="$CXXFLAGS -std=c++17 -D_WIN32"
 
+    # Чтобы Tesseract успешно прошел тест check_leptonica_tiff_support
+    export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
+    export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
+
         # -DBUILD_TRAINING_TOOLS=OFF
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -45,13 +49,12 @@ ffbuild_dockerbuild() {
         # -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica"
         # tell Tesseract NOT to use Leptonica's CMake files
         -DLeptonica_DIR=OFF
-        -DPKG_CONFIG_EXECUTABLE=$(which pkg-config)
     )
 
     # Добавляем LTO если включено в workflow
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DENABLE_LTO=ON )
 
-    # Принудительно отключаем поиск Pango, если не хотим проблем с линковкой
+    # Принудительно отключаем поиск Pango (если его нет), если не хотим проблем с линковкой
     # cmake "${myconf[@]}" -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica" ..
 
     # Tesseract должен найти Leptonica через pkg-config
@@ -79,16 +82,17 @@ ffbuild_dockerbuild() {
         fi
     fi
 
-    # --- Блок автоматической отладки зависимостей ---
-    log_debug "[DEBUG] Dependencies for $STAGENAME: ${0##*/}"
+    log_info "################################################################################"
+    log_debug "Dependencies for $STAGENAME: ${0##*/}"
     # Показываем все сгенерированные .pc файлы и их зависимости
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "--- {} ---" \; -exec cat {} \;
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "### {} ###" \; -exec cat {} \;
     # Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
     # фильтруем только те символы, которые реально ведут к другим библиотекам
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a" -print0 | xargs -0 -I{} sh -c "
-        echo '--- Symbols in {} ---';
+        echo '### Symbols in {} ###';
         ${FFBUILD_TOOLCHAIN}-nm {} | grep ' U ' | awk '{print \$2}' | sort -u | head -n 20
     "
+    log_info "################################################################################"
 }
 
 ffbuild_configure() {

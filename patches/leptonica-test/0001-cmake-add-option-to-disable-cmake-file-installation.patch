@@ -1,0 +1,107 @@
+From 7eaaf92778a1af6f93a9ea448b7df5ef28535d9e Mon Sep 17 00:00:00 2001
+From: FrozenGalaxy <156858866+FrozenGalaxy@users.noreply.github.com>
+Date: Tue, 28 Oct 2025 23:35:50 +0000
+Subject: [PATCH] cmake: add option to disable cmake file installation
+
+---
+ CMakeLists.txt     | 25 ++++++++++++++-----------
+ src/CMakeLists.txt | 32 ++++++++++++++++++--------------
+ 2 files changed, 32 insertions(+), 25 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 42a774670..490f36a36 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -70,6 +70,7 @@ option(ENABLE_TIFF "Enable TIFF support" ON)
+ option(ENABLE_WEBP "Enable WebP support" ON)
+ option(ENABLE_OPENJPEG "Enable OpenJPEG support" ON)
+ 
++option(INSTALL_CMAKE_CONFIG "Install CMake configuration files" ON)
+ set(leptonica_INSTALL_CMAKE_DIR
+     "${CMAKE_INSTALL_LIBDIR}/cmake/leptonica"
+     CACHE STRING "Install destination for CMake package files")
+@@ -335,19 +336,21 @@ file(
+   GENERATE
+   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${pkg_conf_name}
+   INPUT ${CMAKE_CURRENT_BINARY_DIR}/lept.pc.in)
+-
+-configure_file(
+-  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/templates/LeptonicaConfig-version.cmake.in
+-  ${CMAKE_CURRENT_BINARY_DIR}/LeptonicaConfig-version.cmake @ONLY)
+-configure_file(
+-  ${CMAKE_CURRENT_SOURCE_DIR}/cmake/templates/LeptonicaConfig.cmake.in
+-  ${CMAKE_CURRENT_BINARY_DIR}/LeptonicaConfig.cmake @ONLY)
+-
+ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${pkg_conf_name}
+         DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig)
+-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/LeptonicaConfig.cmake
+-              ${CMAKE_CURRENT_BINARY_DIR}/LeptonicaConfig-version.cmake
+-        DESTINATION ${leptonica_INSTALL_CMAKE_DIR})
++
++if(INSTALL_CMAKE_CONFIG)
++    configure_file(
++    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/templates/LeptonicaConfig-version.cmake.in
++    ${CMAKE_CURRENT_BINARY_DIR}/LeptonicaConfig-version.cmake @ONLY)
++    configure_file(
++    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/templates/LeptonicaConfig.cmake.in
++    ${CMAKE_CURRENT_BINARY_DIR}/LeptonicaConfig.cmake @ONLY)
++
++    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/LeptonicaConfig.cmake
++                ${CMAKE_CURRENT_BINARY_DIR}/LeptonicaConfig-version.cmake
++            DESTINATION ${leptonica_INSTALL_CMAKE_DIR})
++endif()
+ 
+ # ##############################################################################
+ # uninstall target
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+index 9cd693a24..33fa6b44b 100644
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -86,7 +86,7 @@ if(MSVC)
+   target_link_libraries(leptonica PRIVATE user32.lib gdi32.lib)
+ endif()
+ 
+-if(NOT SW_BUILD)
++if(NOT SW_BUILD AND INSTALL_CMAKE_CONFIG)
+   export(TARGETS leptonica FILE ${CMAKE_BINARY_DIR}/LeptonicaTargets.cmake)
+ else()
+   target_link_libraries(
+@@ -94,21 +94,25 @@ else()
+     PRIVATE org.sw.demo.gif org.sw.demo.jpeg org.sw.demo.glennrp.png
+             org.sw.demo.tiff org.sw.demo.webmproject.webp
+             org.sw.demo.uclouvain.openjpeg.openjp2)
+-  file(WRITE ${CMAKE_BINARY_DIR}/LeptonicaTargets.cmake
+-       "include(${CMAKE_BINARY_DIR}/cppan.cmake)\n")
+-  export(
+-    TARGETS leptonica
+-    APPEND
+-    FILE ${CMAKE_BINARY_DIR}/LeptonicaTargets.cmake)
++    if(INSTALL_CMAKE_CONFIG)
++        file(WRITE ${CMAKE_BINARY_DIR}/LeptonicaTargets.cmake
++            "include(${CMAKE_BINARY_DIR}/cppan.cmake)\n")
++        export(
++            TARGETS leptonica
++            APPEND
++            FILE ${CMAKE_BINARY_DIR}/LeptonicaTargets.cmake)
++    endif()
+ endif()
+ 
+-install(
+-  TARGETS leptonica
+-  EXPORT LeptonicaTargets
+-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+-  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
+-install(EXPORT LeptonicaTargets DESTINATION ${leptonica_INSTALL_CMAKE_DIR})
++if(INSTALL_CMAKE_CONFIG)
++    install(
++    TARGETS leptonica
++    EXPORT LeptonicaTargets
++    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
++    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
++    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
++    install(EXPORT LeptonicaTargets DESTINATION ${leptonica_INSTALL_CMAKE_DIR})
++endif()
+ install(FILES ${hdr} ${CMAKE_BINARY_DIR}/src/endianness.h
+         DESTINATION include/leptonica)
+ 
