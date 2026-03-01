@@ -29,7 +29,7 @@ ffbuild_dockerbuild() {
     export CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include"
 
     # передаем зависимости libtiff, чтобы тесты линковки не падали
-    export LIBS="-ltiff -ljpeg -llzma -lzstd -lpng16 -lz -lm"
+    export LIBS="-ltiff -ljpeg -llzma -lzstd -ljbig -lpng16 -lz -lm"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
