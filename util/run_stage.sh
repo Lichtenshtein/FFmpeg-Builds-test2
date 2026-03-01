@@ -180,19 +180,19 @@ export RAW_LDEXEFLAGS="$LDEXEFLAGS"
 build_cmd="ffbuild_dockerbuild"
 [[ -n "$2" ]] && build_cmd="$2"
 
-log_info "################################################################################"
+log_info "################################################################"
 log_info "### STARTING STAGE: $STAGENAME"
 log_info "### DATE: $(date)"
 log_info "### Starting build function: $build_cmd"
-log_info "################################################################################"
+log_info "################################################################"
 
 if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
     log_info "Verbose mode active. Build output will be shown in real-time."
     if ! ( set -e; $build_cmd ); then
         echo "::error file=$SCRIPT_PATH::Build failed for $STAGENAME"
-        log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         log_error "!!! ${RED}ERROR${NC}: Build failed for $STAGENAME"
-        log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         # Выводим текущую директорию и структуру файлов, чтобы понять, где мы
         log_debug "Current directory: $(pwd)"
         # Используем 'find' для поиска любых логов ошибок рекурсивно
@@ -217,9 +217,9 @@ else
     log_info "Quiet mode active. Output is redirected to /tmp/stage_build.log"
     if ! ( set -e; $build_cmd > /tmp/stage_build.log 2>&1 ); then
         log_error "Build failed! Dumping build log:"
-        echo "--------------------------------------------------------------------------------"
+        echo "----------------------------------------------------------------"
         cat /tmp/stage_build.log
-        echo "--------------------------------------------------------------------------------"
+        echo "----------------------------------------------------------------"
         exit 1
     fi
 fi
@@ -231,6 +231,7 @@ fi
 PRESERVE_DLL_PATTERN="${DLL_PRESERVE_LIST:-openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|onevpl}"
 if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
     if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
+        log_info "################################################################"
         log_debug "Cleaning unwanted DLLs from static stage: $STAGENAME"
         find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
     else
@@ -242,7 +243,7 @@ fi
 
 # Вывод статистики в конце каждой стадии
 # Это покажет Hit Rate прямо в логах GitHub
-log_info "################################################################################"
+log_info "################################################################"
 log_info "--- CCACHE STATISTICS ---"
 ccache -s
 

@@ -1,5 +1,3 @@
-50-speex.sh:
-
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/xiph/speex.git"
