@@ -35,14 +35,17 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_TESTS=OFF
-        -DBUILD_TRAINING_TOOLS=ON
+        -DBUILD_TRAINING_TOOLS=ON # Disable tools if they cause link errors
         -DCPPAN_BUILD=OFF
         -DENABLE_TERMINAL_REPORTING=OFF
         -DGRAPHICS_OPTIMIZATIONS=ON
         -DOPENMP=ON
         -DSW_BUILD=OFF
         # Явно указываем зависимости, чтобы CMake не искал системные
-        -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica"
+        # -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica"
+        # tell Tesseract NOT to use Leptonica's CMake files
+        -DLeptonica_DIR=OFF
+        -DPKG_CONFIG_EXECUTABLE=$(which pkg-config)
     )
 
     # Добавляем LTO если включено в workflow
@@ -75,6 +78,17 @@ ffbuild_dockerbuild() {
             sed -i '/^Requires.private:/ s/$/ leptonica pango cairo libarchive/' "$PC_FILE"
         fi
     fi
+
+    # --- Блок автоматической отладки зависимостей ---
+    log_debug "[DEBUG] Dependencies for $STAGENAME: ${0##*/}"
+    # Показываем все сгенерированные .pc файлы и их зависимости
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "--- {} ---" \; -exec cat {} \;
+    # Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
+    # фильтруем только те символы, которые реально ведут к другим библиотекам
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a" -print0 | xargs -0 -I{} sh -c "
+        echo '--- Symbols in {} ---';
+        ${FFBUILD_TOOLCHAIN}-nm {} | grep ' U ' | awk '{print \$2}' | sort -u | head -n 20
+    "
 }
 
 ffbuild_configure() {
