@@ -84,19 +84,14 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # РУЧНАЯ ПРОВЕРКА И ПЕРЕНОС (если install пропустил файлы)
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
 
     # Ищем либу (она могла остаться в папке build/src)
     find src -name "libleptonica*" -exec cp {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a" \;
 
-    # Ищем и исправляем .pc файл
-    local PC_RAW=$(find . -name "lept*.pc" | head -n 1)
-    if [[ -f "$PC_RAW" ]]; then
-        cp "$PC_RAW" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lept.pc"
-    else
-        # Если pc файл не создался вообще - создаем его вручную (минимальный рабочий вариант)
-        cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lept.pc"
+
+    # Если pc файл не создался вообще - создаем его вручную (минимальный рабочий вариант)
+    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lept.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
@@ -112,11 +107,10 @@ EOF
     fi
 
     # Создаем симлинк, если Tesseract ищет leptonica.pc вместо lept.pc
-    ln -sf lept.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/leptonica.pc" || true
+    ln -sf lept.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/leptonica.pc"
     # Удаляем CMake-файлы Leptonica. Это заставит Tesseract использовать pkg-config (lept.pc).
-    rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake/leptonica" || true
+    rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake/leptonica"
 
-    # --- Блок автоматической отладки зависимостей ---
     log_info "################################################################################"
     log_debug "Dependencies for $STAGENAME: ${0##*/}"
     # Показываем все сгенерированные .pc файлы и их зависимости
