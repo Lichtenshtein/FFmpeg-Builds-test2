@@ -25,36 +25,47 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    if [[ -d "/builder/patches/leptonica-test" ]]; then
+        for patch in /builder/patches/leptonica-test/*.patch; do
+            log_info "APPLYING PATCH: $patch"
+            if patch -p1 -N -r - < "$patch"; then
+                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+            else
+                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+                # return 1 # если нужно прервать сборку при ошибке
+            fi
+        done
+    fi
+
     mkdir build && cd build
-
-    # Create a helper to define missing targets that Leptonica/Tiff expect
-    # This prevents the "Target JBIG::JBIG not found" error
-    cat <<EOF > lept_deps.cmake
-add_library(JBIG::JBIG STATIC IMPORTED)
-set_target_properties(JBIG::JBIG PROPERTIES IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libjbig.a"
-    INTERFACE_INCLUDE_DIRECTORIES "$FFBUILD_PREFIX/include")
-
-add_library(ZLIB::ZLIB STATIC IMPORTED)
-set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libz.a"
-    INTERFACE_INCLUDE_DIRECTORIES "$FFBUILD_PREFIX/include")
-EOF
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=OFF
+        -DCMAKE_LINK_SEARCH_START_STATIC=ON
+        -DCMAKE_LINK_SEARCH_END_STATIC=ON
         -DSW_BUILD=OFF
-        # Включаем поддержку всех форматов через системные (ffbuild) либы
+        -DBUILD_PROG=OFF
+        -DINSTALL_CMAKE_CONFIG=OFF
+        -DSYM_LINK=ON # Create symlink leptonica -> lept on UNIX
         -DENABLE_PNG=ON
         -DENABLE_JPEG=ON
         -DENABLE_TIFF=ON
-        -DENABLE_WEBP=ON
         -DENABLE_GIF=ON
         -DENABLE_ZLIB=ON
+        -DENABLE_OPENJPEG=ON
         -DENABLE_LIBARCHIVE=ON
+        -DENABLE_WEBP=ON
+        # Явно помогаем найти WebP
+        -DWebP_DIR=OFF
+        -DWebP_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DWebP_LIBRARY="$FFBUILD_PREFIX/lib/libwebp.a"
+        # Явно помогаем найти TIFF (если он тоже капризничает)
+        -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.a"
         -DCMAKE_PREFIX_PATH="$FFBUILD_PREFIX"
-        -DCMAKE_PROJECT_INCLUDE="${PWD}/lept_deps.cmake" # Inject our fake targets
         -DPKG_CONFIG_EXECUTABLE=$(which pkg-config)
     )
 
@@ -62,41 +73,42 @@ EOF
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DENABLE_LTO=ON )
 
     cmake "${myconf[@]}" \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        ..
+        -DCMAKE_C_FLAGS="$CFLAGS -DIB_STATIC" \
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS -DIB_STATIC" \
+        .. || true 
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # Исправляем pkg-config для статической линковки Tesseract
-    # Leptonica иногда не прописывает зависимости в Libs.private
-    # sed -i 's/Libs.private:/Libs.private: -lwebp -lsharpyuv -ltiff -ljpeg -lpng16 -lgif -lz -lm -lshlwapi /' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/lept.pc
+    # Удаляем CMake-файлы Leptonica. Это заставит Tesseract использовать pkg-config (lept.pc).
+    rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake/leptonica" || true 
 
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lept.pc"
     if [[ -f "$PC_FILE" ]]; then
         # Ensure all sub-dependencies are listed for static linking
         # libsharpyuv is needed by webp, jbig is needed by tiff
-        sed -i 's/Libs.private:/Libs.private: -lshlwapi -lws2_32 -ljbig -lsharpyuv -ltiff -ljpeg -lpng16 -libwebp -lgif -llzma -lzstd -lz -lm /' "$PC_FILE"
+        sed -i 's/Libs.private:/Libs.private: -lshlwapi -lws2_32 -ljbig -lsharpyuv -ltiff -ljpeg -lpng16 -lwebp -libwebp -lgif -llzma -lzstd -lz -lm /' "$PC_FILE"
     fi
 
     # Создаем симлинк, если Tesseract ищет leptonica.pc вместо lept.pc
-    ln -sf lept.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/leptonica.pc"
+    # ln -sf lept.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/leptonica.pc"
 
     # --- Блок автоматической отладки зависимостей ---
-    log_debug "[DEBUG] Dependencies for $STAGENAME: ${0##*/}"
+    log_info "################################################################################"
+    log_debug "Dependencies for $STAGENAME: ${0##*/}"
     # Показываем все сгенерированные .pc файлы и их зависимости
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "--- {} ---" \; -exec cat {} \;
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "### {} ###" \; -exec cat {} \;
     # Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
     # фильтруем только те символы, которые реально ведут к другим библиотекам
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a" -print0 | xargs -0 -I{} sh -c "
-        echo '--- Symbols in {} ---';
+        echo '### Symbols in {} ###';
         ${FFBUILD_TOOLCHAIN}-nm {} | grep ' U ' | awk '{print \$2}' | sort -u | head -n 20
     "
+    log_info "################################################################################"
 }
 
 ffbuild_configure() {
-    return 0 # Сама Leptonica не добавляет флаг в ffmpeg, она нужна только для tesseract
+    return 0
 }
 
 ffbuild_unconfigure() {
