@@ -99,15 +99,14 @@ ffbuild_dockerbuild() {
         cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lept.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
-# libdir=\${exec_prefix}/lib
-libdir=${prefix}/lib
+libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
 Name: leptonica
 Description: Leptonica image processing library
 Version: 1.88.0
 Libs: -L\${libdir} -lleptonica
-Libs.private: -lshlwapi -lws2_32 -ljbig -lsharpyuv -ltiff -ljpeg -lpng16 -lwebp -lwebpmux -lgif -llzma -lzstd -lz -lm
+Libs.private: -lwebp -lwebpmux -lsharpyuv -ltiff -ljpeg -lpng16 -lopenjp2 -lgif -llzma -lzstd -ljbig -lz -lshlwapi -lws2_32 -lm
 Cflags: -I\${includedir} -I\${includedir}/leptonica
 EOF
     fi
@@ -121,11 +120,11 @@ EOF
     log_info "################################################################################"
     log_debug "Dependencies for $STAGENAME: ${0##*/}"
     # Показываем все сгенерированные .pc файлы и их зависимости
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "### {} ###" \; -exec cat {} \;
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "!!! {} !!!" \; -exec cat {} \;
     # Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
     # фильтруем только те символы, которые реально ведут к другим библиотекам
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a" -print0 | xargs -0 -I{} sh -c "
-        echo '### Symbols in {} ###';
+        echo '!!! Symbols in {} !!!';
         ${FFBUILD_TOOLCHAIN}-nm {} | grep ' U ' | awk '{print \$2}' | sort -u | head -n 20
     "
     log_info "################################################################################"
