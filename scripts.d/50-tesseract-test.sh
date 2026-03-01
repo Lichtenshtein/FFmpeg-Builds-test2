@@ -25,9 +25,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     mkdir build && cd build
 
-    # Помогаем линкеру найти все зависимости во время тестов CMake (TryCompile)
-    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
-    export CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include"
     # Настройка флагов для C++17 и статики
     export CXXFLAGS="$CXXFLAGS -std=c++17 -D_WIN32"
 
@@ -58,10 +55,11 @@ ffbuild_dockerbuild() {
         # Явные пути для подстраховки (Fallbacks)
         -DLeptonica_INCLUDE_DIRS="$FFBUILD_PREFIX/include;$FFBUILD_PREFIX/include/leptonica"
         -DLeptonica_LIBRARIES="-lleptonica"
-        # Помогаем PkgConfig
-        -DPKG_CONFIG_EXECUTABLE=$(which pkg-config)
+        -DZLIB_LIBRARIES="-lz"
+        -DTIFF_LIBRARY="-ltiff"
+        -DJPEG_LIBRARY="-ljpeg"
         # чтобы CMake не игнорировал зависимости из PkgConfig в тестах
-        -DCMAKE_REQUIRED_LIBRARIES="png16;z;jpeg;tiff;webp;sharpyuv;lzma;zstd;jbig;shlwapi;ws2_32"
+        -DCMAKE_REQUIRED_LIBRARIES="leptonica;webp;webpmux;sharpyuv;tiff;jpeg;png16;lzma;zstd;jbig;z;shlwapi;ws2_32;m"
     )
 
     # Добавляем LTO если включено в workflow
@@ -75,8 +73,6 @@ ffbuild_dockerbuild() {
     # Tesseract должен найти Leptonica через pkg-config
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_LD_FLAGS="$LDFLAGS" \
-        -DCMAKE_CPP_FLAGS="$CPPFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         ..
 
