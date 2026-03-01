@@ -27,6 +27,18 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     mkdir build && cd build
 
+    # Create a helper to define missing targets that Leptonica/Tiff expect
+    # This prevents the "Target JBIG::JBIG not found" error
+    cat <<EOF > lept_deps.cmake
+add_library(JBIG::JBIG STATIC IMPORTED)
+set_target_properties(JBIG::JBIG PROPERTIES IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libjbig.a"
+    INTERFACE_INCLUDE_DIRECTORIES "$FFBUILD_PREFIX/include")
+
+add_library(ZLIB::ZLIB STATIC IMPORTED)
+set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libz.a"
+    INTERFACE_INCLUDE_DIRECTORIES "$FFBUILD_PREFIX/include")
+EOF
+
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
@@ -42,6 +54,7 @@ ffbuild_dockerbuild() {
         -DENABLE_ZLIB=ON
         -DENABLE_LIBARCHIVE=ON
         -DCMAKE_PREFIX_PATH="$FFBUILD_PREFIX"
+        -DCMAKE_PROJECT_INCLUDE="${PWD}/lept_deps.cmake" # Inject our fake targets
         -DPKG_CONFIG_EXECUTABLE=$(which pkg-config)
     )
 
@@ -62,15 +75,24 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lept.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Добавляем системные либы Windows
-        sed -i 's/Libs.private:/& -lshlwapi -lws2_32 /' "$PC_FILE"
-        # Указываем зависимости через Requires.private (предпочтительный способ)
-        sed -i '/^Requires.private:/ s/$/ libwebp libsharpyuv libtiff-4 libpng16 zlib /' "$PC_FILE" || \
-        echo "Requires.private: libwebp libsharpyuv libtiff-4 libpng16 zlib" >> "$PC_FILE"
+        # Ensure all sub-dependencies are listed for static linking
+        # libsharpyuv is needed by webp, jbig is needed by tiff
+        sed -i 's/Libs.private:/Libs.private: -lshlwapi -lws2_32 -ljbig -lsharpyuv -ltiff -ljpeg -lpng16 -libwebp -lgif -llzma -lzstd -lz -lm /' "$PC_FILE"
     fi
 
     # Создаем симлинк, если Tesseract ищет leptonica.pc вместо lept.pc
     ln -sf lept.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/leptonica.pc"
+
+    # --- Блок автоматической отладки зависимостей ---
+    log_debug "[DEBUG] Dependencies for $STAGENAME: ${0##*/}"
+    # Показываем все сгенерированные .pc файлы и их зависимости
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "--- {} ---" \; -exec cat {} \;
+    # Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
+    # фильтруем только те символы, которые реально ведут к другим библиотекам
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a" -print0 | xargs -0 -I{} sh -c "
+        echo '--- Symbols in {} ---';
+        ${FFBUILD_TOOLCHAIN}-nm {} | grep ' U ' | awk '{print \$2}' | sort -u | head -n 20
+    "
 }
 
 ffbuild_configure() {
