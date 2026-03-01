@@ -25,20 +25,24 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     mkdir build && cd build
 
+    # Помогаем линкеру найти все зависимости во время тестов CMake (TryCompile)
+    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
+    export CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include"
     # Настройка флагов для C++17 и статики
     export CXXFLAGS="$CXXFLAGS -std=c++17 -D_WIN32"
 
-    # Чтобы Tesseract успешно прошел тест check_leptonica_tiff_support
+    # Tesseract должен использовать PkgConfig со всеми зависимостями
+    # и успешно пройти тест check_leptonica_tiff_support
     export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
 
-        # -DBUILD_TRAINING_TOOLS=OFF
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_TESTS=OFF
+        # -DBUILD_TRAINING_TOOLS=OFF
         -DBUILD_TRAINING_TOOLS=ON # Disable tools if they cause link errors
         -DCPPAN_BUILD=OFF
         -DENABLE_TERMINAL_REPORTING=OFF
@@ -49,11 +53,15 @@ ffbuild_dockerbuild() {
         # -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica"
         # tell Tesseract NOT to use Leptonica's CMake files
         -DLeptonica_DIR=OFF
+        -DTIFF_DIR=OFF
+        -DZLIB_DIR=OFF
         # Явные пути для подстраховки (Fallbacks)
         -DLeptonica_INCLUDE_DIRS="$FFBUILD_PREFIX/include;$FFBUILD_PREFIX/include/leptonica"
         -DLeptonica_LIBRARIES="-lleptonica"
         # Помогаем PkgConfig
         -DPKG_CONFIG_EXECUTABLE=$(which pkg-config)
+        # чтобы CMake не игнорировал зависимости из PkgConfig в тестах
+        -DCMAKE_REQUIRED_LIBRARIES="png16;z;jpeg;tiff;webp;sharpyuv;lzma;zstd;jbig;shlwapi;ws2_32"
     )
 
     # Добавляем LTO если включено в workflow
@@ -62,9 +70,13 @@ ffbuild_dockerbuild() {
     # Принудительно отключаем поиск Pango (если его нет), если не хотим проблем с линковкой
     # cmake "${myconf[@]}" -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica" ..
 
+    rm -f CMakeCache.txt
+
     # Tesseract должен найти Leptonica через pkg-config
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS" \
+        -DCMAKE_LD_FLAGS="$LDFLAGS" \
+        -DCMAKE_CPP_FLAGS="$CPPFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         ..
 
@@ -90,11 +102,11 @@ ffbuild_dockerbuild() {
     log_info "################################################################################"
     log_debug "Dependencies for $STAGENAME: ${0##*/}"
     # Показываем все сгенерированные .pc файлы и их зависимости
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "### {} ###" \; -exec cat {} \;
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "!!! {} !!!" \; -exec cat {} \;
     # Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
     # фильтруем только те символы, которые реально ведут к другим библиотекам
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a" -print0 | xargs -0 -I{} sh -c "
-        echo '### Symbols in {} ###';
+        echo '!!! Symbols in {} !!!';
         ${FFBUILD_TOOLCHAIN}-nm {} | grep ' U ' | awk '{print \$2}' | sort -u | head -n 20
     "
     log_info "################################################################################"
