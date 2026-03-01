@@ -23,6 +23,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+
     mkdir build && cd build
 
     # Настройка флагов для C++17 и статики
@@ -55,9 +56,9 @@ ffbuild_dockerbuild() {
         # Явные пути для подстраховки (Fallbacks)
         -DLeptonica_INCLUDE_DIRS="$FFBUILD_PREFIX/include;$FFBUILD_PREFIX/include/leptonica"
         -DLeptonica_LIBRARIES="-lleptonica"
-        -DZLIB_LIBRARIES="-lz"
-        -DTIFF_LIBRARY="-ltiff"
-        -DJPEG_LIBRARY="-ljpeg"
+        -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.a"
+        -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.a"
+        -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.a"
         # чтобы CMake не игнорировал зависимости из PkgConfig в тестах
         -DCMAKE_REQUIRED_LIBRARIES="leptonica;webp;webpmux;sharpyuv;tiff;jpeg;png16;lzma;zstd;jbig;z;shlwapi;ws2_32;m"
     )
@@ -68,10 +69,11 @@ ffbuild_dockerbuild() {
     # Принудительно отключаем поиск Pango (если его нет), если не хотим проблем с линковкой
     # cmake "${myconf[@]}" -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica" ..
 
-    rm -f CMakeCache.txt
+    find "$FFBUILD_PREFIX/lib/cmake" -name "ZLIBConfig.cmake" -delete
+    find "$FFBUILD_PREFIX/lib/cmake" -name "TIFFConfig.cmake" -delete
 
     # Tesseract должен найти Leptonica через pkg-config
-    cmake "${myconf[@]}" \
+    cmake --trace-expand --trace-redirect=cmake_trace.txt "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         ..
@@ -96,13 +98,20 @@ ffbuild_dockerbuild() {
     fi
 
     log_info "################################################################"
+
+    echo "--- СОДЕРЖИМОЕ linkLibs.rsp ---"
+    find . -name "linkLibs.rsp" -exec cat {} \;
+    echo "--- Ищем упоминания ZLIB::ZLIB в сгенерированных файлах ---"
+    grep -r "ZLIB::ZLIB" .
+    grep -r "JBIG::JBIG" .
+
     log_debug "Dependencies for $STAGENAME: ${0##*/}"
     # Показываем все сгенерированные .pc файлы и их зависимости
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "!!! {} !!!" \; -exec cat {} \;
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "--- {} ---" \; -exec cat {} \;
     # Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
     # фильтруем только те символы, которые реально ведут к другим библиотекам
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a" -print0 | xargs -0 -I{} sh -c "
-        echo '!!! Symbols in {} !!!';
+        echo '--- Symbols in {} ---';
         ${FFBUILD_TOOLCHAIN}-nm {} | grep ' U ' | awk '{print \$2}' | sort -u | head -n 20
     "
     log_info "################################################################"

@@ -32,14 +32,27 @@ ffbuild_dockerbuild() {
                 log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
             else
                 log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # return 1 # если нужно прервать сборку при ошибке
             fi
         done
     fi
 
     mkdir build && cd build
 
+    # Создаем временный файл с описанием недостающих таргетов
+    cat <<EOF > extra_targets.cmake
+add_library(JBIG::JBIG STATIC IMPORTED)
+set_target_properties(JBIG::JBIG PROPERTIES 
+    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libjbig.a"
+    INTERFACE_INCLUDE_DIRECTORIES "$FFBUILD_PREFIX/include")
+
+add_library(ZLIB::ZLIB STATIC IMPORTED)
+set_target_properties(ZLIB::ZLIB PROPERTIES 
+    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libz.a"
+    INTERFACE_INCLUDE_DIRECTORIES "$FFBUILD_PREFIX/include")
+EOF
+
     local myconf=(
+        -DCMAKE_PROJECT_INCLUDE="${PWD}/extra_targets.cmake"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
@@ -89,6 +102,8 @@ ffbuild_dockerbuild() {
     # Ищем либу (она могла остаться в папке build/src)
     find src -name "libleptonica*" -exec cp {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a" \;
 
+    # Удаляем все автосгенерированные конфиги
+    rm -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"/lept*.pc
 
     # Если pc файл не создался вообще - создаем его вручную (минимальный рабочий вариант)
     cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lept.pc"
@@ -113,11 +128,11 @@ EOF
     log_info "################################################################"
     log_debug "Dependencies for $STAGENAME: ${0##*/}"
     # Показываем все сгенерированные .pc файлы и их зависимости
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "!!! {} !!!" \; -exec cat {} \;
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "--- {} ---" \; -exec cat {} \;
     # Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
     # фильтруем только те символы, которые реально ведут к другим библиотекам
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a" -print0 | xargs -0 -I{} sh -c "
-        echo '!!! Symbols in {} !!!';
+        echo '--- Symbols in {} ---';
         ${FFBUILD_TOOLCHAIN}-nm {} | grep ' U ' | awk '{print \$2}' | sort -u | head -n 20
     "
     log_info "################################################################"
