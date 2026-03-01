@@ -26,6 +26,14 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
+    # Удаляем "ядовитые" CMake-конфиги TIFF и других либ, 
+    # которые заставляют линкер искать ZLIB::ZLIB
+    rm -rf "$FFBUILD_PREFIX/lib/cmake/tiff"
+    rm -rf "$FFBUILD_PREFIX/lib/cmake/Leptonica"
+    rm -rf "$FFBUILD_PREFIX/lib/cmake/ZLIB"
+    # Удаляем любые другие конфиги, которые могут просочиться
+    find "$FFBUILD_PREFIX/lib/cmake" -name "*Config.cmake" -delete
+
     # Настройка флагов для C++17 и статики
     export CXXFLAGS="$CXXFLAGS -std=c++17 -D_WIN32"
 
@@ -54,11 +62,12 @@ ffbuild_dockerbuild() {
         -DTIFF_DIR=OFF
         -DZLIB_DIR=OFF
         # Явные пути для подстраховки (Fallbacks)
-        -DLeptonica_INCLUDE_DIRS="$FFBUILD_PREFIX/include;$FFBUILD_PREFIX/include/leptonica"
-        -DLeptonica_LIBRARIES="-lleptonica"
-        -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.a"
-        -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.a"
         -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.a"
+        -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.a"
+        -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.a"
+        -DZLIB_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DLeptonica_LIBRARIES="-lleptonica"
         # чтобы CMake не игнорировал зависимости из PkgConfig в тестах
         -DCMAKE_REQUIRED_LIBRARIES="leptonica;webp;webpmux;sharpyuv;tiff;jpeg;png16;lzma;zstd;jbig;z;shlwapi;ws2_32;m"
     )
@@ -68,9 +77,6 @@ ffbuild_dockerbuild() {
 
     # Принудительно отключаем поиск Pango (если его нет), если не хотим проблем с линковкой
     # cmake "${myconf[@]}" -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica" ..
-
-    find "$FFBUILD_PREFIX/lib/cmake" -name "ZLIBConfig.cmake" -delete
-    find "$FFBUILD_PREFIX/lib/cmake" -name "TIFFConfig.cmake" -delete
 
     # Tesseract должен найти Leptonica через pkg-config
     cmake --trace-expand --trace-redirect=cmake_trace.txt "${myconf[@]}" \
@@ -99,11 +105,11 @@ ffbuild_dockerbuild() {
 
     log_info "################################################################"
 
-    echo "--- СОДЕРЖИМОЕ linkLibs.rsp ---"
-    find . -name "linkLibs.rsp" -exec cat {} \;
-    echo "--- Ищем упоминания ZLIB::ZLIB в сгенерированных файлах ---"
-    grep -r "ZLIB::ZLIB" .
-    grep -r "JBIG::JBIG" .
+    # echo "--- СОДЕРЖИМОЕ linkLibs.rsp ---"
+    # find . -name "linkLibs.rsp" -exec cat {} \;
+    # echo "--- Ищем упоминания ZLIB::ZLIB в сгенерированных файлах ---"
+    # grep -r "ZLIB::ZLIB" .
+    # grep -r "JBIG::JBIG" .
 
     log_debug "Dependencies for $STAGENAME: ${0##*/}"
     # Показываем все сгенерированные .pc файлы и их зависимости
