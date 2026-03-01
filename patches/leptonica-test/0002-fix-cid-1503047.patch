@@ -1,0 +1,35 @@
+From 159bda2b4affbbb7f1186c739a1599112181d2d1 Mon Sep 17 00:00:00 2001
+From: Stefan Weil <sw@weilnetz.de>
+Date: Tue, 31 Dec 2024 09:28:48 +0100
+Subject: [PATCH] Fix CID 1503047
+
+Handling ascii85flag like a boolean value makes it easier for
+Coverity Scan to track the possible code branches.
+
+Signed-off-by: Stefan Weil <sw@weilnetz.de>
+---
+ src/pdfio2.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/src/pdfio2.c b/src/pdfio2.c
+index e652bd50e..a2ad0d37b 100644
+--- a/src/pdfio2.c
++++ b/src/pdfio2.c
+@@ -955,7 +955,7 @@ FILE         *fp;
+                                           fname, __func__, NULL);
+ 
+         /* Optionally, encode the compressed data */
+-    if (ascii85flag == 1) {
++    if (ascii85flag) {
+         data85 = encodeAscii85(data, nbytes, &nbytes85);
+         LEPT_FREE(data);
+         if (!data85)
+@@ -966,7 +966,7 @@ FILE         *fp;
+     }
+ 
+     cid = (L_COMP_DATA *)LEPT_CALLOC(1, sizeof(L_COMP_DATA));
+-    if (ascii85flag == 0) {
++    if (!ascii85flag) {
+         cid->datacomp = data;
+     } else {  /* ascii85 */
+         cid->data85 = data85;
