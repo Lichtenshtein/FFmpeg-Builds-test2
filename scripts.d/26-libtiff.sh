@@ -63,11 +63,11 @@ ffbuild_dockerbuild() {
     log_info "################################################################################"
     log_debug "Dependencies for $STAGENAME: ${0##*/}"
     # Показываем все сгенерированные .pc файлы и их зависимости
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "### {} ###" \; -exec cat {} \;
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "!!! {} !!!" \; -exec cat {} \;
     # Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
     # фильтруем только те символы, которые реально ведут к другим библиотекам
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a" -print0 | xargs -0 -I{} sh -c "
-        echo '### Symbols in {} ###';
+        echo '!!! Symbols in {} !!!';
         ${FFBUILD_TOOLCHAIN}-nm {} | grep ' U ' | awk '{print \$2}' | sort -u | head -n 20
     "
     log_info "################################################################################"
