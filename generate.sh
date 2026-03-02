@@ -122,7 +122,7 @@ done
 
 # Сборка флагов конфигурации FFmpeg
 # Временные файлы для сбора
-touch .conf .cflags .ldflags .libs .cxxflags .ldexeflags
+touch .conf .cflags .ldflags .libs .cxxflags .cppflags .ldexeflags
 
 # Функция для безопасного извлечения флагов
 collect_all_flags() {
@@ -139,6 +139,7 @@ collect_all_flags() {
         [[ -n "$FF_CFLAGS" ]]    && echo "$FF_CFLAGS"    >> .cflags
         [[ -n "$FF_LDFLAGS" ]]   && echo "$FF_LDFLAGS"   >> .ldflags
         [[ -n "$FF_CXXFLAGS" ]]  && echo "$FF_CXXFLAGS"  >> .cxxflags
+        [[ -n "$FF_CPPFLAGS" ]]  && echo "$FF_CPPFLAGS"  >> .cppflags
         [[ -n "$FF_LDEXEFLAGS" ]] && echo "$FF_LDEXEFLAGS" >> .ldexeflags
         [[ -n "$FF_LIBS" ]]      && echo "$FF_LIBS"      >> .libs
 
@@ -158,6 +159,7 @@ collect_all_flags() {
         get_from_func "ffbuild_configure" ".conf"
         get_from_func "ffbuild_cflags" ".cflags"
         get_from_func "ffbuild_ldflags" ".ldflags"
+        get_from_func "ffbuild_cppflags" ".cppflags"
         get_from_func "ffbuild_cxxflags" ".cxxflags"
         get_from_func "ffbuild_ldexeflags" ".ldexeflags"
         get_from_func "ffbuild_libs" ".libs"
@@ -203,6 +205,7 @@ FF_CONFIGURE=$(dedupe "$FF_CONFIGURE")
 FF_CFLAGS=$(dedupe "$FF_CFLAGS")
 FF_LDFLAGS=$(smart_dedupe "$FF_LDFLAGS")
 FF_CXXFLAGS=$(dedupe "$FF_CXXFLAGS")
+FF_CPPFLAGS=$(dedupe "$FF_CPPFLAGS")
 FF_LDEXEFLAGS=$(dedupe "$FF_LDEXEFLAGS")
 FF_LIBS=$(smart_dedupe "$FF_LIBS")
 
@@ -211,10 +214,11 @@ to_df "ENV FF_CONFIGURE=\"$FF_CONFIGURE\""
 to_df "ENV FF_CFLAGS=\"$FF_CFLAGS\""
 to_df "ENV FF_LDFLAGS=\"$FF_LDFLAGS\""
 to_df "ENV FF_CXXFLAGS=\"$FF_CXXFLAGS\""
+to_df "ENV FF_CPPFLAGS=\"$FF_CPPFLAGS\""
 to_df "ENV FF_LDEXEFLAGS=\"$FF_LDEXEFLAGS\""
 to_df "ENV FF_LIBS=\"$FF_LIBS\""
 
-rm .conf .cflags .ldflags .libs .cxxflags .ldexeflags
+rm .conf .cflags .ldflags .libs .cxxflags .cppflags .ldexeflags
 
 if [[ $SKIP_FFMPEG -eq 1 ]]; then
     log_info "Option 'skip_ffmpeg' is active. Final build stage will be omitted."

@@ -58,3 +58,7 @@ ffbuild_dockerbuild() {
         sed -i 's/^Libs:.*/& -lusp10 -lshlwapi -lsetupapi -lruntimeobject -ldwrite -lgdi32 -lstdc++/' "$PC_FILE"
     fi
 }
+
+ffbuild_cppflags() {
+    echo "-DPANGO_STATIC_COMPILATION"
+}

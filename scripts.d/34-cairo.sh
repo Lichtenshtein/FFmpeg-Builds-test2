@@ -56,3 +56,7 @@ ffbuild_dockerbuild() {
         sed -i 's/^Libs:.*/& -lgdi32 -lmsimg32 -luser32 -ldwrite -ld2d1 -lwindowscodecs -lole32/' "$PC_FILE"
     fi
 }
+
+ffbuild_cppflags() {
+    echo "-DCAIRO_WIN32_STATIC_BUILD"
+}

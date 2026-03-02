@@ -37,9 +37,10 @@ ffbuild_dockerbuild() {
     )
 
     # Принудительно подтягиваем флаги из pkg-config, чтобы застраховаться
-    export CFLAGS="$CFLAGS $(pkg-config --cflags zlib liblzma)"
+    export CFLAGS="$CFLAGS $(pkg-config --cflags zlib liblzma) -DLIBXML_STATIC"
     # export LDFLAGS="$LDFLAGS $(pkg-config --libs zlib liblzma)"
-    export CPPFLAGS="-I$FFBUILD_PREFIX/include"
+    export CPPFLAGS="-I$FFBUILD_PREFIX/include -DLIBXML_STATIC"
+    export CXXFLAGS="$CXXFLAGS -DLIBXML_STATIC"
     export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
 
     ./autogen.sh "${myconf[@]}"
@@ -50,6 +51,10 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+}
+
+ffbuild_cppflags() {
+    echo "-DLIBXML_STATIC"
 }
 
 ffbuild_configure() {

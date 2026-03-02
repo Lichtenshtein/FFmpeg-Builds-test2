@@ -24,6 +24,8 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
 
+    mkdir build && cd build
+
     # Создаем симлинк libWs2_32.a -> libws2_32.a
     # линкер найдет библиотеку при любом регистре
     ln -sf /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32.a /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libWs2_32.a
@@ -42,15 +44,36 @@ ffbuild_dockerbuild() {
     # Удаляем любые другие конфиги, которые могут просочиться
     find "$FFBUILD_PREFIX/lib/cmake" -name "*Config.cmake" -delete
 
-    # Настройка флагов для C++17 и статики
-    export CXXFLAGS="$CXXFLAGS -std=c++17 -D_WIN32"
-
     # Tesseract должен использовать PkgConfig со всеми зависимостями
     # и успешно пройти тест check_leptonica_tiff_support
     export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
 
-    mkdir build && cd build
+    export CFLAGS="$CFLAGS -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING"
+    # Настройка флагов для C++17 и статики
+    export CXXFLAGS="$CXXFLAGS -std=c++17 -D_WIN32 -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING"
+
+    # ПИРАМИДА ЛИНКОВКИ (Верх -> Низ)
+    # Уровень 5: Tesseract (цель)
+    # Уровень 4: Высокоуровневые движки
+    PANGO_LIBS="-lpangocairo-1.0 -lpangoft2-1.0 -lpangowin32-1.0 -lpango-1.0"
+    CAIRO_LIBS="-lcairo -lpixman-1 -lfontconfig -lfreetype -lharfbuzz -lpng16"
+
+    # Уровень 3: Контейнеры и Сеть
+    ARCHIVE_LIBS="-larchive -lxml2 -liconv -lcharset -llzma -lzstd -lbz2 -llz4"
+    CURL_LIBS="-lcurl -lssh -lssl -lcrypto -lcrypt32 -lwldap32 -lnormaliz"
+
+    # Уровень 2: Изображения и Математика
+    LEPT_LIBS="-lleptonica -lwebp -lwebpmux -lsharpyuv -ltiff -ljpeg -lopenjp2 -lgif -ljbig -llcms2"
+    TENSOR_LIBS="-ltensorflow -ltensorflow_framework"
+    ICU_LIBS="-lsicuin -lsicuuc -lsicudt"
+
+    # Уровень 1: Базовые утилиты и Системные либы Windows
+    BASE_LIBS="-lglib-2.0 -lintl -lgettextlib -lffi -lpcre2-8 -lbrotlidec -lbrotlicommon -lz -lm -lstdc++"
+    WIN_SYS="-lws2_32 -lshlwapi -lbcrypt -luser32 -ladvapi32 -lgdi32 -lmsimg32 -lwindowscodecs -lole32 -loleaut32 -luuid -lcomdlg32 -lshell32 -lwinmm -lsetupapi -liphlpapi -lruntimeobject -ldwrite -ld2d1 -lusp10 -ldbghelp"
+
+    # Итоговая строка
+    export ALL_STATIC_LIBS="${PANGO_LIBS} ${CAIRO_LIBS} ${ARCHIVE_LIBS} ${CURL_LIBS} ${LEPT_LIBS} ${TENSOR_LIBS} ${ICU_LIBS} ${BASE_LIBS} ${WIN_SYS}"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -66,27 +89,24 @@ ffbuild_dockerbuild() {
         # Обманываем упавший тест TIFF (чтобы он не портил логи и не сбивал CMake)
         -DLEPT_TIFF_RESULT=0 
         -DLEPT_TIFF_COMPILE_SUCCESS=ON
-        # Явно указываем зависимости, чтобы CMake не искал системные (сломано)
-        # -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica"
         # tell Tesseract to FUCK OFF from Leptonica's CMake files
         -DLeptonica_DIR=OFF
-        -DICU_DIR=OFF
         # Явные пути для подстраховки (Fallbacks)
         -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.a"
         -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DLeptonica_LIBRARIES="-lleptonica"
-        # чтобы CMake не игнорировал зависимости из PkgConfig в тестах
-        -DCMAKE_REQUIRED_LIBRARIES="leptonica;webp;webpmux;sharpyuv;tiff;jpeg;png16;lzma;zstd;jbig;z;shlwapi;ws2_32;m"
-        # Переопределяем системные либы в нижнем регистре
-        -DCMAKE_CXX_STANDARD_LIBRARIES="-lws2_32 -lshlwapi -lbcrypt -luser32 -ladvapi32"
-        -DCMAKE_C_STANDARD_LIBRARIES="-lws2_32 -lshlwapi -lbcrypt -luser32 -ladvapi32"
+        # Прокидываем ICU вручную, так как Tesseract его любит
+        -DICU_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DICU_LIBRARY="$FFBUILD_PREFIX/lib/libsicuuc.a"
+        -DICU_I18N_LIBRARY="$FFBUILD_PREFIX/lib/libsicuin.a"
+        # ПРИНУДИТЕЛЬНАЯ ЛИНКОВКА
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${ALL_STATIC_LIBS}"
+        -DCMAKE_CXX_STANDARD_LIBRARIES="${ALL_STATIC_LIBS}"
+        -DCMAKE_C_STANDARD_LIBRARIES="${ALL_STATIC_LIBS}"
     )
 
     # Добавляем LTO если включено в workflow
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DENABLE_LTO=ON )
-
-    # Принудительно отключаем поиск Pango (если его нет), если не хотим проблем с линковкой
-    # cmake "${myconf[@]}" -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica" ..
 
     # Удаляем кеш и запускаем
     rm -f CMakeCache.txt
