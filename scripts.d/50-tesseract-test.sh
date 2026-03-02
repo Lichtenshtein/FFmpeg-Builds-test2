@@ -49,6 +49,9 @@ ffbuild_dockerbuild() {
     export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
 
+    # Это заставит CMake проверить компилятор без попытки линковки огромного списка
+    export CMAKE_TRY_COMPILE_TARGET_TYPE="STATIC_LIBRARY"
+
     export CFLAGS="$CFLAGS -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING"
     # Настройка флагов для C++17 и статики
     export CXXFLAGS="$CXXFLAGS -std=c++17 -D_WIN32 -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING"
@@ -60,16 +63,16 @@ ffbuild_dockerbuild() {
     CAIRO_LIBS="-lcairo -lpixman-1 -lfontconfig -lfreetype -lharfbuzz -lpng16"
 
     # Уровень 3: Контейнеры и Сеть
-    ARCHIVE_LIBS="-larchive -lxml2 -liconv -lcharset -llzma -lzstd -lbz2 -llz4"
+    ARCHIVE_LIBS="-larchive -lxml2 -liconv -lcharset -llzma -lzstd -lbz2"
     CURL_LIBS="-lcurl -lssh -lssl -lcrypto -lcrypt32 -lwldap32 -lnormaliz"
 
     # Уровень 2: Изображения и Математика
     LEPT_LIBS="-lleptonica -lwebp -lwebpmux -lsharpyuv -ltiff -ljpeg -lopenjp2 -lgif -ljbig -llcms2"
-    TENSOR_LIBS="-ltensorflow -ltensorflow_framework"
+    TENSOR_LIBS="-ltensorflow"
     ICU_LIBS="-lsicuin -lsicuuc -lsicudt"
 
     # Уровень 1: Базовые утилиты и Системные либы Windows
-    BASE_LIBS="-lglib-2.0 -lintl -lgettextlib -lffi -lpcre2-8 -lbrotlidec -lbrotlicommon -lz -lm -lstdc++"
+    BASE_LIBS="-lglib-2.0 -lintl -lffi -lpcre2-8 -lbrotlidec -lbrotlicommon -lz -lm -lstdc++"
     WIN_SYS="-lws2_32 -lshlwapi -lbcrypt -luser32 -ladvapi32 -lgdi32 -lmsimg32 -lwindowscodecs -lole32 -loleaut32 -luuid -lcomdlg32 -lshell32 -lwinmm -lsetupapi -liphlpapi -lruntimeobject -ldwrite -ld2d1 -lusp10 -ldbghelp"
 
     # Итоговая строка
@@ -100,9 +103,9 @@ ffbuild_dockerbuild() {
         -DICU_LIBRARY="$FFBUILD_PREFIX/lib/libsicuuc.a"
         -DICU_I18N_LIBRARY="$FFBUILD_PREFIX/lib/libsicuin.a"
         # ПРИНУДИТЕЛЬНАЯ ЛИНКОВКА
+        -DCMAKE_CXX_STANDARD_LIBRARIES="-lws2_32 -lshlwapi -lbcrypt -luser32 -ladvapi32"
+        -DCMAKE_C_STANDARD_LIBRARIES="-lws2_32 -lshlwapi -lbcrypt -luser32 -ladvapi32"
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${ALL_STATIC_LIBS}"
-        -DCMAKE_CXX_STANDARD_LIBRARIES="${ALL_STATIC_LIBS}"
-        -DCMAKE_C_STANDARD_LIBRARIES="${ALL_STATIC_LIBS}"
     )
 
     # Добавляем LTO если включено в workflow
