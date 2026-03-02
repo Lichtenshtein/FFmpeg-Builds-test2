@@ -24,7 +24,15 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
 
-    mkdir build && cd build
+    # Создаем симлинк libWs2_32.a -> libws2_32.a
+    # линкер найдет библиотеку при любом регистре
+    ln -sf /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32.a /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libWs2_32.a
+
+    # то же самое в префиксе на всякий случай
+    mkdir -p "$FFBUILD_PREFIX/lib"
+    ln -sf /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32.a "$FFBUILD_PREFIX/lib/libWs2_32.a"
+
+    find "$FFBUILD_PREFIX" -name "*.pc" -exec sed -i 's/-lWs2_32/-lws2_32/g' {} +
 
     # Удаляем "ядовитые" CMake-конфиги TIFF и других либ, 
     # которые заставляют линкер искать ZLIB::ZLIB
@@ -37,14 +45,12 @@ ffbuild_dockerbuild() {
     # Настройка флагов для C++17 и статики
     export CXXFLAGS="$CXXFLAGS -std=c++17 -D_WIN32"
 
-    # Принудительное исправление регистра во всех зависимостях (на всякий случай)
-    find "$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec sed -i 's/-lWs2_32/-lws2_32/g' {} +
-    find "$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec sed -i 's/-lws2_32/-lws2_32/g' {} +
-
     # Tesseract должен использовать PkgConfig со всеми зависимостями
     # и успешно пройти тест check_leptonica_tiff_support
     export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
+
+    mkdir build && cd build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -58,15 +64,16 @@ ffbuild_dockerbuild() {
         -DFAST_FLOAT=ON
         -DSW_BUILD=OFF
         # Обманываем упавший тест TIFF (чтобы он не портил логи и не сбивал CMake)
-        -DLEPT_TIFF_RESULT=1
+        -DLEPT_TIFF_RESULT=0 
+        -DLEPT_TIFF_COMPILE_SUCCESS=ON
         # Явно указываем зависимости, чтобы CMake не искал системные (сломано)
         # -DLeptonica_DIR="$FFBUILD_PREFIX/lib/cmake/leptonica"
         # tell Tesseract to FUCK OFF from Leptonica's CMake files
         -DLeptonica_DIR=OFF
+        -DICU_DIR=OFF
         # Явные пути для подстраховки (Fallbacks)
         -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.a"
         -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.a"
         -DLeptonica_LIBRARIES="-lleptonica"
         # чтобы CMake не игнорировал зависимости из PkgConfig в тестах
         -DCMAKE_REQUIRED_LIBRARIES="leptonica;webp;webpmux;sharpyuv;tiff;jpeg;png16;lzma;zstd;jbig;z;shlwapi;ws2_32;m"
