@@ -24,6 +24,12 @@ ffbuild_dockerbuild() {
     rm -rf build_dir
     mkdir build_dir
 
+    local EXTRA_DEFS="-DLIBXML_STATIC -DZLIB_STATIC -DICONV_STATIC -DARCHIVE_STATIC"
+    
+    export CFLAGS="$CFLAGS $EXTRA_DEFS"
+    export CPPFLAGS="$CPPFLAGS $EXTRA_DEFS"
+    export CXXFLAGS="$CXXFLAGS $EXTRA_DEFS"
+
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
@@ -46,15 +52,14 @@ ffbuild_dockerbuild() {
         -DENABLE_CNG=ON
         -DENABLE_ACL=ON
         -DENABLE_XATTR=ON
+        -DCMAKE_C_FLAGS="$CFLAGS"
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS"
     )
 
     # Добавляем LTO если включено
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DENABLE_LTO=ON )
 
-    cmake "${myconf[@]}" \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        -S . -B build_dir
+    cmake "${myconf[@]}" -S . -B build_dir
 
     make -C build_dir -j$(nproc) $MAKE_V
     make -C build_dir install DESTDIR="$FFBUILD_DESTDIR"
@@ -63,7 +68,7 @@ ffbuild_dockerbuild() {
     # Libarchive часто не прописывает зависимости от системных либ Windows
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libarchive.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i 's/Libs.private:/& -lbcrypt -lws2_32 -luser32 -ladvapi32 -lcrypt32 /' "$PC_FILE"
+        sed -i 's/Libs.private:/& -lxml2 -liconv -lcharset -llzma -lzstd -lbz2 -lz -lbcrypt -lws2_32 -luser32 -ladvapi32 -lcrypt32 /' "$PC_FILE"
     fi
 }
 

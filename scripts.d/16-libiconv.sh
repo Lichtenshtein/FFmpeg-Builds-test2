@@ -60,6 +60,10 @@ Cflags: -I\${includedir}
 EOF
 }
 
+ffbuild_cppflags() {
+    echo "-DICONV_STATIC"
+}
+
 ffbuild_configure() {
     echo --enable-iconv
 }
