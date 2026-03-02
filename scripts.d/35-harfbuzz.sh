@@ -42,6 +42,10 @@ ffbuild_dockerbuild() {
     # echo "Libs.private: -lpthread" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/harfbuzz.pc
 }
 
+ffbuild_cppflags() {
+    echo "-DHARFBUZZ_STATIC"
+}
+
 ffbuild_configure() {
     (( $(ffbuild_ffver) > 600 )) || return 0
     echo --enable-libharfbuzz

@@ -109,7 +109,7 @@ EOF
     fi
 }
 
-ffbuild_cflags() {
+ffbuild_cppflags() {
     echo "-DGLIB_STATIC_COMPILATION"
 }
 

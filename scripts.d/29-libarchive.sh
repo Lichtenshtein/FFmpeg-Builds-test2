@@ -68,8 +68,6 @@ ffbuild_dockerbuild() {
 }
 
 ffbuild_configure() {
-    # Libarchive обычно не включается в FFmpeg напрямую, 
-    # он нужен как зависимость для других библиотек (tesseract, и т.д.)
     return 0
 }
 

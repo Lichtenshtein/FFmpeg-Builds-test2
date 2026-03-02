@@ -74,6 +74,7 @@ CONF_FLAGS=(
     --extra-cflags="$FF_CFLAGS"
     --extra-ldflags="$FF_LDFLAGS"
     --extra-cxxflags="$FF_CXXFLAGS"
+    --extra-cppflags="$FF_CPPFLAGS"
     --extra-ldexeflags="$FF_LDEXEFLAGS"
     --extra-libs="$FINAL_EXTRA_LIBS"
     $FF_CONFIGURE
