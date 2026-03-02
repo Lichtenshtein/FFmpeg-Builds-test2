@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
     autoreconf -fi
 
     unset CFLAGS CPPFLAGS
-    export CPPFLAGS="$CPPFLAGS -DLIBSSH_STATIC -DBROTLI_STATIC -I$FFBUILD_PREFIX/include -D_FORTIFY_SOURCE=2"
+    export CPPFLAGS="$CPPFLAGS -DLIBSSH_STATIC -DBROTLI_STATIC -DCURL_STATICLIB -I$FFBUILD_PREFIX/include -D_FORTIFY_SOURCE=2"
     export CFLAGS="-O3 -march=broadwell -mtune=broadwell -static-libgcc -static-libstdc++ -pipe -fstack-protector-strong"
     export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib -static"
     export LIBS="-lssh -lbrotlidec -lbrotlicommon -lzstd -lws2_32 -lcrypt32 -lwldap32 -lnormaliz -lbcrypt -liphlpapi"
@@ -79,6 +79,10 @@ ffbuild_dockerbuild() {
         log_info "Patching libcurl.pc for static linking..."
         sed -i '/Libs.private:/ s/$/ -lssh -lbrotlidec -lbrotlicommon -lws2_32 -lcrypt32 -lwldap32 -lnormaliz -lbcrypt -liphlpapi/' "$PC_FILE"
     fi
+}
+
+ffbuild_cppflags() {
+    echo "-DCURL_STATICLIB"
 }
 
 ffbuild_configure() {

@@ -136,8 +136,7 @@ ffbuild_unconfigure() {
 
 ffbuild_cflags() {
     log_debug "Applying global CFLAGS for $STAGENAME" >&2
-    # глобальный макрос для всех, кто включает заголовки glib
-    echo "-DGLIB_STATIC_COMPILATION -mms-bitfields -D_WIN32_WINNT=0x0A00"
+    echo "-mms-bitfields"
 }
 
 ffbuild_uncflags() {
@@ -145,7 +144,14 @@ ffbuild_uncflags() {
 }
 
 ffbuild_cxxflags() {
-    return 0
+    # глобальный макрос для всех, кто включает заголовки
+    echo "-std=c++17 -D_WIN32 -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING"
+}
+
+ffbuild_cppflags() {
+    log_debug "Applying global CPPFLAGS for $STAGENAME" >&2
+    # глобальный макрос для всех, кто включает заголовки
+    echo "-DGLIB_STATIC_COMPILATION -D_WIN32_WINNT=0x0A00 -D_WIN32 -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING"
 }
 
 ffbuild_uncxxflags() {

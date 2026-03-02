@@ -43,7 +43,7 @@ ffbuild_dockerbuild() {
     fi
 }
 
-ffbuild_cflags() {
+ffbuild_cppflags() {
     echo "-DLIBSSH_STATIC"
 }
 
