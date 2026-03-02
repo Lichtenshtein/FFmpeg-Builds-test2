@@ -44,6 +44,29 @@ ffbuild_dockerbuild() {
     # Удаляем любые другие конфиги, которые могут просочиться
     find "$FFBUILD_PREFIX/lib/cmake" -name "*Config.cmake" -delete
 
+    # Хак для исправления криво собранных зависимостей (libarchive и др.)
+    # вручную сопоставляем "импортные" имена со "статическими"
+    SYMS=(
+        xmlTextReaderSetErrorHandler
+        xmlTextReaderConstLocalName
+        xmlTextReaderRead
+        xmlTextReaderNodeType
+        xmlTextReaderIsEmptyElement
+        xmlTextReaderMoveToFirstAttribute
+        xmlTextReaderConstValue
+        xmlTextReaderMoveToNextAttribute
+        xmlTextReaderConstValue
+        xmlFreeTextReader
+        xmlCleanupParser
+        xmlFreeTextReader
+        xmlCleanupParser
+    )
+    
+    ALIASES=""
+    for sym in "${SYMS[@]}"; do
+        ALIASES+=" -Wl,--defsym,__imp_${sym}=${sym}"
+    done
+
     # Tesseract должен использовать PkgConfig со всеми зависимостями
     # и успешно пройти тест check_leptonica_tiff_support
     export PKG_CONFIG_ALLOW_SYSTEM_LIBS=1
@@ -52,9 +75,11 @@ ffbuild_dockerbuild() {
     # Это заставит CMake проверить компилятор без попытки линковки огромного списка
     export CMAKE_TRY_COMPILE_TARGET_TYPE="STATIC_LIBRARY"
 
-    export CFLAGS="$CFLAGS -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING"
+    export LDFLAGS="$LDFLAGS $ALIASES"
+
+    export CFLAGS="$CFLAGS -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING -DZLIB_STATIC -DICONV_STATIC -DARCHIVE_STATIC"
     # Настройка флагов для C++17 и статики
-    export CXXFLAGS="$CXXFLAGS -std=c++17 -D_WIN32 -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING"
+    export CXXFLAGS="$CXXFLAGS -std=c++17 -D_WIN32 -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING -DZLIB_STATIC -DICONV_STATIC -DARCHIVE_STATIC"
 
     # ПИРАМИДА ЛИНКОВКИ (Верх -> Низ)
     # Уровень 5: Tesseract (цель)
@@ -77,6 +102,8 @@ ffbuild_dockerbuild() {
 
     # Итоговая строка
     export ALL_STATIC_LIBS="${PANGO_LIBS} ${CAIRO_LIBS} ${ARCHIVE_LIBS} ${CURL_LIBS} ${LEPT_LIBS} ${TENSOR_LIBS} ${ICU_LIBS} ${BASE_LIBS} ${WIN_SYS}"
+
+    local LINK_GROUP="-Wl,--start-group ${ALL_STATIC_LIBS} -Wl,--end-group"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -103,9 +130,11 @@ ffbuild_dockerbuild() {
         -DICU_LIBRARY="$FFBUILD_PREFIX/lib/libsicuuc.a"
         -DICU_I18N_LIBRARY="$FFBUILD_PREFIX/lib/libsicuin.a"
         # ПРИНУДИТЕЛЬНАЯ ЛИНКОВКА
-        -DCMAKE_CXX_STANDARD_LIBRARIES="-lws2_32 -lshlwapi -lbcrypt -luser32 -ladvapi32"
-        -DCMAKE_C_STANDARD_LIBRARIES="-lws2_32 -lshlwapi -lbcrypt -luser32 -ladvapi32"
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${ALL_STATIC_LIBS}"
+        -DCMAKE_CXX_STANDARD_LIBRARIES="-lws2_32 -lshlwapi -lbcrypt -luser32 -ladvapi32 -lgdi32"
+        # Передаем группу через флаги линковки исполняемых файлов
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $LINK_GROUP"
+        # Передаем ту же группу для тестов конфигурации
+        -DCMAKE_REQUIRED_LIBRARIES="$LINK_GROUP"
     )
 
     # Добавляем LTO если включено в workflow

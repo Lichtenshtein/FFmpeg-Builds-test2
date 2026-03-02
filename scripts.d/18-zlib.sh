@@ -55,6 +55,10 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 }
 
+ffbuild_cppflags() {
+    echo "-DZLIB_STATIC"
+}
+
 ffbuild_configure() {
     echo --enable-zlib
 }
