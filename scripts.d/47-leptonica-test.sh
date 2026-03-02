@@ -76,7 +76,6 @@ ffbuild_dockerbuild() {
         -DENABLE_GIF=ON
         -DENABLE_ZLIB=ON
         -DENABLE_OPENJPEG=ON
-        -DENABLE_LIBARCHIVE=ON
         -DENABLE_WEBP=ON
         # Явно помогаем найти WebP
         -DWebP_DIR=OFF
@@ -94,8 +93,7 @@ ffbuild_dockerbuild() {
 
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS -DIB_STATIC" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS -DIB_STATIC" \
-        .. || true 
+        ..
 
     # Исправляем расширение в сгенерированных файлах сборки, если CMake сошел с ума
     find . -name "build.make" -exec sed -i 's/libleptonica-1.88.0.dll/libleptonica.a/g' {} +
