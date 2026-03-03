@@ -42,7 +42,7 @@ ffbuild_dockerbuild() {
         -DWITH_AVX512=OFF \
         -DWITH_AVX512VNNI=OFF \
         -DWITH_VPCLMULQDQ=OFF \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
+        -DCMAKE_C_FLAGS="$CFLAGS -DZLIB_STATIC" \
         ..
 
     # Проверяем, создался ли файл перед запуском

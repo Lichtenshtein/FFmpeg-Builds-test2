@@ -20,7 +20,6 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
 
     export LDFLAGS="$LDFLAGS -static-libstdc++"
     # -lstdc++ подхватит зависимости ICU (libsicuuc) при сборке xmllint
@@ -45,7 +44,7 @@ ffbuild_dockerbuild() {
         --with-tls
     )
 
-    ./autogen.sh "${myconf[@]}" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$DEP_LIBS"
+    ./autogen.sh "${myconf[@]}" CPPFLAGS="$CPPFLAGS -DLIBXML_STATIC -DXML_STATIC" LDFLAGS="$LDFLAGS" LIBS="$DEP_LIBS"
 
     # Исправляем Makefile, если он решит, что iconv — это часть libc (в Windows это не так)
     # sed -i 's/-liconv//g' Makefile
