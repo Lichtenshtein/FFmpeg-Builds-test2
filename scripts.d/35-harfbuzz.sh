@@ -12,7 +12,10 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
+
+    local DEP_LIBS=$(pkg-config --libs --static freetype2 glib-2.0 icu-uc cairo)
 
     local myconf=(
         --cross-file=/cross.meson
@@ -21,6 +24,7 @@ ffbuild_dockerbuild() {
         --buildtype=release
         --default-library=static
         -Dfreetype=enabled
+        -Dcpp_std=c++17
         -Dglib=enabled
         -Dgobject=disabled
         -Dcairo=enabled
@@ -33,13 +37,27 @@ ffbuild_dockerbuild() {
         -Ddirectwrite=enabled
         -Dgdi=enabled
         -Dbenchmark=disabled
+        # Передаем либы через link_args, чтобы тесты Cairo не падали
+        -Dc_link_args="$LDFLAGS $DEP_LIBS $LIBS"
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $LIBS"
     )
 
-    meson setup "${myconf[@]}" ..
+    meson setup "${myconf[@]}" .. || (tail -n 100 meson-logs/meson-log.txt && exit 1)
+    
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
-    # echo "Libs.private: -lpthread" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/harfbuzz.pc
+    log_info "Patching Harfbuzz .pc files..."
+    for pc in harfbuzz.pc harfbuzz-icu.pc harfbuzz-cairo.pc; do
+        local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
+        if [[ -f "$PC_PATH" ]]; then
+            # Гарантируем наличие флага статики и системных либ
+            sed -i "/^Cflags:/ s/$/ -DHARFBUZZ_STATIC/" "$PC_PATH"
+            sed -i "/^Libs.private:/ s/$/ -lusp10 -lgdi32 -lrpcrt4 -lstdc++/" "$PC_PATH"
+        fi
+    done
+
+    get_deps_list
 }
 
 ffbuild_cppflags() {

@@ -23,7 +23,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-
+    set -e
     mkdir build && cd build
 
     # исправляем фантомную libWs2_32 от которой компилятор падает
@@ -41,7 +41,7 @@ ffbuild_dockerbuild() {
     find "$FFBUILD_PREFIX/lib/cmake" -name "*Config.cmake" -delete
 
     # Важные дефайны для статики Windows
-    export CXXFLAGS="$CXXFLAGS -std=c++17"
+    # export CXXFLAGS="$CXXFLAGS -std=c++17"
 
     # Системные либы Windows, которые всегда должны быть в конце
     local WIN_LIBS="-ladvapi32 -lgdi32 -lmsimg32 -lwindowscodecs -luuid -lsetupapi -ldwrite -lusp10 $LIBS"

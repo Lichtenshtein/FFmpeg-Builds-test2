@@ -21,6 +21,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     rm -rf build_dir
     mkdir build_dir
 
@@ -52,6 +53,7 @@ ffbuild_dockerbuild() {
         -DLIBXML2_LIBRARIES="$XML2_LIBS"
         -DLIBXML2_INCLUDE_DIR="$FFBUILD_PREFIX/include/libxml2"
         -DCMAKE_C_FLAGS="$CFLAGS -DLIBXML_STATIC -DXML_STATIC -DARCHIVE_STATIC"
+        -DCMAKE_REQUIRED_LIBRARIES="$XML2_LIBS"
     )
 
     # Добавляем LTO если включено

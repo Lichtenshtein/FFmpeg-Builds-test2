@@ -1,3 +1,5 @@
+Please check.
+
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/DanBloomberg/leptonica.git"
@@ -25,6 +27,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     if [[ -d "/builder/patches/leptonica-test" ]]; then
         for patch in /builder/patches/leptonica-test/*.patch; do
             log_info "APPLYING PATCH: $patch"
@@ -77,9 +80,7 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DENABLE_LTO=ON )
 
     # Принудительно устанавливаем C_FLAGS, чтобы избежать __imp_
-    cmake "${myconf[@]}" \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
-        ..
+    cmake "${myconf[@]}" -DCMAKE_C_FLAGS="$CFLAGS" ..
 
     # Исправляем расширение в сгенерированных файлах сборки, если CMake сошел с ума
     find . -name "build.make" -exec sed -i 's/libleptonica-1.88.0.dll/libleptonica.a/g' {} +
@@ -99,7 +100,7 @@ ffbuild_dockerbuild() {
     # Порядок либ: leptonica -> [tiff, webp, openjp2] -> [jpeg, png, zlib] -> [системные]
     # добавляем -llcms2, так как Leptonica может использовать его через tiff или напрямую
 
-    local FINAL_LIBS="-lwebp -lwebpmux -lsharpyuv -ltiff -ljpeg -lpng16 -lopenjp2 -llcms2 -lgif -llzma -lzstd -ljbig -lz"
+    local FINAL_LIBS="-larchive -lxml2 -lwebp -lwebpmux -lsharpyuv -ltiff -ljpeg -lpng16 -lopenjp2 -llcms2 -lgif -llzma -lzstd -ljbig -lz"
     local WIN_LIBS="-lgdi32 $LIBS"
 
     # Если pc файл не создался вообще - создаем его вручную (минимальный рабочий вариант)
