@@ -25,7 +25,7 @@ ffbuild_dockerbuild() {
     cmake -GNinja \
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
+        -DCMAKE_C_FLAGS="$CFLAGS -DLIBSSH_STATIC" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DBUILD_SHARED_LIBS=OFF \
         -DWITH_EXAMPLES=OFF \

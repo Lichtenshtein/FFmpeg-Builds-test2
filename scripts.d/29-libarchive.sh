@@ -50,7 +50,7 @@ ffbuild_dockerbuild() {
         -DENABLE_ACL=ON
         -DENABLE_XATTR=ON
         -DLIBXML2_LIBRARIES="$XML2_LIBS"
-        -DCMAKE_C_FLAGS="$CFLAGS -DLIBXML_STATIC -DXML_STATIC"
+        -DCMAKE_C_FLAGS="$CFLAGS -DLIBXML_STATIC -DXML_STATIC -DARCHIVE_STATIC"
     )
 
     # Добавляем LTO если включено
