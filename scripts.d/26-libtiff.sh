@@ -8,6 +8,7 @@ ffbuild_depends() {
     echo xz
     echo libjpeg-turbo
     echo jbigkit
+    echo zstd
 }
 
 ffbuild_enabled() {
@@ -34,6 +35,8 @@ ffbuild_dockerbuild() {
     rm -rf tiff_build
     mkdir tiff_build
 
+    local EXTRA_CFLAGS="$CFLAGS -DLIBJPEG_STATIC"
+
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
@@ -49,28 +52,32 @@ ffbuild_dockerbuild() {
         -Dzlib=ON
         -Dlzma=ON
         -Dwebp=OFF
+        -Djbig=ON
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
 
-    cmake "${myconf[@]}" -DCMAKE_C_FLAGS="$CFLAGS" -S . -B tiff_build
+    cmake "${myconf[@]}" -DCMAKE_C_FLAGS="$EXTRA_CFLAGS" -S . -B tiff_build
+
     make -C tiff_build -j$(nproc) $MAKE_V
     make -C tiff_build install DESTDIR="$FFBUILD_DESTDIR"
 
-    # проверить, как называется созданный .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
-    ln -sf libtiff-4.pc "$FFBUILD_DESTPREFIX"/lib/pkgconfig/tiff.pc
+   # Исправляем .pc файл: CMake часто генерирует его криво для статики
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libtiff-4.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        # Добавляем необходимые системные либы и зависимости в Libs.private
+        sed -i '/^Libs.private:/ s/$/ -ljpeg -lz -llzma -ljbig -lm/' "$PC_FILE"
+    fi
 
-    log_info "################################################################"
-    log_debug "Dependencies for $STAGENAME: ${0##*/}"
-    # Показываем все сгенерированные .pc файлы и их зависимости
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "--- {} ---" \; -exec cat {} \;
-    # Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
-    # фильтруем только те символы, которые реально ведут к другим библиотекам
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a" -print0 | xargs -0 -I{} sh -c "
-        echo '--- Symbols in {} ---';
-        ${FFBUILD_TOOLCHAIN}-nm {} | grep ' U ' | awk '{print \$2}' | sort -u | head -n 20
-    "
-    log_info "################################################################"
+    # проверить, как называется созданный .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
+    ln -sf libtiff-4.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/tiff.pc"
+
+    # Вызываем отладку зависимостей
+    get_deps_list
+}
+
+ffbuild_cppflags() {
+    echo "-DLIBTIFF_STATIC"
 }
 
 ffbuild_configure() {

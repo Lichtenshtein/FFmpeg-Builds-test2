@@ -27,6 +27,8 @@ ffbuild_dockerbuild() {
         -Dfastfloat=true
         -Dthreaded=true
         -Dtests=disabled
+        -Dcpp_args="$CXXFLAGS"
+        -Dc_args="$CFLAGS"
     )
 
     # export CFLAGS="$CFLAGS -fpermissive"
@@ -34,4 +36,12 @@ ffbuild_dockerbuild() {
     meson setup "${myconf[@]}" ..
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    # ѕровер€ем lcms2.pc
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lcms2.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        # lcms2 часто не пишет зависимости в .pc, если они статические
+        # ƒобавим -lm (математическа€ библиотека) дл€ Windows/MinGW
+        sed -i '/^Libs.private:/ s/$/ -lm/' "$PC_FILE"
+    fi
 }

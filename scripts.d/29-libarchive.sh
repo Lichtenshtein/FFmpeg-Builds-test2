@@ -24,11 +24,13 @@ ffbuild_dockerbuild() {
     rm -rf build_dir
     mkdir build_dir
 
-    local EXTRA_DEFS="-DLIBXML_STATIC -DZLIB_STATIC -DICONV_STATIC -DARCHIVE_STATIC"
-    
+    local EXTRA_DEFS="-DLIBXML_STATIC -DXML_STATIC -DZLIB_STATIC -DICONV_STATIC -DARCHIVE_STATIC"
+
     export CFLAGS="$CFLAGS $EXTRA_DEFS"
     export CPPFLAGS="$CPPFLAGS $EXTRA_DEFS"
-    export CXXFLAGS="$CXXFLAGS $EXTRA_DEFS"
+
+    # Используем pkg-config, чтобы получить полный список либ для libxml2 (со всеми зависимостями)
+    local XML2_LIBS=$(pkg-config --libs --static libxml-2.0)
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -52,8 +54,8 @@ ffbuild_dockerbuild() {
         -DENABLE_CNG=ON
         -DENABLE_ACL=ON
         -DENABLE_XATTR=ON
+        -DLIBXML2_LIBRARIES="$XML2_LIBS"
         -DCMAKE_C_FLAGS="$CFLAGS"
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS"
     )
 
     # Добавляем LTO если включено
@@ -68,8 +70,13 @@ ffbuild_dockerbuild() {
     # Libarchive часто не прописывает зависимости от системных либ Windows
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libarchive.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i 's/Libs.private:/& -lxml2 -liconv -lcharset -llzma -lzstd -lbz2 -lz -lbcrypt -lws2_32 -luser32 -ladvapi32 -lcrypt32 /' "$PC_FILE"
+        # В статической линковке порядок важен: высокоуровневые либы идут ПЕРЕД низкоуровневыми
+        # libarchive -> libxml2 -> [lzma, zlib, iconv] -> [ws2_32, bcrypt]
+        sed -i "s|^Libs.private:.*|Libs.private: $XML2_LIBS -llzma -lzstd -lbz2 -lz -lcrypt32 -lbcrypt -lws2_32 -luser32 -ladvapi32|" "$PC_FILE"
     fi
+
+    # Вызываем отладку зависимостей
+    get_deps_list
 }
 
 ffbuild_configure() {

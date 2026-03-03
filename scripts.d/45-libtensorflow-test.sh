@@ -16,21 +16,21 @@ ffbuild_dockerbuild() {
 
     # Распаковываем (unzip должен быть в base образе)
     unzip -qq tensorflow.zip -d tf_src
-    # Находим папку (имя может меняться в зависимости от билда)
-    local TF_DIR=$(find . -maxdepth 1 -type d -name "tf_src*" | head -n 1)
-    cd "$TF_DIR"
+    cd tf_src
 
-    # Структура архива обычно содержит папку 'lib' и 'include'
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{include/tensorflow/c,lib,bin}
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{include/tensorflow/c,lib,bin,lib/pkgconfig}
 
-    # Копируем заголовки (сохраняя структуру)
+    # Копируем заголовки
     cp -r include/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
 
-    # Библиотеки и DLL
-    # Для MinGW лучше сделать копию .lib с префиксом 'lib'
-    cp lib/tensorflow.lib "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libtensorflow.dll.a"
-    # Сама DLL должна быть в bin, чтобы попасть в финальный архив
+    # В Windows архиве TF обычно лежит tensorflow.lib и tensorflow.dll
+    # Для MinGW: 
+    #  DLL идет в bin (чтобы быть рядом с ffmpeg.exe)
+    # .lib копируем как .dll.a (стандарт импортной либы для MinGW)
     cp lib/tensorflow.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
+    cp lib/tensorflow.lib "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libtensorflow.dll.a"
+    # На всякий случай создаем копию без .dll
+    ln -sf libtensorflow.dll.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libtensorflow.a"
 
     # Генерируем .pc файл и добавляем -ltensorflow.lib явно для линковщика
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
@@ -45,6 +45,8 @@ Version: 2.16.1
 Libs: -L\${libdir} -ltensorflow
 Cflags: -I\${includedir}
 EOF
+
+    get_deps_list
 }
 
 ffbuild_configure() {

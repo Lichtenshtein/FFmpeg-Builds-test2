@@ -57,6 +57,9 @@ ffbuild_dockerbuild() {
         # Добавляем стандартную библиотеку C++, так как VS написан на ней
         sed -i "s|^Libs:.*|Libs: -L\${libdir} -lvapoursynth -lstdc++ -lwinmm|" "$PC_FILE"
     fi
+
+    # Вызываем отладку зависимостей
+    get_deps_list
 }
 
 ffbuild_configure() {
