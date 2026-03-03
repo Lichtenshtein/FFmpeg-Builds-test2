@@ -24,11 +24,6 @@ ffbuild_dockerbuild() {
     rm -rf build_dir
     mkdir build_dir
 
-    local EXTRA_DEFS="-DLIBXML_STATIC -DXML_STATIC -DZLIB_STATIC -DICONV_STATIC -DARCHIVE_STATIC"
-
-    export CFLAGS="$CFLAGS $EXTRA_DEFS"
-    export CPPFLAGS="$CPPFLAGS $EXTRA_DEFS"
-
     # Используем pkg-config, чтобы получить полный список либ для libxml2 (со всеми зависимостями)
     local XML2_LIBS=$(pkg-config --libs --static libxml-2.0)
 
@@ -77,6 +72,10 @@ ffbuild_dockerbuild() {
 
     # Вызываем отладку зависимостей
     get_deps_list
+}
+
+ffbuild_cppflags() {
+    echo "-DARCHIVE_STATIC"
 }
 
 ffbuild_configure() {

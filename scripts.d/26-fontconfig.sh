@@ -22,6 +22,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     ./autogen.sh --noconf
 
+    export LIBS="-lfreetype -lpng -lz $LIBS"
+
     local myconf=(
         ac_cv_va_copy="C99"
         --prefix="$FFBUILD_PREFIX"
@@ -47,7 +49,7 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    ./configure "${myconf[@]}"
+    ./configure "${myconf[@]}" LIBS="$LIBS"
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 

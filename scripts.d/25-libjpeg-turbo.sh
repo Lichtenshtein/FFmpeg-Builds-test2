@@ -42,7 +42,3 @@ ffbuild_dockerbuild() {
 ffbuild_cppflags() {
     echo "-DLIBJPEG_STATIC"
 }
-
-ffbuild_configure() {
-    return 0 # Используется внутренними компонентами
-}

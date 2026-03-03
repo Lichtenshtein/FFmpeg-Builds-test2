@@ -32,7 +32,7 @@ ffbuild_dockerbuild() {
     local CLEAN_CPPFLAGS="-I$FFBUILD_PREFIX/include -D_FORTIFY_SOURCE=2 -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC"
 
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
-    local CURL_LIBS="-lssh -lssl -lcrypto -lbrotlidec -lbrotlicommon -lzstd -lz -lws2_32 -lcrypt32 -lwldap32 -lnormaliz -lbcrypt -liphlpapi -ladvapi32"
+    local CURL_LIBS="-lssh -lssl -lcrypto -lbrotlidec -lbrotlicommon -lzstd -lz -lcrypt32 -lwldap32 -lnormaliz -liphlpapi -ladvapi32 $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -73,7 +73,7 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" \
         CPPFLAGS="$CLEAN_CPPFLAGS" \
         CFLAGS="$CLEAN_CFLAGS" \
-        LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib -static" \
+        LDFLAGS="$LDFLAGS -static" \
         LIBS="$CURL_LIBS"
 
     make -j$(nproc) $MAKE_V

@@ -73,7 +73,7 @@ ffbuild_dockerbuild() {
 
 ffbuild_libs() {
     # Эти флаги нужны FFmpeg, чтобы слинковаться с libcrypto.a и libssl.a
-    echo "-lssl -lcrypto -lws2_32 -lgdi32 -lcrypt32 -lbcrypt -lz"
+    echo "-lssl -lcrypto -lgdi32 -lcrypt32 -lz"
 }
 
 ffbuild_configure() {

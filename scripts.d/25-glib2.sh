@@ -92,7 +92,7 @@ EOF
         -Dman-pages=disabled \
         -Dselinux=disabled \
         -Dsysprof=disabled \
-        || (tail -n 500 build/meson-logs/meson-log.txt && exit 1)
+        || (tail -n 200 build/meson-logs/meson-log.txt && return 1)
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install

@@ -20,7 +20,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     mkdir build && cd build
 
-    export CFLAGS="$CFLAGS -Dmd5=libssh_md5 -DLIBSSH_STATIC"
+    export CFLAGS="$CFLAGS -Dmd5=libssh_md5"
 
     cmake -GNinja \
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \

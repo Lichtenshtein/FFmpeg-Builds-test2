@@ -78,7 +78,7 @@ ffbuild_dockerbuild() {
 
     # Принудительно устанавливаем C_FLAGS, чтобы избежать __imp_
     cmake "${myconf[@]}" \
-        -DCMAKE_C_FLAGS="$CFLAGS -DIB_STATIC -DLIBTIFF_STATIC" \
+        -DCMAKE_C_FLAGS="$CFLAGS" \
         ..
 
     # Исправляем расширение в сгенерированных файлах сборки, если CMake сошел с ума
@@ -100,7 +100,7 @@ ffbuild_dockerbuild() {
     # добавляем -llcms2, так как Leptonica может использовать его через tiff или напрямую
 
     local FINAL_LIBS="-lwebp -lwebpmux -lsharpyuv -ltiff -ljpeg -lpng16 -lopenjp2 -llcms2 -lgif -llzma -lzstd -ljbig -lz"
-    local WIN_SYS="-lshlwapi -lws2_32 -luser32 -lgdi32 -lm"
+    local WIN_LIBS="-lgdi32 $LIBS"
 
     # Если pc файл не создался вообще - создаем его вручную (минимальный рабочий вариант)
     cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lept.pc"
@@ -113,7 +113,7 @@ Name: leptonica
 Description: Leptonica image processing library
 Version: 1.88.0
 Libs: -L\${libdir} -lleptonica
-Libs.private: $FINAL_LIBS $WIN_SYS
+Libs.private: $FINAL_LIBS $WIN_LIBS
 Cflags: -I\${includedir} -I\${includedir}/leptonica
 EOF
 
@@ -124,6 +124,10 @@ EOF
 
     # Вызываем отладку зависимостей
     get_deps_list
+}
+
+ffbuild_cppflags() {
+    echo "-DIB_STATIC"
 }
 
 ffbuild_configure() {

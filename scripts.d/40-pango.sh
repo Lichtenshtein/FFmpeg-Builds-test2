@@ -23,11 +23,11 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
 
-    export CFLAGS="$CFLAGS -DPANGO_STATIC_COMPILATION -DCAIRO_WIN32_STATIC_BUILD -DHARFBUZZ_STATIC -DG_WIN32_IS_STRICT_MINGW -D_WIN32_WINNT=0x0A00"
-    export CXXFLAGS="$CXXFLAGS -DPANGO_STATIC_COMPILATION -DCAIRO_WIN32_STATIC_BUILD -DHARFBUZZ_STATIC -DG_WIN32_IS_STRICT_MINGW -D_WIN32_WINNT=0x0A00"
+    export CFLAGS="$CFLAGS -DG_WIN32_IS_STRICT_MINGW"
+    export CXXFLAGS="$CXXFLAGS -DG_WIN32_IS_STRICT_MINGW"
 
     # Собираем системные либы Windows
-    local WIN_SYS_LIBS="-lusp10 -lshlwapi -lsetupapi -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lgdi32 -lmsimg32 -lole32 -luser32 -lbcrypt"
+    local WIN_LIBS="-lusp10 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lgdi32 -lmsimg32 $LIBS"
 
     # Используем наш глобальный PKG_CONFIG_STATIC=1, чтобы собрать зависимости
     local DEP_LIBS=$(pkg-config --libs cairo fontconfig freetype harfbuzz fribidi glib-2.0)
@@ -48,8 +48,8 @@ ffbuild_dockerbuild() {
         -Dman-pages=false \
         -Dc_args="$CFLAGS" \
         -Dcpp_args="$CXXFLAGS" \
-        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_SYS_LIBS" \
-        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_SYS_LIBS" \
+        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
 
     ninja -C build -j$(nproc) $NINJA_V
