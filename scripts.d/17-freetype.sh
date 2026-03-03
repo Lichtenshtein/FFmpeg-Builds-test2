@@ -10,7 +10,6 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     echo "git-submodule-clone"
-    # echo "git submodule --quiet update --init --recursive --depth=1"
 }
 
 ffbuild_dockerbuild() {
@@ -34,8 +33,5 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
-    
-    # Копируем результат в префикс
-    cp -r "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/. "$FFBUILD_PREFIX"/
 }
 
