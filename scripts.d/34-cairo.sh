@@ -25,9 +25,9 @@ ffbuild_dockerbuild() {
     # Собираем полный список системных зависимостей для Windows-бекенда Cairo
     # Включаем dwrite и d2d1, так как они нужны для современных шрифтов
     local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs $LIBS"
-    
+    local INT_LIBS="-lintl -liconv"
     # Получаем либы зависимостей через pkg-config (раз у нас PKG_CONFIG_STATIC=1)
-    local DEP_LIBS=$(pkg-config --libs fontconfig freetype harfbuzz pixman-1 libpng zlib)
+    local DEP_LIBS=$(pkg-config --libs --static fontconfig freetype2 harfbuzz pixman-1 libpng zlib)
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
@@ -46,8 +46,9 @@ ffbuild_dockerbuild() {
         -Dxlib=disabled \
         -Dzlib=enabled \
         -Dc_args="$CFLAGS" \
-        -Dcpp_args="$CXXFLAGS" \
-        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
+        -Dcpp_args="$CPPFLAGS -DCAIRO_WIN32_STATIC_BUILD" \
+        -Dc_link_args="$LDFLAGS $DEP_LIBS $INT_LIBS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $INT_LIBS $WIN_LIBS" \
         || (tail -n 100 build/meson-logs/meson-log.txt && return 1)
 
     ninja -C build -j$(nproc) $NINJA_V

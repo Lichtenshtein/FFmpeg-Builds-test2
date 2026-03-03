@@ -56,7 +56,7 @@ ffbuild_dockerbuild() {
     # Libxml2 часто забывает добавить -liconv и -lws2_32 в Libs.private для Windows
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libxml-2.0.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i '/^Libs.private:/ s/$/ -lstdc++ -liconv -lws2_32 -lbcrypt/' "$PC_FILE"
+        sed -i '/^Libs.private:/ s/$/ -lstdc++ -liconv -lintl -lws2_32 -lbcrypt/' "$PC_FILE"
     fi
 
     # Вызываем отладку зависимостей
