@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libarchive/libarchive.git"
-SCRIPT_COMMIT="dd897a78c662a2c7a003e7ec158cea7909557bee"
+SCRIPT_COMMIT="0a35627ec8bb2d755b8a9a340543a37eb6b97ade"
 
 ffbuild_depends() {
     echo zlib
@@ -50,6 +50,7 @@ ffbuild_dockerbuild() {
         -DENABLE_ACL=ON
         -DENABLE_XATTR=ON
         -DLIBXML2_LIBRARIES="$XML2_LIBS"
+        -DLIBXML2_INCLUDE_DIR="$FFBUILD_PREFIX/include/libxml2"
         -DCMAKE_C_FLAGS="$CFLAGS -DLIBXML_STATIC -DXML_STATIC -DARCHIVE_STATIC"
     )
 
