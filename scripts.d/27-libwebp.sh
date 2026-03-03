@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
 
     export CFLAGS="$CFLAGS -DWEBP_STATIC -D_WIN32"
     # Собираем список либ для тестов конфигурации
-    local WEBP_LIBS="-ltiff -ljpeg -lpng16 -lzstd -llzma -ljbig -lz -lm -lws2_32"
+    local WEBP_LIBS="-ltiff -ljpeg -lpng16 -lzstd -llzma -ljbig -lz -lm -lws2_32 -lpthread"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -47,13 +47,17 @@ ffbuild_dockerbuild() {
         CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include" \
         LIBS="$WEBP_LIBS"
 
+    # Явно вызываем make и проверяем его успех
+    make -j$(nproc) $MAKE_V 
+    make install DESTDIR="$FFBUILD_DESTDIR"
+
     # libwebp генерирует несколько .pc файлов (libwebp, libwebpmux, libsharpyuv)
     # Нужно убедиться, что они содержат системные либы для Windows
     for pc in libwebp.pc libwebpmux.pc libsharpyuv.pc; do
         local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
         if [[ -f "$PC_PATH" ]]; then
             # Добавляем -lws2_32 (нужен для некоторых функций WebP в Windows)
-            sed -i '/^Libs.private:/ s/$/ -lws2_32/' "$PC_PATH"
+            sed -i "/^Libs.private:/ s/$/ -lshlwapi -lws2_32 -lpthread/" "$PC_PATH"
         fi
     done
 

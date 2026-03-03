@@ -214,10 +214,9 @@ get_deps_list() {
     # Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
     # фильтруем только те символы, которые реально ведут к другим библиотекам
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a" -print0 | xargs -0 -I{} sh -c "
-        echo -e '\n${XCLAM_MARK} --- Undefined Symbols in {} ---';
+        echo '\n${XCLAM_MARK} --- Undefined Symbols in {} ---';
         ${FFBUILD_TOOLCHAIN}-nm -u {} | sort -u | head -n 20
     "
-    log_info "################################################################"
 }
 export -f get_deps_list
 

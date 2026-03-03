@@ -23,8 +23,11 @@ ffbuild_dockerbuild() {
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
 
     # для libxml2 статик-флаг часто требует и XML_STATIC, и LIBXML_STATIC
-    export CFLAGS="$CFLAGS $(pkg-config --static --cflags zlib liblzma) -DXML_STATIC -DLIBXML_STATIC"
+    export CFLAGS="$CFLAGS -DXML_STATIC -DLIBXML_STATIC"
     export CPPFLAGS="$CPPFLAGS -DXML_STATIC -DLIBXML_STATIC"
+
+    # -lstdc++ подхватит зависимости ICU (libsicuuc) при сборке xmllint
+    export LIBS="-lstdc++"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -51,13 +54,13 @@ ffbuild_dockerbuild() {
     # sed -i 's/-liconv//g' Makefile
     # sed -i 's/LIBS = /LIBS = -liconv /' Makefile
 
-    make -j$(nproc) $MAKE_V
+    make -j$(nproc) $MAKE_V LIBS="-lstdc++ $(pkg-config --libs --static icu-uc zlib liblzma)"
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     # Libxml2 часто забывает добавить -liconv и -lws2_32 в Libs.private для Windows
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libxml-2.0.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i '/^Libs.private:/ s/$/ -liconv -lws2_32 -lbcrypt/' "$PC_FILE"
+        sed -i '/^Libs.private:/ s/$/ -lstdc++ -liconv -lws2_32 -lbcrypt/' "$PC_FILE"
     fi
 
     # Вызываем отладку зависимостей
