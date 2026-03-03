@@ -1,5 +1,3 @@
-Please check.
-
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/DanBloomberg/leptonica.git"
