@@ -20,6 +20,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     ./autogen.sh --noconf
 
     export LIBS="-lfreetype -lpng -lz $LIBS"

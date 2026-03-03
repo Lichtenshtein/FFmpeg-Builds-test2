@@ -13,8 +13,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    # Обманываем Freetype, создавая файл-метку, что подмодули уже есть
-    # и предотвращаем вызов git в autogen.sh
+    set -e
+
     export NOCONFIGURE=1
     ./autogen.sh
 
