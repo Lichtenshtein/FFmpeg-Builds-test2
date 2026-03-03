@@ -12,6 +12,8 @@ export NC='\033[0m'            # No Color (Reset)
 export CHECK_MARK='✔'
 export CROSS_MARK='❌'
 export XCLAM_MARK='❗'
+export BROOM_MARK='🧹'
+export LOCK_MARK='🔒'
 
 # Функции для логирования пишут в stderr (>&2)
 log_info()  { echo -e "${LOG_INFO}[INFO]${LOG_NC}  $*" >&2; }
@@ -299,7 +301,7 @@ if [[ -z "$VARS_INFRA_APPLIED" ]]; then
     export VARS_INFRA_APPLIED=1
 
     # Получаем список системных либ
-    SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lpthread -lstdc++"
+    SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lpthread -lbrotlidec -lbrotlicommon -lintl -liconv"
     export LIBS="$LIBS $SYSTEM_LIBS"
     BASE_CFLAGS="-mms-bitfields"
     BASE_CPPFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32"

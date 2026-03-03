@@ -1,4 +1,5 @@
 #!/bin/bash
+
 SCRIPT_REPO="https://gitlab.freedesktop.org/cairo/cairo.git"
 SCRIPT_COMMIT="2a4589266388622f8c779721c8a4e090966fae79"
 
@@ -59,10 +60,10 @@ ffbuild_dockerbuild() {
     # Cairo часто забывает прописать системные зависимости в .pc файл
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/cairo.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Добавляем все системные либы в Libs.private, чтобы они не мешали основной строке Libs
-        # Но при этом были доступны при --static
-        sed -i "/^Libs.private:/ s/$/ $WIN_LIBS/" "$PC_FILE"
-        # Убеждаемся, что дефайн статики прописан в Cflags pc-файла
+        # Добавляем все недостающие хвосты: intl, iconv и brotli
+        # Порядок: cairo -> fontconfig -> freetype -> [brotli, xml2, lzma, zlib] -> [intl, iconv, sys]
+        local EXTRA_PRIVATE="-lbrotlidec -lbrotlicommon -lintl -liconv -lws2_32 -lbcrypt"
+        sed -i "/^Libs.private:/ s/$/ $EXTRA_PRIVATE/" "$PC_FILE"
         sed -i "/^Cflags:/ s/$/ -DCAIRO_WIN32_STATIC_BUILD/" "$PC_FILE"
     fi
 

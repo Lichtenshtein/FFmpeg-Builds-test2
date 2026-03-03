@@ -26,11 +26,11 @@ ffbuild_dockerbuild() {
     export CFLAGS="$CFLAGS -DG_WIN32_IS_STRICT_MINGW"
     export CXXFLAGS="$CXXFLAGS -DG_WIN32_IS_STRICT_MINGW"
 
-    # Собираем системные либы Windows
-    local WIN_LIBS="-lusp10 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lgdi32 -lmsimg32 $LIBS"
-
     # Используем наш глобальный PKG_CONFIG_STATIC=1, чтобы собрать зависимости
-    local DEP_LIBS=$(pkg-config --libs cairo fontconfig freetype harfbuzz fribidi glib-2.0)
+    local DEP_LIBS=$(pkg-config --libs --static cairo fontconfig freetype2 harfbuzz glib-2.0 fribidi libbrotlidec)
+
+    # Собираем системные либы Windows
+    local WIN_LIBS="-lintl -liconv -lusp10 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lgdi32 -lmsimg32 $LIBS"
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \

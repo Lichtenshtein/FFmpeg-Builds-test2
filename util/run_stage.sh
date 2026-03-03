@@ -89,7 +89,7 @@ log_debug "--- DEBUG: Searching source for $STAGENAME ---"
 # Ищем точное совпадение (Имя_Хеш)
 if [[ -f "$TGT_FILE" ]]; then
     REAL_CACHE="$TGT_FILE"
-    log_info "${CHECK_MARK} Exact cache match found: $(basename "$REAL_CACHE")"
+    log_info "${GREEN}${CHECK_MARK} Exact cache match found: $(basename "$REAL_CACHE")${NC}"
     ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
     # fix for Docker ro filesystem
     # ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK" 2>/dev/null || true
@@ -98,7 +98,7 @@ else
     EXISTING_BY_HASH=$(find "$CACHE_DIR" -maxdepth 1 -name "*_${CURRENT_HASH}.tar.zst" -print -quit)
     if [[ -n "$EXISTING_BY_HASH" ]]; then
         REAL_CACHE="$EXISTING_BY_HASH"
-        log_info "${CHECK_MARK} Found cache with matching hash but different name: $(basename "$REAL_CACHE")"
+        log_info "${GREEN}${CHECK_MARK} Found cache with matching hash but different name: $(basename "$REAL_CACHE")${NC}"
         ln -sf "$(basename "$REAL_CACHE")" "$LATEST_LINK"
 # Откат к последней ссылке (LATEST), если точный хеш не найден
     elif [[ -L "$LATEST_LINK" && -f "$LATEST_LINK" ]]; then
@@ -232,13 +232,13 @@ PRESERVE_DLL_PATTERN="${DLL_PRESERVE_LIST:-openvino|torch|tensorflow|vulkan|amf|
 if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
     if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         log_info "################################################################"
-        log_debug "${CHECK_MARK} Cleaning unwanted DLLs from static stage: $STAGENAME"
+        log_debug "${GREEN}${BROOM_MARK} Cleaning unwanted DLLs from static stage: $STAGENAME${NC}"
         find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
     else
         log_debug "No standard prefix directory to clean for $STAGENAME"
     fi
 else
-    log_info "${CROSS_MARK} Preserving DLLs for dynamic stage: $STAGENAME"
+    log_info "${GREEN}${LOCK_MARK} Preserving DLLs for dynamic stage: $STAGENAME${NC}"
 fi
 
 # Вывод статистики в конце каждой стадии
