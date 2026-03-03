@@ -22,12 +22,9 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
 
-    # для libxml2 статик-флаг часто требует и XML_STATIC, и LIBXML_STATIC
-    export CFLAGS="$CFLAGS -DXML_STATIC -DLIBXML_STATIC"
-    export CPPFLAGS="$CPPFLAGS -DXML_STATIC -DLIBXML_STATIC"
-
+    export LDFLAGS="$LDFLAGS -static-libstdc++"
     # -lstdc++ подхватит зависимости ICU (libsicuuc) при сборке xmllint
-    export LIBS="-lstdc++"
+    export DEP_LIBS="-liconv $(pkg-config --libs --static icu-uc zlib liblzma) $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -48,13 +45,13 @@ ffbuild_dockerbuild() {
         --with-tls
     )
 
-    ./autogen.sh "${myconf[@]}"
+    ./autogen.sh "${myconf[@]}" CPPFLAGS="$CPPFLAGS" LDFLAGS="$LDFLAGS" LIBS="$DEP_LIBS"
 
     # Исправляем Makefile, если он решит, что iconv — это часть libc (в Windows это не так)
     # sed -i 's/-liconv//g' Makefile
     # sed -i 's/LIBS = /LIBS = -liconv /' Makefile
 
-    make -j$(nproc) $MAKE_V LIBS="-lstdc++ $(pkg-config --libs --static icu-uc zlib liblzma)"
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     # Libxml2 часто забывает добавить -liconv и -lws2_32 в Libs.private для Windows

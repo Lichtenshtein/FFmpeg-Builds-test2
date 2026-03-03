@@ -51,6 +51,9 @@ ffbuild_dockerbuild() {
         # Librsvg (Rust) генерирует огромную статическую либу, которой нужны ВСЕ системные либы Windows
         sed -i 's/^Libs:.*/& -lxml2 -lpangocairo-1.0 -lpango-1.0 -lcairo -lgobject-2.0 -lglib-2.0 -lintl -liconv -lws2_32 -luserenv -lusp10 -lshlwapi -lsetupapi -lruntimeobject -lbcrypt -lntdll -lmsimg32 -lgdi32 -lstdc++/' "$PC_FILE"
     fi
+
+    # Вызываем отладку зависимостей
+    get_deps_list
 }
 
 ffbuild_configure() {
