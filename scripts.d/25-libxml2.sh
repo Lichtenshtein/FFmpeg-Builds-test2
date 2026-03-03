@@ -8,6 +8,7 @@ ffbuild_depends() {
     echo libiconv
     echo zlib
     echo libicu
+    echo xz
 }
 
 ffbuild_enabled() {
@@ -21,40 +22,50 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
 
+    # для libxml2 статик-флаг часто требует и XML_STATIC, и LIBXML_STATIC
+    export CFLAGS="$CFLAGS $(pkg-config --static --cflags zlib liblzma) -DXML_STATIC -DLIBXML_STATIC"
+    export CPPFLAGS="$CPPFLAGS -DXML_STATIC -DLIBXML_STATIC"
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
         --without-python
-        # --without-icu
+        --without-debug
+        --without-docs
         --without-modules
         --disable-maintainer-mode
         --disable-shared
         --enable-static
         --with-pic
-        # --with-icu=no
-        --with-zlib=yes
-        --with-iconv=yes
+        --with-icu
+        --with-thread-alloc
+        --with-winpath
+        --with-zlib
+        --with-iconv
+        --with-tls
     )
-
-    # Принудительно подтягиваем флаги из pkg-config, чтобы застраховаться
-    export CFLAGS="$CFLAGS $(pkg-config --cflags zlib liblzma) -DLIBXML_STATIC"
-    # export LDFLAGS="$LDFLAGS $(pkg-config --libs zlib liblzma)"
-    export CPPFLAGS="-I$FFBUILD_PREFIX/include -DLIBXML_STATIC"
-    export CXXFLAGS="$CXXFLAGS -DLIBXML_STATIC"
-    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
 
     ./autogen.sh "${myconf[@]}"
 
     # Исправляем Makefile, если он решит, что iconv — это часть libc (в Windows это не так)
-    sed -i 's/-liconv//g' Makefile
-    sed -i 's/LIBS = /LIBS = -liconv /' Makefile
+    # sed -i 's/-liconv//g' Makefile
+    # sed -i 's/LIBS = /LIBS = -liconv /' Makefile
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    # Libxml2 часто забывает добавить -liconv и -lws2_32 в Libs.private для Windows
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libxml-2.0.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i '/^Libs.private:/ s/$/ -liconv -lws2_32 -lbcrypt/' "$PC_FILE"
+    fi
+
+    # Вызываем отладку зависимостей
+    get_deps_list
 }
 
 ffbuild_cppflags() {
-    echo "-DLIBXML_STATIC"
+    echo "-DLIBXML_STATIC -DXML_STATIC"
 }
 
 ffbuild_configure() {

@@ -9,8 +9,9 @@ export LOG_NC='\033[0m'        # No Color (Reset)
 export RED='\033[0;31m'        # Red
 export GREEN='\033[0;32m'      # Green
 export NC='\033[0m'            # No Color (Reset)
-export CHECK_MARK='✅'
+export CHECK_MARK='✔'
 export CROSS_MARK='❌'
+export XCLAM_MARK='❗'
 
 # Функции для логирования пишут в stderr (>&2)
 log_info()  { echo -e "${LOG_INFO}[INFO]${LOG_NC}  $*" >&2; }
@@ -136,7 +137,7 @@ ffbuild_unconfigure() {
 
 ffbuild_cflags() {
     log_debug "Applying global CFLAGS for $STAGENAME" >&2
-    echo "-DGLIB_STATIC_COMPILATION -D_WIN32_WINNT=0x0A00 -D_WIN32 -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING -DICONV_STATIC -DZLIB_STATIC -DARCHIVE_STATIC -mms-bitfields"
+    echo "-DGLIB_STATIC_COMPILATION -D_WIN32_WINNT=0x0A00 -D_WIN32 -DXML_STATIC -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING -DICONV_STATIC -DZLIB_STATIC -DARCHIVE_STATIC -DLIBJPEG_STATIC -DLIBTIFF_STATIC -DWEBP_STATIC -mms-bitfields"
 }
 
 ffbuild_uncflags() {
@@ -145,13 +146,13 @@ ffbuild_uncflags() {
 
 ffbuild_cxxflags() {
     # глобальный макрос для всех, кто включает заголовки
-    echo "-std=c++17 -D_WIN32 -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING -DICONV_STATIC -DZLIB_STATIC -DARCHIVE_STATIC"
+    echo "-std=c++17 -D_WIN32 -DXML_STATIC -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING -DICONV_STATIC -DZLIB_STATIC -DARCHIVE_STATIC -DLIBJPEG_STATIC -DLIBTIFF_STATIC -DWEBP_STATIC"
 }
 
 ffbuild_cppflags() {
     log_debug "Applying global CPPFLAGS for $STAGENAME" >&2
     # глобальный макрос для всех, кто включает заголовки
-    echo "-DGLIB_STATIC_COMPILATION -D_WIN32_WINNT=0x0A00 -D_WIN32 -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING -DICONV_STATIC -DZLIB_STATIC -DARCHIVE_STATIC"
+    echo "-DGLIB_STATIC_COMPILATION -D_WIN32_WINNT=0x0A00 -D_WIN32 -DXML_STATIC -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING -DICONV_STATIC -DZLIB_STATIC -DARCHIVE_STATIC -DLIBJPEG_STATIC -DLIBTIFF_STATIC -DWEBP_STATIC"
 }
 
 ffbuild_uncxxflags() {
@@ -203,6 +204,23 @@ get_stage_hash() {
 }
 export -f get_stage_hash
 
+get_deps_list() {
+    log_info "################################################################"
+    # Используем имя файла скрипта, если STAGENAME пуст
+    local name="${STAGENAME:-${0##*/}}"
+    log_debug "Dependencies for $STAGENAME: ${0##*/}"
+    # Показываем все сгенерированные .pc файлы и их зависимости
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo -e "\n${XCLAM_MARK} --- {} ---" \; -exec cat {} \;
+    # Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
+    # фильтруем только те символы, которые реально ведут к другим библиотекам
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a" -print0 | xargs -0 -I{} sh -c "
+        echo -e '\n${XCLAM_MARK} --- Undefined Symbols in {} ---';
+        ${FFBUILD_TOOLCHAIN}-nm -u {} | sort -u | head -n 20
+    "
+    log_info "################################################################"
+}
+export -f get_deps_list
+
 # 1 для подробных логов, в 0 для кратких
 # export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
 # Значение FFBUILD_VERBOSE уже пришло из Docker ENV
@@ -219,6 +237,7 @@ fi
 export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
 export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
 export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
+export PKG_CONFIG_STATIC=1
 
 # Конфигурация ccache
 export CCACHE_DIR=/root/.cache/ccache

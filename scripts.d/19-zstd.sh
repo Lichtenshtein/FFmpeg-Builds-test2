@@ -35,8 +35,6 @@ ffbuild_dockerbuild() {
         -DZSTD_MULTITHREAD_SUPPORT=ON
         # Включаем поддержку старых форматов для совместимости
         -DZSTD_LEGACY_SUPPORT=ON
-        # Оптимизация под современные CPU (Xeon Broadwell поддерживает BMI2)
-        -DZSTD_SPECIAL_TARGET=OFF
     )
 
     # Добавляем LTO если включено в workflow

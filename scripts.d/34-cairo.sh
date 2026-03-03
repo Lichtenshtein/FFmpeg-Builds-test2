@@ -22,9 +22,15 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
 
-    # local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lintl -liconv -lxml2 -llzma -lz -lbz2 -lbrotlidec -lbrotlicommon -lbcrypt -lws2_32"
+    export CFLAGS="$CFLAGS -DCAIRO_WIN32_STATIC_BUILD"
+    export CPPFLAGS="$CPPFLAGS -DCAIRO_WIN32_STATIC_BUILD"
 
-    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lfontconfig -lfreetype -lharfbuzz -lpixman-1 -lpng -lbz2 -lz -lxml2 -llzma  -lbrotlidec -lbrotlicommon -liconv -lintl -lbcrypt -lws2_32 -lgdi32 -lmsimg32 -ldwrite -ld2d1 -lstdc++"
+    # Собираем полный список системных зависимостей для Windows-бекенда Cairo
+    # Включаем dwrite и d2d1, так как они нужны для современных шрифтов
+    local WIN_LIBS="-lgdi32 -lmsimg32 -luser32 -ldwrite -ld2d1 -lwindowscodecs -lole32 -lshlwapi -lsetupapi"
+    
+    # Получаем либы зависимостей через pkg-config (раз у нас PKG_CONFIG_STATIC=1)
+    local DEP_LIBS=$(pkg-config --libs fontconfig freetype harfbuzz pixman-1 libpng zlib)
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
@@ -32,17 +38,19 @@ ffbuild_dockerbuild() {
         --buildtype=release \
         --default-library=static \
         --wrap-mode=nodownload \
-        -Dtests=disabled \
-        -Dzlib=enabled \
-        -Dpng=enabled \
         -Dfontconfig=enabled \
         -Dfreetype=enabled \
-        -Dtee=enabled \
         -Dglib=enabled \
+        -Dpng=enabled \
+        -Dsymbol-lookup=disabled \
+        -Dtee=enabled \
+        -Dtests=disabled \
         -Dxcb=disabled \
         -Dxlib=disabled \
-        -Dc_link_args="$EXTRA_LDFLAGS" \
-        -Dcpp_link_args="$EXTRA_LDFLAGS" \
+        -Dzlib=enabled \
+        -Dc_args="$CFLAGS" \
+        -Dcpp_args="$CXXFLAGS" \
+        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
 
     ninja -C build -j$(nproc) $NINJA_V
@@ -52,9 +60,15 @@ ffbuild_dockerbuild() {
     # Cairo часто забывает прописать системные зависимости в .pc файл
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/cairo.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Добавляем gdi32 и msimg32 (нужны для win32-surface)
-        sed -i 's/^Libs:.*/& -lgdi32 -lmsimg32 -luser32 -ldwrite -ld2d1 -lwindowscodecs -lole32/' "$PC_FILE"
+        # Добавляем все системные либы в Libs.private, чтобы они не мешали основной строке Libs
+        # Но при этом были доступны при --static
+        sed -i "/^Libs.private:/ s/$/ $WIN_LIBS/" "$PC_FILE"
+        # Убеждаемся, что дефайн статики прописан в Cflags pc-файла
+        sed -i "/^Cflags:/ s/$/ -DCAIRO_WIN32_STATIC_BUILD/" "$PC_FILE"
     fi
+
+    # Вызываем отладку зависимостей
+    get_deps_list
 }
 
 ffbuild_cppflags() {

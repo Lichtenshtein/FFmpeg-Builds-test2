@@ -24,12 +24,9 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     ./autogen.sh
 
-    # Помогаем Autotools найти статические либы в нашем префиксе
-    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib -llzma"
-    export CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include"
-
-    # передаем зависимости libtiff, чтобы тесты линковки не падали
-    export LIBS="-ltiff -ljpeg -llzma -lzstd -ljbig -lpng16 -lz -lm"
+    export CFLAGS="$CFLAGS -DWEBP_STATIC -D_WIN32"
+    # Собираем список либ для тестов конфигурации
+    local WEBP_LIBS="-ltiff -ljpeg -lpng16 -lzstd -llzma -ljbig -lz -lm -lws2_32"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -45,22 +42,27 @@ ffbuild_dockerbuild() {
     # Добавляем LTO если включено
     [[ "$USE_LTO" == "1" ]] && export CFLAGS="$CFLAGS -flto" && export LDFLAGS="$LDFLAGS -flto"
 
-    ./configure "${myconf[@]}"
-    # Исправляем возможную ошибку в Makefile, где линковка примеров может игнорировать LIBS
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    ./configure "${myconf[@]}" \
+        LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib" \
+        CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include" \
+        LIBS="$WEBP_LIBS"
 
-    log_info "################################################################"
-    log_debug "Dependencies for $STAGENAME: ${0##*/}"
-    # Показываем все сгенерированные .pc файлы и их зависимости
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo "--- {} ---" \; -exec cat {} \;
-    # Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
-    # фильтруем только те символы, которые реально ведут к другим библиотекам
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a" -print0 | xargs -0 -I{} sh -c "
-        echo '--- Symbols in {} ---';
-        ${FFBUILD_TOOLCHAIN}-nm {} | grep ' U ' | awk '{print \$2}' | sort -u | head -n 20
-    "
-    log_info "################################################################"
+    # libwebp генерирует несколько .pc файлов (libwebp, libwebpmux, libsharpyuv)
+    # Нужно убедиться, что они содержат системные либы для Windows
+    for pc in libwebp.pc libwebpmux.pc libsharpyuv.pc; do
+        local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
+        if [[ -f "$PC_PATH" ]]; then
+            # Добавляем -lws2_32 (нужен для некоторых функций WebP в Windows)
+            sed -i '/^Libs.private:/ s/$/ -lws2_32/' "$PC_PATH"
+        fi
+    done
+
+    # Вызываем отладку зависимостей
+    get_deps_list
+}
+
+ffbuild_cppflags() {
+    echo "-DWEBP_STATIC"
 }
 
 ffbuild_configure() {

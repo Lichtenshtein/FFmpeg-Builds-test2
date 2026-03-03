@@ -89,7 +89,7 @@ log_debug "--- DEBUG: Searching source for $STAGENAME ---"
 # Ищем точное совпадение (Имя_Хеш)
 if [[ -f "$TGT_FILE" ]]; then
     REAL_CACHE="$TGT_FILE"
-    log_info "Exact cache match found: $(basename "$REAL_CACHE")"
+    log_info "${CHECK_MARK} Exact cache match found: $(basename "$REAL_CACHE")"
     ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
     # fix for Docker ro filesystem
     # ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK" 2>/dev/null || true
@@ -98,12 +98,12 @@ else
     EXISTING_BY_HASH=$(find "$CACHE_DIR" -maxdepth 1 -name "*_${CURRENT_HASH}.tar.zst" -print -quit)
     if [[ -n "$EXISTING_BY_HASH" ]]; then
         REAL_CACHE="$EXISTING_BY_HASH"
-        log_info "Found cache with matching hash but different name: $(basename "$REAL_CACHE")"
+        log_info "${CHECK_MARK} Found cache with matching hash but different name: $(basename "$REAL_CACHE")"
         ln -sf "$(basename "$REAL_CACHE")" "$LATEST_LINK"
 # Откат к последней ссылке (LATEST), если точный хеш не найден
     elif [[ -L "$LATEST_LINK" && -f "$LATEST_LINK" ]]; then
         REAL_CACHE=$(readlink -f "$LATEST_LINK")
-        log_warn "Exact hash $CURRENT_HASH not found. Falling back to latest symlink: $(basename "$REAL_CACHE")"
+        log_warn "${XCLAM_MARK} Exact hash $CURRENT_HASH not found. Falling back to latest symlink: $(basename "$REAL_CACHE")"
     fi
 fi
 
@@ -146,7 +146,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
 
     # Поиск корня проекта (если архив распаковался в подпапку)
     if [[ ! -f "Configure" && ! -f "configure" && ! -f "CMakeLists.txt" && ! -f "meson.build" ]]; then
-        log_warn "No build file in root. Searching one level deeper..."
+        log_warn "${XCLAM_MARK} No build file in root. Searching one level deeper..."
         CANDIDATE=$(find . -maxdepth 2 \( -name "Configure" -o -name "configure" -o -name "CMakeLists.txt" -o -name "meson.build" \) -printf '%h\n' | head -n 1)
         if [[ -n "$CANDIDATE" ]]; then
             log_info "Project root found at $CANDIDATE. Entering..."
@@ -156,7 +156,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
 
     # Проверка, что после всех манипуляций папка не пуста
     if [[ $(ls -A | wc -l) -eq 0 ]]; then
-        log_error "ERROR: Build directory is empty after unpacking/downloading $STAGENAME!"
+        log_error "${CROSS_MARK} ERROR: Build directory is empty after unpacking/downloading $STAGENAME!"
         exit 1
     fi
     
@@ -216,7 +216,7 @@ else
     # Тихий режим: вывод лога только в случае падения
     log_info "Quiet mode active. Output is redirected to /tmp/stage_build.log"
     if ! ( set -e; $build_cmd > /tmp/stage_build.log 2>&1 ); then
-        log_error "Build failed! Dumping build log:"
+        log_error "${CROSS_MARK} Build failed! Dumping build log:"
         echo "----------------------------------------------------------------"
         cat /tmp/stage_build.log
         echo "----------------------------------------------------------------"
@@ -232,13 +232,13 @@ PRESERVE_DLL_PATTERN="${DLL_PRESERVE_LIST:-openvino|torch|tensorflow|vulkan|amf|
 if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
     if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         log_info "################################################################"
-        log_debug "Cleaning unwanted DLLs from static stage: $STAGENAME"
+        log_debug "${CHECK_MARK} Cleaning unwanted DLLs from static stage: $STAGENAME"
         find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
     else
         log_debug "No standard prefix directory to clean for $STAGENAME"
     fi
 else
-    log_info "Preserving DLLs for dynamic stage: $STAGENAME"
+    log_info "${CROSS_MARK} Preserving DLLs for dynamic stage: $STAGENAME"
 fi
 
 # Вывод статистики в конце каждой стадии
