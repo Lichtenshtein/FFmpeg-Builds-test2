@@ -299,21 +299,13 @@ if [[ -z "$VARS_INFRA_APPLIED" ]]; then
     export VARS_INFRA_APPLIED=1
 
     # Получаем список системных либ
-    SYS_LIBS=$(ffbuild_libs)
-
-    # Autotools: большинство скриптов ./configure подхватят переменную LIBS
-    # Добавляем -lstdc++ в начало, чтобы он был доступен для ICU
-    export LIBS="$LIBS $SYS_LIBS"
-
-    # CMake/Meson: добавляем системные пути в LDFLAGS
-    # не добавляем сами либы (-l...) в LDFLAGS здесь, чтобы не ломать тесты компилятора,
-    # но гарантируем, что путь к библиотекам /opt/ffbuild/lib всегда активен.
+    SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lstdc++ -lws2_32 -lbcrypt -lpthread"
+    export LIBS="$LIBS $SYSTEM_LIBS"
+    PLATFORM_FLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
+    export CFLAGS="$CFLAGS $PLATFORM_FLAGS"
+    export CPPFLAGS="$CPPFLAGS $PLATFORM_FLAGS"
+    export CXXFLAGS="$CXXFLAGS $PLATFORM_FLAGS -std=c++17"
     export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
-
-    # Флаги компиляции: прокидываем статические дефайны глобально
-    # Это избавит от необходимости писать -DLIBXML_STATIC в каждом скрипте.
-    GLOBAL_CFLAGS="-DARCHIVE_STATIC -DBROTLI_STATIC -DCAIRO_WIN32_STATIC_BUILD -DCURL_STATICLIB -DGLIB_STATIC_COMPILATION -DHARFBUZZ_STATIC -DIB_STATIC -DICONV_STATIC -DLIBJPEG_STATIC -DLIBSSH_STATIC -DVAPOURSYNTH_STATIC -DLIBTIFF_STATIC -DLIBXML_STATIC -DPANGO_STATIC_COMPILATION -DWEBP_STATIC -DXML_STATIC -DZLIB_STATIC -DZSTD_STATIC_LINKING -D_WIN32 -D_WIN32_WINNT=0x0A00"
-    export CFLAGS="$CFLAGS $GLOBAL_CFLAGS"
-    export CPPFLAGS="$CPPFLAGS $GLOBAL_CFLAGS"
-    export CXXFLAGS="$CXXFLAGS $GLOBAL_CFLAGS -std=c++17"
 fi
+
+# "-DARCHIVE_STATIC -DBROTLI_STATIC -DCAIRO_WIN32_STATIC_BUILD -DCURL_STATICLIB -DGLIB_STATIC_COMPILATION -DHARFBUZZ_STATIC -DIB_STATIC -DICONV_STATIC -DLIBJPEG_STATIC -DLIBSSH_STATIC -DVAPOURSYNTH_STATIC -DLIBTIFF_STATIC -DLIBXML_STATIC -DPANGO_STATIC_COMPILATION -DWEBP_STATIC -DXML_STATIC -DZLIB_STATIC -DZSTD_STATIC_LINKING -D_WIN32 -D_WIN32_WINNT=0x0A00"
