@@ -20,10 +20,10 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
 
-    export LDFLAGS="$LDFLAGS -static-libstdc++"
-    # -lstdc++ подхватит зависимости ICU (libsicuuc) при сборке xmllint
-    export DEP_LIBS="-liconv $(pkg-config --libs --static icu-uc zlib liblzma) $LIBS"
+    local ICU_LIBS=$(pkg-config --libs --static icu-uc icu-i18n)
+    local DEP_LIBS="$ICU_LIBS $(pkg-config --libs --static zlib liblzma) $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -44,7 +44,10 @@ ffbuild_dockerbuild() {
         --with-tls
     )
 
-    ./autogen.sh "${myconf[@]}" CPPFLAGS="$CPPFLAGS -DLIBXML_STATIC -DXML_STATIC" LDFLAGS="$LDFLAGS" LIBS="$DEP_LIBS"
+    ./autogen.sh "${myconf[@]}" \
+        CFLAGS="$CFLAGS -DLIBXML_STATIC -DXML_STATIC" \
+        CPPFLAGS="$CPPFLAGS -DLIBXML_STATIC -DXML_STATIC" \
+        LIBS="$DEP_LIBS"
 
     # Исправляем Makefile, если он решит, что iconv — это часть libc (в Windows это не так)
     # sed -i 's/-liconv//g' Makefile
@@ -53,10 +56,19 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # Libxml2 часто забывает добавить -liconv и -lws2_32 в Libs.private для Windows
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libxml-2.0.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i '/^Libs.private:/ s/$/ -lstdc++ -liconv -lintl -lws2_32 -lbcrypt/' "$PC_FILE"
+        # Добавляем ICU в секцию Requires.private, чтобы pkg-config сам разматывал дерево либ
+        if grep -q "Requires.private:" "$PC_FILE"; then
+            sed -i '/^Requires.private:/ s/$/ icu-uc icu-i18n/' "$PC_FILE"
+        else
+            echo "Requires.private: icu-uc icu-i18n zlib liblzma" >> "$PC_FILE"
+        fi
+        # Добавляем системные либы и рантайм C++ в Libs.private (порядок важен)
+        # Системные либы из $LIBS (ws2_32, bcrypt и т.д.) должны быть в конце
+        sed -i "/^Libs.private:/ s/$/ -lstdc++ -liconv -lintl -lws2_32 -lbcrypt/" "$PC_FILE"
+        # Гарантируем наличие флагов статики в Cflags pc-файла
+        sed -i "/^Cflags:/ s/$/ -DLIBXML_STATIC -DXML_STATIC/" "$PC_FILE"
     fi
 
     # Вызываем отладку зависимостей
