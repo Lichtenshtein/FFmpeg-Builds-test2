@@ -28,7 +28,6 @@ ffbuild_dockerbuild() {
         -DWITH_TOOLS=OFF
         -DWITH_TESTS=OFF
         -DWITH_TURBOJPEG=ON
-        -DWITH_CRT_DLL=OFF
         -DCMAKE_C_FLAGS="$CFLAGS"
     )
 
@@ -38,6 +37,10 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+}
+
+ffbuild_cppflags() {
+    echo "-DLIBJPEG_STATIC"
 }
 
 ffbuild_configure() {

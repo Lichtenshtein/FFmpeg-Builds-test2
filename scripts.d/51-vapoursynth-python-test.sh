@@ -157,6 +157,9 @@ Libs: -L\${libdir} -lvsscript
 Libs.private: -l${PY_LIB} -lstdc++
 Cflags: -I\${includedir}
 EOF
+
+    # Вызываем отладку зависимостей
+    get_deps_list
 }
 
 ffbuild_configure() {

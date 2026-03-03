@@ -48,9 +48,10 @@ ENV CCACHE_DIR=/root/.cache/ccache \
 
 # disable -fPIC, -ffast-math, -flto=auto if troubles occur
 # add -D_FORTIFY_SOURCE=2 for security
-# Stable for debugging:
-# CFLAGS="-O2 -march=x86-64-v3 -mtune=generic -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe"
+# --as-needed is dangerous for static linking: when linking static libraries for Windows, if the linker sees a library before a symbol is requested, it will discard it.
 # LDFLAGS="-lssp, -Wl,--gc-sections"
+# Stable:
+# CFLAGS="-O2 -march=x86-64-v3 -mtune=generic -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe"
 
 ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
     FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32" \
@@ -71,6 +72,6 @@ ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
     GENDEF="${FFBUILD_TOOLCHAIN}-gendef" \
     CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
     CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
-    LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -Wl,--gc-sections -Wl,--as-needed -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216" \
+    LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -Wl,--gc-sections -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216" \
     STAGE_CFLAGS="-fno-semantic-interposition" \
     STAGE_CXXFLAGS="-fno-semantic-interposition"

@@ -29,6 +29,8 @@ ffbuild_dockerbuild() {
         --enable-pcre2-16
         --enable-pcre2-32
         --enable-jit
+        --enable-unicode
+        --enable-newline-is-anycrlf
     )
 
     ./configure "${myconf[@]}"

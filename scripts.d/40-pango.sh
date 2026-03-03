@@ -23,12 +23,14 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
 
-    export CFLAGS="$CFLAGS -DCAIRO_WIN32_STATIC_BUILD -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW -DHARFBUZZ_STATIC"
-    export CXXFLAGS="$CXXFLAGS -DCAIRO_WIN32_STATIC_BUILD -D_WIN32_WINNT=0x0A00 -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW -DHARFBUZZ_STATIC"
+    export CFLAGS="$CFLAGS -DPANGO_STATIC_COMPILATION -DCAIRO_WIN32_STATIC_BUILD -DHARFBUZZ_STATIC -DG_WIN32_IS_STRICT_MINGW -D_WIN32_WINNT=0x0A00"
+    export CXXFLAGS="$CXXFLAGS -DPANGO_STATIC_COMPILATION -DCAIRO_WIN32_STATIC_BUILD -DHARFBUZZ_STATIC -DG_WIN32_IS_STRICT_MINGW -D_WIN32_WINNT=0x0A00"
 
-    # Полный список либ для прохождения проверок Meson
-    # Порядок ВАЖЕН: pango -> pangocairo -> cairo -> fontconfig -> freetype -> pixman ...
-    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lcairo -lfontconfig -lfreetype -lharfbuzz -lpixman-1 -lpng -lz -lbz2 -lbrotlidec -lbrotlicommon -lxml2 -llzma -liconv -lintl -lbcrypt -lws2_32 -lusp10 -lshlwapi -ldwrite -ld2d1 -lwindowscodecs -lgdi32 -lmsimg32 -lole32 -luser32 -lsetupapi -lruntimeobject -lstdc++"
+    # Собираем системные либы Windows
+    local WIN_SYS_LIBS="-lusp10 -lshlwapi -lsetupapi -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lgdi32 -lmsimg32 -lole32 -luser32 -lbcrypt"
+
+    # Используем наш глобальный PKG_CONFIG_STATIC=1, чтобы собрать зависимости
+    local DEP_LIBS=$(pkg-config --libs cairo fontconfig freetype harfbuzz fribidi glib-2.0)
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
@@ -44,19 +46,29 @@ ffbuild_dockerbuild() {
         -Dbuild-testsuite=false \
         -Dbuild-examples=false \
         -Dman-pages=false \
-        -Dc_link_args="$EXTRA_LDFLAGS" \
-        -Dcpp_link_args="$EXTRA_LDFLAGS" \
+        -Dc_args="$CFLAGS" \
+        -Dcpp_args="$CXXFLAGS" \
+        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_SYS_LIBS" \
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_SYS_LIBS" \
         || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
 
-    # Фикс .pc файла для FFmpeg
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/pango.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        # Добавляем всё, что нужно для финальной линковки FFmpeg
-        sed -i 's/^Libs:.*/& -lusp10 -lshlwapi -lsetupapi -lruntimeobject -ldwrite -lgdi32 -lstdc++/' "$PC_FILE"
-    fi
+    # Патчим ВСЕ сгенерированные .pc файлы Pango
+    log_info "Patching Pango .pc files..."
+    for pc in pango.pc pangocairo.pc pangoft2.pc pangowin32.pc; do
+        local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
+        if [[ -f "$PC_PATH" ]]; then
+            # Добавляем системные либы в Libs.private
+            # И обязательно прокидываем PANGO_STATIC_COMPILATION в Cflags
+            sed -i "/^Libs.private:/ s/$/ $WIN_SYS_LIBS -lstdc++/" "$PC_PATH"
+            sed -i "/^Cflags:/ s/$/ -DPANGO_STATIC_COMPILATION/" "$PC_PATH"
+        fi
+    done
+
+    # Вызываем отладку зависимостей
+    get_deps_list
 }
 
 ffbuild_cppflags() {
