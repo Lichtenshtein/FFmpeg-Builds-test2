@@ -41,12 +41,10 @@ ffbuild_dockerbuild() {
     find "$FFBUILD_PREFIX/lib/cmake" -name "*Config.cmake" -delete
 
     # Важные дефайны для статики Windows
-    local STATIC_DEFS="-DLIBXML_STATIC -DXML_STATIC -DPANGO_STATIC_COMPILATION -DCAIRO_WIN32_STATIC_BUILD -DHARFBUZZ_STATIC -DGRAPHITE2_STATIC -DCURL_STATICLIB -D_WIN32_WINNT=0x0A00"
-    export CFLAGS="$CFLAGS $STATIC_DEFS"
-    export CXXFLAGS="$CXXFLAGS $STATIC_DEFS -std=c++17"
+    export CXXFLAGS="$CXXFLAGS -std=c++17"
 
     # Системные либы Windows, которые всегда должны быть в конце
-    local WIN_SYS_LIBS="-lws2_32 -lshlwapi -lbcrypt -luser32 -ladvapi32 -lgdi32 -lmsimg32 -lwindowscodecs -lole32 -luuid -lsetupapi -ldwrite -lusp10 -lstdc++"
+    local WIN_LIBS="-ladvapi32 -lgdi32 -lmsimg32 -lwindowscodecs -luuid -lsetupapi -ldwrite -lusp10 $LIBS"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -71,7 +69,7 @@ ffbuild_dockerbuild() {
         -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DLeptonica_LIBRARIES="-lleptonica"
         # Передаем системные либы для всех исполняемых файлов (tesseract.exe, lstmtraining.exe)
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -Wl,--start-group $WIN_SYS_LIBS -Wl,--end-group"
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -Wl,--start-group $WIN_LIBS -Wl,--end-group"
     )
 
     # Добавляем LTO если включено в workflow
@@ -91,7 +89,7 @@ ffbuild_dockerbuild() {
         echo "Requires.private: lept pango pangocairo libarchive libcurl" >> "$PC_FILE"
         
         # Добавляем системные хвосты в Libs.private
-        sed -i "/^Libs.private:/ s/$/ $WIN_SYS_LIBS/" "$PC_FILE"
+        sed -i "/^Libs.private:/ s/$/ $WIN_LIBS/" "$PC_FILE"
     fi
 
     # Вызываем отладку зависимостей

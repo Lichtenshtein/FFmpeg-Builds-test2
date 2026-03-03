@@ -137,7 +137,7 @@ ffbuild_unconfigure() {
 
 ffbuild_cflags() {
     log_debug "Applying global CFLAGS for $STAGENAME" >&2
-    echo "-DGLIB_STATIC_COMPILATION -D_WIN32_WINNT=0x0A00 -D_WIN32 -DXML_STATIC -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING -DICONV_STATIC -DZLIB_STATIC -DARCHIVE_STATIC -DLIBJPEG_STATIC -DLIBTIFF_STATIC -DWEBP_STATIC -mms-bitfields"
+    echo "-D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
 }
 
 ffbuild_uncflags() {
@@ -145,14 +145,15 @@ ffbuild_uncflags() {
 }
 
 ffbuild_cxxflags() {
+    log_debug "Applying global CXXFLAGS for $STAGENAME" >&2
     # глобальный макрос для всех, кто включает заголовки
-    echo "-std=c++17 -D_WIN32 -DXML_STATIC -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING -DICONV_STATIC -DZLIB_STATIC -DARCHIVE_STATIC -DLIBJPEG_STATIC -DLIBTIFF_STATIC -DWEBP_STATIC"
+    echo "-std=c++17 -D_WIN32"
 }
 
 ffbuild_cppflags() {
     log_debug "Applying global CPPFLAGS for $STAGENAME" >&2
     # глобальный макрос для всех, кто включает заголовки
-    echo "-DGLIB_STATIC_COMPILATION -D_WIN32_WINNT=0x0A00 -D_WIN32 -DXML_STATIC -DLIBXML_STATIC -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC -DIB_STATIC -DPANGO_STATIC_COMPILATION -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -DZSTD_STATIC_LINKING -DICONV_STATIC -DZLIB_STATIC -DARCHIVE_STATIC -DLIBJPEG_STATIC -DLIBTIFF_STATIC -DWEBP_STATIC"
+    echo "-D_WIN32_WINNT=0x0A00 -D_WIN32"
 }
 
 ffbuild_uncxxflags() {
@@ -236,6 +237,7 @@ fi
 export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
 export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
 export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
+# Принудительно включаем статический поиск для pkg-config во всех под-скриптах
 export PKG_CONFIG_STATIC=1
 
 # Конфигурация ccache
@@ -281,6 +283,8 @@ export CHOST="$FFBUILD_TOOLCHAIN"
 
 # Убеждаемся, что все инструменты имеют префикс
 export CC="${FFBUILD_TOOLCHAIN}-gcc"
+# Форсируем C++ рантайм для всех CC
+# export CC="${FFBUILD_TOOLCHAIN}-g++"
 export CXX="${FFBUILD_TOOLCHAIN}-g++"
 export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
 export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
@@ -290,3 +294,26 @@ export STRIP="${FFBUILD_TOOLCHAIN}-strip"
 
 # экспорт важных переменных MinGW, чтобы они пробрасывались в download.sh и run_stage.sh:
 export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE
+
+if [[ -z "$VARS_INFRA_APPLIED" ]]; then
+    export VARS_INFRA_APPLIED=1
+
+    # Получаем список системных либ
+    SYS_LIBS=$(ffbuild_libs)
+
+    # Autotools: большинство скриптов ./configure подхватят переменную LIBS
+    # Добавляем -lstdc++ в начало, чтобы он был доступен для ICU
+    export LIBS="$LIBS $SYS_LIBS"
+
+    # CMake/Meson: добавляем системные пути в LDFLAGS
+    # не добавляем сами либы (-l...) в LDFLAGS здесь, чтобы не ломать тесты компилятора,
+    # но гарантируем, что путь к библиотекам /opt/ffbuild/lib всегда активен.
+    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
+
+    # Флаги компиляции: прокидываем статические дефайны глобально
+    # Это избавит от необходимости писать -DLIBXML_STATIC в каждом скрипте.
+    GLOBAL_CFLAGS="-DARCHIVE_STATIC -DBROTLI_STATIC -DCAIRO_WIN32_STATIC_BUILD -DCURL_STATICLIB -DGLIB_STATIC_COMPILATION -DHARFBUZZ_STATIC -DIB_STATIC -DICONV_STATIC -DLIBJPEG_STATIC -DLIBSSH_STATIC -DVAPOURSYNTH_STATIC -DLIBTIFF_STATIC -DLIBXML_STATIC -DPANGO_STATIC_COMPILATION -DWEBP_STATIC -DXML_STATIC -DZLIB_STATIC -DZSTD_STATIC_LINKING -D_WIN32 -D_WIN32_WINNT=0x0A00"
+    export CFLAGS="$CFLAGS $GLOBAL_CFLAGS"
+    export CPPFLAGS="$CPPFLAGS $GLOBAL_CFLAGS"
+    export CXXFLAGS="$CXXFLAGS $GLOBAL_CFLAGS -std=c++17"
+fi

@@ -35,8 +35,6 @@ ffbuild_dockerbuild() {
     rm -rf tiff_build
     mkdir tiff_build
 
-    local EXTRA_CFLAGS="$CFLAGS -DLIBJPEG_STATIC"
-
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
@@ -57,7 +55,7 @@ ffbuild_dockerbuild() {
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
 
-    cmake "${myconf[@]}" -DCMAKE_C_FLAGS="$EXTRA_CFLAGS" -S . -B tiff_build
+    cmake "${myconf[@]}" -DCMAKE_C_FLAGS="$CFLAGS" -S . -B tiff_build
 
     make -C tiff_build -j$(nproc) $MAKE_V
     make -C tiff_build install DESTDIR="$FFBUILD_DESTDIR"

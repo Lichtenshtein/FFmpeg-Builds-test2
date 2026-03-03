@@ -24,9 +24,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     ./autogen.sh
 
-    export CFLAGS="$CFLAGS -DWEBP_STATIC -D_WIN32"
     # Собираем список либ для тестов конфигурации
-    local WEBP_LIBS="-ltiff -ljpeg -lpng16 -lzstd -llzma -ljbig -lz -lm -lws2_32 -lpthread"
+    local WEBP_LIBS="-ltiff -ljpeg -lpng16 -lzstd -llzma -ljbig -lz $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -43,7 +42,7 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && export CFLAGS="$CFLAGS -flto" && export LDFLAGS="$LDFLAGS -flto"
 
     ./configure "${myconf[@]}" \
-        LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib" \
+        LDFLAGS="$LDFLAGS" \
         CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include" \
         LIBS="$WEBP_LIBS"
 

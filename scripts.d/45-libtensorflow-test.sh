@@ -56,7 +56,3 @@ ffbuild_configure() {
 ffbuild_unconfigure() {
     echo --disable-libtensorflow
 }
-
-ffbuild_libs() {
-    echo "-lbcrypt -ldbghelp"
-}

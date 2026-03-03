@@ -22,12 +22,9 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
 
-    export CFLAGS="$CFLAGS -DCAIRO_WIN32_STATIC_BUILD"
-    export CPPFLAGS="$CPPFLAGS -DCAIRO_WIN32_STATIC_BUILD"
-
     # Собираем полный список системных зависимостей для Windows-бекенда Cairo
     # Включаем dwrite и d2d1, так как они нужны для современных шрифтов
-    local WIN_LIBS="-lgdi32 -lmsimg32 -luser32 -ldwrite -ld2d1 -lwindowscodecs -lole32 -lshlwapi -lsetupapi"
+    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs $LIBS"
     
     # Получаем либы зависимостей через pkg-config (раз у нас PKG_CONFIG_STATIC=1)
     local DEP_LIBS=$(pkg-config --libs fontconfig freetype harfbuzz pixman-1 libpng zlib)
@@ -51,7 +48,7 @@ ffbuild_dockerbuild() {
         -Dc_args="$CFLAGS" \
         -Dcpp_args="$CXXFLAGS" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
-        || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
+        || (tail -n 100 build/meson-logs/meson-log.txt && return 1)
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install

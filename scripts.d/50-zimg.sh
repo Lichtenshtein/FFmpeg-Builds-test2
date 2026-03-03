@@ -46,8 +46,8 @@ ffbuild_dockerbuild() {
     # Добавляем -std=c++17 явно, если configure сам не справится.
     ./configure "${myconf[@]}" \
         CFLAGS="$CFLAGS" \
-        CXXFLAGS="$CXXFLAGS -std=c++17" \
-        LDFLAGS="$LDFLAGS" || { tail -n 200 config.log; exit 1; }
+        CXXFLAGS="$CXXFLAGS" \
+        LDFLAGS="$LDFLAGS" || (tail -n 100 config.log && return 1)
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
