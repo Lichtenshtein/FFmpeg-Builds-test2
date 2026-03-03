@@ -301,10 +301,11 @@ if [[ -z "$VARS_INFRA_APPLIED" ]]; then
     # Получаем список системных либ
     SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lstdc++ -lws2_32 -lbcrypt -lpthread"
     export LIBS="$LIBS $SYSTEM_LIBS"
-    PLATFORM_FLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
-    export CFLAGS="$CFLAGS $PLATFORM_FLAGS"
-    export CPPFLAGS="$CPPFLAGS $PLATFORM_FLAGS"
-    export CXXFLAGS="$CXXFLAGS $PLATFORM_FLAGS -std=c++17"
+    BASE_CFLAGS="-mms-bitfields"
+    BASE_CPPFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32"
+    export CFLAGS="$CFLAGS $BASE_CPPFLAGS $BASE_CFLAGS"
+    export CPPFLAGS="$CPPFLAGS $BASE_CPPFLAGS"
+    export CXXFLAGS="$CXXFLAGS $BASE_CPPFLAGS $BASE_CFLAGS -std=c++17"
     export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
 fi
 
