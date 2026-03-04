@@ -13,6 +13,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
 
     # Распаковываем (unzip должен быть в base образе)
     unzip -qq tensorflow.zip -d tf_src

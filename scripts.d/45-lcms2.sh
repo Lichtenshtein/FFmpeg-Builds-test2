@@ -17,6 +17,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     local myconf=(
@@ -44,4 +45,6 @@ ffbuild_dockerbuild() {
         # ƒобавим -lm (математическа€ библиотека) дл€ Windows/MinGW
         sed -i '/^Libs.private:/ s/$/ -lm/' "$PC_FILE"
     fi
+
+    get_deps_list
 }

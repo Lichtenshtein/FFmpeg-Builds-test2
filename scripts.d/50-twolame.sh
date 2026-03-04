@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # libtoolize version detection is broken, disable it, we got the right versions
     printf 'print "999999\\n"\n' > autogen-get-version-mock.pl
     sed -i -e 's|/autogen-get-version.pl|/autogen-get-version-mock.pl|g' ./autogen.sh
@@ -51,6 +52,8 @@ ffbuild_dockerbuild() {
         # Добавляем математическую библиотеку для статической линковки
         echo "Libs.private: -lm" >> "$PC_FILE"
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

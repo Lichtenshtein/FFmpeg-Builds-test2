@@ -16,6 +16,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir -p "$FFBUILD_DESTPREFIX/include/CL"
     cp -r headers/CL/* "$FFBUILD_DESTPREFIX/include/CL/."
 
@@ -66,6 +67,8 @@ EOF
 
     mkdir -p "$FFBUILD_DESTPREFIX/lib/pkgconfig"
     mv OpenCL.pc "$FFBUILD_DESTPREFIX/lib/pkgconfig/OpenCL.pc"
+
+    get_deps_list
 }
 
 ffbuild_configure() {

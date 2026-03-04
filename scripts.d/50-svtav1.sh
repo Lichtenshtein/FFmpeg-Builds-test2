@@ -26,17 +26,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/svtav1" ]]; then
-        for patch in /builder/patches/svtav1/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # return 1 # если нужно прервать сборку при ошибке
-            fi
-        done
-    fi
+    set -e
+    apply_patches
 
     # ФИКС ВЕРСИИ (SVT-AV1 специфичный)
     # Если нет .git, CMakeLists.txt не сможет определить версию. 
@@ -89,6 +80,8 @@ ffbuild_dockerbuild() {
         echo "Libs.private: -lstdc++ -lm" >> "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/svtav1.pc"
         echo "Libs.private: -lstdc++ -lm" >> "$PC_FILE"
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

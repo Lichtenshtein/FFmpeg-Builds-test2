@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     local myconf=(
@@ -46,4 +47,6 @@ Version: 2.1
 Libs: -L\${libdir} -ljbig
 Cflags: -I\${includedir}
 EOF
+
+    get_deps_list
 }

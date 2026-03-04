@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     local myconf=(
@@ -44,6 +45,8 @@ ffbuild_dockerbuild() {
         echo "Cflags.private: -DZMQ_NO_EXPORT -DZMQ_STATIC"
         [[ $TARGET != win* ]] || echo "Libs.private: -lws2_32 -liphlpapi"
     } >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libzmq.pc
+
+    get_deps_list
 }
 
 ffbuild_configure() {

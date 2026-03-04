@@ -17,6 +17,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
@@ -34,6 +35,8 @@ ffbuild_dockerbuild() {
 
     echo "Libs.private: -lfftw3 -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libchromaprint.pc
     echo "Cflags.private: -DCHROMAPRINT_NODLL" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libchromaprint.pc
+
+    get_deps_list
 }
 
 ffbuild_configure() {

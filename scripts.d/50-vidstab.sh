@@ -13,6 +13,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     local mycmake=(
@@ -38,6 +39,8 @@ ffbuild_dockerbuild() {
     if [[ $TARGET == linux* ]]; then
         echo "Libs.private: -ldl" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/vidstab.pc
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     [[ -d "source" ]] && cd source
 
     unset CC CXX LD AR CPP LIBS CCAS
@@ -31,13 +32,13 @@ ffbuild_dockerbuild() {
         --enable-shared
     
     # Собираем только самое необходимое для инструментов
-    make -j$(nproc)
+    make -j$(nproc) $MAKE_V
     make install
     cd ..
 
     # Проверка: если icupkg не собрался, дальше идти нет смысла
     if [[ ! -f "host-build/bin/icupkg" ]]; then
-        echo "ERROR: icupkg not found in host-build/bin!"
+        log_error "${CROSS_MARK} ERROR: icupkg not found in host-build/bin!"
         return 1
     fi
 
@@ -97,4 +98,6 @@ ffbuild_dockerbuild() {
             fi
         fi
     done
+
+    get_deps_list
 }

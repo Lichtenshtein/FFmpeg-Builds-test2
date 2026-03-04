@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Kill build of unused and broken tools
     # echo > libvmaf/tools/meson.build
     sed -i 's/subdir(.tools.)//' libvmaf/meson.build
@@ -39,12 +40,14 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    meson setup "${myconf[@]}" ../libvmaf || cat meson-logs/meson-log.txt
+    meson setup "${myconf[@]}" ../libvmaf
     ninja -j"$(nproc)" $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     # sed -i 's/Libs.private:/Libs.private: -lstdc++/; t; $ a Libs.private: -lstdc++' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libvmaf.pc
     sed -i 's/Libs.private:/Libs.private: -lstdc++/; t; $ a Libs.private: -lstdc++' "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libvmaf.pc"
+
+    get_deps_list
 }
 
 ffbuild_configure() {

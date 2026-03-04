@@ -13,7 +13,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-
+    set -e
     if [ ! -f "version.txt" ]; then
         echo v0.5.0 >> version.txt
     fi
@@ -38,6 +38,8 @@ ffbuild_dockerbuild() {
     elif [[ $TARGET == linux* ]]; then
         rm "$FFBUILD_DESTPREFIX"/lib/libxevd.so*
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

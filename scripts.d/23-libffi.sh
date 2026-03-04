@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Вместо ./autogen.sh используем это, чтобы избежать ошибок макросов
     ./configure \
         --prefix="$FFBUILD_PREFIX" \
@@ -32,4 +33,6 @@ ffbuild_dockerbuild() {
         mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
         cp -af "$FFI_INC"/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
     fi
+
+    get_deps_list
 }

@@ -8,12 +8,22 @@ export LOG_ERROR='\033[1;31m'  # Red (Bold)
 export LOG_NC='\033[0m'        # No Color (Reset)
 export RED='\033[0;31m'        # Red
 export GREEN='\033[0;32m'      # Green
+export YELLOW='\033[0;33m'     # Yellow
+export PURPLE='\033[0;35m'     # Purple
 export NC='\033[0m'            # No Color (Reset)
-export CHECK_MARK='✔'
+export CHECK_MARK='${LOG_INFO}✔${NC}'
 export CROSS_MARK='❌'
 export XCLAM_MARK='❗'
 export BROOM_MARK='🧹'
+export CACHE_MARK='🗄️'
+export ARCH_MARK='🗃️'
+export SEARCH_MARK='🔎'
+export DIRS_MARK='📂'
 export LOCK_MARK='🔒'
+export SYNC_MARK='♻'
+export TARGET_MARK='🎯'
+export DOWN_MARK='${LOG_INFO}🡇${NC}'
+export LOGS_MARK='${LOG_DEBUG}🗎${NC}'
 
 # Функции для логирования пишут в stderr (>&2)
 log_info()  { echo -e "${LOG_INFO}[INFO]${LOG_NC}  $*" >&2; }
@@ -24,7 +34,7 @@ log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 export -f log_info log_warn log_error log_debug
 
 if [[ $# -lt 2 ]]; then
-    log_error "Invalid Arguments"
+    log_error "${CROSS_MARK} Invalid Arguments"
     # exit -1
     return 1 2>/dev/null || exit 1
 fi
@@ -35,7 +45,7 @@ VARIANT="${2:-$VARIANT}"
 
 # Валидация: если ни аргументов, ни переменных нет — тогда ошибка
 if [[ -z "$TARGET" || -z "$VARIANT" ]]; then
-    log_error "Missing TARGET or VARIANT. Usage: source vars.sh [target] [variant]"
+    log_error "${CROSS_MARK} Missing TARGET or VARIANT. Usage: source vars.sh [target] [variant]"
     # Не используем exit -1, чтобы не закрывать сессию терминала при source
     return 1 2>/dev/null || exit 1
 fi
@@ -47,7 +57,7 @@ fi
 
 # Проверка файла варианта
 if ! [[ -f "variants/${TARGET}-${VARIANT}.sh" ]]; then
-    log_error "Invalid target/variant: ${TARGET}-${VARIANT}"
+    log_error "${CROSS_MARK} Invalid target/variant: ${TARGET}-${VARIANT}"
     return 1 2>/dev/null || exit 1
 fi
 
@@ -62,7 +72,7 @@ while [[ "$#" -gt 0 ]]; do
         ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}$1"
     else
         # Если файла нет, просто пропускаем (это может быть lto или skip_ffmpeg)
-        log_debug "Note: Argument '$1' is not a valid addin, ignoring."
+        log_warn "${XCLAM_MARK} Note: Argument '$1' is not a valid addin, ignoring."
     fi
     shift
 done
@@ -213,15 +223,57 @@ get_deps_list() {
     local name="${STAGENAME:-${0##*/}}"
     log_debug "Dependencies for $STAGENAME: ${0##*/}"
     # Показываем все сгенерированные .pc файлы и их зависимости
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec echo -e "\n${XCLAM_MARK} --- {} ---" \; -exec cat {} \;
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec log_debug "\n${XCLAM_MARK} {}" \; -exec cat {} \;
     # Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
     # фильтруем только те символы, которые реально ведут к другим библиотекам
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a" -print0 | xargs -0 -I{} sh -c "
-        echo '\n${XCLAM_MARK} --- Undefined Symbols in {} ---';
+        log_debug '\n${XCLAM_MARK} Undefined Symbols in {}';
         ${FFBUILD_TOOLCHAIN}-nm -u {} | sort -u | head -n 20
     "
 }
 export -f get_deps_list
+
+# 1. Standard
+# 2. Binary (for CRLF issues)
+# 3. Ignore Whitespace
+# 4. Max Fuzz (fuzz=3)
+apply_patches() {
+    local COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
+    local PATCH_DIR="/builder/patches/$COMPONENT_NAME"
+
+    if [[ -d "$PATCH_DIR" ]]; then
+        # Ensure there are actually .patch files to avoid loop errors
+        shopt -s nullglob
+        for patch in "$PATCH_DIR"/*.patch; do
+            log_info "${TARGET_MARK} APPLYING PATCH: $(basename "$patch")"
+            local strategies=(
+                "-p1 -N -r -"
+                "-p1 -N -r - --binary"
+                "-p1 -N -r - -l"
+                "-p1 -N -r - -l --fuzz=3"
+            )
+
+            local success=false
+            for opts in "${strategies[@]}"; do
+                log_debug "Trying: patch $opts"
+                if patch $opts < "$patch" >/dev/null 2>&1; then
+                    log_info "${CHECK_MARK} SUCCESS: Applied with [$opts]"
+                    success=true
+                    break
+                fi
+            done
+
+            if [ "$success" = false ]; then
+                log_error "${CROSS_MARK} FAILED: All attempts to apply $(basename "$patch") failed."
+                # return 1 # не прерывать сборку при ошибках
+            fi
+        done
+        shopt -u nullglob
+    else
+        log_debug "${XCLAM_MARK} No patches found for $COMPONENT_NAME"
+    fi
+}
+export -f apply_patches
 
 # 1 для подробных логов, в 0 для кратких
 # export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
@@ -271,9 +323,9 @@ if [ -d "/opt/ct-ng" ]; then
     MINGW_BIN_PATH=$(find /opt/ct-ng -maxdepth 5 -type d -name "bin" | grep "x86_64-w64-mingw32/bin" | head -n 1)
     if [ -n "$MINGW_BIN_PATH" ]; then
         export WINEPATH="${MINGW_BIN_PATH};${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib"
-        log_info "WINEPATH unified to: $WINEPATH"
+        log_info "${DIRS_MARK} WINEPATH unified to: $WINEPATH"
     else
-        log_warn "Could not find MinGW BIN directory for WINEPATH"
+        log_warn "${XCLAM_MARK} Could not find MinGW BIN directory for WINEPATH"
     fi
 else
     # Если мы на хосте (этап генерации/загрузки), просто игнорируем тулчейн

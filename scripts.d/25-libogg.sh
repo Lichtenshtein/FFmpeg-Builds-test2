@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     ./autogen.sh
 
     local myconf=(
@@ -31,6 +32,8 @@ ffbuild_dockerbuild() {
     fi
 
     ./configure "${myconf[@]}"
-    make -j$(nproc)
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    get_deps_list
 }

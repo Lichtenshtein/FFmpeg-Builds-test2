@@ -19,7 +19,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-
+    set -e
     local myconf=(
         PREFIX="$FFBUILD_PREFIX"
         CXXSTDLIB_PCLIBSPRIVATE="-lstdc++"
@@ -77,6 +77,8 @@ ffbuild_dockerbuild() {
 
     make $MAKE_V -j$(nproc) "${myconf[@]}" all install DESTDIR="$FFBUILD_DESTDIR"
     rm -r "$FFBUILD_DESTPREFIX"/share/doc/libopenmpt
+
+    get_deps_list
 }
 
 ffbuild_configure() {

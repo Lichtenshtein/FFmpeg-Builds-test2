@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Принудительно используем кросс-инструменты
     sed -i "s|^CC      =.*|CC      = $CC|" Makefile
     sed -i "s|^AR      =.*|AR      = $AR|" Makefile
@@ -37,6 +38,8 @@ Version: 5.2.2
 Libs: -L\${libdir} -lgif
 Cflags: -I\${includedir}
 EOF
+
+    get_deps_list
 }
 
 ffbuild_configure() {

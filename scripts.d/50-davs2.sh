@@ -14,21 +14,11 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    # echo "git fetch --unshallow"
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/davs2" ]]; then
-        for patch in "/builder/patches/davs2"/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # return 1 # если нужно прервать сборку при ошибке
-            fi
-        done
-    fi
+    set -e
+    apply_patches
 
     cd build/linux
 
@@ -49,7 +39,7 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}" \
         EXTRA_CFLAGS="$CFLAGS" \
-        EXTRA_LDFLAGS="$LDFLAGS" || { tail -n 100 config.log; exit 1; }
+        EXTRA_LDFLAGS="$LDFLAGS"
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
@@ -64,6 +54,8 @@ ffbuild_dockerbuild() {
             echo "Libs.private: -lpthread" >> "$PC_FILE"
         fi
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

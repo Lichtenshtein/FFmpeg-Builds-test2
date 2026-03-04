@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     # На Broadwell libjpeg-turbo будет использовать AVX2 автоматически через NASM
@@ -37,6 +38,8 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    get_deps_list
 }
 
 ffbuild_cppflags() {

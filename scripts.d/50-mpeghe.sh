@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     cd encoder
     
     for mpeghe in *.c; do
@@ -23,6 +24,8 @@ ffbuild_dockerbuild() {
 
     mkdir -p "$FFBUILD_DESTPREFIX"/lib
     cp libia_mpegh.a "$FFBUILD_DESTPREFIX"/lib
+
+    get_deps_list
 }
 
 ffbuild_configure() {

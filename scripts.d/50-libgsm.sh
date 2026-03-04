@@ -12,7 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-
+    set -e
     export CCFLAGS="$CFLAGS -DNeedFunctionPrototypes=1 -c -DSASR -DWAV49 -Wno-comment"
     export INSTALL_ROOT="$FFBUILD_DESTPREFIX"
     export CC="${FFBUILD_TOOLCHAIN}-gcc"
@@ -24,6 +24,8 @@ ffbuild_dockerbuild() {
     cp lib/libgsm.a "$FFBUILD_DESTPREFIX/lib/"
     cp include/gsm/*.h "$FFBUILD_DESTPREFIX/include/gsm"
     cp include/gsm/gsm.h "$FFBUILD_DESTPREFIX/include/"
+
+    get_deps_list
 }
 
 ffbuild_configure() {

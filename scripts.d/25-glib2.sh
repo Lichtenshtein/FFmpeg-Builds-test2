@@ -22,6 +22,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
 
     cat <<EOF > cross_file.txt
 [host_machine]
@@ -107,6 +108,8 @@ EOF
         # Убеждаемся, что зависимости тоже вписаны
         sed -i 's/^Requires.private:/Requires.private: libffi, libpcre2-8,/' "$PC_FILE" || true
     fi
+
+    get_deps_list
 }
 
 ffbuild_cppflags() {

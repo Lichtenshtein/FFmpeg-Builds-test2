@@ -13,6 +13,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     cmake -GNinja \
@@ -39,6 +40,8 @@ ffbuild_dockerbuild() {
     rm -rf "$FFBUILD_DESTPREFIX"/{etc,share}
 
     echo "Libs.private: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/vpl.pc
+
+    get_deps_list
 }
 
 ffbuild_configure() {

@@ -6,7 +6,10 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     return 0
+
+    get_deps_list
 }
 
 ffbuild_configure() {

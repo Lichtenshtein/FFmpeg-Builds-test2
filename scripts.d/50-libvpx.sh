@@ -13,6 +13,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     local myconf=(
         --disable-shared
         --enable-static
@@ -51,6 +52,8 @@ ffbuild_dockerbuild() {
     # Work around strip breaking LTO symbol index
     # "$RANLIB" "$FFBUILD_DESTPREFIX"/lib/libvpx.a
     "$RANLIB" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libvpx.a"
+
+    get_deps_list
 }
 
 ffbuild_configure() {

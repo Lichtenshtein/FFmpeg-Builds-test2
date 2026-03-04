@@ -18,6 +18,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     local myconf=(
@@ -47,4 +48,6 @@ ffbuild_dockerbuild() {
     rm "$FFBUILD_DESTPREFIX"/lib/libpciaccess.so*
 
     echo "Libs: -ldl" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/pciaccess.pc
+
+    get_deps_list
 }

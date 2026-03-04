@@ -24,17 +24,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/libplacebo" ]]; then
-        for patch in /builder/patches/libplacebo/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # return 1 # если нужно прервать сборку при ошибке
-            fi
-        done
-    fi
+    set -e
+    apply_patches
 
     sed -i 's/DPL_EXPORT/DPL_STATIC/' src/meson.build
 
@@ -47,16 +38,16 @@ ffbuild_dockerbuild() {
         --cross-file=/cross.meson
         -Dvulkan=enabled
         -Dshaderc=enabled
-        -Dglslang=enabled     # Включить, если 56-glslang собрался
-        -Dlcms2=enabled       # Обычно есть в 45-lcms2.sh
+        -Dglslang=enabled
+        -Dlcms2=enabled
         -Dvk-proc-addr=enabled
         -Dvulkan-registry="$FFBUILD_PREFIX"/share/vulkan/registry/vk.xml
         -Ddemos=false
         -Dtests=false
         -Dbench=false
         -Dfuzz=false
-        -Dlibdovi=disabled    # Отключить, если нет отдельного скрипта
-        -Dxxhash=disabled     # Мезон найдет системный, если он есть
+        -Dlibdovi=disabled
+        -Dxxhash=disabled
     )
 
     if [[ $TARGET == win* ]]; then
@@ -81,6 +72,8 @@ ffbuild_dockerbuild() {
     # Принудительно добавляем зависимости в pkg-config для статической линковки
     sed -i 's/Libs:/Libs: -lshaderc_combined -lspirv-cross-c -lspirv-cross-glsl -lspirv-cross-core /' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libplacebo.pc
     echo "Libs.private: -lstdc++ -lm -lshlwapi" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libplacebo.pc
+
+    get_deps_list
 }
 
 ffbuild_configure() {

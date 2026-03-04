@@ -16,6 +16,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Включаем расширенный glob (если еще не включен)
     shopt -s extglob
 
@@ -79,6 +80,8 @@ Libs: -L\${libdir} -lopenvino -lopenvino_c
 Libs.private: -ltbb12 -ltbb
 Cflags: -I\${includedir} -DOPENVINO_STATIC_COMPILATION
 EOF
+
+    get_deps_list
 }
 
 ffbuild_configure() {

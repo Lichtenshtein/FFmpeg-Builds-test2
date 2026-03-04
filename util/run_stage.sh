@@ -73,7 +73,7 @@ fi
 # Очищаем временный приемник файлов, чтобы избежать "паразитного" копирования 
 # артефактов из предыдущих слоев Docker (если они попали в кэш слоя)
 if [[ -d "$FFBUILD_DESTDIR" ]]; then
-    log_debug "Cleaning up temporary DESTDIR: $FFBUILD_DESTDIR"
+    log_debug "${BROOM_MARK} Cleaning up temporary DESTDIR: $FFBUILD_DESTDIR"
     rm -rf "${FFBUILD_DESTDIR:?}"/*
 fi
 mkdir -p "$FFBUILD_DESTDIR"
@@ -84,12 +84,12 @@ CURRENT_HASH=$(get_stage_hash "$SCRIPT_PATH")
 TGT_FILE="${CACHE_DIR}/${STAGENAME}_${CURRENT_HASH}.tar.zst"
 LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
 
-log_debug "--- DEBUG: Searching source for $STAGENAME ---"
+log_debug "${SEARCH_MARK} DEBUG: Searching source for $STAGENAME"
 
 # Ищем точное совпадение (Имя_Хеш)
 if [[ -f "$TGT_FILE" ]]; then
     REAL_CACHE="$TGT_FILE"
-    log_info "${GREEN}${CHECK_MARK} Exact cache match found: $(basename "$REAL_CACHE")${NC}"
+    log_info "${CHECK_MARK} Exact cache match found: $(basename "$REAL_CACHE")"
     ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
     # fix for Docker ro filesystem
     # ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK" 2>/dev/null || true
@@ -98,7 +98,7 @@ else
     EXISTING_BY_HASH=$(find "$CACHE_DIR" -maxdepth 1 -name "*_${CURRENT_HASH}.tar.zst" -print -quit)
     if [[ -n "$EXISTING_BY_HASH" ]]; then
         REAL_CACHE="$EXISTING_BY_HASH"
-        log_info "${GREEN}${CHECK_MARK} Found cache with matching hash but different name: $(basename "$REAL_CACHE")${NC}"
+        log_info "${CHECK_MARK} Found cache with matching hash but different name: $(basename "$REAL_CACHE")"
         ln -sf "$(basename "$REAL_CACHE")" "$LATEST_LINK"
 # Откат к последней ссылке (LATEST), если точный хеш не найден
     elif [[ -L "$LATEST_LINK" && -f "$LATEST_LINK" ]]; then
@@ -113,25 +113,25 @@ DL_COMMANDS=$(ffbuild_dockerdl)
 if [[ -n "$DL_COMMANDS" ]]; then
     # Если кэш не найден ни одним способом
     if [[ -z "$REAL_CACHE" || ! -f "$REAL_CACHE" ]]; then
-        log_warn "Source cache NOT FOUND for $STAGENAME. Attempting direct download..."
+        log_warn "${XCLAM_MARK} Source cache NOT FOUND for $STAGENAME. Attempting direct download..."
         log_debug "Expected hash: $CURRENT_HASH | Target file: $TGT_FILE"
 
         # Пытаемся скачать исходники "на лету"
         if eval "$DL_COMMANDS"; then
-            log_info "Direct download successful for $STAGENAME."
+            log_info "${CHECK_MARK} Direct download successful for $STAGENAME."
             # Очистка перед сохранением в кэш
             if [[ -d ".git" ]]; then
-                log_debug "Running git clean -fdx for $STAGENAME..."
+                log_debug "${BROOM_MARK} Running git clean -fdx for $STAGENAME..."
                 git clean -fdx
             fi
             # Сразу создаем архив в кэше, чтобы в следующий раз он подхватился мгновенно
-            log_info "Creating new cache archive for $STAGENAME..."
+            log_info "${ARCH_MARK} Creating new cache archive for $STAGENAME..."
             tar -I 'zstd -T0 -3' -cf "$TGT_FILE" .
             ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
         else
             # блок ошибки, срабатывает только загрузка провалилась.
             log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-            log_error "CRITICAL ERROR: No source cache and download failed for $STAGENAME"
+            log_error "${CROSS_MARK} ERROR: No source cache and download failed for $STAGENAME"
             log_error "Expected hash: $CURRENT_HASH"
             log_error "Available files in cache for this component:"
             ls -lh "$CACHE_DIR" | grep "$STAGENAME" || log_debug "No files matching $STAGENAME found."
@@ -146,10 +146,10 @@ if [[ -n "$DL_COMMANDS" ]]; then
 
     # Поиск корня проекта (если архив распаковался в подпапку)
     if [[ ! -f "Configure" && ! -f "configure" && ! -f "CMakeLists.txt" && ! -f "meson.build" ]]; then
-        log_warn "${XCLAM_MARK} No build file in root. Searching one level deeper..."
+        log_warn "${XCLAM_MARK} No build file in root. ${SEARCH_MARK} Searching one level deeper..."
         CANDIDATE=$(find . -maxdepth 2 \( -name "Configure" -o -name "configure" -o -name "CMakeLists.txt" -o -name "meson.build" \) -printf '%h\n' | head -n 1)
         if [[ -n "$CANDIDATE" ]]; then
-            log_info "Project root found at $CANDIDATE. Entering..."
+            log_info "${DIRS_MARK} Project root found at $CANDIDATE. Entering..."
             cd "$CANDIDATE"
         fi
     fi
@@ -160,7 +160,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
         exit 1
     fi
     
-    log_debug "Final build directory: $(pwd)"
+    log_debug "${DIRS_MARK} Final build directory: $(pwd)"
     ls -F | head -n 5
 else
     log_info "No source archive required for $STAGENAME (meta-package)."
@@ -168,10 +168,12 @@ fi
 
 # Применяем флаги
 export RAW_CFLAGS="$CFLAGS"
+export RAW_CPPFLAGS="$CPPFLAGS"
 export RAW_CXXFLAGS="$CXXFLAGS"
 export RAW_LDFLAGS="$LDFLAGS"
 export RAW_LDEXEFLAGS="$LDEXEFLAGS"
 [[ -n "$STAGE_CFLAGS" ]] && export CFLAGS="$CFLAGS $STAGE_CFLAGS"
+[[ -n "$STAGE_CPPFLAGS" ]] && export CPPFLAGS="$CPPFLAGS $STAGE_CPPFLAGS"
 [[ -n "$STAGE_CXXFLAGS" ]] && export CXXFLAGS="$CXXFLAGS $STAGE_CXXFLAGS"
 [[ -n "$STAGE_LDFLAGS" ]] && export LDFLAGS="$LDFLAGS $STAGE_LDFLAGS"
 [[ -n "$STAGE_LDEXEFLAGS" ]] && export LDEXEFLAGS="$LDEXEFLAGS $STAGE_LDEXEFLAGS"
@@ -181,7 +183,7 @@ build_cmd="ffbuild_dockerbuild"
 [[ -n "$2" ]] && build_cmd="$2"
 
 log_info "################################################################"
-log_info "### STARTING STAGE: $STAGENAME"
+log_info "### ${GREEN} STARTING STAGE: $STAGENAME ${NC}"
 log_info "### DATE: $(date)"
 log_info "### Starting build function: $build_cmd"
 log_info "################################################################"
@@ -189,25 +191,25 @@ log_info "################################################################"
 if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
     log_info "Verbose mode active. Build output will be shown in real-time."
     if ! ( set -e; $build_cmd ); then
-        echo "::error file=$SCRIPT_PATH::Build failed for $STAGENAME"
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        log_error "!!! ${RED}ERROR${NC}: Build failed for $STAGENAME"
+        log_error "${CROSS_MARK} ERROR: Build failed for $STAGENAME"
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        log_debug "::error file=$SCRIPT_PATH::Build failed for $STAGENAME"
         # Выводим текущую директорию и структуру файлов, чтобы понять, где мы
-        log_debug "Current directory: $(pwd)"
+        log_debug "${DIRS_MARK} Current directory: $(pwd)"
         # Используем 'find' для поиска любых логов ошибок рекурсивно
         # Это найдет логи, даже если они в build/meson-logs или глубоко в CMakeFiles
         LOG_FILES=$(find . -maxdepth 4 -name "config.log" -o -name "meson-log.txt" -o -name "CMakeError.log" -o -name "CMakeOutput.log")
         if [[ -n "$LOG_FILES" ]]; then
             for logfile in $LOG_FILES; do
                 echo " "
-                log_debug "--- CONTENT OF $logfile (last 150 lines) ---"
-                tail -n 1150 "$logfile"
-                log_debug "--- END OF $logfile ---"
+                log_debug "${LOGS_MARK} ▼ CONTENT OF $logfile (last 150 lines) ▼"
+                tail -n 500 "$logfile"
+                log_debug "${LOGS_MARK} ▲ END OF $logfile ▲"
                 echo " "
             done
         else
-            log_warn "No standard build logs found. Listing all files in current directory to debug:"
+            log_warn "${DIRS_MARK} No logs found. Listing all files in current directory:"
             ls -R
         fi
         exit 1
@@ -216,10 +218,10 @@ else
     # Тихий режим: вывод лога только в случае падения
     log_info "Quiet mode active. Output is redirected to /tmp/stage_build.log"
     if ! ( set -e; $build_cmd > /tmp/stage_build.log 2>&1 ); then
-        log_error "${CROSS_MARK} Build failed! Dumping build log:"
-        echo "----------------------------------------------------------------"
+        log_error "${CROSS_MARK} Build failed!"
+        log_debug "${LOGS_MARK} ▼ DUMPING build log ▼"
         cat /tmp/stage_build.log
-        echo "----------------------------------------------------------------"
+        log_debug "${LOGS_MARK} ▲ END OF LOG DUMP ▲"
         exit 1
     fi
 fi
@@ -232,27 +234,26 @@ PRESERVE_DLL_PATTERN="${DLL_PRESERVE_LIST:-openvino|torch|tensorflow|vulkan|amf|
 if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
     if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         log_info "################################################################"
-        log_debug "${GREEN}${BROOM_MARK} Cleaning unwanted DLLs from static stage: $STAGENAME${NC}"
+        log_debug "${BROOM_MARK} Cleaning unwanted DLLs from static stage: $STAGENAME$"
         find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
     else
-        log_debug "No standard prefix directory to clean for $STAGENAME"
+        log_debug "${DIRS_MARK} No standard prefix directory to clean for $STAGENAME"
     fi
 else
-    log_info "${GREEN}${LOCK_MARK} Preserving DLLs for dynamic stage: $STAGENAME${NC}"
+    log_info "${LOCK_MARK} Preserving DLLs for dynamic stage: $STAGENAME$"
 fi
 
 # Вывод статистики в конце каждой стадии
 # Это покажет Hit Rate прямо в логах GitHub
 log_info "################################################################"
-log_info "--- CCACHE STATISTICS ---"
+log_info "${CACHE_MARK} CCACHE STATISTICS"
 ccache -s
 
 # Автоматическая синхронизация префиксов после успешной сборки
 # Каждый скрипт в scripts.d обязан устанавливать файлы (make install) в путь, начинающийся с $FFBUILD_DESTDIR$FFBUILD_PREFIX (обычно это /opt/ffdest/opt/ffbuild), иначе система не увидит установленную библиотеку для следующего этапа.
 if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
     log_info "################################################################"
-    log_info "===> SYNCING STAGE: $STAGENAME"
-    
+    log_info "${SYNC_MARK} SYNCING STAGE: $STAGENAME"
     # Проверяем наличие файлов (игнорируя пустые директории)
     if [[ -n $(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -print -quit) ]]; then
         log_debug "Source: $FFBUILD_DESTDIR$FFBUILD_PREFIX"
@@ -265,20 +266,19 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         # --ignore-times: но если размер/дата отличаются - обновить
         # --ignore-existing: можно убрать, если нужно обновлять либы
         if rsync -av --update "$FFBUILD_DESTDIR$FFBUILD_PREFIX/" "$FFBUILD_PREFIX/"; then
-            log_info "${GREEN}${CHECK_MARK} Sync completed. Artifacts moved to global prefix.${NC}"
+            log_info "${CHECK_MARK} Sync completed. Artifacts moved to global prefix."
             # Расширенный лог: показывает, что именно добавилось (первые 10 файлов для краткости)
-            log_debug "New files in prefix (top 10):"
+            log_debug "${DIRS_MARK} New files in prefix (top 10):"
             ls -R "$FFBUILD_PREFIX" | head -n 10
         else
             log_error "${CROSS_MARK} Sync failed for $STAGENAME!"
             exit 1
         fi
-        
         # Очищаем DESTDIR сразу после копирования, 
         # чтобы освободить место в текущем слое Docker перед финализацией
         rm -rf "${FFBUILD_DESTDIR:?}"/*
     else
-        log_warn "Stage $STAGENAME finished but $FFBUILD_DESTDIR$FFBUILD_PREFIX is empty."
+        log_warn "${XCLAM_MARK} Stage $STAGENAME finished but $FFBUILD_DESTDIR$FFBUILD_PREFIX is empty."
     fi
     log_info "################################################################"
 fi

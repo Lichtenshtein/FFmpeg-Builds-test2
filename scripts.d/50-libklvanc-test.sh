@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     ./bootstrap.sh
 
     local myconf=(
@@ -26,7 +27,9 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}"
 
     make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR" $MAKE_V
+    make install DESTDIR="$FFBUILD_DESTDIR"
+
+    get_deps_list
 }
 
 ffbuild_configure() {

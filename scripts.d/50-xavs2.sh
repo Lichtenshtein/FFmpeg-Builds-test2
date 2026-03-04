@@ -16,17 +16,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/xavs2" ]]; then
-        for patch in /builder/patches/xavs2/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # return 1 # если нужно прервать сборку при ошибке
-            fi
-        done
-    fi
+    set -e
+    apply_patches
 
     # Фикс для современных компиляторов (json11)
     # Ищем файл во всем дереве, так как путь может варьироваться
@@ -73,6 +64,8 @@ ffbuild_dockerbuild() {
         # Для статической линковки в FFmpeg
         echo "Libs.private: -lstdc++ -lm" >> "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/xavs2.pc"
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

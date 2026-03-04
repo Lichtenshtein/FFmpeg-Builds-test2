@@ -13,7 +13,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-
+    set -e
     # Определяем реальный корень исходников (там, где папка 'source')
     if [[ -d "source" ]]; then
         X265_ROOT="$PWD/source"
@@ -122,6 +122,8 @@ Libs: -L\${libdir} -lx265
 Libs.private: -lstdc++ -lm -lgcc -lmingwex -lmingw32 -luser32 -ladvapi32 -lshell32
 Cflags: -I\${includedir}
 EOF
+
+    get_deps_list
 }
 
 ffbuild_configure() {

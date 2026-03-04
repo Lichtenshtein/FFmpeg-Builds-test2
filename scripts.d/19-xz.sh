@@ -17,6 +17,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Удаляем старые вспомогательные файлы, чтобы libtoolize и autoconf пересоздали их
     # rm -rf build-aux
     # mkdir -p build-aux
@@ -39,6 +40,8 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}"
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    get_deps_list
 }
 
 ffbuild_configure() {

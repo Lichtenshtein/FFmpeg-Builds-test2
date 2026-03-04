@@ -17,12 +17,12 @@ _retry() {
             return 0
         else
             if [[ $n -lt $max ]]; then
-                log_warn "Warning: Command failed: '$*'. Attempt $n/$max. Retrying in ${delay}s..."
+                log_warn "${XCLAM_MARK} WARNING: Command failed: '$*'. Attempt $n/$max. Retrying in ${delay}s..."
                 sleep "$delay"
                 ((n++))
                 delay=$((delay + 10))
             else
-                log_error "Error: Command '$1' failed after $max attempts: $*"
+                log_error "${CROSS_MARK} ERROR: Command '$1' failed after $max attempts: $*"
                 return 1
             fi
         fi
@@ -39,10 +39,10 @@ git-mini-clone() {
         # Проверяем, не тот ли это уже коммит, который нам нужен
         local CURRENT_LOCAL_HEAD=$(cd "$TARGET_DIR" && git rev-parse HEAD 2>/dev/null || echo "none")
         if [[ "$CURRENT_LOCAL_HEAD" == "$COMMIT" ]]; then
-            log_info "Git cache hit for $(basename "$REPO"): Commit $COMMIT already present."
+            log_info "${TARGET_MARK} Git cache hit for $(basename "$REPO"): Commit $COMMIT already present."
             return 0
         fi
-        log_debug "Cache miss for $(basename "$REPO"): Local=$CURRENT_LOCAL_HEAD Target=$COMMIT"
+        log_debug "${XCLAM_MARK} Cache miss for $(basename "$REPO"): Local=$CURRENT_LOCAL_HEAD Target=$COMMIT"
     fi
 
     local BRANCH="$BRANCH_ARG"
@@ -63,7 +63,7 @@ git-mini-clone() {
     fi
 
     # Пропуск если SVN
-    [[ -n "$SCRIPT_REV" ]] && { log_warn "SVN detected, skipping git"; return 0; }
+    [[ -n "$SCRIPT_REV" ]] && { log_warn "${XCLAM_MARK} SVN detected, skipping git"; return 0; }
 
     log_info "Trying to fetch from: $REPO @ $COMMIT"
     mkdir -p "$TARGET_DIR"
@@ -101,7 +101,7 @@ git-mini-clone() {
         if [[ -n "$RESOLVED_COMMIT" ]]; then
             COMMIT="$RESOLVED_COMMIT"
         else
-            log_error "Tag filter '$TAGFILTER' returned nothing"
+            log_error "${CROSS_MARK} Tag filter '$TAGFILTER' returned nothing"
             _cleanup_git_clone; return 1
         fi
     fi
@@ -116,7 +116,7 @@ git-mini-clone() {
 
     # Если не вышло, пробуем через ветку
     if [[ $success -eq 0 && -n "$BRANCH" ]]; then
-        log_warn "Direct fetch failed, trying branch: $BRANCH"
+        log_warn "${XCLAM_MARK} Direct fetch failed, trying branch: $BRANCH"
         if _retry git fetch --quiet --no-tags --depth=1 origin "$BRANCH"; then
              git checkout --quiet "$COMMIT" && success=1
         fi
@@ -124,7 +124,7 @@ git-mini-clone() {
 
     # Полный fallback (если сервер не поддерживает shallow fetch для коммитов)
     if [[ $success -eq 0 ]]; then
-        log_warn "Shallow fetch failed. Performing full fallback for $REPO..."
+        log_warn "${XCLAM_MARK} Shallow fetch failed. Performing full fallback for $REPO..."
         if _retry git fetch --quiet --tags origin || _retry git fetch --quiet origin; then
             git checkout --quiet "$COMMIT" && success=1
         fi
@@ -133,7 +133,7 @@ git-mini-clone() {
     # Возвращаемся в исходную директорию
     _cleanup_git_clone
     if [[ $success -eq 0 ]]; then
-        log_error "Error: Failed to clone $REPO at $COMMIT"
+        log_error "${CROSS_MARK} Error: Failed to clone $REPO at $COMMIT"
         return 1
     fi
     return 0
@@ -147,21 +147,21 @@ download_file() {
     if [[ -f "$DEST" ]]; then
         if [[ -n "$SHA512" ]]; then
             if echo "$SHA512  $DEST" | sha512sum -c --status 2>/dev/null; then
-                log_info "File $(basename "$DEST") matches cache."
+                log_info "${TARGET_MARK} File $(basename "$DEST") matches cache."
                 return 0
             fi
-            log_warn "Checksum mismatch for $(basename "$DEST"), re-downloading..."
+            log_warn "${XCLAM_MARK} Checksum mismatch for $(basename "$DEST"), re-downloading..."
         else
-            log_info "File $(basename "$DEST") exists, skipping."
+            log_info "${CHECK_MARK} File $(basename "$DEST") exists, skipping."
             return 0
         fi
     fi
 
-    log_info "Downloading external file: $(basename "$DEST")..."
+    log_info "${DOWN_MARK} Downloading external file: $(basename "$DEST")..."
     # Заменяем wget на curl с поддержкой докачки и повторов
     if _retry curl -sL -C - "$URL" -o "$DEST"; then
         if [[ -n "$SHA512" ]]; then
-            echo "$SHA512  $DEST" | sha512sum -c || { log_error "Hash validation failed"; return 1; }
+            echo "$SHA512  $DEST" | sha512sum -c || { log_error "${CROSS_MARK} Hash validation failed"; return 1; }
         fi
         return 0
     fi
@@ -173,19 +173,19 @@ git-submodule-clone() {
 
     # Принудительно обновляем URL подмодулей из файла .gitmodules
     # Это решает проблему, если в репозитории изменились адреса подмодулей
-    log_info "Syncing submodules..."
+    log_info "${SYNC_MARK} Syncing submodules..."
     git submodule sync --recursive
 
     # Попытка стандартного обновления
     # --force поможет, если локально были внесены небольшие изменения
     log_info "Attempting standard update..."
     if _retry git submodule update --quiet --init --recursive --depth 1; then
-        log_info "Submodules synchronized successfully via standard update."
+        log_info "${CHECK_MARK} Submodules synchronized successfully via standard update."
         return 0
     fi
 
     # Если не помогло, пробуем более агрессивный метод
-    log_warn "Standard submodule update failed, trying manual foreach..."
+    log_warn "${XCLAM_MARK} Standard submodule update failed, trying manual foreach..."
 
     # используем || return 1, чтобы если foreach упадет, функция сразу вернула ошибку
     # 1. Сброс локальных изменений, которые могут мешать checkout
@@ -193,22 +193,22 @@ git-submodule-clone() {
     # 3. Пытаемся переключиться на нужный коммит (записанный в основном репозитории)
     # Обычно это FETCH_HEAD после fetch, если мы тянем конкретный коммит
     git submodule foreach --recursive '
-        echo "Processing submodule: $name"
+        log_info "Processing submodule: $name"
         git reset --hard HEAD && git clean -fd
         if _retry git fetch --quiet --no-tags --depth=1 origin; then
             git checkout -q FETCH_HEAD || git checkout -q $(git config -f $top_level/.gitmodules submodule.$name.branch || echo "master")
         else
-            echo "Failed to fetch submodule $name"
-            exit 1
+            log_error "${CROSS_MARK} ERROR: Failed to fetch submodule $name"
+            return 1
         fi
     '
 
     # Финальная проверка
     if [ $? -eq 0 ]; then
-        log_info "Submodules synchronized after manual intervention."
+        log_info "${CHECK_MARK} Submodules synchronized after manual intervention."
         return 0
     else
-        log_error "Critical failure: Could not synchronize submodules."
+        log_error "${CROSS_MARK} ERROR: Could not synchronize submodules."
         return 1
     fi
 }
@@ -230,10 +230,10 @@ svn-mini-clone() {
         --trust-server-cert \
         --trust-server-cert-failures=unknown-ca,cn-mismatch,expired,not-yet-valid,other \
         "$REPO@$REV" "$TARGET_DIR" --force --quiet; then
-        log_info "SVN export successful."
+        log_info "${CHECK_MARK} SVN export successful."
         return 0
     else
-        log_error "Error: Failed to export SVN: $REPO (Check credentials or URL)"
+        log_error "${CROSS_MARK} ERROR: Failed to export SVN: $REPO (Check credentials or URL)"
         return 1
     fi
 }
@@ -270,7 +270,7 @@ default_dl() {
     # Валидация
     if [[ ${#CMDS[@]} -eq 0 ]]; then
         # Пишем в stderr, чтобы не сломать eval/stdout
-        log_error "No SCRIPT_REPO defined for stage!" >&2
+        log_error "${CROSS_MARK} No SCRIPT_REPO defined for stage!" >&2
         return 1
     fi
 

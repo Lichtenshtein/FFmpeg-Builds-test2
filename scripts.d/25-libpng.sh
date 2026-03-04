@@ -17,6 +17,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     ./autogen.sh
 
     local myconf=(
@@ -47,4 +48,6 @@ ffbuild_dockerbuild() {
     # Многие старые пакеты ищут libpng16.pc или libpng.pc
     cd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
     ln -sf libpng16.pc libpng.pc
+
+    get_deps_list
 }

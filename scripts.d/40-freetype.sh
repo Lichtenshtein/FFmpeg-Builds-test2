@@ -24,7 +24,6 @@ ffbuild_dockerbuild() {
     # Получаем флаги зависимостей, чтобы configure их увидел в статике
     local FT_LIBS=$(pkg-config --libs --static harfbuzz libpng zlib libbrotlidec bzip2)
 
-
     ./configure \
         --prefix="$FFBUILD_PREFIX" \
         --host="$FFBUILD_TOOLCHAIN" \

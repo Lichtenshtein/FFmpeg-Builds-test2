@@ -13,17 +13,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/quirc" ]]; then
-        for patch in /builder/patches/quirc/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # return 1 # если нужно прервать сборку при ошибке
-            fi
-        done
-    fi
+    set -e
+    apply_patches
 
     # Явно передаем инструменты, чтобы quirc не собрался под хост (Linux)
     make libquirc.a $MAKE_V -j$(nproc) CC="$CC" AR="$AR" CFLAGS="$CFLAGS"
@@ -31,6 +22,8 @@ ffbuild_dockerbuild() {
     mkdir -p "$FFBUILD_DESTPREFIX/lib/" "$FFBUILD_DESTPREFIX/include/"
     cp libquirc.a "$FFBUILD_DESTPREFIX/lib/"
     cp lib/quirc.h "$FFBUILD_DESTPREFIX/include/"
+
+    get_deps_list
 }
 
 ffbuild_configure() {
