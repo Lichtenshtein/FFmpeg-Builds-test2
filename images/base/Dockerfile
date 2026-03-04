@@ -9,7 +9,7 @@ RUN \
     apt-get -y dist-upgrade && \
     apt-get -y install --no-install-recommends \
         $([ "$TARGETPLATFORM" != "linux/amd64" ] || echo gcc-multilib g++-multilib) \
-        build-essential yasm nasm ccache \
+        build-essential pkg-config binutils pax-utils file yasm nasm ccache \
         xxd pkgconf curl wget unzip zip git subversion mercurial rsync jq \
         autoconf automake libtool libtool-bin autopoint gettext parallel cmake meson ninja-build \
         clang llvm lcov lld qemu-user libunwind-dev \

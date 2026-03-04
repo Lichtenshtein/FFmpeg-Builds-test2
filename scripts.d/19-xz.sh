@@ -6,6 +6,7 @@ SCRIPT_COMMIT="54147ad65af12d9e4f60a8ce59094a8a30ad5919"
 ffbuild_depends() {
     echo base
     echo libiconv
+    echo gettext
 }
 
 ffbuild_enabled() {
@@ -26,6 +27,8 @@ ffbuild_dockerbuild() {
     # Мы пропускаем генерацию документации и переводов для скорости
     ./autogen.sh --no-po4a --no-doxygen
 
+    local DEP_LIBS="-lcharset -liconv -lintl $LIBS"
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
@@ -35,6 +38,8 @@ ffbuild_dockerbuild() {
         --with-pic
         --disable-scripts
         --disable-doc
+        LDFLAGS="$LDFLAGS $DEP_LIBS"
+        LIBS="$DEP_LIBS"
     )
 
     ./configure "${myconf[@]}"

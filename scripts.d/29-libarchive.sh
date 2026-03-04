@@ -27,6 +27,7 @@ ffbuild_dockerbuild() {
 
     # Используем pkg-config, чтобы получить полный список либ для libxml2 (со всеми зависимостями)
     local XML2_LIBS=$(pkg-config --libs --static libxml-2.0)
+    local DEP_LIBS="-lcrypto -lssl $XML2_LIBS -lbz2 -lzstd -llzma -lz $LIBS"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -53,6 +54,7 @@ ffbuild_dockerbuild() {
         -DLIBXML2_LIBRARIES="$XML2_LIBS"
         -DLIBXML2_INCLUDE_DIR="$FFBUILD_PREFIX/include/libxml2"
         -DCMAKE_C_FLAGS="$CPPFLAGS -DLIBXML_STATIC -DXML_STATIC -DARCHIVE_STATIC"
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $DEP_LIBS"
         -DCMAKE_REQUIRED_LIBRARIES="$XML2_LIBS"
     )
 
@@ -70,7 +72,7 @@ ffbuild_dockerbuild() {
     if [[ -f "$PC_FILE" ]]; then
         # В статической линковке порядок важен: высокоуровневые либы идут ПЕРЕД низкоуровневыми
         # libarchive -> libxml2 -> [lzma, zlib, iconv] -> [ws2_32, bcrypt]
-        sed -i "s|^Libs.private:.*|Libs.private: $XML2_LIBS -lcrypto -lssl -llzma -lzstd -lbz2 -lz -lcrypt32 -lbcrypt -lws2_32 -luser32 -ladvapi32|" "$PC_FILE"
+        sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS -lcrypt32 -lbcrypt -lws2_32 -luser32 -ladvapi32|" "$PC_FILE"
     fi
 
     # Вызываем отладку зависимостей

@@ -22,14 +22,13 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    export CFLAGS="$CFLAGS -DG_WIN32_IS_STRICT_MINGW"
-    export CXXFLAGS="$CXXFLAGS -DG_WIN32_IS_STRICT_MINGW"
 
     # Используем наш глобальный PKG_CONFIG_STATIC=1, чтобы собрать зависимости
-    local DEP_LIBS=$(pkg-config --libs --static cairo fontconfig freetype2 harfbuzz glib-2.0 fribidi libbrotlidec)
-
+    local DEP_LIBS=$(pkg-config --libs --static cairo fontconfig freetype2 harfbuzz glib-2.0 fribidi)
+    local CFLAGS="$CFLAGS -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
+    local CXXFLAGS="$CXXFLAGS -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
     # Собираем системные либы Windows
-    local WIN_LIBS="-lintl -liconv -lusp10 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lgdi32 -lmsimg32 $LIBS"
+    local WIN_LIBS="-lusp10 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lgdi32 -lmsimg32 $LIBS"
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
@@ -60,7 +59,7 @@ ffbuild_dockerbuild() {
         if [[ -f "$PC_PATH" ]]; then
             # Добавляем системные либы в Libs.private
             # И обязательно прокидываем PANGO_STATIC_COMPILATION в Cflags
-            sed -i "/^Libs.private:/ s/$/ $WIN_SYS_LIBS -lstdc++/" "$PC_PATH"
+            sed -i "/^Libs.private:/ s/$/ $WIN_LIBS -lstdc++/" "$PC_PATH"
             sed -i "/^Cflags:/ s/$/ -DPANGO_STATIC_COMPILATION/" "$PC_PATH"
         fi
     done
