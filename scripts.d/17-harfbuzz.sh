@@ -3,6 +3,11 @@
 SCRIPT_REPO="https://github.com/harfbuzz/harfbuzz.git"
 SCRIPT_COMMIT="81ce4813c1d2ba1cf2f06aa2d2892aae7156bcaf"
 
+ffbuild_depends() {
+    echo freetype
+    echo libicu
+}
+
 ffbuild_enabled() {
     return 0
 }
@@ -14,6 +19,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
+
+    local CFLAGS="$CFLAGS -DHARFBUZZ_STATIC"
+    local CXXFLAGS="$CXXFLAGS -DHARFBUZZ_STATIC"
+    local DEP_LIBS="-lfreetype -lsicuin -lsicuuc -lsicudt $LIBS"
 
     local myconf=(
         --cross-file=/cross.meson
@@ -34,6 +43,10 @@ ffbuild_dockerbuild() {
         -Ddirectwrite=disabled
         -Dgdi=disabled
         -Dbenchmark=disabled
+        -Dcpp_args="$CXXFLAGS"
+        -Dc_args="$CFLAGS"
+        -Dc_link_args="$LDFLAGS $DEP_LIBS"
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS"
     )
 
     meson setup "${myconf[@]}" ..

@@ -93,7 +93,6 @@ EOF
         -Dman-pages=disabled \
         -Dselinux=disabled \
         -Dsysprof=disabled
-        -DCMAKE_C_FLAGS="$CPPFLAGS -DGLIB_STATIC_COMPILATION"
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install

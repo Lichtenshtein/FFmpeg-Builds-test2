@@ -15,7 +15,10 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
+    DEPS_LIB="-lpng16 -lglib-2.0 $LIB"
+
     meson setup --prefix="$FFBUILD_PREFIX" \
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $DEPS_LIB" \
         --cross-file=/cross.meson \
         --default-library=static \
         -Dtests=disabled \

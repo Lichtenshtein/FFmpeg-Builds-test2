@@ -20,6 +20,8 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
+    local DEP_LIBS="-ljpeg -lturbojpeg -ltiff -ltiffxx $LIBS"
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --cross-file=/cross.meson
@@ -30,6 +32,8 @@ ffbuild_dockerbuild() {
         -Dtests=disabled
         -Dcpp_args="$CXXFLAGS"
         -Dc_args="$CFLAGS"
+        -Dc_link_args="$LDFLAGS $DEP_LIBS"
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS"
     )
 
     # export CFLAGS="$CFLAGS -fpermissive"
@@ -43,7 +47,7 @@ ffbuild_dockerbuild() {
     if [[ -f "$PC_FILE" ]]; then
         # lcms2 часто не пишет зависимости в .pc, если они статические
         # Добавим -lm (математическая библиотека) для Windows/MinGW
-        sed -i '/^Libs.private:/ s/$/ -lm/' "$PC_FILE"
+        sed -i '/^Libs.private:/ s/$/ $DEP_LIBS/' "$PC_FILE"
     fi
 
     get_deps_list

@@ -24,14 +24,14 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    export CFLAGS="$CFLAGS -DCAIRO_WIN32_STATIC_BUILD"
-    export CPPFLAGS="$CPPFLAGS -DCAIRO_WIN32_STATIC_BUILD"
-    export LDFLAGS="${LDFLAGS/-static-libstdc++/} -static"
+    local CFLAGS="$CFLAGS -DCAIRO_WIN32_STATIC_BUILD"
+    local CPPFLAGS="$CPPFLAGS -DCAIRO_WIN32_STATIC_BUILD"
+    local LDFLAGS="${LDFLAGS/-static-libstdc++/} -static"
 
     # Включаем dwrite и d2d1, так как они нужны для современных шрифтов
     local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs $LIBS"
-    local INT_LIBS="-lintl -liconv"
-    local DEP_LIBS=$(pkg-config --libs --static fontconfig freetype2 harfbuzz pixman-1 libpng zlib)
+    local INT_LIBS="-lintl -lcharset -liconv"
+    local DEP_LIBS=$(pkg-config --libs --static fontconfig glib-2.0 freetype2 harfbuzz pixman-1 libpng zlib)
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
@@ -49,6 +49,8 @@ ffbuild_dockerbuild() {
         -Dxcb=disabled \
         -Dxlib=disabled \
         -Dzlib=enabled \
+        -Dc_args="$CFLAGS" \
+        -Dcpp_args="$CXXFLAGS" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $INT_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $INT_LIBS $WIN_LIBS"
 
@@ -61,7 +63,7 @@ ffbuild_dockerbuild() {
     if [[ -f "$PC_FILE" ]]; then
         # Добавляем все недостающие хвосты: intl, iconv и brotli
         # Порядок: cairo -> fontconfig -> freetype -> [brotli, xml2, lzma, zlib] -> [intl, iconv, sys]
-        local EXTRA_PRIVATE="-lbrotlidec -lbrotlicommon -lintl -liconv -lws2_32 -lbcrypt"
+        local EXTRA_PRIVATE="-lfontconfig -lfreetype -lbrotlidec -lbrotlicommon -lbrotlienc -lxml2 -llzma -lz -lintl -lcharset -liconv -lws2_32 -lbcrypt"
         sed -i "/^Libs.private:/ s/$/ $EXTRA_PRIVATE/" "$PC_FILE"
         sed -i "/^Cflags:/ s/$/ -DCAIRO_WIN32_STATIC_BUILD/" "$PC_FILE"
     fi
