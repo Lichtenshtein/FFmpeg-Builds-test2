@@ -21,6 +21,8 @@ ffbuild_dockerbuild() {
     set -e
     ./autogen.sh
 
+    local DEP_LIBS="-lbz2 -lz $LIBS"
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
@@ -34,6 +36,8 @@ ffbuild_dockerbuild() {
         --enable-jit
         --enable-unicode
         --enable-newline-is-anycrlf
+        LDFLAGS="$LDFLAGS $DEP_LIBS"
+        LIBS="$DEP_LIBS"
     )
 
     ./configure "${myconf[@]}"

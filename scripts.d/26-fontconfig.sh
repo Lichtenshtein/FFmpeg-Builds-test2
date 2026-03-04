@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
     set -e
     ./autogen.sh --noconf
 
-    export LIBS="-lfreetype -lpng -lz $LIBS"
+    export LIBS="-lfreetype -lxml2 -lintl -lcharset -liconv -lz $LIBS"
 
     local myconf=(
         ac_cv_va_copy="C99"

@@ -221,14 +221,31 @@ get_deps_list() {
     log_info "################################################################"
     # Используем имя файла скрипта, если STAGENAME пуст
     local name="${STAGENAME:-${0##*/}}"
-    log_debug "Dependencies for $STAGENAME: ${0##*/}"
-    # Показываем все сгенерированные .pc файлы и их зависимости
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec log_debug "\n${XCLAM_MARK} {}" \; -exec cat {} \;
-    # Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
+    local lib_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
+    local bin_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
+    log_debug "Dependencies for $name"
+    # PKG-CONFIG: показывает цепочку зависимостей (Requires)
+    if [[ -d "$lib_dir/pkgconfig" ]]; then
+        find "$lib_dir/pkgconfig" -name "*.pc" -exec sh -c "
+            echo -e '\n${XCLAM_MARK} PKG-CONFIG DEPS for {}:'
+            pkg-config --print-requires --print-requires-private {}
+        " \;
+    fi
+    # LDD-style: Для динамических библиотек (.so) и исполняемых файлов
+    find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | xargs -0 -I{} sh -c "
+        log_debug '\n${XCLAM_MARK} NEEDED LIBRARIES for {}:'
+        ${FFBUILD_TOOLCHAIN}-readelf -d {} | grep 'NEEDED' || true
+    "
+    # NM (Undefined Symbols): Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
     # фильтруем только те символы, которые реально ведут к другим библиотекам
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.a" -print0 | xargs -0 -I{} sh -c "
-        log_debug '\n${XCLAM_MARK} Undefined Symbols in {}';
-        ${FFBUILD_TOOLCHAIN}-nm -u {} | sort -u | head -n 20
+    find "$lib_dir" -name "*.a" -print0 | xargs -0 -I{} sh -c "
+        log_debug '\n${XCLAM_MARK} EXTERNAL SYMBOLS (TOP 10) in {}:'
+        ${FFBUILD_TOOLCHAIN}-nm -u {} | grep -v '@@' | sort -u | head -n 10
+    "
+    # OBJdump: Поиск упоминаний путей (RPATH/RUNPATH)
+    find "$lib_dir" "$bin_dir" -type f -executable -print0 2>/dev/null | xargs -0 -I{} sh -c "
+        log_debug '\n${XCLAM_MARK} RPATH/RUNPATH for {}:'
+        ${FFBUILD_TOOLCHAIN}-objdump -p {} | grep -E 'RPATH|RUNPATH' || true
     "
 }
 export -f get_deps_list

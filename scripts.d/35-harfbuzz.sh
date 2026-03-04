@@ -3,6 +3,13 @@
 SCRIPT_REPO="https://github.com/harfbuzz/harfbuzz.git"
 SCRIPT_COMMIT="81ce4813c1d2ba1cf2f06aa2d2892aae7156bcaf"
 
+ffbuild_depends() {
+    echo freetype
+    echo libicu
+    echo glib2
+    echo cairo
+}
+
 ffbuild_enabled() {
     return 0
 }
@@ -16,6 +23,8 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     local DEP_LIBS=$(pkg-config --libs --static freetype2 glib-2.0 icu-uc cairo)
+    local CFLAGS="$CFLAGS -DHARFBUZZ_STATIC"
+    local CXXFLAGS="$CXXFLAGS -DHARFBUZZ_STATIC"
 
     local myconf=(
         --cross-file=/cross.meson
@@ -38,6 +47,8 @@ ffbuild_dockerbuild() {
         -Dgdi=enabled
         -Dbenchmark=disabled
         # Передаем либы через link_args, чтобы тесты Cairo не падали
+        -Dcpp_args="$CXXFLAGS"
+        -Dc_args="$CFLAGS"
         -Dc_link_args="$LDFLAGS $DEP_LIBS $LIBS"
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $LIBS"
     )
@@ -53,7 +64,7 @@ ffbuild_dockerbuild() {
         if [[ -f "$PC_PATH" ]]; then
             # Гарантируем наличие флага статики и системных либ
             sed -i "/^Cflags:/ s/$/ -DHARFBUZZ_STATIC/" "$PC_PATH"
-            sed -i "/^Libs.private:/ s/$/ -lusp10 -lgdi32 -lrpcrt4 -lstdc++/" "$PC_PATH"
+            sed -i "/^Libs.private:/ s/$/ $DEP_LIBS -lusp10 -lgdi32 -lrpcrt4 -lstdc++/" "$PC_PATH"
         fi
     done
 

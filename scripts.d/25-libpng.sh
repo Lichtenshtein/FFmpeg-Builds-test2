@@ -30,15 +30,7 @@ ffbuild_dockerbuild() {
         --with-pic
     )
 
-    # Добавляем LTO если включено
-    if [[ "$USE_LTO" == "1" ]]; then
-        export CFLAGS="$CFLAGS -flto"
-        export LDFLAGS="$LDFLAGS -flto"
-    fi
-
-    # Гарантируем, что zlib будет найден
     export CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include"
-    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
 
     ./configure "${myconf[@]}"
     make -j$(nproc) $MAKE_V

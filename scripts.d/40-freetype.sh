@@ -22,7 +22,7 @@ ffbuild_dockerbuild() {
     ./autogen.sh
 
     # Получаем флаги зависимостей, чтобы configure их увидел в статике
-    local FT_LIBS=$(pkg-config --libs --static harfbuzz libpng zlib libbrotlidec bzip2)
+    local FT_LIBS=$(pkg-config --libs --static fontconfig freetype2 harfbuzz libpng zlib libbrotlidec bzip2)
 
     ./configure \
         --prefix="$FFBUILD_PREFIX" \
@@ -35,7 +35,7 @@ ffbuild_dockerbuild() {
         --with-zlib \
         --with-bzip2 \
         --with-brotli \
-        LDFLAGS="-L$FFBUILD_PREFIX/lib" \
+        LDFLAGS="$LDFLAGS" \
         CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include" \
         LIBS="$FT_LIBS $LIBS"
 
@@ -44,8 +44,7 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype2.pc"
     if [[ -f "$PC_FILE" ]]; then
-
-        sed -i "/^Libs.private:/ s/$/ -lbrotlidec -lbrotlicommon -lharfbuzz -lpng16 -lz -lbz2/" "$PC_FILE"
+        sed -i "/^Libs.private:/ s/$/ $FT_LIBS $LIBS/" "$PC_FILE"
     fi
 
     get_deps_list

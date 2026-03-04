@@ -26,6 +26,10 @@ ffbuild_dockerbuild() {
     rm -rf tiff_build
     mkdir tiff_build
 
+    local DEP_LIBS="-ljpeg -lturbojpeg -ljbig -ljbig85 -lz -llzma -lzstd $LIBS"
+    local CFLAGS="$CFLAGS -DLIBTIFF_STATIC"
+    local LDFLAGS="$LDFLAGS $DEP_LIBS"
+
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
@@ -46,7 +50,7 @@ ffbuild_dockerbuild() {
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
 
-    cmake "${myconf[@]}" -DCMAKE_C_FLAGS="$CFLAGS" -S . -B tiff_build
+    cmake "${myconf[@]}" -DCMAKE_C_FLAGS="$CFLAGS" -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" -S . -B tiff_build
 
     make -C tiff_build -j$(nproc) $MAKE_V
     make -C tiff_build install DESTDIR="$FFBUILD_DESTDIR"
@@ -55,7 +59,7 @@ ffbuild_dockerbuild() {
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libtiff-4.pc"
     if [[ -f "$PC_FILE" ]]; then
         # Добавляем необходимые системные либы и зависимости в Libs.private
-        sed -i '/^Libs.private:/ s/$/ -ljpeg -lz -llzma -ljbig -lm/' "$PC_FILE"
+        sed -i '/^Libs.private:/ s/$/ $DEP_LIBS /' "$PC_FILE"
     fi
 
     # проверить, как называется созданный .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
