@@ -92,8 +92,8 @@ EOF
         -Dforce_posix_threads=true \
         -Dman-pages=disabled \
         -Dselinux=disabled \
-        -Dsysprof=disabled \
-        || (tail -n 200 build/meson-logs/meson-log.txt && return 1)
+        -Dsysprof=disabled
+        -DCMAKE_C_FLAGS="$CPPFLAGS -DGLIB_STATIC_COMPILATION"
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
@@ -106,7 +106,7 @@ EOF
         # Добавляем зависимости, которые Meson часто забывает для static win64
         sed -i 's/^Libs:/Libs: -lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lwinmm -ldnsapi -lruntimeobject/' "$PC_FILE"
         # Убеждаемся, что зависимости тоже вписаны
-        sed -i 's/^Requires.private:/Requires.private: libffi, libpcre2-8,/' "$PC_FILE" || true
+        sed -i 's/^Requires.private:/Requires.private: libz, libffi, libintl, libiconv, libpcre2-8,/' "$PC_FILE" || true
     fi
 
     get_deps_list
@@ -117,5 +117,5 @@ ffbuild_cppflags() {
 }
 
 ffbuild_libs() {
-    echo "-luserenv -liphlpapi -lintl -liconv -lwinmm -ldnsapi -lruntimeobject -lpthread"
+    echo "-luserenv -liphlpapi -lwinmm -ldnsapi -lruntimeobject"
 }

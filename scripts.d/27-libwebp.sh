@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
     ./autogen.sh
 
     # Собираем список либ для тестов конфигурации
-    local WEBP_LIBS="-ltiff -ljpeg -lpng16 -lzstd -llzma -ljbig -lz $LIBS"
+    local WEBP_LIBS="-ltiff -ljpeg -lpng16 -lgif -lzstd -llzma -ljbig -lz $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -44,7 +44,7 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}" \
         LDFLAGS="$LDFLAGS" \
-        CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include" \
+        CPPFLAGS="$CPPFLAGS -DWEBP_STATIC -I$FFBUILD_PREFIX/include" \
         LIBS="$WEBP_LIBS"
 
     # Явно вызываем make и проверяем его успех
@@ -57,7 +57,7 @@ ffbuild_dockerbuild() {
         local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
         if [[ -f "$PC_PATH" ]]; then
             # Добавляем -lws2_32 (нужен для некоторых функций WebP в Windows)
-            sed -i "/^Libs.private:/ s/$/ -lshlwapi -lws2_32 -lpthread/" "$PC_PATH"
+            sed -i "/^Libs.private:/ s/$/ -ltiff -ljpeg -lpng16 -lgif -lzstd -llzma -ljbig -lz -lshlwapi -lws2_32 -lpthread/" "$PC_PATH"
         fi
     done
 

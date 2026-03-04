@@ -52,7 +52,7 @@ ffbuild_dockerbuild() {
         -DENABLE_XATTR=ON
         -DLIBXML2_LIBRARIES="$XML2_LIBS"
         -DLIBXML2_INCLUDE_DIR="$FFBUILD_PREFIX/include/libxml2"
-        -DCMAKE_C_FLAGS="$CFLAGS -DLIBXML_STATIC -DXML_STATIC -DARCHIVE_STATIC"
+        -DCMAKE_C_FLAGS="$CPPFLAGS -DLIBXML_STATIC -DXML_STATIC -DARCHIVE_STATIC"
         -DCMAKE_REQUIRED_LIBRARIES="$XML2_LIBS"
     )
 
@@ -70,7 +70,7 @@ ffbuild_dockerbuild() {
     if [[ -f "$PC_FILE" ]]; then
         # В статической линковке порядок важен: высокоуровневые либы идут ПЕРЕД низкоуровневыми
         # libarchive -> libxml2 -> [lzma, zlib, iconv] -> [ws2_32, bcrypt]
-        sed -i "s|^Libs.private:.*|Libs.private: $XML2_LIBS -llzma -lzstd -lbz2 -lz -lcrypt32 -lbcrypt -lws2_32 -luser32 -ladvapi32|" "$PC_FILE"
+        sed -i "s|^Libs.private:.*|Libs.private: $XML2_LIBS -lcrypto -lssl -llzma -lzstd -lbz2 -lz -lcrypt32 -lbcrypt -lws2_32 -luser32 -ladvapi32|" "$PC_FILE"
     fi
 
     # Вызываем отладку зависимостей
