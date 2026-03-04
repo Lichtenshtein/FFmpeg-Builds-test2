@@ -21,12 +21,10 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-    export CFLAGS="$CFLAGS -Dmd5=libssh_md5"
-
     cmake -GNinja \
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_FLAGS="$CFLAGS -DLIBSSH_STATIC" \
+        -DCMAKE_C_FLAGS="$CFLAGS -DLIBSSH_STATIC -Dmd5=libssh_md5" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DBUILD_SHARED_LIBS=OFF \
         -DWITH_EXAMPLES=OFF \
@@ -39,8 +37,8 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libssh.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i '/^Cflags:/ s/$/ -DLIBSSH_STATIC/' "$PC_FILE"
-        echo "Libs.private: -lws2_32 -liphlpapi -lpthread" >> "$PC_FILE"
+        sed -i '/^Cflags:/ s/$/ -DLIBSSH_STATIC -Dmd5=libssh_md5/' "$PC_FILE"
+        echo "Libs.private: -lssl -lcrypto -lz -lws2_32 -liphlpapi -lpthread" >> "$PC_FILE"
     fi
 
     get_deps_list

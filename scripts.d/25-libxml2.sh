@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
     set -e
 
     local ICU_LIBS=$(pkg-config --libs --static icu-uc icu-i18n)
-    local DEP_LIBS="$ICU_LIBS $(pkg-config --libs --static zlib liblzma) $LIBS"
+    local DEP_LIBS="$ICU_LIBS $(pkg-config --libs --static zlib liblzma libiconv) $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"

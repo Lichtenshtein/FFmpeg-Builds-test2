@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/PCRE2Project/pcre2.git"
-SCRIPT_COMMIT="d8a443253783718f62f970b10bec2fcf34f077e3"
+SCRIPT_COMMIT="123424f8a2267aa12ef819c64744b9cea934e414"
 
 ffbuild_depends() {
     echo zlib
@@ -27,8 +27,10 @@ ffbuild_dockerbuild() {
         --enable-static
         --disable-shared
         --enable-pcre2-8
-        --enable-pcre2-16
-        --enable-pcre2-32
+        #--enable-pcre2-16
+        #--enable-pcre2-32
+        --with-link-size=3
+        --with-parens-nest-limit=500
         --enable-jit
         --enable-unicode
         --enable-newline-is-anycrlf
