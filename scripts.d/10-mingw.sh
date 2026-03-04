@@ -24,6 +24,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+    apply_patches
     # if [[ -z "$COMPILER_SYSROOT" ]]; then
         # COMPILER_SYSROOT="$(${CC} -print-sysroot)/usr/${FFBUILD_TOOLCHAIN}"
     # fi
