@@ -24,16 +24,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/libcodec2-test" ]]; then
-        for patch in "/builder/patches/libcodec2-test"/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-            fi
-        done
-    fi
+    set -e
+    apply_patches
 
     # Сначала полностью вырезаем проблемный блок ExternalProject
     # Мы заменяем его на пустышку, чтобы CMake не ругался на отсутствие цели generate_codebook
@@ -67,7 +59,7 @@ ffbuild_dockerbuild() {
     # Если 'make codec2' все еще капризничает из-за отсутствия исходников,
     # мы скомпилируем их вручную и добавим в архив.
     if ! make -j$(nproc) codec2 $MAKE_V; then
-        log_warn "Standard make failed, performing manual object compilation..."
+        log_warn "${XCLAM_MARK} Standard make failed, performing manual object compilation..."
         # Компилируем все .c файлы из папки src
         for f in ../src/*.c; do
             [[ "$f" == *"generate_codebook.c"* ]] && continue
@@ -105,10 +97,10 @@ EOF
 
     # Проверка финального наличия
     if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libcodec2.a" ]]; then
-        log_info "SUCCESS: libcodec2.a is ready."
+        log_info "${CHECK_MARK} SUCCESS: libcodec2.a is ready."
     else
-        log_error "CRITICAL: libcodec2.a still missing!"
-        exit 1
+        log_error "${CROSS_MARK} ERROR: libcodec2.a still missing!"
+        return 1
     fi
 
     # Исправление .pc файла (Codec2 иногда забывает про -lm)
@@ -118,6 +110,8 @@ EOF
             echo "Libs.private: -lm" >> "$PC_FILE"
         fi
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

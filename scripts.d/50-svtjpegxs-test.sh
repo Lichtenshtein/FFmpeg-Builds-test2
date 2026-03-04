@@ -13,6 +13,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Исправляем CMakeLists.txt: отключаем автоматическое определение архитектуры хоста
     # Это критично для кросс-компиляции, чтобы он не взял флаги процессора GitHub раннера
     sed -i 's/-march=native//g' CMakeLists.txt || true
@@ -56,6 +57,8 @@ ffbuild_dockerbuild() {
         cp "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/SvtJpegxsEnc.pc" \
            "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/svtjpegxs.pc"
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

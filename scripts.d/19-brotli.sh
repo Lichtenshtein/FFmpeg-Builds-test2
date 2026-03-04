@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     cmake -G Ninja -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
@@ -23,6 +24,8 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=OFF ..
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    get_deps_list
 }
 
 ffbuild_cppflags() {

@@ -14,7 +14,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-
+    set -e
     mkdir build && cd build
 
     cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
@@ -41,6 +41,8 @@ ffbuild_dockerbuild() {
     echo "Cflags: -I\${includedir} -DVNEnablePublicAPIExport" >> lcevc_dec.pc
 
     mv lcevc_dec.pc "$FFBUILD_DESTPREFIX"/lib/pkgconfig/lcevc_dec.pc
+
+    get_deps_list
 }
 
 ffbuild_configure() {

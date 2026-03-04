@@ -18,6 +18,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     export CFLAGS="$CFLAGS -Dmd5=libssh_md5"
@@ -41,6 +42,8 @@ ffbuild_dockerbuild() {
         sed -i '/^Cflags:/ s/$/ -DLIBSSH_STATIC/' "$PC_FILE"
         echo "Libs.private: -lws2_32 -liphlpapi -lpthread" >> "$PC_FILE"
     fi
+
+    get_deps_list
 }
 
 ffbuild_cppflags() {

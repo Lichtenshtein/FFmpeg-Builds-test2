@@ -42,23 +42,23 @@ download_stage() {
 
     log_debug "Checking cache for $STAGENAME in $DL_DIR..."
     if [[ ! -d "$DL_DIR" ]]; then
-        log_error "DL_DIR ($DL_DIR) does not exist!"
+        log_error "${CROSS_MARK} DL_DIR ($DL_DIR) does not exist!"
     else
-        log_info "Files in cache for $STAGENAME:"
-        ls -F "$DL_DIR" | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found"
+        log_info "${DIRS_MARK} Files in cache for $STAGENAME:"
+        ls -F "$DL_DIR" | grep "$STAGENAME" || log_warn "${XCLAM_MARK} No files matching $STAGENAME found"
     fi
 
     if [[ -f "$TGT_FILE" ]]; then
-        log_info "Cache hit: $STAGENAME ($DL_HASH); Size: $(du -sh "$TGT_FILE" | cut -f1)"
+        log_info "${TARGET_MARK} Cache hit: $STAGENAME ($DL_HASH); Size: $(du -sh "$TGT_FILE" | cut -f1)"
         # Обновляем mtime, чтобы clean_cache не удалил его как старый
         touch "$TGT_FILE" 
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
         return 0
     else
-        log_warn "Cache miss: $STAGENAME (Target file $TGT_FILE not found)"
+        log_warn "${XCLAM_MARK} Cache miss: $STAGENAME (Target file $TGT_FILE not found)"
     fi
 
-    log_info "Changes detected or missing cache (Hash: $DL_HASH) for $STAGENAME. Downloading..."
+    log_info "${DOWN_MARK} Changes detected or missing cache (Hash: $DL_HASH) for $STAGENAME. Downloading..."
 
     # Создаем временную папку внутри проекта
     mkdir -p .cache/tmp
@@ -77,9 +77,9 @@ download_stage() {
         local PRESERVE_PATTERN="${GIT_PRESERVE_LIST:-ffmpeg|glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo}"
 
         if [[ "$STAGENAME" =~ $PRESERVE_PATTERN ]]; then
-            log_info "Preserving Git metadata for $STAGENAME (Whitelist match)"
+            log_info "${LOCK_MARK} Preserving Git metadata for $STAGENAME (Whitelist match)"
         else
-            log_debug "Stripping Git metadata for $STAGENAME to save cache space"
+            log_debug "${BROOM_MARK} Stripping Git metadata for $STAGENAME to save cache space"
             # Удаляем .git папки и .gitignore файлы
             find "$WORK_DIR" -name ".git*" -exec rm -rf {} +
         fi
@@ -88,11 +88,11 @@ download_stage() {
         tar -I 'zstd -T0 -3' -cf "$TGT_FILE" -C "$WORK_DIR" .
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
 
-        log_info "Cached $STAGENAME (Name: $(basename "$TGT_FILE"))"
+        log_info "${CACHE_MARK} Cached $STAGENAME (Name: $(basename "$TGT_FILE"))"
         rm -rf "$WORK_DIR"
         return 0
     else
-        log_error "FAILED to download $STAGENAME. Commands attempted:"
+        log_error "${CROSS_MARK} FAILED to download $STAGENAME. Commands attempted:"
         log_error "$DL_COMMANDS"
         rm -rf "$WORK_DIR"
         return 1 # return 1 для параллельного запуска
@@ -100,7 +100,7 @@ download_stage() {
 }
 export -f download_stage
 
-log_info "Starting parallel downloads for $TARGET-$VARIANT..."
+log_info "${DOWN_MARK} Starting parallel downloads for $TARGET-$VARIANT..."
 find scripts.d -name "*.sh" | sort | \
     # --halt now,fail=1 меняем на --halt soon,fail=20%
     # Это даст шанс остальным докачаться, даже если один упал
@@ -112,7 +112,7 @@ find scripts.d -name "*.sh" | sort | \
      source util/dl_functions.sh; \
      download_stage {} '$DL_DIR'"
 
-log_info "All sequential downloads finished successfully."
+log_info "${CHECK_MARK} All sequential downloads finished successfully."
 
 # FFmpeg update (добавил --quiet для чистоты логов)
 FFMPEG_DIR=".cache/ffmpeg"
@@ -122,7 +122,7 @@ REPO_URL="${FFMPEG_REPO}"
 BRANCH_NAME="${FFMPEG_BRANCH}"
 
 if [[ ! -d "$FFMPEG_DIR/.git" ]]; then
-    log_info "Cloning FFmpeg from $REPO_URL ($BRANCH_NAME)..."
+    log_info "${DOWN_MARK} Cloning FFmpeg from $REPO_URL ($BRANCH_NAME)..."
     git clone --quiet --filter=blob:none --depth=1 --branch="$BRANCH_NAME" "$REPO_URL" "$FFMPEG_DIR"
 else
     log_info "Updating FFmpeg from $REPO_URL..."
@@ -131,7 +131,7 @@ else
       git fetch --quiet --depth=1 origin "$BRANCH_NAME" && \
       git reset --hard FETCH_HEAD )
 fi
-log_info "All downloads finished."
+log_info "${CHECK_MARK} All downloads finished."
 
 # очистка временной папки
 rm -rf .cache/tmp

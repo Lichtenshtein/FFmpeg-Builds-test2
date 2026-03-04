@@ -24,6 +24,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     cmake -GNinja -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
@@ -79,6 +80,8 @@ ffbuild_dockerbuild() {
     else
         sed -i "s|^Requires:.*|Requires: vulkan OpenCL|" "$PC_FILE"
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

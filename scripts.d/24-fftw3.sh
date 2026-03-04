@@ -12,17 +12,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/fftw3" ]]; then
-        for patch in "/builder/patches/fftw3"/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # return 1 # если нужно прервать сборку при ошибке
-            fi
-        done
-    fi
+    set -e
+    apply_patches
 
     sed -i 's/-libs nums/-use-ocamlfind -package num/' genfft/Makefile.am
 
@@ -61,4 +52,6 @@ ffbuild_dockerbuild() {
     ./bootstrap.sh "${myconf[@]}"
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    get_deps_list
 }

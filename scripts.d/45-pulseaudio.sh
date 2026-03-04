@@ -21,6 +21,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Kill build of utils and their sndfile dep
     echo > src/utils/meson.build
     echo > src/pulsecore/sndfile-util.c
@@ -61,6 +62,8 @@ ffbuild_dockerbuild() {
 
     echo "Libs.private: -ldl -lrt -liconv" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libpulse.pc
     echo "Libs.private: -ldl -lrt -liconv" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libpulse-simple.pc
+
+    get_deps_list
 }
 
 ffbuild_configure() {

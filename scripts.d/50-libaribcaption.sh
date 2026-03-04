@@ -20,6 +20,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build
     cd build
 
@@ -40,6 +41,8 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     echo "Libs.private: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libaribcaption.pc
+
+    get_deps_list
 }
 
 ffbuild_configure() {

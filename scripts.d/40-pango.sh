@@ -18,11 +18,10 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     echo "git-submodule-clone"
-    # echo "git submodule --quiet update --init --recursive --depth=1"
 }
 
 ffbuild_dockerbuild() {
-
+    set -e
     export CFLAGS="$CFLAGS -DG_WIN32_IS_STRICT_MINGW"
     export CXXFLAGS="$CXXFLAGS -DG_WIN32_IS_STRICT_MINGW"
 
@@ -49,8 +48,7 @@ ffbuild_dockerbuild() {
         -Dc_args="$CFLAGS" \
         -Dcpp_args="$CXXFLAGS" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
-        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
-        || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS"
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install

@@ -16,6 +16,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     cd build/generic
 
     # The original code fails on a two-digit major...
@@ -48,6 +49,8 @@ ffbuild_dockerbuild() {
     # Гарантируем отсутствие DLL для статической сборки
     # rm -f "$FFBUILD_DESTPREFIX"/lib/*.dll*
     # rm -f "$FFBUILD_DESTPREFIX"/bin/*.dll
+
+    get_deps_list
 }
 
 ffbuild_configure() {

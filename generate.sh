@@ -83,7 +83,7 @@ fi
 # Считаем хеши для инвалидации кэша слоев Docker. Импорт из workflow.
 # Если поменяется vars.sh или любой патч - все последующие RUN пересоберутся
 if [[ "$DEBUG_NO_HASH" == "true" ]]; then
-    log_warn "DEBUG MODE: VARS_HASH is hardcoded to 'debug_static' to preserve cache."
+    log_warn "${XCLAM_MARK} DEBUG: VARS_HASH is hardcoded to 'debug_static' to preserve cache."
     VARS_HASH="debug_static"
 else
     VARS_HASH=$(sha256sum util/vars.sh util/run_stage.sh | sha256sum | cut -c1-8)
@@ -130,7 +130,7 @@ collect_all_flags() {
     (
         # Загружаем скрипт
         if ! source "$script_path" > /dev/null; then
-            log_error "Syntax error in script: $script_path"
+            log_error "${CROSS_MARK} Syntax error in script: $script_path"
             exit 1
         fi
 
@@ -163,7 +163,7 @@ collect_all_flags() {
         get_from_func "ffbuild_cxxflags" ".cxxflags"
         get_from_func "ffbuild_ldexeflags" ".ldexeflags"
         get_from_func "ffbuild_libs" ".libs"
-    ) || log_error "Failed to collect flags from $script"
+    ) || log_error "${CROSS_MARK} Failed to collect flags from $script"
 }
 
 log_info "Collecting flags from variant and addins..."
@@ -221,7 +221,7 @@ to_df "ENV FF_LIBS=\"$FF_LIBS\""
 rm .conf .cflags .ldflags .libs .cxxflags .cppflags .ldexeflags
 
 if [[ $SKIP_FFMPEG -eq 1 ]]; then
-    log_info "Option 'skip_ffmpeg' is active. Final build stage will be omitted."
+    log_info "${XCLAM_MARK} Option 'skip_ffmpeg' is active. Final build stage will be omitted."
     # Создаем пустой файл в artifacts, чтобы экшн загрузки не падал
     to_df "RUN mkdir -p /opt/ffdest && touch /opt/ffdest/COMPONENTS_BUILD_SUCCESS"
 else

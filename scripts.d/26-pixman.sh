@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     meson setup --prefix="$FFBUILD_PREFIX" \
@@ -22,4 +23,6 @@ ffbuild_dockerbuild() {
 
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    get_deps_list
 }

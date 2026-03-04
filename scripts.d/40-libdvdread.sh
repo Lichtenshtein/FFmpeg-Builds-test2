@@ -16,6 +16,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # stop the static library from exporting symbols when linked into a shared lib
     sed -i 's/-DDVDREAD_API_EXPORT/-DDVDREAD_API_EXPORT_DISABLED/g' src/meson.build
 
@@ -23,10 +24,10 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
-        --buildtype=release      # Явно указываем release, чтобы выключить дебаг-проверки
+        --buildtype=release
         -Ddefault_library=static
-        -Dwarning_level=1        # Снижаем уровень предупреждений
-        -Dwerror=false           # Гарантируем, что предупреждения не прервут билд
+        -Dwarning_level=1
+        -Dwerror=false
         -Denable_docs=false
         -Dlibdvdcss=enabled
         --cross-file=/cross.meson
@@ -44,6 +45,8 @@ ffbuild_dockerbuild() {
     meson setup "${myconf[@]}" ..
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    get_deps_list
 }
 
 ffbuild_configure() {

@@ -20,7 +20,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-
+    set -e
     # Чтобы FFmpeg работал с Vapoursynth, ему нужна библиотека VSScript.
     # Но VSScript требует Python. Мы отключаем модуль Python, но оставляем VSScript 
     # в режиме 'headers only' или минимальной статики, если это позволит Meson.
@@ -42,8 +42,7 @@ ffbuild_dockerbuild() {
         -Denable_x86_asm=true \
         -Denable_vsscript=false \
         -Denable_vspipe=false \
-        -Denable_python_module=false \
-        || (tail -n 500 build/meson-logs/meson-log.txt && exit 1)
+        -Denable_python_module=false
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install

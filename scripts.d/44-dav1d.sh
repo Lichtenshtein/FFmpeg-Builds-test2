@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     local myconf=(
@@ -48,6 +49,8 @@ ffbuild_dockerbuild() {
         # Для статической линковки иногда нужны дополнительные флаги
         echo "Libs.private: -lm" >> "$PC_FILE"
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

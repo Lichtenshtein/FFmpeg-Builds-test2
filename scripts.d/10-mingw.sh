@@ -23,6 +23,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # if [[ -z "$COMPILER_SYSROOT" ]]; then
         # COMPILER_SYSROOT="$(${CC} -print-sysroot)/usr/${FFBUILD_TOOLCHAIN}"
     # fi
@@ -96,6 +97,8 @@ ffbuild_dockerbuild() {
     # Создаем артефакт для Docker-слоя (чтобы ffbuild_dockerlayer подхватил это)
     mkdir -p /opt/mingw
     cp -a "$SYSROOT/." /opt/mingw/
+
+    get_deps_list
 }
 
 ffbuild_configure() {

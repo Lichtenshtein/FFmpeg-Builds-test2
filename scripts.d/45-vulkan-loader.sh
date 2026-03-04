@@ -20,7 +20,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-
+    set -e
     # Сначала копируем заголовки в префикс, чтобы лоадер и другие (libplacebo) их видели
     mkdir -p "$FFBUILD_DESTPREFIX"/include
     cp -r Vulkan-Headers/include/* "$FFBUILD_DESTPREFIX"/include/
@@ -38,6 +38,8 @@ ffbuild_dockerbuild() {
         -DVULKAN_SHIM_IMPERSONATE=ON ..
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    get_deps_list
 }
 
 ffbuild_configure() {

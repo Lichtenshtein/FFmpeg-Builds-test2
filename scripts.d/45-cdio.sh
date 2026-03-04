@@ -11,6 +11,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     autoreconf -if
 
     # вставляем макросы прямо в заголовочный файл, который включают все
@@ -34,5 +35,7 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=199309L"
 
     make -j$(nproc) $MAKE_V MAKEINFO=true
-    make install DESTDIR="$FFBUILD_DESTDIR" MAKEINFO=true $MAKE_V
+    make install DESTDIR="$FFBUILD_DESTDIR" MAKEINFO=true
+
+    get_deps_list
 }

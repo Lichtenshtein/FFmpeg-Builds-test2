@@ -15,6 +15,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build/linux
     cd build/linux
 
@@ -27,6 +28,8 @@ ffbuild_dockerbuild() {
         -DCOMPILE_10BIT=1 -DBUILD_SHARED_LIBS=NO ../..
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    get_deps_list
 }
 
 ffbuild_configure() {

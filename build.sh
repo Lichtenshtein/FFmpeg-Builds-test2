@@ -27,18 +27,18 @@ if [[ -d "/builder/patches/ffmpeg/$FFMPEG_BRANCH" ]]; then
     git checkout .
     for patch in "/builder/patches/ffmpeg/$FFMPEG_BRANCH"/*.patch; do
         [[ -e "$patch" ]] || continue
-            log_info "APPLYING PATCH: $patch"
+            log_info "${TARGET_MARK} APPLYING PATCH: $patch"
         if patch -p1 < "$patch"; then
-            log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
+            log_info "${CHECK_MARK} SUCCESS: Patch applied."
         else
-            log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
+            log_error "${CROSS_MARK} ERROR: PATCH FAILED!"
             # exit 1 # если нужно прервать сборку при ошибке
         fi
     done
 fi
 
 ccache -z # Сброс статистики для чистого лога
-log_info "Cleaning up potential prefix pollution..."
+log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
 # Удаляем пустые папки или старые логи, если они остались
 find /opt/ffbuild -type d -empty -delete
 
@@ -91,16 +91,17 @@ CONF_FLAGS=(
 log_info "Running FFmpeg configure..."
 # Перенаправляем stderr в config.log для полноты картины
 if ! ./configure "${CONF_FLAGS[@]}" 2>>ffbuild/config.log; then
-    log_error "Configure failed! Check ffbuild/config.log"
-    # Выводим последние ошибки из лога (часто там ошибки нехватки библиотек)
-    tail -n 100 ffbuild/config.log
+    log_error "${CROSS_MARK} Configure failed!"
+    log_debug "${LOGS_MARK} ▼ CONTENT OF ffbuild/config.log ▼"
+    tail -n 300 ffbuild/config.log
+    log_debug "${LOGS_MARK} ▲ END OF ffbuild/config.log ▲"
     exit 1
 fi
 
 # Используем 2 потока, чтобы не перегружать RAM раннера (7GB RAM / 2 ядра)
 # лучше ограничить параллелизм или вовсе собирать в 1 поток, если включен LTO
 if [[ "$FF_CONFIGURE" == *"--enable-lto"* || "$USE_LTO" == "1" ]]; then
-    log_warn "LTO detected. Using single-thread build to prevent OOM Killer."
+    log_warn "${XCLAM_MARK} LTO detected. Using single-thread build to prevent OOM Killer."
     make -j1 $MAKE_V
 else
     make -j$(nproc) $MAKE_V
@@ -119,7 +120,7 @@ package_variant ffbuild/prefix "$PKG_DIR"
 # Копируем лицензию
 [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"
 
-log_info "Collecting external DLLs for AI support..."
+log_info "${SYNC_MARK} Collecting external DLLs for AI support..."
 mkdir -p "$PKG_DIR/bin"
 # Копируем все DLL из нашего сборочного префикса в папку с бинарниками
 # Это подхватит DLL от OpenVINO, TBB, TensorFlow, LibTorch и других
@@ -131,7 +132,7 @@ find "/opt/ffbuild/bin" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \;
 # Проверяем наличие критических библиотек (для отладки в логах)
 ls -lh "$PKG_DIR/bin/"
 # Скачиваем модели для ИИ
-# log_info "Downloading Additional Models for AI..."
+# log_info "${DOWN_MARK} Downloading Additional Models for AI..."
 # MODELS_FINAL_DIR="$PKG_DIR/models"
 # /builder/util/download_models.sh "$MODELS_FINAL_DIR"
 
@@ -155,7 +156,7 @@ if [[ -n "$GITHUB_ACTIONS" ]]; then
     echo "build_name=${BUILD_NAME}" >> "$GITHUB_OUTPUT"
     echo "${OUTPUT_FNAME}" > "${FINAL_DEST}/${TARGET}-${VARIANT}.txt"
     # Вывод статистики ccache (теперь через прямую команду)
-    log_info "--- CCACHE STATISTICS ---"
+    log_info "${CACHE_MARK} CCACHE STATISTICS"
     ccache -s
 fi
 

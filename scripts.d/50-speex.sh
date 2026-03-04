@@ -13,6 +13,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     autoreconf -i
 
     local myconf=(
@@ -39,6 +40,8 @@ ffbuild_dockerbuild() {
         # Добавляем математическую либу для статики
         echo "Libs.private: -lm" >> "$PC_FILE"
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

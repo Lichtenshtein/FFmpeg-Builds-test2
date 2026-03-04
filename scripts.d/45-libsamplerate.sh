@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build
     cd build
 
@@ -28,4 +29,6 @@ ffbuild_dockerbuild() {
         -DLIBSAMPLERATE_INSTALL=YES ..
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    get_deps_list
 }

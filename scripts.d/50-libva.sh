@@ -22,6 +22,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # This works around an issue of our libxcb-dri3 implib-wrapper not exporting data symbols.
     # Under normal circumstances, this would break horribly.
     # But we only want to generate another import lib for libva, so it doesn't matter.
@@ -76,6 +77,8 @@ ffbuild_dockerbuild() {
 
         echo "Libs: -ldl" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libva.pc
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

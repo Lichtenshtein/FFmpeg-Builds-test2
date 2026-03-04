@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     cmake .. -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
@@ -32,6 +33,8 @@ ffbuild_dockerbuild() {
     if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libbz2_static.a" ]]; then
         mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libbz2_static.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libbz2.a"
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

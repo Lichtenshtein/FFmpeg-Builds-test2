@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build
     cd build
 
@@ -35,6 +36,8 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     rm -rf "$FFBUILD_DESTPREFIX"/share
+
+    get_deps_list
 }
 
 ffbuild_configure() {

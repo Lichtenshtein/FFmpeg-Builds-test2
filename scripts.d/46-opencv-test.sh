@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     # Настраиваем пути для поиска OpenVINO, который мы установили ранее
@@ -47,6 +48,8 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    get_deps_list
 }
 
 ffbuild_configure() {

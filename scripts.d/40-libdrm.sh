@@ -13,6 +13,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     local myconf=(
@@ -51,6 +52,8 @@ ffbuild_dockerbuild() {
     rm "$FFBUILD_DESTPREFIX"/lib/libdrm*.so*
 
     echo "Libs: -ldl" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libdrm.pc
+
+    get_deps_list
 }
 
 ffbuild_configure() {

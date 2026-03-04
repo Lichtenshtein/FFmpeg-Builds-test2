@@ -14,6 +14,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     if [[ $TARGET == win32 ]]; then
         python3 scripts/config.py unset MBEDTLS_AESNI_C
     fi
@@ -41,4 +42,6 @@ ffbuild_dockerbuild() {
     if [[ $TARGET == win* ]]; then
         echo "Libs.private: -lws2_32 -lbcrypt -lwinmm -lgdi32" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/mbedcrypto.pc
     fi
+
+    get_deps_list
 }

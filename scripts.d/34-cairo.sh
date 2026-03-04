@@ -50,8 +50,7 @@ ffbuild_dockerbuild() {
         -Dxlib=disabled \
         -Dzlib=enabled \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $INT_LIBS $WIN_LIBS" \
-        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $INT_LIBS $WIN_LIBS" \
-        || (tail -n 100 build/meson-logs/meson-log.txt && return 1)
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $INT_LIBS $WIN_LIBS"
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install

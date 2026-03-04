@@ -13,6 +13,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # ФИКС ВЕРСИИ (если нет .git)
     # x264 использует скрипт version.sh. Если он не находит git, 
     # мы создадим файл version.gen вручную.
@@ -51,7 +52,7 @@ ffbuild_dockerbuild() {
     # если в config.log написано "asm: no", значит nasm не подцепился
     if grep -q "asm: no" config.log; then
         log_error "x264 configured WITHOUT assembly! Check config.log."
-        exit 1
+        return 1
     fi
 
     make -j$(nproc) $MAKE_V
@@ -62,6 +63,8 @@ ffbuild_dockerbuild() {
         # Добавляем -lpthread, так как x264 его использует
         sed -i 's/Libs: /Libs.private: -lpthread -lm\nLibs: /' "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/x264.pc"
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

@@ -18,17 +18,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/lensfun-test" ]]; then
-        for patch in /builder/patches/lensfun-test/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # return 1 # если нужно прервать сборку при ошибке
-            fi
-        done
-    fi
+    set -e
+    apply_patches
 
     # python3 -m pip install build --break-system-packages
 
@@ -84,6 +75,8 @@ ffbuild_dockerbuild() {
             sed -i '/^Libs.private:/ s/$/ -lstdc++ -lm -lws2_32 -lole32 -lshlwapi/' "$pc_file"
         fi
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() { echo --enable-liblensfun; }

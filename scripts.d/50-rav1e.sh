@@ -13,6 +13,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     local myconf=(
         --prefix="${FFBUILD_PREFIX}"
         --destdir="${FFBUILD_DESTDIR}"
@@ -44,6 +45,8 @@ ffbuild_dockerbuild() {
     cargo cinstall -v "${myconf[@]}"
 
     chmod 644 "${FFBUILD_DESTPREFIX}"/lib/*rav1e*
+
+    get_deps_list
 }
 
 ffbuild_configure() {

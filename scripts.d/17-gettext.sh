@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Собираем только из подпапки gettext-runtime, чтобы не собирать тяжелые Java/C# компоненты
     cd gettext-runtime
 
@@ -53,4 +54,6 @@ Libs: -L\${libdir} -lintl
 Libs.private: -liconv
 Cflags: -I\${includedir}
 EOF
+
+    get_deps_list
 }

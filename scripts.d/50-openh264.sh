@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     local myconf=(
         PREFIX="$FFBUILD_PREFIX"
         INCLUDE_PREFIX="$FFBUILD_PREFIX"/include/wels
@@ -54,6 +55,8 @@ ffbuild_dockerbuild() {
     fi
 
     make $MAKE_V -j$(nproc) "${myconf[@]}" install-static DESTDIR="$FFBUILD_DESTDIR"
+
+    get_deps_list
 }
 
 ffbuild_configure() {

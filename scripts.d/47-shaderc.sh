@@ -13,17 +13,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/shaderc" ]]; then
-        for patch in /builder/patches/shaderc/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # return 1 # если нужно прервать сборку при ошибке
-            fi
-        done
-    fi
+    set -e
+    apply_patches
 
     mkdir build && cd build
 
@@ -76,7 +67,7 @@ ffbuild_dockerbuild() {
     cmake -GNinja -DCMAKE_BUILD_TYPE=Release \
         -DSHADERC_SKIP_TESTS=ON -DSHADERC_SKIP_EXAMPLES=ON -DSHADERC_SKIP_COPYRIGHT_CHECK=ON \
         -DENABLE_EXCEPTIONS=ON -DSPIRV_TOOLS_BUILD_STATIC=ON -DBUILD_SHARED_LIBS=OFF ..
-    ninja -j$(nproc) glslc/glslc
+    ninja $NINJA_V -j$(nproc) glslc/glslc
 
     cp glslc/glslc /opt/glslc
 }

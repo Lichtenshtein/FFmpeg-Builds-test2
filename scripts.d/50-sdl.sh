@@ -21,6 +21,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     local mycmake=(
@@ -75,6 +76,8 @@ ffbuild_dockerbuild() {
         "$FFBUILD_DESTPREFIX"/lib/pkgconfig/sdl2.pc
 
     echo 'Requires: samplerate' >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/sdl2.pc
+
+    get_deps_list
 }
 
 ffbuild_configure() {
