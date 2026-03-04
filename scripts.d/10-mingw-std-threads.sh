@@ -16,6 +16,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Возвращаемся в корень распаковки, если run_stage увел нас в /tests
     # $STAGENAME определена в run_stage.sh
     cd "/build/$STAGENAME"
@@ -27,11 +28,13 @@ ffbuild_dockerbuild() {
     # Копируем только существующие .h файлы
     if ls *.h >/dev/null 2>&1; then
         cp *.h "$FFBUILD_DESTPREFIX/include/"
-        log_info "Headers installed successfully."
+        log_info "${CHECK_MARK} Headers installed successfully."
     else
-        log_error "No .h files found in $(pwd)!"
+        log_error "${CROSS_MARK} No .h files found in $(pwd)!"
         ls -F
         return 1
     fi
+
+    get_deps_list
 }
 

@@ -6,9 +6,12 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # В Mingw-w64 заголовки GL обычно уже встроены в тулчейн.
     # просто создаем пустую стадию, чтобы активировать флаги.
     return 0
+
+    get_deps_list
 }
 
 ffbuild_configure() {

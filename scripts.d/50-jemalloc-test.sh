@@ -13,6 +13,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -58,6 +59,7 @@ ffbuild_dockerbuild() {
  #       rm "$FFBUILD_PREFIX"/lib/libjemalloc_pic.a
  #   fi
 
+    get_deps_list
 }
 
 ffbuild_configure() {

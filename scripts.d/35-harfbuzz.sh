@@ -42,8 +42,8 @@ ffbuild_dockerbuild() {
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $LIBS"
     )
 
-    meson setup "${myconf[@]}" .. || (tail -n 100 meson-logs/meson-log.txt && exit 1)
-    
+    meson setup "${myconf[@]}" ..
+
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 

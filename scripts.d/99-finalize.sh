@@ -11,10 +11,13 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir -p "$FFBUILD_DESTPREFIX"
 
     if [[ $TARGET == linux* ]]; then
         rm "$FFBUILD_DESTPREFIX"/lib/lib*.so* || true
         rm "$FFBUILD_DESTPREFIX"/lib/*.la || true
     fi
+
+    get_deps_list
 }

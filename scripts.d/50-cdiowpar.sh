@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # заменяем реализацию gettime в utils.c на пустую/совместимую
     # Это уберет ошибку компиляции, так как clock_gettime больше не будет вызываться
     echo "Patching utils.c to bypass clock_gettime..."
@@ -53,6 +54,8 @@ EOF
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    get_deps_list
 }
 
 ffbuild_configure() {

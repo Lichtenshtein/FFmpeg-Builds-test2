@@ -55,6 +55,8 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     rm -rf "$FFBUILD_DESTDIR"/{var,etc}
+
+    get_deps_list
 }
 
 ffbuild_configure() {

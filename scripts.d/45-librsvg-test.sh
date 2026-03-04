@@ -24,6 +24,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Настройки для Cargo (Rust кросс-компиляция)
     export CARGO_HOME="/opt/cargo"
     export RUSTUP_HOME="/opt/rustup"
@@ -50,8 +51,7 @@ ffbuild_dockerbuild() {
         -Dtests=false \
         -Drsvg-convert=disabled \
         -Davif=enabled \
-        -Dtriplet="$FFBUILD_RUST_TARGET" \
-        || (tail -n 100 build/meson-logs/meson-log.txt && exit 1)
+        -Dtriplet="$FFBUILD_RUST_TARGET"
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install

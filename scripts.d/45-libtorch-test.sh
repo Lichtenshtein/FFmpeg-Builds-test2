@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Распаковываем (unzip должен быть в base образе)
     unzip -qq libtorch.zip
     # Находим папку (имя может меняться в зависимости от билда)
@@ -48,6 +49,8 @@ Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10
 Libs.private: -lshlwapi -luser32 -ladvapi32 -lstdc++
 Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX
 EOF
+
+    get_deps_list
 }
 
 ffbuild_configure() { echo --enable-libtorch; }

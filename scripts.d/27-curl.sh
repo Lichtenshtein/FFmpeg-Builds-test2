@@ -20,6 +20,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Генерируем configure, так как работаем с git-репозиторием
     autoreconf -fi
 
@@ -85,7 +86,6 @@ ffbuild_dockerbuild() {
         sed -i "s|^Libs.private:.*|Libs.private: $CURL_LIBS|" "$PC_FILE"
     fi
 
-    # Вызываем отладку зависимостей
     get_deps_list
 }
 

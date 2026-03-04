@@ -19,6 +19,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Получаем версию через функцию, так как переменная FFVER пуста
     local current_ffver=$(ffbuild_ffver)
 
@@ -30,6 +31,8 @@ ffbuild_dockerbuild() {
 
     # ffnvcodec - это просто заголовки, Makefile простой.
     make PREFIX="$FFBUILD_PREFIX" DESTDIR="$FFBUILD_DESTDIR" install
+
+    get_deps_list
 }
 
 ffbuild_configure() {

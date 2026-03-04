@@ -22,5 +22,6 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     return 0
 }

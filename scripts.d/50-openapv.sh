@@ -14,6 +14,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Очищаем CMakeLists для приложений, чтобы не собирать лишний мусор
     echo > app/CMakeLists.txt
 
@@ -45,6 +46,8 @@ ffbuild_dockerbuild() {
         sed -i 's/Libs: /Libs.private: -lm\nLibs: /' "$FFBUILD_DESTPREFIX/lib/pkgconfig/oapv.pc"
         echo "Cflags.private: -DOAPV_STATIC_DEFINE" >> "$FFBUILD_DESTPREFIX/lib/pkgconfig/oapv.pc"
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

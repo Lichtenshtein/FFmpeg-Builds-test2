@@ -24,6 +24,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Настройки для Cargo (Rust кросс-компиляция)
     export CARGO_HOME="/opt/cargo"
     export RUSTUP_HOME="/opt/rustup"
@@ -42,7 +43,7 @@ ffbuild_dockerbuild() {
         --destdir="$FFBUILD_DESTDIR" \
         --library-type=staticlib \
         --features=avif \
-        -p librsvg-c
+        -p librsvg-c $CARGO_V
 
     # Исправление .pc файла. 
     # librsvg-2.0.pc после сборки часто не содержит Cairo/Pango в Requires.private

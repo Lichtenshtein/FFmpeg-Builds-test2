@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Удаляем флаг -fforce-mem, который GCC 14 не поддерживает
     sed -i 's/-fforce-mem//g' configure
     autoreconf -if
@@ -25,6 +26,8 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    get_deps_list
 }
 
 ffbuild_configure() {

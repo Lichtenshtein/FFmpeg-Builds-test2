@@ -13,16 +13,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/flite-test" ]]; then
-        for patch in /builder/patches/flite-test/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - -l < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-            fi
-        done
-    fi
+    set -e
+    apply_patches
 
     local myconf=(
         --host="$FFBUILD_TOOLCHAIN"
@@ -82,6 +74,8 @@ Version: 2.3.0
 Libs: -L\${libdir} $VOX_LIBS -lflite -lm -lws2_32
 Cflags: -I\${includedir}
 EOF
+
+    get_deps_list
 }
 
 ffbuild_configure() {

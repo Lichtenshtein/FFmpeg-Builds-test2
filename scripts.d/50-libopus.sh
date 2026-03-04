@@ -24,17 +24,8 @@ EOF
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/libopus" ]]; then
-        for patch in /builder/patches/libopus/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # exit 1 # если нужно прервать сборку при ошибке
-            fi
-        done
-    fi
+    set -e
+    apply_patches
 
     # re-run autoreconf explicitly because tools versions might have changed since it generared the dl cache
     autoreconf -isf
@@ -56,6 +47,8 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}"
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    get_deps_list
 }
 
 ffbuild_configure() {

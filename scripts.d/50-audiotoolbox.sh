@@ -16,6 +16,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
@@ -41,6 +42,8 @@ ffbuild_dockerbuild() {
 
     # Удаляем ldwrapper, так как он нужен только для сборки самого враппера
     rm -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/atw_ldwrapper"
+
+    get_deps_list
 }
 
 ffbuild_configure() {

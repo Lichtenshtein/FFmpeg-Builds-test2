@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # SVT-JPEG-XS uses Build/linux/build.sh
     # need to adapt it for cross-compilation
     
@@ -75,6 +76,8 @@ Libs.private: -lstdc++ -lpthread -lm
 Cflags: -I\${includedir}
 EOF
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

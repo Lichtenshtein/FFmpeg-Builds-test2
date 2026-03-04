@@ -26,16 +26,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    if [[ -d "/builder/patches/leptonica-test" ]]; then
-        for patch in /builder/patches/leptonica-test/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-            fi
-        done
-    fi
+    apply_patches
 
     mkdir build && cd build
 
@@ -121,7 +112,6 @@ EOF
     # Удаляем CMake-файлы Leptonica. Это заставит Tesseract использовать pkg-config (lept.pc).
     rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake/leptonica"
 
-    # Вызываем отладку зависимостей
     get_deps_list
 }
 

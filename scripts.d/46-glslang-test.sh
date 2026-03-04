@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir build && cd build
 
     local mycmake=(
@@ -35,6 +36,8 @@ ffbuild_dockerbuild() {
 
     # Исправление для корректной линковки в FFmpeg (иногда CMake не копирует все хедеры)
     cp -r ../glslang/Public "$FFBUILD_DESTPREFIX/include/glslang"
+
+    get_deps_list
 }
 
 ffbuild_configure() {

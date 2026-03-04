@@ -12,17 +12,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/soxr" ]]; then
-        for patch in /builder/patches/soxr/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # return 1 # если нужно прервать сборку при ошибке
-            fi
-        done
-    fi
+    set -e
+    apply_patches
 
     # Short-circuit the check to generate a .pc file. We always want it.
     sed -i 's/NOT WIN32/1/g' src/CMakeLists.txt
@@ -45,6 +36,8 @@ ffbuild_dockerbuild() {
     if [[ $TARGET != winarm64 ]]; then
         echo "Libs.private: -lgomp -lmingwthrd" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/soxr.pc
     fi
+
+    get_deps_list
 }
 
 ffbuild_configure() {

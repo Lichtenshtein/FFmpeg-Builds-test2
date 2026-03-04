@@ -71,7 +71,6 @@ ffbuild_dockerbuild() {
         sed -i "/^Cflags:/ s/$/ -DLIBXML_STATIC -DXML_STATIC/" "$PC_FILE"
     fi
 
-    # Вызываем отладку зависимостей
     get_deps_list
 }
 

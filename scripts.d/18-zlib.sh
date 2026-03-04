@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Уходим в корень сборки этапа, чтобы сбросить любые cd из предыдущих скриптов
     cd "/build/$STAGENAME"
 
@@ -47,12 +48,14 @@ ffbuild_dockerbuild() {
 
     # Проверяем, создался ли файл перед запуском
     if [[ ! -f "build.ninja" ]]; then
-        echo "ERROR: CMake failed to generate build.ninja"
+        log_error "ERROR: CMake failed to generate build.ninja"
         return 1
     fi
 
-    ninja -j$(nproc)
+    ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    get_deps_list
 }
 
 ffbuild_cppflags() {

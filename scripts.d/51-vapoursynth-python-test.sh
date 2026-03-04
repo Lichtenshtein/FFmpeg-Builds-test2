@@ -31,11 +31,12 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     mkdir -p python_win/bin python_win/include
     
     if [[ ! -f python_embed.zip || ! -f python_hdrs.zip ]]; then
         log_error "Required Python files missing! Check your download stage."
-        exit 1
+        return 1
     fi
 
     # Распаковка DLL
@@ -114,8 +115,7 @@ EOF
         -Denable_vsscript=true \
         -Denable_vspipe=false \
         -Denable_x86_asm=true \
-        -Denable_python_module=false \
-        || (tail -n 500 build/meson-logs/meson-log.txt && exit 1)
+        -Denable_python_module=false
 
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install

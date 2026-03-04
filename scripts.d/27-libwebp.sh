@@ -22,6 +22,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     ./autogen.sh
 
     # Собираем список либ для тестов конфигурации

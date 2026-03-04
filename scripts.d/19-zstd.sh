@@ -12,6 +12,7 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
     # Исправляем CMakeLists.txt ПЕРЕД запуском, чтобы избежать ошибки CXX
     # Добавляем CXX в список языков проекта
     sed -i '/LANGUAGES C/s/C/C CXX/' build/cmake/CMakeLists.txt
@@ -67,6 +68,8 @@ ffbuild_dockerbuild() {
             sed -i 's/Cflags:/& -DZSTD_MULTITHREAD /' "$PC_FILE"
         fi
     fi
+
+    get_deps_list
 }
 
 ffbuild_cppflags() {

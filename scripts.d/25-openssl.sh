@@ -69,6 +69,8 @@ ffbuild_dockerbuild() {
     if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib64/libssl.a" ]]; then
         cp -r "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib64/." "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
     fi
+
+    get_deps_list
 }
 
 ffbuild_libs() {

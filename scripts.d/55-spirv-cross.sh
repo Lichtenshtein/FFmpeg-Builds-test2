@@ -13,17 +13,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    if [[ -d "/builder/patches/spirv_cross" ]]; then
-        for patch in /builder/patches/spirv_cross/*.patch; do
-            log_info "APPLYING PATCH: $patch"
-            if patch -p1 -N -r - < "$patch"; then
-                log_info "${GREEN}${CHECK_MARK} SUCCESS: Patch applied.${NC}"
-            else
-                log_error "${RED}${CROSS_MARK} ERROR: PATCH FAILED! ${CROSS_MARK}${NC}"
-                # return 1 # если нужно прервать сборку при ошибке
-            fi
-        done
-    fi
+    set -e
+    apply_patches
 
     VER_MAJ="$(grep 'set(spirv-cross-abi-major' CMakeLists.txt | sed -re 's/.* ([0-9]+)\)/\1/')"
     VER_MIN="$(grep 'set(spirv-cross-abi-minor' CMakeLists.txt | sed -re 's/.* ([0-9]+)\)/\1/')"
@@ -44,7 +35,7 @@ ffbuild_dockerbuild() {
         -DSPIRV_CROSS_CLI=OFF \
         -DSPIRV_CROSS_ENABLE_TESTS=OFF \
         -DSPIRV_CROSS_ENABLE_C=ON \
-        -DSPIRV_CROSS_ENABLE_CPP=ON .. # FFmpeg иногда требует CPP обертки
+        -DSPIRV_CROSS_ENABLE_CPP=ON ..
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
@@ -63,4 +54,6 @@ Requires:
 Libs: -L\${libdir} -L\${sharedlibdir} -lspirv-cross-c -lspirv-cross-glsl -lspirv-cross-hlsl -lspirv-cross-reflect -lspirv-cross-msl -lspirv-cross-util -lspirv-cross-core -lstdc++
 Cflags: -I\${includedir}
 EOF
+
+    get_deps_list
 }
