@@ -24,7 +24,7 @@ should_run_wine() {
 if should_run_wine; then
     # Проверка и запуск Xvfb (необходим для работы Wine в headless режиме)
     if ! pgrep -x "Xvfb" > /dev/null; then
-        log_info "Starting Xvfb (Display :99) for Wine/Build tests..."
+        log_info "${START_MARK} Starting Xvfb (Display :99) for Wine/Build tests..."
         Xvfb :99 -screen 0 1024x768x16 > /dev/null 2>&1 &
         # Даем немного времени на инициализацию дисплея
         sleep 5
@@ -84,7 +84,7 @@ CURRENT_HASH=$(get_stage_hash "$SCRIPT_PATH")
 TGT_FILE="${CACHE_DIR}/${STAGENAME}_${CURRENT_HASH}.tar.zst"
 LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
 
-log_debug "${SEARCH_MARK} DEBUG: Searching source for $STAGENAME"
+log_debug "${SEARCH_MARK} Searching source for $STAGENAME"
 
 # Ищем точное совпадение (Имя_Хеш)
 if [[ -f "$TGT_FILE" ]]; then
@@ -140,7 +140,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
         fi
     else
         # Если REAL_CACHE был найден (одним из 3-х способов выше)
-        log_info "Unpacking $STAGENAME from $REAL_CACHE..."
+        log_info "${EXTR_MARK} Unpacking $STAGENAME from $REAL_CACHE..."
         tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C .
     fi
 
@@ -183,7 +183,7 @@ build_cmd="ffbuild_dockerbuild"
 [[ -n "$2" ]] && build_cmd="$2"
 
 log_info "################################################################"
-log_info "### ${GREEN} STARTING STAGE: $STAGENAME ${NC}"
+log_info "### ${START_MARK} ${LOG_INFO}STARTING STAGE: $STAGENAME${NC}"
 log_info "### DATE: $(date)"
 log_info "### Starting build function: $build_cmd"
 log_info "################################################################"
@@ -234,7 +234,7 @@ PRESERVE_DLL_PATTERN="${DLL_PRESERVE_LIST:-openvino|torch|tensorflow|vulkan|amf|
 if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
     if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         log_info "################################################################"
-        log_debug "${BROOM_MARK} Cleaning unwanted DLLs from static stage: $STAGENAME$"
+        log_debug "${BROOM_MARK} Cleaning unwanted DLLs from static stage: $STAGENAME"
         find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
     else
         log_debug "${DIRS_MARK} No standard prefix directory to clean for $STAGENAME"
@@ -246,7 +246,7 @@ fi
 # Вывод статистики в конце каждой стадии
 # Это покажет Hit Rate прямо в логах GitHub
 log_info "################################################################"
-log_info "${CACHE_MARK} CCACHE STATISTICS"
+log_info "${CACHE_MARK} CCACHE STATISTICS:"
 ccache -s
 
 # Автоматическая синхронизация префиксов после успешной сборки

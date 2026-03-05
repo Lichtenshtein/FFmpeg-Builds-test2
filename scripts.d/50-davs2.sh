@@ -44,6 +44,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # Исправляем pkg-config для статической линковки
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/davs2.pc"
     if [[ -f "$PC_FILE" ]]; then

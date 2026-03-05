@@ -29,6 +29,9 @@ ffbuild_dockerbuild() {
         --buildtype=release
         --default-library=static
         -Dfreetype=enabled
+        -Draster=disabled
+        -Dvector=disabled
+        -Dsubset=enabled
         -Dglib=disabled
         -Dgobject=disabled
         -Dcairo=disabled
@@ -53,6 +56,8 @@ ffbuild_dockerbuild() {
 
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    clean_la_files
 
     # Патчим .pc для последующих этапов
     sed -i "s|^Libs.private:.*|Libs.private: $HARFBUZZ_DEPS $LIBS -lusp10 -lgdi32 -lrpcrt4|" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/harfbuzz.pc"

@@ -45,6 +45,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # создаем pkg-config файл, так как libiconv этого не делает
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
     # Добавляем -lcharset, так как iconv часто разделяет их в статике

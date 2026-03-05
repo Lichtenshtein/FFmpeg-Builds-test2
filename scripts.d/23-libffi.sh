@@ -26,6 +26,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # Переносим хедеры в корень include, чтобы glib их увидел
     # libffi по умолчанию прячет их в /lib/libffi-3.5.2/include
     local FFI_INC=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "ffi.h" -printf "%h")

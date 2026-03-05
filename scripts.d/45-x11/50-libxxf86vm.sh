@@ -40,6 +40,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc)
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     gen-implib "$FFBUILD_DESTPREFIX"/lib/{libXxf86vm.so.1,libXxf86vm.a}
     rm "$FFBUILD_DESTPREFIX"/lib/libXxf86vm{.so*,.la}
 }

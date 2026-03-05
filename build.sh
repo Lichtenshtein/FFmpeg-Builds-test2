@@ -156,7 +156,7 @@ if [[ -n "$GITHUB_ACTIONS" ]]; then
     echo "build_name=${BUILD_NAME}" >> "$GITHUB_OUTPUT"
     echo "${OUTPUT_FNAME}" > "${FINAL_DEST}/${TARGET}-${VARIANT}.txt"
     # Вывод статистики ccache (теперь через прямую команду)
-    log_info "${CACHE_MARK} CCACHE STATISTICS"
+    log_info "${CACHE_MARK} CCACHE STATISTICS:"
     ccache -s
 fi
 

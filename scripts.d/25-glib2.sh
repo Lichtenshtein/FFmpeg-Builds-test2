@@ -24,6 +24,9 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Удаляем субпроекты, которые ломают сборку
+    rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
+
     cat <<EOF > cross_file.txt
 [host_machine]
 system = 'windows'
@@ -41,80 +44,87 @@ strip = '${FFBUILD_TOOLCHAIN}-strip'
 windres = '${FFBUILD_TOOLCHAIN}-windres'
 nm = '${FFBUILD_TOOLCHAIN}-gcc-nm'
 ranlib = '${FFBUILD_TOOLCHAIN}-gcc-ranlib'
+nasm = '/usr/bin/nasm'
 
 [properties]
-# growstack = false
-# posix_memalign_with_alignment = false
-# printf_has_large_precisions = true
-# printf_has_ls_format = true
-# have_c99_vsnprintf = true
 have_c99_snprintf = true
 have_c99_vsnprintf = true
 va_val_copy = true
 int_res_1 = 4
 int_res_2 = 8
 needs_exe_wrapper = true
-# has_function_gettext = true
-# has_function_ngettext = true
-# has_function_bindtextdomain = true
-# exe_wrapper = '/usr/libexec/wine'
-# exe_wrapper = '/usr/lib/x86_64-linux-gnu/wine'
-# /usr/lib/wine /usr/include/wine
 printf_has_glibc_res1 = true
 printf_has_glibc_res2 = true
-
-[built-in options]
-c_args = ['-I${FFBUILD_PREFIX}/include', '-DGLIB_STATIC_COMPILATION', '-DG_WIN32_IS_STRICT_MINGW']
-cpp_args = ['-I${FFBUILD_PREFIX}/include', '-DGLIB_STATIC_COMPILATION', '-DG_WIN32_IS_STRICT_MINGW']
-c_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv', '-lffi', '-lpcre2-8']
-cpp_link_args = ['-L${FFBUILD_PREFIX}/lib', '-lintl', '-liconv', '-lffi', '-lpcre2-8']
 EOF
 
-    # Настройка окружения для Meson
-    export PKG_CONFIG_LIBDIR="$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_PREFIX/share/pkgconfig"
-    unset PKG_CONFIG_PATH
+    mkdir build && cd build
 
-    # Удаляем субпроекты, которые ломают сборку
-    rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
+    # Формируем список зависимостей из вашего чит-листа
+    # pcre2 требует zlib/bz2 в некоторых конфигах
+    local GLIB_DEPS="-lpcre2-8 -lffi -lintl -liconv -lcharset -lz"
+    local WIN_SYS_LIBS="-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lwinmm -ldnsapi"
 
-    meson setup build \
-        --prefix="$FFBUILD_PREFIX" \
-        --cross-file cross_file.txt \
-        --buildtype release \
-        --default-library static \
-        --wrap-mode=nodownload \
-        -Dtests=false \
-        -Dinstalled_tests=false \
-        -Dintrospection=disabled \
-        -Dlibmount=disabled \
-        -Dnls=enabled \
-        -Dglib_debug=disabled \
-        -Dforce_posix_threads=true \
-        -Dman-pages=disabled \
-        -Dselinux=disabled \
+    local myconf=(
+        --prefix="$FFBUILD_PREFIX"
+        --cross-file=/cross_file.txt
+        --buildtype=release
+        --default-library=static
+        --wrap-mode=nodownload
+        -Dtests=false
+        -Dinstalled_tests=false
+        -Dintrospection=disabled
+        -Dlibmount=disabled
+        -Dnls=enabled
+        -Dglib_debug=disabled
+        -Dforce_posix_threads=true
+        -Dman-pages=disabled
+        -Dselinux=disabled
         -Dsysprof=disabled
+        # Флаги компиляции
+        -Dc_args="$CFLAGS -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
+        -Dcpp_args="$CXXFLAGS -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
+    )
 
-    ninja -C build -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
+    [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
+
+    # Передаем линковочные флаги через meson, чтобы проверки (типа наличия функций) проходили успешно
+    meson setup "${myconf[@]}" .. \
+        -Dc_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS $LIBS" \
+        -Dcpp_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS $LIBS"
+
+    ninja -j$(nproc) $NINJA_V
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    clean_la_files
 
     # Чистим мусор
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete || true
-    # Фикс .pc файла (обязательно для статической линковки FFmpeg)
+
+    log_info "${SYNC_MARK} Patching GLib .pc files for static linking..."
+    
+    # Основной glib-2.0.pc
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/glib-2.0.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Добавляем зависимости, которые Meson часто забывает для static win64
-        sed -i 's/^Libs:/Libs: -lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lwinmm -ldnsapi -lruntimeobject/' "$PC_FILE"
-        # Убеждаемся, что зависимости тоже вписаны
-        sed -i 's/^Requires.private:/Requires.private: libz, libffi, libintl, libiconv, libpcre2-8,/' "$PC_FILE" || true
+        # Гарантируем макрос статики всем, кто использует glib
+        sed -i "/^Cflags:/ s/$/ -DGLIB_STATIC_COMPILATION/" "$PC_FILE"
+        # Прописываем жесткую статику в Libs.private
+        sed -i "s|^Libs.private:.*|Libs.private: $GLIB_DEPS $WIN_SYS_LIBS $LIBS|" "$PC_FILE"
     fi
+
+    # gthread, gobject, gio
+    for pc in gthread-2.0.pc gobject-2.0.pc gio-2.0.pc; do
+        local TARGET_PC="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
+        [[ -f "$TARGET_PC" ]] || continue
+        sed -i "/^Cflags:/ s/$/ -DGLIB_STATIC_COMPILATION/" "$TARGET_PC"
+        # Для GIO добавляем специфичные либы
+        if [[ "$pc" == "gio-2.0.pc" ]]; then
+            sed -i "s|^Libs.private:.*|Libs.private: -lshlwapi -ldnsapi -liphlpapi $GLIB_DEPS $WIN_SYS_LIBS $LIBS|" "$TARGET_PC"
+        fi
+    done
 
     get_deps_list
 }
 
 ffbuild_cppflags() {
     echo "-DGLIB_STATIC_COMPILATION"
-}
-
-ffbuild_libs() {
-    echo "-luserenv -liphlpapi -lwinmm -ldnsapi -lruntimeobject"
 }

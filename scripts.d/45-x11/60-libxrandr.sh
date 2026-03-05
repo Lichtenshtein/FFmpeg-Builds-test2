@@ -40,6 +40,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc)
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     gen-implib "$FFBUILD_DESTPREFIX"/lib/{libXrandr.so.2,libXrandr.a}
     rm "$FFBUILD_DESTPREFIX"/lib/libXrandr{.so*,.la}
 }

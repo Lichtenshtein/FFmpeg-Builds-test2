@@ -66,6 +66,8 @@ ffbuild_dockerbuild() {
     # Установка вручную, чтобы не заходить в папку 't'
     make -C caca install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # Установка заголовочных файлов из корня (они нужны FFmpeg)
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
     cp caca/caca.h caca/caca0.h caca/caca_conio.h caca/caca_types.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"

@@ -169,7 +169,7 @@ download_file() {
 }
 
 git-submodule-clone() {
-    log_info "Starting robust submodule synchronization..."
+    log_info "${START_MARK} Starting robust submodule synchronization..."
 
     # Принудительно обновляем URL подмодулей из файла .gitmodules
     # Это решает проблему, если в репозитории изменились адреса подмодулей

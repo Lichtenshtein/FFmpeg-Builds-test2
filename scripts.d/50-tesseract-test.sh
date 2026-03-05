@@ -32,19 +32,18 @@ ffbuild_dockerbuild() {
     mkdir -p "$FFBUILD_PREFIX/lib"
     ln -sf /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32.a /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libWs2_32.a
     ln -sf /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32.a "$FFBUILD_PREFIX/lib/libWs2_32.a"
-    find "$FFBUILD_PREFIX" -name "*.pc" -exec sed -i 's/-lWs2_32/-lws2_32/g' {} +
+    find "$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec sed -i 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g' {} +
 
     # Удаляем "ядовитые" CMake-конфиги TIFF и других либ, 
     # которые заставляют линкер искать ZLIB::ZLIB
-    rm -rf "$FFBUILD_PREFIX/lib/cmake"/{Leptonica,tiff,ZLIB,libarchive,LibXml2}
+    # rm -rf "$FFBUILD_PREFIX/lib/cmake"/{Leptonica,tiff,ZLIB,libarchive,LibXml2}
     # Удаляем любые другие конфиги, которые могут просочиться
-    find "$FFBUILD_PREFIX/lib/cmake" -name "*Config.cmake" -delete
+    # find "$FFBUILD_PREFIX/lib/cmake" -name "*Config.cmake" -delete
 
-    # Важные дефайны для статики Windows
-    # export CXXFLAGS="$CXXFLAGS -std=c++17"
-
-    # Системные либы Windows, которые всегда должны быть в конце
-    local WIN_LIBS="-ladvapi32 -lgdi32 -lmsimg32 -lwindowscodecs -luuid -lsetupapi -ldwrite -lusp10 $LIBS"
+    # Полный список зависимостей для линковки (порядок важен!)
+    # Tesseract -> Leptonica -> [Pango/Cairo] -> [Archive/Curl] -> [TIFF/JPEG/PNG] -> [ICU/GLib] -> [System]
+    local TESS_DEPS="-lleptonica -lpangocairo-1.0 -lpangoft2-1.0 -lpango-1.0 -lcairo -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-cairo -lsicuin -lsicuuc -lsicudt -lfribidi -lglib-2.0 -lgobject-2.0 -larchive -lcurl -lssl -lcrypto -lssh -ltiff -lopenjp2 -ljpeg -lpng16 -lzstd -llzma -lbz2 -lz -liconv -lintl"
+    local WIN_SYS="-lws2_32 -luserenv -lbcrypt -lcrypt32 -lnormaliz -lshlwapi -lole32 -luuid -lruntimeobject -lgdi32 -lusp10"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -54,7 +53,8 @@ ffbuild_dockerbuild() {
         -DBUILD_TESTS=OFF
         # -DBUILD_TRAINING_TOOLS=OFF
         -DBUILD_TRAINING_TOOLS=ON # Disable tools if they cause link errors
-        -DOPENMP_BUILD=ON
+        # -DOPENMP_BUILD=ON # OpenMP в статике Mingw часто дает undefined reference на GOMP
+        -DOPENMP_BUILD=OFF
         -DFAST_FLOAT=ON
         -DSW_BUILD=OFF
         # Обманываем упавший тест TIFF (чтобы он не портил логи и не сбивал CMake)
@@ -62,37 +62,38 @@ ffbuild_dockerbuild() {
         -DLEPT_TIFF_COMPILE_SUCCESS=ON
         # Помогаем найти зависимости через PkgConfig
         -DLeptonica_DIR=OFF
-        -DPkgConfig_FOUND=ON
-        -DINSTALL_CONFIG_DIR="$FFBUILD_PREFIX/lib/cmake/Tesseract"
+        # -DPkgConfig_FOUND=ON
+        # -DINSTALL_CONFIG_DIR="$FFBUILD_PREFIX/lib/cmake/Tesseract"
         # Явные пути для подстраховки (Fallbacks)
         -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.a"
         -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DLeptonica_LIBRARIES="-lleptonica"
+        # -DLeptonica_LIBRARIES="-lleptonica"
         # Передаем системные либы для всех исполняемых файлов (tesseract.exe, lstmtraining.exe)
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -Wl,--start-group $WIN_LIBS -Wl,--end-group"
+        # -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -Wl,--start-group $WIN_LIBS -Wl,--end-group"
     )
 
-    # Добавляем LTO если включено в workflow
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DENABLE_LTO=ON )
 
-    cmake "${myconf[@]}" ..
+    # прокидываем весь хвост в EXE_LINKER_FLAGS
+    # Используем -Wl,--allow-multiple-definition, если Pango и Cairo конфликтуют
+    cmake "${myconf[@]}" \
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS -Wno-narrowing" \
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $TESS_DEPS $WIN_SYS $LIBS" ..
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # Корректируем tesseract.pc для статической линковки
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/tesseract.pc"
     if [[ -f "$PC_FILE" ]]; then
-        log_info "Finalizing tesseract.pc..."
-        # Указываем основные зависимости, которые pkg-config развернет рекурсивно
-        sed -i "s/^Requires.private:.*/Requires.private: lept pango pangocairo libarchive libcurl/" "$PC_FILE" || \
-        echo "Requires.private: lept pango pangocairo libarchive libcurl" >> "$PC_FILE"
-        
-        # Добавляем системные хвосты в Libs.private
-        sed -i "/^Libs.private:/ s/$/ $WIN_LIBS/" "$PC_FILE"
+        log_info "${SYNC_MARK} Finalizing tesseract.pc..."
+        # Очищаем старые зависимости и пишем свои
+        sed -i "s|^Requires.private:.*|Requires.private: lept pango pangocairo libarchive libcurl|" "$PC_FILE"
+        sed -i "s|^Libs.private:.*|Libs.private: $TESS_DEPS $WIN_SYS $LIBS -lstdc++|" "$PC_FILE"
     fi
 
-    # Вызываем отладку зависимостей
     get_deps_list
 }
 

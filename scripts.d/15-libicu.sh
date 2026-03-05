@@ -79,6 +79,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # Исправление и перемещение библиотек
     # Если ICU собрался как libicuuc.a, а мы хотим sicuuc.a:
     cd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"

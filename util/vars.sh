@@ -13,15 +13,17 @@ export PURPLE='\033[0;35m'     # Purple
 export NC='\033[0m'            # No Color (Reset)
 export CHECK_MARK="${LOG_INFO}✔${NC}"
 export CROSS_MARK='❌'
-export XCLAM_MARK='❗'
+export XCLAM_MARK='⚠️'
 export BROOM_MARK='🧹'
 export CACHE_MARK='🗄️'
-export ARCH_MARK='🗃️'
+export ARCH_MARK='📥️'
 export SEARCH_MARK='🔎'
+export EXTR_MARK='📤'
+export START_MARK='🚀'
 export BUILD_MARK='🛠️'
 export DIRS_MARK='📂'
 export LOCK_MARK='🔒'
-export SYNC_MARK="${LOG_INFO}♻{NC}"
+export SYNC_MARK="${LOG_INFO}♻${NC}"
 export TARGET_MARK='🎯'
 export DOWN_MARK="${LOG_INFO}🡇${NC}"
 export LOGS_MARK="${LOG_DEBUG}🗎${NC}"
@@ -231,6 +233,7 @@ get_deps_list() {
 
     if [[ -d "$lib_dir/pkgconfig" ]]; then
         find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
+            cat "\n%b .pc CONTENTS %s:\n" "$XCLAM_MARK" "$1"
             printf "\n%b PKG-CONFIG DEPS for %s:\n" "$XCLAM_MARK" "$1"
             deps=$(pkg-config --print-requires --print-requires-private "$1")
             echo "$deps"
@@ -268,6 +271,24 @@ get_deps_list() {
     " _ {}
 }
 export -f get_deps_list
+
+clean_la_files() {
+    local target_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX"
+    # Проверяем, существует ли вообще директория префикса
+    if [[ ! -d "$target_dir" ]]; then
+        return 0
+    fi
+    log_debug "Cleaning up libtool archives (.la) in $target_dir"
+    # Используем find с проверкой на наличие файлов, чтобы не выводить ошибки, если их нет
+    if find "$target_dir" -name "*.la" -type f -print -quit | grep -q .; then
+        local count=$(find "$target_dir" -name "*.la" -type f | wc -l)
+        find "$target_dir" -name "*.la" -type f -delete
+        log_info "${BROOM_MARK} Removed $count .la files from prefix."
+    else
+        log_debug "No .la files found to clean."
+    fi
+}
+export -f clean_la_files
 
 # 1. Standard
 # 2. Binary (for CRLF issues)

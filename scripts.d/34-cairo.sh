@@ -24,51 +24,62 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    local CFLAGS="$CFLAGS -DCAIRO_WIN32_STATIC_BUILD"
-    local CPPFLAGS="$CPPFLAGS -DCAIRO_WIN32_STATIC_BUILD"
-    local LDFLAGS="${LDFLAGS/-static-libstdc++/} -static"
+    mkdir build && cd build
 
-    # Включаем dwrite и d2d1, так как они нужны для современных шрифтов
-    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs $LIBS"
-    local INT_LIBS="-lintl -lcharset -liconv"
-    local DEP_LIBS=$(pkg-config --libs --static fontconfig glib-2.0 freetype2 harfbuzz pixman-1 libpng zlib)
+    # Набор системных библиотек Windows для Cairo
+    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lole32 -luuid"
+    # Зависимости из вашего чит-листа в правильном порядке линковки
+    local DEP_LIBS="-lfontconfig -lexpat -lfreetype -lharfbuzz -lharfbuzz-icu -lsicuin -lsicuuc -lsicudt -lpixman-1 -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon -lglib-2.0 -lintl -liconv -lcharset"
 
-    meson setup build \
-        --prefix="$FFBUILD_PREFIX" \
-        --cross-file=/cross.meson \
-        --buildtype=release \
-        --default-library=static \
-        --wrap-mode=nodownload \
-        -Dfontconfig=enabled \
-        -Dfreetype=enabled \
-        -Dglib=enabled \
-        -Dpng=enabled \
-        -Dsymbol-lookup=disabled \
-        -Dtee=enabled \
-        -Dtests=disabled \
-        -Dxcb=disabled \
-        -Dxlib=disabled \
-        -Dzlib=enabled \
-        -Dc_args="$CFLAGS" \
-        -Dcpp_args="$CXXFLAGS" \
-        -Dc_link_args="$LDFLAGS $DEP_LIBS $INT_LIBS $WIN_LIBS" \
-        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $INT_LIBS $WIN_LIBS"
+    local myconf=(
+        --prefix="$FFBUILD_PREFIX"
+        --cross-file=/cross.meson
+        --buildtype=release
+        --default-library=static
+        --wrap-mode=nodownload
+        -Dfontconfig=enabled
+        -Dfreetype=enabled
+        -Dglib=enabled
+        -Dpng=enabled
+        -Dsymbol-lookup=disabled
+        -Dtee=enabled
+        -Dtests=disabled
+        -Dxcb=disabled
+        -Dxlib=disabled
+        -Dzlib=enabled
+        # Флаги компиляции для статики
+        -Dc_args="$CFLAGS -DCAIRO_WIN32_STATIC_BUILD"
+        -Dcpp_args="$CXXFLAGS -DCAIRO_WIN32_STATIC_BUILD"
+    )
 
-    ninja -C build -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
+    [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
-    # для статической линковки Cairo в FFmpeg под Windows
-    # Cairo часто забывает прописать системные зависимости в .pc файл
+    meson setup "${myconf[@]}" .. \
+        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS $LIBS" \
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS $LIBS"
+
+    ninja -j$(nproc) $NINJA_V
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    clean_la_files
+
+    # Патчинг .pc файлов
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/cairo.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Добавляем все недостающие хвосты: intl, iconv и brotli
-        # Порядок: cairo -> fontconfig -> freetype -> [brotli, xml2, lzma, zlib] -> [intl, iconv, sys]
-        local EXTRA_PRIVATE="-lfontconfig -lfreetype -lbrotlidec -lbrotlicommon -lbrotlienc -lxml2 -llzma -lz -lintl -lcharset -liconv -lws2_32 -lbcrypt"
-        sed -i "/^Libs.private:/ s/$/ $EXTRA_PRIVATE/" "$PC_FILE"
+        log_info "${SYNC_MARK} Patching cairo.pc for static linking..."
+        # Форсируем макрос статики в Cflags
         sed -i "/^Cflags:/ s/$/ -DCAIRO_WIN32_STATIC_BUILD/" "$PC_FILE"
+        # Прописываем полный хвост зависимостей в Libs.private
+        # Порядок: cairo -> pixman -> fontconfig -> freetype -> harfbuzz -> [icu/glib/zlib/iconv]
+        sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS $LIBS|" "$PC_FILE"
     fi
 
-    # Вызываем отладку зависимостей
+    # Дополнительно патчим cairo-win32.pc и cairo-gobject.pc если они есть
+    for pc in cairo-win32.pc cairo-gobject.pc cairo-ft.pc; do
+        local TARGET_PC="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
+        [[ -f "$TARGET_PC" ]] && sed -i "/^Cflags:/ s/$/ -DCAIRO_WIN32_STATIC_BUILD/" "$TARGET_PC"
+    done
+
     get_deps_list
 }
 

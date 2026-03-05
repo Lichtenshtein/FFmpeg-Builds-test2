@@ -46,6 +46,8 @@ ffbuild_dockerbuild() {
         -DCMAKE_C_FLAGS="$CFLAGS -DZLIB_STATIC" \
         ..
 
+    [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
+
     # Проверяем, создался ли файл перед запуском
     if [[ ! -f "build.ninja" ]]; then
         log_error "ERROR: CMake failed to generate build.ninja"
@@ -54,6 +56,8 @@ ffbuild_dockerbuild() {
 
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    clean_la_files
 
     get_deps_list
 }

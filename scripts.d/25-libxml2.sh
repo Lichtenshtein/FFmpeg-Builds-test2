@@ -22,8 +22,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    local ICU_LIBS=$(pkg-config --libs --static icu-uc icu-i18n)
-    local DEP_LIBS="$ICU_LIBS $(pkg-config --libs --static zlib liblzma libiconv) $LIBS"
+    local XML_DEPS="-lpthread -lsicuin -lsicuuc -lsicudt -llzma -liconv -lcharset -lintl -lz"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -44,31 +43,30 @@ ffbuild_dockerbuild() {
         --with-tls
     )
 
-    ./autogen.sh "${myconf[@]}" \
-        CFLAGS="$CFLAGS -DLIBXML_STATIC -DXML_STATIC" \
-        CPPFLAGS="$CPPFLAGS -DLIBXML_STATIC -DXML_STATIC" \
-        LIBS="$DEP_LIBS"
+    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    # Исправляем Makefile, если он решит, что iconv — это часть libc (в Windows это не так)
-    # sed -i 's/-liconv//g' Makefile
-    # sed -i 's/LIBS = /LIBS = -liconv /' Makefile
+    # Принудительно задаем AR как gcc-ar для стабильности архивации
+    ./configure "${myconf[@]}" \
+        CFLAGS="$CFLAGS -DLIBXML_STATIC -DXML_STATIC" \
+        CPPFLAGS="$CPPFLAGS -DLIBXML_STATIC -DXML_STATIC -I$FFBUILD_PREFIX/include" \
+        LDFLAGS="$LDFLAGS" \
+        LIBS="$XML_DEPS $LIBS" \
+        AR="${FFBUILD_TOOLCHAIN}-gcc-ar" \
+        NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
+        RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libxml-2.0.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Добавляем ICU в секцию Requires.private, чтобы pkg-config сам разматывал дерево либ
-        if grep -q "Requires.private:" "$PC_FILE"; then
-            sed -i '/^Requires.private:/ s/$/ icu-uc icu-i18n/' "$PC_FILE"
-        else
-            echo "Requires.private: icu-uc icu-i18n zlib liblzma" >> "$PC_FILE"
-        fi
-        # Добавляем системные либы и рантайм C++ в Libs.private (порядок важен)
-        # Системные либы из $LIBS (ws2_32, bcrypt и т.д.) должны быть в конце
-        sed -i "/^Libs.private:/ s/$/ -lstdc++ -liconv -lintl -lws2_32 -lbcrypt/" "$PC_FILE"
-        # Гарантируем наличие флагов статики в Cflags pc-файла
+        log_info "${SYNC_MARK} Patching libxml-2.0.pc..."
+        # форсируем флаги статики в Cflags
         sed -i "/^Cflags:/ s/$/ -DLIBXML_STATIC -DXML_STATIC/" "$PC_FILE"
+        # полный хвост зависимостей в Libs.private (сначала либы, потом системные)
+        sed -i "s|^Libs.private:.*|Libs.private: $XML_DEPS -lws2_32 -lbcrypt $LIBS|" "$PC_FILE"
     fi
 
     get_deps_list
