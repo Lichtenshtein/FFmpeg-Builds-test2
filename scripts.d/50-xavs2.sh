@@ -57,6 +57,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # Проверка и фикс pkg-config
     # xavs2 иногда пишет неверные пути в .pc файл при использовании DESTDIR
     if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/xavs2.pc" ]]; then

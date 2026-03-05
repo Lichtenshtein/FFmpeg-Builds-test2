@@ -45,6 +45,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     # make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # Динамический поиск папки с либами (fix для x86_64-mingw32 vs x86_64-w64-mingw32)
     local BUILDIR=$(find build -maxdepth 2 -type d -name "lib" | head -n 1)
     if [[ -d "$BUILDIR" ]]; then

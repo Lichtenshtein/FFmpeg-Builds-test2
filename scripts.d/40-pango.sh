@@ -22,49 +22,52 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+    mkdir build && cd build
 
-    # Используем наш глобальный PKG_CONFIG_STATIC=1, чтобы собрать зависимости
-    local DEP_LIBS=$(pkg-config --libs --static cairo fontconfig freetype2 harfbuzz glib-2.0 fribidi)
-    local CFLAGS="$CFLAGS -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
-    local CXXFLAGS="$CXXFLAGS -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
-    # Собираем системные либы Windows
-    local WIN_LIBS="-lusp10 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lgdi32 -lmsimg32 $LIBS"
+    # чит-лист для Pango (порядок критичен!)
+    local PANGO_DEPS="-lcairo -lpixman-1 -lfontconfig -lexpat -lfreetype -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-cairo -lsicuin -lsicuuc -lsicudt -lfribidi -lglib-2.0 -lgobject-2.0 -lintl -liconv -lcharset -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon"
+    local WIN_SYS="-lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lole32 -luuid"
 
-    meson setup build \
-        --prefix="$FFBUILD_PREFIX" \
-        --cross-file=/cross.meson \
-        --buildtype=release \
-        --default-library=static \
-        --wrap-mode=nodownload \
-        -Dintrospection=disabled \
-        -Dfontconfig=enabled \
-        -Dfreetype=enabled \
-        -Dsysprof=disabled \
-        -Ddocumentation=false \
-        -Dbuild-testsuite=false \
-        -Dbuild-examples=false \
-        -Dman-pages=false \
-        -Dc_args="$CFLAGS" \
-        -Dcpp_args="$CXXFLAGS" \
-        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
-        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS"
+    local myconf=(
+        --prefix="$FFBUILD_PREFIX"
+        --cross-file=/cross.meson
+        --buildtype=release
+        --default-library=static
+        --wrap-mode=nodownload
+        -Dintrospection=disabled
+        -Dfontconfig=enabled
+        -Dfreetype=enabled
+        -Dsysprof=disabled
+        -Ddocumentation=false
+        -Dbuild-testsuite=false
+        -Dbuild-examples=false
+        -Dman-pages=false
+        -Dc_args="$CFLAGS -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
+        -Dcpp_args="$CXXFLAGS -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
+    )
 
-    ninja -C build -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
+    [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
+
+    meson setup "${myconf[@]}" .. \
+        -Dc_link_args="$LDFLAGS $PANGO_DEPS $WIN_SYS $LIBS" \
+        -Dcpp_link_args="$LDFLAGS $PANGO_DEPS $WIN_SYS $LIBS"
+
+    ninja -j$(nproc) $NINJA_V
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    clean_la_files
 
     # Патчим ВСЕ сгенерированные .pc файлы Pango
-    log_info "Patching Pango .pc files..."
+    log_info "${SYNC_MARK} Patching Pango .pc files for static link..."
     for pc in pango.pc pangocairo.pc pangoft2.pc pangowin32.pc; do
         local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
-        if [[ -f "$PC_PATH" ]]; then
-            # Добавляем системные либы в Libs.private
-            # И обязательно прокидываем PANGO_STATIC_COMPILATION в Cflags
-            sed -i "/^Libs.private:/ s/$/ $WIN_LIBS -lstdc++/" "$PC_PATH"
-            sed -i "/^Cflags:/ s/$/ -DPANGO_STATIC_COMPILATION/" "$PC_PATH"
-        fi
+        [[ -f "$PC_PATH" ]] || continue
+        # Форсируем флаг статики в Cflags (без него будут ошибки __imp_)
+        sed -i "/^Cflags:/ s/$/ -DPANGO_STATIC_COMPILATION/" "$PC_PATH"
+        # Прописываем полный хвост в Libs.private
+        sed -i "s|^Libs.private:.*|Libs.private: $PANGO_DEPS $WIN_SYS $LIBS -lstdc++|" "$PC_PATH"
     done
 
-    # Вызываем отладку зависимостей
     get_deps_list
 }
 

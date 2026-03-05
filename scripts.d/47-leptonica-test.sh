@@ -30,13 +30,13 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
-    # Удаляем "ядовитые" CMake-конфиги TIFF и других либ, 
+    # Удаляем "ядовитые" CMake-конфиги TIFF и других либ,
     # которые заставляют линкер искать ZLIB::ZLIB
-    rm -rf "$FFBUILD_PREFIX/lib/cmake/tiff"
-    rm -rf "$FFBUILD_PREFIX/lib/cmake/OpenJPEG"* 
+    rm -rf "$FFBUILD_PREFIX/lib/cmake/"{tiff,OpenJPEG,libwebp,WebP,lcms2}
 
-    # Собираем все либы зависимостей через pkg-config для проверки линковки
-    local LEPT_DEP_LIBS=$(pkg-config --libs --static libwebp libwebpmux libsharpyuv libtiff-4 libpng libopenjp2 lcms2 zlib)
+    # финальный список для линковки
+    local LEPT_DEPS="-larchive -lxml2 -lwebp -lwebpmux -lsharpyuv -ltiff -lopenjp2 -llcms2 -ljpeg -lturbojpeg -lpng16 -lgif -lzstd -llzma -lbz2 -ljbig -ljbig85 -lz"
+    local WIN_SYS="-lgdi32 -luser32 -lws2_32 -lbcrypt"
 
     local myconf=(
         # -DCMAKE_PROJECT_INCLUDE="${PWD}/extra_targets.cmake"
@@ -69,7 +69,9 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DENABLE_LTO=ON )
 
     # Принудительно устанавливаем C_FLAGS, чтобы избежать __imp_
-    cmake "${myconf[@]}" -DCMAKE_C_FLAGS="$CFLAGS" ..
+    cmake "${myconf[@]}" \
+        -DCMAKE_C_FLAGS="$CFLAGS" \
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $LEPT_DEPS $WIN_SYS $LIBS" ..
 
     # Исправляем расширение в сгенерированных файлах сборки, если CMake сошел с ума
     find . -name "build.make" -exec sed -i 's/libleptonica-1.88.0.dll/libleptonica.a/g' {} +
@@ -78,21 +80,16 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # Ищем либу (она могла остаться в папке build/src)
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "libleptonica*.a" -exec mv {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a" \;
 
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
     # Удаляем все автосгенерированные конфиги
     rm -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"/lept*.pc
 
-    # lept.pc
-    # Порядок либ: leptonica -> [tiff, webp, openjp2] -> [jpeg, png, zlib] -> [системные]
-    # добавляем -llcms2, так как Leptonica может использовать его через tiff или напрямую
-
-    local FINAL_LIBS="-larchive -lxml2 -lwebp -lwebpmux -lsharpyuv -ltiff -ljpeg -lpng16 -lopenjp2 -llcms2 -lgif -llzma -lzstd -ljbig -lz"
-    local WIN_LIBS="-lgdi32 $LIBS"
-
-    # Если pc файл не создался вообще - создаем его вручную (минимальный рабочий вариант)
+    # Генерируем "чистый" pkg-config файл
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
     cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lept.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
@@ -103,11 +100,11 @@ Name: leptonica
 Description: Leptonica image processing library
 Version: 1.88.0
 Libs: -L\${libdir} -lleptonica
-Libs.private: $FINAL_LIBS $WIN_LIBS
+Libs.private: $LEPT_DEPS $WIN_SYS $LIBS
 Cflags: -I\${includedir} -I\${includedir}/leptonica
 EOF
 
-    # Создаем симлинк, если Tesseract ищет leptonica.pc вместо lept.pc
+    # Всё равно создаем симлинк, если Tesseract ищет leptonica.pc вместо lept.pc и флаг -DSYM_LINK=ON не сработал
     ln -sf lept.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/leptonica.pc"
     # Удаляем CMake-файлы Leptonica. Это заставит Tesseract использовать pkg-config (lept.pc).
     rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake/leptonica"
@@ -115,14 +112,3 @@ EOF
     get_deps_list
 }
 
-ffbuild_cppflags() {
-    echo "-DIB_STATIC"
-}
-
-ffbuild_configure() {
-    return 0
-}
-
-ffbuild_unconfigure() {
-    return 0
-}

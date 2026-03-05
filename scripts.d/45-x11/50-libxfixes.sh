@@ -34,6 +34,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc)
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     gen-implib "$FFBUILD_DESTPREFIX"/lib/{libXfixes.so.3,libXfixes.a}
     rm "$FFBUILD_DESTPREFIX"/lib/libXfixes{.so*,.la}
 }

@@ -38,10 +38,12 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" \
         CFLAGS="$CFLAGS" \
         CXXFLAGS="$CXXFLAGS" \
-        LDFLAGS="$LDFLAGS" || (tail -n 100 config.log && return 1)
+        LDFLAGS="$LDFLAGS"
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    clean_la_files
 
     # Исправляем .pc файл для статической линковки в FFmpeg
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/zimg.pc"

@@ -22,16 +22,22 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_PROGRAMS=OFF
         -DBUILD_TOOLS=OFF
-        -DCMAKE_WARN_DEPRECATED=OFF
     )
+
+    [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
 
     cmake "${myconf[@]}" ..
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # Исправляем странное именование CMake (liblibjbig.a -> libjbig.a)
-    mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/liblibjbig.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libjbig.a"
-    mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/liblibjbig85.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libjbig85.a"
+    pushd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
+    for f in liblibjbig*.a; do
+        mv "$f" "${f#lib}" 2>/dev/null || true
+    done
+    popd
 
     # Генерируем jbigkit.pc вручную
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
@@ -44,7 +50,7 @@ includedir=\${prefix}/include
 Name: jbigkit
 Description: JBIG1 lossless image compression library
 Version: 2.1
-Libs: -L\${libdir} -ljbig
+Libs: -L\${libdir} -ljbig -ljbig85
 Cflags: -I\${includedir}
 EOF
 

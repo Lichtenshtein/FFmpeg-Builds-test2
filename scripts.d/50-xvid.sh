@@ -44,6 +44,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # Удаляем остатки DLL, если они вдруг собрались (для Win64)
     rm -f "$FFBUILD_DESTPREFIX"/{bin/libxvidcore.dll,lib/libxvidcore.dll.a}
     # Гарантируем отсутствие DLL для статической сборки

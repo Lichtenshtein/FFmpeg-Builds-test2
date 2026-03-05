@@ -43,7 +43,7 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -name "*.la" -delete
+    clean_la_files
 
     # Gettext тоже плохо дружит с pkg-config, создадим его вручную
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"

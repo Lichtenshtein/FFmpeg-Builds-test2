@@ -64,6 +64,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) build_sw $MAKE_V
     make install_sw DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # OpenSSL 3.x иногда создает файлы lib64 или специфичные имена. 
     # Убедимся, что имена стандартные для FFmpeg
     if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib64/libssl.a" ]]; then

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://gitlab.freedesktop.org/freetype/freetype.git"
-SCRIPT_COMMIT="28407bc8cd1a3da43df7b11c40bc5c24b9883ac6"
+SCRIPT_COMMIT="d262bd978c3ea303289153dba1ae8a6dc4ac747a"
 
 ffbuild_depends() {
     echo fontconfig
@@ -42,16 +42,18 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     # Помогаем линкеру найти статические либы
-    export LIBS="-lharfbuzz -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz $LIBS"
+    export LIBS="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-cairo -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz $LIBS"
 
     ./configure "${myconf[@]}" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # Патчим .pc файл, чтобы последующие (например, FFmpeg) видели зависимости
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype2.pc"
-    sed -i "s|^Libs.private:.*|Libs.private: -lharfbuzz -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz $LIBS|" "$PC_FILE"
+    sed -i "s|^Libs.private:.*|Libs.private: -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-cairo -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz $LIBS|" "$PC_FILE"
 
     get_deps_list
 }

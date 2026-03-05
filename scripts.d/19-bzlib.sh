@@ -30,6 +30,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libbz2_static.a" ]]; then
         mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libbz2_static.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libbz2.a"
     fi
