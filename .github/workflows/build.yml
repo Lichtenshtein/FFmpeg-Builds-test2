@@ -236,7 +236,8 @@ jobs:
           echo "| Cache Group | Deleted | Status |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
 
-          all_caches=$(gh actions-cache list --limit 100 | awk -F'\t' '{print $2, $1}')
+
+          all_caches=$(gh actions-cache list --limit 100 --json id,key -q '.[] | "\(.id) \(.key)"')
 
           if [ -z "$all_caches" ]; then
             echo "| All | 0 | No caches found |" >> $GITHUB_STEP_SUMMARY
@@ -247,8 +248,9 @@ jobs:
           total_deleted=0
 
           for prefix in "${prefixes[@]}"; do
-            # Находим ID, пропускаем 2 самых свежих
-            ids_to_delete=$(echo "$all_caches" | grep " $prefix" | cut -d' ' -f1 | tail -n +3)
+            # Ищем строки, где KEY (второе поле) соответствует префиксу
+            # tail -n +3 оставляет 2 самых новых
+            ids_to_delete=$(echo "$all_caches" | awk -v p="$prefix" '$2 ~ "^"p {print $1}' | tail -n +3)
 
             count=0
             for id in $ids_to_delete; do
@@ -266,13 +268,13 @@ jobs:
           done
 
           # Финальная зачистка лимитов (оставляем максимум 15 любых кэшей всего)
-          remaining_ids=$(gh actions-cache list --limit 100 | cut -f 2 | tail -n +16)
+          remaining_ids=$(echo "$all_caches" | cut -d' ' -f1 | tail -n +16)
           extra_count=0
           for id in $remaining_ids; do
-            if gh actions-cache delete "$id" --confirm; then
-              ((extra_count++))
-              ((total_deleted++))
-            fi
+          if gh actions-cache delete "$id" --confirm; then
+            ((extra_count++))
+            ((total_deleted++))
+          fi
           done
 
           if [ $extra_count -gt 0 ]; then
