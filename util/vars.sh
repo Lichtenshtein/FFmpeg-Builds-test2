@@ -233,15 +233,20 @@ get_deps_list() {
 
     if [[ -d "$lib_dir/pkgconfig" ]]; then
         find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
-            cat "\n%b .pc CONTENTS %s:\n" "$XCLAM_MARK" "$1"
-            printf "\n%b PKG-CONFIG DEPS for %s:\n" "$XCLAM_MARK" "$1"
-            deps=$(pkg-config --print-requires --print-requires-private "$1")
-            echo "$deps"
-            for d in $deps; do
-                if ! pkg-config --exists "$d"; then
-                    log_error "MISSING DEPENDENCY: $d (required by $1)"
-                fi
-            done
+            printf "\n%b --- %s ---\n" "$XCLAM_MARK" "$1"
+            cat "$1"
+            printf "\n%b DEPS for %s:\n" "$SEARCH_MARK" "${1##*/}"
+            deps=$(pkg-config --print-requires --print-requires-private "$1" 2>/dev/null)
+            if [[ -n "$deps" ]]; then
+                echo "$deps"
+                for d in $deps; do
+                    if ! pkg-config --exists "$d"; then
+                        log_error "MISSING DEPENDENCY: $d (required by $1)"
+                    fi
+                done
+            else
+                echo "No dependencies found."
+            fi
         ' _ {} \;
     fi
     find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | xargs -0 -I{} bash -c "
