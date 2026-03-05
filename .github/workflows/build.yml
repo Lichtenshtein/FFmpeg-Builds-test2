@@ -84,7 +84,7 @@ jobs:
       - name: Install Host Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y subversion subversion-tools nasm yasm
+          sudo apt-get install -y subversion subversion-tools nasm yasm jq
 
       - name: Set Image Names
         id: images
