@@ -51,7 +51,7 @@ ffbuild_dockerbuild() {
         -DENABLE_XATTR=ON
         -DLIBXML2_LIBRARIES="$XML2_LIBS"
         -DLIBXML2_INCLUDE_DIR="$FFBUILD_PREFIX/include/libxml2"
-        # -DCMAKE_REQUIRED_LIBRARIES="$XML2_LIBS"
+        -DCMAKE_REQUIRED_LIBRARIES="$XML2_LIBS"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )

@@ -57,7 +57,7 @@ printf_has_glibc_res1 = true
 printf_has_glibc_res2 = true
 EOF
 
-    mkdir build && cd build
+    mkdir -p build
 
     # Формируем список зависимостей из вашего чит-листа
     # pcre2 требует zlib/bz2 в некоторых конфигах
@@ -92,8 +92,8 @@ EOF
         -Dc_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS $LIBS" \
         -Dcpp_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS $LIBS"
 
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -C build -j$(nproc) $NINJA_V
+    DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
 
     clean_la_files
 
