@@ -29,7 +29,7 @@ on:
       debug_no_hash:
         description: 'Debug: Do not recalculate VARS_HASH (Preserve Docker cache)'
         type: boolean
-        default: false
+        default: true
       skip_ffmpeg:
         description: 'Skip final FFmpeg compilation (Component test only)'
         type: boolean
@@ -236,7 +236,7 @@ jobs:
           echo "| Cache Group | Deleted | Status |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
 
-          all_caches=$(gh actions-cache list --limit 100 | awk '{print $1, $2}')
+          all_caches=$(gh actions-cache list --limit 100 | awk -F'\t' '{print $2, $1}')
 
           if [ -z "$all_caches" ]; then
             echo "| All | 0 | No caches found |" >> $GITHUB_STEP_SUMMARY
@@ -248,7 +248,7 @@ jobs:
 
           for prefix in "${prefixes[@]}"; do
             # Находим ID, пропускаем 2 самых свежих
-            ids_to_delete=$(echo "$all_caches" | grep "^$prefix" | cut -d' ' -f2 | tail -n +3)
+            ids_to_delete=$(echo "$all_caches" | grep " $prefix" | cut -d' ' -f1 | tail -n +3)
 
             count=0
             for id in $ids_to_delete; do
