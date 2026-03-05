@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/harfbuzz/harfbuzz.git"
-SCRIPT_COMMIT="81ce4813c1d2ba1cf2f06aa2d2892aae7156bcaf"
+SCRIPT_COMMIT="381b5d7cd42bb41f6d2395c8ef239cb71749ce0b"
 
 ffbuild_depends() {
     echo freetype
@@ -22,9 +22,9 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-    local DEP_LIBS=$(pkg-config --libs --static freetype2 glib-2.0 icu-uc cairo)
-    local CFLAGS="$CFLAGS -DHARFBUZZ_STATIC"
-    local CXXFLAGS="$CXXFLAGS -DHARFBUZZ_STATIC"
+    # порядок линковки критичен для статики
+    local DEP_LIBS="-lcairo -lpixman-1 -lfontconfig -lexpat -lfreetype -lpng16 -lbrotlidec -lbrotlicommon -lz -lbz2 -lglib-2.0 -lintl -liconv -lshlwapi -lsicuin -lsicuuc -lsicudt"
+    local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 -lsetupapi -lws2_32"
 
     local myconf=(
         --cross-file=/cross.meson
@@ -33,6 +33,7 @@ ffbuild_dockerbuild() {
         --buildtype=release
         --default-library=static
         -Dfreetype=enabled
+        -Dicu=enabled
         -Dcpp_std=c++17
         -Dglib=enabled
         -Dgobject=disabled
@@ -46,26 +47,27 @@ ffbuild_dockerbuild() {
         -Ddirectwrite=enabled
         -Dgdi=enabled
         -Dbenchmark=disabled
-        # Передаем либы через link_args, чтобы тесты Cairo не падали
-        -Dcpp_args="$CXXFLAGS"
-        -Dc_args="$CFLAGS"
-        -Dc_link_args="$LDFLAGS $DEP_LIBS $LIBS"
-        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $LIBS"
+        -Dcpp_args="$CXXFLAGS -DHARFBUZZ_STATIC"
+        -Dc_args="$CFLAGS -DHARFBUZZ_STATIC"
     )
 
-    meson setup "${myconf[@]}" ..
+    [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
+
+    meson setup "${myconf[@]}" .. \
+        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS $LIBS" \
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS $LIBS"
 
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
+    # Массовый патч .pc файлов
     log_info "Patching Harfbuzz .pc files..."
     for pc in harfbuzz.pc harfbuzz-icu.pc harfbuzz-cairo.pc; do
         local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
-        if [[ -f "$PC_PATH" ]]; then
-            # Гарантируем наличие флага статики и системных либ
-            sed -i "/^Cflags:/ s/$/ -DHARFBUZZ_STATIC/" "$PC_PATH"
-            sed -i "/^Libs.private:/ s/$/ $DEP_LIBS -lusp10 -lgdi32 -lrpcrt4 -lstdc++/" "$PC_PATH"
-        fi
+        [[ -f "$PC_PATH" ]] || continue
+        # Форсируем статику и полный хвост зависимостей
+        sed -i "s|^Cflags:.*|& -DHARFBUZZ_STATIC|" "$PC_PATH"
+        sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS $LIBS|" "$PC_PATH"
     done
 
     get_deps_list
@@ -76,11 +78,9 @@ ffbuild_cppflags() {
 }
 
 ffbuild_configure() {
-    (( $(ffbuild_ffver) > 600 )) || return 0
     echo --enable-libharfbuzz
 }
 
 ffbuild_unconfigure() {
-    (( $(ffbuild_ffver) > 600 )) || return 0
     echo --disable-libharfbuzz
 }

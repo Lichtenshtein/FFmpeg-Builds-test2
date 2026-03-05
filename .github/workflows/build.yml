@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '10-mingw-std-threads|10-mingw|14-base|15-libicu'
+        default: '10-mingw-std-threads|10-mingw|14-base|15-libicu|16-libiconv|17-freetype|17-gettext|17-harfbuzz'
         # default: '.*'
       doClean:
         description: 'Clean cache before build (Full Rebuild)'
@@ -230,29 +230,56 @@ jobs:
         continue-on-error: true
         run: |
           gh extension install actions/gh-actions-cache || true
-          echo "Fetching list of caches..."
-          caches=$(gh actions-cache list --limit 100 --order desc 2>/dev/null | cut -f 1) || true
-          if [ -z "$caches" ]; then
-            echo "No caches found."
-          else
+
+          echo "### 🧹 Cache Cleanup Report" >> $GITHUB_STEP_SUMMARY
+          echo "| Cache Group | Deleted | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
+
+          all_caches=$(gh actions-cache list --limit 100 | awk '{print $1, $2}')
+
+          if [ -z "$all_caches" ]; then
+            echo "| All | 0 | No caches found |" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          prefixes=("base-root" "base" "ffmpeg-build" "dl-cache")
+          total_deleted=0
+
+          for prefix in "${prefixes[@]}"; do
+            # Находим ID, пропускаем 2 самых свежих
+            ids_to_delete=$(echo "$all_caches" | grep "^$prefix" | cut -d' ' -f2 | tail -n +3)
+
             count=0
-            for cache in $caches; do
-              ((count++))
-              if [ $count -gt 5 ]; then
-                echo "Deleting old cache: $cache"
-                gh actions-cache delete "$cache" --confirm || true
+            for id in $ids_to_delete; do
+              if gh actions-cache delete "$id" --confirm; then
+                ((count++))
+                ((total_deleted++))
               fi
             done
-          fi
-          # Удаляем только старые версии кэша, оставляя 3 последних для каждой области. Используем фильтрацию по префиксу области (scope)
-          for scope in "base-root" "base" "ffmpeg-build"; do
-            echo "Checking scope: $scope"
-            cache_ids=$(gh actions-cache list --key "$scope" --limit 100 | cut -f 1 | tail -n +4)
-            for id in $cache_ids; do
-              echo "Deleting old cache ID: $id"
-              gh actions-cache delete "$id" --confirm
-            done
+
+            if [ $count -gt 0 ]; then
+              echo "| $prefix | $count | ✅ Cleaned |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| $prefix | 0 | 🧊 Kept current |" >> $GITHUB_STEP_SUMMARY
+            fi
           done
+
+          # Финальная зачистка лимитов (оставляем максимум 15 любых кэшей всего)
+          remaining_ids=$(gh actions-cache list --limit 100 | cut -f 2 | tail -n +16)
+          extra_count=0
+          for id in $remaining_ids; do
+            if gh actions-cache delete "$id" --confirm; then
+              ((extra_count++))
+              ((total_deleted++))
+            fi
+          done
+
+          if [ $extra_count -gt 0 ]; then
+            echo "| Other/Old | $extra_count | 🗑️ Forced cleanup |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo -e "\n**Total caches removed:** $total_deleted" >> $GITHUB_STEP_SUMMARY
+
           # Удалить ВСЕ кэши, содержащие "buildkit" (blobs) в названии
           # gh actions-cache delete --github-token ${{ secrets.GITHUB_TOKEN }} --keyword "buildkit" --confirm
         env:

@@ -25,11 +25,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    # No automake 1.18 packaged anywhere yet.
-    # sed -i 's/-1.18/-1.17/' Makefile.devel libcharset/Makefile.devel
-
-    # Для релизного тарбола autogen НЕ НУЖЕН
-    # (unset CC CFLAGS GMAKE && ./autogen.sh)
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -38,14 +33,21 @@ ffbuild_dockerbuild() {
         --disable-shared
         --enable-static
         --with-pic
+        # --disable-nls
     )
 
-    ./configure "${myconf[@]}"
+    # Принудительно передаем флаги
+    ./configure "${myconf[@]}" \
+        CFLAGS="$CFLAGS" \
+        CPPFLAGS="$CPPFLAGS -DICONV_STATIC" \
+        LDFLAGS="$LDFLAGS"
+
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     # создаем pkg-config файл, так как libiconv этого не делает
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    # Добавляем -lcharset, так как iconv часто разделяет их в статике
     cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/iconv.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
@@ -55,9 +57,9 @@ includedir=\${prefix}/include
 Name: iconv
 Description: Character set conversion library
 Version: 1.18
-Libs: -L\${libdir} -liconv
-Libs.private: -liconv
-Cflags: -I\${includedir}
+Libs: -L\${libdir} -liconv -lcharset
+Libs.private: -lcharset
+Cflags: -I\${includedir} -DICONV_STATIC
 EOF
 
     get_deps_list
