@@ -99,6 +99,8 @@ ffbuild_dockerbuild() {
     mkdir -p /opt/mingw
     cp -a "$SYSROOT/." /opt/mingw/
 
+    clean_la_files
+
     get_deps_list
 }
 

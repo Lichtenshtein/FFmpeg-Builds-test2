@@ -1,4 +1,5 @@
 #!/bin/bash
+
 SCRIPT_REPO="https://gitlab.freedesktop.org/pixman/pixman.git"
 SCRIPT_COMMIT="f824cac6478971c0f71e4dfe8a60ebf70224076a"
 
@@ -15,17 +16,37 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-    DEPS_LIB="-lpng16 -lglib-2.0 $LIB"
+    # Pixman для статики под Windows требует явного указания системных либ
+    local PIXMAN_DEPS="-lpng16 -lglib-2.0 -lintl -liconv -lcharset -lz"
 
-    meson setup --prefix="$FFBUILD_PREFIX" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $DEPS_LIB" \
-        --cross-file=/cross.meson \
-        --default-library=static \
-        -Dtests=disabled \
-        -Ddemos=disabled ..
+    local myconf=(
+        --prefix="$FFBUILD_PREFIX"
+        --cross-file=/cross.meson
+        --buildtype=release
+        --default-library=static
+        -Dtests=disabled
+        -Ddemos=disabled
+        -Dgtk=disabled
+        -Dopenmp=disabled
+        -Dcpp_args="$CXXFLAGS"
+        -Dc_args="$CFLAGS"
+    )
+
+    [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
+
+    meson setup "${myconf[@]}" .. \
+        -Dc_link_args="$LDFLAGS $PIXMAN_DEPS $LIBS" \
+        -Dcpp_link_args="$LDFLAGS $PIXMAN_DEPS $LIBS"
 
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    clean_la_files
+
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/pixman-1.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i "s|^Libs.private:.*|Libs.private: $PIXMAN_DEPS $LIBS|" "$PC_FILE"
+    fi
 
     get_deps_list
 }

@@ -33,6 +33,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # ФИКС pkg-config (Критично для FFmpeg)
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/speex.pc"
     if [[ -f "$PC_FILE" ]]; then

@@ -56,6 +56,8 @@ ffbuild_dockerbuild() {
     ninja -C build -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
+    clean_la_files
+
     # Исправление .pc файла. 
     # librsvg-2.0.pc после сборки часто не содержит Cairo/Pango в Requires.private
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/librsvg-2.0.pc"

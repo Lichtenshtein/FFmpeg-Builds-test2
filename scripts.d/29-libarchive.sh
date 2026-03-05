@@ -22,12 +22,10 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    rm -rf build_dir
-    mkdir build_dir
+    mkdir build_dir && cd build_dir
 
-    # Используем pkg-config, чтобы получить полный список либ для libxml2 (со всеми зависимостями)
-    local XML2_LIBS=$(pkg-config --libs --static libxml-2.0)
-    local DEP_LIBS="-lcrypto -lssl $XML2_LIBS -lbz2 -lzstd -llzma -lz $LIBS"
+    local XML2_DEPS="-lxml2 -lsicuin -lsicuuc -lsicudt -llzma -liconv -lcharset -lintl -lz"
+    local ARCHIVE_DEPS="-lcrypto -lssl $XML2_DEPS -lbz2 -lzstd $LIBS"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -53,40 +51,32 @@ ffbuild_dockerbuild() {
         -DENABLE_XATTR=ON
         -DLIBXML2_LIBRARIES="$XML2_LIBS"
         -DLIBXML2_INCLUDE_DIR="$FFBUILD_PREFIX/include/libxml2"
-        -DCMAKE_C_FLAGS="$CPPFLAGS -DLIBXML_STATIC -DXML_STATIC -DARCHIVE_STATIC"
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $DEP_LIBS"
-        -DCMAKE_REQUIRED_LIBRARIES="$XML2_LIBS"
+        # -DCMAKE_REQUIRED_LIBRARIES="$XML2_LIBS"
     )
 
-    # Добавляем LTO если включено
-    [[ "$USE_LTO" == "1" ]] && myconf+=( -DENABLE_LTO=ON )
+    [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
 
-    cmake "${myconf[@]}" -S . -B build_dir
+    cmake "${myconf[@]}" \
+        -DCMAKE_C_FLAGS="$CFLAGS -DARCHIVE_STATIC -DLIBXML_STATIC -DXML_STATIC" \
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $ARCHIVE_DEPS" ..
 
-    make -C build_dir -j$(nproc) $MAKE_V
-    make -C build_dir install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V
+    make install DESTDIR="$FFBUILD_DESTDIR"
+
+    clean_la_files
 
     # Исправляем .pc файл для статической линковки
     # Libarchive часто не прописывает зависимости от системных либ Windows
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libarchive.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # В статической линковке порядок важен: высокоуровневые либы идут ПЕРЕД низкоуровневыми
-        # libarchive -> libxml2 -> [lzma, zlib, iconv] -> [ws2_32, bcrypt]
-        sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS -lcrypt32 -lbcrypt -lws2_32 -luser32 -ladvapi32|" "$PC_FILE"
+        log_info "${SYNC_MARK} Patching libarchive.pc..."
+        sed -i "/^Cflags:/ s/$/ -DARCHIVE_STATIC/" "$PC_FILE"
+        sed -i "s|^Libs.private:.*|Libs.private: $ARCHIVE_DEPS -lbcrypt -lcrypt32 -lws2_32 -ladvapi32|" "$PC_FILE"
     fi
 
-    # Вызываем отладку зависимостей
     get_deps_list
 }
 
 ffbuild_cppflags() {
     echo "-DARCHIVE_STATIC"
-}
-
-ffbuild_configure() {
-    return 0
-}
-
-ffbuild_unconfigure() {
-    return 0
 }

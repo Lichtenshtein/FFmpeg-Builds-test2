@@ -55,6 +55,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # --- КОРРЕКЦИЯ PKG-CONFIG (Согласно Readme для MT=1) ---
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libzstd.pc"
     if [[ -f "$PC_FILE" ]]; then

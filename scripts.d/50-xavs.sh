@@ -40,9 +40,9 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" --extra-cflags="$CFLAGS" --extra-ldflags="$LDFLAGS"
 
     make -j$(nproc) $MAKE_V
-    
-    # Установка
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    clean_la_files
 
     # xavs часто не создает корректный pkg-config файл или ставит его не туда.
     # Если xavs.pc отсутствует, FFmpeg его не найдет.

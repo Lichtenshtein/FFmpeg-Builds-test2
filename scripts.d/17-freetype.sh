@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://gitlab.freedesktop.org/freetype/freetype.git"
-SCRIPT_COMMIT="156c7ea38f99de0d3827d0340fe6399325ef8cc7"
+SCRIPT_COMMIT="d262bd978c3ea303289153dba1ae8a6dc4ac747a"
 
 ffbuild_enabled() {
     return 0
@@ -36,6 +36,8 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    clean_la_files
 
     # Создаем симлинк для совместимости
     ln -sf freetype2.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype.pc"

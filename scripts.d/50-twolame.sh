@@ -39,6 +39,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     # ФИКС pkg-config (Критично для FFmpeg)
     # Гарантируем, что любой, кто линкуется с twolame, знает о статике
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/twolame.pc"

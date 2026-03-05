@@ -35,6 +35,10 @@ ffbuild_dockerbuild() {
         -Dfreetype=enabled
         -Dicu=enabled
         -Dcpp_std=c++17
+        -Dwith_libstdcxx=true
+        -Draster=enabled
+        -Dvector=enabled
+        -Dsubset=enabled
         -Dglib=enabled
         -Dgobject=disabled
         -Dcairo=enabled
@@ -59,6 +63,8 @@ ffbuild_dockerbuild() {
 
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
+
+    clean_la_files
 
     # Массовый патч .pc файлов
     log_info "Patching Harfbuzz .pc files..."

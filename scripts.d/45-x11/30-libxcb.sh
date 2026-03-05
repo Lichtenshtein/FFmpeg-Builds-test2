@@ -35,6 +35,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc)
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     for LIBNAME in "$FFBUILD_DESTPREFIX"/lib/libxcb*.so.?; do
         gen-implib "$LIBNAME" "${LIBNAME%%.*}.a"
         rm "${LIBNAME%%.*}"{.so*,.la}

@@ -23,12 +23,9 @@ ffbuild_dockerbuild() {
     set -e
     apply_patches
 
-    rm -rf tiff_build
-    mkdir tiff_build
+    mkdir tiff_build && cd tiff_build
 
-    local DEP_LIBS="-ljpeg -lturbojpeg -ljbig -ljbig85 -lz -llzma -lzstd $LIBS"
-    local CFLAGS="$CFLAGS -DLIBTIFF_STATIC"
-    local LDFLAGS="$LDFLAGS $DEP_LIBS"
+    local TIFF_DEPS="-ljpeg -lturbojpeg -ljbig -ljbig85 -lzstd -llzma -lz"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -50,16 +47,23 @@ ffbuild_dockerbuild() {
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
 
-    cmake "${myconf[@]}" -DCMAKE_C_FLAGS="$CFLAGS" -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" -S . -B tiff_build
+    cmake "${myconf[@]}" \
+        -DCMAKE_C_FLAGS="$CFLAGS -DLIBTIFF_STATIC" \
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS -DLIBTIFF_STATIC" \
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" ..
 
-    make -C tiff_build -j$(nproc) $MAKE_V
-    make -C tiff_build install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V
+    make install DESTDIR="$FFBUILD_DESTDIR"
 
-   # Исправляем .pc файл: CMake часто генерирует его криво для статики
+    clean_la_files
+
+    # Исправляем .pc файл
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libtiff-4.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Добавляем необходимые системные либы и зависимости в Libs.private
-        sed -i '/^Libs.private:/ s/$/ $DEP_LIBS /' "$PC_FILE"
+        log_info "${SYNC_MARK} Patching libtiff-4.pc for Leptonica..."
+        # Гарантируем макрос статики и полный список либ
+        sed -i "/^Cflags:/ s/$/ -DLIBTIFF_STATIC/" "$PC_FILE"
+        sed -i "s|^Libs.private:.*|Libs.private: $TIFF_DEPS $LIBS|" "$PC_FILE"
     fi
 
     # проверить, как называется созданный .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
@@ -70,8 +74,4 @@ ffbuild_dockerbuild() {
 
 ffbuild_cppflags() {
     echo "-DLIBTIFF_STATIC"
-}
-
-ffbuild_configure() {
-    return 0
 }

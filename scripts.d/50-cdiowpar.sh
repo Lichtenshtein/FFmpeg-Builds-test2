@@ -55,6 +55,8 @@ EOF
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     get_deps_list
 }
 

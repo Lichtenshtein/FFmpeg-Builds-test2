@@ -25,6 +25,8 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
+    clean_la_files
+
     get_deps_list
 }
 

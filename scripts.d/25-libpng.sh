@@ -36,8 +36,10 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # Создаем стандартные симлинки для совместимости
-    # Многие старые пакеты ищут libpng16.pc или libpng.pc
+    clean_la_files
+
+    # РЎРѕР·РґР°РµРј СЃС‚Р°РЅРґР°СЂС‚РЅС‹Рµ СЃРёРјР»РёРЅРєРё РґР»СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё
+    # РњРЅРѕРіРёРµ СЃС‚Р°СЂС‹Рµ РїР°РєРµС‚С‹ РёС‰СѓС‚ libpng16.pc РёР»Рё libpng.pc
     cd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
     ln -sf libpng16.pc libpng.pc
 

@@ -25,8 +25,8 @@ ffbuild_dockerbuild() {
     set -e
     ./autogen.sh
 
-    # Собираем список либ для тестов конфигурации
-    local WEBP_LIBS="-ltiff -ljpeg -lpng16 -lgif -lzstd -llzma -ljbig -lz $LIBS"
+    # Порядок: WebP -> TIFF -> [JPEG, JBIG, LZMA, Z]
+    local WEBP_DEPS="-ltiff -ltiffxx -ljpeg -lpng16 -lgif -lzstd -llzma -ljbig -ljbig85 -lz"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -39,29 +39,29 @@ ffbuild_dockerbuild() {
         --disable-sdl
     )
 
-    # Добавляем LTO если включено
-    [[ "$USE_LTO" == "1" ]] && export CFLAGS="$CFLAGS -flto" && export LDFLAGS="$LDFLAGS -flto"
+    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     ./configure "${myconf[@]}" \
+        CFLAGS="$CFLAGS -DWEBP_STATIC" \
         LDFLAGS="$LDFLAGS" \
         CPPFLAGS="$CPPFLAGS -DWEBP_STATIC -I$FFBUILD_PREFIX/include" \
-        LIBS="$WEBP_LIBS"
+        LIBS="$WEBP_DEPS $LIBS"
 
-    # Явно вызываем make и проверяем его успех
-    make -j$(nproc) $MAKE_V 
+    make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
+
+    clean_la_files
 
     # libwebp генерирует несколько .pc файлов (libwebp, libwebpmux, libsharpyuv)
     # Нужно убедиться, что они содержат системные либы для Windows
-    for pc in libwebp.pc libwebpmux.pc libsharpyuv.pc; do
+    for pc in libwebp.pc libwebpmux.pc libwebpdemux.pc libsharpyuv.pc; do
         local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
-        if [[ -f "$PC_PATH" ]]; then
-            # Добавляем -lws2_32 (нужен для некоторых функций WebP в Windows)
-            sed -i "/^Libs.private:/ s/$/ -ltiff -ljpeg -lpng16 -lgif -lzstd -llzma -ljbig -lz -lshlwapi -lws2_32 -lpthread/" "$PC_PATH"
-        fi
+        [[ -f "$PC_PATH" ]] || continue
+        log_info "${SYNC_MARK} Patching $(basename $pc)..."
+        sed -i "/^Cflags:/ s/$/ -DWEBP_STATIC/" "$PC_PATH"
+        sed -i "s|^Libs.private:.*|Libs.private: $WEBP_DEPS -lshlwapi -lws2_32 $LIBS|" "$PC_PATH"
     done
 
-    # Вызываем отладку зависимостей
     get_deps_list
 }
 

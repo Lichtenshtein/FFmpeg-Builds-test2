@@ -27,13 +27,13 @@ ffbuild_dockerbuild() {
     # Выделяем из CFLAGS только флаги компилятора (без -D и -I)
     # Это сохранит -march=broadwell, -O3, -pipe и т.д.
     local CLEAN_CFLAGS=$(echo "$CFLAGS" | sed 's/-D[^ ]*//g; s/-I[^ ]*//g')
-    
     # Формируем чистый CPPFLAGS, куда уйдут все макросы
     # Добавляем -I$FFBUILD_PREFIX/include обязательно, чтобы curl видел openssl/zlib
     local CLEAN_CPPFLAGS="-I$FFBUILD_PREFIX/include -D_FORTIFY_SOURCE=2 -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC"
 
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
-    local CURL_LIBS="-lssh -lssl -lcrypto -lbrotlidec -lbrotlicommon -lzstd -lz -lcrypt32 -lwldap32 -lnormaliz -liphlpapi -ladvapi32 $LIBS"
+    # Порядок: curl -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
+    local CURL_LIBS="-lssh -lssl -lcrypto -lbrotlidec -lbrotlicommon -lzstd -lz -liconv -lcharset -lcrypt32 -lwldap32 -lnormaliz -liphlpapi -lws2_32 -ladvapi32"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -71,19 +71,25 @@ ffbuild_dockerbuild() {
         --disable-docs
     )
 
+    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
+
     ./configure "${myconf[@]}" \
         CPPFLAGS="$CLEAN_CPPFLAGS" \
         CFLAGS="$CLEAN_CFLAGS" \
         LDFLAGS="$LDFLAGS -static" \
-        LIBS="$CURL_LIBS"
+        LIBS="$CURL_LIBS $LIBS"
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    clean_la_files
+
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libcurl.pc"
     if [[ -f "$PC_FILE" ]]; then
-        log_info "Patching libcurl.pc for static linking..."
-        sed -i "s|^Libs.private:.*|Libs.private: $CURL_LIBS|" "$PC_FILE"
+        log_info "${SYNC_MARK} Patching libcurl.pc..."
+        sed -i "s|^Libs.private:.*|Libs.private: $CURL_LIBS $LIBS|" "$PC_FILE"
+        # Форсируем макрос статики для всех потребителей
+        sed -i "/^Cflags:/ s/$/ -DCURL_STATICLIB/" "$PC_FILE"
     fi
 
     get_deps_list

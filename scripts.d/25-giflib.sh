@@ -20,6 +20,8 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V libgif.a
 
+    clean_la_files
+
     # Ручная установка, так как штатный install хочет в /usr/local
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{include,lib,lib/pkgconfig}
     cp gif_lib.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
