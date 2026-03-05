@@ -28,10 +28,16 @@ ffbuild_dockerbuild() {
         --disable-openmp
         --with-libiconv-prefix="$FFBUILD_PREFIX"
         --with-pic
+        --with-included-gettext
+        --enable-relocatable
     )
 
-    ./configure "${myconf[@]}"
-    
+    # Явно прокидываем CPPFLAGS, чтобы он нашел iconv.h в /opt/ffbuild/include
+    ./configure "${myconf[@]}" \
+        CFLAGS="$CFLAGS" \
+        CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include" \
+        LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
+
     # Нам нужна только библиотека intl
     cd intl
     make -j$(nproc) $MAKE_V
@@ -49,9 +55,9 @@ includedir=\${prefix}/include
 
 Name: intl
 Description: GNU gettext runtime library
-Version: 1.0
+Version: 0.22.5
 Libs: -L\${libdir} -lintl
-Libs.private: -liconv
+Libs.private: -liconv -lcharset
 Cflags: -I\${includedir}
 EOF
 

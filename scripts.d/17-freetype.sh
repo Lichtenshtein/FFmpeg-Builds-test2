@@ -15,27 +15,30 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    export NOCONFIGURE=1
     ./autogen.sh
 
-    ./configure \
-        --prefix="$FFBUILD_PREFIX" \
-        --host="$FFBUILD_TOOLCHAIN" \
-        --build=x86_64-pc-linux-gnu \
-        CC_BUILD=gcc \
-        --disable-shared \
-        --enable-static \
-        --with-pic \
-        --without-harfbuzz \
-        --without-png \
-        --without-zlib \
+    local myconf=(
+        --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
+        --disable-shared
+        --enable-static
+        --with-pic
+        --without-harfbuzz
+        --without-png
+        --without-zlib
         --without-bzip2
+        --without-brotli
+    )
+
+    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
+
+    ./configure "${myconf[@]}" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    # Создаем симлинк для совместимости
     ln -sf freetype2.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype.pc"
 
     get_deps_list
 }
-

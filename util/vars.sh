@@ -11,7 +11,7 @@ export GREEN='\033[0;32m'      # Green
 export YELLOW='\033[0;33m'     # Yellow
 export PURPLE='\033[0;35m'     # Purple
 export NC='\033[0m'            # No Color (Reset)
-export CHECK_MARK='${LOG_INFO}✔${NC}'
+export CHECK_MARK="${LOG_INFO}✔${NC}"
 export CROSS_MARK='❌'
 export XCLAM_MARK='❗'
 export BROOM_MARK='🧹'
@@ -21,10 +21,10 @@ export SEARCH_MARK='🔎'
 export BUILD_MARK='🛠️'
 export DIRS_MARK='📂'
 export LOCK_MARK='🔒'
-export SYNC_MARK='♻'
+export SYNC_MARK="${LOG_INFO}♻{NC}"
 export TARGET_MARK='🎯'
-export DOWN_MARK='${LOG_INFO}🡇${NC}'
-export LOGS_MARK='${LOG_DEBUG}🗎${NC}'
+export DOWN_MARK="${LOG_INFO}🡇${NC}"
+export LOGS_MARK="${LOG_DEBUG}🗎${NC}"
 
 # Функции для логирования пишут в stderr (>&2)
 log_info()  { echo -e "${LOG_INFO}[INFO]${LOG_NC}  $*" >&2; }
@@ -219,35 +219,53 @@ get_stage_hash() {
 export -f get_stage_hash
 
 get_deps_list() {
+    if [[ "$FFBUILD_VERBOSE" != "1" ]]; then
+        return 0
+    fi
     log_info "################################################################"
-    # Используем имя файла скрипта, если STAGENAME пуст
     local name="${STAGENAME:-${0##*/}}"
     local lib_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
     local bin_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
-    log_debug "Dependencies for $name"
-    # PKG-CONFIG: показывает цепочку зависимостей (Requires)
+    log_debug "Showing dependencies for: $name"
+    local sys_libs="libc\.so|libm\.so|libdl\.so|librt\.so|libpthread\.so|libgcc_s\.so|libstdc\+\+\.so|ld-linux|libresolv\.so|libutil\.so"
+
     if [[ -d "$lib_dir/pkgconfig" ]]; then
-        find "$lib_dir/pkgconfig" -name "*.pc" -exec sh -c "
-            echo -e '\n${XCLAM_MARK} PKG-CONFIG DEPS for {}:'
-            pkg-config --print-requires --print-requires-private {}
-        " \;
+        find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
+            printf "\n%b PKG-CONFIG DEPS for %s:\n" "$XCLAM_MARK" "$1"
+            deps=$(pkg-config --print-requires --print-requires-private "$1")
+            echo "$deps"
+            for d in $deps; do
+                if ! pkg-config --exists "$d"; then
+                    log_error "MISSING DEPENDENCY: $d (required by $1)"
+                fi
+            done
+        ' _ {} \;
     fi
-    # LDD-style: Для динамических библиотек (.so) и исполняемых файлов
-    find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | xargs -0 -I{} sh -c "
-        log_debug '\n${XCLAM_MARK} NEEDED LIBRARIES for {}:'
-        ${FFBUILD_TOOLCHAIN}-readelf -d {} | grep 'NEEDED' || true
-    "
-    # NM (Undefined Symbols): Показываем внешние символы (Undefined) для каждой собранной .a библиотеки
-    # фильтруем только те символы, которые реально ведут к другим библиотекам
-    find "$lib_dir" -name "*.a" -print0 | xargs -0 -I{} sh -c "
-        log_debug '\n${XCLAM_MARK} EXTERNAL SYMBOLS (TOP 10) in {}:'
-        ${FFBUILD_TOOLCHAIN}-nm -u {} | grep -v '@@' | sort -u | head -n 10
-    "
-    # OBJdump: Поиск упоминаний путей (RPATH/RUNPATH)
-    find "$lib_dir" "$bin_dir" -type f -executable -print0 2>/dev/null | xargs -0 -I{} sh -c "
-        log_debug '\n${XCLAM_MARK} RPATH/RUNPATH for {}:'
-        ${FFBUILD_TOOLCHAIN}-objdump -p {} | grep -E 'RPATH|RUNPATH' || true
-    "
+    find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | xargs -0 -I{} bash -c "
+        if \"\${FFBUILD_TOOLCHAIN}-readelf\" -h \"\$1\" &>/dev/null; then
+            raw_deps=\$(\"\${FFBUILD_TOOLCHAIN}-readelf\" -d \"\$1\" | grep 'NEEDED' | sed -E 's/.*\[(.*)\].*/\1/')
+            clean_deps=\$(echo \"\$raw_deps\" | grep -vE \"$sys_libs\")
+            if [[ -n \"\$clean_deps\" ]]; then
+                log_debug \"\n\$XCLAM_MARK NEEDED LIBRARIES for \$1:\"
+                echo \"\$clean_deps\"
+                for lib in \$clean_deps; do
+                    if [[ ! -f \"$lib_dir/\$lib\" ]]; then
+                         log_error \"BROKEN LINK: \$lib not found in $lib_dir (needed by \$1)\"
+                    fi
+                done
+            fi
+        fi
+    " _ {}
+    find "$lib_dir" -name "*.a" -print0 2>/dev/null | xargs -0 -I{} bash -c '
+        log_debug "\n$XCLAM_MARK EXTERNAL SYMBOLS (TOP 10) in $1:"
+        "${FFBUILD_TOOLCHAIN}-nm" -u "$1" 2>/dev/null | grep -v "@@" | sort -u | head -n 10
+    ' _ {}
+    find "$lib_dir" "$bin_dir" -type f -executable -print0 2>/dev/null | xargs -0 -I{} bash -c "
+        if \"\${FFBUILD_TOOLCHAIN}-readelf\" -h \"\$1\" &>/dev/null; then
+            log_debug \"\n\$XCLAM_MARK RPATH/RUNPATH for \$1:\"
+            \"\${FFBUILD_TOOLCHAIN}-objdump\" -p \"\$1\" | grep -E 'RPATH|RUNPATH' || true
+        fi
+    " _ {}
 }
 export -f get_deps_list
 

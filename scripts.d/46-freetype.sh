@@ -10,6 +10,8 @@ ffbuild_depends() {
     echo libpng
     echo librsvg
     echo zlib
+    echo fontconfig
+    echo freetype
 }
 
 ffbuild_enabled() {
@@ -25,35 +27,35 @@ ffbuild_dockerbuild() {
     set -e
     ./autogen.sh
 
-    # Собираем либы для линковки (важно для тестов в configure)
-    local FT_LIBS=$(pkg-config --libs --static harfbuzz librsvg-2.0 libpng zlib libbrotlidec bzip2)
+    local myconf=(
+        --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
+        --disable-shared
+        --enable-static
+        --with-harfbuzz
+        --with-png
+        --with-zlib
+        --with-bzip2
+        --with-brotli
+        --with-librsvg
+        --with-pic
+    )
 
-    ./configure \
-        --prefix="$FFBUILD_PREFIX" \
-        --host="$FFBUILD_TOOLCHAIN" \
-        --disable-shared \
-        --enable-static \
-        --with-harfbuzz \
-        --with-pic \
-        --with-png \
-        --with-zlib \
-        --with-bzip2 \
-        --with-brotli \
-        LDFLAGS="-L$FFBUILD_PREFIX/lib" \
-        CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include" \
-        LIBS="$FT_LIBS $LIBS"
+    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
+
+    # Добавляем флаги для RSVG (он на Rust, линковка тяжелая)
+    export LIBS="$(pkg-config --libs --static librsvg-2.0 harfbuzz) $LIBS"
+
+    ./configure "${myconf[@]}" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
-    
-    # Важно для статической линковки FFmpeg: прописываем все зависимости в Libs.private
+
+    # Финальный аккорд для статики FFmpeg
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype2.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        # Используем рекурсивный вывод pkg-config для финального патча
-        local ALL_PRIVATE=$(pkg-config --libs --static harfbuzz librsvg-2.0 libpng zlib libbrotlidec bzip2)
-        sed -i "s|^Libs.private:.*|Libs.private: $ALL_PRIVATE $LIBS|" "$PC_FILE"
-    fi
-    
+    local ALL_DEPS="-lharfbuzz -lharfbuzz-icu -lsicuin -lsicuuc -lsicudt -lrsvg-2 -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz $LIBS"
+    sed -i "s|^Libs.private:.*|Libs.private: $ALL_DEPS|" "$PC_FILE"
+
     get_deps_list
 }
 
