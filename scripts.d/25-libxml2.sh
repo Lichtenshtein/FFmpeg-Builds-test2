@@ -46,7 +46,7 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     # Принудительно задаем AR как gcc-ar для стабильности архивации
-    ./configure "${myconf[@]}" \
+    ./autogen.sh "${myconf[@]}" \
         CFLAGS="$CFLAGS -DLIBXML_STATIC -DXML_STATIC" \
         CPPFLAGS="$CPPFLAGS -DLIBXML_STATIC -DXML_STATIC -I$FFBUILD_PREFIX/include" \
         LDFLAGS="$LDFLAGS" \

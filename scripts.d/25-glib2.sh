@@ -27,6 +27,8 @@ ffbuild_dockerbuild() {
     # Удаляем субпроекты, которые ломают сборку
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
 
+    mkdir build && cd build
+
     cat <<EOF > cross_file.txt
 [host_machine]
 system = 'windows'
@@ -56,8 +58,6 @@ needs_exe_wrapper = true
 printf_has_glibc_res1 = true
 printf_has_glibc_res2 = true
 EOF
-
-    mkdir build && cd build
 
     # Формируем список зависимостей из вашего чит-листа
     # pcre2 требует zlib/bz2 в некоторых конфигах
