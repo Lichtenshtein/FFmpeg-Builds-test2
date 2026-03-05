@@ -22,7 +22,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    local XML_DEPS="-lstdc++ -lpthread -lsicuin -lsicuuc -lsicudt -llzma -liconv -lcharset -lintl -lz"
+    local XML_DEPS="-lsicuin -lsicuuc -lsicudt -llzma -liconv -lcharset -lintl -lz"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -50,12 +50,14 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS -DLIBXML_STATIC -DXML_STATIC" \
         CPPFLAGS="$CPPFLAGS -DLIBXML_STATIC -DXML_STATIC -I$FFBUILD_PREFIX/include" \
         LDFLAGS="$LDFLAGS" \
-        LIBS="$XML_DEPS $LIBS" \
+        LIBS="$XML_DEPS $LIBS -lstdc++" \
         AR="${FFBUILD_TOOLCHAIN}-gcc-ar" \
         NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
-        RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
+        RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib" \
+        CC="${FFBUILD_TOOLCHAIN}-gcc" \
+        CXX="${FFBUILD_TOOLCHAIN}-g++"
 
-    make -j$(nproc) $MAKE_V
+    make -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++"
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     clean_la_files
