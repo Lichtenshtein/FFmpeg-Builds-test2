@@ -93,8 +93,8 @@ EOF
         -Dc_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS $LIBS" \
         -Dcpp_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS $LIBS"
 
-    ninja -C build -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
+    ninja -C _build -j$(nproc) $NINJA_V
+    DESTDIR="$FFBUILD_DESTDIR" ninja -C _build install
 
     clean_la_files
 
