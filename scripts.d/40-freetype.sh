@@ -6,6 +6,11 @@ SCRIPT_COMMIT="28407bc8cd1a3da43df7b11c40bc5c24b9883ac6"
 ffbuild_depends() {
     echo fontconfig
     echo freetype
+    echo zlib
+    echo bzlib
+    echo brotli
+    echo libpng
+    echo harfbuzz
 }
 
 ffbuild_enabled() {
@@ -21,31 +26,32 @@ ffbuild_dockerbuild() {
     set -e
     ./autogen.sh
 
-    # Получаем флаги зависимостей, чтобы configure их увидел в статике
-    local FT_LIBS=$(pkg-config --libs --static fontconfig freetype2 harfbuzz libpng zlib libbrotlidec bzip2)
+    local myconf=(
+        --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
+        --disable-shared
+        --enable-static
+        --with-harfbuzz
+        --with-png
+        --with-zlib
+        --with-bzip2
+        --with-brotli
+        --with-pic
+    )
 
-    ./configure \
-        --prefix="$FFBUILD_PREFIX" \
-        --host="$FFBUILD_TOOLCHAIN" \
-        --disable-shared \
-        --enable-static \
-        --with-harfbuzz \
-        --with-pic \
-        --with-png \
-        --with-zlib \
-        --with-bzip2 \
-        --with-brotli \
-        LDFLAGS="$LDFLAGS" \
-        CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include" \
-        LIBS="$FT_LIBS $LIBS"
+    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
+
+    # Помогаем линкеру найти статические либы
+    export LIBS="-lharfbuzz -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz $LIBS"
+
+    ./configure "${myconf[@]}" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
 
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
+    # Патчим .pc файл, чтобы последующие (например, FFmpeg) видели зависимости
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype2.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        sed -i "/^Libs.private:/ s/$/ $FT_LIBS $LIBS/" "$PC_FILE"
-    fi
+    sed -i "s|^Libs.private:.*|Libs.private: -lharfbuzz -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz $LIBS|" "$PC_FILE"
 
     get_deps_list
 }
