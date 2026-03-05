@@ -61,7 +61,6 @@ ffbuild_dockerbuild() {
         -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DPNG_LIBRARY="$FFBUILD_PREFIX/lib/libpng.a"
         -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.a"
-        -DWEBP_LIBRARY="$FFBUILD_PREFIX/lib/libwebp.a"
         -DWebP_INCLUDE_DIR="$FFBUILD_PREFIX/include"
     )
 
