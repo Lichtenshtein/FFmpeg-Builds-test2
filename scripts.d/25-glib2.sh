@@ -57,7 +57,7 @@ printf_has_glibc_res1 = true
 printf_has_glibc_res2 = true
 EOF
 
-    mkdir -p build
+    mkdir -p _build
 
     # Формируем список зависимостей из вашего чит-листа
     # pcre2 требует zlib/bz2 в некоторых конфигах
@@ -88,7 +88,8 @@ EOF
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     # Передаем линковочные флаги через meson, чтобы проверки (типа наличия функций) проходили успешно
-    meson setup "${myconf[@]}" .. \
+    meson setup _build . \
+        "${myconf[@]}" \
         -Dc_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS $LIBS" \
         -Dcpp_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS $LIBS"
 
