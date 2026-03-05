@@ -22,7 +22,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    local XML_DEPS="-lpthread -lsicuin -lsicuuc -lsicudt -llzma -liconv -lcharset -lintl -lz"
+    local XML_DEPS="-lstdc++ -lpthread -lsicuin -lsicuuc -lsicudt -llzma -liconv -lcharset -lintl -lz"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
