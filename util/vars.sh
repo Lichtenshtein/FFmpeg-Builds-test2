@@ -18,6 +18,7 @@ export BROOM_MARK='🧹'
 export CACHE_MARK='🗄️'
 export ARCH_MARK='🗃️'
 export SEARCH_MARK='🔎'
+export BUILD_MARK='🛠️'
 export DIRS_MARK='📂'
 export LOCK_MARK='🔒'
 export SYNC_MARK='♻'
@@ -159,7 +160,7 @@ ffbuild_uncflags() {
 ffbuild_cxxflags() {
     log_debug "Applying global CXXFLAGS for $STAGENAME" >&2
     # глобальный макрос для всех, кто включает заголовки
-    echo "-std=c++17 -D_WIN32"
+    echo "-std=c++17 -D_WIN32_WINNT=0x0A00 -D_WIN32"
 }
 
 ffbuild_cppflags() {
@@ -372,12 +373,12 @@ if [[ -z "$VARS_INFRA_APPLIED" ]]; then
     # Получаем список системных либ
     SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lpthread"
     export LIBS="$LIBS $SYSTEM_LIBS"
-    BASE_CFLAGS="-mms-bitfields"
+    BASE_CFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
     BASE_CPPFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32"
     export CFLAGS="$CFLAGS $BASE_CFLAGS"
     export CPPFLAGS="$CPPFLAGS $BASE_CPPFLAGS"
     export CXXFLAGS="$CXXFLAGS -std=c++17"
-    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
+    export LDFLAGS="$LDFLAGS"
 fi
 
 # "-DARCHIVE_STATIC -DBROTLI_STATIC -DCAIRO_WIN32_STATIC_BUILD -DCURL_STATICLIB -DGLIB_STATIC_COMPILATION -DHARFBUZZ_STATIC -DIB_STATIC -DICONV_STATIC -DLIBJPEG_STATIC -DLIBSSH_STATIC -DVAPOURSYNTH_STATIC -DLIBTIFF_STATIC -DLIBXML_STATIC -DPANGO_STATIC_COMPILATION -DWEBP_STATIC -DXML_STATIC -DZLIB_STATIC -DZSTD_STATIC_LINKING -D_WIN32 -D_WIN32_WINNT=0x0A00"

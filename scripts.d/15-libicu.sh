@@ -19,7 +19,8 @@ ffbuild_dockerbuild() {
     unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
     # Используем runConfigureICU для правильной инициализации под Linux
     mkdir -p host-build && cd host-build
-    
+
+    log_info "${BUILD_MARK} Building ICU Host tools..."
     # Нам НУЖНЫ tools на хосте, чтобы создать icupkg
     CC=gcc CXX=g++ AR=ar RANLIB=ranlib CFLAGS="" CXXFLAGS="" LDFLAGS="" \
     ../runConfigureICU Linux --prefix="$(pwd)/install" \
@@ -42,6 +43,7 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
+    log_info "${BUILD_MARK} Building ICU Target (Win64)..."
     # Теперь основная сборка под Windows (Target)
     mkdir -p target-build && cd target-build
 
@@ -67,35 +69,51 @@ ffbuild_dockerbuild() {
         --with-data-packaging=static
     )
 
-    ../configure "${myconf[@]}" CFLAGS="$CFLAGS" CXXFLAGS="$CXXFLAGS" LDFLAGS="$LDFLAGS"
-    
+    # ICU капризен к флагам. Прокидываем их явно.
+    ../configure "${myconf[@]}" \
+        CFLAGS="$CFLAGS" \
+        CXXFLAGS="$CXXFLAGS" \
+        LDFLAGS="$LDFLAGS" \
+        CC="$CC" CXX="$CXX" AR="$AR" RANLIB="$RANLIB"
+
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     # Исправление и перемещение библиотек
-    # ICU иногда кидает sicudt.a в /bin, переместим её в /lib
-    if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/sicudt.a" ]]; then
-        mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/sicudt.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libsicudt.a"
-    fi
+    # Если ICU собрался как libicuuc.a, а мы хотим sicuuc.a:
+    cd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
+    for lib in libicu*.a; do
+        if [[ -f "$lib" ]]; then
+            # Переименовываем libicu... в libsicu... для соответствия вашему чит-листу
+            mv "$lib" "s${lib#lib}" 2>/dev/null || true
+        fi
+    done
+    # Исправляем специфичный sicudt (иногда он без 'lib' вначале)
+    [[ -f "icudt.a" ]] && mv "icudt.a" "libsicudt.a"
+    [[ -f "sicudt.a" ]] && mv "sicudt.a" "libsicudt.a"
 
     # Исправляем pkg-config файлы для статической линковки
     # ICU по умолчанию создает icu-uc.pc, icu-i18n.pc
     # Патчим .pc файлы для корректной работы с FFmpeg
+    log_info "${SYNC_MARK} Patching ICU .pc files..."
     for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/icu-*.pc; do
-        if [[ -f "$pc" ]]; then
-            log_info "Patching $(basename "$pc") for FFmpeg static linking..."
-            # Заменяем стандартные имена на статические префиксы 's'
-            sed -i 's/-licuin/-lsicuin/g' "$pc"
-            sed -i 's/-licuuc/-lsicuuc/g' "$pc"
-            sed -i 's/-licudata/-lsicudata/g' "$pc"
-            # Если в файле упоминается icudt, меняем на sicudt
-            sed -i 's/-licudt/-lsicudt/g' "$pc"
-            
-            # Добавляем системные либы и обеспечиваем наличие -lsicudt
-            sed -i '/Libs.private:/ s/$/ -lpthread -lm -ladvapi32 -lws2_32/' "$pc"
-            if ! grep -q -- "-lsicudt" "$pc"; then
-                sed -i '/Libs:/ s/$/ -lsicudt/' "$pc"
-            fi
+        [[ -e "$pc" ]] || continue
+
+        # Меняем -licu на -lsicu (так как мы переименовали файлы выше)
+        sed -i 's/-licu/-lsicu/g' "$pc"
+        # Убираем динамические зависимости, если они пролезли в Libs
+        sed -i 's/-lpthread//g; s/-lm//g' "$pc"
+        # Добавляем чистые Libs.private
+        # ICU_DEPS для Windows:
+        ICU_SYS_LIBS="-lstdc++ -lpthread -lm -ladvapi32 -lws2_32"
+        if grep -q "Libs.private:" "$pc"; then
+            sed -i "/Libs.private:/ s/$/ $ICU_SYS_LIBS/" "$pc"
+        else
+            echo "Libs.private: $ICU_SYS_LIBS" >> "$pc"
+        fi
+        # Гарантируем наличие sicudt (data library) в основном поле Libs
+        if ! grep -q -- "-lsicudt" "$pc"; then
+            sed -i '/Libs:/ s/$/ -lsicudt/' "$pc"
         fi
     done
 

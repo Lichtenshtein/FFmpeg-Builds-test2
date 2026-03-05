@@ -13,7 +13,7 @@ RUN --mount=src=ct-ng-config,dst=/.config \
     rm -rf ct-ng
 
 # Remove DLLs to force static linking
-# RUN find /opt/ct-ng -name "*.dll" -or -name "*.dll.a" -delete && \
+# RUN find /opt/ct-ng \( -name "*.dll" -or -name "*.dll.a" \) -delete && \
 #    mkdir -p /opt/ffbuild
 RUN mkdir -p /opt/ffbuild /opt/ffdest
 
@@ -49,7 +49,8 @@ ENV CCACHE_DIR=/root/.cache/ccache \
 # disable -fPIC, -ffast-math, -flto=auto if troubles occur
 # add -D_FORTIFY_SOURCE=2 for security
 # --as-needed is dangerous for static linking: when linking static libraries for Windows, if the linker sees a library before a symbol is requested, it will discard it.
-# LDFLAGS="-lssp, -Wl,--gc-sections"
+# LDFLAGS="-lssp" is it needed?
+# -Wl,--gc-sections, because of it the linker may throw out what it considers "unnecessary" sections from static libraries if dependencies are specified in the wrong order in .pc files
 # Stable:
 # CFLAGS="-O2 -march=x86-64-v3 -mtune=generic -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe"
 
@@ -72,6 +73,6 @@ ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
     GENDEF="${FFBUILD_TOOLCHAIN}-gendef" \
     CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
     CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
-    LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -Wl,--gc-sections -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216" \
+    LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216" \
     STAGE_CFLAGS="-fno-semantic-interposition" \
     STAGE_CXXFLAGS="-fno-semantic-interposition"
