@@ -27,9 +27,7 @@ ffbuild_dockerbuild() {
     # Удаляем субпроекты, которые ломают сборку
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
 
-    mkdir build && cd build
-
-    cat <<EOF > cross_file.txt
+    cat <<EOF > glib_cross.txt
 [host_machine]
 system = 'windows'
 cpu_family = 'x86_64'
@@ -59,6 +57,8 @@ printf_has_glibc_res1 = true
 printf_has_glibc_res2 = true
 EOF
 
+    mkdir build && cd build
+
     # Формируем список зависимостей из вашего чит-листа
     # pcre2 требует zlib/bz2 в некоторых конфигах
     local GLIB_DEPS="-lpcre2-8 -lffi -lintl -liconv -lcharset -lz"
@@ -66,7 +66,7 @@ EOF
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
-        --cross-file=/cross_file.txt
+        --cross-file glib_cross.txt
         --buildtype=release
         --default-library=static
         --wrap-mode=nodownload

@@ -233,7 +233,7 @@ get_deps_list() {
 
     if [[ -d "$lib_dir/pkgconfig" ]]; then
         find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
-            printf "\n%b --- %s ---\n" "$XCLAM_MARK" "$1"
+            printf "\n%b %s\n" "$XCLAM_MARK" "$1"
             cat "$1"
             printf "\n%b DEPS for %s:\n" "$SEARCH_MARK" "${1##*/}"
             deps=$(pkg-config --print-requires --print-requires-private "$1" 2>/dev/null)
