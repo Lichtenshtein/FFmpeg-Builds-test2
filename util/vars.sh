@@ -210,6 +210,47 @@ ffbuild_enabled() {
     return 0
 }
 
+export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
+# Явно задаем хост-систему для Autotools
+export CHOST="$FFBUILD_TOOLCHAIN"
+# Генерируем правильный SYSROOT
+export FFBUILD_SYSROOT="$(${CC} -print-sysroot 2>/dev/null)"
+if [[ -z "$FFBUILD_SYSROOT" ]]; then
+    export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/sysroot"
+fi
+
+# PKG_CONFIG_LIBDIR должен включать И префикс, И системный путь тулчейна
+export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
+export PKG_CONFIG_SYSROOT_DIR="$FFBUILD_SYSROOT"
+# Убираем PATH, чтобы pkg-config не лез в систему хоста (Linux)
+unset PKG_CONFIG_PATH
+# Принудительно включаем статический поиск для pkg-config во всех под-скриптах
+export PKG_CONFIG_STATIC=1
+
+# Убеждаемся, что все инструменты имеют префикс
+export CC="${FFBUILD_TOOLCHAIN}-gcc"
+# Форсируем C++ рантайм для всех CC
+# export CC="${FFBUILD_TOOLCHAIN}-g++"
+export CXX="${FFBUILD_TOOLCHAIN}-g++"
+export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
+export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
+export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
+export OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump"
+export STRIP="${FFBUILD_TOOLCHAIN}-strip"
+
+# 1 для подробных логов, в 0 для кратких
+# export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
+# Значение FFBUILD_VERBOSE уже пришло из Docker ENV
+if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
+    export MAKE_V="V=1"
+    export NINJA_V="-v"
+    export CARGO_V="-v"
+else
+    export MAKE_V=""
+    export NINJA_V=""
+    export CARGO_V=""
+fi
+
 get_stage_hash() {
     local STAGE_PATH="$1"
     # Берем весь контент файла
@@ -337,25 +378,6 @@ apply_patches() {
 }
 export -f apply_patches
 
-# 1 для подробных логов, в 0 для кратких
-# export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
-# Значение FFBUILD_VERBOSE уже пришло из Docker ENV
-if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
-    export MAKE_V="V=1"
-    export NINJA_V="-v"
-    export CARGO_V="-v"
-else
-    export MAKE_V=""
-    export NINJA_V=""
-    export CARGO_V=""
-fi
-
-export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
-export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
-export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
-# Принудительно включаем статический поиск для pkg-config во всех под-скриптах
-export PKG_CONFIG_STATIC=1
-
 # Конфигурация ccache
 export CCACHE_DIR=/root/.cache/ccache
 export CCACHE_MAXSIZE=20G
@@ -394,20 +416,6 @@ else
     log_debug "Running outside of build container, skipping toolchain path discovery."
 fi
 
-# Явно задаем хост-систему для Autotools
-export CHOST="$FFBUILD_TOOLCHAIN"
-
-# Убеждаемся, что все инструменты имеют префикс
-export CC="${FFBUILD_TOOLCHAIN}-gcc"
-# Форсируем C++ рантайм для всех CC
-# export CC="${FFBUILD_TOOLCHAIN}-g++"
-export CXX="${FFBUILD_TOOLCHAIN}-g++"
-export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
-export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
-export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
-export OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump"
-export STRIP="${FFBUILD_TOOLCHAIN}-strip"
-
 # экспорт важных переменных MinGW, чтобы они пробрасывались в download.sh и run_stage.sh:
 export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE
 
@@ -419,10 +427,10 @@ if [[ -z "$VARS_INFRA_APPLIED" ]]; then
     export LIBS="$LIBS $SYSTEM_LIBS"
     BASE_CFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
     BASE_CPPFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32"
-    export CFLAGS="$CFLAGS $BASE_CFLAGS"
-    export CPPFLAGS="$CPPFLAGS $BASE_CPPFLAGS"
-    export CXXFLAGS="$CXXFLAGS -std=c++17"
-    export LDFLAGS="$LDFLAGS -lstdc++"
+    export CFLAGS="$CFLAGS -I$FFBUILD_PREFIX/include -I${FFBUILD_SYSROOT}/include $BASE_CFLAGS"
+    export CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include -I${FFBUILD_SYSROOT}/include $BASE_CPPFLAGS"
+    export CXXFLAGS="$CXXFLAGS -I$FFBUILD_PREFIX/include -I${FFBUILD_SYSROOT}/include -std=c++17"
+    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib -L${FFBUILD_SYSROOT}/lib -lstdc++"
 fi
 
 # "-DARCHIVE_STATIC -DBROTLI_STATIC -DCAIRO_WIN32_STATIC_BUILD -DCURL_STATICLIB -DGLIB_STATIC_COMPILATION -DHARFBUZZ_STATIC -DIB_STATIC -DICONV_STATIC -DLIBJPEG_STATIC -DLIBSSH_STATIC -DVAPOURSYNTH_STATIC -DLIBTIFF_STATIC -DLIBXML_STATIC -DPANGO_STATIC_COMPILATION -DWEBP_STATIC -DXML_STATIC -DZLIB_STATIC -DZSTD_STATIC_LINKING -D_WIN32 -D_WIN32_WINNT=0x0A00"
