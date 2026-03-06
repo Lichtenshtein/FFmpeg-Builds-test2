@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://gitlab.freedesktop.org/cairo/cairo.git"
-SCRIPT_COMMIT="2a4589266388622f8c779721c8a4e090966fae79"
+SCRIPT_COMMIT="d3a35678a2322046f6d034001f2970ed3f54a1b7"
 
 ffbuild_depends() {
     echo zlib
@@ -50,7 +50,6 @@ ffbuild_dockerbuild() {
         -Dtests=disabled
         -Dxcb=disabled
         -Dxlib=disabled
-        -Dopengl=enabled
         -Dzlib=enabled
         # Флаги компиляции для статики
         -Dc_args="$CFLAGS -DCAIRO_WIN32_STATIC_BUILD"
