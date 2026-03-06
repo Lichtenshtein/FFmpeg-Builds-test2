@@ -3,16 +3,26 @@ c = 'x86_64-w64-mingw32-gcc'
 cpp = 'x86_64-w64-mingw32-g++'
 ar = 'x86_64-w64-mingw32-gcc-ar'
 ranlib = 'x86_64-w64-mingw32-gcc-ranlib'
+nm = 'x86_64-w64-mingw32-gcc-nm'
 strip = 'x86_64-w64-mingw32-strip'
 windres = 'x86_64-w64-mingw32-windres'
 dlltool = 'x86_64-w64-mingw32-dlltool'
-pkgconfig = 'pkg-config'
+pkg-config = 'pkg-config'
 nasm = '/usr/bin/nasm'
 # Заменяем wine на заглушку или убираем, если тесты не нужны
 # exe_wrapper = 'wine' 
 
+[built-in options]
+# Эти флаги будут применяться ко ВСЕМ Meson-сборкам
+c_args = ['-I/opt/ffbuild/include', '-D_WIN32_WINNT=0x0A00', '-mms-bitfields']
+cpp_args = ['-I/opt/ffbuild/include', '-D_WIN32_WINNT=0x0A00', '-std=c++17']
+c_link_args = ['-L/opt/ffbuild/lib', '-static-libgcc', '-static-libstdc++']
+cpp_link_args = ['-L/opt/ffbuild/lib', '-static-libgcc', '-static-libstdc++']
+
 [properties]
-# Это КЛЮЧЕВОЙ параметр. Он говорит Meson: "Верь мне на слово, кросс-компилятор работает".
+# путь к системным либам ct-ng (проверить имя: sysroot или sys-root)
+sys_root = '/opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/sysroot'
+# говорим Meson: "Верь мне на слово, кросс-компилятор работает".
 needs_exe_wrapper = true
 
 [host_machine]
