@@ -23,55 +23,16 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-
-find "${MINGW_SYSROOT}" -name "gdi32*" || true
-
-    # Определяем путь к sysroot тулчейна для поиска gdi32, opengl32 и т.д.
-    local MINGW_SYSROOT=$($CC -print-sysroot)
-    local MINGW_LIBDIR="${MINGW_SYSROOT}/lib"
-    local MINGW_INCDIR="${MINGW_SYSROOT}/include"
-
-    cat <<EOF > cairo_cross.txt
-# [include]
-# '/cross.meson'
-
-[host_machine]
-system = 'windows'
-cpu_family = 'x86_64'
-cpu = 'x86_64'
-endian = 'little'
-
-[binaries]
-c = '${FFBUILD_TOOLCHAIN}-gcc'
-cpp = '${FFBUILD_TOOLCHAIN}-g++'
-ar = '${FFBUILD_TOOLCHAIN}-gcc-ar'
-pkg-config = 'pkg-config'
-strip = '${FFBUILD_TOOLCHAIN}-strip'
-windres = '${FFBUILD_TOOLCHAIN}-windres'
-nm = '${FFBUILD_TOOLCHAIN}-gcc-nm'
-ranlib = '${FFBUILD_TOOLCHAIN}-gcc-ranlib'
-nasm = '/usr/bin/nasm'
-
-[properties]
-sys_root = '${MINGW_SYSROOT}'
-pkg_config_libdir = '${FFBUILD_PREFIX}/lib/pkgconfig:${MINGW_LIBDIR}/pkgconfig'
-c_args = ['-I${FFBUILD_PREFIX}/include', '-I${MINGW_INCDIR}', '-DCAIRO_WIN32_STATIC_BUILD']
-cpp_args = ['-I${FFBUILD_PREFIX}/include', '-I${MINGW_INCDIR}', '-DCAIRO_WIN32_STATIC_BUILD']
-c_link_args = ['-L${FFBUILD_PREFIX}/lib', '-L${MINGW_LIBDIR}', '-static-libgcc', '-static-libstdc++']
-cpp_link_args = ['-L${FFBUILD_PREFIX}/lib', '-L${MINGW_LIBDIR}', '-static-libgcc', '-static-libstdc++']
-EOF
-
     # Набор системных библиотек Windows для Cairo
     local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lole32 -luuid"
     # Зависимости из чит-листа в правильном порядке линковки
     local DEP_LIBS="-lfontconfig -lexpat -lfreetype -lharfbuzz -lharfbuzz-icu -lsicuin -lsicuuc -lsicudt -lpixman-1 -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon -lglib-2.0 -lintl -liconv -lcharset"
 
-    mkdir build && cd build
+    mkdir _build && cd _build
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
-        # --cross-file=/cross.meson
-        --cross-file ../cairo_cross.txt
+        --cross-file=/cross.meson
         --buildtype=release
         --default-library=static
         --wrap-mode=nodownload
