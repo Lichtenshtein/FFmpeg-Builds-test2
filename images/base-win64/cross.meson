@@ -14,10 +14,10 @@ nasm = '/usr/bin/nasm'
 
 [built-in options]
 # Эти флаги будут применяться ко ВСЕМ Meson-сборкам
-c_args = ['-I/opt/ffbuild/include', '-D_WIN32_WINNT=0x0A00', '-mms-bitfields']
-cpp_args = ['-I/opt/ffbuild/include', '-D_WIN32_WINNT=0x0A00', '-std=c++17']
-c_link_args = ['-L/opt/ffbuild/lib', '-static-libgcc', '-static-libstdc++']
-cpp_link_args = ['-L/opt/ffbuild/lib', '-static-libgcc', '-static-libstdc++']
+c_args = ['$CFLAGS']
+cpp_args = ['$CXXFLAGS']
+c_link_args = ['$LDFLAGS']
+cpp_link_args = ['$LDFLAGS']
 
 [properties]
 # путь к системным либам ct-ng (проверить имя: sysroot или sys-root)
