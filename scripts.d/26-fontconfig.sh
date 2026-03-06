@@ -29,12 +29,15 @@ ffbuild_dockerbuild() {
     local myconf=(
         ac_cv_va_copy="C99"
         --prefix="$FFBUILD_PREFIX"
+        --enable-static
+        --disable-shared
+        --disable-docbook
         --disable-docs
+        --disable-cache-build
         --enable-libxml2
         --enable-iconv
-        --disable-shared
-        --enable-static
         --with-arch=x86_64
+        --with-default-sub-pixel-rendering=rgb
         --with-pic
     )
 
@@ -63,10 +66,19 @@ ffbuild_dockerbuild() {
         CC="${FFBUILD_TOOLCHAIN}-gcc" \
         CXX="${FFBUILD_TOOLCHAIN}-g++"
 
-    # принудительно используем g++ для финальной линковки инструментов
-    make -C src -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++"
-    make -C src install DESTDIR="$FFBUILD_DESTDIR"
-    make install-data-am DESTDIR="$FFBUILD_DESTDIR"
+    # Сначала генерируем заголовки (это создаст fcconst.h)
+    # make -C fc-lang -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++"
+    # make -C fc-case -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++"
+    # make -C fc-const -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++"
+
+    # Теперь собираем библиотеку. Если упадет на fc-cache — игнорируем (|| true)
+    # make -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++" || log_warn "Main make failed (expected due to fc-cache), proceeding to library install..."
+    make -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++"
+
+    # Устанавливаем только саму библиотеку и инклюды
+    make install DESTDIR="$FFBUILD_DESTDIR"
+    # make -C src install DESTDIR="$FFBUILD_DESTDIR"
+    # make install-data-am DESTDIR="$FFBUILD_DESTDIR"
 
     clean_la_files
 
