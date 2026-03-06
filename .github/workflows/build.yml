@@ -231,59 +231,44 @@ jobs:
         continue-on-error: true
         run: |
           gh extension install actions/gh-actions-cache || true
-
-          echo "### 🧹 Cache Cleanup Report" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### 🚀 Fast Cache Cleanup Report" >> $GITHUB_STEP_SUMMARY
           echo "| Cache Group | Deleted | Status |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
 
-          all_caches=$(gh actions-cache list --limit 100 | awk '{print $1, $2}')
+          # Получаем список (KEY ID). Лимит 500 для охвата всех 292+ файлов.
+          all_caches=$(gh actions-cache list --limit 500 | awk '{print $1, $2}')
 
-          if [ -z "$all_caches" ] || [[ "$all_caches" == *"No caches found"* ]]; then
+          if [ -z "$all_caches" ]; then
             echo "| All | 0 | No caches found |" >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
-          echo "DEBUG: Current caches found:"
-          gh actions-cache list --limit 100
-          prefixes=("base-root" "base" "ffmpeg-build" "dl-cache")
+
+          prefixes=("index-base" "index-ffmpeg-build" "dl-cache" "buildkit-blob")
           total_deleted=0
 
           for prefix in "${prefixes[@]}"; do
-            # Ищем префикс в ПЕРВОЙ колонке (KEY), выводим ВТОРУЮ (ID)
-            # tail -n +3 оставляет 2 самых свежих кэша для каждого префикса
-            ids_to_delete=$(echo "$all_caches" | awk -v p="$prefix" '$1 ~ "^"p {print $2}' | tail -n +3)
+            # Собираем ID для удаления (пропускаем 3 самых свежих)
+            ids=$(echo "$all_caches" | grep "$prefix" | awk '{print $2}' | tail -n +4)
 
-            count=0
-            for id in $ids_to_delete; do
-              # Проверка, что ID - это число (защита от мусора в выводе)
-              if [[ "$id" =~ ^[0-9]+$ ]]; then
-                if gh actions-cache delete "$id" --confirm; then
-                  ((count++))
-                  ((total_deleted++))
-                fi
-              fi
-            done
+            if [ -n "$ids" ]; then
+              count=$(echo "$ids" | wc -l)
+              # Параллельное удаление: -P 10 (10 одновременных запросов)
+              echo "$ids" | xargs -P 10 -I {} gh actions-cache delete "{}" --confirm
 
-            if [ $count -gt 0 ]; then
-              echo "| $prefix | $count | ✅ Cleaned |" >> $GITHUB_STEP_SUMMARY
+              ((total_deleted += count))
+              echo "| $prefix | $count | ✅ Parallel Cleaned |" >> $GITHUB_STEP_SUMMARY
             else
-              echo "| $prefix | 0 | 🧊 Kept current |" >> $GITHUB_STEP_SUMMARY
+              echo "| $prefix | 0 | 🧊 Kept fresh |" >> $GITHUB_STEP_SUMMARY
             fi
           done
 
-          # Финальная зачистка лимитов (оставляем максимум 15 любых кэшей всего)
-          remaining_ids=$(echo "$all_caches" | awk '{print $2}' | tail -n +16)
-          extra_count=0
-          for id in $remaining_ids; do
-            if [[ "$id" =~ ^[0-9]+$ ]]; then
-              if gh actions-cache delete "$id" --confirm; then
-                ((extra_count++))
-                ((total_deleted++))
-              fi
-            fi
-          done
-
-          if [ $extra_count -gt 0 ]; then
-            echo "| Other/Old | $extra_count | 🗑️ Forced cleanup |" >> $GITHUB_STEP_SUMMARY
+          extra_ids=$(gh actions-cache list --limit 500 | awk '{print $2}' | tail -n +61)
+          if [ -n "$extra_ids" ]; then
+            extra_count=$(echo "$extra_ids" | wc -l)
+            echo "$extra_ids" | xargs -P 10 -I {} gh actions-cache delete "{}" --confirm
+            ((total_deleted += extra_count))
+            echo "| Over limit | $extra_count | 🗑️ Forced cleanup |" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo -e "\n**Total caches removed:** $total_deleted" >> $GITHUB_STEP_SUMMARY
@@ -291,7 +276,6 @@ jobs:
           # Удалить ВСЕ кэши, содержащие "buildkit" (blobs) в названии
           # gh actions-cache delete --github-token ${{ secrets.GITHUB_TOKEN }} --keyword "buildkit" --confirm
         env:
-          GITHUB_TOKEN: ${{ github.token }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Final Artifacts

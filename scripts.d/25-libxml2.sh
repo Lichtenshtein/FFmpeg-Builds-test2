@@ -50,7 +50,7 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS -DLIBXML_STATIC -DXML_STATIC" \
         CPPFLAGS="$CPPFLAGS -DLIBXML_STATIC -DXML_STATIC -I$FFBUILD_PREFIX/include" \
         LDFLAGS="$LDFLAGS" \
-        LIBS="$XML_DEPS $LIBS -lstdc++" \
+        LIBS="$XML_DEPS $LIBS" \
         AR="${FFBUILD_TOOLCHAIN}-gcc-ar" \
         NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
         RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib" \
@@ -68,7 +68,7 @@ ffbuild_dockerbuild() {
         # форсируем флаги статики в Cflags
         sed -i "/^Cflags:/ s/$/ -DLIBXML_STATIC -DXML_STATIC/" "$PC_FILE"
         # полный хвост зависимостей в Libs.private (сначала либы, потом системные)
-        sed -i "s|^Libs.private:.*|Libs.private: $XML_DEPS -lws2_32 -lbcrypt $LIBS|" "$PC_FILE"
+        sed -i "s|^Libs.private:.*|Libs.private: $XML_DEPS -lstdc++ -lws2_32 -lbcrypt $LIBS|" "$PC_FILE"
     fi
 
     get_deps_list

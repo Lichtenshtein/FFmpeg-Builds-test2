@@ -59,13 +59,16 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS" \
         CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include/libxml2" \
         LDFLAGS="$LDFLAGS" \
-        LIBS="$FC_LIBS $LIBS"
+        LIBS="$FC_LIBS $LIBS" \
+        CC="${FFBUILD_TOOLCHAIN}-gcc" \
+        CXX="${FFBUILD_TOOLCHAIN}-g++"
 
-    make -j$(nproc) $MAKE_V
+    # принудительно используем g++ для финальной линковки инструментов
+    make -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++"
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # Удаляем мусор и фиксим .pc
     clean_la_files
+
     rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{var,etc}
 
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/fontconfig.pc"

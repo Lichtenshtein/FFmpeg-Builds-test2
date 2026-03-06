@@ -415,7 +415,7 @@ if [[ -z "$VARS_INFRA_APPLIED" ]]; then
     export VARS_INFRA_APPLIED=1
 
     # Получаем список системных либ
-    SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lpthread"
+    SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lpthread -lstdc++"
     export LIBS="$LIBS $SYSTEM_LIBS"
     BASE_CFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
     BASE_CPPFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32"
