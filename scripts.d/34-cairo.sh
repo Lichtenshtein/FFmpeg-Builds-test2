@@ -29,6 +29,7 @@ ffbuild_dockerbuild() {
     # Определяем путь к sysroot тулчейна для поиска gdi32, opengl32 и т.д.
     local MINGW_SYSROOT=$($CC -print-sysroot)
     local MINGW_LIBDIR="${MINGW_SYSROOT}/lib"
+    local MINGW_INCDIR="${MINGW_SYSROOT}/include"
 
     # Набор системных библиотек Windows для Cairo
     local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lole32 -luuid"
@@ -51,14 +52,13 @@ ffbuild_dockerbuild() {
         -Dxcb=disabled
         -Dxlib=disabled
         -Dzlib=enabled
-        # Флаги компиляции для статики
-        -Dc_args="$CFLAGS -DCAIRO_WIN32_STATIC_BUILD"
-        -Dcpp_args="$CXXFLAGS -DCAIRO_WIN32_STATIC_BUILD"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     meson setup "${myconf[@]}" .. \
+        -Dc_args="$CFLAGS -DCAIRO_WIN32_STATIC_BUILD -I${MINGW_INCDIR}" \
+        -Dcpp_args="$CXXFLAGS -DCAIRO_WIN32_STATIC_BUILD -I${MINGW_INCDIR}" \
         -Dc_link_args="$LDFLAGS -L${MINGW_LIBDIR} $DEP_LIBS $WIN_LIBS $LIBS" \
         -Dcpp_link_args="$LDFLAGS -L${MINGW_LIBDIR} $DEP_LIBS $WIN_LIBS $LIBS"
 
