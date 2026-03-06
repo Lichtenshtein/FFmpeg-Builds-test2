@@ -133,7 +133,7 @@ git-mini-clone() {
     # Возвращаемся в исходную директорию
     _cleanup_git_clone
     if [[ $success -eq 0 ]]; then
-        log_error "${CROSS_MARK} Error: Failed to clone $REPO at $COMMIT"
+        log_error "${CROSS_MARK} ERROR: Failed to clone $REPO at $COMMIT"
         return 1
     fi
     return 0
