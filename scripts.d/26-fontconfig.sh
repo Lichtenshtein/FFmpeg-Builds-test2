@@ -64,8 +64,9 @@ ffbuild_dockerbuild() {
         CXX="${FFBUILD_TOOLCHAIN}-g++"
 
     # принудительно используем g++ для финальной линковки инструментов
-    make -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++"
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -C src -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++"
+    make -C src install DESTDIR="$FFBUILD_DESTDIR"
+    make install-data-am DESTDIR="$FFBUILD_DESTDIR"
 
     clean_la_files
 
