@@ -1,9 +1,6 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/arthenica/libiconv.git"
-SCRIPT_COMMIT="30fc26493e4c6457000172d49b526be0919e34c6"
-
-# SCRIPT_REPO="https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.18.tar.gz"
+SCRIPT_REPO="https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.18.tar.gz"
 
 # SCRIPT_REPO2="https://git.savannah.gnu.org/git/libiconv.git"
 # SCRIPT_MIRROR2="git://git.git.savannah.gnu.org/libiconv.git"
@@ -18,13 +15,13 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    default_dl .
+    # default_dl .
     # echo "git-mini-clone \"$SCRIPT_MIRROR\" \"$SCRIPT_COMMIT\" ."
     # echo "git-mini-clone \"$SCRIPT_MIRROR2\" \"$SCRIPT_COMMIT2\" gnulib"
     # Качаем архив напрямую через curl
-    # echo "download_file \"$SCRIPT_REPO\" \"libiconv.tar.gz\""
-    # echo "tar -xaf libiconv.tar.gz --strip-components=1"
-    # echo "rm libiconv.tar.gz"
+    echo "download_file \"$SCRIPT_REPO\" \"libiconv.tar.gz\""
+    echo "tar -xaf libiconv.tar.gz --strip-components=1"
+    echo "rm libiconv.tar.gz"
 }
 
 ffbuild_dockerbuild() {
