@@ -26,9 +26,13 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
+    # Определяем путь к sysroot тулчейна для поиска gdi32, opengl32 и т.д.
+    local MINGW_SYSROOT=$($CC -print-sysroot)
+    local MINGW_LIBDIR="${MINGW_SYSROOT}/lib"
+
     # Набор системных библиотек Windows для Cairo
-    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lole32 -luuid"
-    # Зависимости из вашего чит-листа в правильном порядке линковки
+    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lole32 -luuid"
+    # Зависимости из чит-листа в правильном порядке линковки
     local DEP_LIBS="-lfontconfig -lexpat -lfreetype -lharfbuzz -lharfbuzz-icu -lsicuin -lsicuuc -lsicudt -lpixman-1 -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon -lglib-2.0 -lintl -liconv -lcharset"
 
     local myconf=(
@@ -46,6 +50,7 @@ ffbuild_dockerbuild() {
         -Dtests=disabled
         -Dxcb=disabled
         -Dxlib=disabled
+        -Dopengl=enabled
         -Dzlib=enabled
         # Флаги компиляции для статики
         -Dc_args="$CFLAGS -DCAIRO_WIN32_STATIC_BUILD"
@@ -55,8 +60,8 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     meson setup "${myconf[@]}" .. \
-        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS $LIBS" \
-        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS $LIBS"
+        -Dc_link_args="$LDFLAGS -L${MINGW_LIBDIR} $DEP_LIBS $WIN_LIBS $LIBS" \
+        -Dcpp_link_args="$LDFLAGS -L${MINGW_LIBDIR} $DEP_LIBS $WIN_LIBS $LIBS"
 
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
