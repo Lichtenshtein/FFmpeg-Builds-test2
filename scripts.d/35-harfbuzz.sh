@@ -51,8 +51,8 @@ ffbuild_dockerbuild() {
         -Ddirectwrite=enabled
         -Dgdi=enabled
         -Dbenchmark=disabled
-        -Dcpp_args="$CXXFLAGS -DHARFBUZZ_STATIC"
-        -Dc_args="$CFLAGS -DHARFBUZZ_STATIC"
+        -Dcpp_args="$CXXFLAGS -DHARFBUZZ_STATIC -Wno-redundant-decls"
+        -Dc_args="$CFLAGS -DHARFBUZZ_STATIC -Wno-redundant-decls"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
