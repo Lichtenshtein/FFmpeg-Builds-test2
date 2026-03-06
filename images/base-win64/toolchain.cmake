@@ -25,5 +25,5 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 
 # Полезные флаги для статики
-set(CMAKE_C_FLAGS_INIT "-I/opt/ffbuild/include -D_WIN32_WINNT=0x0A00")
-set(CMAKE_CXX_FLAGS_INIT "-I/opt/ffbuild/include -D_WIN32_WINNT=0x0A00")
+# set(CMAKE_C_FLAGS_INIT "-I/opt/ffbuild/include -D_WIN32_WINNT=0x0A00")
+# set(CMAKE_CXX_FLAGS_INIT "-I/opt/ffbuild/include -D_WIN32_WINNT=0x0A00")

@@ -219,11 +219,12 @@ if [[ -z "$FFBUILD_SYSROOT" ]]; then
     export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/sysroot"
 fi
 
+export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
 # PKG_CONFIG_LIBDIR должен включать И префикс, И системный путь тулчейна
 export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
 export PKG_CONFIG_SYSROOT_DIR="$FFBUILD_SYSROOT"
 # Убираем PATH, чтобы pkg-config не лез в систему хоста (Linux)
-unset PKG_CONFIG_PATH
+# unset PKG_CONFIG_PATH
 # Принудительно включаем статический поиск для pkg-config во всех под-скриптах
 export PKG_CONFIG_STATIC=1
 
@@ -427,10 +428,8 @@ if [[ -z "$VARS_INFRA_APPLIED" ]]; then
     export LIBS="$LIBS $SYSTEM_LIBS"
     BASE_CFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
     BASE_CPPFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32"
-    export CFLAGS="$CFLAGS -I$FFBUILD_PREFIX/include $BASE_CFLAGS"
-    export CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include $BASE_CPPFLAGS"
-    export CXXFLAGS="$CXXFLAGS -I$FFBUILD_PREFIX/include -std=c++17"
-    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib -lstdc++"
+    export CFLAGS="$CFLAGS $BASE_CFLAGS"
+    export CPPFLAGS="$CPPFLAGS $BASE_CPPFLAGS"
+    export CXXFLAGS="$CXXFLAGS -std=c++17"
+    export LDFLAGS="$LDFLAGS -lstdc++"
 fi
-
-# "-DARCHIVE_STATIC -DBROTLI_STATIC -DCAIRO_WIN32_STATIC_BUILD -DCURL_STATICLIB -DGLIB_STATIC_COMPILATION -DHARFBUZZ_STATIC -DIB_STATIC -DICONV_STATIC -DLIBJPEG_STATIC -DLIBSSH_STATIC -DVAPOURSYNTH_STATIC -DLIBTIFF_STATIC -DLIBXML_STATIC -DPANGO_STATIC_COMPILATION -DWEBP_STATIC -DXML_STATIC -DZLIB_STATIC -DZSTD_STATIC_LINKING -D_WIN32 -D_WIN32_WINNT=0x0A00"
