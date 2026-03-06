@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '10-mingw-std-threads|10-mingw|14-base|15-libicu|16-libiconv|17-freetype|17-gettext|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|25-openssl|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|26-libssh|27-curl|27-libwebp|29-libarchive|34-cairo|35-harfbuzz|40-freetype|40-pango|45-lcms2|45-libtensorflow-test|47-leptonica-test|50-tesseract-test'
+        default: '10-mingw-std-threads|10-mingw|14-base|15-libicu|16-libiconv|17-freetype|17-gettext|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|25-openssl|26-pixman|26-fontconfig'
         # default: '.*'
       doClean:
         description: 'Clean cache before build (Full Rebuild)'
@@ -230,14 +230,13 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
-          gh extension install actions/gh-actions-cache || true
-          
           echo "### 🚀 Fast Cache Cleanup Report" >> $GITHUB_STEP_SUMMARY
           echo "| Cache Group | Deleted | Status |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
 
-          # Получаем список (KEY ID). Лимит 500 для охвата всех 292+ файлов.
-          all_caches=$(gh actions-cache list --limit 100 | awk '{print $1, $2}')
+          all_caches=$(gh api -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/actions/caches?per_page=100 \
+            --jq '.actions_caches[] | "\(.key) \(.id)"')
 
           if [ -z "$all_caches" ]; then
             echo "| All | 0 | No caches found |" >> $GITHUB_STEP_SUMMARY
@@ -248,27 +247,24 @@ jobs:
           total_deleted=0
 
           for prefix in "${prefixes[@]}"; do
-            # Собираем ID для удаления (пропускаем 3 самых свежих)
             ids=$(echo "$all_caches" | grep "$prefix" | awk '{print $2}' | tail -n +4)
-
             if [ -n "$ids" ]; then
               count=$(echo "$ids" | wc -l)
-              # Параллельное удаление: -P 10 (10 одновременных запросов)
-              echo "$ids" | xargs -P 10 -I {} gh actions-cache delete "{}" --confirm
-
+              echo "$ids" | xargs -P 10 -I {} sh -c "gh api -X DELETE /repos/${{ github.repository }}/actions/caches/{} || true"
+              
               ((total_deleted += count))
-              echo "| $prefix | $count | ✅ Parallel Cleaned |" >> $GITHUB_STEP_SUMMARY
+              echo "| $prefix | $count | ✅ Cleaned |" >> $GITHUB_STEP_SUMMARY
             else
               echo "| $prefix | 0 | 🧊 Kept fresh |" >> $GITHUB_STEP_SUMMARY
             fi
           done
 
-          extra_ids=$(gh actions-cache list --limit 100 | awk '{print $2}' | tail -n +61)
+          extra_ids=$(echo "$all_caches" | awk '{print $2}' | tail -n +61)
           if [ -n "$extra_ids" ]; then
             extra_count=$(echo "$extra_ids" | wc -l)
-            echo "$extra_ids" | xargs -P 10 -I {} gh actions-cache delete "{}" --confirm
+            echo "$extra_ids" | xargs -P 10 -I {} sh -c "gh api -X DELETE /repos/${{ github.repository }}/actions/caches/{} || true"
             ((total_deleted += extra_count))
-            echo "| Over limit | $extra_count | 🗑️ Forced cleanup |" >> $GITHUB_STEP_SUMMARY
+            echo "| Total Limit | $extra_count | 🗑️ Forced |" >> $GITHUB_STEP_SUMMARY
           fi
 
           echo -e "\n**Total caches removed:** $total_deleted" >> $GITHUB_STEP_SUMMARY
