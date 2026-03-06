@@ -237,7 +237,7 @@ jobs:
           echo "| :--- | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
 
           # Получаем список (KEY ID). Лимит 500 для охвата всех 292+ файлов.
-          all_caches=$(gh actions-cache list --limit 500 | awk '{print $1, $2}')
+          all_caches=$(gh actions-cache list --limit 100 | awk '{print $1, $2}')
 
           if [ -z "$all_caches" ]; then
             echo "| All | 0 | No caches found |" >> $GITHUB_STEP_SUMMARY
@@ -263,7 +263,7 @@ jobs:
             fi
           done
 
-          extra_ids=$(gh actions-cache list --limit 500 | awk '{print $2}' | tail -n +61)
+          extra_ids=$(gh actions-cache list --limit 100 | awk '{print $2}' | tail -n +61)
           if [ -n "$extra_ids" ]; then
             extra_count=$(echo "$extra_ids" | wc -l)
             echo "$extra_ids" | xargs -P 10 -I {} gh actions-cache delete "{}" --confirm
