@@ -1,6 +1,9 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://git.savannah.gnu.org/git/libcdio.git"
+SCRIPT_REPO="https://github.com/libcdio/libcdio.git"
+SCRIPT_COMMIT="8ae422639ed4085632dd4f3b5b6feecf3f0f6143"
+
+SCRIPT_REPO2="https://git.savannah.gnu.org/git/libcdio.git"
 
 ffbuild_enabled() {
     return 0
