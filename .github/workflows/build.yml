@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '10-mingw-std-threads|10-mingw|14-base|15-libicu|16-libiconv|17-freetype|17-gettext|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|25-openssl|26-pixman|26-fontconfig'
+        default: '10-mingw-std-threads|10-mingw|14-base|15-libicu|16-libiconv|17-freetype|17-gettext|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|25-openssl|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|26-libssh|27-curl|27-libwebp|29-libarchive|34-cairo|35-harfbuzz|40-freetype|40-pango|45-lcms2|45-libtensorflow-test|47-leptonica-test|50-tesseract-test'
         # default: '.*'
       doClean:
         description: 'Clean cache before build (Full Rebuild)'
@@ -230,44 +230,38 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
-          echo "### 🚀 Fast Cache Cleanup Report" >> $GITHUB_STEP_SUMMARY
-          echo "| Cache Group | Deleted | Status |" >> $GITHUB_STEP_SUMMARY
+          gh extension install actions/gh-actions-cache || true
+
+          echo "### 🧹 Cache Cleanup Report" >> $GITHUB_STEP_SUMMARY
+          echo "| Scope | Deleted | Status |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
 
-          all_caches=$(gh api -H "Accept: application/vnd.github+json" \
-            /repos/${{ github.repository }}/actions/caches?per_page=100 \
-            --jq '.actions_caches[] | "\(.key) \(.id)"')
-
-          if [ -z "$all_caches" ]; then
-            echo "| All | 0 | No caches found |" >> $GITHUB_STEP_SUMMARY
-            exit 0
-          fi
-
-          prefixes=("index-base" "index-ffmpeg-build" "dl-cache" "buildkit-blob")
           total_deleted=0
+          for scope in "index-base-root" "index-base" "index-ffmpeg-build" "dl-cache" "buildkit-blob"; do
+            echo "Checking scope: $scope"
+            # Получаем ID всех кэшей этой группы (сортировка от новых к старым)
+            # tail -n +4 удаляет всё, кроме 3-х самых новых
+            ids=$(gh actions-cache list --limit 100 | grep "$scope" | awk '{print $2}' | tail -n +4)
 
-          for prefix in "${prefixes[@]}"; do
-            ids=$(echo "$all_caches" | grep "$prefix" | awk '{print $2}' | tail -n +4)
             if [ -n "$ids" ]; then
               count=$(echo "$ids" | wc -l)
-              echo "$ids" | xargs -P 10 -I {} sh -c "gh api -X DELETE /repos/${{ github.repository }}/actions/caches/{} || true"
-              
-              ((total_deleted += count))
-              echo "| $prefix | $count | ✅ Cleaned |" >> $GITHUB_STEP_SUMMARY
+              echo "$ids" | xargs -P 10 -I {} gh actions-cache delete "{}" --confirm || true
+              total_deleted=$((total_deleted + count))
+              echo "| $scope | $count | ✅ Cleaned |" >> $GITHUB_STEP_SUMMARY
             else
-              echo "| $prefix | 0 | 🧊 Kept fresh |" >> $GITHUB_STEP_SUMMARY
+              echo "| $scope | 0 | 🧊 Kept fresh |" >> $GITHUB_STEP_SUMMARY
             fi
           done
 
-          extra_ids=$(echo "$all_caches" | awk '{print $2}' | tail -n +61)
+          extra_ids=$(gh actions-cache list --limit 100 | awk '{print $2}' | tail -n +41)
           if [ -n "$extra_ids" ]; then
             extra_count=$(echo "$extra_ids" | wc -l)
-            echo "$extra_ids" | xargs -P 10 -I {} sh -c "gh api -X DELETE /repos/${{ github.repository }}/actions/caches/{} || true"
-            ((total_deleted += extra_count))
-            echo "| Total Limit | $extra_count | 🗑️ Forced |" >> $GITHUB_STEP_SUMMARY
+            echo "$extra_ids" | xargs -P 10 -I {} gh actions-cache delete "{}" --confirm || true
+            total_deleted=$((total_deleted + extra_count))
+            echo "| Other/Old | $extra_count | 🗑️ Forced |" >> $GITHUB_STEP_SUMMARY
           fi
 
-          echo -e "\n**Total caches removed:** $total_deleted" >> $GITHUB_STEP_SUMMARY
+          echo -e "\n**Total removed:** $total_deleted" >> $GITHUB_STEP_SUMMARY
 
           # Удалить ВСЕ кэши, содержащие "buildkit" (blobs) в названии
           # gh actions-cache delete --github-token ${{ secrets.GITHUB_TOKEN }} --keyword "buildkit" --confirm
