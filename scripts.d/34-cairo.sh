@@ -24,14 +24,16 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+find "${MINGW_SYSROOT}" -name "gdi32*" || true
+
     # Определяем путь к sysroot тулчейна для поиска gdi32, opengl32 и т.д.
     local MINGW_SYSROOT=$($CC -print-sysroot)
     local MINGW_LIBDIR="${MINGW_SYSROOT}/lib"
     local MINGW_INCDIR="${MINGW_SYSROOT}/include"
 
     cat <<EOF > cairo_cross.txt
-[include]
-'/cross.meson'
+# [include]
+# '/cross.meson'
 
 [host_machine]
 system = 'windows'
@@ -58,8 +60,6 @@ cpp_args = ['-I${FFBUILD_PREFIX}/include', '-I${MINGW_INCDIR}', '-DCAIRO_WIN32_S
 c_link_args = ['-L${FFBUILD_PREFIX}/lib', '-L${MINGW_LIBDIR}', '-static-libgcc', '-static-libstdc++']
 cpp_link_args = ['-L${FFBUILD_PREFIX}/lib', '-L${MINGW_LIBDIR}', '-static-libgcc', '-static-libstdc++']
 EOF
-
-find "${MINGW_SYSROOT}" -name "gdi32*" || true
 
     # Набор системных библиотек Windows для Cairo
     local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lole32 -luuid"
