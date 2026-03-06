@@ -226,56 +226,56 @@ jobs:
           outputs: type=local,dest=artifacts/
           provenance: false
 
-      - name: Cleanup Old Caches
-        if: always()
-        continue-on-error: true
-        run: |
-          gh extension install actions/gh-actions-cache || true
+      # - name: Cleanup Old Caches
+        # if: always()
+        # continue-on-error: true
+        # run: |
+          # gh extension install actions/gh-actions-cache || true
 
-          echo "### 🛡️ Safe Cache Cleanup Report" >> $GITHUB_STEP_SUMMARY
-          echo "| Group | Saved | Deleted | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "| :--- | :---: | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
+          # echo "### 🛡️ Safe Cache Cleanup Report" >> $GITHUB_STEP_SUMMARY
+          # echo "| Group | Saved | Deleted | Status |" >> $GITHUB_STEP_SUMMARY
+          # echo "| :--- | :---: | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
 
-          all_caches=$(gh actions-cache list --limit 100 --sort created-at --order desc | awk '{print $1, $2}')
+          # all_caches=$(gh actions-cache list --limit 100 --sort created-at --order desc | awk '{print $1, $2}')
 
-          if [ -z "$all_caches" ]; then
-            echo "| All | 0 | 0 | No caches |" >> $GITHUB_STEP_SUMMARY
-            exit 0
-          fi
+          # if [ -z "$all_caches" ]; then
+            # echo "| All | 0 | 0 | No caches |" >> $GITHUB_STEP_SUMMARY
+            # exit 0
+          # fi
 
-          prefixes=("index-base-root" "index-base" "index-ffmpeg-build" "dl-cache" "buildkit-blob")
-          total_deleted=0
+          # prefixes=("index-base-root" "index-base" "index-ffmpeg-build" "dl-cache" "buildkit-blob")
+          # total_deleted=0
 
-          for prefix in "${prefixes[@]}"; do
-            group_data=$(echo "$all_caches" | grep "$prefix")
+          # for prefix in "${prefixes[@]}"; do
+            # group_data=$(echo "$all_caches" | grep "$prefix")
 
-            if [ -n "$group_data" ]; then
-              ids_to_delete=$(echo "$group_data" | awk '{print $2}' | tail -n +6)
-              if [ -n "$ids_to_delete" ]; then
-                count=$(echo "$ids_to_delete" | wc -l)
-                echo "$ids_to_delete" | xargs -P 10 -I {} gh actions-cache delete "{}" --confirm || true
-                total_deleted=$((total_deleted + count))
-                echo "| $prefix | 5 | $count | ✅ Cleaned |" >> $GITHUB_STEP_SUMMARY
-              else
-                echo "| $prefix | ALL | 0 | 🧊 Kept all |" >> $GITHUB_STEP_SUMMARY
-              fi
-            fi
-          done
+            # if [ -n "$group_data" ]; then
+              # ids_to_delete=$(echo "$group_data" | awk '{print $2}' | tail -n +6)
+              # if [ -n "$ids_to_delete" ]; then
+                # count=$(echo "$ids_to_delete" | wc -l)
+                # echo "$ids_to_delete" | xargs -P 10 -I {} gh actions-cache delete "{}" --confirm || true
+                # total_deleted=$((total_deleted + count))
+                # echo "| $prefix | 5 | $count | ✅ Cleaned |" >> $GITHUB_STEP_SUMMARY
+              # else
+                # echo "| $prefix | ALL | 0 | 🧊 Kept all |" >> $GITHUB_STEP_SUMMARY
+              # fi
+            # fi
+          # done
 
-          other_ids=$(echo "$all_caches" | grep -vE "index-base|index-ffmpeg|dl-cache|buildkit" | awk '{print $2}' | tail -n +11)
-          if [ -n "$other_ids" ]; then
-             other_count=$(echo "$other_ids" | wc -l)
-             echo "$other_ids" | xargs -P 10 -I {} gh actions-cache delete "{}" --confirm || true
-             total_deleted=$((total_deleted + other_count))
-             echo "| Others | 10 | $other_count | 🗑️ Extra |" >> $GITHUB_STEP_SUMMARY
-          fi
+          # other_ids=$(echo "$all_caches" | grep -vE "index-base|index-ffmpeg|dl-cache|buildkit" | awk '{print $2}' | tail -n +11)
+          # if [ -n "$other_ids" ]; then
+             # other_count=$(echo "$other_ids" | wc -l)
+             # echo "$other_ids" | xargs -P 10 -I {} gh actions-cache delete "{}" --confirm || true
+             # total_deleted=$((total_deleted + other_count))
+             # echo "| Others | 10 | $other_count | 🗑️ Extra |" >> $GITHUB_STEP_SUMMARY
+          # fi
 
-          echo -e "\n**Total removed:** $total_deleted" >> $GITHUB_STEP_SUMMARY
+          # echo -e "\n**Total removed:** $total_deleted" >> $GITHUB_STEP_SUMMARY
 
           # Удалить ВСЕ кэши, содержащие "buildkit" (blobs) в названии
           # gh actions-cache delete --github-token ${{ secrets.GITHUB_TOKEN }} --keyword "buildkit" --confirm
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # env:
+          # GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Final Artifacts
         uses: actions/upload-artifact@v4
