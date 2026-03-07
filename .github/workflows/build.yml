@@ -273,7 +273,7 @@ jobs:
           # echo -e "\n**Total removed:** $total_deleted" >> $GITHUB_STEP_SUMMARY
 
           # # Удалить ВСЕ кэши, содержащие "buildkit" (blobs) в названии
-          gh actions-cache delete --github-token ${{ secrets.GITHUB_TOKEN }} --keyword "buildkit" --confirm
+          gh cache delete --github-token ${{ secrets.GITHUB_TOKEN }} --keyword "buildkit" --confirm
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -216,7 +216,8 @@ export CHOST="$FFBUILD_TOOLCHAIN"
 # Генерируем правильный SYSROOT
 export FFBUILD_SYSROOT="$(${CC} -print-sysroot 2>/dev/null)"
 if [[ -z "$FFBUILD_SYSROOT" ]]; then
-    export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/sysroot"
+    # export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/sysroot"
+    export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot"
 fi
 
 export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
