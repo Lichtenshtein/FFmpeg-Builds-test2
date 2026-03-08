@@ -36,6 +36,54 @@ log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 
 export -f log_info log_warn log_error log_debug
 
+export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
+export PATH="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${PATH}"
+export FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32"
+export FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}-
+export FFBUILD_PREFIX=/opt/ffbuild
+export FFBUILD_DESTDIR=/opt/ffdest
+export FFBUILD_DESTPREFIX=/opt/ffdest/opt/ffbuild
+export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
+export CHOST="$FFBUILD_TOOLCHAIN"
+export CC="${FFBUILD_TOOLCHAIN}-gcc"
+export CXX="${FFBUILD_TOOLCHAIN}-g++"
+export LD="${FFBUILD_TOOLCHAIN}-ld"
+export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
+export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
+export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
+export DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool"
+export OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump"
+export STRIP="${FFBUILD_TOOLCHAIN}-strip"
+export GENDEF="${FFBUILD_TOOLCHAIN}-gendef"
+export FFBUILD_SYSROOT="$(${CC} -print-sysroot 2>/dev/null)"
+if [[ -z "$FFBUILD_SYSROOT" ]]; then
+    export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}"
+fi
+# [ERROR]  Don't set LD_LIBRARY_PATH. It screws up the build.
+# unset LD_LIBRARY_PATH
+export PKG_CONFIG=pkg-config
+export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
+export PKG_CONFIG_STATIC=1
+
+# disable -fPIC, -ffast-math, -flto=auto if troubles occur
+# add -D_FORTIFY_SOURCE=2 for security
+# --as-needed is dangerous for static linking: when linking static libraries for Windows, if the linker sees a library before a symbol is requested, it will discard it.
+# LDFLAGS="-lssp" is it needed?
+# -Wl,--gc-sections, because of it the linker may throw out what it considers "unnecessary" sections from static libraries if dependencies are specified in the wrong order in .pc files
+# Stable:
+# CFLAGS="-O2 -march=x86-64-v3 -mtune=generic -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe"
+
+BASE_CFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
+BASE_CPPFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32"
+SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread -lstdc++"
+export LIBS="$SYSTEM_LIBS"
+export CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 -pthread -I/opt/ffbuild/include -pipe -fstack-protector-strong $BASE_CFLAGS"
+export CPPFLAGS="$BASE_CPPFLAGS"
+export CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 -pthread -I/opt/ffbuild/include -pipe -fstack-protector-strong -std=c++17"
+export LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pthread -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+export STAGE_CFLAGS="-fno-semantic-interposition"
+export STAGE_CXXFLAGS="-fno-semantic-interposition"
+
 if [[ $# -lt 2 ]]; then
     log_error "${CROSS_MARK} Invalid Arguments"
     # exit -1
@@ -210,13 +258,6 @@ ffbuild_enabled() {
     return 0
 }
 
-# export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
-# export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}"
-# export PATH="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${PATH}"
-# [ERROR]  Don't set LD_LIBRARY_PATH. It screws up the build.
-# export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
-unset LD_LIBRARY_PATH # Чтобы не злить ct-ng, если он запустится снова
-
 
 # 1 для подробных логов, в 0 для кратких
 # export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
@@ -377,17 +418,3 @@ fi
 
 # экспорт важных переменных MinGW, чтобы они пробрасывались в download.sh и run_stage.sh:
 export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE
-
-if [[ -z "$VARS_INFRA_APPLIED" ]]; then
-    export VARS_INFRA_APPLIED=1
-
-    # Получаем список системных либ
-    SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread -lstdc++"
-    export LIBS="$LIBS $SYSTEM_LIBS"
-    BASE_CFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
-    BASE_CPPFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32"
-    export CFLAGS="$CFLAGS $BASE_CFLAGS"
-    export CPPFLAGS="$CPPFLAGS $BASE_CPPFLAGS"
-    export CXXFLAGS="$CXXFLAGS -std=c++17"
-    export LDFLAGS="$LDFLAGS -pthread"
-fi
