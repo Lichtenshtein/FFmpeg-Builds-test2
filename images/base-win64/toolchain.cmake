@@ -4,8 +4,11 @@ set(CMAKE_SYSTEM_VERSION 10.0)
 
 set(triple x86_64-w64-mingw32)
 
-set(CMAKE_SYSROOT /opt/ct-ng/${triple}/sysroot/usr/${triple})
-set(CMAKE_FIND_ROOT_PATH /opt/ct-ng ${CMAKE_SYSROOT} /opt/ffbuild)
+# set(CMAKE_SYSROOT /opt/ct-ng/${triple}/sysroot/usr/${triple})
+# set(CMAKE_FIND_ROOT_PATH /opt/ct-ng ${CMAKE_SYSROOT} /opt/ffbuild)
+
+set(CMAKE_SYSROOT /opt/ct-ng/${triple}/sysroot)
+set(CMAKE_FIND_ROOT_PATH /opt/ct-ng /opt/ct-ng/${triple}/sysroot /opt/ffbuild)
 
 set(CMAKE_C_COMPILER ${triple}-gcc)
 set(CMAKE_CXX_COMPILER ${triple}-g++)
