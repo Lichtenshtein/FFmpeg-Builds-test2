@@ -24,76 +24,57 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-    # if [[ -z "$COMPILER_SYSROOT" ]]; then
-        # COMPILER_SYSROOT="$(${CC} -print-sysroot)/usr/${FFBUILD_TOOLCHAIN}"
-    # fi
-    # Определяем sysroot тулчейна (обычно /opt/ct-ng/x86_64-w64-mingw32)
-    local SYSROOT=$(${CC} -print-sysroot)
-    # Нам нужен относительный путь для DESTDIR
-    local REL_SYSROOT=${SYSROOT#/} 
-    local TEMP_INSTALL="/tmp/mingw_install"
-    
-    mkdir -p "$TEMP_INSTALL"
 
-    # Сбрасываем флаги, чтобы системная сборка не подхватила лишнего
+    local SYSROOT=$(${CC} -print-sysroot)
+    [[ -z "$SYSROOT" ]] && log_error "SYSROOT NOT FOUND" && exit 1
+
     unset CC CXX LD AR CPP LIBS CCAS
     unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
     unset PKG_CONFIG_LIBDIR
-    # Важно: используем инструменты тулчейна напрямую
-    local HOST_TRIPLET="$FFBUILD_TOOLCHAIN"
 
     ### 1. mingw-w64-headers
     (
         cd mingw-w64-headers
         ./configure \
             --prefix="$SYSROOT" \
-            --host="$HOST_TRIPLET" \
+            --host="$FFBUILD_TOOLCHAIN" \
             --with-default-win32-winnt="0x0A00" \
             --with-default-msvcrt=ucrt \
-            --enable-idl --enable-sdk=all
-        
-        make -j$(nproc) $MAKE_V
-        make install DESTDIR="$TEMP_INSTALL"
-        cp -a "$TEMP_INSTALL/$REL_SYSROOT/." "$SYSROOT/"
+            --enable-idl \
+            --enable-sdk=all
+        make install
     )
 
     ### 2. mingw-w64-crt
     (
         cd mingw-w64-crt
-        # Добавляем CPPFLAGS чтобы принудительно искать в обновленном sysroot
         export CPPFLAGS="-I$SYSROOT/include"
-        
         ./configure \
             --prefix="$SYSROOT" \
-            --host="$HOST_TRIPLET" \
+            --host="$FFBUILD_TOOLCHAIN" \
             --with-default-msvcrt=ucrt \
             --enable-wildcard \
             --disable-lib32 \
             --enable-lib64 \
             --disable-dependency-tracking # удалить про проблемах. Ускоряет и убирает лишние проверки
         make -j$(nproc) $MAKE_V
-        make install DESTDIR="$TEMP_INSTALL"
+        make install
     )
 
     ### 3. winpthreads
     (
         cd mingw-w64-libraries/winpthreads
-        export CPPFLAGS="-I$SYSROOT/include"
         ./configure \
             --prefix="$SYSROOT" \
             --host="$FFBUILD_TOOLCHAIN" \
-            --with-pic --disable-shared --enable-static
+            --with-pic \
+            --disable-shared \
+            --enable-static
 
         make -j$(nproc) $MAKE_V
-        make install DESTDIR="$TEMP_INSTALL"
+        make install
     )
 
-    log_info "Syncing Mingw-w64 headers and CRT to sysroot..."
-    # Копируем из временной папки в реальный sysroot компилятора
-    cp -a "$TEMP_INSTALL/$REL_SYSROOT/." "$SYSROOT/"
-
-    # Создаем артефакт для Docker-слоя (чтобы ffbuild_dockerlayer подхватил это)
     mkdir -p /opt/mingw
     cp -a "$SYSROOT/." /opt/mingw/
 
