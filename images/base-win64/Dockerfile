@@ -53,5 +53,3 @@ ENV  \
     CCACHE_DEPEND=1 \
     CCACHE_COMPRESS=1 \
     CCACHE_NOHASHDIR=1
-
-ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}"
