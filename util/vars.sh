@@ -37,7 +37,8 @@ log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 export -f log_info log_warn log_error log_debug
 
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
-MINGW_BIN="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin"
+MINGW_INTERNAL_BIN="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin"
+MINGW_WRAPPERS_BIN="/opt/ct-ng/bin"
 
 export FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32"
 export FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}-
@@ -46,42 +47,36 @@ export FFBUILD_DESTDIR=/opt/ffdest
 export FFBUILD_DESTPREFIX=/opt/ffdest/opt/ffbuild
 export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
 
-DEFAULT_CC="${FFBUILD_TOOLCHAIN}-gcc"
+export PATH="/usr/local/bin:/usr/bin:/bin:${MINGW_WRAPPERS_BIN}:${MINGW_INTERNAL_BIN}:${PATH}"
 
-if [[ "$(basename -- "$CC")" == "gcc" ]]; then
-    # Режим HOST (Linux)
-    export PATH="/usr/local/bin:/usr/bin:/bin"
-    unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS PKG_CONFIG_LIBDIR
-    export CFLAGS="-O2"
-    export CXXFLAGS="-O2"
-    log_info "--- HOST BUILD MODE DETECTED ---"
-else
-    # Режим TARGET (Windows)
-    export PATH="${MINGW_BIN}:/usr/local/bin:/usr/bin:/bin:${PATH}"
-    export CHOST="$FFBUILD_TOOLCHAIN"
-    export CC="$DEFAULT_CC"
-    export CXX="${FFBUILD_TOOLCHAIN}-g++"
-    export LD="${FFBUILD_TOOLCHAIN}-ld"
-    export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
-    export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
-    export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
-    export DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool"
-    export OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump"
-    export STRIP="${FFBUILD_TOOLCHAIN}-strip"
-    export GENDEF="${FFBUILD_TOOLCHAIN}-gendef"
+export CHOST="$FFBUILD_TOOLCHAIN"
+export CC="$DEFAULT_CC"
+export CXX="${FFBUILD_TOOLCHAIN}-g++"
+export LD="${FFBUILD_TOOLCHAIN}-ld"
+export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
+export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
+export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
+export DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool"
+export OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump"
+export STRIP="${FFBUILD_TOOLCHAIN}-strip"
+export GENDEF="${FFBUILD_TOOLCHAIN}-gendef"
 
-    # Вычисляем SYSROOT только для кросс-режима
-    export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}"
+export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}"
 
-    # Флаги Windows
-    export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
-    export PKG_CONFIG_STATIC=1
-    
-    export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
-    export CFLAGS="-O3 -march=broadwell -mtune=broadwell -D_WIN32_WINNT=0x0A00 -I/opt/ffbuild/include"
-    export CXXFLAGS="$CFLAGS -std=c++17"
-    export LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib"
-fi
+export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
+export PKG_CONFIG_STATIC=1
+
+BASE_CFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields -pthread"
+BASE_CPPFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -pthread"
+SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread -lstdc++"
+export LIBS="$SYSTEM_LIBS"
+export CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong"
+export CPPFLAGS="$BASE_CPPFLAGS"
+export CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong -std=c++17"
+export LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L$FFBUILD_PREFIX/lib -pthread -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+export STAGE_CFLAGS="-fno-semantic-interposition"
+export STAGE_CXXFLAGS="-fno-semantic-interposition"
+
 
 # disable -fPIC, -ffast-math, -flto=auto if troubles occur
 # add -D_FORTIFY_SOURCE=2 for security
