@@ -5,7 +5,7 @@ SCRIPT_COMMIT="3fedac28018c447ccdd9519c9d556340dfa1c87e"
 
 ffbuild_enabled() {
     # [[ $TARGET == win* ]] || return 1
-    return 0
+    return 1
 }
 
 ffbuild_dockerlayer() {
@@ -27,7 +27,7 @@ ffbuild_dockerbuild() {
 
     local COMP_SYS="$FFBUILD_SYSROOT"
 
-    unset CC CXX LD AR AS CPP CFLAGS CXXFLAGS LDFLAGS LIBS PKG_CONFIG_LIBDIR
+    unset CC CXX LD AR AS CPP CFLAGS CXXFLAGS LDFLAGS CPPFLAGS LIBS PKG_CONFIG_LIBDIR
 
     mkdir -p /opt/mingw
 
