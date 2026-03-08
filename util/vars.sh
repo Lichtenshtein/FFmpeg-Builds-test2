@@ -39,6 +39,7 @@ export -f log_info log_warn log_error log_debug
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 MINGW_INTERNAL_BIN="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin"
 MINGW_WRAPPERS_BIN="/opt/ct-ng/bin"
+unset PKG_CONFIG_SYSROOT_DIR
 
 export FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32"
 export FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}-
@@ -61,7 +62,7 @@ export OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump"
 export STRIP="${FFBUILD_TOOLCHAIN}-strip"
 export GENDEF="${FFBUILD_TOOLCHAIN}-gendef"
 
-export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}"
+# export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}"
 
 export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
 export PKG_CONFIG_STATIC=1
