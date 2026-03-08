@@ -93,7 +93,7 @@ jobs:
       - name: Install Host Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y subversion subversion-tools nasm yasm jq
+          sudo apt-get install -y subversion subversion-tools nasm yasm jq bc
 
       - name: Set Image Names
         id: images
@@ -228,51 +228,81 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
-          echo "### 🛡️ Safe Cache Cleanup Report" >> $GITHUB_STEP_SUMMARY
-          echo "| Group | Kept | Deleted | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "| :--- | :---: | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
+          echo "### 🛡️ Smart Cache Cleanup Report" >> $GITHUB_STEP_SUMMARY
+          echo "| Group | Kept | Deleted | Saved Size | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :---: | :---: | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
 
-          # Получаем список кэшей через JSON (ключи)
-          gh cache list --limit 1000 --json key > all_caches.json
+          gh cache list --limit 1000 --json key,size_in_bytes > all_caches.json
 
           if [[ $(jq '. | length' all_caches.json) -eq 0 ]]; then
-            echo "| All | 0 | 0 | No caches |" >> $GITHUB_STEP_SUMMARY
+            echo "| All | 0 | 0 | 0 MB | No caches |" >> $GITHUB_STEP_SUMMARY
             exit 0
           fi
 
+          delete_cache_smart() {
+            local key=$1
+            local attempt=1
+            while [ $attempt -le 3 ]; do
+              RESPONSE=$(gh cache delete "$key" 2>&1)
+              EXIT_CODE=$?
+
+              if [ $EXIT_CODE -eq 0 ]; then return 0; fi
+
+              if [[ "$RESPONSE" == *"403"* || "$RESPONSE" == *"rate limit"* ]]; then
+                echo "Rate limit hit, sleeping 10s (Attempt $attempt)..." >&2
+                sleep 10
+                attempt=$((attempt + 1))
+              else
+                return 1
+              fi
+            done
+          }
+          export -f delete_cache_smart
+
           prefixes=("index-base-root" "index-base" "index-ffmpeg-build" "dl-cache" "buildkit-blob")
-          total_deleted=0
+          grand_total_size=0
+          grand_total_deleted=0
 
           for prefix in "${prefixes[@]}"; do
-            keys=$(jq -r --arg pref "$prefix" '.[] | select(.key | startswith($pref)) | .key' all_caches.json | tail -n +9)
-            
-            if [ -n "$keys" ]; then
-              count=0
-              for key in $keys; do
-                gh cache delete "$key" || true
-                count=$((count + 1))
-                total_deleted=$((total_deleted + 1))
-                sleep 0.5 
-              done
-              echo "| $prefix | 8 | $count | ✅ Cleaned |" >> $GITHUB_STEP_SUMMARY
+            data=$(jq -r --arg pref "$prefix" '.[] | select(.key | startswith($pref)) | "\(.key)|\(.size_in_bytes)"' all_caches.json | tail -n +16)
+
+            if [ -n "$data" ]; then
+              keys=$(echo "$data" | cut -d'|' -f1)
+              sizes=$(echo "$data" | cut -d'|' -f2)
+
+              group_size_bytes=$(echo "$sizes" | awk '{s+=$1} END {print s}')
+              group_count=$(echo "$keys" | wc -l)
+
+              echo "$keys" | xargs -P 4 -I {} bash -c 'delete_cache_smart "{}"'
+
+              group_size_mb=$(echo "scale=2; $group_size_bytes / 1048576" | bc)
+              grand_total_size=$((grand_total_size + group_size_bytes))
+              grand_total_deleted=$((grand_total_deleted + group_count))
+
+              echo "| $prefix | 15 | $group_count | ${group_size_mb} MB | ✅ Cleaned |" >> $GITHUB_STEP_SUMMARY
             else
-              echo "| $prefix | ALL | 0 | 🧊 Kept all |" >> $GITHUB_STEP_SUMMARY
+              echo "| $prefix | ALL | 0 | 0 MB | 🧊 Kept all |" >> $GITHUB_STEP_SUMMARY
             fi
           done
 
-          other_keys=$(jq -r '.[] | .key' all_caches.json | grep -vE "index-base|index-ffmpeg|dl-cache|buildkit" | tail -n +16)
-          if [ -n "$other_keys" ]; then
-             other_count=0
-             for key in $other_keys; do
-                gh cache delete "$key" || true
-                other_count=$((other_count + 1))
-                total_deleted=$((total_deleted + 1))
-                sleep 0.5
-             done
-             echo "| Others | 15 | $other_count | 🗑️ Extra |" >> $GITHUB_STEP_SUMMARY
+          others=$(jq -r '.[] | select(.key as $k | ["index-base", "index-ffmpeg", "dl-cache", "buildkit"] | map(contains($k)) | any | not) | "\(.key)|\(.size_in_bytes)"' all_caches.json | tail -n +21)
+          if [ -n "$others" ]; then
+             other_keys=$(echo "$others" | cut -d'|' -f1)
+             other_sizes=$(echo "$others" | cut -d'|' -f2)
+             other_count=$(echo "$other_keys" | wc -l)
+             other_size_bytes=$(echo "$other_sizes" | awk '{s+=$1} END {print s}')
+
+             echo "$other_keys" | xargs -P 4 -I {} bash -c 'delete_cache_smart "{}"'
+
+             other_size_mb=$(echo "scale=2; $other_size_bytes / 1048576" | bc)
+             grand_total_size=$((grand_total_size + other_size_bytes))
+             grand_total_deleted=$((grand_total_deleted + other_count))
+             echo "| Others | 20 | $other_count | ${other_size_mb} MB | 🗑️ Extra |" >> $GITHUB_STEP_SUMMARY
           fi
 
-          echo -e "\n**Total removed:** $total_deleted" >> $GITHUB_STEP_SUMMARY
+          final_gb=$(echo "scale=2; $grand_total_size / 1073741824" | bc)
+          echo -e "\n**🚀 Total Purged:** $grand_total_deleted caches" >> $GITHUB_STEP_SUMMARY
+          echo -e "**📦 Total Space Recovered:** ${final_gb} GB" >> $GITHUB_STEP_SUMMARY
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
