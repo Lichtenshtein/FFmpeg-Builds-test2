@@ -48,14 +48,13 @@ export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
 
 DEFAULT_CC="${FFBUILD_TOOLCHAIN}-gcc"
 
-if [[ "$CC" == "gcc" ]]; then
+if [[ "$(basename -- "$CC")" == "gcc" ]]; then
     # Режим HOST (Linux)
-    export PATH="/usr/local/bin:/usr/bin:/bin:${MINGW_BIN}:${PATH}"
-    unset PKG_CONFIG_LIBDIR
-    unset PKG_CONFIG_PATH
-    export CFLAGS="-O2 -pipe"
-    export CXXFLAGS="-O2 -pipe"
-    export LDFLAGS=""
+    export PATH="/usr/local/bin:/usr/bin:/bin"
+    unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS PKG_CONFIG_LIBDIR
+    export CFLAGS="-O2"
+    export CXXFLAGS="-O2"
+    log_info "--- HOST BUILD MODE DETECTED ---"
 else
     # Режим TARGET (Windows)
     export PATH="${MINGW_BIN}:/usr/local/bin:/usr/bin:/bin:${PATH}"
@@ -72,8 +71,7 @@ else
     export GENDEF="${FFBUILD_TOOLCHAIN}-gendef"
 
     # Вычисляем SYSROOT только для кросс-режима
-    export FFBUILD_SYSROOT="$($CC -print-sysroot 2>/dev/null)"
-    [[ -z "$FFBUILD_SYSROOT" ]] && export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}"
+    export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}"
 
     # Флаги Windows
     export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
