@@ -48,7 +48,7 @@ ffbuild_dockerbuild() {
     # Принудительно задаем AR как gcc-ar для стабильности архивации
     ./autogen.sh "${myconf[@]}" \
         CFLAGS="$CFLAGS -DLIBXML_STATIC -DXML_STATIC" \
-        CPPFLAGS="$CPPFLAGS -DLIBXML_STATIC -DXML_STATIC -I$FFBUILD_PREFIX/include" \
+        CPPFLAGS="$CPPFLAGS -DLIBXML_STATIC -DXML_STATIC" \
         LDFLAGS="$LDFLAGS" \
         LIBS="$XML_DEPS $LIBS" \
         AR="${FFBUILD_TOOLCHAIN}-gcc-ar" \

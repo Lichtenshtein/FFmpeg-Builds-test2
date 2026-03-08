@@ -12,17 +12,9 @@ nasm = '/usr/bin/nasm'
 # Заменяем wine на заглушку или убираем, если тесты не нужны
 # exe_wrapper = 'wine' 
 
-[built-in options]
-# Эти флаги будут применяться ко ВСЕМ Meson-сборкам
-c_args = ['$CFLAGS']
-cpp_args = ['$CXXFLAGS']
-c_link_args = ['$LDFLAGS']
-cpp_link_args = ['$LDFLAGS']
-
 [properties]
 # путь к системным либам ct-ng (проверить имя: sysroot или sys-root)
 # sys_root = '/opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/sysroot'
-sys_root = '/opt/ct-ng/x86_64-w64-mingw32/sysroot'
 # говорим Meson: "Верь мне на слово, кросс-компилятор работает".
 needs_exe_wrapper = true
 

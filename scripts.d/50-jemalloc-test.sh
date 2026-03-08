@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    export CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include"
+    export CPPFLAGS="$CPPFLAGS"
 
     echo "Libs.private: @LIBS@" >> jemalloc.pc.in
     echo "jemalloc_prefix=@JEMALLOC_PREFIX@" >> jemalloc.pc.in
