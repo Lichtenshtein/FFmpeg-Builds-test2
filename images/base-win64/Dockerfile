@@ -58,8 +58,6 @@ ENV  \
 # -Wl,--gc-sections, because of it the linker may throw out what it considers "unnecessary" sections from static libraries if dependencies are specified in the wrong order in .pc files
 # Stable:
 # CFLAGS="-O2 -march=x86-64-v3 -mtune=generic -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe"
-# PKG_CONFIG_LIBDIR=/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig
-# FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/sysroot"
 
 ENV  \
     PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
@@ -80,13 +78,20 @@ ENV  \
     OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump" \
     STRIP="${FFBUILD_TOOLCHAIN}-strip" \
     GENDEF="${FFBUILD_TOOLCHAIN}-gendef" \
-    FFBUILD_SYSROOT="$(${CC} -print-sysroot)" \
-    PKG_CONFIG=pkg-config \
-    PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig" \
-    PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig" \
-    PKG_CONFIG_STATIC=1 \
     CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
     CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
     LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216" \
     STAGE_CFLAGS="-fno-semantic-interposition" \
     STAGE_CXXFLAGS="-fno-semantic-interposition"
+
+ENV  \
+    FFBUILD_SYSROOT="$(${CC} -print-sysroot)" \
+
+# PKG_CONFIG_LIBDIR=/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig
+# FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/sysroot"
+
+ENV  \
+    PKG_CONFIG=pkg-config \
+    PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig" \
+    PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig" \
+    PKG_CONFIG_STATIC=1
