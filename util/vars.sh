@@ -194,7 +194,7 @@ ffbuild_unldflags() {
 ffbuild_libs() {
     log_debug "Adding system libraries for Win64" >&2
     # Только системные либы
-    echo "-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lstdc++ -lws2_32 -lbcrypt -lpthread"
+    echo "-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lstdc++ -lws2_32 -lbcrypt -pthread"
 }
 
 ffbuild_unlibs() {
@@ -209,36 +209,6 @@ ffbuild_dockerdl() {
 ffbuild_enabled() {
     return 0
 }
-
-export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
-# Явно задаем хост-систему для Autotools
-export CHOST="$FFBUILD_TOOLCHAIN"
-# Генерируем правильный SYSROOT
-export FFBUILD_SYSROOT="$(${CC} -print-sysroot 2>/dev/null)"
-if [[ -z "$FFBUILD_SYSROOT" ]]; then
-    # export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/sysroot"
-    export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot"
-fi
-
-export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
-# PKG_CONFIG_LIBDIR должен включать И префикс, И системный путь тулчейна
-export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
-export PKG_CONFIG_SYSROOT_DIR="$FFBUILD_SYSROOT"
-# Убираем PATH, чтобы pkg-config не лез в систему хоста (Linux)
-# unset PKG_CONFIG_PATH
-# Принудительно включаем статический поиск для pkg-config во всех под-скриптах
-export PKG_CONFIG_STATIC=1
-
-# Убеждаемся, что все инструменты имеют префикс
-export CC="${FFBUILD_TOOLCHAIN}-gcc"
-# Форсируем C++ рантайм для всех CC
-# export CC="${FFBUILD_TOOLCHAIN}-g++"
-export CXX="${FFBUILD_TOOLCHAIN}-g++"
-export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
-export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
-export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
-export OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump"
-export STRIP="${FFBUILD_TOOLCHAIN}-strip"
 
 # 1 для подробных логов, в 0 для кратких
 # export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
@@ -380,29 +350,8 @@ apply_patches() {
 }
 export -f apply_patches
 
-# Конфигурация ccache
-export CCACHE_DIR=/root/.cache/ccache
-export CCACHE_MAXSIZE=20G
-export CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros,file_macro,pch_defines"
-export CCACHE_BASEDIR="/builder"
-export CCACHE_COMPILERCHECK="content"
-export CCACHE_DEPEND="1"
-export CCACHE_COMPRESS=1
-export CCACHE_NOHASHDIR=1
-
-# Базовые настройки Wine
-export WINEARCH=win64
-export WINEPREFIX="/root/.wine"
-export DISPLAY=:99
-export WINEDEBUG=-all
-export WINEDLLOVERRIDES="mscoree,mshtml=" # Отключаем попытки скачивания Mono/Gecko
-# Пути к бинарникам Wine (Noble)
-export WINE_BIN_DIR="/opt/wine-stable/bin"
-export PATH="$WINE_BIN_DIR:${PATH}"
-# Пути к библиотекам Wine (нужны для работы самого wine64)
-export LD_LIBRARY_PATH="/opt/wine-stable/lib64:/opt/wine-stable/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
 # Динамическое определение путей тулчейна
-# Ищем, где реально лежат заголовочные файлы и либы mingw в вашем образе
+# Ищем, где реально лежат заголовочные файлы и либы mingw в образе
 # /opt/ct-ng/x86_64-w64-mingw32/sysroot/usr/x86_64-w64-mingw32/bin/
 # Проверяем, находимся ли мы внутри Docker (где есть тулчейн)
 if [ -d "/opt/ct-ng" ]; then
@@ -425,12 +374,12 @@ if [[ -z "$VARS_INFRA_APPLIED" ]]; then
     export VARS_INFRA_APPLIED=1
 
     # Получаем список системных либ
-    SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lpthread -lstdc++"
+    SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread -lstdc++"
     export LIBS="$LIBS $SYSTEM_LIBS"
-    BASE_CFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
-    BASE_CPPFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32"
+    BASE_CFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
+    BASE_CPPFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32"
     export CFLAGS="$CFLAGS $BASE_CFLAGS"
     export CPPFLAGS="$CPPFLAGS $BASE_CPPFLAGS"
     export CXXFLAGS="$CXXFLAGS -std=c++17"
-    export LDFLAGS="$LDFLAGS -lstdc++"
+    export LDFLAGS="$LDFLAGS -pthread"
 fi

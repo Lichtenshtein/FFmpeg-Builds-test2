@@ -49,10 +49,6 @@ ffbuild_dockerbuild() {
         -DCONFIG_PIC=1
     )
 
-    # Принудительно передаем правильный путь к VMAF через переменную среды CMake
-    # если обычный pkg-config в CMake сбоит
-    export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig"
-
     cmake "${myconf[@]}" ..
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"

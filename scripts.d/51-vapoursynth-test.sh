@@ -27,8 +27,8 @@ ffbuild_dockerbuild() {
     mkdir -p build
     # Исправляем баг libtool/linker path для MinGW
     export LT_SYS_LIBRARY_PATH="$FFBUILD_PREFIX/lib"
-    export CFLAGS="$CFLAGS -I$FFBUILD_PREFIX/include"
-    export CXXFLAGS="$CXXFLAGS -I$FFBUILD_PREFIX/include"
+    export CFLAGS="$CFLAGS"
+    export CXXFLAGS="$CXXFLAGS"
 
         # --cross-file="$FFBUILD_CROSS_PREFIX"cross.meson
         # -Dcore=false

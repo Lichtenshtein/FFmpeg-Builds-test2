@@ -30,7 +30,7 @@ ffbuild_dockerbuild() {
         --with-pic
     )
 
-    export CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include"
+    export CPPFLAGS="$CPPFLAGS"
 
     ./configure "${myconf[@]}"
     make -j$(nproc) $MAKE_V

@@ -19,9 +19,11 @@ RUN mkdir -p /opt/ffbuild /opt/ffdest
 
 RUN echo "--- Toolchain Search ---" && \
     find /opt/ct-ng -name "libwinpthread-*.dll" -o -name "kernel32.dll" || true && \
+    x86_64-w64-mingw32-gcc -print-sysroot && \
     echo "--- Search Finished ---"
 
-ENV FFBUILD_TOOLCHAIN=x86_64-w64-mingw32 \
+ENV  \
+    FFBUILD_TOOLCHAIN=x86_64-w64-mingw32 \
     FFBUILD_RUST_TARGET=x86_64-pc-windows-gnu
 
 RUN rustup target add "$FFBUILD_RUST_TARGET" && \
@@ -31,20 +33,23 @@ ADD toolchain.cmake /toolchain.cmake
 ADD cross.meson /cross.meson
 
 # configuring ccache symlinks for Mingw compilers
-RUN ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc && \
+RUN  \
+    ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc && \
     ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-g++ && \
     ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-ar && \
     ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-nm && \
     ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-ranlib
 
 # ccache settings
-ENV CCACHE_DIR=/root/.cache/ccache \
+ENV  \
+    CCACHE_DIR=/root/.cache/ccache \
     CCACHE_MAXSIZE=20G \
     CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros,file_macro,pch_defines" \
     CCACHE_BASEDIR="/builder" \
     CCACHE_COMPILERCHECK="content" \
     CCACHE_DEPEND=1 \
-    CCACHE_COMPRESS=1
+    CCACHE_COMPRESS=1 \
+    CCACHE_NOHASHDIR=1
 
 # disable -fPIC, -ffast-math, -flto=auto if troubles occur
 # add -D_FORTIFY_SOURCE=2 for security
@@ -53,16 +58,18 @@ ENV CCACHE_DIR=/root/.cache/ccache \
 # -Wl,--gc-sections, because of it the linker may throw out what it considers "unnecessary" sections from static libraries if dependencies are specified in the wrong order in .pc files
 # Stable:
 # CFLAGS="-O2 -march=x86-64-v3 -mtune=generic -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe"
+# PKG_CONFIG_LIBDIR=/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig
+# FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/sysroot"
 
-ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
+ENV  \
+    PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
     FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32" \
     FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}- \
     FFBUILD_PREFIX=/opt/ffbuild \
     FFBUILD_DESTDIR=/opt/ffdest \
     FFBUILD_DESTPREFIX=/opt/ffdest/opt/ffbuild \
     FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake \
-    PKG_CONFIG=pkg-config \
-    PKG_CONFIG_LIBDIR=/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig \
+    CHOST="$FFBUILD_TOOLCHAIN" \
     CC="${FFBUILD_TOOLCHAIN}-gcc" \
     CXX="${FFBUILD_TOOLCHAIN}-g++" \
     LD="${FFBUILD_TOOLCHAIN}-ld" \
@@ -70,7 +77,14 @@ ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
     RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib" \
     NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
     DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool" \
+    OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump" \
+    STRIP="${FFBUILD_TOOLCHAIN}-strip" \
     GENDEF="${FFBUILD_TOOLCHAIN}-gendef" \
+    FFBUILD_SYSROOT="$(${CC} -print-sysroot)" \
+    PKG_CONFIG=pkg-config \
+    PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig" \
+    PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig" \
+    PKG_CONFIG_STATIC=1 \
     CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
     CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
     LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216" \

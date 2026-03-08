@@ -74,3 +74,14 @@ RUN \
     # Проверка: используем wine вместо wine64, если его нет
     wine --version && \
     echo "Wine binaries linked successfully."
+
+# Базовые настройки Wine
+ENV \
+    WINEARCH=win64 \
+    WINEPREFIX="/root/.wine" \
+    DISPLAY=:99 \
+    WINEDEBUG=-all \
+    WINEDLLOVERRIDES="mscoree,mshtml=" \
+    WINE_BIN_DIR="/opt/wine-stable/bin" \
+    PATH="$WINE_BIN_DIR:${PATH}" \
+    LD_LIBRARY_PATH="/opt/wine-stable/lib64:/opt/wine-stable/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"

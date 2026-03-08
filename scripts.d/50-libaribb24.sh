@@ -27,9 +27,8 @@ ffbuild_dockerbuild() {
     autoreconf -i
 
     # Явно указываем пути к pkg-config и инклудам
-    export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig"
-    export CFLAGS="$CFLAGS -I$FFBUILD_PREFIX/include"
-    export LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
+    export CFLAGS="$CFLAGS"
+    export LDFLAGS="$LDFLAGS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
