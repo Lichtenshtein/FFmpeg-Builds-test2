@@ -75,15 +75,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: 🗑️ Nuke All Caches
-        if: github.event.inputs.doClean == 'true'
-        run: |
-          gh extension install actions/gh-actions-cache || true
-          echo "Purging all caches for ${{ github.ref }}..."
-          gh cache delete --all --confirm --repo ${{ github.repository }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
@@ -94,6 +85,15 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y subversion subversion-tools nasm yasm jq bc
+
+      - name: 🗑️ Nuke All Caches
+        if: github.event.inputs.doClean == 'true'
+        run: |
+          gh extension install actions/gh-actions-cache || true
+          echo "Purging all caches for ${{ github.ref }}..."
+          gh cache delete --all --confirm --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set Image Names
         id: images
