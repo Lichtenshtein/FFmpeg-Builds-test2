@@ -83,5 +83,3 @@ ENV \
     WINEDEBUG=-all \
     WINEDLLOVERRIDES="mscoree,mshtml=" \
     WINE_BIN_DIR="/opt/wine-stable/bin"
-ENV \
-    PATH="$WINE_BIN_DIR:${PATH}"
