@@ -17,11 +17,6 @@ RUN --mount=src=ct-ng-config,dst=/.config \
 #    mkdir -p /opt/ffbuild
 RUN mkdir -p /opt/ffbuild /opt/ffdest
 
-RUN echo "--- Toolchain Search ---" && \
-    find /opt/ct-ng -name "libwinpthread-*.dll" -o -name "kernel32.dll" || true && \
-    x86_64-w64-mingw32-gcc -print-sysroot && \
-    echo "--- Search Finished ---"
-
 ENV  \
     FFBUILD_TOOLCHAIN=x86_64-w64-mingw32 \
     FFBUILD_RUST_TARGET=x86_64-pc-windows-gnu
@@ -39,6 +34,11 @@ RUN  \
     ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-ar && \
     ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-nm && \
     ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-ranlib
+
+RUN echo "--- Toolchain Search ---" && \
+    find /opt/ct-ng -name "libwinpthread-*.dll" -o -name "kernel32.dll" || true && \
+    /opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin/${FFBUILD_TOOLCHAIN}-gcc -print-sysroot || true && \
+    echo "--- Search Finished ---"
 
 # ccache settings
 ENV  \
@@ -60,7 +60,7 @@ ENV  \
 # CFLAGS="-O2 -march=x86-64-v3 -mtune=generic -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe"
 
 ENV  \
-    PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}" \
+    PATH="/usr/local/bin:/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${PATH}" \
     FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32" \
     FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}- \
     FFBUILD_PREFIX=/opt/ffbuild \
@@ -88,7 +88,7 @@ ENV  \
     FFBUILD_SYSROOT="$(${CC} -print-sysroot)"
 
 # PKG_CONFIG_LIBDIR=/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig
-# FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/sysroot"
+# FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}"
 
 ENV  \
     PKG_CONFIG=pkg-config \

@@ -13,8 +13,7 @@ nasm = '/usr/bin/nasm'
 # exe_wrapper = 'wine' 
 
 [properties]
-# путь к системным либам ct-ng (проверить имя: sysroot или sys-root)
-# sys_root = '/opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/sysroot'
+sys_root = '/opt/ct-ng/x86_64-w64-mingw32/sysroot/usr/x86_64-w64-mingw32'
 # говорим Meson: "Верь мне на слово, кросс-компилятор работает".
 needs_exe_wrapper = true
 
