@@ -75,6 +75,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: 🗑️ Nuke All Caches
+        if: github.event.inputs.doClean == 'true'
+        run: |
+          gh extension install actions/gh-actions-cache || true
+          echo "Purging all caches for ${{ github.ref }}..."
+          gh cache delete --all --confirm --repo ${{ github.repository }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
@@ -85,15 +94,6 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y subversion subversion-tools nasm yasm jq bc
-
-      - name: 🗑️ Nuke All Caches
-        if: github.event.inputs.doClean == 'true'
-        run: |
-          gh extension install actions/gh-actions-cache || true
-          echo "Purging all caches for ${{ github.ref }}..."
-          gh cache delete --all --confirm --repo ${{ github.repository }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set Image Names
         id: images
@@ -232,7 +232,7 @@ jobs:
           echo "| Group | Kept | Deleted | Saved Size | Status |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :---: | :---: | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
 
-          gh cache list --limit 1000 --json key,size_in_bytes > all_caches.json
+          gh cache list --limit 1000 --json key,sizeInBytes > all_caches.json
 
           if [[ $(jq '. | length' all_caches.json) -eq 0 ]]; then
             echo "| All | 0 | 0 | 0 MB | No caches |" >> $GITHUB_STEP_SUMMARY
@@ -264,7 +264,7 @@ jobs:
           grand_total_deleted=0
 
           for prefix in "${prefixes[@]}"; do
-            data=$(jq -r --arg pref "$prefix" '.[] | select(.key | startswith($pref)) | "\(.key)|\(.size_in_bytes)"' all_caches.json | tail -n +16)
+            data=$(jq -r --arg pref "$prefix" '.[] | select(.key | startswith($pref)) | "\(.key)|\(.sizeInBytes)"' all_caches.json | tail -n +16)
 
             if [ -n "$data" ]; then
               keys=$(echo "$data" | cut -d'|' -f1)
@@ -285,7 +285,7 @@ jobs:
             fi
           done
 
-          others=$(jq -r '.[] | select(.key as $k | ["index-base", "index-ffmpeg", "dl-cache", "buildkit"] | map(contains($k)) | any | not) | "\(.key)|\(.size_in_bytes)"' all_caches.json | tail -n +21)
+          others=$(jq -r '.[] | select(.key as $k | ["index-base", "index-ffmpeg", "dl-cache", "buildkit"] | map(contains($k)) | any | not) | "\(.key)|\(.sizeInBytes)"' all_caches.json | tail -n +21)
           if [ -n "$others" ]; then
              other_keys=$(echo "$others" | cut -d'|' -f1)
              other_sizes=$(echo "$others" | cut -d'|' -f2)
