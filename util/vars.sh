@@ -77,16 +77,10 @@ else
     export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
     export PKG_CONFIG_STATIC=1
     
-    BASE_CFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields -pthread"
-    BASE_CPPFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -pthread"
-    SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread -lstdc++"
-    export LIBS="$SYSTEM_LIBS"
-    export CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong"
-    export CPPFLAGS="$BASE_CPPFLAGS"
-    export CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong -std=c++17"
-    export LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L$FFBUILD_PREFIX/lib -pthread -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
-    export STAGE_CFLAGS="-fno-semantic-interposition"
-    export STAGE_CXXFLAGS="-fno-semantic-interposition"
+    export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
+    export CFLAGS="-O3 -march=broadwell -mtune=broadwell -D_WIN32_WINNT=0x0A00 -I/opt/ffbuild/include"
+    export CXXFLAGS="$CFLAGS -std=c++17"
+    export LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib"
 fi
 
 # disable -fPIC, -ffast-math, -flto=auto if troubles occur
