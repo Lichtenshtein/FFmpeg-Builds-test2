@@ -232,6 +232,7 @@ jobs:
           echo "| Group | Kept | Deleted | Status |" >> $GITHUB_STEP_SUMMARY
           echo "| :--- | :---: | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
 
+          # Получаем список кэшей через JSON (ключи)
           gh cache list --limit 1000 --json key > all_caches.json
 
           if [[ $(jq '. | length' all_caches.json) -eq 0 ]]; then
@@ -243,12 +244,16 @@ jobs:
           total_deleted=0
 
           for prefix in "${prefixes[@]}"; do
-            keys_to_delete=$(jq -r --arg pref "$prefix" '.[] | select(.key | startswith($pref)) | .key' all_caches.json | tail -n +9)
+            keys=$(jq -r --arg pref "$prefix" '.[] | select(.key | startswith($pref)) | .key' all_caches.json | tail -n +9)
             
-            if [ -n "$keys_to_delete" ]; then
-              count=$(echo "$keys_to_delete" | wc -l)
-              echo "$keys_to_delete" | xargs -P 10 -I {} gh cache delete "{}" || true
-              total_deleted=$((total_deleted + count))
+            if [ -n "$keys" ]; then
+              count=0
+              for key in $keys; do
+                gh cache delete "$key" || true
+                count=$((count + 1))
+                total_deleted=$((total_deleted + 1))
+                sleep 0.5 
+              done
               echo "| $prefix | 8 | $count | ✅ Cleaned |" >> $GITHUB_STEP_SUMMARY
             else
               echo "| $prefix | ALL | 0 | 🧊 Kept all |" >> $GITHUB_STEP_SUMMARY
@@ -257,9 +262,13 @@ jobs:
 
           other_keys=$(jq -r '.[] | .key' all_caches.json | grep -vE "index-base|index-ffmpeg|dl-cache|buildkit" | tail -n +16)
           if [ -n "$other_keys" ]; then
-             other_count=$(echo "$other_keys" | wc -l)
-             echo "$other_keys" | xargs -P 10 -I {} gh cache delete "{}" || true
-             total_deleted=$((total_deleted + other_count))
+             other_count=0
+             for key in $other_keys; do
+                gh cache delete "$key" || true
+                other_count=$((other_count + 1))
+                total_deleted=$((total_deleted + 1))
+                sleep 0.5
+             done
              echo "| Others | 15 | $other_count | 🗑️ Extra |" >> $GITHUB_STEP_SUMMARY
           fi
 
