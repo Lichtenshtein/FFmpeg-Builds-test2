@@ -85,7 +85,7 @@ ENV  \
     STAGE_CXXFLAGS="-fno-semantic-interposition"
 
 ENV  \
-    FFBUILD_SYSROOT="$(${CC} -print-sysroot)" \
+    FFBUILD_SYSROOT="$(${CC} -print-sysroot)"
 
 # PKG_CONFIG_LIBDIR=/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig
 # FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/sysroot"
