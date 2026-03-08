@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
     set -e
 
     local SYSROOT=$(${CC} -print-sysroot)
-    [[ -z "$SYSROOT" ]] && log_error "SYSROOT NOT FOUND" && exit 1
+    [[ -z "$SYSROOT" ]] && log_error "SYSROOT NOT FOUND" && return 1
 
     unset CC CXX LD AR CPP LIBS CCAS
     unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
