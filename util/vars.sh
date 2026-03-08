@@ -39,18 +39,14 @@ export -f log_info log_warn log_error log_debug
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 MINGW_INTERNAL_BIN="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin"
 MINGW_WRAPPERS_BIN="/opt/ct-ng/bin"
-
-
+export PATH="/usr/local/bin:/usr/bin:/bin:${MINGW_WRAPPERS_BIN}:${MINGW_INTERNAL_BIN}:$WINE_BIN_DIR:${PATH}"
+# export PATH="/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${PATH}"
 export FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32"
 export FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}-
 export FFBUILD_PREFIX=/opt/ffbuild
 export FFBUILD_DESTDIR=/opt/ffdest
 export FFBUILD_DESTPREFIX=/opt/ffdest/opt/ffbuild
 export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
-
-# export PATH="/usr/local/bin:/usr/bin:/bin:${MINGW_WRAPPERS_BIN}:${MINGW_INTERNAL_BIN}:${PATH}"
-export PATH="/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:$WINE_BIN_DIR:${PATH}"
-
 export CHOST="$FFBUILD_TOOLCHAIN"
 export CC="$DEFAULT_CC"
 export CXX="${FFBUILD_TOOLCHAIN}-g++"
