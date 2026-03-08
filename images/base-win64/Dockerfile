@@ -37,7 +37,9 @@ RUN  \
 
 RUN echo "--- Toolchain Search ---" && \
     find /opt/ct-ng -name "libwinpthread-*.dll" -o -name "kernel32.dll" || true && \
-    /opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin/${FFBUILD_TOOLCHAIN}-gcc -print-sysroot || true && \
+    /opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/bin/gcc -print-sysroot || true && \
+    /opt/ct-ng/bin/${FFBUILD_TOOLCHAIN}-gcc -print-sysroot || true && \
+    find /opt/ct-ng -name "*gcc" && \
     echo "--- Search Finished ---"
 
 # ccache settings
@@ -51,47 +53,4 @@ ENV  \
     CCACHE_COMPRESS=1 \
     CCACHE_NOHASHDIR=1
 
-# disable -fPIC, -ffast-math, -flto=auto if troubles occur
-# add -D_FORTIFY_SOURCE=2 for security
-# --as-needed is dangerous for static linking: when linking static libraries for Windows, if the linker sees a library before a symbol is requested, it will discard it.
-# LDFLAGS="-lssp" is it needed?
-# -Wl,--gc-sections, because of it the linker may throw out what it considers "unnecessary" sections from static libraries if dependencies are specified in the wrong order in .pc files
-# Stable:
-# CFLAGS="-O2 -march=x86-64-v3 -mtune=generic -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe"
-
-ENV  \
-    PATH="/usr/local/bin:/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${PATH}" \
-    FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32" \
-    FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}- \
-    FFBUILD_PREFIX=/opt/ffbuild \
-    FFBUILD_DESTDIR=/opt/ffdest \
-    FFBUILD_DESTPREFIX=/opt/ffdest/opt/ffbuild \
-    FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake \
-    CHOST="$FFBUILD_TOOLCHAIN" \
-    CC="${FFBUILD_TOOLCHAIN}-gcc" \
-    CXX="${FFBUILD_TOOLCHAIN}-g++" \
-    LD="${FFBUILD_TOOLCHAIN}-ld" \
-    AR="${FFBUILD_TOOLCHAIN}-gcc-ar" \
-    RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib" \
-    NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
-    DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool" \
-    OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump" \
-    STRIP="${FFBUILD_TOOLCHAIN}-strip" \
-    GENDEF="${FFBUILD_TOOLCHAIN}-gendef" \
-    CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
-    CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe -fstack-protector-strong" \
-    LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216" \
-    STAGE_CFLAGS="-fno-semantic-interposition" \
-    STAGE_CXXFLAGS="-fno-semantic-interposition"
-
-ENV  \
-    FFBUILD_SYSROOT="$(${CC} -print-sysroot)"
-
-# PKG_CONFIG_LIBDIR=/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig
-# FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}"
-
-ENV  \
-    PKG_CONFIG=pkg-config \
-    PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig" \
-    PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig" \
-    PKG_CONFIG_STATIC=1
+ENV PATH="/usr/local/bin:/opt/ct-ng/bin:${PATH}"
