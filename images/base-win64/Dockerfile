@@ -1,5 +1,6 @@
-ARG GH_REPO
+ARG GH_REPO=ghcr.io/lichtenshtein/ffmpeg-builds-test2
 FROM ${GH_REPO}/base:latest
+ARG GH_REPO
 
 RUN --mount=src=ct-ng-config,dst=/.config \
     git clone --filter=blob:none --depth=1 https://github.com/crosstool-ng/crosstool-ng.git /ct-ng && \
