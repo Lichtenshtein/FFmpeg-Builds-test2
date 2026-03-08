@@ -210,6 +210,11 @@ ffbuild_enabled() {
     return 0
 }
 
+# Базовые настройки Wine
+# [ERROR]  Don't set LD_LIBRARY_PATH. It screws up the build.
+# LD_LIBRARY_PATH="/opt/wine-stable/lib64:/opt/wine-stable/lib${LD_LIBRARY_PATH:+:${LD_LIBRARY_PATH}}"
+unset LD_LIBRARY_PATH # Чтобы не злить ct-ng, если он запустится снова
+
 # 1 для подробных логов, в 0 для кратких
 # export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
 # Значение FFBUILD_VERBOSE уже пришло из Docker ENV
