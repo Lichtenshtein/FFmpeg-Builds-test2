@@ -44,7 +44,7 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" \
         CFLAGS="$CFLAGS -DWEBP_STATIC" \
         LDFLAGS="$LDFLAGS" \
-        CPPFLAGS="$CPPFLAGS -DWEBP_STATIC -I$FFBUILD_PREFIX/include" \
+        CPPFLAGS="$CPPFLAGS -DWEBP_STATIC" \
         LIBS="$WEBP_DEPS $LIBS"
 
     make -j$(nproc) $MAKE_V

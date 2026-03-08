@@ -35,8 +35,8 @@ ffbuild_dockerbuild() {
     # Явно прокидываем CPPFLAGS, чтобы он нашел iconv.h в /opt/ffbuild/include
     ./configure "${myconf[@]}" \
         CFLAGS="$CFLAGS" \
-        CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include" \
-        LDFLAGS="$LDFLAGS -L$FFBUILD_PREFIX/lib"
+        CPPFLAGS="$CPPFLAGS" \
+        LDFLAGS="$LDFLAGS"
 
     # Нам нужна только библиотека intl
     cd intl
