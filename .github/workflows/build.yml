@@ -80,7 +80,7 @@ jobs:
         run: |
           gh extension install actions/gh-actions-cache || true
           echo "Purging all caches for ${{ github.ref }}..."
-          gh cache delete --all --confirm --repo ${{ github.repository }}
+          gh cache delete --succeed-on-no-caches --all --repo ${{ github.repository }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -93,7 +93,7 @@ jobs:
       - name: Install Host Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y subversion subversion-tools nasm yasm jq bc
+          sudo apt-get install -y subversion subversion-tools nasm yasm
 
       - name: Set Image Names
         id: images
