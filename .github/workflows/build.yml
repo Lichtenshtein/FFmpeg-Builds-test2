@@ -228,30 +228,42 @@ jobs:
         if: always()
         continue-on-error: true
         run: |
-          echo "### 🛡️ Cache Cleanup Report" >> $GITHUB_STEP_SUMMARY
-          
-          # Если нажат чекбокс doClean - удаляем ВООБЩЕ ВСЁ
-          # if [[ "${{ github.event.inputs.doClean }}" == "true" ]]; then
-            # echo "Full cleanup triggered..."
-            # gh cache delete --all --confirm || true
-            echo "| Type | Status |" >> $GITHUB_STEP_SUMMARY
-            echo "| :--- | :--- |" >> $GITHUB_STEP_SUMMARY
-            echo "| ALL | 🗑️ Everything Deleted |" >> $GITHUB_STEP_SUMMARY
-          else
-            all_ids=$(gh cache list --limit 500 --json id --jq '.[].id')
+          echo "### 🛡️ Safe Cache Cleanup Report" >> $GITHUB_STEP_SUMMARY
+          echo "| Group | Kept | Deleted | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "| :--- | :---: | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
 
-            if [ -z "$all_ids" ]; then
-              echo "No caches found." >> $GITHUB_STEP_SUMMARY
-              exit 0
-            fi
+          gh cache list --limit 1000 --json key > all_caches.json
 
-            ids_to_purge=$(gh cache list --limit 500 --sort created_at --order desc --json id --jq '.[50:].id')
-
-            if [ -n "$ids_to_purge" ]; then
-              echo "$ids_to_purge" | xargs -I {} gh cache delete {} || true
-              echo "Cleaned up old caches." >> $GITHUB_STEP_SUMMARY
-            fi
+          if [[ $(jq '. | length' all_caches.json) -eq 0 ]]; then
+            echo "| All | 0 | 0 | No caches |" >> $GITHUB_STEP_SUMMARY
+            exit 0
           fi
+
+          prefixes=("index-base-root" "index-base" "index-ffmpeg-build" "dl-cache" "buildkit-blob")
+          total_deleted=0
+
+          for prefix in "${prefixes[@]}"; do
+            keys_to_delete=$(jq -r --arg pref "$prefix" '.[] | select(.key | startswith($pref)) | .key' all_caches.json | tail -n +9)
+            
+            if [ -n "$keys_to_delete" ]; then
+              count=$(echo "$keys_to_delete" | wc -l)
+              echo "$keys_to_delete" | xargs -P 10 -I {} gh cache delete "{}" || true
+              total_deleted=$((total_deleted + count))
+              echo "| $prefix | 8 | $count | ✅ Cleaned |" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "| $prefix | ALL | 0 | 🧊 Kept all |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+          other_keys=$(jq -r '.[] | .key' all_caches.json | grep -vE "index-base|index-ffmpeg|dl-cache|buildkit" | tail -n +16)
+          if [ -n "$other_keys" ]; then
+             other_count=$(echo "$other_keys" | wc -l)
+             echo "$other_keys" | xargs -P 10 -I {} gh cache delete "{}" || true
+             total_deleted=$((total_deleted + other_count))
+             echo "| Others | 15 | $other_count | 🗑️ Extra |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo -e "\n**Total removed:** $total_deleted" >> $GITHUB_STEP_SUMMARY
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
