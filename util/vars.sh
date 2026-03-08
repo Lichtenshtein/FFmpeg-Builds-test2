@@ -37,32 +37,58 @@ log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 export -f log_info log_warn log_error log_debug
 
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
-export CHOST="$FFBUILD_TOOLCHAIN"
-export CC="${FFBUILD_TOOLCHAIN}-gcc"
-export CXX="${FFBUILD_TOOLCHAIN}-g++"
-export LD="${FFBUILD_TOOLCHAIN}-ld"
-export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
-export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
-export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
-export DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool"
-export OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump"
-export STRIP="${FFBUILD_TOOLCHAIN}-strip"
-export GENDEF="${FFBUILD_TOOLCHAIN}-gendef"
 MINGW_BIN="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin"
-if [[ "$CC" == "gcc" || "$STAGENAME" == *"host"* ]]; then
-    export PATH="/usr/local/bin:/usr/bin:/bin:${MINGW_BIN}:${PATH}"
-else
-    export PATH="${MINGW_BIN}:/usr/local/bin:/usr/bin:/bin:${PATH}"
-fi
+
 export FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32"
 export FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}-
 export FFBUILD_PREFIX=/opt/ffbuild
 export FFBUILD_DESTDIR=/opt/ffdest
 export FFBUILD_DESTPREFIX=/opt/ffdest/opt/ffbuild
 export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
-export FFBUILD_SYSROOT="$(${CC} -print-sysroot 2>/dev/null)"
-if [[ -z "$FFBUILD_SYSROOT" ]]; then
-    export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}"
+
+DEFAULT_CC="${FFBUILD_TOOLCHAIN}-gcc"
+
+if [[ "$CC" == "gcc" ]]; then
+    # Режим HOST (Linux)
+    export PATH="/usr/local/bin:/usr/bin:/bin:${MINGW_BIN}:${PATH}"
+    unset PKG_CONFIG_LIBDIR
+    unset PKG_CONFIG_PATH
+    export CFLAGS="-O2 -pipe"
+    export CXXFLAGS="-O2 -pipe"
+    export LDFLAGS=""
+else
+    # Режим TARGET (Windows)
+    export PATH="${MINGW_BIN}:/usr/local/bin:/usr/bin:/bin:${PATH}"
+    export CHOST="$FFBUILD_TOOLCHAIN"
+    export CC="$DEFAULT_CC"
+    export CXX="${FFBUILD_TOOLCHAIN}-g++"
+    export LD="${FFBUILD_TOOLCHAIN}-ld"
+    export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
+    export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
+    export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
+    export DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool"
+    export OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump"
+    export STRIP="${FFBUILD_TOOLCHAIN}-strip"
+    export GENDEF="${FFBUILD_TOOLCHAIN}-gendef"
+
+    # Вычисляем SYSROOT только для кросс-режима
+    export FFBUILD_SYSROOT="$($CC -print-sysroot 2>/dev/null)"
+    [[ -z "$FFBUILD_SYSROOT" ]] && export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}"
+
+    # Флаги Windows
+    export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
+    export PKG_CONFIG_STATIC=1
+    
+    BASE_CFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields -pthread"
+    BASE_CPPFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -pthread"
+    SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread -lstdc++"
+    export LIBS="$SYSTEM_LIBS"
+    export CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong"
+    export CPPFLAGS="$BASE_CPPFLAGS"
+    export CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong -std=c++17"
+    export LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L$FFBUILD_PREFIX/lib -pthread -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+    export STAGE_CFLAGS="-fno-semantic-interposition"
+    export STAGE_CXXFLAGS="-fno-semantic-interposition"
 fi
 
 # disable -fPIC, -ffast-math, -flto=auto if troubles occur
@@ -73,27 +99,6 @@ fi
 # Stable:
 # CFLAGS="-O2 -march=x86-64-v3 -mtune=generic -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe"
 
-if [[ "$CC" != "gcc" ]]; then
-export PKG_CONFIG=pkg-config
-export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
-export PKG_CONFIG_STATIC=1
-export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
-BASE_CFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields -pthread"
-BASE_CPPFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -pthread"
-SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread -lstdc++"
-export LIBS="$SYSTEM_LIBS"
-export CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong"
-export CPPFLAGS="$BASE_CPPFLAGS"
-export CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong -std=c++17"
-export LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L$FFBUILD_PREFIX/lib -pthread -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
-export STAGE_CFLAGS="-fno-semantic-interposition"
-export STAGE_CXXFLAGS="-fno-semantic-interposition"
-else
-unset PKG_CONFIG_LIBDIR
-unset PKG_CONFIG_PATH
-export CFLAGS="-O3"
-export CXXFLAGS="-O3"
-fi
 
 if [[ $# -lt 2 ]]; then
     log_error "${CROSS_MARK} Invalid Arguments"
