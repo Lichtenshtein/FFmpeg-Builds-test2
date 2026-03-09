@@ -47,7 +47,26 @@ ENV  \
     CCACHE_COMPRESS=1 \
     CCACHE_NOHASHDIR=1
 
-ENV PATH="/opt/ct-ng/bin:/opt/ct-ng/x86_64-w64-mingw32/bin:${PATH}"
+ENV \
+PATH="/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${WINE_BIN_DIR}:${PATH}" \
+    FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32" \
+    FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}- \
+    FFBUILD_PREFIX=/opt/ffbuild \
+    FFBUILD_DESTDIR=/opt/ffdest \
+    FFBUILD_DESTPREFIX=/opt/ffdest/opt/ffbuild \
+    FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake \
+    PKG_CONFIG=pkg-config \
+    CHOST="$FFBUILD_TOOLCHAIN" \
+    CC="${FFBUILD_TOOLCHAIN}-gcc" \
+    CXX="${FFBUILD_TOOLCHAIN}-g++" \
+    LD="${FFBUILD_TOOLCHAIN}-ld" \
+    AR="${FFBUILD_TOOLCHAIN}-gcc-ar" \
+    RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib" \
+    NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
+    DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool" \
+    OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump" \
+    STRIP="${FFBUILD_TOOLCHAIN}-strip" \
+    GENDEF="${FFBUILD_TOOLCHAIN}-gendef"
 
 RUN echo "--- Toolchain Search ---" && \
     find /opt/ct-ng -name "libwinpthread-*.dll" -o -name "kernel32.dll" || true && \

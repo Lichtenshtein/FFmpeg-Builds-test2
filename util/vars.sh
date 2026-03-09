@@ -36,29 +36,7 @@ log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 
 export -f log_info log_warn log_error log_debug
 
-export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
-MINGW_INTERNAL_BIN="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin"
-MINGW_WRAPPERS_BIN="/opt/ct-ng/bin"
-WINE_BIN_DIR="/opt/wine-stable/bin"
-# export PATH="/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${PATH}"
-export PATH="/usr/local/bin:${MINGW_WRAPPERS_BIN}:${MINGW_INTERNAL_BIN}:${WINE_BIN_DIR}:/usr/bin:/bin:${PATH}"
-export FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32"
-export FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}-
-export FFBUILD_PREFIX=/opt/ffbuild
-export FFBUILD_DESTDIR=/opt/ffdest
-export FFBUILD_DESTPREFIX=/opt/ffdest/opt/ffbuild
-export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
-export CHOST="$FFBUILD_TOOLCHAIN"
-export CC="${FFBUILD_TOOLCHAIN}-gcc" 
-export CXX="${FFBUILD_TOOLCHAIN}-g++"
-export LD="${FFBUILD_TOOLCHAIN}-ld"
-export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
-export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
-export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
-export DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool"
-export OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump"
-export STRIP="${FFBUILD_TOOLCHAIN}-strip"
-export GENDEF="${FFBUILD_TOOLCHAIN}-gendef"
+export PATH="/usr/local/bin:${PATH}"
 
 # Определение SYSROOT и путей для pkg-config
 SYSROOT_VAL=$(${CC} -print-sysroot 2>/dev/null)
@@ -83,7 +61,6 @@ fi
 export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${SYSROOT_PC}"
 unset PKG_CONFIG_PATH
 unset PKG_CONFIG_SYSROOT_DIR
-# export PKG_CONFIG=pkg-config
 export PKG_CONFIG_STATIC=1
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
