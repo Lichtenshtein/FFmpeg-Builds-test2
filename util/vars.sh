@@ -38,28 +38,29 @@ export -f log_info log_warn log_error log_debug
 
 export PATH="/usr/local/bin:${PATH}"
 
-# Определение SYSROOT и путей для pkg-config
-SYSROOT_VAL=$(${CC} -print-sysroot 2>/dev/null)
+# Проверяем наличие CC перед вызовом
+if [ -n "$CC" ] && command -v "$CC" >/dev/null 2>&1; then
+    SYSROOT_VAL=$($CC -print-sysroot 2>/dev/null)
+else
+    SYSROOT_VAL=""
+fi
+
+# Безопасный фолбэк для FFBUILD_TOOLCHAIN
+FTC="${FFBUILD_TOOLCHAIN:-x86_64-w64-mingw32}"
 
 if [ -n "$SYSROOT_VAL" ] && [ -d "$SYSROOT_VAL/lib/pkgconfig" ]; then
-    # То, что говорит сам компилятор
     export FFBUILD_SYSROOT="$SYSROOT_VAL"
     SYSROOT_PC="${FFBUILD_SYSROOT}/lib/pkgconfig"
-    log_debug "${SEARCH_MARK} Sysroot found via CC: $FFBUILD_SYSROOT"
-elif [ -d "/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}/lib/pkgconfig" ]; then
-    # специфичный путь с /usr/
-    export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}"
+elif [ -d "/opt/ct-ng/${FTC}/sysroot/usr/${FTC}/lib/pkgconfig" ]; then
+    export FFBUILD_SYSROOT="/opt/ct-ng/${FTC}/sysroot/usr/${FTC}"
     SYSROOT_PC="${FFBUILD_SYSROOT}/lib/pkgconfig"
-    log_debug "${SEARCH_MARK} Sysroot found via custom USR path: $FFBUILD_SYSROOT"
 else
-    # Стандартный путь ct-ng
-    export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/sysroot"
+    export FFBUILD_SYSROOT="/opt/ct-ng/${FTC}/${FTC}/sysroot"
     SYSROOT_PC="${FFBUILD_SYSROOT}/lib/pkgconfig"
-    log_warn "${XCLAM_MARK} Sysroot not found, using fallback: $FFBUILD_SYSROOT"
 fi
 
 export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${SYSROOT_PC}"
-unset PKG_CONFIG_PATH
+export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
 unset PKG_CONFIG_SYSROOT_DIR
 export PKG_CONFIG_STATIC=1
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
