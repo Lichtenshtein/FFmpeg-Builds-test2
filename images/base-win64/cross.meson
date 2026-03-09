@@ -7,15 +7,14 @@ nm = 'x86_64-w64-mingw32-gcc-nm'
 strip = 'x86_64-w64-mingw32-strip'
 windres = 'x86_64-w64-mingw32-windres'
 dlltool = 'x86_64-w64-mingw32-dlltool'
-pkg-config = 'pkg-config'
 nasm = '/usr/bin/nasm'
 # Заменяем wine на заглушку или убираем, если тесты не нужны
 # exe_wrapper = 'wine' 
+# pkg-config = '/usr/bin/pkg-config'
 
-[properties]
-# sys_root = '/opt/ct-ng/x86_64-w64-mingw32/sysroot/usr/x86_64-w64-mingw32'
-# говорим Meson: "Верь мне на слово, кросс-компилятор работает".
+[built-in options]
 needs_exe_wrapper = true
+# pkg_config_path = '/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig'
 
 [host_machine]
 system = 'windows'

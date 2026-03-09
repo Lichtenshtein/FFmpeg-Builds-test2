@@ -36,13 +36,6 @@ RUN  \
     ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-nm && \
     ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-ranlib
 
-RUN echo "--- Toolchain Search ---" && \
-    find /opt/ct-ng -name "libwinpthread-*.dll" -o -name "kernel32.dll" || true && \
-    /opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/bin/gcc -print-sysroot || true && \
-    /opt/ct-ng/bin/${FFBUILD_TOOLCHAIN}-gcc -print-sysroot || true && \
-    find /opt/ct-ng -name "*gcc" && \
-    echo "--- Search Finished ---"
-
 # ccache settings
 ENV  \
     CCACHE_DIR=/root/.cache/ccache \
@@ -53,3 +46,12 @@ ENV  \
     CCACHE_DEPEND=1 \
     CCACHE_COMPRESS=1 \
     CCACHE_NOHASHDIR=1
+
+ENV PATH="/opt/ct-ng/bin:/opt/ct-ng/x86_64-w64-mingw32/bin:${PATH}"
+
+RUN echo "--- Toolchain Search ---" && \
+    find /opt/ct-ng -name "libwinpthread-*.dll" -o -name "kernel32.dll" || true && \
+    /opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/bin/gcc -print-sysroot || true && \
+    /opt/ct-ng/bin/${FFBUILD_TOOLCHAIN}-gcc -print-sysroot || true && \
+    find /opt/ct-ng -name "*gcc" && \
+    echo "--- Search Finished ---"

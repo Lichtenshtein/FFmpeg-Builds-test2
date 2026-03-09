@@ -39,8 +39,9 @@ export -f log_info log_warn log_error log_debug
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 MINGW_INTERNAL_BIN="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin"
 MINGW_WRAPPERS_BIN="/opt/ct-ng/bin"
-export PATH="/usr/local/bin:/usr/bin:/bin:${MINGW_WRAPPERS_BIN}:${MINGW_INTERNAL_BIN}:$WINE_BIN_DIR:${PATH}"
+WINE_BIN_DIR="/opt/wine-stable/bin"
 # export PATH="/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${PATH}"
+export PATH="/usr/local/bin:${MINGW_WRAPPERS_BIN}:${MINGW_INTERNAL_BIN}:${WINE_BIN_DIR}:/usr/bin:/bin:${PATH}"
 export FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32"
 export FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}-
 export FFBUILD_PREFIX=/opt/ffbuild
@@ -48,7 +49,7 @@ export FFBUILD_DESTDIR=/opt/ffdest
 export FFBUILD_DESTPREFIX=/opt/ffdest/opt/ffbuild
 export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
 export CHOST="$FFBUILD_TOOLCHAIN"
-export CC="$DEFAULT_CC"
+export CC="${FFBUILD_TOOLCHAIN}-gcc" 
 export CXX="${FFBUILD_TOOLCHAIN}-g++"
 export LD="${FFBUILD_TOOLCHAIN}-ld"
 export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
@@ -59,13 +60,33 @@ export OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump"
 export STRIP="${FFBUILD_TOOLCHAIN}-strip"
 export GENDEF="${FFBUILD_TOOLCHAIN}-gendef"
 
-# export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}"
-SYSROOT_PC="$(${CC} -print-sysroot 2>/dev/null)/lib/pkgconfig"
-# export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${FFBUILD_SYSROOT}/lib/pkgconfig"
+# Определение SYSROOT и путей для pkg-config
+SYSROOT_VAL=$(${CC} -print-sysroot 2>/dev/null)
+
+if [ -n "$SYSROOT_VAL" ] && [ -d "$SYSROOT_VAL/lib/pkgconfig" ]; then
+    # То, что говорит сам компилятор
+    export FFBUILD_SYSROOT="$SYSROOT_VAL"
+    SYSROOT_PC="${FFBUILD_SYSROOT}/lib/pkgconfig"
+    log_debug "${SEARCH_MARK} Sysroot found via CC: $FFBUILD_SYSROOT"
+elif [ -d "/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}/lib/pkgconfig" ]; then
+    # специфичный путь с /usr/
+    export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot/usr/${FFBUILD_TOOLCHAIN}"
+    SYSROOT_PC="${FFBUILD_SYSROOT}/lib/pkgconfig"
+    log_debug "${SEARCH_MARK} Sysroot found via custom USR path: $FFBUILD_SYSROOT"
+else
+    # Стандартный путь ct-ng
+    export FFBUILD_SYSROOT="/opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/sysroot"
+    SYSROOT_PC="${FFBUILD_SYSROOT}/lib/pkgconfig"
+    log_warn "${XCLAM_MARK} Sysroot not found, using fallback: $FFBUILD_SYSROOT"
+fi
+
 export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${SYSROOT_PC}"
 unset PKG_CONFIG_PATH
 unset PKG_CONFIG_SYSROOT_DIR
+# export PKG_CONFIG=pkg-config
 export PKG_CONFIG_STATIC=1
+export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
+export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
 
 BASE_CFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields -pthread"
 BASE_CPPFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -pthread"
