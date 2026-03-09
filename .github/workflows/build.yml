@@ -192,6 +192,7 @@ jobs:
           SKIP_PARAM="false"
           [[ "${{ github.event.inputs.skip_ffmpeg }}" == "true" ]] && SKIP_PARAM="skip_ffmpeg"
           mkdir -p .cache/downloads .cache/ffmpeg
+          find . -type f -name "*.sh" -exec sed -i 's/\r$//' {} +
           chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
