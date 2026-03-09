@@ -36,7 +36,7 @@ log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 
 export -f log_info log_warn log_error log_debug
 
-export PATH="/usr/local/bin:${PATH}"
+export PATH="/usr/local/bin:/usr/bin:/bin:${PATH}"
 
 # Проверяем наличие CC перед вызовом
 if [ -n "$CC" ] && command -v "$CC" >/dev/null 2>&1; then
