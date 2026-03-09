@@ -38,36 +38,14 @@ export -f log_info log_warn log_error log_debug
 
 export PATH="/usr/local/bin:/usr/bin:/bin:${PATH}"
 
-# Проверяем наличие CC перед вызовом
-if [ -n "$CC" ] && command -v "$CC" >/dev/null 2>&1; then
-    SYSROOT_VAL=$($CC -print-sysroot 2>/dev/null)
-else
-    SYSROOT_VAL=""
-fi
-
-# Безопасный фолбэк для FFBUILD_TOOLCHAIN
-FTC="${FFBUILD_TOOLCHAIN:-x86_64-w64-mingw32}"
-
-if [ -n "$SYSROOT_VAL" ] && [ -d "$SYSROOT_VAL/lib/pkgconfig" ]; then
-    export FFBUILD_SYSROOT="$SYSROOT_VAL"
-    SYSROOT_PC="${FFBUILD_SYSROOT}/lib/pkgconfig"
-elif [ -d "/opt/ct-ng/${FTC}/sysroot/usr/${FTC}/lib/pkgconfig" ]; then
-    export FFBUILD_SYSROOT="/opt/ct-ng/${FTC}/sysroot/usr/${FTC}"
-    SYSROOT_PC="${FFBUILD_SYSROOT}/lib/pkgconfig"
-else
-    export FFBUILD_SYSROOT="/opt/ct-ng/${FTC}/${FTC}/sysroot"
-    SYSROOT_PC="${FFBUILD_SYSROOT}/lib/pkgconfig"
-fi
-
-export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:${SYSROOT_PC}"
-export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
+export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
 unset PKG_CONFIG_SYSROOT_DIR
 export PKG_CONFIG_STATIC=1
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
 
-BASE_CFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields -pthread"
-BASE_CPPFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -pthread"
+BASE_CFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
+BASE_CPPFLAGS="-U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32"
 SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread -lstdc++"
 export LIBS="$SYSTEM_LIBS"
 export CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong"

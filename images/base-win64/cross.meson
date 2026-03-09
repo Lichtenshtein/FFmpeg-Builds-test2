@@ -10,11 +10,9 @@ dlltool = 'x86_64-w64-mingw32-dlltool'
 nasm = '/usr/bin/nasm'
 # Заменяем wine на заглушку или убираем, если тесты не нужны
 # exe_wrapper = 'wine' 
-# pkg-config = '/usr/bin/pkg-config'
 
-[built-in options]
+[properties]
 needs_exe_wrapper = true
-# pkg_config_path = '/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig'
 
 [host_machine]
 system = 'windows'
