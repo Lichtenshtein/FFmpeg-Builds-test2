@@ -278,25 +278,27 @@ get_deps_list() {
 
     if [[ -d "$lib_dir/pkgconfig" ]]; then
         find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
+            set +e 
             printf "\n%b %s\n" "$XCLAM_MARK" "$1"
             cat "$1"
             printf "\n%b DEPS for %s:\n" "$SEARCH_MARK" "${1##*/}"
-            deps=$(pkg-config --print-requires --print-requires-private "$1" 2>/dev/null)
+            deps=$(pkg-config --print-requires --print-requires-private "$1" 2>/dev/null || true)
             if [[ -n "$deps" ]]; then
                 echo "$deps"
                 for d in $deps; do
-                    if ! pkg-config --exists "$d"; then
+                    if ! pkg-config --exists "$d" 2>/dev/null; then
                         log_error "MISSING DEPENDENCY: $d (required by $1)"
                     fi
                 done
             else
                 echo "No dependencies found."
             fi
-        ' _ {} \;
+            exit 0
+        ' _ {} \; || true
     fi
     find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | xargs -0 -I{} bash -c "
         if \"\${FFBUILD_TOOLCHAIN}-readelf\" -h \"\$1\" &>/dev/null; then
-            raw_deps=\$(\"\${FFBUILD_TOOLCHAIN}-readelf\" -d \"\$1\" | grep 'NEEDED' | sed -E 's/.*\[(.*)\].*/\1/')
+            raw_deps=\$(\"\${FFBUILD_TOOLCHAIN}-readelf\" -d \"\$1\" | grep 'NEEDED' | sed -E 's/.*\[(.*)\].*/\1/' || true)
             clean_deps=\$(echo \"\$raw_deps\" | grep -vE \"$sys_libs\")
             if [[ -n \"\$clean_deps\" ]]; then
                 log_debug \"\n\$XCLAM_MARK NEEDED LIBRARIES for \$1:\"
