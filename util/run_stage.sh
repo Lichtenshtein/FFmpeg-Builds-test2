@@ -1,6 +1,5 @@
 #!/bin/bash
 set -e
-set -o pipefail
 
 SCRIPT_PATH="$1"
 
