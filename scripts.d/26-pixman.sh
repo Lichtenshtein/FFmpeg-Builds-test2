@@ -24,12 +24,14 @@ ffbuild_dockerbuild() {
         --cross-file=/cross.meson
         --buildtype=release
         --default-library=static
+        -Dcpp_std=c++17
+        -Dc_std=c11
         -Dtests=disabled
         -Ddemos=disabled
         -Dgtk=disabled
         -Dopenmp=disabled
-        -Dcpp_args="$CXXFLAGS"
-        -Dc_args="$CFLAGS"
+        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g')"
+        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g')"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )

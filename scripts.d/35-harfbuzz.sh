@@ -35,6 +35,7 @@ ffbuild_dockerbuild() {
         -Dfreetype=enabled
         -Dicu=enabled
         -Dcpp_std=c++17
+        -Dc_std=c11
         -Dwith_libstdcxx=true
         -Draster=enabled
         -Dvector=enabled
@@ -51,8 +52,8 @@ ffbuild_dockerbuild() {
         -Ddirectwrite=enabled
         -Dgdi=enabled
         -Dbenchmark=disabled
-        -Dcpp_args="$CXXFLAGS -DHARFBUZZ_STATIC -Wno-redundant-decls"
-        -Dc_args="$CFLAGS -DHARFBUZZ_STATIC -Wno-redundant-decls"
+        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g') -DHARFBUZZ_STATIC -Wno-redundant-decls"
+        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g') -DHARFBUZZ_STATIC -Wno-redundant-decls"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )

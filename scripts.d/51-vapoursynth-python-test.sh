@@ -103,6 +103,8 @@ cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 EOF
 
     export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig"
+    export CFLAGS="$(echo $CFLAGS | sed 's/-std=c11//g')"
+    export CXXFLAGS="$(echo $CXXFLAGS | sed 's/-std=c++17//g')"
     mkdir -p build
 
     # Мы собираем vsscript как SHARED, так как он ОБЯЗАН грузить python3.dll
@@ -112,6 +114,8 @@ EOF
         --cross-file python_fix.ini \
         --buildtype release \
         --default-library static \
+        -Dcpp_std=c++17 \
+        -Dc_std=c11 \
         -Denable_vsscript=true \
         -Denable_vspipe=false \
         -Denable_x86_asm=true \

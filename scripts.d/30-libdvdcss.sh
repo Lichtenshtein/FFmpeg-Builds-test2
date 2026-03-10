@@ -21,8 +21,13 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
+ export CFLAGS="$(echo $CFLAGS | sed 's/-std=c11//g') -Dprint_error=dvdcss_print_error -Dprint_debug=dvdcss_print_debug"
+    export CXXFLAGS="$(echo $CXXFLAGS | sed 's/-std=c++17//g')"
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        -Dcpp_std=c++17
+        -Dc_std=c11
         -Ddefault_library=static
         -Denable_docs=false
         -Denable_examples=false
@@ -36,8 +41,6 @@ ffbuild_dockerbuild() {
         echo "Unknown target"
         return 1
     fi
-
-    export CFLAGS="$CFLAGS -Dprint_error=dvdcss_print_error -Dprint_debug=dvdcss_print_debug"
 
     meson setup "${myconf[@]}" ..
     ninja -j$(nproc) $NINJA_V

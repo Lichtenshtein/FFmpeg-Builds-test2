@@ -25,6 +25,8 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --buildtype=release
         --default-library=shared
+        -Dcpp_std=c++17
+        -Dc_std=c11
         -Dzlib=enabled
     )
 

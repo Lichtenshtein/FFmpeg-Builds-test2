@@ -34,6 +34,8 @@ ffbuild_dockerbuild() {
         --buildtype=release
         --default-library=static
         --wrap-mode=nodownload
+        -Dcpp_std=c++17
+        -Dc_std=c11
         -Dintrospection=disabled
         -Dfontconfig=enabled
         -Dfreetype=enabled
@@ -42,8 +44,8 @@ ffbuild_dockerbuild() {
         -Dbuild-testsuite=false
         -Dbuild-examples=false
         -Dman-pages=false
-        -Dc_args="$CFLAGS -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
-        -Dcpp_args="$CXXFLAGS -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
+        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g') -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
+        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g') -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
