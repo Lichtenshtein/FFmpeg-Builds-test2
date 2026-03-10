@@ -33,9 +33,15 @@ ffbuild_dockerbuild() {
     export CFLAGS="$(echo $CFLAGS | sed 's/-std=c11//g')"
     export CXXFLAGS="$(echo $CXXFLAGS | sed 's/-std=c++17//g')"
 
-    log_debug "Looking for gdi32: $(${CC} -print-file-name=libgdi32.a)"
-    local MINGW_LIBDIR=$(dirname "$(${CC} -print-file-name=libgdi32.a)")
-    log_info "Detected MinGW system libdir: ${MINGW_SYS_LIBDIR}"
+    local GDI_PATH=$(${CC} -print-file-name=libgdi32.a)
+    local MINGW_SYS_LIBDIR=$(dirname "$GDI_PATH")
+    log_debug "Looking for gdi32: $GDI_PATH"
+
+    # Если путь не найден, попробуем через sysroot
+    if [[ "$MINGW_SYS_LIBDIR" == "." ]]; then
+        MINGW_SYS_LIBDIR="$(${CC} -print-sysroot)/lib"
+    fi
+    log_debug "Looking for LIBDIR: $MINGW_SYS_LIBDIR"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -43,7 +49,6 @@ ffbuild_dockerbuild() {
         --buildtype=release
         --default-library=static
         --wrap-mode=nodownload
-        -Dcustom_endianness=little
         -Dcpp_std=c++17
         -Dc_std=c11
         -Dfontconfig=enabled

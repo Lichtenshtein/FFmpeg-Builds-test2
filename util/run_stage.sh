@@ -1,5 +1,6 @@
 #!/bin/bash
 set -e
+set -o pipefail
 
 SCRIPT_PATH="$1"
 
@@ -190,7 +191,7 @@ log_info "################################################################"
 
 if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
     log_info "Verbose mode active. Build output will be shown in real-time."
-    if ! ( set -e; $build_cmd ); then
+    if ! ( set -eo pipefail; $build_cmd ); then
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         log_error "${CROSS_MARK} ERROR: Build failed for $STAGENAME"
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -217,7 +218,7 @@ if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
 else
     # Тихий режим: вывод лога только в случае падения
     log_info "Quiet mode active. Output is redirected to /tmp/stage_build.log"
-    if ! ( set -e; $build_cmd > /tmp/stage_build.log 2>&1 ); then
+    if ! ( set -eo pipefail; $build_cmd > /tmp/stage_build.log 2>&1 ); then
         log_error "${CROSS_MARK} Build failed!"
         log_debug "${LOGS_MARK} ▼ DUMPING build log ▼"
         cat /tmp/stage_build.log
