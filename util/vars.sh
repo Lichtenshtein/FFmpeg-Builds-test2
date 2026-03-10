@@ -299,7 +299,7 @@ get_deps_list() {
     find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | xargs -0 -I{} bash -c "
         if \"\${FFBUILD_TOOLCHAIN}-readelf\" -h \"\$1\" &>/dev/null; then
             raw_deps=\$(\"\${FFBUILD_TOOLCHAIN}-readelf\" -d \"\$1\" | grep 'NEEDED' | sed -E 's/.*\[(.*)\].*/\1/' || true)
-            clean_deps=\$(echo \"\$raw_deps\" | grep -vE \"$sys_libs\")
+            clean_deps=\$(echo \"\$raw_deps\" | grep -vE \"$sys_libs\" || true)
             if [[ -n \"\$clean_deps\" ]]; then
                 log_debug \"\n\$XCLAM_MARK NEEDED LIBRARIES for \$1:\"
                 echo \"\$clean_deps\"
@@ -310,17 +310,20 @@ get_deps_list() {
                 done
             fi
         fi
-    " _ {}
+    exit 0
+    " _ {} || true
     find "$lib_dir" -name "*.a" -print0 2>/dev/null | xargs -0 -I{} bash -c '
         log_debug "\n$XCLAM_MARK EXTERNAL SYMBOLS (TOP 10) in $1:"
-        "${FFBUILD_TOOLCHAIN}-nm" -u "$1" 2>/dev/null | grep -v "@@" | sort -u | head -n 10
-    ' _ {}
+        "${FFBUILD_TOOLCHAIN}-nm" -u "$1" 2>/dev/null | grep -v "@@" | sort -u | head -n 10 || true
+    exit 0
+    ' _ {} || true
     find "$lib_dir" "$bin_dir" -type f -executable -print0 2>/dev/null | xargs -0 -I{} bash -c "
         if \"\${FFBUILD_TOOLCHAIN}-readelf\" -h \"\$1\" &>/dev/null; then
             log_debug \"\n\$XCLAM_MARK RPATH/RUNPATH for \$1:\"
             \"\${FFBUILD_TOOLCHAIN}-objdump\" -p \"\$1\" | grep -E 'RPATH|RUNPATH' || true
         fi
-    " _ {}
+    exit 0
+    " _ {} || true
 }
 export -f get_deps_list
 
