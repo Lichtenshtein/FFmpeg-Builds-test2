@@ -42,16 +42,7 @@ ffbuild_dockerbuild() {
     # Нам нужна только библиотека intl
     cd intl
     make -j$(nproc) $MAKE_V
-    # make install DESTDIR="$FFBUILD_DESTDIR"
-
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
-    
-    cp .libs/libintl.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
-    cp libintl.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
-    
-    # Если есть libgnuintl.a (иногда создается она), делаем копию как libintl.a
-    [[ -f ".libs/libgnuintl.a" ]] && cp ".libs/libgnuintl.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libintl.a"
+    make install DESTDIR="$FFBUILD_DESTDIR"
 
     clean_la_files
 
