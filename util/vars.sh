@@ -329,10 +329,8 @@ export -f get_deps_list
 
 clean_la_files() {
     local target_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX"
-    # Проверяем, существует ли вообще директория префикса
     [[ ! -d "$target_dir" ]] && return 0
     log_debug "Cleaning up libtool archives (.la) in $target_dir"
-    # Используем find с проверкой на наличие файлов, чтобы не выводить ошибки, если их нет
     if find "$target_dir" -name "*.la" -type f -print -quit | grep -q .; then
         local count=$(find "$target_dir" -name "*.la" -type f | wc -l 2>/dev/null || true)
         find "$target_dir" -name "*.la" -type f -delete 2>/dev/null || true

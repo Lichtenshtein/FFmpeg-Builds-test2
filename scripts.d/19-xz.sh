@@ -37,7 +37,7 @@ ffbuild_dockerbuild() {
         --enable-static
         --with-pic
         --disable-scripts
-        --disable-nls
+        # --disable-nls
         --disable-doc
         LDFLAGS="$LDFLAGS $DEP_LIBS"
         LIBS="$DEP_LIBS"
