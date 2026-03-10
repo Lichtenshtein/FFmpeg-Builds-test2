@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
         --disable-shared
         --enable-static
         --with-pic
-        --disable-nls
+        # --disable-nls
     )
 
     # Принудительно передаем флаги
