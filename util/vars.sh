@@ -266,33 +266,64 @@ get_stage_hash() {
 export -f get_stage_hash
 
 get_deps_list() {
-    if [[ "$FFBUILD_VERBOSE" != "1" ]]; then return 0; fi
-    
+    set +o pipefail 
+    if [[ "$FFBUILD_VERBOSE" != "1" ]]; then
+        return 0
+    fi
+    local name="${STAGENAME:-${0##*/}}"
     local lib_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
     local bin_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
+    local sys_libs="libc\.so|libm\.so|libdl\.so|librt\.so|libpthread\.so|libgcc_s\.so|libstdc\+\+\.so|ld-linux|libresolv\.so|libutil\.so"
     
     log_info "################################################################"
-    
-    # Вместо xargs и сложных пайпов используем простой цикл while
-    # Это на 100% исключает 141 ошибку
-    if [[ -d "$lib_dir" ]]; then
-        find "$lib_dir" -name "*.a" 2>/dev/null | while read -r lib; do
-            log_debug "Symbols in $(basename "$lib"): "
-            # Читаем nm в файл, чтобы не было пайпа вообще
-            "${FFBUILD_TOOLCHAIN}-nm" -u "$lib" 2>/dev/null | sort -u > /tmp/symbols.txt || true
-            head -n 10 /tmp/symbols.txt | xargs echo "  -" || true
-            rm -f /tmp/symbols.txt
-        done
-    fi
+    log_debug "Showing dependencies for: $name"
 
-    # Проверка .pc файлов без exec и xargs
     if [[ -d "$lib_dir/pkgconfig" ]]; then
-        for pc in "$lib_dir/pkgconfig"/*.pc; do
-            [[ -e "$pc" ]] || continue
-            log_debug "PC File: $(basename "$pc")"
-            grep -E "Requires|Libs" "$pc" || true
-        done
+        { find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
+            set +e
+            printf "\n%b %s\n" "$XCLAM_MARK" "$1"
+            cat "$1"
+            printf "\n%b DEPS for %s:\n" "$SEARCH_MARK" "${1##*/}"
+            deps=$(pkg-config --print-requires --print-requires-private "$1" 2>/dev/null || true)
+            if [[ -n "$deps" ]]; then
+                echo "$deps"
+                for d in $deps; do
+                    pkg-config --exists "$d" 2>/dev/null || log_error "MISSING DEPENDENCY: $d (required by $1)"
+                done
+            else
+                echo "No dependencies found."
+            fi
+            exit 0
+        ' _ {} \; ; } || true
     fi
+    { find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) -print0 2>/dev/null | xargs -0 -r -I{} bash -c "
+        set +o pipefail
+        if \"\${FFBUILD_TOOLCHAIN}-readelf\" -h \"\$1\" &>/dev/null; then
+            raw_deps=\$(\"\${FFBUILD_TOOLCHAIN}-readelf\" -d \"\$1\" 2>/dev/null | awk '/NEEDED/ { gsub(/.*\[|\]/, \"\"); print }' || true)
+            clean_deps=\$(echo \"\$raw_deps\" | awk '!/'\"$sys_libs\"'/' || true)
+            if [[ -n \"\$clean_deps\" ]]; then
+                log_debug \"\n\$XCLAM_MARK NEEDED LIBRARIES for \$1:\"
+                echo \"\$clean_deps\"
+            fi
+        fi
+        exit 0
+    " _ {} ; } || true
+    { find "$lib_dir" -name "*.a" -print0 2>/dev/null | xargs -0 -r -I{} bash -c '
+        set +o pipefail
+        if "${FFBUILD_TOOLCHAIN}-nm" -u "$1" &>/dev/null; then
+            log_debug "\n$XCLAM_MARK EXTERNAL SYMBOLS (TOP 10) in $1:"
+            "${FFBUILD_TOOLCHAIN}-nm" -u "$1" 2>/dev/null | awk "!/@@/ {print}" | sort -u | awk "NR<=10"
+        fi
+        exit 0
+    ' _ {} ; } || true
+    { find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | xargs -0 -r -I{} bash -c "
+        set +o pipefail
+        if \"\${FFBUILD_TOOLCHAIN}-readelf\" -h \"\$1\" &>/dev/null; then
+            log_debug \"\n\$XCLAM_MARK RPATH/RUNPATH for \$1:\"
+            \"\${FFBUILD_TOOLCHAIN}-objdump\" -p \"\$1\" 2>/dev/null | awk '/RPATH|RUNPATH/ {print}' || true
+        fi
+        exit 0
+    " _ {} ; } || true
 }
 export -f get_deps_list
 
