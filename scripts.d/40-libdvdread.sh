@@ -22,9 +22,14 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
+    export CFLAGS="$(echo $CFLAGS | sed 's/-std=c11//g')"
+    export CXXFLAGS="$(echo $CXXFLAGS | sed 's/-std=c++17//g')"
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --buildtype=release
+        -Dcpp_std=c++17
+        -Dc_std=c11
         -Ddefault_library=static
         -Dwarning_level=1
         -Dwerror=false

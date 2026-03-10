@@ -26,6 +26,7 @@ ffbuild_dockerbuild() {
         --disable-csharp
         --disable-libasprintf
         --disable-openmp
+        --disable-nls
         --with-libiconv-prefix="$FFBUILD_PREFIX"
         --with-pic
         --with-included-gettext

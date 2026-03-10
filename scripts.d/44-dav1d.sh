@@ -15,12 +15,17 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
+    export CFLAGS="$(echo $CFLAGS | sed 's/-std=c11//g')"
+    export CXXFLAGS="$(echo $CXXFLAGS | sed 's/-std=c++17//g')"
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --libdir="$FFBUILD_PREFIX/lib"
         --cross-file=/cross.meson
         --buildtype=release
         --default-library=static
+        -Dcpp_std=c++17
+        -Dc_std=c11
         -Denable_asm=true
         -Denable_tools=false
         -Denable_tests=false

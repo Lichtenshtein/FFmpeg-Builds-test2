@@ -33,6 +33,7 @@ ffbuild_dockerbuild() {
         --disable-shared
         --disable-docbook
         --disable-docs
+        --disable-nls
         --disable-cache-build
         --enable-libxml2
         --enable-iconv

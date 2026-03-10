@@ -37,12 +37,17 @@ ffbuild_dockerbuild() {
     # Помогаем Rust найти либы C через переменные окружения
     export RUSTFLAGS="-L native=$FFBUILD_PREFIX/lib -C linker=${FFBUILD_TOOLCHAIN}-gcc"
 
+    export CFLAGS="$(echo $CFLAGS | sed 's/-std=c11//g')"
+    export CXXFLAGS="$(echo $CXXFLAGS | sed 's/-std=c++17//g')"
+
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
         --cross-file=/cross.meson \
         --buildtype=release \
         --default-library=static \
         --wrap-mode=nodownload \
+        -Dcpp_std=c++17 \
+        -Dc_std=c11 \
         -Dintrospection=disabled \
         -Dpixbuf=disabled \
         -Dpixbuf-loader=disabled \

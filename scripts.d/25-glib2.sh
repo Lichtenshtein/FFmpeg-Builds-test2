@@ -71,18 +71,20 @@ EOF
         --default-library=static
         --wrap-mode=nodownload
         -Dtests=false
+        -Dcpp_std=c++17
+        -Dc_std=c11
         -Dinstalled_tests=false
         -Dintrospection=disabled
         -Dlibmount=disabled
-        -Dnls=enabled
+        -Dnls=false
         -Dglib_debug=disabled
         -Dforce_posix_threads=true
         -Dman-pages=disabled
         -Dselinux=disabled
         -Dsysprof=disabled
         # Флаги компиляции
-        -Dc_args="$CFLAGS -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
-        -Dcpp_args="$CXXFLAGS -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
+        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g') -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
+        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g') -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )

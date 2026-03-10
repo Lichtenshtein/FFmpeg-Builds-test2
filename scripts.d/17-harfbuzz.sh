@@ -28,6 +28,8 @@ ffbuild_dockerbuild() {
         --libdir=lib
         --buildtype=release
         --default-library=static
+        -Dcpp_std=c++17
+        -Dc_std=c11
         -Dfreetype=enabled
         -Draster=disabled
         -Dvector=disabled
@@ -44,8 +46,8 @@ ffbuild_dockerbuild() {
         -Ddirectwrite=disabled
         -Dgdi=disabled
         -Dbenchmark=disabled
-        -Dcpp_args="$CXXFLAGS -DHARFBUZZ_STATIC -Wno-redundant-decls"
-        -Dc_args="$CFLAGS -DHARFBUZZ_STATIC -Wno-redundant-decls"
+        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g') -DHARFBUZZ_STATIC -Wno-redundant-decls"
+        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g') -DHARFBUZZ_STATIC -Wno-redundant-decls"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
@@ -59,8 +61,10 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    # Патчим .pc для последующих этапов
-    sed -i "s|^Libs.private:.*|Libs.private: $HARFBUZZ_DEPS $LIBS -lusp10 -lgdi32 -lrpcrt4|" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/harfbuzz.pc"
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/harfbuzz.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i "s|^Libs.private:.*|Libs.private: $HARFBUZZ_DEPS $LIBS -lusp10 -lgdi32 -lrpcrt4|" "$PC_FILE"
+    fi
 
     get_deps_list
 }
