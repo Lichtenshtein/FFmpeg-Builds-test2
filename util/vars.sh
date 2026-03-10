@@ -314,6 +314,7 @@ get_deps_list() {
     " _ {} || true
     find "$lib_dir" -name "*.a" -print0 2>/dev/null | xargs -0 -I{} bash -c '
         log_debug "\n$XCLAM_MARK EXTERNAL SYMBOLS (TOP 10) in $1:"
+        set +o pipefail
         "${FFBUILD_TOOLCHAIN}-nm" -u "$1" 2>/dev/null | grep -v "@@" | sort -u | head -n 10 || true
     exit 0
     ' _ {} || true
