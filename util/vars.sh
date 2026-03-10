@@ -273,10 +273,12 @@ get_deps_list() {
     local lib_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
     local bin_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
     local sys_libs="libc\.so|libm\.so|libdl\.so|librt\.so|libpthread\.so|libgcc_s\.so|libstdc\+\+\.so|ld-linux|libresolv\.so|libutil\.so"
+    
     log_info "################################################################"
     log_debug "Showing dependencies for: $name"
+
     if [[ -d "$lib_dir/pkgconfig" ]]; then
-        find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
+        { find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
             set +e
             printf "\n%b %s\n" "$XCLAM_MARK" "$1"
             cat "$1"
@@ -291,42 +293,36 @@ get_deps_list() {
                 echo "No dependencies found."
             fi
             exit 0
-        ' _ {} \; || true
+        ' _ {} \; ; } || true
     fi
-    find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) -print0 2>/dev/null | xargs -0 -I{} bash -c "
+    { find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) -print0 2>/dev/null | xargs -0 -r -I{} bash -c "
         set +o pipefail
         if \"\${FFBUILD_TOOLCHAIN}-readelf\" -h \"\$1\" &>/dev/null; then
-            raw_deps=\$(\"\${FFBUILD_TOOLCHAIN}-readelf\" -d \"\$1\" 2>/dev/null | grep 'NEEDED' | sed -E 's/.*\[(.*)\].*/\1/' || true)
-            clean_deps=\$(echo \"\$raw_deps\" | grep -vE \"$sys_libs\" || true)
+            raw_deps=\$(\"\${FFBUILD_TOOLCHAIN}-readelf\" -d \"\$1\" 2>/dev/null | awk '/NEEDED/ { gsub(/.*\[|\]/, \"\"); print }' || true)
+            clean_deps=\$(echo \"\$raw_deps\" | awk '!/'\"$sys_libs\"'/' || true)
             if [[ -n \"\$clean_deps\" ]]; then
                 log_debug \"\n\$XCLAM_MARK NEEDED LIBRARIES for \$1:\"
                 echo \"\$clean_deps\"
-                for lib in \$clean_deps; do
-                    if [[ ! -f \"$lib_dir/\$lib\" ]]; then
-                         log_error \"BROKEN LINK: \$lib not found in $lib_dir (needed by \$1)\"
-                    fi
-                done
             fi
         fi
-    exit 0
-    " _ {} || true
-    find "$lib_dir" -name "*.a" -print0 2>/dev/null | xargs -0 -I{} bash -c '
+        exit 0
+    " _ {} ; } || true
+    { find "$lib_dir" -name "*.a" -print0 2>/dev/null | xargs -0 -r -I{} bash -c '
         set +o pipefail
         if "${FFBUILD_TOOLCHAIN}-nm" -u "$1" &>/dev/null; then
             log_debug "\n$XCLAM_MARK EXTERNAL SYMBOLS (TOP 10) in $1:"
-            # Перенаправляем вывод через cat, чтобы NM не получил SIGPIPE от head
-            "${FFBUILD_TOOLCHAIN}-nm" -u "$1" 2>/dev/null | grep -v "@@" | sort -u | head -n 10 | cat
+            "${FFBUILD_TOOLCHAIN}-nm" -u "$1" 2>/dev/null | awk "!/@@/ {print}" | sort -u | awk "NR<=10"
         fi
         exit 0
-    ' _ {} || true
-    find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | xargs -0 -I{} bash -c "
+    ' _ {} ; } || true
+    { find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | xargs -0 -r -I{} bash -c "
         set +o pipefail
         if \"\${FFBUILD_TOOLCHAIN}-readelf\" -h \"\$1\" &>/dev/null; then
             log_debug \"\n\$XCLAM_MARK RPATH/RUNPATH for \$1:\"
-            \"\${FFBUILD_TOOLCHAIN}-objdump\" -p \"\$1\" 2>/dev/null | grep -E 'RPATH|RUNPATH' || true
+            \"\${FFBUILD_TOOLCHAIN}-objdump\" -p \"\$1\" 2>/dev/null | awk '/RPATH|RUNPATH/ {print}' || true
         fi
-    exit 0
-    " _ {} || true
+        exit 0
+    " _ {} ; } || true
 }
 export -f get_deps_list
 
