@@ -38,9 +38,7 @@ ffbuild_dockerbuild() {
     log_debug "Looking for gdi32: $GDI_PATH"
 
     # Если путь не найден, попробуем через sysroot
-    if [[ "$MINGW_SYS_LIBDIR" == "." ]]; then
-        MINGW_SYS_LIBDIR="$(${CC} -print-sysroot)/lib"
-    fi
+    [[ "$MINGW_SYS_LIBDIR" == "." ]] && MINGW_SYS_LIBDIR="$(${CC} -print-sysroot)/lib"
     log_debug "Looking for LIBDIR: $MINGW_SYS_LIBDIR"
 
     local myconf=(
@@ -71,8 +69,8 @@ ffbuild_dockerbuild() {
 
     meson setup . .. \
         "${myconf[@]}" \
-        -Dc_link_args="$LDFLAGS -L${MINGW_LIBDIR} $DEP_LIBS $WIN_LIBS $LIBS" \
-        -Dcpp_link_args="$LDFLAGS -L${MINGW_LIBDIR} $DEP_LIBS $WIN_LIBS $LIBS"
+        -Dc_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR}" \
+        -Dcpp_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR}"
 
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
