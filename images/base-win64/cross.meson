@@ -13,8 +13,6 @@ nasm = '/usr/bin/nasm'
 
 [properties]
 needs_exe_wrapper = true
-sys_root = '/opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/sysroot'
-pkg_config_libdir = '/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/sysroot/lib/pkgconfig'
 
 [host_machine]
 system = 'windows'
