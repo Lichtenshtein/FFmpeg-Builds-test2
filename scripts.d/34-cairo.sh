@@ -35,11 +35,13 @@ ffbuild_dockerbuild() {
 
     local GDI_PATH=$(${CC} -print-file-name=libgdi32.a)
     local MINGW_SYS_LIBDIR=$(dirname "$GDI_PATH")
-    log_debug "Looking for gdi32: $GDI_PATH"
-
-    # Если путь не найден, попробуем через sysroot
     [[ "$MINGW_SYS_LIBDIR" == "." ]] && MINGW_SYS_LIBDIR="$(${CC} -print-sysroot)/lib"
+    log_debug "Looking for gdi32: $GDI_PATH"
     log_debug "Looking for LIBDIR: $MINGW_SYS_LIBDIR"
+
+    export LIBRARY_PATH="$FFBUILD_PREFIX/lib:$MINGW_SYS_LIBDIR"
+    export C_INCLUDE_PATH="$FFBUILD_PREFIX/include"
+    export CPATH="$FFBUILD_PREFIX/include"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -67,10 +69,15 @@ ffbuild_dockerbuild() {
         # -Dc_args="$CFLAGS -DCAIRO_WIN32_STATIC_BUILD -I${MINGW_INCDIR}"
         # -Dcpp_args="$CXXFLAGS -DCAIRO_WIN32_STATIC_BUILD -I${MINGW_INCDIR}"
 
+    # meson setup . .. 
+        # "${myconf[@]}" 
+        # -Dc_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR} $DEP_LIBS $WIN_LIBS" 
+        # -Dcpp_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR} $DEP_LIBS $WIN_LIBS"
+
     meson setup . .. \
         "${myconf[@]}" \
-        -Dc_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR} $DEP_LIBS $WIN_LIBS" \
-        -Dcpp_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR} $DEP_LIBS $WIN_LIBS"
+        -Dc_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR}" \
+        -Dcpp_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR}"
 
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
