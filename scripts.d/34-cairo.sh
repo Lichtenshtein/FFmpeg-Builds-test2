@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
     # Набор системных библиотек Windows для Cairo
     local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lole32 -luuid"
     # Зависимости из чит-листа в правильном порядке линковки
-    local DEP_LIBS="-lfontconfig -lexpat -lfreetype -lharfbuzz -lharfbuzz-icu -lsicuin -lsicuuc -lsicudt -lpixman-1 -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon -lglib-2.0 -lintl -liconv -lcharset"
+    local DEP_LIBS="-lfontconfig -lexpat -lfreetype -lharfbuzz -lharfbuzz-icu -lsicuin -lsicuuc -lsicudt -lpixman-1 -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon -lglib-2.0 -lintl -liconv -lcharset -lssp"
 
     mkdir _build && cd _build
 
@@ -69,8 +69,8 @@ ffbuild_dockerbuild() {
 
     meson setup . .. \
         "${myconf[@]}" \
-        -Dc_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR}" \
-        -Dcpp_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR}"
+        -Dc_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR} $DEP_LIBS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR} $DEP_LIBS $WIN_LIBS"
 
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
