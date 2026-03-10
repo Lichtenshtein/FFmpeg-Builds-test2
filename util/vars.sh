@@ -269,16 +269,15 @@ get_deps_list() {
     if [[ "$FFBUILD_VERBOSE" != "1" ]]; then
         return 0
     fi
-    log_info "################################################################"
     local name="${STAGENAME:-${0##*/}}"
     local lib_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
     local bin_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
-    log_debug "Showing dependencies for: $name"
     local sys_libs="libc\.so|libm\.so|libdl\.so|librt\.so|libpthread\.so|libgcc_s\.so|libstdc\+\+\.so|ld-linux|libresolv\.so|libutil\.so"
-
+    log_info "################################################################"
+    log_debug "Showing dependencies for: $name"
     if [[ -d "$lib_dir/pkgconfig" ]]; then
         find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
-            set +e 
+            set +e
             printf "\n%b %s\n" "$XCLAM_MARK" "$1"
             cat "$1"
             printf "\n%b DEPS for %s:\n" "$SEARCH_MARK" "${1##*/}"
@@ -286,9 +285,7 @@ get_deps_list() {
             if [[ -n "$deps" ]]; then
                 echo "$deps"
                 for d in $deps; do
-                    if ! pkg-config --exists "$d" 2>/dev/null; then
-                        log_error "MISSING DEPENDENCY: $d (required by $1)"
-                    fi
+                    pkg-config --exists "$d" 2>/dev/null || log_error "MISSING DEPENDENCY: $d (required by $1)"
                 done
             else
                 echo "No dependencies found."
@@ -296,9 +293,10 @@ get_deps_list() {
             exit 0
         ' _ {} \; || true
     fi
-    find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | xargs -0 -I{} bash -c "
+    find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) -print0 2>/dev/null | xargs -0 -I{} bash -c "
+        set +o pipefail
         if \"\${FFBUILD_TOOLCHAIN}-readelf\" -h \"\$1\" &>/dev/null; then
-            raw_deps=\$(\"\${FFBUILD_TOOLCHAIN}-readelf\" -d \"\$1\" | grep 'NEEDED' | sed -E 's/.*\[(.*)\].*/\1/' || true)
+            raw_deps=\$(\"\${FFBUILD_TOOLCHAIN}-readelf\" -d \"\$1\" 2>/dev/null | grep 'NEEDED' | sed -E 's/.*\[(.*)\].*/\1/' || true)
             clean_deps=\$(echo \"\$raw_deps\" | grep -vE \"$sys_libs\" || true)
             if [[ -n \"\$clean_deps\" ]]; then
                 log_debug \"\n\$XCLAM_MARK NEEDED LIBRARIES for \$1:\"
@@ -313,15 +311,19 @@ get_deps_list() {
     exit 0
     " _ {} || true
     find "$lib_dir" -name "*.a" -print0 2>/dev/null | xargs -0 -I{} bash -c '
-        log_debug "\n$XCLAM_MARK EXTERNAL SYMBOLS (TOP 10) in $1:"
         set +o pipefail
-        "${FFBUILD_TOOLCHAIN}-nm" -u "$1" 2>/dev/null | grep -v "@@" | sort -u | head -n 10 || true
-    exit 0
+        if "${FFBUILD_TOOLCHAIN}-nm" -u "$1" &>/dev/null; then
+            log_debug "\n$XCLAM_MARK EXTERNAL SYMBOLS (TOP 10) in $1:"
+            # Перенаправляем вывод через cat, чтобы NM не получил SIGPIPE от head
+            "${FFBUILD_TOOLCHAIN}-nm" -u "$1" 2>/dev/null | grep -v "@@" | sort -u | head -n 10 | cat
+        fi
+        exit 0
     ' _ {} || true
-    find "$lib_dir" "$bin_dir" -type f -executable -print0 2>/dev/null | xargs -0 -I{} bash -c "
+    find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | xargs -0 -I{} bash -c "
+        set +o pipefail
         if \"\${FFBUILD_TOOLCHAIN}-readelf\" -h \"\$1\" &>/dev/null; then
             log_debug \"\n\$XCLAM_MARK RPATH/RUNPATH for \$1:\"
-            \"\${FFBUILD_TOOLCHAIN}-objdump\" -p \"\$1\" | grep -E 'RPATH|RUNPATH' || true
+            \"\${FFBUILD_TOOLCHAIN}-objdump\" -p \"\$1\" 2>/dev/null | grep -E 'RPATH|RUNPATH' || true
         fi
     exit 0
     " _ {} || true
@@ -331,14 +333,12 @@ export -f get_deps_list
 clean_la_files() {
     local target_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX"
     # Проверяем, существует ли вообще директория префикса
-    if [[ ! -d "$target_dir" ]]; then
-        return 0
-    fi
+    [[ ! -d "$target_dir" ]] && return 0
     log_debug "Cleaning up libtool archives (.la) in $target_dir"
     # Используем find с проверкой на наличие файлов, чтобы не выводить ошибки, если их нет
     if find "$target_dir" -name "*.la" -type f -print -quit | grep -q .; then
-        local count=$(find "$target_dir" -name "*.la" -type f | wc -l)
-        find "$target_dir" -name "*.la" -type f -delete
+        local count=$(find "$target_dir" -name "*.la" -type f | wc -l 2>/dev/null || true)
+        find "$target_dir" -name "*.la" -type f -delete 2>/dev/null || true
         log_info "${BROOM_MARK} Removed $count .la files from prefix."
     else
         log_debug "No .la files found to clean."
@@ -353,38 +353,23 @@ export -f clean_la_files
 apply_patches() {
     local COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
     local PATCH_DIR="/builder/patches/$COMPONENT_NAME"
+    [[ ! -d "$PATCH_DIR" ]] && log_debug "${XCLAM_MARK} No patches found for $COMPONENT_NAME" && return 0
 
-    if [[ -d "$PATCH_DIR" ]]; then
-        # Ensure there are actually .patch files to avoid loop errors
-        shopt -s nullglob
-        for patch in "$PATCH_DIR"/*.patch; do
-            log_info "${TARGET_MARK} APPLYING PATCH: $(basename "$patch")"
-            local strategies=(
-                "-p1 -N -r -"
-                "-p1 -N -r - --binary"
-                "-p1 -N -r - -l"
-                "-p1 -N -r - -l --fuzz=3"
-            )
-
-            local success=false
-            for opts in "${strategies[@]}"; do
-                log_debug "Trying: patch $opts"
-                if patch $opts < "$patch" >/dev/null 2>&1; then
-                    log_info "${CHECK_MARK} SUCCESS: Applied with [$opts]"
-                    success=true
-                    break
-                fi
-            done
-
-            if [ "$success" = false ]; then
-                log_error "${CROSS_MARK} FAILED: All attempts to apply $(basename "$patch") failed."
-                # return 1 # не прерывать сборку при ошибках
-            fi
-        done
-        shopt -u nullglob
-    else
-        log_debug "${XCLAM_MARK} No patches found for $COMPONENT_NAME"
-    fi
+    shopt -s nullglob
+    for patch in "$PATCH_DIR"/*.patch; do
+        log_info "${TARGET_MARK} APPLYING PATCH: $(basename "$patch")"
+        local success=false
+        patch -p1 -N -r - < "$patch" >/dev/null 2>&1 && success=true
+        [[ "$success" == "false" ]] && patch -p1 -N -r - --binary < "$patch" >/dev/null 2>&1 && success=true
+        [[ "$success" == "false" ]] && patch -p1 -N -r - -l < "$patch" >/dev/null 2>&1 && success=true
+        [[ "$success" == "false" ]] && patch -p1 -N -r - -l --fuzz=3 < "$patch" >/dev/null 2>&1 && success=true
+        if [ "$success" = true ]; then
+            log_info "${CHECK_MARK} SUCCESS: Applied $(basename "$patch")"
+        else
+            log_error "${CROSS_MARK} FAILED: attempts to apply $(basename "$patch") failed."
+        fi
+    done
+    shopt -u nullglob
 }
 export -f apply_patches
 
