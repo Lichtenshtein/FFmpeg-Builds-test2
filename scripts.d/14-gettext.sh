@@ -35,7 +35,7 @@ ffbuild_dockerbuild() {
 
     # Явно прокидываем CPPFLAGS, чтобы он нашел iconv.h в /opt/ffbuild/include
     ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS" \
+        CFLAGS="$CFLAGS -Dasm=__asm__" \
         CPPFLAGS="$CPPFLAGS" \
         LDFLAGS="$LDFLAGS"
 
