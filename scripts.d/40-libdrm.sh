@@ -16,8 +16,13 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
+    export CFLAGS="$RAW_CFLAGS"
+    export LDFLAFS="$RAW_LDFLAGS"
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        -Dcpp_std=c++17
+        -Dc_std=c11
         -Ddefault_library=shared
         -Dudev=false
         -Dcairo-tests=disabled
@@ -40,9 +45,6 @@ ffbuild_dockerbuild() {
         echo "Unknown target"
         return 1
     fi
-
-    export CFLAGS="$RAW_CFLAGS"
-    export LDFLAFS="$RAW_LDFLAGS"
 
     meson "${myconf[@]}" ..
     ninja -j$(nproc) $NINJA_V

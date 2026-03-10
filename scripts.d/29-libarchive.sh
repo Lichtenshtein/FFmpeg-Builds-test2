@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build_dir && cd build_dir
 
-    local XML2_DEPS="-lxml2 -lsicuin -lsicuuc -lsicudt -llzma -liconv -lcharset -lintl -lz"
+    local XML2_DEPS="-lxml2 -lsicuin -lsicuuc -lsicudt -llzma -liconv -lcharset -lintl -lz -lws2_32"
     local ARCHIVE_DEPS="-lcrypto -lssl $XML2_DEPS -lbz2 -lzstd $LIBS"
 
     local myconf=(
@@ -51,6 +51,10 @@ ffbuild_dockerbuild() {
         -DENABLE_XATTR=ON
         -DLIBXML2_LIBRARIES="$XML2_LIBS"
         -DLIBXML2_INCLUDE_DIR="$FFBUILD_PREFIX/include/libxml2"
+        -DZLIB_LIBRARIES="-lz"
+        -DLIBICONV_PATH="-liconv"
+        -DICONV_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DCMAKE_REQUIRED_INCLUDES="$FFBUILD_PREFIX/include/libxml2;$FFBUILD_PREFIX/include"
         -DCMAKE_REQUIRED_LIBRARIES="$XML2_LIBS"
     )
 
@@ -58,6 +62,7 @@ ffbuild_dockerbuild() {
 
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS -DARCHIVE_STATIC -DLIBXML_STATIC -DXML_STATIC" \
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS -DARCHIVE_STATIC -DLIBXML_STATIC -DXML_STATIC" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $ARCHIVE_DEPS" ..
 
     make -j$(nproc) $MAKE_V
