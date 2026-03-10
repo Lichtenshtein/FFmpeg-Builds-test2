@@ -76,7 +76,8 @@ EOF
         -Dinstalled_tests=false
         -Dintrospection=disabled
         -Dlibmount=disabled
-        -Dnls=disabled
+        # -Dnls=disabled
+        -Dnls=enabled
         -Dglib_debug=disabled
         -Dforce_posix_threads=true
         -Dman-pages=disabled
