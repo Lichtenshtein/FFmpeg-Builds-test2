@@ -165,7 +165,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=base
           push: true
           load: false
-          tags: ${{ steps.images.outputs.target_base }} 
+          tags: ${{ steps.images.outputs.target_base }}
 
       - name: Get Download Cache Key
         id: dl_cache
@@ -258,7 +258,7 @@ jobs:
           # grand_total_deleted=0
 
           # for prefix in "${prefixes[@]}"; do
-            Keep newest 15 entries, delete the rest
+            # # Keep newest 15 entries, delete the rest
             # data=$(jq -r --arg pref "$prefix" \
                 # '[.[] | select(.key | startswith($pref))] | sort_by(.createdAt) | reverse | .[50:] | .[] | "\(.key)|\(.sizeInBytes)"' \
                 # all_caches.json)
