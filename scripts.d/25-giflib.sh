@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://downloads.sourceforge.net/project/giflib/giflib-5.2.2.tar.gz"
+SCRIPT_REPO="https://downloads.sourceforge.net/project/giflib/giflib-6.1.2.tar.gz"
 
 ffbuild_enabled() {
     return 0
@@ -36,7 +36,7 @@ includedir=\${prefix}/include
 
 Name: giflib
 Description: Library for reading and writing GIF files
-Version: 5.2.2
+Version: 6.1.2
 Libs: -L\${libdir} -lgif
 Cflags: -I\${includedir}
 EOF
