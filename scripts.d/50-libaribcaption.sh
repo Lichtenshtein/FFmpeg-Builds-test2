@@ -11,7 +11,6 @@ ffbuild_depends() {
 }
 
 ffbuild_enabled() {
-    (( $(ffbuild_ffver) > 600 )) || return 1
     return 0
 }
 
@@ -50,6 +49,5 @@ ffbuild_configure() {
 }
 
 ffbuild_unconfigure() {
-    (( $(ffbuild_ffver) > 600 )) || return 0
     echo --disable-libaribcaption
 }

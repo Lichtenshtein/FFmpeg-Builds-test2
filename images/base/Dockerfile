@@ -67,13 +67,12 @@ RUN \
 # Создаем ссылки на то, что РЕАЛЬНО есть в системе (судя по dpkg -L)
 RUN \
     mkdir -p /root/.wine && chmod -R 777 /root/.wine && \
+    ls /opt/wine-stable/bin/ || (echo "Wine path wrong, checking..."; which wine) && \
     ln -sf /opt/wine-stable/bin/wine /usr/bin/wine64 && \
     ln -sf /opt/wine-stable/bin/wine /usr/bin/wine && \
     ln -sf /opt/wine-stable/bin/wineboot /usr/bin/wineboot && \
     ln -sf /opt/wine-stable/bin/wineserver /usr/bin/wineserver && \
-    # Проверка: используем wine вместо wine64, если его нет
-    wine --version && \
-    echo "Wine binaries linked successfully."
+    wine --version || (echo "Wine binaries linked successfully.")
 
 # Базовые настройки Wine
 ENV \
@@ -83,3 +82,6 @@ ENV \
     WINEDEBUG=-all \
     WINEDLLOVERRIDES="mscoree,mshtml=" \
     WINE_BIN_DIR="/opt/wine-stable/bin"
+
+RUN \
+    test -d "$WINE_BIN_DIR" || { echo "ERROR: WINE_BIN_DIR=$WINE_BIN_DIR does not exist"; exit 1; }

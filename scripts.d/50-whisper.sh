@@ -89,6 +89,5 @@ ffbuild_configure() {
 }
 
 ffbuild_unconfigure() {
-    (( $(ffbuild_ffver) >= 800 )) || return 0
     echo --disable-whisper
 }

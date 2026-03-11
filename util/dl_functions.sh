@@ -13,7 +13,7 @@ _retry() {
     local timeout_val=300
     
     while true; do
-        if timeout -s 9 "$timeout_val" "$@"; then
+        if timeout --kill-after=10 "$timeout_val" "$@"; then
             return 0
         else
             if [[ $n -lt $max ]]; then
@@ -72,7 +72,7 @@ git-mini-clone() {
     local OLD_PWD=$(pwd)
     cd "$TARGET_DIR" || return 1
     # Функция для безопасного выхода (замена popd)
-    _cleanup_git_clone() { cd "$OLD_PWD"; }
+    trap "cd '$OLD_PWD'" RETURN
 
     # Удаляем возможные локи от прошлых неудачных запусков
     [[ -d ".git" ]] && rm -f .git/index.lock
@@ -102,7 +102,7 @@ git-mini-clone() {
             COMMIT="$RESOLVED_COMMIT"
         else
             log_error "${CROSS_MARK} Tag filter '$TAGFILTER' returned nothing"
-            _cleanup_git_clone; return 1
+            return 1
         fi
     fi
 
@@ -125,13 +125,12 @@ git-mini-clone() {
     # Полный fallback (если сервер не поддерживает shallow fetch для коммитов)
     if [[ $success -eq 0 ]]; then
         log_warn "${XCLAM_MARK} Shallow fetch failed. Performing full fallback for $REPO..."
+        log_warn "Full fetch for $REPO may download significant data..."
         if _retry git fetch --quiet --tags origin || _retry git fetch --quiet origin; then
             git checkout --quiet "$COMMIT" && success=1
         fi
     fi
 
-    # Возвращаемся в исходную директорию
-    _cleanup_git_clone
     if [[ $success -eq 0 ]]; then
         log_error "${CROSS_MARK} ERROR: Failed to clone $REPO at $COMMIT"
         return 1
@@ -159,7 +158,7 @@ download_file() {
 
     log_info "${DOWN_MARK} Downloading external file: $(basename "$DEST")..."
     # Заменяем wget на curl с поддержкой докачки и повторов
-    if _retry curl -sL -C - "$URL" -o "$DEST"; then
+    if _retry curl -fsSL "$URL" -o "$DEST"; then
         if [[ -n "$SHA512" ]]; then
             echo "$SHA512  $DEST" | sha512sum -c || { log_error "${CROSS_MARK} Hash validation failed"; return 1; }
         fi
@@ -192,7 +191,9 @@ git-submodule-clone() {
     # 2. Получаем данные напрямую
     # 3. Пытаемся переключиться на нужный коммит (записанный в основном репозитории)
     # Обычно это FETCH_HEAD после fetch, если мы тянем конкретный коммит
-    git submodule foreach --recursive '
+    git submodule foreach --recursive bash -c '
+        source /builder/util/vars.sh "$TARGET" "$VARIANT" 2>/dev/null
+        source /builder/util/dl_functions.sh
         log_info "Processing submodule: $name"
         git reset --hard HEAD && git clean -fd
         if _retry git fetch --quiet --no-tags --depth=1 origin; then

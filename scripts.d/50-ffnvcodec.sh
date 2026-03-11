@@ -9,7 +9,6 @@ SCRIPT_BRANCH4="sdk/12.2"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm64 ]] && return 1
-    (( $(ffbuild_ffver) >= 404 )) || return 1
     return 0
 }
 
@@ -20,14 +19,8 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    # Получаем версию через функцию, так как переменная FFVER пуста
-    local current_ffver=$(ffbuild_ffver)
 
-    if (( current_ffver < 800 )); then
-        cd ffnvcodec4
-    else
-        cd ffnvcodec
-    fi
+    cd ffnvcodec4
 
     # ffnvcodec - это просто заголовки, Makefile простой.
     make PREFIX="$FFBUILD_PREFIX" DESTDIR="$FFBUILD_DESTDIR" install

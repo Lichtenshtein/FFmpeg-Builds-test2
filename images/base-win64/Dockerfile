@@ -48,7 +48,7 @@ ENV  \
     CCACHE_NOHASHDIR=1
 
 ENV \
-PATH="/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${WINE_BIN_DIR}:${PATH}" \
+PATH="/usr/local/bin:/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${WINE_BIN_DIR}:/usr/bin:/bin:${PATH}" \
     FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32" \
     FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}- \
     FFBUILD_PREFIX=/opt/ffbuild \
@@ -64,9 +64,10 @@ PATH="/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${WINE_BIN_DIR}:${PATH}
     RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib" \
     NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
     DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool" \
+    WINDRES="${FFBUILD_TOOLCHAIN}-windres" \
     OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump" \
-    STRIP="${FFBUILD_TOOLCHAIN}-strip" \
-    GENDEF="${FFBUILD_TOOLCHAIN}-gendef"
+    GENDEF="${FFBUILD_TOOLCHAIN}-gendef" \
+    STRIP="${FFBUILD_TOOLCHAIN}-strip"
 
 RUN echo "--- Toolchain Search ---" && \
     find /opt/ct-ng -name "libwinpthread-*.dll" -o -name "kernel32.dll" || true && \
