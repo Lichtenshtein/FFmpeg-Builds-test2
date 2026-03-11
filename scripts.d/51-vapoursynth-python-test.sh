@@ -179,6 +179,5 @@ ffbuild_cflags() {
 }
 
 ffbuild_libs() {
-    # Для успешной линковки FFmpeg с поддержкой VSScript
     echo "-lvsscript"
 }

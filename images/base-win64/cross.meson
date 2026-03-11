@@ -7,12 +7,19 @@ nm = 'x86_64-w64-mingw32-gcc-nm'
 strip = 'x86_64-w64-mingw32-strip'
 windres = 'x86_64-w64-mingw32-windres'
 dlltool = 'x86_64-w64-mingw32-dlltool'
-nasm = '/usr/bin/nasm'
+# nasm = '/usr/bin/nasm'
+nasm = 'nasm'
 # Заменяем wine на заглушку или убираем, если тесты не нужны
 # exe_wrapper = 'wine' 
+exe_wrapper = ['wine']
 
 [properties]
+pkg_config_libdir = '/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig'
 needs_exe_wrapper = true
+# needs_exe_wrapper = false
+
+[built-in options]
+pkg_config_path = '/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig'
 
 [host_machine]
 system = 'windows'

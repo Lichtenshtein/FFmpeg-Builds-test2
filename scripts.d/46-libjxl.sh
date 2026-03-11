@@ -80,6 +80,5 @@ ffbuild_configure() {
 }
 
 ffbuild_unconfigure() {
-    (( $(ffbuild_ffver) > 500 )) || return 0
     echo --disable-libjxl
 }

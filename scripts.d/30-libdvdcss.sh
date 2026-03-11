@@ -5,7 +5,6 @@ SCRIPT_COMMIT="2682a4a7ed782e700a5b920f6f85c4f9736921c3"
 
 ffbuild_enabled() {
     [[ $VARIANT == lgpl* ]] && return 1
-    (( $(ffbuild_ffver) >= 700 )) || return 1
     return 0
 }
 

@@ -71,6 +71,5 @@ ffbuild_unconfigure() {
 }
 
 ffbuild_cflags() {
-    # Флаг для статической сборки, чтобы избежать __declspec(dllimport)
     echo "-DVAPOURSYNTH_STATIC"
 }

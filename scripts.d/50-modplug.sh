@@ -51,5 +51,5 @@ ffbuild_unconfigure() {
 }
 
 ffbuild_cflags() {
-    echo -DMODPLUG_STATIC
+    echo "-DMODPLUG_STATIC"
 }

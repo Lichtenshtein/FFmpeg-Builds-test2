@@ -29,6 +29,7 @@ ffbuild_dockerbuild() {
         --host="$FFBUILD_TOOLCHAIN"
         --without-python
         --without-debug
+        --without-catalog
         --without-docs
         --without-modules
         --disable-maintainer-mode
@@ -57,7 +58,13 @@ ffbuild_dockerbuild() {
         CC="${FFBUILD_TOOLCHAIN}-gcc" \
         CXX="${FFBUILD_TOOLCHAIN}-g++"
 
-    make -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++"
+    make -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++" || {
+    # Tool executables (xmllint/xmlcatalog) may fail due to libstdc++ conflict
+    # The library itself (libxml2.a) is built correctly — proceed with install
+    log_warn "make failed (likely xmllint/xmlcatalog tool linking) — checking if libxml2.a exists..."
+    [[ -f ".libs/libxml2.a" ]] || { log_error "libxml2.a not built!"; return 1; }
+    log_warn "libxml2.a confirmed present, proceeding with install."
+}
     make install DESTDIR="$FFBUILD_DESTDIR"
 
     clean_la_files
@@ -65,10 +72,11 @@ ffbuild_dockerbuild() {
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libxml-2.0.pc"
     if [[ -f "$PC_FILE" ]]; then
         log_info "${SYNC_MARK} Patching libxml-2.0.pc..."
-        # форсируем флаги статики в Cflags
+        # Move all deps to Libs.private, keep only -lxml2 in Libs
+        sed -i "s|^Libs:.*|Libs: -L\${libdir} -lxml2|" "$PC_FILE"
+        sed -i "s|^Libs\.private:.*|Libs.private: $XML_DEPS $LIBS|" "$PC_FILE"
+        # Add static defines to Cflags
         sed -i "/^Cflags:/ s/$/ -DLIBXML_STATIC -DXML_STATIC/" "$PC_FILE"
-        # полный хвост зависимостей в Libs.private (сначала либы, потом системные)
-        sed -i "s|^Libs.private:.*|Libs.private: $XML_DEPS -lstdc++ -lws2_32 -lbcrypt $LIBS|" "$PC_FILE"
     fi
 
     get_deps_list

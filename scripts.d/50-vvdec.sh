@@ -6,7 +6,6 @@ SCRIPT_COMMIT="9a4349460e4c61232c3e2cfabecb508616ae8c2f"
 ffbuild_enabled() {
     [[ $TARGET == win32 ]] && return 1
     [[ $TARGET == winarm* ]] && return 1
-    (( $(ffbuild_ffver) > 700 )) || return 1
     return 0
 }
 
@@ -46,6 +45,5 @@ ffbuild_configure() {
 }
 
 ffbuild_unconfigure() {
-    (( $(ffbuild_ffver) > 700 )) || return 0
     echo --disable-libvvdec
 }

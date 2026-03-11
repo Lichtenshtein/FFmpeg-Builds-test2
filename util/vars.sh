@@ -38,22 +38,24 @@ log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 
 export -f log_info log_warn log_error log_debug
 
-export PATH="/usr/local/bin:/usr/bin:/bin:${PATH}"
+export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
+export FFBUILD_PREFIX="/opt/ffbuild"
+# export PATH="/usr/local/bin:/usr/bin:/bin:${PATH}"
 
-export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
+export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig"
 unset PKG_CONFIG_SYSROOT_DIR
-export PKG_CONFIG_STATIC=1
+export PKG_CONFIG="pkg-config --static"
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
 
-BASE_CFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
+BASE_CFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
 BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32"
-SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lssp -pthread -lstdc++"
+SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lssp -pthread"
 export LIBS="$SYSTEM_LIBS"
-export CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong -std=gnu11"
+export CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong"
 export CPPFLAGS="$BASE_CPPFLAGS"
-export CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong -std=c++17"
-export LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L$FFBUILD_PREFIX/lib -pthread -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+export CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CPPFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong -std=c++17"
+export LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L$FFBUILD_PREFIX/lib -pthread -lssp -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 export STAGE_CFLAGS="-fno-semantic-interposition"
 export STAGE_CXXFLAGS="-fno-semantic-interposition"
 
@@ -118,41 +120,6 @@ BASE_IMAGE="${REGISTRY}/${REPO}/base:latest"
 TARGET_IMAGE="${REGISTRY}/${REPO}/base-${TARGET}:latest"
 IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:latest"
 
-ffbuild_ffver() {
-    case "$ADDINS_STR" in
-    *4.3*)
-        echo 403
-        ;;
-    *4.4*)
-        echo 404
-        ;;
-    *5.0*)
-        echo 500
-        ;;
-    *5.1*)
-        echo 501
-        ;;
-    *6.0*)
-        echo 600
-        ;;
-    *6.1*)
-        echo 601
-        ;;
-    *7.0*)
-        echo 700
-        ;;
-    *7.1*)
-        echo 701
-        ;;
-    *8.0*)
-        echo 800
-        ;;
-    *)
-        echo 99999999
-        ;;
-    esac
-}
-
 ffbuild_depends() {
     echo base
 }
@@ -182,8 +149,7 @@ ffbuild_unconfigure() {
 }
 
 ffbuild_cflags() {
-    log_debug "Applying global CFLAGS for $STAGENAME" >&2
-    echo "-D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
+    echo "$CFLAGS"
 }
 
 ffbuild_uncflags() {
@@ -191,15 +157,11 @@ ffbuild_uncflags() {
 }
 
 ffbuild_cxxflags() {
-    log_debug "Applying global CXXFLAGS for $STAGENAME" >&2
-    # глобальный макрос для всех, кто включает заголовки
-    echo "-std=c++17 -D_WIN32_WINNT=0x0A00 -D_WIN32"
+    echo "$CXXFLAGS"
 }
 
 ffbuild_cppflags() {
-    log_debug "Applying global CPPFLAGS for $STAGENAME" >&2
-    # глобальный макрос для всех, кто включает заголовки
-    echo "-D_WIN32_WINNT=0x0A00 -D_WIN32"
+    echo "$CPPFLAGS"
 }
 
 ffbuild_uncxxflags() {
@@ -223,18 +185,14 @@ ffbuild_unldflags() {
 }
 
 ffbuild_libs() {
-    log_debug "Adding system libraries for Win64" >&2
-    # Только системные либы
-    echo "-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lstdc++ -lws2_32 -lbcrypt -pthread"
+    echo "$SYSTEM_LIBS"
 }
 
 ffbuild_unlibs() {
     return 0
 }
 ffbuild_dockerdl() {
-    if [[ -n "$SCRIPT_REPO" ]]; then
-        default_dl .
-    fi
+    [[ -n "$SCRIPT_REPO" ]] && default_dl .
 }
 
 ffbuild_enabled() {
@@ -287,9 +245,14 @@ get_deps_list() {
             deps=$(pkg-config --print-requires --print-requires-private "$1" 2>/dev/null || true)
             if [[ -n "$deps" ]]; then
                 echo "$deps"
-                for d in $deps; do
-                    pkg-config --exists "$d" 2>/dev/null || log_error "MISSING DEPENDENCY: $d (required by $1)"
-                done
+                while IFS= read -r dep_line; do
+                    [[ -z "$dep_line" ]] && continue
+                    local pkg_name
+                    pkg_name=$(echo "$dep_line" | awk '{print $1}')
+                    [[ -z "$pkg_name" ]] && continue
+                    pkg-config --exists "$pkg_name" 2>/dev/null \
+                        || log_error "MISSING DEPENDENCY: $pkg_name (required by $1)"
+                done <<< "$deps"
             else
                 echo "No dependencies found."
             fi
@@ -312,7 +275,7 @@ get_deps_list() {
         set +o pipefail
         if "${FFBUILD_TOOLCHAIN}-nm" -u "$1" &>/dev/null; then
             log_debug "\n$XCLAM_MARK EXTERNAL SYMBOLS (TOP 10) in $1:"
-            "${FFBUILD_TOOLCHAIN}-nm" -u "$1" 2>/dev/null | awk "!/@@/ {print}" | sort -u | awk "NR<=10"
+            "${FFBUILD_TOOLCHAIN}-nm" -u "$1" 2>/dev/null | awk '!/^[[:space:]]*$/ && !/@@/ && !/__imp_/' | sort -u | awk "NR<=10"
         fi
         exit 0
     ' _ {} ; } || true
@@ -348,23 +311,38 @@ export -f clean_la_files
 apply_patches() {
     local COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
     local PATCH_DIR="/builder/patches/$COMPONENT_NAME"
-    [[ ! -d "$PATCH_DIR" ]] && log_debug "${XCLAM_MARK} No patches found for $COMPONENT_NAME" && return 0
 
-    shopt -s nullglob
-    for patch in "$PATCH_DIR"/*.patch; do
-        log_info "${TARGET_MARK} APPLYING PATCH: $(basename "$patch")"
-        local success=false
-        patch -p1 -N -r - < "$patch" >/dev/null 2>&1 && success=true
-        [[ "$success" == "false" ]] && patch -p1 -N -r - --binary < "$patch" >/dev/null 2>&1 && success=true
-        [[ "$success" == "false" ]] && patch -p1 -N -r - -l < "$patch" >/dev/null 2>&1 && success=true
-        [[ "$success" == "false" ]] && patch -p1 -N -r - -l --fuzz=3 < "$patch" >/dev/null 2>&1 && success=true
-        if [ "$success" = true ]; then
-            log_info "${CHECK_MARK} SUCCESS: Applied $(basename "$patch")"
-        else
-            log_error "${CROSS_MARK} FAILED: attempts to apply $(basename "$patch") failed."
-        fi
-    done
-    shopt -u nullglob
+    if [[ -d "$PATCH_DIR" ]]; then
+        # Ensure there are actually .patch files to avoid loop errors
+        shopt -s nullglob
+        for patch in "$PATCH_DIR"/*.patch; do
+            log_info "${TARGET_MARK} APPLYING PATCH: $(basename "$patch")"
+            local strategies=(
+                "-p1 -N -r -"
+                "-p1 -N -r - --binary"
+                "-p1 -N -r - -l"
+                "-p1 -N -r - -l --fuzz=3"
+            )
+
+            local success=false
+            for opts in "${strategies[@]}"; do
+                log_debug "Trying: patch $opts"
+                if patch $opts < "$patch" >/dev/null 2>&1; then
+                    log_info "${CHECK_MARK} SUCCESS: Applied with [$opts]"
+                    success=true
+                    break
+                fi
+            done
+
+            if [ "$success" = false ]; then
+                log_error "${CROSS_MARK} FAILED: All attempts to apply $(basename "$patch") failed."
+                # return 1 # не прерывать сборку при ошибках
+            fi
+        done
+        shopt -u nullglob
+    else
+        log_debug "${XCLAM_MARK} No patches found for $COMPONENT_NAME"
+    fi
 }
 export -f apply_patches
 
@@ -378,7 +356,8 @@ if [ -d "/opt/ct-ng" ]; then
         export WINEPATH="${MINGW_BIN_PATH};${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib"
         log_info "${DIRS_MARK} WINEPATH unified to: $WINEPATH"
     else
-        log_warn "${XCLAM_MARK} Could not find MinGW BIN directory for WINEPATH"
+        export WINEPATH="${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib"
+        log_warn "${XCLAM_MARK} Trouble find MinGW BIN directory for WINEPATH: $WINEPATH"
     fi
 else
     # Если мы на хосте (этап генерации/загрузки), просто игнорируем тулчейн
