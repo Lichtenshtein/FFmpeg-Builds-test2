@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://gitlab.freedesktop.org/fontconfig/fontconfig.git"
-SCRIPT_COMMIT="6d0a98982ec351c165c9224c8b7dbdfca3010e47"
+SCRIPT_COMMIT="39a8756c7748f5aa251db6a04d680d7731d73c74"
 
 ffbuild_depends() {
     echo base
@@ -21,65 +21,47 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    ./autogen.sh --noconf
 
     # Fontconfig требует либо expat, либо libxml2.
     local FC_LIBS="-lxml2 -lfreetype -lharfbuzz -lharfbuzz-icu -lsicuin -lsicuuc -lsicudt -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz -lintl -liconv -lcharset"
 
     local myconf=(
-        ac_cv_va_copy="C99"
+        --cross-file=/cross.meson
         --prefix="$FFBUILD_PREFIX"
-        --enable-static
-        --disable-shared
-        --disable-docbook
-        --disable-docs
-        # --disable-nls
-        --disable-cache-build
-        --enable-libxml2
-        --enable-iconv
-        --with-arch=x86_64
-        --with-default-sub-pixel-rendering=rgb
-        --with-pic
+        --libdir="lib"
+        --buildtype=release
+        --default-library=static
+        -Ddoc=disabled
+        -Dnls=enabled
+        -Dtests=disabled
+        -Dtools=disabled
+        -Dcache-build=disabled
+        -Dxml-backend=libxml2
+        -Diconv=enabled
+        -Ddefault-sub-pixel-rendering=rgb
     )
 
     if [[ $TARGET == linux* ]]; then
         myconf+=(
             --sysconfdir=/etc
             --localstatedir=/var
-            --host="$FFBUILD_TOOLCHAIN"
         )
-    elif [[ $TARGET == win* ]]; then
-        myconf+=(
-            --host="$FFBUILD_TOOLCHAIN"
-        )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
-    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
+    mkdir _build
+    cd _build
 
-    ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS" \
-        CPPFLAGS="$CPPFLAGS -I$FFBUILD_PREFIX/include/libxml2" \
-        LDFLAGS="$LDFLAGS" \
-        LIBS="$FC_LIBS $LIBS" \
-        CC="${FFBUILD_TOOLCHAIN}-gcc" \
-        CXX="${FFBUILD_TOOLCHAIN}-g++"
+    [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
-    # Сначала генерируем заголовки (это создаст fcconst.h)
-    # make -C fc-lang -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++"
-    # make -C fc-case -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++"
-    # make -C fc-const -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++"
+    # Запуск конфигурации
+    meson setup .. "${myconf[@]}" \
+        -Dc_args="$CFLAGS" \
+        -Dcpp_args="$CPPFLAGS" \
+        -Dc_link_args="$LDFLAGS" \
+        -Dcpp_link_args="$LDFLAGS"
 
-    # Теперь собираем библиотеку. Если упадет на fc-cache — игнорируем (|| true)
-    # make -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++" || log_warn "Main make failed (expected due to fc-cache), proceeding to library install..."
-    make -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++"
-
-    # Устанавливаем только саму библиотеку и инклюды
-    make install DESTDIR="$FFBUILD_DESTDIR"
-    # make -C src install DESTDIR="$FFBUILD_DESTDIR"
-    # make install-data-am DESTDIR="$FFBUILD_DESTDIR"
+    ninja -j$(nproc) $NINJA_V
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
 
     clean_la_files
 

@@ -9,12 +9,14 @@ TARGET="${1:-$TARGET}"
 VARIANT="${2:-$VARIANT}"
 LTO_INPUT="${3:-nolto}"
 SKIP_FFMPEG_INPUT="${4:-false}"
-DEDUPE_INPUT="${5:-true}"
+DEDUPE_INPUT="${DEDUPE_FLAGS:-true}"
+USE_WINE_VAL="${USE_WINE:-auto}"
 
 # Сначала загружаем переменные (включая вариант), 
 # но перенаправляем их стандартный вывод в никуда, 
 # чтобы случайные echo не попали в поток генерации.
-source util/vars.sh "$@" > /dev/null 2>&1
+# source util/vars.sh "$@" > /dev/null 2>&1
+source util/vars.sh "$@" 2>/dev/null || { echo "ERROR: vars.sh failed to source (TARGET=$TARGET VARIANT=$VARIANT)" >&2; exit 1; }
 
 SKIP_FFMPEG=0
 [[ "$SKIP_FFMPEG_INPUT" == "skip_ffmpeg" ]] && SKIP_FFMPEG=1
@@ -35,12 +37,13 @@ to_df "FROM base-win64 AS build_stage"
 to_df "SHELL [\"/bin/bash\", \"-c\"]"
 
 # Объединяем все ENV в одну команду для оптимизации слоев
-to_df "ENV TARGET=$TARGET VARIANT=$VARIANT REPO=$REPO ADDINS_STR=$ADDINS_STR \\
-    FFBUILD_VERBOSE=$FFBUILD_VERBOSE \\
-    FFMPEG_REPO=$FFMPEG_REPO \\
-    FFMPEG_BRANCH=$FFMPEG_BRANCH \\
-    DEBUG_NO_HASH=$DEBUG_NO_HASH \\
+to_df "ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_STR=\"$ADDINS_STR\" \\
+    FFBUILD_VERBOSE=\"$FFBUILD_VERBOSE\" \\
+    FFMPEG_REPO=\"$FFMPEG_REPO\" \\
+    FFMPEG_BRANCH=\"$FFMPEG_BRANCH\" \\
+    DEBUG_NO_HASH=\"$DEBUG_NO_HASH\" \\
     ONLY_STAGE=\"$ONLY_STAGE\" \\
+    USE_WINE=\"$USE_WINE\" \\
     DLL_PRESERVE_LIST=\"$DLL_PRESERVE_LIST\" \\
     GIT_PRESERVE_LIST=\"$GIT_PRESERVE_LIST\""
 
@@ -58,19 +61,9 @@ SCRIPTS=( $(find scripts.d -name "*.sh" | sort) )
 mkdir -p .cache/ccache
 mkdir -p ffbuild/config_parts
 
-# Общие монтирования (BIND) для каждого RUN. 
-# Кэш сработает, если содержимое монтируемых файлов не менялось.
-MOUNTS="--mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\
-    --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\
-    --mount=type=bind,source=util,target=/builder/util \\
-    --mount=type=bind,source=patches,target=/builder/patches \\
-    --mount=type=bind,source=variants,target=/builder/variants \\
-    --mount=type=bind,source=addins,target=/builder/addins \\
-    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads"
-
 active_scripts=()
 for STAGE in "${SCRIPTS[@]}"; do
-    if ( source "$STAGE" && ffbuild_enabled ); then
+    if ( source util/vars.sh "$TARGET" "$VARIANT" > /dev/null 2>&1 && source "$STAGE" && ffbuild_enabled ); then
         active_scripts+=("$STAGE")
     fi
 done
@@ -122,7 +115,10 @@ done
 
 # Сборка флагов конфигурации FFmpeg
 # Временные файлы для сбора
-touch .conf .cflags .ldflags .libs .cxxflags .cppflags .ldexeflags
+TMPFILES=(.conf .cflags .ldflags .libs .cxxflags .cppflags .ldexeflags)
+touch "${TMPFILES[@]}"
+log_info "Temporary file created: $TMPFILES"
+trap 'rm -f "${TMPFILES[@]}"' EXIT
 
 # Функция для безопасного извлечения флагов
 collect_all_flags() {
@@ -163,7 +159,7 @@ collect_all_flags() {
         get_from_func "ffbuild_cxxflags" ".cxxflags"
         get_from_func "ffbuild_ldexeflags" ".ldexeflags"
         get_from_func "ffbuild_libs" ".libs"
-    ) || log_error "${CROSS_MARK} Failed to collect flags from $script"
+    ) || log_error "${CROSS_MARK} Failed to collect flags from $script_path"
 }
 
 log_info "Collecting flags from variant and addins..."
@@ -200,6 +196,14 @@ smart_dedupe() {
     fi
 }
 
+FF_CONFIGURE=$(cat .conf 2>/dev/null | xargs)
+FF_CFLAGS=$(cat .cflags 2>/dev/null | xargs)
+FF_LDFLAGS=$(cat .ldflags 2>/dev/null | xargs)
+FF_CXXFLAGS=$(cat .cxxflags 2>/dev/null | xargs)
+FF_CPPFLAGS=$(cat .cppflags 2>/dev/null | xargs)
+FF_LDEXEFLAGS=$(cat .ldexeflags 2>/dev/null | xargs)
+FF_LIBS=$(cat .libs 2>/dev/null | xargs)
+
 # Читаем и очищаем итоговые строки
 FF_CONFIGURE=$(dedupe "$FF_CONFIGURE")
 FF_CFLAGS=$(dedupe "$FF_CFLAGS")
@@ -217,8 +221,6 @@ to_df "ENV FF_CXXFLAGS=\"$FF_CXXFLAGS\""
 to_df "ENV FF_CPPFLAGS=\"$FF_CPPFLAGS\""
 to_df "ENV FF_LDEXEFLAGS=\"$FF_LDEXEFLAGS\""
 to_df "ENV FF_LIBS=\"$FF_LIBS\""
-
-rm .conf .cflags .ldflags .libs .cxxflags .cppflags .ldexeflags
 
 if [[ $SKIP_FFMPEG -eq 1 ]]; then
     log_info "${XCLAM_MARK} Option 'skip_ffmpeg' is active. Final build stage will be omitted."

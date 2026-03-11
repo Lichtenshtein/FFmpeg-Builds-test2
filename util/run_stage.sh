@@ -6,7 +6,7 @@ SCRIPT_PATH="$1"
 
 # Сначала убедимся, что путь к скрипту вообще есть
 if [[ -z "$SCRIPT_PATH" || ! -f "$SCRIPT_PATH" ]]; then
-    log_error "Usage: run_stage <script_path>"
+    echo "ERROR: Usage: run_stage <script_path>" >&2
     exit 1
 fi
 
@@ -14,6 +14,7 @@ STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
 
 # Определяем режим работы Wine (берем из ENV или ставим auto по умолчанию)
 USE_WINE_VAL="${USE_WINE:-auto}"
+WINE_CMD=$(command -v wine64 || command -v wine)
 # Функция для принятия решения о запуске графического окружения и Wine
 should_run_wine() {
     [[ "$USE_WINE_VAL" == "on" ]] && return 0
@@ -28,13 +29,13 @@ if should_run_wine; then
         log_info "${START_MARK} Starting Xvfb (Display :99) for Wine/Build tests..."
         Xvfb :99 -screen 0 1024x768x16 > /dev/null 2>&1 &
         # Даем немного времени на инициализацию дисплея
-        sleep 5
+        sleep 4
     fi
     # Инициализация префикса Wine, если он еще не создан (drive_c отсутствует)
     if [[ ! -d "$WINEPREFIX/drive_c" ]]; then
         log_info "Initializing Wine Win64 prefix in $WINEPREFIX..."
         # Запускаем wineboot в фоновом режиме, затем ждем завершения сервера
-        wine64 wineboot --init > /dev/null 2>&1 && wineserver -w
+        "$WINE_CMD" wineboot --init 2>/dev/null && wineserver -w
         log_info "Wine prefix ready."
     fi
 else
@@ -43,7 +44,8 @@ fi
 
 # Подгружаем утилиты, используя абсолютный путь
 if ! declare -F log_info >/dev/null; then
-    . /builder/util/vars.sh "$TARGET" "$VARIANT" > /dev/null 2>&1 || true
+    . /builder/util/vars.sh "$TARGET" "$VARIANT" 2>/dev/null \
+        || { echo "ERROR: vars.sh failed in run_stage for $TARGET/$VARIANT" >&2; exit 1; }
 fi
 
 if ! declare -F default_dl >/dev/null; then
@@ -56,13 +58,13 @@ cd "/build/$STAGENAME"
 
 ccache -z > /dev/null
 
+# Начало группы в логах GitHub
+echo "::group::$STAGENAME"
+
 # Подгружаем скрипт заранее, чтобы проверить SCRIPT_SKIP
 # любые $(pwd) или относительные пути внутри скрипта будут указывать на /build/STAGENAME
 # Используем абсолютный путь к скрипту, так как мы уже сменили cd
 source "$(readlink -f "$SCRIPT_PATH")"
-
-# Начало группы в логах GitHub
-echo "::group::$STAGENAME"
 
 # Проверка на пропуск (теперь переменная SCRIPT_SKIP подгружена в контексте нужной папки)
 if [[ "$SCRIPT_SKIP" == "1" ]]; then
@@ -78,6 +80,7 @@ if [[ -d "$FFBUILD_DESTDIR" ]]; then
     rm -rf "${FFBUILD_DESTDIR:?}"/*
 fi
 mkdir -p "$FFBUILD_DESTDIR"
+mkdir -p "$FFBUILD_DESTPREFIX"
 
 CACHE_DIR="/root/.cache/downloads"
 REAL_CACHE=""
@@ -109,7 +112,10 @@ else
 fi
 
 # Проверяем, нужны ли вообще исходники для этой стадии
-DL_COMMANDS=$(ffbuild_dockerdl)
+DL_COMMANDS=$(ffbuild_dockerdl) || {
+    log_error "ffbuild_dockerdl failed for $STAGENAME"
+    exit 1
+}
 
 if [[ -n "$DL_COMMANDS" ]]; then
     # Если кэш не найден ни одним способом
@@ -200,7 +206,7 @@ if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
         log_debug "${DIRS_MARK} Current directory: $(pwd)"
         # Используем 'find' для поиска любых логов ошибок рекурсивно
         # Это найдет логи, даже если они в build/meson-logs или глубоко в CMakeFiles
-        LOG_FILES=$(find . -maxdepth 4 -name "config.log" -o -name "meson-log.txt" -o -name "CMakeError.log" -o -name "CMakeOutput.log")
+        LOG_FILES=$(find . -maxdepth 4 \( -name "config.log" -o -name "meson-log.txt" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \))
         if [[ -n "$LOG_FILES" ]]; then
             for logfile in $LOG_FILES; do
                 echo " "
@@ -241,7 +247,7 @@ if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
         log_debug "${DIRS_MARK} No standard prefix directory to clean for $STAGENAME"
     fi
 else
-    log_info "${LOCK_MARK} Preserving DLLs for dynamic stage: $STAGENAME$"
+    log_info "${LOCK_MARK} Preserving DLLs for dynamic stage: $STAGENAME"
 fi
 
 # Вывод статистики в конце каждой стадии
@@ -266,7 +272,7 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         # --update: НЕ перезаписывать файлы в таргете, если они новее
         # --ignore-times: но если размер/дата отличаются - обновить
         # --ignore-existing: можно убрать, если нужно обновлять либы
-        if rsync -av --update "$FFBUILD_DESTDIR$FFBUILD_PREFIX/" "$FFBUILD_PREFIX/"; then
+        if rsync -av --checksum "$FFBUILD_DESTDIR$FFBUILD_PREFIX/" "$FFBUILD_PREFIX/"; then
             log_info "${CHECK_MARK} Sync completed. Artifacts moved to global prefix."
             # Расширенный лог: показывает, что именно добавилось (первые 10 файлов для краткости)
             log_debug "${DIRS_MARK} New files in prefix (top 10):"
@@ -285,8 +291,4 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
 fi
 
 # Очистка
-cd /
-rm -rf "/build/$STAGENAME"
-
-# Конец группы в логах GitHub
-echo "::endgroup::"
+trap 'echo "::endgroup::"; cd /; rm -rf "/build/$STAGENAME"' EXIT

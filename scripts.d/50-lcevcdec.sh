@@ -5,7 +5,6 @@ SCRIPT_COMMIT="655f029d0008f00da9c976567ea159437aa86a36"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm* ]] && return 1
-    (( $(ffbuild_ffver) > 800 )) || return 1
     return 1
 }
 
@@ -50,6 +49,5 @@ ffbuild_configure() {
 }
 
 ffbuild_unconfigure() {
-    (( $(ffbuild_ffver) > 701 )) || return 0
     echo --disable-liblcevc_dec
 }

@@ -13,19 +13,20 @@ CLEAN_VARIANT=$(echo "${2:-$VARIANT}" | awk '{print $1}')
 # Без этого vars.sh может вернуть ошибку или инициализироваться неверно, 
 # что приведет к удалению ВСЕГО кеша (так как список PROTECTED будет пустым).
 if [[ -z "$CLEAN_TARGET" || -z "$CLEAN_VARIANT" ]]; then
-    log_error "${CROSS_MARK} ERROR: Cleanup aborted. TARGET and VARIANT must be specified."
-    log_debug "Usage: ./clean_cache.sh <target> <variant>"
+    echo "ERROR: Cleanup aborted. TARGET and VARIANT must be specified." >&2
+    echo "Usage: ./clean_cache.sh <target> <variant>" >&2
     exit 1
 fi
 
 # передаем аргументы явно, чтобы vars.sh не пытался читать их из контекста
-if ! source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" > /dev/null 2>&1; then
-    log_error "${CROSS_MARK} ERROR: Failed to source vars.sh for $CLEAN_TARGET-$CLEAN_VARIANT"
+if ! source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" 2>/dev/null; then
+    echo "ERROR: Failed to source vars.sh for $CLEAN_TARGET-$CLEAN_VARIANT" >&2
     exit 1
 fi
 
-CACHE_DIR="$(dirname "$0")/../.cache/downloads"
-SCRIPTS_DIR="$(dirname "$0")/../scripts.d"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CACHE_DIR="$SCRIPT_DIR/../.cache/downloads"
+SCRIPTS_DIR="$SCRIPT_DIR/../scripts.d"
 
 if [[ ! -d "$CACHE_DIR" ]]; then
     log_warn "${XCLAM_MARK} Cache directory $CACHE_DIR not found. Nothing to clean."
@@ -43,17 +44,18 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     STAGENAME="$(basename "$STAGE" .sh)"
 
     # Проверяем, включен ли компонент
-    if ( export TARGET="$CLEAN_TARGET" VARIANT="$CLEAN_VARIANT"; source "$STAGE" >/dev/null 2>&1 && ffbuild_enabled ); then
+    if ( source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" > /dev/null 2>&1 \
+     && source "$STAGE" > /dev/null 2>&1 \
+     && ffbuild_enabled ); then
 
         DL_HASH=$(get_stage_hash "$STAGE")
 
         if [[ -n "$DL_HASH" ]]; then
             CURRENT_FILE="${STAGENAME}_${DL_HASH}.tar.zst"
             # Добавляем в список текущий файл и симлинк
-            log_debug "${LOCK_MARK} Protecting hash: ${STAGENAME}_${DL_HASH}.tar.zst"
+            log_debug "${LOCK_MARK} Protecting: $CURRENT_FILE and ${STAGENAME}.tar.zst (symlink)"
             echo "$CURRENT_FILE" >> "$RAW_KEEP_LIST"
             # Также защищаем символическую ссылку, если она есть
-            log_debug "${LOCK_MARK} Protecting current version: $CURRENT_FILE"
             echo "${STAGENAME}.tar.zst" >> "$RAW_KEEP_LIST"
         fi
     fi
@@ -61,6 +63,7 @@ done
 
 # Сортируем и удаляем дубликаты один раз
 FINAL_KEEP_LIST=$(mktemp)
+trap 'rm -f "$RAW_KEEP_LIST" "$FINAL_KEEP_LIST"' EXIT
 sort -u "$RAW_KEEP_LIST" > "$FINAL_KEEP_LIST"
 rm -f "$RAW_KEEP_LIST"
 # Удаляем только те файлы, которых нет в KEEP_LIST
@@ -94,5 +97,5 @@ for l in *.tar.zst; do
 done
 
 rm -f "$FINAL_KEEP_LIST"
-log_info "${CHECK_MARK} Cleanup finished. Removed $deleted_count orphaned files."
+log_info "${CHECK_MARK} Cleanup finished. Removed $deleted_count outdated/orphaned cache files."
 exit 0

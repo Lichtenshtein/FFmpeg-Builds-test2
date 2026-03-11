@@ -1,4 +1,5 @@
 #!/bin/bash
+
 set -e
 
 # фикс проблем с git 
@@ -15,11 +16,13 @@ cd "$(dirname "$0")"
 
 export ROOT_DIR="$PWD"
 
-source util/vars.sh "$TARGET" "$VARIANT" || true
+source util/vars.sh "$TARGET" "$VARIANT" \
+    || { log_error "${CROSS_MARK} ERROR: vars.sh failed. TARGET=$TARGET VARIANT=$VARIANT"; exit 1; }
 source util/dl_functions.sh
 
 mkdir -p .cache/downloads
 DL_DIR="$PWD/.cache/downloads"
+trap 'rm -rf .cache/tmp' EXIT
 
 download_stage() {
     local STAGE="$1"
@@ -81,7 +84,7 @@ download_stage() {
         else
             log_debug "${BROOM_MARK} Stripping Git metadata for $STAGENAME to save cache space"
             # Удаляем .git папки и .gitignore файлы
-            find "$WORK_DIR" -name ".git*" -exec rm -rf {} +
+            find "$WORK_DIR" -name ".git*" -prune -exec rm -rf {} \; 2>/dev/null || true
         fi
 
         # Упаковка; -c: создать, -f: файл, -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
@@ -101,16 +104,28 @@ download_stage() {
 export -f download_stage
 
 log_info "${DOWN_MARK} Starting parallel downloads for $TARGET-$VARIANT..."
-find scripts.d -name "*.sh" | sort | \
-    # --halt now,fail=1 меняем на --halt soon,fail=20%
-    # Это даст шанс остальным докачаться, даже если один упал
-    parallel --halt soon,fail=20% --jobs 8 \
+# If ONLY_STAGE is set, only download matching stages
+if [[ -n "$ONLY_STAGE" ]]; then
+    STAGES=$(find scripts.d -name "*.sh" | sort | grep -E "$ONLY_STAGE")
+else
+    STAGES=$(find scripts.d -name "*.sh" | sort)
+fi
+# --halt now,fail=1 меняем на --halt soon,fail=20%
+# Это даст шанс остальным докачаться, даже если один упал
+echo "$STAGES" | parallel --halt now,fail=1 --jobs 8 \
+    --joblog .cache/download_joblog.txt \
     "export TARGET='$TARGET'; \
      export VARIANT='$VARIANT'; \
      export ROOT_DIR='$ROOT_DIR'; \
-     source util/vars.sh \$TARGET \$VARIANT &>/dev/null; \
-     source util/dl_functions.sh; \
+     source '$ROOT_DIR/util/vars.sh' \$TARGET \$VARIANT 2>/dev/null \
+         || { echo 'ERROR: vars.sh failed in parallel job' >&2; exit 1; }; \
+     source '$ROOT_DIR/util/dl_functions.sh'; \
      download_stage {} '$DL_DIR'"
+
+if [[ -f .cache/download_joblog.txt ]]; then
+    failed=$(awk 'NR>1 && $7 != 0 {print $NF}' .cache/download_joblog.txt)
+    [[ -n "$failed" ]] && log_error "Failed downloads: $failed"
+fi
 
 log_info "${CHECK_MARK} All sequential downloads finished successfully."
 
@@ -123,7 +138,7 @@ BRANCH_NAME="${FFMPEG_BRANCH}"
 
 if [[ ! -d "$FFMPEG_DIR/.git" ]]; then
     log_info "${DOWN_MARK} Cloning FFmpeg from $REPO_URL ($BRANCH_NAME)..."
-    git clone --quiet --filter=blob:none --depth=1 --branch="$BRANCH_NAME" "$REPO_URL" "$FFMPEG_DIR"
+    git clone --quiet --depth=1 --branch="$BRANCH_NAME" "$REPO_URL" "$FFMPEG_DIR"
 else
     log_info "Updating FFmpeg from $REPO_URL..."
     ( cd "$FFMPEG_DIR" && \

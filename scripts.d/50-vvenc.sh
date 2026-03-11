@@ -5,7 +5,6 @@ SCRIPT_COMMIT="ace59e100ab541e344060d78836774b45acb8a86"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm* ]] && return 1
-    # (( $(ffbuild_ffver) > 700 )) || return 1
     return 0
 }
 
@@ -47,6 +46,5 @@ ffbuild_configure() {
 }
 
 ffbuild_unconfigure() {
-    (( $(ffbuild_ffver) > 700 )) || return 0
     echo --disable-libvvenc
 }

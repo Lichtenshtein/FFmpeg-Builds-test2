@@ -47,6 +47,5 @@ ffbuild_configure() {
 }
 
 ffbuild_unconfigure() {
-    (( $(ffbuild_ffver) > 601 )) || return 0
     echo --disable-libxevd
 }

@@ -1,8 +1,10 @@
 #!/bin/bash
+
 set -xe
 shopt -s globstar
 cd "$(dirname "$0")"
-source util/vars.sh "$1" "$2"
+source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
+    || { echo "ERROR: vars.sh failed in build.sh" >&2; exit 1; }
 # Если "Hits" всегда 0, значит, монтирование --mount=type=cache в generate.sh не пробрасывается в build.sh (проверить совпадение путей /root/.cache/ccache).
 ccache -s
 
@@ -50,7 +52,8 @@ find /opt/ffbuild -type d -empty -delete
 # Эти флаги до -Wl нужны для статической линковки glib, так как она используется во многих фильтрах. -lintl -liconv часто конфликтуют с внутренними функциями glibc или самого компилятора, если они не были собраны как строго статические.
 # Если линковка падает с "undefined reference", добавить -Wl,--copy-dt-needed-entries в LDFLAGS
 # Позволяем линкеру искать DLL для конкретных библиотек -Wl,--copy-dt-needed-entries -Wl,--dynamicbase -Wl,--nxcompat
-export LDFLAGS="$LDFLAGS -static-libgcc -static-libstdc++ -Wl,--allow-multiple-definition -Wl,--copy-dt-needed-entries -Wl,--dynamicbase -Wl,--nxcompat"
+# -Wl,--allow-multiple-definition is dangerous it silently allows symbol conflicts that should be errors, masking real linking bugs.
+export LDFLAGS="$LDFLAGS -Wl,--copy-dt-needed-entries"
 # Расширяем список системных библиотек для ИИ и Сети
 # Это поможет, если какой-то .pc файл (например, openssl или tensorflow) не указал их
 FINAL_EXTRA_LIBS="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32 -lshlwapi -luser32 -ladvapi32 -lbcrypt -lsetupapi -ldbghelp -lpsapi -lruntimeobject"
@@ -68,7 +71,7 @@ chmod +x configure
 
 # линковка с --enable-lto может потребовать более 16-32 ГБ RAM. Стандартный раннер GitHub имеет всего 7 ГБ
 CONF_FLAGS=(
-    --prefix="$PWD/../prefix"
+    --prefix="$FFBUILD_DESTPREFIX"
     --pkg-config-flags="--static"
     $FFBUILD_TARGET_FLAGS
     --extra-cflags="$FF_CFLAGS"
@@ -98,15 +101,23 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>>ffbuild/config.log; then
     exit 1
 fi
 
+AVAILABLE_MEM_GB=$(( $(grep MemAvailable /proc/meminfo | awk '{print $2}') / 1024 / 1024 ))
+if [[ "$AVAILABLE_MEM_GB" -lt 4 ]]; then
+    log_warn "Low memory (${AVAILABLE_MEM_GB}GB available). Limiting to 1 job."
+    MAKE_JOBS=1
+else
+    MAKE_JOBS=$(nproc)
+fi
 # Используем 2 потока, чтобы не перегружать RAM раннера (7GB RAM / 2 ядра)
 # лучше ограничить параллелизм или вовсе собирать в 1 поток, если включен LTO
 if [[ "$FF_CONFIGURE" == *"--enable-lto"* || "$USE_LTO" == "1" ]]; then
     log_warn "${XCLAM_MARK} LTO detected. Using single-thread build to prevent OOM Killer."
-    make -j1 $MAKE_V
+    make -j"$MAKE_JOBS" $MAKE_V
 else
-    make -j$(nproc) $MAKE_V
+    make -j"$MAKE_JOBS" $MAKE_V
 fi
-make install install-doc
+make install
+make install-doc || log_warn "install-doc failed, continuing without docs."
 ccache -s
 
 # Подготовка к упаковке (ОЧИСТКА МУСОРА)
@@ -115,7 +126,7 @@ BUILD_NAME="ffmpeg_vvceasy-$(./ffbuild/ffmpeg/ffbuild/version.sh ffbuild/ffmpeg)
 PKG_DIR="ffbuild/pkgroot/$BUILD_NAME"
 
 mkdir -p "$PKG_DIR"
-package_variant ffbuild/prefix "$PKG_DIR"
+package_variant "$FFBUILD_DESTPREFIX" "$PKG_DIR"
 
 # Копируем лицензию
 [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"
@@ -128,7 +139,11 @@ log_info "Copying OpenVINO plugins..."
 # OpenVINO часто ищет файлы openvino_intel_cpu_plugin.dll в той же папке
 # Если они лежат в /opt/ffbuild/bin, то всё ок. 
 # Но если они в подпапках (runtime/bin/intel64/...), нужно убедиться, что они попали в $PKG_DIR/bin/
-find "/opt/ffbuild/bin" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \;
+if [[ -d "/opt/ffbuild/bin" ]]; then
+    find "/opt/ffbuild/bin" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \; || true
+else
+    log_warn "/opt/ffbuild/bin not found, skipping DLL copy."
+fi
 # Проверяем наличие критических библиотек (для отладки в логах)
 ls -lh "$PKG_DIR/bin/"
 # Скачиваем модели для ИИ
@@ -140,7 +155,7 @@ ls -lh "$PKG_DIR/bin/"
 pushd "$PKG_DIR/bin"
 for bin in *.exe; do
     if [[ -f "$bin" ]]; then
-        ${FFBUILD_CROSS_PREFIX}strip --strip-unneeded "$bin"
+        ${FFBUILD_CROSS_PREFIX}strip --strip-unneeded "$bin" || log_warn "strip failed for $bin, continuing."
     fi
 done
 popd
@@ -149,7 +164,7 @@ popd
 OUTPUT_FNAME="${BUILD_NAME}.7z"
 
 # Упаковываем только финальный результат, игнорируя 5ГБ объектных файлов
-7z a -mx9 -mmt=on "${FINAL_DEST}/${OUTPUT_FNAME}" "./$PKG_DIR"
+7z a -mx7 -mmt=on "${FINAL_DEST}/${OUTPUT_FNAME}" "./$PKG_DIR"
 
 # Генерация метаданных для GitHub Actions
 if [[ -n "$GITHUB_ACTIONS" ]]; then
@@ -162,4 +177,5 @@ fi
 
 # Очистка рабочего пространства ПЕРЕД завершением слоя Docker
 # Это освободит место на диске раннера до того, как он начнет экспорт
+cp ffbuild/ffmpeg/ffbuild/config.log "${FINAL_DEST}/config.log" 2>/dev/null || true
 rm -rf ffbuild

@@ -4,7 +4,6 @@ SCRIPT_REPO="https://github.com/AcademySoftwareFoundation/openapv.git"
 SCRIPT_COMMIT="3e87fa5101c3fe4038035b562cf552755fcf2060"
 
 ffbuild_enabled() {
-    # (( $(ffbuild_ffver) > 701 )) || return 1
     return 0
 }
 
@@ -55,6 +54,5 @@ ffbuild_configure() {
 }
 
 ffbuild_unconfigure() {
-    (( $(ffbuild_ffver) > 701 )) || return 0
     echo --disable-liboapv
 }
