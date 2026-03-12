@@ -68,19 +68,29 @@ find /opt/ffbuild -type d -empty -delete
 # Сборка FFmpeg
 chmod +x configure
 
-FF_CFLAGS=$(echo "$FF_CFLAGS" | xargs)
-FF_LDFLAGS=$(echo "$FF_LDFLAGS" | xargs)
+# We save the Target (MinGW) flags into new variables and UNSET the 
+# standard ones so the Host compiler (gcc-14) stays clean.
+
+export TARGET_CFLAGS="$CFLAGS"
+export TARGET_LDFLAGS="$LDFLAGS"
+
+# Unset global flags that poison the host compiler
+unset CFLAGS CPPFLAGS LDFLAGS ASFLAGS LIBS
+
+# Define sanitized Host-only flags
+export HOST_CFLAGS="-O2 -pipe"
+export HOST_LDFLAGS=""
 
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
     --pkg-config-flags="--static"
     $FFBUILD_TARGET_FLAGS
     --host-cc="gcc-14"
-    --host-ld="gcc-14"
+    --host-cflags="$HOST_CFLAGS"
+    --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="$FF_CFLAGS $FF_CPPFLAGS"
     --extra-ldflags="$FF_LDFLAGS"
     --extra-cxxflags="$FF_CXXFLAGS"
-    --extra-ldexeflags="$FF_LDEXEFLAGS"
     --extra-libs="$FF_LIBS"
     $FF_CONFIGURE
     --enable-filter=vpp_amf
@@ -92,9 +102,6 @@ CONF_FLAGS=(
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
     --extra-version="VVCEasy"
 )
-
-[[ -n "$FF_CFLAGS" ]] && CONF_FLAGS+=( --extra-cflags="$FF_CFLAGS" )
-[[ -n "$FF_LDFLAGS" ]] && CONF_FLAGS+=( --extra-ldflags="$FF_LDFLAGS" )
 
 log_info "Running FFmpeg configure..."
 # Перенаправляем stderr в config.log для полноты картины
