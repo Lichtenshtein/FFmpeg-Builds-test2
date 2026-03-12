@@ -13,7 +13,7 @@ _retry() {
     local timeout_val=300
     
     while true; do
-        if timeout -s 9 "$timeout_val" "$@"; then
+        if timeout --kill-after=10 "$timeout_val" "$@"; then
             return 0
         else
             if [[ $n -lt $max ]]; then
@@ -164,7 +164,7 @@ download_file() {
     # -f (fail silently) возвращает код 22 при 404 и триггерит _retry
     # -I информация
     # -L (location) следовать редиректам SourceForge
-    if _retry curl -A "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36" -f -s -S -L -I "$URL" -o "$DEST"; then
+    if _retry curl -A "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36" -f -s -S -L "$URL" -o "$DEST"; then
         if [[ -n "$SHA512" ]]; then
             if ! echo "$SHA512  $DEST" | sha512sum -c; then
                 log_error "${CROSS_MARK} Hash validation failed"
