@@ -42,6 +42,8 @@ export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 export FFBUILD_PREFIX="/opt/ffbuild"
 # export PATH="/usr/local/bin:/usr/bin:/bin:${PATH}"
 
+PATH="/usr/bin:/bin:/usr/local/bin:/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${WINE_BIN_DIR}:${PATH}"
+
 export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig"
 # unset PKG_CONFIG_SYSROOT_DIR
 # export PKG_CONFIG="pkg-config --static"

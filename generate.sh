@@ -161,6 +161,7 @@ collect_all_flags() {
 
     # 1. Clean before sourcing
     unset FF_CONFIGURE FF_CFLAGS FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDEXEFLAGS FF_LIBS
+    unset FLAGS_INITIALIZED
 
     # 2. Source directly (No parentheses!)
     # We use 'set +e' to ensure a minor script error doesn't kill generate.sh
