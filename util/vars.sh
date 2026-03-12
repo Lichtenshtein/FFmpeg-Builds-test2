@@ -13,20 +13,20 @@ export GREEN='\033[0;32m'      # Green
 export YELLOW='\033[0;33m'     # Yellow
 export PURPLE='\033[0;35m'     # Purple
 export NC='\033[0m'            # No Color (Reset)
-export CHECK_MARK="${LOG_INFO}[CHEACK]${NC}"
-export CROSS_MARK='[ERR]'
-export XCLAM_MARK='[WARN]'
-export BROOM_MARK='[CLEAN]'
-export CACHE_MARK='[CACHE]'
-export ARCH_MARK='[PACK]'
-export SEARCH_MARK='[FIND]'
-export EXTR_MARK='[EXTRACT]'
-export START_MARK='[START]'
-export BUILD_MARK='[TOOLS]'
-export DIRS_MARK='[DIR]'
-export LOCK_MARK='[LOCK]'
-export SYNC_MARK="${LOG_INFO}[SYNC]${NC}"
-export TARGET_MARK='[TARG]'
+export CHECK_MARK="${LOG_INFO}✔${NC}"
+export CROSS_MARK='❌'
+export XCLAM_MARK='⚠️'
+export BROOM_MARK='🧹'
+export CACHE_MARK='🗄️'
+export ARCH_MARK='📥️'
+export SEARCH_MARK='🔎'
+export EXTR_MARK='📤'
+export START_MARK='🚀'
+export BUILD_MARK='🛠️'
+export DIRS_MARK='📂'
+export LOCK_MARK='🔒'
+export SYNC_MARK="${LOG_INFO}♻${NC}"
+export TARGET_MARK='🎯'
 export DOWN_MARK="${LOG_INFO}🡇${NC}"
 export LOGS_MARK="${LOG_DEBUG}🗎${NC}"
 
@@ -243,48 +243,57 @@ get_deps_list() {
     log_debug "Showing dependencies for: $name"
 
     if [[ -d "$lib_dir/pkgconfig" ]]; then
-        { find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
-            set +e
-            printf "\n%b %s\n" "$XCLAM_MARK" "$1"
-            cat "$1"
-            printf "\n%b DEPS for %s:\n" "$SEARCH_MARK" "${1##*/}"
-            deps=$(${PKG_CONFIG:-pkg-config} --print-requires --print-requires-private "$1" 2>/dev/null || true)
+        find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
+            pc_file="$1"; shift
+            pkg_config_cmd="$1"; shift
+            xclam_mark="$1"; shift
+            search_mark="$1"; shift
+
+            printf "\n%b %s\n" "$xclam_mark" "$pc_file"
+            cat "$pc_file"
+            printf "\n%b DEPS for %s:\n" "$search_mark" "${pc_file##*/}"
+            
+            deps=$($pkg_config_cmd --print-requires --print-requires-private "$pc_file" 2>/dev/null || true)
             if [[ -n "$deps" ]]; then
                 echo "$deps"
-                while IFS= read -r dep_line; do
-                    [[ -z "$dep_line" ]] && continue
-                    local pkg_name
-                    pkg_name=$(echo "$dep_line" | awk '{print $1}')
+                while IFS= read -r pkg_name; do
+                    pkg_name=$(echo "$pkg_name" | awk "{print \$1}")
                     [[ -z "$pkg_name" ]] && continue
-                    ${PKG_CONFIG:-pkg-config} --exists "$pkg_name" 2>/dev/null \
-                        || log_error "MISSING DEPENDENCY: $pkg_name (required by $1)"
+                    $pkg_config_cmd --exists "$pkg_name" 2>/dev/null || echo "MISSING DEPENDENCY: $pkg_name"
                 done <<< "$deps"
             else
                 echo "No dependencies found."
             fi
-            exit 0
-        ' _ {} \; ; } || true
+        ' _ {} "${PKG_CONFIG:-pkg-config}" "$XCLAM_MARK" "$SEARCH_MARK" \; || true
     fi
-    { find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) -print0 2>/dev/null | xargs -0 -r -I{} bash -c "
-        set +o pipefail
-        if \"\${FFBUILD_TOOLCHAIN}-readelf\" -h \"\$1\" &>/dev/null; then
-            raw_deps=\$(\"\${FFBUILD_TOOLCHAIN}-readelf\" -d \"\$1\" 2>/dev/null | awk '/NEEDED/ { gsub(/.*\[|\]/, \"\"); print }' || true)
-            clean_deps=\$(echo \"\$raw_deps\" | awk '!/'\"$sys_libs\"'/' || true)
-            if [[ -n \"\$clean_deps\" ]]; then
-                log_debug \"\n\$XCLAM_MARK NEEDED LIBRARIES for \$1:\"
-                echo \"\$clean_deps\"
+    find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) -print0 2>/dev/null | \
+    xargs -0 -r -I{} bash -c '
+        file="$1"; shift
+        toolchain_prefix="$1"; shift
+        sys_libs_regex="$1"; shift
+        xclam_mark="$1"; shift
+
+        if "${toolchain_prefix}-readelf" -h "$file" &>/dev/null; then
+            raw_deps=$("${toolchain_prefix}-readelf" -d "$file" 2>/dev/null | awk "/NEEDED/ { gsub(/.*\[|\]/, \"\"); print }")
+            clean_deps=$(echo "$raw_deps" | awk "!/$sys_libs_regex/")
+            if [[ -n "$clean_deps" ]]; then
+                printf "\n%b NEEDED LIBRARIES for %s:\n%s\n" "$xclam_mark" "$file" "$clean_deps"
             fi
         fi
-        exit 0
-    " _ {} ; } || true
-    { find "$lib_dir" -name "*.a" -print0 2>/dev/null | xargs -0 -r -I{} bash -c '
-        set +o pipefail
-        if "${FFBUILD_TOOLCHAIN}-nm" -u "$1" &>/dev/null; then
-            log_debug "\n$XCLAM_MARK EXTERNAL SYMBOLS (TOP 10) in $1:"
-            "${FFBUILD_TOOLCHAIN}-nm" -u "$1" 2>/dev/null | awk '!/^[[:space:]]*$/ && !/@@/ && !/__imp_/' | sort -u | awk "NR<=10"
+    ' _ {} "$FFBUILD_TOOLCHAIN" "$sys_libs" "$XCLAM_MARK" || true
+    find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
+    xargs -0 -r -I{} bash -c '
+        file="$1"; shift
+        toolchain_prefix="$1"; shift
+        xclam_mark="$1"; shift
+
+        if "${toolchain_prefix}-nm" -u "$file" &>/dev/null; then
+            printf "\n%b EXTERNAL SYMBOLS (TOP 10) in %s:\n" "$xclam_mark" "$file"
+            # Using double backslash for awk to escape $ inside single-quoted bash -c
+            "${toolchain_prefix}-nm" -u "$file" 2>/dev/null | \
+            awk "!/^[[:space:]]*$/ && !/@@/ && !/__imp_/" | sort -u | head -n 10
         fi
-        exit 0
-    ' _ {} ; } || true
+    ' _ {} "$FFBUILD_TOOLCHAIN" "$XCLAM_MARK" || true
     { find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | xargs -0 -r -I{} bash -c "
         set +o pipefail
         if \"\${FFBUILD_TOOLCHAIN}-readelf\" -h \"\$1\" &>/dev/null; then
@@ -365,7 +374,7 @@ if [ -d "/opt/ct-ng" ]; then
         _p_lib=$(winepath -w "${FFBUILD_PREFIX}/lib" 2>/dev/null)
         _m_bin=$(winepath -w "${MINGW_BIN_PATH}" 2>/dev/null)
         export WINEPATH="${_p_bin};${_p_lib};${_m_bin}"
-        log_info "WINEPATH (Windows style): $WINEPATH"
+        printf "${DIRS_MARK} WINEPATH (Windows style): $WINEPATH"
     else
     # We are on the GitHub Host (generate/download phase)
         export WINEPATH="${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib;${MINGW_BIN_PATH}"
