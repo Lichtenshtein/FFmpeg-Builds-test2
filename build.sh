@@ -97,6 +97,9 @@ CONF_FLAGS=(
     --enable-filter=sr_amf
     --enable-runtime-cpudetect
     --enable-pic
+    --disable-audiotoolbox
+    --disable-videotoolbox
+    --disable-securetransport
     --h264-max-bit-depth=14
     --h265-bit-depths=8,9,10,12
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
