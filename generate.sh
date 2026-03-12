@@ -143,84 +143,75 @@ clean_output() {
 }
 
 # Функция для безопасного извлечения флагов
+# 1. Move this OUTSIDE so it is defined only once
+get_from_func() {
+    local func=$1
+    local out_file=$2
+    if declare -F "$func" >/dev/null; then
+        # Use a subshell to prevent the component script from calling 'exit'
+        local res
+        res=$( ("$func") 2>&1 | clean_output )
+        [[ -n "$res" ]] && echo "$res" >> "$out_file"
+    fi
+}
+
 collect_all_flags() {
     local script_path="$1"
+    [[ ! -f "$script_path" ]] && return 0
+
+    # 2. Reset local FF_ variables
+    unset FF_CONFIGURE FF_CFLAGS FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDEXEFLAGS FF_LIBS
     
-    if [[ ! -f "$script_path" ]]; then
-        log_warn "Flag file not found: $script_path"
+    # 3. Source safely. We use a subshell to check for syntax errors first.
+    if ! ( export TARGET="$TARGET" VARIANT="$VARIANT"; source "$script_path" ) >/dev/null 2>&1; then
+        log_error "${CROSS_MARK} Syntax error or 'exit' called in $script_path"
         return 0
     fi
 
-    # 1. Clear variables
-    unset FF_CONFIGURE FF_CFLAGS FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDEXEFLAGS FF_LIBS
-    
-    # 2. Source the script but disable 'exit on error' temporarily
-    set +e
+    # 4. Now source in current shell to extract data
     source "$script_path" >/dev/null 2>&1
-    local src_status=$?
-    set -e
 
-    if [[ $src_status -ne 0 ]]; then
-        log_error "Failed to source $script_path (Exit code: $src_status)"
-        return 0 # We return 0 so the whole generate.sh doesn't die
-    fi
-
-    # 3. Check enabled
-    if declare -F ffbuild_enabled >/dev/null; then
-        if ! ffbuild_enabled; then return 0; fi
+    if declare -F ffbuild_enabled >/dev/null && ! ffbuild_enabled; then
+         return 0
     fi
     
-    # 4. Collection logic (Variables)
+    # 5. Extract Variables
     [[ -n "$FF_CONFIGURE" ]] && echo "$FF_CONFIGURE" | clean_output >> .conf
     [[ -n "$FF_CFLAGS" ]]    && echo "$FF_CFLAGS"    | clean_output >> .cflags
     [[ -n "$FF_LDFLAGS" ]]   && echo "$FF_LDFLAGS"   | clean_output >> .ldflags
     [[ -n "$FF_LIBS" ]]      && echo "$FF_LIBS"      | clean_output >> .libs
 
-    # 5. Collection logic (Functions)
-    get_from_func() {
-        local func=$1
-        local out_file=$2
-        if declare -F "$func" >/dev/null; then
-            # Run in subshell to isolate potential 'exit' calls in components
-            local res
-            res=$( ($func) 2>&1 | clean_output )
-            [[ -n "$res" ]] && echo "$res" >> "$out_file"
-        fi
-    }
-
+    # 6. Extract Functions
     get_from_func "ffbuild_configure" ".conf"
     get_from_func "ffbuild_cflags" ".cflags"
     get_from_func "ffbuild_ldflags" ".ldflags"
+    get_from_func "ffbuild_cppflags" ".cppflags"
+    get_from_func "ffbuild_cxxflags" ".cxxflags"
+    get_from_func "ffbuild_ldexeflags" ".ldexeflags"
     get_from_func "ffbuild_libs" ".libs"
 }
 
-
-
+# --- The Loop ---
 log_info "Collecting flags from variant and addins..."
-
-# Сначала собираем флаги из основного варианта
-log_debug "Target Variant: variants/${TARGET}-${VARIANT}.sh"
-collect_all_flags "variants/${TARGET}-${VARIANT}.sh" || exit 1
+collect_all_flags "variants/${TARGET}-${VARIANT}.sh"
 
 for addin in ${ADDINS[*]}; do
-    log_debug "Addin: addins/${addin}.sh"
-    collect_all_flags "addins/${addin}.sh" || exit 1
+    collect_all_flags "addins/${addin}.sh"
 done
 
 log_info "Collecting flags from filtered component scripts..."
-# We only iterate over scripts that are actually being BUILT in this run
 for script in "${active_scripts[@]}"; do
     STAGENAME="$(basename "$script" .sh)"
-    # If ONLY_STAGE is active, skip scripts that don't match the regex
     if [[ -n "$ONLY_STAGE" ]]; then
         if ! echo "$STAGENAME" | grep -qE "$ONLY_STAGE"; then
-            log_debug "Skipping flag collection for $STAGENAME (not in ONLY_STAGE)"
             continue
         fi
     fi
     log_info "${SEARCH_MARK} Collecting flags: $STAGENAME"
-    collect_all_flags "$script"
+    # Added '|| true' to ensure the loop never dies on a single script error
+    collect_all_flags "$script" || true
 done
+
 
 # Функция для удаления дубликатов с сохранением порядка
 # Для флагов компиляции (CFLAGS) порядок менее важен, 
