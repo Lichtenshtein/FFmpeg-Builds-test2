@@ -145,6 +145,9 @@ clean_output() {
     tail -n 1 | xargs
 }
 
+rm -f .conf .cflags .ldflags .libs .cxxflags .cppflags .ldexeflags
+touch .conf .cflags .ldflags .libs .cxxflags .cppflags .ldexeflags
+
 get_from_func() {
     local func=$1
     local out_file=$2
@@ -154,6 +157,9 @@ get_from_func() {
         [[ -n "$res" ]] && echo "$res" >> "$out_file"
     fi
 }
+
+export TARGET="$TARGET"
+export VARIANT="$VARIANT"
 
 collect_all_flags() {
     local script_path="$1"
@@ -175,7 +181,7 @@ collect_all_flags() {
     fi
 
     # 4. Append to files
-    [[ -n "$FF_CONFIGURE" ]]  && echo "$FF_CONFIGURE"  | clean_output >> .conf
+    [[ -n "$FF_CONFIGURE" ]] && echo "$FF_CONFIGURE" >> /builder/.conf
     [[ -n "$FF_CFLAGS" ]]     && echo "$FF_CFLAGS"     | clean_output >> .cflags
     [[ -n "$FF_LDFLAGS" ]]    && echo "$FF_LDFLAGS"    | clean_output >> .ldflags
     [[ -n "$FF_CXXFLAGS" ]]   && echo "$FF_CXXFLAGS"   | clean_output >> .cxxflags
@@ -219,7 +225,7 @@ for script in "${active_scripts[@]}"; do
     log_info "${SEARCH_MARK} Collecting flags: $STAGENAME"
     collect_all_flags "$script" || true
 done
-
+echo "DEBUG: .conf content: $(cat .conf)"
 # --- END OF FIX ---
 
 

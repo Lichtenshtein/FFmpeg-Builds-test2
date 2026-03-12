@@ -9,9 +9,10 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerlayer() {
-    # to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /"
+    to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /"
+    to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /opt/mingw"
     # Копируем прямо в структуру тулчейна ct-ng
-    to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/sysroot/mingw/"
+    # to_df "COPY --link --from=${SELFLAYER} /opt/mingw/. /opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/sysroot/mingw/"
 }
 
 ffbuild_dockerfinal() {
@@ -24,61 +25,59 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-
-    local SYSROOT=$(${CC} -print-sysroot)
-    [[ -z "$SYSROOT" ]] && log_error "SYSROOT NOT FOUND" && return 1
+    # Use the toolchain's internal sysroot as the target, but install to a temp dir first
+    local SYSROOT=$(${FFBUILD_TOOLCHAIN}-gcc -print-sysroot)
 
     unset CC CXX LD AR CPP LIBS CCAS
     unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
     unset PKG_CONFIG_LIBDIR
+    # Force use of cross-tools
     export CC="${FFBUILD_TOOLCHAIN}-gcc"
     export CXX="${FFBUILD_TOOLCHAIN}-g++"
+    export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
+    export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
 
-    ### 1. mingw-w64-headers
-    (
-        cd mingw-w64-headers
+    # 1. Headers
+    cd mingw-w64-headers
         ./configure \
-            --prefix="$SYSROOT" \
-            --host="$FFBUILD_TOOLCHAIN" \
-            --with-default-win32-winnt="0x0A00" \
-            --with-default-msvcrt=ucrt \
-            --enable-idl \
-            --enable-sdk=all
-        make install
-    )
+          --prefix="$SYSROOT" \
+          --host="$FFBUILD_TOOLCHAIN" \
+          --with-default-win32-winnt="0x0A00" \
+          --with-default-msvcrt=ucrt \
+          --enable-idl \
+          --enable-sdk=all
+    make install DESTDIR="/opt/mingw"
+    cd ..
 
-    ### 2. mingw-w64-crt
-    (
-        cd mingw-w64-crt
-        export CPPFLAGS="-I$SYSROOT/include"
+    # 2. CRT
+    cd mingw-w64-crt
         ./configure \
-            --prefix="$SYSROOT" \
-            --host="$FFBUILD_TOOLCHAIN" \
-            --with-default-msvcrt=ucrt \
-            --enable-wildcard \
-            --disable-lib32 \
-            --enable-lib64 \
-            --disable-dependency-tracking # удалить про проблемах. Ускоряет и убирает лишние проверки
-        make -j$(nproc) $MAKE_V
-        make install
-    )
+          --prefix="$SYSROOT" \
+          --host="$FFBUILD_TOOLCHAIN" \
+          --with-default-msvcrt=ucrt \
+          --enable-wildcard \
+          --disable-lib32 \
+          --enable-lib64 \
+          --disable-dependency-tracking
+    make -j$(nproc) $MAKE_V
+    make install DESTDIR="/opt/mingw"
+    cd ..
 
-    ### 3. winpthreads
-    (
-        cd mingw-w64-libraries/winpthreads
+    # 3. Winpthreads (CRITICAL for FFmpeg)
+    cd mingw-w64-libraries/winpthreads
         ./configure \
-            --prefix="$SYSROOT" \
-            --host="$FFBUILD_TOOLCHAIN" \
-            --with-pic \
-            --disable-shared \
-            --enable-static
+          --prefix="$SYSROOT" \
+          --host="$FFBUILD_TOOLCHAIN" \
+          --with-pic \
+          --enable-static \
+          --disable-shared
+    make -j$(nproc) $MAKE_V
+    make install DESTDIR="/opt/mingw"
 
-        make -j$(nproc) $MAKE_V
-        make install
-    )
-
-    mkdir -p /opt/mingw
-    cp -a "$SYSROOT/." /opt/mingw/
+    # 4. Move everything to /opt/mingw for the Dockerfile COPY logic
+    # and also to the global prefix so scripts can see headers
+    mkdir -p "$FFBUILD_PREFIX"
+    cp -a /opt/mingw"$SYSROOT"/. "$FFBUILD_PREFIX/"
 
     clean_la_files
 
