@@ -68,6 +68,9 @@ find /opt/ffbuild -type d -empty -delete
 # Сборка FFmpeg
 chmod +x configure
 
+FF_CFLAGS=$(echo "$FF_CFLAGS" | xargs)
+FF_LDFLAGS=$(echo "$FF_LDFLAGS" | xargs)
+
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
     --pkg-config-flags="--static"
@@ -89,6 +92,9 @@ CONF_FLAGS=(
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
     --extra-version="VVCEasy"
 )
+
+[[ -n "$FF_CFLAGS" ]] && CONF_FLAGS+=( --extra-cflags="$FF_CFLAGS" )
+[[ -n "$FF_LDFLAGS" ]] && CONF_FLAGS+=( --extra-ldflags="$FF_LDFLAGS" )
 
 log_info "Running FFmpeg configure..."
 # Перенаправляем stderr в config.log для полноты картины
