@@ -19,7 +19,10 @@ USE_WINE_VAL="${USE_WINE:-auto}"
 source util/vars.sh "$@" 2>/dev/null || { echo "ERROR: vars.sh failed to source (TARGET=$TARGET VARIANT=$VARIANT)" >&2; exit 1; }
 
 SKIP_FFMPEG=0
-[[ "$SKIP_FFMPEG_INPUT" == "skip_ffmpeg" ]] && SKIP_FFMPEG=1
+if [[ "$SKIP_FFMPEG_INPUT" == "true" || "$SKIP_FFMPEG_INPUT" == "skip_ffmpeg" ]]; then
+    SKIP_FFMPEG=1
+    log_info "${XCLAM_MARK} FFmpeg compilation will be skipped (Component test mode)."
+fi
 USE_LTO=0
 [[ "$LTO_INPUT" == "lto" ]] && USE_LTO=1
 
@@ -73,21 +76,27 @@ if [[ -n "$ONLY_STAGE" ]]; then
     active_scripts=( $(printf '%s\n' "${active_scripts[@]}" | grep -E "$ONLY_STAGE") )
 fi
 
+# Environment Hash: Only changes if compiler flags, paths, or toolchain versions change.
+# We extract only lines that EXPORT variables or set BASE_CFLAGS/LDFLAGS.
+ENV_HASH=$(grep -E "^export |^BASE_|^SYSTEM_LIBS=" util/vars.sh | sha256sum | cut -c1-8)
+
+# Global Logic Hash: Changes if run_stage.sh or the internal functions of vars.sh change.
+LOGIC_HASH=$(sha256sum util/run_stage.sh | cut -c1-8)
+
 # Считаем хеши для инвалидации кэша слоев Docker. Импорт из workflow.
 # Если поменяется vars.sh или любой патч - все последующие RUN пересоберутся
 if [[ "$DEBUG_NO_HASH" == "true" ]]; then
-    log_warn "${XCLAM_MARK} DEBUG: VARS_HASH is hardcoded to 'debug_static' to preserve cache."
-    VARS_HASH="debug_static"
-else
-    VARS_HASH=$(sha256sum util/vars.sh util/run_stage.sh | sha256sum | cut -c1-8)
+    log_warn "${XCLAM_MARK} DEBUG: Hashes hardcoded to preserve cache."
+    ENV_HASH="env_static"
+    LOGIC_HASH="logic_static"
 fi
 
 # Генерируем блоки RUN для каждой стадии
 for STAGE in "${active_scripts[@]}"; do
     STAGENAME="$(basename "$STAGE" .sh)"
 
-    # ИСПОЛЬЗУЕМ ЕДИНУЮ ФУНКЦИЮ ДЛЯ ВСЕГО
-    FULL_HASH=$(get_stage_hash "$STAGE")
+    # Component Specific Hash: Only this script + its patches
+    SCRIPT_HASH=$(get_stage_hash "$STAGE")
 
     # Извлекаем имя компонента (напр., из 50-libmp3lame получаем libmp3lame)
     # Используем sed, чтобы отрезать все до первого дефиса включительно
@@ -95,59 +104,72 @@ for STAGE in "${active_scripts[@]}"; do
     # Ищем патчи в двух местах:
     #    а) В папке с именем компонента (patches/libmp3lame/*)
     #    б) Файлы, начинающиеся с имени компонента (patches/libmp3lame-custom.patch)
-    COMPONENT_PATCH_HASH=$( (
+    PATCH_HASH=$( (
         find "patches/$COMPONENT_NAME" -type f 2>/dev/null
         find "patches" -maxdepth 1 -name "${COMPONENT_NAME}*" -type f 2>/dev/null
     ) | sort | xargs sha256sum 2>/dev/null | sha256sum | cut -c1-8 || echo "none")
-    # Если изменится vars.sh ($VARS_HASH), Docker пересоберет слой.
-    # Если изменится скрипт ($FULL_HASH), Docker пересоберет слой.
-    to_df "# Stage: $STAGENAME | Component: $COMPONENT_NAME | Vars Hash: $VARS_HASH | Patches Hash: $COMPONENT_PATCH_HASH | Full Hash: $FULL_HASH"
+    # Combine them into a unique ID for this specific layer
+    # If you change a log message in vars.sh, ENV_HASH stays the same -> NO REBUILD.
+    # If you change CFLAGS in vars.sh, ENV_HASH changes -> GLOBAL REBUILD.
+    LAYER_ID="E:${ENV_HASH}_L:${LOGIC_HASH}_S:${SCRIPT_HASH}_P:${PATCH_HASH}"
 
+    to_df "# Stage: $STAGENAME | LayerID: $LAYER_ID"
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
+    to_df "    --mount=type=cache,id=prefix-${TARGET},target=$FFBUILD_PREFIX \\"
     to_df "    --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=/builder/util \\"
     to_df "    --mount=type=bind,source=patches,target=/builder/patches \\"
     to_df "    --mount=type=bind,source=variants,target=/builder/variants \\"
     to_df "    --mount=type=bind,source=addins,target=/builder/addins \\"
     to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads,rw \\"
-    to_df "    set -e; export _H=$FULL_HASH:$VARS_HASH:$COMPONENT_PATCH_HASH && . /builder/util/vars.sh $TARGET $VARIANT && run_stage /builder/$STAGE"
+    to_df "    set -e; export _H=$LAYER_ID && . /builder/util/vars.sh $TARGET $VARIANT && run_stage /builder/$STAGE"
 done
 
 # Сборка флагов конфигурации FFmpeg
 # Временные файлы для сбора
 TMPFILES=(.conf .cflags .ldflags .libs .cxxflags .cppflags .ldexeflags)
 touch "${TMPFILES[@]}"
-log_info "Temporary file created: $TMPFILES"
+log_info "Temporary file created: ${TMPFILES[*]}"
 trap 'rm -f "${TMPFILES[@]}"' EXIT
+
+# Function to clean ANSI colors and log prefixes
+# 1. Strip ANSI color codes (the \x1B parts)
+# 2. Strip your custom log tags like [INFO], [DEBUG], etc.
+# 3. Strip leading/trailing whitespace
+clean_output() {
+    sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | \
+    grep -vE "^\[(INFO|DEBUG|WARN|ERROR)\]" | \
+    tail -n 1 | xargs
+}
 
 # Функция для безопасного извлечения флагов
 collect_all_flags() {
     local script_path="$1"
     (
-        # Загружаем скрипт
-        if ! source "$script_path" > /dev/null; then
+        # We source the script in a subshell to prevent it from 
+        # polluting the main generate.sh environment variables
+        if ! source "$script_path" > /dev/null 2>&1; then
+            exit 0 # Skip if script has syntax errors or is empty
             log_error "${CROSS_MARK} Syntax error in script: $script_path"
-            exit 1
         fi
 
         # Извлекаем флаги из переменных (для файлов из variants/ и addins/)
-        [[ -n "$FF_CONFIGURE" ]] && echo "$FF_CONFIGURE" >> .conf
-        [[ -n "$FF_CFLAGS" ]]    && echo "$FF_CFLAGS"    >> .cflags
-        [[ -n "$FF_LDFLAGS" ]]   && echo "$FF_LDFLAGS"   >> .ldflags
-        [[ -n "$FF_CXXFLAGS" ]]  && echo "$FF_CXXFLAGS"  >> .cxxflags
-        [[ -n "$FF_CPPFLAGS" ]]  && echo "$FF_CPPFLAGS"  >> .cppflags
-        [[ -n "$FF_LDEXEFLAGS" ]] && echo "$FF_LDEXEFLAGS" >> .ldexeflags
-        [[ -n "$FF_LIBS" ]]      && echo "$FF_LIBS"      >> .libs
+        [[ -n "$FF_CONFIGURE" ]]  && echo "$FF_CONFIGURE"  | clean_output >> .conf
+        [[ -n "$FF_CFLAGS" ]]     && echo "$FF_CFLAGS"     | clean_output >> .cflags
+        [[ -n "$FF_LDFLAGS" ]]    && echo "$FF_LDFLAGS"    | clean_output >> .ldflags
+        [[ -n "$FF_CXXFLAGS" ]]   && echo "$FF_CXXFLAGS"   | clean_output >> .cxxflags
+        [[ -n "$FF_CPPFLAGS" ]]   && echo "$FF_CPPFLAGS"   | clean_output >> .cppflags
+        [[ -n "$FF_LDEXEFLAGS" ]] && echo "$FF_LDEXEFLAGS" | clean_output >> .ldexeflags
+        [[ -n "$FF_LIBS" ]]       && echo "$FF_LIBS"       | clean_output >> .libs
 
         # Извлекаем флаги из функций (для файлов из scripts.d/ и addins/)
         get_from_func() {
             local func=$1
             local out_file=$2
             if declare -F "$func" >/dev/null; then
-                # Выполняем функцию.
-                # Весь stderr оставляем как есть.
-                # Из stdout берем только ПОСЛЕДНЮЮ непустую строку.
-                local res=$($func 2>&1 | tee /dev/stderr | grep -vE "^\[(INFO|DEBUG|WARN)\]" | tail -n 1 | xargs)
+                # Capture output, clean it, and only take the result if non-empty
+                local res
+                res=$($func 2>&1 | clean_output)
                 [[ -n "$res" ]] && echo "$res" >> "$out_file"
             fi
         }
@@ -172,9 +194,18 @@ for addin in ${ADDINS[*]}; do
     collect_all_flags "addins/${addin}.sh"
 done
 
-log_info "Collecting flags from component scripts..."
-# Затем из всех активных скриптов компонентов
+log_info "Collecting flags from filtered component scripts..."
+# We only iterate over scripts that are actually being BUILT in this run
 for script in "${active_scripts[@]}"; do
+    STAGENAME="$(basename "$script" .sh)"
+    # If ONLY_STAGE is active, skip scripts that don't match the regex
+    if [[ -n "$ONLY_STAGE" ]]; then
+        if ! echo "$STAGENAME" | grep -qE "$ONLY_STAGE"; then
+            log_debug "Skipping flag collection for $STAGENAME (not in ONLY_STAGE)"
+            continue
+        fi
+    fi
+    log_info "${SEARCH_MARK} Collecting flags: $STAGENAME"
     collect_all_flags "$script"
 done
 
@@ -197,13 +228,15 @@ smart_dedupe() {
 }
 
 for key in CONFIGURE CFLAGS LDFLAGS CXXFLAGS CPPFLAGS LDEXEFLAGS LIBS; do
-    # Читаем файл, убираем лишние пробелы через xargs
-    val=$(cat ".$key" 2>/dev/null | xargs)
-    # smart_dedupe для LDFLAGS и LIBS, иначе dedupe
-    [[ "$key" =~ LDFLAGS|LIBS ]] && func="smart_dedupe" || func="dedupe"
-    # Применяем очистку и записываем в Dockerfile
-    final_val=$($func "$val")
-    to_df "ENV FF_$key=\"$final_val\""
+    # Ensure the file exists before catting
+    [[ -f ".$key" ]] || touch ".$key"
+    val=$(cat ".$key" | xargs)
+    # If the value is empty, don't generate an empty ENV line
+    if [[ -n "$val" ]]; then
+        [[ "$key" =~ LDFLAGS|LIBS ]] && func="smart_dedupe" || func="dedupe"
+        final_val=$($func "$val")
+        to_df "ENV FF_$key=\"$final_val\""
+    fi
 done
 
 if [[ $SKIP_FFMPEG -eq 1 ]]; then
