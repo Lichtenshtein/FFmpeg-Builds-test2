@@ -81,15 +81,10 @@ unset CFLAGS CPPFLAGS LDFLAGS ASFLAGS LIBS
 export HOST_CFLAGS="-O2 -pipe"
 export HOST_LDFLAGS=""
 
-export AS="as" 
-# Ensure the Target Assembler for the Cross-build is correctly prefixed
-export TARGET_AS="${FFBUILD_TOOLCHAIN}-as"
-
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
     --pkg-config-flags="--static"
     $FFBUILD_TARGET_FLAGS
-    --host-as="as"
     --host-cc="gcc-14"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
