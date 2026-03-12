@@ -146,6 +146,9 @@ clean_output() {
 collect_all_flags() {
     local script_path="$1"
     (
+        # Pass TARGET and VARIANT into the subshell so vars.sh doesn't fail
+        export TARGET="$TARGET"
+        export VARIANT="$VARIANT"
         # We source the script in a subshell to prevent it from 
         # polluting the main generate.sh environment variables
         if ! source "$script_path" > /dev/null 2>&1; then
