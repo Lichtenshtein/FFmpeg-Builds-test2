@@ -75,7 +75,7 @@ export TARGET_CFLAGS="$CFLAGS"
 export TARGET_LDFLAGS="$LDFLAGS"
 
 # Unset global flags that poison the host compiler
-unset CFLAGS CPPFLAGS LDFLAGS ASFLAGS LIBS
+# unset CFLAGS CPPFLAGS LDFLAGS ASFLAGS LIBS
 
 # Define sanitized Host-only flags
 export HOST_CFLAGS="-O2 -pipe"
@@ -198,4 +198,6 @@ fi
 # Очистка рабочего пространства ПЕРЕД завершением слоя Docker
 # Это освободит место на диске раннера до того, как он начнет экспорт
 cp ffbuild/ffmpeg/ffbuild/config.log "${FINAL_DEST}/config.log" 2>/dev/null || true
+log_info "Build finished. Cleaning up..."
 rm -rf ffbuild/pkgroot ffbuild/config_parts 2>/dev/null || true
+exit 0
