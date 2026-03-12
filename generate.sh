@@ -145,18 +145,25 @@ clean_output() {
 # Функция для безопасного извлечения флагов
 collect_all_flags() {
     local script_path="$1"
+    
+    # 1. Clean the environment of FF_ variables before sourcing
     unset FF_CONFIGURE FF_CFLAGS FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDEXEFLAGS FF_LIBS
     
-    # 2. Source it in the current shell context so we can see variables
-    # (We wrap it in a check to see if it even wants to be enabled)
-    if source "$script_path"; then
+    # 2. Source the script. We provide TARGET/VARIANT in case the script 
+    # uses them inside ffbuild_enabled (very common).
+    # We use a subshell ONLY for the 'source' to protect the main shell's functions
+    if ( export TARGET="$TARGET" VARIANT="$VARIANT"; source "$script_path" >/dev/null 2>&1 ); then
+        # Now we pull the functions/vars into the current context safely
+        source "$script_path" >/dev/null 2>&1
+
         if declare -F ffbuild_enabled >/dev/null && ! ffbuild_enabled; then
              return 0
         fi
         
-        # 3. Use your clean_output logic to capture the function results
+        # 3. Capture the static variables if they exist
         [[ -n "$FF_CONFIGURE" ]] && echo "$FF_CONFIGURE" | clean_output >> .conf
         
+        # Internal helper to capture function output
         get_from_func() {
             local func=$1
             local out_file=$2
@@ -174,6 +181,7 @@ collect_all_flags() {
         get_from_func "ffbuild_cxxflags" ".cxxflags"
         get_from_func "ffbuild_ldexeflags" ".ldexeflags"
         get_from_func "ffbuild_libs" ".libs"
+    fi
 }
 
 log_info "Collecting flags from variant and addins..."
