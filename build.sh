@@ -198,4 +198,4 @@ fi
 # Очистка рабочего пространства ПЕРЕД завершением слоя Docker
 # Это освободит место на диске раннера до того, как он начнет экспорт
 cp ffbuild/ffmpeg/ffbuild/config.log "${FINAL_DEST}/config.log" 2>/dev/null || true
-rm -rf ffbuild
+rm -rf ffbuild/pkgroot ffbuild/config_parts 2>/dev/null || true

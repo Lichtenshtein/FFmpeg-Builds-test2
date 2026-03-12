@@ -47,6 +47,7 @@ ffbuild_dockerbuild() {
           --enable-idl \
           --enable-sdk=all
     make install DESTDIR="/opt/mingw"
+    cp -a /opt/mingw"$SYSROOT"/. "$SYSROOT/"
     cd ..
 
     # 2. CRT
@@ -61,6 +62,7 @@ ffbuild_dockerbuild() {
           --disable-dependency-tracking
     make -j$(nproc) $MAKE_V
     make install DESTDIR="/opt/mingw"
+    cp -a /opt/mingw"$SYSROOT"/. "$SYSROOT/"
     cd ..
 
     # 3. Winpthreads (CRITICAL for FFmpeg)
