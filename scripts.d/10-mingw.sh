@@ -31,6 +31,8 @@ ffbuild_dockerbuild() {
     unset CC CXX LD AR CPP LIBS CCAS
     unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
     unset PKG_CONFIG_LIBDIR
+    export CC="${FFBUILD_TOOLCHAIN}-gcc"
+    export CXX="${FFBUILD_TOOLCHAIN}-g++"
 
     ### 1. mingw-w64-headers
     (
