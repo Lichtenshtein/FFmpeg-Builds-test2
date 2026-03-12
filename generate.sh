@@ -146,52 +146,65 @@ clean_output() {
 collect_all_flags() {
     local script_path="$1"
     
-    # 1. Clean the environment of FF_ variables before sourcing
+    if [[ ! -f "$script_path" ]]; then
+        log_warn "Flag file not found: $script_path"
+        return 0
+    fi
+
+    # 1. Clear variables
     unset FF_CONFIGURE FF_CFLAGS FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDEXEFLAGS FF_LIBS
     
-    # 2. Source the script. We provide TARGET/VARIANT in case the script 
-    # uses them inside ffbuild_enabled (very common).
-    # We use a subshell ONLY for the 'source' to protect the main shell's functions
-    if ( export TARGET="$TARGET" VARIANT="$VARIANT"; source "$script_path" >/dev/null 2>&1 ); then
-        # Now we pull the functions/vars into the current context safely
-        source "$script_path" >/dev/null 2>&1
+    # 2. Source the script but disable 'exit on error' temporarily
+    set +e
+    source "$script_path" >/dev/null 2>&1
+    local src_status=$?
+    set -e
 
-        if declare -F ffbuild_enabled >/dev/null && ! ffbuild_enabled; then
-             return 0
-        fi
-        
-        # 3. Capture the static variables if they exist
-        [[ -n "$FF_CONFIGURE" ]] && echo "$FF_CONFIGURE" | clean_output >> .conf
-        
-        # Internal helper to capture function output
-        get_from_func() {
-            local func=$1
-            local out_file=$2
-            if declare -F "$func" >/dev/null; then
-                local res
-                res=$($func 2>&1 | clean_output)
-                [[ -n "$res" ]] && echo "$res" >> "$out_file"
-            fi
-        }
-
-        get_from_func "ffbuild_configure" ".conf"
-        get_from_func "ffbuild_cflags" ".cflags"
-        get_from_func "ffbuild_ldflags" ".ldflags"
-        get_from_func "ffbuild_cppflags" ".cppflags"
-        get_from_func "ffbuild_cxxflags" ".cxxflags"
-        get_from_func "ffbuild_ldexeflags" ".ldexeflags"
-        get_from_func "ffbuild_libs" ".libs"
+    if [[ $src_status -ne 0 ]]; then
+        log_error "Failed to source $script_path (Exit code: $src_status)"
+        return 0 # We return 0 so the whole generate.sh doesn't die
     fi
+
+    # 3. Check enabled
+    if declare -F ffbuild_enabled >/dev/null; then
+        if ! ffbuild_enabled; then return 0; fi
+    fi
+    
+    # 4. Collection logic (Variables)
+    [[ -n "$FF_CONFIGURE" ]] && echo "$FF_CONFIGURE" | clean_output >> .conf
+    [[ -n "$FF_CFLAGS" ]]    && echo "$FF_CFLAGS"    | clean_output >> .cflags
+    [[ -n "$FF_LDFLAGS" ]]   && echo "$FF_LDFLAGS"   | clean_output >> .ldflags
+    [[ -n "$FF_LIBS" ]]      && echo "$FF_LIBS"      | clean_output >> .libs
+
+    # 5. Collection logic (Functions)
+    get_from_func() {
+        local func=$1
+        local out_file=$2
+        if declare -F "$func" >/dev/null; then
+            # Run in subshell to isolate potential 'exit' calls in components
+            local res
+            res=$( ($func) 2>&1 | clean_output )
+            [[ -n "$res" ]] && echo "$res" >> "$out_file"
+        fi
+    }
+
+    get_from_func "ffbuild_configure" ".conf"
+    get_from_func "ffbuild_cflags" ".cflags"
+    get_from_func "ffbuild_ldflags" ".ldflags"
+    get_from_func "ffbuild_libs" ".libs"
 }
+
+
 
 log_info "Collecting flags from variant and addins..."
 
 # Сначала собираем флаги из основного варианта
-collect_all_flags "variants/${TARGET}-${VARIANT}.sh"
+log_debug "Target Variant: variants/${TARGET}-${VARIANT}.sh"
+collect_all_flags "variants/${TARGET}-${VARIANT}.sh" || exit 1
 
-# Затем из всех активных аддинов (например, lto.sh или debug.sh)
 for addin in ${ADDINS[*]}; do
-    collect_all_flags "addins/${addin}.sh"
+    log_debug "Addin: addins/${addin}.sh"
+    collect_all_flags "addins/${addin}.sh" || exit 1
 done
 
 log_info "Collecting flags from filtered component scripts..."
