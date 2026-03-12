@@ -64,24 +64,30 @@ RUN \
         xvfb && \
     apt-get -y clean && rm -rf /var/lib/apt/lists/*
 
-# Создаем ссылки на то, что РЕАЛЬНО есть в системе (судя по dpkg -L)
-RUN \
-    mkdir -p /root/.wine && chmod -R 777 /root/.wine && \
-    ls /opt/wine-stable/bin/ || (echo "Wine path wrong, checking..."; which wine) && \
-    ln -sf /opt/wine-stable/bin/wine /usr/bin/wine64 && \
-    ln -sf /opt/wine-stable/bin/wine /usr/bin/wine && \
-    ln -sf /opt/wine-stable/bin/wineboot /usr/bin/wineboot && \
-    ln -sf /opt/wine-stable/bin/wineserver /usr/bin/wineserver && \
-    wine --version || (echo "Wine binaries linked successfully.")
-
 # Базовые настройки Wine
-ENV \
-    WINEARCH=win64 \
+ENV WINEARCH=win64 \
     WINEPREFIX="/root/.wine" \
     DISPLAY=:99 \
     WINEDEBUG=-all \
     WINEDLLOVERRIDES="mscoree,mshtml=" \
     WINE_BIN_DIR="/opt/wine-stable/bin"
 
-RUN \
-    test -d "$WINE_BIN_DIR" || { echo "ERROR: WINE_BIN_DIR=$WINE_BIN_DIR does not exist"; exit 1; }
+# Создаем ссылки на то, что РЕАЛЬНО есть в системе (судя по dpkg -L)
+RUN set -e; \
+    if [ ! -d "$WINE_BIN_DIR" ]; then \
+        echo "ERROR: Wine not found in $WINE_BIN_DIR"; \
+        ls -la /opt/; exit 1; \
+    fi; \
+    mkdir -p "$WINE_PREFIX" && \
+    # Создаем ссылки одним махом
+    for bin in wine wineboot wineserver widl winegcc winecfg; do \
+        ln -sf "$WINE_BIN_DIR/$bin" "/usr/bin/$bin"; \
+    done; \
+    # На всякий случай делаем алиас для совместимости
+    ln -sf /usr/bin/wine /usr/bin/wine64; \
+    # ТЕПЕРЬ проверяем, что wine реально запускается
+    echo "Checking Wine version:" && wine --version \
+    xvfb-run -n 99 -s "-screen 0 1024x768x16" \
+    echo "Initializing Wine Win64 prefix in $WINEPREFIX..." \
+    sh -c "wine wineboot --init && wineserver -w" && \
+    rm -rf /tmp/.X11-unix/X99

@@ -16,31 +16,26 @@ STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
 USE_WINE_VAL="${USE_WINE:-auto}"
 WINE_CMD=$(command -v wine64 || command -v wine)
 # Функция для принятия решения о запуске графического окружения и Wine
+# Detect if the script needs a display (Wine, Meson, CMake tests)
 should_run_wine() {
     [[ "$USE_WINE_VAL" == "on" ]] && return 0
     [[ "$USE_WINE_VAL" == "off" ]] && return 1
-    # Режим 'auto': проверяем наличие команд сборки или явного вызова wine в скрипте
     grep -qE "meson setup|cmake|\./configure|wine" "$SCRIPT_PATH"
 }
-# Инициализируем Xvfb и Wine ТОЛЬКО если это реально необходимо
-if should_run_wine; then
-    # Проверка и запуск Xvfb (необходим для работы Wine в headless режиме)
-    if ! pgrep -x "Xvfb" > /dev/null; then
+
+# Wrapper function to execute commands
+run_wrapped() {
+    if should_run_wine; then
+        # -n 99: use display 99
+        # -s: Xvfb arguments
+        # -a: auto-servernum (use next available if 99 is busy)
+        xvfb-run -n 99 -a -s "-screen 0 1024x768x16" "$@"
         log_info "${START_MARK} Starting Xvfb (Display :99) for Wine/Build tests..."
-        Xvfb :99 -screen 0 1024x768x16 > /dev/null 2>&1 &
-        # Даем немного времени на инициализацию дисплея
-        sleep 4
+    else
+        "$@"
+         log_debug "Stage $STAGENAME: Wine/Xvfb initialization skipped (Mode: $USE_WINE_VAL)."
     fi
-    # Инициализация префикса Wine, если он еще не создан (drive_c отсутствует)
-    if [[ ! -d "$WINEPREFIX/drive_c" ]]; then
-        log_info "Initializing Wine Win64 prefix in $WINEPREFIX..."
-        # Запускаем wineboot в фоновом режиме, затем ждем завершения сервера
-        "$WINE_CMD" wineboot --init 2>/dev/null && wineserver -w
-        log_info "Wine prefix ready."
-    fi
-else
-    log_debug "Stage $STAGENAME: Wine/Xvfb initialization skipped (Mode: $USE_WINE_VAL)."
-fi
+}
 
 # Подгружаем утилиты, используя абсолютный путь
 if ! declare -F log_info >/dev/null; then
@@ -242,7 +237,8 @@ if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
     if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         log_info "################################################################"
         log_debug "${BROOM_MARK} Cleaning unwanted DLLs from static stage: $STAGENAME"
-        find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
+        find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.dll" -delete || true
+        # find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
     else
         log_debug "${DIRS_MARK} No standard prefix directory to clean for $STAGENAME"
     fi
@@ -260,32 +256,24 @@ ccache -s
 # Каждый скрипт в scripts.d обязан устанавливать файлы (make install) в путь, начинающийся с $FFBUILD_DESTDIR$FFBUILD_PREFIX (обычно это /opt/ffdest/opt/ffbuild), иначе система не увидит установленную библиотеку для следующего этапа.
 if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
     log_info "################################################################"
-    log_info "${SYNC_MARK} SYNCING STAGE: $STAGENAME"
-    # Проверяем наличие файлов (игнорируя пустые директории)
-    if [[ -n $(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -print -quit) ]]; then
-        log_debug "Source: $FFBUILD_DESTDIR$FFBUILD_PREFIX"
-        log_debug "Target: $FFBUILD_PREFIX"
+    log_info "${SYNC_MARK} POST-BUILD AUDIT: $STAGENAME"
 
-        # Продвинутые флаги rsync:
-        # -a: архив (права, даты, симлинки)
-        # -v: подробный лог (поможет увидеть, ЧТО именно установила либа)
-        # --update: НЕ перезаписывать файлы в таргете, если они новее
-        # --ignore-times: но если размер/дата отличаются - обновить
-        # --ignore-existing: можно убрать, если нужно обновлять либы
-        if rsync -av --checksum "$FFBUILD_DESTDIR$FFBUILD_PREFIX/" "$FFBUILD_PREFIX/"; then
-            log_info "${CHECK_MARK} Sync completed. Artifacts moved to global prefix."
-            # Расширенный лог: показывает, что именно добавилось (первые 10 файлов для краткости)
-            log_debug "${DIRS_MARK} New files in prefix (top 10):"
-            ls -R "$FFBUILD_PREFIX" | head -n 10
-        else
-            log_error "${CROSS_MARK} Sync failed for $STAGENAME!"
-            exit 1
-        fi
-        # Очищаем DESTDIR сразу после копирования, 
-        # чтобы освободить место в текущем слое Docker перед финализацией
-        rm -rf "${FFBUILD_DESTDIR:?}"/*
+    # Identify what was actually built
+    mapfile -t NEW_FILES < <(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -o -type l)
+
+    if [[ ${#NEW_FILES[@]} -gt 0 ]]; then
+        log_info "${DIRS_MARK} Installed ${#NEW_FILES[@]} files to prefix:"
+        # Print the list, stripping the long DESTDIR prefix for readability
+        printf "  + %s\n" "${NEW_FILES[@]#$FFBUILD_DESTDIR}" | head -n 50
+        [[ ${#NEW_FILES[@]} -gt 50 ]] && echo "  ... (and $((${#NEW_FILES[@]} - 50)) more)"
+
+        # Sync to the PERSISTENT CACHE MOUNT (So the next script sees them)
+        # Using -u (update) to avoid overwriting newer files if layers run out of order
+        rsync -a --checksum "$FFBUILD_DESTDIR$FFBUILD_PREFIX/" "$FFBUILD_PREFIX/"
+
+        log_info "${CHECK_MARK} Sync completed. Component is now available for dependencies."
     else
-        log_warn "${XCLAM_MARK} Stage $STAGENAME finished but $FFBUILD_DESTDIR$FFBUILD_PREFIX is empty."
+        log_warn "${XCLAM_MARK} Stage $STAGENAME finished but no files were found in DESTDIR."
     fi
     log_info "################################################################"
 fi

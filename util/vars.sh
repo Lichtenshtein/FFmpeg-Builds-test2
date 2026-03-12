@@ -43,22 +43,27 @@ export FFBUILD_PREFIX="/opt/ffbuild"
 # export PATH="/usr/local/bin:/usr/bin:/bin:${PATH}"
 
 export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig"
-unset PKG_CONFIG_SYSROOT_DIR
-export PKG_CONFIG="pkg-config --static"
+# unset PKG_CONFIG_SYSROOT_DIR
+# export PKG_CONFIG="pkg-config --static"
+export PKG_CONFIG="${FFBUILD_TOOLCHAIN}-pkg-config --static"
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
+export pkg-config="${FFBUILD_TOOLCHAIN}-pkg-config"
 
 BASE_CFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
 BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32"
 SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lssp -pthread"
-export LIBS="$SYSTEM_LIBS"
-export CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong"
-export CPPFLAGS="$BASE_CPPFLAGS"
-export CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CPPFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong -std=c++17"
-export LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L$FFBUILD_PREFIX/lib -pthread -lssp -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
-export STAGE_CFLAGS="-fno-semantic-interposition"
-export STAGE_CXXFLAGS="-fno-semantic-interposition"
 
+if [[ -z "$FLAGS_INITIALIZED" ]]; then
+    export LIBS="$SYSTEM_LIBS"
+    export CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong"
+    export CPPFLAGS="$BASE_CPPFLAGS"
+    export CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CPPFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong"
+    export LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L$FFBUILD_PREFIX/lib -pthread -lssp -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+    export STAGE_CFLAGS="-fno-semantic-interposition"
+    export STAGE_CXXFLAGS="-fno-semantic-interposition"
+    export FLAGS_INITIALIZED=1
+fi
 
 # disable -fPIC, -ffast-math, -flto=auto if troubles occur
 # add -D_FORTIFY_SOURCE=2 for security
@@ -350,19 +355,21 @@ export -f apply_patches
 # Ищем, где реально лежат заголовочные файлы и либы mingw в образе
 # /opt/ct-ng/x86_64-w64-mingw32/sysroot/usr/x86_64-w64-mingw32/bin/
 # Проверяем, находимся ли мы внутри Docker (где есть тулчейн)
-if [ -d "/opt/ct-ng" ]; then
-    MINGW_BIN_PATH=$(find /opt/ct-ng -maxdepth 5 -type d -name "bin" | grep "x86_64-w64-mingw32/bin" | head -n 1)
-    if [ -n "$MINGW_BIN_PATH" ]; then
-        export WINEPATH="${MINGW_BIN_PATH};${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib"
-        log_info "${DIRS_MARK} WINEPATH unified to: $WINEPATH"
-    else
-        export WINEPATH="${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib"
-        log_warn "${XCLAM_MARK} Trouble find MinGW BIN directory for WINEPATH: $WINEPATH"
-    fi
-else
-    # Если мы на хосте (этап генерации/загрузки), просто игнорируем тулчейн
-    log_debug "Running outside of build container, skipping toolchain path discovery."
-fi
+# if [ -d "/opt/ct-ng" ]; then
+    # MINGW_BIN_PATH=$(find /opt/ct-ng -maxdepth 5 -type d -name "bin" | grep "x86_64-w64-mingw32/bin" | head -n 1)
+    # if [ -n "$MINGW_BIN_PATH" ]; then
+        # export WINEPATH="${MINGW_BIN_PATH};${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib"
+        # log_info "${DIRS_MARK} WINEPATH unified to: $WINEPATH"
+    # else
+        # export WINEPATH="${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib"
+        # log_warn "${XCLAM_MARK} Trouble find MinGW BIN directory for WINEPATH: $WINEPATH"
+    # fi
+# else
+    # # Если мы на хосте (этап генерации/загрузки), просто игнорируем тулчейн
+    # log_debug "Running outside of build container, skipping toolchain path discovery."
+# fi
+
+export WINEPATH=$(winepath -w ${FFBUILD_PREFIX}/bin);$(winepath -w ${MINGW_BIN_PATH})
 
 # экспорт важных переменных MinGW, чтобы они пробрасывались в download.sh и run_stage.sh:
 export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE

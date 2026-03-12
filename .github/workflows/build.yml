@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '10-mingw-std-threads|10-mingw|11-base|12-libicu|13-libiconv|14-gettext|15-freetype|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|25-openssl|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|26-libssh|27-curl|27-libwebp|29-libarchive|34-cairo|35-harfbuzz|40-freetype|40-pango|45-lcms2|45-libtensorflow-test|47-leptonica-test|50-tesseract-test'
+        default: '10-mingw-std-threads|10-mingw|11-base|18-zlib'
         # default: '.*'
       doClean:
         description: 'Clean cache before build (Full Rebuild)'
@@ -33,7 +33,7 @@ on:
       skip_ffmpeg:
         description: 'Skip final FFmpeg compilation (Component test only)'
         type: boolean
-        default: true
+        default: false
       dedupe_flags:
         description: 'Deduplicate LDFLAGS/LIBS (Disable if link errors occur)'
         type: boolean
@@ -80,8 +80,12 @@ jobs:
         if: github.event.inputs.doClean == 'true'
         run: |
           gh extension install actions/gh-actions-cache || true
-          echo "Purging all caches for ${{ github.ref }}..."
+          echo "Purging GitHub Actions Cache..."
           gh cache delete --succeed-on-no-caches --all --repo ${{ github.repository }}
+          
+          echo "Purging Docker BuildKit Cache Mounts..."
+          # This specifically targets the 'prefix' and 'ccache' mounts
+          docker builder prune --filter type=exec.cachemount --all --force
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -178,6 +182,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: |
+            .cache/ccache
             .cache/downloads
             .cache/ffmpeg
           key: dl-cache-${{ steps.dl_cache.outputs.key }}
@@ -196,7 +201,7 @@ jobs:
           SKIP_PARAM="false"
           [[ "${{ github.event.inputs.skip_ffmpeg }}" == "true" ]] && SKIP_PARAM="skip_ffmpeg"
           mkdir -p .cache/downloads .cache/ffmpeg
-          find scripts.d util addins variants -name "*.sh" -exec sed -i 's/\r$//' {} +
+          find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
           chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
@@ -219,6 +224,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: |
+            .cache/ccache
             .cache/downloads
             .cache/ffmpeg
           key: dl-cache-${{ steps.dl_cache.outputs.key }}
