@@ -172,7 +172,8 @@ collect_all_flags() {
     # 2. Source directly (No parentheses!)
     # We use 'set +e' to ensure a minor script error doesn't kill generate.sh
     set +e
-    source "$script_path" >/dev/null 2>&1
+    # source "$script_path" >/dev/null 2>&1
+    source "$script_path"
     set -e
 
     # 3. Now the variables are available in the current scope
@@ -181,7 +182,7 @@ collect_all_flags() {
     fi
 
     # 4. Append to files
-    [[ -n "$FF_CONFIGURE" ]] && echo "$FF_CONFIGURE" >> /builder/.conf
+    [[ -n "$FF_CONFIGURE" ]]  && echo "$FF_CONFIGURE"   | clean_output >> .conf
     [[ -n "$FF_CFLAGS" ]]     && echo "$FF_CFLAGS"     | clean_output >> .cflags
     [[ -n "$FF_LDFLAGS" ]]    && echo "$FF_LDFLAGS"    | clean_output >> .ldflags
     [[ -n "$FF_CXXFLAGS" ]]   && echo "$FF_CXXFLAGS"   | clean_output >> .cxxflags
