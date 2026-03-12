@@ -159,32 +159,36 @@ collect_all_flags() {
     local script_path="$1"
     [[ ! -f "$script_path" ]] && return 0
 
+    # 1. Clean before sourcing
     unset FF_CONFIGURE FF_CFLAGS FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDEXEFLAGS FF_LIBS
-    
-    # We use a subshell to source so that variant recursion 
-    # doesn't break the main script's environment.
-    (
-        # Inject needed vars for ffbuild_enabled checks
-        export TARGET="$TARGET"
-        export VARIANT="$VARIANT"
-        
-        # Source the script. If it fails, we just don't collect flags.
-        source "$script_path" >/dev/null 2>&1 || exit 0
-        
-        if declare -F ffbuild_enabled >/dev/null && ! ffbuild_enabled; then
-             exit 0
-        fi
-        
-        [[ -n "$FF_CONFIGURE" ]] && echo "$FF_CONFIGURE" | clean_output >> .conf
-        [[ -n "$FF_CFLAGS" ]]    && echo "$FF_CFLAGS"    | clean_output >> .cflags
-        [[ -n "$FF_LDFLAGS" ]]   && echo "$FF_LDFLAGS"   | clean_output >> .ldflags
-        [[ -n "$FF_LIBS" ]]      && echo "$FF_LIBS"      | clean_output >> .libs
 
-        get_from_func "ffbuild_configure" ".conf"
-        get_from_func "ffbuild_cflags" ".cflags"
-        get_from_func "ffbuild_ldflags" ".ldflags"
-        get_from_func "ffbuild_libs" ".libs"
-    )
+    # 2. Source directly (No parentheses!)
+    # We use 'set +e' to ensure a minor script error doesn't kill generate.sh
+    set +e
+    source "$script_path" >/dev/null 2>&1
+    set -e
+
+    # 3. Now the variables are available in the current scope
+    if declare -F ffbuild_enabled >/dev/null && ! ffbuild_enabled; then
+         return 0
+    fi
+
+    # 4. Append to files
+    [[ -n "$FF_CONFIGURE" ]]  && echo "$FF_CONFIGURE"  | clean_output >> .conf
+    [[ -n "$FF_CFLAGS" ]]     && echo "$FF_CFLAGS"     | clean_output >> .cflags
+    [[ -n "$FF_LDFLAGS" ]]    && echo "$FF_LDFLAGS"    | clean_output >> .ldflags
+    [[ -n "$FF_CXXFLAGS" ]]   && echo "$FF_CXXFLAGS"   | clean_output >> .cxxflags
+    [[ -n "$FF_CPPFLAGS" ]]   && echo "$FF_CPPFLAGS"   | clean_output >> .cppflags
+    [[ -n "$FF_LDEXEFLAGS" ]] && echo "$FF_LDEXEFLAGS" | clean_output >> .ldexeflags
+    [[ -n "$FF_LIBS" ]]       && echo "$FF_LIBS"       | clean_output >> .libs
+
+    get_from_func "ffbuild_configure" ".conf"
+    get_from_func "ffbuild_cflags" ".cflags"
+    get_from_func "ffbuild_ldflags" ".ldflags"
+    get_from_func "ffbuild_cppflags" ".cppflags"
+    get_from_func "ffbuild_cxxflags" ".cxxflags"
+    get_from_func "ffbuild_ldexeflags" ".ldexeflags"
+    get_from_func "ffbuild_libs" ".libs"
 }
 
 # --- THE EXECUTION ---
