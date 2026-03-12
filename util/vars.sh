@@ -48,7 +48,6 @@ export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/shar
 export PKG_CONFIG="${FFBUILD_TOOLCHAIN}-pkg-config --static"
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
-export pkg-config="${FFBUILD_TOOLCHAIN}-pkg-config"
 
 BASE_CFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
 BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32"
@@ -247,7 +246,7 @@ get_deps_list() {
             printf "\n%b %s\n" "$XCLAM_MARK" "$1"
             cat "$1"
             printf "\n%b DEPS for %s:\n" "$SEARCH_MARK" "${1##*/}"
-            deps=$(pkg-config --print-requires --print-requires-private "$1" 2>/dev/null || true)
+            deps=$(${PKG_CONFIG:-pkg-config} --print-requires --print-requires-private "$1" 2>/dev/null || true)
             if [[ -n "$deps" ]]; then
                 echo "$deps"
                 while IFS= read -r dep_line; do
@@ -255,7 +254,7 @@ get_deps_list() {
                     local pkg_name
                     pkg_name=$(echo "$dep_line" | awk '{print $1}')
                     [[ -z "$pkg_name" ]] && continue
-                    pkg-config --exists "$pkg_name" 2>/dev/null \
+                    ${PKG_CONFIG:-pkg-config} --exists "$pkg_name" 2>/dev/null \
                         || log_error "MISSING DEPENDENCY: $pkg_name (required by $1)"
                 done <<< "$deps"
             else
@@ -355,21 +354,24 @@ export -f apply_patches
 # Ищем, где реально лежат заголовочные файлы и либы mingw в образе
 # /opt/ct-ng/x86_64-w64-mingw32/sysroot/usr/x86_64-w64-mingw32/bin/
 # Проверяем, находимся ли мы внутри Docker (где есть тулчейн)
-# if [ -d "/opt/ct-ng" ]; then
-    # MINGW_BIN_PATH=$(find /opt/ct-ng -maxdepth 5 -type d -name "bin" | grep "x86_64-w64-mingw32/bin" | head -n 1)
-    # if [ -n "$MINGW_BIN_PATH" ]; then
-        # export WINEPATH="${MINGW_BIN_PATH};${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib"
-        # log_info "${DIRS_MARK} WINEPATH unified to: $WINEPATH"
-    # else
-        # export WINEPATH="${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib"
-        # log_warn "${XCLAM_MARK} Trouble find MinGW BIN directory for WINEPATH: $WINEPATH"
-    # fi
-# else
-    # # Если мы на хосте (этап генерации/загрузки), просто игнорируем тулчейн
-    # log_debug "Running outside of build container, skipping toolchain path discovery."
-# fi
-
-export WINEPATH=$(winepath -w ${FFBUILD_PREFIX}/bin);$(winepath -w ${MINGW_BIN_PATH})
+if [ -d "/opt/ct-ng" ]; then
+    # Find the actual MinGW bin directory
+    MINGW_BIN_PATH=$(find /opt/ct-ng -maxdepth 5 -type d -name "bin" | grep "x86_64-w64-mingw32/bin" | head -n 1)
+    # Check if we are actually in a context where winepath works
+    if command -v winepath &>/dev/null; then
+        local _p_bin=$(winepath -w "${FFBUILD_PREFIX}/bin" 2>/dev/null)
+        local _p_lib=$(winepath -w "${FFBUILD_PREFIX}/lib" 2>/dev/null)
+        local _m_bin=$(winepath -w "${MINGW_BIN_PATH}" 2>/dev/null)
+        export WINEPATH="${_p_bin};${_p_lib};${_m_bin}"
+        log_info "${DIRS_MARK} WINEPATH (Windows style): $WINEPATH"
+    else
+        export WINEPATH="${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib;${MINGW_BIN_PATH}"
+        log_info "${DIRS_MARK} WINEPATH: $WINEPATH"
+    fi
+else
+    # We are on the GitHub Host (generate/download phase)
+    log_debug "Running outside of build container, skipping toolchain path discovery."
+fi
 
 # экспорт важных переменных MinGW, чтобы они пробрасывались в download.sh и run_stage.sh:
 export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE
