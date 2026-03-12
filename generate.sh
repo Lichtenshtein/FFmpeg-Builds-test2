@@ -149,8 +149,8 @@ collect_all_flags() {
         # We source the script in a subshell to prevent it from 
         # polluting the main generate.sh environment variables
         if ! source "$script_path" > /dev/null 2>&1; then
-            exit 0 # Skip if script has syntax errors or is empty
             log_error "${CROSS_MARK} Syntax error in script: $script_path"
+            exit 0 # Skip if script has syntax errors or is empty
         fi
 
         # Извлекаем флаги из переменных (для файлов из variants/ и addins/)

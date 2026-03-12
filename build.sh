@@ -72,10 +72,9 @@ CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
     --pkg-config-flags="--static"
     $FFBUILD_TARGET_FLAGS
-    --extra-cflags="$FF_CFLAGS"
+    --extra-cflags="$FF_CFLAGS $FF_CPPFLAGS"
     --extra-ldflags="$FF_LDFLAGS"
     --extra-cxxflags="$FF_CXXFLAGS"
-    --extra-cppflags="$FF_CPPFLAGS"
     --extra-ldexeflags="$FF_LDEXEFLAGS"
     --extra-libs="$FF_LIBS"
     $FF_CONFIGURE
