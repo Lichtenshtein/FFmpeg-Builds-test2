@@ -227,7 +227,7 @@ for script in "${active_scripts[@]}"; do
     log_info "${SEARCH_MARK} Collecting flags: $STAGENAME"
     collect_all_flags "$script" || true
 done
-echo "DEBUG: .conf content: $(cat .conf)"
+echo "DEBUG: .conf content: $(cat $T_DIR/.conf)"
 # --- END OF FIX ---
 
 
