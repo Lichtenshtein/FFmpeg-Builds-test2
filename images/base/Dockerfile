@@ -78,16 +78,18 @@ RUN set -e; \
         echo "ERROR: Wine not found in $WINE_BIN_DIR"; \
         ls -la /opt/; exit 1; \
     fi; \
-    mkdir -p "$WINE_PREFIX" && \
-    # Создаем ссылки одним махом
+    mkdir -p "$WINEPREFIX"; \
+    # Создаем ссылки
     for bin in wine wineboot wineserver widl winegcc winecfg; do \
         ln -sf "$WINE_BIN_DIR/$bin" "/usr/bin/$bin"; \
     done; \
-    # На всякий случай делаем алиас для совместимости
     ln -sf /usr/bin/wine /usr/bin/wine64; \
-    # ТЕПЕРЬ проверяем, что wine реально запускается
-    echo "Checking Wine version:" && wine --version \
+    \
+    # Проверка версии
+    echo "Checking Wine version:" && wine --version; \
+    \
+    # Инициализация префикса (используем xvfb-run правильно)
+    echo "Initializing Wine Win64 prefix in $WINEPREFIX..."; \
     xvfb-run -n 99 -s "-screen 0 1024x768x16" \
-    echo "Initializing Wine Win64 prefix in $WINEPREFIX..." \
-    sh -c "wine wineboot --init && wineserver -w" && \
+        sh -c "wine wineboot --init && wineserver -w" && \
     rm -rf /tmp/.X11-unix/X99
