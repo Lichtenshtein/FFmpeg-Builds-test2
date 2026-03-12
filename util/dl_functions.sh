@@ -13,7 +13,7 @@ _retry() {
     local timeout_val=300
     
     while true; do
-        if timeout --kill-after=10 "$timeout_val" "$@"; then
+        if timeout -s 9 "$timeout_val" "$@"; then
             return 0
         else
             if [[ $n -lt $max ]]; then
