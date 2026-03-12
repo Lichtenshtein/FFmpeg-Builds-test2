@@ -48,7 +48,7 @@ ENV  \
     CCACHE_NOHASHDIR=1
 
 ENV \
-PATH="/usr/local/bin:/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${WINE_BIN_DIR}:/usr/bin:/bin:${PATH}" \
+    PATH="/usr/bin:/bin:/usr/local/bin:/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${WINE_BIN_DIR}:${PATH}" \
     FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32" \
     FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}- \
     FFBUILD_PREFIX=/opt/ffbuild \
