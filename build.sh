@@ -26,7 +26,7 @@ cd ffbuild/ffmpeg
 
 # Патчи теперь ищем по имени ветки, пришедшей из ENV
 if [[ -d "/builder/patches/ffmpeg/$FFMPEG_BRANCH" ]]; then
-    git checkout .
+    git reset --hard HEAD 2>/dev/null || true
     for patch in "/builder/patches/ffmpeg/$FFMPEG_BRANCH"/*.patch; do
         [[ -e "$patch" ]] || continue
             log_info "${TARGET_MARK} APPLYING PATCH: $patch"

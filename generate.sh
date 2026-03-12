@@ -252,7 +252,7 @@ else
     to_df "COPY patches /builder/patches"
 
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
-    to_df "    --mount=from=ffmpeg_src,target=/builder/ffbuild/ffmpeg \\"
+    to_df "    --mount=from=ffmpeg_src,target=/builder/ffbuild/ffmpeg,rw \\"
     to_df "    ./build.sh $TARGET $VARIANT"
 fi
 
