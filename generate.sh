@@ -136,19 +136,19 @@ trap 'rm -f "${TMPFILES[@]}"' EXIT
 # 1. Strip ANSI color codes (the \x1B parts)
 # 2. Strip your custom log tags like [INFO], [DEBUG], etc.
 # 3. Strip leading/trailing whitespace
+# --- START OF FIX ---
+
+# 1. Define these OUTSIDE the loop to prevent re-definition errors
 clean_output() {
     sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | \
     grep -vE "^\[(INFO|DEBUG|WARN|ERROR)\]" | \
     tail -n 1 | xargs
 }
 
-# Функция для безопасного извлечения флагов
-# 1. Move this OUTSIDE so it is defined only once
 get_from_func() {
     local func=$1
     local out_file=$2
     if declare -F "$func" >/dev/null; then
-        # Use a subshell to prevent the component script from calling 'exit'
         local res
         res=$( ("$func") 2>&1 | clean_output )
         [[ -n "$res" ]] && echo "$res" >> "$out_file"
@@ -159,44 +159,48 @@ collect_all_flags() {
     local script_path="$1"
     [[ ! -f "$script_path" ]] && return 0
 
-    # 2. Reset local FF_ variables
     unset FF_CONFIGURE FF_CFLAGS FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDEXEFLAGS FF_LIBS
     
-    # 3. Source safely. We use a subshell to check for syntax errors first.
-    if ! ( export TARGET="$TARGET" VARIANT="$VARIANT"; source "$script_path" ) >/dev/null 2>&1; then
-        log_error "${CROSS_MARK} Syntax error or 'exit' called in $script_path"
-        return 0
-    fi
+    # We use a subshell to source so that variant recursion 
+    # doesn't break the main script's environment.
+    (
+        # Inject needed vars for ffbuild_enabled checks
+        export TARGET="$TARGET"
+        export VARIANT="$VARIANT"
+        
+        # Source the script. If it fails, we just don't collect flags.
+        source "$script_path" >/dev/null 2>&1 || exit 0
+        
+        if declare -F ffbuild_enabled >/dev/null && ! ffbuild_enabled; then
+             exit 0
+        fi
+        
+        [[ -n "$FF_CONFIGURE" ]] && echo "$FF_CONFIGURE" | clean_output >> .conf
+        [[ -n "$FF_CFLAGS" ]]    && echo "$FF_CFLAGS"    | clean_output >> .cflags
+        [[ -n "$FF_LDFLAGS" ]]   && echo "$FF_LDFLAGS"   | clean_output >> .ldflags
+        [[ -n "$FF_LIBS" ]]      && echo "$FF_LIBS"      | clean_output >> .libs
 
-    # 4. Now source in current shell to extract data
-    source "$script_path" >/dev/null 2>&1
-
-    if declare -F ffbuild_enabled >/dev/null && ! ffbuild_enabled; then
-         return 0
-    fi
-    
-    # 5. Extract Variables
-    [[ -n "$FF_CONFIGURE" ]] && echo "$FF_CONFIGURE" | clean_output >> .conf
-    [[ -n "$FF_CFLAGS" ]]    && echo "$FF_CFLAGS"    | clean_output >> .cflags
-    [[ -n "$FF_LDFLAGS" ]]   && echo "$FF_LDFLAGS"   | clean_output >> .ldflags
-    [[ -n "$FF_LIBS" ]]      && echo "$FF_LIBS"      | clean_output >> .libs
-
-    # 6. Extract Functions
-    get_from_func "ffbuild_configure" ".conf"
-    get_from_func "ffbuild_cflags" ".cflags"
-    get_from_func "ffbuild_ldflags" ".ldflags"
-    get_from_func "ffbuild_cppflags" ".cppflags"
-    get_from_func "ffbuild_cxxflags" ".cxxflags"
-    get_from_func "ffbuild_ldexeflags" ".ldexeflags"
-    get_from_func "ffbuild_libs" ".libs"
+        get_from_func "ffbuild_configure" ".conf"
+        get_from_func "ffbuild_cflags" ".cflags"
+        get_from_func "ffbuild_ldflags" ".ldflags"
+        get_from_func "ffbuild_libs" ".libs"
+    )
 }
 
-# --- The Loop ---
+# --- THE EXECUTION ---
 log_info "Collecting flags from variant and addins..."
-collect_all_flags "variants/${TARGET}-${VARIANT}.sh"
+
+# We wrap these calls in '|| true' so even if a variant script 
+# has a syntax error, the build doesn't die here.
+V_PATH="variants/${TARGET}-${VARIANT}.sh"
+if [[ -f "$V_PATH" ]]; then
+    collect_all_flags "$V_PATH" || true
+else
+    log_error "Missing variant file: $V_PATH"
+fi
 
 for addin in ${ADDINS[*]}; do
-    collect_all_flags "addins/${addin}.sh"
+    collect_all_flags "addins/${addin}.sh" || true
 done
 
 log_info "Collecting flags from filtered component scripts..."
@@ -208,9 +212,11 @@ for script in "${active_scripts[@]}"; do
         fi
     fi
     log_info "${SEARCH_MARK} Collecting flags: $STAGENAME"
-    # Added '|| true' to ensure the loop never dies on a single script error
     collect_all_flags "$script" || true
 done
+
+# --- END OF FIX ---
+
 
 
 # Функция для удаления дубликатов с сохранением порядка
