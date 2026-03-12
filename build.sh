@@ -69,7 +69,6 @@ FINAL_EXTRA_LIBS="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32 -lshlwapi -luser32 -lad
 # Сборка FFmpeg
 chmod +x configure
 
-# линковка с --enable-lto может потребовать более 16-32 ГБ RAM. Стандартный раннер GitHub имеет всего 7 ГБ
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
     --pkg-config-flags="--static"
@@ -101,23 +100,28 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>>ffbuild/config.log; then
     exit 1
 fi
 
-AVAILABLE_MEM_GB=$(( $(grep MemAvailable /proc/meminfo | awk '{print $2}') / 1024 / 1024 ))
-if [[ "$AVAILABLE_MEM_GB" -lt 4 ]]; then
-    log_warn "Low memory (${AVAILABLE_MEM_GB}GB available). Limiting to 1 job."
+# Чтобы не перегружать RAM раннера (в среднем 7GB RAM / 2 ядра)
+# лучше ограничить параллелизм или вовсе собирать в 1 поток, если включен LTO
+# Считаем доступную память в ГБ (через awk, чтобы избежать ошибок деления)
+MEM_AVAILABLE=$(awk '/MemAvailable/ {printf "%d", $2/1024/1024}' /proc/meminfo)
+# Рассчитываем лимит потоков по памяти (1 поток на каждые 2 ГБ)
+# Если памяти меньше 2ГБ, результат будет 1
+MEM_JOBS=$(( MEM_AVAILABLE / 2 ))
+[[ $MEM_JOBS -lt 1 ]] && MEM_JOBS=1
+# Выбираем финальное число потоков
+CPU_CORES=$(nproc)
+if [[ "$FF_CONFIGURE" == *"--enable-lto"* || "$USE_LTO" == "1" ]]; then
+    log_warn "${XCLAM_MARK} LTO detected. Forcing single-thread build."
     MAKE_JOBS=1
 else
-    MAKE_JOBS=$(nproc)
+    # Берем минимум между количеством ядер и лимитом по памяти
+    MAKE_JOBS=$(( CPU_CORES < MEM_JOBS ? CPU_CORES : MEM_JOBS ))
+    log_info "Memory: ${MEM_AVAILABLE}GB, Cores: ${CPU_CORES}. Setting MAKE_JOBS=${MAKE_JOBS}"
 fi
-# Используем 2 потока, чтобы не перегружать RAM раннера (7GB RAM / 2 ядра)
-# лучше ограничить параллелизм или вовсе собирать в 1 поток, если включен LTO
-if [[ "$FF_CONFIGURE" == *"--enable-lto"* || "$USE_LTO" == "1" ]]; then
-    log_warn "${XCLAM_MARK} LTO detected. Using single-thread build to prevent OOM Killer."
-    make -j"$MAKE_JOBS" $MAKE_V
-else
-    make -j"$MAKE_JOBS" $MAKE_V
-fi
-make install
-make install-doc || log_warn "install-doc failed, continuing without docs."
+# Сборка и установка
+make -j"$MAKE_JOBS" $MAKE_V && \
+make install && \
+make install-doc || log_warn "install-doc failed, but proceeding."
 ccache -s
 
 # Подготовка к упаковке (ОЧИСТКА МУСОРА)

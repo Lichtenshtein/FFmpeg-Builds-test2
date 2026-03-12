@@ -143,6 +143,7 @@ download_file() {
     local DEST="$2"
     local SHA512="$3"
 
+    # Проверка существующего и целого файла в кэше
     if [[ -f "$DEST" ]]; then
         if [[ -n "$SHA512" ]]; then
             if echo "$SHA512  $DEST" | sha512sum -c --status 2>/dev/null; then
@@ -156,15 +157,26 @@ download_file() {
         fi
     fi
 
+    # УДАЛЯЕМ старый/битый файл перед новой попыткой
+    rm -f "$DEST"
+
     log_info "${DOWN_MARK} Downloading external file: $(basename "$DEST")..."
-    # Заменяем wget на curl с поддержкой докачки и повторов
-    if _retry curl -fsSL "$URL" -o "$DEST"; then
+    # -f (fail silently) возвращает код 22 при 404 и триггерит _retry
+    # -I информация
+    # -L (location) следовать редиректам SourceForge
+    if _retry curl -A "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36" -f -s -S -L -I "$URL" -o "$DEST"; then
         if [[ -n "$SHA512" ]]; then
-            echo "$SHA512  $DEST" | sha512sum -c || { log_error "${CROSS_MARK} Hash validation failed"; return 1; }
+            if ! echo "$SHA512  $DEST" | sha512sum -c; then
+                log_error "${CROSS_MARK} Hash validation failed"
+                rm -f "$DEST" # Удаляем битый файл
+                return 1
+            fi
         fi
         return 0
+    else
+        rm -f "$DEST" # Удаляем битый файл
+        return 1
     fi
-    return 1
 }
 
 git-submodule-clone() {
