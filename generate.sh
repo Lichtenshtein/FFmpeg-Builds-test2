@@ -196,31 +196,15 @@ smart_dedupe() {
     fi
 }
 
-FF_CONFIGURE=$(cat .conf 2>/dev/null | xargs)
-FF_CFLAGS=$(cat .cflags 2>/dev/null | xargs)
-FF_LDFLAGS=$(cat .ldflags 2>/dev/null | xargs)
-FF_CXXFLAGS=$(cat .cxxflags 2>/dev/null | xargs)
-FF_CPPFLAGS=$(cat .cppflags 2>/dev/null | xargs)
-FF_LDEXEFLAGS=$(cat .ldexeflags 2>/dev/null | xargs)
-FF_LIBS=$(cat .libs 2>/dev/null | xargs)
-
-# Читаем и очищаем итоговые строки
-FF_CONFIGURE=$(dedupe "$FF_CONFIGURE")
-FF_CFLAGS=$(dedupe "$FF_CFLAGS")
-FF_LDFLAGS=$(smart_dedupe "$FF_LDFLAGS")
-FF_CXXFLAGS=$(dedupe "$FF_CXXFLAGS")
-FF_CPPFLAGS=$(dedupe "$FF_CPPFLAGS")
-FF_LDEXEFLAGS=$(dedupe "$FF_LDEXEFLAGS")
-FF_LIBS=$(smart_dedupe "$FF_LIBS")
-
-# Записываем в Dockerfile
-to_df "ENV FF_CONFIGURE=\"$FF_CONFIGURE\""
-to_df "ENV FF_CFLAGS=\"$FF_CFLAGS\""
-to_df "ENV FF_LDFLAGS=\"$FF_LDFLAGS\""
-to_df "ENV FF_CXXFLAGS=\"$FF_CXXFLAGS\""
-to_df "ENV FF_CPPFLAGS=\"$FF_CPPFLAGS\""
-to_df "ENV FF_LDEXEFLAGS=\"$FF_LDEXEFLAGS\""
-to_df "ENV FF_LIBS=\"$FF_LIBS\""
+for key in CONFIGURE CFLAGS LDFLAGS CXXFLAGS CPPFLAGS LDEXEFLAGS LIBS; do
+    # Читаем файл, убираем лишние пробелы через xargs
+    val=$(cat ".$key" 2>/dev/null | xargs)
+    # smart_dedupe для LDFLAGS и LIBS, иначе dedupe
+    [[ "$key" =~ LDFLAGS|LIBS ]] && func="smart_dedupe" || func="dedupe"
+    # Применяем очистку и записываем в Dockerfile
+    final_val=$($func "$val")
+    to_df "ENV FF_$key=\"$final_val\""
+done
 
 if [[ $SKIP_FFMPEG -eq 1 ]]; then
     log_info "${XCLAM_MARK} Option 'skip_ffmpeg' is active. Final build stage will be omitted."
