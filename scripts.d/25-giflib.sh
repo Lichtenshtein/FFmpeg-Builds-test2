@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://altushost-bul.dl.sourceforge.net/project/giflib/giflib-6.x/giflib-6.1.2.tar.gz"
+SCRIPT_REPO="https://gh.msys2.org/repo/mingw/sources/mingw-w64-giflib-6.1.2.tar.gz"
 
 ffbuild_enabled() {
     return 0
