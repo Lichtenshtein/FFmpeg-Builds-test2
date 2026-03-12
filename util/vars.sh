@@ -359,17 +359,17 @@ if [ -d "/opt/ct-ng" ]; then
     MINGW_BIN_PATH=$(find /opt/ct-ng -maxdepth 5 -type d -name "bin" | grep "x86_64-w64-mingw32/bin" | head -n 1)
     # Check if we are actually in a context where winepath works
     if command -v winepath &>/dev/null; then
-        local _p_bin=$(winepath -w "${FFBUILD_PREFIX}/bin" 2>/dev/null)
-        local _p_lib=$(winepath -w "${FFBUILD_PREFIX}/lib" 2>/dev/null)
-        local _m_bin=$(winepath -w "${MINGW_BIN_PATH}" 2>/dev/null)
+        _p_bin=$(winepath -w "${FFBUILD_PREFIX}/bin" 2>/dev/null)
+        _p_lib=$(winepath -w "${FFBUILD_PREFIX}/lib" 2>/dev/null)
+        _m_bin=$(winepath -w "${MINGW_BIN_PATH}" 2>/dev/null)
         export WINEPATH="${_p_bin};${_p_lib};${_m_bin}"
         log_info "${DIRS_MARK} WINEPATH (Windows style): $WINEPATH"
     else
+    # We are on the GitHub Host (generate/download phase)
         export WINEPATH="${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib;${MINGW_BIN_PATH}"
-        log_info "${DIRS_MARK} WINEPATH: $WINEPATH"
     fi
 else
-    # We are on the GitHub Host (generate/download phase)
+
     log_debug "Running outside of build container, skipping toolchain path discovery."
 fi
 

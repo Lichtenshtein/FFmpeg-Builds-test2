@@ -22,33 +22,35 @@ ffbuild_dockerbuild() {
     mkdir -p build_zlib
     cd build_zlib
 
-    # Используем абсолютный путь к исходникам (..)
-    cmake -G Ninja \
-        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DZLIB_COMPAT=ON \
-        -DBUILD_TESTING=OFF \
-        -DWITH_NEW_STRATEGIES=ON \
-        -DWITH_CRC32_CHORBA=ON \
-        -DWITH_NATIVE_INSTRUCTIONS=OFF \
-        -DWITH_RUNTIME_CPU_DETECTION=ON \
-        -DWITH_OPTIM=ON \
-        -DWITH_SSE2=ON \
-        -DWITH_SSSE3=ON \
-        -DWITH_SSE41=ON \
-        -DWITH_SSE42=ON \
-        -DWITH_PCLMULQDQ=ON \
-        -DWITH_AVX2=ON \
-        -DWITH_AVX512=OFF \
-        -DWITH_AVX512VNNI=OFF \
-        -DWITH_VPCLMULQDQ=OFF \
-        -DCMAKE_C_FLAGS="$CFLAGS -DZLIB_STATIC" \
-        ..
+    myconf=(
+        -G Ninja
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DZLIB_COMPAT=ON
+        -DBUILD_TESTING=OFF
+        -DWITH_NEW_STRATEGIES=ON
+        -DWITH_CRC32_CHORBA=ON
+        -DWITH_NATIVE_INSTRUCTIONS=OFF
+        -DWITH_RUNTIME_CPU_DETECTION=ON
+        -DWITH_OPTIM=ON
+        -DWITH_SSE2=ON
+        -DWITH_SSSE3=ON
+        -DWITH_SSE41=ON
+        -DWITH_SSE42=ON
+        -DWITH_PCLMULQDQ=ON
+        -DWITH_AVX2=ON
+        -DWITH_AVX512=OFF
+        -DWITH_AVX512VNNI=OFF
+        -DWITH_VPCLMULQDQ=OFF
+        -DCMAKE_C_FLAGS="$CFLAGS -DZLIB_STATIC"
+    )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
 
-    # Проверяем, создался ли файл перед запуском
+    cmake "${myconf[@]}" ..
+
+    # Check for successful generation
     if [[ ! -f "build.ninja" ]]; then
         log_error "ERROR: CMake failed to generate build.ninja"
         return 1
@@ -67,5 +69,5 @@ ffbuild_cppflags() {
 }
 
 ffbuild_configure() {
-    echo --enable-zlib
+    echo "--enable-zlib"
 }
