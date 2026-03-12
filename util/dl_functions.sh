@@ -293,7 +293,7 @@ default_dl() {
         if [[ -z "$FINAL_CHAIN" ]]; then
             FINAL_CHAIN="$cmd"
         else
-            FINAL_CHAIN="$FINAL_CHAIN || $cmd"
+            FINAL_CHAIN="$FINAL_CHAIN && $cmd"
         fi
     done
 

@@ -53,10 +53,9 @@ find /opt/ffbuild -type d -empty -delete
 # Если линковка падает с "undefined reference", добавить -Wl,--copy-dt-needed-entries в LDFLAGS
 # Позволяем линкеру искать DLL для конкретных библиотек -Wl,--copy-dt-needed-entries -Wl,--dynamicbase -Wl,--nxcompat
 # -Wl,--allow-multiple-definition is dangerous it silently allows symbol conflicts that should be errors, masking real linking bugs.
-export LDFLAGS="$LDFLAGS -Wl,--copy-dt-needed-entries"
+# export LDFLAGS="$LDFLAGS -Wl,--copy-dt-needed-entries"
 # Расширяем список системных библиотек для ИИ и Сети
 # Это поможет, если какой-то .pc файл (например, openssl или tensorflow) не указал их
-FINAL_EXTRA_LIBS="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32 -lshlwapi -luser32 -ladvapi32 -lbcrypt -lsetupapi -ldbghelp -lpsapi -lruntimeobject"
 
 # Полустатический режим
 # --extra-libs="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32" - системный минимум
@@ -78,7 +77,7 @@ CONF_FLAGS=(
     --extra-cxxflags="$FF_CXXFLAGS"
     --extra-cppflags="$FF_CPPFLAGS"
     --extra-ldexeflags="$FF_LDEXEFLAGS"
-    --extra-libs="$FINAL_EXTRA_LIBS"
+    --extra-libs="$FF_LIBS"
     $FF_CONFIGURE
     --enable-filter=vpp_amf
     --enable-filter=sr_amf
