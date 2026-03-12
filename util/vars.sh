@@ -369,7 +369,6 @@ if [ -d "/opt/ct-ng" ]; then
         export WINEPATH="${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib;${MINGW_BIN_PATH}"
     fi
 else
-
     log_debug "Running outside of build container, skipping toolchain path discovery."
 fi
 

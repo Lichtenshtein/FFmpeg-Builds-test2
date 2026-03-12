@@ -72,7 +72,6 @@ CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
     --pkg-config-flags="--static"
     $FFBUILD_TARGET_FLAGS
-    --toolchain=gcc-min-w64
     --host-cc="gcc-14"
     --host-ld="gcc-14"
     --extra-cflags="$FF_CFLAGS $FF_CPPFLAGS"
