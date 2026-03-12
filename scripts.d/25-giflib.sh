@@ -1,14 +1,18 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://gh.msys2.org/repo/mingw/sources/mingw-w64-giflib-6.1.2.tar.gz"
+# SCRIPT_REPO="https://gh.msys2.org/repo/mingw/sources/mingw-w64-giflib-6.1.2.tar.gz"
+
+SCRIPT_REPO="https://github.com/codacy-open-source-projects-scans/giflib.git"
+SCRIPT_COMMIT="9bef00b547ef55f64d8fe66e38ca28aac8a72ad6"
 
 ffbuild_enabled() {
     return 0
 }
 
 ffbuild_dockerdl() {
-    echo "download_file \"$SCRIPT_REPO\" \"giflib.tar.gz\""
-    echo "tar -xof giflib.tar.gz --strip-components=1 || (echo 'Tar failed' && return 1)"
+    # echo "download_file \"$SCRIPT_REPO\" \"giflib.tar.gz\""
+    # echo "tar -xof giflib.tar.gz --strip-components=1 || (echo 'Tar failed' && return 1)"
+    default_dl .
 }
 
 ffbuild_dockerbuild() {
