@@ -17,7 +17,7 @@ cd "$(dirname "$0")"
 export ROOT_DIR="$PWD"
 
 source util/vars.sh "$TARGET" "$VARIANT" \
-    || { log_error "${CROSS_MARK} ERROR: vars.sh failed. TARGET=$TARGET VARIANT=$VARIANT"; exit 1; }
+    || { echo "ERROR: vars.sh failed. TARGET=$TARGET VARIANT=$VARIANT" >&2; exit 1; }
 source util/dl_functions.sh
 
 mkdir -p .cache/downloads
@@ -123,8 +123,11 @@ echo "$STAGES" | parallel --halt now,fail=1 --jobs 8 \
      download_stage {} '$DL_DIR'"
 
 if [[ -f .cache/download_joblog.txt ]]; then
+    # Ищем упавшие задачи
     failed=$(awk 'NR>1 && $7 != 0 {print $NF}' .cache/download_joblog.txt)
     [[ -n "$failed" ]] && log_error "Failed downloads: $failed"
+    # Удаляем лог сразу после обработки
+    rm .cache/download_joblog.txt
 fi
 
 log_info "${CHECK_MARK} All sequential downloads finished successfully."
