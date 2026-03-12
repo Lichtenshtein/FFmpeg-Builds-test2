@@ -145,32 +145,22 @@ clean_output() {
 # Функция для безопасного извлечения флагов
 collect_all_flags() {
     local script_path="$1"
-    (
-        # Pass TARGET and VARIANT into the subshell so vars.sh doesn't fail
-        export TARGET="$TARGET"
-        export VARIANT="$VARIANT"
-        # We source the script in a subshell to prevent it from 
-        # polluting the main generate.sh environment variables
-        if ! source "$script_path" > /dev/null 2>&1; then
-            log_error "${CROSS_MARK} Syntax error in script: $script_path"
-            exit 0 # Skip if script has syntax errors or is empty
+    unset FF_CONFIGURE FF_CFLAGS FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDEXEFLAGS FF_LIBS
+    
+    # 2. Source it in the current shell context so we can see variables
+    # (We wrap it in a check to see if it even wants to be enabled)
+    if source "$script_path"; then
+        if declare -F ffbuild_enabled >/dev/null && ! ffbuild_enabled; then
+             return 0
         fi
-
-        # Извлекаем флаги из переменных (для файлов из variants/ и addins/)
-        [[ -n "$FF_CONFIGURE" ]]  && echo "$FF_CONFIGURE"  | clean_output >> .conf
-        [[ -n "$FF_CFLAGS" ]]     && echo "$FF_CFLAGS"     | clean_output >> .cflags
-        [[ -n "$FF_LDFLAGS" ]]    && echo "$FF_LDFLAGS"    | clean_output >> .ldflags
-        [[ -n "$FF_CXXFLAGS" ]]   && echo "$FF_CXXFLAGS"   | clean_output >> .cxxflags
-        [[ -n "$FF_CPPFLAGS" ]]   && echo "$FF_CPPFLAGS"   | clean_output >> .cppflags
-        [[ -n "$FF_LDEXEFLAGS" ]] && echo "$FF_LDEXEFLAGS" | clean_output >> .ldexeflags
-        [[ -n "$FF_LIBS" ]]       && echo "$FF_LIBS"       | clean_output >> .libs
-
-        # Извлекаем флаги из функций (для файлов из scripts.d/ и addins/)
+        
+        # 3. Use your clean_output logic to capture the function results
+        [[ -n "$FF_CONFIGURE" ]] && echo "$FF_CONFIGURE" | clean_output >> .conf
+        
         get_from_func() {
             local func=$1
             local out_file=$2
             if declare -F "$func" >/dev/null; then
-                # Capture output, clean it, and only take the result if non-empty
                 local res
                 res=$($func 2>&1 | clean_output)
                 [[ -n "$res" ]] && echo "$res" >> "$out_file"
@@ -184,7 +174,6 @@ collect_all_flags() {
         get_from_func "ffbuild_cxxflags" ".cxxflags"
         get_from_func "ffbuild_ldexeflags" ".ldexeflags"
         get_from_func "ffbuild_libs" ".libs"
-    ) || log_error "${CROSS_MARK} Failed to collect flags from $script_path"
 }
 
 log_info "Collecting flags from variant and addins..."
