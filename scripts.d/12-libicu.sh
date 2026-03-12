@@ -3,6 +3,9 @@
 SCRIPT_REPO="https://github.com/winlibs/icu4c.git"
 SCRIPT_COMMIT="25b56cd344f49183b7c20909cb0558bf81d93673"
 
+# SCRIPT_REPO="https://github.com/unicode-org/icu.git"
+# SCRIPT_COMMIT="426cea1b85e82e632dc5c0b35c7d329c0eb4af7b"
+
 ffbuild_enabled() {
     return 0
 }
