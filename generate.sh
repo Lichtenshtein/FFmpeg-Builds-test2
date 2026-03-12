@@ -125,9 +125,13 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    set -e; export _H=$LAYER_ID && . /builder/util/vars.sh $TARGET $VARIANT && run_stage /builder/$STAGE"
 done
 
+
+T_DIR="/tmp/ffbuild_flags"
+mkdir -p "$T_DIR"
+
 # Сборка флагов конфигурации FFmpeg
 # Временные файлы для сбора
-TMPFILES=(.conf .cflags .ldflags .libs .cxxflags .cppflags .ldexeflags)
+TMPFILES=($T_DIR/.conf $T_DIR/.cflags $T_DIR/.ldflags $T_DIR/.libs $T_DIR/.cxxflags $T_DIR/.cppflags $T_DIR/.ldexeflags)
 touch "${TMPFILES[@]}"
 log_info "Temporary file created: ${TMPFILES[*]}"
 trap 'rm -f "${TMPFILES[@]}"' EXIT
@@ -144,9 +148,6 @@ clean_output() {
     grep -vE "^\[(INFO|DEBUG|WARN|ERROR)\]" | \
     tail -n 1 | xargs
 }
-
-rm -f .conf .cflags .ldflags .libs .cxxflags .cppflags .ldexeflags
-touch .conf .cflags .ldflags .libs .cxxflags .cppflags .ldexeflags
 
 get_from_func() {
     local func=$1
@@ -182,21 +183,21 @@ collect_all_flags() {
     fi
 
     # 4. Append to files
-    [[ -n "$FF_CONFIGURE" ]]  && echo "$FF_CONFIGURE"   | clean_output >> .conf
-    [[ -n "$FF_CFLAGS" ]]     && echo "$FF_CFLAGS"     | clean_output >> .cflags
-    [[ -n "$FF_LDFLAGS" ]]    && echo "$FF_LDFLAGS"    | clean_output >> .ldflags
-    [[ -n "$FF_CXXFLAGS" ]]   && echo "$FF_CXXFLAGS"   | clean_output >> .cxxflags
-    [[ -n "$FF_CPPFLAGS" ]]   && echo "$FF_CPPFLAGS"   | clean_output >> .cppflags
-    [[ -n "$FF_LDEXEFLAGS" ]] && echo "$FF_LDEXEFLAGS" | clean_output >> .ldexeflags
-    [[ -n "$FF_LIBS" ]]       && echo "$FF_LIBS"       | clean_output >> .libs
+    [[ -n "$FF_CONFIGURE" ]]  && echo "$FF_CONFIGURE"   | clean_output >> "$T_DIR/.conf"
+    [[ -n "$FF_CFLAGS" ]]     && echo "$FF_CFLAGS"     | clean_output >> "$T_DIR/.cflags"
+    [[ -n "$FF_LDFLAGS" ]]    && echo "$FF_LDFLAGS"    | clean_output >> "$T_DIR/.ldflags"
+    [[ -n "$FF_CXXFLAGS" ]]   && echo "$FF_CXXFLAGS"   | clean_output >> "$T_DIR/.cxxflags"
+    [[ -n "$FF_CPPFLAGS" ]]   && echo "$FF_CPPFLAGS"   | clean_output >> "$T_DIR/.cppflags"
+    [[ -n "$FF_LDEXEFLAGS" ]] && echo "$FF_LDEXEFLAGS" | clean_output >> "$T_DIR/.ldexeflags"
+    [[ -n "$FF_LIBS" ]]       && echo "$FF_LIBS"       | clean_output >> "$T_DIR/.libs"
 
-    get_from_func "ffbuild_configure" ".conf"
-    get_from_func "ffbuild_cflags" ".cflags"
-    get_from_func "ffbuild_ldflags" ".ldflags"
-    get_from_func "ffbuild_cppflags" ".cppflags"
-    get_from_func "ffbuild_cxxflags" ".cxxflags"
-    get_from_func "ffbuild_ldexeflags" ".ldexeflags"
-    get_from_func "ffbuild_libs" ".libs"
+    get_from_func "ffbuild_configure" "$T_DIR/.conf"
+    get_from_func "ffbuild_cflags" "$T_DIR/.cflags"
+    get_from_func "ffbuild_ldflags" "$T_DIR/.ldflags"
+    get_from_func "ffbuild_cppflags" "$T_DIR/.cppflags"
+    get_from_func "ffbuild_cxxflags" "$T_DIR/.cxxflags"
+    get_from_func "ffbuild_ldexeflags" "$T_DIR/.ldexeflags"
+    get_from_func "ffbuild_libs" "$T_DIR/.libs"
 }
 
 # --- THE EXECUTION ---
@@ -252,7 +253,7 @@ smart_dedupe() {
 for key in CONFIGURE CFLAGS LDFLAGS CXXFLAGS CPPFLAGS LDEXEFLAGS LIBS; do
     # Ensure the file exists before catting
     [[ -f ".$key" ]] || touch ".$key"
-    val=$(cat ".$key" | xargs)
+    val=$(cat "$T_DIR/.$key" 2>/dev/null | xargs)
     # If the value is empty, don't generate an empty ENV line
     if [[ -n "$val" ]]; then
         [[ "$key" =~ LDFLAGS|LIBS ]] && func="smart_dedupe" || func="dedupe"
