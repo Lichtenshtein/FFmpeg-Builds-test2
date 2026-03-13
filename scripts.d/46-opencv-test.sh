@@ -26,12 +26,19 @@ ffbuild_dockerbuild() {
         -DBUILD_WITH_STATIC_CRT=OFF
         # Отключаем лишнее для ускорения сборки
         -DBUILD_EXAMPLES=OFF
+        -DBUILD_PACKAGE=OFF
+        -DBUILD_DOCS=OFF
         -DBUILD_TESTS=OFF
         -DBUILD_PERF_TESTS=OFF
         -DBUILD_opencv_apps=OFF
         -DBUILD_opencv_python2=OFF
         -DBUILD_opencv_python3=OFF
         -DBUILD_opencv_java=OFF
+        -DWITH_JPEGXL=ON
+        -DWITH_OPENGL=ON
+        -DWITH_OPENMP=ON
+        -DWITH_OPENCL=ON
+        -DWITH_ZLIB_NG=ON
         # Включаем интеграцию с OpenVINO (Inference Engine)
         -DWITH_OPENVINO=ON
         -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake/OpenVINO"
@@ -39,10 +46,11 @@ ffbuild_dockerbuild() {
         -Dngraph_DIR="$FFBUILD_PREFIX/lib/cmake/ngraph"
         -DOPENVINO_LIB_DIRS="$FFBUILD_PREFIX/lib"
         -DOPENVINO_INCLUDE_DIRS="$FFBUILD_PREFIX/include"
-        # Оптимизация под ваш Xeon Broadwell
         -DCPU_BASELINE=BROADWELL
         -DCPU_DISPATCH=AVX2
     )
+
+    [[ "$USE_LTO" == "1" ]] && myconf+=( -DENABLE_LTO=ON )
 
     cmake "${mycmake[@]}" ..
 

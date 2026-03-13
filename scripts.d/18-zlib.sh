@@ -41,7 +41,7 @@ ffbuild_dockerbuild() {
         -DWITH_SSE42=ON
         -DWITH_PCLMULQDQ=ON
         -DWITH_AVX2=ON
-        -DWITH_AVX512=OFF
+        -DWITH_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         -DWITH_AVX512VNNI=OFF
         -DWITH_VPCLMULQDQ=OFF
         -DCMAKE_C_FLAGS="$CFLAGS -DZLIB_STATIC"

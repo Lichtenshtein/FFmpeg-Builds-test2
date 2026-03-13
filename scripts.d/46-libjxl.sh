@@ -3,6 +3,10 @@
 SCRIPT_REPO="https://github.com/libjxl/libjxl.git"
 SCRIPT_COMMIT="03bafa6912c3c0ed5ccc604fe99e86ff18c93f3d"
 
+ffbuild_depends() {
+    echo lcms2
+}
+
 ffbuild_enabled() {
     return 0
 }
@@ -53,6 +57,7 @@ ffbuild_dockerbuild() {
         -DJPEGXL_FORCE_SYSTEM_HWY=OFF \
         -DJPEGXL_FORCE_SYSTEM_LCMS2=ON \
         -DJPEGXL_STATIC=ON \
+        -DJPEGXL_ENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF) \
         -DBUILD_TESTING=OFF ..
 
     ninja -j$(nproc) $NINJA_V
