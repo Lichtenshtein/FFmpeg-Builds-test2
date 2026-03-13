@@ -30,6 +30,8 @@ ffbuild_dockerbuild() {
         --with-incoming-stack-boundary=2
     )
 
+    [[ "$USE_AVX512" == "1" ]] && myconf+=( --enable-avx512 )
+
     if [[ $TARGET != *arm64 ]]; then
         myconf+=(
             --enable-sse2

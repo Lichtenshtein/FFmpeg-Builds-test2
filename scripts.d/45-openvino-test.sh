@@ -85,7 +85,6 @@ EOF
 }
 
 ffbuild_libs() {
-    # These get appended to FF_LIBS
     echo "-lopenvino_c -ltbb"
 }
 

@@ -34,8 +34,9 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_TESTING=OFF
         -DBUILD_APPS=OFF
-        # Принудительно отключаем AVX-512, так как на Xeon E5 v4 его нет
-        -DENABLE_AVX512=OFF
+        -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
+        -DENABLE_NATIVE=OFF
+        -DENABLE_NASM=ON
     )
 
     cmake "${cmake_flags[@]}" ..

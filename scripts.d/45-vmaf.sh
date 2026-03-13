@@ -31,7 +31,7 @@ ffbuild_dockerbuild() {
         -Dbuilt_in_models=true
         -Denable_tests=false
         -Denable_docs=false
-        -Denable_avx512=false
+        -Denable_avx512==$([ "${USE_AVX512}" == "1" ] && echo true || echo false)
         -Denable_float=true
         -Dbenchmarking=false
     )
