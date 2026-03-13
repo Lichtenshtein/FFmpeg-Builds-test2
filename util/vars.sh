@@ -86,6 +86,9 @@ REGISTRY="${REGISTRY_OVERRIDE:-ghcr.io}"
 BASE_IMAGE="${REGISTRY}/${REPO}/base:latest"
 TARGET_IMAGE="${REGISTRY}/${REPO}/base-${TARGET}:latest"
 IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:latest"
+# use env vars with broadwell fallback
+CPU_ARCH="${CPU_ARCH:-broadwell}"
+CPU_TUNE="${CPU_TUNE:-broadwell}"
 
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 export FFBUILD_PREFIX="/opt/ffbuild"

@@ -7,8 +7,9 @@ cd "$(dirname "$0")"
 # Забираем аргументы для локального использования
 TARGET="${1:-$TARGET}"
 VARIANT="${2:-$VARIANT}"
-LTO_INPUT="${3:-nolto}"
-SKIP_FFMPEG_INPUT="${4:-false}"
+USE_LTO="${3:-nolto}"
+SKIP_FFMPEG="${4:-false}"
+USE_AVX512="${5:-false}"
 DEDUPE_FLAGS="${DEDUPE_FLAGS:-true}"
 USE_WINE="${USE_WINE:-auto}"
 
@@ -23,12 +24,20 @@ source util/vars.sh "$@" 2>&1 || {
 }
 
 SKIP_FFMPEG=0
-if [[ "$SKIP_FFMPEG_INPUT" == "true" || "$SKIP_FFMPEG_INPUT" == "skip_ffmpeg" ]]; then
+if [[ "$SKIP_FFMPEG" == "true" || "$SKIP_FFMPEG" == "skip_ffmpeg" ]]; then
     SKIP_FFMPEG=1
     log_info "${XCLAM_MARK} FFmpeg compilation will be skipped (Component test mode)."
 fi
 USE_LTO=0
-[[ "$LTO_INPUT" == "lto" ]] && USE_LTO=1
+if [[ "$USE_LTO" == "lto" ]]; then
+    USE_LTO=1
+    log_info "${XCLAM_MARK} LTO enabled!"
+fi
+USE_AVX512=0
+if [[ "$USE_AVX512" == "true" ]]; then
+    USE_AVX512=1
+    log_info "${XCLAM_MARK} AVX512 enabled!"
+fi
 
 export LC_ALL=C.UTF-8
 
@@ -51,10 +60,15 @@ to_df "ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_STR=\"$
     DEBUG_NO_HASH=\"$DEBUG_NO_HASH\" \\
     ONLY_STAGE=\"$ONLY_STAGE\" \\
     USE_WINE=\"$USE_WINE\" \\
+    USE_AVX512=\"$USE_AVX512\" \\
+    USE_LTO=\"$USE_LTO\" \\
+    CPU_ARCH=\"${CPU_ARCH:-broadwell}\" \\
+    CPU_TUNE=\"${CPU_TUNE:-broadwell}\" \\
     DLL_PRESERVE_LIST=\"$DLL_PRESERVE_LIST\" \\
-    GIT_PRESERVE_LIST=\"$GIT_PRESERVE_LIST\""
-
-to_df "ENV C_INCLUDE_PATH=/opt/ffbuild/include CPATH=/opt/ffbuild/include LIBRARY_PATH=/opt/ffbuild/lib"
+    GIT_PRESERVE_LIST=\"$GIT_PRESERVE_LIST\" \\
+    C_INCLUDE_PATH=/opt/ffbuild/include \\
+    CPATH=/opt/ffbuild/include \\
+    LIBRARY_PATH=/opt/ffbuild/lib"
 
 # Копируем утилиту один раз. Это стабильная точка для кэша.
 to_df "COPY util/run_stage.sh /usr/bin/run_stage"
@@ -128,7 +142,6 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads,rw \\"
     to_df "    set -e; export _H=$LAYER_ID && . /builder/util/vars.sh \"$TARGET\" \"$VARIANT\" && run_stage /builder/$STAGE"
 done
-
 
 T_DIR="/tmp/ffbuild_flags"
 mkdir -p "$T_DIR"
@@ -221,7 +234,7 @@ for script in "${active_scripts[@]}"; do
     log_info "${SEARCH_MARK} Collecting flags: $STAGENAME"
     collect_all_flags "$script" || true
 done
-echo "DEBUG: .conf content: $(cat $T_DIR/.conf)"
+log_debug "DEBUG: .conf content: $(cat $T_DIR/.conf)"
 
 
 # Функция для удаления дубликатов с сохранением порядка
