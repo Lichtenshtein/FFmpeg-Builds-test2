@@ -28,7 +28,7 @@ RUN \
     curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
     apt-get -y install nodejs && \
     npm cache clean --force && \
-    npm install -g @napi-ffi/ffi-napi --unsafe-perm --build-from-source --CXXFLAGS="-fpermissive" && \
+    npm install -g @napi-ffi/ffi-napi && \
     apt-get -y clean && \
     git config --global user.email "builder@localhost" && \
     git config --global user.name "Builder" && \
@@ -49,7 +49,8 @@ RUN --mount=src=.,dst=/input \
 ENV HOST_CC="gcc-14" \
     HOST_CXX="g++-14" \
     HOST_CFLAGS="-O2 -pipe" \
-    HOST_CXXFLAGS="-O2 -pipe"
+    HOST_CXXFLAGS="-O2 -pipe" \
+    HOST_LDFLAGS=""
 
 RUN \
     dpkg --add-architecture i386 && \

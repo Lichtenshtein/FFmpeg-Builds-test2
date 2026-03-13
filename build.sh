@@ -22,7 +22,7 @@ mkdir -p ffbuild
 
 # Клонирование и патчинг (прямо в текущем слое Docker)
 log_info "Using pre-mounted FFmpeg source..."
-cd ffbuild/ffmpeg
+pushd ffbuild/ffmpeg
 
 # Патчи теперь ищем по имени ветки, пришедшей из ENV
 if [[ -d "/builder/patches/ffmpeg/$FFMPEG_BRANCH" ]]; then
@@ -48,23 +48,6 @@ find /opt/ffbuild -type d -empty -delete
 # export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
 # export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
 
-# Перед запуском configure убедимся, что линковщик видит DLL-импорты
-# Эти флаги до -Wl нужны для статической линковки glib, так как она используется во многих фильтрах. -lintl -liconv часто конфликтуют с внутренними функциями glibc или самого компилятора, если они не были собраны как строго статические.
-# Если линковка падает с "undefined reference", добавить -Wl,--copy-dt-needed-entries в LDFLAGS
-# Позволяем линкеру искать DLL для конкретных библиотек -Wl,--copy-dt-needed-entries -Wl,--dynamicbase -Wl,--nxcompat
-# -Wl,--allow-multiple-definition is dangerous it silently allows symbol conflicts that should be errors, masking real linking bugs.
-# export LDFLAGS="$LDFLAGS -Wl,--copy-dt-needed-entries"
-# Расширяем список системных библиотек для ИИ и Сети
-# Это поможет, если какой-то .pc файл (например, openssl или tensorflow) не указал их
-
-# Полустатический режим
-# --extra-libs="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32" - системный минимум
-# Библиотеки ИИ
-# -lshlwapi, -luser32, -ladvapi32 - критичны для LibTorch.
-# -lbcrypt - часто нужен для современных версий TensorFlow и OpenSSL.
-# -ldbghelp - нужен для обработки исключений в LibTorch.
-# --extra-libs="$FF_LIBS -lstdc++ -lm -lws2_32 -lole32 -lshlwapi -luser32 -ladvapi32 -lbcrypt -lsetupapi -ldbghelp"
-
 # Сборка FFmpeg
 chmod +x configure
 
@@ -73,13 +56,12 @@ chmod +x configure
 
 export TARGET_CFLAGS="$CFLAGS"
 export TARGET_LDFLAGS="$LDFLAGS"
+export TARGET_CXXFLAGS="$CXXFLAGS"
+export TARGET_CPPFLAGS="$CPPFLAGS"
+export TARGET_LIBS="$LIBS"
 
-# Unset global flags that poison the host compiler
-# unset CFLAGS CPPFLAGS LDFLAGS ASFLAGS LIBS
-
-# Define sanitized Host-only flags
-export HOST_CFLAGS="-O2 -pipe"
-export HOST_LDFLAGS=""
+# Unset cross-compilation flags so host compiler stays clean during configure
+unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS ASFLAGS LIBS
 
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
@@ -103,7 +85,6 @@ CONF_FLAGS=(
     --h264-max-bit-depth=14
     --h265-bit-depths=8,9,10,12
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
-    --extra-version="VVCEasy"
 )
 
 log_info "Running FFmpeg configure..."
@@ -141,12 +122,16 @@ make install-doc || log_warn "install-doc failed, but proceeding."
 ccache -s
 
 # Подготовка к упаковке (ОЧИСТКА МУСОРА)
-cd ../..
+popd
 BUILD_NAME="ffmpeg_vvceasy-$(./ffbuild/ffmpeg/ffbuild/version.sh ffbuild/ffmpeg)-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
 PKG_DIR="ffbuild/pkgroot/$BUILD_NAME"
 
 mkdir -p "$PKG_DIR"
 package_variant "$FFBUILD_DESTPREFIX" "$PKG_DIR"
+if ! declare -F package_variant >/dev/null; then
+    log_error "package_variant not defined - variant script missing or broken"
+    exit 1
+fi
 
 # Копируем лицензию
 [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"

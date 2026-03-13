@@ -2,6 +2,7 @@ ARG GH_REPO=ghcr.io/lichtenshtein/ffmpeg-builds-test2
 FROM ${GH_REPO}/base:latest
 ARG GH_REPO
 
+# Build the Toolchain
 RUN --mount=src=ct-ng-config,dst=/.config \
     git clone --filter=blob:none --depth=1 https://github.com/crosstool-ng/crosstool-ng.git /ct-ng && \
     cd /ct-ng && \
@@ -13,31 +14,55 @@ RUN --mount=src=ct-ng-config,dst=/.config \
     cd / && \
     rm -rf ct-ng
 
-# Remove DLLs to force static linking
-# RUN find /opt/ct-ng \( -name "*.dll" -or -name "*.dll.a" \) -delete && \
-#    mkdir -p /opt/ffbuild
-RUN mkdir -p /opt/ffbuild /opt/ffdest
+# Runtime Check & Path Automation
+RUN set -e; \
+    echo "--- Runtime check for CPU instructions support ---" && \
+    if ! grep -q "avx2" /proc/cpuinfo || ! grep -q "fma" /proc/cpuinfo || \
+       ! grep -q "bmi1" /proc/cpuinfo || ! grep -q "bmi2" /proc/cpuinfo; then \
+         echo "ERROR: Host CPU does not support x86-64-v3"; exit 1; \
+    fi; \
+    \
+    # echo "--- Remove DLLs to force static linking ---" && \
+    # RUN find /opt/ct-ng \( -name "*.dll" -or -name "*.dll.a" \) -delete && \
+    \
+    echo "--- Setup Directories ---" && \
+    mkdir -p /opt/ffbuild /opt/ffdest && \
+    \
+    echo "--- Toolchain Debug ---" && \
+    find /opt/ct-ng -name "libwinpthread-*.dll" -o -name "kernel32.dll" || true && \
+    \
+    echo "--- Automating Toolchain Path Discovery ---" && \
+    REAL_GCC=$(find /opt/ct-ng -name "x86_64-w64-mingw32-gcc" -type f | head -n 1) && \
+    [ -z "$REAL_GCC" ] && { echo "Compiler not found!"; exit 1; } || true; \
+    REAL_BIN_DIR=$(dirname "$REAL_GCC") && \
+    INTERNAL_BIN_DIR=$(find /opt/ct-ng -type d -path "*/x86_64-w64-mingw32/bin" | head -n 1) && \
+    \
+    { \
+        echo "export PATH=\"/usr/local/bin:$REAL_BIN_DIR:$INTERNAL_BIN_DIR:\${WINE_BIN_DIR}:\$PATH\""; \
+        echo "export CCACHE_PATH=\"$REAL_BIN_DIR:$INTERNAL_BIN_DIR:/usr/bin\""; \
+    } > /etc/profile.d/toolchain.sh && \
+    chmod +x /etc/profile.d/toolchain.sh; \
+    \
+    echo "--- Configuring ccache masquerade symlinks ---" && \
+    for tool in gcc g++ gcc-ar gcc-nm gcc-ranlib; do \
+        ln -sf /usr/bin/ccache "/usr/local/bin/x86_64-w64-mingw32-$tool"; \
+    done
 
-ENV  \
+# Environment Variables
+ENV \
+    # Toolchain Identifiers
     FFBUILD_TOOLCHAIN=x86_64-w64-mingw32 \
-    FFBUILD_RUST_TARGET=x86_64-pc-windows-gnu
-
-RUN rustup target add "$FFBUILD_RUST_TARGET" && \
-    printf "[target.%s]\nlinker = \"%s-gcc\"\nar = \"%s-gcc-ar\"\n" "$FFBUILD_RUST_TARGET" "$FFBUILD_TOOLCHAIN" "$FFBUILD_TOOLCHAIN" > "$CARGO_HOME"/config.toml
-
-ADD toolchain.cmake /toolchain.cmake
-ADD cross.meson /cross.meson
-
-# configuring ccache symlinks for Mingw compilers
-RUN  \
-    ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc && \
-    ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-g++ && \
-    ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-ar && \
-    ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-nm && \
-    ln -s /usr/bin/ccache /usr/local/bin/${FFBUILD_TOOLCHAIN}-gcc-ranlib
-
-# ccache settings
-ENV  \
+    FFBUILD_RUST_TARGET=x86_64-pc-windows-gnu \
+    \
+    # System Paths
+    # /usr/local/bin contains the ccache symlinks (found first by scripts)
+    # /opt/ct-ng/... contains the real compilers (found by ccache via CCACHE_PATH)
+    PATH="/usr/local/bin:/opt/ct-ng/bin:/opt/ct-ng/x86_64-w64-mingw32/bin:/opt/wine-stable/bin:${PATH}" \
+    \
+    # ccache logic: explicitly search here for the REAL compiler to avoid loops
+    CCACHE_PATH="/opt/ct-ng/bin:/opt/ct-ng/x86_64-w64-mingw32/bin:/usr/bin" \
+    \
+    # ccache performance settings
     CCACHE_DIR=/root/.cache/ccache \
     CCACHE_MAXSIZE=20G \
     CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros,file_macro,pch_defines" \
@@ -45,33 +70,45 @@ ENV  \
     CCACHE_COMPILERCHECK="content" \
     CCACHE_DEPEND=1 \
     CCACHE_COMPRESS=1 \
-    CCACHE_NOHASHDIR=1
-
-ENV \
-    PATH="/usr/bin:/bin:/usr/local/bin:/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${WINE_BIN_DIR}:${PATH}" \
-    FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=${FFBUILD_TOOLCHAIN}- --arch=x86_64 --target-os=mingw32" \
-    FFBUILD_CROSS_PREFIX=${FFBUILD_TOOLCHAIN}- \
+    CCACHE_NOHASHDIR=1 \
+    \
+    # Build System Variables
+    FFBUILD_TARGET_FLAGS="--pkg-config=pkg-config --cross-prefix=x86_64-w64-mingw32- --arch=x86_64 --target-os=mingw32" \
+    FFBUILD_CROSS_PREFIX=x86_64-w64-mingw32- \
     FFBUILD_PREFIX=/opt/ffbuild \
     FFBUILD_DESTDIR=/opt/ffdest \
     FFBUILD_DESTPREFIX=/opt/ffdest/opt/ffbuild \
     FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake \
-    PKG_CONFIG=pkg-config \
-    CHOST="$FFBUILD_TOOLCHAIN" \
-    CC="${FFBUILD_TOOLCHAIN}-gcc" \
-    CXX="${FFBUILD_TOOLCHAIN}-g++" \
-    LD="${FFBUILD_TOOLCHAIN}-ld" \
-    AR="${FFBUILD_TOOLCHAIN}-gcc-ar" \
-    RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib" \
-    NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
-    DLLTOOL="${FFBUILD_TOOLCHAIN}-dlltool" \
-    WINDRES="${FFBUILD_TOOLCHAIN}-windres" \
-    OBJDUMP="${FFBUILD_TOOLCHAIN}-objdump" \
-    GENDEF="${FFBUILD_TOOLCHAIN}-gendef" \
-    STRIP="${FFBUILD_TOOLCHAIN}-strip"
+    \
+    PKG_CONFIG="pkg-config" \
+    PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig" \
+    \
+    # Compiler Flags
+    CHOST="x86_64-w64-mingw32" \
+    CC="x86_64-w64-mingw32-gcc" \
+    CXX="x86_64-w64-mingw32-g++" \
+    LD="x86_64-w64-mingw32-ld" \
+    AR="x86_64-w64-mingw32-gcc-ar" \
+    RANLIB="x86_64-w64-mingw32-gcc-ranlib" \
+    NM="x86_64-w64-mingw32-gcc-nm" \
+    DLLTOOL="x86_64-w64-mingw32-dlltool" \
+    WINDRES="x86_64-w64-mingw32-windres" \
+    OBJDUMP="x86_64-w64-mingw32-objdump" \
+    GENDEF="x86_64-w64-mingw32-gendef" \
+    STRIP="x86_64-w64-mingw32-strip" \
+    \
+    CFLAGS="-I/opt/ffbuild/include -march=broadwell -mtune=broadwell -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong" \
+    CXXFLAGS="-I/opt/ffbuild/include -march=broadwell -mtune=broadwell -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong" \
+    LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -fstack-protector-strong" \
+    STAGE_CFLAGS="-fno-semantic-interposition" \
+    STAGE_CXXFLAGS="-fno-semantic-interposition"
 
-RUN echo "--- Toolchain Search ---" && \
-    find /opt/ct-ng -name "libwinpthread-*.dll" -o -name "kernel32.dll" || true && \
-    /opt/ct-ng/${FFBUILD_TOOLCHAIN}/${FFBUILD_TOOLCHAIN}/bin/gcc -print-sysroot || true && \
-    /opt/ct-ng/bin/${FFBUILD_TOOLCHAIN}-gcc -print-sysroot || true && \
-    find /opt/ct-ng -name "*gcc" && \
-    echo "--- Search Finished ---"
+# Use login shell to ensure /etc/profile.d/toolchain.sh is sourced for every RUN
+SHELL ["/bin/bash", "-l", "-c"]
+
+ADD toolchain.cmake /toolchain.cmake
+ADD cross.meson /cross.meson
+
+# Rust Toolchains
+RUN rustup target add "$FFBUILD_RUST_TARGET" && \
+    printf "[target.%s]\nlinker = \"%s-gcc\"\nar = \"%s-gcc-ar\"\n" "$FFBUILD_RUST_TARGET" "$FFBUILD_TOOLCHAIN" "$FFBUILD_TOOLCHAIN" > "$CARGO_HOME"/config.toml

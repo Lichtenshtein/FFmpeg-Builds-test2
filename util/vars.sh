@@ -38,69 +38,30 @@ log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 
 export -f log_info log_warn log_error log_debug
 
-export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
-export FFBUILD_PREFIX="/opt/ffbuild"
-# export PATH="/usr/local/bin:/usr/bin:/bin:${PATH}"
-
-PATH="/usr/bin:/bin:/usr/local/bin:/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${WINE_BIN_DIR}:${PATH}"
-
-export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig"
-# unset PKG_CONFIG_SYSROOT_DIR
-# export PKG_CONFIG="pkg-config --static"
-export PKG_CONFIG="${FFBUILD_TOOLCHAIN}-pkg-config --static"
-export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
-export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
-
-BASE_CFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
-BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32"
-SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lssp -pthread"
-
-if [[ -z "$FLAGS_INITIALIZED" ]]; then
-    export LIBS="$SYSTEM_LIBS"
-    export CFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong"
-    export CPPFLAGS="$BASE_CPPFLAGS"
-    export CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -mfpmath=sse -D_FORTIFY_SOURCE=2 $BASE_CPPFLAGS -I$FFBUILD_PREFIX/include -pipe -fstack-protector-strong"
-    export LDFLAGS="-O3 -static-libgcc -static-libstdc++ -L$FFBUILD_PREFIX/lib -pthread -lssp -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
-    export STAGE_CFLAGS="-fno-semantic-interposition"
-    export STAGE_CXXFLAGS="-fno-semantic-interposition"
-    export FLAGS_INITIALIZED=1
-fi
-
-# disable -fPIC, -ffast-math, -flto=auto if troubles occur
-# add -D_FORTIFY_SOURCE=2 for security
-# --as-needed is dangerous for static linking: when linking static libraries for Windows, if the linker sees a library before a symbol is requested, it will discard it.
-# LDFLAGS="-lssp" is it needed?
-# -Wl,--gc-sections, because of it the linker may throw out what it considers "unnecessary" sections from static libraries if dependencies are specified in the wrong order in .pc files
-# Stable:
-# CFLAGS="-O2 -march=x86-64-v3 -mtune=generic -D_FORTIFY_SOURCE=2 -static-libgcc -static-libstdc++ -I/opt/ffbuild/include -pipe"
-
-
-if [[ $# -lt 2 ]]; then
-    log_error "${CROSS_MARK} Invalid Arguments"
-    # exit -1
-    return 1 2>/dev/null || exit 1
-fi
-
-# Улучшенная проверка: приоритет аргументам, иначе берем из ENV
+# Argument resolution: prefer positional args, fall back to environment. приоритет аргументам, иначе берем из ENV
 TARGET="${1:-$TARGET}"
 VARIANT="${2:-$VARIANT}"
 
-# Валидация: если ни аргументов, ни переменных нет — тогда ошибка
-if [[ -z "$TARGET" || -z "$VARIANT" ]]; then
-    log_error "${CROSS_MARK} Missing TARGET or VARIANT. Usage: source vars.sh [target] [variant]"
-    # Не используем exit -1, чтобы не закрывать сессию терминала при source
-    return 1 2>/dev/null || exit 1
+# Validate TARGET and VARIANT only enforce when called directly OR when
+# arguments were explicitly passed (sourced scripts may not pass args)
+if [[ "${BASH_SOURCE}" == "${0}" ]] || [[ $# -ge 2 ]]; then
+    if [[ -z "$TARGET" || -z "$VARIANT" ]]; then
+        log_error "${CROSS_MARK} Missing TARGET or VARIANT. Usage: source vars.sh [target] [variant]"
+        return 1 2>/dev/null || exit 1
+    fi
 fi
 
-# Сдвигаем аргументы только если они были переданы
+# Shift positional args only if they were passed
 if [[ $# -ge 2 ]]; then
     shift 2
 fi
 
-# Проверка файла варианта
-if ! [[ -f "variants/${TARGET}-${VARIANT}.sh" ]]; then
-    log_error "${CROSS_MARK} Invalid target/variant: ${TARGET}-${VARIANT}"
-    return 1 2>/dev/null || exit 1
+# Validate variant file exists (only if TARGET and VARIANT are known)
+if [[ -n "$TARGET" && -n "$VARIANT" ]]; then
+    if ! [[ -f "variants/${TARGET}-${VARIANT}.sh" ]]; then
+        log_error "${CROSS_MARK} Invalid target/variant: ${TARGET}-${VARIANT}"
+        return 1 2>/dev/null || exit 1
+    fi
 fi
 
 LICENSE_FILE="COPYING.LGPLv2.1"
@@ -125,6 +86,31 @@ REGISTRY="${REGISTRY_OVERRIDE:-ghcr.io}"
 BASE_IMAGE="${REGISTRY}/${REPO}/base:latest"
 TARGET_IMAGE="${REGISTRY}/${REPO}/base-${TARGET}:latest"
 IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:latest"
+
+export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
+export FFBUILD_PREFIX="/opt/ffbuild"
+# export PATH="/usr/local/bin:/usr/bin:/bin:${PATH}"
+# export PATH="/usr/bin:/bin:/usr/local/bin:/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${WINE_BIN_DIR}:${PATH}"
+# export PATH="/usr/local/bin:/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:/usr/bin:/bin:${WINE_BIN_DIR}:${PATH}"
+
+export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig"
+export PKG_CONFIG_PATH=""
+export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
+export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
+export PKG_CONFIG_FLAGS="--static"
+
+BASE_CFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
+BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32"
+SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lssp -pthread"
+
+# Extend Dockerfile flags; disable -fPIC, -ffast-math, -flto=auto if troubles occur
+export CFLAGS="${CFLAGS} $BASE_CFLAGS -I${FFBUILD_PREFIX}/include"
+export CPPFLAGS="${CPPFLAGS:-} $BASE_CPPFLAGS"
+export CXXFLAGS="${CXXFLAGS} $BASE_CFLAGS $BASE_CPPFLAGS -I${FFBUILD_PREFIX}/include"
+export LDFLAGS="${LDFLAGS} -pthread -lssp -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+export LIBS="${LIBS:-$SYSTEM_LIBS}"
+export STAGE_CFLAGS="-fno-semantic-interposition"
+export STAGE_CXXFLAGS="-fno-semantic-interposition"
 
 ffbuild_depends() {
     echo base
@@ -155,7 +141,7 @@ ffbuild_unconfigure() {
 }
 
 ffbuild_cflags() {
-    echo "$CFLAGS"
+    return 0
 }
 
 ffbuild_uncflags() {
@@ -163,11 +149,11 @@ ffbuild_uncflags() {
 }
 
 ffbuild_cxxflags() {
-    echo "$CXXFLAGS"
+    return 0
 }
 
 ffbuild_cppflags() {
-    echo "$CPPFLAGS"
+    return 0
 }
 
 ffbuild_uncxxflags() {
@@ -191,7 +177,7 @@ ffbuild_unldflags() {
 }
 
 ffbuild_libs() {
-    echo "$SYSTEM_LIBS"
+    return 0
 }
 
 ffbuild_unlibs() {

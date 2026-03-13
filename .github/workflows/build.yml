@@ -74,7 +74,7 @@ jobs:
       actions: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: 🗑️ Nuke All Caches
         if: github.event.inputs.doClean == 'true'
@@ -90,7 +90,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
         with:
           driver: docker-container
           # buildkitd-flags: ${{ github.event.inputs.verbosity == '1' && '--debug' || '' }}
@@ -109,7 +109,7 @@ jobs:
           echo "target_base=ghcr.io/${REPO_LC}/base-win64:latest" >> $GITHUB_OUTPUT
 
       - name: Login to Docker
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -148,7 +148,7 @@ jobs:
       
       - name: Build Root Base Image
         if: steps.base_check.outputs.rebuild == 'true'
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: images/base
           build-args: |
@@ -160,7 +160,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=base-root
 
       - name: Build Base Win64 Image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: images/base-win64
           build-args: |
@@ -179,7 +179,7 @@ jobs:
           echo "key=$KEY" >> $GITHUB_OUTPUT
 
       - name: Restore Source Cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: |
             .cache/downloads
@@ -204,7 +204,7 @@ jobs:
           chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
-          ./generate.sh win64 nonfree "$LTO_PARAM" "$SKIP_PARAM" 
+          ./generate.sh win64 nonfree "$LTO_PARAM" "$SKIP_PARAM"
 
       - name: Verify FFmpeg Source
         run: |
@@ -220,7 +220,7 @@ jobs:
       - name: Force Save Cache
         # if: success()
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: |
             .cache/downloads
@@ -228,7 +228,7 @@ jobs:
           key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
 
       - name: Prepare and Build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile
@@ -334,7 +334,7 @@ jobs:
 
       - name: Upload Final Artifacts
         if: ${{ github.event.inputs.skip_ffmpeg != 'true' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ffmpeg-win64-nonfree
           path: artifacts/*.7z
