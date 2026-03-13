@@ -84,6 +84,11 @@ EOF
     get_deps_list
 }
 
+ffbuild_libs() {
+    # These get appended to FF_LIBS
+    echo "-lopenvino_c -ltbb"
+}
+
 ffbuild_configure() {
     echo --enable-libopenvino
 }

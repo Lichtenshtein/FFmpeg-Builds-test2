@@ -8,6 +8,7 @@ ffbuild_depends() {
     echo freetype
     echo fontconfig
     echo harfbuzz
+    echo openssl
 }
 
 ffbuild_enabled() {
@@ -22,6 +23,9 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build
     cd build
+
+    export CFLAGS="$CFLAGS -DHAVE_OPENSSL=1"
+    export CXXFLAGS="$CXXFLAGS -DHAVE_OPENSSL=1"
 
     cmake -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
@@ -39,7 +43,7 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
-    echo "Libs.private: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libaribcaption.pc
+    echo "Libs.private: -lstdc++ -lcrypto" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libaribcaption.pc
 
     get_deps_list
 }
