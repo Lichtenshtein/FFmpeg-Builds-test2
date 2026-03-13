@@ -22,9 +22,6 @@ RUN set -e; \
          echo "ERROR: Host CPU does not support x86-64-v3"; exit 1; \
     fi; \
     \
-    # echo "--- Remove DLLs to force static linking ---" && \
-    # RUN find /opt/ct-ng \( -name "*.dll" -or -name "*.dll.a" \) -delete && \
-    \
     echo "--- Setup Directories ---" && \
     mkdir -p /opt/ffbuild /opt/ffdest && \
     \
@@ -32,21 +29,33 @@ RUN set -e; \
     find /opt/ct-ng -name "libwinpthread-*.dll" -o -name "kernel32.dll" || true && \
     \
     echo "--- Automating Toolchain Path Discovery ---" && \
+    # Find the main compiler binary
     REAL_GCC=$(find /opt/ct-ng -name "x86_64-w64-mingw32-gcc" -type f | head -n 1) && \
-    [ -z "$REAL_GCC" ] && { echo "Compiler not found!"; exit 1; } || true; \
+    if [ -z "$REAL_GCC" ]; then echo "ERROR: x86_64-w64-mingw32-gcc not found!"; exit 1; fi; \
     REAL_BIN_DIR=$(dirname "$REAL_GCC") && \
-    INTERNAL_BIN_DIR=$(find /opt/ct-ng -type d -path "*/x86_64-w64-mingw32/bin" | head -n 1) && \
     \
+    # Find the internal/triplet-specific bin directory
+    INTERNAL_BIN_DIR=$(find /opt/ct-ng -type d -path "*/x86_64-w64-mingw32/bin" | head -n 1) && \
+    echo "SUCCESS: Found Real Bin Dir: $REAL_BIN_DIR" && \
+    echo "SUCCESS: Found Internal Bin Dir: $INTERNAL_BIN_DIR" && \
+    \
+    # Write to profile
     { \
         echo "export PATH=\"/usr/local/bin:$REAL_BIN_DIR:$INTERNAL_BIN_DIR:\${WINE_BIN_DIR}:\$PATH\""; \
         echo "export CCACHE_PATH=\"$REAL_BIN_DIR:$INTERNAL_BIN_DIR:/usr/bin\""; \
     } > /etc/profile.d/toolchain.sh && \
-    chmod +x /etc/profile.d/toolchain.sh; \
+    chmod +x /etc/profile.d/toolchain.sh && \
+    echo "--- Final Profile Content ---" && \
+    cat /etc/profile.d/toolchain.sh && \
     \
     echo "--- Configuring ccache masquerade symlinks ---" && \
     for tool in gcc g++ gcc-ar gcc-nm gcc-ranlib; do \
+        echo "Linking /usr/local/bin/x86_64-w64-mingw32-$tool -> ccache"; \
         ln -sf /usr/bin/ccache "/usr/local/bin/x86_64-w64-mingw32-$tool"; \
-    done
+    done; \
+    \
+    # echo "--- Remove DLLs to force static linking ---" && \
+    # find /opt/ct-ng \( -name "*.dll" -or -name "*.dll.a" \) -delete
 
 # Environment Variables
 ENV \
@@ -99,7 +108,7 @@ ENV \
     \
     CFLAGS="-I/opt/ffbuild/include -march=broadwell -mtune=broadwell -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong" \
     CXXFLAGS="-I/opt/ffbuild/include -march=broadwell -mtune=broadwell -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong" \
-    LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -fstack-protector-strong" \
+    LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe" \
     STAGE_CFLAGS="-fno-semantic-interposition" \
     STAGE_CXXFLAGS="-fno-semantic-interposition"
 
