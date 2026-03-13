@@ -1,6 +1,10 @@
 ARG GH_REPO=ghcr.io/lichtenshtein/ffmpeg-builds-test2
+ARG CPU_ARCH=broadwell
+ARG CPU_TUNE=broadwell
 FROM ${GH_REPO}/base:latest
 ARG GH_REPO
+ARG CPU_ARCH
+ARG CPU_TUNE
 
 # Build the Toolchain
 RUN --mount=src=ct-ng-config,dst=/.config \
@@ -52,8 +56,8 @@ RUN set -e; \
     for tool in gcc g++ gcc-ar gcc-nm gcc-ranlib; do \
         echo "Linking /usr/local/bin/x86_64-w64-mingw32-$tool -> ccache"; \
         ln -sf /usr/bin/ccache "/usr/local/bin/x86_64-w64-mingw32-$tool"; \
-    done; \
-    \
+    done
+    # done; \
     # echo "--- Remove DLLs to force static linking ---" && \
     # find /opt/ct-ng \( -name "*.dll" -or -name "*.dll.a" \) -delete
 
@@ -106,11 +110,13 @@ ENV \
     GENDEF="x86_64-w64-mingw32-gendef" \
     STRIP="x86_64-w64-mingw32-strip" \
     \
-    CFLAGS="-I/opt/ffbuild/include -march=broadwell -mtune=broadwell -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong" \
-    CXXFLAGS="-I/opt/ffbuild/include -march=broadwell -mtune=broadwell -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong" \
+    CFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong" \
+    CXXFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong" \
     LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe" \
     STAGE_CFLAGS="-fno-semantic-interposition" \
-    STAGE_CXXFLAGS="-fno-semantic-interposition"
+    STAGE_CXXFLAGS="-fno-semantic-interposition" \
+    CPU_ARCH="${CPU_ARCH}" \
+    CPU_TUNE="${CPU_TUNE}"
 
 # Use login shell to ensure /etc/profile.d/toolchain.sh is sourced for every RUN
 SHELL ["/bin/bash", "-l", "-c"]
