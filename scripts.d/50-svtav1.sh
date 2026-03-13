@@ -50,7 +50,7 @@ ffbuild_dockerbuild() {
         # -DBUILD_DEC=OFF
         # -DBUILD_ENC=ON
         -DBUILD_APPS=OFF 
-        -DENABLE_AVX512=OFF
+        -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         -DENABLE_NASM=ON
     )
     # Исправляем проблему с пустой версией в pkg-config
