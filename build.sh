@@ -13,6 +13,16 @@ source "variants/${TARGET}-${VARIANT}.sh"
 for addin in ${ADDINS[*]}; do
     source "addins/${addin}.sh"
 done
+
+# Learn to preserve layered variables
+log_info "Loading component variables..."
+VARS_DIR="$FFBUILD_PREFIX/config_parts"
+if [[ -d "$VARS_DIR" ]]; then
+    for f in "$VARS_DIR"/*.vars; do
+        source "$f"
+    done
+fi
+
 # Подгружаем сохранённые переменные компонентов из слоёв
 for f in /opt/ffbuild/config_parts/*.vars; do
     [ -f "$f" ] && source "$f"
@@ -125,7 +135,7 @@ CONF_FLAGS=(
     # ffmpeg does NOT have a separate --extra-cppflags flag you stupid baka
     --extra-cflags="$FINAL_CFLAGS $FINAL_CPPFLAGS"
     --extra-ldflags="$FINAL_LDFLAGS"
-    --extra-cxxflags="$FINAL_CXXFLAGS FINAL_CPPFLAGS"
+    --extra-cxxflags="$FINAL_CXXFLAGS $FINAL_CPPFLAGS"
     --extra-libs="$FINAL_LIBS"
     "${FF_CONF_ARR[@]}"
     --enable-filter=vpp_amf
