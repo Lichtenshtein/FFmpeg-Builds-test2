@@ -48,8 +48,8 @@ RUN set -e; \
     \
     # Write to profile
     { \
-        echo "export PATH=\"/usr/local/bin:$REAL_BIN_DIR:$INTERNAL_BIN_DIR:\${WINE_BIN_DIR}:\$PATH\""; \
-        echo "export CCACHE_PATH=\"$REAL_BIN_DIR:$INTERNAL_BIN_DIR:/usr/bin\""; \
+        echo "export PATH=\"/usr/local/bin:$REAL_BIN_DIR:\${WINE_BIN_DIR}:\$PATH\""; \
+        echo "export CCACHE_PATH=\"$REAL_BIN_DIR:/usr/bin\""; \
     } > /etc/profile.d/toolchain.sh && \
     chmod +x /etc/profile.d/toolchain.sh && \
     echo "--- Final Profile Content ---" && \
