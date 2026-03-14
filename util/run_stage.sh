@@ -286,13 +286,14 @@ fi
 # Сохраняем переменные в файл для слоя
 VARS_DIR="$FFBUILD_PREFIX/config_parts"
 mkdir -p "$VARS_DIR"
+log_info "Saving build variables for $STAGENAME..."
 {
-    [[ -n "$FF_CONFIGURE" ]] && echo "export FF_CONFIGURE=\"\$FF_CONFIGURE $FF_CONFIGURE\""
-    [[ -n "$FF_CFLAGS" ]]    && echo "export FF_CFLAGS=\"\$FF_CFLAGS $FF_CFLAGS\""
-    [[ -n "$FF_CXXFLAGS" ]]  && echo "export FF_CXXFLAGS=\"\$FF_CXXFLAGS $FF_CXXFLAGS\""
-    [[ -n "$FF_CPPFLAGS" ]]  && echo "export FF_CPPFLAGS=\"\$FF_CPPFLAGS $FF_CPPFLAGS\""
-    [[ -n "$FF_LDFLAGS" ]]   && echo "export FF_LDFLAGS=\"\$FF_LDFLAGS $FF_LDFLAGS\""
-    [[ -n "$FF_LIBS" ]]      && echo "export FF_LIBS=\"\$FF_LIBS $FF_LIBS\""
+    echo "export FF_CONFIGURE+=\" $FF_CONFIGURE\""
+    echo "export FF_CFLAGS+=\" $FF_CFLAGS\""
+    echo "export FF_CXXFLAGS+=\" $FF_CXXFLAGS\""
+    echo "export FF_CPPFLAGS=\" $FF_CPPFLAGS\""
+    echo "export FF_LDFLAGS+=\" $FF_LDFLAGS\""
+    echo "export FF_LIBS+=\" $FF_LIBS\""
 } > "$VARS_DIR/${STAGENAME}.vars"
 
 # Очистка
