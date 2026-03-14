@@ -7,9 +7,9 @@ cd "$(dirname "$0")"
 # Забираем аргументы для локального использования
 TARGET="${1:-$TARGET}"
 VARIANT="${2:-$VARIANT}"
-USE_LTO="${3:-nolto}"
-SKIP_FFMPEG="${4:-false}"
-USE_AVX512="${5:-false}"
+USE_LTO_FLAG="${3:-nolto}"
+SKIP_FFMPEG_FLAG="${4:-false}"
+USE_AVX512_FLAG="${5:-false}"
 DEDUPE_FLAGS="${DEDUPE_FLAGS:-true}"
 USE_WINE="${USE_WINE:-auto}"
 
@@ -22,19 +22,18 @@ source util/vars.sh "$@" 2>&1 || {
     echo "ERROR: vars.sh failed (TARGET=$TARGET VARIANT=$VARIANT)" >&2
     exit 1
 }
-
 SKIP_FFMPEG=0
-if [[ "$SKIP_FFMPEG" == "true" || "$SKIP_FFMPEG" == "skip_ffmpeg" ]]; then
+if [[ "$SKIP_FFMPEG_FLAG" == "true" || "$SKIP_FFMPEG_FLAG" == "skip_ffmpeg" ]]; then
     SKIP_FFMPEG=1
     log_info "${XCLAM_MARK} FFmpeg compilation will be skipped (Component test mode)."
 fi
 USE_LTO=0
-if [[ "$USE_LTO" == "lto" ]]; then
+if [[ "$USE_LTO_FLAG" == "lto" ]]; then
     USE_LTO=1
     log_info "${XCLAM_MARK} LTO enabled!"
 fi
 USE_AVX512=0
-if [[ "$USE_AVX512" == "true" ]]; then
+if [[ "$USE_AVX512_FLAG" == "true" ]]; then
     USE_AVX512=1
     log_info "${XCLAM_MARK} AVX512 enabled!"
 fi
@@ -50,7 +49,7 @@ to_df() {
 
 # Базовый образ
 to_df "FROM base-win64 AS build_stage"
-to_df "SHELL [\"/bin/bash\", \"-c\"]"
+to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 
 # Объединяем все ENV в одну команду для оптимизации слоев
 to_df "ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_STR=\"$ADDINS_STR\" \\
@@ -71,9 +70,9 @@ to_df "ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_STR=\"$
     LIBRARY_PATH=/opt/ffbuild/lib"
 
 # Копируем утилиту один раз. Это стабильная точка для кэша.
+to_df "WORKDIR /builder"
 to_df "COPY util/run_stage.sh /usr/bin/run_stage"
 to_df "RUN chmod +x /usr/bin/run_stage"
-to_df "WORKDIR /builder"
 
 # Находим все скрипты. If any script path contains spaces, this breaks.
 mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" | sort)
@@ -83,10 +82,17 @@ mkdir -p .cache/ccache
 mkdir -p ffbuild/config_parts
 
 active_scripts=()
+# for STAGE in "${SCRIPTS[@]}"; do
+    # if ( source util/vars.sh "$TARGET" "$VARIANT" 2>/dev/null && source "$STAGE" 2>/dev/null && ffbuild_enabled ); then
+        # active_scripts+=("$STAGE")
+    # fi
+# done
+# Faster: check for explicit ffbuild_enabled() { return 1; } pattern
 for STAGE in "${SCRIPTS[@]}"; do
-    if ( source util/vars.sh "$TARGET" "$VARIANT" 2>/dev/null && source "$STAGE" 2>/dev/null && ffbuild_enabled ); then
-        active_scripts+=("$STAGE")
+    if grep -q 'ffbuild_enabled.*return 1' "$STAGE" 2>/dev/null; then
+        continue  # explicitly disabled
     fi
+    active_scripts+=("$STAGE")
 done
 
 if [[ -n "$ONLY_STAGE" ]]; then
@@ -95,8 +101,15 @@ if [[ -n "$ONLY_STAGE" ]]; then
 fi
 
 # Environment Hash: Only changes if compiler flags, paths, or toolchain versions change.
-# We extract only lines that EXPORT variables or set BASE_CFLAGS/LDFLAGS.
-ENV_HASH=$(grep -E "^export |^BASE_|^SYSTEM_LIBS=" util/vars.sh | sha256sum | cut -c1-8)
+# extract only lines that EXPORT variables or set BASE_CFLAGS/LDFLAGS.
+ENV_HASH=$(
+    {
+        grep -E "^export |^BASE_|^SYSTEM_LIBS=" util/vars.sh
+        echo "CPU_ARCH=${CPU_ARCH:-broadwell}"
+        echo "CPU_TUNE=${CPU_TUNE:-broadwell}"
+        echo "USE_AVX512=${USE_AVX512}"
+    } | sha256sum | cut -c1-8
+)
 
 # Global Logic Hash: Changes if run_stage.sh or the internal functions of vars.sh change.
 LOGIC_HASH=$(sha256sum util/run_stage.sh | cut -c1-8)
@@ -171,7 +184,7 @@ get_from_func() {
     if declare -F "$func" >/dev/null; then
         local res
         res=$( "$func" 2>&1 | clean_output )
-        [[ -n "$res" ]] && echo "$res" >> "$out_file"
+        [[ -n "$res" ]] && printf '%s ' "$res" >> "$out_file"
     fi
 }
 
@@ -191,13 +204,13 @@ collect_all_flags() {
         return 0
     fi
 
-    [[ -n "$FF_CONFIGURE" ]]  && echo "$FF_CONFIGURE"   | clean_output >> "$T_DIR/.conf"
-    [[ -n "$FF_CFLAGS" ]]     && echo "$FF_CFLAGS"      | clean_output >> "$T_DIR/.cflags"
-    [[ -n "$FF_LDFLAGS" ]]    && echo "$FF_LDFLAGS"     | clean_output >> "$T_DIR/.ldflags"
-    [[ -n "$FF_CXXFLAGS" ]]   && echo "$FF_CXXFLAGS"    | clean_output >> "$T_DIR/.cxxflags"
-    [[ -n "$FF_CPPFLAGS" ]]   && echo "$FF_CPPFLAGS"    | clean_output >> "$T_DIR/.cppflags"
-    [[ -n "$FF_LDEXEFLAGS" ]] && echo "$FF_LDEXEFLAGS"  | clean_output >> "$T_DIR/.ldexeflags"
-    [[ -n "$FF_LIBS" ]]       && echo "$FF_LIBS"        | clean_output >> "$T_DIR/.libs"
+    [[ -n "$FF_CONFIGURE" ]]  && printf '%s ' "$(echo "$FF_CONFIGURE" | clean_output)" >> "$T_DIR/.conf"
+    [[ -n "$FF_CFLAGS" ]]     && printf '%s ' "$(echo "$FF_CFLAGS" | clean_output)" >> "$T_DIR/.cflags"
+    [[ -n "$FF_LDFLAGS" ]]    && printf '%s ' "$(echo "$FF_LDFLAGS" | clean_output)" >> "$T_DIR/.ldflags"
+    [[ -n "$FF_CXXFLAGS" ]]   && printf '%s ' "$(echo "$FF_CXXFLAGS" | clean_output)" >> "$T_DIR/.cxxflags"
+    [[ -n "$FF_CPPFLAGS" ]]   && printf '%s ' "$(echo "$FF_CPPFLAGS" | clean_output)" >> "$T_DIR/.cppflags"
+    [[ -n "$FF_LDEXEFLAGS" ]] && printf '%s ' "$(echo "$FF_LDEXEFLAGS" | clean_output)" >> "$T_DIR/.ldexeflags"
+    [[ -n "$FF_LIBS" ]]       && printf '%s ' "$(echo "$FF_LIBS" | clean_output)" >> "$T_DIR/.libs"
 
     get_from_func "ffbuild_configure"  "$T_DIR/.conf"
     get_from_func "ffbuild_cflags"     "$T_DIR/.cflags"

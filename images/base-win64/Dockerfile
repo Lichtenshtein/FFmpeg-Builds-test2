@@ -61,6 +61,12 @@ RUN set -e; \
     # echo "--- Remove DLLs to force static linking ---" && \
     # find /opt/ct-ng \( -name "*.dll" -or -name "*.dll.a" \) -delete
 
+ENV \
+    CPU_ARCH="${CPU_ARCH}" \
+    CPU_TUNE="${CPU_TUNE}"
+
+RUN echo "export PATH=$(cat /etc/profile.d/toolchain.sh | grep PATH | ...)" >> /etc/environment
+
 # Environment Variables
 ENV \
     # Toolchain Identifiers
@@ -114,9 +120,7 @@ ENV \
     CXXFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong" \
     LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe" \
     STAGE_CFLAGS="-fno-semantic-interposition" \
-    STAGE_CXXFLAGS="-fno-semantic-interposition" \
-    CPU_ARCH="${CPU_ARCH}" \
-    CPU_TUNE="${CPU_TUNE}"
+    STAGE_CXXFLAGS="-fno-semantic-interposition"
 
 # Use login shell to ensure /etc/profile.d/toolchain.sh is sourced for every RUN
 SHELL ["/bin/bash", "-l", "-c"]
