@@ -68,10 +68,12 @@ export PATH="/usr/bin:/bin:/usr/local/bin:$PATH"
 
 log_info "Running flags diagnostic..."
 # If the length shows more characters than -O2 (3 chars), there's a hidden character injected by vars.sh or the Docker ENV.
-log_info "Diagnostic: FF_CFLAGS content:"
-printf 'FF_CFLAGS bytes: '; echo -n "$FF_CFLAGS" | xxd | head -5
-log_info "Diagnostic: FF_LDFLAGS content:"
-printf 'FF_LDFLAGS bytes: '; echo -n "$FF_LDFLAGS" | xxd | head -5
+log_info "Diagnostic: CFLAGS content:"
+printf 'HOST_CFLAGS bytes: '; echo -n "$HOST_CFLAGS" | xxd | head -5
+printf 'HOST_CXXFLAGS bytes: '; echo -n "$HOST_CXXFLAGS" | xxd | head -5
+printf 'FF_CFLAGS bytes: '; echo -n "$FF_CFLAGS" | xxd | head -15
+log_info "Diagnostic: LDFLAGS content:"
+printf 'FF_LDFLAGS bytes: '; echo -n "$FF_LDFLAGS" | xxd | head -15
 
 # Unset cross-compilation flags so host compiler stays clean during configure
 unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS ASFLAGS LIBS
@@ -80,10 +82,11 @@ read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
 read -ra FF_CONF_ARR <<< "$FF_CONFIGURE"
 
 # Удалить лишние пробелы в начале и конце
-FF_CFLAGS=$(echo "$FF_CFLAGS" | xargs)
-FF_LDFLAGS=$(echo "$FF_LDFLAGS" | xargs)
-FF_CXXFLAGS=$(echo "$FF_CXXFLAGS" | xargs)
-FF_LIBS=$(echo "$FF_LIBS" | xargs)
+FINAL_CFLAGS=$(echo "$TARGET_CFLAGS $FF_CFLAGS" | xargs)
+FINAL_LDFLAGS=$(echo "$TARGET_LDFLAGS $FF_LDFLAGS" | xargs)
+FINAL_CXXFLAGS=$(echo "$TARGET_CXXFLAGS $FF_CXXFLAGS" | xargs)
+FINAL_CPPFLAGS=$(echo "$TARGET_CPPFLAGS $FF_CPPFLAGS" | xargs)
+FINAL_LIBS=$(echo "$TARGET_LIBS $FF_LIBS" | xargs)
 
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
@@ -93,10 +96,10 @@ CONF_FLAGS=(
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
     # ffmpeg does NOT have a separate --extra-cppflags flag you stupid baka
-    --extra-cflags="$FF_CFLAGS"
-    --extra-ldflags="$FF_LDFLAGS"
-    --extra-cxxflags="$FF_CXXFLAGS"
-    --extra-libs="$FF_LIBS"
+    --extra-cflags="$FINAL_CFLAGS"
+    --extra-ldflags="$FINAL_LDFLAGS"
+    --extra-cxxflags="$FINAL_CXXFLAGS"
+    --extra-libs="$FINAL_LIBS"
     "${FF_CONF_ARR[@]}"
     --enable-filter=vpp_amf
     --enable-filter=sr_amf
