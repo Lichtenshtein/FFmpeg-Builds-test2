@@ -30,6 +30,8 @@ RUN \
     npm cache clean --force && \
     npm install -g @napi-ffi/ffi-napi && \
     apt-get -y clean && \
+    gcc-14 --version && \
+    as --version && \
     git config --global user.email "builder@localhost" && \
     git config --global user.name "Builder" && \
     git config --global advice.detachedHead false && \
@@ -47,10 +49,7 @@ RUN --mount=src=.,dst=/input \
     done
 
 ENV HOST_CC="gcc-14" \
-    HOST_CXX="g++-14" \
-    HOST_CFLAGS="-O2 -pipe" \
-    HOST_CXXFLAGS="-O2 -pipe" \
-    HOST_LDFLAGS=""
+    HOST_CXX="g++-14"
 
 RUN \
     dpkg --add-architecture i386 && \

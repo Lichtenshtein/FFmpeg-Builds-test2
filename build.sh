@@ -22,6 +22,10 @@ mkdir -p ffbuild
 
 # Клонирование и патчинг (прямо в текущем слое Docker)
 log_info "Using pre-mounted FFmpeg source..."
+if [[ ! -f "ffbuild/ffmpeg/configure" ]]; then
+    log_error "FFmpeg source not found at ffbuild/ffmpeg/configure — mount failed?"
+    exit 1
+fi
 pushd ffbuild/ffmpeg
 
 # Патчи теперь ищем по имени ветки, пришедшей из ENV
@@ -44,10 +48,6 @@ log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
 # Удаляем пустые папки или старые логи, если они остались
 find /opt/ffbuild -type d -empty -delete
 
-# Force update of pkg-config paths
-# export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
-# export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
-
 # Сборка FFmpeg
 chmod +x configure
 
@@ -60,28 +60,47 @@ export TARGET_CXXFLAGS="$CXXFLAGS"
 export TARGET_CPPFLAGS="$CPPFLAGS"
 export TARGET_LIBS="$LIBS"
 
+# export HOST_CFLAGS="-O2 -pipe"
+# export HOST_CXXFLAGS="-O2 -pipe"
+# export HOST_LDFLAGS=""
+
+export HOST_CFLAGS="-O2"
+export HOST_CXXFLAGS="-O2"
+export HOST_LDFLAGS=""
+
+log_info "Running flags diagnostic..."
+
+# If the length shows more characters than -O2 (3 chars), there's a hidden character injected by vars.sh or the Docker ENV.
+printf 'HOST_CFLAGS bytes: '; echo -n "$HOST_CFLAGS" | xxd | head -3
+printf 'HOST_LDFLAGS bytes: '; echo -n "$HOST_LDFLAGS" | xxd | head -3
+
 # Unset cross-compilation flags so host compiler stays clean during configure
 unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS ASFLAGS LIBS
+
+read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
+read -ra FF_CONF_ARR <<< "$FF_CONFIGURE"
 
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
     --pkg-config-flags="--static"
-    $FFBUILD_TARGET_FLAGS
+    "${TARGET_FLAGS_ARR[@]}"
     --host-cc="gcc-14"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
+    # ffmpeg does NOT have a separate --extra-cppflags flag you stupid baka
     --extra-cflags="$FF_CFLAGS $FF_CPPFLAGS"
     --extra-ldflags="$FF_LDFLAGS"
     --extra-cxxflags="$FF_CXXFLAGS"
     --extra-libs="$FF_LIBS"
-    $FF_CONFIGURE
+    "${FF_CONF_ARR[@]}"
     --enable-filter=vpp_amf
     --enable-filter=sr_amf
     --enable-runtime-cpudetect
     --enable-pic
-    --disable-audiotoolbox
-    --disable-videotoolbox
-    --disable-securetransport
+    # --disable-audiotoolbox
+    # --disable-videotoolbox
+    # --disable-securetransport
+    # flags added by ffmpeg patches, not from mainline FFmpeg
     --h264-max-bit-depth=14
     --h265-bit-depths=8,9,10,12
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
@@ -116,22 +135,29 @@ else
     log_info "Memory: ${MEM_AVAILABLE}GB, Cores: ${CPU_CORES}. Setting MAKE_JOBS=${MAKE_JOBS}"
 fi
 # Сборка и установка
-make -j"$MAKE_JOBS" $MAKE_V && \
-make install && \
+make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
+make install
 make install-doc || log_warn "install-doc failed, but proceeding."
 ccache -s
 
 # Подготовка к упаковке (ОЧИСТКА МУСОРА)
 popd
-BUILD_NAME="ffmpeg_vvceasy-$(./ffbuild/ffmpeg/ffbuild/version.sh ffbuild/ffmpeg)-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
+VERSION_SCRIPT="./ffbuild/ffmpeg/ffbuild/version.sh"
+if [[ ! -x "$VERSION_SCRIPT" ]]; then
+    log_warn "version.sh not found, using 'unknown' as version"
+    FFMPEG_VERSION="unknown"
+else
+    FFMPEG_VERSION="$("$VERSION_SCRIPT" ffbuild/ffmpeg)"
+fi
+BUILD_NAME="ffmpeg_vvceasy-${FFMPEG_VERSION}-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
 PKG_DIR="ffbuild/pkgroot/$BUILD_NAME"
 
 mkdir -p "$PKG_DIR"
-package_variant "$FFBUILD_DESTPREFIX" "$PKG_DIR"
 if ! declare -F package_variant >/dev/null; then
     log_error "package_variant not defined - variant script missing or broken"
     exit 1
 fi
+package_variant "$FFBUILD_DESTPREFIX" "$PKG_DIR"
 
 # Копируем лицензию
 [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"

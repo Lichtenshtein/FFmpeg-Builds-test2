@@ -12,6 +12,8 @@ FF_LDFLAGS="${FF_LDFLAGS:+$FF_LDFLAGS }-flto=auto"
 # Ќастройка инструментов тулчейна
 # LTO в GCC требует использовани€ gcc-ar/nm/ranlib (плагинов), 
 # иначе статические библиотеки (.a) будут "битыми" дл€ линковщика.
-export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
-export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
-export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
+if [[ -n "$FFBUILD_TOOLCHAIN" ]]; then
+    export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
+    export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
+    export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
+fi

@@ -2,7 +2,7 @@ From b256de1b013e9537babe8982fd521ae11a125c46 Mon Sep 17 00:00:00 2001
 From: wang-bin <wbsecg1@gmail.com>
 Date: Tue, 3 May 2022 00:03:18 +0800
 Subject: [PATCH 24/35] wolfSSL - new TLS backend patch
-
+ 
 https://lists.ffmpeg.org/pipermail/ffmpeg-devel/2018-August/233802.html
 ---
  configure                 |  20 ++--
@@ -63,14 +63,14 @@ index 8294fb04e2..8ffea48829 100755
    --disable-sndio          disable sndio support [autodetect]
    --disable-schannel       disable SChannel SSP, needed for TLS support on
 @@ -2013,6 +2015,7 @@ EXTERNAL_LIBRARY_LIST="
+     vapoursynth
      vulkan_static
      whisper
-     libsvtjpegxs
 +    wolfssl
  "
-
+ 
  HWACCEL_AUTODETECT_LIBRARY_LIST="
-@@ -3954,13 +3957,13 @@ rtmpte_protocol_suggest="zlib"
+@@ -4067,13 +4067,13 @@ rtmpte_protocol_suggest="zlib"
  rtmpts_protocol_select="ffrtmphttp_protocol https_protocol"
  rtmpts_protocol_suggest="zlib"
  rtp_protocol_select="udp_protocol"
@@ -85,8 +85,8 @@ index 8294fb04e2..8ffea48829 100755
 -tls_protocol_deps_any="gnutls openssl schannel securetransport libtls mbedtls"
 +tls_protocol_deps_any="gnutls openssl schannel securetransport libtls mbedtls wolfssl"
  tls_protocol_select="tcp_protocol"
- # TODO: Support libtls, mbedtls, and gnutls.
- dtls_protocol_deps_any="openssl schannel"
+ # TODO: Support libtls.
+ dtls_protocol_deps_any="openssl schannel gnutls mbedtls"
 @@ -3986,7 +3989,7 @@ libsmbclient_protocol_deps="libsmbclient gplv3"
  libsrt_protocol_deps="libsrt"
  libsrt_protocol_select="network"
@@ -95,7 +95,7 @@ index 8294fb04e2..8ffea48829 100755
 +libtls_conflict="openssl gnutls mbedtls wolfssl"
  libzmq_protocol_deps="libzmq"
  libzmq_protocol_select="network"
-
+ 
 @@ -7144,6 +7147,7 @@ enabled decklink          && { require_headers DeckLinkAPI.h &&
  enabled frei0r            && require_headers "frei0r.h"
  enabled gmp               && require gmp gmp.h mpz_export -lgmp
@@ -139,7 +139,7 @@ index a7026ac09b..0357585465 100644
 +#endif
  #endif
  }
-
+ 
 diff --git a/libavformat/tls.h b/libavformat/tls.h
 index 6c5f7bc15f..d52916fa8c 100644
 --- a/libavformat/tls.h
@@ -147,7 +147,7 @@ index 6c5f7bc15f..d52916fa8c 100644
 @@ -113,4 +113,7 @@ void ff_gnutls_deinit(void);
  int ff_openssl_init(void);
  void ff_openssl_deinit(void);
-
+ 
 +void ff_wolfssl_init(void);
 +void ff_wolfssl_deinit(void);
 +
@@ -405,3 +405,4 @@ index 0000000000..23255c0f1b
 +};
 --
 2.50.1 (Apple Git-155)
+ 
