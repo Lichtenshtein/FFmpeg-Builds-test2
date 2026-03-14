@@ -65,6 +65,10 @@ ffbuild_dockerbuild() {
     get_deps_list
 }
 
+ffbuild_libs() {
+    echo "-lz"
+}
+
 ffbuild_cppflags() {
     echo "-DZLIB_STATIC"
 }
