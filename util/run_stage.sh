@@ -168,17 +168,22 @@ else
     log_info "No source archive required for $STAGENAME (meta-package)."
 fi
 
-# Применяем флаги
-export RAW_CFLAGS="$CFLAGS"
-export RAW_CPPFLAGS="$CPPFLAGS"
-export RAW_CXXFLAGS="$CXXFLAGS"
-export RAW_LDFLAGS="$LDFLAGS"
-export RAW_LDEXEFLAGS="$LDEXEFLAGS"
-[[ -n "$STAGE_CFLAGS" ]] && export CFLAGS="$CFLAGS $STAGE_CFLAGS"
-[[ -n "$STAGE_CPPFLAGS" ]] && export CPPFLAGS="$CPPFLAGS $STAGE_CPPFLAGS"
-[[ -n "$STAGE_CXXFLAGS" ]] && export CXXFLAGS="$CXXFLAGS $STAGE_CXXFLAGS"
-[[ -n "$STAGE_LDFLAGS" ]] && export LDFLAGS="$LDFLAGS $STAGE_LDFLAGS"
-[[ -n "$STAGE_LDEXEFLAGS" ]] && export LDEXEFLAGS="$LDEXEFLAGS $STAGE_LDEXEFLAGS"
+# Сохраняем "чистую" базу из vars.sh (RAW флаги)
+# НЕ используем здесь экспорт в CFLAGS напрямую, чтобы не загрязнять среду
+export BASE_CFLAGS="${RAW_CFLAGS:-$CFLAGS}"
+export BASE_CXXFLAGS="${RAW_CXXFLAGS:-$CXXFLAGS}"
+export BASE_LDFLAGS="${RAW_LDFLAGS:-$LDFLAGS}"
+export BASE_CPPFLAGS="${RAW_CPPFLAGS:-$CPPFLAGS}"
+export BASE_LDEXEFLAGS="${RAW_LDEXEFLAGS:-$LDEXEFLAGS}"
+# Формируем актуальные флаги для ТЕКУЩЕЙ стадии
+# Используем локальные переменные, чтобы не раздувать глобальные при повторном входе
+export CFLAGS="$(echo $BASE_CFLAGS $STAGE_CFLAGS | xargs)"
+export CXXFLAGS="$(echo $BASE_CXXFLAGS $STAGE_CXXFLAGS | xargs)"
+export LDFLAGS="$(echo $BASE_LDFLAGS $STAGE_LDFLAGS | xargs)"
+export CPPFLAGS="$(echo ${RAW_CPPFLAGS:-$CPPFLAGS} $STAGE_CPPFLAGS | xargs)"
+export LDEXEFLAGS="$(echo ${RAW_LDEXEFLAGS:-$LDEXEFLAGS} $STAGE_LDEXEFLAGS | xargs)"
+# Диагностика (поможет увидеть мусор в логах конкретной стадии)
+log_debug "Effective CFLAGS for $STAGENAME: $CFLAGS"
 
 # Выполняем сборку ОДИН РАЗ с проверкой статуса
 build_cmd="ffbuild_dockerbuild"
@@ -277,6 +282,18 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
     fi
     log_info "################################################################"
 fi
+
+# Сохраняем переменные в файл для слоя
+VARS_DIR="$FFBUILD_PREFIX/config_parts"
+mkdir -p "$VARS_DIR"
+{
+    [[ -n "$FF_CONFIGURE" ]] && echo "export FF_CONFIGURE=\"\$FF_CONFIGURE $FF_CONFIGURE\""
+    [[ -n "$FF_CFLAGS" ]]    && echo "export FF_CFLAGS=\"\$FF_CFLAGS $FF_CFLAGS\""
+    [[ -n "$FF_CXXFLAGS" ]]  && echo "export FF_CXXFLAGS=\"\$FF_CXXFLAGS $FF_CXXFLAGS\""
+    [[ -n "$FF_CPPFLAGS" ]]  && echo "export FF_CPPFLAGS=\"\$FF_CPPFLAGS $FF_CPPFLAGS\""
+    [[ -n "$FF_LDFLAGS" ]]   && echo "export FF_LDFLAGS=\"\$FF_LDFLAGS $FF_LDFLAGS\""
+    [[ -n "$FF_LIBS" ]]      && echo "export FF_LIBS=\"\$FF_LIBS $FF_LIBS\""
+} > "$VARS_DIR/${STAGENAME}.vars"
 
 # Очистка
 trap 'echo "::endgroup::"; cd /; rm -rf "/build/$STAGENAME"' EXIT
