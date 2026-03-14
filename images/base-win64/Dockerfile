@@ -18,6 +18,9 @@ RUN --mount=src=ct-ng-config,dst=/.config \
     cd / && \
     rm -rf ct-ng
 
+# Use login shell to ensure /etc/profile.d/toolchain.sh is sourced for every RUN
+SHELL ["/bin/bash", "-l", "-c"]
+
 # Runtime Check & Path Automation
 RUN set -e; \
     echo "--- Runtime check for CPU instructions support ---" && \
@@ -65,7 +68,7 @@ ENV \
     CPU_ARCH="${CPU_ARCH}" \
     CPU_TUNE="${CPU_TUNE}"
 
-RUN echo "export PATH=$(cat /etc/profile.d/toolchain.sh | grep PATH | ...)" >> /etc/environment
+RUN . /etc/profile.d/toolchain.sh && echo "PATH=\"$PATH\"" >> /etc/environment
 
 # Environment Variables
 ENV \
@@ -76,10 +79,13 @@ ENV \
     # System Paths
     # /usr/local/bin contains the ccache symlinks (found first by scripts)
     # /opt/ct-ng/... contains the real compilers (found by ccache via CCACHE_PATH)
-    PATH="/usr/local/bin:/opt/ct-ng/bin:/opt/ct-ng/x86_64-w64-mingw32/bin:/opt/wine-stable/bin:${PATH}" \
+    # 1. Сначала маскарад ccache
+    # 2. Потом префиксные бинарники (x86_64-w64-mingw32-gcc)
+    # 3. Потом системные пути
+    PATH="/usr/local/bin:/opt/ct-ng/bin:/usr/bin:/bin:/opt/wine-stable/bin:${PATH}" \
     \
     # ccache logic: explicitly search here for the REAL compiler to avoid loops
-    CCACHE_PATH="/opt/ct-ng/bin:/opt/ct-ng/x86_64-w64-mingw32/bin:/usr/bin" \
+    CCACHE_PATH="/opt/ct-ng/bin:/usr/bin" \
     \
     # ccache performance settings
     CCACHE_DIR=/root/.cache/ccache \
@@ -121,9 +127,6 @@ ENV \
     LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe" \
     STAGE_CFLAGS="-fno-semantic-interposition" \
     STAGE_CXXFLAGS="-fno-semantic-interposition"
-
-# Use login shell to ensure /etc/profile.d/toolchain.sh is sourced for every RUN
-SHELL ["/bin/bash", "-l", "-c"]
 
 ADD toolchain.cmake /toolchain.cmake
 ADD cross.meson /cross.meson

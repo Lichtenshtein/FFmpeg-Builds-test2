@@ -60,25 +60,30 @@ export TARGET_CXXFLAGS="$CXXFLAGS"
 export TARGET_CPPFLAGS="$CPPFLAGS"
 export TARGET_LIBS="$LIBS"
 
-# export HOST_CFLAGS="-O2 -pipe"
-# export HOST_CXXFLAGS="-O2 -pipe"
-# export HOST_LDFLAGS=""
-
-export HOST_CFLAGS="-O2"
-export HOST_CXXFLAGS="-O2"
+export HOST_CFLAGS="-O2 -pipe"
+export HOST_CXXFLAGS="-O2 -pipe"
 export HOST_LDFLAGS=""
 
-log_info "Running flags diagnostic..."
+export PATH="/usr/bin:/bin:/usr/local/bin:$PATH" 
 
+log_info "Running flags diagnostic..."
 # If the length shows more characters than -O2 (3 chars), there's a hidden character injected by vars.sh or the Docker ENV.
-printf 'HOST_CFLAGS bytes: '; echo -n "$HOST_CFLAGS" | xxd | head -3
-printf 'HOST_LDFLAGS bytes: '; echo -n "$HOST_LDFLAGS" | xxd | head -3
+log_info "Diagnostic: FF_CFLAGS content:"
+printf 'FF_CFLAGS bytes: '; echo -n "$FF_CFLAGS" | xxd | head -5
+log_info "Diagnostic: FF_LDFLAGS content:"
+printf 'FF_LDFLAGS bytes: '; echo -n "$FF_LDFLAGS" | xxd | head -5
 
 # Unset cross-compilation flags so host compiler stays clean during configure
 unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS ASFLAGS LIBS
 
 read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
 read -ra FF_CONF_ARR <<< "$FF_CONFIGURE"
+
+# Удалить лишние пробелы в начале и конце
+FF_CFLAGS=$(echo "$FF_CFLAGS" | xargs)
+FF_LDFLAGS=$(echo "$FF_LDFLAGS" | xargs)
+FF_CXXFLAGS=$(echo "$FF_CXXFLAGS" | xargs)
+FF_LIBS=$(echo "$FF_LIBS" | xargs)
 
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
@@ -88,7 +93,7 @@ CONF_FLAGS=(
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
     # ffmpeg does NOT have a separate --extra-cppflags flag you stupid baka
-    --extra-cflags="$FF_CFLAGS $FF_CPPFLAGS"
+    --extra-cflags="$FF_CFLAGS"
     --extra-ldflags="$FF_LDFLAGS"
     --extra-cxxflags="$FF_CXXFLAGS"
     --extra-libs="$FF_LIBS"
@@ -126,7 +131,7 @@ MEM_JOBS=$(( MEM_AVAILABLE / 2 ))
 [[ $MEM_JOBS -lt 1 ]] && MEM_JOBS=1
 # Выбираем финальное число потоков
 CPU_CORES=$(nproc)
-if [[ "$FF_CONFIGURE" == *"--enable-lto"* || "$USE_LTO" == "1" ]]; then
+if [[ "$FF_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
     log_warn "${XCLAM_MARK} LTO detected. Forcing single-thread build."
     MAKE_JOBS=1
 else
