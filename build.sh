@@ -102,9 +102,9 @@ CONF_FLAGS=(
     --enable-filter=sr_amf
     --enable-runtime-cpudetect
     --enable-pic
-    # --disable-audiotoolbox
-    # --disable-videotoolbox
-    # --disable-securetransport
+    --disable-audiotoolbox
+    --disable-videotoolbox
+    --disable-securetransport
     # flags added by ffmpeg patches, not from mainline FFmpeg
     --h264-max-bit-depth=14
     --h265-bit-depths=8,9,10,12
