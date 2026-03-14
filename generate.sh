@@ -18,7 +18,7 @@ USE_WINE="${USE_WINE:-auto}"
 # чтобы случайные echo не попали в поток генерации.
 # source util/vars.sh "$@" 2>/dev/null || { echo "ERROR: vars.sh failed to source (TARGET=$TARGET VARIANT=$VARIANT)" >&2; exit 1; }
 
-source util/vars.sh "$@" 2>&1 || {
+source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
     echo "ERROR: vars.sh failed (TARGET=$TARGET VARIANT=$VARIANT)" >&2
     exit 1
 }
@@ -64,10 +64,7 @@ to_df "ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_STR=\"$
     CPU_ARCH=\"${CPU_ARCH:-broadwell}\" \\
     CPU_TUNE=\"${CPU_TUNE:-broadwell}\" \\
     DLL_PRESERVE_LIST=\"$DLL_PRESERVE_LIST\" \\
-    GIT_PRESERVE_LIST=\"$GIT_PRESERVE_LIST\" \\
-    C_INCLUDE_PATH=/opt/ffbuild/include \\
-    CPATH=/opt/ffbuild/include \\
-    LIBRARY_PATH=/opt/ffbuild/lib"
+    GIT_PRESERVE_LIST=\"$GIT_PRESERVE_LIST\""
 
 # Копируем утилиту один раз. Это стабильная точка для кэша.
 to_df "WORKDIR /builder"
@@ -79,6 +76,7 @@ mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" | sort)
 
 # Создаем папку на хосте перед билдом, чтобы Docker не создал её от имени root с кривыми правами
 mkdir -p .cache/ccache
+mkdir -p .cache/downloads
 mkdir -p ffbuild/config_parts
 
 active_scripts=()
@@ -153,7 +151,7 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    --mount=type=bind,source=variants,target=/builder/variants \\"
     to_df "    --mount=type=bind,source=addins,target=/builder/addins \\"
     to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads,rw \\"
-    to_df "    set -e; export _H=$LAYER_ID && . /builder/util/vars.sh \"$TARGET\" \"$VARIANT\" && run_stage /builder/$STAGE"
+    to_df "    set -e && export _H=$LAYER_ID && . /builder/util/vars.sh \"$TARGET\" \"$VARIANT\" && run_stage /builder/$STAGE"
 done
 
 T_DIR="/tmp/ffbuild_flags"
@@ -177,13 +175,14 @@ clean_output() {
     grep -vE "^\[(INFO|DEBUG|WARN|ERROR)\]" | \
     tr '\n' ' ' | xargs
 }
+export -f clean_output
 
 get_from_func() {
     local func=$1
     local out_file=$2
     if declare -F "$func" >/dev/null; then
         local res
-        res=$( "$func" 2>&1 | clean_output )
+        res=$( $func 2>&1 | clean_output )
         [[ -n "$res" ]] && printf '%s ' "$res" >> "$out_file"
     fi
 }
@@ -194,11 +193,26 @@ collect_all_flags() {
 
     unset FF_CONFIGURE FF_CFLAGS FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDEXEFLAGS FF_LIBS
 
+    # Save current flags before re-sourcing vars.sh
+    local _SAVED_CFLAGS="$CFLAGS"
+    local _SAVED_CXXFLAGS="$CXXFLAGS"
+    local _SAVED_LDFLAGS="$LDFLAGS"
+    local _SAVED_LIBS="$LIBS"
+    local _SAVED_CPPFLAGS="$CPPFLAGS"
+
     set +e
-    # Re-establish the full environment before sourcing the component
+    # Unset accumulated flags so vars.sh starts clean
+    unset CFLAGS CXXFLAGS LDFLAGS LIBS CPPFLAGS
     source util/vars.sh "$TARGET" "$VARIANT"
     source "$script_path"
     set -e
+
+    # Restore after sourcing
+    export CFLAGS="$_SAVED_CFLAGS"
+    export CXXFLAGS="$_SAVED_CXXFLAGS"
+    export LDFLAGS="$_SAVED_LDFLAGS"
+    export LIBS="$_SAVED_LIBS"
+    export CPPFLAGS="$_SAVED_CPPFLAGS"
 
     if declare -F ffbuild_enabled >/dev/null && ! ffbuild_enabled; then
         return 0
@@ -255,7 +269,7 @@ log_debug "DEBUG: .conf content: $(cat $T_DIR/.conf)"
 # но для LDFLAGS/LIBS мы просто склеиваем строки, 
 # удаляя лишние пробелы, но сохраняя последовательность.
 dedupe() {
-    echo "$1" | xargs | tr ' ' '\n' | awk '!x[$0]++' | xargs
+    printf '%s\n' $1 | awk '!x[$0]++' | xargs
 }
 smart_dedupe() {
     local input="$1"

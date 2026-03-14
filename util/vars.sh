@@ -15,14 +15,14 @@ export PURPLE='\033[0;35m'     # Purple
 export NC='\033[0m'            # No Color (Reset)
 export CHECK_MARK="${LOG_INFO}✔${NC}"
 export CROSS_MARK='❌'
-export XCLAM_MARK='⚠'
+export XCLAM_MARK='⚠️'
 export BROOM_MARK='🧹'
-export CACHE_MARK='🗄'
-export ARCH_MARK='📥'
+export CACHE_MARK='🗄️'
+export ARCH_MARK='📥️'
 export SEARCH_MARK='🔎'
 export EXTR_MARK='📤'
 export START_MARK='🚀'
-export BUILD_MARK='🛠'
+export BUILD_MARK='🛠️'
 export DIRS_MARK='📂'
 export LOCK_MARK='🔒'
 export SYNC_MARK="${LOG_INFO}♻${NC}"
@@ -92,25 +92,27 @@ export CPU_TUNE="${CPU_TUNE:-broadwell}"
 
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 export FFBUILD_PREFIX="/opt/ffbuild"
-# export PATH="/usr/local/bin:/usr/bin:/bin:${PATH}"
-# export PATH="/usr/bin:/bin:/usr/local/bin:/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:${WINE_BIN_DIR}:${PATH}"
-# export PATH="/usr/local/bin:/opt/ct-ng/bin:/opt/ct-ng/${FFBUILD_TOOLCHAIN}/bin:/usr/bin:/bin:${WINE_BIN_DIR}:${PATH}"
+
+# export PATH="/usr/local/bin:/opt/ct-ng/bin:/usr/bin:/bin:${WINE_BIN_DIR}"
 
 export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig"
 export PKG_CONFIG_PATH=""
+export PKG_CONFIG_SYSROOT_DIR="/"
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
 export PKG_CONFIG_FLAGS="--static"
 
-BASE_CFLAGS="-D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
+BASE_CFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
 BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32"
 SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lssp -pthread"
 
+# Очищаем флаги от предыдущих запусков в этой же сессии shell
+unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS
 # Extend Dockerfile flags; disable -fPIC, -ffast-math, -flto=auto if troubles occur
-export CFLAGS="${CFLAGS} $BASE_CFLAGS"
-export CPPFLAGS="${CPPFLAGS:-} $BASE_CPPFLAGS"
-export CXXFLAGS="${CXXFLAGS} $BASE_CFLAGS $BASE_CPPFLAGS"
-export LDFLAGS="${LDFLAGS} -pthread -lssp -lm -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+export CFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong $BASE_CFLAGS"
+export CPPFLAGS="$BASE_CPPFLAGS"
+export CXXFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong $BASE_CFLAGS"
+export LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -pthread -lssp -lm -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
 export STAGE_CFLAGS="-fno-semantic-interposition"
 export STAGE_CXXFLAGS="-fno-semantic-interposition"
