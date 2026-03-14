@@ -13,6 +13,10 @@ source "variants/${TARGET}-${VARIANT}.sh"
 for addin in ${ADDINS[*]}; do
     source "addins/${addin}.sh"
 done
+# Подгружаем сохранённые переменные компонентов из слоёв
+for f in /opt/ffbuild/config_parts/*.vars; do
+    [ -f "$f" ] && source "$f"
+done
 
 # В GitHub Actions мы уже внутри контейнера. 
 # Путь /opt/ffdest должен совпадать с тем, что указан в Dockerfile (generate.sh)
@@ -48,9 +52,6 @@ log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
 # Удаляем пустые папки или старые логи, если они остались
 find /opt/ffbuild -type d -empty -delete
 
-# Сборка FFmpeg
-chmod +x configure
-
 # We save the Target (MinGW) flags into new variables and UNSET the 
 # standard ones so the Host compiler (gcc-14) stays clean.
 
@@ -64,7 +65,7 @@ export HOST_CFLAGS="-O2 -pipe"
 export HOST_CXXFLAGS="-O2 -pipe"
 export HOST_LDFLAGS=""
 
-export PATH="/usr/bin:/bin:/usr/local/bin:$PATH" 
+export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:$PATH"
 
 log_info "Running flags diagnostic..."
 # If the length shows more characters than -O2 (3 chars), there's a hidden character injected by vars.sh or the Docker ENV.
@@ -74,6 +75,30 @@ printf 'HOST_CXXFLAGS bytes: '; echo -n "$HOST_CXXFLAGS" | xxd | head -5
 printf 'FF_CFLAGS bytes: '; echo -n "$FF_CFLAGS" | xxd | head -15
 log_info "Diagnostic: LDFLAGS content:"
 printf 'FF_LDFLAGS bytes: '; echo -n "$FF_LDFLAGS" | xxd | head -15
+
+log_info "--- DEBUG: PATH and binaries injection ---"
+
+# какие именно as и ld видны в системе первыми
+log_debug "Which 'as': $(which -a as)"
+log_debug "Which 'ld': $(which -a ld)"
+log_debug "Which 'x86_64-w64-mingw32-gcc': $(which -a x86_64-w64-mingw32-gcc)"
+
+# содержимое папок тулчейна (только имена файлов)
+log_debug "Contents of /opt/ct-ng/bin (first 20 files):"
+ls -F /opt/ct-ng/bin | head -n 20
+
+# папки, где могут прятаться "голые" (без префикса) as/ld
+# If which -a as first outputs something in /opt/ct-ng/... rather than /usr/bin/as, this is the cause of the junk at end of line error.
+# If in /opt/ct-ng/bin is a file simply as 'as' (without a prefix), then crosstool-ng created symlinks during compilation that poison PATH
+# If as --version writes "Target: x86_64-w64-mingw32", and it is called from gcc-14 (host), the build will fail
+log_debug "Search for all 'as' files in /opt/ct-ng/:"
+find /opt/ct-ng -name "as" -type f
+
+# что выдает ассемблер на команду версии
+as --version | head -n 1
+x86_64-w64-mingw32-as --version | head -n 1
+
+log_info "--- END DEBUG ---"
 
 # Unset cross-compilation flags so host compiler stays clean during configure
 unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS ASFLAGS LIBS
@@ -88,6 +113,8 @@ FINAL_CXXFLAGS=$(echo "$TARGET_CXXFLAGS $FF_CXXFLAGS" | xargs)
 FINAL_CPPFLAGS=$(echo "$TARGET_CPPFLAGS $FF_CPPFLAGS" | xargs)
 FINAL_LIBS=$(echo "$TARGET_LIBS $FF_LIBS" | xargs)
 
+chmod +x configure
+
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
     --pkg-config-flags="--static"
@@ -96,9 +123,9 @@ CONF_FLAGS=(
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
     # ffmpeg does NOT have a separate --extra-cppflags flag you stupid baka
-    --extra-cflags="$FINAL_CFLAGS"
+    --extra-cflags="$FINAL_CFLAGS $FINAL_CPPFLAGS"
     --extra-ldflags="$FINAL_LDFLAGS"
-    --extra-cxxflags="$FINAL_CXXFLAGS"
+    --extra-cxxflags="$FINAL_CXXFLAGS FINAL_CPPFLAGS"
     --extra-libs="$FINAL_LIBS"
     "${FF_CONF_ARR[@]}"
     --enable-filter=vpp_amf

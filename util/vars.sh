@@ -64,6 +64,14 @@ if [[ -n "$TARGET" && -n "$VARIANT" ]]; then
     fi
 fi
 
+# Learn to preserve layered variables
+VARS_DIR="$FFBUILD_PREFIX/config_parts"
+if [[ -d "$VARS_DIR" ]]; then
+    for f in "$VARS_DIR"/*.vars; do
+        source "$f"
+    done
+fi
+
 LICENSE_FILE="COPYING.LGPLv2.1"
 
 ADDINS=()
@@ -103,14 +111,12 @@ export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
 export PKG_CONFIG_FLAGS="--static"
 
 BASE_CFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
-BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32"
-SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lssp -pthread"
+SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt"
 
 # Очищаем флаги от предыдущих запусков в этой же сессии shell
 unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS
 # Extend Dockerfile flags; disable -fPIC, -ffast-math, -flto=auto if troubles occur
 export CFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong $BASE_CFLAGS"
-export CPPFLAGS="$BASE_CPPFLAGS"
 export CXXFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong $BASE_CFLAGS"
 export LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -pthread -lssp -lm -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
