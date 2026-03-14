@@ -29,7 +29,7 @@ on:
       cpu_tune:
         description: 'CPU mtune target (broadwell/generic/native)'
         required: false
-        default: 'broadwell'
+        default: 'broadwell -mavx2 -mfma'
       dedupe_flags:
         description: 'Deduplicate LDFLAGS/LIBS (Disable if link errors occur)'
         type: boolean
@@ -84,7 +84,7 @@ env:
   USE_WINE: ${{ github.event.inputs.use_wine || 'auto' }}
   USE_AVX512: ${{ github.event.inputs.use_avx512 || 'false' }}
   CPU_ARCH: ${{ github.event.inputs.cpu_arch || 'broadwell' }}
-  CPU_TUNE: ${{ github.event.inputs.cpu_tune || 'broadwell -mavx2 -mfma' }}
+  CPU_TUNE: ${{ github.event.inputs.cpu_tune || 'broadwell' }}
 
 jobs:
   build_all:
