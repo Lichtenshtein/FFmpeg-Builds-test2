@@ -5,7 +5,7 @@ on:
     inputs:
       ffmpeg_repo:
         description: 'FFmpeg Repository URL'
-        default: 'https://github.com/MartinEesmaa/FFmpeg.git'
+        default: 'https://github.com/MartinEesmaa/FFmpeg-VVC.git'
       ffmpeg_branch:
         description: 'FFmpeg Branch'
         default: 'master'
@@ -71,7 +71,7 @@ env:
   DOCKER_BUILDKIT: 1
   TARGET: win64
   VARIANT: nonfree
-  FFMPEG_REPO: ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg.git' }}
+  FFMPEG_REPO: ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-VVC.git' }}
   FFMPEG_BRANCH: ${{ github.event.inputs.ffmpeg_branch || 'master' }}
   # Список для удаления лишних .git (в download.sh)
   GIT_PRESERVE_LIST: "ffmpeg|glib2|x264|x265|opus|vulkan-loader|mbedtls|pcre2|avisynth|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo"
@@ -84,7 +84,7 @@ env:
   USE_WINE: ${{ github.event.inputs.use_wine || 'auto' }}
   USE_AVX512: ${{ github.event.inputs.use_avx512 || 'false' }}
   CPU_ARCH: ${{ github.event.inputs.cpu_arch || 'broadwell' }}
-  CPU_TUNE: ${{ github.event.inputs.cpu_tune || 'broadwell' }}
+  CPU_TUNE: ${{ github.event.inputs.cpu_tune || 'broadwell -mavx2 -mfma' }}
 
 jobs:
   build_all:
@@ -168,10 +168,12 @@ jobs:
       - name: Check if base rebuild needed
         id: base_check
         run: |
+          BASE_HASH=$(sha256sum images/base/Dockerfile images/base/*.sh 2>/dev/null | sha256sum | cut -c1-16)
           echo "rebuild=${{ github.event.inputs.doClean }}" >> $GITHUB_OUTPUT
-      
+          echo "base_hash=$BASE_HASH" >> $GITHUB_OUTPUT
+
       - name: Build Root Base Image
-        if: steps.base_check.outputs.rebuild == 'true'
+        if: steps.base_check.outputs.rebuild == 'true' || steps.base_check.outputs.base_hash != steps.cached_base_check.outputs.base_hash
         uses: docker/build-push-action@v7
         with:
           context: images/base
@@ -183,7 +185,14 @@ jobs:
           cache-from: type=gha,scope=base-root
           cache-to: type=gha,mode=max,scope=base-root
 
+      - name: Compute base-win64 hash
+        id: win64_hash
+        run: |
+          HASH=$(find images/base-win64 -type f | sort | xargs sha256sum | sha256sum | cut -c1-16)
+          echo "hash=$HASH" >> $GITHUB_OUTPUT
+
       - name: Build Base Win64 Image
+        if: steps.base_check.outputs.rebuild == 'true' || steps.win64_hash.outputs.hash != steps.cached_win64_hash.outputs.hash
         uses: docker/build-push-action@v7
         with:
           context: images/base-win64
@@ -232,7 +241,7 @@ jobs:
           chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
-          ./generate.sh win64 nonfree "$USE_LTO" "$SKIP_FFMPEG" "$USE_AVX512"
+          CPU_ARCH="${CPU_ARCH}" CPU_TUNE="${CPU_TUNE}" ./generate.sh win64 nonfree "$USE_LTO" "$SKIP_FFMPEG" "$USE_AVX512"
 
       - name: Verify FFmpeg Source
         run: |
@@ -246,7 +255,6 @@ jobs:
         run: head -n 30 Dockerfile
 
       - name: Force Save Cache
-        # if: success()
         if: always()
         uses: actions/cache/save@v5
         with:
@@ -263,6 +271,11 @@ jobs:
           build-args: |
             CPU_ARCH=${{ env.CPU_ARCH }}
             CPU_TUNE=${{ env.CPU_TUNE }}
+            ONLY_STAGE=${{ env.ONLY_STAGE }}
+            FFBUILD_VERBOSE=${{ env.FFBUILD_VERBOSE }}
+            USE_WINE=${{ env.USE_WINE }}
+            DEDUPE_FLAGS=${{ env.DEDUPE_FLAGS }}
+            DEBUG_NO_HASH=${{ env.DEBUG_NO_HASH }}
           push: false
           tags: ffmpeg-final:local
           cache-from: type=gha,scope=ffmpeg-build
@@ -360,6 +373,7 @@ jobs:
           fi
 
           printf '\n**🚀 Total Purged:** %d caches\n' "$grand_total_deleted" >> $GITHUB_STEP_SUMMARY
+          final_gb=$(echo "scale=2; $grand_total_size / 1073741824" | bc)
           printf '**📦 Total Space Recovered:** %s GB\n' "$final_gb" >> $GITHUB_STEP_SUMMARY
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
