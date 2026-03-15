@@ -316,6 +316,18 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" ]]; then
     export PKG_CONFIG_LIBDIR="$OLD_PKG_CONFIG_LIBDIR"
 fi
 
+# ПРИНУДИТЕЛЬНЫЙ ВЫЗОВ ФУНКЦИЙ ИЗ СКРИПТА КОМПОНЕНТА
+# Это заполнит переменные FF_ теми значениями, которые прописаны в скрипте (например, --enable-zlib)
+ffbuild_configure "$(ffbuild_configure)"
+ffbuild_cflags "$(ffbuild_cflags)"
+ffbuild_libs "$(ffbuild_libs)"
+ffbuild_cppflags "$(ffbuild_cppflags)"
+ffbuild_cxxflags "$(ffbuild_cxxflags)"
+ffbuild_ldflags "$(ffbuild_ldflags)"
+
+# Теперь делаем экспорт, чтобы printf их увидел
+export FF_CFLAGS FF_LIBS FF_CONFIGURE FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS
+
 # Если в этой строке в логе пустота, значит, проблема выше, в самом скрипте компонента (например, в 18-zlib.sh), который не вызывает ffbuild_cflags
 log_debug "Content to be saved for FF_CFLAGS: \n${FF_CFLAGS}"
 
