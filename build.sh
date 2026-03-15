@@ -34,12 +34,16 @@ VARS_DIR="$FFBUILD_PREFIX/config_parts"
 # Обнуляем FF_ переменные перед загрузкой, чтобы не было старых хвостов
 unset FF_CONFIGURE FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LIBS
 
-if [[ -d "$VARS_DIR" ]]; then
-    # Подгрузка .vars файлов в обратном порядке помогает линковщику, так как зависимости (10-, 20-) оказываются в конце строки LIBS.
-    for f in $(ls "$VARS_DIR"/*.vars | sort -r); do
-        source "$f"
-    done
-fi
+# Если файл пустой проблема в run_stage.sh или vars.sh во время сборки компонента.
+# Если файл не пустой, но в configure пусто проблема в build.sh (в команде source или dedupe)
+log_debug "Checking if .vars are not empty..."
+cat ${VARS_DIR}/18-zlib.vars
+
+# Подгрузка .vars файлов в обратном порядке помогает линковщику, так как зависимости (10-, 20-) оказываются в конце строки LIBS.
+while IFS= read -r f; do
+    log_debug "Sourcing $f"
+    source "$f"
+done < <(find "$VARS_DIR" -name "*.vars" | sort)
 
 # Определяем целевой вариант
 source "variants/${TARGET}-${VARIANT}.sh"
@@ -82,6 +86,13 @@ ccache -z
 log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
 # Удаляем пустые папки или старые логи, если они остались
 find /opt/ffbuild -type d -empty -delete
+
+log_info "Check if variables are loaded from files:"
+log_debug "Raw FF_CFLAGS: $FF_CFLAGS"
+log_debug "Raw FF_LIBS: $FF_LIBS"
+
+# экспортируем флаги перед дедупликацией
+export FF_CFLAGS FF_LIBS FF_CONFIGURE FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS
 
 # Подготовка ФИНАЛЬНЫХ флагов (Dedupe + Combine)
 # объединяем базовые флаги из vars.sh и накопленные из компонентов
