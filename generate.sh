@@ -147,7 +147,7 @@ else
     # Мы не передаем флаги через ENV для ffmpeg, а подгружаем их внутри финального RUN
     # мы видим файлы .vars, созданные в Docker-кэше
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
-    to_df "    --mount=type=cache,id=prefix-${TARGET},target=$FFBUILD_PREFIX \\"
+    to_df "    --mount=type=cache,id=prefix-${TARGET},target=${FFBUILD_PREFIX} \\"
     to_df "    --mount=from=ffmpeg_src,target=/builder/ffbuild/ffmpeg,rw \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
