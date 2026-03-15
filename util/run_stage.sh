@@ -270,7 +270,7 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
     if [[ ${#NEW_FILES[@]} -gt 0 ]]; then
         log_info "${DIRS_MARK} Installed ${#NEW_FILES[@]} files to prefix:"
         # Print the list, stripping the long DESTDIR prefix for readability
-        printf "  + %s\n" "${NEW_FILES[@]#$FFBUILD_DESTDIR}" | head -n 50
+        printf "%s\n" "${NEW_FILES[@]#$FFBUILD_DESTDIR}" | head -n 50
         [[ ${#NEW_FILES[@]} -gt 50 ]] && echo "  ... (and $((${#NEW_FILES[@]} - 50)) more)"
 
         # Sync to the PERSISTENT CACHE MOUNT (So the next script sees them)
@@ -287,7 +287,6 @@ fi
 # Сохраняем переменные в файл для слоя
 VARS_DIR="$FFBUILD_PREFIX/config_parts"
 mkdir -p "$VARS_DIR"
-log_info "################################################################"
 log_info "Saving build variables for $STAGENAME..."
 
 # Вспомогательная функция очистки мусора (внутри Docker она работает корректно)
@@ -312,7 +311,7 @@ export -f clean_val
 
 # Диагностика созданных файлов
 log_debug "Current files in $VARS_DIR:"
-ls -l "$VARS_DIR" | grep ".vars" || log_warn "No .vars files created in this stage."
+ls -1 "$VARS_DIR" | grep ".vars" || log_warn "No .vars files created in this stage."
 
 # Очистка
 trap 'echo "::endgroup::"; cd /; rm -rf "/build/$STAGENAME"' EXIT

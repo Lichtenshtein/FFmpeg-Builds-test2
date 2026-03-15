@@ -87,7 +87,7 @@ IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:lat
 # use env vars with broadwell fallback
 export CPU_ARCH="${CPU_ARCH:-broadwell}"
 export CPU_TUNE="${CPU_TUNE:-broadwell}"
-
+export FFBUILD_PREFIX="/opt/ffbuild"
 export PKG_CONFIG_PATH=""
 export PKG_CONFIG_FLAGS="--static"
 
