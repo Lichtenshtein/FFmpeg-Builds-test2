@@ -4,7 +4,7 @@ set -e
 shopt -s globstar
 cd "$(dirname "$0")"
 
-# Забираем аргументы для локального использования
+# Забираем аргументы из workflow.yaml для локального использования
 TARGET="${1:-$TARGET}"
 VARIANT="${2:-$VARIANT}"
 USE_LTO_FLAG="${3:-nolto}"
@@ -13,36 +13,23 @@ USE_AVX512_FLAG="${5:-false}"
 DEDUPE_FLAGS="${DEDUPE_FLAGS:-true}"
 USE_WINE="${USE_WINE:-auto}"
 
-# Сначала загружаем переменные (включая вариант), 
-# но перенаправляем их стандартный вывод в никуда, 
-# чтобы случайные echo не попали в поток генерации.
-# source util/vars.sh "$@" 2>/dev/null || { echo "ERROR: vars.sh failed to source (TARGET=$TARGET VARIANT=$VARIANT)" >&2; exit 1; }
-
+# Загружаем переменные
 source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
     echo "ERROR: vars.sh failed (TARGET=$TARGET VARIANT=$VARIANT)" >&2
     exit 1
 }
+
 SKIP_FFMPEG=0
-if [[ "$SKIP_FFMPEG_FLAG" == "true" || "$SKIP_FFMPEG_FLAG" == "skip_ffmpeg" ]]; then
-    SKIP_FFMPEG=1
-    log_info "${XCLAM_MARK} FFmpeg compilation will be skipped (Component test mode)."
-fi
+[[ "$SKIP_FFMPEG_FLAG" == "true" || "$SKIP_FFMPEG_FLAG" == "skip_ffmpeg" ]] && SKIP_FFMPEG=1 && log_info "${XCLAM_MARK} FFmpeg compilation will be skipped (Component test mode)."
 USE_LTO=0
-if [[ "$USE_LTO_FLAG" == "lto" ]]; then
-    USE_LTO=1
-    log_info "${XCLAM_MARK} LTO enabled!"
-fi
+[[ "$USE_LTO_FLAG" == "lto" ]] && USE_LTO=1 && log_info "${XCLAM_MARK} LTO enabled!"
 USE_AVX512=0
-if [[ "$USE_AVX512_FLAG" == "true" ]]; then
-    USE_AVX512=1
-    log_info "${XCLAM_MARK} AVX512 enabled!"
-fi
+[[ "$USE_AVX512_FLAG" == "true" ]] && USE_AVX512=1 && log_info "${XCLAM_MARK} AVX512 enabled!"
 
 export LC_ALL=C.UTF-8
 
 # Явно очищаем файл перед началом записи
 echo -n "" > Dockerfile
-
 to_df() {
     echo "$*" >> Dockerfile
 }
@@ -66,7 +53,6 @@ to_df "ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_STR=\"$
     DLL_PRESERVE_LIST=\"$DLL_PRESERVE_LIST\" \\
     GIT_PRESERVE_LIST=\"$GIT_PRESERVE_LIST\""
 
-# Копируем утилиту один раз. Это стабильная точка для кэша.
 to_df "WORKDIR /builder"
 to_df "COPY util/run_stage.sh /usr/bin/run_stage"
 to_df "RUN chmod +x /usr/bin/run_stage"
@@ -80,16 +66,8 @@ mkdir -p .cache/downloads
 mkdir -p ffbuild/config_parts
 
 active_scripts=()
-# for STAGE in "${SCRIPTS[@]}"; do
-    # if ( source util/vars.sh "$TARGET" "$VARIANT" 2>/dev/null && source "$STAGE" 2>/dev/null && ffbuild_enabled ); then
-        # active_scripts+=("$STAGE")
-    # fi
-# done
-# Faster: check for explicit ffbuild_enabled() { return 1; } pattern
 for STAGE in "${SCRIPTS[@]}"; do
-    if grep -q 'ffbuild_enabled.*return 1' "$STAGE" 2>/dev/null; then
-        continue  # explicitly disabled
-    fi
+    grep -q 'ffbuild_enabled.*return 1' "$STAGE" 2>/dev/null && continue
     active_scripts+=("$STAGE")
 done
 
@@ -154,144 +132,6 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    set -e && export _H=$LAYER_ID && . /builder/util/vars.sh \"$TARGET\" \"$VARIANT\" && run_stage /builder/$STAGE"
 done
 
-T_DIR="/tmp/ffbuild_flags"
-mkdir -p "$T_DIR"
-
-# Сборка флагов конфигурации FFmpeg
-# Временные файлы для сбора
-TMPFILES=($T_DIR/.conf $T_DIR/.cflags $T_DIR/.ldflags $T_DIR/.libs $T_DIR/.cxxflags $T_DIR/.cppflags $T_DIR/.ldexeflags)
-touch "${TMPFILES[@]}"
-log_info "Temporary file created: ${TMPFILES[*]}"
-trap 'rm -f "${TMPFILES[@]}"' EXIT
-
-# Function to clean ANSI colors and log prefixes
-# 1. Strip ANSI color codes (the \x1B parts)
-# 2. Strip your custom log tags like [INFO], [DEBUG], etc.
-# 3. Strip leading/trailing whitespace
-
-# Define these OUTSIDE the loop to prevent re-definition errors
-clean_output() {
-    sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | \
-    grep -vE "^\[(INFO|DEBUG|WARN|ERROR)\]" | \
-    tr '\n' ' ' | xargs
-}
-export -f clean_output
-
-get_from_func() {
-    local func=$1
-    local out_file=$2
-    if declare -F "$func" >/dev/null; then
-        local res
-        res=$( $func 2>&1 | clean_output )
-        [[ -n "$res" ]] && printf '%s ' "$res" >> "$out_file"
-    fi
-}
-
-collect_all_flags() {
-    local script_path="$1"
-    [[ ! -f "$script_path" ]] && return 0
-
-    unset FF_CONFIGURE FF_CFLAGS FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDEXEFLAGS FF_LIBS
-
-    # Save current flags before re-sourcing vars.sh
-    local _SAVED_CFLAGS="$CFLAGS"
-    local _SAVED_CXXFLAGS="$CXXFLAGS"
-    local _SAVED_LDFLAGS="$LDFLAGS"
-    local _SAVED_LIBS="$LIBS"
-    local _SAVED_CPPFLAGS="$CPPFLAGS"
-
-    set +e
-    # Unset accumulated flags so vars.sh starts clean
-    unset CFLAGS CXXFLAGS LDFLAGS LIBS CPPFLAGS
-    source util/vars.sh "$TARGET" "$VARIANT"
-    source "$script_path"
-    set -e
-
-    # Restore after sourcing
-    export CFLAGS="$_SAVED_CFLAGS"
-    export CXXFLAGS="$_SAVED_CXXFLAGS"
-    export LDFLAGS="$_SAVED_LDFLAGS"
-    export LIBS="$_SAVED_LIBS"
-    export CPPFLAGS="$_SAVED_CPPFLAGS"
-
-    if declare -F ffbuild_enabled >/dev/null && ! ffbuild_enabled; then
-        return 0
-    fi
-
-    [[ -n "$FF_CONFIGURE" ]]  && printf '%s ' "$(echo "$FF_CONFIGURE" | clean_output)" >> "$T_DIR/.conf"
-    [[ -n "$FF_CFLAGS" ]]     && printf '%s ' "$(echo "$FF_CFLAGS" | clean_output)" >> "$T_DIR/.cflags"
-    [[ -n "$FF_LDFLAGS" ]]    && printf '%s ' "$(echo "$FF_LDFLAGS" | clean_output)" >> "$T_DIR/.ldflags"
-    [[ -n "$FF_CXXFLAGS" ]]   && printf '%s ' "$(echo "$FF_CXXFLAGS" | clean_output)" >> "$T_DIR/.cxxflags"
-    [[ -n "$FF_CPPFLAGS" ]]   && printf '%s ' "$(echo "$FF_CPPFLAGS" | clean_output)" >> "$T_DIR/.cppflags"
-    [[ -n "$FF_LDEXEFLAGS" ]] && printf '%s ' "$(echo "$FF_LDEXEFLAGS" | clean_output)" >> "$T_DIR/.ldexeflags"
-    [[ -n "$FF_LIBS" ]]       && printf '%s ' "$(echo "$FF_LIBS" | clean_output)" >> "$T_DIR/.libs"
-
-    get_from_func "ffbuild_configure"  "$T_DIR/.conf"
-    get_from_func "ffbuild_cflags"     "$T_DIR/.cflags"
-    get_from_func "ffbuild_ldflags"    "$T_DIR/.ldflags"
-    get_from_func "ffbuild_cppflags"   "$T_DIR/.cppflags"
-    get_from_func "ffbuild_cxxflags"   "$T_DIR/.cxxflags"
-    get_from_func "ffbuild_ldexeflags" "$T_DIR/.ldexeflags"
-    get_from_func "ffbuild_libs"       "$T_DIR/.libs"
-}
-
-log_info "Collecting flags from variant and addins..."
-
-# We wrap these calls in '|| true' so even if a variant script 
-# has a syntax error, the build doesn't die here.
-V_PATH="variants/${TARGET}-${VARIANT}.sh"
-if [[ -f "$V_PATH" ]]; then
-    collect_all_flags "$V_PATH" || true
-else
-    log_error "Missing variant file: $V_PATH"
-fi
-
-for addin in ${ADDINS[*]}; do
-    collect_all_flags "addins/${addin}.sh" || true
-done
-
-log_info "Collecting flags from filtered component scripts..."
-for script in "${active_scripts[@]}"; do
-    STAGENAME="$(basename "$script" .sh)"
-    if [[ -n "$ONLY_STAGE" ]]; then
-        if ! echo "$STAGENAME" | grep -qE "$ONLY_STAGE"; then
-            continue
-        fi
-    fi
-    log_info "${SEARCH_MARK} Collecting flags: $STAGENAME"
-    collect_all_flags "$script" || true
-done
-log_debug "DEBUG: .conf content: $(cat $T_DIR/.conf)"
-
-
-# Функция для удаления дубликатов с сохранением порядка
-# Для флагов компиляции (CFLAGS) порядок менее важен, 
-# но для LDFLAGS/LIBS мы просто склеиваем строки, 
-# удаляя лишние пробелы, но сохраняя последовательность.
-dedupe() {
-    printf '%s\n' $1 | awk '!x[$0]++' | xargs
-}
-smart_dedupe() {
-    local input="$1"
-    if [[ "$DEDUPE_FLAGS" == "true" ]]; then
-        # Удаляем дубликаты, сохраняя ПЕРВОЕ вхождение (традиционный подход)
-        echo "$input" | xargs -n1 | awk '!x[$0]++' | xargs
-    else
-        # Просто склеиваем в одну строку, убирая лишние пробелы
-        echo "$input" | xargs
-    fi
-}
-
-for key in CONFIGURE CFLAGS LDFLAGS CXXFLAGS CPPFLAGS LDEXEFLAGS LIBS; do
-    [[ -f "$T_DIR/.$key" ]] || touch "$T_DIR/.$key"
-    val=$(cat "$T_DIR/.$key" 2>/dev/null | xargs)
-    if [[ -n "$val" ]]; then
-        [[ "$key" =~ LDFLAGS|LIBS ]] && func="smart_dedupe" || func="dedupe"
-        final_val=$($func "$val")
-        to_df "ENV FF_$key=\"$final_val\""
-    fi
-done
-
 if [[ $SKIP_FFMPEG -eq 1 ]]; then
     log_info "${XCLAM_MARK} Option 'skip_ffmpeg' is active. Final build stage will be omitted."
     # Создаем пустой файл в artifacts, чтобы экшн загрузки не падал
@@ -304,9 +144,12 @@ else
     to_df "COPY util /builder/util"
     to_df "COPY patches /builder/patches"
 
+    # Мы не передаем флаги через ENV для ffmpeg, а подгружаем их внутри финального RUN
+    # мы видим файлы .vars, созданные в Docker-кэше
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
+    to_df "    --mount=type=cache,id=prefix-${TARGET},target=$FFBUILD_PREFIX \\"
     to_df "    --mount=from=ffmpeg_src,target=/builder/ffbuild/ffmpeg,rw \\"
-    to_df "    ./build.sh $TARGET $VARIANT"
+    to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
 
 to_df "FROM scratch AS artifacts"

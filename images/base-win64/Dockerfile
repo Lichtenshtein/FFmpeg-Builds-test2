@@ -21,7 +21,19 @@ RUN --mount=src=ct-ng-config,dst=/.config \
 # Use login shell to ensure /etc/profile.d/toolchain.sh is sourced for every RUN
 SHELL ["/bin/bash", "-l", "-c"]
 
-# Runtime Check & Path Automation
+# определяем жесткие пути тулчейна
+ENV \
+# Путь к общим бинарникам (x86_64-w64-mingw32-gcc)
+    TOOLCHAIN_BIN="/opt/ct-ng/bin" \
+# Внутренний путь, где лежат голые as/ld (ИХ НЕЛЬЗЯ В PATH!)
+    TOOLCHAIN_INTERNAL="/opt/ct-ng/x86_64-w64-mingw32/bin" \
+    \
+    FFBUILD_TOOLCHAIN=x86_64-w64-mingw32 \
+    FFBUILD_RUST_TARGET=x86_64-pc-windows-gnu \
+    \
+    CPU_ARCH="${CPU_ARCH}" \
+    CPU_TUNE="${CPU_TUNE}"
+
 RUN set -e; \
     echo "--- Runtime check for CPU instructions support ---" && \
     if ! grep -q "avx2" /proc/cpuinfo || ! grep -q "fma" /proc/cpuinfo || \
@@ -35,59 +47,26 @@ RUN set -e; \
     echo "--- Toolchain Debug ---" && \
     find /opt/ct-ng -name "libwinpthread-*.dll" -o -name "kernel32.dll" || true && \
     \
-    echo "--- Automating Toolchain Path Discovery ---" && \
-    # Find the main compiler binary
-    REAL_GCC=$(find /opt/ct-ng -name "x86_64-w64-mingw32-gcc" -type f | head -n 1) && \
-    if [ -z "$REAL_GCC" ]; then echo "ERROR: x86_64-w64-mingw32-gcc not found!"; exit 1; fi; \
-    REAL_BIN_DIR=$(dirname "$REAL_GCC") && \
-    \
-    # Find the internal/triplet-specific bin directory
-    INTERNAL_BIN_DIR=$(find /opt/ct-ng -type d -path "*/x86_64-w64-mingw32/bin" | head -n 1) && \
-    echo "SUCCESS: Found Real Bin Dir: $REAL_BIN_DIR" && \
-    echo "SUCCESS: Found Internal Bin Dir: $INTERNAL_BIN_DIR" && \
-    \
-    # Write to profile
-    { \
-        echo "export PATH=\"/usr/local/bin:$REAL_BIN_DIR:\${WINE_BIN_DIR}:\$PATH\""; \
-        echo "export CCACHE_PATH=\"$REAL_BIN_DIR:/usr/bin\""; \
-    } > /etc/profile.d/toolchain.sh && \
-    chmod +x /etc/profile.d/toolchain.sh && \
-    echo "--- Final Profile Content ---" && \
-    cat /etc/profile.d/toolchain.sh && \
-    \
+# Настраиваем ccache маскарад вручную в /usr/local/bin
     echo "--- Configuring ccache masquerade symlinks ---" && \
-    for tool in gcc g++ gcc-ar gcc-nm gcc-ranlib; do \
+    for tool in gcc g++ cpp c++ gcc-ar gcc-nm gcc-ranlib; do \
         echo "Linking /usr/local/bin/x86_64-w64-mingw32-$tool -> ccache"; \
         ln -sf /usr/bin/ccache "/usr/local/bin/x86_64-w64-mingw32-$tool"; \
     done
-    # done; \
-    # echo "--- Remove DLLs to force static linking ---" && \
-    # find /opt/ct-ng \( -name "*.dll" -or -name "*.dll.a" \) -delete
+# done; \
+# echo "--- Remove DLLs to force static linking ---" && \
+# find /opt/ct-ng \( -name "*.dll" -or -name "*.dll.a" \) -delete
 
+# System Paths
+# /usr/local/bin contains the ccache symlinks (found first by scripts)
+# /opt/ct-ng/... contains the real compilers (found by ccache via CCACHE_PATH)
+# Потом системные пути (чтобы as/ld брались из Ubuntu для хоста)
+# Потом TOOLCHAIN_BIN (где реальные x86_64-w64-mingw32-gcc)
 ENV \
-    CPU_ARCH="${CPU_ARCH}" \
-    CPU_TUNE="${CPU_TUNE}"
-
-RUN . /etc/profile.d/toolchain.sh && echo "PATH=\"$PATH\"" >> /etc/environment
-
-# Environment Variables
-ENV \
-    # Toolchain Identifiers
-    FFBUILD_TOOLCHAIN=x86_64-w64-mingw32 \
-    FFBUILD_RUST_TARGET=x86_64-pc-windows-gnu \
-    \
-    # System Paths
-    # /usr/local/bin contains the ccache symlinks (found first by scripts)
-    # /opt/ct-ng/... contains the real compilers (found by ccache via CCACHE_PATH)
-    # 1. Сначала маскарад ccache
-    # 2. Потом префиксные бинарники (x86_64-w64-mingw32-gcc)
-    # 3. Потом системные пути
-    PATH="/usr/local/bin:/opt/ct-ng/bin:/usr/bin:/bin:/opt/wine-stable/bin:${PATH}" \
+    PATH="/usr/local/bin:/usr/bin:/bin:${TOOLCHAIN_BIN}:/opt/wine-stable/bin" \
     \
     # ccache logic: explicitly search here for the REAL compiler to avoid loops
-    CCACHE_PATH="/opt/ct-ng/bin:/usr/bin" \
-    \
-    # ccache performance settings
+    CCACHE_PATH="${TOOLCHAIN_BIN}:/usr/bin" \
     CCACHE_DIR=/root/.cache/ccache \
     CCACHE_MAXSIZE=20G \
     CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros,file_macro,pch_defines" \
@@ -107,26 +86,32 @@ ENV \
     \
     PKG_CONFIG="pkg-config" \
     PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig" \
-    \
-    # Compiler Flags
-    CHOST="x86_64-w64-mingw32" \
-    CC="x86_64-w64-mingw32-gcc" \
-    CXX="x86_64-w64-mingw32-g++" \
-    LD="x86_64-w64-mingw32-ld" \
-    AR="x86_64-w64-mingw32-gcc-ar" \
-    RANLIB="x86_64-w64-mingw32-gcc-ranlib" \
-    NM="x86_64-w64-mingw32-gcc-nm" \
-    DLLTOOL="x86_64-w64-mingw32-dlltool" \
-    WINDRES="x86_64-w64-mingw32-windres" \
-    OBJDUMP="x86_64-w64-mingw32-objdump" \
-    GENDEF="x86_64-w64-mingw32-gendef" \
-    STRIP="x86_64-w64-mingw32-strip" \
+    PKG_CONFIG_SYSROOT_DIR="/" \
+    PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0 \
+    PKG_CONFIG_ALLOW_SYSTEM_LIBS=0 \
     \
     CFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong" \
     CXXFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong" \
     LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe" \
     STAGE_CFLAGS="-fno-semantic-interposition" \
     STAGE_CXXFLAGS="-fno-semantic-interposition"
+
+ENV \
+    CHOST="x86_64-w64-mingw32" \
+    # Эти переменные заставят почти любой билд-скрипт использовать 
+    # ccache-ссылки из /usr/local/bin
+    CC="x86_64-w64-mingw32-gcc" \
+    CXX="x86_64-w64-mingw32-g++" \
+    # Для AR/NM/RANLIB используем версии с префиксом gcc-
+    AR="x86_64-w64-mingw32-gcc-ar" \
+    NM="x86_64-w64-mingw32-gcc-nm" \
+    RANLIB="x86_64-w64-mingw32-gcc-ranlib" \
+    LD="x86_64-w64-mingw32-ld" \
+    STRIP="x86_64-w64-mingw32-strip" \
+    WINDRES="x86_64-w64-mingw32-windres" \
+    DLLTOOL="x86_64-w64-mingw32-dlltool" \
+    OBJDUMP="x86_64-w64-mingw32-objdump" \
+    GENDEF="x86_64-w64-mingw32-gendef"
 
 ADD toolchain.cmake /toolchain.cmake
 ADD cross.meson /cross.meson
