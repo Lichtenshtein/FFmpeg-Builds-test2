@@ -308,6 +308,10 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" ]]; then
         pc_name=$(basename "$pc" .pc)
         # Добавляем флаги в аккумуляторы
         ffbuild_cflags "$(pkg-config --cflags "$pc_name" 2>/dev/null)"
+        ffbuild_cppflags "$(pkg-config --cppflags "$pc_name" 2>/dev/null)"
+        ffbuild_cxxflags "$(pkg-config --cxxflags "$pc_name" 2>/dev/null)"
+        ffbuild_ldflags "$(pkg-config --ldflags "$pc_name" 2>/dev/null)"
+        ffbuild_ldexeflags "$(pkg-config --ldexeflags "$pc_name" 2>/dev/null)"
         ffbuild_libs "$(pkg-config --libs --static "$pc_name" 2>/dev/null)"
     done
     export PKG_CONFIG_LIBDIR="$OLD_PKG_CONFIG_LIBDIR"
