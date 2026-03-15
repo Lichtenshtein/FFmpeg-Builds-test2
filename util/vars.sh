@@ -124,7 +124,13 @@ ffbuild_dockerdl() {
 # собирают флаги от всех скриптов в scripts.d для финального ./configure
 ffbuild_enabled()      { return 0; }
 ffbuild_depends()      { echo base; }
-ffbuild_configure()    { [[ -n "$*" ]] && export FF_CONFIGURE="$FF_CONFIGURE $*"; }
+ffbuild_configure()    { 
+    if [[ -n "$1" ]]; then
+        export FF_CONFIGURE="$FF_CONFIGURE $1"
+    else
+        return 0 
+    fi
+}
 ffbuild_cflags()       { [[ -n "$*" ]] && export FF_CFLAGS="$FF_CFLAGS $*"; }
 ffbuild_cppflags()     { [[ -n "$*" ]] && export FF_CPPFLAGS="$FF_CPPFLAGS $*"; }
 ffbuild_cxxflags()     { [[ -n "$*" ]] && export FF_CXXFLAGS="$FF_CXXFLAGS $*"; }
