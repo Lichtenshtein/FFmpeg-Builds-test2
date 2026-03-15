@@ -124,12 +124,12 @@ ffbuild_dockerdl() {
 # собирают флаги от всех скриптов в scripts.d для финального ./configure
 ffbuild_enabled()      { return 0; }
 ffbuild_depends()      { echo base; }
-ffbuild_configure()    { [[ -n "$*" ]] && export FF_CONFIGURE+="$FF_CONFIGURE $*"; }
+ffbuild_configure()    { [[ -n "$*" ]] && export FF_CONFIGURE="$FF_CONFIGURE $*"; }
 ffbuild_cflags()       { [[ -n "$*" ]] && export FF_CFLAGS="$FF_CFLAGS $*"; }
-ffbuild_cppflags()     { [[ -n "$*" ]] && export FF_CPPFLAGS+="$FF_CPPFLAGS $*"; }
-ffbuild_cxxflags()     { [[ -n "$*" ]] && export FF_CXXFLAGS+="$FF_CXXFLAGS $*"; }
-ffbuild_ldflags()      { [[ -n "$*" ]] && export FF_LDFLAGS+="$FF_LDFLAGS $*"; }
-ffbuild_ldexeflags()   { [[ -n "$*" ]] && export FF_LDEXEFLAGS+="$FF_LDEXEFLAGS $*"; }
+ffbuild_cppflags()     { [[ -n "$*" ]] && export FF_CPPFLAGS="$FF_CPPFLAGS $*"; }
+ffbuild_cxxflags()     { [[ -n "$*" ]] && export FF_CXXFLAGS="$FF_CXXFLAGS $*"; }
+ffbuild_ldflags()      { [[ -n "$*" ]] && export FF_LDFLAGS="$FF_LDFLAGS $*"; }
+ffbuild_ldexeflags()   { [[ -n "$*" ]] && export FF_LDEXEFLAGS="$FF_LDEXEFLAGS $*"; }
 ffbuild_libs()         { [[ -n "$*" ]] && export FF_LIBS="$FF_LIBS $*"; }
 ffbuild_uncflags()     { return 0; }
 ffbuild_unconfigure()  { :; } # Заглушка, если нужно будет удалять флаги
@@ -137,6 +137,9 @@ ffbuild_uncxxflags()   { return 0; }
 ffbuild_unldexeflags() { return 0; }
 ffbuild_unldflags()    { return 0; }
 ffbuild_unlibs()       { return 0; }
+
+# Экспортируем функции, чтобы они были доступны внутри run_stage и других подпроцессов
+export -f ffbuild_enabled ffbuild_depends ffbuild_configure ffbuild_cflags ffbuild_cppflags ffbuild_cxxflags ffbuild_ldflags ffbuild_ldexeflags ffbuild_libs ffbuild_unconfigure ffbuild_uncflags ffbuild_uncxxflags ffbuild_unldexeflags ffbuild_unldflags ffbuild_unlibs
 
 # 1 для подробных логов, в 0 для кратких
 # export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
