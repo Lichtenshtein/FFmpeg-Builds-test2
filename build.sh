@@ -13,8 +13,9 @@ export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
 
 # быстрый дедупликатор
 dedupe() {
-    [[ -z "$1" ]] && return
-    echo "$1" | awk 'BEGIN{RS=" "; ORS=" "} !x[$0]++' | xargs
+    local input="$*"
+    [[ -z "$input" ]] && return
+    echo "$input" | awk 'BEGIN{RS=" "; ORS=" "} !x[$0]++' | xargs
 }
 
 # Вспомогательные функции для очистки финальных строк

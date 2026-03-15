@@ -58,8 +58,7 @@ ffbuild_dockerbuild() {
           --with-default-msvcrt=ucrt \
           --enable-wildcard \
           --disable-lib32 \
-          --enable-lib64 \
-          --disable-dependency-tracking
+          --enable-lib64
     make -j$(nproc) $MAKE_V
     make install DESTDIR="/opt/mingw"
     cp -a /opt/mingw"$SYSROOT"/. "$SYSROOT/"
@@ -75,11 +74,13 @@ ffbuild_dockerbuild() {
           --disable-shared
     make -j$(nproc) $MAKE_V
     make install DESTDIR="/opt/mingw"
+    cp -a /opt/mingw"$SYSROOT"/. "$SYSROOT/"
 
-    # 4. Move everything to /opt/mingw for the Dockerfile COPY logic
-    # and also to the global prefix so scripts can see headers
-    mkdir -p "$FFBUILD_PREFIX"
-    cp -a /opt/mingw"$SYSROOT"/. "$FFBUILD_PREFIX/"
+    mkdir -p "$FFBUILD_PREFIX/include" "$FFBUILD_PREFIX/lib"
+    cp -a "$SYSROOT/include/pthread"* "$FFBUILD_PREFIX/include/"
+    cp -a "$SYSROOT/include/sched.h" "$FFBUILD_PREFIX/include/"
+    cp -a "$SYSROOT/lib/libpthread.a" "$FFBUILD_PREFIX/lib/"
+    cd ..
 
     clean_la_files
 
