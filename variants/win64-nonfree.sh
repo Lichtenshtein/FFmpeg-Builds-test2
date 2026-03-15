@@ -1,4 +1,4 @@
 #!/bin/bash
 source "$(dirname "${BASH_SOURCE}")"/win64-gpl.sh
-FF_CONFIGURE="--enable-nonfree $FF_CONFIGURE"
+ffbuild_configure "--enable-nonfree"
 LICENSE_FILE=""

@@ -1,19 +1,18 @@
 #!/bin/bash
 
+log_info "${XCLAM_MARK} LTO Addin: Enabling Link Time Optimization..."
 # Флаг для FFmpeg
-FF_CONFIGURE="--enable-lto"
+ffbuild_configure "--enable-lto"
 
-# Флаги для ВСЕХ промежуточных библиотек (scripts.d)
-# Используем переменные, которые подхватит наш новый collect_all_flags в generate.sh
-FF_CFLAGS="${FF_CFLAGS:+$FF_CFLAGS }-flto=auto"
-FF_CXXFLAGS="${FF_CXXFLAGS:+$FF_CXXFLAGS }-flto=auto"
-FF_LDFLAGS="${FF_LDFLAGS:+$FF_LDFLAGS }-flto=auto"
+export CFLAGS="${CFLAGS} -flto=auto"
+export CXXFLAGS="${CXXFLAGS} -flto=auto"
+export LDFLAGS="${LDFLAGS} -flto=auto"
 
-# Настройка инструментов тулчейна
-# LTO в GCC требует использования gcc-ar/nm/ranlib (плагинов), 
-# иначе статические библиотеки (.a) будут "битыми" для линковщика.
-if [[ -n "$FFBUILD_TOOLCHAIN" ]]; then
-    export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
-    export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
-    export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
-fi
+# добавляем в аккумуляторы FFmpeg, чтобы они попали в --extra-cflags
+ffbuild_cflags "-flto=auto"
+ffbuild_ldflags "-flto=auto"
+
+# для LTO нужны версии с плагинами)
+export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
+export NM="${FFBUILD_CROSS_PREFIX}gcc-nm"
+export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"

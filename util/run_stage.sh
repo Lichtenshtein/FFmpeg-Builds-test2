@@ -168,22 +168,23 @@ else
     log_info "No source archive required for $STAGENAME (meta-package)."
 fi
 
-# Сохраняем "чистую" базу из vars.sh (RAW флаги)
-# НЕ используем здесь экспорт в CFLAGS напрямую, чтобы не загрязнять среду
-export BASE_CFLAGS="${RAW_CFLAGS:-$CFLAGS}"
-export BASE_CXXFLAGS="${RAW_CXXFLAGS:-$CXXFLAGS}"
-export BASE_LDFLAGS="${RAW_LDFLAGS:-$LDFLAGS}"
-export BASE_CPPFLAGS="${RAW_CPPFLAGS:-$CPPFLAGS}"
-export BASE_LDEXEFLAGS="${RAW_LDEXEFLAGS:-$LDEXEFLAGS}"
-# Формируем актуальные флаги для ТЕКУЩЕЙ стадии
-# Используем локальные переменные, чтобы не раздувать глобальные при повторном входе
-export CFLAGS="$(echo $BASE_CFLAGS $STAGE_CFLAGS | xargs)"
-export CXXFLAGS="$(echo $BASE_CXXFLAGS $STAGE_CXXFLAGS | xargs)"
-export LDFLAGS="$(echo $BASE_LDFLAGS $STAGE_LDFLAGS | xargs)"
-export CPPFLAGS="$(echo ${RAW_CPPFLAGS:-$CPPFLAGS} $STAGE_CPPFLAGS | xargs)"
-export LDEXEFLAGS="$(echo ${RAW_LDEXEFLAGS:-$LDEXEFLAGS} $STAGE_LDEXEFLAGS | xargs)"
-# Диагностика (поможет увидеть мусор в логах конкретной стадии)
-log_debug "Effective CFLAGS for $STAGENAME: $CFLAGS"
+# Запоминаем "чистые" системные флаги из vars.sh ОДИН РАЗ.
+# Если они уже были сохранены ранее, не трогаем их.
+if [[ -z "$SYSTEM_RAW_CFLAGS" ]]; then
+    export SYSTEM_RAW_CFLAGS="$CFLAGS"
+    export SYSTEM_RAW_CXXFLAGS="$CXXFLAGS"
+    export SYSTEM_RAW_LDFLAGS="$LDFLAGS"
+fi
+# Формируем флаги ТОЛЬКО для этой конкретной стадии.
+# берем системную базу и добавляем к ней специфичные флаги стадии.
+# НЕ экспортируем их обратно в глобальные SYSTEM_RAW_ переменные.
+export CFLAGS="$(echo $SYSTEM_RAW_CFLAGS $STAGE_CFLAGS | xargs)"
+export CXXFLAGS="$(echo $SYSTEM_RAW_CXXFLAGS $STAGE_CXXFLAGS | xargs)"
+export LDFLAGS="$(echo $SYSTEM_RAW_LDFLAGS $STAGE_LDFLAGS | xargs)"
+# Аналогично для CPPFLAGS (часто пусты)
+export CPPFLAGS="$(echo ${CPPFLAGS} $STAGE_CPPFLAGS | xargs)"
+
+log_debug "${STAGENAME}-specific CFLAGS: $CFLAGS"
 
 # Выполняем сборку ОДИН РАЗ с проверкой статуса
 build_cmd="ffbuild_dockerbuild"
@@ -286,15 +287,33 @@ fi
 # Сохраняем переменные в файл для слоя
 VARS_DIR="$FFBUILD_PREFIX/config_parts"
 mkdir -p "$VARS_DIR"
+log_info "################################################################"
 log_info "Saving build variables for $STAGENAME..."
+
+# Вспомогательная функция очистки мусора (внутри Docker она работает корректно)
+clean_val() {
+    echo "$*" | \
+    sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | \
+    grep -vE "^\[(INFO|DEBUG|WARN|ERROR)\]" | \
+    tr '\n' ' ' | \
+    xargs
+}
+export -f clean_val
+
+# Сохраняем только те переменные, которые были реально установлены в скрипте компонента
 {
-    echo "export FF_CONFIGURE+=\" $FF_CONFIGURE\""
-    echo "export FF_CFLAGS+=\" $FF_CFLAGS\""
-    echo "export FF_CXXFLAGS+=\" $FF_CXXFLAGS\""
-    echo "export FF_CPPFLAGS=\" $FF_CPPFLAGS\""
-    echo "export FF_LDFLAGS+=\" $FF_LDFLAGS\""
-    echo "export FF_LIBS+=\" $FF_LIBS\""
+    [[ -n "$FF_CONFIGURE" ]]  && echo "export FF_CONFIGURE+=\" $(clean_val "$FF_CONFIGURE")\""
+    [[ -n "$FF_CFLAGS" ]]     && echo "export FF_CFLAGS+=\" $(clean_val "$FF_CFLAGS")\""
+    [[ -n "$FF_CXXFLAGS" ]]   && echo "export FF_CXXFLAGS+=\" $(clean_val "$FF_CXXFLAGS")\""
+    [[ -n "$FF_CPPFLAGS" ]]   && echo "export FF_CPPFLAGS+=\" $(clean_val "$FF_CPPFLAGS")\""
+    [[ -n "$FF_LDFLAGS" ]]    && echo "export FF_LDFLAGS+=\" $(clean_val "$FF_LDFLAGS")\""
+    [[ -n "$FF_LIBS" ]]       && echo "export FF_LIBS+=\" $(clean_val "$FF_LIBS")\""
 } > "$VARS_DIR/${STAGENAME}.vars"
+
+# Диагностика созданных файлов
+log_debug "Current files in $VARS_DIR:"
+ls -l "$VARS_DIR" | grep ".vars" || log_warn "No .vars files created in this stage."
 
 # Очистка
 trap 'echo "::endgroup::"; cd /; rm -rf "/build/$STAGENAME"' EXIT
+exit 0

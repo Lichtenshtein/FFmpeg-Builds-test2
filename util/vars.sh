@@ -52,9 +52,7 @@ if [[ "${BASH_SOURCE}" == "${0}" ]] || [[ $# -ge 2 ]]; then
 fi
 
 # Shift positional args only if they were passed
-if [[ $# -ge 2 ]]; then
-    shift 2
-fi
+if [[ $# -ge 2 ]]; then shift 2; fi
 
 # Validate variant file exists (only if TARGET and VARIANT are known)
 if [[ -n "$TARGET" && -n "$VARIANT" ]]; then
@@ -90,35 +88,19 @@ IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:lat
 export CPU_ARCH="${CPU_ARCH:-broadwell}"
 export CPU_TUNE="${CPU_TUNE:-broadwell}"
 
-export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
-export FFBUILD_PREFIX="/opt/ffbuild"
-
-# export PATH="/usr/local/bin:/opt/ct-ng/bin:/usr/bin:/bin:${WINE_BIN_DIR}"
-
-export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig"
 export PKG_CONFIG_PATH=""
-export PKG_CONFIG_SYSROOT_DIR="/"
-export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
-export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
 export PKG_CONFIG_FLAGS="--static"
 
 BASE_CFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
 SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt"
 
-# Очищаем флаги от предыдущих запусков в этой же сессии shell
-unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS
-# Extend Dockerfile flags; disable -fPIC, -ffast-math, -flto=auto if troubles occur
+# Флаги для стадии сборки компонентов; disable -fPIC, -ffast-math, -flto=auto if troubles occur
 export CFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong $BASE_CFLAGS"
 export CXXFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong $BASE_CFLAGS"
 export LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -lm -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
-export STAGE_CFLAGS="-fno-semantic-interposition"
-export STAGE_CXXFLAGS="-fno-semantic-interposition"
 
-ffbuild_depends() {
-    echo base
-}
-
+# Docker stage helpers
 ffbuild_dockerstage() {
     if [[ -n "$SELFCACHE" ]]; then
         to_df "RUN --mount=src=${SELF},dst=/stage.sh --mount=src=${SELFCACHE},dst=/cache.tar.zst run_stage /stage.sh"
@@ -135,65 +117,26 @@ ffbuild_dockerfinal() {
     to_df "COPY --link --from=${PREVLAYER} \$FFBUILD_PREFIX/. \$FFBUILD_PREFIX"
 }
 
-ffbuild_configure() {
-    return 0
-}
-
-ffbuild_unconfigure() {
-    return 0
-}
-
-ffbuild_cflags() {
-    return 0
-}
-
-ffbuild_uncflags() {
-    return 0
-}
-
-ffbuild_cxxflags() {
-    return 0
-}
-
-ffbuild_cppflags() {
-    return 0
-}
-
-ffbuild_uncxxflags() {
-    return 0
-}
-
-ffbuild_ldexeflags() {
-    return 0
-}
-
-ffbuild_unldexeflags() {
-    return 0
-}
-
-ffbuild_ldflags() {
-    return 0
-}
-
-ffbuild_unldflags() {
-    return 0
-}
-
-ffbuild_libs() {
-    return 0
-}
-
-ffbuild_unlibs() {
-    return 0
-}
 ffbuild_dockerdl() {
     [[ -n "$SCRIPT_REPO" ]] && default_dl .
 }
 
-ffbuild_enabled() {
-    return 0
-}
-
+# собирают флаги от всех скриптов в scripts.d для финального ./configure
+ffbuild_enabled()      { return 0; }
+ffbuild_depends()      { echo base; }
+ffbuild_configure()    { export FF_CONFIGURE+=" $*"; }
+ffbuild_cflags()       { export FF_CFLAGS+=" $*"; }
+ffbuild_cppflags()     { export FF_CPPFLAGS+=" $*"; }
+ffbuild_cxxflags()     { export FF_CXXFLAGS+=" $*"; }
+ffbuild_ldflags()      { export FF_LDFLAGS+=" $*"; }
+ffbuild_ldexeflags()   { export FF_LDEXEFLAGS+=" $*"; }
+ffbuild_libs()         { export FF_LIBS+=" $*"; }
+ffbuild_uncflags()     { return 0; }
+ffbuild_unconfigure()  { :; } # Заглушка, если нужно будет удалять флаги
+ffbuild_uncxxflags()   { return 0; }
+ffbuild_unldexeflags() { return 0; }
+ffbuild_unldflags()    { return 0; }
+ffbuild_unlibs()       { return 0; }
 
 # 1 для подробных логов, в 0 для кратких
 # export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
@@ -366,11 +309,11 @@ if [ -d "/opt/ct-ng" ]; then
             export WINEPATH="${_p_bin};${_p_lib};${_m_bin}"
         else
         # We are on the GitHub Host (generate/download phase)
-            export WINEPATH="${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib;${MINGW_BIN_PATH}"
+            export WINEPATH="winepath -w ${FFBUILD_PREFIX}/bin:${FFBUILD_PREFIX}/lib:${MINGW_BIN_PATH}"
         fi
         printf '%b WINEPATH (Windows style): %s\n' "${DIRS_MARK}" "$WINEPATH"
     else
-        export WINEPATH="${FFBUILD_PREFIX}/bin;${FFBUILD_PREFIX}/lib;${MINGW_BIN_PATH}"
+        export WINEPATH="winepath -w ${FFBUILD_PREFIX}/bin:${FFBUILD_PREFIX}/lib:${MINGW_BIN_PATH}"
     fi
 fi
 
