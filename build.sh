@@ -3,29 +3,47 @@
 set -xe
 shopt -s globstar
 cd "$(dirname "$0")"
+
 source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
     || { echo "ERROR: vars.sh failed in build.sh" >&2; exit 1; }
-# Если "Hits" всегда 0, значит, монтирование --mount=type=cache в generate.sh не пробрасывается в build.sh (проверить совпадение путей /root/.cache/ccache).
+
 ccache -s
+
+export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
+
+# быстрый дедупликатор
+dedupe() {
+    [[ -z "$1" ]] && return
+    echo "$1" | awk 'BEGIN{RS=" "; ORS=" "} !x[$0]++' | xargs
+}
+
+# Вспомогательные функции для очистки финальных строк
+smart_dedupe() {
+    local input="$*"
+    if [[ "$DEDUPE_FLAGS" == "true" ]]; then
+        # Удаляет дубликаты, сохраняя порядок, и вырезает слова-ошибки (Package not found)
+        echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error" | awk '!x[$0]++' | xargs
+    else
+        echo "$input" | grep -vE "Package|not|found|error" | xargs
+    fi
+}
+
+log_info "Loading component variables from cache..."
+VARS_DIR="$FFBUILD_PREFIX/config_parts"
+# Обнуляем FF_ переменные перед загрузкой, чтобы не было старых хвостов
+unset FF_CONFIGURE FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LIBS
+
+if [[ -d "$VARS_DIR" ]]; then
+    # Подгрузка .vars файлов в обратном порядке помогает линковщику, так как зависимости (10-, 20-) оказываются в конце строки LIBS.
+    for f in $(ls "$VARS_DIR"/*.vars | sort -r); do
+        source "$f"
+    done
+fi
 
 # Определяем целевой вариант
 source "variants/${TARGET}-${VARIANT}.sh"
 for addin in ${ADDINS[*]}; do
     source "addins/${addin}.sh"
-done
-
-# Learn to preserve layered variables
-log_info "Loading component variables..."
-VARS_DIR="$FFBUILD_PREFIX/config_parts"
-if [[ -d "$VARS_DIR" ]]; then
-    for f in "$VARS_DIR"/*.vars; do
-        source "$f"
-    done
-fi
-
-# Подгружаем сохранённые переменные компонентов из слоёв
-for f in /opt/ffbuild/config_parts/*.vars; do
-    [ -f "$f" ] && source "$f"
 done
 
 # В GitHub Actions мы уже внутри контейнера. 
@@ -44,47 +62,51 @@ pushd ffbuild/ffmpeg
 
 # Патчи теперь ищем по имени ветки, пришедшей из ENV
 if [[ -d "/builder/patches/ffmpeg/$FFMPEG_BRANCH" ]]; then
-    git reset --hard HEAD 2>/dev/null || true
+    # git reset --hard HEAD 2>/dev/null || true
     for patch in "/builder/patches/ffmpeg/$FFMPEG_BRANCH"/*.patch; do
         [[ -e "$patch" ]] || continue
-            log_info "${TARGET_MARK} APPLYING PATCH: $patch"
+        log_info "${TARGET_MARK} APPLYING PATCH: $(basename "$patch")"
         if patch -p1 < "$patch"; then
             log_info "${CHECK_MARK} SUCCESS: Patch applied."
         else
-            log_error "${CROSS_MARK} ERROR: PATCH FAILED!"
+            log_error "${CROSS_MARK} ERROR: Patch $(basename "$patch") failed to apply cleanly."
             # exit 1 # если нужно прервать сборку при ошибке
         fi
     done
 fi
 
-ccache -z # Сброс статистики для чистого лога
+# Сброс статистики для чистого лога
+ccache -z 
+
 log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
 # Удаляем пустые папки или старые логи, если они остались
 find /opt/ffbuild -type d -empty -delete
 
-# We save the Target (MinGW) flags into new variables and UNSET the 
-# standard ones so the Host compiler (gcc-14) stays clean.
+# Подготовка ФИНАЛЬНЫХ флагов (Dedupe + Combine)
+# объединяем базовые флаги из vars.sh и накопленные из компонентов
+FINAL_CONFIGURE=$(dedupe "$FF_CONFIGURE")
+FINAL_CFLAGS=$(dedupe "$CFLAGS" "$FF_CFLAGS" "$CPPFLAGS" "$FF_CPPFLAGS")
+FINAL_CXXFLAGS=$(dedupe "$CXXFLAGS" "$FF_CXXFLAGS" "$CPPFLAGS" "$FF_CPPFLAGS")
+FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$FF_LDFLAGS")
+FINAL_LDEXEFLAGS=$(dedupe "$LDEXEFLAGS" "$FF_LDEXEFLAGS")
+FINAL_LIBS=$(smart_dedupe "$LIBS" "$FF_LIBS")
 
-export TARGET_CFLAGS="$CFLAGS"
-export TARGET_LDFLAGS="$LDFLAGS"
-export TARGET_CXXFLAGS="$CXXFLAGS"
-export TARGET_CPPFLAGS="$CPPFLAGS"
-export TARGET_LIBS="$LIBS"
-
+# Настройка хостового компилятора (чтобы он не трогал флаги таргета)
 export HOST_CFLAGS="-O2 -pipe"
 export HOST_CXXFLAGS="-O2 -pipe"
 export HOST_LDFLAGS=""
 
-export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:$PATH"
+# Unset cross-compilation flags so host compiler stays clean during configure
+unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS ASFLAGS LIBS
 
 log_info "Running flags diagnostic..."
 # If the length shows more characters than -O2 (3 chars), there's a hidden character injected by vars.sh or the Docker ENV.
 log_info "Diagnostic: CFLAGS content:"
 printf 'HOST_CFLAGS bytes: '; echo -n "$HOST_CFLAGS" | xxd | head -5
 printf 'HOST_CXXFLAGS bytes: '; echo -n "$HOST_CXXFLAGS" | xxd | head -5
-printf 'FF_CFLAGS bytes: '; echo -n "$FF_CFLAGS" | xxd | head -15
+printf 'FINAL_CFLAGS bytes: '; echo -n "$FINAL_CFLAGS" | xxd | head -15
 log_info "Diagnostic: LDFLAGS content:"
-printf 'FF_LDFLAGS bytes: '; echo -n "$FF_LDFLAGS" | xxd | head -15
+printf 'FINAL_LDFLAGS bytes: '; echo -n "$FINAL_LDFLAGS" | xxd | head -15
 
 log_info "--- DEBUG: PATH and binaries injection ---"
 
@@ -110,18 +132,9 @@ x86_64-w64-mingw32-as --version | head -n 1
 
 log_info "--- END DEBUG ---"
 
-# Unset cross-compilation flags so host compiler stays clean during configure
-unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS ASFLAGS LIBS
-
+# Формируем массив флагов для configure
 read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
-read -ra FF_CONF_ARR <<< "$FF_CONFIGURE"
-
-# Удалить лишние пробелы в начале и конце
-FINAL_CFLAGS=$(echo "$TARGET_CFLAGS $FF_CFLAGS" | xargs)
-FINAL_LDFLAGS=$(echo "$TARGET_LDFLAGS $FF_LDFLAGS" | xargs)
-FINAL_CXXFLAGS=$(echo "$TARGET_CXXFLAGS $FF_CXXFLAGS" | xargs)
-FINAL_CPPFLAGS=$(echo "$TARGET_CPPFLAGS $FF_CPPFLAGS" | xargs)
-FINAL_LIBS=$(echo "$TARGET_LIBS $FF_LIBS" | xargs)
+read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 
 chmod +x configure
 
@@ -132,16 +145,17 @@ CONF_FLAGS=(
     --host-cc="gcc-14"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
-    # ffmpeg does NOT have a separate --extra-cppflags flag you stupid baka
-    --extra-cflags="$FINAL_CFLAGS $FINAL_CPPFLAGS"
+    --extra-cflags="$FINAL_CFLAGS"
+    --extra-cxxflags="$FINAL_CXXFLAGS"
     --extra-ldflags="$FINAL_LDFLAGS"
-    --extra-cxxflags="$FINAL_CXXFLAGS $FINAL_CPPFLAGS"
     --extra-libs="$FINAL_LIBS"
     "${FF_CONF_ARR[@]}"
     --enable-filter=vpp_amf
     --enable-filter=sr_amf
     --enable-runtime-cpudetect
     --enable-pic
+    --enable-static
+    --disable-shared
     --disable-audiotoolbox
     --disable-videotoolbox
     --disable-securetransport
@@ -151,10 +165,10 @@ CONF_FLAGS=(
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
 )
 
-log_info "Running FFmpeg configure..."
+log_info "Starting FFmpeg configure..."
 # Перенаправляем stderr в config.log для полноты картины
 if ! ./configure "${CONF_FLAGS[@]}" 2>>ffbuild/config.log; then
-    log_error "${CROSS_MARK} Configure failed!"
+    log_error "${CROSS_MARK} Configure failed. Check ffbuild/config.log!"
     log_debug "${LOGS_MARK} ▼ CONTENT OF ffbuild/config.log ▼"
     tail -n 300 ffbuild/config.log
     log_debug "${LOGS_MARK} ▲ END OF ffbuild/config.log ▲"
