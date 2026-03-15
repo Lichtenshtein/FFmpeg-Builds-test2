@@ -29,15 +29,8 @@ ffbuild_dockerbuild() {
         --disable-sockets
     )
 
-    # Добавляем LTO если включено в workflow
-    if [[ "$USE_LTO" == "1" ]]; then
-        log_info "LTO is enabled for $STAGENAME"
-        export CFLAGS="$CFLAGS -flto"
-        export LDFLAGS="$LDFLAGS -flto"
-    fi
-
     # Flite не понимает --enable-static, он делает её по умолчанию при --enable-shared=no
-    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -D_WIN32 -DWAIT_ANY=-1" LDFLAGS="$LDFLAGS"
+    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -DWAIT_ANY=-1" LDFLAGS="$LDFLAGS"
 
     # Предварительное создание структуры
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{lib/pkgconfig,include/flite}
@@ -81,9 +74,13 @@ EOF
 }
 
 ffbuild_configure() {
-    echo --enable-libflite
+    echo "--enable-libflite"
 }
 
 ffbuild_unconfigure() {
-    echo --disable-libflite
+    echo "--disable-libflite"
+}
+
+ffbuild_libs() {
+    echo "-lflite"
 }

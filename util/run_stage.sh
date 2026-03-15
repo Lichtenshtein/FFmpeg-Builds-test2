@@ -312,6 +312,7 @@ export -f clean_val
 # Диагностика созданных файлов
 log_debug "Current files in $VARS_DIR:"
 ls -1 "$VARS_DIR" | grep ".vars" || log_warn "No .vars files created in this stage."
+log_info "################################################################"
 
 # Очистка
 trap 'echo "::endgroup::"; cd /; rm -rf "/build/$STAGENAME"' EXIT
