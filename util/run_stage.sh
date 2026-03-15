@@ -300,19 +300,18 @@ export -f clean_val
 
 if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" ]]; then
     log_info "Auto-collecting flags from pkg-config..."
-    # Временно переключаем PKG_CONFIG_LIBDIR на свежесобранный компонент
     OLD_PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR"
     export PKG_CONFIG_LIBDIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
     for pc in "$PKG_CONFIG_LIBDIR"/*.pc; do
         [[ -e "$pc" ]] || continue
         pc_name=$(basename "$pc" .pc)
-        # Добавляем флаги в аккумуляторы
-        ffbuild_cflags "$(pkg-config --cflags "$pc_name" 2>/dev/null)"
-        ffbuild_cppflags "$(pkg-config --cppflags "$pc_name" 2>/dev/null)"
-        ffbuild_cxxflags "$(pkg-config --cxxflags "$pc_name" 2>/dev/null)"
-        ffbuild_ldflags "$(pkg-config --ldflags "$pc_name" 2>/dev/null)"
-        ffbuild_ldexeflags "$(pkg-config --ldexeflags "$pc_name" 2>/dev/null)"
-        ffbuild_libs "$(pkg-config --libs --static "$pc_name" 2>/dev/null)"
+        # Все флаги компиляции (-I, -D) забираем через --cflags
+        # Используем || true, чтобы ошибка pkg-config не убивала билд
+        local cflags_tmp=$(pkg-config --cflags "$pc_name" 2>/dev/null || true)
+        [[ -n "$cflags_tmp" ]] && ffbuild_cflags "$cflags_tmp"
+        # Все библиотеки (-l, -L) забираем через --libs --static
+        local libs_tmp=$(pkg-config --libs --static "$pc_name" 2>/dev/null || true)
+        [[ -n "$libs_tmp" ]] && ffbuild_libs "$libs_tmp"
     done
     export PKG_CONFIG_LIBDIR="$OLD_PKG_CONFIG_LIBDIR"
 fi
