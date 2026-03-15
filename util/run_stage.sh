@@ -298,8 +298,23 @@ clean_val() {
 }
 export -f clean_val
 
+if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" ]]; then
+    log_info "Auto-collecting flags from pkg-config..."
+    # Временно переключаем PKG_CONFIG_LIBDIR на свежесобранный компонент
+    OLD_PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR"
+    export PKG_CONFIG_LIBDIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    for pc in "$PKG_CONFIG_LIBDIR"/*.pc; do
+        [[ -e "$pc" ]] || continue
+        pc_name=$(basename "$pc" .pc)
+        # Добавляем флаги в аккумуляторы
+        ffbuild_cflags "$(pkg-config --cflags "$pc_name" 2>/dev/null)"
+        ffbuild_libs "$(pkg-config --libs --static "$pc_name" 2>/dev/null)"
+    done
+    export PKG_CONFIG_LIBDIR="$OLD_PKG_CONFIG_LIBDIR"
+fi
+
 # Если в этой строке в логе пустота, значит, проблема выше, в самом скрипте компонента (например, в 18-zlib.sh), который не вызывает ffbuild_cflags
-log_debug "Content to be saved for FF_CFLAGS: $FF_CFLAGS"
+log_debug "Content to be saved for FF_CFLAGS: \n${FF_CFLAGS}"
 
 # Сохраняем только те переменные, которые были реально установлены в скрипте компонента
 {
