@@ -307,10 +307,10 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" ]]; then
         pc_name=$(basename "$pc" .pc)
         # Все флаги компиляции (-I, -D) забираем через --cflags
         # Используем || true, чтобы ошибка pkg-config не убивала билд
-        local cflags_tmp=$(pkg-config --cflags "$pc_name" 2>/dev/null || true)
+        cflags_tmp=$(pkg-config --cflags "$pc_name" 2>/dev/null || true)
         [[ -n "$cflags_tmp" ]] && ffbuild_cflags "$cflags_tmp"
         # Все библиотеки (-l, -L) забираем через --libs --static
-        local libs_tmp=$(pkg-config --libs --static "$pc_name" 2>/dev/null || true)
+        libs_tmp=$(pkg-config --libs --static "$pc_name" 2>/dev/null || true)
         [[ -n "$libs_tmp" ]] && ffbuild_libs "$libs_tmp"
     done
     export PKG_CONFIG_LIBDIR="$OLD_PKG_CONFIG_LIBDIR"
