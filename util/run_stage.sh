@@ -290,23 +290,25 @@ mkdir -p "$VARS_DIR"
 log_info "Saving build variables for $STAGENAME..."
 
 # Вспомогательная функция очистки мусора (внутри Docker она работает корректно)
+# Удаляем ANSI цвета
+# Удаляем переносы строк (заменяем на пробел)
+# xargs схлопнет лишние пробелы в одну строку
 clean_val() {
-    echo "$*" | \
-    sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | \
-    grep -vE "^\[(INFO|DEBUG|WARN|ERROR)\]" | \
-    tr '\n' ' ' | \
-    xargs
+    echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | tr '\n' ' ' | xargs
 }
 export -f clean_val
 
+# Если в этой строке в логе пустота, значит, проблема выше, в самом скрипте компонента (например, в 18-zlib.sh), который не вызывает ffbuild_cflags
+log_debug "Content to be saved for FF_CFLAGS: $FF_CFLAGS"
+
 # Сохраняем только те переменные, которые были реально установлены в скрипте компонента
 {
-    [[ -n "$FF_CONFIGURE" ]]  && echo "export FF_CONFIGURE+=\" $(clean_val "$FF_CONFIGURE")\""
-    [[ -n "$FF_CFLAGS" ]]     && echo "export FF_CFLAGS+=\" $(clean_val "$FF_CFLAGS")\""
-    [[ -n "$FF_CXXFLAGS" ]]   && echo "export FF_CXXFLAGS+=\" $(clean_val "$FF_CXXFLAGS")\""
-    [[ -n "$FF_CPPFLAGS" ]]   && echo "export FF_CPPFLAGS+=\" $(clean_val "$FF_CPPFLAGS")\""
-    [[ -n "$FF_LDFLAGS" ]]    && echo "export FF_LDFLAGS+=\" $(clean_val "$FF_LDFLAGS")\""
-    [[ -n "$FF_LIBS" ]]       && echo "export FF_LIBS+=\" $(clean_val "$FF_LIBS")\""
+    [[ -n "$FF_CONFIGURE" ]]  && printf "export FF_CONFIGURE+=' %s'\n" "$(clean_val "$FF_CONFIGURE")"
+    [[ -n "$FF_CFLAGS" ]]     && printf "export FF_CFLAGS+=' %s'\n"    "$(clean_val "$FF_CFLAGS")"
+    [[ -n "$FF_CXXFLAGS" ]]   && printf "export FF_CXXFLAGS+=' %s'\n"  "$(clean_val "$FF_CXXFLAGS")"
+    [[ -n "$FF_CPPFLAGS" ]]   && printf "export FF_CPPFLAGS+=' %s'\n"  "$(clean_val "$FF_CPPFLAGS")"
+    [[ -n "$FF_LDFLAGS" ]]    && printf "export FF_LDFLAGS+=' %s'\n"   "$(clean_val "$FF_LDFLAGS")"
+    [[ -n "$FF_LIBS" ]]       && printf "export FF_LIBS+=' %s'\n"      "$(clean_val "$FF_LIBS")"
 } > "$VARS_DIR/${STAGENAME}.vars"
 
 # Диагностика созданных файлов
