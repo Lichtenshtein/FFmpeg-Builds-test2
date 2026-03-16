@@ -62,11 +62,11 @@ on:
       skip_ffmpeg:
         description: 'Skip final FFmpeg compilation (Component test only)'
         type: boolean
-        default: false
+        default: true
       debug_no_hash:
         description: 'Debug: Do not recalculate VARS_HASH (Preserve Docker cache)'
         type: boolean
-        default: false
+        default: true
 env:
   DOCKER_BUILDKIT: 1
   TARGET: win64
@@ -285,7 +285,6 @@ jobs:
             ffmpeg_src=${{ github.workspace }}/.cache/ffmpeg
           outputs: type=local,dest=artifacts/
           provenance: false
-          attestations: false 
 
       - name: Cleanup Old Caches
         if: github.event.inputs.regularClean == 'true' && !cancelled()
