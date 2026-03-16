@@ -174,7 +174,8 @@ CONF_FLAGS=(
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
 )
 
-log_debug "Checking the final CONF_FLAGS: ${CONF_FLAGS}"
+log_debug "Final FFmpeg Configure arguments:"
+printf "  %s\n" "${CONF_FLAGS[@]}"
 
 log_info "Starting FFmpeg configure..."
 # Перенаправляем stderr в config.log для полноты картины
