@@ -125,8 +125,8 @@ ffbuild_dockerdl() {
 ffbuild_enabled()      { return 0; }
 ffbuild_depends()      { echo base; }
 ffbuild_configure()    { 
-    if [[ -n "$1" ]]; then
-        export FF_CONFIGURE="$FF_CONFIGURE $1"
+    if [[ -n "$*" ]]; then
+        export FF_CONFIGURE="$FF_CONFIGURE $*"
     else
         return 0 
     fi
