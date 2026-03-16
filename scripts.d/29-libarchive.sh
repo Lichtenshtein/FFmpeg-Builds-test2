@@ -60,10 +60,10 @@ ffbuild_dockerbuild() {
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS -DARCHIVE_STATIC -DLIBXML_STATIC -DXML_STATIC" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS -DARCHIVE_STATIC -DLIBXML_STATIC -DXML_STATIC" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $ARCHIVE_DEPS" ..
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $ARCHIVE_DEPS" .. || return 1
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

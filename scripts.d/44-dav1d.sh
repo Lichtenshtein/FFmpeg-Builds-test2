@@ -40,11 +40,11 @@ ffbuild_dockerbuild() {
     export NASM="/usr/bin/nasm"
 
     # Запуск meson setup
-    meson setup "${myconf[@]}" ..
+    meson setup "${myconf[@]}" .. || return 1
 
     # Сборка и установка
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Проверяем, что пути в dav1d.pc корректны для кросс-сборки
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/dav1d.pc"

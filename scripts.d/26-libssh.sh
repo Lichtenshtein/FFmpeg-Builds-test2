@@ -30,10 +30,10 @@ ffbuild_dockerbuild() {
         -DWITH_EXAMPLES=OFF \
         -DWITH_SERVER=OFF \
         -DWITH_SFTP=ON \
-        -DWITH_ZLIB=ON ..
+        -DWITH_ZLIB=ON .. || return 1
 
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libssh.pc"
     if [[ -f "$PC_FILE" ]]; then

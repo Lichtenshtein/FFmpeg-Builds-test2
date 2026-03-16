@@ -56,7 +56,7 @@ ffbuild_dockerbuild() {
         NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
         RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib" \
         CC="${FFBUILD_TOOLCHAIN}-gcc" \
-        CXX="${FFBUILD_TOOLCHAIN}-g++"
+        CXX="${FFBUILD_TOOLCHAIN}-g++" || return 1
 
     make -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++" || {
     # Tool executables (xmllint/xmlcatalog) may fail due to libstdc++ conflict
@@ -64,8 +64,8 @@ ffbuild_dockerbuild() {
     log_warn "make failed (likely xmllint/xmlcatalog tool linking) — checking if libxml2.a exists..."
     [[ -f ".libs/libxml2.a" ]] || { log_error "libxml2.a not built!"; return 1; }
     log_warn "libxml2.a confirmed present, proceeding with install."
-}
-    make install DESTDIR="$FFBUILD_DESTDIR"
+} || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

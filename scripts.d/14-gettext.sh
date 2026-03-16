@@ -37,12 +37,12 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" \
         CFLAGS="$CFLAGS -Dasm=__asm__" \
         CPPFLAGS="$CPPFLAGS" \
-        LDFLAGS="$LDFLAGS"
+        LDFLAGS="$LDFLAGS" || return 1
 
     # Нам нужна только библиотека intl
     cd intl
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

@@ -33,11 +33,11 @@ ffbuild_dockerbuild() {
         --disable-icuio \
         --disable-extras \
         --enable-static \
-        --enable-shared
+        --enable-shared || return 1
     
     # Собираем только самое необходимое для инструментов
-    make -j$(nproc) $MAKE_V
-    make install
+    make -j$(nproc) $MAKE_V || return 1
+    make install || return 1
     cd ..
 
     # Проверка: если icupkg не собрался, дальше идти нет смысла
@@ -77,10 +77,10 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS" \
         CXXFLAGS="$CXXFLAGS" \
         LDFLAGS="$LDFLAGS" \
-        CC="$CC" CXX="$CXX" AR="$AR" RANLIB="$RANLIB"
+        CC="$CC" CXX="$CXX" AR="$AR" RANLIB="$RANLIB" || return 1
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 
