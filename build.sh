@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# set -e
-set -xe
+set -e
+# set -xe
 shopt -s globstar
 cd "$(dirname "$0")"
 
@@ -37,8 +37,10 @@ unset FF_CONFIGURE FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LIBS
 
 # Если файл пустой проблема в run_stage.sh или vars.sh во время сборки компонента.
 # Если файл не пустой, но в configure пусто проблема в build.sh (в команде source или dedupe)
-log_debug "Checking if .vars are not empty..."
-cat ${VARS_DIR}/18-zlib.vars
+log_debug "Checking if 18-zlib.vars not empty..."
+cat ${VARS_DIR}/18-zlib.vars || echo "File not found"
+log_debug "Checking 10-mingw.vars content:"
+cat ${VARS_DIR}/10-mingw.vars || echo "File not found"
 
 # Подгрузка .vars файлов в обратном порядке помогает линковщику, так как зависимости (10-, 20-) оказываются в конце строки LIBS.
 while IFS= read -r f; do
@@ -112,6 +114,7 @@ export HOST_LDFLAGS=""
 # Unset cross-compilation flags so host compiler stays clean during configure
 unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS ASFLAGS LIBS
 
+log_info "--- DEBUG: PATH and binaries injection ---"
 log_info "Running flags diagnostic..."
 # If the length shows more characters than -O2 (3 chars), there's a hidden character injected by vars.sh or the Docker ENV.
 log_info "Diagnostic: CFLAGS content:"
@@ -120,30 +123,23 @@ printf 'HOST_CXXFLAGS bytes: '; echo -n "$HOST_CXXFLAGS" | xxd | head -5
 printf 'FINAL_CFLAGS bytes: '; echo -n "$FINAL_CFLAGS" | xxd | head -15
 log_info "Diagnostic: LDFLAGS content:"
 printf 'FINAL_LDFLAGS bytes: '; echo -n "$FINAL_LDFLAGS" | xxd | head -15
-
-log_info "--- DEBUG: PATH and binaries injection ---"
-
+log_info "FINAL_LIBS: $FINAL_LIBS"
 # какие именно as и ld видны в системе первыми
 log_debug "Which 'as': $(which -a as)"
 log_debug "Which 'ld': $(which -a ld)"
 log_debug "Which 'x86_64-w64-mingw32-gcc': $(which -a x86_64-w64-mingw32-gcc)"
-
 # содержимое папок тулчейна (только имена файлов)
 log_debug "Contents of /opt/ct-ng/bin (first 20 files):"
 ls -F /opt/ct-ng/bin | head -n 20
-
 # папки, где могут прятаться "голые" (без префикса) as/ld
 # If which -a as first outputs something in /opt/ct-ng/... rather than /usr/bin/as, this is the cause of the junk at end of line error.
 # If in /opt/ct-ng/bin is a file simply as 'as' (without a prefix), then crosstool-ng created symlinks during compilation that poison PATH
 # If as --version writes "Target: x86_64-w64-mingw32", and it is called from gcc-14 (host), the build will fail
 log_debug "Search for all 'as' files in /opt/ct-ng/:"
 find /opt/ct-ng -name "as" -type f
-
 # что выдает ассемблер на команду версии
 as --version | head -n 1
 x86_64-w64-mingw32-as --version | head -n 1
-
-log_info "--- END DEBUG ---"
 
 # Формируем массив флагов для configure
 read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
@@ -177,6 +173,8 @@ CONF_FLAGS=(
     --h265-bit-depths=8,9,10,12
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
 )
+
+log_debug "Checking the final CONF_FLAGS: ${CONF_FLAGS}"
 
 log_info "Starting FFmpeg configure..."
 # Перенаправляем stderr в config.log для полноты картины

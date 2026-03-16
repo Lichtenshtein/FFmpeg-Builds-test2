@@ -298,6 +298,7 @@ clean_val() {
 }
 export -f clean_val
 
+# автосбор из pkg-config (он уже работает и наполняет переменные через export)
 if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" ]]; then
     log_info "Auto-collecting flags from pkg-config..."
     OLD_PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR"
@@ -307,42 +308,45 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" ]]; then
         pc_name=$(basename "$pc" .pc)
         # Все флаги компиляции (-I, -D) забираем через --cflags
         # Используем || true, чтобы ошибка pkg-config не убивала билд
-        cflags_tmp=$(pkg-config --cflags "$pc_name" 2>/dev/null || true)
-        [[ -n "$cflags_tmp" ]] && ffbuild_cflags "$cflags_tmp"
+        cflags_pc=$(pkg-config --cflags "$pc_name" 2>/dev/null || true)
+        [[ -n "$cflags_pc" ]] && ffbuild_cflags "$cflags_pc"
         # Все библиотеки (-l, -L) забираем через --libs --static
-        libs_tmp=$(pkg-config --libs --static "$pc_name" 2>/dev/null || true)
-        [[ -n "$libs_tmp" ]] && ffbuild_libs "$libs_tmp"
+        libs_pc=$(pkg-config --libs --static "$pc_name" 2>/dev/null || true)
+        [[ -n "$libs_pc" ]] && ffbuild_libs "$libs_pc"
     done
     export PKG_CONFIG_LIBDIR="$OLD_PKG_CONFIG_LIBDIR"
 fi
 
-# ПРИНУДИТЕЛЬНЫЙ ВЫЗОВ ФУНКЦИЙ ИЗ СКРИПТА КОМПОНЕНТА
-# Это заполнит переменные FF_ теми значениями, которые прописаны в скрипте (например, --enable-zlib)
-conf_out="$(ffbuild_configure 2>/dev/null || true)"
-[[ -n "$conf_out" ]] && ffbuild_configure "$conf_out"
+# захватываем ручные флаги (echo) из функций скрипта компонента
+# БЕЗ аргументов, чтобы получить только их echo-вывод
+log_debug "Capturing manual flags from script functions..."
 
-cflags_out="$(ffbuild_cflags 2>/dev/null || true)"
-[[ -n "$cflags_out" ]] && ffbuild_cflags "$cflags_out"
+# Захватываем вывод в локальные переменные
+raw_conf="$(ffbuild_configure 2>/dev/null || true)"
+raw_cflags="$(ffbuild_cflags 2>/dev/null || true)"
+raw_cppflags="$(ffbuild_cppflags 2>/dev/null || true)"
+raw_cxxflags="$(ffbuild_cxxflags 2>/dev/null || true)"
+raw_ldflags="$(ffbuild_ldflags 2>/dev/null || true)"
+raw_libs="$(ffbuild_libs 2>/dev/null || true)"
 
-cppflags_out="$(ffbuild_cppflags 2>/dev/null || true)"
-[[ -n "$cppflags_out" ]] && ffbuild_cppflags "$cppflags_out"
+# передаем вывод в функции из vars.sh, чтобы они СДЕЛАЛИ EXPORT
+# Если вывода нет (промежуточный скрипт), функции vars.sh просто ничего не сделают
+[[ -n "$raw_conf" ]]     && ffbuild_configure "$raw_conf"
+[[ -n "$raw_cflags" ]]   && ffbuild_cflags "$raw_cflags"
+[[ -n "$raw_cppflags" ]] && ffbuild_cppflags "$raw_cppflags"
+[[ -n "$raw_cxxflags" ]] && ffbuild_cxxflags "$raw_cxxflags"
+[[ -n "$raw_ldflags" ]]  && ffbuild_ldflags "$raw_ldflags"
+[[ -n "$raw_libs" ]]     && ffbuild_libs "$raw_libs"
 
-cxxflags_out="$(ffbuild_cxxflags 2>/dev/null || true)"
-[[ -n "$cxxflags_out" ]] && ffbuild_cxxflags "$cxxflags_out"
-
-ldflags_out="$(ffbuild_ldflags 2>/dev/null || true)"
-[[ -n "$ldflags_out" ]] && ffbuild_ldflags "$ldflags_out"
-
-libs_out="$(ffbuild_libs 2>/dev/null || true)"
-[[ -n "$libs_out" ]] && ffbuild_libs "$libs_out"
-
-# делаем экспорт, чтобы printf их увидел
-export FF_CFLAGS FF_LIBS FF_CONFIGURE FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS
+# экспорт накопленного результата для printf
+export FF_CONFIGURE FF_CFLAGS FF_CPPFLAGS FF_CXXFLAGS FF_LDFLAGS FF_LIBS
 
 # Если в этой строке в логе пустота, значит, проблема выше, в самом скрипте компонента (например, в 18-zlib.sh), который не вызывает ffbuild_cflags
-log_debug "Content to be saved for FF_CFLAGS: \n${FF_CFLAGS}"
+log_debug "FINAL FF_CONFIGURE: \n${FF_CONFIGURE}"
+log_debug "FINAL FF_CFLAGS: \n${FF_CFLAGS}"
+log_debug "FINAL FF_LIBS: \n${FF_LIBS}"
 
-# Сохраняем только те переменные, которые были реально установлены в скрипте компонента
+# Сохраняем только те переменные, которые были реально установлены в скрипте компонента (текущий блок printf)
 {
     [[ -n "$FF_CONFIGURE" ]]  && printf "export FF_CONFIGURE+=' %s'\n" "$(clean_val "$FF_CONFIGURE")"
     [[ -n "$FF_CFLAGS" ]]     && printf "export FF_CFLAGS+=' %s'\n"    "$(clean_val "$FF_CFLAGS")"
