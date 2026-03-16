@@ -282,9 +282,10 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
     log_info "################################################################"
 fi
 
-# Сохраняем переменные в файл для слоя
+# Сохраняем переменные для текущего слоя в файл 
 VARS_DIR="$FFBUILD_PREFIX/config_parts"
 mkdir -p "$VARS_DIR"
+
 log_info "Saving build variables for $STAGENAME..."
 
 # Вспомогательная функция очистки мусора (внутри Docker она работает корректно)
@@ -296,38 +297,50 @@ clean_val() {
 }
 export -f clean_val
 
+# автосбор из pkg-config (он уже работает и наполняет переменные через export)
 if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" ]]; then
+    log_info "Auto-collecting flags from pkg-config..."
+    OLD_PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR"
     export PKG_CONFIG_LIBDIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
     for pc in "$PKG_CONFIG_LIBDIR"/*.pc; do
         [[ -e "$pc" ]] || continue
         pc_name=$(basename "$pc" .pc)
-        
-        # Наполняем переменные НАПРЯМУЮ, минуя вызовы функций ffbuild_...
+        # Все флаги компиляции (-I, -D) забираем через --cflags
         _pc_cflags=$(pkg-config --cflags "$pc_name" 2>/dev/null || true)
         [[ -n "$_pc_cflags" ]] && FF_CFLAGS="$FF_CFLAGS $_pc_cflags"
-        
+        # Все библиотеки (-l, -L) забираем через --libs --static
         _pc_libs=$(pkg-config --libs --static "$pc_name" 2>/dev/null || true)
         [[ -n "$_pc_libs" ]] && FF_LIBS="$FF_LIBS $_pc_libs"
     done
+    export PKG_CONFIG_LIBDIR="$OLD_PKG_CONFIG_LIBDIR"
 fi
 
-# Захват ручных echo из скриптов
+# Захват ручных echo из функций скрипта (без subshell для ffbuild_ аккумуляторов)
 _raw_conf="$(ffbuild_configure 2>/dev/null || true)"
 [[ -n "$_raw_conf" ]] && FF_CONFIGURE="$FF_CONFIGURE $_raw_conf"
-
 _raw_cflags="$(ffbuild_cflags 2>/dev/null || true)"
 [[ -n "$_raw_cflags" ]] && FF_CFLAGS="$FF_CFLAGS $_raw_cflags"
-
+_raw_cppflags="$(ffbuild_cppflags 2>/dev/null || true)"
+[[ -n "$_raw_cppflags" ]] && FF_CPPFLAGS="$FF_CPPFLAGS $_raw_cppflags"
+_raw_cxxflags="$(ffbuild_cxxflags 2>/dev/null || true)"
+[[ -n "$_raw_cxxflags" ]] && FF_CXXFLAGS="$FF_CXXFLAGS $_raw_cxxflags"
+_raw_ldflags="$(ffbuild_ldflags 2>/dev/null || true)"
+[[ -n "$_raw_ldflags" ]] && FF_LDFLAGS="$FF_LDFLAGS $_raw_ldflags"
 _raw_libs="$(ffbuild_libs 2>/dev/null || true)"
 [[ -n "$_raw_libs" ]] && FF_LIBS="$FF_LIBS $_raw_libs"
 
+# экспорт накопленного результата для printf
+export FF_CONFIGURE FF_CFLAGS FF_LIBS FF_CXXFLAGS FF_LDFLAGS FF_CPPFLAGS
 
 # Если в этой строке в логе пустота, значит, проблема выше, в самом скрипте компонента (например, в 18-zlib.sh), который не вызывает ffbuild_cflags
-log_debug "FINAL FF_CONFIGURE: ${FF_CONFIGURE}"
-log_debug "FINAL FF_CFLAGS: ${FF_CFLAGS}"
-log_debug "FINAL FF_LIBS: ${FF_LIBS}"
+[[ -n "$_raw_conf" ]] && log_debug "FINAL FF_CONFIGURE: $FF_CONFIGURE"
+[[ -n "$_raw_cflags" ]] && log_debug "FINAL FF_CFLAGS: $FF_CFLAGS"
+[[ -n "$_raw_cppflags" ]] && log_debug "FINAL FF_CPPFLAGS: $FF_CPPFLAGS"
+[[ -n "$_raw_cxxflags" ]] && log_debug "FINAL FF_CXXFLAGS: $FF_CXXFLAGS"
+[[ -n "$_raw_ldflags" ]]  && log_debug "FINAL FF_LDFLAGS: $FF_LDFLAGS"
+[[ -n "$_raw_libs" ]] && log_debug "FINAL FF_LIBS: $FF_LIBS"
 
-# Сохраняем только те переменные, которые были реально установлены в скрипте компонента (текущий блок printf)
+# Сохраняем в .vars файл с защитой кавычками только те переменные, которые были реально установлены в скрипте компонента (текущий блок printf)
 {
     [[ -n "$FF_CONFIGURE" ]]  && printf "export FF_CONFIGURE+=' %s'\n" "$(clean_val "$FF_CONFIGURE")"
     [[ -n "$FF_CFLAGS" ]]     && printf "export FF_CFLAGS+=' %s'\n"    "$(clean_val "$FF_CFLAGS")"
