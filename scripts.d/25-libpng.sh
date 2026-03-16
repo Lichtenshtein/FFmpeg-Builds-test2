@@ -25,14 +25,19 @@ ffbuild_dockerbuild() {
         --host="$FFBUILD_TOOLCHAIN"
         --disable-shared
         --enable-static
+        --enable-hardware-optimizations
+        --enable-intel-sse
         --disable-tests
         --disable-tools
         --with-pic
+        --with-zlib-prefix="$FFBUILD_PREFIX"
     )
 
-    export CPPFLAGS="$CPPFLAGS"
+    ./configure "${myconf[@]}" \
+        CFLAGS="$CFLAGS" \
+        LDFLAGS="$LDFLAGS" \
+        LIBS="-lz"
 
-    ./configure "${myconf[@]}"
     make -j$(nproc) $MAKE_V
     make install DESTDIR="$FFBUILD_DESTDIR"
 
