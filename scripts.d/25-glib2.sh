@@ -26,7 +26,9 @@ ffbuild_dockerbuild() {
 
     # Исправляем неверный инклуд sys/resource.h в cmph
     # В MinGW его нет, заменяем проверку или просто комментируем
-    sed -i 's/#include <sys\/resource.h>/ \/* #include <sys\/resource.h> *\//' girepository/cmph/cmph_time.h
+    # Точный патч для cmph_time.h
+    # sed -i '11,13s/^/\/\/ /' girepository/cmph/cmph_time.h
+    sed -i 's/#ifndef WIN32/#if 0/' girepository/cmph/cmph_time.h
 
     # Удаляем субпроекты, которые ломают сборку
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
@@ -87,9 +89,6 @@ EOF
         -Dman-pages=disabled
         -Dselinux=disabled
         -Dsysprof=disabled
-        # Флаги компиляции
-        -Dc_args="-DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
-        -Dcpp_args="-DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
@@ -97,6 +96,8 @@ EOF
     # Передаем линковочные флаги через meson, чтобы проверки (типа наличия функций) проходили успешно
     meson setup _build . \
         "${myconf[@]}" \
+        -Dc_args="$CFLAGS -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW" \
+        -Dcpp_args="$CXXFLAGS -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW" \
         -Dc_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS $LIBS" \
         -Dcpp_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS $LIBS"
 

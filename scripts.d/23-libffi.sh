@@ -36,5 +36,15 @@ ffbuild_dockerbuild() {
         cp -af "$FFI_INC"/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
     fi
 
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libffi.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        # Гарантируем макрос статики всем, кто использует glib
+        sed -i "/^Cflags:/ s/$/ -DFFI_STATIC_BUILD/" "$PC_FILE"
+    fi
+
     get_deps_list
+}
+
+ffbuild_cppflags() {
+    echo "-DFFI_STATIC_BUILD"
 }
