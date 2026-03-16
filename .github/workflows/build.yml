@@ -383,7 +383,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ffmpeg-win64-nonfree
-          path: artifacts/*.7z
+          path: |
+            artifacts/*.7z
+            artifacts/*.txt
           if-no-files-found: error
 
       - name: Create Release
