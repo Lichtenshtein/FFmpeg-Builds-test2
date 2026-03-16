@@ -62,7 +62,7 @@ if [[ -n "$TARGET" && -n "$VARIANT" ]]; then
     fi
 fi
 
-LICENSE_FILE="COPYING.LGPLv2.1"
+export LICENSE_FILE="COPYING.LGPLv2.1"
 
 ADDINS=()
 ADDINS_STR=""

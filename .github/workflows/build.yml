@@ -382,7 +382,7 @@ jobs:
         if: ${{ github.event.inputs.skip_ffmpeg != 'true' }}
         uses: actions/upload-artifact@v7
         with:
-          name: ffmpeg-win64-nonfree
+          name: ffmpeg-win64-nonfree.zip
           path: |
             artifacts/*.7z
             artifacts/*.txt
