@@ -24,6 +24,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Исправляем неверный инклуд sys/resource.h в cmph
+    # В MinGW его нет, заменяем проверку или просто комментируем
+    sed -i 's/#include <sys\/resource.h>/ \/* #include <sys\/resource.h> *\//' girepository/cmph/cmph_time.h
+
     # Удаляем субпроекты, которые ломают сборку
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
 
@@ -49,6 +53,7 @@ nasm = '/usr/bin/nasm'
 [properties]
 have_c99_snprintf = true
 have_c99_vsnprintf = true
+has_function_printf = true
 va_val_copy = true
 int_res_1 = 4
 int_res_2 = 8
@@ -79,13 +84,12 @@ EOF
         # -Dnls=disabled
         -Dnls=enabled
         -Dglib_debug=disabled
-        -Dforce_posix_threads=true
         -Dman-pages=disabled
         -Dselinux=disabled
         -Dsysprof=disabled
         # Флаги компиляции
-        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g') -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
-        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g') -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
+        -Dc_args="-DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
+        -Dcpp_args="-DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
