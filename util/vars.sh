@@ -138,7 +138,7 @@ ffbuild_ldflags()      { [[ -n "$*" ]] && export FF_LDFLAGS="$FF_LDFLAGS $*"; }
 ffbuild_ldexeflags()   { [[ -n "$*" ]] && export FF_LDEXEFLAGS="$FF_LDEXEFLAGS $*"; }
 ffbuild_libs()         { [[ -n "$*" ]] && export FF_LIBS="$FF_LIBS $*"; }
 ffbuild_uncflags()     { return 0; }
-ffbuild_unconfigure()  { :; } # Заглушка, если нужно будет удалять флаги
+ffbuild_unconfigure()  { return 0; }
 ffbuild_uncxxflags()   { return 0; }
 ffbuild_unldexeflags() { return 0; }
 ffbuild_unldflags()    { return 0; }

@@ -318,20 +318,25 @@ fi
 
 # ПРИНУДИТЕЛЬНЫЙ ВЫЗОВ ФУНКЦИЙ ИЗ СКРИПТА КОМПОНЕНТА
 # Это заполнит переменные FF_ теми значениями, которые прописаны в скрипте (например, --enable-zlib)
-conf_out=$(ffbuild_configure 2>/dev/null || true)
+conf_out="$(ffbuild_configure 2>/dev/null || true)"
 [[ -n "$conf_out" ]] && ffbuild_configure "$conf_out"
-cflags_out=$(ffbuild_cflags 2>/dev/null || true)
+
+cflags_out="$(ffbuild_cflags 2>/dev/null || true)"
 [[ -n "$cflags_out" ]] && ffbuild_cflags "$cflags_out"
-cppflags_out=$(ffbuild_cppflags 2>/dev/null || true)
+
+cppflags_out="$(ffbuild_cppflags 2>/dev/null || true)"
 [[ -n "$cppflags_out" ]] && ffbuild_cppflags "$cppflags_out"
-cxxflags_out=$(ffbuild_cxxflags 2>/dev/null || true)
+
+cxxflags_out="$(ffbuild_cxxflags 2>/dev/null || true)"
 [[ -n "$cxxflags_out" ]] && ffbuild_cxxflags "$cxxflags_out"
-ldflags_out=$(ffbuild_ldflags 2>/dev/null || true)
+
+ldflags_out="$(ffbuild_ldflags 2>/dev/null || true)"
 [[ -n "$ldflags_out" ]] && ffbuild_ldflags "$ldflags_out"
-libs_out=$(ffbuild_libs 2>/dev/null || true)
+
+libs_out="$(ffbuild_libs 2>/dev/null || true)"
 [[ -n "$libs_out" ]] && ffbuild_libs "$libs_out"
 
-# Теперь делаем экспорт, чтобы printf их увидел
+# делаем экспорт, чтобы printf их увидел
 export FF_CFLAGS FF_LIBS FF_CONFIGURE FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS
 
 # Если в этой строке в логе пустота, значит, проблема выше, в самом скрипте компонента (например, в 18-zlib.sh), который не вызывает ffbuild_cflags
