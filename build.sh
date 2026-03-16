@@ -106,6 +106,7 @@ FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$FF_LDFLAGS")
 FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$FF_LDEXEFLAGS")
 FINAL_LIBS=$(smart_dedupe "$LIBS" "$FF_LIBS")
 
+log_debug "Deduplicated FINAL_CFLAGS: $FINAL_CFLAGS"
 log_debug "Deduplicated FINAL_LIBS: $FINAL_LIBS"
 
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
@@ -200,7 +201,7 @@ MEM_JOBS=$(( MEM_AVAILABLE / 2 ))
 [[ $MEM_JOBS -lt 1 ]] && MEM_JOBS=1
 # Выбираем финальное число потоков
 CPU_CORES=$(nproc)
-if [[ "$FF_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
+if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
     log_warn "${XCLAM_MARK} LTO detected. Forcing single-thread build."
     MAKE_JOBS=2
 else
@@ -225,7 +226,7 @@ else
     FFMPEG_VERSION=$(date +%Y-%m-%d)
 fi
 
-BUILD_NAME="ffmpeg-${FFMPEG_VERSION}-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
+BUILD_NAME="ffmpeg-git-${FFMPEG_VERSION}-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
 PKG_DIR="ffbuild/pkgroot/${BUILD_NAME}"
 
 mkdir -p "$PKG_DIR/bin" "$PKG_DIR/doc"
