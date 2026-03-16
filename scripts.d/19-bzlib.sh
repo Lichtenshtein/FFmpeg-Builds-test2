@@ -25,10 +25,10 @@ ffbuild_dockerbuild() {
         -DENABLE_DOCS=OFF \
         -DENABLE_APP=OFF \
         -DENABLE_STATIC_LIB_IS_PIC=ON \
-        -DENABLE_LIB_ONLY=ON
+        -DENABLE_LIB_ONLY=ON || return 1
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

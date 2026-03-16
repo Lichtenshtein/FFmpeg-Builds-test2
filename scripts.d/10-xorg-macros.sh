@@ -24,9 +24,9 @@ ffbuild_dockerlayer() {
 ffbuild_dockerbuild() {
     set -e
     autoreconf -i
-    ./configure --prefix="$FFBUILD_PREFIX"
-    make -j"$(nproc)" $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    ./configure --prefix="$FFBUILD_PREFIX" || return 1
+    make -j"$(nproc)" $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

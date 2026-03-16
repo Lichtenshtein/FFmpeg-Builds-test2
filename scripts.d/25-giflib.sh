@@ -22,7 +22,7 @@ ffbuild_dockerbuild() {
     sed -i "s|^AR      =.*|AR      = $AR|" Makefile
     sed -i "s|^RANLIB  =.*|RANLIB  = $RANLIB|" Makefile
 
-    make -j$(nproc) $MAKE_V libgif.a
+    make -j$(nproc) $MAKE_V libgif.a || return 1
 
     clean_la_files
 

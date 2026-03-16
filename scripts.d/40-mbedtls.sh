@@ -35,9 +35,10 @@ ffbuild_dockerbuild() {
         -DGEN_FILES=ON \
         -DUSE_STATIC_MBEDTLS_LIBRARY=ON \
         -DUSE_SHARED_MBEDTLS_LIBRARY=OFF \
-        -DINSTALL_MBEDTLS_HEADERS=ON ..
-    make -j$(nproc)
-    make install DESTDIR="$FFBUILD_DESTDIR"
+        -DINSTALL_MBEDTLS_HEADERS=ON .. || return 1
+
+    make -j$(nproc) || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     if [[ $TARGET == win* ]]; then
         echo "Libs.private: -lws2_32 -lbcrypt -lwinmm -lgdi32" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/mbedcrypto.pc

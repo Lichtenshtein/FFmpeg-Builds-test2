@@ -45,8 +45,8 @@ ffbuild_dockerbuild() {
           --with-default-win32-winnt="0x0A00" \
           --with-default-msvcrt=ucrt \
           --enable-idl \
-          --enable-sdk=all
-    make install DESTDIR="/opt/mingw"
+          --enable-sdk=all || return 1
+    make install DESTDIR="/opt/mingw" || return 1
     cp -a /opt/mingw"$SYSROOT"/. "$SYSROOT/"
     cd ..
 
@@ -58,9 +58,9 @@ ffbuild_dockerbuild() {
           --with-default-msvcrt=ucrt \
           --enable-wildcard \
           --disable-lib32 \
-          --enable-lib64
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="/opt/mingw"
+          --enable-lib64 || return 1
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="/opt/mingw" || return 1
     cp -a /opt/mingw"$SYSROOT"/. "$SYSROOT/"
     cd ..
 
@@ -71,9 +71,9 @@ ffbuild_dockerbuild() {
           --host="$FFBUILD_TOOLCHAIN" \
           --with-pic \
           --enable-static \
-          --disable-shared
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="/opt/mingw"
+          --disable-shared || return 1
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="/opt/mingw" || return 1
     cp -a /opt/mingw"$SYSROOT"/. "$SYSROOT/"
 
     mkdir -p "$FFBUILD_PREFIX/include" "$FFBUILD_PREFIX/lib"

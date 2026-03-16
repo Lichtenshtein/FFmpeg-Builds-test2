@@ -59,10 +59,10 @@ ffbuild_dockerbuild() {
     export CFLAGS="$CFLAGS -fno-strict-aliasing"
     export CXXFLAGS="$CXXFLAGS -fno-strict-aliasing"
 
-    ./Configure "${myconf[@]}" "$CFLAGS" "$LDFLAGS"
+    ./Configure "${myconf[@]}" "$CFLAGS" "$LDFLAGS" || return 1
 
-    make -j$(nproc) build_sw $MAKE_V
-    make install_sw DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) build_sw $MAKE_V || return 1
+    make install_sw DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

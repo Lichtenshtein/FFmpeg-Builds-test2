@@ -49,7 +49,7 @@ ffbuild_dockerbuild() {
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
 
-    cmake "${myconf[@]}" ..
+    cmake "${myconf[@]}" .. || return 1
 
     # Check for successful generation
     if [[ ! -f "build.ninja" ]]; then
@@ -57,8 +57,8 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     clean_la_files
 

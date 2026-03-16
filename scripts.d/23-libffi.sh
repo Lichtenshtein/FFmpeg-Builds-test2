@@ -21,10 +21,10 @@ ffbuild_dockerbuild() {
         --disable-shared \
         --disable-docs \
         --with-gcc-arch=broadwell \
-        --disable-multi-os-directory
+        --disable-multi-os-directory || return 1
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 
