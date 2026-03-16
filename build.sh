@@ -219,9 +219,9 @@ popd # Выход из ffbuild/ffmpeg
 
 # Определение версии
 if [[ -f "ffbuild/ffmpeg/VERSION" ]]; then
-    FFMPEG_VERSION=$(cat ffbuild/ffmpeg/VERSION)
+    FFMPEG_VERSION=$(cat ffbuild/ffmpeg/VERSION)-$(date +%Y-%m-%d)
 elif [[ -d "ffbuild/ffmpeg/.git" ]]; then
-    FFMPEG_VERSION=$(git -C ffbuild/ffmpeg describe --tags --always)
+    FFMPEG_VERSION=$(git -C ffbuild/ffmpeg describe --tags --always)-$(date +%Y-%m-%d)
 else
     FFMPEG_VERSION=$(date +%Y-%m-%d)
 fi
