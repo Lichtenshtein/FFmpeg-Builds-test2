@@ -45,10 +45,10 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS -DWEBP_STATIC" \
         LDFLAGS="$LDFLAGS" \
         CPPFLAGS="$CPPFLAGS -DWEBP_STATIC" \
-        LIBS="$WEBP_DEPS $LIBS"
+        LIBS="$WEBP_DEPS $LIBS" || return 1
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

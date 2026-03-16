@@ -99,10 +99,10 @@ EOF
         -Dc_args="$CFLAGS -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW" \
         -Dcpp_args="$CXXFLAGS -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW" \
         -Dc_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS $LIBS" \
-        -Dcpp_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS $LIBS"
+        -Dcpp_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS $LIBS" || return 1
 
-    ninja -C _build -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja -C _build install
+    ninja -C _build -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja -C _build install || return 1
 
     clean_la_files
 

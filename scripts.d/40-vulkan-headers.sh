@@ -23,9 +23,10 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DVULKAN_HEADERS_ENABLE_MODULE=NO \
         -DVULKAN_HEADERS_ENABLE_TESTS=NO \
-        -DVULKAN_HEADERS_ENABLE_INSTALL=YES ..
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+        -DVULKAN_HEADERS_ENABLE_INSTALL=YES .. || return 1
+
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     get_deps_list
 }

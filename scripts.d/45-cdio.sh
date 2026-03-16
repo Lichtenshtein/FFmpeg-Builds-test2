@@ -35,10 +35,10 @@ ffbuild_dockerbuild() {
         --disable-cpp-progs
     )
 
-    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=199309L"
+    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=199309L" || return 1
 
-    make -j$(nproc) $MAKE_V MAKEINFO=true
-    make install DESTDIR="$FFBUILD_DESTDIR" MAKEINFO=true
+    make -j$(nproc) $MAKE_V MAKEINFO=true || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" MAKEINFO=true || return 1
 
     clean_la_files
 

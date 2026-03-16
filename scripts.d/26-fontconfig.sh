@@ -58,10 +58,10 @@ ffbuild_dockerbuild() {
         -Dc_args="$CFLAGS" \
         -Dcpp_args="$CPPFLAGS" \
         -Dc_link_args="$LDFLAGS" \
-        -Dcpp_link_args="$LDFLAGS"
+        -Dcpp_link_args="$LDFLAGS" || return 1
 
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     clean_la_files
 
