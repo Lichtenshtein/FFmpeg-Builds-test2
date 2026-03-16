@@ -318,12 +318,18 @@ fi
 
 # ПРИНУДИТЕЛЬНЫЙ ВЫЗОВ ФУНКЦИЙ ИЗ СКРИПТА КОМПОНЕНТА
 # Это заполнит переменные FF_ теми значениями, которые прописаны в скрипте (например, --enable-zlib)
-ffbuild_configure "$(ffbuild_configure)"
-ffbuild_cflags "$(ffbuild_cflags)"
-ffbuild_libs "$(ffbuild_libs)"
-ffbuild_cppflags "$(ffbuild_cppflags)"
-ffbuild_cxxflags "$(ffbuild_cxxflags)"
-ffbuild_ldflags "$(ffbuild_ldflags)"
+conf_out=$(ffbuild_configure 2>/dev/null || true)
+[[ -n "$conf_out" ]] && ffbuild_configure "$conf_out"
+cflags_out=$(ffbuild_cflags 2>/dev/null || true)
+[[ -n "$cflags_out" ]] && ffbuild_cflags "$cflags_out"
+cppflags_out=$(ffbuild_cppflags 2>/dev/null || true)
+[[ -n "$cppflags_out" ]] && ffbuild_cppflags "$cppflags_out"
+cxxflags_out=$(ffbuild_cxxflags 2>/dev/null || true)
+[[ -n "$cxxflags_out" ]] && ffbuild_cxxflags "$cxxflags_out"
+ldflags_out=$(ffbuild_ldflags 2>/dev/null || true)
+[[ -n "$ldflags_out" ]] && ffbuild_ldflags "$ldflags_out"
+libs_out=$(ffbuild_libs 2>/dev/null || true)
+[[ -n "$libs_out" ]] && ffbuild_libs "$libs_out"
 
 # Теперь делаем экспорт, чтобы printf их увидел
 export FF_CFLAGS FF_LIBS FF_CONFIGURE FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS
