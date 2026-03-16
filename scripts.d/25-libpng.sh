@@ -35,6 +35,7 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}" \
         CFLAGS="$CFLAGS" \
+        CPPFLAGS="$CPPFLAGS" \
         LDFLAGS="$LDFLAGS" \
         LIBS="-lz"
 
