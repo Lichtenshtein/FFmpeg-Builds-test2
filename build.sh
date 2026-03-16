@@ -16,17 +16,19 @@ export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
 dedupe() {
     local input="$*"
     [[ -z "$input" ]] && return
-    echo "$input" | awk 'BEGIN{RS=" "; ORS=" "} !x[$0]++' | xargs
+    # Переводим в одну строку, удаляем мусор
+    local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
+    # Удаляем дубликаты, сохраняя ПЕРВОЕ вхождение
+    echo "$clean" | awk '!x[$0]++' | xargs
 }
-
-# Вспомогательные функции для очистки финальных строк
+# for ldflags and libs
 smart_dedupe() {
     local input="$*"
+    local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
     if [[ "$DEDUPE_FLAGS" == "true" ]]; then
-        # Удаляет дубликаты, сохраняя порядок, и вырезает слова-ошибки (Package not found)
-        echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error" | awk '!x[$0]++' | xargs
+        echo "$clean" | awk '!x[$0]++' | xargs
     else
-        echo "$input" | grep -vE "Package|not|found|error" | xargs
+        echo "$clean" | xargs
     fi
 }
 
@@ -39,8 +41,6 @@ unset FF_CONFIGURE FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LIBS
 # Если файл не пустой, но в configure пусто проблема в build.sh (в команде source или dedupe)
 log_debug "Checking if 18-zlib.vars not empty..."
 cat ${VARS_DIR}/18-zlib.vars || echo "File not found"
-log_debug "Checking 10-mingw.vars content:"
-cat ${VARS_DIR}/10-mingw.vars || echo "File not found"
 
 # Подгрузка .vars файлов в обратном порядке помогает линковщику, так как зависимости (10-, 20-) оказываются в конце строки LIBS.
 while IFS= read -r f; do
@@ -103,8 +103,10 @@ FINAL_CONFIGURE=$(dedupe "$FF_CONFIGURE")
 FINAL_CFLAGS=$(dedupe "$CFLAGS" "$FF_CFLAGS" "$CPPFLAGS" "$FF_CPPFLAGS")
 FINAL_CXXFLAGS=$(dedupe "$CXXFLAGS" "$FF_CXXFLAGS" "$CPPFLAGS" "$FF_CPPFLAGS")
 FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$FF_LDFLAGS")
-FINAL_LDEXEFLAGS=$(dedupe "$LDEXEFLAGS" "$FF_LDEXEFLAGS")
+FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$FF_LDEXEFLAGS")
 FINAL_LIBS=$(smart_dedupe "$LIBS" "$FF_LIBS")
+
+log_debug "Deduplicated FINAL_LIBS: $FINAL_LIBS"
 
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
 export HOST_CFLAGS="-O2 -pipe"
@@ -123,11 +125,10 @@ printf 'HOST_CXXFLAGS bytes: '; echo -n "$HOST_CXXFLAGS" | xxd | head -5
 printf 'FINAL_CFLAGS bytes: '; echo -n "$FINAL_CFLAGS" | xxd | head -15
 log_info "Diagnostic: LDFLAGS content:"
 printf 'FINAL_LDFLAGS bytes: '; echo -n "$FINAL_LDFLAGS" | xxd | head -15
-log_info "FINAL_LIBS: $FINAL_LIBS"
 # какие именно as и ld видны в системе первыми
-log_debug "Which 'as': $(which -a as)"
-log_debug "Which 'ld': $(which -a ld)"
-log_debug "Which 'x86_64-w64-mingw32-gcc': $(which -a x86_64-w64-mingw32-gcc)"
+log_debug "Which 'as': \n$(which -a as)"
+log_debug "Which 'ld': \n$(which -a ld)"
+log_debug "Which 'x86_64-w64-mingw32-gcc': \n$(which -a x86_64-w64-mingw32-gcc)"
 # содержимое папок тулчейна (только имена файлов)
 log_debug "Contents of /opt/ct-ng/bin (first 20 files):"
 ls -F /opt/ct-ng/bin | head -n 20
@@ -179,11 +180,13 @@ printf "  %s\n" "${CONF_FLAGS[@]}"
 
 log_info "Starting FFmpeg configure..."
 # Перенаправляем stderr в config.log для полноты картины
-if ! ./configure "${CONF_FLAGS[@]}" 2>>ffbuild/config.log; then
-    log_error "${CROSS_MARK} Configure failed. Check ffbuild/config.log!"
+if ! ./configure "${CONF_FLAGS[@]}" 2>ffbuild/config.log; then
+    log_error "${CROSS_MARK} Configure failed!"
     log_debug "${LOGS_MARK} ▼ CONTENT OF ffbuild/config.log ▼"
     tail -n 300 ffbuild/config.log
     log_debug "${LOGS_MARK} ▲ END OF ffbuild/config.log ▲"
+    # Копируем лог ошибки даже если билд упал
+    cp ffbuild/config.log "${FINAL_DEST}/config.log"
     exit 1
 fi
 
@@ -199,7 +202,7 @@ MEM_JOBS=$(( MEM_AVAILABLE / 2 ))
 CPU_CORES=$(nproc)
 if [[ "$FF_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
     log_warn "${XCLAM_MARK} LTO detected. Forcing single-thread build."
-    MAKE_JOBS=1
+    MAKE_JOBS=2
 else
     # Берем минимум между количеством ядер и лимитом по памяти
     MAKE_JOBS=$(( CPU_CORES < MEM_JOBS ? CPU_CORES : MEM_JOBS ))
@@ -211,30 +214,34 @@ make install
 make install-doc || log_warn "install-doc failed, but proceeding."
 ccache -s
 
-# Подготовка к упаковке (ОЧИСТКА МУСОРА)
-popd
-VERSION_SCRIPT="./ffbuild/ffmpeg/ffbuild/version.sh"
-if [[ ! -x "$VERSION_SCRIPT" ]]; then
-    log_warn "version.sh not found, using 'unknown' as version"
-    FFMPEG_VERSION="unknown"
-else
-    FFMPEG_VERSION="$("$VERSION_SCRIPT" ffbuild/ffmpeg)"
-fi
-BUILD_NAME="ffmpeg_vvceasy-${FFMPEG_VERSION}-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
-PKG_DIR="ffbuild/pkgroot/$BUILD_NAME"
+popd # Выход из ffbuild/ffmpeg
 
-mkdir -p "$PKG_DIR"
+# Определение версии
+if [[ -f "ffbuild/ffmpeg/VERSION" ]]; then
+    FFMPEG_VERSION=$(cat ffbuild/ffmpeg/VERSION)
+elif [[ -d "ffbuild/ffmpeg/.git" ]]; then
+    FFMPEG_VERSION=$(git -C ffbuild/ffmpeg describe --tags --always)
+else
+    FFMPEG_VERSION=$(date +%Y-%m-%d)
+fi
+
+BUILD_NAME="ffmpeg-${FFMPEG_VERSION}-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
+PKG_DIR="ffbuild/pkgroot/${BUILD_NAME}"
+
+mkdir -p "$PKG_DIR/bin" "$PKG_DIR/doc"
+
 if ! declare -F package_variant >/dev/null; then
     log_error "package_variant not defined - variant script missing or broken"
     exit 1
 fi
 package_variant "$FFBUILD_DESTPREFIX" "$PKG_DIR"
 
-# Копируем лицензию
+# Копируем лицензию ПЕРЕД упаковкой
+log_info "Adding license and logs to package..."
 [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"
+cp ffbuild/ffmpeg/ffbuild/config.log "$PKG_DIR/config.log"
 
 log_info "${SYNC_MARK} Collecting external DLLs for AI support..."
-mkdir -p "$PKG_DIR/bin"
 # Копируем все DLL из нашего сборочного префикса в папку с бинарниками
 # Это подхватит DLL от OpenVINO, TBB, TensorFlow, LibTorch и других
 log_info "Copying OpenVINO plugins..."
@@ -254,19 +261,16 @@ ls -lh "$PKG_DIR/bin/"
 # /builder/util/download_models.sh "$MODELS_FINAL_DIR"
 
 # Стриппинг бинарников (удаление отладочных символов)
-pushd "$PKG_DIR/bin"
-for bin in *.exe; do
-    if [[ -f "$bin" ]]; then
-        ${FFBUILD_CROSS_PREFIX}strip --strip-unneeded "$bin" || log_warn "strip failed for $bin, continuing."
-    fi
-done
-popd
+log_info "Stripping binaries..."
+find "$PKG_DIR/bin" -name "*.exe" -exec ${FFBUILD_CROSS_PREFIX}strip --strip-unneeded {} \;
 
-# Создание архива
+# Упаковка
 OUTPUT_FNAME="${BUILD_NAME}.7z"
-
-# Упаковываем только финальный результат, игнорируя 5ГБ объектных файлов
-7z a -mx7 -mmt=on "${FINAL_DEST}/${OUTPUT_FNAME}" "./$PKG_DIR"
+log_info "Creating archive: ${OUTPUT_FNAME}"
+# Заходим в pkgroot, чтобы внутри архива не было лишних вложенных папок
+pushd ffbuild/pkgroot
+7z a -mx7 -mmt=on "${FINAL_DEST}/${OUTPUT_FNAME}" "./${BUILD_NAME}/*"
+popd
 
 # Генерация метаданных для GitHub Actions
 if [[ -n "$GITHUB_ACTIONS" ]]; then
