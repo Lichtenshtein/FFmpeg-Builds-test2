@@ -285,6 +285,7 @@ jobs:
             ffmpeg_src=${{ github.workspace }}/.cache/ffmpeg
           outputs: type=local,dest=artifacts/
           provenance: false
+          attestations: false 
 
       - name: Cleanup Old Caches
         if: github.event.inputs.regularClean == 'true' && !cancelled()
@@ -386,6 +387,7 @@ jobs:
           path: |
             artifacts/*.7z
             artifacts/*.txt
+            artifacts/config.log
           if-no-files-found: error
 
       - name: Create Release
