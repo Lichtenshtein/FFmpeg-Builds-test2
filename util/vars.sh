@@ -90,15 +90,16 @@ export CPU_TUNE="${CPU_TUNE:-broadwell}"
 export FFBUILD_PREFIX="/opt/ffbuild"
 export PKG_CONFIG_PATH=""
 export PKG_CONFIG_FLAGS="--static"
+export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig: /opt/ffbuild/lib64/pkgconfig"
 
 BASE_CFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -mms-bitfields"
-SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt"
+SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lssp"
 
 # Флаги для стадии сборки компонентов; disable -fPIC, -ffast-math, -flto=auto if troubles occur
 export CFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong $BASE_CFLAGS"
 export CPPFLAGS="-I/opt/ffbuild/include"
 export CXXFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong $BASE_CFLAGS"
-export LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -lm -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+export LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -lssp -pipe -lm -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
 
 # Docker stage helpers
