@@ -29,10 +29,11 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DBUILD_APP=OFF \
         -DENABLE_NATIVE=OFF \
-        -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF) \
-        -DBUILD_SHARED_LIBS=OFF ..
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+        -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF ) \
+        -DBUILD_SHARED_LIBS=OFF .. || return 1
+
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     get_deps_list
 }

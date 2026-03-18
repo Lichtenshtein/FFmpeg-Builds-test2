@@ -51,9 +51,9 @@ ffbuild_dockerbuild() {
         -DGLIB2_INTERNAL_INCLUDE_DIR="$FFBUILD_PREFIX/lib/glib-2.0/include"
     )
 
-    cmake "${mycmake[@]}" ..
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    cmake "${mycmake[@]}" .. || return 1
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Исправляем .pc файл
     local pc_file="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lensfun.pc"

@@ -31,9 +31,10 @@ ffbuild_dockerbuild() {
         -DVN_SDK_SYSTEM_INSTALL=ON \
         -DVN_SDK_PIPELINE_LEGACY=OFF \
         -DVN_SDK_PIPELINE_VULKAN=OFF \
-        -DPC_LIBS_PRIVATE="Libs.private: -lstdc++" ..
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+        -DPC_LIBS_PRIVATE="Libs.private: -lstdc++" .. || return 1
+
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     rm -rf "$FFBUILD_DESTPREFIX"/share
 

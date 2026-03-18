@@ -42,7 +42,7 @@ ffbuild_dockerbuild() {
     export "LDFLAGS_${FFBUILD_RUST_TARGET//-/_}"="${LDFLAGS}"
     unset AR RANLIB NM CC CXX LD CFLAGS CXXFLAGS LDFLAGS
 
-    cargo cinstall -v "${myconf[@]}"
+    cargo cinstall -v "${myconf[@]}" || return 1
 
     chmod 644 "${FFBUILD_DESTPREFIX}"/lib/*rav1e*
 

@@ -14,6 +14,10 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    export CFLAGS="$CFLAGS"
+    export CXXFLAGS="$CXXFLAGS"
+
     local myconf=(
         --disable-shared
         --enable-static
@@ -37,16 +41,13 @@ ffbuild_dockerbuild() {
 
     if [[ $TARGET == win64 ]]; then
         myconf+=( --target=x86_64-win64-gcc )
-        # ѕринудительно передаем флаги Broadwell через окружение дл€ configure
-        export CFLAGS="$CFLAGS -march=broadwell -mtune=broadwell"
-        export CXXFLAGS="$CXXFLAGS -march=broadwell -mtune=broadwell"
     fi
 
     # libvpx не любит стандартный CROSS, ему нужен конкретный префикс
-    CROSS="$FFBUILD_CROSS_PREFIX" ./configure "${myconf[@]}"
+    CROSS="$FFBUILD_CROSS_PREFIX" ./configure "${myconf[@]}" || return 1
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

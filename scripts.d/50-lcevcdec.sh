@@ -24,10 +24,10 @@ ffbuild_dockerbuild() {
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DBUILD_SHARED_LIBS=OFF \
         -DVN_SDK_FFMPEG_LIBS_PACKAGE="" \
-        -DVN_SDK_{JSON_CONFIG,EXECUTABLES,UNIT_TESTS,SAMPLE_SOURCE}=OFF .. -G Ninja
+        -DVN_SDK_{JSON_CONFIG,EXECUTABLES,UNIT_TESTS,SAMPLE_SOURCE}=OFF .. -G Ninja || return 1
 
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     echo "prefix=$FFBUILD_DESTPREFIX" > lcevc_dec.pc
     echo "libdir=\${exec_prefix}/lib" >> lcevc_dec.pc

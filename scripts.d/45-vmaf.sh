@@ -31,7 +31,7 @@ ffbuild_dockerbuild() {
         -Dbuilt_in_models=true
         -Denable_tests=false
         -Denable_docs=false
-        -Denable_avx512==$([ "${USE_AVX512}" == "1" ] && echo true || echo false)
+        -Denable_avx512=$([ "${USE_AVX512}" == "1" ] && echo true || echo false )
         -Denable_float=true
         -Dbenchmarking=false
     )
@@ -45,9 +45,9 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    meson setup "${myconf[@]}" ../libvmaf
-    ninja -j"$(nproc)" $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    meson setup "${myconf[@]}" ../libvmaf || return 1
+    ninja -j"$(nproc)" $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # sed -i 's/Libs.private:/Libs.private: -lstdc++/; t; $ a Libs.private: -lstdc++' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libvmaf.pc
     sed -i 's/Libs.private:/Libs.private: -lstdc++/; t; $ a Libs.private: -lstdc++' "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libvmaf.pc"

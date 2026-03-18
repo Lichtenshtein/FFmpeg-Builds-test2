@@ -31,10 +31,10 @@ ffbuild_dockerbuild() {
         -DUNIX=OFF \
         -DBUILD_TESTING=OFF \
         -DBUILD_APPS=OFF \
-        ..
+        .. || return 1
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Check library names - SVT-JPEG-XS might use different library names
     ls $FFBUILD_DESTPREFIX/lib/libSvt*

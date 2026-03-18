@@ -50,7 +50,7 @@ ffbuild_dockerbuild() {
         # -DBUILD_DEC=OFF
         # -DBUILD_ENC=ON
         -DBUILD_APPS=OFF 
-        -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
+        -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF )
         -DENABLE_NASM=ON
     )
     # Исправляем проблему с пустой версией в pkg-config
@@ -63,10 +63,10 @@ ffbuild_dockerbuild() {
         myconf+=( -DSVT_AV1_LTO=OFF )
     fi
 
-    cmake "${myconf[@]}" ..
+    cmake "${myconf[@]}" .. || return 1
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # ФИКС pkg-config
     # SVT-AV1 иногда генерирует SvtAv1Enc.pc вместо svtav1.pc

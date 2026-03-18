@@ -28,10 +28,10 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=OFF \
         -DBUILD_TESTING=OFF \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DCMAKE_POSITION_INDEPENDENT_CODE=ON ..
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON .. || return 1
 
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     get_deps_list
 }

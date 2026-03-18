@@ -38,10 +38,10 @@ ffbuild_dockerbuild() {
         -DARIBCC_BUILD_TESTS=OFF \
         -DBUILD_SHARED_LIBS=OFF \
         -DARIBCC_USE_FREETYPE=ON \
-        -DARIBCC_USE_EMBEDDED_FREETYPE=OFF ..
+        -DARIBCC_USE_EMBEDDED_FREETYPE=OFF .. || return 1
 
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     echo "Libs.private: -lstdc++ -lcrypto" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libaribcaption.pc
 

@@ -168,17 +168,17 @@ fi
 
 # Запоминаем "чистые" системные флаги из vars.sh ОДИН РАЗ.
 # Если они уже были сохранены ранее, не трогаем их.
-if [[ -z "$SYSTEM_RAW_CFLAGS" ]]; then
-    export SYSTEM_RAW_CFLAGS="$CFLAGS"
-    export SYSTEM_RAW_CXXFLAGS="$CXXFLAGS"
-    export SYSTEM_RAW_LDFLAGS="$LDFLAGS"
+if [[ -z "$RAW_CFLAGS" ]]; then
+    export RAW_CFLAGS="$CFLAGS"
+    export RAW_CXXFLAGS="$CXXFLAGS"
+    export RAW_LDFLAGS="$LDFLAGS"
 fi
 # Формируем флаги ТОЛЬКО для этой конкретной стадии.
 # берем системную базу и добавляем к ней специфичные флаги стадии.
-# НЕ экспортируем их обратно в глобальные SYSTEM_RAW_ переменные.
-export CFLAGS="$(echo $SYSTEM_RAW_CFLAGS $STAGE_CFLAGS | xargs)"
-export CXXFLAGS="$(echo $SYSTEM_RAW_CXXFLAGS $STAGE_CXXFLAGS | xargs)"
-export LDFLAGS="$(echo $SYSTEM_RAW_LDFLAGS $STAGE_LDFLAGS | xargs)"
+# НЕ экспортируем их обратно в глобальные RAW_ переменные.
+export CFLAGS="$(echo $RAW_CFLAGS $STAGE_CFLAGS | xargs)"
+export CXXFLAGS="$(echo $RAW_CXXFLAGS $STAGE_CXXFLAGS | xargs)"
+export LDFLAGS="$(echo $RAW_LDFLAGS $STAGE_LDFLAGS | xargs)"
 # Аналогично для CPPFLAGS (часто пусты)
 export CPPFLAGS="$(echo ${CPPFLAGS} $STAGE_CPPFLAGS | xargs)"
 

@@ -78,10 +78,10 @@ ffbuild_dockerbuild() {
     # Используем -Wl,--allow-multiple-definition, если Pango и Cairo конфликтуют
     cmake "${myconf[@]}" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS -Wno-narrowing" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $TESS_DEPS $WIN_SYS $LIBS" ..
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $TESS_DEPS $WIN_SYS $LIBS" .. || return 1
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

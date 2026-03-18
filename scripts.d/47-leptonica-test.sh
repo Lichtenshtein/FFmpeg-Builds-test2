@@ -70,14 +70,14 @@ ffbuild_dockerbuild() {
     # Принудительно устанавливаем C_FLAGS, чтобы избежать __imp_
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $LEPT_DEPS $WIN_SYS $LIBS" ..
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $LEPT_DEPS $WIN_SYS $LIBS" .. || return 1
 
     # Исправляем расширение в сгенерированных файлах сборки, если CMake сошел с ума
     find . -name "build.make" -exec sed -i 's/libleptonica-1.88.0.dll/libleptonica.a/g' {} +
     find . -name "link.txt" -exec sed -i 's/libleptonica-1.88.0.dll/libleptonica.a/g' {} +
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

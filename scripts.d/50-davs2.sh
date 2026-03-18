@@ -39,10 +39,10 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}" \
         EXTRA_CFLAGS="$CFLAGS" \
-        EXTRA_LDFLAGS="$LDFLAGS"
+        EXTRA_LDFLAGS="$LDFLAGS" || return 1
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

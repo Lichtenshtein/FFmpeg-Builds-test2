@@ -36,10 +36,10 @@ ffbuild_dockerbuild() {
         -DINSTALL_EXAMPLES=OFF \
         -DWITH_AUDIO=OFF \
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-        ..
+        .. || return 1
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # некоторые порты Flite ставят либы в /lib/x86_64-w64-mingw32/
     # Переносим их в стандартный /lib, чтобы FFmpeg их нашел

@@ -42,10 +42,10 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    ./configure "${myconf[@]}"
-    make -C src -j$(nproc) $MAKE_V
-    make -C src install DESTDIR="$FFBUILD_DESTDIR"
-    make SUBDIRS=. install DESTDIR="$FFBUILD_DESTDIR"
+    ./configure "${myconf[@]}" || return 1
+    make -C src -j$(nproc) $MAKE_V || return 1
+    make -C src install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    make SUBDIRS=. install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

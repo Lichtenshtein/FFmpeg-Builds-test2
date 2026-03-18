@@ -34,9 +34,10 @@ ffbuild_dockerbuild() {
         -DSPIRV_CROSS_CLI=OFF \
         -DSPIRV_CROSS_ENABLE_TESTS=OFF \
         -DSPIRV_CROSS_ENABLE_C=ON \
-        -DSPIRV_CROSS_ENABLE_CPP=ON ..
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+        -DSPIRV_CROSS_ENABLE_CPP=ON .. || return 1
+
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     cat >"$FFBUILD_DESTPREFIX"/lib/pkgconfig/spirv-cross-c-shared.pc <<EOF
 prefix=$FFBUILD_PREFIX

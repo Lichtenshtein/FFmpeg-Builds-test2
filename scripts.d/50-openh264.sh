@@ -54,7 +54,7 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    make $MAKE_V -j$(nproc) "${myconf[@]}" install-static DESTDIR="$FFBUILD_DESTDIR"
+    make $MAKE_V -j$(nproc) "${myconf[@]}" install-static DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     get_deps_list
 }

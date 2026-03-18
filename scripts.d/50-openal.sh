@@ -28,9 +28,10 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DLIBTYPE=STATIC \
         -DALSOFT_UTILS=OFF \
-        -DALSOFT_EXAMPLES=OFF  ..
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+        -DALSOFT_EXAMPLES=OFF .. || return 1
+
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     echo "Libs.private: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/openal.pc
 

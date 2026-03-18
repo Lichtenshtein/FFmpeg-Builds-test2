@@ -30,12 +30,12 @@ ffbuild_dockerbuild() {
     )
 
     # Flite не понимает --enable-static, он делает её по умолчанию при --enable-shared=no
-    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -DWAIT_ANY=-1" LDFLAGS="$LDFLAGS"
+    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -DWAIT_ANY=-1" LDFLAGS="$LDFLAGS" || return 1
 
     # Предварительное создание структуры
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{lib/pkgconfig,include/flite}
 
-    make -j$(nproc) $MAKE_V
+    make -j$(nproc) $MAKE_V || return 1
     # make install DESTDIR="$FFBUILD_DESTDIR"
 
     clean_la_files

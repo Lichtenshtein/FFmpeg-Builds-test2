@@ -35,9 +35,10 @@ ffbuild_dockerbuild() {
         -DENABLE_EXAMPLES=NO \
         -DENABLE_TESTS=NO \
         -DENABLE_TOOLS=NO \
-        -DCONFIG_TUNE_VMAF=1 ..
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+        -DCONFIG_TUNE_VMAF=1 .. || return 1
+
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     echo "Requires.private: libvmaf" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/aom.pc
 
