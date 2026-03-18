@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
 
     mkdir cmbuild && cd cmbuild
 
-    # Пробрасываем пути к VMAF, как в оригинальном скрипте
+    # Пробрасываем пути к VMAF
     # Это лечит проблемы поиска заголовков при сборке самого AOM
     export CFLAGS="$CFLAGS -pthread -I/opt/ffbuild/include/libvmaf"
 
@@ -42,16 +42,15 @@ ffbuild_dockerbuild() {
         -DENABLE_TOOLS=NO
         -DENABLE_CCACHE=ON
         -DENABLE_NASM=ON
-        # Используем 1 вместо ON для внутренних флагов AOM
         -DCONFIG_TUNE_VMAF=1
         -DCONFIG_AV1_DECODER=1
         -DCONFIG_AV1_ENCODER=1
         -DCONFIG_PIC=1
     )
 
-    cmake "${myconf[@]}" ..
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    cmake "${myconf[@]}" .. || return 1
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Добавляем VMAF в pkg-config, иначе FFmpeg не соберется статикой
     echo "Requires.private: libvmaf" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/aom.pc

@@ -26,10 +26,10 @@ ffbuild_dockerbuild() {
         -DENABLE_DOC=OFF \
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        ..
+        .. || return 1
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
     
     # MPEG-H часто не генерирует .pc файл. Проверим и создадим, если нужно
     if [[ ! -f "$FFBUILD_DESTPREFIX/lib/pkgconfig/mpeghdec.pc" ]]; then

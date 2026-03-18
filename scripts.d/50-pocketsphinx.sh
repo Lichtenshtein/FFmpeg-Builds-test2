@@ -27,10 +27,10 @@ ffbuild_dockerbuild() {
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
-        -DBUILD_SHARED_LIBS=OFF ..
+        -DBUILD_SHARED_LIBS=OFF .. || return 1
 
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     cp -f ../include/pocketsphinx.h "$FFBUILD_DESTPREFIX"/include/pocketsphinx/
     rm -f "$FFBUILD_DESTPREFIX"/bin/pocketsphin*

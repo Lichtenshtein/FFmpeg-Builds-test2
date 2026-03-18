@@ -66,12 +66,12 @@ ffbuild_dockerbuild() {
     if [[ $TARGET != *32 ]]; then
 
         log_info "Building 12-bit x265..."
-        cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -DMAIN12=ON -S "$X265_ROOT" -B 12bit
-        make -C 12bit -j$(nproc) $MAKE_V
+        cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -DMAIN12=ON -S "$X265_ROOT" -B 12bit || return 1
+        make -C 12bit -j$(nproc) $MAKE_V || return 1
 
         log_info "Building 10-bit x265..."
-        cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -S "$X265_ROOT" -B 10bit
-        make -C 10bit -j$(nproc) $MAKE_V
+        cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -S "$X265_ROOT" -B 10bit || return 1
+        make -C 10bit -j$(nproc) $MAKE_V || return 1
 
         log_info "Building 8-bit x265 (combined)..."
         # Копируем либы для финальной линковки
@@ -81,8 +81,8 @@ ffbuild_dockerbuild() {
         cmake "${common_config[@]}" \
             -DEXTRA_LIB="libx265_main10.a;libx265_main12.a" \
             -DLINKED_10BIT=ON -DLINKED_12BIT=ON \
-            -S "$X265_ROOT" -B 8bit
-        make -C 8bit -j$(nproc) $MAKE_V
+            -S "$X265_ROOT" -B 8bit || return 1
+        make -C 8bit -j$(nproc) $MAKE_V || return 1
 
         # Объединяем библиотеки через MRI скрипт для ar
         # используем кросс-архивный AR
@@ -100,12 +100,12 @@ EOF
         cd ..
     else
         log_info "Building 8-bit x265 (32-bit target)..."
-        cmake "${common_config[@]}" -S "$X265_ROOT" -B 8bit
-        make -C 8bit -j$(nproc) $MAKE_V
+        cmake "${common_config[@]}" -S "$X265_ROOT" -B 8bit || return 1
+        make -C 8bit -j$(nproc) $MAKE_V || return 1
     fi
 
     # Установка из папки 8bit (которая содержит объединенную либу)
-    make -C 8bit install DESTDIR="$FFBUILD_DESTDIR"
+    make -C 8bit install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Гарантируем наличие pkg-config файла
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"

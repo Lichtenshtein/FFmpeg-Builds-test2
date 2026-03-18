@@ -43,7 +43,7 @@ ffbuild_dockerbuild() {
         --destdir="$FFBUILD_DESTDIR" \
         --library-type=staticlib \
         --features=avif \
-        -p librsvg-c $CARGO_V
+        -p librsvg-c $CARGO_V || return 1
 
     # Исправление .pc файла. 
     # librsvg-2.0.pc после сборки часто не содержит Cairo/Pango в Requires.private

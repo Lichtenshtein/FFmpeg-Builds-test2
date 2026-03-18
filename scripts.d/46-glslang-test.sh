@@ -30,9 +30,9 @@ ffbuild_dockerbuild() {
         -DENABLE_CTEST=OFF
     )
 
-    cmake "${mycmake[@]}" ..
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    cmake "${mycmake[@]}" .. || return 1
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Исправление для корректной линковки в FFmpeg (иногда CMake не копирует все хедеры)
     cp -r ../glslang/Public "$FFBUILD_DESTPREFIX/include/glslang"

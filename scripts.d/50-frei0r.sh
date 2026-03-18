@@ -37,10 +37,10 @@ ffbuild_dockerbuild() {
         -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4" \ 
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
         -DWITHOUT_GAVL=ON \
-        ..
+        .. || return 1
 
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     get_deps_list
 }

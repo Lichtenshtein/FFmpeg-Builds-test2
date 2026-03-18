@@ -57,14 +57,14 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}" \
         CFLAGS="$CFLAGS -D_WIN32 -Wno-implicit-function-declaration" \
-        LDFLAGS="$LDFLAGS"
+        LDFLAGS="$LDFLAGS" || return 1
 
     # Сборка только библиотеки
     # Мы явно просим собрать папку caca, а не всё дерево с тестами
-    make -C caca -j$(nproc) $MAKE_V
+    make -C caca -j$(nproc) $MAKE_V || return 1
     
     # Установка вручную, чтобы не заходить в папку 't'
-    make -C caca install DESTDIR="$FFBUILD_DESTDIR"
+    make -C caca install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

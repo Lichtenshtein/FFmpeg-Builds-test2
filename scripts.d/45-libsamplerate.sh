@@ -26,9 +26,10 @@ ffbuild_dockerbuild() {
         -DBUILD_TESTING=NO \
         -DLIBSAMPLERATE_SSE2_LRINT=ON \
         -DLIBSAMPLERATE_EXAMPLES=OFF \
-        -DLIBSAMPLERATE_INSTALL=YES ..
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+        -DLIBSAMPLERATE_INSTALL=YES .. || return 1
+
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     get_deps_list
 }

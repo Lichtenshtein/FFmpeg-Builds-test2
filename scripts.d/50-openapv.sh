@@ -27,10 +27,10 @@ ffbuild_dockerbuild() {
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DOAPV_APP_STATIC_BUILD=ON \
-        -DENABLE_TESTS=OFF ..
+        -DENABLE_TESTS=OFF .. || return 1
 
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Безопасное перемещение библиотеки
     if [[ -f "$FFBUILD_DESTPREFIX/lib/oapv/liboapv.a" ]]; then

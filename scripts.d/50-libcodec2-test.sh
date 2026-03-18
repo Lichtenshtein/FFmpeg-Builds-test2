@@ -53,7 +53,7 @@ ffbuild_dockerbuild() {
         -DBUILD_TESTING=OFF
     )
 
-    cmake "${mycmake[@]}" ..
+    cmake "${mycmake[@]}" .. || return 1
 
     # Сборка только библиотеки. 
     # Если 'make codec2' все еще капризничает из-за отсутствия исходников,
@@ -66,7 +66,7 @@ ffbuild_dockerbuild() {
             ${CC} ${CFLAGS} -I../src -I. -c "$f" -o "$(basename "${f%.c}.obj")"
         done
         ${AR} rcs src/libcodec2.a *.obj
-    fi
+    fi || return 1
 
     # Установка
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"

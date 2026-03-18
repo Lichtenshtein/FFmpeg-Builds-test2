@@ -75,7 +75,7 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    make $MAKE_V -j$(nproc) "${myconf[@]}" all install DESTDIR="$FFBUILD_DESTDIR"
+    make $MAKE_V -j$(nproc) "${myconf[@]}" all install DESTDIR="$FFBUILD_DESTDIR" || return 1
     rm -r "$FFBUILD_DESTPREFIX"/share/doc/libopenmpt
 
     get_deps_list

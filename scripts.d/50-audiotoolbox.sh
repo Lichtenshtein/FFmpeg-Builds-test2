@@ -23,9 +23,10 @@ ffbuild_dockerbuild() {
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" .. -G Ninja
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" .. -G Ninja || return 1
+
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
     cd ..
 
     # Обработка бинарных DLL Apple

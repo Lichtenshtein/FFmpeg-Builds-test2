@@ -48,14 +48,14 @@ ffbuild_dockerbuild() {
             --cross-prefix="$FFBUILD_CROSS_PREFIX"
         )
         # Явно указываем ассемблер, чтобы не пропустить оптимизации
-        export AS="nasm" 
+        export AS="nasm"
     fi
 
     # Добавляем глобальные флаги через --extra-cflags
-    ./configure "${myconf[@]}" --extra-cflags="$CFLAGS" --extra-ldflags="$LDFLAGS"
+    ./configure "${myconf[@]}" --extra-cflags="$CFLAGS" --extra-ldflags="$LDFLAGS" || return 1
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

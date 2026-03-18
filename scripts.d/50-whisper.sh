@@ -40,7 +40,7 @@ ffbuild_dockerbuild() {
         -DWHISPER_USE_SYSTEM_GGML=OFF \
         -DWHISPER_OPENVINO=ON \
         -DGGML_STATIC=ON \
-        -DGGML_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF) \
+        -DGGML_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
         -DGGML_CCACHE=OFF \
         -DGGML_OPENCL=ON \
         -DGGML_VULKAN=ON \
@@ -49,15 +49,15 @@ ffbuild_dockerbuild() {
         -DGGML_AVX=ON \
         -DGGML_F16C=ON \
         -DGGML_AVX2=ON \
-        -DGGML_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF) \
-        -DGGML_AVX512_VBMI=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF) \
-        -DGGML_AVX512_VNNI=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF) \
-        -DGGML_AVX512_BF16=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF) \
+        -DGGML_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF ) \
+        -DGGML_AVX512_VBMI=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF ) \
+        -DGGML_AVX512_VNNI=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF ) \
+        -DGGML_AVX512_BF16=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF ) \
         -DGGML_BMI2=ON \
-        -DGGML_FMA=ON ..
+        -DGGML_FMA=ON .. || return 1
 
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Исправление имен файлов библиотек (MinGW prefix fix)
     # CMake в Windows часто сохраняет их как ggml-base.a, а линковщик ищет -lggml-base (т.е. libggml-base.a)

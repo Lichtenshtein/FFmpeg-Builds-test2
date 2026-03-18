@@ -30,7 +30,6 @@ ffbuild_dockerbuild() {
         -DSDL_STATIC_PIC=ON
         -DSDL_TEST=OFF
         -DSDL_CCACHE=OFF
-
         -DSDL_LIBSAMPLERATE=ON
         -DSDL_LIBSAMPLERATE_SHARED=OFF
     )
@@ -41,7 +40,6 @@ ffbuild_dockerbuild() {
             -DSDL_X11_SHARED=OFF
             -DHAVE_XGENERICEVENT=TRUE
             -DSDL_VIDEO_DRIVER_X11_HAS_XKBKEYCODETOKEYSYM=1
-
             -DSDL_PULSEAUDIO=ON
             -DSDL_PULSEAUDIO_SHARED=OFF
         )
@@ -53,10 +51,10 @@ ffbuild_dockerbuild() {
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" "${mycmake[@]}" ..
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" "${mycmake[@]}" .. || return 1
 
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     if [[ $TARGET == linux* ]]; then
         sed -ri -e 's/\-Wl,\-\-no\-undefined.*//' \

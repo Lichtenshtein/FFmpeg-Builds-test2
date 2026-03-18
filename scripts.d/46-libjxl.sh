@@ -57,11 +57,11 @@ ffbuild_dockerbuild() {
         -DJPEGXL_FORCE_SYSTEM_HWY=OFF \
         -DJPEGXL_FORCE_SYSTEM_LCMS2=ON \
         -DJPEGXL_STATIC=ON \
-        -DJPEGXL_ENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF) \
-        -DBUILD_TESTING=OFF ..
+        -DJPEGXL_ENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
+        -DBUILD_TESTING=OFF .. || return 1
 
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     if [[ $TARGET == win* ]]; then
         echo "Libs.private: -lstdc++ -ladvapi32" >> "${FFBUILD_DESTPREFIX}"/lib/pkgconfig/libjxl.pc

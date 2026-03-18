@@ -27,9 +27,9 @@ ffbuild_dockerbuild() {
         -DENABLE_SSL_SUPPORT=ON
     )
 
-    cmake "${mycmake[@]}" ..
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    cmake "${mycmake[@]}" .. || return 1
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     get_deps_list
 }

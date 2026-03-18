@@ -19,7 +19,7 @@ ffbuild_dockerbuild() {
     # Создаем папку заранее, так как Decklink Makefile иногда капризен
     mkdir -p "$FFBUILD_DESTPREFIX/include"
     # Передаем префикс правильно
-    make PREFIX="$FFBUILD_DESTPREFIX" install
+    make PREFIX="$FFBUILD_DESTPREFIX" install || return 1
 
     get_deps_list
 }

@@ -24,10 +24,10 @@ ffbuild_dockerbuild() {
         --disable-gtk-doc
     )
 
-    ./configure "${myconf[@]}"
+    ./configure "${myconf[@]}" || return 1
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

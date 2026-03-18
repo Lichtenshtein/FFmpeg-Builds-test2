@@ -30,13 +30,11 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=OFF \
         -DVVENC_LIBRARY_ONLY=ON \
         -DVVENC_ENABLE_WERROR=OFF \
-        -DVVENC_ENABLE_LINK_TIME_OPT=ON \
-        -DEXTRALIBS="-lstdc++ -lm" .. # -lm для математики
+        -DVVENC_ENABLE_LINK_TIME_OPT=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
+        -DEXTRALIBS="-lstdc++ -lm" .. || return 1
 
-        # -DVVENC_ENABLE_LINK_TIME_OPT=OFF
-
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     get_deps_list
 }

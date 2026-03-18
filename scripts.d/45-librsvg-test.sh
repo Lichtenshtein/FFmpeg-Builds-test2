@@ -56,10 +56,10 @@ ffbuild_dockerbuild() {
         -Dtests=false \
         -Drsvg-convert=disabled \
         -Davif=enabled \
-        -Dtriplet="$FFBUILD_RUST_TARGET"
+        -Dtriplet="$FFBUILD_RUST_TARGET" || return 1
 
-    ninja -C build -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -C build -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     clean_la_files
 

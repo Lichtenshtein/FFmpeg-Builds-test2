@@ -46,8 +46,7 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-lto )
     fi
 
-    # Конфигурация. Добавляем CFLAGS, чтобы оптимизация под Broadwell пробросилась
-    ./configure "${myconf[@]}" --extra-cflags="$CFLAGS" --extra-ldflags="$LDFLAGS"
+    ./configure "${myconf[@]}" --extra-cflags="$CFLAGS" --extra-ldflags="$LDFLAGS" || return 1
 
     # если в config.log написано "asm: no", значит nasm не подцепился
     if grep -q "asm: no" config.log; then
@@ -55,8 +54,8 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

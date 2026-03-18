@@ -30,12 +30,10 @@ ffbuild_dockerbuild() {
          -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
          -DBUILD_SHARED_LIBS=OFF \
          -DEXTRALIBS="-lstdc++" \
-         -DVVDEC_ENABLE_LINK_TIME_OPT=ON ..
+         -DVVDEC_ENABLE_LINK_TIME_OPT=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) .. || return 1
 
-# -DVVDEC_ENABLE_LINK_TIME_OPT=OFF
-
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     get_deps_list
 }
