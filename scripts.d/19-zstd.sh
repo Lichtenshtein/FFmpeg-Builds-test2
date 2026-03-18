@@ -30,11 +30,8 @@ ffbuild_dockerbuild() {
         -DZSTD_BUILD_PROGRAMS=OFF
         -DZSTD_BUILD_TESTS=OFF
         -DZSTD_BUILD_CONTRIB=OFF
-        # Принудительно включаем CXX на уровне языков проекта
         -DCMAKE_CXX_COMPILER="$CXX"
-        # Включаем многопоточность (важно для FFmpeg)
         -DZSTD_MULTITHREAD_SUPPORT=ON
-        # Включаем поддержку старых форматов для совместимости
         -DZSTD_LEGACY_SUPPORT=ON
     )
 
@@ -57,19 +54,16 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    # --- КОРРЕКЦИЯ PKG-CONFIG (Согласно Readme для MT=1) ---
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libzstd.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        log_info "Applying multithreaded flags to libzstd.pc"
-        # Для статической линковки в MinGW обязательно нужен -lpthread
-        if ! grep -q "\-lpthread" "$PC_FILE"; then
-            sed -i 's/Libs.private:/& -lpthread /' "$PC_FILE"
-        fi
-        # Добавляем макрос многопоточности в флаги компиляции
-        if ! grep -q "\-DZSTD_MULTITHREAD" "$PC_FILE"; then
-            sed -i 's/Cflags:/& -DZSTD_MULTITHREAD /' "$PC_FILE"
-        fi
-    fi
+    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libzstd.pc"
+    # if [[ -f "$PC_FILE" ]]; then
+        # log_info "Applying multithreaded flags to libzstd.pc"
+        # if ! grep -q "\-lpthread" "$PC_FILE"; then
+            # sed -i 's/Libs.private:/& -lpthread /' "$PC_FILE"
+        # fi
+        # if ! grep -q "\-DZSTD_MULTITHREAD" "$PC_FILE"; then
+            # sed -i 's/Cflags:/& -DZSTD_MULTITHREAD /' "$PC_FILE"
+        # fi
+    # fi
 
     get_deps_list
 }

@@ -38,6 +38,11 @@ ffbuild_dockerbuild() {
     ./configure \
         --prefix="$FFBUILD_PREFIX" \
         --host="$FFBUILD_TOOLCHAIN" \
+        CFLAGS="$CFLAGS" \
+        LDFLAGS="$LDFLAGS" \
+        CPPFLAGS="$CPPFLAGS" \
+        CXXFLAGS="$CXXFLAGS" \
+        LIBS="$LIBS" \
         --disable-shared \
         --enable-static || return 1
 

@@ -46,21 +46,20 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    # Gettext тоже плохо дружит с pkg-config, создадим его вручную
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/intl.pc"
-prefix=$FFBUILD_PREFIX
-exec_prefix=\${prefix}
-libdir=\${prefix}/lib
-includedir=\${prefix}/include
+    # cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/intl.pc"
+# prefix=$FFBUILD_PREFIX
+# exec_prefix=\${prefix}
+# libdir=\${prefix}/lib
+# includedir=\${prefix}/include
 
-Name: intl
-Description: GNU gettext runtime library
-Version: 0.26
-Libs: -L\${libdir} -lintl -liconv -lcharset
-Libs.private: -liconv -lcharset
-Cflags: -I\${includedir}
-EOF
+# Name: intl
+# Description: GNU gettext runtime library
+# Version: 0.26
+# Libs: -L\${libdir} -lintl -liconv -lcharset
+# Libs.private: -liconv -lcharset
+# Cflags: -I\${includedir}
+# EOF
 
     get_deps_list
 }

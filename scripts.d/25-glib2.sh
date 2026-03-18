@@ -111,25 +111,21 @@ EOF
 
     log_info "${SYNC_MARK} Patching GLib .pc files for static linking..."
     
-    # Основной glib-2.0.pc
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/glib-2.0.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        # Гарантируем макрос статики всем, кто использует glib
-        sed -i "/^Cflags:/ s/$/ -DGLIB_STATIC_COMPILATION/" "$PC_FILE"
-        # Прописываем жесткую статику в Libs.private
-        sed -i "s|^Libs.private:.*|Libs.private: $GLIB_DEPS $WIN_SYS_LIBS $LIBS|" "$PC_FILE"
-    fi
+    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/glib-2.0.pc"
+    # if [[ -f "$PC_FILE" ]]; then
+        # sed -i "/^Cflags:/ s/$/ -DGLIB_STATIC_COMPILATION/" "$PC_FILE"
+        # sed -i "s|^Libs.private:.*|Libs.private: $GLIB_DEPS $WIN_SYS_LIBS $LIBS|" "$PC_FILE"
+    # fi
 
     # gthread, gobject, gio
-    for pc in gthread-2.0.pc gobject-2.0.pc gio-2.0.pc; do
-        local TARGET_PC="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
-        [[ -f "$TARGET_PC" ]] || continue
-        sed -i "/^Cflags:/ s/$/ -DGLIB_STATIC_COMPILATION/" "$TARGET_PC"
-        # Для GIO добавляем специфичные либы
-        if [[ "$pc" == "gio-2.0.pc" ]]; then
-            sed -i "s|^Libs.private:.*|Libs.private: -lshlwapi -ldnsapi -liphlpapi $GLIB_DEPS $WIN_SYS_LIBS $LIBS|" "$TARGET_PC"
-        fi
-    done
+    # for pc in gthread-2.0.pc gobject-2.0.pc gio-2.0.pc; do
+        # local TARGET_PC="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
+        # [[ -f "$TARGET_PC" ]] || continue
+        # sed -i "/^Cflags:/ s/$/ -DGLIB_STATIC_COMPILATION/" "$TARGET_PC"
+        # if [[ "$pc" == "gio-2.0.pc" ]]; then
+            # sed -i "s|^Libs.private:.*|Libs.private: -lshlwapi -ldnsapi -liphlpapi $GLIB_DEPS $WIN_SYS_LIBS $LIBS|" "$TARGET_PC"
+        # fi
+    # done
 
     get_deps_list
 }

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://gitlab.freedesktop.org/cairo/cairo.git"
-SCRIPT_COMMIT="4541e0cd3a751b85e52e2a83d02ac6145a5efa85"
+SCRIPT_COMMIT="d3a35678a2322046f6d034001f2970ed3f54a1b7"
 
 ffbuild_depends() {
     echo zlib
@@ -38,11 +38,11 @@ ffbuild_dockerbuild() {
     export CXXFLAGS="$(echo $CXXFLAGS | sed 's/-std=c++17//g')"
 
     # Ищем системный путь либ тулчейна
-    local GDI_PATH=$(${CC} -print-file-name=libgdi32.a)
-    local MINGW_SYS_LIBDIR=$(dirname "$GDI_PATH")
-    [[ "$MINGW_SYS_LIBDIR" == "." ]] && MINGW_SYS_LIBDIR="$(${CC} -print-sysroot)/lib"
-    log_debug "Looking for gdi32: $GDI_PATH"
-    log_debug "Looking for LIBDIR: $MINGW_SYS_LIBDIR"
+    # local GDI_PATH=$(${CC} -print-file-name=libgdi32.a)
+    # local MINGW_SYS_LIBDIR=$(dirname "$GDI_PATH")
+    # [[ "$MINGW_SYS_LIBDIR" == "." ]] && MINGW_SYS_LIBDIR="$(${CC} -print-sysroot)/lib"
+    # log_debug "Looking for gdi32: $GDI_PATH"
+    # log_debug "Looking for LIBDIR: $MINGW_SYS_LIBDIR"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -68,6 +68,8 @@ ffbuild_dockerbuild() {
 
     meson setup . .. \
         "${myconf[@]}" \
+        -Dc_args="$CFLAGS" \
+        -Dcpp_args="$CPPFLAGS" \
         -Dc_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR} $DEP_LIBS $WIN_LIBS $_LIBS" \
         -Dcpp_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR} $DEP_LIBS $WIN_LIBS $_LIBS" || return 1
 
@@ -76,24 +78,18 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    # Патчинг .pc файлов
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/cairo.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        log_info "${SYNC_MARK} Patching cairo.pc for static linking..."
-        # Форсируем макрос статики в Cflags
-        sed -i "/^Cflags:/ s/$/ -DCAIRO_WIN32_STATIC_BUILD/" "$PC_FILE"
-        # Удаляем -lrt из сгенерированного .pc если он туда попал
-        sed -i "s/-lrt//g" "$PC_FILE"
-        # Прописываем полный хвост зависимостей в Libs.private
-        # Порядок: cairo -> pixman -> fontconfig -> freetype -> harfbuzz -> [icu/glib/zlib/iconv]
-        sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS $LIBS|" "$PC_FILE"
-    fi
+    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/cairo.pc"
+    # if [[ -f "$PC_FILE" ]]; then
+        # log_info "${SYNC_MARK} Patching cairo.pc for static linking..."
+        # sed -i "/^Cflags:/ s/$/ -DCAIRO_WIN32_STATIC_BUILD/" "$PC_FILE"
+        # sed -i "s/-lrt//g" "$PC_FILE"
+        # sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS $LIBS|" "$PC_FILE"
+    # fi
 
-    # Дополнительно патчим cairo-win32.pc и cairo-gobject.pc если они есть
-    for pc in cairo-win32.pc cairo-gobject.pc cairo-ft.pc; do
-        local TARGET_PC="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
-        [[ -f "$TARGET_PC" ]] && sed -i "/^Cflags:/ s/$/ -DCAIRO_WIN32_STATIC_BUILD/" "$TARGET_PC"
-    done
+    # for pc in cairo-win32.pc cairo-gobject.pc cairo-ft.pc; do
+        # local TARGET_PC="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
+        # [[ -f "$TARGET_PC" ]] && sed -i "/^Cflags:/ s/$/ -DCAIRO_WIN32_STATIC_BUILD/" "$TARGET_PC"
+    # done
 
     get_deps_list
 }

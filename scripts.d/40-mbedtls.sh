@@ -29,6 +29,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DENABLE_PROGRAMS=OFF \
         -DENABLE_TESTING=OFF \

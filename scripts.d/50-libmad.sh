@@ -22,7 +22,12 @@ ffbuild_dockerbuild() {
         --host="$FFBUILD_TOOLCHAIN" \
         --disable-shared \
         --enable-static \
-        --enable-fpm=64bit || return 1
+        --enable-fpm=64bit \
+        CFLAGS="$CFLAGS" \
+        LDFLAGS="$LDFLAGS" \
+        CPPFLAGS="$CPPFLAGS" \
+        CXXFLAGS="$CXXFLAGS" \
+        LIBS="$LIBS" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

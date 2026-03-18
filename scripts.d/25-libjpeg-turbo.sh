@@ -30,6 +30,7 @@ ffbuild_dockerbuild() {
         -DWITH_TESTS=OFF
         -DWITH_TURBOJPEG=ON
         -DCMAKE_C_FLAGS="$CFLAGS"
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )

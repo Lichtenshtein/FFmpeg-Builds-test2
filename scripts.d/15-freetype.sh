@@ -32,8 +32,12 @@ ffbuild_dockerbuild() {
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    ./configure "${myconf[@]}" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" || return 1
-
+    ./configure "${myconf[@]}" \
+        CFLAGS="$CFLAGS" \
+        LDFLAGS="$LDFLAGS" \
+        CPPFLAGS="$CPPFLAGS" \
+        CXXFLAGS="$CXXFLAGS" \
+        LIBS="$LIBS" || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 

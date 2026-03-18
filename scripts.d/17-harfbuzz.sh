@@ -61,10 +61,10 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/harfbuzz.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        sed -i "s|^Libs.private:.*|Libs.private: $HARFBUZZ_DEPS $LIBS -lusp10 -lgdi32 -lrpcrt4|" "$PC_FILE"
-    fi
+    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/harfbuzz.pc"
+    # if [[ -f "$PC_FILE" ]]; then
+        # sed -i "s|^Libs.private:.*|Libs.private: $HARFBUZZ_DEPS $LIBS -lusp10 -lgdi32 -lrpcrt4|" "$PC_FILE"
+    # fi
 
     get_deps_list
 }

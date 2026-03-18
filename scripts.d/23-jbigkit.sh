@@ -19,6 +19,9 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_C_FLAGS="$CFLAGS"
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS"
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_PROGRAMS=OFF
         -DBUILD_TOOLS=OFF
@@ -39,20 +42,19 @@ ffbuild_dockerbuild() {
     done
     popd
 
-    # Генерируем jbigkit.pc вручную
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/jbigkit.pc"
-prefix=$FFBUILD_PREFIX
-exec_prefix=\${prefix}
-libdir=\${exec_prefix}/lib
-includedir=\${prefix}/include
+    # mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    # cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/jbigkit.pc"
+# prefix=$FFBUILD_PREFIX
+# exec_prefix=\${prefix}
+# libdir=\${exec_prefix}/lib
+# includedir=\${prefix}/include
 
-Name: jbigkit
-Description: JBIG1 lossless image compression library
-Version: 2.1
-Libs: -L\${libdir} -ljbig -ljbig85
-Cflags: -I\${includedir}
-EOF
+# Name: jbigkit
+# Description: JBIG1 lossless image compression library
+# Version: 2.1
+# Libs: -L\${libdir} -ljbig -ljbig85
+# Cflags: -I\${includedir}
+# EOF
 
     get_deps_list
 }

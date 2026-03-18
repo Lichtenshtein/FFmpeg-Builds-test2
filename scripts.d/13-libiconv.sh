@@ -48,22 +48,20 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    # создаем pkg-config файл, так как libiconv этого не делает
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    # Добавляем -lcharset, так как iconv часто разделяет их в статике
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/iconv.pc"
-prefix=$FFBUILD_PREFIX
-exec_prefix=\${prefix}
-libdir=\${prefix}/lib
-includedir=\${prefix}/include
+    # cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/iconv.pc"
+# prefix=$FFBUILD_PREFIX
+# exec_prefix=\${prefix}
+# libdir=\${prefix}/lib
+# includedir=\${prefix}/include
 
-Name: iconv
-Description: Character set conversion library
-Version: 1.18
-Libs: -L\${libdir} -liconv -lcharset
-Libs.private: -lcharset
-Cflags: -I\${includedir} -DICONV_STATIC
-EOF
+# Name: iconv
+# Description: Character set conversion library
+# Version: 1.18
+# Libs: -L\${libdir} -liconv -lcharset
+# Libs.private: -lcharset
+# Cflags: -I\${includedir} -DICONV_STATIC
+# EOF
 
     get_deps_list
 }

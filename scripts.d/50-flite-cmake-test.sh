@@ -23,8 +23,6 @@ ffbuild_dockerbuild() {
     # Создаем стандартную структуру для CMake
     mkdir build && cd build
 
-    # Настраиваем CMake для MinGW
-    # -DCMAKE_POSITION_INDEPENDENT_CODE=ON для статики
     cmake \
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \

@@ -37,7 +37,11 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    meson "${myconf[@]}" .. || return 1
+    meson setup "${myconf[@]}" .. \
+        -Dc_args="$CFLAGS" \
+        -Dcpp_args="$CPPFLAGS" \
+        -Dc_link_args="$LDFLAGS" \
+        -Dcpp_link_args="$LDFLAGS" || return 1
     ninja -j"$(nproc)" $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 

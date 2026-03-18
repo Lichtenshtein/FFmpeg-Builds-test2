@@ -56,8 +56,11 @@ ffbuild_dockerbuild() {
     export CXX="${FFBUILD_CROSS_PREFIX}g++"
 
     ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS -D_WIN32 -Wno-implicit-function-declaration" \
-        LDFLAGS="$LDFLAGS" || return 1
+        CFLAGS="$CFLAGS -Wno-implicit-function-declaration" \
+        LDFLAGS="$LDFLAGS" \
+        CPPFLAGS="$CPPFLAGS" \
+        CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration" \
+        LIBS="$LIBS" || return 1
 
     # Сборка только библиотеки
     # Мы явно просим собрать папку caca, а не всё дерево с тестами

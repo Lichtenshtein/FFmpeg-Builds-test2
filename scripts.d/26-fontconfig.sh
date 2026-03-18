@@ -67,12 +67,11 @@ ffbuild_dockerbuild() {
 
     rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{var,etc}
 
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/fontconfig.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        log_info "${SYNC_MARK} Patching fontconfig.pc..."
-        # Гарантируем, что Libs.private содержит весь хвост
-        sed -i "s|^Libs.private:.*|Libs.private: $FC_LIBS $LIBS -lole32 -luuid|" "$PC_FILE"
-    fi
+    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/fontconfig.pc"
+    # if [[ -f "$PC_FILE" ]]; then
+        # log_info "${SYNC_MARK} Patching fontconfig.pc..."
+        # sed -i "s|^Libs.private:.*|Libs.private: $FC_LIBS $LIBS -lole32 -luuid|" "$PC_FILE"
+    # fi
 
     get_deps_list
 }
