@@ -67,14 +67,12 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    # Исправляем .pc файл для статической линковки
-    # Libarchive часто не прописывает зависимости от системных либ Windows
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libarchive.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        log_info "${SYNC_MARK} Patching libarchive.pc..."
-        sed -i "/^Cflags:/ s/$/ -DARCHIVE_STATIC/" "$PC_FILE"
-        sed -i "s|^Libs.private:.*|Libs.private: $ARCHIVE_DEPS -lbcrypt -lcrypt32 -lws2_32 -ladvapi32|" "$PC_FILE"
-    fi
+    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libarchive.pc"
+    # if [[ -f "$PC_FILE" ]]; then
+        # log_info "${SYNC_MARK} Patching libarchive.pc..."
+        # sed -i "/^Cflags:/ s/$/ -DARCHIVE_STATIC/" "$PC_FILE"
+        # sed -i "s|^Libs.private:.*|Libs.private: $ARCHIVE_DEPS -lbcrypt -lcrypt32 -lws2_32 -ladvapi32|" "$PC_FILE"
+    # fi
 
     get_deps_list
 }

@@ -21,6 +21,9 @@ ffbuild_dockerbuild() {
     local mycmake=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_C_FLAGS="$CFLAGS"
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS"
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
         -DCMAKE_BUILD_TYPE=Release
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_WITH_STATIC_CRT=OFF
@@ -46,7 +49,7 @@ ffbuild_dockerbuild() {
         -Dngraph_DIR="$FFBUILD_PREFIX/lib/cmake/ngraph"
         -DOPENVINO_LIB_DIRS="$FFBUILD_PREFIX/lib"
         -DOPENVINO_INCLUDE_DIRS="$FFBUILD_PREFIX/include"
-        -DCPU_BASELINE=BROADWELL
+        -DCPU_BASELINE=${CPU_ARCH:-BROADWELL}
         -DCPU_DISPATCH=AVX2
     )
 

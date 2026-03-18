@@ -22,6 +22,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_C_FLAGS="$CFLAGS"
         -DCMAKE_CXX_FLAGS="$CXXFLAGS"
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DENABLE_OPT=OFF # оптимизатор, который требует SPIRV-Tools
         -DALLOW_EXTERNAL_SPIRV_TOOLS=OFF # ЗАПРЕЩАЕМ искать внешние SPIRV-Tools
         -DBUILD_SHARED_LIBS=OFF

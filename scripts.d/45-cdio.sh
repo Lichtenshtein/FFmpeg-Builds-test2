@@ -35,8 +35,12 @@ ffbuild_dockerbuild() {
         --disable-cpp-progs
     )
 
-    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=199309L" || return 1
-
+    ./configure "${myconf[@]}" \
+        CFLAGS="$CFLAGS -D_POSIX_C_SOURCE=199309L" \
+        LDFLAGS="$LDFLAGS" \
+        CPPFLAGS="$CPPFLAGS -D_POSIX_C_SOURCE=199309L" \
+        CXXFLAGS="$CXXFLAGS -D_POSIX_C_SOURCE=199309L" \
+        LIBS="$LIBS" || return 1
     make -j$(nproc) $MAKE_V MAKEINFO=true || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" MAKEINFO=true || return 1
 

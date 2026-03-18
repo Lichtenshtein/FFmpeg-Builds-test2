@@ -54,13 +54,13 @@ ffbuild_dockerbuild() {
 
     # libwebp генерирует несколько .pc файлов (libwebp, libwebpmux, libsharpyuv)
     # Ќужно убедитьс€, что они содержат системные либы дл€ Windows
-    for pc in libwebp.pc libwebpmux.pc libwebpdemux.pc libsharpyuv.pc; do
-        local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
-        [[ -f "$PC_PATH" ]] || continue
-        log_info "${SYNC_MARK} Patching $(basename $pc)..."
-        sed -i "/^Cflags:/ s/$/ -DWEBP_STATIC/" "$PC_PATH"
-        sed -i "s|^Libs.private:.*|Libs.private: $WEBP_DEPS -lshlwapi -lws2_32 $LIBS|" "$PC_PATH"
-    done
+    # for pc in libwebp.pc libwebpmux.pc libwebpdemux.pc libsharpyuv.pc; do
+        # local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
+        # [[ -f "$PC_PATH" ]] || continue
+        # log_info "${SYNC_MARK} Patching $(basename $pc)..."
+        # sed -i "/^Cflags:/ s/$/ -DWEBP_STATIC/" "$PC_PATH"
+        # sed -i "s|^Libs.private:.*|Libs.private: $WEBP_DEPS -lshlwapi -lws2_32 $LIBS|" "$PC_PATH"
+    # done
 
     get_deps_list
 }

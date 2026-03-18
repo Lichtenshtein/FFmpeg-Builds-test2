@@ -32,6 +32,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DOPENCL_ICD_LOADER_HEADERS_DIR="$FFBUILD_DESTPREFIX/include" \
         -DOPENCL_ICD_LOADER_BUILD_SHARED_LIBS=OFF \
@@ -60,7 +61,6 @@ EOF
         echo "Libs: -L\${libdir} -lOpenCL" >> OpenCL.pc
         echo "Libs.private: -ldl" >> OpenCL.pc
     elif [[ $TARGET == win* ]]; then
-        # Важно для Broadwell/Win64: форсируем статическую линку
         echo "Libs: -L\${libdir} -lOpenCL" >> OpenCL.pc
         echo "Libs.private: -lole32 -lshlwapi -lcfgmgr32" >> OpenCL.pc
     fi

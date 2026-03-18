@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
         -DENABLE_DOC=OFF \
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        .. || return 1
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

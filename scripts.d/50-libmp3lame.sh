@@ -42,7 +42,12 @@ ffbuild_dockerbuild() {
     # GCC 14 требует более мягких проверок для старого кода LAME
     export CFLAGS="$CFLAGS -ffast-math -Wno-implicit-function-declaration -Wno-int-conversion -Wno-error=incompatible-pointer-types"
 
-    ./configure "${myconf[@]}" || return 1
+    ./configure "${myconf[@]}" \
+        CFLAGS="$CFLAGS" \
+        LDFLAGS="$LDFLAGS" \
+        CPPFLAGS="$CPPFLAGS" \
+        CXXFLAGS="$CXXFLAGS" \
+        LIBS="$LIBS" || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 

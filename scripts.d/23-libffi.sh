@@ -17,10 +17,15 @@ ffbuild_dockerbuild() {
     ./configure \
         --prefix="$FFBUILD_PREFIX" \
         --host="$FFBUILD_TOOLCHAIN" \
+        CFLAGS="$CFLAGS" \
+        LDFLAGS="$LDFLAGS" \
+        CPPFLAGS="$CPPFLAGS" \
+        CXXFLAGS="$CXXFLAGS" \
+        LIBS="$LIBS" \
         --enable-static \
         --disable-shared \
         --disable-docs \
-        --with-gcc-arch=broadwell \
+        --with-gcc-arch=${CPU_ARCH:-broadwell} \
         --disable-multi-os-directory || return 1
 
     make -j$(nproc) $MAKE_V || return 1
@@ -35,12 +40,10 @@ ffbuild_dockerbuild() {
         mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
         cp -af "$FFI_INC"/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
     fi
-
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libffi.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        # Гарантируем макрос статики всем, кто использует glib
-        sed -i "/^Cflags:/ s/$/ -DFFI_STATIC_BUILD/" "$PC_FILE"
-    fi
+    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libffi.pc"
+    # if [[ -f "$PC_FILE" ]]; then
+        # sed -i "/^Cflags:/ s/$/ -DFFI_STATIC_BUILD/" "$PC_FILE"
+    # fi
 
     get_deps_list
 }

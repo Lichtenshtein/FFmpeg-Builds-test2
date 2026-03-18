@@ -34,7 +34,12 @@ ffbuild_dockerbuild() {
         --disable-maintainer-mode
     )
 
-    ./configure "${myconf[@]}" CFLAGS="$CFLAGS -DLIBTWOLAME_STATIC" || return 1
+    ./configure "${myconf[@]}" \
+        CFLAGS="$CFLAGS -DLIBTWOLAME_STATIC" \
+        LDFLAGS="$LDFLAGS" \
+        CPPFLAGS="$CPPFLAGS -DLIBTWOLAME_STATIC" \
+        CXXFLAGS="$CXXFLAGS -DLIBTWOLAME_STATIC" \
+        LIBS="$LIBS" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
