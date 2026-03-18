@@ -32,18 +32,18 @@ ffbuild_dockerbuild() {
     cp libgif.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
 
     # Генерируем pkg-config файл вручную
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/giflib.pc"
-prefix=$FFBUILD_PREFIX
-exec_prefix=\${prefix}
-libdir=\${exec_prefix}/lib
-includedir=\${prefix}/include
+    # cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/giflib.pc"
+# prefix=$FFBUILD_PREFIX
+# exec_prefix=\${prefix}
+# libdir=\${exec_prefix}/lib
+# includedir=\${prefix}/include
 
-Name: giflib
-Description: Library for reading and writing GIF files
-Version: 6.1.2
-Libs: -L\${libdir} -lgif
-Cflags: -I\${includedir}
-EOF
+# Name: giflib
+# Description: Library for reading and writing GIF files
+# Version: 6.1.2
+# Libs: -L\${libdir} -lgif
+# Cflags: -I\${includedir}
+# EOF
 
     get_deps_list
 }

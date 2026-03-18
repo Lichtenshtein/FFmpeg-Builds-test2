@@ -38,7 +38,12 @@ ffbuild_dockerbuild() {
     export CFLAGS="$RAW_CFLAGS"
     export LDFLAFS="$RAW_LDFLAGS"
 
-    ./configure "${myconf[@]}"
+    ./configure "${myconf[@]}" \
+        CFLAGS="$CFLAGS" \
+        LDFLAGS="$LDFLAGS" \
+        CPPFLAGS="$CPPFLAGS" \
+        CXXFLAGS="$CXXFLAGS" \
+        LIBS="$LIBS" || return 1
     make -j$(nproc)
     make install DESTDIR="$FFBUILD_DESTDIR"
 

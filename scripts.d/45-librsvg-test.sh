@@ -46,6 +46,10 @@ ffbuild_dockerbuild() {
         --buildtype=release \
         --default-library=static \
         --wrap-mode=nodownload \
+        -Dc_args="$CFLAGS" \
+        -Dcpp_args="$CPPFLAGS" \
+        -Dc_link_args="$LDFLAGS" \
+        -Dcpp_link_args="$LDFLAGS" \
         -Dcpp_std=c++17 \
         -Dc_std=c11 \
         -Dintrospection=disabled \

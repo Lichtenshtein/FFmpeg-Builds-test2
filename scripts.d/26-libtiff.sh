@@ -57,14 +57,12 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    # Исправляем .pc файл
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libtiff-4.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        log_info "${SYNC_MARK} Patching libtiff-4.pc for Leptonica..."
-        # Гарантируем макрос статики и полный список либ
-        sed -i "/^Cflags:/ s/$/ -DLIBTIFF_STATIC/" "$PC_FILE"
-        sed -i "s|^Libs.private:.*|Libs.private: $TIFF_DEPS $LIBS|" "$PC_FILE"
-    fi
+    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libtiff-4.pc"
+    # if [[ -f "$PC_FILE" ]]; then
+        # log_info "${SYNC_MARK} Patching libtiff-4.pc for Leptonica..."
+        # sed -i "/^Cflags:/ s/$/ -DLIBTIFF_STATIC/" "$PC_FILE"
+        # sed -i "s|^Libs.private:.*|Libs.private: $TIFF_DEPS $LIBS|" "$PC_FILE"
+    # fi
 
     # проверить, как называется созданный .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
     ln -sf libtiff-4.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/tiff.pc"

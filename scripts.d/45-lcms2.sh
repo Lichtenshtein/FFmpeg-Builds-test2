@@ -32,13 +32,15 @@ ffbuild_dockerbuild() {
         -Dfastfloat=true
         -Dthreaded=true
         -Dtests=disabled
-        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g')"
-        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g')"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
-    meson setup "${myconf[@]}" .. || return 1
+    meson setup "${myconf[@]}" .. \
+        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g')" \
+        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g')" \
+        -Dc_link_args="$LDFLAGS" \
+        -Dcpp_link_args="$LDFLAGS" || return 1
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 

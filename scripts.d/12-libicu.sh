@@ -100,27 +100,21 @@ ffbuild_dockerbuild() {
     # Исправляем pkg-config файлы для статической линковки
     # ICU по умолчанию создает icu-uc.pc, icu-i18n.pc
     # Патчим .pc файлы для корректной работы с FFmpeg
-    log_info "${SYNC_MARK} Patching ICU .pc files..."
-    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/icu-*.pc; do
-        [[ -e "$pc" ]] || continue
-
-        # Меняем -licu на -lsicu (так как мы переименовали файлы выше)
-        sed -i 's/-licu/-lsicu/g' "$pc"
-        # Убираем динамические зависимости, если они пролезли в Libs
-        sed -i 's/-lpthread//g; s/-lm//g' "$pc"
-        # Добавляем чистые Libs.private
-        # ICU_DEPS для Windows:
-        ICU_SYS_LIBS="-lstdc++ -lpthread -lm -ladvapi32 -lws2_32"
-        if grep -q "Libs.private:" "$pc"; then
-            sed -i "/Libs.private:/ s/$/ $ICU_SYS_LIBS/" "$pc"
-        else
-            echo "Libs.private: $ICU_SYS_LIBS" >> "$pc"
-        fi
-        # Гарантируем наличие sicudt (data library) в основном поле Libs
-        if ! grep -q -- "-lsicudt" "$pc"; then
-            sed -i '/Libs:/ s/$/ -lsicudt/' "$pc"
-        fi
-    done
+    # log_info "${SYNC_MARK} Patching ICU .pc files..."
+    # for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/icu-*.pc; do
+        # [[ -e "$pc" ]] || continue
+        # sed -i 's/-licu/-lsicu/g' "$pc"
+        # sed -i 's/-lpthread//g; s/-lm//g' "$pc"
+        # ICU_SYS_LIBS="-lstdc++ -lpthread -lm -ladvapi32 -lws2_32"
+        # if grep -q "Libs.private:" "$pc"; then
+            # sed -i "/Libs.private:/ s/$/ $ICU_SYS_LIBS/" "$pc"
+        # else
+            # echo "Libs.private: $ICU_SYS_LIBS" >> "$pc"
+        # fi
+        # if ! grep -q -- "-lsicudt" "$pc"; then
+            # sed -i '/Libs:/ s/$/ -lsicudt/' "$pc"
+        # fi
+    # done
 
     get_deps_list
 }

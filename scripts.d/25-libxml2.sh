@@ -69,15 +69,13 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libxml-2.0.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        log_info "${SYNC_MARK} Patching libxml-2.0.pc..."
-        # Move all deps to Libs.private, keep only -lxml2 in Libs
-        sed -i "s|^Libs:.*|Libs: -L\${libdir} -lxml2|" "$PC_FILE"
-        sed -i "s|^Libs\.private:.*|Libs.private: $XML_DEPS $LIBS|" "$PC_FILE"
-        # Add static defines to Cflags
-        sed -i "/^Cflags:/ s/$/ -DLIBXML_STATIC -DXML_STATIC/" "$PC_FILE"
-    fi
+    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libxml-2.0.pc"
+    # if [[ -f "$PC_FILE" ]]; then
+        # log_info "${SYNC_MARK} Patching libxml-2.0.pc..."
+        # sed -i "s|^Libs:.*|Libs: -L\${libdir} -lxml2|" "$PC_FILE"
+        # sed -i "s|^Libs\.private:.*|Libs.private: $XML_DEPS $LIBS|" "$PC_FILE"
+        # sed -i "/^Cflags:/ s/$/ -DLIBXML_STATIC -DXML_STATIC/" "$PC_FILE"
+    # fi
 
     get_deps_list
 }

@@ -114,6 +114,10 @@ EOF
         --cross-file python_fix.ini \
         --buildtype release \
         --default-library static \
+        -Dc_args="$CFLAGS" \
+        -Dcpp_args="$CPPFLAGS" \
+        -Dc_link_args="$LDFLAGS" \
+        -Dcpp_link_args="$LDFLAGS" \
         -Dcpp_std=c++17 \
         -Dc_std=c11 \
         -Denable_vsscript=true \

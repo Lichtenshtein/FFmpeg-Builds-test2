@@ -44,7 +44,12 @@ ffbuild_dockerbuild() {
     fi
 
     # libvpx не любит стандартный CROSS, ему нужен конкретный префикс
-    CROSS="$FFBUILD_CROSS_PREFIX" ./configure "${myconf[@]}" || return 1
+    CROSS="$FFBUILD_CROSS_PREFIX" ./configure "${myconf[@]}" \
+        CFLAGS="$CFLAGS" \
+        LDFLAGS="$LDFLAGS" \
+        CPPFLAGS="$CPPFLAGS" \
+        CXXFLAGS="$CXXFLAGS" \
+        LIBS="$LIBS" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

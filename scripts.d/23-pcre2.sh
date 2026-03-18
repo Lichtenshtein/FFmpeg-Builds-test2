@@ -36,12 +36,14 @@ ffbuild_dockerbuild() {
         --enable-jit
         --enable-unicode
         --enable-newline-is-anycrlf
-        LDFLAGS="$LDFLAGS $DEP_LIBS"
-        LIBS="$DEP_LIBS"
     )
 
-    ./configure "${myconf[@]}" || return 1
-
+    ./configure "${myconf[@]}" \
+        CFLAGS="$CFLAGS" \
+        LDFLAGS="$LDFLAGS $DEP_LIBS" \
+        CPPFLAGS="$CPPFLAGS" \
+        CXXFLAGS="$CXXFLAGS" \
+        LIBS="$DEP_LIBS" || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 

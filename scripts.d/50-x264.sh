@@ -42,7 +42,6 @@ ffbuild_dockerbuild() {
 
     # Настройка LTO
     if [[ "$USE_LTO" == "1" ]]; then
-        # x264 имеет свой флаг для LTO
         myconf+=( --enable-lto )
     fi
 
