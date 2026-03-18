@@ -41,9 +41,9 @@ ffbuild_dockerbuild() {
 
     export CFLAGS="$CFLAGS -Dread_file=libass_internal_read_file"
 
-    ./configure "${myconf[@]}"
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    ./configure "${myconf[@]}" || return 1
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

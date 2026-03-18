@@ -45,9 +45,9 @@ ffbuild_dockerbuild() {
     CXXFLAGS="${CXXFLAGS/-DPIC/}"
     export CXXFLAGS="${CXXFLAGS/-fno-semantic-interposition/} -fPIE"
 
-    ./autogen.sh "${myconf[@]}"
-    make $MAKE_V -j$(nproc) build_lib_static
-    make DESTDIR="$FFBUILD_DESTDIR" install_include install_lib_static install_lib_pc
+    ./autogen.sh "${myconf[@]}" || return 1
+    make $MAKE_V -j$(nproc) build_lib_static || return 1
+    make DESTDIR="$FFBUILD_DESTDIR" install_include install_lib_static install_lib_pc || return 1
 
 #    ./autogen.sh "${myconf[@]}"
 #    make -j$(nproc)

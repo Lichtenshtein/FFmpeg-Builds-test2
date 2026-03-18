@@ -37,9 +37,9 @@ ffbuild_dockerbuild() {
         myconf+=( -DPOLLER="epoll" )
     fi
 
-    cmake "${myconf[@]}" ..
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    cmake "${myconf[@]}" .. || return 1
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     {
         echo "Cflags.private: -DZMQ_NO_EXPORT -DZMQ_STATIC"

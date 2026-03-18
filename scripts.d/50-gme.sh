@@ -31,9 +31,10 @@ ffbuild_dockerbuild() {
         -DGME_BUILD_EXAMPLES=OFF \
         -DGME_SPC_ISOLATED_ECHO_BUFFER=ON \
         -DGME_ZLIB=ON \
-        -DENABLE_UBSAN=OFF ..
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+        -DENABLE_UBSAN=OFF .. || return 1
+
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     get_deps_list
 }

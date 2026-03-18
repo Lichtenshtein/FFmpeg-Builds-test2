@@ -43,10 +43,10 @@ ffbuild_dockerbuild() {
         -Denable_x86_asm=true \
         -Denable_vsscript=false \
         -Denable_vspipe=false \
-        -Denable_python_module=false
+        -Denable_python_module=false || return 1
 
-    ninja -C build -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja -C build install
+    ninja -C build -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja -C build install || return 1
 
     # Исправление pkg-config для статической линковки FFmpeg
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/vapoursynth.pc"

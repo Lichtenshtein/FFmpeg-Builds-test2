@@ -26,9 +26,10 @@ ffbuild_dockerbuild() {
         -DSNAPPY_BUILD_TESTS=OFF \
         -DSNAPPY_BUILD_BENCHMARKS=OFF \
         -DSNAPPY_REQUIRE_AVX=ON \
-        -DSNAPPY_REQUIRE_AVX2=ON ..
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+        -DSNAPPY_REQUIRE_AVX2=ON .. || return 1
+
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     get_deps_list
 }

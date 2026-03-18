@@ -35,10 +35,10 @@ ffbuild_dockerbuild() {
         -DSPIRV_SKIP_EXECUTABLES=ON \
         -DSPIRV_TOOLS_BUILD_STATIC=ON \
         -DSPIRV_TOOLS_LIBRARY_TYPE=STATIC \
-        -DGLSLANG_ENABLE_INSTALL=ON ..
+        -DGLSLANG_ENABLE_INSTALL=ON .. || return 1
 
     export DESTDIR="/tmp/staging$FFBUILD_DESTDIR"
-    ninja install
+    ninja install || return 1
 
     if [[ $TARGET == win* ]]; then
         rm -r "${DESTDIR}${FFBUILD_PREFIX}"/bin "${DESTDIR}${FFBUILD_PREFIX}"/lib/*.dll.a
@@ -64,10 +64,17 @@ ffbuild_dockerbuild() {
     mkdir ../native_build && cd ../native_build
 
     unset CC CXX CFLAGS CXXFLAGS LD LDFLAGS AR RANLIB NM DLLTOOL PKG_CONFIG_LIBDIR
-    cmake -GNinja -DCMAKE_BUILD_TYPE=Release \
-        -DSHADERC_SKIP_TESTS=ON -DSHADERC_SKIP_EXAMPLES=ON -DSHADERC_SKIP_COPYRIGHT_CHECK=ON \
-        -DENABLE_EXCEPTIONS=ON -DSPIRV_TOOLS_BUILD_STATIC=ON -DBUILD_SHARED_LIBS=OFF ..
-    ninja $NINJA_V -j$(nproc) glslc/glslc
+
+    cmake -GNinja \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DSHADERC_SKIP_TESTS=ON \
+        -DSHADERC_SKIP_EXAMPLES=ON \
+        -DSHADERC_SKIP_COPYRIGHT_CHECK=ON \
+        -DENABLE_EXCEPTIONS=ON \
+        -DSPIRV_TOOLS_BUILD_STATIC=ON \
+        -DBUILD_SHARED_LIBS=OFF .. || return 1
+
+    ninja $NINJA_V -j$(nproc) glslc/glslc || return 1
 
     cp glslc/glslc /opt/glslc
 }

@@ -34,14 +34,14 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_TESTING=OFF
         -DBUILD_APPS=OFF
-        -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
+        -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF )
         -DENABLE_NATIVE=OFF
         -DENABLE_NASM=ON
     )
 
-    cmake "${cmake_flags[@]}" ..
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    cmake "${cmake_flags[@]}" .. || return 1
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # ФИКС pkg-config (у SVT-JPEG-XS часто раздельные файлы)
     # Нам нужно, чтобы FFmpeg видел их корректно

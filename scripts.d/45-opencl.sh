@@ -38,10 +38,10 @@ ffbuild_dockerbuild() {
         -DOPENCL_ICD_LOADER_DISABLE_OPENCLON12=ON \
         -DOPENCL_ICD_LOADER_PIC=ON \
         -DOPENCL_ICD_LOADER_BUILD_TESTING=OFF \
-        -DBUILD_TESTING=OFF ..
+        -DBUILD_TESTING=OFF .. || return 1
     
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Генерация .pc файла (исправлено цитирование)
     cat <<EOF > OpenCL.pc

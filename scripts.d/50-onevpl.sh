@@ -32,10 +32,10 @@ ffbuild_dockerbuild() {
         -DBUILD_TOOLS_ONEVPL_EXPERIMENTAL=OFF \
         -DINSTALL_EXAMPLE_CODE=OFF \
         -DBUILD_SHARED_LIBS=OFF \
-        -DBUILD_TESTS=OFF ..
+        -DBUILD_TESTS=OFF .. || return 1
 
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     rm -rf "$FFBUILD_DESTPREFIX"/{etc,share}
 

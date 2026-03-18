@@ -70,9 +70,9 @@ ffbuild_dockerbuild() {
     export CFLAGS="$RAW_CFLAGS"
     export LDFLAFS="$RAW_LDFLAGS"
 
-    meson "${myconf[@]}" ..
-    ninja -j"$(nproc)" $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    meson "${myconf[@]}" .. || return 1
+    ninja -j"$(nproc)" $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     if [[ $TARGET == linux* ]]; then
         gen-implib "$FFBUILD_DESTPREFIX"/lib/{libva.so.2,libva.a}

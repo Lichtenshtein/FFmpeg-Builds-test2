@@ -26,12 +26,10 @@ ffbuild_dockerbuild() {
         --enable-sse
     )
 
-    # Конфигурация. Добавляем CFLAGS для стабильности плавающей точки
-    ./configure "${myconf[@]}" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS"
+    ./configure "${myconf[@]}" CFLAGS="$CFLAGS" LDFLAGS="$LDFLAGS" || return 1
 
-    # Сборка
-    make -j$(nproc) $MAKE_V
-    make install DESTDIR="$FFBUILD_DESTDIR"
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 

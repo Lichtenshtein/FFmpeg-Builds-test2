@@ -69,9 +69,9 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    meson "${myconf[@]}" ..
-    ninja -j$(nproc) $NINJA_V
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    meson "${myconf[@]}" .. || return 1
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Принудительно добавляем зависимости в pkg-config для статической линковки
     sed -i 's/Libs:/Libs: -lshaderc_combined -lspirv-cross-c -lspirv-cross-glsl -lspirv-cross-core /' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libplacebo.pc
