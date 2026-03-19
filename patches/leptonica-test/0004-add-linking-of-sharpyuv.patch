@@ -1,0 +1,92 @@
+From dfdda3d7d31ff4ae55cc7fc4355116414d572117 Mon Sep 17 00:00:00 2001
+From: Guillaume Detcheverry <gdetcheverry@xlstat.com>
+Date: Wed, 15 Mar 2026 17:09:30 +0100
+Subject: [PATCH] Add linking of sharpyuv
+
+---
+diff --git i/CMakeLists.txt w/CMakeLists.txt
+index d87c96e3..f7084a3f 100644
+--- i/CMakeLists.txt
++++ w/CMakeLists.txt
+@@ -101,43 +101,48 @@ if(NOT SW_BUILD)
+     endif()
+   endif()
+ 
+-  if(ENABLE_WEBP)
+-    find_package(WebP ${MINIMUM_WEBPMUX_VERSION} CONFIG)
+-    set(pkgs_private "${pkgs_private} libwebp libwebpmux")
+-    if(NOT TARGET WebP::webp)
+-      find_path(WebP_INCLUDE_DIR NAMES webp/decode.h)
+-      find_path(WebP_MUX_INCLUDE_DIR NAMES webp/mux.h)
+-      find_library(WebP_LIBRARY NAMES webp)
+-      find_library(WebP_MUX_LIBRARY NAMES webpmux)
+-      if(WebP_INCLUDE_DIR
+-         AND WebP_MUX_INCLUDE_DIR
+-         AND WebP_LIBRARY)
+-        message(STATUS "Found non-cmake WebP: ${WebP_LIBRARY}")
+-        set(WebP_INCLUDE_DIR "${WebP_INCLUDE_DIR};${WebP_MUX_INCLUDE_DIR}")
+-        set(WebP_LIBRARIES "${WebP_LIBRARY}")
+-        if(WebP_MUX_LIBRARY)
+-          list(APPEND WebP_LIBRARIES "${WebP_MUX_LIBRARY}")
+-        else()
+-          message(STATUS "Library webpmux not found!")
+-        endif()
+-        set(WebP_FOUND 1)
++if(ENABLE_WEBP)
++  find_package(WebP ${MINIMUM_WEBPMUX_VERSION} CONFIG)
++  set(pkgs_private "${pkgs_private} libwebp libwebpmux libsharpyuv")
++
++  if(NOT TARGET WebP::webp)
++    find_path(WebP_INCLUDE_DIR NAMES webp/decode.h)
++    find_path(WebP_MUX_INCLUDE_DIR NAMES webp/mux.h)
++    find_path(WebP_SHARPYUV_INCLUDE_DIR NAMES webp/sharpyuv/sharpyuv.h)
++    find_library(WebP_LIBRARY NAMES webp)
++    find_library(WebP_MUX_LIBRARY NAMES webpmux)
++    find_library(WebP_SHARPYUV_LIBRARY NAMES sharpyuv)
++
++    if(WebP_INCLUDE_DIR AND WebP_LIBRARY)
++      message(STATUS "Found non-cmake WebP: ${WebP_LIBRARY}")
++      set(WebP_INCLUDE_DIRS "${WebP_INCLUDE_DIR}")
++      list(APPEND WebP_INCLUDE_DIRS "${WebP_MUX_INCLUDE_DIR}" "${WebP_SHARPYUV_INCLUDE_DIR}")
++      set(WebP_LIBRARIES "${WebP_LIBRARY}")
++      if(WebP_MUX_LIBRARY)
++        list(APPEND WebP_LIBRARIES "${WebP_MUX_LIBRARY}")
++      else()
++        message(STATUS "Library webpmux not found!")
+       endif()
+-    endif()
+-    if(WebP_FOUND)
+-      set(HAVE_LIBWEBP 1)
+-      set(HAVE_LIBWEBP_ANIM 1)
+-      include_directories(${WebP_INCLUDE_DIR})
+-      include_directories(${WebP_MUX_INCLUDE_DIR})
+-      message(STATUS "Found WebP: ${WebP_LIBRARIES} (${WebP_VERSION})")
+-    else()
+-      if(STRICT_CONF)
+-        message(
+-          FATAL_ERROR
+-            "Could not find WebP libs. Use -DENABLE_WEBP=OFF to disable WebP support."
+-        )
++      if(WebP_SHARPYUV_LIBRARY)
++        list(APPEND WebP_LIBRARIES "${WebP_SHARPYUV_LIBRARY}")
++        message(STATUS "Found SharpYUV: ${WebP_SHARPYUV_LIBRARY}")
+       endif()
++      set(WebP_FOUND 1)
++    endif()
++  endif()
++
++  if(WebP_FOUND)
++    set(HAVE_LIBWEBP 1)
++    set(HAVE_LIBWEBP_ANIM 1)
++    include_directories(${WebP_INCLUDE_DIRS})
++    message(STATUS "Found WebP: ${WebP_LIBRARIES}")
++  else()
++    if(STRICT_CONF)
++      message(FATAL_ERROR "Could not find WebP libs. Use -DENABLE_WEBP=OFF to disable WebP support.")
+     endif()
+   endif()
++endif()
++
+ 
+   if(ENABLE_OPENJPEG)
+     find_package(OpenJPEG CONFIG)
