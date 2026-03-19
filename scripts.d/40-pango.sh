@@ -24,8 +24,8 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-    # чит-лист для Pango (порядок критичен!)
-    local PANGO_DEPS="-lcairo -lpixman-1 -lfontconfig -lfreetype -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-cairo -lsicuin -lsicuuc -lsicudt -lfribidi -lglib-2.0 -lgobject-2.0 -lintl -liconv -lcharset -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon"
+    local PANGO_DEPS="-lcairo -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-cairo -lfreetype -lpixman-1 -lfontconfig -lpng16 -lglib-2.0 -lgobject-2.0 -lxml2 -lfribidi -lbrotlidec -lbrotlicommon -lz -lbz2 -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt"
+    local STATIC_DEPS="-DCAIRO_WIN32_STATIC_BUILD -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW -Dpixman_static"
     local WIN_SYS="-lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -luuid $LIBS"
 
     local myconf=(
@@ -44,13 +44,13 @@ ffbuild_dockerbuild() {
         -Dbuild-testsuite=false
         -Dbuild-examples=false
         -Dman-pages=false
-        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g') -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
-        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g') -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     meson setup "${myconf[@]}" .. \
+        -Dc_args="$CFLAGS $STATIC_DEPS" \
+        -Dcpp_args="$CXXFLAGS $STATIC_DEPS" \
         -Dc_link_args="$LDFLAGS $PANGO_DEPS $WIN_SYS" \
         -Dcpp_link_args="$LDFLAGS $PANGO_DEPS $WIN_SYS" || return 1
 
