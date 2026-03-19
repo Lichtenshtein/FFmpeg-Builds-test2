@@ -33,7 +33,7 @@ ffbuild_dockerbuild() {
 
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
     # Порядок: curl -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
-    local CURL_LIBS="-lssh -lssl -lcrypto -lbrotlidec -lbrotlicommon -lzstd -lz -liconv -lcharset -lcrypt32 -lwldap32 -lnormaliz -liphlpapi -lws2_32 -ladvapi32"
+    local CURL_LIBS="-lssh -lssl -lcrypto -lbrotlidec -lbrotlicommon -lzstd -lz -liconv -lcharset -lcrypt32 -lwldap32 -lnormaliz -liphlpapi $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -76,8 +76,8 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" \
         CPPFLAGS="$CLEAN_CPPFLAGS" \
         CFLAGS="$CLEAN_CFLAGS" \
-        LDFLAGS="$LDFLAGS -static" \
-        LIBS="$CURL_LIBS $LIBS" || return 1
+        LDFLAGS="$LDFLAGS" \
+        LIBS="$CURL_LIBS" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
@@ -87,7 +87,7 @@ ffbuild_dockerbuild() {
     # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libcurl.pc"
     # if [[ -f "$PC_FILE" ]]; then
         # log_info "${SYNC_MARK} Patching libcurl.pc..."
-        # sed -i "s|^Libs.private:.*|Libs.private: $CURL_LIBS $LIBS|" "$PC_FILE"
+        # sed -i "s|^Libs.private:.*|Libs.private: $CURL_LIBS|" "$PC_FILE"
         # sed -i "/^Cflags:/ s/$/ -DCURL_STATICLIB/" "$PC_FILE"
     # fi
 
