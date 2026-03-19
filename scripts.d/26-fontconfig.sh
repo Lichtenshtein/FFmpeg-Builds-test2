@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
     set -e
 
     # Fontconfig требует либо expat, либо libxml2.
-    local FC_LIBS="-lxml2 -lfreetype -lharfbuzz -lharfbuzz-icu -lsicuin -lsicuuc -lsicudt -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz -lintl -liconv -lcharset"
+    local FC_LIBS="-lxml2 -lfreetype -lharfbuzz -lharfbuzz-icu -lsicuin -lsicuuc -lsicudt -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz -lintl -liconv -lcharset $LIBS"
 
     local myconf=(
         --cross-file=/cross.meson
@@ -53,12 +53,11 @@ ffbuild_dockerbuild() {
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
-    # Запуск конфигурации
     meson setup .. "${myconf[@]}" \
         -Dc_args="$CFLAGS" \
         -Dcpp_args="$CPPFLAGS" \
-        -Dc_link_args="$LDFLAGS" \
-        -Dcpp_link_args="$LDFLAGS" || return 1
+        -Dc_link_args="$LDFLAGS $FC_LIBS" \
+        -Dcpp_link_args="$LDFLAGS $FC_LIBS" || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
@@ -70,7 +69,7 @@ ffbuild_dockerbuild() {
     # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/fontconfig.pc"
     # if [[ -f "$PC_FILE" ]]; then
         # log_info "${SYNC_MARK} Patching fontconfig.pc..."
-        # sed -i "s|^Libs.private:.*|Libs.private: $FC_LIBS $LIBS -lole32 -luuid|" "$PC_FILE"
+        # sed -i "s|^Libs.private:.*|Libs.private: $FC_LIBS -luuid|" "$PC_FILE"
     # fi
 
     get_deps_list
