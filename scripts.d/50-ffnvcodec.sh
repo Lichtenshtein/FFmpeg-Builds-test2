@@ -35,11 +35,3 @@ ffbuild_configure() {
 ffbuild_unconfigure() {
     echo --disable-ffnvcodec --disable-cuda-llvm
 }
-
-ffbuild_cflags() {
-    return 0
-}
-
-ffbuild_ldflags() {
-    return 0
-}

@@ -25,7 +25,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
     # Набор системных библиотек Windows для Cairo
-    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lole32 -luuid"
+    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -luuid -lstdc++ $LIBS"
     # Зависимости из чит-листа в правильном порядке линковки
     local DEP_LIBS="-lfontconfig -lxml2 -lfreetype -lharfbuzz -lharfbuzz-icu -lsicuin -lsicuuc -lsicudt -lpixman-1 -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon -lglib-2.0 -lintl -liconv -lcharset"
 
@@ -34,8 +34,8 @@ ffbuild_dockerbuild() {
     # Очищаем LDFLAGS от мусора POSIX (librt и libpthread здесь не нужны)
     export LDFLAGS="$(echo $LDFLAGS | sed 's/-lrt//g; s/-lpthread//g')"
     # Remove standard flags from CFLAGS/CXXFLAGS meson sets these via options
-    export CFLAGS="$(echo $CFLAGS | sed 's/-std=gnu11//g; s/-std=c11//g')"
-    export CXXFLAGS="$(echo $CXXFLAGS | sed 's/-std=c++17//g')"
+    # export CFLAGS="$(echo $CFLAGS | sed 's/-std=gnu11//g; s/-std=c11//g')"
+    # export CXXFLAGS="$(echo $CXXFLAGS | sed 's/-std=c++17//g')"
 
     # Ищем системный путь либ тулчейна
     # local GDI_PATH=$(${CC} -print-file-name=libgdi32.a)
@@ -50,7 +50,7 @@ ffbuild_dockerbuild() {
         --buildtype=release
         --default-library=static
         --wrap-mode=nodownload
-        -Dcpp_std=c++17
+        # -Dcpp_std=c++17
         -Dc_std=c11
         -Dfontconfig=enabled
         -Dfreetype=enabled
@@ -70,8 +70,8 @@ ffbuild_dockerbuild() {
         "${myconf[@]}" \
         -Dc_args="$CFLAGS" \
         -Dcpp_args="$CPPFLAGS" \
-        -Dc_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR} $DEP_LIBS $WIN_LIBS $_LIBS" \
-        -Dcpp_link_args="$LDFLAGS -L${MINGW_SYS_LIBDIR} $DEP_LIBS $WIN_LIBS $_LIBS" || return 1
+        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
@@ -83,7 +83,7 @@ ffbuild_dockerbuild() {
         # log_info "${SYNC_MARK} Patching cairo.pc for static linking..."
         # sed -i "/^Cflags:/ s/$/ -DCAIRO_WIN32_STATIC_BUILD/" "$PC_FILE"
         # sed -i "s/-lrt//g" "$PC_FILE"
-        # sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS $LIBS|" "$PC_FILE"
+        # sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS|" "$PC_FILE"
     # fi
 
     # for pc in cairo-win32.pc cairo-gobject.pc cairo-ft.pc; do
