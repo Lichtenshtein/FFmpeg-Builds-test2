@@ -240,8 +240,8 @@ if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
     if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         log_info "################################################################"
         log_debug "${BROOM_MARK} Cleaning unwanted DLLs from static stage: $STAGENAME"
-        find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.dll" -delete || true
-        # find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
+        # find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.dll" -delete || true
+        find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
     else
         log_debug "${DIRS_MARK} No standard prefix directory to clean for $STAGENAME"
     fi

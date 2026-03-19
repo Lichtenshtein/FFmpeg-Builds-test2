@@ -99,7 +99,7 @@ SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws
 export CFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong $BASE_CFLAGS"
 export CPPFLAGS="-I/opt/ffbuild/include"
 export CXXFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong $BASE_CFLAGS"
-export LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -lssp -pipe -lm -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+export LDFLAGS="-static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -lssp -pipe -lm -Wl,-Bstatic -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
 
 # Docker stage helpers
