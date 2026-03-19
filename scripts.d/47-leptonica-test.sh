@@ -36,7 +36,7 @@ ffbuild_dockerbuild() {
 
     # финальный список для линковки
     local LEPT_DEPS="-larchive -lxml2 -lwebp -lwebpmux -lsharpyuv -ltiff -lopenjp2 -llcms2 -ljpeg -lturbojpeg -lpng16 -lgif -lzstd -llzma -lbz2 -ljbig -ljbig85 -lz"
-    local WIN_SYS="-lgdi32 -luser32 -lws2_32 -lbcrypt"
+    local WIN_SYS="-lgdi32 $LIBS"
 
     local myconf=(
         # -DCMAKE_PROJECT_INCLUDE="${PWD}/extra_targets.cmake"
@@ -70,7 +70,7 @@ ffbuild_dockerbuild() {
     # Принудительно устанавливаем C_FLAGS, чтобы избежать __imp_
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $LEPT_DEPS $WIN_SYS $LIBS" .. || return 1
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $LEPT_DEPS $WIN_SYS" .. || return 1
 
     # Исправляем расширение в сгенерированных файлах сборки, если CMake сошел с ума
     find . -name "build.make" -exec sed -i 's/libleptonica-1.88.0.dll/libleptonica.a/g' {} +
@@ -99,7 +99,7 @@ Name: leptonica
 Description: Leptonica image processing library
 Version: 1.88.0
 Libs: -L\${libdir} -lleptonica
-Libs.private: $LEPT_DEPS $WIN_SYS $LIBS
+Libs.private: $LEPT_DEPS $WIN_SYS
 Cflags: -I\${includedir} -I\${includedir}/leptonica
 EOF
 
