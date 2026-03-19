@@ -238,7 +238,7 @@ fi
 PRESERVE_DLL_PATTERN="${DLL_PRESERVE_LIST:-openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|onevpl}"
 if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
     if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
-        local DELETED_FILES=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -print)
+        DELETED_FILES=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -print)
         if [[ -n "$DELETED_FILES" ]]; then
             log_info "################################################################"
             log_debug "${BROOM_MARK} Cleaning unwanted dynamic DLLs from static stage: $STAGENAME"
