@@ -76,7 +76,7 @@ env:
   # Список для удаления лишних .git (в download.sh)
   GIT_PRESERVE_LIST: "ffmpeg|glib2|x264|x265|opus|vulkan-loader|mbedtls|pcre2|avisynth|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo"
   # Список для сохранения DLL (в run_stage.sh)
-  DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|onevpl|glib2|leptonica-test|audiotoolbox|vapoursynth|vapoursynth-python-test"
+  DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|opencv|onevpl|glib2|leptonica-test|audiotoolbox|vapoursynth|vapoursynth-python-test"
   FFBUILD_VERBOSE: ${{ github.event.inputs.verbosity || '1' }}
   ONLY_STAGE: ${{ github.event.inputs.only_stage }}
   DEBUG_NO_HASH: ${{ github.event.inputs.debug_no_hash }}

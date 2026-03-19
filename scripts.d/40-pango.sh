@@ -26,9 +26,8 @@ ffbuild_dockerbuild() {
 
     local PANGO_DEPS="-lcairo -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-cairo -lfreetype -lpixman-1 -lfontconfig -lpng16 -lglib-2.0 -lgobject-2.0 -lxml2 -lfribidi -lbrotlidec -lbrotlicommon -lz -lbz2 -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt"
     local STATIC_DEPS="-DCAIRO_WIN32_STATIC_BUILD -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW -Dpixman_static"
-    local WIN_SYS="-lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -luuid -lstdc++ $LIBS"
-
-    # local CC="x86_64-w64-mingw32-g++"
+    local WIN_SYS="-lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -luuid $LIBS"
+    local CC="x86_64-w64-mingw32-g++"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -36,8 +35,8 @@ ffbuild_dockerbuild() {
         --buildtype=release
         --default-library=static
         --wrap-mode=nodownload
-        # -Dcpp_std=c++17
-        # -Dc_std=c11
+        -Dcpp_std=c++17
+        -Dc_std=c11
         -Dintrospection=disabled
         -Dfontconfig=enabled
         -Dfreetype=enabled
