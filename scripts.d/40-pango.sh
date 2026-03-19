@@ -25,8 +25,8 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     # чит-лист для Pango (порядок критичен!)
-    local PANGO_DEPS="-lcairo -lpixman-1 -lfontconfig -lexpat -lfreetype -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-cairo -lsicuin -lsicuuc -lsicudt -lfribidi -lglib-2.0 -lgobject-2.0 -lintl -liconv -lcharset -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon"
-    local WIN_SYS="-lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lole32 -luuid"
+    local PANGO_DEPS="-lcairo -lpixman-1 -lfontconfig -lfreetype -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-cairo -lsicuin -lsicuuc -lsicudt -lfribidi -lglib-2.0 -lgobject-2.0 -lintl -liconv -lcharset -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon"
+    local WIN_SYS="-lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -luuid $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -51,24 +51,21 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     meson setup "${myconf[@]}" .. \
-        -Dc_link_args="$LDFLAGS $PANGO_DEPS $WIN_SYS $LIBS" \
-        -Dcpp_link_args="$LDFLAGS $PANGO_DEPS $WIN_SYS $LIBS" || return 1
+        -Dc_link_args="$LDFLAGS $PANGO_DEPS $WIN_SYS" \
+        -Dcpp_link_args="$LDFLAGS $PANGO_DEPS $WIN_SYS" || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     clean_la_files
 
-    # Патчим ВСЕ сгенерированные .pc файлы Pango
-    log_info "${SYNC_MARK} Patching Pango .pc files for static link..."
-    for pc in pango.pc pangocairo.pc pangoft2.pc pangowin32.pc; do
-        local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
-        [[ -f "$PC_PATH" ]] || continue
-        # Форсируем флаг статики в Cflags (без него будут ошибки __imp_)
-        sed -i "/^Cflags:/ s/$/ -DPANGO_STATIC_COMPILATION/" "$PC_PATH"
-        # Прописываем полный хвост в Libs.private
-        sed -i "s|^Libs.private:.*|Libs.private: $PANGO_DEPS $WIN_SYS $LIBS -lstdc++|" "$PC_PATH"
-    done
+    # log_info "${SYNC_MARK} Patching Pango .pc files for static link..."
+    # for pc in pango.pc pangocairo.pc pangoft2.pc pangowin32.pc; do
+        # local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
+        # [[ -f "$PC_PATH" ]] || continue
+        # sed -i "/^Cflags:/ s/$/ -DPANGO_STATIC_COMPILATION/" "$PC_PATH"
+        # sed -i "s|^Libs.private:.*|Libs.private: $PANGO_DEPS $WIN_SYS|" "$PC_PATH"
+    # done
 
     get_deps_list
 }

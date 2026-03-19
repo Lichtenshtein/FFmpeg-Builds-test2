@@ -43,7 +43,7 @@ ffbuild_dockerbuild() {
     # Полный список зависимостей для линковки (порядок важен!)
     # Tesseract -> Leptonica -> [Pango/Cairo] -> [Archive/Curl] -> [TIFF/JPEG/PNG] -> [ICU/GLib] -> [System]
     local TESS_DEPS="-lleptonica -lpangocairo-1.0 -lpangoft2-1.0 -lpango-1.0 -lcairo -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-cairo -lsicuin -lsicuuc -lsicudt -lfribidi -lglib-2.0 -lgobject-2.0 -larchive -lcurl -lssl -lcrypto -lssh -ltiff -lopenjp2 -ljpeg -lpng16 -lzstd -llzma -lbz2 -lz -liconv -lintl"
-    local WIN_SYS="-lws2_32 -luserenv -lbcrypt -lcrypt32 -lnormaliz -lshlwapi -lole32 -luuid -lruntimeobject -lgdi32 -lusp10"
+    local WIN_SYS="-luserenv -lcrypt32 -lnormaliz -luuid -lruntimeobject -lgdi32 -lusp10 -lstdc++ $LIBS"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -78,20 +78,18 @@ ffbuild_dockerbuild() {
     # Используем -Wl,--allow-multiple-definition, если Pango и Cairo конфликтуют
     cmake "${myconf[@]}" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS -Wno-narrowing" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $TESS_DEPS $WIN_SYS $LIBS" .. || return 1
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $TESS_DEPS $WIN_SYS" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 
-    # Корректируем tesseract.pc для статической линковки
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/tesseract.pc"
     if [[ -f "$PC_FILE" ]]; then
         log_info "${SYNC_MARK} Finalizing tesseract.pc..."
-        # Очищаем старые зависимости и пишем свои
         sed -i "s|^Requires.private:.*|Requires.private: lept pango pangocairo libarchive libcurl|" "$PC_FILE"
-        sed -i "s|^Libs.private:.*|Libs.private: $TESS_DEPS $WIN_SYS $LIBS -lstdc++|" "$PC_FILE"
+        sed -i "s|^Libs.private:.*|Libs.private: $TESS_DEPS $WIN_SYS|" "$PC_FILE"
     fi
 
     get_deps_list

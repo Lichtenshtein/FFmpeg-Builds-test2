@@ -20,7 +20,7 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-    local LCMS_DEPS="-ltiff -ltiffxx -ljpeg -lturbojpeg -ljbig -ljbig85 -lzstd -llzma -lz"
+    local LCMS_DEPS="-ltiff -ltiffxx -ljpeg -lturbojpeg -ljbig -ljbig85 -lzstd -llzma -lz $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -39,20 +39,17 @@ ffbuild_dockerbuild() {
     meson setup "${myconf[@]}" .. \
         -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g')" \
         -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g')" \
-        -Dc_link_args="$LDFLAGS" \
-        -Dcpp_link_args="$LDFLAGS" || return 1
+        -Dc_link_args="$LDFLAGS $LCMS_DEPS" \
+        -Dcpp_link_args="$LDFLAGS $LCMS_DEPS" || return 1
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     clean_la_files
 
-    # Проверяем lcms2.pc
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lcms2.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        # lcms2 часто не пишет зависимости в .pc, если они статические
-        # Побавим -lm (математическа¤ библиотека) дл¤ Windows/MinGW
-        sed -i '/^Libs.private:/ s/$/ $DEP_LIBS/' "$PC_FILE"
-    fi
+    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lcms2.pc"
+    # if [[ -f "$PC_FILE" ]]; then
+        # sed -i '/^Libs.private:/ s/$/ $LCMS_DEPS/' "$PC_FILE"
+    # fi
 
     get_deps_list
 }
