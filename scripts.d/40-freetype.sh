@@ -41,23 +41,21 @@ ffbuild_dockerbuild() {
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    # Помогаем линкеру найти статические либы
-    export LIBS="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-cairo -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz $LIBS"
+    export DEP_LIBS="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-cairo -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz $LIBS"
 
     ./configure "${myconf[@]}" \
         CFLAGS="$CFLAGS" \
         LDFLAGS="$LDFLAGS" \
         CPPFLAGS="$CPPFLAGS" \
         CXXFLAGS="$CXXFLAGS" \
-        LIBS="$LIBS" || return 1
+        LIBS="$DEP_LIBS" || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 
-    # Патчим .pc файл, чтобы последующие (например, FFmpeg) видели зависимости
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype2.pc"
-    sed -i "s|^Libs.private:.*|Libs.private: -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-cairo -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz $LIBS|" "$PC_FILE"
+    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype2.pc"
+    # sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS|" "$PC_FILE"
 
     get_deps_list
 }

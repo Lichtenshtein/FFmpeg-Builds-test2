@@ -23,8 +23,8 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     # порядок линковки критичен для статики
-    local DEP_LIBS="-lcairo -lpixman-1 -lfontconfig -lexpat -lfreetype -lpng16 -lbrotlidec -lbrotlicommon -lz -lbz2 -lglib-2.0 -lintl -liconv -lshlwapi -lsicuin -lsicuuc -lsicudt"
-    local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 -lsetupapi -lws2_32"
+    local DEP_LIBS="-lcairo -lpixman-1 -lfontconfig -lfreetype -lpng16 -lbrotlidec -lbrotlicommon -lz -lbz2 -lglib-2.0 -lintl -liconv -lshlwapi -lsicuin -lsicuuc -lsicudt"
+    local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
 
     local myconf=(
         --cross-file=/cross.meson
@@ -59,23 +59,21 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     meson setup "${myconf[@]}" .. \
-        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS $LIBS" \
-        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS $LIBS" || return 1
+        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     clean_la_files
 
-    # Массовый патч .pc файлов
-    log_info "Patching Harfbuzz .pc files..."
-    for pc in harfbuzz.pc harfbuzz-icu.pc harfbuzz-cairo.pc; do
-        local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
-        [[ -f "$PC_PATH" ]] || continue
-        # Форсируем статику и полный хвост зависимостей
-        sed -i "s|^Cflags:.*|& -DHARFBUZZ_STATIC|" "$PC_PATH"
-        sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS $LIBS|" "$PC_PATH"
-    done
+    # log_info "Patching Harfbuzz .pc files..."
+    # for pc in harfbuzz.pc harfbuzz-icu.pc harfbuzz-cairo.pc; do
+        # local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
+        # [[ -f "$PC_PATH" ]] || continue
+        # sed -i "s|^Cflags:.*|& -DHARFBUZZ_STATIC|" "$PC_PATH"
+        # sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS|" "$PC_PATH"
+    # done
 
     get_deps_list
 }

@@ -29,15 +29,15 @@ ffbuild_dockerbuild() {
     # Зависимости из чит-листа в правильном порядке линковки
     local DEP_LIBS="-lfontconfig -lxml2 -lfreetype -lharfbuzz -lharfbuzz-icu -lsicuin -lsicuuc -lsicudt -lpixman-1 -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon -lglib-2.0 -lintl -liconv -lcharset"
 
+    # конфликт hypot в коде Cairo для MinGW
+    # error: implicit declaration of function '_hypot'
+    sed -i 's/#define hypot _hypot/\/\/#define hypot _hypot/' src/cairo-compiler-private.h
+
     mkdir _build && cd _build
 
     # Очищаем LDFLAGS от мусора POSIX (librt и libpthread здесь не нужны)
     # export LDFLAGS="$(echo $LDFLAGS | sed 's/-lrt//g; s/-lpthread//g')"
     export LDFLAGS=$(echo "$LDFLAGS" | sed 's/-lrt//g')
-
-    # конфликт hypot в коде Cairo для MinGW
-    # error: implicit declaration of function '_hypot'
-    sed -i 's/#define hypot _hypot/\/\/#define hypot _hypot/' src/cairo-compiler-private.h
 
     # Remove standard flags from CFLAGS/CXXFLAGS meson sets these via options
     # export CFLAGS="$(echo $CFLAGS | sed 's/-std=gnu11//g; s/-std=c11//g')"
