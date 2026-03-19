@@ -30,8 +30,8 @@ ffbuild_dockerbuild() {
         -Ddemos=disabled
         -Dgtk=disabled
         -Dopenmp=disabled
-        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g')"
-        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g')"
+        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g') -Dpixman_static"
+        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g') -Dpixman_static"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
@@ -51,4 +51,8 @@ ffbuild_dockerbuild() {
     fi
 
     get_deps_list
+}
+
+ffbuild_cppflags() {
+    echo "-Dpixman_static"
 }

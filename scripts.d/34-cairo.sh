@@ -25,14 +25,20 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
     # Набор системных библиотек Windows для Cairo
-    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -luuid -lstdc++ $LIBS"
+    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -luuid $LIBS"
     # Зависимости из чит-листа в правильном порядке линковки
     local DEP_LIBS="-lfontconfig -lxml2 -lfreetype -lharfbuzz -lharfbuzz-icu -lsicuin -lsicuuc -lsicudt -lpixman-1 -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon -lglib-2.0 -lintl -liconv -lcharset"
 
     mkdir _build && cd _build
 
     # Очищаем LDFLAGS от мусора POSIX (librt и libpthread здесь не нужны)
-    export LDFLAGS="$(echo $LDFLAGS | sed 's/-lrt//g; s/-lpthread//g')"
+    # export LDFLAGS="$(echo $LDFLAGS | sed 's/-lrt//g; s/-lpthread//g')"
+    export LDFLAGS=$(echo "$LDFLAGS" | sed 's/-lrt//g')
+
+    # конфликт hypot в коде Cairo для MinGW
+    # error: implicit declaration of function '_hypot'
+    sed -i 's/#define hypot _hypot/\/\/#define hypot _hypot/' src/cairo-compiler-private.h
+
     # Remove standard flags from CFLAGS/CXXFLAGS meson sets these via options
     # export CFLAGS="$(echo $CFLAGS | sed 's/-std=gnu11//g; s/-std=c11//g')"
     # export CXXFLAGS="$(echo $CXXFLAGS | sed 's/-std=c++17//g')"
@@ -50,8 +56,8 @@ ffbuild_dockerbuild() {
         --buildtype=release
         --default-library=static
         --wrap-mode=nodownload
-        # -Dcpp_std=c++17
-        -Dc_std=c11
+        -Dcpp_std=c++17
+        # -Dc_std=c11
         -Dfontconfig=enabled
         -Dfreetype=enabled
         -Dglib=enabled
@@ -68,8 +74,8 @@ ffbuild_dockerbuild() {
 
     meson setup . .. \
         "${myconf[@]}" \
-        -Dc_args="$CFLAGS" \
-        -Dcpp_args="$CPPFLAGS" \
+        -Dc_args="$CFLAGS -DCAIRO_WIN32_STATIC_BUILD -Dpixman_static" \
+        -Dcpp_args="$CPPFLAGS -DCAIRO_WIN32_STATIC_BUILD -Dpixman_static" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
