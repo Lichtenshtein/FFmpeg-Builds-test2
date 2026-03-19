@@ -53,12 +53,13 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_TESTS=OFF
-        # -DBUILD_TRAINING_TOOLS=OFF
-        -DBUILD_TRAINING_TOOLS=ON # Disable tools if they cause link errors
+        -DBUILD_TRAINING_TOOLS=OFF
+        # -DBUILD_TRAINING_TOOLS=ON # Disable tools if they cause link errors
         # -DOPENMP_BUILD=ON # OpenMP в статике Mingw часто дает undefined reference на GOMP
         -DOPENMP_BUILD=OFF
         -DFAST_FLOAT=ON
         -DSW_BUILD=OFF
+        -DENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         # Обманываем упавший тест TIFF (чтобы он не портил логи и не сбивал CMake)
         -DLEPT_TIFF_RESULT=0 
         -DLEPT_TIFF_COMPILE_SUCCESS=ON
@@ -73,8 +74,6 @@ ffbuild_dockerbuild() {
         # Передаем системные либы для всех исполняемых файлов (tesseract.exe, lstmtraining.exe)
         # -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -Wl,--start-group $WIN_LIBS -Wl,--end-group"
     )
-
-    [[ "$USE_LTO" == "1" ]] && myconf+=( -DENABLE_LTO=ON )
 
     # прокидываем весь хвост в EXE_LINKER_FLAGS
     # Используем -Wl,--allow-multiple-definition, если Pango и Cairo конфликтуют
