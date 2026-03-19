@@ -25,7 +25,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
     # Набор системных библиотек Windows для Cairo
-    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -luuid $LIBS"
+    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -luuid -lstdc++ $LIBS"
     # Зависимости из чит-листа в правильном порядке линковки
     local DEP_LIBS="-lfontconfig -lxml2 -lfreetype -lharfbuzz -lharfbuzz-icu -lsicuin -lsicuuc -lsicudt -lpixman-1 -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon -lglib-2.0 -lintl -liconv -lcharset"
 
@@ -56,7 +56,7 @@ ffbuild_dockerbuild() {
         --buildtype=release
         --default-library=static
         --wrap-mode=nodownload
-        -Dcpp_std=c++17
+        # -Dcpp_std=c++17
         # -Dc_std=c11
         -Dfontconfig=enabled
         -Dfreetype=enabled
