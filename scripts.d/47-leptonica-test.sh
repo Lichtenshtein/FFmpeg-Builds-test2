@@ -28,13 +28,13 @@ ffbuild_dockerbuild() {
     set -e
     apply_patches
 
-    mkdir build && cd build
-
     # Принудительно отключаем SHARED в самом коде Leptonica
     sed -i 's/SHARED/STATIC/g' src/CMakeLists.txt
-    
+
     # Убеждаемся, что она не пытается выставлять суффиксы версий вроде libleptonica-1.88.0.a
     sed -i 's/set_target_properties.*PROPERTIES.*OUTPUT_NAME.*//g' src/CMakeLists.txt
+
+    mkdir build && cd build
 
     # Удаляем "ядовитые" CMake-конфиги TIFF и других либ,
     # которые заставляют линкер искать ZLIB::ZLIB
@@ -56,6 +56,9 @@ ffbuild_dockerbuild() {
         -DSW_BUILD=OFF
         -DBUILD_PROG=OFF
         -DINSTALL_CMAKE_CONFIG=OFF
+        -DCMAKE_INSTALL_LIBDIR="lib"
+        -DCMAKE_INSTALL_BINDIR="bin"
+        -DCMAKE_INSTALL_INCLUDEDIR="include"
         -DSYM_LINK=ON # Create symlink leptonica -> lept on UNIX
         -DENABLE_PNG=ON
         -DENABLE_JPEG=ON
@@ -80,6 +83,13 @@ ffbuild_dockerbuild() {
         -DCMAKE_C_FLAGS="$CFLAGS" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $LEPT_DEPS $WIN_SYS" .. || return 1
 
+    # где лежит файл?
+    log_debug "Searching for compiled lib..."
+    find . -name "*.a"
+    # смотрим, что реально собралось в папке src
+    log_debug "Content of build/src:"
+    ls -lh src/*.a src/*.dll* 2>/dev/null || echo "No libs found in src"
+
     # Исправляем расширение в сгенерированных файлах сборки, если CMake сошел с ума
     find . -name "build.make" -exec sed -i 's/libleptonica-1.88.0.dll/libleptonica.a/g' {} +
     find . -name "link.txt" -exec sed -i 's/libleptonica-1.88.0.dll/libleptonica.a/g' {} +
@@ -95,6 +105,21 @@ ffbuild_dockerbuild() {
     # Если вдруг либа оказалась в /bin (бывает в MinGW), переносим в /lib
     if [ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/libleptonica.a" ]; then
         mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/libleptonica.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a"
+    fi
+
+    # Если файла libleptonica.a нет в целевой папке, ищем его везде в билде и копируем
+    if [ ! -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a" ]; then
+        log_warn "Leptonica lib missing after install. Manual recovery..."
+        mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
+        # Ищем любой .a файл в папке src (он может называться liblept.a или libleptonica-1.88.0.a)
+        local BUILT_LIB=$(find src -name "*.a" | head -n 1)
+        if [[ -n "$BUILT_LIB" ]]; then
+            cp "$BUILT_LIB" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a"
+            log_info "${CHECK_MARK} Recovered: $BUILT_LIB -> libleptonica.a"
+        else
+            log_error "${CROSS_MARK} No static library was built!"
+            exit 1
+        fi
     fi
 
     # Удаляем все автосгенерированные конфиги
