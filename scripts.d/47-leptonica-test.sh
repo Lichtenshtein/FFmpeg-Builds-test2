@@ -30,14 +30,21 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
+    # Принудительно отключаем SHARED в самом коде Leptonica
+    sed -i 's/SHARED/STATIC/g' src/CMakeLists.txt
+    
+    # Убеждаемся, что она не пытается выставлять суффиксы версий вроде libleptonica-1.88.0.a
+    sed -i 's/set_target_properties.*PROPERTIES.*OUTPUT_NAME.*//g' src/CMakeLists.txt
+
     # Удаляем "ядовитые" CMake-конфиги TIFF и других либ,
     # которые заставляют линкер искать ZLIB::ZLIB
     rm -rf "$FFBUILD_PREFIX/lib/cmake/"{tiff,OpenJPEG,libwebp,WebP,lcms2}
 
     # финальный список для линковки
     local LEPT_DEPS="-larchive -lxml2 -lwebp -lwebpmux -lsharpyuv -ltiff -lopenjp2 -llcms2 -ljpeg -lturbojpeg -lpng16 -lgif -lzstd -llzma -lbz2 -ljbig -ljbig85 -lz"
-    local WIN_SYS="-lgdi32 $LIBS"
+    local WIN_SYS="-lgdi32 -lstdc++ $LIBS"
 
+    # There is NO -DSTATIC=ON flag exist
     local myconf=(
         # -DCMAKE_PROJECT_INCLUDE="${PWD}/extra_targets.cmake"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -45,6 +52,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_PREFIX_PATH="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=OFF
+        -DSW_BUILD_SHARED_LIBS=0
         -DSW_BUILD=OFF
         -DBUILD_PROG=OFF
         -DINSTALL_CMAKE_CONFIG=OFF
@@ -81,8 +89,13 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    # Ищем либу (она могла остаться в папке build/src)
+    # Ищем либу (она могла остаться в папке build/src). Если CMake создал файл с версией libleptonica-1.88.0.a, переименовываем
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "libleptonica*.a" -exec mv {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a" \;
+
+    # Если вдруг либа оказалась в /bin (бывает в MinGW), переносим в /lib
+    if [ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/libleptonica.a" ]; then
+        mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/libleptonica.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a"
+    fi
 
     # Удаляем все автосгенерированные конфиги
     rm -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"/lept*.pc
@@ -110,4 +123,3 @@ EOF
 
     get_deps_list
 }
-
