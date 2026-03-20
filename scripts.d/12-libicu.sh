@@ -74,8 +74,8 @@ ffbuild_dockerbuild() {
 
     # ICU капризен к флагам. Прокидываем их явно.
     ../configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS" \
-        CXXFLAGS="$CXXFLAGS" \
+        CFLAGS="$CFLAGS -DICU_STATIC" \
+        CXXFLAGS="$CXXFLAGS -DICU_STATIC" \
         LDFLAGS="$LDFLAGS" \
         CC="$CC" CXX="$CXX" AR="$AR" RANLIB="$RANLIB" || return 1
 
@@ -104,7 +104,9 @@ ffbuild_dockerbuild() {
     for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/icu-*.pc; do
         [[ -e "$pc" ]] || continue
         sed -i 's/-licu/-lsicu/g' "$pc"
-        sed -i 's/-lpthread//g; s/-lm//g' "$pc"
+        # sed -i 's/-lpthread//g; s/-lm//g' "$pc"
+        # Добавляем макрос статики, чтобы заголовки не вешали __imp_
+        sed -i '/^Cflags:/ s/$/ -DICU_STATIC/' "$pc"
         ICU_SYS_LIBS="-lstdc++ -lpthread -lm -ladvapi32 -lws2_32"
         if grep -q "Libs.private:" "$pc"; then
             sed -i "/Libs.private:/ s/$/ $ICU_SYS_LIBS/" "$pc"

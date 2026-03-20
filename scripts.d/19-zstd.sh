@@ -35,7 +35,6 @@ ffbuild_dockerbuild() {
         -DZSTD_LEGACY_SUPPORT=ON
     )
 
-    # Добавляем LTO если включено в workflow
     if [[ "$USE_LTO" == "1" ]]; then
         myconf+=( -DZSTD_USE_LTO=ON )
     fi
@@ -45,31 +44,31 @@ ffbuild_dockerbuild() {
     # Принудительно передаем CXX компилятор
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS -DZSTD_MULTITHREAD -DZSTD_STATIC_LINKING" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS -DZSTD_STATIC_LINKING" \
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS -DZSTD_MULTITHREAD -DZSTD_STATIC_LINKING" \
         -DCMAKE_CXX_COMPILER="$CXX" \
         .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libzstd.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        log_info "Applying multithreaded flags to libzstd.pc"
+        if ! grep -q "\-lpthread" "$PC_FILE"; then
+            sed -i 's/Libs.private:/& -lpthread /' "$PC_FILE"
+        fi
+        if ! grep -q "\-DZSTD_MULTITHREAD" "$PC_FILE"; then
+            sed -i 's/Cflags:/& -DZSTD_MULTITHREAD -DZSTD_STATIC_LINKING/' "$PC_FILE"
+        fi
+    fi
 
-    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libzstd.pc"
-    # if [[ -f "$PC_FILE" ]]; then
-        # log_info "Applying multithreaded flags to libzstd.pc"
-        # if ! grep -q "\-lpthread" "$PC_FILE"; then
-            # sed -i 's/Libs.private:/& -lpthread /' "$PC_FILE"
-        # fi
-        # if ! grep -q "\-DZSTD_MULTITHREAD" "$PC_FILE"; then
-            # sed -i 's/Cflags:/& -DZSTD_MULTITHREAD /' "$PC_FILE"
-        # fi
-    # fi
+    clean_la_files
 
     get_deps_list
 }
 
 ffbuild_cppflags() {
-    echo "-DZSTD_STATIC_LINKING"
+    echo "-DZSTD_STATIC_LINKING -DZSTD_MULTITHREAD"
 }
 
 ffbuild_configure() {

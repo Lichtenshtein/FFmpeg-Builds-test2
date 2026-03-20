@@ -29,7 +29,7 @@ ffbuild_dockerbuild() {
         -DWITH_TOOLS=OFF
         -DWITH_TESTS=OFF
         -DWITH_TURBOJPEG=ON
-        -DCMAKE_C_FLAGS="$CFLAGS"
+        -DCMAKE_C_FLAGS="$CFLAGS -DLIBJPEG_STATIC"
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
     )
 
@@ -40,9 +40,24 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
+    log_info "${SYNC_MARK} Patching JPEG .pc files..."
+    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/*jpeg*.pc; do
+        [[ -e "$pc" ]] || continue
+        sed -i '/^Cflags:/ s/$/ -DLIBJPEG_STATIC/' "$pc"
+    done
+
     get_deps_list
 }
 
+
 ffbuild_cppflags() {
     echo "-DLIBJPEG_STATIC"
+}
+
+ffbuild_configure() {
+    echo --enable-libjpeg
+}
+
+ffbuild_unconfigure() {
+    echo --disable-libjpeg
 }

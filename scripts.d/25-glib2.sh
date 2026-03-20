@@ -69,7 +69,7 @@ EOF
     # Формируем список зависимостей из вашего чит-листа
     # pcre2 требует zlib/bz2 в некоторых конфигах
     local GLIB_DEPS="-lpcre2-8 -lffi -lintl -liconv -lcharset -lz"
-    local WIN_SYS_LIBS="-lws2_32 -lole32 -lshlwapi -luserenv -lsetupapi -liphlpapi -lwinmm -ldnsapi"
+    local WIN_SYS_LIBS="-luserenv -liphlpapi -lwinmm -luuid -ldnsapi $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -98,38 +98,31 @@ EOF
         "${myconf[@]}" \
         -Dc_args="$CFLAGS -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW" \
         -Dcpp_args="$CXXFLAGS -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW" \
-        -Dc_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS $LIBS" \
-        -Dcpp_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS $LIBS" || return 1
+        -Dc_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS" \
+        -Dcpp_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS" || return 1
 
     ninja -C _build -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja -C _build install || return 1
 
     clean_la_files
 
-    # Чистим мусор
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete || true
-
     log_info "${SYNC_MARK} Patching GLib .pc files for static linking..."
     
-    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/glib-2.0.pc"
-    # if [[ -f "$PC_FILE" ]]; then
-        # sed -i "/^Cflags:/ s/$/ -DGLIB_STATIC_COMPILATION/" "$PC_FILE"
-        # sed -i "s|^Libs.private:.*|Libs.private: $GLIB_DEPS $WIN_SYS_LIBS $LIBS|" "$PC_FILE"
-    # fi
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/glib-2.0.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i "/^Cflags:/ s/$/ -DGLIB_STATIC_COMPILATION/" "$PC_FILE"
+        sed -i "s|^Libs.private:.*|Libs.private: $GLIB_DEPS $WIN_SYS_LIBS|" "$PC_FILE"
+    fi
 
     # gthread, gobject, gio
-    # for pc in gthread-2.0.pc gobject-2.0.pc gio-2.0.pc; do
-        # local TARGET_PC="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
-        # [[ -f "$TARGET_PC" ]] || continue
-        # sed -i "/^Cflags:/ s/$/ -DGLIB_STATIC_COMPILATION/" "$TARGET_PC"
-        # if [[ "$pc" == "gio-2.0.pc" ]]; then
-            # sed -i "s|^Libs.private:.*|Libs.private: -lshlwapi -ldnsapi -liphlpapi $GLIB_DEPS $WIN_SYS_LIBS $LIBS|" "$TARGET_PC"
-        # fi
-    # done
+    for pc in gthread-2.0.pc gobject-2.0.pc gio-2.0.pc gmodule-2.0.pc gio-windows-2.0.pc girepository-2.0.pc gmodule-no-export-2.0.pc gmodule-export-2.0.pc; do
+        local TARGET_PC="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
+        [[ -f "$TARGET_PC" ]] || continue
+        sed -i "/^Cflags:/ s/$/ -DGLIB_STATIC_COMPILATION/" "$TARGET_PC"
+        if [[ "$pc" == "gio-2.0.pc" ]]; then
+            sed -i "s|^Libs.private:.*|Libs.private: $GLIB_DEPS $WIN_SYS_LIBS|" "$TARGET_PC"
+        fi
+    done
 
     get_deps_list
-}
-
-ffbuild_cppflags() {
-    echo "-DGLIB_STATIC_COMPILATION"
 }

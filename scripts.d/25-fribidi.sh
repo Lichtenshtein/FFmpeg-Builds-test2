@@ -35,8 +35,8 @@ ffbuild_dockerbuild() {
     )
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS" \
-        -Dcpp_args="$CPPFLAGS" \
+        -Dc_args="$CFLAGS -DFRIBIDI_LIB_STATIC" \
+        -Dcpp_args="$CPPFLAGS -DFRIBIDI_LIB_STATIC" \
         -Dc_link_args="$LDFLAGS" \
         -Dcpp_link_args="$LDFLAGS" || return 1
     ninja -j$(nproc) $NINJA_V || return 1
@@ -44,9 +44,19 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    sed -i 's/Cflags:/Cflags: -DFRIBIDI_LIB_STATIC/' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/fribidi.pc
+    log_info "${SYNC_MARK} Patching FRIBIDI .pc file..."
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/fribidi.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        if ! grep -q "\-DFRIBIDI_LIB_STATIC" "$PC_FILE"; then
+            sed -i 's/Cflags:/& -DFRIBIDI_LIB_STATIC/' "$PC_FILE"
+        fi
+    fi
 
     get_deps_list
+}
+
+ffbuild_cppflags() {
+    echo "-DFRIBIDI_LIB_STATIC"
 }
 
 ffbuild_configure() {

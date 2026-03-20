@@ -59,7 +59,7 @@ ffbuild_dockerbuild() {
     export CFLAGS="$CFLAGS -fno-strict-aliasing"
     export CXXFLAGS="$CXXFLAGS -fno-strict-aliasing"
 
-    ./Configure "${myconf[@]}" "$CFLAGS" "$LDFLAGS" || return 1
+    ./Configure "${myconf[@]}" "$CFLAGS" "$CXXFLAGS" "$LDFLAGS" || return 1
 
     make -j$(nproc) build_sw $MAKE_V || return 1
     make install_sw DESTDIR="$FFBUILD_DESTDIR" || return 1
@@ -77,9 +77,13 @@ ffbuild_dockerbuild() {
 
 ffbuild_libs() {
     # Эти флаги нужны FFmpeg, чтобы слинковаться с libcrypto.a и libssl.a
-    echo "-lssl -lcrypto -lgdi32 -lcrypt32 -lws2_32 -lbcrypt -lz"
+    echo "-lssl -lcrypto -lz -lws2_32 -lgdi32 -lcrypt32 -lbcrypt "
 }
 
 ffbuild_configure() {
-    echo "--enable-openssl"
+    echo --enable-openssl
+}
+
+ffbuild_unconfigure() {
+    echo --disable-openssl
 }

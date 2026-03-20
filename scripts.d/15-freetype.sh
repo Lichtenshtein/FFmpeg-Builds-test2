@@ -33,10 +33,10 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS" \
+        CFLAGS="$CFLAGS -DFT2_BUILD_LIBRARY" \
         LDFLAGS="$LDFLAGS" \
-        CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS" \
+        CPPFLAGS="$CPPFLAGS -DFT2_BUILD_LIBRARY" \
+        CXXFLAGS="$CXXFLAGS -DFT2_BUILD_LIBRARY" \
         LIBS="$LIBS" || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
@@ -45,6 +45,12 @@ ffbuild_dockerbuild() {
 
     # Создаем симлинк для совместимости
     ln -sf freetype2.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype.pc"
+
+    log_info "${SYNC_MARK} Patching FREETYPE .pc file..."
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i '/^Cflags:/ s/$/ -DFT2_BUILD_LIBRARY/' "$pc"
+    fi
 
     get_deps_list
 }

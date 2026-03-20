@@ -40,14 +40,10 @@ ffbuild_dockerbuild() {
         mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
         cp -af "$FFI_INC"/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
     fi
-    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libffi.pc"
-    # if [[ -f "$PC_FILE" ]]; then
-        # sed -i "/^Cflags:/ s/$/ -DFFI_STATIC_BUILD/" "$PC_FILE"
-    # fi
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libffi.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i "/^Cflags:/ s/$/ -DFFI_STATIC_BUILD/" "$PC_FILE"
+    fi
 
     get_deps_list
-}
-
-ffbuild_cppflags() {
-    echo "-DFFI_STATIC_BUILD"
 }

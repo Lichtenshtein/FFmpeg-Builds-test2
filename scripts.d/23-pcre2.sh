@@ -39,13 +39,20 @@ ffbuild_dockerbuild() {
     )
 
     ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS" \
+        CFLAGS="$CFLAGS -DPCRE2_STATIC" \
         LDFLAGS="$LDFLAGS $DEP_LIBS" \
-        CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS" \
-        LIBS="$DEP_LIBS" || return 1
+        CPPFLAGS="$CPPFLAGS -DPCRE2_STATIC" \
+        CXXFLAGS="$CXXFLAGS -DPCRE2_STATIC" \
+        LIBS="$LIBS" || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+
+    log_info "${SYNC_MARK} Patching PRCE .pc files..."
+    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/*pcre2*.pc; do
+        [[ -e "$pc" ]] || continue
+        sed -i '/^Cflags:/ s/$/ -DPCRE2_STATIC/' "$pc"
+        sed -i "/Libs.private:/ s/$/ -lpthread/" "$pc"
+    done
 
     clean_la_files
 
