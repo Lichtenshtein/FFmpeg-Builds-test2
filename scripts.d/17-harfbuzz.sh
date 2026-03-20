@@ -21,6 +21,7 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     local HARFBUZZ_DEPS="-lfreetype -lsicuin -lsicuuc -lsicudt"
+    local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
 
     local myconf=(
         --cross-file=/cross.meson
@@ -46,26 +47,29 @@ ffbuild_dockerbuild() {
         -Ddirectwrite=disabled
         -Dgdi=disabled
         -Dbenchmark=disabled
-        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g') -DHARFBUZZ_STATIC -Wno-redundant-decls"
-        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g') -DHARFBUZZ_STATIC -Wno-redundant-decls"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     meson setup "${myconf[@]}" .. \
-        -Dc_link_args="$LDFLAGS $HARFBUZZ_DEPS $LIBS" \
-        -Dcpp_link_args="$LDFLAGS $HARFBUZZ_DEPS $LIBS" || return 1
+        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g') -DHARFBUZZ_STATIC -Wno-redundant-decls" \
+        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g') -DHARFBUZZ_STATIC -Wno-redundant-decls" \
+        -Dc_link_args="$LDFLAGS $HARFBUZZ_DEPS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS $HARFBUZZ_DEPS $WIN_LIBS" || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     clean_la_files
 
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/harfbuzz.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        sed -i "/^Cflags:/ s/$/ -DHARFBUZZ_STATIC/" "$PC_FILE"
-        sed -i "s|^Libs.private:.*|Libs.private: $HARFBUZZ_DEPS $LIBS -lusp10 -lgdi32 -lrpcrt4|" "$PC_FILE"
-    fi
+    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/*harfbuzz*.pc; do
+        [[ -e "$pc" ]] || continue
+        log_info "${SYNC_MARK} Patching HARFBUZZ .pc files..."
+        if ! grep -q "\-DHARFBUZZ_STATIC" "$PC_FILE"; then
+            sed -i 's/Cflags:/& -DHARFBUZZ_STATIC/' "$PC_FILE"
+        fi
+        sed -i "s|^Libs.private:.*|Libs.private: $HARFBUZZ_DEPS $WIN_LIBS|" "$PC_FILE"
+    done
 
     get_deps_list
 }

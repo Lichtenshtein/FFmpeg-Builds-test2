@@ -34,8 +34,7 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS -DWAIT_ANY=-1" \
         LDFLAGS="$LDFLAGS" \
         CPPFLAGS="$CPPFLAGS -DWAIT_ANY=-1" \
-        CXXFLAGS="$CXXFLAGS -DWAIT_ANY=-1" \
-        LIBS="$LIBS" || return 1
+        CXXFLAGS="$CXXFLAGS -DWAIT_ANY=-1" || return 1
 
     # Предварительное создание структуры
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{lib/pkgconfig,include/flite}

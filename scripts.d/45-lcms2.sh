@@ -46,10 +46,18 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lcms2.pc"
-    # if [[ -f "$PC_FILE" ]]; then
-        # sed -i '/^Libs.private:/ s/$/ $LCMS_DEPS/' "$PC_FILE"
-    # fi
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lcms2.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i "/^Libs.private:/ s/$/ $LCMS_DEPS/" "$PC_FILE"
+    fi
 
     get_deps_list
+}
+
+ffbuild_configure() {
+    echo --enable-lcms2
+}
+
+ffbuild_unconfigure() {
+    echo --disable-lcms2
 }
