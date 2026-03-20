@@ -113,6 +113,10 @@ ffbuild_dockerbuild() {
     get_deps_list
 }
 
+ffbuild_cppflags() {
+    echo "-DCURL_STATICLIB"
+}
+
 ffbuild_configure() {
     echo --enable-libcurl
 }

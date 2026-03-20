@@ -72,7 +72,6 @@ ffbuild_cppflags() {
 }
 
 ffbuild_configure() {
-    # zstd может быть включен в ffmpeg напрямую (для некоторых протоколов)
     echo --enable-zstd
 }
 

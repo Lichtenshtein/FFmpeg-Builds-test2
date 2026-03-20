@@ -37,3 +37,15 @@ ffbuild_dockerbuild() {
 
     get_deps_list
 }
+
+ffbuild_cppflags() {
+    echo "-DBROTLI_STATIC"
+}
+
+ffbuild_configure() {
+    echo --enable-libbrotli
+}
+
+ffbuild_unconfigure() {
+    echo --disable-libbrotli
+}

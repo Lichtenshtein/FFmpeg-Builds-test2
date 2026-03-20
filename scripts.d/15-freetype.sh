@@ -36,8 +36,7 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS -DFT2_BUILD_LIBRARY" \
         LDFLAGS="$LDFLAGS" \
         CPPFLAGS="$CPPFLAGS -DFT2_BUILD_LIBRARY" \
-        CXXFLAGS="$CXXFLAGS -DFT2_BUILD_LIBRARY" \
-        LIBS="$LIBS" || return 1
+        CXXFLAGS="$CXXFLAGS -DFT2_BUILD_LIBRARY" || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 

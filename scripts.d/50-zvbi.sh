@@ -46,8 +46,7 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS" \
         LDFLAGS="$LDFLAGS" \
         CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS" \
-        LIBS="$LIBS" || return 1
+        CXXFLAGS="$CXXFLAGS" || return 1
     make -C src -j$(nproc) $MAKE_V || return 1
     make -C src install DESTDIR="$FFBUILD_DESTDIR" || return 1
     make SUBDIRS=. install DESTDIR="$FFBUILD_DESTDIR" || return 1

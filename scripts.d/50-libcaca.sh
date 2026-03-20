@@ -59,8 +59,7 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS -Wno-implicit-function-declaration" \
         LDFLAGS="$LDFLAGS" \
         CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration" \
-        LIBS="$LIBS" || return 1
+        CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration" || return 1
 
     # Сборка только библиотеки
     # Мы явно просим собрать папку caca, а не всё дерево с тестами

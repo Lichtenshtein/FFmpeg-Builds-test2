@@ -25,9 +25,9 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
     # Набор системных библиотек Windows для Cairo
-    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -luuid $LIBS"
+    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -luuid $LIBS -lstdc++"
     # Зависимости из чит-листа в правильном порядке линковки
-    local DEP_LIBS="-lfontconfig -lxml2 -lfreetype -lharfbuzz -lharfbuzz-icu -lsicuin -lsicuuc -lsicudt -lpixman-1 -lpng16 -lz -lbz2 -lbrotlidec -lbrotlicommon -lglib-2.0 -lintl -liconv -lcharset -lstdc++"
+    local DEP_LIBS="-lfontconfig -lpixman-1 -lxml2 -lpng16 -lglib-2.0 -lbz2 -lbrotlidec -lbrotlicommon -lz -lharfbuzz-icu -lharfbuzz -lfreetype -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt"
 
     # конфликт hypot в коде Cairo для MinGW
     # error: implicit declaration of function '_hypot'
@@ -84,22 +84,26 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/cairo.pc"
+    for pc in cairo-gobject.pc cairo.pc; do
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
     if [[ -f "$PC_FILE" ]]; then
+        if ! grep -q "\-DCAIRO_WIN32_STATIC_BUILD" "$TARGET_PC"; then
+            log_info "${SYNC_MARK} Patching main CAIRO .pc files for static linking..."
+            sed -i 's/Cflags:/& -DCAIRO_WIN32_STATIC_BUILD/' "$TARGET_PC"
+        fi
         log_info "${SYNC_MARK} Patching cairo.pc for static linking..."
-        sed -i "/^Cflags:/ s/$/ -DCAIRO_WIN32_STATIC_BUILD/" "$PC_FILE"
-        sed -i "s/-lrt//g" "$PC_FILE"
         sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS|" "$PC_FILE"
+        sed -i "s/-lrt//g" "$PC_FILE"
     fi
 
-    for pc in cairo-win32.pc cairo-gobject.pc cairo-ft.pc; do
-        local TARGET_PC="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
-        [[ -f "$TARGET_PC" ]] && sed -i "/^Cflags:/ s/$/ -DCAIRO_WIN32_STATIC_BUILD/" "$TARGET_PC"
+    for pc in cairo-dwrite-font.pc cairo-fc.pc cairo-ft.pc cairo-gobject.pc cairo-pdf.pc cairo-png.pc cairo-ps.pc cairo-script-interpreter.pc cairo-script.pc cairo-svg.pc cairo-tee.pc cairo-win32-font.pc cairo-win32.pc; do
+    local TARGET_PC="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
+    [[ -f "$TARGET_PC" ]]; then
+        if ! grep -q "\-DCAIRO_WIN32_STATIC_BUILD" "$TARGET_PC"; then
+            log_info "${SYNC_MARK} Patching other CAIRO .pc files for static linking..."
+            sed -i 's/Cflags:/& -DCAIRO_WIN32_STATIC_BUILD/' "$TARGET_PC"
+        fi
     done
 
     get_deps_list
-}
-
-ffbuild_cppflags() {
-    echo "-DCAIRO_WIN32_STATIC_BUILD"
 }

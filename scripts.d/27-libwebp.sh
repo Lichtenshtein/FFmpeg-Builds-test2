@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
     ./autogen.sh
 
     # Порядок: WebP -> TIFF -> [JPEG, JBIG, LZMA, Z]
-    local WEBP_DEPS="-ltiff -ltiffxx -ljpeg -lturbojpeg -lpng16 -lgif -lzstd -llzma -ljbig -ljbig85 -lz $LIBS"
+    local WEBP_DEPS="-ltiff -ltiffxx -ljpeg -lturbojpeg -lpng16 -lgif -ljbig -ljbig85 -lzstd -llzma -lz $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"

@@ -27,7 +27,7 @@ ffbuild_dockerbuild() {
     # Мы пропускаем генерацию документации и переводов для скорости
     ./autogen.sh --no-po4a --no-doxygen
 
-    local DEP_LIBS="-lcharset -liconv -lintl $LIBS"
+    local DEP_LIBS="-lintl -lcharset -liconv $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -45,8 +45,8 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS" \
         LDFLAGS="$LDFLAGS $DEP_LIBS" \
         CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS" \
-        LIBS="$LIBS"|| return 1
+        CXXFLAGS="$CXXFLAGS" || return 1
+
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 

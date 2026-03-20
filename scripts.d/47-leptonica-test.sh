@@ -41,8 +41,8 @@ ffbuild_dockerbuild() {
     rm -rf "$FFBUILD_PREFIX/lib/cmake/"{tiff,OpenJPEG,libwebp,WebP,lcms2}
 
     # финальный список для линковки
-    local LEPT_DEPS="-larchive -lxml2 -lwebp -lwebpmux -lsharpyuv -ltiff -lopenjp2 -llcms2 -ljpeg -lturbojpeg -lpng16 -lgif -lzstd -llzma -lbz2 -ljbig -ljbig85 -lz"
-    local WIN_SYS="-lgdi32 -lstdc++ $LIBS"
+    local LEPT_DEPS="-llcms2 -larchive -lxml2 -lsharpyuv -lwebp -lwebpdecoder -lwebpdemux -lwebpmux -ltiff -lopenjp2 -ljpeg -lturbojpeg -lpng16 -lgif -ljbig -ljbig85 -lzstd -llzma -lbz2 -lz"
+    local WIN_SYS="-lgdi32 $LIBS -lstdc++"
 
     # There is NO -DSTATIC=ON flag exist
     local myconf=(
@@ -117,7 +117,7 @@ ffbuild_dockerbuild() {
             log_info "${CHECK_MARK} Recovered: $BUILT_LIB -> libleptonica.a"
         else
             log_error "${CROSS_MARK} No static library was built!"
-            exit 1
+            return 1
         fi
     fi
 

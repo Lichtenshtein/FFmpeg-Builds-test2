@@ -72,7 +72,7 @@ ffbuild_dockerbuild() {
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/librsvg-2.0.pc"
     if [[ -f "$PC_FILE" ]]; then
         # Librsvg (Rust) генерирует огромную статическую либу, которой нужны ВСЕ системные либы Windows
-        sed -i 's/^Libs:.*/& -lxml2 -lpangocairo-1.0 -lpango-1.0 -lcairo -lgobject-2.0 -lglib-2.0 -lintl -liconv -lws2_32 -luserenv -lusp10 -lshlwapi -lsetupapi -lruntimeobject -lbcrypt -lntdll -lmsimg32 -lgdi32 -lstdc++/' "$PC_FILE"
+        sed -i 's/^Libs:.*/& -lpangocairo-1.0 -lpango-1.0 -lcairo -lgobject-2.0 -lglib-2.0 -lxml2 -lintl -lcharset -liconv -lws2_32 -luserenv -lusp10 -lshlwapi -lsetupapi -lruntimeobject -lbcrypt -lntdll -lmsimg32 -lgdi32 -lstdc++/' "$PC_FILE"
     fi
 
     # Вызываем отладку зависимостей

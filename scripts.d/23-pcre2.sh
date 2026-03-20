@@ -42,8 +42,7 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS -DPCRE2_STATIC" \
         LDFLAGS="$LDFLAGS $DEP_LIBS" \
         CPPFLAGS="$CPPFLAGS -DPCRE2_STATIC" \
-        CXXFLAGS="$CXXFLAGS -DPCRE2_STATIC" \
-        LIBS="$LIBS" || return 1
+        CXXFLAGS="$CXXFLAGS -DPCRE2_STATIC" || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
@@ -57,4 +56,16 @@ ffbuild_dockerbuild() {
     clean_la_files
 
     get_deps_list
+}
+
+ffbuild_cppflags() {
+    echo "-DPCRE2_STATIC"
+}
+
+ffbuild_configure() {
+    echo --enable-pcre
+}
+
+ffbuild_unconfigure() {
+    echo --disable-pcre
 }
