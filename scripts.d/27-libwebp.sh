@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
     ./autogen.sh
 
     # Порядок: WebP -> TIFF -> [JPEG, JBIG, LZMA, Z]
-    local WEBP_DEPS="-ltiff -ltiffxx -ljpeg -lpng16 -lgif -lzstd -llzma -ljbig -ljbig85 -lz"
+    local WEBP_DEPS="-ltiff -ltiffxx -ljpeg -lturbojpeg -lpng16 -lgif -lzstd -llzma -ljbig -ljbig85 -lz $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -43,9 +43,8 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}" \
         CFLAGS="$CFLAGS -DWEBP_STATIC" \
-        LDFLAGS="$LDFLAGS" \
-        CPPFLAGS="$CPPFLAGS -DWEBP_STATIC" \
-        LIBS="$WEBP_DEPS $LIBS" || return 1
+        LDFLAGS="$LDFLAGS $WEBP_DEPS" \
+        CPPFLAGS="$CPPFLAGS -DWEBP_STATIC" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
@@ -54,13 +53,14 @@ ffbuild_dockerbuild() {
 
     # libwebp генерирует несколько .pc файлов (libwebp, libwebpmux, libsharpyuv)
     # Нужно убедиться, что они содержат системные либы для Windows
-    # for pc in libwebp.pc libwebpmux.pc libwebpdemux.pc libsharpyuv.pc; do
-        # local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
-        # [[ -f "$PC_PATH" ]] || continue
-        # log_info "${SYNC_MARK} Patching $(basename $pc)..."
-        # sed -i "/^Cflags:/ s/$/ -DWEBP_STATIC/" "$PC_PATH"
-        # sed -i "s|^Libs.private:.*|Libs.private: $WEBP_DEPS -lshlwapi -lws2_32 $LIBS|" "$PC_PATH"
-    # done
+    for pc in libwebp.pc libwebpmux.pc libwebpdemux.pc libwebpdecoder.pc libsharpyuv.pc; do
+        local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
+        [[ -f "$PC_PATH" ]] || continue
+        log_info "${SYNC_MARK} Patching $(basename $pc)..."
+        sed -i "/^Cflags:/ s/$/ -DWEBP_STATIC/" "$PC_PATH"
+        sed -i "/^Libs\.private:/d" "$PC_FILE"
+        echo "Libs.private: $WEBP_DEPS" >> "$PC_FILE"
+    done
 
     get_deps_list
 }

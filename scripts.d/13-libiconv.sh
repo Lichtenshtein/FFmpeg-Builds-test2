@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
 
     # Принудительно передаем флаги
     ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS" \
+        CFLAGS="$CFLAGS -DICONV_STATIC" \
         CPPFLAGS="$CPPFLAGS -DICONV_STATIC" \
         LDFLAGS="$LDFLAGS" || return 1
 
@@ -49,19 +49,19 @@ ffbuild_dockerbuild() {
     clean_la_files
 
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    # cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/iconv.pc"
-# prefix=$FFBUILD_PREFIX
-# exec_prefix=\${prefix}
-# libdir=\${prefix}/lib
-# includedir=\${prefix}/include
+    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/iconv.pc"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${prefix}/lib
+includedir=\${prefix}/include
 
-# Name: iconv
-# Description: Character set conversion library
-# Version: 1.18
-# Libs: -L\${libdir} -liconv -lcharset
-# Libs.private: -lcharset
-# Cflags: -I\${includedir} -DICONV_STATIC
-# EOF
+Name: iconv
+Description: Character set conversion library
+Version: 1.18
+Libs: -L\${libdir} -liconv -lcharset
+Libs.private: -lcharset
+Cflags: -I\${includedir} -DICONV_STATIC
+EOF
 
     get_deps_list
 }

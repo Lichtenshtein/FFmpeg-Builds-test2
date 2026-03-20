@@ -17,7 +17,7 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     # Pixman для статики под Windows требует явного указания системных либ
-    local PIXMAN_DEPS="-lpng16 -lglib-2.0 -lintl -liconv -lcharset -lz"
+    local PIXMAN_DEPS="-lpng16 -lglib-2.0 -lz -lintl -liconv -lcharset $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -37,22 +37,20 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     meson setup "${myconf[@]}" .. \
-        -Dc_link_args="$LDFLAGS $PIXMAN_DEPS $LIBS" \
-        -Dcpp_link_args="$LDFLAGS $PIXMAN_DEPS $LIBS" || return 1
+        -Dc_link_args="$LDFLAGS $PIXMAN_DEPS" \
+        -Dcpp_link_args="$LDFLAGS $PIXMAN_DEPS" || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     clean_la_files
 
+    log_info "${SYNC_MARK} Patching PIXMAN .pc file..."
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/pixman-1.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i "s|^Libs.private:.*|Libs.private: $PIXMAN_DEPS $LIBS|" "$PC_FILE"
+        sed -i "s|^Libs.private:.*|Libs.private: $PIXMAN_DEPS|" "$PC_FILE"
+        sed -i '/^Cflags:/ s/$/ -Dpixman_static/' "$pc"
     fi
 
     get_deps_list
-}
-
-ffbuild_cppflags() {
-    echo "-Dpixman_static"
 }

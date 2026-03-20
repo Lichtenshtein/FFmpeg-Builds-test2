@@ -60,6 +60,14 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
+    [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libzlibstatic.a" ]] && mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libzlibstatic.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libz.a"
+
+    log_info "${SYNC_MARK} Patching ZLIB .pc file..."
+    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/*zlib*.pc; do
+        [[ -e "$pc" ]] || continue
+        sed -i '/^Cflags:/ s/$/ -DZLIB_STATIC/' "$pc"
+    done
+
     clean_la_files
 
     get_deps_list

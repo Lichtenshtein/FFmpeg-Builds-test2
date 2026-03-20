@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
     set -e
 
     # Fontconfig требует либо expat, либо libxml2.
-    local FC_LIBS="-lxml2 -lfreetype -lharfbuzz -lharfbuzz-icu -lsicuin -lsicuuc -lsicudt -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz -lintl -liconv -lcharset $LIBS"
+    local FC_LIBS="-lxml2 -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz -lharfbuzz -lharfbuzz-icu -lfreetype -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt $LIBS -luuid"
 
     local myconf=(
         --cross-file=/cross.meson
@@ -66,11 +66,11 @@ ffbuild_dockerbuild() {
 
     rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{var,etc}
 
-    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/fontconfig.pc"
-    # if [[ -f "$PC_FILE" ]]; then
-        # log_info "${SYNC_MARK} Patching fontconfig.pc..."
-        # sed -i "s|^Libs.private:.*|Libs.private: $FC_LIBS -luuid|" "$PC_FILE"
-    # fi
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/fontconfig.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        log_info "${SYNC_MARK} Patching fontconfig.pc..."
+        sed -i "s|^Libs.private:.*|Libs.private: $FC_LIBS|" "$PC_FILE"
+    fi
 
     get_deps_list
 }
