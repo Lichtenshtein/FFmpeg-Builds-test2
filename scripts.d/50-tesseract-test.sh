@@ -40,10 +40,27 @@ ffbuild_dockerbuild() {
     # Удаляем любые другие конфиги, которые могут просочиться
     # find "$FFBUILD_PREFIX/lib/cmake" -name "*Config.cmake" -delete
 
-    # Полный список зависимостей для линковки (порядок важен!)
-    # Tesseract -> Leptonica -> [Pango/Cairo] -> [Archive/Curl] -> [TIFF/JPEG/PNG] -> [ICU/GLib] -> [System]
-    local TESS_DEPS="-lleptonica -lpangocairo-1.0 -lpangoft2-1.0 -lpango-1.0 -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster  -lharfbuzz-cairo -lcairo -lharfbuzz -lfontconfig -lfreetype -larchive -lpixman-1 -lpng16 -lglib-2.0 -lgobject-2.0 -lcurl -lssh -lssl -lcrypto  -lfribidi -ltiff -lopenjp2 -ljpeg -lzstd -llzma -lbz2 -lz -lintl -liconv -lsicuin -lsicuuc -lsicudt"
-    local WIN_SYS="-luserenv -lcrypt32 -lnormaliz -luuid -lruntimeobject -lgdi32 -lusp10 -lstdc++ $LIBS"
+    # Уровень 1: Основные компоненты Tesseract.
+    # Tesseract -> Leptonica -> Pango -> Cairo
+    local TESS_DEPS="-lleptonica -lpangocairo-1.0 -lpangoft2-1.0 -lpangowin32-1.0 -lpango-1.0 -lcairo-gobject -lcairo"
+
+    # Уровень 2: Графический стек и шрифты (используются Cairo/Pango)
+    local GRAPHIC_DEPS="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz-cairo -lharfbuzz -lfontconfig -lfreetype -lpixman-1 -lfribidi"
+
+    # Уровень 3: Форматы изображений и обработка (используются Leptonica/Tiff)
+    local IMAGE_DEPS="-llcms2 -llcms2_fast_float -llcms2_threaded -ltiffxx -ltiff -lopenjp2 -ljpeg -lturbojpeg -lpng16 -lgif -lwebpmux -lwebpdemux -lwebpdecoder -lwebp -lsharpyuv"
+
+    # Уровень 4: Сеть, Архивы и Безопасность
+    local INFRA_DEPS="-larchive -lcurl -lssh -lssl -lcrypto"
+
+    # Уровень 5: Базовые системные библиотеки и форматы (фундамент)
+    # Порядок внутри: XML -> Glib -> ICU -> Сжатие -> Системные
+    local BASE_DEPS="-lxml2 -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lsicuin -lsicuuc -lsicudt -lpcre2-posix -lpcre2-8 -lffi -ljbig -ljbig85 -lzstd -llzma -lbrotlienc -lbrotlidec -lbrotlicommon -lbz2 -lz -lintl -liconv -lcharset"
+
+    # Уровень 6: Windows System SDK
+    local WIN_LIBS="-luserenv -lcrypt32 -lnormaliz -luuid -lruntimeobject -lgdi32 -lusp10 -lwinmm $LIBS -lstdc++"
+
+    local FINAL_LIBS="-Wl,--start-group $TESS_DEPS $GRAPHIC_DEPS $IMAGE_DEPS $INFRA_DEPS $BASE_DEPS $WIN_LIBS -Wl,--end-group"
 
     export LDFLAFS="$RAW_LDFLAGS"
 
@@ -65,33 +82,26 @@ ffbuild_dockerbuild() {
         -DLEPT_TIFF_COMPILE_SUCCESS=ON
         # Помогаем найти зависимости через PkgConfig
         -DLeptonica_DIR=OFF
-        # -DPkgConfig_FOUND=ON
-        # -DINSTALL_CONFIG_DIR="$FFBUILD_PREFIX/lib/cmake/Tesseract"
         # Явные пути для подстраховки (Fallbacks)
         -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.a"
         -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        # -DLeptonica_LIBRARIES="-lleptonica"
-        # Передаем системные либы для всех исполняемых файлов (tesseract.exe, lstmtraining.exe)
-        # -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS -Wl,--start-group $WIN_LIBS -Wl,--end-group"
     )
 
-    # прокидываем весь хвост в EXE_LINKER_FLAGS
-    # Используем -Wl,--allow-multiple-definition, если Pango и Cairo конфликтуют
     cmake "${myconf[@]}" \
-        -DPKG_CONFIG_EXECUTABLE=$(command -v pkg-config) \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS -Wno-narrowing" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $TESS_DEPS $WIN_SYS" .. || return 1
+        -DCMAKE_C_FLAGS="$CFLAGS -DCURL_STATICLIB"
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS -DCURL_STATICLIB -Wno-narrowing" \
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $FINAL_LIBS -Wl,--allow-multiple-definition" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/tesseract.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        log_info "${SYNC_MARK} Finalizing tesseract.pc..."
-        sed -i "s|^Libs.private:.*|Libs.private: $TESS_DEPS $WIN_SYS|" "$PC_FILE"
-    fi
+    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/tesseract.pc"
+    # if [[ -f "$PC_FILE" ]]; then
+        # log_info "${SYNC_MARK} Finalizing tesseract.pc..."
+        # sed -i "s|^Libs.private:.*|Libs.private: $TESS_DEPS $WIN_SYS|" "$PC_FILE"
+    # fi
 
     get_deps_list
 }
