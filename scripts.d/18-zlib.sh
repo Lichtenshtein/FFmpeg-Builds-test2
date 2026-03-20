@@ -78,5 +78,5 @@ ffbuild_cppflags() {
 }
 
 ffbuild_configure() {
-    echo "--enable-zlib"
+    echo --enable-zlib
 }

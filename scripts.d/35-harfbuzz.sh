@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     # порядок линковки критичен для статики
-    local DEP_LIBS="-lcairo -lpixman-1 -lfontconfig -lfreetype -lpng16 -lbrotlidec -lbrotlicommon -lz -lbz2 -lglib-2.0 -lintl -liconv -lshlwapi -lsicuin -lsicuuc -lsicudt"
+    local DEP_LIBS="-lcairo -lcairo-gobject -lfontconfig -lpixman-1 -lpng16 -lglib-2.0 -lbz2 -lbrotlidec -lbrotlicommon -lz -lfreetype -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt"
     local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
 
     local myconf=(
@@ -52,13 +52,13 @@ ffbuild_dockerbuild() {
         -Ddirectwrite=enabled
         -Dgdi=enabled
         -Dbenchmark=disabled
-        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g') -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -Wno-redundant-decls"
-        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g') -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -Wno-redundant-decls"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     meson setup "${myconf[@]}" .. \
+        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g') -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -Wno-redundant-decls" \
+        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g') -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -Wno-redundant-decls" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
@@ -67,13 +67,14 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    # log_info "Patching Harfbuzz .pc files..."
-    # for pc in harfbuzz.pc harfbuzz-icu.pc harfbuzz-cairo.pc; do
-        # local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
-        # [[ -f "$PC_PATH" ]] || continue
-        # sed -i "s|^Cflags:.*|& -DHARFBUZZ_STATIC|" "$PC_PATH"
-        # sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS|" "$PC_PATH"
-    # done
+    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/*harfbuzz*.pc; do
+        [[ -e "$pc" ]] || continue
+        log_info "${SYNC_MARK} Patching HARFBUZZ .pc files..."
+        if ! grep -q "\-DHARFBUZZ_STATIC" "$PC_FILE"; then
+            sed -i 's/Cflags:/& -DHARFBUZZ_STATIC/' "$PC_FILE"
+        fi
+        sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS|" "$PC_FILE"
+    done
 
     get_deps_list
 }

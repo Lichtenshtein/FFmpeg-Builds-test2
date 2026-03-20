@@ -27,6 +27,8 @@ ffbuild_dockerbuild() {
     set -e
     ./autogen.sh
 
+    local DEP_LIBS="-lrsvg-2 -lfontconfig -lharfbuzz-cairo -lcairo -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-icu -lpng16 -lbz2 -lbrotlidec -lbrotlicommon -lz -lsicuin -lsicuuc -lsicudt $LIBS"
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
@@ -43,26 +45,33 @@ ffbuild_dockerbuild() {
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    # Добавляем флаги для RSVG (он на Rust, линковка тяжелая)
-    export LIBS="$(pkg-config --libs --static librsvg-2.0 harfbuzz) $LIBS"
-
     ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS" \
+        CFLAGS="$CFLAGS -DFT2_BUILD_LIBRARY" \
         LDFLAGS="$LDFLAGS" \
-        CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS" \
-        LIBS="$LIBS" || return 1
+        CPPFLAGS="$CPPFLAGS -DFT2_BUILD_LIBRARY" \
+        CXXFLAGS="$CXXFLAGS -DFT2_BUILD_LIBRARY" || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 
-    # Финальный аккорд для статики FFmpeg
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype2.pc"
-    local ALL_DEPS="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-cairo -lsicuin -lsicuuc -lsicudt -lrsvg-2 -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz $LIBS"
-    sed -i "s|^Libs.private:.*|Libs.private: $ALL_DEPS|" "$PC_FILE"
+    # Создаем симлинк для совместимости
+    ln -sf freetype2.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype.pc"
+
+    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/freetype2.pc; do
+        [[ -e "$pc" ]] || continue
+        log_info "${SYNC_MARK} Patching FREETYPE .pc file..."
+        if ! grep -q "\-DFT2_BUILD_LIBRARY" "$PC_FILE"; then
+            sed -i 's/Cflags:/& -DFT2_BUILD_LIBRARY/' "$PC_FILE"
+        fi
+        sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS|" "$PC_FILE"
+    done
 
     get_deps_list
+}
+
+ffbuild_cppflags() {
+    echo "-DFT2_BUILD_LIBRARY"
 }
 
 ffbuild_configure() {

@@ -21,7 +21,6 @@ ffbuild_dockerbuild() {
         LDFLAGS="$LDFLAGS" \
         CPPFLAGS="$CPPFLAGS" \
         CXXFLAGS="$CXXFLAGS" \
-        LIBS="$LIBS" \
         --enable-static \
         --disable-shared \
         --disable-docs \
