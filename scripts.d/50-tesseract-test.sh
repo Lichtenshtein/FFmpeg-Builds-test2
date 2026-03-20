@@ -88,7 +88,7 @@ ffbuild_dockerbuild() {
     )
 
     cmake "${myconf[@]}" \
-        -DCMAKE_C_FLAGS="$CFLAGS -DCURL_STATICLIB"
+        -DCMAKE_C_FLAGS="$CFLAGS -DCURL_STATICLIB" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS -DCURL_STATICLIB -Wno-narrowing" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $FINAL_LIBS -Wl,--allow-multiple-definition" .. || return 1
 
