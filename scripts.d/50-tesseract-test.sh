@@ -40,18 +40,24 @@ ffbuild_dockerbuild() {
     # Удаляем любые другие конфиги, которые могут просочиться
     # find "$FFBUILD_PREFIX/lib/cmake" -name "*Config.cmake" -delete
 
-    # Формируем слои (от высокого к низкому)
-    local LAYER_TESS="-lleptonica -lpangocairo-1.0 -lpangoft2-1.0 -lpangowin32-1.0 -lpango-1.0 -lcairo-gobject -lcairo"
-    local LAYER_GRAPHIC="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz-cairo -lharfbuzz -lfontconfig -lfreetype -lpixman-1 -lfribidi"
-    local LAYER_IMAGE="-ltiffxx -ltiff -lopenjp2 -ljpeg -lturbojpeg -lpng16 -lgif -lwebpmux -lwebpdemux -lwebpdecoder -lwebp -lsharpyuv -llcms2"
-    local LAYER_INFRA="-larchive -lcurl -lssh -lssl -lcrypto"
-    # Добавляем системные и базовые либы
-    local LAYER_BASE="-lxml2 -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lsicuin -lsicuuc -lsicudt -lpcre2-posix -lpcre2-8 -lffi -ljbig -ljbig85 -lzstd -llzma -lbrotlienc -lbrotlidec -lbrotlicommon -lbz2 -lz -lintl -liconv -lcharset"
-    local LAYER_WIN="-luserenv -lcrypt32 -lnormaliz -luuid -lruntimeobject -lgdi32 -lusp10 $LIBS -lwinmm -lstdc++"
+    export CFLAGS="$CFLAGS -DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB"
+    export CXXFLAGS="$CXXFLAGS -DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB"
+    # Переопределяем макрос, который может заставлять систему искать dllimport
+    export CPPFLAGS="$CPPFLAGS -D_WINSOCKAPI_ -D_WINSOCK_DEPRECATED_NO_WARNINGS"
 
-    # Повторяем BASE_DEPS дважды или используем очень широкую группу.
-    # Добавляем -static-libgcc -static-libstdc++ явно в начало группы.
-    local FINAL_LIBS="-static-libgcc -static-libstdc++ -Wl,--start-group $LAYER_TESS $LAYER_GRAPHIC $LAYER_IMAGE $LAYER_INFRA $LAYER_BASE $LAYER_WIN -Wl,--end-group"
+    local TESS_LEPT="-lleptonica -lpangocairo-1.0 -lpangoft2-1.0 -lpangowin32-1.0 -lpango-1.0 -lcairo-gobject -lcairo"
+    local NET_ARCHIVE="-larchive -lcurl -lssh -lssl -lcrypto"
+    local IMAGES="-llcms2 -ltiffxx -ltiff -lopenjp2 -ljpeg -lturbojpeg -lpng16 -lgif -lwebpmux -lwebpdemux -lwebpdecoder -lwebp -lsharpyuv"
+    local FONT_GLIB="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz-cairo -lharfbuzz -lfontconfig -lfreetype -lpixman-1 -lfribidi -lgio-2.0 -lgthread-2.0 -lglib-2.0"
+    local LOW_LEVEL="-lxml2 -lsicuin -lsicuuc -lsicudt -lpcre2-posix -lpcre2-8 -lffi -ljbig -ljbig85 -lzstd -llzma -lbrotlienc -lbrotlidec -lbrotlicommon -lbz2 -lz -lintl -liconv -lcharset"
+    
+    # Системные либы Windows (повторяем ws2_32 для curl)
+    local WIN_SYS="-luserenv -lcrypt32 -lnormaliz -luuid -lruntimeobject -lgdi32 -lusp10 -lsetupapi -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lwinmm -lbcrypt"
+
+    # Склеиваем всё в ОДНУ огромную группу
+    local FINAL_LIBS="-Wl,--start-group $TESS_LEPT $NET_ARCHIVE $IMAGES $FONT_GLIB $LOW_LEVEL $WIN_SYS -Wl,--end-group -lstdc++"
+
+    local LAYER_WIN_FINAL="-lws2_32 -lbcrypt -lcrypt32 -lole32 -luser32 -ladvapi32 -lstdc++"
 
     export LDFLAGS="$RAW_LDFLAGS"
 
@@ -81,9 +87,9 @@ ffbuild_dockerbuild() {
     )
 
     cmake "${myconf[@]}" \
-        -DCMAKE_C_FLAGS="$CFLAGS -DCURL_STATICLIB" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS -DCURL_STATICLIB -Wno-narrowing" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $FINAL_LIBS -Wl,--allow-multiple-definition" .. || return 1
+        -DCMAKE_C_FLAGS="$CFLAGS" \
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS -Wno-narrowing" \
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $FINAL_LIBS $LAYER_WIN_FINAL -Wl,--allow-multiple-definition" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

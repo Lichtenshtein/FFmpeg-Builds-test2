@@ -84,12 +84,12 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libcurl.pc"
-    # if [[ -f "$PC_FILE" ]]; then
-        # log_info "${SYNC_MARK} Patching libcurl.pc..."
-        # sed -i "s|^Libs.private:.*|Libs.private: $CURL_LIBS|" "$PC_FILE"
-        # sed -i "/^Cflags:/ s/$/ -DCURL_STATICLIB/" "$PC_FILE"
-    # fi
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libcurl.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        log_info "${SYNC_MARK} Patching libcurl.pc for static linking..."
+        sed -i "s|^Cflags:.*|Cflags: -I\${includedir} -DCURL_STATICLIB|" "$PC_FILE"
+        sed -i "s|^Libs.private:.*|Libs.private: $CURL_LIBS|" "$PC_FILE"
+    fi
 
     get_deps_list
 }
