@@ -40,29 +40,20 @@ ffbuild_dockerbuild() {
     # Удаляем любые другие конфиги, которые могут просочиться
     # find "$FFBUILD_PREFIX/lib/cmake" -name "*Config.cmake" -delete
 
-    # Уровень 1: Основные компоненты Tesseract.
-    # Tesseract -> Leptonica -> Pango -> Cairo
-    local TESS_DEPS="-lleptonica -lpangocairo-1.0 -lpangoft2-1.0 -lpangowin32-1.0 -lpango-1.0 -lcairo-gobject -lcairo"
+    # Формируем слои (от высокого к низкому)
+    local LAYER_TESS="-lleptonica -lpangocairo-1.0 -lpangoft2-1.0 -lpangowin32-1.0 -lpango-1.0 -lcairo-gobject -lcairo"
+    local LAYER_GRAPHIC="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz-cairo -lharfbuzz -lfontconfig -lfreetype -lpixman-1 -lfribidi"
+    local LAYER_IMAGE="-ltiffxx -ltiff -lopenjp2 -ljpeg -lturbojpeg -lpng16 -lgif -lwebpmux -lwebpdemux -lwebpdecoder -lwebp -lsharpyuv -llcms2"
+    local LAYER_INFRA="-larchive -lcurl -lssh -lssl -lcrypto"
+    # Добавляем системные и базовые либы
+    local LAYER_BASE="-lxml2 -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lsicuin -lsicuuc -lsicudt -lpcre2-posix -lpcre2-8 -lffi -ljbig -ljbig85 -lzstd -llzma -lbrotlienc -lbrotlidec -lbrotlicommon -lbz2 -lz -lintl -liconv -lcharset"
+    local LAYER_WIN="-luserenv -lcrypt32 -lnormaliz -luuid -lruntimeobject -lgdi32 -lusp10 $LIBS -lwinmm -lstdc++"
 
-    # Уровень 2: Графический стек и шрифты (используются Cairo/Pango)
-    local GRAPHIC_DEPS="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz-cairo -lharfbuzz -lfontconfig -lfreetype -lpixman-1 -lfribidi"
+    # Повторяем BASE_DEPS дважды или используем очень широкую группу.
+    # Добавляем -static-libgcc -static-libstdc++ явно в начало группы.
+    local FINAL_LIBS="-static-libgcc -static-libstdc++ -Wl,--start-group $LAYER_TESS $LAYER_GRAPHIC $LAYER_IMAGE $LAYER_INFRA $LAYER_BASE $LAYER_WIN -Wl,--end-group"
 
-    # Уровень 3: Форматы изображений и обработка (используются Leptonica/Tiff)
-    local IMAGE_DEPS="-llcms2 -llcms2_fast_float -llcms2_threaded -ltiffxx -ltiff -lopenjp2 -ljpeg -lturbojpeg -lpng16 -lgif -lwebpmux -lwebpdemux -lwebpdecoder -lwebp -lsharpyuv"
-
-    # Уровень 4: Сеть, Архивы и Безопасность
-    local INFRA_DEPS="-larchive -lcurl -lssh -lssl -lcrypto"
-
-    # Уровень 5: Базовые системные библиотеки и форматы (фундамент)
-    # Порядок внутри: XML -> Glib -> ICU -> Сжатие -> Системные
-    local BASE_DEPS="-lxml2 -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lsicuin -lsicuuc -lsicudt -lpcre2-posix -lpcre2-8 -lffi -ljbig -ljbig85 -lzstd -llzma -lbrotlienc -lbrotlidec -lbrotlicommon -lbz2 -lz -lintl -liconv -lcharset"
-
-    # Уровень 6: Windows System SDK
-    local WIN_LIBS="-luserenv -lcrypt32 -lnormaliz -luuid -lruntimeobject -lgdi32 -lusp10 -lwinmm $LIBS -lstdc++"
-
-    local FINAL_LIBS="-Wl,--start-group $TESS_DEPS $GRAPHIC_DEPS $IMAGE_DEPS $INFRA_DEPS $BASE_DEPS $WIN_LIBS -Wl,--end-group"
-
-    export LDFLAFS="$RAW_LDFLAGS"
+    export LDFLAGS="$RAW_LDFLAGS"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -82,6 +73,8 @@ ffbuild_dockerbuild() {
         -DLEPT_TIFF_COMPILE_SUCCESS=ON
         # Помогаем найти зависимости через PkgConfig
         -DLeptonica_DIR=OFF
+        -DCMAKE_FIND_LIBRARY_SUFFIXES=".a"
+        -DPKG_CONFIG_EXECUTABLE=$(command -v pkg-config)
         # Явные пути для подстраховки (Fallbacks)
         -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.a"
         -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
