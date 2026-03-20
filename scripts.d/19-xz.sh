@@ -46,13 +46,23 @@ ffbuild_dockerbuild() {
         LDFLAGS="$LDFLAGS $DEP_LIBS" \
         CPPFLAGS="$CPPFLAGS" \
         CXXFLAGS="$CXXFLAGS" \
-        LIBS="$DEP_LIBS"|| return 1
+        LIBS="$LIBS"|| return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+
+    log_info "${SYNC_MARK} Patching LZMA .pc file..."
+    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/liblzma.pc; do
+        [[ -e "$pc" ]] || continue
+        sed -i '/^Cflags:/ s/$/ -DLZMA_API_STATIC/' "$pc"
+    done
 
     clean_la_files
 
     get_deps_list
+}
+
+ffbuild_cppflags() {
+    echo "-DLZMA_API_STATIC"
 }
 
 ffbuild_configure() {

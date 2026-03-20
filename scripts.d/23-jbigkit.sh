@@ -42,19 +42,19 @@ ffbuild_dockerbuild() {
     done
     popd
 
-    # mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    # cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/jbigkit.pc"
-# prefix=$FFBUILD_PREFIX
-# exec_prefix=\${prefix}
-# libdir=\${exec_prefix}/lib
-# includedir=\${prefix}/include
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/jbigkit.pc"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
 
-# Name: jbigkit
-# Description: JBIG1 lossless image compression library
-# Version: 2.1
-# Libs: -L\${libdir} -ljbig -ljbig85
-# Cflags: -I\${includedir}
-# EOF
+Name: jbigkit
+Description: JBIG1 lossless image compression library
+Version: 2.1
+Libs: -L\${libdir} -ljbig -ljbig85
+Cflags: -I\${includedir}
+EOF
 
     get_deps_list
 }

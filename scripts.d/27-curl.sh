@@ -33,7 +33,7 @@ ffbuild_dockerbuild() {
 
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
     # Порядок: curl -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
-    local CURL_LIBS="-lssh -lssl -lcrypto -lbrotlidec -lbrotlicommon -lzstd -lz -liconv -lcharset -lcrypt32 -lwldap32 -lnormaliz -liphlpapi $LIBS"
+    local CURL_LIBS="-lssh -lssl -lcrypto -lzstd -lbrotlidec -lbrotlicommon -lz -liconv -lcharset -lcrypt32 -lwldap32 -lnormaliz -liphlpapi $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -76,8 +76,7 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" \
         CPPFLAGS="$CLEAN_CPPFLAGS" \
         CFLAGS="$CLEAN_CFLAGS" \
-        LDFLAGS="$LDFLAGS" \
-        LIBS="$CURL_LIBS" || return 1
+        LDFLAGS="$LDFLAGS $CURL_LIBS" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
@@ -86,16 +85,32 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libcurl.pc"
     if [[ -f "$PC_FILE" ]]; then
-        log_info "${SYNC_MARK} Patching libcurl.pc for static linking..."
-        sed -i "s|^Cflags:.*|Cflags: -I\${includedir} -DCURL_STATICLIB|" "$PC_FILE"
-        sed -i "s|^Libs.private:.*|Libs.private: $CURL_LIBS|" "$PC_FILE"
+        log_info "${SYNC_MARK} Cleaning and fixing libcurl.pc..."
+
+        # Очищаем Libs (оставляем только саму либу)
+        sed -i "s|^Libs:.*|Libs: -L\${libdir} -lcurl|" "$PC_FILE"
+
+        # Очищаем Requires, чтобы pkg-config не падал из-за отсутствующих имен .pc
+        sed -i "s|^Requires:.*|Requires:|" "$PC_FILE"
+        sed -i "s|^Requires.private:.*|Requires.private:|" "$PC_FILE"
+
+        # Формируем чистую Libs.private (удаляем дубликаты и выстраиваем очередь)
+        # Системные либы Windows ОБЯЗАТЕЛЬНО в конце
+        local WIN_SYS="-lwldap32 -lws2_32 -ladvapi32 -lcrypt32 -lnormaliz -liphlpapi -lsetupapi -lole32 -lshlwapi -luser32 -ldbghelp -lbcrypt"
+        # Все зависимости Curl из списка
+        local CLEAN_LIBS=$(echo "$CURL_LIBS $WIN_SYS" | xargs -n1 | sort -u | xargs)
+
+        # Перезаписываем Libs.private
+        sed -i "/^Libs\.private:/d" "$PC_FILE"
+        echo "Libs.private: $CLEAN_LIBS" >> "$PC_FILE"
+
+        # Убеждаемся, что макрос статики на месте
+        if ! grep -q "DCURL_STATICLIB" "$PC_FILE"; then
+            sed -i "/^Cflags:/ s/$/ -DCURL_STATICLIB/" "$PC_FILE"
+        fi
     fi
 
     get_deps_list
-}
-
-ffbuild_cppflags() {
-    echo "-DCURL_STATICLIB"
 }
 
 ffbuild_configure() {

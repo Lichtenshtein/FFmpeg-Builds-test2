@@ -36,11 +36,13 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libssh.pc"
-    # if [[ -f "$PC_FILE" ]]; then
-        # sed -i '/^Cflags:/ s/$/ -DLIBSSH_STATIC -Dmd5=libssh_md5/' "$PC_FILE"
-        # echo "Libs.private: -lssl -lcrypto -lz -lws2_32 -liphlpapi -lpthread" >> "$PC_FILE"
-    # fi
+    clean_la_files
+
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libssh.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i '/^Cflags:/ s/$/ -DLIBSSH_STATIC -Dmd5=libssh_md5/' "$PC_FILE"
+        echo "Libs.private: -lssl -lcrypto -lz -lws2_32 -liphlpapi -lpthread" >> "$PC_FILE"
+    fi
 
     get_deps_list
 }

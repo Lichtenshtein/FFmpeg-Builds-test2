@@ -22,7 +22,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    local XML_DEPS="-lsicuin -lsicuuc -lsicudt -llzma -liconv -lcharset -lintl -lz"
+    local XML_DEPS="-llzma -lz -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -51,7 +51,6 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS -DLIBXML_STATIC -DXML_STATIC" \
         CPPFLAGS="$CPPFLAGS -DLIBXML_STATIC -DXML_STATIC" \
         LDFLAGS="$LDFLAGS" \
-        LIBS="$XML_DEPS $LIBS" \
         AR="${FFBUILD_TOOLCHAIN}-gcc-ar" \
         NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
         RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib" \
@@ -69,13 +68,30 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libxml-2.0.pc"
-    # if [[ -f "$PC_FILE" ]]; then
-        # log_info "${SYNC_MARK} Patching libxml-2.0.pc..."
-        # sed -i "s|^Libs:.*|Libs: -L\${libdir} -lxml2|" "$PC_FILE"
-        # sed -i "s|^Libs\.private:.*|Libs.private: $XML_DEPS $LIBS|" "$PC_FILE"
-        # sed -i "/^Cflags:/ s/$/ -DLIBXML_STATIC -DXML_STATIC/" "$PC_FILE"
-    # fi
+    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libxml-2.0.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        log_info "${SYNC_MARK} Cleaning and fixing libxml-2.0.pc..."
+
+        # Очищаем основную строку Libs (оставляем только саму либу)
+        sed -i "s|^Libs:.*|Libs: -L\${libdir} -lxml2|" "$PC_FILE"
+
+        # Убираем Requires (zlib и icu), так как мы пропишем их явно в Libs.private 
+        # Это предотвратит путаницу, если pkg-config не найдет icu-uc.pc
+        sed -i "s|^Requires:.*|Requires:|" "$PC_FILE"
+
+        # Формируем чистую Libs.private (без дубликатов)
+        # Используем XML_DEPS (icu, lzma, iconv, intl, z) и системные LIBS
+        local FINAL_PRIVATE=$(echo "$XML_DEPS" | xargs -n1 | sort -u | xargs)
+
+        # Удаляем старую строку Libs.private если она была, и пишем новую
+        sed -i "/^Libs\.private:/d" "$PC_FILE"
+        echo "Libs.private: $FINAL_PRIVATE" >> "$PC_FILE"
+
+        # Добавляем оба макроса статики
+        # Проверяем, чтобы не добавить дубликат LIBXML_STATIC
+        sed -i "s/-DLIBXML_STATIC//" "$PC_FILE"
+        sed -i "/^Cflags:/ s/$/ -DLIBXML_STATIC -DXML_STATIC/" "$PC_FILE"
+    fi
 
     get_deps_list
 }
