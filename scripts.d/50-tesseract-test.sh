@@ -40,11 +40,6 @@ ffbuild_dockerbuild() {
     # Удаляем любые другие конфиги, которые могут просочиться
     # find "$FFBUILD_PREFIX/lib/cmake" -name "*Config.cmake" -delete
 
-    export CFLAGS="$CFLAGS -DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB"
-    export CXXFLAGS="$CXXFLAGS -DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB"
-    # Переопределяем макрос, который может заставлять систему искать dllimport
-    export CPPFLAGS="$CPPFLAGS -D_WINSOCKAPI_ -D_WINSOCK_DEPRECATED_NO_WARNINGS"
-
     local TESS_LEPT="-lleptonica -lpangocairo-1.0 -lpangoft2-1.0 -lpangowin32-1.0 -lpango-1.0 -lcairo-gobject -lcairo"
     local NET_ARCHIVE="-larchive -lcurl -lssh -lssl -lcrypto"
     local IMAGES="-llcms2 -ltiffxx -ltiff -lopenjp2 -ljpeg -lturbojpeg -lpng16 -lgif -lwebpmux -lwebpdemux -lwebpdecoder -lwebp -lsharpyuv"
@@ -58,8 +53,6 @@ ffbuild_dockerbuild() {
     local FINAL_LIBS="-Wl,--start-group $TESS_LEPT $NET_ARCHIVE $IMAGES $FONT_GLIB $LOW_LEVEL $WIN_SYS -Wl,--end-group -lstdc++"
 
     local LAYER_WIN_FINAL="-lws2_32 -lbcrypt -lcrypt32 -lole32 -luser32 -ladvapi32 -lstdc++"
-
-    export LDFLAGS="$RAW_LDFLAGS"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -86,10 +79,14 @@ ffbuild_dockerbuild() {
         -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
     )
 
-    cmake "${myconf[@]}" \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS -Wno-narrowing" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $FINAL_LIBS $LAYER_WIN_FINAL -Wl,--allow-multiple-definition" .. || return 1
+    export CXXFLAGS="$CXXFLAGS -DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB -Wno-narrowing"
+    # Переопределяем макрос, который может заставлять систему искать dllimport
+    export CPPFLAGS="$CPPFLAGS -DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB -D_WINSOCKAPI_ -D_WINSOCK_DEPRECATED_NO_WARNINGS -Wno-narrowing"
+
+    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    LDFLAGS="$RAW_LDFLAGS $FINAL_LIBS $LAYER_WIN_FINAL -Wl,--allow-multiple-definition" \
+    cmake "${myconf[@]}" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

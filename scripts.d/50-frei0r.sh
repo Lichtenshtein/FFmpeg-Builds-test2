@@ -21,12 +21,12 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
+        # -DWITHOUT_OPENCV=ON
     # флаги для игнорирования несовместимых типов в SIMD коде (актуально для GCC 14)
     # Флаг -flax-vector-conversions разрешает неявное приведение __m128i к __m128
-    export CFLAGS="$CFLAGS -flax-vector-conversions -Wno-error=incompatible-pointer-types"
-    export CXXFLAGS="$CXXFLAGS -flax-vector-conversions -Wno-error=incompatible-pointer-types"
-
-        # -DWITHOUT_OPENCV=ON
+    CFLAGS="$CFLAGS $CPPFLAGS -flax-vector-conversions -Wno-error=incompatible-pointer-types" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS -flax-vector-conversions -Wno-error=incompatible-pointer-types" \
+    LDFLAGS="$LDFLAGS" \
     cmake -G Ninja \
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \

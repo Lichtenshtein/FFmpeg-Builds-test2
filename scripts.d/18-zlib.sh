@@ -44,11 +44,13 @@ ffbuild_dockerbuild() {
         -DWITH_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF )
         -DWITH_AVX512VNNI=OFF
         -DWITH_VPCLMULQDQ=OFF
-        -DCMAKE_C_FLAGS="$CFLAGS -DZLIB_STATIC"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
 
+    CFLAGS="$CFLAGS $CPPFLAGS -DZLIB_STATIC" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS -DZLIB_STATIC" \
+    LDFLAGS="$LDFLAGS" \
     cmake "${myconf[@]}" .. || return 1
 
     # Check for successful generation

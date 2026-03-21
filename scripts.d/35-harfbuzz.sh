@@ -57,8 +57,8 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     meson setup "${myconf[@]}" .. \
-        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g') -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -Wno-redundant-decls" \
-        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g') -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -Wno-redundant-decls" \
+        -Dc_args="$CFLAGS $CPPFLAGS -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -Wno-redundant-decls" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -Wno-redundant-decls" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 

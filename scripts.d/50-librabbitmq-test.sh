@@ -25,11 +25,11 @@ ffbuild_dockerbuild() {
         -DBUILD_TESTS=OFF
         -DBUILD_TOOLS=OFF
         -DENABLE_SSL_SUPPORT=ON
-        -DCMAKE_C_FLAGS="$CFLAGS"
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS"
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
     )
 
+    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    LDFLAGS="$LDFLAGS" \
     cmake "${mycmake[@]}" .. || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

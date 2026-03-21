@@ -20,16 +20,9 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
-    # Специальные флаги для MinGW, чтобы избежать сегфолтов (выравнивание стека)
-    local EXTRA_C_FLAGS="$CFLAGS -mstackrealign -fno-asynchronous-unwind-tables"
-    local EXTRA_CXX_FLAGS="$CXXFLAGS -mstackrealign -fno-asynchronous-unwind-tables"
-
     local cmake_flags=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
-        -DCMAKE_C_FLAGS="$EXTRA_C_FLAGS"
-        -DCMAKE_CXX_FLAGS="$EXTRA_CXX_FLAGS"
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_TESTING=OFF
@@ -39,6 +32,10 @@ ffbuild_dockerbuild() {
         -DENABLE_NASM=ON
     )
 
+    # Специальные флаги для MinGW, чтобы избежать сегфолтов (выравнивание стека)
+    CFLAGS="$CFLAGS $CPPFLAGS -mstackrealign -fno-asynchronous-unwind-tables" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS -mstackrealign -fno-asynchronous-unwind-tables" \
+    LDFLAGS="$LDFLAGS" \
     cmake "${cmake_flags[@]}" .. || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

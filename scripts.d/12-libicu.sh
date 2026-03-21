@@ -72,12 +72,15 @@ ffbuild_dockerbuild() {
         --with-data-packaging=static
     )
 
-    # ICU капризен к флагам. Прокидываем их явно.
-    ../configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS -DICU_STATIC" \
-        CXXFLAGS="$CXXFLAGS -DICU_STATIC" \
-        LDFLAGS="$LDFLAGS" \
-        CC="$CC" CXX="$CXX" AR="$AR" RANLIB="$RANLIB" || return 1
+    CFLAGS="$CFLAGS -DICU_STATIC" \
+    CPPLAGS="$CPPLAGS -DICU_STATIC" \
+    CXXFLAGS="$CXXFLAGS -DICU_STATIC" \
+    LDFLAGS="$LDFLAGS" \
+    CC="$CC" \
+    CXX="$CXX" \
+    AR="$AR" \
+    RANLIB="$RANLIB" \
+    ../configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

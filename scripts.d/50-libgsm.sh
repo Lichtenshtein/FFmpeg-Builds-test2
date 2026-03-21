@@ -14,6 +14,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
     export CCFLAGS="$CFLAGS -DNeedFunctionPrototypes=1 -c -DSASR -DWAV49 -Wno-comment"
+    export LDFLAGS="$LDFLAGS"
+    export CPPFLAGS="$CPPFLAGS"
     export INSTALL_ROOT="$FFBUILD_DESTPREFIX"
     export CC="${FFBUILD_TOOLCHAIN}-gcc"
 
@@ -34,12 +36,4 @@ ffbuild_configure() {
 
 ffbuild_unconfigure() {
     echo --disable-libgsm
-}
-
-ffbuild_cflags() {
-    return 0
-}
-
-ffbuild_ldflags() {
-    return 0
 }

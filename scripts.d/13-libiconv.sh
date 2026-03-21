@@ -37,11 +37,12 @@ ffbuild_dockerbuild() {
         # --disable-nls
     )
 
-    # Принудительно передаем флаги
-    ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS -DICONV_STATIC" \
-        CPPFLAGS="$CPPFLAGS -DICONV_STATIC" \
-        LDFLAGS="$LDFLAGS" || return 1
+    CFLAGS="$CFLAGS" \
+    CPPFLAGS="$CPPFLAGS -DICONV_STATIC" \
+    LDFLAGS="$LDFLAGS" \
+    CXXFLAGS="$CXXFLAGS" \
+    LIBS="$LIBS" \
+    ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

@@ -19,8 +19,6 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
-    export CXXFLAGS="$(echo $CXXFLAGS | sed 's/-std=c++17//g')"
-
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --cross-file=/cross.meson
@@ -34,8 +32,8 @@ ffbuild_dockerbuild() {
     )
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g') -DFRIBIDI_LIB_STATIC" \
-        -Dcpp_args="$CPPFLAGS -DFRIBIDI_LIB_STATIC" \
+        -Dc_args="$CFLAGS $CPPFLAGS -DFRIBIDI_LIB_STATIC" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS -DFRIBIDI_LIB_STATIC" \
         -Dc_link_args="$LDFLAGS" \
         -Dcpp_link_args="$LDFLAGS" || return 1
 

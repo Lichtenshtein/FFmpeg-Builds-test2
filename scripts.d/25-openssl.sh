@@ -28,7 +28,7 @@ ffbuild_dockerbuild() {
     fi
 
     # Фикс для QUIC
-    sed -i '1i#ifndef SIO_UDP_NETRESET\n#define SIO_UDP_NETRESET _WSAIOW(IOC_VENDOR, 15)\n#endif' include/internal/sockets.h
+    # sed -i '1i#ifndef SIO_UDP_NETRESET\n#define SIO_UDP_NETRESET _WSAIOW(IOC_VENDOR, 15)\n#endif' include/internal/sockets.h
 
     export CC="${CC/${FFBUILD_CROSS_PREFIX}/}"
     export CXX="${CXX/${FFBUILD_CROSS_PREFIX}/}"
@@ -55,11 +55,11 @@ ffbuild_dockerbuild() {
         --cross-compile-prefix="$FFBUILD_CROSS_PREFIX"
     )
 
-    # GCC 14 может ругаться на строгие алиасы в старом коде OpenSSL
     ./Configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS -fno-strict-aliasing" \
-        LDFLAGS="$LDFLAGS" \
-        LIBS="$LIBS" || return 1
+        "$CFLAGS -fno-strict-aliasing" \
+        "$CXXFLAGS -fno-strict-aliasing" \
+        "$LDFLAGS" \
+        "$LIBS" || return 1
 
     make -j$(nproc) build_sw $MAKE_V || return 1
     make install_sw DESTDIR="$FFBUILD_DESTDIR" || return 1

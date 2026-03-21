@@ -33,12 +33,11 @@ ffbuild_dockerbuild() {
         --enable-relocatable
     )
 
-    # Явно прокидываем CPPFLAGS, чтобы он нашел iconv.h в /opt/ffbuild/include
-    ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS -Dasm=__asm__" \
-        CPPFLAGS="$CPPFLAGS" \
-        LDFLAGS="$LDFLAGS" \
-        LIBS="$LIBS" || return 1
+    CFLAGS="$CFLAGS -Dasm=__asm__" \
+    CPPFLAGS="$CPPFLAGS" \
+    LDFLAGS="$LDFLAGS" \
+    LIBS="$LIBS" \
+    ./configure "${myconf[@]}" || return 1
 
     # Нам нужна только библиотека intl
     cd intl

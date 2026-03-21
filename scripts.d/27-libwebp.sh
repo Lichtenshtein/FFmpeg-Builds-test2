@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
     ./autogen.sh
 
     # Порядок: WebP -> TIFF -> [JPEG, JBIG, LZMA, Z]
-    local WEBP_DEPS="-ltiff -ltiffxx -ljpeg -lturbojpeg -lpng16 -lgif -ljbig -ljbig85 -lzstd -llzma -lz $LIBS"
+    local DEP_LIBS="-ltiff -ltiffxx -ljpeg -lturbojpeg -lpng16 -lgif -ljbig -ljbig85 -lzstd -llzma -lz $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -41,10 +41,12 @@ ffbuild_dockerbuild() {
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS -DWEBP_STATIC" \
-        LDFLAGS="$LDFLAGS $WEBP_DEPS" \
-        CPPFLAGS="$CPPFLAGS -DWEBP_STATIC" || return 1
+    CFLAGS="$CFLAGS" \
+    CPPFLAGS="$CPPFLAGS -DWEBP_STATIC" \
+    CXXFLAGS="$CXXFLAGS" \
+    LDFLAGS="$LDFLAGS" \
+    LIBS="$DEP_LIBS" \
+    ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
@@ -59,7 +61,7 @@ ffbuild_dockerbuild() {
         log_info "${SYNC_MARK} Patching $(basename $pc)..."
         sed -i "/^Cflags:/ s/$/ -DWEBP_STATIC/" "$PC_PATH"
         sed -i "/^Libs\.private:/d" "$PC_FILE"
-        echo "Libs.private: $WEBP_DEPS" >> "$PC_FILE"
+        echo "Libs.private: $DEP_LIBS" >> "$PC_FILE"
     done
 
     get_deps_list

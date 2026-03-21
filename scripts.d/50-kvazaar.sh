@@ -25,11 +25,13 @@ ffbuild_dockerbuild() {
         --with-pic
     )
 
-    ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS" \
-        LDFLAGS="$LDFLAGS" \
-        CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS" || return 1
+    CFLAGS="$CFLAGS" \
+    CPPFLAGS="$CPPFLAGS -DKVZ_STATIC_LIB" \
+    CXXFLAGS="$CXXFLAGS -DKVZ_STATIC_LIB" \
+    LDFLAGS="$LDFLAGS" \
+    LIBS="$LIBS" \
+    ./configure "${myconf[@]}" || return 1
+
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
@@ -39,6 +41,10 @@ ffbuild_dockerbuild() {
     echo "Libs.private: -lpthread" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/kvazaar.pc
 
     get_deps_list
+}
+
+ffbuild_cppflags() {
+    echo "-DKVZ_STATIC_LIB"
 }
 
 ffbuild_configure() {
