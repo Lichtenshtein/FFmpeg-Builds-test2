@@ -36,7 +36,8 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" \
         CFLAGS="$CFLAGS" \
         CPPFLAGS="$CPPFLAGS" \
-        LDFLAGS="$LDFLAGS" || return 1
+        LDFLAGS="$LDFLAGS" \
+        LIBS="$LIBS" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

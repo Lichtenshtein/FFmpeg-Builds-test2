@@ -21,7 +21,7 @@ ffbuild_dockerbuild() {
     set -e
     ./autogen.sh
 
-    local DEP_LIBS="-lbz2 -lz $LIBS"
+    local DEP_LIBS="-lbz2 -lz -lpthread $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -40,17 +40,28 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}" \
         CFLAGS="$CFLAGS -DPCRE2_STATIC" \
-        LDFLAGS="$LDFLAGS $DEP_LIBS" \
+        LDFLAGS="$LDFLAGS" \
+        LIBS="$DEP_LIBS" \
         CPPFLAGS="$CPPFLAGS -DPCRE2_STATIC" \
         CXXFLAGS="$CXXFLAGS -DPCRE2_STATIC" || return 1
+
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    log_info "${SYNC_MARK} Patching PRCE .pc files..."
+    log_info "${SYNC_MARK} Patching PCRE2 .pc files..."
     for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/*pcre2*.pc; do
         [[ -e "$pc" ]] || continue
-        sed -i '/^Cflags:/ s/$/ -DPCRE2_STATIC/' "$pc"
-        sed -i "/Libs.private:/ s/$/ -lpthread/" "$pc"
+        sed -i 's/[[:space:]]*$//' "$pc"
+        if ! grep -q "DPCRE2_STATIC" "$pc"; then
+            sed -i '/^Cflags:/ s/$/ -DPCRE2_STATIC/' "$pc"
+        fi
+        if grep -q "^Libs.private:" "$pc"; then
+            for lib in -lbz2 -lz -lpthread; do
+                grep -q -- "$lib" "$pc" || sed -i "/^Libs.private:/ s/$/ $lib $LIBS/" "$pc"
+            done
+        else
+            sed -i "/^Libs:/ a Libs.private: $DEP_LIBS" "$pc"
+        fi
     done
 
     clean_la_files

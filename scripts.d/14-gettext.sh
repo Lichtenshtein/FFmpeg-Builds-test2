@@ -37,7 +37,8 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" \
         CFLAGS="$CFLAGS -Dasm=__asm__" \
         CPPFLAGS="$CPPFLAGS" \
-        LDFLAGS="$LDFLAGS" || return 1
+        LDFLAGS="$LDFLAGS" \
+        LIBS="$LIBS" || return 1
 
     # Нам нужна только библиотека intl
     cd intl

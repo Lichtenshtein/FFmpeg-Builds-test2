@@ -13,14 +13,15 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    # Вместо ./autogen.sh используем это, чтобы избежать ошибок макросов
+
     ./configure \
         --prefix="$FFBUILD_PREFIX" \
         --host="$FFBUILD_TOOLCHAIN" \
-        CFLAGS="$CFLAGS" \
+        CFLAGS="$CFLAGS -DFFI_STATIC_BUILD" \
         LDFLAGS="$LDFLAGS" \
-        CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS" \
+        CPPFLAGS="$CPPFLAGS -DFFI_STATIC_BUILD" \
+        CXXFLAGS="$CXXFLAGS -DFFI_STATIC_BUILD" \
+        LIBS="$LIBS" \
         --enable-static \
         --disable-shared \
         --disable-docs \
@@ -41,6 +42,7 @@ ffbuild_dockerbuild() {
     fi
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libffi.pc"
     if [[ -f "$PC_FILE" ]]; then
+        sed -i 's/[[:space:]]*$//' "$PC_FILE"
         sed -i "/^Cflags:/ s/$/ -DFFI_STATIC_BUILD/" "$PC_FILE"
     fi
 

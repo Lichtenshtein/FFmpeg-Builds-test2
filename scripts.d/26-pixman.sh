@@ -17,7 +17,7 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     # Pixman для статики под Windows требует явного указания системных либ
-    local PIXMAN_DEPS="-lpng16 -lglib-2.0 -lz -lintl -liconv -lcharset $LIBS"
+    local DEP_LIBS="-lpng16 -lglib-2.0 -lz -lintl -lcharset -liconv $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -30,15 +30,15 @@ ffbuild_dockerbuild() {
         -Ddemos=disabled
         -Dgtk=disabled
         -Dopenmp=disabled
-        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g') -Dpixman_static"
-        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g') -Dpixman_static"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     meson setup "${myconf[@]}" .. \
-        -Dc_link_args="$LDFLAGS $PIXMAN_DEPS" \
-        -Dcpp_link_args="$LDFLAGS $PIXMAN_DEPS" || return 1
+        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g') -Dpixman_static" \
+        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g') -Dpixman_static" \
+        -Dc_link_args="$LDFLAGS $DEP_LIBS" \
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS" || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
@@ -48,8 +48,15 @@ ffbuild_dockerbuild() {
     log_info "${SYNC_MARK} Patching PIXMAN .pc file..."
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/pixman-1.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i "s|^Libs.private:.*|Libs.private: $PIXMAN_DEPS|" "$PC_FILE"
-        sed -i '/^Cflags:/ s/$/ -Dpixman_static/' "$pc"
+        sed -i 's/[[:space:]]*$//' "$PC_FILE"
+        if ! grep -q "Dpixman_static" "$PC_FILE"; then
+            sed -i '/^Cflags:/ s/$/ -Dpixman_static/' "$PC_FILE"
+        fi
+        if grep -q "^Libs.private:" "$PC_FILE"; then
+            sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS|" "$PC_FILE"
+        else
+            sed -i "/^Libs:/ a Libs.private: $DEP_LIBS" "$PC_FILE"
+        fi
     fi
 
     get_deps_list
