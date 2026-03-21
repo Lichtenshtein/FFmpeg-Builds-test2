@@ -24,14 +24,13 @@ ffbuild_dockerbuild() {
     mkdir build
     cd build
 
-    export CFLAGS="$CFLAGS -DHAVE_OPENSSL=1"
-    export CXXFLAGS="$CXXFLAGS -DHAVE_OPENSSL=1"
+    export CPPLAGS="$CPPFLAGS -DHAVE_OPENSSL=1"
 
+    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    LDFLAGS="$LDFLAGS" \
     cmake -G Ninja \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DARIBCC_SHARED_LIBRARY=OFF \

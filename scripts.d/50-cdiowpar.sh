@@ -50,11 +50,12 @@ EOF
         ac_cv_func_clock_gettime=no
     )
 
-    ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS" \
-        LDFLAGS="$LDFLAGS" \
-        CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS" || return 1
+    CFLAGS="$CFLAGS" \
+    CPPFLAGS="$CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS" \
+    LDFLAGS="$LDFLAGS" \
+    LIBS="$LIBS" \
+    ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

@@ -29,7 +29,6 @@ ffbuild_dockerbuild() {
     local CLEAN_CFLAGS=$(echo "$CFLAGS" | sed 's/-[DU][^ ]*//g; s/-I[^ ]*//g')
     # Формируем чистый CPPFLAGS, куда уйдут все макросы
     # Добавляем -I$FFBUILD_PREFIX/include обязательно, чтобы curl видел openssl/zlib
-    local CLEAN_CPPFLAGS="$CPPFLAGS -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC"
 
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
     # Порядок: curl -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
@@ -73,11 +72,12 @@ ffbuild_dockerbuild() {
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    ./configure "${myconf[@]}" \
-        CPPFLAGS="$CLEAN_CPPFLAGS" \
-        CFLAGS="$CLEAN_CFLAGS" \
-        LDFLAGS="$LDFLAGS" \
-        LIBS="$DEP_LIBS" || return 1
+    CFLAGS="$CLEAN_CFLAGS" \
+    CPPFLAGS="$CPPFLAGS -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC" \
+    CXXFLAGS="$CXXFLAGS" \
+    LDFLAGS="$LDFLAGS" \
+    LIBS="$DEP_LIBS" \
+    ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

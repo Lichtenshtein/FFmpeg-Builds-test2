@@ -96,8 +96,8 @@ EOF
     # Передаем линковочные флаги через meson, чтобы проверки (типа наличия функций) проходили успешно
     meson setup _build . \
         "${myconf[@]}" \
-        -Dc_args="$CFLAGS -DGLIB_STATIC_COMPILATION -DFFI_STATIC_BUILD -DG_WIN32_IS_STRICT_MINGW" \
-        -Dcpp_args="$CXXFLAGS -DGLIB_STATIC_COMPILATION -DFFI_STATIC_BUILD -DG_WIN32_IS_STRICT_MINGW" \
+        -Dc_args="$CFLAGS $CPPFLAGS -DGLIB_STATIC_COMPILATION -DFFI_STATIC_BUILD -DG_WIN32_IS_STRICT_MINGW" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS -DGLIB_STATIC_COMPILATION -DFFI_STATIC_BUILD -DG_WIN32_IS_STRICT_MINGW" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 

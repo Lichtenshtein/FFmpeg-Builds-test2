@@ -13,6 +13,12 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    export CFLAGS="$CFLAGS"
+    export CPPFLAGS="$CPPFLAGS"
+    export CXXFLAGS="$CXXFLAGS"
+    export LDFLAGS="$LDFLAGS"
+
     local myconf=(
         PREFIX="$FFBUILD_PREFIX"
         INCLUDE_PREFIX="$FFBUILD_PREFIX"/include/wels
@@ -56,6 +62,7 @@ ffbuild_dockerbuild() {
 
     make $MAKE_V -j$(nproc) "${myconf[@]}" install-static DESTDIR="$FFBUILD_DESTDIR" || return 1
 
+    clean_la_files
     get_deps_list
 }
 

@@ -31,12 +31,12 @@ ffbuild_dockerbuild() {
         export CFLAGS="$CFLAGS -Wa,-muse-unaligned-vector-move"
     fi
 
+    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    LDFLAGS="$LDFLAGS" \
     cmake -G Ninja \
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DBUILD_SHARED_LIBS=OFF \
         -DJPEGXL_BUNDLE_LIBPNG=OFF \

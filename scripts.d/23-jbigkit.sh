@@ -19,8 +19,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DCMAKE_C_FLAGS="$CFLAGS"
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_PROGRAMS=OFF
         -DBUILD_TOOLS=OFF
@@ -28,6 +26,9 @@ ffbuild_dockerbuild() {
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
 
+    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    LDFLAGS="$LDFLAGS" \
     cmake "${myconf[@]}" .. || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

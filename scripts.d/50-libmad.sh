@@ -17,16 +17,17 @@ ffbuild_dockerbuild() {
     sed -i 's/-fforce-mem//g' configure
     autoreconf -if
 
+    CFLAGS="$CFLAGS" \
+    CPPFLAGS="$CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS" \
+    LDFLAGS="$LDFLAGS" \
+    LIBS="$LIBS" \
     ./configure \
         --prefix="$FFBUILD_PREFIX" \
         --host="$FFBUILD_TOOLCHAIN" \
         --disable-shared \
         --enable-static \
-        --enable-fpm=64bit \
-        CFLAGS="$CFLAGS" \
-        LDFLAGS="$LDFLAGS" \
-        CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS" || return 1
+        --enable-fpm=64bit || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

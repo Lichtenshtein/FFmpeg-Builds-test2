@@ -30,22 +30,23 @@ ffbuild_dockerbuild() {
         --disable-cli
         --enable-static
         --enable-pic
+        --enable-strip
         --disable-lavf
         --disable-swscale
         --bit-depth=all
+        --chroma-format=all
         --prefix="$FFBUILD_PREFIX"
     )
+
+    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     # явно указываем инструменты дл€ стабильности
     export AS="nasm"
     export CC="${FFBUILD_CROSS_PREFIX}gcc"
 
-    # Ќастройка LTO
-    if [[ "$USE_LTO" == "1" ]]; then
-        myconf+=( --enable-lto )
-    fi
-
-    ./configure "${myconf[@]}" --extra-cflags="$CFLAGS" --extra-ldflags="$LDFLAGS" || return 1
+    ./configure "${myconf[@]}" \
+        --extra-cflags="$CFLAGS $CPPFLAGS" \
+        --extra-ldflags="$LDFLAGS" || return 1
 
     # если в config.log написано "asm: no", значит nasm не подцепилс€
     if grep -q "asm: no" config.log; then

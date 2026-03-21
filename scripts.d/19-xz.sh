@@ -41,12 +41,12 @@ ffbuild_dockerbuild() {
         --disable-doc
     )
 
-    ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS" \
-        CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS" \
-        LDFLAGS="$LDFLAGS" \
-        LIBS="$DEP_LIBS" || return 1
+    CFLAGS="$CFLAGS" \
+    CPPFLAGS="$CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS" \
+    LDFLAGS="$LDFLAGS" \
+    LIBS="$DEP_LIBS" \
+    ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

@@ -74,8 +74,8 @@ ffbuild_dockerbuild() {
 
     meson setup . .. \
         "${myconf[@]}" \
-        -Dc_args="$CFLAGS -DCAIRO_WIN32_STATIC_BUILD -Dpixman_static" \
-        -Dcpp_args="$CPPFLAGS -DCAIRO_WIN32_STATIC_BUILD -Dpixman_static" \
+        -Dc_args="$CFLAGS $CPPFLAGS -DCAIRO_WIN32_STATIC_BUILD -Dpixman_static" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS -DCAIRO_WIN32_STATIC_BUILD -Dpixman_static" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 

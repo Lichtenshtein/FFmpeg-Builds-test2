@@ -52,14 +52,14 @@ ffbuild_dockerbuild() {
         --enable-win32
     )
 
-    export CC="${FFBUILD_CROSS_PREFIX}gcc"
-    export CXX="${FFBUILD_CROSS_PREFIX}g++"
-
-    ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS -Wno-implicit-function-declaration" \
-        LDFLAGS="$LDFLAGS" \
-        CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration" || return 1
+    CC="${FFBUILD_CROSS_PREFIX}gcc" \
+    CXX="${FFBUILD_CROSS_PREFIX}g++" \
+    CFLAGS="$CFLAGS -Wno-implicit-function-declaration" \
+    CPPFLAGS="$CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration" \
+    LDFLAGS="$LDFLAGS" \
+    LIBS="$LIBS" \
+    ./configure "${myconf[@]}" || return 1
 
     # Сборка только библиотеки
     # Мы явно просим собрать папку caca, а не всё дерево с тестами

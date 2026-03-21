@@ -14,14 +14,14 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    CFLAGS="$CFLAGS" \
+    LDFLAGS="$LDFLAGS" \
+    CPPFLAGS="$CPPFLAGS -DFFI_STATIC_BUILD" \
+    CXXFLAGS="$CXXFLAGS -DFFI_STATIC_BUILD" \
+    LIBS="$LIBS" \
     ./configure \
         --prefix="$FFBUILD_PREFIX" \
         --host="$FFBUILD_TOOLCHAIN" \
-        CFLAGS="$CFLAGS -DFFI_STATIC_BUILD" \
-        LDFLAGS="$LDFLAGS" \
-        CPPFLAGS="$CPPFLAGS -DFFI_STATIC_BUILD" \
-        CXXFLAGS="$CXXFLAGS -DFFI_STATIC_BUILD" \
-        LIBS="$LIBS" \
         --enable-static \
         --disable-shared \
         --disable-docs \

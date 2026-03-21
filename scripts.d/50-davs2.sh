@@ -30,6 +30,8 @@ ffbuild_dockerbuild() {
         --disable-cli
         --bit-depth=10
         --enable-pic
+        --enable-strip
+        --chroma-format=all
         --host="$FFBUILD_TOOLCHAIN"
         --cross-prefix="$FFBUILD_CROSS_PREFIX"
     )
@@ -38,8 +40,8 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     ./configure "${myconf[@]}" \
-        EXTRA_CFLAGS="$CFLAGS" \
-        EXTRA_LDFLAGS="$LDFLAGS" || return 1
+        --extra-cflags="$CFLAGS $CPPFLAGS" \
+        --extra-ldflags="$LDFLAGS" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

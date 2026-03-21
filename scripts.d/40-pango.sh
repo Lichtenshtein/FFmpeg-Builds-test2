@@ -52,8 +52,8 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $STATIC_DEPS" \
-        -Dcpp_args="$CXXFLAGS $STATIC_DEPS" \
+        -Dc_args="$CFLAGS $CPPFLAGS $STATIC_DEPS" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS $STATIC_DEPS" \
         -Dc_link_args="$LDFLAGS $PANGO_DEPS $WIN_SYS" \
         -Dcpp_link_args="$LDFLAGS $PANGO_DEPS $WIN_SYS" || return 1
 
