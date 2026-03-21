@@ -68,8 +68,8 @@ EOF
 
     # Формируем список зависимостей из вашего чит-листа
     # pcre2 требует zlib/bz2 в некоторых конфигах
-    local GLIB_DEPS="-lpcre2-8 -lffi -lintl -liconv -lcharset -lz"
-    local WIN_SYS_LIBS="-luserenv -liphlpapi -lwinmm -luuid -ldnsapi $LIBS"
+    local DEP_LIBS="-lpcre2-8 -lffi -lintl -lcharset -liconv -lz"
+    local WIN_LIBS="-luserenv -liphlpapi -lwinmm -luuid -ldnsapi $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -96,31 +96,36 @@ EOF
     # Передаем линковочные флаги через meson, чтобы проверки (типа наличия функций) проходили успешно
     meson setup _build . \
         "${myconf[@]}" \
-        -Dc_args="$CFLAGS -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW" \
-        -Dcpp_args="$CXXFLAGS -DGLIB_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW" \
-        -Dc_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS" \
-        -Dcpp_link_args="$LDFLAGS $GLIB_DEPS $WIN_SYS_LIBS" || return 1
+        -Dc_args="$CFLAGS -DGLIB_STATIC_COMPILATION -DFFI_STATIC_BUILD -DG_WIN32_IS_STRICT_MINGW" \
+        -Dcpp_args="$CXXFLAGS -DGLIB_STATIC_COMPILATION -DFFI_STATIC_BUILD -DG_WIN32_IS_STRICT_MINGW" \
+        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
     ninja -C _build -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja -C _build install || return 1
 
     clean_la_files
 
-    log_info "${SYNC_MARK} Patching GLib .pc files for static linking..."
-    
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/glib-2.0.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        sed -i "/^Cflags:/ s/$/ -DGLIB_STATIC_COMPILATION/" "$PC_FILE"
-        sed -i "s|^Libs.private:.*|Libs.private: $GLIB_DEPS $WIN_SYS_LIBS|" "$PC_FILE"
-    fi
-
-    # gthread, gobject, gio
-    for pc in gthread-2.0.pc gobject-2.0.pc gio-2.0.pc gmodule-2.0.pc gio-windows-2.0.pc girepository-2.0.pc gmodule-no-export-2.0.pc gmodule-export-2.0.pc; do
-        local TARGET_PC="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
-        [[ -f "$TARGET_PC" ]] || continue
-        sed -i "/^Cflags:/ s/$/ -DGLIB_STATIC_COMPILATION/" "$TARGET_PC"
-        if [[ "$pc" == "gio-2.0.pc" ]]; then
-            sed -i "s|^Libs.private:.*|Libs.private: $GLIB_DEPS $WIN_SYS_LIBS|" "$TARGET_PC"
+    log_info "${SYNC_MARK} Patching GLib .pc files..."
+    local PC_DIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    local ALL_GLIB_PCS=(
+        "glib-2.0.pc" "gio-2.0.pc" "gthread-2.0.pc" 
+        "gobject-2.0.pc" "gmodule-2.0.pc" "gio-windows-2.0.pc" 
+        "girepository-2.0.pc" "gmodule-no-export-2.0.pc" "gmodule-export-2.0.pc"
+    )
+    for pc_name in "${ALL_GLIB_PCS[@]}"; do
+        local pc="$PC_DIR/$pc_name"
+        [[ -f "$pc" ]] || continue
+        sed -i 's/[[:space:]]*$//' "$pc"
+        if ! grep -q "GLIB_STATIC_COMPILATION" "$pc"; then
+            sed -i '/^Cflags:/ s/$/ -DGLIB_STATIC_COMPILATION/' "$pc"
+        fi
+        if [[ "$pc_name" == "glib-2.0.pc" || "$pc_name" == "gio-2.0.pc" ]]; then
+            if grep -q "^Libs.private:" "$pc"; then
+                sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS|" "$pc"
+            else
+                sed -i "/^Libs:/ a Libs.private: $DEP_LIBS $WIN_LIBS" "$pc"
+            fi
         fi
     done
 

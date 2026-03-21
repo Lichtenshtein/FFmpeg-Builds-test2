@@ -56,10 +56,10 @@ ffbuild_dockerbuild() {
     )
 
     # GCC 14 может ругаться на строгие алиасы в старом коде OpenSSL
-    export CFLAGS="$CFLAGS -fno-strict-aliasing"
-    export CXXFLAGS="$CXXFLAGS -fno-strict-aliasing"
-
-    ./Configure "${myconf[@]}" "$CFLAGS" "$CXXFLAGS" "$LDFLAGS" || return 1
+    ./Configure "${myconf[@]}" \
+        CFLAGS="$CFLAGS -fno-strict-aliasing" \
+        LDFLAGS="$LDFLAGS" \
+        LIBS="$LIBS" || return 1
 
     make -j$(nproc) build_sw $MAKE_V || return 1
     make install_sw DESTDIR="$FFBUILD_DESTDIR" || return 1
@@ -68,15 +68,35 @@ ffbuild_dockerbuild() {
 
     # OpenSSL 3.x иногда создает файлы lib64 или специфичные имена. 
     # Убедимся, что имена стандартные для FFmpeg
-    if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib64/libssl.a" ]]; then
-        cp -r "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib64/." "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+    if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib64" ]]; then
+        mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
+        cp -rn "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib64/"* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+        rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib64"
     fi
+
+    log_info "${SYNC_MARK} Patching OpenSSL .pc files..."
+    local PC_DIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    local EXTRA_LIBS="-lz -lws2_32 -lgdi32 -lcrypt32"
+    for pc in "$PC_DIR"/{openssl,libcrypto,libssl}.pc; do
+        [[ -f "$pc" ]] || continue
+        sed -i 's/[[:space:]]*$//' "$pc"
+        if grep -q "^Libs.private:" "$pc"; then
+            for lib in $EXTRA_LIBS; do
+                grep -q -- "$lib" "$pc" || sed -i "/^Libs.private:/ s/$/ $lib/" "$pc"
+            done
+        else
+            if grep -q "^Libs:" "$pc"; then
+                sed -i "/^Libs:/ a Libs.private: $EXTRA_LIBS" "$pc"
+            else
+                sed -i "/^Version:/ a Libs.private: $EXTRA_LIBS" "$pc"
+            fi
+        fi
+    done
 
     get_deps_list
 }
 
 ffbuild_libs() {
-    # Эти флаги нужны FFmpeg, чтобы слинковаться с libcrypto.a и libssl.a
     echo "-lssl -lcrypto -lz -lws2_32 -lgdi32 -lcrypt32 -lbcrypt"
 }
 

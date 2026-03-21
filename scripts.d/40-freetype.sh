@@ -53,17 +53,22 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    # Создаем симлинк для совместимости
-    ln -sf freetype2.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype.pc"
-
-    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/freetype2.pc; do
+    local PC_DIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    log_info "${SYNC_MARK} Patching FREETYPE .pc files..."
+    for pc in "$PC_DIR"/freetype2.pc; do
         [[ -e "$pc" ]] || continue
-        log_info "${SYNC_MARK} Patching FREETYPE .pc file..."
-        if ! grep -q "\-DFT2_BUILD_LIBRARY" "$PC_FILE"; then
-            sed -i 's/Cflags:/& -DFT2_BUILD_LIBRARY/' "$PC_FILE"
+        if ! grep -q "DFT2_BUILD_LIBRARY" "$pc"; then
+            sed -i '/^Cflags:/ s/$/ -DFT2_BUILD_LIBRARY/' "$pc"
         fi
-        sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS|" "$PC_FILE"
+        if grep -q "^Libs.private:" "$pc"; then
+            sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS|" "$pc"
+        else
+            sed -i "/^Libs:/ a Libs.private: $DEP_LIBS" "$pc"
+        fi
     done
+
+    # Создаем симлинк
+    ln -sf freetype2.pc "$PC_LINK"
 
     get_deps_list
 }

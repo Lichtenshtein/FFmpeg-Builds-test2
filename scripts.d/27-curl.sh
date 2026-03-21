@@ -26,14 +26,14 @@ ffbuild_dockerbuild() {
 
     # Выделяем из CFLAGS только флаги компилятора (без -D и -I)
     # Это сохранит -march=broadwell, -O3, -pipe и т.д.
-    local CLEAN_CFLAGS=$(echo "$CFLAGS" | sed 's/-D[^ ]*//g; s/-I[^ ]*//g')
+    local CLEAN_CFLAGS=$(echo "$CFLAGS" | sed 's/-[DU][^ ]*//g; s/-I[^ ]*//g')
     # Формируем чистый CPPFLAGS, куда уйдут все макросы
     # Добавляем -I$FFBUILD_PREFIX/include обязательно, чтобы curl видел openssl/zlib
-    local CLEAN_CPPFLAGS="-I$FFBUILD_PREFIX/include -D_FORTIFY_SOURCE=2 -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC"
+    local CLEAN_CPPFLAGS="$CPPFLAGS -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC"
 
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
     # Порядок: curl -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
-    local CURL_LIBS="-lssh -lssl -lcrypto -lzstd -lbrotlidec -lbrotlicommon -lz -liconv -lcharset -lcrypt32 -lwldap32 -lnormaliz -liphlpapi $LIBS"
+    local DEP_LIBS="-lssh -lssl -lcrypto -lzstd -lbrotlidec -lbrotlicommon -lz -liconv -lcharset -lcrypt32 -lwldap32 -lnormaliz -liphlpapi $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -76,7 +76,8 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" \
         CPPFLAGS="$CLEAN_CPPFLAGS" \
         CFLAGS="$CLEAN_CFLAGS" \
-        LDFLAGS="$LDFLAGS $CURL_LIBS" || return 1
+        LDFLAGS="$LDFLAGS" \
+        LIBS="$DEP_LIBS" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
@@ -86,24 +87,20 @@ ffbuild_dockerbuild() {
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libcurl.pc"
     if [[ -f "$PC_FILE" ]]; then
         log_info "${SYNC_MARK} Cleaning and fixing libcurl.pc..."
-
+        sed -i 's/[[:space:]]*$//' "$PC_FILE"
         # Очищаем Libs (оставляем только саму либу)
         sed -i "s|^Libs:.*|Libs: -L\${libdir} -lcurl|" "$PC_FILE"
-
         # Очищаем Requires, чтобы pkg-config не падал из-за отсутствующих имен .pc
         sed -i "s|^Requires:.*|Requires:|" "$PC_FILE"
         sed -i "s|^Requires.private:.*|Requires.private:|" "$PC_FILE"
-
         # Формируем чистую Libs.private (удаляем дубликаты и выстраиваем очередь)
         # Системные либы Windows ОБЯЗАТЕЛЬНО в конце
         local WIN_SYS="-lwldap32 -lws2_32 -ladvapi32 -lcrypt32 -lnormaliz -liphlpapi -lsetupapi -lole32 -lshlwapi -luser32 -ldbghelp -lbcrypt"
         # Все зависимости Curl из списка
-        local CLEAN_LIBS=$(echo "$CURL_LIBS $WIN_SYS" | xargs -n1 | sort -u | xargs)
-
+        local CLEAN_LIBS=$(echo "$DEP_LIBS $WIN_SYS" | xargs -n1 | sort -u | xargs)
         # Перезаписываем Libs.private
         sed -i "/^Libs\.private:/d" "$PC_FILE"
         echo "Libs.private: $CLEAN_LIBS" >> "$PC_FILE"
-
         # Убеждаемся, что макрос статики на месте
         if ! grep -q "DCURL_STATICLIB" "$PC_FILE"; then
             sed -i "/^Cflags:/ s/$/ -DCURL_STATICLIB/" "$PC_FILE"

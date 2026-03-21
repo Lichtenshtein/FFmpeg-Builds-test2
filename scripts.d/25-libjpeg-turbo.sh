@@ -15,8 +15,6 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-    # На Broadwell libjpeg-turbo будет использовать AVX2 автоматически через NASM
-
     local myconf=(
         "Unix Makefiles"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -43,6 +41,7 @@ ffbuild_dockerbuild() {
     log_info "${SYNC_MARK} Patching JPEG .pc files..."
     for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/*jpeg*.pc; do
         [[ -e "$pc" ]] || continue
+        sed -i 's/[[:space:]]*$//' "$pc"
         sed -i '/^Cflags:/ s/$/ -DLIBJPEG_STATIC/' "$pc"
     done
 

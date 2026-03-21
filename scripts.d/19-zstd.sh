@@ -45,6 +45,7 @@ ffbuild_dockerbuild() {
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS -DZSTD_MULTITHREAD -DZSTD_STATIC_LINKING" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS -DZSTD_MULTITHREAD -DZSTD_STATIC_LINKING" \
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DCMAKE_CXX_COMPILER="$CXX" \
         .. || return 1
 
@@ -53,12 +54,13 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libzstd.pc"
     if [[ -f "$PC_FILE" ]]; then
+        sed -i 's/[[:space:]]*$//' "$PC_FILE"
         log_info "Applying multithreaded flags to libzstd.pc"
         if ! grep -q "\-lpthread" "$PC_FILE"; then
             sed -i 's/Libs.private:/& -lpthread /' "$PC_FILE"
         fi
         if ! grep -q "\-DZSTD_MULTITHREAD" "$PC_FILE"; then
-            sed -i 's/Cflags:/& -DZSTD_MULTITHREAD -DZSTD_STATIC_LINKING/' "$PC_FILE"
+            sed -i '/^Cflags:/ s/$/ -DZSTD_MULTITHREAD -DZSTD_STATIC_LINKING/' "$PC_FILE"
         fi
     fi
 

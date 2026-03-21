@@ -89,7 +89,7 @@ ffbuild_dockerbuild() {
     cd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
     for lib in libicu*.a; do
         if [[ -f "$lib" ]]; then
-            # Переименовываем libicu... в libsicu... для соответствия вашему чит-листу
+            # Переименовываем libicu... в libsicu...
             mv "$lib" "s${lib#lib}" 2>/dev/null || true
         fi
     done
@@ -97,25 +97,34 @@ ffbuild_dockerbuild() {
     [[ -f "icudt.a" ]] && mv "icudt.a" "libsicudt.a"
     [[ -f "sicudt.a" ]] && mv "sicudt.a" "libsicudt.a"
 
-    # Исправляем pkg-config файлы для статической линковки
-    # ICU по умолчанию создает icu-uc.pc, icu-i18n.pc
-    # Патчим .pc файлы для корректной работы с FFmpeg
     log_info "${SYNC_MARK} Patching ICU .pc files..."
-    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/icu-*.pc; do
+    local PC_DIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    local ICU_SYS_LIBS="-lstdc++ -lpthread -lm -ladvapi32 -lws2_32"
+    for pc in "$PC_DIR"/icu-*.pc; do
+        sed -i 's/[[:space:]]*$//' "$pc"
         [[ -e "$pc" ]] || continue
+        # Меняем имена библиотек (icu -> sicu)
         sed -i 's/-licu/-lsicu/g' "$pc"
-        # sed -i 's/-lpthread//g; s/-lm//g' "$pc"
-        # Добавляем макрос статики, чтобы заголовки не вешали __imp_
-        sed -i '/^Cflags:/ s/$/ -DICU_STATIC/' "$pc"
-        ICU_SYS_LIBS="-lstdc++ -lpthread -lm -ladvapi32 -lws2_32"
-        if grep -q "Libs.private:" "$pc"; then
-            sed -i "/Libs.private:/ s/$/ $ICU_SYS_LIBS/" "$pc"
+        # Добавляем статический флаг
+        if ! grep -q "DICU_STATIC" "$pc"; then
+            sed -i '/^Cflags:/ s/$/ -DICU_STATIC/' "$pc"
+        fi
+        # Вычищаем системные либы из основной строки Libs
+        # (Удаляем ${baselibs}, -lpthread, -lm, так как они пойдут в private)
+        sed -i 's/\${baselibs}//g; s/-lpthread//g; s/-lm//g' "$pc"
+        # обработка Libs.private (без дубликатов в конце файла)
+        if grep -q "^Libs.private:" "$pc"; then
+            sed -i "s|^Libs.private:.*|Libs.private: $ICU_SYS_LIBS|" "$pc"
         else
-            echo "Libs.private: $ICU_SYS_LIBS" >> "$pc"
+            # Вставляем ПОСЛЕ строки Libs, а не в конец файла
+            sed -i "/^Libs:/ a Libs.private: $ICU_SYS_LIBS" "$pc"
         fi
+        # ичие -lsicudt только ОДИН раз
         if ! grep -q -- "-lsicudt" "$pc"; then
-            sed -i '/Libs:/ s/$/ -lsicudt/' "$pc"
+            sed -i '/^Libs:/ s/$/ -lsicudt/' "$pc"
         fi
+        # Убираем лишние пробелы, которые могли остаться после sed
+        sed -i 's/  */ /g' "$pc"
     done
 
     get_deps_list
