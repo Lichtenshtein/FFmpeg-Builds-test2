@@ -32,6 +32,7 @@ ffbuild_dockerbuild() {
     log_info "${SYNC_MARK} Patching BROTLI .pc file..."
     for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/*brotli*.pc; do
         [[ -e "$pc" ]] || continue
+        sed -i 's/[[:space:]]*$//' "$pc"
         sed -i '/^Cflags:/ s/$/ -DBROTLI_STATIC/' "$pc"
     done
 

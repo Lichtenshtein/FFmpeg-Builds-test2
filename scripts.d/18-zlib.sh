@@ -65,6 +65,7 @@ ffbuild_dockerbuild() {
     log_info "${SYNC_MARK} Patching ZLIB .pc file..."
     for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/*zlib*.pc; do
         [[ -e "$pc" ]] || continue
+        sed -i 's/[[:space:]]*$//' "$pc"
         sed -i '/^Cflags:/ s/$/ -DZLIB_STATIC/' "$pc"
     done
 

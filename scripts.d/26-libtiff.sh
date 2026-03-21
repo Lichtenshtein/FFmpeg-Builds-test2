@@ -25,7 +25,7 @@ ffbuild_dockerbuild() {
 
     mkdir tiff_build && cd tiff_build
 
-    local TIFF_DEPS="-ljpeg -lturbojpeg -ljbig -ljbig85 -lzstd -llzma -lz $LIBS -lstdc++"
+    local DEP_LIBS="-ljpeg -lturbojpeg -ljbig -ljbig85 -lzstd -llzma -lz $LIBS -lstdc++"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -50,7 +50,7 @@ ffbuild_dockerbuild() {
     cmake "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS -DLIBTIFF_STATIC" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS -DLIBTIFF_STATIC" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $TIFF_DEPS" .. || return 1
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $DEP_LIBS" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
@@ -58,15 +58,25 @@ ffbuild_dockerbuild() {
     clean_la_files
 
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libtiff-4.pc"
+    local LINK_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/tiff.pc"
+
     if [[ -f "$PC_FILE" ]]; then
-        log_info "${SYNC_MARK} Patching libtiff-4.pc for Leptonica..."
-        sed -i "/^Cflags:/ s/$/ -DLIBTIFF_STATIC/" "$PC_FILE"
-        sed -i "/^Libs\.private:/d" "$PC_FILE"
-        echo "Libs.private: $TIFF_DEPS" >> "$PC_FILE"
+        log_info "${SYNC_MARK} Patching libtiff-4.pc file..."
+        sed -i 's/[[:space:]]*$//' "$PC_FILE"
+        if ! grep -q "DLIBTIFF_STATIC" "$PC_FILE"; then
+            sed -i "/^Cflags:/ s/$/ -DLIBTIFF_STATIC/" "$PC_FILE"
+        fi
+        # Оставляем только JBIG и C++, остальное (jpeg/z/lzma) придет через Requires
+        local EXTRA_TIFF_LIBS="-ljbig -ljbig85 $LIBS -lstdc++"
+        if grep -q "^Libs.private:" "$PC_FILE"; then
+            sed -i "s|^Libs.private:.*|Libs.private: $EXTRA_TIFF_LIBS|" "$PC_FILE"
+        else
+            sed -i "/^Libs:/ a Libs.private: $EXTRA_TIFF_LIBS" "$PC_FILE"
+        fi
     fi
 
     # проверить, как называется созданный .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
-    ln -sf libtiff-4.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/tiff.pc"
+    ln -sf libtiff-4.pc "$LINK_FILE"
 
     get_deps_list
 }

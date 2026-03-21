@@ -67,14 +67,21 @@ ffbuild_dockerbuild() {
 
     clean_la_files
 
-    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/*harfbuzz*.pc; do
-        [[ -e "$pc" ]] || continue
+    local PC_DIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    if ls "$PC_DIR"/*harfbuzz*.pc >/dev/null 2>&1; then
         log_info "${SYNC_MARK} Patching HARFBUZZ .pc files..."
-        if ! grep -q "\-DHARFBUZZ_STATIC" "$PC_FILE"; then
-            sed -i 's/Cflags:/& -DHARFBUZZ_STATIC/' "$PC_FILE"
-        fi
-        sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS|" "$PC_FILE"
-    done
+        for pc in "$PC_DIR"/*harfbuzz*.pc; do
+            [[ -e "$pc" ]] || continue
+            if ! grep -q "HARFBUZZ_STATIC" "$pc"; then
+                sed -i '/^Cflags:/ s/$/ -DHARFBUZZ_STATIC/' "$pc"
+            fi
+            if grep -q "^Libs.private:" "$pc"; then
+                sed -i "s|^Libs.private:.*|Libs.private: $HARFBUZZ_DEPS $WIN_LIBS|" "$pc"
+            else
+                sed -i "/^Libs:/ a Libs.private: $DEP_LIBS $WIN_LIBS" "$pc"
+            fi
+        done
+    fi
 
     get_deps_list
 }

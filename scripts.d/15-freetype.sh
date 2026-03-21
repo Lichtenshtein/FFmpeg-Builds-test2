@@ -36,20 +36,29 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS -DFT2_BUILD_LIBRARY" \
         LDFLAGS="$LDFLAGS" \
         CPPFLAGS="$CPPFLAGS -DFT2_BUILD_LIBRARY" \
-        CXXFLAGS="$CXXFLAGS -DFT2_BUILD_LIBRARY" || return 1
+        CXXFLAGS="$CXXFLAGS -DFT2_BUILD_LIBRARY" \
+        LIBS="$LIBS" || return 1
+
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     clean_la_files
 
-    # Создаем симлинк для совместимости
-    ln -sf freetype2.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype.pc"
-
-    log_info "${SYNC_MARK} Patching FREETYPE .pc file..."
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/freetype.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        sed -i '/^Cflags:/ s/$/ -DFT2_BUILD_LIBRARY/' "$pc"
+    local PC_DIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    local PC_ORIGIN="$PC_DIR/freetype2.pc"
+    local PC_LINK="$PC_DIR/freetype.pc"
+    if [[ -f "$PC_ORIGIN" ]]; then
+        sed -i 's/[[:space:]]*$//' "$PC_ORIGIN"
+        log_info "${SYNC_MARK} Patching FREETYPE .pc file..."
+        if ! grep -q "FT2_BUILD_LIBRARY" "$PC_ORIGIN"; then
+            sed -i '/^Cflags:/ s/$/ -DFT2_BUILD_LIBRARY/' "$PC_ORIGIN"
+        fi
+    else
+        log_error "freetype2.pc not found!"
     fi
+
+    # Создаем симлинк
+    ln -sf freetype2.pc "$PC_LINK"
 
     get_deps_list
 }
