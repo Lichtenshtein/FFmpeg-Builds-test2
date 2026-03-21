@@ -24,16 +24,9 @@ ffbuild_dockerbuild() {
 
     mkdir cmbuild && cd cmbuild
 
-    # Пробрасываем пути к VMAF
-    # Это лечит проблемы поиска заголовков при сборке самого AOM
-    export CFLAGS="$CFLAGS -pthread -I/opt/ffbuild/include/libvmaf"
-
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
-        -DCMAKE_C_FLAGS="$CFLAGS"
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS"
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=OFF
         -DENABLE_EXAMPLES=NO
@@ -48,6 +41,11 @@ ffbuild_dockerbuild() {
         -DCONFIG_PIC=1
     )
 
+    # Пробрасываем пути к VMAF
+    # Это лечит проблемы поиска заголовков при сборке самого AOM
+    CFLAGS="$CFLAGS $CPPFLAGS -pthread -I/opt/ffbuild/include/libvmaf" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    LDFLAGS="$LDFLAGS" \
     cmake "${myconf[@]}" .. || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

@@ -41,8 +41,8 @@ ffbuild_dockerbuild() {
     rm -rf "$FFBUILD_PREFIX/lib/cmake/"{tiff,OpenJPEG,libwebp,WebP,lcms2}
 
     # финальный список для линковки
-    local LEPT_DEPS="-llcms2 -larchive -lxml2 -lsharpyuv -lwebp -lwebpdecoder -lwebpdemux -lwebpmux -ltiff -lopenjp2 -ljpeg -lturbojpeg -lpng16 -lgif -ljbig -ljbig85 -lzstd -llzma -lbz2 -lz"
-    local WIN_SYS="-lgdi32 $LIBS -lstdc++"
+    local DEP_LIBS="-llcms2 -larchive -lxml2 -lsharpyuv -lwebp -lwebpdecoder -lwebpdemux -lwebpmux -ltiff -lopenjp2 -ljpeg -lturbojpeg -lpng16 -lgif -ljbig -ljbig85 -lzstd -llzma -lbz2 -lz"
+    local WIN_LIBS="-lgdi32 $LIBS -lstdc++"
 
     # There is NO -DSTATIC=ON flag exist
     local myconf=(
@@ -78,9 +78,10 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DENABLE_LTO=ON )
 
     # Принудительно устанавливаем C_FLAGS, чтобы избежать __imp_
+    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     cmake "${myconf[@]}" \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $LEPT_DEPS $WIN_SYS" .. || return 1
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $DEP_LIBS $WIN_LIBS" .. || return 1
 
     # где лежит файл?
     log_debug "Searching for compiled lib..."
@@ -136,7 +137,7 @@ Name: leptonica
 Description: Leptonica image processing library
 Version: 1.88.0
 Libs: -L\${libdir} -lleptonica
-Libs.private: $LEPT_DEPS $WIN_SYS
+Libs.private: $DEP_LIBS $WIN_LIBS
 Cflags: -I\${includedir} -I\${includedir}/leptonica
 EOF
 

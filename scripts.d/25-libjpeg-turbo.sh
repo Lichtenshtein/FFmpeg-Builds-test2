@@ -27,12 +27,13 @@ ffbuild_dockerbuild() {
         -DWITH_TOOLS=OFF
         -DWITH_TESTS=OFF
         -DWITH_TURBOJPEG=ON
-        -DCMAKE_C_FLAGS="$CFLAGS -DLIBJPEG_STATIC"
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
 
+    CFLAGS="$CFLAGS $CPPFLAGS -DLIBJPEG_STATIC" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS -DLIBJPEG_STATIC" \
+    LDFLAGS="$LDFLAGS" \
     cmake -G "${myconf[@]}" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1

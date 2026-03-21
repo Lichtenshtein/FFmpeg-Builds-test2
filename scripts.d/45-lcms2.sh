@@ -37,8 +37,8 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$(echo $CFLAGS | sed 's/-std=c11//g')" \
-        -Dcpp_args="$(echo $CXXFLAGS | sed 's/-std=c++17//g')" \
+        -Dc_args="$CFLAGS $CPPFLAGS" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
         -Dc_link_args="$LDFLAGS $LCMS_DEPS" \
         -Dcpp_link_args="$LDFLAGS $LCMS_DEPS" || return 1
     ninja -j$(nproc) $NINJA_V || return 1

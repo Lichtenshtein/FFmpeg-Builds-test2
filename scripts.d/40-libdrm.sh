@@ -16,9 +16,6 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-    export CFLAGS="$RAW_CFLAGS"
-    export LDFLAFS="$RAW_LDFLAGS"
-
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         -Dcpp_std=c++17
@@ -47,10 +44,11 @@ ffbuild_dockerbuild() {
     fi
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS" \
-        -Dcpp_args="$CPPFLAGS" \
-        -Dc_link_args="$LDFLAGS" \
-        -Dcpp_link_args="$LDFLAGS" || return 1
+        -Dc_args="$RAW_CFLAGS $CPPFLAGS" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
+        -Dc_link_args="$RAW_LDFLAGS" \
+        -Dcpp_link_args="$RAW_LDFLAGS" || return 1
+
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 

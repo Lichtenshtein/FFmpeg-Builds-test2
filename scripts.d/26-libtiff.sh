@@ -47,9 +47,9 @@ ffbuild_dockerbuild() {
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
 
+    CFLAGS="$CFLAGS $CPPFLAGS -DLIBTIFF_STATIC" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS -DLIBTIFF_STATIC" \
     cmake "${myconf[@]}" \
-        -DCMAKE_C_FLAGS="$CFLAGS -DLIBTIFF_STATIC" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS -DLIBTIFF_STATIC" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $DEP_LIBS" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1

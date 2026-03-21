@@ -3,6 +3,10 @@
 SCRIPT_REPO="https://github.com/pkuvcl/xavs2.git"
 SCRIPT_COMMIT="eae1e8b9d12468059bdd7dee893508e470fa83d8"
 
+ffbuild_depends() {
+    echo avisynth
+}
+
 ffbuild_enabled() {
     [[ $VARIANT == lgpl* ]] && return 1
     [[ $TARGET == win32 ]] && return 1
@@ -32,7 +36,10 @@ ffbuild_dockerbuild() {
         --disable-cli
         --enable-static
         --enable-pic
-        --disable-avs
+        --enable-strip
+        --bit-depth=10
+        --chroma-format=all
+        # --disable-avs
         --disable-swscale
         --disable-lavf
         --disable-ffms
@@ -41,6 +48,8 @@ ffbuild_dockerbuild() {
         --extra-asflags="-w-macro-params-legacy"
         --prefix="$FFBUILD_PREFIX"
     )
+
+    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     if [[ $TARGET == win* ]]; then
         myconf+=(
@@ -51,8 +60,9 @@ ffbuild_dockerbuild() {
         export AS="nasm"
     fi
 
-    # Добавляем глобальные флаги через --extra-cflags
-    ./configure "${myconf[@]}" --extra-cflags="$CFLAGS" --extra-ldflags="$LDFLAGS" || return 1
+    ./configure "${myconf[@]}" \
+        --extra-cflags="$CFLAGS $CPPFLAGS" \
+        --extra-ldflags="$LDFLAGS" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

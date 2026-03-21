@@ -20,6 +20,12 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    export CFLAGS="$CFLAGS"
+    export CXXFLAGS="$CXXFLAGS"
+    export LDFLAGS="$LDFLAGS"
+    export CPPFLAGS="$CPPFLAGS"
+
     local myconf=(
         PREFIX="$FFBUILD_PREFIX"
         CXXSTDLIB_PCLIBSPRIVATE="-lstdc++"

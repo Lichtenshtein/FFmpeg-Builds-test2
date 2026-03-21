@@ -15,9 +15,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    export CFLAGS="$CFLAGS"
-    export CXXFLAGS="$CXXFLAGS"
-
     local myconf=(
         --disable-shared
         --enable-static
@@ -43,12 +40,13 @@ ffbuild_dockerbuild() {
         myconf+=( --target=x86_64-win64-gcc )
     fi
 
-    # libvpx не любит стандартный CROSS, ему нужен конкретный префикс
-    CROSS="$FFBUILD_CROSS_PREFIX" ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS" \
-        LDFLAGS="$LDFLAGS" \
-        CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS" || return 1
+    CROSS="$FFBUILD_CROSS_PREFIX" \
+    CFLAGS="$CFLAGS" \
+    CPPFLAGS="$CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS" \
+    LDFLAGS="$LDFLAGS" \
+    LIBS="$LIBS" \
+    ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

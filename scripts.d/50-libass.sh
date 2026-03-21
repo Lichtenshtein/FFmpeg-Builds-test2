@@ -39,13 +39,13 @@ ffbuild_dockerbuild() {
         --enable-directwrite
     )
 
-    export CFLAGS="$CFLAGS -Dread_file=libass_internal_read_file"
+    CFLAGS="$CFLAGS -Dread_file=libass_internal_read_file" \
+    CPPFLAGS="$CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS" \
+    LDFLAGS="$LDFLAGS" \
+    LIBS="$LIBS" \
+    ./configure "${myconf[@]}" || return 1
 
-    ./configure "${myconf[@]}" \
-        CFLAGS="$CFLAGS" \
-        LDFLAGS="$LDFLAGS" \
-        CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS" || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 

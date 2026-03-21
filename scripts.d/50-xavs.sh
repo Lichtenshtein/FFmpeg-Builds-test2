@@ -36,8 +36,9 @@ ffbuild_dockerbuild() {
         export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
     fi
 
-    # xavs требует явного указания архитектуры в некоторых случаях
-    ./configure "${myconf[@]}" --extra-cflags="$CFLAGS" --extra-ldflags="$LDFLAGS" || return 1
+    ./configure "${myconf[@]}" \
+        --extra-cflags="$CFLAGS $CPPFLAGS" \
+        --extra-ldflags="$LDFLAGS" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

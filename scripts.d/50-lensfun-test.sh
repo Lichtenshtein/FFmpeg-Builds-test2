@@ -33,9 +33,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
         # Добавляем пути к glibconfig.h через C_FLAGS
-        -DCMAKE_C_FLAGS="$CFLAGS $GLIB_INCLUDES"
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS $GLIB_INCLUDES"
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
         -DBUILD_STATIC=ON
         -DBUILD_TESTS=OFF
         -DBUILD_LENSTOOL=OFF
@@ -51,6 +48,9 @@ ffbuild_dockerbuild() {
         -DGLIB2_INTERNAL_INCLUDE_DIR="$FFBUILD_PREFIX/lib/glib-2.0/include"
     )
 
+    CFLAGS="$CFLAGS $CPPFLAGS $GLIB_INCLUDES" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS $GLIB_INCLUDES" \
+    LDFLAGS="$LDFLAGS" \
     cmake "${mycmake[@]}" .. || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

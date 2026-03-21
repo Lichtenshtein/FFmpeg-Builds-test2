@@ -21,11 +21,12 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
+    CFLAGS="$CFLAGS $CPPFLAGS -DLIBSSH_STATIC -Dmd5=libssh_md5" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS -DLIBSSH_STATIC -Dmd5=libssh_md5" \
+    LDFLAGS="$LDFLAGS" \
     cmake -GNinja \
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_FLAGS="$CFLAGS -DLIBSSH_STATIC -Dmd5=libssh_md5" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DBUILD_SHARED_LIBS=OFF \
         -DWITH_EXAMPLES=OFF \

@@ -45,9 +45,6 @@ ffbuild_dockerbuild() {
     local common_config=(
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
-        -DCMAKE_C_FLAGS="$CFLAGS"
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS"
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
         -DCMAKE_BUILD_TYPE=Release
         -DENABLE_SHARED=OFF
         -DENABLE_CLI=OFF
@@ -66,10 +63,16 @@ ffbuild_dockerbuild() {
     if [[ $TARGET != *32 ]]; then
 
         log_info "Building 12-bit x265..."
+        CFLAGS="$CFLAGS $CPPFLAGS" \
+        CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+        LDFLAGS="$LDFLAGS" \
         cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -DMAIN12=ON -S "$X265_ROOT" -B 12bit || return 1
         make -C 12bit -j$(nproc) $MAKE_V || return 1
 
         log_info "Building 10-bit x265..."
+        CFLAGS="$CFLAGS $CPPFLAGS" \
+        CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+        LDFLAGS="$LDFLAGS" \
         cmake "${common_config[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -S "$X265_ROOT" -B 10bit || return 1
         make -C 10bit -j$(nproc) $MAKE_V || return 1
 
@@ -78,6 +81,9 @@ ffbuild_dockerbuild() {
         cp 12bit/libx265.a 8bit/libx265_main12.a
         cp 10bit/libx265.a 8bit/libx265_main10.a
 
+        CFLAGS="$CFLAGS $CPPFLAGS" \
+        CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+        LDFLAGS="$LDFLAGS" \
         cmake "${common_config[@]}" \
             -DEXTRA_LIB="libx265_main10.a;libx265_main12.a" \
             -DLINKED_10BIT=ON -DLINKED_12BIT=ON \
@@ -100,6 +106,9 @@ EOF
         cd ..
     else
         log_info "Building 8-bit x265 (32-bit target)..."
+        CFLAGS="$CFLAGS $CPPFLAGS" \
+        CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+        LDFLAGS="$LDFLAGS" \
         cmake "${common_config[@]}" -S "$X265_ROOT" -B 8bit || return 1
         make -C 8bit -j$(nproc) $MAKE_V || return 1
     fi

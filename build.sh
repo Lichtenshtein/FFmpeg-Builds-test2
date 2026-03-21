@@ -109,6 +109,9 @@ FINAL_LIBS=$(smart_dedupe "$LIBS" "$FF_LIBS")
 log_debug "Deduplicated FINAL_CFLAGS: $FINAL_CFLAGS"
 log_debug "Deduplicated FINAL_LIBS: $FINAL_LIBS"
 
+# fdk-aac asan flags
+asan_flags="-static-libasan -fsanitize=address,undefined -fno-omit-frame-pointer"
+
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
 export HOST_CFLAGS="-O2 -pipe"
 export HOST_CXXFLAGS="-O2 -pipe"
@@ -156,10 +159,10 @@ CONF_FLAGS=(
     --host-cc="gcc-14"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
-    --extra-cflags="$FINAL_CFLAGS"
-    --extra-cxxflags="$FINAL_CXXFLAGS"
-    --extra-ldflags="$FINAL_LDFLAGS"
-    --extra-libs="$FINAL_LIBS"
+    --extra-cflags="$FINAL_CFLAGS $asan_flags"
+    --extra-cxxflags="$FINAL_CXXFLAGS $asan_flags"
+    --extra-ldflags="$FINAL_LDFLAGS $asan_flags"
+    --extra-libs="$FINAL_LIBS -lasan"
     "${FF_CONF_ARR[@]}"
     --enable-filter=vpp_amf
     --enable-filter=sr_amf

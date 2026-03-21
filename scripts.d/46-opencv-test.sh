@@ -21,9 +21,6 @@ ffbuild_dockerbuild() {
     local mycmake=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DCMAKE_C_FLAGS="$CFLAGS"
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS"
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS"
         -DCMAKE_BUILD_TYPE=Release
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_WITH_STATIC_CRT=OFF
@@ -55,6 +52,9 @@ ffbuild_dockerbuild() {
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DENABLE_LTO=ON )
 
+    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    LDFLAGS="$LDFLAGS" \
     cmake "${mycmake[@]}" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1

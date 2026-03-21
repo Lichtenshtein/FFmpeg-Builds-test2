@@ -15,10 +15,11 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
+    CFLAGS="$CFLAGS $CPPFLAGS -DOPJ_STATIC" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS -DOPJ_STATIC" \
+    LDFLAGS="$LDFLAGS" \
     cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_FLAGS="$CFLAGS -DOPJ_STATIC" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DBUILD_SHARED_LIBS=OFF \
