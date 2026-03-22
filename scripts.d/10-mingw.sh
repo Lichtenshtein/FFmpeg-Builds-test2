@@ -76,15 +76,19 @@ ffbuild_dockerbuild() {
     make install DESTDIR="/opt/mingw" || return 1
     cp -a /opt/mingw"$SYSROOT"/. "$SYSROOT/"
 
-    # Создаем структуру префикса
     mkdir -p "$FFBUILD_PREFIX/include" "$FFBUILD_PREFIX/lib"
-
     # cp -a "$SYSROOT/include/pthread"* "$FFBUILD_PREFIX/include/"
-    # cp -a "$SYSROOT/include/" "$FFBUILD_PREFIX/include/"
-    # cp -a "$SYSROOT/lib/" "$FFBUILD_PREFIX/lib/"
+    # cp -a "$SYSROOT/include/sched.h" "$FFBUILD_PREFIX/include/"
+    # cp -a "$SYSROOT/lib/libpthread.a" "$FFBUILD_PREFIX/lib/"
 
     # Копируем заголовки
     cp -a "$SYSROOT/include/." "$FFBUILD_PREFIX/include/"
+    # Удаляем конфликтные файлы, если они случайно попали
+    # (GCC должен использовать свои встроенные версии)
+    rm -f "$FFBUILD_PREFIX/include/stddef.h" \
+          "$FFBUILD_PREFIX/include/stdint.h" \
+          "$FFBUILD_PREFIX/include/float.h" \
+          "$FFBUILD_PREFIX/include/stdarg.h"
 
     # Копируем только статические библиотеки
     # Исключаем .dll.a (библиотеки импорта) и .la (метаданные libtool)
@@ -93,10 +97,6 @@ ffbuild_dockerbuild() {
     # Очистка динамики внутри префикса
     find "$FFBUILD_PREFIX/lib" -name "*.la" -delete
     find "$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete
-
-    # Заголовки компилятора критичны для некоторых либ (напр. x264/x265)
-    GCC_INC=$(${FFBUILD_TOOLCHAIN}-gcc -print-file-name=include)
-    cp -a "$GCC_INC/." "$FFBUILD_PREFIX/include/"
 
     cd ..
 
