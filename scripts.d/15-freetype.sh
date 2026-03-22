@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://gitlab.freedesktop.org/freetype/freetype.git"
-SCRIPT_COMMIT="d262bd978c3ea303289153dba1ae8a6dc4ac747a"
+SCRIPT_COMMIT="67c52a0b68eaeb7ae1f2248202924883c4a232d0"
 
 ffbuild_enabled() {
     return 0
@@ -42,7 +42,7 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    patch_pc_files
+    # patch_pc_files
 
     # Создаем симлинк
     ln -sf freetype2.pc "$PC_LINK"
