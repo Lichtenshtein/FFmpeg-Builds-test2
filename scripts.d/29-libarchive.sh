@@ -24,8 +24,8 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build_dir && cd build_dir
 
-    local XML2_DEPS="-lxml2 -lzstd -llzma -lbz2 -lz -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt"
-    local ARCHIVE_DEPS="-lcrypto -lssl $XML2_DEPS $LIBS"
+    local DEP_LIBS="-lcrypto -lssl -lxml2 -lzstd -llzma -lbz2 -lz -lcharset -liconv"
+    local WIN_LIBS="-lcrypt32 -luserenv $LIBS"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -49,10 +49,10 @@ ffbuild_dockerbuild() {
         -DENABLE_CNG=ON
         -DENABLE_ACL=ON
         -DENABLE_XATTR=ON
-        -DLIBXML2_LIBRARIES="$XML2_DEPS"
+        -DLIBXML2_LIBRARIES="-lxml2"
         -DLIBXML2_INCLUDE_DIR="$FFBUILD_PREFIX/include/libxml2"
         -DCMAKE_REQUIRED_INCLUDES="$FFBUILD_PREFIX/include/libxml2"
-        -DCMAKE_REQUIRED_LIBRARIES="$XML2_DEPS"
+        -DCMAKE_REQUIRED_LIBRARIES="-lxml2"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
@@ -60,23 +60,22 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS -DARCHIVE_STATIC -DLIBXML_STATIC -DXML_STATIC" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS -DARCHIVE_STATIC -DLIBXML_STATIC -DXML_STATIC" \
     cmake "${myconf[@]}" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $ARCHIVE_DEPS" .. || return 1
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $DEP_LIBS $WIN_LIBS" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libarchive.pc"
+    local PC_FILE="$PC_DIR/libarchive.pc"
     if [[ -f "$PC_FILE" ]]; then
-        log_info "${SYNC_MARK} Patching libarchive.pc..."
-        # Гарантируем макрос статики (некоторые ищут его в Cflags, а не в Cflags.private)
         sed -i "/^Cflags:/ s/$/ -DARCHIVE_STATIC/" "$PC_FILE"
-        # Собираем чистую строку зависимостей без дубликатов
-        # Мы берем ваш ARCHIVE_DEPS и добавляем системные либы Windows
-        local CLEAN_LIBS=$(echo "$ARCHIVE_DEPS -lcrypt32 -luserenv" | xargs -n1 | sort -u | xargs)
-        sed -i "s|^Libs.private:.*|Libs.private: $CLEAN_LIBS|" "$PC_FILE"
+        if grep -q "^Libs.private:" "$PC_FILE"; then
+            sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS|" "$PC_FILE"
+        else
+            sed -i "/^Libs:/ a Libs.private: $DEP_LIBS $WIN_LIBS" "$PC_FILE"
+        fi
+    patch_pc_files
     fi
 
+    clean_la_files
     get_deps_list
 }

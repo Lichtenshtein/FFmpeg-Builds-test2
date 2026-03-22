@@ -46,14 +46,16 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Проверяем, что пути в dav1d.pc корректны для кросс-сборки
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/dav1d.pc"
+    local PC_FILE="$PC_DIR/dav1d.pc"
     if [[ -f "$PC_FILE" ]]; then
         # Исправляем возможные абсолютные пути хоста на пути префикса
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
         # Для статической линковки иногда нужны дополнительные флаги
         echo "Libs.private: -lm" >> "$PC_FILE"
+    patch_pc_files
     fi
 
+    clean_la_files
     get_deps_list
 }
 

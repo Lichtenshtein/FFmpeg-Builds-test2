@@ -31,8 +31,6 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
     # Переносим хедеры в корень include, чтобы glib их увидел
     # libffi по умолчанию прячет их в /lib/libffi-3.5.2/include
     local FFI_INC=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "ffi.h" -printf "%h")
@@ -40,11 +38,12 @@ ffbuild_dockerbuild() {
         mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
         cp -af "$FFI_INC"/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
     fi
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libffi.pc"
+    local PC_FILE="$PC_DIR/libffi.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i 's/[[:space:]]*$//' "$PC_FILE"
         sed -i "/^Cflags:/ s/$/ -DFFI_STATIC_BUILD/" "$PC_FILE"
     fi
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }

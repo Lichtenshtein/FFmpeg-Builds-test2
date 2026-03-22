@@ -55,8 +55,10 @@ ffbuild_dockerbuild() {
     gen-implib "$FFBUILD_DESTPREFIX"/lib/{libdrm.so.2,libdrm.a}
     rm "$FFBUILD_DESTPREFIX"/lib/libdrm*.so*
 
-    echo "Libs: -ldl" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libdrm.pc
+    echo "Libs: -ldl" >> "$PC_DIR/libdrm.pc"
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

@@ -104,10 +104,6 @@ EOF
     ninja -C _build -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja -C _build install || return 1
 
-    clean_la_files
-
-    log_info "${SYNC_MARK} Patching GLib .pc files..."
-    local PC_DIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
     local ALL_GLIB_PCS=(
         "glib-2.0.pc" "gio-2.0.pc" "gthread-2.0.pc" 
         "gobject-2.0.pc" "gmodule-2.0.pc" "gio-windows-2.0.pc" 
@@ -116,18 +112,12 @@ EOF
     for pc_name in "${ALL_GLIB_PCS[@]}"; do
         local pc="$PC_DIR/$pc_name"
         [[ -f "$pc" ]] || continue
-        sed -i 's/[[:space:]]*$//' "$pc"
         if ! grep -q "GLIB_STATIC_COMPILATION" "$pc"; then
             sed -i '/^Cflags:/ s/$/ -DGLIB_STATIC_COMPILATION/' "$pc"
         fi
-        if [[ "$pc_name" == "glib-2.0.pc" || "$pc_name" == "gio-2.0.pc" ]]; then
-            if grep -q "^Libs.private:" "$pc"; then
-                sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS|" "$pc"
-            else
-                sed -i "/^Libs:/ a Libs.private: $DEP_LIBS $WIN_LIBS" "$pc"
-            fi
-        fi
     done
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }

@@ -3,6 +3,10 @@
 SCRIPT_REPO="https://github.com/libjpeg-turbo/libjpeg-turbo.git"
 SCRIPT_COMMIT="4d293d9400281045e062b6e4eb8e1ccfc89d91f8"
 
+ffbuild_depends() {
+    echo lcms2
+}
+
 ffbuild_enabled() {
     return 0
 }
@@ -39,16 +43,20 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    log_info "${SYNC_MARK} Patching JPEG .pc files..."
-    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/*jpeg*.pc; do
+    for pc in "$PC_DIR"/*jpeg*.pc; do
         [[ -e "$pc" ]] || continue
-        sed -i 's/[[:space:]]*$//' "$pc"
         sed -i '/^Cflags:/ s/$/ -DLIBJPEG_STATIC/' "$pc"
+        if grep -q "^Libs.private:" "$PC_FILE"; then
+            sed -i "s|^Libs.private:.*|Libs.private: -llcms2|" "$PC_FILE"
+        else
+            sed -i "/^Libs:/ a Libs.private: -llcms2" "$PC_FILE"
+        fi
     done
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
-
 
 ffbuild_cppflags() {
     echo "-DLIBJPEG_STATIC"

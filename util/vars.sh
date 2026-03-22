@@ -88,20 +88,21 @@ IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:lat
 export CPU_ARCH="${CPU_ARCH:-broadwell}"
 export CPU_TUNE="${CPU_TUNE:-broadwell}"
 export FFBUILD_PREFIX="/opt/ffbuild"
-export PKG_CONFIG_PATH=""
+# export PKG_CONFIG_PATH=""
 export PKG_CONFIG_FLAGS="--static"
 export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig: /opt/ffbuild/lib64/pkgconfig"
+export PC_DIR="/opt/ffdest/opt/ffbuild/lib/pkgconfig"
 export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 
 BASE_CFLAGS="-mms-bitfields -fstack-protector-strong"
 BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
-SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt"
+SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lpthread"
 
 # Флаги для стадии сборки компонентов; disable -fPIC, -ffast-math, -flto=auto if troubles occur
-export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS"
+export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=c11"
 export CPPFLAGS="-I/opt/ffbuild/include $BASE_CPPFLAGS"
-export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS"
+export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -lstdc++"
 export LDFLAGS="-static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -lm -Wl,-Bstatic -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
 
@@ -175,6 +176,72 @@ get_stage_hash() {
 }
 export -f get_stage_hash
 
+patch_pc_files() {
+    log_info "${SYNC_MARK} Patching $STAGENAME .pc files..."
+    local pc_dir="$PC_DIR"
+    [[ -d "$pc_dir" ]] || return 0
+
+    # Определяем корень исходников (для поиска конфигов билд-систем)
+    local src_root="."
+    if [[ -f "../configure.ac" || -f "../meson.build" || -f "../CMakeLists.txt" ]]; then
+        src_root=".."
+    elif [[ -f "../../configure.ac" || -f "../../meson.build" || -f "../../CMakeLists.txt" ]]; then
+        src_root="../.."
+    fi
+
+    # Список библиотек, которые сканер будет искать в конфигах
+    local scan_candidates="zstd lzma bz2 webp openjp2 jpeg tiff png zlib iconv lcms2 jbig"
+
+    # замена абсолютных путей на переменные
+    find "$pc_dir" -name "*.pc" | while read -r pc; do
+        sed -i "s|$FFBUILD_PREFIX/include|\${includedir}|g" "$pc"
+        sed -i "s|$FFBUILD_PREFIX/lib|\${libdir}|g" "$pc"
+        sed -i "s|$FFBUILD_PREFIX|\${prefix}|g" "$pc"
+
+        # сканер зависимостей (Autotools, CMake, Meson)
+        local extra_found=""
+        for lib in $scan_candidates; do
+            # Ищем признаки включения в разных билд-системах:
+            # - Autotools: HAVE_LIB... или config.h
+            # - CMake: Find... или CM_HAS_...
+            # - Meson: found: true или meson-info
+            if grep -rqiE "(have_lib|#define.*HAVE_LIB|found.*|find_package.*)${lib}.*(yes|1|true|found)" "$src_root" \
+                --include="config.*" --include="*.ac" --include="*.cmake" --include="CMakeLists.txt" \
+                --include="meson.build" --include="*.meson" --max-count=1 2>/dev/null; then
+                extra_found+="-l${lib/lib/} "
+            fi
+        done
+
+        # Гарантируем наличие Libs.private
+        if ! grep -q "^Libs.private:" "$pc"; then
+            sed -i "/^Libs:/ a Libs.private:" "$pc"
+        fi
+
+        # Вливаем найденное сканером и системные $LIBS (из vars.sh)
+        sed -i "/^Libs.private:/ s/$/ $extra_found $LIBS/" "$pc"
+
+        # Умная дедупликация. Собираем всё, что уже есть в публичных полях, чтобы не дублировать это в private
+        local public_stuff=$(grep -E "^(Libs|Requires|Requires.private):" "$pc" | cut -d':' -f2- | tr ',' ' ' | awk '{for(i=1;i<=NF;i++) print $i}')
+        local priv_line=$(grep "^Libs.private:" "$pc" | cut -d':' -f2-)
+        local new_priv=$(echo "$priv_line" | awk -v pub="$public_stuff" '
+            BEGIN { split(pub, p, " ") }
+            {
+                for(i=1;i<=NF;i++) {
+                    is_dup=0;
+                    for(j in p) if($i == p[j]) is_dup=1;
+                    if(!is_dup && !seen[$i]++) printf "%s ", $i
+                }
+                print ""
+            }
+        ')
+        sed -i "s|^Libs.private:.*|Libs.private: $new_priv|" "$pc"
+
+        # Чистим лишние пробелы в конце и между флагами
+        sed -i 's/[[:space:]]*$//; s/  */ /g' "$pc"
+    done
+}
+export -f patch_pc_files
+
 get_deps_list() {
     set +o pipefail 
     if [[ "$FFBUILD_VERBOSE" != "1" ]]; then
@@ -184,28 +251,32 @@ get_deps_list() {
     local lib_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
     local bin_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
     local sys_libs="libc\.so|libm\.so|libdl\.so|librt\.so|libpthread\.so|libgcc_s\.so|libstdc\+\+\.so|ld-linux|libresolv\.so|libutil\.so"
-    
+
     log_info "################################################################"
     log_debug "Showing dependencies for: $name"
 
     if [[ -d "$lib_dir/pkgconfig" ]]; then
+        export PKG_CONFIG_PATH="$lib_dir/pkgconfig:${PKG_CONFIG_PATH}"
         find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
             pc_file="$1"; shift
             pkg_config_cmd="$1"; shift
             xclam_mark="$1"; shift
             search_mark="$1"; shift
+            export PKG_CONFIG_PATH="$1"; shift 
 
             printf "\n%b %s\n" "$xclam_mark" "$pc_file"
             cat "$pc_file"
             printf "\n%b DEPS for %s:\n" "$search_mark" "${pc_file##*/}"
-            
+
             deps=$($pkg_config_cmd --print-requires --print-requires-private "$pc_file" 2>/dev/null || true)
             if [[ -n "$deps" ]]; then
                 echo "$deps"
-                while IFS= read -r pkg_name; do
-                    pkg_name=$(echo "$pkg_name" | awk "{print \$1}")
+                while IFS= read -r pkg_line; do
+                    pkg_name=$(echo "$pkg_line" | awk "{print \$1}")
                     [[ -z "$pkg_name" ]] && continue
-                    $pkg_config_cmd --exists "$pkg_name" 2>/dev/null || echo "MISSING DEPENDENCY: $pkg_name"
+                    if ! $pkg_config_cmd --exists "$pkg_name" 2>/dev/null; then
+                        echo "MISSING DEPENDENCY: $pkg_name"
+                    fi
                 done <<< "$deps"
             else
                 echo "No dependencies found."

@@ -40,17 +40,15 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS" \
     CPPFLAGS="$CPPFLAGS -DICONV_STATIC" \
     LDFLAGS="$LDFLAGS" \
-    CXXFLAGS="$CXXFLAGS" \
+    CXXFLAGS="$CXXFLAGS -DICONV_STATIC" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/iconv.pc"
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/iconv.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${prefix}/lib
@@ -59,11 +57,13 @@ includedir=\${prefix}/include
 Name: iconv
 Description: Character set conversion library
 Version: 1.18
-Libs: -L\${libdir} -liconv -lcharset
-Libs.private: -lcharset
+Libs: -L\${libdir} -liconv
+Libs.private: -lcharset $LIBS
 Cflags: -I\${includedir} -DICONV_STATIC
 EOF
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

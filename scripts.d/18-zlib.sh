@@ -64,15 +64,13 @@ ffbuild_dockerbuild() {
 
     [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libzlibstatic.a" ]] && mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libzlibstatic.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libz.a"
 
-    log_info "${SYNC_MARK} Patching ZLIB .pc file..."
-    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/*zlib*.pc; do
+    for pc in "$PC_DIR"/*zlib*.pc; do
         [[ -e "$pc" ]] || continue
-        sed -i 's/[[:space:]]*$//' "$pc"
         sed -i '/^Cflags:/ s/$/ -DZLIB_STATIC/' "$pc"
     done
 
+    patch_pc_files
     clean_la_files
-
     get_deps_list
 }
 
