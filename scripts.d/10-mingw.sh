@@ -77,25 +77,48 @@ ffbuild_dockerbuild() {
     cp -a /opt/mingw"$SYSROOT"/. "$SYSROOT/"
 
     mkdir -p "$FFBUILD_PREFIX/include" "$FFBUILD_PREFIX/lib"
-    # cp -a "$SYSROOT/include/pthread"* "$FFBUILD_PREFIX/include/"
-    # cp -a "$SYSROOT/include/sched.h" "$FFBUILD_PREFIX/include/"
-    # cp -a "$SYSROOT/lib/libpthread.a" "$FFBUILD_PREFIX/lib/"
 
-    # Копируем заголовки
-    cp -a "$SYSROOT/include/." "$FFBUILD_PREFIX/include/"
+    # Копируем заголовки выборочно
+    cp -a "$SYSROOT/include/pthread"* "$FFBUILD_PREFIX/include/"
+    cp -a "$SYSROOT/include/sched.h" "$FFBUILD_PREFIX/include/"
+    cp -a "$SYSROOT/include/semaphore.h" "$FFBUILD_PREFIX/include/"
+
+    # DirectX/Windows SDK заголовки
+    # Копируем их только если они есть в sysroot (зависит от конфига mingw-headers)
+    for h in d3d11.h dxgi.h d3d9.h dsound.h ksmedia.h; do
+        [ -f "$SYSROOT/include/$h" ] && cp -a "$SYSROOT/include/$h" "$FFBUILD_PREFIX/include/"
+    done
+
+    # UCRT, полезно иметь саму либу под рукой для линковки
+    [ -f "$SYSROOT/lib/libucrt.a" ] && cp -a "$SYSROOT/lib/libucrt.a" "$FFBUILD_PREFIX/lib/"
+
+    # Сама библиотека pthreads
+    cp -a "$SYSROOT/lib/libpthread.a" "$FFBUILD_PREFIX/lib/"
+    # алиас, так как некоторые либы ищут -lwinpthread
+    ln -sf libpthread.a "$FFBUILD_PREFIX/lib/libwinpthread.a"
+    # POSIX-совместимость (критично для математики и функций строк в FFmpeg)
+    cp -a "$SYSROOT/lib/libmingwex.a" "$FFBUILD_PREFIX/lib/"
+
+    # Объектные файлы (Нужны для финальной линковки .exe)
+    # crt2.o это точка входа для консольных приложений Windows
+    cp -a "$SYSROOT/lib/crt2.o" "$FFBUILD_PREFIX/lib/"
+
+    # Копируем заголовки полностью
+    # cp -a "$SYSROOT/include/." "$FFBUILD_PREFIX/include/"
+
     # Удаляем конфликтные файлы, если они случайно попали
     # (GCC должен использовать свои встроенные версии)
-    for f in stddef.h stdint.h float.h stdarg.h stdbool.h varargs.h; do
-        rm -f "$FFBUILD_PREFIX/include/$f"
-    done
+    # for f in stddef.h stdint.h float.h stdarg.h stdbool.h varargs.h; do
+        # rm -f "$FFBUILD_PREFIX/include/$f"
+    # done
 
     # Копируем объекты инициализации CRT (crt2.o и т.д.)
     # Они нужны для финальной стадии линковки .exe в статике
-    cp -f "$SYSROOT/lib/"*.o "$FFBUILD_PREFIX/lib/" 2>/dev/null || true
+    # cp -f "$SYSROOT/lib/"*.o "$FFBUILD_PREFIX/lib/" 2>/dev/null || true
 
     # Копируем только статические библиотеки
     # Исключаем .dll.a (библиотеки импорта) и .la (метаданные libtool)
-    find "$SYSROOT/lib" -maxdepth 1 -name "*.a" ! -name "*.dll.a" -exec cp -a {} "$FFBUILD_PREFIX/lib/" \;
+    # find "$SYSROOT/lib" -maxdepth 1 -name "*.a" ! -name "*.dll.a" -exec cp -a {} "$FFBUILD_PREFIX/lib/" \;
 
     # Очистка динамики внутри префикса
     find "$FFBUILD_PREFIX/lib" -name "*.la" -delete
