@@ -170,6 +170,7 @@ fi
 # Если они уже были сохранены ранее, не трогаем их.
 if [[ -z "$RAW_CFLAGS" ]]; then
     export RAW_CFLAGS="$CFLAGS"
+    export RAW_CPPFLAGS="$CPPFLAGS"
     export RAW_CXXFLAGS="$CXXFLAGS"
     export RAW_LDFLAGS="$LDFLAGS"
 fi
@@ -177,10 +178,10 @@ fi
 # берем системную базу и добавляем к ней специфичные флаги стадии.
 # НЕ экспортируем их обратно в глобальные RAW_ переменные.
 export CFLAGS="$(echo $RAW_CFLAGS $STAGE_CFLAGS | xargs)"
-export CXXFLAGS="$(echo $RAW_CXXFLAGS $STAGE_CXXFLAGS | xargs)"
-export LDFLAGS="$(echo $RAW_LDFLAGS $STAGE_LDFLAGS | xargs)"
 # Аналогично для CPPFLAGS (часто пусты)
 export CPPFLAGS="$(echo ${CPPFLAGS} $STAGE_CPPFLAGS | xargs)"
+export CXXFLAGS="$(echo $RAW_CXXFLAGS $STAGE_CXXFLAGS | xargs)"
+export LDFLAGS="$(echo $RAW_LDFLAGS $STAGE_LDFLAGS | xargs)"
 
 log_debug "${STAGENAME}-specific CFLAGS: $CFLAGS"
 
@@ -199,8 +200,8 @@ if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
     if ! ( set -e -o pipefail; $build_cmd ); then
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         log_error "!!! ${CROSS_MARK} ERROR: Build failed for ${STAGENAME}"
-        log_error "!!! FILE: ${SCRIPT_PATH}"
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        log_debug "{BUILD_MARK} Current stage file: ${SCRIPT_PATH}"
         # Выводим текущую директорию и структуру файлов, чтобы понять, где мы
         log_debug "${DIRS_MARK} Current directory: $(pwd)"
         # Используем 'find' для поиска любых логов ошибок рекурсивно
@@ -208,11 +209,9 @@ if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
         LOG_FILES=$(find . -maxdepth 4 \( -name "config.log" -o -name "meson-log.txt" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \))
         if [[ -n "$LOG_FILES" ]]; then
             for logfile in $LOG_FILES; do
-                echo " "
                 log_debug "${LOGS_MARK} ▼ CONTENT OF $logfile (last 300 lines) ▼"
                 tail -n 300 "$logfile"
                 log_debug "${LOGS_MARK} ▲ END OF $logfile ▲"
-                echo " "
             done
         else
             log_warn "${DIRS_MARK} No logs found. Listing all files in current directory:"

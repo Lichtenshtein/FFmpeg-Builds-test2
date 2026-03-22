@@ -19,7 +19,7 @@ ffbuild_dockerbuild() {
     [[ -d "source" ]] && cd source
 
     unset CC CXX LD AR CPP LIBS CCAS
-    # unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
+    unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
     # Используем runConfigureICU для правильной инициализации под Linux
     mkdir -p host-build && cd host-build
 
@@ -72,10 +72,10 @@ ffbuild_dockerbuild() {
         --with-data-packaging=static
     )
 
-    CFLAGS="$CFLAGS" \
-    CPPLAGS="$CPPLAGS -DICU_STATIC" \
-    CXXFLAGS="$CXXFLAGS -DICU_STATIC" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$RAW_CFLAGS" \
+    CPPLAGS="$RAW_CPPLAGS -DICU_STATIC" \
+    CXXFLAGS="$RAW_CXXFLAGS -DICU_STATIC" \
+    LDFLAGS="$RAW_LDFLAGS" \
     CC="$CC" \
     CXX="$CXX" \
     AR="$AR" \
