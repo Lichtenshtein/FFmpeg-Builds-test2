@@ -190,7 +190,7 @@ patch_pc_files() {
     fi
 
     # Список библиотек, которые сканер будет искать в конфигах
-    local scan_candidates="zstd lzma bz2 webp openjp2 jpeg tiff png zlib iconv lcms2 jbig"
+    local scan_candidates="zstd lzma bz2 webp openjp2 jpeg tiff png zlib brotli iconv lcms2 jbig"
 
     # замена абсолютных путей на переменные
     find "$pc_dir" -name "*.pc" | while read -r pc; do
