@@ -33,8 +33,6 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
     # Исправляем странное именование CMake (liblibjbig.a -> libjbig.a)
     pushd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
     for f in liblibjbig*.a; do
@@ -42,8 +40,8 @@ ffbuild_dockerbuild() {
     done
     popd
 
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/jbigkit.pc"
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/jbigkit.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
@@ -56,5 +54,7 @@ Libs: -L\${libdir} -ljbig -ljbig85
 Cflags: -I\${includedir}
 EOF
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }

@@ -39,8 +39,10 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     if [[ $TARGET == win* ]]; then
-        echo "Libs.private: -lws2_32 -lbcrypt -lwinmm -lgdi32" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/mbedcrypto.pc
+        echo "Libs.private: -lws2_32 -lbcrypt -lwinmm -lgdi32" >> "$PC_DIR/mbedcrypto.pc"
     fi
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }

@@ -9,8 +9,8 @@ ffbuild_depends() {
     echo libtiff
     echo giflib
     echo zlib
-    echo zstd
-    echo xz
+    # echo zstd
+    # echo xz
 }
 
 ffbuild_enabled() {
@@ -25,8 +25,7 @@ ffbuild_dockerbuild() {
     set -e
     ./autogen.sh
 
-    # Порядок: WebP -> TIFF -> [JPEG, JBIG, LZMA, Z]
-    local DEP_LIBS="-ltiff -ltiffxx -ljpeg -lturbojpeg -lpng16 -lgif -ljbig -ljbig85 -lzstd -llzma -lz $LIBS"
+    local DEP_LIBS="-ltiff -ltiffxx -ljpeg -lturbojpeg -lpng16 -lgif"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -35,6 +34,8 @@ ffbuild_dockerbuild() {
         --enable-static
         --with-pic
         --enable-everything
+        --enable-near-lossless
+        --enable-swap-16bit-csp
         --disable-gl
         --disable-sdl
     )
@@ -51,19 +52,18 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
     # libwebp генерирует несколько .pc файлов (libwebp, libwebpmux, libsharpyuv)
     # Нужно убедиться, что они содержат системные либы для Windows
     for pc in libwebp.pc libwebpmux.pc libwebpdemux.pc libwebpdecoder.pc libsharpyuv.pc; do
-        local PC_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/$pc"
+        local PC_PATH="$PC_DIR/$pc"
         [[ -f "$PC_PATH" ]] || continue
-        log_info "${SYNC_MARK} Patching $(basename $pc)..."
         sed -i "/^Cflags:/ s/$/ -DWEBP_STATIC/" "$PC_PATH"
         sed -i "/^Libs\.private:/d" "$PC_FILE"
         echo "Libs.private: $DEP_LIBS" >> "$PC_FILE"
     done
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

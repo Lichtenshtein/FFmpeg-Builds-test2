@@ -48,24 +48,15 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    log_info "${SYNC_MARK} Patching PCRE2 .pc files..."
-    local PC_DIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    local PRIVATE_LIBS="-lbz2 -lz -lpthread $LIBS"
     for pc in "$PC_DIR"/*pcre2*.pc; do
         [[ -e "$pc" ]] || continue
-        sed -i 's/[[:space:]]*$//' "$pc"
         if ! grep -q "DPCRE2_STATIC" "$pc"; then
             sed -i '/^Cflags:/ s/$/ -DPCRE2_STATIC/' "$pc"
         fi
-        if grep -q "^Libs.private:" "$pc"; then
-            sed -i "s|^Libs.private:.*|Libs.private: $PRIVATE_LIBS|" "$pc"
-        else
-            sed -i "/^Libs:/ a Libs.private: $PRIVATE_LIBS" "$pc"
-        fi
     done
 
+    patch_pc_files
     clean_la_files
-
     get_deps_list
 }
 

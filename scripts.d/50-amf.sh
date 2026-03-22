@@ -17,6 +17,8 @@ ffbuild_dockerbuild() {
     mkdir -p "$FFBUILD_DESTPREFIX"/include
     mv amf/public/include "$FFBUILD_DESTPREFIX"/include/AMF
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

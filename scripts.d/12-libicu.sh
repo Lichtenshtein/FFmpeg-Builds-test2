@@ -19,7 +19,7 @@ ffbuild_dockerbuild() {
     [[ -d "source" ]] && cd source
 
     unset CC CXX LD AR CPP LIBS CCAS
-    unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
+    # unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
     # Используем runConfigureICU для правильной инициализации под Linux
     mkdir -p host-build && cd host-build
 
@@ -72,7 +72,7 @@ ffbuild_dockerbuild() {
         --with-data-packaging=static
     )
 
-    CFLAGS="$CFLAGS -DICU_STATIC" \
+    CFLAGS="$CFLAGS" \
     CPPLAGS="$CPPLAGS -DICU_STATIC" \
     CXXFLAGS="$CXXFLAGS -DICU_STATIC" \
     LDFLAGS="$LDFLAGS" \
@@ -84,8 +84,6 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
-
-    clean_la_files
 
     # Исправление и перемещение библиотек
     # Если ICU собрался как libicuuc.a, а мы хотим sicuuc.a:
@@ -100,11 +98,8 @@ ffbuild_dockerbuild() {
     [[ -f "icudt.a" ]] && mv "icudt.a" "libsicudt.a"
     [[ -f "sicudt.a" ]] && mv "sicudt.a" "libsicudt.a"
 
-    log_info "${SYNC_MARK} Patching ICU .pc files..."
-    local PC_DIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
     local ICU_SYS_LIBS="-lstdc++ -lpthread -lm -ladvapi32 -lws2_32"
     for pc in "$PC_DIR"/icu-*.pc; do
-        sed -i 's/[[:space:]]*$//' "$pc"
         [[ -e "$pc" ]] || continue
         # Меняем имена библиотек (icu -> sicu)
         sed -i 's/-licu/-lsicu/g' "$pc"
@@ -122,13 +117,13 @@ ffbuild_dockerbuild() {
             # Вставляем ПОСЛЕ строки Libs, а не в конец файла
             sed -i "/^Libs:/ a Libs.private: $ICU_SYS_LIBS" "$pc"
         fi
-        # ичие -lsicudt только ОДИН раз
+        # наличие -lsicudt только ОДИН раз
         if ! grep -q -- "-lsicudt" "$pc"; then
             sed -i '/^Libs:/ s/$/ -lsicudt/' "$pc"
         fi
-        # Убираем лишние пробелы, которые могли остаться после sed
-        sed -i 's/  */ /g' "$pc"
     done
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }

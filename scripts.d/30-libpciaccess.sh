@@ -51,7 +51,9 @@ ffbuild_dockerbuild() {
     gen-implib "$FFBUILD_DESTPREFIX"/lib/{libpciaccess.so.0,libpciaccess.a}
     rm "$FFBUILD_DESTPREFIX"/lib/libpciaccess.so*
 
-    echo "Libs: -ldl" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/pciaccess.pc
+    echo "Libs: -ldl" >> "$PC_DIR/pciaccess.pc"
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }

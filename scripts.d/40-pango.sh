@@ -24,9 +24,9 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-    local PANGO_DEPS="-lharfbuzz-cairo -lcairo -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lfreetype -lfontconfig -lpixman-1 -lpng16 -lglib-2.0 -lgio-2.0 -lgobject-2.0 -lxml2 -lfribidi -lbz2 -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt"
+    local DEP_LIBS="-lharfbuzz-cairo -lcairo -lcairo-gobject -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lfontconfig -lharfbuzz -lfreetype -lglib-2.0 -lgio-2.0 -lgobject-2.0 -lfribidi"
     local STATIC_DEPS="-DCAIRO_WIN32_STATIC_BUILD -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW -Dpixman_static"
-    local WIN_SYS="-lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -luuid $LIBS -lstdc++"
+    local WIN_LIBS="-lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -luuid $LIBS -lstdc++"
     export CC="x86_64-w64-mingw32-g++"
 
     local LDFLAGS=$(echo "$LDFLAGS" | sed 's/-lssp//g')
@@ -54,22 +54,20 @@ ffbuild_dockerbuild() {
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS $STATIC_DEPS" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS $STATIC_DEPS" \
-        -Dc_link_args="$LDFLAGS $PANGO_DEPS $WIN_SYS" \
-        -Dcpp_link_args="$LDFLAGS $PANGO_DEPS $WIN_SYS" || return 1
+        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    clean_la_files
-
-    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/*pango*.pc; do
+    for pc in "$PC_DIR"/*pango*.pc; do
         [[ -e "$pc" ]] || continue
-        log_info "${SYNC_MARK} Patching PANGO .pc files for static link..."
         if ! grep -q "\--DPANGO_STATIC_COMPILATION" "$PC_FILE"; then
             sed -i 's/Cflags:/& --DPANGO_STATIC_COMPILATION/' "$PC_FILE"
         fi
-        sed -i "s|^Libs.private:.*|Libs.private: $PANGO_DEPS $WIN_SYS|" "$PC_FILE"
     done
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }

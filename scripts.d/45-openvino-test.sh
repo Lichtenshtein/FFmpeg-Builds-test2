@@ -67,8 +67,8 @@ ffbuild_dockerbuild() {
     cp -r runtime/cmake/* "$FFBUILD_DESTPREFIX/lib/cmake/"
 
     # 4. Генерация pkg-config
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/openvino.pc"
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/openvino.pc"
 prefix=$FFBUILD_PREFIX
 libdir=\${prefix}/lib
 includedir=\${prefix}/include
@@ -81,6 +81,8 @@ Libs.private: -ltbb12 -ltbb
 Cflags: -I\${includedir} -DOPENVINO_STATIC_COMPILATION
 EOF
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

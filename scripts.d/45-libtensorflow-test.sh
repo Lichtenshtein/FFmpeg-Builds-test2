@@ -34,8 +34,8 @@ ffbuild_dockerbuild() {
     ln -sf libtensorflow.dll.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libtensorflow.a"
 
     # Генерируем .pc файл и добавляем -ltensorflow.lib явно для линковщика
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    cat <<EOF > "$FFBUILD_DESTPREFIX/lib/pkgconfig/tensorflow.pc"
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/tensorflow.pc"
 prefix=$FFBUILD_PREFIX
 libdir=\${prefix}/lib
 includedir=\${prefix}/include
@@ -47,6 +47,8 @@ Libs: -L\${libdir} -ltensorflow
 Cflags: -I\${includedir}
 EOF
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

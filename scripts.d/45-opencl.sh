@@ -62,9 +62,11 @@ EOF
         echo "Libs.private: -lole32 -lshlwapi -lcfgmgr32" >> OpenCL.pc
     fi
 
-    mkdir -p "$FFBUILD_DESTPREFIX/lib/pkgconfig"
-    mv OpenCL.pc "$FFBUILD_DESTPREFIX/lib/pkgconfig/OpenCL.pc"
+    mkdir -p "$PC_DIR"
+    mv OpenCL.pc "$PC_DIR/OpenCL.pc"
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

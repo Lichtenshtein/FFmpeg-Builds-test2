@@ -52,20 +52,18 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libzstd.pc"
+    local PC_FILE="$PC_DIR/libzstd.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i 's/[[:space:]]*$//' "$PC_FILE"
-        log_info "Applying multithreaded flags to libzstd.pc"
         if ! grep -q "\-lpthread" "$PC_FILE"; then
             sed -i 's/Libs.private:/& -lpthread /' "$PC_FILE"
         fi
         if ! grep -q "\-DZSTD_MULTITHREAD" "$PC_FILE"; then
             sed -i '/^Cflags:/ s/$/ -DZSTD_MULTITHREAD -DZSTD_STATIC_LINKING/' "$PC_FILE"
         fi
+    patch_pc_files
     fi
 
     clean_la_files
-
     get_deps_list
 }
 

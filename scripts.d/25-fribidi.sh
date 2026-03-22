@@ -40,17 +40,15 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    clean_la_files
-
-    log_info "${SYNC_MARK} Patching FRIBIDI .pc file..."
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/fribidi.pc"
+    local PC_FILE="$PC_DIR/fribidi.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i 's/[[:space:]]*$//' "$PC_FILE"
         if ! grep -q "\-DFRIBIDI_LIB_STATIC" "$PC_FILE"; then
             sed -i 's/Cflags:/& -DFRIBIDI_LIB_STATIC/' "$PC_FILE"
         fi
+    patch_pc_files
     fi
 
+    clean_la_files
     get_deps_list
 }
 

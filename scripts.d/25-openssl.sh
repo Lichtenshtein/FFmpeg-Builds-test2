@@ -64,8 +64,6 @@ ffbuild_dockerbuild() {
     make -j$(nproc) build_sw $MAKE_V || return 1
     make install_sw DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
     # OpenSSL 3.x иногда создает файлы lib64 или специфичные имена. 
     # Убедимся, что имена стандартные для FFmpeg
     if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib64" ]]; then
@@ -74,12 +72,9 @@ ffbuild_dockerbuild() {
         rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib64"
     fi
 
-    log_info "${SYNC_MARK} Patching OpenSSL .pc files..."
-    local PC_DIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    local EXTRA_LIBS="-lz -lws2_32 -lgdi32 -lcrypt32"
+    local EXTRA_LIBS="-lz -lgdi32 -lcrypt32"
     for pc in "$PC_DIR"/{openssl,libcrypto,libssl}.pc; do
         [[ -f "$pc" ]] || continue
-        sed -i 's/[[:space:]]*$//' "$pc"
         if grep -q "^Libs.private:" "$pc"; then
             for lib in $EXTRA_LIBS; do
                 grep -q -- "$lib" "$pc" || sed -i "/^Libs.private:/ s/$/ $lib/" "$pc"
@@ -93,6 +88,8 @@ ffbuild_dockerbuild() {
         fi
     done
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

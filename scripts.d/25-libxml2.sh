@@ -22,7 +22,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt $LIBS"
+    local DEP_LIBS="-llzma -lz -lintl -lcharset -liconv -lsicuin -lsicuuc -lsicudt $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -67,24 +67,14 @@ ffbuild_dockerbuild() {
 } || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libxml-2.0.pc"
+    local PC_FILE="$PC_DIR/libxml-2.0.pc"
     if [[ -f "$PC_FILE" ]]; then
-        log_info "${SYNC_MARK} Cleaning and fixing libxml-2.0.pc..."
-        sed -i 's/[[:space:]]*$//' "$PC_FILE"
-        # Чистим Libs и Requires (оставляем только саму либу)
-        sed -i "s|^Libs:.*|Libs: -L\${libdir} -lxml2|" "$PC_FILE"
-        sed -i "s|^Requires:.*|Requires:|" "$PC_FILE"
-        # Правим Cflags: сначала удаляем старые флаги (если были), потом добавляем чисто
         sed -i "s/ -DLIBXML_STATIC//g; s/ -DXML_STATIC//g" "$PC_FILE"
         sed -i "/^Cflags:/ s/$/ -DLIBXML_STATIC -DXML_STATIC/" "$PC_FILE"
-        # обновляем Libs.private удаляя существующую строку, если она есть
-        sed -i "/^Libs.private:/d" "$PC_FILE"
-        # Вставляем её сразу после Libs, чтобы файл остался валидным
-        sed -i "/^Libs:/ a Libs.private: $DEP_LIBS" "$PC_FILE"
     fi
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

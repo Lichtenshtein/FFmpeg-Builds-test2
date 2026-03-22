@@ -26,7 +26,8 @@ ffbuild_dockerbuild() {
     set -e
     ./autogen.sh
 
-    local DEP_LIBS="-lfontconfig -lharfbuzz-cairo -lcairo -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-icu -lpng16 -lbz2 -lbrotlidec -lbrotlicommon -lz -lsicuin -lsicuuc -lsicudt $LIBS"
+    local DEP_LIBS="-lharfbuzz-cairo -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lharfbuzz-icu -lpng16 -lbz2 -lbrotlidec -lbrotlicommon -lz"
+    local WIN_LIBS="$LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -47,30 +48,17 @@ ffbuild_dockerbuild() {
     LDFLAGS="$LDFLAGS" \
     CPPFLAGS="$CPPFLAGS -DFT2_BUILD_LIBRARY" \
     CXXFLAGS="$CXXFLAGS -DFT2_BUILD_LIBRARY" \
-    LIBS="$DEP_LIBS" \
+    LIBS="$DEP_LIBS $WIN_LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
-    local PC_DIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    log_info "${SYNC_MARK} Patching FREETYPE .pc files..."
-    for pc in "$PC_DIR"/freetype2.pc; do
-        [[ -e "$pc" ]] || continue
-        if ! grep -q "DFT2_BUILD_LIBRARY" "$pc"; then
-            sed -i '/^Cflags:/ s/$/ -DFT2_BUILD_LIBRARY/' "$pc"
-        fi
-        if grep -q "^Libs.private:" "$pc"; then
-            sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS|" "$pc"
-        else
-            sed -i "/^Libs:/ a Libs.private: $DEP_LIBS" "$pc"
-        fi
-    done
+    patch_pc_files
 
     # Создаем симлинк
     ln -sf freetype2.pc "$PC_LINK"
 
+    clean_la_files
     get_deps_list
 }
