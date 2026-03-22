@@ -77,26 +77,26 @@ ffbuild_dockerbuild() {
     cp -a /opt/mingw"$SYSROOT"/. "$SYSROOT/"
 
     mkdir -p "$FFBUILD_PREFIX/include" "$FFBUILD_PREFIX/lib"
-    # cp -a "$SYSROOT/include/pthread"* "$FFBUILD_PREFIX/include/"
-    # cp -a "$SYSROOT/include/sched.h" "$FFBUILD_PREFIX/include/"
-    # cp -a "$SYSROOT/lib/libpthread.a" "$FFBUILD_PREFIX/lib/"
+    cp -a "$SYSROOT/include/pthread"* "$FFBUILD_PREFIX/include/"
+    cp -a "$SYSROOT/include/sched.h" "$FFBUILD_PREFIX/include/"
+    cp -a "$SYSROOT/lib/libpthread.a" "$FFBUILD_PREFIX/lib/"
 
     # Копируем заголовки
-    cp -a "$SYSROOT/include/." "$FFBUILD_PREFIX/include/"
+    # cp -a "$SYSROOT/include/." "$FFBUILD_PREFIX/include/"
     # Удаляем конфликтные файлы, если они случайно попали
     # (GCC должен использовать свои встроенные версии)
-    rm -f "$FFBUILD_PREFIX/include/stddef.h" \
-          "$FFBUILD_PREFIX/include/stdint.h" \
-          "$FFBUILD_PREFIX/include/float.h" \
-          "$FFBUILD_PREFIX/include/stdarg.h"
+    # rm -f "$FFBUILD_PREFIX/include/stddef.h" \
+          # "$FFBUILD_PREFIX/include/stdint.h" \
+          # "$FFBUILD_PREFIX/include/float.h" \
+          # "$FFBUILD_PREFIX/include/stdarg.h"
 
     # Копируем только статические библиотеки
     # Исключаем .dll.a (библиотеки импорта) и .la (метаданные libtool)
-    find "$SYSROOT/lib" -maxdepth 1 -name "*.a" ! -name "*.dll.a" -exec cp -a {} "$FFBUILD_PREFIX/lib/" \;
+    # find "$SYSROOT/lib" -maxdepth 1 -name "*.a" ! -name "*.dll.a" -exec cp -a {} "$FFBUILD_PREFIX/lib/" \;
 
     # Очистка динамики внутри префикса
-    find "$FFBUILD_PREFIX/lib" -name "*.la" -delete
-    find "$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete
+    # find "$FFBUILD_PREFIX/lib" -name "*.la" -delete
+    # find "$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete
 
     cd ..
 
