@@ -77,26 +77,29 @@ ffbuild_dockerbuild() {
     cp -a /opt/mingw"$SYSROOT"/. "$SYSROOT/"
 
     mkdir -p "$FFBUILD_PREFIX/include" "$FFBUILD_PREFIX/lib"
-    cp -a "$SYSROOT/include/pthread"* "$FFBUILD_PREFIX/include/"
-    cp -a "$SYSROOT/include/sched.h" "$FFBUILD_PREFIX/include/"
-    cp -a "$SYSROOT/lib/libpthread.a" "$FFBUILD_PREFIX/lib/"
+    # cp -a "$SYSROOT/include/pthread"* "$FFBUILD_PREFIX/include/"
+    # cp -a "$SYSROOT/include/sched.h" "$FFBUILD_PREFIX/include/"
+    # cp -a "$SYSROOT/lib/libpthread.a" "$FFBUILD_PREFIX/lib/"
 
     # Копируем заголовки
-    # cp -a "$SYSROOT/include/." "$FFBUILD_PREFIX/include/"
+    cp -a "$SYSROOT/include/." "$FFBUILD_PREFIX/include/"
     # Удаляем конфликтные файлы, если они случайно попали
     # (GCC должен использовать свои встроенные версии)
-    # rm -f "$FFBUILD_PREFIX/include/stddef.h" \
-          # "$FFBUILD_PREFIX/include/stdint.h" \
-          # "$FFBUILD_PREFIX/include/float.h" \
-          # "$FFBUILD_PREFIX/include/stdarg.h"
+    for f in stddef.h stdint.h float.h stdarg.h stdbool.h varargs.h; do
+        rm -f "$FFBUILD_PREFIX/include/$f"
+    done
+
+    # Копируем объекты инициализации CRT (crt2.o и т.д.)
+    # Они нужны для финальной стадии линковки .exe в статике
+    cp -f "$SYSROOT/lib/"*.o "$FFBUILD_PREFIX/lib/" 2>/dev/null || true
 
     # Копируем только статические библиотеки
     # Исключаем .dll.a (библиотеки импорта) и .la (метаданные libtool)
-    # find "$SYSROOT/lib" -maxdepth 1 -name "*.a" ! -name "*.dll.a" -exec cp -a {} "$FFBUILD_PREFIX/lib/" \;
+    find "$SYSROOT/lib" -maxdepth 1 -name "*.a" ! -name "*.dll.a" -exec cp -a {} "$FFBUILD_PREFIX/lib/" \;
 
     # Очистка динамики внутри префикса
-    # find "$FFBUILD_PREFIX/lib" -name "*.la" -delete
-    # find "$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete
+    find "$FFBUILD_PREFIX/lib" -name "*.la" -delete
+    find "$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete
 
     cd ..
 

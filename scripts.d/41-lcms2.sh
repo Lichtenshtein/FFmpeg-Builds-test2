@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/mm2/Little-CMS.git"
-SCRIPT_COMMIT="6ae7e97cc1b0a44f1996d51160de9fbab97bb7b8"
+SCRIPT_COMMIT="a4c87ebbfdd3b1c493e5ecca5f36d991b137fc95"
 
 ffbuild_depends() {
     echo libjpeg-turbo
