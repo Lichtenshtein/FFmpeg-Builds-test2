@@ -201,7 +201,7 @@ if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         log_error "!!! ${CROSS_MARK} ERROR: Build failed for ${STAGENAME}"
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        log_debug "{BUILD_MARK} Current stage file: ${SCRIPT_PATH}"
+        log_debug "${BUILD_MARK} Current stage file: ${SCRIPT_PATH}"
         # Выводим текущую директорию и структуру файлов, чтобы понять, где мы
         log_debug "${DIRS_MARK} Current directory: $(pwd)"
         # Используем 'find' для поиска любых логов ошибок рекурсивно
