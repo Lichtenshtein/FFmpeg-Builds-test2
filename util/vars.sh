@@ -103,7 +103,7 @@ SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws
 export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=c11"
 export CPPFLAGS="-I/opt/ffbuild/include $BASE_CPPFLAGS"
 export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -lstdc++"
-export LDFLAGS="-static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -lm -Wl,-Bstatic -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -lm -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
 
 # Docker stage helpers
@@ -177,7 +177,7 @@ get_stage_hash() {
 export -f get_stage_hash
 
 patch_pc_files() {
-    log_info "${SYNC_MARK} Patching $STAGENAME .pc files..."
+    log_info "${TARGET_MARK} Patching $STAGENAME .pc files..."
     local pc_dir="$PC_DIR"
     [[ -d "$pc_dir" ]] || return 0
 
@@ -325,13 +325,13 @@ export -f get_deps_list
 clean_la_files() {
     local target_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX"
     [[ ! -d "$target_dir" ]] && return 0
-    log_debug "Cleaning up libtool archives (.la) in $target_dir"
+    log_debug "${BROOM_MARK} Cleaning up libtool archives (.la) in $target_dir"
     if find "$target_dir" -name "*.la" -type f -print -quit | grep -q .; then
         local count=$(find "$target_dir" -name "*.la" -type f | wc -l 2>/dev/null || true)
         find "$target_dir" -name "*.la" -type f -delete 2>/dev/null || true
-        log_info "${BROOM_MARK} Removed $count .la files from prefix."
+        log_info "${CHECK_MARK} Removed $count .la files from prefix."
     else
-        log_debug "No .la files found to clean."
+        log_debug "${CHECK_MARK} No .la files found to clean."
     fi
 }
 export -f clean_la_files
