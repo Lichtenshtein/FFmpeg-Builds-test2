@@ -81,23 +81,8 @@ ffbuild_dockerbuild() {
     # Копируем заголовки выборочно
     cp -a "$SYSROOT/include/pthread"* "$FFBUILD_PREFIX/include/"
     cp -a "$SYSROOT/include/sched.h" "$FFBUILD_PREFIX/include/"
-    cp -a "$SYSROOT/include/semaphore.h" "$FFBUILD_PREFIX/include/"
-
-    # DirectX/Windows SDK заголовки
-    # Копируем их только если они есть в sysroot (зависит от конфига mingw-headers)
-    for h in d3d11.h dxgi.h d3d9.h dsound.h ksmedia.h; do
-        [ -f "$SYSROOT/include/$h" ] && cp -a "$SYSROOT/include/$h" "$FFBUILD_PREFIX/include/"
-    done
-
-    # UCRT, полезно иметь саму либу под рукой для линковки
-    [ -f "$SYSROOT/lib/libucrt.a" ] && cp -a "$SYSROOT/lib/libucrt.a" "$FFBUILD_PREFIX/lib/"
-
-    # Сама библиотека pthreads
     cp -a "$SYSROOT/lib/libpthread.a" "$FFBUILD_PREFIX/lib/"
-    # алиас, так как некоторые либы ищут -lwinpthread
     ln -sf libpthread.a "$FFBUILD_PREFIX/lib/libwinpthread.a"
-    # POSIX-совместимость (критично для математики и функций строк в FFmpeg)
-    cp -a "$SYSROOT/lib/libmingwex.a" "$FFBUILD_PREFIX/lib/"
 
     # Объектные файлы (Нужны для финальной линковки .exe)
     # crt2.o это точка входа для консольных приложений Windows
