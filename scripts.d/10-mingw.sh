@@ -86,7 +86,7 @@ ffbuild_dockerbuild() {
 
     # Объектные файлы (Нужны для финальной линковки .exe)
     # crt2.o это точка входа для консольных приложений Windows
-    cp -a "$SYSROOT/lib/crt2.o" "$FFBUILD_PREFIX/lib/"
+    # cp -a "$SYSROOT/lib/crt2.o" "$FFBUILD_PREFIX/lib/"
 
     # Копируем заголовки полностью
     # cp -a "$SYSROOT/include/." "$FFBUILD_PREFIX/include/"
@@ -106,8 +106,8 @@ ffbuild_dockerbuild() {
     # find "$SYSROOT/lib" -maxdepth 1 -name "*.a" ! -name "*.dll.a" -exec cp -a {} "$FFBUILD_PREFIX/lib/" \;
 
     # Очистка динамики внутри префикса
-    find "$FFBUILD_PREFIX/lib" -name "*.la" -delete
-    find "$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete
+    # find "$FFBUILD_PREFIX/lib" -name "*.la" -delete
+    # find "$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete
 
     cd ..
 
