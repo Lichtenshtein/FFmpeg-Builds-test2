@@ -16,8 +16,7 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-    # Pixman для статики под Windows требует явного указания системных либ
-    local DEP_LIBS="-lpng16 -lglib-2.0 -lz -lintl -lcharset -liconv $LIBS"
+    local DEP_LIBS="-lpng16 -lglib-2.0 -lz -lintl -lcharset -liconv"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -43,21 +42,19 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    clean_la_files
-
-    log_info "${SYNC_MARK} Patching PIXMAN .pc file..."
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/pixman-1.pc"
+    local PC_FILE="$PC_DIR/pixman-1.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i 's/[[:space:]]*$//' "$PC_FILE"
         if ! grep -q "Dpixman_static" "$PC_FILE"; then
             sed -i '/^Cflags:/ s/$/ -Dpixman_static/' "$PC_FILE"
         fi
         if grep -q "^Libs.private:" "$PC_FILE"; then
-            sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS|" "$PC_FILE"
+            sed -i "s|^Libs.private:.*|Libs.private: -lpng16|" "$PC_FILE"
         else
-            sed -i "/^Libs:/ a Libs.private: $DEP_LIBS" "$PC_FILE"
+            sed -i "/^Libs:/ a Libs.private: -lpng16" "$PC_FILE"
         fi
+    patch_pc_files
     fi
 
+    clean_la_files
     get_deps_list
 }

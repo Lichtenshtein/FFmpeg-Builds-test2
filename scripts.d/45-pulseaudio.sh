@@ -67,9 +67,11 @@ ffbuild_dockerbuild() {
 
     rm -r "$FFBUILD_DESTPREFIX"/share
 
-    echo "Libs.private: -ldl -lrt -liconv" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libpulse.pc
-    echo "Libs.private: -ldl -lrt -liconv" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libpulse-simple.pc
+    echo "Libs.private: -ldl -lrt -liconv" >> "$PC_DIR/libpulse.pc"
+    echo "Libs.private: -ldl -lrt -liconv" >> "$PC_DIR/libpulse-simple.pc"
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

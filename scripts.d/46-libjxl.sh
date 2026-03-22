@@ -64,19 +64,21 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     if [[ $TARGET == win* ]]; then
-        echo "Libs.private: -lstdc++ -ladvapi32" >> "${FFBUILD_DESTPREFIX}"/lib/pkgconfig/libjxl.pc
-        echo "Libs.private: -lstdc++ -ladvapi32" >> "${FFBUILD_DESTPREFIX}"/lib/pkgconfig/libjxl_threads.pc
+        echo "Libs.private: -lstdc++ -ladvapi32" >> "$PC_DIR/libjxl.pc"
+        echo "Libs.private: -lstdc++ -ladvapi32" >> "$PC_DIR/libjxl_threads.pc"
     else
-        echo "Libs.private: -lstdc++" >> "${FFBUILD_DESTPREFIX}"/lib/pkgconfig/libjxl.pc
-        echo "Libs.private: -lstdc++" >> "${FFBUILD_DESTPREFIX}"/lib/pkgconfig/libjxl_threads.pc
+        echo "Libs.private: -lstdc++" >> "$PC_DIR/libjxl.pc"
+        echo "Libs.private: -lstdc++" >> "$PC_DIR/libjxl_threads.pc"
     fi
 
-    echo "Requires.private: lcms2" >> "${FFBUILD_DESTPREFIX}"/lib/pkgconfig/libjxl_cms.pc
+    echo "Requires.private: lcms2" >> "$PC_DIR/libjxl_cms.pc"
     # Фикс для статической линковки: FFmpeg должен знать о Highway
-    sed -i 's/Libs:/Libs: -lhwy /' "${FFBUILD_DESTPREFIX}"/lib/pkgconfig/libjxl.pc
+    sed -i 's/Libs:/Libs: -lhwy /' "$PC_DIR/libjxl.pc"
     # Brotli в зависимости
-    sed -i 's/Requires.private:/Requires.private: libbrotlidec libbrotlienc /' "${FFBUILD_DESTPREFIX}"/lib/pkgconfig/libjxl.pc
+    sed -i 's/Requires.private:/Requires.private: -lbrotlidec -lbrotlicommon /' "$PC_DIR/libjxl.pc"
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

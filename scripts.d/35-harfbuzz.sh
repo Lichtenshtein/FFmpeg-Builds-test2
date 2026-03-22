@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     # порядок линковки критичен для статики
-    local DEP_LIBS="-lcairo -lcairo-gobject -lfontconfig -lpixman-1 -lpng16 -lglib-2.0 -lbz2 -lbrotlidec -lbrotlicommon -lz -lfreetype -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt"
+    local DEP_LIBS="-lcairo -lcairo-gobject -lgio-2.0 -lglib-2.0 -lgthread-2.0 -lz -lfreetype -lsicuin -lsicuuc -lsicudt"
     local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
 
     local myconf=(
@@ -65,24 +65,17 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    clean_la_files
-
-    local PC_DIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
     if ls "$PC_DIR"/*harfbuzz*.pc >/dev/null 2>&1; then
-        log_info "${SYNC_MARK} Patching HARFBUZZ .pc files..."
         for pc in "$PC_DIR"/*harfbuzz*.pc; do
             [[ -e "$pc" ]] || continue
             if ! grep -q "HARFBUZZ_STATIC" "$pc"; then
                 sed -i '/^Cflags:/ s/$/ -DHARFBUZZ_STATIC/' "$pc"
             fi
-            if grep -q "^Libs.private:" "$pc"; then
-                sed -i "s|^Libs.private:.*|Libs.private: $HARFBUZZ_DEPS $WIN_LIBS|" "$pc"
-            else
-                sed -i "/^Libs:/ a Libs.private: $DEP_LIBS $WIN_LIBS" "$pc"
-            fi
         done
     fi
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

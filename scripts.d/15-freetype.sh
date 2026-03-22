@@ -35,30 +35,18 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS" \
     LDFLAGS="$LDFLAGS" \
     CPPFLAGS="$CPPFLAGS -DFT2_BUILD_LIBRARY" \
-    CXXFLAGS="$CXXFLAGS" \
+    CXXFLAGS="$CXXFLAGS -DFT2_BUILD_LIBRARY" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
-    local PC_DIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    local PC_ORIGIN="$PC_DIR/freetype2.pc"
-    local PC_LINK="$PC_DIR/freetype.pc"
-    if [[ -f "$PC_ORIGIN" ]]; then
-        sed -i 's/[[:space:]]*$//' "$PC_ORIGIN"
-        log_info "${SYNC_MARK} Patching FREETYPE .pc file..."
-        if ! grep -q "FT2_BUILD_LIBRARY" "$PC_ORIGIN"; then
-            sed -i '/^Cflags:/ s/$/ -DFT2_BUILD_LIBRARY/' "$PC_ORIGIN"
-        fi
-    else
-        log_error "freetype2.pc not found!"
-    fi
+    patch_pc_files
 
     # Создаем симлинк
     ln -sf freetype2.pc "$PC_LINK"
 
+    clean_la_files
     get_deps_list
 }

@@ -38,6 +38,8 @@ ffbuild_dockerbuild() {
     # Исправление для корректной линковки в FFmpeg (иногда CMake не копирует все хедеры)
     cp -r ../glslang/Public "$FFBUILD_DESTPREFIX/include/glslang"
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

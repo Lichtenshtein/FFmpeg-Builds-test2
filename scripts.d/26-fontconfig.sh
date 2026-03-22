@@ -23,7 +23,8 @@ ffbuild_dockerbuild() {
     set -e
 
     # Fontconfig требует либо expat, либо libxml2.
-    local DEP_LIBS="-lxml2 -lpng16 -lbrotlidec -lbrotlicommon -lbz2 -lz -lharfbuzz -lharfbuzz-icu -lfreetype -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt $LIBS -luuid"
+    local DEP_LIBS="-lxml2 -lfreetype -lintl -lcharset -liconv"
+    local WIN_LIBS="-luuid $LIBS"
 
     local myconf=(
         --cross-file=/cross.meson
@@ -56,29 +57,26 @@ ffbuild_dockerbuild() {
     meson setup .. "${myconf[@]}" \
         -Dc_args="$CFLAGS $CPPFLAGS" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
-        -Dc_link_args="$LDFLAGS $DEP_LIBS" \
-        -Dcpp_link_args="$LDFLAGS $DEP_LIBS" || return 1
+        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    clean_la_files
-
     rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{var,etc}
 
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/fontconfig.pc"
+    local PC_FILE="PC_DIR/fontconfig.pc"
     if [[ -f "$PC_FILE" ]]; then
-        log_info "${SYNC_MARK} Patching fontconfig.pc..."
-        sed -i 's/[[:space:]]*$//' "$PC_FILE"
-        local SYSTEM_LIBS="-luuid -liconv -lintl -lcharset -lws2_32"
         if grep -q "^Libs.private:" "$PC_FILE"; then
-            sed -i "s|^Libs.private:.*|Libs.private: $SYSTEM_LIBS|" "$PC_FILE"
+            sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS|" "$PC_FILE"
         else
-            sed -i "/^Libs:/ a Libs.private: $SYSTEM_LIBS" "$PC_FILE"
+            sed -i "/^Libs:/ a Libs.private: $DEP_LIBS $WIN_LIBS" "$PC_FILE"
         fi
         sed -i 's/-liconv//g; s/-lm//g' "$PC_FILE"
+    patch_pc_files
     fi
 
+    clean_la_files
     get_deps_list
 }
 

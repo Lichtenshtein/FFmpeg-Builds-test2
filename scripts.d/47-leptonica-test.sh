@@ -41,7 +41,7 @@ ffbuild_dockerbuild() {
     rm -rf "$FFBUILD_PREFIX/lib/cmake/"{tiff,OpenJPEG,libwebp,WebP,lcms2}
 
     # финальный список для линковки
-    local DEP_LIBS="-llcms2 -larchive -lxml2 -lsharpyuv -lwebp -lwebpdecoder -lwebpdemux -lwebpmux -ltiff -lopenjp2 -ljpeg -lturbojpeg -lpng16 -lgif -ljbig -ljbig85 -lzstd -llzma -lbz2 -lz"
+    local DEP_LIBS="-lsharpyuv -lwebp -lwebpdecoder -lwebpdemux -lwebpmux -ltiff -ltiffxx -lopenjp2 -ljpeg -lturbojpeg -lpng16 -lgif -lzstd -llzma -lbz2 -lz"
     local WIN_LIBS="-lgdi32 $LIBS -lstdc++"
 
     # There is NO -DSTATIC=ON flag exist
@@ -123,11 +123,11 @@ ffbuild_dockerbuild() {
     fi
 
     # Удаляем все автосгенерированные конфиги
-    rm -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"/lept*.pc
+    rm -f "$PC_DIR"/lept*.pc
 
     # Генерируем "чистый" pkg-config файл
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lept.pc"
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/lept.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
@@ -142,9 +142,11 @@ Cflags: -I\${includedir} -I\${includedir}/leptonica
 EOF
 
     # Всё равно создаем симлинк, если Tesseract ищет leptonica.pc вместо lept.pc и флаг -DSYM_LINK=ON не сработал
-    ln -sf lept.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/leptonica.pc"
+    ln -sf lept.pc "$PC_DIR/leptonica.pc"
     # Удаляем CMake-файлы Leptonica. Это заставит Tesseract использовать pkg-config (lept.pc).
     rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake/leptonica"
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }

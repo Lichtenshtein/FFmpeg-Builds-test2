@@ -33,8 +33,8 @@ ffbuild_dockerbuild() {
     cp lib/*.dll "$FFBUILD_DESTPREFIX/bin/"
 
     # LibTorch требует много флагов, создаем .pc файл
-    mkdir -p "$FFBUILD_DESTPREFIX/lib/pkgconfig"
-    cat <<EOF > "$FFBUILD_DESTPREFIX/lib/pkgconfig/libtorch.pc"
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/libtorch.pc"
 prefix=$FFBUILD_PREFIX
 libdir=\${prefix}/lib
 includedir=\${prefix}/include
@@ -50,12 +50,10 @@ Libs.private: -lshlwapi -luser32 -ladvapi32 -lstdc++
 Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX
 EOF
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 
 ffbuild_configure() { echo --enable-libtorch; }
 ffbuild_unconfigure() { echo --disable-libtorch; }
-
-ffbuild_libs() {
-    echo "-lshlwapi, -luser32, -ladvapi32"
-}

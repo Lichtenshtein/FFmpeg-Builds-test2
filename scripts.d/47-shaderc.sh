@@ -56,10 +56,10 @@ ffbuild_dockerbuild() {
     # for some reason, this does not get installed...
     cp libshaderc_util/libshaderc_util.a "$FFBUILD_DESTPREFIX"/lib
 
-    echo "Libs: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/shaderc_combined.pc
-    echo "Libs: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/shaderc_static.pc
+    echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_combined.pc"
+    echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_static.pc"
 
-    cp "$FFBUILD_DESTPREFIX"/lib/pkgconfig/{shaderc_combined,shaderc}.pc
+    cp "$PC_DIR"/{shaderc_combined,shaderc}.pc
 
     mkdir ../native_build && cd ../native_build
 
@@ -77,6 +77,10 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V -j$(nproc) glslc/glslc || return 1
 
     cp glslc/glslc /opt/glslc
+
+    patch_pc_files
+    clean_la_files
+    get_deps_list
 }
 
 ffbuild_configure() {

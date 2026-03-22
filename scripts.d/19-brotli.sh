@@ -28,15 +28,13 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    clean_la_files
-
-    log_info "${SYNC_MARK} Patching BROTLI .pc file..."
-    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/lib/pkgconfig/*brotli*.pc; do
+    for pc in "$PC_DIR"/*brotli*.pc; do
         [[ -e "$pc" ]] || continue
-        sed -i 's/[[:space:]]*$//' "$pc"
         sed -i '/^Cflags:/ s/$/ -DBROTLI_STATIC/' "$pc"
     done
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

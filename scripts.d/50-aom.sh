@@ -51,8 +51,10 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Добавляем VMAF в pkg-config, иначе FFmpeg не соберется статикой
-    echo "Requires.private: libvmaf" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/aom.pc
+    echo "Requires.private: libvmaf" >> "$PC_DIR/aom.pc"
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

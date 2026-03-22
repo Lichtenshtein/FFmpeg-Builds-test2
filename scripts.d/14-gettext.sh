@@ -35,6 +35,7 @@ ffbuild_dockerbuild() {
 
     CFLAGS="$CFLAGS -Dasm=__asm__" \
     CPPFLAGS="$CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS" \
     LDFLAGS="$LDFLAGS" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
@@ -44,10 +45,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/intl.pc"
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/intl.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${prefix}/lib
@@ -61,5 +60,7 @@ Libs.private: -liconv -lcharset
 Cflags: -I\${includedir}
 EOF
 
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }

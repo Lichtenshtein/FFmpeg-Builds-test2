@@ -9,6 +9,7 @@ ffbuild_depends() {
     echo libjpeg-turbo
     echo jbigkit
     echo zstd
+    echo lcms2
 }
 
 ffbuild_enabled() {
@@ -25,7 +26,7 @@ ffbuild_dockerbuild() {
 
     mkdir tiff_build && cd tiff_build
 
-    local DEP_LIBS="-ljpeg -lturbojpeg -ljbig -ljbig85 -lzstd -llzma -lz $LIBS -lstdc++"
+    local DEP_LIBS="-ljpeg -lturbojpeg -llcms2 -ljbig -ljbig85 -lzstd -llzma -lz -lstdc++"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -55,28 +56,24 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/libtiff-4.pc"
-    local LINK_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/tiff.pc"
-
+    local PC_FILE="$PC_DIR/libtiff-4.pc"
+    local LINK_FILE="$PC_DIR/tiff.pc"
     if [[ -f "$PC_FILE" ]]; then
-        log_info "${SYNC_MARK} Patching libtiff-4.pc file..."
-        sed -i 's/[[:space:]]*$//' "$PC_FILE"
         if ! grep -q "DLIBTIFF_STATIC" "$PC_FILE"; then
             sed -i "/^Cflags:/ s/$/ -DLIBTIFF_STATIC/" "$PC_FILE"
         fi
         # Оставляем только JBIG и C++, остальное (jpeg/z/lzma) придет через Requires
-        local EXTRA_TIFF_LIBS="-ljbig -ljbig85 $LIBS -lstdc++"
         if grep -q "^Libs.private:" "$PC_FILE"; then
-            sed -i "s|^Libs.private:.*|Libs.private: $EXTRA_TIFF_LIBS|" "$PC_FILE"
+            sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS|" "$PC_FILE"
         else
-            sed -i "/^Libs:/ a Libs.private: $EXTRA_TIFF_LIBS" "$PC_FILE"
+            sed -i "/^Libs:/ a Libs.private: $DEP_LIBS" "$PC_FILE"
         fi
+    patch_pc_files
     fi
 
     # проверить, как называется созданный .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
     ln -sf libtiff-4.pc "$LINK_FILE"
 
+    clean_la_files
     get_deps_list
 }

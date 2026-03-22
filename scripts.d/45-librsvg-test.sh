@@ -62,17 +62,15 @@ ffbuild_dockerbuild() {
     ninja -C build -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    clean_la_files
-
-    # Исправление .pc файла. 
     # librsvg-2.0.pc после сборки часто не содержит Cairo/Pango в Requires.private
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/librsvg-2.0.pc"
+    local PC_FILE="$PC_DIR/librsvg-2.0.pc"
     if [[ -f "$PC_FILE" ]]; then
         # Librsvg (Rust) генерирует огромную статическую либу, которой нужны ВСЕ системные либы Windows
-        sed -i 's/^Libs:.*/& -lpangocairo-1.0 -lpango-1.0 -lcairo -lgobject-2.0 -lglib-2.0 -lxml2 -lintl -lcharset -liconv -lws2_32 -luserenv -lusp10 -lshlwapi -lsetupapi -lruntimeobject -lbcrypt -lntdll -lmsimg32 -lgdi32 -lstdc++/' "$PC_FILE"
+        sed -i 's/^Libs:.*/& -lpangocairo-1.0 -lpango-1.0 -lcairo -lcairo-gobject -lglib-2.0 -lgobject-2.0 -lxml2 -lintl -lcharset -liconv -luserenv -lusp10 -lruntimeobject -lntdll -lmsimg32 -lgdi32 -lstdc++/' "$PC_FILE"
     fi
 
-    # Вызываем отладку зависимостей
+    patch_pc_files
+    clean_la_files
     get_deps_list
 }
 

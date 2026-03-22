@@ -20,7 +20,8 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-    local LCMS_DEPS="-ltiff -ltiffxx -ljpeg -lturbojpeg -ljbig -ljbig85 -lzstd -llzma -lz $LIBS"
+    local DEP_LIBS="-ltiff -ltiffxx -ljpeg -lturbojpeg -ljbig -ljbig85 -lzstd -llzma -lz"
+    local WIN_LIBS="$LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -39,18 +40,13 @@ ffbuild_dockerbuild() {
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
-        -Dc_link_args="$LDFLAGS $LCMS_DEPS" \
-        -Dcpp_link_args="$LDFLAGS $LCMS_DEPS" || return 1
+        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
+    patch_pc_files
     clean_la_files
-
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lcms2.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        sed -i "/^Libs.private:/ s/$/ $LCMS_DEPS/" "$PC_FILE"
-    fi
-
     get_deps_list
 }
 
