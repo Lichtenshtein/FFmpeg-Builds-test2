@@ -45,7 +45,7 @@ cpu = 'x86_64'
 endian = 'little'
 
 [binaries]
-exe_wrapper = ['wine']
+# exe_wrapper = ['wine']
 c = '${FFBUILD_TOOLCHAIN}-gcc'
 cpp = '${FFBUILD_TOOLCHAIN}-g++'
 ar = '${FFBUILD_TOOLCHAIN}-gcc-ar'
