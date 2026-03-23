@@ -53,11 +53,12 @@ ffbuild_dockerbuild() {
         --with-zlib-include="$FFBUILD_PREFIX/include"
         --with-zlib-lib="$FFBUILD_PREFIX/lib"
         --cross-compile-prefix="$FFBUILD_CROSS_PREFIX"
+        --openssldir="$FFBUILD_PREFIX/etc/ssl"
     )
 
     ./Configure "${myconf[@]}" \
         "$CFLAGS -fno-strict-aliasing" \
-        "$CXXFLAGS -fno-strict-aliasing" \
+        "$CPPFLAGS" \
         "$LDFLAGS" \
         "$LIBS" || return 1
 
