@@ -46,7 +46,6 @@ ffbuild_dockerbuild() {
         echo "Cflags.private: -DOAPV_STATIC_DEFINE" >> "$FFBUILD_DESTPREFIX/lib/pkgconfig/oapv.pc"
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

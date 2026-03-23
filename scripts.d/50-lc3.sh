@@ -41,7 +41,6 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    get_deps_list
 }
 
 ffbuild_configure() {

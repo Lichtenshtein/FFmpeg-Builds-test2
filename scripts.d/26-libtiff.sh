@@ -22,8 +22,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     mkdir tiff_build && cd tiff_build
 
     local DEP_LIBS="-ljpeg -lturbojpeg -ljbig -ljbig85 -lzstd -llzma -lz -lstdc++"
@@ -68,12 +66,9 @@ ffbuild_dockerbuild() {
         else
             sed -i "/^Libs:/ a Libs.private: $DEP_LIBS" "$PC_FILE"
         fi
-    patch_pc_files
     fi
 
     # проверить, как называется созданный .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
     ln -sf libtiff-4.pc "$LINK_FILE"
 
-    clean_la_files
-    get_deps_list
 }

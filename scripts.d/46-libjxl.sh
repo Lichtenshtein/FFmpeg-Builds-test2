@@ -18,8 +18,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     mkdir build && cd build
 
     if [[ $TARGET == linux* ]]; then
@@ -77,9 +75,6 @@ ffbuild_dockerbuild() {
     # Brotli в зависимости
     sed -i 's/Requires.private:/Requires.private: -lbrotlidec -lbrotlicommon /' "$PC_DIR/libjxl.pc"
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_configure() {

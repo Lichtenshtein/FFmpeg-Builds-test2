@@ -35,7 +35,6 @@ ffbuild_dockerbuild() {
     cp -f ../include/pocketsphinx.h "$FFBUILD_DESTPREFIX"/include/pocketsphinx/
     rm -f "$FFBUILD_DESTPREFIX"/bin/pocketsphin*
 
-    get_deps_list
 }
 
 ffbuild_configure() {

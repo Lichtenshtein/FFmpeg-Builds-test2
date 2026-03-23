@@ -22,8 +22,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     # stop the static library from exporting symbols when linked into a shared lib
     sed -i 's/-DBLURAY_API_EXPORT/-DBLURAY_API_EXPORT_DISABLED/g' src/meson.build
 
@@ -62,7 +60,6 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    get_deps_list
 }
 
 ffbuild_configure() {

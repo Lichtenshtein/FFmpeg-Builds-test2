@@ -75,7 +75,6 @@ ffbuild_dockerbuild() {
 
     echo 'Requires: samplerate' >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/sdl2.pc
 
-    get_deps_list
 }
 
 ffbuild_configure() {

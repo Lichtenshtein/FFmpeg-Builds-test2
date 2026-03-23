@@ -20,8 +20,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     mkdir cmbuild && cd cmbuild
 
     local myconf=(
@@ -53,9 +51,6 @@ ffbuild_dockerbuild() {
     # Добавляем VMAF в pkg-config, иначе FFmpeg не соберется статикой
     echo "Requires.private: libvmaf" >> "$PC_DIR/aom.pc"
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_configure() {

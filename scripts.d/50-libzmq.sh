@@ -46,7 +46,6 @@ ffbuild_dockerbuild() {
         [[ $TARGET != win* ]] || echo "Libs.private: -lws2_32 -liphlpapi"
     } >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libzmq.pc
 
-    get_deps_list
 }
 
 ffbuild_configure() {

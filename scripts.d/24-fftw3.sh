@@ -13,8 +13,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     sed -i 's/-libs nums/-use-ocamlfind -package num/' genfft/Makefile.am
 
     local myconf=(
@@ -61,7 +59,4 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }

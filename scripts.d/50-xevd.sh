@@ -41,7 +41,6 @@ ffbuild_dockerbuild() {
         rm "$FFBUILD_DESTPREFIX"/lib/libxevd.so*
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

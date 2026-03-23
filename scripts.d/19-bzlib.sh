@@ -37,9 +37,6 @@ ffbuild_dockerbuild() {
         mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libbz2_static.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libbz2.a"
     fi
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_configure() {

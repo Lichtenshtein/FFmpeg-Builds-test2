@@ -53,7 +53,6 @@ ffbuild_dockerbuild() {
 
     echo "Requires: mbedcrypto" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/librist.pc
 
-    get_deps_list
 }
 
 ffbuild_configure() {

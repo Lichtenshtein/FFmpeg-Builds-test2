@@ -165,7 +165,6 @@ Cflags: -I\${includedir}
 EOF
 
     # Вызываем отладку зависимостей
-    get_deps_list
 }
 
 ffbuild_configure() {

@@ -38,7 +38,6 @@ ffbuild_dockerbuild() {
 
     rm -rf "$FFBUILD_DESTPREFIX"/share
 
-    get_deps_list
 }
 
 ffbuild_configure() {

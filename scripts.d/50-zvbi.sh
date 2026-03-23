@@ -53,9 +53,6 @@ ffbuild_dockerbuild() {
     make -C src install DESTDIR="$FFBUILD_DESTDIR" || return 1
     make SUBDIRS=. install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
-    get_deps_list
 }
 
 ffbuild_configure() {

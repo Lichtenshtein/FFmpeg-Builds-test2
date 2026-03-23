@@ -13,8 +13,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     # Short-circuit the check to generate a .pc file. We always want it.
     sed -i 's/NOT WIN32/1/g' src/CMakeLists.txt
 
@@ -38,7 +36,6 @@ ffbuild_dockerbuild() {
         echo "Libs.private: -lgomp -lmingwthrd" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/soxr.pc
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

@@ -57,9 +57,6 @@ ffbuild_dockerbuild() {
         echo "Libs.private: -lbz2 -lz $SYSTEM_LIBS" >> "$pc"
     done
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_cppflags() {

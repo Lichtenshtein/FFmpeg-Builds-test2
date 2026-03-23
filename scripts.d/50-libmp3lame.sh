@@ -18,8 +18,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     # Принудительно чиним конфиг для современных систем
     sed -i 's/AC_PREREQ(2.69)/AC_PREREQ(2.71)/' configure.in || true
     
@@ -51,9 +49,6 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
-    get_deps_list
 }
 
 ffbuild_configure() {

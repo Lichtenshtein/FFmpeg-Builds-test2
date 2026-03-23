@@ -123,7 +123,4 @@ ffbuild_dockerbuild() {
         fi
     done
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }

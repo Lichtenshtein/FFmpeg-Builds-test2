@@ -81,9 +81,6 @@ Libs.private: -ltbb12 -ltbb
 Cflags: -I\${includedir} -DOPENVINO_STATIC_COMPILATION
 EOF
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_libs() {

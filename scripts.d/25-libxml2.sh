@@ -73,9 +73,6 @@ ffbuild_dockerbuild() {
         sed -i "/^Cflags:/ s/$/ -DLIBXML_STATIC -DXML_STATIC/" "$PC_FILE"
     fi
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_cppflags() {

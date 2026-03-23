@@ -18,8 +18,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     cd build/linux
 
     # Фикс проверки endianness для современных GCC (уже было у вас, оставляем)
@@ -46,8 +44,6 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
     # Исправляем pkg-config для статической линковки
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/davs2.pc"
     if [[ -f "$PC_FILE" ]]; then
@@ -59,7 +55,6 @@ ffbuild_dockerbuild() {
         fi
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

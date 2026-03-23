@@ -45,11 +45,8 @@ ffbuild_dockerbuild() {
         else
             sed -i "/^Libs:/ a Libs.private: -lssl -lz -liphlpapi" "$PC_FILE"
         fi
-    patch_pc_files
     fi
 
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_cppflags() {

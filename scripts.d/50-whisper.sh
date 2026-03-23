@@ -87,7 +87,6 @@ ffbuild_dockerbuild() {
         sed -i "s|^Requires:.*|Requires: vulkan OpenCL|" "$PC_FILE"
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

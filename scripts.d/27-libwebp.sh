@@ -62,9 +62,6 @@ ffbuild_dockerbuild() {
         echo "Libs.private: $DEP_LIBS" >> "$PC_FILE"
     done
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_cppflags() {
