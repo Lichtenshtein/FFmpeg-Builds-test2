@@ -105,6 +105,14 @@ export CPPFLAGS="-I/opt/ffbuild/include $BASE_CPPFLAGS"
 export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -lstdc++"
 export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
+# Очистка флага, специфичного для Linux ELF, при сборке под Windows (ломает OpenSSL asm)
+if [[ "$TARGET" == *"win"* ]]; then
+    export CFLAGS="${CFLAGS//-fno-semantic-interposition/}"
+    export CXXFLAGS="${CXXFLAGS//-fno-semantic-interposition/}"
+    export STAGE_CFLAGS="${STAGE_CFLAGS//-fno-semantic-interposition/}"
+    # На всякий случай проверяем и пустую переменную, если она была задана в Docker
+    [[ "$CFLAGS" == *"-fno-semantic-interposition"* ]] && log_debug "${BROOM_MARK} Stripped ELF-specific flags for Windows target."
+fi
 
 # Docker stage helpers
 ffbuild_dockerstage() {
