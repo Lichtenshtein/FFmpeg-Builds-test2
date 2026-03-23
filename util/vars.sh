@@ -204,6 +204,7 @@ patch_pc_files() {
 
     # замена абсолютных путей на переменные
     find "$pc_dir" -name "*.pc" | while read -r pc; do
+        [[ -f "$pc" ]] || continue
         log_debug "Fixing paths in $pc"
 
         # Удаляем все строки, которые определяют стандартные переменные путей,
@@ -227,12 +228,10 @@ patch_pc_files() {
             local pc_name="$lib"
             # Проверяем наличие .pc файла в префиксе
             if [[ -f "$FFBUILD_PREFIX/lib/pkgconfig/${lib}.pc" || -f "$FFBUILD_PREFIX/lib/pkgconfig/lib${lib}.pc" || -f "$FFBUILD_PREFIX/share/pkgconfig/${lib}.pc" ]]; then
-                # Если библиотека найдена в конфигах билда
                 if grep -rqiE "(have_lib|#define.*HAVE_LIB|found.*|find_package.*)${lib}.*(yes|1|true|found)" "$src_root" \
                     --include="config.*" --include="*.ac" --include="*.cmake" --include="CMakeLists.txt" \
                     --include="meson.build" --include="*.meson" --max-count=1 2>/dev/null; then
-                    # Если это полноценная библиотека с .pc, кидаем в Requires.private
-                    # Если это системная либа или специфичный флаг — в Libs.private
+                    
                     case "$lib" in
                         iconv|bz2|zlib|jpeg) extra_libs+="-l${lib#lib} " ;; 
                         *) extra_requires+="${lib} " ;;
@@ -242,45 +241,45 @@ patch_pc_files() {
         done
 
         # -lstdc++ только если проект реально использует C++
-        if find "$src_root" -maxdepth 2 -name "*.cpp" -o -name "*.cc" 2>/dev/null | grep -q .; then
+        if find "$src_root" -maxdepth 2 \( -name "*.cpp" -o -name "*.cc" \) 2>/dev/null | grep -q .; then
             extra_libs+="-lstdc++ "
         fi
 
         # Врезка Requires.private (если нашли зависимости с .pc)
-        if [[ -n "$extra_requires" ]]; then
-            if ! grep -q "^Requires.private:" "$pc"; then
-                sed -i "/^Name:/ a Requires.private:" "$pc"
-            fi
+        if [[ -n $(echo "$extra_requires" | xargs) ]]; then
+            grep -q "^Requires.private:" "$pc" || sed -i "/^Name:/ a Requires.private:" "$pc"
             sed -i "/^Requires.private:/ s/$/ $extra_requires/" "$pc"
         fi
 
         # Врезка Libs.private
-        if ! grep -q "^Libs.private:" "$pc"; then
-            sed -i "/^Libs:/ a Libs.private:" "$pc"
-        fi
+        grep -q "^Libs.private:" "$pc" || sed -i "/^Libs:/ a Libs.private:" "$pc"
 
         # Вливаем найденное сканером и системные $LIBS (из vars.sh)
-        sed -i "/^Libs.private:/ s/$/ $extra_found $LIBS/" "$pc"
+        sed -i "/^Libs.private:/ s/$/ $extra_libs $LIBS/" "$pc"
 
         # Умная дедупликация. Собираем всё, что уже есть в публичных полях, чтобы не дублировать это в private
-        local public_stuff=$(grep -E "^(Libs|Requires|Requires.private):" "$pc" | cut -d':' -f2- | tr ',' ' ' | awk '{for(i=1;i<=NF;i++) print $i}')
-        local priv_line=$(grep "^Libs.private:" "$pc" | cut -d':' -f2-)
-        local new_priv=$(echo "$priv_line" | awk -v pub="$public_stuff" '
-            BEGIN { split(pub, p, " ") }
-            {
-                for(i=1;i<=NF;i++) {
-                    is_dup=0; for(j in p) if($i == p[j]) is_dup=1;
-                    if(!is_dup && !seen[$i]++) printf "%s ", $i
+        local public_stuff=$(grep -E "^(Libs|Requires|Requires.private):" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs 2>/dev/null || echo "")
+        local priv_line=$(grep "^Libs.private:" "$pc" | cut -d':' -f2- | xargs 2>/dev/null || echo "")
+        
+        if [[ -n "$priv_line" ]]; then
+            local new_priv=$(echo "$priv_line" | awk -v pub="$public_stuff" '
+                BEGIN { split(pub, p, " ") }
+                {
+                    for(i=1;i<=NF;i++) {
+                        is_dup=0; for(j in p) if($i == p[j]) is_dup=1;
+                        if(!is_dup && !seen[$i]++) printf "%s ", $i
+                    }
                 }
-                print ""
-            }
-        ')
-        sed -i "s|^Libs.private:.*|Libs.private: $new_priv|" "$pc"
+            ')
+            sed -i "s|^Libs.private:.*|Libs.private: $new_priv|" "$pc"
+        fi
 
         # Дедупликация Requires.private
-        local req_line=$(grep "^Requires.private:" "$pc" | cut -d':' -f2- | tr ',' ' ')
-        local new_req=$(echo "$req_line" | awk '{for(i=1;i<=NF;i++) if(!seen[$i]++) printf "%s ", $i; print ""}')
-        sed -i "s|^Requires.private:.*|Requires.private: $new_req|" "$pc"
+        local req_line=$(grep "^Requires.private:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs 2>/dev/null || echo "")
+        if [[ -n "$req_line" ]]; then
+            local new_req=$(echo "$req_line" | awk '{for(i=1;i<=NF;i++) if(!seen[$i]++) printf "%s ", $i}')
+            sed -i "s|^Requires.private:.*|Requires.private: $new_req|" "$pc"
+        fi
 
         # Чистим лишние пробелы в конце и между флагами
         sed -i 's/[[:space:]]*$//; s/  */ /g' "$pc"
