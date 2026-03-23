@@ -53,6 +53,11 @@ ffbuild_dockerbuild() {
         if ! grep -q "DPCRE2_STATIC" "$pc"; then
             sed -i '/^Cflags:/ s/$/ -DPCRE2_STATIC/' "$pc"
         fi
+        if grep -q "^Libs.private:" "$PC_FILE"; then
+            sed -i "s|^Libs.private:.*|Libs.private: -lz|" "$pc"
+        else
+            sed -i "/^Libs:/ a Libs.private: $DEP_LIBS $WIN_LIBS" "$pc"
+        fi
     done
 
     patch_pc_files

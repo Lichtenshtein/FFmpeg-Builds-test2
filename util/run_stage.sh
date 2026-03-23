@@ -12,31 +12,6 @@ fi
 
 STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
 
-# Определяем режим работы Wine (берем из ENV или ставим auto по умолчанию)
-USE_WINE="${USE_WINE:-auto}"
-WINE_CMD=$(command -v wine64 || command -v wine)
-# Функция для принятия решения о запуске графического окружения и Wine
-# Detect if the script needs a display (Wine, Meson, CMake tests)
-should_run_wine() {
-    [[ "$USE_WINE" == "on" ]] && return 0
-    [[ "$USE_WINE" == "off" ]] && return 1
-    grep -qE "meson setup|cmake|\./configure|wine" "$SCRIPT_PATH"
-}
-
-# Wrapper function to execute commands
-run_wrapped() {
-    if should_run_wine; then
-        # -n 99: use display 99
-        # -s: Xvfb arguments
-        # -a: auto-servernum (use next available if 99 is busy)
-        xvfb-run -n 99 -a -s "-screen 0 1024x768x16" "$@"
-        log_info "${START_MARK} Starting Xvfb (Display :99) for Wine/Build tests..."
-    else
-        "$@"
-         log_debug "Stage $STAGENAME: Wine/Xvfb initialization skipped (Mode: $USE_WINE)."
-    fi
-}
-
 # Подгружаем утилиты, используя абсолютный путь
 if ! declare -F log_info >/dev/null; then
     . /builder/util/vars.sh "$TARGET" "$VARIANT" 2>/dev/null \
@@ -197,7 +172,7 @@ log_info "################################################################"
 
 if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
     log_info "Verbose mode active. Build output will be shown in real-time."
-    if ! ( set -e -o pipefail; $build_cmd ); then
+    if ! ( set -e -o pipefail; wine_run_wrapped $build_cmd ); then
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         log_error "!!! ${CROSS_MARK} ERROR: Build failed for ${STAGENAME}"
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -222,7 +197,7 @@ if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
 else
     # Тихий режим: вывод лога только в случае падения
     log_info "Quiet mode active. Output is redirected to /tmp/stage_build.log"
-    if ! ( set -e -o pipefail; $build_cmd > /tmp/stage_build.log 2>&1 ); then
+    if ! ( set -e -o pipefail; wine_run_wrapped $build_cmd > /tmp/stage_build.log 2>&1 ); then
         log_error "${CROSS_MARK} Build failed!"
         log_debug "${LOGS_MARK} ▼ DUMPING build log ▼"
         cat /tmp/stage_build.log
@@ -282,6 +257,17 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
     else
         log_warn "${XCLAM_MARK} Stage $STAGENAME finished but no files were found in DESTDIR."
     fi
+
+    # .la files, dependancies and .pc files auditing
+    # if [[ "$SKIP_POST_PATCH" != "1" ]]; then
+        # patch_pc_files
+    # fi
+    # if [[ "$SKIP_POST_CLEAN" != "1" ]]; then
+        # clean_la_files
+    # fi
+    # if [[ "$SKIP_POST_AUDIT" != "1" ]]; then
+        # get_deps_list
+    # fi
     log_info "################################################################"
 fi
 

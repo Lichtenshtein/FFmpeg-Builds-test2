@@ -88,9 +88,9 @@ IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:lat
 export CPU_ARCH="${CPU_ARCH:-broadwell}"
 export CPU_TUNE="${CPU_TUNE:-broadwell}"
 export FFBUILD_PREFIX="/opt/ffbuild"
-# export PKG_CONFIG_PATH=""
+export PKG_CONFIG_PATH="" # don't touch
 export PKG_CONFIG_FLAGS="--static"
-export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig: /opt/ffbuild/lib64/pkgconfig"
+export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig"
 export PC_DIR="/opt/ffdest/opt/ffbuild/lib/pkgconfig"
 export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
@@ -103,7 +103,7 @@ SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws
 export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=c11"
 export CPPFLAGS="-I/opt/ffbuild/include $BASE_CPPFLAGS"
 export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -lstdc++"
-export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -lm -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
 
 # Docker stage helpers
@@ -201,14 +201,31 @@ patch_pc_files() {
         # сканер зависимостей (Autotools, CMake, Meson)
         local extra_found=""
         for lib in $scan_candidates; do
+        # Если .pc файл для этой либы уже существует в нашем префиксе
+            local pc_exists=false
+            if [[ -f "$FFBUILD_PREFIX/lib/pkgconfig/${lib}.pc" ]] || \
+               [[ -f "$FFBUILD_PREFIX/lib/pkgconfig/lib${lib}.pc" ]] || \
+               [[ -f "$FFBUILD_PREFIX/share/pkgconfig/${lib}.pc" ]]; then
+                pc_exists=true
+            fi
+
+            if [[ "$pc_exists" == "true" ]]; then
             # Ищем признаки включения в разных билд-системах:
             # - Autotools: HAVE_LIB... или config.h
             # - CMake: Find... или CM_HAS_...
             # - Meson: found: true или meson-info
-            if grep -rqiE "(have_lib|#define.*HAVE_LIB|found.*|find_package.*)${lib}.*(yes|1|true|found)" "$src_root" \
-                --include="config.*" --include="*.ac" --include="*.cmake" --include="CMakeLists.txt" \
-                --include="meson.build" --include="*.meson" --max-count=1 2>/dev/null; then
-                extra_found+="-l${lib/lib/} "
+                if grep -rqiE "(have_lib|#define.*HAVE_LIB|found.*|find_package.*)${lib}.*(yes|1|true|found)" "$src_root" \
+                    --include="config.*" --include="*.ac" --include="*.cmake" --include="CMakeLists.txt" \
+                    --include="meson.build" --include="*.meson" --max-count=1 2>/dev/null; then
+                    case "$lib" in
+                        zlib)   extra_found+="-lz " ;;
+                        bz2)    extra_found+="-lbz2 " ;;
+                        iconv)  extra_found+="-liconv " ;;
+                        jpeg)   extra_found+="-ljpeg " ;;
+                        *)      local clean_name="${lib#lib}"
+                                extra_found+="-l${clean_name} " ;;
+                    esac
+                fi
             fi
         done
 
@@ -256,13 +273,13 @@ get_deps_list() {
     log_debug "Showing dependencies for: $name"
 
     if [[ -d "$lib_dir/pkgconfig" ]]; then
-        export PKG_CONFIG_PATH="$lib_dir/pkgconfig:${PKG_CONFIG_PATH}"
         find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
             pc_file="$1"; shift
             pkg_config_cmd="$1"; shift
             xclam_mark="$1"; shift
             search_mark="$1"; shift
-            export PKG_CONFIG_PATH="$1"; shift 
+            export PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR:$lib_dir/pkgconfig"
+            export PKG_CONFIG_SYSROOT_DIR="/"
 
             printf "\n%b %s\n" "$xclam_mark" "$pc_file"
             cat "$pc_file"
@@ -273,15 +290,15 @@ get_deps_list() {
                 echo "$deps"
                 while IFS= read -r pkg_line; do
                     pkg_name=$(echo "$pkg_line" | awk "{print \$1}")
-                    [[ -z "$pkg_name" ]] && continue
+                    [[ -z "$pkg_name" || "$pkg_name" =~ ^[0-9] ]] && continue
                     if ! $pkg_config_cmd --exists "$pkg_name" 2>/dev/null; then
-                        echo "MISSING DEPENDENCY: $pkg_name"
+                        echo "MISSING DEPENDENCY: $pkg_name (Searched in: $PKG_CONFIG_LIBDIR)"
                     fi
                 done <<< "$deps"
             else
                 echo "No dependencies found."
             fi
-        ' _ {} "${PKG_CONFIG:-pkg-config}" "$XCLAM_MARK" "$SEARCH_MARK" \; || true
+        ' _ {} "${PKG_CONFIG:-pkg-config}" "$XCLAM_MARK" "$SEARCH_MARK" "$lib_dir/pkgconfig" \; || true
     fi
     find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) -print0 2>/dev/null | \
     xargs -0 -r -I{} bash -c '
@@ -378,6 +395,12 @@ apply_patches() {
 }
 export -f apply_patches
 
+# .la files, dependancies and .pc files auditing
+# add ffbuild_dockerbuild() { export SKIP_POST_PATCH=1 } to disable
+# export SKIP_POST_PATCH=0
+# export SKIP_POST_CLEAN=0
+# export SKIP_POST_AUDIT=0
+
 # Динамическое определение путей тулчейна
 # Ищем, где реально лежат заголовочные файлы и либы mingw в образе
 # /opt/ct-ng/x86_64-w64-mingw32/sysroot/usr/x86_64-w64-mingw32/bin/
@@ -401,6 +424,32 @@ if [ -d "/opt/ct-ng" ]; then
         export WINEPATH="winepath -w ${FFBUILD_PREFIX}/bin:${FFBUILD_PREFIX}/lib:${MINGW_BIN_PATH}"
     fi
 fi
+
+# Определяем режим работы Wine (берем из ENV или ставим auto по умолчанию)
+USE_WINE="${USE_WINE:-auto}"
+WINE_CMD=$(command -v wine64 || command -v wine)
+# Функция для принятия решения о запуске графического окружения и Wine
+# Detect if the script needs a display (Wine, Meson, CMake tests)
+should_run_wine() {
+    [[ "$USE_WINE" == "on" ]] && return 0
+    [[ "$USE_WINE" == "off" ]] && return 1
+    grep -qE "meson setup|cmake|\./configure|wine" "$SCRIPT_PATH"
+}
+
+# Wrapper function to execute commands
+wine_run_wrapped() {
+    if should_run_wine; then
+        # -n 99: use display 99
+        # -s: Xvfb arguments
+        # -a: auto-servernum (use next available if 99 is busy)
+        xvfb-run -n 99 -a -s "-screen 0 1024x768x16" "$@"
+        log_info "${START_MARK} Starting Xvfb (Display :99) for Wine/Build tests..."
+    else
+        "$@"
+         log_debug "Stage $STAGENAME: Wine/Xvfb initialization skipped (Mode: $USE_WINE)."
+    fi
+}
+export -f wine_run_wrapped
 
 # экспорт важных переменных MinGW, чтобы они пробрасывались в download.sh и run_stage.sh:
 export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE

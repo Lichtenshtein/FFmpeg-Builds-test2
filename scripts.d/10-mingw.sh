@@ -82,7 +82,7 @@ ffbuild_dockerbuild() {
     cp -a "$SYSROOT/include/pthread"* "$FFBUILD_PREFIX/include/"
     cp -a "$SYSROOT/include/sched.h" "$FFBUILD_PREFIX/include/"
     cp -a "$SYSROOT/lib/libpthread.a" "$FFBUILD_PREFIX/lib/"
-    ln -sf libpthread.a "$FFBUILD_PREFIX/lib/libwinpthread.a"
+    # ln -sf libpthread.a "$FFBUILD_PREFIX/lib/libwinpthread.a"
 
     # Объектные файлы (Нужны для финальной линковки .exe)
     # crt2.o это точка входа для консольных приложений Windows
@@ -106,8 +106,8 @@ ffbuild_dockerbuild() {
     # find "$SYSROOT/lib" -maxdepth 1 -name "*.a" ! -name "*.dll.a" -exec cp -a {} "$FFBUILD_PREFIX/lib/" \;
 
     # Очистка динамики внутри префикса
-    # find "$FFBUILD_PREFIX/lib" -name "*.la" -delete
-    # find "$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete
+    find "$FFBUILD_PREFIX/lib" -name "*.la" -delete
+    find "$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete
 
     cd ..
 
