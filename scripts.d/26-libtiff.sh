@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
 
     mkdir tiff_build && cd tiff_build
 
-    local DEP_LIBS="-ljpeg -lturbojpeg -llcms2 -ljbig -ljbig85 -lzstd -llzma -lz -lstdc++"
+    local DEP_LIBS="-ljpeg -lturbojpeg -ljbig -ljbig85 -lzstd -llzma -lz -lstdc++"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
