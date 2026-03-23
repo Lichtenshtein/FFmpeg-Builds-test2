@@ -44,7 +44,6 @@ ffbuild_dockerbuild() {
 
     echo "Libs.private: -lstdc++ -lcrypto" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libaribcaption.pc
 
-    get_deps_list
 }
 
 ffbuild_configure() {

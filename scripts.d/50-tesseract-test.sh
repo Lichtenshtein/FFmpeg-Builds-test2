@@ -91,15 +91,12 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
     # local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/tesseract.pc"
     # if [[ -f "$PC_FILE" ]]; then
         # log_info "${SYNC_MARK} Finalizing tesseract.pc..."
         # sed -i "s|^Libs.private:.*|Libs.private: $TESS_DEPS $WIN_SYS|" "$PC_FILE"
     # fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

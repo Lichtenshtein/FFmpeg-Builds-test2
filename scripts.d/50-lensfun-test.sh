@@ -19,8 +19,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     # python3 -m pip install build --break-system-packages
 
     mkdir build && cd build
@@ -76,7 +74,6 @@ ffbuild_dockerbuild() {
         fi
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() { echo --enable-liblensfun; }

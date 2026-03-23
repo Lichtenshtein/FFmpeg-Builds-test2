@@ -14,8 +14,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     # Flite не понимает --enable-static, он делает её по умолчанию при --enable-shared=no
     local myconf=(
         --host="$FFBUILD_TOOLCHAIN"
@@ -42,8 +40,6 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V || return 1
     # make install DESTDIR="$FFBUILD_DESTDIR"
-
-    clean_la_files
 
     # Динамический поиск папки с либами (fix для x86_64-mingw32 vs x86_64-w64-mingw32)
     local BUILDIR=$(find build -maxdepth 2 -type d -name "lib" | head -n 1)
@@ -75,7 +71,6 @@ Libs: -L\${libdir} $VOX_LIBS -lflite -lm -lws2_32
 Cflags: -I\${includedir}
 EOF
 
-    get_deps_list
 }
 
 ffbuild_configure() {

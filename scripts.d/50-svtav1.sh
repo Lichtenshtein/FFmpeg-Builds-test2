@@ -27,8 +27,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     # ФИКС ВЕРСИИ (SVT-AV1 специфичный)
     # Если нет .git, CMakeLists.txt не сможет определить версию. 
     # Запишем её принудительно в файл, который ожидает система сборки (если он есть)
@@ -81,7 +79,6 @@ ffbuild_dockerbuild() {
         echo "Libs.private: -lstdc++ -lm" >> "$PC_FILE"
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

@@ -54,7 +54,4 @@ Libs: -L\${libdir} -ljbig -ljbig85
 Cflags: -I\${includedir}
 EOF
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }

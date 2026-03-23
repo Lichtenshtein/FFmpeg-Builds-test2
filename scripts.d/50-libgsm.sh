@@ -27,7 +27,6 @@ ffbuild_dockerbuild() {
     cp include/gsm/*.h "$FFBUILD_DESTPREFIX/include/gsm"
     cp include/gsm/gsm.h "$FFBUILD_DESTPREFIX/include/"
 
-    get_deps_list
 }
 
 ffbuild_configure() {

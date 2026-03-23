@@ -21,8 +21,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     # Фикс для современных компиляторов (json11)
     # Ищем файл во всем дереве, так как путь может варьироваться
     find . -name "json11.cpp" -exec sed -i '1i#include <cstdint>' {} +
@@ -67,8 +65,6 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
     # Проверка и фикс pkg-config
     # xavs2 иногда пишет неверные пути в .pc файл при использовании DESTDIR
     if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/xavs2.pc" ]]; then
@@ -77,7 +73,6 @@ ffbuild_dockerbuild() {
         echo "Libs.private: -lstdc++ -lm" >> "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/xavs2.pc"
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

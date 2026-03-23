@@ -52,9 +52,6 @@ ffbuild_dockerbuild() {
         else
             sed -i "/^Libs:/ a Libs.private: -lpng16" "$PC_FILE"
         fi
-    patch_pc_files
     fi
 
-    clean_la_files
-    get_deps_list
 }

@@ -15,8 +15,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     mkdir build && cd build
 
     local myconf=(
@@ -45,11 +43,8 @@ ffbuild_dockerbuild() {
         if ! grep -q "\-DFRIBIDI_LIB_STATIC" "$PC_FILE"; then
             sed -i 's/Cflags:/& -DFRIBIDI_LIB_STATIC/' "$PC_FILE"
         fi
-    patch_pc_files
     fi
 
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_cppflags() {

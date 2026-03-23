@@ -13,8 +13,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     # Отключаем попытку собрать плагины, которые требуют нативного X11/GL во время кросс-компиляции
     export ac_cv_header_x11_xlib_h=no
     export ac_cv_header_gl_gl_h=no
@@ -68,8 +66,6 @@ ffbuild_dockerbuild() {
     # Установка вручную, чтобы не заходить в папку 't'
     make -C caca install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
     # Установка заголовочных файлов из корня (они нужны FFmpeg)
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
     cp caca/caca.h caca/caca0.h caca/caca_conio.h caca/caca_types.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
@@ -82,7 +78,6 @@ ffbuild_dockerbuild() {
         echo "Libs.private: -lgdi32" >> "$PC_FILE"
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

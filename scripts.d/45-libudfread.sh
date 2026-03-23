@@ -46,7 +46,4 @@ ffbuild_dockerbuild() {
 
     ln -s libudfread.pc "$PC_DIR/udfread.pc"
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }

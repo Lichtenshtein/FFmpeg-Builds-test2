@@ -111,7 +111,6 @@ ffbuild_dockerbuild() {
 
     cd ..
 
-    get_deps_list
 }
 
 ffbuild_configure() {

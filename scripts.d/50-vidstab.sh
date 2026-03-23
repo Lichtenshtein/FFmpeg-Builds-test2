@@ -41,7 +41,6 @@ ffbuild_dockerbuild() {
         echo "Libs.private: -ldl" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/vidstab.pc
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

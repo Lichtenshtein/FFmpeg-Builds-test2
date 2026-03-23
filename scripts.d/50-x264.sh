@@ -57,15 +57,12 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
     # ФИКС pkg-config для статической линковки
     if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/x264.pc" ]]; then
         # Добавляем -lpthread, так как x264 его использует
         sed -i 's/Libs: /Libs.private: -lpthread -lm\nLibs: /' "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/x264.pc"
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

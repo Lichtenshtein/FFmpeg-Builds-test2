@@ -65,9 +65,6 @@ EOF
     mkdir -p "$PC_DIR"
     mv OpenCL.pc "$PC_DIR/OpenCL.pc"
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_configure() {

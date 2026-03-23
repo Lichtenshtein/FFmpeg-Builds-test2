@@ -14,8 +14,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     # their version check is insistant on a tag to exist, so make one
     git tag -a ffbuild -m "FFbuild Version"
 
@@ -32,7 +30,6 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make VersionGen install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    get_deps_list
 }
 
 ffbuild_configure() {

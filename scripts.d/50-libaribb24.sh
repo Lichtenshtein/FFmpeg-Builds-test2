@@ -18,8 +18,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     # Library switched to LGPL on master, but didn't bump version since.
     # FFmpeg checks for >1.0.3 to allow LGPL builds.
     sed -i 's/1.0.3/1.0.4/' configure.ac
@@ -44,9 +42,6 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
-    get_deps_list
 }
 
 ffbuild_configure() {

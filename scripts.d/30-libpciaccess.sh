@@ -53,7 +53,4 @@ ffbuild_dockerbuild() {
 
     echo "Libs: -ldl" >> "$PC_DIR/pciaccess.pc"
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }

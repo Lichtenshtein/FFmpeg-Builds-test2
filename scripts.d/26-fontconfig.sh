@@ -76,9 +76,6 @@ ffbuild_dockerbuild() {
         sed -i "s|$FFBUILD_PREFIX|\${prefix}|g" "$PC_FILE"
     fi
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_configure() {

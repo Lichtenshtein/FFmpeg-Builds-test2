@@ -52,11 +52,8 @@ ffbuild_dockerbuild() {
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
         # Для статической линковки иногда нужны дополнительные флаги
         echo "Libs.private: -lm" >> "$PC_FILE"
-    patch_pc_files
     fi
 
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_configure() {

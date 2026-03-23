@@ -18,8 +18,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     ./autogen.sh
 
     local myconf=(
@@ -44,8 +42,6 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
     # Исправляем .pc файл для статической линковки в FFmpeg
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/zimg.pc"
     if [[ -f "$PC_FILE" ]]; then
@@ -55,7 +51,6 @@ ffbuild_dockerbuild() {
         fi
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

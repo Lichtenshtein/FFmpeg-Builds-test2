@@ -21,7 +21,6 @@ ffbuild_dockerbuild() {
     # Передаем префикс правильно
     make PREFIX="$FFBUILD_DESTPREFIX" install || return 1
 
-    get_deps_list
 }
 
 ffbuild_configure() {

@@ -19,5 +19,4 @@ ffbuild_dockerbuild() {
         rm "$FFBUILD_DESTPREFIX"/lib/*.la || true
     fi
 
-    get_deps_list
 }

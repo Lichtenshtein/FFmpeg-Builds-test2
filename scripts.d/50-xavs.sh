@@ -13,8 +13,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     # Исправляем configure, чтобы он не игнорировал внешние CFLAGS (частая беда xavs)
     sed -i 's/CFLAGS="$CFLAGS -Wall/CFLAGS="$CFLAGS -Wall $EXTRA_CFLAGS/' configure
 
@@ -43,8 +41,6 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
     # xavs часто не создает корректный pkg-config файл или ставит его не туда.
     # Если xavs.pc отсутствует, FFmpeg его не найдет.
     if [[ ! -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/xavs.pc" ]]; then
@@ -64,7 +60,6 @@ Cflags: -I\${includedir}
 EOF
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

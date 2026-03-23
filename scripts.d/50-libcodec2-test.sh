@@ -25,8 +25,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     # Сначала полностью вырезаем проблемный блок ExternalProject
     # Мы заменяем его на пустышку, чтобы CMake не ругался на отсутствие цели generate_codebook
     sed -i '/if(CMAKE_CROSSCOMPILING)/,/endif(CMAKE_CROSSCOMPILING)/c\add_executable(generate_codebook IMPORTED)\nset_target_properties(generate_codebook PROPERTIES IMPORTED_LOCATION /usr/bin/true)' src/CMakeLists.txt
@@ -111,7 +109,6 @@ EOF
         fi
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

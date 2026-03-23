@@ -36,7 +36,6 @@ ffbuild_dockerbuild() {
     cp -f "$FFBUILD_DESTPREFIX"/include/uavs3e/uavs3e.h "$FFBUILD_DESTPREFIX"/include
     cp -f "$FFBUILD_DESTPREFIX"/include/uavs3e/com_api.h "$FFBUILD_DESTPREFIX"/include
 
-    get_deps_list
 }
 
 ffbuild_configure() {
