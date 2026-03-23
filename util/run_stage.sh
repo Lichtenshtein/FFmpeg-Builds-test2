@@ -26,13 +26,20 @@ export -f should_run_wine
 
 # Wrapper function to execute commands
 wine_run_wrapped() {
+    local cmd="$1"
     if should_run_wine; then
         # -n 99: use display 99
         # -s: Xvfb arguments
         # -a: auto-servernum (use next available if 99 is busy)
         log_info "${START_MARK} Starting Xvfb (Display :99) for Wine/Build tests..."
         local current_dir=$(pwd)
-        xvfb-run -n 99 -a -s "-screen 0 1024x768x16" bash -c "cd '$current_dir' && $1"
+        xvfb-run -n 99 -a -s "-screen 0 1024x768x16" bash -c "
+            set -e
+            cd '$current_dir'
+            . /builder/util/vars.sh '$TARGET' '$VARIANT'
+            . '$SCRIPT_PATH'
+            $cmd
+        "
     else
          log_debug "Stage $STAGENAME: Wine/Xvfb initialization skipped (Mode: $USE_WINE)."
         "$@"
@@ -199,11 +206,8 @@ log_info "### Starting build function: $build_cmd"
 log_info "################################################################"
 
 if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
-    export BASH_FUNC_EXPORT_FILE="/tmp/func_export.sh"
-    declare -f > "$BASH_FUNC_EXPORT_FILE"
-    export BASH_ENV="$BASH_FUNC_EXPORT_FILE"
     log_info "Verbose mode active. Build output will be shown in real-time."
-    if ! ( set -e -o pipefail; wine_run_wrapped "$build_cmd" ); then
+    if ! ( set -e -o pipefail; wine_run_wrapped $build_cmd ); then
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         log_error "!!! ${CROSS_MARK} ERROR: Build failed for ${STAGENAME}"
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
