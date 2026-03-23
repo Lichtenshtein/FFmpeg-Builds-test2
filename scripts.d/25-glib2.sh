@@ -28,7 +28,11 @@ ffbuild_dockerbuild() {
     # В MinGW его нет, заменяем проверку или просто комментируем
     # Точный патч для cmph_time.h
     # sed -i '11,13s/^/\/\/ /' girepository/cmph/cmph_time.h
-    sed -i 's/#ifndef WIN32/#if 0/' girepository/cmph/cmph_time.h
+    # sed -i 's/#ifndef WIN32/#if 0/' girepository/cmph/cmph_time.h
+    sed -i '/#include <sys\/resource.h>/d' girepository/cmph/cmph_time.h
+
+    # Удаляем жесткое переопределение версии Windows из исходников GLib
+    sed -i '/#define _WIN32_WINNT 0x/d' meson.build
 
     # Удаляем субпроекты, которые ломают сборку
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
@@ -41,7 +45,7 @@ cpu = 'x86_64'
 endian = 'little'
 
 [binaries]
-# exe_wrapper = 'wine'
+exe_wrapper = ['wine']
 c = '${FFBUILD_TOOLCHAIN}-gcc'
 cpp = '${FFBUILD_TOOLCHAIN}-g++'
 ar = '${FFBUILD_TOOLCHAIN}-gcc-ar'
@@ -89,10 +93,15 @@ EOF
         -Dman-pages=disabled
         -Dselinux=disabled
         -Dsysprof=disabled
+        -Dcore_services=enabled
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
+    echo "DEBUG: pcre2 cflags: $(pkg-config --cflags libpcre2-8)"
+    echo "DEBUG: libffi cflags: $(pkg-config --cflags libffi)"
+
+# -Wno-error=missing-include-dirs -Wno-error=redundant-decls
     # Передаем линковочные флаги через meson, чтобы проверки (типа наличия функций) проходили успешно
     meson setup _build . \
         "${myconf[@]}" \
