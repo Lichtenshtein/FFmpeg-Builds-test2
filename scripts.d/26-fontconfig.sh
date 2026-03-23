@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
     set -e
 
     # Fontconfig требует либо expat, либо libxml2.
-    local DEP_LIBS="-lxml2 -lfreetype -lintl -lcharset -liconv"
+    local DEP_LIBS="-lxml2 -lfreetype -lcharset -liconv"
     local WIN_LIBS="-luuid $LIBS"
 
     local myconf=(
@@ -65,17 +65,18 @@ ffbuild_dockerbuild() {
 
     rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{var,etc}
 
-    local PC_FILE="PC_DIR/fontconfig.pc"
+    local PC_FILE="$PC_DIR/fontconfig.pc"
     if [[ -f "$PC_FILE" ]]; then
+        sed -i 's/ -liconv//g; s/ -lm//g' "$PC_FILE"
         if grep -q "^Libs.private:" "$PC_FILE"; then
             sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS|" "$PC_FILE"
         else
             sed -i "/^Libs:/ a Libs.private: $DEP_LIBS $WIN_LIBS" "$PC_FILE"
         fi
-        sed -i 's/-liconv//g; s/-lm//g' "$PC_FILE"
-    patch_pc_files
+        sed -i "s|$FFBUILD_PREFIX|\${prefix}|g" "$PC_FILE"
     fi
 
+    patch_pc_files
     clean_la_files
     get_deps_list
 }
