@@ -200,7 +200,7 @@ patch_pc_files() {
     fi
 
     # Список библиотек, которые сканер будет искать в конфигах
-    local scan_candidates="zstd lzma bz2 webp openjp2 jpeg tiff png zlib brotli iconv lcms2 jbig"
+    local scan_candidates="zstd lzma bz2 webp openjp2 jpeg tiff png zlib brotli iconv lcms2 jbig freetype2 libxml-2.0 libffi intl"
 
     # замена абсолютных путей на переменные
     find "$pc_dir" -name "*.pc" | while read -r pc; do
@@ -219,45 +219,42 @@ patch_pc_files() {
         sed -i '/=/! s|'"$FFBUILD_PREFIX"'/lib|${libdir}|g' "$pc"
         sed -i '/=/! s|'"$FFBUILD_PREFIX"'|${prefix}|g' "$pc"
 
-        # сканер зависимостей (Autotools, CMake, Meson)
-        local extra_found=""
-        for lib in $scan_candidates; do
-        # Если .pc файл для этой либы уже существует в нашем префиксе
-            local pc_exists=false
-            if [[ -f "$FFBUILD_PREFIX/lib/pkgconfig/${lib}.pc" ]] || \
-               [[ -f "$FFBUILD_PREFIX/lib/pkgconfig/lib${lib}.pc" ]] || \
-               [[ -f "$FFBUILD_PREFIX/share/pkgconfig/${lib}.pc" ]]; then
-                pc_exists=true
-            fi
-        # Если в корне есть признаки C++ (обычно CMake/Meson проекты), 
-        # или если мы нашли CXX-файлы
-            if [[ -f "../CMakeLists.txt" || -f "../meson.build" ]]; then
-                if find "$src_root" -maxdepth 2 -name "*.cpp" -o -name "*.cc" | grep -q .; then
-                    extra_found+="-lstdc++ "
-                fi
-            fi
+        local extra_libs=""
+        local extra_requires=""
 
-            if [[ "$pc_exists" == "true" ]]; then
-            # Ищем признаки включения в разных билд-системах:
-            # - Autotools: HAVE_LIB... или config.h
-            # - CMake: Find... или CM_HAS_...
-            # - Meson: found: true или meson-info
+        # сканер зависимостей (Autotools, CMake, Meson)
+        for lib in $scan_candidates; do
+            local pc_name="$lib"
+            # Проверяем наличие .pc файла в префиксе
+            if [[ -f "$FFBUILD_PREFIX/lib/pkgconfig/${lib}.pc" || -f "$FFBUILD_PREFIX/lib/pkgconfig/lib${lib}.pc" || -f "$FFBUILD_PREFIX/share/pkgconfig/${lib}.pc" ]]; then
+                # Если библиотека найдена в конфигах билда
                 if grep -rqiE "(have_lib|#define.*HAVE_LIB|found.*|find_package.*)${lib}.*(yes|1|true|found)" "$src_root" \
                     --include="config.*" --include="*.ac" --include="*.cmake" --include="CMakeLists.txt" \
                     --include="meson.build" --include="*.meson" --max-count=1 2>/dev/null; then
+                    # Если это полноценная библиотека с .pc, кидаем в Requires.private
+                    # Если это системная либа или специфичный флаг — в Libs.private
                     case "$lib" in
-                        zlib)   extra_found+="-lz " ;;
-                        bz2)    extra_found+="-lbz2 " ;;
-                        iconv)  extra_found+="-liconv " ;;
-                        jpeg)   extra_found+="-ljpeg " ;;
-                        *)      local clean_name="${lib#lib}"
-                                extra_found+="-l${clean_name} " ;;
+                        iconv|bz2|zlib|jpeg) extra_libs+="-l${lib#lib} " ;; 
+                        *) extra_requires+="${lib} " ;;
                     esac
                 fi
             fi
         done
 
-        # Гарантируем наличие Libs.private
+        # -lstdc++ только если проект реально использует C++
+        if find "$src_root" -maxdepth 2 -name "*.cpp" -o -name "*.cc" 2>/dev/null | grep -q .; then
+            extra_libs+="-lstdc++ "
+        fi
+
+        # Врезка Requires.private (если нашли зависимости с .pc)
+        if [[ -n "$extra_requires" ]]; then
+            if ! grep -q "^Requires.private:" "$pc"; then
+                sed -i "/^Name:/ a Requires.private:" "$pc"
+            fi
+            sed -i "/^Requires.private:/ s/$/ $extra_requires/" "$pc"
+        fi
+
+        # Врезка Libs.private
         if ! grep -q "^Libs.private:" "$pc"; then
             sed -i "/^Libs:/ a Libs.private:" "$pc"
         fi
@@ -272,14 +269,18 @@ patch_pc_files() {
             BEGIN { split(pub, p, " ") }
             {
                 for(i=1;i<=NF;i++) {
-                    is_dup=0;
-                    for(j in p) if($i == p[j]) is_dup=1;
+                    is_dup=0; for(j in p) if($i == p[j]) is_dup=1;
                     if(!is_dup && !seen[$i]++) printf "%s ", $i
                 }
                 print ""
             }
         ')
         sed -i "s|^Libs.private:.*|Libs.private: $new_priv|" "$pc"
+
+        # Дедупликация Requires.private
+        local req_line=$(grep "^Requires.private:" "$pc" | cut -d':' -f2- | tr ',' ' ')
+        local new_req=$(echo "$req_line" | awk '{for(i=1;i<=NF;i++) if(!seen[$i]++) printf "%s ", $i; print ""}')
+        sed -i "s|^Requires.private:.*|Requires.private: $new_req|" "$pc"
 
         # Чистим лишние пробелы в конце и между флагами
         sed -i 's/[[:space:]]*$//; s/  */ /g' "$pc"

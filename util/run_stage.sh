@@ -154,6 +154,15 @@ if [[ -n "$DL_COMMANDS" ]]; then
         tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C .
     fi
 
+    # АВТО-ПАТЧИНГ
+    log_info "${TARGET_MARK} Checking for patches..."
+    COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
+    if [[ -d "/builder/patches/$COMPONENT_NAME" ]]; then
+        apply_patches 
+    else
+        log_debug "No patches directory found for $COMPONENT_NAME"
+    fi
+
     # Поиск корня проекта (если архив распаковался в подпапку)
     if [[ ! -f "Configure" && ! -f "configure" && ! -f "CMakeLists.txt" && ! -f "meson.build" ]]; then
         log_warn "${XCLAM_MARK} No build file in root. ${SEARCH_MARK} Searching one level deeper..."
@@ -288,20 +297,19 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         # Using -u (update) to avoid overwriting newer files if layers run out of order
         rsync -a --checksum "$FFBUILD_DESTDIR$FFBUILD_PREFIX/" "$FFBUILD_PREFIX/"
         log_info "${CHECK_MARK} Sync completed. Component is now available for dependencies."
-
-        # .la files, dependancies and .pc files auditing
-        # if [[ "$SKIP_POST_PATCH" != "1" ]]; then
-            # patch_pc_files
-        # fi
-        # if [[ "$SKIP_POST_CLEAN" != "1" ]]; then
-            # clean_la_files
-        # fi
-        # if [[ "$SKIP_POST_AUDIT" != "1" ]]; then
-            # get_deps_list
-        # fi
     else
         log_warn "${XCLAM_MARK} Stage $STAGENAME finished but no files were found in DESTDIR."
     fi
+
+    log_info "${SYNC_MARK} Running post-build automation for $STAGENAME..."
+    # Исправляем .pc файлы (пути, зависимости, Requires.private)
+    # Флаг SKIP_POST_PATCH=1 в скрипте может это отключить при необходимости
+    [[ "$SKIP_POST_PATCH" != "1" ]] && patch_pc_files
+    # Удаляем мусорные .la файлы
+    [[ "$SKIP_POST_CLEAN" != "1" ]] && clean_la_files
+    # Запускаем аудит зависимостей (вывод в лог)
+    [[ "$FFBUILD_VERBOSE" == "1" ]] && get_deps_list
+    log_info "${CHECK_MARK} Post-build automation completed."
     log_info "################################################################"
 fi
 
