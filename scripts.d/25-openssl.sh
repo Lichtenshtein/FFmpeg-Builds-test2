@@ -57,8 +57,8 @@ ffbuild_dockerbuild() {
     )
 
     ./Configure "${myconf[@]}" \
-        "$CFLAGS -fno-strict-aliasing" \
-        "$CPPFLAGS" \
+        "-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -fno-strict-aliasing" \
+        "-I/opt/ffbuild/include -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2" \
         "$LDFLAGS" \
         "$LIBS" || return 1
 
