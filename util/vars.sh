@@ -285,12 +285,12 @@ get_deps_list() {
 
     if [[ -d "$lib_dir/pkgconfig" ]]; then
         find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
-            pc_file="$1"; shift
-            pkg_config_cmd="$1"; shift
-            xclam_mark="$1"; shift
-            search_mark="$1"; shift
-            current_lib_dir="$5"
-            export PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR:$lib_dir/pkgconfig"
+            pc_file="$1"
+            pkg_config_cmd="$2"
+            xclam_mark="$3"
+            search_mark="$4"
+            current_pc_dir="$5" 
+            export PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR:$current_pc_dir"
             export PKG_CONFIG_SYSROOT_DIR="/"
 
             printf "\n%b %s\n" "$xclam_mark" "$pc_file"
@@ -310,7 +310,7 @@ get_deps_list() {
             else
                 echo "No dependencies found."
             fi
-        ' _ {} "${PKG_CONFIG:-pkg-config}" "$XCLAM_MARK" "$SEARCH_MARK" "$lib_dir" \; || true
+        ' _ {} "${PKG_CONFIG:-pkg-config}" "$XCLAM_MARK" "$SEARCH_MARK" "$lib_dir/pkgconfig" \; || true
     fi
     find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) -print0 2>/dev/null | \
     xargs -0 -r -I{} bash -c '
