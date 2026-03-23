@@ -289,7 +289,7 @@ get_deps_list() {
             pkg_config_cmd="$1"; shift
             xclam_mark="$1"; shift
             search_mark="$1"; shift
-            local current_lib_dir="$5"
+            current_lib_dir="$5"
             export PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR:$lib_dir/pkgconfig"
             export PKG_CONFIG_SYSROOT_DIR="/"
 
