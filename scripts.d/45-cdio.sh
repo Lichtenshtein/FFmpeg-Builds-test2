@@ -45,7 +45,4 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V MAKEINFO=true || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" MAKEINFO=true || return 1
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }

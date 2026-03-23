@@ -15,8 +15,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     mkdir build && cd build
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
@@ -33,7 +31,6 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    get_deps_list
 }
 
 ffbuild_configure() {

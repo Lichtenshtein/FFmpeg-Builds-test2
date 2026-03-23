@@ -11,7 +11,6 @@ ffbuild_dockerbuild() {
     # просто создаем пустую стадию, чтобы активировать флаги.
     return 0
 
-    get_deps_list
 }
 
 ffbuild_configure() {

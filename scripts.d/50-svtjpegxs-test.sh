@@ -56,7 +56,6 @@ ffbuild_dockerbuild() {
            "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/svtjpegxs.pc"
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

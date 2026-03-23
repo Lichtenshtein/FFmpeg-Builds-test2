@@ -35,5 +35,4 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    get_deps_list
 }

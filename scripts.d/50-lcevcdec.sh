@@ -41,7 +41,6 @@ ffbuild_dockerbuild() {
 
     mv lcevc_dec.pc "$FFBUILD_DESTPREFIX"/lib/pkgconfig/lcevc_dec.pc
 
-    get_deps_list
 }
 
 ffbuild_configure() {

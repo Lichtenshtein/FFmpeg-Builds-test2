@@ -132,7 +132,6 @@ Libs.private: -lstdc++ -lm -lgcc -lmingwex -lmingw32 -luser32 -ladvapi32 -lshell
 Cflags: -I\${includedir}
 EOF
 
-    get_deps_list
 }
 
 ffbuild_configure() {

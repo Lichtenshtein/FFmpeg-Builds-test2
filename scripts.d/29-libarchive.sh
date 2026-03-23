@@ -73,9 +73,6 @@ ffbuild_dockerbuild() {
         else
             sed -i "/^Libs:/ a Libs.private: $DEP_LIBS $WIN_LIBS" "$PC_FILE"
         fi
-    patch_pc_files
     fi
 
-    clean_la_files
-    get_deps_list
 }

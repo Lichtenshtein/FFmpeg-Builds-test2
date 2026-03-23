@@ -18,8 +18,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     mkdir cmbuild && cd cmbuild
 
     CFLAGS="$CFLAGS $CPPFLAGS -pthread -I/opt/ffbuild/include/libvmaf" \
@@ -39,9 +37,6 @@ ffbuild_dockerbuild() {
 
     echo "Requires.private: libvmaf" >> "$PC_DIR/aom.pc"
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_configure() {

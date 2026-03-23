@@ -28,7 +28,4 @@ ffbuild_dockerbuild() {
     make -j"$(nproc)" $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
-    get_deps_list
 }

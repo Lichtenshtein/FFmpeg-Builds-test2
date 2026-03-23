@@ -57,9 +57,6 @@ ffbuild_dockerbuild() {
 
     echo "Libs: -ldl" >> "$PC_DIR/libdrm.pc"
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_configure() {

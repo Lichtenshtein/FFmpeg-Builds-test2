@@ -82,7 +82,6 @@ ffbuild_dockerbuild() {
         echo "Libs: -ldl" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libva.pc
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

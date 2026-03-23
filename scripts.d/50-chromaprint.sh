@@ -37,7 +37,6 @@ ffbuild_dockerbuild() {
     echo "Libs.private: -lfftw3 -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libchromaprint.pc
     echo "Cflags.private: -DCHROMAPRINT_NODLL" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libchromaprint.pc
 
-    get_deps_list
 }
 
 ffbuild_configure() {

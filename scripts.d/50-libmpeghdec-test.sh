@@ -13,8 +13,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     mkdir build_win && cd build_win
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
@@ -49,7 +47,6 @@ Cflags: -I\${includedir}
 EOF
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

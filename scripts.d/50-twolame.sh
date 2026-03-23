@@ -44,8 +44,6 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    clean_la_files
-
     # ФИКС pkg-config (Критично для FFmpeg)
     # Гарантируем, что любой, кто линкуется с twolame, знает о статике
     local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/twolame.pc"
@@ -60,7 +58,6 @@ ffbuild_dockerbuild() {
         echo "Libs.private: -lm" >> "$PC_FILE"
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

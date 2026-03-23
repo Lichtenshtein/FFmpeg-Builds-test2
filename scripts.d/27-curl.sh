@@ -97,11 +97,8 @@ ffbuild_dockerbuild() {
         if ! grep -q "DCURL_STATICLIB" "$PC_FILE"; then
             sed -i "/^Cflags:/ s/$/ -DCURL_STATICLIB/" "$PC_FILE"
         fi
-    patch_pc_files
     fi
 
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_cppflags() {

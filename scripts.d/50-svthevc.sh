@@ -17,8 +17,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     mkdir build1 && cd build1
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
@@ -35,7 +33,6 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    get_deps_list
 }
 
 ffbuild_configure() {

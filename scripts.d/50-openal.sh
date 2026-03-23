@@ -13,8 +13,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     mkdir cm_build && cd cm_build
 
     CFLAGS="$CFLAGS $CPPFLAGS -include stdlib.h" \
@@ -36,7 +34,6 @@ ffbuild_dockerbuild() {
         echo "Libs.private: -lole32 -luuid" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/openal.pc
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

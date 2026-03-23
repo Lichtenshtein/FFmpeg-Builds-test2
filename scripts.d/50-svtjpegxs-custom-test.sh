@@ -77,7 +77,6 @@ Cflags: -I\${includedir}
 EOF
     fi
 
-    get_deps_list
 }
 
 ffbuild_configure() {

@@ -43,13 +43,9 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    patch_pc_files
-    clean_la_files
-
     # Создаем стандартные симлинки для совместимости
     # Многие старые пакеты ищут libpng16.pc или libpng.pc
     local PC_LINK="$PC_DIR/libpng.pc"
     ln -sf libpng16.pc "$PC_LINK"
 
-    get_deps_list
 }

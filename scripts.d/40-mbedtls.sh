@@ -42,7 +42,4 @@ ffbuild_dockerbuild() {
         echo "Libs.private: -lws2_32 -lbcrypt -lwinmm -lgdi32" >> "$PC_DIR/mbedcrypto.pc"
     fi
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }

@@ -14,8 +14,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     mkdir build && cd build
 
         # -DENABLE_EXCEPTIONS=ON 
@@ -78,9 +76,6 @@ ffbuild_dockerbuild() {
 
     cp glslc/glslc /opt/glslc
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_configure() {

@@ -70,9 +70,6 @@ ffbuild_dockerbuild() {
     echo "Libs.private: -ldl -lrt -liconv" >> "$PC_DIR/libpulse.pc"
     echo "Libs.private: -ldl -lrt -liconv" >> "$PC_DIR/libpulse-simple.pc"
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_configure() {

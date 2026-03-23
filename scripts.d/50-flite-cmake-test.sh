@@ -14,8 +14,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     # Исправляем POSIX-зависимость в сокетах для Windows
     # отключаем содержимое файла, так как WITH_AUDIO=OFF все равно делает его ненужным
     echo "/* Disabled for MinGW */" > src/utils/cst_socket.c
@@ -62,7 +60,6 @@ Libs: -L\${libdir} -lflite -lm -lws2_32
 Cflags: -I\${includedir}
 EOF
 
-    get_deps_list
 }
 
 ffbuild_configure() {

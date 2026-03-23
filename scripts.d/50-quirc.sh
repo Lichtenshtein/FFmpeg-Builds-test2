@@ -14,8 +14,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    apply_patches
-
     # Явно передаем инструменты, чтобы quirc не собрался под хост (Linux)
     make libquirc.a $MAKE_V -j$(nproc) CC="$CC" AR="$AR" CFLAGS="$CFLAGS" || return 1
     
@@ -23,7 +21,6 @@ ffbuild_dockerbuild() {
     cp libquirc.a "$FFBUILD_DESTPREFIX/lib/"
     cp lib/quirc.h "$FFBUILD_DESTPREFIX/include/"
 
-    get_deps_list
 }
 
 ffbuild_configure() {

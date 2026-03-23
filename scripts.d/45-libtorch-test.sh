@@ -50,9 +50,6 @@ Libs.private: -lshlwapi -luser32 -ladvapi32 -lstdc++
 Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX
 EOF
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_configure() { echo --enable-libtorch; }

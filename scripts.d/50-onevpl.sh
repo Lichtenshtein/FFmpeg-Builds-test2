@@ -41,7 +41,6 @@ ffbuild_dockerbuild() {
 
     echo "Libs.private: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/vpl.pc
 
-    get_deps_list
 }
 
 ffbuild_configure() {

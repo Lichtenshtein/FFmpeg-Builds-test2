@@ -33,9 +33,6 @@ ffbuild_dockerbuild() {
         sed -i '/^Cflags:/ s/$/ -DBROTLI_STATIC/' "$pc"
     done
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_cppflags() {

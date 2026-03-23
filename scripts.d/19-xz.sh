@@ -54,11 +54,8 @@ ffbuild_dockerbuild() {
     local PC_FILE="$PC_DIR/liblzma.pc"
     if [[ -f "$PC_FILE" ]]; then
         sed -i '/^Cflags:/ s/$/ -DLZMA_API_STATIC/' "$PC_FILE"
-    patch_pc_files
     fi
 
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_cppflags() {

@@ -46,7 +46,6 @@ ffbuild_dockerbuild() {
 
     chmod 644 "${FFBUILD_DESTPREFIX}"/lib/*rav1e*
 
-    get_deps_list
 }
 
 ffbuild_configure() {

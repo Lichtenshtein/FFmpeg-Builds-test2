@@ -53,9 +53,6 @@ ffbuild_dockerbuild() {
         sed -i 's/^Libs:.*/& -lpangocairo-1.0 -lpango-1.0 -lcairo -lcairo-gobject -lglib-2.0 -lgobject-2.0 -lxml2 -lintl -lcharset -liconv -luserenv -lusp10 -lsetupapi -lruntimeobject -lntdll -lmsimg32 -lgdi32 -lstdc++/' "$PC_FILE"
     fi
 
-    patch_pc_files
-    clean_la_files
-    get_deps_list
 }
 
 ffbuild_configure() {

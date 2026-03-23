@@ -38,7 +38,6 @@ ffbuild_dockerbuild() {
 
     echo "Libs.private: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/srt.pc
 
-    get_deps_list
 }
 
 ffbuild_configure() {
