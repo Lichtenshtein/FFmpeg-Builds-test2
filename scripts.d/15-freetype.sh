@@ -42,7 +42,7 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # patch_pc_files
+    patch_pc_files
 
     # Создаем симлинк
     local PC_LINK="$PC_DIR/freetype.pc"
