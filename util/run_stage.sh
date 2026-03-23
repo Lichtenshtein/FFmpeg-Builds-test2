@@ -12,6 +12,38 @@ fi
 
 STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
 
+# Определяем режим работы Wine (берем из ENV или ставим auto по умолчанию)
+USE_WINE="${USE_WINE:-auto}"
+WINE_CMD=$(command -v wine64 || command -v wine)
+# Функция для принятия решения о запуске графического окружения и Wine
+# Detect if the script needs a display (Wine, Meson, CMake tests)
+should_run_wine() {
+    [[ "$USE_WINE" == "on" ]] && return 0
+    [[ "$USE_WINE" == "off" ]] && return 1
+    grep -qE "meson setup|cmake|\./configure|wine" "$SCRIPT_PATH"
+}
+export -f should_run_wine
+
+# Wrapper function to execute commands
+wine_run_wrapped() {
+    local cmd="$1"
+    if should_run_wine; then
+        log_info "${START_MARK} Starting Xvfb (Display :99) for Wine/Build..."
+        local current_build_dir=$(pwd)
+        xvfb-run -n 99 -a -s "-screen 0 1024x768x16" bash -c "
+            set -e
+            cd '$current_build_dir'
+            . /builder/util/vars.sh '$TARGET' '$VARIANT'
+            . '$SCRIPT_PATH'
+            $cmd
+        "
+    else
+         log_debug "Stage $STAGENAME: Wine/Xvfb initialization skipped (Mode: $USE_WINE)."
+        "$cmd"
+    fi
+}
+export -f wine_run_wrapped
+
 # Подгружаем утилиты, используя абсолютный путь
 if ! declare -F log_info >/dev/null; then
     . /builder/util/vars.sh "$TARGET" "$VARIANT" 2>/dev/null \
