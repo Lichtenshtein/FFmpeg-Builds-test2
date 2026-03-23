@@ -39,8 +39,8 @@ log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 export -f log_info log_warn log_error log_debug
 
 # Argument resolution: prefer positional args, fall back to environment. приоритет аргументам, иначе берем из ENV
-TARGET="${1:-$TARGET}"
-VARIANT="${2:-$VARIANT}"
+export TARGET="${1:-$TARGET}"
+export VARIANT="${2:-$VARIANT}"
 
 # Validate TARGET and VARIANT only enforce when called directly OR when
 # arguments were explicitly passed (sourced scripts may not pass args)
@@ -451,19 +451,20 @@ export -f should_run_wine
 
 # Wrapper function to execute commands
 wine_run_wrapped() {
+    local cmd="$1"
     if should_run_wine; then
-        # -n 99: use display 99
-        # -s: Xvfb arguments
-        # -a: auto-servernum (use next available if 99 is busy)
-        log_info "${START_MARK} Starting Xvfb (Display :99) for Wine/Build tests..."
+        log_info "${START_MARK} Starting Xvfb (Display :99) for Wine/Build..."
+        local current_build_dir=$(pwd)
         xvfb-run -n 99 -a -s "-screen 0 1024x768x16" bash -c "
+            set -e
+            cd '$current_build_dir'
             . /builder/util/vars.sh '$TARGET' '$VARIANT'
             . '$SCRIPT_PATH'
             $cmd
         "
     else
          log_debug "Stage $STAGENAME: Wine/Xvfb initialization skipped (Mode: $USE_WINE)."
-        "$@"
+        "$cmd"
     fi
 }
 export -f wine_run_wrapped
