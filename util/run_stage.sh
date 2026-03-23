@@ -207,7 +207,7 @@ log_info "################################################################"
 
 if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
     log_info "Verbose mode active. Build output will be shown in real-time."
-    if ! ( set -e -o pipefail; wine_run_wrapped $build_cmd ); then
+    if ! set -e -o pipefail; wine_run_wrapped "$build_cmd"; then
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         log_error "!!! ${CROSS_MARK} ERROR: Build failed for ${STAGENAME}"
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
