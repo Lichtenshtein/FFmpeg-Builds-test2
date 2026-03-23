@@ -56,10 +56,8 @@ ffbuild_dockerbuild() {
         --openssldir="$FFBUILD_PREFIX/etc/ssl"
     )
 
-    local CLEAN_CFLAGS=$(echo "$CFLAGS" | sed 's/-fno-semantic-interposition//g')
-
     ./Configure "${myconf[@]}" \
-        "$CLEAN_CFLAGS -fno-strict-aliasing" \
+        "$CFLAGS -fno-strict-aliasing" \
         "$CPPFLAGS" \
         "$LDFLAGS" \
         "$LIBS" || return 1
