@@ -427,9 +427,9 @@ export -f apply_patches
 
 # .la files, dependancies and .pc files auditing
 # add ffbuild_dockerbuild() { export SKIP_POST_PATCH=1 } to disable
-# export SKIP_POST_PATCH=0
-# export SKIP_POST_CLEAN=0
-# export SKIP_POST_AUDIT=0
+export SKIP_POST_PATCH=0
+export SKIP_POST_CLEAN=0
+export SKIP_POST_AUDIT=0
 
 # Динамическое определение путей тулчейна
 # Ищем, где реально лежат заголовочные файлы и либы mingw в образе
