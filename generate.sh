@@ -129,7 +129,7 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    --mount=type=bind,source=variants,target=/builder/variants \\"
     to_df "    --mount=type=bind,source=addins,target=/builder/addins \\"
     to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads,rw \\"
-    to_df "    set -e && export _H=$LAYER_ID && . /builder/util/vars.sh \"$TARGET\" \"$VARIANT\" && run_stage /builder/$STAGE"
+    to_df "    set -e && export _H=$LAYER_ID && export TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" SCRIPT_PATH=\"/builder/$STAGE\" && . /builder/util/vars.sh \"$TARGET\" \"$VARIANT\" && run_stage /builder/$STAGE"
 done
 
 if [[ $SKIP_FFMPEG -eq 1 ]]; then
