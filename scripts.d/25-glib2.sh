@@ -93,13 +93,9 @@ EOF
         -Dman-pages=disabled
         -Dselinux=disabled
         -Dsysprof=disabled
-        -Dcore_services=enabled
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
-
-    echo "DEBUG: pcre2 cflags: $(pkg-config --cflags libpcre2-8)"
-    echo "DEBUG: libffi cflags: $(pkg-config --cflags libffi)"
 
 # -Wno-error=missing-include-dirs -Wno-error=redundant-decls
     # Передаем линковочные флаги через meson, чтобы проверки (типа наличия функций) проходили успешно
