@@ -455,11 +455,11 @@ wine_run_wrapped() {
         # -n 99: use display 99
         # -s: Xvfb arguments
         # -a: auto-servernum (use next available if 99 is busy)
-        xvfb-run -n 99 -a -s "-screen 0 1024x768x16" "$@"
         log_info "${START_MARK} Starting Xvfb (Display :99) for Wine/Build tests..."
+        xvfb-run -n 99 -a -s "-screen 0 1024x768x16" bash -c "export -f $1; $1"
     else
-        "$@"
          log_debug "Stage $STAGENAME: Wine/Xvfb initialization skipped (Mode: $USE_WINE)."
+        "$@"
     fi
 }
 export -f wine_run_wrapped
