@@ -29,6 +29,7 @@ ffbuild_dockerbuild() {
 
     # Фикс для QUIC
     # sed -i '1i#ifndef SIO_UDP_NETRESET\n#define SIO_UDP_NETRESET _WSAIOW(IOC_VENDOR, 15)\n#endif' include/internal/sockets.h
+    find . -name "quic_reactor.c" -o -name "sockets.h" | xargs sed -i '1i #ifndef SIO_UDP_NETRESET\n#define SIO_UDP_NETRESET _WSAIOW(IOC_VENDOR, 15)\n#endif'
 
     export CC="${CC/${FFBUILD_CROSS_PREFIX}/}"
     export CXX="${CXX/${FFBUILD_CROSS_PREFIX}/}"
@@ -57,7 +58,7 @@ ffbuild_dockerbuild() {
     )
 
     ./Configure "${myconf[@]}" \
-        "$CFLAGS -fno-strict-aliasing" \
+        "$CFLAGS -fno-strict-aliasing -Wno-overflow" \
         "$CPPFLAGS" \
         "$LDFLAGS" \
         "$LIBS" || return 1
