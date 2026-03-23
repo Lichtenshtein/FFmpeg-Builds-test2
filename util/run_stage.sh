@@ -2,7 +2,7 @@
 
 set -e
 
-SCRIPT_PATH="$1"
+export SCRIPT_PATH="$1"
 
 # Сначала убедимся, что путь к скрипту вообще есть
 if [[ -z "$SCRIPT_PATH" || ! -f "$SCRIPT_PATH" ]]; then
