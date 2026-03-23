@@ -194,9 +194,20 @@ patch_pc_files() {
 
     # замена абсолютных путей на переменные
     find "$pc_dir" -name "*.pc" | while read -r pc; do
-        sed -i "s|$FFBUILD_PREFIX/include|\${includedir}|g" "$pc"
-        sed -i "s|$FFBUILD_PREFIX/lib|\${libdir}|g" "$pc"
-        sed -i "s|$FFBUILD_PREFIX|\${prefix}|g" "$pc"
+        log_debug "Fixing paths in $pc"
+
+        # Удаляем все строки, которые определяют стандартные переменные путей,
+        # чтобы избежать рекурсии типа libdir=${libdir}
+        sed -i '/^prefix=/d; /^exec_prefix=/d; /^libdir=/d; /^includedir=/d; /^bindir=/d' "$pc"
+
+        # Вставляем эталонные определения в самое начало файла
+        # Используем жесткий префикс /opt/ffbuild, так как это стандарт для Docker
+        sed -i '1i prefix=/opt/ffbuild\nexec_prefix=${prefix}\nlibdir=${prefix}/lib\nincludedir=${prefix}/include\nbindir=${prefix}/bin' "$pc"
+
+        # Заменяем абсолютные пути на переменные только в строках, НЕ являющихся определениями (где нет '='). Это защитит наши вставленные в пункте 2 строки от порчи.
+        sed -i '/=/! s|'"$FFBUILD_PREFIX"'/include|${includedir}|g' "$pc"
+        sed -i '/=/! s|'"$FFBUILD_PREFIX"'/lib|${libdir}|g' "$pc"
+        sed -i '/=/! s|'"$FFBUILD_PREFIX"'|${prefix}|g' "$pc"
 
         # сканер зависимостей (Autotools, CMake, Meson)
         local extra_found=""
@@ -278,6 +289,7 @@ get_deps_list() {
             pkg_config_cmd="$1"; shift
             xclam_mark="$1"; shift
             search_mark="$1"; shift
+            local current_lib_dir="$5"
             export PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR:$lib_dir/pkgconfig"
             export PKG_CONFIG_SYSROOT_DIR="/"
 
@@ -298,7 +310,7 @@ get_deps_list() {
             else
                 echo "No dependencies found."
             fi
-        ' _ {} "${PKG_CONFIG:-pkg-config}" "$XCLAM_MARK" "$SEARCH_MARK" "$lib_dir/pkgconfig" \; || true
+        ' _ {} "${PKG_CONFIG:-pkg-config}" "$XCLAM_MARK" "$SEARCH_MARK" "$lib_dir" \; || true
     fi
     find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) -print0 2>/dev/null | \
     xargs -0 -r -I{} bash -c '
@@ -435,6 +447,7 @@ should_run_wine() {
     [[ "$USE_WINE" == "off" ]] && return 1
     grep -qE "meson setup|cmake|\./configure|wine" "$SCRIPT_PATH"
 }
+export -f should_run_wine
 
 # Wrapper function to execute commands
 wine_run_wrapped() {
