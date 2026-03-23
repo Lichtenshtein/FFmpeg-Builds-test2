@@ -172,7 +172,13 @@ log_info "################################################################"
 
 if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
     log_info "Verbose mode active. Build output will be shown in real-time."
-    if ! ( set -e -o pipefail; wine_run_wrapped $build_cmd ); then
+    if ! ( set -e -o pipefail;
+        wine_run_wrapped $build_cmd
+        RET=$?
+        if [ $RET -ne 0 ]; then
+            log_error "Stage $STAGENAME failed with exit code $RET"
+            exit $RET
+        fi ); then
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         log_error "!!! ${CROSS_MARK} ERROR: Build failed for ${STAGENAME}"
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -252,22 +258,21 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         # Sync to the PERSISTENT CACHE MOUNT (So the next script sees them)
         # Using -u (update) to avoid overwriting newer files if layers run out of order
         rsync -a --checksum "$FFBUILD_DESTDIR$FFBUILD_PREFIX/" "$FFBUILD_PREFIX/"
-
         log_info "${CHECK_MARK} Sync completed. Component is now available for dependencies."
+
+        # .la files, dependancies and .pc files auditing
+        # if [[ "$SKIP_POST_PATCH" != "1" ]]; then
+            # patch_pc_files
+        # fi
+        # if [[ "$SKIP_POST_CLEAN" != "1" ]]; then
+            # clean_la_files
+        # fi
+        # if [[ "$SKIP_POST_AUDIT" != "1" ]]; then
+            # get_deps_list
+        # fi
     else
         log_warn "${XCLAM_MARK} Stage $STAGENAME finished but no files were found in DESTDIR."
     fi
-
-    # .la files, dependancies and .pc files auditing
-    # if [[ "$SKIP_POST_PATCH" != "1" ]]; then
-        # patch_pc_files
-    # fi
-    # if [[ "$SKIP_POST_CLEAN" != "1" ]]; then
-        # clean_la_files
-    # fi
-    # if [[ "$SKIP_POST_AUDIT" != "1" ]]; then
-        # get_deps_list
-    # fi
     log_info "################################################################"
 fi
 
