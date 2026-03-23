@@ -100,9 +100,9 @@ BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -
 SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lpthread"
 
 # Флаги для стадии сборки компонентов; disable -fPIC, -ffast-math, -flto=auto if troubles occur
-export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=c11"
+export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=gnu11"
 export CPPFLAGS="-I/opt/ffbuild/include $BASE_CPPFLAGS"
-export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -lstdc++"
+export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=gnu++17"
 export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
 # Очистка флага, специфичного для Linux ELF, при сборке под Windows (ломает OpenSSL asm)
@@ -112,6 +112,8 @@ if [[ "$TARGET" == *"win"* ]]; then
     export STAGE_CFLAGS="${STAGE_CFLAGS//-fno-semantic-interposition/}"
     # На всякий случай проверяем и пустую переменную, если она была задана в Docker
     [[ "$CFLAGS" == *"-fno-semantic-interposition"* ]] && log_debug "${BROOM_MARK} Stripped ELF-specific flags for Windows target."
+    export CFLAGS="${CFLAGS//-std=c11/-std=gnu11}"
+    export CXXFLAGS="${CXXFLAGS//-std=c++17/-std=gnu++17}"
 fi
 
 # Docker stage helpers
@@ -226,6 +228,13 @@ patch_pc_files() {
                [[ -f "$FFBUILD_PREFIX/lib/pkgconfig/lib${lib}.pc" ]] || \
                [[ -f "$FFBUILD_PREFIX/share/pkgconfig/${lib}.pc" ]]; then
                 pc_exists=true
+            fi
+        # Если в корне есть признаки C++ (обычно CMake/Meson проекты), 
+        # или если мы нашли CXX-файлы
+            if [[ -f "../CMakeLists.txt" || -f "../meson.build" ]]; then
+                if find "$src_root" -maxdepth 2 -name "*.cpp" -o -name "*.cc" | grep -q .; then
+                    extra_found+="-lstdc++ "
+                fi
             fi
 
             if [[ "$pc_exists" == "true" ]]; then
