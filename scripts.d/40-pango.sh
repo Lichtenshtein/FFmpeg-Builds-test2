@@ -62,8 +62,8 @@ ffbuild_dockerbuild() {
 
     for pc in "$PC_DIR"/*pango*.pc; do
         [[ -e "$pc" ]] || continue
-        if ! grep -q "\--DPANGO_STATIC_COMPILATION" "$PC_FILE"; then
-            sed -i 's/Cflags:/& --DPANGO_STATIC_COMPILATION/' "$PC_FILE"
+        if ! grep -q "\-DPANGO_STATIC_COMPILATION" "$pc"; then
+            sed -i 's/Cflags:/& -DPANGO_STATIC_COMPILATION/' "$pc"
         fi
     done
 

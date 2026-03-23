@@ -105,8 +105,9 @@ export CPPFLAGS="-I/opt/ffbuild/include $BASE_CPPFLAGS"
 export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=gnu++17"
 export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
-# Очистка флага, специфичного для Linux ELF, при сборке под Windows (ломает OpenSSL asm)
+# Очистка флага, специфичного для Linux ELF
 if [[ "$TARGET" == *"win"* ]]; then
+    # бесполезно при сборке под Windows и ломает OpenSSL asm вместе с std=c11
     export CFLAGS="${CFLAGS//-fno-semantic-interposition/}"
     export CXXFLAGS="${CXXFLAGS//-fno-semantic-interposition/}"
     export STAGE_CFLAGS="${STAGE_CFLAGS//-fno-semantic-interposition/}"
@@ -203,8 +204,8 @@ patch_pc_files() {
     local scan_candidates="zstd lzma bz2 webp openjp2 jpeg tiff png zlib brotli iconv lcms2 jbig freetype2 libxml-2.0 libffi intl"
 
     # замена абсолютных путей на переменные
-    find "$pc_dir" -name "*.pc" | while read -r pc; do
-        [[ -f "$pc" ]] || continue
+    find "$pc_dir" -maxdepth 1 -name "*.pc" | while read -r pc; do
+        [[ -n "$pc" && -f "$pc" ]] || continue
         log_debug "Fixing paths in $pc"
 
         # Удаляем все строки, которые определяют стандартные переменные путей,
