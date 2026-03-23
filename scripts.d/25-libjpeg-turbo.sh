@@ -46,11 +46,6 @@ ffbuild_dockerbuild() {
     for pc in "$PC_DIR"/*jpeg*.pc; do
         [[ -e "$pc" ]] || continue
         sed -i '/^Cflags:/ s/$/ -DLIBJPEG_STATIC/' "$pc"
-        if grep -q "^Libs.private:" "$PC_FILE"; then
-            sed -i "s|^Libs.private:.*|Libs.private: -llcms2|" "$PC_FILE"
-        else
-            sed -i "/^Libs:/ a Libs.private: -llcms2" "$PC_FILE"
-        fi
     done
 
 }

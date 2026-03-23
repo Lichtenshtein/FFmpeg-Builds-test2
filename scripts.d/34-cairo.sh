@@ -86,7 +86,7 @@ ffbuild_dockerbuild() {
     for pc in cairo-dwrite-font.pc cairo.pc cairo-fc.pc cairo-ft.pc cairo-gobject.pc cairo-pdf.pc cairo-png.pc cairo-ps.pc cairo-script-interpreter.pc cairo-script.pc cairo-svg.pc cairo-tee.pc cairo-win32-font.pc cairo-win32.pc; do
     local TARGET_PC="$PC_DIR/$pc"
     [[ -f "$TARGET_PC" ]]; then
-        sed -i "s/-lrt//g" "$PC_FILE"
+        sed -i "s/-lrt//g" "$TARGET_PC"
         if ! grep -q "\-DCAIRO_WIN32_STATIC_BUILD" "$TARGET_PC"; then
             sed -i 's/Cflags:/& -DCAIRO_WIN32_STATIC_BUILD/' "$TARGET_PC"
         fi
