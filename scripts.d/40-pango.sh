@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-    local DEP_LIBS="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lcairo-gobject -lcairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lfontconfig -lfreetype -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfribidi"
+    local DEP_LIBS="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lcairo-gobject -lcairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lfontconfig -lfreetype -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfribidi -lbrotlienc -lbrotlidec -lbrotlicommon"
     local STATIC_DEPS="-DCAIRO_WIN32_STATIC_BUILD -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW -Dpixman_static"
     local WIN_LIBS="-lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -luuid $LIBS -lstdc++"
     export CC="x86_64-w64-mingw32-g++"
