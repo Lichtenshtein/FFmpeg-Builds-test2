@@ -19,8 +19,8 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS -DOAPV_STATIC_DEFINE" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS -DOAPV_STATIC_DEFINE" \
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja \
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
@@ -41,11 +41,15 @@ ffbuild_dockerbuild() {
     rm -rf "$FFBUILD_DESTPREFIX"/{bin,lib/oapv,lib/liboapv.so*}
 
     # Фикс pkg-config для статической линковки
-    if [[ -f "$FFBUILD_DESTPREFIX/lib/pkgconfig/oapv.pc" ]]; then
-        sed -i 's/Libs: /Libs.private: -lm\nLibs: /' "$FFBUILD_DESTPREFIX/lib/pkgconfig/oapv.pc"
-        echo "Cflags.private: -DOAPV_STATIC_DEFINE" >> "$FFBUILD_DESTPREFIX/lib/pkgconfig/oapv.pc"
+    if [[ -f "$PC_DIR/oapv.pc" ]]; then
+        sed -i 's/Libs: /Libs.Private: -lm\nLibs: /' "$PC_DIR/oapv.pc"
+        echo "Cflags: -DOAPV_STATIC_DEFINE" >> "$PC_DIR/oapv.pc"
     fi
 
+}
+
+ffbuild_cflags() {
+    echo "-DOAPV_STATIC_DEFINE"
 }
 
 ffbuild_configure() {

@@ -46,8 +46,8 @@ ffbuild_dockerbuild() {
     # Генерация правильного pkg-config (добавляем все необходимые части либы)
     # Flite после сборки CMake часто разбивается на несколько .a файлов, 
     # но нам нужен основной flite
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/flite.pc"
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/flite.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
@@ -56,7 +56,7 @@ includedir=\${prefix}/include
 Name: flite
 Description: Festival Lite Speech Synthesis System
 Version: 2.1.0
-Libs: -L\${libdir} -lflite -lm -lws2_32
+Libs: -L\${libdir} -lflite
 Cflags: -I\${includedir}
 EOF
 

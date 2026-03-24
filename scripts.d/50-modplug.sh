@@ -34,8 +34,8 @@ ffbuild_dockerbuild() {
     fi
 
     CFLAGS="$CFLAGS" \
-    CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS" \
+    CPPFLAGS="$CPPFLAGS -DMODPLUG_STATIC" \
+    CXXFLAGS="$CXXFLAGS -DMODPLUG_STATIC" \
     LDFLAGS="$LDFLAGS" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
@@ -45,14 +45,14 @@ ffbuild_dockerbuild() {
 
 }
 
+ffbuild_cflags() {
+    echo "-DMODPLUG_STATIC"
+}
+
 ffbuild_configure() {
     echo --enable-libmodplug
 }
 
 ffbuild_unconfigure() {
     echo --disable-libmodplug
-}
-
-ffbuild_cflags() {
-    echo "-DMODPLUG_STATIC"
 }

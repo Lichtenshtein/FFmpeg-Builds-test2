@@ -43,10 +43,10 @@ ffbuild_dockerbuild() {
 
     # xavs часто не создает корректный pkg-config файл или ставит его не туда.
     # Если xavs.pc отсутствует, FFmpeg его не найдет.
-    if [[ ! -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/xavs.pc" ]]; then
+    if [[ ! -f "$PC_DIR/xavs.pc" ]]; then
         log_info "Creating missing xavs.pc manually..."
-        mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-        cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/xavs.pc"
+        mkdir -p "$PC_DIR"
+        cat <<EOF > "$PC_DIR/xavs.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
@@ -55,7 +55,7 @@ includedir=\${prefix}/include
 Name: xavs
 Description: AVS (Audio Video Standard) encoder library
 Version: r$SCRIPT_REV
-Libs: -L\${libdir} -lxavs -lm
+Libs: -L\${libdir} -lxavs
 Cflags: -I\${includedir}
 EOF
     fi

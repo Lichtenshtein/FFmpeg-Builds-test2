@@ -71,7 +71,7 @@ ffbuild_dockerbuild() {
     cp caca/caca.h caca/caca0.h caca/caca_conio.h caca/caca_types.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
 
     # libcaca иногда кладет .pc файл в странные места или пишет туда мусор
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/caca.pc"
+    local PC_FILE="$PC_DIR/caca.pc"
     if [[ -f "$PC_FILE" ]]; then
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
         # FFmpeg требует явного указания системных либ для статики

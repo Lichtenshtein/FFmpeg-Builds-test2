@@ -45,7 +45,7 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Исправляем pkg-config для статической линковки
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/davs2.pc"
+    local PC_FILE="$PC_DIR/davs2.pc"
     if [[ -f "$PC_FILE" ]]; then
         # Гарантируем, что префикс внутри .pc корректный
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
