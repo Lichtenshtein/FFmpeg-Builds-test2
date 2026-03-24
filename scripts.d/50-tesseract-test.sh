@@ -43,7 +43,7 @@ ffbuild_dockerbuild() {
     local NET_ARCHIVE="-larchive -lcurl -lssh -lssl -lcrypto"
     local IMAGES="-llcms2_fast_float -llcms2_threaded -llcms2 -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv"
     local FONT_GLIB="-lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lfontconfig -lfreetype -lpixman-1 -lfribidi -lgio-2.0 -lgthread-2.0 -lglib-2.0"
-    local LOW_LEVEL="-lxml2 -lpcre2-posix -lpcre2-8 -lffi -ljbig -lzstd -llzma -lbrotlienc -lbrotlidec -lbrotlicommon -lbz2 -lz -lintl -liconv -lcharset -licuin -licuuc -licudt"
+    local LOW_LEVEL="-lxml2 -lpcre2-posix -lpcre2-8 -lffi -ljbig -lzstd -llzma -lbrotlienc -lbrotlidec -lbrotlicommon -lbz2 -lz -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt"
 
     # Системные либы Windows (повторяем ws2_32 для curl)
     local WIN_SYS="-luserenv -lcrypt32 -lnormaliz -luuid -lgdi32 -lsetupapi -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lwinmm -lbcrypt -lstdc++"
