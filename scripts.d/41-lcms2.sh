@@ -20,7 +20,7 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-    local DEP_LIBS="-llcms2_fast_float -llcms2_threaded -ltiffxx -ltiff -lturbojpeg -ljpeg -ljbig -lzstd -llzma -lz"
+    local DEP_LIBS="-ltiffxx -ltiff -lturbojpeg -ljpeg -ljbig -lzstd -llzma -lz"
     local WIN_LIBS="$LIBS"
 
     local myconf=(
