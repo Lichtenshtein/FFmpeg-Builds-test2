@@ -66,7 +66,7 @@ on:
       debug_no_hash:
         description: 'Debug: Do not recalculate VARS_HASH (Preserve Docker cache)'
         type: boolean
-        default: false
+        default: true
 env:
   DOCKER_BUILDKIT: 1
   TARGET: win64

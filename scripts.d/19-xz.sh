@@ -41,8 +41,8 @@ ffbuild_dockerbuild() {
         --disable-doc
     )
 
-    CFLAGS="$CFLAGS" \
-    CPPFLAGS="$CPPFLAGS" \
+    CFLAGS="$CFLAGS -Wno-error=implicit-function-declaration" \
+    CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE" \
     CXXFLAGS="$CXXFLAGS" \
     LDFLAGS="$LDFLAGS" \
     LIBS="$DEP_LIBS" \
@@ -55,7 +55,6 @@ ffbuild_dockerbuild() {
     if [[ -f "$PC_FILE" ]]; then
         sed -i '/^Cflags:/ s/$/ -DLZMA_API_STATIC/' "$PC_FILE"
     fi
-
 }
 
 ffbuild_cppflags() {
