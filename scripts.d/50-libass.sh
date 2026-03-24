@@ -13,6 +13,7 @@ ffbuild_depends() {
     echo fontconfig
     echo harfbuzz
     echo fribidi
+    echo libunibreak
 }
 
 ffbuild_enabled() {
@@ -35,6 +36,7 @@ ffbuild_dockerbuild() {
         --with-pic
         --enable-wrap-unicode
         --enable-directwrite
+        --enable-libunibreak
     )
 
     CFLAGS="$CFLAGS -Dread_file=libass_internal_read_file" \

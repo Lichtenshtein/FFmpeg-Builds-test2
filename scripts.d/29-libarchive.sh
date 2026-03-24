@@ -73,6 +73,7 @@ ffbuild_dockerbuild() {
         else
             sed -i "/^Libs:/ a Libs.private: $DEP_LIBS $WIN_LIBS" "$PC_FILE"
         fi
+        sed -i 's/ -lzlib//g' "$PC_FILE"
     fi
 
 }
