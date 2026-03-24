@@ -213,9 +213,8 @@ patch_pc_files() {
         local extra_requires=""
 
         # Глобальная чистка и исправление специфичных библиотек
-        sed -i $sl 's/-lzlib/-lz/g' "$pc"
-        sed -i $sl 's/-lWs2_32/-lws2_32/g' "$pc"
-        sed -i $sl 's/-lWinmm/-lwinmm/g' "$pc"
+        sed -i $sl 's/-lzlib/-lz/g; s/-lrt //g; s/-lrt$//g' "$pc"
+        sed -i $sl 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g' "$pc"
 
         # Специальный фикс для lcms2: объединяем его части в одну группу до парсинга
         if [[ "$pc" == *"lcms2.pc" ]]; then
