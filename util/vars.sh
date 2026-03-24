@@ -190,6 +190,7 @@ export -f get_stage_hash
 patch_pc_files() {
     log_info "${TARGET_MARK} Patching $STAGENAME .pc files..."
     local pc_dir="$PC_DIR"
+    local sl="--follow-symlinks"
     [[ -d "$pc_dir" ]] || return 0
 
     # Определяем корень исходников (для поиска конфигов билд-систем)
@@ -201,26 +202,30 @@ patch_pc_files() {
     fi
 
     # Список библиотек, которые сканер будет искать в конфигах
-    local scan_candidates="zstd lzma bz2 webp openjp2 jpeg tiff png zlib brotli iconv lcms2 jbig freetype2 libxml-2.0 libffi intl"
+    local scan_candidates="zstd lzma bz2 webp openjp2 jpeg tiff png zlib libbrotlidec libbrotlienc libbrotlicommon iconv lcms2 jbig freetype2 libxml-2.0 libffi intl"
 
     # замена абсолютных путей на переменные
     find "$pc_dir" -maxdepth 1 -name "*.pc" | while read -r pc; do
-        [[ -n "$pc" && -f "$pc" ]] || continue
+        [[ -f "$pc" ]] || continue
         log_debug "Fixing paths in $pc"
 
-        sed -i --follow-symlinks 's/-lzlib/-lz/g' "$pc"
+        local extra_libs=""
+        local extra_requires=""
+
+        # Предварительная чистка имен (zlib)
+        sed -i $sl 's/-lzlib/-lz/g' "$pc"
 
         # Удаляем все строки, которые определяют стандартные переменные путей,
         # чтобы избежать рекурсии типа libdir=${libdir}
-        sed -i --follow-symlinks '/^prefix=/d; /^exec_prefix=/d; /^libdir=/d; /^includedir=/d; /^bindir=/d' "$pc"
+        sed -i $sl '/^prefix=/d; /^exec_prefix=/d; /^libdir=/d; /^includedir=/d; /^bindir=/d' "$pc"
 
         # Вставляем эталонные определения в самое начало файла
-        sed -i --follow-symlinks "1i prefix=$FFBUILD_PREFIX\nexec_prefix=\${prefix}\nlibdir=\${prefix}/lib\nincludedir=\${prefix}/include\nbindir=\${prefix}/bin" "$pc"
+        sed -i $sl "1i prefix=$FFBUILD_PREFIX\nexec_prefix=\${prefix}\nlibdir=\${prefix}/lib\nincludedir=\${prefix}/include\nbindir=\${prefix}/bin" "$pc"
 
         # Заменяем абсолютные пути на переменные только в строках, НЕ являющихся определениями (где нет '='). Это защитит наши вставленные в пункте 2 строки от порчи.
-        sed -i --follow-symlinks '/=/! s|'"$FFBUILD_PREFIX"'/include|${includedir}|g' "$pc"
-        sed -i --follow-symlinks '/=/! s|'"$FFBUILD_PREFIX"'/lib|${libdir}|g' "$pc"
-        sed -i --follow-symlinks '/=/! s|'"$FFBUILD_PREFIX"'|${prefix}|g' "$pc"
+        sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'/include|${includedir}|g' "$pc"
+        sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'/lib|${libdir}|g' "$pc"
+        sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'|${prefix}|g' "$pc"
 
         # Очистка Libs: оставляем только -L и -l самой либы
         # Переносим всё остальное в Libs.private
@@ -233,108 +238,96 @@ patch_pc_files() {
         # Формируем "чистый" Libs
         local main_lib="$lib_path $lib_name"
         # Все остальное отправляем в extra_libs
-        local leftover_libs=$(echo "$current_libs" | sed "s|$lib_path||g; s|$lib_name||g")
-        sed -i --follow-symlinks "s|^Libs:.*|Libs: $main_lib|" "$pc"
+        extra_libs=$(echo "$current_libs" | sed "s|$lib_path||g; s|$lib_name||g")
 
-        # Добавляем остатки к extra_libs для последующей дедупликации
-        extra_libs="$leftover_libs $extra_libs"
-        local extra_requires=""
+        sed -i $sl "s|^Libs:.*|Libs: $main_lib|" "$pc"
 
         # сканер зависимостей (Autotools, CMake, Meson)
         for lib in $scan_candidates; do
             # Проверяем наличие .pc файла в префиксе
             if [[ -f "$FFBUILD_PREFIX/lib/pkgconfig/${lib}.pc" || -f "$FFBUILD_PREFIX/lib/pkgconfig/lib${lib}.pc" || -f "$FFBUILD_PREFIX/share/pkgconfig/${lib}.pc" ]]; then
-                if grep -rqiE "(have_lib|#define.*HAVE_LIB|found.*|find_package.*)${lib}.*(yes|1|true|found)" "$src_root" \
+                local search_term="$lib"
+                [[ "$lib" == libbrotli* ]] && search_term="brotli"
+                if grep -rqiE "(have_lib|#define.*HAVE_LIB|found.*|find_package.*)${search_term}" "$src_root" \
                     --include="config.*" --include="*.ac" --include="*.cmake" --include="CMakeLists.txt" \
-                    --include="meson.build" --include="*.meson" --max-count=1 2>/dev/null; then
+                    --include="meson.build" --include="*.meson" -m1 2>/dev/null; then
                     case "$lib" in
-                        iconv|bz2|zlib|jpeg) extra_libs+="-l${lib#lib} " ;; 
-                        *) extra_requires+="${lib} " ;;
+                        iconv|bz2|zlib|jpeg) extra_libs+=" -l${lib#lib}" ;; 
+                        *) extra_requires+=" $lib" ;;
                     esac
                 fi
             fi
         done
 
         # -lstdc++ только если проект реально использует C++
-        if find "$src_root" -maxdepth 2 \( -name "*.cpp" -o -name "*.cc" \) 2>/dev/null | grep -q .; then
-            extra_libs+="-lstdc++ "
-        fi
+        find "$src_root" -maxdepth 2 \( -name "*.cpp" -o -name "*.cc" \) 2>/dev/null | grep -q . && extra_libs+=" -lstdc++"
 
         # Врезка Requires.private (если нашли зависимости с .pc)
-        if [[ -n $(echo "$extra_requires" | xargs) ]]; then
-            if grep -q "^Requires.private:" "$pc"; then
-                sed -i --follow-symlinks "/^Requires.private:/ s/$/ $extra_requires/" "$pc"
-            else
-                # Если строки нет, просто добавляем в конец файла
-                echo "Requires.private: $extra_requires" >> "$pc"
-            fi
+        if [[ -z $(grep "^Requires.private:" "$pc") ]]; then
+            # Вставляем после Version, если её нет - после Name
+            local insert_ref="Version"
+            grep -q "^Version:" "$pc" || insert_ref="Name"
+            sed -i $sl "/^$insert_ref:/ a Requires.private:" "$pc"
         fi
+        sed -i $sl "/^Requires.private:/ s/$/ $extra_requires/" "$pc"
 
         # Врезка Libs.private
-        if grep -q "^Libs.private:" "$pc"; then
-            sed -i --follow-symlinks "/^Libs.private:/ s/$/ $extra_libs $LIBS/" "$pc"
-        else
-            # Если Libs.private нет, добавляем её ПОСЛЕ основной строки Libs:
-            sed -i --follow-symlinks "/^Libs:/ a Libs.private: $extra_libs $LIBS" "$pc"
-            # Если и Libs: нет просто в конец
-            grep -q "^Libs.private:" "$pc" || echo "Libs.private: $extra_libs $LIBS" >> "$pc"
-        fi
+        grep -q "^Libs.private:" "$pc" || sed -i $sl "/^Libs:/ a Libs.private:" "$pc"
+        sed -i $sl "/^Libs.private:/ s/$/ $extra_libs $LIBS/" "$pc"
 
         # Слияние Cflags.private в основные Cflags (для гарантии работы статики)
         local cflags_priv=$(grep "^Cflags.private:" "$pc" | cut -d':' -f2- | xargs)
         if [[ -n "$cflags_priv" ]]; then
-            sed -i --follow-symlinks "/^Cflags:/ s/$/ $cflags_priv/" "$pc"
+            sed -i $sl "/^Cflags:/ s/$/ $cflags_priv/" "$pc"
             # Удаляем нестандартное поле, чтобы не смущать парсеры
-            sed -i --follow-symlinks '/^Cflags.private:/d' "$pc"
+            sed -i $sl '/^Cflags.private:/d' "$pc"
         fi
 
         # --- Умная дедупликация ---
-        # Собираем "базу" (то, что уже объявлено как публичное)
-        local pub_libs=$(grep -E "^(Libs|Requires):" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
-        # Чистим Cflags (часто там дублируются -D или -pthread)
+        # Чистим Cflags
         local cflags_line=$(grep "^Cflags:" "$pc" | cut -d':' -f2- | xargs)
         if [[ -n "$cflags_line" ]]; then
             local clean_cflags=$(echo "$cflags_line" | awk '{for(i=1;i<=NF;i++) if(!seen[$i]++) printf "%s ", $i}')
-            sed -i --follow-symlinks "s|^Cflags:.*|Cflags: $clean_cflags|" "$pc"
+            sed -i $sl "s|^Cflags:.*|Cflags: $clean_cflags|" "$pc"
         fi
-        # Чистим Requires.private (убираем то, что уже есть в Requires)
-        local req_priv=$(grep "^Requires.private:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
-        if [[ -n "$req_priv" ]]; then
-            local clean_req_priv=$(echo "$req_priv" | awk -v skip="$pub_libs" '
-                BEGIN { n = split(skip, s) }
-                {
-                    for(i=1;i<=NF;i++) {
-                        is_skip=0; 
-                        for(j=1; j<=n; j++) if($i==s[j]) is_skip=1;
-                        if(!is_skip && !seen[$i]++) printf "%s ", $i
-                    }
-                }')
-            sed -i --follow-symlinks "s|^Requires.private:.*|Requires.private: $clean_req_priv|" "$pc"
-        fi
-        # Чистим Libs.private (убираем то, что есть в Libs, Requires и Requires.private)
-        # Обновляем базу перед чисткой Libs.private
-        local full_base=$(grep -E "^(Libs|Requires|Requires.private):" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
-        local libs_priv=$(grep "^Libs.private:" "$pc" | cut -d':' -f2- | xargs)
 
-        if [[ -n "$libs_priv" ]]; then
-            local clean_libs_priv=$(echo "$libs_priv" | awk -v skip="$full_base" '
+        # Собираем "базу" (то, что уже объявлено как публичное)
+        # База для Requires.private: всё, что в Requires, не должно быть в Requires.private
+        local pub_req=$(grep "^Requires:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
+        local rp_line=$(grep "^Requires.private:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
+        if [[ -n "$rp_line" ]]; then
+            local clean_rp=$(echo "$rp_line" | awk -v skip="$pub_req" '
+                BEGIN { n=split(skip, s) }
+                { for(i=1;i<=NF;i++) { is_s=0; for(j=1;j<=n;j++) if($i==s[j]) is_s=1; if(!is_s && !seen[$i]++) printf "%s ", $i } }')
+            sed -i $sl "s|^Requires.private:.*|Requires.private: $clean_rp|" "$pc"
+        fi
+        # База для Libs.private: всё, что в Libs или в ЛЮБОМ Requires, не должно быть здесь
+        # Собираем ВСЕRequires (имена пакетов) и Libs (флаги -l)
+        local all_req=$(grep -E "^Requires(\.private)?:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
+        local pub_libs=$(grep "^Libs:" "$pc" | cut -d':' -f2- | xargs)
+        local lp_line=$(grep "^Libs.private:" "$pc" | cut -d':' -f2- | xargs)
+        if [[ -n "$lp_line" ]]; then
+            local clean_lp=$(echo "$lp_line" | awk -v skip_pkgs="$all_req" -v skip_libs="$pub_libs" '
                 BEGIN { 
-                    n = split(skip, s);
-                    for(j=1; j<=n; j++) {
-                        key=s[j]; if(key=="-pthread") key="-lpthread";
-                        skip_map[key]=1;
-                    }}{
+                    n_p=split(skip_pkgs, sp); n_l=split(skip_libs, sl);
+                    for(j=1;j<=n_p;j++) { m["-l" sp[j]]=1; m[sp[j]]=1; }
+                    for(j=1;j<=n_l;j++) { m[sl[j]]=1; if(sl[j]=="-pthread") m["-lpthread"]=1; if(sl[j]=="-lpthread") m["-pthread"]=1; }
+                }
+                { 
                     for(i=1;i<=NF;i++) {
                         val=$i; key=val;
                         if(key=="-pthread") key="-lpthread";
-                        if(!skip_map[key] && !seen[key]++) printf "%s ", val
-                    }}')
-            sed -i --follow-symlinks "s|^Libs.private:.*|Libs.private: $clean_libs_priv|" "$pc"
+                        if(!m[key] && !seen[key]++) printf "%s ", val
+                    }
+                }')
+            sed -i $sl "s|^Libs.private:.*|Libs.private: $clean_lp|" "$pc"
         fi
 
-        # Чистим лишние пробелы в конце и между флагами
-        sed -i --follow-symlinks 's/[[:space:]]*$//; s/  */ /g' "$pc"
-        # sed -i --follow-symlinks '/^$/d' "$pc"
+        # Удаляем пустые поля и лишние пробелы
+        sed -i $sl '/^Requires.private:[[:space:]]*$/d' "$pc"
+        sed -i $sl '/^Libs.private:[[:space:]]*$/d' "$pc"
+        sed -i $sl 's/[[:space:]]*$//; s/  */ /g' "$pc"
+        # sed -i $sl '/^$/d' "$pc"
     done
 }
 export -f patch_pc_files
