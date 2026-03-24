@@ -40,7 +40,7 @@ ffbuild_dockerbuild() {
         --enable-everything
         --enable-near-lossless
         --enable-swap-16bit-csp
-        --enable-gl
+        --disable-gl
         --disable-sdl
     )
 

@@ -208,6 +208,8 @@ patch_pc_files() {
         [[ -n "$pc" && -f "$pc" ]] || continue
         log_debug "Fixing paths in $pc"
 
+        sed -i --follow-symlinks 's/-lzlib/-lz/g' "$pc"
+
         # Удаляем все строки, которые определяют стандартные переменные путей,
         # чтобы избежать рекурсии типа libdir=${libdir}
         sed -i --follow-symlinks '/^prefix=/d; /^exec_prefix=/d; /^libdir=/d; /^includedir=/d; /^bindir=/d' "$pc"
@@ -316,14 +318,17 @@ patch_pc_files() {
 
         if [[ -n "$libs_priv" ]]; then
             local clean_libs_priv=$(echo "$libs_priv" | awk -v skip="$full_base" '
-                BEGIN { n = split(skip, s) }
-                {
+                BEGIN { 
+                    n = split(skip, s);
+                    for(j=1; j<=n; j++) {
+                        key=s[j]; if(key=="-pthread") key="-lpthread";
+                        skip_map[key]=1;
+                    }}{
                     for(i=1;i<=NF;i++) {
-                        is_skip=0; 
-                        for(j=1; j<=n; j++) if($i==s[j]) is_skip=1;
-                        if(!is_skip && !seen[$i]++) printf "%s ", $i
-                    }
-                }')
+                        val=$i; key=val;
+                        if(key=="-pthread") key="-lpthread";
+                        if(!skip_map[key] && !seen[key]++) printf "%s ", val
+                    }}')
             sed -i --follow-symlinks "s|^Libs.private:.*|Libs.private: $clean_libs_priv|" "$pc"
         fi
 

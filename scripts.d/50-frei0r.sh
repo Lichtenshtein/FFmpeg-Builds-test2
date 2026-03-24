@@ -1,7 +1,12 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/dyne/frei0r.git"
-SCRIPT_COMMIT="ced05b4fcb94481d9b8fb81b4af3e63bd8026491"
+SCRIPT_COMMIT="530f7e6388c6931f20aa2ca9e4ea33a60df7aca7"
+
+ffbuild_depends() {
+    echo opencv-test
+    echo cairo
+}
 
 ffbuild_enabled() {
     [[ $VARIANT == lgpl* ]] && return 1
@@ -30,12 +35,12 @@ ffbuild_dockerbuild() {
     cmake -G Ninja \
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_FLAGS="$CFLAGS" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4" \ 
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        -DWITHOUT_OPENCV=OFF \
+        -DWITHOUT_FACERECOGNITION=ON \
+        -DWITHOUT_CAIRO=ON \
         -DWITHOUT_GAVL=ON \
         .. || return 1
 
