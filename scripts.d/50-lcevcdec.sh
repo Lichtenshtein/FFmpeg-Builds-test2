@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
     echo "Libs: -L\${libdir} -llcevc_dec_api -lstdc++ -lm" >> lcevc_dec.pc
     echo "Cflags: -I\${includedir} -DVNEnablePublicAPIExport" >> lcevc_dec.pc
 
-    mv lcevc_dec.pc "$FFBUILD_DESTPREFIX"/lib/pkgconfig/lcevc_dec.pc
+    mv lcevc_dec.pc "$PC_DIR/lcevc_dec.pc"
 
 }
 

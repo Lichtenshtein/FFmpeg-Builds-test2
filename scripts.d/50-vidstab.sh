@@ -38,7 +38,7 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     if [[ $TARGET == linux* ]]; then
-        echo "Libs.private: -ldl" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/vidstab.pc
+        echo "Libs.private: -ldl" >> "$PC_DIR/vidstab.pc"
     fi
 
 }

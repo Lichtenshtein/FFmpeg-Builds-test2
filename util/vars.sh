@@ -210,15 +210,15 @@ patch_pc_files() {
 
         # Удаляем все строки, которые определяют стандартные переменные путей,
         # чтобы избежать рекурсии типа libdir=${libdir}
-        sed -i '/^prefix=/d; /^exec_prefix=/d; /^libdir=/d; /^includedir=/d; /^bindir=/d' "$pc"
+        sed -i --follow-symlinks '/^prefix=/d; /^exec_prefix=/d; /^libdir=/d; /^includedir=/d; /^bindir=/d' "$pc"
 
         # Вставляем эталонные определения в самое начало файла
-        sed -i "1i prefix=$FFBUILD_PREFIX\nexec_prefix=\${prefix}\nlibdir=\${prefix}/lib\nincludedir=\${prefix}/include\nbindir=\${prefix}/bin" "$pc"
+        sed -i --follow-symlinks "1i prefix=$FFBUILD_PREFIX\nexec_prefix=\${prefix}\nlibdir=\${prefix}/lib\nincludedir=\${prefix}/include\nbindir=\${prefix}/bin" "$pc"
 
         # Заменяем абсолютные пути на переменные только в строках, НЕ являющихся определениями (где нет '='). Это защитит наши вставленные в пункте 2 строки от порчи.
-        sed -i '/=/! s|'"$FFBUILD_PREFIX"'/include|${includedir}|g' "$pc"
-        sed -i '/=/! s|'"$FFBUILD_PREFIX"'/lib|${libdir}|g' "$pc"
-        sed -i '/=/! s|'"$FFBUILD_PREFIX"'|${prefix}|g' "$pc"
+        sed -i --follow-symlinks '/=/! s|'"$FFBUILD_PREFIX"'/include|${includedir}|g' "$pc"
+        sed -i --follow-symlinks '/=/! s|'"$FFBUILD_PREFIX"'/lib|${libdir}|g' "$pc"
+        sed -i --follow-symlinks '/=/! s|'"$FFBUILD_PREFIX"'|${prefix}|g' "$pc"
 
         # Очистка Libs: оставляем только -L и -l самой либы
         # Переносим всё остальное в Libs.private
@@ -232,7 +232,7 @@ patch_pc_files() {
         local main_lib="$lib_path $lib_name"
         # Все остальное отправляем в extra_libs
         local leftover_libs=$(echo "$current_libs" | sed "s|$lib_path||g; s|$lib_name||g")
-        sed -i "s|^Libs:.*|Libs: $main_lib|" "$pc"
+        sed -i --follow-symlinks "s|^Libs:.*|Libs: $main_lib|" "$pc"
 
         # Добавляем остатки к extra_libs для последующей дедупликации
         extra_libs="$leftover_libs $extra_libs"
@@ -261,7 +261,7 @@ patch_pc_files() {
         # Врезка Requires.private (если нашли зависимости с .pc)
         if [[ -n $(echo "$extra_requires" | xargs) ]]; then
             if grep -q "^Requires.private:" "$pc"; then
-                sed -i "/^Requires.private:/ s/$/ $extra_requires/" "$pc"
+                sed -i --follow-symlinks "/^Requires.private:/ s/$/ $extra_requires/" "$pc"
             else
                 # Если строки нет, просто добавляем в конец файла
                 echo "Requires.private: $extra_requires" >> "$pc"
@@ -270,10 +270,10 @@ patch_pc_files() {
 
         # Врезка Libs.private
         if grep -q "^Libs.private:" "$pc"; then
-            sed -i "/^Libs.private:/ s/$/ $extra_libs $LIBS/" "$pc"
+            sed -i --follow-symlinks "/^Libs.private:/ s/$/ $extra_libs $LIBS/" "$pc"
         else
             # Если Libs.private нет, добавляем её ПОСЛЕ основной строки Libs:
-            sed -i "/^Libs:/ a Libs.private: $extra_libs $LIBS" "$pc"
+            sed -i --follow-symlinks "/^Libs:/ a Libs.private: $extra_libs $LIBS" "$pc"
             # Если и Libs: нет просто в конец
             grep -q "^Libs.private:" "$pc" || echo "Libs.private: $extra_libs $LIBS" >> "$pc"
         fi
@@ -281,9 +281,9 @@ patch_pc_files() {
         # Слияние Cflags.private в основные Cflags (для гарантии работы статики)
         local cflags_priv=$(grep "^Cflags.private:" "$pc" | cut -d':' -f2- | xargs)
         if [[ -n "$cflags_priv" ]]; then
-            sed -i "/^Cflags:/ s/$/ $cflags_priv/" "$pc"
+            sed -i --follow-symlinks "/^Cflags:/ s/$/ $cflags_priv/" "$pc"
             # Удаляем нестандартное поле, чтобы не смущать парсеры
-            sed -i '/^Cflags.private:/d' "$pc"
+            sed -i --follow-symlinks '/^Cflags.private:/d' "$pc"
         fi
 
         # --- Умная дедупликация ---
@@ -293,7 +293,7 @@ patch_pc_files() {
         local cflags_line=$(grep "^Cflags:" "$pc" | cut -d':' -f2- | xargs)
         if [[ -n "$cflags_line" ]]; then
             local clean_cflags=$(echo "$cflags_line" | awk '{for(i=1;i<=NF;i++) if(!seen[$i]++) printf "%s ", $i}')
-            sed -i "s|^Cflags:.*|Cflags: $clean_cflags|" "$pc"
+            sed -i --follow-symlinks "s|^Cflags:.*|Cflags: $clean_cflags|" "$pc"
         fi
         # Чистим Requires.private (убираем то, что уже есть в Requires)
         local req_priv=$(grep "^Requires.private:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
@@ -307,7 +307,7 @@ patch_pc_files() {
                         if(!is_skip && !seen[$i]++) printf "%s ", $i
                     }
                 }')
-            sed -i "s|^Requires.private:.*|Requires.private: $clean_req_priv|" "$pc"
+            sed -i --follow-symlinks "s|^Requires.private:.*|Requires.private: $clean_req_priv|" "$pc"
         fi
         # Чистим Libs.private (убираем то, что есть в Libs, Requires и Requires.private)
         # Обновляем базу перед чисткой Libs.private
@@ -324,12 +324,12 @@ patch_pc_files() {
                         if(!is_skip && !seen[$i]++) printf "%s ", $i
                     }
                 }')
-            sed -i "s|^Libs.private:.*|Libs.private: $clean_libs_priv|" "$pc"
+            sed -i --follow-symlinks "s|^Libs.private:.*|Libs.private: $clean_libs_priv|" "$pc"
         fi
 
         # Чистим лишние пробелы в конце и между флагами
-        sed -i 's/[[:space:]]*$//; s/  */ /g' "$pc"
-        sed -i '/^$/d' "$pc"
+        sed -i --follow-symlinks 's/[[:space:]]*$//; s/  */ /g' "$pc"
+        # sed -i --follow-symlinks '/^$/d' "$pc"
     done
 }
 export -f patch_pc_files
@@ -419,10 +419,11 @@ clean_la_files() {
     local target_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX"
     [[ ! -d "$target_dir" ]] && return 0
     log_debug "${BROOM_MARK} Cleaning up libtool archives (.la) in $target_dir"
-    if find "$target_dir" -name "*.la" -type f -print -quit | grep -q .; then
-        local count=$(find "$target_dir" -name "*.la" -type f | wc -l 2>/dev/null || true)
-        find "$target_dir" -name "*.la" -type f -delete 2>/dev/null || true
-        log_info "${CHECK_MARK} Removed $count .la files from prefix."
+    local la_files=$(find "$target_dir" -name "*.la" \( -type f -o -type l \) 2>/dev/null)
+    if [[ -n "$la_files" ]]; then
+        local count=$(echo "$la_files" | wc -l)
+        echo "$la_files" | xargs rm -f 2>/dev/null
+        log_info "${CHECK_MARK} Removed $count .la files (including symlinks) from prefix."
     else
         log_debug "${CHECK_MARK} No .la files found to clean."
     fi

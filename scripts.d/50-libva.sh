@@ -79,7 +79,7 @@ ffbuild_dockerbuild() {
         gen-implib "$FFBUILD_DESTPREFIX"/lib/{libva-x11.so.2,libva-x11.a}
         rm "$FFBUILD_DESTPREFIX"/lib/libva{,-drm,-x11}.so*
 
-        echo "Libs: -ldl" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libva.pc
+        echo "Libs: -ldl" >> "$PC_DIR/libva.pc"
     fi
 
 }

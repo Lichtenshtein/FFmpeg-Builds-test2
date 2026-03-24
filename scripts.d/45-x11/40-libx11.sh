@@ -49,7 +49,7 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    echo "Libs: -ldl" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/x11.pc
+    echo "Libs: -ldl" >> "$PC_DIR/x11.pc"
 
     gen-implib "$FFBUILD_DESTPREFIX"/lib/{libX11-xcb.so.1,libX11-xcb.a}
     gen-implib "$FFBUILD_DESTPREFIX"/lib/{libX11.so.6,libX11.a}
