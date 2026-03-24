@@ -95,14 +95,14 @@ ffbuild_dockerbuild() {
         fi
     done
     # Исправляем специфичный sicudt (иногда он без 'lib' вначале)
-    [[ -f "icudt.a" ]] && mv "icudt.a" "libsicudt.a"
-    [[ -f "sicudt.a" ]] && mv "sicudt.a" "libsicudt.a"
+    [[ -f "icudt.a" ]] && mv "icudt.a" "libicudt.a"
+    [[ -f "sicudt.a" ]] && mv "sicudt.a" "libicudt.a"
 
     local ICU_SYS_LIBS="-lstdc++ -lpthread -lm -ladvapi32 -lws2_32"
     for pc in "$PC_DIR"/icu-*.pc; do
         [[ -e "$pc" ]] || continue
         # Меняем имена библиотек (icu -> sicu)
-        sed -i 's/-licu/-lsicu/g' "$pc"
+        # sed -i 's/-licu/-lsicu/g' "$pc"
         # Добавляем статический флаг
         if ! grep -q "DICU_STATIC" "$pc"; then
             sed -i '/^Cflags:/ s/$/ -DICU_STATIC/' "$pc"
@@ -118,8 +118,8 @@ ffbuild_dockerbuild() {
             sed -i "/^Libs:/ a Libs.private: $ICU_SYS_LIBS" "$pc"
         fi
         # наличие -lsicudt только ОДИН раз
-        if ! grep -q -- "-lsicudt" "$pc"; then
-            sed -i '/^Libs:/ s/$/ -lsicudt/' "$pc"
+        if ! grep -q -- "-licudt" "$pc"; then
+            sed -i '/^Libs:/ s/$/ -licudt/' "$pc"
         fi
     done
 
