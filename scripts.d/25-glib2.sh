@@ -72,7 +72,7 @@ EOF
 
     # Формируем список зависимостей из вашего чит-листа
     # pcre2 требует zlib/bz2 в некоторых конфигах
-    local DEP_LIBS="-lpcre2-8 -lffi -lintl -lcharset -liconv -lz"
+    local DEP_LIBS="-lpcre2-posix -lpcre2-8 -lffi -lintl -liconv -lcharset -lz"
     local WIN_LIBS="-luserenv -liphlpapi -lwinmm -luuid -ldnsapi $LIBS"
 
     local myconf=(

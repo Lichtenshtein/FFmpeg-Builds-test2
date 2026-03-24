@@ -40,20 +40,16 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # ФИКС pkg-config (у SVT-JPEG-XS часто раздельные файлы)
-    # Нам нужно, чтобы FFmpeg видел их корректно
-    for pc in "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/"SvtJpegxs*.pc; do
+    for pc in "$PC_DIR/"SvtJpegxs*.pc; do
         [[ -f "$pc" ]] || continue
         # Исправляем префикс
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$pc"
-        # Добавляем системные библиотеки
-        echo "Libs.private: -lstdc++ -lpthread -lm" >> "$pc"
     done
-    
+
     # FFmpeg иногда ищет просто svtjpegxs.pc. Создадим алиас.
-    if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/SvtJpegxsEnc.pc" ]]; then
-        cp "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/SvtJpegxsEnc.pc" \
-           "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/svtjpegxs.pc"
+    if [[ -f "$PC_DIR/SvtJpegxsEnc.pc" ]]; then
+        cp "$PC_DIR/SvtJpegxsEnc.pc" \
+           "$PC_DIR/svtjpegxs.pc"
     fi
 
 }
