@@ -252,16 +252,32 @@ patch_pc_files() {
         fi
 
         # Врезка Requires.private (если нашли зависимости с .pc)
-        [[ -n "$extra_requires" ]] && {
-            grep -q "^Requires.private:" "$pc" || sed -i "/^Name:/a Requires.private:" "$pc"
-            sed -i "/^Requires.private:/ s/$/ $extra_requires/" "$pc"
-        }
+        if [[ -n $(echo "$extra_requires" | xargs) ]]; then
+            if grep -q "^Requires.private:" "$pc"; then
+                sed -i "/^Requires.private:/ s/$/ $extra_requires/" "$pc"
+            else
+                # Если строки нет, просто добавляем в конец файла
+                echo "Requires.private: $extra_requires" >> "$pc"
+            fi
+        fi
 
         # Врезка Libs.private
-        grep -q "^Libs.private:" "$pc" || sed -i "/^Libs:/ a Libs.private:" "$pc"
+        if grep -q "^Libs.private:" "$pc"; then
+            sed -i "/^Libs.private:/ s/$/ $extra_libs $LIBS/" "$pc"
+        else
+            # Если Libs.private нет, добавляем её ПОСЛЕ основной строки Libs:
+            sed -i "/^Libs:/ a Libs.private: $extra_libs $LIBS" "$pc"
+            # Если и Libs: нет просто в конец
+            grep -q "^Libs.private:" "$pc" || echo "Libs.private: $extra_libs $LIBS" >> "$pc"
+        fi
 
-        # Вливаем найденное сканером и системные $LIBS (из vars.sh)
-        sed -i "/^Libs.private:/ s/$/ $extra_libs $LIBS/" "$pc"
+        # Слияние Cflags.private в основные Cflags (для гарантии работы статики)
+        local cflags_priv=$(grep "^Cflags.private:" "$pc" | cut -d':' -f2- | xargs)
+        if [[ -n "$cflags_priv" ]]; then
+            sed -i "/^Cflags:/ s/$/ $cflags_priv/" "$pc"
+            # Удаляем нестандартное поле, чтобы не смущать парсеры
+            sed -i '/^Cflags.private:/d' "$pc"
+        fi
 
         # --- Умная дедупликация ---
         # Собираем "базу" (то, что уже объявлено как публичное)

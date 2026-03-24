@@ -45,10 +45,10 @@ ffbuild_dockerbuild() {
     find "$FFBUILD_DESTDIR" -type f
 
     # Create pkg-config files manually if they don't exist
-    if [[ ! -f "${FFBUILD_DESTPREFIX}/lib/pkgconfig/SvtJpegxsEnc.pc" ]]; then
-        mkdir -p "${FFBUILD_DESTPREFIX}/lib/pkgconfig"
+    if [[ ! -f "$PC_DIR/SvtJpegxsEnc.pc" ]]; then
+        mkdir -p "$PC_DIR"
         
-        cat > "${FFBUILD_DESTPREFIX}/lib/pkgconfig/SvtJpegxsEnc.pc" <<EOF
+        cat > "$PC_DIR/SvtJpegxsEnc.pc" <<EOF
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${prefix}/lib
@@ -62,7 +62,7 @@ Libs.private: -lstdc++ -lpthread -lm
 Cflags: -I\${includedir}
 EOF
 
-        cat > "${FFBUILD_DESTPREFIX}/lib/pkgconfig/SvtJpegxsDec.pc" <<EOF
+        cat > "$PC_DIR/SvtJpegxsDec.pc" <<EOF
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${prefix}/lib

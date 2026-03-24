@@ -138,9 +138,9 @@ EOF
     # Расширения .pyd, если они нужны внутри .vpy скриптов
     cp -v python_win/bin/*.pyd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" 2>/dev/null || true
 
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    mkdir -p "$PC_DIR"
     
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/vapoursynth.pc"
+    cat <<EOF > "$PC_DIR/vapoursynth.pc"
 prefix=$FFBUILD_PREFIX
 libdir=\${prefix}/lib
 includedir=\${prefix}/include/vapoursynth
@@ -152,7 +152,7 @@ Libs.private: -lstdc++ -lwinmm
 Cflags: -I\${includedir} -DVAPOURSYNTH_STATIC
 EOF
 
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/vapoursynth-script.pc"
+    cat <<EOF > "$PC_DIR/vapoursynth-script.pc"
 prefix=$FFBUILD_PREFIX
 libdir=\${prefix}/lib
 includedir=\${prefix}/include/vapoursynth
@@ -164,15 +164,6 @@ Libs.private: -l${PY_LIB} -lstdc++
 Cflags: -I\${includedir}
 EOF
 
-    # Вызываем отладку зависимостей
-}
-
-ffbuild_configure() {
-    echo --enable-vapoursynth
-}
-
-ffbuild_unconfigure() {
-    echo --disable-vapoursynth
 }
 
 ffbuild_cflags() {
@@ -181,4 +172,12 @@ ffbuild_cflags() {
 
 ffbuild_libs() {
     echo "-lvsscript"
+}
+
+ffbuild_configure() {
+    echo --enable-vapoursynth
+}
+
+ffbuild_unconfigure() {
+    echo --disable-vapoursynth
 }

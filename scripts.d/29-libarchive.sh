@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build_dir && cd build_dir
 
-    local DEP_LIBS="-lcrypto -lssl -lxml2 -lzstd -llzma -lbz2 -lz -lcharset -liconv"
+    local DEP_LIBS="-lssl -lcrypto -lxml2 -lzstd -llzma -lbz2 -lz -liconv -lcharset"
     local WIN_LIBS="-lcrypt32 -luserenv $LIBS"
 
     local myconf=(

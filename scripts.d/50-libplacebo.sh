@@ -74,8 +74,8 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Принудительно добавляем зависимости в pkg-config для статической линковки
-    sed -i 's/Libs:/Libs: -lshaderc_combined -lspirv-cross-c -lspirv-cross-glsl -lspirv-cross-core /' "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libplacebo.pc
-    echo "Libs.private: -lstdc++ -lm -lshlwapi" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libplacebo.pc
+    sed -i 's/Libs:/Libs: -lshaderc_combined -lspirv-cross-c -lspirv-cross-glsl -lspirv-cross-core /' "$PC_DIR/libplacebo.pc"
+    echo "Libs.private: -lstdc++ -lm -lshlwapi" >> "$PC_DIR/libplacebo.pc"
 
 }
 

@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
     set -e
 
     # Fontconfig требует либо expat, либо libxml2.
-    local DEP_LIBS="-lxml2 -lfreetype -lcharset -liconv"
+    local DEP_LIBS="-lxml2 -lfreetype -liconv -lcharset"
     local WIN_LIBS="-luuid $LIBS"
 
     local myconf=(

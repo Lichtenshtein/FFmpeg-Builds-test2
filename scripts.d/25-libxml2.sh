@@ -22,7 +22,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    local DEP_LIBS="-llzma -lz -lintl -lcharset -liconv -lsicuin -lsicuuc -lsicudt $LIBS"
+    local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"

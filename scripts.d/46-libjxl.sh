@@ -73,7 +73,7 @@ ffbuild_dockerbuild() {
     # Фикс для статической линковки: FFmpeg должен знать о Highway
     sed -i 's/Libs:/Libs: -lhwy /' "$PC_DIR/libjxl.pc"
     # Brotli в зависимости
-    sed -i 's/Requires.private:/Requires.private: -lbrotlidec -lbrotlicommon /' "$PC_DIR/libjxl.pc"
+    sed -i 's/Requires.private:/Requires.private: -lbrotlienc -lbrotlidec -lbrotlicommon /' "$PC_DIR/libjxl.pc"
 
 }
 

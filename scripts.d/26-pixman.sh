@@ -16,7 +16,7 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-    local DEP_LIBS="-lpng16 -lglib-2.0 -lz -lintl -lcharset -liconv"
+    local DEP_LIBS="-lpng16 -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lz -lintl -liconv -lcharset"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"

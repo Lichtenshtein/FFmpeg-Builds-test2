@@ -24,9 +24,7 @@ ffbuild_dockerbuild() {
     mkdir build
     cd build
 
-    export CPPLAGS="$CPPFLAGS -DHAVE_OPENSSL=1"
-
-    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS -DHAVE_OPENSSL=1" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja \
@@ -42,7 +40,7 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    echo "Libs.private: -lstdc++ -lcrypto" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/libaribcaption.pc
+    echo "Libs.private: -lstdc++ -lcrypto" >> "$PC_DIR/libaribcaption.pc"
 
 }
 

@@ -53,24 +53,14 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # Исправляем .pc файл
-    local pc_file="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/lensfun.pc"
+    local pc_file="$PC_DIR/lensfun.pc"
     if [[ -f "$pc_file" ]]; then
         log_info "Patching lensfun.pc for static MinGW build..."
-        
         # Добавляем glib-2.0 в зависимости, чтобы пути -I подтянулись автоматически
         if ! grep -q "Requires:" "$pc_file"; then
             echo "Requires: glib-2.0" >> "$pc_file"
         else
             sed -i '/^Requires:/ s/$/ glib-2.0/' "$pc_file"
-        fi
-
-        # Добавляем системные либы и C++ рантайм в Libs.private
-        # Это нужно, чтобы FFmpeg знал, что lensfun требует их при статической линковке
-        if ! grep -q "Libs.private:" "$pc_file"; then
-            echo "Libs.private: -lstdc++ -lm -lws2_32 -lole32 -lshlwapi" >> "$pc_file"
-        else
-            sed -i '/^Libs.private:/ s/$/ -lstdc++ -lm -lws2_32 -lole32 -lshlwapi/' "$pc_file"
         fi
     fi
 
