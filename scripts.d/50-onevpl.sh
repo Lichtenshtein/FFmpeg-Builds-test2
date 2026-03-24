@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
 
     rm -rf "$FFBUILD_DESTPREFIX"/{etc,share}
 
-    echo "Libs.private: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/vpl.pc
+    echo "Libs.private: -lstdc++" >> "$PC_DIR/vpl.pc"
 
 }
 

@@ -33,7 +33,7 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     if [[ $TARGET != winarm64 ]]; then
-        echo "Libs.private: -lgomp -lmingwthrd" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/soxr.pc
+        echo "Libs.private: -lgomp -lmingwthrd" >> "$PC_DIR/soxr.pc"
     fi
 
 }

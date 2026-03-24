@@ -28,10 +28,10 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    echo "Libs.private: -lstdc++" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/openal.pc
+    echo "Libs.private: -lstdc++" >> "$PC_DIR/openal.pc"
 
     if [[ $TARGET == win* ]]; then
-        echo "Libs.private: -lole32 -luuid" >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/openal.pc
+        echo "Libs.private: -lole32 -luuid" >> "$PC_DIR/openal.pc"
     fi
 
 }

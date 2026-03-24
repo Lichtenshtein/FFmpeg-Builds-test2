@@ -59,21 +59,21 @@ ffbuild_dockerbuild() {
     if [[ $TARGET == linux* ]]; then
         sed -ri -e 's/\-Wl,\-\-no\-undefined.*//' \
             -e 's/ \-l\/.+?\.a//g' \
-            "$FFBUILD_DESTPREFIX"/lib/pkgconfig/sdl2.pc
-        echo 'Requires: libpulse-simple xxf86vm xscrnsaver xrandr xfixes xi xinerama xcursor' >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/sdl2.pc
+            "$PC_DIR/sdl2.pc"
+        echo 'Requires: libpulse-simple xxf86vm xscrnsaver xrandr xfixes xi xinerama xcursor' >> "$PC_DIR/sdl2.pc"
     elif [[ $TARGET == win* ]]; then
         sed -ri -e 's/\-Wl,\-\-no\-undefined.*//' \
             -e 's/ \-mwindows//g' \
             -e 's/ \-lSDL2main//g' \
             -e 's/ \-Dmain=SDL_main//g' \
-            "$FFBUILD_DESTPREFIX"/lib/pkgconfig/sdl2.pc
+            "$PC_DIR/sdl2.pc"
     fi
 
     sed -ri -e 's/ -lSDL2//g' \
         -e 's/Libs: /Libs: -lSDL2 /'\
-        "$FFBUILD_DESTPREFIX"/lib/pkgconfig/sdl2.pc
+        "$PC_DIR/sdl2.pc"
 
-    echo 'Requires: samplerate' >> "$FFBUILD_DESTPREFIX"/lib/pkgconfig/sdl2.pc
+    echo 'Requires: samplerate' >> "$PC_DIR/sdl2.pc"
 
 }
 

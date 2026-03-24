@@ -37,7 +37,7 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    cat >"$FFBUILD_DESTPREFIX"/lib/pkgconfig/spirv-cross-c-shared.pc <<EOF
+    cat >"$PC_DIR/spirv-cross-c-shared.pc" <<EOF
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${prefix}/lib
