@@ -1,10 +1,10 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/KhronosGroup/OpenCL-Headers.git"
-SCRIPT_COMMIT="dfb5284280a7a0bce6a21c057184ef653d9e21c1"
+SCRIPT_COMMIT="e55138572c81dce15ffe402bd1142d9652ec5cb5"
 
 SCRIPT_REPO2="https://github.com/KhronosGroup/OpenCL-ICD-Loader.git"
-SCRIPT_COMMIT2="c987c97918e26de669ad3ae8229b21a6d8be6748"
+SCRIPT_COMMIT2="b1c57534df7ac82519b04606f51b71fb5d4053c3"
 
 ffbuild_enabled() {
     return 0
@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
     cd loader
     mkdir build && cd build
 
-    CFLAGS="$CFLAGS $CPPFLAGS -DDllMain=OpenCL_DllMain" \
+    CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
     cmake -GNinja \
@@ -36,6 +36,8 @@ ffbuild_dockerbuild() {
         -DOPENCL_ICD_LOADER_DISABLE_OPENCLON12=ON \
         -DOPENCL_ICD_LOADER_PIC=ON \
         -DOPENCL_ICD_LOADER_BUILD_TESTING=OFF \
+        -DOPENCL_HEADERS_BUILD_CXX_TESTS=OFF \
+        -DOPENCL_HEADERS_BUILD_TESTING=OFF \
         -DBUILD_TESTING=OFF .. || return 1
     
     ninja -j$(nproc) $NINJA_V || return 1

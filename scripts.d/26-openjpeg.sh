@@ -3,6 +3,11 @@
 SCRIPT_REPO="https://github.com/uclouvain/openjpeg.git"
 SCRIPT_COMMIT="d33cbecc148d3affcdf403211fddc2cc5d442379"
 
+ffbuild_depends() {
+    echo libtiff
+    echo libpng
+}
+
 ffbuild_enabled() {
     return 0
 }

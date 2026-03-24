@@ -1,0 +1,66 @@
+From 1e14fd11f4517aef3e6b3b1eb10559aa6df1f095 Mon Sep 17 00:00:00 2001
+From: Ger Hobbelt <ger@hobbelt.com>
+Date: Sun, 27 Jul 2025 14:03:35 +0200
+Subject: [PATCH] fix linker error due to doubly defined symbol, as it occurred
+ in two object files in monolithic build mode.
+
+---
+ src/eastasianwidthdata.c         | 4 ++++
+ src/eastasianwidthdef.c          | 1 +
+ src/generate_east_asian_width.py | 6 +++++-
+ 3 files changed, 10 insertions(+), 1 deletion(-)
+
+diff --git a/src/eastasianwidthdata.c b/src/eastasianwidthdata.c
+index 7915446..157d47b 100644
+--- a/src/eastasianwidthdata.c
++++ b/src/eastasianwidthdata.c
+@@ -5,6 +5,8 @@
+ # Date: 2023-07-28, 13:19:22 GMT [KW]
+ */
+ 
++#ifdef IMPLEMENT_EAST_ASIAN
++
+ #include "eastasianwidthdef.h"
+ 
+ static const struct EastAsianWidthProperties eaw_prop[] = {
+@@ -331,3 +333,5 @@ bool ub_is_op_east_asian(utf32_t ch) {
+         || (ch >= 0x3008 && ch <= 0xFD3F)
+         || (ch >= 0xFE17 && ch <= 0x13258);
+ }
++
++#endif // IMPLEMENT_EAST_ASIAN
+diff --git a/src/eastasianwidthdef.c b/src/eastasianwidthdef.c
+index 60df5e2..df9c9e5 100644
+--- a/src/eastasianwidthdef.c
++++ b/src/eastasianwidthdef.c
+@@ -22,6 +22,7 @@
+  */
+ 
+ #include "eastasianwidthdef.h"
++#define IMPLEMENT_EAST_ASIAN
+ #include "eastasianwidthdata.c"
+ #include "unibreakdef.h"
+ 
+diff --git a/src/generate_east_asian_width.py b/src/generate_east_asian_width.py
+index ffc16d9..ea20f54 100755
+--- a/src/generate_east_asian_width.py
++++ b/src/generate_east_asian_width.py
+@@ -60,13 +60,17 @@ def main():
+     print(leading_comment_2, end='')
+     print('*/')
+     print()
++    print('#ifdef IMPLEMENT_EAST_ASIAN')
++    print()
+     print('#include "eastasianwidthdef.h"')
+     print()
+     output_east_asian_width_data(east_asian_width_properties, skip='N')
+     print()
+     output_is_op_east_asian_function(line_break_properties,
+                                      east_asian_width_properties)
+-
++    print()
++    print('#endif // IMPLEMENT_EAST_ASIAN')
++    print()
+ 
+ if __name__ == '__main__':
+     main()
