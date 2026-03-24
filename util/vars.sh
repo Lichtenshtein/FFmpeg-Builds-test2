@@ -212,35 +212,63 @@ patch_pc_files() {
         local extra_libs=""
         local extra_requires=""
 
-        # Предварительная чистка имен (zlib)
+        # Глобальная чистка и исправление специфичных библиотек
         sed -i $sl 's/-lzlib/-lz/g' "$pc"
+        sed -i $sl 's/-lWs2_32/-lws2_32/g' "$pc"
+        sed -i $sl 's/-lWinmm/-lwinmm/g' "$pc"
 
-        # Удаляем все строки, которые определяют стандартные переменные путей,
-        # чтобы избежать рекурсии типа libdir=${libdir}
+        # Специальный фикс для lcms2: объединяем его части в одну группу до парсинга
+        if [[ "$pc" == *"lcms2.pc" ]]; then
+            sed -i $sl 's/-llcms2/-llcms2_fast_float -llcms2_threaded -llcms2/g' "$pc"
+        fi
+
+        # Удаляем артефакты Meson (строки без дефиса, которые он иногда пишет в Libs)
+        # Например, превращаем " _fast_float " в " "
+        sed -i $sl -E 's/(^|[[:space:]])[a-zA-Z0-9_]+_float([[:space:]]|$)/ /g' "$pc"
+        sed -i $sl -E 's/(^|[[:space:]])[a-zA-Z0-9_]+_threaded([[:space:]]|$)/ /g' "$pc"
+
+        # Пересоздание переменных путей
         sed -i $sl '/^prefix=/d; /^exec_prefix=/d; /^libdir=/d; /^includedir=/d; /^bindir=/d' "$pc"
-
-        # Вставляем эталонные определения в самое начало файла
         sed -i $sl "1i prefix=$FFBUILD_PREFIX\nexec_prefix=\${prefix}\nlibdir=\${prefix}/lib\nincludedir=\${prefix}/include\nbindir=\${prefix}/bin" "$pc"
 
-        # Заменяем абсолютные пути на переменные только в строках, НЕ являющихся определениями (где нет '='). Это защитит наши вставленные в пункте 2 строки от порчи.
+        # Замена абсолютных путей на переменные (только в теле файла)
         sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'/include|${includedir}|g' "$pc"
         sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'/lib|${libdir}|g' "$pc"
         sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'|${prefix}|g' "$pc"
 
-        # Очистка Libs: оставляем только -L и -l самой либы
-        # Переносим всё остальное в Libs.private
+        # Обработка Libs (Улучшенный захват для мульти-библиотечных пакетов)
         local current_libs=$(grep "^Libs:" "$pc" | cut -d':' -f2- | xargs)
-        # Явно ищем путь -L и название либы -l
+        
+        # Ищем путь -L
         local lib_path=$(echo "$current_libs" | grep -oE "\-L[^ ]+" | head -n1)
-        # Если путь -L отсутствует, используем стандартный
         [[ -z "$lib_path" ]] && lib_path="-L\${libdir}"
-        local lib_name=$(echo "$current_libs" | grep -oE "\-l[a-zA-Z0-9_\.\-]+" | head -n1)
-        # Формируем "чистый" Libs
-        local main_lib="$lib_path $lib_name"
-        # Все остальное отправляем в extra_libs
-        extra_libs=$(echo "$current_libs" | sed "s|$lib_path||g; s|$lib_name||g")
+        
+        # Определяем базовое имя (например 'lcms2' из 'lcms2.pc')
+        local base_name=$(basename "$pc" .pc)
+        # Убираем префикс 'lib', если он есть
+        base_name=${base_name#lib}
 
-        sed -i $sl "s|^Libs:.*|Libs: $main_lib|" "$pc"
+        # Ищем ВСЕ либы, начинающиеся на базовое имя (нужно для lcms2_fast_float и т.д.)
+        local main_libs=$(echo "$current_libs" | grep -oE "\-l${base_name}[a-zA-Z0-9_\-]*" | xargs)
+        
+        # Если по имени файла ничего не нашли, берем первый попавшийся -l
+        [[ -z "$main_libs" ]] && main_libs=$(echo "$current_libs" | grep -oE "\-l[a-zA-Z0-9_\.\-]+" | head -n1)
+
+        # Собираем финальный "публичный" Libs
+        local main_lib_full="$lib_path $main_libs"
+        
+        # Вычисляем остатки (extra_libs), которые уйдут в private
+        # Удаляем путь и все найденные основные библиотеки из текущей строки
+        local leftovers="$current_libs"
+        leftovers=$(echo "$leftovers" | sed "s|$lib_path||g")
+        for mlib in $main_libs; do
+            leftovers=$(echo "$leftovers" | sed "s|$mlib||g")
+        done
+        
+        extra_libs="$leftovers"
+
+        # Применяем изменения к файлу
+        sed -i $sl "s|^Libs:.*|Libs: $main_lib_full|" "$pc"
 
         # сканер зависимостей (Autotools, CMake, Meson)
         for lib in $scan_candidates; do
