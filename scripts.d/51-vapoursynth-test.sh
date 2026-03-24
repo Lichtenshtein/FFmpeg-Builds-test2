@@ -51,7 +51,7 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja -C build install || return 1
 
     # Исправление pkg-config для статической линковки FFmpeg
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/vapoursynth.pc"
+    local PC_FILE="$PC_DIR/vapoursynth.pc"
 
     if [[ -f "$PC_FILE" ]]; then
         # Убеждаемся, что пути корректны

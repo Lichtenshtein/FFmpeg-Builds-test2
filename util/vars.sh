@@ -222,13 +222,20 @@ patch_pc_files() {
 
         # Очистка Libs: оставляем только -L и -l самой либы
         # Переносим всё остальное в Libs.private
-        local current_libs=$(grep "^Libs:" "$pc" | cut -d':' -f2-)
-        local main_lib=$(echo "$current_libs" | grep -oE "(\-L\${libdir}|\-l[a-zA-Z0-9_\.\-]+)" | head -n2 | xargs)
-        local leftover_libs=$(echo "$current_libs" | sed "s|$main_lib||g")
-
+        local current_libs=$(grep "^Libs:" "$pc" | cut -d':' -f2- | xargs)
+        # Явно ищем путь -L и название либы -l
+        local lib_path=$(echo "$current_libs" | grep -oE "\-L[^ ]+" | head -n1)
+        # Если путь -L отсутствует, используем стандартный
+        [[ -z "$lib_path" ]] && lib_path="-L\${libdir}"
+        local lib_name=$(echo "$current_libs" | grep -oE "\-l[a-zA-Z0-9_\.\-]+" | head -n1)
+        # Формируем "чистый" Libs
+        local main_lib="$lib_path $lib_name"
+        # Все остальное отправляем в extra_libs
+        local leftover_libs=$(echo "$current_libs" | sed "s|$lib_path||g; s|$lib_name||g")
         sed -i "s|^Libs:.*|Libs: $main_lib|" "$pc"
 
-        local extra_libs="$leftover_libs "
+        # Добавляем остатки к extra_libs для последующей дедупликации
+        extra_libs="$leftover_libs $extra_libs"
         local extra_requires=""
 
         # сканер зависимостей (Autotools, CMake, Meson)

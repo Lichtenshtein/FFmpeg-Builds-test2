@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
 
     CFLAGS="$CFLAGS" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS -std=c++17" \
+    CXXFLAGS="$CXXFLAGS" \
     LDFLAGS="$LDFLAGS" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
@@ -43,7 +43,7 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Исправляем .pc файл для статической линковки в FFmpeg
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/zimg.pc"
+    local PC_FILE="$PC_DIR/zimg.pc"
     if [[ -f "$PC_FILE" ]]; then
         # Гарантируем, что FFmpeg увидит необходимость линковки с libstdc++
         if ! grep -q "Libs.private" "$PC_FILE"; then

@@ -52,7 +52,7 @@ ffbuild_dockerbuild() {
 
     # ПРЕДВАРИТЕЛЬНО создаем структуру папок, чтобы install не падал
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    mkdir -p "$PC_DIR"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"

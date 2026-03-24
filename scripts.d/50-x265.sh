@@ -117,8 +117,8 @@ EOF
     make -C 8bit install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Гарантируем наличие pkg-config файла
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/x265.pc"
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/x265.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib

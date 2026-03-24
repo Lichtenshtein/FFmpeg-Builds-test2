@@ -58,7 +58,7 @@ ffbuild_dockerbuild() {
     # Порядок важен: сначала голоса и лексиконы, в конце -lflite
     local VOX_LIBS=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "libflite_*.a" | sed "s|.*/lib\(flite_.*\)\.a|-l\1|" | xargs)
 
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/flite.pc"
+    cat <<EOF > "$PC_DIR/flite.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
@@ -67,7 +67,7 @@ includedir=\${prefix}/include/flite
 Name: flite
 Description: a text to speech library
 Version: 2.3.0
-Libs: -L\${libdir} $VOX_LIBS -lflite -lm -lws2_32
+Libs: -L\${libdir} $VOX_LIBS -lflite
 Cflags: -I\${includedir}
 EOF
 

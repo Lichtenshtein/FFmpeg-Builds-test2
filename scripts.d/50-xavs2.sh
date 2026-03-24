@@ -67,10 +67,10 @@ ffbuild_dockerbuild() {
 
     # Проверка и фикс pkg-config
     # xavs2 иногда пишет неверные пути в .pc файл при использовании DESTDIR
-    if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/xavs2.pc" ]]; then
-        sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/xavs2.pc"
+    if [[ -f "$PC_DIR/xavs2.pc" ]]; then
+        sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_DIR/xavs2.pc"
         # Для статической линковки в FFmpeg
-        echo "Libs.private: -lstdc++ -lm" >> "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/xavs2.pc"
+        echo "Libs.private: -lstdc++ -lm" >> "$PC_DIR/xavs2.pc"
     fi
 
 }

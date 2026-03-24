@@ -30,9 +30,9 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
     
     # MPEG-H часто не генерирует .pc файл. Проверим и создадим, если нужно
-    if [[ ! -f "$FFBUILD_DESTPREFIX/lib/pkgconfig/mpeghdec.pc" ]]; then
-        mkdir -p "$FFBUILD_DESTPREFIX/lib/pkgconfig"
-        cat <<EOF > "$FFBUILD_DESTPREFIX/lib/pkgconfig/mpeghdec.pc"
+    if [[ ! -f "$PC_DIR/mpeghdec.pc" ]]; then
+        mkdir -p "$PC_DIR"
+        cat <<EOF > "$PC_DIR/mpeghdec.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib

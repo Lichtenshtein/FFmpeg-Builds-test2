@@ -37,7 +37,7 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # ФИКС pkg-config (Критично для FFmpeg)
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/speex.pc"
+    local PC_FILE="$PC_DIR/speex.pc"
     if [[ -f "$PC_FILE" ]]; then
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
         # Добавляем математическую либу для статики
