@@ -32,7 +32,7 @@ ffbuild_dockerbuild() {
     mkdir -p "$FFBUILD_PREFIX/lib"
     ln -sf /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32.a /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libWs2_32.a
     ln -sf /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32.a "$FFBUILD_PREFIX/lib/libWs2_32.a"
-    find "$FFBUILD_PREFIX/lib/pkgconfig" -name "*.pc" -exec sed -i 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g' {} +
+    find "$PC_DIR" -name "*.pc" -exec sed -i 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g' {} +
 
     # Удаляем "ядовитые" CMake-конфиги TIFF и других либ, 
     # которые заставляют линкер искать ZLIB::ZLIB
@@ -40,11 +40,11 @@ ffbuild_dockerbuild() {
     # Удаляем любые другие конфиги, которые могут просочиться
     # find "$FFBUILD_PREFIX/lib/cmake" -name "*Config.cmake" -delete
 
-    local TESS_LEPT="-lleptonica -lpangocairo-1.0 -lpangoft2-1.0 -lpangowin32-1.0 -lpango-1.0 -lcairo-gobject -lcairo"
+    local TESS_LEPT="-lleptonica -lpangocairo-1.0 -lpangowin32-1.0 -lpangoft2-1.0 -lpango-1.0 -lcairo-gobject -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lcairo"
     local NET_ARCHIVE="-larchive -lcurl -lssh -lssl -lcrypto"
-    local IMAGES="-llcms2 -ltiffxx -ltiff -lopenjp2 -ljpeg -lturbojpeg -lpng16 -lgif -lwebpmux -lwebpdemux -lwebpdecoder -lwebp -lsharpyuv"
-    local FONT_GLIB="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz-cairo -lharfbuzz -lfontconfig -lfreetype -lpixman-1 -lfribidi -lgio-2.0 -lgthread-2.0 -lglib-2.0"
-    local LOW_LEVEL="-lxml2 -lsicuin -lsicuuc -lsicudt -lpcre2-posix -lpcre2-8 -lffi -ljbig -ljbig85 -lzstd -llzma -lbrotlienc -lbrotlidec -lbrotlicommon -lbz2 -lz -lintl -liconv -lcharset"
+    local IMAGES="-llcms2_fast_float -llcms2_threaded -llcms2 -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv"
+    local FONT_GLIB="-lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lfontconfig -lfreetype -lpixman-1 -lfribidi -lgio-2.0 -lgthread-2.0 -lglib-2.0"
+    local LOW_LEVEL="-lxml2 -lpcre2-posix -lpcre2-8 -lffi -ljbig -lzstd -llzma -lbrotlienc -lbrotlidec -lbrotlicommon -lbz2 -lz -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt"
 
     # Системные либы Windows (повторяем ws2_32 для curl)
     local WIN_SYS="-luserenv -lcrypt32 -lnormaliz -luuid -lruntimeobject -lgdi32 -lusp10 -lsetupapi -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lwinmm -lbcrypt"

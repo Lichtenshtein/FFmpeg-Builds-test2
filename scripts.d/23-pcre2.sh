@@ -54,9 +54,8 @@ ffbuild_dockerbuild() {
             sed -i '/^Cflags:/ s/$/ -DPCRE2_STATIC/' "$pc"
         fi
         sed -i '/^Libs.private:/d' "$pc"
-        echo "Libs.private: -lbz2 -lz $SYSTEM_LIBS" >> "$pc"
+        echo "Libs.private: $DEP_LIBS" >> "$pc"
     done
-
 }
 
 ffbuild_cppflags() {

@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
     rm -rf "$FFBUILD_PREFIX/lib/cmake/"{tiff,OpenJPEG,libwebp,WebP,lcms2}
 
     # финальный список для линковки
-    local DEP_LIBS="-lsharpyuv -lwebp -lwebpdecoder -lwebpdemux -lwebpmux -ltiff -ltiffxx -lopenjp2 -ljpeg -lturbojpeg -lpng16 -lgif -lzstd -llzma -lbz2 -lz"
+    local DEP_LIBS="-llcms2_fast_float -llcms2_threaded -llcms2 -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif -lzstd -llzma -lbz2 -lz"
     local WIN_LIBS="-lgdi32 $LIBS -lstdc++"
 
     # There is NO -DSTATIC=ON flag exist

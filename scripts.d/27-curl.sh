@@ -32,7 +32,7 @@ ffbuild_dockerbuild() {
 
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
     # Порядок: curl -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
-    local DEP_LIBS="-lssh -lcrypto -lssl -lzstd -lbrotlidec -lbrotlicommon -lz"
+    local DEP_LIBS="-lssh -lssl -lcrypto -lzstd -lbrotlienc -lbrotlidec -lbrotlicommon -lz"
     local WIN_LIBS="-lcrypt32 -lwldap32 -lnormaliz -liphlpapi $LIBS"
 
     local myconf=(

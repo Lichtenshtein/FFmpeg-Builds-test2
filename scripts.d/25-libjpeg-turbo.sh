@@ -3,10 +3,6 @@
 SCRIPT_REPO="https://github.com/libjpeg-turbo/libjpeg-turbo.git"
 SCRIPT_COMMIT="4d293d9400281045e062b6e4eb8e1ccfc89d91f8"
 
-ffbuild_depends() {
-    echo lcms2
-}
-
 ffbuild_enabled() {
     return 0
 }

@@ -13,6 +13,7 @@ ffbuild_depends() {
     echo cairo
     echo pango
     echo dav1d
+    echo freetype2
 }
 
 ffbuild_enabled() {
@@ -66,7 +67,7 @@ ffbuild_dockerbuild() {
     local PC_FILE="$PC_DIR/librsvg-2.0.pc"
     if [[ -f "$PC_FILE" ]]; then
         # Librsvg (Rust) генерирует огромную статическую либу, которой нужны ВСЕ системные либы Windows
-        sed -i 's/^Libs:.*/& -lpangocairo-1.0 -lpango-1.0 -lcairo -lcairo-gobject -lglib-2.0 -lgobject-2.0 -lxml2 -lintl -lcharset -liconv -luserenv -lusp10 -lruntimeobject -lntdll -lmsimg32 -lgdi32 -lstdc++/' "$PC_FILE"
+        sed -i 's/^Libs:.*/& -lpangocairo-1.0 -lpangowin32-1.0 -lpangoft2-1.0 -lpango-1.0 -lcairo-gobject -lcairo -lgio-2.0 -lgthread-2.0 -lglib-2.0 -ldav1d -lxml2 -lintl -liconv -lcharset -luserenv -lusp10 -lruntimeobject -lntdll -lmsimg32 -lgdi32 -lstdc++/' "$PC_FILE"
     fi
 
 }
