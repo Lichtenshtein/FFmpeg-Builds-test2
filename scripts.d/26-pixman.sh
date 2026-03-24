@@ -47,11 +47,5 @@ ffbuild_dockerbuild() {
         if ! grep -q "Dpixman_static" "$PC_FILE"; then
             sed -i '/^Cflags:/ s/$/ -Dpixman_static/' "$PC_FILE"
         fi
-        if grep -q "^Libs.private:" "$PC_FILE"; then
-            sed -i "s|^Libs.private:.*|Libs.private: -lpng16|" "$PC_FILE"
-        else
-            sed -i "/^Libs:/ a Libs.private: -lpng16" "$PC_FILE"
-        fi
     fi
-
 }
