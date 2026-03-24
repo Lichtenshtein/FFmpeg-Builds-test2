@@ -58,25 +58,20 @@ ffbuild_dockerbuild() {
         myconf+=( -DSVT_AV1_LTO=OFF )
     fi
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS $([ "${USE_LTO}" == "1" ] && echo -ffat-lto-objects )" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS $([ "${USE_LTO}" == "1" ] && echo -ffat-lto-objects )" \
     LDFLAGS="$LDFLAGS" \
     cmake "${myconf[@]}" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # ФИКС pkg-config
     # SVT-AV1 иногда генерирует SvtAv1Enc.pc вместо svtav1.pc
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/SvtAv1Enc.pc"
+    local PC_FILE="$PC_DIR/SvtAv1Enc.pc"
     if [[ -f "$PC_FILE" ]]; then
         # FFmpeg ищет "SvtAv1Enc" (в новых версиях) или "svtav1"
         # Сделаем копию для совместимости
-        cp "$PC_FILE" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/svtav1.pc"
-        
-        # Добавляем системные либы для статической линковки
-        echo "Libs.private: -lstdc++ -lm" >> "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/svtav1.pc"
-        echo "Libs.private: -lstdc++ -lm" >> "$PC_FILE"
+        cp "$PC_FILE" "$PC_DIR/svtav1.pc"
     fi
 
 }

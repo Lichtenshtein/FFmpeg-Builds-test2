@@ -67,7 +67,7 @@ ffbuild_dockerbuild() {
 
     # Исправление pkg-config для FFmpeg
     # FFmpeg должен знать обо всех внутренних компонентах GGML
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/whisper.pc"
+    local PC_FILE="$PC_DIR/whisper.pc"
     
     # Полный список компонентов GGML, которые создаются при сборке
     local GGML_LIBS="-lggml -lggml-base -lggml-cpu -lggml-vulkan -lggml-opencl"

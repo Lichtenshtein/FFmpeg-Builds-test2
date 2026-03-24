@@ -122,6 +122,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y subversion subversion-tools nasm yasm
 
+      - name: Check CPU
+        run: |
+          lscpu | grep "Model name"
+          cat /proc/cpuinfo | grep "vendor_id" | head -n 1
+
       - name: Set Image Names
         id: images
         run: |

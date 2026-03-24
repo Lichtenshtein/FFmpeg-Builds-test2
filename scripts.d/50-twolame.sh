@@ -44,9 +44,7 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # ФИКС pkg-config (Критично для FFmpeg)
-    # Гарантируем, что любой, кто линкуется с twolame, знает о статике
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/twolame.pc"
+    local PC_FILE="$PC_DIR/twolame.pc"
     if [[ -f "$PC_FILE" ]]; then
         # Исправляем префикс, если он стал абсолютным
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"

@@ -67,7 +67,7 @@ ffbuild_dockerbuild() {
     fi || return 1
 
     # Установка
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    mkdir -p "$PC_DIR"
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/codec2"
     
     # Проверяем, где в итоге оказался файл
@@ -80,7 +80,7 @@ ffbuild_dockerbuild() {
     cp ../src/codec2.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/codec2/"
     
     # Генерируем pkg-config
-    cat <<EOF > "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/codec2.pc"
+    cat <<EOF > "$PC_DIR/codec2.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
@@ -102,7 +102,7 @@ EOF
     fi
 
     # Исправление .pc файла (Codec2 иногда забывает про -lm)
-    local PC_FILE="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/codec2.pc"
+    local PC_FILE="$PC_DIR/codec2.pc"
     if [[ -f "$PC_FILE" ]]; then
         if ! grep -q "Libs.private" "$PC_FILE"; then
             echo "Libs.private: -lm" >> "$PC_FILE"
