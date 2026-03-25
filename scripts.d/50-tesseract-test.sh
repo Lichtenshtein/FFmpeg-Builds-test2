@@ -79,7 +79,7 @@ grep -r "WINDOWS_EXPORT\|out-implib\|dll.a\|SHARED" \
 -lgdi32 -lsetupapi -lole32 -lshlwapi \
 -luser32 -ladvapi32 -ldbghelp \
 -lws2_32 -lwinmm -lbcrypt \
--lpthread -lstdc++ -lm"
+-pthread -lstdc++ -lm"
 
     # Strip -Wl,-Bstatic — blocks import libs needed for __imp_ symbols
     local RAW_LDFLAGS
@@ -92,8 +92,6 @@ grep -r "WINDOWS_EXPORT\|out-implib\|dll.a\|SHARED" \
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_TESTS=OFF
         -DBUILD_TRAINING_TOOLS=OFF
-        -DWINDOWS_EXPORT_ALL_SYMBOLS=OFF
-        -Dlibtesseract_type=STATIC
         -DOPENMP_BUILD=OFF
         -DFAST_FLOAT=ON
         -DSW_BUILD=OFF
@@ -102,6 +100,8 @@ grep -r "WINDOWS_EXPORT\|out-implib\|dll.a\|SHARED" \
         -DLEPT_TIFF_RESULT=0
         -DLEPT_TIFF_COMPILE_SUCCESS=ON
         -DCMAKE_FIND_LIBRARY_SUFFIXES=".a"
+        -DCMAKE_CXX_LINK_EXECUTABLE="<CMAKE_CXX_COMPILER> <FLAGS> <CMAKE_CXX_LINK_FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> -Wl,--start-group <LINK_LIBRARIES> -Wl,--end-group <REAR_FLAGS>"
+        -DCMAKE_C_LINK_EXECUTABLE="<CMAKE_C_COMPILER> <FLAGS> <CMAKE_C_LINK_FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> -Wl,--start-group <LINK_LIBRARIES> -Wl,--end-group <REAR_FLAGS>"
         -DPKG_CONFIG_EXECUTABLE="$(command -v pkg-config)"
         -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS \
 -DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB \
@@ -124,7 +124,7 @@ grep -r "WINDOWS_EXPORT\|out-implib\|dll.a\|SHARED" \
 log_debug "--- Tesseract debug STEP 3"
     # 1. Clear INTERFACE_LINK_LIBRARIES on libtesseract target
     #    so CMake doesn't dump them into linkLibs.rsp outside our group
-    find build -name "*.cmake" \
+    find . -name "*.cmake" \
         | xargs grep -l "INTERFACE_LINK_LIBRARIES" 2>/dev/null \
         | while read -r f; do
             log_debug "Clearing INTERFACE_LINK_LIBRARIES in $f"
@@ -138,7 +138,7 @@ log_debug "--- Tesseract debug STEP 4"
     #    - fix capitalisation
     #    - remove --out-implib (we don't want a dll import lib)
     #    - wrap everything from first -l to end in --start-group/--end-group
-    find build -name "link.txt" | while read -r lt; do
+    find . -name "link.txt" | while read -r lt; do
         log_debug "Patching link.txt: $lt"
         # Fix capitalisation
         sed -i 's/-lWs2_32\b/-lws2_32/g; s/-lWinmm\b/-lwinmm/g' "$lt"
@@ -157,7 +157,7 @@ log_debug "--- Tesseract debug STEP 4"
 
 log_debug "--- Tesseract debug STEP 5"
     # Remove WINDOWS_EXPORT_ALL_SYMBOLS and out-implib from all cmake files
-    find build -name "*.cmake" -o -name "Makefile" \
+    find . -name "*.cmake" -o -name "Makefile" \
         | xargs sed -i \
             's/WINDOWS_EXPORT_ALL_SYMBOLS//g
              s/-Wl,--out-implib,[^ "]*//g' \
@@ -168,7 +168,7 @@ log_debug "--- Tesseract debug STEP 5"
     make -j$(nproc) $MAKE_V 2>&1 || true
 
     # ── Fix capitalisation in generated .rsp files ───────────────────────────────
-    find build -name "*.rsp" | while read -r rsp; do
+    find . -name "*.rsp" | while read -r rsp; do
         log_debug "Patching rsp: $rsp"
         sed -i \
             's/-lWs2_32\b/-lws2_32/g
@@ -180,12 +180,12 @@ log_debug "--- Tesseract debug STEP 5"
 log_debug "--- Tesseract debug STEP 6"
     # ── Log what linkLibs.rsp actually contains ──────────────────────────────────
     log_debug "=== linkLibs.rsp contents after pass 1 ==="
-    find build -name "linkLibs.rsp" -exec cat {} \; \
+    find . -name "linkLibs.rsp" -exec cat {} \; \
         | tr ' ' '\n' | sort -u >&2 || true
 
 log_debug "--- Tesseract debug STEP 7"
     log_debug "=== FULL link.txt after patching ==="
-    find build -name "link.txt" -exec cat {} \; >&2
+    find . -name "link.txt" -exec cat {} \; >&2
 
     # ── Build pass 2 (actual final link with fixed rsp files) ───────────────────
     log_debug "Build pass 2..."
@@ -196,7 +196,7 @@ log_debug "--- Tesseract debug STEP 7"
 log_debug "--- Tesseract debug STEP 8"
 
     log_debug "=== linkLibs.rsp full content ==="
-    find build -name "linkLibs.rsp" -exec echo "FILE: {}" \; -exec cat {} \; >&2
+    find . -name "linkLibs.rsp" -exec echo "FILE: {}" \; -exec cat {} \; >&2
 }
 
 ffbuild_configure() {
