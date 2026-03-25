@@ -26,34 +26,172 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-log_debug "--- Tesseract debug STEP 1"
-# Find which cmake config is injecting Ws2_32
-grep -r "Ws2_32" "$FFBUILD_PREFIX" 2>/dev/null
-grep -r "Ws2_32" /opt/ct-ng/x86_64-w64-mingw32/ 2>/dev/null | head -20
-
-log_debug "--- Tesseract debug STEP 2"
-grep -r "WINDOWS_EXPORT\|out-implib\|dll.a\|SHARED" \
-    ../CMakeLists.txt ../src/CMakeLists.txt 2>/dev/null | head -20
-
     # ── Ws2_32 symlink ───────────────────────────────────────────────────────────
     local ws2="/opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32.a"
     [[ -f "$ws2" ]] && \
-        ln -sf "$ws2" /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libWs2_32.a \
-        2>/dev/null || true
+        ln -sf "$ws2" \
+            /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libWs2_32.a 2>/dev/null || true
 
-    # ── Nuke ALL cmake find configs so CMake cannot append libs behind our back ──
+    # ── Nuke cmake configs ───────────────────────────────────────────────────────
     find "$FFBUILD_PREFIX/lib/cmake" \
         \( -name "*Config.cmake" \
            -o -name "*-config.cmake" \
            -o -name "*Targets*.cmake" \
            -o -name "*targets*.cmake" \) \
         -delete 2>/dev/null || true
-    # Also nuke pkgconfig for libs we manage manually so CMake's pkg_check_modules
-    # doesn't find them and add them to INTERFACE_LINK_LIBRARIES
-    # (we keep them for our own pkg-config calls, but hide from CMake's scanner)
-    # We do this by temporarily renaming the dir during cmake configure
-    local pkgcfg_backup="/opt/ffbuild_pkgcfg_backup"
-    cp -r "$FFBUILD_PREFIX/lib/pkgconfig" "$pkgcfg_backup" 2>/dev/null || true
+
+    # ── Create a CXX compiler wrapper that intercepts the final link ─────────────
+    # Strategy: when the wrapper sees --whole-archive (the tesseract link step),
+    # it rewrites the command to wrap ALL -l flags AND bare .a files in one group.
+    local wrapper="/usr/local/bin/x86_64-w64-mingw32-g++-wrapper"
+    cat > "$wrapper" << 'WRAPPER_EOF'
+#!/bin/bash
+# Transparent wrapper around x86_64-w64-mingw32-g++
+# Intercepts the final executable link and fixes library ordering.
+
+REAL_GXX="/usr/local/bin/x86_64-w64-mingw32-g++.real"
+
+# Only intercept executable links (they contain --whole-archive)
+if printf '%s\n' "$@" | grep -q -- '--whole-archive'; then
+
+    # Expand all @response_files into a flat argument list
+    expanded=()
+    for arg in "$@"; do
+        if [[ "$arg" == @* ]]; then
+            rsp="${arg#@}"
+            if [[ -f "$rsp" ]]; then
+                # Read rsp, splitting on spaces and newlines
+                while IFS= read -r token || [[ -n "$token" ]]; do
+                    for t in $token; do
+                        expanded+=("$t")
+                    done
+                done < "$rsp"
+            else
+                expanded+=("$arg")
+            fi
+        else
+            expanded+=("$arg")
+        fi
+    done
+
+    # Now rebuild the command in correct order:
+    # compiler_flags ... -Wl,--whole-archive objects -Wl,--no-whole-archive
+    # -o output
+    # -Wl,--start-group [ALL libs] -Wl,--end-group
+    # [extra flags]
+
+    pre=()        # compiler + flags before --whole-archive
+    objects=()    # --whole-archive ... --no-whole-archive block
+    output=()     # -o output [--out-implib ...]
+    libs=()       # all -l flags and bare .a files
+    post=()       # trailing flags (--major-image-version etc.)
+
+    in_whole=0
+    skip_next=0
+    i=0
+    while [[ $i -lt ${#expanded[@]} ]]; do
+        arg="${expanded[$i]}"
+
+        # Fix capitalisation
+        arg="${arg//-lWs2_32/-lws2_32}"
+        arg="${arg//-lWinmm/-lwinmm}"
+        arg="${arg//-lPthread/-lpthread}"
+
+        if [[ $skip_next -eq 1 ]]; then
+            skip_next=0
+            ((i++))
+            continue
+        fi
+
+        case "$arg" in
+            # Strip --out-implib (we don't want a dll import lib side effect)
+            -Wl,--out-implib,*)
+                : ;;
+            --out-implib)
+                skip_next=1 ;;
+
+            # Absorb existing group markers — we'll add our own
+            -Wl,--start-group|-Wl,--end-group)
+                : ;;
+
+            # Capture --whole-archive block into objects[]
+            -Wl,--whole-archive)
+                in_whole=1
+                objects+=("$arg") ;;
+            -Wl,--no-whole-archive)
+                in_whole=0
+                objects+=("$arg") ;;
+
+            # Capture output target
+            -o)
+                output+=("-o" "${expanded[$((i+1))]}")
+                ((i++)) ;;
+
+            # Capture all lib flags and bare .a files into libs[]
+            -l*|-L*)
+                if [[ $in_whole -eq 0 ]]; then
+                    libs+=("$arg")
+                else
+                    objects+=("$arg")
+                fi ;;
+            *.a)
+                if [[ $in_whole -eq 0 ]]; then
+                    libs+=("$arg")
+                else
+                    objects+=("$arg")
+                fi ;;
+
+            # Version flags go to post
+            -Wl,--major-image-version,*|-Wl,--minor-image-version,*)
+                post+=("$arg") ;;
+
+            # Everything else goes to pre (compiler flags)
+            *)
+                if [[ $in_whole -eq 0 && ${#objects[@]} -eq 0 ]]; then
+                    pre+=("$arg")
+                elif [[ $in_whole -eq 1 ]]; then
+                    objects+=("$arg")
+                else
+                    post+=("$arg")
+                fi ;;
+        esac
+        ((i++))
+    done
+
+    # Reconstruct: pre + objects + output + --start-group libs --end-group + post
+    exec "$REAL_GXX" \
+        "${pre[@]}" \
+        "${objects[@]}" \
+        "${output[@]}" \
+        -Wl,--start-group \
+            "${libs[@]}" \
+        -Wl,--end-group \
+        -Wl,--allow-multiple-definition \
+        "${post[@]}"
+else
+    # Not a final link — pass through unchanged
+    exec "$REAL_GXX" "$@"
+fi
+WRAPPER_EOF
+    chmod +x "$wrapper"
+
+    # Back up real g++ and install wrapper
+    local real_gxx="/usr/local/bin/x86_64-w64-mingw32-g++"
+    if [[ ! -f "${real_gxx}.real" ]]; then
+        mv "$real_gxx" "${real_gxx}.real"
+        ln -sf "$wrapper" "$real_gxx"
+        log_debug "Installed g++ wrapper"
+    fi
+
+    # ── Ensure wrapper is removed even if build fails ────────────────────────────
+    restore_gxx() {
+        local real_gxx="/usr/local/bin/x86_64-w64-mingw32-g++"
+        if [[ -f "${real_gxx}.real" ]]; then
+            mv -f "${real_gxx}.real" "$real_gxx"
+            log_debug "Restored real g++"
+        fi
+    }
+    trap restore_gxx EXIT
 
     # ── Full lib list (flat, no group — we add group after configure) ────────────
     local ALL_LIBS="\
@@ -100,8 +238,6 @@ grep -r "WINDOWS_EXPORT\|out-implib\|dll.a\|SHARED" \
         -DLEPT_TIFF_RESULT=0
         -DLEPT_TIFF_COMPILE_SUCCESS=ON
         -DCMAKE_FIND_LIBRARY_SUFFIXES=".a"
-        -DCMAKE_CXX_LINK_EXECUTABLE="<CMAKE_CXX_COMPILER> <FLAGS> <CMAKE_CXX_LINK_FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> -Wl,--start-group <LINK_LIBRARIES> -Wl,--end-group <REAR_FLAGS>"
-        -DCMAKE_C_LINK_EXECUTABLE="<CMAKE_C_COMPILER> <FLAGS> <CMAKE_C_LINK_FLAGS> <LINK_FLAGS> <OBJECTS> -o <TARGET> -Wl,--start-group <LINK_LIBRARIES> -Wl,--end-group <REAR_FLAGS>"
         -DPKG_CONFIG_EXECUTABLE="$(command -v pkg-config)"
         -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS \
 -DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB \
@@ -119,81 +255,19 @@ grep -r "WINDOWS_EXPORT\|out-implib\|dll.a\|SHARED" \
 
     cmake "${myconf[@]}" .. || return 1
 
-    # ── POST-CONFIGURE PATCHES ───────────────────────────────────────────────────
-
-log_debug "--- Tesseract debug STEP 3"
-    # 1. Clear INTERFACE_LINK_LIBRARIES on libtesseract target
-    #    so CMake doesn't dump them into linkLibs.rsp outside our group
-    find . -name "*.cmake" \
-        | xargs grep -l "INTERFACE_LINK_LIBRARIES" 2>/dev/null \
-        | while read -r f; do
-            log_debug "Clearing INTERFACE_LINK_LIBRARIES in $f"
-            sed -i \
-                's/INTERFACE_LINK_LIBRARIES "[^"]*"/INTERFACE_LINK_LIBRARIES ""/g' \
-                "$f"
-        done
-
-log_debug "--- Tesseract debug STEP 4"
-    # 2. Patch all link.txt files:
-    #    - fix capitalisation
-    #    - remove --out-implib (we don't want a dll import lib)
-    #    - wrap everything from first -l to end in --start-group/--end-group
-    find . -name "link.txt" | while read -r lt; do
-        log_debug "Patching link.txt: $lt"
-        # Fix capitalisation
-        sed -i 's/-lWs2_32\b/-lws2_32/g; s/-lWinmm\b/-lwinmm/g' "$lt"
-        # Remove dll import lib output (causes confusion)
-        sed -i 's/-Wl,--out-implib,[^ ]*//g' "$lt"
-        # Remove any existing group markers
-        sed -i 's/-Wl,--start-group[[:space:]]*//g
-                s/[[:space:]]*-Wl,--end-group//g' "$lt"
-        # Wrap: --start-group before first -l, --end-group at end of line
-        sed -i 's/ -l/ -Wl,--start-group -l/
-                s/$/ -Wl,--end-group/' "$lt"
-        log_debug "Patched link.txt content:"
-        cat "$lt" | tr ' ' '\n' | grep -E "group|lWs2|lws2|rsp" \
-            | head -20 >&2 || true
-    done
-
-log_debug "--- Tesseract debug STEP 5"
-    # Remove WINDOWS_EXPORT_ALL_SYMBOLS and out-implib from all cmake files
-    find . -name "*.cmake" -o -name "Makefile" \
-        | xargs sed -i \
-            's/WINDOWS_EXPORT_ALL_SYMBOLS//g
-             s/-Wl,--out-implib,[^ "]*//g' \
-        2>/dev/null || true
-
-    # ── Build pass 1 (generates linkLibs.rsp) ───────────────────────────────────
-    log_debug "Build pass 1..."
-    make -j$(nproc) $MAKE_V 2>&1 || true
-
-    # ── Fix capitalisation in generated .rsp files ───────────────────────────────
-    find . -name "*.rsp" | while read -r rsp; do
-        log_debug "Patching rsp: $rsp"
+    # ── Clear INTERFACE_LINK_LIBRARIES (belt and suspenders) ────────────────────
+    find . -name "TesseractTargets.cmake" \
+        -o -name "*Targets*.cmake" 2>/dev/null \
+    | xargs grep -l "INTERFACE_LINK_LIBRARIES" 2>/dev/null \
+    | while read -r f; do
+        log_debug "Clearing INTERFACE_LINK_LIBRARIES in $f"
         sed -i \
-            's/-lWs2_32\b/-lws2_32/g
-             s/-lWinmm\b/-lwinmm/g
-             s/-lPthread\b/-lpthread/g' \
-            "$rsp"
+            's/INTERFACE_LINK_LIBRARIES "[^"]*"/INTERFACE_LINK_LIBRARIES ""/g' \
+            "$f"
     done
 
-log_debug "--- Tesseract debug STEP 6"
-    # ── Log what linkLibs.rsp actually contains ──────────────────────────────────
-    log_debug "=== linkLibs.rsp contents after pass 1 ==="
-    find . -name "linkLibs.rsp" -exec cat {} \; \
-        | tr ' ' '\n' | sort -u >&2 || true
-
-log_debug "--- Tesseract debug STEP 7"
-    log_debug "=== FULL link.txt after patching ==="
-    find . -name "link.txt" -exec cat {} \; >&2
-
-    # ── Build pass 2 (actual final link with fixed rsp files) ───────────────────
-    log_debug "Build pass 2..."
     make -j$(nproc) $MAKE_V || return 1
-
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
-
-log_debug "--- Tesseract debug STEP 8"
 
     log_debug "=== linkLibs.rsp full content ==="
     find . -name "linkLibs.rsp" -exec echo "FILE: {}" \; -exec cat {} \; >&2
