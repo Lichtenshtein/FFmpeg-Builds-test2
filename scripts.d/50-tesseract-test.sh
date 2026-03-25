@@ -27,16 +27,48 @@ ffbuild_dockerbuild() {
 
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
 
-    mkdir build && cd build
+log_debug "--- Tesseract debug START"
+
+# 2 Check what pkg-config actually reports for the key libraries
+log_debug "--- Tesseract debug STEP 2"
+
+for lib in leptonica libtiff-4 libarchive libcurl openssl; do
+    log_debug "=== $lib ==="
+    pkg-config --static --libs "$lib" 2>&1
+done
+
+# 3 Check the actual .a archives for undefined symbols
+log_debug "--- Tesseract debug STEP 3"
+
+# What does libtiff.a need that it doesn't provide itself?
+nm -u /opt/ffbuild/lib/libtiff.a 2>/dev/null \
+    | grep -v "^/" | awk '{print $2}' | sort -u \
+    | head -40
+nm -u /opt/ffbuild/lib/libleptonica.a 2>/dev/null \
+    | grep -v "^/" | awk '{print $2}' | sort -u \
+    | head -40
+
+# 4 Check if the symbols actually exist in built libs
+log_debug "--- Tesseract debug STEP 4"
+
+# Does libz.a actually provide 'inflate'?
+nm /opt/ffbuild/lib/libz.a | grep " T inflate$"
+# Does libjpeg.a provide 'jpeg_read_header'?
+nm /opt/ffbuild/lib/libjpeg.a | grep " T jpeg_read_header"
+# Does libzstd.a provide 'ZSTD_compressStream'?
+nm /opt/ffbuild/lib/libzstd.a | grep " T ZSTD_compressStream"
+# Does libbrotlidec.a provide 'BrotliDecoderGetErrorCode'?
+nm /opt/ffbuild/lib/libbrotlidec.a | grep "BrotliDecoderGetErrorCode"
+
 
     # исправляем фантомную libWs2_32 от которой компилятор падает
     # Создаем симлинк libWs2_32.a -> libws2_32.a
     # линкер найдет библиотеку при любом регистре
-    mkdir -p "$FFBUILD_PREFIX/lib"
-    ln -sf /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32.a \
-           /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libWs2_32.a 2>/dev/null || true
-    ln -sf /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32.a \
-           "$FFBUILD_PREFIX/lib/libWs2_32.a" 2>/dev/null || true
+    # mkdir -p "$FFBUILD_PREFIX/lib"
+    # ln -sf /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32.a \
+           # /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libWs2_32.a 2>/dev/null || true
+    # ln -sf /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32.a \
+           # "$FFBUILD_PREFIX/lib/libWs2_32.a" 2>/dev/null || true
 
     # Удаляем "ядовитые" CMake-конфиги TIFF и других либ, 
     # которые заставляют линкер искать ZLIB::ZLIB
@@ -65,10 +97,11 @@ ffbuild_dockerbuild() {
 
     # Перемещаем ВСЁ содержимое папки cmake в бэкап
     if [ -d "$FFBUILD_PREFIX/lib/cmake" ]; then
+        log_info "Backing up CMAKE files for Tesseract..."
         mv "$FFBUILD_PREFIX/lib/cmake"/* "$CMAKE_BACKUP_DIR/" 2>/dev/null || true
     fi
 
-    # LINKING HELL
+    # LINKING HELL START
 
     # Library groups (ordered: high-level → low-level)
     # Rule: if A uses B, A must appear before B inside --start-group.
@@ -189,13 +222,47 @@ ffbuild_dockerbuild() {
         -DCMAKE_EXE_LINKER_FLAGS="$RAW_LDFLAGS $FINAL_LIBS -Wl,--allow-multiple-definition"
     )
 
+    mkdir build && cd build
+
     cmake "${myconf[@]}" .. || return 1
-    make -j$(nproc) $MAKE_V || return 1
+    # make -j$(nproc) $MAKE_V || return 1
+
+# 5 Check if CMake is actually using linker flags
+# After cmake configure, look at what it generated
+log_debug "--- Tesseract debug STEP 5"
+
+cat build/CMakeFiles/libtesseract.dir/link.txt
+
+# 6 Check for the __imp_ symbol problem specifically
+# __imp_WSASetEvent etc. come from ws2_32
+# Check if the sysroot has it
+log_debug "--- Tesseract debug STEP 6"
+
+nm /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32.a \
+    | grep -i "WSASetEvent"
+# Check if -Bstatic is blocking it
+ls -la /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32*
+
+# 7 Verify the actual .pc files that matter
+log_debug "--- Tesseract debug STEP 7"
+
+cat "$PC_DIR/leptonica.pc"
+echo "---"
+cat "$PC_DIR/libtiff-4.pc"
+echo "---"  
+cat "$PC_DIR/libarchive.pc"
+echo "---"
+cat "$PC_DIR/libcurl.pc"
+
+log_debug "--- Tesseract debug END"
+
+    make -j1 VERBOSE=1 2>&1 | grep -A5 "Linking CXX executable" | tee /tmp/tess_link.log || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Возвращаем cmake файлы обратно в префикс
     if [ -d "$CMAKE_BACKUP_DIR" ]; then
         mkdir -p "$FFBUILD_PREFIX/lib/cmake"
+        log_info "Restoring CMAKE files from backup..."
         mv "$CMAKE_BACKUP_DIR"/* "$FFBUILD_PREFIX/lib/cmake/" 2>/dev/null || true
         rm -rf "$CMAKE_BACKUP_DIR"
     fi
