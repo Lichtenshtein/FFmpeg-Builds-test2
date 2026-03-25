@@ -44,9 +44,8 @@ ffbuild_dockerbuild() {
     
     # Список папок для перемещения
     TARGETS=(tiff OpenJPEG libwebp WebP lcms2 TIFF)
-    
+    log_info "Backing up CMAKE files for Leptonica..."
     for target in "${TARGETS[@]}"; do
-        log_info "Backing up CMAKE files for Leptonica..."
         if [ -d "$FFBUILD_PREFIX/lib/cmake/$target" ]; then
             mv "$FFBUILD_PREFIX/lib/cmake/$target" "$LEPT_BACKUP/"
         fi
