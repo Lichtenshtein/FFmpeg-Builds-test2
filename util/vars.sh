@@ -97,7 +97,7 @@ export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 
 BASE_CFLAGS="-mms-bitfields -fstack-protector-strong"
 BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
-SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -lpthread"
+SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
 
 # Флаги для стадии сборки компонентов; disable -fPIC, -ffast-math, -flto=auto if troubles occur
 export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=gnu11"
@@ -216,7 +216,6 @@ patch_pc_files() {
             n = split(skip, s)
             for (j=1; j<=n; j++) {
                 skip_map[s[j]] = 1
-                # cross-alias
                 if (s[j] == "-pthread")  skip_map["-lpthread"] = 1
                 if (s[j] == "-lpthread") skip_map["-pthread"]  = 1
             }
@@ -224,7 +223,6 @@ patch_pc_files() {
         {
             for (i=1; i<=NF; i++) {
                 v = $i
-                # normalise alias for seen-check only
                 key = (v == "-lpthread") ? "-pthread" : v
                 if (!skip_map[key] && !skip_map[v] && !seen[key]++) printf "%s ", v
             }
