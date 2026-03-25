@@ -46,11 +46,11 @@ ffbuild_dockerbuild() {
     TARGETS=(tiff OpenJPEG libwebp WebP lcms2 TIFF)
     
     for target in "${TARGETS[@]}"; do
+        log_info "Backing up CMAKE files for Leptonica..."
         if [ -d "$FFBUILD_PREFIX/lib/cmake/$target" ]; then
             mv "$FFBUILD_PREFIX/lib/cmake/$target" "$LEPT_BACKUP/"
         fi
     done
-    
 
     # финальный список для линковки
     local DEP_LIBS="-llcms2_fast_float -llcms2_threaded -llcms2 -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif -lzstd -llzma -lbz2 -lz"
@@ -160,6 +160,8 @@ EOF
     # Возвращаем папки на место, чтобы они были доступны для Tesseract или FFmpeg
     # Возвращаем всё обратно в основную директорию
     if [ -d "$LEPT_BACKUP" ]; then
+        mkdir -p "$FFBUILD_PREFIX/lib/cmake"
+        log_info "Restoring CMAKE files from backup..."
         mv "$LEPT_BACKUP"/* "$FFBUILD_PREFIX/lib/cmake/" 2>/dev/null || true
         rm -rf "$LEPT_BACKUP"
     fi
