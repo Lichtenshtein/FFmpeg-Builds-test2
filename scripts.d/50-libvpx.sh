@@ -19,7 +19,6 @@ ffbuild_dockerbuild() {
         --disable-unit-tests
         --enable-vp9-highbitdepth
         --prefix="$FFBUILD_PREFIX"
-        --enable-realtime-only
         --enable-runtime-cpu-detect
         --enable-postproc
         --enable-multi-res-encoding
