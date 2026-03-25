@@ -193,167 +193,199 @@ patch_pc_files() {
     local sl="--follow-symlinks"
     [[ -d "$pc_dir" ]] || return 0
 
-    # Определяем корень исходников (для поиска конфигов билд-систем)
+    # Locate build-system root (for dependency scanning)
     local src_root="."
-    if [[ -f "../configure.ac" || -f "../meson.build" || -f "../CMakeLists.txt" ]]; then
-        src_root=".."
-    elif [[ -f "../../configure.ac" || -f "../../meson.build" || -f "../../CMakeLists.txt" ]]; then
-        src_root="../.."
-    fi
+    for candidate in ".." "../.."; do
+        for f in configure.ac meson.build CMakeLists.txt; do
+            [[ -f "$candidate/$f" ]] && { src_root="$candidate"; break 2; }
+        done
+    done
 
-    # Список библиотек, которые сканер будет искать в конфигах
-    local scan_candidates="zstd lzma bz2 webp openjp2 jpeg tiff png zlib libbrotlidec libbrotlienc libbrotlicommon iconv lcms2 jbig freetype2 libxml-2.0 libffi intl"
+    # Candidates whose presence we scan for in build configs
+    local scan_candidates=(
+        zstd lzma bz2 webp openjp2 jpeg tiff png zlib
+        libbrotlidec libbrotlienc libbrotlicommon
+        iconv lcms2 jbig freetype2 libxml-2.0 libffi intl
+    )
+
+    # deduplicate space-separated tokens, normalise -pthread/-lpthread
+    # Usage: dedup_flags "token token ..." ["skip_tokens"]
+    dedup_flags() {
+        echo "$1" | awk -v skip="$2" '
+        BEGIN {
+            n = split(skip, s)
+            for (j=1; j<=n; j++) {
+                skip_map[s[j]] = 1
+                # cross-alias
+                if (s[j] == "-pthread")  skip_map["-lpthread"] = 1
+                if (s[j] == "-lpthread") skip_map["-pthread"]  = 1
+            }
+        }
+        {
+            for (i=1; i<=NF; i++) {
+                v = $i
+                # normalise alias for seen-check only
+                key = (v == "-lpthread") ? "-pthread" : v
+                if (!skip_map[key] && !skip_map[v] && !seen[key]++) printf "%s ", v
+            }
+        }'
+    }
+
+    # helper escape string for use as a literal sed pattern
+    sed_escape() { printf '%s' "$1" | sed 's/[[\.*^$()+?{|]/\\&/g'; }
 
     # замена абсолютных путей на переменные
     find "$pc_dir" -maxdepth 1 -name "*.pc" | while read -r pc; do
         [[ -f "$pc" ]] || continue
         log_debug "Fixing paths in $pc"
 
-        local extra_libs=""
-        local extra_requires=""
-
-        # Глобальная чистка и исправление специфичных библиотек
-        sed -i $sl 's/-lzlib/-lz/g; s/-lrt //g; s/-lrt$//g' "$pc"
+        # Capitalisation fixes
         sed -i $sl 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g' "$pc"
-
-        # Специальный фикс для lcms2: объединяем его части в одну группу до парсинга
-        if [[ "$pc" == *"lcms2.pc" ]]; then
-            sed -i $sl 's/-llcms2/-llcms2_fast_float -llcms2_threaded -llcms2/g' "$pc"
-        fi
-
-        # Удаляем артефакты Meson (строки без дефиса, которые он иногда пишет в Libs)
-        # Например, превращаем " _fast_float " в " "
-        sed -i $sl -E 's/(^|[[:space:]])[a-zA-Z0-9_]+_float([[:space:]]|$)/ /g' "$pc"
-        sed -i $sl -E 's/(^|[[:space:]])[a-zA-Z0-9_]+_threaded([[:space:]]|$)/ /g' "$pc"
+        # Remove -lrt (Linux-only, not on Windows)
+        sed -i $sl 's/ -lrt\b//g' "$pc"
 
         # Пересоздание переменных путей
         sed -i $sl '/^prefix=/d; /^exec_prefix=/d; /^libdir=/d; /^includedir=/d; /^bindir=/d' "$pc"
         sed -i $sl "1i prefix=$FFBUILD_PREFIX\nexec_prefix=\${prefix}\nlibdir=\${prefix}/lib\nincludedir=\${prefix}/include\nbindir=\${prefix}/bin" "$pc"
 
-        # Замена абсолютных путей на переменные (только в теле файла)
-        sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'/include|${includedir}|g' "$pc"
-        sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'/lib|${libdir}|g' "$pc"
-        sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'|${prefix}|g' "$pc"
+        # Replace absolute paths with variables (only in non-assignment lines)
+        sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'/include|\${includedir}|g' "$pc"
+        sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'/lib|\${libdir}|g'         "$pc"
+        sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'|\${prefix}|g'             "$pc"
 
         # Обработка Libs (Улучшенный захват для мульти-библиотечных пакетов)
         local current_libs=$(grep "^Libs:" "$pc" | cut -d':' -f2- | xargs)
-        
+
         # Ищем путь -L
-        local lib_path=$(echo "$current_libs" | grep -oE "\-L[^ ]+" | head -n1)
-        [[ -z "$lib_path" ]] && lib_path="-L\${libdir}"
+        local lib_path=$(echo "$current_libs" | grep -oE '\-L[^ ]+' | head -n1)
+        [[ -z "$lib_path" ]] && lib_path='-L${libdir}'
         
         # Определяем базовое имя (например 'lcms2' из 'lcms2.pc')
         local base_name=$(basename "$pc" .pc)
-        # Убираем префикс 'lib', если он есть
-        base_name=${base_name#lib}
+        # strip leading 'lib' prefix
+        base_name="${base_name#lib}"
 
-        # Ищем ВСЕ либы, начинающиеся на базовое имя (нужно для lcms2_fast_float и т.д.)
-        local main_libs=$(echo "$current_libs" | grep -oE "\-l${base_name}[a-zA-Z0-9_\-]*" | xargs)
-        
-        # Если по имени файла ничего не нашли, берем первый попавшийся -l
-        [[ -z "$main_libs" ]] && main_libs=$(echo "$current_libs" | grep -oE "\-l[a-zA-Z0-9_\.\-]+" | head -n1)
+        # Collect all -l flags whose name starts with base_name
+        # Use grep with word-boundary-like pattern; escape dots in base_name
+        local escaped_base=$(sed_escape "$base_name")
+        local main_libs=$(echo "$current_libs" | grep -oE "\-l${escaped_base}[a-zA-Z0-9_-]*" | xargs)
+        # Fallback: just take the first -l flag
+        [[ -z "$main_libs" ]] && main_libs=$(echo "$current_libs" | grep -oE '\-l[a-zA-Z0-9_.+-]+' | head -n1)
 
-        # Собираем финальный "публичный" Libs
-        local main_lib_full="$lib_path $main_libs"
-        
-        # Вычисляем остатки (extra_libs), которые уйдут в private
-        # Удаляем путь и все найденные основные библиотеки из текущей строки
-        local leftovers="$current_libs"
-        leftovers=$(echo "$leftovers" | sed "s|$lib_path||g")
-        for mlib in $main_libs; do
-            leftovers=$(echo "$leftovers" | sed "s|$mlib||g")
+        # Compute leftover flags (→ Libs.private) strip lib_path and each main_lib token using awk (avoids regex metachar issues)
+        local leftovers
+        leftovers=$(echo "$current_libs" | awk -v lp="$lib_path" -v ml="$main_libs" '{
+            n = split(ml, m)
+            for (i=1; i<=NF; i++) {
+                if ($i == lp) continue
+                skip=0; for (j=1; j<=n; j++) if ($i == m[j]) { skip=1; break }
+                if (!skip) printf "%s ", $i } }')
+
+        # Write clean public Libs line
+        sed -i $sl "s|^Libs:.*|Libs: $lib_path $main_libs|" "$pc"
+
+        # Dependency scanner (Autotools, CMake, Meson)
+        local extra_libs=""
+        local extra_requires=""
+        for lib in "${scan_candidates[@]}"; do
+            local pc_found=0
+            for dir in \
+                "$FFBUILD_PREFIX/lib/pkgconfig" \
+                "$FFBUILD_PREFIX/share/pkgconfig" \
+                "$FFBUILD_PREFIX/lib64/pkgconfig"
+            do
+                [[ -f "$dir/${lib}.pc" || -f "$dir/lib${lib}.pc" ]] && { pc_found=1; break; }
+            done
+            (( pc_found )) || continue
+            local search_term="$lib"
+            [[ "$lib" == libbrotli* ]] && search_term="brotli"
+            grep -rqiE \
+                "(have_lib|#define.*HAVE_LIB|found|find_package.*)[[:space:]]*[(_]?${search_term}" \
+                "$src_root" \
+                --include="config.*" --include="*.ac" \
+                --include="*.cmake" --include="CMakeLists.txt" \
+                --include="meson.build" --include="*.meson" \
+                -m1 2>/dev/null || continue
+            case "$lib" in
+                iconv|bz2|zlib|jpeg)
+                    extra_libs+=" -l${lib#lib}" ;;
+                *)
+                    extra_requires+=" $lib" ;;
+            esac
         done
-        
-        extra_libs="$leftovers"
 
-        # Применяем изменения к файлу
-        sed -i $sl "s|^Libs:.*|Libs: $main_lib_full|" "$pc"
-
-        # сканер зависимостей (Autotools, CMake, Meson)
-        for lib in $scan_candidates; do
-            # Проверяем наличие .pc файла в префиксе
-            if [[ -f "$FFBUILD_PREFIX/lib/pkgconfig/${lib}.pc" || -f "$FFBUILD_PREFIX/lib/pkgconfig/lib${lib}.pc" || -f "$FFBUILD_PREFIX/share/pkgconfig/${lib}.pc" ]]; then
-                local search_term="$lib"
-                [[ "$lib" == libbrotli* ]] && search_term="brotli"
-                if grep -rqiE "(have_lib|#define.*HAVE_LIB|found.*|find_package.*)${search_term}" "$src_root" \
-                    --include="config.*" --include="*.ac" --include="*.cmake" --include="CMakeLists.txt" \
-                    --include="meson.build" --include="*.meson" -m1 2>/dev/null; then
-                    case "$lib" in
-                        iconv|bz2|zlib|jpeg) extra_libs+=" -l${lib#lib}" ;; 
-                        *) extra_requires+=" $lib" ;;
-                    esac
-                fi
-            fi
-        done
-
-        # -lstdc++ только если проект реально использует C++
+        # Add -lstdc++ if the project has any C++ sources
         find "$src_root" -maxdepth 2 \( -name "*.cpp" -o -name "*.cc" \) 2>/dev/null | grep -q . && extra_libs+=" -lstdc++"
 
-        # Врезка Requires.private (если нашли зависимости с .pc)
-        if [[ -z $(grep "^Requires.private:" "$pc") ]]; then
-            # Вставляем после Version, если её нет - после Name
-            local insert_ref="Version"
-            grep -q "^Version:" "$pc" || insert_ref="Name"
-            sed -i $sl "/^$insert_ref:/ a Requires.private:" "$pc"
-        fi
-        sed -i $sl "/^Requires.private:/ s/$/ $extra_requires/" "$pc"
-
-        # Врезка Libs.private
-        grep -q "^Libs.private:" "$pc" || sed -i $sl "/^Libs:/ a Libs.private:" "$pc"
-        sed -i $sl "/^Libs.private:/ s/$/ $extra_libs $LIBS/" "$pc"
-
-        # Слияние Cflags.private в основные Cflags (для гарантии работы статики)
-        local cflags_priv=$(grep "^Cflags.private:" "$pc" | cut -d':' -f2- | xargs)
+        # Merge Cflags.private → Cflags
+        local cflags_priv
+        cflags_priv=$(grep "^Cflags.private:" "$pc" | cut -d':' -f2- | xargs)
         if [[ -n "$cflags_priv" ]]; then
             sed -i $sl "/^Cflags:/ s/$/ $cflags_priv/" "$pc"
-            # Удаляем нестандартное поле, чтобы не смущать парсеры
             sed -i $sl '/^Cflags.private:/d' "$pc"
         fi
 
-        # --- Умная дедупликация ---
-        # Чистим Cflags
-        local cflags_line=$(grep "^Cflags:" "$pc" | cut -d':' -f2- | xargs)
+        # Ensure Requires.private and Libs.private fields exist
+        if ! grep -q "^Requires.private:" "$pc"; then
+            local insert_ref="Version"
+            grep -q "^Version:" "$pc" || insert_ref="Name"
+            sed -i $sl "/^${insert_ref}:/ a Requires.private:" "$pc"
+        fi
+        if ! grep -q "^Libs.private:" "$pc"; then
+            sed -i $sl "/^Libs:/ a Libs.private:" "$pc"
+        fi
+
+        # Append discovered deps (raw, dedup happens)
+        sed -i $sl "/^Requires.private:/ s|$| $extra_requires|" "$pc"
+        sed -i $sl "/^Libs.private:/ s|$| $leftovers $extra_libs $LIBS|" "$pc"
+
+        # Apply -lzlib → -lz (after all -l tokens are in the file)
+        sed -i $sl 's/-lzlib\b/-lz/g' "$pc"
+
+        # Smart deduplication
+        # Cflags: simple dedup + -pthread alias
+        local cflags_line
+        cflags_line=$(grep "^Cflags:" "$pc" | cut -d':' -f2- | xargs)
         if [[ -n "$cflags_line" ]]; then
-            local clean_cflags=$(echo "$cflags_line" | awk '{for(i=1;i<=NF;i++) if(!seen[$i]++) printf "%s ", $i}')
+            local clean_cflags
+            clean_cflags=$(dedup_flags "$cflags_line")
             sed -i $sl "s|^Cflags:.*|Cflags: $clean_cflags|" "$pc"
         fi
 
-        # Собираем "базу" (то, что уже объявлено как публичное)
-        # База для Requires.private: всё, что в Requires, не должно быть в Requires.private
-        local pub_req=$(grep "^Requires:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
-        local rp_line=$(grep "^Requires.private:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
+        # Requires.private: remove anything already in Requires
+        local pub_req
+        pub_req=$(grep "^Requires:" "$pc" | grep -v "^Requires.private:" | cut -d':' -f2- | tr ',' ' ' | xargs)
+        local rp_line
+        rp_line=$(grep "^Requires.private:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
         if [[ -n "$rp_line" ]]; then
-            local clean_rp=$(echo "$rp_line" | awk -v skip="$pub_req" '
-                BEGIN { n=split(skip, s) }
-                { for(i=1;i<=NF;i++) { is_s=0; for(j=1;j<=n;j++) if($i==s[j]) is_s=1; if(!is_s && !seen[$i]++) printf "%s ", $i } }')
+            local clean_rp
+            clean_rp=$(dedup_flags "$rp_line" "$pub_req")
             sed -i $sl "s|^Requires.private:.*|Requires.private: $clean_rp|" "$pc"
         fi
-        # База для Libs.private: всё, что в Libs или в ЛЮБОМ Requires, не должно быть здесь
-        # Собираем ВСЕRequires (имена пакетов) и Libs (флаги -l)
-        local all_req=$(grep -E "^Requires(\.private)?:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
-        local pub_libs=$(grep "^Libs:" "$pc" | cut -d':' -f2- | xargs)
-        local lp_line=$(grep "^Libs.private:" "$pc" | cut -d':' -f2- | xargs)
+
+        # Libs.private: remove anything already covered by Libs or any Requires
+        local all_req
+        all_req=$(grep -E "^Requires(\.private)?:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
+        local pub_libs
+        pub_libs=$(grep "^Libs:" "$pc" | cut -d':' -f2- | xargs)
+        local lp_line
+        lp_line=$(grep "^Libs.private:" "$pc" | cut -d':' -f2- | xargs)
         if [[ -n "$lp_line" ]]; then
-            local clean_lp=$(echo "$lp_line" | awk -v skip_pkgs="$all_req" -v skip_libs="$pub_libs" '
-                BEGIN { 
-                    n_p=split(skip_pkgs, sp); n_l=split(skip_libs, sl);
-                    for(j=1;j<=n_p;j++) { m["-l" sp[j]]=1; m[sp[j]]=1; }
-                    for(j=1;j<=n_l;j++) { m[sl[j]]=1; if(sl[j]=="-pthread") m["-lpthread"]=1; if(sl[j]=="-lpthread") m["-pthread"]=1; }
-                }
-                { 
-                    for(i=1;i<=NF;i++) {
-                        val=$i; key=val;
-                        if(key=="-pthread") key="-lpthread";
-                        if(!m[key] && !seen[key]++) printf "%s ", val
-                    }
-                }')
+            local skip_for_lp
+            skip_for_lp=$(echo "$all_req $pub_libs" | awk '{
+                for(i=1;i<=NF;i++){
+                    print $i
+                    if ($i !~ /^-/) print "-l" $i } }' | xargs)
+            local clean_lp
+            clean_lp=$(dedup_flags "$lp_line" "$skip_for_lp")
             sed -i $sl "s|^Libs.private:.*|Libs.private: $clean_lp|" "$pc"
         fi
 
-        # Удаляем пустые поля и лишние пробелы
-        sed -i $sl '/^Requires.private:[[:space:]]*$/d' "$pc"
-        sed -i $sl '/^Libs.private:[[:space:]]*$/d' "$pc"
-        sed -i $sl 's/[[:space:]]*$//; s/  */ /g' "$pc"
+        # Remove fields that ended up empty
+        sed -i $sl '/^Requires\.private:[[:space:]]*$/d' "$pc"
+        sed -i $sl '/^Libs\.private:[[:space:]]*$/d'     "$pc"
+        # Collapse multiple spaces, strip trailing whitespace
+        sed -i $sl 's/  \+/ /g; s/[[:space:]]*$//' "$pc"
         # sed -i $sl '/^$/d' "$pc"
     done
 }
