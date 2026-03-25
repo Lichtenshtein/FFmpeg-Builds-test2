@@ -77,12 +77,8 @@ ffbuild_dockerbuild() {
         -DCMAKE_EXE_LINKER_FLAGS="$RAW_LDFLAGS $FINAL_LIBS -Wl,--allow-multiple-definition"
     )
 
-    export CXXFLAGS="$CXXFLAGS -DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB -Wno-narrowing"
-    # Переопределяем макрос, который может заставлять систему искать dllimport
-    export CPPFLAGS="$CPPFLAGS -DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB -D_WINSOCKAPI_ -D_WINSOCK_DEPRECATED_NO_WARNINGS -Wno-narrowing -Wno-format"
-
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS -DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS -Wno-narrowing -Wno-format" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS -DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS -Wno-narrowing -Wno-format" \
     cmake "${myconf[@]}" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1
