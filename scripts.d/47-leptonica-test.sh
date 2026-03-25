@@ -36,7 +36,21 @@ ffbuild_dockerbuild() {
 
     # Удаляем "ядовитые" CMake-конфиги TIFF и других либ,
     # которые заставляют линкер искать ZLIB::ZLIB
-    rm -rf "$FFBUILD_PREFIX/lib/cmake/"{tiff,OpenJPEG,libwebp,WebP,lcms2}
+    # rm -rf "$FFBUILD_PREFIX/lib/cmake/"{tiff,OpenJPEG,libwebp,WebP,lcms2}
+
+    # Временная папка для хранения "ядовитых" конфигов
+    LEPT_BACKUP="/tmp/leptonica_deps_backup"
+    mkdir -p "$LEPT_BACKUP"
+    
+    # Список папок для перемещения
+    TARGETS=(tiff OpenJPEG libwebp WebP lcms2 TIFF)
+    
+    for target in "${TARGETS[@]}"; do
+        if [ -d "$FFBUILD_PREFIX/lib/cmake/$target" ]; then
+            mv "$FFBUILD_PREFIX/lib/cmake/$target" "$LEPT_BACKUP/"
+        fi
+    done
+    
 
     # финальный список для линковки
     local DEP_LIBS="-llcms2_fast_float -llcms2_threaded -llcms2 -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif -lzstd -llzma -lbz2 -lz"
@@ -139,7 +153,15 @@ EOF
 
     # Всё равно создаем симлинк, если Tesseract ищет leptonica.pc вместо lept.pc и флаг -DSYM_LINK=ON не сработал
     ln -sf lept.pc "$PC_DIR/leptonica.pc"
+
     # Удаляем CMake-файлы Leptonica. Это заставит Tesseract использовать pkg-config (lept.pc).
-    rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake/leptonica"
+    # rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake/leptonica"
+
+    # Возвращаем папки на место, чтобы они были доступны для Tesseract или FFmpeg
+    # Возвращаем всё обратно в основную директорию
+    if [ -d "$LEPT_BACKUP" ]; then
+        mv "$LEPT_BACKUP"/* "$FFBUILD_PREFIX/lib/cmake/" 2>/dev/null || true
+        rm -rf "$LEPT_BACKUP"
+    fi
 
 }
