@@ -109,9 +109,6 @@ FINAL_LIBS=$(smart_dedupe "$LIBS" "$FF_LIBS")
 log_debug "Deduplicated FINAL_CFLAGS: $FINAL_CFLAGS"
 log_debug "Deduplicated FINAL_LIBS: $FINAL_LIBS"
 
-# fdk-aac asan flags
-asan_flags="-static-libasan -fsanitize=address,undefined -fno-omit-frame-pointer"
-
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
 export HOST_CFLAGS="-O2 -pipe"
 export HOST_CXXFLAGS="-O2 -pipe"
@@ -146,6 +143,29 @@ find /opt/ct-ng -name "as" -type f
 as --version | head -n 1
 x86_64-w64-mingw32-as --version | head -n 1
 
+# ГЕНЕРАЦИЯ ПЕРЕМЕННЫХ СОСТОЯНИЯ КОМПОНЕНТОВ
+log_info "Scanning FFmpeg configuration for enabled components..."
+# Список компонентов для проверки
+COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac)
+# Создаем имя переменной libtesseract -> HAS_LIBTESSERACT
+for comp in "${COMPONENTS[@]}"; do
+    var_name="HAS_${comp^^//-/_}"
+    if [[ "$FINAL_CONFIGURE" == *"--enable-$comp"* ]]; then
+        export "$var_name=1"
+        log_debug "Component $comp: ENABLED ($var_name=1)"
+    else
+        export "$var_name=0"
+    fi
+done
+# Специальная обработка для ASAN (fdk-aac)
+ASAN_EXTRA=""
+if [[ "$HAS_LIBFDK_AAC" == "1" ]]; then
+    # fdk-aac asan flags
+    asan_flags="-static-libasan -fsanitize=address,undefined -fno-omit-frame-pointer"
+    ASAN_EXTRA="$asan_flags"
+    log_info "ASAN flags enabled due to fdk-aac presence."
+fi
+
 # Формируем массив флагов для configure
 read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
 read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
@@ -159,10 +179,10 @@ CONF_FLAGS=(
     --host-cc="gcc-14"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
-    --extra-cflags="$FINAL_CFLAGS $asan_flags"
-    --extra-cxxflags="$FINAL_CXXFLAGS $asan_flags"
-    --extra-ldflags="$FINAL_LDFLAGS $asan_flags"
-    --extra-libs="$FINAL_LIBS -lasan"
+    --extra-cflags="$FINAL_CFLAGS $ASAN_EXTRA"
+    --extra-cxxflags="$FINAL_CXXFLAGS $ASAN_EXTRA"
+    --extra-ldflags="$FINAL_LDFLAGS $ASAN_EXTRA"
+    --extra-libs="$FINAL_LIBS $([ -n "$ASAN_EXTRA" ] && echo "-lasan")"
     "${FF_CONF_ARR[@]}"
     --enable-filter=vpp_amf
     --enable-filter=sr_amf
@@ -260,9 +280,9 @@ fi
 # Проверяем наличие критических библиотек (для отладки в логах)
 ls -lh "$PKG_DIR/bin/"
 # Скачиваем модели для ИИ
-# log_info "${DOWN_MARK} Downloading Additional Models for AI..."
-# MODELS_FINAL_DIR="$PKG_DIR/models"
-# /builder/util/download_models.sh "$MODELS_FINAL_DIR" "$(pwd)"
+log_info "${DOWN_MARK} Downloading Additional Models for AI..."
+MODELS_FINAL_DIR="$PKG_DIR/models"
+/builder/util/download_models.sh "$MODELS_FINAL_DIR" "$(pwd)"
 
 # Стриппинг бинарников (удаление отладочных символов)
 log_info "Stripping binaries..."
