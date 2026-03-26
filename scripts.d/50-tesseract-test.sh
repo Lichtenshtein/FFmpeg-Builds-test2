@@ -285,11 +285,6 @@ WRAPPER_EOF
 
     log_debug "=== linkLibs.rsp full content ==="
     find . -name "linkLibs.rsp" -exec echo "FILE: {}" \; -exec cat {} \; >&2
-
-    # Check if CMake is actually using linker flags
-    # After cmake configure, look at what it generated
-    log_debug " === Tesseract linker flags ==="
-    cat build/CMakeFiles/tesseract.dir/link.txt
 }
 
 ffbuild_configure() {
