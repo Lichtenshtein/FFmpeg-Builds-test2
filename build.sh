@@ -262,7 +262,7 @@ ls -lh "$PKG_DIR/bin/"
 # Скачиваем модели для ИИ
 # log_info "${DOWN_MARK} Downloading Additional Models for AI..."
 # MODELS_FINAL_DIR="$PKG_DIR/models"
-# /builder/util/download_models.sh "$MODELS_FINAL_DIR"
+# /builder/util/download_models.sh "$MODELS_FINAL_DIR" "$(pwd)"
 
 # Стриппинг бинарников (удаление отладочных символов)
 log_info "Stripping binaries..."
