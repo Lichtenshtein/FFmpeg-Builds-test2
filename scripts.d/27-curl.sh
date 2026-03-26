@@ -101,6 +101,10 @@ ffbuild_dockerbuild() {
 
 }
 
+ffbuild_libs() {
+    echo "-lcrypt32 -lwldap32 -lnormaliz -liphlpapi"
+}
+
 ffbuild_cppflags() {
     echo "-DCURL_STATICLIB"
 }

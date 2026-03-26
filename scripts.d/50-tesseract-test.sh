@@ -196,32 +196,32 @@ WRAPPER_EOF
 
     # Full lib list (flat, no group; we add group after configure)
     local ALL_LIBS="\
-        -lleptonica \
-        -ltensorflow \
-        -lpangocairo-1.0 -lpangowin32-1.0 -lpangoft2-1.0 -lpango-1.0 \
-        -lcairo-gobject -lcairo \
-        -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo \
-        -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz \
-        -lfontconfig -lfreetype -lpixman-1 -lfribidi \
-        -lgio-2.0 -lgthread-2.0 -lglib-2.0 \
-        -lcurl -lssh -lssl -lcrypto \
-        -larchive \
-        -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif \
-        -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv \
-        -llcms2_fast_float -llcms2_threaded -llcms2 \
-        -lxml2 -lpcre2-posix -lpcre2-8 -lffi -ljbig \
-        -lzstd -llzma \
-        -lbrotlienc -lbrotlidec -lbrotlicommon \
-        -lbz2 -lz \
-        -lintl -liconv -lcharset \
-        -lsicuin -lsicuuc -lsicudt \
-        -luserenv -lcrypt32 -lnormaliz -luuid \
-        -lgdi32 -lsetupapi -lole32 -lshlwapi -liphlpapi \
-        -luser32 -ladvapi32 -ldbghelp -lwldap32 \
-        -lws2_32 -lwinmm -lbcrypt  \
-        -pthread -lstdc++ -lm \
-        -lusp10 -lmsimg32 -lruntimeobject \
-        -ldwrite -ld2d1 -lwindowscodecs -lopengl32"
+-lleptonica \
+-ltensorflow \
+-lpangocairo-1.0 -lpangowin32-1.0 -lpangoft2-1.0 -lpango-1.0 \
+-lcairo-gobject -lcairo \
+-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo \
+-lharfbuzz-vector -lharfbuzz-raster -lharfbuzz \
+-lfontconfig -lfreetype -lpixman-1 -lfribidi \
+-lgio-2.0 -lgthread-2.0 -lglib-2.0 \
+-lcurl -lssh -lssl -lcrypto \
+-larchive \
+-ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif \
+-lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv \
+-llcms2_fast_float -llcms2_threaded -llcms2 \
+-lxml2 -lpcre2-posix -lpcre2-8 -lffi -ljbig \
+-lzstd -llzma \
+-lbrotlienc -lbrotlidec -lbrotlicommon \
+-lbz2 -lz \
+-lintl -liconv -lcharset \
+-lsicuin -lsicuuc -lsicudt \
+-luserenv -lcrypt32 -lnormaliz -luuid \
+-lgdi32 -lsetupapi -lole32 -lshlwapi -liphlpapi \
+-luser32 -ladvapi32 -ldbghelp -lwldap32 \
+-lws2_32 -lwinmm -lbcrypt  \
+-pthread -lstdc++ -lm \
+-lusp10 -lmsimg32 -lruntimeobject \
+-ldwrite -ld2d1 -lwindowscodecs -lopengl32"
 
     # Strip -Wl,-Bstatic — blocks import libs needed for __imp_ symbols
     local RAW_LDFLAGS
@@ -233,9 +233,8 @@ WRAPPER_EOF
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_TESTS=OFF
-        # -DBUILD_TRAINING_TOOLS=OFF
-        -DBUILD_TRAINING_TOOLS=ON # Disable tools if they cause link errors
-        -DOPENMP_BUILD=ON # OpenMP в статике Mingw часто дает undefined reference на GOMP
+        -DBUILD_TRAINING_TOOLS=OFF # causes strange pgp path '=/include' errors
+        -DOPENMP_BUILD=OFF # DO NOT enable it for Win*; OpenMP в статике Mingw часто дает undefined reference на GOMP
         -DOPENMP_BUILD=OFF
         -DFAST_FLOAT=ON
         -DSW_BUILD=OFF
