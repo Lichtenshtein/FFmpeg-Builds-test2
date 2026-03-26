@@ -1,6 +1,13 @@
 version: 2
 updates:
+  # Следит за GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Следит за Docker-образами (например, ubuntu:24.04)
+  - package-ecosystem: "docker"
+    directory: "/images/base" # путь к папке с Dockerfile
     schedule:
       interval: "weekly"

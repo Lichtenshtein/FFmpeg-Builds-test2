@@ -1,0 +1,72 @@
+name: Sync with Upstream
+
+on:
+  schedule:
+    # Run every week at 5:00 AM UTC
+    - cron: '0 5 * * 0'
+  workflow_dispatch:
+    inputs:
+      branches:
+        description: 'Branch to sync (leave empty for all)'
+        required: false
+        default: 'master'
+env:
+  BRANCHES: ${{ github.event.inputs.branches }}
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Fork
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCHES }} 
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync Logic
+        run: |
+          # Determine the current branch (the one you checked out)
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "Current branch is: $CURRENT_BRANCH"
+
+          # Add the original and retrieve the data
+          git remote add upstream https://github.com/MartinEesmaa/FFmpeg-Builds.git
+          git fetch upstream master
+
+          # Compare the HEAD of the current branch with the upstream master
+          UPSTREAM_HASH=$(git rev-parse upstream/master)
+          LOCAL_HASH=$(git rev-parse HEAD)
+
+          if [ "$UPSTREAM_HASH" = "$LOCAL_HASH" ]; then
+            echo "✅ Already up to date."
+            exit 0
+          fi
+
+          # Synchronization
+          echo "🔄 Syncing $CURRENT_BRANCH with upstream/master..."
+
+          # If this is a working branch ('personal'), use MERGE,
+          # to preserve the edit history and make conflict resolution easier.
+          if [ "$CURRENT_BRANCH" = "personal" ]; then
+            git merge upstream/master -m "Sync: merge upstream changes" || {
+              echo "❌ Merge conflict in 'personal'. Stop."
+              git merge --abort; exit 1
+            }
+          else
+            # For clean forks (master) use REBASE
+            git rebase upstream/master || {
+              echo "❌ Rebase conflict. Stop."
+              git rebase --abort; exit 1
+            }
+          fi
+
+          # PUSH (to the same branch that was updated)
+          # A regular push is sufficient for a merge; a force-with-lease is required for a rebase.
+          git push origin $CURRENT_BRANCH $([ "$CURRENT_BRANCH" != "personal" ] && echo "--force-with-lease")

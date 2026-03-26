@@ -1,0 +1,43 @@
+name: Auto-Bump Dependencies
+
+on:
+  # schedule:
+    # - cron: '0 0 * * 0' # Каждое воскресенье в полночь
+  workflow_dispatch:
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Update Script
+        run: |
+          chmod +x util/update_scripts_test.sh
+          ./util/update_scripts_test.sh
+
+      - name: Check for changes
+        id: git-check
+        run: |
+          # Проверяем наличие изменений в папке scripts.d
+          if [[ -n "$(git status --porcelain scripts.d/)" ]]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Pull Request
+        if: steps.git-check.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "chore: bump component versions"
+          title: "🤖 Auto-Update Library Commits"
+          body: |
+            Automated dependency update. 
+            Checked with `bash -n` to ensure no syntax errors.
+          branch: auto-bump-deps
+          base: personal
+          delete-branch: true
