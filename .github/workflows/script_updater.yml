@@ -24,18 +24,20 @@ jobs:
       - name: Check for changes
         id: git-check
         run: |
-          git diff --exit-code || echo "changed=true" >> $GITHUB_OUTPUT
+          # Проверяем наличие изменений в папке scripts.d
+          if [[ -n "$(git status --porcelain scripts.d/)" ]]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create Pull Request
         if: steps.git-check.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
-          token: ${{ github.token }}
-          commit-message: "chore: auto-update component hashes"
-          title: "🤖 Auto-Bump Dependencies"
+          commit-message: "chore: bump component versions"
+          title: "🤖 Auto-Update Library Commits"
           body: |
-            This is an automated PR to update library commits to their latest versions.
-            Please check if the build still passes.
+            Automated dependency update. 
+            Checked with `bash -n` to ensure no syntax errors.
           branch: auto-bump-deps
           base: personal
           delete-branch: true

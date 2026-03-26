@@ -6,73 +6,67 @@ on:
     - cron: '0 5 * * 0'
   workflow_dispatch:
     inputs:
-      branch:
+      branches:
         description: 'Branch to sync (leave empty for all)'
         required: false
-        default: ''
+        default: 'master'
+env:
+  BRANCHES: ${{ github.event.inputs.branches }}
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        branch: [personal]
+    permissions:
+      contents: write
     steps:
-      - name: Checkout
+      - name: Checkout Fork
         uses: actions/checkout@v4
         with:
-          ref: ${{ matrix.branch }}
+          ref: ${{ env.BRANCHES }} 
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure Git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Add upstream remote
+      - name: Sync Logic
         run: |
-          git remote add upstream https://github.com/MartinEesmaa/FFmpeg-Builds.git || true
+          # Determine the current branch (the one you checked out)
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "Current branch is: $CURRENT_BRANCH"
+
+          # Add the original and retrieve the data
+          git remote add upstream https://github.com/MartinEesmaa/FFmpeg-Builds.git
           git fetch upstream master
 
-      - name: Check for new commits
-        id: check
-        run: |
-          # Get the latest upstream commit
-          UPSTREAM_COMMIT=$(git rev-parse upstream/master)
-          echo "upstream_commit=$UPSTREAM_COMMIT" >> $GITHUB_OUTPUT
+          # Compare the HEAD of the current branch with the upstream master
+          UPSTREAM_HASH=$(git rev-parse upstream/master)
+          LOCAL_HASH=$(git rev-parse HEAD)
 
-          # Check if we already have this commit
-          if git merge-base --is-ancestor $UPSTREAM_COMMIT HEAD; then
-            echo "already_synced=true" >> $GITHUB_OUTPUT
-            echo "✅ Already up to date with upstream"
-          else
-            echo "already_synced=false" >> $GITHUB_OUTPUT
-            echo "📥 New commits available from upstream"
+          if [ "$UPSTREAM_HASH" = "$LOCAL_HASH" ]; then
+            echo "✅ Already up to date."
+            exit 0
           fi
 
-      - name: Merge upstream changes
-        if: steps.check.outputs.already_synced == 'false'
-        run: |
-          echo "🔄 Merging upstream/master into ${{ matrix.branch }}..."
-          git merge upstream/master -m "Sync: merge upstream MartinEesmaa/FFmpeg-Builds" --no-edit || {
-            echo "⚠️ Merge conflict detected! Creating PR instead..."
-            git merge --abort
-            exit 1
-          }
+          # Synchronization
+          echo "🔄 Syncing $CURRENT_BRANCH with upstream/master..."
 
-      - name: Push changes
-        if: steps.check.outputs.already_synced == 'false'
-        run: |
-          git push origin ${{ matrix.branch }}
-          echo "✅ Successfully synced ${{ matrix.branch }} with upstream"
-
-      - name: Summary
-        run: |
-          echo "## Sync Summary for ${{ matrix.branch }}" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.check.outputs.already_synced }}" == "true" ]; then
-            echo "✅ Already up to date" >> $GITHUB_STEP_SUMMARY
+          # If this is a working branch ('personal'), use MERGE,
+          # to preserve the edit history and make conflict resolution easier.
+          if [ "$CURRENT_BRANCH" = "personal" ]; then
+            git merge upstream/master -m "Sync: merge upstream changes" || {
+              echo "❌ Merge conflict in 'personal'. Stop."
+              git merge --abort; exit 1
+            }
           else
-            echo "📥 Synced with upstream commit: ${{ steps.check.outputs.upstream_commit }}" >> $GITHUB_STEP_SUMMARY
+            # For clean forks (master) use REBASE
+            git rebase upstream/master || {
+              echo "❌ Rebase conflict. Stop."
+              git rebase --abort; exit 1
+            }
           fi
+
+          # PUSH (to the same branch that was updated)
+          # A regular push is sufficient for a merge; a force-with-lease is required for a rebase.
+          git push origin $CURRENT_BRANCH $([ "$CURRENT_BRANCH" != "personal" ] && echo "--force-with-lease")
