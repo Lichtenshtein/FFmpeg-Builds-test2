@@ -49,7 +49,8 @@ ffbuild_dockerbuild() {
 # Transparent wrapper around x86_64-w64-mingw32-g++
 # Intercepts the final executable link and fixes library ordering.
 
-REAL_GXX="/usr/local/bin/x86_64-w64-mingw32-g++.real"
+
+REAL_GXX="/opt/ct-ng/bin/x86_64-w64-mingw32-g++"
 
 # Only intercept executable links (they contain --whole-archive)
 if printf '%s\n' "$@" | grep -q -- '--whole-archive'; then
@@ -176,18 +177,19 @@ WRAPPER_EOF
     chmod +x "$wrapper"
 
     # Back up real g++ and install wrapper
-    local real_gxx="/usr/local/bin/x86_64-w64-mingw32-g++"
-    if [[ ! -f "${real_gxx}.real" ]]; then
-        mv "$real_gxx" "${real_gxx}.real"
-        ln -sf "$wrapper" "$real_gxx"
+    local gxx_proxy="/usr/local/bin/x86_64-w64-mingw32-g++"
+    # Back up the current proxy (which is the ccache symlink)
+    if [[ ! -f "${gxx_proxy}.bak" ]]; then
+        mv "$gxx_proxy" "${gxx_proxy}.bak"
+        ln -sf "$wrapper" "$gxx_proxy"
         log_debug "Installed g++ wrapper"
     fi
 
     # ── Ensure wrapper is removed even if build fails ────────────────────────────
     restore_gxx() {
-        local real_gxx="/usr/local/bin/x86_64-w64-mingw32-g++"
-        if [[ -f "${real_gxx}.real" ]]; then
-            mv -f "${real_gxx}.real" "$real_gxx"
+        local gxx_proxy="/usr/local/bin/x86_64-w64-mingw32-g++"
+        if [[ -f "${gxx_proxy}.bak" ]]; then
+            mv -f "${gxx_proxy}.bak" "$gxx_proxy"
             log_debug "Restored real g++"
         fi
     }
