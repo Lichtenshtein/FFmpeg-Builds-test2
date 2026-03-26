@@ -129,13 +129,8 @@ if printf '%s\n' "$@" | grep -q -- '--whole-archive'; then
                 ((i++)) ;;
 
             # Capture all lib flags and bare .a files into libs[]
-            -l*|-L*)
-                if [[ $in_whole -eq 0 ]]; then
-                    libs+=("$arg")
-                else
-                    objects+=("$arg")
-                fi ;;
-            *.a)
+            # Все, что похоже на библиотеку или поиск пути, кидаем в группу
+            -l*|-L*|*.a|*.lib)
                 if [[ $in_whole -eq 0 ]]; then
                     libs+=("$arg")
                 else
@@ -216,10 +211,12 @@ WRAPPER_EOF
 -lintl -liconv -lcharset \
 -lsicuin -lsicuuc -lsicudt \
 -luserenv -lcrypt32 -lnormaliz -luuid \
--lgdi32 -lsetupapi -lole32 -lshlwapi \
--luser32 -ladvapi32 -ldbghelp \
--lws2_32 -lwinmm -lbcrypt \
--pthread -lstdc++ -lm"
+-lgdi32 -lsetupapi -lole32 -lshlwapi -liphlpapi \
+-luser32 -ladvapi32 -ldbghelp -lwldap32 \
+-lws2_32 -lwinmm -lbcrypt  \
+-pthread -lstdc++ -lm \
+-lusp10 -lmsimg32 -lruntimeobject \
+-ldwrite -ld2d1 -lwindowscodecs -lopengl32"
 
     # Strip -Wl,-Bstatic — blocks import libs needed for __imp_ symbols
     local RAW_LDFLAGS
