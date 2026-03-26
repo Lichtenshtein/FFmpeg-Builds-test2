@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
         --disable-example
     )
 
-    # Флаги санитайзера
+    # Р¤Р»Р°РіРё СЃР°РЅРёС‚Р°Р№Р·РµСЂР°
     local asan_flags="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize=shift-base -fno-sanitize-recover=all"
     
     CFLAGS="$CFLAGS $asan_flags" \
@@ -39,6 +39,22 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
+}
+
+ffbuild_cflags() {
+    echo "$asan_flags"
+}
+
+ffbuild_cxxflags() {
+    echo "$asan_flags"
+} 
+
+ffbuild_ldflags() {
+    echo "$asan_flags"
+}
+
+ffbuild_libs() {
+    echo "-lasan"
 }
 
 ffbuild_configure() {

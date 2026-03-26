@@ -21,12 +21,23 @@ dedupe() {
     # Удаляем дубликаты, сохраняя ПЕРВОЕ вхождение
     echo "$clean" | awk '!x[$0]++' | xargs
 }
-# for ldflags and libs
+# for ldflags
 smart_dedupe() {
     local input="$*"
     local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
     if [[ "$DEDUPE_FLAGS" == "true" ]]; then
         echo "$clean" | awk '!x[$0]++' | xargs
+    else
+        echo "$clean" | xargs
+    fi
+}
+# for libs
+smart_libs_dedupe() {
+    local input="$*"
+    local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
+    if [[ "$DEDUPE_FLAGS" == "true" ]]; then
+    # оставляет только ПОСЛЕДНЕЕ вхождение (важно для порядка линковки)
+        echo "$*" | tr ' ' '\n' | tac | awk '!x[$0]++' | tac | tr '\n' ' ' | xargs
     else
         echo "$clean" | xargs
     fi
@@ -92,6 +103,7 @@ find /opt/ffbuild -type d -empty -delete
 
 log_info "Check if variables are loaded from files:"
 log_debug "Raw FF_CFLAGS: $FF_CFLAGS"
+log_debug "Raw FF_LDFLAGS: $FF_LDFLAGS"
 log_debug "Raw FF_LIBS: $FF_LIBS"
 
 # экспортируем флаги перед дедупликацией
@@ -100,14 +112,43 @@ export FF_CFLAGS FF_LIBS FF_CONFIGURE FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS
 # Подготовка ФИНАЛЬНЫХ флагов (Dedupe + Combine)
 # объединяем базовые флаги из vars.sh и накопленные из компонентов
 FINAL_CONFIGURE=$(dedupe "$FF_CONFIGURE")
-FINAL_CFLAGS=$(dedupe "$CFLAGS" "$FF_CFLAGS" "$CPPFLAGS" "$FF_CPPFLAGS")
-FINAL_CXXFLAGS=$(dedupe "$CXXFLAGS" "$FF_CXXFLAGS" "$CPPFLAGS" "$FF_CPPFLAGS")
-FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$FF_LDFLAGS")
+# ГЕНЕРАЦИЯ ПЕРЕМЕННЫХ СОСТОЯНИЯ КОМПОНЕНТОВ
+log_info "Scanning FFmpeg configuration for enabled components..."
+# Список компонентов для проверки
+COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac)
+# Создаем имя переменной libtesseract -> HAS_LIBTESSERACT
+for comp in "${COMPONENTS[@]}"; do
+    clean_name="${comp^^}"
+    clean_name="${clean_name//-/_}"
+    var_name="HAS_${clean_name}"
+    if [[ "$FINAL_CONFIGURE" == *"--enable-$comp"* ]]; then
+        export "$var_name=1"
+        log_debug "Component $comp: ENABLED ($var_name=1)"
+    else
+        export "$var_name=0"
+        log_debug "Component $comp: DISABLED ($var_name=1)"
+    fi
+done
+# Специальная обработка для ASAN (fdk-aac); fdk-aac asan flags
+ASAN_EXTRA=""
+asan_flags=""
+if [[ "$HAS_LIBFDK_AAC" == "1" ]]; then
+    asan_flags="-static-libasan -fsanitize=address,undefined -fno-omit-frame-pointer"
+    ASAN_EXTRA="-lasan"
+    log_info "ASAN flags enabled due to fdk-aac presence."
+fi
+FINAL_CFLAGS=$(dedupe "$CFLAGS" "$FF_CFLAGS" "$CPPFLAGS" "$FF_CPPFLAGS" "$asan_flags")
+FINAL_CXXFLAGS=$(dedupe "$CXXFLAGS" "$FF_CXXFLAGS" "$CPPFLAGS" "$FF_CPPFLAGS" "$asan_flags")
+FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$FF_LDFLAGS" "$asan_flags")
 FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$FF_LDEXEFLAGS")
-FINAL_LIBS=$(smart_dedupe "$LIBS" "$FF_LIBS")
+FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$FF_LIBS" "$ASAN_EXTRA")
 
 log_debug "Deduplicated FINAL_CFLAGS: $FINAL_CFLAGS"
+log_debug "Deduplicated FINAL_LDFLAGS: $FINAL_LDFLAGS"
 log_debug "Deduplicated FINAL_LIBS: $FINAL_LIBS"
+
+# Используем группы для решения проблем циклических зависимостей (особенно для Tesseract)
+FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} -Wl,--end-group"
 
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
 export HOST_CFLAGS="-O2 -pipe"
@@ -123,9 +164,9 @@ log_info "Running flags diagnostic..."
 log_info "Diagnostic: CFLAGS content:"
 printf 'HOST_CFLAGS bytes: '; echo -n "$HOST_CFLAGS" | xxd | head -5
 printf 'HOST_CXXFLAGS bytes: '; echo -n "$HOST_CXXFLAGS" | xxd | head -5
-printf 'FINAL_CFLAGS bytes: '; echo -n "$FINAL_CFLAGS" | xxd | head -15
+printf 'FINAL_CFLAGS bytes: '; echo -n "$FINAL_CFLAGS" | xxd | head -5
 log_info "Diagnostic: LDFLAGS content:"
-printf 'FINAL_LDFLAGS bytes: '; echo -n "$FINAL_LDFLAGS" | xxd | head -15
+printf 'FINAL_LDFLAGS bytes: '; echo -n "$FINAL_LDFLAGS" | xxd | head -5
 # какие именно as и ld видны в системе первыми
 log_debug "Which 'as': \n$(which -a as)"
 log_debug "Which 'ld': \n$(which -a ld)"
@@ -143,29 +184,6 @@ find /opt/ct-ng -name "as" -type f
 as --version | head -n 1
 x86_64-w64-mingw32-as --version | head -n 1
 
-# ГЕНЕРАЦИЯ ПЕРЕМЕННЫХ СОСТОЯНИЯ КОМПОНЕНТОВ
-log_info "Scanning FFmpeg configuration for enabled components..."
-# Список компонентов для проверки
-COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac)
-# Создаем имя переменной libtesseract -> HAS_LIBTESSERACT
-for comp in "${COMPONENTS[@]}"; do
-    var_name="HAS_${comp^^//-/_}"
-    if [[ "$FINAL_CONFIGURE" == *"--enable-$comp"* ]]; then
-        export "$var_name=1"
-        log_debug "Component $comp: ENABLED ($var_name=1)"
-    else
-        export "$var_name=0"
-    fi
-done
-# Специальная обработка для ASAN (fdk-aac)
-ASAN_EXTRA=""
-if [[ "$HAS_LIBFDK_AAC" == "1" ]]; then
-    # fdk-aac asan flags
-    asan_flags="-static-libasan -fsanitize=address,undefined -fno-omit-frame-pointer"
-    ASAN_EXTRA="$asan_flags"
-    log_info "ASAN flags enabled due to fdk-aac presence."
-fi
-
 # Формируем массив флагов для configure
 read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
 read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
@@ -179,10 +197,10 @@ CONF_FLAGS=(
     --host-cc="gcc-14"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
-    --extra-cflags="$FINAL_CFLAGS $ASAN_EXTRA"
-    --extra-cxxflags="$FINAL_CXXFLAGS $ASAN_EXTRA"
-    --extra-ldflags="$FINAL_LDFLAGS $ASAN_EXTRA"
-    --extra-libs="$FINAL_LIBS $([ -n "$ASAN_EXTRA" ] && echo "-lasan")"
+    --extra-cflags="$FINAL_CFLAGS"
+    --extra-cxxflags="$FINAL_CXXFLAGS"
+    --extra-ldflags="$FINAL_LDFLAGS"
+    --extra-libs="$$FINAL_LIBS_GROUPED"
     "${FF_CONF_ARR[@]}"
     --enable-filter=vpp_amf
     --enable-filter=sr_amf
