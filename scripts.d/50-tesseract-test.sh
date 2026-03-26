@@ -26,29 +26,33 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-    # ── Ws2_32 symlink ───────────────────────────────────────────────────────────
+    # Исправляем фантомную libWs2_32 от которой компилятор падает
+    # Создаем симлинк libWs2_32.a -> libws2_32.a
+    # линкер найдет библиотеку при любом регистре
     local ws2="/opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32.a"
-    [[ -f "$ws2" ]] && \
-        ln -sf "$ws2" \
-            /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libWs2_32.a 2>/dev/null || true
+    [[ -f "$ws2" ]] && ln -sf "$ws2" /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libWs2_32.a 2>/dev/null || true
 
-    # ── Nuke cmake configs ───────────────────────────────────────────────────────
+    # Backing up "poisoned" CMake-конфиги TIFF и других либ, 
+    # которые заставляют линкер искать ZLIB::ZLIB
+    # This prevents CMake from appending its own -l flags OUTSIDE our group.
+    local cmake_backup="/tmp/cmake_backup_tesseract"
+    mkdir -p "$cmake_backup"
+    log_debug "Backing up existing CMake configs to prevent interference..."
     find "$FFBUILD_PREFIX/lib/cmake" \
         \( -name "*Config.cmake" \
            -o -name "*-config.cmake" \
            -o -name "*Targets*.cmake" \
            -o -name "*targets*.cmake" \) \
-        -delete 2>/dev/null || true
+        -exec mv -t "$cmake_backup" {} + 2>/dev/null || true
 
-    # ── Create a CXX compiler wrapper that intercepts the final link ─────────────
-    # Strategy: when the wrapper sees --whole-archive (the tesseract link step),
+    # Create a CXX compiler wrapper that intercepts the final link
+    # When the wrapper sees --whole-archive (the tesseract link step),
     # it rewrites the command to wrap ALL -l flags AND bare .a files in one group.
     local wrapper="/usr/local/bin/x86_64-w64-mingw32-g++-wrapper"
     cat > "$wrapper" << 'WRAPPER_EOF'
 #!/bin/bash
 # Transparent wrapper around x86_64-w64-mingw32-g++
 # Intercepts the final executable link and fixes library ordering.
-
 
 REAL_GXX="/opt/ct-ng/bin/x86_64-w64-mingw32-g++"
 
@@ -171,7 +175,7 @@ fi
 WRAPPER_EOF
     chmod +x "$wrapper"
 
-    # Back up real g++ and install wrapper
+    # Back up real (not a symlink) g++ and install wrapper
     local gxx_proxy="/usr/local/bin/x86_64-w64-mingw32-g++"
     # Back up the current proxy (which is the ccache symlink)
     if [[ ! -f "${gxx_proxy}.bak" ]]; then
@@ -180,7 +184,7 @@ WRAPPER_EOF
         log_debug "Installed g++ wrapper"
     fi
 
-    # ── Ensure wrapper is removed even if build fails ────────────────────────────
+    # Ensure wrapper is removed even if build fails
     restore_gxx() {
         local gxx_proxy="/usr/local/bin/x86_64-w64-mingw32-g++"
         if [[ -f "${gxx_proxy}.bak" ]]; then
@@ -190,33 +194,34 @@ WRAPPER_EOF
     }
     trap restore_gxx EXIT
 
-    # ── Full lib list (flat, no group — we add group after configure) ────────────
+    # Full lib list (flat, no group; we add group after configure)
     local ALL_LIBS="\
--lleptonica \
--lpangocairo-1.0 -lpangowin32-1.0 -lpangoft2-1.0 -lpango-1.0 \
--lcairo-gobject -lcairo \
--lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo \
--lharfbuzz-vector -lharfbuzz-raster -lharfbuzz \
--lfontconfig -lfreetype -lpixman-1 -lfribidi \
--lgio-2.0 -lgthread-2.0 -lglib-2.0 \
--lcurl -lssh -lssl -lcrypto \
--larchive \
--ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif \
--lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv \
--llcms2_fast_float -llcms2_threaded -llcms2 \
--lxml2 -lpcre2-posix -lpcre2-8 -lffi -ljbig \
--lzstd -llzma \
--lbrotlienc -lbrotlidec -lbrotlicommon \
--lbz2 -lz \
--lintl -liconv -lcharset \
--lsicuin -lsicuuc -lsicudt \
--luserenv -lcrypt32 -lnormaliz -luuid \
--lgdi32 -lsetupapi -lole32 -lshlwapi -liphlpapi \
--luser32 -ladvapi32 -ldbghelp -lwldap32 \
--lws2_32 -lwinmm -lbcrypt  \
--pthread -lstdc++ -lm \
--lusp10 -lmsimg32 -lruntimeobject \
--ldwrite -ld2d1 -lwindowscodecs -lopengl32"
+        -lleptonica \
+        -ltensorflow \
+        -lpangocairo-1.0 -lpangowin32-1.0 -lpangoft2-1.0 -lpango-1.0 \
+        -lcairo-gobject -lcairo \
+        -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo \
+        -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz \
+        -lfontconfig -lfreetype -lpixman-1 -lfribidi \
+        -lgio-2.0 -lgthread-2.0 -lglib-2.0 \
+        -lcurl -lssh -lssl -lcrypto \
+        -larchive \
+        -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif \
+        -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv \
+        -llcms2_fast_float -llcms2_threaded -llcms2 \
+        -lxml2 -lpcre2-posix -lpcre2-8 -lffi -ljbig \
+        -lzstd -llzma \
+        -lbrotlienc -lbrotlidec -lbrotlicommon \
+        -lbz2 -lz \
+        -lintl -liconv -lcharset \
+        -lsicuin -lsicuuc -lsicudt \
+        -luserenv -lcrypt32 -lnormaliz -luuid \
+        -lgdi32 -lsetupapi -lole32 -lshlwapi -liphlpapi \
+        -luser32 -ladvapi32 -ldbghelp -lwldap32 \
+        -lws2_32 -lwinmm -lbcrypt  \
+        -pthread -lstdc++ -lm \
+        -lusp10 -lmsimg32 -lruntimeobject \
+        -ldwrite -ld2d1 -lwindowscodecs -lopengl32"
 
     # Strip -Wl,-Bstatic — blocks import libs needed for __imp_ symbols
     local RAW_LDFLAGS
@@ -228,16 +233,21 @@ WRAPPER_EOF
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_TESTS=OFF
-        -DBUILD_TRAINING_TOOLS=OFF
+        # -DBUILD_TRAINING_TOOLS=OFF
+        -DBUILD_TRAINING_TOOLS=ON # Disable tools if they cause link errors
+        -DOPENMP_BUILD=ON # OpenMP в статике Mingw часто дает undefined reference на GOMP
         -DOPENMP_BUILD=OFF
         -DFAST_FLOAT=ON
         -DSW_BUILD=OFF
         -DENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        # Leptonica use our manual path, not CMake target
         -DLeptonica_DIR=OFF
         -DLEPT_TIFF_RESULT=0
         -DLEPT_TIFF_COMPILE_SUCCESS=ON
+        # Explicit library paths so CMake's try_compile doesn't fail
         -DCMAKE_FIND_LIBRARY_SUFFIXES=".a"
         -DPKG_CONFIG_EXECUTABLE="$(command -v pkg-config)"
+        # Compiler flags
         -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS \
 -DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB \
 -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS \
@@ -246,6 +256,7 @@ WRAPPER_EOF
 -DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB \
 -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS \
 -Wno-narrowing -Wno-format"
+        # Linker flags
         -DCMAKE_EXE_LINKER_FLAGS="$RAW_LDFLAGS $ALL_LIBS \
 -Wl,--allow-multiple-definition"
         -DCMAKE_SHARED_LINKER_FLAGS="$RAW_LDFLAGS $ALL_LIBS \
@@ -254,7 +265,7 @@ WRAPPER_EOF
 
     cmake "${myconf[@]}" .. || return 1
 
-    # ── Clear INTERFACE_LINK_LIBRARIES (belt and suspenders) ────────────────────
+    # Clear INTERFACE_LINK_LIBRARIES (belt and suspenders)
     find . -name "TesseractTargets.cmake" \
         -o -name "*Targets*.cmake" 2>/dev/null \
     | xargs grep -l "INTERFACE_LINK_LIBRARIES" 2>/dev/null \
@@ -268,8 +279,18 @@ WRAPPER_EOF
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
+    # Возвращаем старые конфиги назад (не затирая новые от самого tesseract)
+    log_debug "Restoring backed up CMake configs..."
+    cp -n "$cmake_backup"/* "$FFBUILD_PREFIX/lib/cmake/" 2>/dev/null || true
+    rm -rf "$cmake_backup"
+
     log_debug "=== linkLibs.rsp full content ==="
     find . -name "linkLibs.rsp" -exec echo "FILE: {}" \; -exec cat {} \; >&2
+
+    # Check if CMake is actually using linker flags
+    # After cmake configure, look at what it generated
+    log_debug " === Tesseract linker flags ==="
+    cat build/CMakeFiles/tesseract.dir/link.txt
 }
 
 ffbuild_configure() {
