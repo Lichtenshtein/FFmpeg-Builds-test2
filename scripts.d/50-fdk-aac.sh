@@ -41,21 +41,23 @@ ffbuild_dockerbuild() {
 
 }
 
-ffbuild_cflags() {
-    echo "$asan_flags"
-}
+# We will handle this directly in build.sh to avoid the deduplication process.
 
-ffbuild_cxxflags() {
-    echo "$asan_flags"
-} 
+# ffbuild_cflags() {
+    # echo "$asan_flags"
+# }
 
-ffbuild_ldflags() {
-    echo "$asan_flags"
-}
+# ffbuild_cxxflags() {
+    # echo "$asan_flags"
+# } 
 
-ffbuild_libs() {
-    echo "-lasan"
-}
+# ffbuild_ldflags() {
+    # echo "$asan_flags"
+# }
+
+# ffbuild_libs() {
+    # echo "-lasan"
+# }
 
 ffbuild_configure() {
     echo --enable-libfdk-aac
