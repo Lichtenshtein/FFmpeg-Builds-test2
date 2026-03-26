@@ -57,15 +57,3 @@ ffbuild_dockerbuild() {
         echo "Libs.private: $DEP_LIBS" >> "$pc"
     done
 }
-
-ffbuild_cppflags() {
-    echo "-DPCRE2_STATIC"
-}
-
-ffbuild_configure() {
-    echo --enable-pcre
-}
-
-ffbuild_unconfigure() {
-    echo --disable-pcre
-}

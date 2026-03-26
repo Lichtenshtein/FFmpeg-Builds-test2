@@ -93,3 +93,19 @@ ffbuild_dockerbuild() {
         fi
     done
 }
+
+ffbuild_cppflags() {
+    echo "-DCAIRO_WIN32_STATIC_BUILD"
+}
+
+ffbuild_libs() {
+    echo "-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -luuid -lstdc++"
+}
+
+ffbuild_configure() {
+    echo --enable-cairo
+}
+
+ffbuild_unconfigure() {
+    echo --disable-cairo
+}
