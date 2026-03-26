@@ -33,7 +33,7 @@ on:
       dedupe_flags:
         description: 'Deduplicate LDFLAGS/LIBS (Disable if link errors occur)'
         type: boolean
-        default: false
+        default: true
       use_wine:
         description: 'Enable Wine for tests/conftest (auto/on/off)'
         required: false
