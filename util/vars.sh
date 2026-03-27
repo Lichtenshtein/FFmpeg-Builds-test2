@@ -594,27 +594,29 @@ export SKIP_POST_PATCH=0
 export SKIP_POST_CLEAN=0
 export SKIP_POST_AUDIT=0
 
-# Динамическое определение путей тулчейна
-# Ищем, где реально лежат заголовочные файлы и либы mingw в образе
-# /opt/ct-ng/x86_64-w64-mingw32/sysroot/usr/x86_64-w64-mingw32/bin/
-# Проверяем, находимся ли мы внутри Docker (где есть тулчейн)
+# Динамическое определение путей для wine
 if [ -d "/opt/ct-ng" ]; then
-    MINGW_BIN_PATH=$(find /opt/ct-ng -maxdepth 5 -type d -name "bin" | grep "x86_64-w64-mingw32/bin" | head -n 1)
-    if command -v winepath &>/dev/null; then
-        # Suppress ALL winepath output including Wine debug messages
-        _p_bin=$(winepath -w "${FFBUILD_PREFIX}/bin" 2>/dev/null | tr -d '\r\n')
-        _p_lib=$(winepath -w "${FFBUILD_PREFIX}/lib" 2>/dev/null | tr -d '\r\n')
-        _m_bin=$(winepath -w "${MINGW_BIN_PATH}" 2>/dev/null | tr -d '\r\n')
-        # Validate results before using them
-        if [[ -n "$_p_bin" && -n "$_p_lib" ]]; then
-            export WINEPATH="${_p_bin};${_p_lib};${_m_bin}"
+    # Если WINEPATH уже задан (например, в предыдущем слое или вызове), пропускаем тяжелые вычисления
+    if [[ -z "$WINEPATH" ]]; then
+        MINGW_BIN_PATH=$(find /opt/ct-ng -maxdepth 5 -type d -name "bin" | grep "x86_64-w64-mingw32/bin" | head -n 1)
+
+        if command -v winepath &>/dev/null; then
+            # Выполняем трансляцию путей только один раз
+            _p_bin=$(winepath -w "${FFBUILD_PREFIX}/bin" 2>/dev/null | tr -d '\r\n')
+            _p_lib=$(winepath -w "${FFBUILD_PREFIX}/lib" 2>/dev/null | tr -d '\r\n')
+            _m_bin=$(winepath -w "${MINGW_BIN_PATH}" 2>/dev/null | tr -d '\r\n')
+
+            if [[ -n "$_p_bin" && -n "$_p_lib" ]]; then
+                export WINEPATH="${_p_bin};${_p_lib};${_m_bin}"
+            else
+                # Fallback для окружений без запущенного Wine (например, генерация на хосте)
+                export WINEPATH="winepath -w ${FFBUILD_PREFIX}/bin:${FFBUILD_PREFIX}/lib:${MINGW_BIN_PATH}"
+            fi
         else
-        # We are on the GitHub Host (generate/download phase)
             export WINEPATH="winepath -w ${FFBUILD_PREFIX}/bin:${FFBUILD_PREFIX}/lib:${MINGW_BIN_PATH}"
         fi
+        # Выводим инфо о WINEPATH только при его создании
         printf '%b WINEPATH (Windows style): %s\n' "${DIRS_MARK}" "$WINEPATH"
-    else
-        export WINEPATH="winepath -w ${FFBUILD_PREFIX}/bin:${FFBUILD_PREFIX}/lib:${MINGW_BIN_PATH}"
     fi
 fi
 
