@@ -31,10 +31,11 @@ setup_wine_env() {
     if ! pgrep -x "Xvfb" > /dev/null; then
         log_info "${START_MARK} Initializing background Xvfb for Wine tests..."
         # Запуск на дисплее 99 без xvfb-run (меньше оверхед)
-        Xvfb :99 -screen 0 1024x768x16 &
+        Xvfb :99 -screen 0 1024x768x16 >/dev/null 2>&1 &
         # Даем X-серверу чуть-чуть времени на старт
         local retry=0
-        while [ $retry -lt 5 ] && ! xset -q -display :99 > /dev/null 2>&1; do
+        while [ $retry -lt 10 ]; do
+            if DISPLAY=:99 xset -q >/dev/null 2>&1; then break; fi
             sleep 0.2
             ((retry++))
         done
@@ -43,7 +44,7 @@ setup_wine_env() {
 
     # Быстрый "прогрев" сервера Wine, чтобы последующие вызовы не ждали инициализации (чтобы первый вызов в скрипте не тормозил)
     if ! pgrep -x "wineserver" > /dev/null; then
-        wineboot -u &>/dev/null &
+        wineboot -u >/dev/null 2>&1 &
     fi
 }
 export -f setup_wine_env
