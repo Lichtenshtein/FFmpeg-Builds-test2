@@ -15,15 +15,22 @@ STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
 # Определяем режим работы Wine (берем из ENV или ставим auto по умолчанию)
 USE_WINE="${USE_WINE:-auto}"
 setup_wine_env() {
-    # Если Wine принудительно выключен — выходим сразу
-    [[ "$USE_WINE" == "off" ]] && return 0
+    # Сохраняем текущее состояние set -e
+    local errexit_state=$([[ $- =~ e ]] && echo "set -e" || echo "set +e")
+    set +e # Временно отключаем остановку при ошибках
+    # Если Wine принудительно выключен выходим сразу
+    if [[ "$USE_WINE" == "off" ]]; then
+        eval "$errexit_state"; return 0
+    fi
 
-    # Если auto, проверяем, нужен ли Wine этому конкретному скрипту
     if [[ "$USE_WINE" == "auto" ]]; then
-        # Ищем только те команды, которые реально запускают тесты или требуют Wine
-        if ! grep -qE "meson test|ctest|make check|make test|\.exe|wine " "$SCRIPT_PATH"; then
-            log_debug "Wine: skipped (no test commands detected in $STAGENAME)"
-            return 0
+        # Ищем только специфичные команды:
+        # 1. meson test / ctest / make check - запуск встроенных тестов
+        # 2. wine [пробел] - явный запуск через wine
+        # 3. ./[что-то].exe - прямой запуск виндового бинарника
+        if ! grep -qE "meson test|ctest|make check|make test|wine |\.\/.*\.exe" "$SCRIPT_PATH"; then
+            log_debug "Wine: skipped (no execution patterns in $STAGENAME)"
+            eval "$errexit_state"; return 0
         fi
     fi
 
@@ -31,21 +38,18 @@ setup_wine_env() {
     if ! pgrep -x "Xvfb" > /dev/null; then
         log_info "${START_MARK} Initializing background Xvfb for Wine tests..."
         # Запуск на дисплее 99 без xvfb-run (меньше оверхед)
-        Xvfb :99 -screen 0 1024x768x16 >/dev/null 2>&1 &
-        # Даем X-серверу чуть-чуть времени на старт
+        ( Xvfb :99 -screen 0 1024x768x16 >/dev/null 2>&1 & )
         local retry=0
-        while [ $retry -lt 10 ]; do
+        while [ $retry -lt 15 ]; do
             if DISPLAY=:99 xset -q >/dev/null 2>&1; then break; fi
             sleep 0.2
             ((retry++))
         done
     fi
     export DISPLAY=:99
-
     # Быстрый "прогрев" сервера Wine, чтобы последующие вызовы не ждали инициализации (чтобы первый вызов в скрипте не тормозил)
-    if ! pgrep -x "wineserver" > /dev/null; then
-        wineboot -u >/dev/null 2>&1 &
-    fi
+    ( wineboot -u >/dev/null 2>&1 & )
+    eval "$errexit_state"
 }
 export -f setup_wine_env
 
