@@ -48,29 +48,51 @@ smart_libs_dedupe() {
     fi
 }
 
+# Инициализация локальных (не экспортируемых!) переменных
+# Обнуляем FF_ переменные перед загрузкой, чтобы не было старых хвостов
+FF_CONFIGURE=""
+FF_CFLAGS=""
+FF_CXXFLAGS=""
+FF_CPPFLAGS=""
+FF_LDFLAGS=""
+FF_LIBS=""
+
 log_info "Loading component variables from cache..."
 VARS_DIR="$FFBUILD_PREFIX/config_parts"
-# Обнуляем FF_ переменные перед загрузкой, чтобы не было старых хвостов
-unset FF_CONFIGURE FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LIBS
 
+# Проверка связи с кэшем (zlib)
 # Если файл пустой проблема в run_stage.sh или vars.sh во время сборки компонента.
 # Если файл не пустой, но в configure пусто проблема в build.sh (в команде source или dedupe)
-VARS_FILE=$(ls ${VARS_DIR}/[0-9]*-zlib.vars 2>/dev/null | head -n 1)
-if [[ -f "$ZLIB_VARS_FILE" ]]; then
-    log_debug "Checking if .vars (any prefix) not empty..."
-    cat "$VARS_FILE"
+Z_FILES=( "${VARS_DIR}"/[0-9]*-zlib.vars )
+if [[ -e "${Z_FILES[0]}" ]]; then
+    log_debug "Found zlib vars: ${Z_FILES[0]}"
+    cat "${Z_FILES[0]}"
 else
-    log_warn "${XCLAM_MARK} Not found with any numeric prefix for .vars"
+    log_warn "${XCLAM_MARK} No zlib.vars found with any numeric prefix"
 fi
 
 # Подгрузка .vars файлов в обратном порядке помогает линковщику, так как зависимости (10-, 20-) оказываются в конце строки LIBS.
+counter=0
 while IFS= read -r f; do
     log_debug "Sourcing $f"
+    # source выполняется в текущем контексте, наполняя FF_ переменные
     source "$f"
+
+    ((counter++))
+
+    # Каждые 10 файлов проводим промежуточную чистку, 
+    # чтобы не допустить взрывного роста строк в памяти
+    if (( counter % 10 == 0 )); then
+        FF_LIBS=$(smart_libs_dedupe "$FF_LIBS")
+        FF_CFLAGS=$(dedupe "$FF_CFLAGS")
+        FF_CPPFLAGS=$(dedupe "$FF_CPPFLAGS")
+    fi
 done < <(find "$VARS_DIR" -name "*.vars" | sort)
 
 # Определяем целевой вариант
-source "variants/${TARGET}-${VARIANT}.sh"
+# Используем подстановку переменной, чтобы избежать вызова dirname в цикле
+VARIANTS_DIR="variants"
+source "${VARIANTS_DIR}/${TARGET}-${VARIANT}.sh"
 for addin in ${ADDINS[*]}; do
     source "addins/${addin}.sh"
 done
@@ -111,8 +133,6 @@ log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
 # Удаляем пустые папки или старые логи, если они остались
 find /opt/ffbuild -type d -empty -delete || true
 
-# экспортируем флаги перед дедупликацией
-export FF_CFLAGS FF_LIBS FF_CONFIGURE FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
 export HOST_CFLAGS="-O2 -pipe"
 export HOST_CXXFLAGS="-O2 -pipe"
@@ -121,9 +141,10 @@ export HOST_LDFLAGS=""
 log_debug "--- START of DEBUG audit section ---"
 log_debug "DEDUPE_FLAGS is currently set to: '$DEDUPE_FLAGS'"
 log_debug "Check if variables are loaded from files:"
-log_debug "Raw FF_CFLAGS: $FF_CFLAGS"
-log_debug "Raw FF_LDFLAGS: $FF_LDFLAGS"
-log_debug "Raw FF_LIBS: $FF_LIBS"
+log_debug "RAW FF_CFLAGS: $FF_CFLAGS"
+log_debug "RAW FF_LDFLAGS: $FF_LDFLAGS"
+log_debug "RAW FF_LIBS: $FF_LIBS"
+log_info "${BROOM_MARK} Deduplicating all flags..."
 
 # Подготовка ФИНАЛЬНЫХ флагов (Dedupe + Combine)
 # объединяем базовые флаги из vars.sh и накопленные из компонентов
@@ -136,12 +157,14 @@ FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$FF_LIBS")
 # Используем группы для решения проблем циклических зависимостей (особенно для Tesseract)
 FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} -Wl,--end-group -Wl,--allow-multiple-definition -lstdc++"
 
+# экспортируем флаги перед дедупликацией
+export FINAL_CONFIGURE FINAL_CFLAGS FINAL_CXXFLAGS FINAL_LDFLAGS FINAL_LDEXEFLAGS FINAL_LIBS_GROUPED
 # Unset cross-compilation flags so host compiler stays clean during configure
 unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS ASFLAGS LIBS
 
-log_debug "Deduplicated FINAL_CFLAGS: $FINAL_CFLAGS"
-log_debug "Deduplicated FINAL_LDFLAGS: $FINAL_LDFLAGS"
-log_debug "Deduplicated FINAL_LIBS: $FINAL_LIBS"
+log_debug "Deduplicated FINAL_CFLAGS: \n${FINAL_CFLAGS}\nsize: ${#FINAL_CFLAGS} chars"
+log_debug "Deduplicated FINAL_LDFLAGS: \n${FINAL_LDFLAGS}\nsize: ${#FINAL_LFLAGS} chars"
+log_debug "Deduplicated FINAL_LIBS: \n${FINAL_LIBS}\nsize: ${#FINAL_LIBS} chars"
 
 log_debug "--- PATH and binaries injection audit ---"
 log_debug "${BUILD_MARK} Running flags diagnostic..."
