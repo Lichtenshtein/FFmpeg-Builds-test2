@@ -43,6 +43,15 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     [[ -f "$STAGE" ]] || continue
     STAGENAME="$(basename "$STAGE" .sh)"
 
+    # Если мы собираем только часть стадий, 
+    # не нужно защищать кэш для тех, что не входят в список.
+    if [[ -n "$ONLY_STAGE" ]]; then
+        if ! echo "$STAGENAME" | grep -qE "$ONLY_STAGE"; then
+            log_debug "Skipping $STAGENAME: does not match ONLY_STAGE filter."
+            continue
+        fi
+    fi
+
     # Проверяем, включен ли компонент
     if ( source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" > /dev/null 2>&1 \
      && source "$STAGE" > /dev/null 2>&1 \
@@ -66,37 +75,45 @@ FINAL_KEEP_LIST=$(mktemp)
 trap 'rm -f "$RAW_KEEP_LIST" "$FINAL_KEEP_LIST"' EXIT
 sort -u "$RAW_KEEP_LIST" > "$FINAL_KEEP_LIST"
 rm -f "$RAW_KEEP_LIST"
+# Гарантируем, что в списке нет лишних пробелов и символов возврата каретки
+sed -i 's/\r//g; s/[[:space:]]*$//' "$FINAL_KEEP_LIST"
 # Удаляем только те файлы, которых нет в KEEP_LIST
 cd "$CACHE_DIR" || exit 0
 log_info "${BROOM_MARK} Cleaning up orphaned and outdated cache files and symlinks..."
 deleted_count=0
 
-# Читаем список один раз в переменную для ускорения grep
-KEEP_CONTENT=$(cat "$FINAL_KEEP_LIST")
+# Читаем актуальный список в массив
+mapfile -t PROTECTED_FILES < "$FINAL_KEEP_LIST"
 
 # Используем глоб напрямую, чтобы избежать проблем с пустыми переменными
 for f in *.tar.zst; do
     [[ -e "$f" || -L "$f" ]] || continue # Проверяем существование или наличие ссылки
 
+    # Проверяем, есть ли файл в массиве "защищенных"
+    is_protected=false
+    for p in "${PROTECTED_FILES[@]}"; do
+        [[ "$f" == "$p" ]] && is_protected=true && break
+    done
+
     # Если объекта (файла или симлинка) нет в списке актуальных
-    if ! echo "$KEEP_CONTENT" | grep -qxF "^$f$"; then
-        # Удаляем только если файл старше 30 минут (защита от параллельных процессов)
+    if [[ "$is_protected" == "false" ]]; then
         if [[ -L "$f" ]]; then
             log_info "${BROOM_MARK} Removing obsolete symlink: $f"
             rm -f "$f"
             deleted_count=$((deleted_count + 1))
         elif [[ -f "$f" ]]; then
-            # Проверяем возраст только для файлов
+            # Стандартная защита 30 мин для тяжелых архивов
             if [[ -n $(find "$f" -mmin +30 2>/dev/null) ]]; then
-                log_info "${BROOM_MARK} Deleting old cache file: $f"
+                log_info "${BROOM_MARK} Deleting orphaned cache file: $f"
                 rm -f "$f"
                 deleted_count=$((deleted_count + 1))
             fi
         fi
+    else
+        log_debug "Checking KEEP_LIST contents..."
+        cat -A "$FINAL_KEEP_LIST"
     fi
 done
-
-cat -A "$FINAL_KEEP_LIST"
 
 # Дополнительная страховка: удаляем реально БИТЫЕ ссылки, 
 # которые могли остаться из-за ошибок ручного удаления файлов
