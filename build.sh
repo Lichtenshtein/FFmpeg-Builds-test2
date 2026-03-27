@@ -153,11 +153,11 @@ printf 'FINAL_CFLAGS bytes: '; echo -n "$FINAL_CFLAGS" | xxd | head -5
 log_debug "Diagnostic: LDFLAGS content:"
 printf 'FINAL_LDFLAGS bytes: '; echo -n "$FINAL_LDFLAGS" | xxd | head -5
 # какие именно as и ld видны в системе первыми
-log_debug "${SEARCH_MARK} Which 'as': \n$(which -a as)"
-log_debug "${SEARCH_MARK} Which 'ld': \n$(which -a ld)"
-log_debug "${SEARCH_MARK} Which 'x86_64-w64-mingw32-gcc': \n$(which -a x86_64-w64-mingw32-gcc)"
+log_debug "${SEARCH_MARK} Show current 'as' priority: \n$(which -a as)\n"
+log_debug "${SEARCH_MARK} Show current 'ld' priority: \n$(which -a ld)\n"
+log_debug "${SEARCH_MARK} Show current 'x86_64-w64-mingw32-gcc' priority: \n$(which -a x86_64-w64-mingw32-gcc)\n"
 # содержимое папок тулчейна (только имена файлов)
-log_debug "Contents of /opt/ct-ng/bin (first 20 files):"
+log_debug "${DIRS_MARK} Contents of /opt/ct-ng/bin (first 20 files):"
 ls -F /opt/ct-ng/bin | head -n 20
 # папки, где могут прятаться "голые" (без префикса) as/ld
 # If which -a as first outputs something in /opt/ct-ng/... rather than /usr/bin/as, this is the cause of the junk at end of line error.
@@ -235,10 +235,8 @@ CONF_FLAGS=(
 [[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
 
 log_info "${START_MARK} Launching FFmpeg Configure..."
-printf "  %s\n" "${CONF_FLAGS[@]}"
-
 # Функция проверки и валидации флагов ffmpeg SAFE_CONFIGURE
-check_and_fix_configure
+printf "  %s\n" "${CONF_FLAGS[@]}" && check_and_fix_configure
 
 # Перенаправляем stderr в config.log для полноты картины
 if ! ./configure "${CONF_FLAGS[@]}" 2>ffbuild/config.log; then
