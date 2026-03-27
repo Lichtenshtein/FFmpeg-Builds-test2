@@ -338,22 +338,16 @@ clean_val() {
 export -f clean_val
 
 # автосбор из pkg-config (он уже работает и наполняет переменные через export)
-if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig" ]]; then
-    log_info "Auto-collecting flags from pkg-config..."
-    OLD_PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR"
-    export PKG_CONFIG_LIBDIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
-    for pc in "$PKG_CONFIG_LIBDIR"/*.pc; do
-        [[ -e "$pc" ]] || continue
-        pc_name=$(basename "$pc" .pc)
-        # Все флаги компиляции (-I, -D) забираем через --cflags
-        _pc_cflags=$(pkg-config --cflags "$pc_name" 2>/dev/null || true)
-        [[ -n "$_pc_cflags" ]] && FF_CFLAGS="$FF_CFLAGS $_pc_cflags"
-        # Все библиотеки (-l, -L) забираем через --libs --static
-        _pc_libs=$(pkg-config --libs --static "$pc_name" 2>/dev/null || true)
-        [[ -n "$_pc_libs" ]] && FF_LIBS="$FF_LIBS $_pc_libs"
-    done
-    export PKG_CONFIG_LIBDIR="$OLD_PKG_CONFIG_LIBDIR"
-fi
+for pc in "$FFBUILD_PREFIX/lib/pkgconfig"/*.pc; do
+    [[ -e "$pc" ]] || continue
+    pc_name=$(basename "$pc" .pc)
+    # Все флаги компиляции (-I, -D) забираем через --cflags
+    _pc_cflags=$(pkg-config --cflags "$pc_name" 2>/dev/null || true)
+    [[ -n "$_pc_cflags" ]] && FF_CFLAGS="$FF_CFLAGS $_pc_cflags"
+    # Все библиотеки (-l, -L) забираем через --libs --static
+    _pc_libs=$(pkg-config --static --libs "$pc_name" 2>/dev/null || true)
+    [[ -n "$_pc_libs" ]] && FF_LIBS="$FF_LIBS $_pc_libs"
+done
 
 # Захват ручных echo из функций скрипта (без subshell для ffbuild_ аккумуляторов)
 _raw_conf="$(ffbuild_configure 2>/dev/null || true)"
