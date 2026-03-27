@@ -12,6 +12,11 @@ ccache -s
 
 export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
 
+# Путь /opt/ffdest должен совпадать с тем, что указан в Dockerfile (generate.sh)
+FINAL_DEST="/opt/ffdest"
+mkdir -p "$FINAL_DEST"
+mkdir -p ffbuild
+
 # быстрый дедупликатор
 dedupe() {
     local input="$*"
@@ -50,12 +55,13 @@ smart_libs_dedupe() {
 
 # Инициализация локальных (не экспортируемых!) переменных
 # Обнуляем FF_ переменные перед загрузкой, чтобы не было старых хвостов
-FF_CONFIGURE=""
-FF_CFLAGS=""
-FF_CXXFLAGS=""
-FF_CPPFLAGS=""
-FF_LDFLAGS=""
-FF_LIBS=""
+TOTAL_FF_CONFIGURE=""
+TOTAL_FF_CFLAGS=""
+TOTAL_FF_CXXFLAGS=""
+TOTAL_FF_CPPFLAGS=""
+TOTAL_FF_LDFLAGS=""
+TOTAL_FF_LDEXEFLAGS=""
+TOTAL_FF_LIBS=""
 
 log_info "Loading component variables from cache..."
 VARS_DIR="$FFBUILD_PREFIX/config_parts"
@@ -68,40 +74,47 @@ if [[ -e "${Z_FILES[0]}" ]]; then
     log_debug "Found zlib vars: ${Z_FILES[0]}"
     cat "${Z_FILES[0]}"
 else
-    log_warn "${XCLAM_MARK} No zlib.vars found with any numeric prefix"
+    log_warn "${XCLAM_MARK} No zlib.vars found"
 fi
 
-# Подгрузка .vars файлов в обратном порядке помогает линковщику, так как зависимости (10-, 20-) оказываются в конце строки LIBS.
+# Сортировка важна: зависимости (низкие номера) должны быть в начале для CFLAGS 
+# и в конце для LIBS (но мы это решим дедупликацией tac)
 counter=0
 while IFS= read -r f; do
+    # Обнуляем временные переменные перед каждым source
+    unset FF_CONFIGURE FF_LIBS FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LDEXEFLAGS
     log_debug "Sourcing $f"
     # source выполняется в текущем контексте, наполняя FF_ переменные
     source "$f"
 
+    # Аккумулируем данные из файла в итоговые переменные
+    TOTAL_FF_CONFIGURE+=" $FF_CONFIGURE"
+    TOTAL_FF_LIBS+=" $FF_LIBS"
+    TOTAL_FF_CFLAGS+=" $FF_CFLAGS"
+    TOTAL_FF_LDFLAGS+=" $FF_LDFLAGS"
+    TOTAL_FF_CXXFLAGS+=" $FF_CXXFLAGS"
+    TOTAL_FF_CPPFLAGS+=" $FF_CPPFLAGS"
+    TOTAL_FF_LDEXEFLAGS+=" $FF_LDEXEFLAGS"
+
     ((counter++))
 
-    # Каждые 10 файлов проводим промежуточную чистку, 
+    # Промежуточная очистка каждых 20 файлов,
     # чтобы не допустить взрывного роста строк в памяти
-    if (( counter % 10 == 0 )); then
-        FF_LIBS=$(smart_libs_dedupe "$FF_LIBS")
-        FF_CFLAGS=$(dedupe "$FF_CFLAGS")
-        FF_CPPFLAGS=$(dedupe "$FF_CPPFLAGS")
+    if (( counter % 20 == 0 )); then
+        TOTAL_FF_LIBS=$(smart_libs_dedupe "$TOTAL_FF_LIBS")
+        TOTAL_FF_CFLAGS=$(dedupe "$TOTAL_FF_CFLAGS")
+        TOTAL_FF_LDFLAGS=$(smart_dedupe "$TOTAL_FF_LDFLAGS")
+        TOTAL_FF_CXXFLAGS=$(dedupe "$TOTAL_FF_CXXFLAGS")
+        TOTAL_FF_CPPFLAGS=$(dedupe "$TOTAL_FF_CPPFLAGS")
+        TOTAL_FF_LDEXEFLAGS=$(smart_dedupe "$TOTAL_FF_LDEXEFLAGS")
     fi
 done < <(find "$VARS_DIR" -name "*.vars" | sort)
 
-# Определяем целевой вариант
-# Используем подстановку переменной, чтобы избежать вызова dirname в цикле
-VARIANTS_DIR="variants"
-source "${VARIANTS_DIR}/${TARGET}-${VARIANT}.sh"
+# Определяем целевой вариант (они могут добавить свои --enable)
+source "variants/${TARGET}-${VARIANT}.sh"
 for addin in ${ADDINS[*]}; do
     source "addins/${addin}.sh"
 done
-
-# В GitHub Actions мы уже внутри контейнера. 
-# Путь /opt/ffdest должен совпадать с тем, что указан в Dockerfile (generate.sh)
-FINAL_DEST="/opt/ffdest"
-mkdir -p "$FINAL_DEST"
-mkdir -p ffbuild
 
 # Клонирование и патчинг (прямо в текущем слое Docker)
 log_info "Using pre-mounted FFmpeg source..."
@@ -127,7 +140,7 @@ if [[ -d "/builder/patches/ffmpeg/$FFMPEG_BRANCH" ]]; then
 fi
 
 # Сброс статистики для чистого лога
-ccache -z 
+ccache -z
 
 log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
 # Удаляем пустые папки или старые логи, если они остались
@@ -148,19 +161,22 @@ log_info "${BROOM_MARK} Deduplicating all flags..."
 
 # Подготовка ФИНАЛЬНЫХ флагов (Dedupe + Combine)
 # объединяем базовые флаги из vars.sh и накопленные из компонентов
-FINAL_CONFIGURE=$(dedupe "$FF_CONFIGURE")
-FINAL_CFLAGS=$(dedupe "$CFLAGS" "$FF_CFLAGS" "$CPPFLAGS" "$FF_CPPFLAGS")
-FINAL_CXXFLAGS=$(dedupe "$CXXFLAGS" "$FF_CXXFLAGS" "$CPPFLAGS" "$FF_CPPFLAGS")
-FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$FF_LDFLAGS")
-FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$FF_LDEXEFLAGS")
-FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$FF_LIBS")
+FINAL_CONFIGURE=$(dedupe "$TOTAL_FF_CONFIGURE")
+FINAL_CFLAGS=$(dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS")
+FINAL_CXXFLAGS=$(dedupe "$CXXFLAGS" "$CPPFLAGS" "$TOTAL_FF_CXXFLAGS" "$TOTAL_FF_CPPFLAGS")
+FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$TOTAL_FF_LDFLAGS")
+FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
+FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS")
+
 # Используем группы для решения проблем циклических зависимостей (особенно для Tesseract)
 FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} -Wl,--end-group -Wl,--allow-multiple-definition -lstdc++"
 
 # экспортируем флаги перед дедупликацией
 export FINAL_CONFIGURE FINAL_CFLAGS FINAL_CXXFLAGS FINAL_LDFLAGS FINAL_LDEXEFLAGS FINAL_LIBS_GROUPED
+# Очищаем тяжелые переменные, чтобы не мешать запуску процессов
+unset TOTAL_FF_CONFIGURE TOTAL_FF_LIBS TOTAL_FF_CFLAGS TOTAL_FF_CXXFLAGS TOTAL_FF_CPPFLAGS TOTAL_FF_LDFLAGS
 # Unset cross-compilation flags so host compiler stays clean during configure
-unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS ASFLAGS LIBS
+unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS LDEXEFLAGS ASFLAGS LIBS
 
 log_debug "Deduplicated FINAL_CFLAGS: \n${FINAL_CFLAGS}\nsize: ${#FINAL_CFLAGS} chars"
 log_debug "Deduplicated FINAL_LDFLAGS: \n${FINAL_LDFLAGS}\nsize: ${#FINAL_LFLAGS} chars"
