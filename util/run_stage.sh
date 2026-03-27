@@ -14,38 +14,39 @@ STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
 
 # Определяем режим работы Wine (берем из ENV или ставим auto по умолчанию)
 USE_WINE="${USE_WINE:-auto}"
-WINE_CMD=$(command -v wine64 || command -v wine)
-# Функция для принятия решения о запуске графического окружения и Wine
-# Detect if the script needs a display (Wine, Meson, CMake tests)
-should_run_wine() {
-    [[ "$USE_WINE" == "on" ]] && return 0
-    [[ "$USE_WINE" == "off" ]] && return 1
-    grep -qE "meson setup|cmake|\./configure|wine" "$SCRIPT_PATH"
-}
-export -f should_run_wine
+setup_wine_env() {
+    # Если Wine принудительно выключен — выходим сразу
+    [[ "$USE_WINE" == "off" ]] && return 0
 
-# Wrapper function to execute commands
-wine_run_wrapped() {
-    local cmd="$1"
-    if should_run_wine; then
-        # -n 99: use display 99
-        # -s: Xvfb arguments
-        # -a: auto-servernum (use next available if 99 is busy)
-        log_info "${START_MARK} Starting Xvfb (Display :99) for Wine/Build tests..."
-        local current_dir=$(pwd)
-        xvfb-run -n 99 -a -s "-screen 0 1024x768x16" bash -c "
-            set -e
-            cd '$current_dir'
-            . /builder/util/vars.sh '$TARGET' '$VARIANT'
-            . '$SCRIPT_PATH'
-            $cmd
-        "
-    else
-         log_debug "Stage $STAGENAME: Wine/Xvfb initialization skipped (Mode: $USE_WINE)."
-        "$@"
+    # Если auto, проверяем, нужен ли Wine этому конкретному скрипту
+    if [[ "$USE_WINE" == "auto" ]]; then
+        # Ищем только те команды, которые реально запускают тесты или требуют Wine
+        if ! grep -qE "meson test|ctest|make check|make test|\.exe|wine " "$SCRIPT_PATH"; then
+            log_debug "Wine: skipped (no test commands detected in $STAGENAME)"
+            return 0
+        fi
+    fi
+
+    # Запускаем виртуальный дисплей в фоне, если его еще нет
+    if ! pgrep -x "Xvfb" > /dev/null; then
+        log_info "${START_MARK} Initializing background Xvfb for Wine tests..."
+        # Запуск на дисплее 99 без xvfb-run (меньше оверхед)
+        Xvfb :99 -screen 0 1024x768x16 &
+        # Даем X-серверу чуть-чуть времени на старт
+        local retry=0
+        while [ $retry -lt 5 ] && ! xset -q -display :99 > /dev/null 2>&1; do
+            sleep 0.2
+            ((retry++))
+        done
+    fi
+    export DISPLAY=:99
+
+    # Быстрый "прогрев" сервера Wine, чтобы последующие вызовы не ждали инициализации (чтобы первый вызов в скрипте не тормозил)
+    if ! pgrep -x "wineserver" > /dev/null; then
+        wineboot -u &>/dev/null &
     fi
 }
-export -f wine_run_wrapped
+export -f setup_wine_env
 
 # Подгружаем утилиты, используя абсолютный путь
 if ! declare -F log_info >/dev/null; then
@@ -213,6 +214,9 @@ log_info "### ${START_MARK} ${LOG_INFO}STARTING STAGE: $STAGENAME${NC}"
 log_info "### DATE: $(date)"
 log_info "### Starting build function: $build_cmd"
 log_info "################################################################"
+
+# wine starter
+setup_wine_env
 
 if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
     log_info "Verbose mode active. Build output will be shown in real-time."
