@@ -186,7 +186,15 @@ if [[ -n "$DL_COMMANDS" ]]; then
     fi
     
     log_debug "${DIRS_MARK} Contents of $(pwd) (current build directory):"
-    paste <(ls -d */ | head -n 7) <(ls -F | grep -v / | head -n 7) | column -t -s $'\t'
+    # Читаем списки в массивы
+    mapfile -t dirs < <(ls -d */ 2>/dev/null | head -n 7)
+    mapfile -t files < <(ls -F 2>/dev/null | grep -v / | head -n 7)
+    # Определяем максимальное количество строк
+    max=$(( ${#dirs[@]} > ${#files[@]} ? ${#dirs[@]} : ${#files[@]} ))
+    for ((i=0; i<max; i++)); do
+        # %-25s — левая колонка шириной 25 символов
+        printf "  %-25s %s\n" "${dirs[i]:-}" "${files[i]:-}"
+    done
 else
     log_info "No source archive required for $STAGENAME (meta-package)."
 fi
