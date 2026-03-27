@@ -527,6 +527,67 @@ apply_patches() {
 }
 export -f apply_patches
 
+# checking flags validity for final FFmpeg build; if found we just drop them and continue
+# tip: check logs after applying \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z |\[?(0|1)?(m|;)?(3.m|) regex to them! search: REGEX replace: empty
+check_and_fix_configure() {
+    if [[ "$SAFE_CONFIGURE" != "1" ]]; then
+        return 0
+    fi
+
+    log_info "SAFE_CONFIGURE=1: Checking flags for validity..."
+
+    local new_flags=()
+    local dropped=()
+    local fixed=()
+
+    # Кэшируем список поддерживаемых опций один раз
+    # Включаем и внешние либы (EXTERNAL_LIBRARY_LIST) и общие опции
+    local help_output=$(./configure --help)
+
+    for flag in "${CONF_FLAGS[@]}"; do
+        # Обрабатываем только --enable-* и --disable-*
+        if [[ "$flag" =~ ^--enable- ]] || [[ "$flag" =~ ^--disable- ]]; then
+            local action=$(echo "$flag" | cut -d'-' -f3) # enable или disable
+            local opt_name=$(echo "$flag" | sed -E 's/--enable-|--disable-//')
+            local current_flag="$flag"
+
+            # Блок автозамены (Aliasing)
+            case "$opt_name" in
+                zstd)          opt_name="libzstd" ;;
+                pcre2)         opt_name="libpcre2" ;;
+                pcre)          opt_name="libpcre" ;;
+                openjpeg)      opt_name="libopenjpeg" ;; # В новых FFmpeg часто libopenjp2
+                # Можно добавить другие частые ошибки здесь
+            esac
+
+            # Формируем потенциально исправленный флаг
+            current_flag="--${action}-${opt_name}"
+
+            # Валидация
+            # Проверяем наличие опции в выводе help
+            if echo "$help_output" | grep -qE "(--(en|dis)able-${opt_name})($|[[:space:]|=])"; then
+                if [[ "$current_flag" != "$flag" ]]; then
+                    fixed+=("$flag -> $current_flag")
+                fi
+                new_flags+=("$current_flag")
+            else
+                dropped+=("$flag")
+            fi
+        else
+            # Все остальные флаги (--prefix, --extra-*) добавляем без изменений
+            new_flags+=("$flag")
+        fi
+    done
+
+    # Вывод отчета
+    [ ${#fixed[@]} -ne 0 ] && log_info "${CHECK_MARK} FIXED flags (auto-alias): ${fixed[*]}"
+    [ ${#dropped[@]} -ne 0 ] && log_warn "${XCLAM_MARK} DROPPED invalid flags: ${dropped[*]}"
+
+    # Перезаписываем глобальный массив с сохранением порядка
+    CONF_FLAGS=("${new_flags[@]}")
+}
+export -f check_and_fix_configure
+
 # .la files, dependancies and .pc files auditing
 # add ffbuild_dockerbuild() { export SKIP_POST_PATCH=1 } to disable
 export SKIP_POST_PATCH=0

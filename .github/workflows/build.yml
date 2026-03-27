@@ -63,6 +63,10 @@ on:
         description: 'Skip final FFmpeg compilation (Component test only)'
         type: boolean
         default: true
+      safe_config:
+        description: 'Enable FFmpeg flags validation before building'
+        type: boolean
+        default: true
       debug_no_hash:
         description: 'Debug: Do not recalculate VARS_HASH (Preserve Docker cache)'
         type: boolean
@@ -81,6 +85,7 @@ env:
   ONLY_STAGE: ${{ github.event.inputs.only_stage }}
   DEBUG_NO_HASH: ${{ github.event.inputs.debug_no_hash }}
   DEDUPE_FLAGS: ${{ github.event.inputs.dedupe_flags }}
+  SAFE_CONFIG: ${{ github.event.inputs.safe_config }}
   USE_WINE: ${{ github.event.inputs.use_wine || 'auto' }}
   USE_AVX512: ${{ github.event.inputs.use_avx512 || 'false' }}
   CPU_ARCH: ${{ github.event.inputs.cpu_arch || 'broadwell' }}
