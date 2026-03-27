@@ -545,9 +545,15 @@ check_and_fix_configure() {
     local help_output=$(./configure --help)
 
     for flag in "${CONF_FLAGS[@]}"; do
+        # Если флаг содержит '=', пропускаем проверку (это фильтры, энкодеры и т.д.)
+        if [[ "$flag" == *=* ]]; then
+            new_flags+=("$flag")
+            continue
+        fi
+
         # Обрабатываем только --enable-* и --disable-*
         if [[ "$flag" =~ ^--enable- ]] || [[ "$flag" =~ ^--disable- ]]; then
-            local action=$(echo "$flag" | cut -d'-' -f3) # enable или disable
+            local action=$(echo "$flag" | cut -d'-' -f3)
             local opt_name=$(echo "$flag" | sed -E 's/--enable-|--disable-//')
             local current_flag="$flag"
 
@@ -556,7 +562,9 @@ check_and_fix_configure() {
                 zstd)          opt_name="libzstd" ;;
                 pcre2)         opt_name="libpcre2" ;;
                 pcre)          opt_name="libpcre" ;;
-                openjpeg)      opt_name="libopenjpeg" ;; # В новых FFmpeg часто libopenjp2
+                fontconfig)    opt_name="libfontconfig" ;;
+                openjpeg)      opt_name="libopenjpeg" ;;
+                curl)          opt_name="libcurl" ;; 
                 # Можно добавить другие частые ошибки здесь
             esac
 
