@@ -68,33 +68,34 @@ sort -u "$RAW_KEEP_LIST" > "$FINAL_KEEP_LIST"
 rm -f "$RAW_KEEP_LIST"
 # Удаляем только те файлы, которых нет в KEEP_LIST
 cd "$CACHE_DIR" || exit 0
-log_info "${BROOM_MARK} Cleaning up orphaned and outdated cache files..."
+log_info "${BROOM_MARK} Cleaning up orphaned and outdated cache files and symlinks..."
 deleted_count=0
 
 # Используем глоб напрямую, чтобы избежать проблем с пустыми переменными
 for f in *.tar.zst; do
-    [[ -f "$f" ]] || continue
-    [[ -L "$f" ]] && continue # Пропускаем симлинки, их проверим отдельно
+    [[ -e "$f" || -L "$f" ]] || continue # Проверяем существование или наличие ссылки
 
-    # Если файла нет в списке актуальных
+    # Если объекта (файла или симлинка) нет в списке актуальных
     if ! grep -qxF "$f" "$FINAL_KEEP_LIST"; then
-        # Удаляем только если файл старше 60 минут (защита от параллельных процессов)
-        if [[ -z $(find "$f" -mmin -60 2>/dev/null) ]]; then
-            log_info "${BROOM_MARK} Deleting orphaned/old cache: $f"
-            rm -f "$f" || true
-            # Безопасный инкремент (не роняет скрипт при set -e)
+        # Удаляем только если файл старше 30 минут (защита от параллельных процессов)
+        if [[ -f "$f" && ! -L "$f" ]]; then
+            if [[ -n $(find "$f" -mmin +30 2>/dev/null) ]]; then
+                log_info "${BROOM_MARK} Deleting orphaned/old cache file: $f"
+                rm -f "$f"
+                deleted_count=$((deleted_count + 1))
+            fi
+        # Симлинки удаляем сразу, если их нет в списке актуальных
+        elif [[ -L "$f" ]]; then
+            log_info "${BROOM_MARK} Removing obsolete symlink: $f"
+            rm -f "$f"
             deleted_count=$((deleted_count + 1))
         fi
     fi
 done
 
-# Дополнительная чистка битых симлинков
-for l in *.tar.zst; do
-    if [[ -L "$l" && ! -e "$l" ]]; then
-        log_debug "${BROOM_MARK} Removing broken symlink: $l"
-        rm -f "$l"
-    fi
-done
+# Дополнительная страховка: удаляем реально БИТЫЕ ссылки, 
+# которые могли остаться из-за ошибок ручного удаления файлов
+find . -maxdepth 1 -xtype l -delete || true
 
 rm -f "$FINAL_KEEP_LIST"
 log_info "${CHECK_MARK} Cleanup finished. Removed $deleted_count outdated/orphaned cache files."
