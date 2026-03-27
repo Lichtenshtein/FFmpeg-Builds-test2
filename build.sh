@@ -34,7 +34,11 @@ smart_dedupe() {
 # for libs
 smart_libs_dedupe() {
     local raw_input="$*"
-    local clean=$(echo "$raw_input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
+    # чистим мусор и ПУТИ, убираем -lstdc++
+    local clean=$(echo "$raw_input" | tr ' ' '\n' | \
+        grep -vE "Package|not|found|error|^$|^-L|^-lstdc\+\+$")
+    # унифицируем pthread: заменяем -lpthread на -pthread
+    clean=$(echo "$clean" | sed 's/^-lpthread$/-pthread/')
     if [[ "$DEDUPE_FLAGS" == "true" ]]; then
     # оставляет только ПОСЛЕДНЕЕ вхождение (важно для порядка линковки)
         echo "$clean" | tac | awk '!x[$0]++' | tac | tr '\n' ' ' | xargs
@@ -51,8 +55,13 @@ unset FF_CONFIGURE FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LIBS
 
 # Если файл пустой проблема в run_stage.sh или vars.sh во время сборки компонента.
 # Если файл не пустой, но в configure пусто проблема в build.sh (в команде source или dedupe)
-log_debug "Checking if 18-zlib.vars not empty..."
-cat ${VARS_DIR}/18-zlib.vars || echo "File not found"
+VARS_FILE=$(ls ${VARS_DIR}/[0-9]*-zlib.vars 2>/dev/null | head -n 1)
+if [[ -f "$ZLIB_VARS_FILE" ]]; then
+    log_debug "Checking if .vars (any prefix) not empty..."
+    cat "$VARS_FILE"
+else
+    log_warn "${XCLAM_MARK} Not found with any numeric prefix for .vars"
+fi
 
 # Подгрузка .vars файлов в обратном порядке помогает линковщику, так как зависимости (10-, 20-) оказываются в конце строки LIBS.
 while IFS= read -r f; do
@@ -75,7 +84,7 @@ mkdir -p ffbuild
 # Клонирование и патчинг (прямо в текущем слое Docker)
 log_info "Using pre-mounted FFmpeg source..."
 if [[ ! -f "ffbuild/ffmpeg/configure" ]]; then
-    log_error "FFmpeg source not found at ffbuild/ffmpeg/configure — mount failed?"
+    log_error "${CROSS_MARK} FFmpeg source not found at ffbuild/ffmpeg/configure — mount failed?"
     exit 1
 fi
 pushd ffbuild/ffmpeg
@@ -100,16 +109,21 @@ ccache -z
 
 log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
 # Удаляем пустые папки или старые логи, если они остались
-find /opt/ffbuild -type d -empty -delete
-
-log_info "Check if variables are loaded from files:"
-log_debug "Raw FF_CFLAGS: $FF_CFLAGS"
-log_debug "Raw FF_LDFLAGS: $FF_LDFLAGS"
-log_debug "Raw FF_LIBS: $FF_LIBS"
-log_debug "DEBUG: DEDUPE_FLAGS is currently set to: '$DEDUPE_FLAGS'"
+find /opt/ffbuild -type d -empty -delete || true
 
 # экспортируем флаги перед дедупликацией
 export FF_CFLAGS FF_LIBS FF_CONFIGURE FF_LDFLAGS FF_CXXFLAGS FF_CPPFLAGS
+# Настройка хостового компилятора (чтобы он не трогал флаги таргета)
+export HOST_CFLAGS="-O2 -pipe"
+export HOST_CXXFLAGS="-O2 -pipe"
+export HOST_LDFLAGS=""
+
+log_debug "--- START of DEBUG audit section ---"
+log_debug "DEDUPE_FLAGS is currently set to: '$DEDUPE_FLAGS'"
+log_debug "Check if variables are loaded from files:"
+log_debug "Raw FF_CFLAGS: $FF_CFLAGS"
+log_debug "Raw FF_LDFLAGS: $FF_LDFLAGS"
+log_debug "Raw FF_LIBS: $FF_LIBS"
 
 # Подготовка ФИНАЛЬНЫХ флагов (Dedupe + Combine)
 # объединяем базовые флаги из vars.sh и накопленные из компонентов
@@ -119,16 +133,45 @@ FINAL_CXXFLAGS=$(dedupe "$CXXFLAGS" "$FF_CXXFLAGS" "$CPPFLAGS" "$FF_CPPFLAGS")
 FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$FF_LDFLAGS")
 FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$FF_LDEXEFLAGS")
 FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$FF_LIBS")
+# Используем группы для решения проблем циклических зависимостей (особенно для Tesseract)
+FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} -Wl,--end-group -Wl,--allow-multiple-definition -lstdc++"
+
+# Unset cross-compilation flags so host compiler stays clean during configure
+unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS ASFLAGS LIBS
 
 log_debug "Deduplicated FINAL_CFLAGS: $FINAL_CFLAGS"
 log_debug "Deduplicated FINAL_LDFLAGS: $FINAL_LDFLAGS"
 log_debug "Deduplicated FINAL_LIBS: $FINAL_LIBS"
 
-# Используем группы для решения проблем циклических зависимостей (особенно для Tesseract)
-FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} -Wl,--end-group"
+log_debug "--- PATH and binaries injection audit ---"
+log_debug "${BUILD_MARK} Running flags diagnostic..."
+# If the length shows more characters than -O2 (3 chars), there's a hidden character injected by vars.sh or the Docker ENV.
+log_debug "Diagnostic: CFLAGS content:"
+printf 'HOST_CFLAGS bytes: '; echo -n "$HOST_CFLAGS" | xxd | head -5
+printf 'HOST_CXXFLAGS bytes: '; echo -n "$HOST_CXXFLAGS" | xxd | head -5
+printf 'FINAL_CFLAGS bytes: '; echo -n "$FINAL_CFLAGS" | xxd | head -5
+log_debug "Diagnostic: LDFLAGS content:"
+printf 'FINAL_LDFLAGS bytes: '; echo -n "$FINAL_LDFLAGS" | xxd | head -5
+# какие именно as и ld видны в системе первыми
+log_debug "${SEARCH_MARK} Which 'as': \n$(which -a as)"
+log_debug "${SEARCH_MARK} Which 'ld': \n$(which -a ld)"
+log_debug "${SEARCH_MARK} Which 'x86_64-w64-mingw32-gcc': \n$(which -a x86_64-w64-mingw32-gcc)"
+# содержимое папок тулчейна (только имена файлов)
+log_debug "Contents of /opt/ct-ng/bin (first 20 files):"
+ls -F /opt/ct-ng/bin | head -n 20
+# папки, где могут прятаться "голые" (без префикса) as/ld
+# If which -a as first outputs something in /opt/ct-ng/... rather than /usr/bin/as, this is the cause of the junk at end of line error.
+# If in /opt/ct-ng/bin is a file simply as 'as' (without a prefix), then crosstool-ng created symlinks during compilation that poison PATH
+# If as --version writes "Target: x86_64-w64-mingw32", and it is called from gcc-14 (host), the build will fail
+log_debug "${SEARCH_MARK} Search for all 'as' files in /opt/ct-ng/:"
+find /opt/ct-ng -name "as" -type f || true
+# что выдает ассемблер на команду версии
+as --version | head -n 1
+x86_64-w64-mingw32-as --version | head -n 1
+log_debug "--- End of DEBUG audit section ---"
 
 # ГЕНЕРАЦИЯ ПЕРЕМЕННЫХ СОСТОЯНИЯ КОМПОНЕНТОВ
-log_info "Scanning FFmpeg configuration for enabled components..."
+log_info "${SEARCH_MARK} Scanning FFmpeg configuration for enabled components..."
 # Список компонентов для проверки
 COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac openssl)
 # Создаем имя переменной libtesseract -> HAS_LIBTESSERACT
@@ -144,48 +187,18 @@ for comp in "${COMPONENTS[@]}"; do
         log_debug "Component $comp: DISABLED (${var_name}=0)"
     fi
 done
-# Специальная обработка для ASAN (fdk-aac); fdk-aac asan flags
-ASAN_EXTRA=""
-asan_flags=""
-if [[ "$HAS_LIBFDK_AAC" == "1" ]]; then
-    asan_flags=" -static-libasan -fsanitize=address,undefined -fno-omit-frame-pointer"
-    ASAN_EXTRA=" -lasan"
-    log_info "ASAN flags enabled due to fdk-aac presence."
-fi
-
-# Настройка хостового компилятора (чтобы он не трогал флаги таргета)
-export HOST_CFLAGS="-O2 -pipe"
-export HOST_CXXFLAGS="-O2 -pipe"
-export HOST_LDFLAGS=""
-
-# Unset cross-compilation flags so host compiler stays clean during configure
-unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS ASFLAGS LIBS
-
-log_info "--- DEBUG: PATH and binaries injection ---"
-log_info "Running flags diagnostic..."
-# If the length shows more characters than -O2 (3 chars), there's a hidden character injected by vars.sh or the Docker ENV.
-log_info "Diagnostic: CFLAGS content:"
-printf 'HOST_CFLAGS bytes: '; echo -n "$HOST_CFLAGS" | xxd | head -5
-printf 'HOST_CXXFLAGS bytes: '; echo -n "$HOST_CXXFLAGS" | xxd | head -5
-printf 'FINAL_CFLAGS bytes: '; echo -n "$FINAL_CFLAGS" | xxd | head -5
-log_info "Diagnostic: LDFLAGS content:"
-printf 'FINAL_LDFLAGS bytes: '; echo -n "$FINAL_LDFLAGS" | xxd | head -5
-# какие именно as и ld видны в системе первыми
-log_debug "Which 'as': \n$(which -a as)"
-log_debug "Which 'ld': \n$(which -a ld)"
-log_debug "Which 'x86_64-w64-mingw32-gcc': \n$(which -a x86_64-w64-mingw32-gcc)"
-# содержимое папок тулчейна (только имена файлов)
-log_debug "Contents of /opt/ct-ng/bin (first 20 files):"
-ls -F /opt/ct-ng/bin | head -n 20
-# папки, где могут прятаться "голые" (без префикса) as/ld
-# If which -a as first outputs something in /opt/ct-ng/... rather than /usr/bin/as, this is the cause of the junk at end of line error.
-# If in /opt/ct-ng/bin is a file simply as 'as' (without a prefix), then crosstool-ng created symlinks during compilation that poison PATH
-# If as --version writes "Target: x86_64-w64-mingw32", and it is called from gcc-14 (host), the build will fail
-log_debug "Search for all 'as' files in /opt/ct-ng/:"
-find /opt/ct-ng -name "as" -type f
-# что выдает ассемблер на команду версии
-as --version | head -n 1
-x86_64-w64-mingw32-as --version | head -n 1
+# Специальная обработка для ASAN (fdk-aac); should be at the end of all flags.
+# Вообще-то, я не помню нахера ASAN нужен fdk-aac. Вырубаем.
+# if [[ "$HAS_LIBFDK_AAC" == "0" ]]; then
+    # ASAN_CFLAGS=""
+    # ASAN_CXXFLAGS=""
+    # ASAN_LDFLAGS=""
+# else
+    # ASAN_CFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
+    # ASAN_CXXFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
+    # ASAN_LDFLAGS="-static-libasan -fsanitize=address,undefined "
+    # log_info "ASAN flags enabled due to fdk-aac presence."
+# fi
 
 # Формируем массив флагов для configure
 read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
@@ -200,11 +213,11 @@ CONF_FLAGS=(
     --host-cc="gcc-14"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
-    --extra-cflags="${FINAL_CFLAGS}${asan_flags}"
-    --extra-cxxflags="${FINAL_CXXFLAGS}${asan_flags}"
-    --extra-ldflags="${FINAL_LDFLAGS}${asan_flags}"
+    --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
+    --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
+    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS}"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
-    --extra-libs="${FINAL_LIBS_GROUPED}${ASAN_EXTRA}"
+    --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
     --enable-filter=vpp_amf
     --enable-filter=sr_amf
@@ -218,13 +231,15 @@ CONF_FLAGS=(
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
 )
 
-[[ "$HAS_AUDIOTOOLBOX" == "0" ]] && myconf+=( --disable-audiotoolbox --disable-videotoolbox )
-[[ "$HAS_OPENSSL" == "0" ]] && myconf+=( --disable-securetransport )
+[[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
+[[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
 
-log_debug "Final FFmpeg Configure arguments:"
+log_info "${START_MARK} Launching FFmpeg Configure..."
 printf "  %s\n" "${CONF_FLAGS[@]}"
 
-log_info "Starting FFmpeg configure..."
+# Функция проверки и валидации флагов ffmpeg SAFE_CONFIGURE
+check_and_fix_configure
+
 # Перенаправляем stderr в config.log для полноты картины
 if ! ./configure "${CONF_FLAGS[@]}" 2>ffbuild/config.log; then
     log_error "${CROSS_MARK} Configure failed!"
@@ -232,7 +247,7 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>ffbuild/config.log; then
     tail -n 300 ffbuild/config.log
     log_debug "${LOGS_MARK} ▲ END OF ffbuild/config.log ▲"
     # Копируем лог ошибки даже если билд упал
-    cp ffbuild/config.log "${FINAL_DEST}/config.log"
+    cp ffbuild/config.log "${FINAL_DEST}/config.log" || true
     exit 1
 fi
 
@@ -257,7 +272,7 @@ fi
 # Сборка и установка
 make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
 make install
-make install-doc || log_warn "install-doc failed, but proceeding."
+make install-doc || log_warn "${XCLAM_MARK} install-doc failed, but proceeding."
 ccache -s
 
 popd # Выход из ffbuild/ffmpeg
@@ -277,42 +292,41 @@ PKG_DIR="ffbuild/pkgroot/${BUILD_NAME}"
 mkdir -p "$PKG_DIR/bin" "$PKG_DIR/doc"
 
 if ! declare -F package_variant >/dev/null; then
-    log_error "package_variant not defined - variant script missing or broken"
+    log_error "${CROSS_MARK} package_variant not defined - variant script missing or broken"
     exit 1
 fi
 package_variant "$FFBUILD_DESTPREFIX" "$PKG_DIR"
 
 # Копируем лицензию ПЕРЕД упаковкой
-log_info "Adding license and logs to package..."
+log_info "${SYNC_MARK} Adding license and logs to package..."
 [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"
 cp ffbuild/ffmpeg/ffbuild/config.log "$PKG_DIR/config.log"
 
-log_info "${SYNC_MARK} Collecting external DLLs for AI support..."
+log_info "${SYNC_MARK} Collecting external DLLs and plugins..."
 # Копируем все DLL из нашего сборочного префикса в папку с бинарниками
 # Это подхватит DLL от OpenVINO, TBB, TensorFlow, LibTorch и других
-log_info "Copying OpenVINO plugins..."
 # OpenVINO часто ищет файлы openvino_intel_cpu_plugin.dll в той же папке
 # Если они лежат в /opt/ffbuild/bin, то всё ок. 
 # Но если они в подпапках (runtime/bin/intel64/...), нужно убедиться, что они попали в $PKG_DIR/bin/
 if [[ -d "/opt/ffbuild/bin" ]]; then
     find "/opt/ffbuild/bin" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \; || true
 else
-    log_warn "/opt/ffbuild/bin not found, skipping DLL copy."
+    log_warn "${XCLAM_MARK} /opt/ffbuild/bin not found, skipping DLL copy."
 fi
 # Проверяем наличие критических библиотек (для отладки в логах)
 ls -lh "$PKG_DIR/bin/"
 # Скачиваем модели для ИИ
-log_info "${DOWN_MARK} Downloading Additional Models for AI..."
+log_info "${DOWN_MARK} Downloading Additional Assets..."
 MODELS_FINAL_DIR="$PKG_DIR/models"
 /builder/util/download_models.sh "$MODELS_FINAL_DIR" "$(pwd)"
 
 # Стриппинг бинарников (удаление отладочных символов)
-log_info "Stripping binaries..."
+log_info "${BROOM_MARK} Stripping binaries..."
 find "$PKG_DIR/bin" -name "*.exe" -exec ${FFBUILD_CROSS_PREFIX}strip --strip-unneeded {} \;
 
 # Упаковка
 OUTPUT_FNAME="${BUILD_NAME}.7z"
-log_info "Creating archive: ${OUTPUT_FNAME}"
+log_info "${ARCH_MARK} Creating archive: ${OUTPUT_FNAME}"
 # Заходим в pkgroot, чтобы внутри архива не было лишних вложенных папок
 pushd ffbuild/pkgroot
 7z a -mx7 -mmt=on "${FINAL_DEST}/${OUTPUT_FNAME}" "./${BUILD_NAME}/*"
@@ -330,6 +344,6 @@ fi
 # Очистка рабочего пространства ПЕРЕД завершением слоя Docker
 # Это освободит место на диске раннера до того, как он начнет экспорт
 cp ffbuild/ffmpeg/ffbuild/config.log "${FINAL_DEST}/config.log" 2>/dev/null || true
-log_info "Build finished. Cleaning up..."
+log_info "${CHECK_MARK} Build finished. ${BROOM_MARK} Cleaning up..."
 rm -rf ffbuild/pkgroot ffbuild/config_parts 2>/dev/null || true
 exit 0

@@ -49,11 +49,3 @@ ffbuild_dockerbuild() {
 ffbuild_cppflags() {
     echo "-DLIBJPEG_STATIC"
 }
-
-ffbuild_configure() {
-    echo --enable-libjpeg
-}
-
-ffbuild_unconfigure() {
-    echo --disable-libjpeg
-}

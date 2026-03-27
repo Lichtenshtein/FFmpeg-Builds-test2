@@ -11,6 +11,7 @@ USE_LTO_FLAG="${3:-nolto}"
 SKIP_FFMPEG_FLAG="${4:-false}"
 USE_AVX512_FLAG="${5:-false}"
 DEDUPE_FLAGS="${DEDUPE_FLAGS:-true}"
+SAFE_CONFIG="${SAFE_CONFIG:-true}"
 USE_WINE="${USE_WINE:-auto}"
 
 # Загружаем переменные
@@ -22,9 +23,11 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
 SKIP_FFMPEG=0
 [[ "$SKIP_FFMPEG_FLAG" == "true" || "$SKIP_FFMPEG_FLAG" == "skip_ffmpeg" ]] && SKIP_FFMPEG=1 && log_info "${XCLAM_MARK} FFmpeg compilation will be skipped (Component test mode)."
 USE_LTO=0
-[[ "$USE_LTO_FLAG" == "lto" ]] && USE_LTO=1 && log_info "${XCLAM_MARK} LTO enabled!"
+[[ "$USE_LTO_FLAG" == "lto" ]] && USE_LTO=1 && log_info "${XCLAM_MARK} LTO is enabled!"
 USE_AVX512=0
-[[ "$USE_AVX512_FLAG" == "true" ]] && USE_AVX512=1 && log_info "${XCLAM_MARK} AVX512 enabled!"
+[[ "$USE_AVX512_FLAG" == "true" ]] && USE_AVX512=1 && log_info "${XCLAM_MARK} AVX512 is enabled!"
+SAFE_CONFIGURE=0
+[[ "$SAFE_CONFIG" == "true" ]] && SAFE_CONFIGURE=1 && log_info "${XCLAM_MARK} SAFE_CONFIGURE is enabled!"
 
 export LC_ALL=C.UTF-8
 
@@ -45,6 +48,7 @@ to_df "ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_STR=\"$
     FFMPEG_BRANCH=\"$FFMPEG_BRANCH\" \\
     DEBUG_NO_HASH=\"$DEBUG_NO_HASH\" \\
     DEDUPE_FLAGS=\"$DEDUPE_FLAGS\" \\
+    SAFE_CONFIGURE=\"$SAFE_CONFIGURE\" \\
     ONLY_STAGE=\"$ONLY_STAGE\" \\
     USE_WINE=\"$USE_WINE\" \\
     USE_AVX512=\"$USE_AVX512\" \\

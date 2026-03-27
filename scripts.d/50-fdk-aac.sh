@@ -15,44 +15,48 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    ./autogen.sh
 
-    local myconf=(
-        --prefix="$FFBUILD_PREFIX"
-        --host="$FFBUILD_TOOLCHAIN"
-        --disable-shared
-        --enable-static
-        --with-pic
-        --disable-example
-    )
+    mkdir _build
+    cd _build
 
-    # Флаги санитайзера
-    local asan_flags="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize=shift-base -fno-sanitize-recover=all"
-    
-    CFLAGS="$CFLAGS $asan_flags" \
-    CPPFLAGS="$CPPFLAGS $asan_flags" \
-    CXXFLAGS="$CXXFLAGS" \
-    LDFLAGS="$LDFLAGS $asan_flags" \
-    LIBS="$LIBS" \
-    ./configure "${myconf[@]}" || return 1
+    # Флаги санитайзера замедляют работу ffmpeg в 2-3 раза (плохо)
+    # Без части из них ffmpeg не слинкуется, нужно прокидывать и для него (плохо)
+    # -fno-sanitize-recover=all при малейшей ошибке в fdk-aac FFmpeg мгновенно завершит работу без шанса на продолжение (плохо)
+    # если оставить только -fsanitize=undefined (UBSan), то это даёт гораздо меньше оверхеда, чем address. Но это все равно замедляет работу, хоть и не в 3 раза (плохо)
+    # Я не помню нахера это тут (хорошо)
+    # Итог: Вырубаем.
+    ASAN_CFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize=shift-base -fno-sanitize-recover=all"
+    ASAN_LDFLAGS="-fsanitize=address,undefined"
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    LDFLAGS="$LDFLAGS" \
+    cmake -G Ninja \
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+        -DBUILD_SHARED_LIBS=OFF \
+        -DBUILD_PROGRAMS=OFF \
+        -DFDK_AAC_INSTALL_CMAKE_CONFIG_MODULE=ON \
+        -DFDK_AAC_INSTALL_PKGCONFIG_MODULE=ON  .. || return 1
 
+    ninja -j$(nproc) $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 }
 
-# We will handle this directly in build.sh to avoid the deduplication process.
+# Comment out; we will handle this directly in build.sh to avoid the deduplication process (not).
 
 # ffbuild_cflags() {
-    # echo "$asan_flags"
+    # echo "$ASAN_CFLAGS"
 # }
 
 # ffbuild_cxxflags() {
-    # echo "$asan_flags"
+    # echo "$ASAN_CFLAGS"
 # } 
 
 # ffbuild_ldflags() {
-    # echo "$asan_flags"
+    # echo "$ASAN_LDFLAGS"
 # }
 
 # ffbuild_libs() {
