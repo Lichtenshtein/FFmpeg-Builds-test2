@@ -306,8 +306,17 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
 
     if [[ ${#NEW_FILES[@]} -gt 0 ]]; then
         log_info "${DIRS_MARK} Installed ${#NEW_FILES[@]} files to prefix:"
-        # Print the list, stripping the long DESTDIR prefix for readability
-        printf "%s\n" "${NEW_FILES[@]#$FFBUILD_DESTDIR}" | head -n 50
+        # Очищаем пути от DESTDIR
+        local CLEAN_PATHS=()
+        for f in "${NEW_FILES[@]}"; do CLEAN_PATHS+=("${f#$FF_DESTDIR}"); done
+        # Сортируем: сначала pkgconfig, cmake и библиотеки, затем всё остальное
+        (
+            # Приоритетные пути
+            printf "%s\n" "${CLEAN_PATHS[@]}" | grep -E "/lib/pkgconfig/|/lib/cmake/|/lib/[^/]+\.a$" | sort
+            # Все остальные (инвертированный поиск)
+            printf "%s\n" "${CLEAN_PATHS[@]}" | grep -vE "/lib/pkgconfig/|/lib/cmake/|/lib/[^/]+\.a$" | sort
+        ) | head -n 50
+        # stripping the long DESTDIR prefix for readability
         [[ ${#NEW_FILES[@]} -gt 50 ]] && echo "  ... (and $((${#NEW_FILES[@]} - 50)) more)"
 
         # Sync to the PERSISTENT CACHE MOUNT (So the next script sees them)
@@ -375,12 +384,12 @@ _raw_libs="$(ffbuild_libs 2>/dev/null || true)"
 export FF_CONFIGURE FF_CFLAGS FF_LIBS FF_CXXFLAGS FF_LDFLAGS FF_CPPFLAGS
 
 # Если в этой строке в логе пустота, значит, проблема выше, в самом скрипте компонента (например, в 18-zlib.sh), который не вызывает ffbuild_cflags
-[[ -n "$_raw_conf" ]] && log_debug "FINAL FF_CONFIGURE: $FF_CONFIGURE"
-[[ -n "$_raw_cflags" ]] && log_debug "FINAL FF_CFLAGS: $FF_CFLAGS"
-[[ -n "$_raw_cppflags" ]] && log_debug "FINAL FF_CPPFLAGS: $FF_CPPFLAGS"
-[[ -n "$_raw_cxxflags" ]] && log_debug "FINAL FF_CXXFLAGS: $FF_CXXFLAGS"
-[[ -n "$_raw_ldflags" ]]  && log_debug "FINAL FF_LDFLAGS: $FF_LDFLAGS"
-[[ -n "$_raw_libs" ]] && log_debug "FINAL FF_LIBS: $FF_LIBS"
+[[ -n "$FF_CONFIGURE" ]] && log_debug "FINAL FF_CONFIGURE: $FF_CONFIGURE"
+[[ -n "$FF_CFLAGS" ]]    && log_debug "FINAL FF_CFLAGS: $FF_CFLAGS"
+[[ -n "$FF_CPPFLAGS" ]]  && log_debug "FINAL FF_CPPFLAGS: $FF_CPPFLAGS"
+[[ -n "$FF_CXXFLAGS" ]]  && log_debug "FINAL FF_CXXFLAGS: $FF_CXXFLAGS"
+[[ -n "$FF_LDFLAGS" ]]   && log_debug "FINAL FF_LDFLAGS: $FF_LDFLAGS"
+[[ -n "$FF_LIBS" ]]      && log_debug "FINAL FF_LIBS: $FF_LIBS"
 
 # Сохраняем в .vars файл с защитой кавычками только те переменные, которые были реально установлены в скрипте компонента (текущий блок printf)
 {
