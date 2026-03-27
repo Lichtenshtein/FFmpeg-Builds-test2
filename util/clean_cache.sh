@@ -71,27 +71,32 @@ cd "$CACHE_DIR" || exit 0
 log_info "${BROOM_MARK} Cleaning up orphaned and outdated cache files and symlinks..."
 deleted_count=0
 
+# Читаем список один раз в переменную для ускорения grep
+KEEP_CONTENT=$(cat "$FINAL_KEEP_LIST")
+
 # Используем глоб напрямую, чтобы избежать проблем с пустыми переменными
 for f in *.tar.zst; do
     [[ -e "$f" || -L "$f" ]] || continue # Проверяем существование или наличие ссылки
 
     # Если объекта (файла или симлинка) нет в списке актуальных
-    if ! grep -qxF "$f" "$FINAL_KEEP_LIST"; then
+    if ! echo "$KEEP_CONTENT" | grep -qxF "^$f$"; then
         # Удаляем только если файл старше 30 минут (защита от параллельных процессов)
-        if [[ -f "$f" && ! -L "$f" ]]; then
-            if [[ -n $(find "$f" -mmin +30 2>/dev/null) ]]; then
-                log_info "${BROOM_MARK} Deleting orphaned/old cache file: $f"
-                rm -f "$f"
-                deleted_count=$((deleted_count + 1))
-            fi
-        # Симлинки удаляем сразу, если их нет в списке актуальных
-        elif [[ -L "$f" ]]; then
+        if [[ -L "$f" ]]; then
             log_info "${BROOM_MARK} Removing obsolete symlink: $f"
             rm -f "$f"
             deleted_count=$((deleted_count + 1))
+        elif [[ -f "$f" ]]; then
+            # Проверяем возраст только для файлов
+            if [[ -n $(find "$f" -mmin +30 2>/dev/null) ]]; then
+                log_info "${BROOM_MARK} Deleting old cache file: $f"
+                rm -f "$f"
+                deleted_count=$((deleted_count + 1))
+            fi
         fi
     fi
 done
+
+cat -A "$FINAL_KEEP_LIST"
 
 # Дополнительная страховка: удаляем реально БИТЫЕ ссылки, 
 # которые могли остаться из-за ошибок ручного удаления файлов
