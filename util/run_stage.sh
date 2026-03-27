@@ -185,8 +185,8 @@ if [[ -n "$DL_COMMANDS" ]]; then
         exit 1
     fi
     
-    log_debug "${DIRS_MARK} Final build directory: $(pwd)"
-    ls -F | head -n 5
+    log_debug "${DIRS_MARK} Contents of $(pwd) (current build directory):"
+    paste <(ls -d */ | head -n 7) <(ls -F | grep -v / | head -n 7) | column -t -s $'\t'
 else
     log_info "No source archive required for $STAGENAME (meta-package)."
 fi
@@ -214,14 +214,14 @@ log_debug "${STAGENAME}-specific CFLAGS: $CFLAGS"
 build_cmd="ffbuild_dockerbuild"
 [[ -n "$2" ]] && build_cmd="$2"
 
+# wine starter
+setup_wine_env
+
 log_info "################################################################"
 log_info "### ${START_MARK} ${LOG_INFO}STARTING STAGE: $STAGENAME${NC}"
 log_info "### DATE: $(date)"
 log_info "### Starting build function: $build_cmd"
 log_info "################################################################"
-
-# wine starter
-setup_wine_env
 
 if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
     log_info "Verbose mode active. Build output will be shown in real-time."
