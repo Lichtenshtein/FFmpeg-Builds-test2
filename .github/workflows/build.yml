@@ -62,7 +62,7 @@ on:
       skip_ffmpeg:
         description: 'Skip final FFmpeg compilation (Component test only)'
         type: boolean
-        default: true
+        default: false
       safe_config:
         description: 'Enable FFmpeg flags validation before building'
         type: boolean
