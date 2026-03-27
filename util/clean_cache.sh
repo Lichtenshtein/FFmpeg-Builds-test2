@@ -75,15 +75,19 @@ FINAL_KEEP_LIST=$(mktemp)
 trap 'rm -f "$RAW_KEEP_LIST" "$FINAL_KEEP_LIST"' EXIT
 sort -u "$RAW_KEEP_LIST" > "$FINAL_KEEP_LIST"
 rm -f "$RAW_KEEP_LIST"
-# Гарантируем, что в списке нет лишних пробелов и символов возврата каретки
-sed -i 's/\r//g; s/[[:space:]]*$//' "$FINAL_KEEP_LIST"
 # Удаляем только те файлы, которых нет в KEEP_LIST
 cd "$CACHE_DIR" || exit 0
 log_info "${BROOM_MARK} Cleaning up orphaned and outdated cache files and symlinks..."
 deleted_count=0
 
+# Гарантируем, что в списке нет лишних пробелов и символов возврата каретки
+sed -i 's/\r//g; s/[[:space:]]*$//' "$FINAL_KEEP_LIST"
 # Читаем актуальный список в массив
 mapfile -t PROTECTED_FILES < "$FINAL_KEEP_LIST"
+
+# Выводим отладку
+log_debug "FINAL_KEEP_LIST contents (first 10):"
+head -n 10 "$FINAL_KEEP_LIST"
 
 # Используем глоб напрямую, чтобы избежать проблем с пустыми переменными
 for f in *.tar.zst; do
@@ -100,18 +104,15 @@ for f in *.tar.zst; do
         if [[ -L "$f" ]]; then
             log_info "${BROOM_MARK} Removing obsolete symlink: $f"
             rm -f "$f"
-            deleted_count=$((deleted_count + 1))
+            ((deleted_count++))
         elif [[ -f "$f" ]]; then
             # Стандартная защита 30 мин для тяжелых архивов
             if [[ -n $(find "$f" -mmin +30 2>/dev/null) ]]; then
                 log_info "${BROOM_MARK} Deleting orphaned cache file: $f"
                 rm -f "$f"
-                deleted_count=$((deleted_count + 1))
+                ((deleted_count++))
             fi
         fi
-    else
-        log_debug "Checking KEEP_LIST contents..."
-        cat -A "$FINAL_KEEP_LIST"
     fi
 done
 
