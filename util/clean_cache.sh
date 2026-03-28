@@ -75,7 +75,7 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
             # Также защищаем символическую ссылку, если она есть
                 echo "${STAGENAME}.tar.zst" >> "$RAW_KEEP_LIST"
             fi
-        else
+        # else
             # log_debug "Skipping inactive stage: $STAGENAME (CLEAN_INACTIVE_SOURCES=1)"
         fi
     else
