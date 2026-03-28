@@ -76,7 +76,7 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
                 echo "${STAGENAME}.tar.zst" >> "$RAW_KEEP_LIST"
             fi
         else
-            log_debug "Skipping inactive stage: $STAGENAME (CLEAN_INACTIVE_SOURCES=1)"
+            # log_debug "Skipping inactive stage: $STAGENAME (CLEAN_INACTIVE_SOURCES=1)"
         fi
     else
         log_debug "Skipping disabled stage: $STAGENAME (ffbuild_enabled returned 1)"
