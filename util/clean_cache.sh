@@ -66,8 +66,10 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     # Защищаем файл только если он:
     # (Включен И Активен) ИЛИ (Включен И мы НЕ хотим чистить неактивные)
     if [[ "$is_enabled" == "true" ]]; then
+        # Если мы хотим чистить (1), то защищаем ТОЛЬКО активные.
+        # Если НЕ хотим чистить (0), защищаем все включенные.
         if [[ "$is_active" == "true" ]] || [[ "$CLEAN_INACTIVE_SOURCES" == "0" ]]; then
-             DL_HASH=$(get_stage_hash "$STAGE")
+            DL_HASH=$(get_stage_hash "$STAGE")
             if [[ -n "$DL_HASH" ]]; then
                 log_debug "${LOCK_MARK} Protecting: ${STAGENAME}_${DL_HASH}.tar.zst"
             # Добавляем в список текущий файл
@@ -76,10 +78,10 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
                 echo "${STAGENAME}.tar.zst" >> "$RAW_KEEP_LIST"
             fi
         # else
-            # log_debug "Skipping inactive stage: $STAGENAME (CLEAN_INACTIVE_SOURCES=1)"
+             # log_debug "Skipping inactive stage: $STAGENAME (CLEAN_INACTIVE_SOURCES=1)"
         fi
-    else
-        log_debug "Skipping disabled stage: $STAGENAME (ffbuild_enabled returned 1)"
+    # else
+        # log_debug "Skipping disabled stage: $STAGENAME (ffbuild_enabled returned 1)"
     fi
 done
 
@@ -132,6 +134,12 @@ done
 # Дополнительная страховка: удаляем реально БИТЫЕ ссылки, 
 # которые могли остаться из-за ошибок ручного удаления файлов
 find . -maxdepth 1 -xtype l -delete || true
+
+if [[ "$deleted_count" -eq 0 ]]; then
+    log_info "${CHECK_MARK} Cache is already clean. Nothing to remove."
+else
+    log_info "${CHECK_MARK} Cleanup finished. Removed $deleted_count files."
+fi
 
 log_info "${CHECK_MARK} Cleanup finished. Removed $deleted_count outdated/orphaned cache files."
 exit 0

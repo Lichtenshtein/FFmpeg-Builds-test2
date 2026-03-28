@@ -97,8 +97,7 @@ while IFS= read -r f; do
     # source выполняется в текущем контексте, наполняя FF_ переменные
     # Проверяем, не пустой ли файл (-s)
     if [[ -s "$f" ]]; then
-        # Используем || true, чтобы мелкие ошибки внутри source не рушили ffmpeg build
-        source "$f" || log_warn "Failed to source $f, skipping..."
+        eval "$(tr -d '\r' < "$f")" || log_warn "Failed to source $f"
     else
         log_warn "File $f is empty, skipping source."
     fi
