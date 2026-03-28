@@ -126,12 +126,6 @@ if (( TOTAL_LEN > 50000 )); then
     log_warn "Flag accumulation is suspiciously large ($TOTAL_LEN chars) - check .vars files"
 fi
 
-# Определяем целевой вариант (они могут добавить свои --enable)
-source "variants/${TARGET}-${VARIANT}.sh"
-for addin in ${ADDINS[*]}; do
-    source "addins/${addin}.sh"
-done
-
 # Клонирование и патчинг (прямо в текущем слое Docker)
 log_info "Using pre-mounted FFmpeg source..."
 if [[ ! -f "ffbuild/ffmpeg/configure" ]]; then
@@ -167,22 +161,38 @@ export HOST_CFLAGS="-O2 -pipe"
 export HOST_CXXFLAGS="-O2 -pipe"
 export HOST_LDFLAGS=""
 
+# Определяем целевой вариант (они могут добавить свои --enable)
+source "variants/${TARGET}-${VARIANT}.sh"
+for addin in ${ADDINS[*]}; do
+    source "addins/${addin}.sh"
+done
+
 log_debug "--- START of DEBUG audit section ---"
 log_debug "DEDUPE_FLAGS is currently set to: '$DEDUPE_FLAGS'"
 log_debug "Check if variables are loaded from files:"
-log_debug "RAW FF_CFLAGS: $FF_CFLAGS"
-log_debug "RAW FF_LDFLAGS: $FF_LDFLAGS"
-log_debug "RAW FF_LIBS: $FF_LIBS"
+log_debug "FF_CONFIGURE: $TOTAL_FF_CONFIGURE"
+log_debug "RAW FF_CFLAGS: $TOTAL_FF_CFLAGS"
+log_debug "RAW FF_LDFLAGS: $TOTAL_FF_LDFLAGS"
+log_debug "RAW FF_LIBS: $TOTAL_FF_LIBS"
 log_info "${BROOM_MARK} Deduplicating all flags..."
+
+# Capture echo-style output too (same dual-pattern fix as run_stage.sh)
+_variant_conf=$(ffbuild_configure 2>/dev/null || true)
+VARIANT_FF_CONFIGURE="${FF_CONFIGURE} ${_variant_conf}"
+VARIANT_FF_CFLAGS="${FF_CFLAGS}"
+VARIANT_FF_CXXFLAGS="${FF_CXXFLAGS}"
+VARIANT_FF_CPPFLAGS="${FF_CPPFLAGS}"
+VARIANT_FF_LDFLAGS="${FF_LDFLAGS}"
+VARIANT_FF_LIBS="${FF_LIBS}"
 
 # Подготовка ФИНАЛЬНЫХ флагов (Dedupe + Combine)
 # объединяем базовые флаги из vars.sh и накопленные из компонентов
-FINAL_CONFIGURE=$(dedupe "$TOTAL_FF_CONFIGURE")
-FINAL_CFLAGS=$(dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS")
-FINAL_CXXFLAGS=$(dedupe "$CXXFLAGS" "$CPPFLAGS" "$TOTAL_FF_CXXFLAGS" "$TOTAL_FF_CPPFLAGS")
-FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$TOTAL_FF_LDFLAGS")
+FINAL_CONFIGURE=$(dedupe "$TOTAL_FF_CONFIGURE" "$VARIANT_FF_CONFIGURE")
+FINAL_CFLAGS=$(dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CFLAGS" "$VARIANT_FF_CPPFLAGS")
+FINAL_CXXFLAGS=$(dedupe "$CXXFLAGS" "$CPPFLAGS" "$TOTAL_FF_CXXFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CXXFLAGS" "$VARIANT_FF_CPPFLAGS")
+FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$TOTAL_FF_LDFLAGS" "$VARIANT_FF_LDFLAGS")
 FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
-FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$ADDITIONAL_LIBS" "$TOTAL_FF_LIBS")
+FINAL_LIBS=$(smart_libs_dedupe "$TOTAL_FF_LIBS" "$LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
 
 # Используем группы для решения проблем циклических зависимостей (особенно для Tesseract)
 FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} -Wl,--end-group -Wl,--allow-multiple-definition -lstdc++"
@@ -198,19 +208,19 @@ log_debug "Deduplicated FINAL_CFLAGS: \n${FINAL_CFLAGS}\nsize: ${#FINAL_CFLAGS} 
 log_debug "Deduplicated FINAL_LDFLAGS: \n${FINAL_LDFLAGS}\nsize: ${#FINAL_LFLAGS} chars"
 log_debug "Deduplicated FINAL_LIBS: \n${FINAL_LIBS}\nsize: ${#FINAL_LIBS} chars"
 
-log_debug "--- PATH and binaries injection audit ---"
-log_debug "${BUILD_MARK} Running flags diagnostic..."
+log_debug "${BUILD_MARK} PATH and binaries injection audit"
+log_debug "Running flags diagnostic..."
 # If the length shows more characters than -O2 (3 chars), there's a hidden character injected by vars.sh or the Docker ENV.
 log_debug "Diagnostic: CFLAGS content:"
-printf 'HOST_CFLAGS bytes: '; echo -n "$HOST_CFLAGS" | xxd | head -5
-printf 'HOST_CXXFLAGS bytes: '; echo -n "$HOST_CXXFLAGS" | xxd | head -5
-printf 'FINAL_CFLAGS bytes: '; echo -n "$FINAL_CFLAGS" | xxd | head -5
+printf 'HOST_CFLAGS bytes: '; echo -n "\n $HOST_CFLAGS" | xxd | head -5
+printf 'HOST_CXXFLAGS bytes: '; echo -n "\n $HOST_CXXFLAGS" | xxd | head -5
+printf 'FINAL_CFLAGS bytes: '; echo -n "\n $FINAL_CFLAGS" | xxd | head -5
 log_debug "Diagnostic: LDFLAGS content:"
-printf 'FINAL_LDFLAGS bytes: '; echo -n "$FINAL_LDFLAGS" | xxd | head -5
+printf 'FINAL_LDFLAGS bytes: '; echo -n "\n $FINAL_LDFLAGS" | xxd | head -5
 # какие именно as и ld видны в системе первыми
-log_debug "${SEARCH_MARK} Show current 'as' priority: \n$(which -a as)\n"
-log_debug "${SEARCH_MARK} Show current 'ld' priority: \n$(which -a ld)\n"
-log_debug "${SEARCH_MARK} Show current 'x86_64-w64-mingw32-gcc' priority: \n$(which -a x86_64-w64-mingw32-gcc)\n"
+log_debug "${SEARCH_MARK} Show current 'as' priority: \n$(which -a as)"
+log_debug "${SEARCH_MARK} Show current 'ld' priority: \n$(which -a ld)"
+log_debug "${SEARCH_MARK} Show current 'x86_64-w64-mingw32-gcc' priority: \n$(which -a x86_64-w64-mingw32-gcc)"
 # содержимое папок тулчейна (только имена файлов)
 log_debug "${DIRS_MARK} Contents of /opt/ct-ng/bin (first 20 files):"
 ls -F /opt/ct-ng/bin | head -n 20
@@ -371,7 +381,7 @@ ls -lh "$PKG_DIR/bin/"
 # Скачиваем модели для ИИ
 log_info "${DOWN_MARK} Downloading Additional Assets..."
 MODELS_FINAL_DIR="$PKG_DIR/models"
-/builder/util/download_models.sh "$MODELS_FINAL_DIR" "$(pwd)"
+bash /builder/util/download_models.sh "$MODELS_FINAL_DIR" "$(pwd)"
 
 # Стриппинг бинарников (удаление отладочных символов)
 log_info "${BROOM_MARK} Stripping binaries..."
