@@ -168,7 +168,7 @@ export -f ffbuild_enabled ffbuild_depends ffbuild_configure ffbuild_cflags ffbui
 # 1 для подробных логов, в 0 для кратких
 # export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
 # Значение FFBUILD_VERBOSE уже пришло из Docker ENV
-if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     export MAKE_V="V=1"
     export NINJA_V="-v"
     export CARGO_V="-v"

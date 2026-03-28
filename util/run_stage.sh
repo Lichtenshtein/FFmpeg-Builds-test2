@@ -364,13 +364,20 @@ log_info "Saving build variables for $STAGENAME..."
 
     # Call the component's own ffbuild_* functions
     # These are the ONLY authoritative source of what this component needs.
-    ffbuild_configure  > /dev/null 2>&1 || true
-    ffbuild_cflags     > /dev/null 2>&1 || true
-    ffbuild_cppflags   > /dev/null 2>&1 || true
-    ffbuild_cxxflags   > /dev/null 2>&1 || true
-    ffbuild_ldflags    > /dev/null 2>&1 || true
-    ffbuild_ldexeflags > /dev/null 2>&1 || true
-    ffbuild_libs       > /dev/null 2>&1 || true
+    _conf_out=$(ffbuild_configure 2>/dev/null || true)
+    [[ -n "$_conf_out" ]] && FF_CONFIGURE="${FF_CONFIGURE} ${_conf_out}"
+    _cflags_out=$(ffbuild_cflags 2>/dev/null || true)
+    [[ -n "$_cflags_out" ]] && FF_CFLAGS="${FF_CFLAGS} ${_cflags_out}"
+    _cppflags_out=$(ffbuild_cppflags 2>/dev/null || true)
+    [[ -n "$_cppflags_out" ]] && FF_CPPFLAGS="${FF_CPPFLAGS} ${_cppflags_out}"
+    _cxxflags_out=$(ffbuild_cxxflags 2>/dev/null || true)
+    [[ -n "$_cxxflags_out" ]] && FF_CXXFLAGS="${FF_CXXFLAGS} ${_cxxflags_out}"
+    _ldflags_out=$(ffbuild_ldflags 2>/dev/null || true)
+    [[ -n "$_ldflags_out" ]] && FF_LDFLAGS="${FF_LDFLAGS} ${_ldflags_out}"
+    _ldexeflags_out=$(ffbuild_ldexeflags 2>/dev/null || true)
+    [[ -n "$_ldexeflags_out" ]] && FF_LDEXEFLAGS="${FF_LDEXEFLAGS} ${_ldexeflags_out}"
+    _libs_out=$(ffbuild_libs 2>/dev/null || true)
+    [[ -n "$_libs_out" ]] && FF_LIBS="${FF_LIBS} ${_libs_out}"
 
     # Собираем все экпорты в одну переменную
     VARS_CONTENT=""
