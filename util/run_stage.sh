@@ -437,6 +437,9 @@ log_info "Saving build variables for $STAGENAME..."
 
     # Если есть хоть один экспорт — пишем файл
     if [[ -n "$VARS_CONTENT" ]]; then
+        # 1. Используем printf вместо echo -e для надежности
+        # 2. Удаляем \r через tr перед записью
+        printf "$VARS_CONTENT" | tr -d '\r' > "$OUTFILE"
         echo -e "$VARS_CONTENT" > "$OUTFILE"
         log_info "Saved $(wc -c < "$OUTFILE") bytes to $OUTFILE"
     else
