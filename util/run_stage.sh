@@ -440,7 +440,6 @@ log_info "Saving build variables for $STAGENAME..."
         # 1. Используем printf вместо echo -e для надежности
         # 2. Удаляем \r через tr перед записью
         printf "$VARS_CONTENT" | tr -d '\r' > "$OUTFILE"
-        echo -e "$VARS_CONTENT" > "$OUTFILE"
         log_info "Saved $(wc -c < "$OUTFILE") bytes to $OUTFILE"
     else
         log_info "No build variables to save for $STAGENAME (meta/header-only component)."
