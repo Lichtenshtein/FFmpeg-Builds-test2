@@ -69,13 +69,23 @@ VARS_DIR="$FFBUILD_PREFIX/config_parts"
 # Проверка связи с кэшем (zlib)
 # Если файл пустой проблема в run_stage.sh или vars.sh во время сборки компонента.
 # Если файл не пустой, но в configure пусто проблема в build.sh (в команде source или dedupe)
-Z_FILES=( "${VARS_DIR}"/[0-9]*-zlib.vars )
-if [[ -e "${Z_FILES[0]}" ]]; then
-    log_debug "Found zlib vars: ${Z_FILES[0]}"
-    cat "${Z_FILES[0]}"
+# Используем nullglob, чтобы массив был пустым, если файлов нет
+shopt -s nullglob
+Z_FILES=("${VARS_DIR}"/[0-9]*-zlib.vars)
+shopt -u nullglob
+
+if [[ ${#Z_FILES[@]} -gt 0 ]]; then
+    ZLIB_VARS="${Z_FILES[0]}"
+    if [[ -s "$ZLIB_VARS" ]]; then
+        log_debug "Found zlib vars: $ZLIB_VARS"
+        source "$ZLIB_VARS"
+    else
+        log_warn "${XCLAM_MARK} zlib.vars found but it is EMPTY. Check run_stage.sh logic."
+    fi
 else
-    log_warn "${XCLAM_MARK} No zlib.vars found"
+    log_info "${SEARCH_MARK} zlib not found in this build chain (ONLY_STAGE filter might have skipped it)."
 fi
+
 
 # Сортировка важна: зависимости (низкие номера) должны быть в начале для CFLAGS 
 # и в конце для LIBS (но мы это решим дедупликацией tac)
