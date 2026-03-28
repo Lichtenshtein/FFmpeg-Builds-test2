@@ -94,24 +94,18 @@ while IFS= read -r f; do
     # Обнуляем временные переменные перед каждым source
     unset FF_CONFIGURE FF_LIBS FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LDEXEFLAGS
     log_debug "Sourcing $f"
-    if [[ -s "$f" ]]; then
-        # Читаем файл, удаляем символы возврата каретки и исполняем строки
-        while IFS= read -r line; do
-            [[ -z "$line" || "$line" =~ ^# ]] && continue
-            eval "$(echo "$line" | tr -d '\r')" || { log_error "Failed to eval line in $f: $line"; exit 1; }
-        done < "$f"
-    fi
+    [[ -s "$f" ]] && source "$f"
 
     # Аккумулируем данные из файла в итоговые переменные
-    TOTAL_FF_CONFIGURE+=" $FF_CONFIGURE"
-    TOTAL_FF_LIBS+=" $FF_LIBS"
-    TOTAL_FF_CFLAGS+=" $FF_CFLAGS"
-    TOTAL_FF_LDFLAGS+=" $FF_LDFLAGS"
-    TOTAL_FF_CXXFLAGS+=" $FF_CXXFLAGS"
-    TOTAL_FF_CPPFLAGS+=" $FF_CPPFLAGS"
-    TOTAL_FF_LDEXEFLAGS+=" $FF_LDEXEFLAGS"
+    TOTAL_FF_CONFIGURE+=" ${FF_CONFIGURE:-}"
+    TOTAL_FF_LIBS+=" ${FF_LIBS:-}"
+    TOTAL_FF_CFLAGS+=" ${FF_CFLAGS:-}"
+    TOTAL_FF_LDFLAGS+=" ${FF_LDFLAGS:-}"
+    TOTAL_FF_CXXFLAGS+=" ${FF_CXXFLAGS:-}"
+    TOTAL_FF_CPPFLAGS+=" ${FF_CPPFLAGS:-}"
+    TOTAL_FF_LDEXEFLAGS+=" ${FF_LDEXEFLAGS:-}"
 
-    ((counter++))
+    counter=$((counter + 1))
 
     # Промежуточная очистка каждых 20 файлов,
     # чтобы не допустить взрывного роста строк в памяти

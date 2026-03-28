@@ -427,13 +427,13 @@ log_info "Saving build variables for $STAGENAME..."
         echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | tr '\n' ' ' | xargs
     }
 
-    [[ -n "$FF_CONFIGURE" ]]    && VARS_CONTENT+="export FF_CONFIGURE+=' $(clean_val "$FF_CONFIGURE")' \n"
-    [[ -n "$FF_CFLAGS" ]]       && VARS_CONTENT+="export FF_CFLAGS+=' $(clean_val "$FF_CFLAGS")' \n"
-    [[ -n "$FF_CXXFLAGS" ]]     && VARS_CONTENT+="export FF_CXXFLAGS+=' $(clean_val "$FF_CXXFLAGS")' \n"
-    [[ -n "$FF_CPPFLAGS" ]]     && VARS_CONTENT+="export FF_CPPFLAGS+=' $(clean_val "$FF_CPPFLAGS")' \n"
-    [[ -n "$FF_LDFLAGS" ]]      && VARS_CONTENT+="export FF_LDFLAGS+=' $(clean_val "$FF_LDFLAGS")' \n"
-    [[ -n "$FF_LDEXEFLAGS" ]]   && VARS_CONTENT+="export FF_LDEXEFLAGS+=' $(clean_val "$FF_LDEXEFLAGS")' \n"
-    [[ -n "$FF_LIBS" ]]         && VARS_CONTENT+="export FF_LIBS+=' $(clean_val "$FF_LIBS")' \n"
+    [[ -n "$FF_CONFIGURE" ]]  && VARS_CONTENT+="export FF_CONFIGURE+='$(clean_val "$FF_CONFIGURE")'\n"
+    [[ -n "$FF_CFLAGS" ]]     && VARS_CONTENT+="export FF_CFLAGS+='$(clean_val "$FF_CFLAGS")'\n"
+    [[ -n "$FF_CXXFLAGS" ]]   && VARS_CONTENT+="export FF_CXXFLAGS+='$(clean_val "$FF_CXXFLAGS")'\n"
+    [[ -n "$FF_CPPFLAGS" ]]   && VARS_CONTENT+="export FF_CPPFLAGS+='$(clean_val "$FF_CPPFLAGS")'\n"
+    [[ -n "$FF_LDFLAGS" ]]    && VARS_CONTENT+="export FF_LDFLAGS+='$(clean_val "$FF_LDFLAGS")'\n"
+    [[ -n "$FF_LDEXEFLAGS" ]] && VARS_CONTENT+="export FF_LDEXEFLAGS+='$(clean_val "$FF_LDEXEFLAGS")'\n"
+    [[ -n "$FF_LIBS" ]]       && VARS_CONTENT+="export FF_LIBS+='$(clean_val "$FF_LIBS")'\n"
 
     # Если есть хоть один экспорт — пишем файл
     if [[ -n "$VARS_CONTENT" ]]; then
@@ -454,8 +454,6 @@ log_info "Saving build variables for $STAGENAME..."
     [[ -n "$FF_LDFLAGS" ]]   && log_debug "Final $STAGENAME FF_LDFLAGS: $FF_LDFLAGS"
     [[ -n "$FF_LDXEFLAGS" ]] && log_debug "Final $STAGENAME FF_LDXEFLAGS: $FF_LDXEFLAGS"
     [[ -n "$FF_LIBS" ]]      && log_debug "Final $STAGENAME FF_LIBS: $FF_LIBS"
-
-    log_info "Saved $(wc -c < "$OUTFILE") bytes to $OUTFILE"
 )
 
 # Диагностика созданных файлов
