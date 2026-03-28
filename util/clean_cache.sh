@@ -66,8 +66,8 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     # Protection logic:
     # The component is protected if:
     # (It is in ONLY_STAGE AND it is ENABLED) OR (CLEAN_INACTIVE_SOURCES=0 AND it is ENABLED)
-    if [[ "$is_enabled" == "true" ]]; then
-        if [[ "$is_active" == "true" ]] || [[ "$CLEAN_INACTIVE_SOURCES" == "0" ]]; then
+    if [[ "$is_active" == "true" ]] || [[ "$CLEAN_INACTIVE_SOURCES" == "0" ]]; then
+        if [[ "$is_enabled" == "true" ]]; then
             DL_HASH=$(get_stage_hash "$STAGE")
             if [[ -n "$DL_HASH" ]]; then
                 log_debug "${LOCK_MARK} Protecting: ${STAGENAME}_${DL_HASH}.tar.zst"
@@ -77,10 +77,10 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
                 echo "${STAGENAME}.tar.zst" >> "$RAW_KEEP_LIST"
             fi
         else
-            log_debug "Skipping inactive stage: $STAGENAME (CLEAN_INACTIVE_SOURCES=1)"
+            log_debug "Skipping disabled stage: $STAGENAME (ffbuild_enabled returned 1)"
         fi
     else
-        log_debug "Skipping disabled stage: $STAGENAME (ffbuild_enabled returned 1)"
+        log_debug "Skipping inactive stage: $STAGENAME (CLEAN_INACTIVE_SOURCES=1)"
     fi
 done
 
