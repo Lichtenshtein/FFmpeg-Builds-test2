@@ -56,9 +56,9 @@ on:
         type: boolean
         default: false
       verbosity:
-        description: 'Log Verbosity (1: Full, 0: Quiet)'
+        description: 'Log Verbosity (2: Full, 0: Quiet)'
         required: false
-        default: '1'
+        default: '2'
       skip_ffmpeg:
         description: 'Skip final FFmpeg compilation (Component test only)'
         type: boolean
@@ -253,7 +253,7 @@ jobs:
           [[ "${{ github.event.inputs.use_avx512 }}" == "true" ]] && USE_AVX512="avx512"
           mkdir -p .cache/downloads .cache/ffmpeg
           find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
-          chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh
+          chmod +x ./download.sh ./util/*.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
           CPU_ARCH="${CPU_ARCH}" CPU_TUNE="${CPU_TUNE}" ./generate.sh win64 nonfree "$USE_LTO" "$SKIP_FFMPEG" "$USE_AVX512"
