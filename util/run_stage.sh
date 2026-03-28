@@ -187,8 +187,8 @@ if [[ -n "$DL_COMMANDS" ]]; then
     
     log_debug "${DIRS_MARK} Contents of $(pwd) (current build directory):"
     # Читаем списки в массивы
-    mapfile -t dirs < <(ls -d */ 2>/dev/null | head -n 7)
-    mapfile -t files < <(ls -F 2>/dev/null | grep -v / | head -n 7)
+    mapfile -t dirs < <(ls -d */ 2>/dev/null | head -n 10)
+    mapfile -t files < <(ls -F 2>/dev/null | grep -v / | head -n 10)
     # Определяем максимальное количество строк
     max=$(( ${#dirs[@]} > ${#files[@]} ? ${#dirs[@]} : ${#files[@]} ))
     for ((i=0; i<max; i++)); do
@@ -217,6 +217,10 @@ export CXXFLAGS="$(echo $RAW_CXXFLAGS $STAGE_CXXFLAGS | xargs)"
 export LDFLAGS="$(echo $RAW_LDFLAGS $STAGE_LDFLAGS | xargs)"
 
 log_debug "${STAGENAME}-specific CFLAGS: $CFLAGS"
+
+# Write a timestamp file before $build_cmd runs, then use find -newer to detect which .pc files were created by this build
+TIMESTAMP_FILE=$(mktemp)
+touch "$TIMESTAMP_FILE"
 
 # Выполняем сборку ОДИН РАЗ с проверкой статуса
 build_cmd="ffbuild_dockerbuild"
@@ -342,70 +346,103 @@ fi
 # Сохраняем переменные для текущего слоя в файл 
 VARS_DIR="$FFBUILD_PREFIX/config_parts"
 mkdir -p "$VARS_DIR"
+OUTFILE="$VARS_DIR/${STAGENAME}.vars"
 
 log_info "Saving build variables for $STAGENAME..."
-# ---------------------------------------------------------
-# Очищаем накопленные флаги ПЕРЕД сбором
-# Это гарантирует, что в .vars попадут ТОЛЬКО данные текущего компонента
-unset FF_CONFIGURE FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LIBS
-# ---------------------------------------------------------
 
-# Вспомогательная функция очистки мусора (внутри Docker она работает корректно)
-# Удаляем ANSI цвета
-# Удаляем переносы строк (заменяем на пробел)
-# xargs схлопнет лишние пробелы в одну строку
-clean_val() {
-    echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | tr '\n' ' ' | xargs
-}
-export -f clean_val
+# Completely isolated subshell, no inherited FF_* state
+# The subshell is the critical isolation mechanism — no FF_* state can leak in from the parent environment.
+(
+    # Re-source vars.sh clean so ffbuild_* accumulator functions are defined
+    # but FF_* variables are empty
+    unset FF_CONFIGURE FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LDEXEFLAGS FF_LIBS
+    . /builder/util/vars.sh "$TARGET" "$VARIANT" > /dev/null 2>&1
 
-# автосбор из pkg-config (он уже работает и наполняет переменные через export)
-if [[ -d "$FFBUILD_PREFIX/lib/pkgconfig" ]]; then
-    log_info "Auto-collecting flags from patched pkg-config..."
-    for pc in "$FFBUILD_PREFIX/lib/pkgconfig"/*.pc; do
+    # Re-source the component script so its ffbuild_* functions are available
+    . "$SCRIPT_PATH"
+
+    # Call the component's own ffbuild_* functions
+    # These are the ONLY authoritative source of what this component needs.
+    ffbuild_configure  > /dev/null 2>&1 || true
+    ffbuild_cflags     > /dev/null 2>&1 || true
+    ffbuild_cppflags   > /dev/null 2>&1 || true
+    ffbuild_cxxflags   > /dev/null 2>&1 || true
+    ffbuild_ldflags    > /dev/null 2>&1 || true
+    ffbuild_ldexeflags > /dev/null 2>&1 || true
+    ffbuild_libs       > /dev/null 2>&1 || true
+
+    OWN_PC_FILES=()
+
+    # Variant A.
+    # Resolve THIS component's own .pc files only
+    # find .pc files whose Name: matches what the component installed.
+    # Match by filename containing the component name or vice-versa (handles libfoo, foo, foo2, etc.)
+    # We detect them by comparing mtime - files created/modified during this
+    # build layer. Since we're in Docker with --mount cache, we track by
+    # comparing against a timestamp file written just before build_cmd ran.
+    # Fallback: use the component name derived from the stage filename.
+
+    # COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
+    # for pc in "$FFBUILD_PREFIX/lib/pkgconfig"/*.pc \
+              # "$FFBUILD_PREFIX/share/pkgconfig"/*.pc; do
+        # [[ -e "$pc" ]] || continue
+        # pc_basename=$(basename "$pc" .pc)
+        # if [[ "$pc_basename" == *"$COMPONENT_NAME"* ]] || \
+           # [[ "$COMPONENT_NAME" == *"$pc_basename"* ]]; then
+            # OWN_PC_FILES+=("$pc_basename")
+        # fi
+    # done
+
+    # Variant B.
+    # This is much more reliable than name matching, it doesn't matter what the library calls its .pc file. Only .pc files newer than the pre-build timestamp
+
+    for pc in "$FFBUILD_PREFIX/lib/pkgconfig"/*.pc \
+              "$FFBUILD_PREFIX/share/pkgconfig"/*.pc; do
         [[ -e "$pc" ]] || continue
-        # Собираем только если имя .pc файла соответствует или связано с компонентом
-        pc_name=$(basename "$pc" .pc)
-        # Все флаги компиляции (-I, -D) забираем через --cflags
+        if [[ "$pc" -nt "$TIMESTAMP_FILE" ]]; then
+            OWN_PC_FILES+=("$(basename "$pc" .pc)")
+        fi
+    done
+    rm -f "$TIMESTAMP_FILE"
+
+    # Query only own .pc files, no transitive pollution
+    # Use --libs (not --static --libs) to avoid pulling in transitive deps here;
+    # the linker group in build.sh handles ordering.
+    for pc_name in "${OWN_PC_FILES[@]}"; do
         _pc_cflags=$(pkg-config --cflags "$pc_name" 2>/dev/null || true)
         [[ -n "$_pc_cflags" ]] && FF_CFLAGS="$FF_CFLAGS $_pc_cflags"
-        # Все библиотеки (-l, -L) забираем через --libs --static
-        _pc_libs=$(pkg-config --static --libs "$pc_name" 2>/dev/null || true)
+        _pc_libs=$(pkg-config --libs-only-l "$pc_name" 2>/dev/null || true)
         [[ -n "$_pc_libs" ]] && FF_LIBS="$FF_LIBS $_pc_libs"
     done
-fi
 
-# Захват ручных echo из функций скрипта (без subshell для ffbuild_ аккумуляторов)
-_raw_conf="$(ffbuild_configure 2>/dev/null || true)"
-[[ -n "$_raw_conf" ]] && FF_CONFIGURE="$FF_CONFIGURE $_raw_conf"
-_raw_cflags="$(ffbuild_cflags 2>/dev/null || true)"
-[[ -n "$_raw_cflags" ]] && FF_CFLAGS="$FF_CFLAGS $_raw_cflags"
-_raw_cppflags="$(ffbuild_cppflags 2>/dev/null || true)"
-[[ -n "$_raw_cppflags" ]] && FF_CPPFLAGS="$FF_CPPFLAGS $_raw_cppflags"
-_raw_cxxflags="$(ffbuild_cxxflags 2>/dev/null || true)"
-[[ -n "$_raw_cxxflags" ]] && FF_CXXFLAGS="$FF_CXXFLAGS $_raw_cxxflags"
-_raw_ldflags="$(ffbuild_ldflags 2>/dev/null || true)"
-[[ -n "$_raw_ldflags" ]] && FF_LDFLAGS="$FF_LDFLAGS $_raw_ldflags"
-_raw_libs="$(ffbuild_libs 2>/dev/null || true)"
-[[ -n "$_raw_libs" ]] && FF_LIBS="$FF_LIBS $_raw_libs"
+    # Удаляем ANSI цвета
+    # Удаляем переносы строк (заменяем на пробел)
+    # xargs схлопнет лишние пробелы в одну строку
+    # Write only non-empty values to .vars
+    clean_val() {
+        echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | tr '\n' ' ' | xargs
+    }
 
-# Если в этой строке в логе пустота, значит, проблема выше, в самом скрипте компонента (например, в 18-zlib.sh), который не вызывает ffbuild_cflags
-[[ -n "$_raw_conf" ]]      && log_debug "Component FF_CONFIGURE: $FF_CONFIGURE"
-[[ -n "$_raw_cflags" ]]    && log_debug "Component FF_CFLAGS: $FF_CFLAGS"
-[[ -n "$_raw_cppflags" ]]  && log_debug "Component FF_CPPFLAGS: $FF_CPPFLAGS"
-[[ -n "$_raw_cxxflags" ]]  && log_debug "Component FF_CXXFLAGS: $FF_CXXFLAGS"
-[[ -n "$_raw_ldflags" ]]   && log_debug "Component FF_LDFLAGS: $FF_LDFLAGS"
-[[ -n "$_raw_libs" ]]      && log_debug "Component FF_LIBS: $FF_LIBS"
+    {
+        [[ -n "$FF_CONFIGURE" ]]    && printf 'export FF_CONFIGURE+='"'"' %s'"'"'\n' "$(clean_val "$FF_CONFIGURE")"
+        [[ -n "$FF_CFLAGS" ]]       && printf 'export FF_CFLAGS+='"'"' %s'"'"'\n'    "$(clean_val "$FF_CFLAGS")"
+        [[ -n "$FF_CXXFLAGS" ]]     && printf 'export FF_CXXFLAGS+='"'"' %s'"'"'\n"  "$(clean_val "$FF_CXXFLAGS")"
+        [[ -n "$FF_CPPFLAGS" ]]     && printf 'export FF_CPPFLAGS+='"'"' %s'"'"'\n'  "$(clean_val "$FF_CPPFLAGS")"
+        [[ -n "$FF_LDFLAGS" ]]      && printf 'export FF_LDFLAGS+='"'"' %s'"'"'\n'   "$(clean_val "$FF_LDFLAGS")"
+        [[ -n "$FF_LDEXEFLAGS" ]]   && printf 'export FF_LDEXEFLAGS+='"'"' %s'"'"'\n' "$(clean_val "$FF_LDEXEFLAGS")"
+        [[ -n "$FF_LIBS" ]]         && printf 'export FF_LIBS+='"'"' %s'"'"'\n'      "$(clean_val "$FF_LIBS")"
+    } > "$OUTFILE"
 
-# Сохраняем в .vars файл с защитой кавычками только те переменные, которые были реально установлены в скрипте компонента (текущий блок printf)
-{
-    [[ -n "$FF_CONFIGURE" ]]  && printf "export FF_CONFIGURE+=' %s'\n" "$(clean_val "$FF_CONFIGURE")"
-    [[ -n "$FF_CFLAGS" ]]     && printf "export FF_CFLAGS+=' %s'\n"    "$(clean_val "$FF_CFLAGS")"
-    [[ -n "$FF_CXXFLAGS" ]]   && printf "export FF_CXXFLAGS+=' %s'\n"  "$(clean_val "$FF_CXXFLAGS")"
-    [[ -n "$FF_CPPFLAGS" ]]   && printf "export FF_CPPFLAGS+=' %s'\n"  "$(clean_val "$FF_CPPFLAGS")"
-    [[ -n "$FF_LDFLAGS" ]]    && printf "export FF_LDFLAGS+=' %s'\n"   "$(clean_val "$FF_LDFLAGS")"
-    [[ -n "$FF_LIBS" ]]       && printf "export FF_LIBS+=' %s'\n"      "$(clean_val "$FF_LIBS")"
-} > "$VARS_DIR/${STAGENAME}.vars"
+    [[ -n "$FF_CONFIGURE" ]] && log_debug "Final $STAGENAME FF_CONFIGURE: $FF_CONFIGURE"
+    [[ -n "$FF_CFLAGS" ]]    && log_debug "Final $STAGENAME FF_CFLAGS: $FF_CFLAGS"
+    [[ -n "$FF_CPPFLAGS" ]]  && log_debug "Final $STAGENAME FF_CPPFLAGS: $FF_CPPFLAGS"
+    [[ -n "$FF_CXXFLAGS" ]]  && log_debug "Final $STAGENAME FF_CXXFLAGS: $FF_CXXFLAGS"
+    [[ -n "$FF_LDFLAGS" ]]   && log_debug "Final $STAGENAME FF_LDFLAGS: $FF_LDFLAGS"
+    [[ -n "$FF_LDXEFLAGS" ]] && log_debug "Final $STAGENAME FF_LDXEFLAGS: $FF_LDXEFLAGS"
+    [[ -n "$FF_LIBS" ]]      && log_debug "Final $STAGENAME FF_LIBS: $FF_LIBS"
+
+    log_info "Saved $(wc -c < "$OUTFILE") bytes to $OUTFILE"
+)
 
 # Диагностика созданных файлов
 log_debug "Current files in $VARS_DIR:"

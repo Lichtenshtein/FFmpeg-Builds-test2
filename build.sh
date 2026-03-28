@@ -110,6 +110,13 @@ while IFS= read -r f; do
     fi
 done < <(find "$VARS_DIR" -name "*.vars" | sort)
 
+# size guard for early failure diagnosis
+TOTAL_LEN=$(echo "$TOTAL_FF_LIBS $TOTAL_FF_CFLAGS" | wc -c)
+log_debug "Total accumulated flag length: $TOTAL_LEN chars"
+if (( TOTAL_LEN > 50000 )); then
+    log_warn "Flag accumulation is suspiciously large ($TOTAL_LEN chars) - check .vars files"
+fi
+
 # Определяем целевой вариант (они могут добавить свои --enable)
 source "variants/${TARGET}-${VARIANT}.sh"
 for addin in ${ADDINS[*]}; do
