@@ -71,6 +71,10 @@ on:
         description: 'Debug: Do not recalculate VARS_HASH (Preserve Docker cache)'
         type: boolean
         default: false
+      inactive_sources:
+        description: 'Protect sources for inactive components from deletion'
+        type: boolean
+        default: true
 env:
   DOCKER_BUILDKIT: 1
   TARGET: win64
@@ -85,6 +89,7 @@ env:
   ONLY_STAGE: ${{ github.event.inputs.only_stage }}
   DEBUG_NO_HASH: ${{ github.event.inputs.debug_no_hash }}
   DEDUPE_FLAGS: ${{ github.event.inputs.dedupe_flags }}
+  INACTIVE_SOURCES: ${{ github.event.inputs.inactive_sources }}
   SAFE_CONFIG: ${{ github.event.inputs.safe_config }}
   USE_WINE: ${{ github.event.inputs.use_wine || 'auto' }}
   USE_AVX512: ${{ github.event.inputs.use_avx512 || 'false' }}
