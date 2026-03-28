@@ -372,6 +372,9 @@ log_info "Saving build variables for $STAGENAME..."
     ffbuild_ldexeflags > /dev/null 2>&1 || true
     ffbuild_libs       > /dev/null 2>&1 || true
 
+    # Собираем все экпорты в одну переменную
+    VARS_CONTENT=""
+
     OWN_PC_FILES=()
 
     # Variant A.
@@ -424,15 +427,23 @@ log_info "Saving build variables for $STAGENAME..."
         echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | tr '\n' ' ' | xargs
     }
 
-    {
-        [[ -n "$FF_CONFIGURE" ]]    && printf "export FF_CONFIGURE+=' %s'\n" "$(clean_val "$FF_CONFIGURE")"
-        [[ -n "$FF_CFLAGS" ]]       && printf "export FF_CFLAGS+=' %s'\n"    "$(clean_val "$FF_CFLAGS")"
-        [[ -n "$FF_CXXFLAGS" ]]     && printf "export FF_CXXFLAGS+=' %s'\n"  "$(clean_val "$FF_CXXFLAGS")"
-        [[ -n "$FF_CPPFLAGS" ]]     && printf "export FF_CPPFLAGS+=' %s'\n"  "$(clean_val "$FF_CPPFLAGS")"
-        [[ -n "$FF_LDFLAGS" ]]      && printf "export FF_LDFLAGS+=' %s'\n"   "$(clean_val "$FF_LDFLAGS")"
-        [[ -n "$FF_LDEXEFLAGS" ]]   && printf "export FF_LDEXEFLAGS+=' %s'\n" "$(clean_val "$FF_LDEXEFLAGS")"
-        [[ -n "$FF_LIBS" ]]         && printf "export FF_LIBS+=' %s'\n"      "$(clean_val "$FF_LIBS")"
-    } > "$OUTFILE"
+    [[ -n "$FF_CONFIGURE" ]]    && VARS_CONTENT+="export FF_CONFIGURE+=' $(clean_val "$FF_CONFIGURE")'${BR}"
+    [[ -n "$FF_CFLAGS" ]]       && VARS_CONTENT+="export FF_CFLAGS+=' $(clean_val "$FF_CFLAGS")'${BR}"
+    [[ -n "$FF_CXXFLAGS" ]]     && VARS_CONTENT+="export FF_CXXFLAGS+=' $(clean_val "$FF_CXXFLAGS")'${BR}"
+    [[ -n "$FF_CPPFLAGS" ]]     && VARS_CONTENT+="export FF_CPPFLAGS+=' $(clean_val "$FF_CPPFLAGS")'${BR}"
+    [[ -n "$FF_LDFLAGS" ]]      && VARS_CONTENT+="export FF_LDFLAGS+=' $(clean_val "$FF_LDFLAGS")'${BR}"
+    [[ -n "$FF_LDEXEFLAGS" ]]   && VARS_CONTENT+="export FF_LDEXEFLAGS+=' $(clean_val "$FF_LDEXEFLAGS")'${BR}"
+    [[ -n "$FF_LIBS" ]]         && VARS_CONTENT+="export FF_LIBS+=' $(clean_val "$FF_LIBS")'${BR}"
+
+    # Если есть хоть один экспорт — пишем файл
+    if [[ -n "$VARS_CONTENT" ]]; then
+        echo -e "$VARS_CONTENT" > "$OUTFILE"
+        log_info "Saved $(wc -c < "$OUTFILE") bytes to $OUTFILE"
+    else
+        log_info "No build variables to save for $STAGENAME (meta/header-only component)."
+        # На всякий случай удаляем старый файл, если он остался от прошлых запусков
+        rm -f "$OUTFILE"
+    fi
 
     [[ -n "$FF_CONFIGURE" ]] && log_debug "Final $STAGENAME FF_CONFIGURE: $FF_CONFIGURE"
     [[ -n "$FF_CFLAGS" ]]    && log_debug "Final $STAGENAME FF_CFLAGS: $FF_CFLAGS"
