@@ -13,7 +13,6 @@ USE_AVX512_FLAG="${5:-false}"
 DEDUPE_FLAGS="${DEDUPE_FLAGS:-true}"
 SAFE_CONFIG="${SAFE_CONFIG:-true}"
 USE_WINE="${USE_WINE:-auto}"
-INACTIVE_SOURCES="${INACTIVE_SOURCES:-true}"
 
 # Загружаем переменные
 source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
@@ -29,8 +28,6 @@ USE_AVX512=0
 [[ "$USE_AVX512_FLAG" == "true" ]] && USE_AVX512=1 && log_info "${XCLAM_MARK} AVX512 is enabled!"
 SAFE_CONFIGURE=0
 [[ "$SAFE_CONFIG" == "true" ]] && SAFE_CONFIGURE=1 && log_info "${XCLAM_MARK} SAFE_CONFIGURE is enabled!"
-CLEAN_INACTIVE_SOURCES=0
-[[ "$INACTIVE_SOURCES" == "false" ]] && CLEAN_INACTIVE_SOURCES=1 && log_info "${XCLAM_MARK} CLEAN_INACTIVE_SOURCES is enabled!"
 log_debug "${XCLAM_MARK} CLEAN_INACTIVE_SOURCES=$CLEAN_INACTIVE_SOURCES"
 
 export LC_ALL=C.UTF-8
