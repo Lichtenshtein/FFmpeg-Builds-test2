@@ -427,13 +427,13 @@ log_info "Saving build variables for $STAGENAME..."
         echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | tr '\n' ' ' | xargs
     }
 
-    [[ -n "$FF_CONFIGURE" ]]    && VARS_CONTENT+="export FF_CONFIGURE+=' $(clean_val "$FF_CONFIGURE")'${BR}"
-    [[ -n "$FF_CFLAGS" ]]       && VARS_CONTENT+="export FF_CFLAGS+=' $(clean_val "$FF_CFLAGS")'${BR}"
-    [[ -n "$FF_CXXFLAGS" ]]     && VARS_CONTENT+="export FF_CXXFLAGS+=' $(clean_val "$FF_CXXFLAGS")'${BR}"
-    [[ -n "$FF_CPPFLAGS" ]]     && VARS_CONTENT+="export FF_CPPFLAGS+=' $(clean_val "$FF_CPPFLAGS")'${BR}"
-    [[ -n "$FF_LDFLAGS" ]]      && VARS_CONTENT+="export FF_LDFLAGS+=' $(clean_val "$FF_LDFLAGS")'${BR}"
-    [[ -n "$FF_LDEXEFLAGS" ]]   && VARS_CONTENT+="export FF_LDEXEFLAGS+=' $(clean_val "$FF_LDEXEFLAGS")'${BR}"
-    [[ -n "$FF_LIBS" ]]         && VARS_CONTENT+="export FF_LIBS+=' $(clean_val "$FF_LIBS")'${BR}"
+    [[ -n "$FF_CONFIGURE" ]]    && VARS_CONTENT+="export FF_CONFIGURE+=' $(clean_val "$FF_CONFIGURE")' \n"
+    [[ -n "$FF_CFLAGS" ]]       && VARS_CONTENT+="export FF_CFLAGS+=' $(clean_val "$FF_CFLAGS")' \n"
+    [[ -n "$FF_CXXFLAGS" ]]     && VARS_CONTENT+="export FF_CXXFLAGS+=' $(clean_val "$FF_CXXFLAGS")' \n"
+    [[ -n "$FF_CPPFLAGS" ]]     && VARS_CONTENT+="export FF_CPPFLAGS+=' $(clean_val "$FF_CPPFLAGS")' \n"
+    [[ -n "$FF_LDFLAGS" ]]      && VARS_CONTENT+="export FF_LDFLAGS+=' $(clean_val "$FF_LDFLAGS")' \n"
+    [[ -n "$FF_LDEXEFLAGS" ]]   && VARS_CONTENT+="export FF_LDEXEFLAGS+=' $(clean_val "$FF_LDEXEFLAGS")' \n"
+    [[ -n "$FF_LIBS" ]]         && VARS_CONTENT+="export FF_LIBS+=' $(clean_val "$FF_LIBS")' \n"
 
     # Если есть хоть один экспорт — пишем файл
     if [[ -n "$VARS_CONTENT" ]]; then
