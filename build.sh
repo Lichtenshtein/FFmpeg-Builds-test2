@@ -95,7 +95,13 @@ while IFS= read -r f; do
     unset FF_CONFIGURE FF_LIBS FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LDEXEFLAGS
     log_debug "Sourcing $f"
     # source выполняется в текущем контексте, наполняя FF_ переменные
-    source "$f"
+    # Проверяем, не пустой ли файл (-s)
+    if [[ -s "$f" ]]; then
+        # Используем || true, чтобы мелкие ошибки внутри source не рушили ffmpeg build
+        source "$f" || log_warn "Failed to source $f, skipping..."
+    else
+        log_warn "File $f is empty, skipping source."
+    fi
 
     # Аккумулируем данные из файла в итоговые переменные
     TOTAL_FF_CONFIGURE+=" $FF_CONFIGURE"
