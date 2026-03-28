@@ -49,7 +49,7 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     is_active=false
     if [[ -z "$ONLY_STAGE" ]]; then
         is_active=true
-    elif [[ "$STAGENAME" =~ ^($ONLY_STAGE)$ ]] || [[ "$ONLY_STAGE" =~ (^|\|)$STAGENAME($|\|) ]].; then
+    elif [[ "$STAGENAME" =~ ^($ONLY_STAGE)$ ]] || [[ "$ONLY_STAGE" =~ (^|\|)$STAGENAME($|\|) ]]; then
         is_active=true
     fi
 
