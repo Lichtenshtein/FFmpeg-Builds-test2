@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -xe
+set -e
 
 export SCRIPT_PATH="$1"
 
@@ -420,7 +420,7 @@ log_info "Saving build variables for $STAGENAME..."
     # xargs схлопнет лишние пробелы в одну строку
     # Write only non-empty values to .vars
     clean_val() {
-        echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | tr '\n' ' ' | xargs
+        echo "$*" | tr '\n' ' ' | xargs
     }
 
     {
