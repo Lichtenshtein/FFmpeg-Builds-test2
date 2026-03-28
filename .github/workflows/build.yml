@@ -31,7 +31,7 @@ on:
         required: false
         default: 'broadwell -mavx2 -mfma'
       dedupe_flags:
-        description: 'Deduplicate LDFLAGS/LIBS (Disable if link errors occur)'
+        description: 'Deduplicate LDFLAGS/LIBS'
         type: boolean
         default: true
       use_wine:
