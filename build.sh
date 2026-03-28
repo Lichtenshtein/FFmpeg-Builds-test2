@@ -94,12 +94,12 @@ while IFS= read -r f; do
     # Обнуляем временные переменные перед каждым source
     unset FF_CONFIGURE FF_LIBS FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LDEXEFLAGS
     log_debug "Sourcing $f"
-    # source выполняется в текущем контексте, наполняя FF_ переменные
-    # Проверяем, не пустой ли файл (-s)
     if [[ -s "$f" ]]; then
-        eval "$(tr -d '\r' < "$f")" || log_warn "Failed to source $f"
-    else
-        log_warn "File $f is empty, skipping source."
+        # Читаем файл, удаляем символы возврата каретки и исполняем строки
+        while IFS= read -r line; do
+            [[ -z "$line" || "$line" =~ ^# ]] && continue
+            eval "$(echo "$line" | tr -d '\r')" || { log_error "Failed to eval line in $f: $line"; exit 1; }
+        done < "$f"
     fi
 
     # Аккумулируем данные из файла в итоговые переменные
