@@ -1,8 +1,8 @@
 #!/bin/bash
 
-set -uo pipefail
-# shopt -s globstar  # Гарантируем поддержку вложенных папок
-shopt -s nullglob
+set -e
+shopt -s globstar  # Гарантируем поддержку вложенных папок
+# shopt -s nullglob
 
 # Подгружаем переменные, чтобы знать TARGET/VARIANT
 # Очищаем входные аргументы от возможных флагов lto/skip
@@ -55,7 +55,7 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     fi
 
     # Проверяем, включен ли компонент
-    if ( source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" > /dev/null 2>&1 \
+    if ( set +e; source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" > /dev/null 2>&1 \
      && source "$STAGE" > /dev/null 2>&1 \
      && ffbuild_enabled ); then
 
