@@ -47,9 +47,9 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     # Если мы собираем только часть стадий, 
     # не нужно защищать кэш для тех, что не входят в список.
     if [[ -n "$ONLY_STAGE" ]]; then
-        # Используем встроенное регулярное выражение Bash, оно не выбрасывает ошибку для set -e
-        if [[ ! "$STAGENAME" =~ $ONLY_STAGE ]]; then
-            log_debug "Skipping $STAGENAME: does not match ONLY_STAGE filter."
+        # Добавляем || true, чтобы grep не ронял скрипт при отсутствии совпадения
+        if ! echo "$STAGENAME" | grep -qE "$ONLY_STAGE"; then
+            log_debug "Skipping $STAGENAME..."
             continue
         fi
     fi
