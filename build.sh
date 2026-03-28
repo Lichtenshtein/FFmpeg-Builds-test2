@@ -78,12 +78,12 @@ if [[ ${#Z_FILES[@]} -gt 0 ]]; then
     ZLIB_VARS="${Z_FILES[0]}"
     if [[ -s "$ZLIB_VARS" ]]; then
         log_debug "Found zlib vars: $ZLIB_VARS"
-        source "$ZLIB_VARS"
+        cat "$ZLIB_VARS"
     else
         log_warn "${XCLAM_MARK} zlib.vars found but it is EMPTY. Check run_stage.sh logic."
     fi
 else
-    log_info "${SEARCH_MARK} zlib not found in this build chain (ONLY_STAGE filter might have skipped it)."
+    log_info "${SEARCH_MARK} zlib not found in this build chain (ONLY_STAGE filter might have skipped it)." || true
 fi
 
 
