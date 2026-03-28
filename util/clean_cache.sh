@@ -43,15 +43,6 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     [[ -f "$STAGE" ]] || continue
     STAGENAME="$(basename "$STAGE" .sh)"
 
-    # Если мы собираем только часть стадий, 
-    # не нужно защищать кэш для тех, что не входят в список.
-    if [[ -n "$ONLY_STAGE" ]]; then
-        if ! echo "$STAGENAME" | grep -qE "$ONLY_STAGE"; then
-            log_debug "Skipping $STAGENAME: does not match ONLY_STAGE filter."
-            continue
-        fi
-    fi
-
     # Проверяем, включен ли компонент
     if ( source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" > /dev/null 2>&1 \
      && source "$STAGE" > /dev/null 2>&1 \
@@ -77,48 +68,33 @@ sort -u "$RAW_KEEP_LIST" > "$FINAL_KEEP_LIST"
 rm -f "$RAW_KEEP_LIST"
 # Удаляем только те файлы, которых нет в KEEP_LIST
 cd "$CACHE_DIR" || exit 0
-log_info "${BROOM_MARK} Cleaning up orphaned and outdated cache files and symlinks..."
+log_info "${BROOM_MARK} Cleaning up orphaned and outdated cache files..."
 deleted_count=0
-
-# Гарантируем, что в списке нет лишних пробелов и символов возврата каретки
-sed -i 's/\r//g; s/[[:space:]]*$//' "$FINAL_KEEP_LIST"
-# Читаем актуальный список в массив
-mapfile -t PROTECTED_FILES < "$FINAL_KEEP_LIST"
-
-# Выводим отладку
-log_debug "FINAL_KEEP_LIST contents (first 10):"
-head -n 10 "$FINAL_KEEP_LIST"
 
 # Используем глоб напрямую, чтобы избежать проблем с пустыми переменными
 for f in *.tar.zst; do
-    [[ -e "$f" || -L "$f" ]] || continue # Проверяем существование или наличие ссылки
+    [[ -f "$f" ]] || continue
+    [[ -L "$f" ]] && continue # Пропускаем симлинки, их проверим отдельно
 
-    # Проверяем, есть ли файл в массиве "защищенных"
-    is_protected=false
-    for p in "${PROTECTED_FILES[@]}"; do
-        [[ "$f" == "$p" ]] && is_protected=true && break
-    done
-
-    # Если объекта (файла или симлинка) нет в списке актуальных
-    if [[ "$is_protected" == "false" ]]; then
-        if [[ -L "$f" ]]; then
-            log_info "${BROOM_MARK} Removing obsolete symlink: $f"
-            rm -f "$f"
-            ((deleted_count++))
-        elif [[ -f "$f" ]]; then
-            # Стандартная защита 30 мин для тяжелых архивов
-            if [[ -n $(find "$f" -mmin +30 2>/dev/null) ]]; then
-                log_info "${BROOM_MARK} Deleting orphaned cache file: $f"
-                rm -f "$f"
-                ((deleted_count++))
-            fi
+    # Если файла нет в списке актуальных
+    if ! grep -qxF "$f" "$FINAL_KEEP_LIST"; then
+        # Удаляем только если файл старше 60 минут (защита от параллельных процессов)
+        if [[ -z $(find "$f" -mmin -60 2>/dev/null) ]]; then
+            log_info "${BROOM_MARK} Deleting orphaned/old cache: $f"
+            rm -f "$f" || true
+            # Безопасный инкремент (не роняет скрипт при set -e)
+            deleted_count=$((deleted_count + 1))
         fi
     fi
 done
 
-# Дополнительная страховка: удаляем реально БИТЫЕ ссылки, 
-# которые могли остаться из-за ошибок ручного удаления файлов
-find . -maxdepth 1 -xtype l -delete || true
+# Дополнительная чистка битых симлинков
+for l in *.tar.zst; do
+    if [[ -L "$l" && ! -e "$l" ]]; then
+        log_debug "${BROOM_MARK} Removing broken symlink: $l"
+        rm -f "$l"
+    fi
+done
 
 rm -f "$FINAL_KEEP_LIST"
 log_info "${CHECK_MARK} Cleanup finished. Removed $deleted_count outdated/orphaned cache files."
