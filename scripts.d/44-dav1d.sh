@@ -51,7 +51,7 @@ ffbuild_dockerbuild() {
         # Исправляем возможные абсолютные пути хоста на пути префикса
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
         # Для статической линковки иногда нужны дополнительные флаги
-        echo "Libs.private: -lm -lpthread" >> "$PC_FILE"
+        echo "Libs.private: -lm -pthread" >> "$PC_FILE"
     fi
 
 }

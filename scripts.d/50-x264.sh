@@ -60,7 +60,7 @@ ffbuild_dockerbuild() {
     # ФИКС pkg-config для статической линковки
     if [[ -f "$PC_DIR/x264.pc" ]]; then
         # Добавляем -lpthread, так как x264 его использует
-        sed -i 's/Libs: /Libs.private: -lpthread -lm\nLibs: /' "$PC_DIR/x264.pc"
+        sed -i 's/Libs: /Libs.private: -pthread -lm\nLibs: /' "$PC_DIR/x264.pc"
     fi
 
 }

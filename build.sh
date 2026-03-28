@@ -173,7 +173,7 @@ FINAL_CFLAGS=$(dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLA
 FINAL_CXXFLAGS=$(dedupe "$CXXFLAGS" "$CPPFLAGS" "$TOTAL_FF_CXXFLAGS" "$TOTAL_FF_CPPFLAGS")
 FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$TOTAL_FF_LDFLAGS")
 FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
-FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS")
+FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$ADDITIONAL_LIBS" "$TOTAL_FF_LIBS")
 
 # Используем группы для решения проблем циклических зависимостей (особенно для Tesseract)
 FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} -Wl,--end-group -Wl,--allow-multiple-definition -lstdc++"

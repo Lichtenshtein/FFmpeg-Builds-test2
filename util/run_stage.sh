@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -xe
 
 export SCRIPT_PATH="$1"
 
@@ -218,16 +218,16 @@ export LDFLAGS="$(echo $RAW_LDFLAGS $STAGE_LDFLAGS | xargs)"
 
 log_debug "${STAGENAME}-specific CFLAGS: $CFLAGS"
 
-# Write a timestamp file before $build_cmd runs, then use find -newer to detect which .pc files were created by this build
-TIMESTAMP_FILE=$(mktemp)
-touch "$TIMESTAMP_FILE"
-
 # Выполняем сборку ОДИН РАЗ с проверкой статуса
 build_cmd="ffbuild_dockerbuild"
 [[ -n "$2" ]] && build_cmd="$2"
 
 # wine starter
 setup_wine_env
+
+# Write a timestamp file before $build_cmd runs, then use find -newer to detect which .pc files were created by this build
+TIMESTAMP_FILE=$(mktemp)
+touch "$TIMESTAMP_FILE"
 
 log_info "################################################################"
 log_info "### ${START_MARK} ${LOG_INFO}STARTING STAGE: $STAGENAME${NC}"
@@ -351,7 +351,7 @@ OUTFILE="$VARS_DIR/${STAGENAME}.vars"
 log_info "Saving build variables for $STAGENAME..."
 
 # Completely isolated subshell, no inherited FF_* state
-# The subshell is the critical isolation mechanism — no FF_* state can leak in from the parent environment.
+# The subshell is the critical isolation mechanism, no FF_* state can leak in from the parent environment.
 (
     # Re-source vars.sh clean so ffbuild_* accumulator functions are defined
     # but FF_* variables are empty
