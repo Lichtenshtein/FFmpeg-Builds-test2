@@ -13,6 +13,7 @@ USE_AVX512_FLAG="${5:-false}"
 DEDUPE_FLAGS="${DEDUPE_FLAGS:-true}"
 SAFE_CONFIG="${SAFE_CONFIG:-true}"
 USE_WINE="${USE_WINE:-auto}"
+INACTIVE_SOURCES="${INACTIVE_SOURCES:-true}"
 
 # Загружаем переменные
 source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
