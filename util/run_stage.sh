@@ -157,7 +157,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
     else
         # Если REAL_CACHE был найден (одним из 3-х способов выше)
         log_info "${EXTR_MARK} Unpacking $STAGENAME from $REAL_CACHE..."
-        tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C .
+        if ! tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C . ; then log_error "${CROSS_MARK} Failed to unpack $REAL_CACHE"; exit 1; fi
     fi
 
     # АВТО-ПАТЧИНГ
@@ -180,7 +180,8 @@ if [[ -n "$DL_COMMANDS" ]]; then
     fi
 
     # Проверка, что после всех манипуляций папка не пуста
-    if [[ $(ls -A | wc -l) -eq 0 ]]; then
+    # if [[ $(ls -A | wc -l) -eq 0 ]]; then
+    if [[ -z "$(ls -A)" ]]; then
         log_error "${CROSS_MARK} ERROR: Build directory is empty after unpacking/downloading $STAGENAME!"
         exit 1
     fi
@@ -420,17 +421,17 @@ log_info "Saving build variables for $STAGENAME..."
     # xargs схлопнет лишние пробелы в одну строку
     # Write only non-empty values to .vars
     clean_val() {
-        echo "$*" | tr '\n' ' ' | xargs
+        echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | tr '\n' ' ' | xargs
     }
 
     {
-        [[ -n "$FF_CONFIGURE" ]]    && printf 'export FF_CONFIGURE+='"'"' %s'"'"'\n' "$(clean_val "$FF_CONFIGURE")"
-        [[ -n "$FF_CFLAGS" ]]       && printf 'export FF_CFLAGS+='"'"' %s'"'"'\n'    "$(clean_val "$FF_CFLAGS")"
-        [[ -n "$FF_CXXFLAGS" ]]     && printf 'export FF_CXXFLAGS+='"'"' %s'"'"'\n"  "$(clean_val "$FF_CXXFLAGS")"
-        [[ -n "$FF_CPPFLAGS" ]]     && printf 'export FF_CPPFLAGS+='"'"' %s'"'"'\n'  "$(clean_val "$FF_CPPFLAGS")"
-        [[ -n "$FF_LDFLAGS" ]]      && printf 'export FF_LDFLAGS+='"'"' %s'"'"'\n'   "$(clean_val "$FF_LDFLAGS")"
-        [[ -n "$FF_LDEXEFLAGS" ]]   && printf 'export FF_LDEXEFLAGS+='"'"' %s'"'"'\n' "$(clean_val "$FF_LDEXEFLAGS")"
-        [[ -n "$FF_LIBS" ]]         && printf 'export FF_LIBS+='"'"' %s'"'"'\n'      "$(clean_val "$FF_LIBS")"
+        [[ -n "$FF_CONFIGURE" ]]    && printf "export FF_CONFIGURE+=' %s'\n" "$(clean_val "$FF_CONFIGURE")"
+        [[ -n "$FF_CFLAGS" ]]       && printf "export FF_CFLAGS+=' %s'\n"    "$(clean_val "$FF_CFLAGS")"
+        [[ -n "$FF_CXXFLAGS" ]]     && printf "export FF_CXXFLAGS+=' %s'\n"  "$(clean_val "$FF_CXXFLAGS")"
+        [[ -n "$FF_CPPFLAGS" ]]     && printf "export FF_CPPFLAGS+=' %s'\n"  "$(clean_val "$FF_CPPFLAGS")"
+        [[ -n "$FF_LDFLAGS" ]]      && printf "export FF_LDFLAGS+=' %s'\n"   "$(clean_val "$FF_LDFLAGS")"
+        [[ -n "$FF_LDEXEFLAGS" ]]   && printf "export FF_LDEXEFLAGS+=' %s'\n" "$(clean_val "$FF_LDEXEFLAGS")"
+        [[ -n "$FF_LIBS" ]]         && printf "export FF_LIBS+=' %s'\n"      "$(clean_val "$FF_LIBS")"
     } > "$OUTFILE"
 
     [[ -n "$FF_CONFIGURE" ]] && log_debug "Final $STAGENAME FF_CONFIGURE: $FF_CONFIGURE"
