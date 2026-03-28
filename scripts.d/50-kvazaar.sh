@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     echo "Cflags.private: -DKVZ_STATIC_LIB" >> "$PC_DIR/kvazaar.pc"
-    echo "Libs.private: -lpthread" >> "$PC_DIR/kvazaar.pc"
+    echo "Libs.private: -pthread" >> "$PC_DIR/kvazaar.pc"
 
 }
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-set -e
-
+# set -e
+set -xe
 # фикс проблем с git 
 git config --global advice.detachedHead false
 git config --global core.autocrlf false
