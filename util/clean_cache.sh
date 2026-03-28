@@ -47,7 +47,7 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     # Если мы собираем только часть стадий, 
     # не нужно защищать кэш для тех, что не входят в список.
     if [[ -n "$ONLY_STAGE" ]]; then
-        # if ! echo "$STAGENAME" | grep -qE "$ONLY_STAGE"; then
+        # Используем встроенное регулярное выражение Bash, оно не выбрасывает ошибку для set -e
         if [[ ! "$STAGENAME" =~ $ONLY_STAGE ]]; then
             log_debug "Skipping $STAGENAME: does not match ONLY_STAGE filter."
             continue
@@ -55,7 +55,7 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     fi
 
     # Проверяем, включен ли компонент
-    if ( set +e; source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" > /dev/null 2>&1 \
+    if ( source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" > /dev/null 2>&1 \
      && source "$STAGE" > /dev/null 2>&1 \
      && ffbuild_enabled ); then
 
