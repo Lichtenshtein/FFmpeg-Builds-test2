@@ -9,6 +9,7 @@ shopt -s globstar  # Гарантируем поддержку вложенны�
 # Берем только первое и второе слово
 CLEAN_TARGET=$(echo "${1:-$TARGET}" | awk '{print $1}')
 CLEAN_VARIANT=$(echo "${2:-$VARIANT}" | awk '{print $1}')
+CLEAN_INACTIVE_SOURCES=${CLEAN_INACTIVE_SOURCES:-0}
 
 # если таргет или вариант не определены, выходим.
 # Без этого vars.sh может вернуть ошибку или инициализироваться неверно, 
@@ -44,30 +45,42 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     [[ -f "$STAGE" ]] || continue
     STAGENAME="$(basename "$STAGE" .sh)"
 
-    # Если мы собираем только часть стадий, 
-    # не нужно защищать кэш для тех, что не входят в список.
+    # собираем только часть стадий
+    is_active=true
     if [[ -n "$ONLY_STAGE" ]]; then
         if [[ ! "$STAGENAME" =~ $ONLY_STAGE ]]; then
-            log_debug "Skipping $STAGENAME: does not match ONLY_STAGE filter."
-            continue
+            is_active=false
         fi
     fi
 
-    # Проверяем, включен ли компонент
-    if ( source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" > /dev/null 2>&1 \
-     && source "$STAGE" > /dev/null 2>&1 \
-     && ffbuild_enabled ); then
+    # Проверяем, включен ли сам компонент (ffbuild_enabled)
+    # Используем подоболочку ( ), чтобы source не портил окружение основного скрипта
+    is_enabled=false
+    if ( set +e; \
+         source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" >/dev/null 2>&1 && \
+         source "$STAGE" >/dev/null 2>&1 && \
+         ffbuild_enabled ); then
+        is_enabled=true
+    fi
 
-        DL_HASH=$(get_stage_hash "$STAGE")
-
-        if [[ -n "$DL_HASH" ]]; then
-            CURRENT_FILE="${STAGENAME}_${DL_HASH}.tar.zst"
-            # Добавляем в список текущий файл и симлинк
-            log_debug "${LOCK_MARK} Protecting: $CURRENT_FILE and ${STAGENAME}.tar.zst (symlink)"
-            echo "$CURRENT_FILE" >> "$RAW_KEEP_LIST"
+    # Protection logic:
+    # The component is protected if:
+    # (It is in ONLY_STAGE AND it is ENABLED) OR (CLEAN_INACTIVE_SOURCES=0 AND it is ENABLED)
+    if [[ "$is_enabled" == "true" ]]; then
+        if [[ "$is_active" == "true" ]] || [[ "$CLEAN_INACTIVE_SOURCES" == "0" ]]; then
+            DL_HASH=$(get_stage_hash "$STAGE")
+            if [[ -n "$DL_HASH" ]]; then
+                log_debug "${LOCK_MARK} Protecting: ${STAGENAME}_${DL_HASH}.tar.zst"
+            # Добавляем в список текущий файл
+                echo "${STAGENAME}_${DL_HASH}.tar.zst" >> "$RAW_KEEP_LIST"
             # Также защищаем символическую ссылку, если она есть
-            echo "${STAGENAME}.tar.zst" >> "$RAW_KEEP_LIST"
+                echo "${STAGENAME}.tar.zst" >> "$RAW_KEEP_LIST"
+            fi
+        else
+            log_debug "Skipping inactive stage: $STAGENAME (CLEAN_INACTIVE_SOURCES=1)"
         fi
+    else
+        log_debug "Skipping disabled stage: $STAGENAME (ffbuild_enabled returned 1)"
     fi
 done
 
@@ -75,21 +88,21 @@ done
 FINAL_KEEP_LIST=$(mktemp)
 trap 'rm -f "$RAW_KEEP_LIST" "$FINAL_KEEP_LIST"' EXIT
 sort -u "$RAW_KEEP_LIST" > "$FINAL_KEEP_LIST"
-rm -f "$RAW_KEEP_LIST" || true
-# Удаляем только те файлы, которых нет в KEEP_LIST
-cd "$CACHE_DIR" || exit 0
-log_info "${BROOM_MARK} Cleaning up orphaned and outdated cache files and symlinks..."
-deleted_count=0
-
 # Гарантируем, что в списке нет лишних пробелов и символов возврата каретки
 sed -i 's/\r//g; s/[[:space:]]*$//' "$FINAL_KEEP_LIST"
-# Читаем актуальный список в массив
-mapfile -t PROTECTED_FILES < "$FINAL_KEEP_LIST"
-
 # Выводим отладку
 log_debug "FINAL_KEEP_LIST contents (first 10):"
 head -n 10 "$FINAL_KEEP_LIST" || true
 
+rm -f "$RAW_KEEP_LIST" || true
+cd "$CACHE_DIR" || exit 0
+
+deleted_count=0
+
+# Читаем актуальный список в массив
+mapfile -t PROTECTED_FILES < "$FINAL_KEEP_LIST"
+
+log_info "${BROOM_MARK} Cleaning up orphaned and outdated cache files and symlinks..."
 # Используем глоб напрямую, чтобы избежать проблем с пустыми переменными
 for f in *.tar.zst; do
     [[ -e "$f" || -L "$f" ]] || continue # Проверяем существование или наличие ссылки
