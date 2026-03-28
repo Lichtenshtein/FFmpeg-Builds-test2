@@ -46,11 +46,11 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     STAGENAME="$(basename "$STAGE" .sh)"
 
     # собираем только часть стадий
-    is_active=true
-    if [[ -n "$ONLY_STAGE" ]]; then
-        if [[ ! "$STAGENAME" =~ $ONLY_STAGE ]]; then
-            is_active=false
-        fi
+    is_active=false
+    if [[ -z "$ONLY_STAGE" ]]; then
+        is_active=true
+    elif [[ "$STAGENAME" =~ ^($ONLY_STAGE)$ ]] || [[ "$ONLY_STAGE" =~ (^|\|)$STAGENAME($|\|) ]].; then
+        is_active=true
     fi
 
     # Проверяем, включен ли сам компонент (ffbuild_enabled)
@@ -63,12 +63,11 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
         is_enabled=true
     fi
 
-    # Protection logic:
-    # The component is protected if:
-    # (It is in ONLY_STAGE AND it is ENABLED) OR (CLEAN_INACTIVE_SOURCES=0 AND it is ENABLED)
-    if [[ "$is_active" == "true" ]] || [[ "$CLEAN_INACTIVE_SOURCES" == "0" ]]; then
-        if [[ "$is_enabled" == "true" ]]; then
-            DL_HASH=$(get_stage_hash "$STAGE")
+    # Защищаем файл только если он:
+    # (Включен И Активен) ИЛИ (Включен И мы НЕ хотим чистить неактивные)
+    if [[ "$is_enabled" == "true" ]]; then
+        if [[ "$is_active" == "true" ]] || [[ "$CLEAN_INACTIVE_SOURCES" == "0" ]]; then
+             DL_HASH=$(get_stage_hash "$STAGE")
             if [[ -n "$DL_HASH" ]]; then
                 log_debug "${LOCK_MARK} Protecting: ${STAGENAME}_${DL_HASH}.tar.zst"
             # Добавляем в список текущий файл
@@ -77,10 +76,10 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
                 echo "${STAGENAME}.tar.zst" >> "$RAW_KEEP_LIST"
             fi
         else
-            log_debug "Skipping disabled stage: $STAGENAME (ffbuild_enabled returned 1)"
+            log_debug "Skipping inactive stage: $STAGENAME (CLEAN_INACTIVE_SOURCES=1)"
         fi
     else
-        log_debug "Skipping inactive stage: $STAGENAME (CLEAN_INACTIVE_SOURCES=1)"
+        log_debug "Skipping disabled stage: $STAGENAME (ffbuild_enabled returned 1)"
     fi
 done
 
