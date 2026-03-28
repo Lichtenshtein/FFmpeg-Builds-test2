@@ -98,6 +98,7 @@ export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 BASE_CFLAGS="-mms-bitfields -fstack-protector-strong"
 BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
 SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
+ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lnormaliz"
 
 # Флаги для стадии сборки компонентов; disable -fPIC, -ffast-math, -flto=auto if troubles occur
 export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=gnu11"

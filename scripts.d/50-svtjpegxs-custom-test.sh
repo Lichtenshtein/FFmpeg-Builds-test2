@@ -72,7 +72,7 @@ Name: SvtJpegxsDec
 Description: SVT JPEG XS Decoder
 Version: 0.9
 Libs: -L\${libdir} -lSvtJpegxsDec
-Libs.private: -lstdc++ -lpthread -lm
+Libs.private: -lstdc++ -pthread -lm
 Cflags: -I\${includedir}
 EOF
     fi

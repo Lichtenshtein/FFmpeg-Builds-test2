@@ -21,7 +21,7 @@ ffbuild_dockerbuild() {
     set -e
     ./autogen.sh
 
-    local DEP_LIBS="-lbz2 -lz -lpthread $LIBS"
+    local DEP_LIBS="-lbz2 -lz -pthread $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"

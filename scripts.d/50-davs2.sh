@@ -51,7 +51,7 @@ ffbuild_dockerbuild() {
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
         # Для статики иногда нужен -lpthread
         if ! grep -q "Libs.private" "$PC_FILE"; then
-            echo "Libs.private: -lpthread" >> "$PC_FILE"
+            echo "Libs.private: -pthread" >> "$PC_FILE"
         fi
     fi
 
