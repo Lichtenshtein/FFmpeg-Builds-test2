@@ -47,9 +47,8 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     # Если мы собираем только часть стадий, 
     # не нужно защищать кэш для тех, что не входят в список.
     if [[ -n "$ONLY_STAGE" ]]; then
-        # Добавляем || true, чтобы grep не ронял скрипт при отсутствии совпадения
-        if ! echo "$STAGENAME" | grep -qE "$ONLY_STAGE"; then
-            log_debug "Skipping $STAGENAME..."
+        if [[ ! "$STAGENAME" =~ $ONLY_STAGE ]]; then
+            log_debug "Skipping $STAGENAME: does not match ONLY_STAGE filter."
             continue
         fi
     fi
@@ -76,7 +75,7 @@ done
 FINAL_KEEP_LIST=$(mktemp)
 trap 'rm -f "$RAW_KEEP_LIST" "$FINAL_KEEP_LIST"' EXIT
 sort -u "$RAW_KEEP_LIST" > "$FINAL_KEEP_LIST"
-rm -f "$RAW_KEEP_LIST"
+rm -f "$RAW_KEEP_LIST" || true
 # Удаляем только те файлы, которых нет в KEEP_LIST
 cd "$CACHE_DIR" || exit 0
 log_info "${BROOM_MARK} Cleaning up orphaned and outdated cache files and symlinks..."
@@ -106,13 +105,13 @@ for f in *.tar.zst; do
         if [[ -L "$f" ]]; then
             log_info "${BROOM_MARK} Removing obsolete symlink: $f"
             rm -f "$f"
-            ((deleted_count++))
+            ((deleted_count++)) || true
         elif [[ -f "$f" ]]; then
             # Стандартная защита 30 мин для тяжелых архивов
             if [[ -n $(find "$f" -mmin +30 2>/dev/null) ]]; then
                 log_info "${BROOM_MARK} Deleting orphaned cache file: $f"
                 rm -f "$f"
-                ((deleted_count++))
+                ((deleted_count++)) || true
             fi
         fi
     fi
