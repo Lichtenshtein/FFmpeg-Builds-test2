@@ -251,7 +251,8 @@ jobs:
           [[ "${{ github.event.inputs.skip_ffmpeg }}" == "true" ]] && SKIP_FFMPEG="skip_ffmpeg"
           USE_AVX512="noavx512"
           [[ "${{ github.event.inputs.use_avx512 }}" == "true" ]] && USE_AVX512="avx512"
-          CLEAN_INACTIVE_SOURCES: ${{ github.event.inputs.inactive_sources == 'false' && '1' || '0' }}
+          CLEAN_INACTIVE_SOURCES="0"
+          [[ "${{ github.event.inputs.inactive_sources" == "false" ]] && CLEAN_INACTIVE_SOURCES="1"
           mkdir -p .cache/downloads .cache/ffmpeg
           find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
           chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh
