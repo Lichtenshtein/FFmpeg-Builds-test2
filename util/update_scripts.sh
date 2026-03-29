@@ -10,7 +10,6 @@ source util/vars.sh 2>/dev/null || true
 # Читаем список из ENV или используем пустой, если переменная не задана
 # Превращаем строку "zlib base" в массив (zlib base)
 read -ra EXCLUDE_COMPONENTS <<< "${UPDATE_PRESERVE_LIST:-}"
-
 log_debug "Exclusion list active: ${EXCLUDE_COMPONENTS[*]}"
 
 cd "$(dirname "$0")"/..
@@ -23,10 +22,10 @@ TMP_REPORT=$(mktemp)
 trap 'rm -f "$TMP_REPORT"' EXIT
 
 # Массивы для отчета
-declare -a UPDATED_FILES
-declare -a BROKEN_REPOS
-declare -a UNKNOWN_LAYOUTS
-declare -a SYNTAX_ERRORS
+# declare -a UPDATED_FILES
+# declare -a BROKEN_REPOS
+# declare -a UNKNOWN_LAYOUTS
+# declare -a SYNTAX_ERRORS
 
 check_repo_exists() {
     local repo=$1
@@ -50,13 +49,9 @@ for scr in $SEARCH_PATTERN; do
     # Проверка на вхождение в массив исключений
     skip_this=0
     for exc in "${EXCLUDE_COMPONENTS[@]}"; do
-        if [[ "$COMPONENT_NAME" == "$exc" ]]; then
-            log_info "${LOCK_MARK} Skipping update for: ${STAGENAME} (In exclusion list)"
-            skip_this=1
-            break
-        fi
+        [[ "$COMPONENT_NAME" == "$exc" ]] && skip_this=1 && break
     done
-    [[ $skip_this -eq 1 ]] && continue
+    [[ $skip_this -eq 1 ]] && log_info "${LOCK_MARK} Skipping: ${STAGENAME} (In exclusion list)" && continue
 
     # Пропускаем помеченные скрипты
     if grep -q 'SCRIPT_SKIP="1"' "$scr"; then
@@ -96,11 +91,11 @@ for scr in $SEARCH_PATTERN; do
 
             if [[ -n "${CUR_COMMIT}" ]]; then
                 TARGET_VAR="${COMMIT_VAR}"
-                if [[ -n "${!TAG_VAR}" ]]; then
-                    NEW_VAL=$(git -c 'versionsort.suffix=-' ls-remote --tags --refs --sort "v:refname" "${CUR_REPO}" "${!TAG_VAR}" | tail -n1 | awk '{print $1}')
+                if [[ -n "${CUR_TAG}" ]]; then
+                    NEW_VAL=$(git -c 'versionsort.suffix=-' ls-remote --tags --refs --sort "v:refname" "${CUR_REPO}" "${CUR_TAG}" | tail -n1 | awk '{print $1}')
                 # Если есть ВЕТКА
-                elif [[ -n "${!BRANCH_VAR}" ]]; then
-                    NEW_VAL=$(git ls-remote --heads "${CUR_REPO}" "refs/heads/${!BRANCH_VAR}" | cut -f1)
+                elif [[ -n "${CUR_BRANCH}" ]]; then
+                    NEW_VAL=$(git ls-remote --heads "${CUR_REPO}" "refs/heads/${CUR_BRANCH}" | cut -f1)
                 # Если ничего не указано пытаемся найти дефолтную ветку (HEAD)
                 else
                     NEW_VAL=$(git ls-remote "${CUR_REPO}" HEAD | awk '{print $1}')
@@ -117,8 +112,10 @@ for scr in $SEARCH_PATTERN; do
                 continue
             fi
 
+            # Если нашли новое значение и оно отличается от текущего
             if [[ -n "${NEW_VAL}" && "${NEW_VAL}" != "${!TARGET_VAR}" ]]; then
                 echo "REPORT_UPDATE|${scr}|${TARGET_VAR}|${!TARGET_VAR}|${NEW_VAL}" >> "$TMP_REPORT"
+                # Обновляем файл физически
                 sed -i "s|^${TARGET_VAR}=\".*\"|${TARGET_VAR}=\"${NEW_VAL}\"|" "${scr}"
                 log_info "  ${SYNC_MARK} ${TARGET_VAR}: ${!TARGET_VAR:0:7} -> ${NEW_VAL:0:7}"
             fi
@@ -137,7 +134,8 @@ done
 
 # --- ФИНАЛЬНЫЙ ОТЧЕТ ---
 
-log_info "\n${LOGS_MARK} ${LOG_INFO}--- FINAL UPDATE REPORT ---${LOG_NC}"
+echo -e "\n${LOGS_MARK} ${LOG_INFO}--- FINAL UPDATE REPORT ---${LOG_NC}"
+UPDATED_FILES=(); BROKEN_REPOS=(); UNKNOWN_LAYOUTS=(); SYNTAX_ERRORS=()
 
 # Читаем из TMP_REPORT и формируем массивы в основном процессе
 while IFS='|' read -r type file var old new; do
