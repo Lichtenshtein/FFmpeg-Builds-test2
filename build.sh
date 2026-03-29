@@ -66,26 +66,27 @@ TOTAL_FF_LIBS=""
 log_info "Loading component variables from cache..."
 VARS_DIR="$FFBUILD_PREFIX/config_parts"
 
-# Проверка связи с кэшем (zlib)
-# Если файл пустой проблема в run_stage.sh или vars.sh во время сборки компонента.
-# Если файл не пустой, но в configure пусто проблема в build.sh (в команде source или dedupe)
-# Используем nullglob, чтобы массив был пустым, если файлов нет
-shopt -s nullglob
-Z_FILES=("${VARS_DIR}"/[0-9]*-zlib.vars)
-shopt -u nullglob
-
-if [[ ${#Z_FILES[@]} -gt 0 ]]; then
-    ZLIB_VARS="${Z_FILES[0]}"
-    if [[ -s "$ZLIB_VARS" ]]; then
-        log_debug "Found zlib vars: $ZLIB_VARS"
-        cat "$ZLIB_VARS"
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+    # Проверка связи с кэшем (zlib)
+    # Если файл пустой проблема в run_stage.sh или vars.sh во время сборки компонента.
+    # Если файл не пустой, но в configure пусто проблема в build.sh (в команде source или dedupe)
+    # Используем nullglob, чтобы массив был пустым, если файлов нет
+    shopt -s nullglob
+    Z_FILES=("${VARS_DIR}"/[0-9]*-zlib.vars)
+    shopt -u nullglob
+    
+    if [[ ${#Z_FILES[@]} -gt 0 ]]; then
+        ZLIB_VARS="${Z_FILES[0]}"
+        if [[ -s "$ZLIB_VARS" ]]; then
+            log_debug "Found zlib vars: $ZLIB_VARS"
+            cat "$ZLIB_VARS"
+        else
+            log_warn "${XCLAM_MARK} zlib.vars found but it is EMPTY. Check run_stage.sh logic."
+        fi
     else
-        log_warn "${XCLAM_MARK} zlib.vars found but it is EMPTY. Check run_stage.sh logic."
+        log_info "${SEARCH_MARK} zlib not found in this build chain (ONLY_STAGE filter might have skipped it)." || true
     fi
-else
-    log_info "${SEARCH_MARK} zlib not found in this build chain (ONLY_STAGE filter might have skipped it)." || true
 fi
-
 
 # Сортировка важна: зависимости (низкие номера) должны быть в начале для CFLAGS 
 # и в конце для LIBS (но мы это решим дедупликацией tac)
@@ -119,12 +120,36 @@ while IFS= read -r f; do
     fi
 done < <(find "$VARS_DIR" -name "*.vars" | sort)
 
-# size guard for early failure diagnosis
-TOTAL_LEN=$(echo "$TOTAL_FF_LIBS $TOTAL_FF_CFLAGS" | wc -c)
-log_debug "Total accumulated flag length: $TOTAL_LEN chars"
-if (( TOTAL_LEN > 50000 )); then
-    log_warn "Flag accumulation is suspiciously large ($TOTAL_LEN chars) - check .vars files"
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+    # size guard for early failure diagnosis
+    TOTAL_LEN=$(echo "$TOTAL_FF_LIBS $TOTAL_FF_CFLAGS" | wc -c)
+    log_debug "Total accumulated flag length: $TOTAL_LEN chars"
+    if (( TOTAL_LEN > 50000 )); then
+        log_warn "${XCLAM_MARK} Flag accumulation is suspiciously large ($TOTAL_LEN chars) - check .vars files"
+    fi
 fi
+
+# загружаем целевой вариант со своими --enable флагами ffbuild_configure()
+source "variants/${TARGET}-${VARIANT}.sh"
+for addin in ${ADDINS[*]}; do
+    source "addins/${addin}.sh"
+done
+
+# Capture echo-style output from "variants/${TARGET}-${VARIANT}.sh"
+_variant_conf=$(ffbuild_configure 2>/dev/null || true)
+_variant_cflags=$(ffbuild_cflags 2>/dev/null || true)
+_variant_cppflags=$(ffbuild_cppflags 2>/dev/null || true)
+_variant_cxxflags=$(ffbuild_cxxflags 2>/dev/null || true)
+_variant_ldflags=$(ffbuild_ldflags 2>/dev/null || true)
+_variant_ldexeflags=$(ffbuild_ldexeflags 2>/dev/null || true)
+_variant_libs=$(ffbuild_libs 2>/dev/null || true)
+[[ -n "$_variant_conf" ]]       && VARIANT_FF_CONFIGURE="${FF_CONFIGURE} ${_variant_conf}"
+[[ -n "$_variant_cflags" ]]     && VARIANT_FF_CFLAGS="${FF_CFLAGS} ${_variant_cflags}"
+[[ -n "$_variant_cppflags" ]]   && VARIANT_FF_CPPFLAGS="${FF_CPPFLAGS} ${_variant_cppflags}"
+[[ -n "$_variant_cxxflags" ]]   && VARIANT_FF_CXXFLAGS="${FF_CXXFLAGS} ${_variant_cxxflags}"
+[[ -n "$_variant_ldflags" ]]    && VARIANT_FF_LDFLAGS="${FF_LDFLAGS} ${_variant_ldflags}"
+[[ -n "$_variant_ldexeflags" ]] && VARIANT_FF_LDEXEFLAGS="${FF_LDEXEFLAGS} ${_variant_ldexeflags}"
+[[ -n "$_variant_libs" ]]       && VARIANT_FF_LIBS="${FF_LIBS} ${_variant_libs}"
 
 # Клонирование и патчинг (прямо в текущем слое Docker)
 log_info "Using pre-mounted FFmpeg source..."
@@ -156,34 +181,7 @@ log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
 # Удаляем пустые папки или старые логи, если они остались
 find /opt/ffbuild -type d -empty -delete || true
 
-# Настройка хостового компилятора (чтобы он не трогал флаги таргета)
-export HOST_CFLAGS="-O2 -pipe"
-export HOST_CXXFLAGS="-O2 -pipe"
-export HOST_LDFLAGS=""
-
-# Определяем целевой вариант (они могут добавить свои --enable)
-source "variants/${TARGET}-${VARIANT}.sh"
-for addin in ${ADDINS[*]}; do
-    source "addins/${addin}.sh"
-done
-
-log_debug "--- START of DEBUG audit section ---"
-log_debug "DEDUPE_FLAGS is currently set to: '$DEDUPE_FLAGS'"
-log_debug "Check if variables are loaded from files:"
-log_debug "FF_CONFIGURE: $TOTAL_FF_CONFIGURE"
-log_debug "RAW FF_CFLAGS: $TOTAL_FF_CFLAGS"
-log_debug "RAW FF_LDFLAGS: $TOTAL_FF_LDFLAGS"
-log_debug "RAW FF_LIBS: $TOTAL_FF_LIBS"
-log_info "${BROOM_MARK} Deduplicating all flags..."
-
-# Capture echo-style output too (same dual-pattern fix as run_stage.sh)
-_variant_conf=$(ffbuild_configure 2>/dev/null || true)
-VARIANT_FF_CONFIGURE="${FF_CONFIGURE} ${_variant_conf}"
-VARIANT_FF_CFLAGS="${FF_CFLAGS}"
-VARIANT_FF_CXXFLAGS="${FF_CXXFLAGS}"
-VARIANT_FF_CPPFLAGS="${FF_CPPFLAGS}"
-VARIANT_FF_LDFLAGS="${FF_LDFLAGS}"
-VARIANT_FF_LIBS="${FF_LIBS}"
+[[ "$DEDUPE_FLAGS" == "true" ]] && log_info "${BROOM_MARK} DEDUPE_FLAGS='$DEDUPE_FLAGS'; Deduplicating ALL flags..."
 
 # Подготовка ФИНАЛЬНЫХ флагов (Dedupe + Combine)
 # объединяем базовые флаги из vars.sh и накопленные из компонентов
@@ -197,73 +195,89 @@ FINAL_LIBS=$(smart_libs_dedupe "$TOTAL_FF_LIBS" "$LIBS" "$ADDITIONAL_LIBS" "$VAR
 # Используем группы для решения проблем циклических зависимостей (особенно для Tesseract)
 FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} -Wl,--end-group -Wl,--allow-multiple-definition -lstdc++"
 
-# экспортируем флаги перед дедупликацией
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+    log_info "################################################################"
+    log_info "### ${XCLAM_MARK} Start of DEBUG audit section"
+    log_info "################################################################"
+
+    log_debug "RAW FF_CONFIGURE: $TOTAL_FF_CONFIGURE"
+    log_debug "RAW FF_CFLAGS: $TOTAL_FF_CFLAGS"
+    log_debug "RAW FF_LDFLAGS: $TOTAL_FF_LDFLAGS"
+    log_debug "RAW FF_LIBS: $TOTAL_FF_LIBS"
+    log_debug "DEDUPED FINAL_CONFIGURE: \n${TOTAL_FF_CONFIGURE}\nsize: ${#TOTAL_FF_CONFIGURE} chars"
+    log_debug "DEDUPED FINAL_CFLAGS: \n${FINAL_CFLAGS}\nsize: ${#FINAL_CFLAGS} chars"
+    log_debug "DEDUPED FINAL_LDFLAGS: \n${FINAL_LDFLAGS}\nsize: ${#FINAL_LFLAGS} chars"
+    log_debug "DEDUPED FINAL_LIBS: \n${FINAL_LIBS}\nsize: ${#FINAL_LIBS} chars"
+
+    # If the length shows more characters than -O2 (3 chars), there's a hidden character injected by vars.sh or the Docker ENV.
+    log_debug "DIAGNOSTIC: CFLAGS content:"
+    printf 'HOST_CFLAGS bytes: '; echo -n "\n $HOST_CFLAGS" | xxd | head -5
+    printf 'HOST_CXXFLAGS bytes: '; echo -n "\n $HOST_CXXFLAGS" | xxd | head -5
+    printf 'FINAL_CFLAGS bytes: '; echo -n "\n $FINAL_CFLAGS" | xxd | head -5
+    log_debug "DIAGNOSTIC: LDFLAGS content:"
+    printf 'FINAL_LDFLAGS bytes: '; echo -n "\n $FINAL_LDFLAGS" | xxd | head -5
+    # какие именно as и ld видны в системе первыми
+    log_debug "$PRIORITY: 'as' priority: \n$(which -a as)"
+    log_debug "$PRIORITY: 'ld' priority: \n$(which -a ld)"
+    log_debug "$PRIORITY: 'x86_64-w64-mingw32-gcc' priority: \n$(which -a x86_64-w64-mingw32-gcc)"
+    # содержимое папок тулчейна (только имена файлов)
+    log_debug "${DIRS_MARK} Contents of /opt/ct-ng/bin (first 20 files):"
+    ls -F /opt/ct-ng/bin | head -n 20
+    # папки, где могут прятаться "голые" (без префикса) as/ld
+    # If which -a as first outputs something in /opt/ct-ng/... rather than /usr/bin/as, this is the cause of the junk at end of line error.
+    # If in /opt/ct-ng/bin is a file simply as 'as' (without a prefix), then crosstool-ng created symlinks during compilation that poison PATH
+    # If as --version writes "Target: x86_64-w64-mingw32", and it is called from gcc-14 (host), the build will fail
+    log_debug "${SEARCH_MARK} Search for all 'as' files in /opt/ct-ng/:"
+    find /opt/ct-ng -name "as" -type f || true
+    # что выдает ассемблер на команду версии
+    as --version | head -n 1
+    x86_64-w64-mingw32-as --version | head -n 1
+
+    # ГЕНЕРАЦИЯ ПЕРЕМЕННЫХ СОСТОЯНИЯ КОМПОНЕНТОВ
+    log_info "${SEARCH_MARK} Scanning FFmpeg configuration for enabled components..."
+    # Список компонентов для проверки
+    COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac openssl)
+    # Создаем имя переменной libtesseract -> HAS_LIBTESSERACT
+    for comp in "${COMPONENTS[@]}"; do
+        clean_name="${comp^^}"
+        clean_name="${clean_name//-/_}"
+        var_name="HAS_${clean_name}"
+        if [[ "$FINAL_CONFIGURE" == *"--enable-$comp"* ]]; then
+            export "$var_name=1"
+            log_debug "Component $comp: ENABLED (${var_name}=1)"
+        else
+            export "$var_name=0"
+            log_debug "Component $comp: DISABLED (${var_name}=0)"
+        fi
+    done
+    # Специальная обработка для ASAN (fdk-aac); should be at the end of all flags.
+    # Вообще-то, я не помню нахера ASAN нужен fdk-aac. Вырубаем.
+    # if [[ "$HAS_LIBFDK_AAC" == "0" ]]; then
+        # ASAN_CFLAGS=""
+        # ASAN_CXXFLAGS=""
+        # ASAN_LDFLAGS=""
+    # else
+        # ASAN_CFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
+        # ASAN_CXXFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
+        # ASAN_LDFLAGS="-static-libasan -fsanitize=address,undefined "
+        # log_info "ASAN flags enabled due to fdk-aac presence."
+    # fi
+
+    log_info "################################################################"
+    log_info "### ${XCLAM_MARK} End of DEBUG audit section"
+    log_info "################################################################"
+fi
+
+# Настройка хостового компилятора (чтобы он не трогал флаги таргета)
+export HOST_CFLAGS="-O2 -pipe"
+export HOST_CXXFLAGS="-O2 -pipe"
+export HOST_LDFLAGS=""
+# экспортируем флаги
 export FINAL_CONFIGURE FINAL_CFLAGS FINAL_CXXFLAGS FINAL_LDFLAGS FINAL_LDEXEFLAGS FINAL_LIBS_GROUPED
 # Очищаем тяжелые переменные, чтобы не мешать запуску процессов
 unset TOTAL_FF_CONFIGURE TOTAL_FF_LIBS TOTAL_FF_CFLAGS TOTAL_FF_CXXFLAGS TOTAL_FF_CPPFLAGS TOTAL_FF_LDFLAGS
 # Unset cross-compilation flags so host compiler stays clean during configure
 unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS LDEXEFLAGS ASFLAGS LIBS
-
-log_debug "Deduplicated FINAL_CFLAGS: \n${FINAL_CFLAGS}\nsize: ${#FINAL_CFLAGS} chars"
-log_debug "Deduplicated FINAL_LDFLAGS: \n${FINAL_LDFLAGS}\nsize: ${#FINAL_LFLAGS} chars"
-log_debug "Deduplicated FINAL_LIBS: \n${FINAL_LIBS}\nsize: ${#FINAL_LIBS} chars"
-
-log_debug "${BUILD_MARK} PATH and binaries injection audit"
-log_debug "Running flags diagnostic..."
-# If the length shows more characters than -O2 (3 chars), there's a hidden character injected by vars.sh or the Docker ENV.
-log_debug "Diagnostic: CFLAGS content:"
-printf 'HOST_CFLAGS bytes: '; echo -n "\n $HOST_CFLAGS" | xxd | head -5
-printf 'HOST_CXXFLAGS bytes: '; echo -n "\n $HOST_CXXFLAGS" | xxd | head -5
-printf 'FINAL_CFLAGS bytes: '; echo -n "\n $FINAL_CFLAGS" | xxd | head -5
-log_debug "Diagnostic: LDFLAGS content:"
-printf 'FINAL_LDFLAGS bytes: '; echo -n "\n $FINAL_LDFLAGS" | xxd | head -5
-# какие именно as и ld видны в системе первыми
-log_debug "${SEARCH_MARK} Show current 'as' priority: \n$(which -a as)"
-log_debug "${SEARCH_MARK} Show current 'ld' priority: \n$(which -a ld)"
-log_debug "${SEARCH_MARK} Show current 'x86_64-w64-mingw32-gcc' priority: \n$(which -a x86_64-w64-mingw32-gcc)"
-# содержимое папок тулчейна (только имена файлов)
-log_debug "${DIRS_MARK} Contents of /opt/ct-ng/bin (first 20 files):"
-ls -F /opt/ct-ng/bin | head -n 20
-# папки, где могут прятаться "голые" (без префикса) as/ld
-# If which -a as first outputs something in /opt/ct-ng/... rather than /usr/bin/as, this is the cause of the junk at end of line error.
-# If in /opt/ct-ng/bin is a file simply as 'as' (without a prefix), then crosstool-ng created symlinks during compilation that poison PATH
-# If as --version writes "Target: x86_64-w64-mingw32", and it is called from gcc-14 (host), the build will fail
-log_debug "${SEARCH_MARK} Search for all 'as' files in /opt/ct-ng/:"
-find /opt/ct-ng -name "as" -type f || true
-# что выдает ассемблер на команду версии
-as --version | head -n 1
-x86_64-w64-mingw32-as --version | head -n 1
-log_debug "--- End of DEBUG audit section ---"
-
-# ГЕНЕРАЦИЯ ПЕРЕМЕННЫХ СОСТОЯНИЯ КОМПОНЕНТОВ
-log_info "${SEARCH_MARK} Scanning FFmpeg configuration for enabled components..."
-# Список компонентов для проверки
-COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac openssl)
-# Создаем имя переменной libtesseract -> HAS_LIBTESSERACT
-for comp in "${COMPONENTS[@]}"; do
-    clean_name="${comp^^}"
-    clean_name="${clean_name//-/_}"
-    var_name="HAS_${clean_name}"
-    if [[ "$FINAL_CONFIGURE" == *"--enable-$comp"* ]]; then
-        export "$var_name=1"
-        log_debug "Component $comp: ENABLED (${var_name}=1)"
-    else
-        export "$var_name=0"
-        log_debug "Component $comp: DISABLED (${var_name}=0)"
-    fi
-done
-# Специальная обработка для ASAN (fdk-aac); should be at the end of all flags.
-# Вообще-то, я не помню нахера ASAN нужен fdk-aac. Вырубаем.
-# if [[ "$HAS_LIBFDK_AAC" == "0" ]]; then
-    # ASAN_CFLAGS=""
-    # ASAN_CXXFLAGS=""
-    # ASAN_LDFLAGS=""
-# else
-    # ASAN_CFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
-    # ASAN_CXXFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
-    # ASAN_LDFLAGS="-static-libasan -fsanitize=address,undefined "
-    # log_info "ASAN flags enabled due to fdk-aac presence."
-# fi
 
 # Формируем массив флагов для configure
 read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"

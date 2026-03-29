@@ -217,7 +217,7 @@ export CPPFLAGS="$(echo ${CPPFLAGS} $STAGE_CPPFLAGS | xargs)"
 export CXXFLAGS="$(echo $RAW_CXXFLAGS $STAGE_CXXFLAGS | xargs)"
 export LDFLAGS="$(echo $RAW_LDFLAGS $STAGE_LDFLAGS | xargs)"
 
-log_debug "${STAGENAME}-specific CFLAGS: $CFLAGS"
+[[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "${STAGENAME}-specific CFLAGS: $CFLAGS"
 
 # Выполняем сборку ОДИН РАЗ с проверкой статуса
 build_cmd="ffbuild_dockerbuild"
@@ -236,7 +236,7 @@ log_info "### DATE: $(date)"
 log_info "### Starting build function: $build_cmd"
 log_info "################################################################"
 
-if [[ "$FFBUILD_VERBOSE" == "1" ]]; then
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info "Verbose mode active. Build output will be shown in real-time."
     if ! ( set -e -o pipefail; $build_cmd ); then
         log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
@@ -339,7 +339,7 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
     # Удаляем мусорные .la файлы
     [[ "$SKIP_POST_CLEAN" != "1" ]] && clean_la_files
     # Запускаем аудит зависимостей (вывод в лог)
-    [[ "$FFBUILD_VERBOSE" == "1" ]] && get_deps_list
+    [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && get_deps_list
     log_info "${CHECK_MARK} Post-build automation completed."
     log_info "################################################################"
 fi
@@ -442,7 +442,7 @@ log_info "Saving build variables for $STAGENAME..."
     [[ -n "$FF_LDEXEFLAGS" ]] && VARS_CONTENT+="export FF_LDEXEFLAGS+='$(clean_val "$FF_LDEXEFLAGS")'\n"
     [[ -n "$FF_LIBS" ]]       && VARS_CONTENT+="export FF_LIBS+='$(clean_val "$FF_LIBS")'\n"
 
-    # Если есть хоть один экспорт — пишем файл
+    # Если есть хоть один экспорт пишем в файл
     if [[ -n "$VARS_CONTENT" ]]; then
         # 1. Используем printf вместо echo -e для надежности
         # 2. Удаляем \r через tr перед записью
@@ -454,6 +454,7 @@ log_info "Saving build variables for $STAGENAME..."
         rm -f "$OUTFILE"
     fi
 
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     [[ -n "$FF_CONFIGURE" ]] && log_debug "Final $STAGENAME FF_CONFIGURE: $FF_CONFIGURE"
     [[ -n "$FF_CFLAGS" ]]    && log_debug "Final $STAGENAME FF_CFLAGS: $FF_CFLAGS"
     [[ -n "$FF_CPPFLAGS" ]]  && log_debug "Final $STAGENAME FF_CPPFLAGS: $FF_CPPFLAGS"
@@ -461,12 +462,15 @@ log_info "Saving build variables for $STAGENAME..."
     [[ -n "$FF_LDFLAGS" ]]   && log_debug "Final $STAGENAME FF_LDFLAGS: $FF_LDFLAGS"
     [[ -n "$FF_LDXEFLAGS" ]] && log_debug "Final $STAGENAME FF_LDXEFLAGS: $FF_LDXEFLAGS"
     [[ -n "$FF_LIBS" ]]      && log_debug "Final $STAGENAME FF_LIBS: $FF_LIBS"
+fi
 )
 
-# Диагностика созданных файлов
-log_debug "Current files in $VARS_DIR:"
-ls -1 "$VARS_DIR" | grep ".vars" || log_warn "No .vars files created in this stage."
-log_info "################################################################"
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+    # Диагностика созданных файлов
+    log_debug "Current files in $VARS_DIR:"
+    ls -1 "$VARS_DIR" | grep ".vars" || log_warn "${XCLAM_MARK} No .vars files created in this stage."
+    log_info "################################################################"
+fi
 
 # Очистка
 trap 'echo "::endgroup::"; cd /; rm -rf "/build/$STAGENAME"' EXIT

@@ -12,7 +12,7 @@ mkdir -p "$MODELS_DIR"
 
 log_info "${START_MARK} Starting AI/OCR model and conditional asset collection..."
 
-# --- ТЕРРИТОРИЯ ССЫЛОК (Разделены пробелами для удобства правки) ---
+# ТЕРРИТОРИЯ ССЫЛОК
 
 # Tesseract (tessdata_best)
 URL_TESS_BASE="https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/refs/heads/main"
@@ -31,7 +31,7 @@ URL_TORCH_EDSR="https://github.com/pytorch/examples/raw/main/super_resolution/mo
 # APPLE AUDIOTOOLBOX
 QTFILES_URL="https://github.com/AnimMouse/QTFiles/releases/download/v12.13.9.1/QTfiles64.7z"
 
-# --- ЛОГИКА ЗАГРУЗКИ ---
+# ЛОГИКА ЗАГРУЗКИ
 
 # TESSERACT MODELS (OCR)
 if [[ "$HAS_LIBTESSERACT" == "1" ]]; then
