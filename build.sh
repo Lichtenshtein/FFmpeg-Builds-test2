@@ -11,6 +11,10 @@ source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
 ccache -s
 
 export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
+# Настройка хостового компилятора (чтобы он не трогал флаги таргета)
+export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
+export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
+export HOST_LDFLAGS=""
 
 # Путь /opt/ffdest должен совпадать с тем, что указан в Dockerfile (generate.sh)
 FINAL_DEST="/opt/ffdest"
@@ -221,7 +225,6 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     echo -n "$HOST_CXXFLAGS" | xxd | head -5
     log_debug 'DIAGNOSTIC: FINAL_CFLAGS bytes:'
     echo -n "$FINAL_CFLAGS" | xxd | head -5
-    log_debug "DIAGNOSTIC: LDFLAGS content:"
     log_debug 'DIAGNOSTIC: FINAL_LDFLAGS bytes:'
     echo -n "$FINAL_LDFLAGS" | xxd | head -5
     # какие именно as и ld видны в системе первыми
@@ -276,10 +279,6 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info "### ${XCLAM_MARK} End of DEBUG audit section"
 fi
 
-# Настройка хостового компилятора (чтобы он не трогал флаги таргета)
-export HOST_CFLAGS="-O2 -pipe"
-export HOST_CXXFLAGS="-O2 -pipe"
-export HOST_LDFLAGS=""
 # экспортируем флаги
 export FINAL_CONFIGURE FINAL_CFLAGS FINAL_CXXFLAGS FINAL_LDFLAGS FINAL_LDEXEFLAGS FINAL_LIBS_GROUPED
 # Очищаем тяжелые переменные, чтобы не мешать запуску процессов
@@ -335,7 +334,8 @@ if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
 else
     # Берем минимум между количеством ядер и лимитом по памяти
     MAKE_JOBS=$(( CPU_CORES < MEM_JOBS ? CPU_CORES : MEM_JOBS ))
-    log_info "HOST AVAILABLE MEMORY: ${MEM_AVAILABLE}GB, CPU CORES: ${CPU_CORES}. Setting MAKE_JOBS=${MAKE_JOBS}"
+    log_info "################################################################"
+    log_info "### ${CACHE_MARK} HOST: MEMORY: ${MEM_AVAILABLE}GB, CPU CORES: ${CPU_CORES}. Setting MAKE_JOBS=${MAKE_JOBS}"
 fi
 
 log_info "################################################################"
@@ -406,7 +406,7 @@ ls -lh "$PKG_DIR/bin/"
 # Скачиваем модели для ИИ
 log_info "${DOWN_MARK} Downloading Additional Assets..."
 MODELS_FINAL_DIR="$PKG_DIR/models"
-/builder/util/download_models.sh "$MODELS_FINAL_DIR" "$(pwd)"
+/builder/util/download_models.sh "$MODELS_FINAL_DIR" "$(pwd)" || log_warn "${XCLAM_MARK} Model download failed, but continuing..."
 
 # Стриппинг бинарников (удаление отладочных символов)
 log_info "${BROOM_MARK} Stripping binaries..."
