@@ -69,7 +69,7 @@ ENV_HASH=$(
         grep -E "^(export )?(CFLAGS|CXXFLAGS|LDFLAGS|CPPFLAGS|BASE_|SYSTEM_LIBS|CHOST|RUSTFLAGS|CPU_)" util/vars.sh
         echo "TARGET=$TARGET"
         echo "CPU_ARCH=$CPU_ARCH"
-    } | sed 's/#.*//' | xargs | sha256sum | cut -c1-8 | tr -d '\n\r')
+    } | sed 's/#.*//' | xargs | sha256sum | cut -c1-8 | tr -d '\n\r'
 )
 
 # Global Logic Hash: Changes if run_stage.sh or the internal functions of vars.sh change.

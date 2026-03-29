@@ -140,11 +140,17 @@ jobs:
 
       - name: Runner Hardware Audit
         run: |
-          echo "### 🖥️ Runner CPU Details" >> $GITHUB_STEP_SUMMARY
+          echo "### 🖥️ Runner Hardware Audit" >> $GITHUB_STEP_SUMMARY
+
           MODEL=$(lscpu | grep "Model name" | cut -d':' -f2 | xargs)
           FLAGS=$(grep -m1 "flags" /proc/cpuinfo)
+          echo "- **CPU Model**: $MODEL" >> $GITHUB_STEP_SUMMARY
 
-          echo "- **Model**: $MODEL" >> $GITHUB_STEP_SUMMARY
+          TOTAL_RAM=$(free -h | awk '/^Mem:/ {print $2}')
+          echo "- **Total RAM**: $TOTAL_RAM" >> $GITHUB_STEP_SUMMARY
+
+          FREE_DISK=$(df -h / | awk 'NR==2 {print $4}')
+          echo "- **Free Disk Space**: $FREE_DISK" >> $GITHUB_STEP_SUMMARY
 
           V3_SUPPORT=true
           for flag in avx2 fma bmi1 bmi2; do
@@ -155,9 +161,9 @@ jobs:
           done
 
           if [ "$V3_SUPPORT" = "true" ]; then
-            echo "- **Architecture**: ✅ x86-64-v3" >> $GITHUB_STEP_SUMMARY
+            echo "- **Architecture**: ✅ x86-64-v3 (Modern)" >> $GITHUB_STEP_SUMMARY
           else
-            echo "- **Architecture**: ⚠️ Legacy (Build might be slower)" >> $GITHUB_STEP_SUMMARY
+            echo "- **Architecture**: ⚠️ Legacy" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Set Image Names
