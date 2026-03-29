@@ -9,6 +9,8 @@ source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
     || { echo "ERROR: vars.sh failed in build.sh" >&2; exit 1; }
 
 ccache -s
+# Сброс статистики для чистого лога
+ccache -z
 
 export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
@@ -162,13 +164,14 @@ if [[ ! -f "ffbuild/ffmpeg/configure" ]]; then
     log_error "${CROSS_MARK} FFmpeg source not found at ffbuild/ffmpeg/configure (mount failed?)"
     exit 1
 fi
+log_info "Entering FFmpeg folder..."
 pushd ffbuild/ffmpeg
 
 if [[ "$FFMPEG_PATCHES" == "1" ]]; then
+    log_info "################################################################"
     log_info "${XCLAM_MARK} FFMPEG_PATCHES=${FFMPEG_PATCHES}; Looking for FFmpeg patches..."
     # Патчи ищем по имени ветки, пришедшей из ENV
     if [[ -d "/builder/patches/ffmpeg/$FFMPEG_BRANCH" ]]; then
-        log_info "################################################################"
         # git reset --hard HEAD 2>/dev/null || true
         for patch in "/builder/patches/ffmpeg/$FFMPEG_BRANCH"/*.patch; do
             [[ -e "$patch" ]] || continue
@@ -183,9 +186,6 @@ if [[ "$FFMPEG_PATCHES" == "1" ]]; then
         log_info "################################################################"
     fi
 fi
-
-# Сброс статистики для чистого лога
-ccache -z
 
 log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
 # Удаляем пустые папки или старые логи, если они остались
@@ -210,19 +210,17 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info "### ${XCLAM_MARK} Start of DEBUG audit section"
     log_info "################################################################"
 
-    log_debug "COMPONENT RAW FLAGS:"
-    log_debug "  CONF: ${TOTAL_FF_CONFIGURE:-none}"
-    log_debug "  CFLAGS: ${TOTAL_FF_CFLAGS:-none}"
-    log_debug "  LDFLAGS: ${TOTAL_FF_LDFLAGS:-none}"
-    log_debug "  LIBS: ${TOTAL_FF_LIBS:-none}"
+    log_debug "RAW CONFIGURE: \n$TOTAL_FF_CONFIGURE"
+    log_debug "RAW CFLAGS: \n$TOTAL_FF_CFLAGS"
+    log_debug "RAW LDFLAGS: \n$TOTAL_FF_LDFLAGS"
+    log_debug "RAW LIBS: \n$TOTAL_FF_LIBS"
 
-    log_debug "FINAL CONFIGURE FLAGS (DEDUPED):"
-    log_debug "  CONF:    $FINAL_CONFIGURE"
-    log_debug "  CFLAGS:  $FINAL_CFLAGS"
-    log_debug "  LDFLAGS: $FINAL_LDFLAGS"
-    log_debug "  LIBS:    $FINAL_LIBS_GROUPED"
+    log_debug "DEDUPED CONFIGURE: \n${FINAL_CONFIGURE}"
+    log_debug "DEDUPED CFLAGS: \n${FINAL_CFLAGS}"
+    log_debug "DEDUPED LDFLAGS: \n${FINAL_LDFLAGS}"
+    log_debug "DEDUPED LIBS: \n${FINAL_LIBS}"
 
-    log_debug "STATS:\n  Conf:${#FINAL_CONFIGURE} chars\n  C-Flags:${#FINAL_CFLAGS} chars\n  LD-Flags:${#FINAL_LDFLAGS} chars\n  Libs:${#FINAL_LIBS_GROUPED} chars"
+    log_debug "STATS:\nCONF: ${#FINAL_CONFIGURE} chars\nCFLAGS: ${#FINAL_CFLAGS} chars\nLDFLAGS: ${#FINAL_LDFLAGS} chars\nLIBS: ${#FINAL_LIBS_GROUPED} chars"
 
     # If the length shows more characters than -O2 (3 chars), there's a hidden character injected by vars.sh or the Docker ENV.
     log_debug 'DIAGNOSTIC: HOST_CFLAGS bytes:'
@@ -368,6 +366,7 @@ make install-doc || log_warn "${XCLAM_MARK} install-doc failed, but proceeding."
 
 ccache -s
 
+log_info "Leaving FFmpeg folder..."
 popd # Выход из ffbuild/ffmpeg
 trap 'rm -f ffbuild/ffmpeg/ffbuild/config.log "${FINAL_DEST}/config.log" ffbuild/pkgroot ffbuild/config_parts' EXIT
 
@@ -410,7 +409,7 @@ fi
 # Проверяем наличие критических библиотек (для отладки в логах)
 ls -lh "$PKG_DIR/bin/"
 # Скачиваем модели для ИИ
-log_info "${DOWN_MARK} Downloading Additional Assets..."
+log_info "${DOWN_MARK} Checking for Additional Assets..."
 MODELS_FINAL_DIR="$PKG_DIR/models"
 /builder/util/download_models.sh "$MODELS_FINAL_DIR" "$(pwd)" || log_warn "${XCLAM_MARK} Model download failed, but continuing..."
 
