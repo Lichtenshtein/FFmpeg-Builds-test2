@@ -13,6 +13,7 @@ USE_AVX512_FLAG="${5:-false}"
 DEDUPE_FLAGS="${DEDUPE_FLAGS:-true}"
 SAFE_CONFIG="${SAFE_CONFIG:-true}"
 USE_WINE="${USE_WINE:-auto}"
+PATCH_FFMPEG="${PATCH_FFMPEG:-true}"
 
 # Загружаем переменные
 source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
@@ -28,6 +29,8 @@ USE_AVX512=0
 [[ "$USE_AVX512_FLAG" == "true" ]] && USE_AVX512=1 && log_info "${XCLAM_MARK} AVX512 is enabled!"
 SAFE_CONFIGURE=0
 [[ "$SAFE_CONFIG" == "true" ]] && SAFE_CONFIGURE=1 && log_info "${XCLAM_MARK} SAFE_CONFIGURE is enabled!"
+FFMPEG_PATCHES=0
+[[ "$PATCH_FFMPEG" == "true" ]] && FFMPEG_PATCHES=1 && log_info "${XCLAM_MARK} FFMPEG_PATCHES are enabled!"
 
 export LC_ALL=C.UTF-8
 
@@ -66,9 +69,7 @@ to_df "RUN chmod +x /usr/bin/run_stage"
 mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" | sort)
 
 # Создаем папку на хосте перед билдом, чтобы Docker не создал её от имени root с кривыми правами
-mkdir -p .cache/ccache
-mkdir -p .cache/downloads
-mkdir -p ffbuild/config_parts
+mkdir -p ".cache/ccache" ".cache/downloads" "ffbuild/config_parts"
 
 active_scripts=()
 for STAGE in "${SCRIPTS[@]}"; do
@@ -98,7 +99,7 @@ LOGIC_HASH=$(sha256sum util/run_stage.sh | cut -c1-8)
 # Считаем хеши для инвалидации кэша слоев Docker. Импорт из workflow.
 # Если поменяется vars.sh или любой патч - все последующие RUN пересоберутся
 if [[ "$DEBUG_NO_HASH" == "true" ]]; then
-    log_warn "${XCLAM_MARK} DEBUG: Hashes hardcoded to preserve cache."
+    log_warn "${XCLAM_MARK} Hashes hardcoded to preserve cache."
     ENV_HASH="env_static"
     LOGIC_HASH="logic_static"
 fi

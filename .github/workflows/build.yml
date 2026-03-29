@@ -75,12 +75,17 @@ on:
         description: 'Protect sources for inactive components from deletion'
         type: boolean
         default: true
+      patch_ffmpeg:
+        description: 'Enable patches for FFmpeg form /patches/ffmpeg folder'
+        type: boolean
+        default: true
 env:
   DOCKER_BUILDKIT: 1
   TARGET: win64
   VARIANT: nonfree
   FFMPEG_REPO: ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-VVC.git' }}
   FFMPEG_BRANCH: ${{ github.event.inputs.ffmpeg_branch || 'master' }}
+  PATCH_FFMPEG: ${{ github.event.inputs.patch_ffmpeg }}
   # Список для удаления лишних .git (в download.sh)
   GIT_PRESERVE_LIST: "ffmpeg|glib2|x264|x265|opus|vulkan-loader|mbedtls|pcre2|avisynth|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo"
   # Список для сохранения DLL (в run_stage.sh)
@@ -253,7 +258,7 @@ jobs:
           [[ "${{ github.event.inputs.use_avx512 }}" == "true" ]] && USE_AVX512="avx512"
           mkdir -p .cache/downloads .cache/ffmpeg
           find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
-          chmod +x ./download.sh ./util/*.sh ./generate.sh
+          chmod +x ./download.sh ./util/clean_cache.sh ./generate.sh ./util/download_models.sh
           ./download.sh
           ./util/clean_cache.sh
           CPU_ARCH="${CPU_ARCH}" CPU_TUNE="${CPU_TUNE}" ./generate.sh win64 nonfree "$USE_LTO" "$SKIP_FFMPEG" "$USE_AVX512"
