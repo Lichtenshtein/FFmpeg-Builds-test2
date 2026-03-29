@@ -176,14 +176,20 @@ All of those can be optionally combined with any combination of addins:
 * `The System Core` (Foundation; always build first). Without this, nothing will work.
 
 ```
-09-mingw-std-threads|10-mingw|11-base|18-zlib|
+09-mingw-std-threads|10-mingw|11-base|18-zlib
 ```
 
 * `librsvg`
 ```
 09-mingw-std-threads|10-mingw|11-base|13-libiconv|14-gettext|15-freetype|18-zlib|19-brotli|19-bzlib|19-xz|23-pcre2|23-libffi|25-fribidi|25-libpng|25-glib2|25-libxml2|26-pixman|26-fontconfig|34-cairo|35-harfbuzz|40-freetype|40-pango|44-dav1d|45-librsvg-cargo-test
 ```
+
 * `libtesseract`
 ```
 09-mingw-std-threads|10-mingw|11-base|12-libicu|13-libiconv|14-gettext|15-freetype|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|25-openssl|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|26-libssh|27-curl|27-libwebp|29-libarchive|34-cairo|35-harfbuzz|40-freetype|40-pango|41-lcms2|45-libtensorflow-test|47-leptonica-test|50-tesseract-test
+```
+
+* `vulkan`
+```
+41-vulkan-headers|42-vulkan-loader|43-glslang-test|43-shaderc|43-spirv-cross|43-spirv-headers|99-enable
 ```

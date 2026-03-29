@@ -143,24 +143,25 @@ _variant_cxxflags=$(ffbuild_cxxflags 2>/dev/null || true)
 _variant_ldflags=$(ffbuild_ldflags 2>/dev/null || true)
 _variant_ldexeflags=$(ffbuild_ldexeflags 2>/dev/null || true)
 _variant_libs=$(ffbuild_libs 2>/dev/null || true)
-[[ -n "$_variant_conf" ]]       && VARIANT_FF_CONFIGURE="${FF_CONFIGURE} ${_variant_conf}"
-[[ -n "$_variant_cflags" ]]     && VARIANT_FF_CFLAGS="${FF_CFLAGS} ${_variant_cflags}"
-[[ -n "$_variant_cppflags" ]]   && VARIANT_FF_CPPFLAGS="${FF_CPPFLAGS} ${_variant_cppflags}"
-[[ -n "$_variant_cxxflags" ]]   && VARIANT_FF_CXXFLAGS="${FF_CXXFLAGS} ${_variant_cxxflags}"
-[[ -n "$_variant_ldflags" ]]    && VARIANT_FF_LDFLAGS="${FF_LDFLAGS} ${_variant_ldflags}"
-[[ -n "$_variant_ldexeflags" ]] && VARIANT_FF_LDEXEFLAGS="${FF_LDEXEFLAGS} ${_variant_ldexeflags}"
-[[ -n "$_variant_libs" ]]       && VARIANT_FF_LIBS="${FF_LIBS} ${_variant_libs}"
+[[ -n "$_variant_conf" ]]       && VARIANT_FF_CONFIGURE+=" ${FF_CONFIGURE} ${_variant_conf}"
+[[ -n "$_variant_cflags" ]]     && VARIANT_FF_CFLAGS+=" ${FF_CFLAGS} ${_variant_cflags}"
+[[ -n "$_variant_cppflags" ]]   && VARIANT_FF_CPPFLAGS+=" ${FF_CPPFLAGS} ${_variant_cppflags}"
+[[ -n "$_variant_cxxflags" ]]   && VARIANT_FF_CXXFLAGS+=" ${FF_CXXFLAGS} ${_variant_cxxflags}"
+[[ -n "$_variant_ldflags" ]]    && VARIANT_FF_LDFLAGS+=" ${FF_LDFLAGS} ${_variant_ldflags}"
+[[ -n "$_variant_ldexeflags" ]] && VARIANT_FF_LDEXEFLAGS+=" ${FF_LDEXEFLAGS} ${_variant_ldexeflags}"
+[[ -n "$_variant_libs" ]]       && VARIANT_FF_LIBS+=" ${FF_LIBS} ${_variant_libs}"
 
 # Клонирование и патчинг (прямо в текущем слое Docker)
 log_info "Using pre-mounted FFmpeg source..."
 if [[ ! -f "ffbuild/ffmpeg/configure" ]]; then
-    log_error "${CROSS_MARK} FFmpeg source not found at ffbuild/ffmpeg/configure — mount failed?"
+    log_error "${CROSS_MARK} FFmpeg source not found at ffbuild/ffmpeg/configure (mount failed?)"
     exit 1
 fi
 pushd ffbuild/ffmpeg
 
 # Патчи теперь ищем по имени ветки, пришедшей из ENV
 if [[ -d "/builder/patches/ffmpeg/$FFMPEG_BRANCH" ]]; then
+    log_info "################################################################"
     # git reset --hard HEAD 2>/dev/null || true
     for patch in "/builder/patches/ffmpeg/$FFMPEG_BRANCH"/*.patch; do
         [[ -e "$patch" ]] || continue
@@ -172,6 +173,7 @@ if [[ -d "/builder/patches/ffmpeg/$FFMPEG_BRANCH" ]]; then
             # exit 1 # если нужно прервать сборку при ошибке
         fi
     done
+    log_info "################################################################"
 fi
 
 # Сброс статистики для чистого лога
@@ -200,26 +202,29 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info "### ${XCLAM_MARK} Start of DEBUG audit section"
     log_info "################################################################"
 
-    log_debug "RAW FF_CONFIGURE: $TOTAL_FF_CONFIGURE"
-    log_debug "RAW FF_CFLAGS: $TOTAL_FF_CFLAGS"
-    log_debug "RAW FF_LDFLAGS: $TOTAL_FF_LDFLAGS"
-    log_debug "RAW FF_LIBS: $TOTAL_FF_LIBS"
+    log_debug "RAW FF_CONFIGURE: \n$TOTAL_FF_CONFIGURE"
+    log_debug "RAW FF_CFLAGS: \n$TOTAL_FF_CFLAGS"
+    log_debug "RAW FF_LDFLAGS: \n$TOTAL_FF_LDFLAGS"
+    log_debug "RAW FF_LIBS: \n$TOTAL_FF_LIBS"
     log_debug "DEDUPED FINAL_CONFIGURE: \n${TOTAL_FF_CONFIGURE}\nsize: ${#TOTAL_FF_CONFIGURE} chars"
     log_debug "DEDUPED FINAL_CFLAGS: \n${FINAL_CFLAGS}\nsize: ${#FINAL_CFLAGS} chars"
-    log_debug "DEDUPED FINAL_LDFLAGS: \n${FINAL_LDFLAGS}\nsize: ${#FINAL_LFLAGS} chars"
+    log_debug "DEDUPED FINAL_LDFLAGS: \n${FINAL_LDFLAGS}\nsize: ${#FINAL_LDFLAGS} chars"
     log_debug "DEDUPED FINAL_LIBS: \n${FINAL_LIBS}\nsize: ${#FINAL_LIBS} chars"
 
     # If the length shows more characters than -O2 (3 chars), there's a hidden character injected by vars.sh or the Docker ENV.
-    log_debug "DIAGNOSTIC: CFLAGS content:"
-    printf 'HOST_CFLAGS bytes: '; echo -n "\n $HOST_CFLAGS" | xxd | head -5
-    printf 'HOST_CXXFLAGS bytes: '; echo -n "\n $HOST_CXXFLAGS" | xxd | head -5
-    printf 'FINAL_CFLAGS bytes: '; echo -n "\n $FINAL_CFLAGS" | xxd | head -5
+    log_debug 'DIAGNOSTIC: HOST_CFLAGS bytes:'
+    echo -n "$HOST_CFLAGS" | xxd | head -5
+    log_debug 'DIAGNOSTIC: HOST_CXXFLAGS bytes:'
+    echo -n "$HOST_CXXFLAGS" | xxd | head -5
+    log_debug 'DIAGNOSTIC: FINAL_CFLAGS bytes:'
+    echo -n "$FINAL_CFLAGS" | xxd | head -5
     log_debug "DIAGNOSTIC: LDFLAGS content:"
-    printf 'FINAL_LDFLAGS bytes: '; echo -n "\n $FINAL_LDFLAGS" | xxd | head -5
+    log_debug 'DIAGNOSTIC: FINAL_LDFLAGS bytes:'
+    echo -n "$FINAL_LDFLAGS" | xxd | head -5
     # какие именно as и ld видны в системе первыми
-    log_debug "$PRIORITY: 'as' priority: \n$(which -a as)"
-    log_debug "$PRIORITY: 'ld' priority: \n$(which -a ld)"
-    log_debug "$PRIORITY: 'x86_64-w64-mingw32-gcc' priority: \n$(which -a x86_64-w64-mingw32-gcc)"
+    log_debug "PRIORITY: 'as' priority: \n$(which -a as)"
+    log_debug "PRIORITY: 'ld' priority: \n$(which -a ld)"
+    log_debug "PRIORITY: 'x86_64-w64-mingw32-gcc' priority: \n$(which -a x86_64-w64-mingw32-gcc)"
     # содержимое папок тулчейна (только имена файлов)
     log_debug "${DIRS_MARK} Contents of /opt/ct-ng/bin (first 20 files):"
     ls -F /opt/ct-ng/bin | head -n 20
@@ -229,14 +234,15 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     # If as --version writes "Target: x86_64-w64-mingw32", and it is called from gcc-14 (host), the build will fail
     log_debug "${SEARCH_MARK} Search for all 'as' files in /opt/ct-ng/:"
     find /opt/ct-ng -name "as" -type f || true
+    log_debug "GNU assembler version:"
     # что выдает ассемблер на команду версии
     as --version | head -n 1
     x86_64-w64-mingw32-as --version | head -n 1
 
     # ГЕНЕРАЦИЯ ПЕРЕМЕННЫХ СОСТОЯНИЯ КОМПОНЕНТОВ
-    log_info "${SEARCH_MARK} Scanning FFmpeg configuration for enabled components..."
+    log_debug "${SEARCH_MARK} Scanning FFmpeg configuration for enabled components..."
     # Список компонентов для проверки
-    COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac openssl)
+    COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac openssl amf)
     # Создаем имя переменной libtesseract -> HAS_LIBTESSERACT
     for comp in "${COMPONENTS[@]}"; do
         clean_name="${comp^^}"
@@ -244,10 +250,10 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
         var_name="HAS_${clean_name}"
         if [[ "$FINAL_CONFIGURE" == *"--enable-$comp"* ]]; then
             export "$var_name=1"
-            log_debug "Component $comp: ENABLED (${var_name}=1)"
+            log_debug "Component $comp: ${GREEN}ENABLED${NC} (${var_name}=1)"
         else
             export "$var_name=0"
-            log_debug "Component $comp: DISABLED (${var_name}=0)"
+            log_debug "Component $comp: ${RED}DISABLED${NC} (${var_name}=0)"
         fi
     done
     # Специальная обработка для ASAN (fdk-aac); should be at the end of all flags.
@@ -265,7 +271,6 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
 
     log_info "################################################################"
     log_info "### ${XCLAM_MARK} End of DEBUG audit section"
-    log_info "################################################################"
 fi
 
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
@@ -298,8 +303,6 @@ CONF_FLAGS=(
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
-    --enable-filter=vpp_amf
-    --enable-filter=sr_amf
     --enable-runtime-cpudetect
     --enable-pic
     --enable-static
@@ -312,21 +315,7 @@ CONF_FLAGS=(
 
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
 [[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
-
-log_info "${START_MARK} Launching FFmpeg Configure..."
-# Функция проверки и валидации флагов ffmpeg SAFE_CONFIGURE
-printf "  %s\n" "${CONF_FLAGS[@]}" && check_and_fix_configure
-
-# Перенаправляем stderr в config.log для полноты картины
-if ! ./configure "${CONF_FLAGS[@]}" 2>ffbuild/config.log; then
-    log_error "${CROSS_MARK} Configure failed!"
-    log_debug "${LOGS_MARK} ▼ CONTENT OF ffbuild/config.log ▼"
-    tail -n 300 ffbuild/config.log
-    log_debug "${LOGS_MARK} ▲ END OF ffbuild/config.log ▲"
-    # Копируем лог ошибки даже если билд упал
-    cp ffbuild/config.log "${FINAL_DEST}/config.log" || true
-    exit 1
-fi
+[[ "$HAS_AMF" == "1" ]] && CONF_FLAGS+=( --enable-filter=vpp_amf --enable-filter=sr_amf )
 
 # Чтобы не перегружать RAM раннера (в среднем 7GB RAM / 2 ядра)
 # лучше ограничить параллелизм или вовсе собирать в 1 поток, если включен LTO
@@ -339,14 +328,32 @@ MEM_JOBS=$(( MEM_AVAILABLE / 2 ))
 # Выбираем финальное число потоков
 CPU_CORES=$(nproc)
 if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
-    log_warn "${XCLAM_MARK} LTO detected. Forcing single-thread build."
+    log_warn "${XCLAM_MARK} LTO detected. Forcing dual-thread build."
     MAKE_JOBS=2
 else
     # Берем минимум между количеством ядер и лимитом по памяти
     MAKE_JOBS=$(( CPU_CORES < MEM_JOBS ? CPU_CORES : MEM_JOBS ))
-    log_info "Memory: ${MEM_AVAILABLE}GB, Cores: ${CPU_CORES}. Setting MAKE_JOBS=${MAKE_JOBS}"
+    log_info "HOST AVAILABLE MEMORY: ${MEM_AVAILABLE}GB, CPU CORES: ${CPU_CORES}. Setting MAKE_JOBS=${MAKE_JOBS}"
 fi
-# Сборка и установка
+
+log_info "################################################################"
+log_info "### ${START_MARK} Launching FFmpeg Configure..."
+log_info "################################################################"
+# Функция проверки и валидации флагов ffmpeg SAFE_CONFIGURE
+check_and_fix_configure && printf "  %s\n" "${CONF_FLAGS[@]}"
+
+# Перенаправляем stderr в config.log для полноты картины
+if ! ./configure "${CONF_FLAGS[@]}" 2>ffbuild/config.log; then
+    log_error "${CROSS_MARK} Configure failed!"
+    log_debug "${LOGS_MARK} ▼ CONTENT OF ffbuild/config.log ▼"
+    tail -n 300 ffbuild/config.log
+    log_debug "${LOGS_MARK} ▲ END OF ffbuild/config.log ▲"
+    # Копируем лог ошибки даже если билд упал
+    cp ffbuild/config.log "${FINAL_DEST}/config.log" || true
+    exit 1
+fi
+
+# Сборка и установка ffmpeg
 make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
 make install
 make install-doc || log_warn "${XCLAM_MARK} install-doc failed, but proceeding."

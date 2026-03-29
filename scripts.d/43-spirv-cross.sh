@@ -3,6 +3,13 @@
 SCRIPT_REPO="https://github.com/KhronosGroup/SPIRV-Cross.git"
 SCRIPT_COMMIT="a0fba56c34a6700f1724bf9b751da5b488a3775c"
 
+ffbuild_depends() {
+    echo vulkan-headers
+    echo vulkan-loader
+    echo glslang-test
+    echo shaderc
+}
+
 ffbuild_enabled() {
     return 0
 }
