@@ -159,4 +159,4 @@ fi
 
 # ARTIFACTS COLLECTOR STAGE
 to_df "FROM scratch AS artifacts"
-to_df "COPY --from=build_stage /opt/ffdest/ ." 
+to_df "COPY --from=final_build /opt/ffdest/ ." 
