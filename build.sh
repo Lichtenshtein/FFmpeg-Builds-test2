@@ -71,6 +71,7 @@ log_info "Loading component variables from cache..."
 VARS_DIR="$FFBUILD_PREFIX/config_parts"
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+    log_debug "Checking the connection with the variable caches in .vars"
     # Проверка связи с кэшем (zlib)
     # Если файл пустой проблема в run_stage.sh или vars.sh во время сборки компонента.
     # Если файл не пустой, но в configure пусто проблема в build.sh (в команде source или dedupe)
@@ -163,7 +164,7 @@ if [[ ! -f "ffbuild/ffmpeg/configure" ]]; then
 fi
 pushd ffbuild/ffmpeg
 
-if [[ "$FFMPEG_PATCHES" == "true" ]]; then
+if [[ "$FFMPEG_PATCHES" == "1" ]]; then
     log_info "${XCLAM_MARK} FFMPEG_PATCHES=${FFMPEG_PATCHES}; Looking for FFmpeg patches..."
     # Патчи ищем по имени ветки, пришедшей из ENV
     if [[ -d "/builder/patches/ffmpeg/$FFMPEG_BRANCH" ]]; then
@@ -209,14 +210,19 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info "### ${XCLAM_MARK} Start of DEBUG audit section"
     log_info "################################################################"
 
-    log_debug "RAW FF_CONFIGURE: \n$TOTAL_FF_CONFIGURE"
-    log_debug "RAW FF_CFLAGS: \n$TOTAL_FF_CFLAGS"
-    log_debug "RAW FF_LDFLAGS: \n$TOTAL_FF_LDFLAGS"
-    log_debug "RAW FF_LIBS: \n$TOTAL_FF_LIBS"
-    log_debug "DEDUPED FINAL_CONFIGURE: \n${TOTAL_FF_CONFIGURE}\nsize: ${#TOTAL_FF_CONFIGURE} chars"
-    log_debug "DEDUPED FINAL_CFLAGS: \n${FINAL_CFLAGS}\nsize: ${#FINAL_CFLAGS} chars"
-    log_debug "DEDUPED FINAL_LDFLAGS: \n${FINAL_LDFLAGS}\nsize: ${#FINAL_LDFLAGS} chars"
-    log_debug "DEDUPED FINAL_LIBS: \n${FINAL_LIBS}\nsize: ${#FINAL_LIBS} chars"
+    log_debug "COMPONENT RAW FLAGS:"
+    log_debug "  CONF: ${TOTAL_FF_CONFIGURE:-none}"
+    log_debug "  CFLAGS: ${TOTAL_FF_CFLAGS:-none}"
+    log_debug "  LDFLAGS: ${TOTAL_FF_LDFLAGS:-none}"
+    log_debug "  LIBS: ${TOTAL_FF_LIBS:-none}"
+
+    log_debug "FINAL CONFIGURE FLAGS (DEDUPED):"
+    log_debug "  CONF:    $FINAL_CONFIGURE"
+    log_debug "  CFLAGS:  $FINAL_CFLAGS"
+    log_debug "  LDFLAGS: $FINAL_LDFLAGS"
+    log_debug "  LIBS:    $FINAL_LIBS_GROUPED"
+
+    log_debug "STATS:\n  Conf:${#FINAL_CONFIGURE} chars\n  C-Flags:${#FINAL_CFLAGS} chars\n  LD-Flags:${#FINAL_LDFLAGS} chars\n  Libs:${#FINAL_LIBS_GROUPED} chars"
 
     # If the length shows more characters than -O2 (3 chars), there's a hidden character injected by vars.sh or the Docker ENV.
     log_debug 'DIAGNOSTIC: HOST_CFLAGS bytes:'
@@ -335,7 +341,7 @@ else
     # Берем минимум между количеством ядер и лимитом по памяти
     MAKE_JOBS=$(( CPU_CORES < MEM_JOBS ? CPU_CORES : MEM_JOBS ))
     log_info "################################################################"
-    log_info "### ${CACHE_MARK} HOST: MEMORY: ${MEM_AVAILABLE}GB, CPU CORES: ${CPU_CORES}. Setting MAKE_JOBS=${MAKE_JOBS}"
+    log_info "### ${CACHE_MARK} HOST: MEMORY: ${MEM_AVAILABLE}GB, CPU CORES: ${CPU_CORES}; Setting MAKE_JOBS=${MAKE_JOBS}"
 fi
 
 log_info "################################################################"
@@ -432,6 +438,6 @@ fi
 # Очистка рабочего пространства ПЕРЕД завершением слоя Docker
 # Это освободит место на диске раннера до того, как он начнет экспорт
 cp ffbuild/ffmpeg/ffbuild/config.log "${FINAL_DEST}/config.log" 2>/dev/null || true
-log_info "${CHECK_MARK} Build finished. ${BROOM_MARK} Cleaning up..."
+log_info "${CHECK_MARK} Build finished.\n${BROOM_MARK} Cleaning up..."
 rm -rf ffbuild/pkgroot ffbuild/config_parts 2>/dev/null || true
 exit 0
