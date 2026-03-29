@@ -9,7 +9,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "./utils/git-sync-deps || exit $?"
+    # echo "./utils/git-sync-deps || exit $?"
 }
 
 ffbuild_dockerbuild() {
