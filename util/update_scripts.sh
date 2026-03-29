@@ -7,10 +7,20 @@ export LC_ALL=C
 # Загружаем оформление
 source util/vars.sh 2>/dev/null || true
 
+# Читаем список из ENV или используем пустой, если переменная не задана
+# Превращаем строку "zlib base" в массив (zlib base)
+read -ra EXCLUDE_COMPONENTS <<< "${UPDATE_PRESERVE_LIST:-}"
+
+log_debug "Exclusion list active: ${EXCLUDE_COMPONENTS[*]}"
+
 cd "$(dirname "$0")"/..
 
 # Можно передать конкретный файл: ./util/update_scripts_test.sh "scripts.d/50-x264.sh"
 SEARCH_PATTERN="${1:-scripts.d/**/*.sh}"
+
+# Используем временные файлы для сбора отчетов, чтобы обойти проблему subshell в пайпах
+TMP_REPORT=$(mktemp)
+trap 'rm -f "$TMP_REPORT"' EXIT
 
 # Массивы для отчета
 declare -a UPDATED_FILES
@@ -32,7 +42,22 @@ check_repo_exists() {
 
 for scr in $SEARCH_PATTERN; do
     [[ -f "$scr" ]] || continue
-    
+
+    # Извлекаем чистое имя (напр. 18-zlib.sh -> zlib)
+    STAGENAME=$(basename "$scr" .sh)
+    COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
+
+    # Проверка на вхождение в массив исключений
+    skip_this=0
+    for exc in "${EXCLUDE_COMPONENTS[@]}"; do
+        if [[ "$COMPONENT_NAME" == "$exc" ]]; then
+            log_info "${LOCK_MARK} Skipping update for: ${STAGENAME} (In exclusion list)"
+            skip_this=1
+            break
+        fi
+    done
+    [[ $skip_this -eq 1 ]] && continue
+
     # Пропускаем помеченные скрипты
     if grep -q 'SCRIPT_SKIP="1"' "$scr"; then
         log_debug "${LOCK_MARK} Skipping ${scr} (SCRIPT_SKIP active)"
@@ -62,7 +87,7 @@ for scr in $SEARCH_PATTERN; do
 
             # Проверка на "живучесть" репозитория
             if ! check_repo_exists "$CUR_REPO"; then
-                echo "REPORT_DEAD|${scr}|${CUR_REPO}"
+                echo "REPORT_DEAD|${scr}|${CUR_REPO}" >> "$TMP_REPORT"
                 continue
             fi
 
@@ -88,28 +113,22 @@ for scr in $SEARCH_PATTERN; do
                 NEW_VAL=$(hg identify "${CUR_REPO}" -r default 2>/dev/null | awk '{print $1}' || true)
             else
                 # Неизвестный формат (нет ни коммита, ни ревизии)
-                echo "REPORT_UNKNOWN|${scr}|${CUR_REPO}"
+                echo "REPORT_UNKNOWN|${scr}|${CUR_REPO}" >> "$TMP_REPORT"
                 continue
             fi
 
             if [[ -n "${NEW_VAL}" && "${NEW_VAL}" != "${!TARGET_VAR}" ]]; then
-                echo "REPORT_UPDATE|${scr}|${TARGET_VAR}|${!TARGET_VAR}|${NEW_VAL}"
+                echo "REPORT_UPDATE|${scr}|${TARGET_VAR}|${!TARGET_VAR}|${NEW_VAL}" >> "$TMP_REPORT"
                 sed -i "s|^${TARGET_VAR}=\".*\"|${TARGET_VAR}=\"${NEW_VAL}\"|" "${scr}"
+                log_info "  ${SYNC_MARK} ${TARGET_VAR}: ${!TARGET_VAR:0:7} -> ${NEW_VAL:0:7}"
             fi
         done
-    ) | while IFS='|' read -r type file var old new; do
-        # Обработка сигналов из подоболочки
-        case "$type" in
-            REPORT_UPDATE)  log_info "  ${SYNC_MARK} $var: ${old:0:7} -> ${new:0:7}"; UPDATED_FILES+=("$file") ;;
-            REPORT_DEAD)    log_error "  ${CROSS_MARK} Repo is DEAD/Offline: $var"; BROKEN_REPOS+=("$file ($var)") ;;
-            REPORT_UNKNOWN) log_warn "  ${XCLAM_MARK} Unknown layout (no commit/rev var)"; UNKNOWN_LAYOUTS+=("$file") ;;
-        esac
-    done
+    ) 
 
     # Валидация синтаксиса
     if ! bash -n "$scr"; then
         log_error "${CROSS_MARK} Syntax error in ${scr}! Rolling back."
-        SYNTAX_ERRORS+=("$scr")
+        echo "REPORT_SYNTAX|${scr}" >> "$TMP_REPORT"
         mv "${scr}.bak" "$scr"
     else
         rm -f "${scr}.bak"
@@ -117,21 +136,37 @@ for scr in $SEARCH_PATTERN; do
 done
 
 # --- ФИНАЛЬНЫЙ ОТЧЕТ ---
-echo -e "\n${LOGS_MARK} ${LOG_INFO}--- FINAL UPDATE REPORT ---${LOG_NC}"
 
-[[ ${#BROKEN_REPOS[@]} -gt 0 ]] && {
+log_info "\n${LOGS_MARK} ${LOG_INFO}--- FINAL UPDATE REPORT ---${LOG_NC}"
+
+# Читаем из TMP_REPORT и формируем массивы в основном процессе
+while IFS='|' read -r type file var old new; do
+    case "$type" in
+        REPORT_UPDATE) UPDATED_FILES+=("$file ($var)") ;;
+        REPORT_DEAD)   BROKEN_REPOS+=("$file ($var)") ;;
+        REPORT_UNKNOWN) UNKNOWN_LAYOUTS+=("$file") ;;
+        REPORT_SYNTAX) SYNTAX_ERRORS+=("$file") ;;
+    esac
+done < "$TMP_REPORT"
+
+if [[ ${#UPDATED_FILES[@]} -gt 0 ]]; then
+    echo -e "${GREEN}✅ UPDATED:${NC}"
+    printf "  - %s\n" $(printf "%s\n" "${UPDATED_FILES[@]}" | sort -u)
+fi
+
+if [[ ${#BROKEN_REPOS[@]} -gt 0 ]]; then
     echo -e "${RED}💀 DEAD REPOSITORIES (Need manual fix):${NC}"
     printf "  - %s\n" "${BROKEN_REPOS[@]}"
-}
+fi
 
-[[ ${#UNKNOWN_LAYOUTS[@]} -gt 0 ]] && {
-    echo -e "${YELLOW}❓ UNKNOWN LAYOUTS (Manual check required):${NC}"
+if [[ ${#UNKNOWN_LAYOUTS[@]} -gt 0 ]]; then
+    echo -e "${YELLOW}❓ UNKNOWN LAYOUTS (Manual check required)${NC}"
     printf "  - %s\n" "${UNKNOWN_LAYOUTS[@]}"
-}
+fi
 
-[[ ${#SYNTAX_ERRORS[@]} -gt 0 ]] && {
+if [[ ${#SYNTAX_ERRORS[@]} -gt 0 ]]; then
     echo -e "${RED}🚫 SYNTAX ERRORS (Rollbacked):${NC}"
     printf "  - %s\n" "${SYNTAX_ERRORS[@]}"
-}
+fi
 
 log_info "${CHECK_MARK} Update process finished."

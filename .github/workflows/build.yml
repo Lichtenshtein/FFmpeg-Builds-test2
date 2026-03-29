@@ -85,16 +85,17 @@ env:
   VARIANT: nonfree
   FFMPEG_REPO: ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-VVC.git' }}
   FFMPEG_BRANCH: ${{ github.event.inputs.ffmpeg_branch || 'master' }}
-  PATCH_FFMPEG: ${{ github.event.inputs.patch_ffmpeg }}
-  # Список для удаления лишних .git (в download.sh)
+  # Список для хранения .git от очистки (в download.sh)
   GIT_PRESERVE_LIST: "ffmpeg|glib2|x264|x265|opus|vulkan-loader|mbedtls|pcre2|avisynth|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo"
   # Список для сохранения DLL (в run_stage.sh)
   DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|opencv|onevpl|glib2|leptonica-test|audiotoolbox|vapoursynth|vapoursynth-python-test"
+  # защита от обновления стабильных версий (через пробел)
   FFBUILD_VERBOSE: ${{ github.event.inputs.verbosity || '1' }}
   ONLY_STAGE: ${{ github.event.inputs.only_stage }}
   DEBUG_NO_HASH: ${{ github.event.inputs.debug_no_hash }}
   DEDUPE_FLAGS: ${{ github.event.inputs.dedupe_flags }}
-  INACTIVE_SOURCES: ${{ github.event.inputs.inactive_sources }}
+  CLEAN_INACTIVE_SOURCES: ${{ github.event.inputs.inactive_sources == 'false' && '1' || '0' }}
+  FFMPEG_PATCHES: ${{ github.event.inputs.patch_ffmpeg == 'true' && '1' || '0' }}
   SAFE_CONFIG: ${{ github.event.inputs.safe_config }}
   USE_WINE: ${{ github.event.inputs.use_wine || 'auto' }}
   USE_AVX512: ${{ github.event.inputs.use_avx512 || 'false' }}
@@ -262,9 +263,6 @@ jobs:
           ./download.sh
           ./util/clean_cache.sh
           CPU_ARCH="${CPU_ARCH}" CPU_TUNE="${CPU_TUNE}" ./generate.sh win64 nonfree "$USE_LTO" "$SKIP_FFMPEG" "$USE_AVX512"
-        env:
-          CLEAN_INACTIVE_SOURCES: ${{ github.event.inputs.inactive_sources == 'false' && '1' || '0' }}
-          ONLY_STAGE: ${{ github.event.inputs.only_stage }}
 
       - name: Verify FFmpeg Source
         run: |

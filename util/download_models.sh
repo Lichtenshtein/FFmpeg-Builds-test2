@@ -3,7 +3,6 @@
 set -e
 
 # Загружаем функции
-source util/vars.sh
 source util/dl_functions.sh
 
 MODELS_DIR="${1:-./artifacts/models}"

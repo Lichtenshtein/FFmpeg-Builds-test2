@@ -1,7 +1,5 @@
 #!/bin/bash
 
-source util/vars.sh
-
 log_info "${XCLAM_MARK} LTO Addin: Enabling Link Time Optimization..."
 
 # Флаг для FFmpeg

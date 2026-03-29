@@ -13,7 +13,6 @@ USE_AVX512_FLAG="${5:-false}"
 DEDUPE_FLAGS="${DEDUPE_FLAGS:-true}"
 SAFE_CONFIG="${SAFE_CONFIG:-true}"
 USE_WINE="${USE_WINE:-auto}"
-PATCH_FFMPEG="${PATCH_FFMPEG:-true}"
 
 # Загружаем переменные
 source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
@@ -29,8 +28,8 @@ USE_AVX512=0
 [[ "$USE_AVX512_FLAG" == "true" ]] && USE_AVX512=1 && log_info "${XCLAM_MARK} AVX512 is enabled!"
 SAFE_CONFIGURE=0
 [[ "$SAFE_CONFIG" == "true" ]] && SAFE_CONFIGURE=1 && log_info "${XCLAM_MARK} SAFE_CONFIGURE is enabled!"
-FFMPEG_PATCHES=0
-[[ "$PATCH_FFMPEG" == "true" ]] && FFMPEG_PATCHES=1 && log_info "${XCLAM_MARK} FFMPEG_PATCHES are enabled!"
+
+[[ "$FFMPEG_PATCHES" == "1" ]] && log_info "${XCLAM_MARK} FFMPEG_PATCHES are enabled!"
 
 export LC_ALL=C.UTF-8
 

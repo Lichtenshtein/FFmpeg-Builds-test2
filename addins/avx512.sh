@@ -1,7 +1,5 @@
 #!/bin/bash
 
-source util/vars.sh
-
 log_info "${XCLAM_MARK} AVX512 Addin: Enabling AVX512 Optimization..."
 
 # Replaces -march=broadwell with AVX-512 capable target
