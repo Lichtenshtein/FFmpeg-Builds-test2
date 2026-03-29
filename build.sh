@@ -159,21 +159,24 @@ if [[ ! -f "ffbuild/ffmpeg/configure" ]]; then
 fi
 pushd ffbuild/ffmpeg
 
-# Патчи теперь ищем по имени ветки, пришедшей из ENV
-if [[ -d "/builder/patches/ffmpeg/$FFMPEG_BRANCH" ]]; then
-    log_info "################################################################"
-    # git reset --hard HEAD 2>/dev/null || true
-    for patch in "/builder/patches/ffmpeg/$FFMPEG_BRANCH"/*.patch; do
-        [[ -e "$patch" ]] || continue
-        log_info "${TARGET_MARK} APPLYING PATCH: $(basename "$patch")"
-        if patch -p1 < "$patch"; then
-            log_info "${CHECK_MARK} SUCCESS: Patch applied."
-        else
-            log_error "${CROSS_MARK} ERROR: Patch $(basename "$patch") failed to apply cleanly."
-            # exit 1 # если нужно прервать сборку при ошибке
-        fi
-    done
-    log_info "################################################################"
+if [[ "$FFMPEG_PATCHES" == "true" ]]; then
+    log_info "${XCLAM_MARK} FFMPEG_PATCHES=${FFMPEG_PATCHES}; Looking for FFmpeg patches..."
+    # Патчи ищем по имени ветки, пришедшей из ENV
+    if [[ -d "/builder/patches/ffmpeg/$FFMPEG_BRANCH" ]]; then
+        log_info "################################################################"
+        # git reset --hard HEAD 2>/dev/null || true
+        for patch in "/builder/patches/ffmpeg/$FFMPEG_BRANCH"/*.patch; do
+            [[ -e "$patch" ]] || continue
+            log_info "${TARGET_MARK} APPLYING PATCH: $(basename "$patch")"
+            if patch -p1 < "$patch"; then
+                log_info "${CHECK_MARK} SUCCESS: Patch applied."
+            else
+                log_error "${CROSS_MARK} ERROR: Patch $(basename "$patch") failed to apply cleanly."
+                # exit 1 # если нужно прервать сборку при ошибке
+            fi
+        done
+        log_info "################################################################"
+    fi
 fi
 
 # Сброс статистики для чистого лога
@@ -307,15 +310,14 @@ CONF_FLAGS=(
     --enable-pic
     --enable-static
     --disable-shared
-    # flags added by ffmpeg patches, not from mainline FFmpeg
-    --h264-max-bit-depth=14
-    --h265-bit-depths=8,9,10,12
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
 )
 
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
 [[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
 [[ "$HAS_AMF" == "1" ]] && CONF_FLAGS+=( --enable-filter=vpp_amf --enable-filter=sr_amf )
+# flags added by ffmpeg patches, not from mainline FFmpeg
+[[ "$FFMPEG_PATCHES" == "true" ]] && CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
 
 # Чтобы не перегружать RAM раннера (в среднем 7GB RAM / 2 ядра)
 # лучше ограничить параллелизм или вовсе собирать в 1 поток, если включен LTO
@@ -357,9 +359,11 @@ fi
 make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
 make install
 make install-doc || log_warn "${XCLAM_MARK} install-doc failed, but proceeding."
+
 ccache -s
 
 popd # Выход из ffbuild/ffmpeg
+trap 'rm -f ffbuild/ffmpeg/ffbuild/config.log "${FINAL_DEST}/config.log" ffbuild/pkgroot ffbuild/config_parts' EXIT
 
 # Определение версии
 if [[ -f "ffbuild/ffmpeg/VERSION" ]]; then
@@ -384,9 +388,8 @@ package_variant "$FFBUILD_DESTPREFIX" "$PKG_DIR"
 # Копируем лицензию ПЕРЕД упаковкой
 log_info "${SYNC_MARK} Adding license and logs to package..."
 [[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"
-cp ffbuild/ffmpeg/ffbuild/config.log "$PKG_DIR/config.log"
+cp ffbuild/ffmpeg/ffbuild/config.log "$PKG_DIR/config.log" || true
 
-log_info "${SYNC_MARK} Collecting external DLLs and plugins..."
 # Копируем все DLL из нашего сборочного префикса в папку с бинарниками
 # Это подхватит DLL от OpenVINO, TBB, TensorFlow, LibTorch и других
 # OpenVINO часто ищет файлы openvino_intel_cpu_plugin.dll в той же папке
@@ -394,6 +397,7 @@ log_info "${SYNC_MARK} Collecting external DLLs and plugins..."
 # Но если они в подпапках (runtime/bin/intel64/...), нужно убедиться, что они попали в $PKG_DIR/bin/
 if [[ -d "/opt/ffbuild/bin" ]]; then
     find "/opt/ffbuild/bin" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \; || true
+    log_info "${SYNC_MARK} Collecting external DLLs and plugins..."
 else
     log_warn "${XCLAM_MARK} /opt/ffbuild/bin not found, skipping DLL copy."
 fi
@@ -402,7 +406,7 @@ ls -lh "$PKG_DIR/bin/"
 # Скачиваем модели для ИИ
 log_info "${DOWN_MARK} Downloading Additional Assets..."
 MODELS_FINAL_DIR="$PKG_DIR/models"
-bash /builder/util/download_models.sh "$MODELS_FINAL_DIR" "$(pwd)"
+/builder/util/download_models.sh "$MODELS_FINAL_DIR" "$(pwd)"
 
 # Стриппинг бинарников (удаление отладочных символов)
 log_info "${BROOM_MARK} Stripping binaries..."
