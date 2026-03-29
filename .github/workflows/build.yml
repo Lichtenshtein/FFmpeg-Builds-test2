@@ -138,30 +138,28 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y subversion subversion-tools nasm yasm
 
-      - name: Runner Hardware Audit
+      - name: Host Hardware Audit
         run: |
           echo "### 🖥️ Runner Hardware Audit" >> $GITHUB_STEP_SUMMARY
 
           MODEL=$(lscpu | grep "Model name" | cut -d':' -f2 | xargs)
-          FLAGS=$(grep -m1 "flags" /proc/cpuinfo)
-          echo "- **CPU Model**: $MODEL" >> $GITHUB_STEP_SUMMARY
-
-          TOTAL_RAM=$(free -h | awk '/^Mem:/ {print $2}')
-          echo "- **Total RAM**: $TOTAL_RAM" >> $GITHUB_STEP_SUMMARY
-
+          CORES=$(nproc)
+          RAM=$(free -h | awk '/^Mem:/ {print $2}')
+          echo "- **CPU Model**: $MODEL ($CORES vCPUs)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total RAM**: $RAM" >> $GITHUB_STEP_SUMMARY
           FREE_DISK=$(df -h / | awk 'NR==2 {print $4}')
           echo "- **Free Disk Space**: $FREE_DISK" >> $GITHUB_STEP_SUMMARY
 
-          V3_SUPPORT=true
-          for flag in avx2 fma bmi1 bmi2; do
-            if [[ ! "$FLAGS" =~ "$flag" ]]; then
-              V3_SUPPORT=false
-              echo "⚠️ Warning: Missing CPU flag: $flag"
-            fi
-          done
+          # Docker & Buildx
+          DOCKER_VER=$(docker version --format '{{.Server.Version}}')
+          BUILDX_VER=$(docker buildx version | awk '{print $2}')
+          echo "- **Docker Server**: $DOCKER_VER" >> $GITHUB_STEP_SUMMARY
+          echo "- **Buildx**: $BUILDX_VER" >> $GITHUB_STEP_SUMMARY
 
-          if [ "$V3_SUPPORT" = "true" ]; then
-            echo "- **Architecture**: ✅ x86-64-v3 (Modern)" >> $GITHUB_STEP_SUMMARY
+          # Architecture Check
+          FLAGS=$(grep -m1 "flags" /proc/cpuinfo)
+          if [[ "$FLAGS" =~ "avx2" && "$FLAGS" =~ "fma" ]]; then
+            echo "- **Architecture**: ✅ x86-64-v3 ready" >> $GITHUB_STEP_SUMMARY
           else
             echo "- **Architecture**: ⚠️ Legacy" >> $GITHUB_STEP_SUMMARY
           fi
@@ -296,7 +294,7 @@ jobs:
           echo "FFmpeg source OK: $(cat .cache/ffmpeg/VERSION 2>/dev/null || echo 'version unknown')"
 
       - name: Inspect Dockerfile
-        run: head -n 30 Dockerfile
+        run: head -n 50 Dockerfile
 
       - name: Force Save Cache
         if: always()
@@ -307,11 +305,34 @@ jobs:
             .cache/ffmpeg
           key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
 
-      - name: Prepare and Build
+      - name: Build Components Stage
         uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile
+          target: components_build  # <--- Собираем только до библиотек
+          build-args: |
+            CPU_ARCH=${{ env.CPU_ARCH }}
+            CPU_TUNE=${{ env.CPU_TUNE }}
+            ONLY_STAGE=${{ env.ONLY_STAGE }}
+            FFBUILD_VERBOSE=${{ env.FFBUILD_VERBOSE }}
+            USE_WINE=${{ env.USE_WINE }}
+            DEDUPE_FLAGS=${{ env.DEDUPE_FLAGS }}
+            DEBUG_NO_HASH=${{ env.DEBUG_NO_HASH }}
+          # Пушим в GHCR, чтобы кэш не пропадал между запусками
+          push: true
+          tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
+          cache-from: type=gha,scope=ffmpeg-components
+          cache-to: type=gha,mode=max,scope=ffmpeg-components
+          build-contexts: |
+            base-win64=docker-image://${{ steps.images.outputs.target_base }}
+
+      - name: Final FFmpeg Compilation
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          # Здесь мы НЕ указываем target, чтобы Docker дошел до конца (artifacts)
           build-args: |
             CPU_ARCH=${{ env.CPU_ARCH }}
             CPU_TUNE=${{ env.CPU_TUNE }}
@@ -322,12 +343,14 @@ jobs:
             DEBUG_NO_HASH=${{ env.DEBUG_NO_HASH }}
           push: false
           tags: ffmpeg-final:local
-          cache-from: type=gha,scope=ffmpeg-build
-          cache-to: type=gha,mode=max,scope=ffmpeg-build
+          # Используем свежесобранный образ компонентов как контекст
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
+            components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
             ffmpeg_src=${{ github.workspace }}/.cache/ffmpeg
           outputs: type=local,dest=artifacts/
+          cache-from: type=gha,scope=ffmpeg-final
+          cache-to: type=gha,mode=max,scope=ffmpeg-final
           provenance: false
 
       - name: Cleanup Old Caches
