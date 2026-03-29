@@ -28,6 +28,8 @@ ffbuild_depends() {
     echo vulkan-loader
     echo shaderc
     echo spirv-cross
+    echo spirv-headers
+    echo libunibreak
     echo enable
     echo amf
     echo aom

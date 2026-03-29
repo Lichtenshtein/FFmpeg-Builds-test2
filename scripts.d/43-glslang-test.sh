@@ -3,6 +3,11 @@
 SCRIPT_REPO="https://github.com/KhronosGroup/glslang.git"
 SCRIPT_COMMIT="022de31e7ffa5230068858d9e6cd85ae11170bda"
 
+ffbuild_depends() {
+    echo vulkan-headers
+    echo vulkan-loader
+}
+
 ffbuild_enabled() {
     return 0
 }

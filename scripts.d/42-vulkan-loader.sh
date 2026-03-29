@@ -6,6 +6,10 @@ SCRIPT_COMMIT="65b3936528cd92eb4ea3de485d03f858a3850484"
 SCRIPT_REPO2="https://github.com/KhronosGroup/Vulkan-Headers.git"
 SCRIPT_COMMIT2="49f1a381e2aec33ef32adf4a377b5a39ec016ec4"
 
+ffbuild_depends() {
+    echo vulkan-headers
+}
+
 ffbuild_enabled() {
     return 0
 }

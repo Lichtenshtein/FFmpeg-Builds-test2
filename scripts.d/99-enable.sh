@@ -2,6 +2,15 @@
 
 SCRIPT_SKIP="1"
 
+ffbuild_depends() {
+    echo vulkan-headers
+    echo vulkan-loader
+    echo glslang-test
+    echo shaderc
+    echo spirv-cross
+    echo spirv-headers
+}
+
 ffbuild_enabled() {
     return 0
 }
@@ -21,6 +30,5 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    set -e
     return 0
 }
