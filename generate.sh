@@ -69,11 +69,11 @@ ENV_HASH=$(
         grep -E "^(export )?(CFLAGS|CXXFLAGS|LDFLAGS|CPPFLAGS|BASE_|SYSTEM_LIBS|CHOST|RUSTFLAGS|CPU_)" util/vars.sh
         echo "TARGET=$TARGET"
         echo "CPU_ARCH=$CPU_ARCH"
-    } | sed 's/#.*//' | xargs | sha256sum | cut -c1-8
+    } | sed 's/#.*//' | xargs | sha256sum | cut -c1-8 | tr -d '\n\r')
 )
 
 # Global Logic Hash: Changes if run_stage.sh or the internal functions of vars.sh change.
-LOGIC_HASH=$(sha256sum util/run_stage.sh util/vars.sh | cut -c1-8)
+LOGIC_HASH=$(sha256sum util/run_stage.sh util/vars.sh | sha256sum | cut -c1-8 | tr -d '\n\r')
 
 # Если поменяется ключевая переменная в vars.sh все последующие RUN НЕ пересоберутся
 if [[ "$DEBUG_NO_HASH" == "true" ]]; then
@@ -85,11 +85,12 @@ fi
 # Сборка и фильтрация активных скриптов
 mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" | sort)
 active_scripts=()
+[[ -n "$ONLY_STAGE" ]] && log_info "${XCLAM_MARK} Filtering stages by pattern: $ONLY_STAGE"
 for STAGE in "${SCRIPTS[@]}"; do
     # Проверка на принудительное отключение внутри скрипта
     grep -q 'ffbuild_enabled.*return 1' "$STAGE" 2>/dev/null && continue
     # Фильтрация по регулярному выражению ONLY_STAGE
-    if [[ -n "$ONLY_STAGE" ]] && log_info "${XCLAM_MARK} Filtering stages by pattern: $ONLY_STAGE" && [[ ! "$STAGE" =~ $ONLY_STAGE ]]; then continue; fi
+    if [[ -n "$ONLY_STAGE" ]] && [[ ! "$STAGE" =~ $ONLY_STAGE ]]; then continue; fi
     active_scripts+=("$STAGE")
 done
 
