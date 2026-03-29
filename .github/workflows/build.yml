@@ -58,7 +58,7 @@ on:
       verbosity:
         description: 'Log Verbosity (2: Full, 0: Quiet)'
         required: false
-        default: '2'
+        default: '1'
       skip_ffmpeg:
         description: 'Skip final FFmpeg compilation (Component test only)'
         type: boolean

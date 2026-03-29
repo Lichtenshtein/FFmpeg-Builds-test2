@@ -77,7 +77,7 @@ for STAGE in "${SCRIPTS[@]}"; do
 done
 
 if [[ -n "$ONLY_STAGE" ]]; then
-    log_info "Filtering stages by pattern: $ONLY_STAGE"
+    log_info "${XCLAM_MARK} Filtering stages by pattern: $ONLY_STAGE"
     mapfile -t active_scripts < <(printf '%s\n' "${active_scripts[@]}" | grep -E "$ONLY_STAGE")
 fi
 
