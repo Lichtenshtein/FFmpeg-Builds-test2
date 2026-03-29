@@ -1,7 +1,5 @@
 #!/bin/bash
 
-source util/vars.sh
-
 package_variant() {
     IN="$1"
     OUT="$2"

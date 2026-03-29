@@ -97,6 +97,8 @@ export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 
 BASE_CFLAGS="-mms-bitfields -fstack-protector-strong"
 BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
+# STAGE_CFLAGS="-fno-semantic-interposition"
+# STAGE_CXXFLAGS="-fno-semantic-interposition"
 SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
 ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lnormaliz"
 
@@ -106,6 +108,7 @@ export CPPFLAGS="-I/opt/ffbuild/include $BASE_CPPFLAGS"
 export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=gnu++17"
 export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
+export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH}"
 # Очистка флага, специфичного для Linux ELF
 if [[ "$TARGET" == *"win"* ]]; then
     # бесполезно при сборке под Windows и ломает OpenSSL asm вместе с std=c11
