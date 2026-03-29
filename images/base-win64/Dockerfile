@@ -34,13 +34,7 @@ ENV \
     CPU_ARCH="${CPU_ARCH}" \
     CPU_TUNE="${CPU_TUNE}"
 
-RUN set -e; \
-    echo "--- Runtime check for CPU instructions support ---" && \
-    if ! grep -q "avx2" /proc/cpuinfo || ! grep -q "fma" /proc/cpuinfo || \
-       ! grep -q "bmi1" /proc/cpuinfo || ! grep -q "bmi2" /proc/cpuinfo; then \
-         echo "ERROR: Host CPU does not support x86-64-v3"; exit 1; \
-    fi; \
-    \
+RUN \
     echo "--- Setup Directories ---" && \
     mkdir -p /opt/ffbuild /opt/ffdest && \
     \
@@ -92,9 +86,7 @@ ENV \
     \
     CFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong" \
     CXXFLAGS="-I/opt/ffbuild/include -march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe -D_FORTIFY_SOURCE=2 -fstack-protector-strong" \
-    LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe" \
-    STAGE_CFLAGS="-fno-semantic-interposition" \
-    STAGE_CXXFLAGS="-fno-semantic-interposition"
+    LDFLAGS="-static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe"
 
 ENV \
     CHOST="x86_64-w64-mingw32" \
