@@ -5,6 +5,9 @@ ARG TARGETPLATFORM
 
 ENV DEBIAN_FRONTEND=noninteractive
 RUN \
+    --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt,sharing=locked \
+    --mount=type=cache,target=/root/.cache/pip \
     apt-get -y update && \
     apt-get -y dist-upgrade && \
     apt-get -y install --no-install-recommends \
@@ -25,7 +28,7 @@ RUN \
     update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-14 100 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100 && \
     update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-14 100 && \
-    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
+    curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
     apt-get -y install nodejs && \
     npm cache clean --force && \
     npm install -g @napi-ffi/ffi-napi && \
