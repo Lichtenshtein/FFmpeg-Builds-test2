@@ -1,11 +1,13 @@
 #!/bin/bash
 
+source util/vars.sh
+
 package_variant() {
     IN="$1"
     OUT="$2"
 
     mkdir -p "$OUT/bin"
-    if [[ -d "$IN/bin" ]] && compgen -G "$IN/bin/*" > /dev/null; then
+    if [[ -d "$IN/bin" ]] && compgen -G "$IN/bin/*" > /dev/null 2>&1; then
         cp "$IN"/bin/* "$OUT"/bin
     else
         log_warn "No files in $IN/bin to copy"
@@ -13,7 +15,7 @@ package_variant() {
 
     if [[ -d "$IN/share/doc/ffmpeg" ]]; then
         mkdir -p "$OUT/doc"
-        cp -r "$IN"/share/doc/ffmpeg/* "$OUT"/doc
+        cp -r "$IN"/share/doc/ffmpeg/* "$OUT"/doc 2>/dev/null || true
     else
         log_warn "No doc directory found at $IN/share/doc/ffmpeg"
     fi
@@ -22,6 +24,6 @@ package_variant() {
         mkdir -p "$OUT/presets"
         cp "$IN"/share/ffmpeg/*.ffpreset "$OUT"/presets
     else
-        log_warn "No .ffpreset files found in $IN/share/ffmpeg"
+        log_info "Note: No .ffpreset files found (normal for some builds)."
     fi
 }
