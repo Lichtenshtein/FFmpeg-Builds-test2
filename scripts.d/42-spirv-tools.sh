@@ -13,6 +13,19 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    # Удаляем генерацию и установку shared.pc
+    sed -i '/add_custom_command(OUTPUT.*SPIRV-Tools-shared.pc/,/DEPENDS.*SPIRV-Tools-shared.pc.in/d' CMakeLists.txt
+    sed -i 's/DEPENDS.*SPIRV-Tools-shared.pc/DEPENDS/g' CMakeLists.txt
+    sed -i '/SPIRV-Tools-shared.pc/d' CMakeLists.txt
+
+    # запрещаем экспорт цели SPIRV-Tools-shared в CMake-конфиги
+    # Ищем строки установки и вырезаем те, что относятся к shared
+    sed -i '/SPIRV-Tools-shared/d' source/CMakeLists.txt
+
+    # Отключаем само создание shared библиотеки в основном файле, если оно там есть
+    sed -i '/add_library(SPIRV-Tools-shared/d' source/CMakeLists.txt
+
     mkdir build && cd build
 
     local myconf=(
@@ -40,17 +53,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # "Ослепляем" CMake-конфиги: удаляем из них импорт целей -shared
-    # Это предотвратит ошибку "references the file ... but this file does not exist"
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake" -name "*Target.cmake" -exec \
-        sed -i '/add_library(SPIRV-Tools-shared/,/)/d' {} +
-
-    # Дополнительно чистим ссылки в файлах конфигурации компонентов
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake" -name "*Targets-release.cmake" -exec \
-        sed -i '/SPIRV-Tools-shared/d' {} +
-
     # Удаляем ненужный .pc файл
-    rm -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/SPIRV-Tools-shared.pc"
+    rm -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/SPIRV-Tools-shared.pc" || true
 
 }
 
