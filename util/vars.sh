@@ -602,6 +602,7 @@ export -f check_and_fix_configure
 
 # .la files, dependancies and .pc files auditing
 # add ffbuild_dockerbuild() { export SKIP_POST_PATCH=1 } to disable
+export SKIP_PRE_PATCH=0
 export SKIP_POST_PATCH=0
 export SKIP_POST_CLEAN=0
 export SKIP_POST_AUDIT=0

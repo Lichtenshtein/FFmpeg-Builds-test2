@@ -6,6 +6,10 @@ SCRIPT_COMMIT="65b3936528cd92eb4ea3de485d03f858a3850484"
 SCRIPT_REPO2="https://github.com/KhronosGroup/Vulkan-Headers.git"
 SCRIPT_COMMIT2="49f1a381e2aec33ef32adf4a377b5a39ec016ec4"
 
+# original loader
+# SCRIPT_REPO3="https://github.com/KhronosGroup/Vulkan-Loader.git"
+# SCRIPT_COMMIT3="1a588f1982c14309873f2a86a60cfbfe5fb249f8"
+
 ffbuild_depends() {
     echo vulkan-headers
 }
@@ -17,16 +21,14 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
     SCRIPT_BRANCH="" # Сбрасываем, чтобы не мешала первой загрузке
-    echo "git-mini-clone \"$SCRIPT_REPO2\" \"$SCRIPT_COMMIT2\" external/Vulkan-Headers"
+    echo "git-mini-clone \"$SCRIPT_REPO2\" \"$SCRIPT_COMMIT2\" Vulkan-Headers"
 }
 
 ffbuild_dockerbuild() {
     set -e
-    # Сначала копируем заголовки в префикс, чтобы лоадер и другие (libplacebo) их видели
-    mkdir -p "$FFBUILD_DESTPREFIX"/include
-    cp -r Vulkan-Headers/include/* "$FFBUILD_DESTPREFIX"/include/
-    mkdir -p "$FFBUILD_DESTPREFIX"/share/vulkan/registry
-    cp Vulkan-Headers/registry/vk.xml "$FFBUILD_DESTPREFIX"/share/vulkan/registry/
+
+    # patches will not apply due to folder contains patches for original loader
+    export SKIP_PRE_PATCH=1
 
     mkdir build && cd build
 
