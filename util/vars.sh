@@ -632,5 +632,46 @@ if [ -d "/opt/ct-ng" ]; then
     fi
 fi
 
+# Определяем режим работы Wine (берем из ENV или ставим auto по умолчанию)
+USE_WINE="${USE_WINE:-auto}"
+setup_wine_env() {
+    # Сохраняем текущее состояние set -e
+    local errexit_state=$([[ $- =~ e ]] && echo "set -e" || echo "set +e")
+    set +e # Временно отключаем остановку при ошибках
+    # Если Wine принудительно выключен выходим сразу
+    if [[ "$USE_WINE" == "off" ]]; then
+        eval "$errexit_state"; return 0
+    fi
+
+    if [[ "$USE_WINE" == "auto" ]]; then
+        # Ищем только специфичные команды:
+        # 1. meson test / ctest / make check - запуск встроенных тестов
+        # 2. wine [пробел] - явный запуск через wine
+        # 3. ./[что-то].exe - прямой запуск виндового бинарника
+        if ! grep -qE "meson test|ctest|make check|make test|wine |\.\/.*\.exe" "$SCRIPT_PATH"; then
+            log_debug "Wine: skipped (no execution patterns in $STAGENAME)"
+            eval "$errexit_state"; return 0
+        fi
+    fi
+
+    # Запускаем виртуальный дисплей в фоне, если его еще нет
+    if ! pgrep -x "Xvfb" > /dev/null; then
+        log_info "${START_MARK} Initializing background Xvfb for Wine tests..."
+        # Запуск на дисплее 99 без xvfb-run (меньше оверхед)
+        ( Xvfb :99 -screen 0 1024x768x16 >/dev/null 2>&1 & )
+        local retry=0
+        while [ $retry -lt 15 ]; do
+            if DISPLAY=:99 xset -q >/dev/null 2>&1; then break; fi
+            sleep 0.2
+            ((retry++))
+        done
+    fi
+    export DISPLAY=:99
+    # Быстрый "прогрев" сервера Wine, чтобы последующие вызовы не ждали инициализации (чтобы первый вызов в скрипте не тормозил)
+    ( wineboot -u >/dev/null 2>&1 & )
+    eval "$errexit_state"
+}
+export -f setup_wine_env
+
 # экспорт важных переменных MinGW, чтобы они пробрасывались в download.sh и run_stage.sh:
 export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE
