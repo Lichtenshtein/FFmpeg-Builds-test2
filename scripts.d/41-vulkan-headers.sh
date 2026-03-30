@@ -13,6 +13,13 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    # копируем заголовки в префикс, чтобы лоадер и другие (libplacebo) их видели
+    mkdir -p "$FFBUILD_DESTPREFIX"/include
+    cp -r Vulkan-Headers/include/* "$FFBUILD_DESTPREFIX"/include/
+    mkdir -p "$FFBUILD_DESTPREFIX"/share/vulkan/registry
+    cp Vulkan-Headers/registry/vk.xml "$FFBUILD_DESTPREFIX"/share/vulkan/registry/
+
     mkdir build && cd build
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
@@ -20,7 +27,6 @@ ffbuild_dockerbuild() {
     LDFLAGS="$LDFLAGS" \
     cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DVULKAN_HEADERS_ENABLE_MODULE=NO \
         -DVULKAN_HEADERS_ENABLE_TESTS=NO \

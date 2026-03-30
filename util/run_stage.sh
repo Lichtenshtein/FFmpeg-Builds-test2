@@ -120,12 +120,16 @@ if [[ -n "$DL_COMMANDS" ]]; then
     fi
 
     # АВТО-ПАТЧИНГ
-    log_info "${TARGET_MARK} Checking for patches..."
-    COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
-    if [[ -d "/builder/patches/$COMPONENT_NAME" ]]; then
-        apply_patches 
+    if [[ "$SKIP_PRE_PATCH" == "0" ]]; then
+        log_info "${TARGET_MARK} Checking for patches..."
+        COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
+        if [[ -d "/builder/patches/$COMPONENT_NAME" ]]; then
+            apply_patches 
+        else
+            log_debug "No patches directory found for $COMPONENT_NAME"
+        fi
     else
-        log_debug "No patches directory found for $COMPONENT_NAME"
+        log_info "Skipping patches for $COMPONENT_NAME"
     fi
 
     # Поиск корня проекта (если архив распаковался в подпапку)
@@ -414,13 +418,13 @@ log_info "Saving build variables for $STAGENAME..."
     fi
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-    [[ -n "$FF_CONFIGURE" ]] && log_debug "Final $STAGENAME FF_CONFIGURE: $FF_CONFIGURE"
-    [[ -n "$FF_CFLAGS" ]]    && log_debug "Final $STAGENAME FF_CFLAGS: $FF_CFLAGS"
-    [[ -n "$FF_CPPFLAGS" ]]  && log_debug "Final $STAGENAME FF_CPPFLAGS: $FF_CPPFLAGS"
-    [[ -n "$FF_CXXFLAGS" ]]  && log_debug "Final $STAGENAME FF_CXXFLAGS: $FF_CXXFLAGS"
-    [[ -n "$FF_LDFLAGS" ]]   && log_debug "Final $STAGENAME FF_LDFLAGS: $FF_LDFLAGS"
-    [[ -n "$FF_LDXEFLAGS" ]] && log_debug "Final $STAGENAME FF_LDXEFLAGS: $FF_LDXEFLAGS"
-    [[ -n "$FF_LIBS" ]]      && log_debug "Final $STAGENAME FF_LIBS: $FF_LIBS"
+    [[ -n "$FF_CONFIGURE" ]] && log_debug "Final $STAGENAME FF_CONFIGURE:\n$FF_CONFIGURE"
+    [[ -n "$FF_CFLAGS" ]]    && log_debug "Final $STAGENAME FF_CFLAGS:\n$FF_CFLAGS"
+    [[ -n "$FF_CPPFLAGS" ]]  && log_debug "Final $STAGENAME FF_CPPFLAGS:\n$FF_CPPFLAGS"
+    [[ -n "$FF_CXXFLAGS" ]]  && log_debug "Final $STAGENAME FF_CXXFLAGS:\n$FF_CXXFLAGS"
+    [[ -n "$FF_LDFLAGS" ]]   && log_debug "Final $STAGENAME FF_LDFLAGS:\n$FF_LDFLAGS"
+    [[ -n "$FF_LDXEFLAGS" ]] && log_debug "Final $STAGENAME FF_LDXEFLAGS:\n$FF_LDXEFLAGS"
+    [[ -n "$FF_LIBS" ]]      && log_debug "Final $STAGENAME FF_LIBS:\n$FF_LIBS"
 fi
 )
 
