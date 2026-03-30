@@ -18,14 +18,13 @@ ffbuild_enabled() {
 ffbuild_dockerbuild() {
     mkdir build && cd build
 
+    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    LDFLAGS="$LDFLAGS" \
     cmake -G Ninja \
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -Dc_args="$CFLAGS $CPPFLAGS" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
-        -Dc_link_args="$LDFLAGS" \
-        -Dcpp_link_args="$LDFLAGS $LIBS" \
         -DSPIRV_HEADERS_ENABLE_TESTS=OFF \
         -DSPIRV_HEADERS_ENABLE_INSTALL=ON .. || return 1
 

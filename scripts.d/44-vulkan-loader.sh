@@ -10,6 +10,9 @@ SCRIPT_COMMIT2="49f1a381e2aec33ef32adf4a377b5a39ec016ec4"
 # SCRIPT_REPO3="https://github.com/KhronosGroup/Vulkan-Loader.git"
 # SCRIPT_COMMIT3="1a588f1982c14309873f2a86a60cfbfe5fb249f8"
 
+# patches will not apply due to folder contains patches for original loader
+export SKIP_PRE_PATCH=1
+
 ffbuild_depends() {
     echo vulkan-headers
 }
@@ -26,9 +29,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-
-    # patches will not apply due to folder contains patches for original loader
-    export SKIP_PRE_PATCH=1
 
     mkdir build && cd build
 

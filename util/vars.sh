@@ -242,7 +242,7 @@ patch_pc_files() {
         log_debug "Fixing paths in $pc"
 
         # Capitalisation fixes
-        sed -i $sl 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g' "$pc"
+        sed -i $sl 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g; s/-lpthread/-pthread/g' "$pc"
         # Remove -lrt (Linux-only, not on Windows)
         sed -i $sl 's/ -lrt\b//g' "$pc"
 
