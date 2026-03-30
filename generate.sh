@@ -18,7 +18,7 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
 
 [[ "$USE_LTO" == "1" ]] && log_info "${XCLAM_MARK} LTO is enabled!"
 [[ "$USE_AVX512" == "1" ]] && log_info "${XCLAM_MARK} AVX512 is enabled!"
-[[ "$SKIP_FFMPEG" == "1" ]] && log_info "${XCLAM_MARK} Component test mode activated. FFmpeg compilation will be skipped."
+[[ "$SKIP_FFMPEG" == "1" ]] && log_info "${XCLAM_MARK} Component test mode activated! FFmpeg compilation will be skipped."
 [[ "$SAFE_CONFIGURE" == "1" ]] && log_info "${XCLAM_MARK} Safe FFmpeg flags configuration is enabled!"
 [[ "$FFMPEG_PATCHES" == "1" ]] && log_info "${XCLAM_MARK} FFmpeg custom patches are activated!"
 [[ "$DEDUPE_FLAGS" == "1" ]] && log_info "${XCLAM_MARK} Extended flags deduplication is enabled!"
@@ -142,7 +142,6 @@ to_df "COPY util ./util"
 to_df "COPY variants ./variants"
 
 if [[ $SKIP_FFMPEG -eq 1 ]]; then
-    log_info "${XCLAM_MARK} SKIP_FFMPEG=${SKIP_FFMPEG}; FFmpeg build stage will be skipped."
     # Создаем пустой файл в artifacts, чтобы экшн загрузки не падал
     to_df "RUN mkdir -p /opt/ffdest && touch /opt/ffdest/COMPONENTS_BUILD_SUCCESS"
 else
