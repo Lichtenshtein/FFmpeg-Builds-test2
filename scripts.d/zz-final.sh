@@ -15,6 +15,7 @@ ffbuild_depends() {
     echo harfbuzz
     echo xz
     # echo lcevcdec
+    echo spirv-tools
     echo gavl
     echo lcevcdec-test
     echo libvorbis
