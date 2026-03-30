@@ -219,10 +219,10 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
             done
         else
             if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-                log_warn "${DIRS_MARK} No logs found. Listing all files in current directory:"
+                log_warn "${DIRS_MARK} No logs were found. Listing all files in current directory:"
               ls -R
             else
-                log_warn "${DIRS_MARK} No logs found."
+                log_warn "${XCLAM_MARK} No logs were found."
             fi
         fi
         exit 1
