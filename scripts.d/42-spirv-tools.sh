@@ -39,11 +39,18 @@ ffbuild_dockerbuild() {
     cmake "${myconf[@]}" .. || return 1
     make -j$(nproc) || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
-    
-    # Генерация .pc файла для SPIRV-Tools (часто нужен для других либ)
-    # Обычно он создается сам, наличие в $FFBUILD_PREFIX/lib/pkgconfig/
 
-    rm -rf "${PC_DIR}"/SPIRV-Tools-shared.pc
+    # "Ослепляем" CMake-конфиги: удаляем из них импорт целей -shared
+    # Это предотвратит ошибку "references the file ... but this file does not exist"
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake" -name "*Target.cmake" -exec \
+        sed -i '/add_library(SPIRV-Tools-shared/,/)/d' {} +
+
+    # Дополнительно чистим ссылки в файлах конфигурации компонентов
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake" -name "*Targets-release.cmake" -exec \
+        sed -i '/SPIRV-Tools-shared/d' {} +
+
+    # Удаляем ненужный .pc файл
+    rm -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/SPIRV-Tools-shared.pc"
 
 }
 
