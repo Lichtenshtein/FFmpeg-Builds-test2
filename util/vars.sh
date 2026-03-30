@@ -395,7 +395,7 @@ export -f patch_pc_files
 
 get_deps_list() {
     set +o pipefail 
-    if [[ "$FFBUILD_VERBOSE" != "1" ]]; then
+    if [[ "${FFBUILD_VERBOSE:-0}" -lt 1 ]]; then
         return 0
     fi
     local name="${STAGENAME:-${0##*/}}"
@@ -403,9 +403,7 @@ get_deps_list() {
     local bin_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
     local sys_libs="libc\.so|libm\.so|libdl\.so|librt\.so|libpthread\.so|libgcc_s\.so|libstdc\+\+\.so|ld-linux|libresolv\.so|libutil\.so"
 
-    log_info "################################################################"
-    log_debug "Showing dependencies for: $name"
-
+    # Поиск pkg-config
     if [[ -d "$lib_dir/pkgconfig" ]]; then
         find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
             pc_file="$1"
@@ -416,12 +414,11 @@ get_deps_list() {
             export PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR:$current_pc_dir"
             export PKG_CONFIG_SYSROOT_DIR="/"
 
-            printf "\n%b %s\n" "$xclam_mark" "$pc_file"
-            cat "$pc_file"
-            printf "\n%b DEPS for %s:\n" "$search_mark" "${pc_file##*/}"
-
             deps=$($pkg_config_cmd --print-requires --print-requires-private "$pc_file" 2>/dev/null || true)
             if [[ -n "$deps" ]]; then
+                printf "\n%b %s\n" "$xclam_mark" "$pc_file"
+                cat "$pc_file"
+                printf "\n%b DEPS for %s:\n" "$search_mark" "${pc_file##*/}"
                 echo "$deps"
                 while IFS= read -r pkg_line; do
                     pkg_name=$(echo "$pkg_line" | awk "{print \$1}")
@@ -433,8 +430,9 @@ get_deps_list() {
             else
                 echo "No dependencies found."
             fi
-        ' _ {} "${PKG_CONFIG:-pkg-config}" "$XCLAM_MARK" "$SEARCH_MARK" "$lib_dir/pkgconfig" \; || true
+        ' _ {} "${PKG_CONFIG:-pkg-config}" "$XCLAM_MARK" "$SEARCH_MARK" "$lib_dir/pkgconfig" >> "$tmp_out" 2>/dev/null || true
     fi
+    # Поиск динамических библиотек (readelf)
     find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) -print0 2>/dev/null | \
     xargs -0 -r -I{} bash -c '
         file="$1"; shift
@@ -449,28 +447,43 @@ get_deps_list() {
                 printf "\n%b NEEDED LIBRARIES for %s:\n%s\n" "$xclam_mark" "$file" "$clean_deps"
             fi
         fi
-    ' _ {} "$FFBUILD_TOOLCHAIN" "$sys_libs" "$XCLAM_MARK" || true
+    ' _ {} "$FFBUILD_TOOLCHAIN" "$sys_libs" "$XCLAM_MARK" >> "$tmp_out" 2>/dev/null || true
+    # Поиск внешних символов в статике (nm) с фильтрацией системных вызовов
     find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
     xargs -0 -r -I{} bash -c '
-        file="$1"; shift
-        toolchain_prefix="$1"; shift
-        xclam_mark="$1"; shift
+        file="$1"; toolchain_prefix="$2"; xclam_mark="$3"; sys_libs_regex="$4"
+        raw_symbols=$("${toolchain_prefix}-nm" -u "$file" 2>/dev/null)
+        if [[ -n "$raw_symbols" ]]; then
+            clean_symbols=$(echo "$raw_symbols" | \
+                awk "!/^[[:space:]]*$/ && !/@@/ && !/__imp_/" | \
+                grep -Ev "($sys_libs_regex)" | \
+                sort -u | head -n 10)
+            if [[ -n "$clean_symbols" ]]; then
+                printf "\n%b EXTERNAL SYMBOLS (TOP 10) in %s:\n%s\n" "$xclam_mark" "$file" "$clean_symbols"
+            fi
+        fi
+    ' _ {} "$FFBUILD_TOOLCHAIN" "$XCLAM_MARK" "$sys_libs" >> "$tmp_out" 2>/dev/null || true
+    # Проверка RPATH
+    find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | \
+    xargs -0 -r -I{} bash -c '
+        if "${FFBUILD_TOOLCHAIN}-readelf" -h "$1" &>/dev/null; then
+            rpath=$("${FFBUILD_TOOLCHAIN}-objdump" -p "$1" 2>/dev/null | awk "/RPATH|RUNPATH/ {print}")
+            if [[ -n "$rpath" ]]; then
+                printf "\n%b RPATH/RUNPATH for %s:\n%s\n" "$XCLAM_MARK" "$1" "$rpath"
+            fi
+        fi
+    ' _ {} >> "$tmp_out" 2>/dev/null || true
 
-        if "${toolchain_prefix}-nm" -u "$file" &>/dev/null; then
-            printf "\n%b EXTERNAL SYMBOLS (TOP 10) in %s:\n" "$xclam_mark" "$file"
-            # Using double backslash for awk to escape $ inside single-quoted bash -c
-            "${toolchain_prefix}-nm" -u "$file" 2>/dev/null | \
-            awk "!/^[[:space:]]*$/ && !/@@/ && !/__imp_/" | sort -u | head -n 10
-        fi
-    ' _ {} "$FFBUILD_TOOLCHAIN" "$XCLAM_MARK" || true
-    { find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | xargs -0 -r -I{} bash -c "
-        set +o pipefail
-        if \"\${FFBUILD_TOOLCHAIN}-readelf\" -h \"\$1\" &>/dev/null; then
-            log_debug \"\n\$XCLAM_MARK RPATH/RUNPATH for \$1:\"
-            \"\${FFBUILD_TOOLCHAIN}-objdump\" -p \"\$1\" 2>/dev/null | awk '/RPATH|RUNPATH/ {print}' || true
-        fi
-        exit 0
-    " _ {} ; } || true
+    # Финальное условие вывода
+    log_info "################################################################"
+    if [[ -s "$tmp_out" ]]; then
+        log_debug "Showing dependencies for: $name"
+        cat "$tmp_out"
+    else
+        log_info "No dependencies found for $name (meta/header-only component)."
+    fi
+
+    rm -f "$tmp_out"
 }
 export -f get_deps_list
 
