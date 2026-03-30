@@ -475,7 +475,6 @@ get_deps_list() {
     ' _ {} >> "$tmp_out" 2>/dev/null || true
 
     # Финальное условие вывода
-    log_info "################################################################"
     if [[ -s "$tmp_out" ]]; then
         log_debug "Showing dependencies for: $name"
         cat "$tmp_out"
@@ -490,14 +489,14 @@ export -f get_deps_list
 clean_la_files() {
     local target_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX"
     [[ ! -d "$target_dir" ]] && return 0
-    log_debug "${BROOM_MARK} Cleaning up libtool archives (.la) in $target_dir"
+    log_info "${BROOM_MARK} Cleaning up libtool archives (.la) in $target_dir"
     local la_files=$(find "$target_dir" -name "*.la" \( -type f -o -type l \) 2>/dev/null)
     if [[ -n "$la_files" ]]; then
         local count=$(echo "$la_files" | wc -l)
         echo "$la_files" | xargs rm -f 2>/dev/null
         log_info "${CHECK_MARK} Removed $count .la files (including symlinks) from prefix."
     else
-        log_debug "${CHECK_MARK} No .la files found to clean."
+        log_info "${CHECK_MARK} No .la files found to clean."
     fi
 }
 export -f clean_la_files
