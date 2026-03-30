@@ -14,21 +14,20 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Принудительно отключаем сборку shared библиотек на уровне кода
-    # Это предотвратит создание целей SPIRV-Tools-shared
-    sed -i 's/SPIRV_TOOLS_BUILD_STATIC ON/SPIRV_TOOLS_BUILD_STATIC ON/g' CMakeLists.txt
-    sed -i '/add_library(${SPIRV_TOOLS}-shared SHARED/i return()' source/CMakeLists.txt 2>/dev/null || true
-    
-    # Вырезаем упоминание shared из установки pkg-config (безопасный строчный поиск)
-    sed -i '/SPIRV-Tools-shared.pc/d' CMakeLists.txt
-    
-    # Убираем зависимость таргета pkg-config от shared версии
-    sed -i 's/${CMAKE_CURRENT_BINARY_DIR}\/SPIRV-Tools-shared.pc//g' CMakeLists.txt
+    # Заменяем упоминание shared.pc на обычный .pc во всех DEPENDS и установках
+    # Это сохранит синтаксис скобок, но заставит CMake делать одно и то же дважды
+    sed -i 's/SPIRV-Tools-shared.pc/SPIRV-Tools.pc/g' CMakeLists.txt
 
-    # Отключаем экспорт shared целей, чтобы они не попали в .cmake конфиги
-    # Мы просто комментируем строки установки, содержащие "-shared"
-    find . -name "CMakeLists.txt" -exec sed -i 's/.*${SPIRV_TOOLS}-shared.*/# \0/g' {} +
-    find . -name "CMakeLists.txt" -exec sed -i 's/.*SPIRV-Tools-shared.*/# \0/g' {} +
+    # Ослепляем установку целей shared в source/CMakeLists.txt
+    # Просто комментируем строки, где есть упоминание shared библиотек
+    if [ -f "source/CMakeLists.txt" ]; then
+        sed -i 's/.*-shared.*/# \0/g' source/CMakeLists.txt
+    fi
+
+    # Убираем экспорт shared целей из основного конфига (чтобы не ломать glslang)
+    # Заменяем имя цели на статическую, чтобы не было ошибки "target not found"
+    find . -name "*.cmake" -exec sed -i 's/SPIRV-Tools-shared/SPIRV-Tools/g' {} +
+    find . -name "CMakeLists.txt" -exec sed -i 's/SPIRV-Tools-shared/SPIRV-Tools/g' {} +
 
     mkdir build && cd build
 
