@@ -28,10 +28,9 @@ if [[ ! -d "$CACHE_DIR" ]]; then
 fi
 
 log_info "${BROOM_MARK} Starting smart cleanup in $CACHE_DIR..."
-log_info "CLEAN_INACTIVE=${CLEAN_INACTIVE}, ONLY_STAGE=${ONLY_STAGE:-(all)}"
+[[ "$CLEAN_INACTIVE" == "1" ]] && log_info "${XCLAM_MARK} Source cache clearing for inactive components is enabled!" || log_info "${XCLAM_MARK} Source cache clearing for inactive components is not active." 
 
 # Build the protected-files list
-
 RAW_KEEP_LIST=$(mktemp)
 FINAL_KEEP_LIST=$(mktemp)
 trap 'rm -f "$RAW_KEEP_LIST" "$FINAL_KEEP_LIST"' EXIT

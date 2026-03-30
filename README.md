@@ -206,5 +206,5 @@ All of those can be optionally combined with any combination of addins:
 
 * `frei0r`
 ```
-12-libicu|13-libiconv|14-gettext|15-freetype|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|27-libwebp|34-cairo|35-harfbuzz|40-freetype|41-lcms2|41-opengl-test|44-gavl|45-opencl|45-openvino-test|46-libjxl|46-opencv-test|47-frei0r
+12-libicu|13-libiconv|14-gettext|15-freetype|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|27-libwebp|34-cairo|35-harfbuzz|40-freetype|41-lcms2|41-vulkan-headers|42-vulkan-loader|43-glslang-test|43-shaderc|43-spirv-cross|43-spirv-headers|44-gavl|45-opencl|45-openvino-test|46-libjxl|46-opencv-test|47-frei0r
 ```

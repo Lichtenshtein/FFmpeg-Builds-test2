@@ -80,6 +80,7 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
+    LIBS="$LIBS $ADDITIONAL_LIBS" \
     cmake "${mycmake[@]}" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1

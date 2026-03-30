@@ -169,7 +169,7 @@ pushd ffbuild/ffmpeg
 
 if [[ "$FFMPEG_PATCHES" == "1" ]]; then
     log_info "################################################################"
-    log_info "${XCLAM_MARK} FFMPEG_PATCHES=${FFMPEG_PATCHES}; Looking for FFmpeg patches..."
+    log_info "${XCLAM_MARK} Looking for FFmpeg patches..."
     # Патчи ищем по имени ветки, пришедшей из ENV
     if [[ -d "/builder/patches/ffmpeg/$FFMPEG_BRANCH" ]]; then
         # git reset --hard HEAD 2>/dev/null || true
@@ -191,7 +191,7 @@ log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
 # Удаляем пустые папки или старые логи, если они остались
 find /opt/ffbuild -type d -empty -delete || true
 
-[[ "$DEDUPE_FLAGS" == "1" ]] && log_info "${BROOM_MARK} DEDUPE_FLAGS='$DEDUPE_FLAGS'; Deduplicating ALL flags..."
+[[ "$DEDUPE_FLAGS" == "1" ]] && log_info "${BROOM_MARK} Deduplicating ALL flags..."
 
 # Подготовка ФИНАЛЬНЫХ флагов (Dedupe + Combine)
 # объединяем базовые флаги из vars.sh и накопленные из компонентов
@@ -310,6 +310,7 @@ CONF_FLAGS=(
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
+    --enable-opengl
     --enable-pic
     --enable-static
     --disable-shared
