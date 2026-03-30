@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
         -DENABLE_SPIRV=ON
         -DENABLE_GLSLANG_JS=OFF
         -DENABLE_RTTI=ON
-        -DENABLE_OPT=ON # оптимизатор, который требует SPIRV-Tools
+        -DENABLE_OPT=OFF # оптимизатор, который требует SPIRV-Tools
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
