@@ -313,6 +313,7 @@ CONF_FLAGS=(
     --enable-pic
     --enable-static
     --disable-shared
+    --disable-debug
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
 )
 
