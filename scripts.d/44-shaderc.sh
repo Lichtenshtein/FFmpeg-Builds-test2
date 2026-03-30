@@ -24,6 +24,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
+        -Dglslang_SOURCE_DIR="$FFBUILD_PREFIX" \
         -DBUILD_SHARED_LIBS=OFF \
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
         -DENABLE_EXCEPTIONS=ON \
@@ -67,6 +68,7 @@ ffbuild_dockerbuild() {
     cmake -GNinja \
         -DBUILD_SHARED_LIBS=OFF \
         -DCMAKE_BUILD_TYPE=Release \
+        -Dglslang_SOURCE_DIR="$FFBUILD_PREFIX" \
         -DENABLE_EXCEPTIONS=ON \
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
         -DGLSLANG_ENABLE_INSTALL=ON \
