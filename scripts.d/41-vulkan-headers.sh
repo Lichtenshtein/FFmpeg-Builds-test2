@@ -16,9 +16,9 @@ ffbuild_dockerbuild() {
 
     # копируем заголовки в префикс, чтобы лоадер и другие (libplacebo) их видели
     mkdir -p "$FFBUILD_DESTPREFIX"/include
-    cp -r Vulkan-Headers/include/* "$FFBUILD_DESTPREFIX"/include/
+    cp -r include/* "$FFBUILD_DESTPREFIX"/include/
     mkdir -p "$FFBUILD_DESTPREFIX"/share/vulkan/registry
-    cp Vulkan-Headers/registry/vk.xml "$FFBUILD_DESTPREFIX"/share/vulkan/registry/
+    cp registry/vk.xml "$FFBUILD_DESTPREFIX"/share/vulkan/registry/
 
     mkdir build && cd build
 
