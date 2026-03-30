@@ -30,6 +30,7 @@ ffbuild_dockerbuild() {
         -DGLSLANG_TESTS=OFF
         -DGLSLANG_ENABLE_INSTALL=ON
         -DENABLE_GLSLANG_BINARIES=OFF
+        -DENABLE_HLSL=ON
         -DENABLE_PCH=OFF # Enables Precompiled header; try ON
         -DENABLE_SPIRV=ON
         -DENABLE_GLSLANG_JS=OFF
