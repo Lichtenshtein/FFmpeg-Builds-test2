@@ -180,7 +180,7 @@ export CPPFLAGS="$(echo ${CPPFLAGS} $STAGE_CPPFLAGS | xargs)"
 export CXXFLAGS="$(echo $RAW_CXXFLAGS $STAGE_CXXFLAGS | xargs)"
 export LDFLAGS="$(echo $RAW_LDFLAGS $STAGE_LDFLAGS | xargs)"
 
-[[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "${STAGENAME}-specific CFLAGS: $CFLAGS"
+[[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "${STAGENAME}-specific CFLAGS:\n$CFLAGS"
 
 # Выполняем сборку ОДИН РАЗ с проверкой статуса
 build_cmd="ffbuild_dockerbuild"
@@ -300,8 +300,6 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
     [[ "$SKIP_POST_CLEAN" != "1" ]] && clean_la_files
     # Запускаем аудит зависимостей (вывод в лог)
     [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && get_deps_list
-    log_info "${CHECK_MARK} Post-build automation completed."
-    log_info "################################################################"
 fi
 
 # Сохраняем переменные для текущего слоя в файл 
@@ -409,7 +407,7 @@ log_info "Saving build variables for $STAGENAME..."
         printf "$VARS_CONTENT" | tr -d '\r' > "$OUTFILE"
         log_info "Saved $(wc -c < "$OUTFILE") bytes to $OUTFILE"
     else
-        log_info "No build variables to save for $STAGENAME (meta/header-only component)."
+        log_info "${CHECK_MARK} No build variables to save for $STAGENAME (meta/header-only component)."
         # На всякий случай удаляем старый файл, если он остался от прошлых запусков
         rm -f "$OUTFILE"
     fi
@@ -429,8 +427,10 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     # Диагностика созданных файлов
     log_debug "Current files in $VARS_DIR:"
     ls -1 "$VARS_DIR" | grep ".vars" || log_warn "${XCLAM_MARK} No .vars files created in this stage."
-    log_info "################################################################"
 fi
+
+log_info "${CHECK_MARK} Post-build automation completed."
+log_info "################################################################"
 
 # Вывод статистики в конце каждой стадии
 # Это покажет Hit Rate прямо в логах GitHub
