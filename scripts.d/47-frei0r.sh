@@ -26,22 +26,24 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-        # -DWITHOUT_OPENCV=ON
     # флаги для игнорирования несовместимых типов в SIMD коде (актуально для GCC 14)
     # Флаг -flax-vector-conversions разрешает неявное приведение __m128i к __m128
-    CFLAGS="$CFLAGS $CPPFLAGS -flax-vector-conversions -Wno-error=incompatible-pointer-types" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS -flax-vector-conversions -Wno-error=incompatible-pointer-types" \
+    # Добавляем -fpermissive для некоторых старых плагинов frei0r
+    ADDITIONAL_FLAGS="-flax-vector-conversions -Wno-error=incompatible-pointer-types -fpermissive"
+
+    CFLAGS="$CFLAGS $CPPFLAGS $ADDITIONAL_FLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS $ADDITIONAL_FLAGS" \
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja \
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4" \ 
+        -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4" \
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
         -DWITHOUT_OPENCV=OFF \
         -DWITHOUT_FACERECOGNITION=ON \
-        -DWITHOUT_CAIRO=ON \
-        -DWITHOUT_GAVL=ON \
+        -DWITHOUT_CAIRO=OFF \
+        -DWITHOUT_GAVL=OFF \
         .. || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1

@@ -17,6 +17,6 @@ ffbuild_configure() {
     echo "--enable-opengl"
 }
 
-ffbuild_ldflags() {
+ffbuild_libs() {
     echo "-lopengl32 -lgdi32"
 }
