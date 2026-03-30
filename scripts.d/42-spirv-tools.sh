@@ -14,17 +14,21 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Удаляем генерацию и установку shared.pc
-    sed -i '/add_custom_command(OUTPUT.*SPIRV-Tools-shared.pc/,/DEPENDS.*SPIRV-Tools-shared.pc.in/d' CMakeLists.txt
-    sed -i 's/DEPENDS.*SPIRV-Tools-shared.pc/DEPENDS/g' CMakeLists.txt
+    # Принудительно отключаем сборку shared библиотек на уровне кода
+    # Это предотвратит создание целей SPIRV-Tools-shared
+    sed -i 's/SPIRV_TOOLS_BUILD_STATIC ON/SPIRV_TOOLS_BUILD_STATIC ON/g' CMakeLists.txt
+    sed -i '/add_library(${SPIRV_TOOLS}-shared SHARED/i return()' source/CMakeLists.txt 2>/dev/null || true
+    
+    # Вырезаем упоминание shared из установки pkg-config (безопасный строчный поиск)
     sed -i '/SPIRV-Tools-shared.pc/d' CMakeLists.txt
+    
+    # Убираем зависимость таргета pkg-config от shared версии
+    sed -i 's/${CMAKE_CURRENT_BINARY_DIR}\/SPIRV-Tools-shared.pc//g' CMakeLists.txt
 
-    # запрещаем экспорт цели SPIRV-Tools-shared в CMake-конфиги
-    # Ищем строки установки и вырезаем те, что относятся к shared
-    sed -i '/SPIRV-Tools-shared/d' source/CMakeLists.txt
-
-    # Отключаем само создание shared библиотеки в основном файле, если оно там есть
-    sed -i '/add_library(SPIRV-Tools-shared/d' source/CMakeLists.txt
+    # Отключаем экспорт shared целей, чтобы они не попали в .cmake конфиги
+    # Мы просто комментируем строки установки, содержащие "-shared"
+    find . -name "CMakeLists.txt" -exec sed -i 's/.*${SPIRV_TOOLS}-shared.*/# \0/g' {} +
+    find . -name "CMakeLists.txt" -exec sed -i 's/.*SPIRV-Tools-shared.*/# \0/g' {} +
 
     mkdir build && cd build
 
