@@ -1,9 +1,10 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libjxl/libjxl.git"
-SCRIPT_COMMIT="03bafa6912c3c0ed5ccc604fe99e86ff18c93f3d"
+SCRIPT_COMMIT="15c547544296c29a2da931e9112e3c45e3972ef6"
 
 ffbuild_depends() {
+    echo brotli
     echo lcms2
 }
 
@@ -37,6 +38,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DBUILD_SHARED_LIBS=OFF \
+        -DJPEGXL_STATIC=ON \
         -DJPEGXL_BUNDLE_LIBPNG=OFF \
         -DJPEGXL_EMSCRIPTEN=OFF \
         -DJPEGXL_ENABLE_BENCHMARK=OFF \
@@ -47,14 +49,13 @@ ffbuild_dockerbuild() {
         -DJPEGXL_ENABLE_JPEGLI=OFF \
         -DJPEGXL_ENABLE_MANPAGES=OFF \
         -DJPEGXL_ENABLE_PLUGINS=OFF \
-        -DJPEGXL_ENABLE_SJPEG=OFF \
         -DJPEGXL_ENABLE_SKCMS=OFF \
         -DJPEGXL_ENABLE_TOOLS=OFF \
         -DJPEGXL_ENABLE_VIEWERS=OFF \
-        -DJPEGXL_FORCE_SYSTEM_BROTLI=ON \
+        -DJPEGXL_ENABLE_WASM_THREADS=ON \
+        # -DJPEGXL_FORCE_SYSTEM_BROTLI=ON \
         -DJPEGXL_FORCE_SYSTEM_HWY=OFF \
-        -DJPEGXL_FORCE_SYSTEM_LCMS2=ON \
-        -DJPEGXL_STATIC=ON \
+        # -DJPEGXL_FORCE_SYSTEM_LCMS2=ON \
         -DJPEGXL_ENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
         -DBUILD_TESTING=OFF .. || return 1
 

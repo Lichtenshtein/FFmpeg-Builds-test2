@@ -1,7 +1,16 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/opencv/opencv.git"
-SCRIPT_COMMIT="a8d26a042bb1f23c5621d1708a6c9155fc8dae19"
+SCRIPT_COMMIT="2027a3399076b099930fc8eb2721d8c028fdabc0"
+
+ffbuild_depends() {
+    echo vulkan-headers
+    echo vulkan-loader
+    echo glslang-test
+    echo shaderc
+    echo spirv-cross
+    echo spirv-headers
+}
 
 ffbuild_enabled() {
     return 0
@@ -23,22 +32,38 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
         -DBUILD_SHARED_LIBS=OFF
-        -DBUILD_WITH_STATIC_CRT=OFF
+        -DBUILD_WITH_STATIC_CRT=ON
+        -DOPENCV_GENERATE_PKGCONFIG=ON
+        -DENABLE_PIC=ON
+        -DOPENCV_ENABLE_NONFREE=ON
         # Отключаем лишнее для ускорения сборки
         -DBUILD_EXAMPLES=OFF
         -DBUILD_PACKAGE=OFF
         -DBUILD_DOCS=OFF
         -DBUILD_TESTS=OFF
         -DBUILD_PERF_TESTS=OFF
+        -DBUILD_FAT_JAVA_LIB=OFF
+        -DBUILD_JAVA=OFF
         -DBUILD_opencv_apps=OFF
         -DBUILD_opencv_python2=OFF
         -DBUILD_opencv_python3=OFF
         -DBUILD_opencv_java=OFF
+        -DWITH_IPP=OFF
+        -DWITH_WIN32UI=OFF
         -DWITH_JPEGXL=ON
+        -DWITH_OPENJPEG=ON
+        -DWITH_JPEG=ON
+        -DWITH_WEBP=ON
+        -DWITH_PNG=ON
+        -DWITH_TIFF=ON
+        -DWITH_MSMF_DXVA=ON
+        -DWITH_OPENCL_D3D11_NV=ON
         -DWITH_OPENGL=ON
         -DWITH_OPENMP=ON
         -DWITH_OPENCL=ON
         -DWITH_ZLIB_NG=ON
+        -DWITH_VULKAN=ON
+        -DWITH_PTHREADS_PF=ON
         # Включаем интеграцию с OpenVINO (Inference Engine)
         -DWITH_OPENVINO=ON
         -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake/OpenVINO"
