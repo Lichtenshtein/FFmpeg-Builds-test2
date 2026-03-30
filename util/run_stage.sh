@@ -46,7 +46,7 @@ fi
 # Очищаем временный приемник файлов, чтобы избежать "паразитного" копирования 
 # артефактов из предыдущих слоев Docker (если они попали в кэш слоя)
 if [[ -d "$FFBUILD_DESTDIR" ]]; then
-    log_debug "${BROOM_MARK} Cleaning up temporary DESTDIR: $FFBUILD_DESTDIR"
+    log_info "${BROOM_MARK} Cleaning up temporary DESTDIR: $FFBUILD_DESTDIR"
     rm -rf "${FFBUILD_DESTDIR:?}"/*
 fi
 mkdir -p "$FFBUILD_DESTDIR"
@@ -58,7 +58,7 @@ CURRENT_HASH=$(get_stage_hash "$SCRIPT_PATH")
 TGT_FILE="${CACHE_DIR}/${STAGENAME}_${CURRENT_HASH}.tar.zst"
 LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
 
-log_debug "${SEARCH_MARK} Searching source for $STAGENAME"
+log_info "${SEARCH_MARK} Searching source for $STAGENAME"
 
 # Ищем точное совпадение (Имя_Хеш)
 if [[ -f "$TGT_FILE" ]]; then
@@ -109,13 +109,13 @@ if [[ -n "$DL_COMMANDS" ]]; then
             log_error "${CROSS_MARK} ERROR: No source cache and download failed for $STAGENAME"
             log_error "Expected hash: $CURRENT_HASH"
             log_error "Available files in cache for this component:"
-            ls -lh "$CACHE_DIR" | grep "$STAGENAME" || log_debug "No files matching $STAGENAME found."
+            ls -lh "$CACHE_DIR" | grep "$STAGENAME" || log_debug "${XCLAM_MARK} No files matching $STAGENAME found."
             log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
             exit 1
         fi
     else
         # Если REAL_CACHE был найден (одним из 3-х способов выше)
-        log_info "${EXTR_MARK} Unpacking $STAGENAME from $REAL_CACHE..."
+        log_info "${EXTR_MARK} Unpacking $STAGENAME from $(basename "$REAL_CACHE")..."
         if ! tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C . ; then log_error "${CROSS_MARK} Failed to unpack $REAL_CACHE"; exit 1; fi
     fi
 
@@ -126,7 +126,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
         if [[ -d "/builder/patches/$COMPONENT_NAME" ]]; then
             apply_patches 
         else
-            log_debug "No patches directory found for $COMPONENT_NAME"
+            log_info "No patches found for $COMPONENT_NAME"
         fi
     else
         log_info "Skipping patches for $COMPONENT_NAME"
@@ -307,7 +307,7 @@ VARS_DIR="$FFBUILD_PREFIX/config_parts"
 mkdir -p "$VARS_DIR"
 OUTFILE="$VARS_DIR/${STAGENAME}.vars"
 
-log_info "Saving build variables for $STAGENAME..."
+log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
 
 # Completely isolated subshell, no inherited FF_* state
 # The subshell is the critical isolation mechanism, no FF_* state can leak in from the parent environment.
@@ -434,8 +434,9 @@ log_info "################################################################"
 
 # Вывод статистики в конце каждой стадии
 # Это покажет Hit Rate прямо в логах GitHub
-log_info "${CACHE_MARK} CCACHE STATISTICS:"
+echo -e "${CACHE_MARK} CCACHE STATISTICS:" >&2
 ccache -s
+log_info "################################################################"
 
 # Очистка
 trap 'echo "::endgroup::"; cd /; rm -rf "/build/$STAGENAME"' EXIT

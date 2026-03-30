@@ -19,6 +19,7 @@ export XCLAM_MARK='⚠️'
 export BROOM_MARK='🧹'
 export CACHE_MARK='🗄️'
 export ARCH_MARK='📥️'
+export SAVE_MARK='💾'
 export SEARCH_MARK='🔎'
 export EXTR_MARK='📤'
 export START_MARK='🚀'
@@ -403,6 +404,9 @@ get_deps_list() {
     local bin_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
     local sys_libs="libc\.so|libm\.so|libdl\.so|librt\.so|libpthread\.so|libgcc_s\.so|libstdc\+\+\.so|ld-linux|libresolv\.so|libutil\.so"
 
+    # Создаем временный файл для сбора вывода
+    local tmp_out=$(mktemp)
+
     # Поиск pkg-config
     if [[ -d "$lib_dir/pkgconfig" ]]; then
         find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
@@ -479,7 +483,7 @@ get_deps_list() {
         log_debug "Showing dependencies for: $name"
         cat "$tmp_out"
     else
-        log_info "No dependencies found for $name (meta/header-only component)."
+        log_info "${CHECK_MARK} No dependencies found for $name (meta/header-only component)."
     fi
 
     rm -f "$tmp_out"
