@@ -429,13 +429,11 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     ls -1 "$VARS_DIR" | grep ".vars" || log_warn "${XCLAM_MARK} No .vars files created in this stage."
 fi
 
-log_info "${CHECK_MARK} Post-build automation completed."
-log_info "################################################################"
-
 # Вывод статистики в конце каждой стадии
 # Это покажет Hit Rate прямо в логах GitHub
-echo -e "${CACHE_MARK} CCACHE STATISTICS:" >&2
+log_info "${CACHE_MARK} CCACHE STATISTICS:"
 ccache -s
+log_info "${CHECK_MARK} Post-build automation completed."
 log_info "################################################################"
 
 # Очистка
