@@ -25,6 +25,7 @@ ffbuild_dockerbuild() {
         -DSPIRV_SKIP_EXECUTABLES=ON
         -DSPIRV_SKIP_TESTS=ON
         -DSPIRV_TOOLS_BUILD_STATIC=ON
+        -DSPIRV_TOOLS_LIBRARY_TYPE=STATIC
         -DSPIRV_WARN_EVERYTHING=OFF
         -DSPIRV_WERROR=OFF        # Указываем путь к уже собранным spirv-headers
         -DSPIRV-Headers_SOURCE_DIR="$FFBUILD_PREFIX"
@@ -41,5 +42,8 @@ ffbuild_dockerbuild() {
     
     # Генерация .pc файла для SPIRV-Tools (часто нужен для других либ)
     # Обычно он создается сам, наличие в $FFBUILD_PREFIX/lib/pkgconfig/
+
+    rm -rf "${PC_DIR}"/SPIRV-Tools-shared.pc
+
 }
 
