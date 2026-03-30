@@ -434,7 +434,6 @@ fi
 log_info "${CACHE_MARK} CCACHE STATISTICS:"
 ccache -s
 log_info "${CHECK_MARK} Post-build automation completed."
-log_info "################################################################"
 
 # Очистка
 trap 'echo "::endgroup::"; cd /; rm -rf "/build/$STAGENAME"' EXIT
