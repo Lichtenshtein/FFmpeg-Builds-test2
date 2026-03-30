@@ -25,12 +25,17 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
-        -DENABLE_OPT=OFF # оптимизатор, который требует SPIRV-Tools
-        -DALLOW_EXTERNAL_SPIRV_TOOLS=OFF # ЗАПРЕЩАЕМ искать внешние SPIRV-Tools
         -DBUILD_SHARED_LIBS=OFF
+        -DALLOW_EXTERNAL_SPIRV_TOOLS=OFF # ЗАПРЕЩАЕМ искать внешние SPIRV-Tools
+        -DGLSLANG_TESTS=OFF
+        -DGLSLANG_ENABLE_INSTALL=ON
         -DENABLE_GLSLANG_BINARIES=OFF
-        -DENABLE_PCH=OFF
+        -DENABLE_PCH=OFF # Enables Precompiled header; try ON
         -DENABLE_CTEST=OFF
+        -DENABLE_SPIRV=ON
+        -DENABLE_GLSLANG_JS=OFF
+        -DENABLE_RTTI=ON
+        -DENABLE_OPT=ON # оптимизатор, который требует SPIRV-Tools
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \

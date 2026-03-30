@@ -38,6 +38,7 @@ ffbuild_dockerbuild() {
         -DSPIRV_CROSS_STATIC=ON \
         -DSPIRV_CROSS_CLI=OFF \
         -DSPIRV_CROSS_ENABLE_TESTS=OFF \
+        -DSPIRV_CROSS_FORCE_PIC=ON \
         -DSPIRV_CROSS_ENABLE_C=ON \
         -DSPIRV_CROSS_ENABLE_CPP=ON .. || return 1
 
