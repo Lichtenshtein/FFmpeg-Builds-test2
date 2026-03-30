@@ -7,12 +7,8 @@ cd "$(dirname "$0")"
 # Забираем аргументы из workflow.yaml для локального использования
 TARGET="${1:-$TARGET}"
 VARIANT="${2:-$VARIANT}"
-USE_LTO_FLAG="${3:-nolto}"
-SKIP_FFMPEG_FLAG="${4:-false}"
-USE_AVX512_FLAG="${5:-false}"
-DEDUPE_FLAGS="${DEDUPE_FLAGS:-true}"
-SAFE_CONFIG="${SAFE_CONFIG:-true}"
-USE_WINE="${USE_WINE:-auto}"
+USE_LTO="${3:-0}"
+USE_AVX512="${4:-0}"
 
 # Загружаем переменные
 source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
@@ -20,12 +16,12 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
     exit 1
 }
 
-[[ "$SKIP_FFMPEG_FLAG" == "true" || "$SKIP_FFMPEG_FLAG" == "skip_ffmpeg" ]] && SKIP_FFMPEG=1 && log_info "${XCLAM_MARK} FFmpeg compilation will be skipped (Component test mode)." || SKIP_FFMPEG=0
-[[ "$USE_LTO_FLAG" == "lto" ]] && USE_LTO=1 && log_info "${XCLAM_MARK} LTO is enabled!" || USE_LTO=0
-[[ "$USE_AVX512_FLAG" == "true" ]] && USE_AVX512=1 && log_info "${XCLAM_MARK} AVX512 is enabled!" || USE_AVX512=0
-[[ "$SAFE_CONFIG" == "true" ]] && SAFE_CONFIGURE=1 && log_info "${XCLAM_MARK} SAFE_CONFIGURE is enabled!" || SAFE_CONFIGURE=0
-
-[[ "$FFMPEG_PATCHES" == "1" ]] && log_info "${XCLAM_MARK} FFMPEG_PATCHES are enabled!"
+[[ "$USE_LTO" == "1" ]] && log_info "${XCLAM_MARK} LTO is enabled!"
+[[ "$USE_AVX512" == "1" ]] && log_info "${XCLAM_MARK} AVX512 is enabled!"
+[[ "$SKIP_FFMPEG" == "1" ]] && log_info "${XCLAM_MARK} Component test mode activated. FFmpeg compilation will be skipped."
+[[ "$SAFE_CONFIGURE" == "1" ]] && log_info "${XCLAM_MARK} Safe FFmpeg flags configuration is enabled!"
+[[ "$FFMPEG_PATCHES" == "1" ]] && log_info "${XCLAM_MARK} FFmpeg custom patches are activated!"
+[[ "$DEDUPE_FLAGS" == "1" ]] && log_info "${XCLAM_MARK} Extended flags deduplication is enabled!"
 
 export LC_ALL=C.UTF-8
 echo -n "" > Dockerfile # Явно очищаем файл перед началом записи
@@ -76,7 +72,7 @@ ENV_HASH=$(
 LOGIC_HASH=$(sha256sum util/run_stage.sh util/vars.sh | sha256sum | cut -c1-8 | tr -d '\n\r')
 
 # Если поменяется ключевая переменная в vars.sh все последующие RUN НЕ пересоберутся
-if [[ "$DEBUG_NO_HASH" == "true" ]]; then
+if [[ "$DEBUG_NO_HASH" == "1" ]]; then
     log_warn "${XCLAM_MARK} Hashes hardcoded to preserve cache."
     ENV_HASH="env_static"
     LOGIC_HASH="logic_static"

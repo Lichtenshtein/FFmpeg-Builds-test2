@@ -3,6 +3,7 @@ name: Build FFmpeg
 on:
   workflow_dispatch:
     inputs:
+
       ffmpeg_repo:
         description: 'FFmpeg Repository URL'
         default: 'https://github.com/MartinEesmaa/FFmpeg-VVC.git'
@@ -14,14 +15,10 @@ on:
         required: false
         default: '09-mingw-std-threads|10-mingw|11-base|12-libicu|13-libiconv|14-gettext|15-freetype|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|27-libwebp|34-cairo|35-harfbuzz|40-freetype|41-lcms2|41-opengl-test|44-gavl|45-opencl|45-openvino-test|46-libjxl|46-opencv-test|47-frei0r'
         # default: '.*'
-      use_lto:
-        description: 'Enable LTO optimization'
+      skip_ffmpeg:
+        description: 'Skip final FFmpeg compilation (Component test only)'
         type: boolean
-        default: false
-      use_avx512:
-        description: 'Enable AVX-512 instructions'
-        type: boolean
-        default: false
+        default: true
       cpu_arch:
         description: 'CPU march target (broadwell/x86-64-v3/znver3/native)'
         required: false
@@ -30,19 +27,34 @@ on:
         description: 'CPU mtune target (broadwell/generic/native)'
         required: false
         default: 'broadwell -mavx2 -mfma'
+      use_lto:
+        description: 'Enable LTO optimization'
+        type: boolean
+        default: false
+      use_avx512:
+        description: 'Enable AVX-512 instructions'
+        type: boolean
+        default: false
+      patch_ffmpeg:
+        description: 'Enable FFmpeg patches from /patches/ffmpeg folder'
+        type: boolean
+        default: true
+      safe_config:
+        description: 'Enable FFmpeg flags validation before building'
+        type: boolean
+        default: true
       dedupe_flags:
         description: 'Deduplicate LDFLAGS/LIBS'
         type: boolean
         default: true
-      use_wine:
-        description: 'Enable Wine for tests/conftest (auto/on/off)'
-        required: false
-        default: 'auto'
-      doRelease:
-        description: 'Publish new release'
+      debug_no_hash:
+        description: 'Debug: Do not recalculate VARS_HASH (Preserve Docker cache)'
         type: boolean
-        default: false
-        required: false
+        default: true
+      clean_inactive:
+        description: 'Clean sources for inactive components'
+        type: boolean
+        default: true
       freeSpace:
         description: 'Free some Disk Space before Build'
         type: boolean
@@ -55,54 +67,53 @@ on:
         description: 'Nuke all cache before build (Full Rebuild)'
         type: boolean
         default: false
+      use_wine:
+        description: 'Enable Wine for tests/conftest'
+        type: boolean
+        default: false
       verbosity:
         description: 'Log Verbosity (2: Full, 0: Quiet)'
         required: false
         default: '1'
-      skip_ffmpeg:
-        description: 'Skip final FFmpeg compilation (Component test only)'
+      doRelease:
+        description: 'Publish new release'
         type: boolean
         default: false
-      safe_config:
-        description: 'Enable FFmpeg flags validation before building'
-        type: boolean
-        default: true
-      debug_no_hash:
-        description: 'Debug: Do not recalculate VARS_HASH (Preserve Docker cache)'
-        type: boolean
-        default: true
-      inactive_sources:
-        description: 'Protect sources for inactive components from deletion'
-        type: boolean
-        default: true
-      patch_ffmpeg:
-        description: 'Enable FFmpeg patches from /patches/ffmpeg folder'
-        type: boolean
-        default: true
+        required: false
 env:
+  # Системные настройки Docker
   DOCKER_BUILDKIT: 1
   DOCKER_BUILD_SUMMARY: false
-  DOCKER_BUILD_RECORD_UPLOAD: false
+  # Параметры сборки
   TARGET: win64
   VARIANT: nonfree
-  FFMPEG_REPO: ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-VVC.git' }}
-  FFMPEG_BRANCH: ${{ github.event.inputs.ffmpeg_branch || 'master' }}
+  # Списки исключений
   # Список для хранения .git от очистки (в download.sh)
-  GIT_PRESERVE_LIST: "ffmpeg|glib2|x264|x265|opus|vulkan-loader|mbedtls|pcre2|avisynth|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo"
+  GIT_PRESERVE_LIST: >-
+    ffmpeg|glib2|x264|x265|opus|vulkan-loader|mbedtls|pcre2|
+    avisynth|openssl|pango|freetype|ilbc|libjxl|snappy|zimg|vmaf|dav1d|libplacebo
   # Список для сохранения DLL (в run_stage.sh)
-  DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|opencv|onevpl|glib2|leptonica-test|audiotoolbox|vapoursynth|vapoursynth-python-test"
-  # защита от обновления стабильных версий (через пробел)
+  DLL_PRESERVE_LIST: >-
+    openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|opencv|
+    onevpl|glib2|leptonica-test|audiotoolbox|vapoursynth|vapoursynth-python-test
+  # Преобразование boolean для bash-скриптов
+  DEBUG_NO_HASH:  ${{ github.event.inputs.debug_no_hash  == 'true' && '1' || '0' }}
+  DEDUPE_FLAGS:   ${{ github.event.inputs.dedupe_flags   == 'true' && '1' || '0' }}
+  FFMPEG_PATCHES: ${{ github.event.inputs.patch_ffmpeg   == 'true' && '1' || '0' }}
+  SKIP_FFMPEG:    ${{ github.event.inputs.skip_ffmpeg    == 'true' && '1' || '0' }}
+  SAFE_CONFIGURE: ${{ github.event.inputs.safe_config    == 'true' && '1' || '0' }}
+  USE_AVX512:     ${{ github.event.inputs.use_avx512     == 'true' && '1' || '0' }}
+  USE_LTO:        ${{ github.event.inputs.use_lto        == 'true' && '1' || '0' }}
+  USE_WINE:       ${{ github.event.inputs.use_wine       == 'true' && '1' || '0' }}
+  CLEAN_INACTIVE: ${{ github.event.inputs.clean_inactive == 'true' && '1' || '0' }}
+  # Маппинг Inputs -> Env для всех динамических значений
+  FFMPEG_REPO:     ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-VVC.git' }}
+  FFMPEG_BRANCH:   ${{ github.event.inputs.ffmpeg_branch || 'master' }}
+  ONLY_STAGE:      ${{ github.event.inputs.only_stage }}
+  # строковые параметры
   FFBUILD_VERBOSE: ${{ github.event.inputs.verbosity || '1' }}
-  ONLY_STAGE: ${{ github.event.inputs.only_stage }}
-  DEBUG_NO_HASH: ${{ github.event.inputs.debug_no_hash }}
-  DEDUPE_FLAGS: ${{ github.event.inputs.dedupe_flags }}
-  CLEAN_INACTIVE_SOURCES: ${{ github.event.inputs.inactive_sources == 'false' && '1' || '0' }}
-  FFMPEG_PATCHES: ${{ github.event.inputs.patch_ffmpeg == 'true' && '1' || '0' }}
-  SAFE_CONFIG: ${{ github.event.inputs.safe_config }}
-  USE_WINE: ${{ github.event.inputs.use_wine || 'auto' }}
-  USE_AVX512: ${{ github.event.inputs.use_avx512 || 'false' }}
-  CPU_ARCH: ${{ github.event.inputs.cpu_arch || 'broadwell' }}
-  CPU_TUNE: ${{ github.event.inputs.cpu_tune || 'broadwell' }}
+  CPU_ARCH:        ${{ github.event.inputs.cpu_arch || 'broadwell' }}
+  CPU_TUNE:        ${{ github.event.inputs.cpu_tune || 'broadwell' }}
 
 jobs:
   build_all:
@@ -270,22 +281,14 @@ jobs:
 
       - name: Run Download and Generate
         run: |
-          if [[ "${{ github.event.inputs.doClean }}" == "true" ]]; then
-            echo "### CLEAN BUILD REQUESTED ###"
-            rm -rf .cache/downloads/* .cache/ffmpeg/* .cache/ccache/*
-          fi
-          USE_LTO="nolto"
-          [[ "${{ github.event.inputs.use_lto }}" == "true" ]] && USE_LTO="lto"
-          SKIP_FFMPEG="false"
-          [[ "${{ github.event.inputs.skip_ffmpeg }}" == "true" ]] && SKIP_FFMPEG="skip_ffmpeg"
-          USE_AVX512="noavx512"
-          [[ "${{ github.event.inputs.use_avx512 }}" == "true" ]] && USE_AVX512="avx512"
+          [[ "${{ github.event.inputs.doClean }}" == "true" ]] && rm -rf .cache/{downloads,ffmpeg,ccache}/* && echo "### CLEAN BUILD REQUESTED ###"
+
           mkdir -p .cache/downloads .cache/ffmpeg
           find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
           chmod +x ./download.sh ./util/*.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
-          CPU_ARCH="${CPU_ARCH}" CPU_TUNE="${CPU_TUNE}" ./generate.sh win64 nonfree "$USE_LTO" "$SKIP_FFMPEG" "$USE_AVX512"
+          ./generate.sh "$TARGET" "$VARIANT" "$USE_LTO" "$USE_AVX512"
 
       - name: Verify FFmpeg Source
         run: |
@@ -316,11 +319,6 @@ jobs:
           build-args: |
             CPU_ARCH=${{ env.CPU_ARCH }}
             CPU_TUNE=${{ env.CPU_TUNE }}
-            ONLY_STAGE=${{ env.ONLY_STAGE }}
-            FFBUILD_VERBOSE=${{ env.FFBUILD_VERBOSE }}
-            USE_WINE=${{ env.USE_WINE }}
-            DEDUPE_FLAGS=${{ env.DEDUPE_FLAGS }}
-            DEBUG_NO_HASH=${{ env.DEBUG_NO_HASH }}
           # Пушим в GHCR, чтобы кэш не пропадал между запусками
           push: true
           tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
@@ -338,11 +336,6 @@ jobs:
           build-args: |
             CPU_ARCH=${{ env.CPU_ARCH }}
             CPU_TUNE=${{ env.CPU_TUNE }}
-            ONLY_STAGE=${{ env.ONLY_STAGE }}
-            FFBUILD_VERBOSE=${{ env.FFBUILD_VERBOSE }}
-            USE_WINE=${{ env.USE_WINE }}
-            DEDUPE_FLAGS=${{ env.DEDUPE_FLAGS }}
-            DEBUG_NO_HASH=${{ env.DEBUG_NO_HASH }}
           push: false
           tags: ffmpeg-final:local
           # Используем свежесобранный образ компонентов как контекст

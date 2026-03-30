@@ -36,7 +36,7 @@ dedupe() {
 smart_dedupe() {
     local input="$*"
     local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
-    if [[ "$DEDUPE_FLAGS" == "true" ]]; then
+    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
         echo "$clean" | awk '!x[$0]++' | xargs
     else
         echo "$clean" | xargs
@@ -50,7 +50,7 @@ smart_libs_dedupe() {
         grep -vE "Package|not|found|error|^$|^-L|^-lstdc\+\+$")
     # унифицируем pthread: заменяем -lpthread на -pthread
     clean=$(echo "$clean" | sed 's/^-lpthread$/-pthread/')
-    if [[ "$DEDUPE_FLAGS" == "true" ]]; then
+    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
     # оставляет только ПОСЛЕДНЕЕ вхождение (важно для порядка линковки)
         echo "$clean" | tac | awk '!x[$0]++' | tac | tr '\n' ' ' | xargs
     else
@@ -191,7 +191,7 @@ log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
 # Удаляем пустые папки или старые логи, если они остались
 find /opt/ffbuild -type d -empty -delete || true
 
-[[ "$DEDUPE_FLAGS" == "true" ]] && log_info "${BROOM_MARK} DEDUPE_FLAGS='$DEDUPE_FLAGS'; Deduplicating ALL flags..."
+[[ "$DEDUPE_FLAGS" == "1" ]] && log_info "${BROOM_MARK} DEDUPE_FLAGS='$DEDUPE_FLAGS'; Deduplicating ALL flags..."
 
 # Подготовка ФИНАЛЬНЫХ флагов (Dedupe + Combine)
 # объединяем базовые флаги из vars.sh и накопленные из компонентов
