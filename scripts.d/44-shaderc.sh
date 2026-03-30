@@ -25,6 +25,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
         -DBUILD_SHARED_LIBS=OFF \
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
         -DENABLE_EXCEPTIONS=ON \
         -DGLSLANG_ENABLE_INSTALL=ON \
         -DSHADERC_ENABLE_SHARED_CRT=OFF \
@@ -67,6 +68,7 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=OFF \
         -DCMAKE_BUILD_TYPE=Release \
         -DENABLE_EXCEPTIONS=ON \
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
         -DGLSLANG_ENABLE_INSTALL=ON \
         -DSHADERC_ENABLE_SHARED_CRT=OFF \
         -DSHADERC_SKIP_COPYRIGHT_CHECK=ON \
