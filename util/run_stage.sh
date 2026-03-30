@@ -260,12 +260,6 @@ else
     log_info "${LOCK_MARK} Preserving DLLs for dynamic stage: $STAGENAME"
 fi
 
-# Вывод статистики в конце каждой стадии
-# Это покажет Hit Rate прямо в логах GitHub
-log_info "################################################################"
-log_info "${CACHE_MARK} CCACHE STATISTICS:"
-ccache -s
-
 # Автоматическая синхронизация префиксов после успешной сборки
 # Каждый скрипт в scripts.d обязан устанавливать файлы (make install) в путь, начинающийся с $FFBUILD_DESTDIR$FFBUILD_PREFIX (обычно это /opt/ffdest/opt/ffbuild), иначе система не увидит установленную библиотеку для следующего этапа.
 if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
@@ -437,6 +431,11 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     ls -1 "$VARS_DIR" | grep ".vars" || log_warn "${XCLAM_MARK} No .vars files created in this stage."
     log_info "################################################################"
 fi
+
+# Вывод статистики в конце каждой стадии
+# Это покажет Hit Rate прямо в логах GitHub
+log_info "${CACHE_MARK} CCACHE STATISTICS:"
+ccache -s
 
 # Очистка
 trap 'echo "::endgroup::"; cd /; rm -rf "/build/$STAGENAME"' EXIT
