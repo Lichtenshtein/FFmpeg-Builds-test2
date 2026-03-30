@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DBUILD_SHARED_LIBS=OFF
-        -DALLOW_EXTERNAL_SPIRV_TOOLS=ON # ЗАПРЕЩАЕМ искать внешние SPIRV-Tools
+        -DALLOW_EXTERNAL_SPIRV_TOOLS=ON # OFF=ЗАПРЕЩАЕМ искать внешние SPIRV-Tools
         -DGLSLANG_TESTS=OFF
         -DGLSLANG_ENABLE_INSTALL=ON
         -DENABLE_GLSLANG_BINARIES=OFF
@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
         -DENABLE_SPIRV=ON
         -DENABLE_GLSLANG_JS=OFF
         -DENABLE_RTTI=ON
-        -DENABLE_OPT=ON # оптимизатор, который требует SPIRV-Tools
+        -DENABLE_OPT=ON # OFF; оптимизатор, который требует SPIRV-Tools
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
@@ -47,6 +47,7 @@ ffbuild_dockerbuild() {
     # Исправление для корректной линковки в FFmpeg (иногда CMake не копирует все хедеры)
     cp -r ../glslang/Public "$FFBUILD_DESTPREFIX/include/glslang"
 
+    mkdir -p "$PC_DIR"
     cat >"$PC_DIR/glslang.pc" <<EOF
 prefix=/your/prefix
 libdir=${prefix}/lib
@@ -55,7 +56,7 @@ includedir=${prefix}/include
 Name: glslang
 Description: glslang library
 Version: 11.0.0
-Libs: -L${libdir} -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lHLSL -lSPIRV -lglslang-default-resource-limits
+Libs: -L${libdir} -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lSPIRV -lglslang-default-resource-limits
 Cflags: -I${includedir}
 EOF
 

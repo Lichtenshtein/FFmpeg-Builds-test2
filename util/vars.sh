@@ -240,7 +240,7 @@ patch_pc_files() {
     # замена абсолютных путей на переменные
     find "$pc_dir" -maxdepth 1 -name "*.pc" | while read -r pc; do
         [[ -f "$pc" ]] || continue
-        log_debug "Fixing paths in \n$pc"
+        log_debug "Fixing paths in .pc files:\n$pc"
 
         # Capitalisation fixes
         sed -i $sl 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g; s/-lpthread/-pthread/g' "$pc"
@@ -410,18 +410,15 @@ get_deps_list() {
     # Поиск pkg-config
     if [[ -d "$lib_dir/pkgconfig" ]]; then
         find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
-            pc_file="$1"
-            pkg_config_cmd="$2"
-            xclam_mark="$3"
-            search_mark="$4"
-            current_pc_dir="$5" 
+            pc_file="$1"; pkg_config_cmd="$2"; xclam_mark="$3"; search_mark="$4"; current_pc_dir="$5"
             export PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR:$current_pc_dir"
             export PKG_CONFIG_SYSROOT_DIR="/"
 
+            printf "\n%b %s\n" "$xclam_mark" "$pc_file"
+            cat "$pc_file"
+
             deps=$($pkg_config_cmd --print-requires --print-requires-private "$pc_file" 2>/dev/null || true)
             if [[ -n "$deps" ]]; then
-                printf "\n%b %s\n" "$xclam_mark" "$pc_file"
-                cat "$pc_file"
                 printf "\n%b DEPS for %s:\n" "$search_mark" "${pc_file##*/}"
                 echo "$deps"
                 while IFS= read -r pkg_line; do
@@ -432,18 +429,14 @@ get_deps_list() {
                     fi
                 done <<< "$deps"
             else
-                echo "No dependencies found."
+                echo "No pkg-config dependencies listed."
             fi
-        ' _ {} "${PKG_CONFIG:-pkg-config}" "$XCLAM_MARK" "$SEARCH_MARK" "$lib_dir/pkgconfig" >> "$tmp_out" 2>/dev/null || true
+        ' _ {} "${PKG_CONFIG:-pkg-config}" "$XCLAM_MARK" "$SEARCH_MARK" "$lib_dir/pkgconfig" >> "$tmp_out" || true
     fi
     # Поиск динамических библиотек (readelf)
     find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) -print0 2>/dev/null | \
     xargs -0 -r -I{} bash -c '
-        file="$1"; shift
-        toolchain_prefix="$1"; shift
-        sys_libs_regex="$1"; shift
-        xclam_mark="$1"; shift
-
+        file="$1"; toolchain_prefix="$2"; sys_libs_regex="$3"; xclam_mark="$4"
         if "${toolchain_prefix}-readelf" -h "$file" &>/dev/null; then
             raw_deps=$("${toolchain_prefix}-readelf" -d "$file" 2>/dev/null | awk "/NEEDED/ { gsub(/.*\[|\]/, \"\"); print }")
             clean_deps=$(echo "$raw_deps" | awk "!/$sys_libs_regex/")
@@ -451,7 +444,7 @@ get_deps_list() {
                 printf "\n%b NEEDED LIBRARIES for %s:\n%s\n" "$xclam_mark" "$file" "$clean_deps"
             fi
         fi
-    ' _ {} "$FFBUILD_TOOLCHAIN" "$sys_libs" "$XCLAM_MARK" >> "$tmp_out" 2>/dev/null || true
+    ' _ {} "$FFBUILD_TOOLCHAIN" "$sys_libs" "$XCLAM_MARK" >> "$tmp_out" || true
     # Поиск внешних символов в статике (nm) с фильтрацией системных вызовов
     find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
     xargs -0 -r -I{} bash -c '
@@ -466,7 +459,7 @@ get_deps_list() {
                 printf "\n%b EXTERNAL SYMBOLS (TOP 10) in %s:\n%s\n" "$xclam_mark" "$file" "$clean_symbols"
             fi
         fi
-    ' _ {} "$FFBUILD_TOOLCHAIN" "$XCLAM_MARK" "$sys_libs" >> "$tmp_out" 2>/dev/null || true
+    ' _ {} "$FFBUILD_TOOLCHAIN" "$XCLAM_MARK" "$sys_libs" >> "$tmp_out" || true
     # Проверка RPATH
     find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | \
     xargs -0 -r -I{} bash -c '
@@ -476,7 +469,7 @@ get_deps_list() {
                 printf "\n%b RPATH/RUNPATH for %s:\n%s\n" "$XCLAM_MARK" "$1" "$rpath"
             fi
         fi
-    ' _ {} >> "$tmp_out" 2>/dev/null || true
+    ' _ {} >> "$tmp_out" || true
 
     # Финальное условие вывода
     if [[ -s "$tmp_out" ]]; then
