@@ -171,7 +171,7 @@ All of those can be optionally combined with any combination of addins:
 * `debug` to not strip debug symbols from the binaries. This increases the output size by about 250MB.
 * `lto` build all dependencies and ffmpeg with -flto=auto (HIGHLY EXPERIMENTAL, broken for Windows, sometimes works for Linux)
 
-### Testet dependency chains for manual builds
+### Test dependency chains for manual builds
 
 * `The System Core` (Foundation; always build first). Without this, nothing will work.
 
@@ -179,17 +179,32 @@ All of those can be optionally combined with any combination of addins:
 09-mingw-std-threads|10-mingw|11-base|18-zlib
 ```
 
+* `glib2`
+```
+12-libicu|13-libiconv|14-gettext|18-zlib|23-libffi|23-pcre2|25-glib2
+```
+
 * `librsvg`
 ```
-09-mingw-std-threads|10-mingw|11-base|13-libiconv|14-gettext|15-freetype|18-zlib|19-brotli|19-bzlib|19-xz|23-pcre2|23-libffi|25-fribidi|25-libpng|25-glib2|25-libxml2|26-pixman|26-fontconfig|34-cairo|35-harfbuzz|40-freetype|40-pango|44-dav1d|45-librsvg-cargo-test
+13-libiconv|14-gettext|15-freetype|18-zlib|19-brotli|19-bzlib|19-xz|23-pcre2|23-libffi|25-fribidi|25-libpng|25-glib2|25-libxml2|26-pixman|26-fontconfig|34-cairo|35-harfbuzz|40-freetype|40-pango|44-dav1d|45-librsvg-cargo-test
 ```
 
 * `libtesseract`
 ```
-09-mingw-std-threads|10-mingw|11-base|12-libicu|13-libiconv|14-gettext|15-freetype|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|25-openssl|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|26-libssh|27-curl|27-libwebp|29-libarchive|34-cairo|35-harfbuzz|40-freetype|40-pango|41-lcms2|45-libtensorflow-test|47-leptonica-test|50-tesseract-test
+12-libicu|13-libiconv|14-gettext|15-freetype|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|25-openssl|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|26-libssh|27-curl|27-libwebp|29-libarchive|34-cairo|35-harfbuzz|40-freetype|40-pango|41-lcms2|45-libtensorflow-test|47-leptonica-test|50-tesseract-test
 ```
 
 * `vulkan`
 ```
 41-vulkan-headers|42-vulkan-loader|43-glslang-test|43-shaderc|43-spirv-cross|43-spirv-headers|99-enable
+```
+
+* `opencv`
+```
+18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|25-libjpeg-turbo|25-giflib|25-libpng|26-libtiff|26-openjpeg|27-libwebp|41-lcms2|41-vulkan-headers|42-vulkan-loader|43-glslang-test|43-shaderc|43-spirv-cross|43-spirv-headers|46-libjxl|46-opencv-test
+```
+
+* `frei0r`
+```
+12-libicu|13-libiconv|14-gettext|15-freetype|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|27-libwebp|34-cairo|35-harfbuzz|40-freetype|41-lcms2|41-opengl-test|44-gavl|45-opencl|45-openvino-test|46-libjxl|46-opencv-test|47-frei0r
 ```
