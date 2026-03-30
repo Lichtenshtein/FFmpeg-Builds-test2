@@ -410,7 +410,7 @@ get_deps_list() {
     # Поиск pkg-config
     if [[ -d "$lib_dir/pkgconfig" ]]; then
         find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
-            pc_file="$1"; pkg_config_cmd="$2"; xclam_mark="$3"; search_mark="$4"; current_pc_dir="$5"
+            pc_file="$1"; pkg_config_cmd="$2"; xclam_mark="$3"; search_mark="$4"; current_pc_dir="$5"; red_color="$6"; reset_color="$7"
             export PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR:$current_pc_dir"
             export PKG_CONFIG_SYSROOT_DIR="/"
 
@@ -425,13 +425,13 @@ get_deps_list() {
                     pkg_name=$(echo "$pkg_line" | awk "{print \$1}")
                     [[ -z "$pkg_name" || "$pkg_name" =~ ^[0-9] ]] && continue
                     if ! $pkg_config_cmd --exists "$pkg_name" 2>/dev/null; then
-                        echo "MISSING DEPENDENCY: $pkg_name (Searched in: $PKG_CONFIG_LIBDIR)"
+                        echo -e "${red_color}MISSING DEPENDENCY (ERR_MARK): $pkg_name (Searched in: $PKG_CONFIG_LIBDIR)${reset_color}"
                     fi
                 done <<< "$deps"
             else
                 echo "No pkg-config dependencies listed."
             fi
-        ' _ {} "${PKG_CONFIG:-pkg-config}" "$XCLAM_MARK" "$SEARCH_MARK" "$lib_dir/pkgconfig" >> "$tmp_out" || true
+        ' _ {} "${PKG_CONFIG:-pkg-config}" "$XCLAM_MARK" "$SEARCH_MARK" "$lib_dir/pkgconfig" "$LOG_ERROR" "$LOG_NC" \; >> "$tmp_out" || true
     fi
     # Поиск динамических библиотек (readelf)
     find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) -print0 2>/dev/null | \
@@ -463,18 +463,25 @@ get_deps_list() {
     # Проверка RPATH
     find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | \
     xargs -0 -r -I{} bash -c '
-        if "${FFBUILD_TOOLCHAIN}-readelf" -h "$1" &>/dev/null; then
-            rpath=$("${FFBUILD_TOOLCHAIN}-objdump" -p "$1" 2>/dev/null | awk "/RPATH|RUNPATH/ {print}")
+        file="$1"; toolchain_prefix="$2"; xclam_mark="$3"
+        if "${FFBUILD_TOOLCHAIN}-readelf" -h "$file" &>/dev/null; then
+            rpath=$("${FFBUILD_TOOLCHAIN}-objdump" -p "$file" 2>/dev/null | awk "/RPATH|RUNPATH/ {print}")
             if [[ -n "$rpath" ]]; then
-                printf "\n%b RPATH/RUNPATH for %s:\n%s\n" "$XCLAM_MARK" "$1" "$rpath"
+                printf "\n%b RPATH/RUNPATH for %s:\n%s\n" "$xclam_mark" "$file" "$rpath"
             fi
         fi
-    ' _ {} >> "$tmp_out" || true
+    ' _ {} "$FFBUILD_TOOLCHAIN" "$XCLAM_MARK" >> "$tmp_out" || true
 
     # Финальное условие вывода
     if [[ -s "$tmp_out" ]]; then
         log_debug "Showing dependencies for: $name"
-        cat "$tmp_out"
+        cat "$tmp_out" | sed 's/(ERR_MARK)//g' # Убираем техническую метку при выводе
+        local error_count=$(grep -c "ERR_MARK" "$tmp_out" || true)
+        if [[ "$error_count" -gt 0 ]]; then
+            log_error "Found $error_count missing dependencies for $name!"
+        else
+            log_info "${CHECK_MARK} All pkg-config dependencies are satisfied."
+        fi
     else
         log_info "${CHECK_MARK} No dependencies found for $name (meta/header-only component)."
     fi
