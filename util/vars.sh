@@ -633,17 +633,17 @@ if [ -d "/opt/ct-ng" ]; then
 fi
 
 # Определяем режим работы Wine (берем из ENV или ставим auto по умолчанию)
-USE_WINE="${USE_WINE:-auto}"
+USE_WINE="${USE_WINE:-1}"
 setup_wine_env() {
     # Сохраняем текущее состояние set -e
     local errexit_state=$([[ $- =~ e ]] && echo "set -e" || echo "set +e")
     set +e # Временно отключаем остановку при ошибках
     # Если Wine принудительно выключен выходим сразу
-    if [[ "$USE_WINE" == "off" ]]; then
+    if [[ "$USE_WINE" == "0" ]]; then
         eval "$errexit_state"; return 0
     fi
 
-    if [[ "$USE_WINE" == "auto" ]]; then
+    if [[ "$USE_WINE" == "1" ]]; then
         # Ищем только специфичные команды:
         # 1. meson test / ctest / make check - запуск встроенных тестов
         # 2. wine [пробел] - явный запуск через wine

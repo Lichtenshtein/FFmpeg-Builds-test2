@@ -5,7 +5,7 @@ shopt -s globstar
 
 CLEAN_TARGET=$(echo "${1:-$TARGET}" | awk '{print $1}')
 CLEAN_VARIANT=$(echo "${2:-$VARIANT}" | awk '{print $1}')
-CLEAN_INACTIVE_SOURCES=${CLEAN_INACTIVE_SOURCES:-0}
+CLEAN_INACTIVE=${CLEAN_INACTIVE:-0}
 
 if [[ -z "$CLEAN_TARGET" || -z "$CLEAN_VARIANT" ]]; then
     echo "ERROR: Cleanup aborted. TARGET and VARIANT must be specified." >&2
@@ -28,7 +28,7 @@ if [[ ! -d "$CACHE_DIR" ]]; then
 fi
 
 log_info "${BROOM_MARK} Starting smart cleanup in $CACHE_DIR..."
-log_info "CLEAN_INACTIVE_SOURCES=${CLEAN_INACTIVE_SOURCES}, ONLY_STAGE=${ONLY_STAGE:-(all)}"
+log_info "CLEAN_INACTIVE=${CLEAN_INACTIVE}, ONLY_STAGE=${ONLY_STAGE:-(all)}"
 
 # Build the protected-files list
 
@@ -85,12 +85,12 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
         fi
     else
         # inactive
-        if [[ "$is_enabled" == "true" ]] && [[ "$CLEAN_INACTIVE_SOURCES" == "0" ]]; then
+        if [[ "$is_enabled" == "true" ]] && [[ "$CLEAN_INACTIVE" == "0" ]]; then
             should_protect=true
             reason="inactive+enabled+keep"
             count_inactive_kept=$((count_inactive_kept + 1))
         else
-            reason="inactive → skip (CLEAN_INACTIVE_SOURCES=${CLEAN_INACTIVE_SOURCES})"
+            reason="inactive → skip (CLEAN_INACTIVE=${CLEAN_INACTIVE})"
             count_skipped=$((count_skipped + 1))
         fi
     fi
