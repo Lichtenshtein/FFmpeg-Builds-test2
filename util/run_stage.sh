@@ -218,8 +218,12 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
                 log_debug "${LOGS_MARK} ▲ END OF $logfile ▲"
             done
         else
-            log_warn "${DIRS_MARK} No logs found. Listing all files in current directory:"
-            ls -R
+            if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+                log_warn "${DIRS_MARK} No logs found. Listing all files in current directory:"
+              ls -R
+            else
+                log_warn "${DIRS_MARK} No logs found."
+            fi
         fi
         exit 1
     fi
