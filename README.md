@@ -196,7 +196,7 @@ All of those can be optionally combined with any combination of addins:
 
 * `vulkan`
 ```
-41-vulkan-headers|42-vulkan-loader|43-glslang-test|43-shaderc|43-spirv-cross|43-spirv-headers|99-enable
+41-vulkan-headers|42-spirv-headers|42-spirv-tools|43-glslang-test|43-spirv-cross|44-shaderc|44-vulkan-loader|99-enable
 ```
 
 * `opencv`

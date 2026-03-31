@@ -13,7 +13,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '09-mingw-std-threads|10-mingw|11-base|41-vulkan-headers|42-spirv-headers|42-spirv-tools|43-glslang-test|43-spirv-cross|44-shaderc|44-vulkan-loader|99-enable'
+        default: '09-mingw-std-threads|10-mingw|11-base|41-vulkan-headers|42-spirv-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|99-enable'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
