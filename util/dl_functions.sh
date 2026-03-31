@@ -48,6 +48,14 @@ download_stage() {
     local TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.zst"
     local LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.zst"
 
+    log_debug "Checking Cache for $STAGENAME in Cache directory..."
+    if [[ ! -d "$DL_DIR" ]]; then
+        log_error "DL_DIR ($DL_DIR) does not exist!"
+    else
+        log_info "${DIRS_MARK} Files in cache for $STAGENAME:"
+        ls -F "$DL_DIR" | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found!"
+    fi
+
     if [[ -f "$TGT_FILE" ]]; then
         log_info "${TARGET_MARK} Cache hit: $STAGENAME ($DL_HASH); Size: $(du -sh "$TGT_FILE" | cut -f1)"
         # Обновляем mtime, чтобы clean_cache не удалил его как старый
@@ -97,15 +105,6 @@ download_stage() {
         rm -rf "$WORK_DIR"
         return 1 # return 1 для параллельного запуска
     fi
-
-    log_debug "Checking cache for $STAGENAME in .cache/downloads dir..."
-    if [[ ! -d "$DL_DIR" ]]; then
-        log_error "DL_DIR ($DL_DIR) does not exist!"
-    else
-        log_info "${DIRS_MARK} Files in cache for $STAGENAME:"
-        ls -F "$DL_DIR" | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found!"
-    fi
-
 }
 
 git-mini-clone() {
