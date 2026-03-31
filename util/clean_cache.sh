@@ -22,13 +22,6 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CACHE_DIR="$SCRIPT_DIR/../.cache/downloads"
 SCRIPTS_DIR="$SCRIPT_DIR/../scripts.d"
 
-if [[ ! -d "$CACHE_DIR" ]]; then
-    log_warn "Cache directory $CACHE_DIR not found. Nothing to clean."
-    exit 0
-else
-    log_debug "${DIRS_MARK} Current Cache directory is:\n$CACHE_DIR"
-fi
-
 log_info "${BROOM_MARK} Starting smart cleanup in Cache directory..."
 [[ "$CLEAN_INACTIVE" == "1" ]] && log_info "${XCLAM_MARK} Source Cache clearing for inactive components is enabled!" || log_info "${XCLAM_MARK} Source Cache clearing for inactive components is not active." 
 

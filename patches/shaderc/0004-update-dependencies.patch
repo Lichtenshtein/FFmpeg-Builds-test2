@@ -1,0 +1,37 @@
+From 2fb460e866c5c7704ea98d80cce48d823d442587 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Tue, 31 Mar 2026 21:39:29 +0300
+Subject: [PATCH] update dependencies
+
+---
+ DEPS | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
+
+diff --git a/DEPS b/DEPS
+index d04dde6..acb1725 100644
+--- a/DEPS
++++ b/DEPS
+@@ -5,13 +5,13 @@ vars = {
+   'google_git':  'https://github.com/google',
+   'khronos_git': 'https://github.com/KhronosGroup',
+ 
+-  'abseil_revision': '1315c900e1ddbb08a23e06eeb9a06450052ccb5e',
+-  'effcee_revision': '08da24ec245a274fea3a128ba50068f163390565',
+-  'glslang_revision': 'f0bd0257c308b9a26562c1a30c4748a0219cc951',
+-  'googletest_revision': '1d17ea141d2c11b8917d2c7d029f1c4e2b9769b2',
+-  're2_revision': '4a8cee3dd3c3d81b6fe8b867811e193d5819df07',
+-  'spirv_headers_revision': '04f10f650d514df88b76d25e83db360142c7b174',
+-  'spirv_tools_revision': 'fbe4f3ad913c44fe8700545f8ffe35d1382b7093',
++  'abseil_revision': '4ff7ff9ee91464682e2916af9ae0d62357001dc4',
++  'effcee_revision': 'ae38e040cbb7e83efa8bfbb4967e5b8c8c89b55a',
++  'glslang_revision': '2bb9da378bc55360253bed2cba11545929c1e8c4',
++  'googletest_revision': 'd72f9c8aea6817cdf1ca0ac10887f328de7f3da2',
++  're2_revision': '972a15cedd008d846f1a39b2e88ce48d7f166cbd',
++  'spirv_headers_revision': '6dd7ba990830f7c15ac1345ff3b43ef6ffdad216',
++  'spirv_tools_revision': 'd7ba8c9fc218830544008cb71e4618adb1c56e12',
+ }
+ 
+ deps = {
+-- 
+2.52.0.windows.1
+
