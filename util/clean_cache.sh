@@ -25,10 +25,12 @@ SCRIPTS_DIR="$SCRIPT_DIR/../scripts.d"
 if [[ ! -d "$CACHE_DIR" ]]; then
     log_warn "Cache directory $CACHE_DIR not found. Nothing to clean."
     exit 0
+else
+    log_debug "${DIRS_MARK} Current Cache directory is:\n$CACHE_DIR"
 fi
 
-log_info "${BROOM_MARK} Starting smart cleanup in CACHE_DIR:\n$CACHE_DIR"
-[[ "$CLEAN_INACTIVE" == "1" ]] && log_info "${XCLAM_MARK} Source cache clearing for inactive components is enabled!" || log_info "${XCLAM_MARK} Source cache clearing for inactive components is not active." 
+log_info "${BROOM_MARK} Starting smart cleanup in Cache directory..."
+[[ "$CLEAN_INACTIVE" == "1" ]] && log_info "${XCLAM_MARK} Source Cache clearing for inactive components is enabled!" || log_info "${XCLAM_MARK} Source Cache clearing for inactive components is not active." 
 
 # Build the protected-files list
 RAW_KEEP_LIST=$(mktemp)
@@ -131,7 +133,7 @@ mapfile -t PROTECTED_FILES < "$FINAL_KEEP_LIST"
 deleted_count=0
 skipped_young=0
 
-log_info "${BROOM_MARK} Scanning cache for orphaned/outdated files..."
+log_info "${BROOM_MARK} Scanning Cache for orphaned/outdated files..."
 
 for f in *.tar.zst; do
     [[ -e "$f" || -L "$f" ]] || continue
@@ -153,7 +155,7 @@ for f in *.tar.zst; do
     elif [[ -f "$f" ]]; then
         # 30-minute grace period for files being actively downloaded
         if [[ -n $(find "$f" -mmin +30 2>/dev/null) ]]; then
-            log_info "${BROOM_MARK} Deleting orphaned cache file: $f"
+            log_info "${BROOM_MARK} Deleting orphaned Cache file: $f"
             rm -f "$f"
             deleted_count=$((deleted_count + 1))
         else

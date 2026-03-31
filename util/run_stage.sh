@@ -251,14 +251,12 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
     # Удаление всех *.dll.a может быть слишком радикальным
     PRESERVE_DLL_PATTERN="${DLL_PRESERVE_LIST// /:-openvino}"
     if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
-        if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
-            DELETED_FILES=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -print | sed "s|$FFBUILD_DESTDIR||g")
-            if [[ -n "$DELETED_FILES" ]]; then
-                log_info_line
-                log_debug "${BROOM_MARK} Cleaning unwanted dynamic DLLs from static stage: $STAGENAME\n$DELETED_FILES"
-                # find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.dll" -delete || true
-                find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
-            fi
+        DELETED_FILES=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -print | sed "s|$FFBUILD_DESTDIR||g")
+        if [[ -n "$DELETED_FILES" ]]; then
+            log_debug "${BROOM_MARK} Cleaning unwanted dynamic DLLs from static stage: $STAGENAME\n$DELETED_FILES"
+            # find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.dll" -delete || true
+            find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
+        fi
     else
         log_info "${LOCK_MARK} Preserving dynamic DLLs for $STAGENAME"
     fi
