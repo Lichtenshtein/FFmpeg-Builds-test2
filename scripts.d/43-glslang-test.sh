@@ -9,7 +9,7 @@ ffbuild_depends() {
 }
 
 ffbuild_enabled() {
-    return 0
+    return 1
 }
 
 ffbuild_dockerdl() {
@@ -20,7 +20,7 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
-    local mycmake=(
+    local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
@@ -41,7 +41,7 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake "${mycmake[@]}" .. || return 1
+    cmake "${myconf[@]}" .. || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 

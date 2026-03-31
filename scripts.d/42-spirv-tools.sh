@@ -4,7 +4,7 @@ SCRIPT_REPO="https://github.com/khronosGroup/SPIRV-Tools.git"
 SCRIPT_COMMIT="2c75d08e3b31a673726ce6be80ab528250247064"
 
 ffbuild_enabled() {
-    return 0
+    return 1
 }
 
 ffbuild_dockerdl() {
