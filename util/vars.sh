@@ -98,11 +98,11 @@ export PC_DIR="/opt/ffdest/opt/ffbuild/lib/pkgconfig"
 export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 
-BASE_CFLAGS="-mms-bitfields -fstack-protector-strong"
+BASE_CFLAGS="-mms-bitfields -fstack-protector-strong -fopenmp"
 BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
 # STAGE_CFLAGS="-fno-semantic-interposition"
 # STAGE_CXXFLAGS="-fno-semantic-interposition"
-SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
+SYSTEM_LIBS="-lgomp -lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
 ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lnormaliz"
 
 # Флаги для стадии сборки компонентов; disable -fPIC, -ffast-math, -flto=auto if troubles occur
@@ -194,6 +194,43 @@ get_stage_hash() {
 }
 export -f get_stage_hash
 
+# быстрые дедупликаторы
+dedupe() {
+    local input="$*"
+    [[ -z "$input" ]] && return
+    # Переводим в одну строку, удаляем мусор
+    local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
+    # Удаляем дубликаты, сохраняя ПЕРВОЕ вхождение
+    echo "$clean" | awk '!x[$0]++' | xargs
+}
+# for ldflags
+smart_dedupe() {
+    local input="$*"
+    local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
+    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
+        echo "$clean" | awk '!x[$0]++' | xargs
+    else
+        echo "$clean" | xargs
+    fi
+}
+# for libs
+smart_libs_dedupe() {
+    local raw_input="$*"
+    # чистим мусор и ПУТИ, убираем -lstdc++
+    local clean=$(echo "$raw_input" | tr ' ' '\n' | \
+        grep -vE "Package|not|found|error|^$|^-L|^-lstdc\+\+$")
+    # унифицируем pthread: заменяем -lpthread на -pthread
+    clean=$(echo "$clean" | sed 's/^-lpthread$/-pthread/')
+    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
+    # оставляет только ПОСЛЕДНЕЕ вхождение (важно для порядка линковки)
+        echo "$clean" | tac | awk '!x[$0]++' | tac | tr '\n' ' ' | xargs
+    else
+    # Просто склеиваем в одну строку без удаления дублей
+        echo "$clean" | tr '\n' ' ' | xargs
+    fi
+}
+export -f dedupe smart_dedupe smart_libs_dedupe
+
 patch_pc_files() {
     log_info "${TARGET_MARK} Patching $STAGENAME .pc files..."
     local pc_dir="$PC_DIR"
@@ -208,7 +245,7 @@ patch_pc_files() {
         done
     done
 
-    # Candidates whose presence we scan for in build configs
+    # base candidates whose presence we scan for in build configs
     local scan_candidates=(
         zstd lzma bz2 webp openjp2 jpeg tiff png zlib
         libbrotlidec libbrotlienc libbrotlicommon

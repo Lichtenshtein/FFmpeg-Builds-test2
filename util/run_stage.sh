@@ -250,7 +250,6 @@ if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
         if [[ -n "$DELETED_FILES" ]]; then
             log_info_line
             log_debug "${BROOM_MARK} Cleaning unwanted dynamic DLLs from static stage: $STAGENAME\n$DELETED_FILES" 
-            # find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.dll" -delete || true
             find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
         fi
     else
