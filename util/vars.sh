@@ -33,12 +33,14 @@ export LOGS_MARK="${LOG_DEBUG}🗎${NC}"
 
 # Функции для логирования пишут в stderr (>&2)
 log_info()  { echo -e "${LOG_INFO}[INFO]${LOG_NC}  $*" >&2; }
-log_warn()  { echo -e "${LOG_WARN}[WARN]${LOG_NC}  $*" >&2; }
-log_error() { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} $*" >&2; }
+log_warn()  { echo -e "${LOG_WARN}[WARN]${LOG_NC}  ${XCLAM_MARK} $*" >&2; }
+log_error() { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} ${CROSS_MARK} $*" >&2; }
 log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 
-export -f log_info log_warn log_error log_debug
+log_info_line=log_info "################################################################"
+log_err_line=log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
 
+export -f log_info log_warn log_error log_debug log_info_line log_err_line
 # Argument resolution: prefer positional args, fall back to environment. приоритет аргументам, иначе берем из ENV
 export TARGET="${1:-$TARGET}"
 export VARIANT="${2:-$VARIANT}"
@@ -47,7 +49,7 @@ export VARIANT="${2:-$VARIANT}"
 # arguments were explicitly passed (sourced scripts may not pass args)
 if [[ "${BASH_SOURCE}" == "${0}" ]] || [[ $# -ge 2 ]]; then
     if [[ -z "$TARGET" || -z "$VARIANT" ]]; then
-        log_error "${CROSS_MARK} Missing TARGET or VARIANT. Usage: source vars.sh [target] [variant]"
+        log_error "Missing TARGET or VARIANT. Usage: source vars.sh [target] [variant]"
         return 1 2>/dev/null || exit 1
     fi
 fi
@@ -58,7 +60,7 @@ if [[ $# -ge 2 ]]; then shift 2; fi
 # Validate variant file exists (only if TARGET and VARIANT are known)
 if [[ -n "$TARGET" && -n "$VARIANT" ]]; then
     if ! [[ -f "variants/${TARGET}-${VARIANT}.sh" ]]; then
-        log_error "${CROSS_MARK} Invalid target/variant: ${TARGET}-${VARIANT}"
+        log_error "Invalid target/variant: ${TARGET}-${VARIANT}"
         return 1 2>/dev/null || exit 1
     fi
 fi
@@ -74,7 +76,7 @@ while [[ "$#" -gt 0 ]]; do
         ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}$1"
     else
         # Если файла нет, просто пропускаем (это может быть lto или skip_ffmpeg)
-        log_warn "${XCLAM_MARK} Note: Argument '$1' is not a valid addin, ignoring."
+        log_warn "Note: Argument '$1' is not a valid addin, ignoring."
     fi
     shift
 done
@@ -536,13 +538,13 @@ apply_patches() {
             done
 
             if [ "$success" = false ]; then
-                log_error "${CROSS_MARK} FAILED: All attempts to apply $(basename "$patch") failed."
+                log_error "FAILED: All attempts to apply $(basename "$patch") failed."
                 # return 1 # не прерывать сборку при ошибках
             fi
         done
         shopt -u nullglob
     else
-        log_debug "${XCLAM_MARK} No patches found for $COMPONENT_NAME"
+        log_info "${CHECK_MARK} No patches found for $COMPONENT_NAME"
     fi
 }
 export -f apply_patches
@@ -609,7 +611,7 @@ check_and_fix_configure() {
 
     # Вывод отчета
     [ ${#fixed[@]} -ne 0 ] && log_info "${CHECK_MARK} FIXED flags (auto-alias): ${fixed[*]}"
-    [ ${#dropped[@]} -ne 0 ] && log_warn "${XCLAM_MARK} DROPPED invalid flags: ${dropped[*]}"
+    [ ${#dropped[@]} -ne 0 ] && log_warn "DROPPED invalid flags: ${dropped[*]}"
 
     # Перезаписываем глобальный массив с сохранением порядка
     CONF_FLAGS=("${new_flags[@]}")
@@ -645,7 +647,7 @@ if [ -d "/opt/ct-ng" ]; then
             export WINEPATH="winepath -w ${FFBUILD_PREFIX}/bin:${FFBUILD_PREFIX}/lib:${MINGW_BIN_PATH}"
         fi
         # Выводим инфо о WINEPATH только при его создании
-        printf '%b WINEPATH (Windows style): %s\n' "${DIRS_MARK}" "$WINEPATH"
+        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && printf '%b WINEPATH (Windows style): %s\n' "${LOG_DEBUG}[DEBUG]${LOG_NC} ${DIRS_MARK}" "\n$WINEPATH"
     fi
 fi
 

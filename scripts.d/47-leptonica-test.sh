@@ -126,7 +126,7 @@ ffbuild_dockerbuild() {
             cp "$BUILT_LIB" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a"
             log_info "${CHECK_MARK} Recovered: $BUILT_LIB -> libleptonica.a"
         else
-            log_error "${CROSS_MARK} No static library was built!"
+            log_error "No static library was built!"
             return 1
         fi
     fi

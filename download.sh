@@ -22,86 +22,10 @@ source util/dl_functions.sh
 
 mkdir -p .cache/downloads
 DL_DIR="$PWD/.cache/downloads"
-trap 'rm -rf .cache/tmp' EXIT
-
-download_stage() {
-    local STAGE="$1"
-    local DL_DIR="$2"
-    local STAGENAME=$(basename "$STAGE" .sh)
-
-    # Единый хеш (зависит от всего файла скрипта благодаря новой vars.sh)
-    local DL_HASH=$(get_stage_hash "$STAGE")
-
-    local DL_COMMANDS=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
-                      source util/dl_functions.sh; \
-                      source \"$STAGE\"; \
-                      ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")
-
-    # Если команд нет — это стадия без исходников (мета-пакет), выходим
-    [[ -z "$DL_COMMANDS" ]] && return 0
-
-    local TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.zst"
-    local LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.zst"
-
-    log_debug "Checking cache for $STAGENAME in $DL_DIR..."
-    if [[ ! -d "$DL_DIR" ]]; then
-        log_error "${CROSS_MARK} DL_DIR ($DL_DIR) does not exist!"
-    else
-        log_info "${DIRS_MARK} Files in cache for $STAGENAME:"
-        ls -F "$DL_DIR" | grep "$STAGENAME" || log_warn "${XCLAM_MARK} No files matching $STAGENAME found"
-    fi
-
-    if [[ -f "$TGT_FILE" ]]; then
-        log_info "${TARGET_MARK} Cache hit: $STAGENAME ($DL_HASH); Size: $(du -sh "$TGT_FILE" | cut -f1)"
-        # Обновляем mtime, чтобы clean_cache не удалил его как старый
-        touch "$TGT_FILE" 
-        ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
-        return 0
-    else
-        log_warn "${XCLAM_MARK} Cache miss: $STAGENAME (Target file $TGT_FILE not found)"
-    fi
-
-    log_info "${DOWN_MARK} Changes detected or missing cache (Hash: $DL_HASH) for $STAGENAME. Downloading..."
-
-    # Создаем временную папку внутри проекта
-    mkdir -p .cache/tmp
-    WORK_DIR=$(mktemp -d -p "$ROOT_DIR/.cache/tmp")
-
-    # Выполняем загрузку
-    if (
-        cd "$WORK_DIR"
-        # Явно подгружаем функции внутри подоболочки для надежности в Parallel
-        source "$ROOT_DIR/util/dl_functions.sh"
-        source "$ROOT_DIR/util/vars.sh" "$TARGET" "$VARIANT" &>/dev/null
-        eval "$DL_COMMANDS"
-    ); then
-
-        # Whitelist метаданных (добавил dav1d и ffmpeg)
-        local PRESERVE_PATTERN="${GIT_PRESERVE_LIST// /:-ffmpeg|glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo}"
-
-        if [[ "$STAGENAME" =~ $PRESERVE_PATTERN ]]; then
-            log_info "${LOCK_MARK} Preserving Git metadata for $STAGENAME (Whitelist match)"
-        else
-            log_debug "${BROOM_MARK} Stripping Git metadata for $STAGENAME to save cache space"
-            # Удаляем .git папки и .gitignore файлы
-            find "$WORK_DIR" -name ".git*" -prune -exec rm -rf {} \; 2>/dev/null || true
-        fi
-
-        # Упаковка; -c: создать, -f: файл, -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
-        tar -I 'zstd -T0 -3' -cf "$TGT_FILE" -C "$WORK_DIR" .
-        ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
-
-        log_info "${CACHE_MARK} Cached $STAGENAME (Name: $(basename "$TGT_FILE"))"
-        rm -rf "$WORK_DIR"
-        return 0
-    else
-        log_error "${CROSS_MARK} FAILED to download $STAGENAME. Commands attempted:"
-        log_error "$DL_COMMANDS"
-        rm -rf "$WORK_DIR"
-        return 1 # return 1 для параллельного запуска
-    fi
-}
-export -f download_stage
+JOBLOG=$(mktemp)
+touch "$JOBLOG"
+# очистка временной папки и файлов
+trap 'rm -rf .cache/tmp $JOBLOG' EXIT
 
 log_info "${DOWN_MARK} Starting parallel downloads for $TARGET-$VARIANT..."
 # If ONLY_STAGE is set, only download matching stages
@@ -110,10 +34,11 @@ if [[ -n "$ONLY_STAGE" ]]; then
 else
     STAGES=$(find scripts.d -name "*.sh" | sort)
 fi
+
 # --halt now,fail=1 меняем на --halt soon,fail=20%
 # Это даст шанс остальным докачаться, даже если один упал
 echo "$STAGES" | parallel --halt now,fail=1 --jobs 8 \
-    --joblog .cache/download_joblog.txt \
+    --joblog "$JOBLOG" \
     "export TARGET='$TARGET'; \
      export VARIANT='$VARIANT'; \
      export ROOT_DIR='$ROOT_DIR'; \
@@ -122,12 +47,12 @@ echo "$STAGES" | parallel --halt now,fail=1 --jobs 8 \
      source '$ROOT_DIR/util/dl_functions.sh'; \
      download_stage {} '$DL_DIR'"
 
-if [[ -f .cache/download_joblog.txt ]]; then
+if [[ -f "$JOBLOG" ]]; then
     # Ищем упавшие задачи
-    failed=$(awk 'NR>1 && $7 != 0 {print $NF}' .cache/download_joblog.txt)
+    failed=$(awk 'NR>1 && $7 != 0 {print $NF}' "$JOBLOG")
     [[ -n "$failed" ]] && log_error "Failed downloads: $failed"
     # Удаляем лог сразу после обработки
-    rm .cache/download_joblog.txt
+    rm -rf "$JOBLOG" || true
 fi
 
 log_info "${CHECK_MARK} All sequential downloads finished successfully."
@@ -152,5 +77,4 @@ else
 fi
 log_info "${CHECK_MARK} All downloads finished."
 
-# очистка временной папки
-rm -rf .cache/tmp
+exit 0

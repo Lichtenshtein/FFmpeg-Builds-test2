@@ -34,7 +34,7 @@ QTFILES_URL="https://github.com/AnimMouse/QTFiles/releases/download/v12.13.9.1/Q
 
 # TESSERACT MODELS (OCR)
 if [[ "$HAS_LIBTESSERACT" == "1" ]]; then
-    log_info "${SEARCH_MARK} Collecting Tesseract OCR models (tessdata_best)"
+    log_info "${DOWN_MARK} Downloading Tesseract OCR models (tessdata_best)"
     TESS_DEST="$MODELS_DIR/tessdata"
     mkdir -p "$TESS_DEST/script"
 
@@ -72,7 +72,7 @@ fi
 # TENSORFLOW / DNN MODELS (Super Resolution)
 # Проверяем флаг HAS_LIBTENSORFLOW или наличие в config.h
 if [[ "$HAS_LIBTENSORFLOW" == "1" ]] || grep -q "CONFIG_SR_FILTER 1" "$FF_SOURCE_DIR/config.h" 2>/dev/null; then
-    log_info "${SEARCH_MARK} Collecting TensorFlow SR models"
+    log_info "${DOWN_MARK} Downloading TensorFlow SR models"
     LINK_TF=$(echo "$URL_TF_SRCNN" | tr -d ' ')
     download_file "$LINK_TF" "$MODELS_DIR/srcnn.pb" ""
 fi
@@ -80,7 +80,7 @@ fi
 # OPENVINO MODELS (VPP_OPENVINO)
 # OpenVINO Models (ESPCN - Super Resolution x2) работают через vpp_openvino
 if [[ "$HAS_LIBOPENVINO" == "1" ]] || grep -q "CONFIG_VPP_OPENVINO_FILTER 1" "$FF_SOURCE_DIR/config.h" 2>/dev/null; then
-    log_info "${SEARCH_MARK} Collecting OpenVINO models"
+    log_info "${DOWN_MARK} Downloading OpenVINO models"
     LINK_OV=$(echo "$URL_OV_BASE" | tr -d ' ')
     download_file "$LINK_OV/single-image-super-resolution-1033.xml" "$MODELS_DIR/sr_model.xml" ""
     download_file "$LINK_OV/single-image-super-resolution-1033.bin" "$MODELS_DIR/sr_model.bin" ""
@@ -97,7 +97,7 @@ fi
 if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then
     log_info "${DOWN_MARK} Downloading Apple AudioToolbox DLLs..."
     if download_file "$QTFILES_URL" "qtfiles64.7z" ""; then
-        log_info "Extracting Apple DLLs..."
+        log_info "${EXTR_MARK} Extracting Apple DLLs..."
         # Распаковываем только DLL во временную папку
         7z e qtfiles64.7z -o"$MODELS_DIR/bin_dlls" "QTfiles64/*.dll" -y
         # Переносим их в корень к ffmpeg (обычно $PKG_DIR/bin)
@@ -109,4 +109,4 @@ if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then
     fi
 fi
 
-log_info "✅ All models and asset collection finished for enabled components and moved to $MODELS_DIR"
+log_info "${CHECK_MARK} All models and asset collection finished for enabled components and moved to $MODELS_DIR"
