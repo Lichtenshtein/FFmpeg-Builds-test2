@@ -46,9 +46,7 @@ fi
 # Это даст шанс остальным докачаться, даже если один упал
 echo "$STAGES" | parallel --halt now,fail=1 --jobs 8 \
     --joblog "$JOBLOG" \
-    --tag \
     --group \
-    --bar \
     "export TARGET='$TARGET'; \
      export VARIANT='$VARIANT'; \
      export ROOT_DIR='$ROOT_DIR'; \

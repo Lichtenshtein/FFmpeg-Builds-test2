@@ -67,7 +67,7 @@ download_stage() {
     fi
 
     # Если хита нет, собираем информацию о промахе
-    local miss_reason="${XCLAM_MARK} Cache miss: $STAGENAME"
+    local miss_reason="Cache miss: $STAGENAME"
     [[ -L "$LATEST_LINK" ]] && miss_reason+=" (Changes detected: $DL_HASH)"
     # Выводим единый блок о начале загрузки
     log_warn "$miss_reason. ${DOWN_MARK} Re-downloading..."
