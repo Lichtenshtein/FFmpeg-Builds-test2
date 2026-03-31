@@ -9,7 +9,7 @@ ffbuild_depends() {
 }
 
 ffbuild_enabled() {
-    return 1
+    return 0
 }
 
 ffbuild_dockerdl() {
@@ -50,15 +50,15 @@ ffbuild_dockerbuild() {
 
     mkdir -p "$PC_DIR"
     cat >"$PC_DIR/glslang.pc" <<EOF
-prefix=/your/prefix
-libdir=${prefix}/lib
-includedir=${prefix}/include
+prefix=$FFBUILD_PREFIX
+libdir=\${prefix}/lib
+includedir=\${prefix}/include
 
 Name: glslang
 Description: glslang library
 Version: 11.0.0
-Libs: -L${libdir} -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lSPIRV -lglslang-default-resource-limits
-Cflags: -I${includedir}
+Libs: -L\${libdir} -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lSPIRV -lglslang-default-resource-limits
+Cflags: -I\${includedir}
 EOF
 
 }

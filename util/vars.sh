@@ -416,10 +416,10 @@ get_deps_list() {
 
             printf "\n%b %s\n" "$xclam_mark" "$pc_file"
             cat "$pc_file"
+            printf "\n%b DEPS for %s:\n" "$search_mark" "${pc_file##*/}"
 
             deps=$($pkg_config_cmd --print-requires --print-requires-private "$pc_file" 2>/dev/null || true)
             if [[ -n "$deps" ]]; then
-                printf "\n%b DEPS for %s:\n" "$search_mark" "${pc_file##*/}"
                 echo "$deps"
                 while IFS= read -r pkg_line; do
                     pkg_name=$(echo "$pkg_line" | awk "{print \$1}")
