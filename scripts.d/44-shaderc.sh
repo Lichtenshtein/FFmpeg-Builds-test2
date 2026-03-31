@@ -3,8 +3,8 @@
 SCRIPT_REPO="https://github.com/stenzek/shaderc.git"
 SCRIPT_COMMIT="d72697bfc353b547efc58421ad54ac0345441bf4"
 
-SCRIPT_REPO2="https://github.com/google/shaderc.git"
-SCRIPT_COMMIT2="1d234d34d43cf5ade135803f7777484eaa48e27f"
+# SCRIPT_REPO2="https://github.com/google/shaderc.git"
+# SCRIPT_COMMIT2="1d234d34d43cf5ade135803f7777484eaa48e27f"
 
 ffbuild_enabled() {
     return 0
@@ -18,7 +18,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    local build_dir="/build/$(echo "$STAGENAME" | sed 's/^[0-9]*-//')"
+    local build_dir="/build/$STAGENAME"
     mkdir build && cd build
 
     local myconf=(
