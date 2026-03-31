@@ -48,25 +48,29 @@ download_stage() {
     local TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.zst"
     local LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.zst"
 
-    log_debug "Checking Cache for $STAGENAME in Cache directory..."
-    if [[ ! -d "$DL_DIR" ]]; then
-        log_error "DL_DIR ($DL_DIR) does not exist!"
-    else
+    # Debug: show keep-list only at verbose >= 2
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
         log_info "${DIRS_MARK} Files in cache for $STAGENAME:"
         ls -F "$DL_DIR" | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found!"
     fi
 
     if [[ -f "$TGT_FILE" ]]; then
-        log_info "${TARGET_MARK} Cache hit: $STAGENAME ($DL_HASH); Size: $(du -sh "$TGT_FILE" | cut -f1)"
+        local size=$(du -sh "$TGT_FILE" | cut -f1)
+        # Выводим всё одной строкой, чтобы parallel не перемешал лог
+        log_info "${TARGET_MARK} Cache hit: $STAGENAME ($DL_HASH) [Size: $size]"
         # Обновляем mtime, чтобы clean_cache не удалил его как старый
         touch "$TGT_FILE" 
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
         return 0
     else
-        log_warn "Cache miss: ${STAGENAME}; Target file $(basename "$TGT_FILE") not found!"
+        log_warn "Target file $(basename "$TGT_FILE") not found!"
     fi
 
-    log_warn "Changes detected (Hash: $DL_HASH) or missing cache for $STAGENAME. ${DOWN_MARK} Re-downloading..."
+    # Если хита нет, собираем информацию о промахе
+    local miss_reason="${XCLAM_MARK} Cache miss: $STAGENAME"
+    [[ -L "$LATEST_LINK" ]] && miss_reason+=" (Changes detected: $DL_HASH)"
+    # Выводим единый блок о начале загрузки
+    log_warn "$miss_reason. ${DOWN_MARK} Re-downloading..."
 
     # Создаем временную папку внутри проекта
     mkdir -p .cache/tmp
