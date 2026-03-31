@@ -17,16 +17,94 @@ _retry() {
             return 0
         else
             if [[ $n -lt $max ]]; then
-                log_warn "${XCLAM_MARK} WARNING: Command failed: '$*'. Attempt $n/$max. Retrying in ${delay}s..."
+                log_warn "WARNING: Command failed: '$*'. Attempt $n/$max. Retrying in ${delay}s..."
                 sleep "$delay"
                 ((n++))
                 delay=$((delay + 10))
             else
-                log_error "${CROSS_MARK} ERROR: Command '$1' failed after $max attempts: $*"
+                log_error "ERROR: Command '$1' failed after $max attempts: $*"
                 return 1
             fi
         fi
     done
+}
+
+download_stage() {
+    local STAGE="$1"
+    local DL_DIR="$2"
+    local STAGENAME=$(basename "$STAGE" .sh)
+
+    # Единый хеш (зависит от всего файла скрипта благодаря новой vars.sh)
+    local DL_HASH=$(get_stage_hash "$STAGE")
+
+    local DL_COMMANDS=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
+                      source util/dl_functions.sh; \
+                      source \"$STAGE\"; \
+                      ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")
+
+    # Если команд нет — это стадия без исходников (мета-пакет), выходим
+    [[ -z "$DL_COMMANDS" ]] && return 0
+
+    local TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.zst"
+    local LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.zst"
+
+    log_debug "Checking cache for $STAGENAME in $DL_DIR..."
+    if [[ ! -d "$DL_DIR" ]]; then
+        log_error "DL_DIR ($DL_DIR) does not exist!"
+    else
+        log_info "${DIRS_MARK} Files in cache for $STAGENAME:"
+        ls -F "$DL_DIR" | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found"
+    fi
+
+    if [[ -f "$TGT_FILE" ]]; then
+        log_info "${TARGET_MARK} Cache hit: $STAGENAME ($DL_HASH); Size: $(du -sh "$TGT_FILE" | cut -f1)"
+        # Обновляем mtime, чтобы clean_cache не удалил его как старый
+        touch "$TGT_FILE" 
+        ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
+        return 0
+    else
+        log_warn "Cache miss: $STAGENAME (Target file $TGT_FILE not found)"
+    fi
+
+    log_info "${DOWN_MARK} Changes detected or missing cache (Hash: $DL_HASH) for $STAGENAME. Downloading..."
+
+    # Создаем временную папку внутри проекта
+    mkdir -p .cache/tmp
+    WORK_DIR=$(mktemp -d -p "$ROOT_DIR/.cache/tmp")
+
+    # Выполняем загрузку
+    if (
+        cd "$WORK_DIR"
+        # Явно подгружаем функции внутри подоболочки для надежности в Parallel
+        source "$ROOT_DIR/util/dl_functions.sh"
+        source "$ROOT_DIR/util/vars.sh" "$TARGET" "$VARIANT" &>/dev/null
+        eval "$DL_COMMANDS"
+    ); then
+
+        # Whitelist метаданных (добавил dav1d и ffmpeg)
+        local PRESERVE_PATTERN="${GIT_PRESERVE_LIST// /:-ffmpeg|glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo}"
+
+        if [[ "$STAGENAME" =~ $PRESERVE_PATTERN ]]; then
+            log_info "${LOCK_MARK} Preserving Git metadata for $STAGENAME (Whitelist match)"
+        else
+            log_debug "${BROOM_MARK} Stripping Git metadata for $STAGENAME to save cache space"
+            # Удаляем .git папки и .gitignore файлы
+            find "$WORK_DIR" -name ".git*" -prune -exec rm -rf {} \; 2>/dev/null || true
+        fi
+
+        # Упаковка; -c: создать, -f: файл, -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
+        tar -I 'zstd -T0 -3' -cf "$TGT_FILE" -C "$WORK_DIR" .
+        ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
+
+        log_info "${CACHE_MARK} Cached $STAGENAME (Name: $(basename "$TGT_FILE"))"
+        rm -rf "$WORK_DIR"
+        return 0
+    else
+        log_error "FAILED to download $STAGENAME. Commands attempted:"
+        log_debug "$DL_COMMANDS"
+        rm -rf "$WORK_DIR"
+        return 1 # return 1 для параллельного запуска
+    fi
 }
 
 git-mini-clone() {
@@ -42,7 +120,7 @@ git-mini-clone() {
             log_info "${TARGET_MARK} Git cache hit for $(basename "$REPO"): Commit $COMMIT already present."
             return 0
         fi
-        log_debug "${XCLAM_MARK} Cache miss for $(basename "$REPO"): Local=$CURRENT_LOCAL_HEAD Target=$COMMIT"
+        log_warn "Cache miss for $(basename "$REPO"): Local=$CURRENT_LOCAL_HEAD Target=$COMMIT"
     fi
 
     local BRANCH="$BRANCH_ARG"
@@ -63,7 +141,7 @@ git-mini-clone() {
     fi
 
     # Пропуск если SVN
-    [[ -n "$SCRIPT_REV" ]] && { log_warn "${XCLAM_MARK} SVN detected, skipping git"; return 0; }
+    [[ -n "$SCRIPT_REV" ]] && { log_warn "SVN detected, skipping git"; return 0; }
 
     log_info "Trying to fetch from: $REPO @ $COMMIT"
     mkdir -p "$TARGET_DIR"
@@ -101,7 +179,7 @@ git-mini-clone() {
         if [[ -n "$RESOLVED_COMMIT" ]]; then
             COMMIT="$RESOLVED_COMMIT"
         else
-            log_error "${CROSS_MARK} Tag filter '$TAGFILTER' returned nothing"
+            log_error "Tag filter '$TAGFILTER' returned nothing"
             return 1
         fi
     fi
@@ -116,7 +194,7 @@ git-mini-clone() {
 
     # Если не вышло, пробуем через ветку
     if [[ $success -eq 0 && -n "$BRANCH" ]]; then
-        log_warn "${XCLAM_MARK} Direct fetch failed, trying branch: $BRANCH"
+        log_warn "Direct fetch failed, trying branch: $BRANCH"
         if _retry git fetch --quiet --no-tags --depth=1 origin "$BRANCH"; then
              git checkout --quiet "$COMMIT" && success=1
         fi
@@ -124,7 +202,7 @@ git-mini-clone() {
 
     # Полный fallback (если сервер не поддерживает shallow fetch для коммитов)
     if [[ $success -eq 0 ]]; then
-        log_warn "${XCLAM_MARK} Shallow fetch failed. Performing full fallback for $REPO..."
+        log_warn "Shallow fetch failed. Performing full fallback for $REPO..."
         log_warn "Full fetch for $REPO may download significant data..."
         if _retry git fetch --quiet --tags origin || _retry git fetch --quiet origin; then
             git checkout --quiet "$COMMIT" && success=1
@@ -132,7 +210,7 @@ git-mini-clone() {
     fi
 
     if [[ $success -eq 0 ]]; then
-        log_error "${CROSS_MARK} ERROR: Failed to clone $REPO at $COMMIT"
+        log_error "ERROR: Failed to clone $REPO at $COMMIT"
         return 1
     fi
     return 0
@@ -150,7 +228,7 @@ download_file() {
                 log_info "${TARGET_MARK} File $(basename "$DEST") matches cache."
                 return 0
             fi
-            log_warn "${XCLAM_MARK} Checksum mismatch for $(basename "$DEST"), re-downloading..."
+            log_warn "Checksum mismatch for $(basename "$DEST"), re-downloading..."
         else
             log_info "${CHECK_MARK} File $(basename "$DEST") exists, skipping."
             return 0
@@ -167,7 +245,7 @@ download_file() {
     if _retry curl -A "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36" -f -s -S -L "$URL" -o "$DEST"; then
         if [[ -n "$SHA512" ]]; then
             if ! echo "$SHA512  $DEST" | sha512sum -c; then
-                log_error "${CROSS_MARK} Hash validation failed"
+                log_error "Hash validation failed"
                 rm -f "$DEST" # Удаляем битый файл
                 return 1
             fi
@@ -196,7 +274,7 @@ git-submodule-clone() {
     fi
 
     # Если не помогло, пробуем более агрессивный метод
-    log_warn "${XCLAM_MARK} Standard submodule update failed, trying manual foreach..."
+    log_warn "Standard submodule update failed, trying manual foreach..."
 
     # используем || return 1, чтобы если foreach упадет, функция сразу вернула ошибку
     # 1. Сброс локальных изменений, которые могут мешать checkout
@@ -211,7 +289,7 @@ git-submodule-clone() {
         if _retry git fetch --quiet --no-tags --depth=1 origin; then
             git checkout -q FETCH_HEAD || git checkout -q $(git config -f $top_level/.gitmodules submodule.$name.branch || echo "master")
         else
-            log_error "${CROSS_MARK} ERROR: Failed to fetch submodule $name"
+            log_error "ERROR: Failed to fetch submodule $name"
             return 1
         fi
     '
@@ -221,7 +299,7 @@ git-submodule-clone() {
         log_info "${CHECK_MARK} Submodules synchronized after manual intervention."
         return 0
     else
-        log_error "${CROSS_MARK} ERROR: Could not synchronize submodules."
+        log_error "ERROR: Could not synchronize submodules."
         return 1
     fi
 }
@@ -246,7 +324,7 @@ svn-mini-clone() {
         log_info "${CHECK_MARK} SVN export successful."
         return 0
     else
-        log_error "${CROSS_MARK} ERROR: Failed to export SVN: $REPO (Check credentials or URL)"
+        log_error "ERROR: Failed to export SVN: $REPO (Check credentials or URL)"
         return 1
     fi
 }
@@ -283,7 +361,7 @@ default_dl() {
     # Валидация
     if [[ ${#CMDS[@]} -eq 0 ]]; then
         # Пишем в stderr, чтобы не сломать eval/stdout
-        log_error "${CROSS_MARK} No SCRIPT_REPO defined for stage!" >&2
+        log_error "No SCRIPT_REPO defined for stage!" >&2
         return 1
     fi
 

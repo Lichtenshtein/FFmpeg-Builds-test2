@@ -30,7 +30,7 @@ ffbuild_dockerbuild() {
         cp *.h "$FFBUILD_DESTPREFIX/include/"
         log_info "${CHECK_MARK} Headers installed successfully."
     else
-        log_error "${CROSS_MARK} No .h files found in $(pwd)!"
+        log_error "No .h files found in $(pwd)!"
         ls -F
         return 1
     fi

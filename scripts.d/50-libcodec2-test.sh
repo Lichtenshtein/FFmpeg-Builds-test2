@@ -57,7 +57,7 @@ ffbuild_dockerbuild() {
     # Если 'make codec2' все еще капризничает из-за отсутствия исходников,
     # мы скомпилируем их вручную и добавим в архив.
     if ! make -j$(nproc) codec2 $MAKE_V; then
-        log_warn "${XCLAM_MARK} Standard make failed, performing manual object compilation..."
+        log_warn "Standard make failed, performing manual object compilation..."
         # Компилируем все .c файлы из папки src
         for f in ../src/*.c; do
             [[ "$f" == *"generate_codebook.c"* ]] && continue
@@ -97,7 +97,7 @@ EOF
     if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libcodec2.a" ]]; then
         log_info "${CHECK_MARK} SUCCESS: libcodec2.a is ready."
     else
-        log_error "${CROSS_MARK} ERROR: libcodec2.a still missing!"
+        log_error "ERROR: libcodec2.a still missing!"
         return 1
     fi
 
