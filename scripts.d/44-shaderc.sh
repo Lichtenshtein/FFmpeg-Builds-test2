@@ -25,9 +25,9 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
-        -DSHADERC_GLSLANG_DIR="$build_dir/glslang"
-        -DSHADERC_SPIRV_TOOLS_DIR="$build_dir/spirv-tools"
-        -DSHADERC_SPIRV_HEADERS_DIR="$build_dir/spirv-headers"
+        -DSHADERC_GLSLANG_DIR="$build_dir/third_party/glslang"
+        -DSHADERC_SPIRV_TOOLS_DIR="$build_dir/third_party/spirv-tools"
+        -DSHADERC_SPIRV_HEADERS_DIR="$build_dir/third_party/spirv-headers"
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DALLOW_EXTERNAL_SPIRV_TOOLS=ON
         -DBUILD_SHARED_LIBS=OFF
