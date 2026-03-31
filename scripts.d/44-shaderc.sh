@@ -5,6 +5,8 @@ SCRIPT_COMMIT="d72697bfc353b547efc58421ad54ac0345441bf4"
 
 SCRIPT_MIRROR="https://github.com/google/shaderc.git"
 
+export SKIP_PRE_PATCH=1
+
 ffbuild_enabled() {
     return 0
 }
@@ -19,6 +21,7 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
+    # Важно: Shaderc очень капризен к путям. Используем полные пути к third_party.
     local myconf=(
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
@@ -26,49 +29,26 @@ ffbuild_dockerbuild() {
         -DSHADERC_GLSLANG_DIR="$(realpath ../third_party/glslang)"
         -DSHADERC_SPIRV_TOOLS_DIR="$(realpath ../third_party/spirv-tools)"
         -DSHADERC_SPIRV_HEADERS_DIR="$(realpath ../third_party/spirv-headers)"
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
-        -DALLOW_EXTERNAL_SPIRV_TOOLS=ON
         -DBUILD_SHARED_LIBS=OFF
-        -DENABLE_EXCEPTIONS=ON
-        -DENABLE_GLSLANG_BINARIES=OFF
-        -DENABLE_GLSLANG_JS=OFF
-        -DENABLE_HLSL=ON
-        -DENABLE_OPT=ON
-        -DENABLE_PCH=OFF
-        -DENABLE_RTTI=ON
-        -DENABLE_SPIRV=ON
-        -DGLSLANG_ENABLE_INSTALL=ON
-        -DGLSLANG_TESTS=OFF
         -DSHADERC_ENABLE_SHARED_CRT=OFF
         -DSHADERC_ENABLE_WERROR_COMPILE=OFF
-        -DSHADERC_ENABLE_COMBINED_STATIC=ON
-        -DSHADERC_SKIP_COPYRIGHT_CHECK=ON
-        -DSHADERC_SKIP_EXAMPLES=ON
         -DSHADERC_SKIP_TESTS=ON
-        -DSKIP_SPIRV_TOOLS_INSTALL=OFF
-        -DSPIRV_CHECK_CONTEXT=OFF
-        -DSPIRV_HEADERS_ENABLE_INSTALL=ON
-        -DSPIRV_HEADERS_ENABLE_TESTS=OFF
+        -DSHADERC_SKIP_EXAMPLES=ON
+        -DSHADERC_SKIP_COPYRIGHT_CHECK=ON
+        -DSHADERC_ENABLE_COMBINED_STATIC=ON
+        -DENABLE_GLSLANG_BINARIES=OFF
         -DSPIRV_SKIP_EXECUTABLES=ON
-        -DSPIRV_SKIP_TESTS=ON
-        -DSPIRV_TOOLS_BUILD_SHARED=OFF
-        -DSPIRV_TOOLS_BUILD_STATIC=ON
-        -DSPIRV_TOOLS_LIBRARY_TYPE=STATIC
-        -DSPIRV_WARN_EVERYTHING=OFF
-        -DSPIRV_WERROR=OFF
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    LDFLAGS="$LDFLAGS" \
     cmake -GNinja "${myconf[@]}" .. || return 1
-
     ninja install || return 1
 
     # Shaderc часто "забывает" скопировать libshaderc_combined.a или util
     cp -v libshaderc/libshaderc_combined.a "$FFBUILD_PREFIX/lib/"
     cp -v libshaderc_util/libshaderc_util.a "$FFBUILD_PREFIX/lib/"
 
+    # РУЧНОЕ СОЗДАНИЕ PKG-CONFIG (Самый важный этап для FFmpeg)
+    # FFmpeg будет искать shaderc.pc. Мы заставим его линковать всё сразу.
     mkdir -p "$FFBUILD_PREFIX/lib/pkgconfig"
     cat <<EOF > "$FFBUILD_PREFIX/lib/pkgconfig/shaderc.pc"
 prefix=$FFBUILD_PREFIX
@@ -87,13 +67,14 @@ EOF
     mkdir -p "$FFBUILD_DESTDIR/opt/ffbuild/lib/pkgconfig"
     cp -r "$FFBUILD_PREFIX"/* "$FFBUILD_DESTDIR/opt/ffbuild/"
 
+    # STAGE 2: NATIVE GLSLC (Fixing the unknown target error)
     (
         log_info "Building native glslc..."
         unset CC CXX CFLAGS CXXFLAGS LDFLAGS LIBS PKG_CONFIG_LIBDIR PKG_CONFIG_PATH
         mkdir ../native_build && cd ../native_build
         # Для нативной сборки нам не нужен весь стек, только сам компилятор
         cmake -GNinja -DCMAKE_BUILD_TYPE=Release -DSHADERC_SKIP_TESTS=ON -DSHADERC_SKIP_EXAMPLES=ON ..
-        ninja $NINJA_V -j$(nproc) glslc
+        ninja glslc
         cp -v glslc/glslc /opt/glslc || cp -v glslc /opt/glslc
     )
 
