@@ -42,12 +42,11 @@ else
     STAGES=$(find scripts.d -name "*.sh" | sort)
 fi
 
-# --halt now,fail=1 меняем на --halt soon,fail=20%
+# --halt now,fail=1 меняем на --halt soon,fail=20%; (--line-buffer may be useful)
 # Это даст шанс остальным докачаться, даже если один упал
 echo "$STAGES" | parallel --halt now,fail=1 --jobs 8 \
     --joblog "$JOBLOG" \
     --tag \
-    --line-buffer \
     --group \
     --bar \
     "export TARGET='$TARGET'; \
