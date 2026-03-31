@@ -88,7 +88,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
             log_debug "Found zlib vars: $ZLIB_VARS"
             cat "$ZLIB_VARS"
         else
-            log_warn "${XCLAM_MARK} zlib.vars found but it is EMPTY. Check run_stage.sh logic."
+            log_warn "zlib.vars found but it is EMPTY. Check run_stage.sh logic."
         fi
     else
         log_info "${SEARCH_MARK} zlib not found in this build chain (ONLY_STAGE filter might have skipped it)." || true
@@ -132,7 +132,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     TOTAL_LEN=$(echo "$TOTAL_FF_LIBS $TOTAL_FF_CFLAGS" | wc -c)
     log_debug "Total accumulated flag length: $TOTAL_LEN chars"
     if (( TOTAL_LEN > 50000 )); then
-        log_warn "${XCLAM_MARK} Flag accumulation is suspiciously large ($TOTAL_LEN chars) - check .vars files"
+        log_warn "Flag accumulation is suspiciously large ($TOTAL_LEN chars) - check .vars files"
     fi
 fi
 
@@ -161,15 +161,15 @@ _variant_libs=$(ffbuild_libs 2>/dev/null || true)
 # Клонирование и патчинг (прямо в текущем слое Docker)
 log_info "Using pre-mounted FFmpeg source..."
 if [[ ! -f "ffbuild/ffmpeg/configure" ]]; then
-    log_error "${CROSS_MARK} FFmpeg source not found at ffbuild/ffmpeg/configure (mount failed?)"
+    log_error "FFmpeg source not found at ffbuild/ffmpeg/configure (mount failed?)"
     exit 1
 fi
-log_info "Entering FFmpeg folder..."
+log_info "${DIRS_MARK} Entering FFmpeg folder..."
 pushd ffbuild/ffmpeg
 
 if [[ "$FFMPEG_PATCHES" == "1" ]]; then
-    log_info "################################################################"
-    log_info "${XCLAM_MARK} Looking for FFmpeg patches..."
+    log_info_line
+    log_info "${SEARCH_MARK} Looking for FFmpeg patches..."
     # Патчи ищем по имени ветки, пришедшей из ENV
     if [[ -d "/builder/patches/ffmpeg/$FFMPEG_BRANCH" ]]; then
         # git reset --hard HEAD 2>/dev/null || true
@@ -179,11 +179,11 @@ if [[ "$FFMPEG_PATCHES" == "1" ]]; then
             if patch -p1 < "$patch"; then
                 log_info "${CHECK_MARK} SUCCESS: Patch applied."
             else
-                log_error "${CROSS_MARK} ERROR: Patch $(basename "$patch") failed to apply cleanly."
+                log_error "ERROR: Patch $(basename "$patch") failed to apply cleanly."
                 # exit 1 # если нужно прервать сборку при ошибке
             fi
         done
-        log_info "################################################################"
+        log_info_line
     fi
 fi
 
@@ -206,9 +206,9 @@ FINAL_LIBS=$(smart_libs_dedupe "$TOTAL_FF_LIBS" "$LIBS" "$ADDITIONAL_LIBS" "$VAR
 FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} -Wl,--end-group -Wl,--allow-multiple-definition -lstdc++"
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-    log_info "################################################################"
-    log_info "### ${XCLAM_MARK} Start of DEBUG audit section"
-    log_info "################################################################"
+    log_info_line
+    log_info "### ${BUILD_MARK} Start of DEBUG audit section"
+    log_info_line
 
     log_debug "RAW CONFIGURE: \n$TOTAL_FF_CONFIGURE"
     log_debug "RAW CFLAGS: \n$TOTAL_FF_CFLAGS"
@@ -279,8 +279,8 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
         # log_info "ASAN flags enabled due to fdk-aac presence."
     # fi
 
-    log_info "################################################################"
-    log_info "### ${XCLAM_MARK} End of DEBUG audit section"
+    log_info_line
+    log_info "### ${BUILD_MARK} End of DEBUG audit section"
 fi
 
 # экспортируем флаги
@@ -335,24 +335,24 @@ MEM_JOBS=$(( MEM_AVAILABLE / 2 ))
 # Выбираем финальное число потоков
 CPU_CORES=$(nproc)
 if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
-    log_warn "${XCLAM_MARK} LTO detected. Forcing dual-thread build."
+    log_warn "LTO detected. Forcing dual-thread build."
     MAKE_JOBS=2
 else
     # Берем минимум между количеством ядер и лимитом по памяти
     MAKE_JOBS=$(( CPU_CORES < MEM_JOBS ? CPU_CORES : MEM_JOBS ))
-    log_info "################################################################"
+    log_info_line
     log_info "### ${CACHE_MARK} HOST: MEMORY: ${MEM_AVAILABLE}GB, CPU CORES: ${CPU_CORES}; Setting MAKE_JOBS=${MAKE_JOBS}"
 fi
 
-log_info "################################################################"
+log_info_line
 log_info "### ${START_MARK} Launching FFmpeg Configure..."
-log_info "################################################################"
+log_info_line
 # Функция проверки и валидации флагов ffmpeg SAFE_CONFIGURE
 check_and_fix_configure && printf "  %s\n" "${CONF_FLAGS[@]}"
 
 # Перенаправляем stderr в config.log для полноты картины
 if ! ./configure "${CONF_FLAGS[@]}" 2>ffbuild/config.log; then
-    log_error "${CROSS_MARK} Configure failed!"
+    log_error "Configure failed!"
     log_debug "${LOGS_MARK} ▼ CONTENT OF ffbuild/config.log ▼"
     tail -n 300 ffbuild/config.log
     log_debug "${LOGS_MARK} ▲ END OF ffbuild/config.log ▲"
@@ -364,13 +364,16 @@ fi
 # Сборка и установка ffmpeg
 make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
 make install
-make install-doc || log_warn "${XCLAM_MARK} install-doc failed, but proceeding."
+make install-doc || log_warn "install-doc failed, but proceeding."
 
 ccache -s
 
-log_info "Leaving FFmpeg folder..."
+log_info "${DIRS_MARK} Leaving FFmpeg folder..."
 popd # Выход из ffbuild/ffmpeg
-trap 'rm -f ffbuild/ffmpeg/ffbuild/config.log "${FINAL_DEST}/config.log" ffbuild/pkgroot ffbuild/config_parts' EXIT
+
+# Очистка рабочего пространства ПЕРЕД завершением слоя Docker
+# Это освободит место на диске раннера до того, как он начнет экспорт
+trap -p 'rm -f ffbuild/ffmpeg/ffbuild/config.log "${FINAL_DEST}/config.log" ffbuild/pkgroot ffbuild/config_parts' EXIT
 
 # Определение версии
 if [[ -f "ffbuild/ffmpeg/VERSION" ]]; then
@@ -387,7 +390,7 @@ PKG_DIR="ffbuild/pkgroot/${BUILD_NAME}"
 mkdir -p "$PKG_DIR/bin" "$PKG_DIR/doc"
 
 if ! declare -F package_variant >/dev/null; then
-    log_error "${CROSS_MARK} package_variant not defined - variant script missing or broken"
+    log_error "package_variant not defined - variant script missing or broken"
     exit 1
 fi
 package_variant "$FFBUILD_DESTPREFIX" "$PKG_DIR"
@@ -406,14 +409,14 @@ if [[ -d "/opt/ffbuild/bin" ]]; then
     find "/opt/ffbuild/bin" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \; || true
     log_info "${SYNC_MARK} Collecting external DLLs and plugins..."
 else
-    log_warn "${XCLAM_MARK} /opt/ffbuild/bin not found, skipping DLL copy."
+    log_warn "/opt/ffbuild/bin not found, skipping DLL copy."
 fi
 # Проверяем наличие критических библиотек (для отладки в логах)
 ls -lh "$PKG_DIR/bin/"
 # Скачиваем модели для ИИ
 log_info "${DOWN_MARK} Checking for Additional Assets..."
 MODELS_FINAL_DIR="$PKG_DIR/models"
-/builder/util/download_models.sh "$MODELS_FINAL_DIR" "$(pwd)" || log_warn "${XCLAM_MARK} Model download failed, but continuing..."
+/builder/util/download_models.sh "$MODELS_FINAL_DIR" "$(pwd)" || log_warn "Model download failed, but continuing..."
 
 # Стриппинг бинарников (удаление отладочных символов)
 log_info "${BROOM_MARK} Stripping binaries..."
@@ -436,9 +439,7 @@ if [[ -n "$GITHUB_ACTIONS" ]]; then
     ccache -s
 fi
 
-# Очистка рабочего пространства ПЕРЕД завершением слоя Docker
-# Это освободит место на диске раннера до того, как он начнет экспорт
 cp ffbuild/ffmpeg/ffbuild/config.log "${FINAL_DEST}/config.log" 2>/dev/null || true
-log_info "${CHECK_MARK} Build finished.\n${BROOM_MARK} Cleaning up..."
-rm -rf ffbuild/pkgroot ffbuild/config_parts 2>/dev/null || true
+log_info "${CHECK_MARK} Build finished."
+
 exit 0

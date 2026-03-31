@@ -23,7 +23,7 @@ CACHE_DIR="$SCRIPT_DIR/../.cache/downloads"
 SCRIPTS_DIR="$SCRIPT_DIR/../scripts.d"
 
 if [[ ! -d "$CACHE_DIR" ]]; then
-    log_warn "${XCLAM_MARK} Cache directory $CACHE_DIR not found. Nothing to clean."
+    log_warn "Cache directory $CACHE_DIR not found. Nothing to clean."
     exit 0
 fi
 

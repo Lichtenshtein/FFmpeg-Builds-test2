@@ -73,7 +73,7 @@ LOGIC_HASH=$(sha256sum util/run_stage.sh util/vars.sh | sha256sum | cut -c1-8 | 
 
 # Если поменяется ключевая переменная в vars.sh все последующие RUN НЕ пересоберутся
 if [[ "$DEBUG_NO_HASH" == "1" ]]; then
-    log_warn "${XCLAM_MARK} Hashes are now hardcoded to preserve Docker cache."
+    log_warn "Hashes are now hardcoded to preserve Docker cache."
     ENV_HASH="env_static"
     LOGIC_HASH="logic_static"
 fi

@@ -75,7 +75,7 @@ else
 # Откат к последней ссылке (LATEST), если точный хеш не найден
     elif [[ -L "$LATEST_LINK" && -f "$LATEST_LINK" ]]; then
         REAL_CACHE=$(readlink -f "$LATEST_LINK")
-        log_warn "${XCLAM_MARK} Exact hash $CURRENT_HASH not found. Falling back to latest symlink: $(basename "$REAL_CACHE")"
+        log_warn "Exact hash $CURRENT_HASH not found. Falling back to latest symlink: $(basename "$REAL_CACHE")"
     fi
 fi
 
@@ -88,7 +88,7 @@ DL_COMMANDS=$(ffbuild_dockerdl) || {
 if [[ -n "$DL_COMMANDS" ]]; then
     # Если кэш не найден ни одним способом
     if [[ -z "$REAL_CACHE" || ! -f "$REAL_CACHE" ]]; then
-        log_warn "${XCLAM_MARK} Source cache NOT FOUND for $STAGENAME. Attempting direct download..."
+        log_warn "Source cache NOT FOUND for $STAGENAME. Attempting direct download..."
         log_debug "Expected hash: $CURRENT_HASH | Target file: $TGT_FILE"
 
         # Пытаемся скачать исходники "на лету"
@@ -105,28 +105,28 @@ if [[ -n "$DL_COMMANDS" ]]; then
             ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
         else
             # блок ошибки, срабатывает только загрузка провалилась.
-            log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-            log_error "${CROSS_MARK} ERROR: No source cache and download failed for $STAGENAME"
-            log_error "Expected hash: $CURRENT_HASH"
-            log_error "Available files in cache for this component:"
-            ls -lh "$CACHE_DIR" | grep "$STAGENAME" || log_debug "${XCLAM_MARK} No files matching $STAGENAME found."
-            log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+            log_error "ERROR: No source cache and download failed for $STAGENAME"
+            log_info "Expected hash: $CURRENT_HASH"
+            if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+                log_debug "${DIRS_MARK} Available files in cache for this component:"
+                ls -lh "$CACHE_DIR" | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found."
+            fi
             exit 1
         fi
     else
         # Если REAL_CACHE был найден (одним из 3-х способов выше)
         log_info "${EXTR_MARK} Unpacking $STAGENAME from $(basename "$REAL_CACHE")..."
-        if ! tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C . ; then log_error "${CROSS_MARK} Failed to unpack $REAL_CACHE"; exit 1; fi
+        if ! tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C . ; then log_error "Failed to unpack $REAL_CACHE"; exit 1; fi
     fi
 
     # АВТО-ПАТЧИНГ
     if [[ "$SKIP_PRE_PATCH" == "0" ]]; then
-        log_info "${TARGET_MARK} Checking for patches..."
+        log_info "${SEARCH_MARK} Checking for patches..."
         COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
         if [[ -d "/builder/patches/$COMPONENT_NAME" ]]; then
             apply_patches 
         else
-            log_info "No patches found for $COMPONENT_NAME"
+            log_info "${CHECK_MARK} No patches found for $COMPONENT_NAME"
         fi
     else
         log_info "Skipping patches for $COMPONENT_NAME"
@@ -134,7 +134,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
 
     # Поиск корня проекта (если архив распаковался в подпапку)
     if [[ ! -f "Configure" && ! -f "configure" && ! -f "CMakeLists.txt" && ! -f "meson.build" ]]; then
-        log_warn "${XCLAM_MARK} No build file in root. ${SEARCH_MARK} Searching one level deeper..."
+        log_warn "No build file in root. ${SEARCH_MARK} Searching one level deeper..."
         CANDIDATE=$(find . -maxdepth 2 \( -name "Configure" -o -name "configure" -o -name "CMakeLists.txt" -o -name "meson.build" \) -printf '%h\n' | head -n 1)
         if [[ -n "$CANDIDATE" ]]; then
             log_info "${DIRS_MARK} Project root found at $CANDIDATE. Entering..."
@@ -145,20 +145,22 @@ if [[ -n "$DL_COMMANDS" ]]; then
     # Проверка, что после всех манипуляций папка не пуста
     # if [[ $(ls -A | wc -l) -eq 0 ]]; then
     if [[ -z "$(ls -A)" ]]; then
-        log_error "${CROSS_MARK} ERROR: Build directory is empty after unpacking/downloading $STAGENAME!"
+        log_error "ERROR: Build directory is empty after unpacking/downloading $STAGENAME!"
         exit 1
     fi
-    
-    log_debug "${DIRS_MARK} Contents of $(pwd) (current build directory):"
-    # Читаем списки в массивы
-    mapfile -t dirs < <(ls -d */ 2>/dev/null | head -n 10)
-    mapfile -t files < <(ls -F 2>/dev/null | grep -v / | head -n 10)
-    # Определяем максимальное количество строк
-    max=$(( ${#dirs[@]} > ${#files[@]} ? ${#dirs[@]} : ${#files[@]} ))
-    for ((i=0; i<max; i++)); do
-        # %-25s — левая колонка шириной 25 символов
-        printf "  %-25s %s\n" "${dirs[i]:-}" "${files[i]:-}"
-    done
+
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+        log_debug "${DIRS_MARK} Contents of $(pwd) (current build directory):"
+        # Читаем списки в массивы
+        mapfile -t dirs < <(ls -d */ 2>/dev/null | head -n 10)
+        mapfile -t files < <(ls -F 2>/dev/null | grep -v / | head -n 10)
+        # Определяем максимальное количество строк
+        max=$(( ${#dirs[@]} > ${#files[@]} ? ${#dirs[@]} : ${#files[@]} ))
+        for ((i=0; i<max; i++)); do
+            # %-25s — левая колонка шириной 25 символов
+            printf "  %-25s %s\n" "${dirs[i]:-}" "${files[i]:-}"
+        done
+    fi
 else
     log_info "No source archive required for $STAGENAME (meta-package)."
 fi
@@ -193,18 +195,16 @@ setup_wine_env
 TIMESTAMP_FILE=$(mktemp)
 touch "$TIMESTAMP_FILE"
 
-log_info "################################################################"
+log_info_line
 log_info "### ${START_MARK} ${LOG_INFO}STARTING STAGE: $STAGENAME${NC}"
 log_info "### DATE: $(date)"
 log_info "### Starting build function: $build_cmd"
-log_info "################################################################"
+log_info_line
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-    log_info "Verbose mode active. Build output will be shown in real-time."
+    log_debug "Verbose mode active. Build output will be shown in real-time."
     if ! ( set -e -o pipefail; $build_cmd ); then
-        log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
-        log_error "!!! ${CROSS_MARK} ERROR: Build failed for ${STAGENAME}"
-        log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+        log_error "ERROR: Build ${LOG_ERROR}failed${LOG_NC} for ${STAGENAME}"
         log_debug "${BUILD_MARK} Current stage file: ${SCRIPT_PATH}"
         # Выводим текущую директорию и структуру файлов, чтобы понять, где мы
         log_debug "${DIRS_MARK} Current directory: $(pwd)"
@@ -219,10 +219,10 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
             done
         else
             if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-                log_warn "${DIRS_MARK} No logs were found. Listing all files in current directory:"
+                log_warn "No logs were found. ${DIRS_MARK} Listing all files in current directory:"
               ls -R
             else
-                log_warn "${XCLAM_MARK} No logs were found."
+                log_warn "No logs were found."
             fi
         fi
         exit 1
@@ -231,7 +231,7 @@ else
     # Тихий режим: вывод лога только в случае падения
     log_info "Quiet mode active. Output is redirected to /tmp/stage_build.log"
     if ! ( set -e -o pipefail; $build_cmd > /tmp/stage_build.log 2>&1 ); then
-        log_error "${CROSS_MARK} Build failed!"
+        log_error "Build failed!"
         log_debug "${LOGS_MARK} ▼ DUMPING build log ▼"
         cat /tmp/stage_build.log
         log_debug "${LOGS_MARK} ▲ END OF LOG DUMP ▲"
@@ -248,7 +248,7 @@ if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
     if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         DELETED_FILES=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -print | sed "s|$FFBUILD_DESTDIR||g")
         if [[ -n "$DELETED_FILES" ]]; then
-            log_info "################################################################"
+            log_info_line
             log_debug "${BROOM_MARK} Cleaning unwanted dynamic DLLs from static stage: $STAGENAME\n$DELETED_FILES" 
             # find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.dll" -delete || true
             find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
@@ -263,14 +263,15 @@ fi
 # Автоматическая синхронизация префиксов после успешной сборки
 # Каждый скрипт в scripts.d обязан устанавливать файлы (make install) в путь, начинающийся с $FFBUILD_DESTDIR$FFBUILD_PREFIX (обычно это /opt/ffdest/opt/ffbuild), иначе система не увидит установленную библиотеку для следующего этапа.
 if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
-    log_info "################################################################"
-    log_info "${SYNC_MARK} POST-BUILD AUDIT: $STAGENAME"
-
+    log_info_line
+    log_info "### ${SYNC_MARK} POST-BUILD AUDIT AND AUTOMATION: $STAGENAME"
+    log_info_line
     # Identify what was actually built
     mapfile -t NEW_FILES < <(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -o -type l)
 
     if [[ ${#NEW_FILES[@]} -gt 0 ]]; then
-        log_info "${DIRS_MARK} Installed ${#NEW_FILES[@]} files to prefix:"
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+        log_debug "${DIRS_MARK} Installed ${#NEW_FILES[@]} files to prefix:"
         # Очищаем пути от DESTDIR
         CLEANER_PATHS=()
         for f in "${NEW_FILES[@]}"; do CLEANER_PATHS+=("${f#$FF_DESTDIR}"); done
@@ -283,16 +284,15 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         ) | head -n 50
         # stripping the long DESTDIR prefix for readability
         [[ ${#NEW_FILES[@]} -gt 50 ]] && echo "  ... (and $((${#NEW_FILES[@]} - 50)) more)"
-
+    fi
         # Sync to the PERSISTENT CACHE MOUNT (So the next script sees them)
         # Using -u (update) to avoid overwriting newer files if layers run out of order
         rsync -a --checksum "$FFBUILD_DESTDIR$FFBUILD_PREFIX/" "$FFBUILD_PREFIX/"
         log_info "${CHECK_MARK} Sync completed. Component is now available for dependencies."
     else
-        log_warn "${XCLAM_MARK} Stage $STAGENAME finished but no files were found in DESTDIR."
+        log_warn "Stage $STAGENAME finished but no files were found in DESTDIR."
     fi
 
-    log_info "${SYNC_MARK} Running post-build automation for $STAGENAME..."
     # Исправляем .pc файлы (пути, зависимости, Requires.private)
     # Флаг SKIP_POST_PATCH=1 в скрипте может это отключить при необходимости
     [[ "$SKIP_POST_PATCH" != "1" ]] && patch_pc_files
@@ -425,15 +425,18 @@ fi
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     # Диагностика созданных файлов
-    log_debug "Current files in $VARS_DIR:"
-    ls -1 "$VARS_DIR" | grep ".vars" || log_warn "${XCLAM_MARK} No .vars files created in this stage."
+    log_debug "${DIRS_MARK} Current files in $VARS_DIR:"
+    ls -1 "$VARS_DIR" | grep ".vars" || log_warn "No .vars files created in this stage."
 fi
 
 # Вывод статистики в конце каждой стадии
 # Это покажет Hit Rate прямо в логах GitHub
 log_info "${CACHE_MARK} CCACHE STATISTICS:"
 ccache -s
-log_info "${CHECK_MARK} Post-build automation completed."
+
+log_info_line
+log_info "### ${CHECK_MARK} Post-build automation completed."
+log_info_line
 
 # Очистка
 trap 'echo "::endgroup::"; cd /; rm -rf "/build/$STAGENAME"' EXIT

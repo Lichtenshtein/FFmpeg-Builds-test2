@@ -42,7 +42,7 @@ ffbuild_dockerbuild() {
 
     # Проверка: если icupkg не собрался, дальше идти нет смысла
     if [[ ! -f "host-build/bin/icupkg" ]]; then
-        log_error "${CROSS_MARK} ERROR: icupkg not found in host-build/bin!"
+        log_error "ERROR: icupkg not found in host-build/bin!"
         return 1
     fi
 
