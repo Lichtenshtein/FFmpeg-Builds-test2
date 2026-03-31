@@ -27,6 +27,13 @@ touch "$JOBLOG"
 # очистка временной папки и файлов
 trap 'rm -rf .cache/tmp $JOBLOG' EXIT
 
+if [[ ! -d "$DL_DIR" ]]; then
+    log_warn "Cache directory $DL_DIR not found!"
+    exit 0
+else
+    log_debug "${DIRS_MARK} Current Cache directory is:\n$DL_DIR"
+fi
+
 log_info "${DOWN_MARK} Starting parallel downloads for $TARGET-$VARIANT..."
 # If ONLY_STAGE is set, only download matching stages
 if [[ -n "$ONLY_STAGE" ]]; then

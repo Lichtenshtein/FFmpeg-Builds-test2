@@ -256,6 +256,8 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
             log_debug "${BROOM_MARK} Cleaning unwanted dynamic DLLs from static stage: $STAGENAME\n$DELETED_FILES"
             # find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.dll" -delete || true
             find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
+        else
+            log_info "${CHECK_MARK} No unwanted dynamic DLLs found for $STAGENAME"
         fi
     else
         log_info "${LOCK_MARK} Preserving dynamic DLLs for $STAGENAME"
