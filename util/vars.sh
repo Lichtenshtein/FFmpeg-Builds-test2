@@ -37,10 +37,11 @@ log_warn()  { echo -e "${LOG_WARN}[WARN]${LOG_NC}  ${XCLAM_MARK} $*" >&2; }
 log_error() { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} ${CROSS_MARK} $*" >&2; }
 log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 
-log_info_line=log_info "################################################################"
-log_err_line=log_error "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+log_info_line() { echo -e "${LOG_INFO}[INFO]${LOG_NC} ################################################################" >&2; }
+log_err_line()  { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >&2; }
 
 export -f log_info log_warn log_error log_debug log_info_line log_err_line
+
 # Argument resolution: prefer positional args, fall back to environment. приоритет аргументам, иначе берем из ENV
 export TARGET="${1:-$TARGET}"
 export VARIANT="${2:-$VARIANT}"
@@ -684,7 +685,7 @@ if [ -d "/opt/ct-ng" ]; then
             export WINEPATH="winepath -w ${FFBUILD_PREFIX}/bin:${FFBUILD_PREFIX}/lib:${MINGW_BIN_PATH}"
         fi
         # Выводим инфо о WINEPATH только при его создании
-        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && printf '%b WINEPATH (Windows style): %s\n' "${LOG_DEBUG}[DEBUG]${LOG_NC} ${DIRS_MARK}" "\n$WINEPATH"
+        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && printf '%b WINEPATH (Windows style): %s\n' "${LOG_DEBUG}[DEBUG]${LOG_NC} ${DIRS_MARK}" "$WINEPATH"
     fi
 fi
 
