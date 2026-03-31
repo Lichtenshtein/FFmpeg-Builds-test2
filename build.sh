@@ -23,42 +23,6 @@ FINAL_DEST="/opt/ffdest"
 mkdir -p "$FINAL_DEST"
 mkdir -p ffbuild
 
-# быстрый дедупликатор
-dedupe() {
-    local input="$*"
-    [[ -z "$input" ]] && return
-    # Переводим в одну строку, удаляем мусор
-    local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
-    # Удаляем дубликаты, сохраняя ПЕРВОЕ вхождение
-    echo "$clean" | awk '!x[$0]++' | xargs
-}
-# for ldflags
-smart_dedupe() {
-    local input="$*"
-    local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
-    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
-        echo "$clean" | awk '!x[$0]++' | xargs
-    else
-        echo "$clean" | xargs
-    fi
-}
-# for libs
-smart_libs_dedupe() {
-    local raw_input="$*"
-    # чистим мусор и ПУТИ, убираем -lstdc++
-    local clean=$(echo "$raw_input" | tr ' ' '\n' | \
-        grep -vE "Package|not|found|error|^$|^-L|^-lstdc\+\+$")
-    # унифицируем pthread: заменяем -lpthread на -pthread
-    clean=$(echo "$clean" | sed 's/^-lpthread$/-pthread/')
-    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
-    # оставляет только ПОСЛЕДНЕЕ вхождение (важно для порядка линковки)
-        echo "$clean" | tac | awk '!x[$0]++' | tac | tr '\n' ' ' | xargs
-    else
-    # Просто склеиваем в одну строку без удаления дублей
-        echo "$clean" | tr '\n' ' ' | xargs
-    fi
-}
-
 # Инициализация локальных (не экспортируемых!) переменных
 # Обнуляем FF_ переменные перед загрузкой, чтобы не было старых хвостов
 TOTAL_FF_CONFIGURE=""
