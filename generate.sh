@@ -23,7 +23,6 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
 [[ "$FFMPEG_PATCHES" == "1" ]] && log_info "${XCLAM_MARK} Custom patches for FFmpeg are activated!"
 [[ "$DEDUPE_FLAGS" == "1" ]] && log_info "${XCLAM_MARK} Extended deduplication for stages collected LIBS is enabled!"
 
-export LC_ALL=C.UTF-8
 echo -n "" > Dockerfile # Явно очищаем файл перед началом записи
 to_df() { echo "$*" >> Dockerfile; }
 
