@@ -77,6 +77,26 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
+    # Создаем эталонный shaderc.pc, который реально будет работать при статической линковке FFmpeg
+    mkdir -p "${DESTDIR}${FFBUILD_PREFIX}/lib/pkgconfig"
+    cat <<EOF > "${DESTDIR}${FFBUILD_PREFIX}/lib/pkgconfig/shaderc.pc"
+prefix=${FFBUILD_PREFIX}
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: shaderc
+Description: Tools and libraries for Vulkan shader compilation (Static Combined)
+Version: 2026.2.0
+Libs: -L\${libdir} -lshaderc_combined -lshaderc_util -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lSPIRV -lSPIRV-Tools-opt -lSPIRV-Tools-link -lSPIRV-Tools
+Libs.private: -lstdc++ -lgomp -lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread
+Cflags: -I\${includedir}
+EOF
+
+    # Дублируем его в shaderc_combined.pc и shaderc_static.pc для совместимости
+    cp "${DESTDIR}${FFBUILD_PREFIX}/lib/pkgconfig/shaderc.pc" "${DESTDIR}${FFBUILD_PREFIX}/lib/pkgconfig/shaderc_combined.pc"
+    cp "${DESTDIR}${FFBUILD_PREFIX}/lib/pkgconfig/shaderc.pc" "${DESTDIR}${FFBUILD_PREFIX}/lib/pkgconfig/shaderc_static.pc"
+
     cp -a "$DESTDIR"/. "$FFBUILD_DESTDIR"
 
     rm -rf "$DESTDIR"
@@ -88,7 +108,7 @@ ffbuild_dockerbuild() {
     echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_combined.pc"
     echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_static.pc"
 
-    cp "$PC_DIR"/{shaderc_combined,shaderc}.pc
+    # cp "$PC_DIR"/{shaderc_combined,shaderc}.pc
 
     mkdir ../native_build && cd ../native_build
 

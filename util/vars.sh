@@ -2,6 +2,9 @@
 
 set -o pipefail
 
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
+
 # ANSI Color Codes
 export LOG_DEBUG='\033[1;35m'  # Purple (Bold)
 export LOG_INFO='\033[1;32m'   # Green (Bold)
@@ -37,10 +40,15 @@ log_warn()  { echo -e "${LOG_WARN}[WARN]${LOG_NC}  ${XCLAM_MARK} $*" >&2; }
 log_error() { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} ${CROSS_MARK} $*" >&2; }
 log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 
+print_info()  { printf '%b[INFO]%b  %s\n' "${LOG_INFO}" "${LOG_NC}" "$*" >&2; }
+print_warn()  { printf '%b[WARN]%b %s\n' "${LOG_WARN}" "${LOG_NC}" "$*" >&2; }
+print_error() { printf '%b[ERROR]%b %s\n' "${LOG_ERROR}" "${LOG_NC}" "$*" >&2; }
+print_debug() { printf '%b[DEBUG]%b %s\n' "${LOG_DEBUG}" "${LOG_NC}" "$*" >&2; }
+
 log_info_line() { echo -e "${LOG_INFO}[INFO]${LOG_NC}  ################################################################" >&2; }
 log_err_line()  { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >&2; }
 
-export -f log_info log_warn log_error log_debug log_info_line log_err_line
+export -f log_info log_warn log_error log_debug log_info_line log_err_line print_info print_warn print_error print_debug
 
 # Argument resolution: prefer positional args, fall back to environment. приоритет аргументам, иначе берем из ENV
 export TARGET="${1:-$TARGET}"
@@ -280,7 +288,7 @@ patch_pc_files() {
     # замена абсолютных путей на переменные
     find "$pc_dir" -maxdepth 1 -name "*.pc" | while read -r pc; do
         [[ -f "$pc" ]] || continue
-        log_debug "Fixing paths in .pc files:\n$pc"
+        log_debug "Correcting values in .pc files:\n$pc"
 
         # Capitalisation fixes
         sed -i $sl 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g; s/-lpthread/-pthread/g' "$pc"
@@ -686,7 +694,7 @@ if [ -d "/opt/ct-ng" ]; then
         fi
         # Выводим инфо о WINEPATH только при его создании
         # [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && printf '%b WINEPATH (Windows style): %s\n' "${LOG_DEBUG}[DEBUG]${LOG_NC} ${DIRS_MARK}" "$WINEPATH"
-        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "${DIRS_MARK} WINEPATH (Windows style):\n$WINEPATH"
+        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && print_debug "${DIRS_MARK} WINEPATH (Windows style):\n$WINEPATH"
 
     fi
 fi
