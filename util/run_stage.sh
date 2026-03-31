@@ -11,6 +11,7 @@ if [[ -z "$SCRIPT_PATH" || ! -f "$SCRIPT_PATH" ]]; then
 fi
 
 STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
+COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
 
 # Подгружаем утилиты, используя абсолютный путь
 if ! declare -F log_info >/dev/null; then
@@ -116,13 +117,12 @@ if [[ -n "$DL_COMMANDS" ]]; then
     else
         # Если REAL_CACHE был найден (одним из 3-х способов выше)
         log_info "${EXTR_MARK} Unpacking $STAGENAME from $(basename "$REAL_CACHE")..."
-        if ! tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C . ; then log_error "Failed to unpack $REAL_CACHE"; exit 1; fi
+        if ! tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C . ; then log_error "Failed to unpack $(basename "$REAL_CACHE")"; exit 1; fi
     fi
 
     # АВТО-ПАТЧИНГ
     if [[ "$SKIP_PRE_PATCH" == "0" ]]; then
         log_info "${SEARCH_MARK} Checking for patches..."
-        COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
         if [[ -d "/builder/patches/$COMPONENT_NAME" ]]; then
             apply_patches 
         else
@@ -239,32 +239,31 @@ else
     fi
 fi
 
-# Список стадий, которым РАЗРЕШЕНО иметь DLL (ИИ, драйверы, системные компоненты)
-# Очистка динамических библиотек для каждого статического скрипта с белым списком
-# Библиотеки MinGW создают libимя.dll.a (implib) даже для статики. Удаление всех *.dll.a может быть слишком радикальным
-# find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.dll" -delete || true
-PRESERVE_DLL_PATTERN="${DLL_PRESERVE_LIST// /:-openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|onevpl}"
-if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
-    if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
-        DELETED_FILES=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -print | sed "s|$FFBUILD_DESTDIR||g")
-        if [[ -n "$DELETED_FILES" ]]; then
-            log_info_line
-            log_debug "${BROOM_MARK} Cleaning unwanted dynamic DLLs from static stage: $STAGENAME\n$DELETED_FILES" 
-            find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
-        fi
-    else
-        log_debug "${DIRS_MARK} No standard prefix directory to clean for $STAGENAME"
-    fi
-else
-    log_info "${LOCK_MARK} Preserving DLLs for dynamic stage: $STAGENAME"
-fi
+log_info_line
+log_info "### ${SYNC_MARK} POST-BUILD AUDIT AND AUTOMATION: $STAGENAME"
+log_info_line
 
-# Автоматическая синхронизация префиксов после успешной сборки
 # Каждый скрипт в scripts.d обязан устанавливать файлы (make install) в путь, начинающийся с $FFBUILD_DESTDIR$FFBUILD_PREFIX (обычно это /opt/ffdest/opt/ffbuild), иначе система не увидит установленную библиотеку для следующего этапа.
 if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
-    log_info_line
-    log_info "### ${SYNC_MARK} POST-BUILD AUDIT AND AUTOMATION: $STAGENAME"
-    log_info_line
+    # Список стадий, которым РАЗРЕШЕНО иметь DLL (ИИ, драйверы, системные компоненты). Импорт из workflow.yaml.
+    # Очистка динамических библиотек для каждого статического скрипта с белым списком
+    # Библиотеки MinGW создают libимя.dll.a (implib) даже для статики.
+    # Удаление всех *.dll.a может быть слишком радикальным
+    PRESERVE_DLL_PATTERN="${DLL_PRESERVE_LIST// /:-openvino}"
+    if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
+        if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
+            DELETED_FILES=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -print | sed "s|$FFBUILD_DESTDIR||g")
+            if [[ -n "$DELETED_FILES" ]]; then
+                log_info_line
+                log_debug "${BROOM_MARK} Cleaning unwanted dynamic DLLs from static stage: $STAGENAME\n$DELETED_FILES"
+                # find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.dll" -delete || true
+                find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
+            fi
+    else
+        log_info "${LOCK_MARK} Preserving dynamic DLLs for $STAGENAME"
+    fi
+
+    # Автоматическая синхронизация префиксов после успешной сборки
     # Identify what was actually built
     mapfile -t NEW_FILES < <(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -o -type l)
 
@@ -299,6 +298,8 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
     [[ "$SKIP_POST_CLEAN" != "1" ]] && clean_la_files
     # Запускаем аудит зависимостей (вывод в лог)
     [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && get_deps_list
+else
+    log_debug "${DIRS_MARK} No standard prefix directory found for $STAGENAME"
 fi
 
 # Сохраняем переменные для текущего слоя в файл 
@@ -350,7 +351,6 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
     # comparing against a timestamp file written just before build_cmd ran.
     # Fallback: use the component name derived from the stage filename.
 
-    # COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
     # for pc in "$FFBUILD_PREFIX/lib/pkgconfig"/*.pc \
               # "$FFBUILD_PREFIX/share/pkgconfig"/*.pc; do
         # [[ -e "$pc" ]] || continue

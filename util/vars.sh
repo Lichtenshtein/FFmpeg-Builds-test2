@@ -37,7 +37,7 @@ log_warn()  { echo -e "${LOG_WARN}[WARN]${LOG_NC}  ${XCLAM_MARK} $*" >&2; }
 log_error() { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} ${CROSS_MARK} $*" >&2; }
 log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 
-log_info_line() { echo -e "${LOG_INFO}[INFO]${LOG_NC} ################################################################" >&2; }
+log_info_line() { echo -e "${LOG_INFO}[INFO]${LOG_NC}  ################################################################" >&2; }
 log_err_line()  { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >&2; }
 
 export -f log_info log_warn log_error log_debug log_info_line log_err_line
@@ -514,7 +514,7 @@ get_deps_list() {
 
     # Финальное условие вывода
     if [[ -s "$tmp_out" ]]; then
-        log_debug "Showing dependencies for: $name"
+        log_debug "Showing dependencies for ${name}:"
         cat "$tmp_out" | sed 's/(ERR_MARK)//g' # Убираем техническую метку при выводе
         local error_count=$(grep -c "ERR_MARK" "$tmp_out" || true)
         if [[ "$error_count" -gt 0 ]]; then

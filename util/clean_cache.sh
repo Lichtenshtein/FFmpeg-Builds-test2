@@ -27,7 +27,7 @@ if [[ ! -d "$CACHE_DIR" ]]; then
     exit 0
 fi
 
-log_info "${BROOM_MARK} Starting smart cleanup in $CACHE_DIR..."
+log_info "${BROOM_MARK} Starting smart cleanup in CACHE_DIR:\n$CACHE_DIR"
 [[ "$CLEAN_INACTIVE" == "1" ]] && log_info "${XCLAM_MARK} Source cache clearing for inactive components is enabled!" || log_info "${XCLAM_MARK} Source cache clearing for inactive components is not active." 
 
 # Build the protected-files list
