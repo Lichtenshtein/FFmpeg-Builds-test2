@@ -1,0 +1,217 @@
+From 3a655d0f8d3c946efd690edea31e138d4efef417 Mon Sep 17 00:00:00 2001
+From: Stenzek <stenzek@gmail.com>
+Date: Sun, 8 Sep 2024 22:00:45 +1000
+Subject: [PATCH] Export optimizer and disassembler
+
+---
+ libshaderc/include/shaderc/shaderc.h          | 11 ++-
+ libshaderc/src/shaderc.cc                     | 71 ++++++++++++++++++
+ .../include/libshaderc_util/compiler.h        |  8 ++
+ libshaderc_util/src/compiler.cc               | 73 +++++++++++++++++++
+ 4 files changed, 162 insertions(+), 1 deletion(-)
+
+diff --git a/libshaderc/include/shaderc/shaderc.h b/libshaderc/include/shaderc/shaderc.h
+index ff31aac34..cfbd1c87c 100644
+--- a/libshaderc/include/shaderc/shaderc.h
++++ b/libshaderc/include/shaderc/shaderc.h
+@@ -614,7 +614,16 @@ SHADERC_EXPORT void shaderc_get_spv_version(unsigned int* version, unsigned int*
+ // the string can not be parsed. Returns true when the parsing succeeds. The
+ // parsed version and profile are returned through arguments.
+ SHADERC_EXPORT bool shaderc_parse_version_profile(const char* str, int* version,
+-                                   shaderc_profile* profile);
++                                                  shaderc_profile* profile);
++
++// Optimizes previously-generated SPIR-V.
++SHADERC_EXPORT shaderc_compilation_result_t shaderc_optimize_spv(
++    const shaderc_compiler_t compiler, const void* spirv, size_t spirv_size,
++    const shaderc_compile_options_t additional_options);
++
++// Disassembles SPIR-V.
++SHADERC_EXPORT shaderc_compilation_result_t shaderc_disassemble_spv(
++    const shaderc_compiler_t compiler, const void* spirv, size_t spirv_size);
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/libshaderc/src/shaderc.cc b/libshaderc/src/shaderc.cc
+index 289977e50..81093f827 100644
+--- a/libshaderc/src/shaderc.cc
++++ b/libshaderc/src/shaderc.cc
+@@ -836,3 +836,74 @@ bool shaderc_parse_version_profile(const char* str, int* version,
+   // Be strict to return false.
+   return false;
+ }
++
++shaderc_compilation_result_t shaderc_optimize_spv(
++    const shaderc_compiler_t compiler, const void* spirv, size_t spirv_size,
++    const shaderc_compile_options_t additional_options) {
++  auto* result = new (std::nothrow) shaderc_compilation_result_vector;
++  if (!result) return nullptr;
++
++  bool compilation_succeeded = false;  // In case we exit early.
++  std::vector<uint32_t> compilation_output_data;
++  size_t compilation_output_data_size_in_bytes = 0u;
++  std::stringstream errors;
++
++  if (!compiler->initializer) return result;
++  TRY_IF_EXCEPTIONS_ENABLED {
++    if (additional_options) {
++      std::tie(compilation_succeeded, compilation_output_data,
++               compilation_output_data_size_in_bytes) =
++          additional_options->compiler.Optimize(
++              static_cast<const uint32_t*>(spirv), spirv_size, &errors);
++    } else {
++      shaderc_util::Compiler compiler;
++      compiler.SetOptimizationLevel(
++          shaderc_util::Compiler::OptimizationLevel::Performance);
++      std::tie(compilation_succeeded, compilation_output_data,
++               compilation_output_data_size_in_bytes) =
++          compiler.Optimize(static_cast<const uint32_t*>(spirv), spirv_size,
++                            &errors);
++    }
++
++    result->messages = errors.str();
++    if (compilation_succeeded) {
++      result->compilation_status = shaderc_compilation_status_success;
++      result->SetOutputData(std::move(compilation_output_data));
++      result->output_data_size = compilation_output_data_size_in_bytes;
++    }
++  }
++  CATCH_IF_EXCEPTIONS_ENABLED(...) {
++    result->compilation_status = shaderc_compilation_status_internal_error;
++  }
++  return result;
++}
++
++shaderc_compilation_result_t shaderc_disassemble_spv(
++    const shaderc_compiler_t compiler, const void* spirv, size_t spirv_size) {
++  auto* result = new (std::nothrow) shaderc_compilation_result_vector;
++  if (!result) return nullptr;
++
++  bool compilation_succeeded = false;  // In case we exit early.
++  std::vector<uint32_t> compilation_output_data;
++  size_t compilation_output_data_size_in_bytes = 0u;
++  std::stringstream errors;
++
++  if (!compiler->initializer) return result;
++  TRY_IF_EXCEPTIONS_ENABLED {
++    std::tie(compilation_succeeded, compilation_output_data,
++             compilation_output_data_size_in_bytes) =
++        shaderc_util::Compiler().Disassemble(
++            static_cast<const uint32_t*>(spirv), spirv_size, &errors);
++
++    result->messages = errors.str();
++    if (compilation_succeeded) {
++      result->compilation_status = shaderc_compilation_status_success;
++      result->SetOutputData(std::move(compilation_output_data));
++      result->output_data_size = compilation_output_data_size_in_bytes;
++    }
++  }
++  CATCH_IF_EXCEPTIONS_ENABLED(...) {
++    result->compilation_status = shaderc_compilation_status_internal_error;
++  }
++  return result;
++}
+diff --git a/libshaderc_util/include/libshaderc_util/compiler.h b/libshaderc_util/include/libshaderc_util/compiler.h
+index b076ec843..ec108b171 100644
+--- a/libshaderc_util/include/libshaderc_util/compiler.h
++++ b/libshaderc_util/include/libshaderc_util/compiler.h
+@@ -400,7 +400,15 @@ class Compiler {
+       CountingIncluder& includer, OutputType output_type,
+      std::ostream* error_stream, size_t* total_warnings,
+      size_t* total_errors) const;
+ 
++  // Interface to optimizer.
++  std::tuple<bool, std::vector<uint32_t>, size_t> Optimize(
++      const void* spirv, size_t spirv_size, std::ostream* error_stream) const;
++
++  // Interface to disassembler.
++  std::tuple<bool, std::vector<uint32_t>, size_t> Disassemble(
++      const void* spirv, size_t spirv_size, std::ostream* error_stream) const;
++
+   static EShMessages GetDefaultRules() {
+     return static_cast<EShMessages>(EShMsgSpvRules | EShMsgVulkanRules |
+                                     EShMsgCascadingErrors);
+diff --git a/libshaderc_util/src/compiler.cc b/libshaderc_util/src/compiler.cc
+index 1f9e6a511..c0d281f3a 100644
+--- a/libshaderc_util/src/compiler.cc
++++ b/libshaderc_util/src/compiler.cc
+@@ -404,6 +404,79 @@ std::tuple<bool, std::vector<uint32_t>, size_t> Compiler::Compile(
+   }
+ }
+ 
++std::tuple<bool, std::vector<uint32_t>, size_t> Compiler::Optimize(
++    const void* spirv, size_t spirv_size, std::ostream* error_stream) const {
++  auto result_tuple =
++      std::make_tuple(false, std::vector<uint32_t>(), (size_t)0u);
++
++  if (spirv_size == 0 || spirv_size % sizeof(uint32_t)) {
++    *error_stream << "shaderc: input SPIR-V size is invalid\n";
++    return result_tuple;
++  }
++
++  if (enabled_opt_passes_.empty()) {
++    *error_stream << "shaderc: No optimization passes are enabled.\n";
++    return result_tuple;
++  }
++
++  bool& succeeded = std::get<0>(result_tuple);
++  std::vector<uint32_t>& compilation_output_data = std::get<1>(result_tuple);
++  size_t& compilation_output_data_size_in_bytes = std::get<2>(result_tuple);
++
++  const size_t word_count = spirv_size / sizeof(uint32_t);
++  compilation_output_data.resize(word_count);
++  std::memcpy(compilation_output_data.data(), spirv, spirv_size);
++
++  spvtools::OptimizerOptions opt_options;
++  opt_options.set_preserve_bindings(preserve_bindings_);
++
++  std::string opt_errors;
++  if (!SpirvToolsOptimize(target_env_, target_env_version_, enabled_opt_passes_,
++                          opt_options, &compilation_output_data, &opt_errors)) {
++    *error_stream << "shaderc: internal error: failed to optimize: "
++                  << opt_errors << "\n";
++    return result_tuple;
++  }
++
++  succeeded = true;
++  compilation_output_data_size_in_bytes =
++      compilation_output_data.size() * sizeof(compilation_output_data[0]);
++  return result_tuple;
++}
++
++std::tuple<bool, std::vector<uint32_t>, size_t> Compiler::Disassemble(
++    const void* spirv, size_t spirv_size, std::ostream* error_stream) const {
++  auto result_tuple =
++      std::make_tuple(false, std::vector<uint32_t>(), (size_t)0u);
++
++  if (spirv_size == 0 || spirv_size % sizeof(uint32_t)) {
++    *error_stream << "shaderc: input SPIR-V size is invalid\n";
++    return result_tuple;
++  }
++
++  std::vector<uint32_t> spirv_copy;
++  const size_t word_count = spirv_size / sizeof(uint32_t);
++  spirv_copy.resize(word_count);
++  std::memcpy(spirv_copy.data(), spirv, spirv_size);
++
++  std::string text_or_error;
++  if (!SpirvToolsDisassemble(target_env_, target_env_version_, spirv_copy,
++                             &text_or_error)) {
++    *error_stream << "shaderc: internal error: compilation succeeded but "
++                     "failed to disassemble: "
++                  << text_or_error << "\n";
++    return result_tuple;
++  }
++
++  bool& succeeded = std::get<0>(result_tuple);
++  std::vector<uint32_t>& compilation_output_data = std::get<1>(result_tuple);
++  size_t& compilation_output_data_size_in_bytes = std::get<2>(result_tuple);
++  succeeded = true;
++  compilation_output_data = ConvertStringToVector(text_or_error);
++  compilation_output_data_size_in_bytes = text_or_error.size();
++  return result_tuple;
++}
++
+ void Compiler::AddMacroDefinition(const char* macro, size_t macro_length,
+                                   const char* definition,
+                                   size_t definition_length) {

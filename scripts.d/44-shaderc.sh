@@ -14,6 +14,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    apply_patches
     echo "./utils/git-sync-deps || exit $?"
 }
 
@@ -24,13 +25,11 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         -DCMAKE_BUILD_TYPE=Release
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         # -DSHADERC_GLSLANG_DIR="$(realpath ../third_party/glslang)"
         # -DSHADERC_SPIRV_TOOLS_DIR="$(realpath ../third_party/spirv-tools)"
         # -DSHADERC_SPIRV_HEADERS_DIR="$(realpath ../third_party/spirv-headers)"
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
-        -DALLOW_EXTERNAL_SPIRV_TOOLS=ON
+        # -DALLOW_EXTERNAL_SPIRV_TOOLS=ON
         -DBUILD_SHARED_LIBS=OFF
         -DENABLE_EXCEPTIONS=ON
         -DENABLE_GLSLANG_BINARIES=OFF
@@ -62,7 +61,9 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -GNinja "${myconf[@]}" .. || return 1
+    cmake -GNinja "${myconf[@]}" \
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" .. || return 1
 
     export DESTDIR="/tmp/staging$FFBUILD_DESTDIR"
     ninja install || return 1
@@ -97,6 +98,13 @@ ffbuild_dockerbuild() {
     cmake -GNinja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V -j$(nproc) glslc/glslc || return 1
+
+    # Пробуем собрать таргет glslc. Если не выходит по точному имени, собираем всё в этой поддиректории
+    # ninja glslc || ninja glslc/all || return 1
+
+    # Копируем нативный бинарник туда, где он может понадобиться (например, vulkan-loader)
+    # Ищем его через find, так как путь может быть glslc/glslc или просто glslc
+    # find . -type f -name "glslc" -executable -exec cp -v {} /opt/glslc \;
 
     cp glslc/glslc /opt/glslc
 

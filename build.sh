@@ -337,7 +337,7 @@ popd # Выход из ffbuild/ffmpeg
 
 # Очистка рабочего пространства ПЕРЕД завершением слоя Docker
 # Это освободит место на диске раннера до того, как он начнет экспорт
-trap -p 'rm -f ffbuild/ffmpeg/ffbuild/config.log "${FINAL_DEST}/config.log" ffbuild/pkgroot ffbuild/config_parts' EXIT
+trap -p 'rm -rf ffbuild/ffmpeg/ffbuild/config.log "${FINAL_DEST}/config.log" ffbuild/pkgroot ffbuild/config_parts' EXIT
 
 # Определение версии
 if [[ -f "ffbuild/ffmpeg/VERSION" ]]; then
