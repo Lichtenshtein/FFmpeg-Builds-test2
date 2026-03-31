@@ -48,14 +48,6 @@ download_stage() {
     local TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.zst"
     local LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.zst"
 
-    log_debug "Checking cache for $STAGENAME in $DL_DIR..."
-    if [[ ! -d "$DL_DIR" ]]; then
-        log_error "DL_DIR ($DL_DIR) does not exist!"
-    else
-        log_info "${DIRS_MARK} Files in cache for $STAGENAME:"
-        ls -F "$DL_DIR" | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found"
-    fi
-
     if [[ -f "$TGT_FILE" ]]; then
         log_info "${TARGET_MARK} Cache hit: $STAGENAME ($DL_HASH); Size: $(du -sh "$TGT_FILE" | cut -f1)"
         # Обновляем mtime, чтобы clean_cache не удалил его как старый
@@ -63,10 +55,10 @@ download_stage() {
         ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
         return 0
     else
-        log_warn "Cache miss: $STAGENAME (Target file $TGT_FILE not found)"
+        log_warn "Cache miss: ${STAGENAME}; Target file $(basename "$TGT_FILE") not found!"
     fi
 
-    log_info "${DOWN_MARK} Changes detected or missing cache (Hash: $DL_HASH) for $STAGENAME. Downloading..."
+    log_warn "Changes detected (Hash: $DL_HASH) or missing cache for $STAGENAME. ${DOWN_MARK} Re-downloading..."
 
     # Создаем временную папку внутри проекта
     mkdir -p .cache/tmp
@@ -81,8 +73,8 @@ download_stage() {
         eval "$DL_COMMANDS"
     ); then
 
-        # Whitelist метаданных (добавил dav1d и ffmpeg)
-        local PRESERVE_PATTERN="${GIT_PRESERVE_LIST// /:-ffmpeg|glib2|x264|x265|opus|pcre2|openssl|pango|freetype|ilbc|libjxl|mbedtls|snappy|zimg|vmaf|dav1d|libplacebo}"
+        # Whitelist метаданных .git (список подгружается из workflow.yaml). 
+        local PRESERVE_PATTERN="${GIT_PRESERVE_LIST// /:-ffmpeg|glib2}"
 
         if [[ "$STAGENAME" =~ $PRESERVE_PATTERN ]]; then
             log_info "${LOCK_MARK} Preserving Git metadata for $STAGENAME (Whitelist match)"
@@ -105,6 +97,15 @@ download_stage() {
         rm -rf "$WORK_DIR"
         return 1 # return 1 для параллельного запуска
     fi
+
+    log_debug "Checking cache for $STAGENAME in .cache/downloads dir..."
+    if [[ ! -d "$DL_DIR" ]]; then
+        log_error "DL_DIR ($DL_DIR) does not exist!"
+    else
+        log_info "${DIRS_MARK} Files in cache for $STAGENAME:"
+        ls -F "$DL_DIR" | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found!"
+    fi
+
 }
 
 git-mini-clone() {

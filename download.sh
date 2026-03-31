@@ -65,11 +65,11 @@ REPO_URL="${FFMPEG_REPO}"
 BRANCH_NAME="${FFMPEG_BRANCH}"
 
 if [[ ! -d "$FFMPEG_DIR/.git" ]]; then
-    log_info "${DOWN_MARK} Cloning FFmpeg from $REPO_URL ($BRANCH_NAME)..."
+    log_info "${DOWN_MARK} Cloning FFmpeg from $REPO_URL ($BRANCH_NAME)"
     git clone --quiet --depth=1 --branch="$BRANCH_NAME" "$REPO_URL" "$FFMPEG_DIR"
 else
     git -C "$FFMPEG_DIR" status >/dev/null 2>&1 || rm -rf "$FFMPEG_DIR"
-    log_info "Updating FFmpeg from $REPO_URL..."
+    log_info "${SYNC_MARK} Updating FFmpeg from $REPO_URL"
     ( cd "$FFMPEG_DIR" && \
       git remote set-url origin "$REPO_URL" && \
       git fetch --quiet --depth=1 origin "$BRANCH_NAME" && \

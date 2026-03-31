@@ -1,9 +1,10 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/stenzek/shaderc.git"
-SCRIPT_COMMIT="d72697bfc353b547efc58421ad54ac0345441bf4"
+# SCRIPT_REPO="https://github.com/stenzek/shaderc.git"
+# SCRIPT_COMMIT="d72697bfc353b547efc58421ad54ac0345441bf4"
 
-SCRIPT_MIRROR="https://github.com/google/shaderc.git"
+SCRIPT_REPO="https://github.com/google/shaderc.git"
+SCRIPT_COMMIT="42c364eb27982ecfc9e00e384df205730e65b90c"
 
 export SKIP_PRE_PATCH=1
 
