@@ -685,7 +685,9 @@ if [ -d "/opt/ct-ng" ]; then
             export WINEPATH="winepath -w ${FFBUILD_PREFIX}/bin:${FFBUILD_PREFIX}/lib:${MINGW_BIN_PATH}"
         fi
         # Выводим инфо о WINEPATH только при его создании
-        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && printf '%b WINEPATH (Windows style): %s\n' "${LOG_DEBUG}[DEBUG]${LOG_NC} ${DIRS_MARK}" "$WINEPATH"
+        # [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && printf '%b WINEPATH (Windows style): %s\n' "${LOG_DEBUG}[DEBUG]${LOG_NC} ${DIRS_MARK}" "$WINEPATH"
+        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "${DIRS_MARK} WINEPATH (Windows style):\n$WINEPATH"
+
     fi
 fi
 

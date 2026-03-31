@@ -193,7 +193,6 @@ setup_wine_env
 
 # Write a timestamp file before $build_cmd runs, then use find -newer to detect which .pc files were created by this build
 TIMESTAMP_FILE=$(mktemp)
-touch "$TIMESTAMP_FILE"
 
 log_info_line
 log_info "### ${START_MARK} ${LOG_INFO}STARTING STAGE: $STAGENAME${NC}"
@@ -245,24 +244,6 @@ log_info_line
 
 # Каждый скрипт в scripts.d обязан устанавливать файлы (make install) в путь, начинающийся с $FFBUILD_DESTDIR$FFBUILD_PREFIX (обычно это /opt/ffdest/opt/ffbuild), иначе система не увидит установленную библиотеку для следующего этапа.
 if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
-    # Список стадий, которым РАЗРЕШЕНО иметь DLL (ИИ, драйверы, системные компоненты). Импорт из workflow.yaml.
-    # Очистка динамических библиотек для каждого статического скрипта с белым списком
-    # Библиотеки MinGW создают libимя.dll.a (implib) даже для статики.
-    # Удаление всех *.dll.a может быть слишком радикальным
-    PRESERVE_DLL_PATTERN="${DLL_PRESERVE_LIST// /:-openvino}"
-    if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
-        DELETED_FILES=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -print | sed "s|$FFBUILD_DESTDIR||g")
-        if [[ -n "$DELETED_FILES" ]]; then
-            log_debug "${BROOM_MARK} Cleaning unwanted dynamic DLLs from static stage: $STAGENAME\n$DELETED_FILES"
-            # find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.dll" -delete || true
-            find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
-        else
-            log_info "${CHECK_MARK} No unwanted dynamic DLLs found for $STAGENAME"
-        fi
-    else
-        log_info "${LOCK_MARK} Preserving dynamic DLLs for $STAGENAME"
-    fi
-
     # Автоматическая синхронизация префиксов после успешной сборки
     # Identify what was actually built
     mapfile -t NEW_FILES < <(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -o -type l)
@@ -291,11 +272,28 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         log_warn "Stage $STAGENAME finished but no files were found in DESTDIR."
     fi
 
+    # Список стадий, которым РАЗРЕШЕНО иметь DLL (ИИ, драйверы, системные компоненты). Импорт из workflow.yaml.
+    # Очистка динамических библиотек для каждого статического скрипта с белым списком
+    # Библиотеки MinGW создают libимя.dll.a (implib) даже для статики.
+    # Удаление всех *.dll.a может быть слишком радикальным
+    PRESERVE_DLL_PATTERN="${DLL_PRESERVE_LIST// /:-openvino}"
+    if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
+        DELETED_FILES=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -print | sed "s|$FFBUILD_DESTDIR||g")
+        if [[ -n "$DELETED_FILES" ]]; then
+            log_debug "${BROOM_MARK} Cleaning unwanted dynamic DLLs from static stage: $STAGENAME\n$DELETED_FILES"
+            # find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.dll" -delete || true
+            find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
+        else
+            log_info "${CHECK_MARK} No unwanted dynamic DLLs found to clean."
+        fi
+    else
+        log_info "${LOCK_MARK} Preserving dynamic DLLs for $STAGENAME"
+    fi
+    # Удаляем мусорные .la файлы
+    [[ "$SKIP_POST_CLEAN" != "1" ]] && clean_la_files
     # Исправляем .pc файлы (пути, зависимости, Requires.private)
     # Флаг SKIP_POST_PATCH=1 в скрипте может это отключить при необходимости
     [[ "$SKIP_POST_PATCH" != "1" ]] && patch_pc_files
-    # Удаляем мусорные .la файлы
-    [[ "$SKIP_POST_CLEAN" != "1" ]] && clean_la_files
     # Запускаем аудит зависимостей (вывод в лог)
     [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && get_deps_list
 else

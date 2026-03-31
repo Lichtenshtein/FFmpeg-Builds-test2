@@ -23,9 +23,9 @@ source util/dl_functions.sh
 mkdir -p .cache/downloads
 DL_DIR="$PWD/.cache/downloads"
 JOBLOG=$(mktemp)
-touch "$JOBLOG"
+
 # очистка временной папки и файлов
-trap 'rm -rf .cache/tmp $JOBLOG' EXIT
+trap 'rm -f "$JOBLOG"; rm -rf .cache/tmp' EXIT
 
 if [[ ! -d "$DL_DIR" ]]; then
     log_warn "Cache directory $DL_DIR not found!"
@@ -46,6 +46,10 @@ fi
 # Это даст шанс остальным докачаться, даже если один упал
 echo "$STAGES" | parallel --halt now,fail=1 --jobs 8 \
     --joblog "$JOBLOG" \
+    --tag \
+    --line-buffer \
+    --group \
+    --bar \
     "export TARGET='$TARGET'; \
      export VARIANT='$VARIANT'; \
      export ROOT_DIR='$ROOT_DIR'; \
@@ -55,11 +59,9 @@ echo "$STAGES" | parallel --halt now,fail=1 --jobs 8 \
      download_stage {} '$DL_DIR'"
 
 if [[ -f "$JOBLOG" ]]; then
-    # Ищем упавшие задачи
+    # Извлекаем список команд ($NF) для строк, где статус ($7) не равен 0
     failed=$(awk 'NR>1 && $7 != 0 {print $NF}' "$JOBLOG")
-    [[ -n "$failed" ]] && log_error "Failed downloads: $failed"
-    # Удаляем лог сразу после обработки
-    rm -rf "$JOBLOG" || true
+    [[ -n "$failed" ]] && log_error "Failed downloads:\n$failed"
 fi
 
 log_info "${CHECK_MARK} All sequential downloads finished successfully."
