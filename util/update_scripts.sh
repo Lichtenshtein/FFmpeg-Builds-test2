@@ -2,7 +2,6 @@
 
 set -eo pipefail
 shopt -s globstar
-export LC_ALL=C
 
 # Загружаем оформление
 source util/vars.sh 2>/dev/null || true
@@ -41,10 +40,6 @@ check_repo_exists() {
 
 for scr in $SEARCH_PATTERN; do
     [[ -f "$scr" ]] || continue
-
-    # Извлекаем чистое имя (напр. 18-zlib.sh -> zlib)
-    STAGENAME=$(basename "$scr" .sh)
-    COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
 
     # Проверка на вхождение в массив исключений
     skip_this=0

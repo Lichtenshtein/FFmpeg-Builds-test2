@@ -18,12 +18,8 @@ if ! source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" 2>/dev/nu
     exit 1
 fi
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-CACHE_DIR="$SCRIPT_DIR/../.cache/downloads"
-SCRIPTS_DIR="$SCRIPT_DIR/../scripts.d"
-
-log_info "${BROOM_MARK} Starting smart cleanup in Cache directory..."
-[[ "$CLEAN_INACTIVE" == "1" ]] && log_info "${XCLAM_MARK} Source Cache clearing for inactive components is enabled!" || log_info "${XCLAM_MARK} Source Cache clearing for inactive components is not active." 
+log_info "${BROOM_MARK} Starting smart cleanup in cache directory..."
+[[ "$CLEAN_INACTIVE" == "1" ]] && log_info "${XCLAM_MARK} Source cache clearing for inactive components is enabled!" || log_info "${XCLAM_MARK} Source cache clearing for inactive components is not active." 
 
 # Build the protected-files list
 RAW_KEEP_LIST=$(mktemp)
@@ -37,7 +33,6 @@ count_skipped=0
 
 for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     [[ -f "$STAGE" ]] || continue
-    STAGENAME="$(basename "$STAGE" .sh)"
 
     # Is this stage active (listed in ONLY_STAGE)?
     is_active=false
@@ -91,7 +86,6 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
 
     # Add to keep-list if protecting
     if [[ "$should_protect" == "true" ]]; then
-        DL_HASH=$(get_stage_hash "$STAGE")
         if [[ -n "$DL_HASH" ]]; then
             echo "${STAGENAME}_${DL_HASH}.tar.zst" >> "$RAW_KEEP_LIST"
             echo "${STAGENAME}.tar.zst"             >> "$RAW_KEEP_LIST"
@@ -126,7 +120,7 @@ mapfile -t PROTECTED_FILES < "$FINAL_KEEP_LIST"
 deleted_count=0
 skipped_young=0
 
-log_info "${BROOM_MARK} Scanning Cache for orphaned/outdated files..."
+log_info "${BROOM_MARK} Scanning cache for orphaned/outdated files..."
 
 for f in *.tar.zst; do
     [[ -e "$f" || -L "$f" ]] || continue
@@ -148,7 +142,7 @@ for f in *.tar.zst; do
     elif [[ -f "$f" ]]; then
         # 30-minute grace period for files being actively downloaded
         if [[ -n $(find "$f" -mmin +30 2>/dev/null) ]]; then
-            log_info "${BROOM_MARK} Deleting orphaned Cache file: $f"
+            log_info "${BROOM_MARK} Deleting orphaned cache file: $f"
             rm -f "$f"
             deleted_count=$((deleted_count + 1))
         else

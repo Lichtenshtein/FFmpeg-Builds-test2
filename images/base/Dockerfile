@@ -4,12 +4,21 @@ ARG CARGO_C_VERSION=0.10.20
 ARG TARGETPLATFORM
 
 ENV DEBIAN_FRONTEND=noninteractive
+
 RUN \
     --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip \
+    # Добавляем архитектуру и репозиторий Wine
+    dpkg --add-architecture i386 && \
+    mkdir -pm755 /etc/apt/keyrings && \
+    curl -fsSL "https://dl.winehq.org/wine-builds/winehq.key" -o /etc/apt/keyrings/winehq-archive.key && \
+    curl -fsSL "https://dl.winehq.org/wine-builds/ubuntu/dists/noble/winehq-noble.sources" -o /etc/apt/sources.list.d/winehq-noble.sources && \
+    \
     apt-get -y update && \
     apt-get -y dist-upgrade && \
+    \
+    # Установка всех инструментов
     apt-get -y install --no-install-recommends \
         $([ "$TARGETPLATFORM" != "linux/amd64" ] || echo gcc-multilib g++-multilib) \
         build-essential pkg-config binutils pax-utils file yasm nasm ccache \
@@ -21,27 +30,52 @@ RUN \
         gtk-doc-tools gobject-introspection gawk procps \
         ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent p7zip-full zstd \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
-        gcc-14 g++-14 dos2unix re2c && \
-    pip3 install --break-system-packages --upgrade meson  && \
+        gcc-14 g++-14 dos2unix re2c \
+        # Добавляем pv и bsdmainutils (для команды column)
+        pv bsdmainutils \
+        # Добавляем Wine и Xvfb из того же APT сеанса
+        wine-stable wine-stable-amd64 wine-stable-i386 xvfb && \
+    \
+    # Настройка Python и альтернатив GCC
+    pip3 install --break-system-packages --upgrade meson && \
     pip3 install Cython pytest build --break-system-packages && \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 && \
     update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-14 100 && \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100 && \
     update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-14 100 && \
+    \
+    # NodeJS
     curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
     apt-get -y install nodejs && \
-    npm cache clean --force && \
     npm install -g @napi-ffi/ffi-napi && \
-    apt-get -y clean && \
-    gcc-14 --version && \
-    as --version && \
+    \
+    # Очистка
+    apt-get -y clean && rm -rf /var/lib/apt/lists/* && \
+    \
+    # Настройка Git
     git config --global user.email "builder@localhost" && \
     git config --global user.name "Builder" && \
     git config --global advice.detachedHead false && \
     git config --global core.autocrlf false && \
-    git config --global --add safe.directory "*"
+    git config --global --add safe.directory "*" && \
+    \
+    # Проверка версий
+    gcc-14 --version && \
+    as --version
 
-ENV CARGO_HOME="/opt/cargo" RUSTUP_HOME="/opt/rustup" PATH="/opt/cargo/bin:${PATH}"
+# Настройки среды
+ENV \
+    CARGO_HOME="/opt/cargo" RUSTUP_HOME="/opt/rustup" PATH="/opt/cargo/bin:${PATH}" \
+    HOST_CC="gcc-14" \
+    HOST_CXX="g++-14" \
+    # Базовые настройки Wine
+    WINEARCH=win64 \
+    WINEPREFIX="/root/.wine" \
+    DISPLAY=:99 \
+    WINEDEBUG=-all \
+    WINEDLLOVERRIDES="mscoree,mshtml=" \
+    WINE_BIN_DIR="/opt/wine-stable/bin"
+
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path && \
     curl -fsSL "https://github.com/lu-zero/cargo-c/releases/download/v${CARGO_C_VERSION}/cargo-c-x86_64-unknown-linux-musl.tar.gz" | tar -xz -C /opt/cargo/bin
 
@@ -50,30 +84,6 @@ RUN --mount=src=.,dst=/input \
         dest="/usr/bin/$(basename $s .sh)"; \
         cp "$s" "$dest" && chmod +x "$dest" && dos2unix "$dest"; \
     done
-
-ENV HOST_CC="gcc-14" \
-    HOST_CXX="g++-14"
-
-RUN \
-    dpkg --add-architecture i386 && \
-    mkdir -pm755 /etc/apt/keyrings && \
-    curl -fsSL "https://dl.winehq.org/wine-builds/winehq.key" -o /etc/apt/keyrings/winehq-archive.key && \
-    curl -fsSL "https://dl.winehq.org/wine-builds/ubuntu/dists/noble/winehq-noble.sources" -o /etc/apt/sources.list.d/winehq-noble.sources && \
-    apt-get -y update && \
-    apt-get -y install --no-install-recommends \
-        wine-stable \
-        wine-stable-amd64 \
-        wine-stable-i386 \
-        xvfb && \
-    apt-get -y clean && rm -rf /var/lib/apt/lists/*
-
-# Базовые настройки Wine
-ENV WINEARCH=win64 \
-    WINEPREFIX="/root/.wine" \
-    DISPLAY=:99 \
-    WINEDEBUG=-all \
-    WINEDLLOVERRIDES="mscoree,mshtml=" \
-    WINE_BIN_DIR="/opt/wine-stable/bin"
 
 # Создаем ссылки на то, что РЕАЛЬНО есть в системе (судя по dpkg -L)
 RUN set -e; \

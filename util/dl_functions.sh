@@ -31,57 +31,53 @@ _retry() {
 
 download_stage() {
     local STAGE="$1"
-    local DL_DIR="$2"
-    local STAGENAME=$(basename "$STAGE" .sh)
-
-    # Единый хеш (зависит от всего файла скрипта благодаря новой vars.sh)
-    local DL_HASH=$(get_stage_hash "$STAGE")
-
-    local DL_COMMANDS=$(bash -c "source util/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
-                      source util/dl_functions.sh; \
-                      source \"$STAGE\"; \
-                      ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")
+    local CACHE_DIR="${2:-$CACHE_DIR}" 
 
     # Если команд нет — это стадия без исходников (мета-пакет), выходим
     [[ -z "$DL_COMMANDS" ]] && return 0
 
-    local TGT_FILE="${DL_DIR}/${STAGENAME}_${DL_HASH}.tar.zst"
-    local LATEST_LINK="${DL_DIR}/${STAGENAME}.tar.zst"
+    # Проверяем, что у нас есть путь к кэшу, иначе упадем на mkdir/tar
+    if [[ -z "$CACHE_DIR" ]]; then
+        log_error "CACHE_DIR is empty! Check if vars.sh is sourced."
+        return 1
+    fi
 
     # Debug: show keep-list only at verbose >= 2
     if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
         log_info "${DIRS_MARK} Files in cache for $STAGENAME:"
-        ls -F "$DL_DIR" | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found!"
+        ls -F "$CACHE_DIR" 2>/dev/null | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found!"
     fi
 
-    if [[ -f "$TGT_FILE" ]]; then
-        local size=$(du -sh "$TGT_FILE" | cut -f1)
+    if [[ -f "$STAGE_CACHE_FILE" ]]; then
+        local size=$(du -sh "$STAGE_CACHE_FILE" | cut -f1)
         # Выводим всё одной строкой, чтобы parallel не перемешал лог
         log_info "${TARGET_MARK} Cache hit: $STAGENAME ($DL_HASH) [Size: $size]"
         # Обновляем mtime, чтобы clean_cache не удалил его как старый
-        touch "$TGT_FILE" 
-        ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
+        touch "$STAGE_CACHE_FILE" 
+        ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
         return 0
     else
-        log_warn "Target file $(basename "$TGT_FILE") not found!"
+        log_warn "Target file $(basename "$STAGE_CACHE_FILE") not found!"
     fi
 
     # Если хита нет, собираем информацию о промахе
     local miss_reason="Cache miss: $STAGENAME"
-    [[ -L "$LATEST_LINK" ]] && miss_reason+=" (Changes detected: $DL_HASH)"
+    [[ -L "$STAGE_LATEST_LINK" ]] && miss_reason+=" (Changes detected: $DL_HASH)"
     # Выводим единый блок о начале загрузки
     log_warn "$miss_reason. ${DOWN_MARK} Re-downloading..."
 
-    # Создаем временную папку внутри проекта
-    mkdir -p .cache/tmp
-    WORK_DIR=$(mktemp -d -p "$ROOT_DIR/.cache/tmp")
+    # Используем временную папку внутри проекта как рабочую
+    local WORK_DIR=$(mktemp -d -p "$TMP_DIR")
+    # Очистка при выходе. Удаляем только WORK_DIR конкретного процесса, а не весь TMP_DIR!
+    # Иначе параллельные процессы удалят чужие папки.
+    trap 'rm -rf "$WORK_DIR"' EXIT
 
     # Выполняем загрузку
     if (
         cd "$WORK_DIR"
         # Явно подгружаем функции внутри подоболочки для надежности в Parallel
-        source "$ROOT_DIR/util/dl_functions.sh"
-        source "$ROOT_DIR/util/vars.sh" "$TARGET" "$VARIANT" &>/dev/null
+        source "$UTIL_DIR/dl_functions.sh"
+        source "$UTIL_DIR/vars.sh" "$TARGET" "$VARIANT" &>/dev/null
         eval "$DL_COMMANDS"
     ); then
 
@@ -93,20 +89,18 @@ download_stage() {
         else
             log_debug "${BROOM_MARK} Stripping Git metadata for $STAGENAME to save cache space"
             # Удаляем .git папки и .gitignore файлы
-            find "$WORK_DIR" -name ".git*" -prune -exec rm -rf {} \; 2>/dev/null || true
+            find "$WORK_DIR" -maxdepth 2 -name ".git*" -exec rm -rf {} + 2>/dev/null || true
         fi
 
         # Упаковка; -c: создать, -f: файл, -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
-        tar -I 'zstd -T0 -3' -cf "$TGT_FILE" -C "$WORK_DIR" .
-        ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
+        tar -I 'zstd -T0 -3' -cf "$STAGE_CACHE_FILE" -C "$WORK_DIR" .
+        ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
 
-        log_info "${CACHE_MARK} Cached $STAGENAME (Name: $(basename "$TGT_FILE"))"
-        rm -rf "$WORK_DIR"
+        log_info "${CACHE_MARK} Cached $STAGENAME (Name: $(basename "$STAGE_CACHE_FILE"))"
         return 0
     else
         log_error "FAILED to download $STAGENAME. Commands attempted:"
-        log_debug "$DL_COMMANDS"
-        rm -rf "$WORK_DIR"
+        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "$DL_COMMANDS"
         return 1 # return 1 для параллельного запуска
     fi
 }
@@ -242,23 +236,50 @@ download_file() {
     # УДАЛЯЕМ старый/битый файл перед новой попыткой
     rm -f "$DEST"
 
-    log_info "${DOWN_MARK} Downloading external file: $(basename "$DEST")..."
+    log_info "${DOWN_MARK} Downloading file: $(basename "$DEST")"
+
+    # Получаем размер файла через curl -I (если сервер поддерживает)
+    local size=$(curl -sIL "$URL" | grep -i 'Content-Length' | awk '{print $2}' | tr -d '\r' | tail -n1)
+    local useragent="Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
+    #  Качаем через пайп с pv
+    # Используем _retry только для curl, передавая его в пайп
+    # PIPESTATUS[0] — это код curl, PIPESTATUS[1] — код pv
+    # pv -n — выводит только число процентов (0..100)
+    # pv -p — выводит прогресс-бар (лучше для локального терминала)
     # -f (fail silently) возвращает код 22 при 404 и триггерит _retry
     # -I информация
     # -L (location) следовать редиректам SourceForge
-    if _retry curl -A "Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36" -f -s -S -L "$URL" -o "$DEST"; then
-        if [[ -n "$SHA512" ]]; then
-            if ! echo "$SHA512  $DEST" | sha512sum -c; then
-                log_error "Hash validation failed"
-                rm -f "$DEST" # Удаляем битый файл
-                return 1
-            fi
-        fi
-        return 0
+    local dl_cmd
+    if [[ -n "$size" && "$size" -gt 0 ]]; then
+        dl_cmd="curl -A \"$useragent\" -fsSL \"$URL\" | pv -n -s $size"
     else
-        rm -f "$DEST" # Удаляем битый файл
+        dl_cmd="curl -A \"$useragent\" -fsSL \"$URL\" | pv -b"
+    fi
+
+    # Выполняем через eval, чтобы правильно обработать пайп и логирование
+    if eval "$dl_cmd > \"$DEST\" 2> >(while read line; do log_debug \"[DL] $line%\"; done)"; then
+        # Проверяем код возврата именно первого элемента пайпа (curl)
+        if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+            log_error "Curl failed with exit code ${PIPESTATUS[0]}"
+            rm -f "$DEST"
+            return 1
+        fi
+    else
+        rm -f "$DEST"
         return 1
     fi
+
+    # Финальная проверка хеша
+    if [[ -n "$SHA512" ]]; then
+        if ! echo "$SHA512  $DEST" | sha512sum -c --status; then
+            log_error "Hash validation FAILED for $(basename "$DEST")"
+            rm -f "$DEST"
+            return 1
+        fi
+        log_info "${CHECK_MARK} Hash verified."
+    fi
+
+    return 0
 }
 
 git-submodule-clone() {
@@ -286,8 +307,8 @@ git-submodule-clone() {
     # 3. Пытаемся переключиться на нужный коммит (записанный в основном репозитории)
     # Обычно это FETCH_HEAD после fetch, если мы тянем конкретный коммит
     git submodule foreach --recursive bash -c '
-        source /builder/util/vars.sh "$TARGET" "$VARIANT" 2>/dev/null
-        source /builder/util/dl_functions.sh
+        source $UTIL_DIR/vars.sh "$TARGET" "$VARIANT" 2>/dev/null
+        source $UTIL_DIR/dl_functions.sh
         log_info "Processing submodule: $name"
         git reset --hard HEAD && git clean -fd
         if _retry git fetch --quiet --no-tags --depth=1 origin; then
@@ -380,8 +401,4 @@ default_dl() {
     done
 
     echo "$FINAL_CHAIN"
-}
-
-ffbuild_dockerdl() {
-    [[ -n "$SCRIPT_REPO" ]] && default_dl .
 }

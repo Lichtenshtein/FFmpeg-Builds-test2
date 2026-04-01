@@ -8,20 +8,41 @@ cd "$(dirname "$0")"
 source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
     || { echo "ERROR: vars.sh failed in build.sh" >&2; exit 1; }
 
+# Определяем функцию очистки
+cleanup() {
+    local exit_code=$? # Запоминаем код завершения (0 - успех, >0 - ошибка)
+
+    log_info "Running cleanup (Exit code: $exit_code)..."
+
+    # Удаляем временную папку сборки (pkgroot, временные логи и т.д.)
+    # ВНИМАНИЕ: не удаляйте $FF_SOURCE_DIR, если она смонтирована через --mount!
+    rm -rf "$FFMPEG_PKG_ROOT" "$VARS_DIR" 2>/dev/null
+
+    # Если сборка упала, можно оставить лог конфига в доступном месте
+    if [[ $exit_code -ne 0 && -f "$FFMPEG_CONFIG_LOG" ]]; then
+        cp "$FFMPEG_CONFIG_LOG" "$FFBUILD_DESTDIR/failed_config.log" 2>/dev/null || true
+    else
+    # Просто копируем лог в папку для упаковки
+        cp "$FFMPEG_CONFIG_LOG" "$FFBUILD_DESTDIR/config.log" 2>/dev/null || true
+    fi
+
+    log_info "Cleanup done."
+}
+
+# Устанавливаем ловушку
+# EXIT сработает всегда: и при успехе, и при ошибке, и при прерывании
+trap cleanup EXIT
+
+log_info "${CACHE_MARK} CCACHE STATISTICS:"
 ccache -s
 # Сброс статистики для чистого лога
-ccache -z
+ccache -z > /dev/null
 
 export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
 export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
 export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
 export HOST_LDFLAGS=""
-
-# Путь /opt/ffdest должен совпадать с тем, что указан в Dockerfile (generate.sh)
-FINAL_DEST="/opt/ffdest"
-mkdir -p "$FINAL_DEST"
-mkdir -p ffbuild
 
 # Инициализация локальных (не экспортируемых!) переменных
 # Обнуляем FF_ переменные перед загрузкой, чтобы не было старых хвостов
@@ -34,7 +55,6 @@ TOTAL_FF_LDEXEFLAGS=""
 TOTAL_FF_LIBS=""
 
 log_info "Loading component variables from cache..."
-VARS_DIR="$FFBUILD_PREFIX/config_parts"
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_debug "Checking the connection with the variable caches in .vars"
@@ -124,20 +144,20 @@ _variant_libs=$(ffbuild_libs 2>/dev/null || true)
 
 # Клонирование и патчинг (прямо в текущем слое Docker)
 log_info "Using pre-mounted FFmpeg source..."
-if [[ ! -f "ffbuild/ffmpeg/configure" ]]; then
-    log_error "FFmpeg source not found at ffbuild/ffmpeg/configure (mount failed?)"
+if [[ ! -f "$FFMPEG_SOURCE_DIR/configure" ]]; then
+    log_error "FFmpeg source not found at $FFMPEG_SOURCE_DIR/configure! Check if it is mounted correctly."
     exit 1
 fi
-log_info "${DIRS_MARK} Entering FFmpeg folder..."
-pushd ffbuild/ffmpeg
+
+pushd "$FFMPEG_SOURCE_DIR"
 
 if [[ "$FFMPEG_PATCHES" == "1" ]]; then
     log_info_line
     log_info "${SEARCH_MARK} Looking for FFmpeg patches..."
     # Патчи ищем по имени ветки, пришедшей из ENV
-    if [[ -d "/builder/patches/ffmpeg/$FFMPEG_BRANCH" ]]; then
+    if [[ -d "$PATCHES_DIR/ffmpeg/$FFMPEG_BRANCH" ]]; then
         # git reset --hard HEAD 2>/dev/null || true
-        for patch in "/builder/patches/ffmpeg/$FFMPEG_BRANCH"/*.patch; do
+        for patch in "$PATCHES_DIR/ffmpeg/$FFMPEG_BRANCH"/*.patch; do
             [[ -e "$patch" ]] || continue
             log_info "${TARGET_MARK} APPLYING PATCH: $(basename "$patch")"
             if patch -p1 < "$patch"; then
@@ -150,10 +170,6 @@ if [[ "$FFMPEG_PATCHES" == "1" ]]; then
         log_info_line
     fi
 fi
-
-log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
-# Удаляем пустые папки или старые логи, если они остались
-find /opt/ffbuild -type d -empty -delete || true
 
 [[ "$DEDUPE_FLAGS" == "1" ]] && log_info "${BROOM_MARK} Deduplicating ALL flags..."
 
@@ -315,13 +331,11 @@ log_info_line
 check_and_fix_configure && printf "  %s\n" "${CONF_FLAGS[@]}"
 
 # Перенаправляем stderr в config.log для полноты картины
-if ! ./configure "${CONF_FLAGS[@]}" 2>ffbuild/config.log; then
+if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     log_error "Configure failed!"
-    log_debug "${LOGS_MARK} ▼ CONTENT OF ffbuild/config.log ▼"
-    tail -n 300 ffbuild/config.log
-    log_debug "${LOGS_MARK} ▲ END OF ffbuild/config.log ▲"
-    # Копируем лог ошибки даже если билд упал
-    cp ffbuild/config.log "${FINAL_DEST}/config.log" || true
+    log_debug "${LOGS_MARK} ▼ CONTENT OF $FFMPEG_CONFIG_LOG ▼"
+    tail -n 300 "$FFMPEG_CONFIG_LOG"
+    log_debug "${LOGS_MARK} ▲ END OF $FFMPEG_CONFIG_LOG ▲"
     exit 1
 fi
 
@@ -330,26 +344,24 @@ make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
 make install
 make install-doc || log_warn "install-doc failed, but proceeding."
 
-ccache -s
-
 log_info "${DIRS_MARK} Leaving FFmpeg folder..."
 popd # Выход из ffbuild/ffmpeg
 
-# Очистка рабочего пространства ПЕРЕД завершением слоя Docker
-# Это освободит место на диске раннера до того, как он начнет экспорт
-trap -p 'rm -rf ffbuild/ffmpeg/ffbuild/config.log "${FINAL_DEST}/config.log" ffbuild/pkgroot ffbuild/config_parts' EXIT
+log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
+# Удаляем пустые папки или старые логи, если они остались
+find /opt/ffbuild -type d -empty -delete || true
 
 # Определение версии
-if [[ -f "ffbuild/ffmpeg/VERSION" ]]; then
-    FFMPEG_VERSION=$(cat ffbuild/ffmpeg/VERSION)-$(date +%Y-%m-%d)
-elif [[ -d "ffbuild/ffmpeg/.git" ]]; then
-    FFMPEG_VERSION=$(git -C ffbuild/ffmpeg describe --tags --always)-$(date +%Y-%m-%d)
+if [[ -f "$FFMPEG_SOURCE_DIR/VERSION" ]]; then
+    FFMPEG_VERSION=$(cat $FFMPEG_SOURCE_DIR/VERSION)-$(date +%Y-%m-%d)
+elif [[ -d "$FFMPEG_SOURCE_DIR/.git" ]]; then
+    FFMPEG_VERSION=$(git -C $FFMPEG_SOURCE_DIR describe --tags --always)-$(date +%Y-%m-%d)
 else
     FFMPEG_VERSION=$(date +%Y-%m-%d)
 fi
 
 BUILD_NAME="ffmpeg-git-${FFMPEG_VERSION}-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
-PKG_DIR="ffbuild/pkgroot/${BUILD_NAME}"
+PKG_DIR="$FFMPEG_PKG_ROOT/${BUILD_NAME}"
 
 mkdir -p "$PKG_DIR/bin" "$PKG_DIR/doc"
 
@@ -361,49 +373,52 @@ package_variant "$FFBUILD_DESTPREFIX" "$PKG_DIR"
 
 # Копируем лицензию ПЕРЕД упаковкой
 log_info "${SYNC_MARK} Adding license and logs to package..."
-[[ -n "$LICENSE_FILE" ]] && cp "ffbuild/ffmpeg/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"
-cp ffbuild/ffmpeg/ffbuild/config.log "$PKG_DIR/config.log" || true
+[[ -n "$LICENSE_FILE" ]] && cp "$FFMPEG_SOURCE_DIR/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"
+cp "$FFMPEG_CONFIG_LOG" "$PKG_DIR/config.log" || true
 
 # Копируем все DLL из нашего сборочного префикса в папку с бинарниками
 # Это подхватит DLL от OpenVINO, TBB, TensorFlow, LibTorch и других
 # OpenVINO часто ищет файлы openvino_intel_cpu_plugin.dll в той же папке
 # Если они лежат в /opt/ffbuild/bin, то всё ок. 
 # Но если они в подпапках (runtime/bin/intel64/...), нужно убедиться, что они попали в $PKG_DIR/bin/
-if [[ -d "/opt/ffbuild/bin" ]]; then
-    find "/opt/ffbuild/bin" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \; || true
+if [[ -d "$FFBUILD_PREFIX/bin" ]]; then
+    find "$FFBUILD_PREFIX/bin" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \; || true
     log_info "${SYNC_MARK} Collecting external DLLs and plugins..."
 else
-    log_warn "/opt/ffbuild/bin not found, skipping DLL copy."
+    log_warn "$FFBUILD_PREFIX/bin not found! Skipping DLLs copy."
 fi
+
 # Проверяем наличие критических библиотек (для отладки в логах)
 ls -lh "$PKG_DIR/bin/"
-# Скачиваем модели для ИИ
-log_info "${DOWN_MARK} Checking for Additional Assets..."
-MODELS_FINAL_DIR="$PKG_DIR/models"
-/builder/util/download_models.sh "$MODELS_FINAL_DIR" "$(pwd)" || log_warn "Model download failed, but continuing..."
+
+# Скачиваем модели и ассеты
+log_info "${DOWN_MARK} Checking for additional assets..."
+
+export ASSETS_DIR="$PKG_DIR/assets"
+mkdir -p "$ASSETS_DIR"
+"$UTIL_DIR"/download_models.sh "$ASSETS_DIR" "$(pwd)" || log_warn "Assets download failed, but continuing..."
 
 # Стриппинг бинарников (удаление отладочных символов)
 log_info "${BROOM_MARK} Stripping binaries..."
 find "$PKG_DIR/bin" -name "*.exe" -exec ${FFBUILD_CROSS_PREFIX}strip --strip-unneeded {} \;
 
 # Упаковка
-OUTPUT_FNAME="${BUILD_NAME}.7z"
-log_info "${ARCH_MARK} Creating archive: ${OUTPUT_FNAME}"
+log_info "${ARCH_MARK} Creating archive: ${BUILD_NAME}.7z"
 # Заходим в pkgroot, чтобы внутри архива не было лишних вложенных папок
-pushd ffbuild/pkgroot
-7z a -mx7 -mmt=on "${FINAL_DEST}/${OUTPUT_FNAME}" "./${BUILD_NAME}/*"
+pushd "$FFMPEG_PKG_ROOT"
+7z a -mx7 -mmt=on "$FFBUILD_DESTDIR/$BUILD_NAME" "./${BUILD_NAME}.7z/*"
 popd
 
 # Генерация метаданных для GitHub Actions
 if [[ -n "$GITHUB_ACTIONS" ]]; then
     echo "build_name=${BUILD_NAME}" >> "$GITHUB_OUTPUT"
-    echo "${OUTPUT_FNAME}" > "${FINAL_DEST}/${TARGET}-${VARIANT}.txt"
-    # Вывод статистики ccache (теперь через прямую команду)
-    log_info "${CACHE_MARK} CCACHE STATISTICS:"
-    ccache -s
+    echo "${BUILD_NAME}.7z" > "$FFBUILD_DESTDIR/${TARGET}-${VARIANT}.txt"
 fi
 
-cp ffbuild/ffmpeg/ffbuild/config.log "${FINAL_DEST}/config.log" 2>/dev/null || true
 log_info "${CHECK_MARK} Build finished."
+
+# Вывод статистики ccache
+log_info "${CACHE_MARK} CCACHE STATISTICS:"
+ccache -s
 
 exit 0
