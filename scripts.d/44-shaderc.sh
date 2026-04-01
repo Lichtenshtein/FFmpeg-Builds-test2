@@ -14,7 +14,19 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    apply_patches
+
+    # Replace the DEPS file with the file from the patches folder.
+    local custom_deps="$PATCHES_DIR/$COMPONENT_NAME/DEPS"
+
+    if [[ -f "$custom_deps" ]]; then
+        echo "log_info 'Replacing DEPS with custom version from patches...'"
+        cp -v "$custom_deps" ./DEPS
+    else
+        echo "log_warn 'Custom DEPS not found at $custom_deps, using default.'"
+    fi
+
+    # Run dependency synchronization.
+    # It will now use our updated DEPS file with the new hashes.
     echo "./utils/git-sync-deps || exit $?"
 }
 
@@ -24,12 +36,12 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     local myconf=(
-        -DCMAKE_BUILD_TYPE=Release
+        # -DALLOW_EXTERNAL_SPIRV_TOOLS=ON
         # -DSHADERC_GLSLANG_DIR="$(realpath ../third_party/glslang)"
         # -DSHADERC_SPIRV_TOOLS_DIR="$(realpath ../third_party/spirv-tools)"
         # -DSHADERC_SPIRV_HEADERS_DIR="$(realpath ../third_party/spirv-headers)"
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
-        # -DALLOW_EXTERNAL_SPIRV_TOOLS=ON
+        -DCMAKE_BUILD_TYPE=Release
         -DBUILD_SHARED_LIBS=OFF
         -DENABLE_EXCEPTIONS=ON
         -DENABLE_GLSLANG_BINARIES=OFF
@@ -78,8 +90,8 @@ ffbuild_dockerbuild() {
     fi
 
     # Создаем эталонный shaderc.pc, который реально будет работать при статической линковке FFmpeg
-    mkdir -p "${DESTDIR}${FFBUILD_PREFIX}/lib/pkgconfig"
-    cat <<EOF > "${DESTDIR}${FFBUILD_PREFIX}/lib/pkgconfig/shaderc.pc"
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/shaderc.pc"
 prefix=${FFBUILD_PREFIX}
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
@@ -93,9 +105,22 @@ Libs.private: -lstdc++ -lgomp -lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi
 Cflags: -I\${includedir}
 EOF
 
+    cat >"$PC_DIR/glslang.pc" <<EOF
+prefix=${FFBUILD_PREFIX}
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: glslang
+Description: glslang library
+Version: 11.0.0
+Libs: -L\${libdir} -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lSPIRV -lglslang-default-resource-limits
+Cflags: -I\${includedir}
+EOF
+
     # Дублируем его в shaderc_combined.pc и shaderc_static.pc для совместимости
-    cp "${DESTDIR}${FFBUILD_PREFIX}/lib/pkgconfig/shaderc.pc" "${DESTDIR}${FFBUILD_PREFIX}/lib/pkgconfig/shaderc_combined.pc"
-    cp "${DESTDIR}${FFBUILD_PREFIX}/lib/pkgconfig/shaderc.pc" "${DESTDIR}${FFBUILD_PREFIX}/lib/pkgconfig/shaderc_static.pc"
+    cp "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_combined.pc"
+    cp "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_static.pc"
 
     cp -a "$DESTDIR"/. "$FFBUILD_DESTDIR"
 
@@ -103,7 +128,8 @@ EOF
     unset DESTDIR
 
     # for some reason, this does not get installed...
-    cp libshaderc_util/libshaderc_util.a "$FFBUILD_DESTPREFIX"/lib
+    cp -v "../libshaderc/libshaderc_combined.a" "$FFBUILD_DESTPREFIX/lib/"
+    cp -v "../libshaderc_util/libshaderc_util.a" "$FFBUILD_DESTPREFIX/lib"
 
     echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_combined.pc"
     echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_static.pc"
@@ -131,9 +157,9 @@ EOF
 }
 
 ffbuild_configure() {
-    echo --enable-libshaderc
+    echo --enable-libshaderc --enable-libglslang
 }
 
 ffbuild_unconfigure() {
-    echo --disable-libshaderc
+    echo --disable-libshaderc --disable-libglslang
 }
