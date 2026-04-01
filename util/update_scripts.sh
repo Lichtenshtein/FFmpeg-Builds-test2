@@ -38,6 +38,49 @@ check_repo_exists() {
     return 0 # Для остальных считаем доступным
 }
 
+# Shaderc dependency update function
+update_shaderc_deps() {
+    local deps_file="$PATCHES_DIR/shaderc/DEPS"
+    [[ -f "$deps_file" ]] || return 0
+
+    log_info "${SEARCH_MARK} Checking Shaderc dependencies in ${deps_file}..."
+
+    # Создаем временную копию
+    local tmp_deps=$(mktemp)
+    cp "$deps_file" "$tmp_deps"
+
+    # Базовые URL репозиториев (извлекаем из файла DEPS)
+    local abseil_git=$(grep "'abseil_git':" "$deps_file" | cut -d"'" -f4)
+    local google_git=$(grep "'google_git':" "$deps_file" | cut -d"'" -f4)
+    local khronos_git=$(grep "'khronos_git':" "$deps_file" | cut -d"'" -f4)
+
+    # Список зависимостей: "переменная_в_deps|URL_репозитория"
+    local deps_map=(
+        "abseil_revision|${abseil_git}/abseil-cpp.git"
+        "effcee_revision|${google_git}/effcee.git"
+        "googletest_revision|${google_git}/googletest.git"
+        "glslang_revision|${khronos_git}/glslang.git"
+        "re2_revision|${google_git}/re2.git"
+        "spirv_headers_revision|${khronos_git}/SPIRV-Headers.git"
+        "spirv_tools_revision|${khronos_git}/SPIRV-Tools.git"
+    )
+
+    for entry in "${deps_map[@]}"; do
+        IFS="|" read -r var_name repo_url <<< "$entry"
+        # Получаем текущий хеш из файла
+        local current_hash=$(grep "'$var_name':" "$deps_file" | cut -d"'" -f4)
+        [[ -z "$current_hash" ]] && continue
+        # Получаем свежий хеш из удаленного репозитория (HEAD)
+        local new_hash=$(git ls-remote "$repo_url" HEAD 2>/dev/null | awk '{print $1}')
+        if [[ -n "$new_hash" && "$new_hash" != "$current_hash" ]]; then
+            log_info "  ${SYNC_MARK} shaderc/${var_name}: ${current_hash:0:7} -> ${new_hash:0:7}"
+            # Обновляем хеш в файле
+            sed -i "s/'$var_name': '.*'/'$var_name': '$new_hash'/" "$deps_file"
+            echo "REPORT_UPDATE|${deps_file}|${var_name}|${current_hash}|${new_hash}" >> "$TMP_REPORT"
+        fi
+    done
+}
+
 for scr in $SEARCH_PATTERN; do
     [[ -f "$scr" ]] || continue
 
@@ -128,6 +171,9 @@ for scr in $SEARCH_PATTERN; do
 done
 
 # --- ФИНАЛЬНЫЙ ОТЧЕТ ---
+
+# Вызываем обновление Shaderc отдельно
+update_shaderc_deps
 
 echo -e "\n${LOGS_MARK} ${LOG_INFO}--- FINAL UPDATE REPORT ---${LOG_NC}"
 UPDATED_FILES=(); BROKEN_REPOS=(); UNKNOWN_LAYOUTS=(); SYNTAX_ERRORS=()
