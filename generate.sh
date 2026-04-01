@@ -16,12 +16,14 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
     exit 1
 }
 
-[[ "$USE_LTO" == "1" ]] && log_info "${XCLAM_MARK} LTO is enabled!"
-[[ "$USE_AVX512" == "1" ]] && log_info "${XCLAM_MARK} AVX512 is enabled!"
-[[ "$SKIP_FFMPEG" == "1" ]] && log_info "${XCLAM_MARK} Component test mode activated! FFmpeg compilation will be skipped."
-[[ "$SAFE_CONFIGURE" == "1" ]] && log_info "${XCLAM_MARK} Safe FFmpeg flags configuration is enabled!"
+# some early indications for "Run Download and Generate" build stage
+[[ "$DEDUPE_FLAGS" == "1" ]]   && log_info "${XCLAM_MARK} Extended deduplication for stages collected LIBS is enabled!"
 [[ "$FFMPEG_PATCHES" == "1" ]] && log_info "${XCLAM_MARK} Custom patches for FFmpeg are activated!"
-[[ "$DEDUPE_FLAGS" == "1" ]] && log_info "${XCLAM_MARK} Extended deduplication for stages collected LIBS is enabled!"
+[[ "$SAFE_CONFIGURE" == "1" ]] && log_info "${XCLAM_MARK} Safe FFmpeg flags configuration is enabled!"
+[[ "$SKIP_FFMPEG" == "1" ]]    && log_info "${XCLAM_MARK} Component test mode activated! FFmpeg compilation will be skipped."
+[[ "$USE_AVX512" == "1" ]]     && log_info "${XCLAM_MARK} AVX512 is enabled!"
+[[ "$USE_LTO" == "1" ]]        && log_info "${XCLAM_MARK} LTO is enabled!"
+[[ "$USE_OPENMP" == "1" ]]     && log_info "${XCLAM_MARK} Open Multi-Processing runtime for shared-memory parallel programming is enabled!"
 
 echo -n "" > Dockerfile # Явно очищаем файл перед началом записи
 to_df() { echo "$*" >> Dockerfile; }
@@ -48,12 +50,9 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
 to_df "FROM base-win64 AS components_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "$COMMON_ENV"
-to_df "WORKDIR /builder"
-to_df "COPY util/run_stage.sh /usr/bin/run_stage"
+to_df "WORKDIR $ROOT_DIR"
+to_df "COPY $UTIL_DIR/run_stage.sh /usr/bin/run_stage"
 to_df "RUN chmod +x /usr/bin/run_stage"
-
-# Создаем папку на хосте перед билдом, чтобы Docker не создал её от имени root с кривыми правами
-mkdir -p ".cache/ccache" ".cache/downloads" "ffbuild/config_parts"
 
 # Очищаем содержимое перед хешированием:
 # 1. Берем только переменные, влияющие на бинарный код
@@ -68,7 +67,7 @@ ENV_HASH=$(
 )
 
 # Global Logic Hash: Changes if run_stage.sh or the internal functions of vars.sh change.
-LOGIC_HASH=$(sha256sum util/run_stage.sh util/vars.sh | sha256sum | cut -c1-8 | tr -d '\n\r')
+LOGIC_HASH=$(sha256sum $UTIL_DIR/run_stage.sh $UTIL_DIR/vars.sh | sha256sum | cut -c1-8 | tr -d '\n\r')
 
 # Если поменяется ключевая переменная в vars.sh все последующие RUN НЕ пересоберутся
 if [[ "$DEBUG_NO_HASH" == "1" ]]; then
@@ -91,17 +90,11 @@ done
 
 # Генерируем блоки RUN для каждой стадии
 for STAGE in "${active_scripts[@]}"; do
-    STAGENAME="$(basename "$STAGE" .sh)"
-    # Извлекаем имя компонента (напр., из 50-libmp3lame получаем libmp3lame)
-    # Используем sed, чтобы отрезать все до первого дефиса включительно
-    COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
-    # Component Specific Hash: Only this script + its patches
-    SCRIPT_HASH=$(get_stage_hash "$STAGE")
     # Гранулярный поиск патчей
     # Для библиотек ищем в patches/zlib/ и т.д.
-    PATCH_PATH="patches/$COMPONENT_NAME"
+    PATCH_PATH="$PATCHES_DIR/$COMPONENT_NAME"
     # Для FFmpeg ищем в patches/ffmpeg/master/ (или другой ветке)
-    [[ "$COMPONENT_NAME" == "ffmpeg" ]] && PATCH_PATH="patches/ffmpeg/$FFMPEG_BRANCH"
+    [[ "$COMPONENT_NAME" == "ffmpeg" ]] && PATCH_PATH="$PATCHES_DIR/ffmpeg/$FFMPEG_BRANCH"
     # Считаем хеш только если папка существует, иначе "none"
     if [[ -d "$PATCH_PATH" ]]; then
         PATCH_HASH=$(find "$PATCH_PATH" -type f | sort | xargs sha256sum | sha256sum | cut -c1-8)
@@ -111,26 +104,26 @@ for STAGE in "${active_scripts[@]}"; do
     # Combine them into a unique ID for this specific layer
     # If you change a log message in vars.sh, ENV_HASH stays the same -> NO REBUILD.
     # If you change CFLAGS in vars.sh, ENV_HASH changes -> GLOBAL REBUILD.
-    LAYER_ID="E:${ENV_HASH}_L:${LOGIC_HASH}_S:${SCRIPT_HASH}_P:${PATCH_HASH}"
+    LAYER_ID="E:${ENV_HASH}_L:${LOGIC_HASH}_S:${STAGE_HASH}_P:${PATCH_HASH}"
 
     to_df "# Component: $STAGENAME | LayerID: $LAYER_ID"
-    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
+    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=$CCACHE_DIR \\"
     to_df "    --mount=type=cache,id=prefix-${TARGET},target=$FFBUILD_PREFIX \\"
-    to_df "    --mount=type=bind,source=scripts.d,target=/builder/scripts.d \\"
-    to_df "    --mount=type=bind,source=util,target=/builder/util \\"
-    to_df "    --mount=type=bind,source=patches,target=/builder/patches \\"
-    to_df "    --mount=type=bind,source=variants,target=/builder/variants \\"
-    to_df "    --mount=type=bind,source=addins,target=/builder/addins \\"
-    to_df "    --mount=type=bind,source=.cache/downloads,target=/root/.cache/downloads,rw \\"
-    to_df "    set -e && export _H=$LAYER_ID && . /builder/util/vars.sh \"$TARGET\" \"$VARIANT\" && run_stage /builder/$STAGE"
+    to_df "    --mount=type=bind,source=scripts.d,target=$SCRIPTS_DIR \\"
+    to_df "    --mount=type=bind,source=util,target=$UTIL_DIR \\"
+    to_df "    --mount=type=bind,source=patches,target=$PATCHES_DIR \\"
+    to_df "    --mount=type=bind,source=variants,target=$VARIANTS_DIR \\"
+    to_df "    --mount=type=bind,source=addins,target=$ADDINS_DIR \\"
+    to_df "    --mount=type=bind,source=.cache/downloads,target=$CACHE_DIR,rw \\"
+    to_df "    set -e && export _H=$LAYER_ID && . $UTIL_DIR/vars.sh \"$TARGET\" \"$VARIANT\" && run_stage $ROOT_DIR/$STAGE"
 done
 
 # FINAL FFMPEG BUILD STAGE
 to_df "FROM base-win64 AS final_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
-to_df "WORKDIR /builder"
+to_df "WORKDIR $ROOT_DIR"
 # Копируем всё собранное из COMPONENT BUILD STAGE (этот слой закешируется Docker)
-to_df "COPY --from=components_build /opt/ffbuild /opt/ffbuild"
+to_df "COPY --from=components_build $FFBUILD_PREFIX $FFBUILD_PREFIX"
 to_df "$COMMON_ENV"
 
 # Копируем всё необходимое для финальной сборки
@@ -142,15 +135,15 @@ to_df "COPY variants ./variants"
 
 if [[ $SKIP_FFMPEG -eq 1 ]]; then
     # Создаем пустой файл в artifacts, чтобы экшн загрузки не падал
-    to_df "RUN mkdir -p /opt/ffdest && touch /opt/ffdest/COMPONENTS_BUILD_SUCCESS"
+    to_df "RUN mkdir -p $FFBUILD_DESTDIR && touch $FFBUILD_DESTDIR/COMPONENTS_BUILD_SUCCESS"
 else
     # Финальная сборка FFmpeg (инвалидируется только при изменении FFmpeg или build.sh)
-    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
+    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=$CCACHE_DIR \\"
     to_df "    --mount=type=cache,id=prefix-${TARGET},target=${FFBUILD_PREFIX} \\"
-    to_df "    --mount=from=ffmpeg_src,target=/builder/ffbuild/ffmpeg,rw \\"
+    to_df "    --mount=from=ffmpeg_src,target=$FFMPEG_SOURCE_DIR,rw \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
 
 # ARTIFACTS COLLECTOR STAGE
 to_df "FROM scratch AS artifacts"
-to_df "COPY --from=final_build /opt/ffdest/ ." 
+to_df "COPY --from=final_build $FFBUILD_DESTDIR/ ." 

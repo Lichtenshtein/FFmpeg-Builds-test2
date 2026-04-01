@@ -41,8 +41,8 @@ log_error() { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} ${CROSS_MARK} $*" >&2; }
 log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 
 print_info()  { printf '%b[INFO]%b  %s\n' "${LOG_INFO}" "${LOG_NC}" "$*" >&2; }
-print_warn()  { printf '%b[WARN]%b %s\n' "${LOG_WARN}" "${LOG_NC}" "$*" >&2; }
-print_error() { printf '%b[ERROR]%b %s\n' "${LOG_ERROR}" "${LOG_NC}" "$*" >&2; }
+print_warn()  { printf '%b[WARN]%b %s\n' "${LOG_WARN}" "${LOG_NC}"  "${XCLAM_MARK}" "$*" >&2; }
+print_error() { printf '%b[ERROR]%b %s\n' "${LOG_ERROR}" "${LOG_NC}"  "${CROSS_MARK}" "$*" >&2; }
 print_debug() { printf '%b[DEBUG]%b %s\n' "${LOG_DEBUG}" "${LOG_NC}" "$*" >&2; }
 
 log_info_line() { echo -e "${LOG_INFO}[INFO]${LOG_NC}  ################################################################" >&2; }
@@ -50,9 +50,129 @@ log_err_line()  { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} !!!!!!!!!!!!!!!!!!!!!!!!
 
 export -f log_info log_warn log_error log_debug log_info_line log_err_line print_info print_warn print_error print_debug
 
-# Argument resolution: prefer positional args, fall back to environment. приоритет аргументам, иначе берем из ENV
+# Creation and Unification of paths and path variables
+# Define the project root (ROOT_DIR)
+# If we're in Docker, the root is /builder; if on the HOST, the root is the script folder.
+if [[ -d "/builder" ]]; then
+    export ROOT_DIR="/builder"
+    export CACHE_DIR="/root/.cache/downloads"
+else
+    # Находим корень, где бы ни лежал vars.sh (в корне или в util/)
+    export ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    export CACHE_DIR="$ROOT_DIR/.cache/downloads"
+fi
+
+# Build variables (inside the container)
+# Prefer positional args, fall back to ENV
 export TARGET="${1:-$TARGET}"
 export VARIANT="${2:-$VARIANT}"
+# pkg-config variables
+export PKG_CONFIG_PATH="" # don't touch
+export PKG_CONFIG_FLAGS="--static"
+export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig"
+export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
+export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
+# use env vars with broadwell fallback
+export CPU_ARCH="${CPU_ARCH:-broadwell}"
+export CPU_TUNE="${CPU_TUNE:-broadwell}"
+# Build variables (inside the container)
+# just duplicate from Dockerfile for convenience
+export TOOLCHAIN_BIN="/opt/ct-ng/bin"
+export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
+export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
+export FFBUILD_CROSS_PREFIX="x86_64-w64-mingw32-"
+export FFBUILD_PREFIX="/opt/ffbuild" # Куда ставим зависимости
+export FFBUILD_DESTDIR="/opt/ffdest" # Куда кладем финальный архив ffmpeg (.7z)
+export FFBUILD_DESTPREFIX="$FFBUILD_DESTDIR$FFBUILD_PREFIX"
+# directory for saving .pc files from components
+export PC_DIR="$FFBUILD_DESTPREFIX/lib/pkgconfig"
+# directory for storing .vars files with
+# component variables and flags collected between stages
+export VARS_DIR="$FFBUILD_PREFIX/config_parts"
+
+# Shared project folders
+export ADDINS_DIR="$ROOT_DIR/addins"
+export PATCHES_DIR="$ROOT_DIR/patches"
+export SCRIPTS_DIR="$ROOT_DIR/scripts.d"
+export TMP_DIR="$ROOT_DIR/.cache/tmp"
+export UTIL_DIR="$ROOT_DIR/util"
+export VARIANTS_DIR="$ROOT_DIR/variants"
+
+# ffmpeg paths inside the build's working directory (/builder/ffbuild)
+export FFMPEG_DIR="$ROOT_DIR/.cache/ffmpeg"
+export FFMPEG_BUILD_ROOT="$ROOT_DIR/ffbuild"
+export FFMPEG_SOURCE_DIR="$FF_BUILD_ROOT/ffmpeg"
+export FFMPEG_PKG_ROOT="$FF_BUILD_ROOT/pkgroot"
+export FFMPEG_CONFIG_LOG="$FF_SOURCE_DIR/ffbuild/config.log"
+export FFMPEG_HASH_FILE="$FFMPEG_DIR/.current_commit" # хеш последнего скачанного коммита
+
+# Create the base structure if it doesn't exist
+# On the HOST, this will create folders in the project root,
+# in Docker - where it's mounted.
+if [[ -n "$ROOT_DIR" ]]; then
+    mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFBUILD_DESTDIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR" "$VARS_DIR" "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{include,bin,lib/pkgconfig}
+fi
+
+get_stage_hash() {
+    local STAGE_PATH="$1"
+    # Берем весь контент файла
+    # Удаляем \r (защита от Windows-переносов)
+    # Удаляем пустые строки и комментарии (чтобы пробелы не ломали кэш)
+    # Считаем хеш от всего остального
+    grep -v '^[[:space:]]*#' "$STAGE_PATH" | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' | grep -v '^[[:space:]]*$' | tr -d '\r' | sha256sum | cut -c1-16
+}
+export -f get_stage_hash
+
+# export STAGENAME="$(basename "$STAGE" .sh)"
+# Extract the component name (e.g., from 50-libmp3lame we get libmp3lame)
+# Use sed to trim everything up to and including the first hyphen
+# export COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
+
+# Dynamic variables (only if STAGE or SCRIPT_PATH is set)
+# Using SCRIPT_PATH (from run_stage) or STAGE (from loops)
+_SCRIPT_REF="${SCRIPT_PATH:-$STAGE}"
+if [[ -n "$_SCRIPT_REF" ]]; then
+    export STAGENAME="$(basename "$_SCRIPT_REF" .sh)"
+    export COMPONENT_NAME="${STAGENAME#*-}" # Faster than sed: removes everything up to the first hyphen
+
+    # Single variable for hash
+    export STAGE_HASH="$(get_stage_hash "$_SCRIPT_REF")"
+
+    # Unified paths to cache files
+    export STAGE_CACHE_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.tar.zst"
+    export STAGE_LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
+fi
+
+# Flags for the component build stage
+
+[[ "$USE_OPENMP" == "1" ]] && OPENMP_C=" -fopenmp" && OPENMP_LIB="-lgomp "
+
+BASE_CFLAGS="-mms-bitfields -fstack-protector-strong${OPENMP_C}"
+BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
+SYSTEM_LIBS="${OPENMP_LIB}-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
+ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lnormaliz"
+
+# disable -fPIC, -ffast-math, if troubles occur
+export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=gnu11"
+export CPPFLAGS="-I/opt/ffbuild/include $BASE_CPPFLAGS"
+export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=gnu++17"
+export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+export LIBS="${LIBS:-$SYSTEM_LIBS}"
+export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH}"
+# Обработка флагов, специфичных для Linux ELF
+if [[ "$TARGET" == *"win"* ]]; then
+    # бесполезно при сборке под Windows и ломает OpenSSL asm вместе с std=c11
+    export CFLAGS="${CFLAGS//-fno-semantic-interposition/}"
+    export CXXFLAGS="${CXXFLAGS//-fno-semantic-interposition/}"
+    # На всякий случай проверяем и пустую переменную, если она была задана в Docker
+    [[ "$CFLAGS" == *"-fno-semantic-interposition"* ]] && log_debug "${BROOM_MARK} Stripped ELF-specific flags for Windows target."
+    export CFLAGS="${CFLAGS//-std=c11/-std=gnu11}"
+    export CXXFLAGS="${CXXFLAGS//-std=c++17/-std=gnu++17}"
+else
+    export STAGE_CFLAGS="-fno-semantic-interposition" 
+    export STAGE_CXXFLAGS="-fno-semantic-interposition"
+    export LIBS="${LIBS:-$SYSTEM_LIBS} -lrt -ld"
+fi
 
 # Validate TARGET and VARIANT only enforce when called directly OR when
 # arguments were explicitly passed (sourced scripts may not pass args)
@@ -96,42 +216,6 @@ REGISTRY="${REGISTRY_OVERRIDE:-ghcr.io}"
 BASE_IMAGE="${REGISTRY}/${REPO}/base:latest"
 TARGET_IMAGE="${REGISTRY}/${REPO}/base-${TARGET}:latest"
 IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:latest"
-# use env vars with broadwell fallback
-export CPU_ARCH="${CPU_ARCH:-broadwell}"
-export CPU_TUNE="${CPU_TUNE:-broadwell}"
-export FFBUILD_PREFIX="/opt/ffbuild"
-export PKG_CONFIG_PATH="" # don't touch
-export PKG_CONFIG_FLAGS="--static"
-export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig"
-export PC_DIR="/opt/ffdest/opt/ffbuild/lib/pkgconfig"
-export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
-export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
-
-BASE_CFLAGS="-mms-bitfields -fstack-protector-strong -fopenmp"
-BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
-# STAGE_CFLAGS="-fno-semantic-interposition"
-# STAGE_CXXFLAGS="-fno-semantic-interposition"
-SYSTEM_LIBS="-lgomp -lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
-ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lnormaliz"
-
-# Флаги для стадии сборки компонентов; disable -fPIC, -ffast-math, -flto=auto if troubles occur
-export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=gnu11"
-export CPPFLAGS="-I/opt/ffbuild/include $BASE_CPPFLAGS"
-export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=gnu++17"
-export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
-export LIBS="${LIBS:-$SYSTEM_LIBS}"
-export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH}"
-# Очистка флага, специфичного для Linux ELF
-if [[ "$TARGET" == *"win"* ]]; then
-    # бесполезно при сборке под Windows и ломает OpenSSL asm вместе с std=c11
-    export CFLAGS="${CFLAGS//-fno-semantic-interposition/}"
-    export CXXFLAGS="${CXXFLAGS//-fno-semantic-interposition/}"
-    export STAGE_CFLAGS="${STAGE_CFLAGS//-fno-semantic-interposition/}"
-    # На всякий случай проверяем и пустую переменную, если она была задана в Docker
-    [[ "$CFLAGS" == *"-fno-semantic-interposition"* ]] && log_debug "${BROOM_MARK} Stripped ELF-specific flags for Windows target."
-    export CFLAGS="${CFLAGS//-std=c11/-std=gnu11}"
-    export CXXFLAGS="${CXXFLAGS//-std=c++17/-std=gnu++17}"
-fi
 
 # Docker stage helpers
 ffbuild_dockerstage() {
@@ -193,19 +277,21 @@ else
     export CARGO_V=""
 fi
 
-get_stage_hash() {
-    local STAGE_PATH="$1"
-    # Берем весь контент файла
-    # Удаляем \r (защита от Windows-переносов)
-    # Удаляем пустые строки и комментарии (чтобы пробелы не ломали кэш)
-    # Считаем хеш от всего остального
-    grep -v '^[[:space:]]*#' "$STAGE_PATH" | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' | grep -v '^[[:space:]]*$' | tr -d '\r' | sha256sum | cut -c1-16
-}
-export -f get_stage_hash
+export DL_COMMANDS="$(bash -c "source $UTIL_DIR/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
+                      source $UTIL_DIR/dl_functions.sh; \
+                      source \"$STAGE\"; \
+                      ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")"
 
+# Удаляем ANSI цвета
+# Удаляем переносы строк (заменяем на пробел)
+# xargs схлопнет лишние пробелы в одну строку
+clean_val() {
+    echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | tr '\n' ' ' | xargs
+}
 # быстрые дедупликаторы
 dedupe() {
-    local input="$*"
+    # Сначала очистим от цвета и лишних пробелов
+    local input=$(clean_val "$*")
     [[ -z "$input" ]] && return
     # Переводим в одну строку, удаляем мусор
     local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
@@ -214,7 +300,8 @@ dedupe() {
 }
 # for ldflags
 smart_dedupe() {
-    local input="$*"
+    # Сначала очистим от цвета и лишних пробелов
+    local input=$(clean_val "$*")
     local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
     if [[ "$DEDUPE_FLAGS" == "1" ]]; then
         echo "$clean" | awk '!x[$0]++' | xargs
@@ -224,7 +311,8 @@ smart_dedupe() {
 }
 # for libs
 smart_libs_dedupe() {
-    local raw_input="$*"
+    # Сначала очистим от цвета и лишних пробелов
+    local raw_input=$(clean_val "$*")
     # чистим мусор и ПУТИ, убираем -lstdc++
     local clean=$(echo "$raw_input" | tr ' ' '\n' | \
         grep -vE "Package|not|found|error|^$|^-L|^-lstdc\+\+$")
@@ -238,7 +326,7 @@ smart_libs_dedupe() {
         echo "$clean" | tr '\n' ' ' | xargs
     fi
 }
-export -f dedupe smart_dedupe smart_libs_dedupe
+export -f clean_val dedupe smart_dedupe smart_libs_dedupe
 
 patch_pc_files() {
     log_info "${TARGET_MARK} Patching $STAGENAME .pc files..."
@@ -448,8 +536,8 @@ get_deps_list() {
         return 0
     fi
     local name="${STAGENAME:-${0##*/}}"
-    local lib_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
-    local bin_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
+    local lib_dir="$FFBUILD_DESTPREFIX/lib"
+    local bin_dir="$FFBUILD_DESTPREFIX/bin"
     local sys_libs="libc\.so|libm\.so|libdl\.so|librt\.so|libpthread\.so|libgcc_s\.so|libstdc\+\+\.so|ld-linux|libresolv\.so|libutil\.so"
 
     # Создаем временный файл для сбора вывода
@@ -539,7 +627,7 @@ get_deps_list() {
 export -f get_deps_list
 
 clean_la_files() {
-    local target_dir="$FFBUILD_DESTDIR$FFBUILD_PREFIX"
+    local target_dir="$FFBUILD_DESTPREFIX"
     [[ ! -d "$target_dir" ]] && return 0
     log_info "${BROOM_MARK} Cleaning up libtool archives (.la) in $target_dir"
     local la_files=$(find "$target_dir" -name "*.la" \( -type f -o -type l \) 2>/dev/null)
@@ -558,8 +646,7 @@ export -f clean_la_files
 # 3. Ignore Whitespace
 # 4. Max Fuzz (fuzz=3)
 apply_patches() {
-    local COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
-    local PATCH_DIR="/builder/patches/$COMPONENT_NAME"
+    local PATCH_DIR="$PATCHES_DIR/$COMPONENT_NAME"
 
     if [[ -d "$PATCH_DIR" ]]; then
         # Ensure there are actually .patch files to avoid loop errors
@@ -695,7 +782,6 @@ if [ -d "/opt/ct-ng" ]; then
         # Выводим инфо о WINEPATH только при его создании
         # [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && printf '%b WINEPATH (Windows style): %s\n' "${LOG_DEBUG}[DEBUG]${LOG_NC} ${DIRS_MARK}" "$WINEPATH"
         [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && print_debug "${DIRS_MARK} WINEPATH (Windows style):\n$WINEPATH"
-
     fi
 fi
 

@@ -59,7 +59,7 @@ ffbuild_dockerbuild() {
         -DWITH_MSMF_DXVA=ON
         -DWITH_OPENCL_D3D11_NV=ON
         -DWITH_OPENGL=ON
-        -DWITH_OPENMP=ON
+        -DWITH_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF )
         -DWITH_OPENCL=ON
         -DWITH_ZLIB_NG=ON
         -DWITH_VULKAN=ON

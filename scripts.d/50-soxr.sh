@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
     cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
         -DCMAKE_BUILD_TYPE=Release \
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DWITH_OPENMP=$([[ $TARGET == winarm64 ]] && echo OFF || echo ON ) \
+        -DWITH_OPENMP=$([[ $target != winarm64 && "${USE_OPENMP}" == "1" ]] && echo ON || echo OFF) \
         -DBUILD_TESTS=OFF \
         -DBUILD_EXAMPLES=OFF \
         -DBUILD_SHARED_LIBS=OFF .. || return 1
