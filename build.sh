@@ -396,7 +396,7 @@ log_info "${DOWN_MARK} Checking for additional assets..."
 
 export ASSETS_DIR="$PKG_DIR/assets"
 mkdir -p "$ASSETS_DIR"
-"$UTIL_DIR"/download_models.sh "$ASSETS_DIR" "$(pwd)" || log_warn "Assets download failed, but continuing..."
+"$UTIL_DIR"/download_assets.sh "$ASSETS_DIR" "$(pwd)" || log_warn "Assets download failed, but continuing..."
 
 # Стриппинг бинарников (удаление отладочных символов)
 log_info "${BROOM_MARK} Stripping binaries..."

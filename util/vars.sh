@@ -110,7 +110,7 @@ export FFMPEG_HASH_FILE="$FFMPEG_DIR/.current_commit" # хеш последне�
 # On the HOST, this will create folders in the project root,
 # in Docker - where it's mounted.
 if [[ -n "$ROOT_DIR" ]]; then
-    mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFBUILD_DESTDIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR" "$VARS_DIR" "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{include,bin,lib/pkgconfig}
+    mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFBUILD_DESTDIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR" "$VARS_DIR" "$FFBUILD_DESTPREFIX"/{include,bin,lib/pkgconfig}
 fi
 
 get_stage_hash() {
