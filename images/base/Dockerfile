@@ -5,6 +5,8 @@ ARG TARGETPLATFORM
 
 ENV DEBIAN_FRONTEND=noninteractive
 
+RUN apt-get -y install --no-install-recommends curl
+
 RUN \
     --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
@@ -22,7 +24,7 @@ RUN \
     apt-get -y install --no-install-recommends \
         $([ "$TARGETPLATFORM" != "linux/amd64" ] || echo gcc-multilib g++-multilib) \
         build-essential pkg-config binutils pax-utils file yasm nasm ccache \
-        xxd pkgconf curl wget unzip zip git subversion mercurial rsync jq bc \
+        xxd pkgconf wget unzip zip git subversion mercurial rsync jq bc \
         autoconf automake libtool libtool-bin autopoint gettext parallel cmake meson ninja-build \
         clang llvm lcov lld qemu-user libunwind-dev \
         texinfo texi2html help2man flex bison groff \
