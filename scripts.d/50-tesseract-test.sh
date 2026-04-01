@@ -234,7 +234,7 @@ WRAPPER_EOF
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_TESTS=OFF
         -DBUILD_TRAINING_TOOLS=OFF # causes strange pgp path '=/include' errors
-        -DOPENMP_BUILD=OFF # DO NOT enable it for Win*; OpenMP в статике Mingw часто дает undefined reference на GOMP
+        -DOPENMP_BUILD=OFF # DO NOT enable it for Win*
         -DOPENMP_BUILD=OFF
         -DFAST_FLOAT=ON
         -DSW_BUILD=OFF

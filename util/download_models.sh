@@ -5,9 +5,8 @@ set -e
 # Загружаем функции
 source util/dl_functions.sh
 
-MODELS_DIR="${1:-./artifacts/models}"
-FF_SOURCE_DIR="${2:-ffbuild/ffmpeg}"
-mkdir -p "$MODELS_DIR"
+ASSETS_DIR="${1:-$ASSETS_DIR}"
+FFMPEG_SOURCE_DIR="${2:-$FFMPEG_SOURCE_DIR}"
 
 log_info "${START_MARK} Starting AI/OCR model and conditional asset collection..."
 
@@ -35,7 +34,7 @@ QTFILES_URL="https://github.com/AnimMouse/QTFiles/releases/download/v12.13.9.1/Q
 # TESSERACT MODELS (OCR)
 if [[ "$HAS_LIBTESSERACT" == "1" ]]; then
     log_info "${DOWN_MARK} Downloading Tesseract OCR models (tessdata_best)"
-    TESS_DEST="$MODELS_DIR/tessdata"
+    TESS_DEST="$ASSETS_DIR/tessdata"
     mkdir -p "$TESS_DEST/script"
 
     # Список необходимых файлов
@@ -71,26 +70,26 @@ fi
 
 # TENSORFLOW / DNN MODELS (Super Resolution)
 # Проверяем флаг HAS_LIBTENSORFLOW или наличие в config.h
-if [[ "$HAS_LIBTENSORFLOW" == "1" ]] || grep -q "CONFIG_SR_FILTER 1" "$FF_SOURCE_DIR/config.h" 2>/dev/null; then
+if [[ "$HAS_LIBTENSORFLOW" == "1" ]] || grep -q "CONFIG_SR_FILTER 1" "$FFMPEG_SOURCE_DIR/config.h" 2>/dev/null; then
     log_info "${DOWN_MARK} Downloading TensorFlow SR models"
     LINK_TF=$(echo "$URL_TF_SRCNN" | tr -d ' ')
-    download_file "$LINK_TF" "$MODELS_DIR/srcnn.pb" ""
+    download_file "$LINK_TF" "$ASSETS_DIR/srcnn.pb" ""
 fi
 
 # OPENVINO MODELS (VPP_OPENVINO)
 # OpenVINO Models (ESPCN - Super Resolution x2) работают через vpp_openvino
-if [[ "$HAS_LIBOPENVINO" == "1" ]] || grep -q "CONFIG_VPP_OPENVINO_FILTER 1" "$FF_SOURCE_DIR/config.h" 2>/dev/null; then
+if [[ "$HAS_LIBOPENVINO" == "1" ]] || grep -q "CONFIG_VPP_OPENVINO_FILTER 1" "$FFMPEG_SOURCE_DIR/config.h" 2>/dev/null; then
     log_info "${DOWN_MARK} Downloading OpenVINO models"
     LINK_OV=$(echo "$URL_OV_BASE" | tr -d ' ')
-    download_file "$LINK_OV/single-image-super-resolution-1033.xml" "$MODELS_DIR/sr_model.xml" ""
-    download_file "$LINK_OV/single-image-super-resolution-1033.bin" "$MODELS_DIR/sr_model.bin" ""
+    download_file "$LINK_OV/single-image-super-resolution-1033.xml" "$ASSETS_DIR/sr_model.xml" ""
+    download_file "$LINK_OV/single-image-super-resolution-1033.bin" "$ASSETS_DIR/sr_model.bin" ""
 fi
 
 # LIBTORCH MODELS (EDSR) Модели .torch для фильтра 'sr'
 if [[ "$HAS_LIBTORCH" == "1" ]]; then
     log_info "${DOWN_MARK} Downloading LibTorch models..."
     LINK_TORCH=$(echo "$URL_TORCH_EDSR" | tr -d ' ')
-    download_file "$LINK_TORCH" "$MODELS_DIR/edsr_x2.torch" ""
+    download_file "$LINK_TORCH" "$ASSETS_DIR/edsr_x2.torch" ""
 fi
 
 # APPLE AUDIOTOOLBOX DLLS (Special handling)
@@ -99,14 +98,14 @@ if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then
     if download_file "$QTFILES_URL" "qtfiles64.7z" ""; then
         log_info "${EXTR_MARK} Extracting Apple DLLs..."
         # Распаковываем только DLL во временную папку
-        7z e qtfiles64.7z -o"$MODELS_DIR/bin_dlls" "QTfiles64/*.dll" -y
+        7z e qtfiles64.7z -o"$ASSETS_DIR/bin_dlls" "QTfiles64/*.dll" -y
         # Переносим их в корень к ffmpeg (обычно $PKG_DIR/bin)
         # Если скрипт вызывается из build.sh, $PKG_DIR доступен
         if [[ -d "$PKG_DIR/bin" ]]; then
-            mv "$MODELS_DIR/bin_dlls"/*.dll "$PKG_DIR/bin/"
-            rm -rf "$MODELS_DIR/bin_dlls"
+            mv "$ASSETS_DIR/bin_dlls"/*.dll "$PKG_DIR/bin/"
+            rm -rf "$ASSETS_DIR/bin_dlls"
         fi
     fi
 fi
 
-log_info "${CHECK_MARK} All models and asset collection finished for enabled components and moved to $MODELS_DIR"
+log_info "${CHECK_MARK} All models and asset collection finished for enabled components and moved to $ASSETS_DIR"

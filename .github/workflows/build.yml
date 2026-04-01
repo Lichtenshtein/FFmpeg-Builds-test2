@@ -35,6 +35,10 @@ on:
         description: 'Enable AVX-512 instructions'
         type: boolean
         default: false
+      use_openmp:
+        description: 'Enable OpenMP (Open Multi-Processing)'
+        type: boolean
+        default: true
       patch_ffmpeg:
         description: 'Enable FFmpeg custom patches'
         type: boolean
@@ -105,6 +109,7 @@ env:
   USE_AVX512:     ${{ github.event.inputs.use_avx512     == 'true' && '1' || '0' }}
   USE_LTO:        ${{ github.event.inputs.use_lto        == 'true' && '1' || '0' }}
   USE_WINE:       ${{ github.event.inputs.use_wine       == 'true' && '1' || '0' }}
+  USE_OPENMP:    ${{ github.event.inputs.use_openmp    == 'true' && '1' || '0' }}  
   CLEAN_INACTIVE: ${{ github.event.inputs.clean_inactive == 'true' && '1' || '0' }}
   # Маппинг Inputs -> Env для всех динамических значений
   FFMPEG_REPO:     ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-VVC.git' }}
@@ -283,7 +288,7 @@ jobs:
         run: |
           [[ "${{ github.event.inputs.doClean }}" == "true" ]] && rm -rf .cache/{downloads,ffmpeg,ccache}/* && echo "### CLEAN BUILD REQUESTED ###"
 
-          mkdir -p .cache/downloads .cache/ffmpeg
+          mkdir -p .cache/downloads .cache/ffmpeg .cache/tmp
           find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
           chmod +x ./download.sh ./util/*.sh ./generate.sh
           ./download.sh

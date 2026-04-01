@@ -10,9 +10,6 @@ if [[ -z "$SCRIPT_PATH" || ! -f "$SCRIPT_PATH" ]]; then
     exit 1
 fi
 
-STAGENAME="$(basename "$SCRIPT_PATH" | sed 's/.sh$//')"
-COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
-
 # Подгружаем утилиты, используя абсолютный путь
 if ! declare -F log_info >/dev/null; then
     . /builder/util/vars.sh "$TARGET" "$VARIANT" 2>/dev/null \
@@ -20,13 +17,16 @@ if ! declare -F log_info >/dev/null; then
 fi
 
 if ! declare -F default_dl >/dev/null; then
-    . /builder/util/dl_functions.sh > /dev/null 2>&1 || true
+    . "$UTIL_DIR"/dl_functions.sh > /dev/null 2>&1 || true
 fi
 
-# Создаем и входим в директорию сборки ДО загрузки скрипта
-mkdir -p "/build/$STAGENAME"
-cd "/build/$STAGENAME"
+# Очистка при выходе. Удаляем старые файлы, если они остались от прошлых запусков
+trap 'echo "::endgroup::"; cd /; rm -rf "/build/$STAGENAME" "VARS_DIR"; rm -f "$OUTFILE" "$TIMESTAMP_FILE" /tmp/stage_build.log' EXIT
 
+# Создаем и входим в директорию сборки ДО загрузки скрипта
+mkdir -p "/build/$STAGENAME" && cd "/build/$STAGENAME"
+
+# Обнуляем статистику
 ccache -z > /dev/null
 
 # Начало группы в логах GitHub
@@ -50,47 +50,39 @@ if [[ -d "$FFBUILD_DESTDIR" ]]; then
     log_info "${BROOM_MARK} Cleaning up temporary DESTDIR: $FFBUILD_DESTDIR"
     rm -rf "${FFBUILD_DESTDIR:?}"/*
 fi
-mkdir -p "$FFBUILD_DESTDIR"
-mkdir -p "$FFBUILD_DESTPREFIX"
+mkdir -p "$FFBUILD_DESTDIR" "$FFBUILD_DESTPREFIX"
 
-CACHE_DIR="/root/.cache/downloads"
 REAL_CACHE=""
-CURRENT_HASH=$(get_stage_hash "$SCRIPT_PATH")
-TGT_FILE="${CACHE_DIR}/${STAGENAME}_${CURRENT_HASH}.tar.zst"
-LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
 
 log_info "${SEARCH_MARK} Searching source for $STAGENAME"
 
 # Ищем точное совпадение (Имя_Хеш)
-if [[ -f "$TGT_FILE" ]]; then
-    REAL_CACHE="$TGT_FILE"
+if [[ -f "$STAGE_CACHE_FILE" ]]; then
+    REAL_CACHE="$STAGE_CACHE_FILE"
     log_info "${CHECK_MARK} Exact cache match found: $(basename "$REAL_CACHE")"
-    ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
+    ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
 # Ищем по хешу (если скрипт переименован, например 25-glib2 -> 24-glib2)
 else
-    EXISTING_BY_HASH=$(find "$CACHE_DIR" -maxdepth 1 -name "*_${CURRENT_HASH}.tar.zst" -print -quit)
+    EXISTING_BY_HASH=$(find "$CACHE_DIR" -maxdepth 1 -name "*_${STAGE_HASH}.tar.zst" -print -quit)
     if [[ -n "$EXISTING_BY_HASH" ]]; then
         REAL_CACHE="$EXISTING_BY_HASH"
         log_info "${CHECK_MARK} Found cache with matching hash but different name: $(basename "$REAL_CACHE")"
-        ln -sf "$(basename "$REAL_CACHE")" "$LATEST_LINK"
+        ln -sf "$(basename "$REAL_CACHE")" "$STAGE_LATEST_LINK"
 # Откат к последней ссылке (LATEST), если точный хеш не найден
-    elif [[ -L "$LATEST_LINK" && -f "$LATEST_LINK" ]]; then
-        REAL_CACHE=$(readlink -f "$LATEST_LINK")
-        log_warn "Exact hash $CURRENT_HASH not found. Falling back to latest symlink: $(basename "$REAL_CACHE")"
+    elif [[ -L "$STAGE_LATEST_LINK" && -f "$STAGE_LATEST_LINK" ]]; then
+        REAL_CACHE=$(readlink -f "$STAGE_LATEST_LINK")
+        log_warn "Exact hash $STAGE_HASH not found. Falling back to latest symlink: $(basename "$REAL_CACHE")"
     fi
 fi
 
-# Проверяем, нужны ли вообще исходники для этой стадии
-DL_COMMANDS=$(ffbuild_dockerdl) || {
-    log_error "ffbuild_dockerdl failed for $STAGENAME"
-    exit 1
-}
+# Проверяем, нужны ли вообще исходники для этой стадии (или это мета-стадия), и выходим
+[[ -z "$DL_COMMANDS" ]] && log_error "ffbuild_dockerdl failed for $STAGENAME" && exit 1
 
 if [[ -n "$DL_COMMANDS" ]]; then
     # Если кэш не найден ни одним способом
     if [[ -z "$REAL_CACHE" || ! -f "$REAL_CACHE" ]]; then
         log_warn "Source cache NOT FOUND for $STAGENAME. Attempting direct download..."
-        log_debug "Expected hash: $CURRENT_HASH | Target file: $TGT_FILE"
+        log_debug "Expected hash: $STAGE_HASH | Target file: $STAGE_CACHE_FILE"
 
         # Пытаемся скачать исходники "на лету"
         if eval "$DL_COMMANDS"; then
@@ -102,12 +94,12 @@ if [[ -n "$DL_COMMANDS" ]]; then
             fi
             # Сразу создаем архив в кэше, чтобы в следующий раз он подхватился мгновенно
             log_info "${ARCH_MARK} Creating new cache archive for $STAGENAME..."
-            tar -I 'zstd -T0 -3' -cf "$TGT_FILE" .
-            ln -sf "$(basename "$TGT_FILE")" "$LATEST_LINK"
+            tar -I 'zstd -T0 -3' -cf "$STAGE_CACHE_FILE" .
+            ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
         else
-            # блок ошибки, срабатывает только загрузка провалилась.
+            # блок ошибки, срабатывает только если загрузка провалилась.
             log_error "ERROR: No source cache and download failed for $STAGENAME"
-            log_info "Expected hash: $CURRENT_HASH"
+            log_info "Expected hash: $STAGE_HASH"
             if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
                 log_debug "${DIRS_MARK} Available files in cache for this component:"
                 ls -lh "$CACHE_DIR" | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found."
@@ -123,7 +115,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
     # АВТО-ПАТЧИНГ
     if [[ "$SKIP_PRE_PATCH" == "0" ]]; then
         log_info "${SEARCH_MARK} Checking for patches..."
-        if [[ -d "/builder/patches/$COMPONENT_NAME" ]]; then
+        if [[ -d "$PATCHES_DIR/$COMPONENT_NAME" ]]; then
             apply_patches 
         else
             log_info "${CHECK_MARK} No patches found for $COMPONENT_NAME"
@@ -149,18 +141,30 @@ if [[ -n "$DL_COMMANDS" ]]; then
         exit 1
     fi
 
+    # if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+        # log_debug "${DIRS_MARK} Contents of $(pwd) (current build directory):"
+        # Читаем списки в массивы
+        # mapfile -t dirs < <(ls -d */ 2>/dev/null | head -n 10)
+        # mapfile -t files < <(ls -F 2>/dev/null | grep -v / | head -n 10)
+        # Определяем максимальное количество строк
+        # max=$(( ${#dirs[@]} > ${#files[@]} ? ${#dirs[@]} : ${#files[@]} ))
+        # for ((i=0; i<max; i++)); do
+            # %-25s — левая колонка шириной 25 символов
+            # printf "  %-25s %s\n" "${dirs[i]:-}" "${files[i]:-}"
+        # done
+    # fi
+
     if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
         log_debug "${DIRS_MARK} Contents of $(pwd) (current build directory):"
-        # Читаем списки в массивы
-        mapfile -t dirs < <(ls -d */ 2>/dev/null | head -n 10)
-        mapfile -t files < <(ls -F 2>/dev/null | grep -v / | head -n 10)
-        # Определяем максимальное количество строк
-        max=$(( ${#dirs[@]} > ${#files[@]} ? ${#dirs[@]} : ${#files[@]} ))
-        for ((i=0; i<max; i++)); do
-            # %-25s — левая колонка шириной 25 символов
-            printf "  %-25s %s\n" "${dirs[i]:-}" "${files[i]:-}"
-        done
+        # Собираем список: сначала папки (с /), потом файлы
+        # -F добавляет / к папкам, -1 выводит в один столбец
+        # paste объединяет их через табуляцию, чтобы column понял разделитель
+        paste <(ls -d */ 2>/dev/null | head -n 15) \
+              <(ls -F 2>/dev/null | grep -v / | head -n 15) | \
+              column -t -s $'\t' -N "DIRECTORIES","FILES" | \
+              sed 's/^/  /' # Добавляем отступ слева для красоты
     fi
+
 else
     log_info "No source archive required for $STAGENAME (meta-package)."
 fi
@@ -289,7 +293,7 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
     else
         log_info "${LOCK_MARK} Preserving dynamic DLLs for $STAGENAME"
     fi
-    # Удаляем мусорные .la файлы
+    # Удаляем мусорные libtool archives файлы
     [[ "$SKIP_POST_CLEAN" != "1" ]] && clean_la_files
     # Исправляем .pc файлы (пути, зависимости, Requires.private)
     # Флаг SKIP_POST_PATCH=1 в скрипте может это отключить при необходимости
@@ -301,19 +305,16 @@ else
 fi
 
 # Сохраняем переменные для текущего слоя в файл 
-VARS_DIR="$FFBUILD_PREFIX/config_parts"
-mkdir -p "$VARS_DIR"
 OUTFILE="$VARS_DIR/${STAGENAME}.vars"
-
-log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
 
 # Completely isolated subshell, no inherited FF_* state
 # The subshell is the critical isolation mechanism, no FF_* state can leak in from the parent environment.
+log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
 (
     # Re-source vars.sh clean so ffbuild_* accumulator functions are defined
     # but FF_* variables are empty
     unset FF_CONFIGURE FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LDEXEFLAGS FF_LIBS
-    . /builder/util/vars.sh "$TARGET" "$VARIANT" > /dev/null 2>&1
+    . "$UTIL_DIR"/vars.sh "$TARGET" "$VARIANT" > /dev/null 2>&1
 
     # Re-source the component script so its ffbuild_* functions are available
     . "$SCRIPT_PATH"
@@ -369,7 +370,6 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
             OWN_PC_FILES+=("$(basename "$pc" .pc)")
         fi
     done
-    rm -f "$TIMESTAMP_FILE"
 
     # Query only own .pc files, no transitive pollution
     # Use --libs (not --static --libs) to avoid pulling in transitive deps here;
@@ -381,22 +381,18 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
         [[ -n "$_pc_libs" ]] && FF_LIBS="$FF_LIBS $_pc_libs"
     done
 
-    # Удаляем ANSI цвета
-    # Удаляем переносы строк (заменяем на пробел)
-    # xargs схлопнет лишние пробелы в одну строку
+    # Конфигурация и общие флаги (чистим мусор и дедуплицируем, оставляя ПЕРВОЕ вхождение)
+    [[ -n "$FF_CONFIGURE" ]]  && VARS_CONTENT+="export FF_CONFIGURE+='$(dedupe "$FF_CONFIGURE")'\n"
+    [[ -n "$FF_CFLAGS" ]]     && VARS_CONTENT+="export FF_CFLAGS+='$(dedupe "$FF_CFLAGS")'\n"
+    [[ -n "$FF_CXXFLAGS" ]]   && VARS_CONTENT+="export FF_CXXFLAGS+='$(dedupe "$FF_CXXFLAGS")'\n"
+    [[ -n "$FF_CPPFLAGS" ]]   && VARS_CONTENT+="export FF_CPPFLAGS+='$(dedupe "$FF_CPPFLAGS")'\n"
+    # Флаги линковщика (используем smart_dedupe - он учитывает переменную DEDUPE_FLAGS)
+    [[ -n "$FF_LDFLAGS" ]]    && VARS_CONTENT+="export FF_LDFLAGS+='$(smart_dedupe "$FF_LDFLAGS")'\n"
+    [[ -n "$FF_LDEXEFLAGS" ]] && VARS_CONTENT+="export FF_LDEXEFLAGS+='$(smart_dedupe "$FF_LDEXEFLAGS")'\n"
+    # Библиотеки (используем smart_libs_dedupe, сохраняем ПОСЛЕДНЕЕ вхождение для линковки)
+    [[ -n "$FF_LIBS" ]]       && VARS_CONTENT+="export FF_LIBS+='$(smart_libs_dedupe "$FF_LIBS")'\n"
+
     # Write only non-empty values to .vars
-    clean_val() {
-        echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | tr '\n' ' ' | xargs
-    }
-
-    [[ -n "$FF_CONFIGURE" ]]  && VARS_CONTENT+="export FF_CONFIGURE+='$(clean_val "$FF_CONFIGURE")'\n"
-    [[ -n "$FF_CFLAGS" ]]     && VARS_CONTENT+="export FF_CFLAGS+='$(clean_val "$FF_CFLAGS")'\n"
-    [[ -n "$FF_CXXFLAGS" ]]   && VARS_CONTENT+="export FF_CXXFLAGS+='$(clean_val "$FF_CXXFLAGS")'\n"
-    [[ -n "$FF_CPPFLAGS" ]]   && VARS_CONTENT+="export FF_CPPFLAGS+='$(clean_val "$FF_CPPFLAGS")'\n"
-    [[ -n "$FF_LDFLAGS" ]]    && VARS_CONTENT+="export FF_LDFLAGS+='$(clean_val "$FF_LDFLAGS")'\n"
-    [[ -n "$FF_LDEXEFLAGS" ]] && VARS_CONTENT+="export FF_LDEXEFLAGS+='$(clean_val "$FF_LDEXEFLAGS")'\n"
-    [[ -n "$FF_LIBS" ]]       && VARS_CONTENT+="export FF_LIBS+='$(clean_val "$FF_LIBS")'\n"
-
     # Если есть хоть один экспорт пишем в файл
     if [[ -n "$VARS_CONTENT" ]]; then
         # 1. Используем printf вместо echo -e для надежности
@@ -405,8 +401,6 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
         log_info "Saved $(wc -c < "$OUTFILE") bytes to $OUTFILE"
     else
         log_info "${CHECK_MARK} No build variables to save for $STAGENAME (meta/header-only component)."
-        # На всякий случай удаляем старый файл, если он остался от прошлых запусков
-        rm -f "$OUTFILE"
     fi
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
@@ -435,6 +429,4 @@ log_info_line
 log_info "### ${CHECK_MARK} Post-build automation completed."
 log_info_line
 
-# Очистка
-trap 'echo "::endgroup::"; cd /; rm -rf "/build/$STAGENAME"' EXIT
 exit 0
