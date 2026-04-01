@@ -5,18 +5,21 @@ ARG TARGETPLATFORM
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get -y install --no-install-recommends curl
-
 RUN \
     --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip \
+    # Сначала обновляем стандартные репозитории и ставим curl
+    apt-get -y update && \
+    apt-get -y install --no-install-recommends ca-certificates curl gnupg && \
+    \
     # Добавляем архитектуру и репозиторий Wine
     dpkg --add-architecture i386 && \
     mkdir -pm755 /etc/apt/keyrings && \
     curl -fsSL "https://dl.winehq.org/wine-builds/winehq.key" -o /etc/apt/keyrings/winehq-archive.key && \
     curl -fsSL "https://dl.winehq.org/wine-builds/ubuntu/dists/noble/winehq-noble.sources" -o /etc/apt/sources.list.d/winehq-noble.sources && \
     \
+    # Снова update (уже для Wine) и установка всего остального
     apt-get -y update && \
     apt-get -y dist-upgrade && \
     \
