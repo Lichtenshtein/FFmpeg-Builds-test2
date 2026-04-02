@@ -3,9 +3,6 @@
 set -o pipefail
 shopt -s globstar
 
-export LANG=C.UTF-8
-export LC_ALL=C.UTF-8
-
 CLEAN_TARGET=$(echo "${1:-$TARGET}" | awk '{print $1}')
 CLEAN_VARIANT=$(echo "${2:-$VARIANT}" | awk '{print $1}')
 CLEAN_INACTIVE=${CLEAN_INACTIVE:-0}
