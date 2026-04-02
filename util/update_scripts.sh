@@ -83,7 +83,8 @@ update_shaderc_deps() {
 
 for STAGE in $SEARCH_PATTERN; do
     [[ -f "$STAGE" ]] || continue
-    # STAGENAME=$(basename "$STAGE" .sh)
+    STAGENAME="$(basename "$STAGE" .sh)"
+    COMPONENT_NAME="${STAGENAME#*-}"
 
     # Проверка на вхождение в массив исключений
     skip_this=0
