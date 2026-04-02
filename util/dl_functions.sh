@@ -333,24 +333,28 @@ download_stage() {
     local STAGE="$1"
     local CACHE_DIR="${2:-$CACHE_DIR}"
 
-    # Единый хеш
-    local STAGE_HASH=$(get_stage_hash "$STAGE")
-    local STAGENAME="$(basename "$STAGE" .sh)"
-    local COMPONENT_NAME="${STAGENAME#*-}"
-    local STAGE_CACHE_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.tar.zst"
-    local STAGE_LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
+    local STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK
+    eval "$(stage_vars "$STAGE")"
 
-    # local DL_COMMANDS="$(bash -c "\
-        # source \"$UTIL_DIR/vars.sh\" \"$TARGET\" \"$VARIANT\" &>/dev/null; \
-        # source \"$UTIL_DIR/dl_functions.sh\"; \
-        # source \"$STAGE\"; \
-        # ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")"
-    local DL_COMMANDS="$(bash -c "\
-        source \"$STAGE\"; \
-        ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")"
+    local DL_COMMANDS
+    DL_COMMANDS="$(bash --norc --noprofile -c "
+        source \"${UTIL_DIR}/vars.sh\" \"${TARGET}\" \"${VARIANT}\" >/dev/null
+        source \"${UTIL_DIR}/dl_functions.sh\"
+        source \"${STAGE}\"
+        ffbuild_enabled || exit 0
+        ffbuild_dockerdl
+    " 2>/tmp/dl_cmd_err_${STAGENAME} || true)"
 
     # Если команд нет — это стадия без исходников (мета-пакет), выходим
-    [[ -z "$DL_COMMANDS" ]] && return 0
+    if [[ -z "$DL_COMMANDS" ]]; then
+        # Log any real error from the subshell
+        [[ -s "/tmp/dl_cmd_err_${STAGENAME}" ]] && \
+            log_warn "dl subshell stderr for ${STAGENAME}:" && \
+            cat "/tmp/dl_cmd_err_${STAGENAME}" >&2
+        rm -f "/tmp/dl_cmd_err_${STAGENAME}"
+        return 0  # meta-package, nothing to download
+    fi
+    rm -f "/tmp/dl_cmd_err_${STAGENAME}"
 
     # Проверяем, что у нас есть путь к кэшу, иначе упадем на mkdir/tar
     if [[ -z "$CACHE_DIR" ]]; then
@@ -386,7 +390,7 @@ download_stage() {
     local WORK_DIR=$(mktemp -d -p "$TMP_DIR")
     # Очистка при выходе. Удаляем только WORK_DIR конкретного процесса, а не весь TMP_DIR!
     # Иначе параллельные процессы удалят чужие папки.
-    # trap 'rm -rf "$WORK_DIR"' EXIT
+    trap 'rm -rf "$WORK_DIR"' EXIT
 
     # Выполняем загрузку
     if (
@@ -414,12 +418,12 @@ download_stage() {
         ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
 
         log_info "${CACHE_MARK} Cached $STAGENAME (Name: $(basename "$STAGE_CACHE_FILE"))"
-        rm -rf "$WORK_DIR" # Явное удаление
+        # rm -rf "$WORK_DIR" # Явное удаление
         return 0
     else
         log_error "FAILED to download $STAGENAME. Commands attempted:"
         [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "$DL_COMMANDS"
-        rm -rf "$WORK_DIR" # Явное удаление
+        # rm -rf "$WORK_DIR" # Явное удаление
         return 1 # return 1 для параллельного запуска
     fi
 }

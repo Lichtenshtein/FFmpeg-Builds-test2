@@ -4,6 +4,8 @@ set -e
 shopt -s globstar
 cd "$(dirname "$0")"
 
+# Container root is always /builder
+CONTAINER_ROOT="/builder"
 # Забираем аргументы из workflow.yaml для локального использования
 TARGET="${1:-$TARGET}"
 VARIANT="${2:-$VARIANT}"
@@ -50,8 +52,8 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
 to_df "FROM base-win64 AS components_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "$COMMON_ENV"
-to_df "WORKDIR $ROOT_DIR"
-to_df "COPY $UTIL_DIR/run_stage.sh /usr/bin/run_stage"
+to_df "WORKDIR ${CONTAINER_ROOT}"
+to_df "COPY util/run_stage.sh /usr/bin/run_stage"
 to_df "RUN chmod +x /usr/bin/run_stage"
 
 # Очищаем содержимое перед хешированием:
@@ -90,17 +92,17 @@ done
 
 # Генерируем блоки RUN для каждой стадии
 for STAGE in "${active_scripts[@]}"; do
-    STAGE_HASH=$(get_stage_hash "$STAGE")
     STAGENAME="$(basename "$STAGE" .sh)"
     COMPONENT_NAME="${STAGENAME#*-}"
+    STAGE_HASH=$(get_stage_hash "$STAGE")
     # Гранулярный поиск патчей
     # Для библиотек ищем в patches/zlib/ и т.д.
-    PATCH_PATH="$PATCHES_DIR/$COMPONENT_NAME"
+    PATCH_PATH="${PATCHES_DIR}/${COMPONENT_NAME}"
     # Для FFmpeg ищем в patches/ffmpeg/master/ (или другой ветке)
-    [[ "$COMPONENT_NAME" == "ffmpeg" ]] && PATCH_PATH="$PATCHES_DIR/ffmpeg/$FFMPEG_BRANCH"
+    [[ "${COMPONENT_NAME}" == "ffmpeg" ]] && PATCH_PATH="${PATCHES_DIR}/ffmpeg/${FFMPEG_BRANCH}"
     # Считаем хеш только если папка существует, иначе "none"
-    if [[ -d "$PATCH_PATH" ]]; then
-        PATCH_HASH=$(find "$PATCH_PATH" -type f -exec md5sum {} + | sort | md5sum | cut -c1-8)
+    if [[ -d "${PATCH_PATH}" ]]; then
+        PATCH_HASH=$(find "${PATCH_PATH}" -type f -exec md5sum {} + | sort | md5sum | cut -c1-8)
     else
         PATCH_HASH="none"
     fi
@@ -110,21 +112,21 @@ for STAGE in "${active_scripts[@]}"; do
     LAYER_ID="E:${ENV_HASH}_L:${LOGIC_HASH}_S:${STAGE_HASH}_P:${PATCH_HASH}"
 
     to_df "# Component: $STAGENAME | LayerID: $LAYER_ID"
-    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=$CCACHE_DIR \\"
-    to_df "    --mount=type=cache,id=prefix-${TARGET},target=$FFBUILD_PREFIX \\"
-    to_df "    --mount=type=bind,source=scripts.d,target=$SCRIPTS_DIR \\"
-    to_df "    --mount=type=bind,source=util,target=$UTIL_DIR \\"
-    to_df "    --mount=type=bind,source=patches,target=$PATCHES_DIR \\"
-    to_df "    --mount=type=bind,source=variants,target=$VARIANTS_DIR \\"
-    to_df "    --mount=type=bind,source=addins,target=$ADDINS_DIR \\"
-    to_df "    --mount=type=bind,source=.cache/downloads,target=$CACHE_DIR,rw \\"
-    to_df "    set -e && export _H=$LAYER_ID && . $UTIL_DIR/vars.sh \"$TARGET\" \"$VARIANT\" && run_stage $ROOT_DIR/$STAGE"
+    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
+    to_df "    --mount=type=cache,id=prefix-${TARGET},target=${FFBUILD_PREFIX} \\"
+    to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
+    to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
+    to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\"
+    to_df "    --mount=type=bind,source=variants,target=${CONTAINER_ROOT}/variants \\"
+    to_df "    --mount=type=bind,source=addins,target=${CONTAINER_ROOT}/addins \\"
+    to_df "    --mount=type=bind,source=.cache/downloads,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
+    to_df "    set -e && export _H=${LAYER_ID} && . ${CONTAINER_ROOT}/util/vars.sh \"${TARGET}\" \"${VARIANT}\" && run_stage ${CONTAINER_ROOT}/${STAGE}"
 done
 
 # FINAL FFMPEG BUILD STAGE
 to_df "FROM base-win64 AS final_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
-to_df "WORKDIR $ROOT_DIR"
+to_df "WORKDIR ${CONTAINER_ROOT}"
 # Копируем всё собранное из COMPONENT BUILD STAGE (этот слой закешируется Docker)
 to_df "COPY --from=components_build $FFBUILD_PREFIX $FFBUILD_PREFIX"
 to_df "$COMMON_ENV"
