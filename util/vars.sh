@@ -118,10 +118,10 @@ mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 # export COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
 
 # Dynamic variables. I'm not sure if this will work
-export STAGENAME="$(basename "$STAGE" .sh)"
-export COMPONENT_NAME="${STAGENAME#*-}"
-export STAGE_CACHE_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.tar.zst"
-export STAGE_LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
+# export STAGENAME="$(basename "$STAGE" .sh)"
+# export COMPONENT_NAME="${STAGENAME#*-}"
+# export STAGE_CACHE_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.tar.zst"
+# export STAGE_LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
 
 # Flags for the component build stage
 

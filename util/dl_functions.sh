@@ -335,6 +335,10 @@ download_stage() {
 
     # Единый хеш
     local STAGE_HASH=$(get_stage_hash "$STAGE")
+    local STAGENAME="$(basename "$STAGE" .sh)"
+    local COMPONENT_NAME="${STAGENAME#*-}"
+    local STAGE_CACHE_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.tar.zst"
+    local STAGE_LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
 
     # local DL_COMMANDS="$(bash -c "\
         # source \"$UTIL_DIR/vars.sh\" \"$TARGET\" \"$VARIANT\" &>/dev/null; \
