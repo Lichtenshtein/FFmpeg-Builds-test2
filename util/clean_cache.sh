@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -xe
+set -o pipefail
 shopt -s globstar
 
 CLEAN_TARGET=$(echo "${1:-$TARGET}" | awk '{print $1}')
@@ -14,7 +14,7 @@ if [[ -z "$CLEAN_TARGET" || -z "$CLEAN_VARIANT" ]]; then
 fi
 
 if ! source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" 2>/dev/null; then
-    echo "ERROR: Failed to source vars.sh for $CLEAN_TARGET-$CLEAN_VARIANT" >&2
+    echo "ERROR: Failed to source vars.sh" >&2
     exit 1
 fi
 
@@ -34,6 +34,10 @@ count_skipped=0
 for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     [[ -f "$STAGE" ]] || continue
 
+    # Обновляем переменные для ТЕКУЩЕГО файла в цикле
+    STAGENAME="$(basename "$STAGE" .sh)"
+    DL_HASH=$(get_stage_hash "$STAGE")
+
     # Is this stage active (listed in ONLY_STAGE)?
     is_active=false
     if [[ -z "$ONLY_STAGE" ]]; then
@@ -46,7 +50,6 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     # Is this stage enabled (ffbuild_enabled returns 0)?
     is_enabled=false
     if ( set +e
-         source "$(dirname "$0")/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" >/dev/null 2>&1
          source "$STAGE" >/dev/null 2>&1
          ffbuild_enabled >/dev/null 2>&1 ); then
         is_enabled=true
@@ -101,16 +104,16 @@ done
 # Summary of decisions (one line, not 80)
 log_info "${LOCK_MARK} Protected: ${count_active_enabled} active+enabled, ${count_inactive_kept} inactive+kept, ${count_skipped} skipped."
 
-sort -u "$RAW_KEEP_LIST" > "$FINAL_KEEP_LIST"
-sed -i 's/\r//g; s/[[:space:]]*$//' "$FINAL_KEEP_LIST"
+# sort -u "$RAW_KEEP_LIST" > "$FINAL_KEEP_LIST"
+# sed -i 's/\r//g; s/[[:space:]]*$//' "$FINAL_KEEP_LIST"
+sort -u "$RAW_KEEP_LIST" | tr -d '\r' > "$FINAL_KEEP_LIST"
+sed -i 's/[[:space:]]*$//' "$FINAL_KEEP_LIST"
 
 # Debug: show keep-list only at verbose >= 2
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     log_debug "FINAL_KEEP_LIST (first 10):"
     head -n 10 "$FINAL_KEEP_LIST" || true
 fi
-
-rm -f "$RAW_KEEP_LIST" || true
 
 # Deletion pass
 

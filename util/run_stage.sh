@@ -381,16 +381,14 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
         [[ -n "$_pc_libs" ]] && FF_LIBS="$FF_LIBS $_pc_libs"
     done
 
-    # Конфигурация и общие флаги (чистим мусор и дедуплицируем, оставляя ПЕРВОЕ вхождение)
-    [[ -n "$FF_CONFIGURE" ]]  && VARS_CONTENT+="export FF_CONFIGURE+='$(dedupe "$FF_CONFIGURE")'\n"
-    [[ -n "$FF_CFLAGS" ]]     && VARS_CONTENT+="export FF_CFLAGS+='$(dedupe "$FF_CFLAGS")'\n"
-    [[ -n "$FF_CXXFLAGS" ]]   && VARS_CONTENT+="export FF_CXXFLAGS+='$(dedupe "$FF_CXXFLAGS")'\n"
-    [[ -n "$FF_CPPFLAGS" ]]   && VARS_CONTENT+="export FF_CPPFLAGS+='$(dedupe "$FF_CPPFLAGS")'\n"
-    # Флаги линковщика (используем smart_dedupe - он учитывает переменную DEDUPE_FLAGS)
-    [[ -n "$FF_LDFLAGS" ]]    && VARS_CONTENT+="export FF_LDFLAGS+='$(smart_dedupe "$FF_LDFLAGS")'\n"
-    [[ -n "$FF_LDEXEFLAGS" ]] && VARS_CONTENT+="export FF_LDEXEFLAGS+='$(smart_dedupe "$FF_LDEXEFLAGS")'\n"
-    # Библиотеки (используем smart_libs_dedupe, сохраняем ПОСЛЕДНЕЕ вхождение для линковки)
-    [[ -n "$FF_LIBS" ]]       && VARS_CONTENT+="export FF_LIBS+='$(smart_libs_dedupe "$FF_LIBS")'\n"
+    # Конфигурация и общие флаги
+    [[ -n "$FF_CONFIGURE" ]]  && VARS_CONTENT+="export FF_CONFIGURE+='$FF_CONFIGURE'\n"
+    [[ -n "$FF_CFLAGS" ]]     && VARS_CONTENT+="export FF_CFLAGS+='$FF_CFLAGS'\n"
+    [[ -n "$FF_CXXFLAGS" ]]   && VARS_CONTENT+="export FF_CXXFLAGS+='$FF_CXXFLAGS'\n"
+    [[ -n "$FF_CPPFLAGS" ]]   && VARS_CONTENT+="export FF_CPPFLAGS+='$FF_CPPFLAGS'\n"
+    [[ -n "$FF_LDFLAGS" ]]    && VARS_CONTENT+="export FF_LDFLAGS+='$FF_LDFLAGS'\n"
+    [[ -n "$FF_LDEXEFLAGS" ]] && VARS_CONTENT+="export FF_LDEXEFLAGS+='$FF_LDEXEFLAGS'\n"
+    [[ -n "$FF_LIBS" ]]       && VARS_CONTENT+="export FF_LIBS+='$FF_LIBS'\n"
 
     # Write only non-empty values to .vars
     # Если есть хоть один экспорт пишем в файл
