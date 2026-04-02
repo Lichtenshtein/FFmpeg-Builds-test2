@@ -131,16 +131,30 @@ export -f get_stage_hash
 # Dynamic variables (only if STAGE or SCRIPT_PATH is set)
 # Using SCRIPT_PATH (from run_stage) or STAGE (from loops)
 _SCRIPT_REF="${SCRIPT_PATH:-$STAGE}"
-if [[ -n "$_SCRIPT_REF" ]]; then
+if [[ -n "$_SCRIPT_REF" && -f "$_SCRIPT_REF" ]]; then
     export STAGENAME="$(basename "$_SCRIPT_REF" .sh)"
     export COMPONENT_NAME="${STAGENAME#*-}" # Faster than sed: removes everything up to the first hyphen
 
     # Single variable for hash
     export STAGE_HASH="$(get_stage_hash "$_SCRIPT_REF")"
 
-    # Unified paths to cache files
-    export STAGE_CACHE_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.tar.zst"
-    export STAGE_LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
+    if [[ -z "$_INSIDE_VARS" ]]; then
+        # Unified paths to cache files
+        export STAGE_CACHE_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.tar.zst"
+        export STAGE_LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
+
+        # Добавляем флаг, чтобы вложенный вызов не пошел по кругу
+        export DL_COMMANDS="$(export _INSIDE_VARS=1; bash -c "source \"$UTIL_DIR/vars.sh\" \"$TARGET\" \"$VARIANT\" &>/dev/null; \
+                              source \"$UTIL_DIR/dl_functions.sh\"; \
+                              source \"$_SCRIPT_REF\"; \
+                              ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")"
+    fi
+else
+    # Если мы в корневом вызове без скрипта (как в начале download.sh)
+    export STAGENAME=""
+    export COMPONENT_NAME=""
+    export STAGE_HASH=""
+    export DL_COMMANDS=""
 fi
 
 # Flags for the component build stage
@@ -276,11 +290,6 @@ else
     export NINJA_V=""
     export CARGO_V=""
 fi
-
-export DL_COMMANDS="$(bash -c "source $UTIL_DIR/vars.sh \"$TARGET\" \"$VARIANT\" &>/dev/null; \
-                      source $UTIL_DIR/dl_functions.sh; \
-                      source \"$STAGE\"; \
-                      ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")"
 
 # Удаляем ANSI цвета
 # Удаляем переносы строк (заменяем на пробел)
