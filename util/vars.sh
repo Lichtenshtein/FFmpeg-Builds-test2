@@ -51,8 +51,8 @@ print_debug() { printf '%b[DEBUG]%b %b\n' "${LOG_DEBUG}" "${LOG_NC}" "$*" >&2; }
 # Windows paths or other backslash sequences
 log_raw() {
     local label="$1"; shift
-    printf '%b[DEBUG]%b  %s\n' "${LOG_DEBUG}" "${LOG_NC}" "${label}" >&2
-    printf '  %s\n' "$*" >&2
+    printf '%b[DEBUG]%b %s\n' "${LOG_DEBUG}" "${LOG_NC}" "${label}" >&2
+    printf ' %s\n' "$*" >&2
 }
 
 log_info_line() { echo -e "${LOG_INFO}[INFO]${LOG_NC}  ################################################################" >&2; }
@@ -931,6 +931,12 @@ separator() {
     local label="${2:-}"
     local width
     width=$(_term_width)
+    
+    # GitHub Actions doesn't support UTF-8 box-drawing; use ASCII fallback
+    if [[ -n "$GITHUB_ACTIONS" ]]; then
+        char=$(echo "$char" | sed 's/═/-/g; s/─/-/g; s/·/./g')
+    fi
+    
     if [[ -z "$label" ]]; then
         printf '%*s\n' "$width" '' | tr ' ' "$char" >&2
     else
@@ -955,9 +961,9 @@ export -f phase_header
 
 # phase_footer <message>
 phase_footer() {
-    separator "—"
+    separator "─"
     printf '%b  %s  %b\n' "${LOG_INFO}" "$*" "${LOG_NC}" >&2
-    separator "—"
+    separator "─"
 }
 export -f phase_footer
 
@@ -1011,22 +1017,19 @@ render_dl_table() {
     local width
     width=$(_term_width)
 
-    # Header
-    separator "—" "  DOWNLOAD SUMMARY  "
+    separator "─" "  DOWNLOAD SUMMARY  "
     printf '  %-3s  %-30s  %-16s  %s\n' "   " "COMPONENT" "HASH" "RESULT" >&2
-    separator "—"
+    separator "─"
 
-    # Sort: hits first, then misses, then skips, then fails
-    # Then group by component category
-    local current_group="" 
+    local current_group=""
     sort -t$'\t' -k1,1 "$file" | while IFS=$'\t' read -r status icon name hash extra; do
         local group
         group=$(get_component_group "$name")
         
-        # Print group separator if group changed
         if [[ "$group" != "$current_group" ]]; then
             [[ -n "$current_group" ]] && separator "·" >&2
-            printf '%b  ╭— %s %b\n' "$LOG_DEBUG" "$group" "$LOG_NC" >&2
+            # Use ASCII instead of ┌─
+            printf '%b  ╭[%s]%b\n' "$LOG_DEBUG" "$group" "$LOG_NC" >&2
             current_group="$group"
         fi
         
@@ -1038,16 +1041,17 @@ render_dl_table() {
             fail) color="$LOG_ERROR" ;;
             *)    color="$LOG_NC"    ;;
         esac
-        printf '%b  │ %s  %-28s  %-16s  %s%b\n' \
+        # Use ASCII instead of │
+        printf '%b  | %s  %-28s  %-16s  %s%b\n' \
             "$color" "$icon" "$name" "$hash" "$extra" "$LOG_NC" >&2
     done
-                 
-    printf '%b  ╰—————————————————————————————————————————————————————————%b\n' \
+
+    # Use ASCII instead of └─
+    printf '%b  ╰-------------------------------------------------------%b\n' \
         "$LOG_DEBUG" "$LOG_NC" >&2
 
-    separator "—"
+    separator "─"
 
-    # Tally
     local n_hit n_miss n_skip n_fail
     n_hit=$(grep -c '^hit' "$file" 2>/dev/null || echo 0)
     n_miss=$(grep -c '^miss' "$file" 2>/dev/null || echo 0)
