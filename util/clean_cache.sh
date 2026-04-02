@@ -158,13 +158,31 @@ done
 find . -maxdepth 1 -xtype l -delete || true
 
 # Final summary (single line)
+phase_header "🧹" "CACHE CLEANUP  [$CLEAN_TARGET-$CLEAN_VARIANT]"
+
+separator "─" "  PROTECTION DECISIONS  "
+printf '  %-35s  %s\n' "CATEGORY" "COUNT" >&2
+separator "─"
+printf '  %-35s  %b%s%b\n' "Active + enabled (always keep)"   "$LOG_INFO"  "$count_active_enabled" "$LOG_NC" >&2
+printf '  %-35s  %b%s%b\n' "Inactive + enabled (CLEAN=0 keep)" "$LOG_WARN"  "$count_inactive_kept"  "$LOG_NC" >&2
+printf '  %-35s  %b%s%b\n' "Skipped (disabled or CLEAN=1)"     "$LOG_DEBUG" "$count_skipped"        "$LOG_NC" >&2
+separator "─"
+
+if [[ "$deleted_count" -gt 0 || "$skipped_young" -gt 0 ]]; then
+    separator "─" "  DELETION RESULTS  "
+    printf '  %-35s  %b%s%b\n' "Files removed"              "$LOG_WARN"  "$deleted_count"  "$LOG_NC" >&2
+    printf '  %-35s  %b%s%b\n' "Skipped (< 30 min old)"     "$LOG_INFO"  "$skipped_young"  "$LOG_NC" >&2
+    separator "─"
+fi
+
 if [[ "$deleted_count" -eq 0 && "$skipped_young" -eq 0 ]]; then
-    log_info "${CHECK_MARK} Cache is already clean. Nothing to remove."
+    phase_footer "✔ Cache is clean — nothing removed"
 else
     [[ "$deleted_count" -gt 0 ]] && \
-        log_info "${CHECK_MARK} Cleanup finished. Removed ${deleted_count} outdated/orphaned files."
+        log_info "${CHECK_MARK} Removed ${deleted_count} outdated/orphaned file(s)"
     [[ "$skipped_young" -gt 0 ]] && \
-        log_info "${XCLAM_MARK} Skipped ${skipped_young} recently-modified files (< 30 min old)."
+        log_info "${XCLAM_MARK} Skipped ${skipped_young} recently-modified file(s) (< 30 min old)"
+    phase_footer "✔ Cleanup complete"
 fi
 
 exit 0

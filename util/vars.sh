@@ -19,6 +19,7 @@ export NC='\033[0m'            # No Color (Reset)
 export CHECK_MARK="${LOG_INFO}✔${NC}"
 export CROSS_MARK='❌'
 export XCLAM_MARK='⚠️'
+export QUEST_MARK='❓'
 export BROOM_MARK='🧹'
 export CACHE_MARK='🗄️'
 export ARCH_MARK='📥️'
@@ -40,10 +41,10 @@ log_warn()  { echo -e "${LOG_WARN}[WARN]${LOG_NC}  ${XCLAM_MARK} $*" >&2; }
 log_error() { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} ${CROSS_MARK} $*" >&2; }
 log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 
-print_info()  { printf '%b[INFO]%b  %s\n' "${LOG_INFO}" "${LOG_NC}" "$*" >&2; }
-print_warn()  { printf '%b[WARN]%b %s\n' "${LOG_WARN}" "${LOG_NC}"  "${XCLAM_MARK}" "$*" >&2; }
-print_error() { printf '%b[ERROR]%b %s\n' "${LOG_ERROR}" "${LOG_NC}"  "${CROSS_MARK}" "$*" >&2; }
-print_debug() { printf '%b[DEBUG]%b %s\n' "${LOG_DEBUG}" "${LOG_NC}" "$*" >&2; }
+print_info()  { printf '%b[INFO]%b  %b\n' "${LOG_INFO}" "${LOG_NC}" "$*" >&2; }
+print_warn()  { printf '%b[WARN]%b %b\n' "${LOG_WARN}" "${LOG_NC}"  "${XCLAM_MARK}" "$*" >&2; }
+print_error() { printf '%b[ERROR]%b %b\n' "${LOG_ERROR}" "${LOG_NC}"  "${CROSS_MARK}" "$*" >&2; }
+print_debug() { printf '%b[DEBUG]%b %b\n' "${LOG_DEBUG}" "${LOG_NC}" "$*" >&2; }
 
 log_info_line() { echo -e "${LOG_INFO}[INFO]${LOG_NC}  ################################################################" >&2; }
 log_err_line()  { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >&2; }
@@ -554,91 +555,141 @@ get_deps_list() {
     if [[ "${FFBUILD_VERBOSE:-0}" -lt 1 ]]; then
         return 0
     fi
+
     local name="${STAGENAME:-${0##*/}}"
     local lib_dir="$FFBUILD_DESTPREFIX/lib"
     local bin_dir="$FFBUILD_DESTPREFIX/bin"
+    local pc_dir="${lib_dir}/pkgconfig"
+    local toolchain="${FFBUILD_TOOLCHAIN:-x86_64-w64-mingw32}"
+    # Used only for readelf/nm filtering of well-known system libs
     local sys_libs="libc\.so|libm\.so|libdl\.so|librt\.so|libpthread\.so|libgcc_s\.so|libstdc\+\+\.so|ld-linux|libresolv\.so|libutil\.so"
 
     # Создаем временный файл для сбора вывода
-    local tmp_out=$(mktemp)
+    local tmp_out
+    tmp_out=$(mktemp)
 
     # Поиск pkg-config
-    if [[ -d "$lib_dir/pkgconfig" ]]; then
-        find "$lib_dir/pkgconfig" -name "*.pc" -exec bash -c '
-            pc_file="$1"; pkg_config_cmd="$2"; xclam_mark="$3"; search_mark="$4"; current_pc_dir="$5"; red_color="$6"; reset_color="$7"
-            export PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR:$current_pc_dir"
+    if [[ -d "$pc_dir" ]]; then
+        find "$pc_dir" -name "*.pc" -exec bash -c '
+            pc_file="$1"
+            pkg_config_cmd="$2"
+            pc_dir="$3"
+            log_error_color="$4"
+            log_nc="$5"
+            xclam_mark="$6"
+            search_mark="$7"
+
+            export PKG_CONFIG_LIBDIR="$pc_dir"
+            export PKG_CONFIG_PATH=""
             export PKG_CONFIG_SYSROOT_DIR="/"
+
+            pkg_name="${pc_file##*/}"
+            pkg_name="${pkg_name%.pc}"
 
             printf "\n%b %s\n" "$xclam_mark" "$pc_file"
             cat "$pc_file"
-            printf "\n%b DEPS for %s:\n" "$search_mark" "${pc_file##*/}"
+            printf "\n%b DEPS for %s:\n" "$search_mark" "$pkg_name"
 
-            deps=$($pkg_config_cmd --print-requires --print-requires-private "$pc_file" 2>/dev/null || true)
+            deps=$($pkg_config_cmd --print-requires --print-requires-private \
+                "$pkg_name" 2>/dev/null || true)
+
             if [[ -n "$deps" ]]; then
                 echo "$deps"
-                while IFS= read -r pkg_line; do
-                    pkg_name=$(echo "$pkg_line" | awk "{print \$1}")
-                    [[ -z "$pkg_name" || "$pkg_name" =~ ^[0-9] ]] && continue
-                    if ! $pkg_config_cmd --exists "$pkg_name" 2>/dev/null; then
-                        echo -e "${red_color}MISSING DEPENDENCY (ERR_MARK): $pkg_name (Searched in: $PKG_CONFIG_LIBDIR)${reset_color}"
+                while IFS= read -r dep_line; do
+                    dep_name=$(echo "$dep_line" | awk '"'"'{print $1}'"'"')
+                    [[ -z "$dep_name" ]] && continue
+                    [[ "$dep_name" =~ ^[=\<\>] ]] && continue
+                    if ! $pkg_config_cmd --exists "$dep_name" 2>/dev/null; then
+                        printf "%sMISSING_DEP: %s (searched in: %s)%s\n" \
+                            "$log_error_color" "$dep_name" "$pc_dir" "$log_nc"
                     fi
                 done <<< "$deps"
             else
                 echo "No pkg-config dependencies listed."
             fi
-        ' _ {} "${PKG_CONFIG:-pkg-config}" "$XCLAM_MARK" "$SEARCH_MARK" "$lib_dir/pkgconfig" "$LOG_ERROR" "$LOG_NC" \; >> "$tmp_out" || true
+        ' _ {} \
+            "${PKG_CONFIG:-pkg-config}" \
+            "$pc_dir" \
+            "$LOG_ERROR" \
+            "$LOG_NC" \
+            "$XCLAM_MARK" \
+            "$SEARCH_MARK" \; >> "$tmp_out" || true
     fi
-    # Поиск динамических библиотек (readelf)
-    find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) -print0 2>/dev/null | \
+    # readelf: dynamic dependencies 
+    find "$lib_dir" "$bin_dir" -type f \
+        \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) \
+        -print0 2>/dev/null | \
     xargs -0 -r -I{} bash -c '
-        file="$1"; toolchain_prefix="$2"; sys_libs_regex="$3"; xclam_mark="$4"
-        if "${toolchain_prefix}-readelf" -h "$file" &>/dev/null; then
-            raw_deps=$("${toolchain_prefix}-readelf" -d "$file" 2>/dev/null | awk "/NEEDED/ { gsub(/.*\[|\]/, \"\"); print }")
-            clean_deps=$(echo "$raw_deps" | awk "!/$sys_libs_regex/")
+        file="$1"
+        tc="$2"
+        sys_libs_regex="$3"
+        xclam_mark="$4"
+
+        if "${tc}-readelf" -h "$file" &>/dev/null; then
+            raw_deps=$("${tc}-readelf" -d "$file" 2>/dev/null | \
+                awk "/\(NEEDED\)/ { match(\$0, /\[([^\]]+)\]/, a); print a }")
+            clean_deps=$(echo "$raw_deps" | grep -Ev "$sys_libs_regex" || true)
             if [[ -n "$clean_deps" ]]; then
-                printf "\n%b NEEDED LIBRARIES for %s:\n%s\n" "$xclam_mark" "$file" "$clean_deps"
+                printf "\n%b NEEDED LIBRARIES for %s:\n%s\n" \
+                    "$xclam_mark" "$file" "$clean_deps"
             fi
         fi
-    ' _ {} "$FFBUILD_TOOLCHAIN" "$sys_libs" "$XCLAM_MARK" >> "$tmp_out" || true
-    # Поиск внешних символов в статике (nm) с фильтрацией системных вызовов
+    ' _ {} "$toolchain" "$sys_libs" "$XCLAM_MARK" >> "$tmp_out" || true
+    # nm: undefined external symbols in static libs 
     find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
     xargs -0 -r -I{} bash -c '
-        file="$1"; toolchain_prefix="$2"; xclam_mark="$3"; sys_libs_regex="$4"
-        raw_symbols=$("${toolchain_prefix}-nm" -u "$file" 2>/dev/null)
+        file="$1"
+        tc="$2"
+        xclam_mark="$3"
+
+        raw_symbols=$("${tc}-nm" -u "$file" 2>/dev/null || true)
         if [[ -n "$raw_symbols" ]]; then
             clean_symbols=$(echo "$raw_symbols" | \
-                awk "!/^[[:space:]]*$/ && !/@@/ && !/__imp_/" | \
-                grep -Ev "($sys_libs_regex)" | \
+                grep -E "^ *U " | \
+                awk "{print \$2}" | \
+                grep -Ev "^(__imp_|__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk)" | \
                 sort -u | head -n 10)
             if [[ -n "$clean_symbols" ]]; then
-                printf "\n%b EXTERNAL SYMBOLS (TOP 10) in %s:\n%s\n" "$xclam_mark" "$file" "$clean_symbols"
+                printf "\n%b EXTERNAL SYMBOLS (TOP 10) in %s:\n%s\n" \
+                    "$xclam_mark" "$file" "$clean_symbols"
             fi
         fi
-    ' _ {} "$FFBUILD_TOOLCHAIN" "$XCLAM_MARK" "$sys_libs" >> "$tmp_out" || true
-    # Проверка RPATH
-    find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | \
-    xargs -0 -r -I{} bash -c '
-        file="$1"; toolchain_prefix="$2"; xclam_mark="$3"
-        if "${FFBUILD_TOOLCHAIN}-readelf" -h "$file" &>/dev/null; then
-            rpath=$("${FFBUILD_TOOLCHAIN}-objdump" -p "$file" 2>/dev/null | awk "/RPATH|RUNPATH/ {print}")
-            if [[ -n "$rpath" ]]; then
-                printf "\n%b RPATH/RUNPATH for %s:\n%s\n" "$xclam_mark" "$file" "$rpath"
-            fi
-        fi
-    ' _ {} "$FFBUILD_TOOLCHAIN" "$XCLAM_MARK" >> "$tmp_out" || true
+    ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
+    # Проверка RPATH / RUNPATH 
+    if [[ -n "$toolchain" ]] && command -v "${toolchain}-objdump" &>/dev/null; then
+        find "$lib_dir" "$bin_dir" -type f \
+            \( -name "*.so*" -o -executable \) \
+            -print0 2>/dev/null | \
+        xargs -0 -r -I{} bash -c '
+            file="$1"
+            tc="$2"
+            xclam_mark="$3"
 
-    # Финальное условие вывода
+            if "${tc}-readelf" -h "$file" &>/dev/null; then
+                rpath=$("${tc}-objdump" -p "$file" 2>/dev/null | \
+                    awk "/RPATH|RUNPATH/ {print}")
+                if [[ -n "$rpath" ]]; then
+                    printf "\n%b RPATH/RUNPATH for %s:\n%s\n" \
+                        "$xclam_mark" "$file" "$rpath"
+                fi
+            fi
+        ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
+    fi
+
+    # Output
+    local error_count=0
+    error_count=$(grep -c "^.*MISSING_DEP:" "$tmp_out" 2>/dev/null || true)
+
     if [[ -s "$tmp_out" ]]; then
         log_debug "Showing dependencies for ${name}:"
-        cat "$tmp_out" | sed 's/(ERR_MARK)//g' # Убираем техническую метку при выводе
-        local error_count=$(grep -c "ERR_MARK" "$tmp_out" || true)
+        sed 's/MISSING_DEP:/MISSING DEPENDENCY/g' "$tmp_out" >&2
         if [[ "$error_count" -gt 0 ]]; then
-            log_error "Found $error_count missing dependencies for $name!"
+            log_error "Found ${error_count} missing pkg-config dependency/dependencies for ${name}!"
         else
-            log_info "${CHECK_MARK} All pkg-config dependencies are satisfied."
+            log_info "${CHECK_MARK} All pkg-config dependencies satisfied for ${name}."
         fi
     else
-        log_info "${CHECK_MARK} No dependencies found for $name (meta/header-only component)."
+        log_info "${CHECK_MARK} No dependencies found for ${name} (meta/header-only component)."
     fi
 
     rm -f "$tmp_out"
@@ -855,3 +906,145 @@ export -f setup_wine_env
 
 # экспорт важных переменных MinGW, чтобы они пробрасывались в download.sh и run_stage.sh:
 export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE
+
+# ---------------------------------------------------------------------------
+# Terminal width — used for separators; falls back to 72 if tput unavailable
+# ---------------------------------------------------------------------------
+_term_width() { tput cols 2>/dev/null || echo 72; }
+
+# separator [char] [label]
+# Prints a full-width line, optionally with a centred label
+# Example: separator "─" "  DOWNLOADS  "
+separator() {
+    local char="${1:--}"
+    local label="${2:-}"
+    local width
+    width=$(_term_width)
+    if [[ -z "$label" ]]; then
+        printf '%*s\n' "$width" '' | tr ' ' "$char" >&2
+    else
+        local label_len=${#label}
+        local side=$(( (width - label_len) / 2 ))
+        local pad
+        pad=$(printf '%*s' "$side" '' | tr ' ' "$char")
+        printf '%s%s%s\n' "$pad" "$label" "$pad" >&2
+    fi
+}
+export -f separator _term_width
+
+# phase_header <EMOJI> <TITLE>
+# Prints a prominent section header
+phase_header() {
+    local emoji="$1"; shift
+    separator "═"
+    printf '%b  %s %s  %b\n' "${LOG_INFO}" "$emoji" "$*" "${LOG_NC}" >&2
+    separator "═"
+}
+export -f phase_header
+
+# phase_footer <message>
+phase_footer() {
+    separator "─"
+    printf '%b  %s  %b\n' "${LOG_INFO}" "$*" "${LOG_NC}" >&2
+    separator "─"
+}
+export -f phase_footer
+
+# dl_result_line  hit|miss|skip  <stagename>  <hash>  <size_or_reason>
+# Writes one structured result line to a temp file for later table rendering.
+# Call with: dl_result_line "hit" "$STAGENAME" "$STAGE_HASH" "$size"
+# The caller must set DL_RESULT_FILE before invoking parallel.
+dl_result_line() {
+    local status="$1" name="$2" hash="$3" extra="$4"
+    local icon color
+    case "$status" in
+        hit)  icon="✔" ; color="$LOG_INFO"  ;;
+        miss) icon="🡇" ; color="$LOG_WARN"  ;;
+        skip) icon="—" ; color="$LOG_DEBUG" ;;
+        fail) icon="✖" ; color="$LOG_ERROR" ;;
+        *)    icon="?" ; color="$LOG_NC"    ;;
+    esac
+    # Write tab-separated so the summary renderer can column-align
+    printf '%s\t%s\t%s\t%s\t%s\n' \
+        "$status" "$icon" "$name" "${hash:0:16}" "$extra" \
+        >> "${DL_RESULT_FILE:-/dev/null}"
+}
+export -f dl_result_line
+
+# Component grouping — organize stages by category for visual structure
+get_component_group() {
+    local stagename="$1"
+    local prefix="${stagename%%-*}"
+    
+    case "$prefix" in
+        09|10|11)           echo "Toolchain" ;;
+        18|19|20|21|22|23)  echo "Base Libraries" ;;
+        30|31|32|33|34|35)  echo "Codecs" ;;
+        40|41|42|43|44|45)  echo "Graphics & Vulkan" ;;
+        50|51|52|53|54|55)  echo "Audio" ;;
+        60|61|62|63|64|65)  echo "Video Processing" ;;
+        70|71|72|73|74|75)  echo "Filters & Effects" ;;
+        80|81|82|83|84|85)  echo "Hardware Acceleration" ;;
+        90|91|92|93|94|95)  echo "Utilities" ;;
+        99)                 echo "Meta" ;;
+        *)                  echo "Other" ;;
+    esac
+}
+export -f get_component_group
+
+# render_dl_table <result_file>
+# Reads the tab-separated result file and prints an aligned table to stderr.
+render_dl_table() {
+    local file="$1"
+    [[ -f "$file" ]] || return 0
+    local width
+    width=$(_term_width)
+
+    # Header
+    separator "─" "  DOWNLOAD SUMMARY  "
+    printf '  %-3s  %-30s  %-16s  %s\n' "   " "COMPONENT" "HASH" "RESULT" >&2
+    separator "─"
+
+    # Sort: hits first, then misses, then skips, then fails
+    # Then group by component category
+    local current_group="" 
+    sort -t$'\t' -k1,1 "$file" | while IFS=$'\t' read -r status icon name hash extra; do
+        local group
+        group=$(get_component_group "$name")
+        
+        # Print group separator if group changed
+        if [[ "$group" != "$current_group" ]]; then
+            [[ -n "$current_group" ]] && separator "·" >&2
+            printf '%b  ┌─ %s %b\n' "$LOG_DEBUG" "$group" "$LOG_NC" >&2
+            current_group="$group"
+        fi
+        
+        local color
+        case "$status" in
+            hit)  color="$LOG_INFO"  ;;
+            miss) color="$LOG_WARN"  ;;
+            skip) color="$LOG_DEBUG" ;;
+            fail) color="$LOG_ERROR" ;;
+            *)    color="$LOG_NC"    ;;
+        esac
+        printf '%b  │ %s  %-28s  %-16s  %s%b\n' \
+            "$color" "$icon" "$name" "$hash" "$extra" "$LOG_NC" >&2
+    done
+
+    printf '%b  └─────────────────────────────────────────────────────────%b\n' \
+        "$LOG_DEBUG" "$LOG_NC" >&2
+
+    separator "─"
+
+    # Tally
+    local n_hit n_miss n_skip n_fail
+    n_hit=$(grep -c '^hit' "$file" 2>/dev/null || echo 0)
+    n_miss=$(grep -c '^miss' "$file" 2>/dev/null || echo 0)
+    n_skip=$(grep -c '^skip' "$file" 2>/dev/null || echo 0)
+    n_fail=$(grep -c '^fail' "$file" 2>/dev/null || echo 0)
+    printf '%b  ✔ %s hit   🡇 %s downloaded   — %s skipped   ✖ %s failed%b\n' \
+        "$LOG_INFO" "$n_hit" "$n_miss" "$n_skip" "$n_fail" "$LOG_NC" >&2
+
+    separator "═"
+}
+export -f render_dl_table

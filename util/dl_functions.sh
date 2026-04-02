@@ -368,23 +368,21 @@ download_stage() {
         ls -F "$CACHE_DIR" 2>/dev/null | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found!"
     fi
 
+    # Cache hit
     if [[ -f "$STAGE_CACHE_FILE" ]]; then
-        local size=$(du -sh "$STAGE_CACHE_FILE" | cut -f1)
-        # Выводим всё одной строкой, чтобы parallel не перемешал лог
-        log_info "${TARGET_MARK} Cache hit: $STAGENAME ($STAGE_HASH) [Size: $size]"
-        # Обновляем mtime, чтобы clean_cache не удалил его как старый
-        touch "$STAGE_CACHE_FILE" 
+        local size
+        size=$(du -sh "$STAGE_CACHE_FILE" | cut -f1)
+        dl_result_line "hit" "$STAGENAME" "$STAGE_HASH" "$size"
+        touch "$STAGE_CACHE_FILE"
         ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
         return 0
-    else
-        log_warn "Target file $(basename "$STAGE_CACHE_FILE") not found!"
     fi
 
-    # Если хита нет, собираем информацию о промахе
-    local miss_reason="Cache miss: $STAGENAME"
-    [[ -L "$STAGE_LATEST_LINK" ]] && miss_reason+=" (Changes detected: $STAGE_HASH)"
-    # Выводим единый блок о начале загрузки
-    log_warn "$miss_reason. ${DOWN_MARK} Re-downloading..."
+    # Cache miss
+    local miss_reason="no archive"
+    [[ -L "$STAGE_LATEST_LINK" ]] && miss_reason="hash changed → ${STAGE_HASH:0:8}"
+    dl_result_line "miss" "$STAGENAME" "$STAGE_HASH" "$miss_reason"
+    log_warn "Cache miss: $STAGENAME ($miss_reason). ${DOWN_MARK} Re-downloading..."
 
     # Используем временную папку внутри проекта как рабочую
     local WORK_DIR=$(mktemp -d -p "$TMP_DIR")
@@ -416,12 +414,15 @@ download_stage() {
         # Упаковка; -c: создать, -f: файл, -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
         tar -I 'zstd -T0 -3' -cf "$STAGE_CACHE_FILE" -C "$WORK_DIR" .
         ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
-
-        log_info "${CACHE_MARK} Cached $STAGENAME (Name: $(basename "$STAGE_CACHE_FILE"))"
-        # rm -rf "$WORK_DIR" # Явное удаление
+        local final_size
+        final_size=$(du -sh "$STAGE_CACHE_FILE" | cut -f1)
+        # Update the result line from miss → cached (overwrite by appending corrected line)
+        dl_result_line "miss" "$STAGENAME" "$STAGE_HASH" "downloaded → ${final_size}"
+        log_info "${CACHE_MARK} Cached $STAGENAME (${final_size})"
         return 0
     else
-        log_error "FAILED to download $STAGENAME. Commands attempted:"
+        dl_result_line "fail" "$STAGENAME" "$STAGE_HASH" "download failed"
+        log_error "FAILED to download $STAGENAME"
         [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "$DL_COMMANDS"
         # rm -rf "$WORK_DIR" # Явное удаление
         return 1 # return 1 для параллельного запуска

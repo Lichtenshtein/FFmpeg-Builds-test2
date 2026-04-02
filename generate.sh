@@ -81,7 +81,6 @@ fi
 # Сборка и фильтрация активных скриптов
 mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" | sort)
 active_scripts=()
-[[ -n "$ONLY_STAGE" ]] && log_info "${XCLAM_MARK} Filtering stages by pattern: $ONLY_STAGE"
 for STAGE in "${SCRIPTS[@]}"; do
     # Проверка на принудительное отключение внутри скрипта
     grep -q 'ffbuild_enabled.*return 1' "$STAGE" 2>/dev/null && continue

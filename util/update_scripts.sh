@@ -4,12 +4,18 @@ set -eo pipefail
 shopt -s globstar
 
 # Загружаем оформление
-source util/vars.sh 2>/dev/null || true
+if source util/vars.sh 2>/dev/null; then
+    :
+else
+    # Fallback if vars.sh fails (e.g., no TARGET set)
+    source util/vars.sh "$TARGET" "$VARIANT" 2>/dev/null || true
+fi
 
 # Читаем список из ENV или используем пустой, если переменная не задана
 # Превращаем строку "zlib base" в массив (zlib base)
 read -ra EXCLUDE_COMPONENTS <<< "${UPDATE_PRESERVE_LIST:-}"
-log_debug "Exclusion list active: ${EXCLUDE_COMPONENTS[*]}"
+[[ ${#EXCLUDE_COMPONENTS[@]} -gt 0 ]] && \
+    log_debug "Exclusion list active: ${EXCLUDE_COMPONENTS[*]}"
 
 cd "$(dirname "$0")"/..
 
@@ -20,12 +26,7 @@ SEARCH_PATTERN="${1:-scripts.d/**/*.sh}"
 TMP_REPORT=$(mktemp)
 trap 'rm -f "$TMP_REPORT"' EXIT
 
-# Массивы для отчета
-# declare -a UPDATED_FILES
-# declare -a BROKEN_REPOS
-# declare -a UNKNOWN_LAYOUTS
-# declare -a SYNTAX_ERRORS
-
+# Helper: check if a repository is accessible
 check_repo_exists() {
     local repo=$1
     if [[ "$repo" == *.git ]]; then
@@ -35,10 +36,11 @@ check_repo_exists() {
         svn info --non-interactive "$repo" >/dev/null 2>&1
         return $?
     fi
-    return 0 # Для остальных считаем доступным
+    return 0
 }
 
-# Shaderc dependency update function
+# Update Shaderc DEPS file (Python syntax, not bash)
+# This must be called BEFORE we start processing regular scripts
 update_shaderc_deps() {
     local deps_file="$PATCHES_DIR/shaderc/DEPS"
     [[ -f "$deps_file" ]] || return 0
@@ -46,16 +48,18 @@ update_shaderc_deps() {
     log_info "${SEARCH_MARK} Checking Shaderc dependencies in ${deps_file}..."
 
     # Создаем временную копию
-    local tmp_deps=$(mktemp)
+    local tmp_deps
+    tmp_deps=$(mktemp)
     cp "$deps_file" "$tmp_deps"
 
     # Базовые URL репозиториев (извлекаем из файла DEPS)
-    local abseil_git=$(grep "'abseil_git':" "$deps_file" | cut -d"'" -f4)
-    local google_git=$(grep "'google_git':" "$deps_file" | cut -d"'" -f4)
-    local khronos_git=$(grep "'khronos_git':" "$deps_file" | cut -d"'" -f4)
+    local abseil_git google_git khronos_git
+    abseil_git=$(grep "'abseil_git':" "$deps_file" | cut -d"'" -f4)
+    google_git=$(grep "'google_git':" "$deps_file" | cut -d"'" -f4)
+    khronos_git=$(grep "'khronos_git':" "$deps_file" | cut -d"'" -f4)
 
-    # Список зависимостей: "переменная_в_deps|URL_репозитория"
-    local deps_map=(
+    # Map of "python_var_name|full_repo_url"
+    local -a deps_map=(
         "abseil_revision|${abseil_git}/abseil-cpp.git"
         "effcee_revision|${google_git}/effcee.git"
         "googletest_revision|${google_git}/googletest.git"
@@ -67,22 +71,37 @@ update_shaderc_deps() {
 
     for entry in "${deps_map[@]}"; do
         IFS="|" read -r var_name repo_url <<< "$entry"
-        # Получаем текущий хеш из файла
-        local current_hash=$(grep "'$var_name':" "$deps_file" | cut -d"'" -f4)
+        # Extract current hash from Python file (format: 'var_name': 'hash',)
+        local current_hash
+        current_hash=$(grep "'${var_name}':" "$deps_file" | grep -oP "'\K[a-f0-9]{40}" | head -n1)
         [[ -z "$current_hash" ]] && continue
-        # Получаем свежий хеш из удаленного репозитория (HEAD)
-        local new_hash=$(git ls-remote "$repo_url" HEAD 2>/dev/null | awk '{print $1}')
+        # Fetch new hash from remote
+        local new_hash
+        new_hash=$(git ls-remote "$repo_url" HEAD 2>/dev/null | awk '{print $1}') || {
+            log_warn "  ${CROSS_MARK} Failed to fetch ${var_name} from ${repo_url}"
+            echo "REPORT_DEAD|${deps_file}|${var_name}" >> "$TMP_REPORT"
+            continue
+        }
+        # Update if different
         if [[ -n "$new_hash" && "$new_hash" != "$current_hash" ]]; then
             log_info "  ${SYNC_MARK} shaderc/${var_name}: ${current_hash:0:7} -> ${new_hash:0:7}"
-            # Обновляем хеш в файле
-            sed -i "s/'$var_name': '.*'/'$var_name': '$new_hash'/" "$deps_file"
+            # Use Python-aware sed: match the exact line format in the Python dict
+            sed -i "s/'${var_name}': '[a-f0-9]*'/'${var_name}': '${new_hash}'/" "$deps_file"
             echo "REPORT_UPDATE|${deps_file}|${var_name}|${current_hash}|${new_hash}" >> "$TMP_REPORT"
         fi
     done
+
+    rm -f "$tmp_deps"
 }
 
+phase_header "🔄" "UPDATING COMPONENT VERSIONS"
+
+# Main: process all stage scripts
 for STAGE in $SEARCH_PATTERN; do
     [[ -f "$STAGE" ]] || continue
+
+    # derive locally per iteration, never from global scope
+    local STAGENAME COMPONENT_NAME
     STAGENAME="$(basename "$STAGE" .sh)"
     COMPONENT_NAME="${STAGENAME#*-}"
 
@@ -99,115 +118,159 @@ for STAGE in $SEARCH_PATTERN; do
         continue
     fi
 
-    log_info "${SEARCH_MARK} Checking ${STAGE}..."
+    log_info "${SEARCH_MARK} Checking ${STAGENAME}..."
     cp "$STAGE" "${STAGE}.bak"
-    file_changed=0
 
-    # Запускаем в подоболочке, чтобы source не замусорил окружение
-    (
-        # Нам нужно только получить переменные, не выполняя функции билда
-        # Поэтому мы грепаем только строки с определениями переменных
-        eval "$(grep -E '^[A-Z0-9_]+=".*"' "$STAGE")"
+    # Process in subshell to avoid polluting the main environment
+    # source the full script, not just grep variables
+    # This ensures all variable assignments (including complex ones) are captured
+    if (
+        set +e  # Don't exit on errors inside the subshell
+        # Source the script to get all variables
+        # Redirect stderr to avoid polluting logs with debug output
+        source "$STAGE" >/dev/null 2>&1 || true
 
+        # Now iterate through all possible SCRIPT_REPO/COMMIT/REV/HGREV variables
         for i in "" $(seq 2 9); do
-            REPO_VAR="SCRIPT_REPO$i"; COMMIT_VAR="SCRIPT_COMMIT$i"
-            REV_VAR="SCRIPT_REV$i"; HGREV_VAR="SCRIPT_HGREV$i"
-            BRANCH_VAR="SCRIPT_BRANCH$i"; TAG_VAR="SCRIPT_TAGFILTER$i"
+            REPO_VAR="SCRIPT_REPO$i"
+            COMMIT_VAR="SCRIPT_COMMIT$i"
+            REV_VAR="SCRIPT_REV$i"
+            HGREV_VAR="SCRIPT_HGREV$i"
+            BRANCH_VAR="SCRIPT_BRANCH$i"
+            TAG_VAR="SCRIPT_TAGFILTER$i"
 
-            CUR_REPO="${!REPO_VAR}"; CUR_COMMIT="${!COMMIT_VAR}"
-            CUR_REV="${!REV_VAR}"; CUR_HGREV="${!HGREV_VAR}"
-            CUR_BRANCH="${!BRANCH_VAR}"; CUR_TAG="${!TAG_VAR}"
+            # Get current values using indirect expansion
+            local CUR_REPO CUR_COMMIT CUR_REV CUR_HGREV CUR_BRANCH CUR_TAG
+            CUR_REPO="${!REPO_VAR:-}"
+            CUR_COMMIT="${!COMMIT_VAR:-}"
+            CUR_REV="${!REV_VAR:-}"
+            CUR_HGREV="${!HGREV_VAR:-}"
+            CUR_BRANCH="${!BRANCH_VAR:-}"
+            CUR_TAG="${!TAG_VAR:-}"
 
             [[ -z "${CUR_REPO}" ]] && break
 
-            # Проверка на "живучесть" репозитория
+            # Check if repo is accessible
             if ! check_repo_exists "$CUR_REPO"; then
                 echo "REPORT_DEAD|${STAGE}|${CUR_REPO}" >> "$TMP_REPORT"
                 continue
             fi
 
-            NEW_VAL=""
-            TARGET_VAR=""
+            local NEW_VAL="" TARGET_VAR=""
 
-            if [[ -n "${CUR_COMMIT}" ]]; then
+            # Determine which type of revision control and fetch latest
+            if [[ -n "$CUR_COMMIT" ]]; then
                 TARGET_VAR="${COMMIT_VAR}"
-                if [[ -n "${CUR_TAG}" ]]; then
-                    NEW_VAL=$(git -c 'versionsort.suffix=-' ls-remote --tags --refs --sort "v:refname" "${CUR_REPO}" "${CUR_TAG}" | tail -n1 | awk '{print $1}')
-                # Если есть ВЕТКА
-                elif [[ -n "${CUR_BRANCH}" ]]; then
-                    NEW_VAL=$(git ls-remote --heads "${CUR_REPO}" "refs/heads/${CUR_BRANCH}" | cut -f1)
-                # Если ничего не указано пытаемся найти дефолтную ветку (HEAD)
+                if [[ -n "$CUR_TAG" ]]; then
+                    # Git tag (semantic versioning)
+                    NEW_VAL=$(git -c 'versionsort.suffix=-' ls-remote --tags --refs \
+                        --sort "v:refname" "${CUR_REPO}" "${CUR_TAG}" 2>/dev/null | \
+                        tail -n1 | awk '{print $1}') || true
+                elif [[ -n "$CUR_BRANCH" ]]; then
+                    # Git branch
+                    NEW_VAL=$(git ls-remote --heads "${CUR_REPO}" \
+                        "refs/heads/${CUR_BRANCH}" 2>/dev/null | cut -f1) || true
                 else
-                    NEW_VAL=$(git ls-remote "${CUR_REPO}" HEAD | awk '{print $1}')
+                    # Default branch (HEAD)
+                    NEW_VAL=$(git ls-remote "${CUR_REPO}" HEAD 2>/dev/null | \
+                        awk '{print $1}') || true
                 fi
-            elif [[ -n "${CUR_REV}" ]]; then
+            elif [[ -n "$CUR_REV" ]]; then
+                # Subversion
                 TARGET_VAR="${REV_VAR}"
-                NEW_VAL=$(svn --non-interactive info --username "anonymous" --password="" "${CUR_REPO}" 2>/dev/null | grep ^Revision: | cut -d" " -f2 | xargs || true)
-            elif [[ -n "${CUR_HGREV}" ]]; then
+                NEW_VAL=$(svn --non-interactive info --username "anonymous" \
+                    --password="" "${CUR_REPO}" 2>/dev/null | \
+                    grep ^Revision: | cut -d" " -f2 | xargs || true)
+            elif [[ -n "$CUR_HGREV" ]]; then
+                # Mercurial
                 TARGET_VAR="${HGREV_VAR}"
-                NEW_VAL=$(hg identify "${CUR_REPO}" -r default 2>/dev/null | awk '{print $1}' || true)
+                NEW_VAL=$(hg identify "${CUR_REPO}" -r default 2>/dev/null | \
+                    awk '{print $1}' || true)
             else
-                # Неизвестный формат (нет ни коммита, ни ревизии)
+                # Unknown format
                 echo "REPORT_UNKNOWN|${STAGE}|${CUR_REPO}" >> "$TMP_REPORT"
                 continue
             fi
 
-            # Если нашли новое значение и оно отличается от текущего
-            if [[ -n "${NEW_VAL}" && "${NEW_VAL}" != "${!TARGET_VAR}" ]]; then
+            # Update if new value differs from current
+            if [[ -n "$NEW_VAL" && "$NEW_VAL" != "${!TARGET_VAR}" ]]; then
                 echo "REPORT_UPDATE|${STAGE}|${TARGET_VAR}|${!TARGET_VAR}|${NEW_VAL}" >> "$TMP_REPORT"
-                # Обновляем файл физически
-                sed -i "s|^${TARGET_VAR}=\".*\"|${TARGET_VAR}=\"${NEW_VAL}\"|" "${STAGE}"
+                # Update the file using sed with proper escaping
+                sed -i "s|^${TARGET_VAR}=\"[^\"]*\"|${TARGET_VAR}=\"${NEW_VAL}\"|" "${STAGE}"
                 log_info "  ${SYNC_MARK} ${TARGET_VAR}: ${!TARGET_VAR:0:7} -> ${NEW_VAL:0:7}"
             fi
         done
-    ) 
+    ); then
 
-    # Валидация синтаксиса
-    if ! bash -n "$STAGE"; then
-        log_error "${CROSS_MARK} Syntax error in ${STAGE}! Rolling back."
-        echo "REPORT_SYNTAX|${STAGE}" >> "$TMP_REPORT"
-        mv "${STAGE}.bak" "$STAGE"
+        # Subshell succeeded — validate syntax
+        if ! bash -n "$STAGE"; then
+            log_error "${CROSS_MARK} Syntax error in ${STAGENAME}! Rolling back."
+            echo "REPORT_SYNTAX|${STAGE}" >> "$TMP_REPORT"
+            mv "${STAGE}.bak" "$STAGE"
+        else
+            rm -f "${STAGE}.bak"
+        fi
     else
-        rm -f "${STAGE}.bak"
+        # Subshell failed — rollback
+        log_error "${CROSS_MARK} Processing failed for ${STAGENAME}. Rolling back."
+        mv "${STAGE}.bak" "$STAGE"
     fi
 done
 
 # --- ФИНАЛЬНЫЙ ОТЧЕТ ---
 
-# Вызываем обновление Shaderc отдельно
+# Process Shaderc DEPS (must be after regular scripts so report is complete)
 update_shaderc_deps
 
-echo -e "\n${LOGS_MARK} ${LOG_INFO}--- FINAL UPDATE REPORT ---${LOG_NC}"
-UPDATED_FILES=(); BROKEN_REPOS=(); UNKNOWN_LAYOUTS=(); SYNTAX_ERRORS=()
+# Final Report
+phase_header "📋" "UPDATE SUMMARY"
 
-# Читаем из TMP_REPORT и формируем массивы в основном процессе
+local UPDATED_FILES BROKEN_REPOS UNKNOWN_LAYOUTS SYNTAX_ERRORS
+UPDATED_FILES=()
+BROKEN_REPOS=()
+UNKNOWN_LAYOUTS=()
+SYNTAX_ERRORS=()
+
+# Parse report file and populate arrays
 while IFS='|' read -r type file var old new; do
     case "$type" in
-        REPORT_UPDATE) UPDATED_FILES+=("$file ($var)") ;;
-        REPORT_DEAD)   BROKEN_REPOS+=("$file ($var)") ;;
-        REPORT_UNKNOWN) UNKNOWN_LAYOUTS+=("$file") ;;
-        REPORT_SYNTAX) SYNTAX_ERRORS+=("$file") ;;
+        REPORT_UPDATE)  UPDATED_FILES+=("${file##*/} (${var})") ;;
+        REPORT_DEAD)    BROKEN_REPOS+=("${file##*/} (${var})") ;;
+        REPORT_UNKNOWN) UNKNOWN_LAYOUTS+=("${file##*/}") ;;
+        REPORT_SYNTAX)  SYNTAX_ERRORS+=("${file##*/}") ;;
     esac
 done < "$TMP_REPORT"
 
+# Print results
 if [[ ${#UPDATED_FILES[@]} -gt 0 ]]; then
-    echo -e "${GREEN}✅ UPDATED:${NC}"
-    printf "  - %s\n" $(printf "%s\n" "${UPDATED_FILES[@]}" | sort -u)
+    separator "─" "  UPDATED  "
+    printf '%b  ✔ %s%b\n' "$LOG_INFO" "${UPDATED_FILES}" "$LOG_NC" >&2
+    for item in "${UPDATED_FILES[@]:1}"; do
+        printf '%b  ✔ %s%b\n' "$LOG_INFO" "$item" "$LOG_NC" >&2
+    done
 fi
 
 if [[ ${#BROKEN_REPOS[@]} -gt 0 ]]; then
-    echo -e "${RED}💀 DEAD REPOSITORIES (Need manual fix):${NC}"
-    printf "  - %s\n" "${BROKEN_REPOS[@]}"
+    separator "─" "  DEAD REPOSITORIES  "
+    for item in "${BROKEN_REPOS[@]}"; do
+        printf '%b  ✖ %s%b\n' "$LOG_ERROR" "$item" "$LOG_NC" >&2
+    done
 fi
 
 if [[ ${#UNKNOWN_LAYOUTS[@]} -gt 0 ]]; then
-    echo -e "${YELLOW}❓ UNKNOWN LAYOUTS (Manual check required)${NC}"
-    printf "  - %s\n" "${UNKNOWN_LAYOUTS[@]}"
+    separator "─" "  UNKNOWN LAYOUTS  "
+    for item in "${UNKNOWN_LAYOUTS[@]}"; do
+        printf '%b  ? %s%b\n' "$LOG_WARN" "$item" "$LOG_NC" >&2
+    done
 fi
 
 if [[ ${#SYNTAX_ERRORS[@]} -gt 0 ]]; then
-    echo -e "${RED}🚫 SYNTAX ERRORS (Rollbacked):${NC}"
-    printf "  - %s\n" "${SYNTAX_ERRORS[@]}"
+    separator "─" "  SYNTAX ERRORS (ROLLED BACK)  "
+    for item in "${SYNTAX_ERRORS[@]}"; do
+        printf '%b  ✖ %s%b\n' "$LOG_ERROR" "$item" "$LOG_NC" >&2
+    done
 fi
 
-log_info "${CHECK_MARK} Update process finished."
+phase_footer "✔ Update process complete"
+
+exit 0
