@@ -15,7 +15,6 @@ cleanup() {
     log_info "Running cleanup (Exit code: $exit_code)..."
 
     # Удаляем временную папку сборки (pkgroot, временные логи и т.д.)
-    # ВНИМАНИЕ: не удаляйте $FF_SOURCE_DIR, если она смонтирована через --mount!
     rm -rf "$FFMPEG_PKG_ROOT" "$VARS_DIR" 2>/dev/null
 
     # Если сборка упала, можно оставить лог конфига в доступном месте

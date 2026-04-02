@@ -31,85 +31,6 @@ _retry() {
     done
 }
 
-download_stage() {
-    local STAGE="$1"
-
-    # Если команд нет — это стадия без исходников (мета-пакет), выходим
-    [[ -z "$DL_COMMANDS" ]] && return 0
-
-    # Проверяем, что у нас есть путь к кэшу, иначе упадем на mkdir/tar
-    if [[ -z "$CACHE_DIR" ]]; then
-        log_error "CACHE_DIR is empty! Check if vars.sh is sourced."
-        return 1
-    fi
-
-    # Debug: show keep-list only at verbose >= 2
-    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-        log_info "${DIRS_MARK} Files in cache for $STAGENAME:"
-        ls -F "$CACHE_DIR" 2>/dev/null | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found!"
-    fi
-
-    if [[ -f "$STAGE_CACHE_FILE" ]]; then
-        local size=$(du -sh "$STAGE_CACHE_FILE" | cut -f1)
-        # Выводим всё одной строкой, чтобы parallel не перемешал лог
-        log_info "${TARGET_MARK} Cache hit: $STAGENAME ($DL_HASH) [Size: $size]"
-        # Обновляем mtime, чтобы clean_cache не удалил его как старый
-        touch "$STAGE_CACHE_FILE" 
-        ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
-        return 0
-    else
-        log_warn "Target file $(basename "$STAGE_CACHE_FILE") not found!"
-    fi
-
-    # Если хита нет, собираем информацию о промахе
-    local miss_reason="Cache miss: $STAGENAME"
-    [[ -L "$STAGE_LATEST_LINK" ]] && miss_reason+=" (Changes detected: $DL_HASH)"
-    # Выводим единый блок о начале загрузки
-    log_warn "$miss_reason. ${DOWN_MARK} Re-downloading..."
-
-    # Используем временную папку внутри проекта как рабочую
-    local WORK_DIR=$(mktemp -d -p "$TMP_DIR")
-    # Очистка при выходе. Удаляем только WORK_DIR конкретного процесса, а не весь TMP_DIR!
-    # Иначе параллельные процессы удалят чужие папки.
-    trap 'rm -rf "$WORK_DIR"' EXIT
-
-    # Выполняем загрузку
-    if (
-        cd "$WORK_DIR"
-        # Явно подгружаем функции внутри подоболочки для надежности в Parallel
-        source "$UTIL_DIR/vars.sh" "$TARGET" "$VARIANT" &>/dev/null
-        source "$UTIL_DIR/dl_functions.sh"
-        eval "$DL_COMMANDS"
-    ); then
-
-        # Whitelist метаданных .git (список подгружается из workflow.yaml). 
-        local PRESERVE_PATTERN="${GIT_PRESERVE_LIST// /:-ffmpeg|glib2}"
-
-        if [[ "$STAGENAME" =~ $PRESERVE_PATTERN ]]; then
-            log_info "${LOCK_MARK} Preserving Git metadata for $STAGENAME (Whitelist match)"
-        else
-            log_debug "${BROOM_MARK} Stripping Git metadata for $STAGENAME to save cache space"
-            # Удаляем .git папки и .gitignore файлы
-            find "$WORK_DIR" -maxdepth 2 -name ".git*" -exec rm -rf {} + 2>/dev/null || true
-        fi
-
-        mkdir -p "$(dirname "$STAGE_CACHE_FILE")"
-        # Упаковка; -c: создать, -f: файл, -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
-        tar -I 'zstd -T0 -3' -cf "$STAGE_CACHE_FILE" -C "$WORK_DIR" .
-        ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
-
-        log_info "${CACHE_MARK} Cached $STAGENAME (Name: $(basename "$STAGE_CACHE_FILE"))"
-        # rm -rf "$WORK_DIR" # Явное удаление
-        return 0
-    else
-        log_error "FAILED to download $STAGENAME. Commands attempted:"
-        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "$DL_COMMANDS"
-        # rm -rf "$WORK_DIR" # Явное удаление
-        return 1 # return 1 для параллельного запуска
-    fi
-}
-export -f download_stage
-
 git-mini-clone() {
     local REPO="$1"
     local COMMIT="$2"
@@ -407,3 +328,95 @@ default_dl() {
 
     echo "$FINAL_CHAIN"
 }
+
+download_stage() {
+    local STAGE="$1"
+    local CACHE_DIR="${2:-$CACHE_DIR}" 
+
+    # Единый хеш
+    local STAGE_HASH=$(get_stage_hash "$STAGE")
+
+    # local DL_COMMANDS="$(bash -c "\
+        # source \"$UTIL_DIR/vars.sh\" \"$TARGET\" \"$VARIANT\" &>/dev/null; \
+        # source \"$UTIL_DIR/dl_functions.sh\"; \
+        # source \"$STAGE\"; \
+        # ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")"
+    local DL_COMMANDS="$(bash -c "\
+        source \"$STAGE\"; \
+        ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")"
+
+    # Если команд нет — это стадия без исходников (мета-пакет), выходим
+    [[ -z "$DL_COMMANDS" ]] && return 0
+
+    # Проверяем, что у нас есть путь к кэшу, иначе упадем на mkdir/tar
+    if [[ -z "$CACHE_DIR" ]]; then
+        log_error "CACHE_DIR is empty! Check if vars.sh is sourced."
+        return 1
+    fi
+
+    # Debug: show keep-list only at verbose >= 2
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+        log_info "${DIRS_MARK} Files in cache for $STAGENAME:"
+        ls -F "$CACHE_DIR" 2>/dev/null | grep "$STAGENAME" || log_warn "No files matching $STAGENAME found!"
+    fi
+
+    if [[ -f "$STAGE_CACHE_FILE" ]]; then
+        local size=$(du -sh "$STAGE_CACHE_FILE" | cut -f1)
+        # Выводим всё одной строкой, чтобы parallel не перемешал лог
+        log_info "${TARGET_MARK} Cache hit: $STAGENAME ($STAGE_HASH) [Size: $size]"
+        # Обновляем mtime, чтобы clean_cache не удалил его как старый
+        touch "$STAGE_CACHE_FILE" 
+        ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
+        return 0
+    else
+        log_warn "Target file $(basename "$STAGE_CACHE_FILE") not found!"
+    fi
+
+    # Если хита нет, собираем информацию о промахе
+    local miss_reason="Cache miss: $STAGENAME"
+    [[ -L "$STAGE_LATEST_LINK" ]] && miss_reason+=" (Changes detected: $STAGE_HASH)"
+    # Выводим единый блок о начале загрузки
+    log_warn "$miss_reason. ${DOWN_MARK} Re-downloading..."
+
+    # Используем временную папку внутри проекта как рабочую
+    local WORK_DIR=$(mktemp -d -p "$TMP_DIR")
+    # Очистка при выходе. Удаляем только WORK_DIR конкретного процесса, а не весь TMP_DIR!
+    # Иначе параллельные процессы удалят чужие папки.
+    trap 'rm -rf "$WORK_DIR"' EXIT
+
+    # Выполняем загрузку
+    if (
+        cd "$WORK_DIR"
+        # Явно подгружаем функции внутри подоболочки для надежности в Parallel
+        # source "$UTIL_DIR/vars.sh" "$TARGET" "$VARIANT" &>/dev/null
+        # source "$UTIL_DIR/dl_functions.sh"
+        eval "$DL_COMMANDS"
+    ); then
+
+        # Whitelist метаданных .git (список подгружается из workflow.yaml). 
+        local PRESERVE_PATTERN="${GIT_PRESERVE_LIST// /:-ffmpeg|glib2}"
+
+        if [[ "$STAGENAME" =~ $PRESERVE_PATTERN ]]; then
+            log_info "${LOCK_MARK} Preserving Git metadata for $STAGENAME (Whitelist match)"
+        else
+            log_debug "${BROOM_MARK} Stripping Git metadata for $STAGENAME to save cache space"
+            # Удаляем .git папки и .gitignore файлы
+            find "$WORK_DIR" -maxdepth 2 -name ".git*" -exec rm -rf {} + 2>/dev/null || true
+        fi
+
+        mkdir -p "$(dirname "$STAGE_CACHE_FILE")"
+        # Упаковка; -c: создать, -f: файл, -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
+        tar -I 'zstd -T0 -3' -cf "$STAGE_CACHE_FILE" -C "$WORK_DIR" .
+        ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
+
+        log_info "${CACHE_MARK} Cached $STAGENAME (Name: $(basename "$STAGE_CACHE_FILE"))"
+        # rm -rf "$WORK_DIR" # Явное удаление
+        return 0
+    else
+        log_error "FAILED to download $STAGENAME. Commands attempted:"
+        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "$DL_COMMANDS"
+        # rm -rf "$WORK_DIR" # Явное удаление
+        return 1 # return 1 для параллельного запуска
+    fi
+}
+export -f download_stage
