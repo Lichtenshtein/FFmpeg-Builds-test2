@@ -1,7 +1,5 @@
 #!/bin/bash
 
-source util/vars.sh 2>/dev/null || true
-
 retry-tool() {
     _retry "$@"
 }
