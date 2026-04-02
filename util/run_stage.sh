@@ -28,7 +28,7 @@ STAGE_CACHE_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.tar.zst"
 STAGE_LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
 
 # Очистка при выходе. Удаляем старые файлы, если они остались от прошлых запусков
-trap 'echo "::endgroup::"; cd /; rm -rf "/build/$STAGENAME" "VARS_DIR"; rm -f "$OUTFILE" "$TIMESTAMP_FILE" /tmp/stage_build.log' EXIT
+trap 'echo "::endgroup::"; cd /; rm -rf "${ROOT_DIR}/${STAGENAME}" "$VARS_DIR"; rm -f "$OUTFILE" "$TIMESTAMP_FILE" /tmp/stage_build.log' EXIT
 
 # Создаем и входим в директорию сборки ДО загрузки скрипта
 mkdir -p "$ROOT_DIR/$STAGENAME" && cd "$ROOT_DIR/$STAGENAME"
@@ -81,7 +81,7 @@ else
 fi
 
 # Проверяем, нужны ли вообще исходники для этой стадии (или это мета-стадия), и выходим
-local DL_COMMANDS=$(ffbuild_dockerdl) || {
+DL_COMMANDS=$(ffbuild_dockerdl 2>/dev/null) || {
     log_error "ffbuild_dockerdl failed for $STAGENAME"
     exit 1
 }

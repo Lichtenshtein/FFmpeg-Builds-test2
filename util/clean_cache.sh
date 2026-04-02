@@ -35,15 +35,15 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     [[ -f "$STAGE" ]] || continue
 
     # Обновляем переменные для ТЕКУЩЕГО файла в цикле
-    # STAGENAME="$(basename "$STAGE" .sh)"
+    local_stagename="$(basename "$STAGE" .sh)"
     STAGE_HASH=$(get_stage_hash "$STAGE")
 
     # Is this stage active (listed in ONLY_STAGE)?
     is_active=false
     if [[ -z "$ONLY_STAGE" ]]; then
         is_active=true
-    elif [[ "$STAGENAME" =~ ^($ONLY_STAGE)$ ]] || \
-         [[ "$ONLY_STAGE" =~ (^|\|)$STAGENAME($|\|) ]]; then
+    elif [[ "$local_stagename" =~ ^($ONLY_STAGE)$ ]] || \
+         [[ "$ONLY_STAGE" =~ (^|\|)$local_stagename($|\|) ]]; then
         is_active=true
     fi
 
@@ -90,15 +90,15 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     # Add to keep-list if protecting
     if [[ "$should_protect" == "true" ]]; then
         if [[ -n "$STAGE_HASH" ]]; then
-            echo "${STAGENAME}_${STAGE_HASH}.tar.zst" >> "$RAW_KEEP_LIST"
-            echo "${STAGENAME}.tar.zst"               >> "$RAW_KEEP_LIST"
+            echo "${local_stagename}_${STAGE_HASH}.tar.zst" >> "$RAW_KEEP_LIST"
+            echo "${local_stagename}.tar.zst"               >> "$RAW_KEEP_LIST"
             # Single-line debug: only shown when FFBUILD_VERBOSE >= 2 or similar
             # Use log_debug sparingly one line per protected file is too noisy at scale
         fi
     fi
     # Verbose trace only if explicitly requested (not default FFBUILD_VERBOSE=1)
     [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]] && \
-        log_debug "${STAGENAME}: is_active=${is_active} is_enabled=${is_enabled} → ${reason}"
+        log_debug "${local_stagename}: is_active=${is_active} is_enabled=${is_enabled} → ${reason}"
 done
 
 # Summary of decisions (one line, not 80)
