@@ -53,7 +53,7 @@ on:
       debug_no_hash:
         description: 'Static ENV_HASH (Preserve Docker cache)'
         type: boolean
-        default: false
+        default: true
       clean_inactive:
         description: 'Clean sources for inactive components'
         type: boolean
@@ -173,6 +173,11 @@ jobs:
             /usr/lib/x86_64-linux-gnu/libserf*
             /usr/lib/x86_64-linux-gnu/libapr*
           key: ${{ steps.host_tools_key.outputs.key }}
+
+      - name: Install Host Tools
+        if: steps.host_tools_cache.outputs.cache-hit != 'true'
+        run: |
+          sudo apt-get install -y subversion subversion-tools
 
       - name: Validate Cached Tools
         if: steps.host_tools_cache.outputs.cache-hit == 'true'
