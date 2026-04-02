@@ -2,7 +2,7 @@
 
 set -e
 
-# cd "$(dirname "$0")"
+cd "$(dirname "$0")"
 
 # фикс проблем с git 
 git config --global advice.detachedHead false
@@ -46,9 +46,9 @@ echo "$STAGES" | parallel --halt now,fail=1 --jobs 8 \
     "export TARGET='$TARGET'; \
      export VARIANT='$VARIANT'; \
      export ROOT_DIR='$ROOT_DIR'; \
-     source '$UTIL_DIR/vars.sh' \$TARGET \$VARIANT 2>/dev/null \
+     source '/builder/util/vars.sh' \$TARGET \$VARIANT 2>/dev/null \
          || { echo 'ERROR: vars.sh failed in parallel job' >&2; exit 1; }; \
-     source '$UTIL_DIR/dl_functions.sh'; \
+     source '/builder/util/dl_functions.sh'; \
      download_stage {} '$CACHE_DIR'"
 
 if [[ -f "$JOBLOG" ]]; then
