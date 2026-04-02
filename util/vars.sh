@@ -1001,6 +1001,46 @@ export -f phase_footer
 # Writes one structured result line to a temp file for later table rendering.
 # Call with: dl_result_line "hit" "$STAGENAME" "$STAGE_HASH" "$size"
 # The caller must set DL_RESULT_FILE before invoking parallel.
+dl_result_line() {
+    local status="$1" name="$2" hash="$3" extra="$4"
+    local icon color
+    case "$status" in
+        hit)  icon="✔" ; color="$LOG_INFO"  ;;
+        miss) icon="🡇" ; color="$LOG_WARN"  ;;
+        skip) icon="—" ; color="$LOG_DEBUG" ;;
+        fail) icon="✖" ; color="$LOG_ERROR" ;;
+        *)    icon="?" ; color="$LOG_NC"    ;;
+    esac
+    # Write tab-separated so the summary renderer can column-align
+    printf '%s\t%s\t%s\t%s\t%s\n' \
+        "$status" "$icon" "$name" "${hash:0:16}" "$extra" \
+        >> "${DL_RESULT_FILE:-/dev/null}"
+}
+export -f dl_result_line
+
+# Component grouping — organize stages by category for visual structure
+get_component_group() {
+    local stagename="$1"
+    local prefix="${stagename%%-*}"
+    
+    case "$prefix" in
+        09|10|11)           echo "Toolchain" ;;
+        18|19|20|21|22|23)  echo "Base Libraries" ;;
+        30|31|32|33|34|35)  echo "Codecs" ;;
+        40|41|42|43|44|45)  echo "Graphics & Vulkan" ;;
+        50|51|52|53|54|55)  echo "Audio" ;;
+        60|61|62|63|64|65)  echo "Video Processing" ;;
+        70|71|72|73|74|75)  echo "Filters & Effects" ;;
+        80|81|82|83|84|85)  echo "Hardware Acceleration" ;;
+        90|91|92|93|94|95)  echo "Utilities" ;;
+        99)                 echo "Meta" ;;
+        *)                  echo "Other" ;;
+    esac
+}
+export -f get_component_group
+
+# render_dl_table <result_file>
+# Reads the tab-separated result file and prints an aligned table to stderr.
 render_dl_table() {
     local file="$1"
     [[ -f "$file" ]] || return 0
