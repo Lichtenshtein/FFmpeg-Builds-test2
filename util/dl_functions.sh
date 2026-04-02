@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -xe
+set -e
 
 retry-tool() {
     _retry "$@"
@@ -331,7 +331,7 @@ default_dl() {
 
 download_stage() {
     local STAGE="$1"
-    local CACHE_DIR="${2:-$CACHE_DIR}" 
+    local CACHE_DIR="${2:-$CACHE_DIR}"
 
     # Единый хеш
     local STAGE_HASH=$(get_stage_hash "$STAGE")
@@ -382,7 +382,7 @@ download_stage() {
     local WORK_DIR=$(mktemp -d -p "$TMP_DIR")
     # Очистка при выходе. Удаляем только WORK_DIR конкретного процесса, а не весь TMP_DIR!
     # Иначе параллельные процессы удалят чужие папки.
-    trap 'rm -rf "$WORK_DIR"' EXIT
+    # trap 'rm -rf "$WORK_DIR"' EXIT
 
     # Выполняем загрузку
     if (
@@ -410,12 +410,12 @@ download_stage() {
         ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
 
         log_info "${CACHE_MARK} Cached $STAGENAME (Name: $(basename "$STAGE_CACHE_FILE"))"
-        # rm -rf "$WORK_DIR" # Явное удаление
+        rm -rf "$WORK_DIR" # Явное удаление
         return 0
     else
         log_error "FAILED to download $STAGENAME. Commands attempted:"
         [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "$DL_COMMANDS"
-        # rm -rf "$WORK_DIR" # Явное удаление
+        rm -rf "$WORK_DIR" # Явное удаление
         return 1 # return 1 для параллельного запуска
     fi
 }
