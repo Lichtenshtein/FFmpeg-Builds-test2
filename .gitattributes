@@ -6,3 +6,4 @@ Dockerfile  text eol=lf
 *.cmake     text eol=lf
 *.meson     text eol=lf
 *.md        text eol=lf
+patches/**  text eol=lf
