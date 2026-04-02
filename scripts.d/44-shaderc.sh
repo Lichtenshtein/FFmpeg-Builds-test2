@@ -124,6 +124,8 @@ EOF
 
     cp -a "$DESTDIR"/. "$FFBUILD_DESTDIR"
 
+    ls -lh
+
     rm -rf "$DESTDIR"
     unset DESTDIR
 

@@ -3,7 +3,6 @@ name: Build FFmpeg
 on:
   workflow_dispatch:
     inputs:
-
       ffmpeg_repo:
         description: 'FFmpeg Repository URL'
         default: 'https://github.com/MartinEesmaa/FFmpeg-VVC.git'
@@ -109,7 +108,7 @@ env:
   USE_AVX512:     ${{ github.event.inputs.use_avx512     == 'true' && '1' || '0' }}
   USE_LTO:        ${{ github.event.inputs.use_lto        == 'true' && '1' || '0' }}
   USE_WINE:       ${{ github.event.inputs.use_wine       == 'true' && '1' || '0' }}
-  USE_OPENMP:    ${{ github.event.inputs.use_openmp    == 'true' && '1' || '0' }}  
+  USE_OPENMP:     ${{ github.event.inputs.use_openmp     == 'true' && '1' || '0' }}  
   CLEAN_INACTIVE: ${{ github.event.inputs.clean_inactive == 'true' && '1' || '0' }}
   # Маппинг Inputs -> Env для всех динамических значений
   FFMPEG_REPO:     ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-VVC.git' }}
@@ -151,10 +150,37 @@ jobs:
           driver: docker-container
           # buildkitd-flags: ${{ github.event.inputs.verbosity == '1' && '--debug' || '' }}
 
-      - name: Install Host Tools
+      - name: Host Tools Cache Key
+        id: host_tools_key
         run: |
-          sudo apt-get update
-          sudo apt-get install -y subversion subversion-tools nasm yasm
+          PKGS="subversion subversion-tools"
+          sudo apt-get update -qq
+          KEY=$(apt-cache policy $PKGS \
+            | grep Candidate \
+            | sha256sum \
+            | cut -c1-16)
+          echo "key=host-tools-${KEY}" >> $GITHUB_OUTPUT
+
+      - name: Restore Host Tools Cache
+        id: host_tools_cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            /usr/bin/svn
+            /usr/bin/svnadmin
+            /usr/bin/svnlook
+            /usr/lib/x86_64-linux-gnu/libsvn*
+            /usr/lib/x86_64-linux-gnu/libserf*
+            /usr/lib/x86_64-linux-gnu/libapr*
+          key: ${{ steps.host_tools_key.outputs.key }}
+
+     - name: Validate Cached Tools
+        if: steps.host_tools_cache.outputs.cache-hit == 'true'
+        run: |
+          if ! svn --version --quiet &>/dev/null; then
+            echo "Cached svn is broken, reinstalling..."
+            sudo apt-get install -y subversion subversion-tools
+          fi
 
       - name: Host Hardware Audit
         run: |

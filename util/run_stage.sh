@@ -28,10 +28,10 @@ STAGE_CACHE_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.tar.zst"
 STAGE_LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
 
 # Очистка при выходе. Удаляем старые файлы, если они остались от прошлых запусков
-trap 'echo "::endgroup::"; cd /; rm -rf "${ROOT_DIR}/${STAGENAME}" "$VARS_DIR"; rm -f "$OUTFILE" "$TIMESTAMP_FILE" /tmp/stage_build.log' EXIT
+trap 'echo "::endgroup::"; cd /; rm -rf "/build/${STAGENAME}" "$VARS_DIR"; rm -f "$OUTFILE" "$TIMESTAMP_FILE" /tmp/stage_build.log' EXIT
 
 # Создаем и входим в директорию сборки ДО загрузки скрипта
-mkdir -p "$ROOT_DIR/$STAGENAME" && cd "$ROOT_DIR/$STAGENAME"
+mkdir -p "/build/$STAGENAME" && cd "/build/$STAGENAME"
 
 # Обнуляем статистику
 ccache -z > /dev/null
@@ -122,14 +122,14 @@ if [[ -n "$DL_COMMANDS" ]]; then
 
     # АВТО-ПАТЧИНГ
     if [[ "$SKIP_PRE_PATCH" == "0" ]]; then
-        log_info "${SEARCH_MARK} Checking for patches..."
+        log_info "${SEARCH_MARK} Checking for patches for ${STAGENAME}..."
         if [[ -d "$PATCHES_DIR/$COMPONENT_NAME" ]]; then
             apply_patches 
         else
-            log_info "${CHECK_MARK} No patches found for $COMPONENT_NAME"
+            log_info "${CHECK_MARK} No patches found."
         fi
     else
-        log_info "Skipping patches for $COMPONENT_NAME"
+        log_info "Skipping patches for $STAGENAME"
     fi
 
     # Поиск корня проекта (если архив распаковался в подпапку)
@@ -169,7 +169,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
         # paste объединяет их через табуляцию, чтобы column понял разделитель
         paste <(ls -d */ 2>/dev/null | head -n 15) \
               <(ls -F 2>/dev/null | grep -v / | head -n 15) | \
-              column -t -s $'\t' -N "DIRECTORIES","FILES" | \
+              column -t -s $'\t' -N "${GREEN}DIRECTORIES${NC}","${GREEN}FILES${NC}" | \
               sed 's/^/  /' # Добавляем отступ слева для красоты
     fi
 
