@@ -25,7 +25,7 @@ ffbuild_dockerdl() {
     if [[ -f "$CUSTOM_DEPS" ]]; then
         # The destination ./DEPS is relative to WORK_DIR (correct — runs after clone)
         # Use cat instead of cp to avoid permission issues on read-only source
-        echo "log_info 'Replacing DEPS with custom version from patches...'"
+        echo "log_info '${SYNC_MARK} Replacing shaderc DEPS with custom version from patches...'"
         echo "cat $(printf '%q' "$CUSTOM_DEPS") > ./DEPS"
     else
         log_warn "Custom DEPS not found at ${CUSTOM_DEPS}, using default."
