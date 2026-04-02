@@ -6,8 +6,6 @@ retry-tool() {
     _retry "$@"
 }
 export -f retry-tool
-export LANG=C.UTF-8
-export LC_ALL=C.UTF-8
 
 # Вспомогательная функция для надежного выполнения сетевых команд
 _retry() {
