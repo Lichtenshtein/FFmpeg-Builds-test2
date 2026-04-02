@@ -18,6 +18,8 @@ source util/vars.sh "$TARGET" "$VARIANT" \
     || { echo "ERROR: vars.sh failed. TARGET=$TARGET VARIANT=$VARIANT" >&2; exit 1; }
 source util/dl_functions.sh
 
+export LANG=C.UTF-8
+export LC_ALL=C.UTF-8
 export DL_RESULT_FILE
 
 DL_RESULT_FILE=$(mktemp)
