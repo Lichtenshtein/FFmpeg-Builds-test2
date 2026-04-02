@@ -101,17 +101,16 @@ export VARIANTS_DIR="$ROOT_DIR/variants"
 # ffmpeg paths inside the build's working directory (/builder/ffbuild)
 export FFMPEG_DIR="$ROOT_DIR/.cache/ffmpeg"
 export FFMPEG_BUILD_ROOT="$ROOT_DIR/ffbuild"
-export FFMPEG_SOURCE_DIR="$FF_BUILD_ROOT/ffmpeg"
-export FFMPEG_PKG_ROOT="$FF_BUILD_ROOT/pkgroot"
-export FFMPEG_CONFIG_LOG="$FF_SOURCE_DIR/ffbuild/config.log"
+export FFMPEG_SOURCE_DIR="$FFMPEG_BUILD_ROOT/ffmpeg"
+export FFMPEG_PKG_ROOT="$FFMPEG_BUILD_ROOT/pkgroot"
+export FFMPEG_CONFIG_LOG="$FFMPEG_SOURCE_DIR/ffbuild/config.log"
 export FFMPEG_HASH_FILE="$FFMPEG_DIR/.current_commit" # хеш последнего скачанного коммита
 
 # Create the base structure if it doesn't exist
-# On the HOST, this will create folders in the project root,
-# in Docker - where it's mounted.
-if [[ -n "$ROOT_DIR" ]]; then
-    mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFBUILD_DESTDIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR" "$VARS_DIR" "$FFBUILD_DESTPREFIX"/{include,bin,lib/pkgconfig}
+if [[ -d "/builder" ]]; then
+    mkdir -p "$VARS_DIR" "$FFBUILD_DESTDIR" "$FFBUILD_DESTPREFIX"/{include,bin,lib/pkgconfig}
 fi
+mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 
 get_stage_hash() {
     local STAGE_PATH="$1"
@@ -138,13 +137,13 @@ if [[ -n "$_SCRIPT_REF" && -f "$_SCRIPT_REF" ]]; then
     # Single variable for hash
     export STAGE_HASH="$(get_stage_hash "$_SCRIPT_REF")"
 
-    if [[ -z "$_INSIDE_VARS" ]]; then
+    if [[ -z "$_VARS_RECURSION" ]]; then
         # Unified paths to cache files
         export STAGE_CACHE_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.tar.zst"
         export STAGE_LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
 
         # Добавляем флаг, чтобы вложенный вызов не пошел по кругу
-        export DL_COMMANDS="$(export _INSIDE_VARS=1; bash -c "source \"$UTIL_DIR/vars.sh\" \"$TARGET\" \"$VARIANT\" &>/dev/null; \
+        export DL_COMMANDS="$(export _VARS_RECURSION=1; bash -c "source \"$UTIL_DIR/vars.sh\" \"$TARGET\" \"$VARIANT\" &>/dev/null; \
                               source \"$UTIL_DIR/dl_functions.sh\"; \
                               source \"$_SCRIPT_REF\"; \
                               ffbuild_enabled && ffbuild_dockerdl" 2>/dev/null || echo "")"
@@ -231,6 +230,65 @@ BASE_IMAGE="${REGISTRY}/${REPO}/base:latest"
 TARGET_IMAGE="${REGISTRY}/${REPO}/base-${TARGET}:latest"
 IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:latest"
 
+# 1 для подробных логов, в 0 для кратких
+# export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
+# Значение FFBUILD_VERBOSE уже пришло из Docker ENV
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+    export MAKE_V="V=1"
+    export NINJA_V="-v"
+    export CARGO_V="-v"
+else
+    export MAKE_V=""
+    export NINJA_V=""
+    export CARGO_V=""
+fi
+
+# Удаляем ANSI цвета
+# Удаляем переносы строк (заменяем на пробел)
+# xargs схлопнет лишние пробелы в одну строку
+clean_val() {
+    echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | tr '\n' ' ' | xargs -r -d ' '
+}
+# быстрые дедупликаторы
+dedupe() {
+    # Сначала очистим от цвета и лишних пробелов
+    local input=$(clean_val "$*")
+    [[ -z "$input" ]] && return
+    # Переводим в одну строку, удаляем мусор
+    local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
+    # Удаляем дубликаты, сохраняя ПЕРВОЕ вхождение
+    echo "$clean" | awk '!x[$0]++' | xargs -r -d '\n' | tr '\n' ' '
+}
+# for ldflags
+smart_dedupe() {
+    # Сначала очистим от цвета и лишних пробелов
+    local input=$(clean_val "$*")
+    local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
+    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
+        echo "$clean" | awk '!x[$0]++' | xargs -r -d '\n' | tr '\n' ' '
+    else
+        echo "$clean" | xargs -r -d '\n' | tr '\n' ' '
+    fi
+}
+# for libs
+smart_libs_dedupe() {
+    # Сначала очистим от цвета и лишних пробелов
+    local raw_input=$(clean_val "$*")
+    # чистим мусор и ПУТИ, убираем -lstdc++
+    local clean=$(echo "$raw_input" | tr ' ' '\n' | \
+        grep -vE "Package|not|found|error|^$|^-L|^-lstdc\+\+$")
+    # унифицируем pthread: заменяем -lpthread на -pthread
+    clean=$(echo "$clean" | sed 's/^-lpthread$/-pthread/')
+    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
+    # оставляет только ПОСЛЕДНЕЕ вхождение (важно для порядка линковки)
+        echo "$clean" | tac | awk '!x[$0]++' | tac | tr '\n' ' ' | xargs -r -d '\n' | tr '\n' ' '
+    else
+    # Просто склеиваем в одну строку без удаления дублей
+        echo "$clean" | tr '\n' ' ' | xargs -r -d '\n' | tr '\n' ' '
+    fi
+}
+export -f clean_val dedupe smart_dedupe smart_libs_dedupe
+
 # Docker stage helpers
 ffbuild_dockerstage() {
     if [[ -n "$SELFCACHE" ]]; then
@@ -252,22 +310,19 @@ ffbuild_dockerdl() {
     [[ -n "$SCRIPT_REPO" ]] && default_dl .
 }
 
-# собирают флаги от всех скриптов в scripts.d для финального ./configure
+# Конфигурация (собирают флаги от всех скриптов в scripts.d для финального ./configure)
 ffbuild_enabled()      { return 0; }
 ffbuild_depends()      { echo base; }
-ffbuild_configure()    { 
-    if [[ -n "$*" ]]; then
-        export FF_CONFIGURE="$FF_CONFIGURE $*"
-    else
-        return 0 
-    fi
-}
-ffbuild_cflags()       { [[ -n "$*" ]] && export FF_CFLAGS="$FF_CFLAGS $*"; }
-ffbuild_cppflags()     { [[ -n "$*" ]] && export FF_CPPFLAGS="$FF_CPPFLAGS $*"; }
-ffbuild_cxxflags()     { [[ -n "$*" ]] && export FF_CXXFLAGS="$FF_CXXFLAGS $*"; }
-ffbuild_ldflags()      { [[ -n "$*" ]] && export FF_LDFLAGS="$FF_LDFLAGS $*"; }
-ffbuild_ldexeflags()   { [[ -n "$*" ]] && export FF_LDEXEFLAGS="$FF_LDEXEFLAGS $*"; }
-ffbuild_libs()         { [[ -n "$*" ]] && export FF_LIBS="$FF_LIBS $*"; }
+# чистим мусор и дедуплицируем, оставляя ПЕРВОЕ вхождение)
+ffbuild_configure()    { [[ -n "$*" ]] && export FF_CONFIGURE=$(dedupe "$FF_CONFIGURE $*"); }
+ffbuild_cflags()       { [[ -n "$*" ]] && export FF_CFLAGS=$(dedupe "$FF_CFLAGS $*"); }
+ffbuild_cppflags()     { [[ -n "$*" ]] && export FF_CPPFLAGS=$(dedupe "$FF_CPPFLAGS $*"); }
+ffbuild_cxxflags()     { [[ -n "$*" ]] && export FF_CXXFLAGS=$(dedupe "$FF_CXXFLAGS $*"); }
+# Флаги линковщика (используем smart_dedupe - он учитывает переменную DEDUPE_FLAGS)
+ffbuild_ldflags()      { [[ -n "$*" ]] && export FF_LDFLAGS=$(smart_dedupe "$FF_LDFLAGS $*"); }
+ffbuild_ldexeflags()   { [[ -n "$*" ]] && export FF_LDEXEFLAGS=$(smart_dedupe "$FF_LDEXEFLAGS $*"); }
+# Библиотеки (используем smart_libs_dedupe, сохраняем ПОСЛЕДНЕЕ вхождение для линковки)
+ffbuild_libs()         { [[ -n "$*" ]] && export FF_LIBS=$(smart_libs_dedupe "$FF_LIBS $*"); }
 ffbuild_uncflags()     { return 0; }
 ffbuild_unconfigure()  { return 0; }
 ffbuild_uncxxflags()   { return 0; }
@@ -277,65 +332,6 @@ ffbuild_unlibs()       { return 0; }
 
 # Экспортируем функции, чтобы они были доступны внутри run_stage и других подпроцессов
 export -f ffbuild_enabled ffbuild_depends ffbuild_configure ffbuild_cflags ffbuild_cppflags ffbuild_cxxflags ffbuild_ldflags ffbuild_ldexeflags ffbuild_libs ffbuild_unconfigure ffbuild_uncflags ffbuild_uncxxflags ffbuild_unldexeflags ffbuild_unldflags ffbuild_unlibs
-
-# 1 для подробных логов, в 0 для кратких
-# export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
-# Значение FFBUILD_VERBOSE уже пришло из Docker ENV
-if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-    export MAKE_V="V=1"
-    export NINJA_V="-v"
-    export CARGO_V="-v"
-else
-    export MAKE_V=""
-    export NINJA_V=""
-    export CARGO_V=""
-fi
-
-# Удаляем ANSI цвета
-# Удаляем переносы строк (заменяем на пробел)
-# xargs схлопнет лишние пробелы в одну строку
-clean_val() {
-    echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | tr '\n' ' ' | xargs
-}
-# быстрые дедупликаторы
-dedupe() {
-    # Сначала очистим от цвета и лишних пробелов
-    local input=$(clean_val "$*")
-    [[ -z "$input" ]] && return
-    # Переводим в одну строку, удаляем мусор
-    local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
-    # Удаляем дубликаты, сохраняя ПЕРВОЕ вхождение
-    echo "$clean" | awk '!x[$0]++' | xargs
-}
-# for ldflags
-smart_dedupe() {
-    # Сначала очистим от цвета и лишних пробелов
-    local input=$(clean_val "$*")
-    local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
-    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
-        echo "$clean" | awk '!x[$0]++' | xargs
-    else
-        echo "$clean" | xargs
-    fi
-}
-# for libs
-smart_libs_dedupe() {
-    # Сначала очистим от цвета и лишних пробелов
-    local raw_input=$(clean_val "$*")
-    # чистим мусор и ПУТИ, убираем -lstdc++
-    local clean=$(echo "$raw_input" | tr ' ' '\n' | \
-        grep -vE "Package|not|found|error|^$|^-L|^-lstdc\+\+$")
-    # унифицируем pthread: заменяем -lpthread на -pthread
-    clean=$(echo "$clean" | sed 's/^-lpthread$/-pthread/')
-    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
-    # оставляет только ПОСЛЕДНЕЕ вхождение (важно для порядка линковки)
-        echo "$clean" | tac | awk '!x[$0]++' | tac | tr '\n' ' ' | xargs
-    else
-    # Просто склеиваем в одну строку без удаления дублей
-        echo "$clean" | tr '\n' ' ' | xargs
-    fi
-}
-export -f clean_val dedupe smart_dedupe smart_libs_dedupe
 
 patch_pc_files() {
     log_info "${TARGET_MARK} Patching $STAGENAME .pc files..."
@@ -769,6 +765,11 @@ export SKIP_POST_AUDIT=0
 
 # Динамическое определение путей для wine
 if [ -d "/opt/ct-ng" ]; then
+    MINGW_BIN_PATH="/opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/bin"
+    if [[ ! -d "$MINGW_BIN_PATH" ]]; then
+        # Фолбэк на быстрый поиск, если путь другой
+        MINGW_BIN_PATH=$(find /opt/ct-ng -type d -path "*/x86_64-w64-mingw32/bin" -print -quit)
+    fi
     # Если WINEPATH уже задан (например, в предыдущем слое или вызове), пропускаем тяжелые вычисления
     if [[ -z "$WINEPATH" ]]; then
         MINGW_BIN_PATH=$(find /opt/ct-ng -maxdepth 5 -type d -name "bin" | grep "x86_64-w64-mingw32/bin" | head -n 1)
@@ -806,11 +807,14 @@ setup_wine_env() {
     fi
 
     if [[ "$USE_WINE" == "1" ]]; then
+    if [[ -z "$_SCRIPT_REF" || ! -f "$_SCRIPT_REF" ]]; then
+         return 0
+    fi
         # Ищем только специфичные команды:
         # 1. meson test / ctest / make check - запуск встроенных тестов
         # 2. wine [пробел] - явный запуск через wine
         # 3. ./[что-то].exe - прямой запуск виндового бинарника
-        if ! grep -qE "meson test|ctest|make check|make test|wine |\.\/.*\.exe" "$SCRIPT_PATH"; then
+        if ! grep -qE "meson test|ctest|make check|make test|wine |\.\/.*\.exe" "$_SCRIPT_REF"; then
             log_debug "Wine: skipped (no execution patterns in $STAGENAME)"
             eval "$errexit_state"; return 0
         fi

@@ -33,7 +33,6 @@ _retry() {
 
 download_stage() {
     local STAGE="$1"
-    local CACHE_DIR="${2:-$CACHE_DIR}" 
 
     # Если команд нет — это стадия без исходников (мета-пакет), выходим
     [[ -z "$DL_COMMANDS" ]] && return 0
@@ -78,8 +77,8 @@ download_stage() {
     if (
         cd "$WORK_DIR"
         # Явно подгружаем функции внутри подоболочки для надежности в Parallel
-        source "$UTIL_DIR/dl_functions.sh"
         source "$UTIL_DIR/vars.sh" "$TARGET" "$VARIANT" &>/dev/null
+        source "$UTIL_DIR/dl_functions.sh"
         eval "$DL_COMMANDS"
     ); then
 
@@ -94,18 +93,22 @@ download_stage() {
             find "$WORK_DIR" -maxdepth 2 -name ".git*" -exec rm -rf {} + 2>/dev/null || true
         fi
 
+        mkdir -p "$(dirname "$STAGE_CACHE_FILE")"
         # Упаковка; -c: создать, -f: файл, -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
         tar -I 'zstd -T0 -3' -cf "$STAGE_CACHE_FILE" -C "$WORK_DIR" .
         ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
 
         log_info "${CACHE_MARK} Cached $STAGENAME (Name: $(basename "$STAGE_CACHE_FILE"))"
+        # rm -rf "$WORK_DIR" # Явное удаление
         return 0
     else
         log_error "FAILED to download $STAGENAME. Commands attempted:"
         [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "$DL_COMMANDS"
+        # rm -rf "$WORK_DIR" # Явное удаление
         return 1 # return 1 для параллельного запуска
     fi
 }
+export -f download_stage
 
 git-mini-clone() {
     local REPO="$1"

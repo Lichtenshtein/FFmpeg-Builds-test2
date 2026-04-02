@@ -60,10 +60,10 @@ to_df "RUN chmod +x /usr/bin/run_stage"
 # 3. Сортируем (чтобы порядок строк в файле не влиял на хеш)
 ENV_HASH=$(
     {
-        grep -E "^(export )?(CFLAGS|CXXFLAGS|LDFLAGS|CPPFLAGS|BASE_|SYSTEM_LIBS|CHOST|RUSTFLAGS|CPU_)" util/vars.sh
+        grep -E "^(export )?(CFLAGS|CXXFLAGS|LDFLAGS|CPPFLAGS|BASE_|SYSTEM_LIBS|CHOST|RUSTFLAGS|CPU_)" $UTIL_DIR/vars.sh
         echo "TARGET=$TARGET"
         echo "CPU_ARCH=$CPU_ARCH"
-    } | sed 's/#.*//' | xargs | sha256sum | cut -c1-8 | tr -d '\n\r'
+    } | sed 's/#.*//' | tr -s '[:space:]' ' ' | sha256sum | cut -c1-8 | tr -d '\n\r'
 )
 
 # Global Logic Hash: Changes if run_stage.sh or the internal functions of vars.sh change.
@@ -90,6 +90,11 @@ done
 
 # Генерируем блоки RUN для каждой стадии
 for STAGE in "${active_scripts[@]}"; do
+    STAGENAME="$(basename "$STAGE" .sh)"
+    # Извлекаем имя компонента (напр., из 50-libmp3lame получаем libmp3lame)
+    COMPONENT_NAME="${STAGENAME#*-}"
+    # Component Specific Hash: Only this script + its patches
+    STAGE_HASH=$(get_stage_hash "$STAGE")
     # Гранулярный поиск патчей
     # Для библиотек ищем в patches/zlib/ и т.д.
     PATCH_PATH="$PATCHES_DIR/$COMPONENT_NAME"
@@ -97,7 +102,7 @@ for STAGE in "${active_scripts[@]}"; do
     [[ "$COMPONENT_NAME" == "ffmpeg" ]] && PATCH_PATH="$PATCHES_DIR/ffmpeg/$FFMPEG_BRANCH"
     # Считаем хеш только если папка существует, иначе "none"
     if [[ -d "$PATCH_PATH" ]]; then
-        PATCH_HASH=$(find "$PATCH_PATH" -type f | sort | xargs sha256sum | sha256sum | cut -c1-8)
+        PATCH_HASH=$(find "$PATCH_PATH" -type f -exec md5sum {} + | sort | md5sum | cut -c1-8)
     else
         PATCH_HASH="none"
     fi

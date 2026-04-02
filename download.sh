@@ -2,7 +2,7 @@
 
 set -xe
 
-cd "$(dirname "$0")"
+# cd "$(dirname "$0")"
 
 # фикс проблем с git 
 git config --global advice.detachedHead false
@@ -45,11 +45,11 @@ echo "$STAGES" | parallel --halt now,fail=1 --jobs 8 \
     --group \
     "export TARGET='$TARGET'; \
      export VARIANT='$VARIANT'; \
-     export ROOT_DIR='$ROOT_DIR'; \
+     export STAGE={}; \
      source '$UTIL_DIR/vars.sh' \$TARGET \$VARIANT 2>/dev/null \
          || { echo 'ERROR: vars.sh failed in parallel job' >&2; exit 1; }; \
      source '$UTIL_DIR/dl_functions.sh'; \
-     download_stage {} '$CACHE_DIR'"
+     download_stage {}"
 
 if [[ -f "$JOBLOG" ]]; then
     # Извлекаем список команд ($NF) для строк, где статус ($7) не равен 0
