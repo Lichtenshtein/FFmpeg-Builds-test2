@@ -50,17 +50,62 @@ log_err_line()  { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} !!!!!!!!!!!!!!!!!!!!!!!!
 
 export -f log_info log_warn log_error log_debug log_info_line log_err_line print_info print_warn print_error print_debug
 
-# Creation and Unification of paths and path variables
-# Define the project root (ROOT_DIR)
-# If we're in Docker, the root is /builder; if on the HOST, the root is the script folder.
-if [[ -d "/builder" ]]; then
-    export ROOT_DIR="/builder"
-    export CACHE_DIR="/root/.cache/downloads"
-else
-    # Находим корень, где бы ни лежал vars.sh (в корне или в util/)
-    export ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-    export CACHE_DIR="$ROOT_DIR/.cache/downloads"
+# ---------------------------------------------------------------------------
+# ROOT_DIR: always the project root, regardless of where vars.sh lives or
+# how it is sourced.
+#
+# Resolution order:
+#   1. Already set in environment (Docker sets it via ENV ROOT_DIR=/builder)
+#   2. /builder exists → we are inside the container
+#   3. Derive from BASH_SOURCE: util/vars.sh → go one level up
+#                               vars.sh at root → stay here
+# ---------------------------------------------------------------------------
+if [[ -z "$ROOT_DIR" ]]; then
+    if [[ -d "/builder" ]]; then
+        ROOT_DIR="/builder"
+    else
+        _VARS_SELF="$(cd "$(dirname "${BASH_SOURCE}")" && pwd)"
+        if [[ "$(basename "$_VARS_SELF")" == "util" ]]; then
+            ROOT_DIR="$(dirname "$_VARS_SELF")"
+        else
+            ROOT_DIR="$_VARS_SELF"
+        fi
+        unset _VARS_SELF
+    fi
 fi
+export ROOT_DIR
+
+# ---------------------------------------------------------------------------
+# CACHE_DIR: always inside the project tree so host and container agree.
+# The workflow mounts .cache/downloads → $CACHE_DIR, so the target must
+# match what generate.sh writes into the Dockerfile --mount target.
+# ---------------------------------------------------------------------------
+export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
+
+# ---------------------------------------------------------------------------
+# Stage-specific variables.
+# These are intentionally NOT set here at source time because $STAGE and
+# $STAGE_HASH are unknown until a specific stage is being processed.
+# Each consumer (dl_functions.sh, run_stage.sh, clean_cache.sh, generate.sh)
+# must derive them locally after setting $STAGE.
+#
+# Helper function — call it after you have set $STAGE:
+#   eval "$(stage_vars "$STAGE")"
+# ---------------------------------------------------------------------------
+stage_vars() {
+    local stage_path="$1"
+    local _hash
+    _hash=$(get_stage_hash "$stage_path")
+    local _name
+    _name="$(basename "$stage_path" .sh)"
+    local _component="${_name#*-}"
+    printf 'STAGE_HASH=%q\n'       "$_hash"
+    printf 'STAGENAME=%q\n'        "$_name"
+    printf 'COMPONENT_NAME=%q\n'   "$_component"
+    printf 'STAGE_CACHE_FILE=%q\n' "${CACHE_DIR}/${_name}_${_hash}.tar.zst"
+    printf 'STAGE_LATEST_LINK=%q\n' "${CACHE_DIR}/${_name}.tar.zst"
+}
+export -f stage_vars
 
 # Build variables (inside the container)
 # Prefer positional args, fall back to ENV
@@ -83,45 +128,35 @@ export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 export FFBUILD_CROSS_PREFIX="x86_64-w64-mingw32-"
 export FFBUILD_PREFIX="/opt/ffbuild" # Куда ставим зависимости
 export FFBUILD_DESTDIR="/opt/ffdest" # Куда кладем финальный архив ffmpeg (.7z)
-export FFBUILD_DESTPREFIX="$FFBUILD_DESTDIR$FFBUILD_PREFIX"
+export FFBUILD_DESTPREFIX="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}"
 # directory for saving .pc files from components
-export PC_DIR="$FFBUILD_DESTPREFIX/lib/pkgconfig"
+export PC_DIR="${FFBUILD_DESTPREFIX}/lib/pkgconfig"
 # directory for storing .vars files with
 # component variables and flags collected between stages
-export VARS_DIR="$FFBUILD_PREFIX/config_parts"
+export VARS_DIR="${FFBUILD_PREFIX}/config_parts"
 
 # Shared project folders
-export ADDINS_DIR="$ROOT_DIR/addins"
-export PATCHES_DIR="$ROOT_DIR/patches"
-export SCRIPTS_DIR="$ROOT_DIR/scripts.d"
-export TMP_DIR="$ROOT_DIR/.cache/tmp"
-export UTIL_DIR="$ROOT_DIR/util"
-export VARIANTS_DIR="$ROOT_DIR/variants"
+export ADDINS_DIR="${ROOT_DIR}/addins"
+export CCACHE_DIR="/root/.cache/ccache"
+export PATCHES_DIR="${ROOT_DIR}/patches"
+export SCRIPTS_DIR="${ROOT_DIR}/scripts.d"
+export TMP_DIR="${ROOT_DIR}/.cache/tmp"
+export UTIL_DIR="${ROOT_DIR}/util"
+export VARIANTS_DIR="${ROOT_DIR}/variants"
 
-# ffmpeg paths inside the build's working directory (/builder/ffbuild)
-export FFMPEG_DIR="$ROOT_DIR/.cache/ffmpeg"
-export FFMPEG_BUILD_ROOT="$ROOT_DIR/ffbuild"
-export FFMPEG_SOURCE_DIR="$FFMPEG_BUILD_ROOT/ffmpeg"
-export FFMPEG_PKG_ROOT="$FFMPEG_BUILD_ROOT/pkgroot"
-export FFMPEG_CONFIG_LOG="$FFMPEG_SOURCE_DIR/ffbuild/config.log"
-export FFMPEG_HASH_FILE="$FFMPEG_DIR/.current_commit" # хеш последнего скачанного коммита
+# ffmpeg paths
+export FFMPEG_DIR="${ROOT_DIR}/.cache/ffmpeg"
+export FFMPEG_BUILD_ROOT="${ROOT_DIR}/ffbuild"
+export FFMPEG_SOURCE_DIR="${FFMPEG_BUILD_ROOT}/ffmpeg"
+export FFMPEG_PKG_ROOT="${FFMPEG_BUILD_ROOT}/pkgroot"
+export FFMPEG_CONFIG_LOG="${FFMPEG_SOURCE_DIR}/ffbuild/config.log"
+export FFMPEG_HASH_FILE="${FFMPEG_DIR}/.current_commit" # хеш последнего скачанного коммита
 
 # Create the base structure if it doesn't exist
 if [[ -d "/builder" ]]; then
     mkdir -p "$VARS_DIR" "$FFBUILD_DESTDIR" "$FFBUILD_DESTPREFIX"/{include,bin,lib/pkgconfig}
 fi
 mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
-
-# export STAGENAME="$(basename "$STAGE" .sh)"
-# Extract the component name (e.g., from 50-libmp3lame we get libmp3lame)
-# Use sed to trim everything up to and including the first hyphen
-# export COMPONENT_NAME=$(echo "$STAGENAME" | sed 's/^[0-9]*-//')
-
-# Dynamic variables. I'm not sure if this will work
-# export STAGENAME="$(basename "$STAGE" .sh)"
-# export COMPONENT_NAME="${STAGENAME#*-}"
-# export STAGE_CACHE_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.tar.zst"
-# export STAGE_LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
 
 # Flags for the component build stage
 
@@ -133,9 +168,9 @@ SYSTEM_LIBS="${OPENMP_LIB}-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -
 ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lnormaliz"
 
 # disable -fPIC, -ffast-math, if troubles occur
-export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=gnu11"
-export CPPFLAGS="-I/opt/ffbuild/include $BASE_CPPFLAGS"
-export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe $BASE_CFLAGS -std=gnu++17"
+export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu11"
+export CPPFLAGS="-I/opt/ffbuild/include ${BASE_CPPFLAGS}"
+export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu++17"
 export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
 export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH}"
@@ -144,8 +179,6 @@ if [[ "$TARGET" == *"win"* ]]; then
     # бесполезно при сборке под Windows и ломает OpenSSL asm вместе с std=c11
     export CFLAGS="${CFLAGS//-fno-semantic-interposition/}"
     export CXXFLAGS="${CXXFLAGS//-fno-semantic-interposition/}"
-    # На всякий случай проверяем и пустую переменную, если она была задана в Docker
-    [[ "$CFLAGS" == *"-fno-semantic-interposition"* ]] && log_debug "${BROOM_MARK} Stripped ELF-specific flags for Windows target."
     export CFLAGS="${CFLAGS//-std=c11/-std=gnu11}"
     export CXXFLAGS="${CXXFLAGS//-std=c++17/-std=gnu++17}"
 else
@@ -168,8 +201,8 @@ if [[ $# -ge 2 ]]; then shift 2; fi
 
 # Validate variant file exists (only if TARGET and VARIANT are known)
 if [[ -n "$TARGET" && -n "$VARIANT" ]]; then
-    if ! [[ -f "variants/${TARGET}-${VARIANT}.sh" ]]; then
-        log_error "Invalid target/variant: ${TARGET}-${VARIANT}"
+    if [[ ! -f "${VARIANTS_DIR}/${TARGET}-${VARIANT}.sh" ]]; then
+        log_error "Invalid target/variant: ${TARGET}-${VARIANT} (looked in ${VARIANTS_DIR})"
         return 1 2>/dev/null || exit 1
     fi
 fi
@@ -180,8 +213,8 @@ ADDINS=()
 ADDINS_STR=""
 while [[ "$#" -gt 0 ]]; do
     # Проверяем, существует ли файл в addins
-    if [[ -f "addins/${1}.sh" ]]; then
-        ADDINS+=( "$1" )
+    if [[ -f "${ADDINS_DIR}/${1}.sh" ]]; then
+        ADDINS+=("$1")
         ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}$1"
     else
         # Если файла нет, просто пропускаем (это может быть lto или skip_ffmpeg)
@@ -216,7 +249,11 @@ get_stage_hash() {
     # Удаляем \r (защита от Windows-переносов)
     # Удаляем пустые строки и комментарии (чтобы пробелы не ломали кэш)
     # Считаем хеш от всего остального
-    grep -v '^[[:space:]]*#' "$STAGE_PATH" | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' | grep -v '^[[:space:]]*$' | tr -d '\r' | sha256sum | cut -c1-16
+    grep -v '^[[:space:]]*#' "$STAGE_PATH" \
+        | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' \
+        | grep -v '^[[:space:]]*$' \
+        | tr -d '\r' \
+        | sha256sum | cut -c1-16
 }
 export -f get_stage_hash
 

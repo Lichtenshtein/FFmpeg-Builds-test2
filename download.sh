@@ -69,7 +69,7 @@ if [[ -z "$REMOTE_HASH" ]]; then
 else
     # Читаем локальный хеш (если файл существует)
     LOCAL_HASH=$(cat "$FFMPEG_HASH_FILE" 2>/dev/null || echo "none")
-    if [[ "$REMOTE_HASH" == "$LOCAL_HASH" && -d "$FFMPEG_DIR/configure" ]]; then
+    if [[ "$REMOTE_HASH" == "$LOCAL_HASH" && -f "$FFMPEG_DIR/configure" ]]; then
         log_info "${CHECK_MARK} FFmpeg is up to date (Commit: ${REMOTE_HASH:0:7}). Skipping download."
     else
         log_warn "${DOWN_MARK} New version detected or source missing. ${SYNC_MARK} Fetching FFmpeg..."
