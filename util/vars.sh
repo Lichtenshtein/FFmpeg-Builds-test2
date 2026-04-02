@@ -925,16 +925,16 @@ _term_width() { tput cols 2>/dev/null || echo 72; }
 
 # separator [char] [label]
 # Prints a full-width line, optionally with a centred label
-# On GitHub Actions, uses ASCII fallback for line chars
+# Example: separator "─" "  DOWNLOADS  "
 separator() {
     local char="${1:--}"
     local label="${2:-}"
     local width
     width=$(_term_width)
     
-    # GitHub Actions doesn't support UTF-8 line-drawing; use ASCII fallback
+    # GitHub Actions doesn't support UTF-8 box-drawing; use ASCII fallback
     if [[ -n "$GITHUB_ACTIONS" ]]; then
-        char=$(echo "$char" | sed 's/═/=/g; s/─/-/g; s/·/./g')
+        char=$(echo "$char" | sed 's/═/-/g; s/─/-/g; s/·/./g')
     fi
     
     if [[ -z "$label" ]]; then
@@ -950,50 +950,20 @@ separator() {
 export -f separator _term_width
 
 # phase_header <EMOJI> <TITLE>
-# Prints a prominent section header with rounded corners
+# Prints a prominent section header
 phase_header() {
     local emoji="$1"; shift
-    local width
-    width=$(_term_width)
-    
-    # Top border with rounded corners
-    if [[ -n "$GITHUB_ACTIONS" ]]; then
-        printf '.%*s.\n' $((width - 2)) '' | tr ' ' '-' >&2
-    else
-        printf '╭%*s╮\n' $((width - 2)) '' | tr ' ' '─' >&2
-    fi
-    
+    separator "═"
     printf '%b  %s %s  %b\n' "${LOG_INFO}" "$emoji" "$*" "${LOG_NC}" >&2
-    
-    # Bottom border with rounded corners
-    if [[ -n "$GITHUB_ACTIONS" ]]; then
-        printf '`%*s´\n' $((width - 2)) '' | tr ' ' '-' >&2
-    else
-        printf '╰%*s╯\n' $((width - 2)) '' | tr ' ' '─' >&2
-    fi
+    separator "═"
 }
 export -f phase_header
 
 # phase_footer <message>
 phase_footer() {
-    local width
-    width=$(_term_width)
-    
-    # Top border
-    if [[ -n "$GITHUB_ACTIONS" ]]; then
-        printf '.%*s.\n' $((width - 2)) '' | tr ' ' '-' >&2
-    else
-        printf '┌%*s┐\n' $((width - 2)) '' | tr ' ' '─' >&2
-    fi
-    
+    separator "─"
     printf '%b  %s  %b\n' "${LOG_INFO}" "$*" "${LOG_NC}" >&2
-    
-    # Bottom border
-    if [[ -n "$GITHUB_ACTIONS" ]]; then
-        printf '`%*s´\n' $((width - 2)) '' | tr ' ' '-' >&2
-    else
-        printf '└%*s┘\n' $((width - 2)) '' | tr ' ' '─' >&2
-    fi
+    separator "─"
 }
 export -f phase_footer
 
@@ -1047,16 +1017,9 @@ render_dl_table() {
     local width
     width=$(_term_width)
 
-    # Header with rounded corners
-    if [[ -n "$GITHUB_ACTIONS" ]]; then
-        printf '.%*s.\n' $((width - 2)) '' | tr ' ' '-' >&2
-        printf '  %-3s  %-30s  %-16s  %s\n' "   " "COMPONENT" "HASH" "RESULT" >&2
-        printf '|%*s|\n' $((width - 2)) '' | tr ' ' '-' >&2
-    else
-        printf '╭%*s╮\n' $((width - 2)) '' | tr ' ' '─' >&2
-        printf '│  %-3s  %-30s  %-16s  %s  │\n' "   " "COMPONENT" "HASH" "RESULT" >&2
-        printf '├%*s┤\n' $((width - 2)) '' | tr ' ' '─' >&2
-    fi
+    separator "─" "  DOWNLOAD SUMMARY  "
+    printf '  %-3s  %-30s  %-16s  %s\n' "   " "COMPONENT" "HASH" "RESULT" >&2
+    separator "─"
 
     local current_group=""
     sort -t$'\t' -k1,1 "$file" | while IFS=$'\t' read -r status icon name hash extra; do
@@ -1064,19 +1027,9 @@ render_dl_table() {
         group=$(get_component_group "$name")
         
         if [[ "$group" != "$current_group" ]]; then
-            if [[ -n "$current_group" ]]; then
-                if [[ -n "$GITHUB_ACTIONS" ]]; then
-                    printf '|%*s|\n' $((width - 2)) '' | tr ' ' '.' >&2
-                else
-                    printf '├%*s┤\n' $((width - 2)) '' | tr ' ' '·' >&2
-                fi
-            fi
-            # Group header with rounded corners
-            if [[ -n "$GITHUB_ACTIONS" ]]; then
-                printf '  .[%s]\n' "$group" >&2
-            else
-                printf '│  ╭[%s]\n' "$group" >&2
-            fi
+            [[ -n "$current_group" ]] && separator "·" >&2
+            # Use ASCII instead of ┌─
+            printf '%b  ╭[%s]%b\n' "$LOG_DEBUG" "$group" "$LOG_NC" >&2
             current_group="$group"
         fi
         
@@ -1088,39 +1041,31 @@ render_dl_table() {
             fail) color="$LOG_ERROR" ;;
             *)    color="$LOG_NC"    ;;
         esac
-        
-        if [[ -n "$GITHUB_ACTIONS" ]]; then
-            printf '%b  | %s  %-28s  %-16s  %s%b\n' \
-                "$color" "$icon" "$name" "$hash" "$extra" "$LOG_NC" >&2
-        else
-            printf '%b  │ %s  %-28s  %-16s  %s%b\n' \
-                "$color" "$icon" "$name" "$hash" "$extra" "$LOG_NC" >&2
-        fi
+        # Use ASCII instead of │
+        printf '%b  | %s  %-28s  %-16s  %s%b\n' \
+            "$color" "$icon" "$name" "$hash" "$extra" "$LOG_NC" >&2
     done
 
-    # Footer with rounded corners
-    if [[ -n "$GITHUB_ACTIONS" ]]; then
-        printf '  `-------------------------------------------------------´\n' >&2
-        printf '|%*s|\n' $((width - 2)) '' | tr ' ' '-' >&2
-    else
-        printf '│  ╰-------------------------------------------------------\n' >&2
-        printf '├%*s┤\n' $((width - 2)) '' | tr ' ' '─' >&2
-    fi
+    # Use ASCII instead of └─
+    printf '%b  ╰-------------------------------------------------------%b\n' \
+        "$LOG_DEBUG" "$LOG_NC" >&2
+
+    separator "─"
 
     local n_hit n_miss n_skip n_fail
-    n_hit=$(grep -c '^hit' "$file" 2>/dev/null || echo 0)
-    n_miss=$(grep -c '^miss' "$file" 2>/dev/null || echo 0)
-    n_skip=$(grep -c '^skip' "$file" 2>/dev/null || echo 0)
-    n_fail=$(grep -c '^fail' "$file" 2>/dev/null || echo 0)
-    
-    if [[ -n "$GITHUB_ACTIONS" ]]; then
-        printf '  ✔ %s hit   🡇 %s downloaded   — %s skipped   ✖ %s failed\n' \
-            "$n_hit" "$n_miss" "$n_skip" "$n_fail" >&2
-        printf '`%*s´\n' $((width - 2)) '' | tr ' ' '-' >&2
-    else
-        printf '│  ✔ %s hit   🡇 %s downloaded   — %s skipped   ✖ %s failed  │\n' \
-            "$n_hit" "$n_miss" "$n_skip" "$n_fail" >&2
-        printf '╰%*s╯\n' $((width - 2)) '' | tr ' ' '─' >&2
-    fi
+    # Strip \r before counting — parallel jobs may write \r\n on some runners
+    n_hit=$(tr -d '\r' < "$file" | grep -c '^hit'  || echo 0)
+    n_miss=$(tr -d '\r' < "$file" | grep -c '^miss' || echo 0)
+    n_skip=$(tr -d '\r' < "$file" | grep -c '^skip' || echo 0)
+    n_fail=$(tr -d '\r' < "$file" | grep -c '^fail' || echo 0)
+    # Strip any residual whitespace/\r from the counts themselves
+    n_hit="${n_hit//[$'\r\n ']/}"
+    n_miss="${n_miss//[$'\r\n ']/}"
+    n_skip="${n_skip//[$'\r\n ']/}"
+    n_fail="${n_fail//[$'\r\n ']/}"
+    printf '%b  ✔ %s hit   🡇 %s downloaded   — %s skipped   ✖ %s failed%b\n' \
+        "$LOG_INFO" "$n_hit" "$n_miss" "$n_skip" "$n_fail" "$LOG_NC" >&2
+
+    separator "═"
 }
 export -f render_dl_table

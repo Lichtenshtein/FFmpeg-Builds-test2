@@ -26,7 +26,7 @@ ffbuild_dockerdl() {
         # The destination ./DEPS is relative to WORK_DIR (correct — runs after clone)
         # Use cat instead of cp to avoid permission issues on read-only source
         echo "log_info 'Replacing DEPS with custom version from patches...'"
-        echo "cat $(printf '%q' "$custom_deps") > ./DEPS"
+        echo "cat $(printf '%q' "$CUSTOM_DEPS") > ./DEPS"
     else
         log_warn "Custom DEPS not found at ${CUSTOM_DEPS}, using default."
     fi
@@ -130,7 +130,7 @@ EOF
 
     cp -a "$DESTDIR"/. "$FFBUILD_DESTDIR"
 
-    ls -lh
+    # ls -lh
 
     rm -rf "$DESTDIR"
     unset DESTDIR
