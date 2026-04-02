@@ -927,26 +927,42 @@ _term_width() { tput cols 2>/dev/null || echo 72; }
 # Prints a full-width line, optionally with a centred label
 # Example: separator "─" "  DOWNLOADS  "
 separator() {
-    local char="${1:--}"
+    local char="${1:- -}"
     local label="${2:-}"
     local width
     width=$(_term_width)
     
-    # GitHub Actions doesn't support UTF-8 box-drawing; use ASCII fallback
-    if [[ -n "$GITHUB_ACTIONS" ]]; then
-        char=$(echo "$char" | sed 's/═/-/g; s/─/-/g; s/·/./g')
-    fi
+    # Символы краев (заглушки)
+    local left="┝"
+    local right="┥"
+
+    # GitHub Actions fallback (ASCII)
+    # if [[ -n "$GITHUB_ACTIONS" ]]; then
+        # char=$(echo "$char" | sed 's/═/-/g; s/─/-/g; s/·/./g')
+        # left="|"
+        # right="|"
+    # fi
     
     if [[ -z "$label" ]]; then
-        printf '%*s\n' "$width" '' | tr ' ' "$char" >&2
+        # Рисуем линию: левый край + (ширина - 2) символов char + правый край
+        local fill_len=$(( width - 2 ))
+        local fill
+        fill=$(printf '%*s' "$fill_len" '' | tr ' ' "$char")
+        printf '%s%s%s\n' "$left" "$fill" "$right" >&2
     else
+        # Рисуем линию с текстом посередине
         local label_len=${#label}
-        local side=$(( (width - label_len) / 2 ))
+        # Вычитаем 2 (края) и длину текста, делим пополам для отступов
+        local side=$(( (width - label_len - 2) / 2 ))
         local pad
         pad=$(printf '%*s' "$side" '' | tr ' ' "$char")
-        printf '%s%s%s\n' "$pad" "$label" "$pad" >&2
+        
+        # Если ширина нечетная, может остаться лишний пиксель, 
+        # но для терминала это обычно не критично.
+        printf '%s%s %s %s%s\n' "$left" "$pad" "$label" "$pad" "$right" >&2
     fi
 }
+
 export -f separator _term_width
 
 # phase_header <EMOJI> <TITLE>
@@ -1025,14 +1041,14 @@ render_dl_table() {
     sort -t$'\t' -k1,1 "$file" | while IFS=$'\t' read -r status icon name hash extra; do
         local group
         group=$(get_component_group "$name")
-        
+
         if [[ "$group" != "$current_group" ]]; then
             [[ -n "$current_group" ]] && separator "·" >&2
             # Use ASCII instead of ┌─
             printf '%b  ╭[%s]%b\n' "$LOG_DEBUG" "$group" "$LOG_NC" >&2
             current_group="$group"
         fi
-        
+
         local color
         case "$status" in
             hit)  color="$LOG_INFO"  ;;
@@ -1054,15 +1070,20 @@ render_dl_table() {
 
     local n_hit n_miss n_skip n_fail
     # Strip \r before counting — parallel jobs may write \r\n on some runners
-    n_hit=$(tr -d '\r' < "$file" | grep -c '^hit'  || echo 0)
-    n_miss=$(tr -d '\r' < "$file" | grep -c '^miss' || echo 0)
-    n_skip=$(tr -d '\r' < "$file" | grep -c '^skip' || echo 0)
-    n_fail=$(tr -d '\r' < "$file" | grep -c '^fail' || echo 0)
+    n_hit=$(tr -d '\r' < "$file" | grep -c '^hit' || true)
+    n_miss=$(tr -d '\r' < "$file" | grep -c '^miss' || true)
+    n_skip=$(tr -d '\r' < "$file" | grep -c '^skip' || true)
+    n_fail=$(tr -d '\r' < "$file" | grep -c '^fail' || true)
     # Strip any residual whitespace/\r from the counts themselves
     n_hit="${n_hit//[$'\r\n ']/}"
     n_miss="${n_miss//[$'\r\n ']/}"
     n_skip="${n_skip//[$'\r\n ']/}"
     n_fail="${n_fail//[$'\r\n ']/}"
+    # Ensure they're not empty (fallback to 0 if needed)
+    n_hit="${n_hit:-0}"
+    n_miss="${n_miss:-0}"
+    n_skip="${n_skip:-0}"
+    n_fail="${n_fail:-0}"
     printf '%b  ✔ %s hit   🡇 %s downloaded   — %s skipped   ✖ %s failed%b\n' \
         "$LOG_INFO" "$n_hit" "$n_miss" "$n_skip" "$n_fail" "$LOG_NC" >&2
 
