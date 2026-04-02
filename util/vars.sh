@@ -921,6 +921,7 @@ export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE
 # ---------------------------------------------------------------------------
 # Terminal width — used for separators; falls back to 72 if tput unavailable
 # ---------------------------------------------------------------------------
+
 _term_width() { tput cols 2>/dev/null || echo 72; }
 
 _repeat_char() {
@@ -933,19 +934,17 @@ _repeat_char() {
 separator() {
     local char="${1:-─}"
     local label="${2:-}"
-    local width
-    width=$(_term_width)
+    local width=$(_term_width)
 
-    # FIX 1: no border chars, so fill the full width — matches phase_header exactly
     if [[ -z "$label" ]]; then
+        # FIX 1: Полная ширина без боковых символов
         _repeat_char "$width" "$char" >&2
         printf '\n' >&2
     else
         local label_len=${#label}
         local side=$(( (width - label_len) / 2 ))
         [[ $side -lt 0 ]] && side=0
-        local pad
-        pad=$(_repeat_char "$side" "$char")
+        local pad=$(_repeat_char "$side" "$char")
         printf '%s%s%s\n' "$pad" "$label" "$pad" >&2
     fi
 }
@@ -954,27 +953,27 @@ export -f separator _term_width _repeat_char
 # phase_header <EMOJI> <TITLE>
 phase_header() {
     local emoji="$1"; shift
-    local width
-    width=$(_term_width)
-    local line
-    line=$(_repeat_char $((width - 2)) "─")
+    local width=$(_term_width)
+    local line=$(_repeat_char $((width - 2)) "─")
+    
     printf '╭%s╮\n' "$line" >&2
-    # FIX 2: reset color BEFORE the newline, then print newline separately
-    # so the terminal processes NC before any next-line rendering
-    printf '  %s %s  \n' "$emoji" "$*" >&2
+    # FIX 2: Цвет -> Контент -> Сброс -> Перенос строки
+    printf '%b' "${LOG_INFO}" >&2
+    printf '  %s %s  ' "$emoji" "$*" >&2
+    printf '%b\n' "${LOG_NC}" >&2
     printf '╰%s╯\n' "$line" >&2
 }
 export -f phase_header
 
-# phase_footer <message> — use same rounded corners as phase_header
+# phase_footer <message>
 phase_footer() {
-    local width
-    width=$(_term_width)
-    local line
-    line=$(_repeat_char $((width - 2)) "─")
-    # FIX 3: use ╭╮╰╯ consistently everywhere, not ┌┐└┘
+    local width=$(_term_width)
+    local line=$(_repeat_char $((width - 2)) "─")
+    # FIX 3: Скругленные углы последовательно
     printf '╭%s╮\n' "$line" >&2
-    printf '  %s  \n' "$*" >&2
+    printf '%b' "${LOG_INFO}" >&2
+    printf '  %s  ' "$*" >&2
+    printf '%b\n' "${LOG_NC}" >&2
     printf '╰%s╯\n' "$line" >&2
 }
 export -f phase_footer
@@ -1017,10 +1016,8 @@ export -f get_component_group
 render_dl_table() {
     local file="$1"
     [[ -f "$file" ]] || return 0
-    local width
-    width=$(_term_width)
-    # Inner width for group box lines — matches "  ╭" prefix (2 spaces + 1 char)
-    local inner_width=$(( width - 3 ))
+    local width=$(_term_width)
+    local inner_width=$(( width - 4 ))
 
     separator "─" "  DOWNLOAD SUMMARY  "
     printf '  %-3s  %-30s  %-16s  %s\n' "" "COMPONENT" "HASH" "RESULT" >&2
@@ -1028,25 +1025,20 @@ render_dl_table() {
 
     local current_group=""
     sort -t$'\t' -k1,1 "$file" | while IFS=$'\t' read -r status icon name hash extra; do
-        local group
-        group=$(get_component_group "$name")
+        local group=$(get_component_group "$name")
 
         if [[ "$group" != "$current_group" ]]; then
-            # FIX 3: close previous group with rounded bottom corner
+            # FIX 3: Закрытие предыдущей группы
             if [[ -n "$current_group" ]]; then
-                local close_line
-                close_line=$(_repeat_char $((inner_width - 1)) "─")
-                printf '  ╰%s\n' "$close_line" >&2
+                printf '  ╰%s\n' "$(_repeat_char "$inner_width" "─")" >&2
             fi
-            # Open new group with rounded top corner
-            local open_line
-            open_line=$(_repeat_char $((inner_width - ${#group} - 3)) "─")
-            printf '  ╭─ %s %s\n' "$group" "$open_line" >&2
+            # Открытие новой группы
+            local group_label="─[ $group ]"
+            local remain=$(( inner_width - ${#group_label} ))
+            printf '  ╭%s%s\n' "$group_label" "$(_repeat_char "$remain" "─")" >&2
             current_group="$group"
         fi
 
-        # FIX 2: print color, then content, then reset on its own printf
-        # Never mix color codes and content in the same %b expansion
         local color
         case "$status" in
             hit)  color="$LOG_INFO"  ;;
@@ -1055,34 +1047,29 @@ render_dl_table() {
             fail) color="$LOG_ERROR" ;;
             *)    color="$LOG_NC"    ;;
         esac
+
+        # FIX 2: Строгое разделение цвета и вывода
+        printf '  │ ' >&2
         printf '%b' "$color" >&2
-        printf '  │ %s  %-28s  %-16s  %s' "$icon" "$name" "$hash" "$extra" >&2
+        printf '%s  %-28s  %-16s  %s' "$icon" "$name" "$hash" "$extra" >&2
         printf '%b\n' "$LOG_NC" >&2
     done
 
-    # Close the last group
     if [[ -n "$current_group" ]]; then
-        local close_line
-        close_line=$(_repeat_char $((inner_width - 1)) "─")
-        printf '  ╰%s\n' "$close_line" >&2
+        printf '  ╰%s\n' "$(_repeat_char "$inner_width" "─")" >&2
     fi
 
     separator "─"
 
-    local n_hit n_miss n_skip n_fail
-    n_hit=$(tr -d '\r' < "$file" | grep -c '^hit'  || true)
-    n_miss=$(tr -d '\r' < "$file" | grep -c '^miss' || true)
-    n_skip=$(tr -d '\r' < "$file" | grep -c '^skip' || true)
-    n_fail=$(tr -d '\r' < "$file" | grep -c '^fail' || true)
-    n_hit="${n_hit//[$'\r\n ']/}";  n_hit="${n_hit:-0}"
-    n_miss="${n_miss//[$'\r\n ']/}"; n_miss="${n_miss:-0}"
-    n_skip="${n_skip//[$'\r\n ']/}"; n_skip="${n_skip:-0}"
-    n_fail="${n_fail//[$'\r\n ']/}"; n_fail="${n_fail:-0}"
+    # Подсчет (без изменений)
+    local n_hit=$(tr -d '\r' < "$file" | grep -c '^hit' || true)
+    local n_miss=$(tr -d '\r' < "$file" | grep -c '^miss' || true)
+    local n_skip=$(tr -d '\r' < "$file" | grep -c '^skip' || true)
+    local n_fail=$(tr -d '\r' < "$file" | grep -c '^fail' || true)
 
-    # FIX 2: split color from content from reset
     printf '%b' "$LOG_INFO" >&2
     printf '  ✔ %s hit   🡇 %s downloaded   — %s skipped   ✖ %s failed' \
-        "$n_hit" "$n_miss" "$n_skip" "$n_fail" >&2
+        "${n_hit:-0}" "${n_miss:-0}" "${n_skip:-0}" "${n_fail:-0}" >&2
     printf '%b\n' "$LOG_NC" >&2
 }
 export -f render_dl_table
