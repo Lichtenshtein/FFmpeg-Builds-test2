@@ -174,7 +174,7 @@ jobs:
             /usr/lib/x86_64-linux-gnu/libapr*
           key: ${{ steps.host_tools_key.outputs.key }}
 
-     - name: Validate Cached Tools
+      - name: Validate Cached Tools
         if: steps.host_tools_cache.outputs.cache-hit == 'true'
         run: |
           if ! svn --version --quiet &>/dev/null; then
