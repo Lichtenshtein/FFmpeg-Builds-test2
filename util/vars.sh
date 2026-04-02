@@ -955,9 +955,9 @@ export -f phase_header
 
 # phase_footer <message>
 phase_footer() {
-    separator "─"
+    separator "—"
     printf '%b  %s  %b\n' "${LOG_INFO}" "$*" "${LOG_NC}" >&2
-    separator "─"
+    separator "—"
 }
 export -f phase_footer
 
@@ -1012,9 +1012,9 @@ render_dl_table() {
     width=$(_term_width)
 
     # Header
-    separator "─" "  DOWNLOAD SUMMARY  "
+    separator "—" "  DOWNLOAD SUMMARY  "
     printf '  %-3s  %-30s  %-16s  %s\n' "   " "COMPONENT" "HASH" "RESULT" >&2
-    separator "─"
+    separator "—"
 
     # Sort: hits first, then misses, then skips, then fails
     # Then group by component category
@@ -1026,7 +1026,7 @@ render_dl_table() {
         # Print group separator if group changed
         if [[ "$group" != "$current_group" ]]; then
             [[ -n "$current_group" ]] && separator "·" >&2
-            printf '%b  ┌─ %s %b\n' "$LOG_DEBUG" "$group" "$LOG_NC" >&2
+            printf '%b  ╭— %s %b\n' "$LOG_DEBUG" "$group" "$LOG_NC" >&2
             current_group="$group"
         fi
         
@@ -1041,11 +1041,11 @@ render_dl_table() {
         printf '%b  │ %s  %-28s  %-16s  %s%b\n' \
             "$color" "$icon" "$name" "$hash" "$extra" "$LOG_NC" >&2
     done
-
-    printf '%b  └─────────────────────────────────────────────────────────%b\n' \
+                 
+    printf '%b  ╰—————————————————————————————————————————————————————————%b\n' \
         "$LOG_DEBUG" "$LOG_NC" >&2
 
-    separator "─"
+    separator "—"
 
     # Tally
     local n_hit n_miss n_skip n_fail
