@@ -931,12 +931,6 @@ separator() {
     local label="${2:-}"
     local width
     width=$(_term_width)
-
-    # GitHub Actions doesn't support UTF-8 box-drawing; use ASCII fallback
-    if [[ -n "$GITHUB_ACTIONS" ]]; then
-        char=$(echo "$char" | sed 's/═/-/g; s/─/-/g; s/·/./g')
-    fi
-
     if [[ -z "$label" ]]; then
         printf '%*s\n' "$width" '' | tr ' ' "$char" >&2
     else
@@ -947,7 +941,7 @@ separator() {
         printf '%s%s%s\n' "$pad" "$label" "$pad" >&2
     fi
 }
-export -f separator
+export -f separator _term_width
 
 # phase_header <EMOJI> <TITLE>
 # Prints a prominent section header

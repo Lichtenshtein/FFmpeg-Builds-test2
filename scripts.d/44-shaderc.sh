@@ -24,7 +24,10 @@ ffbuild_dockerdl() {
 
     if [[ -f "$custom_deps" ]]; then
         log_info "Replacing DEPS with custom version from patches..."
-        cp -v "$custom_deps" ./DEPS
+        cat "$custom_deps" > ./DEPS || {
+            log_warn "Failed to copy DEPS, using default."
+            return 0
+        }
     else
         log_warn "Custom DEPS not found at ${custom_deps}, using default."
     fi
