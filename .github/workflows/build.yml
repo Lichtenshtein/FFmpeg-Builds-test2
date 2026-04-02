@@ -291,8 +291,6 @@ jobs:
           mkdir -p .cache/downloads .cache/ffmpeg .cache/tmp
           find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
           chmod +x ./download.sh ./util/*.sh ./generate.sh
-		  free -m -s 5 &
-          df -h
           ./download.sh
           ./util/clean_cache.sh
           ./generate.sh "$TARGET" "$VARIANT" "$USE_LTO" "$USE_AVX512"
