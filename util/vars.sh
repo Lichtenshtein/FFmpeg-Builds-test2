@@ -923,6 +923,13 @@ export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE
 # ---------------------------------------------------------------------------
 _term_width() { tput cols 2>/dev/null || echo 72; }
 
+_repeat_char() {
+    local len=$1
+    local char=$2
+    if [[ $len -le 0 ]]; then return; fi
+    printf "%${len}s" "" | sed "s/ /$char/g"
+}
+
 # separator [char] [label]
 # Prints a full-width line, optionally with a centred label
 # Example: separator "─" "  DOWNLOADS  "
@@ -970,17 +977,22 @@ export -f separator _term_width
 # Prints a prominent section header
 phase_header() {
     local emoji="$1"; shift
-    separator "═"
+    local width=$(_term_width)
+    local line=$(_repeat_char $((width - 2)) "─")
+    
+    printf '╭%s╮\n' "$line" >&2
     printf '%b  %s %s  %b\n' "${LOG_INFO}" "$emoji" "$*" "${LOG_NC}" >&2
-    separator "═"
+    printf '╰%s╯\n' "$line" >&2
 }
 export -f phase_header
 
-# phase_footer <message>
 phase_footer() {
-    separator "─"
+    local width=$(_term_width)
+    local line=$(_repeat_char $((width - 2)) "─")
+    
+    printf '┌%s┐\n' "$line" >&2
     printf '%b  %s  %b\n' "${LOG_INFO}" "$*" "${LOG_NC}" >&2
-    separator "─"
+    printf '└%s┘\n' "$line" >&2
 }
 export -f phase_footer
 
@@ -1031,25 +1043,27 @@ export -f get_component_group
 render_dl_table() {
     local file="$1"
     [[ -f "$file" ]] || return 0
-    local width
-    width=$(_term_width)
+    local width=$(_term_width)
+    local line_solid=$(_repeat_char $((width - 2)) "─")
+    local line_dotted=$(_repeat_char $((width - 2)) "·")
 
-    separator "─" "  DOWNLOAD SUMMARY  "
-    printf '  %-3s  %-30s  %-16s  %s\n' "   " "COMPONENT" "HASH" "RESULT" >&2
-    separator "─"
+    # Header
+    printf '╭%s╮\n' "$line_solid" >&2
+    printf '│  %-3s  %-30s  %-16s  %s  │\n' "   " "COMPONENT" "HASH" "RESULT" >&2
+    printf '├%s┤\n' "$line_solid" >&2
 
     local current_group=""
     sort -t$'\t' -k1,1 "$file" | while IFS=$'\t' read -r status icon name hash extra; do
-        local group
-        group=$(get_component_group "$name")
-
+        local group=$(get_component_group "$name")
+        
         if [[ "$group" != "$current_group" ]]; then
-            [[ -n "$current_group" ]] && separator "·" >&2
-            # Use ASCII instead of ┌─
-            printf '%b  ╭[%s]%b\n' "$LOG_DEBUG" "$group" "$LOG_NC" >&2
+            if [[ -n "$current_group" ]]; then
+                printf '├%s┤\n' "$line_dotted" >&2
+            fi
+            printf '│  ╭─[%s]\n' "$group" >&2
             current_group="$group"
         fi
-
+        
         local color
         case "$status" in
             hit)  color="$LOG_INFO"  ;;
@@ -1058,36 +1072,22 @@ render_dl_table() {
             fail) color="$LOG_ERROR" ;;
             *)    color="$LOG_NC"    ;;
         esac
-        # Use ASCII instead of │
-        printf '%b  | %s  %-28s  %-16s  %s%b\n' \
+        
+        printf '%b  │ %s  %-28s  %-16s  %s%b\n' \
             "$color" "$icon" "$name" "$hash" "$extra" "$LOG_NC" >&2
     done
 
-    # Use ASCII instead of └─
-    printf '%b  ╰-------------------------------------------------------%b\n' \
-        "$LOG_DEBUG" "$LOG_NC" >&2
+    # Footer Table
+    printf '├%s┤\n' "$line_solid" >&2
 
-    separator "─"
-
+    # Подсчет результатов (остается без изменений)
     local n_hit n_miss n_skip n_fail
-    # Strip \r before counting — parallel jobs may write \r\n on some runners
     n_hit=$(tr -d '\r' < "$file" | grep -c '^hit' || true)
     n_miss=$(tr -d '\r' < "$file" | grep -c '^miss' || true)
     n_skip=$(tr -d '\r' < "$file" | grep -c '^skip' || true)
     n_fail=$(tr -d '\r' < "$file" | grep -c '^fail' || true)
-    # Strip any residual whitespace/\r from the counts themselves
-    n_hit="${n_hit//[$'\r\n ']/}"
-    n_miss="${n_miss//[$'\r\n ']/}"
-    n_skip="${n_skip//[$'\r\n ']/}"
-    n_fail="${n_fail//[$'\r\n ']/}"
-    # Ensure they're not empty (fallback to 0 if needed)
-    n_hit="${n_hit:-0}"
-    n_miss="${n_miss:-0}"
-    n_skip="${n_skip:-0}"
-    n_fail="${n_fail:-0}"
-    printf '%b  ✔ %s hit   🡇 %s downloaded   — %s skipped   ✖ %s failed%b\n' \
-        "$LOG_INFO" "$n_hit" "$n_miss" "$n_skip" "$n_fail" "$LOG_NC" >&2
 
-    separator "═"
+    printf '%b  ✔ %s hit   🡇 %s downloaded   — %s skipped   ✖ %s failed%b\n' \
+        "$LOG_INFO" "${n_hit:-0}" "${n_miss:-0}" "${n_skip:-0}" "${n_fail:-0}" "$LOG_NC" >&2
 }
 export -f render_dl_table
