@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -xe
 shopt -s globstar
 
 CLEAN_TARGET=$(echo "${1:-$TARGET}" | awk '{print $1}')

@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -xe
+
 retry-tool() {
     _retry "$@"
 }
