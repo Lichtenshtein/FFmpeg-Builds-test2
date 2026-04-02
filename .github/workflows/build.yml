@@ -153,46 +153,10 @@ jobs:
           driver: docker-container
           # buildkitd-flags: ${{ github.event.inputs.verbosity == '1' && '--debug' || '' }}
 
-      - name: Host Tools Cache Key
-        id: host_tools_key
-        run: |
-          PKGS="subversion subversion-tools"
-          sudo apt-get update -qq
-          # Key is hash of package versions (changes when upstream updates)
-          KEY=$(apt-cache policy $PKGS \
-            | grep Candidate \
-            | sha256sum \
-            | cut -c1-16)
-          echo "key=host-tools-${KEY}" >> $GITHUB_OUTPUT
-
-      - name: Check Host Tools Cache
-        id: host_tools_cache
-        uses: actions/cache@v4
-        with:
-          # Cache a marker file, not the binaries themselves
-          path: /tmp/host-tools-marker
-          key: ${{ steps.host_tools_key.outputs.key }}
-
       - name: Install Host Tools
         run: |
-          # If marker exists and is recent, skip install
-          if [[ -f /tmp/host-tools-marker ]] && \
-             [[ $(find /tmp/host-tools-marker -mmin -1440) ]]; then
-            echo "Host tools already installed (cache hit)"
-          else
-            echo "Installing host tools..."
-            sudo apt-get install -y subversion subversion-tools
-            # Create marker for next run
-            sudo touch /tmp/host-tools-marker
-            sudo chmod 644 /tmp/host-tools-marker
-          fi
-
-      - name: Validate Cached Tools
-        run: |
-          if ! svn --version --quiet &>/dev/null; then
-            echo "svn not found, reinstalling..."
-            sudo apt-get install -y subversion subversion-tools
-          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y subversion subversion-tools nasm yasm
 
       - name: Host Hardware Audit
         run: |

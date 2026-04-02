@@ -939,8 +939,8 @@ separator() {
     local width
     width=$(_term_width)
     
-    local left="┝"
-    local right="┥"
+    # local left="┝"
+    # local right="┥"
 
     # GitHub Actions fallback (ASCII)
     # if [[ -n "$GITHUB_ACTIONS" ]]; then
@@ -960,7 +960,8 @@ separator() {
     if [[ -z "$label" ]]; then
         local fill_len=$(( width - 2 ))
         local fill=$(generate_fill "$fill_len" "$char")
-        printf '%s%s%s\n' "$left" "$fill" "$right" >&2
+        # printf '%s%s%s\n' "$left" "$fill" "$right" >&2
+        printf '%s%s%s\n' "$fill" >&2
     else
         local label_len=${#label}
         # Вычитаем края и пробелы вокруг текста
@@ -968,7 +969,8 @@ separator() {
         [[ $side -lt 0 ]] && side=0
         
         local pad=$(generate_fill "$side" "$char")
-        printf '%s%s %s %s%s\n' "$left" "$pad" "$label" "$pad" "$right" >&2
+        # printf '%s%s %s %s%s\n' "$left" "$pad" "$label" "$pad" "$right" >&2
+        printf '%s%s %s %s%s\n' "$pad" "$label" "$pad" >&2
     fi
 }
 export -f separator _term_width
@@ -1044,26 +1046,24 @@ render_dl_table() {
     local file="$1"
     [[ -f "$file" ]] || return 0
     local width=$(_term_width)
-    local line_solid=$(_repeat_char $((width - 2)) "─")
-    local line_dotted=$(_repeat_char $((width - 2)) "·")
 
     # Header
-    printf '╭%s╮\n' "$line_solid" >&2
-    printf '│  %-3s  %-30s  %-16s  %s  │\n' "   " "COMPONENT" "HASH" "RESULT" >&2
-    printf '├%s┤\n' "$line_solid" >&2
+    separator "─" "  DOWNLOAD SUMMARY  "
+    printf '  %-3s  %-30s  %-16s  %s\n' "   " "COMPONENT" "HASH" "RESULT" >&2
+    separator "─"
 
     local current_group=""
     sort -t$'\t' -k1,1 "$file" | while IFS=$'\t' read -r status icon name hash extra; do
-        local group=$(get_component_group "$name")
-        
+        local group
+        group=$(get_component_group "$name")
+
         if [[ "$group" != "$current_group" ]]; then
-            if [[ -n "$current_group" ]]; then
-                printf '├%s┤\n' "$line_dotted" >&2
-            fi
-            printf '│  ╭─[%s]\n' "$group" >&2
+            [[ -n "$current_group" ]] && separator "-" >&2
+            # Use ASCII instead of ┌─
+            printf '%b  ╭[%s]%b\n' "$LOG_DEBUG" "$group" "$LOG_NC" >&2
             current_group="$group"
         fi
-        
+
         local color
         case "$status" in
             hit)  color="$LOG_INFO"  ;;
@@ -1072,13 +1072,16 @@ render_dl_table() {
             fail) color="$LOG_ERROR" ;;
             *)    color="$LOG_NC"    ;;
         esac
-        
-        printf '%b  │ %s  %-28s  %-16s  %s%b\n' \
+        # Use ASCII instead of │
+        printf '%b  | %s  %-28s  %-16s  %s%b\n' \
             "$color" "$icon" "$name" "$hash" "$extra" "$LOG_NC" >&2
     done
 
-    # Footer Table
-    printf '├%s┤\n' "$line_solid" >&2
+    # Use ASCII instead of └─
+    printf '%b  ╰-------------------------------------------------------%b\n' \
+        "$LOG_DEBUG" "$LOG_NC" >&2
+
+    separator "─"
 
     # Подсчет результатов (остается без изменений)
     local n_hit n_miss n_skip n_fail
