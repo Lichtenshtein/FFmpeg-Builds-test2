@@ -927,12 +927,11 @@ _term_width() { tput cols 2>/dev/null || echo 72; }
 # Prints a full-width line, optionally with a centred label
 # Example: separator "─" "  DOWNLOADS  "
 separator() {
-    local char="${1:- -}"
+    local char="${1:-─}"
     local label="${2:-}"
     local width
     width=$(_term_width)
     
-    # Символы краев (заглушки)
     local left="┝"
     local right="┥"
 
@@ -942,27 +941,29 @@ separator() {
         # left="|"
         # right="|"
     # fi
-    
+
+    # Создаем строку-заполнитель нужной длины без использования tr
+    # Мы генерируем строку из пробелов и заменяем каждый пробел на нужный символ
+    generate_fill() {
+        local len=$1
+        local c=$2
+        printf "%${len}s" "" | sed "s/ /$c/g"
+    }
+
     if [[ -z "$label" ]]; then
-        # Рисуем линию: левый край + (ширина - 2) символов char + правый край
         local fill_len=$(( width - 2 ))
-        local fill
-        fill=$(printf '%*s' "$fill_len" '' | tr ' ' "$char")
+        local fill=$(generate_fill "$fill_len" "$char")
         printf '%s%s%s\n' "$left" "$fill" "$right" >&2
     else
-        # Рисуем линию с текстом посередине
         local label_len=${#label}
-        # Вычитаем 2 (края) и длину текста, делим пополам для отступов
-        local side=$(( (width - label_len - 2) / 2 ))
-        local pad
-        pad=$(printf '%*s' "$side" '' | tr ' ' "$char")
+        # Вычитаем края и пробелы вокруг текста
+        local side=$(( (width - label_len - 4) / 2 ))
+        [[ $side -lt 0 ]] && side=0
         
-        # Если ширина нечетная, может остаться лишний пиксель, 
-        # но для терминала это обычно не критично.
+        local pad=$(generate_fill "$side" "$char")
         printf '%s%s %s %s%s\n' "$left" "$pad" "$label" "$pad" "$right" >&2
     fi
 }
-
 export -f separator _term_width
 
 # phase_header <EMOJI> <TITLE>
