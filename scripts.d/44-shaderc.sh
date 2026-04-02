@@ -15,26 +15,25 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
 
-    local STAGENAME COMPONENT_NAME
+    local STAGENAME COMPONENT_NAME CUSTOM_DEPS
     STAGENAME="$(basename "$STAGE" .sh)"
     COMPONENT_NAME="${STAGENAME#*-}"
 
     # Replace the DEPS file with the file from the patches folder.
-    local custom_deps="${PATCHES_DIR}/${COMPONENT_NAME}/DEPS"
+    CUSTOM_DEPS="${PATCHES_DIR}/${COMPONENT_NAME}/DEPS"
 
-    if [[ -f "$custom_deps" ]]; then
-        log_info "Replacing DEPS with custom version from patches..."
-        cat "$custom_deps" > ./DEPS || {
-            log_warn "Failed to copy DEPS, using default."
-            return 0
-        }
+    if [[ -f "$CUSTOM_DEPS" ]]; then
+        # The destination ./DEPS is relative to WORK_DIR (correct — runs after clone)
+        # Use cat instead of cp to avoid permission issues on read-only source
+        echo "log_info 'Replacing DEPS with custom version from patches...'"
+        echo "cat $(printf '%q' "$custom_deps") > ./DEPS"
     else
-        log_warn "Custom DEPS not found at ${custom_deps}, using default."
+        log_warn "Custom DEPS not found at ${CUSTOM_DEPS}, using default."
     fi
 
     # Run dependency synchronization.
     # It will now use our updated DEPS file with the new hashes.
-    ./utils/git-sync-deps || exit $?
+    echo "./utils/git-sync-deps || exit $?"
 }
 
 ffbuild_dockerbuild() {
