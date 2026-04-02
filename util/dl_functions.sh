@@ -399,6 +399,7 @@ download_stage() {
         # source "$UTIL_DIR/vars.sh" "$TARGET" "$VARIANT" &>/dev/null
         # source "$UTIL_DIR/dl_functions.sh"
         eval "$DL_COMMANDS"
+        trap 'rm -rf "$WORK_DIR"' EXIT
     ); then
 
         # Whitelist метаданных .git (список подгружается из workflow.yaml). 
