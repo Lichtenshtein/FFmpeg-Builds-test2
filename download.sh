@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+set -xe
 
 cd "$(dirname "$0")"
 
@@ -17,6 +17,12 @@ git config --global http.postBuffer 524288000
 source util/vars.sh "$TARGET" "$VARIANT" \
     || { echo "ERROR: vars.sh failed. TARGET=$TARGET VARIANT=$VARIANT" >&2; exit 1; }
 source util/dl_functions.sh
+
+export ROOT_DIR="$PWD"
+
+mkdir -p .cache/downloads
+CACHE_DIR="$PWD/.cache/downloads"
+
 
 JOBLOG=$(mktemp)
 
