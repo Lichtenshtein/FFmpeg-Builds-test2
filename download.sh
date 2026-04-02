@@ -18,7 +18,12 @@ source util/vars.sh "$TARGET" "$VARIANT" \
     || { echo "ERROR: vars.sh failed. TARGET=$TARGET VARIANT=$VARIANT" >&2; exit 1; }
 source util/dl_functions.sh
 
+export DL_RESULT_FILE
+
+DL_RESULT_FILE=$(mktemp)
 JOBLOG=$(mktemp)
+
+phase_header "🡇" "SOURCE DOWNLOADS  [$TARGET-$VARIANT]"
 
 # очистка временной папки и файлов
 trap 'rm -f "$JOBLOG"; rm -rf "$TMP_DIR"' EXIT
@@ -27,16 +32,20 @@ if [[ ! -d "$CACHE_DIR" ]]; then
     log_warn "Cache directory $CACHE_DIR not found!"
     exit 0
 else
-    log_debug "${DIRS_MARK} Current cache directory is:\n$CACHE_DIR"
+    log_debug "${DIRS_MARK} Cache directory:\n$CACHE_DIR"
 fi
 
-log_info "${DOWN_MARK} Starting parallel downloads for $TARGET-$VARIANT..."
 # If ONLY_STAGE is set, only download matching stages
 if [[ -n "$ONLY_STAGE" ]]; then
     STAGES=$(find scripts.d -name "*.sh" | sort | grep -E "$ONLY_STAGE")
+    log_info "${XCLAM_MARK} Filtering stages by pattern:\n$ONLY_STAGE"
 else
     STAGES=$(find scripts.d -name "*.sh" | sort)
 fi
+
+STAGE_COUNT=$(echo "$STAGES" | wc -l)
+log_info "${DOWN_MARK} Queuing ${STAGE_COUNT} stage(s) for parallel download (jobs=8)..."
+separator "─"
 
 # --halt now,fail=1 меняем на --halt soon,fail=20%; (--line-buffer may be useful)
 # Это даст шанс остальным докачаться, даже если один упал
@@ -46,10 +55,15 @@ echo "$STAGES" | parallel --halt now,fail=1 --jobs 8 \
     "export TARGET='$TARGET'; \
      export VARIANT='$VARIANT'; \
      export STAGE={}; \
-     source '$UTIL_DIR/vars.sh' \$TARGET \$VARIANT 2>/dev/null \
+     export DL_RESULT_FILE='$DL_RESULT_FILE'; \
+     source '${UTIL_DIR}/vars.sh' \$TARGET \$VARIANT 2>/dev/null \
          || { echo 'ERROR: vars.sh failed in parallel job' >&2; exit 1; }; \
-     source '$UTIL_DIR/dl_functions.sh'; \
+     source '${UTIL_DIR}/dl_functions.sh'; \
      download_stage {}"
+
+# Render the collected results as one aligned table after all jobs finish
+render_dl_table "$DL_RESULT_FILE"
+rm -f "$DL_RESULT_FILE"
 
 if [[ -f "$JOBLOG" ]]; then
     # Извлекаем список команд ($NF) для строк, где статус ($7) не равен 0
@@ -57,8 +71,8 @@ if [[ -f "$JOBLOG" ]]; then
     [[ -n "$failed" ]] && log_error "Failed downloads:\n$failed"
 fi
 
-log_info "${CHECK_MARK} All sequential downloads finished successfully."
-log_info "${SEARCH_MARK} Checking for FFmpeg updates..."
+# FFmpeg
+phase_header "🔎" "FFMPEG SOURCE CHECK"
 
 # Получаем хеш последнего коммита в удаленной ветке (без клонирования)
 REMOTE_HASH=$(git ls-remote "$FFMPEG_REPO" "refs/heads/$FFMPEG_BRANCH" | cut -f1)
@@ -69,16 +83,45 @@ if [[ -z "$REMOTE_HASH" ]]; then
 else
     # Читаем локальный хеш (если файл существует)
     LOCAL_HASH=$(cat "$FFMPEG_HASH_FILE" 2>/dev/null || echo "none")
-    if [[ "$REMOTE_HASH" == "$LOCAL_HASH" && -f "$FFMPEG_DIR/configure" ]]; then
-        log_info "${CHECK_MARK} FFmpeg is up to date (Commit: ${REMOTE_HASH:0:7}). Skipping download."
+
+    # Visual hash comparison
+    separator "─" "  HASH COMPARISON  "
+    if [[ "$REMOTE_HASH" == "$LOCAL_HASH" ]]; then
+        printf '  %-8s  %b%s%b\n' "local"  "$LOG_INFO"  "${LOCAL_HASH:0:12}"  "$LOG_NC" >&2
+        printf '  %-8s  %b%s%b\n' "remote" "$LOG_INFO"  "${REMOTE_HASH:0:12}" "$LOG_NC" >&2
+        printf '  %-8s  %b%s%b\n' "match"  "$LOG_INFO"  "✔ up to date"        "$LOG_NC" >&2
     else
-        log_warn "${DOWN_MARK} New version detected or source missing. ${SYNC_MARK} Fetching FFmpeg..."
+        # Highlight differing characters individually
+        _print_hash_diff() {
+            local a="$1" b="$2" label_a="$3" label_b="$4"
+            local i ca cb out_a="" out_b=""
+            local len=${#a}
+            for (( i=0; i<len; i++ )); do
+                ca="${a:$i:1}"; cb="${b:$i:1}"
+                if [[ "$ca" == "$cb" ]]; then
+                    out_a+="$ca"; out_b+="$cb"
+                else
+                    out_a+="${LOG_WARN}${ca}${LOG_NC}"
+                    out_b+="${LOG_WARN}${cb}${LOG_NC}"
+                fi
+            done
+            printf '  %-8s  %b\n' "$label_a" "$out_a" >&2
+            printf '  %-8s  %b\n' "$label_b" "$out_b" >&2
+        }
+        _print_hash_diff "$LOCAL_HASH" "$REMOTE_HASH" "local" "remote"
+        printf '  %-8s  %b%s%b\n' "status" "$LOG_WARN" "⚠ update available" "$LOG_NC" >&2
+    fi
+    separator "─"
+
+    if [[ "$REMOTE_HASH" == "$LOCAL_HASH" && -f "$FFMPEG_DIR/configure" ]]; then
+        log_info "${CHECK_MARK} FFmpeg is up to date (Commit: ${REMOTE_HASH:0:7}). Skipping clone."
+    else
+        log_warn "${DOWN_MARK} New version detected or source missing. ${SYNC_MARK} Fetching FFmpeg ${FFMPEG_BRANCH} → ${REMOTE_HASH:0:7}..."
         # FFmpeg update (--quiet для чистоты логов)
         # Используем переменные FFMPEG_REPO и FFMPEG_BRANCH из workflow.yaml
         if [[ ! -d "$FFMPEG_DIR/.git" ]]; then
             mkdir -p "$FFMPEG_DIR"
-            log_info "${DOWN_MARK} Cloning FFmpeg from $FFMPEG_REPO ($FFMPEG_BRANCH)"
-            git clone --progress --depth=1 --branch="$FFMPEG_BRANCH" "$FFMPEG_REPO" "$FFMPEG_DIR" 2>&1 | pv -l -q -p | log_debug "Cloning..."
+            git clone --progress --depth=1 --branch="$FFMPEG_BRANCH" "$FFMPEG_REPO" "$FFMPEG_DIR" 2>&1 | log_debug "Cloning..."
         else
             ( cd "$FFMPEG_DIR" && \
               git remote set-url origin "$FFMPEG_REPO" && \
@@ -92,6 +135,6 @@ else
     fi
 fi
 
-log_info "${CHECK_MARK} All downloads finished."
+phase_footer "✔ All downloads complete"
 
 exit 0
