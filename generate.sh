@@ -90,9 +90,9 @@ done
 
 # Генерируем блоки RUN для каждой стадии
 for STAGE in "${active_scripts[@]}"; do
-    STAGENAME="$(basename "$STAGE" .sh)"
+    # STAGENAME="$(basename "$STAGE" .sh)"
     # Извлекаем имя компонента (напр., из 50-libmp3lame получаем libmp3lame)
-    COMPONENT_NAME="${STAGENAME#*-}"
+    # COMPONENT_NAME="${STAGENAME#*-}"
     # Component Specific Hash: Only this script + its patches
     STAGE_HASH=$(get_stage_hash "$STAGE")
     # Гранулярный поиск патчей

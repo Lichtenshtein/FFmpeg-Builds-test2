@@ -81,8 +81,9 @@ update_shaderc_deps() {
     done
 }
 
-for scr in $SEARCH_PATTERN; do
-    [[ -f "$scr" ]] || continue
+for STAGE in $SEARCH_PATTERN; do
+    [[ -f "$STAGE" ]] || continue
+    # STAGENAME=$(basename "$STAGE" .sh)
 
     # Проверка на вхождение в массив исключений
     skip_this=0
@@ -92,20 +93,20 @@ for scr in $SEARCH_PATTERN; do
     [[ $skip_this -eq 1 ]] && log_info "${LOCK_MARK} Skipping: ${STAGENAME} (In exclusion list)" && continue
 
     # Пропускаем помеченные скрипты
-    if grep -q 'SCRIPT_SKIP="1"' "$scr"; then
-        log_debug "${LOCK_MARK} Skipping ${scr} (SCRIPT_SKIP active)"
+    if grep -q 'SCRIPT_SKIP="1"' "$STAGE"; then
+        log_debug "${LOCK_MARK} Skipping ${STAGE} (SCRIPT_SKIP active)"
         continue
     fi
 
-    log_info "${SEARCH_MARK} Checking ${scr}..."
-    cp "$scr" "${scr}.bak"
+    log_info "${SEARCH_MARK} Checking ${STAGE}..."
+    cp "$STAGE" "${STAGE}.bak"
     file_changed=0
 
     # Запускаем в подоболочке, чтобы source не замусорил окружение
     (
         # Нам нужно только получить переменные, не выполняя функции билда
         # Поэтому мы грепаем только строки с определениями переменных
-        eval "$(grep -E '^[A-Z0-9_]+=".*"' "$scr")"
+        eval "$(grep -E '^[A-Z0-9_]+=".*"' "$STAGE")"
 
         for i in "" $(seq 2 9); do
             REPO_VAR="SCRIPT_REPO$i"; COMMIT_VAR="SCRIPT_COMMIT$i"
@@ -120,7 +121,7 @@ for scr in $SEARCH_PATTERN; do
 
             # Проверка на "живучесть" репозитория
             if ! check_repo_exists "$CUR_REPO"; then
-                echo "REPORT_DEAD|${scr}|${CUR_REPO}" >> "$TMP_REPORT"
+                echo "REPORT_DEAD|${STAGE}|${CUR_REPO}" >> "$TMP_REPORT"
                 continue
             fi
 
@@ -146,27 +147,27 @@ for scr in $SEARCH_PATTERN; do
                 NEW_VAL=$(hg identify "${CUR_REPO}" -r default 2>/dev/null | awk '{print $1}' || true)
             else
                 # Неизвестный формат (нет ни коммита, ни ревизии)
-                echo "REPORT_UNKNOWN|${scr}|${CUR_REPO}" >> "$TMP_REPORT"
+                echo "REPORT_UNKNOWN|${STAGE}|${CUR_REPO}" >> "$TMP_REPORT"
                 continue
             fi
 
             # Если нашли новое значение и оно отличается от текущего
             if [[ -n "${NEW_VAL}" && "${NEW_VAL}" != "${!TARGET_VAR}" ]]; then
-                echo "REPORT_UPDATE|${scr}|${TARGET_VAR}|${!TARGET_VAR}|${NEW_VAL}" >> "$TMP_REPORT"
+                echo "REPORT_UPDATE|${STAGE}|${TARGET_VAR}|${!TARGET_VAR}|${NEW_VAL}" >> "$TMP_REPORT"
                 # Обновляем файл физически
-                sed -i "s|^${TARGET_VAR}=\".*\"|${TARGET_VAR}=\"${NEW_VAL}\"|" "${scr}"
+                sed -i "s|^${TARGET_VAR}=\".*\"|${TARGET_VAR}=\"${NEW_VAL}\"|" "${STAGE}"
                 log_info "  ${SYNC_MARK} ${TARGET_VAR}: ${!TARGET_VAR:0:7} -> ${NEW_VAL:0:7}"
             fi
         done
     ) 
 
     # Валидация синтаксиса
-    if ! bash -n "$scr"; then
-        log_error "${CROSS_MARK} Syntax error in ${scr}! Rolling back."
-        echo "REPORT_SYNTAX|${scr}" >> "$TMP_REPORT"
-        mv "${scr}.bak" "$scr"
+    if ! bash -n "$STAGE"; then
+        log_error "${CROSS_MARK} Syntax error in ${STAGE}! Rolling back."
+        echo "REPORT_SYNTAX|${STAGE}" >> "$TMP_REPORT"
+        mv "${STAGE}.bak" "$STAGE"
     else
-        rm -f "${scr}.bak"
+        rm -f "${STAGE}.bak"
     fi
 done
 

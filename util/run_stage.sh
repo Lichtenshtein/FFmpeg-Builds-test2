@@ -2,11 +2,12 @@
 
 set -e
 
-export SCRIPT_PATH="$1"
+# SCRIPT_PATH="$1"
+STAGE="$1"
 
 # Сначала убедимся, что путь к скрипту вообще есть
-if [[ -z "$SCRIPT_PATH" || ! -f "$SCRIPT_PATH" ]]; then
-    echo "ERROR: Usage: run_stage <script_path>" >&2
+if [[ -z "$STAGE" || ! -f "$STAGE" ]]; then
+    echo "ERROR: Usage: run_stage <STAGE>" >&2
     exit 1
 fi
 
@@ -20,11 +21,14 @@ if ! declare -F default_dl >/dev/null; then
     . "$UTIL_DIR"/dl_functions.sh > /dev/null 2>&1 || true
 fi
 
+# STAGENAME="$(basename "$STAGE" .sh)"
+STAGE_HASH=$(get_stage_hash "$STAGE")
+
 # Очистка при выходе. Удаляем старые файлы, если они остались от прошлых запусков
 trap 'echo "::endgroup::"; cd /; rm -rf "/build/$STAGENAME" "VARS_DIR"; rm -f "$OUTFILE" "$TIMESTAMP_FILE" /tmp/stage_build.log' EXIT
 
 # Создаем и входим в директорию сборки ДО загрузки скрипта
-mkdir -p "/build/$STAGENAME" && cd "/build/$STAGENAME"
+mkdir -p "$ROOT_DIR/$STAGENAME" && cd "$ROOT_DIR/$STAGENAME"
 
 # Обнуляем статистику
 ccache -z > /dev/null
@@ -35,7 +39,7 @@ echo "::group::$STAGENAME"
 # Подгружаем скрипт заранее, чтобы проверить SCRIPT_SKIP
 # любые $(pwd) или относительные пути внутри скрипта будут указывать на /build/STAGENAME
 # Используем абсолютный путь к скрипту, так как мы уже сменили cd
-source "$(readlink -f "$SCRIPT_PATH")"
+source "$(readlink -f "$STAGE")"
 
 # Проверка на пропуск (теперь переменная SCRIPT_SKIP подгружена в контексте нужной папки)
 if [[ "$SCRIPT_SKIP" == "1" ]]; then
@@ -76,7 +80,10 @@ else
 fi
 
 # Проверяем, нужны ли вообще исходники для этой стадии (или это мета-стадия), и выходим
-[[ -z "$DL_COMMANDS" ]] && log_error "ffbuild_dockerdl failed for $STAGENAME" && exit 1
+DL_COMMANDS=$(ffbuild_dockerdl) || {
+    log_error "ffbuild_dockerdl failed for $STAGENAME"
+    exit 1
+}
 
 if [[ -n "$DL_COMMANDS" ]]; then
     # Если кэш не найден ни одним способом
@@ -208,7 +215,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_debug "Verbose mode active. Build output will be shown in real-time."
     if ! ( set -e -o pipefail; $build_cmd ); then
         log_error "ERROR: Build ${LOG_ERROR}failed${LOG_NC} for ${STAGENAME}"
-        log_debug "${BUILD_MARK} Current stage file: ${SCRIPT_PATH}"
+        log_debug "${BUILD_MARK} Current stage file: ${STAGE}"
         # Выводим текущую директорию и структуру файлов, чтобы понять, где мы
         log_debug "${DIRS_MARK} Current directory: $(pwd)"
         # Используем 'find' для поиска любых логов ошибок рекурсивно
@@ -314,10 +321,10 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
     # Re-source vars.sh clean so ffbuild_* accumulator functions are defined
     # but FF_* variables are empty
     unset FF_CONFIGURE FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LDEXEFLAGS FF_LIBS
-    . "$UTIL_DIR"/vars.sh "$TARGET" "$VARIANT" > /dev/null 2>&1
+    . "$UTIL_DIR/vars.sh" "$TARGET" "$VARIANT" > /dev/null 2>&1
 
     # Re-source the component script so its ffbuild_* functions are available
-    . "$SCRIPT_PATH"
+    . "$STAGE"
 
     # Call the component's own ffbuild_* functions
     # These are the ONLY authoritative source of what this component needs.

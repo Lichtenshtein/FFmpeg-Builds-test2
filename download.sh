@@ -1,8 +1,8 @@
 #!/bin/bash
 
-set -xe
+set -e
 
-# cd "$(dirname "$0")"
+cd "$(dirname "$0")"
 
 # фикс проблем с git 
 git config --global advice.detachedHead false
