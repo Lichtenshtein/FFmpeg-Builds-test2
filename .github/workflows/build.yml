@@ -158,28 +158,20 @@ jobs:
           KEY=$(apt-cache policy $PKGS | grep Candidate | sha256sum | cut -c1-16)
           echo "key=host-tools-${KEY}" >> $GITHUB_OUTPUT
 
-      - name: Prepare Host Tools Cache
-        run: |
-          mkdir -p /tmp/host-tools-cache/bin
-          sudo cp /usr/bin/svn /tmp/host-tools-cache/bin/ 2>/dev/null || true
-          sudo cp /usr/bin/svnadmin /tmp/host-tools-cache/bin/ 2>/dev/null || true
-          sudo cp /usr/bin/svnlook /tmp/host-tools-cache/bin/ 2>/dev/null || true
-          sudo chown -R $USER:$USER /tmp/host-tools-cache
-
-      - name: Cache Host Tools
+      - name: Check Host Tools Cache
+        id: host_tools_cache
         uses: actions/cache@v4
         with:
-          path: /tmp/host-tools-cache
+          path: /tmp/host-tools-marker
           key: ${{ steps.host_tools_key.outputs.key }}
 
       - name: Install Host Tools
+        if: steps.host_tools_cache.outputs.cache-hit != 'true'
         run: |
-          if [[ ! -f /tmp/host-tools-cache/bin/svn ]]; then
-            sudo apt-get update -qq
-            sudo apt-get install -y subversion subversion-tools
-          else
-            sudo cp /tmp/host-tools-cache/bin/* /usr/bin/
-          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y subversion subversion-tools
+          sudo touch /tmp/host-tools-marker
+          sudo chmod 644 /tmp/host-tools-marker
 
       - name: Host Hardware Audit
         run: |
