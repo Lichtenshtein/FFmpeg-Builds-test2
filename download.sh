@@ -27,7 +27,7 @@ if [[ ! -d "$CACHE_DIR" ]]; then
     log_warn "Cache directory $CACHE_DIR not found!"
     exit 0
 else
-    log_debug "${DIRS_MARK} Current Cache directory is:\n$CACHE_DIR"
+    log_debug "${DIRS_MARK} Current cache directory is:\n$CACHE_DIR"
 fi
 
 log_info "${DOWN_MARK} Starting parallel downloads for $TARGET-$VARIANT..."
@@ -46,9 +46,9 @@ echo "$STAGES" | parallel --halt now,fail=1 --jobs 8 \
     "export TARGET='$TARGET'; \
      export VARIANT='$VARIANT'; \
      export ROOT_DIR='$ROOT_DIR'; \
-     source '/builder/util/vars.sh' \$TARGET \$VARIANT 2>/dev/null \
+     source '$UTIL_DIR/vars.sh' \$TARGET \$VARIANT 2>/dev/null \
          || { echo 'ERROR: vars.sh failed in parallel job' >&2; exit 1; }; \
-     source '/builder/util/dl_functions.sh'; \
+     source '$UTIL_DIR/dl_functions.sh'; \
      download_stage {} '$CACHE_DIR'"
 
 if [[ -f "$JOBLOG" ]]; then
