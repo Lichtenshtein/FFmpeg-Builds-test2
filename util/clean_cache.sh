@@ -35,8 +35,8 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     [[ -f "$STAGE" ]] || continue
 
     # Обновляем переменные для ТЕКУЩЕГО файла в цикле
-    STAGENAME="$(basename "$STAGE" .sh)"
-    DL_HASH=$(get_stage_hash "$STAGE")
+    # STAGENAME="$(basename "$STAGE" .sh)"
+    STAGE_HASH=$(get_stage_hash "$STAGE")
 
     # Is this stage active (listed in ONLY_STAGE)?
     is_active=false
@@ -89,9 +89,9 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
 
     # Add to keep-list if protecting
     if [[ "$should_protect" == "true" ]]; then
-        if [[ -n "$DL_HASH" ]]; then
-            echo "${STAGENAME}_${DL_HASH}.tar.zst" >> "$RAW_KEEP_LIST"
-            echo "${STAGENAME}.tar.zst"             >> "$RAW_KEEP_LIST"
+        if [[ -n "$STAGE_HASH" ]]; then
+            echo "${STAGENAME}_${STAGE_HASH}.tar.zst" >> "$RAW_KEEP_LIST"
+            echo "${STAGENAME}.tar.zst"               >> "$RAW_KEEP_LIST"
             # Single-line debug: only shown when FFBUILD_VERBOSE >= 2 or similar
             # Use log_debug sparingly one line per protected file is too noisy at scale
         fi
