@@ -41,15 +41,24 @@ log_warn()  { echo -e "${LOG_WARN}[WARN]${LOG_NC}  ${XCLAM_MARK} $*" >&2; }
 log_error() { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} ${CROSS_MARK} $*" >&2; }
 log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
 
+# Safe color codes through %b, raw value through %s
 print_info()  { printf '%b[INFO]%b  %b\n' "${LOG_INFO}" "${LOG_NC}" "$*" >&2; }
 print_warn()  { printf '%b[WARN]%b %b\n' "${LOG_WARN}" "${LOG_NC}"  "${XCLAM_MARK}" "$*" >&2; }
 print_error() { printf '%b[ERROR]%b %b\n' "${LOG_ERROR}" "${LOG_NC}"  "${CROSS_MARK}" "$*" >&2; }
 print_debug() { printf '%b[DEBUG]%b %b\n' "${LOG_DEBUG}" "${LOG_NC}" "$*" >&2; }
 
+# Use instead of log_debug/print_debug when the value may contain
+# Windows paths or other backslash sequences
+log_raw() {
+    local label="$1"; shift
+    printf '%b[DEBUG]%b  %s\n' "${LOG_DEBUG}" "${LOG_NC}" "${label}" >&2
+    printf '  %s\n' "$*" >&2
+}
+
 log_info_line() { echo -e "${LOG_INFO}[INFO]${LOG_NC}  ################################################################" >&2; }
 log_err_line()  { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >&2; }
 
-export -f log_info log_warn log_error log_debug log_info_line log_err_line print_info print_warn print_error print_debug
+export -f log_info log_warn log_error log_debug log_info_line log_err_line print_info print_warn print_error print_debug log_raw
 
 # ---------------------------------------------------------------------------
 # ROOT_DIR: always the project root, regardless of where vars.sh lives or
@@ -393,10 +402,11 @@ patch_pc_files() {
     # helper escape string for use as a literal sed pattern
     sed_escape() { printf '%s' "$1" | sed 's/[[\.*^$()+?{|]/\\&/g'; }
 
+    log_debug "Correcting values in .pc files:"
     # замена абсолютных путей на переменные
     find "$pc_dir" -maxdepth 1 -name "*.pc" | while read -r pc; do
         [[ -f "$pc" ]] || continue
-        log_debug "Correcting values in .pc files:\n$pc"
+        printf '%s\n' "$pc"
 
         # Capitalisation fixes
         sed -i $sl 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g; s/-lpthread/-pthread/g' "$pc"
@@ -650,8 +660,9 @@ get_deps_list() {
                 grep -Ev "^(__imp_|__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk)" | \
                 sort -u | head -n 10)
             if [[ -n "$clean_symbols" ]]; then
+                indented_symbols=$(echo "$clean_symbols" | sed 's/^/ /')
                 printf "\n%b EXTERNAL SYMBOLS (TOP 10) in %s:\n%s\n" \
-                    "$xclam_mark" "$file" "$clean_symbols"
+                    "$xclam_mark" "$file" "$indented_symbols"
             fi
         fi
     ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
@@ -856,7 +867,7 @@ if [ -d "/opt/ct-ng" ]; then
         fi
         # Выводим инфо о WINEPATH только при его создании
         # [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && printf '%b WINEPATH (Windows style): %s\n' "${LOG_DEBUG}[DEBUG]${LOG_NC} ${DIRS_MARK}" "$WINEPATH"
-        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && print_debug "${DIRS_MARK} WINEPATH (Windows style):\n$WINEPATH"
+        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_raw "${DIRS_MARK} WINEPATH (Windows style):" "$WINEPATH"
     fi
 fi
 
@@ -920,6 +931,12 @@ separator() {
     local label="${2:-}"
     local width
     width=$(_term_width)
+
+    # GitHub Actions doesn't support UTF-8 box-drawing; use ASCII fallback
+    if [[ -n "$GITHUB_ACTIONS" ]]; then
+        char=$(echo "$char" | sed 's/═/-/g; s/─/-/g; s/·/./g')
+    fi
+
     if [[ -z "$label" ]]; then
         printf '%*s\n' "$width" '' | tr ' ' "$char" >&2
     else
@@ -930,7 +947,7 @@ separator() {
         printf '%s%s%s\n' "$pad" "$label" "$pad" >&2
     fi
 }
-export -f separator _term_width
+export -f separator
 
 # phase_header <EMOJI> <TITLE>
 # Prints a prominent section header

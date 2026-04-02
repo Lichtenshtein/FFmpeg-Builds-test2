@@ -15,19 +15,23 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
 
+    local STAGENAME COMPONENT_NAME
+    STAGENAME="$(basename "$STAGE" .sh)"
+    COMPONENT_NAME="${STAGENAME#*-}"
+
     # Replace the DEPS file with the file from the patches folder.
-    local custom_deps="$PATCHES_DIR/$COMPONENT_NAME/DEPS"
+    local custom_deps="${PATCHES_DIR}/${COMPONENT_NAME}/DEPS"
 
     if [[ -f "$custom_deps" ]]; then
-        echo "log_info 'Replacing DEPS with custom version from patches...'"
+        log_info "Replacing DEPS with custom version from patches..."
         cp -v "$custom_deps" ./DEPS
     else
-        echo "log_warn 'Custom DEPS not found at $custom_deps, using default.'"
+        log_warn "Custom DEPS not found at ${custom_deps}, using default."
     fi
 
     # Run dependency synchronization.
     # It will now use our updated DEPS file with the new hashes.
-    echo "./utils/git-sync-deps || exit $?"
+    ./utils/git-sync-deps || exit $?
 }
 
 ffbuild_dockerbuild() {
@@ -123,8 +127,6 @@ EOF
     cp "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_static.pc"
 
     cp -a "$DESTDIR"/. "$FFBUILD_DESTDIR"
-
-    ls -lh
 
     rm -rf "$DESTDIR"
     unset DESTDIR
