@@ -21,8 +21,11 @@ if ! declare -F default_dl >/dev/null; then
     . "$UTIL_DIR"/dl_functions.sh > /dev/null 2>&1 || true
 fi
 
-# STAGENAME="$(basename "$STAGE" .sh)"
 STAGE_HASH=$(get_stage_hash "$STAGE")
+STAGENAME="$(basename "$STAGE" .sh)"
+COMPONENT_NAME="${STAGENAME#*-}"
+STAGE_CACHE_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.tar.zst"
+STAGE_LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
 
 # Очистка при выходе. Удаляем старые файлы, если они остались от прошлых запусков
 trap 'echo "::endgroup::"; cd /; rm -rf "/build/$STAGENAME" "VARS_DIR"; rm -f "$OUTFILE" "$TIMESTAMP_FILE" /tmp/stage_build.log' EXIT
@@ -56,8 +59,6 @@ if [[ -d "$FFBUILD_DESTDIR" ]]; then
 fi
 mkdir -p "$FFBUILD_DESTDIR" "$FFBUILD_DESTPREFIX"
 
-REAL_CACHE=""
-
 log_info "${SEARCH_MARK} Searching source for $STAGENAME"
 
 # Ищем точное совпадение (Имя_Хеш)
@@ -80,7 +81,7 @@ else
 fi
 
 # Проверяем, нужны ли вообще исходники для этой стадии (или это мета-стадия), и выходим
-DL_COMMANDS=$(ffbuild_dockerdl) || {
+local DL_COMMANDS=$(ffbuild_dockerdl) || {
     log_error "ffbuild_dockerdl failed for $STAGENAME"
     exit 1
 }
