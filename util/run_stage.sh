@@ -326,101 +326,93 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
     . "$UTIL_DIR/vars.sh" "$TARGET" "$VARIANT" > /dev/null 2>&1
 
     # Re-source the component script so its ffbuild_* functions are available
+    # Load component - overrides ffbuild_* with its own implementations
     . "$STAGE"
 
     # Call the component's own ffbuild_* functions
     # These are the ONLY authoritative source of what this component needs.
-    _conf_out=$(ffbuild_configure 2>/dev/null || true)
-    [[ -n "$_conf_out" ]] && FF_CONFIGURE="${FF_CONFIGURE} ${_conf_out}"
-    _cflags_out=$(ffbuild_cflags 2>/dev/null || true)
-    [[ -n "$_cflags_out" ]] && FF_CFLAGS="${FF_CFLAGS} ${_cflags_out}"
-    _cppflags_out=$(ffbuild_cppflags 2>/dev/null || true)
-    [[ -n "$_cppflags_out" ]] && FF_CPPFLAGS="${FF_CPPFLAGS} ${_cppflags_out}"
-    _cxxflags_out=$(ffbuild_cxxflags 2>/dev/null || true)
-    [[ -n "$_cxxflags_out" ]] && FF_CXXFLAGS="${FF_CXXFLAGS} ${_cxxflags_out}"
-    _ldflags_out=$(ffbuild_ldflags 2>/dev/null || true)
-    [[ -n "$_ldflags_out" ]] && FF_LDFLAGS="${FF_LDFLAGS} ${_ldflags_out}"
-    _ldexeflags_out=$(ffbuild_ldexeflags 2>/dev/null || true)
-    [[ -n "$_ldexeflags_out" ]] && FF_LDEXEFLAGS="${FF_LDEXEFLAGS} ${_ldexeflags_out}"
-    _libs_out=$(ffbuild_libs 2>/dev/null || true)
-    [[ -n "$_libs_out" ]] && FF_LIBS="${FF_LIBS} ${_libs_out}"
+    _conf=$(ffbuild_configure 2>/dev/null || true)
+    _cf=$(ffbuild_cflags 2>/dev/null || true)
+    _cpp=$(ffbuild_cppflags 2>/dev/null || true)
+    _cxx=$(ffbuild_cxxflags 2>/dev/null || true)
+    _ld=$(ffbuild_ldflags 2>/dev/null || true)
+    _ldexe=$(ffbuild_ldexeflags 2>/dev/null || true)
+    _libs=$(ffbuild_libs 2>/dev/null || true)
 
-    # Собираем все экпорты в одну переменную
-    VARS_CONTENT=""
+    # Collect flags from this component's own .pc files only
+    # (files newer than the pre-build timestamp)
+    _pc_cflags=""
+    _pc_libs=""
+    declare -A _seen_pc_cflags
+    declare -A _seen_pc_libs
 
-    OWN_PC_FILES=()
-
-    # Variant A.
-    # Resolve THIS component's own .pc files only
-    # find .pc files whose Name: matches what the component installed.
-    # Match by filename containing the component name or vice-versa (handles libfoo, foo, foo2, etc.)
-    # We detect them by comparing mtime - files created/modified during this
-    # build layer. Since we're in Docker with --mount cache, we track by
-    # comparing against a timestamp file written just before build_cmd ran.
-    # Fallback: use the component name derived from the stage filename.
-
-    # for pc in "$FFBUILD_PREFIX/lib/pkgconfig"/*.pc \
-              # "$FFBUILD_PREFIX/share/pkgconfig"/*.pc; do
-        # [[ -e "$pc" ]] || continue
-        # pc_basename=$(basename "$pc" .pc)
-        # if [[ "$pc_basename" == *"$COMPONENT_NAME"* ]] || \
-           # [[ "$COMPONENT_NAME" == *"$pc_basename"* ]]; then
-            # OWN_PC_FILES+=("$pc_basename")
-        # fi
-    # done
-
-    # Variant B.
     # This is much more reliable than name matching, it doesn't matter what the library calls its .pc file. Only .pc files newer than the pre-build timestamp
 
     for pc in "$FFBUILD_PREFIX/lib/pkgconfig"/*.pc \
               "$FFBUILD_PREFIX/share/pkgconfig"/*.pc; do
         [[ -e "$pc" ]] || continue
-        if [[ "$pc" -nt "$TIMESTAMP_FILE" ]]; then
-            OWN_PC_FILES+=("$(basename "$pc" .pc)")
-        fi
+        [[ "$pc" -nt "$TIMESTAMP_FILE" ]] || continue
+        pc_name="$(basename "$pc" .pc)"
+
+        # Deduplicate per-flag across multiple .pc files
+        while IFS= read -r flag; do
+            [[ -z "$flag" ]] && continue
+            if [[ -z "${_seen_pc_cflags[$flag]:-}" ]]; then
+                _seen_pc_cflags["$flag"]=1
+                _pc_cflags="$_pc_cflags $flag"
+            fi
+        done < <(pkg-config --cflags "$pc_name" 2>/dev/null \
+                 | tr ' ' '\n' | grep -v '^$')
+
+        while IFS= read -r flag; do
+            [[ -z "$flag" ]] && continue
+            if [[ -z "${_seen_pc_libs[$flag]:-}" ]]; then
+                _seen_pc_libs["$flag"]=1
+                _pc_libs="$_pc_libs $flag"
+            fi
+        done < <(pkg-config --libs-only-l "$pc_name" 2>/dev/null \
+                 | tr ' ' '\n' | grep -v '^$')
     done
 
-    # Query only own .pc files, no transitive pollution
-    # Use --libs (not --static --libs) to avoid pulling in transitive deps here;
-    # the linker group in build.sh handles ordering.
-    for pc_name in "${OWN_PC_FILES[@]}"; do
-        _pc_cflags=$(pkg-config --cflags "$pc_name" 2>/dev/null || true)
-        [[ -n "$_pc_cflags" ]] && FF_CFLAGS="$FF_CFLAGS $_pc_cflags"
-        _pc_libs=$(pkg-config --libs-only-l "$pc_name" 2>/dev/null || true)
-        [[ -n "$_pc_libs" ]] && FF_LIBS="$FF_LIBS $_pc_libs"
-    done
+    # Merge script output with .pc output, then deduplicate the combined result
+    FF_CONFIGURE=$(smart_dedupe "$_conf")
+    FF_CFLAGS=$(smart_dedupe "$_cf $_pc_cflags")
+    FF_CPPFLAGS=$(smart_dedupe "$_cpp")
+    FF_CXXFLAGS=$(smart_dedupe "$_cxx")
+    FF_LDFLAGS=$(smart_dedupe "$_ld")
+    FF_LDEXEFLAGS=$(smart_dedupe "$_ldexe")
+    FF_LIBS=$(smart_libs_dedupe "$_libs $_pc_libs")
 
-    # Конфигурация и общие флаги (чистим мусор и дедуплицируем, оставляя ПЕРВОЕ вхождение)
-    [[ -n "$FF_CONFIGURE" ]]  && VARS_CONTENT+="export FF_CONFIGURE='$(smart_dedupe "$FF_CONFIGURE")'\n"
-    [[ -n "$FF_CFLAGS" ]]     && VARS_CONTENT+="export FF_CFLAGS='$(smart_dedupe "$FF_CFLAGS")'\n"
-    [[ -n "$FF_CXXFLAGS" ]]   && VARS_CONTENT+="export FF_CXXFLAGS='$(smart_dedupe "$FF_CXXFLAGS")'\n"
-    [[ -n "$FF_CPPFLAGS" ]]   && VARS_CONTENT+="export FF_CPPFLAGS='$(smart_dedupe "$FF_CPPFLAGS")'\n"
-    # Флаги линковщика (используем smart_dedupe - он учитывает переменную DEDUPE_FLAGS)
-    [[ -n "$FF_LDFLAGS" ]]    && VARS_CONTENT+="export FF_LDFLAGS='$(smart_dedupe "$FF_LDFLAGS")'\n"
-    [[ -n "$FF_LDEXEFLAGS" ]] && VARS_CONTENT+="export FF_LDEXEFLAGS='$(smart_dedupe "$FF_LDEXEFLAGS")'\n"
-    # Библиотеки (используем smart_libs_dedupe, сохраняем ПОСЛЕДНЕЕ вхождение для линковки)
-    [[ -n "$FF_LIBS" ]]       && VARS_CONTENT+="export FF_LIBS='$(smart_libs_dedupe "$FF_LIBS")'\n"
+
+    VARS_CONTENT=""
+    [[ -n "$FF_CONFIGURE" ]]  && VARS_CONTENT+="export FF_CONFIGURE='${FF_CONFIGURE}'\n"
+    [[ -n "$FF_CFLAGS" ]]     && VARS_CONTENT+="export FF_CFLAGS='${FF_CFLAGS}'\n"
+    [[ -n "$FF_CPPFLAGS" ]]   && VARS_CONTENT+="export FF_CPPFLAGS='${FF_CPPFLAGS}'\n"
+    [[ -n "$FF_CXXFLAGS" ]]   && VARS_CONTENT+="export FF_CXXFLAGS='${FF_CXXFLAGS}'\n"
+    [[ -n "$FF_LDFLAGS" ]]    && VARS_CONTENT+="export FF_LDFLAGS='${FF_LDFLAGS}'\n"
+    [[ -n "$FF_LDEXEFLAGS" ]] && VARS_CONTENT+="export FF_LDEXEFLAGS='${FF_LDEXEFLAGS}'\n"
+    [[ -n "$FF_LIBS" ]]       && VARS_CONTENT+="export FF_LIBS='${FF_LIBS}'\n"
 
     # Write only non-empty values to .vars
     # Если есть хоть один экспорт пишем в файл
     if [[ -n "$VARS_CONTENT" ]]; then
-        # 1. Используем printf вместо echo -e для надежности
-        # 2. Удаляем \r через tr перед записью
-        printf "$VARS_CONTENT" | tr -d '\r' > "$OUTFILE"
+        # printf '%b' is safe — no format string injection
+        printf '%b' "$VARS_CONTENT" | tr -d '\r' > "$OUTFILE"
         log_info "Saved $(wc -c < "$OUTFILE") bytes to $OUTFILE"
     else
-        log_info "${CHECK_MARK} No build variables to save for $STAGENAME (meta/header-only component)."
+        log_info "${CHECK_MARK} No build variables for $STAGENAME (meta/header-only component)."
     fi
 
-if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-    [[ -n "$FF_CONFIGURE" ]] && log_debug "Final $STAGENAME FF_CONFIGURE:\n$FF_CONFIGURE"
-    [[ -n "$FF_CFLAGS" ]]    && log_debug "Final $STAGENAME FF_CFLAGS:\n$FF_CFLAGS"
-    [[ -n "$FF_CPPFLAGS" ]]  && log_debug "Final $STAGENAME FF_CPPFLAGS:\n$FF_CPPFLAGS"
-    [[ -n "$FF_CXXFLAGS" ]]  && log_debug "Final $STAGENAME FF_CXXFLAGS:\n$FF_CXXFLAGS"
-    [[ -n "$FF_LDFLAGS" ]]   && log_debug "Final $STAGENAME FF_LDFLAGS:\n$FF_LDFLAGS"
-    [[ -n "$FF_LDXEFLAGS" ]] && log_debug "Final $STAGENAME FF_LDXEFLAGS:\n$FF_LDXEFLAGS"
-    [[ -n "$FF_LIBS" ]]      && log_debug "Final $STAGENAME FF_LIBS:\n$FF_LIBS"
-fi
+    # Verbose output - inside subshell where FF_* are populated
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+        [[ -n "$FF_CONFIGURE" ]]  && log_debug "Final $STAGENAME FF_CONFIGURE:\n$FF_CONFIGURE"
+        [[ -n "$FF_CFLAGS" ]]     && log_debug "Final $STAGENAME FF_CFLAGS:\n$FF_CFLAGS"
+        [[ -n "$FF_CPPFLAGS" ]]   && log_debug "Final $STAGENAME FF_CPPFLAGS:\n$FF_CPPFLAGS"
+        [[ -n "$FF_CXXFLAGS" ]]   && log_debug "Final $STAGENAME FF_CXXFLAGS:\n$FF_CXXFLAGS"
+        [[ -n "$FF_LDFLAGS" ]]    && log_debug "Final $STAGENAME FF_LDFLAGS:\n$FF_LDFLAGS"
+        [[ -n "$FF_LDEXEFLAGS" ]] && log_debug "Final $STAGENAME FF_LDEXEFLAGS:\n$FF_LDEXEFLAGS"
+        [[ -n "$FF_LIBS" ]]       && log_debug "Final $STAGENAME FF_LIBS:\n$FF_LIBS"
+    fi
 )
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
