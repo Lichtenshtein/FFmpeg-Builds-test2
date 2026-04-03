@@ -194,17 +194,17 @@ All of those can be optionally combined with any combination of addins:
 12-libicu|13-libiconv|14-gettext|15-freetype|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|25-openssl|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|26-libssh|27-curl|27-libwebp|29-libarchive|34-cairo|35-harfbuzz|40-freetype|40-pango|41-lcms2|45-libtensorflow-test|47-leptonica-test|50-tesseract-test
 ```
 
-* `vulkan`
+* `vulkan` (shaderc downloads, installs and compiles 'spirv-headers', 'spirv-tools', 'glslang' itself).
 ```
-41-vulkan-headers|42-spirv-headers|42-spirv-tools|43-glslang-test|43-spirv-cross|44-shaderc|44-vulkan-loader|99-enable
+41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|99-enable
 ```
 
 * `opencv`
 ```
-18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|25-libjpeg-turbo|25-giflib|25-libpng|26-libtiff|26-openjpeg|27-libwebp|41-lcms2|41-vulkan-headers|42-vulkan-loader|43-glslang-test|43-shaderc|43-spirv-cross|43-spirv-headers|46-libjxl|46-opencv-test
+18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|25-libjpeg-turbo|25-giflib|25-libpng|26-libtiff|26-openjpeg|27-libwebp|41-lcms2|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|46-libjxl|46-opencv-test
 ```
 
 * `frei0r`
 ```
-12-libicu|13-libiconv|14-gettext|15-freetype|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|27-libwebp|34-cairo|35-harfbuzz|40-freetype|41-lcms2|41-vulkan-headers|42-vulkan-loader|43-glslang-test|43-shaderc|43-spirv-cross|43-spirv-headers|44-gavl|45-opencl|45-openvino-test|46-libjxl|46-opencv-test|47-frei0r
+12-libicu|13-libiconv|14-gettext|15-freetype|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|27-libwebp|34-cairo|35-harfbuzz|40-freetype|41-lcms2|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|44-gavl|45-opencl|45-openvino-test|46-libjxl|46-opencv-test|47-frei0r
 ```
