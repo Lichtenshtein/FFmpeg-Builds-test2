@@ -282,35 +282,40 @@ clean_val() {
     echo "$*" | \
         sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | \
         sed -E "s/''|\"\"//g" | \
-        tr -s '[:space:]' ' ' | xargs -r
+        tr -s '[:space:]' ' ' | \
+        xargs -r
 }
 
 # быстрые дедупликаторы
 dedupe_logic() {
     local input="$1"
     local mode="$2"
-    # Разбиваем на строки, чистим мусорные слова и пустые строки
-    local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "^(Package|not|found|error)$|^$")
+    # Split on whitespace, filter garbage words and empty lines
+    local clean=$(echo "$input" | tr ' ' '\n' | \
+        grep -vE "^(Package .* not found|No package .* found)$|^$")
     if [[ "$mode" == "last" ]]; then
-    # оставляет только ПОСЛЕДНЕЕ вхождение (важно для порядка линковки)
+        # Keep LAST occurrence (important for linker order)
         echo "$clean" | tac | awk '!x[$0]++' | tac
     else
-    # Удаляем дубликаты, сохраняя ПЕРВОЕ вхождение
+        # Keep FIRST occurrence (default for most flags)
         echo "$clean" | awk '!x[$0]++'
     fi
 }
 
 smart_dedupe() {
-    local input=$(clean_val "$*")
+    local input
+    input=$(clean_val "$*")
+    [[ -z "$input" ]] && return
     if [[ "$DEDUPE_FLAGS" == "1" ]]; then
-        dedupe_logic "$input" "first" | xargs -r
+        dedupe_logic "$input" "first" | tr '\n' ' ' | xargs -r
     else
-        echo "$input" | xargs -r
+        echo "$input" | tr '\n' ' ' | xargs -r
     fi
 }
 
 smart_libs_dedupe() {
     local input=$(clean_val "$*")
+    [[ -z "$input" ]] && return
     # Специфичная чистка для библиотек
     # унифицируем pthread: заменяем -lpthread на -pthread
     # чистим мусор и ПУТИ, убираем -lstdc++
@@ -319,9 +324,9 @@ smart_libs_dedupe() {
         sed 's/^-lpthread$/-pthread/')
     # склеиваем в одну строку без удаления дублей?
     if [[ "$DEDUPE_FLAGS" == "1" ]]; then
-        dedupe_logic "$filtered" "last" | xargs -r
+        dedupe_logic "$filtered" "last" | tr '\n' ' ' | xargs -r
     else
-        echo "$filtered" | xargs -r
+        echo "$filtered" | tr '\n' ' ' | xargs -r
     fi
 }
 export -f clean_val dedupe_logic smart_dedupe smart_libs_dedupe
@@ -347,19 +352,18 @@ ffbuild_dockerdl() {
     [[ -n "$SCRIPT_REPO" ]] && default_dl .
 }
 
-# Конфигурация (собирают флаги от всех скриптов в scripts.d для финального ./configure)
+# These are DEFAULT implementations component scripts override them.
+# Each prints its contribution to stdout. run_stage.sh owns accumulation.
+# собирают флаги от всех скриптов в scripts.d для финального ./configure
 ffbuild_enabled()      { return 0; }
-ffbuild_depends()      { echo base; }
-# чистим мусор и дедуплицируем, оставляя ПЕРВОЕ вхождение)
-ffbuild_configure()    { [[ -n "$*" ]] && export FF_CONFIGURE="$FF_CONFIGURE $*"; }
-ffbuild_cflags()       { [[ -n "$*" ]] && export FF_CFLAGS="$FF_CFLAGS $*"; }
-ffbuild_cppflags()     { [[ -n "$*" ]] && export FF_CPPFLAGS="$FF_CPPFLAGS $*"; }
-ffbuild_cxxflags()     { [[ -n "$*" ]] && export FF_CXXFLAGS="$FF_CXXFLAGS $*"; }
-# Флаги линковщика (используем smart_dedupe - он учитывает переменную DEDUPE_FLAGS)
-ffbuild_ldflags()      { [[ -n "$*" ]] && export FF_LDFLAGS="$FF_LDFLAGS $*"; }
-ffbuild_ldexeflags()   { [[ -n "$*" ]] && export FF_LDEXEFLAGS="$FF_LDEXEFLAGS $*"; }
-# Библиотеки (используем smart_libs_dedupe, сохраняем ПОСЛЕДНЕЕ вхождение для линковки)
-ffbuild_libs()         { [[ -n "$*" ]] && export FF_LIBS="$FF_LIBS $*"; }
+ffbuild_depends()      { echo "base"; }
+ffbuild_configure()    { return 0; }
+ffbuild_cflags()       { return 0; }
+ffbuild_cppflags()     { return 0; }
+ffbuild_cxxflags()     { return 0; }
+ffbuild_ldflags()      { return 0; }
+ffbuild_ldexeflags()   { return 0; }
+ffbuild_libs()         { return 0; }
 ffbuild_uncflags()     { return 0; }
 ffbuild_unconfigure()  { return 0; }
 ffbuild_uncxxflags()   { return 0; }
@@ -391,25 +395,50 @@ patch_pc_files() {
         iconv lcms2 jbig freetype2 libxml-2.0 libffi intl
     )
 
-    # deduplicate space-separated tokens, normalise -pthread/-lpthread
-    # Usage: dedup_flags "token token ..." ["skip_tokens"]
-    dedup_flags() {
-        echo "$1" | awk -v skip="$2" '
-        BEGIN {
-            n = split(skip, s)
-            for (j=1; j<=n; j++) {
-                skip_map[s[j]] = 1
-                if (s[j] == "-pthread")  skip_map["-lpthread"] = 1
-                if (s[j] == "-lpthread") skip_map["-pthread"]  = 1
+    # Helper: deduplicate space-separated tokens, normalize -pthread/-lpthread
+    # Faster than awk, handles edge cases better
+    dedup_flags_fast() {
+        local tokens="$1"
+        local skip_tokens="$2"
+        # Build skip map as a string for grep matching
+        local skip_pattern=$(echo "$skip_tokens" | sed 's/ /|/g; s/-pthread/-lpthread/g; s/-lpthread/-pthread/g')
+        # Deduplicate: print each token once, skip unwanted ones
+        echo "$tokens" | tr ' ' '\n' | awk -v skip="$skip_pattern" '
+            NF {
+                token = ($0 == "-lpthread") ? "-pthread" : $0
+                if (skip && match(skip, "(" token "|" token ")")) next
+                if (!seen[token]++) print token
             }
-        }
-        {
-            for (i=1; i<=NF; i++) {
-                v = $i
-                key = (v == "-lpthread") ? "-pthread" : v
-                if (!skip_map[key] && !skip_map[v] && !seen[key]++) printf "%s ", v
-            }
-        }'
+        ' | tr '\n' ' ' | xargs -r
+    }
+
+    # Helper: validate and normalize a single include path
+    normalize_include_path() {
+        local path="$1"
+        # Already a variable reference — keep it
+        [[ "$path" == *'${'* ]] && echo "$path" && return
+        # Absolute path to our prefix — replace with variable
+        if [[ "$path" == "$FFBUILD_PREFIX"* ]]; then
+            echo "\${prefix}${path#$FFBUILD_PREFIX}"
+            return
+        fi
+        # Bare /include or /usr/include — replace with ${includedir}
+        if [[ "$path" == "/include" || "$path" == "/usr/include" ]]; then
+            echo "\${includedir}"
+            return
+        fi
+        # Relative path like ../include — resolve and check
+        if [[ "$path" == ../* ]]; then
+            local resolved
+            resolved=$(cd "$(dirname "$pc_dir")" && cd "${path%/*}" && pwd)
+            if [[ "$resolved" == "$FFBUILD_PREFIX"* ]]; then
+                echo "\${prefix}${resolved#$FFBUILD_PREFIX}"
+                return
+            fi
+        fi
+        # Unrecognized — log warning and drop
+        log_warn "Dropping unrecognized include path: $path"
+        return 1
     }
 
     # helper escape string for use as a literal sed pattern
@@ -417,42 +446,40 @@ patch_pc_files() {
 
     log_debug "Correcting values in .pc files:"
     # замена абсолютных путей на переменные
-    find "$pc_dir" -maxdepth 1 -name "*.pc" | while read -r pc; do
+    find "$pc_dir" -maxdepth 1 -name "*.pc" -print0 | while IFS= read -r -d '' pc; do
         [[ -f "$pc" ]] || continue
-        printf '%s\n' "$pc"
+        # printf '%s\n' "$pc"
+        log_debug "  Processing: $(basename "$pc")"
 
         # Capitalisation fixes
+        # Fix case: -lWs2_32 → -lws2_32, -lWinmm → -lwinmm
         sed -i $sl 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g; s/-lpthread/-pthread/g' "$pc"
         # Remove -lrt (Linux-only, not on Windows)
         sed -i $sl 's/ -lrt\b//g' "$pc"
 
-        # Пересоздание переменных путей
-        sed -i $sl '/^prefix=/d; /^exec_prefix=/d; /^libdir=/d; /^includedir=/d; /^bindir=/d' "$pc"
+        # 1. STANDARDIZE PATH VARIABLES (delete old, insert new at top)
+        sed -i $sl '/^prefix=/d; /^exec_prefix=/d; /^libdir=/d; /^includedir=/d; /^bindir=/d; /^libdir64=/d' "$pc"
         sed -i $sl "1i prefix=$FFBUILD_PREFIX\nexec_prefix=\${prefix}\nlibdir=\${prefix}/lib\nincludedir=\${prefix}/include\nbindir=\${prefix}/bin" "$pc"
 
-        # Replace absolute paths with variables (only in non-assignment lines)
-        sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'/include|\${includedir}|g' "$pc"
-        sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'/lib|\${libdir}|g'         "$pc"
-        sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'|\${prefix}|g'             "$pc"
+        # CLEAN UP LIBS FIELD (public only, no transitive deps here)
+        local libs_line
+        libs_line=$(grep "^Libs:" "$pc" | cut -d':' -f2- | xargs)
+        if [[ -n "$libs_line" ]]; then
+            # Extract -L path (should be only one)
+            local lib_path
+            lib_path=$(echo "$libs_line" | grep -oE '\-L[^ ]+' | head -n1)
+            [[ -z "$lib_path" ]] && lib_path='-L${libdir}'
 
-        # Обработка Libs (Улучшенный захват для мульти-библиотечных пакетов)
-        local current_libs=$(grep "^Libs:" "$pc" | cut -d':' -f2- | xargs)
+            # Extract main library name(s) — those matching the .pc basename
+            local base_name
+            base_name=$(basename "$pc" .pc)
+            base_name="${base_name#lib}"  # strip 'lib' prefix
 
-        # Ищем путь -L
-        local lib_path=$(echo "$current_libs" | grep -oE '\-L[^ ]+' | head -n1)
-        [[ -z "$lib_path" ]] && lib_path='-L${libdir}'
-        
-        # Определяем базовое имя (например 'lcms2' из 'lcms2.pc')
-        local base_name=$(basename "$pc" .pc)
-        # strip leading 'lib' prefix
-        base_name="${base_name#lib}"
-
-        # Collect all -l flags whose name starts with base_name
-        # Use grep with word-boundary-like pattern; escape dots in base_name
-        local escaped_base=$(sed_escape "$base_name")
-        local main_libs=$(echo "$current_libs" | grep -oE "\-l${escaped_base}[a-zA-Z0-9_-]*" | xargs)
-        # Fallback: just take the first -l flag
-        [[ -z "$main_libs" ]] && main_libs=$(echo "$current_libs" | grep -oE '\-l[a-zA-Z0-9_.+-]+' | head -n1)
+            local escaped_base=$(sed_escape "$base_name")
+            local main_libs
+            main_libs=$(echo "$libs_line" | grep -oE "\-l${escaped_base}[a-zA-Z0-9_-]*" | xargs)
+            [[ -z "$main_libs" ]] && main_libs=$(echo "$libs_line" | grep -oE '\-l[a-zA-Z0-9_.+-]+' | head -n1)
+        fi
 
         # Compute leftover flags (→ Libs.private) strip lib_path and each main_lib token using awk (avoids regex metachar issues)
         local leftovers
@@ -499,12 +526,28 @@ patch_pc_files() {
         # Add -lstdc++ if the project has any C++ sources
         find "$src_root" -maxdepth 2 \( -name "*.cpp" -o -name "*.cc" \) 2>/dev/null | grep -q . && extra_libs+=" -lstdc++"
 
-        # Merge Cflags.private → Cflags
-        local cflags_priv
-        cflags_priv=$(grep "^Cflags.private:" "$pc" | cut -d':' -f2- | xargs)
-        if [[ -n "$cflags_priv" ]]; then
-            sed -i $sl "/^Cflags:/ s/$/ $cflags_priv/" "$pc"
-            sed -i $sl '/^Cflags.private:/d' "$pc"
+        # NORMALIZE INCLUDE PATHS (in Cflags and Cflags.private)
+        # Extract all -I flags, normalize each, deduplicate
+        local cflags_line
+        cflags_line=$(grep "^Cflags:" "$pc" | cut -d':' -f2-)
+        if [[ -n "$cflags_line" ]]; then
+            local normalized_cflags=""
+            local seen_paths=""
+            # Extract each -I flag and normalize it
+            echo "$cflags_line" | grep -oE '\-I[^ ]+' | while read -r iflag; do
+                local path="${iflag#-I}"
+                local normalized
+                normalized=$(normalize_include_path "$path") || continue
+                # Deduplicate paths
+                if ! echo "$seen_paths" | grep -qF "$normalized"; then
+                    normalized_cflags="$normalized_cflags -I$normalized"
+                    seen_paths="$seen_paths $normalized"
+                fi
+            done
+            # Rebuild Cflags with normalized paths + other flags (defines, etc.)
+            local other_flags
+            other_flags=$(echo "$cflags_line" | sed 's/-I[^ ]*//g' | xargs -r)
+            sed -i $sl "s|^Cflags:.*|Cflags: $normalized_cflags $other_flags|" "$pc"
         fi
 
         # Ensure Requires.private and Libs.private fields exist
@@ -524,14 +567,12 @@ patch_pc_files() {
         # Apply -lzlib → -lz (after all -l tokens are in the file)
         sed -i $sl 's/-lzlib\b/-lz/g' "$pc"
 
-        # Smart deduplication
-        # Cflags: simple dedup + -pthread alias
-        local cflags_line
-        cflags_line=$(grep "^Cflags:" "$pc" | cut -d':' -f2- | xargs)
-        if [[ -n "$cflags_line" ]]; then
-            local clean_cflags
-            clean_cflags=$(dedup_flags "$cflags_line")
-            sed -i $sl "s|^Cflags:.*|Cflags: $clean_cflags|" "$pc"
+        # MERGE Cflags.private INTO Cflags (no separate private cflags needed)
+        local cflags_priv
+        cflags_priv=$(grep "^Cflags.private:" "$pc" | cut -d':' -f2- | xargs)
+        if [[ -n "$cflags_priv" ]]; then
+            sed -i $sl "/^Cflags:/ s/$/ $cflags_priv/" "$pc"
+            sed -i $sl '/^Cflags.private:/d' "$pc"
         fi
 
         # Requires.private: remove anything already in Requires
@@ -541,7 +582,7 @@ patch_pc_files() {
         rp_line=$(grep "^Requires.private:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
         if [[ -n "$rp_line" ]]; then
             local clean_rp
-            clean_rp=$(dedup_flags "$rp_line" "$pub_req")
+            clean_rp=$(dedup_flags_fast "$rp_line" "$pub_req")
             sed -i $sl "s|^Requires.private:.*|Requires.private: $clean_rp|" "$pc"
         fi
 
@@ -559,7 +600,7 @@ patch_pc_files() {
                     print $i
                     if ($i !~ /^-/) print "-l" $i } }' | xargs)
             local clean_lp
-            clean_lp=$(dedup_flags "$lp_line" "$skip_for_lp")
+            clean_lp=$(dedup_flags_fast "$lp_line" "$skip_for_lp")
             sed -i $sl "s|^Libs.private:.*|Libs.private: $clean_lp|" "$pc"
         fi
 
@@ -569,6 +610,8 @@ patch_pc_files() {
         # Collapse multiple spaces, strip trailing whitespace
         sed -i $sl 's/  \+/ /g; s/[[:space:]]*$//' "$pc"
         # sed -i $sl '/^$/d' "$pc"
+
+        log_debug "    ✔ $(basename "$pc")"
     done
 }
 export -f patch_pc_files
