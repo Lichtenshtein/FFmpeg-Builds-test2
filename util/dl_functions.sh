@@ -145,6 +145,10 @@ download_file() {
     local DEST="$2"
     local SHA512="$3"
 
+    # УДАЛЯЕМ старый/битый файл перед новой попыткой
+    rm -f "$DEST"
+    trap 'rm -f "$DEST"' EXIT
+
     # Проверка существующего и целого файла в кэше
     if [[ -f "$DEST" ]]; then
         if [[ -n "$SHA512" ]]; then
@@ -158,9 +162,6 @@ download_file() {
             return 0
         fi
     fi
-
-    # УДАЛЯЕМ старый/битый файл перед новой попыткой
-    rm -f "$DEST"
 
     log_info "${DOWN_MARK} Downloading file: $(basename "$DEST")"
 
@@ -187,11 +188,9 @@ download_file() {
         # Проверяем код возврата именно первого элемента пайпа (curl)
         if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
             log_error "Curl failed with exit code ${PIPESTATUS[0]}"
-            rm -f "$DEST"
             return 1
         fi
     else
-        rm -f "$DEST"
         return 1
     fi
 
@@ -199,7 +198,6 @@ download_file() {
     if [[ -n "$SHA512" ]]; then
         if ! echo "$SHA512  $DEST" | sha512sum -c --status; then
             log_error "Hash validation FAILED for $(basename "$DEST")"
-            rm -f "$DEST"
             return 1
         fi
         log_info "${CHECK_MARK} Hash verified."
