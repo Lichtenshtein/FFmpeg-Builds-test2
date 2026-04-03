@@ -972,7 +972,7 @@ export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE
 # Terminal width — used for separators; falls back to 72 if tput unavailable
 # ---------------------------------------------------------------------------
 
-_term_width() { tput cols 2>/dev/null || echo 72; }
+_term_width() { tput cols 2>/dev/null || echo 92; }
 
 _repeat_char() {
     local len=$1 char=$2
@@ -1047,7 +1047,7 @@ get_component_group() {
     local prefix="${stagename%%-*}"
     case "$prefix" in
         01|02|03)           echo "Toolchain" ;;
-        04|05|05|07|08)     echo "System Integration" ;; # ICU, Gettext, Iconv
+        04|05|06|07|08)     echo "System Integration" ;; # ICU, Gettext, Iconv
         09|11|12|39)        echo "Compression & Runtime" ;; # Zlib, Zstd, FFI
         15|16|17)           echo "Base Integration" ;; # Glib, XML2
         20|21|22|23|24)     echo "Net" ;; # OpenSSL, Curl
@@ -1103,12 +1103,12 @@ render_dl_table() {
         esac
 
         # Строгое разделение цвета и вывода
-        # printf '  │ ' >&2
-        printf '  %b│%b ' "${LOG_DEBUG}" "${LOG_NC}" >&2
-        # printf '%b' "$color" >&2
-        # printf '%s  %-28s  %-16s  %s' "$icon" "$name" "$hash" "$extra" >&2
-        # printf '%b\n' "$LOG_NC" >&2
-        printf '%b%-2s  %-28s  %-16s  %s%b\n' "$color" "$icon" "$name" "$hash" "$extra" "$LOG_NC" >&2
+        printf '  │ ' >&2
+        # printf '  %b│%b ' "${LOG_DEBUG}" "${LOG_NC}" >&2
+        printf '%b' "$color" >&2
+        printf '%s  %-28s  %-16s  %s' "$icon" "$name" "$hash" "$extra" >&2
+        printf '%b\n' "$LOG_NC" >&2
+        # printf '%b%-2s  %-28s  %-16s  %s%b\n' "$color" "$icon" "$name" "$hash" "$extra" "$LOG_NC" >&2
 
     # This sorts by status (hit/miss/skip/fail)
     # sort -t$'\t' -k1,1 "$file"

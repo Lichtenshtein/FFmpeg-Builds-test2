@@ -26,12 +26,6 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
 [[ "$USE_OPENMP" == "1" ]]     && log_info "${XCLAM_MARK} Open Multi-Processing runtime for shared-memory parallel programming is enabled!"
 [[ "$SHADERC_UPDATE" == "1" ]] && log_info "${XCLAM_MARK} Shaderc dependencies will be updated from the local DEPS file."
 
-dpkg -L pv
-type pv
-whereis pv
-which pv
-
-
 echo -n "" > Dockerfile # Явно очищаем файл перед началом записи
 to_df() { echo "$*" >> Dockerfile; }
 
