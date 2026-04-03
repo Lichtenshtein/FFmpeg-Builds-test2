@@ -23,11 +23,14 @@ ffbuild_dockerbuild() {
         --disable-fortran
         --disable-doc
         --with-our-malloc
+        --enable-long-double
         --enable-threads
         --with-combined-threads
         --with-incoming-stack-boundary=2
     )
 
+    # --with-combined-threads incompatible with --enable-openmp
+    # [[ "$USE_OPENMP" == "1" ]] && myconf+=( --enable-openmp ) 
     [[ "$USE_AVX512" == "1" ]] && myconf+=( --enable-avx512 )
 
     if [[ $TARGET != *arm64 ]]; then
