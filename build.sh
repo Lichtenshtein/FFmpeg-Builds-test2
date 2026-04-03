@@ -102,10 +102,10 @@ while IFS= read -r f; do
     # чтобы не допустить взрывного роста строк в памяти
     if (( counter % 20 == 0 )); then
         TOTAL_FF_LIBS=$(smart_libs_dedupe "$TOTAL_FF_LIBS")
-        TOTAL_FF_CFLAGS=$(dedupe "$TOTAL_FF_CFLAGS")
+        TOTAL_FF_CFLAGS=$(smart_dedupe "$TOTAL_FF_CFLAGS")
         TOTAL_FF_LDFLAGS=$(smart_dedupe "$TOTAL_FF_LDFLAGS")
-        TOTAL_FF_CXXFLAGS=$(dedupe "$TOTAL_FF_CXXFLAGS")
-        TOTAL_FF_CPPFLAGS=$(dedupe "$TOTAL_FF_CPPFLAGS")
+        TOTAL_FF_CXXFLAGS=$(smart_dedupe "$TOTAL_FF_CXXFLAGS")
+        TOTAL_FF_CPPFLAGS=$(smart_dedupe "$TOTAL_FF_CPPFLAGS")
         TOTAL_FF_LDEXEFLAGS=$(smart_dedupe "$TOTAL_FF_LDEXEFLAGS")
     fi
 done < <(find "$VARS_DIR" -name "*.vars" | sort)
@@ -120,9 +120,9 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
 fi
 
 # загружаем целевой вариант со своими --enable флагами ffbuild_configure()
-source "variants/${TARGET}-${VARIANT}.sh"
+source "${VARIANTS_DIR}/${TARGET}-${VARIANT}.sh"
 for addin in ${ADDINS[*]}; do
-    source "addins/${addin}.sh"
+    source "${ADDINS_STR}/${addin}.sh"
 done
 
 # Capture echo-style output from "variants/${TARGET}-${VARIANT}.sh"
@@ -174,12 +174,19 @@ fi
 
 # Подготовка ФИНАЛЬНЫХ флагов (Dedupe + Combine)
 # объединяем базовые флаги из vars.sh и накопленные из компонентов
-FINAL_CONFIGURE=$(dedupe "$TOTAL_FF_CONFIGURE" "$VARIANT_FF_CONFIGURE")
-FINAL_CFLAGS=$(dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CFLAGS" "$VARIANT_FF_CPPFLAGS")
-FINAL_CXXFLAGS=$(dedupe "$CXXFLAGS" "$CPPFLAGS" "$TOTAL_FF_CXXFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CXXFLAGS" "$VARIANT_FF_CPPFLAGS")
+# Конфигурация: сначала базовые, потом специфичные для варианта
+FINAL_CONFIGURE=$(smart_dedupe "$TOTAL_FF_CONFIGURE" "$VARIANT_FF_CONFIGURE")
+# CFLAGS: Сначала кладем CPPFLAGS, затем CFLAGS компонентов, затем варианта.
+# Так как мы оставляем ПЕРВОЕ вхождение, самые важные флаги должны быть левее.
+FINAL_CFLAGS=$(smart_dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CFLAGS" "$VARIANT_FF_CPPFLAGS")
+FINAL_CXXFLAGS=$(smart_dedupe "$CXXFLAGS" "$CPPFLAGS" "$TOTAL_FF_CXXFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CXXFLAGS" "$VARIANT_FF_CPPFLAGS")
+# LDFLAGS: Аналогично флагам компиляции
 FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$TOTAL_FF_LDFLAGS" "$VARIANT_FF_LDFLAGS")
 FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
-FINAL_LIBS=$(smart_libs_dedupe "$TOTAL_FF_LIBS" "$LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
+# LIBS: ОБРАТНАЯ логика; smart_libs_dedupe оставляет ПОСЛЕДНЕЕ вхождение, 
+# базовые системные либы ($LIBS) лучше ставить в начало списка аргументов, 
+# чтобы если компонент принес свою версию, она вытеснила базовую в конец (право).
+FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
 
 # Используем группы для решения проблем циклических зависимостей (особенно для Tesseract)
 FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} -Wl,--end-group -Wl,--allow-multiple-definition -lstdc++"

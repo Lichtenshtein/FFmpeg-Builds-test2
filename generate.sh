@@ -4,8 +4,6 @@ set -e
 shopt -s globstar
 cd "$(dirname "$0")"
 
-# Container root is always /builder
-CONTAINER_ROOT="/builder"
 # Забираем аргументы из workflow.yaml для локального использования
 TARGET="${1:-$TARGET}"
 VARIANT="${2:-$VARIANT}"
