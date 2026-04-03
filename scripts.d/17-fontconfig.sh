@@ -65,17 +65,6 @@ ffbuild_dockerbuild() {
 
     rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{var,etc}
 
-    local PC_FILE="$PC_DIR/fontconfig.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        sed -i 's/ -liconv//g; s/ -lm//g' "$PC_FILE"
-        if grep -q "^Libs.private:" "$PC_FILE"; then
-            sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS|" "$PC_FILE"
-        else
-            sed -i "/^Libs:/ a Libs.private: $DEP_LIBS $WIN_LIBS" "$PC_FILE"
-        fi
-        sed -i "s|$FFBUILD_PREFIX|\${prefix}|g" "$PC_FILE"
-    fi
-
 }
 
 ffbuild_configure() {

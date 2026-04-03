@@ -59,12 +59,6 @@ ffbuild_dockerbuild() {
         if ! grep -q "DLIBTIFF_STATIC" "$PC_FILE"; then
             sed -i "/^Cflags:/ s/$/ -DLIBTIFF_STATIC/" "$PC_FILE"
         fi
-        # Оставляем только JBIG и C++, остальное (jpeg/z/lzma) придет через Requires
-        if grep -q "^Libs.private:" "$PC_FILE"; then
-            sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS|" "$PC_FILE"
-        else
-            sed -i "/^Libs:/ a Libs.private: $DEP_LIBS" "$PC_FILE"
-        fi
     fi
 
     # проверить, как называется созданный .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:

@@ -588,43 +588,40 @@ get_deps_list() {
     local sys_libs="libc\.so|libm\.so|libdl\.so|librt\.so|libpthread\.so|libgcc_s\.so|libstdc\+\+\.so|ld-linux|libresolv\.so|libutil\.so"
 
     # Создаем временный файл для сбора вывода
-    local tmp_out
-    tmp_out=$(mktemp)
+    local tmp_out=$(mktemp)
 
-    # Поиск pkg-config
+    # Считаем общий вес установленных файлов компонента
+    local total_size="0"
+    if [[ -d "$FFBUILD_DESTPREFIX" ]]; then
+        total_size=$(du -sh "$FFBUILD_DESTPREFIX" | awk '{print $1}')
+    fi
+
+    # Поиск pkg-config зависимостей
     if [[ -d "$pc_dir" ]]; then
         find "$pc_dir" -name "*.pc" -exec bash -c '
-            pc_file="$1"
-            pkg_config_cmd="$2"
-            pc_dir="$3"
-            log_error_color="$4"
-            log_nc="$5"
-            xclam_mark="$6"
-            search_mark="$7"
+            pc_file="$1"; pkg_config_cmd="$2"; pc_dir="$3"
+            log_err="$4"; log_nc="$5"; x_mark="$6"; s_mark="$7"
 
             export PKG_CONFIG_LIBDIR="$pc_dir"
-            export PKG_CONFIG_PATH=""
+            export PKG_CONFIG_PATH="$pc_dir"
             export PKG_CONFIG_SYSROOT_DIR="/"
 
-            pkg_name="${pc_file##*/}"
-            pkg_name="${pkg_name%.pc}"
+            pkg_name=$(basename "$pc_file" .pc)
 
-            printf "\n%b %s\n" "$xclam_mark" "$pc_file"
+            printf "\n%b %s\n" "$x_mark" "$pc_file"
             cat "$pc_file"
-            printf "\n%b DEPS for %s:\n" "$search_mark" "$pkg_name"
+            printf "\n%b DEPS for %s:\n" "$s_mark" "$pkg_name"
 
-            deps=$($pkg_config_cmd --print-requires --print-requires-private \
-                "$pkg_name" 2>/dev/null || true)
+            deps=$($pkg_config_cmd --print-requires --print-requires-private "$pc_file" 2>/dev/null) || true)
 
             if [[ -n "$deps" ]]; then
                 echo "$deps"
                 while IFS= read -r dep_line; do
-                    dep_name=$(echo "$dep_line" | awk '"'"'{print $1}'"'"')
-                    [[ -z "$dep_name" ]] && continue
-                    [[ "$dep_name" =~ ^[=\<\>] ]] && continue
+                    dep_name=$(echo "$dep_line" | awk "{print \$1}")
+                    [[ -z "$dep_name" || "$dep_name" =~ ^[=\<\>] ]] && continue
+                    
                     if ! $pkg_config_cmd --exists "$dep_name" 2>/dev/null; then
-                        printf "%sMISSING_DEP: %s (searched in: %s)%s\n" \
-                            "$log_error_color" "$dep_name" "$pc_dir" "$log_nc"
+                        printf "%bMISSING_DEP: %s (searched in: %s)%b\n" "$log_err" "$dep_name" "$pc_dir" "$log_nc"
                     fi
                 done <<< "$deps"
             else
@@ -667,9 +664,7 @@ get_deps_list() {
 
         raw_symbols=$("${tc}-nm" -u "$file" 2>/dev/null || true)
         if [[ -n "$raw_symbols" ]]; then
-            clean_symbols=$(echo "$raw_symbols" | \
-                grep -E "^ *U " | \
-                awk "{print \$2}" | \
+            clean_symbols=$(echo "$raw_symbols" | grep "^ *U " | awk "{print \$2}" | \
                 grep -Ev "^(__imp_|__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk)" | \
                 sort -u | head -n 10)
             if [[ -n "$clean_symbols" ]]; then
@@ -701,11 +696,10 @@ get_deps_list() {
     fi
 
     # Output
-    local error_count=0
-    error_count=$(grep -c "^.*MISSING_DEP:" "$tmp_out" 2>/dev/null || true)
+    local error_count=$(grep -c "MISSING_DEP:" "$tmp_out" 2>/dev/null || echo 0)
 
     if [[ -s "$tmp_out" ]]; then
-        log_debug "Showing dependencies for ${name}:"
+        log_debug "Showing dependencies for ${name} (Install size: ${total_size}):"
         sed 's/MISSING_DEP:/MISSING DEPENDENCY/g' "$tmp_out" >&2
         if [[ "$error_count" -gt 0 ]]; then
             log_error "Found ${error_count} missing pkg-config dependency/dependencies for ${name}!"
@@ -713,7 +707,7 @@ get_deps_list() {
             log_info "${CHECK_MARK} All pkg-config dependencies satisfied for ${name}."
         fi
     else
-        log_info "${CHECK_MARK} No dependencies found for ${name} (meta/header-only component)."
+        log_info "${CHECK_MARK} No dependencies found for ${name} (meta/header-only component). (Install size: ${total_size})."
     fi
 
     rm -f "$tmp_out"
@@ -1034,29 +1028,25 @@ render_dl_table() {
     local file="$1"
     [[ -f "$file" ]] || return 0
     local width=$(_term_width)
-    local inner_width=$(( width - 4 ))
+    local inner_width=$(( width - 8 )) # 4; Немного уменьшим для отступов
 
     separator "─" "  DOWNLOAD SUMMARY  "
     printf '  %-3s  %-30s  %-16s  %s\n' "" "COMPONENT" "HASH" "RESULT" >&2
     separator "─"
 
     local current_group=""
-    # This sorts by status (hit/miss/skip/fail)
-    # sort -t$'\t' -k1,1 "$file"
-    # sort by name (field 3)
-    # sort -t$'\t' -k3,3 "$file"
-    sort -t$'\t' -k3,3 "$file" | while IFS=$'\t' read -r status icon name hash extra; do
+    while IFS=$'\t' read -r status icon name hash extra; do
         local group=$(get_component_group "$name")
 
         if [[ "$group" != "$current_group" ]]; then
+            # Purple Group
             if [[ -n "$current_group" ]]; then
-                # Purple Group
-                printf "${LOG_DEBUG}" '  ╰%s\n' "$(_repeat_char "$inner_width" "─")" "${LOG_NC}" >&2
+                printf '  %b╰%s%b\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "─")" "${LOG_NC}" >&2
             fi
+            # Заголовок группы: Purple ┌─ Group
             local group_label="─[ $group ]"
             local remain=$(( inner_width - ${#group_label} ))
-            # Заголовок группы: Purple ┌─ Group
-            printf "${LOG_DEBUG}" '  ╭%s%s\n' "$group_label" "$(_repeat_char "$remain" "─")" "${LOG_NC}" >&2
+            printf '  %b╭%s%s%b\n' "${LOG_DEBUG}" "$group_label" "$(_repeat_char "$remain" "─")" "${LOG_NC}" >&2
             current_group="$group"
         fi
 
@@ -1070,14 +1060,22 @@ render_dl_table() {
         esac
 
         # Строгое разделение цвета и вывода
-        printf '  │ ' >&2
-        printf '%b' "$color" >&2
-        printf '%s  %-28s  %-16s  %s' "$icon" "$name" "$hash" "$extra" >&2
-        printf '%b\n' "$LOG_NC" >&2
-    done
+        # printf '  │ ' >&2
+        printf '  %b│%b ' "${LOG_DEBUG}" "${LOG_NC}" >&2
+        # printf '%b' "$color" >&2
+        # printf '%s  %-28s  %-16s  %s' "$icon" "$name" "$hash" "$extra" >&2
+        # printf '%b\n' "$LOG_NC" >&2
+        printf '%b%-2s  %-28s  %-16s  %s%b\n' "$color" "$icon" "$name" "$hash" "$extra" "$LOG_NC" >&2
 
+    # This sorts by status (hit/miss/skip/fail)
+    # sort -t$'\t' -k1,1 "$file"
+    # sort by name (field 3)
+    # sort -t$'\t' -k3,3 "$file"
+    done < <(sort -t$'\t' -k3,3 "$file")
+
+    # Закрываем последнюю группу (Purple)
     if [[ -n "$current_group" ]]; then
-        printf '  ╰%s\n' "$(_repeat_char "$inner_width" "─")" >&2
+        printf '  %b╰%s%b\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "─")" "${LOG_NC}" >&2
     fi
 
     separator "─"

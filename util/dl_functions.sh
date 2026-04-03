@@ -90,7 +90,7 @@ git-mini-clone() {
         git remote remove origin 2>/dev/null || true
         git remote add origin "$url"
 
-        log_info "Fetching $(basename "$url") @ ${commit:0:12}..."
+        log_info "${DOWN_MARK} Fetching $(basename "$url") @ ${commit:0:12}..."
 
         # Direct shallow fetch of the exact commit
         if _retry git fetch --quiet --no-tags --depth=1 origin "$commit" >/dev/null 2>&1; then
@@ -125,7 +125,7 @@ git-mini-clone() {
         log_warn "Primary failed. Trying mirror: $MIRROR"
         local m_commit="${MIRROR_COMMIT:-$COMMIT}"
         if _try_fetch "$MIRROR" "$m_commit" "$BRANCH"; then
-            log_info "Mirror succeeded for $(basename "$REPO")"
+            log_info "${CHECK_MARK} Mirror succeeded for $(basename "$REPO")"
             return 0
         fi
     fi
@@ -141,7 +141,7 @@ download_file() {
     local SHA512="$3"
     local useragent="Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
 
-    [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "${SEARCH_MARK} Figuring out where pv is..." && which pv >&2
+    [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "${SEARCH_MARK} Figuring out where pv is..." && which pv
 
     # Cache hit check BEFORE any deletion
     if [[ -f "$DEST" ]]; then
@@ -225,7 +225,7 @@ git-submodule-clone() {
 
     # Попытка стандартного обновления
     # --force поможет, если локально были внесены небольшие изменения
-    log_info "Attempting standard update..."
+    log_info "${SYNC_MARK} Attempting standard update..."
     if _retry git submodule update --quiet --init --recursive --depth 1; then
         log_info "${CHECK_MARK} Submodules synchronized successfully via standard update."
         return 0
