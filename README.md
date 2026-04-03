@@ -176,22 +176,22 @@ All of those can be optionally combined with any combination of addins:
 * `The System Core` (Foundation; always build first). Without this, nothing will work.
 
 ```
-09-mingw-std-threads|10-mingw|11-base|18-zlib
+01-mingw-std-threads|02-mingw|03-base|09-zlib
 ```
 
 * `glib2`
 ```
-12-libicu|13-libiconv|14-gettext|18-zlib|23-libffi|23-pcre2|25-glib2
+05-libicu|06-libiconv|07-gettext|09-zlib|15-libffi|15-pcre2|16-glib2
 ```
 
 * `librsvg`
 ```
-13-libiconv|14-gettext|15-freetype|18-zlib|19-brotli|19-bzlib|19-xz|23-pcre2|23-libffi|25-fribidi|25-libpng|25-glib2|25-libxml2|26-pixman|26-fontconfig|34-cairo|35-harfbuzz|40-freetype|40-pango|44-dav1d|45-librsvg-cargo-test
+06-libiconv|07-gettext|08-freetype|09-zlib|11-brotli|11-bzlib|11-xz|15-libffi|15-pcre2|16-fribidi|16-glib2|17-fontconfig|25-libpng|16-libxml2|30-pixman|34-cairo|35-harfbuzz|40-freetype|40-pango|44-dav1d|45-librsvg-cargo-test
 ```
 
 * `libtesseract`
 ```
-12-libicu|13-libiconv|14-gettext|15-freetype|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|25-openssl|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|26-libssh|27-curl|27-libwebp|29-libarchive|34-cairo|35-harfbuzz|40-freetype|40-pango|41-lcms2|45-libtensorflow-test|47-leptonica-test|50-tesseract-test
+05-libicu|06-libiconv|07-gettext|08-freetype|08-harfbuzz|09-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|15-libffi|15-pcre2|16-fribidi|16-glib2|16-libxml2|17-fontconfig|20-openssl|21-libssh|22-curl|25-giflib|25-libjpeg-turbo|25-libpng|25-libtiff|25-openjpeg|26-libwebp|27-libtiff|30-pixman|34-cairo|35-harfbuzz|40-freetype|39-libarchive|40-pango|41-lcms2|45-libtensorflow-test|47-leptonica-test|90-tesseract-test
 ```
 
 * `vulkan` (shaderc downloads, installs and compiles 'spirv-headers', 'spirv-tools', 'glslang' itself).
@@ -201,12 +201,12 @@ All of those can be optionally combined with any combination of addins:
 
 * `opencv`
 ```
-18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|25-libjpeg-turbo|25-giflib|25-libpng|26-libtiff|26-openjpeg|27-libwebp|41-lcms2|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|46-libjxl|46-opencv-test
+09-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|25-libjpeg-turbo|25-giflib|25-libpng|25-libtiff|25-openjpeg|26-libwebp|27-libtiff|41-lcms2|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|46-libjxl|46-opencv-test
 ```
 
 * `frei0r`
 ```
-12-libicu|13-libiconv|14-gettext|15-freetype|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|27-libwebp|34-cairo|35-harfbuzz|40-freetype|41-lcms2|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|44-gavl|45-opencl|45-openvino-test|46-libjxl|46-opencv-test|47-frei0r
+05-libicu|06-libiconv|07-gettext|08-freetype|08-harfbuzz|09-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|15-libffi|15-pcre2|16-fribidi|16-glib2|16-libxml2|17-fontconfig|25-giflib|25-libjpeg-turbo|25-libpng|25-libtiff|25-openjpeg|26-libwebp|27-libtiff|30-pixman|34-cairo|35-harfbuzz|40-freetype|41-lcms2|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|44-gavl|45-opencl|45-openvino-test|46-libjxl|46-opencv-test|47-frei0r
 ```
 
 ### Download functions memo tips
