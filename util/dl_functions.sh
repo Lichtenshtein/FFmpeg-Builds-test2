@@ -37,43 +37,32 @@ git-mini-clone() {
     local TARGET_DIR="${3:-.}"
     local BRANCH_ARG="$4"
 
-    if [[ -d "$TARGET_DIR/.git" ]]; then
-        # Проверяем, не тот ли это уже коммит, который нам нужен
-        local CURRENT_LOCAL_HEAD=$(cd "$TARGET_DIR" && git rev-parse HEAD 2>/dev/null || echo "none")
-        if [[ "$CURRENT_LOCAL_HEAD" == "$COMMIT" ]]; then
-            log_info "${TARGET_MARK} Git cache hit for $(basename "$REPO"): Commit $COMMIT already present."
-            return 0
-        fi
-        log_warn "Cache miss for $(basename "$REPO"): Local=$CURRENT_LOCAL_HEAD Target=$COMMIT"
-    fi
-
+    # resolve BRANCH and TAGFILTER for this specific REPO
     local BRANCH="$BRANCH_ARG"
-    if [[ -z "$BRANCH" ]]; then
-        if [[ "$REPO" == "$SCRIPT_REPO" ]]; then BRANCH="$SCRIPT_BRANCH"
-        elif [[ "$REPO" == "$SCRIPT_REPO2" ]]; then BRANCH="$SCRIPT_BRANCH2"
-        elif [[ "$REPO" == "$SCRIPT_REPO3" ]]; then BRANCH="$SCRIPT_BRANCH3"
-        elif [[ "$REPO" == "$SCRIPT_REPO4" ]]; then BRANCH="$SCRIPT_BRANCH4"
-        fi
-    fi
-
-    # Определение TAGFILTER (для поддержки нескольких репо)
     local TAGFILTER=""
-    if [[ "$REPO" == "$SCRIPT_REPO" ]]; then TAGFILTER="$SCRIPT_TAGFILTER"
-    elif [[ "$REPO" == "$SCRIPT_REPO2" ]]; then TAGFILTER="$SCRIPT_TAGFILTER2"
-    elif [[ "$REPO" == "$SCRIPT_REPO3" ]]; then TAGFILTER="$SCRIPT_TAGFILTER3"
-    elif [[ "$REPO" == "$SCRIPT_REPO4" ]]; then TAGFILTER="$SCRIPT_TAGFILTER4"
-    fi
+    local MIRROR=""
+    local MIRROR_COMMIT=""
+
+    # Match REPO against SCRIPT_REPO, SCRIPT_REPO1..9
+    local i
+    for i in "" {1..9}; do
+        local r_var="SCRIPT_REPO${i}"
+        if [[ "${!r_var}" == "$REPO" ]]; then
+            [[ -z "$BRANCH"    ]] && BRANCH="$(    eval echo "\${SCRIPT_BRANCH${i}:-}"    )"
+            [[ -z "$TAGFILTER" ]] && TAGFILTER="$( eval echo "\${SCRIPT_TAGFILTER${i}:-}" )"
+            MIRROR="$(        eval echo "\${SCRIPT_MIRROR${i}:-}"        )"
+            MIRROR_COMMIT="$( eval echo "\${SCRIPT_MIRROR_COMMIT${i}:-}" )"
+            break
+        fi
+    done
 
     # Пропуск если SVN
-    [[ -n "$SCRIPT_REV" ]] && { log_warn "SVN detected, skipping git"; return 0; }
+    [[ -n "$SCRIPT_REV" ]] && { log_warn "SVN detected, skipping git-mini-clone"; return 0; }
 
-    log_info "Trying to fetch from: $REPO @ $COMMIT"
     mkdir -p "$TARGET_DIR"
-
-    # Запоминаем, где мы были
-    local OLD_PWD=$(pwd)
+    local OLD_PWD="$PWD"
     cd "$TARGET_DIR" || return 1
-    # Функция для безопасного выхода (замена popd)
+    # Cleanup on return regardless of exit path
     trap "cd '$OLD_PWD'" RETURN
 
     # Удаляем возможные локи от прошлых неудачных запусков
@@ -81,77 +70,80 @@ git-mini-clone() {
     # Инициализируем один раз
     [[ ! -d ".git" ]] && git init -q
 
-    # Настройка всех зеркал сразу
-    git remote remove origin 2>/dev/null || true
-    git remote add origin "$REPO"
-
-    # Добавляем все зеркала в один список для перебора (SCRIPT_MIRROR)
-    local i=1
-    while :; do
-        local m_var="SCRIPT_MIRROR$i"
-        [[ $i -eq 1 && -z "${!m_var}" ]] && m_var="SCRIPT_MIRROR"
-        [[ -z "${!m_var}" ]] && break
-        git remote set-url --add origin "${!m_var}"
-        ((i++))
-    done
-
-    # Обработка TAGFILTER перед скачиванием
+    # TAGFILTER resolution (against primary repo only)
     if [[ -n "$TAGFILTER" ]]; then
         log_debug "Resolving tag with filter: $TAGFILTER"
         local RESOLVED_COMMIT
-        RESOLVED_COMMIT=$(git ls-remote --tags --sort="v:refname" origin "$TAGFILTER" | tail -n1 | awk '{print $1}')
+        RESOLVED_COMMIT=$(git ls-remote --tags --sort="v:refname" "$REPO" "$TAGFILTER" \
+            | tail -n1 | awk '{print $1}')
         if [[ -n "$RESOLVED_COMMIT" ]]; then
             COMMIT="$RESOLVED_COMMIT"
         else
-            log_error "Tag filter '$TAGFILTER' returned nothing"
+            log_error "Tag filter '$TAGFILTER' returned nothing from $REPO"
             return 1
         fi
     fi
 
-    local success=0
+    # fetch attempt: try one URL, return 0 on success
+    _try_fetch() {
+        local url="$1" commit="$2" branch="$3"
+        git remote remove origin 2>/dev/null || true
+        git remote add origin "$url"
 
-    # Прямой fetch коммита
-    log_info "Fetching $(basename "$REPO") @ $COMMIT..."
-    if _retry git -c advice.detachedHead=false fetch --quiet --no-tags --no-show-forced-updates --depth=1 origin "$COMMIT" >/dev/null 2>&1; then
-        git checkout --quiet FETCH_HEAD && success=1
-    fi
+        log_info "Fetching $(basename "$url") @ ${commit:0:12}..."
 
-    # Если не вышло, пробуем через ветку
-    if [[ $success -eq 0 && -n "$BRANCH" ]]; then
-        log_warn "Direct fetch failed, trying branch: $BRANCH"
-        if _retry git fetch --quiet --no-tags --depth=1 origin "$BRANCH"; then
-             git checkout --quiet "$COMMIT" && success=1
+        # Direct shallow fetch of the exact commit
+        if _retry git fetch --quiet --no-tags --depth=1 origin "$commit" >/dev/null 2>&1; then
+            git checkout --quiet FETCH_HEAD && return 0
         fi
-    fi
 
-    # Полный fallback (если сервер не поддерживает shallow fetch для коммитов)
-    if [[ $success -eq 0 ]]; then
-        log_warn "Shallow fetch failed. Performing full fallback for $REPO..."
-        log_warn "Full fetch for $REPO may download significant data..."
-        if _retry git fetch --quiet --tags origin || _retry git fetch --quiet origin; then
-            git checkout --quiet "$COMMIT" && success=1
+        # Via branch name
+        if [[ -n "$branch" ]]; then
+            log_warn "Direct fetch failed, trying branch '$branch' from $url"
+            if _retry git fetch --quiet --no-tags --depth=1 origin "$branch" >/dev/null 2>&1; then
+                git checkout --quiet "$commit" 2>/dev/null && return 0
+            fi
         fi
-    fi
 
-    if [[ $success -eq 0 ]]; then
-        log_error "ERROR: Failed to clone $REPO at $COMMIT"
+        # Full fetch fallback
+        log_warn "Shallow fetch failed, performing full fetch from $url (may be slow)..."
+        if _retry git fetch --quiet --tags origin >/dev/null 2>&1 \
+        || _retry git fetch --quiet origin >/dev/null 2>&1; then
+            git checkout --quiet "$commit" && return 0
+        fi
+
         return 1
+    }
+
+    # Try primary
+    if _try_fetch "$REPO" "$COMMIT" "$BRANCH"; then
+        return 0
     fi
-    return 0
+
+    # Try mirror (only if primary failed)
+    if [[ -n "$MIRROR" ]]; then
+        log_warn "Primary failed. Trying mirror: $MIRROR"
+        local m_commit="${MIRROR_COMMIT:-$COMMIT}"
+        if _try_fetch "$MIRROR" "$m_commit" "$BRANCH"; then
+            log_info "Mirror succeeded for $(basename "$REPO")"
+            return 0
+        fi
+    fi
+
+    log_error "Failed to clone $REPO @ $COMMIT (all sources exhausted)"
+    return 1
 }
+export -f git-mini-clone
 
 download_file() {
     local URL="$1"
     local DEST="$2"
     local SHA512="$3"
+    local useragent="Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
 
-    # УДАЛЯЕМ старый/битый файл перед новой попыткой
-    rm -f "$DEST"
-    trap 'rm -f "$DEST"' EXIT
-
-    # Проверка существующего и целого файла в кэше
+    # Cache hit check BEFORE any deletion
     if [[ -f "$DEST" ]]; then
-        if [[ -n "$SHA512" ]]; then
+        if [[ -n "${SHA512:-}" ]]; then
             if echo "$SHA512  $DEST" | sha512sum -c --status 2>/dev/null; then
                 log_info "${TARGET_MARK} File $(basename "$DEST") matches cache."
                 return 0
@@ -163,41 +155,61 @@ download_file() {
         fi
     fi
 
-    log_info "${DOWN_MARK} Downloading file: $(basename "$DEST")"
+    # Функция для простой загрузки (используется в _retry)
+    _simple_curl() {
+    # delete stale/mismatched file
+        rm -f "$DEST"
+        curl -A "$useragent" -fsSL --connect-timeout 15 "$URL" -o "$DEST"
+    }
 
-    # Получаем размер файла через curl -I (если сервер поддерживает)
-    local size=$(curl -sIL "$URL" | grep -i 'Content-Length' | awk '{print $2}' | tr -d '\r' | tail -n1)
-    local useragent="Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
-    #  Качаем через пайп с pv
-    # Используем _retry только для curl, передавая его в пайп
+    log_info "${DOWN_MARK} Downloading: $(basename "$DEST")"
+    local curl_ok=1
+
     # PIPESTATUS[0] — это код curl, PIPESTATUS[1] — код pv
     # pv -n — выводит только число процентов (0..100)
     # pv -p — выводит прогресс-бар (лучше для локального терминала)
     # -f (fail silently) возвращает код 22 при 404 и триггерит _retry
     # -I информация
     # -L (location) следовать редиректам SourceForge
-    local dl_cmd
-    if [[ -n "$size" && "$size" -gt 0 ]]; then
-        dl_cmd="curl -A \"$useragent\" -fsSL \"$URL\" | pv -n -s $size"
-    else
-        dl_cmd="curl -A \"$useragent\" -fsSL \"$URL\" | pv -b"
-    fi
-
-    # Выполняем через eval, чтобы правильно обработать пайп и логирование
-    if eval "$dl_cmd > \"$DEST\" 2> >(while read line; do log_debug \"[DL] $line%\"; done)"; then
-        # Проверяем код возврата именно первого элемента пайпа (curl)
-        if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
-            log_error "Curl failed with exit code ${PIPESTATUS[0]}"
-            return 1
+    if command -v pv &>/dev/null; then
+        rm -f "$DEST"
+        local size
+        size=$(curl -sIL --max-time 15 "$URL" | grep -i 'Content-Length' | awk '{print $2}' | tr -d '\r' | tail -n1)
+        if [[ -n "$size" && "$size" -gt 0 ]]; then
+            curl -A "$useragent" -fsSL "$URL" | pv -n -s "$size" > "$DEST" 2> >(while IFS= read -r line; do log_debug "[DL] ${line}%"; done)
+        else
+            curl -A "$useragent" -fsSL "$URL" | pv -b > "$DEST" 2> >(while IFS= read -r line; do log_debug "[DL] ${line}"; done)
+        fi
+        curl_ok=${PIPESTATUS[0]}
+        if [[ $curl_ok -ne 0 ]]; then
+            log_warn "Primary download (pv) failed (exit $curl_ok). Falling back to retry mode..."
         fi
     else
+        log_debug "pv not found, skipping primary attempt."
+        curl_ok=1
+    fi
+
+    # если первая попытка провалилась (или нет pv) запускаем _retry
+    if [[ $curl_ok -ne 0 ]]; then
+        if ! _retry _simple_curl; then
+            log_error "All download attempts failed for $(basename "$DEST")"
+            rm -f "$DEST"
+            return 1
+        fi
+    fi
+
+    # Verify the file was actually written
+    if [[ ! -s "$DEST" ]]; then
+        log_error "Downloaded file is empty: $(basename "$DEST")"
+        rm -f "$DEST"
         return 1
     fi
 
-    # Финальная проверка хеша
-    if [[ -n "$SHA512" ]]; then
+    # Hash check
+    if [[ -n "${SHA512:-}" ]]; then
         if ! echo "$SHA512  $DEST" | sha512sum -c --status; then
             log_error "Hash validation FAILED for $(basename "$DEST")"
+            rm -f "$DEST"
             return 1
         fi
         log_info "${CHECK_MARK} Hash verified."
@@ -205,6 +217,7 @@ download_file() {
 
     return 0
 }
+export -f download_file
 
 git-submodule-clone() {
     log_info "${START_MARK} Starting robust submodule synchronization..."
@@ -230,18 +243,20 @@ git-submodule-clone() {
     # 2. Получаем данные напрямую
     # 3. Пытаемся переключиться на нужный коммит (записанный в основном репозитории)
     # Обычно это FETCH_HEAD после fetch, если мы тянем конкретный коммит
-    git submodule foreach --recursive bash -c '
-        source $UTIL_DIR/vars.sh "$TARGET" "$VARIANT" 2>/dev/null
-        source $UTIL_DIR/dl_functions.sh
-        log_info "Processing submodule: $name"
+    git submodule foreach --recursive bash -c "
+        source \"\$UTIL_DIR/vars.sh\" \"\$TARGET\" \"\$VARIANT\" 2>/dev/null
+        source \"\$UTIL_DIR/dl_functions.sh\"
+        log_info \"Processing submodule: \$name\"
         git reset --hard HEAD && git clean -fd
         if _retry git fetch --quiet --no-tags --depth=1 origin; then
-            git checkout -q FETCH_HEAD || git checkout -q $(git config -f $top_level/.gitmodules submodule.$name.branch || echo "master")
+            git checkout -q FETCH_HEAD || \
+            git checkout -q \$(git config -f \"\$toplevel/.gitmodules\" \
+                \"submodule.\$name.branch\" 2>/dev/null || echo 'master')
         else
-            log_error "ERROR: Failed to fetch submodule $name"
-            return 1
+            log_error \"Failed to fetch submodule \$name\"
+            exit 1
         fi
-    '
+    "
 
     # Финальная проверка
     if [ $? -eq 0 ]; then
@@ -290,21 +305,29 @@ default_dl() {
     # Иначе работаем с Git
     local CMDS=()
     
-    # Основной репозиторий
+    # Primary repo → TARGET_DIR
     if [[ -n "$SCRIPT_REPO" ]]; then
         local BASE_COMMIT="${SCRIPT_COMMIT:-master}"
         CMDS+=( "git-mini-clone \"$SCRIPT_REPO\" \"$BASE_COMMIT\" \"$TARGET_DIR\"" )
     fi
 
-    # Зеркала 1..4
-    for i in {1..4}; do
-        local R_VAR="SCRIPT_REPO$i"
-        local C_VAR="SCRIPT_COMMIT$i"
-        if [[ -n "${!R_VAR}" ]]; then
-            # Приоритет: Специфичный коммит зеркала -> Общий коммит -> master
-            local TARGET_COMMIT="${!C_VAR:-${SCRIPT_COMMIT:-master}}"
-            CMDS+=( "git-mini-clone \"${!R_VAR}\" \"$TARGET_COMMIT\" \"$TARGET_DIR\"" )
+    # SCRIPT_REPO1..9 → each clones into its own named subdir
+    # (these are *additional* repos, not mirrors — mirrors are handled inside git-mini-clone)
+    for i in {1..9}; do
+        local r_var="SCRIPT_REPO${i}"
+        local c_var="SCRIPT_COMMIT${i}"
+        local d_var="SCRIPT_DIR${i}"   # optional explicit subdir name
+        [[ -z "${!r_var}" ]] && continue
+
+        local sub_commit="${!c_var:-${SCRIPT_COMMIT:-master}}"
+        # Use explicit SCRIPT_DIR{i} if set, otherwise derive from repo basename
+        local sub_dir
+        if [[ -n "${!d_var}" ]]; then
+            sub_dir="${TARGET_DIR}/${!d_var}"
+        else
+            sub_dir="${TARGET_DIR}/$(basename "${!r_var}" .git)"
         fi
+        CMDS+=( "git-mini-clone \"${!r_var}\" \"$sub_commit\" \"$sub_dir\"" )
     done
 
     # Валидация
@@ -314,18 +337,11 @@ default_dl() {
         return 1
     fi
 
-    # Формирование цепочки
-    local FINAL_CHAIN=""
-    for cmd in "${CMDS[@]}"; do
-        if [[ -z "$FINAL_CHAIN" ]]; then
-            FINAL_CHAIN="$cmd"
-        else
-            FINAL_CHAIN="$FINAL_CHAIN && $cmd"
-        fi
-    done
-
-    echo "$FINAL_CHAIN"
+    # All commands run sequentially; any failure aborts the chain
+    local IFS=$'\n'
+    printf '%s\n' "${CMDS[@]}"
 }
+export -f default_dl
 
 download_stage() {
     local STAGE="$1"
@@ -336,12 +352,12 @@ download_stage() {
 
     local DL_COMMANDS
     DL_COMMANDS="$(bash --norc --noprofile -c "
-        source \"${UTIL_DIR}/vars.sh\" \"${TARGET}\" \"${VARIANT}\" >/dev/null
+        source \"${UTIL_DIR}/vars.sh\" \"${TARGET}\" \"${VARIANT}\" >/dev/null 2>&1
         source \"${UTIL_DIR}/dl_functions.sh\"
         source \"${STAGE}\"
         ffbuild_enabled || exit 0
         ffbuild_dockerdl
-    " 2>/tmp/dl_cmd_err_${STAGENAME} || true)"
+    " 2>"/tmp/dl_cmd_err_${STAGENAME}" || true)"
 
     # Если команд нет — это стадия без исходников (мета-пакет), выходим
     if [[ -z "$DL_COMMANDS" ]]; then
@@ -382,24 +398,21 @@ download_stage() {
     dl_result_line "miss" "$STAGENAME" "$STAGE_HASH" "$miss_reason"
     log_warn "Cache miss: $STAGENAME ($miss_reason). ${DOWN_MARK} Re-downloading..."
 
-    # Используем временную папку внутри проекта как рабочую
-    local WORK_DIR=$(mktemp -d -p "$TMP_DIR")
-    # Очистка при выходе. Удаляем только WORK_DIR конкретного процесса, а не весь TMP_DIR!
-    # Иначе параллельные процессы удалят чужие папки.
-    trap 'rm -rf "$WORK_DIR"' EXIT
+    # Use subshell for cleanup isolation — avoids clobbering EXIT trap
+    local WORK_DIR
+    WORK_DIR=$(mktemp -d -p "$TMP_DIR")
+    # Очистка при выходе. Удаляем только WORK_DIR конкретного процесса, а не весь TMP_DIR! Иначе параллельные процессы удалят чужие папки.
+    # trap 'rm -rf "$WORK_DIR"' EXIT
 
     # Выполняем загрузку
-    if (
-        cd "$WORK_DIR"
-        # Явно подгружаем функции внутри подоболочки для надежности в Parallel
-        # source "$UTIL_DIR/vars.sh" "$TARGET" "$VARIANT" &>/dev/null
-        # source "$UTIL_DIR/dl_functions.sh"
+    local dl_status=0
+    (   cd "$WORK_DIR" || exit 1
         eval "$DL_COMMANDS"
-    ); then
+    ) || dl_status=$?
 
+    if [[ $dl_status -eq 0 ]]; then
         # Whitelist метаданных .git (список подгружается из workflow.yaml). 
         local PRESERVE_PATTERN="${GIT_PRESERVE_LIST// /:-ffmpeg|glib2}"
-
         if [[ "$STAGENAME" =~ $PRESERVE_PATTERN ]]; then
             log_info "${LOCK_MARK} Preserving Git metadata for $STAGENAME (Whitelist match)"
         else
@@ -417,13 +430,14 @@ download_stage() {
         # Update the result line from miss → cached (overwrite by appending corrected line)
         dl_result_line "miss" "$STAGENAME" "$STAGE_HASH" "downloaded → ${final_size}"
         log_info "${CACHE_MARK} Cached $STAGENAME (${final_size})"
+        rm -rf "$WORK_DIR"
         return 0
     else
         dl_result_line "fail" "$STAGENAME" "$STAGE_HASH" "download failed"
         log_error "FAILED to download $STAGENAME"
         [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "$DL_COMMANDS"
-        # rm -rf "$WORK_DIR" # Явное удаление
-        return 1 # return 1 для параллельного запуска
+        rm -rf "$WORK_DIR"
+        return 1
     fi
 }
 export -f download_stage
