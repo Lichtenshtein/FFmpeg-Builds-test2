@@ -181,17 +181,17 @@ All of those can be optionally combined with any combination of addins:
 
 * `glib2`
 ```
-05-libicu|06-libiconv|07-gettext|09-zlib|15-libffi|15-pcre2|16-glib2
+05-libicu|06-libiconv|07-gettext|09-zlib|12-libffi|15-pcre2|16-glib2
 ```
 
 * `librsvg`
 ```
-06-libiconv|07-gettext|08-freetype|09-zlib|11-brotli|11-bzlib|11-xz|15-libffi|15-pcre2|16-fribidi|16-glib2|17-fontconfig|25-libpng|16-libxml2|30-pixman|34-cairo|35-harfbuzz|40-freetype|40-pango|44-dav1d|45-librsvg-cargo-test
+06-libiconv|07-gettext|08-freetype|09-zlib|11-brotli|11-bzlib|11-xz|12-libffi|15-pcre2|16-fribidi|16-glib2|17-fontconfig|25-libpng|16-libxml2|30-pixman|34-cairo|35-harfbuzz|40-freetype|40-pango|44-dav1d|45-librsvg-cargo-test
 ```
 
 * `libtesseract`
 ```
-05-libicu|06-libiconv|07-gettext|08-freetype|08-harfbuzz|09-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|15-libffi|15-pcre2|16-fribidi|16-glib2|16-libxml2|17-fontconfig|20-openssl|21-libssh|22-curl|25-giflib|25-libjpeg-turbo|25-libpng|25-libtiff|25-openjpeg|26-libwebp|27-libtiff|30-pixman|34-cairo|35-harfbuzz|40-freetype|39-libarchive|40-pango|41-lcms2|45-libtensorflow-test|47-leptonica-test|90-tesseract-test
+05-libicu|06-libiconv|07-gettext|08-freetype|08-harfbuzz|09-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|15-pcre2|16-fribidi|16-glib2|16-libxml2|17-fontconfig|20-openssl|21-libssh|22-curl|25-giflib|25-libjpeg-turbo|25-libpng|25-libtiff|25-openjpeg|26-libwebp|27-libtiff|30-pixman|34-cairo|35-harfbuzz|40-freetype|39-libarchive|40-pango|41-lcms2|45-libtensorflow-test|47-leptonica-test|90-tesseract-test
 ```
 
 * `vulkan` (shaderc downloads, installs and compiles 'spirv-headers', 'spirv-tools', 'glslang' itself).
@@ -206,7 +206,7 @@ All of those can be optionally combined with any combination of addins:
 
 * `frei0r`
 ```
-05-libicu|06-libiconv|07-gettext|08-freetype|08-harfbuzz|09-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|15-libffi|15-pcre2|16-fribidi|16-glib2|16-libxml2|17-fontconfig|25-giflib|25-libjpeg-turbo|25-libpng|25-libtiff|25-openjpeg|26-libwebp|27-libtiff|30-pixman|34-cairo|35-harfbuzz|40-freetype|41-lcms2|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|44-gavl|45-opencl|45-openvino-test|46-libjxl|46-opencv-test|47-frei0r
+05-libicu|06-libiconv|07-gettext|08-freetype|08-harfbuzz|09-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|15-pcre2|16-fribidi|16-glib2|16-libxml2|17-fontconfig|25-giflib|25-libjpeg-turbo|25-libpng|25-libtiff|25-openjpeg|26-libwebp|27-libtiff|30-pixman|34-cairo|35-harfbuzz|40-freetype|41-lcms2|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|44-gavl|45-opencl|45-openvino-test|46-libjxl|46-opencv-test|47-frei0r
 ```
 
 ### Download functions memo tips
