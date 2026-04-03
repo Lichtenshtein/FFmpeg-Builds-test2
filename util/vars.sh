@@ -1009,18 +1009,23 @@ get_component_group() {
     local stagename="$1"
     local prefix="${stagename%%-*}"
     case "$prefix" in
-        09|10|11)           echo "Toolchain" ;;
-        18|19|20|21|22|23)  echo "Base Libraries" ;;
-        30|31|32|33|34|35)  echo "Codecs" ;;
-        40|41|42|43|44|45)  echo "Graphics & Vulkan" ;;
-        50|51|52|53|54|55)  echo "Audio" ;;
-        60|61|62|63|64|65)  echo "Video Processing" ;;
-        70|71|72|73|74|75)  echo "Filters & Effects" ;;
-        80|81|82|83|84|85)  echo "Hardware Acceleration" ;;
-        90|91|92|93|94|95)  echo "Utilities" ;;
-        99)                 echo "Meta" ;;
+        01|02|03)           echo "Toolchain" ;;
+        04|05|05|07|08)     echo "System Integration" ;; # ICU, Gettext, Iconv
+        09|11|12|39)        echo "Compression & Runtime" ;; # Zlib, Zstd, FFI
+        15|16|17)           echo "Base Integration" ;; # Glib, XML2
+        20|21|22|23|24)     echo "Net" ;; # OpenSSL, Curl
+        25|26|27|28|29)     echo "Core Graphics" ;; # PNG Cairo
+        40|41|42|43)        echo "Vulkan & Shaders" ;; # SPIR-V, Glslang
+        44|45|46|47)        echo "Compute & Vision" ;; # OpenVINO, OpenCV
+        48|49)              echo "Hardware Acceleration API" ;; # VMAF
+        50)                 echo "Software Codecs" ;; # x264, x265
+        51|52|53|54|55)     echo "Audio & Frameservers" ;; # Vapoursynth, OpenAL
+        60|61|62|63|64|65)  echo "Video Extensions" ;; # Libglvnd, Xrandr
+        74|75|76|77|78|79)  echo "X11 & Windowing" ;; # XCB
+        80|81|82|83|84|85)  echo "Hardware Integration" ;;
+        96|97|98)           echo "LV2 & Plugins" ;; # Serd, Sord, Lilv
+        99|zz)              echo "Meta & Finalize" ;;
         *)                  echo "Other" ;;
-    esac
 }
 export -f get_component_group
 
@@ -1044,11 +1049,13 @@ render_dl_table() {
 
         if [[ "$group" != "$current_group" ]]; then
             if [[ -n "$current_group" ]]; then
-                printf '  ╰%s\n' "$(_repeat_char "$inner_width" "─")" >&2
+                # Purple Group
+                printf "${LOG_DEBUG}" '  ╰%s\n' "$(_repeat_char "$inner_width" "─")" "${LOG_NC}" >&2
             fi
             local group_label="─[ $group ]"
             local remain=$(( inner_width - ${#group_label} ))
-            printf '  ╭%s%s\n' "$group_label" "$(_repeat_char "$remain" "─")" >&2
+            # Заголовок группы: Purple ┌─ Group
+            printf "${LOG_DEBUG}" '  ╭%s%s\n' "$group_label" "$(_repeat_char "$remain" "─")" "${LOG_NC}" >&2
             current_group="$group"
         fi
 
@@ -1061,7 +1068,7 @@ render_dl_table() {
             *)    color="${LOG_NC}"    ;;
         esac
 
-        # FIX 2: Строгое разделение цвета и вывода
+        # Строгое разделение цвета и вывода
         printf '  │ ' >&2
         printf '%b' "$color" >&2
         printf '%s  %-28s  %-16s  %s' "$icon" "$name" "$hash" "$extra" >&2
