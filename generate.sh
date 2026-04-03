@@ -24,6 +24,7 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
 [[ "$USE_AVX512" == "1" ]]     && log_info "${XCLAM_MARK} AVX512 is enabled!"
 [[ "$USE_LTO" == "1" ]]        && log_info "${XCLAM_MARK} LTO is enabled!"
 [[ "$USE_OPENMP" == "1" ]]     && log_info "${XCLAM_MARK} Open Multi-Processing runtime for shared-memory parallel programming is enabled!"
+[[ "$SHADERC_UPDATE" == "1" ]] && log_info "${XCLAM_MARK} Shaderc dependencies will be updated from the local DEPS file."
 
 echo -n "" > Dockerfile # Явно очищаем файл перед началом записи
 to_df() { echo "$*" >> Dockerfile; }
