@@ -957,10 +957,7 @@ phase_header() {
     local line=$(_repeat_char $((width - 2)) "─")
     
     printf '╭%s╮\n' "$line" >&2
-    # FIX 2: Цвет -> Контент -> Сброс -> Перенос строки
-    printf '%b' "${LOG_INFO}" >&2
-    printf '  %s %s  ' "$emoji" "$*" >&2
-    printf '%b\n' "${LOG_NC}" >&2
+    printf '  %b%s %s%b  \n' "${LOG_INFO}" "$emoji" "$*" "${LOG_NC}" >&2
     printf '╰%s╯\n' "$line" >&2
 }
 export -f phase_header
@@ -969,11 +966,8 @@ export -f phase_header
 phase_footer() {
     local width=$(_term_width)
     local line=$(_repeat_char $((width - 2)) "─")
-    # FIX 3: Скругленные углы последовательно
     printf '╭%s╮\n' "$line" >&2
-    printf '%b' "${LOG_INFO}" >&2
-    printf '  %s  ' "$*" >&2
-    printf '%b\n' "${LOG_NC}" >&2
+    printf '  %b%s%b  \n' "${LOG_INFO}" "$*" "${LOG_NC}" >&2
     printf '╰%s╯\n' "$line" >&2
 }
 export -f phase_footer
@@ -982,11 +976,11 @@ dl_result_line() {
     local status="$1" name="$2" hash="$3" extra="$4"
     local icon
     case "$status" in
-        hit)  icon="✔" ;;
-        miss) icon="🡇" ;;
-        skip) icon="—" ;;
-        fail) icon="✖" ;;
-        *)    icon="?" ;;
+        hit)  icon="✔" ; color="$LOG_INFO"  ;;
+        miss) icon="🡇" ; color="$LOG_WARN"  ;;
+        skip) icon="—" ; color="$LOG_DEBUG" ;;
+        fail) icon="✖" ; color="$LOG_ERROR" ;;
+        *)    icon="?" ; color="$LOG_NC"    ;;
     esac
     printf '%s\t%s\t%s\t%s\t%s\n' \
         "$status" "$icon" "$name" "${hash:0:16}" "$extra" \
@@ -1028,11 +1022,9 @@ render_dl_table() {
         local group=$(get_component_group "$name")
 
         if [[ "$group" != "$current_group" ]]; then
-            # FIX 3: Закрытие предыдущей группы
             if [[ -n "$current_group" ]]; then
                 printf '  ╰%s\n' "$(_repeat_char "$inner_width" "─")" >&2
             fi
-            # Открытие новой группы
             local group_label="─[ $group ]"
             local remain=$(( inner_width - ${#group_label} ))
             printf '  ╭%s%s\n' "$group_label" "$(_repeat_char "$remain" "─")" >&2
@@ -1041,18 +1033,15 @@ render_dl_table() {
 
         local color
         case "$status" in
-            hit)  color="$LOG_INFO"  ;;
-            miss) color="$LOG_WARN"  ;;
-            skip) color="$LOG_DEBUG" ;;
-            fail) color="$LOG_ERROR" ;;
-            *)    color="$LOG_NC"    ;;
+            hit)  color="${LOG_INFO}"  ;;
+            miss) color="${LOG_WARN}"  ;;
+            skip) color="${LOG_DEBUG}" ;;
+            fail) color="${LOG_ERROR}" ;;
+            *)    color="${LOG_NC}"    ;;
         esac
 
-        # FIX 2: Строгое разделение цвета и вывода
-        printf '  │ ' >&2
-        printf '%b' "$color" >&2
-        printf '%s  %-28s  %-16s  %s' "$icon" "$name" "$hash" "$extra" >&2
-        printf '%b\n' "$LOG_NC" >&2
+        printf '  │ %b%s  %-28s  %-16s  %s%b\n' \
+            "$color" "$icon" "$name" "$hash" "$extra" "${LOG_NC}" >&2
     done
 
     if [[ -n "$current_group" ]]; then
@@ -1061,15 +1050,16 @@ render_dl_table() {
 
     separator "─"
 
-    # Подсчет (без изменений)
     local n_hit=$(tr -d '\r' < "$file" | grep -c '^hit' || true)
     local n_miss=$(tr -d '\r' < "$file" | grep -c '^miss' || true)
     local n_skip=$(tr -d '\r' < "$file" | grep -c '^skip' || true)
     local n_fail=$(tr -d '\r' < "$file" | grep -c '^fail' || true)
 
-    printf '%b' "$LOG_INFO" >&2
-    printf '  ✔ %s hit   🡇 %s downloaded   — %s skipped   ✖ %s failed' \
-        "${n_hit:-0}" "${n_miss:-0}" "${n_skip:-0}" "${n_fail:-0}" >&2
-    printf '%b\n' "$LOG_NC" >&2
+    printf '  %b✔ %s hit   %b🡇 %s downloaded   %b— %s skipped   %b✖ %s failed%b\n' \
+        "${LOG_INFO}" "${n_hit:-0}" \
+        "${LOG_WARN}" "${n_miss:-0}" \
+        "${LOG_DEBUG}" "${n_skip:-0}" \
+        "${LOG_ERROR}" "${n_fail:-0}" \
+        "${LOG_NC}" >&2
 }
 export -f render_dl_table
