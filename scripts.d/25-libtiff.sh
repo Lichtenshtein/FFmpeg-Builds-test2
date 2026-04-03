@@ -45,6 +45,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
+    local PC_FILE="$PC_DIR/libtiff-4.pc"
+    local LINK_FILE="$PC_DIR/tiff.pc"
     # проверить, как называется созданный .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
     ln -sf libtiff-4.pc "$LINK_FILE"
 
