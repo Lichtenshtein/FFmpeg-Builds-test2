@@ -47,19 +47,26 @@ STAGE_COUNT=$(echo "$STAGES" | wc -l)
 log_info "${DOWN_MARK} Queuing ${STAGE_COUNT} stage(s) for parallel download (jobs=8)..."
 separator "─"
 
-# --halt now,fail=1 меняем на --halt soon,fail=20%; (--line-buffer may be useful)
+# ensuring DL_RESULT_FILE and UTIL_DIR paths with spaces are safe
+_util_vars=$(printf '%q' "${UTIL_DIR}/vars.sh")
+_util_dl=$(printf '%q' "${UTIL_DIR}/dl_functions.sh")
+_dl_result=$(printf '%q' "$DL_RESULT_FILE")
+_target=$(printf '%q' "$TARGET")
+_variant=$(printf '%q' "$VARIANT")
+# --halt now,fail=1 меняем на --halt soon,fail=20%;
 # Это даст шанс остальным докачаться, даже если один упал
-echo "$STAGES" | parallel --halt now,fail=1 --jobs 8 \
+echo "$STAGES" | parallel \
+--halt now,fail=1 \
+--jobs 8 \
 --joblog "$JOBLOG" \
 --group \
-"export TARGET='$TARGET'; \
- export VARIANT='$VARIANT'; \
- export STAGE={}; \
- export DL_RESULT_FILE='$DL_RESULT_FILE'; \
- source '${UTIL_DIR}/vars.sh' \$TARGET \$VARIANT 2>/dev/null || \
-{ echo 'ERROR: vars.sh failed in parallel job' >&2; exit 1; }; \
- source '${UTIL_DIR}/dl_functions.sh'; \
- download_stage {}"
+"export TARGET=${_target}; \
+export VARIANT=${_variant}; \
+export DL_RESULT_FILE=${_dl_result}; \
+source ${_util_vars} ${_target} ${_variant} 2>/dev/null \
+|| { echo 'ERROR: vars.sh failed' >&2; exit 1; }; \
+source ${_util_dl}; \
+download_stage {}"
 
 # Render the collected results as one aligned table after all jobs finish
 render_dl_table "$DL_RESULT_FILE"
@@ -73,6 +80,12 @@ fi
 
 # FFmpeg
 phase_header "🔎" "FFMPEG SOURCE CHECK"
+
+# Guard missing FFmpeg vars early
+if [[ -z "${FFMPEG_REPO:-https://git.ffmpeg.org/ffmpeg.git}" || -z "${FFMPEG_BRANCH:-master}" ]]; then
+    log_error "FFMPEG_REPO and FFMPEG_BRANCH must be set in the environment (workflow.yaml)"
+    exit 1
+fi
 
 # Получаем хеш последнего коммита в удаленной ветке (без клонирования)
 REMOTE_HASH=$(git ls-remote "$FFMPEG_REPO" "refs/heads/$FFMPEG_BRANCH" | cut -f1)
@@ -101,8 +114,8 @@ else
                 if [[ "$ca" == "$cb" ]]; then
                     out_a+="$ca"; out_b+="$cb"
                 else
-                    out_a+="${LOG_WARN}${ca}${LOG_NC}"
-                    out_b+="${LOG_WARN}${cb}${LOG_NC}"
+                    out_a+="${LOG_WARN}${ca:-.}${LOG_NC}"
+                    out_b+="${LOG_WARN}${cb:-.}${LOG_NC}"
                 fi
             done
             printf '  %-8s  %b\n' "$label_a" "$out_a" >&2
@@ -120,14 +133,30 @@ else
         # FFmpeg update (--quiet для чистоты логов)
         # Используем переменные FFMPEG_REPO и FFMPEG_BRANCH из workflow.yaml
         if [[ ! -d "$FFMPEG_DIR/.git" ]]; then
+            # Очистка перед клонированием на случай мусора от прошлых попыток
+            rm -rf "$FFMPEG_DIR"
             mkdir -p "$FFMPEG_DIR"
-            git clone --progress --depth=1 --branch="$FFMPEG_BRANCH" "$FFMPEG_REPO" "$FFMPEG_DIR" 2>&1 | log_debug "Cloning..."
+            git clone --progress --depth=1 --branch="$FFMPEG_BRANCH" \
+                "$FFMPEG_REPO" "$FFMPEG_DIR" 2>&1 \
+                | while IFS= read -r line; do log_debug "$line"; done
+            if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+                log_error "git clone failed for $FFMPEG_REPO. Cleaning up..."
+                rm -rf "$FFMPEG_DIR"
+                exit 1
+            fi
         else
+            # Удаление локов перед обновлением
+            [[ -f "$FFMPEG_DIR/.git/index.lock" ]] && rm -f "$FFMPEG_DIR/.git/index.lock"
             ( cd "$FFMPEG_DIR" && \
               git remote set-url origin "$FFMPEG_REPO" && \
               git fetch --quiet --depth=1 origin "$FFMPEG_BRANCH" && \
               git reset --hard FETCH_HEAD && \
-              git clean -df )
+              git clean -df ) 2>&1 \
+                | while IFS= read -r line; do log_debug "$line"; done
+            if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
+                log_error "git fetch/reset failed for $FFMPEG_REPO"
+                exit 1
+            fi
         fi
         # Сохраняем новый хеш после успешного обновления
         echo "$REMOTE_HASH" > "$FFMPEG_HASH_FILE"
