@@ -1026,6 +1026,7 @@ get_component_group() {
         96|97|98)           echo "LV2 & Plugins" ;; # Serd, Sord, Lilv
         99|zz)              echo "Meta & Finalize" ;;
         *)                  echo "Other" ;;
+    esac
 }
 export -f get_component_group
 
