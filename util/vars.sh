@@ -1011,29 +1011,26 @@ render_dl_table() {
     local file="$1"
     [[ -f "$file" ]] || return 0
     local width=$(_term_width)
-    
-    # 1. Заголовок таблицы
+    local inner_width=$(( width - 4 ))
+
     separator "─" "  DOWNLOAD SUMMARY  "
     printf '  %-3s  %-30s  %-16s  %s\n' "" "COMPONENT" "HASH" "RESULT" >&2
     separator "─"
 
     local current_group=""
-    # Сортировка по статусу (hit/miss/skip/fail), затем по группе
     sort -t$'\t' -k1,1 "$file" | while IFS=$'\t' read -r status icon name hash extra; do
         local group=$(get_component_group "$name")
-        
-        # 2. Если группа изменилась, рисуем разделитель и имя группы в стиле LOG_DEBUG (Purple)
+
         if [[ "$group" != "$current_group" ]]; then
             if [[ -n "$current_group" ]]; then
-                # Разделитель между группами (точечный)
-                printf '  ╰%s\n' "${LOG_DEBUG}" "$(_repeat_char $((width - 4)) "─")" "${LOG_NC}" >&2
+                printf '  ╰%s\n' "$(_repeat_char "$inner_width" "─")" >&2
             fi
-            # Заголовок группы: Purple ┌─ Group
-            printf '  ╭%s%s\n\n' "${LOG_DEBUG}" "$group" "${LOG_NC}" >&2
+            local group_label="─[ $group ]"
+            local remain=$(( inner_width - ${#group_label} ))
+            printf '  ╭%s%s\n' "$group_label" "$(_repeat_char "$remain" "─")" >&2
             current_group="$group"
         fi
-        
-        # 3. Определяем цвет строки на основе статуса
+
         local color
         case "$status" in
             hit)  color="${LOG_INFO}"  ;;
@@ -1043,28 +1040,28 @@ render_dl_table() {
             *)    color="${LOG_NC}"    ;;
         esac
 
-        # Вывод строки: Purple │ + Цветной контент
-        printf '  %b│%b %b %s  %-28s  %-16s  %s%b\n' \
-            "${LOG_DEBUG}" "${LOG_NC}" "$color" "$icon" "$name" "$hash" "$extra" "${LOG_NC}" >&2
+        # FIX 2: Строгое разделение цвета и вывода
+        printf '  │ ' >&2
+        printf '%b' "$color" >&2
+        printf '%s  %-28s  %-16s  %s' "$icon" "$name" "$hash" "$extra" >&2
+        printf '%b\n' "$LOG_NC" >&2
     done
 
-    # 4. Закрывающая линия всей таблицы (Purple)
-    local footer_line=$(_repeat_char $((width - 4)) "─")
-    printf '  %b└%s%b\n' "${LOG_DEBUG}" "$footer_line" "${LOG_NC}" >&2
+    if [[ -n "$current_group" ]]; then
+        printf '  ╰%s\n' "$(_repeat_char "$inner_width" "─")" >&2
+    fi
 
     separator "─"
 
-    # 5. Итоговая сводка (с индивидуальными цветами)
+    # Подсчет (без изменений)
     local n_hit=$(tr -d '\r' < "$file" | grep -c '^hit' || true)
     local n_miss=$(tr -d '\r' < "$file" | grep -c '^miss' || true)
     local n_skip=$(tr -d '\r' < "$file" | grep -c '^skip' || true)
     local n_fail=$(tr -d '\r' < "$file" | grep -c '^fail' || true)
 
-    printf '  %b✔ %s hit%b   %b🡇 %s downloaded%b   %b— %s skipped%b   %b✖ %s failed%b\n' \
-        "${LOG_INFO}" "${n_hit:-0}" "${LOG_NC}" \
-        "${LOG_WARN}" "${n_miss:-0}" "${LOG_NC}" \
-        "${LOG_DEBUG}" "${n_skip:-0}" "${LOG_NC}" \
-        "${LOG_ERROR}" "${n_fail:-0}" "${LOG_NC}" >&2
+    printf '%b' "$LOG_INFO" >&2
+    printf '  ✔ %s hit   🡇 %s downloaded   — %s skipped   ✖ %s failed' \
+        "${n_hit:-0}" "${n_miss:-0}" "${n_skip:-0}" "${n_fail:-0}" >&2
+    printf '%b\n' "$LOG_NC" >&2
 }
-
 export -f render_dl_table
