@@ -1023,11 +1023,11 @@ render_dl_table() {
 
         if [[ "$group" != "$current_group" ]]; then
             if [[ -n "$current_group" ]]; then
-                printf '  ╰%s\n' "$(_repeat_char "$inner_width" "─")" >&2
+                printf '  ╰%s\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "─")" "${LOG_NC}" >&2
             fi
             local group_label="─[ $group ]"
             local remain=$(( inner_width - ${#group_label} ))
-            printf '  ╭%s%s\n' "$group_label" "$(_repeat_char "$remain" "─")" >&2
+            printf '  ╭%s%s\n' "${LOG_DEBUG}" "$group_label" "$(_repeat_char "$remain" "─")" "${LOG_NC}" >&2
             current_group="$group"
         fi
 
@@ -1045,7 +1045,7 @@ render_dl_table() {
     done
 
     if [[ -n "$current_group" ]]; then
-        printf '  ╰%s\n' "$(_repeat_char "$inner_width" "─")" >&2
+        printf '  ╰%s\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "─")" "${LOG_NC}" >&2
     fi
 
     separator "─"
