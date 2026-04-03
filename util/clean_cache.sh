@@ -2,6 +2,7 @@
 
 set -o pipefail
 shopt -s globstar
+shopt -s nullglob
 
 CLEAN_TARGET=$(echo "${1:-$TARGET}" | awk '{print $1}')
 CLEAN_VARIANT=$(echo "${2:-$VARIANT}" | awk '{print $1}')
@@ -34,22 +35,22 @@ count_skipped=0
 for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     [[ -f "$STAGE" ]] || continue
 
-    # Обновляем переменные для ТЕКУЩЕГО файла в цикле
-    local_stagename="$(basename "$STAGE" .sh)"
-    STAGE_HASH=$(get_stage_hash "$STAGE")
+    # Unified var derivation consistent with dl_functions.sh
+    unset STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK
+    eval "$(stage_vars "$STAGE")"
 
     # Is this stage active (listed in ONLY_STAGE)?
     is_active=false
-    if [[ -z "$ONLY_STAGE" ]]; then
-        is_active=true
-    elif [[ "$local_stagename" =~ ^($ONLY_STAGE)$ ]] || \
-         [[ "$ONLY_STAGE" =~ (^|\|)$local_stagename($|\|) ]]; then
+    if [[ -z "$ONLY_STAGE" ]] || [[ "|${ONLY_STAGE}|" == *"|${STAGENAME}|"* ]]; then
         is_active=true
     fi
 
     # Is this stage enabled (ffbuild_enabled returns 0)?
+    # source vars.sh first for default ffbuild_enabled
+    # then source $STAGE to get any override
     is_enabled=false
     if ( set +e
+         source "${UTIL_DIR}/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" >/dev/null 2>&1
          source "$STAGE" >/dev/null 2>&1
          ffbuild_enabled >/dev/null 2>&1 ); then
         is_enabled=true
@@ -65,7 +66,6 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
 
     should_protect=false
     reason=""
-
     if [[ "$is_active" == "true" ]]; then
         if [[ "$is_enabled" == "true" ]]; then
             should_protect=true
@@ -77,7 +77,7 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
         fi
     else
         # inactive
-        if [[ "$is_enabled" == "true" ]] && [[ "$CLEAN_INACTIVE" == "0" ]]; then
+        if [[ "$is_enabled" == "true" && "$CLEAN_INACTIVE" == "0" ]]; then
             should_protect=true
             reason="inactive+enabled+keep"
             count_inactive_kept=$((count_inactive_kept + 1))
@@ -88,26 +88,22 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     fi
 
     # Add to keep-list if protecting
-    if [[ "$should_protect" == "true" ]]; then
-        if [[ -n "$STAGE_HASH" ]]; then
-            echo "${local_stagename}_${STAGE_HASH}.tar.zst" >> "$RAW_KEEP_LIST"
-            echo "${local_stagename}.tar.zst"               >> "$RAW_KEEP_LIST"
-            # Single-line debug: only shown when FFBUILD_VERBOSE >= 2 or similar
-            # Use log_debug sparingly one line per protected file is too noisy at scale
-        fi
+    if [[ "$should_protect" == "true" && -n "$STAGE_HASH" ]]; then
+        echo "$(basename "$STAGE_CACHE_FILE")"  >> "$RAW_KEEP_LIST"
+        echo "$(basename "$STAGE_LATEST_LINK")" >> "$RAW_KEEP_LIST"
     fi
+
     # Verbose trace only if explicitly requested (not default FFBUILD_VERBOSE=1)
     [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]] && \
-        log_debug "${local_stagename}: is_active=${is_active} is_enabled=${is_enabled} → ${reason}"
+        log_debug "${STAGENAME}: active=${is_active} enabled=${is_enabled} → ${reason}"
 done
 
 # Summary of decisions (one line, not 80)
 log_info "${LOCK_MARK} Protected: ${count_active_enabled} active+enabled, ${count_inactive_kept} inactive+kept, ${count_skipped} skipped."
 
-# sort -u "$RAW_KEEP_LIST" > "$FINAL_KEEP_LIST"
-# sed -i 's/\r//g; s/[[:space:]]*$//' "$FINAL_KEEP_LIST"
-sort -u "$RAW_KEEP_LIST" | tr -d '\r' > "$FINAL_KEEP_LIST"
-sed -i 's/[[:space:]]*$//' "$FINAL_KEEP_LIST"
+# Сначала наполняем финальный список
+# Build O(1) lookup set
+sort -u "$RAW_KEEP_LIST" | tr -d '\r' | sed 's/[[:space:]]*$//' > "$FINAL_KEEP_LIST"
 
 # Debug: show keep-list only at verbose >= 2
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
@@ -115,10 +111,14 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     head -n 10 "$FINAL_KEEP_LIST" || true
 fi
 
-# Deletion pass
+declare -A PROTECTED_SET
+while IFS= read -r entry; do
+    [[ -n "$entry" ]] && PROTECTED_SET["$entry"]=1
+done < "$FINAL_KEEP_LIST"
 
+
+# Deletion pass — O(1) lookup per file
 cd "$CACHE_DIR" || exit 0
-mapfile -t PROTECTED_FILES < "$FINAL_KEEP_LIST"
 
 deleted_count=0
 skipped_young=0
@@ -128,24 +128,17 @@ log_info "${BROOM_MARK} Scanning cache for orphaned/outdated files..."
 for f in *.tar.zst; do
     [[ -e "$f" || -L "$f" ]] || continue
 
-    is_protected=false
-    for p in "${PROTECTED_FILES[@]}"; do
-        if [[ "$f" == "$p" ]]; then
-            is_protected=true
-            break
-        fi
-    done
-
-    [[ "$is_protected" == "true" ]] && continue
+    if [[ -n "${PROTECTED_SET[$f]:-}" ]]; then
+        continue
+    fi
 
     if [[ -L "$f" ]]; then
-        log_info "${BROOM_MARK} Removing obsolete symlink: $f"
+        log_debug "${BROOM_MARK} Removing obsolete symlink: $f"
         rm -f "$f"
         deleted_count=$((deleted_count + 1))
     elif [[ -f "$f" ]]; then
-        # 30-minute grace period for files being actively downloaded
         if [[ -n $(find "$f" -mmin +30 2>/dev/null) ]]; then
-            log_info "${BROOM_MARK} Deleting orphaned cache file: $f"
+            log_debug "${BROOM_MARK} Deleting orphaned cache file: $f"
             rm -f "$f"
             deleted_count=$((deleted_count + 1))
         else

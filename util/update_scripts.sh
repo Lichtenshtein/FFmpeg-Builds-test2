@@ -3,12 +3,11 @@
 set -eo pipefail
 shopt -s globstar
 
-# Загружаем оформление
-if source util/vars.sh 2>/dev/null; then
+# Load vars.sh with fallback for missing TARGET/VARIANT
+if ! source util/vars.sh "${TARGET:-}" "${VARIANT:-}" 2>/dev/null; then
+    # Logging functions may not be available, but continue anyway
+    # (update_scripts doesn't strictly need TARGET/VARIANT)
     :
-else
-    # Fallback if vars.sh fails (e.g., no TARGET set)
-    source util/vars.sh "$TARGET" "$VARIANT" 2>/dev/null || true
 fi
 
 # Читаем список из ENV или используем пустой, если переменная не задана
@@ -100,8 +99,6 @@ phase_header "🔄" "UPDATING COMPONENT VERSIONS"
 for STAGE in $SEARCH_PATTERN; do
     [[ -f "$STAGE" ]] || continue
 
-    # derive locally per iteration, never from global scope
-    local STAGENAME COMPONENT_NAME
     STAGENAME="$(basename "$STAGE" .sh)"
     COMPONENT_NAME="${STAGENAME#*-}"
 
@@ -114,7 +111,7 @@ for STAGE in $SEARCH_PATTERN; do
 
     # Пропускаем помеченные скрипты
     if grep -q 'SCRIPT_SKIP="1"' "$STAGE"; then
-        log_debug "${LOCK_MARK} Skipping ${STAGE} (SCRIPT_SKIP active)"
+        log_debug "${LOCK_MARK} Skipping ${STAGENAME} (SCRIPT_SKIP active)"
         continue
     fi
 
@@ -140,7 +137,6 @@ for STAGE in $SEARCH_PATTERN; do
             TAG_VAR="SCRIPT_TAGFILTER$i"
 
             # Get current values using indirect expansion
-            local CUR_REPO CUR_COMMIT CUR_REV CUR_HGREV CUR_BRANCH CUR_TAG
             CUR_REPO="${!REPO_VAR:-}"
             CUR_COMMIT="${!COMMIT_VAR:-}"
             CUR_REV="${!REV_VAR:-}"
@@ -156,7 +152,7 @@ for STAGE in $SEARCH_PATTERN; do
                 continue
             fi
 
-            local NEW_VAL="" TARGET_VAR=""
+            NEW_VAL="" TARGET_VAR=""
 
             # Determine which type of revision control and fetch latest
             if [[ -n "$CUR_COMMIT" ]]; then
@@ -225,7 +221,6 @@ update_shaderc_deps
 # Final Report
 phase_header "📋" "UPDATE SUMMARY"
 
-local UPDATED_FILES BROKEN_REPOS UNKNOWN_LAYOUTS SYNTAX_ERRORS
 UPDATED_FILES=()
 BROKEN_REPOS=()
 UNKNOWN_LAYOUTS=()
@@ -244,8 +239,7 @@ done < "$TMP_REPORT"
 # Print results
 if [[ ${#UPDATED_FILES[@]} -gt 0 ]]; then
     separator "─" "  UPDATED  "
-    printf '%b  ✔ %s%b\n' "$LOG_INFO" "${UPDATED_FILES}" "$LOG_NC" >&2
-    for item in "${UPDATED_FILES[@]:1}"; do
+    for item in "${UPDATED_FILES[@]}"; do
         printf '%b  ✔ %s%b\n' "$LOG_INFO" "$item" "$LOG_NC" >&2
     done
 fi

@@ -208,3 +208,15 @@ All of those can be optionally combined with any combination of addins:
 ```
 12-libicu|13-libiconv|14-gettext|15-freetype|17-harfbuzz|18-zlib|19-brotli|19-bzlib|19-xz|19-zstd|23-jbigkit|23-libffi|23-pcre2|25-fribidi|25-giflib|25-glib2|25-libjpeg-turbo|25-libpng|25-libxml2|26-pixman|26-fontconfig|26-libtiff|26-openjpeg|27-libwebp|34-cairo|35-harfbuzz|40-freetype|41-lcms2|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|44-gavl|45-opencl|45-openvino-test|46-libjxl|46-opencv-test|47-frei0r
 ```
+
+### Download functions memo tips
+
+SCRIPT_REPO[1-9] - each REPO should be downloaded simultaneously or in sequence
+SCRIPT_COMMIT[1-9] - commit to download from
+SCRIPT_BRANCH[1-9] - processing of branches
+SCRIPT_MIRROR[1-9] - only used when the primary REPO link is unavailable 
+SCRIPT_MIRROR_COMMIT[1-9] - may differ if mirror is not updated in time
+SCRIPT_COMMIT="v3.4.5" - specific version
+SCRIPT_REV - SVN
+SCRIPT_TAGFILTER - filter by tag
+SCRIPT_SKIP="1" - skip script (meta-component)
