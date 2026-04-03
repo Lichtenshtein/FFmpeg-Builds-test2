@@ -141,6 +141,8 @@ download_file() {
     local SHA512="$3"
     local useragent="Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
 
+    [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "${SEARCH_MARK} Figuring out where pv is..." && which pv >&2
+
     # Cache hit check BEFORE any deletion
     if [[ -f "$DEST" ]]; then
         if [[ -n "${SHA512:-}" ]]; then
@@ -154,13 +156,6 @@ download_file() {
             return 0
         fi
     fi
-
-    # Функция для простой загрузки (используется в _retry)
-    _simple_curl() {
-    # delete stale/mismatched file
-        rm -f "$DEST"
-        curl -A "$useragent" -fsSL --connect-timeout 15 "$URL" -o "$DEST"
-    }
 
     log_info "${DOWN_MARK} Downloading: $(basename "$DEST")"
     local curl_ok=1
@@ -191,7 +186,8 @@ download_file() {
 
     # если первая попытка провалилась (или нет pv) запускаем _retry
     if [[ $curl_ok -ne 0 ]]; then
-        if ! _retry _simple_curl; then
+        _retry_cmd="rm -f '$DEST' && curl -A '$useragent' -fsSL --connect-timeout 15 '$URL' -o '$DEST'"
+        if ! _retry bash -c "$_retry_cmd"; then
             log_error "All download attempts failed for $(basename "$DEST")"
             rm -f "$DEST"
             return 1
