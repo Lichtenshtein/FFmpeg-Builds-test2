@@ -50,16 +50,16 @@ separator "─"
 # --halt now,fail=1 меняем на --halt soon,fail=20%; (--line-buffer may be useful)
 # Это даст шанс остальным докачаться, даже если один упал
 echo "$STAGES" | parallel --halt now,fail=1 --jobs 8 \
-    --joblog "$JOBLOG" \
-    --group \
-    "export TARGET='$TARGET'; \
-     export VARIANT='$VARIANT'; \
-     export STAGE={}; \
-     export DL_RESULT_FILE='$DL_RESULT_FILE'; \
-     source '${UTIL_DIR}/vars.sh' \$TARGET \$VARIANT 2>/dev/null \
-         || { echo 'ERROR: vars.sh failed in parallel job' >&2; exit 1; }; \
-     source '${UTIL_DIR}/dl_functions.sh'; \
-     download_stage {}"
+--joblog "$JOBLOG" \
+--group \
+"export TARGET='$TARGET'; \
+ export VARIANT='$VARIANT'; \
+ export STAGE={}; \
+ export DL_RESULT_FILE='$DL_RESULT_FILE'; \
+ source '${UTIL_DIR}/vars.sh' \$TARGET \$VARIANT 2>/dev/null || \
+{ echo 'ERROR: vars.sh failed in parallel job' >&2; exit 1; }; \
+ source '${UTIL_DIR}/dl_functions.sh'; \
+ download_stage {}"
 
 # Render the collected results as one aligned table after all jobs finish
 render_dl_table "$DL_RESULT_FILE"

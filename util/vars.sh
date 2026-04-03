@@ -84,6 +84,9 @@ if [[ -z "$ROOT_DIR" ]]; then
     fi
 fi
 export ROOT_DIR
+# Or if we don't like long paths in logs
+# Container root is always /builder
+export CONTAINER_ROOT="/builder"
 
 # ---------------------------------------------------------------------------
 # CACHE_DIR: always inside the project tree so host and container agree.
@@ -91,31 +94,6 @@ export ROOT_DIR
 # match what generate.sh writes into the Dockerfile --mount target.
 # ---------------------------------------------------------------------------
 export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
-
-# ---------------------------------------------------------------------------
-# Stage-specific variables.
-# These are intentionally NOT set here at source time because $STAGE and
-# $STAGE_HASH are unknown until a specific stage is being processed.
-# Each consumer (dl_functions.sh, run_stage.sh, clean_cache.sh, generate.sh)
-# must derive them locally after setting $STAGE.
-#
-# Helper function — call it after you have set $STAGE:
-#   eval "$(stage_vars "$STAGE")"
-# ---------------------------------------------------------------------------
-stage_vars() {
-    local stage_path="$1"
-    local _hash
-    _hash=$(get_stage_hash "$stage_path")
-    local _name
-    _name="$(basename "$stage_path" .sh)"
-    local _component="${_name#*-}"
-    printf 'STAGE_HASH=%q\n'       "$_hash"
-    printf 'STAGENAME=%q\n'        "$_name"
-    printf 'COMPONENT_NAME=%q\n'   "$_component"
-    printf 'STAGE_CACHE_FILE=%q\n' "${CACHE_DIR}/${_name}_${_hash}.tar.zst"
-    printf 'STAGE_LATEST_LINK=%q\n' "${CACHE_DIR}/${_name}.tar.zst"
-}
-export -f stage_vars
 
 # Build variables (inside the container)
 # Prefer positional args, fall back to ENV
@@ -267,51 +245,81 @@ get_stage_hash() {
 }
 export -f get_stage_hash
 
+# ---------------------------------------------------------------------------
+# Stage-specific variables.
+# These are intentionally NOT set here at source time because $STAGE and
+# $STAGE_HASH are unknown until a specific stage is being processed.
+# Each consumer (dl_functions.sh, run_stage.sh, clean_cache.sh, generate.sh)
+# must derive them locally after setting $STAGE.
+#
+# Helper function — call after we have set $STAGE:
+#   eval "$(stage_vars "$STAGE")"
+# ---------------------------------------------------------------------------
+stage_vars() {
+    local stage_path="$1"
+    local _hash
+    _hash=$(get_stage_hash "$stage_path")
+    local _name
+    _name="$(basename "$stage_path" .sh)"
+    local _component="${_name#*-}"
+    printf 'STAGE_HASH=%q\n'       "$_hash"
+    printf 'STAGENAME=%q\n'        "$_name"
+    printf 'COMPONENT_NAME=%q\n'   "$_component"
+    printf 'STAGE_CACHE_FILE=%q\n' "${CACHE_DIR}/${_name}_${_hash}.tar.zst"
+    printf 'STAGE_LATEST_LINK=%q\n' "${CACHE_DIR}/${_name}.tar.zst"
+}
+export -f stage_vars
+
 # Удаляем ANSI цвета
 # Удаляем переносы строк (заменяем на пробел)
 # xargs схлопнет лишние пробелы в одну строку
 clean_val() {
-    echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | tr '\n' ' ' | xargs -r -d ' '
+    echo "$*" | \
+        sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | \
+        sed -E "s/''|\"\"//g" | \
+        tr -s '[:space:]' ' ' | xargs -r
 }
+
 # быстрые дедупликаторы
-dedupe() {
-    # Сначала очистим от цвета и лишних пробелов
-    local input=$(clean_val "$*")
-    [[ -z "$input" ]] && return
-    # Переводим в одну строку, удаляем мусор
-    local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
-    # Удаляем дубликаты, сохраняя ПЕРВОЕ вхождение
-    echo "$clean" | awk '!x[$0]++' | xargs -r -d '\n' | tr '\n' ' '
-}
-# for ldflags
-smart_dedupe() {
-    # Сначала очистим от цвета и лишних пробелов
-    local input=$(clean_val "$*")
-    local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "Package|not|found|error|^$")
-    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
-        echo "$clean" | awk '!x[$0]++' | xargs -r -d '\n' | tr '\n' ' '
-    else
-        echo "$clean" | xargs -r -d '\n' | tr '\n' ' '
-    fi
-}
-# for libs
-smart_libs_dedupe() {
-    # Сначала очистим от цвета и лишних пробелов
-    local raw_input=$(clean_val "$*")
-    # чистим мусор и ПУТИ, убираем -lstdc++
-    local clean=$(echo "$raw_input" | tr ' ' '\n' | \
-        grep -vE "Package|not|found|error|^$|^-L|^-lstdc\+\+$")
-    # унифицируем pthread: заменяем -lpthread на -pthread
-    clean=$(echo "$clean" | sed 's/^-lpthread$/-pthread/')
-    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
+dedupe_logic() {
+    local input="$1"
+    local mode="$2"
+    # Разбиваем на строки, чистим мусорные слова и пустые строки
+    local clean=$(echo "$input" | tr ' ' '\n' | grep -vE "^(Package|not|found|error)$|^$")
+    if [[ "$mode" == "last" ]]; then
     # оставляет только ПОСЛЕДНЕЕ вхождение (важно для порядка линковки)
-        echo "$clean" | tac | awk '!x[$0]++' | tac | tr '\n' ' ' | xargs -r -d '\n' | tr '\n' ' '
+        echo "$clean" | tac | awk '!x[$0]++' | tac
     else
-    # Просто склеиваем в одну строку без удаления дублей
-        echo "$clean" | tr '\n' ' ' | xargs -r -d '\n' | tr '\n' ' '
+    # Удаляем дубликаты, сохраняя ПЕРВОЕ вхождение
+        echo "$clean" | awk '!x[$0]++'
     fi
 }
-export -f clean_val dedupe smart_dedupe smart_libs_dedupe
+
+smart_dedupe() {
+    local input=$(clean_val "$*")
+    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
+        dedupe_logic "$input" "first" | xargs -r
+    else
+        echo "$input" | xargs -r
+    fi
+}
+
+smart_libs_dedupe() {
+    local input=$(clean_val "$*")
+    # Специфичная чистка для библиотек
+    # унифицируем pthread: заменяем -lpthread на -pthread
+    # чистим мусор и ПУТИ, убираем -lstdc++
+    local filtered=$(echo "$input" | tr ' ' '\n' | \
+        grep -vE "^-L|^-lstdc\+\+$" | \
+        sed 's/^-lpthread$/-pthread/')
+    # склеиваем в одну строку без удаления дублей?
+    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
+        dedupe_logic "$filtered" "last" | xargs -r
+    else
+        echo "$filtered" | xargs -r
+    fi
+}
+export -f clean_val dedupe_logic smart_dedupe smart_libs_dedupe
 
 # Docker stage helpers
 ffbuild_dockerstage() {
@@ -338,10 +346,10 @@ ffbuild_dockerdl() {
 ffbuild_enabled()      { return 0; }
 ffbuild_depends()      { echo base; }
 # чистим мусор и дедуплицируем, оставляя ПЕРВОЕ вхождение)
-ffbuild_configure()    { [[ -n "$*" ]] && export FF_CONFIGURE=$(dedupe "$FF_CONFIGURE $*"); }
-ffbuild_cflags()       { [[ -n "$*" ]] && export FF_CFLAGS=$(dedupe "$FF_CFLAGS $*"); }
-ffbuild_cppflags()     { [[ -n "$*" ]] && export FF_CPPFLAGS=$(dedupe "$FF_CPPFLAGS $*"); }
-ffbuild_cxxflags()     { [[ -n "$*" ]] && export FF_CXXFLAGS=$(dedupe "$FF_CXXFLAGS $*"); }
+ffbuild_configure()    { [[ -n "$*" ]] && export FF_CONFIGURE=$(smart_dedupe "$FF_CONFIGURE $*"); }
+ffbuild_cflags()       { [[ -n "$*" ]] && export FF_CFLAGS=$(smart_dedupe "$FF_CFLAGS $*"); }
+ffbuild_cppflags()     { [[ -n "$*" ]] && export FF_CPPFLAGS=$(smart_dedupe "$FF_CPPFLAGS $*"); }
+ffbuild_cxxflags()     { [[ -n "$*" ]] && export FF_CXXFLAGS=$(smart_dedupe "$FF_CXXFLAGS $*"); }
 # Флаги линковщика (используем smart_dedupe - он учитывает переменную DEDUPE_FLAGS)
 ffbuild_ldflags()      { [[ -n "$*" ]] && export FF_LDFLAGS=$(smart_dedupe "$FF_LDFLAGS $*"); }
 ffbuild_ldexeflags()   { [[ -n "$*" ]] && export FF_LDEXEFLAGS=$(smart_dedupe "$FF_LDEXEFLAGS $*"); }
