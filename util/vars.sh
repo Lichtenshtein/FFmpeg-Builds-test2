@@ -49,10 +49,15 @@ print_debug() { printf '%b[DEBUG]%b %b\n' "${LOG_DEBUG}" "${LOG_NC}" "$*" >&2; }
 
 # Use instead of log_debug/print_debug when the value may contain
 # Windows paths or other backslash sequences
+# We should change to use "$@" with a loop if multiple values are expected, or document that it takes exactly two args.
 log_raw() {
     local label="$1"; shift
-    printf '%b[DEBUG]%b %s\n' "${LOG_DEBUG}" "${LOG_NC}" "${label}" >&2
-    printf ' %s\n' "$*" >&2
+    printf '%b[DEBUG]%b %s\n' "${LOG_DEBUG:-}" "${LOG_NC:-}" "${label}" >&2
+    [[ $# -gt 0 ]] && printf ' %s\n' "$@" >&2
+    # local arg
+    # for arg in "$@"; do
+        # printf ' %s\n' "$arg" >&2
+    # done
 }
 
 log_info_line() { echo -e "${LOG_INFO}[INFO]${LOG_NC}  ################################################################" >&2; }
@@ -70,11 +75,11 @@ export -f log_info log_warn log_error log_debug log_info_line log_err_line print
 #   3. Derive from BASH_SOURCE: util/vars.sh → go one level up
 #                               vars.sh at root → stay here
 # ---------------------------------------------------------------------------
-if [[ -z "$ROOT_DIR" ]]; then
+if [[ -z "${ROOT_DIR:-}" ]]; then
     if [[ -d "/builder" ]]; then
         ROOT_DIR="/builder"
     else
-        _VARS_SELF="$(cd "$(dirname "${BASH_SOURCE}")" && pwd)"
+        _VARS_SELF="$(cd "$(dirname "${BASH_SOURCE[0]:-}")" && pwd)"
         if [[ "$(basename "$_VARS_SELF")" == "util" ]]; then
             ROOT_DIR="$(dirname "$_VARS_SELF")"
         else
@@ -346,15 +351,15 @@ ffbuild_dockerdl() {
 ffbuild_enabled()      { return 0; }
 ffbuild_depends()      { echo base; }
 # чистим мусор и дедуплицируем, оставляя ПЕРВОЕ вхождение)
-ffbuild_configure()    { [[ -n "$*" ]] && export FF_CONFIGURE=$(smart_dedupe "$FF_CONFIGURE $*"); }
-ffbuild_cflags()       { [[ -n "$*" ]] && export FF_CFLAGS=$(smart_dedupe "$FF_CFLAGS $*"); }
-ffbuild_cppflags()     { [[ -n "$*" ]] && export FF_CPPFLAGS=$(smart_dedupe "$FF_CPPFLAGS $*"); }
-ffbuild_cxxflags()     { [[ -n "$*" ]] && export FF_CXXFLAGS=$(smart_dedupe "$FF_CXXFLAGS $*"); }
+ffbuild_configure()    { [[ -n "$*" ]] && export FF_CONFIGURE="$FF_CONFIGURE $*"; }
+ffbuild_cflags()       { [[ -n "$*" ]] && export FF_CFLAGS="$FF_CFLAGS $*"; }
+ffbuild_cppflags()     { [[ -n "$*" ]] && export FF_CPPFLAGS="$FF_CPPFLAGS $*"; }
+ffbuild_cxxflags()     { [[ -n "$*" ]] && export FF_CXXFLAGS="$FF_CXXFLAGS $*"; }
 # Флаги линковщика (используем smart_dedupe - он учитывает переменную DEDUPE_FLAGS)
-ffbuild_ldflags()      { [[ -n "$*" ]] && export FF_LDFLAGS=$(smart_dedupe "$FF_LDFLAGS $*"); }
-ffbuild_ldexeflags()   { [[ -n "$*" ]] && export FF_LDEXEFLAGS=$(smart_dedupe "$FF_LDEXEFLAGS $*"); }
+ffbuild_ldflags()      { [[ -n "$*" ]] && export FF_LDFLAGS="$FF_LDFLAGS $*"; }
+ffbuild_ldexeflags()   { [[ -n "$*" ]] && export FF_LDEXEFLAGS="$FF_LDEXEFLAGS $*"; }
 # Библиотеки (используем smart_libs_dedupe, сохраняем ПОСЛЕДНЕЕ вхождение для линковки)
-ffbuild_libs()         { [[ -n "$*" ]] && export FF_LIBS=$(smart_libs_dedupe "$FF_LIBS $*"); }
+ffbuild_libs()         { [[ -n "$*" ]] && export FF_LIBS="$FF_LIBS $*"; }
 ffbuild_uncflags()     { return 0; }
 ffbuild_unconfigure()  { return 0; }
 ffbuild_uncxxflags()   { return 0; }
@@ -942,18 +947,22 @@ _repeat_char() {
 separator() {
     local char="${1:-─}"
     local label="${2:-}"
-    local width=$(_term_width)
+    local width
+    width=$(_term_width)
 
     if [[ -z "$label" ]]; then
-        # FIX 1: Полная ширина без боковых символов
         _repeat_char "$width" "$char" >&2
         printf '\n' >&2
     else
         local label_len=${#label}
-        local side=$(( (width - label_len) / 2 ))
-        [[ $side -lt 0 ]] && side=0
-        local pad=$(_repeat_char "$side" "$char")
-        printf '%s%s%s\n' "$pad" "$label" "$pad" >&2
+        local left_side=$(( (width - label_len) / 2 ))
+        local right_side=$(( width - label_len - left_side ))
+        [[ $left_side -lt 0 ]] && left_side=0
+        [[ $right_side -lt 0 ]] && right_side=0
+        printf '%s%s%s\n' \
+            "$(_repeat_char "$left_side" "$char")" \
+            "$label" \
+            "$(_repeat_char "$right_side" "$char")" >&2
     fi
 }
 export -f separator _term_width _repeat_char
@@ -1026,7 +1035,11 @@ render_dl_table() {
     separator "─"
 
     local current_group=""
-    sort -t$'\t' -k1,1 "$file" | while IFS=$'\t' read -r status icon name hash extra; do
+    # This sorts by status (hit/miss/skip/fail)
+    # sort -t$'\t' -k1,1 "$file"
+    # sort by name (field 3)
+    # sort -t$'\t' -k3,3 "$file"
+    sort -t$'\t' -k3,3 "$file" | while IFS=$'\t' read -r status icon name hash extra; do
         local group=$(get_component_group "$name")
 
         if [[ "$group" != "$current_group" ]]; then

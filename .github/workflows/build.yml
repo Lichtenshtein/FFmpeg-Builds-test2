@@ -78,6 +78,10 @@ on:
         description: 'Log Verbosity (2: Full, 0: Quiet)'
         required: false
         default: '1'
+      shaderc_update:
+        description: 'Use own Shaderc DEPS file'
+        required: false
+        default: '1'
       doRelease:
         description: 'Publish new release'
         type: boolean
@@ -111,7 +115,8 @@ env:
   USE_AVX512:     ${{ github.event.inputs.use_avx512     == 'true' && '1' || '0' }}
   USE_LTO:        ${{ github.event.inputs.use_lto        == 'true' && '1' || '0' }}
   USE_WINE:       ${{ github.event.inputs.use_wine       == 'true' && '1' || '0' }}
-  USE_OPENMP:     ${{ github.event.inputs.use_openmp     == 'true' && '1' || '0' }}  
+  USE_OPENMP:     ${{ github.event.inputs.use_openmp     == 'true' && '1' || '0' }}
+  SHADERC_UPDATE: ${{ github.event.inputs.shaderc_update == 'true' && '1' || '0' }}
   CLEAN_INACTIVE: ${{ github.event.inputs.clean_inactive == 'true' && '1' || '0' }}
   # Маппинг Inputs -> Env для всех динамических значений
   FFMPEG_REPO:     ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-VVC.git' }}
