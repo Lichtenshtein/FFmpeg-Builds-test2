@@ -283,7 +283,7 @@ clean_val() {
         sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | \
         sed -E "s/''|\"\"//g" | \
         tr -s '[:space:]' ' ' | \
-        xargs -r
+        xargs -r echo
 }
 
 # быстрые дедупликаторы
@@ -915,6 +915,25 @@ setup_wine_env() {
 }
 export -f setup_wine_env
 
+conf_finder() {
+    if [[ ! -f "configure" && ( -f "configure.ac" || -f "configure.in" ) ]]; then
+        log_info "${SYNC_MARK} No 'configure' script found, but 'configure.ac' exists."
+        if [[ -f "autogen.sh" ]]; then
+            log_info "Running ./autogen.sh..."
+            chmod +x autogen.sh
+            ./autogen.sh || { log_error "autogen.sh failed"; exit 1; }
+        elif [[ -f "bootstrap" ]]; then
+            log_info "Running ./bootstrap..."
+            chmod +x bootstrap
+            ./bootstrap || { log_error "bootstrap failed"; exit 1; }
+        else
+            log_info "Running autoreconf -fi..."
+            autoreconf -fi || { log_error "autoreconf failed"; exit 1; }
+        fi
+    fi
+}
+export -f conf_finder
+
 # экспорт важных переменных MinGW, чтобы они пробрасывались в download.sh и run_stage.sh:
 export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE
 
@@ -1035,12 +1054,12 @@ render_dl_table() {
         if [[ "$group" != "$current_group" ]]; then
             # Purple Group
             if [[ -n "$current_group" ]]; then
-                printf '  %b╰%s%b\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "─")" "${LOG_NC}" >&2
+                printf '  %b╰%s%b\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "-")" "${LOG_NC}" >&2
             fi
             # Заголовок группы: Purple ┌─ Group
             local group_label="─[ $group ]"
             local remain=$(( inner_width - ${#group_label} ))
-            printf '  %b╭%s%s%b\n' "${LOG_DEBUG}" "$group_label" "$(_repeat_char "$remain" "─")" "${LOG_NC}" >&2
+            printf '  %b╭%s%s%b\n' "${LOG_DEBUG}" "$group_label" "$(_repeat_char "$remain" "-")" "${LOG_NC}" >&2
             current_group="$group"
         fi
 
@@ -1069,20 +1088,22 @@ render_dl_table() {
 
     # Закрываем последнюю группу (Purple)
     if [[ -n "$current_group" ]]; then
-        printf '  %b╰%s%b\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "─")" "${LOG_NC}" >&2
+        printf '  %b╰%s%b\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "-")" "${LOG_NC}" >&2
     fi
 
     separator "─"
 
-    # Подсчет (без изменений)
+    # Подсчет
     local n_hit=$(tr -d '\r' < "$file" | grep -c '^hit' || true)
     local n_miss=$(tr -d '\r' < "$file" | grep -c '^miss' || true)
     local n_skip=$(tr -d '\r' < "$file" | grep -c '^skip' || true)
     local n_fail=$(tr -d '\r' < "$file" | grep -c '^fail' || true)
 
-    printf '%b' "$LOG_INFO" >&2
-    printf '  ✔ %s hit   🡇 %s downloaded   — %s skipped   ✖ %s failed' \
-        "${n_hit:-0}" "${n_miss:-0}" "${n_skip:-0}" "${n_fail:-0}" >&2
-    printf '%b\n' "$LOG_NC" >&2
+    # Вывод финальной строки: иконки и цифры цветные, текст белый
+    printf '  %b✔ %s%b hit   %b🡇 %s%b downloaded   %b— %s%b skipped   %b✖ %s%b failed\n' \
+        "${LOG_INFO}"  "${n_hit:-0}"  "${LOG_NC}" \
+        "${LOG_WARN}"  "${n_miss:-0}" "${LOG_NC}" \
+        "${LOG_DEBUG}" "${n_skip:-0}" "${LOG_NC}" \
+        "${LOG_ERROR}" "${n_fail:-0}" "${LOG_NC}" >&2
 }
 export -f render_dl_table
