@@ -171,27 +171,105 @@ All of those can be optionally combined with any combination of addins:
 * `debug` to not strip debug symbols from the binaries. This increases the output size by about 250MB.
 * `lto` build all dependencies and ffmpeg with -flto=auto (HIGHLY EXPERIMENTAL, broken for Windows, sometimes works for Linux)
 
+Please match the numbers in the library names from the list below with the list of dependency chains. Substitute the numbers from the names to the corresponding libraries in the chains, and return to me only the updated chains.
+
+05-libicu.sh
+06-libiconv.sh
+07-gettext.sh
+08-zlib.sh
+09-gmp.sh
+11-brotli.sh
+11-bzlib.sh
+11-xz.sh
+11-zstd.sh
+12-jbigkit.sh
+12-libffi.sh
+14-freetype.sh
+15-libunibreak.sh?
+15-pcre2.sh
+16-fftw3.sh
+16-glib2.sh
+17-harfbuzz.sh
+18-libxml2.sh
+20-libdvdcss.sh
+20-libudfread.sh
+21-cdio.sh
+21-cdiowpar.sh
+21-libdvdread.sh
+25-mbedtls.sh
+25-openssl.sh
+26-libssh.sh
+27-curl.sh
+30-giflib.sh
+30-libjpeg-turbo.sh
+30-libpng.sh
+30-libtiff.sh
+30-openjpeg.sh
+31-libwebp.sh
+32-fontconfig.sh
+32-fribidi.sh
+32-libtiff.sh
+32-pixman.sh
+33-cairo.sh
+33-harfbuzz.sh
+33-lcms2.sh
+34-freetype.sh
+35-libarchive.sh
+36-pango.sh
+37-dav1d.sh
+38-libjxl.sh
+38-librsvg-cargo-test.sh
+38-librsvg-test.sh
+39-freetype.sh
+41-vulkan-headers.sh
+42-spirv-headers.sh
+42-spirv-tools.sh
+43-glslang-test.sh
+43-spirv-cross.sh
+44-shaderc.sh
+44-vulkan-loader.sh
+45-amf.sh
+45-ffnvcodec.sh
+45-libva.sh
+45-onevpl.sh
+45-vmaf.sh
+57-leptonica-test.sh
+57-libtensorflow-test.sh
+57-libtorch-test.sh
+57-opencl.sh
+57-opencv-test.sh
+57-openvino-test.sh
+59-libtesseract-test.sh
+61-bs2b.sh
+61-libsamplerate.sh
+61-pulseaudio.sh
+62-libogg.sh
+62-libvorbis.sh
+80-gavl.sh
+80-nnedi3-test.sh
+84-frei0r.sh
+
 ### Test dependency chains for manual builds
 
 * `The System Core` (Foundation; always build first). Without this, nothing will work.
 
 ```
-01-mingw-std-threads|02-mingw|03-base|09-zlib
+01-mingw-std-threads|02-mingw|03-base|08-zlib
 ```
 
 * `glib2`
 ```
-05-libicu|06-libiconv|07-gettext|09-zlib|12-libffi|15-pcre2|16-glib2
+05-libicu|06-libiconv|07-gettext|08-zlib|12-libffi|15-pcre2|16-glib2
 ```
 
 * `librsvg`
 ```
-06-libiconv|07-gettext|08-freetype|09-zlib|11-brotli|11-bzlib|11-xz|12-libffi|15-pcre2|16-fribidi|16-glib2|17-fontconfig|25-libpng|16-libxml2|30-pixman|34-cairo|35-harfbuzz|40-freetype|40-pango|44-dav1d|45-librsvg-cargo-test
+06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|12-libffi|15-pcre2|14-freetype|16-glib2|18-libxml2|30-libpng|32-fontconfig|32-fribidi|32-pixman|33-cairo|33-harfbuzz|34-freetype|36-pango|37-dav1d|45-librsvg-cargo-test
 ```
 
 * `libtesseract`
 ```
-05-libicu|06-libiconv|07-gettext|08-freetype|08-harfbuzz|09-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|15-pcre2|16-fribidi|16-glib2|16-libxml2|17-fontconfig|20-openssl|21-libssh|22-curl|25-giflib|25-libjpeg-turbo|25-libpng|25-libtiff|25-openjpeg|26-libwebp|27-libtiff|30-pixman|34-cairo|35-harfbuzz|40-freetype|39-libarchive|40-pango|41-lcms2|45-libtensorflow-test|47-leptonica-test|90-tesseract-test
+05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|16-glib2|17-harfbuzz|18-libxml2|25-openssl|26-libssh|27-curl|30-giflib|30-libjpeg-turbo|30-libpng|30-libtiff|30-openjpeg|31-libwebp|32-fontconfig|32-fribidi|32-libtiff|32-pixman|33-cairo|33-harfbuzz|33-lcms2|34-freetype|35-libarchive|36-pango|57-libtensorflow-test|57-leptonica-test|59-libtesseract-test
 ```
 
 * `vulkan` (shaderc downloads, installs and compiles 'spirv-headers', 'spirv-tools', 'glslang' itself).
@@ -201,12 +279,12 @@ All of those can be optionally combined with any combination of addins:
 
 * `opencv`
 ```
-09-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|25-libjpeg-turbo|25-giflib|25-libpng|25-libtiff|25-openjpeg|26-libwebp|27-libtiff|41-lcms2|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|46-libjxl|46-opencv-test
+08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|30-libjpeg-turbo|30-giflib|30-libpng|30-libtiff|30-openjpeg|31-libwebp|32-libtiff|33-lcms2|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|38-libjxl|57-opencv-test
 ```
 
 * `frei0r`
 ```
-05-libicu|06-libiconv|07-gettext|08-freetype|08-harfbuzz|09-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|15-pcre2|16-fribidi|16-glib2|16-libxml2|17-fontconfig|25-giflib|25-libjpeg-turbo|25-libpng|25-libtiff|25-openjpeg|26-libwebp|27-libtiff|30-pixman|34-cairo|35-harfbuzz|40-freetype|41-lcms2|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|44-gavl|45-opencl|45-openvino-test|46-libjxl|46-opencv-test|47-frei0r
+05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|17-harfbuzz|32-fribidi|16-glib2|18-libxml2|32-fontconfig|30-giflib|30-libjpeg-turbo|30-libpng|30-libtiff|30-openjpeg|31-libwebp|32-libtiff|32-pixman|33-cairo|33-harfbuzz|34-freetype|33-lcms2|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|38-libjxl|57-opencl|57-opencv-test|57-openvino-test|80-gavl|84-frei0r
 ```
 
 ### Download functions memo tips

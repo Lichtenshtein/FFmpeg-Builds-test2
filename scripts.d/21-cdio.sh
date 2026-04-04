@@ -25,7 +25,9 @@ ffbuild_dockerbuild() {
         --host="$FFBUILD_TOOLCHAIN"
         --disable-shared
         --enable-static
+        --with-pic
         --disable-maintainer-mode
+        --disable-example-progs
         --without-cd-drive
         --without-cd-info
         --without-cdda-player

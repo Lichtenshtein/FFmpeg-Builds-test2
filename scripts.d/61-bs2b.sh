@@ -1,7 +1,10 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/alexmarsev/libbs2b.git"
-SCRIPT_COMMIT="5ca2d59888df047f1e4b028e3a2fd5be8b5a7277"
+SCRIPT_REPO="https://github.com/insilications/libbs2b-clr.git"
+SCRIPT_COMMIT="6124876cba8585b814a81f15e0019d04127162da"
+
+# SCRIPT_REPO="https://github.com/alexmarsev/libbs2b.git"
+# SCRIPT_COMMIT="5ca2d59888df047f1e4b028e3a2fd5be8b5a7277"
 
 ffbuild_enabled() {
     return 0

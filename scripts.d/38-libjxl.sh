@@ -6,6 +6,11 @@ SCRIPT_COMMIT="15c547544296c29a2da931e9112e3c45e3972ef6"
 ffbuild_depends() {
     echo brotli
     echo lcms2
+    echo giflib
+    echo libjpeg-turbo
+    echo libpng
+    echo libavif
+    echo libwebp
 }
 
 ffbuild_enabled() {

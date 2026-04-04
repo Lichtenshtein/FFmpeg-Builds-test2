@@ -25,9 +25,9 @@ ffbuild_dockerbuild() {
         --with-pic
         --without-harfbuzz
         --without-png
-        --without-zlib
-        --without-bzip2
-        --without-brotli
+        --with-zlib
+        --with-bzip2
+        --with-brotli
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )

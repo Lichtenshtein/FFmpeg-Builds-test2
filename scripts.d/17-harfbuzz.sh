@@ -32,11 +32,11 @@ ffbuild_dockerbuild() {
         -Dcpp_std=c++17
         -Dc_std=c11
         -Dfreetype=enabled
-        -Draster=disabled
-        -Dvector=disabled
+        -Draster=enabled
+        -Dvector=enabled
         -Dsubset=enabled
-        -Dglib=disabled
-        -Dgobject=disabled
+        -Dglib=enabled
+        -Dgobject=enabled
         -Dcairo=disabled
         -Dchafa=disabled
         -Dtests=disabled
@@ -44,8 +44,8 @@ ffbuild_dockerbuild() {
         -Ddocs=disabled
         -Ddoc_tests=false
         -Dutilities=disabled
-        -Ddirectwrite=disabled
-        -Dgdi=disabled
+        -Ddirectwrite=enabled
+        -Dgdi=enabled
         -Dbenchmark=disabled
     )
 
