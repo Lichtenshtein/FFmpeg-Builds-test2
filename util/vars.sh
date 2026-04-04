@@ -616,7 +616,7 @@ get_deps_list() {
             cat "$pc_file"
             printf "\n%b DEPS for %s:\n" "$s_mark" "$pkg_name"
 
-            deps=$($pkg_config_cmd --print-requires --print-requires-private "$pc_file" 2>/dev/null) || true)
+            deps=$($pkg_config_cmd --print-requires --print-requires-private "$pc_file" 2>/dev/null || true)
 
             if [[ -n "$deps" ]]; then
                 echo "$deps"
@@ -662,38 +662,27 @@ get_deps_list() {
     # nm: undefined external symbols in static libs 
     find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
     xargs -0 -r -I{} bash -c '
-        file="$1"
-        tc="$2"
-        xclam_mark="$3"
-
+        file="$1"; tc="$2"; x_mark="$3"
         raw_symbols=$("${tc}-nm" -u "$file" 2>/dev/null || true)
         if [[ -n "$raw_symbols" ]]; then
             clean_symbols=$(echo "$raw_symbols" | grep "^ *U " | awk "{print \$2}" | \
                 grep -Ev "^(__imp_|__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk)" | \
                 sort -u | head -n 10)
             if [[ -n "$clean_symbols" ]]; then
-                indented_symbols=$(echo "$clean_symbols" | sed 's/^/ /')
                 printf "\n%b EXTERNAL SYMBOLS (TOP 10) in %s:\n%s\n" \
-                    "$xclam_mark" "$file" "$indented_symbols"
+                    "$x_mark" "$file" "$(echo "$clean_symbols" | sed "s/^/ /")"
             fi
         fi
     ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
     # Проверка RPATH / RUNPATH 
     if [[ -n "$toolchain" ]] && command -v "${toolchain}-objdump" &>/dev/null; then
-        find "$lib_dir" "$bin_dir" -type f \
-            \( -name "*.so*" -o -executable \) \
-            -print0 2>/dev/null | \
+        find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | \
         xargs -0 -r -I{} bash -c '
-            file="$1"
-            tc="$2"
-            xclam_mark="$3"
-
+            file="$1"; tc="$2"; x_mark="$3"
             if "${tc}-readelf" -h "$file" &>/dev/null; then
-                rpath=$("${tc}-objdump" -p "$file" 2>/dev/null | \
-                    awk "/RPATH|RUNPATH/ {print}")
+                rpath=$("${tc}-objdump" -p "$file" 2>/dev/null | awk "/RPATH|RUNPATH/ {print \$0}")
                 if [[ -n "$rpath" ]]; then
-                    printf "\n%b RPATH/RUNPATH for %s:\n%s\n" \
-                        "$xclam_mark" "$file" "$rpath"
+                    printf "\n%b RPATH/RUNPATH for %s:\n%s\n" "$x_mark" "$file" "$rpath"
                 fi
             fi
         ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
