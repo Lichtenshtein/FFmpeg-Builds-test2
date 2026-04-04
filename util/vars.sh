@@ -30,9 +30,9 @@ export START_MARK='🚀'
 export BUILD_MARK='🛠️'
 export DIRS_MARK='📂'
 export LOCK_MARK='🔒'
-export SYNC_MARK="${LOG_INFO}♻${NC}"
+export SYNC_MARK="${GREEN}♻${NC}"
 export TARGET_MARK='🎯'
-export DOWN_MARK="${LOG_INFO}🡇${NC}"
+export DOWN_MARK="${GREEN}🡇${NC}"
 export LOGS_MARK="${LOG_DEBUG}🗎${NC}"
 
 # Функции для логирования пишут в stderr (>&2)
@@ -448,6 +448,7 @@ patch_pc_files() {
     # замена абсолютных путей на переменные
     find "$pc_dir" -maxdepth 1 -name "*.pc" | while read -r pc; do
         [[ -f "$pc" ]] || continue
+        printf '%s\n' "$pc"
         log_debug "Processing: $(basename "$pc")"
 
         # Пересоздание переменных путей
@@ -601,7 +602,7 @@ patch_pc_files() {
         # Collapse multiple spaces, strip trailing whitespace
         sed -i $sl 's/  \+/ /g; s/[[:space:]]*$//' "$pc"
 
-        log_debug "✔ $(basename "$pc")"
+        log_debug "${CHECK_MARK} $(basename "$pc") finished."
     done
 }
 export -f patch_pc_files
@@ -692,14 +693,19 @@ get_deps_list() {
     find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
     xargs -0 -r -I{} bash -c '
         file="$1"; tc="$2"; x_mark="$3"
-        raw_symbols=$("${tc}-nm" -u "$file" 2>/dev/null || true)
+        raw_symbols=$("${tc}-nm" -uA "$file" 2>/dev/null || true)
         if [[ -n "$raw_symbols" ]]; then
-            clean_symbols=$(echo "$raw_symbols" | grep "^ *U " | awk "{print \$2}" | \
-                grep -Ev "^(__imp_|__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk)" | \
-                sort -u | head -n 10)
+            clean_symbols=$(echo "$raw_symbols" | \
+                grep -Ev "(__imp_|__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
+                awk -F: "{ 
+                    split(\$NF, a, \" \"); 
+                    sym = a[2]; 
+                    if (sym != \"\") printf \"%-15s \033[1;30m→\033[0m %s\n\", \$2, sym 
+                }" | sort -u | head -n 12)
             if [[ -n "$clean_symbols" ]]; then
-                printf "\n%b EXTERNAL SYMBOLS (TOP 10) in %s:\n%s\n" \
-                    "$x_mark" "$file" "$(echo "$clean_symbols" | sed "s/^/ /")"
+                printf "\n%b \033[1;33mEXTERNAL SYMBOLS (OBJ \033[1;30m→\033[1;33m SYM)\033[0m in %s:\n" \
+                    "$x_mark" "$file"
+                echo "$clean_symbols" | sed "s/^/  \033[1;32m•\033[0m /"
             fi
         fi
     ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
@@ -718,18 +724,20 @@ get_deps_list() {
     fi
 
     # Output
-    local error_count=$(grep -c "MISSING_DEP:" "$tmp_out" 2>/dev/null || echo 0)
+    local error_count
+    error_count=$(grep -c "MISSING_DEP:" "$tmp_out" 2>/dev/null || echo 0)
+    error_count=$(( ${error_count:-0} ))
 
     if [[ -s "$tmp_out" ]]; then
-        log_debug "Showing dependencies for ${name} (Install size: ${total_size}):"
-        sed 's/MISSING_DEP:/MISSING DEPENDENCY/g' "$tmp_out" >&2
-        if [[ "$error_count" -gt 0 ]]; then
+        log_debug "Showing dependencies for ${name} [Install size: ${total_size}]:"
+        cat "$tmp_out" >&2
+        if [ "$error_count" -gt 0 ]; then
             log_error "Found ${error_count} missing pkg-config dependency/dependencies for ${name}!"
         else
             log_info "${CHECK_MARK} All pkg-config dependencies satisfied for ${name}."
         fi
     else
-        log_info "${CHECK_MARK} No dependencies found for ${name} (meta/header-only component). (Install size: ${total_size})."
+        log_info "${CHECK_MARK} No dependencies found for ${name} (meta/header-only). [Install size: ${total_size}]."
     fi
 
     rm -f "$tmp_out"
