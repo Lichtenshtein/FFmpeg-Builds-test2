@@ -21,15 +21,57 @@ if ! declare -F default_dl >/dev/null; then
     . "$UTIL_DIR"/dl_functions.sh > /dev/null 2>&1 || true
 fi
 
-STAGE_HASH=$(get_stage_hash "$STAGE")
-STAGENAME="$(basename "$STAGE" .sh)"
-COMPONENT_NAME="${STAGENAME#*-}"
-REAL_CACHE=""
-STAGE_CACHE_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.tar.zst"
-STAGE_LATEST_LINK="${CACHE_DIR}/${STAGENAME}.tar.zst"
+# Call dynamic STAGE function 
+unset STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK REAL_CACHE
+eval "$(stage_vars "$STAGE")"
 
 # Очистка при выходе. Удаляем старые файлы, если они остались от прошлых запусков
-trap 'echo "::endgroup::"; cd /; rm -rf "/build/${STAGENAME}" "$VARS_DIR"; rm -f "$OUTFILE" "$TIMESTAMP_FILE" /tmp/stage_build.log' EXIT
+stage_cleanup() {
+    local exit_code=$?
+    if [[ $exit_code -eq 0 ]]; then
+        # Успех: чистим всё
+        cd /
+        rm -rf "/build/${STAGENAME}" "$VARS_DIR" "/tmp/stage_build.log" "$OUTFILE" "$TIMESTAMP_FILE"
+        echo "::endgroup::"
+    else
+        # Неудача: дампим логи
+        if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+            log_error "ERROR: Build ${LOG_ERROR}failed${LOG_NC} for ${STAGENAME}"
+            log_debug "${BUILD_MARK} Current stage file: ${STAGE}"
+            log_debug "${DIRS_MARK} Current directory: $(pwd)"
+            # Это найдет логи, даже если они в build/meson-logs или глубоко в CMakeFiles
+            LOG_FILES=$(find . -maxdepth 4 \( -name "config.log" -o -name "meson-log.txt" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \))
+            if [[ -n "$LOG_FILES" ]]; then
+                for logfile in $LOG_FILES; do
+                    log_debug "${LOGS_MARK} ▼ CONTENT OF $logfile (last 300 lines) ▼"
+                    tail -n 300 "$logfile"
+                    log_debug "${LOGS_MARK} ▲ END OF $logfile ▲"
+                done
+            else
+                if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+                    log_warn "No logs were found. ${DIRS_MARK} Listing all files in current directory:"
+                    # Выводим текущую директорию и структуру файлов (требуется column)
+                    ls -R | grep -v '^$' | column -c $(tput cols)
+                else
+                    log_warn "No logs were found."
+                fi
+            fi
+        else
+            log_error "ERROR: Build ${LOG_ERROR}failed${LOG_NC} for ${STAGENAME}"
+            if [[ -f /tmp/stage_build.log ]]; then
+                log_debug "${LOGS_MARK} ▼ DUMPING build log ▼"
+                cat /tmp/stage_build.log
+                log_debug "${LOGS_MARK} ▲ END OF LOG DUMP ▲"
+            else
+                log_warn "Log file /tmp/stage_build.log missing!"
+            fi
+        fi
+        cd /
+        sleep 5
+        rm -rf "/build/${STAGENAME}" "$VARS_DIR" "/tmp/stage_build.log" "$OUTFILE" "$TIMESTAMP_FILE"
+    fi
+}
+trap stage_cleanup EXIT
 
 # Создаем и входим в директорию сборки ДО загрузки скрипта
 mkdir -p "/build/$STAGENAME" && cd "/build/$STAGENAME"
@@ -48,7 +90,6 @@ source "$(readlink -f "$STAGE")"
 # Проверка на пропуск (теперь переменная SCRIPT_SKIP подгружена в контексте нужной папки)
 if [[ "$SCRIPT_SKIP" == "1" ]]; then
     log_info "Skipping stage $STAGENAME as requested by script."
-    echo "::endgroup::" # ОБЯЗАТЕЛЬНО закрываем перед выходом
     exit 0
 fi
 
@@ -144,7 +185,6 @@ if [[ -n "$DL_COMMANDS" ]]; then
     fi
 
     # Проверка, что после всех манипуляций папка не пуста
-    # if [[ $(ls -A | wc -l) -eq 0 ]]; then
     if [[ -z "$(ls -A)" ]]; then
         log_error "ERROR: Build directory is empty after unpacking/downloading $STAGENAME!"
         exit 1
@@ -215,40 +255,11 @@ log_info_line
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_debug "Verbose mode active. Build output will be shown in real-time."
-    if ! ( set -e -o pipefail; $build_cmd ); then
-        log_error "ERROR: Build ${LOG_ERROR}failed${LOG_NC} for ${STAGENAME}"
-        log_debug "${BUILD_MARK} Current stage file: ${STAGE}"
-        # Выводим текущую директорию и структуру файлов, чтобы понять, где мы
-        log_debug "${DIRS_MARK} Current directory: $(pwd)"
-        # Используем 'find' для поиска любых логов ошибок рекурсивно
-        # Это найдет логи, даже если они в build/meson-logs или глубоко в CMakeFiles
-        LOG_FILES=$(find . -maxdepth 4 \( -name "config.log" -o -name "meson-log.txt" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \))
-        if [[ -n "$LOG_FILES" ]]; then
-            for logfile in $LOG_FILES; do
-                log_debug "${LOGS_MARK} ▼ CONTENT OF $logfile (last 300 lines) ▼"
-                tail -n 300 "$logfile"
-                log_debug "${LOGS_MARK} ▲ END OF $logfile ▲"
-            done
-        else
-            if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-                log_warn "No logs were found. ${DIRS_MARK} Listing all files in current directory:"
-              ls -R
-            else
-                log_warn "No logs were found."
-            fi
-        fi
-        exit 1
-    fi
+    if ! ( set -e -o pipefail; $build_cmd; conf_finder ); then exit 1 fi
 else
     # Тихий режим: вывод лога только в случае падения
     log_info "Quiet mode active. Output is redirected to /tmp/stage_build.log"
-    if ! ( set -e -o pipefail; $build_cmd > /tmp/stage_build.log 2>&1 ); then
-        log_error "Build failed!"
-        log_debug "${LOGS_MARK} ▼ DUMPING build log ▼"
-        cat /tmp/stage_build.log
-        log_debug "${LOGS_MARK} ▲ END OF LOG DUMP ▲"
-        exit 1
-    fi
+    if ! ( set -e -o pipefail; $build_cmd > /tmp/stage_build.log 2>&1; conf_finder ); then exit 1 fi
 fi
 
 log_info_line
@@ -352,6 +363,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
               "$FFBUILD_PREFIX/share/pkgconfig"/*.pc; do
         [[ -e "$pc" ]] || continue
         [[ "$pc" -nt "$TIMESTAMP_FILE" ]] || continue
+        # Собираем только если имя .pc файла соответствует или связано с компонентом
         pc_name="$(basename "$pc" .pc)"
 
         # Deduplicate per-flag across multiple .pc files
@@ -361,7 +373,8 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
                 _seen_pc_cflags["$flag"]=1
                 _pc_cflags="$_pc_cflags $flag"
             fi
-        done < <(pkg-config --cflags "$pc_name" 2>/dev/null \
+        # просто pkg-config --cflags сохраняет с путями
+        done < <(pkg-config --cflags-only-other "$pc_name" 2>/dev/null \
                  | tr ' ' '\n' | grep -v '^$')
 
         while IFS= read -r flag; do
@@ -370,8 +383,9 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
                 _seen_pc_libs["$flag"]=1
                 _pc_libs="$_pc_libs $flag"
             fi
-        done < <(pkg-config --libs-only-l "$pc_name" 2>/dev/null \
-                 | tr ' ' '\n' | grep -v '^$')
+        # Используем --static чтобы увидеть Libs.private, и добавляем only-other для флагов типа -pthread, игнорируем пути
+        done < <(pkg-config --static --libs-only-l --libs-only-other "$pc_name" 2>/dev/null \
+         | tr ' ' '\n' | grep -v '^$')
     done
 
     # Merge script output with .pc output, then deduplicate the combined result
@@ -382,7 +396,6 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
     FF_LDFLAGS=$(smart_dedupe "$_ld")
     FF_LDEXEFLAGS=$(smart_dedupe "$_ldexe")
     FF_LIBS=$(smart_libs_dedupe "$_libs $_pc_libs")
-
 
     VARS_CONTENT=""
     [[ -n "$FF_CONFIGURE" ]]  && VARS_CONTENT+="export FF_CONFIGURE='${FF_CONFIGURE}'\n"
