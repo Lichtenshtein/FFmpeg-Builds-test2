@@ -131,7 +131,7 @@ ffbuild_depends() {
     echo svtjpegxs-test
     echo svtvp9
     echo libtensorflow-test
-    echo tesseract-test
+    echo libtesseract-test
     echo twolame
     echo uavs3d
     echo uavs3e

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/bplaum/gavl.git"
-SCRIPT_COMMIT="7f7b52bcde6bda8908f859ffa1c3619f7100bab8"
+SCRIPT_COMMIT="f798ff76f6a4252f92cd209a1c973126e9673691"
 
 ffbuild_enabled() {
     return 0
@@ -13,6 +13,8 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    ./autogen.sh
 
     CFLAGS="$CFLAGS" \
     CPPFLAGS="$CPPFLAGS" \
