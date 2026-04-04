@@ -36,10 +36,8 @@ stage_cleanup() {
         cd /
         [[ -n "$STAGENAME" ]] && rm -rf "/build/${STAGENAME}"
         rm -f "/tmp/stage_build.log" "$TIMESTAMP_FILE"
-       log_info "${CHECK_MARK} Build ${GREEN}succeeded${LOG_NC} for ${STAGENAME} (Time: ${elapsed})"
-        echo "::endgroup::"
+       log_info "${CHECK_MARK} Build ${GREEN}SUCCEEDED${LOG_NC} for ${STAGENAME} [Time: ${elapsed}]"
     else
-        echo "::endgroup::"
         # Неудача: дампим логи
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
             log_error "Build ${LOG_ERROR}FAILED${LOG_NC} for ${STAGENAME} after ${elapsed}"
@@ -86,8 +84,8 @@ mkdir -p "/build/$STAGENAME" && cd "/build/$STAGENAME"
 ccache -z > /dev/null
 # Сбрасываем счетчик секунд в начале этапа
 SECONDS=0
-# Начало группы в логах GitHub; Очищаем буфер и выводим команду в чистом виде
-printf "\n::group::%s\n" "$STAGENAME"
+# Начало группы в логах GitHub; не работает в Docker
+# printf "\n::group::%s\n" "$STAGENAME"
 
 # Подгружаем скрипт заранее, чтобы проверить SCRIPT_SKIP
 # любые $(pwd) или относительные пути внутри скрипта будут указывать на /build/STAGENAME
@@ -260,12 +258,15 @@ log_info "### DATE: $(date)"
 log_info "### Starting build function: $build_cmd"
 log_info_line
 
+# Генерируем файл 'configure' (если его нет) для Autoconf
+conf_finder 
+
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_debug "Verbose mode active. Build output will be shown in real-time."
-    if ! ( set -e -o pipefail; $build_cmd; conf_finder ); then exit 1; fi
+    if ! ( set -e -o pipefail; $build_cmd ); then exit 1; fi
 else
     log_info "Quiet mode active. Output is redirected to /tmp/stage_build.log"
-    if ! ( set -e -o pipefail; $build_cmd > /tmp/stage_build.log 2>&1; conf_finder ); then exit 1; fi
+    if ! ( set -e -o pipefail; $build_cmd > /tmp/stage_build.log 2>&1 ); then exit 1; fi
 fi
 
 log_info_line
