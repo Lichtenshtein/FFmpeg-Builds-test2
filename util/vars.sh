@@ -633,37 +633,41 @@ get_deps_list() {
     # Поиск pkg-config зависимостей
     if [[ -d "$pc_dir" ]]; then
         find "$pc_dir" -name "*.pc" -exec bash -c '
-            pc_file="$1"; pkg_config_cmd="$2"; pc_dir="$3"
-            log_err="$4"; log_nc="$5"; x_mark="$6"; s_mark="$7"
+            pc_file="$1"; pkg_config_cmd="$2"; pc_dir="$3"; prefix="$4"
+            log_err="$5"; log_nc="$6"; x_mark="$7"; s_mark="$8"
 
-            export PKG_CONFIG_LIBDIR="$pc_dir"
-            export PKG_CONFIG_PATH="$pc_dir"
+            export PKG_CONFIG_LIBDIR="$pc_dir:$prefix/lib/pkgconfig:$prefix/share/pkgconfig"
+            export PKG_CONFIG_PATH="$PKG_CONFIG_LIBDIR"
             export PKG_CONFIG_SYSROOT_DIR="/"
 
             pkg_name=$(basename "$pc_file" .pc)
 
-            printf "\n%b %s\n" "$x_mark" "$pc_file"
-            cat "$pc_file"
-            printf "\n%b DEPS for %s:\n" "$s_mark" "$pkg_name"
+            printf "\n%b \033[1;36mFILE:\033[0m %s\n" "$x_mark" "$pc_file"
 
-            deps=$($pkg_config_cmd --print-requires --print-requires-private "$pc_file" 2>/dev/null || true)
+            # Выводим содержимое (опционально, для отладки)
+            cat "$pc_file"
+            
+            printf "\n%b \033[1;35mDEPENDENCIES\033[0m for %s:\n" "$s_mark" "$pkg_name"
+
+            deps=$($pkg_config_cmd --print-requires --print-requires-private "$pkg_name" 2>/dev/null | sort -u | xargs)
 
             if [[ -n "$deps" ]]; then
-                echo "$deps"
-                while IFS= read -r dep_line; do
-                    dep_name=$(echo "$dep_line" | awk "{print \$1}")
-                    [[ -z "$dep_name" || "$dep_name" =~ ^[=\<\>] ]] && continue
-                    
-                    if ! $pkg_config_cmd --exists "$dep_name" 2>/dev/null; then
-                        printf "%bMISSING_DEP: %s (searched in: %s)%b\n" "$log_err" "$dep_name" "$pc_dir" "$log_nc"
+                for dep in $deps; do
+                    if $pkg_config_cmd --exists "$dep" 2>/dev/null; then
+                        ver=$($pkg_config_cmd --modversion "$dep" 2>/dev/null || echo "unknown")
+                        printf "  \033[1;32m•\033[0m %-20s \033[1;30m(found: %s)\033[0m\n" "$dep" "$ver"
+                    else
+                        printf "  \033[1;31m✖ MISSING:\033[0m %s %b(in: %s)%b\n" "$dep" "$log_err" "$pc_dir" "$log_nc"
+                        echo "MISSING_DEP: $dep"
                     fi
-                done <<< "$deps"
+                done
             else
-                echo "No pkg-config dependencies listed."
+                echo "  \033[1;30m(No dependencies found in .pc file)\033[0m"
             fi
         ' _ {} \
             "${PKG_CONFIG:-pkg-config}" \
             "$pc_dir" \
+            "$FFBUILD_PREFIX" \
             "$LOG_ERROR" \
             "$LOG_NC" \
             "$XCLAM_MARK" \
