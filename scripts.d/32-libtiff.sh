@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
         -Dzstd=ON
         -Dzlib=ON
         -Dlzma=ON
-        -Dwebp=OFF
+        -Dwebp=ON
         -Djbig=ON
     )
 
