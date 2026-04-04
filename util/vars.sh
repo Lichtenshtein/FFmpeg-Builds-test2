@@ -996,23 +996,24 @@ get_component_group() {
     local stagename="$1"
     local prefix="${stagename%%-*}"
     case "$prefix" in
-        01|02|03)           echo "Toolchain" ;;
-        04|05|06|07|08)     echo "System Integration" ;; # ICU, Gettext, Iconv
-        09|11|12|39)        echo "Compression & Runtime" ;; # Zlib, Zstd, FFI
-        15|16|17)           echo "Base Integration" ;; # Glib, XML2
-        20|21|22|23|24)     echo "Net" ;; # OpenSSL, Curl
-        25|26|27|28|29)     echo "Core Graphics" ;; # PNG Cairo
-        40|41|42|43)        echo "Vulkan & Shaders" ;; # SPIR-V, Glslang
-        44|45|46|47)        echo "Compute & Vision" ;; # OpenVINO, OpenCV
-        48|49)              echo "Hardware Acceleration API" ;; # VMAF
-        50)                 echo "Software Codecs" ;; # x264, x265
-        51|52|53|54|55)     echo "Audio & Frameservers" ;; # Vapoursynth, OpenAL
-        60|61|62|63|64|65)  echo "Video Extensions" ;; # Libglvnd, Xrandr
-        74|75|76|77|78|79)  echo "X11 & Windowing" ;; # XCB
-        80|81|82|83|84|85)  echo "Hardware Integration" ;;
-        96|97|98)           echo "LV2 & Plugins" ;; # Serd, Sord, Lilv
-        99|zz)              echo "Meta & Finalize" ;;
-        *)                  echo "Other" ;;
+        01|02|03)               echo "Toolchain" ;;
+        04|05|06|07|09)         echo "System Integration" ;; # ICU, Gettext, Iconv
+        08|11|12|35)            echo "Compression & Runtime" ;; # Zlib, Zstd, FFI
+        15|16|17|18|19)         echo "Base Integration" ;; # Glib, XML2
+        20|21|22|23|24)         echo "Hardware Integration" ;;
+        25|26|27|28|29)         echo "Net" ;; # OpenSSL, Curl
+ 14|17|30|31|32|33|34|36|38|39) echo "Core Graphics" ;; # PNG Cairo
+        40|41|42|43)            echo "Vulkan & Shaders" ;; # SPIR-V, Glslang
+        45|46)                  echo "Hardware Acceleration API" ;; # VMAF
+        51|52|53|54|55|56)      echo "X11 & Windowing" ;; # XCB
+        57|58|59)               echo "Compute & Vision" ;; # OpenVINO, OpenCV
+        60|61|62|63|64)         echo "Audio Codecs" ;; #
+        37|70|71|72|73|74)      echo "Software Codecs" ;; # x264, x265
+        80|81|82|83|84)         echo "Frameservers" ;; # Vapoursynth, OpenAL
+        50|84|85|86|87|88|89)   echo "Video Extensions" ;; # Libglvnd, Xrandr
+        96|97|98)               echo "LV2 & Plugins" ;; # Serd, Sord, Lilv
+        99|zz)                  echo "Meta & Finalize" ;;
+        *)                      echo "Other" ;;
     esac
 }
 export -f get_component_group
