@@ -28,7 +28,6 @@ cleanup() {
     fi
 
     log_info "Cleanup done."
-    echo "::endgroup::"
 }
 
 # Устанавливаем ловушку
@@ -41,8 +40,6 @@ ccache -s
 ccache -z > /dev/null
 # Сбрасываем счетчик секунд в начале этапа
 SECONDS=0
-# Начало группы в логах GitHub
-printf "\n::group::%s\n" "$STAGENAME"
 
 export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
