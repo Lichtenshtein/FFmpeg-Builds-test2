@@ -395,25 +395,50 @@ patch_pc_files() {
         iconv lcms2 jbig freetype2 libxml-2.0 libffi intl
     )
 
-    # deduplicate space-separated tokens, normalise -pthread/-lpthread
-    # Usage: dedup_flags "token token ..." ["skip_tokens"]
-    dedup_flags() {
-        echo "$1" | awk -v skip="$2" '
-        BEGIN {
-            n = split(skip, s)
-            for (j=1; j<=n; j++) {
-                skip_map[s[j]] = 1
-                if (s[j] == "-pthread")  skip_map["-lpthread"] = 1
-                if (s[j] == "-lpthread") skip_map["-pthread"]  = 1
+    # Helper: deduplicate space-separated tokens, normalize -pthread/-lpthread
+    # Faster than awk, handles edge cases better
+    dedup_flags_fast() {
+        local tokens="$1"
+        local skip_tokens="$2"
+        # Build skip map as a string for grep matching
+        local skip_pattern=$(echo "$skip_tokens" | sed 's/ /|/g; s/-pthread/-lpthread/g; s/-lpthread/-pthread/g')
+        # Deduplicate: print each token once, skip unwanted ones
+        echo "$tokens" | tr ' ' '\n' | awk -v skip="$skip_pattern" '
+            NF {
+                token = ($0 == "-lpthread") ? "-pthread" : $0
+                if (skip && match(skip, "(" token "|" token ")")) next
+                if (!seen[token]++) print token
             }
-        }
-        {
-            for (i=1; i<=NF; i++) {
-                v = $i
-                key = (v == "-lpthread") ? "-pthread" : v
-                if (!skip_map[key] && !skip_map[v] && !seen[key]++) printf "%s ", v
-            }
-        }'
+        ' | tr '\n' ' ' | xargs -r
+    }
+
+    # Helper: validate and normalize a single include path
+    normalize_include_path() {
+        local path="$1"
+        # Already a variable reference — keep it
+        [[ "$path" == *'${'* ]] && echo "$path" && return
+        # Absolute path to our prefix — replace with variable
+        if [[ "$path" == "$FFBUILD_PREFIX"* ]]; then
+            echo "\${prefix}${path#$FFBUILD_PREFIX}"
+            return
+        fi
+        # Bare /include or /usr/include — replace with ${includedir}
+        if [[ "$path" == "/include" || "$path" == "/usr/include" ]]; then
+            echo "\${includedir}"
+            return
+        fi
+        # Relative path like ../include — resolve and check
+        if [[ "$path" == ../* ]]; then
+            local resolved
+            resolved=$(cd "$(dirname "$pc_dir")" && cd "${path%/*}" && pwd)
+            if [[ "$resolved" == "$FFBUILD_PREFIX"* ]]; then
+                echo "\${prefix}${resolved#$FFBUILD_PREFIX}"
+                return
+            fi
+        fi
+        # Unrecognized — log warning and drop
+        log_warn "Dropping unrecognized include path: $path"
+        return 1
     }
 
     # helper escape string for use as a literal sed pattern
@@ -423,15 +448,10 @@ patch_pc_files() {
     # замена абсолютных путей на переменные
     find "$pc_dir" -maxdepth 1 -name "*.pc" | while read -r pc; do
         [[ -f "$pc" ]] || continue
-        printf '%s\n' "$pc"
-
-        # Capitalisation fixes
-        sed -i $sl 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g; s/-lpthread/-pthread/g' "$pc"
-        # Remove -lrt (Linux-only, not on Windows)
-        sed -i $sl 's/ -lrt\b//g' "$pc"
+        log_debug "Processing: $(basename "$pc")"
 
         # Пересоздание переменных путей
-        sed -i $sl '/^prefix=/d; /^exec_prefix=/d; /^libdir=/d; /^includedir=/d; /^bindir=/d' "$pc"
+        sed -i $sl '/^prefix=/d; /^exec_prefix=/d; /^libdir=/d; /^includedir=/d; /^bindir=/d; /^libdir64=/d' "$pc"
         sed -i $sl "1i prefix=$FFBUILD_PREFIX\nexec_prefix=\${prefix}\nlibdir=\${prefix}/lib\nincludedir=\${prefix}/include\nbindir=\${prefix}/bin" "$pc"
 
         # Replace absolute paths with variables (only in non-assignment lines)
@@ -439,36 +459,26 @@ patch_pc_files() {
         sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'/lib|\${libdir}|g'         "$pc"
         sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'|\${prefix}|g'             "$pc"
 
-        # Обработка Libs (Улучшенный захват для мульти-библиотечных пакетов)
-        local current_libs=$(grep "^Libs:" "$pc" | cut -d':' -f2- | xargs)
-
-        # Ищем путь -L
-        local lib_path=$(echo "$current_libs" | grep -oE '\-L[^ ]+' | head -n1)
-        [[ -z "$lib_path" ]] && lib_path='-L${libdir}'
-        
-        # Определяем базовое имя (например 'lcms2' из 'lcms2.pc')
-        local base_name=$(basename "$pc" .pc)
-        # strip leading 'lib' prefix
-        base_name="${base_name#lib}"
-
-        # Collect all -l flags whose name starts with base_name
-        # Use grep with word-boundary-like pattern; escape dots in base_name
-        local escaped_base=$(sed_escape "$base_name")
-        local main_libs=$(echo "$current_libs" | grep -oE "\-l${escaped_base}[a-zA-Z0-9_-]*" | xargs)
-        # Fallback: just take the first -l flag
-        [[ -z "$main_libs" ]] && main_libs=$(echo "$current_libs" | grep -oE '\-l[a-zA-Z0-9_.+-]+' | head -n1)
-
-        # Compute leftover flags (→ Libs.private) strip lib_path and each main_lib token using awk (avoids regex metachar issues)
-        local leftovers
-        leftovers=$(echo "$current_libs" | awk -v lp="$lib_path" -v ml="$main_libs" '{
-            n = split(ml, m)
-            for (i=1; i<=NF; i++) {
-                if ($i == lp) continue
-                skip=0; for (j=1; j<=n; j++) if ($i == m[j]) { skip=1; break }
-                if (!skip) printf "%s ", $i } }')
-
-        # Write clean public Libs line
-        sed -i $sl "s|^Libs:.*|Libs: $lib_path $main_libs|" "$pc"
+        # NORMALIZE INCLUDE PATHS (in Cflags and Cflags.private)
+        # Extract all -I flags, normalize each, deduplicate
+        local cflags_line=$(grep "^Cflags:" "$pc" | cut -d':' -f2-)
+        if [[ -n "$cflags_line" ]]; then
+            local normalized_cflags=""
+            local seen_paths=""
+            # Extract each -I flag and normalize it
+            echo "$cflags_line" | grep -oE '\-I[^ ]+' | while read -r iflag; do
+                local path="${iflag#-I}"
+                local normalized=$(normalize_include_path "$path") || continue
+                # Deduplicate paths
+                if ! echo "$seen_paths" | grep -qF "$normalized"; then
+                    normalized_cflags="$normalized_cflags -I$normalized"
+                    seen_paths="$seen_paths $normalized"
+                fi
+            done
+            # Rebuild Cflags with normalized paths + other flags (defines, etc.)
+            local other_flags=$(echo "$cflags_line" | sed 's/-I[^ ]*//g' | xargs -r)
+            sed -i "s|^Cflags:.*|Cflags: $normalized_cflags $other_flags|" "$pc"
+        fi
 
         # Dependency scanner (Autotools, CMake, Meson)
         local extra_libs=""
@@ -504,66 +514,84 @@ patch_pc_files() {
         find "$src_root" -maxdepth 2 \( -name "*.cpp" -o -name "*.cc" \) 2>/dev/null | grep -q . && extra_libs+=" -lstdc++"
 
         # Merge Cflags.private → Cflags
-        local cflags_priv
-        cflags_priv=$(grep "^Cflags.private:" "$pc" | cut -d':' -f2- | xargs)
+        local cflags_priv=$(grep "^Cflags.private:" "$pc" | cut -d':' -f2- | xargs)
         if [[ -n "$cflags_priv" ]]; then
             sed -i $sl "/^Cflags:/ s/$/ $cflags_priv/" "$pc"
             sed -i $sl '/^Cflags.private:/d' "$pc"
         fi
 
+        # Обработка Libs (Улучшенный захват для мульти-библиотечных пакетов)
+        local libs_line=$(grep "^Libs:" "$pc" | cut -d':' -f2- | xargs)
+        # Ищем путь -L
+        local lib_path=$(echo "$libs_line" | grep -oE '\-L[^ ]+' | head -n1)
+        [[ -z "$lib_path" ]] && lib_path='-L${libdir}'
+        
+        # базовое имя (например 'lcms2' из 'lcms2.pc'). strip leading 'lib' prefix
+        local base_name=$(basename "$pc" .pc); base_name="${base_name#lib}"
+
+        # Collect all -l flags whose name starts with base_name
+        # Use grep with word-boundary-like pattern; escape dots in base_name
+
+        # we rely on the fact that main_libs is the “face” of the library, and everything else goes private
+        # local main_libs=$(echo "$libs_line" | grep -oE "\-l${base_name}[a-zA-Z0-9_-]*" | xargs)
+
+        local escaped_base=$(sed_escape "$base_name")
+        local main_libs=$(echo "$libs_line" | grep -oE "\-l${escaped_base}[a-zA-Z0-9_-]*" | xargs)
+        # Fallback: just take the first -l flag
+        [[ -z "$main_libs" ]] && main_libs=$(echo "$libs_line" | grep -oE '\-l[a-zA-Z0-9_.+-]+' | head -n1)
+
+        # Compute leftover flags (→ Libs.private) strip lib_path and each main_lib token using awk (avoids regex metachar issues)
+        local leftovers=$(echo "$libs_line" | awk -v lp="$lib_path" -v ml="$main_libs" '{
+            n = split(ml, m)
+            for (i=1; i<=NF; i++) {
+                if ($i == lp) continue
+                skip=0; for (j=1; j<=n; j++) if ($i == m[j]) { skip=1; break }
+                if (!skip) printf "%s ", $i } }')
+
+        # Write clean public Libs line
+        sed -i $sl "s|^Libs:.*|Libs: $lib_path $main_libs|" "$pc"
+
         # Ensure Requires.private and Libs.private fields exist
-        if ! grep -q "^Requires.private:" "$pc"; then
-            local insert_ref="Version"
-            grep -q "^Version:" "$pc" || insert_ref="Name"
-            sed -i $sl "/^${insert_ref}:/ a Requires.private:" "$pc"
-        fi
-        if ! grep -q "^Libs.private:" "$pc"; then
-            sed -i $sl "/^Libs:/ a Libs.private:" "$pc"
-        fi
+        grep -q "^Requires.private:" "$pc" || sed -i $sl "/^Version:/a Requires.private:" "$pc"
+        grep -q "^Libs.private:" "$pc" || sed -i $sl "/^Libs:/a Libs.private:" "$pc"
 
         # Append discovered deps (raw, dedup happens)
         sed -i $sl "/^Requires.private:/ s|$| $extra_requires|" "$pc"
         sed -i $sl "/^Libs.private:/ s|$| $leftovers $extra_libs $LIBS|" "$pc"
 
+        # Capitalisation fixes
+        sed -i $sl 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g; s/-lpthread/-pthread/g' "$pc"
+        # Remove -lrt (Linux-only, not on Windows)
+        sed -i $sl 's/ -lrt\b//g' "$pc"
         # Apply -lzlib → -lz (after all -l tokens are in the file)
         sed -i $sl 's/-lzlib\b/-lz/g' "$pc"
 
         # Smart deduplication
         # Cflags: simple dedup + -pthread alias
-        local cflags_line
-        cflags_line=$(grep "^Cflags:" "$pc" | cut -d':' -f2- | xargs)
+        local cflags_line=$(grep "^Cflags:" "$pc" | cut -d':' -f2- | xargs)
         if [[ -n "$cflags_line" ]]; then
-            local clean_cflags
-            clean_cflags=$(dedup_flags "$cflags_line")
+            local clean_cflags=$(dedup_flags_fast "$cflags_line")
             sed -i $sl "s|^Cflags:.*|Cflags: $clean_cflags|" "$pc"
         fi
 
         # Requires.private: remove anything already in Requires
-        local pub_req
-        pub_req=$(grep "^Requires:" "$pc" | grep -v "^Requires.private:" | cut -d':' -f2- | tr ',' ' ' | xargs)
-        local rp_line
-        rp_line=$(grep "^Requires.private:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
+        local pub_req=$(grep "^Requires:" "$pc" | grep -v "^Requires.private:" | cut -d':' -f2- | tr ',' ' ' | xargs)
+        local rp_line=$(grep "^Requires.private:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
         if [[ -n "$rp_line" ]]; then
-            local clean_rp
-            clean_rp=$(dedup_flags "$rp_line" "$pub_req")
+            local clean_rp=$(dedup_flags_fast "$rp_line" "$pub_req")
             sed -i $sl "s|^Requires.private:.*|Requires.private: $clean_rp|" "$pc"
         fi
 
         # Libs.private: remove anything already covered by Libs or any Requires
-        local all_req
-        all_req=$(grep -E "^Requires(\.private)?:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
-        local pub_libs
-        pub_libs=$(grep "^Libs:" "$pc" | cut -d':' -f2- | xargs)
-        local lp_line
-        lp_line=$(grep "^Libs.private:" "$pc" | cut -d':' -f2- | xargs)
+        local all_req=$(grep -E "^Requires(\.private)?:" "$pc" | cut -d':' -f2- | tr ',' ' ' | xargs)
+        local pub_libs=$(grep "^Libs:" "$pc" | cut -d':' -f2- | xargs)
+        local lp_line=$(grep "^Libs.private:" "$pc" | cut -d':' -f2- | xargs)
         if [[ -n "$lp_line" ]]; then
-            local skip_for_lp
-            skip_for_lp=$(echo "$all_req $pub_libs" | awk '{
+            local skip_for_lp=$(echo "$all_req $pub_libs" | awk '{
                 for(i=1;i<=NF;i++){
                     print $i
                     if ($i !~ /^-/) print "-l" $i } }' | xargs)
-            local clean_lp
-            clean_lp=$(dedup_flags "$lp_line" "$skip_for_lp")
+            local clean_lp=$(dedup_flags_fast "$lp_line" "$skip_for_lp")
             sed -i $sl "s|^Libs.private:.*|Libs.private: $clean_lp|" "$pc"
         fi
 
@@ -572,7 +600,8 @@ patch_pc_files() {
         sed -i $sl '/^Libs\.private:[[:space:]]*$/d'     "$pc"
         # Collapse multiple spaces, strip trailing whitespace
         sed -i $sl 's/  \+/ /g; s/[[:space:]]*$//' "$pc"
-        # sed -i $sl '/^$/d' "$pc"
+
+        log_debug "✔ $(basename "$pc")"
     done
 }
 export -f patch_pc_files
