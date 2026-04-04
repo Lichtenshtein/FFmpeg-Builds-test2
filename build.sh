@@ -11,6 +11,8 @@ source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
 # Определяем функцию очистки
 cleanup() {
     local exit_code=$? # Запоминаем код завершения (0 - успех, >0 - ошибка)
+    local duration=$SECONDS # Запоминаем время выполнения
+    local elapsed=$(printf '%02dh:%02dm:%02ds' $((duration/3600)) $((duration%3600/60)) $((duration%60)))
 
     log_info "Running cleanup (Exit code: $exit_code)..."
 
@@ -26,6 +28,7 @@ cleanup() {
     fi
 
     log_info "Cleanup done."
+    echo "::endgroup::"
 }
 
 # Устанавливаем ловушку
@@ -36,6 +39,10 @@ log_info "${CACHE_MARK} CCACHE STATISTICS:"
 ccache -s
 # Сброс статистики для чистого лога
 ccache -z > /dev/null
+# Сбрасываем счетчик секунд в начале этапа
+SECONDS=0
+# Начало группы в логах GitHub
+printf "\n::group::%s\n" "$STAGENAME"
 
 export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
@@ -421,7 +428,7 @@ if [[ -n "$GITHUB_ACTIONS" ]]; then
     echo "${BUILD_NAME}.7z" > "$FFBUILD_DESTDIR/${TARGET}-${VARIANT}.txt"
 fi
 
-log_info "${CHECK_MARK} Build finished."
+log_info "${CHECK_MARK} Build finished after ${elapsed}"
 
 # Вывод статистики ccache
 log_info "${CACHE_MARK} CCACHE STATISTICS:"
