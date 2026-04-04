@@ -28,15 +28,21 @@ eval "$(stage_vars "$STAGE")"
 # Очистка при выходе. Удаляем старые файлы, если они остались от прошлых запусков
 stage_cleanup() {
     local exit_code=$?
+    local duration=$SECONDS # Запоминаем время выполнения
+    local elapsed=$(printf '%02dh:%02dm:%02ds' $((duration/3600)) $((duration%3600/60)) $((duration%60)))
+
     if [[ $exit_code -eq 0 ]]; then
-        # Успех: чистим всё
+        # Успех: чистим всё; Should keep "$VARS_DIR"?
         cd /
-        rm -rf "/build/${STAGENAME}" "$VARS_DIR" "/tmp/stage_build.log" "$OUTFILE" "$TIMESTAMP_FILE"
+        [[ -n "$STAGENAME" ]] && rm -rf "/build/${STAGENAME}"
+        rm -f "/tmp/stage_build.log" "$TIMESTAMP_FILE"
+       log_info "${CHECK_MARK} Build ${GREEN}succeeded${LOG_NC} for ${STAGENAME} (Time: ${elapsed})"
         echo "::endgroup::"
     else
+        echo "::endgroup::"
         # Неудача: дампим логи
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-            log_error "ERROR: Build ${LOG_ERROR}failed${LOG_NC} for ${STAGENAME}"
+            log_error "Build ${LOG_ERROR}FAILED${LOG_NC} for ${STAGENAME} after ${elapsed}"
             log_debug "${BUILD_MARK} Current stage file: ${STAGE}"
             log_debug "${DIRS_MARK} Current directory: $(pwd)"
             # Это найдет логи, даже если они в build/meson-logs или глубоко в CMakeFiles
@@ -51,13 +57,13 @@ stage_cleanup() {
                 if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
                     log_warn "No logs were found. ${DIRS_MARK} Listing all files in current directory:"
                     # Выводим текущую директорию и структуру файлов (требуется column)
-                    ls -R | grep -v '^$' | column -c $(tput cols)
+                    ls -R | grep -v '^$' | column -c ${COLUMNS:-80}
                 else
                     log_warn "No logs were found."
                 fi
             fi
         else
-            log_error "ERROR: Build ${LOG_ERROR}failed${LOG_NC} for ${STAGENAME}"
+            log_error "Build ${LOG_ERROR}FAILED${LOG_NC} for ${STAGENAME} after ${elapsed}"
             if [[ -f /tmp/stage_build.log ]]; then
                 log_debug "${LOGS_MARK} ▼ DUMPING build log ▼"
                 cat /tmp/stage_build.log
@@ -78,9 +84,10 @@ mkdir -p "/build/$STAGENAME" && cd "/build/$STAGENAME"
 
 # Обнуляем статистику
 ccache -z > /dev/null
-
-# Начало группы в логах GitHub
-echo "::group::$STAGENAME"
+# Сбрасываем счетчик секунд в начале этапа
+SECONDS=0
+# Начало группы в логах GitHub; Очищаем буфер и выводим команду в чистом виде
+printf "\n::group::%s\n" "$STAGENAME"
 
 # Подгружаем скрипт заранее, чтобы проверить SCRIPT_SKIP
 # любые $(pwd) или относительные пути внутри скрипта будут указывать на /build/STAGENAME
@@ -255,11 +262,10 @@ log_info_line
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_debug "Verbose mode active. Build output will be shown in real-time."
-    if ! ( set -e -o pipefail; $build_cmd; conf_finder ); then exit 1 fi
+    if ! ( set -e -o pipefail; $build_cmd; conf_finder ); then exit 1; fi
 else
-    # Тихий режим: вывод лога только в случае падения
     log_info "Quiet mode active. Output is redirected to /tmp/stage_build.log"
-    if ! ( set -e -o pipefail; $build_cmd > /tmp/stage_build.log 2>&1; conf_finder ); then exit 1 fi
+    if ! ( set -e -o pipefail; $build_cmd > /tmp/stage_build.log 2>&1; conf_finder ); then exit 1; fi
 fi
 
 log_info_line

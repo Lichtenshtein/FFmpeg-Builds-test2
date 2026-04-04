@@ -123,7 +123,7 @@ cd "$CACHE_DIR" || exit 0
 deleted_count=0
 skipped_young=0
 
-log_info "${BROOM_MARK} Scanning cache for orphaned/outdated files..."
+log_info "${SEARCH_MARK} Scanning cache for orphaned/outdated files..."
 
 for f in *.tar.zst; do
     [[ -e "$f" || -L "$f" ]] || continue
