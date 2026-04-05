@@ -215,7 +215,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
         paste <(ls -d */ 2>/dev/null | head -n 15) \
               <(ls -F 2>/dev/null | grep -v / | head -n 15) | \
               column -t -s $'\t' -N "DIRECTORIES","FILES" | \
-              sed 's/^/  /' # Добавляем отступ слева для красоты
+              sed 's/^/ /' # Добавляем отступ слева для красоты
     fi
 
 else
@@ -380,7 +380,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
                 _pc_cflags="$_pc_cflags $flag"
             fi
         # просто pkg-config --cflags сохраняет с путями
-        done < <(pkg-config --cflags-only-other "$pc_name" 2>/dev/null \
+        done < <(pkg-config "${PKG_CONFIG_CFLAGS}" "$pc_name" 2>/dev/null \
                  | tr ' ' '\n' | grep -v '^$')
 
         while IFS= read -r flag; do
@@ -390,7 +390,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
                 _pc_libs="$_pc_libs $flag"
             fi
         # Используем --static чтобы увидеть Libs.private, и добавляем only-other для флагов типа -pthread, игнорируем пути. Было --libs-only-l (без Libs.private)
-        done < <(pkg-config --static --libs-only-l --libs-only-other "$pc_name" 2>/dev/null \
+        done < <(pkg-config "${PKG_CONFIG_LIBS}" "$pc_name" 2>/dev/null \
          | tr ' ' '\n' | grep -v '^$')
     done
 

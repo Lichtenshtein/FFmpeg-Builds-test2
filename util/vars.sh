@@ -110,6 +110,24 @@ export PKG_CONFIG_FLAGS="--static"
 export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig:${FFBUILD_PREFIX}/lib64/pkgconfig"
 export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
+# pkg-config libs collector options for final ffmpeg
+# * --libs                                   — only -l and -L paths
+# * --libs-only-l                            — only -l (-lSdl2) WITHOUT -L paths
+# * --libs-only-other                        — only flags WITHOUT -l (-pthread)
+# * --static --libs                          — -L/opt/lib -lfftw3
+# * --static --libs-only-l                   — only -l from Libs + Libs.private
+# * --static --libs-only-l --libs-only-other — any~ flags WITHOUT -L paths
+# * --cflags                                 — any~ flags WITH -I paths
+# * --cflags-only-other                      — only flags WITHOUT -I paths
+
+# without --static the Libs.private field will be ignored
+if [[ "$ENABLE_SHARED" == "1" ]]; then
+    export PKG_CONFIG_CFLAGS="--cflags-only-other"
+    export PKG_CONFIG_LIBS="--libs"
+else
+    export PKG_CONFIG_CFLAGS="--cflags-only-other"
+    export PKG_CONFIG_LIBS="--static --libs-only-l --libs-only-other"
+fi
 # use env vars with broadwell fallback
 export CPU_ARCH="${CPU_ARCH:-broadwell}"
 export CPU_TUNE="${CPU_TUNE:-broadwell}"
@@ -126,7 +144,7 @@ export FFBUILD_DESTPREFIX="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}"
 export PC_DIR="${FFBUILD_DESTPREFIX}/lib/pkgconfig"
 # directory for storing .vars files with
 # component variables and flags collected between stages
-export VARS_DIR="${FFBUILD_PREFIX}/config_parts"
+export VARS_DIR="${FFBUILD_PREFIX}/config_vars"
 
 # Shared project folders
 export ADDINS_DIR="${ROOT_DIR}/addins"
@@ -164,7 +182,7 @@ ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -l
 export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu11"
 export CPPFLAGS="-I/opt/ffbuild/include ${BASE_CPPFLAGS}"
 export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu++17"
-export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--large-address-aware -Wl,--stack,16777216"
+export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
 export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH}"
 # Обработка флагов, специфичных для Linux ELF
@@ -728,9 +746,11 @@ get_deps_list() {
     fi
 
     # Output
-    local error_count
-    error_count=$(grep -c "MISSING_DEP:" "$tmp_out" 2>/dev/null || echo 0)
-    error_count=$(( ${error_count:-0} ))
+    local error_count=0
+    if [[ -f "$tmp_out" ]]; then
+        error_count=$(grep -c "MISSING_DEP:" "$tmp_out" || true)
+    fi
+    error_count=$(( 10#${error_count:-0} )) 
 
     if [[ -s "$tmp_out" ]]; then
         log_debug "Showing dependencies for ${name} [Install size: ${total_size}]:"
