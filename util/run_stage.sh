@@ -45,7 +45,7 @@ stage_cleanup() {
         # Успех: чистим всё; NOTE: Should keep "$VARS_DIR" & "$OUTFILE"
         cd /
         [[ -n "$STAGENAME" ]] && rm -rf "$BUILD_DIR"
-        rm -f "$STAGE_LOG"
+        rm -f "$STAGE_LOG" "$TIMESTAMP_FILE"
         log_info "${CHECK_MARK} Build ${GREEN}SUCCEEDED${NC} for ${STAGENAME} [Time: ${PURPLE}${elapsed}${NC}]"
     else
         # Неудача: дампим логи
@@ -266,8 +266,9 @@ log_info "### DATE: $(date)"
 log_info "### Starting build function: $build_cmd"
 log_info_line
 
-# Генерируем файл 'configure' (если его нет) для Autoconf
-conf_finder
+# Generate the 'configure' file (if it doesn't exist) for Autoconf
+# This function causes more problems then expected
+# conf_finder
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_debug "Verbose mode active. Build output will be shown in real-time."

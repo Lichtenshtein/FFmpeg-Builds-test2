@@ -478,9 +478,15 @@ patch_pc_files() {
     # helper escape string for use as a literal sed pattern
     sed_escape() { printf '%s' "$1" | sed 's/[[\.*^$()+?{|]/\\&/g'; }
 
+    # Собираем все .pc файлы в массив и выводим список найденных файлов
     log_debug "Correcting values in .pc files:"
-    # замена абсолютных путей на переменные
-    find "$pc_dir" -maxdepth 1 -name "*.pc" | printf '%s\n' "$pc" | while read -r pc; do
+    mapfile -t PC_FILES < <(find "$pc_dir" -maxdepth 1 -name "*.pc")
+    [[ ${#PC_FILES[@]} -eq 0 ]] && return 0
+    for pc in "${PC_FILES[@]}"; do
+        echo "$pc" >&2
+    done
+
+    find "$pc_dir" -maxdepth 1 -name "*.pc" | while read -r pc; do
         [[ -f "$pc" ]] || continue
         log_debug "Processing: $(basename "$pc")"
 
@@ -689,14 +695,14 @@ get_deps_list() {
                     [[ -z "$dep" ]] && continue
                     if $pkg_config_cmd --exists "$dep" 2>/dev/null; then
                         ver=$($pkg_config_cmd --modversion "$dep" 2>/dev/null || echo "unknown")
-                        printf "%b•%b %-20s %b(found: %s)%b\n" "$LOG_INFO" "$NC" "$dep" "$GREY_B" "$ver" "$NC"
+                        printf "%b•%b %-20s %b(found: %s)%b\n" "$LOG_INFO" "$NC" "$dep" "$GREY" "$ver" "$NC"
                     else
                         printf "%b• MISSING:%b %s %b(in: %s)%b\n" "$LOG_ERROR" "$NC" "$dep" "$LOG_ERROR" "$pc_dir" "$NC"
                         echo "MISSING_DEP: $dep"
                     fi
                 done <<< "$deps"
             else
-                printf "%bNo dependencies found in .pc file%b\n" "$GREY_B" "$NC"
+                printf "%b No dependencies found in .pc file\n" "$CHECK_MARK"
             fi
         ' _ {} \
             "${PKG_CONFIG:-pkg-config}" \
