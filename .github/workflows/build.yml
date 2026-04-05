@@ -38,6 +38,10 @@ on:
         description: 'Enable OpenMP (Open Multi-Processing)'
         type: boolean
         default: true
+      enable_shared:
+        description: 'Enable shared/Disable static'
+        type: boolean
+        default: false
       patch_ffmpeg:
         description: 'Enable FFmpeg custom patches'
         type: boolean
@@ -118,6 +122,7 @@ env:
   USE_OPENMP:     ${{ github.event.inputs.use_openmp     == 'true' && '1' || '0' }}
   SHADERC_UPDATE: ${{ github.event.inputs.shaderc_update == 'true' && '1' || '0' }}
   CLEAN_INACTIVE: ${{ github.event.inputs.clean_inactive == 'true' && '1' || '0' }}
+  ENABLE_SHARED:  ${{ github.event.inputs.enable_shared  == 'true' && '1' || '0' }}
   # Маппинг Inputs -> Env для всех динамических значений
   FFMPEG_REPO:     ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-VVC.git' }}
   FFMPEG_BRANCH:   ${{ github.event.inputs.ffmpeg_branch || 'master' }}
