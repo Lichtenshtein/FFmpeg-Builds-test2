@@ -46,10 +46,10 @@ stage_cleanup() {
         cd /
         [[ -n "$STAGENAME" ]] && rm -rf "$BUILD_DIR"
         rm -f "$STAGE_LOG" "$TIMESTAMP_FILE"
-        log_info "${CHECK_MARK} Build ${GREEN}SUCCEEDED${NC} for ${STAGENAME} [Time: ${PURPLE_I}${elapsed}${NC}]"
+        log_info "${CHECK_MARK} Build ${GREEN}SUCCEEDED${NC} for ${STAGENAME} [Time: ${GREY_B}${elapsed}${NC}]"
     else
         # Неудача: дампим логи
-        log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${PURPLE_I}${elapsed}${NC}"
+        log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${GREY_B}${elapsed}${NC}"
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
             log_debug "${BUILD_MARK} Current stage file: ${STAGE}"
             log_debug "${DIRS_MARK} Current directory: $(pwd)"
@@ -78,7 +78,7 @@ stage_cleanup() {
                 fi
             fi
         else
-            log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${PURPLE_I}${elapsed}${NC}"
+            log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${GREY_B}${elapsed}${NC}"
             if [[ -f "$STAGE_LOG" ]]; then
                 log_debug "${LOGS_MARK} ▼ CONTENT OF ($STAGE_LOG) ▼"
                 cat "$STAGE_LOG" >&2
