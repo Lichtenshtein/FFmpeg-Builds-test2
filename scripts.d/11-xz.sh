@@ -3,6 +3,8 @@
 SCRIPT_REPO="https://github.com/tukaani-project/xz.git"
 SCRIPT_COMMIT="54147ad65af12d9e4f60a8ce59094a8a30ad5919"
 
+export SKIP_CONF_FINDER=1  # Выключаем авто-поиск
+
 ffbuild_depends() {
     echo base
     echo libiconv
@@ -19,7 +21,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    export SKIP_CONF_FINDER=1  # Выключаем авто-поиск
 
     # Удаляем старые вспомогательные файлы, чтобы libtoolize и autoconf пересоздали их
     # rm -rf build-aux
