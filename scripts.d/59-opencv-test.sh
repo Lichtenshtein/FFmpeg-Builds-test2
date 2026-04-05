@@ -32,11 +32,11 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
         -DBUILD_SHARED_LIBS=OFF
-        -DBUILD_WITH_STATIC_CRT=ON
         -DOPENCV_GENERATE_PKGCONFIG=ON
         -DENABLE_PIC=ON
         -DOPENCV_ENABLE_NONFREE=ON
         # Отключаем лишнее для ускорения сборки
+        -DBUILD_OPENEXR=ON # why not
         -DBUILD_EXAMPLES=OFF
         -DBUILD_PACKAGE=OFF
         -DBUILD_DOCS=OFF
@@ -46,24 +46,25 @@ ffbuild_dockerbuild() {
         -DBUILD_JAVA=OFF
         -DBUILD_opencv_apps=OFF
         -DBUILD_opencv_python2=OFF
-        -DBUILD_opencv_python3=OFF
+        # -DBUILD_opencv_python3=OFF
         -DBUILD_opencv_java=OFF
+        -DWITH_AVIF=ON
         -DWITH_IPP=OFF
-        -DWITH_WIN32UI=OFF
-        -DWITH_JPEGXL=ON
-        -DWITH_OPENJPEG=ON
         -DWITH_JPEG=ON
-        -DWITH_WEBP=ON
-        -DWITH_PNG=ON
-        -DWITH_TIFF=ON
+        -DWITH_JPEGXL=ON
         -DWITH_MSMF_DXVA=ON
+        -DWITH_OPENCL=ON
         -DWITH_OPENCL_D3D11_NV=ON
         -DWITH_OPENGL=ON
+        -DWITH_OPENJPEG=ON
         -DWITH_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF )
-        -DWITH_OPENCL=ON
-        -DWITH_ZLIB_NG=ON
-        -DWITH_VULKAN=ON
+        -DWITH_PNG=ON
         -DWITH_PTHREADS_PF=ON
+        -DWITH_TIFF=ON
+        -DWITH_VULKAN=ON
+        -DWITH_WEBP=ON
+        -DWITH_WIN32UI=OFF
+        -DWITH_ZLIB_NG=ON
         # Включаем интеграцию с OpenVINO (Inference Engine)
         -DWITH_OPENVINO=ON
         -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake/OpenVINO"
