@@ -20,7 +20,7 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --disable-maintainer-mode
+        --enable-maintainer-mode
         --disable-shared
         --enable-static
         --enable-fat
