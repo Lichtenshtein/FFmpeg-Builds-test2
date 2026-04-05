@@ -294,7 +294,7 @@ Please match the numbers in the library names from the list below with the list 
 
 * `frei0r`
 ```
-04-tbbmalloc|05-libicu|06-libiconv|07-gettext|08-zlib|09-gmp|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|17-harfbuzz|16-glib2|18-libxml2|26-nettle|30-giflib|30-libjpeg-turbo|30-libpng|30-libtiff|30-openjpeg|31-libwebp|32-fribidi|32-fontconfig|32-libtiff|32-pixman|33-cairo|33-harfbuzz|34-freetype|33-lcms2|38-libjxl|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|57-libtensorflow-test|57-opencl|57-openvino-test|58-aom|58-rav1e|59-libavif|60-opencv-test|80-gavl|84-frei0r
+04-tbbmalloc|05-libicu|06-libiconv|07-gettext|08-zlib|09-gmp|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|17-harfbuzz|16-glib2|18-libxml2|26-nettle|30-giflib|30-libjpeg-turbo|30-libpng|30-libtiff|30-openjpeg|31-libwebp|32-fribidi|32-fontconfig|32-libtiff|32-pixman|33-cairo|33-harfbuzz|34-freetype|33-lcms2|37-dav1d|38-libavif|38-libjxl|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|57-libtensorflow-test|57-opencl|57-openvino-test|58-aom|58-rav1e|59-libavif|60-opencv-test|80-gavl|84-frei0r
 ```
 
 ### Download functions memo tips
