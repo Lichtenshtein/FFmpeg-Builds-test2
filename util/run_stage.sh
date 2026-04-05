@@ -46,10 +46,10 @@ stage_cleanup() {
         cd /
         [[ -n "$STAGENAME" ]] && rm -rf "$BUILD_DIR"
         rm -f "$STAGE_LOG"
-        log_info "${CHECK_MARK} Build ${GREEN}SUCCEEDED${NC} for ${STAGENAME} [${GREY}Time: ${elapsed}${NC}]"
+        log_info "${CHECK_MARK} Build ${GREEN}SUCCEEDED${NC} for ${STAGENAME} [Time: ${PURPLE}${elapsed}${NC}]"
     else
         # Неудача: дампим логи
-        log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${GREY}${elapsed}${NC}"
+        log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${PURPLE}${elapsed}${NC}"
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
             log_debug "${BUILD_MARK} Current stage file: ${STAGE}"
             log_debug "${DIRS_MARK} Current directory: $(pwd)"
@@ -78,7 +78,7 @@ stage_cleanup() {
                 fi
             fi
         else
-            log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${GREY}${elapsed}${NC}"
+            log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${PURPLE}${elapsed}${NC}"
             if [[ -f "$STAGE_LOG" ]]; then
                 log_debug "${LOGS_MARK} ▼ CONTENT OF ($STAGE_LOG) ▼"
                 cat "$STAGE_LOG" >&2
@@ -380,14 +380,10 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
               "$FFBUILD_PREFIX/lib64/pkgconfig"/*.pc \
               "$FFBUILD_PREFIX/share/pkgconfig"/*.pc; do
         [[ -e "$pc" ]] || continue
-        # [[ "$pc" -nt "$TIMESTAMP_FILE" ]] || continue
-        # Если файл старый - пропускаем
-        if ! [[ "$pc" -nt "$TIMESTAMP_FILE" ]]; then
-             continue
-        fi
+        [[ "$pc" -nt "$TIMESTAMP_FILE" ]] || continue
+
         # Собираем только если имя .pc файла соответствует или связано с компонентом
         pc_name="$(basename "$pc" .pc)"
-        log_debug "Found NEW .pc file: $pc_name. Collecting flags..."
 
         # Deduplicate per-flag across multiple .pc files
         while IFS= read -r flag; do
@@ -397,7 +393,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
                 _pc_cflags="$_pc_cflags $flag"
             fi
         # просто pkg-config --cflags сохраняет с путями
-        done < <(pkg-config "${PKG_CONFIG_CFLAGS}" "$pc_name" 2>/dev/null \
+        done < <(pkg-config $PKG_CONFIG_CFLAGS "$pc_name" 2>/dev/null \
                  | tr ' ' '\n' | grep -v '^$')
 
         # Сначала собираем сами библиотеки (-l)
@@ -407,7 +403,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
                 _seen_pc_libs["$flag"]=1
                 _pc_libs="$_pc_libs $flag"
             fi
-        done < <(pkg-config "${PKG_CONFIG_LIBS}" "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
+        done < <(pkg-config $PKG_CONFIG_LIBS "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
 
         # Затем собираем системные флаги (-pthread и т.д.)
         while IFS= read -r flag; do
@@ -416,7 +412,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
                 _seen_pc_libs["$flag"]=1
                 _pc_libs="$_pc_libs $flag"
             fi
-        done < <(pkg-config "${PKG_CONFIG_ALL_LIBS}" "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
+        done < <(pkg-config $PKG_CONFIG_ALL_LIBS "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
     done
 
     # Merge script output with .pc output, then deduplicate the combined result

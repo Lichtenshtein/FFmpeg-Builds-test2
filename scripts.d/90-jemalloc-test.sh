@@ -3,6 +3,8 @@
 SCRIPT_REPO="https://github.com/facebook/jemalloc.git"
 SCRIPT_COMMIT="6ced85a8e5d73e882aa999a1fbc95b9312461804"
 
+export SKIP_CONF_FINDER=1
+
 ffbuild_enabled() {
     # [[ $TARGET == win* ]] || return 1
     return 1
