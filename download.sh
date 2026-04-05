@@ -100,9 +100,9 @@ else
     # Visual hash comparison
     separator "─" "  HASH COMPARISON  "
     if [[ "$REMOTE_HASH" == "$LOCAL_HASH" ]]; then
-        printf '  %-8s  %b%s%b\n' "local"  "$LOG_INFO"  "${LOCAL_HASH:0:12}"  "$LOG_NC" >&2
-        printf '  %-8s  %b%s%b\n' "remote" "$LOG_INFO"  "${REMOTE_HASH:0:12}" "$LOG_NC" >&2
-        printf '  %-8s  %b%s%b\n' "match"  "$LOG_INFO"  "✔ up to date"        "$LOG_NC" >&2
+        printf '  %-8s  %b%s%b\n' "local"  "$LOG_INFO"  "${LOCAL_HASH:0:12}"  "$NC" >&2
+        printf '  %-8s  %b%s%b\n' "remote" "$LOG_INFO"  "${REMOTE_HASH:0:12}" "$NC" >&2
+        printf '  %-8s  %b%s%b\n' "match"  "$LOG_INFO"  "✔ up to date"        "$NC" >&2
     else
         # Highlight differing characters individually
         _print_hash_diff() {
@@ -114,15 +114,15 @@ else
                 if [[ "$ca" == "$cb" ]]; then
                     out_a+="$ca"; out_b+="$cb"
                 else
-                    out_a+="${LOG_WARN}${ca:-.}${LOG_NC}"
-                    out_b+="${LOG_WARN}${cb:-.}${LOG_NC}"
+                    out_a+="${LOG_WARN}${ca:-.}${NC}"
+                    out_b+="${LOG_WARN}${cb:-.}${NC}"
                 fi
             done
             printf '  %-8s  %b\n' "$label_a" "$out_a" >&2
             printf '  %-8s  %b\n' "$label_b" "$out_b" >&2
         }
         _print_hash_diff "$LOCAL_HASH" "$REMOTE_HASH" "local" "remote"
-        printf '  %-8s  %b%s%b\n' "status" "$LOG_WARN" "⚠ update available" "$LOG_NC" >&2
+        printf '  %-8s  %b%s%b\n' "status" "$LOG_WARN" "⚠ update available" "$NC" >&2
     fi
     separator "─"
 

@@ -156,15 +156,15 @@ phase_header "🧹" "CACHE CLEANUP  [$CLEAN_TARGET-$CLEAN_VARIANT]"
 separator "─" "  PROTECTION DECISIONS  "
 printf '  %-35s  %s\n' "CATEGORY" "COUNT" >&2
 separator "─"
-printf '  %-35s  %b%s%b\n' "Active + enabled (always keep)"   "$LOG_INFO"  "$count_active_enabled" "$LOG_NC" >&2
-printf '  %-35s  %b%s%b\n' "Inactive + enabled (CLEAN=0 keep)" "$LOG_WARN"  "$count_inactive_kept"  "$LOG_NC" >&2
-printf '  %-35s  %b%s%b\n' "Skipped (disabled or CLEAN=1)"     "$LOG_DEBUG" "$count_skipped"        "$LOG_NC" >&2
+printf '  %-35s  %b%s%b\n' "Active + enabled (always keep)"   "$LOG_INFO"  "$count_active_enabled" "$NC" >&2
+printf '  %-35s  %b%s%b\n' "Inactive + enabled (CLEAN=0 keep)" "$LOG_WARN"  "$count_inactive_kept"  "$NC" >&2
+printf '  %-35s  %b%s%b\n' "Skipped (disabled or CLEAN=1)"     "$LOG_DEBUG" "$count_skipped"        "$NC" >&2
 separator "─"
 
 if [[ "$deleted_count" -gt 0 || "$skipped_young" -gt 0 ]]; then
     separator "─" "  DELETION RESULTS  "
-    printf '  %-35s  %b%s%b\n' "Files removed"              "$LOG_WARN"  "$deleted_count"  "$LOG_NC" >&2
-    printf '  %-35s  %b%s%b\n' "Skipped (< 30 min old)"     "$LOG_INFO"  "$skipped_young"  "$LOG_NC" >&2
+    printf '  %-35s  %b%s%b\n' "Files removed"              "$LOG_WARN"  "$deleted_count"  "$NC" >&2
+    printf '  %-35s  %b%s%b\n' "Skipped (< 30 min old)"     "$LOG_INFO"  "$skipped_young"  "$NC" >&2
     separator "─"
 fi
 

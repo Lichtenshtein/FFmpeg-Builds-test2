@@ -425,7 +425,7 @@ if [[ -n "$GITHUB_ACTIONS" ]]; then
     echo "${BUILD_NAME}.7z" > "$FFBUILD_DESTDIR/${TARGET}-${VARIANT}.txt"
 fi
 
-log_info "${CHECK_MARK} Build finished after ${elapsed}"
+log_info "${CHECK_MARK} Build finished after ${LOG_GREY}${elapsed}${NC}"
 
 # Вывод статистики ccache
 log_info "${CACHE_MARK} CCACHE STATISTICS:"

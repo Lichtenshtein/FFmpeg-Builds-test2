@@ -6,16 +6,20 @@ export LANG=C.UTF-8
 export LC_ALL=C.UTF-8
 
 # ANSI Color Codes
-export LOG_DEBUG='\033[1;35m'  # Purple (Bold)
-export LOG_INFO='\033[1;32m'   # Green (Bold)
-export LOG_WARN='\033[1;33m'   # Yellow (Bold)
-export LOG_ERROR='\033[1;31m'  # Red (Bold)
-export LOG_NC='\033[0m'        # No Color (Reset)
-export RED='\033[0;31m'        # Red
-export GREEN='\033[0;32m'      # Green
-export YELLOW='\033[0;33m'     # Yellow
-export PURPLE='\033[0;35m'     # Purple
-export NC='\033[0m'            # No Color (Reset)
+export LOG_DEBUG='\x1b[1;35m'   # Purple (Bold)
+export LOG_INFO='\x1b[1;32m'    # Green (Bold)
+export LOG_WARN='\x1b[1;33m'    # Yellow (Bold)
+export LOG_ERROR='\x1b[1;31m'   # Red (Bold)
+export LOG_CYAN='\x1b[1;36m'    # Purple (Bold)
+export LOG_MAGENTA='\x1b[1;35m' # Magenta (Bold)
+export LOG_GREY='\x1b[1;30m'    # Grey (Bold)
+export LOG_BLUE='\x1b[1;34m'    # Blue (Bold)
+export NC='\x1b[0m'             # No Color (Reset)
+export RED='\x1b[0;31m'         # Red
+export GREEN='\x1b[0;32m'       # Green
+export YELLOW='\x1b[0;33m'      # Yellow
+export PURPLE='\x1b[0;35m'      # Purple
+# Marks
 export CHECK_MARK="${LOG_INFO}✔${NC}"
 export CROSS_MARK='❌'
 export XCLAM_MARK='⚠️'
@@ -36,23 +40,23 @@ export DOWN_MARK="${GREEN}🡇${NC}"
 export LOGS_MARK="${LOG_DEBUG}🗎${NC}"
 
 # Функции для логирования пишут в stderr (>&2)
-log_info()  { echo -e "${LOG_INFO}[INFO]${LOG_NC}  $*" >&2; }
-log_warn()  { echo -e "${LOG_WARN}[WARN]${LOG_NC}  ${XCLAM_MARK} $*" >&2; }
-log_error() { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} ${CROSS_MARK} $*" >&2; }
-log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${LOG_NC} $*" >&2; }
+log_info()  { echo -e "${LOG_INFO}[INFO]${NC}  $*" >&2; }
+log_warn()  { echo -e "${LOG_WARN}[WARN]${NC}  ${XCLAM_MARK} $*" >&2; }
+log_error() { echo -e "${LOG_ERROR}[ERROR]${NC} ${CROSS_MARK} $*" >&2; }
+log_debug() { echo -e "${LOG_DEBUG}[DEBUG]${NC} $*" >&2; }
 
 # Safe color codes through %b, raw value through %s
-print_info()  { printf '%b[INFO]%b  %b\n' "${LOG_INFO}" "${LOG_NC}" "$*" >&2; }
-print_warn()  { printf '%b[WARN]%b %b\n' "${LOG_WARN}" "${LOG_NC}"  "${XCLAM_MARK}" "$*" >&2; }
-print_error() { printf '%b[ERROR]%b %b\n' "${LOG_ERROR}" "${LOG_NC}"  "${CROSS_MARK}" "$*" >&2; }
-print_debug() { printf '%b[DEBUG]%b %b\n' "${LOG_DEBUG}" "${LOG_NC}" "$*" >&2; }
+print_info()  { printf '%b[INFO]%b  %b\n' "${LOG_INFO}" "${NC}" "$*" >&2; }
+print_warn()  { printf '%b[WARN]%b %b\n' "${LOG_WARN}" "${NC}"  "${XCLAM_MARK}" "$*" >&2; }
+print_error() { printf '%b[ERROR]%b %b\n' "${LOG_ERROR}" "${NC}"  "${CROSS_MARK}" "$*" >&2; }
+print_debug() { printf '%b[DEBUG]%b %b\n' "${LOG_DEBUG}" "${NC}" "$*" >&2; }
 
 # Use instead of log_debug/print_debug when the value may contain
 # Windows paths or other backslash sequences
 # We should change to use "$@" with a loop if multiple values are expected, or document that it takes exactly two args.
 log_raw() {
     local label="$1"; shift
-    printf '%b[DEBUG]%b %s\n' "${LOG_DEBUG:-}" "${LOG_NC:-}" "${label}" >&2
+    printf '%b[DEBUG]%b %s\n' "${LOG_DEBUG:-}" "${NC:-}" "${label}" >&2
     [[ $# -gt 0 ]] && printf ' %s\n' "$@" >&2
     # local arg
     # for arg in "$@"; do
@@ -60,8 +64,8 @@ log_raw() {
     # done
 }
 
-log_info_line() { echo -e "${LOG_INFO}[INFO]${LOG_NC}  ################################################################" >&2; }
-log_err_line()  { echo -e "${LOG_ERROR}[ERROR]${LOG_NC} !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >&2; }
+log_info_line() { echo -e "${LOG_INFO}[INFO]${NC}  ################################################################" >&2; }
+log_err_line()  { echo -e "${LOG_ERROR}[ERROR]${NC} !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" >&2; }
 
 export -f log_info log_warn log_error log_debug log_info_line log_err_line print_info print_warn print_error print_debug log_raw
 
@@ -116,17 +120,17 @@ export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 # * --libs-only-other                        — only flags WITHOUT -l (-pthread)
 # * --static --libs                          — -L/opt/lib -lfftw3
 # * --static --libs-only-l                   — only -l from Libs + Libs.private
-# * --static --libs-only-l --libs-only-other — any~ flags WITHOUT -L paths
+# * --static --libs-only-other               — any~ flags WITHOUT -L paths
 # * --cflags                                 — any~ flags WITH -I paths
 # * --cflags-only-other                      — only flags WITHOUT -I paths
-
 # without --static the Libs.private field will be ignored
 if [[ "$ENABLE_SHARED" == "1" ]]; then
     export PKG_CONFIG_CFLAGS="--cflags-only-other"
     export PKG_CONFIG_LIBS="--libs"
 else
     export PKG_CONFIG_CFLAGS="--cflags-only-other"
-    export PKG_CONFIG_LIBS="--static --libs-only-l --libs-only-other"
+    export PKG_CONFIG_LIBS="--static --libs-only-l"
+    export PKG_CONFIG_ALL_LIBS="--static --libs-only-other"
 fi
 # use env vars with broadwell fallback
 export CPU_ARCH="${CPU_ARCH:-broadwell}"
@@ -162,6 +166,15 @@ export FFMPEG_SOURCE_DIR="${FFMPEG_BUILD_ROOT}/ffmpeg"
 export FFMPEG_PKG_ROOT="${FFMPEG_BUILD_ROOT}/pkgroot"
 export FFMPEG_CONFIG_LOG="${FFMPEG_SOURCE_DIR}/ffbuild/config.log"
 export FFMPEG_HASH_FILE="${FFMPEG_DIR}/.current_commit" # хеш последнего скачанного коммита
+
+# Helper hooks to skip .la files, dependancies and .pc files auditing
+# add ffbuild_dockerbuild() { export SKIP_POST_PATCH=1 } to disable
+# add SKIP_PRE_PATCH=1 to the top of the script
+export SKIP_PRE_PATCH=0
+export SKIP_POST_PATCH=0
+export SKIP_POST_CLEAN=0
+export SKIP_POST_AUDIT=0
+export SKIP_CONF_FINDER=0
 
 # Create the base structure if it doesn't exist
 if [[ -d "/builder" ]]; then
@@ -652,7 +665,6 @@ get_deps_list() {
     if [[ -d "$pc_dir" ]]; then
         find "$pc_dir" -name "*.pc" -exec bash -c '
             pc_file="$1"; pkg_config_cmd="$2"; pc_dir="$3"; prefix="$4"
-            log_err="$5"; log_nc="$6"; x_mark="$7"; s_mark="$8"
 
             export PKG_CONFIG_LIBDIR="$pc_dir:$prefix/lib/pkgconfig:$prefix/share/pkgconfig"
             export PKG_CONFIG_PATH="$PKG_CONFIG_LIBDIR"
@@ -660,34 +672,37 @@ get_deps_list() {
 
             pkg_name=$(basename "$pc_file" .pc)
 
-            printf "\n%b \033[1;36mFILE:\033[0m %s\n" "$x_mark" "$pc_file"
+            printf "\n%b %bFILE:%b %s\n" "$7" "$LOG_CYAN" "$NC" "$pc_file"
+            cat "$pc_file"
 
             # Выводим содержимое (опционально, для отладки)
             cat "$pc_file"
             
-            printf "\n%b \033[1;35mDEPENDENCIES\033[0m for %s:\n" "$s_mark" "$pkg_name"
+            printf "\n%b %bDEPENDENCIES%b for %s:\n" "$8" "$LOG_MAGENTA" "$NC" "$pkg_name"
 
-            deps=$($pkg_config_cmd --print-requires --print-requires-private "$pkg_name" 2>/dev/null | sort -u | xargs)
+            deps=$($pkg_config_cmd --print-requires --print-requires-private "$pkg_name" 2>/dev/null | 
+                   awk '{print $1}' | sort -u | xargs)
 
             if [[ -n "$deps" ]]; then
                 for dep in $deps; do
+                    [[ -z "$dep" ]] && continue
                     if $pkg_config_cmd --exists "$dep" 2>/dev/null; then
                         ver=$($pkg_config_cmd --modversion "$dep" 2>/dev/null || echo "unknown")
-                        printf "  \033[1;32m•\033[0m %-20s \033[1;30m(found: %s)\033[0m\n" "$dep" "$ver"
+                        printf "%b•%b %-20s %b(found: %s)%b\n" "$LOG_INFO" "$NC" "$dep" "$LOG_GREY" "$ver" "$NC"
                     else
-                        printf "  \033[1;31m✖ MISSING:\033[0m %s %b(in: %s)%b\n" "$dep" "$log_err" "$pc_dir" "$log_nc"
+                        printf "%b✖ MISSING:%b %s %b(in: %s)%b\n" "$LOG_ERROR" "$NC" "$dep" "$LOG_ERROR" "$pc_dir" "$NC"
                         echo "MISSING_DEP: $dep"
                     fi
                 done
             else
-                echo "  \033[1;30m(No dependencies found in .pc file)\033[0m"
+                printf "%b(No dependencies found in .pc file)%b\n" "$LOG_GREY" "$NC"
             fi
         ' _ {} \
             "${PKG_CONFIG:-pkg-config}" \
             "$pc_dir" \
             "$FFBUILD_PREFIX" \
             "$LOG_ERROR" \
-            "$LOG_NC" \
+            "$NC" \
             "$XCLAM_MARK" \
             "$SEARCH_MARK" \; >> "$tmp_out" || true
     fi
@@ -722,12 +737,13 @@ get_deps_list() {
                 awk -F: "{ 
                     split(\$NF, a, \" \"); 
                     sym = a[2]; 
-                    if (sym != \"\") printf \"%-15s \033[1;30m→\033[0m %s\n\", \$2, sym 
+                    if (sym != \"\") printf \"%-15s %s→%s %s\n\", \$2, \"$LOG_GREY\", \"$NC\", sym 
                 }" | sort -u | head -n 12)
+
             if [[ -n "$clean_symbols" ]]; then
-                printf "\n%b \033[1;33mEXTERNAL SYMBOLS (OBJ \033[1;30m→\033[1;33m SYM)\033[0m in %s:\n" \
-                    "$x_mark" "$file"
-                echo "$clean_symbols" | sed "s/^/  \033[1;32m•\033[0m /"
+                printf "\n%b %bEXTERNAL SYMBOLS (OBJ %b→%b %bSYM)%b in %s:\n" \
+                    "$x_mark" "$LOG_WARN" "$LOG_GREY" "$LOG_WARN" "$LOG_WARN" "$NC" "$file"
+                printf "%b" "$clean_symbols" | sed "s|^|  ${LOG_INFO}•${NC} |"
             fi
         fi
     ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
@@ -750,13 +766,13 @@ get_deps_list() {
     if [[ -f "$tmp_out" ]]; then
         error_count=$(grep -c "MISSING_DEP:" "$tmp_out" || true)
     fi
-    error_count=$(( 10#${error_count:-0} )) 
+    error_count=$(( 10#${error_count:-0} ))
 
     if [[ -s "$tmp_out" ]]; then
         log_debug "Showing dependencies for ${name} [Install size: ${total_size}]:"
         cat "$tmp_out" >&2
         if [ "$error_count" -gt 0 ]; then
-            log_error "Found ${error_count} missing pkg-config dependency/dependencies for ${name}!"
+            log_warn "Found ${error_count} missing pkg-config dependency/dependencies for ${name}!"
         else
             log_info "${CHECK_MARK} All pkg-config dependencies satisfied for ${name}."
         fi
@@ -893,13 +909,6 @@ check_and_fix_configure() {
 }
 export -f check_and_fix_configure
 
-# .la files, dependancies and .pc files auditing
-# add ffbuild_dockerbuild() { export SKIP_POST_PATCH=1 } to disable
-export SKIP_PRE_PATCH=0
-export SKIP_POST_PATCH=0
-export SKIP_POST_CLEAN=0
-export SKIP_POST_AUDIT=0
-
 # Динамическое определение путей для wine
 if [ -d "/opt/ct-ng" ]; then
     MINGW_BIN_PATH="/opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/bin"
@@ -927,7 +936,7 @@ if [ -d "/opt/ct-ng" ]; then
             export WINEPATH="winepath -w ${FFBUILD_PREFIX}/bin:${FFBUILD_PREFIX}/lib:${MINGW_BIN_PATH}"
         fi
         # Выводим инфо о WINEPATH только при его создании
-        # [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && printf '%b WINEPATH (Windows style): %s\n' "${LOG_DEBUG}[DEBUG]${LOG_NC} ${DIRS_MARK}" "$WINEPATH"
+        # [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && printf '%b WINEPATH (Windows style): %s\n' "${LOG_DEBUG}[DEBUG]${NC} ${DIRS_MARK}" "$WINEPATH"
         [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_raw "${DIRS_MARK} WINEPATH (Windows style):" "$WINEPATH"
     fi
 fi
@@ -977,6 +986,8 @@ setup_wine_env() {
 export -f setup_wine_env
 
 conf_finder() {
+    # Если переменная SKIP_CONF_FINDER установлена, ничего не делаем
+    [[ "$SKIP_CONF_FINDER" == "1" ]] && return 0
     if [[ ! -f "configure" && ( -f "configure.ac" || -f "configure.in" ) ]]; then
         log_info "${SYNC_MARK} No 'configure' script found, but 'configure.ac' exists."
         if [[ -f "autogen.sh" ]]; then
@@ -1041,7 +1052,7 @@ phase_header() {
     local line=$(_repeat_char $((width - 2)) "─")
     
     printf '╭%s╮\n' "$line" >&2
-    printf '  %b%s %s%b  \n' "${LOG_INFO}" "$emoji" "$*" "${LOG_NC}" >&2
+    printf '  %b%s %s%b  \n' "${LOG_INFO}" "$emoji" "$*" "${NC}" >&2
     printf '╰%s╯\n' "$line" >&2
 }
 export -f phase_header
@@ -1051,7 +1062,7 @@ phase_footer() {
     local width=$(_term_width)
     local line=$(_repeat_char $((width - 2)) "─")
     printf '╭%s╮\n' "$line" >&2
-    printf '  %b%s%b  \n' "${LOG_INFO}" "$*" "${LOG_NC}" >&2
+    printf '  %b%s%b  \n' "${LOG_INFO}" "$*" "${NC}" >&2
     printf '╰%s╯\n' "$line" >&2
 }
 export -f phase_footer
@@ -1064,7 +1075,7 @@ dl_result_line() {
         miss) icon="🡇" ; color="$LOG_WARN"  ;;
         skip) icon="—" ; color="$LOG_DEBUG" ;;
         fail) icon="✖" ; color="$LOG_ERROR" ;;
-        *)    icon="?" ; color="$LOG_NC"    ;;
+        *)    icon="?" ; color="$NC"    ;;
     esac
     printf '%s\t%s\t%s\t%s\t%s\n' \
         "$status" "$icon" "$name" "${hash:0:16}" "$extra" \
@@ -1115,12 +1126,12 @@ render_dl_table() {
         if [[ "$group" != "$current_group" ]]; then
             # Purple Group
             if [[ -n "$current_group" ]]; then
-                printf '  %b╰%s%b\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "-")" "${LOG_NC}" >&2
+                printf '  %b╰%s%b\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "-")" "${NC}" >&2
             fi
             # Заголовок группы: Purple ┌─ Group
             local group_label="─[ $group ]"
             local remain=$(( inner_width - ${#group_label} ))
-            printf '  %b╭%s%s%b\n' "${LOG_DEBUG}" "$group_label" "$(_repeat_char "$remain" "-")" "${LOG_NC}" >&2
+            printf '  %b╭%s%s%b\n' "${LOG_DEBUG}" "$group_label" "$(_repeat_char "$remain" "-")" "${NC}" >&2
             current_group="$group"
         fi
 
@@ -1130,16 +1141,16 @@ render_dl_table() {
             miss) color="${LOG_WARN}"  ;;
             skip) color="${LOG_DEBUG}" ;;
             fail) color="${LOG_ERROR}" ;;
-            *)    color="${LOG_NC}"    ;;
+            *)    color="${NC}"    ;;
         esac
 
         # Строгое разделение цвета и вывода
         # printf '  │ ' >&2
-        printf '  %b│%b ' "${LOG_DEBUG}" "${LOG_NC}" >&2
+        printf '  %b│%b ' "${LOG_DEBUG}" "${NC}" >&2
         printf '%b' "$color" >&2
         printf '%s  %-28s  %-16s  %s' "$icon" "$name" "$hash" "$extra" >&2
-        printf '%b\n' "$LOG_NC" >&2
-        # printf '%b%-2s  %-28s  %-16s  %s%b\n' "$color" "$icon" "$name" "$hash" "$extra" "$LOG_NC" >&2
+        printf '%b\n' "$NC" >&2
+        # printf '%b%-2s  %-28s  %-16s  %s%b\n' "$color" "$icon" "$name" "$hash" "$extra" "$NC" >&2
 
     # This sorts by status (hit/miss/skip/fail)
     # sort -t$'\t' -k1,1 "$file"
@@ -1149,7 +1160,7 @@ render_dl_table() {
 
     # Закрываем последнюю группу (Purple)
     if [[ -n "$current_group" ]]; then
-        printf '  %b╰%s%b\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "-")" "${LOG_NC}" >&2
+        printf '  %b╰%s%b\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "-")" "${NC}" >&2
     fi
 
     separator "─"
@@ -1162,9 +1173,9 @@ render_dl_table() {
 
     # Вывод финальной строки: иконки и цифры цветные, текст белый
     printf '  %b✔ %s%b hit   %b🡇 %s%b downloaded   %b— %s%b skipped   %b✖ %s%b failed\n' \
-        "${LOG_INFO}"  "${n_hit:-0}"  "${LOG_NC}" \
-        "${LOG_WARN}"  "${n_miss:-0}" "${LOG_NC}" \
-        "${LOG_DEBUG}" "${n_skip:-0}" "${LOG_NC}" \
-        "${LOG_ERROR}" "${n_fail:-0}" "${LOG_NC}" >&2
+        "${LOG_INFO}"  "${n_hit:-0}"  "${NC}" \
+        "${LOG_WARN}"  "${n_miss:-0}" "${NC}" \
+        "${LOG_DEBUG}" "${n_skip:-0}" "${NC}" \
+        "${LOG_ERROR}" "${n_fail:-0}" "${NC}" >&2
 }
 export -f render_dl_table

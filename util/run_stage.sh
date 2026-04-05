@@ -3,6 +3,7 @@
 set -e
 
 STAGE="$1"
+STAGE_LOG="/tmp/stage_build.log"
 
 # Сначала убедимся, что путь к скрипту вообще есть
 if [[ -z "$STAGE" || ! -f "$STAGE" ]]; then
@@ -29,49 +30,55 @@ stage_cleanup() {
     local exit_code=$?
     local duration=$SECONDS # Запоминаем время выполнения
     local elapsed=$(printf '%02dh:%02dm:%02ds' $((duration/3600)) $((duration%3600/60)) $((duration%60)))
+    local build_dir="/build/${STAGENAME}"
 
     if [[ $exit_code -eq 0 ]]; then
         # Успех: чистим всё; NOTE: Should keep "$VARS_DIR" & "$OUTFILE"
         cd /
         [[ -n "$STAGENAME" ]] && rm -rf "/build/${STAGENAME}"
-        rm -f "/tmp/stage_build.log" "$TIMESTAMP_FILE"
-        log_info "${CHECK_MARK} Build ${GREEN}SUCCEEDED${LOG_NC} for ${STAGENAME} [Time: ${elapsed}]"
+        rm -f "${STAGE_LOG}" "$TIMESTAMP_FILE"
+        log_info "${CHECK_MARK} Build ${GREEN}SUCCEEDED${NC} for ${STAGENAME} [${LOG_GREY}Time: ${elapsed}${NC}]"
     else
         # Неудача: дампим логи
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-            log_error "Build ${LOG_ERROR}FAILED${LOG_NC} for ${STAGENAME} after ${elapsed}"
+            log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${LOG_GREY}${elapsed}${NC}"
             log_debug "${BUILD_MARK} Current stage file: ${STAGE}"
             log_debug "${DIRS_MARK} Current directory: $(pwd)"
-            # Это найдет логи, даже если они в build/meson-logs или глубоко в CMakeFiles
-            LOG_FILES=$(find . -maxdepth 4 \( -name "config.log" -o -name "meson-log.txt" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \))
-            if [[ -n "$LOG_FILES" ]]; then
-                for logfile in $LOG_FILES; do
-                    log_debug "${LOGS_MARK} ▼ CONTENT OF $logfile (last 300 lines) ▼"
-                    tail -n 300 "$logfile"
-                    log_debug "${LOGS_MARK} ▲ END OF $logfile ▲"
-                done
-            else
-                if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-                    log_warn "No logs were found. ${DIRS_MARK} Listing all files in current directory:"
-                    # Выводим текущую директорию и структуру файлов (требуется column)
-                    ls -R | grep -v '^$' | column -c ${COLUMNS:-80}
+            if [[ -d "$build_dir" ]]; then
+                # Это найдет логи, даже если они в build/meson-logs или глубоко в CMakeFiles
+                LOG_FILES=$(find "$build_dir" -maxdepth 4 \( -name "config.log" -o -name "meson-log.txt" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \))
+                if [[ -n "$LOG_FILES" ]]; then
+                    for logfile in "$LOG_FILES"; do
+                        log_debug "${LOGS_MARK} ▼ CONTENT OF $(basename "$logfile") (last 300 lines) ▼"
+                        tail -n 300 "$logfile" >&2
+                        log_debug "${LOGS_MARK} ▲ END OF $(basename "$logfile") ▲"
+                    done
                 else
-                    log_warn "No logs were found."
+                    if [[ -f "${STAGE_LOG}" ]]; then
+                        log_debug "${LOGS_MARK} ▼ Last 100 lines of build log ${STAGE_LOG} ▼"
+                        tail -n 100 "${STAGE_LOG}" >&2
+                    else
+                        if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+                            log_warn "No logs were found. ${DIRS_MARK} Directory listing of $build_dir:"
+                            ls -R "$build_dir" | grep -v '^$' | column -c ${COLUMNS:-80} >&2
+                        else
+                            log_warn "No logs were found."
+                        fi
+                    fi
                 fi
             fi
         else
-            log_error "Build ${LOG_ERROR}FAILED${LOG_NC} for ${STAGENAME} after ${elapsed}"
-            if [[ -f /tmp/stage_build.log ]]; then
-                log_debug "${LOGS_MARK} ▼ DUMPING build log ▼"
-                cat /tmp/stage_build.log
-                log_debug "${LOGS_MARK} ▲ END OF LOG DUMP ▲"
+            log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${LOG_GREY}${elapsed}${NC}"
+            if [[ -f "${STAGE_LOG}" ]]; then
+                log_debug "${LOGS_MARK} ▼ CONTENT OF ${STAGE_LOG} ▼"
+                cat "${STAGE_LOG}" >&2
+                log_debug "${LOGS_MARK} ▲ END OF $logfile ▲"
             else
-                log_warn "Log file /tmp/stage_build.log missing!"
+                log_warn "Log file ${STAGE_LOG} is missing!"
             fi
         fi
         cd /
-        sleep 5 # might help if not enough time to output logs
-        rm -rf "/build/${STAGENAME}" "$VARS_DIR" "/tmp/stage_build.log" "$OUTFILE" "$TIMESTAMP_FILE"
+        rm -rf "/build/${STAGENAME}" "$VARS_DIR" "${STAGE_LOG}" "$OUTFILE" "$TIMESTAMP_FILE"
     fi
 }
 trap stage_cleanup EXIT
@@ -264,8 +271,8 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_debug "Verbose mode active. Build output will be shown in real-time."
     if ! ( set -e -o pipefail; $build_cmd ); then exit 1; fi
 else
-    log_info "Quiet mode active. Output is redirected to /tmp/stage_build.log"
-    if ! ( set -e -o pipefail; $build_cmd > /tmp/stage_build.log 2>&1 ); then exit 1; fi
+    log_info "Quiet mode active. Output is redirected to ${STAGE_LOG}"
+    if ! ( set -e -o pipefail; $build_cmd > ${STAGE_LOG} 2>&1 ); then exit 1; fi
 fi
 
 log_info_line
@@ -383,15 +390,23 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
         done < <(pkg-config "${PKG_CONFIG_CFLAGS}" "$pc_name" 2>/dev/null \
                  | tr ' ' '\n' | grep -v '^$')
 
+        # Сначала собираем сами библиотеки (-l)
         while IFS= read -r flag; do
             [[ -z "$flag" ]] && continue
             if [[ -z "${_seen_pc_libs[$flag]:-}" ]]; then
                 _seen_pc_libs["$flag"]=1
                 _pc_libs="$_pc_libs $flag"
             fi
-        # Используем --static чтобы увидеть Libs.private, и добавляем only-other для флагов типа -pthread, игнорируем пути. Было --libs-only-l (без Libs.private)
-        done < <(pkg-config "${PKG_CONFIG_LIBS}" "$pc_name" 2>/dev/null \
-         | tr ' ' '\n' | grep -v '^$')
+        done < <(pkg-config "${PKG_CONFIG_LIBS}" "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
+
+        # Затем собираем системные флаги (-pthread и т.д.)
+        while IFS= read -r flag; do
+            [[ -z "$flag" ]] && continue
+            if [[ -z "${_seen_pc_libs[$flag]:-}" ]]; then
+                _seen_pc_libs["$flag"]=1
+                _pc_libs="$_pc_libs $flag"
+            fi
+        done < <(pkg-config "${PKG_CONFIG_ALL_LIBS}" "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
     done
 
     # Merge script output with .pc output, then deduplicate the combined result
