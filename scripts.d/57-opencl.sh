@@ -17,34 +17,47 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    # Возвращаемся в реальный корень этапа, если "умный поиск" зашел в /loader
+    if [[ "$(basename "$PWD")" == "loader" ]]; then
+        cd ..
+    fi
+
+    # Установка хедеров
     mkdir -p "$FFBUILD_DESTPREFIX/include/CL"
+    # Используем относительный путь от корня этапа
     cp -r headers/CL/* "$FFBUILD_DESTPREFIX/include/CL/."
 
     cd loader
-    mkdir build && cd build
+    # Удаляем старый build если остался, и создаем чистый
+    rm -rf build && mkdir build && cd build
+
+    local myconf=(
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        # Указываем путь к только что скопированным хедерам
+        -DOPENCL_ICD_LOADER_HEADERS_DIR="$FFBUILD_DESTPREFIX/include"
+        -DOPENCL_ICD_LOADER_BUILD_SHARED_LIBS=OFF
+        -DOPENCL_ICD_LOADER_DISABLE_OPENCLON12=ON
+        -DOPENCL_ICD_LOADER_PIC=ON
+        -DOPENCL_ICD_LOADER_BUILD_TESTING=OFF
+        -DOPENCL_HEADERS_BUILD_CXX_TESTS=OFF
+        -DOPENCL_HEADERS_BUILD_TESTING=OFF
+        -DBUILD_TESTING=OFF 
+    )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -GNinja \
-        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DOPENCL_ICD_LOADER_HEADERS_DIR="$FFBUILD_DESTPREFIX/include" \
-        -DOPENCL_ICD_LOADER_BUILD_SHARED_LIBS=OFF \
-        -DOPENCL_ICD_LOADER_DISABLE_OPENCLON12=ON \
-        -DOPENCL_ICD_LOADER_PIC=ON \
-        -DOPENCL_ICD_LOADER_BUILD_TESTING=OFF \
-        -DOPENCL_HEADERS_BUILD_CXX_TESTS=OFF \
-        -DOPENCL_HEADERS_BUILD_TESTING=OFF \
-        -DBUILD_TESTING=OFF .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
     
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Генерация .pc файла (исправлено цитирование)
-    cat <<EOF > OpenCL.pc
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/OpenCL.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
@@ -53,19 +66,15 @@ includedir=\${prefix}/include
 Name: OpenCL
 Description: OpenCL ICD Loader
 Version: 3.0
+Libs: -L\${libdir} -lOpenCL
 Cflags: -I\${includedir}
 EOF
 
     if [[ $TARGET == linux* ]]; then
-        echo "Libs: -L\${libdir} -lOpenCL" >> OpenCL.pc
-        echo "Libs.private: -ldl" >> OpenCL.pc
+        echo "Libs.private: -ldl" >> "$PC_DIR/OpenCL.pc"
     elif [[ $TARGET == win* ]]; then
-        echo "Libs: -L\${libdir} -lOpenCL" >> OpenCL.pc
-        echo "Libs.private: -lole32 -lshlwapi -lcfgmgr32" >> OpenCL.pc
+        echo "Libs.private: -lole32 -lshlwapi -lcfgmgr32" >> "$PC_DIR/OpenCL.pc"
     fi
-
-    mkdir -p "$PC_DIR"
-    mv OpenCL.pc "$PC_DIR/OpenCL.pc"
 
 }
 

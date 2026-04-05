@@ -5,7 +5,6 @@ SCRIPT_COMMIT="67c52a0b68eaeb7ae1f2248202924883c4a232d0"
 
 ffbuild_depends() {
     echo fontconfig
-    echo freetype
     echo zlib
     echo bzlib
     echo brotli

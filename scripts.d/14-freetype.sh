@@ -3,6 +3,12 @@
 SCRIPT_REPO="https://gitlab.freedesktop.org/freetype/freetype.git"
 SCRIPT_COMMIT="67c52a0b68eaeb7ae1f2248202924883c4a232d0"
 
+ffbuild_depends() {
+    echo zlib
+    echo bzlib
+    echo brotli
+}
+
 ffbuild_enabled() {
     return 0
 }
