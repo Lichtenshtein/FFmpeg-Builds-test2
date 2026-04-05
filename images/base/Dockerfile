@@ -9,21 +9,17 @@ RUN \
     --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip \
-    # Сначала обновляем стандартные репозитории и ставим curl
     apt-get -y update && \
     apt-get -y install --no-install-recommends ca-certificates curl gnupg && \
     \
-    # Добавляем архитектуру и репозиторий Wine
     dpkg --add-architecture i386 && \
     mkdir -pm755 /etc/apt/keyrings && \
     curl -fsSL "https://dl.winehq.org/wine-builds/winehq.key" -o /etc/apt/keyrings/winehq-archive.key && \
     curl -fsSL "https://dl.winehq.org/wine-builds/ubuntu/dists/noble/winehq-noble.sources" -o /etc/apt/sources.list.d/winehq-noble.sources && \
     \
-    # Снова update (уже для Wine) и установка всего остального
     apt-get -y update && \
     apt-get -y dist-upgrade && \
     \
-    # Установка всех инструментов
     apt-get -y install --no-install-recommends \
         $([ "$TARGETPLATFORM" != "linux/amd64" ] || echo gcc-multilib g++-multilib) \
         build-essential pkg-config binutils pax-utils file yasm nasm ccache \
@@ -35,13 +31,11 @@ RUN \
         gtk-doc-tools gobject-introspection gawk procps \
         ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent p7zip-full zstd \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
-        gcc-14 g++-14 dos2unix re2c \
-        # Добавляем pv и bsdmainutils (для команды column)
+        python3-numpy libdlpack-dev \
+        gcc-14 g++-14 libtbb2 libtbb-dev dos2unix re2c \
         pv bsdmainutils \
-        # Добавляем Wine и Xvfb из того же APT сеанса
         wine-stable wine-stable-amd64 wine-stable-i386 xvfb && \
     \
-    # Настройка Python и альтернатив GCC
     pip3 install --break-system-packages --upgrade meson && \
     pip3 install Cython pytest build --break-system-packages && \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 && \
@@ -49,22 +43,18 @@ RUN \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100 && \
     update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-14 100 && \
     \
-    # NodeJS
     curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
     apt-get -y install nodejs && \
     npm install -g @napi-ffi/ffi-napi && \
     \
-    # Очистка
     apt-get -y clean && rm -rf /var/lib/apt/lists/* && \
     \
-    # Настройка Git
     git config --global user.email "builder@localhost" && \
     git config --global user.name "Builder" && \
     git config --global advice.detachedHead false && \
     git config --global core.autocrlf false && \
     git config --global --add safe.directory "*" && \
     \
-    # Проверка версий
     gcc-14 --version && \
     as --version
 
@@ -97,16 +87,13 @@ RUN set -e; \
         ls -la /opt/; exit 1; \
     fi; \
     mkdir -p "$WINEPREFIX"; \
-    # Создаем ссылки
     for bin in wine wineboot wineserver widl winegcc winecfg; do \
         ln -sf "$WINE_BIN_DIR/$bin" "/usr/bin/$bin"; \
     done; \
     ln -sf /usr/bin/wine /usr/bin/wine64; \
     \
-    # Проверка версии
     echo "Checking Wine version:" && wine --version; \
     \
-    # Инициализация префикса (используем xvfb-run правильно)
     echo "Initializing Wine Win64 prefix in $WINEPREFIX..."; \
     xvfb-run -n 99 -s "-screen 0 1024x768x16" \
         sh -c "wine wineboot --init && wineserver -w" && \

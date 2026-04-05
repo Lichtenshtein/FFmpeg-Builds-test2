@@ -1066,9 +1066,9 @@ get_component_group() {
         40|41|42|43|44)         echo "Vulkan & Shaders" ;; # SPIR-V, Glslang
         45|46)                  echo "Hardware Acceleration API" ;; # VMAF
         51|52|53|54|55|56)      echo "X11 & Windowing" ;; # XCB
-        57|58|59)               echo "Compute & Vision" ;; # OpenVINO, OpenCV
-        60|61|62|63|64)         echo "Audio & Codecs" ;; #
-        37|70|71|72|73|74)      echo "Software Codecs" ;; # x264, x265
+        57|59|60)            echo "Compute & Vision" ;; # OpenVINO, OpenCV
+        61|62|63|64)            echo "Audio & Codecs" ;; #
+        37|58|70|71|72|73|74)      echo "Software Codecs" ;; # x264, x265
         80|81|82|83|84)         echo "Frameservers" ;; # Vapoursynth, OpenAL
         50|84|85|86|87|88|89)   echo "Video Extensions" ;; # Libglvnd, Xrandr
         96|97|98)               echo "LV2 & Plugins" ;; # Serd, Sord, Lilv
