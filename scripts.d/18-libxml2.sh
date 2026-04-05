@@ -3,6 +3,8 @@
 SCRIPT_REPO="https://github.com/GNOME/libxml2.git"
 SCRIPT_COMMIT="2cc5834033db61fb7adc242fb15f7d1e13f66c14"
 
+export SKIP_CONF_FINDER=1
+
 ffbuild_depends() {
     echo base
     echo libiconv
