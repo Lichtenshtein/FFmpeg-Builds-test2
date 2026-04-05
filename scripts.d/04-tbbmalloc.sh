@@ -24,10 +24,11 @@ ffbuild_dockerbuild() {
         -DTBB_TEST=OFF
         -DTBB_EXAMPLES=OFF
         -DTBB_STRICT=OFF
+        -DTBB_NO_APPCONTAINER=ON
         -DTBB4PY_BUILD=OFF
         -DTBB_BUILD=ON
         -DTBBMALLOC_BUILD=ON
-        -DTBBMALLOC_PROXY_BUILD=ON
+        # -DTBBMALLOC_PROXY_BUILD=ON
         -DTBB_INSTALL=ON
         -DTBB_DISABLE_HWLOC_AUTOMATIC_SEARCH=ON
         # Если при сборке самого FFmpeg возникнут ошибки "undefined reference
@@ -50,6 +51,12 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
+    # Создаем симлинки для совместимости, если их нет
+    ln -s libtbb12.a "${FFBUILD_PREFIX}/lib/libtbb.a" || true
+    # Если tbbmalloc тоже имеет суффикс
+    if [ -f "${FFBUILD_PREFIX}/lib/libtbbmalloc12.a" ]; then
+        ln -s libtbbmalloc12.a "${FFBUILD_PREFIX}/lib/libtbbmalloc.a" || true
+    fi
 }
 
 ffbuild_libs() {
