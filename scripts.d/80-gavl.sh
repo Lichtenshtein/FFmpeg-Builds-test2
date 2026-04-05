@@ -20,9 +20,9 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
-
     ./autogen.sh
+
+    export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"

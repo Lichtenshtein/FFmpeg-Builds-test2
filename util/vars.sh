@@ -10,10 +10,10 @@ export LOG_DEBUG='\x1b[1;35m'   # Purple (Bold)
 export LOG_INFO='\x1b[1;32m'    # Green (Bold)
 export LOG_WARN='\x1b[1;33m'    # Yellow (Bold)
 export LOG_ERROR='\x1b[1;31m'   # Red (Bold)
-export CYAN='\x1b[1;36m'    # Cyan (Bold)
-export MAGENTA='\x1b[1;35m'     # Magenta (Bold)
-export GREY='\x1b[1;30m'        # Grey (Bold)
-export LOG_BLUE='\x1b[1;34m'    # Blue (Bold)
+export CYAN_B='\x1b[1;36m'      # Cyan (Bold)
+export MAGENT_B='\x1b[1;35m'    # Magenta (Bold)
+export GREY_B='\x1b[1;30m'      # Grey (Bold)
+export BLUE_B='\x1b[1;34m'      # Blue (Bold)
 export NC='\x1b[0m'             # No Color (Reset)
 export RED='\x1b[0;31m'         # Red
 export GREEN='\x1b[0;32m'       # Green
@@ -21,7 +21,6 @@ export YELLOW='\x1b[0;33m'      # Yellow
 export PURPLE='\x1b[0;35m'      # Purple
 export CYAN='\x1b[0;36m'        # Cyan
 export MAGENTA='\x1b[0;35m'     # Magenta
-export GREY='\x1b[0;30m'        # Grey
 export BLUE='\x1b[0;34m'        # Blue
 # Marks
 export CHECK_MARK="${LOG_INFO}✔${NC}"
@@ -481,9 +480,8 @@ patch_pc_files() {
 
     log_debug "Correcting values in .pc files:"
     # замена абсолютных путей на переменные
-    find "$pc_dir" -maxdepth 1 -name "*.pc" | while read -r pc; do
+    find "$pc_dir" -maxdepth 1 -name "*.pc" | printf '%s\n' "$pc" | while read -r pc; do
         [[ -f "$pc" ]] || continue
-        printf '%s\n' "$pc"
         log_debug "Processing: $(basename "$pc")"
 
         # Пересоздание переменных путей
@@ -691,14 +689,14 @@ get_deps_list() {
                     [[ -z "$dep" ]] && continue
                     if $pkg_config_cmd --exists "$dep" 2>/dev/null; then
                         ver=$($pkg_config_cmd --modversion "$dep" 2>/dev/null || echo "unknown")
-                        printf "%b•%b %-20s %b(found: %s)%b\n" "$LOG_INFO" "$NC" "$dep" "$GREY" "$ver" "$NC"
+                        printf "%b•%b %-20s %b(found: %s)%b\n" "$LOG_INFO" "$NC" "$dep" "$GREY_B" "$ver" "$NC"
                     else
-                        printf "%b✖ MISSING:%b %s %b(in: %s)%b\n" "$LOG_ERROR" "$NC" "$dep" "$LOG_ERROR" "$pc_dir" "$NC"
+                        printf "%b• MISSING:%b %s %b(in: %s)%b\n" "$LOG_ERROR" "$NC" "$dep" "$LOG_ERROR" "$pc_dir" "$NC"
                         echo "MISSING_DEP: $dep"
                     fi
                 done <<< "$deps"
             else
-                printf "%b(No dependencies found in .pc file)%b\n" "$GREY" "$NC"
+                printf "%bNo dependencies found in .pc file%b\n" "$GREY_B" "$NC"
             fi
         ' _ {} \
             "${PKG_CONFIG:-pkg-config}" \
@@ -740,14 +738,16 @@ get_deps_list() {
                 awk -F: "{ 
                     split(\$NF, a, \" \"); 
                     sym = a[2]; 
-                    if (sym != \"\") printf \"%-15s %s→%s %s\n\", \$2, \"$GREY\", \"$NC\", sym 
+                    if (sym != \"\") printf \"%-15s %s→%s %s\n\", \$2, \"$GREY_B\", \"$NC\", sym 
                 }" | sort -u | head -n 12)
 
             if [[ -n "$clean_symbols" ]]; then
                 printf "\n%b %bEXTERNAL SYMBOLS (OBJ %b→%b %bSYM)%b in %s:\n" \
-                    "$x_mark" "$LOG_WARN" "$GREY" "$LOG_WARN" "$LOG_WARN" "$NC" "$file"
-                echo "$clean_symbols" | sed "s|^| ${LOG_INFO}•${NC} |"
-                printf "\n"
+                    "$x_mark" "$YELLOW" "$GREY_B" "$YELLOW" "$YELLOW" "$NC" "$file"
+                echo "$clean_symbols" | sed "s|^|${LOG_INFO}•${NC} |"
+
+                # добавляем принудительный перенос строки
+                # printf "\n"
             fi
         fi
     ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
@@ -773,7 +773,7 @@ get_deps_list() {
     error_count=$(( 10#${error_count:-0} ))
 
     if [[ -s "$tmp_out" ]]; then
-        log_debug "Showing dependencies for ${name} [Install size: ${GREY}${total_size}${NC}]:"
+        log_debug "Showing dependencies for ${name} [Install size: ${PURPLE}${total_size}${NC}]:"
         cat "$tmp_out" >&2
         if [ "$error_count" -gt 0 ]; then
             log_warn "Found ${error_count} missing pkg-config dependency/dependencies for ${name}!"
@@ -781,7 +781,7 @@ get_deps_list() {
             log_info "${CHECK_MARK} All pkg-config dependencies satisfied for ${name}."
         fi
     else
-        log_info "${CHECK_MARK} No dependencies found for ${name} (meta/header-only). [Install size: ${GREY}${total_size}${NC}]."
+        log_info "${CHECK_MARK} No dependencies found for ${name} (meta/header-only). [Install size: ${PURPLE}${total_size}${NC}]."
     fi
 
     rm -f "$tmp_out"

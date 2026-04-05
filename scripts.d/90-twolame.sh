@@ -3,6 +3,8 @@
 SCRIPT_REPO="https://github.com/njh/twolame.git"
 SCRIPT_COMMIT="3c7d49d95be71c26afdbaef14def92f3460c7373"
 
+export SKIP_CONF_FINDER=1
+
 ffbuild_enabled() {
     return 0
 }
@@ -13,7 +15,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    export SKIP_CONF_FINDER=1  # Выключаем авто-поиск
 
     # libtoolize version detection is broken, disable it, we got the right versions
     printf 'print "999999\\n"\n' > autogen-get-version-mock.pl
