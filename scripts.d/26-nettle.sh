@@ -19,7 +19,11 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    ./autogen.sh
+    # В Nettle используется .bootstrap вместо autogen.sh
+    if [[ -f ".bootstrap" ]]; then
+        chmod +x .bootstrap
+        ./.bootstrap
+    fi
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -28,6 +32,7 @@ ffbuild_dockerbuild() {
         --disable-shared
         --enable-static
         --disable-openssl
+        # --disable-assembler # если будут ошибки в x86_64/*.asm
         --disable-documentation
         --with-pic
     )
