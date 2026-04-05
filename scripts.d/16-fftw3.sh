@@ -13,53 +13,80 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    sed -i 's/-libs nums/-use-ocamlfind -package num/' genfft/Makefile.am
 
-    local myconf=(
+    # Исправление для ocaml/genfft
+    if [ -f genfft/Makefile.am ]; then
+        sed -i 's/-libs nums/-use-ocamlfind -package num/' genfft/Makefile.am
+    fi
+    sed -i 's/windows.h/process.h/' configure.ac
+
+    local base_conf=(
         --prefix="$FFBUILD_PREFIX"
         --enable-maintainer-mode
         --disable-shared
         --enable-static
         --disable-fortran
         --disable-doc
-        --with-our-malloc
-        --enable-long-double
-        --enable-threads
-        --with-combined-threads
-        --with-incoming-stack-boundary=2
     )
 
     # --with-combined-threads incompatible with --enable-openmp
-    # [[ "$USE_OPENMP" == "1" ]] && myconf+=( --enable-openmp ) 
-    [[ "$USE_AVX512" == "1" ]] && myconf+=( --enable-avx512 )
+    if [[ "$USE_OPENMP" == "1" ]]; then
+        base_conf+=( --enable-openmp )
+    else
+        base_conf+=( --enable-threads --with-combined-threads )
+    fi
+    [[ "$USE_AVX512" == "1" ]] && base_conf+=( --enable-avx512 )
 
     if [[ $TARGET != *arm64 ]]; then
-        myconf+=(
+        base_conf+=(
+            --with-incoming-stack-boundary=4
             --enable-sse2
             --enable-avx
             --enable-avx2
+            --enable-fma
         )
     fi
-
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
+        base_conf+=(
             --host="$FFBUILD_TOOLCHAIN"
+            # гарантирует выравнивание памяти по границе 16/32 байта
+            --with-our-malloc
         )
     else
         echo "Unknown target"
         return 1
     fi
 
-    sed -i 's/windows.h/process.h/' configure.ac
+    # Запуск автогенерации скриптов (один раз)
+    ./bootstrap.sh
 
-    CFLAGS="$CFLAGS" \
-    CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS" \
-    LDFLAGS="$LDFLAGS" \
-    LIBS="$LIBS" \
-    ./bootstrap.sh "${myconf[@]}" || return 1
+    # Список точностей: "double" (стандарт) и "float" (одинарная)
+    # FFTW для float требует флаг --enable-single
+    for precision in double float; do
+        local myconf=("${base_conf[@]}")
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+        if [[ "$precision" == "float" ]]; then
+            myconf+=( --enable-single )
+            log_info "Building FFTW3 in FLOAT precision..."
+        else
+            log_info "Building FFTW3 in DOUBLE precision..."
+        fi
 
+        # Чистим перед пересборкой другой точности
+        make distclean || true
+
+        CFLAGS="$CFLAGS -mincoming-stack-boundary=4" \
+        CPPFLAGS="$CPPFLAGS" \
+        CXXFLAGS="$CXXFLAGS" \
+        LDFLAGS="$LDFLAGS" \
+        LIBS="$LIBS" \
+        ./configure "${myconf[@]}" || return 1
+
+        make -j$(nproc) $MAKE_V || return 1
+        make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    done
+}
+
+ffbuild_libs() {
+    echo "-fftw3 -fftw3f"
 }
