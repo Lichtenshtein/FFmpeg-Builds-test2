@@ -697,9 +697,9 @@ get_deps_list() {
                     [[ -z "$dep" ]] && continue
                     if $pkg_config_cmd --exists "$dep" 2>/dev/null; then
                         ver=$($pkg_config_cmd --modversion "$dep" 2>/dev/null || echo "unknown")
-                        printf "  %b•%b %-20s %b(found: %s)%b\n" "$LOG_INFO" "$NC" "$dep" "$GREY" "$ver" "$NC"
+                        printf "%b•%b %-20s %b(found: %s)%b\n" "$LOG_INFO" "$NC" "$dep" "$GREY" "$ver" "$NC"
                     else
-                        printf "  %b• MISSING:%b %s %b(in: %s)%b\n" "$LOG_ERROR" "$NC" "$dep" "$LOG_ERROR" "$pc_dir" "$NC"
+                        printf "%b• MISSING:%b %s %b(in: %s)%b\n" "$LOG_ERROR" "$NC" "$dep" "$LOG_ERROR" "$pc_dir" "$NC"
                         echo "MISSING_DEP: $dep"
                     fi
                 done <<< "$deps"
@@ -752,7 +752,7 @@ get_deps_list() {
             if [[ -n "$clean_symbols" ]]; then
                 printf "\n%b %bEXTERNAL SYMBOLS (OBJ %b→%b %bSYM)%b in %s:\n" \
                     "$x_mark" "$YELLOW" "$GREY_B" "$YELLOW" "$YELLOW" "$NC" "$file"
-                echo "$clean_symbols" | sed "s|^|  ${LOG_INFO}•${NC} |"
+                echo "$clean_symbols" | sed "s|^|${LOG_INFO}•${NC} |"
 
                 # добавляем принудительный перенос строки
                 # printf "\n"
@@ -781,7 +781,7 @@ get_deps_list() {
     error_count=$(( 10#${error_count:-0} ))
 
     if [[ -s "$tmp_out" ]]; then
-        log_debug "Showing dependencies for ${name} [Install size: ${PURPLE_I}${total_size}${NC}]:"
+        log_debug "Showing dependencies for ${name} [Install size: ${GREY_B}${total_size}${NC}]:"
         cat "$tmp_out" >&2
         if [ "$error_count" -gt 0 ]; then
             log_warn "Found ${error_count} missing pkg-config dependency/dependencies for ${name}!"
@@ -789,7 +789,7 @@ get_deps_list() {
             log_info "${CHECK_MARK} All pkg-config dependencies satisfied for ${name}."
         fi
     else
-        log_info "${CHECK_MARK} No dependencies found for ${name} (meta/header-only). [Install size: ${PURPLE_I}${total_size}${NC}]."
+        log_info "${CHECK_MARK} No dependencies found for ${name} (meta/header-only). [Install size: ${GREY_B}${total_size}${NC}]."
     fi
 
     rm -f "$tmp_out"
@@ -1138,12 +1138,12 @@ render_dl_table() {
         if [[ "$group" != "$current_group" ]]; then
             # Purple Group
             if [[ -n "$current_group" ]]; then
-                printf '  %b╰%s%b\n' "${PURPLE_I}" "$(_repeat_char "$inner_width" "-")" "${NC}" >&2
+                printf '  %b╰%s%b\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "-")" "${NC}" >&2
             fi
             # Заголовок группы: Purple ┌─ Group
             local group_label="─[ $group ]"
             local remain=$(( inner_width - ${#group_label} ))
-            printf '  %b╭%s%s%b\n' "${PURPLE_I}" "$group_label" "$(_repeat_char "$remain" "-")" "${NC}" >&2
+            printf '  %b╭%s%s%b\n' "${LOG_DEBUG}" "$group_label" "$(_repeat_char "$remain" "-")" "${NC}" >&2
             current_group="$group"
         fi
 
@@ -1158,7 +1158,7 @@ render_dl_table() {
 
         # Строгое разделение цвета и вывода
         # printf '  │ ' >&2
-        printf '  %b│%b ' "${PURPLE_I}" "${NC}" >&2
+        printf '  %b│%b ' "${LOG_DEBUG}" "${NC}" >&2
         printf '%b' "$color" >&2
         printf '%s  %-28s  %-16s  %s' "$icon" "$name" "$hash" "$extra" >&2
         printf '%b\n' "$NC" >&2
@@ -1172,7 +1172,7 @@ render_dl_table() {
 
     # Закрываем последнюю группу (Purple)
     if [[ -n "$current_group" ]]; then
-        printf '  %b╰%s%b\n' "${PURPLE_I}" "$(_repeat_char "$inner_width" "-")" "${NC}" >&2
+        printf '  %b╰%s%b\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "-")" "${NC}" >&2
     fi
 
     separator "─"
