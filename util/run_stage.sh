@@ -3,7 +3,6 @@
 set -e
 
 STAGE="$1"
-STAGE_LOG="/tmp/stage_build.log"
 
 # Сначала убедимся, что путь к скрипту вообще есть
 if [[ -z "$STAGE" || ! -f "$STAGE" ]]; then
@@ -21,6 +20,16 @@ if ! declare -F default_dl >/dev/null; then
     . "$UTIL_DIR"/dl_functions.sh > /dev/null 2>&1 || true
 fi
 
+# Обнуляем статистику
+ccache -z > /dev/null
+# Сбрасываем счетчик секунд в начале этапа
+SECONDS=0
+STAGE_START_TIME=$(date +%s)
+STAGE_LOG="/tmp/stage_build.log"
+# Write a timestamp file before $build_cmd runs, then use find -newer to detect which .pc files were created by this build
+TIMESTAMP_FILE=$(mktemp)
+sleep 1
+
 # Call dynamic STAGE function 
 unset STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK REAL_CACHE
 eval "$(stage_vars "$STAGE")"
@@ -28,70 +37,66 @@ eval "$(stage_vars "$STAGE")"
 # Очистка при выходе. Удаляем старые файлы, если они остались от прошлых запусков
 stage_cleanup() {
     local exit_code=$?
-    local duration=$SECONDS # Запоминаем время выполнения
+    local duration=$SECONDS
     local elapsed=$(printf '%02dh:%02dm:%02ds' $((duration/3600)) $((duration%3600/60)) $((duration%60)))
-    local build_dir="/build/${STAGENAME}"
+    local BUILD_DIR="/build/${STAGENAME}"
 
     if [[ $exit_code -eq 0 ]]; then
         # Успех: чистим всё; NOTE: Should keep "$VARS_DIR" & "$OUTFILE"
         cd /
-        [[ -n "$STAGENAME" ]] && rm -rf "/build/${STAGENAME}"
-        rm -f "${STAGE_LOG}" "$TIMESTAMP_FILE"
-        log_info "${CHECK_MARK} Build ${GREEN}SUCCEEDED${NC} for ${STAGENAME} [${LOG_GREY}Time: ${elapsed}${NC}]"
+        [[ -n "$STAGENAME" ]] && rm -rf "$BUILD_DIR"
+        rm -f "$STAGE_LOG"
+        log_info "${CHECK_MARK} Build ${GREEN}SUCCEEDED${NC} for ${STAGENAME} [${GREY}Time: ${elapsed}${NC}]"
     else
         # Неудача: дампим логи
+        log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${GREY}${elapsed}${NC}"
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-            log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${LOG_GREY}${elapsed}${NC}"
             log_debug "${BUILD_MARK} Current stage file: ${STAGE}"
             log_debug "${DIRS_MARK} Current directory: $(pwd)"
-            if [[ -d "$build_dir" ]]; then
-                # Это найдет логи, даже если они в build/meson-logs или глубоко в CMakeFiles
-                LOG_FILES=$(find "$build_dir" -maxdepth 4 \( -name "config.log" -o -name "meson-log.txt" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \))
-                if [[ -n "$LOG_FILES" ]]; then
-                    for logfile in "$LOG_FILES"; do
-                        log_debug "${LOGS_MARK} ▼ CONTENT OF $(basename "$logfile") (last 300 lines) ▼"
-                        tail -n 300 "$logfile" >&2
-                        log_debug "${LOGS_MARK} ▲ END OF $(basename "$logfile") ▲"
-                    done
+            LOG_FILES=$(find "$BUILD_DIR" -maxdepth 4 \( -name "config.log" -o -name "meson-log.txt" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \) 2>/dev/null)
+            if [[ -n "$LOG_FILES" ]]; then
+                # Удача: выводим найденные логи систем сборки
+                for logfile in $LOG_FILES; do
+                    log_debug "${LOGS_MARK} ▼ CONTENT OF $(basename "$logfile") (last 300 lines) ▼"
+                    tail -n 300 "$logfile" >&2
+                    log_debug "${LOGS_MARK} ▲ END OF $(basename "$logfile") ▲"
+                done
+            else
+                # Неудача: системных логов нет, ищем общий лог
+                if [[ -f "$STAGE_LOG" ]]; then
+                    log_debug "${LOGS_MARK} ▼ System logs missing. Falling back to STAGE_LOG ($STAGE_LOG) ▼"
+                    tail -n 100 "$STAGE_LOG" >&2
                 else
-                    if [[ -f "${STAGE_LOG}" ]]; then
-                        log_debug "${LOGS_MARK} ▼ Last 100 lines of build log ${STAGE_LOG} ▼"
-                        tail -n 100 "${STAGE_LOG}" >&2
+                    # Ничего не нашли
+                    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+                        log_warn "No logs found. ${DIRS_MARK} Listing directory content of $BUILD_DIR:"
+                        ls -R "$build_dir" | grep -v '^$' | column -c ${COLUMNS:-80} >&2
+                        # ls -R "$BUILD_DIR" | head -n 100 >&2
                     else
-                        if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-                            log_warn "No logs were found. ${DIRS_MARK} Directory listing of $build_dir:"
-                            ls -R "$build_dir" | grep -v '^$' | column -c ${COLUMNS:-80} >&2
-                        else
-                            log_warn "No logs were found."
-                        fi
+                        log_warn "No logs were found."
                     fi
                 fi
             fi
         else
-            log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${LOG_GREY}${elapsed}${NC}"
-            if [[ -f "${STAGE_LOG}" ]]; then
-                log_debug "${LOGS_MARK} ▼ CONTENT OF ${STAGE_LOG} ▼"
-                cat "${STAGE_LOG}" >&2
-                log_debug "${LOGS_MARK} ▲ END OF $logfile ▲"
+            log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${GREY}${elapsed}${NC}"
+            if [[ -f "$STAGE_LOG" ]]; then
+                log_debug "${LOGS_MARK} ▼ CONTENT OF ($STAGE_LOG) ▼"
+                cat "$STAGE_LOG" >&2
+                log_debug "${LOGS_MARK} ▲ END OF $STAGE_LOG ▲"
             else
-                log_warn "Log file ${STAGE_LOG} is missing!"
+                log_warn "Log file $STAGE_LOG is missing!"
             fi
         fi
+        # Чистка после падения
         cd /
-        rm -rf "/build/${STAGENAME}" "$VARS_DIR" "${STAGE_LOG}" "$OUTFILE" "$TIMESTAMP_FILE"
+        rm -rf "$BUILD_DIR" "$VARS_DIR" "$STAGE_LOG" "$TIMESTAMP_FILE" "$OUTFILE"
     fi
 }
+
 trap stage_cleanup EXIT
 
 # Создаем и входим в директорию сборки ДО загрузки скрипта
 mkdir -p "/build/$STAGENAME" && cd "/build/$STAGENAME"
-
-# Обнуляем статистику
-ccache -z > /dev/null
-# Сбрасываем счетчик секунд в начале этапа
-SECONDS=0
-# Начало группы в логах GitHub; не работает в Docker
-# printf "\n::group::%s\n" "$STAGENAME"
 
 # Подгружаем скрипт заранее, чтобы проверить SCRIPT_SKIP
 # любые $(pwd) или относительные пути внутри скрипта будут указывать на /build/STAGENAME
@@ -255,9 +260,6 @@ build_cmd="ffbuild_dockerbuild"
 # wine starter
 setup_wine_env
 
-# Write a timestamp file before $build_cmd runs, then use find -newer to detect which .pc files were created by this build
-TIMESTAMP_FILE=$(mktemp)
-
 log_info_line
 log_info "### ${START_MARK} ${LOG_INFO}STARTING STAGE: $STAGENAME${NC}"
 log_info "### DATE: $(date)"
@@ -344,6 +346,8 @@ OUTFILE="$VARS_DIR/${STAGENAME}.vars"
 # The subshell is the critical isolation mechanism, no FF_* state can leak in from the parent environment.
 log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
 (
+    export PKG_CONFIG_LIBDIR="$PKG_CONFIG_LIBDIR"
+    export PKG_CONFIG_PATH="$PKG_CONFIG_LIBDIR"
     # Re-source vars.sh clean so ffbuild_* accumulator functions are defined
     # but FF_* variables are empty
     unset FF_CONFIGURE FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LDEXEFLAGS FF_LIBS
@@ -373,11 +377,17 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
     # This is much more reliable than name matching, it doesn't matter what the library calls its .pc file. Only .pc files newer than the pre-build timestamp
 
     for pc in "$FFBUILD_PREFIX/lib/pkgconfig"/*.pc \
+              "$FFBUILD_PREFIX/lib64/pkgconfig"/*.pc \
               "$FFBUILD_PREFIX/share/pkgconfig"/*.pc; do
         [[ -e "$pc" ]] || continue
-        [[ "$pc" -nt "$TIMESTAMP_FILE" ]] || continue
+        # [[ "$pc" -nt "$TIMESTAMP_FILE" ]] || continue
+        # Если файл старый - пропускаем
+        if ! [[ "$pc" -nt "$TIMESTAMP_FILE" ]]; then
+             continue
+        fi
         # Собираем только если имя .pc файла соответствует или связано с компонентом
         pc_name="$(basename "$pc" .pc)"
+        log_debug "Found NEW .pc file: $pc_name. Collecting flags..."
 
         # Deduplicate per-flag across multiple .pc files
         while IFS= read -r flag; do
