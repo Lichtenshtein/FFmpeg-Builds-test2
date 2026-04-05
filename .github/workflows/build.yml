@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '01-mingw-std-threads|02-mingw|03-base|05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|17-harfbuzz|32-fribidi|16-glib2|18-libxml2|32-fontconfig|30-giflib|30-libjpeg-turbo|30-libpng|30-libtiff|30-openjpeg|31-libwebp|32-libtiff|32-pixman|33-cairo|33-harfbuzz|34-freetype|33-lcms2|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|38-libjxl|57-opencl|57-opencv-test|57-openvino-test|80-gavl|84-frei0r'
+        default: '01-mingw-std-threads|02-mingw|03-base|04-tbbmalloc|05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|17-harfbuzz|16-glib2|18-libxml2|30-giflib|30-libjpeg-turbo|30-libpng|30-libtiff|30-openjpeg|31-libwebp|32-fribidi|32-fontconfig|32-libtiff|32-pixman|33-cairo|33-harfbuzz|34-freetype|33-lcms2|38-libjxl|41-vulkan-headers|43-spirv-cross|44-shaderc|44-vulkan-loader|57-libtensorflow-test|57-opencl|57-openvino-test|58-aom|58-rav1e|59-libavif|60-opencv-test|80-gavl|84-frei0r'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'

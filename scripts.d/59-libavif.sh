@@ -36,9 +36,9 @@ ffbuild_dockerbuild() {
         # Включаем поддержку внешнего декодера dav1d
         -DAVIF_CODEC_DAV1D=SYSTEM
         -DAVIF_CODEC_DAV1D_ENABLED=ON
-        # Если есть aom, можно включить энкодер
-        -DAVIF_CODEC_AOM=OFF
-        -DAVIF_OPTIMIZE_RAV1E_FOR_SIZE=OFF
+        # Если у вас есть aom, можно включить энкодер
+        -DAVIF_CODEC_AOM=ON
+        -DAVIF_OPTIMIZE_RAV1E_FOR_SIZE=ON
         -DENABLE_WERROR=OFF
     )
 

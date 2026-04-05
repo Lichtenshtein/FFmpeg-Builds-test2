@@ -2,7 +2,6 @@
 
 set -e
 
-# SCRIPT_PATH="$1"
 STAGE="$1"
 
 # Сначала убедимся, что путь к скрипту вообще есть
@@ -32,11 +31,11 @@ stage_cleanup() {
     local elapsed=$(printf '%02dh:%02dm:%02ds' $((duration/3600)) $((duration%3600/60)) $((duration%60)))
 
     if [[ $exit_code -eq 0 ]]; then
-        # Успех: чистим всё; Should keep "$VARS_DIR"?
+        # Успех: чистим всё; NOTE: Should keep "$VARS_DIR" & "$OUTFILE"
         cd /
         [[ -n "$STAGENAME" ]] && rm -rf "/build/${STAGENAME}"
         rm -f "/tmp/stage_build.log" "$TIMESTAMP_FILE"
-       log_info "${CHECK_MARK} Build ${GREEN}SUCCEEDED${LOG_NC} for ${STAGENAME} [Time: ${elapsed}]"
+        log_info "${CHECK_MARK} Build ${GREEN}SUCCEEDED${LOG_NC} for ${STAGENAME} [Time: ${elapsed}]"
     else
         # Неудача: дампим логи
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
@@ -71,7 +70,7 @@ stage_cleanup() {
             fi
         fi
         cd /
-        sleep 5
+        sleep 5 # might help if not enough time to output logs
         rm -rf "/build/${STAGENAME}" "$VARS_DIR" "/tmp/stage_build.log" "$OUTFILE" "$TIMESTAMP_FILE"
     fi
 }
@@ -179,7 +178,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
         log_info "Skipping patches for $STAGENAME"
     fi
 
-    # Поиск корня проекта (если архив распаковался в подпапку)
+    # АВТО-ПОИСК корня проекта (если архив распаковался в подпапку)
     if [[ ! -f "Configure" && ! -f "configure" && ! -f "CMakeLists.txt" && ! -f "meson.build" ]]; then
         log_warn "No build file in root. ${SEARCH_MARK} Searching one level deeper..."
         CANDIDATE=$(find . -maxdepth 2 \( -name "Configure" -o -name "configure" -o -name "CMakeLists.txt" -o -name "meson.build" \) -printf '%h\n' | head -n 1)
@@ -259,7 +258,7 @@ log_info "### Starting build function: $build_cmd"
 log_info_line
 
 # Генерируем файл 'configure' (если его нет) для Autoconf
-conf_finder 
+conf_finder
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_debug "Verbose mode active. Build output will be shown in real-time."
@@ -390,7 +389,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
                 _seen_pc_libs["$flag"]=1
                 _pc_libs="$_pc_libs $flag"
             fi
-        # Используем --static чтобы увидеть Libs.private, и добавляем only-other для флагов типа -pthread, игнорируем пути
+        # Используем --static чтобы увидеть Libs.private, и добавляем only-other для флагов типа -pthread, игнорируем пути. Было --libs-only-l (без Libs.private)
         done < <(pkg-config --static --libs-only-l --libs-only-other "$pc_name" 2>/dev/null \
          | tr ' ' '\n' | grep -v '^$')
     done
@@ -420,7 +419,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
         printf '%b' "$VARS_CONTENT" | tr -d '\r' > "$OUTFILE"
         log_info "Saved $(wc -c < "$OUTFILE") bytes to $OUTFILE"
     else
-        log_info "${CHECK_MARK} No build variables for $STAGENAME (meta/header-only component)."
+        log_info "${CHECK_MARK} No build variables for $STAGENAME (meta/header-only)."
     fi
 
     # Verbose output - inside subshell where FF_* are populated

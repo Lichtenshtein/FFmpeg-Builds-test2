@@ -14,6 +14,9 @@ ffbuild_depends() {
     echo fontconfig
     echo harfbuzz
     echo xz
+    echo tbbmalloc
+    echo libavif
+    echo nettle
     # echo lcevcdec
     echo spirv-tools
     echo gavl

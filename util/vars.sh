@@ -107,7 +107,7 @@ export VARIANT="${2:-$VARIANT}"
 # pkg-config variables
 export PKG_CONFIG_PATH="" # don't touch
 export PKG_CONFIG_FLAGS="--static"
-export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig"
+export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig:${FFBUILD_PREFIX}/lib64/pkgconfig"
 export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 # use env vars with broadwell fallback
@@ -164,7 +164,7 @@ ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -l
 export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu11"
 export CPPFLAGS="-I/opt/ffbuild/include ${BASE_CPPFLAGS}"
 export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu++17"
-export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--large-address-aware -Wl,--stack,16777216"
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
 export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH}"
 # Обработка флагов, специфичных для Linux ELF
@@ -1062,13 +1062,13 @@ get_component_group() {
         15|16|18|19)            echo "Base Integration" ;; # Glib, XML2
         20|21|22|23|24)         echo "Hardware Integration" ;; # cdio
         25|26|27|28|29)         echo "Net" ;; # OpenSSL, Curl
- 14|17|30|31|32|33|34|36|38|39) echo "Core Graphics" ;; # PNG Cairo
+ 14|17|30|31|32|33|34|36|38|39|59) echo "Core Graphics" ;; # PNG Cairo
         40|41|42|43|44)         echo "Vulkan & Shaders" ;; # SPIR-V, Glslang
         45|46)                  echo "Hardware Acceleration API" ;; # VMAF
         51|52|53|54|55|56)      echo "X11 & Windowing" ;; # XCB
-        57|59|60)            echo "Compute & Vision" ;; # OpenVINO, OpenCV
-        61|62|63|64)            echo "Audio & Codecs" ;; #
-        37|58|70|71|72|73|74)      echo "Software Codecs" ;; # x264, x265
+        57|60|61|62|63)         echo "Compute & Vision" ;; # OpenVINO, OpenCV
+        64|65|66|67|68|69)      echo "Audio & Codecs" ;; #
+        37|58|70|71|72|73|74)   echo "Software Codecs" ;; # x264, x265
         80|81|82|83|84)         echo "Frameservers" ;; # Vapoursynth, OpenAL
         50|84|85|86|87|88|89)   echo "Video Extensions" ;; # Libglvnd, Xrandr
         96|97|98)               echo "LV2 & Plugins" ;; # Serd, Sord, Lilv
