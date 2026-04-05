@@ -13,6 +13,8 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+    export SKIP_CONF_FINDER=1  # Выключаем авто-поиск
+
     # libtoolize version detection is broken, disable it, we got the right versions
     printf 'print "999999\\n"\n' > autogen-get-version-mock.pl
     sed -i -e 's|/autogen-get-version.pl|/autogen-get-version-mock.pl|g' ./autogen.sh

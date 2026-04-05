@@ -240,28 +240,28 @@ done < "$TMP_REPORT"
 if [[ ${#UPDATED_FILES[@]} -gt 0 ]]; then
     separator "─" "  UPDATED  "
     for item in "${UPDATED_FILES[@]}"; do
-        printf '%b  ✔ %s%b\n' "$LOG_INFO" "$item" "$LOG_NC" >&2
+        printf '%b  ✔ %s%b\n' "$LOG_INFO" "$item" "$NC" >&2
     done
 fi
 
 if [[ ${#BROKEN_REPOS[@]} -gt 0 ]]; then
     separator "─" "  DEAD REPOSITORIES  "
     for item in "${BROKEN_REPOS[@]}"; do
-        printf '%b  ✖ %s%b\n' "$LOG_ERROR" "$item" "$LOG_NC" >&2
+        printf '%b  ✖ %s%b\n' "$LOG_ERROR" "$item" "$NC" >&2
     done
 fi
 
 if [[ ${#UNKNOWN_LAYOUTS[@]} -gt 0 ]]; then
     separator "─" "  UNKNOWN LAYOUTS  "
     for item in "${UNKNOWN_LAYOUTS[@]}"; do
-        printf '%b  ? %s%b\n' "$LOG_WARN" "$item" "$LOG_NC" >&2
+        printf '%b  ? %s%b\n' "$LOG_WARN" "$item" "$NC" >&2
     done
 fi
 
 if [[ ${#SYNTAX_ERRORS[@]} -gt 0 ]]; then
     separator "─" "  SYNTAX ERRORS (ROLLED BACK)  "
     for item in "${SYNTAX_ERRORS[@]}"; do
-        printf '%b  ✖ %s%b\n' "$LOG_ERROR" "$item" "$LOG_NC" >&2
+        printf '%b  ✖ %s%b\n' "$LOG_ERROR" "$item" "$NC" >&2
     done
 fi
 
