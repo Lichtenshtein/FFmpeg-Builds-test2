@@ -8,6 +8,8 @@ ffbuild_depends() {
     echo glib2
     echo fontconfig
     echo freetype
+    echo bzlib # freetype
+    echo brotli # freetype
     echo libxml2
     echo libpng
     echo pixman
@@ -26,7 +28,7 @@ ffbuild_dockerbuild() {
     set -e
 
     # Зависимости из чит-листа в правильном порядке линковки
-    local DEP_LIBS="-lfontconfig -lpixman-1 -lxml2 -lpng16 -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfreetype -lz"
+    local DEP_LIBS="-lfontconfig -lpixman-1 -lxml2 -lpng16 -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfreetype -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz"
     # Набор системных библиотек Windows для Cairo
     local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -luuid $LIBS -lstdc++"
 
