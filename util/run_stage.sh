@@ -25,7 +25,7 @@ ccache -z > /dev/null
 # Сбрасываем счетчик секунд в начале этапа
 SECONDS=0
 STAGE_START_TIME=$(date +%s)
-STAGE_LOG="/tmp/stage_build.log"
+STAGE_LOG="/tmp/stage_build_${STAGENAME}.log"
 # Write a timestamp file before $build_cmd runs, then use find -newer to detect which .pc files were created by this build
 TIMESTAMP_FILE=$(mktemp)
 sleep 1
@@ -70,7 +70,7 @@ stage_cleanup() {
                     # Ничего не нашли
                     if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
                         log_warn "No logs found. ${DIRS_MARK} Listing directory content of $BUILD_DIR:"
-                        ls -R "$build_dir" | grep -v '^$' | column -c ${COLUMNS:-80} >&2
+                        ls -R "$BUILD_DIR" | grep -v '^$' | column -c ${COLUMNS:-80} >&2
                         # ls -R "$BUILD_DIR" | head -n 100 >&2
                     else
                         log_warn "No logs were found."
@@ -78,7 +78,6 @@ stage_cleanup() {
                 fi
             fi
         else
-            log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${GREY_B}${elapsed}${NC}"
             if [[ -f "$STAGE_LOG" ]]; then
                 log_debug "${LOGS_MARK} ▼ CONTENT OF ($STAGE_LOG) ▼"
                 tail -n 300 "$STAGE_LOG" >&2
@@ -191,7 +190,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
     fi
 
     # АВТО-ПОИСК корня проекта (если архив распаковался в подпапку)
-    if [[ ! -f "Configure" && ! -f "configure" && ! -f "CMakeLists.txt" && ! -f "meson.build" ]]; then
+    if [[ "$SKIP_CONF_FINDER" != "1" ]] && [[ ! -f "Configure" && ! -f "configure" && ! -f "CMakeLists.txt" && ! -f "meson.build" ]]; then
         log_warn "No build file in root. ${SEARCH_MARK} Searching one level deeper..."
         CANDIDATE=$(find . -maxdepth 2 \( -name "Configure" -o -name "configure" -o -name "CMakeLists.txt" -o -name "meson.build" \) -printf '%h\n' | head -n 1)
         if [[ -n "$CANDIDATE" ]]; then
@@ -271,11 +270,11 @@ log_info_line
 # conf_finder
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-    log_debug "Verbose mode active. Build output will be shown in real-time."
-    if ! ( set -e -o pipefail; $build_cmd ); then exit 1; fi
+    log_debug "Verbose mode: output shown in real-time with captured ${STAGE_LOG}"
+    if ! ( set -e -o pipefail; $build_cmd 2>&1 | tee "${STAGE_LOG}" ); then exit 1; fi
 else
-    log_info "Quiet mode active. Output is redirected to ${STAGE_LOG}"
-    if ! ( set -e -o pipefail; $build_cmd > ${STAGE_LOG} 2>&1 ); then exit 1; fi
+    log_info "Quiet mode: output redirected to ${STAGE_LOG}"
+    if ! ( set -e -o pipefail; $build_cmd > "${STAGE_LOG}" 2>&1 ); then exit 1; fi
 fi
 
 log_info_line
@@ -312,23 +311,26 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         log_warn "Stage $STAGENAME finished but no files were found in DESTDIR."
     fi
 
-    # Список стадий, которым РАЗРЕШЕНО иметь DLL (ИИ, драйверы, системные компоненты). Импорт из workflow.yaml.
-    # Очистка динамических библиотек для каждого статического скрипта с белым списком
-    # Библиотеки MinGW создают libимя.dll.a (implib) даже для статики.
-    # Удаление всех *.dll.a может быть слишком радикальным
-    PRESERVE_DLL_PATTERN="${DLL_PRESERVE_LIST// /:-openvino}"
-    if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
-        DELETED_FILES=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -print | sed "s|$FFBUILD_DESTDIR||g")
-        if [[ -n "$DELETED_FILES" ]]; then
-            log_debug "${BROOM_MARK} Cleaning unwanted dynamic DLLs from static stage: $STAGENAME\n$DELETED_FILES"
-            # find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.dll" -delete || true
-            find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
+    if [[ ! "$ENABLE_SHARED" == "1" ]]; then
+        # Список стадий, которым РАЗРЕШЕНО иметь DLL (ИИ, драйверы, системные компоненты). Импорт из workflow.yaml.
+        # Очистка динамических библиотек для каждого статического скрипта с белым списком
+        # Библиотеки MinGW создают libимя.dll.a (implib) даже для статики.
+        # Удаление всех *.dll.a может быть слишком радикальным
+        PRESERVE_DLL_PATTERN="${DLL_PRESERVE_LIST// /:-openvino}"
+        if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
+            DELETED_FILES=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -print | sed "s|$FFBUILD_DESTDIR||g")
+            if [[ -n "$DELETED_FILES" ]]; then
+                log_debug "${BROOM_MARK} Cleaning unwanted dynamic DLLs from static stage: $STAGENAME\n$DELETED_FILES"
+                # find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.dll" -delete || true
+                find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
+            else
+                log_info "${CHECK_MARK} No unwanted dynamic DLLs found to clean."
+            fi
         else
-            log_info "${CHECK_MARK} No unwanted dynamic DLLs found to clean."
+            log_info "${LOCK_MARK} Preserving dynamic DLLs for $STAGENAME"
         fi
-    else
-        log_info "${LOCK_MARK} Preserving dynamic DLLs for $STAGENAME"
     fi
+
     # Удаляем мусорные libtool archives файлы
     [[ "$SKIP_POST_CLEAN" != "1" ]] && clean_la_files
     # Исправляем .pc файлы (пути, зависимости, Requires.private)

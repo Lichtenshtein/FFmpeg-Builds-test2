@@ -97,7 +97,7 @@ for STAGE in "${SCRIPTS[@]}"; do
         source "$STAGE" 2>/dev/null
         ffbuild_enabled
     ) 2>/dev/null; then
-        log_info "Skipping disabled stage: $(basename "$STAGE")"
+        log_info "${XCLAM_MARK} Skipping disabled stage: $(basename "$STAGE")"
         continue
     fi
     active_scripts+=("$STAGE")
@@ -105,8 +105,9 @@ done
 
 # Генерируем блоки RUN для каждой стадии
 for STAGE in "${active_scripts[@]}"; do
-    unset STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK
-    eval "$(stage_vars "$STAGE")"
+    STAGENAME="$(basename "$STAGE" .sh)"
+    COMPONENT_NAME="${STAGENAME#*-}"
+    STAGE_HASH=$(get_stage_hash "$STAGE")
     # Гранулярный поиск патчей
     # Для библиотек ищем в patches/zlib/ и т.д.
     PATCH_PATH="${PATCHES_DIR}/${COMPONENT_NAME}"
