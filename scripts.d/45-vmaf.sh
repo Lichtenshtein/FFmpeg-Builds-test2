@@ -27,6 +27,8 @@ ffbuild_dockerbuild() {
         -Dc_std=c11
         -Dbuilt_in_models=true
         -Denable_tests=false
+        -Denable_tools=false
+        -Denable_asm=true
         -Denable_docs=false
         -Denable_avx512=$([ "${USE_AVX512}" == "1" ] && echo true || echo false )
         -Denable_float=true
@@ -51,7 +53,6 @@ ffbuild_dockerbuild() {
     ninja -j"$(nproc)" $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # sed -i 's/Libs.private:/Libs.private: -lstdc++/; t; $ a Libs.private: -lstdc++' "$PC_DIR/libvmaf.pc"
     sed -i 's/Libs.private:/Libs.private: -lstdc++/; t; $ a Libs.private: -lstdc++' "$PC_DIR/libvmaf.pc"
 
 }

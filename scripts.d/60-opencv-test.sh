@@ -10,6 +10,7 @@ ffbuild_depends() {
     echo shaderc
     echo spirv-cross
     echo spirv-headers
+    echo libjxl
 }
 
 ffbuild_enabled() {

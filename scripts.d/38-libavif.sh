@@ -7,8 +7,10 @@ ffbuild_depends() {
     echo libwebp
     echo zlib
     echo dav1d
-    echo rav1e
-    echo aom
+    echo rav1e # 1 of 3
+    echo aom # 1 of 3
+    echo svtav1 # 1 of 3
+    echo libxml2
 }
 
 ffbuild_enabled() {
@@ -24,9 +26,6 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
-    export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig"
-    export PKG_CONFIG_SYSROOT_DIR="/"
-
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
@@ -36,18 +35,18 @@ ffbuild_dockerbuild() {
         -DAVIF_BUILD_APPS=OFF
         -DAVIF_BUILD_EXAMPLES=OFF
         # Включаем поддержку внешнего декодера dav1d
-        -DAVIF_CODEC_DAV1D=SYSTEM
+        -DAVIF_CODEC_DAV1D=SYSTEM # Декодер
         -DAVIF_CODEC_DAV1D_ENABLED=ON
         -DAVIF_LIBSHARPYUV=SYSTEM
-        # Если есть aom, можно включить энкодер
+        -DAVIF_LIBXML2=SYSTEM # convert JPEG with gain maps to AVIF using avifenc
+        -DAVIF_JPEG=SYSTEM
+        -DAVIF_ZLIBPNG=SYSTEM
+        # aom создаёт проблему курицы и яйца
         -DAVIF_CODEC_AOM=OFF
-        -DAVIF_LIBYUV=LOCAL
-        -DAVIF_OPTIMIZE_RAV1E_FOR_SIZE=OFF
-        -DENABLE_WERROR=OFF
-        -DENABLE_GOLDEN_TESTS=OFF
+        -DAVIF_CODEC_SVT=SYSTEM # Используем SVT-AV1 как энкодер!
+        -DAVIF_LIBYUV=LOCAL # Донор libyuv для aom
+        -DAVIF_OPTIMIZE_RAV1E_FOR_SIZE=ON
     )
-
-         # -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" || return 1
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
@@ -56,4 +55,27 @@ ffbuild_dockerbuild() {
     
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    # Извлекаем libyuv.a (она лежит в _deps/libyuv-build/)
+    cp "_deps/libyuv-build/libyuv.a" "$FFBUILD_PREFIX/lib/"
+    # Копируем заголовочные файлы (путь может зависеть от версии cmake)
+    mkdir -p "$FFBUILD_PREFIX/include/libyuv"
+    cp -r "_deps/libyuv-src/include/"* "$FFBUILD_PREFIX/include/libyuv"
+
+    # Создаем pkg-config файл вручную, чтобы aom и avif-v2 его нашли
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/libyuv.pc"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${prefix}/lib
+includedir=\${prefix}/include
+
+Name: libyuv
+Description: YUV conversion and scaling library (extracted from libavif)
+Version: 1.0.0
+Libs: -L\${libdir} -lyuv
+Libs.private: -lstdc++
+Cflags: -I\${includedir}
+EOF
+
 }
