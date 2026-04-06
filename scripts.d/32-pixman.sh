@@ -45,6 +45,7 @@ ffbuild_dockerbuild() {
     local PC_FILE="$PC_DIR/pixman-1.pc"
     if [[ -f "$PC_FILE" ]]; then
         if ! grep -q "Dpixman_static" "$PC_FILE"; then
+            sed -i '/^Cflags:/ s/[[:space:]]*-pthread//g' "$PC_FILE"
             sed -i '/^Cflags:/ s/$/ -Dpixman_static/' "$PC_FILE"
         fi
     fi
