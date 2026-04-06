@@ -40,6 +40,7 @@ stage_cleanup() {
     local duration=$SECONDS
     local elapsed=$(printf '%02dh:%02dm:%02ds' $((duration/3600)) $((duration%3600/60)) $((duration%60)))
     local BUILD_DIR="/build/${STAGENAME}"
+    cd "$BUILD_DIR" # as we are at some '_build' folder inside STAGENAME right now
 
     if [[ $exit_code -eq 0 ]]; then
         # Успех: чистим всё; NOTE: Should keep "$VARS_DIR" & "$OUTFILE"
@@ -80,7 +81,7 @@ stage_cleanup() {
         else
             if [[ -f "$STAGE_LOG" ]]; then
                 log_debug "${LOGS_MARK} ▼ CONTENT OF ($STAGE_LOG) ▼"
-                tail -n 300 "$STAGE_LOG" >&2
+                tail -n 100 "$STAGE_LOG" >&2
                 log_debug "${LOGS_MARK} ▲ END OF $STAGE_LOG ▲"
             else
                 log_warn "Log file $STAGE_LOG is missing!"
@@ -91,7 +92,6 @@ stage_cleanup() {
         rm -rf "$BUILD_DIR" "$VARS_DIR" "$STAGE_LOG" "$TIMESTAMP_FILE" "$OUTFILE"
     fi
 }
-
 trap stage_cleanup EXIT
 
 # Создаем и входим в директорию сборки ДО загрузки скрипта
@@ -270,10 +270,10 @@ log_info_line
 # conf_finder
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-    log_debug "Verbose mode: output shown in real-time with captured ${STAGE_LOG}"
-    if ! ( set -e -o pipefail; $build_cmd 2>&1 | tee "${STAGE_LOG}" ); then exit 1; fi
+    log_debug "Verbose mode active. Build output will be shown in real-time."
+    if ! ( set -e -o pipefail; $build_cmd ); then exit 1; fi
 else
-    log_info "Quiet mode: output redirected to ${STAGE_LOG}"
+    log_info "Quiet mode active. Output is redirected to ${STAGE_LOG}"
     if ! ( set -e -o pipefail; $build_cmd > "${STAGE_LOG}" 2>&1 ); then exit 1; fi
 fi
 
