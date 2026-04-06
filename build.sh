@@ -8,11 +8,18 @@ cd "$(dirname "$0")"
 source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
     || { echo "ERROR: vars.sh failed in build.sh" >&2; exit 1; }
 
+log_info "${CACHE_MARK} CCACHE STATISTICS:"
+ccache -s
+# Сброс статистики для чистого лога
+ccache -z > /dev/null
+# Сбрасываем счетчик секунд в начале этапа
+SECONDS=0
+local duration=$SECONDS
+local elapsed=$(printf '%02dh:%02dm:%02ds' $((duration/3600)) $((duration%3600/60)) $((duration%60)))
+
 # Определяем функцию очистки
 cleanup() {
     local exit_code=$? # Запоминаем код завершения (0 - успех, >0 - ошибка)
-    local duration=$SECONDS # Запоминаем время выполнения
-    local elapsed=$(printf '%02dh:%02dm:%02ds' $((duration/3600)) $((duration%3600/60)) $((duration%60)))
 
     log_info "Running cleanup (Exit code: $exit_code)..."
 
@@ -29,23 +36,15 @@ cleanup() {
 
     log_info "Cleanup done."
 }
-
 # Устанавливаем ловушку
 # EXIT сработает всегда: и при успехе, и при ошибке, и при прерывании
 trap cleanup EXIT
-
-log_info "${CACHE_MARK} CCACHE STATISTICS:"
-ccache -s
-# Сброс статистики для чистого лога
-ccache -z > /dev/null
-# Сбрасываем счетчик секунд в начале этапа
-SECONDS=0
 
 export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
 export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
 export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
-export HOST_LDFLAGS=""
+# export HOST_LDFLAGS=""
 
 # Инициализация локальных (не экспортируемых!) переменных
 # Обнуляем FF_ переменные перед загрузкой, чтобы не было старых хвостов
@@ -125,9 +124,23 @@ fi
 
 # загружаем целевой вариант со своими --enable флагами ffbuild_configure()
 source "${VARIANTS_DIR}/${TARGET}-${VARIANT}.sh"
-for addin in ${ADDINS[*]}; do
-    source "${ADDINS_STR}/${addin}.sh"
-done
+# for addin in ${ADDINS[*]}; do
+    # source "${ADDINS_STR}/${addin}.sh"
+# done
+# ADDINS_STR is a dash-separated string like "lto-avx512"
+# Split it and source each addin
+if [[ -n "$ADDINS_STR" ]]; then
+    IFS='-' read -ra ADDINS_ARRAY <<< "$ADDINS_STR"
+    for addin in "${ADDINS_ARRAY[@]}"; do
+        [[ -z "$addin" ]] && continue
+        if [[ -f "${ADDINS_DIR}/${addin}.sh" ]]; then
+            log_debug "Sourcing addin: ${addin}.sh"
+            source "${ADDINS_DIR}/${addin}.sh"
+        else
+            log_warn "Addin not found: ${ADDINS_DIR}/${addin}.sh"
+        fi
+    done
+fi
 
 # Capture echo-style output from "variants/${TARGET}-${VARIANT}.sh"
 _variant_conf=$(ffbuild_configure 2>/dev/null || true)
@@ -137,13 +150,13 @@ _variant_cxxflags=$(ffbuild_cxxflags 2>/dev/null || true)
 _variant_ldflags=$(ffbuild_ldflags 2>/dev/null || true)
 _variant_ldexeflags=$(ffbuild_ldexeflags 2>/dev/null || true)
 _variant_libs=$(ffbuild_libs 2>/dev/null || true)
-[[ -n "$_variant_conf" ]]       && VARIANT_FF_CONFIGURE+=" ${FF_CONFIGURE} ${_variant_conf}"
-[[ -n "$_variant_cflags" ]]     && VARIANT_FF_CFLAGS+=" ${FF_CFLAGS} ${_variant_cflags}"
-[[ -n "$_variant_cppflags" ]]   && VARIANT_FF_CPPFLAGS+=" ${FF_CPPFLAGS} ${_variant_cppflags}"
-[[ -n "$_variant_cxxflags" ]]   && VARIANT_FF_CXXFLAGS+=" ${FF_CXXFLAGS} ${_variant_cxxflags}"
-[[ -n "$_variant_ldflags" ]]    && VARIANT_FF_LDFLAGS+=" ${FF_LDFLAGS} ${_variant_ldflags}"
-[[ -n "$_variant_ldexeflags" ]] && VARIANT_FF_LDEXEFLAGS+=" ${FF_LDEXEFLAGS} ${_variant_ldexeflags}"
-[[ -n "$_variant_libs" ]]       && VARIANT_FF_LIBS+=" ${FF_LIBS} ${_variant_libs}"
+[[ -n "$_variant_conf" ]]       && VARIANT_FF_CONFIGURE="${_variant_conf}"
+[[ -n "$_variant_cflags" ]]     && VARIANT_FF_CFLAGS="${_variant_cflags}"
+[[ -n "$_variant_cppflags" ]]   && VARIANT_FF_CPPFLAGS="${_variant_cppflags}"
+[[ -n "$_variant_cxxflags" ]]   && VARIANT_FF_CXXFLAGS="${_variant_cxxflags}"
+[[ -n "$_variant_ldflags" ]]    && VARIANT_FF_LDFLAGS="${_variant_ldflags}"
+[[ -n "$_variant_ldexeflags" ]] && VARIANT_FF_LDEXEFLAGS="${_variant_ldexeflags}"
+[[ -n "$_variant_libs" ]]       && VARIANT_FF_LIBS="${_variant_libs}"
 
 # Клонирование и патчинг (прямо в текущем слое Docker)
 log_info "Using pre-mounted FFmpeg source..."
@@ -288,7 +301,6 @@ chmod +x configure
 
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
-    --pkg-config-flags="--static"
     "${TARGET_FLAGS_ARR[@]}"
     --host-cc="gcc-14"
     --host-cflags="$HOST_CFLAGS"
@@ -302,8 +314,6 @@ CONF_FLAGS=(
     --enable-runtime-cpudetect
     --enable-opengl
     --enable-pic
-    --enable-static
-    --disable-shared
     --disable-debug
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
 )
@@ -416,7 +426,7 @@ find "$PKG_DIR/bin" -name "*.exe" -exec ${FFBUILD_CROSS_PREFIX}strip --strip-unn
 log_info "${ARCH_MARK} Creating archive: ${BUILD_NAME}.7z"
 # Заходим в pkgroot, чтобы внутри архива не было лишних вложенных папок
 pushd "$FFMPEG_PKG_ROOT"
-7z a -mx7 -mmt=on "$FFBUILD_DESTDIR/$BUILD_NAME" "./${BUILD_NAME}.7z/*"
+7z a -mx7 -mmt=on "$FFBUILD_DESTDIR/${BUILD_NAME}.7z" "./${BUILD_NAME}/*"
 popd
 
 # Генерация метаданных для GitHub Actions

@@ -134,7 +134,6 @@ export PC_DIR="${FFBUILD_DESTPREFIX}/lib/pkgconfig"
 export VARS_DIR="${FFBUILD_PREFIX}/config_vars"
 # pkg-config variables
 export PKG_CONFIG_PATH="" # don't touch
-export PKG_CONFIG_FLAGS="--static"
 export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig:${FFBUILD_PREFIX}/lib64/pkgconfig"
 export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
@@ -152,6 +151,7 @@ if [[ "$ENABLE_SHARED" == "1" ]]; then
     export PKG_CONFIG_CFLAGS="--cflags-only-other"
     export PKG_CONFIG_LIBS="--libs"
 else
+    export PKG_CONFIG_FLAGS="--static"
     export PKG_CONFIG_CFLAGS="--cflags-only-other"
     export PKG_CONFIG_LIBS="--static --libs-only-l"
     export PKG_CONFIG_ALL_LIBS="--static --libs-only-other"
@@ -250,12 +250,12 @@ export LICENSE_FILE="COPYING.LGPLv2.1"
 ADDINS=()
 ADDINS_STR=""
 # Handle special flags that aren't addins
-if [[ "$ENABLE_SHARED" == "1" ]]; then
-    ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}shared"
-fi
-if [[ "$USE_LTO" == "1" ]]; then
-    ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}lto"
-fi
+# if [[ "$ENABLE_SHARED" == "1" ]]; then
+    # ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}shared"
+# fi
+# if [[ "$USE_LTO" == "1" ]]; then
+    # ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}lto"
+# fi
 while [[ "$#" -gt 0 ]]; do
     # Проверяем, существует ли файл в addins
     if [[ -f "${ADDINS_DIR}/${1}.sh" ]]; then
@@ -809,6 +809,10 @@ get_deps_list() {
 export -f get_deps_list
 
 clean_la_files() {
+    if [[ "$ENABLE_SHARED" == "1" ]]; then
+        return 0
+    fi
+
     local target_dir="$FFBUILD_DESTPREFIX"
     [[ ! -d "$target_dir" ]] && return 0
     log_info "${BROOM_MARK} Cleaning up libtool archives (.la) in $target_dir"
