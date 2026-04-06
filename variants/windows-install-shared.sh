@@ -11,18 +11,18 @@ package_variant() {
         log_warn "No files in $IN/bin to copy"
     fi
 
+    # For shared builds, also copy DLLs
+    if [[ -d "$IN/bin" ]]; then
+        find "$IN/bin" -name "*.dll" -exec cp {} "$OUT/bin/" \; 2>/dev/null || true
+    fi
+
     if [[ -d "$IN/share/doc/ffmpeg" ]]; then
         mkdir -p "$OUT/doc"
         cp -r "$IN"/share/doc/ffmpeg/* "$OUT"/doc 2>/dev/null || true
-    else
-        log_warn "No doc directory found at $IN/share/doc/ffmpeg"
     fi
 
     if [[ -d "$IN/share/ffmpeg" ]] && [[ -n "$(find "$IN/share/ffmpeg" -maxdepth 1 -name "*.ffpreset" 2>/dev/null)" ]]; then
         mkdir -p "$OUT/presets"
         cp "$IN"/share/ffmpeg/*.ffpreset "$OUT"/presets 2>/dev/null || true
-    else
-        log_info "Note: No .ffpreset files found (normal for some builds)."
     fi
-
 }

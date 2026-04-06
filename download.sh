@@ -102,7 +102,7 @@ else
     if [[ "$REMOTE_HASH" == "$LOCAL_HASH" ]]; then
         printf '  %-8s  %b%s%b\n' "local"  "$LOG_INFO"  "${LOCAL_HASH:0:12}"  "$NC" >&2
         printf '  %-8s  %b%s%b\n' "remote" "$LOG_INFO"  "${REMOTE_HASH:0:12}" "$NC" >&2
-        printf '  %-8s  %b%s%b\n' "match"  "$LOG_INFO"  "${CHECK_MARK} up to date"        "$NC" >&2
+        printf '  %-8s  %b%s%b\n' "match"  "$LOG_INFO"  "✔ up to date"        "$NC" >&2
     else
         # Highlight differing characters individually
         _print_hash_diff() {
@@ -122,7 +122,7 @@ else
             printf '  %-8s  %b\n' "$label_b" "$out_b" >&2
         }
         _print_hash_diff "$LOCAL_HASH" "$REMOTE_HASH" "local" "remote"
-        printf '  %-8s  %b%s%b\n' "status" "$LOG_WARN" "$XCLAM_MARK update available" "$NC" >&2
+        printf '  %-8s  %b%s%b\n' "status" "$LOG_WARN" "⚠️ update available" "$NC" >&2
     fi
     separator "─"
 
@@ -164,6 +164,6 @@ else
     fi
 fi
 
-phase_footer "${CHECK_MARK} All downloads completed."
+phase_footer "✔ All downloads completed."
 
 exit 0
