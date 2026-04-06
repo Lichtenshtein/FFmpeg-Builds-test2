@@ -33,7 +33,8 @@ ffbuild_dockerbuild() {
         --disable-icuio \
         --disable-extras \
         --enable-static \
-        --enable-shared || return 1
+        --disable-shared \
+        || return 1
     
     # Собираем только самое необходимое для инструментов
     make -j$(nproc) $MAKE_V || return 1
@@ -42,7 +43,7 @@ ffbuild_dockerbuild() {
 
     # Проверка: если icupkg не собрался, дальше идти нет смысла
     if [[ ! -f "host-build/bin/icupkg" ]]; then
-        log_error "ERROR: icupkg not found in host-build/bin!"
+        log_error "icupkg not found in host-build/bin!"
         return 1
     fi
 
@@ -72,10 +73,10 @@ ffbuild_dockerbuild() {
         --with-data-packaging=static
     )
 
-    CFLAGS="$RAW_CFLAGS" \
-    CPPLAGS="$RAW_CPPLAGS -DICU_STATIC" \
-    CXXFLAGS="$RAW_CXXFLAGS -DICU_STATIC" \
-    LDFLAGS="$RAW_LDFLAGS" \
+    CFLAGS="${RAW_CFLAGS:-$CFLAGS}" \
+    CPPFLAGS="${RAW_CPPFLAGS:-$CPPFLAGS} -DICU_STATIC" \
+    CXXFLAGS="${RAW_CXXFLAGS:-$CXXFLAGS} -DICU_STATIC" \
+    LDFLAGS="${RAW_LDFLAGS:-$LDFLAGS}" \
     CC="$CC" \
     CXX="$CXX" \
     AR="$AR" \
@@ -85,20 +86,25 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # Исправление и перемещение библиотек
-    # Если ICU собрался как libicuuc.a, а мы хотим sicuuc.a:
+    # Verify data library was created
+    if [[ ! -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libicudt.a" ]] && \
+       [[ ! -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libsicudt.a" ]]; then
+        log_error "ICU data library not found!"
+        ls -la "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/" | grep -i icu || true
+        return 1
+    fi
+
+    # Rename libraries (libicu* → libsicu*)
     cd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
     for lib in libicu*.a; do
-        if [[ -f "$lib" ]]; then
-            # Переименовываем libicu... в libsicu...
-            mv "$lib" "s${lib#lib}" 2>/dev/null || true
-        fi
+        [[ -f "$lib" ]] && mv "$lib" "s${lib#lib}" 2>/dev/null || true
     done
     # Исправляем специфичный sicudt (иногда он без 'lib' вначале)
     [[ -f "icudt.a" ]] && mv "icudt.a" "libsicudt.a"
     [[ -f "sicudt.a" ]] && mv "sicudt.a" "libsicudt.a"
 
-    local ICU_SYS_LIBS="-lstdc++ -lpthread -lm -ladvapi32 -lws2_32"
+    # Update .pc files
+    local ICU_SYS_LIBS="-lstdc++ -pthread -lm -ladvapi32 -lws2_32"
     for pc in "$PC_DIR"/icu-*.pc; do
         [[ -e "$pc" ]] || continue
         # Меняем имена библиотек (icu -> sicu)
