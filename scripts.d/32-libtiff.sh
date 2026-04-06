@@ -34,21 +34,24 @@ ffbuild_dockerbuild() {
         -Dtiff-tools=OFF
         -Dtiff-tests=OFF
         -Dtiff-docs=OFF
-        -Dtiff-opengl=ON
+        -Dtiff-opengl=OFF
         -Djpeg=ON
         -Dzstd=ON
         -Dzlib=ON
         -Dlzma=ON
         -Dwebp=ON
         -Djbig=ON
+        -DWebP_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DWebP_LIBRARY="$FFBUILD_PREFIX/lib/libwebp.a"
     )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
 
     CFLAGS="$CFLAGS $CPPFLAGS -DLIBTIFF_STATIC" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS -DLIBTIFF_STATIC" \
+    LDFLAGS="$LDFLAGS $DEP_LIBS" \
     cmake "${myconf[@]}" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $DEP_LIBS" .. || return 1
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
