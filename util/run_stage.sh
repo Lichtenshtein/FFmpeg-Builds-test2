@@ -81,7 +81,7 @@ stage_cleanup() {
             log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${GREY_B}${elapsed}${NC}"
             if [[ -f "$STAGE_LOG" ]]; then
                 log_debug "${LOGS_MARK} ▼ CONTENT OF ($STAGE_LOG) ▼"
-                cat "$STAGE_LOG" >&2
+                tail -n 300 "$STAGE_LOG" >&2
                 log_debug "${LOGS_MARK} ▲ END OF $STAGE_LOG ▲"
             else
                 log_warn "Log file $STAGE_LOG is missing!"

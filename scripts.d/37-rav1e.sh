@@ -15,7 +15,14 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # 1. Полностью очищаем переменные, которые могут подсунуть MinGW-пути хостовому компилятору
+    # local saved_CFLAGS="$CFLAGS"
+    # local saved_CXXFLAGS="$CXXFLAGS"
+    # local saved_LDFLAGS="$LDFLAGS"
+    # local saved_CPPFLAGS="$CPPFLAGS"
+
     # Исправляем проблему с libgit2-sys: запрещаем использовать системный libgit2
+    unset PKG_CONFIG_LIBDIR
     export LIBGIT2_NO_PKG_CONFIG=1
     export LIBSSH2_SYS_USE_PKG_CONFIG=1
 
@@ -36,6 +43,11 @@ ffbuild_dockerbuild() {
     export "LDFLAGS_${RTARCH}"="${LDFLAGS//-L\/opt\/ffbuild\/lib/}"
     export RUSTFLAGS="$RUSTFLAGS"
 
+    # 2. Передаем MinGW-пути ТОЛЬКО для таргета
+    # export "CFLAGS_${RTARCH}"="$saved_CFLAGS $saved_CPPFLAGS"
+    # export "CXXFLAGS_${RTARCH}"="$saved_CXXFLAGS $saved_CPPFLAGS"
+    # export "LDFLAGS_${RTARCH}"="$saved_LDFLAGS"
+
     # Настройка для хостовой сборки
     # Используем стандартный GCC образа, без лишних инклудов
     export CC_host="gcc"
@@ -44,7 +56,7 @@ ffbuild_dockerbuild() {
 
     # ОЧЕНЬ ВАЖНО: Сбрасываем общие переменные, чтобы Cargo использовал 
     # стандартный системный GCC для сборки своих внутренних утилит (build.rs)
-    unset CC CXX AS AR RANLIB LD CFLAGS CXXFLAGS LDFLAGS
+    unset CC CXX AS AR RANLIB LD CFLAGS CXXFLAGS LDFLAGS CPPFLAGS
 
     # Принудительно обновляем зависимости, чтобы избежать багов в старых версиях cc-rs
     cargo update -p cc
@@ -59,6 +71,12 @@ ffbuild_dockerbuild() {
     )
 
     cargo cinstall $CARGO_V "${myconf[@]}" || return 1
+
+    # 3. Возвращаем переменные назад для следующих скриптов
+    # export CFLAGS="$saved_CFLAGS"
+    # export CXXFLAGS="$saved_CXXFLAGS"
+    # export LDFLAGS="$saved_LDFLAGS"
+    # export CPPFLAGS="$saved_CPPFLAGS"
 
     chmod 644 "${FFBUILD_DESTPREFIX}"/lib/*rav1e* || true
 }
