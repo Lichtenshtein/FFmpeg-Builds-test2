@@ -6,7 +6,6 @@ SCRIPT_COMMIT="397887939a357f166f4674bc1d66bb155795f325"
 ffbuild_depends() {
     echo leptonica-test
     echo libarchive
-    echo libtensorflow-test
     echo pango
     echo cairo
     echo libtiff
@@ -197,7 +196,6 @@ WRAPPER_EOF
     # Full lib list (flat, no group; we add group after configure)
     local ALL_LIBS="\
 -lleptonica \
--ltensorflow \
 -lpangocairo-1.0 -lpangowin32-1.0 -lpangoft2-1.0 -lpango-1.0 \
 -lcairo-gobject -lcairo \
 -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo \
@@ -235,7 +233,6 @@ WRAPPER_EOF
         -DBUILD_TESTS=OFF
         -DBUILD_TRAINING_TOOLS=OFF # causes strange pgp path '=/include' errors
         -DOPENMP_BUILD=OFF # DO NOT enable it for Win*
-        -DOPENMP_BUILD=OFF
         -DFAST_FLOAT=ON
         -DSW_BUILD=OFF
         -DENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)

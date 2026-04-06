@@ -31,8 +31,9 @@ ffbuild_dockerbuild() {
         export CXXFLAGS="$CXXFLAGS -DVQSORT_GETRANDOM=0 -DVQSORT_SECURE_SEED=0"
     elif [[ $TARGET == win32 || $TARGET == win64 ]]; then
         # Fix AVX2 related crash due to unaligned stack memory
-        export CXXFLAGS="$CXXFLAGS -Wa,-muse-unaligned-vector-move"
-        export CFLAGS="$CFLAGS -Wa,-muse-unaligned-vector-move"
+        export CFLAGS="$CFLAGS $CPPFLAGS -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
+        export CXXFLAGS="$CXXFLAGS $CPPFLAGS -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
+        export LDFLAGS="$LDFLAGS"
     fi
 
     local myconf=(
@@ -48,23 +49,19 @@ ffbuild_dockerbuild() {
         -DJPEGXL_ENABLE_EXAMPLES=OFF
         -DJPEGXL_ENABLE_DOXYGEN=OFF
         -DJPEGXL_ENABLE_JNI=OFF
-        -DJPEGXL_ENABLE_JPEGLI=OFF
         -DJPEGXL_ENABLE_MANPAGES=OFF
         -DJPEGXL_ENABLE_PLUGINS=OFF
-        -DJPEGXL_ENABLE_SKCMS=OFF
+        -DJPEGXL_ENABLE_SKCMS=ON
         -DJPEGXL_ENABLE_TOOLS=OFF
         -DJPEGXL_ENABLE_VIEWERS=OFF
         -DJPEGXL_ENABLE_WASM_THREADS=ON
-        # -DJPEGXL_FORCE_SYSTEM_BROTLI=ON
-        # -DJPEGXL_FORCE_SYSTEM_LCMS2=ON
+        -DJPEGXL_FORCE_SYSTEM_BROTLI=ON
+        -DJPEGXL_FORCE_SYSTEM_LCMS2=ON
         -DJPEGXL_FORCE_SYSTEM_HWY=OFF
         -DJPEGXL_ENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DBUILD_TESTING=OFF
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
@@ -82,7 +79,7 @@ ffbuild_dockerbuild() {
     # Фикс для статической линковки: FFmpeg должен знать о Highway
     sed -i 's/Libs:/Libs: -lhwy /' "$PC_DIR/libjxl.pc"
     # Brotli в зависимости
-    sed -i 's/Requires.private:/Requires.private: -lbrotlienc -lbrotlidec -lbrotlicommon /' "$PC_DIR/libjxl.pc"
+    sed -i 's/Requires.private:/Requires.private: lbrotlienc lbrotlidec lbrotlicommon /' "$PC_DIR/libjxl.pc"
 
 }
 
