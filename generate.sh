@@ -9,6 +9,7 @@ TARGET="${1:-$TARGET}"
 VARIANT="${2:-$VARIANT}"
 USE_LTO="${3:-0}"
 USE_AVX512="${4:-0}"
+ENABLE_SHARED="${5:-0}"
 
 # Загружаем переменные
 source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
@@ -25,6 +26,7 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
 [[ "$USE_LTO" == "1" ]]        && log_info "${XCLAM_MARK} LTO is enabled!"
 [[ "$USE_OPENMP" == "1" ]]     && log_info "${XCLAM_MARK} Open Multi-Processing runtime for shared-memory parallel programming is enabled!"
 [[ "$SHADERC_UPDATE" == "1" ]] && log_info "${XCLAM_MARK} Shaderc dependencies will be updated from the local DEPS file."
+[[ "$ENABLE_SHARED" == "1" ]]  && log_info "${XCLAM_MARK} Shared builds are enabled."
 
 echo -n "" > Dockerfile # Явно очищаем файл перед началом записи
 to_df() { echo "$*" >> Dockerfile; }
@@ -41,6 +43,7 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     ONLY_STAGE=\"$ONLY_STAGE\" \\
     USE_WINE=\"$USE_WINE\" \\
     USE_AVX512=\"$USE_AVX512\" \\
+    ENABLE_SHARED=\"${ENABLE_SHARED:-0}\" \\
     USE_LTO=\"$USE_LTO\" \\
     CPU_ARCH=\"${CPU_ARCH:-broadwell}\" \\
     CPU_TUNE=\"${CPU_TUNE:-broadwell}\" \\
@@ -81,21 +84,38 @@ fi
 mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" | sort)
 active_scripts=()
 for STAGE in "${SCRIPTS[@]}"; do
-    # Проверка на принудительное отключение внутри скрипта
-    grep -q 'ffbuild_enabled.*return 1' "$STAGE" 2>/dev/null && continue
     # Фильтрация по регулярному выражению ONLY_STAGE
-    if [[ -n "$ONLY_STAGE" ]] && [[ ! "$STAGE" =~ $ONLY_STAGE ]]; then continue; fi
+    # Match against basename only, with anchored component name
+    STAGE_BASE="$(basename "$STAGE" .sh)"
+    if [[ -n "$ONLY_STAGE" ]] && [[ ! "$STAGE_BASE" =~ (^|-)${ONLY_STAGE}(-|$) ]]; then
+        continue
+    fi
+    # Проверка на принудительное отключение внутри скрипта
+    # Source in a clean subshell and call ffbuild_enabled
+    if ! (
+        source "$ROOT_DIR/util/vars.sh" "$TARGET" "$VARIANT" 2>/dev/null
+        source "$STAGE" 2>/dev/null
+        ffbuild_enabled
+    ) 2>/dev/null; then
+        log_info "Skipping disabled stage: $(basename "$STAGE")"
+        continue
+    fi
     active_scripts+=("$STAGE")
 done
 
 # Генерируем блоки RUN для каждой стадии
 for STAGE in "${active_scripts[@]}"; do
-    STAGENAME="$(basename "$STAGE" .sh)"
-    COMPONENT_NAME="${STAGENAME#*-}"
-    STAGE_HASH=$(get_stage_hash "$STAGE")
+    unset STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK
+    eval "$(stage_vars "$STAGE")"
     # Гранулярный поиск патчей
     # Для библиотек ищем в patches/zlib/ и т.д.
     PATCH_PATH="${PATCHES_DIR}/${COMPONENT_NAME}"
+    # warn on potential patch dir ambiguity
+    if [[ -d "${PATCHES_DIR}/${STAGENAME#*-}" ]]; then
+        : # explicit patch dir exists, good
+    elif [[ -d "${PATCHES_DIR}/${COMPONENT_NAME%%-*}" ]]; then
+        log_warn "No patch dir for '$COMPONENT_NAME', base '${COMPONENT_NAME%%-*}' exists — intentional?"
+    fi
     # Для FFmpeg ищем в patches/ffmpeg/master/ (или другой ветке)
     [[ "${COMPONENT_NAME}" == "ffmpeg" ]] && PATCH_PATH="${PATCHES_DIR}/ffmpeg/${FFMPEG_BRANCH}"
     # Считаем хеш только если папка существует, иначе "none"

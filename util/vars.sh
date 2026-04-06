@@ -111,8 +111,13 @@ export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
 export TARGET="${1:-$TARGET}"
 export VARIANT="${2:-$VARIANT}"
 # use env vars with broadwell fallback
-export CPU_ARCH="${CPU_ARCH:-broadwell}"
-export CPU_TUNE="${CPU_TUNE:-broadwell}"
+if [[ "$TARGET" == *"linux"* ]]; then
+    export CPU_ARCH="${CPU_ARCH:-haswell}"
+    export CPU_TUNE="${CPU_TUNE:-haswell}"
+else
+    export CPU_ARCH="${CPU_ARCH:-broadwell}"
+    export CPU_TUNE="${CPU_TUNE:-broadwell}"
+fi
 # Build variables (inside the container)
 # just duplicate from Dockerfile for convenience
 export TOOLCHAIN_BIN="/opt/ct-ng/bin"
@@ -195,9 +200,17 @@ ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -l
 export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu11"
 export CPPFLAGS="-I/opt/ffbuild/include ${BASE_CPPFLAGS}"
 export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu++17"
-export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+if [[ "$ENABLE_SHARED" == "1" ]]; then
+    export LDFLAGS="-L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+else
+    export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+fi
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
-export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH}"
+if [[ "$TARGET" == *"win"* ]]; then
+    export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH}"
+else
+    export RUSTFLAGS="-C target-cpu=${CPU_ARCH}"
+fi
 # Обработка флагов, специфичных для Linux ELF
 if [[ "$TARGET" == *"win"* ]]; then
     # бесполезно при сборке под Windows и ломает OpenSSL asm вместе с std=c11
@@ -206,9 +219,10 @@ if [[ "$TARGET" == *"win"* ]]; then
     export CFLAGS="${CFLAGS//-std=c11/-std=gnu11}"
     export CXXFLAGS="${CXXFLAGS//-std=c++17/-std=gnu++17}"
 else
+    # Linux: ADD semantic-interposition flags
     export STAGE_CFLAGS="-fno-semantic-interposition" 
     export STAGE_CXXFLAGS="-fno-semantic-interposition"
-    export LIBS="${LIBS:-$SYSTEM_LIBS} -lrt -ld"
+    export LIBS="${LIBS} -lrt -ld"
 fi
 
 # Validate TARGET and VARIANT only enforce when called directly OR when
@@ -235,6 +249,13 @@ export LICENSE_FILE="COPYING.LGPLv2.1"
 
 ADDINS=()
 ADDINS_STR=""
+# Handle special flags that aren't addins
+if [[ "$ENABLE_SHARED" == "1" ]]; then
+    ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}shared"
+fi
+if [[ "$USE_LTO" == "1" ]]; then
+    ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}lto"
+fi
 while [[ "$#" -gt 0 ]]; do
     # Проверяем, существует ли файл в addins
     if [[ -f "${ADDINS_DIR}/${1}.sh" ]]; then
@@ -775,7 +796,7 @@ get_deps_list() {
         if [ "$error_count" -gt 0 ]; then
             log_warn "Found ${error_count} missing pkg-config dependency/dependencies for ${name}! [Install size: ${GREY_B}${total_size}${NC}]"
         else
-            log_info "${CHECK_MARK} All pkg-config dependencies satisfied for ${name}. [Install size: ${GREY_B}${total_size}${NC}]"
+            log_debug "${CHECK_MARK} All pkg-config dependencies satisfied for ${name}. [Install size: ${GREY_B}${total_size}${NC}]"
         fi
         log_debug "Showing dependencies for ${name}:"
         cat "$tmp_out" >&2
