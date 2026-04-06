@@ -22,8 +22,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    cd avif
-    mkdir build && cd build
+    mkdir -p build && cd build
+
+    export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig"
+    export PKG_CONFIG_SYSROOT_DIR="/"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -36,14 +38,16 @@ ffbuild_dockerbuild() {
         # Включаем поддержку внешнего декодера dav1d
         -DAVIF_CODEC_DAV1D=SYSTEM
         -DAVIF_CODEC_DAV1D_ENABLED=ON
+        -DAVIF_LIBSHARPYUV=SYSTEM
         # Если есть aom, можно включить энкодер
         -DAVIF_CODEC_AOM=OFF
+        -DAVIF_LIBYUV=LOCAL
         -DAVIF_OPTIMIZE_RAV1E_FOR_SIZE=OFF
         -DENABLE_WERROR=OFF
+        -DENABLE_GOLDEN_TESTS=OFF
     )
 
-    # Помогаем CMake найти dav1d через pkg-config
-    export PKG_CONFIG_LIBDIR="$PC_DIR"
+         # -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" || return 1
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
