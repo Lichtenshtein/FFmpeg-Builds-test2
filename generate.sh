@@ -51,7 +51,7 @@ if [[ -n "$CUSTOM_ADDINS" ]]; then
 fi
 export ADDINS ADDINS_STR
 
-log_info "Active addins: ${ADDINS_STR:-none}"
+log_info "${CHECK_MARK} Active addins: ${GREY_B}${ADDINS_STR:-none}${NC}"
 
 # other early indications for "Run Download and Generate" build stage
 [[ "$DEDUPE_FLAGS" == "1" ]]   && log_info "${XCLAM_MARK} Extended deduplication for stages collected LIBS is enabled!"
@@ -141,7 +141,7 @@ for STAGE in "${active_scripts[@]}"; do
     # STAGENAME="$(basename "$STAGE" .sh)"
     # COMPONENT_NAME="${STAGENAME#*-}"
     # STAGE_HASH=$(get_stage_hash "$STAGE")
-    local STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK
+    unset STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK
     eval "$(stage_vars "$STAGE")"
     # Гранулярный поиск патчей
     # Для библиотек ищем в patches/zlib/ и т.д.
