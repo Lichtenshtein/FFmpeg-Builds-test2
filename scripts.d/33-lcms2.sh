@@ -45,6 +45,11 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
+    local PC_FILE="$PC_DIR/lcms2.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i '/^Cflags:/ s/[[:space:]]*-pthread//g' "$PC_FILE"
+    fi
+
 }
 
 ffbuild_configure() {
