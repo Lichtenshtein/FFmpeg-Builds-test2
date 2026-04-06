@@ -31,7 +31,7 @@ ffbuild_dockerbuild() {
     # Если нет .git, CMakeLists.txt не сможет определить версию. 
     # Запишем её принудительно в файл, который ожидает система сборки (если он есть)
     # или через параметры CMake.
-    local SVT_VER="2.1.0-tritium"
+    local SVT_VER="4.0.1-tritium"
 
     mkdir build && cd build
 
@@ -40,40 +40,30 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DVERSION="$SVT_VER" # Исправляем проблему с пустой версией в pkg-config
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_TESTING=OFF
-        # -DBUILD_DEC=OFF
-        # -DBUILD_ENC=ON
-        -DBUILD_APPS=OFF 
+        -DBUILD_APPS=OFF
+        -DSVT_AV1_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF )
         -DENABLE_NASM=ON
+        -DNATIVE=OFF
     )
-    # Исправляем проблему с пустой версией в pkg-config
-    myconf+=( -DVERSION="$SVT_VER" )
-
-    # Добавляем LTO если включено
-    if [[ "$USE_LTO" == "1" ]]; then
-        myconf+=( -DSVT_AV1_LTO=ON )
-    else
-        myconf+=( -DSVT_AV1_LTO=OFF )
-    fi
 
     CFLAGS="$CFLAGS $CPPFLAGS $([ "${USE_LTO}" == "1" ] && echo -ffat-lto-objects )" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS $([ "${USE_LTO}" == "1" ] && echo -ffat-lto-objects )" \
     LDFLAGS="$LDFLAGS" \
-    cmake "${myconf[@]}" .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # SVT-AV1 иногда генерирует SvtAv1Enc.pc вместо svtav1.pc
-    local PC_FILE="$PC_DIR/SvtAv1Enc.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        # FFmpeg ищет "SvtAv1Enc" (в новых версиях) или "svtav1"
-        # Сделаем копию для совместимости
-        cp "$PC_FILE" "$PC_DIR/svtav1.pc"
+    cd "$PC_DIR"
+    if [[ -f "SvtAv1Enc.pc" ]]; then
+        cp SvtAv1Enc.pc svtav1.pc
+        sed -i "s|Libs: -L\${libdir} -lSvtAv1Enc|Libs: -L\${libdir} -lSvtAv1Enc|" svtav1.pc
     fi
-
 }
 
 ffbuild_configure() {

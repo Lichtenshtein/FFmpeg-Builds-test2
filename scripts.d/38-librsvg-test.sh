@@ -36,7 +36,7 @@ ffbuild_dockerbuild() {
     export PKG_CONFIG_ALLOW_CROSS=1
 
     # Помогаем Rust найти либы C через переменные окружения
-    export RUSTFLAGS="-L native=$FFBUILD_PREFIX/lib -C linker=${FFBUILD_TOOLCHAIN}-gcc"
+    export RUSTFLAGS="${RUSTFLAGS} -L native=$FFBUILD_PREFIX/lib -C linker=${FFBUILD_TOOLCHAIN}-gcc"
 
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \

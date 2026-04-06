@@ -27,29 +27,45 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=OFF
-        -DENABLE_EXAMPLES=NO
-        -DENABLE_TESTS=NO
-        -DENABLE_DOCS=NO
-        -DENABLE_TOOLS=NO
+        -DENABLE_EXAMPLES=OFF
+        -DENABLE_TESTS=OFF
+        -DENABLE_DOCS=OFF
+        -DENABLE_TOOLS=OFF
+        -DENABLE_TESTDATA=OFF
+        -DENABLE_WERROR=OFF
         -DENABLE_CCACHE=ON
         -DENABLE_NASM=ON
         -DCONFIG_TUNE_VMAF=1
+        -DCONFIG_AV1_TEMPORAL_DENOISING 1 # def 0
+        -DCONFIG_BITRATE_ACCURACY 1 # def 0
+        -DCONFIG_SALIENCY_MAP 0 # saliency map based encode tuning for VMAF; def 0
+        -DCONFIG_CWG_C013 1 # Support for 7.x and 8.x levels; def 0
+        -DCONFIG_TFLITE 1 # tenserflow-lite static
+        -DCONFIG_THREE_PASS 0 # Enable three-pass encoding; def 0, try 1?
+        -DCONFIG_HIGHWAY 1 # Use Highway for SIMD; def 0 # hwy libjxl
+        -DCONFIG_NN_V2 0 # Fully-connected neural nets ver.2; def 0
         -DCONFIG_AV1_DECODER=1
         -DCONFIG_AV1_ENCODER=1
+        -DCONFIG_TUNE_BUTTERAUGLI=1 # libjxl
+        -DCONFIG_LIBYUV=1
         -DCONFIG_PIC=1
+        -DCONFIG_RUNTIME_CPU_DETECT=1
+        -DCONFIG_AV1_HIGHBITDEPTH=1
+        -DCONFIG_SALIENCY_MAP=1
+        # можно выключить и не тянуть лишний код контейнеров внутрь библиотеки
+        -DCONFIG_WEBM_IO=1
     )
 
-    # Пробрасываем пути к VMAF
-    # Это лечит проблемы поиска заголовков при сборке самого AOM
-    CFLAGS="$CFLAGS $CPPFLAGS -pthread -I/opt/ffbuild/include/libvmaf" \
+    CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
     cmake "${myconf[@]}" .. || return 1
+
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Добавляем VMAF в pkg-config, иначе FFmpeg не соберется статикой
-    echo "Requires.private: libvmaf" >> "$PC_DIR/aom.pc"
+    echo "Requires.private: libvmaf libyuv" >> "$PC_DIR/aom.pc"
 
 }
 

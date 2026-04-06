@@ -110,6 +110,23 @@ export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
 # Prefer positional args, fall back to ENV
 export TARGET="${1:-$TARGET}"
 export VARIANT="${2:-$VARIANT}"
+# use env vars with broadwell fallback
+export CPU_ARCH="${CPU_ARCH:-broadwell}"
+export CPU_TUNE="${CPU_TUNE:-broadwell}"
+# Build variables (inside the container)
+# just duplicate from Dockerfile for convenience
+export TOOLCHAIN_BIN="/opt/ct-ng/bin"
+export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
+export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
+export FFBUILD_CROSS_PREFIX="x86_64-w64-mingw32-"
+export FFBUILD_PREFIX="/opt/ffbuild" # Куда ставим зависимости
+export FFBUILD_DESTDIR="/opt/ffdest" # Куда кладем финальный архив ffmpeg (.7z)
+export FFBUILD_DESTPREFIX="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}"
+# directory for saving .pc files from components
+export PC_DIR="${FFBUILD_DESTPREFIX}/lib/pkgconfig"
+# directory for storing .vars files with
+# component variables and flags collected between stages
+export VARS_DIR="${FFBUILD_PREFIX}/config_vars"
 # pkg-config variables
 export PKG_CONFIG_PATH="" # don't touch
 export PKG_CONFIG_FLAGS="--static"
@@ -134,24 +151,6 @@ else
     export PKG_CONFIG_LIBS="--static --libs-only-l"
     export PKG_CONFIG_ALL_LIBS="--static --libs-only-other"
 fi
-# use env vars with broadwell fallback
-export CPU_ARCH="${CPU_ARCH:-broadwell}"
-export CPU_TUNE="${CPU_TUNE:-broadwell}"
-# Build variables (inside the container)
-# just duplicate from Dockerfile for convenience
-export TOOLCHAIN_BIN="/opt/ct-ng/bin"
-export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
-export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
-export FFBUILD_CROSS_PREFIX="x86_64-w64-mingw32-"
-export FFBUILD_PREFIX="/opt/ffbuild" # Куда ставим зависимости
-export FFBUILD_DESTDIR="/opt/ffdest" # Куда кладем финальный архив ffmpeg (.7z)
-export FFBUILD_DESTPREFIX="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}"
-# directory for saving .pc files from components
-export PC_DIR="${FFBUILD_DESTPREFIX}/lib/pkgconfig"
-# directory for storing .vars files with
-# component variables and flags collected between stages
-export VARS_DIR="${FFBUILD_PREFIX}/config_vars"
-
 # Shared project folders
 export ADDINS_DIR="${ROOT_DIR}/addins"
 export CCACHE_DIR="/root/.cache/ccache"
@@ -160,7 +159,6 @@ export SCRIPTS_DIR="${ROOT_DIR}/scripts.d"
 export TMP_DIR="${ROOT_DIR}/.cache/tmp"
 export UTIL_DIR="${ROOT_DIR}/util"
 export VARIANTS_DIR="${ROOT_DIR}/variants"
-
 # ffmpeg paths
 export FFMPEG_DIR="${ROOT_DIR}/.cache/ffmpeg"
 export FFMPEG_BUILD_ROOT="${ROOT_DIR}/ffbuild"
@@ -673,7 +671,7 @@ get_deps_list() {
         find "$pc_dir" -name "*.pc" -exec bash -c '
             pc_file="$1"; pkg_config_cmd="$2"; pc_dir="$3"; prefix="$4"
 
-            export PKG_CONFIG_LIBDIR="$pc_dir:$prefix/lib/pkgconfig:$prefix/share/pkgconfig"
+            export PKG_CONFIG_LIBDIR="$pc_dir:$prefix"
             export PKG_CONFIG_PATH="$PKG_CONFIG_LIBDIR"
             export PKG_CONFIG_SYSROOT_DIR="/"
 
@@ -694,7 +692,6 @@ get_deps_list() {
                         printf " %b•%b %-20s %b(found: %s)%b\n" "$LOG_INFO" "$NC" "$dep" "$GREY" "$ver" "$NC"
                     else
                         printf " %b• MISSING:%b %s %b(in: %s)%b\n" "$LOG_ERROR" "$NC" "$dep" "$LOG_ERROR" "$pc_dir" "$NC"
-                        echo "MISSING_DEP: $dep"
                     fi
                 done <<< "$deps"
             else
@@ -703,7 +700,7 @@ get_deps_list() {
         ' _ {} \
             "${PKG_CONFIG:-pkg-config}" \
             "$pc_dir" \
-            "$FFBUILD_PREFIX" \
+            "$PKG_CONFIG_LIBDIR" \
             "$LOG_ERROR" \
             "$NC" \
             "$XCLAM_MARK" \
@@ -770,18 +767,18 @@ get_deps_list() {
     # Output
     local error_count=0
     if [[ -f "$tmp_out" ]]; then
-        error_count=$(grep -c "MISSING_DEP:" "$tmp_out" || true)
+        error_count=$(grep -c "MISSING:" "$tmp_out" || true)
     fi
     error_count=$(( 10#${error_count:-0} ))
 
     if [[ -s "$tmp_out" ]]; then
-        log_debug "Showing dependencies for ${name}:"
-        cat "$tmp_out" >&2
         if [ "$error_count" -gt 0 ]; then
-            log_warn "Found ${error_count} missing pkg-config dependency/dependencies for ${name}!"
+            log_warn "Found ${error_count} missing pkg-config dependency/dependencies for ${name}! [Install size: ${GREY_B}${total_size}${NC}]"
         else
             log_info "${CHECK_MARK} All pkg-config dependencies satisfied for ${name}. [Install size: ${GREY_B}${total_size}${NC}]"
         fi
+        log_debug "Showing dependencies for ${name}:"
+        cat "$tmp_out" >&2
     else
         log_info "${CHECK_MARK} No dependencies found for ${name} (meta/header-only). [Install size: ${GREY_B}${total_size}${NC}]."
     fi
@@ -1099,15 +1096,15 @@ get_component_group() {
         15|16|18|19)            echo "Base Integration" ;; # Glib, XML2
         20|21|22|23|24)         echo "Hardware Integration" ;; # cdio
         25|26|27|28|29)         echo "Net" ;; # OpenSSL, Curl
- 14|17|30|31|32|33|34|36|38|39|59) echo "Core Graphics" ;; # PNG Cairo
+ 14|17|30|31|32|33|34|36|38|39) echo "Core Graphics" ;; # PNG Cairo
         40|41|42|43|44)         echo "Vulkan & Shaders" ;; # SPIR-V, Glslang
         45|46)                  echo "Hardware Acceleration API" ;; # VMAF
-        51|52|53|54|55|56)      echo "X11 & Windowing" ;; # XCB
-        57|60|61|62|63)         echo "Compute & Vision" ;; # OpenVINO, OpenCV
+        50|52|53|54|55|56)      echo "X11 & Windowing" ;; # XCB
+        57|58|59|60|61|62|63)   echo "Compute & Vision" ;; # OpenVINO, OpenCV
         64|65|66|67|68|69)      echo "Audio & Codecs" ;; #
-        37|58|70|71|72|73|74)   echo "Software Codecs" ;; # x264, x265
+        37|70|71|72|73|74)   echo "Software Codecs" ;; # x264, x265
         80|81|82|83|84)         echo "Frameservers" ;; # Vapoursynth, OpenAL
-        50|84|85|86|87|88|89)   echo "Video Extensions" ;; # Libglvnd, Xrandr
+        51|84|85|86|87|88|89)   echo "Video Extensions" ;; # Libglvnd, Xrandr
         96|97|98)               echo "LV2 & Plugins" ;; # Serd, Sord, Lilv
         99|zz)                  echo "Meta & Finalize" ;;
         *)                      echo "Other" ;;
