@@ -247,26 +247,7 @@ fi
 
 export LICENSE_FILE="COPYING.LGPLv2.1"
 
-ADDINS=()
-ADDINS_STR=""
-# Handle special flags that aren't addins
-# if [[ "$ENABLE_SHARED" == "1" ]]; then
-    # ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}shared"
-# fi
-# if [[ "$USE_LTO" == "1" ]]; then
-    # ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}lto"
-# fi
-while [[ "$#" -gt 0 ]]; do
-    # Проверяем, существует ли файл в addins
-    if [[ -f "${ADDINS_DIR}/${1}.sh" ]]; then
-        ADDINS+=("$1")
-        ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}$1"
-    else
-        # Если файла нет, просто пропускаем (это может быть lto или skip_ffmpeg)
-        log_warn "Note: Argument '$1' is not a valid addin, ignoring."
-    fi
-    shift
-done
+export ADDINS_STR="${ADDINS_STR:-}"
 
 REPO="${GITHUB_REPOSITORY:-lichtenshtein/ffmpeg-build}"
 REPO="${REPO,,}"
