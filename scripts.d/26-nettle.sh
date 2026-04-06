@@ -28,13 +28,11 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --disable-maintainer-mode
         --disable-shared
         --enable-static
         --disable-openssl
         # --disable-assembler # если будут ошибки в x86_64/*.asm
         --disable-documentation
-        --with-pic
     )
 
     CFLAGS="$CFLAGS" \

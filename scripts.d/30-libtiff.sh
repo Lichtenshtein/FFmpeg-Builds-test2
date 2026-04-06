@@ -25,6 +25,7 @@ ffbuild_dockerbuild() {
         -Dtiff-static=ON
         -Dtiff-tools=OFF
         -Dtiff-tests=OFF
+        -Dtiff-contrib=OFF
         -Dtiff-docs=OFF
         -Dtiff-opengl=OFF
         -Djpeg=OFF
@@ -39,7 +40,6 @@ ffbuild_dockerbuild() {
 
     CFLAGS="$CFLAGS $CPPFLAGS -DLIBTIFF_STATIC" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS -DLIBTIFF_STATIC" \
-    LDFLAGS="$LDFLAGS $DEP_LIBS" \
     cmake "${myconf[@]}" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1
