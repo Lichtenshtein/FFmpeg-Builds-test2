@@ -14,6 +14,35 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    # Исправляем проблему с libgit2-sys: запрещаем использовать системный libgit2
+    export LIBGIT2_NO_PKG_CONFIG=1
+    export LIBSSH2_SYS_USE_PKG_CONFIG=1
+
+    # Cargo при кросс-компиляции использует разные переменные для Хоста и Таргета
+    # Превращаем x86_64-pc-windows-gnu в X86_64_PC_WINDOWS_GNU
+    local RTARCH="${FFBUILD_RUST_TARGET//-/_}"
+    RTARCH="${RTARCH^^}"
+
+    # Принудительно задаем компилятор для ТАРГЕТА
+    export "CC_${RTARCH}"="${FFBUILD_CROSS_PREFIX}gcc"
+    export "CXX_${RTARCH}"="${FFBUILD_CROSS_PREFIX}g++"
+    export "AR_${RTARCH}"="${FFBUILD_CROSS_PREFIX}gcc-ar"
+    export "RANLIB_${RTARCH}"="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
+
+    # Флаги для ТАРГЕТА
+    export "CFLAGS_${RTARCH}"="$CFLAGS $CPPFLAGS"
+    export "CXXFLAGS_${RTARCH}"="$CXXFLAGS $CPPFLAGS"
+    export "LDFLAGS_${RTARCH}"="$LDFLAGS"
+    export RUSTFLAGS="$RUSTFLAGS"
+
+    # ОЧЕНЬ ВАЖНО: Сбрасываем общие переменные, чтобы Cargo использовал 
+    # стандартный системный GCC для сборки своих внутренних утилит (build.rs)
+    unset CC CXX AS AR RANLIB LD CFLAGS CXXFLAGS LDFLAGS
+
+    # Принудительно обновляем зависимости, чтобы избежать багов в старых версиях cc-rs
+    cargo update -p cc
+
     local myconf=(
         --prefix="${FFBUILD_PREFIX}"
         --destdir="${FFBUILD_DESTDIR}"
@@ -23,34 +52,9 @@ ffbuild_dockerbuild() {
         --release
     )
 
-    # Pulls in target-libs for host tool builds otherwise.
-    # Luckily no target libraries are needed.
-    unset PKG_CONFIG_LIBDIR
-
-    # The pinned version is broken, and upstream does not react
-    cargo update cc
-
-    export "AR_${FFBUILD_RUST_TARGET//-/_}"="${AR}"
-    export "RANLIB_${FFBUILD_RUST_TARGET//-/_}"="${RANLIB}"
-    export "NM_${FFBUILD_RUST_TARGET//-/_}"="${NM}"
-    export "LD_${FFBUILD_RUST_TARGET//-/_}"="${LD}"
-    export "CC_${FFBUILD_RUST_TARGET//-/_}"="${CC}"
-    export "CXX_${FFBUILD_RUST_TARGET//-/_}"="${CXX}"
-    export "LD_${FFBUILD_RUST_TARGET//-/_}"="${LD}"
-    export "CFLAGS_${FFBUILD_RUST_TARGET//-/_}"="${CFLAGS}"
-    export "CXXFLAGS_${FFBUILD_RUST_TARGET//-/_}"="${CXXFLAGS}"
-    export "LDFLAGS_${FFBUILD_RUST_TARGET//-/_}"="${LDFLAGS}"
-    # unset AR RANLIB NM CC CXX LD CFLAGS CXXFLAGS LDFLAGS
-    unset AR RANLIB NM CC CXX LD
-
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    LDFLAGS="$LDFLAGS" \
-    RUSTFLAGS="$RUSTFLAGS" \
     cargo cinstall $CARGO_V "${myconf[@]}" || return 1
 
-    chmod 644 "${FFBUILD_DESTPREFIX}"/lib/*rav1e*
-
+    chmod 644 "${FFBUILD_DESTPREFIX}"/lib/*rav1e* || true
 }
 
 ffbuild_configure() {
