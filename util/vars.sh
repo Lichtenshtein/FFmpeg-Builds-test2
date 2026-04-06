@@ -20,12 +20,6 @@ export YELLOW='\x1b[0;33m'      # Yellow
 export BLUE='\x1b[0;34m'        # Blue
 export PURPLE='\x1b[0;35m'      # Purple
 export CYAN='\x1b[0;36m'        # Cyan
-export RED_I='\x1b[0;91m'       # Red (Intens)
-export GREEN_I='\x1b[0;92m'     # Green (Intens)
-export YELLOW_I='\x1b[0;93m'    # Yellow (Intens)
-export BLUE_I='\x1b[0;94m'      # Blue (Intens)
-export PURPLE_I='\x1b[0;95m'    # Purple (Intens)
-export CYAN_I='\x1b[0;96m'      # Cyan (Intens)
 
 # Marks
 export CHECK_MARK="${LOG_INFO}✔${NC}"
@@ -685,7 +679,7 @@ get_deps_list() {
 
             pkg_name=$(basename "$pc_file" .pc)
 
-            printf "\n%b %bFILE:%b %s\n" "$7" "$CYAN_I" "$NC" "$pc_file"
+            printf "\n%b %bFILE:%b %s\n" "$7" "$PURPLE" "$NC" "$pc_file"
             cat "$pc_file"
 
             printf "\n%b %bDEPENDENCIES%b for %s:\n" "$8" "$PURPLE" "$NC" "$pkg_name"
@@ -697,9 +691,9 @@ get_deps_list() {
                     [[ -z "$dep" ]] && continue
                     if $pkg_config_cmd --exists "$dep" 2>/dev/null; then
                         ver=$($pkg_config_cmd --modversion "$dep" 2>/dev/null || echo "unknown")
-                        printf "%b•%b %-20s %b(found: %s)%b\n" "$LOG_INFO" "$NC" "$dep" "$GREY" "$ver" "$NC"
+                        printf " %b•%b %-20s %b(found: %s)%b\n" "$LOG_INFO" "$NC" "$dep" "$GREY" "$ver" "$NC"
                     else
-                        printf "%b• MISSING:%b %s %b(in: %s)%b\n" "$LOG_ERROR" "$NC" "$dep" "$LOG_ERROR" "$pc_dir" "$NC"
+                        printf " %b• MISSING:%b %s %b(in: %s)%b\n" "$LOG_ERROR" "$NC" "$dep" "$LOG_ERROR" "$pc_dir" "$NC"
                         echo "MISSING_DEP: $dep"
                     fi
                 done <<< "$deps"
@@ -752,7 +746,7 @@ get_deps_list() {
             if [[ -n "$clean_symbols" ]]; then
                 printf "\n%b %bEXTERNAL SYMBOLS (OBJ %b→%b %bSYM)%b in %s:\n" \
                     "$x_mark" "$YELLOW" "$GREY_B" "$YELLOW" "$YELLOW" "$NC" "$file"
-                echo "$clean_symbols" | sed "s|^|${LOG_INFO}•${NC} |"
+                echo "$clean_symbols" | sed "s|^| ${LOG_INFO}•${NC} |"
 
                 # добавляем принудительный перенос строки
                 # printf "\n"
@@ -781,12 +775,12 @@ get_deps_list() {
     error_count=$(( 10#${error_count:-0} ))
 
     if [[ -s "$tmp_out" ]]; then
-        log_debug "Showing dependencies for ${name} [Install size: ${GREY_B}${total_size}${NC}]:"
+        log_debug "Showing dependencies for ${name}:"
         cat "$tmp_out" >&2
         if [ "$error_count" -gt 0 ]; then
             log_warn "Found ${error_count} missing pkg-config dependency/dependencies for ${name}!"
         else
-            log_info "${CHECK_MARK} All pkg-config dependencies satisfied for ${name}."
+            log_info "${CHECK_MARK} All pkg-config dependencies satisfied for ${name}. [Install size: ${GREY_B}${total_size}${NC}]"
         fi
     else
         log_info "${CHECK_MARK} No dependencies found for ${name} (meta/header-only). [Install size: ${GREY_B}${total_size}${NC}]."
