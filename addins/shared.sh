@@ -1,16 +1,11 @@
 #!/bin/bash
 
-log_info "${XCLAM_MARK} SHARED Addin: Shared library build enabled"
+log_info "${XCLAM_MARK} SHARED Addin: Enabling shared library build..."
 
+# Add PIC flags for shared libraries
 ffbuild_cflags() {
     echo "-fPIC"
 }
 ffbuild_cxxflags() {
     echo "-fPIC"
-}
-
-ffbuild_ldflags() {
-    # Shared builds may need different linker flags
-    # but we let build.sh handle --enable-shared vs --disable-shared
-    return 0
 }

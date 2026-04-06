@@ -7,9 +7,6 @@ cd "$(dirname "$0")"
 # Забираем аргументы из workflow.yaml для локального использования
 TARGET="${1:-$TARGET}"
 VARIANT="${2:-$VARIANT}"
-USE_LTO="${3:-0}"
-USE_AVX512="${4:-0}"
-ENABLE_SHARED="${5:-0}"
 
 # Загружаем переменные
 source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
@@ -17,16 +14,52 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
     exit 1
 }
 
-# some early indications for "Run Download and Generate" build stage
+# build ADDINS array based on ENV VARIABLES
+ADDINS=()
+ADDINS_STR=""
+
+# Check each potential addin based on ENV variables
+if [[ "$USE_LTO" == "1" ]] && [[ -f "${ADDINS_DIR}/lto.sh" ]]; then
+    ADDINS+=("lto")
+    ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}lto"
+    log_info "${XCLAM_MARK} LTO addin enabled."
+fi
+
+if [[ "$USE_AVX512" == "1" ]] && [[ -f "${ADDINS_DIR}/avx512.sh" ]]; then
+    ADDINS+=("avx512")
+    ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}avx512"
+    log_info "${XCLAM_MARK} AVX512 addin enabled."
+fi
+
+if [[ "$ENABLE_SHARED" == "1" ]] && [[ -f "${ADDINS_DIR}/shared.sh" ]]; then
+    ADDINS+=("shared")
+    ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}shared"
+    log_info "${XCLAM_MARK} SHARED addin enabled."
+fi
+
+# Allow custom addins via CUSTOM_ADDINS env var (space-separated)
+if [[ -n "$CUSTOM_ADDINS" ]]; then
+    for addin in $CUSTOM_ADDINS; do
+        if [[ -f "${ADDINS_DIR}/${addin}.sh" ]]; then
+            ADDINS+=("$addin")
+            ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}${addin}"
+            log_info "${XCLAM_MARK} Custom addin enabled: $addin"
+        else
+            log_warn "Custom addin not found: ${ADDINS_DIR}/${addin}.sh"
+        fi
+    done
+fi
+export ADDINS ADDINS_STR
+
+log_info "Active addins: ${ADDINS_STR:-none}"
+
+# other early indications for "Run Download and Generate" build stage
 [[ "$DEDUPE_FLAGS" == "1" ]]   && log_info "${XCLAM_MARK} Extended deduplication for stages collected LIBS is enabled!"
 [[ "$FFMPEG_PATCHES" == "1" ]] && log_info "${XCLAM_MARK} Custom patches for FFmpeg are activated!"
 [[ "$SAFE_CONFIGURE" == "1" ]] && log_info "${XCLAM_MARK} Safe FFmpeg flags configuration is enabled!"
 [[ "$SKIP_FFMPEG" == "1" ]]    && log_info "${XCLAM_MARK} Component test mode activated! FFmpeg compilation will be skipped."
-[[ "$USE_AVX512" == "1" ]]     && log_info "${XCLAM_MARK} AVX512 is enabled!"
-[[ "$USE_LTO" == "1" ]]        && log_info "${XCLAM_MARK} LTO is enabled!"
 [[ "$USE_OPENMP" == "1" ]]     && log_info "${XCLAM_MARK} Open Multi-Processing runtime for shared-memory parallel programming is enabled!"
 [[ "$SHADERC_UPDATE" == "1" ]] && log_info "${XCLAM_MARK} Shaderc dependencies will be updated from the local DEPS file."
-[[ "$ENABLE_SHARED" == "1" ]]  && log_info "${XCLAM_MARK} Shared builds are enabled."
 
 echo -n "" > Dockerfile # Явно очищаем файл перед началом записи
 to_df() { echo "$*" >> Dockerfile; }
@@ -105,9 +138,11 @@ done
 
 # Генерируем блоки RUN для каждой стадии
 for STAGE in "${active_scripts[@]}"; do
-    STAGENAME="$(basename "$STAGE" .sh)"
-    COMPONENT_NAME="${STAGENAME#*-}"
-    STAGE_HASH=$(get_stage_hash "$STAGE")
+    # STAGENAME="$(basename "$STAGE" .sh)"
+    # COMPONENT_NAME="${STAGENAME#*-}"
+    # STAGE_HASH=$(get_stage_hash "$STAGE")
+    local STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK
+    eval "$(stage_vars "$STAGE")"
     # Гранулярный поиск патчей
     # Для библиотек ищем в patches/zlib/ и т.д.
     PATCH_PATH="${PATCHES_DIR}/${COMPONENT_NAME}"

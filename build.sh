@@ -123,21 +123,21 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
 fi
 
 # загружаем целевой вариант со своими --enable флагами ffbuild_configure()
-source "${VARIANTS_DIR}/${TARGET}-${VARIANT}.sh"
+# source "${VARIANTS_DIR}/${TARGET}-${VARIANT}.sh"
 # for addin in ${ADDINS[*]}; do
     # source "${ADDINS_STR}/${addin}.sh"
 # done
-# ADDINS_STR is a dash-separated string like "lto-avx512"
-# Split it and source each addin
 if [[ -n "$ADDINS_STR" ]]; then
     IFS='-' read -ra ADDINS_ARRAY <<< "$ADDINS_STR"
     for addin in "${ADDINS_ARRAY[@]}"; do
         [[ -z "$addin" ]] && continue
-        if [[ -f "${ADDINS_DIR}/${addin}.sh" ]]; then
-            log_debug "Sourcing addin: ${addin}.sh"
-            source "${ADDINS_DIR}/${addin}.sh"
+        addin_file="${ADDINS_DIR}/${addin}.sh"
+        if [[ -f "$addin_file" ]]; then
+            log_debug "Sourcing addin: $addin"
+            source "$addin_file"
         else
-            log_warn "Addin not found: ${ADDINS_DIR}/${addin}.sh"
+            log_error "Addin file not found: $addin_file"
+            exit 1
         fi
     done
 fi
