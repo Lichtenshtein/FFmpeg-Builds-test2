@@ -40,7 +40,6 @@ stage_cleanup() {
     local duration=$SECONDS
     local elapsed=$(printf '%02dh:%02dm:%02ds' $((duration/3600)) $((duration%3600/60)) $((duration%60)))
     local BUILD_DIR="/build/${STAGENAME}"
-    cd "$BUILD_DIR" # as we are at some '_build' folder inside STAGENAME right now
 
     if [[ $exit_code -eq 0 ]]; then
         # Успех: чистим всё; NOTE: Should keep "$VARS_DIR" & "$OUTFILE"
@@ -49,6 +48,7 @@ stage_cleanup() {
         rm -f "$STAGE_LOG" "$TIMESTAMP_FILE"
         log_info "${CHECK_MARK} Build ${GREEN}SUCCEEDED${NC} for ${STAGENAME} [Time: ${GREY_B}${elapsed}${NC}]"
     else
+        cd /
         # Неудача: дампим логи
         log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${GREY_B}${elapsed}${NC}"
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
@@ -58,6 +58,10 @@ stage_cleanup() {
             if [[ -n "$LOG_FILES" ]]; then
                 # Удача: выводим найденные логи систем сборки
                 for logfile in $LOG_FILES; do
+                    # Skip if this is the same as STAGE_LOG (already captured)
+                    if [[ "$(readlink -f "$logfile")" == "$(readlink -f "$STAGE_LOG")" ]]; then
+                        continue
+                    fi
                     log_debug "${LOGS_MARK} ▼ CONTENT OF $(basename "$logfile") (last 300 lines) ▼"
                     tail -n 300 "$logfile" >&2
                     log_debug "${LOGS_MARK} ▲ END OF $(basename "$logfile") ▲"
@@ -88,7 +92,6 @@ stage_cleanup() {
             fi
         fi
         # Чистка после падения
-        cd /
         rm -rf "$BUILD_DIR" "$VARS_DIR" "$STAGE_LOG" "$TIMESTAMP_FILE" "$OUTFILE"
     fi
 }
