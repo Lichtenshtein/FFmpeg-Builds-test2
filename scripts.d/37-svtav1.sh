@@ -7,7 +7,7 @@
 # SCRIPT_COMMIT2="16b4c9449883298c87dde012a76e64ec0d8c78da"
 
 SCRIPT_REPO3="https://github.com/Uranite/svt-av1-tritium.git"
-SCRIPT_COMMIT3="640901fe04c735099bd4318064f747e8a36e2003"
+SCRIPT_COMMIT3="8ee7ff4f017a8a136535308910a8484bcb187d4f"
 
 # SCRIPT_REPO4="https://github.com/BlueSwordM/svt-av1-hdr.git"
 # SCRIPT_COMMIT4="f6e65133f2317b996a95f413e964289300d6dbfd"
@@ -27,31 +27,38 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     # ФИКС ВЕРСИИ (SVT-AV1 специфичный)
     # Если нет .git, CMakeLists.txt не сможет определить версию. 
     # Запишем её принудительно в файл, который ожидает система сборки (если он есть)
     # или через параметры CMake.
     local SVT_VER="4.0.1-tritium"
 
-    mkdir build && cd build
+    rm -rf _build && mkdir _build && cd _build
 
     local myconf=(
-        -G "Unix Makefiles"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DVERSION="$SVT_VER" # Исправляем проблему с пустой версией в pkg-config
+        -DVERSION_TAG="$SVT_VER"
         -DBUILD_SHARED_LIBS=OFF
         -DBUILD_TESTING=OFF
         -DBUILD_APPS=OFF
         -DSVT_AV1_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF )
-        -DENABLE_NASM=ON
         -DNATIVE=OFF
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS $([ "${USE_LTO}" == "1" ] && echo -ffat-lto-objects )" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $([ "${USE_LTO}" == "1" ] && echo -ffat-lto-objects )" \
+    if [[ "$USE_LTO" == "1" ]]; then
+        myconf+=( -DSVT_AV1_LTO=ON )
+        export CFLAGS="$CFLAGS -ffat-lto-objects"
+        export CXXFLAGS="$CXXFLAGS -ffat-lto-objects"
+    else
+        myconf+=( -DSVT_AV1_LTO=OFF )
+    fi
+
+    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
@@ -59,10 +66,11 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # SVT-AV1 иногда генерирует SvtAv1Enc.pc вместо svtav1.pc
-    cd "$PC_DIR"
-    if [[ -f "SvtAv1Enc.pc" ]]; then
-        cp SvtAv1Enc.pc svtav1.pc
-        sed -i "s|Libs: -L\${libdir} -lSvtAv1Enc|Libs: -L\${libdir} -lSvtAv1Enc|" svtav1.pc
+    mkdir -p "$PC_DIR"
+    if [[ -f "$PC_DIR/SvtAv1Enc.pc" ]]; then
+        cp  "$PC_DIR/SvtAv1Enc.pc"  "$PC_DIR/svtav1.pc"
+        sed -i "s|Libs: -L\${libdir} -lSvtAv1Enc|Libs: -L\${libdir} -lSvtAv1Enc|" "$PC_DIR/SvtAv1Enc.pc"
+        sed -i "s|Libs: -L\${libdir} -lSvtAv1Enc|Libs: -L\${libdir} -lSvtAv1Enc|" "$PC_DIR/svtav1.pc"
     fi
 }
 
