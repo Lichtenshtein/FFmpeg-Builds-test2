@@ -65,6 +65,10 @@ ffbuild_dockerbuild() {
 
 }
 
+ffbuild_libs() {
+    echo "-lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv"
+}
+
 ffbuild_cppflags() {
     echo "-DWEBP_STATIC"
 }
