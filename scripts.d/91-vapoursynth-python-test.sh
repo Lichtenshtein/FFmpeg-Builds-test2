@@ -105,15 +105,18 @@ EOF
     export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig"
     mkdir -p build
 
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DVAPOURSYNTH_STATIC"
+
     # Мы собираем vsscript как SHARED, так как он ОБЯЗАН грузить python3.dll
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
         --cross-file=/cross.meson \
         --cross-file python_fix.ini \
         --buildtype release \
-        --default-library static \
-        -Dc_args="$CFLAGS $CPPFLAGS" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
+        --default-library $([ "${PREFER_SHARED}" == "1" ] && echo static || echo shared) \
+        -Dc_args="$CFLAGS $CPPFLAGS $static_flags" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags" \
         -Dc_link_args="$LDFLAGS" \
         -Dcpp_link_args="$LDFLAGS" \
         -Dcpp_std=c++17 \
@@ -149,7 +152,7 @@ Description: A frameserver for the 21st century
 Version: 74
 Libs: -L\${libdir} -lvapoursynth
 Libs.private: -lstdc++ -lwinmm
-Cflags: -I\${includedir} -DVAPOURSYNTH_STATIC
+Cflags: -I\${includedir} $static_flags
 EOF
 
     cat <<EOF > "$PC_DIR/vapoursynth-script.pc"
@@ -167,7 +170,7 @@ EOF
 }
 
 ffbuild_cflags() {
-    echo "-DVAPOURSYNTH_STATIC"
+    echo "$static_flags"
 }
 
 ffbuild_libs() {

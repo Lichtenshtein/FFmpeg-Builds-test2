@@ -19,18 +19,22 @@ ffbuild_dockerbuild() {
     mkdir build/linux
     cd build/linux
 
+    local myconf=(
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCOMPILE_10BIT=1
+        -DCOMPILE_FFMPEG=ON
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+    )
+
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DCOMPILE_10BIT=1 \
-        -DCOMPILE_FFMPEG=ON \
-        -DBUILD_SHARED_LIBS=NO ../.. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Just in case to detect header files default before FFmpeg
     cp -f "$FFBUILD_DESTPREFIX"/include/uavs3e/uavs3e.h "$FFBUILD_DESTPREFIX"/include

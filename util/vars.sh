@@ -180,7 +180,7 @@ export SKIP_PRE_PATCH=0
 export SKIP_POST_PATCH=0
 export SKIP_POST_CLEAN=0
 export SKIP_POST_AUDIT=0
-export USE_CONF_FINDER=1
+export USE_CONF_FINDER=0
 
 # Create the base structure if it doesn't exist
 if [[ -d "/builder" ]]; then
@@ -193,7 +193,11 @@ mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 [[ "$USE_OPENMP" == "1" ]] && OPENMP_C=" -fopenmp" && OPENMP_LIB="-lgomp "
 
 BASE_CFLAGS="-mms-bitfields -fstack-protector-strong${OPENMP_C}"
-BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
+if [[ "$TARGET" == "win64" ]]; then
+    BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
+else
+    BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -D_FORTIFY_SOURCE=2"
+fi
 SYSTEM_LIBS="${OPENMP_LIB}-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
 ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lnormaliz"
 
@@ -203,17 +207,14 @@ export CPPFLAGS="-I/opt/ffbuild/include ${BASE_CPPFLAGS}"
 export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu++17"
 if [[ "$PREFER_SHARED" == "1" ]]; then
     export LDFLAGS="-L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+    export RUSTFLAGS="-C target-cpu=${CPU_ARCH}"
 else
     export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+    export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH}"
 fi
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
-if [[ "$TARGET" == *"win"* ]]; then
-    export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH}"
-else
-    export RUSTFLAGS="-C target-cpu=${CPU_ARCH}"
-fi
 # Обработка флагов, специфичных для Linux ELF
-if [[ "$TARGET" == *"win"* ]]; then
+if [[ "$TARGET" == "win64" ]]; then
     # бесполезно при сборке под Windows и ломает OpenSSL asm вместе с std=c11
     export CFLAGS="${CFLAGS//-fno-semantic-interposition/}"
     export CXXFLAGS="${CXXFLAGS//-fno-semantic-interposition/}"

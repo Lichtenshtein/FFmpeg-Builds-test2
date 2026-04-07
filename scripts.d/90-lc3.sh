@@ -18,7 +18,7 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --buildtype=release
-        --default-library=static
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dc_std=c11
         -Dcpp_std=c++17
     )
@@ -27,9 +27,6 @@ ffbuild_dockerbuild() {
         myconf+=(
             --cross-file=/cross.meson
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     meson setup "${myconf[@]}" .. \

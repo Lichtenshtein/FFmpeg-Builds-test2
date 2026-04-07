@@ -35,8 +35,6 @@ ffbuild_dockerbuild() {
         --without-docs
         --without-modules
         --disable-maintainer-mode
-        --disable-shared
-        --enable-static
         --with-pic
         --with-icu
         --with-thread-alloc
@@ -46,12 +44,18 @@ ffbuild_dockerbuild() {
         --with-tls
     )
 
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
+
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBXML_STATIC -DXML_STATIC"
 
     # Принудительно задаем AR как gcc-ar для стабильности архивации
     ./autogen.sh "${myconf[@]}" \
-        CFLAGS="$CFLAGS -DLIBXML_STATIC -DXML_STATIC" \
-        CPPFLAGS="$CPPFLAGS -DLIBXML_STATIC -DXML_STATIC" \
+        CFLAGS="$CFLAGS $static_flags" \
+        CPPFLAGS="$CPPFLAGS" \
         LDFLAGS="$LDFLAGS" \
         LIBS="$DEP_LIBS" \
         AR="${FFBUILD_TOOLCHAIN}-gcc-ar" \
@@ -72,13 +76,13 @@ ffbuild_dockerbuild() {
     local PC_FILE="$PC_DIR/libxml-2.0.pc"
     if [[ -f "$PC_FILE" ]]; then
         sed -i "s/ -DLIBXML_STATIC//g; s/ -DXML_STATIC//g" "$PC_FILE"
-        sed -i "/^Cflags:/ s/$/ -DLIBXML_STATIC -DXML_STATIC/" "$PC_FILE"
+        sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
     fi
 
 }
 
 ffbuild_cppflags() {
-    echo "-DLIBXML_STATIC -DXML_STATIC"
+    echo "$static_flags"
 }
 
 ffbuild_configure() {

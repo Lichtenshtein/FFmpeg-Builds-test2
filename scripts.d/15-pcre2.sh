@@ -26,8 +26,6 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --enable-static
-        --disable-shared
         --enable-pcre2-8
         #--enable-pcre2-16
         #--enable-pcre2-32
@@ -38,11 +36,18 @@ ffbuild_dockerbuild() {
         --enable-newline-is-anycrlf
     )
 
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
+
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DPCRE2_STATIC"
+
     CFLAGS="$CFLAGS" \
     LDFLAGS="$LDFLAGS" \
     LIBS="$DEP_LIBS" \
-    CPPFLAGS="$CPPFLAGS -DPCRE2_STATIC" \
-    CXXFLAGS="$CXXFLAGS -DPCRE2_STATIC" \
+    CPPFLAGS="$CPPFLAGS $static_flags" \
+    CXXFLAGS="$CXXFLAGS $static_flags" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
@@ -50,8 +55,8 @@ ffbuild_dockerbuild() {
 
     for pc in "$PC_DIR"/*pcre2*.pc; do
         [[ -e "$pc" ]] || continue
-        if ! grep -q "DPCRE2_STATIC" "$pc"; then
-            sed -i '/^Cflags:/ s/$/ -DPCRE2_STATIC/' "$pc"
+        if ! grep -q "$static_flags" "$pc"; then
+            sed -i '/^Cflags:/ s/$/ $static_flags/' "$pc"
         fi
         sed -i '/^Libs.private:/d' "$pc"
         echo "Libs.private: $DEP_LIBS" >> "$pc"

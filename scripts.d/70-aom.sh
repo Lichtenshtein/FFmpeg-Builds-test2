@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DBUILD_SHARED_LIBS=OFF
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DENABLE_EXAMPLES=OFF
         -DENABLE_TESTS=OFF
         -DENABLE_DOCS=OFF

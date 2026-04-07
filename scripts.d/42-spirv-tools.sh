@@ -19,18 +19,17 @@ ffbuild_dockerbuild() {
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_BUILD_TYPE=Release
-        -DBUILD_SHARED_LIBS=OFF
-        -DSPIRV_TOOLS_BUILD_SHARED=OFF
-        -DSPIRV_TOOLS_BUILD_STATIC=ON
         -DSKIP_SPIRV_TOOLS_INSTALL=OFF
         -DSPIRV_CHECK_CONTEXT=OFF
         -DSPIRV_SKIP_EXECUTABLES=ON
         -DSPIRV_SKIP_TESTS=ON
-        -DSPIRV_TOOLS_BUILD_STATIC=ON
-        -DSPIRV_TOOLS_LIBRARY_TYPE=STATIC
+        -DSPIRV_TOOLS_BUILD_SHARED=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)F
+        -DSPIRV_TOOLS_BUILD_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
+        -DSPIRV_TOOLS_LIBRARY_TYPE=$([ "${PREFER_SHARED}" == "1" ] && echo SHARED || echo STATIC)
         -DSPIRV_WARN_EVERYTHING=OFF
-        -DSPIRV_WERROR=OFF        # Указываем путь к уже собранным spirv-headers
+        -DSPIRV_WERROR=OFF # Указываем путь к уже собранным spirv-headers
         -DSPIRV-Headers_SOURCE_DIR="$FFBUILD_PREFIX"
     )
 

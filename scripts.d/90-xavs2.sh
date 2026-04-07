@@ -32,7 +32,6 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --disable-cli
-        --enable-static
         --enable-pic
         --enable-strip
         --bit-depth=10
@@ -47,6 +46,9 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
     )
 
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     if [[ $TARGET == win* ]]; then

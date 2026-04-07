@@ -24,20 +24,29 @@ ffbuild_dockerbuild() {
     mkdir build
     cd build
 
+    local myconf=(
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DARIBCC_SHARED_LIBRARY=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DARIBCC_BUILD_TESTS=OFF
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DARIBCC_USE_FREETYPE=ON
+        -DARIBCC_USE_EMBEDDED_FREETYPE=OFF
+        -DARIBCC_USE_FONTCONFIG=ON
+        -DARIBCC_USE_DIRECTWRITE=ON
+        -DARIBCC_USE_GDI_FONT=OFF
+        -DARIBCC_NO_RENDERER=OFF
+        -DARIBCC_NO_RTTI=OFF
+        -DARIBCC_NO_EXCEPTIONS=OFF
+    )
+
     CFLAGS="$CFLAGS $CPPFLAGS -DHAVE_OPENSSL=1" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -G Ninja \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DARIBCC_SHARED_LIBRARY=OFF \
-        -DARIBCC_BUILD_TESTS=OFF \
-        -DBUILD_SHARED_LIBS=OFF \
-        -DARIBCC_USE_FREETYPE=ON \
-        -DARIBCC_USE_EMBEDDED_FREETYPE=OFF .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    ninja -j$(nproc) $NINJA_V || return 1
+    ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     echo "Libs.private: -lstdc++ -lcrypto" >> "$PC_DIR/libaribcaption.pc"

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/zapping-vbi/zvbi"
+SCRIPT_REPO="https://github.com/zapping-vbi/zvbi.git"
 SCRIPT_COMMIT="41477c97c8edf7a01f1594b2a95b94f0117eed21"
 
 ffbuild_depends() {
@@ -22,8 +22,6 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
-        --disable-shared
-        --enable-static
         --with-pic
         --without-doxygen
         --without-x
@@ -33,13 +31,14 @@ ffbuild_dockerbuild() {
         --disable-proxy
     )
 
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
+
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
         myconf+=(
             --host="$FFBUILD_TOOLCHAIN"
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     CFLAGS="$CFLAGS" \

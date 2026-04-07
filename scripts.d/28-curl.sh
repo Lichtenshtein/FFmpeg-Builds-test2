@@ -40,8 +40,6 @@ ffbuild_dockerbuild() {
         --host="$FFBUILD_TOOLCHAIN"
         --target="$FFBUILD_TOOLCHAIN"
         --with-sysroot="$FFBUILD_SYSROOT"
-        --disable-shared
-        --enable-static
         --disable-debug
         --enable-optimize
         --enable-threaded-resolver
@@ -71,11 +69,17 @@ ffbuild_dockerbuild() {
         --disable-docs
     )
 
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBSSH_STATIC -DBROTLI_STATIC" && self_static_flags="-DCURL_STATICLIB"
+
     CFLAGS="$CLEAN_CFLAGS" \
-    CPPFLAGS="$CPPFLAGS -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC" \
-    CXXFLAGS="$CXXFLAGS -DCURL_STATICLIB -DLIBSSH_STATIC -DBROTLI_STATIC" \
+    CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
+    CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags" \
     LDFLAGS="$LDFLAGS" \
     LIBS="$DEP_LIBS $WIN_LIBS" \
     ./configure "${myconf[@]}" || return 1
@@ -94,8 +98,8 @@ ffbuild_dockerbuild() {
         sed -i "/^Libs\.private:/d" "$PC_FILE"
         echo "Libs.private: $DEP_LIBS $WIN_LIBS" >> "$PC_FILE"
         # Убеждаемся, что макрос статики на месте
-        if ! grep -q "DCURL_STATICLIB" "$PC_FILE"; then
-            sed -i "/^Cflags:/ s/$/ -DCURL_STATICLIB/" "$PC_FILE"
+        if ! grep -q "$self_static_flags" "$PC_FILE"; then
+            sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$PC_FILE"
         fi
     fi
 
@@ -106,7 +110,7 @@ ffbuild_libs() {
 }
 
 ffbuild_cppflags() {
-    echo "-DCURL_STATICLIB"
+    echo "$self_static_flags"
 }
 
 ffbuild_configure() {

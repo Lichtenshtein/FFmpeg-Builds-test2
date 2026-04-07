@@ -25,7 +25,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
-        -DBUILD_SHARED_LIBS=OFF
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DALLOW_EXTERNAL_SPIRV_TOOLS=ON # OFF=ЗАПРЕЩАЕМ искать внешние SPIRV-Tools
         -DGLSLANG_TESTS=OFF
         -DGLSLANG_ENABLE_INSTALL=ON
@@ -41,9 +41,10 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake "${myconf[@]}" .. || return 1
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
+
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Исправление для корректной линковки в FFmpeg (иногда CMake не копирует все хедеры)
     cp -r ../glslang/Public "$FFBUILD_DESTPREFIX/include/glslang"

@@ -20,18 +20,17 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
-        --disable-shared
-        --enable-static
         --with-pic
     )
+
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
 
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
         myconf+=(
             --host="$FFBUILD_TOOLCHAIN"
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     CFLAGS="$CFLAGS" \

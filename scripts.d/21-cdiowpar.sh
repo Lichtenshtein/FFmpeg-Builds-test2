@@ -41,14 +41,16 @@ EOF
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --disable-shared
-        --enable-static
         --disable-example-progs
         --disable-maintainer-mode
         --enable-cpp-progs=no
         --with-pic
         ac_cv_func_clock_gettime=no
     )
+
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
 
     CFLAGS="$CFLAGS" \
     CPPFLAGS="$CPPFLAGS" \

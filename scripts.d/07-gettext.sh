@@ -19,19 +19,23 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --disable-shared
-        --enable-static
         --disable-java
         --disable-native-java
         --disable-csharp
         --disable-libasprintf
-        --disable-openmp
         # --disable-nls
         --with-libiconv-prefix="$FFBUILD_PREFIX"
         --with-pic
         --with-included-gettext
         --enable-relocatable
     )
+
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
+    [[ "${USE_OPENMP}" == "1" ]] && \
+        myconf+=( --enable-openmp ) || \
+        myconf+=( --disable-openmp )
 
     CFLAGS="$CFLAGS -Dasm=__asm__" \
     CPPFLAGS="$CPPFLAGS" \

@@ -15,25 +15,28 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
+    local myconf=(
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_DISABLE_FIND_PACKAGE_SDL2=1
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DGME_BUILD_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
+        -DGME_BUILD_FRAMEWORK=OFF
+        -DGME_BUILD_TESTING=OFF
+        -DGME_BUILD_EXAMPLES=OFF
+        -DGME_SPC_ISOLATED_ECHO_BUFFER=ON
+        -DGME_ZLIB=ON
+        -DENABLE_UBSAN=OFF
+    )
+
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DCMAKE_DISABLE_FIND_PACKAGE_SDL2=1 \
-        -DBUILD_SHARED_LIBS=OFF \
-        -DGME_BUILD_STATIC=ON \
-        -DGME_BUILD_FRAMEWORK=OFF \
-        -DGME_BUILD_TESTING=OFF \
-        -DGME_BUILD_EXAMPLES=OFF \
-        -DGME_SPC_ISOLATED_ECHO_BUFFER=ON \
-        -DGME_ZLIB=ON \
-        -DENABLE_UBSAN=OFF .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
-
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 }
 
 ffbuild_configure() {

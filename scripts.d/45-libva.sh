@@ -9,10 +9,6 @@ ffbuild_depends() {
 }
 
 ffbuild_enabled() {
-    [[ $ADDINS_STR == *4.4* && $TARGET == win* ]] && return 1
-    [[ $ADDINS_STR == *5.0* && $TARGET == win* ]] && return 1
-    [[ $ADDINS_STR == *5.1* && $TARGET == win* ]] && return 1
-    [[ $ADDINS_STR == *6.0* && $TARGET == win* ]] && return 1
     [[ $TARGET == linuxarm64 ]] && return 1
     return 0
 }
@@ -45,7 +41,7 @@ ffbuild_dockerbuild() {
     if [[ $TARGET == linux64 ]]; then
         myconf+=(
             --cross-file=/cross.meson
-            --default-library=shared
+            --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
             --sysconfdir="/etc"
             -Ddriverdir="/usr/lib/x86_64-linux-gnu/dri"
             -Ddisable_drm=false
@@ -56,12 +52,9 @@ ffbuild_dockerbuild() {
     elif [[ $TARGET == win* ]]; then
         myconf+=(
             --cross-file=/cross.meson
-            --default-library=static
+            --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
             -Dwith_win32=yes
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     meson setup "${myconf[@]}" .. \
