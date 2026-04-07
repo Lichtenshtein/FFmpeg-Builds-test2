@@ -175,11 +175,12 @@ export FFMPEG_HASH_FILE="${FFMPEG_DIR}/.current_commit" # хеш последн�
 # Helper hooks to skip .la files, dependancies and .pc files auditing
 # add ffbuild_dockerbuild() { export SKIP_POST_PATCH=1 } to disable
 # add SKIP_PRE_PATCH=1 to the top of the script
+# add USE_CONF_FINDER=1 for crooked autogen scripts
 export SKIP_PRE_PATCH=0
 export SKIP_POST_PATCH=0
 export SKIP_POST_CLEAN=0
 export SKIP_POST_AUDIT=0
-export SKIP_CONF_FINDER=0
+export USE_CONF_FINDER=1
 
 # Create the base structure if it doesn't exist
 if [[ -d "/builder" ]]; then
@@ -814,38 +815,58 @@ export -f clean_la_files
 # 4. Max Fuzz (fuzz=3)
 apply_patches() {
     local PATCH_DIR="$PATCHES_DIR/$COMPONENT_NAME"
+    [[ -d "$PATCH_DIR" ]] || { log_info "${CHECK_MARK} No patches found for $COMPONENT_NAME"; return 0; }
 
-    if [[ -d "$PATCH_DIR" ]]; then
-        # Ensure there are actually .patch files to avoid loop errors
-        shopt -s nullglob
-        for patch in "$PATCH_DIR"/*.patch; do
-            log_info "${TARGET_MARK} APPLYING PATCH: $(basename "$patch")"
-            local strategies=(
-                "-p1 -N -r -"
-                "-p1 -N -r - --binary"
-                "-p1 -N -r - -l"
-                "-p1 -N -r - -l --fuzz=3"
-            )
-
-            local success=false
-            for opts in "${strategies[@]}"; do
+    shopt -s nullglob
+    for patch in "$PATCH_DIR"/*.patch; do
+        log_info "${TARGET_MARK} APPLYING PATCH: $(basename "$patch")"
+        local strategies_git=(
+            "git am --ignore-space-change --whitespace=fix"
+            "git am --ignore-space-change --whitespace=fix --reject"
+        )
+        local strategies_patch=(
+            "-p1 -N -r -"
+            "-p1 -N -r - --binary"
+            "-p1 -N -r - -l"
+            "-p1 -N -r - -l --fuzz=3"
+        )
+        local success=false
+        local last_output=""
+        # Try git am first (works best for git-format patches)
+        if [[ -d ".git" ]]; then
+            for opts in "${strategies_git[@]}"; do
+                log_debug "Trying: $opts"
+                last_output=$($opts < "$patch" 2>&1)
+                if [[ $? -eq 0 ]]; then
+                    log_info "${CHECK_MARK} SUCCESS: Applied with [$opts]"
+                    success=true
+                    break
+                else
+                    # git am leaves state on failure - must abort
+                    git am --abort 2>/dev/null || true
+                fi
+            done
+        fi
+        # Fall back to patch utility
+        if [[ "$success" == "false" ]]; then
+            for opts in "${strategies_patch[@]}"; do
                 log_debug "Trying: patch $opts"
-                if patch $opts < "$patch" >/dev/null 2>&1; then
+                last_output=$(patch $opts < "$patch" 2>&1)
+                if [[ $? -eq 0 ]]; then
                     log_info "${CHECK_MARK} SUCCESS: Applied with [$opts]"
                     success=true
                     break
                 fi
             done
-
-            if [ "$success" = false ]; then
-                log_error "FAILED: All attempts to apply $(basename "$patch") failed."
-                # return 1 # не прерывать сборку при ошибках
-            fi
-        done
-        shopt -u nullglob
-    else
-        log_info "${CHECK_MARK} No patches found for $COMPONENT_NAME"
-    fi
+        fi
+        if [[ "$success" == "false" ]]; then
+            log_error "FAILED: All attempts to apply $(basename "$patch") failed."
+            # Show why it failed
+            log_debug "Last patch attempt output:\n${last_output}"
+            # return 1 # прервать сборку при ошибках
+        fi
+    done
+    shopt -u nullglob
 }
 export -f apply_patches
 
@@ -995,21 +1016,22 @@ setup_wine_env() {
 export -f setup_wine_env
 
 conf_finder() {
-    # Если переменная SKIP_CONF_FINDER установлена, ничего не делаем
-    [[ "$SKIP_CONF_FINDER" == "1" ]] && return 0
+    # Opt-IN: only run if script explicitly requests it
+    [[ "$USE_CONF_FINDER" != "1" ]] && return 0
+
     if [[ ! -f "configure" && ( -f "configure.ac" || -f "configure.in" ) ]]; then
-        log_info "${SYNC_MARK} No 'configure' script found, but 'configure.ac' exists."
+        log_info "${SYNC_MARK} conf_finder: No 'configure' found, regenerating..."
         if [[ -f "autogen.sh" ]]; then
             log_info "Running ./autogen.sh..."
             chmod +x autogen.sh
-            ./autogen.sh || { log_error "autogen.sh failed"; exit 1; }
+            ./autogen.sh || { log_error "autogen.sh failed"; return 1; }
         elif [[ -f "bootstrap" ]]; then
             log_info "Running ./bootstrap..."
             chmod +x bootstrap
-            ./bootstrap || { log_error "bootstrap failed"; exit 1; }
+            ./bootstrap || { log_error "bootstrap failed"; return 1; }
         else
             log_info "Running autoreconf -fi..."
-            autoreconf -fi || { log_error "autoreconf failed"; exit 1; }
+            autoreconf -fi || { log_error "autoreconf failed"; return 1; }
         fi
     fi
 }

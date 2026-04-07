@@ -180,20 +180,8 @@ if [[ -n "$DL_COMMANDS" ]]; then
         if ! tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C . ; then log_error "Failed to unpack $(basename "$REAL_CACHE")"; exit 1; fi
     fi
 
-    # АВТО-ПАТЧИНГ
-    if [[ "$SKIP_PRE_PATCH" == "0" ]]; then
-        log_info "${SEARCH_MARK} Checking for patches for ${STAGENAME}..."
-        if [[ -d "$PATCHES_DIR/$COMPONENT_NAME" ]]; then
-            apply_patches 
-        else
-            log_info "${CHECK_MARK} No patches found."
-        fi
-    else
-        log_info "Skipping patches for $STAGENAME"
-    fi
-
     # АВТО-ПОИСК корня проекта (если архив распаковался в подпапку)
-    if [[ "$SKIP_CONF_FINDER" != "1" ]] && [[ ! -f "Configure" && ! -f "configure" && ! -f "CMakeLists.txt" && ! -f "meson.build" ]]; then
+    if [[ "$USE_CONF_FINDER" != "1" ]] && [[ ! -f "Configure" && ! -f "configure" && ! -f "CMakeLists.txt" && ! -f "meson.build" ]]; then
         log_warn "No build file in root. ${SEARCH_MARK} Searching one level deeper..."
         CANDIDATE=$(find . -maxdepth 2 \( -name "Configure" -o -name "configure" -o -name "CMakeLists.txt" -o -name "meson.build" \) -printf '%h\n' | head -n 1)
         if [[ -n "$CANDIDATE" ]]; then
@@ -206,6 +194,18 @@ if [[ -n "$DL_COMMANDS" ]]; then
     if [[ -z "$(ls -A)" ]]; then
         log_error "ERROR: Build directory is empty after unpacking/downloading $STAGENAME!"
         exit 1
+    fi
+
+    # АВТО-ПАТЧИНГ
+    if [[ "$SKIP_PRE_PATCH" == "0" ]]; then
+        log_info "${SEARCH_MARK} Checking for patches for ${STAGENAME}..."
+        if [[ -d "$PATCHES_DIR/$COMPONENT_NAME" ]]; then
+            apply_patches 
+        else
+            log_info "${CHECK_MARK} No patches found."
+        fi
+    else
+        log_info "Skipping patches for $STAGENAME"
     fi
 
     # if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
@@ -269,8 +269,7 @@ log_info "### Starting build function: $build_cmd"
 log_info_line
 
 # Generate the 'configure' file (if it doesn't exist) for Autoconf
-# This function causes more problems then expected
-# conf_finder
+conf_finder
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_debug "Verbose mode active. Build output will be shown in real-time."
@@ -314,7 +313,7 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         log_warn "Stage $STAGENAME finished but no files were found in DESTDIR."
     fi
 
-    if [[ ! "$PREFER_SHARED" == "1" ]]; then
+    if [[ "$PREFER_SHARED" != "1" ]]; then
         # Список стадий, которым РАЗРЕШЕНО иметь DLL (ИИ, драйверы, системные компоненты). Импорт из workflow.yaml.
         # Очистка динамических библиотек для каждого статического скрипта с белым списком
         # Библиотеки MinGW создают libимя.dll.a (implib) даже для статики.
