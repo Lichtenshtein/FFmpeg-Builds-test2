@@ -31,7 +31,7 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --libdir="lib"
         --buildtype=release
-        --default-library=static
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Ddoc=disabled
         -Dnls=enabled
         -Dtests=disabled

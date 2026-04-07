@@ -34,8 +34,6 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --disable-shared
-        --enable-static
         --with-pic
         --enable-everything
         --enable-near-lossless
@@ -44,11 +42,17 @@ ffbuild_dockerbuild() {
         --disable-sdl
     )
 
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DWEBP_STATIC"
+
     CFLAGS="$CFLAGS" \
-    CPPFLAGS="$CPPFLAGS -DWEBP_STATIC" \
-    CXXFLAGS="$CXXFLAGS -DWEBP_STATIC" \
+    CPPFLAGS="$CPPFLAGS $static_flags" \
+    CXXFLAGS="$CXXFLAGS $static_flags" \
     LDFLAGS="$LDFLAGS" \
     JPEG_LIBS="-lturbojpeg -ljpeg" \
     LIBS="$DEP_LIBS $WIN_LIBS" \
@@ -60,7 +64,7 @@ ffbuild_dockerbuild() {
     for pc in libwebp.pc libwebpmux.pc libwebpdemux.pc libwebpdecoder.pc libsharpyuv.pc; do
         local PC_PATH="$PC_DIR/$pc"
         [[ -f "$PC_PATH" ]] || continue
-        sed -i "/^Cflags:/ s/$/ -DWEBP_STATIC/" "$PC_PATH"
+        sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_PATH"
     done
 
 }
@@ -70,7 +74,7 @@ ffbuild_libs() {
 }
 
 ffbuild_cppflags() {
-    echo "-DWEBP_STATIC"
+    echo "$static_flags"
 }
 
 ffbuild_configure() {

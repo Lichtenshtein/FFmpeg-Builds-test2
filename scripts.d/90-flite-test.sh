@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
         --with-lang=usenglish
         --with-lex=cmulex
         --with-vox=all
-        --enable-shared=no
+        --enable-shared=$([ "${PREFER_SHARED}" == "1" ] && echo yes || echo no)
         --with-pic
         --disable-sockets
     )

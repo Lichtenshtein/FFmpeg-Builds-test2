@@ -27,21 +27,25 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
+    local myconf=(
+        -G "Unix Makefiles"
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        -DSPIRV_CROSS_SHARED=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DSPIRV_CROSS_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
+        -DSPIRV_CROSS_CLI=OFF
+        -DSPIRV_CROSS_ENABLE_TESTS=OFF
+        -DSPIRV_CROSS_FORCE_PIC=ON
+        -DSPIRV_CROSS_ENABLE_C_API=ON
+        -DSPIRV_CROSS_ENABLE_CPP=ON
+    )
+
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -G "Unix Makefiles" \
-        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
-        -DSPIRV_CROSS_SHARED=OFF \
-        -DSPIRV_CROSS_STATIC=ON \
-        -DSPIRV_CROSS_CLI=OFF \
-        -DSPIRV_CROSS_ENABLE_TESTS=OFF \
-        -DSPIRV_CROSS_FORCE_PIC=ON \
-        -DSPIRV_CROSS_ENABLE_C_API=ON \
-        -DSPIRV_CROSS_ENABLE_CPP=ON .. || return 1
+    cmake "${myconf[@]}" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

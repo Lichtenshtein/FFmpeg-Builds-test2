@@ -27,21 +27,17 @@ ffbuild_dockerbuild() {
         --buildtype=release
         -Dcpp_std=c++17
         -Dc_std=c11
-        -Ddefault_library=static
+        -Ddefault_library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dwarning_level=1
         -Dwerror=false
         -Denable_docs=false
         -Dlibdvdcss=enabled
-        --cross-file=/cross.meson
     )
 
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
         myconf+=(
             --cross-file=/cross.meson
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     meson setup "${myconf[@]}" .. \

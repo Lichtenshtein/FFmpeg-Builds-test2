@@ -23,18 +23,17 @@ ffbuild_dockerbuild() {
     local base_conf=(
         --prefix="$FFBUILD_PREFIX"
         --enable-maintainer-mode
-        --disable-shared
-        --enable-static
         --disable-fortran
         --disable-doc
     )
 
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        base_conf+=( --disable-static --enable-shared ) || \
+        base_conf+=( --enable-static --disable-shared )
     # --with-combined-threads incompatible with --enable-openmp
-    if [[ "$USE_OPENMP" == "1" ]]; then
-        base_conf+=( --enable-openmp )
-    else
+    [[ "${USE_OPENMP}" == "1" ]] && \
+        base_conf+=( --enable-openmp ) || \
         base_conf+=( --enable-threads --with-combined-threads )
-    fi
     [[ "$USE_AVX512" == "1" ]] && base_conf+=( --enable-avx512 )
 
     if [[ $TARGET != *arm64 ]]; then
@@ -52,9 +51,6 @@ ffbuild_dockerbuild() {
             # гарантирует выравнивание пам€ти по границе 16/32 байта
             --with-our-malloc
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     # «апуск автогенерации скриптов (один раз)

@@ -48,12 +48,12 @@ stage_cleanup() {
         rm -f "$STAGE_LOG" "$TIMESTAMP_FILE"
         log_info "${CHECK_MARK} Build ${GREEN}SUCCEEDED${NC} for ${STAGENAME} [Time: ${GREY_B}${elapsed}${NC}]"
     else
-        cd /
         # Неудача: дампим логи
         log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${GREY_B}${elapsed}${NC}"
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
             log_debug "${BUILD_MARK} Current stage file: ${STAGE}"
             log_debug "${DIRS_MARK} Current directory: $(pwd)"
+            cd /build
             LOG_FILES=$(find "$BUILD_DIR" -maxdepth 4 \( -name "config.log" -o -name "meson-log.txt" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \) 2>/dev/null)
             if [[ -n "$LOG_FILES" ]]; then
                 # Удача: выводим найденные логи систем сборки
@@ -91,6 +91,7 @@ stage_cleanup() {
                 log_warn "Log file $STAGE_LOG is missing!"
             fi
         fi
+        cd /
         # Чистка после падения
         rm -rf "$BUILD_DIR" "$VARS_DIR" "$STAGE_LOG" "$TIMESTAMP_FILE" "$OUTFILE"
     fi
@@ -187,6 +188,10 @@ if [[ -n "$DL_COMMANDS" ]]; then
         if [[ -n "$CANDIDATE" ]]; then
             log_info "${DIRS_MARK} Project root found at $CANDIDATE. Entering..."
             cd "$CANDIDATE"
+        else
+            # try to generate conf
+            USE_CONF_FINDER=1
+            conf_finder
         fi
     fi
 

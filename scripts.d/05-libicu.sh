@@ -32,8 +32,8 @@ ffbuild_dockerbuild() {
         --disable-samples \
         --disable-icuio \
         --disable-extras \
-        --enable-static \
-        --disable-shared \
+        --enable-$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static) \
+        --disable-$([ "${PREFER_SHARED}" == "1" ] && echo static || echo shared) \
         || return 1
     
     # Собираем только самое необходимое для инструментов
@@ -59,8 +59,6 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
         --with-cross-build="$(pwd)/../host-build"
-        --enable-static
-        --disable-shared
         --disable-extras
         --disable-icuio
         --disable-layoutex
@@ -70,12 +68,19 @@ ffbuild_dockerbuild() {
         --disable-tools
         --disable-icu-config
         --enable-release
-        --with-data-packaging=static
+        --with-data-packaging=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
     )
 
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
+
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DICU_STATIC"
+
     CFLAGS="${RAW_CFLAGS:-$CFLAGS}" \
-    CPPFLAGS="${RAW_CPPFLAGS:-$CPPFLAGS} -DICU_STATIC" \
-    CXXFLAGS="${RAW_CXXFLAGS:-$CXXFLAGS} -DICU_STATIC" \
+    CPPFLAGS="${RAW_CPPFLAGS:-$CPPFLAGS} $static_flags" \
+    CXXFLAGS="${RAW_CXXFLAGS:-$CXXFLAGS} $static_flags" \
     LDFLAGS="${RAW_LDFLAGS:-$LDFLAGS}" \
     CC="$CC" \
     CXX="$CXX" \
@@ -119,7 +124,7 @@ ffbuild_dockerbuild() {
         sed -i 's/-licu/-lsicu/g' "$pc"
         # Добавляем статический флаг
         if ! grep -q "DICU_STATIC" "$pc"; then
-            sed -i '/^Cflags:/ s/$/ -DICU_STATIC/' "$pc"
+            sed -i '/^Cflags:/ s/$/ $static_flags/' "$pc"
         fi
         # Вычищаем системные либы из основной строки Libs
         # (Удаляем ${baselibs}, -lpthread, -lm, так как они пойдут в private)

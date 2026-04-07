@@ -16,30 +16,35 @@ ffbuild_dockerbuild() {
     ./autogen.sh
 
     local myconf=(
-        --prefix="$FFBUILD_PREFIX"
-        --host="$FFBUILD_TOOLCHAIN"
-        --disable-shared
-        --enable-static
-        --with-pic
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_BUILD_TYPE=Release
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DBUILD_TESTS=OFF
+        -DUSE_CRYPTO=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
+        -DBUILD_KVAZAAR_BINARY=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
     )
 
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DKVZ_STATIC_LIB"
+
     CFLAGS="$CFLAGS" \
-    CPPFLAGS="$CPPFLAGS -DKVZ_STATIC_LIB" \
-    CXXFLAGS="$CXXFLAGS -DKVZ_STATIC_LIB" \
+    CPPFLAGS="$CPPFLAGS $static_flags" \
+    CXXFLAGS="$CXXFLAGS $static_flags" \
     LDFLAGS="$LDFLAGS" \
     LIBS="$LIBS" \
-    ./configure "${myconf[@]}" || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    echo "Cflags.private: -DKVZ_STATIC_LIB" >> "$PC_DIR/kvazaar.pc"
+    echo "Cflags.private: $static_flags" >> "$PC_DIR/kvazaar.pc"
     echo "Libs.private: -pthread" >> "$PC_DIR/kvazaar.pc"
 
 }
 
 ffbuild_cppflags() {
-    echo "-DKVZ_STATIC_LIB"
+    echo "$static_flags"
 }
 
 ffbuild_configure() {

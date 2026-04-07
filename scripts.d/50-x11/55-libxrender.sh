@@ -13,10 +13,12 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
-        --enable-shared
-        --disable-static
         --with-pic
     )
+
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
 
     if [[ $TARGET == linuxarm64 ]]; then
         myconf+=(

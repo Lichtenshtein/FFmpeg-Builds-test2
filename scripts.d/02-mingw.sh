@@ -70,8 +70,8 @@ ffbuild_dockerbuild() {
           --prefix="$SYSROOT" \
           --host="$FFBUILD_TOOLCHAIN" \
           --with-pic \
-          --enable-static \
-          --disable-shared || return 1
+          --enable-$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static) \
+          --disable-$([ "${PREFER_SHARED}" == "1" ] && echo static || echo shared) || return 1
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="/opt/mingw" || return 1
     cp -a /opt/mingw"$SYSROOT"/. "$SYSROOT/"
