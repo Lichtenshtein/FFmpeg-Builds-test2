@@ -23,8 +23,6 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --disable-shared
-        --enable-static
         --enable-hardware-optimizations
         --enable-intel-sse
         --disable-tests
@@ -32,6 +30,10 @@ ffbuild_dockerbuild() {
         --with-pic
         --with-zlib-prefix="$FFBUILD_PREFIX"
     )
+
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
 
     CFLAGS="$CFLAGS" \
     CPPFLAGS="$CPPFLAGS" \

@@ -20,7 +20,7 @@ ffbuild_dockerbuild() {
         --libdir="$FFBUILD_PREFIX/lib"
         --cross-file=/cross.meson
         --buildtype=release
-        --default-library=static
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=c++17
         -Dc_std=c11
         -Denable_asm=true

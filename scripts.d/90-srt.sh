@@ -20,21 +20,26 @@ ffbuild_dockerbuild() {
     set -e
     mkdir build && cd build
 
+    local myconf=(
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DENABLE_CXX_DEPS=ON
+        -DENABLE_ENCRYPTION=ON
+        -DENABLE_APPS=OFF
+    )
+
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( -DENABLE_STATIC=OFF -DENABLE_SHARED=ON -DUSE_STATIC_LIBSTDCXX=OFF ) || \
+        myconf+=( -DENABLE_STATIC=ON -DENABLE_SHARED=OFF -DUSE_STATIC_LIBSTDCXX=ON )
+
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DENABLE_SHARED=OFF \
-        -DENABLE_STATIC=ON \
-        -DENABLE_CXX_DEPS=ON \
-        -DUSE_STATIC_LIBSTDCXX=ON \
-        -DENABLE_ENCRYPTION=ON \
-        -DENABLE_APPS=OFF .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     echo "Libs.private: -lstdc++" >> "$PC_DIR/srt.pc"
 

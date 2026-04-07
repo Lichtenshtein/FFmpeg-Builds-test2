@@ -225,14 +225,17 @@ WRAPPER_EOF
     local RAW_LDFLAGS
     RAW_LDFLAGS=$(echo "$LDFLAGS" | sed 's/-Wl,-Bstatic\b//g')
 
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB"
+
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DBUILD_SHARED_LIBS=OFF
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DBUILD_TESTS=OFF
         -DBUILD_TRAINING_TOOLS=OFF # causes strange pgp path '=/include' errors
-        -DOPENMP_BUILD=OFF # DO NOT enable it for Win*
+        -DOPENMP_BUILD=$([[ $target != "win64" && "${USE_OPENMP}" == "1" ]] && echo ON || echo OFF) # DO NOT enable it for Win64
         -DFAST_FLOAT=ON
         -DSW_BUILD=OFF
         -DENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
@@ -244,12 +247,10 @@ WRAPPER_EOF
         -DCMAKE_FIND_LIBRARY_SUFFIXES=".a"
         -DPKG_CONFIG_EXECUTABLE="$(command -v pkg-config)"
         # Compiler flags
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS \
--DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB \
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS $static_flags \
 -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS \
 -Wno-narrowing -Wno-format"
-        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS \
--DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB \
+        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS $static_flags \
 -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS \
 -Wno-narrowing -Wno-format"
         # Linker flags

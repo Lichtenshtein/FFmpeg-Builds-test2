@@ -32,13 +32,16 @@ ffbuild_dockerbuild() {
         # -Dcore=false
         # -Dtests=false
 
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DVAPOURSYNTH_STATIC"
+
     meson setup build \
         --prefix="$FFBUILD_PREFIX" \
         --cross-file=/cross.meson \
         --buildtype release \
-        --default-library static \
-        -Dc_args="$CFLAGS $CPPFLAGS" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
+        --default-library $([ "${PREFER_SHARED}" == "1" ] && echo static || echo shared) \
+        -Dc_args="$CFLAGS $CPPFLAGS $static_flags" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags" \
         -Dc_link_args="$LDFLAGS" \
         -Dcpp_link_args="$LDFLAGS" \
         -Dc_std=c11 \
@@ -59,8 +62,6 @@ ffbuild_dockerbuild() {
         # Добавляем стандартную библиотеку C++, так как VS написан на ней
         sed -i "s|^Libs:.*|Libs: -L\${libdir} -lvapoursynth -lstdc++ -lwinmm|" "$PC_FILE"
     fi
-
-    # Вызываем отладку зависимостей
 }
 
 ffbuild_configure() {
@@ -72,5 +73,5 @@ ffbuild_unconfigure() {
 }
 
 ffbuild_cflags() {
-    echo "-DVAPOURSYNTH_STATIC"
+    echo "$static_flags"
 }

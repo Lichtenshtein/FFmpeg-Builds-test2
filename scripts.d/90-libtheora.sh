@@ -22,8 +22,6 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --disable-shared
-        --enable-static
         --with-pic
         --disable-examples
         --disable-oggtest
@@ -33,6 +31,10 @@ ffbuild_dockerbuild() {
         --enable-asm
         --enable-cuda
     )
+
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
 
     CFLAGS="$CFLAGS" \
     CPPFLAGS="$CPPFLAGS" \

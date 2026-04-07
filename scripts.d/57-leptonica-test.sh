@@ -62,7 +62,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_PREFIX_PATH="$FFBUILD_PREFIX"
-        -DBUILD_SHARED_LIBS=OFF
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DSW_BUILD=OFF
         -DBUILD_PROG=OFF
         -DINSTALL_CMAKE_CONFIG=OFF

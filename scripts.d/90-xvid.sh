@@ -35,17 +35,23 @@ ffbuild_dockerbuild() {
     export CFLAGS="${CFLAGS/-flto=auto/} -fno-lto -std=gnu99 -fcommon"
     export LDFLAGS="${LDFLAGS/-flto=auto/} -fno-lto"
 
-    ./configure \
-        --prefix="$FFBUILD_PREFIX" \
-        --host="$FFBUILD_TOOLCHAIN" \
-        --disable-shared \
-        --enable-static || return 1
+    local myconf=(
+        --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
+    )
 
-    make \
-        CFLAGS="$CFLAGS $CPPFLAGS" \
-        LDFLAGS="$LDFLAGS" \
-        -j$(nproc) $MAKE_V || return 1
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
 
+    CFLAGS="$CFLAGS" \
+    CPPFLAGS="$CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS" \
+    LDFLAGS="$LDFLAGS" \
+    LIBS="$LIBS" \
+    ./configure "${myconf[@]}" || return 1
+
+    make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Удаляем остатки DLL, если они вдруг собрались (для Win64)

@@ -14,19 +14,24 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    local myconf=(
+        --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
+        --disable-docs
+        --with-gcc-arch=${CPU_ARCH:-broadwell}
+        --disable-multi-os-directory
+    )
+
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
+
     CFLAGS="$CFLAGS" \
     LDFLAGS="$LDFLAGS" \
     CPPFLAGS="$CPPFLAGS -DFFI_STATIC_BUILD" \
     CXXFLAGS="$CXXFLAGS -DFFI_STATIC_BUILD" \
     LIBS="$LIBS" \
-    ./configure \
-        --prefix="$FFBUILD_PREFIX" \
-        --host="$FFBUILD_TOOLCHAIN" \
-        --enable-static \
-        --disable-shared \
-        --disable-docs \
-        --with-gcc-arch=${CPU_ARCH:-broadwell} \
-        --disable-multi-os-directory || return 1
+    ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

@@ -28,12 +28,14 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --disable-shared
-        --enable-static
         --disable-openssl
         # --disable-assembler # если будут ошибки в x86_64/*.asm
         --disable-documentation
     )
+
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
 
     CFLAGS="$CFLAGS" \
     CPPFLAGS="$CPPFLAGS" \

@@ -21,11 +21,13 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
         --enable-maintainer-mode
-        --disable-shared
-        --enable-static
         --enable-fat
         --with-pic
     )
+
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
 
     CFLAGS="$CFLAGS" \
     CPPFLAGS="$CPPFLAGS" \

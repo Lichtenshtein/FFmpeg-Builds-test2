@@ -40,7 +40,6 @@ ffbuild_dockerbuild() {
         mingw64
         threads
         zlib
-        no-shared
         no-tests
         no-apps
         no-legacy
@@ -56,6 +55,10 @@ ffbuild_dockerbuild() {
         --cross-compile-prefix="$FFBUILD_CROSS_PREFIX"
         --openssldir="$FFBUILD_PREFIX/etc/ssl"
     )
+
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( shared ) || \
+        myconf+=( no-shared )
 
     ./Configure "${myconf[@]}" \
         "$CFLAGS -fno-strict-aliasing -Wno-overflow" \

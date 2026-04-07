@@ -26,8 +26,6 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --disable-shared
-        --enable-static
         --with-pic
         --without-harfbuzz
         --without-png
@@ -36,12 +34,18 @@ ffbuild_dockerbuild() {
         --with-brotli
     )
 
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DFT2_BUILD_LIBRARY"
+
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     CFLAGS="$CFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    CPPFLAGS="$CPPFLAGS -DFT2_BUILD_LIBRARY" \
-    CXXFLAGS="$CXXFLAGS -DFT2_BUILD_LIBRARY" \
+    CPPFLAGS="$CPPFLAGS $static_flags" \
+    CXXFLAGS="$CXXFLAGS $static_flags" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 

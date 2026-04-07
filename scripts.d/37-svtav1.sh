@@ -41,10 +41,9 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DVERSION_TAG="$SVT_VER"
-        -DBUILD_SHARED_LIBS=OFF
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DBUILD_TESTING=OFF
         -DBUILD_APPS=OFF
-        -DSVT_AV1_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF )
         -DNATIVE=OFF
     )
