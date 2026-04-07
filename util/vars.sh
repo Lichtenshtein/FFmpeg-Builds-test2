@@ -147,7 +147,7 @@ export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 # * --cflags                                 — any~ flags WITH -I paths
 # * --cflags-only-other                      — only flags WITHOUT -I paths
 # without --static the Libs.private field will be ignored
-if [[ "$ENABLE_SHARED" == "1" ]]; then
+if [[ "$PREFER_SHARED" == "1" ]]; then
     export PKG_CONFIG_CFLAGS="--cflags-only-other"
     export PKG_CONFIG_LIBS="--libs"
 else
@@ -200,7 +200,7 @@ ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -l
 export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu11"
 export CPPFLAGS="-I/opt/ffbuild/include ${BASE_CPPFLAGS}"
 export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu++17"
-if [[ "$ENABLE_SHARED" == "1" ]]; then
+if [[ "$PREFER_SHARED" == "1" ]]; then
     export LDFLAGS="-L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 else
     export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
@@ -790,7 +790,7 @@ get_deps_list() {
 export -f get_deps_list
 
 clean_la_files() {
-    if [[ "$ENABLE_SHARED" == "1" ]]; then
+    if [[ "$PREFER_SHARED" == "1" ]]; then
         return 0
     fi
 

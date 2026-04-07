@@ -31,7 +31,7 @@ if [[ "$USE_AVX512" == "1" ]] && [[ -f "${ADDINS_DIR}/avx512.sh" ]]; then
     log_info "${XCLAM_MARK} AVX512 addin enabled."
 fi
 
-if [[ "$ENABLE_SHARED" == "1" ]] && [[ -f "${ADDINS_DIR}/shared.sh" ]]; then
+if [[ "$PREFER_SHARED" == "1" ]] && [[ -f "${ADDINS_DIR}/shared.sh" ]]; then
     ADDINS+=("shared")
     ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}shared"
     log_info "${XCLAM_MARK} SHARED addin enabled."
@@ -76,7 +76,7 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     ONLY_STAGE=\"$ONLY_STAGE\" \\
     USE_WINE=\"$USE_WINE\" \\
     USE_AVX512=\"$USE_AVX512\" \\
-    ENABLE_SHARED=\"${ENABLE_SHARED:-0}\" \\
+    PREFER_SHARED=\"${PREFER_SHARED:-0}\" \\
     USE_LTO=\"$USE_LTO\" \\
     CPU_ARCH=\"${CPU_ARCH:-broadwell}\" \\
     CPU_TUNE=\"${CPU_TUNE:-broadwell}\" \\
