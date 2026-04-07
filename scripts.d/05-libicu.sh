@@ -47,6 +47,8 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
+    make -j$(nproc) $MAKE_V || return 1
+
     log_info "${BUILD_MARK} Building ICU Target (Win64)..."
     # Теперь основная сборка под Windows (Target)
     mkdir -p target-build && cd target-build
@@ -83,6 +85,14 @@ ffbuild_dockerbuild() {
     RANLIB="$RANLIB" \
     ../configure "${myconf[@]}" || return 1
 
+    # ICU cross-build bug: target Makefile inherits ENABLE_SHARED from host build.
+    # Force it off in every generated Makefile before building.
+    log_info "Patching ICU Makefiles to force disable shared..."
+    find . -name "Makefile" -exec sed -i \
+        -e 's/^ENABLE_SHARED\s*=.*/ENABLE_SHARED = NO/' \
+        -e 's/^SHARED_LIBRARY_SUFFIX\s*=.*/SHARED_LIBRARY_SUFFIX =/' \
+        {} \;
+    
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 

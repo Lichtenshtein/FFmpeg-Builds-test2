@@ -62,7 +62,7 @@ stage_cleanup() {
                     if [[ "$(readlink -f "$logfile")" == "$(readlink -f "$STAGE_LOG")" ]]; then
                         continue
                     fi
-                    log_debug "${LOGS_MARK} ▼ CONTENT OF $(basename "$logfile") (last 300 lines) ▼"
+                    log_debug "${LOGS_MARK} ▼ CONTENT OF ${logfile} (last 300 lines) ▼"
                     tail -n 300 "$logfile" >&2
                     log_debug "${LOGS_MARK} ▲ END OF $(basename "$logfile") ▲"
                 done
@@ -314,7 +314,7 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         log_warn "Stage $STAGENAME finished but no files were found in DESTDIR."
     fi
 
-    if [[ ! "$ENABLE_SHARED" == "1" ]]; then
+    if [[ ! "$PREFER_SHARED" == "1" ]]; then
         # Список стадий, которым РАЗРЕШЕНО иметь DLL (ИИ, драйверы, системные компоненты). Импорт из workflow.yaml.
         # Очистка динамических библиотек для каждого статического скрипта с белым списком
         # Библиотеки MinGW создают libимя.dll.a (implib) даже для статики.
