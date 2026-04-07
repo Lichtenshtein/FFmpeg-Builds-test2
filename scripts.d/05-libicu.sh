@@ -47,8 +47,6 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    make -j$(nproc) $MAKE_V || return 1
-
     log_info "${BUILD_MARK} Building ICU Target (Win64)..."
     # Теперь основная сборка под Windows (Target)
     mkdir -p target-build && cd target-build
