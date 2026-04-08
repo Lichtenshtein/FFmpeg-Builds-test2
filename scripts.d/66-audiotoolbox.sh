@@ -17,17 +17,25 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     mkdir build && cd build
+
+    local myconf=(
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo 1 || echo 0)
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+    )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" .. -G Ninja || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    ninja -j$(nproc) $NINJA_V || return 1
+    ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
-    cd ..
+
+    # cd ..
 
     # Обработка бинарных DLL Apple
     # log_info "Extracting Apple CoreAudio DLLs..."
@@ -43,7 +51,6 @@ ffbuild_dockerbuild() {
 
     # Удаляем ldwrapper, так как он нужен только для сборки самого враппера
     # rm -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/atw_ldwrapper"
-
 }
 
 ffbuild_configure() {

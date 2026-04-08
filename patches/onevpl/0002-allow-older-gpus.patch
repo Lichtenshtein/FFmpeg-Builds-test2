@@ -1,0 +1,31 @@
+From b29e2ec0fd835dca48455706f5ad3df0c31fbc7b Mon Sep 17 00:00:00 2001
+From: Takashi Yano <takashi.yano@nifty.ne.jp>
+Date: Fri, 9 Jan 2026 11:25:28 +0900
+Subject: [PATCH] Allow older GPUs
+
+Currently, the code in linux/mfxloader.cpp and windows/main.cpp supports
+initializing the GPU using the legacy MFXInit() if MFXInitEx() is not
+available.  However, the GPUs without MFXInitEx() are excluded by
+LoaderCtxVPL::CheckValidLibraries() in mfx_dispatcher_vp_loader.cpp.
+This inconsistency is addressed by this patch, which enables support for
+older GPUs without MFXInitEx().
+
+Fixes: 17968d8d2299 ("Release 2021.2.2")
+Signed-off-by: Takashi Yano <takashi.yano@nifty.ne.jp>
+---
+ libvpl/src/mfx_dispatcher_vpl_loader.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libvpl/src/mfx_dispatcher_vpl_loader.cpp b/libvpl/src/mfx_dispatcher_vpl_loader.cpp
+index a499b1e6..fb830e0c 100644
+--- a/libvpl/src/mfx_dispatcher_vpl_loader.cpp
++++ b/libvpl/src/mfx_dispatcher_vpl_loader.cpp
+@@ -38,7 +38,7 @@ static const VPLFunctionDesc FunctionDescOptional[NumVPLOptionalFunctions] = {
+ };
+ 
+ static const VPLFunctionDesc MSDKCompatFunctions[NumMSDKFunctions] = {
+-    { "MFXInitEx",                              { { 14, 1 } } },
++    { "MFXInit",                                { {  0, 1 } } },
+     { "MFXClose" ,                              { {  0, 1 } } },
+ };
+ 

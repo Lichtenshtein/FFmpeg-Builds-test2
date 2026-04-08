@@ -16,8 +16,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    mkdir _build
-    cd _build
+    mkdir -p _build && cd _build
 
     # Флаги санитайзера замедляют работу ffmpeg в 2-3 раза (плохо)
     # Без части из них ffmpeg не слинкуется, нужно прокидывать и для него (плохо)
@@ -28,20 +27,24 @@ ffbuild_dockerbuild() {
     ASAN_CFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize=shift-base -fno-sanitize-recover=all"
     ASAN_LDFLAGS="-fsanitize=address,undefined"
 
+    local myconf=(
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DBUILD_PROGRAMS=OFF
+        -DFDK_AAC_INSTALL_CMAKE_CONFIG_MODULE=ON
+        -DFDK_AAC_INSTALL_PKGCONFIG_MODULE=ON # Install pkg-config .pc file
+    )
+
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -G Ninja \
-        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
-        -DBUILD_SHARED_LIBS=OFF \
-        -DBUILD_PROGRAMS=OFF \
-        -DFDK_AAC_INSTALL_CMAKE_CONFIG_MODULE=ON \
-        -DFDK_AAC_INSTALL_PKGCONFIG_MODULE=ON  .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    ninja -j$(nproc) $NINJA_V || return 1
+    ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 }
 

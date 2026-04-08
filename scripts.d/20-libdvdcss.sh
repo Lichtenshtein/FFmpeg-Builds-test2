@@ -21,6 +21,7 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     local myconf=(
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         --prefix="$FFBUILD_PREFIX"
         -Dcpp_std=c++17
         -Dc_std=c11

@@ -26,20 +26,22 @@ ffbuild_dockerbuild() {
     # нужно передать ДВА пути к инклудам Glib
     local GLIB_INCLUDES="-I$FFBUILD_PREFIX/include/glib-2.0 -I$FFBUILD_PREFIX/lib/glib-2.0/include"
 
-    local mycmake=(
+    local myconf=(
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
         # Добавляем пути к glibconfig.h через C_FLAGS
-        -DBUILD_STATIC=ON
+        -DBUILD_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DBUILD_TESTS=OFF
         -DBUILD_LENSTOOL=OFF
         -DBUILD_DOC=OFF
         -DBUILD_FOR_SSE=ON
         -DBUILD_FOR_SSE2=ON
-        -DINSTALL_HELPER_SCRIPTS=OFF
+        -DINSTALL_HELPER_SCRIPTS=ON # OFF
         # Отключаем Python принудительно
-        -DPYTHON_EXECUTABLE=OFF
+        -DINSTALL_PYTHON_MODULE=ON # OFF; Install Python module for the helper scripts
+        # -DPYTHON_EXECUTABLE=OFF
         # Уточняем пути для CMake-модуля поиска Glib
         -DGLIB2_LIBRARIES="$FFBUILD_PREFIX/lib/libglib-2.0.a"
         -DGLIB2_BASE_INCLUDE_DIR="$FFBUILD_PREFIX/include/glib-2.0"
@@ -49,9 +51,10 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS $GLIB_INCLUDES" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS $GLIB_INCLUDES" \
     LDFLAGS="$LDFLAGS" \
-    cmake "${mycmake[@]}" .. || return 1
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
+
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     local pc_file="$PC_DIR/lensfun.pc"
     if [[ -f "$pc_file" ]]; then
