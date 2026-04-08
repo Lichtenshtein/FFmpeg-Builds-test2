@@ -37,11 +37,12 @@ ffbuild_dockerbuild() {
         ln -sf "$f" "$(basename "$f")"
     done
 
-    local mycmake=(
+    local myconf=(
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
-        -DBUILD_SHARED_LIBS=OFF
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DGENERATE_CODEBOOK=/usr/bin/true
         -DUNITTEST=OFF
         -DINSTALL_EXAMPLES=OFF
@@ -51,7 +52,7 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake "${mycmake[@]}" .. || return 1
+    cmake "${myconf[@]}" .. || return 1
 
     # Сборка только библиотеки. 
     # Если 'make codec2' все еще капризничает из-за отсутствия исходников,
@@ -97,7 +98,7 @@ EOF
     if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libcodec2.a" ]]; then
         log_info "${CHECK_MARK} SUCCESS: libcodec2.a is ready."
     else
-        log_error "ERROR: libcodec2.a still missing!"
+        log_error "libcodec2.a still missing!"
         return 1
     fi
 

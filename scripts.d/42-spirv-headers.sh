@@ -16,18 +16,24 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
+
     mkdir build && cd build
+
+    local myconf=(
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        -DSPIRV_HEADERS_ENABLE_TESTS=OFF
+        -DSPIRV_HEADERS_ENABLE_INSTALL=ON
+    )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -G Ninja \
-        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DSPIRV_HEADERS_ENABLE_TESTS=OFF \
-        -DSPIRV_HEADERS_ENABLE_INSTALL=ON .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    ninja -j$(nproc) $NINJA_V || return 1
+    ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 }

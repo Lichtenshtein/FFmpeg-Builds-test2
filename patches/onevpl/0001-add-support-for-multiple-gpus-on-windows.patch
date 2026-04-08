@@ -1,0 +1,50 @@
+From 580a0a21c20f1cca64d6f0ab5d4fa783abcd7a96 Mon Sep 17 00:00:00 2001
+From: Takashi Yano <takashi.yano@nifty.ne.jp>
+Date: Fri, 9 Jan 2026 08:13:32 +0900
+Subject: [PATCH] Add support for multiple GPUs on Windows
+
+If the primary GPU is not an Intel GPU, libvpl cannot detect the
+Intel GPU in the Windows environment, even though it is present.
+The situation is, for example, using an NVIDIA graphics card with
+an Intel CPU that has an embedded GPU. This patch allows the Intel
+GPU to be detected in such situations.
+
+Signed-off-by: Takashi Yano <takashi.yano@nifty.ne.jp>
+---
+ libvpl/src/windows/mfx_library_iterator.cpp | 6 +++++-
+ libvpl/src/windows/mfx_library_iterator.h   | 3 +++
+ 2 files changed, 8 insertions(+), 1 deletion(-)
+
+diff --git a/libvpl/src/windows/mfx_library_iterator.cpp b/libvpl/src/windows/mfx_library_iterator.cpp
+index fa9fc73d..3bdc001e 100644
+--- a/libvpl/src/windows/mfx_library_iterator.cpp
++++ b/libvpl/src/windows/mfx_library_iterator.cpp
+@@ -619,9 +619,13 @@ mfxStatus MFXLibraryIterator::GetRegkeyDir(std::wstring &regDir, size_t length,
+     mfxStatus sts = MFX_ERR_UNSUPPORTED;
+     MFX::MFXLibraryIterator libIterator;
+     wchar_t wRegDir[MFX_MAX_DLL_PATH];
++    int adapterNum = 0;
+ 
+     regDir.clear();
+-    sts = libIterator.Init(MFX_LIB_HARDWARE, MFX_IMPL_VIA_D3D11, 0, storageID);
++    do {
++        sts = libIterator.Init(MFX_LIB_HARDWARE, MFX_IMPL_VIA_D3D11, adapterNum, storageID);
++        adapterNum++;
++    } while (sts == MFX_ERR_NONE && !libIterator.isIntelAdapter());
+     if (sts)
+         return MFX_ERR_UNSUPPORTED;
+ 
+diff --git a/libvpl/src/windows/mfx_library_iterator.h b/libvpl/src/windows/mfx_library_iterator.h
+index 58b90966..2abfcc8e 100644
+--- a/libvpl/src/windows/mfx_library_iterator.h
++++ b/libvpl/src/windows/mfx_library_iterator.h
+@@ -99,6 +99,9 @@ class MFXLibraryIterator {
+                                        mfxU32 deviceID,
+                                        int storageID);
+     static mfxStatus GetRegkeyDir(std::wstring &regDir, size_t length, int storageID);
++    bool isIntelAdapter() const {
++        return m_vendorID == INTEL_VENDOR_ID;
++    }
+ 
+ protected:
+     // Release the iterator

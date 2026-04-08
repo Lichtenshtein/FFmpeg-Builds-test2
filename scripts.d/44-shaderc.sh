@@ -43,13 +43,14 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     local myconf=(
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         # -DALLOW_EXTERNAL_SPIRV_TOOLS=ON
         # -DSHADERC_GLSLANG_DIR="$(realpath ../third_party/glslang)"
         # -DSHADERC_SPIRV_TOOLS_DIR="$(realpath ../third_party/spirv-tools)"
         # -DSHADERC_SPIRV_HEADERS_DIR="$(realpath ../third_party/spirv-headers)"
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DCMAKE_BUILD_TYPE=Release
-        -DBUILD_SHARED_LIBS=OFF
         -DENABLE_EXCEPTIONS=ON
         -DENABLE_GLSLANG_BINARIES=OFF
         -DENABLE_GLSLANG_JS=OFF
@@ -60,7 +61,6 @@ ffbuild_dockerbuild() {
         -DENABLE_SPIRV=ON
         -DGLSLANG_ENABLE_INSTALL=ON
         -DGLSLANG_TESTS=OFF
-        -DSHADERC_ENABLE_SHARED_CRT=OFF
         -DSHADERC_SKIP_COPYRIGHT_CHECK=ON
         -DSHADERC_SKIP_EXAMPLES=ON
         -DSHADERC_SKIP_TESTS=ON
@@ -70,19 +70,32 @@ ffbuild_dockerbuild() {
         -DSPIRV_HEADERS_ENABLE_TESTS=OFF
         -DSPIRV_SKIP_EXECUTABLES=ON
         -DSPIRV_SKIP_TESTS=ON
-        -DSPIRV_TOOLS_BUILD_SHARED=OFF
-        -DSPIRV_TOOLS_BUILD_STATIC=ON
-        -DSPIRV_TOOLS_LIBRARY_TYPE=STATIC
         -DSPIRV_WARN_EVERYTHING=OFF
         -DSPIRV_WERROR=OFF
     )
 
+    if [[ "${PREFER_SHARED}" == "1" ]]; then
+        myconf+=(
+            -DSPIRV_TOOLS_BUILD_SHARED=ON
+            -DSPIRV_TOOLS_BUILD_STATIC=OFF
+            -DSPIRV_TOOLS_LIBRARY_TYPE=SHARED
+            -DSHADERC_ENABLE_SHARED_CRT=ON
+            -DBUILD_SHARED_LIBS=ON
+        )
+    else
+        myconf+=(
+            -DSPIRV_TOOLS_BUILD_SHARED=OFF
+            -DSPIRV_TOOLS_BUILD_STATIC=ON
+            -DSPIRV_TOOLS_LIBRARY_TYPE=STATIC
+            -DSHADERC_ENABLE_SHARED_CRT=OFF
+            -DBUILD_SHARED_LIBS=OFF
+        )
+    fi
+
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -GNinja "${myconf[@]}" \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
     export DESTDIR="/tmp/staging$FFBUILD_DESTDIR"
     ninja install || return 1
@@ -130,8 +143,6 @@ EOF
     cp "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_static.pc"
 
     cp -a "$DESTDIR"/. "$FFBUILD_DESTDIR"
-
-    # ls -lh
 
     rm -rf "$DESTDIR"
     unset DESTDIR

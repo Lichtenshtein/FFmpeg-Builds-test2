@@ -12,6 +12,7 @@ ffbuild_depends() {
     echo spirv-cross
     echo opencl
     echo openvino
+    echo curl
 }
 
 ffbuild_enabled() {
@@ -25,38 +26,54 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     mkdir build && cd build
+
+    local myconf=(
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_BUILD_TYPE=Release
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DBUILD_SHARED_LIBS_DEFAULT=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DWHISPER_BUILD_TESTS=OFF
+        -DWHISPER_ALL_WARNINGS=OFF
+        -DWHISPER_CURL=ON # to download models
+        -DWHISPER_BUILD_EXAMPLES=OFF
+        -DWHISPER_BUILD_SERVER=OFF
+        -DWHISPER_USE_SYSTEM_GGML=OFF
+        -DWHISPER_OPENVINO=ON
+        -DGGML_ALL_WARNINGS=OFF
+        -DGGML_AVX2=ON
+        -DGGML_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
+        -DGGML_AVX512_BF16=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
+        -DGGML_AVX512_VBMI=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
+        -DGGML_AVX512_VNNI=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
+        -DGGML_AVX=ON
+        -DGGML_BACKEND_DL=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF) # build backends as dynamic libraries
+        -DGGML_BMI2=ON
+        -DGGML_BUILD_EXAMPLES=OFF
+        -DGGML_BUILD_TESTS=OFF
+        -DGGML_CCACHE=ON
+        -DGGML_CUDA=OFF
+        -DGGML_F16C=ON
+        -DGGML_FMA=ON
+        -DGGML_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        -DGGML_NATIVE=OFF
+        -DGGML_OPENCL=ON
+        -DGGML_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
+        -DGGML_OPENVINO=ON
+        -DGGML_SSE42=ON
+        -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
+        -DGGML_VULKAN=ON
+        -DGGML_WEBGPU=OFF
+        )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -GNinja -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_SHARED_LIBS=OFF \
-        -DWHISPER_BUILD_TESTS=OFF \
-        -DWHISPER_BUILD_EXAMPLES=OFF \
-        -DWHISPER_BUILD_SERVER=OFF \
-        -DWHISPER_USE_SYSTEM_GGML=OFF \
-        -DWHISPER_OPENVINO=ON \
-        -DGGML_STATIC=ON \
-        -DGGML_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
-        -DGGML_CCACHE=OFF \
-        -DGGML_OPENCL=ON \
-        -DGGML_VULKAN=ON \
-        -DGGML_NATIVE=OFF \
-        -DGGML_SSE42=ON \
-        -DGGML_AVX=ON \
-        -DGGML_F16C=ON \
-        -DGGML_AVX2=ON \
-        -DGGML_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF ) \
-        -DGGML_AVX512_VBMI=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF ) \
-        -DGGML_AVX512_VNNI=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF ) \
-        -DGGML_AVX512_BF16=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF ) \
-        -DGGML_BMI2=ON \
-        -DGGML_FMA=ON .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    ninja -j$(nproc) $NINJA_V || return 1
+    ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Исправление имен файлов библиотек (MinGW prefix fix)
@@ -68,25 +85,24 @@ ffbuild_dockerbuild() {
     # Исправление pkg-config для FFmpeg
     # FFmpeg должен знать обо всех внутренних компонентах GGML
     local PC_FILE="$PC_DIR/whisper.pc"
-    
+
     # Полный список компонентов GGML, которые создаются при сборке
     local GGML_LIBS="-lggml -lggml-base -lggml-cpu -lggml-vulkan -lggml-opencl"
-    
+
     # Переписываем Libs и добавляем зависимости
     sed -i "s|^Libs:.*|Libs: -L\${libdir} -lwhisper $GGML_LIBS|" "$PC_FILE"
-    
+
     # Добавляем системные зависимости Windows
     if ! grep -q "Libs.private" "$PC_FILE"; then
         echo "Libs.private: -lstdc++ -lsetupapi -lshlwapi" >> "$PC_FILE"
     fi
-    
+
     # Указываем Requires для pkg-config, чтобы подтянулись флаги Vulkan и OpenCL
     if ! grep -q "Requires:" "$PC_FILE"; then
         echo "Requires: vulkan OpenCL" >> "$PC_FILE"
     else
         sed -i "s|^Requires:.*|Requires: vulkan OpenCL|" "$PC_FILE"
     fi
-
 }
 
 ffbuild_configure() {

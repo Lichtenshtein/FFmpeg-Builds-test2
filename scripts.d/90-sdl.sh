@@ -8,6 +8,9 @@ ffbuild_depends() {
     echo base
     echo libiconv
     echo x11
+    echo fribidi
+    echo vulkan-headers
+    echo shaderc
     echo pulseaudio
     echo libsamplerate
 }
@@ -22,20 +25,47 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     mkdir build && cd build
 
-    local mycmake=(
-        -DSDL_SHARED=OFF
-        -DSDL_STATIC=ON
-        -DSDL_STATIC_PIC=ON
-        -DSDL_TEST=OFF
-        -DSDL_CCACHE=OFF
+    local myconf=(
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_BUILD_TYPE=Release
+        -DSDL_TESTS=OFF
+        -DSDL_EXAMPLES=OFF
+        -DSDL_CCACHE=ON
         -DSDL_LIBSAMPLERATE=ON
-        -DSDL_LIBSAMPLERATE_SHARED=OFF
+        -DSDL_INSTALL_DOCS=OFF
+        -DSDL_LIBICONV=ON
+        -DSDL_OPENGL=ON
+        -DSDL_PTHREADS=ON
+        -DSDL_FRIBIDI=ON
+        -DSDL_WASAPI=ON
+        -DSDL_VULKAN=ON
+        -DSDL_RENDER_VULKAN=ON
+        -DSDL_AVX512F=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF )
     )
 
+    if [[ "${PREFER_SHARED}" == "1" ]]; then
+        myconf+=(
+            -DSDL_SHARED=ON
+            -DSDL_STATIC=OFF
+            -DSDL_FRIBIDI_SHARED=ON
+            -DSDL_LIBSAMPLERATE_SHARED=ON
+        )
+    else
+        myconf+=(
+            -DSDL_SHARED=OFF
+            -DSDL_STATIC=ON
+            -DSDL_STATIC_PIC=ON
+            -DSDL_LIBSAMPLERATE_SHARED=OFF
+        )
+    fi
+
     if [[ $TARGET == linux* ]]; then
-        mycmake+=(
+        myconf+=(
             -DSDL_X11=ON
             -DSDL_X11_SHARED=OFF
             -DHAVE_XGENERICEVENT=TRUE
@@ -48,12 +78,9 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -GNinja \
-        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" "${mycmake[@]}" .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    ninja -j$(nproc) $NINJA_V || return 1
+    ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     if [[ $TARGET == linux* ]]; then
@@ -74,7 +101,6 @@ ffbuild_dockerbuild() {
         "$PC_DIR/sdl2.pc"
 
     echo 'Requires: samplerate' >> "$PC_DIR/sdl2.pc"
-
 }
 
 ffbuild_configure() {

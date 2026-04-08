@@ -1,0 +1,27 @@
+From cb1d562e4bfc69c2882f7b689bf665bd08cc1cfa Mon Sep 17 00:00:00 2001
+From: "Soon, Thean Siew" <thean.siew.soon@intel.com>
+Date: Thu, 11 Jul 2024 19:19:19 +0800
+Subject: [PATCH] Update string-based API with 3 char fourcc support
+
+---
+ .../mfx_config_interface_string_api.cpp                    | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/libvpl/src/mfx_config_interface/mfx_config_interface_string_api.cpp b/libvpl/src/mfx_config_interface/mfx_config_interface_string_api.cpp
+index 0b8307f5..92bbbdaf 100644
+--- a/libvpl/src/mfx_config_interface/mfx_config_interface_string_api.cpp
++++ b/libvpl/src/mfx_config_interface/mfx_config_interface_string_api.cpp
+@@ -303,6 +303,13 @@ struct value_converter<VType, typename std::enable_if<std::is_enum<VType>::value
+ mfxStatus ConvertStrToFourCC(std::string value, mfxU32 &t) {
+     trim(value);
+     uint32_t converted_value = 0;
++
++    // Some of the fourcc string only contains 3 characters. E.g. AVC, AV1, VP9.
++    // Append a space to allow fourcc string to be converted successfully.
++    if (value.size() == 3) {
++        value += ' ';
++    }
++
+     if (value.size() == 4) {
+         converted_value = static_cast<uint32_t>((((uint32_t)value[0]) << 0) + (((uint32_t)value[1]) << 8) + (((uint32_t)value[2]) << 16) +
+                                                 (((uint32_t)value[3]) << 24));

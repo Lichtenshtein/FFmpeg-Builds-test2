@@ -23,9 +23,17 @@ ffbuild_dockerlayer() {
 
 ffbuild_dockerbuild() {
     set -e
+
     autoreconf -i
+
+    CFLAGS="$RAW_CFLAGS" \
+    CPPFLAGS="$CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS" \
+    LDFLAGS="$RAW_LDFLAGS" \
+    LIBS="$LIBS" \
     ./configure --prefix="$FFBUILD_PREFIX" || return 1
-    make -j"$(nproc)" $MAKE_V || return 1
+
+    make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
 }

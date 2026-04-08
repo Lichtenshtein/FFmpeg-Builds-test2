@@ -19,9 +19,6 @@ ffbuild_dockerbuild() {
         myconf+=(
             --host="$FFBUILD_TOOLCHAIN"
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     CFLAGS="$RAW_CFLAGS" \
