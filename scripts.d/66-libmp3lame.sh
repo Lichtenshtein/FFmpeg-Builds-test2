@@ -29,18 +29,23 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --disable-shared
-        --enable-static
         --enable-nasm
+        --enable-expopt=full # or "norm"; Whether to enable experimental optimizations
         --disable-gtktest
-        --disable-frontend
+        # --disable-decoder # Exclude mpg123 decoder
+        --disable-frontend # Do not build the lame executable
+        # --enable-mp3x # Build GTK frame analyzer
     )
 
     # export CFLAGS="$CFLAGS -DNDEBUG -D_ALLOW_INTERNAL_OPTIONS -Wno-error=incompatible-pointer-types"
     # GCC 14 требует более мягких проверок для старого кода LAME
 
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
+
     CFLAGS="$CFLAGS -ffast-math -Wno-implicit-function-declaration -Wno-int-conversion -Wno-error=incompatible-pointer-types" \
-    CPPFLAGS="$CPPFLAGS" \
+    CPPFLAGS="$CPPFLAGS -D_ALLOW_INTERNAL_OPTIONS" \
     CXXFLAGS="$CXXFLAGS" \
     LDFLAGS="$LDFLAGS" \
     LIBS="$LIBS" \
