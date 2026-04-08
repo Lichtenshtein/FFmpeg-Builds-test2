@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/hoene/libmysofa"
+SCRIPT_REPO="https://github.com/hoene/libmysofa.git"
 SCRIPT_COMMIT="dd315a8ec1fee7193d40e4a59b12c5590a4a918c"
 
 ffbuild_enabled() {
@@ -13,20 +13,25 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     cd build
+
+    local myconf=(
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_BUILD_TYPE=Release
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DBUILD_STATIC_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
+        -DBUILD_TESTS=OFF
+    )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_SHARED_LIBS=OFF \
-        -DBUILD_TESTS=OFF .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
-
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 }
 
 ffbuild_configure() {

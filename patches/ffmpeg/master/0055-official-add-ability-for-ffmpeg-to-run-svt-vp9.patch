@@ -1,0 +1,45 @@
+From 98be4204bcf12c89c9056ae9e26980228b704056 Mon Sep 17 00:00:00 2001
+From: hassene <hassene.tmar@intel.com>
+Date: Fri, 15 Feb 2019 17:43:54 -0800
+Subject: [PATCH] Add ability for ffmpeg to run svt vp9
+
+Signed-off-by: hassene <hassene.tmar@intel.com>
+Signed-off-by: Jing Sun <jing.a.sun@intel.com>
+Signed-off-by: Austin Hu <austin.hu@intel.com>
+Signed-off-by: Andrei Bich <dronimal@yandex-team.ru>
+Signed-off-by: Guo Jiansheng <jiansheng.guo@intel.com>
+---
+ configure               |   4 +
+ libavcodec/Makefile     |   1 +
+ libavcodec/allcodecs.c  |   1 +
+ libavcodec/libsvt_vp9.c | 701 ++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 707 insertions(+)
+ create mode 100644 libavcodec/libsvt_vp9.c
+
+diff --git a/libavcodec/Makefile b/libavcodec/Makefile
+index 28ad85afb4..f1e3b4d3ca 100644
+--- a/libavcodec/Makefile
++++ b/libavcodec/Makefile
+@@ -1215,6 +1215,7 @@ OBJS-$(CONFIG_LIBVO_AMRWBENC_ENCODER)     += libvo-amrwbenc.o
+ OBJS-$(CONFIG_LIBVORBIS_DECODER)          += libvorbisdec.o
+ OBJS-$(CONFIG_LIBVORBIS_ENCODER)          += libvorbisenc.o \
+                                              vorbis_data.o
++OBJS-$(CONFIG_LIBSVT_VP9_ENCODER)         += libsvt_vp9.o
+ OBJS-$(CONFIG_LIBVPX_VP8_DECODER)         += libvpxdec.o
+ OBJS-$(CONFIG_LIBVPX_VP8_ENCODER)         += libvpxenc.o
+ OBJS-$(CONFIG_LIBVPX_VP9_DECODER)         += libvpxdec.o
+diff --git a/libavcodec/allcodecs.c b/libavcodec/allcodecs.c
+index 042b07c895..9a3e0cbc06 100644
+--- a/libavcodec/allcodecs.c
++++ b/libavcodec/allcodecs.c
+@@ -823,6 +823,7 @@ extern const FFCodec ff_libuavs3d_decoder;
+ extern const FFCodec ff_libvo_amrwbenc_encoder;
+ extern const FFCodec ff_libvorbis_encoder;
+ extern const FFCodec ff_libvorbis_decoder;
++extern const FFCodec ff_libsvt_vp9_encoder;
+ extern const FFCodec ff_libvpx_vp8_encoder;
+ extern const FFCodec ff_libvpx_vp8_decoder;
+ extern FFCodec ff_libvpx_vp9_encoder;
+-- 
+2.52.0
+

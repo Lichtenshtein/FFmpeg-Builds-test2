@@ -17,12 +17,14 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     local myconf=(
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         --prefix="$FFBUILD_PREFIX"
         -Dcpp_std=c++17
         -Dc_std=c11
-        -Ddefault_library=shared
+        -Ddefault_library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dudev=false
         -Dcairo-tests=disabled
+        -Dtests=false
         -Dvalgrind=disabled
         -Dexynos=disabled
         -Dfreedreno=disabled
@@ -38,9 +40,6 @@ ffbuild_dockerbuild() {
         myconf+=(
             --cross-file=/cross.meson
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     meson setup "${myconf[@]}" .. \

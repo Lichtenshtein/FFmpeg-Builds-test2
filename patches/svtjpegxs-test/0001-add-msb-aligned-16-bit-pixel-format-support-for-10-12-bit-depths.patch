@@ -1,0 +1,697 @@
+From f6bb8d46ba8b1f8912b6ddf54fa7126281793e19 Mon Sep 17 00:00:00 2001
+From: rob <rob@3adesign.co.uk>
+Date: Fri, 20 Mar 2026 11:13:10 +0000
+Subject: [PATCH] Add MSB-aligned 16-bit pixel format support for 10/12-bit
+ depths
+
+Introduces opt-in MSB-aligned (left-justified) input and output format
+for 10-bit and 12-bit pixel data. When enabled, pixel value `v` of
+depth `d` is stored in the top `d` bits of a uint16_t word
+(i.e. `v << (16 - d)`), matching the convention used by many
+professional video APIs.
+
+The 8-bit path is unchanged.
+
+API:
+  svt_jpeg_xs_encoder_api_t.input_bit_depth_msb_aligned  (default 0)
+  svt_jpeg_xs_decoder_api_t.output_bit_depth_msb_aligned (default 0)
+
+Both fields consume one byte from existing struct padding so ABI size
+is preserved.
+
+Encoder: the MSB-aligned shift (Bw-16) is constant across all depths,
+so the per-pixel AND mask is eliminated entirely. The flag propagates
+via picture_header_dynamic.hdr_input_msb_aligned, which is already
+threaded through the DWT/NLT call chain, requiring no call-site changes.
+
+Decoder: nlt_inverse_transform_line_16bit gains an msb_aligned param
+(one call site). Output functions shift the clamped value left by
+(16-depth) before storing.
+
+C, AVX2, and AVX512 implementations provided for both directions.
+New tests: Nlt_Linear_Input_16bit_MSB and Nlt_Linear_Output_16bit_MSB
+verify correctness against the C reference and assert that output words
+have their lower (16-depth) bits zeroed. All 11934 existing tests pass.
+---
+ Source/API/SvtJpegxsDec.h                     |  5 +-
+ Source/API/SvtJpegxsEnc.h                     |  5 +-
+ Source/Lib/Common/Codec/Pi.h                  |  1 +
+ Source/Lib/Decoder/ASM_AVX2/NltDec_AVX2.c     | 35 +++++++
+ Source/Lib/Decoder/ASM_AVX2/NltDec_AVX2.h     |  1 +
+ Source/Lib/Decoder/ASM_AVX512/NltDec_avx512.c | 28 ++++++
+ Source/Lib/Decoder/ASM_AVX512/NltDec_avx512.h |  1 +
+ Source/Lib/Decoder/Codec/DecHandle.c          |  1 +
+ Source/Lib/Decoder/Codec/Decoder.c            |  3 +-
+ Source/Lib/Decoder/Codec/Decoder.h            |  1 +
+ Source/Lib/Decoder/Codec/NltDec.c             | 21 +++-
+ Source/Lib/Decoder/Codec/NltDec.h             |  3 +-
+ Source/Lib/Decoder/Codec/decoder_dsp_rtcd.c   |  4 +
+ Source/Lib/Decoder/Codec/decoder_dsp_rtcd.h   |  1 +
+ Source/Lib/Encoder/ASM_AVX2/NltEnc_avx2.c     | 20 ++++
+ Source/Lib/Encoder/ASM_AVX2/NltEnc_avx2.h     |  2 +
+ Source/Lib/Encoder/ASM_AVX512/Enc_avx512.c    | 20 ++++
+ Source/Lib/Encoder/ASM_AVX512/Enc_avx512.h    |  2 +
+ Source/Lib/Encoder/Codec/EncHandle.c          |  2 +
+ Source/Lib/Encoder/Codec/Encoder.h            |  1 +
+ Source/Lib/Encoder/Codec/NltEnc.c             | 46 ++++++---
+ Source/Lib/Encoder/Codec/NltEnc.h             |  2 +
+ Source/Lib/Encoder/Codec/encoder_dsp_rtcd.c   |  4 +
+ Source/Lib/Encoder/Codec/encoder_dsp_rtcd.h   |  2 +
+ tests/UnitTests/TestDwtFrame.cc               |  3 +
+ tests/UnitTests/TestInvDwtFrame.cc            |  2 +-
+ tests/UnitTests/TestNlt.cc                    | 95 +++++++++++++++++++
+ 27 files changed, 293 insertions(+), 18 deletions(-)
+
+diff --git a/Source/API/SvtJpegxsDec.h b/Source/API/SvtJpegxsDec.h
+index 489b220e..e67412ab 100644
+--- a/Source/API/SvtJpegxsDec.h
++++ b/Source/API/SvtJpegxsDec.h
+@@ -53,7 +53,10 @@ typedef struct svt_jpeg_xs_decoder_api {
+      * 1. Insert the new parameter as a member of this structure before the padding array.
+      * 2. Decrease the size of the padding array by the size of the new parameter to keep the struct size unchanged.
+      */
+-    uint8_t padding[64];
++    /* Optional, default 0: When set, 10/12-bit decoded output pixels are MSB-aligned in the 16-bit word
++     * (pixel value `v` stored as `v << (16 - bit_depth)`). When 0 (default), pixels are LSB-aligned. */
++    uint8_t output_bit_depth_msb_aligned;
++    uint8_t padding[63];
+ } svt_jpeg_xs_decoder_api_t;
+ 
+ PREFIX_API SvtJxsErrorType_t svt_jpeg_xs_decoder_init(uint64_t version_api_major, uint64_t version_api_minor,
+diff --git a/Source/API/SvtJpegxsEnc.h b/Source/API/SvtJpegxsEnc.h
+index c433e2a1..a6e40848 100644
+--- a/Source/API/SvtJpegxsEnc.h
++++ b/Source/API/SvtJpegxsEnc.h
+@@ -89,7 +89,10 @@ typedef struct svt_jpeg_xs_encoder_api {
+      * 1. Insert the new parameter as a member of this structure before the padding array.
+      * 2. Decrease the size of the padding array by the size of the new parameter to keep the struct size unchanged.
+      */
+-    uint8_t padding[64];
++    /* Optional, default 0: When set, 10/12-bit input pixels are MSB-aligned in the 16-bit word
++     * (pixel value `v` stored as `v << (16 - bit_depth)`). When 0 (default), pixels are LSB-aligned. */
++    uint8_t input_bit_depth_msb_aligned;
++    uint8_t padding[63];
+ } svt_jpeg_xs_encoder_api_t;
+ 
+ /* STEP 0 (Optional): Set default encoder parameters.
+diff --git a/Source/Lib/Common/Codec/Pi.h b/Source/Lib/Common/Codec/Pi.h
+index 9ff8ab3d..fee1af7b 100644
+--- a/Source/Lib/Common/Codec/Pi.h
++++ b/Source/Lib/Common/Codec/Pi.h
+@@ -87,6 +87,7 @@ typedef struct picture_header_dynamic {
+ 
+     uint16_t hdr_Xcrg[MAX_COMPONENTS_NUM];
+     uint16_t hdr_Ycrg[MAX_COMPONENTS_NUM];
++    uint8_t hdr_input_msb_aligned;  /* Non-standard: MSB-aligned 16-bit encoder input mode */
+ } picture_header_dynamic_t;
+ 
+ typedef struct precinct_band_info {
+diff --git a/Source/Lib/Decoder/ASM_AVX2/NltDec_AVX2.c b/Source/Lib/Decoder/ASM_AVX2/NltDec_AVX2.c
+index 054e6a3a..3f17c950 100644
+--- a/Source/Lib/Decoder/ASM_AVX2/NltDec_AVX2.c
++++ b/Source/Lib/Decoder/ASM_AVX2/NltDec_AVX2.c
+@@ -177,3 +177,38 @@ void linear_output_scaling_16bit_line_avx2(int32_t* in, uint32_t bw, uint32_t de
+         out[x] = (uint16_t)(v > m ? m : v < 0 ? 0 : v);
+     }
+ }
++
++void linear_output_scaling_16bit_line_msb_avx2(int32_t* in, uint32_t bw, uint32_t depth, uint16_t* out, uint32_t w) {
++    int32_t x;
++    const int32_t dzeta = bw - depth;
++    const uint32_t round = ((1 << bw) >> 1) + ((1 << dzeta) >> 1);
++    const int32_t m = (1 << depth) - 1;
++    const int32_t msb_shift = 16 - depth;
++    const __m256i round_avx2 = _mm256_set1_epi32(round);
++    const __m256i zero_avx2 = _mm256_setzero_si256();
++    const __m256i max_avx2 = _mm256_set1_epi32(m);
++
++    for (x = 0; x <= (int32_t)w - 16; x += 16) {
++        __m256i v1_avx2 = _mm256_loadu_si256((__m256i*)(in + x));
++        v1_avx2 = _mm256_add_epi32(v1_avx2, round_avx2);
++        v1_avx2 = _mm256_srai_epi32(v1_avx2, dzeta);
++        v1_avx2 = _mm256_max_epi32(_mm256_min_epi32(v1_avx2, max_avx2), zero_avx2);
++
++        __m256i v2_avx2 = _mm256_loadu_si256((__m256i*)(in + x + 8));
++        v2_avx2 = _mm256_add_epi32(v2_avx2, round_avx2);
++        v2_avx2 = _mm256_srai_epi32(v2_avx2, dzeta);
++        v2_avx2 = _mm256_max_epi32(_mm256_min_epi32(v2_avx2, max_avx2), zero_avx2);
++
++        __m256i packed = _mm256_packus_epi32(v1_avx2, v2_avx2);
++        packed = _mm256_permute4x64_epi64(packed, 0xd8);
++        /* MSB-align: shift each 16-bit lane left by (16 - depth) */
++        packed = _mm256_slli_epi16(packed, msb_shift);
++        _mm256_storeu_si256((__m256i*)(out + x), packed);
++    }
++    for (; x < (int32_t)w; x++) {
++        int32_t v = in[x];
++        v += round;
++        v >>= dzeta;
++        out[x] = (uint16_t)(v > m ? m : v < 0 ? 0 : v) << msb_shift;
++    }
++}
+diff --git a/Source/Lib/Decoder/ASM_AVX2/NltDec_AVX2.h b/Source/Lib/Decoder/ASM_AVX2/NltDec_AVX2.h
+index 44af4940..7ffd63f0 100644
+--- a/Source/Lib/Decoder/ASM_AVX2/NltDec_AVX2.h
++++ b/Source/Lib/Decoder/ASM_AVX2/NltDec_AVX2.h
+@@ -23,6 +23,7 @@ void linear_output_scaling_16bit_avx2(const pi_t* const pi, int32_t* comps[MAX_C
+ 
+ void linear_output_scaling_8bit_line_avx2(int32_t* in, uint32_t bw, uint32_t depth, uint8_t* out, uint32_t w);
+ void linear_output_scaling_16bit_line_avx2(int32_t* in, uint32_t bw, uint32_t depth, uint16_t* out, uint32_t w);
++void linear_output_scaling_16bit_line_msb_avx2(int32_t* in, uint32_t bw, uint32_t depth, uint16_t* out, uint32_t w);
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/Source/Lib/Decoder/ASM_AVX512/NltDec_avx512.c b/Source/Lib/Decoder/ASM_AVX512/NltDec_avx512.c
+index 5b4101ca..ab75ef87 100644
+--- a/Source/Lib/Decoder/ASM_AVX512/NltDec_avx512.c
++++ b/Source/Lib/Decoder/ASM_AVX512/NltDec_avx512.c
+@@ -53,3 +53,31 @@ void linear_output_scaling_16bit_line_avx512(int32_t* in, uint32_t bw, uint32_t
+         out[x] = (uint16_t)(v > m ? m : v < 0 ? 0 : v);
+     }
+ }
++
++void linear_output_scaling_16bit_line_msb_avx512(int32_t* in, uint32_t bw, uint32_t depth, uint16_t* out, uint32_t w) {
++    int32_t x;
++    const int32_t dzeta = bw - depth;
++    const uint32_t round = ((1 << bw) >> 1) + ((1 << dzeta) >> 1);
++    const int32_t m = (1 << depth) - 1;
++    const int32_t msb_shift = 16 - depth;
++    const __m512i round_avx512 = _mm512_set1_epi32(round);
++    const __m512i zero_avx512 = _mm512_setzero_si512();
++    const __m512i max_avx512 = _mm512_set1_epi32(m);
++
++    for (x = 0; x <= (int32_t)w - 16; x += 16) {
++        __m512i v1 = _mm512_loadu_si512((__m512i*)(in + x));
++        v1 = _mm512_add_epi32(v1, round_avx512);
++        v1 = _mm512_srai_epi32(v1, dzeta);
++        v1 = _mm512_max_epi32(_mm512_min_epi32(v1, max_avx512), zero_avx512);
++        /* Narrow 16 x int32 -> 16 x uint16, then MSB-align */
++        __m256i packed = _mm512_cvtepi32_epi16(v1);
++        packed = _mm256_slli_epi16(packed, msb_shift);
++        _mm256_storeu_si256((__m256i*)(out + x), packed);
++    }
++    for (; x < (int32_t)w; x++) {
++        int32_t v = in[x];
++        v += round;
++        v >>= dzeta;
++        out[x] = (uint16_t)(v > m ? m : v < 0 ? 0 : v) << msb_shift;
++    }
++}
+diff --git a/Source/Lib/Decoder/ASM_AVX512/NltDec_avx512.h b/Source/Lib/Decoder/ASM_AVX512/NltDec_avx512.h
+index 928165b8..c2b9bb59 100644
+--- a/Source/Lib/Decoder/ASM_AVX512/NltDec_avx512.h
++++ b/Source/Lib/Decoder/ASM_AVX512/NltDec_avx512.h
+@@ -17,6 +17,7 @@ extern "C" {
+ 
+ void linear_output_scaling_8bit_line_avx512(int32_t* in, uint32_t bw, uint32_t depth, uint8_t* out, uint32_t w);
+ void linear_output_scaling_16bit_line_avx512(int32_t* in, uint32_t bw, uint32_t depth, uint16_t* out, uint32_t w);
++void linear_output_scaling_16bit_line_msb_avx512(int32_t* in, uint32_t bw, uint32_t depth, uint16_t* out, uint32_t w);
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/Source/Lib/Decoder/Codec/DecHandle.c b/Source/Lib/Decoder/Codec/DecHandle.c
+index 83414ffb..d34b736e 100644
+--- a/Source/Lib/Decoder/Codec/DecHandle.c
++++ b/Source/Lib/Decoder/Codec/DecHandle.c
+@@ -128,6 +128,7 @@ PREFIX_API SvtJxsErrorType_t svt_jpeg_xs_decoder_init(uint64_t version_api_major
+     dec_api_prv->verbose = dec_api->verbose;
+ 
+     dec_api_prv->packetization_mode = dec_api->packetization_mode;
++    dec_api_prv->dec_common.output_bit_depth_msb_aligned = dec_api->output_bit_depth_msb_aligned;
+     if (dec_api_prv->packetization_mode != 0 && dec_api_prv->packetization_mode != 1) {
+         if (dec_api->verbose >= VERBOSE_ERRORS) {
+             fprintf(stderr, "Unrecognized packetization mode\n");
+diff --git a/Source/Lib/Decoder/Codec/Decoder.c b/Source/Lib/Decoder/Codec/Decoder.c
+index 72fd17e3..97e7d787 100644
+--- a/Source/Lib/Decoder/Codec/Decoder.c
++++ b/Source/Lib/Decoder/Codec/Decoder.c
+@@ -494,7 +494,8 @@ void transform_precinct(const pi_t* pi, svt_jpeg_xs_decoder_instance_t* ctx, uin
+         }
+         else {
+             uint16_t* out_buf_16 = ((uint16_t*)out_buf) + component_line_idx * out_stride;
+-            nlt_inverse_transform_line_16bit(in, bit_depth, &ctx->picture_header_dynamic, out_buf_16, width);
++            nlt_inverse_transform_line_16bit(in, bit_depth, &ctx->picture_header_dynamic, out_buf_16, width,
++                                             ctx->dec_common->output_bit_depth_msb_aligned);
+         }
+         component_line_idx++;
+     }
+diff --git a/Source/Lib/Decoder/Codec/Decoder.h b/Source/Lib/Decoder/Codec/Decoder.h
+index 395bf566..e2381115 100644
+--- a/Source/Lib/Decoder/Codec/Decoder.h
++++ b/Source/Lib/Decoder/Codec/Decoder.h
+@@ -23,6 +23,7 @@ typedef struct svt_jpeg_xs_decoder_common {
+ 
+     // max_frame_bitstream_size is used only when packetization_mode is enabled
+     uint32_t max_frame_bitstream_size;
++    uint8_t output_bit_depth_msb_aligned;
+ } svt_jpeg_xs_decoder_common_t;
+ 
+ typedef struct svt_jpeg_xs_decoder_thread_context {
+diff --git a/Source/Lib/Decoder/Codec/NltDec.c b/Source/Lib/Decoder/Codec/NltDec.c
+index 91277dc1..aa845cab 100644
+--- a/Source/Lib/Decoder/Codec/NltDec.c
++++ b/Source/Lib/Decoder/Codec/NltDec.c
+@@ -246,6 +246,19 @@ void linear_output_scaling_8bit_line_c(int32_t* in, uint32_t bw, uint32_t depth,
+     }
+ }
+ 
++void linear_output_scaling_16bit_line_msb_c(int32_t* in, uint32_t bw, uint32_t depth, uint16_t* out, uint32_t w) {
++    int32_t dzeta = bw - depth;
++    int32_t m = (1 << depth) - 1;
++    int32_t msb_shift = 16 - depth;
++
++    for (uint32_t x = 0; x < w; x++) {
++        int32_t v = in[x];
++        v += (1 << bw) >> 1;
++        v = (v + ((1 << dzeta) >> 1)) >> dzeta;
++        out[x] = (uint16_t)nlt_clamp(v, m) << msb_shift;
++    }
++}
++
+ void linear_output_scaling_16bit_line_c(int32_t* in, uint32_t bw, uint32_t depth, uint16_t* out, uint32_t w) {
+     int32_t dzeta = bw - depth;
+     int32_t m = (1 << depth) - 1;
+@@ -380,9 +393,13 @@ void nlt_inverse_transform_line_8bit(int32_t* in, uint32_t depth, const picture_
+ }
+ 
+ void nlt_inverse_transform_line_16bit(int32_t* in, uint32_t depth, const picture_header_dynamic_t* picture_header_dynamic,
+-                                      uint16_t* out, int32_t w) {
++                                      uint16_t* out, int32_t w, uint8_t msb_aligned) {
+     if (picture_header_dynamic->hdr_Tnlt == 0) {
+-        linear_output_scaling_16bit_line(in, picture_header_dynamic->hdr_Bw, depth, out, w);
++        if (msb_aligned) {
++            linear_output_scaling_16bit_line_msb(in, picture_header_dynamic->hdr_Bw, depth, out, w);
++        } else {
++            linear_output_scaling_16bit_line(in, picture_header_dynamic->hdr_Bw, depth, out, w);
++        }
+     }
+     else if (picture_header_dynamic->hdr_Tnlt == 1) {
+         int32_t dco = (int32_t)picture_header_dynamic->hdr_Tnlt_alpha -
+diff --git a/Source/Lib/Decoder/Codec/NltDec.h b/Source/Lib/Decoder/Codec/NltDec.h
+index 2bca4da5..a0afd3ff 100644
+--- a/Source/Lib/Decoder/Codec/NltDec.h
++++ b/Source/Lib/Decoder/Codec/NltDec.h
+@@ -24,9 +24,10 @@ void nlt_inverse_transform(int32_t* comps[MAX_COMPONENTS_NUM], const pi_t* pi, c
+ void nlt_inverse_transform_line_8bit(int32_t* in, uint32_t depth, const picture_header_dynamic_t* picture_header_dynamic,
+                                      uint8_t* out, int32_t w);
+ void nlt_inverse_transform_line_16bit(int32_t* in, uint32_t depth, const picture_header_dynamic_t* picture_header_dynamic,
+-                                      uint16_t* out, int32_t w);
++                                      uint16_t* out, int32_t w, uint8_t msb_aligned);
+ void linear_output_scaling_8bit_line_c(int32_t* in, uint32_t bw, uint32_t depth, uint8_t* out, uint32_t w);
+ void linear_output_scaling_16bit_line_c(int32_t* in, uint32_t bw, uint32_t depth, uint16_t* out, uint32_t w);
++void linear_output_scaling_16bit_line_msb_c(int32_t* in, uint32_t bw, uint32_t depth, uint16_t* out, uint32_t w);
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/Source/Lib/Decoder/Codec/decoder_dsp_rtcd.c b/Source/Lib/Decoder/Codec/decoder_dsp_rtcd.c
+index 56168851..c35a2c6c 100644
+--- a/Source/Lib/Decoder/Codec/decoder_dsp_rtcd.c
++++ b/Source/Lib/Decoder/Codec/decoder_dsp_rtcd.c
+@@ -101,6 +101,10 @@ void setup_decoder_rtcd_internal(CPU_FLAGS flags) {
+                     linear_output_scaling_16bit_line_c,
+                     linear_output_scaling_16bit_line_avx2,
+                     linear_output_scaling_16bit_line_avx512);
++    SET_AVX2_AVX512(linear_output_scaling_16bit_line_msb,
++                    linear_output_scaling_16bit_line_msb_c,
++                    linear_output_scaling_16bit_line_msb_avx2,
++                    linear_output_scaling_16bit_line_msb_avx512);
+ 
+     SET_AVX2(inv_sign, inv_sign_c, inv_sign_avx2);
+     SET_AVX2(unpack_data, unpack_data_c, unpack_data_avx2);
+diff --git a/Source/Lib/Decoder/Codec/decoder_dsp_rtcd.h b/Source/Lib/Decoder/Codec/decoder_dsp_rtcd.h
+index 6765543b..1bb7ad88 100644
+--- a/Source/Lib/Decoder/Codec/decoder_dsp_rtcd.h
++++ b/Source/Lib/Decoder/Codec/decoder_dsp_rtcd.h
+@@ -51,6 +51,7 @@ RTCD_EXTERN void (*idwt_horizontal_line_lf16_hf16)(const int16_t* in_lf, const i
+ RTCD_EXTERN void (*idwt_horizontal_line_lf32_hf16)(const int32_t* in_lf, const int16_t* in_hf, int32_t* out, uint32_t len,
+                                                    uint8_t shift);
+ RTCD_EXTERN void (*linear_output_scaling_16bit_line)(int32_t* in, uint32_t bw, uint32_t depth, uint16_t* out, uint32_t w);
++RTCD_EXTERN void (*linear_output_scaling_16bit_line_msb)(int32_t* in, uint32_t bw, uint32_t depth, uint16_t* out, uint32_t w);
+ 
+ RTCD_EXTERN void (*idwt_vertical_line)(const int32_t* in_lf, const int32_t* in_hf0, const int32_t* in_hf1, int32_t* out[4],
+                                        uint32_t len, int32_t first_precinct, int32_t last_precinct, int32_t height);
+diff --git a/Source/Lib/Encoder/ASM_AVX2/NltEnc_avx2.c b/Source/Lib/Encoder/ASM_AVX2/NltEnc_avx2.c
+index 712705d0..3718e80e 100644
+--- a/Source/Lib/Encoder/ASM_AVX2/NltEnc_avx2.c
++++ b/Source/Lib/Encoder/ASM_AVX2/NltEnc_avx2.c
+@@ -124,3 +124,23 @@ void linear_input_scaling_line_16bit_avx2(const uint16_t* src, int32_t* dst, uin
+         dst[i] = ((src[i] & input_mask) << shift) - offset;
+     }
+ }
++
++void linear_input_scaling_line_16bit_msb_avx2(const uint16_t* src, int32_t* dst, uint32_t w, uint8_t shift, int32_t offset,
++                                               uint8_t bit_depth) {
++    (void)bit_depth; /* MSB-aligned: no masking needed */
++    const uint32_t simd_batch = w / 8;
++    const uint32_t remaining = w % 8;
++    const __m256i offset_avx2 = _mm256_set1_epi32(offset);
++
++    for (uint32_t i = 0; i < simd_batch; i++) {
++        /* Load 8 x uint16, zero-extend to 8 x int32, left-shift by (Bw-16), subtract offset */
++        __m256i reg = _mm256_cvtepu16_epi32(_mm_loadu_si128((__m128i*)src));
++        __m256i result = _mm256_sub_epi32(_mm256_slli_epi32(reg, shift), offset_avx2);
++        _mm256_storeu_si256((__m256i*)dst, result);
++        src += 8;
++        dst += 8;
++    }
++    for (uint32_t i = 0; i < remaining; i++) {
++        dst[i] = ((uint32_t)src[i] << shift) - offset;
++    }
++}
+diff --git a/Source/Lib/Encoder/ASM_AVX2/NltEnc_avx2.h b/Source/Lib/Encoder/ASM_AVX2/NltEnc_avx2.h
+index 48936a71..70505b41 100644
+--- a/Source/Lib/Encoder/ASM_AVX2/NltEnc_avx2.h
++++ b/Source/Lib/Encoder/ASM_AVX2/NltEnc_avx2.h
+@@ -16,6 +16,8 @@ void image_shift_avx2(uint16_t* out_coeff_16bit, int32_t* in_coeff_32bit, uint32
+ void linear_input_scaling_line_8bit_avx2(const uint8_t* src, int32_t* dst, uint32_t w, uint8_t shift, int32_t offset);
+ void linear_input_scaling_line_16bit_avx2(const uint16_t* src, int32_t* dst, uint32_t w, uint8_t shift, int32_t offset,
+                                           uint8_t bit_depth);
++void linear_input_scaling_line_16bit_msb_avx2(const uint16_t* src, int32_t* dst, uint32_t w, uint8_t shift, int32_t offset,
++                                               uint8_t bit_depth);
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/Source/Lib/Encoder/ASM_AVX512/Enc_avx512.c b/Source/Lib/Encoder/ASM_AVX512/Enc_avx512.c
+index e964b2e8..e8b257bc 100644
+--- a/Source/Lib/Encoder/ASM_AVX512/Enc_avx512.c
++++ b/Source/Lib/Encoder/ASM_AVX512/Enc_avx512.c
+@@ -240,6 +240,26 @@ void linear_input_scaling_line_16bit_avx512(const uint16_t* src, int32_t* dst, u
+     }
+ }
+ 
++void linear_input_scaling_line_16bit_msb_avx512(const uint16_t* src, int32_t* dst, uint32_t w, uint8_t shift, int32_t offset,
++                                                 uint8_t bit_depth) {
++    (void)bit_depth; /* MSB-aligned: no masking needed */
++    int simd_batch = w / 16;
++    int remaining = w % 16;
++    __m512i reg_offset = _mm512_set1_epi32(offset);
++
++    for (int i = 0; i < simd_batch; i++) {
++        /* Load 16 x uint16, zero-extend to 16 x int32, left-shift by (Bw-16), subtract offset */
++        __m512i reg = _mm512_cvtepu16_epi32(_mm256_loadu_si256((__m256i*)src));
++        __m512i result = _mm512_sub_epi32(_mm512_slli_epi32(reg, shift), reg_offset);
++        _mm512_storeu_si512(dst, result);
++        src += 16;
++        dst += 16;
++    }
++    for (int i = 0; i < remaining; i++) {
++        dst[i] = ((uint32_t)src[i] << shift) - offset;
++    }
++}
++
+ /*Optimization Vertical lines loops to AVX*/
+ void transform_vertical_loop_hf_line_0_avx512(uint32_t width, int32_t* out_hf, const int32_t* line_0, const int32_t* line_1) {
+     uint32_t i = 0;
+diff --git a/Source/Lib/Encoder/ASM_AVX512/Enc_avx512.h b/Source/Lib/Encoder/ASM_AVX512/Enc_avx512.h
+index 0e710eb3..c6fa287b 100644
+--- a/Source/Lib/Encoder/ASM_AVX512/Enc_avx512.h
++++ b/Source/Lib/Encoder/ASM_AVX512/Enc_avx512.h
+@@ -17,6 +17,8 @@ void dwt_horizontal_line_avx512(int32_t* out_lf, int32_t* out_hf, const int32_t*
+ void linear_input_scaling_line_8bit_avx512(const uint8_t* src, int32_t* dst, uint32_t w, uint8_t shift, int32_t offset);
+ void linear_input_scaling_line_16bit_avx512(const uint16_t* src, int32_t* dst, uint32_t w, uint8_t shift, int32_t offset,
+                                             uint8_t bit_depth);
++void linear_input_scaling_line_16bit_msb_avx512(const uint16_t* src, int32_t* dst, uint32_t w, uint8_t shift, int32_t offset,
++                                                 uint8_t bit_depth);
+ void image_shift_avx512(uint16_t* out_coeff_16bit, int32_t* in_coeff_32bit, uint32_t width, int32_t shift, int32_t offset);
+ 
+ /*Optimization Vertical lines loops to AVX*/
+diff --git a/Source/Lib/Encoder/Codec/EncHandle.c b/Source/Lib/Encoder/Codec/EncHandle.c
+index 25bab6ca..298e414a 100644
+--- a/Source/Lib/Encoder/Codec/EncHandle.c
++++ b/Source/Lib/Encoder/Codec/EncHandle.c
+@@ -129,6 +129,8 @@ static SvtJxsErrorType_t encoder_init_configuration(svt_jpeg_xs_encoder_common_t
+ 
+     /*Validation of encoder parameters:*/
+     enc_common->bit_depth = config_struct->input_bit_depth;
++    enc_common->input_bit_depth_msb_aligned = config_struct->input_bit_depth_msb_aligned;
++    enc_common->picture_header_dynamic.hdr_input_msb_aligned = config_struct->input_bit_depth_msb_aligned;
+     if (enc_common->bit_depth < 8 || enc_common->bit_depth > 14) {
+         if (config_struct->verbose >= VERBOSE_ERRORS) {
+             fprintf(stderr, "Incorrect bit_depth, expected: 8 to 14,  provided: %d\n", enc_common->bit_depth);
+diff --git a/Source/Lib/Encoder/Codec/Encoder.h b/Source/Lib/Encoder/Codec/Encoder.h
+index 6325285b..b2abbaf2 100644
+--- a/Source/Lib/Encoder/Codec/Encoder.h
++++ b/Source/Lib/Encoder/Codec/Encoder.h
+@@ -63,6 +63,7 @@ typedef struct svt_jpeg_xs_encoder_common {
+     uint16_t Cw; //Precinct width
+     ColourFormat_t colour_format;
+     uint8_t bit_depth; // Pixel Bit Depth
++    uint8_t input_bit_depth_msb_aligned;
+     float compression_rate;
+ 
+     pi_t pi; /* Picture Information */
+diff --git a/Source/Lib/Encoder/Codec/NltEnc.c b/Source/Lib/Encoder/Codec/NltEnc.c
+index 292e9099..e18ba5c5 100644
+--- a/Source/Lib/Encoder/Codec/NltEnc.c
++++ b/Source/Lib/Encoder/Codec/NltEnc.c
+@@ -44,6 +44,14 @@ void linear_input_scaling_line_16bit_c(const uint16_t* src, int32_t* dst, uint32
+     }
+ }
+ 
++void linear_input_scaling_line_16bit_msb_c(const uint16_t* src, int32_t* dst, uint32_t w, uint8_t shift, int32_t offset,
++                                            uint8_t bit_depth) {
++    (void)bit_depth; /* MSB-aligned: no masking; shift = Bw-16, same for all depths */
++    for (uint32_t j = 0; j < w; j++) {
++        dst[j] = ((uint32_t)src[j] << shift) - offset;
++    }
++}
++
+ void linear_input_scaling_line(const void* src, int32_t* dst, uint32_t width, uint8_t input_bit_depth, uint8_t shift,
+                                int32_t offset) {
+     if (input_bit_depth <= 8) {
+@@ -57,16 +65,32 @@ void linear_input_scaling_line(const void* src, int32_t* dst, uint32_t width, ui
+ 
+ void nlt_input_scaling_line(const void* src, int32_t* dst, uint32_t width, picture_header_dynamic_t* hdr,
+                             uint8_t input_bit_depth) {
+-    const uint8_t shift = hdr->hdr_Bw - input_bit_depth;
+-    const int32_t offset = 1 << (hdr->hdr_Bw - 1);
+-    switch (hdr->hdr_Tnlt) {
+-    case 0:
+-        linear_input_scaling_line(src, dst, width, input_bit_depth, shift, offset);
+-        break;
+-    case 1:
+-    case 2:
+-    default:
+-        assert(0);
+-        break;
++    if (hdr->hdr_input_msb_aligned && input_bit_depth > 8) {
++        /* MSB-aligned 16-bit: shift = Bw-16 (constant, depth-independent), no masking */
++        const uint8_t shift = hdr->hdr_Bw - 16;
++        const int32_t offset = 1 << (hdr->hdr_Bw - 1);
++        switch (hdr->hdr_Tnlt) {
++        case 0:
++            linear_input_scaling_line_16bit_msb((uint16_t*)src, dst, width, shift, offset, input_bit_depth);
++            break;
++        case 1:
++        case 2:
++        default:
++            assert(0);
++            break;
++        }
++    } else {
++        const uint8_t shift = hdr->hdr_Bw - input_bit_depth;
++        const int32_t offset = 1 << (hdr->hdr_Bw - 1);
++        switch (hdr->hdr_Tnlt) {
++        case 0:
++            linear_input_scaling_line(src, dst, width, input_bit_depth, shift, offset);
++            break;
++        case 1:
++        case 2:
++        default:
++            assert(0);
++            break;
++        }
+     }
+ }
+diff --git a/Source/Lib/Encoder/Codec/NltEnc.h b/Source/Lib/Encoder/Codec/NltEnc.h
+index e488555d..ec9541d4 100644
+--- a/Source/Lib/Encoder/Codec/NltEnc.h
++++ b/Source/Lib/Encoder/Codec/NltEnc.h
+@@ -18,6 +18,8 @@ void nlt_input_scaling_line(const void* src, int32_t* dst, uint32_t width, pictu
+ void linear_input_scaling_line_8bit_c(const uint8_t* src, int32_t* dst, uint32_t w, uint8_t shift, int32_t offset);
+ void linear_input_scaling_line_16bit_c(const uint16_t* src, int32_t* dst, uint32_t w, uint8_t shift, int32_t offset,
+                                        uint8_t bit_depth);
++void linear_input_scaling_line_16bit_msb_c(const uint16_t* src, int32_t* dst, uint32_t w, uint8_t shift, int32_t offset,
++                                            uint8_t bit_depth);
+ 
+ #ifdef __cplusplus
+ }
+diff --git a/Source/Lib/Encoder/Codec/encoder_dsp_rtcd.c b/Source/Lib/Encoder/Codec/encoder_dsp_rtcd.c
+index e9665c45..6f51d7b7 100644
+--- a/Source/Lib/Encoder/Codec/encoder_dsp_rtcd.c
++++ b/Source/Lib/Encoder/Codec/encoder_dsp_rtcd.c
+@@ -140,6 +140,10 @@ void setup_encoder_rtcd_internal(CPU_FLAGS flags) {
+                     linear_input_scaling_line_16bit_c,
+                     linear_input_scaling_line_16bit_avx2,
+                     linear_input_scaling_line_16bit_avx512);
++    SET_AVX2_AVX512(linear_input_scaling_line_16bit_msb,
++                    linear_input_scaling_line_16bit_msb_c,
++                    linear_input_scaling_line_16bit_msb_avx2,
++                    linear_input_scaling_line_16bit_msb_avx512);
+ 
+     SET_AVX2_AVX512(pack_data_single_group, pack_data_single_group_c, NULL, pack_data_single_group_avx512);
+     SET_SSE2(gc_precinct_stage_scalar_loop, gc_precinct_stage_scalar_loop_c, gc_precinct_stage_scalar_loop_ASM);
+diff --git a/Source/Lib/Encoder/Codec/encoder_dsp_rtcd.h b/Source/Lib/Encoder/Codec/encoder_dsp_rtcd.h
+index ac6eb7ef..4134d90d 100644
+--- a/Source/Lib/Encoder/Codec/encoder_dsp_rtcd.h
++++ b/Source/Lib/Encoder/Codec/encoder_dsp_rtcd.h
+@@ -47,6 +47,8 @@ RTCD_EXTERN void (*quantization)(uint16_t* coeff_16bit, uint32_t size, uint8_t*
+ RTCD_EXTERN void (*linear_input_scaling_line_8bit)(const uint8_t* src, int32_t* dst, uint32_t w, uint8_t shift, int32_t offset);
+ RTCD_EXTERN void (*linear_input_scaling_line_16bit)(const uint16_t* src, int32_t* dst, uint32_t w, uint8_t shift, int32_t offset,
+                                                     uint8_t bit_depth);
++RTCD_EXTERN void (*linear_input_scaling_line_16bit_msb)(const uint16_t* src, int32_t* dst, uint32_t w, uint8_t shift,
++                                                         int32_t offset, uint8_t bit_depth);
+ 
+ RTCD_EXTERN void (*pack_data_single_group)(bitstream_writer_t* bitstream, uint16_t* buf_16bit, uint8_t gcli, uint8_t gtli);
+ RTCD_EXTERN void (*gc_precinct_stage_scalar_loop)(uint32_t line_groups_num, uint16_t* coeff_data_ptr_16bit,
+diff --git a/tests/UnitTests/TestDwtFrame.cc b/tests/UnitTests/TestDwtFrame.cc
+index 8ab63c60..f5fdf60e 100644
+--- a/tests/UnitTests/TestDwtFrame.cc
++++ b/tests/UnitTests/TestDwtFrame.cc
+@@ -419,6 +419,7 @@ void transform_component_test_V0(const pi_t* pi, const pi_enc_t* pi_enc, uint32_
+     int decom_v = component->decom_v;
+ 
+     picture_header_dynamic_t hdr_dynamic;
++    memset(&hdr_dynamic, 0, sizeof(hdr_dynamic));
+     hdr_dynamic.hdr_Tnlt = 0; //linear
+     hdr_dynamic.hdr_Bw = param_Bw;
+     hdr_dynamic.hdr_Fq = param_Fq;
+@@ -546,6 +547,7 @@ void transform_component_test_V1(const pi_t* pi, const pi_enc_t* pi_enc, uint32_
+         line_x[2] = (int32_t*)malloc(pi->width * sizeof(int32_t));
+ 
+         picture_header_dynamic_t hdr_dynamic;
++        memset(&hdr_dynamic, 0, sizeof(hdr_dynamic));
+         hdr_dynamic.hdr_Tnlt = 0; //linear
+         hdr_dynamic.hdr_Bw = param_Bw;
+         hdr_dynamic.hdr_Fq = param_Fq;
+@@ -742,6 +744,7 @@ void transform_component_test_V2(const pi_t* pi, const pi_enc_t* pi_enc, uint32_
+         int32_t* line_6 = line_x[4]; //buffers_input_unpack + (0 + 0) * plane_width;
+ 
+         picture_header_dynamic_t hdr_dynamic;
++        memset(&hdr_dynamic, 0, sizeof(hdr_dynamic));
+         hdr_dynamic.hdr_Tnlt = 0; //linear
+         hdr_dynamic.hdr_Bw = param_Bw;
+         hdr_dynamic.hdr_Fq = param_Fq;
+diff --git a/tests/UnitTests/TestInvDwtFrame.cc b/tests/UnitTests/TestInvDwtFrame.cc
+index f67801f2..2c02ffc5 100644
+--- a/tests/UnitTests/TestInvDwtFrame.cc
++++ b/tests/UnitTests/TestInvDwtFrame.cc
+@@ -572,7 +572,7 @@ void transform_components_test(const pi_t* pi, int16_t* buffer_in[MAX_COMPONENTS
+                         }
+                         else {
+                             uint16_t* out_buf_16 = ((uint16_t*)out_buf) + component_line_idx * out_stride;
+-                            nlt_inverse_transform_line_16bit(in, bit_depth, &picture_header_dynamic, out_buf_16, width);
++                            nlt_inverse_transform_line_16bit(in, bit_depth, &picture_header_dynamic, out_buf_16, width, 0);
+                         }
+                         component_line_idx++;
+                     }
+diff --git a/tests/UnitTests/TestNlt.cc b/tests/UnitTests/TestNlt.cc
+index a01da76c..a7ea7d08 100644
+--- a/tests/UnitTests/TestNlt.cc
++++ b/tests/UnitTests/TestNlt.cc
+@@ -15,6 +15,7 @@
+ #include "NltDec.h"
+ #include "NltEnc.h"
+ #include "Enc_avx512.h"
++#include "NltDec_avx512.h"
+ #include "Precinct.h"
+ 
+ TEST(Nlt_Linear_Output_8bit, 8AVX2) {
+@@ -336,3 +337,97 @@ TEST(Nlt_Linear_Input_16bit, AVX512) {
+         test_linear_input_scaling_line_16bit(linear_input_scaling_line_16bit_avx512);
+     }
+ }
++
++void test_linear_input_scaling_line_16bit_msb(void (*test_fn)(const uint16_t* src, int32_t* dst, uint32_t w, uint8_t shift,
++                                                               int32_t offset, uint8_t bit_depth)) {
++    const uint32_t w = 1999;
++    const uint8_t param_Bw = 20;
++
++    svt_jxs_test_tool::SVTRandom* rnd = new svt_jxs_test_tool::SVTRandom(32, false);
++    uint16_t* src = (uint16_t*)malloc(w * sizeof(uint16_t));
++    int32_t* dst_ref = (int32_t*)malloc(w * sizeof(int32_t));
++    int32_t* dst_mod = (int32_t*)malloc(w * sizeof(int32_t));
++
++    memset(src, 0, w * sizeof(uint16_t));
++    memset(dst_ref, 0, w * sizeof(int32_t));
++    memset(dst_mod, 0, w * sizeof(int32_t));
++
++    /* MSB-aligned: shift = Bw - 16 (constant, depth-independent), no masking */
++    const uint8_t shift = param_Bw - 16;  /* = 4 for Bw=20 */
++    const int32_t offset = 1 << (param_Bw - 1);
++
++    /* Test for 10-bit and 12-bit depths */
++    for (uint8_t input_bit_depth = 10; input_bit_depth <= 12; input_bit_depth += 2) {
++        /* Generate MSB-aligned input: pixel value in top `input_bit_depth` bits */
++        for (uint32_t j = 0; j < w; j++) {
++            uint16_t pixel = rnd->Rand16() % ((1 << input_bit_depth) - 1);
++            src[j] = pixel << (16 - input_bit_depth);  /* MSB-align */
++        }
++
++        linear_input_scaling_line_16bit_msb_c(src, dst_ref, w, shift, offset, input_bit_depth);
++        test_fn(src, dst_mod, w, shift, offset, input_bit_depth);
++        ASSERT_EQ(memcmp(dst_ref, dst_mod, sizeof(int32_t) * w), 0);
++
++        memset(dst_ref, 0, w * sizeof(int32_t));
++        memset(dst_mod, 0, w * sizeof(int32_t));
++    }
++
++    free(src);
++    free(dst_ref);
++    free(dst_mod);
++    delete rnd;
++}
++
++TEST(Nlt_Linear_Input_16bit_MSB, AVX2) {
++    test_linear_input_scaling_line_16bit_msb(linear_input_scaling_line_16bit_msb_avx2);
++}
++
++TEST(Nlt_Linear_Input_16bit_MSB, AVX512) {
++    if (CPU_FLAGS_AVX512F & get_cpu_flags()) {
++        test_linear_input_scaling_line_16bit_msb(linear_input_scaling_line_16bit_msb_avx512);
++    }
++}
++
++void test_linear_output_scaling_16bit_line_msb(void (*test_fn)(int32_t* in, uint32_t bw, uint32_t depth, uint16_t* out, uint32_t w)) {
++    const uint32_t w = 1999;
++    const uint32_t bw = 20;
++
++    svt_jxs_test_tool::SVTRandom* rnd = new svt_jxs_test_tool::SVTRandom(32, false);
++    int32_t* in = (int32_t*)malloc(w * sizeof(int32_t));
++    uint16_t* out_ref = (uint16_t*)malloc(w * sizeof(uint16_t));
++    uint16_t* out_mod = (uint16_t*)malloc(w * sizeof(uint16_t));
++
++    for (uint32_t j = 0; j < w; j++) {
++        in[j] = rnd->Rand16();
++    }
++
++    for (uint32_t depth = 10; depth <= 12; depth += 2) {
++        memset(out_ref, 0xcd, w * sizeof(uint16_t));
++        memset(out_mod, 0xcd, w * sizeof(uint16_t));
++
++        linear_output_scaling_16bit_line_msb_c(in, bw, depth, out_ref, w);
++        test_fn(in, bw, depth, out_mod, w);
++        ASSERT_EQ(memcmp(out_ref, out_mod, sizeof(uint16_t) * w), 0);
++
++        /* Verify MSB-alignment: lowest (16-depth) bits must be zero */
++        for (uint32_t j = 0; j < w; j++) {
++            uint16_t mask = (uint16_t)((1 << (16 - depth)) - 1);
++            ASSERT_EQ(out_ref[j] & mask, 0) << "pixel " << j << " depth=" << depth << " not MSB-aligned";
++        }
++    }
++
++    free(in);
++    free(out_ref);
++    free(out_mod);
++    delete rnd;
++}
++
++TEST(Nlt_Linear_Output_16bit_MSB, AVX2) {
++    test_linear_output_scaling_16bit_line_msb(linear_output_scaling_16bit_line_msb_avx2);
++}
++
++TEST(Nlt_Linear_Output_16bit_MSB, AVX512) {
++    if (CPU_FLAGS_AVX512F & get_cpu_flags()) {
++        test_linear_output_scaling_16bit_line_msb(linear_output_scaling_16bit_line_msb_avx512);
++    }
++}

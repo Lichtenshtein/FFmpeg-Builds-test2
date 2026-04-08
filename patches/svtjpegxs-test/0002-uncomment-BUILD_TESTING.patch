@@ -1,0 +1,25 @@
+From f649183ef4cfc696adfcfb24b0434832172bdcfe Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Wed, 8 Apr 2026 22:08:09 +0300
+Subject: [PATCH] uncomment BUILD_TESTING
+
+---
+ CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 7647012..fcd3b78 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -97,7 +97,7 @@ set(CMAKE_CXX_STANDARD 11)
+ option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." ON)
+ message(STATUS "BUILD_SHARED_LIBS: ${BUILD_SHARED_LIBS}")
+ 
+-#option(BUILD_TESTING "Build SvtLcevcUnitTests, SvtLcevcApiTests, and SvtLcevcE2ETests unit tests")
++option(BUILD_TESTING "Build SvtLcevcUnitTests, SvtLcevcApiTests, and SvtLcevcE2ETests unit tests" OFF)
+ option(COVERAGE "Generate coverage report")
+ option(BUILD_APPS "Build Enc and Dec Apps" ON)
+ 
+-- 
+2.52.0.windows.1
+

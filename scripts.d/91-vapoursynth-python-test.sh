@@ -103,31 +103,37 @@ cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 EOF
 
     export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig"
-    mkdir -p build
+
+    mkdir -p build && cd build
 
     local static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DVAPOURSYNTH_STATIC"
 
     # Мы собираем vsscript как SHARED, так как он ОБЯЗАН грузить python3.dll
-    meson setup build \
-        --prefix="$FFBUILD_PREFIX" \
-        --cross-file=/cross.meson \
-        --cross-file python_fix.ini \
-        --buildtype release \
-        --default-library $([ "${PREFER_SHARED}" == "1" ] && echo static || echo shared) \
+    local myconf=(
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
+        --prefix="$FFBUILD_PREFIX"
+        --cross-file=/cross.meson
+        --cross-file python_fix.ini
+        --buildtype release
+        --default-library $([ "${PREFER_SHARED}" == "1" ] && echo static || echo shared)
+        -Dcpp_std=c++17
+        -Dc_std=c11
+        -Denable_vsscript=true
+        -Denable_vspipe=false
+        -Denable_x86_asm=true
+        -Denable_core=true
+        -Denable_python_module=false # Requires Python, Cython, and the core
+    )
+
+    meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS $static_flags" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags" \
         -Dc_link_args="$LDFLAGS" \
-        -Dcpp_link_args="$LDFLAGS" \
-        -Dcpp_std=c++17 \
-        -Dc_std=c11 \
-        -Denable_vsscript=true \
-        -Denable_vspipe=false \
-        -Denable_x86_asm=true \
-        -Denable_python_module=false || return 1
+        -Dcpp_link_args="$LDFLAGS" || return 1
 
-    ninja -C build -j$(nproc) $NINJA_V || return 1
-    DESTDIR="$FFBUILD_DESTDIR" ninja -C build install || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Копируем DLL и критически важные файлы окружения Python
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
@@ -142,7 +148,6 @@ EOF
     cp -v python_win/bin/*.pyd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" 2>/dev/null || true
 
     mkdir -p "$PC_DIR"
-    
     cat <<EOF > "$PC_DIR/vapoursynth.pc"
 prefix=$FFBUILD_PREFIX
 libdir=\${prefix}/lib

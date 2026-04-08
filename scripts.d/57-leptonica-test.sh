@@ -57,6 +57,7 @@ ffbuild_dockerbuild() {
 
     # There is NO -DSTATIC=ON flag exist
     local myconf=(
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         # -DCMAKE_PROJECT_INCLUDE="${PWD}/extra_targets.cmake"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release

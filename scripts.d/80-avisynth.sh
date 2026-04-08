@@ -10,6 +10,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "git-submodule-clone"
 }
 
 ffbuild_dockerbuild() {
@@ -19,17 +20,26 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
+    local myconf=(
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        -DHEADERS_ONLY=OFF # Install only the Headers
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DENABLE_INTEL_SIMD=ON
+        -DENABLE_PLUGINS=ON
+        -DENABLE_CUDA=OFF
+        # -DCORE_PLUGIN_INSTALL_PATH=
+    )
+
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN" \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX" \
-        -DHEADERS_ONLY=ON .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make VersionGen install DESTDIR="$FFBUILD_DESTDIR" || return 1
-
 }
 
 ffbuild_configure() {

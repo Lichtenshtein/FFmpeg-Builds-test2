@@ -24,34 +24,39 @@ ffbuild_dockerbuild() {
     # Чтобы FFmpeg работал с Vapoursynth, ему нужна библиотека VSScript.
     # Но VSScript требует Python. Мы отключаем модуль Python, но оставляем VSScript 
     # в режиме 'headers only' или минимальной статики, если это позволит Meson.
-    mkdir -p build
+    mkdir -p build && cd build
     # Исправляем баг libtool/linker path для MinGW
     export LT_SYS_LIBRARY_PATH="$FFBUILD_PREFIX/lib"
+
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DVAPOURSYNTH_STATIC"
 
         # --cross-file="$FFBUILD_CROSS_PREFIX"cross.meson
         # -Dcore=false
         # -Dtests=false
 
-    local static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DVAPOURSYNTH_STATIC"
+    local myconf=(
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
+        --prefix="$FFBUILD_PREFIX"
+        --cross-file=/cross.meson
+        --buildtype release
+        --default-library $([ "${PREFER_SHARED}" == "1" ] && echo static || echo shared)
+        -Dc_std=c11
+        -Denable_x86_asm=true
+        -Denable_vsscript=false
+        -Denable_vspipe=false
+        -Denable_core=true
+        -Denable_python_module=false # Requires Python, Cython, and the core
+    )
 
-    meson setup build \
-        --prefix="$FFBUILD_PREFIX" \
-        --cross-file=/cross.meson \
-        --buildtype release \
-        --default-library $([ "${PREFER_SHARED}" == "1" ] && echo static || echo shared) \
+    meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS $static_flags" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags" \
         -Dc_link_args="$LDFLAGS" \
-        -Dcpp_link_args="$LDFLAGS" \
-        -Dc_std=c11 \
-        -Denable_x86_asm=true \
-        -Denable_vsscript=false \
-        -Denable_vspipe=false \
-        -Denable_python_module=false || return 1
+        -Dcpp_link_args="$LDFLAGS" || return 1
 
-    ninja -C build -j$(nproc) $NINJA_V || return 1
-    DESTDIR="$FFBUILD_DESTDIR" ninja -C build install || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Исправление pkg-config для статической линковки FFmpeg
     local PC_FILE="$PC_DIR/vapoursynth.pc"

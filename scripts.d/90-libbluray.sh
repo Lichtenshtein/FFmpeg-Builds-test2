@@ -28,8 +28,9 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     local myconf=(
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         --prefix="$FFBUILD_PREFIX"
-        -Ddefault_library=static
+        -Ddefault_library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Denable_docs=false
         -Denable_tools=false
         -Denable_devtools=false
