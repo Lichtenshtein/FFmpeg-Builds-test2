@@ -30,9 +30,6 @@ ffbuild_dockerbuild() {
         PREFIX="$FFBUILD_PREFIX"
         CXXSTDLIB_PCLIBSPRIVATE="-lstdc++"
         VERBOSE=2
-        STATIC_LIB=1
-        SHARED_LIB=0
-        DYNLINK=0
         EXAMPLES=0
         OPENMPT123=0
         IN_OPENMPT=0
@@ -51,12 +48,16 @@ ffbuild_dockerbuild() {
         NO_VORBISFILE=0
         NO_MPG123=1
         NO_SDL2=1
-        NO_PULSEAUDIO=1
+        # NO_PULSEAUDIO=1
         NO_SNDFILE=1
         NO_PORTAUDIO=1
         NO_PORTAUDIOCPP=1
         NO_FLAC=1
     )
+
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( SHARED_LIB=1 STATIC_LIB=0 DYNLINK=1 ) || \
+        myconf+=( SHARED_LIB=0 STATIC_LIB=1 DYNLINK=0 )
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( OPTIMIZE_LTO=1 )
 
@@ -76,9 +77,6 @@ ffbuild_dockerbuild() {
             CONFIG=gcc
             TOOLCHAIN_PREFIX="$FFBUILD_CROSS_PREFIX"
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     make $MAKE_V -j$(nproc) "${myconf[@]}" all install DESTDIR="$FFBUILD_DESTDIR" || return 1
