@@ -1,14 +1,18 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz"
+SCRIPT_REPO="https://github.com/libffi/libffi.git"
+SCRIPT_COMMIT="170bab47c90626a33cd08f2169034600cfd9589c"
+
+# SCRIPT_REPO="https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz"
 
 ffbuild_enabled() {
     return 0
 }
 
 ffbuild_dockerdl() {
-    echo "download_file \"$SCRIPT_REPO\" \"libffi.tar.gz\""
-    echo "tar xzf libffi.tar.gz --strip-components=1"
+    default_dl .
+    # echo "download_file \"$SCRIPT_REPO\" \"libffi.tar.gz\""
+    # echo "tar xzf libffi.tar.gz --strip-components=1"
 }
 
 ffbuild_dockerbuild() {
@@ -26,10 +30,13 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DFFI_STATIC_BUILD"
+
     CFLAGS="$CFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    CPPFLAGS="$CPPFLAGS -DFFI_STATIC_BUILD" \
-    CXXFLAGS="$CXXFLAGS -DFFI_STATIC_BUILD" \
+    CPPFLAGS="$CPPFLAGS $static_flags" \
+    CXXFLAGS="$CXXFLAGS $static_flags" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
@@ -45,7 +52,7 @@ ffbuild_dockerbuild() {
     fi
     local PC_FILE="$PC_DIR/libffi.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i "/^Cflags:/ s/$/ -DFFI_STATIC_BUILD/" "$PC_FILE"
+        sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
     fi
 
 }

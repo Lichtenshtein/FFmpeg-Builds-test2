@@ -1,12 +1,16 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/breakfastquay/rubberband.git"
-SCRIPT_COMMIT="e4296ac80b1170018a110bc326fd0d45a0eb27d6"
+# SCRIPT_REPO="https://github.com/breakfastquay/rubberband.git"
+# SCRIPT_COMMIT="e4296ac80b1170018a110bc326fd0d45a0eb27d6"
+
+SCRIPT_REPO="https://github.com/pwnified/rubberband.git"
+SCRIPT_COMMIT="1928d99f31536a28a485a9c90bb82ed942fa7049"
 
 ffbuild_depends() {
     echo base
     echo fftw3
     echo libsamplerate
+    echo speex
 }
 
 ffbuild_enabled() {
@@ -20,24 +24,23 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     mkdir build && cd build
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
-        -Ddefault_library=static
+        -Ddefault_library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=c++17
         -Dc_std=c11
         -Dfft=fftw
-        -Dresampler=libsamplerate
+        -Dtests=disabled
+        -Dresampler=speex # libsamplerate
     )
 
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
         myconf+=(
             --cross-file=/cross.meson
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     meson setup "${myconf[@]}" .. \
