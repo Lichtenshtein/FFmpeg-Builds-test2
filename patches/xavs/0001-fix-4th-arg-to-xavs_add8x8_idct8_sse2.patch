@@ -1,0 +1,42 @@
+From 8b9bca5d2ca730ef38a421aaa2a39adcc9315d1d Mon Sep 17 00:00:00 2001
+From: Christopher Degawa <ccom@randomderp.com>
+Date: Thu, 20 Oct 2022 11:59:46 -0500
+Subject: [PATCH] xavs_add16x16_idct8_sse2: fix 4th arg to
+ xavs_add8x8_idct8_sse2
+
+xavs_add8x8_idct8_sse2 is declared with the last arg as a pointer, but
+xavs_add16x16_idct8_sse2 passes a plain uint16_t to it
+
+Signed-off-by: Christopher Degawa <ccom@randomderp.com>
+---
+ common/i386/dct-c.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/common/i386/dct-c.c b/common/i386/dct-c.c
+index 18b8614..2d27b2a 100644
+--- a/common/i386/dct-c.c
++++ b/common/i386/dct-c.c
+@@ -69,7 +69,7 @@ void x264_add16x16_idct_mmx( uint8_t *p_dst, int16_t dct[16][4][4] )
+     x264_add8x8_idct_mmx( &p_dst[0],               &dct[0] );
+     x264_add8x8_idct_mmx( &p_dst[8],               &dct[4] );
+     x264_add8x8_idct_mmx( &p_dst[8*FDEC_STRIDE],   &dct[8] );
+-    x264_add8x8_idct_mmx( &p_dst[8*FDEC_STRIDE+8], &dct[12] );                      idctµƒmmx≤ø∑÷
++    x264_add8x8_idct_mmx( &p_dst[8*FDEC_STRIDE+8], &dct[12] );                      idctùùmmxùùùù
+ }
+ */
+ /***********************
+@@ -115,10 +115,10 @@ extern void xavs_add16x16_idct8_sse2(uint8_t *dst, int16_t dct[4][8][8],int16_t
+ 
+ void xavs_add16x16_idct8_sse2( uint8_t *p_dst, int16_t dct[4][8][8],int16_t *tmp )
+ {
+-    xavs_add8x8_idct8_sse2( p_dst,                 dct[0] , tmp[0]);
+-    xavs_add8x8_idct8_sse2( p_dst+8,               dct[1] , tmp[1]);
+-    xavs_add8x8_idct8_sse2( p_dst+8*FDEC_STRIDE,   dct[2] , tmp[2]);
+-    xavs_add8x8_idct8_sse2( p_dst+8*FDEC_STRIDE+8, dct[3] , tmp[3]);                 
++    xavs_add8x8_idct8_sse2( p_dst,                 dct[0] , &tmp[0]);
++    xavs_add8x8_idct8_sse2( p_dst+8,               dct[1] , &tmp[1]);
++    xavs_add8x8_idct8_sse2( p_dst+8*FDEC_STRIDE,   dct[2] , &tmp[2]);
++    xavs_add8x8_idct8_sse2( p_dst+8*FDEC_STRIDE+8, dct[3] , &tmp[3]);
+ }
+ 
+ //#else // ARCH_X86

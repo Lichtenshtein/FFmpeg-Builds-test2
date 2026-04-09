@@ -27,13 +27,13 @@ ffbuild_dockerbuild() {
         --disable-doc
     )
 
-    [[ "${PREFER_SHARED}" == "1" ]] && \
-        base_conf+=( --disable-static --enable-shared ) || \
-        base_conf+=( --enable-static --disable-shared )
     # --with-combined-threads incompatible with --enable-openmp
     [[ "${USE_OPENMP}" == "1" ]] && \
         base_conf+=( --enable-openmp ) || \
         base_conf+=( --enable-threads --with-combined-threads )
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        base_conf+=( --disable-static --enable-shared ) || \
+        base_conf+=( --enable-static --disable-shared )
     [[ "$USE_AVX512" == "1" ]] && base_conf+=( --enable-avx512 )
 
     if [[ $TARGET != *arm64 ]]; then
@@ -71,10 +71,10 @@ ffbuild_dockerbuild() {
         # Чистим перед пересборкой другой точности
         make distclean || true
 
-        CFLAGS="$CFLAGS -mincoming-stack-boundary=4" \
+        CFLAGS="$CFLAGS -mincoming-stack-boundary=4 ${USELTO}" \
         CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS" \
-        LDFLAGS="$LDFLAGS" \
+        CXXFLAGS="$CXXFLAGS ${USELTO}" \
+        LDFLAGS="$LDFLAGS ${USELTO}" \
         LIBS="$LIBS" \
         ./configure "${myconf[@]}" || return 1
 

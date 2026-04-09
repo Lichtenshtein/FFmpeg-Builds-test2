@@ -25,7 +25,7 @@ ffbuild_dockerbuild() {
         --disable-libasprintf
         # --disable-nls
         --with-libiconv-prefix="$FFBUILD_PREFIX"
-        --with-pic
+        --enable-pic
         --with-included-gettext
         --enable-relocatable
     )
@@ -37,14 +37,13 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-openmp ) || \
         myconf+=( --disable-openmp )
 
-    CFLAGS="$CFLAGS -Dasm=__asm__" \
+    CFLAGS="$CFLAGS -Dasm=__asm__ ${USELTO}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CXXFLAGS="$CXXFLAGS -Dasm=__asm__ ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
-    # Нам нужна только библиотека intl
     cd intl
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
@@ -63,5 +62,4 @@ Libs: -L\${libdir} -lintl
 Libs.private: -liconv -lcharset
 Cflags: -I\${includedir}
 EOF
-
 }

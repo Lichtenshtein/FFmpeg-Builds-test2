@@ -35,7 +35,7 @@ ffbuild_dockerbuild() {
         -Dc_std=c11
         -Dfft=fftw
         -Dtests=disabled
-        -Dresampler=speex # libsamplerate
+        -Dresampler=libsamplerate # speex or libsamplerate
     )
 
     if [[ $TARGET == win* || $TARGET == linux* ]]; then

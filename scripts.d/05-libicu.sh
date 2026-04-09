@@ -78,10 +78,10 @@ ffbuild_dockerbuild() {
     local static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DICU_STATIC"
 
-    CFLAGS="${RAW_CFLAGS:-$CFLAGS}" \
+    CFLAGS="${RAW_CFLAGS:-$CFLAGS} ${USELTO}" \
     CPPFLAGS="${RAW_CPPFLAGS:-$CPPFLAGS} $static_flags" \
-    CXXFLAGS="${RAW_CXXFLAGS:-$CXXFLAGS} $static_flags" \
-    LDFLAGS="${RAW_LDFLAGS:-$LDFLAGS}" \
+    CXXFLAGS="${RAW_CXXFLAGS:-$CXXFLAGS} $static_flags ${USELTO}" \
+    LDFLAGS="${RAW_LDFLAGS:-$LDFLAGS} ${USELTO}" \
     CC="$CC" \
     CXX="$CXX" \
     AR="$AR" \
@@ -123,7 +123,7 @@ ffbuild_dockerbuild() {
         # Меняем имена библиотек (icu -> sicu)
         sed -i 's/-licu/-lsicu/g' "$pc"
         # Добавляем статический флаг
-        if ! grep -q "DICU_STATIC" "$pc"; then
+        if ! grep -q "$static_flags" "$pc"; then
             sed -i '/^Cflags:/ s/$/ $static_flags/' "$pc"
         fi
         # Вычищаем системные либы из основной строки Libs
@@ -141,5 +141,4 @@ ffbuild_dockerbuild() {
             sed -i '/^Libs:/ s/$/ -lsicudt/' "$pc"
         fi
     done
-
 }

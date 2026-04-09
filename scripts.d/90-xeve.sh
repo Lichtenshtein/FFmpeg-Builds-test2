@@ -18,9 +18,10 @@ ffbuild_dockerbuild() {
         echo v0.5.1 >> version.txt
     fi
     
-    mkdir build && cd build
+    mkdir -p build && cd build
 
     local myconf=(
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release

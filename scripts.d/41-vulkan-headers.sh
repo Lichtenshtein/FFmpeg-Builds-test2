@@ -20,9 +20,10 @@ ffbuild_dockerbuild() {
     mkdir -p "$FFBUILD_DESTPREFIX"/share/vulkan/registry
     cp registry/vk.xml "$FFBUILD_DESTPREFIX"/share/vulkan/registry/
 
-    mkdir build && cd build
+    mkdir -p build && cd build
 
     local myconf=(
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
@@ -39,5 +40,4 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
-
 }

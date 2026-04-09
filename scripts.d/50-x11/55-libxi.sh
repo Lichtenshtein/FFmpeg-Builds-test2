@@ -9,14 +9,18 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
+
     autoreconf -i
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
-        --enable-shared
-        --disable-static
         --with-pic
     )
+
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
 
     if [[ $TARGET == linuxarm64 ]]; then
         myconf+=(
@@ -28,15 +32,12 @@ ffbuild_dockerbuild() {
         myconf+=(
             --host="$FFBUILD_TOOLCHAIN"
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
-    CFLAGS="$RAW_CFLAGS" \
+    CFLAGS="$RAW_CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS" \
-    LDFLAGS="$RAW_LDFLAGS" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}" \
+    LDFLAGS="$RAW_LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 

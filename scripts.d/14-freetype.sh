@@ -36,16 +36,14 @@ ffbuild_dockerbuild() {
 
     local static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DFT2_BUILD_LIBRARY"
-
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
-    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    CFLAGS="$CFLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS $static_flags" \
-    CXXFLAGS="$CXXFLAGS $static_flags" \
+    CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
@@ -55,5 +53,4 @@ ffbuild_dockerbuild() {
     # Создаем симлинк
     local PC_LINK="$PC_DIR/freetype.pc"
     ln -sf freetype2.pc "$PC_LINK"
-
 }

@@ -1,0 +1,23 @@
+From de68b97c260bfce998a0fdd50636e74abc76395a Mon Sep 17 00:00:00 2001
+From: Arvin <arvin.sonuhi@gmail.com>
+Date: Mon, 3 Oct 2022 19:27:20 -0600
+Subject: [PATCH] Quick fix floating point truncation error
+
+Fixes case when samplerate=32KHz and bitrate=48kbps, but other errors may still exist
+---
+ src/lib/layer3.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/lib/layer3.c b/src/lib/layer3.c
+index 0b574ad..94cb666 100644
+--- a/src/lib/layer3.c
++++ b/src/lib/layer3.c
+@@ -125,7 +125,7 @@ shine_global_config *shine_initialise(shine_config_t *pub_config) {
+        ((double)config->wave.samplerate)) *
+       (1000 * (double)config->mpeg.bitr / (double)config->mpeg.bits_per_slot);
+ 
+-  config->mpeg.whole_slots_per_frame = (int)avg_slots_per_frame;
++  config->mpeg.whole_slots_per_frame = (int)(float)avg_slots_per_frame;
+ 
+   config->mpeg.frac_slots_per_frame =
+       avg_slots_per_frame - (double)config->mpeg.whole_slots_per_frame;

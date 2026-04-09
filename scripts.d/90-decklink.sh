@@ -20,7 +20,6 @@ ffbuild_dockerbuild() {
     mkdir -p "$FFBUILD_DESTPREFIX/include"
     # Передаем префикс правильно
     make PREFIX="$FFBUILD_DESTPREFIX" install || return 1
-
 }
 
 ffbuild_configure() {

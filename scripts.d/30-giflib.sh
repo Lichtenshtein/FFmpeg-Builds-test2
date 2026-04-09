@@ -23,8 +23,8 @@ ffbuild_dockerbuild() {
     sed -i "s|^RANLIB  =.*|RANLIB  = $RANLIB|" Makefile
 
     make \
-      CFLAGS="$CFLAGS" \
-      LDFLAGS="$LDFLAGS" \
+      CFLAGS="$CFLAGS ${USELTO}" \
+      LDFLAGS="$LDFLAGS ${USELTO}" \
       -j$(nproc) $MAKE_V libgif.a || return 1
 
     # Ручная установка, так как штатный install хочет в /usr/local
@@ -45,5 +45,4 @@ Version: 6.1.2
 Libs: -L\${libdir} -lgif
 Cflags: -I\${includedir}
 EOF
-
 }

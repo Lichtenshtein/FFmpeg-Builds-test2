@@ -336,6 +336,21 @@ if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
         else
             log_info "${LOCK_MARK} Preserving dynamic DLLs for $STAGENAME"
         fi
+    else
+        PRESERVE_LIB_PATTERN="${LIB_PRESERVE_LIST// /:-}"
+        if [[ ! "$STAGENAME" =~ $PRESERVE_LIB_PATTERN ]]; then
+        # Находим все .a файлы, которые НЕ заканчиваются на .dll.a
+            STATIC_FILES=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.a" ! -name "*.dll.a" -print | sed "s|$FFBUILD_DESTDIR||g")
+            if [[ -n "$STATIC_FILES" ]]; then
+                log_debug "${BROOM_MARK} Cleaning static libs to prefer shared: $STAGENAME\n$STATIC_FILES"
+                # Удаляем только чистые .a файлы
+                find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.a" ! -name "*.dll.a" -delete || true
+            else
+                log_info "${CHECK_MARK} No static libraries found to clean."
+            fi
+        else
+            log_info "${LOCK_MARK} Preserving static libraries for $STAGENAME"
+        fi
     fi
 
     # Удаляем мусорные libtool archives файлы

@@ -192,11 +192,7 @@ mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 # Flags for the component build stage
 
 [[ "$USE_OPENMP" == "1" ]] && OPENMP_C=" -fopenmp" && OPENMP_LIB="-lgomp "
-[[ "$USE_LTO" == "1" ]] && RLTO=" -C lto=fat"
-
-    export CFLAGS="$CFLAGS -flto=auto"
-    export CXXFLAGS="$CXXFLAGS -flto=auto"
-    export LDFLAGS="$LDFLAGS -flto=auto"
+[[ "$USE_LTO" == "1" ]] && RUSTLTO=" -C lto=fat" && export USELTO="-flto=auto" && export NOLTO="-fno-lto"
 
 BASE_CFLAGS="-mms-bitfields -fstack-protector-strong${OPENMP_C}"
 if [[ "$TARGET" == "win64" ]]; then
@@ -213,10 +209,11 @@ export CPPFLAGS="-I/opt/ffbuild/include ${BASE_CPPFLAGS}"
 export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu++17"
 if [[ "$PREFER_SHARED" == "1" ]]; then
     export LDFLAGS="-L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
-    export RUSTFLAGS="-C target-cpu=${CPU_ARCH} -C strip=symbols -C codegen-units=1 -C opt-level=3${RLTO}"
+    export RUSTFLAGS="-C target-cpu=${CPU_ARCH} -C strip=symbols -C codegen-units=1 -C opt-level=3${RUSTLTO}"
 else
     export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
-    export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH} -C strip=symbols -C codegen-units=1 -C opt-level=3 -C embed-bitcode=yes${RLTO}"
+    # codegen-units = 16 (default)
+    export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH} -C strip=symbols -C codegen-units=1 -C opt-level=3 -C embed-bitcode=yes${RUSTLTO}"
 fi
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
 # Обработка флагов, специфичных для Linux ELF
@@ -1133,10 +1130,10 @@ get_component_group() {
         25|26|27|28|29)         echo "Net" ;; # OpenSSL, Curl
  14|17|30|31|32|33|34|36|38|39) echo "Core Graphics" ;; # PNG Cairo
         40|41|42|43|44)         echo "Vulkan & Shaders" ;; # SPIR-V, Glslang
-        45|46)                  echo "Hardware Acceleration API" ;; # VMAF
+        45|46|66)                  echo "Hardware Acceleration API" ;; # VMAF
         50|52|53|54|55|56)      echo "X11 & Windowing" ;; # XCB
         57|58|59|60|61|62|63)   echo "Compute & Vision" ;; # OpenVINO, OpenCV
-        64|65|66|67|68|69)      echo "Audio & Codecs" ;; #
+        64|65|67|68|69)      echo "Audio API & Codecs" ;; #
         37|70|71|72|73|74)   echo "Software Codecs" ;; # x264, x265
         80|81|82|83|84)         echo "Frameservers" ;; # Vapoursynth, OpenAL
         51|84|85|86|87|88|89)   echo "Video Extensions" ;; # Libglvnd, Xrandr

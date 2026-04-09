@@ -50,6 +50,7 @@ ffbuild_dockerbuild() {
         # -DSHADERC_SPIRV_TOOLS_DIR="$(realpath ../third_party/spirv-tools)"
         # -DSHADERC_SPIRV_HEADERS_DIR="$(realpath ../third_party/spirv-headers)"
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_BUILD_TYPE=Release
         -DENABLE_EXCEPTIONS=ON
         -DENABLE_GLSLANG_BINARIES=OFF
@@ -104,9 +105,6 @@ ffbuild_dockerbuild() {
         rm -r "${DESTDIR}${FFBUILD_PREFIX}"/bin "${DESTDIR}${FFBUILD_PREFIX}"/lib/*.dll.a
     elif [[ $TARGET == linux* ]]; then
         rm -r "${DESTDIR}${FFBUILD_PREFIX}"/bin "${DESTDIR}${FFBUILD_PREFIX}"/lib/*.so*
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     # Создаем эталонный shaderc.pc, который реально будет работать при статической линковке FFmpeg

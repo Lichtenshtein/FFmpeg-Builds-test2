@@ -26,9 +26,11 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+if [[ "${PREFER_SHARED}" !== "1" ]]; then
     # Принудительно отключаем SHARED в самом коде Leptonica
     sed -i 's/SHARED/STATIC/g' src/CMakeLists.txt
-
+fi
     # Убеждаемся, что она не пытается выставлять суффиксы версий вроде libleptonica-1.88.0.a
     sed -i 's/set_target_properties.*PROPERTIES.*OUTPUT_NAME.*//g' src/CMakeLists.txt
 
@@ -63,6 +65,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_PREFIX_PATH="$FFBUILD_PREFIX"
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DSW_BUILD=OFF
         -DBUILD_PROG=OFF
@@ -86,15 +89,13 @@ ffbuild_dockerbuild() {
         -DWebP_INCLUDE_DIR="$FFBUILD_PREFIX/include"
     )
 
-    # Добавляем LTO если включено в workflow
-    [[ "$USE_LTO" == "1" ]] && myconf+=( -DENABLE_LTO=ON )
-
     # Принудительно устанавливаем C_FLAGS, чтобы избежать __imp_
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    cmake "${myconf[@]}" \
+    cmake -G Ninja "${myconf[@]}" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $DEP_LIBS $WIN_LIBS" .. || return 1
 
+if [[ "${PREFER_SHARED}" !== "1" ]]; then
     # где лежит файл?
     log_debug "Searching for compiled lib..."
     find . -name "*.a"
@@ -106,8 +107,8 @@ ffbuild_dockerbuild() {
     find . -name "build.make" -exec sed -i 's/libleptonica-1.88.0.dll/libleptonica.a/g' {} +
     find . -name "link.txt" -exec sed -i 's/libleptonica-1.88.0.dll/libleptonica.a/g' {} +
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Ищем либу (она могла остаться в папке build/src). Если CMake создал файл с версией libleptonica-1.88.0.a, переименовываем
     find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "libleptonica*.a" -exec mv {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a" \;
@@ -131,6 +132,7 @@ ffbuild_dockerbuild() {
             return 1
         fi
     fi
+fi
 
     # Удаляем все автосгенерированные конфиги
     rm -f "$PC_DIR"/lept*.pc
@@ -165,5 +167,4 @@ EOF
         mv "$LEPT_BACKUP"/* "$FFBUILD_PREFIX/lib/cmake/" 2>/dev/null || true
         rm -rf "$LEPT_BACKUP"
     fi
-
 }

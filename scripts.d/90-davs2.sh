@@ -35,9 +35,19 @@ ffbuild_dockerbuild() {
         --chroma-format=all
         --host="$FFBUILD_TOOLCHAIN"
         --cross-prefix="$FFBUILD_CROSS_PREFIX"
+        # other existing options
+        #--system-libdavs2 #use system libdavs2 instead of internal
+        #--disable-opencl  # disable OpenCL features
+        #--disable-gpl     # disable GPL-only features
+        #--disable-thread  # disable multithreaded encoding
+        #--disable-win32thread # disable win32threads (windows only)
+        #--disable-interlaced  # disable interlaced encoding support
+        #--disable-asm         # disable platform-specific assembly optimizations
     )
 
-    # Добавляем LTO если включено в workflow
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     ./configure "${myconf[@]}" \

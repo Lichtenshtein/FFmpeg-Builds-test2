@@ -33,8 +33,6 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --disable-shared
-        --enable-static
         --disable-doc
         --disable-csharp
         --disable-java
@@ -50,19 +48,23 @@ ffbuild_dockerbuild() {
         --enable-win32
     )
 
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
+
     CC="${FFBUILD_CROSS_PREFIX}gcc" \
     CXX="${FFBUILD_CROSS_PREFIX}g++" \
-    CFLAGS="$CFLAGS -Wno-implicit-function-declaration" \
+    CFLAGS="$CFLAGS -Wno-implicit-function-declaration ${USELTO}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration" \
-    LDFLAGS="$LDFLAGS" \
+    CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     # Сборка только библиотеки
     # Мы явно просим собрать папку caca, а не всё дерево с тестами
     make -C caca -j$(nproc) $MAKE_V || return 1
-    
+
     # Установка вручную, чтобы не заходить в папку 't'
     make -C caca install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
@@ -77,7 +79,6 @@ ffbuild_dockerbuild() {
         # FFmpeg требует явного указания системных либ для статики
         echo "Libs.private: -lgdi32" >> "$PC_FILE"
     fi
-
 }
 
 ffbuild_configure() {

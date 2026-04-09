@@ -235,6 +235,7 @@ WRAPPER_EOF
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_TESTS=OFF
         -DBUILD_TRAINING_TOOLS=OFF # causes strange pgp path '=/include' errors
         -DOPENMP_BUILD=$([[ $target != "win64" && "${USE_OPENMP}" == "1" ]] && echo ON || echo OFF) # DO NOT enable it for Win64
@@ -275,8 +276,8 @@ WRAPPER_EOF
             "$f"
     done
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Возвращаем старые конфиги назад (не затирая новые от самого tesseract)
     log_debug "Restoring backed up CMake configs..."

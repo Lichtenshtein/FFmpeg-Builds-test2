@@ -21,11 +21,12 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    mkdir build
-    cd build
+
+    mkdir -p build && cd build
 
     local myconf=(
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
@@ -43,7 +44,7 @@ ffbuild_dockerbuild() {
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS -DHAVE_OPENSSL=1" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS -DHAVE_OPENSSL=1" \
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
@@ -51,7 +52,6 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     echo "Libs.private: -lstdc++ -lcrypto" >> "$PC_DIR/libaribcaption.pc"
-
 }
 
 ffbuild_configure() {

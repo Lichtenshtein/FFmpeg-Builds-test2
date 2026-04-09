@@ -35,24 +35,25 @@ ffbuild_dockerbuild() {
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         # Указываем путь к только что скопированным хедерам
         -DOPENCL_ICD_LOADER_HEADERS_DIR="$FFBUILD_DESTPREFIX/include"
-        -DOPENCL_ICD_LOADER_BUILD_SHARED_LIBS=OFF
+        -DOPENCL_ICD_LOADER_BUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DOPENCL_ICD_LOADER_DISABLE_OPENCLON12=ON
         -DOPENCL_ICD_LOADER_PIC=ON
         -DOPENCL_ICD_LOADER_BUILD_TESTING=OFF
         -DOPENCL_HEADERS_BUILD_CXX_TESTS=OFF
         -DOPENCL_HEADERS_BUILD_TESTING=OFF
-        -DBUILD_TESTING=OFF 
+        -DBUILD_TESTING=OFF
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
-    
+
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
@@ -75,7 +76,6 @@ EOF
     elif [[ $TARGET == win* ]]; then
         echo "Libs.private: -lole32 -lshlwapi -lcfgmgr32" >> "$PC_DIR/OpenCL.pc"
     fi
-
 }
 
 ffbuild_configure() {
