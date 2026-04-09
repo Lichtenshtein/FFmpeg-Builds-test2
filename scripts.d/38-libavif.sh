@@ -31,7 +31,8 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DBUILD_SHARED_LIBS=OFF
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DAVIF_BUILD_TESTS=OFF
         -DAVIF_BUILD_APPS=OFF
         -DAVIF_BUILD_EXAMPLES=OFF
@@ -53,7 +54,7 @@ ffbuild_dockerbuild() {
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
-    
+
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
@@ -78,5 +79,4 @@ Libs: -L\${libdir} -lyuv
 Libs.private: -lstdc++
 Cflags: -I\${includedir}
 EOF
-
 }

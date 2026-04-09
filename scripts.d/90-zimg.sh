@@ -18,6 +18,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     ./autogen.sh
 
     local myconf=(
@@ -34,25 +35,22 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    CFLAGS="$CFLAGS" \
+    CFLAGS="$CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # Исправляем .pc файл для статической линковки в FFmpeg
     local PC_FILE="$PC_DIR/zimg.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Гарантируем, что FFmpeg увидит необходимость линковки с libstdc++
         if ! grep -q "Libs.private" "$PC_FILE"; then
             echo "Libs.private: -lstdc++" >> "$PC_FILE"
         fi
     fi
-
 }
 
 ffbuild_configure() {

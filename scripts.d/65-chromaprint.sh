@@ -19,7 +19,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    mkdir build && cd build
+    mkdir -p build && cd build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -27,6 +27,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_TOOLS=OFF
         -DBUILD_TESTS=OFF
         -DFFT_LIB=fftw3

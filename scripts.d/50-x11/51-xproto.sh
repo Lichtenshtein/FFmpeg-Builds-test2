@@ -9,11 +9,17 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
+
     autoreconf -i
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
     )
+
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
 
     if [[ $TARGET == linux* ]]; then
         myconf+=(
@@ -21,14 +27,13 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    CFLAGS="$RAW_CFLAGS" \
+    CFLAGS="$RAW_CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS" \
-    LDFLAGS="$RAW_LDFLAGS" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}" \
+    LDFLAGS="$RAW_LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
-
 }

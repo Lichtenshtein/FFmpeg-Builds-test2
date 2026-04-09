@@ -19,12 +19,13 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    mkdir build && cd build
+    mkdir -p build && cd build
 
     local static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DOPJ_STATIC"
 
     local myconf=(
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )

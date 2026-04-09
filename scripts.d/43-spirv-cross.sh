@@ -20,15 +20,16 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     VER_MAJ="$(grep 'set(spirv-cross-abi-major' CMakeLists.txt | sed -re 's/.* ([0-9]+)\)/\1/')"
     VER_MIN="$(grep 'set(spirv-cross-abi-minor' CMakeLists.txt | sed -re 's/.* ([0-9]+)\)/\1/')"
     VER_PCH="$(grep 'set(spirv-cross-abi-patch' CMakeLists.txt | sed -re 's/.* ([0-9]+)\)/\1/')"
     VER_FULL="$VER_MAJ.$VER_MIN.$VER_PCH"
 
-    mkdir build && cd build
+    mkdir -p build && cd build
 
     local myconf=(
-        -G "Unix Makefiles"
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
@@ -45,10 +46,10 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake "${myconf[@]}" .. || return 1
+    cmake -G "Unix Makefiles" "${myconf[@]}" .. || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     cat >"$PC_DIR/spirv-cross-c-shared.pc" <<EOF
 prefix=$FFBUILD_PREFIX
@@ -65,5 +66,4 @@ Requires:
 Libs: -L\${libdir} -L\${sharedlibdir} -lspirv-cross-c -lspirv-cross-glsl -lspirv-cross-hlsl -lspirv-cross-reflect -lspirv-cross-msl -lspirv-cross-util -lspirv-cross-core -lstdc++
 Cflags: -I\${includedir}
 EOF
-
 }

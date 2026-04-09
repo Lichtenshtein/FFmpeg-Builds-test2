@@ -19,6 +19,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     ./autogen.sh
 
     local DEP_LIBS="-lbz2 -lz -pthread $LIBS"
@@ -43,11 +44,11 @@ ffbuild_dockerbuild() {
     local static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DPCRE2_STATIC"
 
-    CFLAGS="$CFLAGS" \
-    LDFLAGS="$LDFLAGS" \
-    LIBS="$DEP_LIBS" \
+    CFLAGS="$CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS $static_flags" \
-    CXXFLAGS="$CXXFLAGS $static_flags" \
+    CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LIBS="$DEP_LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1

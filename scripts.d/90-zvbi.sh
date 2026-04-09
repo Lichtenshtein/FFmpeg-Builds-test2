@@ -6,6 +6,7 @@ SCRIPT_COMMIT="41477c97c8edf7a01f1594b2a95b94f0117eed21"
 ffbuild_depends() {
     echo base
     echo libiconv
+    echo libicu
 }
 
 ffbuild_enabled() {
@@ -18,6 +19,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     ./autogen.sh
 
     local myconf=(
@@ -27,8 +29,10 @@ ffbuild_dockerbuild() {
         --without-x
         --disable-dvb
         --disable-bktr
-        --disable-nls
+        --enable-nls # libicu
         --disable-proxy
+        --disable-examples
+        --disable-tests
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
@@ -41,17 +45,16 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    CFLAGS="$CFLAGS" \
+    CFLAGS="$CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -C src -j$(nproc) $MAKE_V || return 1
     make -C src install DESTDIR="$FFBUILD_DESTDIR" || return 1
     make SUBDIRS=. install DESTDIR="$FFBUILD_DESTDIR" || return 1
-
 }
 
 ffbuild_configure() {

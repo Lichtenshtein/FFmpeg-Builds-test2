@@ -20,7 +20,6 @@ ffbuild_dockerbuild() {
     mkdir -p "$FFBUILD_DESTPREFIX/lib/" "$FFBUILD_DESTPREFIX/include/"
     cp libquirc.a "$FFBUILD_DESTPREFIX/lib/"
     cp lib/quirc.h "$FFBUILD_DESTPREFIX/include/"
-
 }
 
 ffbuild_configure() {

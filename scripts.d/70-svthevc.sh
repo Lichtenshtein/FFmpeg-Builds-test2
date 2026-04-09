@@ -17,13 +17,15 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    mkdir build1 && cd build1
+
+    mkdir -p _build && cd _build
 
     local myconf=(
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_APP=OFF
         -DENABLE_NATIVE=OFF
         -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF )
@@ -37,7 +39,6 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
-
 }
 
 ffbuild_configure() {

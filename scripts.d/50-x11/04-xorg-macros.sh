@@ -26,14 +26,13 @@ ffbuild_dockerbuild() {
 
     autoreconf -i
 
-    CFLAGS="$RAW_CFLAGS" \
+    CFLAGS="$RAW_CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS" \
-    LDFLAGS="$RAW_LDFLAGS" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}" \
+    LDFLAGS="$RAW_LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure --prefix="$FFBUILD_PREFIX" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
-
 }

@@ -18,13 +18,14 @@ ffbuild_dockerbuild() {
 
     sed -i 's/-march=native//g' CMakeLists.txt || true
 
-    mkdir build1 && cd build1
+    mkdir -p _build && cd _build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_APP=OFF
         -DNATIVE=OFF
         -DCOVERAGE=OFF

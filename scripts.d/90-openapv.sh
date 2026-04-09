@@ -17,12 +17,13 @@ ffbuild_dockerbuild() {
     # Очищаем CMakeLists для приложений, чтобы не собирать лишний мусор
     echo > app/CMakeLists.txt
 
-    mkdir build && cd build
+    mkdir -p build && cd build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DENABLE_TESTS=OFF
         -DOAPV_BUILD_APPS=OFF

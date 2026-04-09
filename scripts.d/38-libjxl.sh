@@ -24,25 +24,16 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    mkdir build && cd build
 
-    if [[ $TARGET == linux* ]]; then
-        # our glibc is too old(<2.25), and their detection fails for some reason
-        export CXXFLAGS="$CXXFLAGS -DVQSORT_GETRANDOM=0 -DVQSORT_SECURE_SEED=0"
-    elif [[ $TARGET == win32 || $TARGET == win64 ]]; then
-        # Fix AVX2 related crash due to unaligned stack memory
-        export CFLAGS="$CFLAGS $CPPFLAGS -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
-        export CXXFLAGS="$CXXFLAGS $CPPFLAGS -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
-        export LDFLAGS="$LDFLAGS"
-    fi
+    mkdir -p build && cd build
 
     local myconf=(
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DBUILD_SHARED_LIBS=OFF
-        -DJPEGXL_STATIC=ON
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DJPEGXL_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DJPEGXL_BUNDLE_LIBPNG=OFF
         -DJPEGXL_EMSCRIPTEN=OFF
         -DJPEGXL_ENABLE_BENCHMARK=OFF
@@ -63,6 +54,16 @@ ffbuild_dockerbuild() {
         -DBUILD_TESTING=OFF
     )
 
+    if [[ $TARGET == linux* ]]; then
+        # our glibc is too old(<2.25), and their detection fails for some reason
+        export CXXFLAGS="$CXXFLAGS -DVQSORT_GETRANDOM=0 -DVQSORT_SECURE_SEED=0"
+    elif [[ $TARGET == win32 || $TARGET == win64 ]]; then
+        # Fix AVX2 related crash due to unaligned stack memory
+        export CFLAGS="$CFLAGS $CPPFLAGS -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
+        export CXXFLAGS="$CXXFLAGS $CPPFLAGS -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
+        export LDFLAGS="$LDFLAGS"
+    fi
+
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
@@ -81,7 +82,6 @@ ffbuild_dockerbuild() {
     sed -i 's/Libs:/Libs: -lhwy /' "$PC_DIR/libjxl.pc"
     # Brotli в зависимости
     sed -i 's/Requires.private:/Requires.private: lbrotlienc lbrotlidec lbrotlicommon /' "$PC_DIR/libjxl.pc"
-
 }
 
 ffbuild_configure() {

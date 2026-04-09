@@ -21,7 +21,8 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    mkdir tiff_build && cd tiff_build
+
+    mkdir -p tiff_build && cd tiff_build
 
     export WebP_LIBRARY="$FFBUILD_DESTPREFIX/lib/libwebp.a;$FFBUILD_DESTPREFIX/lib/libsharpyuv.a"
     
@@ -31,8 +32,10 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DBUILD_SHARED_LIBS=OFF
-        -Dtiff-static=ON
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -Dtiff-static=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -Dtiff-tools=OFF
         -Dtiff-tests=OFF
         -Dtiff-contrib=OFF
@@ -47,25 +50,25 @@ ffbuild_dockerbuild() {
         -DWebP_LIBRARY="$WebP_LIBRARY"
     )
 
-    [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBTIFF_STATIC"
 
-    CFLAGS="$CFLAGS $CPPFLAGS -DLIBTIFF_STATIC" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS -DLIBTIFF_STATIC" \
-    cmake "${myconf[@]}" \
+    CFLAGS="$CFLAGS $CPPFLAGS $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags" \
+    cmake -G Ninja "${myconf[@]}" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" .. || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     local PC_FILE="$PC_DIR/libtiff-4.pc"
     local LINK_FILE="$PC_DIR/tiff.pc"
     if [[ -f "$PC_FILE" ]]; then
-        if ! grep -q "DLIBTIFF_STATIC" "$PC_FILE"; then
-            sed -i "/^Cflags:/ s/$/ -DLIBTIFF_STATIC/" "$PC_FILE"
+        if ! grep -q "$static_flags" "$PC_FILE"; then
+            sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
         fi
     fi
 
     # проверить, как называется созданный .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
     ln -sf libtiff-4.pc "$LINK_FILE"
-
 }

@@ -35,14 +35,16 @@ ffbuild_dockerbuild() {
         # --disable-nls
     )
 
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DICONV_STATIC"
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    CFLAGS="$CFLAGS" \
-    CPPFLAGS="$CPPFLAGS -DICONV_STATIC" \
-    LDFLAGS="$LDFLAGS" \
-    CXXFLAGS="$CXXFLAGS -DICONV_STATIC" \
+    CFLAGS="$CFLAGS ${USELTO}" \
+    CPPFLAGS="$CPPFLAGS $static_flags" \
+    CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
@@ -61,13 +63,12 @@ Description: Character set conversion library
 Version: 1.18
 Libs: -L\${libdir} -liconv
 Libs.private: -lcharset $LIBS
-Cflags: -I\${includedir} -DICONV_STATIC
+Cflags: -I\${includedir} $static_flags
 EOF
-
 }
 
 ffbuild_cppflags() {
-    echo "-DICONV_STATIC"
+    echo "$static_flags"
 }
 
 ffbuild_configure() {

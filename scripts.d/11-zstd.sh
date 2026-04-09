@@ -22,12 +22,10 @@ ffbuild_dockerbuild() {
     rm -rf builddir && mkdir builddir && cd builddir
 
     local myconf=(
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DZSTD_BUILD_STATIC=ON
-        -DZSTD_BUILD_SHARED=OFF
         -DZSTD_BUILD_PROGRAMS=OFF
         -DZSTD_BUILD_TESTS=OFF
         -DZSTD_BUILD_CONTRIB=OFF
@@ -36,37 +34,39 @@ ffbuild_dockerbuild() {
         -DZSTD_LEGACY_SUPPORT=ON
     )
 
-    if [[ "$USE_LTO" == "1" ]]; then
-        myconf+=( -DZSTD_USE_LTO=ON )
-    fi
+    [[ "${USE_LTO}" = "1" ]] && myconf+=( -DZSTD_USE_LTO=ON )
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DZSTD_STATIC_LINKING"
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( -DZSTD_BUILD_STATIC=OFF -DZSTD_BUILD_SHARED=ON ) || \
+        myconf+=( -DZSTD_BUILD_STATIC=ON -DZSTD_BUILD_SHARED=OFF )
 
     # Добавляем -DCMAKE_CXX_COMPILER, чтобы CMake инициализировал CXX
     # и не падал на проверке флагов AddZstdCompilationFlags
     # Принудительно передаем CXX компилятор
-    cmake "${myconf[@]}" \
-        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS -DZSTD_MULTITHREAD -DZSTD_STATIC_LINKING" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS -DZSTD_MULTITHREAD -DZSTD_STATIC_LINKING" \
+    cmake -G "${myconf[@]}" \
+        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS -DZSTD_MULTITHREAD $static_flags" \
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS -DZSTD_MULTITHREAD $static_flags" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
         -DCMAKE_CXX_COMPILER="$CXX" \
         .. || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     local PC_FILE="$PC_DIR/libzstd.pc"
     if [[ -f "$PC_FILE" ]]; then
         if ! grep -q "\-lpthread" "$PC_FILE"; then
-            sed -i 's/Libs.private:/& -lpthread /' "$PC_FILE"
+            sed -i 's/Libs.private:/& -pthread /' "$PC_FILE"
         fi
         if ! grep -q "\-DZSTD_MULTITHREAD" "$PC_FILE"; then
-            sed -i '/^Cflags:/ s/$/ -DZSTD_MULTITHREAD -DZSTD_STATIC_LINKING/' "$PC_FILE"
+            sed -i '/^Cflags:/ s/$/ -DZSTD_MULTITHREAD $static_flags/' "$PC_FILE"
         fi
     fi
-
 }
 
 ffbuild_cppflags() {
-    echo "-DZSTD_STATIC_LINKING -DZSTD_MULTITHREAD"
+    echo "$static_flags -DZSTD_MULTITHREAD"
 }
 
 ffbuild_configure() {

@@ -1,0 +1,22 @@
+From 5064d1298f5a468f530bec5c5b4d033887047d93 Mon Sep 17 00:00:00 2001
+From: liuwei <liuwei@DESKTOP-V8OAJJK>
+Date: Tue, 11 Aug 2020 11:03:50 +0800
+Subject: [PATCH] Don't use a list initializer in the declaration
+
+---
+ common/i386/predict-c.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/common/i386/predict-c.c b/common/i386/predict-c.c
+index 6086692..e4ccefb 100644
+--- a/common/i386/predict-c.c
++++ b/common/i386/predict-c.c
+@@ -31,7 +31,7 @@ extern void predict_8x8c_dc_left_mmxext( uint8_t *src,int i_neighbor );
+ extern void predict_8x8c_dc_mmxext( uint8_t *src,int i_neighbor );
+ extern void predict_8x8c_v_mmxext( uint8_t *src, int i_neighbor );
+ extern void predict_8x8c_dc_top_mmxext( uint8_t *src,int i_neighbor );
+-extern void predict_8x8c_p_core_mmxext( src, i00, b, c );
++extern void predict_8x8c_p_core_mmxext( uint8_t *src, int i00, int b, int c );
+ extern void predict_8x8_h_mmxext( uint8_t *src, int i_neighbor );
+ extern void predict_8x8_v_mmxext( uint8_t *src, int i_neighbor );
+ extern void predict_8x8_dc_128_mmxext( uint8_t *src, int i_neighbor );

@@ -19,15 +19,15 @@ ffbuild_dockerbuild() {
     # Сброс инструментов для чистоты CMake
     # unset CC CXX LD AR AS NM RANLIB
     
-    mkdir -p build_zlib
-    cd build_zlib
+    mkdir -p build_zlib && cd build_zlib
 
-    myconf=(
-        -G Ninja
+    local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DBUILD_SHARED_LIBS=OFF
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DZLIB_COMPAT=ON
         -DBUILD_TESTING=OFF
         -DWITH_NEW_STRATEGIES=ON
@@ -42,16 +42,17 @@ ffbuild_dockerbuild() {
         -DWITH_PCLMULQDQ=ON
         -DWITH_AVX2=ON
         -DWITH_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF )
-        -DWITH_AVX512VNNI=OFF
+        -DWITH_AVX512VNNI=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF )
         -DWITH_VPCLMULQDQ=OFF
     )
 
-    [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DZLIB_STATIC"
 
-    CFLAGS="$CFLAGS $CPPFLAGS -DZLIB_STATIC" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS -DZLIB_STATIC" \
+    CFLAGS="$CFLAGS $CPPFLAGS $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags" \
     LDFLAGS="$LDFLAGS" \
-    cmake "${myconf[@]}" .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
     # Check for successful generation
     if [[ ! -f "build.ninja" ]]; then
@@ -66,13 +67,13 @@ ffbuild_dockerbuild() {
 
     for pc in "$PC_DIR"/*zlib*.pc; do
         [[ -e "$pc" ]] || continue
-        sed -i '/^Cflags:/ s/$/ -DZLIB_STATIC/' "$pc"
+        sed -i '/^Cflags:/ s/$/ $static_flags/' "$pc"
     done
 
 }
 
 ffbuild_cppflags() {
-    echo "-DZLIB_STATIC"
+    echo "$static_flags"
 }
 
 ffbuild_configure() {
