@@ -20,20 +20,20 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    mkdir build && cd build
+    mkdir -p build && cd build
 
     local myconf=(
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
-        --prefix="$FFBUILD_PREFIX"
         --buildtype=release
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
-        -Dcpp_std=c++17
-        -Dc_std=c11
-        -Duse_nettle=true
-        # -Duse_mbedtls=true
-        -Dbuiltin_mbedtls=false
+        --prefix="$FFBUILD_PREFIX"
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         -Dbuilt_tools=false
+        -Dbuiltin_mbedtls=false
+        # -Duse_mbedtls=true
+        -Dc_std=c11
+        -Dcpp_std=c++17
         -Dtest=false
+        -Duse_nettle=true
     )
 
     if [[ $TARGET == win* ]]; then
@@ -58,7 +58,6 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     echo "Requires: mbedcrypto" >> "$PC_DIR/librist.pc"
-
 }
 
 ffbuild_configure() {

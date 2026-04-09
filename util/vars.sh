@@ -180,6 +180,7 @@ export SKIP_PRE_PATCH=0
 export SKIP_POST_PATCH=0
 export SKIP_POST_CLEAN=0
 export SKIP_POST_AUDIT=0
+export SKIP_POST_STRIP=0
 export USE_CONF_FINDER=0
 
 # Create the base structure if it doesn't exist
@@ -191,6 +192,11 @@ mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 # Flags for the component build stage
 
 [[ "$USE_OPENMP" == "1" ]] && OPENMP_C=" -fopenmp" && OPENMP_LIB="-lgomp "
+[[ "$USE_LTO" == "1" ]] && RLTO=" -C lto=fat"
+
+    export CFLAGS="$CFLAGS -flto=auto"
+    export CXXFLAGS="$CXXFLAGS -flto=auto"
+    export LDFLAGS="$LDFLAGS -flto=auto"
 
 BASE_CFLAGS="-mms-bitfields -fstack-protector-strong${OPENMP_C}"
 if [[ "$TARGET" == "win64" ]]; then
@@ -207,10 +213,10 @@ export CPPFLAGS="-I/opt/ffbuild/include ${BASE_CPPFLAGS}"
 export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu++17"
 if [[ "$PREFER_SHARED" == "1" ]]; then
     export LDFLAGS="-L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
-    export RUSTFLAGS="-C target-cpu=${CPU_ARCH}"
+    export RUSTFLAGS="-C target-cpu=${CPU_ARCH} -C strip=symbols -C codegen-units=1 -C opt-level=3${RLTO}"
 else
     export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
-    export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH}"
+    export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH} -C strip=symbols -C codegen-units=1 -C opt-level=3 -C embed-bitcode=yes${RLTO}"
 fi
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
 # Обработка флагов, специфичных для Linux ELF

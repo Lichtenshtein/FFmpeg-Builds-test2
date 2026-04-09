@@ -21,6 +21,9 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    export SKIP_POST_STRIP=1
+
     # Фикс для современных компиляторов (json11)
     # Ищем файл во всем дереве, так как путь может варьироваться
     find . -name "json11.cpp" -exec sed -i '1i#include <cstdint>' {} +

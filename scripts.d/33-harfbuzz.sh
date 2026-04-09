@@ -20,7 +20,8 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    mkdir build && cd build
+
+    mkdir -p build && cd build
 
     # порядок линковки критичен для статики
     local DEP_LIBS="-lcairo-gobject -lcairo -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lz -lfreetype -lsicuin -lsicuuc -lsicudt"
@@ -31,7 +32,8 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --libdir=lib
         --buildtype=release
-        --default-library=static
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         -Dfreetype=enabled
         -Dicu=enabled
         -Dcpp_std=c++17
@@ -54,11 +56,12 @@ ffbuild_dockerbuild() {
         -Dbenchmark=disabled
     )
 
-    [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCAIRO_WIN32_STATIC_BUILD" && self_static_flags="-DHARFBUZZ_STATIC"
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -Wno-redundant-decls" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS -DHARFBUZZ_STATIC -DCAIRO_WIN32_STATIC_BUILD -Wno-redundant-decls" \
+        -Dc_args="$CFLAGS $CPPFLAGS $self_static_flags $static_flags -Wno-redundant-decls" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS $self_static_flags $static_flags -Wno-redundant-decls" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
@@ -68,16 +71,15 @@ ffbuild_dockerbuild() {
     if ls "$PC_DIR"/*harfbuzz*.pc >/dev/null 2>&1; then
         for pc in "$PC_DIR"/*harfbuzz*.pc; do
             [[ -e "$pc" ]] || continue
-            if ! grep -q "HARFBUZZ_STATIC" "$pc"; then
-                sed -i '/^Cflags:/ s/$/ -DHARFBUZZ_STATIC/' "$pc"
+            if ! grep -q "$self_static_flags" "$pc"; then
+                sed -i '/^Cflags:/ s/$/ $self_static_flags/' "$pc"
             fi
         done
     fi
-
 }
 
 ffbuild_cppflags() {
-    echo "-DHARFBUZZ_STATIC"
+    echo "$self_static_flags"
 }
 
 ffbuild_configure() {
