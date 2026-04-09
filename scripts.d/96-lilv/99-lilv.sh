@@ -16,18 +16,18 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     local myconf=(
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
-        --prefix="$FFBUILD_PREFIX"
         --buildtype=release
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
-        -Dcpp_std=c++17
-        -Dc_std=c11
-        -Ddocs=disabled
-        -Dtools=disabled
-        -Dtests=disabled
-        -Dsinglehtml=disabled
-        -Dhtml=disabled
+        --prefix="$FFBUILD_PREFIX"
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         -Dbindings_py=disabled
+        -Dc_std=c11
+        -Dcpp_std=c++17
+        -Ddocs=disabled
+        -Dhtml=disabled
+        -Dsinglehtml=disabled
+        -Dtests=disabled
+        -Dtools=disabled
     )
 
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
@@ -44,7 +44,6 @@ ffbuild_dockerbuild() {
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
-
 }
 
 ffbuild_configure() {

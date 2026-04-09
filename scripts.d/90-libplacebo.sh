@@ -11,6 +11,7 @@ ffbuild_depends() {
     echo shaderc
     echo spirv-cross
     echo shaderc
+    echo lcms2
 }
 
 ffbuild_enabled() {
@@ -26,28 +27,31 @@ ffbuild_dockerbuild() {
     set -e
     sed -i 's/DPL_EXPORT/DPL_STATIC/' src/meson.build
 
-    mkdir build && cd build
+    mkdir -p build && cd build
 
     local myconf=(
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
-        --prefix="$FFBUILD_PREFIX"
         --buildtype=release
-        --default-library=static
         --cross-file=/cross.meson
-        -Dcpp_std=c++17
-        -Dc_std=c11
-        -Dvulkan=enabled
-        -Dshaderc=enabled
-        -Dglslang=enabled
-        -Dlcms2=enabled
-        -Dvk-proc-addr=enabled
-        -Dvulkan-registry="$FFBUILD_PREFIX"/share/vulkan/registry/vk.xml
-        -Ddemos=false
-        -Dtests=false
+        --default-library=s$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
+        --prefix="$FFBUILD_PREFIX"
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         -Dbench=false
+        -Dc_std=c11
+        -Dcpp_std=c++17
+        -Ddemos=false
         -Dfuzz=false
-        -Dlibdovi=disabled
-        -Dxxhash=disabled
+        -Dglslang=enabled # glslang SPIR-V compiler
+        -Dlcms2=enabled # LittleCMS 2 support
+        -Dlibdovi=disabled # libdovi support
+        -Ddovi=disabled # Dolby Vision reshaping support
+        -Dshaderc=enabled # libshaderc SPIR-V compiler
+        -Dtests=false
+        -Dopengl=enabled # OpenGL-based renderer
+        -Dgl-proc-addr=enabled # Enable built-in OpenGL loader; uses dlopen, dlsym
+        -Dvk-proc-addr=enabled # Link directly against vkGetInstanceProcAddr from libvulkan.so
+        -Dvulkan-registry="$FFBUILD_PREFIX"/share/vulkan/registry/vk.xml
+        -Dvulkan=enabled
+        -Dxxhash=enabled # faster replacement for internal siphash
     )
 
     if [[ $TARGET == win* ]]; then
@@ -60,9 +64,6 @@ ffbuild_dockerbuild() {
         myconf+=(
             --cross-file=/cross.meson
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     meson setup "${myconf[@]}" .. \
@@ -75,9 +76,8 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Принудительно добавляем зависимости в pkg-config для статической линковки
-    sed -i 's/Libs:/Libs: -lshaderc_combined -lspirv-cross-c -lspirv-cross-glsl -lspirv-cross-core /' "$PC_DIR/libplacebo.pc"
+    # sed -i 's/Libs:/Libs: -lshaderc_combined -lspirv-cross-c -lspirv-cross-glsl -lspirv-cross-core /' "$PC_DIR/libplacebo.pc"
     echo "Libs.private: -lstdc++ -lm -lshlwapi" >> "$PC_DIR/libplacebo.pc"
-
 }
 
 ffbuild_configure() {

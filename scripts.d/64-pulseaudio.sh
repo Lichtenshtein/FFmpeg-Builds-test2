@@ -24,6 +24,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     # Kill build of utils and their sndfile dep
     echo > src/utils/meson.build
     echo > src/pulsecore/sndfile-util.c
@@ -31,7 +32,7 @@ ffbuild_dockerbuild() {
     sed -ri -e 's/(sndfile_dep = .*)\)/\1, required : false)/' meson.build
     sed -ri -e 's/shared_library/library/g' src/meson.build src/pulse/meson.build
 
-    mkdir build && cd build
+    mkdir -p build && cd build
 
     local myconf=(
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
@@ -71,7 +72,6 @@ ffbuild_dockerbuild() {
 
     echo "Libs.private: -ldl -lrt -liconv" >> "$PC_DIR/libpulse.pc"
     echo "Libs.private: -ldl -lrt -liconv" >> "$PC_DIR/libpulse-simple.pc"
-
 }
 
 ffbuild_configure() {

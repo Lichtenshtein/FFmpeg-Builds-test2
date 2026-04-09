@@ -36,7 +36,7 @@ ffbuild_dockerbuild() {
     # error: implicit declaration of function '_hypot'
     sed -i 's/#define hypot _hypot/\/\/#define hypot _hypot/' src/cairo-compiler-private.h
 
-    mkdir _build && cd _build
+    mkdir -p _build && cd _build
 
     # Очищаем LDFLAGS от мусора POSIX (librt и libpthread здесь не нужны)
     # export LDFLAGS="$(echo $LDFLAGS | sed 's/-lrt//g; s/-lpthread//g')"
@@ -57,10 +57,10 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --cross-file=/cross.meson
         --buildtype=release
-        --default-library=static
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         --wrap-mode=nodownload
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         -Dcpp_std=c++17
-        # -Dc_std=c11
         -Dfontconfig=enabled
         -Dfreetype=enabled
         -Dglib=enabled
@@ -73,12 +73,13 @@ ffbuild_dockerbuild() {
         -Dzlib=enabled
     )
 
-    [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-Dpixman_static" && self_static_flags="-DCAIRO_WIN32_STATIC_BUILD"
 
     meson setup . .. \
         "${myconf[@]}" \
-        -Dc_args="$CFLAGS $CPPFLAGS -DCAIRO_WIN32_STATIC_BUILD -Dpixman_static" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS -DCAIRO_WIN32_STATIC_BUILD -Dpixman_static" \
+        -Dc_args="$CFLAGS $CPPFLAGS $static_flags $self_static_flags" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags $self_static_flags" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
@@ -89,15 +90,15 @@ ffbuild_dockerbuild() {
     local TARGET_PC="$PC_DIR/$pc"
         if [[ -f "$TARGET_PC" ]]; then
             sed -i "s/-lrt//g" "$TARGET_PC"
-            if ! grep -q "\-DCAIRO_WIN32_STATIC_BUILD" "$TARGET_PC"; then
-                sed -i 's/Cflags:/& -DCAIRO_WIN32_STATIC_BUILD/' "$TARGET_PC"
+            if ! grep -q "\$self_static_flags" "$TARGET_PC"; then
+                sed -i 's/Cflags:/& $self_static_flags/' "$TARGET_PC"
             fi
         fi
     done
 }
 
 ffbuild_cppflags() {
-    echo "-DCAIRO_WIN32_STATIC_BUILD"
+    echo "$self_static_flags"
 }
 
 ffbuild_libs() {

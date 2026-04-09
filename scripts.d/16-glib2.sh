@@ -79,7 +79,7 @@ EOF
         --prefix="$FFBUILD_PREFIX"
         --cross-file glib_cross.txt
         --buildtype=release
-        --default-library=static
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         --wrap-mode=nodownload
         -Dtests=false
         -Dcpp_std=c++17
@@ -97,12 +97,15 @@ EOF
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DFFI_STATIC_BUILD" && self_static_flags="-DGLIB_STATIC_COMPILATION"
+
 # -Wno-error=missing-include-dirs -Wno-error=redundant-decls
     # Передаем линковочные флаги через meson, чтобы проверки (типа наличия функций) проходили успешно
     meson setup _build . \
         "${myconf[@]}" \
-        -Dc_args="$CFLAGS $CPPFLAGS -DGLIB_STATIC_COMPILATION -DFFI_STATIC_BUILD -DG_WIN32_IS_STRICT_MINGW" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS -DGLIB_STATIC_COMPILATION -DFFI_STATIC_BUILD -DG_WIN32_IS_STRICT_MINGW" \
+        -Dc_args="$CFLAGS $CPPFLAGS $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
@@ -117,9 +120,8 @@ EOF
     for pc_name in "${ALL_GLIB_PCS[@]}"; do
         local pc="$PC_DIR/$pc_name"
         [[ -f "$pc" ]] || continue
-        if ! grep -q "GLIB_STATIC_COMPILATION" "$pc"; then
-            sed -i '/^Cflags:/ s/$/ -DGLIB_STATIC_COMPILATION/' "$pc"
+        if ! grep -q "$self_static_flags" "$pc"; then
+            sed -i '/^Cflags:/ s/$/ $self_static_flags/' "$pc"
         fi
     done
-
 }

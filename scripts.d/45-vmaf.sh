@@ -17,32 +17,32 @@ ffbuild_dockerbuild() {
     # echo > libvmaf/tools/meson.build
     sed -i 's/subdir(.tools.)//' libvmaf/meson.build
 
-    mkdir build && cd build
+    mkdir -p build && cd build
 
     local myconf=(
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
-        --prefix="$FFBUILD_PREFIX"
         --buildtype=release
-        --default-library=static
-        -Dcpp_std=c++17
-        -Dc_std=c11
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
+        --prefix="$FFBUILD_PREFIX"
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
+        -Dbenchmarking=false
         -Dbuilt_in_models=true
+        -Dc_std=c11
+        -Dcpp_std=c++17
+        -Denable_asm=true
+        -Denable_avx512=$([ "${USE_AVX512}" == "1" ] && echo true || echo false )
+        -Denable_docs=false
+        -Denable_float=true
         -Denable_tests=false
         -Denable_tools=false
-        -Denable_asm=true
-        -Denable_docs=false
-        -Denable_avx512=$([ "${USE_AVX512}" == "1" ] && echo true || echo false )
-        -Denable_float=true
-        -Dbenchmarking=false
+        -Denable_cuda=false # Enable CUDA support; requires nvcc
+        -Denable_nvtx=false # Enable NVTX range support
+        -Denable_nvcc=false # Use clang to compile CUDA code
     )
 
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
         myconf+=(
             --cross-file=/cross.meson
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     meson setup "${myconf[@]}" ../libvmaf \
@@ -51,11 +51,10 @@ ffbuild_dockerbuild() {
         -Dc_link_args="$LDFLAGS" \
         -Dcpp_link_args="$LDFLAGS" || return 1
 
-    ninja -j"$(nproc)" $NINJA_V || return 1
+    ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     sed -i 's/Libs.private:/Libs.private: -lstdc++/; t; $ a Libs.private: -lstdc++' "$PC_DIR/libvmaf.pc"
-
 }
 
 ffbuild_configure() {

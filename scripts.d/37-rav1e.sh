@@ -15,6 +15,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    export SKIP_POST_STRIP=1
+
     # Исправляем проблему с libgit2-sys: запрещаем использовать системный libgit2
     unset PKG_CONFIG_LIBDIR
     export LIBGIT2_NO_PKG_CONFIG=1
@@ -54,13 +56,21 @@ ffbuild_dockerbuild() {
         --prefix="${FFBUILD_PREFIX}"
         --destdir="${FFBUILD_DESTDIR}"
         --target="${FFBUILD_RUST_TARGET}"
-        --library-type=staticlib
-        --crt-static
         --release
     )
 
-    cargo cinstall $CARGO_V "${myconf[@]}" || return 1
+    if [[ "${PREFER_SHARED}" == "1" ]]; then
+        myconf+=(
+            --library-type=cdylib
+        )
+    else
+        myconf+=(
+            --library-type=staticlib
+            --crt-static
+        )
+    fi
 
+    cargo cinstall $CARGO_V "${myconf[@]}" || return 1
 
     chmod 644 "${FFBUILD_DESTPREFIX}"/lib/*rav1e* || true
 }

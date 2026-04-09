@@ -23,7 +23,8 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    mkdir build && cd build
+
+    mkdir -p build && cd build
 
     # Исправляем фантомную libWs2_32 от которой компилятор падает
     # Создаем симлинк libWs2_32.a -> libws2_32.a

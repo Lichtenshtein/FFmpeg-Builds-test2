@@ -28,7 +28,7 @@ ffbuild_dockerbuild() {
     # Allow to actually toggle static linking
     sed -i "s/shared_library/library/g" va/meson.build
 
-    mkdir mybuild && cd mybuild
+    mkdir -p _build && cd _build
 
     local myconf=(
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )

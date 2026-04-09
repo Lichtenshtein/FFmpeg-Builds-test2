@@ -14,6 +14,9 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    export SKIP_POST_STRIP=1
+
     # ФИКС ВЕРСИИ (если нет .git)
     # x264 использует скрипт version.sh. Если он не находит git, 
     # мы создадим файл version.gen вручную.
@@ -64,7 +67,6 @@ ffbuild_dockerbuild() {
         # Добавляем -lpthread, так как x264 его использует
         sed -i 's/Libs: /Libs.private: -pthread -lm\nLibs: /' "$PC_DIR/x264.pc"
     fi
-
 }
 
 ffbuild_configure() {

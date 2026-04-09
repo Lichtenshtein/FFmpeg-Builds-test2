@@ -15,24 +15,28 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     mkdir build && cd build
 
     local myconf=(
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
-        --prefix="$FFBUILD_PREFIX"
-        --cross-file=/cross.meson
         --buildtype=release
-        --default-library=static
-        -Dcpp_std=c++17
-        -Dc_std=c11
+        --cross-file=/cross.meson
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo static || echo shared)
+        --prefix="$FFBUILD_PREFIX"
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         -Dbin=false
+        -Dc_std=c11
+        -Dcpp_std=c++17
         -Ddocs=false
         -Dtests=false
     )
 
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DFRIBIDI_LIB_STATIC"
+
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS -DFRIBIDI_LIB_STATIC" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS -DFRIBIDI_LIB_STATIC" \
+        -Dc_args="$CFLAGS $CPPFLAGS $static_flags" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags" \
         -Dc_link_args="$LDFLAGS" \
         -Dcpp_link_args="$LDFLAGS" || return 1
 
@@ -41,15 +45,14 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/fribidi.pc"
     if [[ -f "$PC_FILE" ]]; then
-        if ! grep -q "\-DFRIBIDI_LIB_STATIC" "$PC_FILE"; then
-            sed -i 's/Cflags:/& -DFRIBIDI_LIB_STATIC/' "$PC_FILE"
+        if ! grep -q "\$static_flags" "$PC_FILE"; then
+            sed -i 's/Cflags:/& $static_flags/' "$PC_FILE"
         fi
     fi
-
 }
 
 ffbuild_cppflags() {
-    echo "-DFRIBIDI_LIB_STATIC"
+    echo "$static_flags"
 }
 
 ffbuild_configure() {

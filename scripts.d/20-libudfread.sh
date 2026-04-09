@@ -19,11 +19,11 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     local myconf=(
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         --prefix="$FFBUILD_PREFIX"
-        -Ddefault_library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
-        -Dcpp_std=c++17
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         -Dc_std=c11
+        -Dcpp_std=c++17
+        -Ddefault_library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Denable_examples=false
     )
 
@@ -43,5 +43,4 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     ln -s libudfread.pc "$PC_DIR/udfread.pc"
-
 }

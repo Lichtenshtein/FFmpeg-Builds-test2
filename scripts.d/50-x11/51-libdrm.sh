@@ -14,7 +14,8 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    mkdir build && cd build
+
+    mkdir -p build && cd build
 
     local myconf=(
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
@@ -55,7 +56,6 @@ ffbuild_dockerbuild() {
     rm "$FFBUILD_DESTPREFIX"/lib/libdrm*.so*
 
     echo "Libs: -ldl" >> "$PC_DIR/libdrm.pc"
-
 }
 
 ffbuild_configure() {

@@ -21,22 +21,19 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     local myconf=(
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         --prefix="$FFBUILD_PREFIX"
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         -Dcpp_std=c++17
         -Dc_std=c11
         -Ddefault_library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Denable_docs=false
         -Denable_examples=false
-    )
+        )
 
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
         myconf+=(
             --cross-file=/cross.meson
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     meson setup "${myconf[@]}" .. \
@@ -47,5 +44,4 @@ ffbuild_dockerbuild() {
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
-
 }

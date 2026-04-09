@@ -14,6 +14,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     mkdir build && cd build
 
     local DEP_LIBS="-lpng16 -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lz -lintl -liconv -lcharset"
@@ -22,7 +23,8 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --cross-file=/cross.meson
         --buildtype=release
-        --default-library=static
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         -Dcpp_std=c++17
         -Dc_std=c11
         -Dtests=disabled
@@ -31,11 +33,12 @@ ffbuild_dockerbuild() {
         -Dopenmp=disabled
     )
 
-    [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-Dpixman_static"
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS -Dpixman_static" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS -Dpixman_static" \
+        -Dc_args="$CFLAGS $CPPFLAGS $static_flags" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS" || return 1
 
@@ -44,9 +47,9 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/pixman-1.pc"
     if [[ -f "$PC_FILE" ]]; then
-        if ! grep -q "Dpixman_static" "$PC_FILE"; then
-            sed -i '/^Cflags:/ s/[[:space:]]*-pthread//g' "$PC_FILE"
-            sed -i '/^Cflags:/ s/$/ -Dpixman_static/' "$PC_FILE"
+        sed -i '/^Cflags:/ s/[[:space:]]*-pthread//g' "$PC_FILE"
+        if ! grep -q "$static_flags" "$PC_FILE"; then
+            sed -i '/^Cflags:/ s/$/ $static_flags/' "$PC_FILE"
         fi
     fi
 }

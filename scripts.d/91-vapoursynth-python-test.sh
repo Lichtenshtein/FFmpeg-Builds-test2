@@ -15,9 +15,7 @@ ffbuild_depends() {
 }
 
 ffbuild_enabled() {
-    # Поддерживаем только x86_64
-    [[ $TARGET == win64 ]] && return 0
-    return 1
+    return 0
 }
 
 ffbuild_dockerdl() {

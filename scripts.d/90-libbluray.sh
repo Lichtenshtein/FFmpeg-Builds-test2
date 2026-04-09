@@ -25,7 +25,7 @@ ffbuild_dockerbuild() {
     # stop the static library from exporting symbols when linked into a shared lib
     sed -i 's/-DBLURAY_API_EXPORT/-DBLURAY_API_EXPORT_DISABLED/g' src/meson.build
 
-    mkdir build && cd build
+    mkdir -p build && cd build
 
     local myconf=(
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
@@ -47,9 +47,6 @@ ffbuild_dockerbuild() {
         myconf+=(
             --cross-file=/cross.meson
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     meson setup "${myconf[@]}" .. \
@@ -60,7 +57,6 @@ ffbuild_dockerbuild() {
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
-
 }
 
 ffbuild_configure() {
