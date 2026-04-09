@@ -28,7 +28,7 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --libdir=lib
         --buildtype=release
-        --default-library=static
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=c++17
         -Dc_std=c11
         -Dfreetype=enabled
@@ -51,9 +51,12 @@ ffbuild_dockerbuild() {
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DHARFBUZZ_STATIC"
+
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS -DHARFBUZZ_STATIC -Wno-redundant-decls" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS -DHARFBUZZ_STATIC -Wno-redundant-decls" \
+        -Dc_args="$CFLAGS $CPPFLAGS $static_flags -Wno-redundant-decls" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags -Wno-redundant-decls" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
@@ -63,8 +66,8 @@ ffbuild_dockerbuild() {
     if ls "$PC_DIR"/*harfbuzz*.pc >/dev/null 2>&1; then
         for pc in "$PC_DIR"/*harfbuzz*.pc; do
             [[ -e "$pc" ]] || continue
-            if ! grep -q "HARFBUZZ_STATIC" "$pc"; then
-                sed -i '/^Cflags:/ s/$/ -DHARFBUZZ_STATIC/' "$pc"
+            if ! grep -q "$static_flags" "$pc"; then
+                sed -i '/^Cflags:/ s/$/ $static_flags/' "$pc"
             fi
         done
     fi

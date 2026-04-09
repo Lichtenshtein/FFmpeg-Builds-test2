@@ -16,18 +16,18 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     local myconf=(
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
-        --prefix="$FFBUILD_PREFIX"
         --buildtype=release
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
-        -Dcpp_std=c++17
-        -Dc_std=c11
-        -Ddocs=disabled
+        --prefix="$FFBUILD_PREFIX"
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         -Dbenchmarks=disabled
+        -Dc_std=c11
+        -Dcpp_std=c++17
+        -Ddocs=disabled
         -Dhtml=disabled
+        -Dsinglehtml=disabled
         -Dtests=disabled
         -Dtests_cpp=disabled
-        -Dsinglehtml=disabled
         -Dthreads=enabled
     )
 
@@ -48,7 +48,6 @@ ffbuild_dockerbuild() {
         -Dc_link_args="$LDFLAGS" \
         -Dcpp_link_args="$LDFLAGS" || return 1
 
-    ninja -j"$(nproc)" $NINJA_V || return 1
+    ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
-
 }

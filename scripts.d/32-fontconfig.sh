@@ -31,6 +31,7 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --libdir="lib"
         --buildtype=release
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Ddoc=disabled
         -Dnls=enabled
@@ -49,10 +50,7 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    mkdir _build
-    cd _build
-
-    [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
+    mkdir -p _build && cd _build
 
     meson setup .. "${myconf[@]}" \
         -Dc_args="$CFLAGS $CPPFLAGS" \
@@ -64,7 +62,6 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{var,etc}
-
 }
 
 ffbuild_configure() {

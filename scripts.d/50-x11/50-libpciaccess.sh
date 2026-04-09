@@ -19,13 +19,14 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    mkdir build && cd build
+
+    mkdir -p build && cd build
 
     local myconf=(
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         --prefix="$FFBUILD_PREFIX"
         --buildtype=release
-        --default-library=shared
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=c++17
         -Dc_std=c11
         -Dzlib=enabled
@@ -35,9 +36,6 @@ ffbuild_dockerbuild() {
         myconf+=(
             --cross-file=/cross.meson
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     meson setup "${myconf[@]}" .. \
@@ -53,5 +51,4 @@ ffbuild_dockerbuild() {
     rm "$FFBUILD_DESTPREFIX"/lib/libpciaccess.so*
 
     echo "Libs: -ldl" >> "$PC_DIR/pciaccess.pc"
-
 }

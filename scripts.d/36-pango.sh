@@ -22,10 +22,10 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    mkdir build && cd build
+
+    mkdir -p build && cd build
 
     local DEP_LIBS="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lcairo-gobject -lcairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lfontconfig -lfreetype -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfribidi -lbrotlienc -lbrotlidec -lbrotlicommon"
-    local STATIC_DEPS="-DCAIRO_WIN32_STATIC_BUILD -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW -Dpixman_static"
     local WIN_LIBS="-lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -luuid $LIBS -lstdc++"
     export CC="x86_64-w64-mingw32-g++"
 
@@ -35,8 +35,9 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --cross-file=/cross.meson
         --buildtype=release
-        --default-library=static
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         --wrap-mode=nodownload
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         # -Dcpp_std=c++17
         # -Dc_std=c11
         -Dintrospection=disabled
@@ -49,11 +50,12 @@ ffbuild_dockerbuild() {
         -Dman-pages=false
     )
 
-    [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCAIRO_WIN32_STATIC_BUILD -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW -Dpixman_static" && self_static_flags="-DPANGO_STATIC_COMPILATION"
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS $STATIC_DEPS" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS $STATIC_DEPS" \
+        -Dc_args="$CFLAGS $CPPFLAGS $static_flags $self_static_flags" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags $self_static_flags" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
@@ -62,9 +64,8 @@ ffbuild_dockerbuild() {
 
     for pc in "$PC_DIR"/*pango*.pc; do
         [[ -e "$pc" ]] || continue
-        if ! grep -q "\-DPANGO_STATIC_COMPILATION" "$pc"; then
-            sed -i 's/Cflags:/& -DPANGO_STATIC_COMPILATION/' "$pc"
+        if ! grep -q "\$self_static_flags" "$pc"; then
+            sed -i 's/Cflags:/& $self_static_flags/' "$pc"
         fi
     done
-
 }

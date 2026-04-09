@@ -13,6 +13,7 @@ ffbuild_depends() {
     echo opencl
     echo openvino
     echo curl
+    echo sdl
 }
 
 ffbuild_enabled() {
@@ -42,6 +43,7 @@ ffbuild_dockerbuild() {
         -DWHISPER_BUILD_SERVER=OFF
         -DWHISPER_USE_SYSTEM_GGML=OFF
         -DWHISPER_OPENVINO=ON
+        -DWHISPER_SDL=ON # support for libSDL2
         -DGGML_ALL_WARNINGS=OFF
         -DGGML_AVX2=ON
         -DGGML_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)

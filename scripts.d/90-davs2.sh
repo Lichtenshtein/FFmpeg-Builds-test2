@@ -18,6 +18,9 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    export SKIP_POST_STRIP=1
+
     cd build/linux
 
     # Фикс проверки endianness для современных GCC (уже было у вас, оставляем)
@@ -54,7 +57,6 @@ ffbuild_dockerbuild() {
             echo "Libs.private: -pthread" >> "$PC_FILE"
         fi
     fi
-
 }
 
 ffbuild_configure() {

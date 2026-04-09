@@ -27,6 +27,7 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --cross-file=/cross.meson
         -Ddefault_library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         -Dcpp_std=c++17
         -Dc_std=c11
         -Dutils=false
@@ -35,13 +36,12 @@ ffbuild_dockerbuild() {
         -Dtests=disabled
     )
 
-    [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
-
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
+
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
@@ -49,7 +49,6 @@ ffbuild_dockerbuild() {
     if [[ -f "$PC_FILE" ]]; then
         sed -i '/^Cflags:/ s/[[:space:]]*-pthread//g' "$PC_FILE"
     fi
-
 }
 
 ffbuild_configure() {
