@@ -69,18 +69,16 @@ ffbuild_dockerbuild() {
         --disable-docs
     )
 
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBSSH_STATIC -DBROTLI_STATIC" && self_static_flags="-DCURL_STATICLIB"
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
-    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    local static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBSSH_STATIC -DBROTLI_STATIC" && self_static_flags="-DCURL_STATICLIB"
-
-    CFLAGS="$CLEAN_CFLAGS" \
+    CFLAGS="$CLEAN_CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
-    CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags" \
-    LDFLAGS="$LDFLAGS" \
+    CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$DEP_LIBS $WIN_LIBS" \
     ./configure "${myconf[@]}" || return 1
 

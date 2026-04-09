@@ -19,13 +19,14 @@ ffbuild_dockerbuild() {
     # чтобы он не взял флаги процессора GitHub раннера
     sed -i 's/-march=native//g' CMakeLists.txt || true
 
-    mkdir build && cd build
+    mkdir -p build && cd build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_TESTING=OFF
         -DBUILD_APPS=OFF
         -DENABLE_NATIVE=OFF

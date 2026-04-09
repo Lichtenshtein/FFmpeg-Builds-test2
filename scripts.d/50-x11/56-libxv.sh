@@ -10,6 +10,8 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerbuild() {
+    set -e
+
     autoreconf -i
 
     local myconf=(
@@ -34,10 +36,10 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    CFLAGS="$RAW_CFLAGS" \
+    CFLAGS="$RAW_CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS" \
-    LDFLAGS="$RAW_LDFLAGS" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}" \
+    LDFLAGS="$RAW_LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 

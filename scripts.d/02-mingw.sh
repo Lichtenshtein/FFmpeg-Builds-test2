@@ -106,11 +106,10 @@ ffbuild_dockerbuild() {
     # find "$SYSROOT/lib" -maxdepth 1 -name "*.a" ! -name "*.dll.a" -exec cp -a {} "$FFBUILD_PREFIX/lib/" \;
 
     # Очистка динамики внутри префикса
-    find "$FFBUILD_PREFIX/lib" -name "*.la" -delete
-    find "$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete
+    # find "$FFBUILD_PREFIX/lib" -name "*.la" -delete
+    # find "$FFBUILD_PREFIX/lib" -name "*.dll.a" -delete
 
     cd ..
-
 }
 
 ffbuild_configure() {

@@ -23,17 +23,17 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    mkdir build && cd build
+
+    mkdir -p build && cd build
 
     # Настраиваем пути для поиска OpenVINO, который мы установили ранее
     export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake/OpenVINO"
 
-    local mycmake=(
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+    local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
-        -DBUILD_SHARED_LIBS=OFF
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DOPENCV_GENERATE_PKGCONFIG=ON
         -DENABLE_PIC=ON
         -DOPENCV_ENABLE_NONFREE=ON
@@ -59,7 +59,7 @@ ffbuild_dockerbuild() {
         -DWITH_OPENCL_D3D11_NV=ON
         -DWITH_OPENGL=ON
         -DWITH_OPENJPEG=ON
-        -DWITH_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF )
+        -DWITH_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
         -DWITH_PNG=ON
         -DWITH_PTHREADS_PF=ON
         -DWITH_TIFF=ON
@@ -84,11 +84,10 @@ ffbuild_dockerbuild() {
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
     LIBS="$LIBS $ADDITIONAL_LIBS" \
-    cmake "${mycmake[@]}" .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
-
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 }
 
 ffbuild_configure() {

@@ -37,11 +37,11 @@ ffbuild_dockerbuild() {
     rm -rf _build && mkdir _build && cd _build
 
     local myconf=(
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DVERSION_TAG="$SVT_VER"
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DBUILD_TESTING=OFF
         -DBUILD_APPS=OFF
@@ -51,15 +51,16 @@ ffbuild_dockerbuild() {
 
     if [[ "$USE_LTO" == "1" ]]; then
         myconf+=( -DSVT_AV1_LTO=ON )
-        export CFLAGS="$CFLAGS -ffat-lto-objects"
-        export CXXFLAGS="$CXXFLAGS -ffat-lto-objects"
+        export CFLAGS="$CFLAGS $CPPFLAGS -ffat-lto-objects"
+        export CXXFLAGS="$CXXFLAGS $CPPFLAGS -ffat-lto-objects"
+        export LDFLAGS="$LDFLAGS"
     else
         myconf+=( -DSVT_AV1_LTO=OFF )
+        export CFLAGS="$CFLAGS $CPPFLAGS"
+        export CXXFLAGS="$CXXFLAGS $CPPFLAGS"
+        export LDFLAGS="$LDFLAGS"
     fi
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

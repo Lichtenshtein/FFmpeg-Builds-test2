@@ -110,6 +110,8 @@ env:
   DLL_PRESERVE_LIST: >-
     openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|opencv|
     onevpl|glib2|leptonica-test|audiotoolbox|avisynth|vapoursynth|vapoursynth-python-test
+  # Список для сохранения статики .a (в run_stage.sh)
+  LIB_PRESERVE_LIST:
   # Преобразование boolean для bash-скриптов
   DEBUG_NO_HASH:  ${{ github.event.inputs.debug_no_hash  == 'true' && '1' || '0' }}
   DEDUPE_FLAGS:   ${{ github.event.inputs.dedupe_flags   == 'true' && '1' || '0' }}

@@ -14,24 +14,27 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    mkdir build && cd build
+    mkdir -p build && cd build
 
     if [[ "$CC" != *clang* ]]; then
-        export CFLAGS="$CFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
-        export CXXFLAGS="$CXXFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
+        export CFLAGS="$CFLAGS $CPPFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
+        export CXXFLAGS="$CXXFLAGS $CPPFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
+        export LDFLAGS="$LDFLAGS"
+    else
+        export CFLAGS="$CFLAGS $CPPFLAGS"
+        export CXXFLAGS="$CXXFLAGS $CPPFLAGS"
+        export LDFLAGS="$LDFLAGS"
     fi
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

@@ -16,11 +16,13 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     mkdir build/linux
     cd build/linux
 
     local myconf=(
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
@@ -40,7 +42,6 @@ ffbuild_dockerbuild() {
     # Just in case to detect header files default before FFmpeg
     cp -f "$FFBUILD_DESTPREFIX"/include/uavs3e/uavs3e.h "$FFBUILD_DESTPREFIX"/include
     cp -f "$FFBUILD_DESTPREFIX"/include/uavs3e/com_api.h "$FFBUILD_DESTPREFIX"/include
-
 }
 
 ffbuild_configure() {

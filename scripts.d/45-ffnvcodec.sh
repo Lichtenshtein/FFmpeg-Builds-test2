@@ -24,7 +24,6 @@ ffbuild_dockerbuild() {
 
     # ffnvcodec - это просто заголовки, Makefile простой.
     make PREFIX="$FFBUILD_PREFIX" DESTDIR="$FFBUILD_DESTDIR" install || return 1
-
 }
 
 ffbuild_configure() {

@@ -13,15 +13,15 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    mkdir build && cd build
+
+    mkdir -p build && cd build
 
     local myconf=(
-        "Unix Makefiles"
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DENABLE_SHARED=OFF
-        -DENABLE_STATIC=ON
         -DWITH_JPEG8=ON
         -DWITH_SIMD=ON
         -DWITH_TOOLS=OFF
@@ -29,23 +29,26 @@ ffbuild_dockerbuild() {
         -DWITH_TURBOJPEG=ON
     )
 
-    [[ "$USE_LTO" == "1" ]] && myconf+=( -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=ON )
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBJPEG_STATIC"
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( -DENABLE_STATIC=OFF -DENABLE_SHARED=ON ) || \
+        myconf+=( -DENABLE_STATIC=ON -DENABLE_SHARED=OFF )
 
-    CFLAGS="$CFLAGS $CPPFLAGS -DLIBJPEG_STATIC" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS -DLIBJPEG_STATIC" \
+    CFLAGS="$CFLAGS $CPPFLAGS $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags" \
     LDFLAGS="$LDFLAGS" \
-    cmake -G "${myconf[@]}" .. || return 1
+    cmake -G "Unix Makefiles" "${myconf[@]}" .. || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     for pc in "$PC_DIR"/*jpeg*.pc; do
         [[ -e "$pc" ]] || continue
-        sed -i '/^Cflags:/ s/$/ -DLIBJPEG_STATIC/' "$pc"
+        sed -i '/^Cflags:/ s/$/ $static_flags/' "$pc"
     done
-
 }
 
 ffbuild_cppflags() {
-    echo "-DLIBJPEG_STATIC"
+    echo "$static_flags"
 }

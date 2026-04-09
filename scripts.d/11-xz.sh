@@ -49,10 +49,10 @@ ffbuild_dockerbuild() {
     local static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLZMA_API_STATIC"
 
-    CFLAGS="$CFLAGS -Wno-error=implicit-function-declaration" \
+    CFLAGS="$CFLAGS -Wno-error=implicit-function-declaration ${USELTO}" \
     CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE $static_flags" \
-    CXXFLAGS="$CXXFLAGS $static_flags" \
-    LDFLAGS="$LDFLAGS" \
+    CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$DEP_LIBS" \
     ./configure "${myconf[@]}" || return 1
 

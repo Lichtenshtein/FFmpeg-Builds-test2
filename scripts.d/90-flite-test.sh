@@ -14,24 +14,29 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     # Flite не понимает --enable-static, он делает её по умолчанию при --enable-shared=no
     local myconf=(
         --host="$FFBUILD_TOOLCHAIN"
         --prefix="$FFBUILD_PREFIX"
-        --with-audio=none
-        --with-mmap=win32
+        --with-audio=none # specific audio support (none linux freebsd etc)
+        --with-mmap=win32 # mmap support (none posix win32)
         --with-lang=usenglish
         --with-lex=cmulex
         --with-vox=all
-        --enable-shared=$([ "${PREFER_SHARED}" == "1" ] && echo yes || echo no)
+        # --with-langvox # with subsets of lang, lex and voices
         --with-pic
         --disable-sockets
     )
 
-    CFLAGS="$CFLAGS" \
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --enable-shared=yes ) || \
+        myconf+=( --enable-shared=no --disable-shared )
+
+    CFLAGS="$CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS -DWAIT_ANY=-1" \
-    CXXFLAGS="$CXXFLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 

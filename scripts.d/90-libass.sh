@@ -14,6 +14,7 @@ ffbuild_depends() {
     echo harfbuzz
     echo fribidi
     echo libunibreak
+    # echo libpng
 }
 
 ffbuild_enabled() {
@@ -26,29 +27,35 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     ./autogen.sh
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --disable-shared
-        --enable-static
+        # --enable-compare # compare program (requires libpng)
         --with-pic
+        --disable-test
         --enable-wrap-unicode
         --enable-directwrite
         --enable-libunibreak
+        # --enable-large-tiles # in the rasterizer (better performance, slightly worse quality)
+        --enable-asm
     )
 
-    CFLAGS="$CFLAGS -Dread_file=libass_internal_read_file" \
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
+
+    CFLAGS="$CFLAGS -Dread_file=libass_internal_read_file ${USELTO}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
-
 }
 
 ffbuild_configure() {

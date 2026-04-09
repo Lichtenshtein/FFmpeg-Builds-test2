@@ -18,6 +18,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     ./autogen.sh
 
     local myconf=(
@@ -35,10 +36,10 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    CFLAGS="$CFLAGS" \
+    CFLAGS="$CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
@@ -49,5 +50,4 @@ ffbuild_dockerbuild() {
     # Многие старые пакеты ищут libpng16.pc или libpng.pc
     local PC_LINK="$PC_DIR/libpng.pc"
     ln -sf libpng16.pc "$PC_LINK"
-
 }
