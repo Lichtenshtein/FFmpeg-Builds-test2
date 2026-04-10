@@ -40,12 +40,14 @@ fi
 # Allow custom addins via CUSTOM_ADDINS env var (space-separated)
 if [[ -n "$CUSTOM_ADDINS" ]]; then
     for addin in $CUSTOM_ADDINS; do
-        if [[ -f "${ADDINS_DIR}/${addin}.sh" ]]; then
+        local addin_path="${ADDINS_DIR}/${addin}.sh"
+        if [[ -f "$addin_path" ]]; then
             ADDINS+=("$addin")
             ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}${addin}"
             log_info "${XCLAM_MARK} Custom addin enabled: $addin"
         else
-            log_warn "Custom addin not found: ${ADDINS_DIR}/${addin}.sh"
+            log_warn "Custom addin not found at $addin_path"
+            # exit 1
         fi
     done
 fi
@@ -95,16 +97,23 @@ to_df "RUN chmod +x /usr/bin/run_stage"
 # 1. Берем только переменные, влияющие на бинарный код
 # 2. Удаляем комментарии и лишние пробелы
 # 3. Сортируем (чтобы порядок строк в файле не влиял на хеш)
-ENV_HASH=$(
-    {
-        grep -E "^(export )?(CFLAGS|CXXFLAGS|LDFLAGS|CPPFLAGS|BASE_|SYSTEM_LIBS|CHOST|RUSTFLAGS|CPU_)" $UTIL_DIR/vars.sh
-        echo "TARGET=$TARGET"
-        echo "CPU_ARCH=$CPU_ARCH"
-    } | sed 's/#.*//' | tr -s '[:space:]' ' ' | sha256sum | cut -c1-8 | tr -d '\n\r'
+ENV_HASH=$({
+    grep "^export CFLAGS=" $UTIL_DIR/vars.sh | sed 's/#.*//'
+    grep "^export CXXFLAGS=" $UTIL_DIR/vars.sh | sed 's/#.*//'
+    grep "^export LDFLAGS=" $UTIL_DIR/vars.sh | sed 's/#.*//'
+    grep "^export CPPFLAGS=" $UTIL_DIR/vars.sh | sed 's/#.*//'
+    grep "^export RUSTFLAGS=" $UTIL_DIR/vars.sh | sed 's/#.*//'
+    grep "^export BASE_CFLAGS=" $UTIL_DIR/vars.sh | sed 's/#.*//'
+    grep "^export SYSTEM_LIBS=" $UTIL_DIR/vars.sh | sed 's/#.*//'
+    echo "TARGET=$TARGET"
+    echo "CPU_ARCH=$CPU_ARCH"
+    } | tr -s '[:space:]' ' ' | sha256sum | cut -c1-8
 )
 
 # Global Logic Hash: Changes if run_stage.sh or the internal functions of vars.sh change.
-LOGIC_HASH=$(sha256sum $UTIL_DIR/run_stage.sh $UTIL_DIR/vars.sh | sha256sum | cut -c1-8 | tr -d '\n\r')
+RUN_STAGE_HASH=$(sha256sum $UTIL_DIR/run_stage.sh | cut -c1-8 | tr -d '\n\r')
+VARS_LOGIC_HASH=$(grep -E "^(ffbuild_|stage_vars|get_stage_hash)" $UTIL_DIR/vars.sh | sha256sum | cut -c1-8 | tr -d '\n\r')
+LOGIC_HASH="${RUN_STAGE_HASH}_${VARS_LOGIC_HASH}"
 
 # Если поменяется ключевая переменная в vars.sh все последующие RUN НЕ пересоберутся
 if [[ "$DEBUG_NO_HASH" == "1" ]]; then
@@ -120,8 +129,12 @@ for STAGE in "${SCRIPTS[@]}"; do
     # Фильтрация по регулярному выражению ONLY_STAGE
     # Match against basename only, with anchored component name
     STAGE_BASE="$(basename "$STAGE" .sh)"
-    if [[ -n "$ONLY_STAGE" ]] && [[ ! "$STAGE_BASE" =~ (^|-)${ONLY_STAGE}(-|$) ]]; then
-        continue
+    if [[ -n "$ONLY_STAGE" ]]; then
+        local matched=0
+        for pattern in $ONLY_STAGE; do
+            [[ "$STAGE_BASE" == *"-${pattern}" ]] && matched=1 && break
+        done
+        [[ $matched -eq 0 ]] && continue
     fi
     # Проверка на принудительное отключение внутри скрипта
     # Source in a clean subshell and call ffbuild_enabled
@@ -136,21 +149,19 @@ for STAGE in "${SCRIPTS[@]}"; do
     active_scripts+=("$STAGE")
 done
 
+if [[ ${#active_scripts[@]} -eq 0 ]]; then
+    log_warn "No active scripts matched ONLY_STAGE=${ONLY_STAGE}"
+fi
+
 # Генерируем блоки RUN для каждой стадии
 for STAGE in "${active_scripts[@]}"; do
-    # STAGENAME="$(basename "$STAGE" .sh)"
-    # COMPONENT_NAME="${STAGENAME#*-}"
-    # STAGE_HASH=$(get_stage_hash "$STAGE")
     unset STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK
     eval "$(stage_vars "$STAGE")"
     # Гранулярный поиск патчей
     # Для библиотек ищем в patches/zlib/ и т.д.
     PATCH_PATH="${PATCHES_DIR}/${COMPONENT_NAME}"
-    # warn on potential patch dir ambiguity
-    if [[ -d "${PATCHES_DIR}/${STAGENAME#*-}" ]]; then
-        : # explicit patch dir exists, good
-    elif [[ -d "${PATCHES_DIR}/${COMPONENT_NAME%%-*}" ]]; then
-        log_warn "No patch dir for '$COMPONENT_NAME', base '${COMPONENT_NAME%%-*}' exists — intentional?"
+    if [[ ! -d "${PATCH_PATH}" ]] && [[ -d "${PATCHES_DIR}/${COMPONENT_NAME%%-*}" ]]; then
+        log_debug "No patches for $COMPONENT_NAME (base patches exist at ${COMPONENT_NAME%%-*})"
     fi
     # Для FFmpeg ищем в patches/ffmpeg/master/ (или другой ветке)
     [[ "${COMPONENT_NAME}" == "ffmpeg" ]] && PATCH_PATH="${PATCHES_DIR}/ffmpeg/${FFMPEG_BRANCH}"
@@ -178,7 +189,7 @@ for STAGE in "${active_scripts[@]}"; do
 done
 
 # FINAL FFMPEG BUILD STAGE
-to_df "FROM base-win64 AS final_build"
+to_df "FROM components_ref AS final_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "WORKDIR ${CONTAINER_ROOT}"
 # Копируем всё собранное из COMPONENT BUILD STAGE (этот слой закешируется Docker)
@@ -194,12 +205,13 @@ to_df "COPY variants ./variants"
 
 if [[ $SKIP_FFMPEG -eq 1 ]]; then
     # Создаем пустой файл в artifacts, чтобы экшн загрузки не падал
-    to_df "RUN mkdir -p $FFBUILD_DESTDIR && touch $FFBUILD_DESTDIR/COMPONENTS_BUILD_SUCCESS"
+    to_df "RUN mkdir -p $FFBUILD_DESTDIR && echo 'Components built successfully' > $FFBUILD_DESTDIR/BUILD_SUCCESS"
 else
     # Финальная сборка FFmpeg (инвалидируется только при изменении FFmpeg или build.sh)
-    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=$CCACHE_DIR \\"
+    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
     to_df "    --mount=type=cache,id=prefix-${TARGET},target=${FFBUILD_PREFIX} \\"
-    to_df "    --mount=from=ffmpeg_src,target=$FFMPEG_SOURCE_DIR,rw \\"
+    # to_df "    --mount=from=ffmpeg_src,target=$FFMPEG_SOURCE_DIR,rw \\"
+    to_df "    --mount=type=bind,source=.cache/ffmpeg,target=${FFMPEG_SOURCE_DIR},rw \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
 

@@ -420,8 +420,9 @@ mkdir -p "$ASSETS_DIR"
 "$UTIL_DIR"/download_assets.sh "$ASSETS_DIR" "$(pwd)" || log_warn "Assets download failed, but continuing..."
 
 # Стриппинг бинарников (удаление отладочных символов)
+# --strip-all; --strip-unneeded
 log_info "${BROOM_MARK} Stripping binaries..."
-find "$PKG_DIR/bin" -name "*.exe" -exec ${FFBUILD_CROSS_PREFIX}strip --strip-unneeded {} \;
+find "$PKG_DIR/bin" -name "*.exe" -exec ${FFBUILD_CROSS_PREFIX}strip --strip-all {} \;
 
 # Упаковка
 log_info "${ARCH_MARK} Creating archive: ${BUILD_NAME}.7z"
