@@ -124,11 +124,12 @@ export TOOLCHAIN_BIN="/opt/ct-ng/bin"
 export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 export FFBUILD_CROSS_PREFIX="x86_64-w64-mingw32-"
-export FFBUILD_PREFIX="/opt/ffbuild" # Куда ставим зависимости
-export FFBUILD_DESTDIR="/opt/ffdest" # Куда кладем финальный архив ffmpeg (.7z)
-export FFBUILD_DESTPREFIX="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}"
+export FFBUILD_PREFIX="/opt/ffbuild" # temporary per-stage component root --prefix
+export FFBUILD_DESTDIR="/opt/ffdest" # component install prefix + final ffmpeg.7z
+export FFBUILD_DESTPREFIX="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}" # where make install actually writes
+export INSTALL_ROOT="$FFBUILD_DESTPREFIX" # single less confusing source of truth
 # directory for saving .pc files from components
-export PC_DIR="${FFBUILD_DESTPREFIX}/lib/pkgconfig"
+export PC_DIR="${INSTALL_ROOT}/lib/pkgconfig"
 # directory for storing .vars files with
 # component variables and flags collected between stages
 export VARS_DIR="${FFBUILD_PREFIX}/config_vars"
@@ -154,7 +155,7 @@ else
     export PKG_CONFIG_FLAGS="--static"
     export PKG_CONFIG_CFLAGS="--cflags-only-other"
     export PKG_CONFIG_LIBS="--static --libs-only-l"
-    export PKG_CONFIG_ALL_LIBS="--static --libs-only-other"
+    export PKG_CONFIG_ALL_LIBS="--static --libs-only-l --libs-only-other"
 fi
 # Shared project folders
 export ADDINS_DIR="${ROOT_DIR}/addins"
@@ -185,7 +186,7 @@ export USE_CONF_FINDER=0
 
 # Create the base structure if it doesn't exist
 if [[ -d "/builder" ]]; then
-    mkdir -p "$VARS_DIR" "$FFBUILD_DESTDIR" "$FFBUILD_DESTPREFIX"/{include,bin,lib/pkgconfig}
+    mkdir -p "$VARS_DIR" "$FFBUILD_DESTDIR" "$INSTALL_ROOT"/{include,bin,lib/pkgconfig}
 fi
 mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 
@@ -209,11 +210,11 @@ export CPPFLAGS="-I/opt/ffbuild/include ${BASE_CPPFLAGS}"
 export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu++17"
 if [[ "$PREFER_SHARED" == "1" ]]; then
     export LDFLAGS="-L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
-    export RUSTFLAGS="-C target-cpu=${CPU_ARCH} -C strip=symbols -C codegen-units=1 -C opt-level=3${RUSTLTO}"
+    export RUSTFLAGS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3${RUSTLTO}"
 else
     export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
     # codegen-units = 16 (default)
-    export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH} -C strip=symbols -C codegen-units=1 -C opt-level=3 -C embed-bitcode=yes${RUSTLTO}"
+    export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 -C embed-bitcode=yes${RUSTLTO}"
 fi
 export LIBS="${LIBS:-$SYSTEM_LIBS}"
 # Обработка флагов, специфичных для Linux ELF
@@ -245,7 +246,7 @@ if [[ $# -ge 2 ]]; then shift 2; fi
 # Validate variant file exists (only if TARGET and VARIANT are known)
 if [[ -n "$TARGET" && -n "$VARIANT" ]]; then
     if [[ ! -f "${VARIANTS_DIR}/${TARGET}-${VARIANT}.sh" ]]; then
-        log_error "Invalid target/variant: ${TARGET}-${VARIANT} (looked in ${VARIANTS_DIR})"
+        log_error "Invalid target/variant: ${TARGET}-${VARIANT} (looked in ${VARIANTS_DIR}). TIP: 'linux64-gpl' or 'win64-nonfree'."
         return 1 2>/dev/null || exit 1
     fi
 fi
@@ -379,7 +380,7 @@ ffbuild_dockerstage() {
 }
 
 ffbuild_dockerlayer() {
-    to_df "COPY --link --from=${SELFLAYER} \$FFBUILD_DESTPREFIX/. \$FFBUILD_PREFIX"
+    to_df "COPY --link --from=${SELFLAYER} \$INSTALL_ROOT/. \$FFBUILD_PREFIX"
 }
 
 ffbuild_dockerfinal() {
@@ -657,8 +658,8 @@ get_deps_list() {
     fi
 
     local name="${STAGENAME:-${0##*/}}"
-    local lib_dir="$FFBUILD_DESTPREFIX/lib"
-    local bin_dir="$FFBUILD_DESTPREFIX/bin"
+    local lib_dir="$INSTALL_ROOT/lib"
+    local bin_dir="$INSTALL_ROOT/bin"
     local pc_dir="${lib_dir}/pkgconfig"
     local toolchain="${FFBUILD_TOOLCHAIN:-x86_64-w64-mingw32}"
     # Used only for readelf/nm filtering of well-known system libs
@@ -669,8 +670,8 @@ get_deps_list() {
 
     # Считаем общий вес установленных файлов компонента
     local total_size="0"
-    if [[ -d "$FFBUILD_DESTPREFIX" ]]; then
-        total_size=$(du -sh "$FFBUILD_DESTPREFIX" | awk '{print $1}')
+    if [[ -d "$INSTALL_ROOT" ]]; then
+        total_size=$(du -sh "$INSTALL_ROOT" | awk '{print $1}')
     fi
 
     # Поиск pkg-config зависимостей
@@ -794,12 +795,30 @@ get_deps_list() {
 }
 export -f get_deps_list
 
+# Function for cleaning files with logging
+# Arguments: 1 - description (for the log), 2 - search conditions (find expression)
+clean_unwanted_libs() {
+    local label="$1"
+    local find_expr="$2"
+    local DELETED_FILES
+
+    # Выполняем удаление и захватываем список
+    DELETED_FILES=$(eval "find \"$INSTALL_ROOT\" -type f $find_expr -print -delete 2>/dev/null" | sed "s|$FFBUILD_DESTDIR||g")
+
+    if [[ -n "$DELETED_FILES" ]]; then
+        log_debug "${BROOM_MARK} $label: $STAGENAME\n$DELETED_FILES"
+    else
+        log_info "${CHECK_MARK} No unwanted $label found."
+    fi
+}
+export -f clean_unwanted_libs
+
 clean_la_files() {
     if [[ "$PREFER_SHARED" == "1" ]]; then
         return 0
     fi
 
-    local target_dir="$FFBUILD_DESTPREFIX"
+    local target_dir="$INSTALL_ROOT"
     [[ ! -d "$target_dir" ]] && return 0
     log_info "${BROOM_MARK} Cleaning up libtool archives (.la) in $target_dir"
     local la_files=$(find "$target_dir" -name "*.la" \( -type f -o -type l \) 2>/dev/null)
@@ -813,6 +832,47 @@ clean_la_files() {
 }
 export -f clean_la_files
 
+strip_files() {
+    local target_dir="$1"
+    local stage_name="$2"
+
+    if [[ "$SKIP_POST_STRIP" == "1" ]]; then
+        log_info "${LOCK_MARK} Stripping skipped (global/manual flag)"
+        return 0
+    fi
+
+    # Проверка списка исключений
+    local IFS_ORIG="$IFS"
+    IFS=',' read -ra _excl_arr <<< "$STRIP_EXCLUDE_LIST"
+    IFS="$IFS_ORIG"
+    for _excl in "${_excl_arr[@]}"; do
+        if [[ "${_excl// /}" == "$stage_name" ]]; then # trim spaces
+            log_info "${LOCK_MARK} Stripping skipped for $stage_name (exclude list)"
+            return 0
+        fi
+    done
+
+    [[ ! -d "$target_dir" ]] && return 0
+
+    local _strip_cmd="${FFBUILD_CROSS_PREFIX}strip"
+    local size_before=$(du -sh "$target_dir" | cut -f1) # Замеряем размер ДО
+
+    log_info "${BROOM_MARK} Stripping $stage_name from debug symbols: $size_before -> ..."
+
+    find "$target_dir" -type f \
+        \( -name "*.exe" -o -name "*.dll" -o -name "*.a" -o -name "*.so*" \) \
+        ! -name "*.dll.a" -exec "$_strip_cmd" --strip-debug {} + 2>/dev/null || true
+
+    local size_after=$(du -sh "$target_dir" | cut -f1)
+
+    if [[ "$size_before" == "$size_after" ]]; then
+        log_info "${CHECK_MARK} Stripping finished (size unchanged: $size_after)"
+    else
+        log_info "${CHECK_MARK} Stripping finished: $size_before -> $size_after"
+    fi
+}
+export -f strip_files
+
 # 1. Standard
 # 2. Binary (for CRLF issues)
 # 3. Ignore Whitespace
@@ -822,55 +882,66 @@ apply_patches() {
     [[ -d "$PATCH_DIR" ]] || { log_info "${CHECK_MARK} No patches found for $COMPONENT_NAME"; return 0; }
 
     shopt -s nullglob
+    local patch_failed_any=false
+
     for patch in "$PATCH_DIR"/*.patch; do
         log_info "${TARGET_MARK} APPLYING PATCH: $(basename "$patch")"
-        local strategies_git=(
-            "git am --ignore-space-change --whitespace=fix"
-            "git am --ignore-space-change --whitespace=fix --reject"
-        )
-        local strategies_patch=(
-            "-p1 -N -r -"
-            "-p1 -N -r - --binary"
-            "-p1 -N -r - -l"
-            "-p1 -N -r - -l --fuzz=3"
-        )
+
         local success=false
         local last_output=""
-        # Try git am first (works best for git-format patches)
+
+        # Try git am first
         if [[ -d ".git" ]]; then
-            for opts in "${strategies_git[@]}"; do
-                log_debug "Trying: $opts"
-                last_output=$($opts < "$patch" 2>&1)
-                if [[ $? -eq 0 ]]; then
-                    log_info "${CHECK_MARK} SUCCESS: Applied with [$opts]"
+            local git_opts
+            for git_opts in \
+                "git am --ignore-space-change --whitespace=fix" \
+                "git am --ignore-space-change --whitespace=fix --reject"
+            do
+                log_debug "Trying: $git_opts"
+                # 'if' suppresses set -e on the command
+                if last_output=$(eval "$git_opts" < "$patch" 2>&1); then
+                    log_info "${CHECK_MARK} SUCCESS: Applied with [$git_opts]"
                     success=true
                     break
                 else
-                    # git am leaves state on failure - must abort
                     git am --abort 2>/dev/null || true
                 fi
             done
         fi
+
         # Fall back to patch utility
         if [[ "$success" == "false" ]]; then
-            for opts in "${strategies_patch[@]}"; do
-                log_debug "Trying: patch $opts"
-                last_output=$(patch $opts < "$patch" 2>&1)
-                if [[ $? -eq 0 ]]; then
-                    log_info "${CHECK_MARK} SUCCESS: Applied with [$opts]"
+            local patch_opts
+            for patch_opts in \
+                "-p1 -N -r -" \
+                "-p1 -N -r - --binary" \
+                "-p1 -N -r - -l" \
+                "-p1 -N -r - -l --fuzz=3"
+            do
+                log_debug "Trying: patch $patch_opts"
+                # 'if' suppresses set -e on patch exit code
+                if last_output=$(patch $patch_opts < "$patch" 2>&1); then
+                    log_info "${CHECK_MARK} SUCCESS: Applied with [patch $patch_opts]"
                     success=true
                     break
                 fi
             done
         fi
+
         if [[ "$success" == "false" ]]; then
             log_error "FAILED: All attempts to apply $(basename "$patch") failed."
-            # Show why it failed
-            log_debug "Last patch attempt output:\n${last_output}"
-            # return 1 # прервать сборку при ошибках
+            log_debug "Last attempt output:\n${last_output}"
+            patch_failed_any=true
+            # Uncomment to make patch failure fatal:
+            # return 1
         fi
     done
+
     shopt -u nullglob
+
+    if [[ "$patch_failed_any" == "true" ]]; then
+        log_warn "Some patches failed to apply for $COMPONENT_NAME — build continuing."
+    fi
 }
 export -f apply_patches
 

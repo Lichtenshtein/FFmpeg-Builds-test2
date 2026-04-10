@@ -91,6 +91,9 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     if [[ "$should_protect" == "true" && -n "$STAGE_HASH" ]]; then
         echo "$(basename "$STAGE_CACHE_FILE")"  >> "$RAW_KEEP_LIST"
         echo "$(basename "$STAGE_LATEST_LINK")" >> "$RAW_KEEP_LIST"
+        # component's configs and options hashes
+        echo "${STAGENAME}_${STAGE_HASH}.confhash" >> "$RAW_KEEP_LIST"
+        echo "${STAGENAME}_${STAGE_HASH}.confopts" >> "$RAW_KEEP_LIST"
     fi
 
     # Verbose trace only if explicitly requested (not default FFBUILD_VERBOSE=1)
@@ -115,7 +118,6 @@ declare -A PROTECTED_SET
 while IFS= read -r entry; do
     [[ -n "$entry" ]] && PROTECTED_SET["$entry"]=1
 done < "$FINAL_KEEP_LIST"
-
 
 # Deletion pass — O(1) lookup per file
 cd "$CACHE_DIR" || exit 0
@@ -145,6 +147,14 @@ for f in *.tar.zst; do
             skipped_young=$((skipped_young + 1))
         fi
     fi
+done
+
+for f in *.confhash *.confopts; do
+    [[ -e "$f" ]] || continue
+    [[ -n "${PROTECTED_SET[$f]:-}" ]] && continue
+    log_debug "${BROOM_MARK} Removing orphaned confhash: $f"
+    rm -f "$f"
+    deleted_count=$((deleted_count + 1))
 done
 
 # Remove broken symlinks unconditionally
