@@ -289,77 +289,82 @@ log_info "### ${SYNC_MARK} POST-BUILD AUDIT AND AUTOMATION: $STAGENAME"
 log_info_line
 
 # Каждый скрипт в scripts.d обязан устанавливать файлы (make install) в путь, начинающийся с $FFBUILD_DESTDIR$FFBUILD_PREFIX (обычно это /opt/ffdest/opt/ffbuild), иначе система не увидит установленную библиотеку для следующего этапа.
-if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX" ]]; then
-    # Автоматическая синхронизация префиксов после успешной сборки
+# The key constraint is: strip before sync, clean before strip, patch .pc before sync.
+# build_cmd runs
+# ▼
+# [AUDIT]   Verify INSTALL_ROOT exists and has files
+# │         (fail fast — no point running anything else on empty install)
+# ▼
+# [CLEAN]   clean_la_files          ← remove .la before anything reads them
+# │         (.la files can poison pkgconfig and linker lookups)
+# ▼
+# [CLEAN]   Remove unwanted DLLs / static .a  ← based on PREFER_SHARED + preserve lists
+# │         (must happen BEFORE strip — no point stripping files we're about to delete)
+# ▼
+# [STRIP]   strip_files             ← strip what remains after cleanup
+# │         (strip DESTPREFIX, not PREFIX — we haven't synced yet)
+# ▼
+# [PATCH]   patch_pc_files          ← fix .pc paths AFTER strip (strip doesn't touch .pc)
+# │         (paths must be correct before rsync writes them to PREFIX)
+# ▼
+# [SYNC]    rsync DESTPREFIX → PREFIX  ← only clean, stripped, patched files go to cache
+# ▼
+# [AUDIT]   get_deps_list           ← audit what landed in PREFIX (verbose only)
+if [[ -d "$INSTALL_ROOT" ]]; then
     # Identify what was actually built
-    mapfile -t NEW_FILES < <(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -o -type l)
+    mapfile -t NEW_FILES < <(find "$INSTALL_ROOT" -type f -o -type l)
 
-    if [[ ${#NEW_FILES[@]} -gt 0 ]]; then
-    if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-        log_debug "${DIRS_MARK} Installed ${#NEW_FILES[@]} files to prefix:"
-        # Очищаем пути от DESTDIR
-        CLEANER_PATHS=()
-        for f in "${NEW_FILES[@]}"; do CLEANER_PATHS+=("${f#$FF_DESTDIR}"); done
-        # Сортируем: сначала pkgconfig, cmake и библиотеки, затем всё остальное
-        (
-            # Приоритетные пути
-            printf "%s\n" "${CLEANER_PATHS[@]}" | grep -E "/lib/pkgconfig/|/lib/cmake/|/lib/[^/]+\.a$" | sort
-            # Все остальные (инвертированный поиск)
-            printf "%s\n" "${CLEANER_PATHS[@]}" | grep -vE "/lib/pkgconfig/|/lib/cmake/|/lib/[^/]+\.a$" | sort
-        ) | head -n 50
-        # stripping the long DESTDIR prefix for readability
-        [[ ${#NEW_FILES[@]} -gt 50 ]] && echo "  ... (and $((${#NEW_FILES[@]} - 50)) more)"
-    fi
-        # Sync to the PERSISTENT CACHE MOUNT (So the next script sees them)
-        # Using -u (update) to avoid overwriting newer files if layers run out of order
-        rsync -a --checksum "$FFBUILD_DESTDIR$FFBUILD_PREFIX/" "$FFBUILD_PREFIX/"
-        log_info "${CHECK_MARK} Sync completed. Component is now available for dependencies."
-    else
+    if [[ ${#NEW_FILES[@]} -eq 0 ]]; then
         log_warn "Stage $STAGENAME finished but no files were found in DESTDIR."
-    fi
-
-    if [[ "$PREFER_SHARED" != "1" ]]; then
-        # Список стадий, которым РАЗРЕШЕНО иметь DLL (ИИ, драйверы, системные компоненты). Импорт из workflow.yaml.
-        # Очистка динамических библиотек для каждого статического скрипта с белым списком
-        # Библиотеки MinGW создают libимя.dll.a (implib) даже для статики.
-        # Удаление всех *.dll.a может быть слишком радикальным
-        PRESERVE_DLL_PATTERN="${DLL_PRESERVE_LIST// /:-openvino}"
-        if [[ ! "$STAGENAME" =~ $PRESERVE_DLL_PATTERN ]]; then
-            DELETED_FILES=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -print | sed "s|$FFBUILD_DESTDIR||g")
-            if [[ -n "$DELETED_FILES" ]]; then
-                log_debug "${BROOM_MARK} Cleaning unwanted dynamic DLLs from static stage: $STAGENAME\n$DELETED_FILES"
-                # find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.dll" -delete || true
-                find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f \( -name "*.dll" -o -name "*.dll.a" \) -delete || true
-            else
-                log_info "${CHECK_MARK} No unwanted dynamic DLLs found to clean."
-            fi
-        else
-            log_info "${LOCK_MARK} Preserving dynamic DLLs for $STAGENAME"
-        fi
     else
-        PRESERVE_LIB_PATTERN="${LIB_PRESERVE_LIST// /:-}"
-        if [[ ! "$STAGENAME" =~ $PRESERVE_LIB_PATTERN ]]; then
-        # Находим все .a файлы, которые НЕ заканчиваются на .dll.a
-            STATIC_FILES=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.a" ! -name "*.dll.a" -print | sed "s|$FFBUILD_DESTDIR||g")
-            if [[ -n "$STATIC_FILES" ]]; then
-                log_debug "${BROOM_MARK} Cleaning static libs to prefer shared: $STAGENAME\n$STATIC_FILES"
-                # Удаляем только чистые .a файлы
-                find "$FFBUILD_DESTDIR$FFBUILD_PREFIX" -type f -name "*.a" ! -name "*.dll.a" -delete || true
+        if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+            # Show everything that was installed in a pretty way
+            log_debug "${DIRS_MARK} Installed ${#NEW_FILES[@]} files to prefix:"
+            # Очищаем пути от DESTDIR; можно попытаться и с "grep -Po"
+            CLEAN_LIST=$(printf "%s\n" "${NEW_FILES[@]}" | sed "s|^$FFBUILD_DESTDIR||")
+            (
+                echo "$CLEAN_LIST" | grep -E "/lib/pkgconfig/|/lib/cmake/|/lib/[^/]+\.a$" | sort
+                echo "$CLEAN_LIST" | grep -vE "/lib/pkgconfig/|/lib/cmake/|/lib/[^/]+\.a$" | sort
+            ) | head -n 50 >&2
+            # stripping the long DESTDIR prefix for readability
+            [[ ${#NEW_FILES[@]} -gt 50 ]] && log_debug "  ... (and $((${#NEW_FILES[@]} - 50)) more)"
+        fi
+
+        # clean .la files (libtool archives)
+        [[ "$SKIP_POST_CLEAN" != "1" ]] && clean_la_files
+
+        # remove unwanted DLLs or static libs
+        # список стадий, которым РАЗРЕШЕНО иметь DLL импортируется из workflow.yaml
+        # библиотеки MinGW создают libимя.dll.a (implib) даже для статики
+        if [[ "$PREFER_SHARED" != "1" ]]; then
+            if [[ ! "$STAGENAME" =~ $DLL_PRESERVE_LIST ]]; then
+                clean_unwanted_libs "Cleaning unwanted dynamic DLLs" "\( -name '*.dll' -o -name '*.dll.a' \)"
             else
-                log_info "${CHECK_MARK} No static libraries found to clean."
+                log_info "${LOCK_MARK} Preserving dynamic DLLs for $STAGENAME"
             fi
         else
-            log_info "${LOCK_MARK} Preserving static libraries for $STAGENAME"
+            if [[ -n "$LIB_PRESERVE_LIST" && ! "$STAGENAME" =~ $LIB_PRESERVE_LIST ]]; then
+                clean_unwanted_libs "Cleaning unwanted static libs" "-name '*.a' ! -name '*.dll.a'"
+            else
+                log_info "${LOCK_MARK} Preserving static libs for $STAGENAME"
+            fi
         fi
-    fi
 
-    # Удаляем мусорные libtool archives файлы
-    [[ "$SKIP_POST_CLEAN" != "1" ]] && clean_la_files
-    # Исправляем .pc файлы (пути, зависимости, Requires.private)
-    # Флаг SKIP_POST_PATCH=1 в скрипте может это отключить при необходимости
-    [[ "$SKIP_POST_PATCH" != "1" ]] && patch_pc_files
-    # Запускаем аудит зависимостей (вывод в лог)
-    [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && get_deps_list
+        # strip debug symbols
+        [[ "$SKIP_POST_STRIP" != "1" ]] && strip_files "$INSTALL_ROOT" "$STAGENAME"
+
+        # patch .pc files (пути, зависимости, Requires.private)
+        # Флаг SKIP_POST_PATCH=1 в скрипте может это отключить при необходимости
+        [[ "$SKIP_POST_PATCH" != "1" ]] && patch_pc_files
+
+        # sync to persistent prefix (So the next script sees them)
+        # Using -u (update) to avoid overwriting newer files if layers run out of order
+        rsync -a --checksum "$INSTALL_ROOT/" "$FFBUILD_PREFIX/"
+        log_info "${CHECK_MARK} Sync completed. $STAGENAME is now available for dependencies."
+
+        # audit зависимостей (verbose only)
+        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && get_deps_list
+    fi
 else
     log_debug "${DIRS_MARK} No standard prefix directory found for $STAGENAME"
 fi
@@ -422,13 +427,13 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
                  | tr ' ' '\n' | grep -v '^$')
 
         # Сначала собираем сами библиотеки (-l)
-        while IFS= read -r flag; do
-            [[ -z "$flag" ]] && continue
-            if [[ -z "${_seen_pc_libs[$flag]:-}" ]]; then
-                _seen_pc_libs["$flag"]=1
-                _pc_libs="$_pc_libs $flag"
-            fi
-        done < <(pkg-config $PKG_CONFIG_LIBS "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
+        # while IFS= read -r flag; do
+            # [[ -z "$flag" ]] && continue
+            # if [[ -z "${_seen_pc_libs[$flag]:-}" ]]; then
+                # _seen_pc_libs["$flag"]=1
+                # _pc_libs="$_pc_libs $flag"
+            # fi
+        # done < <(pkg-config $PKG_CONFIG_LIBS "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
 
         # Затем собираем системные флаги (-pthread и т.д.)
         while IFS= read -r flag; do

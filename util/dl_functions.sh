@@ -339,6 +339,121 @@ default_dl() {
 }
 export -f default_dl
 
+---------------------------------------------------------------------------
+# configs Hash file is keyed on STAGE_HASH — when you pin a new commit in the build script, STAGE_HASH changes, the old .confhash is simply ignored and a new baseline is written. No false positives from script-only changes.
+# ${STAGENAME}_${STAGE_HASH}.confhash   # stored alongside .tar.zst in CACHE_DIR
+# Options are sorted before hashing — reordering options in upstream source doesn't trigger a change alert.
+# 
+# confhash_extract_options prefixes each option with its build system (autotools:, cmake:, meson:) — this means a cmake:BUILD_TESTS and a meson:build_tests are tracked separately, which matters when a project migrates build systems.
+# 
+# .confopts file is only written at FFBUILD_VERBOSE >= 2 on first save — keeps cache clean by default. The diff is only computed when you explicitly want it.
+# 
+# confhash_compute returns 1 silently if no config files are found — meta-packages and header-only stages are skipped without noise.
+#
+# confhash_compute  <src_dir>
+#
+# Finds build-system config files in <src_dir>, extracts recognised option
+# declarations, strips noise, and returns a stable SHA-256 hash on stdout.
+# Prints nothing and returns 1 if no config files were found.
+# ---------------------------------------------------------------------------
+confhash_compute() {
+    local src_dir="$1"
+    [[ -d "$src_dir" ]] || return 1
+
+    # Collect raw option lines from each build system
+    local raw_options=""
+
+    # Autotools
+    # AS_HELP_STRING([--enable-foo / --disable-foo / --with-foo / --without-foo
+    # Anchored to AS_HELP_STRING to avoid "---" separator lines
+    while IFS= read -r -d '' f; do
+        local chunk
+        chunk=$(grep -oP 'AS_HELP_STRING\(\s*\[\s*--[a-zA-Z] [a-zA-Z0-9_-]*' "$f" \
+                | grep -oP -- '--[a-zA-Z] [a-zA-Z0-9_-]*' 2>/dev/null || true)
+        [[ -n "$chunk" ]] && raw_options+="$chunk"$'\n'
+    done < <(find "$src_dir" -maxdepth 3 \
+               \( -name "configure.ac" -o -name "configure.in" \) \
+               -print0 2>/dev/null)
+
+    # CMake
+    # option(NAME "description" DEFAULT)
+    # Also catches cmake_dependent_option(NAME ...
+    while IFS= read -r -d '' f; do
+        local chunk
+        chunk=$(grep -oP '(?i)(?:cmake_dependent_)?option\(\s*\K[A-Z_] [A-Z0-9_]+' "$f" \
+                2>/dev/null || true)
+        [[ -n "$chunk" ]] && raw_options+="$chunk"$'\n'
+    done < <(find "$src_dir" -maxdepth 3 \
+               \( -name "CMakeLists.txt" -o -name "*.cmake" \) \
+               -print0 2>/dev/null)
+
+    # Meson
+    # option('name', type : 'boolean', ...)
+    # meson_options.txt is the canonical file; meson.build sometimes has them too
+    while IFS= read -r -d '' f; do
+        local chunk
+        chunk=$(grep -oP "option\(\s*'\K[a-zA-Z] [a-zA-Z0-9_-]+" "$f" \
+                2>/dev/null || true)
+        [[ -n "$chunk" ]] && raw_options+="$chunk"$'\n'
+    done < <(find "$src_dir" -maxdepth 3 \
+               \( -name "meson_options.txt" -o -name "meson.build" \) \
+               -print0 2>/dev/null)
+
+    [[ -z "$raw_options" ]] && return 1
+
+    # Stable hash: sort + deduplicate so option order changes don't matter
+    printf '%s' "$raw_options" \
+        | sort -u \
+        | sha256sum \
+        | cut -c1-16
+}
+export -f confhash_compute
+
+# ---------------------------------------------------------------------------
+# confhash_extract_options  <src_dir>
+#
+# Same as confhash_compute but prints the sorted, deduplicated option list
+# to stdout instead of a hash. Used for verbose diff output.
+# ---------------------------------------------------------------------------
+confhash_extract_options() {
+    local src_dir="$1"
+    [[ -d "$src_dir" ]] || return 1
+
+    local raw_options=""
+
+    while IFS= read -r -d '' f; do
+        local chunk
+        chunk=$(grep -oP 'AS_HELP_STRING\(\s*\[\s*--[a-zA-Z] [a-zA-Z0-9_-]*' "$f" \
+                | grep -oP -- '--[a-zA-Z] [a-zA-Z0-9_-]*' 2>/dev/null || true)
+        [[ -n "$chunk" ]] && raw_options+="autotools:$chunk"$'\n'
+    done < <(find "$src_dir" -maxdepth 3 \
+               \( -name "configure.ac" -o -name "configure.in" \) \
+               -print0 2>/dev/null)
+
+    while IFS= read -r -d '' f; do
+        local chunk
+        chunk=$(grep -oP '(?i)(?:cmake_dependent_)?option\(\s*\K[A-Z_] [A-Z0-9_]+' "$f" \
+                2>/dev/null || true)
+        [[ -n "$chunk" ]] && raw_options+="cmake:$chunk"$'\n'
+    done < <(find "$src_dir" -maxdepth 3 \
+               \( -name "CMakeLists.txt" -o -name "*.cmake" \) \
+               -print0 2>/dev/null)
+
+    while IFS= read -r -d '' f; do
+        local chunk
+        chunk=$(grep -oP "option\(\s*'\K[a-zA-Z] [a-zA-Z0-9_-]+" "$f" \
+                2>/dev/null || true)
+        [[ -n "$chunk" ]] && raw_options+="meson:$chunk"$'\n'
+    done < <(find "$src_dir" -maxdepth 3 \
+               \( -name "meson_options.txt" -o -name "meson.build" \) \
+               -print0 2>/dev/null)
+
+    [[ -z "$raw_options" ]] && return 1
+
+    printf '%s' "$raw_options" | sort -u
+}
+export -f confhash_extract_options
+
 download_stage() {
     local STAGE="$1"
     local CACHE_DIR="${2:-$CACHE_DIR}"
@@ -408,8 +523,7 @@ download_stage() {
 
     if [[ $dl_status -eq 0 ]]; then
         # Whitelist метаданных .git (список подгружается из workflow.yaml). 
-        local PRESERVE_PATTERN="${GIT_PRESERVE_LIST// /:-ffmpeg|glib2}"
-        if [[ "$STAGENAME" =~ $PRESERVE_PATTERN ]]; then
+        if [[ "$STAGENAME" =~ $GIT_PRESERVE_LIST ]]; then
             log_info "${LOCK_MARK} Preserving Git metadata for $STAGENAME (Whitelist match)"
         else
             log_debug "${BROOM_MARK} Stripping Git metadata for $STAGENAME to save cache space"
@@ -417,8 +531,69 @@ download_stage() {
             find "$WORK_DIR" -maxdepth 2 -name ".git*" -exec rm -rf {} + 2>/dev/null || true
         fi
 
+        # Config option changes tracing and hashing
+        # Path for the hash file sits next to the .tar.zst, never inside it
+        local CONF_HASH_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.confhash"
+        local CONF_OPTIONS_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.confopts"
+        local new_conf_hash=$(confhash_compute "$WORK_DIR") || true
+        if [[ -n "$new_conf_hash" ]]; then
+            if [[ -f "$CONF_HASH_FILE" ]]; then
+                local old_conf_hash=$(cat "$CONF_HASH_FILE")
+                if [[ "$old_conf_hash" == "$new_conf_hash" ]]; then
+                    log_info "${CHECK_MARK} Config options unchanged for $STAGENAME (hash: ${new_conf_hash})"
+                else
+                    log_warn "${XCLAM_MARK} Config options CHANGED for $STAGENAME"
+                    log_warn "  old: ${old_conf_hash}  →  new: ${new_conf_hash}"
+                    # Verbose=2: show which options appeared/disappeared
+                    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+                        local old_opts_file="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.confopts.prev"
+
+                        # Recover old option list if it was saved
+                        if [[ -f "$CONF_OPTIONS_FILE" ]]; then
+                            cp "$CONF_OPTIONS_FILE" "$old_opts_file"
+                        fi
+
+                        local new_opts=$(confhash_extract_options "$WORK_DIR") || true
+                        if [[ -f "$old_opts_file" && -n "$new_opts" ]]; then
+                            local added removed
+                            added=$(comm  -13 <(sort "$old_opts_file") <(printf '%s\n' "$new_opts" | sort))
+                            removed=$(comm -23 <(sort "$old_opts_file") <(printf '%s\n' "$new_opts" | sort))
+                            if [[ -n "$added" ]]; then
+                                log_debug "${LOG_INFO}  ++ NEW options:${NC}"
+                                while IFS= read -r opt; do
+                                    log_debug "     ${LOG_INFO}+${NC} $opt"
+                                done <<< "$added"
+                            fi
+                            if [[ -n "$removed" ]]; then
+                                log_debug "${LOG_WARN}  -- REMOVED options:${NC}"
+                                while IFS= read -r opt; do
+                                    log_debug "     ${LOG_WARN}-${NC} $opt"
+                                done <<< "$removed"
+                            fi
+                            rm -f "$old_opts_file"
+                        elif [[ -n "$new_opts" ]]; then
+                            log_debug "  (no previous option list saved — diff unavailable)"
+                        fi
+                        # Save new option list for next run
+                        printf '%s\n' "$new_opts" > "$CONF_OPTIONS_FILE"
+                    fi
+                    # Overwrite with new hash
+                    printf '%s' "$new_conf_hash" > "$CONF_HASH_FILE"
+                fi
+            else
+                # First time seeing this component — just save, no comparison
+                printf '%s' "$new_conf_hash" > "$CONF_HASH_FILE"
+                [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]] && \
+                    confhash_extract_options "$WORK_DIR" > "$CONF_OPTIONS_FILE" || true
+                log_info "${SAVE_MARK} Config option hash saved for $STAGENAME (${new_conf_hash})"
+            fi
+        else
+            log_debug "No recognisable config files found for $STAGENAME — skipping confhash"
+        fi
+
+        # Упаковка
         mkdir -p "$(dirname "$STAGE_CACHE_FILE")"
-        # Упаковка; -c: создать, -f: файл, -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
+        # -c: создать, -f: файл, -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
         tar -I 'zstd -T0 -3' -cf "$STAGE_CACHE_FILE" -C "$WORK_DIR" .
         ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
         local final_size
