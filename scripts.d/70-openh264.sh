@@ -14,10 +14,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    export CFLAGS="$CFLAGS"
+    export CFLAGS="$CFLAGS ${USELTO}"
     export CPPFLAGS="$CPPFLAGS"
-    export CXXFLAGS="$CXXFLAGS"
-    export LDFLAGS="$LDFLAGS"
+    export CXXFLAGS="$CXXFLAGS ${USELTO}"
+    export LDFLAGS="$LDFLAGS ${USELTO}"
 
     local myconf=(
         PREFIX="$FFBUILD_PREFIX"
@@ -55,13 +55,9 @@ ffbuild_dockerbuild() {
             OS=linux
             ARCH=aarch64
         )
-    else
-        echo "Unknown target"
-        return 1
     fi
 
     make $MAKE_V -j$(nproc) "${myconf[@]}" install-static DESTDIR="$FFBUILD_DESTDIR" || return 1
-
 }
 
 ffbuild_configure() {

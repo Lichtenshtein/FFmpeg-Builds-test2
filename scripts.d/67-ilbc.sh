@@ -1,7 +1,10 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/TimothyGu/libilbc.git"
-SCRIPT_COMMIT="6adb26d4a4e159cd66d4b4c5e411cd3de0ab6b5e"
+# SCRIPT_REPO="https://github.com/TimothyGu/libilbc.git"
+# SCRIPT_COMMIT="6adb26d4a4e159cd66d4b4c5e411cd3de0ab6b5e"
+
+SCRIPT_REPO="https://github.com/mal359/libilbc.git"
+SCRIPT_COMMIT="92453650e3dc53c0ca209dbf04d3153a5517a91d"
 
 ffbuild_enabled() {
     return 0
@@ -10,12 +13,12 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     echo "git-submodule-clone"
-    # echo "git submodule --quiet update --init --recursive --depth=1"
 }
 
 ffbuild_dockerbuild() {
     set -e
-    mkdir build && cd build
+
+    mkdir -p build && cd build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -24,6 +27,7 @@ ffbuild_dockerbuild() {
         -DBUILD_TESTING=OFF
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DWITH_NEON=OFF # Enable NEON optimization
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
     )
 
