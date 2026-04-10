@@ -45,7 +45,6 @@ ffbuild_dockerbuild() {
     elif [[ $TARGET == linux* ]]; then
         rm "$FFBUILD_DESTPREFIX"/lib/libxeve.so*
     fi
-
 }
 
 ffbuild_configure() {

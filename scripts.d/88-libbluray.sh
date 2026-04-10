@@ -9,7 +9,11 @@ ffbuild_depends() {
     echo freetype
     echo fontconfig
     echo harfbuzz
+    # цепочка
     echo libudfread
+    # echo libdvdcss
+    # echo libdvdread
+    # echo libdvdnav
 }
 
 ffbuild_enabled() {
