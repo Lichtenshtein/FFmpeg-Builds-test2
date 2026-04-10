@@ -1,14 +1,17 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://code.videolan.org/videolan/libdvdread.git"
-SCRIPT_COMMIT="e294cf7156ce8170ebb6786e21c4baf7aa5f48e4"
-
-ffbuild_enabled() {
-    return 0
-}
+SCRIPT_REPO="https://code.videolan.org/videolan/libdvdnav.git"
+SCRIPT_COMMIT="cf112772bf626f76a913efca5b883a381e4c123a"
 
 ffbuild_depends() {
+    echo libudfread
     echo libdvdcss
+    echo libdvdread
+}
+
+ffbuild_enabled() {
+    [[ $VARIANT == lgpl* ]] && return 1
+    return 0
 }
 
 ffbuild_dockerdl() {
@@ -18,23 +21,26 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
     # stop the static library from exporting symbols when linked into a shared lib
-    sed -i 's/-DDVDREAD_API_EXPORT/-DDVDREAD_API_EXPORT_DISABLED/g' src/meson.build
+    sed -i 's/SUPPORT_ATTRIBUTE_VISIBILITY_DEFAULT/SUPPORT_ATTRIBUTE_VISIBILITY_DEFAULT_DISABLED/g' meson.build
+    sed -i 's/-DLIBDVDCSS_EXPORTS/-DLIBDVDCSS_EXPORTS_DISABLED/g' src/meson.build
 
-    mkdir build && cd build
+    mkdir -p build && cd build
 
     local myconf=(
-        --cross-file=/cross.meson
-        --buildtype=release
-        --prefix="$FFBUILD_PREFIX"
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
-        -Dc_std=c11
-        -Dcpp_std=c++17
+        --prefix="$FFBUILD_PREFIX"
         -Ddefault_library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
+        -Dcpp_std=c++17
+        -Dc_std=c11
         -Denable_docs=false
-        -Dlibdvdcss=enabled
-        -Dwarning_level=1
-        -Dwerror=false
+        -Denable_examples=false
     )
+
+    if [[ $TARGET == win* || $TARGET == linux* ]]; then
+        myconf+=(
+            --cross-file=/cross.meson
+        )
+    fi
 
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS" \
@@ -47,9 +53,9 @@ ffbuild_dockerbuild() {
 }
 
 ffbuild_configure() {
-    echo --enable-libdvdread
+    echo --enable-libdvdnav
 }
 
 ffbuild_unconfigure() {
-    echo --disable-libdvdread
+    echo --disable-libdvdnav
 }

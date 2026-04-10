@@ -34,6 +34,7 @@ ffbuild_dockerbuild() {
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         --prefix="$FFBUILD_PREFIX"
         --buildtype=release
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=c++17
         -Dc_std=c11
         -Denable_docs=false
@@ -42,7 +43,6 @@ ffbuild_dockerbuild() {
     if [[ $TARGET == linux64 ]]; then
         myconf+=(
             --cross-file=/cross.meson
-            --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
             --sysconfdir="/etc"
             -Ddriverdir="/usr/lib/x86_64-linux-gnu/dri"
             -Ddisable_drm=false
@@ -53,7 +53,6 @@ ffbuild_dockerbuild() {
     elif [[ $TARGET == win* ]]; then
         myconf+=(
             --cross-file=/cross.meson
-            --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
             -Dwith_win32=yes
         )
     fi
@@ -75,7 +74,6 @@ ffbuild_dockerbuild() {
 
         echo "Libs: -ldl" >> "$PC_DIR/libva.pc"
     fi
-
 }
 
 ffbuild_configure() {
