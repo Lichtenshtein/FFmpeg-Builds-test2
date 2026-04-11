@@ -33,7 +33,7 @@ ffbuild_dockerbuild() {
         -Dopenmp=disabled
     )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-Dpixman_static"
 
     meson setup "${myconf[@]}" .. \
@@ -47,9 +47,9 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/pixman-1.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i '/^Cflags:/ s/[[:space:]]*-pthread//g' "$PC_FILE"
+        sed -i "/^Cflags:/ s/[[:space:]]*-pthread//g" "$PC_FILE"
         if ! grep -q "$static_flags" "$PC_FILE"; then
-            sed -i '/^Cflags:/ s/$/ $static_flags/' "$PC_FILE"
+            sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
         fi
     fi
 }

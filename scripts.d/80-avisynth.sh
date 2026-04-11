@@ -39,8 +39,10 @@ ffbuild_dockerbuild() {
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make VersionGen install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    # VersionGen должна быть собрана перед инсталляцией
+    ninja $NINJA_V VersionGen || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 }
 
 ffbuild_configure() {

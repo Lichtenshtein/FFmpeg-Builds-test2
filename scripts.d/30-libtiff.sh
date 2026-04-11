@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
         -Djbig=OFF
     )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBTIFF_STATIC"
 
     CFLAGS="$CFLAGS $CPPFLAGS $static_flags" \

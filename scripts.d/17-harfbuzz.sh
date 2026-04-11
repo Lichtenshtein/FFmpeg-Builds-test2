@@ -18,6 +18,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     mkdir build && cd build
 
     local DEP_LIBS="-lfreetype -lsicuin -lsicuuc -lsicudt"
@@ -51,7 +52,7 @@ ffbuild_dockerbuild() {
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DHARFBUZZ_STATIC"
 
     meson setup "${myconf[@]}" .. \
@@ -60,16 +61,15 @@ ffbuild_dockerbuild() {
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
-    ninja -j$(nproc) $NINJA_V || return 1
+    ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     if ls "$PC_DIR"/*harfbuzz*.pc >/dev/null 2>&1; then
         for pc in "$PC_DIR"/*harfbuzz*.pc; do
             [[ -e "$pc" ]] || continue
             if ! grep -q "$static_flags" "$pc"; then
-                sed -i '/^Cflags:/ s/$/ $static_flags/' "$pc"
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
             fi
         done
     fi
-
 }

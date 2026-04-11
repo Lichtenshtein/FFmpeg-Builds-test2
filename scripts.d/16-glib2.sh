@@ -97,7 +97,8 @@ EOF
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
-    local static_flags=""
+    export static_flags=""
+    export self_static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DFFI_STATIC_BUILD" && self_static_flags="-DGLIB_STATIC_COMPILATION"
 
 # -Wno-error=missing-include-dirs -Wno-error=redundant-decls
@@ -109,7 +110,7 @@ EOF
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
-    ninja -C _build -j$(nproc) $NINJA_V || return 1
+    ninja -C _build $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja -C _build install || return 1
 
     local ALL_GLIB_PCS=(
@@ -121,7 +122,7 @@ EOF
         local pc="$PC_DIR/$pc_name"
         [[ -f "$pc" ]] || continue
         if ! grep -q "$self_static_flags" "$pc"; then
-            sed -i '/^Cflags:/ s/$/ $self_static_flags/' "$pc"
+            sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$pc"
         fi
     done
 }

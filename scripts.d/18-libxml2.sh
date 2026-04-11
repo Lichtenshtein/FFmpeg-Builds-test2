@@ -49,7 +49,7 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-static --disable-shared )
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBXML_STATIC -DXML_STATIC"
 
     # Принудительно задаем AR как gcc-ar для стабильности архивации
@@ -78,7 +78,6 @@ ffbuild_dockerbuild() {
         sed -i "s/ -DLIBXML_STATIC//g; s/ -DXML_STATIC//g" "$PC_FILE"
         sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
     fi
-
 }
 
 ffbuild_cppflags() {

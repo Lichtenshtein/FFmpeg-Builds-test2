@@ -46,7 +46,7 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLZMA_API_STATIC"
 
     CFLAGS="$CFLAGS -Wno-error=implicit-function-declaration ${USELTO}" \
@@ -61,7 +61,7 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/liblzma.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i '/^Cflags:/ s/$/ $static_flags/' "$PC_FILE"
+        sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
     fi
 }
 

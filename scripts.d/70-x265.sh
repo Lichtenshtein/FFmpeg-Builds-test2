@@ -48,6 +48,7 @@ ffbuild_dockerbuild() {
     find "$X265_ROOT" -name "json11.cpp" -exec sed -i '1i#include <cstdint>' {} +
 
     local myconf=(
+        -G Ninja
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -75,20 +76,19 @@ ffbuild_dockerbuild() {
     mkdir -p 8bit 10bit 12bit
 
     if [[ $TARGET != *32 ]]; then
-
         log_info "Building 12-bit x265..."
         CFLAGS="$CFLAGS $CPPFLAGS" \
         CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
         LDFLAGS="$LDFLAGS" \
         cmake "${myconf[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -DMAIN12=ON -S "$X265_ROOT" -B 12bit || return 1
-        make -C 12bit -j$(nproc) $MAKE_V || return 1
+        ninja -C 12bit -j$(nproc) $MAKE_V || return 1
 
         log_info "Building 10-bit x265..."
         CFLAGS="$CFLAGS $CPPFLAGS" \
         CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
         LDFLAGS="$LDFLAGS" \
         cmake "${myconf[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -S "$X265_ROOT" -B 10bit || return 1
-        make -C 10bit -j$(nproc) $MAKE_V || return 1
+        ninja -C 10bit -j$(nproc) $MAKE_V || return 1
 
         log_info "Building 8-bit x265 (combined)..."
         # Копируем либы для финальной линковки
@@ -102,7 +102,7 @@ ffbuild_dockerbuild() {
             -DEXTRA_LIB="${PWD}/10bit/libx265.a;${PWD}/12bit/libx265.a" \
             -DLINKED_10BIT=ON -DLINKED_12BIT=ON \
             -S "$X265_ROOT" -B 8bit || return 1
-        make -C 8bit -j$(nproc) $MAKE_V || return 1
+        ninja -C 8bit -j$(nproc) $MAKE_V || return 1
 
         # Объединяем библиотеки через MRI скрипт для ar
         # используем кросс-архивный AR
@@ -124,11 +124,11 @@ EOF
         CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
         LDFLAGS="$LDFLAGS" \
         cmake "${myconf[@]}" -S "$X265_ROOT" -B 8bit || return 1
-        make -C 8bit -j$(nproc) $MAKE_V || return 1
+        ninja -C 8bit -j$(nproc) $MAKE_V || return 1
     fi
 
     # Установка из папки 8bit (которая содержит объединенную либу)
-    make -C 8bit install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja -C 8bit install || return 1
 
     # Гарантируем наличие pkg-config файла
     mkdir -p "$PC_DIR"
@@ -145,7 +145,6 @@ Libs: -L\${libdir} -lx265
 Libs.private: -lstdc++ -lm -lgcc -lmingwex -lmingw32 -luser32 -ladvapi32 -lshell32
 Cflags: -I\${includedir}
 EOF
-
 }
 
 ffbuild_configure() {

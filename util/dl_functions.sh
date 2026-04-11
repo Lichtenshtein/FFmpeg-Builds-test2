@@ -139,9 +139,7 @@ download_file() {
     local URL="$1"
     local DEST="$2"
     local SHA512="$3"
-    local useragent="Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36"
-
-    [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "${SEARCH_MARK} Figuring out where pv is..." && which pv
+    local useragent="Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
 
     # Cache hit check BEFORE any deletion
     if [[ -f "$DEST" ]]; then
@@ -151,6 +149,7 @@ download_file() {
                 return 0
             fi
             log_warn "Checksum mismatch for $(basename "$DEST"), re-downloading..."
+            rm -f "$DEST"
         else
             log_info "${CHECK_MARK} File $(basename "$DEST") exists, skipping."
             return 0
@@ -158,40 +157,18 @@ download_file() {
     fi
 
     log_info "${DOWN_MARK} Downloading: $(basename "$DEST")"
-    local curl_ok=1
 
-    # PIPESTATUS[0] — это код curl, PIPESTATUS[1] — код pv
-    # pv -n — выводит только число процентов (0..100)
-    # pv -p — выводит прогресс-бар (лучше для локального терминала)
     # -f (fail silently) возвращает код 22 при 404 и триггерит _retry
     # -I информация
     # -L (location) следовать редиректам SourceForge
-    if command -v pv &>/dev/null; then
-        rm -f "$DEST"
-        local size
-        size=$(curl -sIL --max-time 15 "$URL" | grep -i 'Content-Length' | awk '{print $2}' | tr -d '\r' | tail -n1)
-        if [[ -n "$size" && "$size" -gt 0 ]]; then
-            curl -A "$useragent" -fsSL "$URL" | pv -n -s "$size" > "$DEST" 2> >(while IFS= read -r line; do log_debug "[DL] ${line}%"; done)
-        else
-            curl -A "$useragent" -fsSL "$URL" | pv -b > "$DEST" 2> >(while IFS= read -r line; do log_debug "[DL] ${line}"; done)
-        fi
-        curl_ok=${PIPESTATUS[0]}
-        if [[ $curl_ok -ne 0 ]]; then
-            log_warn "Primary download (pv) failed (exit $curl_ok). Falling back to retry mode..."
-        fi
-    else
-        log_debug "pv not found, skipping primary attempt."
-        curl_ok=1
-    fi
 
     # если первая попытка провалилась (или нет pv) запускаем _retry
-    if [[ $curl_ok -ne 0 ]]; then
-        _retry_cmd="rm -f '$DEST' && curl -A '$useragent' -fsSL --connect-timeout 15 '$URL' -o '$DEST'"
-        if ! _retry bash -c "$_retry_cmd"; then
-            log_error "All download attempts failed for $(basename "$DEST")"
-            rm -f "$DEST"
-            return 1
-        fi
+    if ! _retry bash -c "curl -A $(printf '%q' "$useragent") \
+            -fsSL --connect-timeout 15 \
+            $(printf '%q' "$URL") -o $(printf '%q' "$DEST")"; then
+        log_error "All download attempts failed for $(basename "$DEST")"
+        rm -f "$DEST"
+        return 1
     fi
 
     # Verify the file was actually written
@@ -362,16 +339,19 @@ confhash_compute() {
 
     # Collect raw option lines from each build system
     local raw_options=""
+    local found_files=0
 
     # Autotools
     # AS_HELP_STRING([--enable-foo / --disable-foo / --with-foo / --without-foo
     # Anchored to AS_HELP_STRING to avoid "---" separator lines
     while IFS= read -r -d '' f; do
+        found_files=1
         local chunk
-        chunk=$(grep -oP 'AS_HELP_STRING\(\s*\[\s*--[a-zA-Z] [a-zA-Z0-9_-]*' "$f" \
-                | grep -oP -- '--[a-zA-Z] [a-zA-Z0-9_-]*' 2>/dev/null || true)
+        chunk=$(grep -oP \
+            '(?:AS_HELP_STRING\(\s*\[|AC_ARG_(?:ENABLE|WITH)\s*\(\s*['"'"'"]?)\K--?[a-zA-Z] [a-zA-Z0-9_-]+' \
+            "$f" 2>/dev/null || true)
         [[ -n "$chunk" ]] && raw_options+="$chunk"$'\n'
-    done < <(find "$src_dir" -maxdepth 3 \
+    done < <(find "$src_dir" -maxdepth 4 \
                \( -name "configure.ac" -o -name "configure.in" \) \
                -print0 2>/dev/null)
 
@@ -379,27 +359,53 @@ confhash_compute() {
     # option(NAME "description" DEFAULT)
     # Also catches cmake_dependent_option(NAME ...
     while IFS= read -r -d '' f; do
+        found_files=1
         local chunk
-        chunk=$(grep -oP '(?i)(?:cmake_dependent_)?option\(\s*\K[A-Z_] [A-Z0-9_]+' "$f" \
-                2>/dev/null || true)
+        chunk=$(grep -oP \
+            '(?i)(?:cmake_dependent_)?option\(\s*\K[A-Z_a-z] [A-Z0-9_a-z]+' \
+            "$f" 2>/dev/null || true)
         [[ -n "$chunk" ]] && raw_options+="$chunk"$'\n'
-    done < <(find "$src_dir" -maxdepth 3 \
+    done < <(find "$src_dir" -maxdepth 4 \
                \( -name "CMakeLists.txt" -o -name "*.cmake" \) \
+               ! -path "*/test*" ! -path "*/example*" \
                -print0 2>/dev/null)
 
     # Meson
     # option('name', type : 'boolean', ...)
     # meson_options.txt is the canonical file; meson.build sometimes has them too
     while IFS= read -r -d '' f; do
+        found_files=1
         local chunk
-        chunk=$(grep -oP "option\(\s*'\K[a-zA-Z] [a-zA-Z0-9_-]+" "$f" \
-                2>/dev/null || true)
+        chunk=$(grep -oP \
+            "(?:^|\s)option\(\s*['\"]?\K[a-zA-Z] [a-zA-Z0-9_-]+" \
+            "$f" 2>/dev/null || true)
         [[ -n "$chunk" ]] && raw_options+="$chunk"$'\n'
-    done < <(find "$src_dir" -maxdepth 3 \
+    done < <(find "$src_dir" -maxdepth 4 \
                \( -name "meson_options.txt" -o -name "meson.build" \) \
                -print0 2>/dev/null)
 
-    [[ -z "$raw_options" ]] && return 1
+    if [[ $found_files -eq 0 ]]; then
+        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && \
+            log_debug "confhash: no build system files found in $src_dir"
+        return 1
+    fi
+
+    # Temporary debug
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+        log_debug "confhash: scanning $src_dir"
+        find "$src_dir" -maxdepth 3 \
+            \( -name "configure.ac" -o -name "configure.in" \
+            -o -name "CMakeLists.txt" -o -name "*.cmake" \
+            -o -name "meson_options.txt" -o -name "meson.build" \) \
+            2>/dev/null | head -n 20 >&2
+    fi
+
+    if [[ -z "$raw_options" ]]; then
+        # Files were found but no options extracted — still save a hash
+        # so we can detect when options ARE added in the future
+        printf 'no-options' | sha256sum | cut -c1-16
+        return 0
+    fi
 
     # Stable hash: sort + deduplicate so option order changes don't matter
     printf '%s' "$raw_options" \
@@ -545,7 +551,7 @@ download_stage() {
                     log_warn "${XCLAM_MARK} Config options CHANGED for $STAGENAME"
                     log_warn "  old: ${old_conf_hash}  →  new: ${new_conf_hash}"
                     # Verbose=2: show which options appeared/disappeared
-                    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+                    if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
                         local old_opts_file="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.confopts.prev"
 
                         # Recover old option list if it was saved

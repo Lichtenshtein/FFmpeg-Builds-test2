@@ -50,7 +50,8 @@ ffbuild_dockerbuild() {
         -Dman-pages=false
     )
 
-    local static_flags=""
+    export static_flags=""
+    export self_static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCAIRO_WIN32_STATIC_BUILD -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW -Dpixman_static" && self_static_flags="-DPANGO_STATIC_COMPILATION"
 
     meson setup "${myconf[@]}" .. \
@@ -59,13 +60,13 @@ ffbuild_dockerbuild() {
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
-    ninja -j$(nproc) $NINJA_V || return 1
+    ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     for pc in "$PC_DIR"/*pango*.pc; do
         [[ -e "$pc" ]] || continue
         if ! grep -q "\$self_static_flags" "$pc"; then
-            sed -i 's/Cflags:/& $self_static_flags/' "$pc"
+            sed -i "s/Cflags:/& $self_static_flags/" "$pc"
         fi
     done
 }

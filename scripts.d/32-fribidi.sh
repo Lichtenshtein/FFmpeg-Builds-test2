@@ -31,7 +31,7 @@ ffbuild_dockerbuild() {
         -Dtests=false
     )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DFRIBIDI_LIB_STATIC"
 
     meson setup "${myconf[@]}" .. \
@@ -40,13 +40,13 @@ ffbuild_dockerbuild() {
         -Dc_link_args="$LDFLAGS" \
         -Dcpp_link_args="$LDFLAGS" || return 1
 
-    ninja -j$(nproc) $NINJA_V || return 1
+    ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     local PC_FILE="$PC_DIR/fribidi.pc"
     if [[ -f "$PC_FILE" ]]; then
         if ! grep -q "\$static_flags" "$PC_FILE"; then
-            sed -i 's/Cflags:/& $static_flags/' "$PC_FILE"
+            sed -i "s/Cflags:/& $static_flags/" "$PC_FILE"
         fi
     fi
 }

@@ -33,7 +33,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DCMAKE_SYSTEM_NAME=Windows
         -DOPUS_BUILD_SHARED_LIBRARY=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DOPUS_BUILD_PROGRAMS=OFF
@@ -52,7 +51,9 @@ ffbuild_dockerbuild() {
     )
 
     if [[ $TARGET == winarm* ]]; then
-        myconf+=(-DOPUS_DISABLE_INTRINSICS=ON)
+        myconf+=( -DOPUS_DISABLE_INTRINSICS=ON )
+    elif [[ $TARGET == win* ]]; then
+        myconf+=( -DCMAKE_SYSTEM_NAME=Windows )
     fi
 
     CFLAGS="$CFLAGS $CPPFLAGS" \

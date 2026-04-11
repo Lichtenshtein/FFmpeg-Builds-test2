@@ -33,7 +33,7 @@ ffbuild_dockerbuild() {
         -DFFT_LIB=fftw3
     )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCHROMAPRINT_NODLL"
 
     CFLAGS="$CFLAGS $CPPFLAGS $static_flags" \

@@ -104,7 +104,7 @@ EOF
 
     mkdir -p build && cd build
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DVAPOURSYNTH_STATIC"
 
     # Мы собираем vsscript как SHARED, так как он ОБЯЗАН грузить python3.dll
@@ -169,7 +169,6 @@ Libs: -L\${libdir} -lvsscript
 Libs.private: -l${PY_LIB} -lstdc++
 Cflags: -I\${includedir}
 EOF
-
 }
 
 ffbuild_cflags() {

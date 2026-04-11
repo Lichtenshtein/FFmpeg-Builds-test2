@@ -45,7 +45,7 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DBUILD_TESTING=OFF
         -DBUILD_APPS=OFF
-        -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF )
+        -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         -DNATIVE=OFF
     )
 
@@ -70,8 +70,6 @@ ffbuild_dockerbuild() {
     mkdir -p "$PC_DIR"
     if [[ -f "$PC_DIR/SvtAv1Enc.pc" ]]; then
         cp  "$PC_DIR/SvtAv1Enc.pc"  "$PC_DIR/svtav1.pc"
-        sed -i "s|Libs: -L\${libdir} -lSvtAv1Enc|Libs: -L\${libdir} -lSvtAv1Enc|" "$PC_DIR/SvtAv1Enc.pc"
-        sed -i "s|Libs: -L\${libdir} -lSvtAv1Enc|Libs: -L\${libdir} -lSvtAv1Enc|" "$PC_DIR/svtav1.pc"
     fi
 }
 

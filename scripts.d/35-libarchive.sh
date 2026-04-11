@@ -58,16 +58,17 @@ ffbuild_dockerbuild() {
         -DCMAKE_REQUIRED_LIBRARIES="-lxml2"
     )
 
-    local static_flags=""
+    export static_flags=""
+    export self_static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBXML_STATIC -DXML_STATIC" && self_static_flags="-DARCHIVE_STATIC"
 
     CFLAGS="$CFLAGS $CPPFLAGS $self_static_flags $static_flags" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS $self_static_flags $static_flags" \
-    cmake "${myconf[@]}" \
+    cmake -G Ninja "${myconf[@]}" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $DEP_LIBS $WIN_LIBS" .. || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     local PC_FILE="$PC_DIR/libarchive.pc"
     if [[ -f "$PC_FILE" ]]; then
