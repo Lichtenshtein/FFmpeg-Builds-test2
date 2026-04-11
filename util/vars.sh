@@ -855,6 +855,52 @@ clean_unwanted_libs() {
 }
 export -f clean_unwanted_libs
 
+# Generates .a files from .dll files for dynamic libraries we want to link.
+# Typically called for components in DLL_PRESERVE_LIST
+generate_implibs() {
+    local target_dir="${1:-$INSTALL_ROOT}"
+    [[ ! -d "$target_dir" ]] && return 0
+
+    log_info "${TARGET_MARK} Generating import libraries for DLLs in $STAGENAME..."
+
+    # Search for all DLLs that don't yet have a .dll.a or .a
+    find "$target_dir" -name "*.dll" -type f | while read -r dll_file; do
+        local dll_name=$(basename "$dll_file")
+        local base_name="${dll_name%.dll}"
+        local lib_name="lib${base_name}.a"
+        local def_file="${base_name}.def"
+
+        # Determine the path for .a (usually in ../lib relative to bin/)
+        local lib_out_dir=$(dirname "$dll_file")
+        [[ "$lib_out_dir" == *"/bin" ]] && lib_out_dir="${lib_out_dir%/bin}/lib"
+        mkdir -p "$lib_out_dir"
+
+        local out_file="$lib_out_dir/$lib_name"
+
+        # If the library already exists, skip it (to avoid overwriting native .a files)
+        if [[ -f "$out_file" ]]; then
+            log_debug "${CHECK_MARK} Import lib for $dll_name already exists, skipping."
+            continue
+        fi
+
+        log_debug "  ${BUILD_MARK} Processing $dll_name -> $lib_name"
+
+        # Generating a DEF file
+        if ! $GENDEF "$dll_file" > /dev/null 2>&1; then
+            log_warn "gendef failed for $dll_name"
+            continue
+        fi
+
+        # Creating an import library
+        # The -k (kill-at) flag is useful for x86 (32bit), for x64 it usually doesn't interfere
+        $DLLTOOL -d "$def_file" -l "$out_file" -D "$dll_name"
+
+        rm -f "$def_file"
+        log_info "${CHECK_MARK} Created $lib_name"
+    done
+}
+export -f generate_implibs
+
 clean_la_files() {
     if [[ "$PREFER_SHARED" == "1" ]]; then
         return 0
@@ -1087,79 +1133,6 @@ if [ -d "/opt/ct-ng" ]; then
         [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_raw "${DIRS_MARK} WINEPATH (Windows style):" "$WINEPATH"
     fi
 fi
-
-# Определяем режим работы Wine (берем из ENV или ставим auto по умолчанию)
-# may not work from here because $STAGE is set in run_stage.sh before setup_wine_env is called
-USE_WINE="${USE_WINE:-1}"
-setup_wine_env() {
-    # Сохраняем текущее состояние set -e
-    local errexit_state=$([[ $- =~ e ]] && echo "set -e" || echo "set +e")
-    set +e # Временно отключаем остановку при ошибках
-
-    # Wine globally disabled
-    if [[ "${USE_WINE:-0}" != "1" ]]; then
-        eval "$errexit_state"; return 0
-    fi
-
-    # No stage to inspect
-    if [[ -z "$STAGE" || ! -f "$STAGE" ]]; then
-        eval "$errexit_state"; return 0
-    fi
-
-    # Scan the stage script for patterns that indicate Wine is needed.
-    # We search for:
-    #   - explicit wine invocations
-    #   - test runner calls that require executing Windows binaries
-    #   - direct .exe execution
-    # NOTE: grep searches the script SOURCE FILE, so patterns must match
-    # what authors write in ffbuild_dockerbuild(), not runtime commands.
-    local wine_patterns=(
-        'wine[[:space:]]'       # wine <binary>
-        'wineboot'              # explicit wineboot call
-        '\.exe'                 # any .exe reference (run or test)
-        'meson[[:space:]]+test' # meson test runner
-        'ctest'                 # cmake test runner
-        'make[[:space:]]+check' # autotools make check
-        'make[[:space:]]+test'  # autotools make test
-        'ninja[[:space:]]+test' # ninja test target
-    )
-
-    local combined_pattern
-    combined_pattern=$(printf '%s|' "${wine_patterns[@]}")
-    combined_pattern="${combined_pattern%|}" # strip trailing |
-
-    if ! grep -qE "$combined_pattern" "$STAGE"; then
-        log_debug "Wine: skipped for $STAGENAME (no execution patterns found)"
-        eval "$errexit_state"; return 0
-    fi
-
-    log_info "${START_MARK} Wine required for $STAGENAME — initializing..."
-
-    # Start virtual display if not already running
-    if ! pgrep -x "Xvfb" > /dev/null 2>&1; then
-        log_info "${START_MARK} Initializing Xvfb on :99 for Wine tests..."
-        # Запуск на дисплее 99 без xvfb-run (меньше оверхед)
-        ( Xvfb :99 -screen 0 1024x768x16 >/dev/null 2>&1 & )
-        local retry=0
-        while [[ $retry -lt 15 ]]; do
-            DISPLAY=:99 xset -q >/dev/null 2>&1 && break
-            sleep 0.2
-            (( retry++ ))
-        done
-        if [[ $retry -ge 15 ]]; then
-            log_warn "Xvfb did not start in time - Wine tests may fail"
-        fi
-    fi
-
-    export DISPLAY=:99
-
-    # Warm up Wine server asynchronously
-
-    ( wineboot -u >/dev/null 2>&1 & )
-
-    eval "$errexit_state"
-}
-export -f setup_wine_env
 
 conf_finder() {
     # Opt-IN: only run if script explicitly requests it
