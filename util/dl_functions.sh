@@ -346,12 +346,11 @@ confhash_compute() {
     # Anchored to AS_HELP_STRING to avoid "---" separator lines
     while IFS= read -r -d '' f; do
         found_files=1
-        local chunk
-        chunk=$(grep -oP \
-            '(?:AS_HELP_STRING\(\s*\[|AC_ARG_(?:ENABLE|WITH)\s*\(\s*['"'"'"]?)\K--?[a-zA-Z] [a-zA-Z0-9_-]+' \
+        local chunk=$(grep -oP \
+            '(?:AS_HELP_STRING\(\s*\[|AC_ARG_(?:ENABLE|WITH)\s*\(\s*['"'"'"]?)\K--?[a-zA-Z][a-zA-Z0-9_-]+' \
             "$f" 2>/dev/null || true)
         [[ -n "$chunk" ]] && raw_options+="$chunk"$'\n'
-    done < <(find "$src_dir" -maxdepth 4 \
+    done < <(find "$src_dir" -maxdepth 8 \
                \( -name "configure.ac" -o -name "configure.in" \) \
                -print0 2>/dev/null)
 
@@ -360,13 +359,13 @@ confhash_compute() {
     # Also catches cmake_dependent_option(NAME ...
     while IFS= read -r -d '' f; do
         found_files=1
-        local chunk
-        chunk=$(grep -oP \
-            '(?i)(?:cmake_dependent_)?option\(\s*\K[A-Z_a-z] [A-Z0-9_a-z]+' \
+        local chunk=$(grep -oP \
+            '(?i)(?:cmake_dependent_)?option\(\s*\K[A-Z_a-z][A-Z0-9_a-z]+' \
             "$f" 2>/dev/null || true)
         [[ -n "$chunk" ]] && raw_options+="$chunk"$'\n'
-    done < <(find "$src_dir" -maxdepth 4 \
-               \( -name "CMakeLists.txt" -o -name "*.cmake" \) \
+    # use only CMakeLists.txt, for now. del "-o -name "*.cmake" \)"
+    done < <(find "$src_dir" -maxdepth 8 \
+               \( -name "CMakeLists.txt" \) \
                ! -path "*/test*" ! -path "*/example*" \
                -print0 2>/dev/null)
 
@@ -375,12 +374,10 @@ confhash_compute() {
     # meson_options.txt is the canonical file; meson.build sometimes has them too
     while IFS= read -r -d '' f; do
         found_files=1
-        local chunk
-        chunk=$(grep -oP \
-            "(?:^|\s)option\(\s*['\"]?\K[a-zA-Z] [a-zA-Z0-9_-]+" \
-            "$f" 2>/dev/null || true)
+        local chunk=$(grep -oP \
+            "(?:^|\s)option\(\s*['\"]?\K[a-zA-Z][a-zA-Z0-9_-]+" "$f" 2>/dev/null || true)
         [[ -n "$chunk" ]] && raw_options+="$chunk"$'\n'
-    done < <(find "$src_dir" -maxdepth 4 \
+    done < <(find "$src_dir" -maxdepth 8 \
                \( -name "meson_options.txt" -o -name "meson.build" \) \
                -print0 2>/dev/null)
 
@@ -393,7 +390,7 @@ confhash_compute() {
     # Temporary debug
     if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
         log_debug "confhash: scanning $src_dir"
-        find "$src_dir" -maxdepth 3 \
+        find "$src_dir" -maxdepth 8 \
             \( -name "configure.ac" -o -name "configure.in" \
             -o -name "CMakeLists.txt" -o -name "*.cmake" \
             -o -name "meson_options.txt" -o -name "meson.build" \) \
@@ -427,36 +424,43 @@ confhash_extract_options() {
 
     local raw_options=""
 
+    # Autotools
     while IFS= read -r -d '' f; do
-        local chunk
-        chunk=$(grep -oP 'AS_HELP_STRING\(\s*\[\s*--[a-zA-Z] [a-zA-Z0-9_-]*' "$f" \
-                | grep -oP -- '--[a-zA-Z] [a-zA-Z0-9_-]*' 2>/dev/null || true)
-        [[ -n "$chunk" ]] && raw_options+="autotools:$chunk"$'\n'
-    done < <(find "$src_dir" -maxdepth 3 \
-               \( -name "configure.ac" -o -name "configure.in" \) \
-               -print0 2>/dev/null)
+        # VERSION a)
+        # local chunk=$(grep -oP 'AS_HELP_STRING\(\s*\[\s*--[a-zA-Z][a-zA-Z0-9_-]*' "$f" | grep -oP -- '--[a-zA-Z][a-zA-Z0-9_-]*' 2>/dev/null || true)
+        # [[ -n "$chunk" ]] && raw_options+="autotools:$chunk"$'\n'
+    # done < <(find "$src_dir" -maxdepth 8 \
+               # \( -name "configure.ac" -o -name "configure.in" \) \
+               # -print0 2>/dev/null)
+        # VERSION b)
+        local chunk=$(grep -oP '(?<=--enable-|--with-)[a-zA-Z0-9_-]+' "$f" 2>/dev/null | sort -u)
+        [[ -n "$chunk" ]] && while read -r line; do raw_options+="autotools:$line"$'\n'; done <<< "$chunk"
+    done < <(find "$src_dir" -maxdepth 6 \( -name "configure.ac" -o -name "configure.in" \) -print0 2>/dev/null)
+
+    # CMake
+    # use only CMakeLists.txt, for now. del "-o -name "*.cmake" \)"
+    while IFS= read -r -d '' f; do
+        # VERSION a)
+        # local chunk=$(grep -oP '(?i)(?:cmake_dependent_)?option\(\s*\K[A-Z_][A-Z0-9_]+' "$f" 2>/dev/null || true)
+        # [[ -n "$chunk" ]] && raw_options+="cmake:$chunk"$'\n'
+    # done < <(find "$src_dir" -maxdepth 8 \
+               # \( -name "CMakeLists.txt" \) \
+               # -print0 2>/dev/null)
+        # VERSION b)
+        local chunk=$(grep -oP '(?i)(?:cmake_dependent_)?option\(\s*\K[A-Za-z_][A-Za-z0-9_]*' "$f" 2>/dev/null | sort -u)
+        [[ -n "$chunk" ]] && while read -r line; do raw_options+="cmake:$line"$'\n'; done <<< "$chunk"
+    done < <(find "$src_dir" -maxdepth 6 -name "CMakeLists.txt" -print0 2>/dev/null)
 
     while IFS= read -r -d '' f; do
-        local chunk
-        chunk=$(grep -oP '(?i)(?:cmake_dependent_)?option\(\s*\K[A-Z_] [A-Z0-9_]+' "$f" \
-                2>/dev/null || true)
-        [[ -n "$chunk" ]] && raw_options+="cmake:$chunk"$'\n'
-    done < <(find "$src_dir" -maxdepth 3 \
-               \( -name "CMakeLists.txt" -o -name "*.cmake" \) \
-               -print0 2>/dev/null)
-
-    while IFS= read -r -d '' f; do
-        local chunk
-        chunk=$(grep -oP "option\(\s*'\K[a-zA-Z] [a-zA-Z0-9_-]+" "$f" \
-                2>/dev/null || true)
+        local chunk=$(grep -oP "option\(\s*'\K[a-zA-Z][a-zA-Z0-9_-]+" "$f" 2>/dev/null || true)
         [[ -n "$chunk" ]] && raw_options+="meson:$chunk"$'\n'
-    done < <(find "$src_dir" -maxdepth 3 \
+    done < <(find "$src_dir" -maxdepth 8 \
                \( -name "meson_options.txt" -o -name "meson.build" \) \
                -print0 2>/dev/null)
 
     [[ -z "$raw_options" ]] && return 1
 
-    printf '%s' "$raw_options" | sort -u
+    echo -n "$raw_options" | sort -u
 }
 export -f confhash_extract_options
 
@@ -534,7 +538,7 @@ download_stage() {
         else
             log_debug "${BROOM_MARK} Stripping Git metadata for $STAGENAME to save cache space"
             # Удаляем .git папки и .gitignore файлы
-            find "$WORK_DIR" -maxdepth 2 -name ".git*" -exec rm -rf {} + 2>/dev/null || true
+            find "$WORK_DIR" -maxdepth 8 -name ".git*" -exec rm -rf {} + 2>/dev/null || true
         fi
 
         # Config option changes tracing and hashing
@@ -562,8 +566,8 @@ download_stage() {
                         local new_opts=$(confhash_extract_options "$WORK_DIR") || true
                         if [[ -f "$old_opts_file" && -n "$new_opts" ]]; then
                             local added removed
-                            added=$(comm  -13 <(sort "$old_opts_file") <(printf '%s\n' "$new_opts" | sort))
-                            removed=$(comm -23 <(sort "$old_opts_file") <(printf '%s\n' "$new_opts" | sort))
+                            added=$(comm  -13 <(sort "$old_opts_file") <(echo "$new_opts" | sort))
+                            removed=$(comm -23 <(sort "$old_opts_file") <(echo "$new_opts" | sort))
                             if [[ -n "$added" ]]; then
                                 log_debug "${LOG_INFO}  ++ NEW options:${NC}"
                                 while IFS= read -r opt; do

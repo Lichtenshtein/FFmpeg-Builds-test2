@@ -949,7 +949,7 @@ strip_files() {
     local _strip_cmd="${FFBUILD_CROSS_PREFIX}strip"
     local size_before=$(du -sh "$target_dir" | cut -f1) # Замеряем размер ДО
 
-    log_info "${BROOM_MARK} Stripping $stage_name from debug symbols: $size_before -> ..."
+    log_info "${BROOM_MARK} Stripping $stage_name from debug symbols: ${GREY_B}$size_before ->${NC} ..."
 
     find "$target_dir" -type f \
         \( -name "*.exe" -o -name "*.dll" -o -name "*.a" -o -name "*.so*" \) \
@@ -958,9 +958,9 @@ strip_files() {
     local size_after=$(du -sh "$target_dir" | cut -f1)
 
     if [[ "$size_before" == "$size_after" ]]; then
-        log_info "${CHECK_MARK} Stripping finished [size unchanged:  ${GREY_B}$size_after${NC}]"
+        log_info "${CHECK_MARK} Stripping finished. [Size unchanged: ${GREY_B}$size_after${NC}]"
     else
-        log_info "${CHECK_MARK} Stripping finished [$size_before ->  ${GREY_B}$size_after${NC}]"
+        log_info "${CHECK_MARK} Stripping finished. [$size_before -> ${GREY_B}$size_after${NC}]"
     fi
 }
 export -f strip_files
@@ -1011,11 +1011,14 @@ apply_patches() {
                 "-p1 -N -r - -l --fuzz=3"
             do
                 log_debug "Trying: patch $patch_opts"
-                # 'if' suppresses set -e on patch exit code
-                if last_output=$(patch $patch_opts < "$patch" 2>&1); then
-                    log_info "${CHECK_MARK} SUCCESS: Applied with [patch $patch_opts]"
-                    success=true
-                    break
+                # Сначала проверяем, применится ли патч без изменения файлов
+                if patch --dry-run --silent $patch_opts < "$patch" &>/dev/null; then
+                    # 'if' suppresses set -e on patch exit code
+                    if last_output=$(patch $patch_opts < "$patch" 2>&1); then
+                        log_info "${CHECK_MARK} SUCCESS: Applied with [patch $patch_opts]"
+                        success=true
+                        break
+                    fi
                 fi
             done
         fi
@@ -1034,6 +1037,7 @@ apply_patches() {
     if [[ "$patch_failed_any" == "true" ]]; then
         log_warn "Some patches failed to apply for $COMPONENT_NAME — build continuing."
     fi
+    return 0
 }
 export -f apply_patches
 
@@ -1336,7 +1340,7 @@ render_dl_table() {
     local inner_width=$(( width - 4 ))
 
     # Top border with label
-    separator_box "─" "  DOWNLOAD SUMMARY  " "top"
+    separator_box "─" "[ DOWNLOAD SUMMARY ]" "top"
 
     # Header row
     printf '  %-30s  %-16s  %s\n' "COMPONENT" "HASH" "RESULT" >&2

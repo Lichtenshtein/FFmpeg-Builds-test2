@@ -98,7 +98,7 @@ else
     LOCAL_HASH=$(cat "$FFMPEG_HASH_FILE" 2>/dev/null || echo "none")
 
     # Visual hash comparison
-    separator_box "─" "  HASH COMPARISON  " "top"
+    separator_box "─" "[ HASH COMPARISON ]" "top"
     if [[ "$REMOTE_HASH" == "$LOCAL_HASH" ]]; then
         printf '  %-8s  %b%s%b\n' "local"  "$LOG_INFO"  "${LOCAL_HASH:0:12}"  "$NC" >&2
         printf '  %-8s  %b%s%b\n' "remote" "$LOG_INFO"  "${REMOTE_HASH:0:12}" "$NC" >&2
