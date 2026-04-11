@@ -3,8 +3,6 @@
 SCRIPT_REPO="https://github.com/libffi/libffi.git"
 SCRIPT_COMMIT="170bab47c90626a33cd08f2169034600cfd9589c"
 
-# SCRIPT_REPO="https://github.com/libffi/libffi/releases/download/v3.5.2/libffi-3.5.2.tar.gz"
-
 ffbuild_enabled() {
     return 0
 }
