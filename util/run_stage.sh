@@ -34,6 +34,79 @@ sleep 1
 unset STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK REAL_CACHE
 eval "$(stage_vars "$STAGE")"
 
+# Определяем режим работы Wine (берем из ENV или ставим auto по умолчанию)
+# may not work from here because $STAGE is set in run_stage.sh before setup_wine_env is called; might need to be moved to top of run_stage.sh
+USE_WINE="${USE_WINE:-1}"
+setup_wine_env() {
+    # Сохраняем текущее состояние set -e
+    local errexit_state=$([[ $- =~ e ]] && echo "set -e" || echo "set +e")
+    set +e # Временно отключаем остановку при ошибках
+
+    # Wine globally disabled
+    if [[ "${USE_WINE:-0}" != "1" ]]; then
+        eval "$errexit_state"; return 0
+    fi
+
+    # No stage to inspect
+    if [[ -z "$STAGE" || ! -f "$STAGE" ]]; then
+        eval "$errexit_state"; return 0
+    fi
+
+    # Scan the stage script for patterns that indicate Wine is needed.
+    # We search for:
+    #   - explicit wine invocations
+    #   - test runner calls that require executing Windows binaries
+    #   - direct .exe execution
+    # NOTE: grep searches the script SOURCE FILE, so patterns must match
+    # what authors write in ffbuild_dockerbuild(), not runtime commands.
+    local wine_patterns=(
+        'wine[[:space:]]'       # wine <binary>
+        'wineboot'              # explicit wineboot call
+        '\.exe'                 # any .exe reference (run or test)
+        'meson[[:space:]]+test' # meson test runner
+        'ctest'                 # cmake test runner
+        'make[[:space:]]+check' # autotools make check
+        'make[[:space:]]+test'  # autotools make test
+        'ninja[[:space:]]+test' # ninja test target
+    )
+
+    local combined_pattern
+    combined_pattern=$(printf '%s|' "${wine_patterns[@]}")
+    combined_pattern="${combined_pattern%|}" # strip trailing |
+
+    if ! grep -qE "$combined_pattern" "$STAGE"; then
+        log_debug "Wine: skipped for $STAGENAME (no execution patterns found)"
+        eval "$errexit_state"; return 0
+    fi
+
+    log_info "${START_MARK} Wine required for $STAGENAME — initializing..."
+
+    # Start virtual display if not already running
+    if ! pgrep -x "Xvfb" > /dev/null 2>&1; then
+        log_info "${START_MARK} Initializing Xvfb on :99 for Wine tests..."
+        # Запуск на дисплее 99 без xvfb-run (меньше оверхед)
+        ( Xvfb :99 -screen 0 1024x768x16 >/dev/null 2>&1 & )
+        local retry=0
+        while [[ $retry -lt 15 ]]; do
+            DISPLAY=:99 xset -q >/dev/null 2>&1 && break
+            sleep 0.2
+            (( retry++ ))
+        done
+        if [[ $retry -ge 15 ]]; then
+            log_warn "Xvfb did not start in time - Wine tests may fail"
+        fi
+    fi
+
+    export DISPLAY=:99
+
+    # Warm up Wine server asynchronously
+
+    ( wineboot -u >/dev/null 2>&1 & )
+
+    eval "$errexit_state"
+}
+export -f setup_wine_env
+
 # Очистка при выходе. Удаляем старые файлы, если они остались от прошлых запусков
 stage_cleanup() {
     local exit_code=$?
@@ -213,19 +286,6 @@ if [[ -n "$DL_COMMANDS" ]]; then
         log_info "Skipping patches for $STAGENAME"
     fi
 
-    # if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-        # log_debug "${DIRS_MARK} Contents of $(pwd) (current build directory):"
-        # Читаем списки в массивы
-        # mapfile -t dirs < <(ls -d */ 2>/dev/null | head -n 10)
-        # mapfile -t files < <(ls -F 2>/dev/null | grep -v / | head -n 10)
-        # Определяем максимальное количество строк
-        # max=$(( ${#dirs[@]} > ${#files[@]} ? ${#dirs[@]} : ${#files[@]} ))
-        # for ((i=0; i<max; i++)); do
-            # %-25s — левая колонка шириной 25 символов
-            # printf "  %-25s %s\n" "${dirs[i]:-}" "${files[i]:-}"
-        # done
-    # fi
-
     if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
         log_debug "${DIRS_MARK} Contents of $(pwd) (current build directory):"
         # Собираем список: сначала папки (с /), потом файлы
@@ -340,7 +400,13 @@ if [[ -d "$INSTALL_ROOT" ]]; then
             if [[ ! "$STAGENAME" =~ $DLL_PRESERVE_LIST ]]; then
                 clean_unwanted_libs "Dynamic DLLs" "\( -name '*.dll' -o -name '*.dll.a' \)"
             else
-                log_info "${LOCK_MARK} Preserving dynamic DLLs for $STAGENAME"
+                log_info "${LOCK_MARK} Preserving dynamic DLLs and generating import libs for $STAGENAME"
+                
+                # First, create an .a file so ffmpeg can link to it.
+                generate_implibs "$INSTALL_ROOT"
+
+                # For TensorFlow/Torch, you often need to move DLLs to bin if they fall into lib; (must be covered by their scripts)
+                # find "$INSTALL_ROOT/lib" -name "*.dll" -exec mv {} "$INSTALL_ROOT/bin/" \; 2>/dev/null || true
             fi
         else
             if [[ -n "$LIB_PRESERVE_LIST" && ! "$STAGENAME" =~ $LIB_PRESERVE_LIST ]]; then
