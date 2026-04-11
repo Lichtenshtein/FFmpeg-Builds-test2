@@ -18,7 +18,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    ./autogen.sh
+    # -i установит недостающие вспомогательные файлы (compile, missing и т.д.)
+    # autoreconf -fiv
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -26,6 +27,7 @@ ffbuild_dockerbuild() {
         --disable-docs
         --with-gcc-arch=${CPU_ARCH:-broadwell}
         --disable-multi-os-directory
+        --enable-portable-binary #  disable any optimization flags that might result in a binary that only runs on the host architecture
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
@@ -47,13 +49,15 @@ ffbuild_dockerbuild() {
 
     # Переносим хедеры в корень include, чтобы glib их увидел
     # libffi по умолчанию прячет их в /lib/libffi-3.5.2/include
-    local FFI_INC=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "ffi.h" -printf "%h")
-    if [[ -n "$FFI_INC" ]]; then
+    local FFI_VER_INC=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "ffi.h" -exec dirname {} \;)
+    if [[ -n "$FFI_VER_INC" ]]; then
         mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
-        cp -af "$FFI_INC"/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
+        cp -af "$FFI_VER_INC"/*.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
     fi
+
     local PC_FILE="$PC_DIR/libffi.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+        sed -i "s|includedir=.*|includedir=\${prefix}/include|" "$PC_FILE"
+        [[ -n "$static_flags" ]] && sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
     fi
 }

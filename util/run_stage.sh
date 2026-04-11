@@ -279,9 +279,9 @@ if [[ -n "$DL_COMMANDS" ]]; then
         if [[ -n "$CANDIDATE" ]]; then
             log_info "${DIRS_MARK} Project root found at $CANDIDATE. Entering..."
             cd "$CANDIDATE"
-        # else # this is harming
-        #     USE_CONF_FINDER=1
-        #     conf_finder # try to generate conf
+        else # this is harming
+            USE_CONF_FINDER=1
+            conf_finder # try to regenerate conf
         fi
     fi
 

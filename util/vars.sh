@@ -1146,19 +1146,29 @@ conf_finder() {
     # Opt-IN: only run if script explicitly requests it
     [[ "$USE_CONF_FINDER" != "1" ]] && return 0
 
-    if [[ ! -f "configure" && ( -f "configure.ac" || -f "configure.in" ) ]]; then
-        log_info "${SYNC_MARK} conf_finder: No 'configure' found, regenerating..."
-        if [[ -f "autogen.sh" ]]; then
-            log_info "Running ./autogen.sh..."
+    # Если configure нет, или он старый (configure.ac новее), запускаем регенерацию
+    if [[ ! -f "configure" || "configure.ac" -nt "configure" ]]; then
+        log_info "${SYNC_MARK} conf_finder: Regenerating build files..."
+
+        # Создаем папку для макросов, если она прописана, но её нет (частая ошибка libffi)
+        local m4_dir=$(grep -oP 'AC_CONFIG_MACRO_DIRS?\(\[\K[^\]]+' configure.ac 2>/dev/null || echo "m4")
+        mkdir -p "$m4_dir"
+
+        # Пытаемся сначала autoreconf, так как он наиболее стандартизирован
+        # -f (force), -i (install missing), -v (verbose)
+        if autoreconf -fiv; then
+            log_info "${CHECK_MARK} autoreconf: Success"
+        elif [[ -f "autogen.sh" ]]; then
+            log_warn "autoreconf failed, trying ./autogen.sh..."
             chmod +x autogen.sh
             ./autogen.sh || { log_error "autogen.sh failed"; return 1; }
         elif [[ -f "bootstrap" ]]; then
-            log_info "Running ./bootstrap..."
+            log_warn "autoreconf failed, trying ./bootstrap..."
             chmod +x bootstrap
             ./bootstrap || { log_error "bootstrap failed"; return 1; }
         else
-            log_info "Running autoreconf -fi..."
-            autoreconf -fi || { log_error "autoreconf failed"; return 1; }
+            log_error "conf_finder: All regeneration attempts failed."
+            return 1
         fi
     fi
 }
