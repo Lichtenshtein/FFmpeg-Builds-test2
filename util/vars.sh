@@ -684,10 +684,10 @@ get_deps_list() {
     local tmp_out=$(mktemp)
 
     # Считаем общий вес установленных файлов компонента
-    local total_size="0"
-    if [[ -d "$INSTALL_ROOT" ]]; then
-        total_size=$(du -sh "$INSTALL_ROOT" | awk '{print $1}')
-    fi
+    # local total_size="0"
+    # if [[ -d "$INSTALL_ROOT" ]]; then
+        # total_size=$(du -sh "$INSTALL_ROOT" | awk '{print $1}')
+    # fi
 
     # Поиск pkg-config зависимостей
     if [[ -d "$pc_dir" ]]; then
@@ -949,7 +949,7 @@ strip_files() {
     local _strip_cmd="${FFBUILD_CROSS_PREFIX}strip"
     local size_before=$(du -sh "$target_dir" | cut -f1) # Замеряем размер ДО
 
-    log_info "${BROOM_MARK} Stripping $stage_name from debug symbols: ${GREY_B}$size_before ->${NC} ..."
+    log_info "${BROOM_MARK} Stripping $stage_name from debug symbols: [Size: ${GREY_B}$size_before${NC}]"
 
     find "$target_dir" -type f \
         \( -name "*.exe" -o -name "*.dll" -o -name "*.a" -o -name "*.so*" \) \
@@ -1220,13 +1220,19 @@ separator_box() {
             if [[ -z "$label" ]]; then
                 printf '┌%s┐\n' "$(_repeat_char "$inner" "$char")" >&2
             else
-                # 2 spaces padding on each side of label = 4 total
+                # Автоматически добавляем скобки, если их нет
+                if [[ ! "$label" =~ ^\[.*\]$ ]]; then
+                    label="[ $label ]"
+                fi
+
                 local label_len=${#label}
-                local fill=$(( inner - label_len - 4 ))
+                local fill=$(( inner - label_len ))
                 [[ $fill -lt 0 ]] && fill=0
+
                 local left=$(( fill / 2 ))
                 local right=$(( fill - left ))
-                printf '┌%s  %s  %s┐\n' \
+                # Печатаем без лишних пробелов, так как они теперь внутри label
+                printf '┌%s%s%s┐\n' \
                     "$(_repeat_char "$left" "$char")" \
                     "$label" \
                     "$(_repeat_char "$right" "$char")" >&2
@@ -1340,7 +1346,7 @@ render_dl_table() {
     local inner_width=$(( width - 4 ))
 
     # Top border with label
-    separator_box "─" "[ DOWNLOAD SUMMARY ]" "top"
+    separator_box "─" " DOWNLOAD SUMMARY " "top"
 
     # Header row
     printf '  %-30s  %-16s  %s\n' "COMPONENT" "HASH" "RESULT" >&2
