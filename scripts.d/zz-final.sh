@@ -17,6 +17,8 @@ ffbuild_depends() {
     echo tbbmalloc
     echo libavif
     echo nettle
+    echo quiche
+    echo nghttp2
     # echo lcevcdec
     echo spirv-tools
     echo gavl

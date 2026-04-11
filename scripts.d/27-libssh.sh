@@ -38,8 +38,8 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBSSH_STATIC"
 
-    CFLAGS="$CFLAGS $CPPFLAGS $static_flags -Dmd5=libssh_md5" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags -Dmd5=libssh_md5" \
+    CFLAGS="$CFLAGS $CPPFLAGS $static_flags -Dmd5=libssh_md5 -include string.h" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags -Dmd5=libssh_md5 -include string.h" \
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 

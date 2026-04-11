@@ -37,7 +37,6 @@ ffbuild_dockerbuild() {
     export "CFLAGS_${RTARCH}"="$CFLAGS $BASE_CPPFLAGS"
     export "CXXFLAGS_${RTARCH}"="$CXXFLAGS $BASE_CPPFLAGS"
     export "LDFLAGS_${RTARCH}"="$HOST_LDFLAGS"
-    export RUSTFLAGS="$RUSTFLAGS"
 
     # Настройка для хостовой сборки
     # Используем стандартный GCC образа, без лишних инклудов
@@ -71,6 +70,7 @@ ffbuild_dockerbuild() {
         )
     fi
 
+    RUSTFLAGS="$HOST_RUSTFLAGS" \
     cargo cinstall $CARGO_V "${myconf[@]}" || return 1
 
     chmod 644 "${FFBUILD_DESTPREFIX}"/lib/*rav1e* || true

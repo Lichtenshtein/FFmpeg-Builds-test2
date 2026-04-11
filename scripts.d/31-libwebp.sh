@@ -24,6 +24,13 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # if we disable everything
+    # --disable-libwebpmux
+    # --disable-libwebpextras
+    # --disable-libwebpdemux
+    # remove broken internal library that depends on things we disable
+    # sed -i '/libanim_util/d' examples/Makefile.am
+
     ./autogen.sh
 
     # почему-то нужен для libwebp

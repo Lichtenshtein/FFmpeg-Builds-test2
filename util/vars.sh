@@ -192,6 +192,12 @@ mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 
 # Flags for the component build stage
 # disable -fPIC, -ffast-math, if troubles occur
+# rust -C linker-plugin-lto LLVM Bitcode or LLVM MinGW
+
+# Настройка хостового компилятора (чтобы он не трогал флаги таргета)
+export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
+export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
+export HOST_LDFLAGS="-pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 
 [[ "$USE_OPENMP" == "1" ]] && OPENMP_C=" -fopenmp" && OPENMP_LIB="-lgomp "
 [[ "$USE_LTO" == "1" ]] && RUSTLTO=" -C lto=fat" && export USELTO="-flto=auto" && export NOLTO="-fno-lto"
@@ -211,13 +217,15 @@ if [[ "$PREFER_SHARED" == "1" ]]; then
     export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu11"
     export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu++17"
     export LDFLAGS="-L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
-    export RUSTFLAGS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3${RUSTLTO}"
+    export RUSTFLAGS="-C target-cpu=${CPU_ARCH} -C link-arg=${LDFLAGS} -C strip=debuginfo -C codegen-units=1 -C opt-level=3${RUSTLTO}"
+    export HOST_RUSTFLAGS="-C target-cpu=${CPU_ARCH} -C link-arg=${HOST_LDFLAGS} -C strip=debuginfo -C codegen-units=1 -C opt-level=3${RUSTLTO}"
 else
     export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu11"
     export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu++17"
     export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
     # codegen-units = 16 (default)
-    export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 -C embed-bitcode=yes${RUSTLTO}"
+    export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH} -C link-arg=${LDFLAGS} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 -C embed-bitcode=yes${RUSTLTO}"
+    export HOST_RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH} -C link-arg=${HOST_LDFLAGS} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 -C embed-bitcode=yes${RUSTLTO}"
 fi
 # Обработка флагов, специфичных для Linux ELF
 if [[ "$TARGET" == "win64" ]]; then
@@ -232,10 +240,6 @@ else
     export STAGE_CXXFLAGS="-fno-semantic-interposition"
     export LIBS="${LIBS} -lrt -ld"
 fi
-# Настройка хостового компилятора (чтобы он не трогал флаги таргета)
-export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
-export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
-export HOST_LDFLAGS="-pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 
 # Validate TARGET and VARIANT only enforce when called directly OR when
 # arguments were explicitly passed (sourced scripts may not pass args)
