@@ -44,18 +44,22 @@ ffbuild_dockerbuild() {
         --enable-optimize
         --enable-threaded-resolver
         --enable-ipv6
-        --with-zlib
-        --with-zstd
-        --with-openssl
-        --with-libssh
-        --with-brotli
-        --without-libpsl
-        --enable-doh
-        # --enable-ech
+        # --with-openssl
         # --with-ngtcp2
         # --with-nghttp3
         # --with-quiche
         # --with-nghttp2
+        --with-openssl="$FFBUILD_PREFIX"
+        --with-nghttp2="$FFBUILD_PREFIX"
+        --with-quiche="$FFBUILD_PREFIX" # ngtcp2 + nghttp3
+        --with-zlib
+        --with-zstd
+        --with-libssh
+        --with-brotli
+        --with-pic
+        --without-libpsl
+        --enable-doh
+        --enable-ech
         --enable-cookies
         --enable-aws
         --enable-ntlm

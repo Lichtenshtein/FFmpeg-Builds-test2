@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/haasn/libplacebo.git"
-SCRIPT_COMMIT="c93aa134ab62365ce1177efff99b8e1e66a818e7"
+SCRIPT_COMMIT="54e527552fa74467bcc7692e6985d35540861d19"
 
 ffbuild_depends() {
     echo base
@@ -25,7 +25,9 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    sed -i 's/DPL_EXPORT/DPL_STATIC/' src/meson.build
+
+    # Remove static build workaround for libplacebo
+    # sed -i 's/DPL_EXPORT/DPL_STATIC/' src/meson.build
 
     mkdir -p build && cd build
 
