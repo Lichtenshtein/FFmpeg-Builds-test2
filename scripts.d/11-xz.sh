@@ -35,12 +35,25 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --disable-symbol-versions
         --with-pic
         --disable-scripts
         # --disable-nls # breaks if libicu present
         --disable-doc
+        --disable-debug
+        # --enable-small # if small size is preferred over speed
+        --disable-xz # do not build the xz tool
+        --disable-xzdec # do not build xzdec
+        --disable-lzmadec # do not build lzmadec
+        --disable-lzmainfo # do not build lzmainfo
+        --disable-lzma-links # do not create symlinks for LZMA Utils
+        --disable-doxygen 
     )
+
+    if [[ $TARGET == win64 ]]; then
+        myconf+=( --disable-symbol-versions )
+    elif [[ $TARGET == linux64 ]]; then
+        myconf+=( --enable-symbol-versions )
+    fi
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \

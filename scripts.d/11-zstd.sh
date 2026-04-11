@@ -44,7 +44,7 @@ ffbuild_dockerbuild() {
     # Добавляем -DCMAKE_CXX_COMPILER, чтобы CMake инициализировал CXX
     # и не падал на проверке флагов AddZstdCompilationFlags
     # Принудительно передаем CXX компилятор
-    cmake -G "${myconf[@]}" \
+    cmake -G Ninja "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS -DZSTD_MULTITHREAD $static_flags" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS -DZSTD_MULTITHREAD $static_flags" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS" \
