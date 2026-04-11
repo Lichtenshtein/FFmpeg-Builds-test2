@@ -191,32 +191,35 @@ fi
 mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 
 # Flags for the component build stage
+# disable -fPIC, -ffast-math, if troubles occur
 
 [[ "$USE_OPENMP" == "1" ]] && OPENMP_C=" -fopenmp" && OPENMP_LIB="-lgomp "
 [[ "$USE_LTO" == "1" ]] && RUSTLTO=" -C lto=fat" && export USELTO="-flto=auto" && export NOLTO="-fno-lto"
 
-BASE_CFLAGS="-mms-bitfields -fstack-protector-strong${OPENMP_C}"
-if [[ "$TARGET" == "win64" ]]; then
-    BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
-else
-    BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -D_FORTIFY_SOURCE=2"
-fi
 SYSTEM_LIBS="${OPENMP_LIB}-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
 ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lnormaliz"
+export LIBS="${LIBS:-$SYSTEM_LIBS}"
 
-# disable -fPIC, -ffast-math, if troubles occur
-export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu11"
+export BASE_CFLAGS="-mms-bitfields -fstack-protector-strong${OPENMP_C}"
+if [[ "$TARGET" == "win64" ]]; then
+    export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
+else
+    export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -D_FORTIFY_SOURCE=2"
+fi
 export CPPFLAGS="-I/opt/ffbuild/include ${BASE_CPPFLAGS}"
-export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu++17"
 if [[ "$PREFER_SHARED" == "1" ]]; then
+    export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu11"
+    export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu++17"
     export LDFLAGS="-L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
     export RUSTFLAGS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3${RUSTLTO}"
 else
+    export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu11"
+    export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu++17"
     export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
     # codegen-units = 16 (default)
     export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 -C embed-bitcode=yes${RUSTLTO}"
 fi
-export LIBS="${LIBS:-$SYSTEM_LIBS}"
+
 # Обработка флагов, специфичных для Linux ELF
 if [[ "$TARGET" == "win64" ]]; then
     # бесполезно при сборке под Windows и ломает OpenSSL asm вместе с std=c11
@@ -230,6 +233,10 @@ else
     export STAGE_CXXFLAGS="-fno-semantic-interposition"
     export LIBS="${LIBS} -lrt -ld"
 fi
+# Настройка хостового компилятора (чтобы он не трогал флаги таргета)
+export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
+export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
+export HOST_LDFLAGS="-pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 
 # Validate TARGET and VARIANT only enforce when called directly OR when
 # arguments were explicitly passed (sourced scripts may not pass args)

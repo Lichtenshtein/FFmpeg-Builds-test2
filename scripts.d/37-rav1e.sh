@@ -34,16 +34,17 @@ ffbuild_dockerbuild() {
     export "RANLIB_${RTARCH}"="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
 
     # Флаги для ТАРГЕТА
-    export "CFLAGS_${RTARCH}"="$CFLAGS ${CPPLAGS//-I\/opt\/ffbuild\/include/}"
-    export "CXXFLAGS_${RTARCH}"="$CXXFLAGS ${CPPLAGS//-I\/opt\/ffbuild\/include/}"
-    export "LDFLAGS_${RTARCH}"="${LDFLAGS//-L\/opt\/ffbuild\/lib/}"
+    export "CFLAGS_${RTARCH}"="$CFLAGS $BASE_CPPFLAGS"
+    export "CXXFLAGS_${RTARCH}"="$CXXFLAGS $BASE_CPPFLAGS"
+    export "LDFLAGS_${RTARCH}"="$HOST_LDFLAGS"
     export RUSTFLAGS="$RUSTFLAGS"
 
     # Настройка для хостовой сборки
     # Используем стандартный GCC образа, без лишних инклудов
     export CC_host="gcc"
-    export CFLAGS_host="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
-    export CXXFLAGS_host="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
+    export CFLAGS_host="$HOST_CFLAGS"
+    export CXXFLAGS_host="$HOST_CXXFLAGS"
+    export CXXFLAGS_host="$HOST_LDFLAGS"
 
     # Сбрасываем общие переменные, чтобы Cargo использовал 
     # стандартный системный GCC для сборки своих внутренних утилит (build.rs)
