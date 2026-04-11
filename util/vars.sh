@@ -684,10 +684,10 @@ get_deps_list() {
     local tmp_out=$(mktemp)
 
     # Считаем общий вес установленных файлов компонента
-    # local total_size="0"
-    # if [[ -d "$INSTALL_ROOT" ]]; then
-        # total_size=$(du -sh "$INSTALL_ROOT" | awk '{print $1}')
-    # fi
+    local total_size="0"
+    if [[ -d "$INSTALL_ROOT" ]]; then
+        total_size=$(du -sh "$INSTALL_ROOT" | awk '{print $1}')
+    fi
 
     # Поиск pkg-config зависимостей
     if [[ -d "$pc_dir" ]]; then
@@ -1346,7 +1346,7 @@ render_dl_table() {
     local inner_width=$(( width - 4 ))
 
     # Top border with label
-    separator_box "─" " DOWNLOAD SUMMARY " "top"
+    separator_box "─" "DOWNLOAD SUMMARY" "top"
 
     # Header row
     printf '  %-30s  %-16s  %s\n' "COMPONENT" "HASH" "RESULT" >&2
