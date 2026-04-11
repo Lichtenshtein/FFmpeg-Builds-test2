@@ -1151,16 +1151,67 @@ separator() {
 }
 export -f separator _term_width _repeat_char
 
+# Enhanced separator with box-drawing characters
+# separator_box <char> <label> [style]
+#   style: "top" | "mid" | "bottom" (default: full box)
+separator_box() {
+    local char="${1:-─}"
+    local label="${2:-}"
+    local style="${3:-full}"
+    local width
+    width=$(_term_width)
+
+    case "$style" in
+        top)
+            # ┌─────────────────────────────────────────────────────────────┐
+            if [[ -z "$label" ]]; then
+                printf '┌%s┐\n' "$(_repeat_char $((width - 2)) "$char")" >&2
+            else
+                local label_len=${#label}
+                local left_side=$(( (width - label_len - 2) / 2 ))
+                local right_side=$(( width - label_len - 2 - left_side ))
+                printf '┌%s  %s  %s┐\n' \
+                    "$(_repeat_char "$left_side" "$char")" \
+                    "$label" \
+                    "$(_repeat_char "$right_side" "$char")" >&2
+            fi
+            ;;
+        mid)
+            # ├─────────────────────────────────────────────────────────────┤
+            printf '├%s┤\n' "$(_repeat_char $((width - 2)) "$char")" >&2
+            ;;
+        bottom)
+            # └─────────────────────────────────────────────────────────────┘
+            printf '└%s┘\n' "$(_repeat_char $((width - 2)) "$char")" >&2
+            ;;
+        *)
+            # Full box (top + bottom in one call — not typical, but available)
+            separator_box "$char" "$label" "top"
+            separator_box "$char" "" "bottom"
+            ;;
+    esac
+}
+export -f separator_box
+
 # phase_header <EMOJI> <TITLE>
 phase_header() {
     local emoji="$1"; shift
     local width=$(_term_width)
     local line=$(_repeat_char $((width - 2)) "─")
-    
+
     printf '╭%s╮\n' "$line" >&2
     printf '  %b%s %s%b  \n' "${LOG_INFO}" "$emoji" "$*" "${NC}" >&2
     printf '╰%s╯\n' "$line" >&2
 }
+# Enhanced phase_header with box borders
+# phase_header() {
+    # local emoji="$1"; shift
+    # local width=$(_term_width)
+    
+    # separator_box "─" "" "top"
+    # printf '  %b%s %s%b  \n' "${LOG_INFO}" "$emoji" "$*" "${NC}" >&2
+    # separator_box "─" "" "bottom"
+# }
 export -f phase_header
 
 # phase_footer <message>
@@ -1171,6 +1222,12 @@ phase_footer() {
     printf '  %b%s%b  \n' "${LOG_INFO}" "$*" "${NC}" >&2
     printf '╰%s╯\n' "$line" >&2
 }
+# phase_footer with box borders
+# phase_footer() {
+    # separator_box "─" "" "top"
+    # printf '  %b%s%b  \n' "${LOG_INFO}" "$*" "${NC}" >&2
+    # separator_box "─" "" "bottom"
+# }
 export -f phase_footer
 
 dl_result_line() {
@@ -1219,28 +1276,35 @@ get_component_group() {
 }
 export -f get_component_group
 
+# Render download results table with box borders
 render_dl_table() {
     local file="$1"
     [[ -f "$file" ]] || return 0
     local width=$(_term_width)
-    local inner_width=$(( width - 8 )) # 4; Немного уменьшим для отступов
+    local inner_width=$(( width - 4 ))
 
-    separator "─" "  DOWNLOAD SUMMARY  "
-    printf '  %-3s  %-30s  %-16s  %s\n' "" "COMPONENT" "HASH" "RESULT" >&2
-    separator "─"
+    # Top border with label
+    separator_box "─" "  DOWNLOAD SUMMARY  " "top"
+
+    # Header row
+    printf '  %-30s  %-16s  %s\n' "COMPONENT" "HASH" "RESULT" >&2
+
+    # Header separator
+    separator_box "─" "" "mid"
 
     local current_group=""
     while IFS=$'\t' read -r status icon name hash extra; do
         local group=$(get_component_group "$name")
 
         if [[ "$group" != "$current_group" ]]; then
-            # Purple Group
             if [[ -n "$current_group" ]]; then
+                # Close previous group
                 printf '  %b╰%s%b\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "-")" "${NC}" >&2
             fi
-            # Заголовок группы: Purple ┌─ Group
+            # Open new group
             local group_label="─[ $group ]"
             local remain=$(( inner_width - ${#group_label} ))
+            [[ $remain -lt 0 ]] && remain=0
             printf '  %b╭%s%s%b\n' "${LOG_DEBUG}" "$group_label" "$(_repeat_char "$remain" "-")" "${NC}" >&2
             current_group="$group"
         fi
@@ -1254,13 +1318,10 @@ render_dl_table() {
             *)    color="${NC}"    ;;
         esac
 
-        # Строгое разделение цвета и вывода
-        # printf '  │ ' >&2
         printf '  %b│%b ' "${LOG_DEBUG}" "${NC}" >&2
-        printf '%b' "$color" >&2
-        printf '%s  %-28s  %-16s  %s' "$icon" "$name" "$hash" "$extra" >&2
-        printf '%b\n' "$NC" >&2
-        # printf '%b%-2s  %-28s  %-16s  %s%b\n' "$color" "$icon" "$name" "$hash" "$extra" "$NC" >&2
+        # printf '%b' "$color" >&2
+        printf '%b%-28s  %-16s  %s%b\n' "$color" "$name" "$hash" "$extra" "${NC}" >&2
+        # printf '%b\n' "$NC" >&2
 
     # This sorts by status (hit/miss/skip/fail)
     # sort -t$'\t' -k1,1 "$file"
@@ -1268,20 +1329,20 @@ render_dl_table() {
     # sort -t$'\t' -k3,3 "$file"
     done < <(sort -t$'\t' -k3,3 "$file")
 
-    # Закрываем последнюю группу (Purple)
     if [[ -n "$current_group" ]]; then
+        # Close final group
         printf '  %b╰%s%b\n' "${LOG_DEBUG}" "$(_repeat_char "$inner_width" "-")" "${NC}" >&2
     fi
 
-    separator "─"
+    # Bottom border
+    separator_box "─" "" "bottom"
 
-    # Подсчет
+    # Summary line
     local n_hit=$(tr -d '\r' < "$file" | grep -c '^hit' || true)
     local n_miss=$(tr -d '\r' < "$file" | grep -c '^miss' || true)
     local n_skip=$(tr -d '\r' < "$file" | grep -c '^skip' || true)
     local n_fail=$(tr -d '\r' < "$file" | grep -c '^fail' || true)
 
-    # Вывод финальной строки: иконки и цифры цветные, текст белый
     printf '  %b✔ %s%b hit   %b🡇 %s%b downloaded   %b— %s%b skipped   %b✖ %s%b failed\n' \
         "${LOG_INFO}"  "${n_hit:-0}"  "${NC}" \
         "${LOG_WARN}"  "${n_miss:-0}" "${NC}" \
