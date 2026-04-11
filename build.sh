@@ -41,10 +41,6 @@ cleanup() {
 trap cleanup EXIT
 
 export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
-# Настройка хостового компилятора (чтобы он не трогал флаги таргета)
-export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
-export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
-# export HOST_LDFLAGS=""
 
 # Инициализация локальных (не экспортируемых!) переменных
 # Обнуляем FF_ переменные перед загрузкой, чтобы не было старых хвостов
