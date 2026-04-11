@@ -909,9 +909,9 @@ strip_files() {
     local size_after=$(du -sh "$target_dir" | cut -f1)
 
     if [[ "$size_before" == "$size_after" ]]; then
-        log_info "${CHECK_MARK} Stripping finished (size unchanged: $size_after)"
+        log_info "${CHECK_MARK} Stripping finished [size unchanged:  ${GREY_B}$size_after${NC}]"
     else
-        log_info "${CHECK_MARK} Stripping finished: $size_before -> $size_after"
+        log_info "${CHECK_MARK} Stripping finished [$size_before ->  ${GREY_B}$size_after${NC}]"
     fi
 }
 export -f strip_files
