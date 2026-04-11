@@ -163,19 +163,19 @@ find . -maxdepth 1 -xtype l -delete || true
 # Final summary (single line)
 phase_header "🧹" "CACHE CLEANUP  [$CLEAN_TARGET-$CLEAN_VARIANT]"
 
-separator "─" "  PROTECTION DECISIONS  "
+separator_box "─" "  PROTECTION DECISIONS  " "top"
 printf '  %-35s  %s\n' "CATEGORY" "COUNT" >&2
-separator "─"
+separator_box "─" "" "mid"
 printf '  %-35s  %b%s%b\n' "Active + enabled (always keep)"   "$LOG_INFO"  "$count_active_enabled" "$NC" >&2
 printf '  %-35s  %b%s%b\n' "Inactive + enabled (CLEAN=0 keep)" "$LOG_WARN"  "$count_inactive_kept"  "$NC" >&2
 printf '  %-35s  %b%s%b\n' "Skipped (disabled or CLEAN=1)"     "$LOG_DEBUG" "$count_skipped"        "$NC" >&2
-separator "─"
+separator_box "─" "" "bottom"
 
 if [[ "$deleted_count" -gt 0 || "$skipped_young" -gt 0 ]]; then
-    separator "─" "  DELETION RESULTS  "
+    separator_box "─" "  DELETION RESULTS  " "top"
     printf '  %-35s  %b%s%b\n' "Files removed"              "$LOG_WARN"  "$deleted_count"  "$NC" >&2
     printf '  %-35s  %b%s%b\n' "Skipped (< 30 min old)"     "$LOG_INFO"  "$skipped_young"  "$NC" >&2
-    separator "─"
+    separator_box "─" "" "bottom"
 fi
 
 if [[ "$deleted_count" -eq 0 && "$skipped_young" -eq 0 ]]; then
