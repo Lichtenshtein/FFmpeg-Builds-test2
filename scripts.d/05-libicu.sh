@@ -32,6 +32,11 @@ ffbuild_dockerbuild() {
         --disable-samples \
         --disable-icuio \
         --disable-extras \
+        --disable-layoutex \
+        --disable-dyload \
+        --disable-icu-config \
+        --disable-plugins \
+        --with-data-packaging=$([ "${PREFER_SHARED}" == "1" ] && echo library || echo static) \
         --enable-$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static) \
         --disable-$([ "${PREFER_SHARED}" == "1" ] && echo static || echo shared) \
         || return 1
@@ -63,12 +68,13 @@ ffbuild_dockerbuild() {
         --disable-icuio
         --disable-layoutex
         --disable-tests
+        --disable-plugins
         --disable-samples
         --disable-dyload
         --disable-tools
         --disable-icu-config
         --enable-release
-        --with-data-packaging=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
+        --with-data-packaging=$([ "${PREFER_SHARED}" == "1" ] && echo library || echo static)
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
