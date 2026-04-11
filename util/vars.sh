@@ -669,6 +669,11 @@ get_deps_list() {
     local bin_dir="$INSTALL_ROOT/bin"
     local pc_dir="${lib_dir}/pkgconfig"
     local toolchain="${FFBUILD_TOOLCHAIN:-x86_64-w64-mingw32}"
+    local lddtree_cmd="lddtree"
+    if ! command -v "$lddtree_cmd" &>/dev/null; then
+        lddtree_cmd=""
+    fi
+
     # Used only for readelf/nm filtering of well-known system libs
     local sys_libs="libc\.so|libm\.so|libdl\.so|librt\.so|libpthread\.so|libgcc_s\.so|libstdc\+\+\.so|ld-linux|libresolv\.so|libutil\.so"
 
@@ -721,59 +726,89 @@ get_deps_list() {
             "$XCLAM_MARK" \
             "$SEARCH_MARK" \; >> "$tmp_out" || true
     fi
-    # readelf: dynamic dependencies 
-    find "$lib_dir" "$bin_dir" -type f \
-        \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) \
-        -print0 2>/dev/null | \
-    xargs -0 -r -I{} bash -c '
-        file="$1"
-        tc="$2"
-        sys_libs_regex="$3"
-        xclam_mark="$4"
+    if [[ "$PREFER_SHARED" == "1" ]]; then
+        # readelf: dynamic dependencies 
+        find "$lib_dir" "$bin_dir" -type f \
+            \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) \
+            -print0 2>/dev/null | \
+        xargs -0 -r -I{} bash -c '
+            file="$1"
+            tc="$2"
+            sys_libs_regex="$3"
+            xclam_mark="$4"
 
-        if "${tc}-readelf" -h "$file" &>/dev/null; then
-            raw_deps=$("${tc}-readelf" -d "$file" 2>/dev/null | \
-                awk "/\(NEEDED\)/ { match(\$0, /\[([^\]]+)\]/, a); print a }")
-            clean_deps=$(echo "$raw_deps" | grep -Ev "$sys_libs_regex" || true)
-            if [[ -n "$clean_deps" ]]; then
-                printf "\n%b NEEDED LIBRARIES for %s:\n%s\n" \
-                    "$xclam_mark" "$file" "$clean_deps"
+            if "${tc}-readelf" -h "$file" &>/dev/null; then
+                raw_deps=$("${tc}-readelf" -d "$file" 2>/dev/null | \
+                    awk "/\(NEEDED\)/ { match(\$0, /\[([^\]]+)\]/, a); print a }")
+                clean_deps=$(echo "$raw_deps" | grep -Ev "$sys_libs_regex" || true)
+                if [[ -n "$clean_deps" ]]; then
+                    printf "\n%b NEEDED LIBRARIES for %s:\n%s\n" \
+                        "$xclam_mark" "$file" "$clean_deps"
+                fi
             fi
-        fi
-    ' _ {} "$toolchain" "$sys_libs" "$XCLAM_MARK" >> "$tmp_out" || true
-    # nm: undefined external symbols in static libs 
-    find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
-    xargs -0 -r -I{} bash -c '
-        file="$1"; tc="$2"; x_mark="$3"
-        raw_symbols=$("${tc}-nm" -uA "$file" 2>/dev/null || true)
-        if [[ -n "$raw_symbols" ]]; then
-            clean_symbols=$(echo "$raw_symbols" | \
-                grep -Ev "(__imp_|__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
-                awk -F: "{ 
-                    split(\$NF, a, \" \"); 
-                    sym = a[2]; 
-                    if (sym != \"\") printf \"%-15s %s→%s %s\n\", \$2, \"$GREY_B\", \"$NC\", sym 
-                }" | sort -u | head -n 12)
+        ' _ {} "$toolchain" "$sys_libs" "$XCLAM_MARK" >> "$tmp_out" || true
+        # lddtree: Full dependency tree with missing libs check
+        if [[ -n "$lddtree_cmd" ]]; then
+            find "$lib_dir" "$bin_dir" -type f \
+                \( -name "*.so*" -o -name "*.exe" -o -name "*.dll" \) \
+                -print0 2>/dev/null | \
+            xargs -0 -r -I{} bash -c '
+                file="$1"; cmd="$2"; sys_regex="$3"; x_mark="$4"; err_mark="$5"; nc="$6"
 
-            if [[ -n "$clean_symbols" ]]; then
-                printf "\n%b %bEXTERNAL SYMBOLS (OBJ %b→%b %bSYM)%b in %s:\n" \
-                    "$x_mark" "$YELLOW" "$GREY_B" "$YELLOW" "$YELLOW" "$NC" "$file"
-                echo "$clean_symbols" | sed "s|^| ${LOG_INFO}•${NC} |"
+                if head -c 4 "$file" | grep -q "ELF"; then
+                    # Получаем дерево, отсеиваем системный шум
+                    tree_out=$("$cmd" -n -p "$file" 2>/dev/null | grep -Ev "$sys_regex" || true)
 
-                # добавляем принудительный перенос строки
-                # printf "\n"
-            fi
+                    if [[ -n "$tree_out" ]]; then
+                        # Проверяем наличие строк "not found" в выводе lddtree
+                        if echo "$tree_out" | grep -q "not found"; then
+                            # Подсвечиваем отсутствующие библиотеки красным
+                            tree_out=$(echo "$tree_out" | sed "s|not found|${err_mark} NOT FOUND${nc}|g")
+                            printf "\n%b %bCRITICAL: MISSING DEPENDENCIES%b for %s:\n%s\n" \
+                                "$err_mark" "${LOG_ERROR}" "$nc" "$file" "$tree_out"
+                        else
+                            printf "\n%b FULL DEP TREE for %s:\n%s\n" \
+                                "$x_mark" "$file" "$tree_out"
+                        fi
+                    fi
+                fi
+            ' _ {} "$lddtree_cmd" "$sys_libs" "$SEARCH_MARK" "$CROSS_MARK" "$NC" >> "$tmp_out" || true
         fi
-    ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
-    # Проверка RPATH / RUNPATH 
-    if [[ -n "$toolchain" ]] && command -v "${toolchain}-objdump" &>/dev/null; then
-        find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | \
+        # Проверка RPATH / RUNPATH 
+        if [[ -n "$toolchain" ]] && command -v "${toolchain}-objdump" &>/dev/null; then
+            find "$lib_dir" "$bin_dir" -type f \( -name "*.so*" -o -executable \) -print0 2>/dev/null | \
+            xargs -0 -r -I{} bash -c '
+                file="$1"; tc="$2"; x_mark="$3"
+                if "${tc}-readelf" -h "$file" &>/dev/null; then
+                    rpath=$("${tc}-objdump" -p "$file" 2>/dev/null | awk "/RPATH|RUNPATH/ {print \$0}")
+                    if [[ -n "$rpath" ]]; then
+                        printf "\n%b RPATH/RUNPATH for %s:\n%s\n" "$x_mark" "$file" "$rpath"
+                    fi
+                fi
+            ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
+        fi
+    else
+        # nm: undefined external symbols in static libs 
+        find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
         xargs -0 -r -I{} bash -c '
             file="$1"; tc="$2"; x_mark="$3"
-            if "${tc}-readelf" -h "$file" &>/dev/null; then
-                rpath=$("${tc}-objdump" -p "$file" 2>/dev/null | awk "/RPATH|RUNPATH/ {print \$0}")
-                if [[ -n "$rpath" ]]; then
-                    printf "\n%b RPATH/RUNPATH for %s:\n%s\n" "$x_mark" "$file" "$rpath"
+            raw_symbols=$("${tc}-nm" -uA "$file" 2>/dev/null || true)
+            if [[ -n "$raw_symbols" ]]; then
+                clean_symbols=$(echo "$raw_symbols" | \
+                    grep -Ev "(__imp_|__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
+                    awk -F: "{ 
+                        split(\$NF, a, \" \"); 
+                        sym = a[2]; 
+                        if (sym != \"\") printf \"%-15s %s→%s %s\n\", \$2, \"$GREY_B\", \"$NC\", sym 
+                    }" | sort -u | head -n 12)
+
+                if [[ -n "$clean_symbols" ]]; then
+                    printf "\n%b %bEXTERNAL SYMBOLS (OBJ %b→%b %bSYM)%b in %s:\n" \
+                        "$x_mark" "$YELLOW" "$GREY_B" "$YELLOW" "$YELLOW" "$NC" "$file"
+                    echo "$clean_symbols" | sed "s|^| ${LOG_INFO}•${NC} |"
+
+                    # добавляем принудительный перенос строки
+                    # printf "\n"
                 fi
             fi
         ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
@@ -782,13 +817,14 @@ get_deps_list() {
     # Output
     local error_count=0
     if [[ -f "$tmp_out" ]]; then
-        error_count=$(grep -c "MISSING:" "$tmp_out" || true)
+        # Считаем и MISSING (из pkg-config) и NOT FOUND (из lddtree)
+        error_count=$(grep -cE "MISSING:|NOT FOUND" "$tmp_out" || true)
     fi
     error_count=$(( 10#${error_count:-0} ))
 
     if [[ -s "$tmp_out" ]]; then
         if [ "$error_count" -gt 0 ]; then
-            log_warn "Found ${error_count} missing pkg-config dependency/dependencies for ${name}! [Install size: ${GREY_B}${total_size}${NC}]"
+            log_warn "Found ${error_count} missing dependency/dependencies for ${name}! [Install size: ${GREY_B}${total_size}${NC}]"
         else
             log_debug "${CHECK_MARK} All pkg-config dependencies satisfied for ${name}. [Install size: ${GREY_B}${total_size}${NC}]"
         fi
