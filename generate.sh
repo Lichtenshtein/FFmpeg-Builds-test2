@@ -40,7 +40,7 @@ fi
 # Allow custom addins via CUSTOM_ADDINS env var (space-separated)
 if [[ -n "$CUSTOM_ADDINS" ]]; then
     for addin in $CUSTOM_ADDINS; do
-        local addin_path="${ADDINS_DIR}/${addin}.sh"
+        addin_path="${ADDINS_DIR}/${addin}.sh"
         if [[ -f "$addin_path" ]]; then
             ADDINS+=("$addin")
             ADDINS_STR="${ADDINS_STR}${ADDINS_STR:+-}${addin}"
@@ -130,9 +130,16 @@ for STAGE in "${SCRIPTS[@]}"; do
     # Match against basename only, with anchored component name
     STAGE_BASE="$(basename "$STAGE" .sh)"
     if [[ -n "$ONLY_STAGE" ]]; then
-        local matched=0
-        for pattern in $ONLY_STAGE; do
-            [[ "$STAGE_BASE" == *"-${pattern}" ]] && matched=1 && break
+        matched=0
+        IFS='|' read -ra _patterns <<< "$ONLY_STAGE"
+        for pattern in "${_patterns[@]}"; do
+            pattern="${pattern// /}" # trim spaces
+            # Match full basename OR suffix component name
+            if [[ "$STAGE_BASE" == "$pattern" ]] || \
+               [[ "$STAGE_BASE" == *"-${pattern}" ]] || \
+               [[ "$STAGE_BASE" =~ $pattern ]]; then
+                matched=1; break
+            fi
         done
         [[ $matched -eq 0 ]] && continue
     fi
@@ -178,7 +185,7 @@ for STAGE in "${active_scripts[@]}"; do
 
     to_df "# Component: $STAGENAME | LayerID: $LAYER_ID"
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
-    to_df "    --mount=type=cache,id=prefix-${TARGET},target=${FFBUILD_PREFIX} \\"
+    # to_df "    --mount=type=cache,id=prefix-${TARGET},target=${FFBUILD_PREFIX} \\"
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
     to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\"
@@ -189,13 +196,12 @@ for STAGE in "${active_scripts[@]}"; do
 done
 
 # FINAL FFMPEG BUILD STAGE
-to_df "FROM components_ref AS final_build"
+to_df "FROM base-win64 AS final_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "WORKDIR ${CONTAINER_ROOT}"
 # Копируем всё собранное из COMPONENT BUILD STAGE (этот слой закешируется Docker)
-to_df "COPY --from=components_build $FFBUILD_PREFIX $FFBUILD_PREFIX"
+to_df "COPY --from=components_build ${FFBUILD_PREFIX}/ ${FFBUILD_PREFIX}/"
 to_df "$COMMON_ENV"
-
 # Копируем всё необходимое для финальной сборки
 to_df "COPY build.sh ./build.sh"
 to_df "COPY addins ./addins"
@@ -203,13 +209,13 @@ to_df "COPY patches ./patches"
 to_df "COPY util ./util"
 to_df "COPY variants ./variants"
 
-if [[ $SKIP_FFMPEG -eq 1 ]]; then
+if [[ "${SKIP_FFMPEG}" == "1" ]]; then
     # Создаем пустой файл в artifacts, чтобы экшн загрузки не падал
-    to_df "RUN mkdir -p $FFBUILD_DESTDIR && echo 'Components built successfully' > $FFBUILD_DESTDIR/BUILD_SUCCESS"
+    to_df "RUN mkdir -p ${FFBUILD_DESTDIR} && \\"
+    to_df "    echo 'Components built successfully' > ${FFBUILD_DESTDIR}/BUILD_SUCCESS"
 else
     # Финальная сборка FFmpeg (инвалидируется только при изменении FFmpeg или build.sh)
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
-    to_df "    --mount=type=cache,id=prefix-${TARGET},target=${FFBUILD_PREFIX} \\"
     # to_df "    --mount=from=ffmpeg_src,target=$FFMPEG_SOURCE_DIR,rw \\"
     to_df "    --mount=type=bind,source=.cache/ffmpeg,target=${FFMPEG_SOURCE_DIR},rw \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
@@ -217,4 +223,4 @@ fi
 
 # ARTIFACTS COLLECTOR STAGE
 to_df "FROM scratch AS artifacts"
-to_df "COPY --from=final_build $FFBUILD_DESTDIR/ ." 
+to_df "COPY --from=final_build ${FFBUILD_DESTDIR}/ ."

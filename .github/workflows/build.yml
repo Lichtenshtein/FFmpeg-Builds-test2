@@ -350,7 +350,17 @@ jobs:
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
 
+      - name: Save Cache After Components
+        if: always()
+        uses: actions/cache/save@v5
+        with:
+          path: |
+            .cache/downloads
+            .cache/ffmpeg
+          key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}-post
+
       - name: Final FFmpeg Compilation
+        if: env.SKIP_FFMPEG != '1'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -363,10 +373,9 @@ jobs:
           tags: ffmpeg-final:local
           # Используем свежесобранный образ компонентов как контекст
           build-contexts: |
-            components_ref=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
-            ffmpeg_src=${{ github.workspace }}/.cache/ffmpeg
+            # ffmpeg_src=${{ github.workspace }}/.cache/ffmpeg
           outputs: type=local,dest=artifacts/
           cache-from: |
             type=gha,scope=ffmpeg-components
