@@ -29,7 +29,7 @@ ffbuild_dockerbuild() {
         -DWITH_TURBOJPEG=ON
     )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBJPEG_STATIC"
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( -DENABLE_STATIC=OFF -DENABLE_SHARED=ON ) || \
@@ -38,14 +38,14 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS $static_flags" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags" \
     LDFLAGS="$LDFLAGS" \
-    cmake -G "Unix Makefiles" "${myconf[@]}" .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     for pc in "$PC_DIR"/*jpeg*.pc; do
         [[ -e "$pc" ]] || continue
-        sed -i '/^Cflags:/ s/$/ $static_flags/' "$pc"
+        sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
     done
 }
 

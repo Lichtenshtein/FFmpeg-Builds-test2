@@ -69,7 +69,8 @@ ffbuild_dockerbuild() {
         --disable-docs
     )
 
-    local static_flags=""
+    export static_flags=""
+    export self_static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBSSH_STATIC -DBROTLI_STATIC" && self_static_flags="-DCURL_STATICLIB"
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
@@ -100,7 +101,6 @@ ffbuild_dockerbuild() {
             sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$PC_FILE"
         fi
     fi
-
 }
 
 ffbuild_libs() {

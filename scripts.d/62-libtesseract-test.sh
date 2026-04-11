@@ -226,7 +226,7 @@ WRAPPER_EOF
     local RAW_LDFLAGS
     RAW_LDFLAGS=$(echo "$LDFLAGS" | sed 's/-Wl,-Bstatic\b//g')
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB"
 
     local myconf=(
@@ -263,7 +263,7 @@ WRAPPER_EOF
 -Wl,--allow-multiple-definition"
     )
 
-    cmake "${myconf[@]}" .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
     # Clear INTERFACE_LINK_LIBRARIES (belt and suspenders)
     find . -name "TesseractTargets.cmake" \

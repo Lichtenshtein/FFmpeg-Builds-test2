@@ -219,7 +219,6 @@ else
     # codegen-units = 16 (default)
     export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 -C embed-bitcode=yes${RUSTLTO}"
 fi
-
 # Обработка флагов, специфичных для Linux ELF
 if [[ "$TARGET" == "win64" ]]; then
     # бесполезно при сборке под Windows и ломает OpenSSL asm вместе с std=c11
@@ -1090,45 +1089,74 @@ if [ -d "/opt/ct-ng" ]; then
 fi
 
 # Определяем режим работы Wine (берем из ENV или ставим auto по умолчанию)
+# may not work from here because $STAGE is set in run_stage.sh before setup_wine_env is called
 USE_WINE="${USE_WINE:-1}"
 setup_wine_env() {
     # Сохраняем текущее состояние set -e
     local errexit_state=$([[ $- =~ e ]] && echo "set -e" || echo "set +e")
     set +e # Временно отключаем остановку при ошибках
-    # Если Wine принудительно выключен выходим сразу
-    if [[ "$USE_WINE" == "0" ]]; then
+
+    # Wine globally disabled
+    if [[ "${USE_WINE:-0}" != "1" ]]; then
         eval "$errexit_state"; return 0
     fi
 
-    if [[ "$USE_WINE" == "1" ]]; then
+    # No stage to inspect
     if [[ -z "$STAGE" || ! -f "$STAGE" ]]; then
-         return 0
-    fi
-        # Ищем только специфичные команды:
-        # 1. meson test / ctest / make check - запуск встроенных тестов
-        # 2. wine [пробел] - явный запуск через wine
-        # 3. ./[что-то].exe - прямой запуск виндового бинарника
-        if ! grep -qE "meson test|ctest|make check|make test|wine |\.\/.*\.exe" "$STAGE"; then
-            log_debug "Wine: skipped (no execution patterns in $STAGENAME)"
-            eval "$errexit_state"; return 0
-        fi
+        eval "$errexit_state"; return 0
     fi
 
-    # Запускаем виртуальный дисплей в фоне, если его еще нет
-    if ! pgrep -x "Xvfb" > /dev/null; then
-        log_info "${START_MARK} Initializing background Xvfb for Wine tests..."
+    # Scan the stage script for patterns that indicate Wine is needed.
+    # We search for:
+    #   - explicit wine invocations
+    #   - test runner calls that require executing Windows binaries
+    #   - direct .exe execution
+    # NOTE: grep searches the script SOURCE FILE, so patterns must match
+    # what authors write in ffbuild_dockerbuild(), not runtime commands.
+    local wine_patterns=(
+        'wine[[:space:]]'       # wine <binary>
+        'wineboot'              # explicit wineboot call
+        '\.exe'                 # any .exe reference (run or test)
+        'meson[[:space:]]+test' # meson test runner
+        'ctest'                 # cmake test runner
+        'make[[:space:]]+check' # autotools make check
+        'make[[:space:]]+test'  # autotools make test
+        'ninja[[:space:]]+test' # ninja test target
+    )
+
+    local combined_pattern
+    combined_pattern=$(printf '%s|' "${wine_patterns[@]}")
+    combined_pattern="${combined_pattern%|}" # strip trailing |
+
+    if ! grep -qE "$combined_pattern" "$STAGE"; then
+        log_debug "Wine: skipped for $STAGENAME (no execution patterns found)"
+        eval "$errexit_state"; return 0
+    fi
+
+    log_info "${START_MARK} Wine required for $STAGENAME — initializing..."
+
+    # Start virtual display if not already running
+    if ! pgrep -x "Xvfb" > /dev/null 2>&1; then
+        log_info "${START_MARK} Initializing Xvfb on :99 for Wine tests..."
         # Запуск на дисплее 99 без xvfb-run (меньше оверхед)
         ( Xvfb :99 -screen 0 1024x768x16 >/dev/null 2>&1 & )
         local retry=0
-        while [ $retry -lt 15 ]; do
-            if DISPLAY=:99 xset -q >/dev/null 2>&1; then break; fi
+        while [[ $retry -lt 15 ]]; do
+            DISPLAY=:99 xset -q >/dev/null 2>&1 && break
             sleep 0.2
-            ((retry++))
+            (( retry++ ))
         done
+        if [[ $retry -ge 15 ]]; then
+            log_warn "Xvfb did not start in time - Wine tests may fail"
+        fi
     fi
+
     export DISPLAY=:99
-    # Быстрый "прогрев" сервера Wine, чтобы последующие вызовы не ждали инициализации (чтобы первый вызов в скрипте не тормозил)
+
+    # Warm up Wine server asynchronously
+
     ( wineboot -u >/dev/null 2>&1 & )
+
     eval "$errexit_state"
 }
 export -f setup_wine_env
@@ -1200,38 +1228,42 @@ export -f separator _term_width _repeat_char
 separator_box() {
     local char="${1:-─}"
     local label="${2:-}"
-    local style="${3:-full}"
+    local style="${3:-top}"
     local width
     width=$(_term_width)
+    local inner=$(( width - 2 )) # width minus ┌ and ┐
 
     case "$style" in
         top)
             # ┌─────────────────────────────────────────────────────────────┐
             if [[ -z "$label" ]]; then
-                printf '┌%s┐\n' "$(_repeat_char $((width - 2)) "$char")" >&2
+                printf '┌%s┐\n' "$(_repeat_char "$inner" "$char")" >&2
             else
+                # 2 spaces padding on each side of label = 4 total
                 local label_len=${#label}
-                local left_side=$(( (width - label_len - 2) / 2 ))
-                local right_side=$(( width - label_len - 2 - left_side ))
+                local fill=$(( inner - label_len - 4 ))
+                [[ $fill -lt 0 ]] && fill=0
+                local left=$(( fill / 2 ))
+                local right=$(( fill - left ))
                 printf '┌%s  %s  %s┐\n' \
-                    "$(_repeat_char "$left_side" "$char")" \
+                    "$(_repeat_char "$left" "$char")" \
                     "$label" \
-                    "$(_repeat_char "$right_side" "$char")" >&2
+                    "$(_repeat_char "$right" "$char")" >&2
             fi
             ;;
         mid)
             # ├─────────────────────────────────────────────────────────────┤
-            printf '├%s┤\n' "$(_repeat_char $((width - 2)) "$char")" >&2
+            printf '├%s┤\n' "$(_repeat_char "$inner" "$char")" >&2
             ;;
         bottom)
             # └─────────────────────────────────────────────────────────────┘
-            printf '└%s┘\n' "$(_repeat_char $((width - 2)) "$char")" >&2
+            printf '└%s┘\n' "$(_repeat_char "$inner" "$char")" >&2
             ;;
-        *)
+        # *)
             # Full box (top + bottom in one call — not typical, but available)
-            separator_box "$char" "$label" "top"
-            separator_box "$char" "" "bottom"
-            ;;
+            # separator_box "$char" "$label" "top"
+            # separator_box "$char" "" "bottom"
+            # ;;
     esac
 }
 export -f separator_box

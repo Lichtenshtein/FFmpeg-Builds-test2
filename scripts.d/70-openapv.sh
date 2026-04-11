@@ -44,7 +44,7 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DOAPV_STATIC_DEFINE"
 
     CFLAGS="$CFLAGS $CPPFLAGS $static_flags" \

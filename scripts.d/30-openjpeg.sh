@@ -21,7 +21,7 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DOPJ_STATIC"
 
     local myconf=(

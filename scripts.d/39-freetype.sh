@@ -43,7 +43,7 @@ ffbuild_dockerbuild() {
         --with-pic
     )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DFT2_BUILD_LIBRARY"
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
