@@ -45,7 +45,7 @@ fi
 
 STAGE_COUNT=$(echo "$STAGES" | wc -l)
 log_info "${DOWN_MARK} Queuing ${STAGE_COUNT} stage(s) for parallel download (jobs=8)..."
-separator "─"
+separator "-"
 
 # ensuring DL_RESULT_FILE and UTIL_DIR paths with spaces are safe
 _util_vars=$(printf '%q' "${UTIL_DIR}/vars.sh")
