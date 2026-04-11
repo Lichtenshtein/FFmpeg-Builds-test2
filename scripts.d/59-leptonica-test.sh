@@ -27,7 +27,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-if [[ "${PREFER_SHARED}" !== "1" ]]; then
+if [[ "${PREFER_SHARED}" != "1" ]]; then
     # Принудительно отключаем SHARED в самом коде Leptonica
     sed -i 's/SHARED/STATIC/g' src/CMakeLists.txt
 fi
@@ -41,11 +41,10 @@ fi
     # rm -rf "$FFBUILD_PREFIX/lib/cmake/"{tiff,OpenJPEG,libwebp,WebP,lcms2}
 
     # Временная папка для хранения "ядовитых" конфигов
-    LEPT_BACKUP="/tmp/leptonica_deps_backup"
+    local LEPT_BACKUP="/tmp/leptonica_deps_backup"
     mkdir -p "$LEPT_BACKUP"
-    
-    # Список папок для перемещения
-    TARGETS=(tiff OpenJPEG libwebp WebP lcms2 TIFF)
+    local TARGETS=(tiff OpenJPEG libwebp WebP lcms2 TIFF)
+
     log_info "Backing up CMAKE files for Leptonica..."
     for target in "${TARGETS[@]}"; do
         if [ -d "$FFBUILD_PREFIX/lib/cmake/$target" ]; then
@@ -95,7 +94,8 @@ fi
     cmake -G Ninja "${myconf[@]}" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $DEP_LIBS $WIN_LIBS" .. || return 1
 
-if [[ "${PREFER_SHARED}" !== "1" ]]; then
+if [[ "${PREFER_SHARED}" != "1" ]]; then
+    log_debug "Fixing static library names and locations..."
     # где лежит файл?
     log_debug "Searching for compiled lib..."
     find . -name "*.a"
@@ -106,12 +106,15 @@ if [[ "${PREFER_SHARED}" !== "1" ]]; then
     # Исправляем расширение в сгенерированных файлах сборки, если CMake сошел с ума
     find . -name "build.make" -exec sed -i 's/libleptonica-1.88.0.dll/libleptonica.a/g' {} +
     find . -name "link.txt" -exec sed -i 's/libleptonica-1.88.0.dll/libleptonica.a/g' {} +
+fi
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
+if [[ "${PREFER_SHARED}" != "1" ]]; then
+
     # Ищем либу (она могла остаться в папке build/src). Если CMake создал файл с версией libleptonica-1.88.0.a, переименовываем
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "libleptonica*.a" -exec mv {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a" \;
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "libleptonica*.a" -exec mv {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a" \; 2>/dev/null || true
 
     # Если вдруг либа оказалась в /bin (бывает в MinGW), переносим в /lib
     if [ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/libleptonica.a" ]; then
@@ -149,7 +152,7 @@ Name: leptonica
 Description: Leptonica image processing library
 Version: 1.88.0
 Libs: -L\${libdir} -lleptonica
-Libs.private: $DEP_LIBS $WIN_LIBS
+Libs.private: $WIN_LIBS
 Cflags: -I\${includedir} -I\${includedir}/leptonica
 EOF
 
@@ -161,10 +164,10 @@ EOF
 
     # Возвращаем папки на место, чтобы они были доступны для Tesseract или FFmpeg
     # Возвращаем всё обратно в основную директорию
-    if [ -d "$LEPT_BACKUP" ]; then
+    if [ -d "$LEPT_BACKUP" ] && [ "$(ls -A "$LEPT_BACKUP")" ]; then
         mkdir -p "$FFBUILD_PREFIX/lib/cmake"
         log_info "Restoring CMAKE files from backup..."
         mv "$LEPT_BACKUP"/* "$FFBUILD_PREFIX/lib/cmake/" 2>/dev/null || true
-        rm -rf "$LEPT_BACKUP"
     fi
+    rm -rf "$LEPT_BACKUP"
 }
