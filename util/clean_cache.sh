@@ -110,8 +110,8 @@ sort -u "$RAW_KEEP_LIST" | tr -d '\r' | sed 's/[[:space:]]*$//' > "$FINAL_KEEP_L
 
 # Debug: show keep-list only at verbose >= 2
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-    log_debug "FINAL_KEEP_LIST (first 10):"
-    head -n 10 "$FINAL_KEEP_LIST" || true
+    log_debug "FINAL_KEEP_LIST (first 40):"
+    head -n 40 "$FINAL_KEEP_LIST" || true
 fi
 
 declare -A PROTECTED_SET

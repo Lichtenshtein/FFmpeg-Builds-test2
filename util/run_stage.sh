@@ -398,19 +398,17 @@ if [[ -d "$INSTALL_ROOT" ]]; then
         # библиотеки MinGW создают libимя.dll.a (implib) даже для статики
         if [[ "$PREFER_SHARED" != "1" ]]; then
             if [[ ! "$STAGENAME" =~ $DLL_PRESERVE_LIST ]]; then
-                clean_unwanted_libs "Dynamic DLLs" "\( -name '*.dll' -o -name '*.dll.a' \)"
+                clean_unwanted_libs "dynamic DLLs" "\( -name '*.dll' -o -name '*.dll.a' \)"
             else
                 log_info "${LOCK_MARK} Preserving dynamic DLLs and generating import libs for $STAGENAME"
-                
                 # First, create an .a file so ffmpeg can link to it.
                 generate_implibs "$INSTALL_ROOT"
-
                 # For TensorFlow/Torch, you often need to move DLLs to bin if they fall into lib; (must be covered by their scripts)
                 # find "$INSTALL_ROOT/lib" -name "*.dll" -exec mv {} "$INSTALL_ROOT/bin/" \; 2>/dev/null || true
             fi
         else
             if [[ -n "$LIB_PRESERVE_LIST" && ! "$STAGENAME" =~ $LIB_PRESERVE_LIST ]]; then
-                clean_unwanted_libs "Static libs" "-name '*.a' ! -name '*.dll.a'"
+                clean_unwanted_libs "static libs" "-name '*.a' ! -name '*.dll.a'"
             else
                 log_info "${LOCK_MARK} Preserving static libs for $STAGENAME"
             fi
@@ -534,7 +532,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
     if [[ -n "$VARS_CONTENT" ]]; then
         # printf '%b' is safe — no format string injection
         printf '%b' "$VARS_CONTENT" | tr -d '\r' > "$OUTFILE"
-        log_debug "Saved $(wc -c < "$OUTFILE") bytes to $OUTFILE"
+        log_debug "${CACHE_MARK} Saved $(wc -c < "$OUTFILE") bytes to $OUTFILE"
     else
         log_info "${CHECK_MARK} No build variables for $STAGENAME (meta/header-only)."
     fi
