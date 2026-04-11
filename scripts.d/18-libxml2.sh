@@ -47,16 +47,16 @@ ffbuild_dockerbuild() {
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
-    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBXML_STATIC -DXML_STATIC"
 
     # Принудительно задаем AR как gcc-ar для стабильности архивации
     ./autogen.sh "${myconf[@]}" \
-        CFLAGS="$CFLAGS $static_flags" \
-        CPPFLAGS="$CPPFLAGS" \
-        LDFLAGS="$LDFLAGS" \
+        CFLAGS="$CFLAGS ${USELTO}" \
+        CPPFLAGS="$CPPFLAGS $static_flags" \
+        CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}" \
+        LDFLAGS="$LDFLAGS ${USELTO}" \
         LIBS="$DEP_LIBS" \
         AR="${FFBUILD_TOOLCHAIN}-gcc-ar" \
         NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
