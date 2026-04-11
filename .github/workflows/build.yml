@@ -81,7 +81,7 @@ on:
       verbosity:
         description: 'Log Verbosity (2: Full, 0: Quiet)'
         required: false
-        default: '1'
+        default: '2'
       shaderc_update:
         description: 'Use own Shaderc DEPS file'
         type: boolean
