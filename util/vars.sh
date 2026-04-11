@@ -424,7 +424,7 @@ ffbuild_unlibs()       { return 0; }
 export -f ffbuild_enabled ffbuild_depends ffbuild_configure ffbuild_cflags ffbuild_cppflags ffbuild_cxxflags ffbuild_ldflags ffbuild_ldexeflags ffbuild_libs ffbuild_unconfigure ffbuild_uncflags ffbuild_uncxxflags ffbuild_unldexeflags ffbuild_unldflags ffbuild_unlibs
 
 patch_pc_files() {
-    log_info "${TARGET_MARK} Patching $STAGENAME .pc files..."
+    log_info "${TARGET_MARK} Correcting $STAGENAME .pc files..."
     local pc_dir="$PC_DIR"
     local sl="--follow-symlinks"
     [[ -d "$pc_dir" ]] || return 0
@@ -1148,7 +1148,7 @@ conf_finder() {
 
     # Если configure нет, или он старый (configure.ac новее), запускаем регенерацию
     if [[ ! -f "configure" || "configure.ac" -nt "configure" ]]; then
-        log_info "${SYNC_MARK} conf_finder: Regenerating build files..."
+        log_debug "${SYNC_MARK} conf_finder: Regenerating build files..."
 
         # Создаем папку для макросов, если она прописана, но её нет (частая ошибка libffi)
         local m4_dir=$(grep -oP 'AC_CONFIG_MACRO_DIRS?\(\[\K[^\]]+' configure.ac 2>/dev/null || echo "m4")
