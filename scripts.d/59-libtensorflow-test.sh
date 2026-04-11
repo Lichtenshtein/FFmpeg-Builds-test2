@@ -46,7 +46,6 @@ Version: 2.16.1
 Libs: -L\${libdir} -ltensorflow
 Cflags: -I\${includedir}
 EOF
-
 }
 
 ffbuild_configure() {

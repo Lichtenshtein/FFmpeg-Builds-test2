@@ -1,7 +1,8 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/openssl/openssl.git"
-SCRIPT_COMMIT="c9a9e5b10105ad850b6e4d1122c645c67767c341"
+SCRIPT_COMMIT="561a86e7832d244e62587240a22268f4a25ee1cd"
+# SCRIPT_COMMIT="c9a9e5b10105ad850b6e4d1122c645c67767c341"
 
 ffbuild_depends() {
     echo base
@@ -38,13 +39,13 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         mingw64
-        threads
-        zlib
+        threads # adding '-static' flag disables that, don't use it
         no-tests
         no-apps
         no-legacy
         no-unit-test
         no-async
+        no-docs
         enable-camellia
         enable-ec
         enable-srp
@@ -57,8 +58,8 @@ ffbuild_dockerbuild() {
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
-        myconf+=( shared ) || \
-        myconf+=( no-shared )
+        myconf+=( shared zlib-dynamic pic ) || \
+        myconf+=( no-shared zlib )
 
     ./Configure "${myconf[@]}" \
         "$CFLAGS -fno-strict-aliasing -Wno-overflow ${USELTO}" \

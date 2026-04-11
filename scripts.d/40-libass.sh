@@ -28,34 +28,43 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    ./autogen.sh
+    mkdir -p build && cd build
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
-        --host="$FFBUILD_TOOLCHAIN"
-        # --enable-compare # compare program (requires libpng)
-        --with-pic
-        --disable-test
-        --enable-wrap-unicode
-        --enable-directwrite
-        --enable-libunibreak
-        # --enable-large-tiles # in the rasterizer (better performance, slightly worse quality)
-        --enable-asm
+        --buildtype=release
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
+        -Dtest=disabled
+        -Dcompare=disabled # compare program (requires libpng)
+        -Dprofile=disabled
+        -Dfuzz=disabled
+        -Dcheckasm=disabled
+        -Dfontconfig=enabled
+        -Dasm=enabled
+        -Dlibunibreak=enabled
+        # -Dlarge-tiles=enabled # in the rasterizer (better performance, slightly worse quality)
     )
 
-    [[ "${PREFER_SHARED}" == "1" ]] && \
-        myconf+=( --disable-static --enable-shared ) || \
-        myconf+=( --enable-static --disable-shared )
+    if [[ $TARGET == win* ]]; then
+        myconf+=(
+            -Ddirectwrite=enabled
+            --cross-file=/cross.meson
+        )
+    elif [[ $TARGET == linux* ]]; then
+        myconf+=(
+            --cross-file=/cross.meson
+        )
+    fi
 
-    CFLAGS="$CFLAGS -Dread_file=libass_internal_read_file ${USELTO}" \
-    CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS ${USELTO}" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
-    LIBS="$LIBS" \
-    ./configure "${myconf[@]}" || return 1
+    meson setup "${myconf[@]}" .. \
+        -Dc_args="$CFLAGS $CPPFLAGS -Dread_file=libass_internal_read_file" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS -Dread_file=libass_internal_read_file" \
+        -Dc_link_args="$LDFLAGS" \
+        -Dcpp_link_args="$LDFLAGS" || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 }
 
 ffbuild_configure() {
