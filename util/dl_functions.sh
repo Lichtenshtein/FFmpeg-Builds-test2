@@ -341,14 +341,19 @@ confhash_compute() {
     raw_options=$(confhash_extract_options "$src_dir") || true
 
     # Temporary debug
+    # if print is not working
+    # find "$src_dir" -maxdepth 8 \( ... \) 2>/dev/null | sed "s|^$src_dir||" | head -n 20 >&2
     if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-        log_debug "confhash: scanning $src_dir"
-        # -o -name "configure.in" -o -name "*.cmake" -o -name "meson.build"
+        log_debug "confhash: scanning $(basename "$src_dir")"
         find "$src_dir" -maxdepth 8 \
             \( -name "configure.ac" \
             -o -name "CMakeLists.txt" \
             -o -name "meson_options.txt" \) \
-            2>/dev/null | head -n 20 >&2
+            -not -path "*/test/*" \
+            -not -path "*/tests/*" \
+            -not -path "*/example/*" \
+            -not -path "*/examples/*" \
+            -printf "/%P\n" 2>/dev/null | head -n 20 >&2
     fi
 
     if [[ -z "$raw_options" ]]; then
@@ -552,12 +557,12 @@ download_stage() {
             else
                 # First time seeing this component — just save, no comparison
                 printf '%s' "$new_conf_hash" > "$CONF_HASH_FILE"
-                if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-                    local current_opts=$(confhash_extract_options "$WORK_DIR") || true
-                    if [[ -n "$current_opts" ]]; then
-                        echo "$current_opts" > "$CONF_OPTIONS_FILE"
-                        log_info "${SAVE_MARK} Config option hash saved for $STAGENAME (${new_conf_hash})"
-                        # Принудительный вывод найденных опций в лог (уровень INFO или DEBUG)
+                local current_opts=$(confhash_extract_options "$WORK_DIR") || true
+                if [[ -n "$current_opts" ]]; then
+                    echo "$current_opts" > "$CONF_OPTIONS_FILE"
+                    log_info "${SAVE_MARK} Config option hash saved for $STAGENAME (${new_conf_hash})"
+                    # Принудительный вывод найденных опций в лог (уровень INFO или DEBUG)
+                    if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
                         log_debug "${SEARCH_MARK} Detected options for $STAGENAME:"
                         while IFS= read -r opt; do
                             # Подсветка: синим название системы, обычным — опция
@@ -565,9 +570,9 @@ download_stage() {
                             local name="${opt#*:}"
                             log_debug "${BLUE}${sys}${NC}: ${name}"
                         done <<< "$current_opts"
-                    else
-                        log_info "${SAVE_MARK} Hash saved (no options found)."
                     fi
+                else
+                    log_info "${SAVE_MARK} Hash saved (no options found)."
                 fi
                 log_info "${SAVE_MARK} Config option hash saved for $STAGENAME (${new_conf_hash})"
             fi

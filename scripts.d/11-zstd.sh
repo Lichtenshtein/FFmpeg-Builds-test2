@@ -35,7 +35,7 @@ ffbuild_dockerbuild() {
     )
 
     [[ "${USE_LTO}" = "1" ]] && myconf+=( -DZSTD_USE_LTO=ON )
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DZSTD_STATIC_LINKING"
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( -DZSTD_BUILD_STATIC=OFF -DZSTD_BUILD_SHARED=ON ) || \
