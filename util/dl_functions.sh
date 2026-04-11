@@ -337,67 +337,25 @@ confhash_compute() {
     local src_dir="$1"
     [[ -d "$src_dir" ]] || return 1
 
-    # Collect raw option lines from each build system
-    local raw_options=""
-    local found_files=0
-
-    # Autotools
-    # AS_HELP_STRING([--enable-foo / --disable-foo / --with-foo / --without-foo
-    # Anchored to AS_HELP_STRING to avoid "---" separator lines
-    while IFS= read -r -d '' f; do
-        found_files=1
-        local chunk=$(grep -oP \
-            '(?:AS_HELP_STRING\(\s*\[|AC_ARG_(?:ENABLE|WITH)\s*\(\s*['"'"'"]?)\K--?[a-zA-Z][a-zA-Z0-9_-]+' \
-            "$f" 2>/dev/null || true)
-        [[ -n "$chunk" ]] && raw_options+="$chunk"$'\n'
-    done < <(find "$src_dir" -maxdepth 8 \
-               \( -name "configure.ac" -o -name "configure.in" \) \
-               -print0 2>/dev/null)
-
-    # CMake
-    # option(NAME "description" DEFAULT)
-    # Also catches cmake_dependent_option(NAME ...
-    while IFS= read -r -d '' f; do
-        found_files=1
-        local chunk=$(grep -oP \
-            '(?i)(?:cmake_dependent_)?option\(\s*\K[A-Z_a-z][A-Z0-9_a-z]+' \
-            "$f" 2>/dev/null || true)
-        [[ -n "$chunk" ]] && raw_options+="$chunk"$'\n'
-    # use only CMakeLists.txt, for now. del "-o -name "*.cmake" \)"
-    done < <(find "$src_dir" -maxdepth 8 \
-               \( -name "CMakeLists.txt" \) \
-               ! -path "*/test*" ! -path "*/example*" \
-               -print0 2>/dev/null)
-
-    # Meson
-    # option('name', type : 'boolean', ...)
-    # meson_options.txt is the canonical file; meson.build sometimes has them too
-    while IFS= read -r -d '' f; do
-        found_files=1
-        local chunk=$(grep -oP \
-            "(?:^|\s)option\(\s*['\"]?\K[a-zA-Z][a-zA-Z0-9_-]+" "$f" 2>/dev/null || true)
-        [[ -n "$chunk" ]] && raw_options+="$chunk"$'\n'
-    done < <(find "$src_dir" -maxdepth 8 \
-               \( -name "meson_options.txt" -o -name "meson.build" \) \
-               -print0 2>/dev/null)
-
-    if [[ $found_files -eq 0 ]]; then
-        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && \
-            log_debug "confhash: no build system files found in $src_dir"
-        return 1
-    fi
+    local raw_options
+    raw_options=$(confhash_extract_options "$src_dir") || true
 
     # Temporary debug
-    if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
         log_debug "confhash: scanning $src_dir"
+        # -o -name "configure.in" -o -name "*.cmake" -o -name "meson.build"
         find "$src_dir" -maxdepth 8 \
-            \( -name "configure.ac" -o -name "configure.in" \
-            -o -name "CMakeLists.txt" -o -name "*.cmake" \
-            -o -name "meson_options.txt" -o -name "meson.build" \) \
+            \( -name "configure.ac" \
+            -o -name "CMakeLists.txt" \
+            -o -name "meson_options.txt" \) \
             2>/dev/null | head -n 20 >&2
     fi
 
     if [[ -z "$raw_options" ]]; then
+        # Если файлов нет совсем — возвращаем 1
+        local found_files=$(find "$src_dir" -maxdepth 6 \( -name "configure.ac" -o -name "CMakeLists.txt" -o -name "meson_options.txt" -o -name "CMakeOptions.txt" \) | wc -l)
+        [[ "$found_files" -eq 0 ]] && return 1
+
         # Files were found but no options extracted — still save a hash
         # so we can detect when options ARE added in the future
         printf 'no-options' | sha256sum | cut -c1-16
@@ -405,10 +363,7 @@ confhash_compute() {
     fi
 
     # Stable hash: sort + deduplicate so option order changes don't matter
-    printf '%s' "$raw_options" \
-        | sort -u \
-        | sha256sum \
-        | cut -c1-16
+    printf '%s' "$raw_options" | sed 's/^[^:]*://' | sort -u | sha256sum | cut -c1-16
 }
 export -f confhash_compute
 
@@ -421,10 +376,10 @@ export -f confhash_compute
 confhash_extract_options() {
     local src_dir="$1"
     [[ -d "$src_dir" ]] || return 1
-
-    local raw_options=""
+    local opts=""
 
     # Autotools
+    # use only configure.ac, for now. del "-o -name "configure.in"" \)"
     while IFS= read -r -d '' f; do
         # VERSION a)
         # local chunk=$(grep -oP 'AS_HELP_STRING\(\s*\[\s*--[a-zA-Z][a-zA-Z0-9_-]*' "$f" | grep -oP -- '--[a-zA-Z][a-zA-Z0-9_-]*' 2>/dev/null || true)
@@ -433,8 +388,8 @@ confhash_extract_options() {
                # \( -name "configure.ac" -o -name "configure.in" \) \
                # -print0 2>/dev/null)
         # VERSION b)
-        local chunk=$(grep -oP '(?<=--enable-|--with-)[a-zA-Z0-9_-]+' "$f" 2>/dev/null | sort -u)
-        [[ -n "$chunk" ]] && while read -r line; do raw_options+="autotools:$line"$'\n'; done <<< "$chunk"
+        local chunk=$(grep -oP '(?:AC_ARG_ENABLE|AC_ARG_WITH|AS_HELP_STRING)\(\s*\[?\K--[a-zA-Z0-9_-]+' "$f" 2>/dev/null)
+        [[ -n "$chunk" ]] && while read -r line; do opts+="autotools:$line"$'\n'; done <<< "$chunk"
     done < <(find "$src_dir" -maxdepth 6 \( -name "configure.ac" -o -name "configure.in" \) -print0 2>/dev/null)
 
     # CMake
@@ -444,23 +399,28 @@ confhash_extract_options() {
         # local chunk=$(grep -oP '(?i)(?:cmake_dependent_)?option\(\s*\K[A-Z_][A-Z0-9_]+' "$f" 2>/dev/null || true)
         # [[ -n "$chunk" ]] && raw_options+="cmake:$chunk"$'\n'
     # done < <(find "$src_dir" -maxdepth 8 \
-               # \( -name "CMakeLists.txt" \) \
+               # \( -name "CMakeLists.txt" -o -name "CMakeOptions.txt" \) \
                # -print0 2>/dev/null)
         # VERSION b)
-        local chunk=$(grep -oP '(?i)(?:cmake_dependent_)?option\(\s*\K[A-Za-z_][A-Za-z0-9_]*' "$f" 2>/dev/null | sort -u)
-        [[ -n "$chunk" ]] && while read -r line; do raw_options+="cmake:$line"$'\n'; done <<< "$chunk"
-    done < <(find "$src_dir" -maxdepth 6 -name "CMakeLists.txt" -print0 2>/dev/null)
+        local chunk=$(grep -oP '(?i)(?:cmake_dependent_)?option\(\s*\K[A-Za-z_][A-Za-z0-9_]*' "$f" 2>/dev/null)
+        [[ -n "$chunk" ]] && while read -r line; do opts+="cmake:$line"$'\n'; done <<< "$chunk"
+    done < <(find "$src_dir" -maxdepth 6 \( -name "CMakeLists.txt" -o -name "CMakeOptions.txt" \) -print0 2>/dev/null)
 
+    # use only meson_options.txt, for now. del "-o -name "meson.build" " \)"
     while IFS= read -r -d '' f; do
-        local chunk=$(grep -oP "option\(\s*'\K[a-zA-Z][a-zA-Z0-9_-]+" "$f" 2>/dev/null || true)
-        [[ -n "$chunk" ]] && raw_options+="meson:$chunk"$'\n'
-    done < <(find "$src_dir" -maxdepth 8 \
-               \( -name "meson_options.txt" -o -name "meson.build" \) \
-               -print0 2>/dev/null)
+        # VERSION a)
+        # local chunk=$(grep -oP "option\(\s*'\K[a-zA-Z][a-zA-Z0-9_-]+" "$f" 2>/dev/null || true)
+        # [[ -n "$chunk" ]] && raw_options+="meson:$chunk"$'\n'
+    # done < <(find "$src_dir" -maxdepth 8 \
+               # \( -name "meson_options.txt" \) \
+               # -print0 2>/dev/null)
+        # VERSION b)
+        local chunk=$(grep -oP "option\(\s*['\"]?\K[a-zA-Z][a-zA-Z0-9_-]+" "$f" 2>/dev/null)
+        [[ -n "$chunk" ]] && while read -r line; do opts+="meson:$line"$'\n'; done <<< "$chunk"
+    done < <(find "$src_dir" -maxdepth 6 \( -name "meson_options.txt" -o -name "meson.build" \) -print0 2>/dev/null)
 
-    [[ -z "$raw_options" ]] && return 1
-
-    echo -n "$raw_options" | sort -u
+    [[ -z "$opts" ]] && return 1
+    echo -n "$opts" | sort -u
 }
 export -f confhash_extract_options
 
@@ -471,8 +431,7 @@ download_stage() {
     local STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK
     eval "$(stage_vars "$STAGE")"
 
-    local DL_COMMANDS
-    DL_COMMANDS="$(bash --norc --noprofile -c "
+    local DL_COMMANDS="$(bash --norc --noprofile -c "
         source \"${UTIL_DIR}/vars.sh\" \"${TARGET}\" \"${VARIANT}\" >/dev/null 2>&1
         source \"${UTIL_DIR}/dl_functions.sh\"
         source \"${STAGE}\"
@@ -593,8 +552,23 @@ download_stage() {
             else
                 # First time seeing this component — just save, no comparison
                 printf '%s' "$new_conf_hash" > "$CONF_HASH_FILE"
-                [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]] && \
-                    confhash_extract_options "$WORK_DIR" > "$CONF_OPTIONS_FILE" || true
+                if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+                    local current_opts=$(confhash_extract_options "$WORK_DIR") || true
+                    if [[ -n "$current_opts" ]]; then
+                        echo "$current_opts" > "$CONF_OPTIONS_FILE"
+                        log_info "${SAVE_MARK} Config option hash saved for $STAGENAME (${new_conf_hash})"
+                        # Принудительный вывод найденных опций в лог (уровень INFO или DEBUG)
+                        log_debug "${SEARCH_MARK} Detected options for $STAGENAME:"
+                        while IFS= read -r opt; do
+                            # Подсветка: синим название системы, обычным — опция
+                            local sys="${opt%%:*}"
+                            local name="${opt#*:}"
+                            log_debug "${BLUE}${sys}${NC}: ${name}"
+                        done <<< "$current_opts"
+                    else
+                        log_info "${SAVE_MARK} Hash saved (no options found)."
+                    fi
+                fi
                 log_info "${SAVE_MARK} Config option hash saved for $STAGENAME (${new_conf_hash})"
             fi
         else
@@ -606,8 +580,7 @@ download_stage() {
         # -c: создать, -f: файл, -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
         tar -I 'zstd -T0 -3' -cf "$STAGE_CACHE_FILE" -C "$WORK_DIR" .
         ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
-        local final_size
-        final_size=$(du -sh "$STAGE_CACHE_FILE" | cut -f1)
+        local final_size=$(du -sh "$STAGE_CACHE_FILE" | cut -f1)
         # Update the result line from miss → cached (overwrite by appending corrected line)
         dl_result_line "miss" "$STAGENAME" "$STAGE_HASH" "downloaded → ${final_size}"
         log_info "${CACHE_MARK} Cached $STAGENAME (${final_size})"
