@@ -28,7 +28,7 @@ ffbuild_dockerbuild() {
     # Исправляем баг libtool/linker path для MinGW
     export LT_SYS_LIBRARY_PATH="$FFBUILD_PREFIX/lib"
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DVAPOURSYNTH_STATIC"
 
         # --cross-file="$FFBUILD_CROSS_PREFIX"cross.meson

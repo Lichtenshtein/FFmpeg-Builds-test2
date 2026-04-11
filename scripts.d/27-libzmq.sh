@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
         myconf+=( -DPOLLER="epoll" )
     fi
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DZMQ_STATIC"
 
     CFLAGS="$CFLAGS $CPPFLAGS -DZMQ_NO_EXPORT $static_flags" \

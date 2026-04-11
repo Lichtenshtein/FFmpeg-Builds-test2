@@ -41,7 +41,7 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DPCRE2_STATIC"
 
     CFLAGS="$CFLAGS ${USELTO}" \
@@ -57,7 +57,7 @@ ffbuild_dockerbuild() {
     for pc in "$PC_DIR"/*pcre2*.pc; do
         [[ -e "$pc" ]] || continue
         if ! grep -q "$static_flags" "$pc"; then
-            sed -i '/^Cflags:/ s/$/ $static_flags/' "$pc"
+            sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
         fi
         sed -i '/^Libs.private:/d' "$pc"
         echo "Libs.private: $DEP_LIBS" >> "$pc"

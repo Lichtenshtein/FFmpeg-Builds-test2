@@ -46,7 +46,7 @@ ffbuild_dockerbuild() {
         -DWITH_VPCLMULQDQ=OFF
     )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DZLIB_STATIC"
 
     CFLAGS="$CFLAGS $CPPFLAGS $static_flags" \
@@ -60,16 +60,15 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    ninja -j$(nproc) $NINJA_V || return 1
+    ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libzlibstatic.a" ]] && mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libzlibstatic.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libz.a"
 
     for pc in "$PC_DIR"/*zlib*.pc; do
         [[ -e "$pc" ]] || continue
-        sed -i '/^Cflags:/ s/$/ $static_flags/' "$pc"
+        sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
     done
-
 }
 
 ffbuild_cppflags() {

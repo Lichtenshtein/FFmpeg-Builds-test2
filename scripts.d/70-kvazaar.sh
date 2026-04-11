@@ -29,7 +29,7 @@ ffbuild_dockerbuild() {
         -DBUILD_KVAZAAR_BINARY=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON) # To build only the lib
     )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DKVZ_STATIC_LIB"
 
     CFLAGS="$CFLAGS" \

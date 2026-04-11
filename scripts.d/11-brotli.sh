@@ -16,7 +16,7 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DBROTLI_STATIC"
 
     local myconf=(
@@ -41,7 +41,7 @@ ffbuild_dockerbuild() {
 
     for pc in "$PC_DIR"/*brotli*.pc; do
         [[ -e "$pc" ]] || continue
-        sed -i '/^Cflags:/ s/$/ $static_flags/' "$pc"
+        sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
     done
 }
 

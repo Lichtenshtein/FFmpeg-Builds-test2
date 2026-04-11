@@ -35,7 +35,7 @@ ffbuild_dockerbuild() {
         -DWITH_ZLIB=ON
     )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBSSH_STATIC"
 
     CFLAGS="$CFLAGS $CPPFLAGS $static_flags -Dmd5=libssh_md5" \

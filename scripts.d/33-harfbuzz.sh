@@ -56,7 +56,8 @@ ffbuild_dockerbuild() {
         -Dbenchmark=disabled
     )
 
-    local static_flags=""
+    export static_flags=""
+    export self_static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCAIRO_WIN32_STATIC_BUILD" && self_static_flags="-DHARFBUZZ_STATIC"
 
     meson setup "${myconf[@]}" .. \
@@ -65,14 +66,14 @@ ffbuild_dockerbuild() {
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
-    ninja -j$(nproc) $NINJA_V || return 1
+    ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     if ls "$PC_DIR"/*harfbuzz*.pc >/dev/null 2>&1; then
         for pc in "$PC_DIR"/*harfbuzz*.pc; do
             [[ -e "$pc" ]] || continue
             if ! grep -q "$self_static_flags" "$pc"; then
-                sed -i '/^Cflags:/ s/$/ $self_static_flags/' "$pc"
+                sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$pc"
             fi
         done
     fi

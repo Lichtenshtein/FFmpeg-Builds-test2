@@ -38,7 +38,7 @@ ffbuild_dockerbuild() {
         --disable-maintainer-mode
     )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBTWOLAME_STATIC"
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
@@ -60,7 +60,7 @@ ffbuild_dockerbuild() {
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
         # Добавляем флаг статики в Cflags
         if ! grep -q "$static_flags" "$PC_FILE"; then
-            sed -i 's/Cflags:/Cflags: $static_flags/' "$PC_FILE"
+            sed -i "s/Cflags:/Cflags: $static_flags/" "$PC_FILE"
         fi
         # Добавляем математическую библиотеку для статической линковки
         echo "Libs.private: -lm" >> "$PC_FILE"

@@ -35,7 +35,7 @@ ffbuild_dockerbuild() {
         # --disable-nls
     )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DICONV_STATIC"
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \

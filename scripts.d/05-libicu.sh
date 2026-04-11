@@ -75,7 +75,7 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    local static_flags=""
+    export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DICU_STATIC"
 
     CFLAGS="${RAW_CFLAGS:-$CFLAGS} ${USELTO}" \
@@ -124,7 +124,7 @@ ffbuild_dockerbuild() {
         sed -i 's/-licu/-lsicu/g' "$pc"
         # Добавляем статический флаг
         if ! grep -q "$static_flags" "$pc"; then
-            sed -i '/^Cflags:/ s/$/ $static_flags/' "$pc"
+            sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
         fi
         # Вычищаем системные либы из основной строки Libs
         # (Удаляем ${baselibs}, -lpthread, -lm, так как они пойдут в private)

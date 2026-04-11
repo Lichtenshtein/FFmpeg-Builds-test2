@@ -338,13 +338,13 @@ if [[ -d "$INSTALL_ROOT" ]]; then
         # библиотеки MinGW создают libимя.dll.a (implib) даже для статики
         if [[ "$PREFER_SHARED" != "1" ]]; then
             if [[ ! "$STAGENAME" =~ $DLL_PRESERVE_LIST ]]; then
-                clean_unwanted_libs "Cleaning unwanted dynamic DLLs" "\( -name '*.dll' -o -name '*.dll.a' \)"
+                clean_unwanted_libs "Dynamic DLLs" "\( -name '*.dll' -o -name '*.dll.a' \)"
             else
                 log_info "${LOCK_MARK} Preserving dynamic DLLs for $STAGENAME"
             fi
         else
             if [[ -n "$LIB_PRESERVE_LIST" && ! "$STAGENAME" =~ $LIB_PRESERVE_LIST ]]; then
-                clean_unwanted_libs "Cleaning unwanted static libs" "-name '*.a' ! -name '*.dll.a'"
+                clean_unwanted_libs "Static libs" "-name '*.a' ! -name '*.dll.a'"
             else
                 log_info "${LOCK_MARK} Preserving static libs for $STAGENAME"
             fi
@@ -468,7 +468,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
     if [[ -n "$VARS_CONTENT" ]]; then
         # printf '%b' is safe — no format string injection
         printf '%b' "$VARS_CONTENT" | tr -d '\r' > "$OUTFILE"
-        log_info "Saved $(wc -c < "$OUTFILE") bytes to $OUTFILE"
+        log_debug "Saved $(wc -c < "$OUTFILE") bytes to $OUTFILE"
     else
         log_info "${CHECK_MARK} No build variables for $STAGENAME (meta/header-only)."
     fi

@@ -53,12 +53,12 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake "${myconf[@]}" .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
     # Сборка только библиотеки. 
     # Если 'make codec2' все еще капризничает из-за отсутствия исходников,
     # мы скомпилируем их вручную и добавим в архив.
-    if ! make -j$(nproc) codec2 $MAKE_V; then
+    if ! ninja $NINJA_V codec2; then
         log_warn "Standard make failed, performing manual object compilation..."
         # Компилируем все .c файлы из папки src
         for f in ../src/*.c; do
@@ -67,6 +67,8 @@ ffbuild_dockerbuild() {
         done
         ${AR} rcs src/libcodec2.a *.obj
     fi || return 1
+
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Установка
     mkdir -p "$PC_DIR"
@@ -110,7 +112,6 @@ EOF
             echo "Libs.private: -lm" >> "$PC_FILE"
         fi
     fi
-
 }
 
 ffbuild_configure() {
