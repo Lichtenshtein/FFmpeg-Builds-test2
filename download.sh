@@ -98,7 +98,7 @@ else
     LOCAL_HASH=$(cat "$FFMPEG_HASH_FILE" 2>/dev/null || echo "none")
 
     # Visual hash comparison
-    separator "─" "  HASH COMPARISON  "
+    separator_box "─" "  HASH COMPARISON  " "top"
     if [[ "$REMOTE_HASH" == "$LOCAL_HASH" ]]; then
         printf '  %-8s  %b%s%b\n' "local"  "$LOG_INFO"  "${LOCAL_HASH:0:12}"  "$NC" >&2
         printf '  %-8s  %b%s%b\n' "remote" "$LOG_INFO"  "${REMOTE_HASH:0:12}" "$NC" >&2
@@ -124,7 +124,7 @@ else
         _print_hash_diff "$LOCAL_HASH" "$REMOTE_HASH" "local" "remote"
         printf '  %-8s  %b%s%b\n' "status" "$LOG_WARN" "⚠️ update available" "$NC" >&2
     fi
-    separator "─"
+    separator_box "─" "" "bottom"
 
     if [[ "$REMOTE_HASH" == "$LOCAL_HASH" && -f "$FFMPEG_DIR/configure" ]]; then
         log_info "${CHECK_MARK} FFmpeg is up to date (Commit: ${REMOTE_HASH:0:7}). Skipping clone."
