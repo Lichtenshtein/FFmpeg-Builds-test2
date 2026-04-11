@@ -339,7 +339,7 @@ default_dl() {
 }
 export -f default_dl
 
----------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
 # configs Hash file is keyed on STAGE_HASH — when you pin a new commit in the build script, STAGE_HASH changes, the old .confhash is simply ignored and a new baseline is written. No false positives from script-only changes.
 # ${STAGENAME}_${STAGE_HASH}.confhash   # stored alongside .tar.zst in CACHE_DIR
 # Options are sorted before hashing — reordering options in upstream source doesn't trigger a change alert.
