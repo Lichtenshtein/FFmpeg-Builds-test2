@@ -148,8 +148,26 @@ stage_cleanup() {
                     # Ничего не нашли
                     if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
                         log_warn "No logs found. ${DIRS_MARK} Listing directory content of $BUILD_DIR:"
-                        ls -R "$BUILD_DIR" | grep -v '^$' | column -c ${COLUMNS:-80} >&2
-                        # ls -R "$BUILD_DIR" | head -n 100 >&2
+                        # 1) use find
+                        # -maxdepth 2 чтобы не выводить тысячи файлов из подпапок
+                        # sed добавляет отступы для имитации дерева
+                        find "$BUILD_DIR" -maxdepth 2 -not -path '*/.*' | sed -e "s|^$BUILD_DIR||" -e "s|^/||" | sort | while read -r line; do
+                            [[ -z "$line" ]] && continue
+                            full_path="${BUILD_DIR}/${line}"
+                            if [[ -d "$full_path" ]]; then
+                                echo -e "  ${DIRS_MARK} ${BLUE_B}${line}/${NC}" >&2
+                            elif [[ -x "$full_path" ]]; then
+                                echo -e "  ${CHECK_MARK} ${GREEN}${line}*${NC}" >&2
+                            else
+                                echo -e "    ${line}" >&2
+                            fi
+                        done
+                        # 2) or use ls
+                        # ls -F -C --color=always --group-directories-first "$BUILD_DIR" >&2
+                        # 3) better use tree (need rebuild)
+                        # -F добавляет / к папкам, -L 2 ограничивает глубину, чтобы не спамить
+                        # --dirsfirst группирует папки в начале
+                        # tree -F -L 2 --dirsfirst "$BUILD_DIR" >&2
                     else
                         log_warn "No logs were found."
                     fi
@@ -261,10 +279,9 @@ if [[ -n "$DL_COMMANDS" ]]; then
         if [[ -n "$CANDIDATE" ]]; then
             log_info "${DIRS_MARK} Project root found at $CANDIDATE. Entering..."
             cd "$CANDIDATE"
-        else
-            # try to generate conf
-            USE_CONF_FINDER=1
-            conf_finder
+        # else # this is harming
+        #     USE_CONF_FINDER=1
+        #     conf_finder # try to generate conf
         fi
     fi
 
@@ -334,7 +351,7 @@ log_info "### Starting build function: $build_cmd"
 log_info_line
 
 # Generate the 'configure' file (if it doesn't exist) for Autoconf
-conf_finder
+# conf_finder
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_debug "Verbose mode active. Build output will be shown in real-time."
