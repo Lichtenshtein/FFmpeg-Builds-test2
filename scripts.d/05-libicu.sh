@@ -6,6 +6,8 @@
 SCRIPT_REPO="https://github.com/unicode-org/icu.git"
 SCRIPT_COMMIT="3377fe3dc221b9eb090ac407a996bb5d764e0b6b"
 
+export USE_CONF_FINDER=0
+
 ffbuild_enabled() {
     return 0
 }
