@@ -59,6 +59,11 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
+    for pc in "$PC_DIR"/{freetype,freetype2}.pc; do
+        [[ -f "$pc" ]] || continue
+        # Убеждаемся, что Cflags указывает на правильную подпапку
+        sed -i "s|^Cflags:.*|Cflags: -I\${includedir}/freetype2|" "$pc"
+    done
     # Создаем симлинк
     local PC_LINK="$PC_DIR/freetype.pc"
     ln -sf freetype2.pc "$PC_LINK"
