@@ -19,15 +19,20 @@ ffbuild_dockerbuild() {
     # export USE_CONF_FINDER=1
 
     cd "/build/$STAGENAME"
+ls /usr/share/aclocal/libtool.m4
+
+    # Очистка старого мусора, если есть
+    rm -rf autom4te.cache config.cache
+ 
     mkdir -p m4
-    # инициализируем libtool (копирует ltmain.sh и макросы m4)
+
+    # Явно указываем системный путь к макросам libtool
+    # Обычно это помогает, когда aclocal внутри контейнера не знает свои пути
     libtoolize --force --copy
-    # Генерируем локальные макросы
-    aclocal -I m4
-    # Генерируем заголовок конфигурации (fficonfig.h.in)
+    aclocal -I m4 -I /usr/share/aclocal
     autoheader
-    # autoreconf соберет всё воедино, включая вспомогательные файлы (compile, missing)
-    autoreconf -fiv
+    automake --add-missing --copy --force-missing
+    autoconf
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
