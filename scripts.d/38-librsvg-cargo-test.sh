@@ -29,7 +29,7 @@ ffbuild_dockerbuild() {
     export SKIP_POST_STRIP=1
 
     local DEP_LIBS="-lpangocairo-1.0 -lpangowin32-1.0 -lpangoft2-1.0 -lpango-1.0 -lgio-2.0 -lgthread-2.0 -lglib-2.0 -ldav1d -lxml2 -lintl -liconv -lcharset"
-    local WIN_LIBS="-luserenv -lusp10 -lruntimeobject -lntdll -lmsimg32 -lgdi32 -lstdc++"
+    local WIN_LIBS="-luserenv -lusp10 -lruntimeobject -lntdll -lmsimg32 -lgdi32"
 
     # Настройки для Cargo (Rust кросс-компиляция)
     export CARGO_HOME="/opt/cargo"

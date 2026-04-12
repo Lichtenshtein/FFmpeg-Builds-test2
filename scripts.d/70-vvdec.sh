@@ -31,7 +31,7 @@ ffbuild_dockerbuild() {
         -DVVDEC_ENABLE_BUILD_TYPE_POSTFIX=OFF
         -DVVDEC_ENABLE_WERROR=OFF
         -DVVDEC_OPT_TARGET_ARCH="${CPU_ARCH:-broadwell}"
-        -DEXTRALIBS="-lstdc++"
+        # -DEXTRALIBS="-lstdc++"
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS $FLAGS" \

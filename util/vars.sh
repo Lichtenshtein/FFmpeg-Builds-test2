@@ -199,8 +199,8 @@ export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
 export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
 export HOST_LDFLAGS="-pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
 
-[[ "$USE_OPENMP" == "1" ]] && OPENMP_C=" -fopenmp" && OPENMP_LIB="-lgomp "
-[[ "$USE_LTO" == "1" ]] && RUSTLTO=" -C lto=fat" && export USELTO="-flto=auto" && export NOLTO="-fno-lto"
+[[ "$USE_OPENMP" == "1" ]] && export OPENMP_C=" -fopenmp" && export OPENMP_LIB="-lgomp "
+[[ "$USE_LTO" == "1" ]] && export RUSTLTO=" -C lto=fat" && export USELTO="-flto=auto" && export NOLTO="-fno-lto"
 
 SYSTEM_LIBS="${OPENMP_LIB}-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
 ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lnormaliz"
