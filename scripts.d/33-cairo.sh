@@ -91,8 +91,10 @@ ffbuild_dockerbuild() {
     local TARGET_PC="$PC_DIR/$pc"
         if [[ -f "$TARGET_PC" ]]; then
             sed -i "s/-lrt//g" "$TARGET_PC"
-            if ! grep -q "\$self_static_flags" "$TARGET_PC"; then
-                sed -i "s/Cflags:/& $self_static_flags/" "$TARGET_PC"
+            if [[ -n "$self_static_flags" ]]; then
+                if ! grep -qF -- "$self_static_flags" "$TARGET_PC"; then
+                    sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$TARGET_PC"
+                fi
             fi
         fi
     done

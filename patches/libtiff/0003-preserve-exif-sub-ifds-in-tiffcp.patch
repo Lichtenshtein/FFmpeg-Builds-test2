@@ -1,0 +1,368 @@
+From 23b4e969d0c58ffe9a5b463403159858a0575409 Mon Sep 17 00:00:00 2001
+From: Reini Urban <reini@spexai.com>
+Date: Tue, 10 Mar 2026 13:49:30 +0100
+Subject: [PATCH] Preserve EXIF sub-IFDs in tiffcp
+
+Fixes #793
+Co-authored-by: codex-gpt-5.4 <codex@openai.com>
+---
+diff --git a/tools/tiffcp.c b/tools/tiffcp.c
+index f801738a..76a53bc9 100644
+--- a/tools/tiffcp.c
++++ b/tools/tiffcp.c
+@@ -94,6 +94,9 @@ static int defpreset = -1;
+ static int subcodec = -1;
+ 
+ static int tiffcp(TIFF *, TIFF *);
++static int cpExif(TIFF *, TIFF *, tdir_t);
++static int cpExifTag(TIFF *, TIFF *, uint32_t);
++static char *cpEncodeByteString(const uint8_t *, uint16_t);
+ static int processCompressOptions(char *);
+ static void usage(int code);
+ 
+@@ -395,7 +398,8 @@ int main(int argc, char *argv[])
+             tilewidth = deftilewidth;
+             tilelength = deftilelength;
+             g3opts = defg3opts;
+-            if (!tiffcp(in, out) || !TIFFWriteDirectory(out))
++            if (!tiffcp(in, out) || !TIFFWriteDirectory(out) ||
++                !cpExif(in, out, TIFFCurrentDirectory(out)))
+             {
+                 (void)TIFFClose(in);
+                 (void)TIFFClose(out);
+@@ -712,6 +716,335 @@ static void usage(int code)
+             TIFFSetField(out, tag, v1, v2, v3, v4);                            \
+     } while (0)
+ 
++static int cpExif(TIFF *in, TIFF *out, tdir_t outdir)
++{
++    uint64_t exifoffset = 0;
++    uint64_t out_exif_offset = 0;
++    tdir_t indir = TIFFCurrentDirectory(in);
++    int tag_count = 0;
++    int tag_index = 0;
++
++    if (!TIFFGetField(in, TIFFTAG_EXIFIFD, &exifoffset))
++        return TRUE;
++    if (!TIFFReadEXIFDirectory(in, exifoffset))
++    {
++        TIFFError(TIFFFileName(in), "Failed to read EXIF directory at %" PRIu64,
++                  exifoffset);
++        return FALSE;
++    }
++    TIFFFreeDirectory(out);
++    if (TIFFCreateEXIFDirectory(out) != 0)
++    {
++        TIFFError(TIFFFileName(out), "Failed to create EXIF directory");
++        return FALSE;
++    }
++
++    tag_count = TIFFGetTagListCount(in);
++    for (tag_index = 0; tag_index < tag_count; ++tag_index)
++    {
++        if (!cpExifTag(in, out, TIFFGetTagListEntry(in, tag_index)))
++            return FALSE;
++    }
++
++    if (!TIFFWriteCustomDirectory(out, &out_exif_offset))
++    {
++        TIFFError(TIFFFileName(out), "Failed to write EXIF directory");
++        return FALSE;
++    }
++    if (!TIFFSetDirectory(out, outdir))
++    {
++        TIFFError(TIFFFileName(out),
++                  "Failed to reselect output directory %" PRIu32
++                  " after EXIF write",
++                  outdir);
++        return FALSE;
++    }
++    TIFFSetField(out, TIFFTAG_EXIFIFD, out_exif_offset);
++    if (!TIFFRewriteDirectory(out))
++    {
++        TIFFError(TIFFFileName(out),
++                  "Failed to rewrite output directory %" PRIu32
++                  " after EXIF write",
++                  outdir);
++        return FALSE;
++    }
++    if (!TIFFSetDirectory(in, indir))
++    {
++        TIFFError(TIFFFileName(in),
++                  "Failed to restore input directory %" PRIu32, indir);
++        return FALSE;
++    }
++    TIFFCreateDirectory(out);
++    return TRUE;
++}
++
++static char *cpEncodeByteString(const uint8_t *raw_data, uint16_t value_count)
++{
++    tmsize_t encoded_size = 3;
++    char *encoded = NULL;
++    char *dst = NULL;
++    uint16_t i = 0;
++
++    for (i = 0; i < value_count; ++i)
++    {
++        const uint8_t value = raw_data[i];
++
++        if (isprint(value) && value != '\\' && value != '"')
++            encoded_size += 1;
++        else if (value == '\t' || value == '\b' || value == '\r' ||
++                 value == '\n' || value == '\v' || value == '\f' ||
++                 value == '\\' || value == '"')
++            encoded_size += 2;
++        else
++            encoded_size += 4;
++    }
++
++    encoded = (char *)limitMalloc(encoded_size);
++    if (encoded == NULL)
++        return NULL;
++
++    dst = encoded;
++    *dst++ = '"';
++    for (i = 0; i < value_count; ++i)
++    {
++        const uint8_t value = raw_data[i];
++
++        if (isprint(value) && value != '\\' && value != '"')
++        {
++            *dst++ = (char)value;
++            continue;
++        }
++
++        *dst++ = '\\';
++        switch (value)
++        {
++            case '\t':
++                *dst++ = 't';
++                break;
++            case '\b':
++                *dst++ = 'b';
++                break;
++            case '\r':
++                *dst++ = 'r';
++                break;
++            case '\n':
++                *dst++ = 'n';
++                break;
++            case '\v':
++                *dst++ = 'v';
++                break;
++            case '\f':
++                *dst++ = 'f';
++                break;
++            case '\\':
++                *dst++ = '\\';
++                break;
++            case '"':
++                *dst++ = '"';
++                break;
++            default:
++                *dst++ = (char)('0' + ((value >> 6) & 0x07));
++                *dst++ = (char)('0' + ((value >> 3) & 0x07));
++                *dst++ = (char)('0' + (value & 0x07));
++                break;
++        }
++    }
++    *dst++ = '"';
++    *dst = '\0';
++    return encoded;
++}
++
++static int cpExifTag(TIFF *in, TIFF *out, uint32_t tag)
++{
++    const TIFFField *fip = TIFFFieldWithTag(in, tag);
++    int value_count = 0;
++
++    if (tag == EXIFTAG_MAKERNOTE)
++    {
++        uint16_t maker_note_count = 0;
++        uint8_t *maker_note_data = NULL;
++        char *encoded_maker_note = NULL;
++
++        if (TIFFGetField(in, tag, &maker_note_count, &maker_note_data))
++            encoded_maker_note =
++                cpEncodeByteString(maker_note_data, maker_note_count);
++
++        if (encoded_maker_note != NULL)
++        {
++            TIFFWarning(TIFFFileName(in),
++                        "Skipping EXIF tag MakerNote (%u) because it might "
++                        "contain absolute file offsets. Encoded value "
++                        "(%u bytes): %s",
++                        (unsigned)tag, (unsigned)maker_note_count,
++                        encoded_maker_note);
++            _TIFFfree(encoded_maker_note);
++        }
++        else
++        {
++            TIFFWarning(TIFFFileName(in),
++                        "Skipping EXIF tag MakerNote (%u) because it might "
++                        "contain absolute file offsets",
++                        (unsigned)tag);
++        }
++        return TRUE;
++    }
++
++    if (fip == NULL)
++        return TRUE;
++
++    if (TIFFFieldPassCount(fip))
++    {
++        void *raw_data = NULL;
++
++        if (TIFFFieldReadCount(fip) == TIFF_VARIABLE2)
++        {
++            uint32_t value_count = 0;
++
++            if (!TIFFGetField(in, tag, &value_count, &raw_data))
++                return TRUE;
++            return TIFFSetField(out, tag, value_count, raw_data);
++        }
++        else
++        {
++            uint16_t value_count = 0;
++
++            if (!TIFFGetField(in, tag, &value_count, &raw_data))
++                return TRUE;
++            return TIFFSetField(out, tag, value_count, raw_data);
++        }
++    }
++
++    value_count = TIFFFieldReadCount(fip);
++    if (value_count == TIFF_VARIABLE || value_count == TIFF_VARIABLE2)
++        value_count = 1;
++    else if (value_count == TIFF_SPP)
++    {
++        uint16_t samplesperpixel = 0;
++
++        TIFFGetFieldDefaulted(in, TIFFTAG_SAMPLESPERPIXEL, &samplesperpixel);
++        value_count = samplesperpixel;
++    }
++
++    if (TIFFFieldDataType(fip) == TIFF_ASCII)
++    {
++        char *raw_data = NULL;
++
++        if (!TIFFGetField(in, tag, &raw_data))
++            return TRUE;
++        return TIFFSetField(out, tag, raw_data);
++    }
++
++    if (value_count > 1)
++    {
++        void *raw_data = NULL;
++
++        if (!TIFFGetField(in, tag, &raw_data))
++            return TRUE;
++        return TIFFSetField(out, tag, raw_data);
++    }
++
++    switch (TIFFFieldDataType(fip))
++    {
++        case TIFF_BYTE:
++        case TIFF_UNDEFINED:
++        {
++            uint8_t value = 0;
++            if (!TIFFGetField(in, tag, &value))
++                return TRUE;
++            return TIFFSetField(out, tag, value);
++        }
++        case TIFF_SBYTE:
++        {
++            int8_t value = 0;
++            if (!TIFFGetField(in, tag, &value))
++                return TRUE;
++            return TIFFSetField(out, tag, value);
++        }
++        case TIFF_SHORT:
++        {
++            uint16_t value = 0;
++            if (!TIFFGetField(in, tag, &value))
++                return TRUE;
++            return TIFFSetField(out, tag, value);
++        }
++        case TIFF_SSHORT:
++        {
++            int16_t value = 0;
++            if (!TIFFGetField(in, tag, &value))
++                return TRUE;
++            return TIFFSetField(out, tag, value);
++        }
++        case TIFF_LONG:
++        case TIFF_IFD:
++        {
++            uint32_t value = 0;
++            if (!TIFFGetField(in, tag, &value))
++                return TRUE;
++            return TIFFSetField(out, tag, value);
++        }
++        case TIFF_SLONG:
++        {
++            int32_t value = 0;
++            if (!TIFFGetField(in, tag, &value))
++                return TRUE;
++            return TIFFSetField(out, tag, value);
++        }
++        case TIFF_LONG8:
++        case TIFF_IFD8:
++        {
++            uint64_t value = 0;
++            if (!TIFFGetField(in, tag, &value))
++                return TRUE;
++            return TIFFSetField(out, tag, value);
++        }
++        case TIFF_SLONG8:
++        {
++            int64_t value = 0;
++            if (!TIFFGetField(in, tag, &value))
++                return TRUE;
++            return TIFFSetField(out, tag, value);
++        }
++        case TIFF_RATIONAL:
++        case TIFF_SRATIONAL:
++            if (TIFFFieldSetGetSize(fip) == (int)sizeof(double))
++            {
++                double value = 0.0;
++                if (!TIFFGetField(in, tag, &value))
++                    return TRUE;
++                return TIFFSetField(out, tag, value);
++            }
++            else
++            {
++                float value = 0.0f;
++                if (!TIFFGetField(in, tag, &value))
++                    return TRUE;
++                return TIFFSetField(out, tag, value);
++            }
++        case TIFF_FLOAT:
++        {
++            float value = 0.0f;
++            if (!TIFFGetField(in, tag, &value))
++                return TRUE;
++            return TIFFSetField(out, tag, value);
++        }
++        case TIFF_DOUBLE:
++        {
++            double value = 0.0;
++            if (!TIFFGetField(in, tag, &value))
++                return TRUE;
++            return TIFFSetField(out, tag, value);
++        }
++        case TIFF_NOTYPE:
++        case TIFF_ASCII:
++        default:
++            break;
++    }
++
++    TIFFError(TIFFFileName(in), "EXIF tag %u has unsupported data type %u",
++              (unsigned)tag, (unsigned)TIFFFieldDataType(fip));
++    return TRUE;
++}
++
+ static void cpTag(TIFF *in, TIFF *out, uint16_t tag, uint16_t count,
+                   TIFFDataType type)
+ {

@@ -72,7 +72,11 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/libarchive.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$PC_FILE"
+        if [[ -n "$self_static_flags" ]]; then
+            if ! grep -qF -- "$self_static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$PC_FILE"
+            fi
+        fi
         if grep -q "^Libs.private:" "$PC_FILE"; then
             sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS|" "$PC_FILE"
         else

@@ -66,7 +66,11 @@ ffbuild_dockerbuild() {
     # Фикс pkg-config для статической линковки
     if [[ -f "$PC_DIR/oapv.pc" ]]; then
         sed -i 's/Libs: /Libs.private: -lm\nLibs: /' "$PC_DIR/oapv.pc"
-        echo "Cflags: $static_flags" >> "$PC_DIR/oapv.pc"
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$static_flags" "$PC_DIR/oapv.pc"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_DIR/oapv.pc"
+            fi
+        fi
     fi
 }
 

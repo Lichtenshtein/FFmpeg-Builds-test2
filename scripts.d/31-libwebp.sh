@@ -71,7 +71,11 @@ ffbuild_dockerbuild() {
     for pc in libwebp.pc libwebpmux.pc libwebpdemux.pc libwebpdecoder.pc libsharpyuv.pc; do
         local PC_PATH="$PC_DIR/$pc"
         [[ -f "$PC_PATH" ]] || continue
-        sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_PATH"
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$static_flags" "$PC_PATH"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_PATH"
+            fi
+        fi
     done
 }
 

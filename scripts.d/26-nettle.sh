@@ -31,6 +31,7 @@ ffbuild_dockerbuild() {
         --disable-openssl
         # --disable-assembler # если будут ошибки в x86_64/*.asm
         --disable-documentation
+        # --enable-mini-gmp # enable mini-gmp, used instead of libgmp
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
