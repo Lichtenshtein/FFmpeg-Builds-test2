@@ -79,4 +79,3 @@ ffbuild_dockerbuild() {
         fi
     fi
 }
-}
