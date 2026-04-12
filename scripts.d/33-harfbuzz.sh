@@ -61,8 +61,8 @@ ffbuild_dockerbuild() {
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCAIRO_WIN32_STATIC_BUILD" && self_static_flags="-DHARFBUZZ_STATIC"
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS $self_static_flags $static_flags -Wno-redundant-decls" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS $self_static_flags $static_flags -Wno-redundant-decls" \
+        -Dc_args="$CFLAGS $CPPFLAGS -I$FFBUILD_PREFIX/include/freetype2 $self_static_flags $static_flags -Wno-redundant-decls" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS -I$FFBUILD_PREFIX/include/freetype2 $self_static_flags $static_flags -Wno-redundant-decls" \
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
