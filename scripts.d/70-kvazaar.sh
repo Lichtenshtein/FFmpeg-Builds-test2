@@ -42,7 +42,11 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    echo "Cflags.private: $static_flags" >> "$PC_DIR/kvazaar.pc"
+    if [[ -n "$static_flags" ]]; then
+        if ! grep -qF -- "$static_flags" "$PC_DIR/kvazaar.pc"; then
+            sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_DIR/kvazaar.pc"
+        fi
+    fi
     echo "Libs.private: -pthread" >> "$PC_DIR/kvazaar.pc"
 }
 

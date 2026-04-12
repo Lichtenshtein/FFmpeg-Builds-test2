@@ -56,8 +56,10 @@ ffbuild_dockerbuild() {
 
     for pc in "$PC_DIR"/*pcre2*.pc; do
         [[ -e "$pc" ]] || continue
-        if ! grep -q "$static_flags" "$pc"; then
-            sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$static_flags" "$pc"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
+            fi
         fi
         sed -i '/^Libs.private:/d' "$pc"
         echo "Libs.private: $DEP_LIBS" >> "$pc"

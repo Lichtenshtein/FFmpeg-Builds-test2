@@ -135,8 +135,10 @@ ffbuild_dockerbuild() {
         # Меняем имена библиотек (icu -> sicu)
         sed -i 's/-licu/-lsicu/g' "$pc"
         # Добавляем статический флаг
-        if ! grep -q "$static_flags" "$pc"; then
-            sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$static_flags" "$pc"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
+            fi
         fi
         # Вычищаем системные либы из основной строки Libs
         # (Удаляем ${baselibs}, -lpthread, -lm, так как они пойдут в private)

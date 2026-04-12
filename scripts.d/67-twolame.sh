@@ -56,14 +56,11 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/twolame.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Исправляем префикс, если он стал абсолютным
-        sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
-        # Добавляем флаг статики в Cflags
-        if ! grep -q "$static_flags" "$PC_FILE"; then
-            sed -i "s/Cflags:/Cflags: $static_flags/" "$PC_FILE"
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+            fi
         fi
-        # Добавляем математическую библиотеку для статической линковки
-        echo "Libs.private: -lm" >> "$PC_FILE"
     fi
 }
 

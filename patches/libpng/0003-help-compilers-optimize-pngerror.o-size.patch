@@ -1,0 +1,56 @@
+From c88ec379843f624f0c35e346c06f293e1d6fcf1a Mon Sep 17 00:00:00 2001
+From: Tobias Stoeckmann <tobias@stoeckmann.org>
+Date: Tue, 30 Sep 2025 19:32:45 +0200
+Subject: [PATCH] Help compilers optimize pngerror.o size
+
+Resolving numbers into printable hexadecimal characters happens in two
+functions (if compiled in): png_format_number and png_format_buffer.
+
+At least GCC 15 does not notice that the static variable png_digit is a
+subset of static variable digits, which means that both strings are
+added to object file.
+
+Rewrite png_digit to resemble digits, so only one such string ends up
+in compiled library.
+---
+diff --git a/pngerror.c b/pngerror.c
+index 4a1da0845..ea2866f88 100644
+--- a/pngerror.c
++++ b/pngerror.c
+@@ -250,20 +250,13 @@ png_formatted_warning(png_const_structrp png_ptr, png_warning_parameters p,
+        */
+       if (p != NULL && *message == '@' && message[1] != '\0')
+       {
+-         int parameter_char = *++message; /* Consume the '@' */
+-         static const char valid_parameters[] = "123456789";
+-         int parameter = 0;
+-
+-         /* Search for the parameter digit, the index in the string is the
+-          * parameter to use.
+-          */
+-         while (valid_parameters[parameter] != parameter_char &&
+-            valid_parameters[parameter] != '\0')
+-            ++parameter;
++         const int parameter_char = *++message; /* Consume the '@' */
+ 
+          /* If the parameter digit is out of range it will just get printed. */
+-         if (parameter < PNG_WARNING_PARAMETER_COUNT)
++         if (parameter_char >= '1' && parameter_char <= '9')
+          {
++            const int parameter = parameter_char - '1';
++
+             /* Append this parameter */
+             png_const_charp parm = p[parameter];
+             png_const_charp pend = p[parameter] + (sizeof p[parameter]);
+@@ -370,10 +363,7 @@ png_app_error(png_const_structrp png_ptr, png_const_charp error_message)
+  * if the character is invalid.
+  */
+ #define isnonalpha(c) ((c) < 65 || (c) > 122 || ((c) > 90 && (c) < 97))
+-static const char png_digit[16] = {
+-   '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+-   'A', 'B', 'C', 'D', 'E', 'F'
+-};
++static const char png_digit[] = "0123456789ABCDEF";
+ 
+ static void /* PRIVATE */
+ png_format_buffer(png_const_structrp png_ptr, png_charp buffer,

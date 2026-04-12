@@ -76,7 +76,11 @@ ffbuild_dockerbuild() {
     local PC_FILE="$PC_DIR/libxml-2.0.pc"
     if [[ -f "$PC_FILE" ]]; then
         sed -i "s/ -DLIBXML_STATIC//g; s/ -DXML_STATIC//g" "$PC_FILE"
-        sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+            fi
+        fi
     fi
 }
 

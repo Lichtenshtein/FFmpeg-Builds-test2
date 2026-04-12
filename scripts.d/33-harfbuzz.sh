@@ -72,8 +72,10 @@ ffbuild_dockerbuild() {
     if ls "$PC_DIR"/*harfbuzz*.pc >/dev/null 2>&1; then
         for pc in "$PC_DIR"/*harfbuzz*.pc; do
             [[ -e "$pc" ]] || continue
-            if ! grep -q "$self_static_flags" "$pc"; then
-                sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$pc"
+            if [[ -n "$self_static_flags" ]]; then
+                if ! grep -qF -- "$self_static_flags" "$pc"; then
+                    sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$pc"
+                fi
             fi
         done
     fi

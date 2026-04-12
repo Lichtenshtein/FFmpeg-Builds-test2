@@ -50,10 +50,12 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    {
-        echo "Cflags.private: -DZMQ_NO_EXPORT $static_flags"
-        [[ $TARGET != win* ]] || echo "Libs.private: -lws2_32 -liphlpapi"
-    } >> "$PC_DIR/libzmq.pc"
+    echo "Cflags.private: -DZMQ_NO_EXPORT" >> "$PC_DIR/libzmq.pc"
+    if [[ -n "$static_flags" ]]; then
+        if ! grep -qF -- "$static_flags" "$PC_DIR/libzmq.pc"; then
+            sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_DIR/libzmq.pc"
+        fi
+    fi
 }
 
 ffbuild_cppflags() {

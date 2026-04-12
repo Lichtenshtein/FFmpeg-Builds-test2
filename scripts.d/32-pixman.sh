@@ -47,9 +47,13 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/pixman-1.pc"
     if [[ -f "$PC_FILE" ]]; then
+        # Заменяем зависимость с png на libpng
+        sed -i 's/Requires.private:.*png.*/Requires.private: libpng/g' "$PC_FILE"
         sed -i "/^Cflags:/ s/[[:space:]]*-pthread//g" "$PC_FILE"
-        if ! grep -q "$static_flags" "$PC_FILE"; then
-            sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+            fi
         fi
     fi
 }
