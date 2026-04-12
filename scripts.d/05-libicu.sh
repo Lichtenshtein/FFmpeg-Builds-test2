@@ -1,10 +1,10 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/winlibs/icu4c.git"
-SCRIPT_COMMIT="25b56cd344f49183b7c20909cb0558bf81d93673"
+# SCRIPT_REPO="https://github.com/winlibs/icu4c.git"
+# SCRIPT_COMMIT="25b56cd344f49183b7c20909cb0558bf81d93673"
 
-# SCRIPT_REPO="https://github.com/unicode-org/icu.git"
-# SCRIPT_COMMIT="426cea1b85e82e632dc5c0b35c7d329c0eb4af7b"
+SCRIPT_REPO="https://github.com/unicode-org/icu.git"
+SCRIPT_COMMIT="3377fe3dc221b9eb090ac407a996bb5d764e0b6b"
 
 ffbuild_enabled() {
     return 0
@@ -16,7 +16,8 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    [[ -d "source" ]] && cd source
+    # [[ -d "source" ]] && cd source
+    cd icu4c/source
 
     unset CC CXX LD AR CPP LIBS CCAS
     unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
@@ -28,12 +29,14 @@ ffbuild_dockerbuild() {
     CC=gcc CXX=g++ AR=ar RANLIB=ranlib CFLAGS="" CXXFLAGS="" LDFLAGS="" \
     ../runConfigureICU Linux --prefix="$(pwd)/install" \
         --enable-tools \
+        --disable-release \
         --disable-tests \
         --disable-samples \
         --disable-icuio \
         --disable-extras \
         --disable-layoutex \
         --disable-dyload \
+        --disable-strict \
         --disable-icu-config \
         --disable-plugins \
         --with-data-packaging=$([ "${PREFER_SHARED}" == "1" ] && echo library || echo static) \
@@ -70,6 +73,7 @@ ffbuild_dockerbuild() {
         --disable-tests
         --disable-plugins
         --disable-samples
+        --disable-strict # supress warnings
         --disable-dyload
         --disable-tools
         --disable-icu-config
