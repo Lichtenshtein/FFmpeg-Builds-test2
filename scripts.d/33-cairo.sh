@@ -28,9 +28,9 @@ ffbuild_dockerbuild() {
     set -e
 
     # Зависимости из чит-листа в правильном порядке линковки
-    local DEP_LIBS="-lfontconfig -lpixman-1 -lxml2 -lpng16 -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfreetype -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz"
+    local DEP_LIBS="-lfontconfig -lpixman-1 -lxml2 -lpng16 -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfreetype -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -licuin -licuuc -licudt"
     # Набор системных библиотек Windows для Cairo
-    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -luuid $LIBS -lstdc++"
+    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -luuid $LIBS"
 
     # конфликт hypot в коде Cairo для MinGW
     # error: implicit declaration of function '_hypot'
@@ -38,20 +38,7 @@ ffbuild_dockerbuild() {
 
     mkdir -p _build && cd _build
 
-    # Очищаем LDFLAGS от мусора POSIX (librt и libpthread здесь не нужны)
-    # export LDFLAGS="$(echo $LDFLAGS | sed 's/-lrt//g; s/-lpthread//g')"
     export LDFLAGS=$(echo "$LDFLAGS" | sed 's/-lrt//g')
-
-    # Remove standard flags from CFLAGS/CXXFLAGS meson sets these via options
-    # export CFLAGS="$(echo $CFLAGS | sed 's/-std=gnu11//g; s/-std=c11//g')"
-    # export CXXFLAGS="$(echo $CXXFLAGS | sed 's/-std=c++17//g')"
-
-    # Ищем системный путь либ тулчейна
-    # local GDI_PATH=$(${CC} -print-file-name=libgdi32.a)
-    # local MINGW_SYS_LIBDIR=$(dirname "$GDI_PATH")
-    # [[ "$MINGW_SYS_LIBDIR" == "." ]] && MINGW_SYS_LIBDIR="$(${CC} -print-sysroot)/lib"
-    # log_debug "Looking for gdi32: $GDI_PATH"
-    # log_debug "Looking for LIBDIR: $MINGW_SYS_LIBDIR"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"

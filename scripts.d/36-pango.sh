@@ -25,8 +25,8 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
-    local DEP_LIBS="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lcairo-gobject -lcairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lfontconfig -lfreetype -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfribidi -lbrotlienc -lbrotlidec -lbrotlicommon"
-    local WIN_LIBS="-lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -luuid $LIBS -lstdc++"
+    local DEP_LIBS="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lcairo-gobject -lcairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lfontconfig -lfreetype -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfribidi -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -licuin -licuuc -licudt"
+    local WIN_LIBS="-lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -luuid $LIBS"
     export CC="x86_64-w64-mingw32-g++"
 
     local LDFLAGS=$(echo "$LDFLAGS" | sed 's/-lssp//g')
@@ -38,8 +38,8 @@ ffbuild_dockerbuild() {
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         --wrap-mode=nodownload
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
-        # -Dcpp_std=c++17
-        # -Dc_std=c11
+        -Dcpp_std=c++17
+        -Dc_std=c11
         -Dintrospection=disabled
         -Dfontconfig=enabled
         -Dfreetype=enabled
