@@ -526,18 +526,29 @@ patch_pc_files() {
             local normalized_cflags=""
             local seen_paths=""
             # Extract each -I flag and normalize it
-            echo "$cflags_line" | grep -oE '\-I[^ ]+' | while read -r iflag; do
-                local path="${iflag#-I}"
-                local normalized=$(normalize_include_path "$path") || continue
-                # Deduplicate paths
-                if ! echo "$seen_paths" | grep -qF "$normalized"; then
-                    normalized_cflags="$normalized_cflags -I$normalized"
-                    seen_paths="$seen_paths $normalized"
+            for flag in $cflags_line; do
+                if [[ "$flag" == -I* ]]; then
+                    local path="${flag#-I}"
+                    # Пытаемся нормализовать. Если функция вернула 1 или пусто, 
+                    # оставляем оригинальный путь, чтобы не потерять его.
+                    local normalized
+                    normalized=$(normalize_include_path "$path") || normalized="$path"
+                    if ! echo "$seen_paths" | grep -qF "x$normalized"; then
+                        normalized_cflags="$normalized_cflags -I$normalized"
+                        seen_paths="$seen_paths x$normalized"
+                    fi
+                else
+                    # Сохраняем макросы (-D) и прочие флаги
+                    normalized_cflags="$normalized_cflags $flag"
                 fi
             done
-            # Rebuild Cflags with normalized paths + other flags (defines, etc.)
-            local other_flags=$(echo "$cflags_line" | sed 's/-I[^ ]*//g' | xargs -r)
-            sed -i "s|^Cflags:.*|Cflags: $normalized_cflags $other_flags|" "$pc"
+            # Гарантируем наличие основного пути, если его вдруг не было
+            if [[ ! "$normalized_cflags" == *"\${includedir}"* ]]; then
+                 normalized_cflags="-I\${includedir} $normalized_cflags"
+            fi
+            # Чистим пробелы и записываем
+            normalized_cflags=$(echo "$normalized_cflags" | xargs)
+            sed -i "s|^Cflags:.*|Cflags: $normalized_cflags|" "$pc"
         fi
 
         # Dependency scanner (Autotools, CMake, Meson)
