@@ -155,11 +155,11 @@ stage_cleanup() {
                             [[ -z "$line" ]] && continue
                             full_path="${BUILD_DIR}/${line}"
                             if [[ -d "$full_path" ]]; then
-                                echo -e "  ${DIRS_MARK} ${BLUE_B}${line}/${NC}" >&2
+                                echo -e "${DIRS_MARK} ${BLUE_B}${line}/${NC}" >&2
                             elif [[ -x "$full_path" ]]; then
-                                echo -e "  ${CHECK_MARK} ${GREEN}${line}*${NC}" >&2
+                                echo -e "${CHECK_MARK} ${GREEN}${line}*${NC}" >&2
                             else
-                                echo -e "    ${line}" >&2
+                                echo -e " ${line}" >&2
                             fi
                         done
                         # 2) or use ls

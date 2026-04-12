@@ -3,6 +3,8 @@
 SCRIPT_REPO="https://github.com/libffi/libffi.git"
 SCRIPT_COMMIT="170bab47c90626a33cd08f2169034600cfd9589c"
 
+export USE_CONF_FINDER=0
+
 ffbuild_enabled() {
     return 0
 }
@@ -17,7 +19,7 @@ ffbuild_dockerbuild() {
     set -e
 
     # -i установит недостающие вспомогательные файлы (compile, missing и т.д.)
-    # autoreconf -fiv
+    autoreconf -fiv
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
