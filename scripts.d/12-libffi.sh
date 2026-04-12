@@ -3,8 +3,6 @@
 SCRIPT_REPO="https://github.com/libffi/libffi.git"
 SCRIPT_COMMIT="170bab47c90626a33cd08f2169034600cfd9589c"
 
-export USE_CONF_FINDER=1
-
 ffbuild_enabled() {
     return 0
 }
@@ -18,8 +16,13 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # export USE_CONF_FINDER=1
+
     # -i установит недостающие вспомогательные файлы (compile, missing и т.д.)
     # autoreconf -fiv <-- doesn't work by itself
+
+    cd "/build/$STAGENAME"
+    ./autogen.sh
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
