@@ -464,18 +464,44 @@ patch_pc_files() {
     # Helper: validate and normalize a single include path
     normalize_include_path() {
         local path="$1"
+
+        # Если путь уже содержит переменные pkg-config — возвращаем как есть
+        if [[ "$path" == *'${includedir}'* || "$path" == *'${prefix}'* ]]; then
+            echo "$path"
+            return
+        fi
+
+        # Если это путь к freetype2 внутри нашего префикса
+        if [[ "$path" == "$FFBUILD_PREFIX/include/freetype2" || "$path" == "/opt/ffbuild/include/freetype2" ]]; then
+            echo "\${includedir}/freetype2"
+            return
+        fi
+
+        #  Стандартный префикс
+        if [[ "$path" == "$FFBUILD_PREFIX"* ]]; then
+            local suffix="${path#$FFBUILD_PREFIX}"
+            # Если путь это просто /include, превращаем в ${includedir}
+            [[ "$suffix" == "/include" ]] && echo "\${includedir}" && return
+            # Иначе сохраняем структуру
+            echo "\${prefix}${suffix}"
+            return
+        fi
+
         # Already a variable reference — keep it
         [[ "$path" == *'${'* ]] && echo "$path" && return
+
         # Absolute path to our prefix — replace with variable
         if [[ "$path" == "$FFBUILD_PREFIX"* ]]; then
             echo "\${prefix}${path#$FFBUILD_PREFIX}"
             return
         fi
+
         # Bare /include or /usr/include — replace with ${includedir}
         if [[ "$path" == "/include" || "$path" == "/usr/include" ]]; then
             echo "\${includedir}"
             return
         fi
+
         # Relative path like ../include — resolve and check
         if [[ "$path" == ../* ]]; then
             local resolved
@@ -485,6 +511,7 @@ patch_pc_files() {
                 return
             fi
         fi
+
         # Unrecognized — log warning and drop
         log_warn "Dropping unrecognized include path: $path"
         return 1
@@ -1141,6 +1168,79 @@ if [ -d "/opt/ct-ng" ]; then
         [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_raw "${DIRS_MARK} WINEPATH (Windows style):" "$WINEPATH"
     fi
 fi
+
+# Определяем режим работы Wine (берем из ENV или ставим auto по умолчанию)
+# may not work from here because $STAGE is set in run_stage.sh before setup_wine_env is called; might need to be moved to top of run_stage.sh
+USE_WINE="${USE_WINE:-1}"
+setup_wine_env() {
+    # Сохраняем текущее состояние set -e
+    local errexit_state=$([[ $- =~ e ]] && echo "set -e" || echo "set +e")
+    set +e # Временно отключаем остановку при ошибках
+
+    # Wine globally disabled
+    if [[ "${USE_WINE:-0}" != "1" ]]; then
+        eval "$errexit_state"; return 0
+    fi
+
+    # No stage to inspect
+    if [[ -z "$STAGE" || ! -f "$STAGE" ]]; then
+        eval "$errexit_state"; return 0
+    fi
+
+    # Scan the stage script for patterns that indicate Wine is needed.
+    # We search for:
+    #   - explicit wine invocations
+    #   - test runner calls that require executing Windows binaries
+    #   - direct .exe execution
+    # NOTE: grep searches the script SOURCE FILE, so patterns must match
+    # what authors write in ffbuild_dockerbuild(), not runtime commands.
+    local wine_patterns=(
+        'wine[[:space:]]'       # wine <binary>
+        'wineboot'              # explicit wineboot call
+        '\.exe'                 # any .exe reference (run or test)
+        'meson[[:space:]]+test' # meson test runner
+        'ctest'                 # cmake test runner
+        'make[[:space:]]+check' # autotools make check
+        'make[[:space:]]+test'  # autotools make test
+        'ninja[[:space:]]+test' # ninja test target
+    )
+
+    local combined_pattern
+    combined_pattern=$(printf '%s|' "${wine_patterns[@]}")
+    combined_pattern="${combined_pattern%|}" # strip trailing |
+
+    if ! grep -qE "$combined_pattern" "$STAGE"; then
+        log_debug "Wine: skipped for $STAGENAME (no execution patterns found)"
+        eval "$errexit_state"; return 0
+    fi
+
+    log_info "${START_MARK} Wine required for $STAGENAME — initializing..."
+
+    # Start virtual display if not already running
+    if ! pgrep -x "Xvfb" > /dev/null 2>&1; then
+        log_info "${START_MARK} Initializing Xvfb on :99 for Wine tests..."
+        # Запуск на дисплее 99 без xvfb-run (меньше оверхед)
+        ( Xvfb :99 -screen 0 1024x768x16 >/dev/null 2>&1 & )
+        local retry=0
+        while [[ $retry -lt 15 ]]; do
+            DISPLAY=:99 xset -q >/dev/null 2>&1 && break
+            sleep 0.2
+            (( retry++ ))
+        done
+        if [[ $retry -ge 15 ]]; then
+            log_warn "Xvfb did not start in time - Wine tests may fail"
+        fi
+    fi
+
+    export DISPLAY=:99
+
+    # Warm up Wine server asynchronously
+
+    ( wineboot -u >/dev/null 2>&1 & )
+
+    eval "$errexit_state"
+}
+export -f setup_wine_env
 
 conf_finder() {
     # Opt-IN: only run if script explicitly requests it
