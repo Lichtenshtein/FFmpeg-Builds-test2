@@ -24,6 +24,13 @@ ffbuild_dockerbuild() {
     local DEP_LIBS="-lfreetype -lsicuin -lsicuuc -lsicudt"
     local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
 
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DHARFBUZZ_STATIC"
+    
+    export CFLAGS="$CFLAGS $CPPFLAGS $static_flags -Wno-redundant-decls"
+    export CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags -Wno-redundant-decls"
+    export LDFLAGS="$LDFLAGS"
+
     local myconf=(
         --cross-file=/cross.meson
         --prefix="$FFBUILD_PREFIX"
@@ -55,11 +62,7 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DHARFBUZZ_STATIC"
 
-    meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS $static_flags -Wno-redundant-decls" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags -Wno-redundant-decls" \
-        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
-        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
+    meson setup "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
