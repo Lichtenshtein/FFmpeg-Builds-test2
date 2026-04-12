@@ -29,8 +29,10 @@ ffbuild_dockerbuild() {
         -Dc_std=c11
         -Dtests=disabled
         -Ddemos=disabled
+        -Dsse2=enabled
+        -Dssse3=enabled
         -Dgtk=disabled
-        -Dopenmp=disabled
+        -Dopenmp=$([ "${USE_OPENMP}" == "1" ] && echo enabled || echo disabled)
     )
 
     export static_flags=""
