@@ -58,7 +58,4 @@ ffbuild_dockerbuild() {
     # Создаем симлинк
     local PC_LINK="$PC_DIR/freetype.pc"
     ln -sf freetype2.pc "$PC_LINK"
-
-ls -R $FFBUILD_PREFIX/include
-
 }
