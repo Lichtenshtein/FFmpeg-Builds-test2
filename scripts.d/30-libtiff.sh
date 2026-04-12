@@ -16,8 +16,6 @@ ffbuild_dockerbuild() {
 
     mkdir -p tiff_build && cd tiff_build
 
-    local DEP_LIBS="-lstdc++"
-
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release

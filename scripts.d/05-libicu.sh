@@ -88,7 +88,7 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-static --disable-shared )
 
     export static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DICU_STATIC"
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DICU_STATIC -DU_STATIC_IMPLEMENTATION"
 
     CFLAGS="${RAW_CFLAGS:-$CFLAGS} ${USELTO}" \
     CPPFLAGS="${RAW_CPPFLAGS:-$CPPFLAGS} $static_flags" \
@@ -129,7 +129,7 @@ ffbuild_dockerbuild() {
     [[ -f "sicudt.a" ]] && mv "sicudt.a" "libsicudt.a"
 
     # Update .pc files
-    local ICU_SYS_LIBS="-lstdc++ -pthread -lm -ladvapi32 -lws2_32"
+    local ICU_SYS_LIBS="-pthread -lm -ladvapi32 -lws2_32"
     for pc in "$PC_DIR"/icu-*.pc; do
         [[ -e "$pc" ]] || continue
         # Меняем имена библиотек (icu -> sicu)

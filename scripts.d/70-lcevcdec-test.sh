@@ -27,7 +27,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DPC_LIBS_PRIVATE="Libs.private: -lstdc++"
+        # -DPC_LIBS_PRIVATE="Libs.private: -lstdc++"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DVN_SDK_BENCHMARK=OFF
         -DVN_SDK_DIAGNOSTICS_ASYNC=OFF
