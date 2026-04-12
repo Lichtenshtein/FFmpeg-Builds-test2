@@ -22,7 +22,8 @@ ffbuild_dockerbuild() {
     # autoreconf -fiv <-- doesn't work by itself
 
     cd "/build/$STAGENAME"
-    ./autogen.sh
+    autoreconf -f -i
+    automake --add-missing
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
