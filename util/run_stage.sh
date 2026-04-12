@@ -279,9 +279,9 @@ if [[ -n "$DL_COMMANDS" ]]; then
         if [[ -n "$CANDIDATE" ]]; then
             log_info "${DIRS_MARK} Project root found at $CANDIDATE. Entering..."
             cd "$CANDIDATE"
-        else # this is harming
-            USE_CONF_FINDER=1
-            conf_finder # try to regenerate conf
+        # else # this is harming
+            # USE_CONF_FINDER=1
+            # conf_finder # try to regenerate conf
         fi
     fi
 
@@ -351,7 +351,7 @@ log_info "### Starting build function: $build_cmd"
 log_info_line
 
 # Generate the 'configure' file (if it doesn't exist) for Autoconf
-# conf_finder
+conf_finder
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_debug "Verbose mode active. Build output will be shown in real-time."
