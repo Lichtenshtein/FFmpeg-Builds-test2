@@ -64,7 +64,7 @@ ffbuild_dockerbuild() {
         -Dfontconfig=enabled
         -Dfreetype=enabled
         -Dglib=enabled
-        -Dspectre=false
+        -Dspectre=disabled
         -Dpng=enabled
         -Dsymbol-lookup=disabled
         -Dtee=enabled
