@@ -48,14 +48,18 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/libssh.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i '/^Cflags:/ s/$/ $static_flags -Dmd5=libssh_md5/' "$PC_FILE"
+        sed -i '/^Cflags:/ s/$/ -Dmd5=libssh_md5/' "$PC_FILE"
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+            fi
+        fi
         if grep -q "^Libs.private:" "$PC_FILE"; then
             sed -i "s|^Libs.private:.*|Libs.private: -lssl -lz -liphlpapi|" "$PC_FILE"
         else
             sed -i "/^Libs:/ a Libs.private: -lssl -lz -liphlpapi" "$PC_FILE"
         fi
     fi
-
 }
 
 ffbuild_cppflags() {

@@ -60,7 +60,12 @@ ffbuild_dockerbuild() {
             sed -i 's/Libs.private:/& -pthread /' "$PC_FILE"
         fi
         if ! grep -q "\-DZSTD_MULTITHREAD" "$PC_FILE"; then
-            sed -i "/^Cflags:/ s/$/ -DZSTD_MULTITHREAD $static_flags/" "$PC_FILE"
+            sed -i "/^Cflags:/ s/$/ -DZSTD_MULTITHREAD/" "$PC_FILE"
+        fi
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+            fi
         fi
     fi
 }

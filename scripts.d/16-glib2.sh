@@ -121,8 +121,10 @@ EOF
     for pc_name in "${ALL_GLIB_PCS[@]}"; do
         local pc="$PC_DIR/$pc_name"
         [[ -f "$pc" ]] || continue
-        if ! grep -q "$self_static_flags" "$pc"; then
-            sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$pc"
+        if [[ -n "$self_static_flags" ]]; then
+            if ! grep -qF -- "$self_static_flags" "$pc"; then
+                sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$pc"
+            fi
         fi
     done
 }

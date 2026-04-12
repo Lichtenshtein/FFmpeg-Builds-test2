@@ -58,6 +58,10 @@ ffbuild_dockerbuild() {
     local PC_FILE="$PC_DIR/libffi.pc"
     if [[ -f "$PC_FILE" ]]; then
         sed -i "s|includedir=.*|includedir=\${prefix}/include|" "$PC_FILE"
-        [[ -n "$static_flags" ]] && sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+            fi
+        fi
     fi
 }

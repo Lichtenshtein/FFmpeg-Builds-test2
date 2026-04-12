@@ -65,8 +65,10 @@ ffbuild_dockerbuild() {
 
     for pc in "$PC_DIR"/*pango*.pc; do
         [[ -e "$pc" ]] || continue
-        if ! grep -q "\$self_static_flags" "$pc"; then
-            sed -i "s/Cflags:/& $self_static_flags/" "$pc"
+        if [[ -n "$self_static_flags" ]]; then
+            if ! grep -qF -- "$self_static_flags" "$pc"; then
+                sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$pc"
+            fi
         fi
     done
 }

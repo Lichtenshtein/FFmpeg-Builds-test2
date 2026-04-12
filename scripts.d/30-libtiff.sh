@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libsdl-org/libtiff.git"
-SCRIPT_COMMIT="f324415f50cb5c90f7712e9dfe69831f5d2ea88d"
+SCRIPT_COMMIT="4225987ff183952a29f58322ec4792039c3a8e0c"
 
 ffbuild_enabled() {
     return 0
@@ -42,8 +42,10 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBTIFF_STATIC"
 
-    CFLAGS="$CFLAGS $CPPFLAGS $static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags" \
+    local FLAGS="-DTIFF_DO_NOT_USE_NON_EXT_ALLOC_FUNCTIONS -D_FILE_OFFSET_BITS=64 -Dtiff_EXPORTS -Wall -Winline -Wformat-security -Wpointer-arith -Wdisabled-optimization -Wno-unknown-pragmas -fstrict-aliasing"
+
+    CFLAGS="$CFLAGS $CPPFLAGS $static_flags $FLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags $FLAGS" \
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 

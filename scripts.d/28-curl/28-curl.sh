@@ -101,8 +101,10 @@ ffbuild_dockerbuild() {
         sed -i "/^Libs\.private:/d" "$PC_FILE"
         echo "Libs.private: $DEP_LIBS $WIN_LIBS" >> "$PC_FILE"
         # Убеждаемся, что макрос статики на месте
-        if ! grep -q "$self_static_flags" "$PC_FILE"; then
-            sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$PC_FILE"
+        if [[ -n "$self_static_flags" ]]; then
+            if ! grep -qF -- "$self_static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$PC_FILE"
+            fi
         fi
     fi
 }

@@ -1,7 +1,8 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/glennrp/libpng.git"
-SCRIPT_COMMIT="c3e304954a9cfd154bc0dfbfea2b01cd61d6546d"
+SCRIPT_REPO="https://github.com/pnggroup/libpng.git"
+SCRIPT_COMMIT="95ab3fdca83ea294efd3b092e9a53c5a39886444"
+SCRIPT_BRANCH="libpng16"
 
 ffbuild_depends() {
     echo base
@@ -19,35 +20,35 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    ./autogen.sh
+    mkdir -p build && cd build
 
     local myconf=(
-        --prefix="$FFBUILD_PREFIX"
-        --host="$FFBUILD_TOOLCHAIN"
-        --enable-hardware-optimizations
-        --enable-intel-sse
-        --disable-tests
-        --disable-tools
-        --with-pic
-        --with-zlib-prefix="$FFBUILD_PREFIX"
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        -DPNG_TESTS=OFF
+        -DPNG_FRAMEWORK=OFF
+        -DPNG_TOOLS=OFF
+        -DPNG_HARDWARE_OPTIMIZATIONS=ON # enable target hardware optimizations
+        -Dld-version-script=ON # enable linker version script
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
-        myconf+=( --disable-static --enable-shared ) || \
-        myconf+=( --enable-static --disable-shared )
+        myconf+=( -DPNG_SHARED=ON -DPNG_STATIC=OFF ) || \
+        myconf+=( -DPNG_SHARED=OFF -DPNG_STATIC=ON )
 
-    CFLAGS="$CFLAGS ${USELTO}" \
-    CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS ${USELTO}" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
-    LIBS="$LIBS" \
-    ./configure "${myconf[@]}" || return 1
+    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    LDFLAGS="$LDFLAGS" \
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Создаем стандартные симлинки для совместимости
-    # Многие старые пакеты ищут libpng16.pc или libpng.pc
+    # Многие старые пакеты ищут libpng16.pc или libpng.pc; pixman looks for png.pc
     local PC_LINK="$PC_DIR/libpng.pc"
     ln -sf libpng16.pc "$PC_LINK"
+    ln -sf png.pc "$PC_LINK"
 }

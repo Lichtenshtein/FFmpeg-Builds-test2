@@ -67,7 +67,11 @@ ffbuild_dockerbuild() {
 
     for pc in "$PC_DIR"/*zlib*.pc; do
         [[ -e "$pc" ]] || continue
-        sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$static_flags" "$pc"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
+            fi
+        fi
     done
 }
 
