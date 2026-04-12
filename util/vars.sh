@@ -465,56 +465,34 @@ patch_pc_files() {
     normalize_include_path() {
         local path="$1"
 
-        # Если путь уже содержит переменные pkg-config — возвращаем как есть
-        if [[ "$path" == *'${includedir}'* || "$path" == *'${prefix}'* ]]; then
-            echo "$path"
-            return
-        fi
-
-        # Если это путь к freetype2 внутри нашего префикса
-        if [[ "$path" == "$FFBUILD_PREFIX/include/freetype2" || "$path" == "/opt/ffbuild/include/freetype2" ]]; then
-            echo "\${includedir}/freetype2"
-            return
-        fi
-
-        #  Стандартный префикс
-        if [[ "$path" == "$FFBUILD_PREFIX"* ]]; then
-            local suffix="${path#$FFBUILD_PREFIX}"
-            # Если путь это просто /include, превращаем в ${includedir}
-            [[ "$suffix" == "/include" ]] && echo "\${includedir}" && return
-            # Иначе сохраняем структуру
-            echo "\${prefix}${suffix}"
-            return
-        fi
-
         # Already a variable reference — keep it
-        [[ "$path" == *'${'* ]] && echo "$path" && return
+        [[ "$path" == *'${'* ]] && echo "$path" && return 0
 
-        # Absolute path to our prefix — replace with variable
+        # Если путь совпадает с префиксом или вложен в него
         if [[ "$path" == "$FFBUILD_PREFIX"* ]]; then
-            echo "\${prefix}${path#$FFBUILD_PREFIX}"
-            return
+            echo "\${includedir}${path#$FFBUILD_PREFIX/include}"
+            return 0
         fi
 
         # Bare /include or /usr/include — replace with ${includedir}
         if [[ "$path" == "/include" || "$path" == "/usr/include" ]]; then
             echo "\${includedir}"
-            return
+            return 0
         fi
 
         # Relative path like ../include — resolve and check
         if [[ "$path" == ../* ]]; then
             local resolved
-            resolved=$(cd "$(dirname "$pc_dir")" && cd "${path%/*}" && pwd)
-            if [[ "$resolved" == "$FFBUILD_PREFIX"* ]]; then
-                echo "\${prefix}${resolved#$FFBUILD_PREFIX}"
-                return
+            resolved=$(cd "$(dirname "$pc_dir")" && cd "${path%/*}" && pwd 2>/dev/null)
+            if [[ -n "$resolved" && "$resolved" == "$FFBUILD_PREFIX"* ]]; then
+                echo "\${prefix}${resolved#$FFBUILD_PREFIX}${path##*/}"
+                return 0
             fi
         fi
 
-        # Unrecognized — log warning and drop
-        log_warn "Dropping unrecognized include path: $path"
-        return 1
+        # Если путь не распознан, возвращаем его оригинал
+        echo "$path"
+        return 0
     }
 
     # helper escape string for use as a literal sed pattern
@@ -914,7 +892,7 @@ generate_implibs() {
             continue
         fi
 
-        log_debug "  ${BUILD_MARK} Processing $dll_name -> $lib_name"
+        log_debug "${BUILD_MARK} Processing $dll_name -> $lib_name"
 
         # Generating a DEF file
         if ! $GENDEF "$dll_file" > /dev/null 2>&1; then
@@ -1075,7 +1053,7 @@ check_and_fix_configure() {
         return 0
     fi
 
-    log_info "SAFE_CONFIGURE=1: Checking flags for validity..."
+    log_info "SAFE_CONFIGURE: Checking flags for validity..."
 
     local new_flags=()
     local dropped=()
