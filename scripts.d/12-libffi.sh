@@ -18,11 +18,16 @@ ffbuild_dockerbuild() {
 
     # export USE_CONF_FINDER=1
 
-    # -i установит недостающие вспомогательные файлы (compile, missing и т.д.)
-    # autoreconf -fiv <-- doesn't work by itself
-
     cd "/build/$STAGENAME"
-    autoreconf -f -i
+    mkdir -p m4
+    # инициализируем libtool (копирует ltmain.sh и макросы m4)
+    libtoolize --force --copy
+    # Генерируем локальные макросы
+    aclocal -I m4
+    # Генерируем заголовок конфигурации (fficonfig.h.in)
+    autoheader
+    # autoreconf соберет всё воедино, включая вспомогательные файлы (compile, missing)
+    autoreconf -fiv
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -50,21 +55,28 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # Переносим хедеры в корень include, чтобы glib их увидел
-    # libffi по умолчанию прячет их в /lib/libffi-3.5.2/include
-    local FFI_VER_INC=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "ffi.h" -exec dirname {} \;)
-    if [[ -n "$FFI_VER_INC" ]]; then
+    # У libffi очень странная привычка ставить хедеры в $(libdir)/libffi-$(version)/include
+    # Нам нужно вытащить их в стандартное место
+    local FFI_INC_DIR=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "ffi.h" -exec dirname {} \;)
+    if [[ -n "$FFI_INC_DIR" ]]; then
+        log_info "Moving libffi headers from $FFI_INC_DIR"
         mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
-        cp -af "$FFI_VER_INC"/*.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
+        mv -f "$FFI_INC_DIR"/*.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
+        rm -rf "${FFI_INC_DIR}"
     fi
 
     local PC_FILE="$PC_DIR/libffi.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i "s|includedir=.*|includedir=\${prefix}/include|" "$PC_FILE"
+        # Исправляем путь в pc файле, чтобы он указывал на корень include
+        sed -i "s|^includedir=.*|includedir=\${prefix}/include|" "$PC_FILE"
+        # Убираем лишние подпапки из Cflags, если они там остались
+        sed -i "s|-I\${libdir}/libffi-[^/ ]*/include|-I\${includedir}|g" "$PC_FILE"
+        
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
                 sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
             fi
         fi
     fi
+}
 }
