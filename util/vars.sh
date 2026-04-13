@@ -194,39 +194,80 @@ mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 # disable -fPIC, -ffast-math, if troubles occur
 # rust -C linker-plugin-lto LLVM Bitcode or LLVM MinGW
 
-# Настройка хостового компилятора (чтобы он не трогал флаги таргета)
-export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
-export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
-export HOST_LDFLAGS="-pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
+OPENMP_C=""
+OPENMP_LIB=""
+if [[ "${USE_OPENMP}" == "1" ]]; then
+    OPENMP_C="-fopenmp"
+    OPENMP_LIB="-lgomp"
+fi
 
-[[ "$USE_OPENMP" == "1" ]] && export OPENMP_C=" -fopenmp" && export OPENMP_LIB="-lgomp "
-[[ "$USE_LTO" == "1" ]] && export RUSTLTO=" -C lto=fat" && export USELTO="-flto=auto" && export NOLTO="-fno-lto"
+RUSTLTO=""
+USELTO=""
+NOLTO=""
+if [[ "${USE_LTO}" == "1" ]]; then
+    RUSTLTO=" -C lto=fat"
+    export USELTO="-flto=auto"
+    export NOLTO="-fno-lto"
+fi
 
-SYSTEM_LIBS="${OPENMP_LIB}-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
+SYSTEM_LIBS="${OPENMP_LIB} -lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
 ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lnormaliz"
-export LIBS="${LIBS:-$SYSTEM_LIBS}"
 
-export BASE_CFLAGS="-mms-bitfields -fstack-protector-strong${OPENMP_C}"
+export BASE_CFLAGS="-mms-bitfields -fstack-protector-strong ${OPENMP_C}"
+
 if [[ "$TARGET" == "win64" ]]; then
     export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
 else
     export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -D_FORTIFY_SOURCE=2"
 fi
+# Базовые флаги линковщика общие для Host и Target
+BASE_LD_FLAGS=(
+    "-pipe"
+    "-Wl,--high-entropy-va"
+    "-Wl,--nxcompat"
+    "-Wl,--dynamicbase"
+    "-Wl,--reduce-memory-overheads"
+    "-Wl,--stack,16777216"
+)
+# Формируем LDFLAGS для Target
+FINAL_LDFLAGS=("${BASE_LD_FLAGS[@]}")
+FINAL_LDFLAGS+=("-L/opt/ffbuild/lib")
+# codegen-units = 16 (default)
+COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 ${RUSTLTO}"
+
+# Функция для сборки строки RUSTFLAGS из массива
+# Принимает префикс (например "-C link-arg=") и имя массива
+to_rust_flags() {
+    local prefix="$1"
+    shift
+    printf " ${prefix}%s" "$@"
+}
+
 export CPPFLAGS="-I/opt/ffbuild/include ${BASE_CPPFLAGS}"
-if [[ "$PREFER_SHARED" == "1" ]]; then
-    export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu11"
-    export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu++17"
-    export LDFLAGS="-L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
-    export RUSTFLAGS="-C target-cpu=${CPU_ARCH} -C link-arg=${LDFLAGS} -C strip=debuginfo -C codegen-units=1 -C opt-level=3${RUSTLTO}"
-    export HOST_RUSTFLAGS="-C target-cpu=${CPU_ARCH} -C link-arg=${HOST_LDFLAGS} -C strip=debuginfo -C codegen-units=1 -C opt-level=3${RUSTLTO}"
-else
+
+if [[ "$PREFER_SHARED" != "1" ]]; then
     export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu11"
     export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu++17"
-    export LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -L/opt/ffbuild/lib -pipe -Wl,--high-entropy-va -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads -Wl,--stack,16777216"
-    # codegen-units = 16 (default)
-    export RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH} -C link-arg=${LDFLAGS} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 -C embed-bitcode=yes${RUSTLTO}"
-    export HOST_RUSTFLAGS="-C target-feature=+crt-static -C target-cpu=${CPU_ARCH} -C link-arg=${HOST_LDFLAGS} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 -C embed-bitcode=yes${RUSTLTO}"
+    FINAL_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${FINAL_LDFLAGS[@]}")
+    RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
+else
+    export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu11"
+    export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu++17"
+    RUST_STATIC_CFG=""
 fi
+
+# Экспортируем стандартные LDFLAGS (через пробел для Си-компиляторов)
+export LDFLAGS="${FINAL_LDFLAGS[*]}"
+# Настройка хостового компилятора (чтобы он не трогал флаги таргета)
+export HOST_LDFLAGS="${BASE_LD_FLAGS[*]}"
+export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
+export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
+
+# Собираем RUSTFLAGS (через функцию, чтобы каждый флаг получил свой -C link-arg)
+export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${FINAL_LDFLAGS[@]}")"
+export HOST_RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${BASE_LD_FLAGS[@]}")"
+export LIBS="${SYSTEM_LIBS}"
+
 # Обработка флагов, специфичных для Linux ELF
 if [[ "$TARGET" == "win64" ]]; then
     # бесполезно при сборке под Windows и ломает OpenSSL asm вместе с std=c11
