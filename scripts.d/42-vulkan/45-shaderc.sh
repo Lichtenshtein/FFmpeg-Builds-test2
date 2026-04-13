@@ -151,33 +151,6 @@ EOF
     # Native build for the glslc tool (Host side)
     mkdir ../native_build && cd ../native_build
 
-    local myconf_host=(
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
-        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-        -DCMAKE_BUILD_TYPE=Release
-        -DENABLE_EXCEPTIONS=ON
-        -DENABLE_GLSLANG_BINARIES=ON
-        -DENABLE_GLSLANG_JS=OFF
-        -DENABLE_HLSL=ON
-        -DENABLE_OPT=ON
-        -DENABLE_PCH=OFF
-        -DENABLE_RTTI=ON
-        -DENABLE_SPIRV=ON
-        -DGLSLANG_ENABLE_INSTALL=ON
-        -DGLSLANG_TESTS=OFF
-        -DSHADERC_SKIP_COPYRIGHT_CHECK=ON
-        -DSHADERC_SKIP_EXAMPLES=OFF
-        -DSHADERC_SKIP_TESTS=ON
-        -DSKIP_SPIRV_TOOLS_INSTALL=OFF
-        -DSPIRV_CHECK_CONTEXT=OFF
-        -DSPIRV_HEADERS_ENABLE_INSTALL=ON
-        -DSPIRV_HEADERS_ENABLE_TESTS=OFF
-        -DSPIRV_SKIP_EXECUTABLES=OFF
-        -DSPIRV_SKIP_TESTS=ON
-        -DSPIRV_WARN_EVERYTHING=OFF
-        -DSPIRV_WERROR=OFF
-    )
-
     # Clean env for host compilation
     (
         unset CC CXX CFLAGS CXXFLAGS LD LDFLAGS AR RANLIB NM DLLTOOL PKG_CONFIG_LIBDIR PKG_CONFIG_PATH
@@ -186,19 +159,27 @@ EOF
         # Note: We don't use the toolchain file for native build
         CFLAGS="$HOST_CFLAGS" \
         CXXFLAGS="$HOST_CXXFLAGS" \
-        cmake -G Ninja "${myconf_host[@]}" .. || exit 1
+        LDFLAGS="HOST_LDFLAGS" \
+        cmake -G Ninja \
+            -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DSHADERC_SKIP_TESTS=ON \
+            -DSHADERC_SKIP_EXAMPLES=OFF \
+            -DSHADERC_SKIP_COPYRIGHT_CHECK=ON \
+            -DENABLE_GLSLANG_BINARIES=ON \
+            -DSPIRV_SKIP_EXECUTABLES=OFF \
+            .. || exit 1
 
         ninja $NINJA_V glslc || exit 1
 
-        if [ -f "glslc" ]; then
-            cp glslc /opt/glslc
-            log_info "glslc found in root and copied"
-        elif [ -f "glslc/glslc" ]; then
+        if [ -f "glslc/glslc" ]; then
             cp glslc/glslc /opt/glslc
-            log_info "glslc found in glslc/ and copied"
+        elif [ -f "glslc" ]; then
+            cp glslc /opt/glslc
         else
-            log_error "glslc binary not found!"
-            find . -maxdepth 2 -executable -type f
+            log_error "Still no binary! Listing native_build/glslc content:"
+            ls -R glslc/
             exit 1
         fi
     ) || return 1
