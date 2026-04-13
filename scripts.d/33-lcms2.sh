@@ -34,6 +34,10 @@ ffbuild_dockerbuild() {
         -Dfastfloat=true
         -Dthreaded=true
         -Dtests=disabled
+        # -Djpeg=true
+        # -Dtiff=true
+        -Dversionedlibs=disabled # Enable building of .so.version libraries
+        -DHasTIFF=1 # we have TIFF lib
     )
 
     meson setup "${myconf[@]}" .. \
