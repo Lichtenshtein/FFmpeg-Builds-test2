@@ -1,0 +1,586 @@
+From 89926fb11a0f952dcd11dbde4d86a57d37780735 Mon Sep 17 00:00:00 2001
+From: judgeou <judgeou@vip.qq.com>
+Date: Mon, 23 Mar 2026 14:17:59 +0800
+Subject: [PATCH] Add webp_anim2png tool for decoding animated WebP files
+
+This commit introduces a new tool, webp_anim2png, which decodes animated WebP files and saves each frame as PNG images in a designated folder. The tool is Windows-specific and includes options for outputting BMP frames for ffmpeg. Additionally, CMake configurations and Makefile updates have been made to support this new functionality.
+
+Changes include:
+- New source file: examples/webp_anim2png.c
+- Updates to CMakeLists.txt to add build options for webp_anim2png
+- Modifications to .gitignore to exclude build output directories
+- New CMakeSettings.json for project configuration
+
+This enhances the WebP toolset by providing a convenient way to handle animated WebP files.
+---
+diff --git a/.gitignore b/.gitignore
+index cf448223..e4530b70 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -55,3 +55,5 @@ tests/fuzzer/enc_dec_fuzzer
+ tests/fuzzer/huffman_fuzzer
+ tests/fuzzer/mux_demux_api_fuzzer
+ tests/fuzzer/simple_api_fuzzer
++.vs
++/out
+\ No newline at end of file
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c4db2b3e..ec7511fa 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -42,6 +42,15 @@ option(WEBP_BUILD_WEBPMUX "Build the webpmux command line tool." ON)
+ option(WEBP_BUILD_EXTRAS "Build extras." ON)
+ option(WEBP_BUILD_WEBP_JS "Emscripten build of webp.js." OFF)
+ option(WEBP_BUILD_FUZZTEST "Build the fuzztest tests." OFF)
++if(WIN32)
++  set(WEBP_BUILD_WEBP_ANIM2PNG_DEFAULT ON)
++else()
++  set(WEBP_BUILD_WEBP_ANIM2PNG_DEFAULT OFF)
++endif()
++option(
++  WEBP_BUILD_WEBP_ANIM2PNG
++  "Build webp_anim2png (decode animated WebP to PNG frames per folder; full tool on Windows)."
++  ${WEBP_BUILD_WEBP_ANIM2PNG_DEFAULT})
+ option(WEBP_USE_THREAD "Enable threading support" ON)
+ option(WEBP_NEAR_LOSSLESS "Enable near-lossless encoding" ON)
+ option(WEBP_ENABLE_SWAP_16BIT_CSP "Enable byte swap for 16 bit colorspaces."
+@@ -82,6 +91,7 @@ if(WEBP_BUILD_WEBP_JS)
+   set(WEBP_BUILD_WEBPINFO OFF)
+   set(WEBP_BUILD_WEBPMUX OFF)
+   set(WEBP_BUILD_EXTRAS OFF)
++  set(WEBP_BUILD_WEBP_ANIM2PNG OFF)
+   set(WEBP_USE_THREAD OFF)
+ 
+   if(WEBP_ENABLE_SIMD)
+@@ -115,7 +125,8 @@ if(WEBP_BUILD_ANIM_UTILS
+    OR WEBP_BUILD_DWEBP
+    OR WEBP_BUILD_EXTRAS
+    OR WEBP_BUILD_GIF2WEBP
+-   OR WEBP_BUILD_IMG2WEBP)
++   OR WEBP_BUILD_IMG2WEBP
++   OR WEBP_BUILD_WEBP_ANIM2PNG)
+   set(WEBP_FIND_IMG_LIBS TRUE)
+ else()
+   set(WEBP_FIND_IMG_LIBS FALSE)
+@@ -510,6 +521,7 @@ if(WEBP_BUILD_ANIM_UTILS
+    OR WEBP_BUILD_GIF2WEBP
+    OR WEBP_BUILD_IMG2WEBP
+    OR WEBP_BUILD_VWEBP
++   OR WEBP_BUILD_WEBP_ANIM2PNG
+    OR WEBP_BUILD_WEBPMUX
+    OR WEBP_BUILD_WEBPINFO)
+   # Example utility library.
+@@ -554,6 +566,13 @@ if(WEBP_BUILD_DWEBP)
+   install(TARGETS dwebp RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+ endif()
+ 
++if(WEBP_BUILD_WEBP_ANIM2PNG)
++  add_executable(webp_anim2png ${CMAKE_CURRENT_SOURCE_DIR}/examples/webp_anim2png.c)
++  target_link_libraries(webp_anim2png exampleutil imageenc imageioutil webp webpdemux)
++  target_include_directories(webp_anim2png PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/src)
++  install(TARGETS webp_anim2png RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
++endif()
++
+ if(WEBP_BUILD_CWEBP)
+   # cwebp
+   parse_makefile_am(${CMAKE_CURRENT_SOURCE_DIR}/examples "CWEBP_SRCS" "cwebp")
+diff --git a/CMakeSettings.json b/CMakeSettings.json
+new file mode 100644
+index 00000000..0c5fbf94
+--- /dev/null
++++ b/CMakeSettings.json
+@@ -0,0 +1,27 @@
++﻿{
++  "configurations": [
++    {
++      "name": "x64-Debug",
++      "generator": "Ninja",
++      "configurationType": "Debug",
++      "inheritEnvironments": [ "msvc_x64_x64" ],
++      "buildRoot": "${projectDir}\\out\\build\\${name}",
++      "installRoot": "${projectDir}\\out\\install\\${name}",
++      "cmakeCommandArgs": "",
++      "buildCommandArgs": "",
++      "ctestCommandArgs": ""
++    },
++    {
++      "name": "x64-Release",
++      "generator": "Ninja",
++      "configurationType": "RelWithDebInfo",
++      "buildRoot": "${projectDir}\\out\\build\\${name}",
++      "installRoot": "${projectDir}\\out\\install\\${name}",
++      "cmakeCommandArgs": "",
++      "buildCommandArgs": "",
++      "ctestCommandArgs": "",
++      "inheritEnvironments": [ "msvc_x64_x64" ],
++      "variables": []
++    }
++  ]
++}
+\ No newline at end of file
+diff --git a/Makefile.vc b/Makefile.vc
+index 773bab19..1b789ee5 100644
+--- a/Makefile.vc
++++ b/Makefile.vc
+@@ -161,6 +161,7 @@ CFLAGS = $(CFLAGS) /D_UNICODE /DUNICODE
+ !MESSAGE - gif2webp                       - requires libgif & >= VS2013
+ !MESSAGE - anim_diff                      - requires libgif & >= VS2013
+ !MESSAGE - anim_dump
++!MESSAGE - webp_anim2png
+ !MESSAGE
+ !MESSAGE RTLIBCFG controls the runtime library linkage - 'static' or 'dynamic'.
+ !MESSAGE   'legacy' will produce a Windows 2000 compatible library.
+@@ -378,6 +379,7 @@ all: ex $(EXTRA_EXAMPLES)
+ gif2webp: $(DIRBIN)\gif2webp.exe
+ anim_diff: $(DIRBIN)\anim_diff.exe
+ anim_dump: $(DIRBIN)\anim_dump.exe
++webp_anim2png: $(DIRBIN)\webp_anim2png.exe
+ 
+ $(DIRBIN)\anim_diff.exe: $(DIROBJ)\examples\anim_diff.obj $(EX_ANIM_UTIL_OBJS)
+ $(DIRBIN)\anim_diff.exe: $(EX_UTIL_OBJS) $(IMAGEIO_UTIL_OBJS)
+@@ -386,6 +388,9 @@ $(DIRBIN)\anim_dump.exe: $(DIROBJ)\examples\anim_dump.obj $(EX_ANIM_UTIL_OBJS)
+ $(DIRBIN)\anim_dump.exe: $(EX_UTIL_OBJS) $(IMAGEIO_UTIL_OBJS)
+ $(DIRBIN)\anim_dump.exe: $(EX_GIF_DEC_OBJS) $(LIBWEBPDEMUX) $(LIBWEBP)
+ $(DIRBIN)\anim_dump.exe: $(IMAGEIO_ENC_OBJS)
++$(DIRBIN)\webp_anim2png.exe: $(DIROBJ)\examples\webp_anim2png.obj
++$(DIRBIN)\webp_anim2png.exe: $(EX_UTIL_OBJS) $(IMAGEIO_UTIL_OBJS)
++$(DIRBIN)\webp_anim2png.exe: $(IMAGEIO_ENC_OBJS) $(LIBWEBPDEMUX) $(LIBWEBP)
+ $(DIRBIN)\cwebp.exe: $(DIROBJ)\examples\cwebp.obj $(IMAGEIO_DEC_OBJS)
+ $(DIRBIN)\cwebp.exe: $(IMAGEIO_UTIL_OBJS)
+ $(DIRBIN)\cwebp.exe: $(LIBWEBPDEMUX) $(LIBSHARPYUV)
+diff --git a/examples/webp_anim2png.c b/examples/webp_anim2png.c
+new file mode 100644
+index 00000000..ea7325f3
+--- /dev/null
++++ b/examples/webp_anim2png.c
+@@ -0,0 +1,430 @@
++// Copyright 2025 Google Inc. All Rights Reserved.
++//
++// Use of this source code is governed by a BSD-style license
++// that can be found in the COPYING file in the root of the source
++// tree. An additional intellectual property rights grant can be found
++// in the file PATENTS. All contributing project authors may
++// be found in the AUTHORS file in the root of the source tree.
++// -----------------------------------------------------------------------------
++//
++// Windows-only tool: decodes an animated WebP file and writes each composited
++// frame as PNG into a new folder next to the file, named like the file without
++// its extension (e.g. clip.webp -> folder "clip" with 0000.png, 0001.png, ...).
++// With --ffmpeg-bmp (or --ffmpeg-raw), writes BMP frames to stdout for ffmpeg
++// image2pipe (no -video_size needed).
++
++#ifndef _WIN32
++
++#include <stdio.h>
++
++int main(void) {
++  fprintf(stderr, "webp_anim2png: this example is only built for Windows.\n");
++  return 1;
++}
++
++#else
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++#include <windows.h>
++
++#include "../imageio/image_enc.h"
++#include "../imageio/imageio_util.h"
++#include "./unicode.h"
++#include "webp/decode.h"
++#include "webp/demux.h"
++#include "webp/mux_types.h"
++#include "webp/types.h"
++
++static void CleanupTransparentPixels(uint32_t* rgba, uint32_t width,
++                                     uint32_t height) {
++  const uint32_t* const rgba_end = rgba + width * height;
++  while (rgba < rgba_end) {
++    const uint8_t alpha = (*rgba >> 24) & 0xff;
++    if (alpha == 0) {
++      *rgba = 0;
++    }
++    ++rgba;
++  }
++}
++
++// Same decode + per-frame cleanup as the PNG path, without writing files.
++// Prints wall time for comparison with full export.
++static int BenchmarkDecodeOnly(const WebPData* const webp_data) {
++  WebPAnimDecoderOptions dec_options;
++  WebPAnimDecoder* dec = NULL;
++  WebPAnimInfo anim_info;
++  LARGE_INTEGER freq, t0, t1;
++  uint32_t frame_index = 0;
++  double seconds;
++
++  if (!WebPAnimDecoderOptionsInit(&dec_options)) {
++    fprintf(stderr, "WebPAnimDecoderOptionsInit failed.\n");
++    return 0;
++  }
++  dec_options.color_mode = MODE_BGRA;
++
++  dec = WebPAnimDecoderNew(webp_data, &dec_options);
++  if (dec == NULL) {
++    fprintf(stderr, "Could not open as an animated WebP (or demux failed).\n");
++    return 0;
++  }
++  if (!WebPAnimDecoderGetInfo(dec, &anim_info)) {
++    fprintf(stderr, "WebPAnimDecoderGetInfo failed.\n");
++    WebPAnimDecoderDelete(dec);
++    return 0;
++  }
++
++  if (!QueryPerformanceFrequency(&freq) || !QueryPerformanceCounter(&t0)) {
++    fprintf(stderr, "QueryPerformanceCounter failed.\n");
++    WebPAnimDecoderDelete(dec);
++    return 0;
++  }
++
++  while (WebPAnimDecoderHasMoreFrames(dec)) {
++    uint8_t* rgba = NULL;
++    int timestamp = 0;
++    if (!WebPAnimDecoderGetNext(dec, &rgba, &timestamp)) {
++      fprintf(stderr, "Error decoding frame #%u\n", frame_index);
++      WebPAnimDecoderDelete(dec);
++      return 0;
++    }
++    (void)timestamp;
++    CleanupTransparentPixels((uint32_t*)rgba, anim_info.canvas_width,
++                             anim_info.canvas_height);
++    ++frame_index;
++  }
++
++  if (!QueryPerformanceCounter(&t1)) {
++    fprintf(stderr, "QueryPerformanceCounter failed.\n");
++    WebPAnimDecoderDelete(dec);
++    return 0;
++  }
++
++  seconds = (double)(t1.QuadPart - t0.QuadPart) / (double)freq.QuadPart;
++  printf("decode-only benchmark: %u frame(s) in %.3f s", frame_index, seconds);
++  if (frame_index > 0) {
++    printf(" (%.2f ms/frame)", 1000.0 * seconds / (double)frame_index);
++  }
++  printf("\n");
++
++  WebPAnimDecoderDelete(dec);
++  return 1;
++}
++
++// One BMP per frame (headers include size) for: ffmpeg -f image2pipe -i - ...
++// Does not set stdout binary mode or print the ffmpeg hint (caller does once).
++static int StreamBmpFramesForFfmpeg(const WebPData* const webp_data) {
++  WebPAnimDecoderOptions dec_options;
++  WebPAnimDecoder* dec = NULL;
++  WebPAnimInfo anim_info;
++  uint32_t frame_index = 0;
++
++  if (!WebPAnimDecoderOptionsInit(&dec_options)) {
++    fprintf(stderr, "WebPAnimDecoderOptionsInit failed.\n");
++    return 0;
++  }
++  dec_options.color_mode = MODE_BGRA;
++
++  dec = WebPAnimDecoderNew(webp_data, &dec_options);
++  if (dec == NULL) {
++    fprintf(stderr, "Could not open as an animated WebP (or demux failed).\n");
++    return 0;
++  }
++  if (!WebPAnimDecoderGetInfo(dec, &anim_info)) {
++    fprintf(stderr, "WebPAnimDecoderGetInfo failed.\n");
++    WebPAnimDecoderDelete(dec);
++    return 0;
++  }
++
++  while (WebPAnimDecoderHasMoreFrames(dec)) {
++    uint8_t* rgba = NULL;
++    int timestamp = 0;
++    WebPDecBuffer buffer;
++
++    if (!WebPAnimDecoderGetNext(dec, &rgba, &timestamp)) {
++      fprintf(stderr, "Error decoding frame #%u\n", frame_index);
++      WebPAnimDecoderDelete(dec);
++      return 0;
++    }
++    (void)timestamp;
++    CleanupTransparentPixels((uint32_t*)rgba, anim_info.canvas_width,
++                             anim_info.canvas_height);
++
++    if (!WebPInitDecBuffer(&buffer)) {
++      fprintf(stderr, "WebPInitDecBuffer failed.\n");
++      WebPAnimDecoderDelete(dec);
++      return 0;
++    }
++    buffer.colorspace = MODE_BGRA;
++    buffer.is_external_memory = 1;
++    buffer.width = anim_info.canvas_width;
++    buffer.height = anim_info.canvas_height;
++    buffer.u.RGBA.rgba = rgba;
++    buffer.u.RGBA.stride =
++        (int)(anim_info.canvas_width * sizeof(uint32_t));
++    buffer.u.RGBA.size =
++        (size_t)buffer.u.RGBA.stride * anim_info.canvas_height;
++
++    if (!WebPWriteBMP(stdout, &buffer)) {
++      fprintf(stderr, "WebPWriteBMP failed at frame #%u\n", frame_index);
++      WebPFreeDecBuffer(&buffer);
++      WebPAnimDecoderDelete(dec);
++      return 0;
++    }
++    WebPFreeDecBuffer(&buffer);
++    ++frame_index;
++  }
++
++  WebPAnimDecoderDelete(dec);
++  return 1;
++}
++
++static int IsFfmpegBmpPipeArg(const char* const s) {
++  return !strcmp(s, "--ffmpeg-bmp") || !strcmp(s, "--ffmpeg-raw");
++}
++
++// Truncates 'path' in place at the last extension dot after the last path
++// separator ('\\' or '/'). Returns 0 if no suitable dot was found.
++static int StripFileExtension(W_CHAR* path) {
++  W_CHAR* last_sep = WSTRRCHR(path, '\\');
++#if defined(_WIN32) && defined(_UNICODE)
++  {
++    W_CHAR* const s2 = wcsrchr(path, L'/');
++    if (s2 != NULL && (last_sep == NULL || s2 > last_sep)) last_sep = s2;
++  }
++#else
++  {
++    char* const s2 = strrchr((char*)path, '/');
++    if (s2 != NULL &&
++        (last_sep == NULL || s2 > (char*)last_sep)) {
++      last_sep = (W_CHAR*)s2;
++    }
++  }
++#endif
++  W_CHAR* const last_dot = WSTRRCHR(path, '.');
++  if (last_dot == NULL) return 0;
++  if (last_sep != NULL && last_dot <= last_sep) return 0;
++  *last_dot = 0;
++  return 1;
++}
++
++static int EnsureOutputFolder(const W_CHAR* path) {
++#if defined(_UNICODE)
++  if (CreateDirectoryW(path, NULL)) return 1;
++  return GetLastError() == ERROR_ALREADY_EXISTS;
++#else
++  if (CreateDirectoryA((const char*)path, NULL)) return 1;
++  return GetLastError() == ERROR_ALREADY_EXISTS;
++#endif
++}
++
++static void PrintUsage(void) {
++  printf("Usage: webp_anim2png <animated.webp>\n");
++  printf(
++      "       webp_anim2png --decode-only <animated.webp>\n"
++      "       webp_anim2png --ffmpeg-bmp <animated.webp> [<animated.webp> ...]\n"
++      "Creates a folder with the same base name as the file (without "
++      "extension)\n"
++      "and saves each decoded frame as PNG (0000.png, 0001.png, ...).\n"
++      "--decode-only decodes to memory only and prints timing (no PNG files).\n"
++      "--ffmpeg-bmp writes one BMP per frame to stdout for ffmpeg -f image2pipe "
++      "(alias: --ffmpeg-raw). Multiple inputs are concatenated in file order.\n");
++}
++
++int main(int argc, const char* argv[]) {
++  WebPAnimDecoder* dec = NULL;
++  WebPData webp_data;
++  int exit_code = EXIT_FAILURE;
++  uint32_t frame_index = 0;
++
++  INIT_WARGV(argc, argv);
++
++  if (argc < 2) {
++    PrintUsage();
++    FREE_WARGV_AND_RETURN(EXIT_FAILURE);
++  }
++  if (!strcmp(argv[1], "-h") || !strcmp(argv[1], "-help")) {
++    if (argc != 2) {
++      PrintUsage();
++      FREE_WARGV_AND_RETURN(EXIT_FAILURE);
++    }
++    PrintUsage();
++    FREE_WARGV_AND_RETURN(EXIT_SUCCESS);
++  }
++  if (!strcmp(argv[1], "--decode-only")) {
++    if (argc != 3) {
++      PrintUsage();
++      FREE_WARGV_AND_RETURN(EXIT_FAILURE);
++    }
++  } else if (IsFfmpegBmpPipeArg(argv[1])) {
++    if (argc < 3) {
++      PrintUsage();
++      FREE_WARGV_AND_RETURN(EXIT_FAILURE);
++    }
++  } else if (argc != 2) {
++    PrintUsage();
++    FREE_WARGV_AND_RETURN(EXIT_FAILURE);
++  }
++
++  WebPDataInit(&webp_data);
++
++  {
++    const int decode_only =
++        (argc == 3 && !strcmp(argv[1], "--decode-only"));
++    const int ffmpeg_bmp = IsFfmpegBmpPipeArg(argv[1]);
++    const int arg_input = (argc >= 3 && !ffmpeg_bmp) ? 2 : 1;
++    WebPAnimDecoderOptions dec_options;
++    const W_CHAR* const in_path = GET_WARGV(argv, arg_input);
++    W_CHAR folder_path[1024];
++
++    if (ffmpeg_bmp) {
++      fprintf(stderr,
++              "BMP sequence on stdout. Example: ffmpeg -f image2pipe "
++              "-framerate "
++              "30 -i - -c:v libx264 -pix_fmt yuv420p out.mp4\n");
++      fflush(stderr);
++      if (ImgIoUtilSetBinaryMode(stdout) == NULL) {
++        goto End;
++      }
++      {
++        int arg_i;
++        for (arg_i = 2; arg_i < argc; ++arg_i) {
++          const W_CHAR* const in_path_ff = GET_WARGV(argv, arg_i);
++          WebPDataClear(&webp_data);
++          WebPDataInit(&webp_data);
++          if (!ImgIoUtilReadFile((const char*)in_path_ff, &webp_data.bytes,
++                                 &webp_data.size)) {
++            goto End;
++          }
++          if (!WebPGetInfo(webp_data.bytes, webp_data.size, NULL, NULL)) {
++            WFPRINTF(stderr, "Not a WebP file: %s\n", in_path_ff);
++            goto End;
++          }
++          if (!StreamBmpFramesForFfmpeg(&webp_data)) {
++            goto End;
++          }
++        }
++      }
++      exit_code = EXIT_SUCCESS;
++      goto End;
++    }
++
++    if (WSTRLEN(in_path) + 1 > sizeof(folder_path) / sizeof(folder_path[0])) {
++      WFPRINTF(stderr, "Path too long: %s\n", in_path);
++      goto End;
++    }
++    memcpy(folder_path, in_path,
++           (WSTRLEN(in_path) + 1) * sizeof(W_CHAR));
++
++    if (!decode_only) {
++      if (!StripFileExtension(folder_path)) {
++        WFPRINTF(stderr,
++                 "Could not derive output folder name from: %s\n"
++                 "(expected a file name with an extension, e.g. anim.webp)\n",
++                 in_path);
++        goto End;
++      }
++    }
++
++    if (!ImgIoUtilReadFile((const char*)in_path, &webp_data.bytes,
++                           &webp_data.size)) {
++      goto End;
++    }
++
++    if (!WebPGetInfo(webp_data.bytes, webp_data.size, NULL, NULL)) {
++      WFPRINTF(stderr, "Not a WebP file: %s\n", in_path);
++      goto End;
++    }
++
++    if (decode_only) {
++      if (!BenchmarkDecodeOnly(&webp_data)) {
++        goto End;
++      }
++      exit_code = EXIT_SUCCESS;
++      goto End;
++    }
++
++    if (!WebPAnimDecoderOptionsInit(&dec_options)) {
++      fprintf(stderr, "WebPAnimDecoderOptionsInit failed.\n");
++      goto End;
++    }
++    // WIC-based PNG output treats pixels as BGRA; decode in BGRA so channels
++    // match (default MODE_RGBA would be misinterpreted and look blue-shifted).
++    dec_options.color_mode = MODE_BGRA;
++
++    dec = WebPAnimDecoderNew(&webp_data, &dec_options);
++    if (dec == NULL) {
++      WFPRINTF(
++          stderr,
++          "Could not open as an animated WebP (or demux failed): %s\n",
++          in_path);
++      goto End;
++    }
++
++    if (!EnsureOutputFolder(folder_path)) {
++      WFPRINTF(stderr, "Could not create folder: %s\n", folder_path);
++      goto End;
++    }
++
++    {
++      WebPAnimInfo anim_info;
++      if (!WebPAnimDecoderGetInfo(dec, &anim_info)) {
++        fprintf(stderr, "WebPAnimDecoderGetInfo failed.\n");
++        goto End;
++      }
++
++      while (WebPAnimDecoderHasMoreFrames(dec)) {
++        uint8_t* rgba = NULL;
++        int timestamp = 0;
++        WebPDecBuffer buffer;
++        W_CHAR out_file[1024];
++
++        if (!WebPAnimDecoderGetNext(dec, &rgba, &timestamp)) {
++          fprintf(stderr, "Error decoding frame #%u\n", frame_index);
++          goto End;
++        }
++        (void)timestamp;
++
++        CleanupTransparentPixels((uint32_t*)rgba, anim_info.canvas_width,
++                                 anim_info.canvas_height);
++
++        if (!WebPInitDecBuffer(&buffer)) {
++          fprintf(stderr, "WebPInitDecBuffer failed.\n");
++          goto End;
++        }
++        buffer.colorspace = MODE_BGRA;
++        buffer.is_external_memory = 1;
++        buffer.width = anim_info.canvas_width;
++        buffer.height = anim_info.canvas_height;
++        buffer.u.RGBA.rgba = rgba;
++        buffer.u.RGBA.stride =
++            (int)(anim_info.canvas_width * sizeof(uint32_t));
++        buffer.u.RGBA.size =
++            (size_t)buffer.u.RGBA.stride * anim_info.canvas_height;
++
++        WSNPRINTF(out_file, sizeof(out_file), "%s\\%.4d.png", folder_path,
++                  frame_index);
++        if (!WebPSaveImage(&buffer, PNG, (const char*)out_file)) {
++          WFPRINTF(stderr, "Error writing: %s\n", out_file);
++          WebPFreeDecBuffer(&buffer);
++          goto End;
++        }
++        WebPFreeDecBuffer(&buffer);
++        ++frame_index;
++      }
++    }
++
++    WPRINTF("Wrote %u frame(s) to %s\\\n", frame_index, folder_path);
++    exit_code = EXIT_SUCCESS;
++  }
++
++End:
++  WebPAnimDecoderDelete(dec);
++  WebPDataClear(&webp_data);
++  FREE_WARGV_AND_RETURN(exit_code);
++}
++
++#endif  // _WIN32
