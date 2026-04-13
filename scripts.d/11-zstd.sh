@@ -22,6 +22,7 @@ ffbuild_dockerbuild() {
     rm -rf builddir && mkdir builddir && cd builddir
 
     local myconf=(
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
@@ -34,7 +35,6 @@ ffbuild_dockerbuild() {
         -DZSTD_LEGACY_SUPPORT=ON
     )
 
-    [[ "${USE_LTO}" = "1" ]] && myconf+=( -DZSTD_USE_LTO=ON )
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DZSTD_STATIC_LINKING"
     [[ "${PREFER_SHARED}" == "1" ]] && \
