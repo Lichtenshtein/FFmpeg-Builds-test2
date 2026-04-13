@@ -250,7 +250,7 @@ fi
 # Экспортируем стандартные LDFLAGS (через пробел для Си-компиляторов)
 export LDFLAGS="${FINAL_LDFLAGS[*]}"
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
-export HOST_LDFLAGS="-pipe"
+export HOST_LDFLAGS="-pipe -Wl,--reduce-memory-overheads"
 export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -fno-plt -pipe"
 export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -fno-plt -pipe"
