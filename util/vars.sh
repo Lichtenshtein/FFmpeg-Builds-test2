@@ -250,10 +250,10 @@ fi
 # Экспортируем стандартные LDFLAGS (через пробел для Си-компиляторов)
 export LDFLAGS="${FINAL_LDFLAGS[*]}"
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
-export HOST_LDFLAGS="-pipe -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads"
-export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
+export HOST_LDFLAGS="-pipe -Wl,--reduce-memory-overheads"
+export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -fno-plt -pipe"
 export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
-export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
+export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -fno-plt -pipe"
 
 # Собираем RUSTFLAGS (через функцию, чтобы каждый флаг получил свой -C link-arg)
 export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${FINAL_LDFLAGS[@]}")"
