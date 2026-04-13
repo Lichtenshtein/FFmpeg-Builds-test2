@@ -159,7 +159,7 @@ EOF
         # Note: We don't use the toolchain file for native build
         CFLAGS="$HOST_CFLAGS" \
         CXXFLAGS="$HOST_CXXFLAGS" \
-        LDFLAGS="HOST_LDFLAGS" \
+        LDFLAGS="$HOST_LDFLAGS" \
         cmake -G Ninja \
             -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
             -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
