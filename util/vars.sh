@@ -194,27 +194,12 @@ mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 # disable -fPIC, -ffast-math, if troubles occur
 # rust -C linker-plugin-lto LLVM Bitcode or LLVM MinGW
 
-OPENMP_C=""
-OPENMP_LIB=""
-if [[ "${USE_OPENMP}" == "1" ]]; then
-    OPENMP_C="-fopenmp"
-    OPENMP_LIB="-lgomp"
-fi
+[[ "$USE_OPENMP" == "1" ]] && export OPENMP_C=" -fopenmp" && export OPENMP_LIB="-lgomp "
+[[ "$USE_LTO" == "1" ]] && export RUSTLTO=" -C lto=fat" && export USELTO="-flto=auto" && export NOLTO="-fno-lto"
 
-RUSTLTO=""
-USELTO=""
-NOLTO=""
-if [[ "${USE_LTO}" == "1" ]]; then
-    RUSTLTO=" -C lto=fat"
-    export USELTO="-flto=auto"
-    export NOLTO="-fno-lto"
-fi
-
-SYSTEM_LIBS="${OPENMP_LIB} -lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
+SYSTEM_LIBS="${OPENMP_LIB}-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
 ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lnormaliz"
-
-export BASE_CFLAGS="-mms-bitfields -fstack-protector-strong ${OPENMP_C}"
-
+export BASE_CFLAGS="-mms-bitfields -fstack-protector-strong${OPENMP_C}"
 if [[ "$TARGET" == "win64" ]]; then
     export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
 else
@@ -266,7 +251,7 @@ export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
 # Собираем RUSTFLAGS (через функцию, чтобы каждый флаг получил свой -C link-arg)
 export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${FINAL_LDFLAGS[@]}")"
 export HOST_RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${BASE_LD_FLAGS[@]}")"
-export LIBS="${SYSTEM_LIBS}"
+export LIBS="${LIBS:-$SYSTEM_LIBS}"
 
 # Обработка флагов, специфичных для Linux ELF
 if [[ "$TARGET" == "win64" ]]; then
