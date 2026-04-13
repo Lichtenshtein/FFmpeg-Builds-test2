@@ -42,11 +42,9 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
-    local HOST=0
-
     local myconf=(
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DCMAKE_TOOLCHAIN_FILE=$([ "${HOST}" == "0" ] && echo "$FFBUILD_CMAKE_TOOLCHAIN" || echo "")
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         # -DALLOW_EXTERNAL_SPIRV_TOOLS=ON
         # -DSHADERC_GLSLANG_DIR="$(realpath ../third_party/glslang)"
         # -DSHADERC_SPIRV_TOOLS_DIR="$(realpath ../third_party/spirv-tools)"
@@ -145,24 +143,50 @@ EOF
     # cp -v "../libshaderc/libshaderc_combined.a" "$FFBUILD_DESTPREFIX/lib/"
     # cp -v "../libshaderc_util/libshaderc_util.a" "$FFBUILD_DESTPREFIX/lib"
 
-    # echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_combined.pc"
-    # echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_static.pc"
+    echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_combined.pc"
+    echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_static.pc"
 
-    # cp "$PC_DIR"/{shaderc_combined,shaderc}.pc
+    cp "$PC_DIR"/{shaderc_combined,shaderc}.pc
 
     # Native build for the glslc tool (Host side)
     mkdir ../native_build && cd ../native_build
 
+    local myconf_host=(
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DCMAKE_BUILD_TYPE=Release
+        -DENABLE_EXCEPTIONS=ON
+        -DENABLE_GLSLANG_BINARIES=OFF
+        -DENABLE_GLSLANG_JS=OFF
+        -DENABLE_HLSL=ON
+        -DENABLE_OPT=ON
+        -DENABLE_PCH=OFF
+        -DENABLE_RTTI=ON
+        -DENABLE_SPIRV=ON
+        -DGLSLANG_ENABLE_INSTALL=ON
+        -DGLSLANG_TESTS=OFF
+        -DSHADERC_SKIP_COPYRIGHT_CHECK=ON
+        -DSHADERC_SKIP_EXAMPLES=ON
+        -DSHADERC_SKIP_TESTS=ON
+        -DSKIP_SPIRV_TOOLS_INSTALL=OFF
+        -DSPIRV_CHECK_CONTEXT=OFF
+        -DSPIRV_HEADERS_ENABLE_INSTALL=ON
+        -DSPIRV_HEADERS_ENABLE_TESTS=OFF
+        -DSPIRV_SKIP_EXECUTABLES=ON
+        -DSPIRV_SKIP_TESTS=ON
+        -DSPIRV_WARN_EVERYTHING=OFF
+        -DSPIRV_WERROR=OFF
+    )
+
     # Clean env for host compilation
     (
-        local HOST=1
         unset CC CXX CFLAGS CXXFLAGS LD LDFLAGS AR RANLIB NM DLLTOOL PKG_CONFIG_LIBDIR PKG_CONFIG_PATH
         log_info "Building native glslc..."
         # Note: We don't use the toolchain file for native build
         CFLAGS="$HOST_CFLAGS $BASE_CPPFLAGS" \
         CXXFLAGS="$HOST_CXXFLAGS $BASE_CPPFLAGS" \
         LDFLAGS="$HOST_LDFLAGS" \
-        cmake -G Ninja "${myconf[@]}" .. || exit 1
+        cmake -G Ninja "${myconf_host[@]}" .. || exit 1
         ninja $NINJA_V glslc || exit 1
         cp glslc/glslc /opt/glslc
     ) || return 1
