@@ -202,18 +202,24 @@ ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -l
 export BASE_CFLAGS="-mms-bitfields -fstack-protector-strong${OPENMP_C}"
 if [[ "$TARGET" == "win64" ]]; then
     export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
+    # Базовые флаги линковщика общие для Host и Target
+    BASE_LD_FLAGS=(
+        "-pipe"
+        "-Wl,--high-entropy-va"
+        "-Wl,--nxcompat"
+        "-Wl,--dynamicbase"
+        "-Wl,--reduce-memory-overheads"
+        "-Wl,--stack,16777216"
+    )
 else
     export BASE_CPPFLAGS="-D_FORTIFY_SOURCE=2"
+    BASE_LD_FLAGS=(
+        "-pipe"
+        "-Wl,--nxcompat"
+        "-Wl,--dynamicbase"
+        "-Wl,--reduce-memory-overheads"
+    )
 fi
-# Базовые флаги линковщика общие для Host и Target
-BASE_LD_FLAGS=(
-    "-pipe"
-    "-Wl,--high-entropy-va"
-    "-Wl,--nxcompat"
-    "-Wl,--dynamicbase"
-    "-Wl,--reduce-memory-overheads"
-    "-Wl,--stack,16777216"
-)
 # Формируем LDFLAGS для Target
 FINAL_LDFLAGS=("${BASE_LD_FLAGS[@]}")
 FINAL_LDFLAGS+=("-L/opt/ffbuild/lib")
@@ -244,7 +250,7 @@ fi
 # Экспортируем стандартные LDFLAGS (через пробел для Си-компиляторов)
 export LDFLAGS="${FINAL_LDFLAGS[*]}"
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
-export HOST_LDFLAGS="${BASE_LD_FLAGS[*]}"
+export HOST_LDFLAGS="-pipe -Wl,--nxcompat -Wl,--dynamicbase -Wl,--reduce-memory-overheads"
 export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
 export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
