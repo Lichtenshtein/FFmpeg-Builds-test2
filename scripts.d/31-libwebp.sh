@@ -24,6 +24,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    mkdir -p _build && cd _build
+
     # if we disable everything
     # --disable-libwebpmux
     # --disable-libwebpextras
@@ -40,7 +42,7 @@ ffbuild_dockerbuild() {
     local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 $LIBS"
 
     local myconf=(
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
@@ -58,6 +60,9 @@ ffbuild_dockerbuild() {
         -DWEBP_BUILD_WEBPMUX=OFF
         -DWEBP_BUILD_EXTRAS=ON
         -DWEBP_BUILD_WEBP_JS=OFF
+        -DWEBP_BUILD_FUZZTEST=OFF
+        -DWEBP_BUILD_WEBP_ANIM2PNG_DEFAULT=OFF # patch adds tool for decoding animated WebP
+        -DWEBP_BUILD_WEBP_ANIM2PNG=OFF # patch adds tool for decoding animated WebP
         -DWEBP_USE_THREAD=ON
         -DWEBP_NEAR_LOSSLESS=ON
         -DWEBP_ENABLE_SWAP_16BIT_CSP=OFF # Enable byte swap for 16 bit colorspaces
