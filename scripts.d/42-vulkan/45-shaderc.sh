@@ -190,17 +190,17 @@ EOF
 
         ninja $NINJA_V glslc || exit 1
 
-        find . -name "glslc" || true
-
-        # Проверяем наличие файла перед копированием
-        if [ -f "glslc/glslc" ]; then
+        if [ -f "glslc" ]; then
+            cp glslc /opt/glslc
+            log_info "glslc found in root and copied"
+        elif [ -f "glslc/glslc" ]; then
             cp glslc/glslc /opt/glslc
+            log_info "glslc found in glslc/ and copied"
         else
-            log_error "glslc binary not found in glslc/ folder!"
+            log_error "glslc binary not found!"
+            find . -maxdepth 2 -executable -type f
             exit 1
         fi
-
-        cp glslc/glslc /opt/glslc
     ) || return 1
 }
 
