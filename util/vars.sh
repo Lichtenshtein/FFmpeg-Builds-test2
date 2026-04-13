@@ -203,7 +203,7 @@ export BASE_CFLAGS="-mms-bitfields -fstack-protector-strong${OPENMP_C}"
 if [[ "$TARGET" == "win64" ]]; then
     export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
 else
-    export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -D_FORTIFY_SOURCE=2"
+    export BASE_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 fi
 # Базовые флаги линковщика общие для Host и Target
 BASE_LD_FLAGS=(
@@ -246,6 +246,7 @@ export LDFLAGS="${FINAL_LDFLAGS[*]}"
 # Настройка хостового компилятора (чтобы он не трогал флаги таргета)
 export HOST_LDFLAGS="${BASE_LD_FLAGS[*]}"
 export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
+export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe"
 
 # Собираем RUSTFLAGS (через функцию, чтобы каждый флаг получил свой -C link-arg)
