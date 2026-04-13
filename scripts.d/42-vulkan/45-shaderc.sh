@@ -101,11 +101,11 @@ ffbuild_dockerbuild() {
     export DESTDIR="/tmp/staging$FFBUILD_DESTDIR"
     ninja install || return 1
 
-    if [[ $TARGET == win* ]]; then
-        rm -r "${DESTDIR}${FFBUILD_PREFIX}"/bin "${DESTDIR}${FFBUILD_PREFIX}"/lib/*.dll.a
-    elif [[ $TARGET == linux* ]]; then
-        rm -r "${DESTDIR}${FFBUILD_PREFIX}"/bin "${DESTDIR}${FFBUILD_PREFIX}"/lib/*.so*
-    fi
+    # if [[ $TARGET == win* ]]; then
+        # rm -r "${DESTDIR}${FFBUILD_PREFIX}"/bin "${DESTDIR}${FFBUILD_PREFIX}"/lib/*.dll.a
+    # elif [[ $TARGET == linux* ]]; then
+        # rm -r "${DESTDIR}${FFBUILD_PREFIX}"/bin "${DESTDIR}${FFBUILD_PREFIX}"/lib/*.so*
+    # fi
 
     # Создаем эталонный shaderc.pc, который реально будет работать при статической линковке FFmpeg
     mkdir -p "$PC_DIR"
@@ -159,7 +159,7 @@ EOF
     unset CC CXX CFLAGS CXXFLAGS LD LDFLAGS AR RANLIB NM DLLTOOL PKG_CONFIG_LIBDIR
 
     log_info "Building native glslc..."
-    cmake -GNinja "${myconf[@]}" .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V -j$(nproc) glslc/glslc || return 1
 
@@ -171,7 +171,6 @@ EOF
     # find . -type f -name "glslc" -executable -exec cp -v {} /opt/glslc \;
 
     cp glslc/glslc /opt/glslc
-
 }
 
 ffbuild_configure() {
