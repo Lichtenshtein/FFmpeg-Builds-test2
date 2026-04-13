@@ -43,7 +43,7 @@ ffbuild_dockerbuild() {
     export CC_host="gcc"
     export CFLAGS_host="$HOST_CFLAGS"
     export CXXFLAGS_host="$HOST_CXXFLAGS"
-    export CXXFLAGS_host="$HOST_LDFLAGS"
+    export LDFLAGS_host="$HOST_LDFLAGS"
 
     # Сбрасываем общие переменные, чтобы Cargo использовал 
     # стандартный системный GCC для сборки своих внутренних утилит (build.rs)
