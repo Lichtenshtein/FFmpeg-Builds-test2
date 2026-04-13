@@ -22,9 +22,9 @@ RUN \
     \
     apt-get -y install --no-install-recommends \
         $([ "$TARGETPLATFORM" != "linux/amd64" ] || echo gcc-multilib g++-multilib) \
-        build-essential pkg-config binutils pax-utils file yasm nasm ccache \
+        build-essential pkg-config binutils pax-utils file yasm nasm pv ccache \
         xxd pkgconf wget unzip zip git subversion mercurial rsync jq bc \
-        autoconf automake libtool libtool-bin autopoint gettext parallel cmake meson ninja-build \
+        autoconf automake libtool libtool-bin autopoint parallel cmake meson ninja-build \
         clang llvm lcov lld qemu-user libunwind-dev \
         texinfo texi2html help2man flex bison groff \
         gperf itstool ragel libc6-dev zlib1g-dev libssl-dev \
@@ -32,11 +32,11 @@ RUN \
         ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent p7zip-full zstd \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
         python3-numpy libdlpack-dev \
-        gcc-14 g++-14 dos2unix re2c \
-        pv bsdmainutils \
+        gcc-14 g++-14 dos2unix re2c bsdmainutils tree \
+        freeglut3-dev libglu1-mesa-dev mesa-common-dev libpolly-dev \
         wine-stable wine-stable-amd64 wine-stable-i386 xvfb && \
     \
-    pip3 install --break-system-packages --upgrade meson && \
+    pip3 install --break-system-packages --upgrade meson cmake ninja && \
     pip3 install Cython pytest build tbb-devel --break-system-packages && \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 && \
     update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-14 100 && \
@@ -53,10 +53,7 @@ RUN \
     git config --global user.name "Builder" && \
     git config --global advice.detachedHead false && \
     git config --global core.autocrlf false && \
-    git config --global --add safe.directory "*" && \
-    \
-    gcc-14 --version && \
-    as --version
+    git config --global --add safe.directory "*"
 
 # Настройки среды
 ENV \
@@ -91,6 +88,7 @@ RUN set -e; \
         ln -sf "$WINE_BIN_DIR/$bin" "/usr/bin/$bin"; \
     done; \
     ln -sf /usr/bin/wine /usr/bin/wine64; \
+    ln -sf /usr/lib/x86_64-linux-gnu/libglut.so.3.12.0 /usr/lib/x86_64-linux-gnu/libglut.so.3 \
     \
     echo "Checking Wine version:" && wine --version; \
     \
