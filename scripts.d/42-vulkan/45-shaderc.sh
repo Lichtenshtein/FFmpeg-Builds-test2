@@ -155,6 +155,7 @@ EOF
 
     # Clean env for host compilation
     (
+        local HOST=1
         unset CC CXX CFLAGS CXXFLAGS LD LDFLAGS AR RANLIB NM DLLTOOL PKG_CONFIG_LIBDIR PKG_CONFIG_PATH
         log_info "Building native glslc..."
         # Note: We don't use the toolchain file for native build
