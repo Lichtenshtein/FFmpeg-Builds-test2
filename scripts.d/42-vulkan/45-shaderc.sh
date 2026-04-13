@@ -42,9 +42,11 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
+    local HOST=0
+
     local myconf=(
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_TOOLCHAIN_FILE=$([ "${HOST}" == "0" ] && echo "$FFBUILD_CMAKE_TOOLCHAIN" || echo "")
         # -DALLOW_EXTERNAL_SPIRV_TOOLS=ON
         # -DSHADERC_GLSLANG_DIR="$(realpath ../third_party/glslang)"
         # -DSHADERC_SPIRV_TOOLS_DIR="$(realpath ../third_party/spirv-tools)"
@@ -98,8 +100,7 @@ ffbuild_dockerbuild() {
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    export DESTDIR="/tmp/staging$FFBUILD_DESTDIR"
-    ninja install || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # if [[ $TARGET == win* ]]; then
         # rm -r "${DESTDIR}${FFBUILD_PREFIX}"/bin "${DESTDIR}${FFBUILD_PREFIX}"/lib/*.dll.a
@@ -140,37 +141,30 @@ EOF
     cp "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_combined.pc"
     cp "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_static.pc"
 
-    cp -a "$DESTDIR"/. "$FFBUILD_DESTDIR"
-
-    rm -rf "$DESTDIR"
-    unset DESTDIR
-
     # for some reason, this does not get installed...
-    cp -v "../libshaderc/libshaderc_combined.a" "$FFBUILD_DESTPREFIX/lib/"
-    cp -v "../libshaderc_util/libshaderc_util.a" "$FFBUILD_DESTPREFIX/lib"
+    # cp -v "../libshaderc/libshaderc_combined.a" "$FFBUILD_DESTPREFIX/lib/"
+    # cp -v "../libshaderc_util/libshaderc_util.a" "$FFBUILD_DESTPREFIX/lib"
 
-    echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_combined.pc"
-    echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_static.pc"
+    # echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_combined.pc"
+    # echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_static.pc"
 
     # cp "$PC_DIR"/{shaderc_combined,shaderc}.pc
 
+    # Native build for the glslc tool (Host side)
     mkdir ../native_build && cd ../native_build
 
-    unset CC CXX CFLAGS CXXFLAGS LD LDFLAGS AR RANLIB NM DLLTOOL PKG_CONFIG_LIBDIR
-
-    log_info "Building native glslc..."
-    cmake -G Ninja "${myconf[@]}" .. || return 1
-
-    ninja $NINJA_V -j$(nproc) glslc/glslc || return 1
-
-    # Пробуем собрать таргет glslc. Если не выходит по точному имени, собираем всё в этой поддиректории
-    # ninja glslc || ninja glslc/all || return 1
-
-    # Копируем нативный бинарник туда, где он может понадобиться (например, vulkan-loader)
-    # Ищем его через find, так как путь может быть glslc/glslc или просто glslc
-    # find . -type f -name "glslc" -executable -exec cp -v {} /opt/glslc \;
-
-    cp glslc/glslc /opt/glslc
+    # Clean env for host compilation
+    (
+        unset CC CXX CFLAGS CXXFLAGS LD LDFLAGS AR RANLIB NM DLLTOOL PKG_CONFIG_LIBDIR PKG_CONFIG_PATH
+        log_info "Building native glslc..."
+        # Note: We don't use the toolchain file for native build
+        CFLAGS="$HOST_CFLAGS $BASE_CPPFLAGS" \
+        CXXFLAGS="$HOST_CXXFLAGS $BASE_CPPFLAGS" \
+        LDFLAGS="$HOST_LDFLAGS" \
+        cmake -G Ninja "${myconf[@]}" .. || exit 1
+        ninja $NINJA_V glslc || exit 1
+        cp glslc/glslc /opt/glslc
+    ) || return 1
 }
 
 ffbuild_configure() {
