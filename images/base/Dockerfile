@@ -33,7 +33,7 @@ RUN \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
         python3-numpy libdlpack-dev \
         gcc-14 g++-14 dos2unix re2c bsdmainutils tree \
-        freeglut3-dev libglu1-mesa-dev mesa-common-dev libpolly-20-dev \
+        freeglut3-dev libglu1-mesa-dev mesa-common-dev libpolly-18-dev \
         wine-stable wine-stable-amd64 wine-stable-i386 xvfb && \
     \
     pip3 install --break-system-packages --upgrade meson cmake ninja && \

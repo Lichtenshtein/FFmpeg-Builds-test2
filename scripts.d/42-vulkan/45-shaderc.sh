@@ -151,7 +151,6 @@ EOF
     # Native build for the glslc tool (Host side)
     mkdir ../native_build && cd ../native_build
 
-    # Clean env for host compilation
     (
         unset CC CXX CFLAGS CXXFLAGS LD LDFLAGS AR RANLIB NM DLLTOOL PKG_CONFIG_LIBDIR PKG_CONFIG_PATH
         log_info "Building native glslc..."
@@ -166,23 +165,26 @@ EOF
             -DCMAKE_BUILD_TYPE=Release \
             -DSHADERC_SKIP_TESTS=ON \
             -DSHADERC_SKIP_EXAMPLES=OFF \
-            -DSHADERC_SKIP_COPYRIGHT_CHECK=ON \
             -DENABLE_GLSLANG_BINARIES=ON \
             -DSPIRV_SKIP_EXECUTABLES=OFF \
             .. || exit 1
 
-        ninja $NINJA_V glslc || exit 1
+        # Собираем цель glslc_exe — в последних версиях бинарник привязан к ней
+        ninja $NINJA_V glslc glslc_exe || true
 
-        if [ -f "glslc/glslc" ]; then
-            cp glslc/glslc /opt/glslc
-        elif [ -f "glslc" ]; then
-            cp glslc /opt/glslc
+        # ищем любой исполняемый файл с именем glslc в текущей директории
+        RAW_GLSLC=$(find . -type f -name "glslc" -executable | head -n 1)
+
+        if [[ -n "$RAW_GLSLC" && -f "$RAW_GLSLC" ]]; then
+            log_info "Found glslc at $RAW_GLSLC, copying to /opt/glslc"
+            cp -v "$RAW_GLSLC" /opt/glslc
         else
-            log_error "Still no binary! Listing native_build/glslc content:"
-            ls -R glslc/
+            log_error "Still no binary! Checking what WAS built:"
+            find . -maxdepth 3 -executable -type f
             exit 1
         fi
     ) || return 1
+
 }
 
 ffbuild_configure() {
