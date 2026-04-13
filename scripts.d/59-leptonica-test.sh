@@ -53,12 +53,12 @@ fi
     done
 
     # финальный список для линковки
-    local DEP_LIBS="-llcms2_fast_float -llcms2_threaded -llcms2 -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif -lzstd -llzma -lbz2 -lz"
-    local WIN_LIBS="-lgdi32 $LIBS -lstdc++"
+    local DEP_LIBS="-llcms2_fast_float -llcms2_threaded -llcms2 -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif -lzstd -llzma -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt"
+    local WIN_LIBS="-lgdi32 $LIBS"
 
     # There is NO -DSTATIC=ON flag exist
     local myconf=(
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         # -DCMAKE_PROJECT_INCLUDE="${PWD}/extra_targets.cmake"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
