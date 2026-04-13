@@ -182,11 +182,13 @@ EOF
     (
         unset CC CXX CFLAGS CXXFLAGS LD LDFLAGS AR RANLIB NM DLLTOOL PKG_CONFIG_LIBDIR PKG_CONFIG_PATH
         log_info "Building native glslc..."
+
         # Note: We don't use the toolchain file for native build
         CFLAGS="$HOST_CFLAGS $HOST_CPPFLAGS" \
         CXXFLAGS="$HOST_CXXFLAGS $HOST_CPPFLAGS" \
         LDFLAGS="$HOST_LDFLAGS" \
         cmake -G Ninja "${myconf_host[@]}" .. || exit 1
+
         ninja $NINJA_V glslc || exit 1
         cp glslc/glslc /opt/glslc
     ) || return 1
