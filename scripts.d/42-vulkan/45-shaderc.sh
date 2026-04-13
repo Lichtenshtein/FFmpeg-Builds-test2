@@ -184,9 +184,8 @@ EOF
         log_info "Building native glslc..."
 
         # Note: We don't use the toolchain file for native build
-        CFLAGS="$HOST_CFLAGS $HOST_CPPFLAGS" \
-        CXXFLAGS="$HOST_CXXFLAGS $HOST_CPPFLAGS" \
-        LDFLAGS="$HOST_LDFLAGS" \
+        CFLAGS="$HOST_CFLAGS" \
+        CXXFLAGS="$HOST_CXXFLAGS" \
         cmake -G Ninja "${myconf_host[@]}" .. || exit 1
 
         ninja $NINJA_V glslc || exit 1
