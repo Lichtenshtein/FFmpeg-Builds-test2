@@ -24,6 +24,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    export PKG_CONFIG_PATH="$INSTALL_ROOT/lib/pkgconfig:$PKG_CONFIG_PATH"
+
     mkdir -p build && cd build
 
     local myconf=(
@@ -31,6 +33,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_PREFIX_PATH="$INSTALL_ROOT"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DAVIF_BUILD_TESTS=OFF
@@ -39,17 +42,17 @@ ffbuild_dockerbuild() {
         # Включаем поддержку внешнего декодера dav1d
         -DAVIF_CODEC_DAV1D=SYSTEM # Декодер
         -DAVIF_CODEC_DAV1D_ENABLED=ON
-        # -DAVIF_LIBSHARPYUV=SYSTEM
-        -DAVIF_LIBSHARPYUV=ON
-        -DLIBSHARPYUV_LIBRARY="$FFBUILD_PREFIX/lib/libsharpyuv.a"
-        -DLIBSHARPYUV_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DAVIF_LIBXML2=SYSTEM # convert JPEG with gain maps to AVIF using avifenc
+        -DAVIF_LIBSHARPYUV=SYSTEM # stupidly fails if no .cmake files found
+        -DAVIF_LIBXML2=SYSTEM # convert JPEG with gain maps to AVIF using avifenc; doesn't find a shit
         -DAVIF_JPEG=SYSTEM
         -DAVIF_ZLIBPNG=SYSTEM
         # aom создаёт проблему курицы и яйца
         -DAVIF_CODEC_AOM=OFF
         -DAVIF_CODEC_SVT=SYSTEM # Используем SVT-AV1 как энкодер!
         -DAVIF_LIBYUV=LOCAL # Донор libyuv для aom
+        # use rav1e instead of AOM or SVT
+        #-DAVIF_CODEC_RAV1E=SYSYEM
+        #-DAVIF_CODEC_RAV1E_ENABLED=ON
         -DAVIF_OPTIMIZE_RAV1E_FOR_SIZE=ON
     )
 
