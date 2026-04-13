@@ -156,7 +156,7 @@ EOF
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_BUILD_TYPE=Release
         -DENABLE_EXCEPTIONS=ON
-        -DENABLE_GLSLANG_BINARIES=OFF
+        -DENABLE_GLSLANG_BINARIES=ON
         -DENABLE_GLSLANG_JS=OFF
         -DENABLE_HLSL=ON
         -DENABLE_OPT=ON
@@ -166,13 +166,13 @@ EOF
         -DGLSLANG_ENABLE_INSTALL=ON
         -DGLSLANG_TESTS=OFF
         -DSHADERC_SKIP_COPYRIGHT_CHECK=ON
-        -DSHADERC_SKIP_EXAMPLES=ON
+        -DSHADERC_SKIP_EXAMPLES=OFF
         -DSHADERC_SKIP_TESTS=ON
         -DSKIP_SPIRV_TOOLS_INSTALL=OFF
         -DSPIRV_CHECK_CONTEXT=OFF
         -DSPIRV_HEADERS_ENABLE_INSTALL=ON
         -DSPIRV_HEADERS_ENABLE_TESTS=OFF
-        -DSPIRV_SKIP_EXECUTABLES=ON
+        -DSPIRV_SKIP_EXECUTABLES=OFF
         -DSPIRV_SKIP_TESTS=ON
         -DSPIRV_WARN_EVERYTHING=OFF
         -DSPIRV_WERROR=OFF
@@ -189,6 +189,17 @@ EOF
         cmake -G Ninja "${myconf_host[@]}" .. || exit 1
 
         ninja $NINJA_V glslc || exit 1
+
+        find . -name "glslc" || true
+
+        # Проверяем наличие файла перед копированием
+        if [ -f "glslc/glslc" ]; then
+            cp glslc/glslc /opt/glslc
+        else
+            log_error "glslc binary not found in glslc/ folder!"
+            exit 1
+        fi
+
         cp glslc/glslc /opt/glslc
     ) || return 1
 }
