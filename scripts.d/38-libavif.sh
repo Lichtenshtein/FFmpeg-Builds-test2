@@ -39,7 +39,10 @@ ffbuild_dockerbuild() {
         # Включаем поддержку внешнего декодера dav1d
         -DAVIF_CODEC_DAV1D=SYSTEM # Декодер
         -DAVIF_CODEC_DAV1D_ENABLED=ON
-        -DAVIF_LIBSHARPYUV=SYSTEM
+        # -DAVIF_LIBSHARPYUV=SYSTEM
+        -DAVIF_LIBSHARPYUV=ON
+        -DLIBSHARPYUV_LIBRARY="$FFBUILD_PREFIX/lib/libsharpyuv.a"
+        -DLIBSHARPYUV_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DAVIF_LIBXML2=SYSTEM # convert JPEG with gain maps to AVIF using avifenc
         -DAVIF_JPEG=SYSTEM
         -DAVIF_ZLIBPNG=SYSTEM
@@ -58,11 +61,10 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Извлекаем libyuv.a (она лежит в _deps/libyuv-build/)
-    cp "_deps/libyuv-build/libyuv.a" "$FFBUILD_PREFIX/lib/"
-    # Копируем заголовочные файлы (путь может зависеть от версии cmake)
-    mkdir -p "$FFBUILD_PREFIX/include/libyuv"
-    cp -r "_deps/libyuv-src/include/"* "$FFBUILD_PREFIX/include/libyuv"
+    # Извлекаем libyuv.a для послудующих стадий (она лежит в _deps/libyuv-build/)
+    cp "_deps/libyuv-build/libyuv.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/libyuv"
+    cp -r "_deps/libyuv-src/include/"* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/libyuv/"
 
     # Создаем pkg-config файл вручную, чтобы aom и avif-v2 его нашли
     mkdir -p "$PC_DIR"
