@@ -277,8 +277,10 @@ elif [[ "$TARGET" == "linux64" ]]; then
     FINAL_LDFLAGS+=("-L/opt/ffbuild/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -fno-semantic-interposition -std=gnu11"
-        export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -fno-semantic-interposition -std=gnu++17"
+        export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu11"
+        export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu++17"
+        export STAGE_CFLAGS="-fno-semantic-interposition"
+        export STAGE_CXXFLAGS="-fno-semantic-interposition"
         RUST_STATIC_CFG=""
         export LDFLAGS="${FINAL_LDFLAGS[*]}"
     else
