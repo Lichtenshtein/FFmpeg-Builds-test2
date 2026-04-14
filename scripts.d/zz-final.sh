@@ -19,6 +19,7 @@ ffbuild_depends() {
     echo nettle
     echo quiche
     echo nghttp2
+    echo freeglut
     # echo lcevcdec
     echo spirv-tools
     echo gavl
