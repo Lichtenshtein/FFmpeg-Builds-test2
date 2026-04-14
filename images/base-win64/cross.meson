@@ -8,19 +8,20 @@ strip = 'x86_64-w64-mingw32-strip'
 windres = 'x86_64-w64-mingw32-windres'
 dlltool = 'x86_64-w64-mingw32-dlltool'
 nasm = 'nasm'
+# disable wine
 # exe_wrapper = ['wine']
-exe_wrapper = ['/usr/bin/env', 'WINELOADER=/usr/lib/wine/wine64', '/usr/bin/wine']
 
 [properties]
 pkg_config_libdir = '/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig'
-needs_exe_wrapper = true
 pkg_config_static = true
 sys_root = '/'
+# disable wine
+# needs_exe_wrapper = true
+needs_exe_wrapper = false
 
 [built-in options]
 c_args = ['-I/opt/ffbuild/include']
 cpp_args = ['-I/opt/ffbuild/include']
-# pkg_config_path = '/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig'
 
 [host_machine]
 system = 'windows'
