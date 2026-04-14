@@ -176,7 +176,7 @@ All of those can be optionally combined with any combination of addins:
 * `The System Core` (Foundation; always build first). Without this, nothing will work.
 
 ```
-01-mingw-std-threads|02-mingw|03-base|04-freeglut|08-zlib
+01-mingw-std-threads|02-mingw|03-base|08-zlib|27-freeglut
 ```
 
 * `glib2`
@@ -186,37 +186,37 @@ All of those can be optionally combined with any combination of addins:
 
 * `librsvg`
 ```
-06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|12-libffi|15-pcre2|14-freetype|16-glib2|17-harfbuzz|18-libxml2|30-libpng|32-fontconfig|32-fribidi|32-pixman|33-cairo|33-harfbuzz|36-pango|37-dav1d|37-svtav1|38-libavif|39-freetype|38-librsvg-test
+06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|37-libpng|39-fontconfig|39-fribidi|39-pixman|40-cairo|40-harfbuzz|43-pango|44-dav1d|44-svtav1|45-libavif|46-freetype|45-librsvg-cargo-test
 ```
 
 * `libtesseract`
 ```
-05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|16-glib2|17-harfbuzz|18-libxml2|25-openssl|27-libssh|28-curl|30-giflib|30-libjpeg-turbo|30-libpng|30-libtiff|30-openjpeg|31-libwebp|32-fontconfig|32-fribidi|32-libtiff|32-pixman|33-cairo|33-harfbuzz|33-lcms2|35-libarchive|36-pango|59-leptonica-test|62-libtesseract-test
+05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|30-openssl|32-libssh|34-curl|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|37-openjpeg|38-libwebp|39-fontconfig|39-fribidi|39-libtiff|39-pixman|40-cairo|40-harfbuzz|40-lcms2|42-libarchive|43-pango|59-leptonica-test|62-libtesseract-test
 ```
 
 * `vulkan` (shaderc downloads, installs and compiles 'spirv-headers', 'spirv-tools', 'glslang' itself).
 ```
-42-vulkan-headers|43-spirv-headers|43-spirv-tools|44-spirv-cross|45-shaderc|45-vulkan-loader|99-enable
+49-vulkan-headers|50-spirv-headers|50-spirv-tools|51-spirv-cross|52-shaderc|52-vulkan-loader|99-enable
 ```
 
 * `libavif`
 ```
-37-dav1d|37-svtav1|38-libavif
+44-dav1d|44-svtav1|45-libavif
 ```
 
 * `opencv`
 ```
-04-tbbmalloc|08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|30-libjpeg-turbo|30-giflib|30-libpng|30-libtiff|30-openjpeg|31-libwebp|32-libtiff|33-lcms2|42-vulkan-headers|44-spirv-cross|45-shaderc|45-vulkan-loader|37-dav1d|37-svtav1|38-libavif|38-libjxl|59-opencl|61-opencv-test
+04-tbbmalloc|08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|37-openjpeg|38-libwebp|39-libtiff|40-lcms2|44-dav1d|44-svtav1|45-libavif|45-libjxl|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|59-opencl|61-opencv-test
 ```
 
 * `gavl`
 ```
-09-gmp|26-nettle|80-gavl
+09-gmp|31-nettle|80-gavl
 ```
 
 * `frei0r`
 ```
-04-freeglut|04-tbbmalloc|05-libicu|06-libiconv|07-gettext|08-zlib|09-gmp|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|16-glib2|17-harfbuzz|18-libxml2|26-nettle|30-giflib|30-libjpeg-turbo|30-libpng|30-libtiff|30-openjpeg|31-libwebp|32-fribidi|32-fontconfig|32-libtiff|32-pixman|33-cairo|33-harfbuzz|33-lcms2|34-freetype|37-dav1d|37-rav1e|37-svtav1|38-libavif|38-libjxl|42-vulkan-headers|44-spirv-cross|45-shaderc|45-vulkan-loader|47-vmaf|59-libtensorflow-test|59-opencl|59-openvino-test|61-opencv-test|70-aom|80-gavl|84-frei0r
+04-tbbmalloc|05-libicu|06-libiconv|07-gettext|08-zlib|09-gmp|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|27-freeglut|31-nettle|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|37-openjpeg|38-libwebp|39-fontconfig|39-fribidi|39-libtiff|39-pixman|40-cairo|40-harfbuzz|40-lcms2|41-freetype|44-dav1d|44-rav1e|44-svtav1|45-libavif|45-libjxl|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|54-vmaf|59-libtensorflow-test|59-opencl|59-openvino-test|61-opencv-test|70-aom|80-gavl|84-frei0r
 ```
 
 * `libbluray`
