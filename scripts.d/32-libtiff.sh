@@ -40,7 +40,7 @@ ffbuild_dockerbuild() {
         -Dtiff-tests=OFF
         -Dtiff-contrib=OFF
         -Dtiff-docs=OFF
-        -Dtiff-opengl=OFF
+        -Dtiff-opengl=ON
         -Djpeg=ON
         -Dzstd=ON
         -Dzlib=ON

@@ -45,10 +45,6 @@ ffbuild_dockerbuild() {
     local myconf=(
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
-        # -DALLOW_EXTERNAL_SPIRV_TOOLS=ON
-        # -DSHADERC_GLSLANG_DIR="$(realpath ../third_party/glslang)"
-        # -DSHADERC_SPIRV_TOOLS_DIR="$(realpath ../third_party/spirv-tools)"
-        # -DSHADERC_SPIRV_HEADERS_DIR="$(realpath ../third_party/spirv-headers)"
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_BUILD_TYPE=Release
@@ -100,12 +96,6 @@ ffbuild_dockerbuild() {
 
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # if [[ $TARGET == win* ]]; then
-        # rm -r "${DESTDIR}${FFBUILD_PREFIX}"/bin "${DESTDIR}${FFBUILD_PREFIX}"/lib/*.dll.a
-    # elif [[ $TARGET == linux* ]]; then
-        # rm -r "${DESTDIR}${FFBUILD_PREFIX}"/bin "${DESTDIR}${FFBUILD_PREFIX}"/lib/*.so*
-    # fi
-
     # Создаем эталонный shaderc.pc, который реально будет работать при статической линковке FFmpeg
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/shaderc.pc"
@@ -138,10 +128,6 @@ EOF
     # Дублируем его в shaderc_combined.pc и shaderc_static.pc для совместимости
     cp "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_combined.pc"
     cp "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_static.pc"
-
-    # for some reason, this does not get installed...
-    # cp -v "../libshaderc/libshaderc_combined.a" "$FFBUILD_DESTPREFIX/lib/"
-    # cp -v "../libshaderc_util/libshaderc_util.a" "$FFBUILD_DESTPREFIX/lib"
 
     echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_combined.pc"
     echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_static.pc"
@@ -184,7 +170,6 @@ EOF
             exit 1
         fi
     ) || return 1
-
 }
 
 ffbuild_configure() {
