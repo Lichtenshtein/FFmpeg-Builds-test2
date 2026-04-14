@@ -29,15 +29,16 @@ ffbuild_dockerbuild() {
         -DFREEGLUT_COCOA=OFF
         -DFREEGLUT_WAYLAND=OFF # Use Wayland not X11
         -DFREEGLUT_REPLACE_GLUT=ON # built as -lglut if ON; else -lfreeglut
-        -DFREEGLUT_GLES==OFF
+        -DFREEGLUT_GLES=OFF
         -DINSTALL_PDB=OFF # install .pdb files
         -DFREEGLUT_PRINT_WARNINGS=OFF
-        -DFREEGLUT_PRINT_ERRORS==OFF
+        -DFREEGLUT_PRINT_ERRORS=OFF
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
+    LIBS="$LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
