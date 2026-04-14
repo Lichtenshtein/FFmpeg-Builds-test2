@@ -1,0 +1,41 @@
+From 949be01fd0d986ecdf0fea823d95d0f0e47f06d7 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Stefan=20B=C3=BCttner?= <buettner.stefan@web.de>
+Date: Sat, 2 Mar 2024 12:41:18 +0100
+Subject: [PATCH] feat: Add include directories to freeglut and freeglut_static
+
+This allows using the freeglut and freeglut_static targets only by using
+target_link_libraries as is best practice in modern CMake.
+---
+ CMakeLists.txt | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 832d86722..177421cdd 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -421,9 +421,25 @@ ENDIF()
+ 
+ IF(FREEGLUT_BUILD_SHARED_LIBS)
+     ADD_LIBRARY(freeglut SHARED ${FREEGLUT_SRCS})
++    TARGET_INCLUDE_DIRECTORIES(freeglut
++    PRIVATE
++            "${CMAKE_CURRENT_BINARY_DIR}"
++            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
++        PUBLIC
++            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
++            $<INSTALL_INTERFACE:include>
++    )
+ ENDIF()
+ IF(FREEGLUT_BUILD_STATIC_LIBS)
+     ADD_LIBRARY(freeglut_static STATIC ${FREEGLUT_SRCS})
++    TARGET_INCLUDE_DIRECTORIES(freeglut_static
++        PRIVATE
++            "${CMAKE_CURRENT_BINARY_DIR}"
++            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
++        PUBLIC
++            $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
++            $<INSTALL_INTERFACE:include>
++    )
+ ENDIF()
+ 
+ 
