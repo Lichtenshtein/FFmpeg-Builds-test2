@@ -68,7 +68,7 @@ ffbuild_dockerbuild() {
     if [[ $TARGET == linux* ]]; then
         myconf+=(
             -DSDL_X11=ON
-            -DSDL_X11_SHARED=OFF
+            -DSDL_X11_SHARED=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
             -DHAVE_XGENERICEVENT=TRUE
             -DSDL_VIDEO_DRIVER_X11_HAS_XKBKEYCODETOKEYSYM=1
             -DSDL_PULSEAUDIO=ON

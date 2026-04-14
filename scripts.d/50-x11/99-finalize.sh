@@ -17,8 +17,10 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerbuild() {
-    rm "$FFBUILD_DESTPREFIX"/lib/lib*.so* || true
-    rm "$FFBUILD_DESTPREFIX"/lib/*.la || true
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+            rm "$FFBUILD_DESTPREFIX"/lib/lib*.so* || true
+            rm "$FFBUILD_DESTPREFIX"/lib/*.la || true
+    fi
 }
 
 ffbuild_libs() {
