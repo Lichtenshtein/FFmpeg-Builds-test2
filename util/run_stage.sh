@@ -340,9 +340,10 @@ if [[ -d "$INSTALL_ROOT" ]]; then
         # remove unwanted DLLs or static libs
         # список стадий, которым РАЗРЕШЕНО иметь DLL импортируется из workflow.yaml
         # библиотеки MinGW создают libимя.dll.a (implib) даже для статики
+        # added .exe files for clean-up
         if [[ "$PREFER_SHARED" != "1" ]]; then
             if [[ ! "$STAGENAME" =~ $DLL_PRESERVE_LIST ]]; then
-                clean_unwanted_libs "dynamic DLLs" "\( -name '*.dll' -o -name '*.dll.a' \)"
+                clean_unwanted_libs "dynamic DLLs" "\( -name '*.dll' -o -name '*.dll.a -o -name '*.exe' \)"
             else
                 log_info "${LOCK_MARK} Preserving dynamic DLLs and generating import libs for $STAGENAME"
                 # First, create an .a file so ffmpeg can link to it.
@@ -352,7 +353,7 @@ if [[ -d "$INSTALL_ROOT" ]]; then
             fi
         else
             if [[ -n "$LIB_PRESERVE_LIST" && ! "$STAGENAME" =~ $LIB_PRESERVE_LIST ]]; then
-                clean_unwanted_libs "static libs" "-name '*.a' ! -name '*.dll.a'"
+                clean_unwanted_libs "static libs" "-name '*.a' -o -name '*.exe' ! -name '*.dll.a'"
             else
                 log_info "${LOCK_MARK} Preserving static libs for $STAGENAME"
             fi

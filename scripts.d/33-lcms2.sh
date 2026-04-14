@@ -36,7 +36,7 @@ ffbuild_dockerbuild() {
         -Dtests=disabled
         # -Djpeg=true
         # -Dtiff=true
-        -Dversionedlibs=disabled # Enable building of .so.version libraries
+        -Dversionedlibs=false # Enable building of .so.version libraries
         -DHasTIFF=1 # we have TIFF lib
     )
 
