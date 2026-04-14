@@ -343,7 +343,7 @@ if [[ -d "$INSTALL_ROOT" ]]; then
         # added .exe files for clean-up
         if [[ "$PREFER_SHARED" != "1" ]]; then
             if [[ ! "$STAGENAME" =~ $DLL_PRESERVE_LIST ]]; then
-                clean_unwanted_libs "dynamic DLLs" "\( -name '*.dll' -o -name '*.dll.a -o -name '*.exe' \)"
+                clean_unwanted_libs "dynamic DLLs" "\( -name '*.dll' -o -name '*.dll.a' -o -name '*.exe' \)"
             else
                 log_info "${LOCK_MARK} Preserving dynamic DLLs and generating import libs for $STAGENAME"
                 # First, create an .a file so ffmpeg can link to it.

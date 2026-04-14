@@ -57,7 +57,7 @@ ffbuild_dockerbuild() {
         -Dtee=enabled
         -Dtests=disabled
         -Dxcb=disabled
-        -Dxlib=disabled
+        -Dxlib=$([ "${TARGET}" == "linux64" ] && echo enabled || echo disabled)
         -Dzlib=enabled
     )
 

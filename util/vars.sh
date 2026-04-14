@@ -1479,21 +1479,24 @@ get_component_group() {
     case "$prefix" in
         01|02|03)               echo "Toolchain" ;;
         04|05|06|07|09)         echo "System Integration" ;; # ICU, Gettext, Iconv
-        08|11|12|35)            echo "Compression & Runtime" ;; # Zlib, Zstd, FFI
-        15|16|18|19)            echo "Base Integration" ;; # Glib, XML2
-        20|21|22|23|24)         echo "Hardware Integration" ;; # cdio
-        25|26|27|28|29)         echo "Net" ;; # OpenSSL, Curl
- 14|17|30|31|32|33|34|36|38|39) echo "Core Graphics" ;; # PNG, Cairo
-        40)                     echo "Subtitles & Teletext" ;; # libass, zvbi
-        41)                     echo "QR-Codes" ;; # quirc, qrencode
-        42|43|44|45|46)         echo "Vulkan & Shaders" ;; # SPIR-V, Glslang
-        47|48|49|66)            echo "Hardware Acceleration API" ;; # VMAF
-        50|52|53|54|55|56)      echo "X11 & Windowing" ;; # XCB
+        08|11|12|42)            echo "Compression & Runtime" ;; # Zlib, Zstd, FFI
+        15|16)                  echo "Base Integration" ;; # Glib, XML2
+        18)                     echo "Hardware Integration" ;; # cdio
+        19|20|21|22)            echo "Low-level X-Graphics & DRM" ;; # xproto, libdrm
+        23|24)                  echo "X11 Core" ;; # libxau, libx11
+        25)                     echo "X11 Extensions" ;; # libxext, libxrender
+        26|27)                  echo "OpenGL & Display Drivers" ;; # libglvnd, libxrandr
+        30|31|32|33|34)         echo "Net" ;; # OpenSSL, Curl
+ 14|17|37|38|39|40|41|43|45|46) echo "Core Graphics & Fonts" ;; # PNG, Cairo
+        47)                     echo "Subtitles & Teletext" ;; # libass, zvbi
+        48)                     echo "QR-Codes" ;; # quirc, qrencode
+        49|50|51|52|53)         echo "Vulkan & Shaders" ;; # SPIR-V, Glslang
+        54|55|56|66)            echo "Hardware Acceleration API" ;; # VMAF
         57)                     echo "Video Capture" ;; # Decklink, libklvanc
         58|59|60|61|62)         echo "Compute & Vision" ;; # OpenVINO, OpenCV
         63|64|65|67|68)         echo "Audio API & Codecs" ;; #
         69)                     echo "Speech Recognition" ;; # Flite, Whisper
-        37|70|71|72|73|74)      echo "Software Codecs" ;; # x264, x265
+        44|70|71|72|73|74)      echo "Software Codecs" ;; # x264, x265
         80|81|82|83|84)         echo "Frameservers & Filtering" ;; # Vapoursynth, OpenAL
         51|85|86|87|88|89)      echo "Video Extensions" ;; # Libglvnd, Xrandr
         96|97|98)               echo "LV2 & Plugins" ;; # Serd, Sord, Lilv

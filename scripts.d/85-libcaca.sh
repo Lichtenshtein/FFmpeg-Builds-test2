@@ -3,6 +3,11 @@
 SCRIPT_REPO="https://github.com/cacalabs/libcaca.git"
 SCRIPT_COMMIT="69a42132350da166a98afe4ab36d89008197b5f2"
 
+ffbuild_depends() {
+    echo freeglut
+}
+
+
 ffbuild_enabled() {
     return 0
 }
@@ -39,14 +44,23 @@ ffbuild_dockerbuild() {
         --disable-python
         --disable-ruby
         --disable-imlib2
-        --disable-x11
-        --disable-gl
+        --enable-gl
         --disable-ncurses
         --disable-slang
         --disable-conio
         # Для Windows оставляем только win32 драйвер или вообще отключаем всё лишнее
         --enable-win32
     )
+
+    if [[ $TARGET == linux64 ]]; then
+        myconf+=(
+        --enable-x11
+        )
+    elif [[ $TARGET == win* ]]; then
+        myconf+=(
+        --disable-x11
+        )
+    fi
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
