@@ -72,15 +72,14 @@ RUN --mount=src=.,dst=/input \
 # Создаем ссылки на то, что РЕАЛЬНО есть в системе (судя по dpkg -L)
 RUN set -e; \
     mkdir -p "$WINEPREFIX"; \
-    WINE64_PATH=$(which wine64 || echo "/usr/lib/wine/wine64"); \
-    ln -sf "$WINE64_PATH" /usr/bin/wine; \
-    ln -sf /usr/lib/x86_64-linux-gnu/libglut.so.3.12.0 /usr/lib/x86_64-linux-gnu/libglut.so.3 \
+    ln -sf /usr/bin/wine64 /usr/bin/wine; \
+    ln -sf /usr/lib/x86_64-linux-gnu/libglut.so.3.12.0 /usr/lib/x86_64-linux-gnu/libglut.so.3; \
     \
-    # Исправляем синтаксис (добавлены ; перед echo)
-    echo "Checking Wine version:"; wine64 --version; \
+    echo "Checking Wine version:"; \
+    wine64 --version; \
     \
     echo "Initializing Wine Win64 prefix in $WINEPREFIX..."; \
-    # Используем wine64 напрямую для инициализации
     xvfb-run -n 99 -s "-screen 0 1024x768x16" \
-        sh -c "wine64 wineboot --init && wineserver -w" && \
+        sh -c "wine64 wineboot --init && wineserver -w"; \
+    \
     rm -rf /tmp/.X11-unix/X99
