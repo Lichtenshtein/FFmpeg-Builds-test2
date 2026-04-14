@@ -57,7 +57,7 @@ RUN \
 # Потом системные пути (чтобы as/ld брались из Ubuntu для хоста)
 # Потом TOOLCHAIN_BIN (где реальные x86_64-w64-mingw32-gcc)
 ENV \
-    PATH="/usr/local/bin:/usr/bin:/bin:${TOOLCHAIN_BIN}:/usr/lib/wine:/opt/cargo/bin" \
+    PATH="/usr/local/bin:/usr/bin:/bin:${TOOLCHAIN_BIN}:/opt/wine-stable/bin:/opt/cargo/bin" \
     \
     # ccache logic: explicitly search here for the REAL compiler to avoid loops
     CCACHE_PATH="${TOOLCHAIN_BIN}:/usr/bin" \
