@@ -1250,6 +1250,7 @@ setup_wine_env() {
         'make[[:space:]]+check' # autotools make check
         'make[[:space:]]+test'  # autotools make test
         'ninja[[:space:]]+test' # ninja test target
+        'WINELOADER'
     )
 
     local combined_pattern
@@ -1271,7 +1272,7 @@ setup_wine_env() {
         local retry=0
         while [[ $retry -lt 15 ]]; do
             DISPLAY=:99 xset -q >/dev/null 2>&1 && break
-            sleep 0.2
+            sleep 0.4
             (( retry++ ))
         done
         if [[ $retry -ge 15 ]]; then
@@ -1294,6 +1295,7 @@ export WINELOADER="/usr/lib/wine/wine64"
 export WINESERVER="/usr/lib/wine/wineserver64"
 # Отключаем попытки Wine найти 32-битную подсистему
 export WINEDEBUG="-all"
+export WINEPRELOADRESERVE=""
 
 conf_finder() {
     # Opt-IN: only run if script explicitly requests it
