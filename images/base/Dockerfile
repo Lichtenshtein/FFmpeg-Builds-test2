@@ -58,7 +58,7 @@ ENV \
     DISPLAY=:99 \
     WINEDEBUG=-all \
     WINEDLLOVERRIDES="mscoree,mshtml=" \
-    WINE_BIN_DIR="/usr/bin"
+    WINE_BIN_DIR="/usr/lib/wine"
 
 RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path && \
     curl -fsSL "https://github.com/lu-zero/cargo-c/releases/download/v${CARGO_C_VERSION}/cargo-c-x86_64-unknown-linux-musl.tar.gz" | tar -xz -C /opt/cargo/bin
@@ -71,25 +71,16 @@ RUN --mount=src=.,dst=/input \
 
 # Создаем ссылки на то, что РЕАЛЬНО есть в системе (судя по dpkg -L)
 RUN set -e; \
-    echo "--- LOCATING WINE ---"; \
-    find /usr -name "*wine*" -type f -executable; \
-    echo "--- DP_CHECK ---"; \
-    dpkg -L wine64 | grep bin || true; \
-    dpkg -L libwine:amd64 | grep bin || true; \
-    echo "--- PATH CHECK ---"; \
-    echo $PATH; \
-    which wine64 || echo "wine64 not in PATH"; \
-
-RUN set -e; \
-    REAL_WINE=$(find /usr/lib/wine -name "wine64" -type f -executable | head -n 1); \
-    [ -z "$REAL_WINE" ] && REAL_WINE=$(which wine64); \
-    \
-    if [ -z "$REAL_WINE" ]; then echo "WINE NOT FOUND"; exit 1; fi; \
+    REAL_WINE="/usr/lib/wine/wine64"; \
+    REAL_SERVER="/usr/lib/wine/wineserver64"; \
     \
     ln -sf "$REAL_WINE" /usr/bin/wine64; \
     ln -sf "$REAL_WINE" /usr/bin/wine; \
+    ln -sf "$REAL_SERVER" /usr/bin/wineserver; \
+    ln -sf /usr/lib/x86_64-linux-gnu/libglut.so.3.12.0 /usr/lib/x86_64-linux-gnu/libglut.so.3; \
     \
-    /usr/bin/wine64 --version; \
+    wine64 --version; \
     \
     xvfb-run -n 99 -s "-screen 0 1024x768x16" \
-        sh -c "wine64 wineboot --init && wineserver -w";
+        sh -c "wine64 wineboot --init && wineserver -w" && \
+    rm -rf /tmp/.X11-unix/X99
