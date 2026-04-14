@@ -1289,6 +1289,12 @@ setup_wine_env() {
 }
 export -f setup_wine_env
 
+# Явно указываем пути к 64-битным частям
+export WINELOADER="/usr/lib/wine/wine64"
+export WINESERVER="/usr/lib/wine/wineserver64"
+# Отключаем попытки Wine найти 32-битную подсистему
+export WINEDEBUG="-all"
+
 conf_finder() {
     # Opt-IN: only run if script explicitly requests it
     [[ "$USE_CONF_FINDER" != "1" ]] && return 0
