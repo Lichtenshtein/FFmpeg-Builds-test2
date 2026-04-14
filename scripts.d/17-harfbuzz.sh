@@ -19,10 +19,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-log_info "Testing wine sanity..."
-wine64 --version
-wine64 cmd /c "echo Wine works" || return 1
-
     mkdir build && cd build
 
     local DEP_LIBS="-lfreetype -lsicuin -lsicuuc -lsicudt"
