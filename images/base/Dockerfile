@@ -71,15 +71,25 @@ RUN --mount=src=.,dst=/input \
 
 # Создаем ссылки на то, что РЕАЛЬНО есть в системе (судя по dpkg -L)
 RUN set -e; \
-    mkdir -p "$WINEPREFIX"; \
-    ln -sf /usr/bin/wine64 /usr/bin/wine; \
-    ln -sf /usr/lib/x86_64-linux-gnu/libglut.so.3.12.0 /usr/lib/x86_64-linux-gnu/libglut.so.3; \
+    echo "--- LOCATING WINE ---"; \
+    find /usr -name "*wine*" -type f -executable; \
+    echo "--- DP_CHECK ---"; \
+    dpkg -L wine64 | grep bin || true; \
+    dpkg -L libwine:amd64 | grep bin || true; \
+    echo "--- PATH CHECK ---"; \
+    echo $PATH; \
+    which wine64 || echo "wine64 not in PATH"; \
+
+RUN set -e; \
+    REAL_WINE=$(find /usr/lib/wine -name "wine64" -type f -executable | head -n 1); \
+    [ -z "$REAL_WINE" ] && REAL_WINE=$(which wine64); \
     \
-    echo "Checking Wine version:"; \
-    wine64 --version; \
+    if [ -z "$REAL_WINE" ]; then echo "WINE NOT FOUND"; exit 1; fi; \
     \
-    echo "Initializing Wine Win64 prefix in $WINEPREFIX..."; \
+    ln -sf "$REAL_WINE" /usr/bin/wine64; \
+    ln -sf "$REAL_WINE" /usr/bin/wine; \
+    \
+    /usr/bin/wine64 --version; \
+    \
     xvfb-run -n 99 -s "-screen 0 1024x768x16" \
-        sh -c "wine64 wineboot --init && wineserver -w"; \
-    \
-    rm -rf /tmp/.X11-unix/X99
+        sh -c "wine64 wineboot --init && wineserver -w";
