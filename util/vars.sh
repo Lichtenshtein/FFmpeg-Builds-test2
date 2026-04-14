@@ -193,16 +193,50 @@ mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 # Flags for the component build stage
 # disable -fPIC, -ffast-math, if troubles occur
 # rust -C linker-plugin-lto LLVM Bitcode or LLVM MinGW
+# don't use cflags -ffunction-sections, -fdata-sections, linker flag -Wl,--gc-sections with non-static and non GCC builds
+# don't use -fno-plt flag other than host
 
 [[ "$USE_OPENMP" == "1" ]] && export OPENMP_C=" -fopenmp" && export OPENMP_LIB="-lgomp "
 [[ "$USE_LTO" == "1" ]] && export RUSTLTO=" -C lto=fat" && export USELTO="-flto=auto" && export NOLTO="-fno-lto"
 
+# Общие настройки Rust; codegen-units = 16 (default)
+COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 ${RUSTLTO}"
+
+# Общие и дополнительные либы
 SYSTEM_LIBS="${OPENMP_LIB}-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
 ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lnormaliz"
-export BASE_CFLAGS="-mms-bitfields -fstack-protector-strong${OPENMP_C}"
+
+# Функция для сборки строки RUSTFLAGS из массива
+# Принимает префикс (например "-C link-arg=") и имя массива
+to_rust_flags() {
+    local prefix="$1"; shift
+    printf " ${prefix}%s" "$@"
+}
+
+# Флаги для ХОСТА (Linux), которые всегда нужны для нативных сборок
+HOST_LINUX_LDFLAGS=(
+    "-pipe"
+    "-Wl,-z,relro"
+    "-Wl,-z,now"
+    "-Wl,-z,noexecstack"
+    "-Wl,--hash-style=gnu"
+    "-Wl,-O1"
+    "-Wl,--as-needed"
+)
+[[ "$PREFER_SHARED" != "1" ]] && HOST_LINUX_LDFLAGS+=( "-Wl,--gc-sections" )
+
+# Настраиваем HOST_RUSTFLAGS (всегда Linux ELF)
+export HOST_RUSTFLAGS="${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${HOST_LINUX_LDFLAGS[@]}") -C embed-bitcode=yes"
+export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]}"
+export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -fno-plt -pipe -ffunction-sections -fdata-sections"
+export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -fno-plt -pipe -ffunction-sections -fdata-sections"
+export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
+
+# Ветвление по TARGET
 if [[ "$TARGET" == "win64" ]]; then
+    export BASE_CFLAGS="-mms-bitfields -fstack-protector-strong${OPENMP_C}"
     export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
-    # Базовые флаги линковщика общие для Host и Target
+
     BASE_LD_FLAGS=(
         "-pipe"
         "-Wl,--high-entropy-va"
@@ -210,69 +244,58 @@ if [[ "$TARGET" == "win64" ]]; then
         "-Wl,--dynamicbase"
         "-Wl,--reduce-memory-overheads"
         "-Wl,--stack,16777216"
+        "-Wl,--as-needed"
     )
-else
-    export BASE_CPPFLAGS="-D_FORTIFY_SOURCE=2"
-    BASE_LD_FLAGS=(
-        "-pipe"
-        "-Wl,--nxcompat"
-        "-Wl,--dynamicbase"
-        "-Wl,--reduce-memory-overheads"
-    )
-fi
-# Формируем LDFLAGS для Target
-FINAL_LDFLAGS=("${BASE_LD_FLAGS[@]}")
-FINAL_LDFLAGS+=("-L/opt/ffbuild/lib")
-# codegen-units = 16 (default)
-COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 ${RUSTLTO}"
 
-# Функция для сборки строки RUSTFLAGS из массива
-# Принимает префикс (например "-C link-arg=") и имя массива
-to_rust_flags() {
-    local prefix="$1"
-    shift
-    printf " ${prefix}%s" "$@"
-}
+    [[ "$PREFER_SHARED" != "1" ]] && BASE_LD_FLAGS+=( "-Wl,--gc-sections" )
+
+    FINAL_LDFLAGS=("${BASE_LD_FLAGS[@]}")
+    FINAL_LDFLAGS+=("-L/opt/ffbuild/lib")
+
+    if [[ "$PREFER_SHARED" == "1" ]]; then
+        export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu11"
+        export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu++17"
+        RUST_STATIC_CFG=""
+        export LDFLAGS="${FINAL_LDFLAGS[*]}"
+    else
+        export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu11"
+        export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++17"
+        FINAL_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${FINAL_LDFLAGS[@]}")
+        RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
+        export LDFLAGS="${FINAL_LDFLAGS[*]}"
+    fi
+
+    export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${FINAL_LDFLAGS[@]}")"
+    export LIBS="${LIBS:-$SYSTEM_LIBS}"
+
+elif [[ "$TARGET" == "linux64" ]]; then
+    export BASE_CFLAGS="-fstack-protector-strong${OPENMP_C}"
+    export BASE_CPPFLAGS="-D_FORTIFY_SOURCE=2"
+
+    # Используем Linux-специфичные LDFLAGS
+    FINAL_LDFLAGS=("${HOST_LINUX_LDFLAGS[@]}")
+    FINAL_LDFLAGS+=("-L/opt/ffbuild/lib")
+
+    if [[ "$PREFER_SHARED" == "1" ]]; then
+        export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -fno-semantic-interposition -std=gnu11"
+        export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -fno-semantic-interposition -std=gnu++17"
+        RUST_STATIC_CFG=""
+        export LDFLAGS="${FINAL_LDFLAGS[*]}"
+    else
+        export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu11"
+        export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++17"
+        # Для Linux статика — это -static и исключение динамических путей
+        FINAL_LDFLAGS=("-static" "-static-libgcc" "-static-libstdc++" "${FINAL_LDFLAGS[@]}")
+        RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
+        export LDFLAGS="${FINAL_LDFLAGS[*]}"
+    fi
+
+    export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${FINAL_LDFLAGS[@]}")"
+    export LIBS="${LIBS} -ldl -lrt"
+
+fi
 
 export CPPFLAGS="-I/opt/ffbuild/include ${BASE_CPPFLAGS}"
-
-if [[ "$PREFER_SHARED" != "1" ]]; then
-    export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu11"
-    export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -std=gnu++17"
-    FINAL_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${FINAL_LDFLAGS[@]}")
-    RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
-else
-    export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu11"
-    export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu++17"
-    RUST_STATIC_CFG=""
-fi
-
-# Экспортируем стандартные LDFLAGS (через пробел для Си-компиляторов)
-export LDFLAGS="${FINAL_LDFLAGS[*]}"
-# Настройка хостового компилятора (чтобы он не трогал флаги таргета)
-export HOST_LDFLAGS="-pipe -Wl,--reduce-memory-overheads"
-export HOST_CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -fno-plt -pipe"
-export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
-export HOST_CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -fno-plt -pipe"
-
-# Собираем RUSTFLAGS (через функцию, чтобы каждый флаг получил свой -C link-arg)
-export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${FINAL_LDFLAGS[@]}")"
-export HOST_RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${BASE_LD_FLAGS[@]}")"
-export LIBS="${LIBS:-$SYSTEM_LIBS}"
-
-# Обработка флагов, специфичных для Linux ELF
-if [[ "$TARGET" == "win64" ]]; then
-    # бесполезно при сборке под Windows и ломает OpenSSL asm вместе с std=c11
-    export CFLAGS="${CFLAGS//-fno-semantic-interposition/}"
-    export CXXFLAGS="${CXXFLAGS//-fno-semantic-interposition/}"
-    export CFLAGS="${CFLAGS//-std=c11/-std=gnu11}"
-    export CXXFLAGS="${CXXFLAGS//-std=c++17/-std=gnu++17}"
-else
-    # Linux: ADD semantic-interposition flags
-    export STAGE_CFLAGS="-fno-semantic-interposition" 
-    export STAGE_CXXFLAGS="-fno-semantic-interposition"
-    export LIBS="${LIBS} -lrt -ld"
-fi
 
 # Validate TARGET and VARIANT only enforce when called directly OR when
 # arguments were explicitly passed (sourced scripts may not pass args)
