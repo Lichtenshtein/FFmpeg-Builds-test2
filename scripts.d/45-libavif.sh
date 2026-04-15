@@ -26,25 +26,30 @@ ffbuild_dockerbuild() {
 
     mkdir -p "include/sharpyuv"
 
-    local WEBP_INC="$FFBUILD_DESTPREFIX/include/webp/sharpyuv"
-    if [[ -d "$WEBP_INC" ]]; then
-        cp -v "$WEBP_INC/"*.h "include/sharpyuv/"
+    local GLOBAL_INC="$FFBUILD_PREFIX/include"
+    mkdir -p "include/sharpyuv"
+
+    if [[ -d "$GLOBAL_INC/webp/sharpyuv" ]]; then
+        cp -v "$GLOBAL_INC/webp/sharpyuv/"*.h "include/sharpyuv/"
+    elif [[ -d "$GLOBAL_INC/sharpyuv" ]]; then
+        cp -v "$GLOBAL_INC/sharpyuv/"*.h "include/sharpyuv/"
     else
-        echo "ERROR: Sharpyuv headers not found in $WEBP_INC" >&2
-        cp -v "$FFBUILD_DESTPREFIX/include/sharpyuv/"*.h "include/sharpyuv/" 2>/dev/null || true
+        log_error "Sharpyuv NOT found in $GLOBAL_INC"
+        find "$GLOBAL_INC" -name "*sharpyuv*" >&2
+        return 1
     fi
 
     cat <<EOF > fix_targets.cmake
 add_library(sharpyuv::sharpyuv STATIC IMPORTED GLOBAL)
 set_target_properties(sharpyuv::sharpyuv PROPERTIES 
-    IMPORTED_LOCATION "$FFBUILD_DESTPREFIX/lib/libsharpyuv.a"
+    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libsharpyuv.a"
     INTERFACE_INCLUDE_DIRECTORIES "\${CMAKE_CURRENT_SOURCE_DIR}/include"
     AVIF_LOCAL OFF)
 
 add_library(LibXml2::LibXml2 STATIC IMPORTED GLOBAL)
 set_target_properties(LibXml2::LibXml2 PROPERTIES 
-    IMPORTED_LOCATION "$FFBUILD_DESTPREFIX/lib/libxml2.a"
-    INTERFACE_INCLUDE_DIRECTORIES "$FFBUILD_DESTPREFIX/include/libxml2"
+    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libxml2.a"
+    INTERFACE_INCLUDE_DIRECTORIES "$FFBUILD_PREFIX/include/libxml2"
     AVIF_LOCAL OFF)
 
 include_directories(BEFORE "\${CMAKE_CURRENT_SOURCE_DIR}/include")
@@ -63,7 +68,7 @@ EOF
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DCMAKE_PREFIX_PATH="$FFBUILD_DESTPREFIX"
+        -DCMAKE_PREFIX_PATH="$FFBUILD_PREFIX"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DAVIF_BUILD_TESTS=OFF
