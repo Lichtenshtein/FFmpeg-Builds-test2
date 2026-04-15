@@ -26,17 +26,22 @@ ffbuild_dockerbuild() {
 
     # Создаем вспомогательный файл, чтобы внедрить наши "фейковые" таргеты в CMake
     cat <<EOF > fix_targets.cmake
+# Создаем таргеты без жесткой привязки к путям на этапе конфига
 add_library(sharpyuv::sharpyuv STATIC IMPORTED)
 set_target_properties(sharpyuv::sharpyuv PROPERTIES 
     IMPORTED_LOCATION "$INSTALL_ROOT/lib/libsharpyuv.a"
-    INTERFACE_INCLUDE_DIRECTORIES "$INSTALL_ROOT/include"
+    INTERFACE_INCLUDE_DIRECTORIES "" # Очищаем, чтобы не проверял наличие
     AVIF_LOCAL OFF)
 
 add_library(LibXml2::LibXml2 STATIC IMPORTED)
 set_target_properties(LibXml2::LibXml2 PROPERTIES 
     IMPORTED_LOCATION "$INSTALL_ROOT/lib/libxml2.a"
-    INTERFACE_INCLUDE_DIRECTORIES "$INSTALL_ROOT/include/libxml2"
+    INTERFACE_INCLUDE_DIRECTORIES ""
     AVIF_LOCAL OFF)
+
+# Добавляем глобальные пути поиска, чтобы компилятор сам нашел хидеры
+include_directories(SYSTEM "$INSTALL_ROOT/include")
+include_directories(SYSTEM "$INSTALL_ROOT/include/libxml2")
 EOF
 
     # Внедряем наш файл в начало основного CMakeLists.txt
@@ -74,13 +79,6 @@ EOF
         #-DAVIF_CODEC_RAV1E=SYSYEM
         #-DAVIF_CODEC_RAV1E_ENABLED=ON
         -DAVIF_OPTIMIZE_RAV1E_FOR_SIZE=ON
-        # Явное указание путей
-        -DLibXml2_INCLUDE_DIR="$INSTALL_ROOT/include/libxml2"
-        -DLibXml2_LIBRARY="$INSTALL_ROOT/lib/libxml2.a"
-        -Dsharpyuv_LIBRARY="$INSTALL_ROOT/lib/libsharpyuv.a"
-        -Dsharpyuv_INCLUDE_DIR="$INSTALL_ROOT/include"
-        -Ddav1d_LIBRARY="$INSTALL_ROOT/lib/libdav1d.a"
-        -Ddav1d_INCLUDE_DIR="$INSTALL_ROOT/include"
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
