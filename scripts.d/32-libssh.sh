@@ -20,6 +20,11 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Fix compilation on windows, mingw exports the symbol, but the header only shows it for c23.
+    # Since the cmake script only checks for the symbol, it succeeds. But then fails to build.
+    echo '#include <stddef.h>' >> config.h
+    echo 'char * strndup(const char *s, size_t c);' >> config.h
+
     mkdir -p build && cd build
 
     local myconf=(
@@ -31,6 +36,7 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DWITH_EXAMPLES=OFF
         -DWITH_SERVER=OFF
+        -DHAVE_STRNDUP=YES
         -DWITH_SFTP=ON
         -DWITH_ZLIB=ON
     )
@@ -38,8 +44,8 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBSSH_STATIC"
 
-    CFLAGS="$CFLAGS $CPPFLAGS $static_flags -Dmd5=libssh_md5 -include string.h" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags -Dmd5=libssh_md5 -include string.h" \
+    CFLAGS="$CFLAGS $CPPFLAGS $static_flags -Dmd5=libssh_md5" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags -Dmd5=libssh_md5" \
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 

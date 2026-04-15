@@ -78,23 +78,23 @@ stage_cleanup() {
                         # 1) use find
                         # -maxdepth 2 чтобы не выводить тысячи файлов из подпапок
                         # sed добавляет отступы для имитации дерева
-                        find "$BUILD_DIR" -maxdepth 2 -not -path '*/.*' | sed -e "s|^$BUILD_DIR||" -e "s|^/||" | sort | while read -r line; do
-                            [[ -z "$line" ]] && continue
-                            full_path="${BUILD_DIR}/${line}"
-                            if [[ -d "$full_path" ]]; then
-                                echo -e "${DIRS_MARK} ${BLUE_B}${line}/${NC}" >&2
-                            elif [[ -x "$full_path" ]]; then
-                                echo -e "${CHECK_MARK} ${GREEN}${line}*${NC}" >&2
-                            else
-                                echo -e " ${line}" >&2
-                            fi
-                        done
+                        # find "$BUILD_DIR" -maxdepth 2 -not -path '*/.*' | sed -e "s|^$BUILD_DIR||" -e "s|^/||" | sort | while read -r line; do
+                            # [[ -z "$line" ]] && continue
+                            # full_path="${BUILD_DIR}/${line}"
+                            # if [[ -d "$full_path" ]]; then
+                                # echo -e "${DIRS_MARK} ${BLUE_B}${line}/${NC}" >&2
+                            # elif [[ -x "$full_path" ]]; then
+                                # echo -e "${CHECK_MARK} ${GREEN}${line}*${NC}" >&2
+                            # else
+                                # echo -e " ${line}" >&2
+                            # fi
+                        # done
                         # 2) or use ls
                         # ls -F -C --color=always --group-directories-first "$BUILD_DIR" >&2
                         # 3) better use tree (need rebuild)
                         # -F добавляет / к папкам, -L 2 ограничивает глубину, чтобы не спамить
                         # --dirsfirst группирует папки в начале
-                        # tree -F -L 2 --dirsfirst "$BUILD_DIR" >&2
+                        tree -F -L 2 --dirsfirst "$BUILD_DIR" >&2
                     else
                         log_warn "No logs were found."
                     fi

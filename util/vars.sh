@@ -256,23 +256,23 @@ if [[ "$TARGET" == "win64" ]]; then
 
     [[ "$PREFER_SHARED" != "1" ]] && BASE_LD_FLAGS+=( "-Wl,--gc-sections" )
 
-    FINAL_LDFLAGS=("${BASE_LD_FLAGS[@]}")
-    FINAL_LDFLAGS+=("-L/opt/ffbuild/lib")
+    MAIN_LDFLAGS=("${BASE_LD_FLAGS[@]}")
+    MAIN_LDFLAGS+=("-L/opt/ffbuild/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
         export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu11"
         export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu++17"
         RUST_STATIC_CFG=""
-        export LDFLAGS="${FINAL_LDFLAGS[*]}"
+        export LDFLAGS="${MAIN_LDFLAGS[*]}"
     else
         export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu11"
         export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++17"
-        FINAL_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${FINAL_LDFLAGS[@]}")
+        MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
-        export LDFLAGS="${FINAL_LDFLAGS[*]}"
+        export LDFLAGS="${MAIN_LDFLAGS[*]}"
     fi
 
-    export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${FINAL_LDFLAGS[@]}")"
+    export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${MAIN_LDFLAGS[@]}")"
     export LIBS="${LIBS:-$SYSTEM_LIBS}"
 
 elif [[ "$TARGET" == "linux64" ]]; then
@@ -280,8 +280,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
     export BASE_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
     # Используем Linux-специфичные LDFLAGS
-    FINAL_LDFLAGS=("${HOST_LINUX_LDFLAGS[@]}")
-    FINAL_LDFLAGS+=("-L/opt/ffbuild/lib")
+    MAIN_LDFLAGS=("${HOST_LINUX_LDFLAGS[@]}")
+    MAIN_LDFLAGS+=("-L/opt/ffbuild/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
         export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu11"
@@ -289,17 +289,17 @@ elif [[ "$TARGET" == "linux64" ]]; then
         export STAGE_CFLAGS="-fno-semantic-interposition"
         export STAGE_CXXFLAGS="-fno-semantic-interposition"
         RUST_STATIC_CFG=""
-        export LDFLAGS="${FINAL_LDFLAGS[*]}"
+        export LDFLAGS="${MAIN_LDFLAGS[*]}"
     else
         export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu11"
         export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++17"
         # Для Linux статика — это -static и исключение динамических путей
-        FINAL_LDFLAGS=("-static" "-static-libgcc" "-static-libstdc++" "${FINAL_LDFLAGS[@]}")
+        MAIN_LDFLAGS=("-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
-        export LDFLAGS="${FINAL_LDFLAGS[*]}"
+        export LDFLAGS="${MAIN_LDFLAGS[*]}"
     fi
 
-    export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${FINAL_LDFLAGS[@]}")"
+    export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${MAIN_LDFLAGS[@]}")"
     export LIBS="${LIBS} -ldl -lrt"
 
 fi

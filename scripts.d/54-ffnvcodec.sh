@@ -1,11 +1,15 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/FFmpeg/nv-codec-headers.git"
-SCRIPT_COMMIT="876af32a202d0de83bd1d36fe74ee0f7fcf86b0d"
+SCRIPT_COMMIT="33a9ede8d9914299d9262539c576a15bd0a19621"
+
+# SCRIPT_REPO2="https://github.com/FFmpeg/nv-codec-headers.git"
+# SCRIPT_COMMIT2="9934f17316b66ce6de12f3b82203a298bc9351d8"
+# SCRIPT_BRANCH2="sdk/12.2"
 
 SCRIPT_REPO4="https://github.com/FFmpeg/nv-codec-headers.git"
-SCRIPT_COMMIT4="9934f17316b66ce6de12f3b82203a298bc9351d8"
-SCRIPT_BRANCH4="sdk/12.2"
+SCRIPT_COMMIT4="09e12e3d803ce79c327a9709233e8cd858e59d9e"
+SCRIPT_BRANCH4="sdk/8.1"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm64 ]] && return 1
@@ -14,13 +18,18 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl ffnvcodec
+    # echo "git-mini-clone \"$SCRIPT_REPO2\" \"$SCRIPT_COMMIT2\" ffnvcodec2"
     echo "git-mini-clone \"$SCRIPT_REPO4\" \"$SCRIPT_COMMIT4\" ffnvcodec4"
 }
 
 ffbuild_dockerbuild() {
     set -e
 
-    cd ffnvcodec4
+    if [[ "${OLDER_FFNV}" == "1" ]]; then
+        cd ffnvcodec4
+    else
+        cd ffnvcodec
+    fi
 
     # ffnvcodec - это просто заголовки, Makefile простой.
     make PREFIX="$FFBUILD_PREFIX" DESTDIR="$FFBUILD_DESTDIR" install || return 1
