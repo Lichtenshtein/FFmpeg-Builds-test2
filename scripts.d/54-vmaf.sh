@@ -1,7 +1,11 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/Netflix/vmaf.git"
-SCRIPT_COMMIT="332dde62838d91d8b5216e9822de58851f2fd64f"
+# SCRIPT_REPO="https://github.com/Netflix/vmaf.git"
+# SCRIPT_COMMIT="332dde62838d91d8b5216e9822de58851f2fd64f"
+
+SCRIPT_REPO="https://github.com/lusoris/vmaf.git"
+SCRIPT_COMMIT="5fe843fd03a90114de40f2bc6e5fc4a1a189fa5a"
+SCRIPT_BRANCH="sycl-gpu-optimizations"
 
 ffbuild_enabled() {
     return 0
@@ -24,10 +28,10 @@ ffbuild_dockerbuild() {
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         --prefix="$FFBUILD_PREFIX"
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
-        -Dbenchmarking=false
-        -Dbuilt_in_models=true
         -Dc_std=c11
         -Dcpp_std=c++17
+        -Dbenchmarking=false
+        -Dbuilt_in_models=true
         -Denable_asm=true
         -Denable_avx512=$([ "${USE_AVX512}" == "1" ] && echo true || echo false )
         -Denable_docs=false
@@ -37,6 +41,10 @@ ffbuild_dockerbuild() {
         -Denable_cuda=false # Enable CUDA support; requires nvcc
         -Denable_nvtx=false # Enable NVTX range support
         -Denable_nvcc=false # Use clang to compile CUDA code
+        # added by patches
+        -Denable_discord_mode=true
+        -Denable_sycl=false # Enable Intel oneAPI SYCL/DPC++ support for GPU-accelerated feature extraction
+        -Dsycl_compiler=icpx # Path or name of the SYCL compiler (Intel icpx from oneAPI)
     )
 
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
@@ -45,7 +53,7 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    meson setup "${myconf[@]}" ../libvmaf \
+    meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
         -Dc_link_args="$LDFLAGS" \
