@@ -12,16 +12,9 @@ nasm = 'nasm'
 # exe_wrapper = ['wine']
 
 [properties]
-# путь где реально лежат .pc файлы во время сборки в Docker
-pkg_config_libdir = [
-    '/opt/ffdest/opt/ffbuild/lib/pkgconfig',
-    '/opt/ffdest/opt/ffbuild/lib64/pkgconfig',
-    '/opt/ffdest/opt/ffbuild/share/pkgconfig',
-    '/opt/ffbuild/lib/pkgconfig',
-    '/opt/ffbuild/lib64/pkgconfig',
-    '/opt/ffbuild/share/pkgconfig'
-]
-# sys_root должен указывать на корень, где лежат зависимости
+# РїСѓС‚СЊ РіРґРµ СЂРµР°Р»СЊРЅРѕ Р»РµР¶Р°С‚ .pc С„Р°Р№Р»С‹ РІРѕ РІСЂРµРјСЏ СЃР±РѕСЂРєРё РІ Docker
+pkg_config_libdir = '/opt/ffdest/opt/ffbuild/lib/pkgconfig:/opt/ffdest/opt/ffbuild/lib64/pkgconfig:/opt/ffdest/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/lib64/pkgconfig:/opt/ffbuild/share/pkgconfig'
+# sys_root РґРѕР»Р¶РµРЅ СѓРєР°Р·С‹РІР°С‚СЊ РЅР° РєРѕСЂРµРЅСЊ, РіРґРµ Р»РµР¶Р°С‚ Р·Р°РІРёСЃРёРјРѕСЃС‚Рё
 sys_root = '/opt/ffdest/opt/ffbuild'
 pkg_config_static = true
 # disable wine
