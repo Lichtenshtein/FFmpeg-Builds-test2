@@ -41,7 +41,7 @@ ffbuild_dockerbuild() {
         -Denable_nvtx=false # Enable NVTX range support
         -Denable_nvcc=false # Use clang to compile CUDA code
         # added by patches
-        -Denable_discord_mode=true # disable until fixed patch will be cached
+        #-Denable_discord_mode=true # disable until fixed patch will be cached
         -Denable_sycl=false # Enable Intel oneAPI SYCL/DPC++ support for GPU-accelerated feature extraction
         -Dsycl_compiler=icpx # Path or name of the SYCL compiler (Intel icpx from oneAPI)
     )
