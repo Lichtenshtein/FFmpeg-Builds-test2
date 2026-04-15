@@ -26,32 +26,35 @@ ffbuild_dockerbuild() {
 
     mkdir -p "include/sharpyuv"
 
-    # Ищем, где реально лежат хидеры в префиксе, и копируем их в локальную папку
-    # Проверяем оба возможных пути (стандартный и глубокий из libwebp)
-    cp "$INSTALL_ROOT/include/webp/sharpyuv/"*.h "include/sharpyuv/" 2>/dev/null || \
-    cp "$INSTALL_ROOT/include/sharpyuv/"*.h "include/sharpyuv/" 2>/dev/null || \
-    cp "$INSTALL_ROOT/include/webp/"sharpyuv*.h "include/sharpyuv/" 2>/dev/null
+    local WEBP_INC="$FFBUILD_DESTPREFIX/include/webp/sharpyuv"
+    if [[ -d "$WEBP_INC" ]]; then
+        cp -v "$WEBP_INC/"*.h "include/sharpyuv/"
+    else
+        echo "ERROR: Sharpyuv headers not found in $WEBP_INC" >&2
+        cp -v "$FFBUILD_DESTPREFIX/include/sharpyuv/"*.h "include/sharpyuv/" 2>/dev/null || true
+    fi
 
     cat <<EOF > fix_targets.cmake
-add_library(sharpyuv::sharpyuv STATIC IMPORTED)
+add_library(sharpyuv::sharpyuv STATIC IMPORTED GLOBAL)
 set_target_properties(sharpyuv::sharpyuv PROPERTIES 
-    IMPORTED_LOCATION "$INSTALL_ROOT/lib/libsharpyuv.a"
+    IMPORTED_LOCATION "$FFBUILD_DESTPREFIX/lib/libsharpyuv.a"
+    INTERFACE_INCLUDE_DIRECTORIES "\${CMAKE_CURRENT_SOURCE_DIR}/include"
     AVIF_LOCAL OFF)
 
-add_library(LibXml2::LibXml2 STATIC IMPORTED)
+add_library(LibXml2::LibXml2 STATIC IMPORTED GLOBAL)
 set_target_properties(LibXml2::LibXml2 PROPERTIES 
-    IMPORTED_LOCATION "$INSTALL_ROOT/lib/libxml2.a"
+    IMPORTED_LOCATION "$FFBUILD_DESTPREFIX/lib/libxml2.a"
+    INTERFACE_INCLUDE_DIRECTORIES "$FFBUILD_DESTPREFIX/include/libxml2"
     AVIF_LOCAL OFF)
 
-# Добавляем ПЕРВЫМ делом локальную папку include, которую мы создали выше
 include_directories(BEFORE "\${CMAKE_CURRENT_SOURCE_DIR}/include")
-# И только потом системные
-include_directories(SYSTEM "$INSTALL_ROOT/include")
 EOF
 
     sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/fix_targets.cmake")' CMakeLists.txt
     sed -i 's/check_avif_option(AVIF_LIBSHARPYUV.*/set(AVIF_LIBSHARPYUV_ENABLED ON)/' CMakeLists.txt
     sed -i 's/check_avif_option(AVIF_LIBXML2.*/set(AVIF_LIBXML2_ENABLED ON)/' CMakeLists.txt
+    sed -i 's/find_package(libsharpyuv/#/' CMakeLists.txt
+    sed -i 's/find_package(LibXml2/#/' CMakeLists.txt
 
     mkdir -p build && cd build
 
@@ -60,7 +63,7 @@ EOF
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DCMAKE_PREFIX_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX"
+        -DCMAKE_PREFIX_PATH="$FFBUILD_DESTPREFIX"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DAVIF_BUILD_TESTS=OFF
