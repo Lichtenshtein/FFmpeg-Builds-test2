@@ -18,33 +18,48 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+# Создаем обертку для pkg-config, чтобы Meson не тупил
+cat <<EOF > pkg-config-wrapper
+#!/bin/bash
+export PKG_CONFIG_LIBDIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_DESTDIR$FFBUILD_PREFIX/share/pkgconfig"
+export PKG_CONFIG_SYSROOT_DIR="/"
+exec /usr/bin/pkg-config "\$@"
+EOF
+chmod +x pkg-config-wrapper
+
+    export PKG_CONFIG="$(pwd)/pkg-config-wrapper"
+
     mkdir build && cd build
 
     local DEP_LIBS="-ltiffxx -ltiff -lturbojpeg -ljpeg -ljbig -lzstd -llzma -lz"
     local WIN_LIBS="$LIBS"
 
-    export PKG_CONFIG_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_DESTDIR$FFBUILD_PREFIX/share/pkgconfig"
-    # Для некоторых версий Meson также важна эта переменная
-    export PKG_CONFIG_LIBDIR="$PKG_CONFIG_PATH"
-
     local myconf=(
-        --prefix="$FFBUILD_PREFIX"
-        --cross-file=/cross.meson
-        -Ddefault_library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
-        -Dcpp_std=c++17
-        -Dc_std=c11
-        -Dutils=false
-        -Dfastfloat=true
-        -Dthreaded=true
-        -Dtests=disabled
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        -DLCMS2_BUILD_SHARED=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DLCMS2_BUILD_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
+        -DLCMS2_BUILD_TOOLS=OFF
+        -DLCMS2_BUILD_TESTS=OFF
+        -DLCMS2_BUILD_JPGICC=OFF # build jpgicc tool (requires JPEG)
+        -DLCMS2_BUILD_TIFICC=OFF # build tificc tool (requires TIFF, optionally ZLIB)
+        -DLCMS2_BUILD_TIFFDIFF=OFF # build tiffdiff tool (requires TIFF)
+        -DLCMS2_WITH_JPEG=OFF
+        -DLCMS2_WITH_TIFF=OFF
+        -DLCMS2_WITH_ZLIB=OFF
+        -DLCMS2_WITH_THREADS=ON # enable thread support where applicable
+        -DLCMS2_WITH_FASTFLOAT=ON
+        -DLCMS2_WITH_THREADED_PLUGIN=ON
     )
 
-    PKG_CONFIG_PATH="$PKG_CONFIG_PATH" meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
-        -Dc_link_args="$LDFLAGS $WIN_LIBS" \
-        -Dcpp_link_args="$LDFLAGS $WIN_LIBS" || return 1
+    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    LDFLAGS="$LDFLAGS" \
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1

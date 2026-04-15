@@ -135,7 +135,7 @@ export PC_DIR="${INSTALL_ROOT}/lib/pkgconfig"
 export VARS_DIR="${FFBUILD_PREFIX}/config_vars"
 # pkg-config variables
 export PKG_CONFIG_PATH="" # don't touch
-export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig:${FFBUILD_PREFIX}/lib64/pkgconfig"
+export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig:${FFBUILD_PREFIX}/lib64/pkgconfig:${INSTALL_ROOT}/lib/pkgconfig:${INSTALL_ROOT}/lib64/pkgconfig:${INSTALL_ROOT}/share/pkgconfig"
 export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 # pkg-config libs collector options for final ffmpeg
