@@ -4,7 +4,8 @@ SCRIPT_REPO="https://github.com/AOMediaCodec/libavif.git"
 SCRIPT_COMMIT="226e112a833bbb3e98632492e4d766e37d661774"
 
 ffbuild_depends() {
-    echo libwebp
+    echo libwebp # libsharpyuv
+    echo libpng
     echo zlib
     echo dav1d
     echo rav1e # 1 of 3
@@ -25,19 +26,9 @@ ffbuild_dockerbuild() {
     set -e
 
     mkdir -p "include/sharpyuv"
+    cp -v "$FFBUILD_PREFIX/include/webp/sharpyuv/"*.h "include/sharpyuv/" 2>/dev/null || true
 
-    local GLOBAL_INC="$FFBUILD_PREFIX/include"
-    mkdir -p "include/sharpyuv"
-
-    if [[ -d "$GLOBAL_INC/webp/sharpyuv" ]]; then
-        cp -v "$GLOBAL_INC/webp/sharpyuv/"*.h "include/sharpyuv/"
-    elif [[ -d "$GLOBAL_INC/sharpyuv" ]]; then
-        cp -v "$GLOBAL_INC/sharpyuv/"*.h "include/sharpyuv/"
-    else
-        log_error "Sharpyuv NOT found in $GLOBAL_INC"
-        find "$GLOBAL_INC" -name "*sharpyuv*" >&2
-        return 1
-    fi
+    local XML2_INC="$FFBUILD_PREFIX/include/libxml2"
 
     cat <<EOF > fix_targets.cmake
 add_library(sharpyuv::sharpyuv STATIC IMPORTED GLOBAL)
@@ -46,13 +37,18 @@ set_target_properties(sharpyuv::sharpyuv PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "\${CMAKE_CURRENT_SOURCE_DIR}/include"
     AVIF_LOCAL OFF)
 
-add_library(LibXml2::LibXml2 STATIC IMPORTED GLOBAL)
-set_target_properties(LibXml2::LibXml2 PROPERTIES 
+add_library(LibXml2 STATIC IMPORTED GLOBAL)
+set_target_properties(LibXml2 PROPERTIES 
     IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libxml2.a"
-    INTERFACE_INCLUDE_DIRECTORIES "$FFBUILD_PREFIX/include/libxml2"
+    INTERFACE_INCLUDE_DIRECTORIES "$XML2_INC"
     AVIF_LOCAL OFF)
+target_compile_definitions(LibXml2 INTERFACE LIBXML_STATIC)
+target_link_libraries(LibXml2 INTERFACE bcrypt ws2_32)
+
+add_library(LibXml2::LibXml2 ALIAS LibXml2)
 
 include_directories(BEFORE "\${CMAKE_CURRENT_SOURCE_DIR}/include")
+include_directories(SYSTEM "$XML2_INC")
 EOF
 
     sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/fix_targets.cmake")' CMakeLists.txt
@@ -78,7 +74,7 @@ EOF
         -DAVIF_CODEC_DAV1D=SYSTEM # Декодер
         -DAVIF_CODEC_DAV1D_ENABLED=ON
         -DAVIF_LIBSHARPYUV=SYSTEM # stupidly fails if no .cmake files found
-        -DAVIF_LIBXML2=SYSTEM # convert JPEG with gain maps to AVIF using avifenc; doesn't find a shit
+        -DAVIF_LIBXML2=SYSTEM # convert JPEG with gain maps to AVIF using avifenc
         -DAVIF_JPEG=SYSTEM
         -DAVIF_ZLIBPNG=SYSTEM
         # aom создаёт проблему курицы и яйца
