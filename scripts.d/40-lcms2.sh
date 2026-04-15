@@ -19,17 +19,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-# Создаем обертку для pkg-config, чтобы Meson не тупил
-# cat <<EOF > pkg-config-wrapper
-# # !/bin/bash
-# export PKG_CONFIG_LIBDIR="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_DESTDIR$FFBUILD_PREFIX/share/pkgconfig"
-# export PKG_CONFIG_SYSROOT_DIR="/"
-# exec /usr/bin/pkg-config "\$@"
-# EOF
-# chmod +x pkg-config-wrapper
-
-    # export PKG_CONFIG="$(pwd)/pkg-config-wrapper"
-
     mkdir build && cd build
 
     local DEP_LIBS="-ltiffxx -ltiff -lturbojpeg -ljpeg -ljbig -lzstd -llzma -lz"
