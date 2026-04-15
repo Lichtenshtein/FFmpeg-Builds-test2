@@ -15,13 +15,13 @@ nasm = 'nasm'
 # путь где реально лежат .pc файлы во время сборки в Docker
 pkg_config_libdir = '/opt/ffdest/opt/ffbuild/lib/pkgconfig:/opt/ffdest/opt/ffbuild/lib64/pkgconfig:/opt/ffdest/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/lib64/pkgconfig:/opt/ffbuild/share/pkgconfig'
 # sys_root должен указывать на корень, где лежат зависимости
-sys_root = '/opt/ffdest/opt/ffbuild'
+# sys_root = '/opt/ffdest/opt/ffbuild'
 pkg_config_static = true
 # disable wine
 # needs_exe_wrapper = true
 needs_exe_wrapper = false
 # old
-# sys_root = '/'
+sys_root = '/'
 # pkg_config_libdir = '/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig'
 
 [built-in options]

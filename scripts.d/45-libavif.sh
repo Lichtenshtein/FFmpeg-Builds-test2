@@ -33,6 +33,8 @@ ffbuild_dockerbuild() {
     # Находим строку линковки и добавляем переменные напрямую, так как таргетов LibXml2::LibXml2 не существует
     # (Опционально, если cmake будет ругаться на отсутствие таргетов в avif_target_link_library)
 
+ls -l "$INSTALL_ROOT/lib/pkgconfig/dav1d.pc" || echo "DAV1D PC NOT FOUND"
+
     mkdir -p build && cd build
 
     local myconf=(
@@ -49,7 +51,11 @@ ffbuild_dockerbuild() {
         # Включаем поддержку внешнего декодера dav1d
         -DAVIF_CODEC_DAV1D=SYSTEM # Декодер
         -DAVIF_CODEC_DAV1D_ENABLED=ON
+        -Ddav1d_LIBRARY="$INSTALL_ROOT/lib/libdav1d.a"
+        -Ddav1d_INCLUDE_DIR="$INSTALL_ROOT/include"
         -DAVIF_LIBSHARPYUV=SYSTEM # stupidly fails if no .cmake files found
+        -Dsharpyuv_LIBRARY="$INSTALL_ROOT/lib/libsharpyuv.a"
+        -Dsharpyuv_INCLUDE_DIR="$INSTALL_ROOT/include"
         -DAVIF_LIBXML2=SYSTEM # convert JPEG with gain maps to AVIF using avifenc; doesn't find a shit
         -DAVIF_JPEG=SYSTEM
         -DAVIF_ZLIBPNG=SYSTEM
@@ -62,14 +68,9 @@ ffbuild_dockerbuild() {
         #-DAVIF_CODEC_RAV1E_ENABLED=ON
         -DAVIF_OPTIMIZE_RAV1E_FOR_SIZE=ON
         # Явное указание путей
-        -Dsharpyuv_INCLUDE_DIR="$INSTALL_ROOT/include"
-        -Dsharpyuv_LIBRARY="$INSTALL_ROOT/lib/libsharpyuv.a"
         -DLibXml2_INCLUDE_DIR="$INSTALL_ROOT/include/libxml2"
         -DLibXml2_LIBRARY="$INSTALL_ROOT/lib/libxml2.a"
-        -DJPEG_INCLUDE_DIR="$INSTALL_ROOT/include"
-        -DJPEG_LIBRARY="$INSTALL_ROOT/lib/libjpeg.a"
-        -DPNG_PNG_INCLUDE_DIR="$INSTALL_ROOT/include"
-        -DPNG_LIBRARY="$INSTALL_ROOT/lib/libpng.a"
+
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
