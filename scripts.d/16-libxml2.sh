@@ -36,7 +36,7 @@ ffbuild_dockerbuild() {
         --without-modules
         --disable-maintainer-mode
         --with-pic
-        --with-icu
+        # --with-icu
         --with-thread-alloc
         --with-winpath
         --with-zlib
@@ -57,7 +57,6 @@ ffbuild_dockerbuild() {
         CPPFLAGS="$CPPFLAGS $static_flags" \
         CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}" \
         LDFLAGS="$LDFLAGS ${USELTO}" \
-        LIBS="$DEP_LIBS" \
         AR="${FFBUILD_TOOLCHAIN}-gcc-ar" \
         NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
         RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib" \

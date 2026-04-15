@@ -54,6 +54,15 @@ ffbuild_dockerbuild() {
         #-DAVIF_CODEC_RAV1E=SYSYEM
         #-DAVIF_CODEC_RAV1E_ENABLED=ON
         -DAVIF_OPTIMIZE_RAV1E_FOR_SIZE=ON
+        # Явное указание путей
+        -Dsharpyuv_INCLUDE_DIR="$INSTALL_ROOT/include"
+        -Dsharpyuv_LIBRARY="$INSTALL_ROOT/lib/libsharpyuv.a"
+        -DLibXml2_INCLUDE_DIR="$INSTALL_ROOT/include/libxml2"
+        -DLibXml2_LIBRARY="$INSTALL_ROOT/lib/libxml2.a"
+        -DJPEG_INCLUDE_DIR="$INSTALL_ROOT/include"
+        -DJPEG_LIBRARY="$INSTALL_ROOT/lib/libjpeg.a"
+        -DPNG_PNG_INCLUDE_DIR="$INSTALL_ROOT/include"
+        -DPNG_LIBRARY="$INSTALL_ROOT/lib/libpng.a"
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \

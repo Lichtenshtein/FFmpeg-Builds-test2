@@ -25,6 +25,7 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
+        --pkg-config-path="$PKG_CONFIG_PATH"
         --cross-file=/cross.meson
         -Ddefault_library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
@@ -34,16 +35,13 @@ ffbuild_dockerbuild() {
         -Dfastfloat=true
         -Dthreaded=true
         -Dtests=disabled
-        # -Djpeg=true
-        # -Dtiff=true
-        -Dversionedlibs=false # Enable building of .so.version libraries
     )
 
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
-        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
-        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
+        -Dc_link_args="$LDFLAGS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS $WIN_LIBS" || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
