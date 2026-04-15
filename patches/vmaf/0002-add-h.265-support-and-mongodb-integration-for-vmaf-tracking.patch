@@ -1,0 +1,2032 @@
+From 910d0f769150e520a622bf19918eb117ed95547e Mon Sep 17 00:00:00 2001
+From: cstech-05 <cstech-05@CS-MBP-05.local>
+Date: Thu, 12 Feb 2026 12:58:00 +0530
+Subject: [PATCH] Add H.265 support and MongoDB integration for VMAF tracking
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- Add dual codec support (H.264 + H.265) for video transcoding
+- H.265 streams use 40% less bitrate for similar quality
+- Generate 6 video variants (720p, 480p, 1080p × 2 codecs)
+- Add m3u8_link field to MongoDB schema for HLS manifest URLs
+- Add codec field to MongoDB to distinguish h264/h265 variants
+- Auto-generate public m3u8 URLs from transcoding output
+- Update VMAF calculator to store m3u8_link and codec in MongoDB
+- Add --m3u8-link and --codec CLI arguments to run_vmaf.py
+
+This enables better compression with H.265 while maintaining H.264
+compatibility, and provides full tracking of streaming URLs and
+codec variants in MongoDB for quality analysis.
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+---
+ main.py                            | 404 ++++++++++++
+ mongodb_client.py                  | 361 +++++++++++
+ run_vmaf.py                        | 239 +++++++
+ vmaf_calculator/vmaf_calculator.py | 971 +++++++++++++++++++++++++++++
+ 4 files changed, 1975 insertions(+)
+ create mode 100644 main.py
+ create mode 100644 mongodb_client.py
+ create mode 100755 run_vmaf.py
+ create mode 100755 vmaf_calculator/vmaf_calculator.py
+
+diff --git a/main.py b/main.py
+new file mode 100644
+index 000000000..1a7bfb2df
+--- /dev/null
++++ b/main.py
+@@ -0,0 +1,404 @@
++import functions_framework
++from google.cloud.video import transcoder_v1
++from google.cloud import logging as cloud_logging
++from google.cloud import storage
++from google.cloud.exceptions import GoogleCloudError
++import os
++import json
++import time
++from typing import Dict, List
++from dataclasses import dataclass
++from datetime import datetime
++import logging
++import re
++
++# Configure structured logging
++cloud_logging_client = cloud_logging.Client()
++cloud_logging_client.setup_logging()
++logger = logging.getLogger(__name__)
++
++# Initialize clients
++transcoder_client = transcoder_v1.TranscoderServiceClient()
++storage_client = storage.Client()
++
++# --- Configuration ---
++@dataclass
++class Config:
++    """Configuration class for the Cloud Function."""
++    project_id: str
++    location: str
++    output_bucket: str
++
++    @classmethod
++    def from_environment(cls) -> 'Config':
++        project_id = os.environ.get('GCP_PROJECT', 'media-cdn-poc-466009')
++        location = os.environ.get('TRANSCODER_LOCATION', 'asia-south1')
++        output_bucket = os.environ.get('OUTPUT_BUCKET', 'chai-shots-manifests')
++
++        logger.info("Config values being used:")
++        logger.info(f"  project_id: {project_id}")
++        logger.info(f"  location: {location}")
++        logger.info(f"  output_bucket: {output_bucket}")
++
++        return cls(project_id=project_id, location=location, output_bucket=output_bucket)
++
++class TranscodingError(Exception):
++    """Custom exception for transcoding-specific errors."""
++    pass
++
++class VideoProcessor:
++    def __init__(self, config: Config):
++        self.config = config
++        logger.info("VideoProcessor initialized")
++
++    def process_video(self, bucket_name: str, file_name: str):
++        start_time = time.time()
++        video_id = file_name.rsplit('.', 1)[0].replace('/', '_')
++
++        try:
++            logger.info(
++                f"Starting video processing with subtitles: {video_id}",
++                extra={'video_id': video_id, 'bucket': bucket_name, 'file_name': file_name}
++            )
++
++            resolutions = self._get_resolution_configs()
++            job_ids = []
++
++            subtitle_uris = self._list_subtitle_uris(file_name)
++            logger.info(f"Subtitle URIs found: {subtitle_uris}")
++
++            adaptive_job = self._create_adaptive_job(bucket_name, file_name, video_id, resolutions, subtitle_uris)
++            logger.info(f"Transcoder created with subtitles: {adaptive_job}")
++            job_ids.append(adaptive_job.name)
++
++            # Generate and log the public m3u8 URL
++            m3u8_url = self._generate_m3u8_url(file_name)
++            logger.info(f"HLS Manifest URL: {m3u8_url}")
++
++            self._store_processing_metadata(video_id, job_ids, subtitle_uris, m3u8_url)
++
++            processing_time = time.time() - start_time
++            logger.info(
++                f"Video processing with subtitles completed: {video_id}",
++                extra={'video_id': video_id, 'processing_time': processing_time, 'jobs_created': len(job_ids)}
++            )
++
++        except Exception as e:
++            processing_time = time.time() - start_time
++            logger.error(
++                f"Video processing with subtitles failed: {video_id}",
++                extra={'video_id': video_id, 'error': str(e), 'processing_time': processing_time}
++            )
++            raise TranscodingError(f"Video processing failed: {str(e)}")
++
++    def _list_subtitle_uris(self, file_name: str) -> List[str]:
++        base_name = os.path.splitext(os.path.basename(file_name))[0]
++        prefix = f"subtitles/{base_name}/"
++        bucket = storage_client.bucket(self.config.output_bucket)
++
++        subtitle_uris = []
++        for blob in bucket.list_blobs(prefix=prefix):
++            if blob.name.endswith(".vtt"):
++                uri = f"gs://{self.config.output_bucket}/{blob.name}"
++                subtitle_uris.append(uri)
++        return subtitle_uris
++
++    def _parse_language_from_filename(self, subtitle_uri: str) -> (str, str):
++        """
++        Parse a BCP-47 language code and display name from subtitle filename.
++        """
++        fname = os.path.basename(subtitle_uri)
++        stem = os.path.splitext(fname)[0]
++
++        last_us = stem.rfind('_')
++        last_dot = stem.rfind('.')
++        sep_pos = max(last_us, last_dot)
++        token = stem[sep_pos + 1:] if sep_pos != -1 else stem
++
++        candidate = token.strip().lower()
++
++        lang_display = {
++            "en": "English",
++            "es": "Spanish",
++            "hi": "Hindi",
++            "fr": "French",
++            "de": "German",
++            "te": "Telugu",
++            "und": "Unknown",
++        }
++
++        if candidate in {"tlg", "tinglish"}:
++            return "en", "Tinglish"
++
++        bcp47_pattern = re.compile(r"^[a-z]{2,3}(-[a-z0-9]{2,8})*$", re.IGNORECASE)
++        if not bcp47_pattern.match(candidate):
++            return "und", lang_display["und"]
++
++        parts = candidate.split("-")
++        primary = parts[0].lower()
++        subtags = []
++        for p in parts[1:]:
++            if len(p) == 2 and p.isalpha():
++                subtags.append(p.upper())
++            elif len(p) == 4 and p.isalpha():
++                subtags.append(p.title())
++            else:
++                subtags.append(p.lower())
++
++        norm = "-".join([primary] + subtags) if subtags else primary
++
++        display = lang_display.get(primary, primary.upper())
++        if subtags:
++            display = f"{display} ({'-'.join(subtags)})"
++
++        return norm, display
++
++    def _build_output_paths(self, file_name: str):
++        input_dir = os.path.dirname(file_name)
++        base_name = os.path.splitext(os.path.basename(file_name))[0]
++
++        if input_dir:
++            output_uri = f"gs://{self.config.output_bucket}/hls/{input_dir}/"
++        else:
++            output_uri = f"gs://{self.config.output_bucket}/hls/"
++
++        manifest_file_name = f"{base_name}.m3u8"
++        return output_uri, manifest_file_name
++
++    def _generate_m3u8_url(self, file_name: str) -> str:
++        """Generate the public HTTP URL for the m3u8 manifest."""
++        input_dir = os.path.dirname(file_name)
++        base_name = os.path.splitext(os.path.basename(file_name))[0]
++
++        if input_dir:
++            path = f"hls/{input_dir}/{base_name}.m3u8"
++        else:
++            path = f"hls/{base_name}.m3u8"
++
++        # Generate public Google Cloud Storage URL
++        public_url = f"https://storage.googleapis.com/{self.config.output_bucket}/{path}"
++        return public_url
++
++    def _create_adaptive_job(self, bucket_name: str, file_name: str, video_id: str, resolutions: List[Dict], subtitle_uris: List[str]):
++        input_uri = f"gs://{bucket_name}/{file_name}"
++        output_uri, manifest_file_name = self._build_output_paths(file_name)
++
++        elementary_streams = []
++        mux_streams = []
++        inputs = [{"key": "input0", "uri": input_uri}]
++        edit_inputs = ["input0"]
++
++        for i, resolution in enumerate(resolutions):
++            elementary_streams.extend(self._get_elementary_streams(resolution, i))
++
++            # Create mux streams for both H.264 and H.265
++            h264_video_stream_id = f"video_stream_h264_{i}"
++            h265_video_stream_id = f"video_stream_h265_{i}"
++            audio_stream_id = f"audio_stream_{i}"
++
++            # H.264 mux stream
++            mux_streams.append(self._get_mux_stream(
++                h264_video_stream_id,
++                audio_stream_id,
++                video_id,
++                f"{resolution['name']}-h264"
++            ))
++
++            # H.265 mux stream
++            mux_streams.append(self._get_mux_stream(
++                h265_video_stream_id,
++                audio_stream_id,
++                video_id,
++                f"{resolution['name']}-h265"
++            ))
++
++        for idx, subtitle_uri in enumerate(subtitle_uris):
++            input_key = f"subtitle_input_{idx}"
++            stream_key = f"subtitle_stream_{idx}"
++            mux_key = f"{video_id}-subtitle-{idx}"
++
++            lang_code, display_name = self._parse_language_from_filename(subtitle_uri)
++
++            inputs.append({"key": input_key, "uri": subtitle_uri})
++            edit_inputs.append(input_key)
++
++            if not self._is_valid_bcp47(lang_code):
++                logger.warning(f"Invalid language code '{lang_code}' from '{subtitle_uri}', forcing 'und'")
++                lang_code = "und"
++
++            elementary_streams.append({
++                "key": stream_key,
++                "text_stream": {
++                    "codec": "webvtt",
++                    "language_code": lang_code,
++                    "display_name": display_name,
++                    "mapping": [{"atom_key": "atom0", "input_key": input_key}]
++                }
++            })
++
++            mux_streams.append({
++                "key": mux_key,
++                "container": "vtt",
++                "elementary_streams": [stream_key],
++                "segment_settings": {
++                    "segment_duration": "3s",
++                    "individual_segments": True
++                }
++            })
++
++        job_config = {
++            "inputs": inputs,
++            "edit_list": [{"key": "atom0", "inputs": edit_inputs}],
++            "elementary_streams": elementary_streams,
++            "mux_streams": mux_streams,
++            "manifests": [{
++                "file_name": manifest_file_name,
++                "type_": transcoder_v1.Manifest.ManifestType.HLS,
++                "mux_streams": [mux["key"] for mux in mux_streams],
++            }]
++        }
++
++        logger.info(f"Job config with subtitles: {json.dumps(job_config, indent=2, default=str)}")
++
++        parent = f"projects/{self.config.project_id}/locations/{self.config.location}"
++        return transcoder_client.create_job(
++            parent=parent,
++            job={"input_uri": input_uri, "output_uri": output_uri, "config": job_config}
++        )
++
++    def _get_mux_stream(self, video_stream_id: str, audio_stream_id: str, video_id: str, resolution_name: str) -> dict:
++        return {
++            "key": f"{video_id}-{resolution_name}",
++            "container": "ts",
++            "elementary_streams": [video_stream_id, audio_stream_id],
++            "file_name": f"{video_id}-{resolution_name}.ts",
++            "segment_settings": {
++                "segment_duration": "3s",
++                "individual_segments": True
++            }
++        }
++
++    def _get_elementary_streams(self, resolution: Dict, stream_index: int = 0) -> List[Dict]:
++        # H.264 video stream
++        h264_video_stream = {
++            "key": f"video_stream_h264_{stream_index}",
++            "video_stream": {
++                "h264": {
++                    "height_pixels": resolution["height"],
++                    "width_pixels": resolution["width"],
++                    "bitrate_bps": resolution.get("bitrate", 550000),
++                    "frame_rate": 30
++                }
++            }
++        }
++
++        # H.265 video stream (HEVC) - typically 30-50% lower bitrate for same quality
++        h265_bitrate = int(resolution.get("bitrate", 550000) * 0.6)  # 40% reduction
++        h265_video_stream = {
++            "key": f"video_stream_h265_{stream_index}",
++            "video_stream": {
++                "h265": {
++                    "height_pixels": resolution["height"],
++                    "width_pixels": resolution["width"],
++                    "bitrate_bps": h265_bitrate,
++                    "frame_rate": 30
++                }
++            }
++        }
++
++        # Audio stream (shared between both codecs)
++        audio_stream = {
++            "key": f"audio_stream_{stream_index}",
++            "audio_stream": {
++                "codec": "aac",
++                "bitrate_bps": resolution.get("audio_bitrate", 64000)
++            }
++        }
++
++        return [h264_video_stream, h265_video_stream, audio_stream]
++
++    def _get_resolution_configs(self) -> List[Dict]:
++        return [
++            {'name': '720p', 'height': 1280, 'width': 720, 'bitrate': 1500000, 'audio_bitrate': 128000},
++            {'name': '480p', 'height': 854, 'width': 480, 'bitrate': 450000, 'audio_bitrate': 64000},
++            {'name': '1080p', 'height': 1920, 'width': 1080, 'bitrate': 5000000, 'audio_bitrate': 128000}
++        ]
++
++    def _store_processing_metadata(self, video_id: str, job_ids: List[str], subtitle_uris: List[str], m3u8_url: str):
++        metadata = {
++            "video_id": video_id,
++            "job_ids": job_ids,
++            "timestamp": datetime.utcnow().isoformat(),
++            "subtitle_uris": subtitle_uris,
++            "m3u8_url": m3u8_url
++        }
++        logger.debug(f"Video metadata: {json.dumps(metadata, indent=2)}")
++
++    def _is_valid_bcp47(self, tag: str) -> bool:
++        return bool(re.match(r"^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$", tag))
++
++@functions_framework.cloud_event
++def transcode_video(cloud_event):
++    try:
++        logger.info("Cloud Function 'transcode_video' triggered.")
++        config = Config.from_environment()
++
++        data = cloud_event.data
++        bucket_name = data.get('bucket')
++        file_name = data.get('name')
++
++        logger.info(f"Processing cloud event: bucket={bucket_name}, file={file_name}")
++
++        if not bucket_name or not file_name:
++            logger.error("Invalid Cloud Storage event data: 'bucket' or 'name' missing.")
++            return
++
++        if " " in file_name:
++            new_file_name = file_name.replace(" ", "_")
++            logger.info(f"Sanitized file name from '{file_name}' to '{new_file_name}'")
++            file_name = new_file_name
++
++        processor = VideoProcessor(config)
++        processor.process_video(bucket_name, file_name)
++
++    except Exception as e:
++        logger.error(
++            f"Cloud Function 'transcode_video' execution failed: {str(e)}",
++            extra={
++                'error_type': type(e).__name__,
++                'bucket': data.get('bucket') if 'data' in locals() else 'N/A',
++                'file_name': data.get('name') if 'data' in locals() else 'N/A'
++            }
++        )
++        raise
++
++@functions_framework.http
++def health_check(request):
++    try:
++        config = Config.from_environment()
++        health_status = {
++            'status': 'healthy',
++            'timestamp': datetime.utcnow().isoformat(),
++            'transcoder_location': config.location,
++            'output_bucket': config.output_bucket
++        }
++        return json.dumps(health_status), 200, {'Content-Type': 'application/json'}
++
++    except Exception as e:
++        logger.error(f"Health check failed: {str(e)}", extra={'error_type': type(e).__name__})
++        error_response = {
++            'status': 'unhealthy',
++            'error': str(e),
++            'timestamp': datetime.utcnow().isoformat()
++        }
++        return json.dumps(error_response), 500, {'Content-Type': 'application/json'}
++
++def get_job_status(project_id: str, location: str, job_id: str):
++    try:
++        name = f"projects/{project_id}/locations/{location}/jobs/{job_id}"
++        response = transcoder_client.get_job(name=name)
++        return response.state
++    except GoogleCloudError as e:
++        logger.error(f"Failed to get job status for job {job_id}: {str(e)}")
++        raise TranscodingError(f"Failed to get job status: {str(e)}")
++
+diff --git a/mongodb_client.py b/mongodb_client.py
+new file mode 100644
+index 000000000..5fc538f01
+--- /dev/null
++++ b/mongodb_client.py
+@@ -0,0 +1,361 @@
++"""
++MongoDB client for storing VMAF scores and video quality metrics.
++"""
++
++from pymongo import MongoClient, ASCENDING
++from pymongo.errors import ConnectionFailure, DuplicateKeyError
++from datetime import datetime
++from typing import Dict, List, Optional
++import logging
++
++logger = logging.getLogger(__name__)
++
++
++class VMAFMongoDBClient:
++    """Client for managing VMAF scores in MongoDB."""
++
++    def __init__(self, connection_uri: str, database_name: str = "master"):
++        """
++        Initialize MongoDB client.
++
++        Args:
++            connection_uri: MongoDB connection string
++            database_name: Name of the database (default: "master")
++        """
++        try:
++            self.client = MongoClient(connection_uri)
++            self.db = self.client[database_name]
++            self.collection = self.db["vmaf_scores"]
++
++            # Test connection
++            self.client.admin.command('ping')
++            logger.info(f"Successfully connected to MongoDB database: {database_name}")
++
++            # Create indexes for better query performance
++            self._create_indexes()
++
++        except ConnectionFailure as e:
++            logger.error(f"Failed to connect to MongoDB: {str(e)}")
++            raise
++
++    def _create_indexes(self):
++        """Create indexes on the collection for better query performance."""
++        try:
++            # Create compound index for unique constraint
++            self.collection.create_index(
++                [
++                    ("show_id", ASCENDING),
++                    ("episode_number", ASCENDING),
++                    ("trail_name", ASCENDING),
++                    ("resolution", ASCENDING)
++                ],
++                name="unique_vmaf_record",
++                unique=True
++            )
++
++            # Create individual indexes for common queries
++            self.collection.create_index([("show_id", ASCENDING)], name="idx_show_id")
++            self.collection.create_index([("show_title", ASCENDING)], name="idx_show_title")
++            self.collection.create_index([("vmaf_score", ASCENDING)], name="idx_vmaf_score")
++            self.collection.create_index([("created_at", ASCENDING)], name="idx_created_at")
++
++            logger.info("Indexes created successfully")
++        except Exception as e:
++            logger.warning(f"Error creating indexes: {str(e)}")
++
++    def insert_vmaf_score(
++        self,
++        s3_link_name: str,
++        show_title: str,
++        episode_number: int,
++        show_id: str,
++        trail_name: str,
++        trail_bitrate: int,
++        resolution: str,
++        vmaf_score: float,
++        m3u8_link: Optional[str] = None,
++        codec: Optional[str] = None
++    ) -> Optional[str]:
++        """
++        Insert a VMAF score record into the collection.
++
++        Args:
++            s3_link_name: S3 link/path to the video file
++            show_title: Title of the show
++            episode_number: Episode number
++            show_id: Unique identifier for the show
++            trail_name: Name of the trail/variant
++            trail_bitrate: Bitrate of the trail in bps
++            resolution: Video resolution (e.g., "1920x1080", "1280x720")
++            vmaf_score: VMAF score value (0-100)
++            m3u8_link: HLS manifest URL (optional)
++            codec: Video codec used ("h264" or "h265", optional)
++
++        Returns:
++            Inserted document ID as string, or None if insertion failed
++        """
++        document = {
++            "s3_link_name": s3_link_name,
++            "show_title": show_title,
++            "episode_number": episode_number,
++            "show_id": show_id,
++            "trail_name": trail_name,
++            "trail_bitrate": trail_bitrate,
++            "resolution": resolution,
++            "vmaf_score": vmaf_score,
++            "m3u8_link": m3u8_link,
++            "codec": codec,
++            "created_at": datetime.utcnow(),
++            "updated_at": datetime.utcnow()
++        }
++
++        try:
++            result = self.collection.insert_one(document)
++            logger.info(
++                f"VMAF score inserted: show={show_title}, episode={episode_number}, "
++                f"resolution={resolution}, score={vmaf_score}"
++            )
++            return str(result.inserted_id)
++        except DuplicateKeyError:
++            logger.warning(
++                f"Duplicate VMAF record: show_id={show_id}, episode={episode_number}, "
++                f"trail={trail_name}, resolution={resolution}"
++            )
++            return None
++        except Exception as e:
++            logger.error(f"Failed to insert VMAF score: {str(e)}")
++            raise
++
++    def bulk_insert_vmaf_scores(self, records: List[Dict]) -> Dict[str, int]:
++        """
++        Bulk insert multiple VMAF score records.
++
++        Args:
++            records: List of dictionaries containing VMAF score data
++
++        Returns:
++            Dictionary with 'inserted' and 'failed' counts
++        """
++        if not records:
++            return {"inserted": 0, "failed": 0}
++
++        documents = []
++        for record in records:
++            document = {
++                "s3_link_name": record.get("s3_link_name"),
++                "show_title": record.get("show_title"),
++                "episode_number": record.get("episode_number"),
++                "show_id": record.get("show_id"),
++                "trail_name": record.get("trail_name"),
++                "trail_bitrate": record.get("trail_bitrate"),
++                "resolution": record.get("resolution"),
++                "vmaf_score": record.get("vmaf_score"),
++                "m3u8_link": record.get("m3u8_link"),
++                "codec": record.get("codec"),
++                "created_at": datetime.utcnow(),
++                "updated_at": datetime.utcnow()
++            }
++            documents.append(document)
++
++        try:
++            result = self.collection.insert_many(documents, ordered=False)
++            inserted_count = len(result.inserted_ids)
++            logger.info(f"Bulk insert completed: {inserted_count} records inserted")
++            return {"inserted": inserted_count, "failed": len(records) - inserted_count}
++        except Exception as e:
++            logger.error(f"Bulk insert failed: {str(e)}")
++            return {"inserted": 0, "failed": len(records)}
++
++    def update_vmaf_score(
++        self,
++        show_id: str,
++        episode_number: int,
++        trail_name: str,
++        resolution: str,
++        vmaf_score: float
++    ) -> bool:
++        """
++        Update an existing VMAF score record.
++
++        Args:
++            show_id: Unique identifier for the show
++            episode_number: Episode number
++            trail_name: Name of the trail/variant
++            resolution: Video resolution
++            vmaf_score: New VMAF score value
++
++        Returns:
++            True if update was successful, False otherwise
++        """
++        try:
++            result = self.collection.update_one(
++                {
++                    "show_id": show_id,
++                    "episode_number": episode_number,
++                    "trail_name": trail_name,
++                    "resolution": resolution
++                },
++                {
++                    "$set": {
++                        "vmaf_score": vmaf_score,
++                        "updated_at": datetime.utcnow()
++                    }
++                }
++            )
++
++            if result.modified_count > 0:
++                logger.info(
++                    f"VMAF score updated: show_id={show_id}, episode={episode_number}, "
++                    f"resolution={resolution}, new_score={vmaf_score}"
++                )
++                return True
++            else:
++                logger.warning(f"No matching record found to update")
++                return False
++        except Exception as e:
++            logger.error(f"Failed to update VMAF score: {str(e)}")
++            return False
++
++    def get_vmaf_scores_by_show(self, show_id: str) -> List[Dict]:
++        """
++        Retrieve all VMAF scores for a specific show.
++
++        Args:
++            show_id: Unique identifier for the show
++
++        Returns:
++            List of VMAF score documents
++        """
++        try:
++            results = list(self.collection.find({"show_id": show_id}))
++            logger.info(f"Retrieved {len(results)} VMAF scores for show_id={show_id}")
++            return results
++        except Exception as e:
++            logger.error(f"Failed to retrieve VMAF scores: {str(e)}")
++            return []
++
++    def get_vmaf_scores_by_episode(self, show_id: str, episode_number: int) -> List[Dict]:
++        """
++        Retrieve all VMAF scores for a specific episode.
++
++        Args:
++            show_id: Unique identifier for the show
++            episode_number: Episode number
++
++        Returns:
++            List of VMAF score documents
++        """
++        try:
++            results = list(self.collection.find({
++                "show_id": show_id,
++                "episode_number": episode_number
++            }))
++            logger.info(
++                f"Retrieved {len(results)} VMAF scores for show_id={show_id}, "
++                f"episode={episode_number}"
++            )
++            return results
++        except Exception as e:
++            logger.error(f"Failed to retrieve VMAF scores: {str(e)}")
++            return []
++
++    def get_average_vmaf_by_resolution(self, show_id: str, resolution: str) -> Optional[float]:
++        """
++        Calculate average VMAF score for a specific show and resolution.
++
++        Args:
++            show_id: Unique identifier for the show
++            resolution: Video resolution
++
++        Returns:
++            Average VMAF score, or None if no records found
++        """
++        try:
++            pipeline = [
++                {
++                    "$match": {
++                        "show_id": show_id,
++                        "resolution": resolution
++                    }
++                },
++                {
++                    "$group": {
++                        "_id": None,
++                        "avg_vmaf": {"$avg": "$vmaf_score"}
++                    }
++                }
++            ]
++
++            result = list(self.collection.aggregate(pipeline))
++            if result:
++                avg_score = result[0]["avg_vmaf"]
++                logger.info(
++                    f"Average VMAF for show_id={show_id}, resolution={resolution}: {avg_score:.2f}"
++                )
++                return avg_score
++            return None
++        except Exception as e:
++            logger.error(f"Failed to calculate average VMAF: {str(e)}")
++            return None
++
++    def delete_vmaf_scores(self, show_id: str, episode_number: Optional[int] = None) -> int:
++        """
++        Delete VMAF score records.
++
++        Args:
++            show_id: Unique identifier for the show
++            episode_number: Optional episode number. If provided, only deletes that episode.
++
++        Returns:
++            Number of records deleted
++        """
++        try:
++            query = {"show_id": show_id}
++            if episode_number is not None:
++                query["episode_number"] = episode_number
++
++            result = self.collection.delete_many(query)
++            logger.info(f"Deleted {result.deleted_count} VMAF score records")
++            return result.deleted_count
++        except Exception as e:
++            logger.error(f"Failed to delete VMAF scores: {str(e)}")
++            return 0
++
++    def close(self):
++        """Close the MongoDB connection."""
++        self.client.close()
++        logger.info("MongoDB connection closed")
++
++
++# Example usage
++if __name__ == "__main__":
++    # Configure logging
++    logging.basicConfig(level=logging.INFO)
++
++    # MongoDB connection URI
++    MONGO_URI = 'mongodb+srv://chai-shots-prod:wwCuI7ThUjIemQD1@prodcluster.mfhti8.mongodb.net/master?retryWrites=true&w=majority'
++
++    # Initialize client
++    client = VMAFMongoDBClient(MONGO_URI)
++
++    # Example: Insert a VMAF score
++    doc_id = client.insert_vmaf_score(
++        s3_link_name="s3://bucket/video.mp4",
++        show_title="Sample Show",
++        episode_number=1,
++        show_id="show_123",
++        trail_name="high_quality",
++        trail_bitrate=5000000,
++        resolution="1920x1080",
++        vmaf_score=95.5,
++        m3u8_link="https://storage.googleapis.com/bucket/hls/video.m3u8",
++        codec="h265"
++    )
++    print(f"Inserted document ID: {doc_id}")
++
++    # Example: Retrieve VMAF scores
++    scores = client.get_vmaf_scores_by_show("show_123")
++    print(f"Found {len(scores)} VMAF scores")
++
++    # Close connection
++    client.close()
+diff --git a/run_vmaf.py b/run_vmaf.py
+new file mode 100755
+index 000000000..583b88b1d
+--- /dev/null
++++ b/run_vmaf.py
+@@ -0,0 +1,239 @@
++#!/usr/bin/env python3
++"""
++VMAF Calculator with MongoDB Auto-Storage
++Run VMAF calculations with automatic MongoDB storage
++
++Usage:
++    python run_vmaf.py -r reference.mp4 -d distorted.mp4 --show-id "show_123" --show-title "My Show" --episode 1
++"""
++
++import argparse
++import sys
++from pathlib import Path
++
++# Add vmaf_calculator to path
++sys.path.insert(0, str(Path(__file__).parent / "vmaf_calculator"))
++
++from vmaf_calculator import VMAFCalculator
++from vmaf_config import MONGODB_URI, MONGODB_ENABLED, DEFAULT_MODEL, DEFAULT_THREADS, VERBOSE
++
++
++def main():
++    parser = argparse.ArgumentParser(
++        description="VMAF Calculator with MongoDB Auto-Storage",
++        formatter_class=argparse.RawDescriptionHelpFormatter,
++        epilog="""
++Examples:
++  # Basic usage with MongoDB storage
++  python run_vmaf.py -r original.mp4 -d transcoded.mp4 \\
++    --show-id "show_001" --show-title "Breaking Bad" --episode 1 --trail-name "1080p_high"
++
++  # With S3 link and m3u8 link
++  python run_vmaf.py -r original.mp4 -d https://bucket.s3.com/video.m3u8 \\
++    --s3-link "s3://bucket/video.mp4" \\
++    --m3u8-link "https://storage.googleapis.com/bucket/hls/video.m3u8" \\
++    --codec "h265" --show-id "show_001" --show-title "My Show" --episode 1
++
++  # Disable MongoDB storage
++  python run_vmaf.py -r ref.mp4 -d dist.mp4 --no-mongodb
++
++  # Use different model
++  python run_vmaf.py -r ref.mp4 -d dist.mp4 --model vmaf_4k \\
++    --show-id "show_001" --show-title "My Show" --episode 1
++        """
++    )
++
++    # Required arguments
++    parser.add_argument(
++        "-r", "--reference",
++        required=True,
++        help="Path to reference video (original)"
++    )
++    parser.add_argument(
++        "-d", "--distorted",
++        required=True,
++        help="Path or URL to distorted video (transcoded)"
++    )
++
++    # MongoDB metadata (required for MongoDB storage)
++    parser.add_argument(
++        "--show-id",
++        help="Show ID (required for MongoDB storage)"
++    )
++    parser.add_argument(
++        "--show-title",
++        help="Show title (required for MongoDB storage)"
++    )
++    parser.add_argument(
++        "--episode",
++        type=int,
++        help="Episode number (required for MongoDB storage)"
++    )
++    parser.add_argument(
++        "--trail-name",
++        default="default",
++        help="Trail/quality name (e.g., '1080p_high', '720p_medium')"
++    )
++    parser.add_argument(
++        "--s3-link",
++        help="S3 link to the video (optional, defaults to distorted path)"
++    )
++    parser.add_argument(
++        "--m3u8-link",
++        help="HLS manifest URL (m3u8 link) for the transcoded stream"
++    )
++    parser.add_argument(
++        "--codec",
++        choices=["h264", "h265"],
++        help="Video codec used for transcoding (h264 or h265)"
++    )
++
++    # Optional arguments
++    parser.add_argument(
++        "-o", "--output",
++        default="vmaf_results.json",
++        help="Output JSON file path (default: vmaf_results.json)"
++    )
++    parser.add_argument(
++        "-m", "--model",
++        choices=["vmaf_v0.6.1", "vmaf_4k", "vmaf_b", "vmaf_phone"],
++        default=DEFAULT_MODEL,
++        help=f"VMAF model to use (default: {DEFAULT_MODEL})"
++    )
++    parser.add_argument(
++        "-t", "--threads",
++        type=int,
++        default=DEFAULT_THREADS,
++        help=f"Number of threads (default: {DEFAULT_THREADS} = auto)"
++    )
++    parser.add_argument(
++        "-v", "--verbose",
++        action="store_true",
++        default=VERBOSE,
++        help="Enable verbose output"
++    )
++
++    # MongoDB control
++    parser.add_argument(
++        "--no-mongodb",
++        action="store_true",
++        help="Disable MongoDB storage (enabled by default)"
++    )
++    parser.add_argument(
++        "--mongodb-uri",
++        default=MONGODB_URI,
++        help="MongoDB connection URI (uses default from config)"
++    )
++
++    args = parser.parse_args()
++
++    # Determine if MongoDB should be enabled
++    mongodb_enabled = MONGODB_ENABLED and not args.no_mongodb
++
++    # Check MongoDB requirements
++    if mongodb_enabled:
++        missing_fields = []
++        if not args.show_id:
++            missing_fields.append("--show-id")
++        if not args.show_title:
++            missing_fields.append("--show-title")
++        if args.episode is None:
++            missing_fields.append("--episode")
++
++        if missing_fields:
++            print(f"ERROR: MongoDB storage requires: {', '.join(missing_fields)}")
++            print("Use --no-mongodb to disable MongoDB storage")
++            sys.exit(1)
++
++    # Prepare show metadata
++    show_metadata = None
++    if mongodb_enabled:
++        show_metadata = {
++            "s3_link_name": args.s3_link or args.distorted,
++            "show_title": args.show_title,
++            "episode_number": args.episode,
++            "show_id": args.show_id,
++            "trail_name": args.trail_name,
++            "m3u8_link": args.m3u8_link,
++            "codec": args.codec,
++        }
++
++    # Validate files
++    if not Path(args.reference).exists():
++        print(f"ERROR: Reference file not found: {args.reference}")
++        sys.exit(1)
++
++    if not args.distorted.startswith("http") and not Path(args.distorted).exists():
++        print(f"ERROR: Distorted file not found: {args.distorted}")
++        sys.exit(1)
++
++    # Display configuration
++    print("\n" + "=" * 60)
++    print("VMAF CALCULATOR - MongoDB Auto-Storage")
++    print("=" * 60)
++    print(f"Reference:     {args.reference}")
++    print(f"Distorted:     {args.distorted}")
++    print(f"Model:         {args.model}")
++    print(f"Output:        {args.output}")
++    print(f"MongoDB:       {'✓ Enabled' if mongodb_enabled else '✗ Disabled'}")
++    if mongodb_enabled:
++        print(f"\nShow Metadata:")
++        print(f"  Show ID:     {args.show_id}")
++        print(f"  Show Title:  {args.show_title}")
++        print(f"  Episode:     {args.episode}")
++        print(f"  Trail:       {args.trail_name}")
++        if args.m3u8_link:
++            print(f"  M3U8 Link:   {args.m3u8_link}")
++        if args.codec:
++            print(f"  Codec:       {args.codec}")
++    print("=" * 60 + "\n")
++
++    # Create calculator
++    calculator = VMAFCalculator(
++        reference_path=args.reference,
++        distorted_path=args.distorted,
++        output_path=args.output,
++        model=args.model,
++        threads=args.threads,
++        verbose=args.verbose,
++        mongodb_uri=args.mongodb_uri,
++        mongodb_enabled=mongodb_enabled,
++        show_metadata=show_metadata,
++    )
++
++    # Calculate VMAF
++    try:
++        result = calculator.calculate()
++        calculator.print_summary(result)
++
++        # Show MongoDB storage status
++        if mongodb_enabled:
++            print("\n" + "=" * 60)
++            print("MongoDB Storage Status:")
++            print("=" * 60)
++            vmaf_score = result['metrics']['vmaf']['score']
++            dist_info = result['distorted']['info']
++            resolution = f"{dist_info['width']}x{dist_info['height']}"
++            bitrate_mbps = dist_info['bitrate'] / 1_000_000
++
++            print(f"✓ VMAF score saved to MongoDB")
++            print(f"  Show:       {args.show_title} (ID: {args.show_id})")
++            print(f"  Episode:    {args.episode}")
++            print(f"  Trail:      {args.trail_name}")
++            print(f"  Resolution: {resolution}")
++            print(f"  Bitrate:    {bitrate_mbps:.2f} Mbps")
++            print(f"  VMAF Score: {vmaf_score:.2f}")
++            print("=" * 60)
++
++        return 0
++
++    except Exception as e:
++        print(f"\n✗ ERROR: {e}")
++        if args.verbose:
++            import traceback
++            traceback.print_exc()
++        return 1
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/vmaf_calculator/vmaf_calculator.py b/vmaf_calculator/vmaf_calculator.py
+new file mode 100755
+index 000000000..9f8c5c8bd
+--- /dev/null
++++ b/vmaf_calculator/vmaf_calculator.py
+@@ -0,0 +1,971 @@
++#!/usr/bin/env python3
++"""
++VMAF Calculator - Compare MP4 reference videos against M3U8 transcoded streams.
++
++This script calculates VMAF (Video Multi-Method Assessment Fusion) scores
++to measure video quality degradation after transcoding.
++
++Usage:
++    python vmaf_calculator.py -r reference.mp4 -d https://example.com/stream.m3u8 -o results.json
++    python vmaf_calculator.py -r reference.mp4 -d distorted.mp4 -o results.json
++"""
++
++import argparse
++import json
++import os
++import subprocess
++import sys
++import tempfile
++import shutil
++from datetime import datetime
++from pathlib import Path
++from typing import Optional, Dict, Any
++
++# Try to import MongoDB client (optional)
++try:
++    sys.path.append(str(Path(__file__).parent.parent))
++    from mongodb_client import VMAFMongoDBClient
++    MONGODB_AVAILABLE = True
++except ImportError:
++    MONGODB_AVAILABLE = False
++    print("Warning: MongoDB client not available. Install pymongo to enable MongoDB storage.")
++
++# Path to the native VMAF tool (built from this repository)
++SCRIPT_DIR = Path(__file__).parent.resolve()
++VMAF_TOOL = SCRIPT_DIR.parent / "libvmaf" / "build" / "tools" / "vmaf"
++
++# Fallback to system FFmpeg path
++FFMPEG_PATH = os.environ.get("FFMPEG_PATH", "/opt/homebrew/bin/ffmpeg")
++FFPROBE_PATH = os.environ.get("FFPROBE_PATH", "/opt/homebrew/bin/ffprobe")
++
++
++class VMAFCalculator:
++    """Calculate VMAF scores between reference and distorted videos."""
++
++    # Available VMAF models
++    MODELS = {
++        "vmaf_v0.6.1": "version=vmaf_v0.6.1",
++        "vmaf_4k": "version=vmaf_4k_v0.6.1",
++        "vmaf_b": "version=vmaf_b_v0.6.3",
++        "vmaf_phone": "version=vmaf_v0.6.1",  # Uses v0.6.1 with phone transform
++    }
++
++    # Phone model transformation parameters (from vmaf_v0.6.1.json)
++    # Formula: y_out = p0 + p1 * y_in + p2 * y_in^2
++    PHONE_TRANSFORM = {
++        "p0": 1.70674692,
++        "p1": 1.72643844,
++        "p2": -0.00705305,
++    }
++
++    def __init__(
++        self,
++        reference_path: str,
++        distorted_path: str,
++        output_path: Optional[str] = None,
++        model: str = "vmaf_v0.6.1",
++        threads: int = 0,
++        verbose: bool = False,
++        # MongoDB parameters (optional)
++        mongodb_uri: Optional[str] = None,
++        mongodb_enabled: bool = False,
++        show_metadata: Optional[Dict[str, Any]] = None,
++    ):
++        self.reference_path = reference_path
++        self.distorted_path = distorted_path
++        self.output_path = output_path or "vmaf_results.json"
++        self.model = self.MODELS.get(model, f"version={model}")
++        self.model_name = model
++        self.use_phone_transform = (model == "vmaf_phone")
++        self.threads = threads if threads > 0 else os.cpu_count() or 4
++        self.verbose = verbose
++        self.temp_dir = None
++        self._temp_files = []
++
++        # MongoDB settings
++        self.mongodb_enabled = mongodb_enabled and MONGODB_AVAILABLE
++        self.mongodb_uri = mongodb_uri
++        self.show_metadata = show_metadata or {}
++        self.mongo_client = None
++
++        if mongodb_enabled and not MONGODB_AVAILABLE:
++            print("Warning: MongoDB storage requested but pymongo not installed.")
++
++    def _find_ffmpeg(self) -> str:
++        """Find FFmpeg executable."""
++        # Check common locations
++        locations = [
++            FFMPEG_PATH,
++            "/opt/homebrew/bin/ffmpeg",
++            "/usr/local/bin/ffmpeg",
++            "/usr/bin/ffmpeg",
++            "ffmpeg",
++        ]
++        for loc in locations:
++            try:
++                result = subprocess.run(
++                    [loc, "-version"],
++                    capture_output=True,
++                    text=True,
++                )
++                if result.returncode == 0:
++                    return loc
++            except FileNotFoundError:
++                continue
++        raise FileNotFoundError("FFmpeg not found. Please install FFmpeg.")
++
++    def _find_ffprobe(self) -> str:
++        """Find FFprobe executable."""
++        locations = [
++            FFPROBE_PATH,
++            "/opt/homebrew/bin/ffprobe",
++            "/usr/local/bin/ffprobe",
++            "/usr/bin/ffprobe",
++            "ffprobe",
++        ]
++        for loc in locations:
++            try:
++                result = subprocess.run(
++                    [loc, "-version"],
++                    capture_output=True,
++                    text=True,
++                )
++                if result.returncode == 0:
++                    return loc
++            except FileNotFoundError:
++                continue
++        raise FileNotFoundError("FFprobe not found. Please install FFmpeg.")
++
++    def _check_dependencies(self) -> bool:
++        """Check if all required tools are available."""
++        try:
++            self.ffmpeg = self._find_ffmpeg()
++            self.ffprobe = self._find_ffprobe()
++            print(f"Using FFmpeg: {self.ffmpeg}")
++        except FileNotFoundError as e:
++            print(f"ERROR: {e}")
++            return False
++
++        # Check VMAF tool
++        if not VMAF_TOOL.exists():
++            print(f"ERROR: VMAF tool not found at {VMAF_TOOL}")
++            print("Please build libvmaf first:")
++            print("  cd libvmaf && meson setup build --buildtype release && ninja -C build")
++            return False
++
++        print(f"Using VMAF tool: {VMAF_TOOL}")
++        return True
++
++    def _is_m3u8(self, path: str) -> bool:
++        """Check if the path is an M3U8 stream."""
++        return path.endswith(".m3u8") or "m3u8" in path.lower()
++
++    def _is_url(self, path: str) -> bool:
++        """Check if the path is a URL."""
++        return path.startswith("http://") or path.startswith("https://")
++
++    def _get_video_info(self, video_path: str) -> Dict[str, Any]:
++        """Get video metadata using FFprobe."""
++        cmd = [
++            self.ffprobe,
++            "-v", "quiet",
++            "-print_format", "json",
++            "-show_format",
++            "-show_streams",
++            video_path,
++        ]
++
++        try:
++            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
++            data = json.loads(result.stdout)
++
++            # Find video stream
++            video_stream = None
++            for stream in data.get("streams", []):
++                if stream.get("codec_type") == "video":
++                    video_stream = stream
++                    break
++
++            if not video_stream:
++                return {}
++
++            # Parse frame rate safely
++            fps_str = video_stream.get("r_frame_rate", "0/1")
++            try:
++                if "/" in fps_str:
++                    num, den = fps_str.split("/")
++                    fps = float(num) / float(den) if float(den) != 0 else 0
++                else:
++                    fps = float(fps_str)
++            except (ValueError, ZeroDivisionError):
++                fps = 0
++
++            return {
++                "width": int(video_stream.get("width", 0)),
++                "height": int(video_stream.get("height", 0)),
++                "fps": round(fps, 3),
++                "duration": float(data.get("format", {}).get("duration", 0)),
++                "codec": video_stream.get("codec_name", "unknown"),
++                "pix_fmt": video_stream.get("pix_fmt", "unknown"),
++                "bitrate": int(data.get("format", {}).get("bit_rate", 0)),
++            }
++        except (subprocess.CalledProcessError, json.JSONDecodeError, Exception) as e:
++            if self.verbose:
++                print(f"Warning: Could not get video info: {e}")
++            return {}
++
++    def _download_m3u8(self, m3u8_url: str) -> str:
++        """Download M3U8 stream to a temporary file."""
++        if self.temp_dir is None:
++            self.temp_dir = tempfile.mkdtemp(prefix="vmaf_")
++
++        output_file = os.path.join(self.temp_dir, "distorted.mp4")
++        self._temp_files.append(output_file)
++
++        print(f"Downloading M3U8 stream: {m3u8_url}")
++
++        cmd = [
++            self.ffmpeg,
++            "-y",
++            "-i", m3u8_url,
++            "-c", "copy",
++            output_file,
++        ]
++
++        if self.verbose:
++            print(f"Running: {' '.join(cmd)}")
++
++        try:
++            process = subprocess.Popen(
++                cmd,
++                stderr=subprocess.PIPE,
++                stdout=subprocess.PIPE,
++                text=True,
++            )
++
++            # Show progress
++            for line in process.stderr:
++                if self.verbose:
++                    print(line.strip())
++                elif "time=" in line:
++                    print(f"\r  {line.strip()[:60]}", end="", flush=True)
++
++            process.wait()
++            print()
++
++            if process.returncode != 0:
++                raise subprocess.CalledProcessError(process.returncode, cmd)
++
++            print(f"Downloaded to: {output_file}")
++            return output_file
++        except subprocess.CalledProcessError as e:
++            print(f"ERROR: Failed to download M3U8 stream: {e}")
++            raise
++
++    def _convert_to_y4m(self, input_path: str, name: str, target_width: int, target_height: int) -> str:
++        """Convert video to Y4M format for VMAF tool."""
++        if self.temp_dir is None:
++            self.temp_dir = tempfile.mkdtemp(prefix="vmaf_")
++
++        output_file = os.path.join(self.temp_dir, f"{name}.y4m")
++        self._temp_files.append(output_file)
++
++        print(f"Converting {name} to Y4M format...")
++
++        cmd = [
++            self.ffmpeg,
++            "-y",
++            "-i", input_path,
++            "-vf", f"scale={target_width}:{target_height}:flags=bicubic",
++            "-pix_fmt", "yuv420p",
++            "-f", "yuv4mpegpipe",
++            output_file,
++        ]
++
++        if self.verbose:
++            print(f"Running: {' '.join(cmd)}")
++
++        try:
++            process = subprocess.Popen(
++                cmd,
++                stderr=subprocess.PIPE,
++                stdout=subprocess.PIPE,
++                text=True,
++            )
++
++            for line in process.stderr:
++                if self.verbose:
++                    print(line.strip())
++                elif "frame=" in line:
++                    print(f"\r  {line.strip()[:60]}", end="", flush=True)
++
++            process.wait()
++            print()
++
++            if process.returncode != 0:
++                raise subprocess.CalledProcessError(process.returncode, cmd)
++
++            return output_file
++        except subprocess.CalledProcessError as e:
++            print(f"ERROR: Failed to convert video: {e}")
++            raise
++
++    def _run_vmaf(self, reference_y4m: str, distorted_y4m: str) -> Dict[str, Any]:
++        """Run VMAF comparison using the native VMAF tool."""
++        if self.temp_dir is None:
++            self.temp_dir = tempfile.mkdtemp(prefix="vmaf_")
++
++        vmaf_log = os.path.join(self.temp_dir, "vmaf_output.json")
++        self._temp_files.append(vmaf_log)
++
++        cmd = [
++            str(VMAF_TOOL),
++            "--reference", reference_y4m,
++            "--distorted", distorted_y4m,
++            "--model", self.model,
++            "--output", vmaf_log,
++            "--json",
++            "--threads", str(self.threads),
++            "--feature", "psnr",
++            "--feature", "float_ssim",
++        ]
++
++        print(f"\nCalculating VMAF score (using {self.threads} threads)...")
++        if self.verbose:
++            print(f"Running: {' '.join(cmd)}")
++
++        try:
++            process = subprocess.Popen(
++                cmd,
++                stderr=subprocess.PIPE,
++                stdout=subprocess.PIPE,
++                text=True,
++            )
++
++            # Capture output
++            stdout, stderr = process.communicate()
++
++            if self.verbose:
++                if stdout:
++                    print(stdout)
++                if stderr:
++                    print(stderr)
++
++            if process.returncode != 0:
++                print(f"VMAF tool stderr: {stderr}")
++                raise subprocess.CalledProcessError(process.returncode, cmd)
++
++            # Read VMAF results
++            with open(vmaf_log, "r") as f:
++                vmaf_data = json.load(f)
++
++            return vmaf_data
++
++        except subprocess.CalledProcessError as e:
++            print(f"ERROR: VMAF calculation failed: {e}")
++            raise
++
++    def _apply_phone_transform(self, score: float) -> float:
++        """Apply phone model transformation to VMAF score.
++
++        The phone model boosts scores because on smaller screens viewed
++        at closer distances, artifacts are less perceptible.
++
++        Formula: y_out = p0 + p1 * y_in + p2 * y_in^2
++        With constraint: output >= input (out_gte_in)
++        """
++        p0 = self.PHONE_TRANSFORM["p0"]
++        p1 = self.PHONE_TRANSFORM["p1"]
++        p2 = self.PHONE_TRANSFORM["p2"]
++
++        transformed = p0 + p1 * score + p2 * score * score
++        # Apply out_gte_in constraint: output must be >= input
++        transformed = max(transformed, score)
++        # Clip to valid range
++        transformed = min(max(transformed, 0), 100)
++
++        return transformed
++
++    def _calculate_median(self, values: list) -> float:
++        """Calculate median of a list of values."""
++        if not values:
++            return 0
++        sorted_values = sorted(values)
++        n = len(sorted_values)
++        mid = n // 2
++        if n % 2 == 0:
++            return (sorted_values[mid - 1] + sorted_values[mid]) / 2
++        else:
++            return sorted_values[mid]
++
++    def _calculate_segment_scores(self, frames: list, fps: float, segment_duration: float = 3.0) -> list:
++        """Calculate VMAF scores for each time segment (default 3 seconds).
++
++        Returns list of {time_start, time_end, median_score, mean_score, min_score, max_score}
++        """
++        if not frames or fps <= 0:
++            return []
++
++        frames_per_segment = int(fps * segment_duration)
++        if frames_per_segment < 1:
++            frames_per_segment = 1
++
++        segments = []
++        total_frames = len(frames)
++
++        for i in range(0, total_frames, frames_per_segment):
++            segment_frames = frames[i:i + frames_per_segment]
++            segment_scores = [f.get("metrics", {}).get("vmaf", 0) for f in segment_frames]
++
++            if segment_scores:
++                time_start = i / fps
++                time_end = min((i + len(segment_frames)) / fps, total_frames / fps)
++
++                # Apply phone transformation if needed
++                if self.use_phone_transform:
++                    segment_scores = [self._apply_phone_transform(s) for s in segment_scores]
++
++                median_score = self._calculate_median(segment_scores)
++                mean_score = sum(segment_scores) / len(segment_scores)
++
++                segments.append({
++                    "time_start": round(time_start, 2),
++                    "time_end": round(time_end, 2),
++                    "time_label": f"{int(time_start)}s",
++                    "median": round(median_score, 2),
++                    "mean": round(mean_score, 2),
++                    "min": round(min(segment_scores), 2),
++                    "max": round(max(segment_scores), 2),
++                    "frame_count": len(segment_scores),
++                })
++
++        return segments
++
++    def _extract_metrics(self, vmaf_data: Dict, fps: float = 30.0) -> Dict[str, Any]:
++        """Extract key metrics from VMAF output."""
++        pooled = vmaf_data.get("pooled_metrics", {})
++
++        vmaf_mean = pooled.get("vmaf", {}).get("mean", 0)
++        vmaf_min = pooled.get("vmaf", {}).get("min", 0)
++        vmaf_max = pooled.get("vmaf", {}).get("max", 0)
++        vmaf_harmonic = pooled.get("vmaf", {}).get("harmonic_mean", 0)
++
++        # Calculate median from per-frame scores
++        frames = vmaf_data.get("frames", [])
++        frame_scores = [f.get("metrics", {}).get("vmaf", 0) for f in frames]
++        vmaf_median = self._calculate_median(frame_scores)
++
++        # Calculate segment scores (every 3 seconds)
++        segment_scores = self._calculate_segment_scores(frames, fps, segment_duration=3.0)
++
++        # Apply phone transformation if using phone model
++        if self.use_phone_transform:
++            vmaf_mean = self._apply_phone_transform(vmaf_mean)
++            vmaf_min = self._apply_phone_transform(vmaf_min)
++            vmaf_max = self._apply_phone_transform(vmaf_max)
++            vmaf_harmonic = self._apply_phone_transform(vmaf_harmonic)
++            vmaf_median = self._apply_phone_transform(vmaf_median)
++
++        metrics = {
++            "vmaf": {
++                "score": vmaf_median,  # Default score is median (change to vmaf_mean if needed)
++                "mean": vmaf_mean,
++                "median": vmaf_median,
++                "harmonic_mean": vmaf_harmonic,
++                "min": vmaf_min,
++                "max": vmaf_max,
++                "segments": segment_scores,  # 3-second segment scores for graphing
++            },
++            "psnr": {
++                "y": pooled.get("psnr_y", {}).get("mean", 0),
++                "cb": pooled.get("psnr_cb", {}).get("mean", 0),
++                "cr": pooled.get("psnr_cr", {}).get("mean", 0),
++            },
++            "ssim": pooled.get("float_ssim", {}).get("mean", 0),
++        }
++
++        return metrics
++
++    def _cleanup(self):
++        """Clean up temporary files."""
++        if self.temp_dir and os.path.exists(self.temp_dir):
++            shutil.rmtree(self.temp_dir)
++            self.temp_dir = None
++
++    def _store_to_mongodb(self, result: Dict[str, Any]) -> Optional[str]:
++        """Store VMAF results to MongoDB.
++
++        Args:
++            result: The VMAF calculation result dictionary
++
++        Returns:
++            Document ID if successful, None otherwise
++        """
++        if not self.mongodb_enabled or not self.mongodb_uri:
++            return None
++
++        try:
++            # Initialize MongoDB client if not already done
++            if self.mongo_client is None:
++                self.mongo_client = VMAFMongoDBClient(self.mongodb_uri)
++                print(f"Connected to MongoDB")
++
++            # Extract required fields from metadata and result
++            s3_link_name = self.show_metadata.get("s3_link_name", self.distorted_path)
++            show_title = self.show_metadata.get("show_title", "Unknown")
++            episode_number = self.show_metadata.get("episode_number", 0)
++            show_id = self.show_metadata.get("show_id", "unknown")
++            trail_name = self.show_metadata.get("trail_name", "default")
++            m3u8_link = self.show_metadata.get("m3u8_link")
++            codec = self.show_metadata.get("codec")
++
++            # Extract bitrate and resolution from result
++            dist_info = result.get("distorted", {}).get("info", {})
++            trail_bitrate = dist_info.get("bitrate", 0)
++            resolution = f"{dist_info.get('width', 0)}x{dist_info.get('height', 0)}"
++
++            # Extract VMAF score
++            vmaf_score = result.get("metrics", {}).get("vmaf", {}).get("score", 0)
++
++            # Insert to MongoDB
++            doc_id = self.mongo_client.insert_vmaf_score(
++                s3_link_name=s3_link_name,
++                show_title=show_title,
++                episode_number=episode_number,
++                show_id=show_id,
++                trail_name=trail_name,
++                trail_bitrate=trail_bitrate,
++                resolution=resolution,
++                vmaf_score=vmaf_score,
++                m3u8_link=m3u8_link,
++                codec=codec
++            )
++
++            if doc_id:
++                print(f"✓ VMAF score stored to MongoDB (ID: {doc_id})")
++            else:
++                print("⚠ VMAF score not stored (possible duplicate)")
++
++            return doc_id
++
++        except Exception as e:
++            print(f"ERROR storing to MongoDB: {e}")
++            if self.verbose:
++                import traceback
++                traceback.print_exc()
++            return None
++
++    def _close_mongodb(self):
++        """Close MongoDB connection if open."""
++        if self.mongo_client:
++            try:
++                self.mongo_client.close()
++                self.mongo_client = None
++            except Exception as e:
++                if self.verbose:
++                    print(f"Warning: Error closing MongoDB connection: {e}")
++
++    def calculate(self) -> Dict[str, Any]:
++        """Run the full VMAF calculation pipeline."""
++        try:
++            # Check dependencies
++            if not self._check_dependencies():
++                sys.exit(1)
++
++            # Handle M3U8 streams
++            distorted = self.distorted_path
++            if self._is_m3u8(distorted) or (self._is_url(distorted) and "m3u8" in distorted):
++                distorted = self._download_m3u8(distorted)
++
++            # Get video information
++            print("\nAnalyzing videos...")
++            ref_info = self._get_video_info(self.reference_path)
++            dist_info = self._get_video_info(distorted)
++
++            print(f"  Reference: {ref_info.get('width')}x{ref_info.get('height')} @ {ref_info.get('fps')} fps")
++            print(f"  Distorted: {dist_info.get('width')}x{dist_info.get('height')} @ {dist_info.get('fps')} fps")
++
++            if self.verbose:
++                print(f"  Reference full info: {ref_info}")
++                print(f"  Distorted full info: {dist_info}")
++
++            # Use reference dimensions for comparison
++            target_width = ref_info.get("width", 1920)
++            target_height = ref_info.get("height", 1080)
++
++            # Convert videos to Y4M format
++            print("\nPreparing videos for comparison...")
++            ref_y4m = self._convert_to_y4m(self.reference_path, "reference", target_width, target_height)
++            dist_y4m = self._convert_to_y4m(distorted, "distorted", target_width, target_height)
++
++            # Run VMAF
++            vmaf_data = self._run_vmaf(ref_y4m, dist_y4m)
++
++            # Extract metrics (pass fps for segment calculation)
++            fps = ref_info.get("fps", 30.0)
++            metrics = self._extract_metrics(vmaf_data, fps=fps)
++
++            # Calculate bitrate analysis
++            ref_bitrate = ref_info.get("bitrate", 0)
++            dist_bitrate = dist_info.get("bitrate", 0)
++            bitrate_analysis = {}
++
++            # Calculate pixels
++            ref_pixels = ref_info.get("width", 0) * ref_info.get("height", 0)
++            dist_pixels = dist_info.get("width", 0) * dist_info.get("height", 0)
++            ref_fps = ref_info.get("fps", 30) or 30
++            dist_fps = dist_info.get("fps", 30) or 30
++
++            if ref_bitrate and dist_bitrate:
++                ref_mbps = ref_bitrate / 1_000_000
++                dist_mbps = dist_bitrate / 1_000_000
++                reduction = ((ref_bitrate - dist_bitrate) / ref_bitrate) * 100
++                vmaf_score = metrics["vmaf"]["score"]
++                efficiency = vmaf_score / dist_mbps if dist_mbps > 0 else 0
++
++                # Calculate BPP (bits per pixel per frame)
++                ref_bpp = ref_bitrate / (ref_pixels * ref_fps) if ref_pixels > 0 else 0
++                dist_bpp = dist_bitrate / (dist_pixels * dist_fps) if dist_pixels > 0 else 0
++
++                # BPP quality rating
++                if dist_bpp >= 0.10:
++                    bpp_quality = "High"
++                elif dist_bpp >= 0.05:
++                    bpp_quality = "Good"
++                elif dist_bpp >= 0.03:
++                    bpp_quality = "Low"
++                else:
++                    bpp_quality = "Very Low"
++
++                bitrate_analysis = {
++                    "reference_mbps": round(ref_mbps, 2),
++                    "distorted_mbps": round(dist_mbps, 2),
++                    "reduction_percent": round(reduction, 1),
++                    "efficiency_vmaf_per_mbps": round(efficiency, 1),
++                    "savings_mbps": round(ref_mbps - dist_mbps, 2),
++                    "reference_bpp": round(ref_bpp, 6),
++                    "distorted_bpp": round(dist_bpp, 6),
++                    "bpp_quality": bpp_quality,
++                }
++
++            # Build result
++            result = {
++                "timestamp": datetime.now().isoformat(),
++                "reference": {
++                    "path": self.reference_path,
++                    "info": ref_info,
++                },
++                "distorted": {
++                    "path": self.distorted_path,
++                    "info": dist_info,
++                },
++                "model": self.model_name,
++                "metrics": metrics,
++                "bitrate_analysis": bitrate_analysis,
++                "frame_count": len(vmaf_data.get("frames", [])),
++            }
++
++            # Save results to JSON file
++            with open(self.output_path, "w") as f:
++                json.dump(result, f, indent=2)
++
++            print(f"\nResults saved to: {self.output_path}")
++
++            # Store to MongoDB if enabled
++            if self.mongodb_enabled:
++                self._store_to_mongodb(result)
++
++            return result
++
++        finally:
++            self._cleanup()
++            self._close_mongodb()
++
++    def print_summary(self, result: Dict[str, Any]):
++        """Print a summary of the results."""
++        metrics = result.get("metrics", {})
++        vmaf = metrics.get("vmaf", {})
++        psnr = metrics.get("psnr", {})
++        ssim = metrics.get("ssim", 0)
++
++        # Get bitrate info
++        ref_info = result.get("reference", {}).get("info", {})
++        dist_info = result.get("distorted", {}).get("info", {})
++        ref_bitrate = ref_info.get("bitrate", 0)
++        dist_bitrate = dist_info.get("bitrate", 0)
++
++        print("\n" + "=" * 60)
++        print("VMAF QUALITY ASSESSMENT RESULTS")
++        print("=" * 60)
++        print(f"\nReference: {result['reference']['path']}")
++        print(f"Distorted: {result['distorted']['path']}")
++        print(f"Model: {result['model']}")
++        print(f"Frames analyzed: {result['frame_count']}")
++
++        # Bitrate Analysis Section
++        print("\n" + "-" * 60)
++        print("BITRATE ANALYSIS")
++        print("-" * 60)
++
++        ref_mbps = ref_bitrate / 1_000_000 if ref_bitrate else 0
++        dist_mbps = dist_bitrate / 1_000_000 if dist_bitrate else 0
++
++        print(f"Reference Bitrate:  {ref_mbps:.2f} Mbps")
++        print(f"Distorted Bitrate:  {dist_mbps:.2f} Mbps")
++
++        if ref_bitrate and dist_bitrate:
++            reduction = ((ref_bitrate - dist_bitrate) / ref_bitrate) * 100
++            print(f"Bitrate Reduction:  {reduction:.1f}%")
++
++            # Calculate efficiency (VMAF points per Mbps)
++            score = vmaf.get("score", 0)
++            if dist_mbps > 0:
++                efficiency = score / dist_mbps
++                print(f"Encoding Efficiency: {efficiency:.1f} VMAF/Mbps")
++
++        # Quality Metrics Section
++        print("\n" + "-" * 60)
++        print("QUALITY METRICS")
++        print("-" * 60)
++        print(f"VMAF Score (Median):  {vmaf.get('score', 0):.2f} (0-100, higher is better)")
++        print(f"VMAF Mean:            {vmaf.get('mean', 0):.2f}")
++        print(f"VMAF Harmonic Mean:   {vmaf.get('harmonic_mean', 0):.2f}")
++        print(f"  Min:                {vmaf.get('min', 0):.2f}  ⚠️ Check if too low")
++        print(f"  Max:                {vmaf.get('max', 0):.2f}")
++        print(f"  Range:              {vmaf.get('max', 0) - vmaf.get('min', 0):.2f}  (high range = inconsistent quality)")
++        print(f"PSNR (Y):             {psnr.get('y', 0):.2f} dB  (>40 = excellent, >35 = good)")
++        print(f"SSIM:                 {ssim:.4f}  (>0.95 = excellent, >0.90 = good)")
++
++        # Resolution comparison
++        print("\n" + "-" * 60)
++        print("RESOLUTION ANALYSIS")
++        print("-" * 60)
++        print(f"Reference:  {ref_info.get('width', 0)}x{ref_info.get('height', 0)} @ {ref_info.get('fps', 0)} fps")
++        print(f"Distorted:  {dist_info.get('width', 0)}x{dist_info.get('height', 0)} @ {dist_info.get('fps', 0)} fps")
++
++        # Check for potential issues
++        if ref_info.get('fps', 0) != dist_info.get('fps', 0):
++            print(f"  ⚠️  FPS MISMATCH - This may affect VMAF accuracy!")
++
++        ref_pixels = ref_info.get('width', 0) * ref_info.get('height', 0)
++        dist_pixels = dist_info.get('width', 0) * dist_info.get('height', 0)
++        if ref_pixels > 0 and dist_pixels > 0:
++            scale_ratio = dist_pixels / ref_pixels
++            if scale_ratio < 0.5:
++                print(f"  ⚠️  Distorted is {scale_ratio*100:.0f}% of reference resolution - significant downscale")
++
++        # Bits Per Pixel Analysis
++        print("\n" + "-" * 60)
++        print("BITS PER PIXEL (BPP) ANALYSIS")
++        print("-" * 60)
++
++        ref_fps = ref_info.get('fps', 30) or 30
++        dist_fps = dist_info.get('fps', 30) or 30
++
++        # Reference BPP
++        if ref_pixels > 0 and ref_bitrate > 0:
++            ref_bpp = ref_bitrate / (ref_pixels * ref_fps)
++            print(f"Reference BPP:   {ref_bpp:.4f} bits/pixel/frame")
++        else:
++            ref_bpp = 0
++            print(f"Reference BPP:   N/A")
++
++        # Distorted BPP
++        if dist_pixels > 0 and dist_bitrate > 0:
++            dist_bpp = dist_bitrate / (dist_pixels * dist_fps)
++            print(f"Distorted BPP:   {dist_bpp:.4f} bits/pixel/frame")
++
++            # BPP Quality Assessment
++            print(f"\n  BPP Quality Guide:")
++            print(f"    > 0.10 BPP = High quality (minimal compression)")
++            print(f"    0.05-0.10 = Good quality (typical streaming)")
++            print(f"    0.03-0.05 = Acceptable (aggressive compression)")
++            print(f"    < 0.03 BPP = Low quality (very aggressive)")
++
++            if dist_bpp >= 0.10:
++                print(f"\n  ✅ BPP is HIGH ({dist_bpp:.4f}) - Good bitrate allocation")
++            elif dist_bpp >= 0.05:
++                print(f"\n  ✅ BPP is GOOD ({dist_bpp:.4f}) - Typical for streaming")
++            elif dist_bpp >= 0.03:
++                print(f"\n  ⚠️  BPP is LOW ({dist_bpp:.4f}) - May see artifacts in complex scenes")
++            else:
++                print(f"\n  ❌ BPP is VERY LOW ({dist_bpp:.4f}) - Quality likely compromised")
++
++            # VMAF per BPP efficiency
++            vmaf_score = vmaf.get('score', 0)
++            if dist_bpp > 0:
++                vmaf_per_bpp = vmaf_score / (dist_bpp * 1000)
++                print(f"\n  VMAF Efficiency: {vmaf_per_bpp:.2f} VMAF per 0.001 BPP")
++        else:
++            print(f"Distorted BPP:   N/A")
++
++        # Quality interpretation
++        score = vmaf.get("score", 0)
++        if score >= 93:
++            quality = "Excellent - Virtually indistinguishable from reference"
++            quality_color = "🟢"
++        elif score >= 80:
++            quality = "Good - Minor perceptible differences"
++            quality_color = "🟢"
++        elif score >= 70:
++            quality = "Fair - Noticeable quality degradation"
++            quality_color = "🟡"
++        elif score >= 50:
++            quality = "Poor - Significant quality loss"
++            quality_color = "🟠"
++        else:
++            quality = "Bad - Severe quality degradation"
++            quality_color = "🔴"
++
++        print("\n" + "-" * 60)
++        print("ASSESSMENT")
++        print("-" * 60)
++        print(f"Quality: {quality_color} {quality}")
++
++        # Bitrate recommendation
++        if ref_bitrate and dist_bitrate:
++            self._print_bitrate_recommendation(score, ref_mbps, dist_mbps, result['model'])
++
++        print("=" * 60)
++
++    def _print_bitrate_recommendation(self, vmaf_score: float, ref_mbps: float, dist_mbps: float, model: str):
++        """Print bitrate recommendations based on VMAF score."""
++        reduction = ((ref_mbps - dist_mbps) / ref_mbps) * 100 if ref_mbps > 0 else 0
++
++        print(f"\nBitrate Recommendation:")
++
++        # Different thresholds for phone vs TV
++        is_phone = "phone" in model.lower()
++
++        if is_phone:
++            # Phone viewing - can tolerate lower bitrates
++            if vmaf_score >= 93:
++                if reduction < 50:
++                    print(f"  ✓ Quality is excellent. You could potentially reduce bitrate further")
++                    print(f"    for more bandwidth savings while maintaining good phone quality.")
++                else:
++                    print(f"  ✓ Excellent quality at {reduction:.0f}% bitrate reduction. Optimal encoding!")
++            elif vmaf_score >= 80:
++                print(f"  ✓ Good quality for phone viewing at {dist_mbps:.2f} Mbps.")
++                print(f"    This bitrate is suitable for mobile streaming.")
++            elif vmaf_score >= 70:
++                print(f"  ⚠ Fair quality. Consider increasing bitrate slightly for better experience.")
++            else:
++                print(f"  ✗ Quality too low. Increase bitrate to at least {dist_mbps * 1.5:.2f} Mbps.")
++        else:
++            # TV/Laptop viewing - needs higher quality
++            if vmaf_score >= 93:
++                print(f"  ✓ Excellent quality! Bitrate of {dist_mbps:.2f} Mbps is sufficient.")
++            elif vmaf_score >= 80:
++                print(f"  ✓ Good quality. Current bitrate is acceptable for most viewers.")
++            elif vmaf_score >= 70:
++                print(f"  ⚠ Consider increasing bitrate to ~{dist_mbps * 1.3:.2f} Mbps for better quality.")
++            else:
++                print(f"  ✗ Quality too low for TV viewing. Recommend at least {dist_mbps * 1.8:.2f} Mbps.")
++
++        # Suggested bitrate ladder for phone streaming
++        if is_phone:
++            print(f"\n  Suggested Phone Bitrate Ladder (for adaptive streaming):")
++            print(f"    1080p: 2.5-4.0 Mbps  (VMAF target: 90+)")
++            print(f"    720p:  1.5-2.5 Mbps  (VMAF target: 90+)")
++            print(f"    480p:  0.8-1.5 Mbps  (VMAF target: 85+)")
++            print(f"    360p:  0.4-0.8 Mbps  (VMAF target: 80+)")
++
++
++def main():
++    parser = argparse.ArgumentParser(
++        description="VMAF Calculator - Compare video quality between reference and distorted videos",
++        formatter_class=argparse.RawDescriptionHelpFormatter,
++        epilog="""
++Examples:
++  # Compare local MP4 files
++  python vmaf_calculator.py -r original.mp4 -d transcoded.mp4
++
++  # Compare MP4 against M3U8 stream from GCP
++  python vmaf_calculator.py -r original.mp4 -d https://storage.googleapis.com/bucket/video.m3u8
++
++  # Use PHONE model for mobile viewing (recommended for phone destinations)
++  python vmaf_calculator.py -r ref.mp4 -d dist.mp4 -m vmaf_phone
++
++  # Use 4K model for 4K content
++  python vmaf_calculator.py -r ref.mp4 -d dist.mp4 -m vmaf_4k
++
++Model Selection:
++  vmaf_v0.6.1  - Default model for HD content on TV/laptop (3H viewing distance)
++  vmaf_4k      - Optimized for 4K/UHD content on 4K TV (1.5H viewing distance)
++  vmaf_phone   - For mobile phone viewing (closer distance, smaller screen)
++  vmaf_b       - Improved accuracy model
++
++Quality Score Interpretation:
++  93-100: Excellent (indistinguishable from reference)
++  80-92:  Good (minor differences)
++  70-79:  Fair (noticeable degradation)
++  50-69:  Poor (significant quality loss)
++  0-49:   Bad (severe degradation)
++
++Note: Phone model scores are typically HIGHER than TV model for the same video,
++because artifacts are less visible on smaller screens at closer viewing distances.
++        """,
++    )
++
++    parser.add_argument(
++        "-r", "--reference",
++        required=True,
++        help="Path to reference video (original MP4)",
++    )
++    parser.add_argument(
++        "-d", "--distorted",
++        required=True,
++        help="Path or URL to distorted video (M3U8 stream or MP4)",
++    )
++    parser.add_argument(
++        "-o", "--output",
++        default="vmaf_results.json",
++        help="Output JSON file path (default: vmaf_results.json)",
++    )
++    parser.add_argument(
++        "-m", "--model",
++        choices=["vmaf_v0.6.1", "vmaf_4k", "vmaf_b", "vmaf_phone"],
++        default="vmaf_v0.6.1",
++        help="VMAF model to use: vmaf_v0.6.1 (default/HD), vmaf_4k (4K content), vmaf_phone (mobile viewing)",
++    )
++    parser.add_argument(
++        "-t", "--threads",
++        type=int,
++        default=0,
++        help="Number of threads (default: 0 = auto)",
++    )
++    parser.add_argument(
++        "-v", "--verbose",
++        action="store_true",
++        help="Enable verbose output",
++    )
++
++    args = parser.parse_args()
++
++    # Validate reference file exists
++    if not os.path.exists(args.reference):
++        print(f"ERROR: Reference file not found: {args.reference}")
++        sys.exit(1)
++
++    # Validate distorted file (if local)
++    if not args.distorted.startswith("http") and not os.path.exists(args.distorted):
++        print(f"ERROR: Distorted file not found: {args.distorted}")
++        sys.exit(1)
++
++    # Run calculator
++    calculator = VMAFCalculator(
++        reference_path=args.reference,
++        distorted_path=args.distorted,
++        output_path=args.output,
++        model=args.model,
++        threads=args.threads,
++        verbose=args.verbose,
++    )
++
++    result = calculator.calculate()
++    calculator.print_summary(result)
++
++
++if __name__ == "__main__":
++    main()
