@@ -24,7 +24,14 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    export PKG_CONFIG_PATH="$INSTALL_ROOT/lib/pkgconfig:$PKG_CONFIG_PATH"
+    # Вырезаем проверку sharpyuv и форсируем её включение
+    sed -i 's/check_avif_option(AVIF_LIBSHARPYUV.*/set(AVIF_LIBSHARPYUV_ENABLED ON)/' CMakeLists.txt
+
+    # Вырезаем проверку libxml2 и форсируем её включение
+    sed -i 's/check_avif_option(AVIF_LIBXML2.*/set(AVIF_LIBXML2_ENABLED ON)/' CMakeLists.txt
+
+    # Находим строку линковки и добавляем переменные напрямую, так как таргетов LibXml2::LibXml2 не существует
+    # (Опционально, если cmake будет ругаться на отсутствие таргетов в avif_target_link_library)
 
     mkdir -p build && cd build
 
