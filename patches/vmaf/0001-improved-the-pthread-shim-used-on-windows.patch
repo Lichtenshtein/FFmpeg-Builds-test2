@@ -234,21 +234,6 @@ index 00000000..c3772e1a
 +
 +#endif
 \ No newline at end of file
-diff --git a/libvmaf/src/compat/msvc/stdatomic.h b/libvmaf/src/compat/msvc/stdatomic.h
-index 979ee2ba..033ec818 100644
---- a/libvmaf/src/compat/msvc/stdatomic.h
-+++ b/libvmaf/src/compat/msvc/stdatomic.h
-@@ -39,7 +39,10 @@
- 
- #include <windows.h>
- 
-+// Unconvinced that this code compiles, but marking for now
-+#ifndef DISCORD_WINDOWS_PORT
- #include "common/attributes.h"
-+#endif
- 
- typedef volatile LONG  __declspec(align(32)) atomic_int;
- typedef volatile ULONG __declspec(align(32)) atomic_uint;
 diff --git a/libvmaf/src/feature/adm.c b/libvmaf/src/feature/adm.c
 index 99dc142c..8b8534f7 100644
 --- a/libvmaf/src/feature/adm.c

@@ -30,7 +30,6 @@ ffbuild_dockerbuild() {
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         -Dc_std=c11
         -Dcpp_std=c++17
-        -Dbenchmarking=false
         -Dbuilt_in_models=true
         -Denable_asm=true
         -Denable_avx512=$([ "${USE_AVX512}" == "1" ] && echo true || echo false )
