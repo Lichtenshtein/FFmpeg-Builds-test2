@@ -63,10 +63,12 @@ log_info "${CHECK_MARK} Active addins: ${GREY_B}${ADDINS_STR:-none}${NC}"
 [[ "$USE_OPENMP" == "1" ]]     && log_info "${XCLAM_MARK} Open Multi-Processing runtime for shared-memory parallel programming is enabled!"
 [[ "$SHADERC_UPDATE" == "1" ]] && log_info "${XCLAM_MARK} Shaderc dependencies will be updated from the local DEPS file."
 [[ "$OLDER_FFNV" == "1" ]]     && log_info "${XCLAM_MARK} FFNVcodec sdk version 8.1 will be installed."
+[[ "$DIR_NUMBERS" == "1" ]]    && log_info "${XCLAM_MARK} Script collector will ignore numbering of folders."
 
 echo -n "" > Dockerfile # Явно очищаем файл перед началом записи
 to_df() { echo "$*" >> Dockerfile; }
 
+# Making ENV from workflow avaliable inside Docker 
 # Объединяем все ENV в одну команду для оптимизации слоев
 COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_STR=\"$ADDINS_STR\" \\
     FFBUILD_VERBOSE=\"$FFBUILD_VERBOSE\" \\
@@ -82,6 +84,7 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     USE_AVX512=\"$USE_AVX512\" \\
     PREFER_SHARED=\"${PREFER_SHARED:-0}\" \\
     OLDER_FFNV=\"${OLDER_FFNV}\" \\
+    DIR_NUMBERS=\"${DIR_NUMBERS}\" \\
     USE_LTO=\"$USE_LTO\" \\
     CPU_ARCH=\"${CPU_ARCH:-broadwell}\" \\
     CPU_TUNE=\"${CPU_TUNE:-broadwell}\" \\
@@ -118,18 +121,22 @@ RUN_STAGE_HASH=$(sha256sum $UTIL_DIR/run_stage.sh | cut -c1-8 | tr -d '\n\r')
 VARS_LOGIC_HASH=$(grep -E "^(ffbuild_|stage_vars|get_stage_hash)" $UTIL_DIR/vars.sh | sha256sum | cut -c1-8 | tr -d '\n\r')
 LOGIC_HASH="${RUN_STAGE_HASH}_${VARS_LOGIC_HASH}"
 
-# Если поменяется ключевая переменная в vars.sh все последующие RUN НЕ пересоберутся
-if [[ "$DEBUG_NO_HASH" == "1" ]]; then
+# A static HASH ensures that when a variable in vars.sh is changed, all subsequent RUNs will NOT be rebuilt.
+if [[ "$DIR_NUMBERS" == "1" ]]; then
     log_warn "Hashes are now hardcoded to preserve Docker cache."
     ENV_HASH="env_static"
     LOGIC_HASH="logic_static"
 fi
 
 # Сборка и фильтрация активных скриптов
-# Учитывать нумерацию в папках
-# mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" | sort)
-# учитывать нумерацию только базового имени
-mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" -printf "%f\t%p\n" | sort -n | cut -f2)
+if [[ "$DEBUG_NO_HASH" == "1" ]]; then
+    # учитывать нумерацию только базового имени
+    mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" -printf "%f\t%p\n" | sort -n | cut -f2)
+else
+    # Учитывать нумерацию в папках
+    mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" | sort)
+fi
+
 active_scripts=()
 for STAGE in "${SCRIPTS[@]}"; do
     # Фильтрация по регулярному выражению ONLY_STAGE
