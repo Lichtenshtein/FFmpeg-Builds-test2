@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '01-mingw-std-threads|02-mingw|03-base|04-tbbmalloc|05-libicu|06-libiconv|07-gettext|08-zlib|09-gmp|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|27-freeglut|31-nettle|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|37-openjpeg|38-libwebp|39-fontconfig|39-fribidi|39-libtiff|39-pixman|40-cairo|40-harfbuzz|40-lcms2|41-freetype|44-dav1d|44-svtav1|45-libavif|45-libjxl|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|54-vmaf|59-libtensorflow-test|59-opencl|59-openvino-test|61-opencv-test|70-aom|80-gavl|84-frei0r'
+        default: '08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|37-openjpeg|38-libwebp|40-lcms2|44-dav1d|44-svtav1|45-libavif|45-libjxl|54-vmaf|70-aom'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
