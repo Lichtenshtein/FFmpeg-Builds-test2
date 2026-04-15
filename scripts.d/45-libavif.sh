@@ -24,16 +24,27 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Вырезаем проверку sharpyuv и форсируем её включение
+    # Создаем вспомогательный файл, чтобы внедрить наши "фейковые" таргеты в CMake
+    cat <<EOF > fix_targets.cmake
+add_library(sharpyuv::sharpyuv STATIC IMPORTED)
+set_target_properties(sharpyuv::sharpyuv PROPERTIES 
+    IMPORTED_LOCATION "$INSTALL_ROOT/lib/libsharpyuv.a"
+    INTERFACE_INCLUDE_DIRECTORIES "$INSTALL_ROOT/include"
+    AVIF_LOCAL OFF)
+
+add_library(LibXml2::LibXml2 STATIC IMPORTED)
+set_target_properties(LibXml2::LibXml2 PROPERTIES 
+    IMPORTED_LOCATION "$INSTALL_ROOT/lib/libxml2.a"
+    INTERFACE_INCLUDE_DIRECTORIES "$INSTALL_ROOT/include/libxml2"
+    AVIF_LOCAL OFF)
+EOF
+
+    # Внедряем наш файл в начало основного CMakeLists.txt
+    sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/fix_targets.cmake")' CMakeLists.txt
+
+    # Отключаем "умные" проверки, так как мы создали таргеты вручную
     sed -i 's/check_avif_option(AVIF_LIBSHARPYUV.*/set(AVIF_LIBSHARPYUV_ENABLED ON)/' CMakeLists.txt
-
-    # Вырезаем проверку libxml2 и форсируем её включение
     sed -i 's/check_avif_option(AVIF_LIBXML2.*/set(AVIF_LIBXML2_ENABLED ON)/' CMakeLists.txt
-
-    # Находим строку линковки и добавляем переменные напрямую, так как таргетов LibXml2::LibXml2 не существует
-    # (Опционально, если cmake будет ругаться на отсутствие таргетов в avif_target_link_library)
-
-ls -l "$INSTALL_ROOT/lib/pkgconfig/dav1d.pc" || echo "DAV1D PC NOT FOUND"
 
     mkdir -p build && cd build
 
@@ -42,7 +53,7 @@ ls -l "$INSTALL_ROOT/lib/pkgconfig/dav1d.pc" || echo "DAV1D PC NOT FOUND"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DCMAKE_PREFIX_PATH="$INSTALL_ROOT"
+        -DCMAKE_PREFIX_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DAVIF_BUILD_TESTS=OFF
@@ -51,11 +62,7 @@ ls -l "$INSTALL_ROOT/lib/pkgconfig/dav1d.pc" || echo "DAV1D PC NOT FOUND"
         # Включаем поддержку внешнего декодера dav1d
         -DAVIF_CODEC_DAV1D=SYSTEM # Декодер
         -DAVIF_CODEC_DAV1D_ENABLED=ON
-        -Ddav1d_LIBRARY="$INSTALL_ROOT/lib/libdav1d.a"
-        -Ddav1d_INCLUDE_DIR="$INSTALL_ROOT/include"
         -DAVIF_LIBSHARPYUV=SYSTEM # stupidly fails if no .cmake files found
-        -Dsharpyuv_LIBRARY="$INSTALL_ROOT/lib/libsharpyuv.a"
-        -Dsharpyuv_INCLUDE_DIR="$INSTALL_ROOT/include"
         -DAVIF_LIBXML2=SYSTEM # convert JPEG with gain maps to AVIF using avifenc; doesn't find a shit
         -DAVIF_JPEG=SYSTEM
         -DAVIF_ZLIBPNG=SYSTEM
@@ -70,7 +77,10 @@ ls -l "$INSTALL_ROOT/lib/pkgconfig/dav1d.pc" || echo "DAV1D PC NOT FOUND"
         # Явное указание путей
         -DLibXml2_INCLUDE_DIR="$INSTALL_ROOT/include/libxml2"
         -DLibXml2_LIBRARY="$INSTALL_ROOT/lib/libxml2.a"
-
+        -Dsharpyuv_LIBRARY="$INSTALL_ROOT/lib/libsharpyuv.a"
+        -Dsharpyuv_INCLUDE_DIR="$INSTALL_ROOT/include"
+        -Ddav1d_LIBRARY="$INSTALL_ROOT/lib/libdav1d.a"
+        -Ddav1d_INCLUDE_DIR="$INSTALL_ROOT/include"
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
