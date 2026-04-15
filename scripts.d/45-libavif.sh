@@ -24,33 +24,31 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Корректируем структуру инклюдов под требования libavif
-    if [[ -d "$INSTALL_ROOT/include/webp/sharpyuv" && ! -d "$INSTALL_ROOT/include/sharpyuv" ]]; then
-        mkdir -p "$INSTALL_ROOT/include/sharpyuv"
-        cp "$INSTALL_ROOT/include/webp/sharpyuv/"*.h "$INSTALL_ROOT/include/sharpyuv/"
-    fi
+    mkdir -p "include/sharpyuv"
 
-    # Создаем вспомогательный файл, чтобы внедрить наши "фейковые" таргеты в CMake
+    # Ищем, где реально лежат хидеры в префиксе, и копируем их в локальную папку
+    # Проверяем оба возможных пути (стандартный и глубокий из libwebp)
+    cp "$INSTALL_ROOT/include/webp/sharpyuv/"*.h "include/sharpyuv/" 2>/dev/null || \
+    cp "$INSTALL_ROOT/include/sharpyuv/"*.h "include/sharpyuv/" 2>/dev/null || \
+    cp "$INSTALL_ROOT/include/webp/"sharpyuv*.h "include/sharpyuv/" 2>/dev/null
+
     cat <<EOF > fix_targets.cmake
-# Создаем таргеты без жесткой привязки к путям на этапе конфига
 add_library(sharpyuv::sharpyuv STATIC IMPORTED)
 set_target_properties(sharpyuv::sharpyuv PROPERTIES 
     IMPORTED_LOCATION "$INSTALL_ROOT/lib/libsharpyuv.a"
-    INTERFACE_INCLUDE_DIRECTORIES "" # Очищаем, чтобы не проверял наличие
     AVIF_LOCAL OFF)
 
 add_library(LibXml2::LibXml2 STATIC IMPORTED)
 set_target_properties(LibXml2::LibXml2 PROPERTIES 
     IMPORTED_LOCATION "$INSTALL_ROOT/lib/libxml2.a"
-    INTERFACE_INCLUDE_DIRECTORIES ""
     AVIF_LOCAL OFF)
 
-# Добавляем глобальные пути поиска, чтобы компилятор сам нашел хидеры
+# Добавляем ПЕРВЫМ делом локальную папку include, которую мы создали выше
+include_directories(BEFORE "\${CMAKE_CURRENT_SOURCE_DIR}/include")
+# И только потом системные
 include_directories(SYSTEM "$INSTALL_ROOT/include")
-include_directories(SYSTEM "$INSTALL_ROOT/include/libxml2")
 EOF
 
-    # Внедряем наш файл в начало основного CMakeLists.txt
     sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/fix_targets.cmake")' CMakeLists.txt
     sed -i 's/check_avif_option(AVIF_LIBSHARPYUV.*/set(AVIF_LIBSHARPYUV_ENABLED ON)/' CMakeLists.txt
     sed -i 's/check_avif_option(AVIF_LIBXML2.*/set(AVIF_LIBXML2_ENABLED ON)/' CMakeLists.txt
