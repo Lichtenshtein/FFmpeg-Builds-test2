@@ -62,6 +62,7 @@ log_info "${CHECK_MARK} Active addins: ${GREY_B}${ADDINS_STR:-none}${NC}"
 [[ "$SKIP_FFMPEG" == "1" ]]    && log_info "${XCLAM_MARK} Component test mode activated! FFmpeg compilation will be skipped."
 [[ "$USE_OPENMP" == "1" ]]     && log_info "${XCLAM_MARK} Open Multi-Processing runtime for shared-memory parallel programming is enabled!"
 [[ "$SHADERC_UPDATE" == "1" ]] && log_info "${XCLAM_MARK} Shaderc dependencies will be updated from the local DEPS file."
+[[ "$OLDER_FFNV" == "1" ]]     && log_info "${XCLAM_MARK} FFNVcodec sdk version 8.1 will be installed."
 
 echo -n "" > Dockerfile # Явно очищаем файл перед началом записи
 to_df() { echo "$*" >> Dockerfile; }
@@ -80,6 +81,7 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     USE_WINE=\"$USE_WINE\" \\
     USE_AVX512=\"$USE_AVX512\" \\
     PREFER_SHARED=\"${PREFER_SHARED:-0}\" \\
+    OLDER_FFNV=\"${OLDER_FFNV}\" \\
     USE_LTO=\"$USE_LTO\" \\
     CPU_ARCH=\"${CPU_ARCH:-broadwell}\" \\
     CPU_TUNE=\"${CPU_TUNE:-broadwell}\" \\
@@ -124,7 +126,10 @@ if [[ "$DEBUG_NO_HASH" == "1" ]]; then
 fi
 
 # Сборка и фильтрация активных скриптов
-mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" | sort)
+# Учитывать нумерацию в папках
+# mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" | sort)
+# учитывать нумерацию только базового имени
+mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" -printf "%f\t%p\n" | sort -n | cut -f2)
 active_scripts=()
 for STAGE in "${SCRIPTS[@]}"; do
     # Фильтрация по регулярному выражению ONLY_STAGE
@@ -134,7 +139,7 @@ for STAGE in "${SCRIPTS[@]}"; do
         matched=0
         IFS='|' read -ra _patterns <<< "$ONLY_STAGE"
         for pattern in "${_patterns[@]}"; do
-            pattern="${pattern// /}" # trim spaces
+            pattern="${pattern%.sh// /}" # trim spaces
             # Match full basename OR suffix component name
             if [[ "$STAGE_BASE" == "$pattern" ]] || \
                [[ "$STAGE_BASE" == *"-${pattern}" ]] || \
