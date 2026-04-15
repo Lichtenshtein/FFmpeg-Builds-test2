@@ -74,7 +74,7 @@ stage_cleanup() {
                 else
                     # Ничего не нашли
                     if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-                        log_warn "No logs found.\n${DIRS_MARK} Listing directory content of $BUILD_DIR:"
+                        log_warn "No logs found.${DIRS_MARK} Listing directory content of $BUILD_DIR:"
                         # 1) use find
                         # -maxdepth 2 чтобы не выводить тысячи файлов из подпапок
                         # sed добавляет отступы для имитации дерева
