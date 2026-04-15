@@ -43,14 +43,14 @@ ffbuild_dockerbuild() {
         -DENABLE_CCACHE=ON
         -DENABLE_NASM=ON
         -DCONFIG_TUNE_VMAF=1
-        -DCONFIG_AV1_TEMPORAL_DENOISING 1 # def 0
-        -DCONFIG_BITRATE_ACCURACY 1 # def 0
-        -DCONFIG_SALIENCY_MAP 0 # saliency map based encode tuning for VMAF; def 0
-        -DCONFIG_CWG_C013 1 # Support for 7.x and 8.x levels; def 0
-        -DCONFIG_TFLITE 1 # tenserflow-lite static
-        -DCONFIG_THREE_PASS 0 # Enable three-pass encoding; def 0, try 1?
-        -DCONFIG_HIGHWAY 1 # Use Highway for SIMD; def 0 # hwy donored from libjxl
-        -DCONFIG_NN_V2 0 # Fully-connected neural nets ver.2; def 0
+        -DCONFIG_AV1_TEMPORAL_DENOISING=1 # def 0
+        -DCONFIG_BITRATE_ACCURACY=1 # def 0
+        -DCONFIG_SALIENCY_MAP=0 # saliency map based encode tuning for VMAF; def 0
+        -DCONFIG_CWG_C013=1 # Support for 7.x and 8.x levels; def 0
+        -DCONFIG_TFLITE=1 # tenserflow-lite static
+        -DCONFIG_THREE_PASS=0 # Enable three-pass encoding; def 0, try 1?
+        -DCONFIG_HIGHWAY=1 # Use Highway for SIMD; def 0 # hwy donored from libjxl
+        -DCONFIG_NN_V2=0 # Fully-connected neural nets ver.2; def 0
         -DCONFIG_AV1_DECODER=1
         -DCONFIG_AV1_ENCODER=1
         -DCONFIG_TUNE_BUTTERAUGLI=1 # need libjxl
