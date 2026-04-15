@@ -23,9 +23,12 @@ ffbuild_dockerbuild() {
     local DEP_LIBS="-ltiffxx -ltiff -lturbojpeg -ljpeg -ljbig -lzstd -llzma -lz"
     local WIN_LIBS="$LIBS"
 
+    export PKG_CONFIG_PATH="$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_DESTDIR$FFBUILD_PREFIX/share/pkgconfig"
+    # Для некоторых версий Meson также важна эта переменная
+    export PKG_CONFIG_LIBDIR="$PKG_CONFIG_PATH"
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
-        --pkg-config-path="$PKG_CONFIG_PATH"
         --cross-file=/cross.meson
         -Ddefault_library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
@@ -37,7 +40,7 @@ ffbuild_dockerbuild() {
         -Dtests=disabled
     )
 
-    meson setup "${myconf[@]}" .. \
+    PKG_CONFIG_PATH="$PKG_CONFIG_PATH" meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
         -Dc_link_args="$LDFLAGS $WIN_LIBS" \
