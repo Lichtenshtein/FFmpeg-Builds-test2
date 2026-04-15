@@ -24,6 +24,12 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Корректируем структуру инклюдов под требования libavif
+    if [[ -d "$INSTALL_ROOT/include/webp/sharpyuv" && ! -d "$INSTALL_ROOT/include/sharpyuv" ]]; then
+        mkdir -p "$INSTALL_ROOT/include/sharpyuv"
+        cp "$INSTALL_ROOT/include/webp/sharpyuv/"*.h "$INSTALL_ROOT/include/sharpyuv/"
+    fi
+
     # Создаем вспомогательный файл, чтобы внедрить наши "фейковые" таргеты в CMake
     cat <<EOF > fix_targets.cmake
 # Создаем таргеты без жесткой привязки к путям на этапе конфига
@@ -46,8 +52,6 @@ EOF
 
     # Внедряем наш файл в начало основного CMakeLists.txt
     sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/fix_targets.cmake")' CMakeLists.txt
-
-    # Отключаем "умные" проверки, так как мы создали таргеты вручную
     sed -i 's/check_avif_option(AVIF_LIBSHARPYUV.*/set(AVIF_LIBSHARPYUV_ENABLED ON)/' CMakeLists.txt
     sed -i 's/check_avif_option(AVIF_LIBXML2.*/set(AVIF_LIBXML2_ENABLED ON)/' CMakeLists.txt
 
