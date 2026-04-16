@@ -34,6 +34,8 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        -DCMAKE_POLICY_DEFAULT_CMP0135=NEW
         -DENABLE_EXAMPLES=OFF
         -DENABLE_TESTS=OFF
         -DENABLE_DOCS=OFF
@@ -62,8 +64,8 @@ ffbuild_dockerbuild() {
         -DCONFIG_WEBM_IO=1
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS -Wno-dev" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS -Wno-dev" \
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
