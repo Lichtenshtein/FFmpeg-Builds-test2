@@ -51,7 +51,8 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     local PC_FILE="$PC_DIR/libtiff-4.pc"
-    local LINK_FILE="$PC_DIR/tiff.pc"
-    # проверить, как называется созданный .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
-    ln -sf libtiff-4.pc "$LINK_FILE"
+    # Чистим зависимости, оставляя только те, что реально есть (с префиксом lib)
+    sed -i 's/^Requires.private:.*/Requires.private: zlib libjpeg liblzma libzstd libwebp/' "$PC_FILE"
+
+    ln -sf "$PC_FILE" "$PC_DIR/tiff.pc"
 }
