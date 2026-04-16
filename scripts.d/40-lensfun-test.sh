@@ -61,8 +61,6 @@ ffbuild_dockerbuild() {
         log_info "Patching lensfun.pc for static MinGW build..."
         # Добавляем glib-2.0 в зависимости, чтобы пути -I подтянулись автоматически
         if ! grep -q "Requires:" "$pc_file"; then
-            echo "Requires: glib-2.0" >> "$pc_file"
-        else
             sed -i '/^Requires:/ s/$/ glib-2.0/' "$pc_file"
         fi
     fi

@@ -42,7 +42,7 @@ ffbuild_dockerbuild() {
 
     if [[ $TARGET == linux64 ]]; then
         myconf+=(
-            --cross-file=/cross.meson
+            --cross-file="$FFBUILD_MESON_CROSS"
             --sysconfdir="/etc"
             -Ddriverdir="/usr/lib/x86_64-linux-gnu/dri"
             -Ddisable_drm=false
@@ -72,7 +72,7 @@ ffbuild_dockerbuild() {
         gen-implib "$FFBUILD_DESTPREFIX"/lib/{libva-x11.so.2,libva-x11.a}
         rm "$FFBUILD_DESTPREFIX"/lib/libva{,-drm,-x11}.so*
 
-        echo "Libs: -ldl" >> "$PC_DIR/libva.pc"
+        sed -i '/^Libs:/ s/$/ -ldl/' "$PC_DIR/libva.pc"
     fi
 }
 

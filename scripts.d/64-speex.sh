@@ -25,7 +25,7 @@ ffbuild_dockerbuild() {
     local myconf=(
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         --prefix="$FFBUILD_PREFIX"
-        --cross-file=/cross.meson
+        --cross-file="$FFBUILD_MESON_CROSS"
         --buildtype=release
         -Dcpp_std=c++17
         -Dc_std=c11
@@ -54,7 +54,7 @@ ffbuild_dockerbuild() {
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
         if [[ "${PREFER_SHARED}" != "1" ]]; then
             if ! grep -q "Libs.private" "$PC_FILE"; then
-                echo "Libs.private: -lm" >> "$PC_FILE"
+                sed -i '/^Libs.private:/ s/$/ -lm/' "$PC_FILE"
             else
                 sed -i "s/Libs.private: /Libs.private: -lm /" "$PC_FILE"
             fi

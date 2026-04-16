@@ -28,7 +28,7 @@ ffbuild_dockerbuild() {
     local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
 
     local myconf=(
-        --cross-file=/cross.meson
+        --cross-file="$FFBUILD_MESON_CROSS"
         --prefix="$FFBUILD_PREFIX"
         --libdir=lib
         --buildtype=release

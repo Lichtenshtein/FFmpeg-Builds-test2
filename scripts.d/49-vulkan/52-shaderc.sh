@@ -129,8 +129,8 @@ EOF
     cp "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_combined.pc"
     cp "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_static.pc"
 
-    echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_combined.pc"
-    echo "Libs: -lstdc++" >> "$PC_DIR/shaderc_static.pc"
+    sed -i '/^Libs:/ s/$/ -lstdc++/' "$PC_DIR/shaderc_combined.pc"
+    sed -i '/^Libs:/ s/$/ -lstdc++/' "$PC_DIR/shaderc_static.pc"
 
     cp "$PC_DIR"/{shaderc_combined,shaderc}.pc
 

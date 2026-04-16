@@ -48,7 +48,7 @@ ffbuild_dockerbuild() {
     local PC_FILE="$PC_DIR/zimg.pc"
     if [[ -f "$PC_FILE" ]]; then
         if ! grep -q "Libs.private" "$PC_FILE"; then
-            echo "Libs.private: -lstdc++" >> "$PC_FILE"
+            sed -i '/^Libs.private:/ s/$/ -lstdc++/' "$PC_FILE"
         fi
     fi
 }

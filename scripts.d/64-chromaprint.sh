@@ -44,7 +44,7 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    echo "Libs.private: -lfftw3 -lstdc++" >> "$PC_DIR/libchromaprint.pc"
+    sed -i '/^Libs.private:/ s/$/ -lfftw3 -lstdc++/' "$PC_DIR/libchromaprint.pc"
     if [[ -n "$static_flags" ]]; then
         if ! grep -qF -- "$static_flags" "$PC_DIR/libchromaprint.pc"; then
             sed -i "/^Cflags.private:/ s/$/ $static_flags/" "$PC_DIR/libchromaprint.pc"

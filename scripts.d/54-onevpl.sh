@@ -45,7 +45,7 @@ ffbuild_dockerbuild() {
 
     rm -rf "$FFBUILD_DESTPREFIX"/{etc,share}
 
-    echo "Libs.private: -lstdc++" >> "$PC_DIR/vpl.pc"
+    sed -i '/^Libs.private:/ s/$/ -lstdc++/' "$PC_DIR/vpl.pc"
 }
 
 ffbuild_configure() {

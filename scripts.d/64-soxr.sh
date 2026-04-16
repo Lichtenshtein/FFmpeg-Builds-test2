@@ -45,7 +45,7 @@ ffbuild_dockerbuild() {
 
     if [[ "${USE_OPENMP}" == "1" ]]; then
         if [[ $TARGET != winarm64 ]]; then
-            echo "Libs.private: -lgomp" >> "$PC_DIR/soxr.pc"
+            sed -i '/^Libs.private:/ s/$/ -lgomp/' "$PC_DIR/soxr.pc"
         fi
     fi
 }
