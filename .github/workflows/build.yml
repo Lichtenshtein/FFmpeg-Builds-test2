@@ -362,14 +362,14 @@ jobs:
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
 
-      - name: Save Cache After Components
-        if: always()
-        uses: actions/cache/save@v5
-        with:
-          path: |
-            .cache/downloads
-            .cache/ffmpeg
-          key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}-post
+      # - name: Save Cache After Components
+        # if: always()
+        # uses: actions/cache/save@v5
+        # with:
+          # path: |
+            # .cache/downloads
+            # .cache/ffmpeg
+          # key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}-post
 
       - name: Final FFmpeg Compilation
         if: env.SKIP_FFMPEG != '1'
