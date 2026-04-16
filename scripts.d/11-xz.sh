@@ -78,6 +78,8 @@ ffbuild_dockerbuild() {
             sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
         fi
     fi
+
+    ln -sf liblzma.pc "$PC_DIR/lzma.pc"
 }
 
 ffbuild_cppflags() {
