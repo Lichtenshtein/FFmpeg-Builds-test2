@@ -72,6 +72,8 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
+    find .. -name "butteraugli.h" -exec cp {} "$FFBUILD_PREFIX/include/jxl/" \;
+
     sed -i "s/^Requires.private: /Requires.private: lcms2 libhwy libjxl_cms /" "$PC_DIR/libjxl_cms.pc"
     sed -i 's/Libs:/Libs: -lhwy /' "$PC_DIR/libjxl.pc"
 }
