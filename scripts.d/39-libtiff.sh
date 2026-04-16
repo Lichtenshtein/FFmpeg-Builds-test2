@@ -64,8 +64,8 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     local PC_FILE="$PC_DIR/libtiff-4.pc"
-    local LINK_FILE="$PC_DIR/tiff.pc"
     if [[ -f "$PC_FILE" ]]; then
+        sed -i 's/^Requires.private:.*/Requires.private: zlib libjpeg liblzma libzstd libwebp/' "$PC_FILE"
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
                 sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
@@ -73,6 +73,5 @@ ffbuild_dockerbuild() {
         fi
     fi
 
-    # проверить, как называется созданный .pc файл (обычно libtiff-4.pc). Если lcms2 или leptonica его не видят придется сделать симлинк:
-    ln -sf libtiff-4.pc "$LINK_FILE"
+    ln -sf "$PC_FILE" "$PC_DIR/tiff.pc"
 }

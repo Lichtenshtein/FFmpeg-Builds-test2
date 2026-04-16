@@ -115,6 +115,8 @@ ffbuild_dockerbuild() {
             fi
         fi
     done
+
+    ln -sf libwebp.pc "$PC_DIR/webp.pc"
 }
 
 ffbuild_libs() {

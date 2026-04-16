@@ -68,6 +68,8 @@ ffbuild_dockerbuild() {
             fi
         fi
     fi
+
+    ln -sf libzstd.pc "$PC_DIR/zstd.pc"
 }
 
 ffbuild_cppflags() {
