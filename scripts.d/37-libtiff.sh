@@ -51,8 +51,5 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     local PC_FILE="$PC_DIR/libtiff-4.pc"
-    # Чистим зависимости, оставляя только те, что реально есть (с префиксом lib)
-    sed -i 's/^Requires.private:.*/Requires.private: zlib libjpeg liblzma libzstd libwebp/' "$PC_FILE"
-
     ln -sf "$PC_FILE" "$PC_DIR/tiff.pc"
 }
