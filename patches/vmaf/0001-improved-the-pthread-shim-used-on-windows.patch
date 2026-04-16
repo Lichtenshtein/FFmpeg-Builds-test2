@@ -1,7 +1,7 @@
 From ab7c859539fef25cafbeec40f099fe2120c378ab Mon Sep 17 00:00:00 2001
 From: Shaun Hedrick <shaun.hedrick@discordapp.com>
 Date: Tue, 5 Sep 2023 15:20:49 -0700
-Subject: [PATCH] [VMAF] Improved the pthread shim used on Windows (#6)
+Subject: [PATCH] [VMAF] Improved the pthread shim used on Windows
 
 This replaces the very problematic `#define`-based pthread replacement with a much-less-but-still-problematic C implementation.
 
@@ -53,7 +53,7 @@ diff --git a/libvmaf/meson_options.txt b/libvmaf/meson_options.txt
 index f1601f77..f3aadfad 100644
 --- a/libvmaf/meson_options.txt
 +++ b/libvmaf/meson_options.txt
-@@ -37,3 +37,8 @@ option('enable_nvtx',
+@@ -57,3 +57,8 @@ option('sycl_compiler',
      type: 'string',
      value: 'icpx',
      description: 'Path or name of the SYCL compiler (Intel icpx from oneAPI)')
@@ -275,24 +275,6 @@ index 269dbb5e..e36cd8ab 100644
  #include "log.h"
  
  #if ARCH_X86
-diff --git a/libvmaf/src/feature/integer_motion.c b/libvmaf/src/feature/integer_motion.c
-index 071d6737..52b317b3 100644
---- a/libvmaf/src/feature/integer_motion.c
-+++ b/libvmaf/src/feature/integer_motion.c
-@@ -269,6 +269,13 @@ static int extract_force_zero(VmafFeatureExtractor *fex,
-     return vmaf_dictionary_free(&s->feature_name_dict);
- }
- 
-+static int close_force_zero(VmafFeatureExtractor *fex)
-+{
-+    MotionState *s = fex->priv;
-+
-+    return vmaf_dictionary_free(&s->feature_name_dict);
-+}
-+
- static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
-                 unsigned bpc, unsigned w, unsigned h)
- {
 diff --git a/libvmaf/src/feature/integer_vif.c b/libvmaf/src/feature/integer_vif.c
 index 534a7b59..5b69b04e 100644
 --- a/libvmaf/src/feature/integer_vif.c
@@ -310,7 +292,7 @@ diff --git a/libvmaf/src/feature/integer_vif.h b/libvmaf/src/feature/integer_vif
 index a8135cdb..9e272208 100644
 --- a/libvmaf/src/feature/integer_vif.h
 +++ b/libvmaf/src/feature/integer_vif.h
-@@ -130,6 +130,25 @@ VifResiduals vif_compute_line_residuals(VifPublicState *s, unsigned from,
+@@ -131,6 +131,25 @@ VifResiduals vif_compute_line_residuals(VifPublicState *s, unsigned from,
  #if defined(_MSC_VER) && !defined(__clang__)
  #include <intrin.h>
  
@@ -414,7 +396,7 @@ diff --git a/libvmaf/src/meson.build b/libvmaf/src/meson.build
 index 94e2f4d7..a7c9dc28 100644
 --- a/libvmaf/src/meson.build
 +++ b/libvmaf/src/meson.build
-@@ -123,21 +123,27 @@ cdata.set10('VMAF_FLOAT_FEATURES', float_enabled)
+@@ -132,21 +132,27 @@ if built_in_models_enabled
              error('xxd with support for -n option is required building as a subproject. Please install a newer version of xxd or disable built-in models.')
          endif
  
@@ -456,7 +438,7 @@ index 94e2f4d7..a7c9dc28 100644
          endif
  
          foreach model_file : model_files
-@@ -364,7 +370,8 @@ if is_cuda_enabled
+@@ -521,7 +521,8 @@ if is_sycl_enabled
      )
  endif
  
@@ -466,7 +448,7 @@ index 94e2f4d7..a7c9dc28 100644
  math_lib = cc.find_library('m', required : false)
  
  vmaf_include = include_directories(
-@@ -439,7 +446,7 @@ libvmaf_feature_static_lib = static_library(
+@@ -623,7 +623,7 @@ libvmaf_feature_static_lib = static_library(
      'libvmaf_feature',
      libvmaf_feature_sources,
      include_directories : [libvmaf_include, vmaf_include, cuda_dir],
@@ -493,7 +475,7 @@ index 4661ec14..d852e898 100644
  #if VMAF_BUILT_IN_MODELS
  #if VMAF_FLOAT_FEATURES
      {
-@@ -91,6 +98,7 @@ static const VmafBuiltInModel built_in_models[] = {
+@@ -91,6 +91,7 @@ static const VmafBuiltInModel built_in_models[] = {
          .data = src_vmaf_4k_v0_6_1neg_json,
          .data_len = &src_vmaf_4k_v0_6_1neg_json_len,
      },
@@ -515,7 +497,7 @@ index ee25dca7..ba483273 100644
  
      for (unsigned i = 0; i < model_collection->cnt; i++) {
          // mean, stddev, etc. are calculated on untransformed/unclipped scores
-@@ -366,7 +367,7 @@ static int vmaf_bootstrap_predict_score_at_index(
+@@ -398,7 +398,7 @@ static int vmaf_bootstrap_predict_score_at_index(
                                            feature_collector, index,
                                            &scores[i], false,
                                            false, flags);
@@ -524,7 +506,7 @@ index ee25dca7..ba483273 100644
  
          // do not override the model's transform/clip behavior
          // write the scores to the feature collector
-@@ -374,7 +375,11 @@ static int vmaf_bootstrap_predict_score_at_index(
+@@ -406,7 +406,11 @@ static int vmaf_bootstrap_predict_score_at_index(
          err = vmaf_predict_score_at_index(model_collection->model[i],
                                            feature_collector, index,
                                            &score, true, false, 0);
@@ -694,12 +676,12 @@ diff --git a/libvmaf/test/meson.build b/libvmaf/test/meson.build
 index 21f7777a..c4662073 100644
 --- a/libvmaf/test/meson.build
 +++ b/libvmaf/test/meson.build
-@@ -26,14 +26,14 @@ test_feature_collector = executable('test_feature_collector',
+@@ -27,14 +27,14 @@ test_feature_collector = executable('test_feature_collector',
      ['test.c', 'test_feature_collector.c', '../src/log.c', '../src/predict.c', '../src/metadata_handler.c'],
      include_directories : [libvmaf_inc, test_inc, include_directories('../src/feature/'), include_directories('../src')],
      link_with : get_option('default_library') == 'both' ? libvmaf.get_static_lib() : libvmaf,
 -    dependencies: [cuda_dependency, sycl_dependency],
-+    dependencies: [cuda_dependency, sycl_dependency, thread_lib]
++    dependencies: [cuda_dependency, thread_lib, sycl_dependency],
      objects : libsvm_static_lib.extract_all_objects(recursive: true),
  )
  
@@ -707,11 +689,11 @@ index 21f7777a..c4662073 100644
      ['test.c', 'test_log.c', '../src/log.c'],
      include_directories : [libvmaf_inc, test_inc, include_directories('../src/')],
 -    dependencies: [sycl_dependency],
-+    dependencies: [sycl_dependency, posix_dependency]
++    dependencies: [sycl_dependency, posix_dependency],
  )
  
  test_thread_pool = executable('test_thread_pool',
-@@ -46,7 +46,7 @@ test_model = executable('test_model',
+@@ -48,7 +48,7 @@ test_model = executable('test_model',
      include_directories : [libvmaf_inc, test_inc, include_directories('../src')],
      link_with : get_option('default_library') == 'both' ? libvmaf.get_static_lib() : libvmaf,
      c_args : [vmaf_cflags_common, '-DJSON_MODEL_PATH="'+join_paths(meson.project_source_root(), '../model/')+'"'],
@@ -720,7 +702,7 @@ index 21f7777a..c4662073 100644
      objects : libsvm_static_lib.extract_all_objects(recursive: true),
  )
  
-@@ -57,7 +57,7 @@ test_predict = executable('test_predict',
+@@ -59,7 +59,7 @@ test_predict = executable('test_predict',
      include_directories : [libvmaf_inc, test_inc, include_directories('../src/')],
      link_with : get_option('default_library') == 'both' ? libvmaf.get_static_lib() : libvmaf,
      c_args : vmaf_cflags_common,
@@ -729,30 +711,30 @@ index 21f7777a..c4662073 100644
      objects : libsvm_static_lib.extract_all_objects(recursive: true),
  )
  
-@@ -66,7 +66,7 @@ test_feature_extractor = executable('test_feature_extractor',
+@@ -68,7 +68,7 @@ test_feature_extractor = executable('test_feature_extractor',
       '../src/dict.c', '../src/opt.c', '../src/log.c', '../src/predict.c',
       '../src/metadata_handler.c'],
      include_directories : [libvmaf_inc, test_inc, include_directories('../src/')],
 -    dependencies : [math_lib, stdatomic_dependency, thread_lib, cuda_dependency, sycl_dependency],
-+    dependencies : [math_lib, posix_dependency, stdatomic_dependency, cuda_dependency, sycl_dependency],
++    dependencies : [math_lib, posix_dependency, stdatomic_dependency, thread_lib, cuda_dependency, sycl_dependency],
      objects : [
        common_cuda_objects,
        platform_specific_cpu_objects,
-@@ -82,7 +83,7 @@ test_cpu = executable('test_cpu',
+@@ -88,7 +88,7 @@ test_cpu = executable('test_cpu',
      ['test.c', 'test_cpu.c'],
      include_directories : [libvmaf_inc, test_inc, include_directories('../src/')],
      objects : libvmaf_cpu_static_lib.extract_all_objects(recursive: true),
 -    dependencies: [sycl_dependency],
-+    dependencies: [sycl_dependency, stdatomic_dependency],
++    dependencies: [stdatomic_dependency, sycl_dependency],
  )
  
  test_ref = executable('test_ref',
-@@ -93,14 +95,14 @@ test_ciede = executable('test_ciede',
+@@ -107,14 +107,14 @@ test_ciede = executable('test_ciede',
      ['test.c', 'test_ciede.c'],
      include_directories : [libvmaf_inc, test_inc, include_directories('../src/')],
      link_with : get_option('default_library') == 'both' ? libvmaf.get_static_lib() : libvmaf,
 -    dependencies: [cuda_dependency, sycl_dependency],
-+    dependencies: [posix_dependency, stdatomic_dependency, cuda_dependency, sycl_dependency]
++    dependencies: [posix_dependency, stdatomic_dependency, cuda_dependency, sycl_dependency],
  )
  
  test_cambi = executable('test_cambi',
@@ -760,7 +742,7 @@ index 21f7777a..c4662073 100644
      include_directories : [libvmaf_inc, test_inc, include_directories('../src/')],
      link_with : get_option('default_library') == 'both' ? libvmaf.get_static_lib() : libvmaf,
 -    dependencies: [cuda_dependency, sycl_dependency],
-+    dependencies: [posix_dependency, stdatomic_dependency, cuda_dependency, sycl_dependency]
++    dependencies: [posix_dependency, stdatomic_dependency, cuda_dependency, sycl_dependency],
  )
  
  test_luminance_tools = executable('test_luminance_tools',
@@ -768,7 +750,7 @@ diff --git a/libvmaf/test/test_cambi.c b/libvmaf/test/test_cambi.c
 index 3043a750..77ab4b81 100644
 --- a/libvmaf/test/test_cambi.c
 +++ b/libvmaf/test/test_cambi.c
-@@ -234,8 +234,9 @@ static char *test_decimate_generic()
+@@ -257,8 +257,9 @@ static char *test_decimate_generic()
  
  static char *test_filter_mode()
  {
@@ -779,7 +761,7 @@ index 3043a750..77ab4b81 100644
      uint16_t buffer[3 * w];
  
      int err = 0;
-@@ -279,6 +280,7 @@ static char *test_filter_mode()
+@@ -303,6 +304,7 @@ static char *test_filter_mode()
      vmaf_picture_unref(&filtered_image);
  
      return NULL;
