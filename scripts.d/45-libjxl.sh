@@ -72,8 +72,14 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
+    # donor-file for aom
     mkdir -p "$FFBUILD_PREFIX/include/jxl"
-    find .. -name "butteraugli.h" -exec cp {} "$FFBUILD_PREFIX/include/jxl/" \;
+    curl -fsSL "https://raw.githubusercontent.com/libjxl/libjxl/26494266bae545dc2084746a1fb22e805e119e85/lib/include/jxl/butteraugli.h" \
+        -o "$FFBUILD_PREFIX/include/jxl/butteraugli.h"
+    if [ ! -s "$FFBUILD_PREFIX/include/jxl/butteraugli.h" ]; then
+        echo "Error: Failed to download butteraugli.h"
+        return 1
+    fi
 
     sed -i "s/^Requires.private: /Requires.private: lcms2 libhwy libjxl_cms /" "$PC_DIR/libjxl_cms.pc"
     sed -i 's/Libs:/Libs: -lhwy/' "$PC_DIR/libjxl.pc"
