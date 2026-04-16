@@ -1070,8 +1070,10 @@ apply_patches() {
     local PATCH_DIR="$PATCHES_DIR/$COMPONENT_NAME"
     [[ -d "$PATCH_DIR" ]] || { log_info "${CHECK_MARK} No patches found for $COMPONENT_NAME"; return 0; }
 
-    # move to component root to not interfere with "find build root" function
-    pushd "/build/$STAGENAME"
+    # Сохраняем текущую папку (куда нас завел авто-поиск корня)
+    local CURRENT_ROOT=$(pwd)
+    # Сохраняем базовую папку билда
+    local BUILD_BASE="/build/$STAGENAME"
 
     shopt -s nullglob
     local patch_failed_any=false
@@ -1081,6 +1083,12 @@ apply_patches() {
 
         local success=false
         local last_output=""
+
+        # ПЕРЕБОР ДИРЕКТОРИЙ. сначала текущая (из авто-поиска), потом базовая
+        for try_dir in "$CURRENT_ROOT" "$BUILD_BASE"; do
+            [[ -d "$try_dir" ]] || continue
+            pushd "$try_dir" &>/dev/null
+            log_debug "Attempting patch in: $(pwd)"
 
         # Try git am first
         if [[ -d ".git" ]]; then
@@ -1105,10 +1113,10 @@ apply_patches() {
         if [[ "$success" == "false" ]]; then
             local patch_opts
             for patch_opts in \
-                "-p1 -N -r -" \
-                "-p1 -N -r - --binary" \
-                "-p1 -N -r - -l" \
-                "-p1 -N -r - -l --fuzz=3"
+                "-p1 -N -r -" "-p0 -N -r -" \
+                "-p1 -N -r - --binary" "-p0 -N -r - --binary" \
+                "-p1 -N -r - -l" "-p0 -N -r - -l" \
+                "-p1 -N -r - -l --fuzz=3" "-p0 -N -r - -l --fuzz=3"
             do
                 log_debug "Trying: patch $patch_opts"
                 # Сначала проверяем, применится ли патч без изменения файлов
@@ -1122,6 +1130,10 @@ apply_patches() {
                 fi
             done
         fi
+
+            popd &>/dev/null
+            [[ "$success" == "true" ]] && break
+        done
 
         if [[ "$success" == "false" ]]; then
             log_error "FAILED: All attempts to apply $(basename "$patch") failed."
@@ -1137,9 +1149,6 @@ apply_patches() {
     if [[ "$patch_failed_any" == "true" ]]; then
         log_warn "Some patches failed to apply for $COMPONENT_NAME — build continuing."
     fi
-
-    # return to build root
-    popd
 
     return 0
 }
