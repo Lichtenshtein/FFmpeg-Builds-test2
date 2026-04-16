@@ -26,6 +26,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # sed -i 's/add_library(aom_hwy/add_library(aom_hwy STATIC/g' CMakeLists.txt
+    # Если есть файл с hwy, принудительно ставим ему язык CXX
+    echo "set_target_properties(aom_hwy PROPERTIES LINKER_LANGUAGE CXX)" >> CMakeLists.txt
+
     mkdir -p _build && cd _build
 
     local myconf=(
@@ -63,6 +67,9 @@ ffbuild_dockerbuild() {
         -DCONFIG_AV1_HIGHBITDEPTH=1
         # можно выключить и не тянуть лишний код контейнеров внутрь библиотеки
         -DCONFIG_WEBM_IO=1
+        # Попытка вылечить "can not determine linker language"
+        -DCMAKE_CXX_STANDARD=17 
+        -DCMAKE_CXX_STANDARD_REQUIRED=ON
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS -Wno-dev" \

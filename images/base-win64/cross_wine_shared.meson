@@ -8,10 +8,12 @@ strip = 'x86_64-w64-mingw32-strip'
 windres = 'x86_64-w64-mingw32-windres'
 dlltool = 'x86_64-w64-mingw32-dlltool'
 nasm = 'nasm'
+# disable wine
+exe_wrapper = ['wine']
 
 [properties]
 pkg_config_static = false
-needs_exe_wrapper = false
+needs_exe_wrapper = true
 sys_root = '/'
 pkg_config_libdir = '/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig'
 

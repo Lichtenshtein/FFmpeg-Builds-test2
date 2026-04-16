@@ -265,6 +265,8 @@ if [[ "$TARGET" == "win64" ]]; then
         RUST_STATIC_CFG=""
         export LDFLAGS="${MAIN_LDFLAGS[*]}"
         export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
+        [[ "${USE_WINE}" == "1" ]] && \
+        export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
         export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu11"
@@ -273,6 +275,8 @@ if [[ "$TARGET" == "win64" ]]; then
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${MAIN_LDFLAGS[*]}"
         export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
+        [[ "${USE_WINE}" == "1" ]] && \
+        export FFBUILD_MESON_CROSS=/cross_wine.meson || \
         export FFBUILD_MESON_CROSS=/cross.meson
     fi
 
@@ -295,6 +299,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
         RUST_STATIC_CFG=""
         export LDFLAGS="${MAIN_LDFLAGS[*]}"
         export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
+        [[ "${USE_WINE}" == "1" ]] && \
+        export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
         export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu11"
@@ -304,6 +310,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${MAIN_LDFLAGS[*]}"
         export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
+        [[ "${USE_WINE}" == "1" ]] && \
+        export FFBUILD_MESON_CROSS=/cross_wine.meson || \
         export FFBUILD_MESON_CROSS=/cross.meson
     fi
 
