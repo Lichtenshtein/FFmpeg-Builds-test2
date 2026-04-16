@@ -264,12 +264,16 @@ if [[ "$TARGET" == "win64" ]]; then
         export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -fPIC -std=gnu++17"
         RUST_STATIC_CFG=""
         export LDFLAGS="${MAIN_LDFLAGS[*]}"
+        export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
+        export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
         export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu11"
         export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++17"
         MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${MAIN_LDFLAGS[*]}"
+        export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
+        export FFBUILD_MESON_CROSS=/cross.meson
     fi
 
     export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${MAIN_LDFLAGS[@]}")"
@@ -290,6 +294,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
         export STAGE_CXXFLAGS="-fno-semantic-interposition"
         RUST_STATIC_CFG=""
         export LDFLAGS="${MAIN_LDFLAGS[*]}"
+        export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
+        export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
         export CFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu11"
         export CXXFLAGS="-march=${CPU_ARCH} -mtune=${CPU_TUNE} -O3 -pipe ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++17"
@@ -297,6 +303,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
         MAIN_LDFLAGS=("-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${MAIN_LDFLAGS[*]}"
+        export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
+        export FFBUILD_MESON_CROSS=/cross.meson
     fi
 
     export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${MAIN_LDFLAGS[@]}")"

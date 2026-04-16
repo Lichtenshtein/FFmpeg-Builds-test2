@@ -51,7 +51,7 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    echo "Libs.private: -lstdc++ -lcrypto" >> "$PC_DIR/libaribcaption.pc"
+    sed -i '/^Libs.private:/ s/$/ -lstdc++ -lcrypto/' "$PC_DIR/libaribcaption.pc"
 }
 
 ffbuild_configure() {

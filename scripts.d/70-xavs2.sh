@@ -75,7 +75,7 @@ ffbuild_dockerbuild() {
     if [[ -f "$PC_DIR/xavs2.pc" ]]; then
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_DIR/xavs2.pc"
         # Для статической линковки в FFmpeg
-        echo "Libs.private: -lstdc++ -lm" >> "$PC_DIR/xavs2.pc"
+        sed -i '/^Libs.private:/ s/$/ -lstdc++ -lm/' "$PC_DIR/xavs2.pc"
     fi
 }
 

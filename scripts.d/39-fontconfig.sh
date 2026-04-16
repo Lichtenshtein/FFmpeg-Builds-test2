@@ -27,7 +27,7 @@ ffbuild_dockerbuild() {
     local WIN_LIBS="-luuid $LIBS"
 
     local myconf=(
-        --cross-file=/cross.meson
+        --cross-file="$FFBUILD_MESON_CROSS"
         --prefix="$FFBUILD_PREFIX"
         --libdir="lib"
         --buildtype=release

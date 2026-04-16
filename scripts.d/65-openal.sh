@@ -80,10 +80,10 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    echo "Libs.private: -lstdc++" >> "$PC_DIR/openal.pc"
+    sed -i '/^Libs.private:/ s/$/ -lstdc++/' "$PC_DIR/openal.pc"
 
     if [[ $TARGET == win* ]]; then
-        echo "Libs.private: -lole32 -luuid -lwinmm" >> "$PC_DIR/openal.pc"
+        sed -i '/^Libs.private:/ s/$/ -lole32 -luuid -lwinmm/' "$PC_DIR/openal.pc"
     fi
 }
 

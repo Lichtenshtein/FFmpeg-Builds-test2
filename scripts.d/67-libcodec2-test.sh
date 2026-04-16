@@ -109,7 +109,7 @@ EOF
     local PC_FILE="$PC_DIR/codec2.pc"
     if [[ -f "$PC_FILE" ]]; then
         if ! grep -q "Libs.private" "$PC_FILE"; then
-            echo "Libs.private: -lm" >> "$PC_FILE"
+            sed -i '/^Libs.private:/ s/$/ -lm/' "$PC_FILE"
         fi
     fi
 }

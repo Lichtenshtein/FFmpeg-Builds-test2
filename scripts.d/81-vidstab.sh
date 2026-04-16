@@ -42,7 +42,7 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     if [[ $TARGET == linux* ]]; then
-        echo "Libs.private: -ldl" >> "$PC_DIR/vidstab.pc"
+        sed -i '/^Libs.private:/ s/$/ -ldl/' "$PC_DIR/vidstab.pc"
     fi
 }
 

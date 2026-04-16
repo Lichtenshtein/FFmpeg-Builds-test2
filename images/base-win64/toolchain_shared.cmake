@@ -31,8 +31,6 @@ set(ENV{PKG_CONFIG_SYSROOT_DIR} "/")
 set(ENV{PKG_CONFIG_PATH} "") # Очищаем, чтобы не было мусора
 set(ENV{PKG_CONFIG_LIBDIR} "/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig")
 
-set(PKG_CONFIG_ARGN "--static")
-
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
     set(CMAKE_INSTALL_PREFIX "$ENV{FFBUILD_DESTPREFIX}" CACHE PATH "")
 endif()
