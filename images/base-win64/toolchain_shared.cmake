@@ -34,3 +34,5 @@ set(ENV{PKG_CONFIG_LIBDIR} "/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgcon
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
     set(CMAKE_INSTALL_PREFIX "$ENV{FFBUILD_DESTPREFIX}" CACHE PATH "")
 endif()
+
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
