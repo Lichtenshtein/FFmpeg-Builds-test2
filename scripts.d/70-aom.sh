@@ -26,10 +26,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    sed -i 's/add_library(aom_hwy/add_library(aom_hwy STATIC/g' CMakeLists.txt
-    # Если есть файл с hwy, принудительно ставим ему язык CXX
-    echo "set_target_properties(aom_hwy PROPERTIES LINKER_LANGUAGE CXX)" >> CMakeLists.txt
-
     mkdir -p _build && cd _build
 
     local myconf=(
@@ -38,9 +34,9 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-        -DCMAKE_POLICY_DEFAULT_CMP0169=OLD
-        -DCMAKE_POLICY_DEFAULT_CMP0135=NEW
+        # -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        # -DCMAKE_POLICY_DEFAULT_CMP0169=OLD
+        # -DCMAKE_POLICY_DEFAULT_CMP0135=NEW
         -DENABLE_EXAMPLES=OFF
         -DENABLE_TESTS=OFF
         -DENABLE_DOCS=OFF
@@ -54,7 +50,7 @@ ffbuild_dockerbuild() {
         -DCONFIG_BITRATE_ACCURACY=1 # def 0
         -DCONFIG_SALIENCY_MAP=1 # saliency map based encode tuning for VMAF; def 0
         -DCONFIG_CWG_C013=1 # Support for 7.x and 8.x levels; def 0
-        -DCONFIG_TFLITE=1 # tenserflow-lite static
+        -DCONFIG_TFLITE=0 # tenserflow-lite static; not working
         -DCONFIG_THREE_PASS=0 # Enable three-pass encoding; def 0, try 1?
         -DCONFIG_HIGHWAY=1 # Use Highway for SIMD; def 0 # hwy donored from libjxl
         -DCONFIG_NN_V2=0 # Fully-connected neural nets ver.2; def 0
@@ -67,9 +63,6 @@ ffbuild_dockerbuild() {
         -DCONFIG_AV1_HIGHBITDEPTH=1
         # можно выключить и не тянуть лишний код контейнеров внутрь библиотеки
         -DCONFIG_WEBM_IO=1
-        # Попытка вылечить "can not determine linker language"
-        -DCMAKE_CXX_STANDARD=17 
-        -DCMAKE_CXX_STANDARD_REQUIRED=ON
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS -Wno-dev" \
