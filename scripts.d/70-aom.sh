@@ -72,8 +72,8 @@ ffbuild_dockerbuild() {
         -DCMAKE_CXX_STANDARD_REQUIRED=ON
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS /build/70-aom/aom_dsp/butteraugli.h" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS /build/70-aom/aom_dsp/butteraugli.h" \
+    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
