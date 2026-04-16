@@ -8,8 +8,7 @@ strip = 'x86_64-w64-mingw32-strip'
 windres = 'x86_64-w64-mingw32-windres'
 dlltool = 'x86_64-w64-mingw32-dlltool'
 nasm = 'nasm'
-# disable wine
-exe_wrapper = ['wine']
+exe_wrapper = 'wine'
 
 [properties]
 pkg_config_static = false
