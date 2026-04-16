@@ -1070,6 +1070,9 @@ apply_patches() {
     local PATCH_DIR="$PATCHES_DIR/$COMPONENT_NAME"
     [[ -d "$PATCH_DIR" ]] || { log_info "${CHECK_MARK} No patches found for $COMPONENT_NAME"; return 0; }
 
+    # move to component root to not interfere with "find build root" function
+    pushd "/build/$STAGENAME"
+
     shopt -s nullglob
     local patch_failed_any=false
 
@@ -1134,6 +1137,10 @@ apply_patches() {
     if [[ "$patch_failed_any" == "true" ]]; then
         log_warn "Some patches failed to apply for $COMPONENT_NAME — build continuing."
     fi
+
+    # return to build root
+    popd
+
     return 0
 }
 export -f apply_patches
