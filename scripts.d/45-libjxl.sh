@@ -49,7 +49,7 @@ ffbuild_dockerbuild() {
         -DJPEGXL_ENABLE_WASM_THREADS=ON
         -DJPEGXL_FORCE_SYSTEM_BROTLI=ON
         -DJPEGXL_FORCE_SYSTEM_LCMS2=ON
-        -DJPEGXL_FORCE_SYSTEM_HWY=ON
+        -DJPEGXL_FORCE_SYSTEM_HWY=OFF
         -DJPEGXL_ENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DBUILD_TESTING=OFF
     )
