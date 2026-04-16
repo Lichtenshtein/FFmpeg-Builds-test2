@@ -98,12 +98,12 @@ ffbuild_dockerbuild() {
 
     # Добавляем системные зависимости Windows
     if ! grep -q "Libs.private" "$PC_FILE"; then
-        echo "Libs.private: -lstdc++ -lsetupapi -lshlwapi" >> "$PC_FILE"
+        sed -i '/^Libs.private:/ s/$/ -lstdc++ -lsetupapi -lshlwapi/' "$PC_FILE"
     fi
 
     # Указываем Requires для pkg-config, чтобы подтянулись флаги Vulkan и OpenCL
     if ! grep -q "Requires:" "$PC_FILE"; then
-        echo "Requires: vulkan OpenCL" >> "$PC_FILE"
+        sed -i '/^Requires:/ s/$/ vulkan OpenCL/' "$PC_FILE"
     else
         sed -i "s|^Requires:.*|Requires: vulkan OpenCL|" "$PC_FILE"
     fi

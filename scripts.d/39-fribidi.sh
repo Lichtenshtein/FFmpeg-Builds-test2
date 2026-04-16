@@ -20,7 +20,7 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --buildtype=release
-        --cross-file=/cross.meson
+        --cross-file="$FFBUILD_MESON_CROSS"
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo static || echo shared)
         --prefix="$FFBUILD_PREFIX"
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )

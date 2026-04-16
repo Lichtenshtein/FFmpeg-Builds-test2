@@ -47,7 +47,7 @@ ffbuild_dockerbuild() {
             sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_DIR/kvazaar.pc"
         fi
     fi
-    echo "Libs.private: -pthread" >> "$PC_DIR/kvazaar.pc"
+    sed -i '/^Libs.private:/ s/$/ -pthread/' "$PC_DIR/kvazaar.pc"
 }
 
 ffbuild_cppflags() {

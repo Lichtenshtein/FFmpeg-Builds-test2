@@ -45,7 +45,7 @@ ffbuild_dockerbuild() {
         -DCONFIG_TUNE_VMAF=1
         -DCONFIG_AV1_TEMPORAL_DENOISING=1 # def 0
         -DCONFIG_BITRATE_ACCURACY=1 # def 0
-        -DCONFIG_SALIENCY_MAP=0 # saliency map based encode tuning for VMAF; def 0
+        -DCONFIG_SALIENCY_MAP=1 # saliency map based encode tuning for VMAF; def 0
         -DCONFIG_CWG_C013=1 # Support for 7.x and 8.x levels; def 0
         -DCONFIG_TFLITE=1 # tenserflow-lite static
         -DCONFIG_THREE_PASS=0 # Enable three-pass encoding; def 0, try 1?
@@ -58,7 +58,6 @@ ffbuild_dockerbuild() {
         -DCONFIG_PIC=1
         -DCONFIG_RUNTIME_CPU_DETECT=1
         -DCONFIG_AV1_HIGHBITDEPTH=1
-        -DCONFIG_SALIENCY_MAP=1
         # можно выключить и не тянуть лишний код контейнеров внутрь библиотеки
         -DCONFIG_WEBM_IO=1
     )
@@ -71,8 +70,9 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Добавляем VMAF в pkg-config, иначе FFmpeg не соберется статикой
-    echo "Requires.private: libvmaf libyuv" >> "$PC_DIR/aom.pc"
+    if ! grep -q "libvmaf" "$PC_DIR/aom.pc"; then
+        sed -i '/^Requires.private:/ s/$/ libvmaf libyuv/' "$PC_DIR/aom.pc"
+    fi
 }
 
 ffbuild_configure() {

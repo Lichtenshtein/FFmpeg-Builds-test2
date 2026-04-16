@@ -49,18 +49,21 @@ ffbuild_dockerbuild() {
         -DJPEGXL_ENABLE_WASM_THREADS=ON
         -DJPEGXL_FORCE_SYSTEM_BROTLI=ON
         -DJPEGXL_FORCE_SYSTEM_LCMS2=ON
-        -DJPEGXL_FORCE_SYSTEM_HWY=OFF
+        -DJPEGXL_FORCE_SYSTEM_HWY=ON
         -DJPEGXL_ENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DBUILD_TESTING=OFF
     )
+
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DJXL_STATIC_DEFINE"
 
     if [[ $TARGET == linux* ]]; then
         # our glibc is too old(<2.25), and their detection fails for some reason
         export CXXFLAGS="$CXXFLAGS -DVQSORT_GETRANDOM=0 -DVQSORT_SECURE_SEED=0"
     elif [[ $TARGET == win32 || $TARGET == win64 ]]; then
         # Fix AVX2 related crash due to unaligned stack memory
-        export CFLAGS="$CFLAGS $CPPFLAGS -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
-        export CXXFLAGS="$CXXFLAGS $CPPFLAGS -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
+        export CFLAGS="$CFLAGS $CPPFLAGS $static_flags -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
+        export CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
         export LDFLAGS="$LDFLAGS"
     fi
 
@@ -69,19 +72,12 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    if [[ $TARGET == win* ]]; then
-        echo "Libs.private: -lstdc++ -ladvapi32" >> "$PC_DIR/libjxl.pc"
-        echo "Libs.private: -lstdc++ -ladvapi32" >> "$PC_DIR/libjxl_threads.pc"
-    else
-        echo "Libs.private: -lstdc++" >> "$PC_DIR/libjxl.pc"
-        echo "Libs.private: -lstdc++" >> "$PC_DIR/libjxl_threads.pc"
-    fi
-
-    echo "Requires.private: lcms2" >> "$PC_DIR/libjxl_cms.pc"
-    # Фикс для статической линковки: FFmpeg должен знать о Highway
+    sed -i "s/^Requires.private: /Requires.private: lcms2 libhwy libjxl_cms /" "$PC_DIR/libjxl_cms.pc"
     sed -i 's/Libs:/Libs: -lhwy /' "$PC_DIR/libjxl.pc"
-    # Brotli в зависимости
-    sed -i 's/Requires.private:/Requires.private: lbrotlienc lbrotlidec lbrotlicommon /' "$PC_DIR/libjxl.pc"
+}
+
+ffbuild_cppflags() {
+    echo "$static_flags"
 }
 
 ffbuild_configure() {

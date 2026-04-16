@@ -55,7 +55,7 @@ ffbuild_dockerbuild() {
 
     if [[ $TARGET == linux* ]]; then
         myconf+=(
-            --cross-file=/cross.meson
+            --cross-file="$FFBUILD_MESON_CROSS"
         )
     fi
 
@@ -70,8 +70,8 @@ ffbuild_dockerbuild() {
 
     rm -r "$FFBUILD_DESTPREFIX"/share
 
-    echo "Libs.private: -ldl -lrt -liconv" >> "$PC_DIR/libpulse.pc"
-    echo "Libs.private: -ldl -lrt -liconv" >> "$PC_DIR/libpulse-simple.pc"
+    sed -i '/^Libs.private:/ s/$/ -ldl -lrt -liconv/' "$PC_DIR/libpulse.pc"
+    sed -i '/^Libs.private:/ s/$/ -ldl -lrt -liconv/' "$PC_DIR/libpulse-simple.pc"
 }
 
 ffbuild_configure() {

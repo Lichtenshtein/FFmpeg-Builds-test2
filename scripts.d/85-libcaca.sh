@@ -91,7 +91,7 @@ ffbuild_dockerbuild() {
     if [[ -f "$PC_FILE" ]]; then
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
         # FFmpeg требует явного указания системных либ для статики
-        echo "Libs.private: -lgdi32" >> "$PC_FILE"
+        sed -i '/^Libs.private:/ s/$/ -lgdi32/' "$PC_FILE"
     fi
 }
 

@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     local myconf=(
-        --cross-file=/cross.meson
+        --cross-file="$FFBUILD_MESON_CROSS"
         --buildtype=release
         --prefix="$FFBUILD_PREFIX"
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )

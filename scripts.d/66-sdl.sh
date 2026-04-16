@@ -88,7 +88,7 @@ ffbuild_dockerbuild() {
         sed -ri -e 's/\-Wl,\-\-no\-undefined.*//' \
             -e 's/ \-l\/.+?\.a//g' \
             "$PC_DIR/sdl2.pc"
-        echo 'Requires: libpulse-simple xxf86vm xscrnsaver xrandr xfixes xi xinerama xcursor' >> "$PC_DIR/sdl2.pc"
+        sed -i '/^Requires:/ s/$/ libpulse-simple xxf86vm xscrnsaver xrandr xfixes xi xinerama xcursor/' "$PC_DIR/sdl2.pc"
     elif [[ $TARGET == win* ]]; then
         sed -ri -e 's/\-Wl,\-\-no\-undefined.*//' \
             -e 's/ \-mwindows//g' \
@@ -101,7 +101,7 @@ ffbuild_dockerbuild() {
         -e 's/Libs: /Libs: -lSDL2 /'\
         "$PC_DIR/sdl2.pc"
 
-    echo 'Requires: samplerate' >> "$PC_DIR/sdl2.pc"
+    sed -i '/^Requires:/ s/$/ samplerate/' "$PC_DIR/sdl2.pc"
 }
 
 ffbuild_configure() {
