@@ -331,7 +331,7 @@ if [[ -d "$INSTALL_ROOT" ]]; then
                 echo "$CLEAN_LIST" | grep -vE "/lib/pkgconfig/|/lib/cmake/|/lib/[^/]+\.a$" | sort
             ) | head -n 50 >&2
             # stripping the long DESTDIR prefix for readability
-            [[ ${#NEW_FILES[@]} -gt 50 ]] && log_debug "  ... (and $((${#NEW_FILES[@]} - 50)) more)"
+            [[ ${#NEW_FILES[@]} -gt 70 ]] && log_debug "  ... (and $((${#NEW_FILES[@]} - 70)) more)"
         fi
 
         # clean .la files (libtool archives)
