@@ -1,6 +1,6 @@
 ## FFmpeg Custom Build
 
-This fork is an advanced FFmpeg build system optimized for the Intel Xeon E5 (Broadwell) architecture using GCC 14 and Ubuntu 24.04.
+This fork is an advanced FFmpeg build system architecture using GCC 14 and Ubuntu 24.04.
 
 ### Key changes and improvements:
 
@@ -211,12 +211,12 @@ All of those can be optionally combined with any combination of addins:
 
 * `gavl`
 ```
-09-gmp|31-nettle|80-gavl
+09-gmp|31-nettle|80-gavl (requires gnutls)
 ```
 
 * `frei0r`
 ```
-04-tbbmalloc|05-libicu|06-libiconv|07-gettext|08-zlib|09-gmp|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|27-freeglut|31-nettle|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|37-openjpeg|38-libwebp|39-fontconfig|39-fribidi|39-libtiff|39-pixman|40-cairo|40-harfbuzz|40-lcms2|41-freetype|44-dav1d|44-svtav1|45-libavif|45-libjxl|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|54-vmaf|59-libtensorflow-test|59-opencl|59-openvino-test|61-opencv-test|70-aom|80-gavl|84-frei0r
+04-tbbmalloc|05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|27-freeglut|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|37-openjpeg|38-libwebp|39-fontconfig|39-fribidi|39-libtiff|39-pixman|40-cairo|40-harfbuzz|40-lcms2|41-freetype|44-dav1d|44-svtav1|45-libavif|45-libjxl|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|54-vmaf|59-opencl|59-openvino-test|61-opencv-test|84-frei0r
 ```
 
 * `libbluray`
