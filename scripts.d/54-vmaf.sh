@@ -4,8 +4,8 @@
 # SCRIPT_COMMIT="332dde62838d91d8b5216e9822de58851f2fd64f"
 
 SCRIPT_REPO="https://github.com/lusoris/vmaf.git"
-SCRIPT_COMMIT="5fe843fd03a90114de40f2bc6e5fc4a1a189fa5a"
-SCRIPT_BRANCH="sycl-gpu-optimizations"
+SCRIPT_COMMIT="a438e699ddc7b59e7ffc06c68648dcf4ded9ac51"
+SCRIPT_BRANCH="simd-bit-identical"
 
 ffbuild_enabled() {
     return 0
