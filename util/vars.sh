@@ -969,9 +969,7 @@ generate_implibs() {
         local dll_name=$(basename "$dll_file")
         local base_name="${dll_name%.dll}"
         local lib_name="lib${base_name}.a"
-        local def_file="${base_name}.def"
-
-        # Determine the path for .a (usually in ../lib relative to bin/)
+        
         local lib_out_dir=$(dirname "$dll_file")
         [[ "$lib_out_dir" == *"/bin" ]] && lib_out_dir="${lib_out_dir%/bin}/lib"
         mkdir -p "$lib_out_dir"
@@ -979,14 +977,15 @@ generate_implibs() {
         local out_file="$lib_out_dir/$lib_name"
 
         # If the library already exists, skip it (to avoid overwriting native .a files)
-        if [[ -f "$out_file" ]]; then
+        if [[ -f "$out_file" || -f "$lib_out_dir/lib${base_name}.dll.a" ]]; then
             log_debug "${CHECK_MARK} Import lib for $dll_name already exists, skipping."
             continue
         fi
 
+        # If there is a .lib (MSVC) nearby, we try to use dlltool directly on it, but it’s safer to use gendef from the DLL itself
         log_debug "${BUILD_MARK} Processing $dll_name -> $lib_name"
 
-        # Generating a DEF file
+        local def_file="${base_name}.def"
         if ! $GENDEF "$dll_file" > /dev/null 2>&1; then
             log_warn "gendef failed for $dll_name"
             continue
@@ -997,7 +996,7 @@ generate_implibs() {
         $DLLTOOL -d "$def_file" -l "$out_file" -D "$dll_name"
 
         rm -f "$def_file"
-        log_info "${CHECK_MARK} Created $lib_name"
+        log_info "${CHECK_MARK} Created $lib_name from DLL"
     done
 }
 export -f generate_implibs
