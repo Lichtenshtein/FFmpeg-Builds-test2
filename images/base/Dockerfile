@@ -21,10 +21,6 @@ RUN \
     gpg --dearmor -o /usr/share/keyrings/oneapi-archive-keyring.gpg && \
     echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" > /etc/apt/sources.list.d/oneapi.list && \
     \
-    curl -fsSL https://repositories.intel.com/graphics/intel-graphics.key | \
-    gpg --dearmor -o /usr/share/keyrings/intel-graphics-keyring.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/intel-graphics-keyring.gpg] https://repositories.intel.com/graphics/ubuntu noble main" > /etc/apt/sources.list.d/intel-graphics.list && \
-    \
     apt-get -y update && \
     apt-get -y dist-upgrade && \
     \
@@ -49,7 +45,7 @@ RUN \
         nvidia-cuda-dev nvidia-cuda-toolkit \
         # oneAPI & SYCL
         intel-oneapi-compiler-dpcpp-cpp intel-oneapi-runtime-libs \
-        libva-dev libva-drm2 level-zero-dev \
+        libva-dev libva-drm2 \
         \
         clang-tidy clang-format cppcheck doxygen shellcheck \
         libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libavfilter-dev && \
