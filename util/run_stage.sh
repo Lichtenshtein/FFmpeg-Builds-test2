@@ -341,21 +341,41 @@ if [[ -d "$INSTALL_ROOT" ]]; then
         # список стадий, которым РАЗРЕШЕНО иметь DLL импортируется из workflow.yaml
         # библиотеки MinGW создают libимя.dll.a (implib) даже для статики
         # added .exe files for clean-up
-        if [[ "$PREFER_SHARED" != "1" ]]; then
-            if [[ ! "$STAGENAME" =~ $DLL_PRESERVE_LIST ]]; then
-                clean_unwanted_libs "dynamic DLLs" "\( -name '*.dll' -o -name '*.dll.a' -o -name '*.exe' \)"
+        if [[ "$TARGET" == "win64" ]]; then
+            if [[ "$PREFER_SHARED" != "1" ]]; then
+                if [[ ! "$STAGENAME" =~ $DLL_PRESERVE_LIST ]]; then
+                    # Remove DLLs, MinGW import libs (.dll.a), MSVC import/static (.lib) and .exe
+                    clean_unwanted_libs "dynamic DLLs and MSVC libs" "\( -name '*.dll' -o -name '*.dll.a' -o -name '*.lib' -o -name '*.def' -o -name '*.exp' -o -name '*.exe' \)"
+                else
+                    log_info "${LOCK_MARK} Preserving dynamic DLLs and generating import libs for $STAGENAME"
+                    # First we deal with .lib, if they came from archives (as in TF) 
+                    # If there is .lib, but not .a, create a symlink/copy so that MinGW sees them as .a
+                    find "$INSTALL_ROOT" -name "*.lib" -type f | while read -r lib_file; do
+                        lib_dir=$(dirname "$lib_file")
+                        lib_name=$(basename "$lib_file")
+                        # Convert to libname.a if it is not an import library (a simple rename often helps for statics)
+                        if [[ ! -f "$lib_dir/lib${lib_name%.lib}.a" ]]; then
+                            cp "$lib_file" "$lib_dir/lib${lib_name%.lib}.a"
+                        fi
+                    done
+                    # Generate .a from .dll (for those where .lib is not suitable or missing)
+                    generate_implibs "$INSTALL_ROOT"
+                    # clean up garbage .def/.exp if they are created
+                    clean_unwanted_libs "temporary definition files" "\( -name '*.def' -o -name '*.exp' \)"
+                fi
             else
-                log_info "${LOCK_MARK} Preserving dynamic DLLs and generating import libs for $STAGENAME"
-                # First, create an .a file so ffmpeg can link to it.
-                generate_implibs "$INSTALL_ROOT"
-                # For TensorFlow/Torch, you often need to move DLLs to bin if they fall into lib; (must be covered by their scripts)
-                # find "$INSTALL_ROOT/lib" -name "*.dll" -exec mv {} "$INSTALL_ROOT/bin/" \; 2>/dev/null || true
+                # PREFER_SHARED=1
+                if [[ -n "$LIB_PRESERVE_LIST" && ! "$STAGENAME" =~ $LIB_PRESERVE_LIST ]]; then
+                    # Чистим статику .a и .lib, оставляя .dll.a (импортные либы)
+                    clean_unwanted_libs "static libs" "\( -name '*.a' -o -name '*.lib' -o -name '*.def' -o -name '*.exp' -o -name '*.exe' \) ! -name '*.dll.a'"
+                else
+                    log_info "${LOCK_MARK} Preserving static libs for $STAGENAME"
+                fi
             fi
-        else
-            if [[ -n "$LIB_PRESERVE_LIST" && ! "$STAGENAME" =~ $LIB_PRESERVE_LIST ]]; then
-                clean_unwanted_libs "static libs" "-name '*.a' -o -name '*.exe' ! -name '*.dll.a'"
-            else
-                log_info "${LOCK_MARK} Preserving static libs for $STAGENAME"
+        elif [[ "$TARGET" == "linux64" ]]; then
+            # For Linux .lib and .dll are always garbage
+            if [[ "$PREFER_SHARED" != "1" ]]; then
+                clean_unwanted_libs "non-linux libs" "\( -name '*.dll' -o -name '*.dll.a' -o -name '*.lib' -o -name '*.def' -o -name '*.exp' -o -name '*.exe' \)"
             fi
         fi
 
