@@ -43,7 +43,8 @@ ffbuild_dockerbuild() {
         -DWITHOUT_OPENCV=OFF
         -DWITHOUT_FACERECOGNITION=ON
         -DWITHOUT_CAIRO=OFF
-        -DWITHOUT_GAVL=OFF
+        -DWITHOUT_GAVL=ON
+        -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4"
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS $ADDITIONAL_FLAGS" \

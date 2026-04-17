@@ -1222,35 +1222,36 @@ check_and_fix_configure() {
 }
 export -f check_and_fix_configure
 
-# Динамическое определение путей для wine
-if [ -d "/opt/ct-ng" ]; then
-    MINGW_BIN_PATH="/opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/bin"
-    if [[ ! -d "$MINGW_BIN_PATH" ]]; then
-        # Фолбэк на быстрый поиск, если путь другой
-        MINGW_BIN_PATH=$(find /opt/ct-ng -type d -path "*/x86_64-w64-mingw32/bin" -print -quit)
-    fi
-    # Если WINEPATH уже задан (например, в предыдущем слое или вызове), пропускаем тяжелые вычисления
-    if [[ -z "$WINEPATH" ]]; then
-        MINGW_BIN_PATH=$(find /opt/ct-ng -maxdepth 5 -type d -name "bin" | grep "x86_64-w64-mingw32/bin" | head -n 1)
-
-        if command -v winepath &>/dev/null; then
-            # Выполняем трансляцию путей только один раз
-            _p_bin=$(winepath -w "${FFBUILD_PREFIX}/bin" 2>/dev/null | tr -d '\r\n')
-            _p_lib=$(winepath -w "${FFBUILD_PREFIX}/lib" 2>/dev/null | tr -d '\r\n')
-            _m_bin=$(winepath -w "${MINGW_BIN_PATH}" 2>/dev/null | tr -d '\r\n')
-
-            if [[ -n "$_p_bin" && -n "$_p_lib" ]]; then
-                export WINEPATH="${_p_bin};${_p_lib};${_m_bin}"
+if [[ "${USE_WINE:-0}" = "1" ]]; then
+    # Динамическое определение путей для wine
+    if [ -d "/opt/ct-ng" ]; then
+        MINGW_BIN_PATH="/opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/bin"
+        if [[ ! -d "$MINGW_BIN_PATH" ]]; then
+            # Фолбэк на быстрый поиск, если путь другой
+            MINGW_BIN_PATH=$(find /opt/ct-ng -type d -path "*/x86_64-w64-mingw32/bin" -print -quit)
+        fi
+        # Если WINEPATH уже задан (например, в предыдущем слое или вызове), пропускаем тяжелые вычисления
+        if [[ -z "$WINEPATH" ]]; then
+            MINGW_BIN_PATH=$(find /opt/ct-ng -maxdepth 5 -type d -name "bin" | grep "x86_64-w64-mingw32/bin" | head -n 1)
+    
+            if command -v winepath &>/dev/null; then
+                # Выполняем трансляцию путей только один раз
+                _p_bin=$(winepath -w "${FFBUILD_PREFIX}/bin" 2>/dev/null | tr -d '\r\n')
+                _p_lib=$(winepath -w "${FFBUILD_PREFIX}/lib" 2>/dev/null | tr -d '\r\n')
+                _m_bin=$(winepath -w "${MINGW_BIN_PATH}" 2>/dev/null | tr -d '\r\n')
+    
+                if [[ -n "$_p_bin" && -n "$_p_lib" ]]; then
+                    export WINEPATH="${_p_bin};${_p_lib};${_m_bin}"
+                else
+                    # Fallback для окружений без запущенного Wine (например, генерация на хосте)
+                    export WINEPATH="winepath -w ${FFBUILD_PREFIX}/bin:${FFBUILD_PREFIX}/lib:${MINGW_BIN_PATH}"
+                fi
             else
-                # Fallback для окружений без запущенного Wine (например, генерация на хосте)
                 export WINEPATH="winepath -w ${FFBUILD_PREFIX}/bin:${FFBUILD_PREFIX}/lib:${MINGW_BIN_PATH}"
             fi
-        else
-            export WINEPATH="winepath -w ${FFBUILD_PREFIX}/bin:${FFBUILD_PREFIX}/lib:${MINGW_BIN_PATH}"
+            # Выводим инфо о WINEPATH только при его создании
+            [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_raw "${DIRS_MARK} WINEPATH (Windows style):" "$WINEPATH"
         fi
-        # Выводим инфо о WINEPATH только при его создании
-        # [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && printf '%b WINEPATH (Windows style): %s\n' "${LOG_DEBUG}[DEBUG]${NC} ${DIRS_MARK}" "$WINEPATH"
-        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_raw "${DIRS_MARK} WINEPATH (Windows style):" "$WINEPATH"
     fi
 fi
 
