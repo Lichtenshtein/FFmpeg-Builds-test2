@@ -57,11 +57,7 @@ RUN \
 # Потом системные пути (чтобы as/ld брались из Ubuntu для хоста)
 # Потом TOOLCHAIN_BIN (где реальные x86_64-w64-mingw32-gcc)
 ENV \
-    PATH="/opt/intel/oneapi/compiler/latest/linux/bin:/opt/intel/oneapi/compiler/latest/linux/bin/intel64:/usr/local/bin:/usr/bin:/bin:${TOOLCHAIN_BIN}:/opt/wine-stable/bin:/opt/cargo/bin" \
-    \
-    LD_LIBRARY_PATH="/opt/intel/oneapi/compiler/latest/linux/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}" \
-    CPATH="/opt/intel/oneapi/compiler/latest/linux/include:${CPATH:-}" \
-    ONEAPI_ROOT="/opt/intel/oneapi" \
+    PATH="/usr/local/bin:/usr/bin:/bin:${TOOLCHAIN_BIN}:/opt/wine-stable/bin:/opt/cargo/bin" \
     \
     # ccache logic: explicitly search here for the REAL compiler to avoid loops
     CCACHE_PATH="${TOOLCHAIN_BIN}:/usr/bin" \
