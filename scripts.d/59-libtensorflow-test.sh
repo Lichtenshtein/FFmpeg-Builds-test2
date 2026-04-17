@@ -19,19 +19,14 @@ ffbuild_dockerbuild() {
     unzip -qq tensorflow.zip -d tf_src
     cd tf_src
 
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{include/tensorflow/c,lib,bin,lib/pkgconfig}
+    mkdir -p "$INSTALL_ROOT"/{include/tensorflow/c,lib,bin,lib/pkgconfig}
 
     # Копируем заголовки
-    cp -r include/* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
+    cp -r include/* "$INSTALL_ROOT/include/"
 
-    # В Windows архиве TF обычно лежит tensorflow.lib и tensorflow.dll
-    # Для MinGW: 
     #  DLL идет в bin (чтобы быть рядом с ffmpeg.exe)
-    # .lib копируем как .dll.a (стандарт импортной либы для MinGW)
-    cp lib/tensorflow.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
-    cp lib/tensorflow.lib "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libtensorflow.dll.a"
-    # На всякий случай создаем копию без .dll
-    ln -sf libtensorflow.dll.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libtensorflow.a"
+    cp lib/tensorflow.dll "$INSTALL_ROOT/bin/"
+    cp lib/tensorflow.lib "$INSTALL_ROOT/lib/libtensorflow.lib"
 
     # Генерируем .pc файл и добавляем -ltensorflow.lib явно для линковщика
     mkdir -p "$PC_DIR"
