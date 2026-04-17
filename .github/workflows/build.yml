@@ -69,7 +69,7 @@ on:
       regularClean:
         description: 'Clean old caches after build (Regular Cleaning)'
         type: boolean
-        default: false
+        default: true
       doClean:
         description: 'Nuke all cache before build (Full Rebuild)'
         type: boolean
