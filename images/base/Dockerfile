@@ -52,7 +52,7 @@ RUN \
     \
     pip3 install --break-system-packages --upgrade meson cmake ninja && \
     pip3 install Cython pytest build tbb-devel --break-system-packages && \
-    pip3 install --break-system-packages --upgrade \
+    pip3 install --break-system-packages --upgrade --ignore-installed \
         pre-commit ruff black isort mypy semgrep && \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 && \
     update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-14 100 && \
