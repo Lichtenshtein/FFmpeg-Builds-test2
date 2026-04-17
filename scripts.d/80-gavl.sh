@@ -5,12 +5,13 @@ SCRIPT_COMMIT="f798ff76f6a4252f92cd209a1c973126e9673691"
 
 ffbuild_depends() {
     echo gmp
-    echo openssl # may be enabled
+    # echo openssl # may be enabled
+    echo gnutls # nope
     echo nettle
 }
 
 ffbuild_enabled() {
-    return 0
+    return 1
 }
 
 ffbuild_dockerdl() {
