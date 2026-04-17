@@ -41,8 +41,7 @@ ffbuild_dockerbuild() {
         # Указываем путь к только что скопированным хедерам
         -DOPENCL_ICD_LOADER_HEADERS_DIR="$FFBUILD_DESTPREFIX/include"
         -DOPENCL_ICD_LOADER_BUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        -DOPENCL_ICD_LOADER_DISABLE_OPENCLON12=ON
-        -DOPENCL_ICD_LOADER_PIC=ON
+        -DENABLE_OPENCL_LAYERS=ON # support for OpenCL layers in the ICD loader
         -DOPENCL_ICD_LOADER_BUILD_TESTING=OFF
         -DOPENCL_HEADERS_BUILD_CXX_TESTS=OFF
         -DOPENCL_HEADERS_BUILD_TESTING=OFF
