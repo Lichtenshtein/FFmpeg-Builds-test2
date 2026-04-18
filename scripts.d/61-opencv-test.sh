@@ -87,6 +87,9 @@ ffbuild_dockerbuild() {
         -DBUILD_PERF_TESTS=OFF
         -DWITH_FFMPEG=OFF
         -DOPENCV_FFMPEG_SKIP_DOWNLOAD=ON
+
+        -DCMAKE_POLICY_DEFAULT_CMP0028=NEW
+        -DCMAKE_IMPORTED_NO_SYSTEM=ON
     )
 
     if [[ $TARGET == win64 ]]; then
