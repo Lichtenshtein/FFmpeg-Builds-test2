@@ -33,7 +33,7 @@ ffbuild_dockerbuild() {
     # флаги для игнорирования несовместимых типов в SIMD коде (актуально для GCC 14)
     # Флаг -flax-vector-conversions разрешает неявное приведение __m128i к __m128
     # Добавляем -fpermissive для некоторых старых плагинов frei0r
-    ADDITIONAL_FLAGS="-flax-vector-conversions -fpermissive -Wno-error=incompatible-pointer-types -Wno-error=int-conversion"
+    ADDITIONAL_FLAGS="-w -flax-vector-conversions -fpermissive"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
