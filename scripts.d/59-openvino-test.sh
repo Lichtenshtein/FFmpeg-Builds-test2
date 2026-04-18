@@ -42,10 +42,10 @@ ffbuild_dockerbuild() {
     cp -r runtime/bin/intel64/Release/* "$INSTALL_ROOT/bin/"
 
     # TBB (Intel Threading Building Blocks)
-    # if [[ -d "runtime/3rdparty/tbb" ]]; then
-        # find runtime/3rdparty/tbb/bin/ -name "*.dll" ! -name "*_debug.dll" -exec cp {} "$INSTALL_ROOT/bin/" \;
-        # find runtime/3rdparty/tbb/lib/ -name "*.lib" ! -name "*_debug.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
-    # fi
+    if [[ -d "runtime/3rdparty/tbb" ]]; then
+        find runtime/3rdparty/tbb/bin/ -name "*.dll" ! -name "*_debug.dll" -exec cp {} "$INSTALL_ROOT/bin/" \;
+        find runtime/3rdparty/tbb/lib/ -name "*.lib" ! -name "*_debug.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
+    fi
 
     # CMake файлы
     cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
@@ -90,7 +90,7 @@ Name: OpenVINO
 Description: Intel OpenVINO Runtime (Dynamic)
 Version: 2025.4.1
 Libs: -L\${libdir} -lopenvino -lopenvino_c
-# Libs.private: -ltbb12 -ltbb
+Libs.private: -ltbb12 -ltbb
 Cflags: -I\${includedir} -DOPENVINO_STATIC_COMPILATION
 EOF
 }
