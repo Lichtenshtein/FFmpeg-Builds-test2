@@ -222,6 +222,11 @@ to_df "COPY patches ./patches"
 to_df "COPY util ./util"
 to_df "COPY variants ./variants"
 
+find / -name "configure" -maxdepth 4
+
+log_info "Checking source at: $FFMPEG_SOURCE_DIR"
+ls -la "$FFMPEG_SOURCE_DIR" || log_warn "Directory $FFMPEG_SOURCE_DIR does not exist"
+
 if [[ "${SKIP_FFMPEG}" == "1" ]]; then
     # Создаем пустой файл в artifacts, чтобы экшн загрузки не падал
     to_df "RUN mkdir -p ${FFBUILD_DESTDIR} && \\"
@@ -230,7 +235,7 @@ else
     # Финальная сборка FFmpeg (инвалидируется только при изменении FFmpeg или build.sh)
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
     # to_df "    --mount=from=ffmpeg_src,target=$FFMPEG_SOURCE_DIR,rw \\"
-    to_df "    --mount=type=bind,source=.cache/ffmpeg,target=${FFMPEG_SOURCE_DIR},rw \\"
+    to_df "    --mount=type=bind,source=.cache/ffmpeg,target=${CONTAINER_ROOT}/ffbuild/ffmpeg,rw \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
 
