@@ -52,8 +52,7 @@ ffbuild_dockerbuild() {
 
     cd "$INSTALL_ROOT/lib/cmake"
 
-    # Стерилизуем пути и расширения. 
-    # ВНИМАНИЕ: Мы меняем .lib на .a (БЕЗ .dll), чтобы совпало с вашей функцией.
+    # Стерилизация путей и расширений во всех файлах
     find . -name "*.cmake" -type f -exec sed -i \
         -e "s|runtime/lib/intel64/Release/|lib/lib|g" \
         -e "s|runtime/lib/intel64/Debug/|lib/lib|g" \
@@ -65,17 +64,22 @@ ffbuild_dockerbuild() {
         -e "s|liblib|lib|g" \
         {} +
 
-    # Убираем дебажные суффиксы и чистим Targets-debug.cmake
-    # Это уберет те самые ошибки про "openvino_onnx_frontendd.a"
-    find . -name "*Targets-debug.cmake" -type f -exec sed -i \
-        -e "s|d\.a|.a|g" \
+    # Ошибка жалуется на файлы типа '...frontendd.dll'. 
+    # Убираем суффикс 'd' перед расширением .dll во всех файлах.
+    find . -name "*.cmake" -type f -exec sed -i \
+        -e "s|d\.dll|.dll|g" \
         -e "s|Debug|Release|g" \
         -e "s|DEBUG|RELEASE|g" \
         {} +
 
-    # Финальная проверка: ищем onnx_frontend в файлах
-    echo "--- FINAL CHECK: SEARCHING FOR LIB PATHS ---"
-    grep "onnx_frontend" OpenVINOTargets-release.cmake
+    # ПОЛНОЕ ОБНУЛЕНИЕ DEBUG-КОНФИГА
+    # Если файл существует, мы его очищаем. OpenCV увидит только Release таргеты.
+    if [ -f "OpenVINOTargets-debug.cmake" ]; then
+        echo "# Empty debug targets" > OpenVINOTargets-debug.cmake
+    fi
+
+    echo "--- DEBUG: Checking for any remaining 'd.dll' in Targets ---"
+    grep "onnx_frontend" OpenVINOTargets.cmake OpenVINOTargets-release.cmake
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/openvino.pc"
