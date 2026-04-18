@@ -35,13 +35,7 @@ ffbuild_dockerbuild() {
     cp -r runtime/include/* "$INSTALL_ROOT/include/"
 
     # Библиотеки
-    # find runtime/lib/intel64/Release/ -name "*.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
-
-# Копируем оригинальные либы с префиксом lib и расширением .a
-find runtime/lib/intel64/Release/ -name "*.lib" | while read -r f; do
-    name=$(basename "$f" .lib)
-    cp "$f" "$INSTALL_ROOT/lib/lib${name}.a"
-done
+    find runtime/lib/intel64/Release/ -name "*.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
 
     # Бинарники (DLL и плагины)
     # Копируем всё содержимое Release в bin (включая плагины и json конфиги)
@@ -52,10 +46,6 @@ done
         find runtime/3rdparty/tbb/bin/ -name "*.dll" ! -name "*_debug.dll" -exec cp {} "$INSTALL_ROOT/bin/" \;
         find runtime/3rdparty/tbb/lib/ -name "*.lib" ! -name "*_debug.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
     fi
-
-# Проверяем, появились ли там символы (добавь это в скрипт)
-log_info "--- SYMBOL CHECK FOR libopenvino.a ---"
-${FFBUILD_CROSS_PREFIX}nm "$INSTALL_ROOT/lib/libopenvino.a" | grep "get_shape" | head -n 5 || echo "Still no symbols!"
 
     # CMake файлы
     cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
