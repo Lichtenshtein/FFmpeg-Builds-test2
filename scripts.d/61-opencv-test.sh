@@ -38,36 +38,9 @@ ffbuild_dockerbuild() {
         -DENABLE_PIC=ON
 
         # --- ОТКЛЮЧАЕМ ВСЕ МОДУЛИ, КРОМЕ DNN ---
-        -DBUILD_opencv_calib3d=OFF
-        -DBUILD_opencv_features2d=OFF
-        -DBUILD_opencv_flann=OFF
-        -DBUILD_opencv_gapi=OFF
-        -DBUILD_opencv_highgui=OFF
-        -DBUILD_opencv_imgcodecs=OFF
-        -DBUILD_opencv_ml=OFF
-        -DBUILD_opencv_objdetect=OFF
-        -DBUILD_opencv_photo=OFF
-        -DBUILD_opencv_stitching=OFF
-        -DBUILD_opencv_video=OFF
-        -DBUILD_opencv_videoio=OFF
-        
+
         # --- ОТКЛЮЧАЕМ ТЯЖЕЛЫЕ ЗАВИСИМОСТИ ---
-        -DWITH_AVIF=OFF
-        -DWITH_JPEG=OFF
-        -DWITH_PNG=OFF
-        -DWITH_WEBP=OFF
-        -DWITH_TIFF=OFF
-        -DWITH_OPENJPEG=ON
-        -DBUILD_OPENJPEG=ON
-		-DBUILD_JASPER=ON
-		-DWITH_JASPER=ON
-        -DWITH_JPEGXL=OFF
-        -DWITH_OPENEXR=OFF
-        -DWITH_VULKAN=OFF
-        -DWITH_OPENCL=OFF
-        -DWITH_OPENGL=OFF
-        -DWITH_IPP=OFF
-        -DBUILD_ZLIB=ON # Пусть соберет свою маленькую копию для внутренних нужд dnn
+        -DOPENCV_FORCE_3RDPARTY_BUILD=ON
         
         # --- ПАРАЛЛЕЛИЗМ ---
         -DWITH_TBB=OFF
