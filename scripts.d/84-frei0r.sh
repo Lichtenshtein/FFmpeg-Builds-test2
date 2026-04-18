@@ -41,8 +41,8 @@ ffbuild_dockerbuild() {
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DWITHOUT_OPENCV=OFF
-        -DWITHOUT_FACERECOGNITION=ON
-        -DWITHOUT_CAIRO=OFF
+        -DWITHOUT_FACERECOGNITION=OFF
+        -DWITHOUT_CAIRO=ON
         -DWITHOUT_GAVL=ON
         -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4"
     )

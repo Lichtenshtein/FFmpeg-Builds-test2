@@ -90,6 +90,7 @@ ffbuild_dockerbuild() {
 
         -DCMAKE_POLICY_DEFAULT_CMP0028=NEW
         -DCMAKE_IMPORTED_NO_SYSTEM=ON
+        -DOPENVINO_STATIC_COMPILATION=OFF
     )
 
     if [[ $TARGET == win64 ]]; then
@@ -104,9 +105,12 @@ ffbuild_dockerbuild() {
         )
     fi
 
+# -ltbb12
+    local ADDITIONAL_LDFLAGS="-lopenvino -lopenvino_c"
+
     CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS -Dov_core_EXPORTS -Dov_runtime_EXPORTS" \
+    LDFLAGS="$LDFLAGS $ADDITIONAL_LDFLAGS" \
     LIBS="$LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
