@@ -108,7 +108,7 @@ ffbuild_dockerbuild() {
     fi
 
 # -ltbb12
-    local ADDITIONAL_LDFLAGS="-lopenvino -lopenvino_c -lopenvino_onnx_frontend -ltbb12"
+    local ADDITIONAL_LDFLAGS="-lopenvino_auto_batch_plugin -lopenvino_auto_plugin -lopenvino_hetero_plugin -lopenvino_intel_cpu_plugin -lopenvino_intel_gpu_plugin -lopenvino_intel_npu_plugin -lopenvino_ir_frontend -lopenvino_onnx_frontend -lopenvino_paddle_frontend -lopenvino_pytorch_frontend -lopenvino_tensorflow_frontend -lopenvino_tensorflow_lite_frontend -lopenvino -lopenvino_c -ltbbbind_2_5 -ltbbmalloc -ltbbmalloc_proxy -ltbb12"
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS -Dov_core_EXPORTS -Dov_runtime_EXPORTS -Dov_builder_EXPORTS" \
