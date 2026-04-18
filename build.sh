@@ -14,8 +14,8 @@ ccache -s
 ccache -z > /dev/null
 # Сбрасываем счетчик секунд в начале этапа
 SECONDS=0
-local duration=$SECONDS
-local elapsed=$(printf '%02dh:%02dm:%02ds' $((duration/3600)) $((duration%3600/60)) $((duration%60)))
+duration=$SECONDS
+elapsed=$(printf '%02dh:%02dm:%02ds' $((duration/3600)) $((duration%3600/60)) $((duration%60)))
 
 # Определяем функцию очистки
 cleanup() {
