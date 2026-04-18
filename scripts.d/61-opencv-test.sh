@@ -26,8 +26,6 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
-    # Настраиваем пути поиска конфигов
-    export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
     
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -76,10 +74,6 @@ ffbuild_dockerbuild() {
         -DWITH_PTHREADS_PF=OFF
 
         # --- OPENVINO (ГЛАВНАЯ ЦЕЛЬ) ---
-        -DWITH_OPENVINO=ON
-        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-        -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
-        -Dngraph_DIR="$FFBUILD_PREFIX/lib/cmake"
 
         # --- ПРОЧЕЕ ---
         -DBUILD_EXAMPLES=OFF
@@ -93,8 +87,6 @@ ffbuild_dockerbuild() {
         -DOPENCV_SKIP_PYTHON_LOADER=ON
         -DBUILD_opencv_model_diagnostics=OFF # Отключаем проблемную утилиту
 
-        -DOPENCV_DNN_OPENVINO=ON
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS -DOPENVINO_STATIC_COMPILATION -D_GLIBCXX_USE_CXX11_ABI=0 -Dov_EXPORTS"
     )
 
     if [[ $TARGET == win64 ]]; then
@@ -109,12 +101,9 @@ ffbuild_dockerbuild() {
         )
     fi
 
-# -ltbb12
-    local ADDITIONAL_LDFLAGS="-lopenvino_onnx_frontend -lopenvino_tensorflow_frontend -lopenvino_pytorch_frontend -lopenvino_c -lopenvino -ltbb12 -lshlwapi"
-
-
-    CFLAGS="$CFLAGS $CPPFLAGS -DOPENVINO_STATIC_COMPILATION" \
-    LDFLAGS="$LDFLAGS $ADDITIONAL_LDFLAGS  -Wl,--allow-multiple-definition -Wl,--as-needed" \
+    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    LDFLAGS="$LDFLAGS" \
     LIBS="$LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
