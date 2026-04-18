@@ -50,24 +50,27 @@ ffbuild_dockerbuild() {
     # CMake файлы
     cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
 
-    # Переходим в директорию с конфигами
-    cd "$INSTALL_ROOT/lib/cmake"
+    echo "--- DEBUG: BEFORE SED (OpenVINOTargets.cmake line 127) ---"
+    grep -C 2 "onnx_frontend" "$INSTALL_ROOT/lib/cmake/OpenVINOTargets-release.cmake" || echo "Not found in release file"
 
-    # Удаляем упоминания специфических путей сборки Intel и заменяем на наш префикс
-    # Исправляем расширения .lib -> .dll.a, чтобы MinGW-линковщик в CMake не путался
-    find . -name "*.cmake" -type f -exec sed -i \
-        -e "s|/opt/ffbuild/runtime/lib/intel64/Release/|${FFBUILD_PREFIX}/lib/|g" \
-        -e "s|/opt/ffbuild/runtime/bin/intel64/Release/|${FFBUILD_PREFIX}/bin/|g" \
-        -e "s|/opt/ffbuild/lib/intel64/Release/|${FFBUILD_PREFIX}/lib/|g" \
+    # Удаляем любые упоминания промежуточных папок Intel (runtime/lib/intel64/Release и т.д.)
+    # И приводим всё к плоскому виду ${FFBUILD_PREFIX}/lib или ${FFBUILD_PREFIX}/bin
+    find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
+        -e "s|/[^ \";]*/runtime/lib/intel64/Release/|${FFBUILD_PREFIX}/lib/|g" \
+        -e "s|/[^ \";]*/runtime/bin/intel64/Release/|${FFBUILD_PREFIX}/bin/|g" \
+        -e "s|/[^ \";]*/lib/intel64/Release/|${FFBUILD_PREFIX}/lib/|g" \
         -e "s|\.lib|.dll.a|g" \
         {} +
 
-    # Подменяем поиск Debug библиотек (которые просит ошибка) на существующие Release
-    # (Например: openvino_onnx_frontendd.lib -> libopenvino_onnx_frontend.dll.a)
-    find . -name "*Targets-debug.cmake" -type f -exec sed -i \
+    # Обработка Debug секций: убираем суффикс 'd' и переключаем на Release пути
+    find "$INSTALL_ROOT/lib/cmake" -name "*Targets-debug.cmake" -type f -exec sed -i \
         -e "s|d\.dll\.a|.dll.a|g" \
         -e "s|Debug|Release|g" \
+        -e "s|/[^ \";]*/runtime/lib/intel64/Debug/|${FFBUILD_PREFIX}/lib/|g" \
         {} +
+
+    echo "--- DEBUG: AFTER SED (OpenVINOTargets.cmake line 127) ---"
+    grep -C 2 "onnx_frontend" "$INSTALL_ROOT/lib/cmake/OpenVINOTargets-release.cmake" || echo "Not found in release file"
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/openvino.pc"
