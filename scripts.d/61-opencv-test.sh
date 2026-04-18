@@ -93,6 +93,9 @@ ffbuild_dockerbuild() {
         -DOPENVINO_STATIC_COMPILATION=OFF
         -DOPENCV_SKIP_PYTHON_LOADER=ON
         -DBUILD_opencv_model_diagnostics=OFF # Отключаем проблемную утилиту
+
+        -DOPENCV_DNN_OPENVINO=ON
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS -DOPENVINO_STATIC_COMPILATION -D_GLIBCXX_USE_CXX11_ABI=0 -Dov_EXPORTS"
     )
 
     if [[ $TARGET == win64 ]]; then
@@ -112,8 +115,7 @@ ffbuild_dockerbuild() {
 
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS -DOPENVINO_STATIC_COMPILATION" \
-    LDFLAGS="$LDFLAGS $ADDITIONAL_LDFLAGS" \
+    LDFLAGS="$LDFLAGS $ADDITIONAL_LDFLAGS  -Wl,--allow-multiple-definition -Wl,--as-needed" \
     LIBS="$LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
