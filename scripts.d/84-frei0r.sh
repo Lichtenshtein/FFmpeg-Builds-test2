@@ -3,7 +3,7 @@
 SCRIPT_REPO="https://github.com/dyne/frei0r.git"
 SCRIPT_COMMIT="32e91405d2ec5e222f75175b36dc4cc7bc0667ef"
 
-export SKIP_PRE_PATCH=1
+# export SKIP_PRE_PATCH=1
 
 ffbuild_depends() {
     echo opencv-test
