@@ -350,18 +350,18 @@ if [[ -d "$INSTALL_ROOT" ]]; then
                     log_info "${LOCK_MARK} Preserving dynamic DLLs and generating import libs for $STAGENAME"
                     # First we deal with .lib, if they came from archives (as in TF) 
                     # If there is .lib, but not .a, create a symlink/copy so that MinGW sees them as .a
-                    find "$INSTALL_ROOT" -name "*.lib" -type f | while read -r lib_file; do
-                        lib_dir=$(dirname "$lib_file")
-                        lib_name=$(basename "$lib_file")
+                    # find "$INSTALL_ROOT" -name "*.lib" -type f | while read -r lib_file; do
+                        # lib_dir=$(dirname "$lib_file")
+                        # lib_name=$(basename "$lib_file")
                         # Convert to libname.a if it is not an import library (a simple rename often helps for statics)
-                        if [[ ! -f "$lib_dir/lib${lib_name%.lib}.a" ]]; then
-                            cp "$lib_file" "$lib_dir/lib${lib_name%.lib}.a"
-                        fi
-                    done
+                        # if [[ ! -f "$lib_dir/lib${lib_name%.lib}.a" ]]; then
+                            # cp "$lib_file" "$lib_dir/lib${lib_name%.lib}.a"
+                        # fi
+                    # done
                     # Generate .a from .dll (for those where .lib is not suitable or missing)
-                    generate_implibs "$INSTALL_ROOT"
+                    # generate_implibs "$INSTALL_ROOT"
                     # clean up garbage .def/.exp if they are created
-                    clean_unwanted_libs "temporary definition files" "\( -name '*.def' -o -name '*.exp' \)"
+                    # clean_unwanted_libs "temporary definition files" "\( -name '*.def' -o -name '*.exp' \)"
                 fi
             else
                 # PREFER_SHARED=1
