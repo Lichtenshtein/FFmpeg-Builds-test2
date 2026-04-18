@@ -37,7 +37,7 @@ ffbuild_dockerbuild() {
     # Библиотеки
     find runtime/lib/intel64/Release/ -name "*.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
 
-    # 3Бинарники (DLL и плагины)
+    # Бинарники (DLL и плагины)
     # Копируем всё содержимое Release в bin (включая плагины и json конфиги)
     cp -r runtime/bin/intel64/Release/* "$INSTALL_ROOT/bin/"
 
@@ -49,6 +49,14 @@ ffbuild_dockerbuild() {
 
     # CMake файлы
     cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
+
+    # Исправляем пути в CMake-конфигах OpenVINO, чтобы они не искали оригинальный runtime/lib
+    find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -exec sed -i "s|/opt/ffbuild/runtime/lib/intel64/Release/|$FFBUILD_PREFIX/lib/|g" {} +
+    find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -exec sed -i "s|/opt/ffbuild/runtime/bin/intel64/Release/|$FFBUILD_PREFIX/bin/|g" {} +
+
+    # Чтобы не ругался на отсутствие Debug библиотек, подменяем их на Release в конфигах
+    find "$INSTALL_ROOT/lib/cmake" -name "*Targets-debug.cmake" -exec sed -i "s|_debug.lib|.lib|g" {} +
+    find "$INSTALL_ROOT/lib/cmake" -name "*Targets-debug.cmake" -exec sed -i "s|_debug.dll|.dll|g" {} +
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/openvino.pc"

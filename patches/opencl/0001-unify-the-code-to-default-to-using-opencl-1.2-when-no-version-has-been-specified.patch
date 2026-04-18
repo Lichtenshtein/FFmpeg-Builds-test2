@@ -10,10 +10,10 @@ Subject: [PATCH] unify the code to default to using openCL 1.2 when no version
  CL/cl_version.h | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/CL/cl_version.h b/CL/cl_version.h
+diff --git a/headers/CL/cl_version.h b/headers/CL/cl_version.h
 index 3844938d..a7183111 100644
---- a/CL/cl_version.h
-+++ b/CL/cl_version.h
+--- a/headers/CL/cl_version.h
++++ b/headers/CL/cl_version.h
 @@ -19,8 +19,8 @@
  
  /* Detect which version to target */
