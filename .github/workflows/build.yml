@@ -377,17 +377,16 @@ jobs:
         with:
           context: .
           file: Dockerfile
-          # Здесь мы НЕ указываем target, чтобы Docker дошел до конца (artifacts)
           build-args: |
             CPU_ARCH=${{ env.CPU_ARCH }}
             CPU_TUNE=${{ env.CPU_TUNE }}
           push: false
           tags: ffmpeg-final:local
           # Используем свежесобранный образ компонентов как контекст
+            # ffmpeg_src=${{ github.workspace }}/.cache/ffmpeg
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
-            # ffmpeg_src=${{ github.workspace }}/.cache/ffmpeg
           outputs: type=local,dest=artifacts/
           cache-from: |
             type=gha,scope=ffmpeg-components
