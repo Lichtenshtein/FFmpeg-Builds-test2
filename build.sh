@@ -251,7 +251,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     # ГЕНЕРАЦИЯ ПЕРЕМЕННЫХ СОСТОЯНИЯ КОМПОНЕНТОВ
     log_debug "${SEARCH_MARK} Scanning FFmpeg configuration for enabled components..."
     # Список компонентов для проверки
-    COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac openssl amf)
+    COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac openssl amf frei0r)
     # Создаем имя переменной libtesseract -> HAS_LIBTESSERACT
     for comp in "${COMPONENTS[@]}"; do
         clean_name="${comp^^}"
@@ -405,20 +405,29 @@ else
     log_warn "$FFBUILD_PREFIX/bin not found! Skipping DLLs copy."
 fi
 
+# Плагины лежат в lib/frei0r-1, а для работы в Windows должны быть в bin/frei0r-1
+if [[ -d "$FFBUILD_PREFIX/lib/frei0r-1" ]]; then
+    log_info "${SYNC_MARK} Collecting frei0r plugins..."
+    mkdir -p "$PKG_DIR/bin/frei0r-1"
+    find "$FFBUILD_PREFIX/lib/frei0r-1" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/frei0r-1/" \; || true
+else
+    log_warn "Frei0r plugins not found in $FFBUILD_PREFIX/lib/frei0r-1"
+fi
+
 # Проверяем наличие критических библиотек (для отладки в логах)
 ls -lh "$PKG_DIR/bin/"
 
 # Скачиваем модели и ассеты
 log_info "${DOWN_MARK} Checking for additional assets..."
 
-export ASSETS_DIR="$PKG_DIR/assets"
+export ASSETS_DIR="$PKG_DIR/bin/assets"
 mkdir -p "$ASSETS_DIR"
 "$UTIL_DIR"/download_assets.sh "$ASSETS_DIR" "$(pwd)" || log_warn "Assets download failed, but continuing..."
 
 # Стриппинг бинарников (удаление отладочных символов)
 # --strip-all; --strip-unneeded
 log_info "${BROOM_MARK} Stripping binaries..."
-find "$PKG_DIR/bin" -name "*.exe" -exec ${FFBUILD_CROSS_PREFIX}strip --strip-all {} \;
+find "$PKG_DIR/bin" -name "*.exe" -o -name "*.dll" -exec ${FFBUILD_CROSS_PREFIX}strip --strip-unneeded {} \;
 
 # Упаковка
 log_info "${ARCH_MARK} Creating archive: ${BUILD_NAME}.7z"
