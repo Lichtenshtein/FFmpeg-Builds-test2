@@ -42,42 +42,32 @@ ffbuild_dockerbuild() {
     cp -r runtime/bin/intel64/Release/* "$INSTALL_ROOT/bin/"
 
     # TBB (Intel Threading Building Blocks)
-    # if [[ -d "runtime/3rdparty/tbb" ]]; then
-        # find runtime/3rdparty/tbb/bin/ -name "*.dll" ! -name "*_debug.dll" -exec cp {} "$INSTALL_ROOT/bin/" \;
-        # find runtime/3rdparty/tbb/lib/ -name "*.lib" ! -name "*_debug.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
-    # fi
+    if [[ -d "runtime/3rdparty/tbb" ]]; then
+        find runtime/3rdparty/tbb/bin/ -name "*.dll" ! -name "*_debug.dll" -exec cp {} "$INSTALL_ROOT/bin/" \;
+        find runtime/3rdparty/tbb/lib/ -name "*.lib" ! -name "*_debug.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
+    fi
 
     # CMake файлы
     cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
 
     cd "$INSTALL_ROOT/lib/cmake"
 
-    # Базовая очистка путей
+    # Возвращаем правильные пути и расширения
     find . -name "*.cmake" -type f -exec sed -i \
         -e "s|runtime/lib/intel64/Release/|lib/lib|g" \
-        -e "s|runtime/lib/intel64/Debug/|lib/lib|g" \
         -e "s|runtime/bin/intel64/Release/|bin/|g" \
-        -e "s|runtime/bin/intel64/Debug/|bin/|g" \
-        -e "s|runtime/include|include|g" \
         -e "s|\.lib|.a|g" \
         -e "s|liblib|lib|g" \
         {} +
 
-    # Ищем 'd.dll' и 'd.a' только если это суффикс (после него идет кавычка или точка с запятой)
-    # И переключаем всё на Release
     find . -name "*.cmake" -type f -exec sed -i \
-        -e "s|d\.dll\"|.dll\"|g" \
-        -e "s|d\.a\"|.a\"|g" \
-        -e "s|d\.dll;|.dll;|g" \
-        -e "s|d\.a;|.a;|g" \
+        -e "s|\([^n]\)d\.dll|\1.dll|g" \
+        -e "s|\([^n]\)d\.a|\1.a|g" \
         -e "s|Debug|Release|g" \
         -e "s|DEBUG|RELEASE|g" \
         {} +
-    # Это просто вырежет код, который кидает ошибку "references the file but it does not exist"
-    if [ -f "OpenVINOTargets.cmake" ]; then
-        sed -i 's/message(FATAL_ERROR "The imported target/message(STATUS "Skipping check for/g' OpenVINOTargets.cmake
-    fi
 
+    sed -i 's/message(STATUS "Skipping check for/message(FATAL_ERROR "The imported target/g' OpenVINOTargets.cmake
     echo "--- FINAL CHECK: NO MORE FRONTEN ERRORS ---"
     grep "onnx_frontend" OpenVINOTargets-release.cmake | head -n 2
 
@@ -91,7 +81,7 @@ Name: OpenVINO
 Description: Intel OpenVINO Runtime (Dynamic)
 Version: 2025.4.1
 Libs: -L\${libdir} -lopenvino -lopenvino_c
-# Libs.private: -ltbb12 -ltbb
+Libs.private: -ltbb12 -ltbb
 Cflags: -I\${includedir} -DOPENVINO_STATIC_COMPILATION
 EOF
 }

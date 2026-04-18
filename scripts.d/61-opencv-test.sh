@@ -91,6 +91,8 @@ ffbuild_dockerbuild() {
         -DCMAKE_POLICY_DEFAULT_CMP0028=NEW
         -DCMAKE_IMPORTED_NO_SYSTEM=ON
         -DOPENVINO_STATIC_COMPILATION=OFF
+        -DOPENCV_SKIP_PYTHON_LOADER=ON
+        -DBUILD_opencv_model_diagnostics=OFF # Отключаем проблемную утилиту
     )
 
     if [[ $TARGET == win64 ]]; then
@@ -106,10 +108,10 @@ ffbuild_dockerbuild() {
     fi
 
 # -ltbb12
-    local ADDITIONAL_LDFLAGS="-lopenvino -lopenvino_c"
+    local ADDITIONAL_LDFLAGS="-lopenvino -lopenvino_c -lopenvino_onnx_frontend -ltbb12"
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS -Dov_core_EXPORTS -Dov_runtime_EXPORTS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS -Dov_core_EXPORTS -Dov_runtime_EXPORTS -Dov_builder_EXPORTS" \
     LDFLAGS="$LDFLAGS $ADDITIONAL_LDFLAGS" \
     LIBS="$LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
