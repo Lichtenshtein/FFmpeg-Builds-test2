@@ -108,7 +108,7 @@ ffbuild_dockerbuild() {
     fi
 
 # -ltbb12
-    local ADDITIONAL_LDFLAGS="-lopenvino -lopenvino_c -lopenvino_onnx_frontend -ltbb12"
+    local ADDITIONAL_LDFLAGS="-lopenvino -lopenvino_c -lopenvino_onnx_frontend"
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS -Dov_core_EXPORTS -Dov_runtime_EXPORTS -Dov_builder_EXPORTS" \
