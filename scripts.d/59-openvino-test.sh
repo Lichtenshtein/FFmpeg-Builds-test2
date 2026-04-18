@@ -50,25 +50,40 @@ ffbuild_dockerbuild() {
     # CMake файлы
     cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
 
-    # Удаляем пути Intel и меняем расширение .lib -> .dll.a ПЛЮС добавляем префикс lib
-    find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
-        -e "s|/opt/ffbuild/||g" \
+    cd "$INSTALL_ROOT/lib/cmake"
+
+    # Сначала исправляем пути и расширения во всех файлах
+    # Мы используем 'lib/lib' и 'liblib' чтобы гарантировать префикс lib для MinGW
+    find . -name "*.cmake" -type f -exec sed -i \
         -e "s|runtime/lib/intel64/Release/|lib/lib|g" \
+        -e "s|runtime/lib/intel64/Debug/|lib/lib|g" \
         -e "s|runtime/bin/intel64/Release/|bin/|g" \
+        -e "s|runtime/bin/intel64/Debug/|bin/|g" \
         -e "s|lib/intel64/Release/|lib/lib|g" \
         -e "s|\.lib|.dll.a|g" \
-        {} +
-
-    # Исправляем Debug и возможные двойные liblib
-    find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
-        -e "s|lib/libopenvino|lib/libopenvino|g" \
         -e "s|liblib|lib|g" \
-        -e "s|Debug|Release|g" \
         {} +
 
-    # Проверка результата
-    echo "--- FINAL CHECK (OpenVINOTargets-release.cmake) ---"
-    grep "onnx_frontend" "$INSTALL_ROOT/lib/cmake/OpenVINOTargets-release.cmake" | head -n 5
+    # Убиваем дебажные суффиксы 'd', которые ищутся в Targets-debug.cmake
+    # Например: openvino_onnx_frontendd.dll.a -> openvino_onnx_frontend.dll.a
+    # И подменяем конфигурацию Debug на Release прямо в тексте
+    find . -name "*Targets-debug.cmake" -type f -exec sed -i \
+        -e "s|frontendd\.dll\.a|frontend.dll.a|g" \
+        -e "s|vinod\.dll\.a|vino.dll.a|g" \
+        -e "s|onnxd\.dll\.a|onnx.dll.a|g" \
+        -e "s|paddled\.dll\.a|paddle.dll.a|g" \
+        -e "s|pytorchd\.dll\.a|pytorch.dll.a|g" \
+        -e "s|tensorflowd\.dll\.a|tensorflow.dll.a|g" \
+        -e "s|/Debug/|/Release/|g" \
+        -e "s|DEBUG|RELEASE|g" \
+        {} +
+
+    # Радикальный шаг: если Targets-debug все еще мешает, просто обнулим его
+    # (OpenCV все равно собирается в Release и дебажные символы внешних либ ему не нужны)
+    # echo > OpenVINOTargets-debug.cmake 
+
+    echo "--- DEBUG: Checking if any 'runtime' strings left ---"
+    grep -r "runtime" . || echo "Clean!"
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/openvino.pc"
