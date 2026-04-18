@@ -52,38 +52,30 @@ ffbuild_dockerbuild() {
 
     cd "$INSTALL_ROOT/lib/cmake"
 
-    # Сначала исправляем пути и расширения во всех файлах
-    # Мы используем 'lib/lib' и 'liblib' чтобы гарантировать префикс lib для MinGW
+    # Стерилизуем пути и расширения. 
+    # ВНИМАНИЕ: Мы меняем .lib на .a (БЕЗ .dll), чтобы совпало с вашей функцией.
     find . -name "*.cmake" -type f -exec sed -i \
         -e "s|runtime/lib/intel64/Release/|lib/lib|g" \
         -e "s|runtime/lib/intel64/Debug/|lib/lib|g" \
         -e "s|runtime/bin/intel64/Release/|bin/|g" \
         -e "s|runtime/bin/intel64/Debug/|bin/|g" \
+        -e "s|runtime/include|include|g" \
         -e "s|lib/intel64/Release/|lib/lib|g" \
-        -e "s|\.lib|.dll.a|g" \
+        -e "s|\.lib|.a|g" \
         -e "s|liblib|lib|g" \
         {} +
 
-    # Убиваем дебажные суффиксы 'd', которые ищутся в Targets-debug.cmake
-    # Например: openvino_onnx_frontendd.dll.a -> openvino_onnx_frontend.dll.a
-    # И подменяем конфигурацию Debug на Release прямо в тексте
+    # Убираем дебажные суффиксы и чистим Targets-debug.cmake
+    # Это уберет те самые ошибки про "openvino_onnx_frontendd.a"
     find . -name "*Targets-debug.cmake" -type f -exec sed -i \
-        -e "s|frontendd\.dll\.a|frontend.dll.a|g" \
-        -e "s|vinod\.dll\.a|vino.dll.a|g" \
-        -e "s|onnxd\.dll\.a|onnx.dll.a|g" \
-        -e "s|paddled\.dll\.a|paddle.dll.a|g" \
-        -e "s|pytorchd\.dll\.a|pytorch.dll.a|g" \
-        -e "s|tensorflowd\.dll\.a|tensorflow.dll.a|g" \
-        -e "s|/Debug/|/Release/|g" \
+        -e "s|d\.a|.a|g" \
+        -e "s|Debug|Release|g" \
         -e "s|DEBUG|RELEASE|g" \
         {} +
 
-    # Радикальный шаг: если Targets-debug все еще мешает, просто обнулим его
-    # (OpenCV все равно собирается в Release и дебажные символы внешних либ ему не нужны)
-    # echo > OpenVINOTargets-debug.cmake 
-
-    echo "--- DEBUG: Checking if any 'runtime' strings left ---"
-    grep -r "runtime" . || echo "Clean!"
+    # Финальная проверка: ищем onnx_frontend в файлах
+    echo "--- FINAL CHECK: SEARCHING FOR LIB PATHS ---"
+    grep "onnx_frontend" OpenVINOTargets-release.cmake
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/openvino.pc"
