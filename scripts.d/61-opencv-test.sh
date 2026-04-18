@@ -57,7 +57,8 @@ ffbuild_dockerbuild() {
         -DWITH_PNG=OFF
         -DWITH_WEBP=OFF
         -DWITH_TIFF=OFF
-        -DWITH_OPENJPEG=OFF
+        -DWITH_OPENJPEG=ON
+        -DBUILD_OPENJPEG=ON
         -DWITH_JPEGXL=OFF
         -DWITH_OPENEXR=OFF
         -DWITH_VULKAN=OFF
