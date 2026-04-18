@@ -50,13 +50,24 @@ ffbuild_dockerbuild() {
     # CMake файлы
     cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
 
-    # Исправляем пути в CMake-конфигах OpenVINO, чтобы они не искали оригинальный runtime/lib
-    find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -exec sed -i "s|/opt/ffbuild/runtime/lib/intel64/Release/|$FFBUILD_PREFIX/lib/|g" {} +
-    find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -exec sed -i "s|/opt/ffbuild/runtime/bin/intel64/Release/|$FFBUILD_PREFIX/bin/|g" {} +
+    # Переходим в директорию с конфигами
+    cd "$INSTALL_ROOT/lib/cmake"
 
-    # Чтобы не ругался на отсутствие Debug библиотек, подменяем их на Release в конфигах
-    find "$INSTALL_ROOT/lib/cmake" -name "*Targets-debug.cmake" -exec sed -i "s|_debug.lib|.lib|g" {} +
-    find "$INSTALL_ROOT/lib/cmake" -name "*Targets-debug.cmake" -exec sed -i "s|_debug.dll|.dll|g" {} +
+    # Удаляем упоминания специфических путей сборки Intel и заменяем на наш префикс
+    # Исправляем расширения .lib -> .dll.a, чтобы MinGW-линковщик в CMake не путался
+    find . -name "*.cmake" -type f -exec sed -i \
+        -e "s|/opt/ffbuild/runtime/lib/intel64/Release/|${FFBUILD_PREFIX}/lib/|g" \
+        -e "s|/opt/ffbuild/runtime/bin/intel64/Release/|${FFBUILD_PREFIX}/bin/|g" \
+        -e "s|/opt/ffbuild/lib/intel64/Release/|${FFBUILD_PREFIX}/lib/|g" \
+        -e "s|\.lib|.dll.a|g" \
+        {} +
+
+    # Подменяем поиск Debug библиотек (которые просит ошибка) на существующие Release
+    # (Например: openvino_onnx_frontendd.lib -> libopenvino_onnx_frontend.dll.a)
+    find . -name "*Targets-debug.cmake" -type f -exec sed -i \
+        -e "s|d\.dll\.a|.dll.a|g" \
+        -e "s|Debug|Release|g" \
+        {} +
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/openvino.pc"

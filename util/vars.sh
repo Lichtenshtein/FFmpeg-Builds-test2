@@ -121,6 +121,8 @@ fi
 # Build variables (inside the container)
 # just duplicate from Dockerfile for convenience
 export TOOLCHAIN_BIN="/opt/ct-ng/bin"
+export CUDA_PATH=/usr/lib/nvidia-cuda-toolkit
+export PATH="/usr/local/bin:/usr/local/cuda/bin:/usr/bin:/bin:${TOOLCHAIN_BIN}:/opt/cargo/bin"
 export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 export FFBUILD_CROSS_PREFIX="x86_64-w64-mingw32-"
