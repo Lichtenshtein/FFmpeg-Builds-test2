@@ -29,6 +29,9 @@ ffbuild_dockerbuild() {
     export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
     export OpenJPEG_DIR="$FFBUILD_PREFIX/lib/cmake/openjpeg-2.5"
 
+    PYTHON_ROOT=$(python3 -c "import sys; print(sys.prefix)")
+    NUMPY_PATH=$(python3 -c "import numpy; print(numpy.get_include())")
+
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
@@ -60,8 +63,13 @@ ffbuild_dockerbuild() {
         -DBUILD_JAVA=OFF
         -DBUILD_opencv_apps=OFF
         -DBUILD_opencv_python2=OFF
-        #-DBUILD_opencv_python3=OFF
         -DBUILD_opencv_java=OFF
+        # installed version of numpy not suitable
+        -DBUILD_opencv_python3=OFF
+        # -DPYTHON3_INCLUDE_PATH="$PYTHON_ROOT/include/python3.12"
+        # -DPYTHON3_LIBRARIES="$PYTHON_ROOT/lib/libpython3.12.so"
+        # -DPYTHON3_NUMPY_INCLUDE_DIRS="$NUMPY_PATH"
+        # -DOPENCV_SKIP_PYTHON_LOADER=ON
         # Включаем форматы
         -DWITH_AVIF=ON
         -DWITH_IPP=ON
@@ -78,7 +86,7 @@ ffbuild_dockerbuild() {
         -DWITH_VULKAN=ON
         -DWITH_WEBP=ON
         -DWITH_ZLIB_NG=ON
-        -DWITH_CUDA=OFF
+        -DWITH_CUDA=ON
         # Parallel processing
         -DWITH_OPENMP=OFF
         -DWITH_PTHREADS_PF=OFF
