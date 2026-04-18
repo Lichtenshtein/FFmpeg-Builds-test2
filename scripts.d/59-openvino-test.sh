@@ -50,24 +50,19 @@ ffbuild_dockerbuild() {
     # CMake файлы
     cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
 
-    # 2. 🔥 ПРАВКА КОНФИГОВ (ВЕРСИЯ 3: ОТНОСИТЕЛЬНЫЕ ПУТИ) 🔥
-    
-    # Сначала удаляем абсолютные вставки /opt/ffbuild, если они там были
-    # Затем заменяем сложные пути Intel на простую структуру
-    # ${_IMPORT_PREFIX} для файлов в lib/cmake обычно указывает на /opt/ffbuild
-    
+    # Удаляем пути Intel и меняем расширение .lib -> .dll.a ПЛЮС добавляем префикс lib
     find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
         -e "s|/opt/ffbuild/||g" \
-        -e "s|runtime/lib/intel64/Release/|lib/|g" \
+        -e "s|runtime/lib/intel64/Release/|lib/lib|g" \
         -e "s|runtime/bin/intel64/Release/|bin/|g" \
-        -e "s|lib/intel64/Release/|lib/|g" \
+        -e "s|lib/intel64/Release/|lib/lib|g" \
         -e "s|\.lib|.dll.a|g" \
         {} +
 
-    # Дополнительно чистим Debug-секцию и превращаем её в Release
-    find "$INSTALL_ROOT/lib/cmake" -name "*Targets-debug.cmake" -type f -exec sed -i \
-        -e "s|runtime/lib/intel64/Debug/|lib/|g" \
-        -e "s|d\.dll\.a|.dll.a|g" \
+    # Исправляем Debug и возможные двойные liblib
+    find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
+        -e "s|lib/libopenvino|lib/libopenvino|g" \
+        -e "s|liblib|lib|g" \
         -e "s|Debug|Release|g" \
         {} +
 
