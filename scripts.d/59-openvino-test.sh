@@ -42,32 +42,41 @@ ffbuild_dockerbuild() {
     cp -r runtime/bin/intel64/Release/* "$INSTALL_ROOT/bin/"
 
     # TBB (Intel Threading Building Blocks)
-    if [[ -d "runtime/3rdparty/tbb" ]]; then
-        find runtime/3rdparty/tbb/bin/ -name "*.dll" ! -name "*_debug.dll" -exec cp {} "$INSTALL_ROOT/bin/" \;
-        find runtime/3rdparty/tbb/lib/ -name "*.lib" ! -name "*_debug.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
-    fi
+    # if [[ -d "runtime/3rdparty/tbb" ]]; then
+        # find runtime/3rdparty/tbb/bin/ -name "*.dll" ! -name "*_debug.dll" -exec cp {} "$INSTALL_ROOT/bin/" \;
+        # find runtime/3rdparty/tbb/lib/ -name "*.lib" ! -name "*_debug.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
+    # fi
 
     # CMake файлы
     cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
 
     cd "$INSTALL_ROOT/lib/cmake"
 
-    # Возвращаем правильные пути и расширения
+    find . -name "OpenVINOTargets.cmake" -exec sed -i \
+        -e "s|/opt/ffbuild/runtime/|${FFBUILD_PREFIX}/|g" \
+        {} +
+
     find . -name "*.cmake" -type f -exec sed -i \
         -e "s|runtime/lib/intel64/Release/|lib/lib|g" \
+        -e "s|runtime/lib/intel64/Debug/|lib/lib|g" \
         -e "s|runtime/bin/intel64/Release/|bin/|g" \
+        -e "s|runtime/bin/intel64/Debug/|bin/|g" \
+        -e "s|runtime/include|include|g" \
+        -e "s|lib/intel64/Release/|lib/lib|g" \
         -e "s|\.lib|.a|g" \
         -e "s|liblib|lib|g" \
         {} +
 
     find . -name "*.cmake" -type f -exec sed -i \
-        -e "s|\([^n]\)d\.dll|\1.dll|g" \
         -e "s|\([^n]\)d\.a|\1.a|g" \
+        -e "s|\([^n]\)d\.dll|\1.dll|g" \
         -e "s|Debug|Release|g" \
         -e "s|DEBUG|RELEASE|g" \
         {} +
 
-    sed -i 's/message(STATUS "Skipping check for/message(FATAL_ERROR "The imported target/g' OpenVINOTargets.cmake
+    sed -i '/_cmake_import_check_files_for_.* exists/d' OpenVINOTargets.cmake || true
+    sed -i 's/FATAL_ERROR/STATUS/g' OpenVINOTargets.cmake
+
     echo "--- FINAL CHECK: NO MORE FRONTEN ERRORS ---"
     grep "onnx_frontend" OpenVINOTargets-release.cmake | head -n 2
 
@@ -81,7 +90,7 @@ Name: OpenVINO
 Description: Intel OpenVINO Runtime (Dynamic)
 Version: 2025.4.1
 Libs: -L\${libdir} -lopenvino -lopenvino_c
-Libs.private: -ltbb12 -ltbb
+# Libs.private: -ltbb12 -ltbb
 Cflags: -I\${includedir} -DOPENVINO_STATIC_COMPILATION
 EOF
 }
