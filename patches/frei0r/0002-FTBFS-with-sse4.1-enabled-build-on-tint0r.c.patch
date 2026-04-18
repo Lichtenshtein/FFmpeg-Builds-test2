@@ -1,0 +1,75 @@
+From 7ef9d7363185f1167f5d8780d7227382c3832e28 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sat, 18 Apr 2026 22:43:09 +0300
+Subject: [PATCH] FTBFS with sse4.1 enabled build on tint0r.c
+---
+ src/filter/tint0r/tint0r.c         | 31 +++++++++++++-----------------
+
+diff --git a/src/filter/tint0r/tint0r.c b/src/filter/tint0r/tint0r.c
+index 3632bb5..6129dc7 100644
+--- a/src/filter/tint0r/tint0r.c
++++ b/src/filter/tint0r/tint0r.c
+@@ -174,47 +174,42 @@ static void tint_sse41(const uint32_t* inframe, uint32_t* outframe, size_t len,
+ {
+   const __m128 weights = _mm_set_ps(0.0, 0.114, 0.587, 0.299),
+   sse_amount = _mm_set1_ps(amount),
+-  /* Pass the alpha channel */
+-  comp_amount = _mm_set_ps(1.0,
+-                           1.0 - amount,
+-                           1.0 - amount,
+-                           1.0 - amount);
++  comp_amount = _mm_set_ps(1.0, 1.0 - amount, 1.0 - amount, 1.0 - amount);
+ 
+-  /* Zero the alpha component to exclude it from calculations. */
+   const __m128 cmin = _mm_set_ps(0.0, blackColor.b, blackColor.g, blackColor.r),
+   cdelta = _mm_sub_ps(_mm_set_ps(0.0, whiteColor.b, whiteColor.g, whiteColor.r), cmin),
+   tmp0 = _mm_mul_ps(cdelta, sse_amount),
+   tmp1 = _mm_mul_ps(_mm_mul_ps(sse_amount, _mm_set1_ps(255.0)), cmin);
+ 
+-  __m128 p, p0, p1, p2, p3, luma;
++  __m128i p_int; 
++  __m128 p0, p1, p2, p3, luma;
+ 
+   // Process pixels in groups of 4
+   for (size_t i = 0; i < len; i++)
+   {
+     /* Load four pixels at once. */
+-    p = _mm_loadu_si128((__m128i*)(inframe + i * 4));
++    p_int = _mm_loadu_si128((__m128i*)(inframe + i * 4));
+ 
+-    /* Extract four pixels into separate XMM registers and convert them to float. */
+-    p0 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(p));
+-    p1 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(_mm_srli_si128(p, 4)));
+-    p2 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(_mm_srli_si128(p, 8)));
+-    p3 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(_mm_srli_si128(p, 12)));
++    p0 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(p_int));
++    p1 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(_mm_srli_si128(p_int, 4)));
++    p2 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(_mm_srli_si128(p_int, 8)));
++    p3 = _mm_cvtepi32_ps(_mm_cvtepu8_epi32(_mm_srli_si128(p_int, 12)));
+ 
+     #define tint(v) \
+       luma = _mm_dp_ps((v), weights, 0x7F); \
+       v = _mm_add_ps(_mm_mul_ps(comp_amount, (v)), \
+                      _mm_add_ps(_mm_mul_ps(luma, tmp0), tmp1)); \
+-      v = _mm_cvtps_epi32(v)
++      v = (__m128)_mm_cvtps_epi32(v)
+ 
+     tint(p0); tint(p1); tint(p2); tint(p3);
+ 
+-    /* Gather the processed pixels */
+-    p = _mm_packus_epi16(_mm_packus_epi32(p0, p1),
+-                         _mm_packus_epi32(p2, p3));
++    p_int = _mm_packus_epi16(_mm_packus_epi32((__m128i)p0, (__m128i)p1),
++                             _mm_packus_epi32((__m128i)p2, (__m128i)p3));
+ 
+-    _mm_storeu_si128((__m128i*)(outframe + i * 4), p);
++    _mm_storeu_si128((__m128i*)(outframe + i * 4), p_int);
+   }
+ }
++
+ #elif USE_AVX2
+ static void tint_avx2(const uint32_t* inframe, uint32_t* outframe, size_t len,
+                       double amount, f0r_param_color_t blackColor, f0r_param_color_t whiteColor)
+-- 
+2.52.0.windows.1
+
