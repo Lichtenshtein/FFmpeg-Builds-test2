@@ -12,12 +12,12 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '08-zlib|61-opencv-test|84-frei0r'
+        default: '59-openvino-test'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
-        default: true
+        default: false
       cpu_arch:
         description: 'CPU march target (broadwell/x86-64-v3/znver3/native)'
         required: false
@@ -119,7 +119,7 @@ env:
   # Список для сохранения DLL (в run_stage.sh)
   DLL_PRESERVE_LIST: >-
     openvino|torch|tensorflow|vulkan|amf|nvcodec|mfx|opencv|
-    onevpl|leptonica-test|audiotoolbox|avisynth|vapoursynth|vapoursynth-python-test
+    onevpl|leptonica-test|audiotoolbox|avisynth|vapoursynth|vapoursynth-python-test|frei0r
   # Список для сохранения статики .a (в run_stage.sh)
   LIB_PRESERVE_LIST:
   # Список компонентов к которым strip не применяется (openvino,cuda-llvm)
