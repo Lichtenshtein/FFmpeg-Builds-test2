@@ -90,7 +90,6 @@ ffbuild_dockerbuild() {
 
         -DCMAKE_POLICY_DEFAULT_CMP0028=NEW
         -DCMAKE_IMPORTED_NO_SYSTEM=ON
-        -DOPENVINO_STATIC_COMPILATION=OFF
         -DOPENCV_SKIP_PYTHON_LOADER=ON
         -DBUILD_opencv_model_diagnostics=OFF # Отключаем проблемную утилиту
 
@@ -114,7 +113,7 @@ ffbuild_dockerbuild() {
     local ADDITIONAL_LDFLAGS="-lopenvino_onnx_frontend -lopenvino_tensorflow_frontend -lopenvino_pytorch_frontend -lopenvino_c -lopenvino -ltbb12 -lshlwapi"
 
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS -DOPENVINO_STATIC_COMPILATION" \
     LDFLAGS="$LDFLAGS $ADDITIONAL_LDFLAGS  -Wl,--allow-multiple-definition -Wl,--as-needed" \
     LIBS="$LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
