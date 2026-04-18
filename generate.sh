@@ -222,10 +222,6 @@ to_df "COPY patches ./patches"
 to_df "COPY util ./util"
 to_df "COPY variants ./variants"
 
-find / -name "configure" -maxdepth 4
-
-log_info "Checking source at: $FFMPEG_SOURCE_DIR"
-ls -la "$FFMPEG_SOURCE_DIR" || log_warn "Directory $FFMPEG_SOURCE_DIR does not exist"
 
 if [[ "${SKIP_FFMPEG}" == "1" ]]; then
     # Создаем пустой файл в artifacts, чтобы экшн загрузки не падал
