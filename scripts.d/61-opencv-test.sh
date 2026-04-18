@@ -53,8 +53,16 @@ ffbuild_dockerbuild() {
 
         # --- ПРОЧЕЕ ---
         -DBUILD_EXAMPLES=OFF
+        -DBUILD_PACKAGE=OFF
+        -DBUILD_DOCS=OFF
         -DBUILD_TESTS=OFF
         -DBUILD_PERF_TESTS=OFF
+        -DBUILD_FAT_JAVA_LIB=OFF
+        -DBUILD_JAVA=OFF
+        -DBUILD_opencv_apps=OFF
+        -DBUILD_opencv_python2=OFF
+        -DBUILD_opencv_java=OFF
+        -DBUILD_opencv_python3=OFF
         -DWITH_FFMPEG=OFF
         -DOPENCV_FFMPEG_SKIP_DOWNLOAD=ON
 
