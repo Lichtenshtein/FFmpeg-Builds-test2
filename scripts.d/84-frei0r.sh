@@ -3,6 +3,8 @@
 SCRIPT_REPO="https://github.com/dyne/frei0r.git"
 SCRIPT_COMMIT="32e91405d2ec5e222f75175b36dc4cc7bc0667ef"
 
+export SKIP_PRE_PATCH=1
+
 ffbuild_depends() {
     echo opencv-test
     echo cairo
@@ -31,7 +33,7 @@ ffbuild_dockerbuild() {
     # флаги для игнорирования несовместимых типов в SIMD коде (актуально для GCC 14)
     # Флаг -flax-vector-conversions разрешает неявное приведение __m128i к __m128
     # Добавляем -fpermissive для некоторых старых плагинов frei0r
-    # ADDITIONAL_FLAGS="-flax-vector-conversions -Wno-error=incompatible-pointer-types -fpermissive"
+    ADDITIONAL_FLAGS="-flax-vector-conversions -fpermissive -Wno-error=incompatible-pointer-types -Wno-error=int-conversion"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
