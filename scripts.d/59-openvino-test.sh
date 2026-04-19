@@ -27,6 +27,15 @@ ffbuild_dockerbuild() {
     local OV_DIR=$(find . -maxdepth 1 -type d -name "*openvino_*" | head -n 1)
     cd "$OV_DIR"
 
+   log_info "Applying MinGW fixes to OpenVINO headers..."
+
+    # Исправляем конфликт BOOLEAN в openvino.h
+    # Оборачиваем дефайн в защиту от Win32
+    sed -i 's/^#define BOOLEAN OV_BOOLEAN/#ifndef _WIN32\n#define BOOLEAN OV_BOOLEAN\n#endif/' runtime/include/openvino/c/openvino.h
+
+    # Убираем дублирующееся объявление, вызывающее warning -Wredundant-decls
+    sed -i '/OPENVINO_C_VAR(const char\*) ov_property_key_intel_gpu_config_file;/d' runtime/include/openvino/c/gpu/gpu_plugin_properties.h
+
     log_info "Installing OpenVINO Runtime to $FFBUILD_PREFIX"
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin,lib/cmake}
@@ -35,13 +44,15 @@ ffbuild_dockerbuild() {
     cp -r runtime/include/* "$INSTALL_ROOT/include/"
 
     # Библиотеки
-    find runtime/lib/intel64/Release/ -name "*.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
+    # find runtime/lib/intel64/Release/ -name "*.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
 
-# Копируем оригинальные либы с префиксом lib и расширением .a
-# find runtime/lib/intel64/Release/ -name "*.lib" | while read -r f; do
-    # name=$(basename "$f" .lib)
-    # cp "$f" "$INSTALL_ROOT/lib/lib${name}.a"
-# done
+    # Библиотеки (MinGW может линковаться напрямую с .lib файлами как с импортными библиотеками)
+    # Копируем их с расширением .lib, но создаем копии .a для pkg-config если нужно
+    find runtime/lib/intel64/Release/ -name "*.lib" | while read -r f; do
+        name=$(basename "$f" .lib)
+        cp "$f" "$INSTALL_ROOT/lib/${name}.lib"
+        cp "$f" "$INSTALL_ROOT/lib/lib${name}.a"
+    done
 
     # Бинарники (DLL и плагины)
     # Копируем всё содержимое Release в bin (включая плагины и json конфиги)
@@ -101,7 +112,7 @@ Description: Intel OpenVINO Runtime (Dynamic)
 Version: 2025.4.1
 Libs: -L\${libdir} -lopenvino -lopenvino_c
 # Libs.private: -ltbb12 -ltbb
-# Cflags: -I\${includedir} -DOPENVINO_STATIC_COMPILATION
+Cflags: -I\${includedir}
 EOF
 }
 
