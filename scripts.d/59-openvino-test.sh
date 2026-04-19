@@ -25,8 +25,16 @@ ffbuild_dockerbuild() {
     local OV_DIR=$(find . -maxdepth 1 -type d -name "*openvino_*" | head -n 1)
     cd "$OV_DIR"
 
-    # Фикс BOOLEAN и дубликатов для MinGW
-    sed -i 's/^#define BOOLEAN OV_BOOLEAN/#ifndef _WIN32\n#define BOOLEAN OV_BOOLEAN\n#endif/' runtime/include/openvino/c/openvino.h
+    log_info "Applying deep MinGW fixes to OpenVINO headers..."
+
+    # Заменяем BOOLEAN на OV_BOOLEAN_TYPE во всех заголовочных файлах C-API
+    # Это исключит конфликт с typedef BYTE BOOLEAN в winnt.h
+    find runtime/include/openvino/c -type f -exec sed -i 's/\bBOOLEAN\b/OV_BOOLEAN_TYPE/g' {} +
+
+    # Убираем опасный дефайн в openvino.h, который мы переименовали выше
+    sed -i '/#define BOOLEAN OV_BOOLEAN/d' runtime/include/openvino/c/openvino.h
+
+    # Фикс дубликатов свойств (уже был)
     sed -i '/OPENVINO_C_VAR(const char\*) ov_property_key_intel_gpu_config_file;/d' runtime/include/openvino/c/gpu/gpu_plugin_properties.h
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin,lib/cmake}
