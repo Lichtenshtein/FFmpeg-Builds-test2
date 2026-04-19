@@ -36,6 +36,17 @@ ffbuild_dockerbuild() {
         -DBUILD_opencv_dnn=ON
         -DBUILD_opencv_core=ON
         -DBUILD_opencv_imgproc=ON
+        -DBUILD_EXAMPLES=OFF
+        -DBUILD_PACKAGE=OFF
+        -DBUILD_DOCS=OFF
+        -DBUILD_TESTS=OFF
+        -DBUILD_PERF_TESTS=OFF
+        -DBUILD_FAT_JAVA_LIB=OFF
+        -DBUILD_JAVA=OFF
+        -DBUILD_opencv_model_diagnostics=OFF
+        -DBUILD_opencv_apps=OFF
+        -DBUILD_opencv_python2=OFF
+        -DBUILD_opencv_java=OFF
         # --- ОТКЛЮЧАЕМ ТЯЖЕЛЫЕ ЗАВИСИМОСТИ ---
         -DWITH_AVIF=OFF
         -DWITH_JPEG=OFF
@@ -62,11 +73,10 @@ ffbuild_dockerbuild() {
         -DBUILD_opencv_highgui=OFF -DBUILD_opencv_videoio=OFF -DBUILD_opencv_imgcodecs=OFF
         
         -DWITH_OPENVINO=ON
+        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+        -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
         -DOPENVINO_STATIC_COMPILATION=OFF
         -DCPU_BASELINE=AVX2
-        
-        -DBUILD_ZLIB=ON
-        -DBUILD_EXAMPLES=OFF -DBUILD_TESTS=OFF -DBUILD_PERF_TESTS=OFF
         -DWITH_FFMPEG=OFF
     )
 
@@ -76,6 +86,12 @@ ffbuild_dockerbuild() {
         -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS" \
         -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS" \
         .. || return 1
+
+    if ! grep -q "OpenVINO:.*YES" CMakeCache.txt; then
+        echo "ERROR: OpenVINO was not detected by OpenCV!"
+        grep "OpenVINO" CMakeCache.txt
+        return 1
+    fi
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
