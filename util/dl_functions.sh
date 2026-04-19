@@ -362,7 +362,7 @@ confhash_compute() {
 
     if [[ -z "$raw_options" ]]; then
         # Если файлов нет совсем — возвращаем 1
-        local found_files=$(find "$src_dir" -maxdepth 6 \( -name "configure.ac" -o -name "CMakeLists.txt" -o -name "meson_options.txt" -o -name "CMakeOptions.txt" \) | wc -l)
+        local found_files=$(find "$src_dir" -maxdepth 6 \( -name "configure.ac" -o -name "CMakeLists.txt" -o -name "meson_options.txt" -o -name "CMakeOptions.txt" -o -name "DefineOptions.cmake" \) | wc -l)
         [[ "$found_files" -eq 0 ]] && return 1
 
         # Files were found but no options extracted — still save a hash
@@ -413,7 +413,7 @@ confhash_extract_options() {
         # VERSION b)
         local chunk=$(grep -oP '(?i)(?:cmake_dependent_)?option\(\s*\K[A-Za-z_][A-Za-z0-9_]*' "$f" 2>/dev/null)
         [[ -n "$chunk" ]] && while read -r line; do opts+="cmake:$line"$'\n'; done <<< "$chunk"
-    done < <(find "$src_dir" -maxdepth 6 \( -name "CMakeLists.txt" -o -name "CMakeOptions.txt" \) -print0 2>/dev/null)
+    done < <(find "$src_dir" -maxdepth 6 \( -name "CMakeLists.txt" -o -name "CMakeOptions.txt" -o -name "DefineOptions.cmake" \) -print0 2>/dev/null)
 
     # use only meson_options.txt, for now. del "-o -name "meson.build" " \)"
     while IFS= read -r -d '' f; do

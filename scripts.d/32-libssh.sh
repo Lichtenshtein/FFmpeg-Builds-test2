@@ -20,10 +20,9 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Fix compilation on windows, mingw exports the symbol, but the header only shows it for c23.
-    # Since the cmake script only checks for the symbol, it succeeds. But then fails to build.
-    echo '#include <stddef.h>' >> config.h
-    echo 'char * strndup(const char *s, size_t c);' >> config.h
+    echo '#include <string.h>' > mingw_fix.h
+    echo '#include <stdlib.h>' >> mingw_fix.h
+    echo 'char *strndup(const char *s, size_t n);' >> mingw_fix.h
 
     mkdir -p build && cd build
 
@@ -36,24 +35,27 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DWITH_EXAMPLES=OFF
         -DWITH_SERVER=OFF
-        -DHAVE_STRNDUP=YES
+        -DHAVE_STRNDUP=ON
         -DWITH_SFTP=ON
         -DWITH_ZLIB=ON
-        -DWITH_GCRYPT=OFF # Используем OpenSSL
         -DWITH_MBEDTLS=OFF
+        -DWITH_FIDO2=OFF
+        -DWITH_BLOWFISH_CIPHER=OFF
     )
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBSSH_STATIC"
 
-    CFLAGS="$CFLAGS $CPPFLAGS $static_flags -Dmd5=libssh_md5" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags -Dmd5=libssh_md5" \
+    export MINGW_FIX_CFLAGS="-include $(pwd)/mingw_fix.h -D_GNU_SOURCE -Dmd5=libssh_md5"
+
+    CFLAGS="$CFLAGS $CPPFLAGS $MINGW_FIX_CFLAGS $static_flags" \
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
+    mkdir -p "$PC_DIR"
     local PC_FILE="$PC_DIR/libssh.pc"
     if [[ -f "$PC_FILE" ]]; then
         sed -i '/^Cflags:/ s/$/ -Dmd5=libssh_md5/' "$PC_FILE"
