@@ -61,5 +61,5 @@ ffbuild_dockerbuild() {
 }
 
 ffbuild_libs() {
-    echo "-ltbb -ltbbmalloc"
+    echo "-ltbb -ltbb12 -ltbbmalloc"
 }
