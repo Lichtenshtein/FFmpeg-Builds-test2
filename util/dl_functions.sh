@@ -141,6 +141,8 @@ download_file() {
     local SHA512="$3"
     local useragent="Mozilla/5.0 (Windows NT 10.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
 
+    mkdir -p "$(dirname "$DEST")"
+
     # Cache hit check BEFORE any deletion
     if [[ -f "$DEST" ]]; then
         if [[ -n "${SHA512:-}" ]]; then
@@ -163,6 +165,8 @@ download_file() {
     # -L (location) следовать редиректам SourceForge
 
     # если первая попытка провалилась (или нет pv) запускаем _retry
+    # try 
+    # if ! _retry curl -A "$useragent" -fsSL --connect-timeout 15 "$URL" -o "$DEST"; then
     if ! _retry bash -c "curl -A $(printf '%q' "$useragent") \
             -fsSL --connect-timeout 15 \
             $(printf '%q' "$URL") -o $(printf '%q' "$DEST")"; then

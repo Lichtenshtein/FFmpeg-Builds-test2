@@ -14,8 +14,6 @@ ccache -s
 ccache -z > /dev/null
 # Сбрасываем счетчик секунд в начале этапа
 SECONDS=0
-duration=$SECONDS
-elapsed=$(printf '%02dh:%02dm:%02ds' $((duration/3600)) $((duration%3600/60)) $((duration%60)))
 
 # Определяем функцию очистки
 cleanup() {
@@ -436,7 +434,8 @@ ls -lh "$PKG_DIR/bin/"
 # Скачиваем модели и ассеты
 log_info "${DOWN_MARK} Checking for additional assets..."
 
-"$UTIL_DIR"/download_assets.sh "$ASSETS_DIR" "$(pwd)" || log_warn "Assets download failed, but continuing..."
+# "$UTIL_DIR"/download_assets.sh "$ASSETS_DIR" "$(pwd)" || log_warn "Assets download failed, but continuing..."
+"$UTIL_DIR"/download_assets.sh "$ASSETS_DIR" "$FFMPEG_SOURCE_DIR" || log_warn "Assets download failed, but continuing..."
 
 # Стриппинг бинарников (удаление отладочных символов)
 # --strip-all; --strip-unneeded
@@ -456,10 +455,14 @@ if [[ -n "$GITHUB_ACTIONS" ]]; then
     echo "${BUILD_NAME}.7z" > "$FFBUILD_DESTDIR/${TARGET}-${VARIANT}.txt"
 fi
 
+duration=$SECONDS
+elapsed=$(printf '%02dh:%02dm:%02ds' $((duration/3600)) $((duration%3600/60)) $((duration%60)))
+
 log_info "${CHECK_MARK} Build finished after ${GREY_B}${elapsed}${NC}"
 
 # Вывод статистики ccache
 log_info "${CACHE_MARK} CCACHE STATISTICS:"
 ccache -s
+sleep 2
 
 exit 0

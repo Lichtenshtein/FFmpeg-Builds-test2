@@ -46,11 +46,11 @@ ffbuild_dockerbuild() {
     cargo build $CARGO_V "${myconf[@]}" || return 1
 
     # Ручная установка, так как cargo не имеет "install" в префикс
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
+    mkdir -p "$INSTALL_ROOT/include"
     mkdir -p "$PC_DIR"
 
-    cp include/quiche.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
-    cp "target/$FFBUILD_RUST_TARGET/release/libquiche.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+    cp include/quiche.h "$INSTALL_ROOT/include/"
+    cp "target/$FFBUILD_RUST_TARGET/release/libquiche.a" "$INSTALL_ROOT/lib/"
 
     # Генерация или исправление .pc файла
     cat <<EOF > "$PC_DIR/quiche.pc"
