@@ -38,7 +38,6 @@ ffbuild_dockerbuild() {
     export RANLIB="${RANLIB/${FFBUILD_CROSS_PREFIX}/}"
 
     local myconf=(
-        mingw64
         threads # adding '-static' flag disables that, don't use it
         no-tests
         no-apps
@@ -60,6 +59,12 @@ ffbuild_dockerbuild() {
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( shared zlib-dynamic pic ) || \
         myconf+=( no-shared zlib )
+
+    if [[ $TARGET == win64 ]]; then
+        myconf+=( mingw64 )
+    elif [[ $TARGET == linux64 ]]; then
+        myconf+=( linux-x86_64 )
+    fi
 
     ./Configure "${myconf[@]}" \
         "$CFLAGS -fno-strict-aliasing -Wno-overflow ${USELTO}" \
