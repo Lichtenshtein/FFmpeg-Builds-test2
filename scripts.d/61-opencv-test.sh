@@ -90,7 +90,11 @@ ffbuild_dockerbuild() {
         -DWITH_VULKAN=ON
         -DWITH_WEBP=ON
         -DWITH_ZLIB_NG=ON
-        -DWITH_CUDA=OFF # not supported
+        # CUDA; linux only
+        # -DWITH_CUDA=OFF # not supported
+        # -DOPENCV_DNN_CUDA=ON
+        # -DCUDA_ARCH_BIN=6.1 # Например, для Pascal
+        # -DCUDA_ARCH_PTX=6.1
         # Parallel processing
         -DWITH_OPENMP=OFF
         -DWITH_PTHREADS_PF=OFF
