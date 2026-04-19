@@ -19,7 +19,15 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Настройка окружения для Rust
+    cd quiche
+
+    # Заменяем crate-type = ["lib", "staticlib", "cdylib"] на ["staticlib"]
+    sed -i 's/crate-type = \[.*\]/crate-type = ["staticlib"]/' Cargo.toml
+
+    # Настройка окружения для использования внешнего OpenSSL (через pkg-config)
+    export PKG_CONFIG_ALLOW_CROSS=1
+    export OPENSSL_NO_VENDOR=1
+    export OPENSSL_DIR="$FFBUILD_PREFIX"
     export QUICHE_BSSL_PATH="$FFBUILD_PREFIX"
 
     # Сборка через cargo
@@ -31,8 +39,8 @@ ffbuild_dockerbuild() {
     local myconf=(
         --release
         --target="${FFBUILD_RUST_TARGET}"
-        --crate-type=$([ "${PREFER_SHARED}" == "1" ] && echo cdylib || echo staticlib)
-        --features ffi,pkg-config-meta,http3
+        --no-default-features
+        --features openssl,ffi,pkg-config-meta,http3
     )
 
     CFLAGS="$CFLAGS" \
@@ -45,7 +53,7 @@ ffbuild_dockerbuild() {
     mkdir -p "$INSTALL_ROOT/lib"
     mkdir -p "$PC_DIR"
 
-    cp quiche/include/quiche.h "$INSTALL_ROOT/include/"
+    cp include/quiche.h "$INSTALL_ROOT/include/" || cp ../include/quiche.h "$INSTALL_ROOT/include/"
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
         cp "target/$FFBUILD_RUST_TARGET/release/quiche.dll" "$INSTALL_ROOT/bin/"
@@ -65,7 +73,7 @@ Name: quiche
 Description: QUIC and HTTP/3 implementation
 Version: 0.20.0
 Libs: -L\${libdir} -lquiche
-Libs.private: -lws2_32 -lbcrypt -ladvapi32 -luser32 -lntdll
+Libs.private: -lws2_32 -lbcrypt -ladvapi32 -luser32 -lntdll -lcrypto -lssl
 Cflags: -I\${includedir}
 EOF
 }
