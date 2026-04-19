@@ -1,7 +1,7 @@
 #!/bin/bash
 
-set -e
-# set -xe
+# set -e
+set -xe
 shopt -s globstar
 cd "$(dirname "$0")"
 
@@ -209,6 +209,11 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info "### ${BUILD_MARK} Start of DEBUG audit section"
     log_info_line
 
+    log_debug "FFBUILD_PREFIX: $FFBUILD_PREFIX"
+    log_debug "FFBUILD_DESTDIR: $FFBUILD_DESTDIR"
+    log_debug "PKG_DIR: $PKG_DIR"
+    log_debug "INSTALL_ROOT: $INSTALL_ROOT"
+
     log_debug "RAW CONFIGURE: \n$TOTAL_FF_CONFIGURE"
     log_debug "RAW CFLAGS: \n$TOTAL_FF_CFLAGS"
     log_debug "RAW LDFLAGS: \n$TOTAL_FF_LDFLAGS"
@@ -379,7 +384,9 @@ fi
 BUILD_NAME="ffmpeg-git-${FFMPEG_VERSION}-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
 PKG_DIR="$FFMPEG_PKG_ROOT/${BUILD_NAME}"
 
-mkdir -p "$PKG_DIR/bin" "$PKG_DIR/doc"
+mkdir -p "$PKG_DIR"/{include,lib,bin,doc,assets}
+
+export ASSETS_DIR="$PKG_DIR/bin/assets"
 
 if ! declare -F package_variant >/dev/null; then
     log_error "package_variant not defined - variant script missing or broken"
@@ -419,8 +426,6 @@ ls -lh "$PKG_DIR/bin/"
 # Скачиваем модели и ассеты
 log_info "${DOWN_MARK} Checking for additional assets..."
 
-export ASSETS_DIR="$PKG_DIR/bin/assets"
-mkdir -p "$ASSETS_DIR"
 "$UTIL_DIR"/download_assets.sh "$ASSETS_DIR" "$(pwd)" || log_warn "Assets download failed, but continuing..."
 
 # Стриппинг бинарников (удаление отладочных символов)
