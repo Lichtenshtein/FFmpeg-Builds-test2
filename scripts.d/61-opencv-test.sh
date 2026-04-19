@@ -81,7 +81,6 @@ ffbuild_dockerbuild() {
         # --- OPENVINO (ГЛАВНАЯ ЦЕЛЬ) ---
         -DWITH_OPENVINO=ON
         -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-        -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
         -Dngraph_DIR="$FFBUILD_PREFIX/lib/cmake"
 
         # --- ПРОЧЕЕ ---
@@ -98,7 +97,7 @@ ffbuild_dockerbuild() {
         -DBUILD_opencv_model_diagnostics=OFF # Отключаем проблемную утилиту
 
         #-DOPENCV_DNN_OPENVINO=ON
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS -Dov_EXPORTS"
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS"
     )
 
     if [[ $TARGET == win64 ]]; then
