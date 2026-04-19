@@ -22,13 +22,16 @@ ffbuild_dockerbuild() {
     cd quiche
 
     # Заменяем crate-type = ["lib", "staticlib", "cdylib"] на ["staticlib"]
-    sed -i 's/crate-type = \[.*\]/crate-type = ["staticlib"]/' Cargo.toml
+    if [[ "${PREFER_SHARED}" == "1" ]]; then
+        sed -i 's/crate-type = \[.*\]/crate-type = ["cdylib"]/' Cargo.toml
+    else
+        sed -i 's/crate-type = \[.*\]/crate-type = ["staticlib"]/' Cargo.toml
+    fi
 
     # Настройка окружения для использования внешнего OpenSSL (через pkg-config)
-    export PKG_CONFIG_ALLOW_CROSS=1
     export OPENSSL_NO_VENDOR=1
     export OPENSSL_DIR="$FFBUILD_PREFIX"
-    export QUICHE_BSSL_PATH="$FFBUILD_PREFIX"
+    export OPENSSL_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo 0 || echo 1)
 
     # Сборка через cargo
     # --features ffi: создаёт C-совместимую библиотеку и заголовки
@@ -49,11 +52,11 @@ ffbuild_dockerbuild() {
     RUSTFLAGS="$RUSTFLAGS" \
     cargo build $CARGO_V "${myconf[@]}" || return 1
 
-    mkdir -p "$INSTALL_ROOT/include"
-    mkdir -p "$INSTALL_ROOT/lib"
-    mkdir -p "$PC_DIR"
+    mkdir -p "$INSTALL_ROOT/include" "$INSTALL_ROOT/lib" "$PC_DIR"
 
-    cp include/quiche.h "$INSTALL_ROOT/include/" || cp ../include/quiche.h "$INSTALL_ROOT/include/"
+    local LIBPATH=$(find target/${FFBUILD_RUST_TARGET}/release -maxdepth 1 -name "libquiche.a")
+    cp "$LIBPATH" "$INSTALL_ROOT/lib/"
+    cp quiche/include/quiche.h "$INSTALL_ROOT/include/"
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
         cp "target/$FFBUILD_RUST_TARGET/release/quiche.dll" "$INSTALL_ROOT/bin/"
