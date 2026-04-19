@@ -301,8 +301,8 @@ CONF_FLAGS=(
     --host-cc="gcc-14"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
-    --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
-    --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
+    --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS} -Dov_property_key_intel_gpu_config_file=ov_property_key_intel_gpu_config_file_fixed -DNC_STRICT_BOOLEAN"
+    --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS} -Dov_property_key_intel_gpu_config_file=ov_property_key_intel_gpu_config_file_fixed -DNC_STRICT_BOOLEAN"
     --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS}"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
     --extra-libs="${FINAL_LIBS_GROUPED}"
@@ -314,7 +314,6 @@ CONF_FLAGS=(
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
 )
 
-[[ "$TARGET" != linux* ]] && CONF_FLAGS+=( --enable-wasapi )
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
 [[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
 [[ "$HAS_AMF" == "1" ]] && CONF_FLAGS+=( --enable-filter=vpp_amf --enable-filter=sr_amf )
