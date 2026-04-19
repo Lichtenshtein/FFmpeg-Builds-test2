@@ -54,9 +54,19 @@ ffbuild_dockerbuild() {
 
     mkdir -p "$INSTALL_ROOT/include" "$INSTALL_ROOT/lib" "$PC_DIR"
 
-    local LIBPATH=$(find target/${FFBUILD_RUST_TARGET}/release -maxdepth 1 -name "libquiche.a")
-    cp "$LIBPATH" "$INSTALL_ROOT/lib/"
-    cp quiche/include/quiche.h "$INSTALL_ROOT/include/"
+    local LIB_FILE=$(find . -name "libquiche.a" | grep "release" | head -n 1)
+    local HEADER_FILE=$(find . -name "quiche.h" | grep "include" | head -n 1)
+
+    if [[ -z "$LIB_FILE" || -z "$HEADER_FILE" ]]; then
+        log_error "libquiche.a not found!"
+        return 1
+    fi
+
+    log_info "Found lib: $LIB_FILE"
+    log_info "Found header: $HEADER_FILE"
+
+    cp "$LIB_FILE" "$INSTALL_ROOT/lib/libquiche.a"
+    cp "$HEADER_FILE" "$INSTALL_ROOT/include/quiche.h"
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
         cp "target/$FFBUILD_RUST_TARGET/release/quiche.dll" "$INSTALL_ROOT/bin/"
