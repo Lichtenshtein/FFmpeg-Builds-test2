@@ -111,7 +111,7 @@ ffbuild_dockerbuild() {
     fi
 
 # -ltbb12
-    local ADDITIONAL_LDFLAGS="-lopenvino_onnx_frontend -lopenvino_tensorflow_frontend -lopenvino_pytorch_frontend -lopenvino_c -lopenvino -ltbb12 -lshlwapi"
+    local ADDITIONAL_LDFLAGS="-lopenvino_onnx_frontend -lopenvino_tensorflow_frontend -lopenvino_pytorch_frontend -lopenvino_c -lopenvino -lshlwapi"
 
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
