@@ -40,7 +40,7 @@ ffbuild_dockerbuild() {
         --release
         --target="${FFBUILD_RUST_TARGET}"
         --no-default-features
-        --features openssl,ffi,pkg-config-meta,http3
+        --features openssl,ffi,pkg-config-meta
     )
 
     CFLAGS="$CFLAGS" \
