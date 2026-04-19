@@ -29,6 +29,7 @@ ffbuild_dockerbuild() {
     export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
 
     local myconf=(
+        -DCMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
