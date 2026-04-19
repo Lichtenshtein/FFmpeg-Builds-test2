@@ -54,6 +54,15 @@ ffbuild_dockerbuild() {
         -e "s|liblib|lib|g" \
         {} +
 
+    # код для удаления суффикса 'd'
+    # Мы обрабатываем и .a, и .dll, и текстовые упоминания конфигураций
+    find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
+        -e "s|\([^n]\)d\.a|\1.a|g" \
+        -e "s|\([^n]\)d\.dll|\1.dll|g" \
+        -e "s|Debug|Release|g" \
+        -e "s|DEBUG|RELEASE|g" \
+        {} +
+
     # Это предотвратит ошибку "openvino_onnx_frontendd.a not found"
     find "$INSTALL_ROOT/lib/cmake" -name "OpenVINOTargets-*.cmake" -exec sed -i \
         -r 's/([a-zA-Z0-9_]+)d\.a/\1.a/g' {} +
