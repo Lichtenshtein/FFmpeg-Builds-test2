@@ -55,6 +55,9 @@ ffbuild_dockerbuild() {
     find "$INSTALL_ROOT/lib/cmake" -name "OpenVINOTargets-*.cmake" -exec sed -i \
         -r 's/([a-zA-Z0-9_]+)d\.a/\1.a/g' {} +
 
+    # Удаляем проверки существования файлов, которые часто ломают find_package в кросс-компиляции
+    find "$INSTALL_ROOT/lib/cmake" -name "OpenVINOTargets-*.cmake" -exec sed -i '/_cmake_import_check_files_for_.* exists/d' {} +
+
     # Корректный pkg-config для динамической линковки
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/openvino.pc"
