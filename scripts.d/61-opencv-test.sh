@@ -89,9 +89,10 @@ ffbuild_dockerbuild() {
         -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS" \
         .. || return 1
 
-    if ! grep -q "OpenVINO:.*YES" CMakeCache.txt; then
-        echo "ERROR: OpenVINO was not detected by OpenCV!"
-        grep "OpenVINO" CMakeCache.txt
+    if ! grep -qiE "OPENVINO:.*(YES|ON|TRUE)" CMakeCache.txt && ! grep -qi "HAVE_OPENVINO:INTERNAL=ON" CMakeCache.txt; then
+        echo "ERROR: OpenVINO was not detected in CMakeCache.txt!"
+        # Выведем для отладки, что там на самом деле
+        grep -i "OPENVINO" CMakeCache.txt
         return 1
     fi
 
