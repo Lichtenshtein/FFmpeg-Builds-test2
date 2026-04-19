@@ -40,15 +40,20 @@ ffbuild_dockerbuild() {
         cp "$f" "$INSTALL_ROOT/lib/${name}.lib"
     done
 
-    # Исправляем пути в CMake без повреждения структуры PROPERTIES
-    cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
+    # Массированный патч путей и типов файлов
     find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
         -e "s|runtime/lib/intel64/Release/|lib/lib|g" \
+        -e "s|runtime/lib/intel64/Debug/|lib/lib|g" \
         -e "s|runtime/bin/intel64/Release/|bin/|g" \
+        -e "s|runtime/bin/intel64/Debug/|bin/|g" \
         -e "s|runtime/include|include|g" \
         -e "s|\.lib|.a|g" \
         -e "s|liblib|lib|g" \
         {} +
+
+    # Это предотвратит ошибку "openvino_onnx_frontendd.a not found"
+    find "$INSTALL_ROOT/lib/cmake" -name "OpenVINOTargets-*.cmake" -exec sed -i \
+        -r 's/([a-zA-Z0-9_]+)d\.a/\1.a/g' {} +
 
     # Корректный pkg-config для динамической линковки
     mkdir -p "$PC_DIR"
