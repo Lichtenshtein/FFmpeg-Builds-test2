@@ -101,7 +101,7 @@ Description: Intel OpenVINO Runtime (Dynamic)
 Version: 2025.4.1
 Libs: -L\${libdir} -lopenvino -lopenvino_c
 # Libs.private: -ltbb12 -ltbb
-Cflags: -I\${includedir} -DOPENVINO_STATIC_COMPILATION
+# Cflags: -I\${includedir} -DOPENVINO_STATIC_COMPILATION
 EOF
 }
 

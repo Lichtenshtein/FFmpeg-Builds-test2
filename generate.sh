@@ -230,7 +230,7 @@ else
     # Финальная сборка FFmpeg (инвалидируется только при изменении FFmpeg или build.sh)
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
     # to_df "    --mount=from=ffmpeg_src,target=$FFMPEG_SOURCE_DIR,rw \\"
-    to_df "    --mount=type=bind,source=.cache/ffmpeg,target=${FFMPEG_SOURCE_DIR},rw \\"
+    to_df "    --mount=type=bind,source=.cache/ffmpeg,target=/builder/ffbuild/ffmpeg,rw \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
 
