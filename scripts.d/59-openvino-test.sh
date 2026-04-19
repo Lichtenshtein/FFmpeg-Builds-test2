@@ -50,7 +50,6 @@ ffbuild_dockerbuild() {
     # Копируем их с расширением .lib, но создаем копии .a для pkg-config если нужно
     find runtime/lib/intel64/Release/ -name "*.lib" | while read -r f; do
         name=$(basename "$f" .lib)
-        cp "$f" "$INSTALL_ROOT/lib/${name}.lib"
         cp "$f" "$INSTALL_ROOT/lib/lib${name}.a"
     done
 
@@ -65,35 +64,42 @@ ffbuild_dockerbuild() {
     # fi
 
 # Проверяем, появились ли там символы
-log_info "--- SYMBOL CHECK FOR libopenvino.a ---"
-${FFBUILD_CROSS_PREFIX}nm "$INSTALL_ROOT/lib/libopenvino.a" | grep "get_shape" | head -n 5 || echo "Still no symbols!"
+# log_info "--- SYMBOL CHECK FOR libopenvino.a ---"
+# ${FFBUILD_CROSS_PREFIX}nm "$INSTALL_ROOT/lib/libopenvino.a" | grep "get_shape" | head -n 5 || echo "Still no symbols!"
 
     # CMake файлы
     cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
 
     cd "$INSTALL_ROOT/lib/cmake"
 
-    find . -name "OpenVINOTargets.cmake" -exec sed -i \
-        -e "s|/opt/ffbuild/runtime/|${FFBUILD_PREFIX}/|g" \
-        {} +
+    # find . -name "OpenVINOTargets.cmake" -exec sed -i \
+        # -e "s|/opt/ffbuild/runtime/|${FFBUILD_PREFIX}/|g" \
+        # {} +
 
-    find . -name "*.cmake" -type f -exec sed -i \
+    # find . -name "*.cmake" -type f -exec sed -i \
+        # -e "s|runtime/lib/intel64/Release/|lib/lib|g" \
+        # -e "s|runtime/lib/intel64/Debug/|lib/lib|g" \
+        # -e "s|runtime/bin/intel64/Release/|bin/|g" \
+        # -e "s|runtime/bin/intel64/Debug/|bin/|g" \
+        # -e "s|runtime/include|include|g" \
+        # -e "s|lib/intel64/Release/|lib/lib|g" \
+        # -e "s|\.lib|.a|g" \
+        # -e "s|liblib|lib|g" \
+        # {} +
+
+    find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
         -e "s|runtime/lib/intel64/Release/|lib/lib|g" \
-        -e "s|runtime/lib/intel64/Debug/|lib/lib|g" \
         -e "s|runtime/bin/intel64/Release/|bin/|g" \
-        -e "s|runtime/bin/intel64/Debug/|bin/|g" \
         -e "s|runtime/include|include|g" \
-        -e "s|lib/intel64/Release/|lib/lib|g" \
         -e "s|\.lib|.a|g" \
-        -e "s|liblib|lib|g" \
         {} +
 
-    find . -name "*.cmake" -type f -exec sed -i \
-        -e "s|\([^n]\)d\.a|\1.a|g" \
-        -e "s|\([^n]\)d\.dll|\1.dll|g" \
-        -e "s|Debug|Release|g" \
-        -e "s|DEBUG|RELEASE|g" \
-        {} +
+    # find . -name "*.cmake" -type f -exec sed -i \
+        # -e "s|\([^n]\)d\.a|\1.a|g" \
+        # -e "s|\([^n]\)d\.dll|\1.dll|g" \
+        # -e "s|Debug|Release|g" \
+        # -e "s|DEBUG|RELEASE|g" \
+        # {} +
 
     sed -i '/_cmake_import_check_files_for_.* exists/d' OpenVINOTargets.cmake || true
     sed -i 's/FATAL_ERROR/STATUS/g' OpenVINOTargets.cmake
@@ -101,13 +107,6 @@ ${FFBUILD_CROSS_PREFIX}nm "$INSTALL_ROOT/lib/libopenvino.a" | grep "get_shape" |
     echo "--- FINAL CHECK: NO MORE FRONTEN ERRORS ---"
     grep "onnx_frontend" OpenVINOTargets-release.cmake | head -n 2
 
-    # Удаляем зависимости от плагинов из CMake, так как они только в DLL
-    # и не должны линковаться намертво
-    # find "$INSTALL_ROOT/lib/cmake" -name "OpenVINOTargets-release.cmake" -exec sed -i \
-        # -e '/_static_plugin/d' \
-        # -e '/openvino_.*_plugin/d' \
-        # -e '/openvino_.*_frontend/d' \
-        # {} +
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/openvino.pc"
