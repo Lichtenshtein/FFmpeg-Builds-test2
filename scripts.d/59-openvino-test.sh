@@ -21,104 +21,45 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-
     unzip -qq openvino.zip
-    # Находим папку (имя может меняться в зависимости от билда)
     local OV_DIR=$(find . -maxdepth 1 -type d -name "*openvino_*" | head -n 1)
     cd "$OV_DIR"
 
-   log_info "Applying MinGW fixes to OpenVINO headers..."
-
-    # Исправляем конфликт BOOLEAN в openvino.h
-    # Оборачиваем дефайн в защиту от Win32
+    # Фикс BOOLEAN и дубликатов для MinGW
     sed -i 's/^#define BOOLEAN OV_BOOLEAN/#ifndef _WIN32\n#define BOOLEAN OV_BOOLEAN\n#endif/' runtime/include/openvino/c/openvino.h
-
-    # Убираем дублирующееся объявление, вызывающее warning -Wredundant-decls
     sed -i '/OPENVINO_C_VAR(const char\*) ov_property_key_intel_gpu_config_file;/d' runtime/include/openvino/c/gpu/gpu_plugin_properties.h
 
-    log_info "Installing OpenVINO Runtime to $FFBUILD_PREFIX"
-
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin,lib/cmake}
-
-    # заголовки
     cp -r runtime/include/* "$INSTALL_ROOT/include/"
+    cp -r runtime/bin/intel64/Release/* "$INSTALL_ROOT/bin/"
 
-    # Библиотеки
-    # find runtime/lib/intel64/Release/ -name "*.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
-
-    # Библиотеки (MinGW может линковаться напрямую с .lib файлами как с импортными библиотеками)
-    # Копируем их с расширением .lib, но создаем копии .a для pkg-config если нужно
+    # Копируем ВСЕ библиотеки фронтендов, иначе OpenCV не соберется
     find runtime/lib/intel64/Release/ -name "*.lib" | while read -r f; do
         name=$(basename "$f" .lib)
         cp "$f" "$INSTALL_ROOT/lib/lib${name}.a"
+        cp "$f" "$INSTALL_ROOT/lib/${name}.lib"
     done
 
-    # Бинарники (DLL и плагины)
-    # Копируем всё содержимое Release в bin (включая плагины и json конфиги)
-    cp -r runtime/bin/intel64/Release/* "$INSTALL_ROOT/bin/"
-
-    # TBB (Intel Threading Building Blocks)
-    # if [[ -d "runtime/3rdparty/tbb" ]]; then
-        # find runtime/3rdparty/tbb/bin/ -name "*.dll" ! -name "*_debug.dll" -exec cp {} "$INSTALL_ROOT/bin/" \;
-        # find runtime/3rdparty/tbb/lib/ -name "*.lib" ! -name "*_debug.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
-    # fi
-
-# Проверяем, появились ли там символы
-# log_info "--- SYMBOL CHECK FOR libopenvino.a ---"
-# ${FFBUILD_CROSS_PREFIX}nm "$INSTALL_ROOT/lib/libopenvino.a" | grep "get_shape" | head -n 5 || echo "Still no symbols!"
-
-    # CMake файлы
+    # Исправляем пути в CMake без повреждения структуры PROPERTIES
     cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
-
-    cd "$INSTALL_ROOT/lib/cmake"
-
-    # find . -name "OpenVINOTargets.cmake" -exec sed -i \
-        # -e "s|/opt/ffbuild/runtime/|${FFBUILD_PREFIX}/|g" \
-        # {} +
-
-    # find . -name "*.cmake" -type f -exec sed -i \
-        # -e "s|runtime/lib/intel64/Release/|lib/lib|g" \
-        # -e "s|runtime/lib/intel64/Debug/|lib/lib|g" \
-        # -e "s|runtime/bin/intel64/Release/|bin/|g" \
-        # -e "s|runtime/bin/intel64/Debug/|bin/|g" \
-        # -e "s|runtime/include|include|g" \
-        # -e "s|lib/intel64/Release/|lib/lib|g" \
-        # -e "s|\.lib|.a|g" \
-        # -e "s|liblib|lib|g" \
-        # {} +
-
     find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
         -e "s|runtime/lib/intel64/Release/|lib/lib|g" \
         -e "s|runtime/bin/intel64/Release/|bin/|g" \
         -e "s|runtime/include|include|g" \
         -e "s|\.lib|.a|g" \
+        -e "s|liblib|lib|g" \
         {} +
 
-    # find . -name "*.cmake" -type f -exec sed -i \
-        # -e "s|\([^n]\)d\.a|\1.a|g" \
-        # -e "s|\([^n]\)d\.dll|\1.dll|g" \
-        # -e "s|Debug|Release|g" \
-        # -e "s|DEBUG|RELEASE|g" \
-        # {} +
-
-    sed -i '/_cmake_import_check_files_for_.* exists/d' OpenVINOTargets.cmake || true
-    sed -i 's/FATAL_ERROR/STATUS/g' OpenVINOTargets.cmake
-
-    echo "--- FINAL CHECK: NO MORE FRONTEN ERRORS ---"
-    grep "onnx_frontend" OpenVINOTargets-release.cmake | head -n 2
-
-
+    # Корректный pkg-config для динамической линковки
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/openvino.pc"
 prefix=$FFBUILD_PREFIX
 libdir=\${prefix}/lib
 includedir=\${prefix}/include
-
 Name: OpenVINO
-Description: Intel OpenVINO Runtime (Dynamic)
+Description: Intel OpenVINO Runtime
 Version: 2025.4.1
 Libs: -L\${libdir} -lopenvino -lopenvino_c
-# Libs.private: -ltbb12 -ltbb
 Cflags: -I\${includedir}
 EOF
 }
