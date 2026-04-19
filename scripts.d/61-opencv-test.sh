@@ -94,7 +94,7 @@ ffbuild_dockerbuild() {
         -DOPENCV_SKIP_PYTHON_LOADER=ON
         -DBUILD_opencv_model_diagnostics=OFF # Отключаем проблемную утилиту
 
-        -DOPENCV_DNN_OPENVINO=ON
+        #-DOPENCV_DNN_OPENVINO=ON
         -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS -D_GLIBCXX_USE_CXX11_ABI=0 -Dov_EXPORTS"
     )
 
@@ -111,11 +111,11 @@ ffbuild_dockerbuild() {
     fi
 
 # -ltbb12
-    local ADDITIONAL_LDFLAGS="-lopenvino_onnx_frontend -lopenvino_tensorflow_frontend -lopenvino_pytorch_frontend -lopenvino_c -lopenvino -lshlwapi"
+    local ADDITIONAL_LDFLAGS="-lopenvino_auto_batch_plugin -lopenvino_auto_plugin-lopenvino_hetero_plugin -lopenvino_intel_cpu_plugin -lopenvino_intel_gpu_plugin -lopenvino_intel_npu_plugin -lopenvino_ir_frontend -lopenvino_onnx_frontend -lopenvino_paddle_frontend -lopenvino_pytorch_frontend -lopenvino_tensorflow_frontend -lopenvino_tensorflow_lite_frontend -lopenvino_c -lopenvino -lshlwapi"
 
-
+ -lstdc++
     CFLAGS="$CFLAGS $CPPFLAGS" \
-    LDFLAGS="$LDFLAGS $ADDITIONAL_LDFLAGS  -Wl,--allow-multiple-definition -Wl,--as-needed" \
+    LDFLAGS="$LDFLAGS -Wl,--start-group ${ADDITIONAL_LDFLAGS} -Wl,--end-group -Wl,--allow-multiple-definition" \
     LIBS="$LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
