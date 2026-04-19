@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# set -e
-set -xe
+set -e
+# set -xe
 shopt -s globstar
 cd "$(dirname "$0")"
 
@@ -154,6 +154,16 @@ _variant_libs=$(ffbuild_libs 2>/dev/null || true)
 [[ -n "$_variant_ldexeflags" ]] && VARIANT_FF_LDEXEFLAGS="${_variant_ldexeflags}"
 [[ -n "$_variant_libs" ]]       && VARIANT_FF_LIBS="${_variant_libs}"
 
+# Определяем целевой вариант (они могут добавить свои --enable)
+VARIANT_SCRIPT="${VARIANTS_DIR}/${TARGET}-${VARIANT}.sh"
+if [[ -f "$VARIANT_SCRIPT" ]]; then
+    log_info "Sourcing variant script: $VARIANT_SCRIPT"
+    source "$VARIANT_SCRIPT"
+else
+    log_error "Variant script not found: $VARIANT_SCRIPT"
+    exit 1
+fi
+
 # Клонирование и патчинг (прямо в текущем слое Docker)
 log_info "Using pre-mounted FFmpeg source..."
 if [[ ! -f "$FFMPEG_SOURCE_DIR/configure" ]]; then
@@ -209,10 +219,10 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info "### ${BUILD_MARK} Start of DEBUG audit section"
     log_info_line
 
-    log_debug "FFBUILD_PREFIX: $FFBUILD_PREFIX"
-    log_debug "FFBUILD_DESTDIR: $FFBUILD_DESTDIR"
-    log_debug "PKG_DIR: $PKG_DIR"
-    log_debug "INSTALL_ROOT: $INSTALL_ROOT"
+    log_debug "FFBUILD_PREFIX:\n$FFBUILD_PREFIX"
+    log_debug "FFBUILD_DESTDIR:\n$FFBUILD_DESTDIR"
+    log_debug "PKG_DIR:\n$PKG_DIR"
+    log_debug "INSTALL_ROOT:\n$INSTALL_ROOT"
 
     log_debug "RAW CONFIGURE: \n$TOTAL_FF_CONFIGURE"
     log_debug "RAW CFLAGS: \n$TOTAL_FF_CFLAGS"
