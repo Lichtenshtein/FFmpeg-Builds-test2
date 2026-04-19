@@ -20,11 +20,11 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    mkdir -p build && cd build
+
     echo '#include <string.h>' > mingw_fix.h
     echo '#include <stdlib.h>' >> mingw_fix.h
     echo 'char *strndup(const char *s, size_t n);' >> mingw_fix.h
-
-    mkdir -p build && cd build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
