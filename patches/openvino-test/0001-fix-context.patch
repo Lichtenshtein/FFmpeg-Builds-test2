@@ -1,0 +1,14 @@
+From 7ef9d7363185f1167f5d8780d7227382c3832e28 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sat, 18 Apr 2026 22:43:09 +0300
+Subject: [PATCH] Fix context
+---
+--- a/include/openvino/c/openvino.h
++++ b/include/openvino/c/openvino.h
+@@ -19,7 +19,9 @@
+ #include "openvino/c/ov_util.h"
+ #include "openvino/c/ov_version.h"
+ 
++#ifndef _WIN32
+ #define BOOLEAN OV_BOOLEAN
++#endif

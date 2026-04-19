@@ -26,89 +26,76 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
-    # export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-    export OpenJPEG_DIR="$FFBUILD_PREFIX/lib/cmake/openjpeg-2.5"
-
-    PYTHON_ROOT=$(python3 -c "import sys; print(sys.prefix)")
-    NUMPY_PATH=$(python3 -c "import numpy; print(numpy.get_include())")
-
+    # Настраиваем пути поиска конфигов
+    export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+    
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
-        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        -DENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        -DBUILD_SHARED_LIBS=OFF
         -DOPENCV_GENERATE_PKGCONFIG=ON
         -DCPU_BASELINE=${CPU_ARCH:-BROADWELL}
-        -DCPU_DISPATCH=AVX,AVX2
+        -DCPU_DISPATCH=AVX2
         -DENABLE_PIC=ON
-        -DOPENCV_ENABLE_NONFREE=ON
-        # Используем то, что уже собрали
-        -DBUILD_OPENEXR=ON # why not
-        -DBUILD_ZLIB=OFF
-        -DBUILD_JPEG=OFF
-        -DBUILD_PNG=OFF
-        -DBUILD_OPENJPEG=OFF
-        -DBUILD_WEBP=OFF
-        -DBUILD_TIFF=OFF
-        -DBUILD_TBB=OFF
-        -DBUILD_IPP_IW=OFF
-        # Отключаем лишнее для ускорения сборки
-        -DBUILD_EXAMPLES=OFF
-        -DBUILD_PACKAGE=OFF
-        -DBUILD_DOCS=OFF
-        -DBUILD_TESTS=OFF
-        -DBUILD_PERF_TESTS=OFF
-        -DBUILD_FAT_JAVA_LIB=OFF
-        -DBUILD_JAVA=OFF
-        -DBUILD_opencv_model_diagnostics=OFF
-        -DBUILD_opencv_apps=OFF
-        -DBUILD_opencv_python2=OFF
-        -DBUILD_opencv_java=OFF
-        # installed version of numpy not suitable
-        -DBUILD_opencv_python3=OFF
-        # -DPYTHON3_INCLUDE_PATH="$PYTHON_ROOT/include/python3.12"
-        # -DPYTHON3_LIBRARIES="$PYTHON_ROOT/lib/libpython3.12.so"
-        # -DPYTHON3_NUMPY_INCLUDE_DIRS="$NUMPY_PATH"
-        # -DOPENCV_SKIP_PYTHON_LOADER=ON
-        # Включаем форматы
-        -DWITH_AVIF=ON
-        -DWITH_IPP=ON
-        -DOPENCV_IPP_ENABLE_ALL=ON
-        -DWITH_JPEG=ON
-        -DWITH_JPEGXL=ON
-        -DWITH_MSMF_DXVA=ON
-        -DWITH_OPENCL=ON
-        -DWITH_OPENCL_D3D11_NV=ON
-        -DWITH_OPENGL=ON
-        -DWITH_OPENJPEG=ON
-        -DWITH_PNG=ON
-        -DWITH_TIFF=ON
-        -DWITH_VULKAN=ON
-        -DWITH_WEBP=ON
-        -DWITH_ZLIB_NG=ON
-        -DWITH_CUDA=OFF # not supported
-        # Parallel processing
-        -DWITH_OPENMP=OFF
-        -DWITH_PTHREADS_PF=OFF
-        -DWITH_TBB=ON
+
+        # --- ОТКЛЮЧАЕМ ВСЕ МОДУЛИ, КРОМЕ DNN ---
+        -DBUILD_opencv_calib3d=OFF
+        -DBUILD_opencv_features2d=OFF
+        -DBUILD_opencv_flann=OFF
+        -DBUILD_opencv_gapi=OFF
+        -DBUILD_opencv_highgui=OFF
+        -DBUILD_opencv_imgcodecs=OFF
+        -DBUILD_opencv_ml=OFF
+        -DBUILD_opencv_objdetect=OFF
+        -DBUILD_opencv_photo=OFF
+        -DBUILD_opencv_stitching=OFF
+        -DBUILD_opencv_video=OFF
+        -DBUILD_opencv_videoio=OFF
+        
+        # --- ОТКЛЮЧАЕМ ТЯЖЕЛЫЕ ЗАВИСИМОСТИ ---
+        -DWITH_AVIF=OFF
+        -DWITH_JPEG=OFF
+        -DWITH_PNG=OFF
+        -DWITH_WEBP=OFF
+        -DWITH_TIFF=OFF
+        -DWITH_OPENJPEG=OFF
+        -DWITH_JPEGXL=OFF
+        -DWITH_OPENEXR=OFF
+        -DWITH_VULKAN=OFF
+        -DWITH_OPENCL=OFF
+        -DWITH_OPENGL=OFF
+        -DWITH_IPP=OFF
+        -DBUILD_ZLIB=ON # Пусть соберет свою маленькую копию для внутренних нужд dnn
+        
+        # --- ПАРАЛЛЕЛИЗМ ---
+        -DWITH_TBB=OFF
         -DTBB_INCLUDE_DIRS="$FFBUILD_PREFIX/include"
         -DTBB_LIB_DIR="$FFBUILD_PREFIX/lib"
-        # Указываем пути к библиотекам
-        -DZLIB_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.a"
-        -DOPENJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include/openjpeg-2.5"
-        -DOPENJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libopenjp2.a"
-        # Включаем интеграцию с OpenVINO (Inference Engine)
-        # -DWITH_OPENVINO=ON
-        # -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-        # -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
-        # Отключаем загрузку готовых DLL FFmpeg
+        -DWITH_OPENMP=ON
+        -DWITH_PTHREADS_PF=OFF
+
+        # --- OPENVINO (ГЛАВНАЯ ЦЕЛЬ) ---
+        -DWITH_OPENVINO=ON
+        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+        -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
+        -Dngraph_DIR="$FFBUILD_PREFIX/lib/cmake"
+
+        # --- ПРОЧЕЕ ---
+        -DBUILD_EXAMPLES=OFF
+        -DBUILD_TESTS=OFF
+        -DBUILD_PERF_TESTS=OFF
+        -DWITH_FFMPEG=OFF
         -DOPENCV_FFMPEG_SKIP_DOWNLOAD=ON
-        -DWITH_FFMPEG=OFF # ON if standalone
-        # plugins
-        -DHIGHGUI_ENABLE_PLUGINS=ON
-        -DVIDEOIO_ENABLE_PLUGINS=ON
+
+        -DCMAKE_POLICY_DEFAULT_CMP0028=NEW
+        -DCMAKE_IMPORTED_NO_SYSTEM=ON
+        -DOPENVINO_STATIC_COMPILATION=OFF
+        -DOPENCV_SKIP_PYTHON_LOADER=ON
+        -DBUILD_opencv_model_diagnostics=OFF # Отключаем проблемную утилиту
+
+        -DOPENCV_DNN_OPENVINO=ON
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS -D_GLIBCXX_USE_CXX11_ABI=0 -Dov_EXPORTS"
     )
 
     if [[ $TARGET == win64 ]]; then
@@ -123,13 +110,12 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    # if ever try to link openvino again
-    #local ADDITIONAL_LDFLAGS="-lopenvino_onnx_frontend -lopenvino_tensorflow_frontend -lopenvino_pytorch_frontend -lopenvino_c -lopenvino -ltbb12 -lshlwapi"
-    # -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS -DOPENVINO_STATIC_COMPILATION -D_GLIBCXX_USE_CXX11_ABI=0 -Dov_EXPORTS"
+# -ltbb12
+    local ADDITIONAL_LDFLAGS="-lopenvino_onnx_frontend -lopenvino_tensorflow_frontend -lopenvino_pytorch_frontend -lopenvino_c -lopenvino -ltbb12 -lshlwapi"
+
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    LDFLAGS="$LDFLAGS $ADDITIONAL_LDFLAGS  -Wl,--allow-multiple-definition -Wl,--as-needed" \
     LIBS="$LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
