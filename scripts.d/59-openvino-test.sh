@@ -65,8 +65,8 @@ ffbuild_dockerbuild() {
         {} +
 
     # Это предотвратит ошибку "openvino_onnx_frontendd.a not found"
-    find "$INSTALL_ROOT/lib/cmake" -name "OpenVINOTargets-*.cmake" -exec sed -i \
-        -r 's/([a-zA-Z0-9_]+)d\.a/\1.a/g' {} +
+    # find "$INSTALL_ROOT/lib/cmake" -name "OpenVINOTargets-*.cmake" -exec sed -i \
+        # -r 's/([a-zA-Z0-9_]+)d\.a/\1.a/g' {} +
 
     # Удаляем проверки существования файлов, которые часто ломают find_package в кросс-компиляции
     find "$INSTALL_ROOT/lib/cmake" -name "OpenVINOTargets-*.cmake" -exec sed -i '/_cmake_import_check_files_for_.* exists/d' {} +
