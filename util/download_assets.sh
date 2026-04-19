@@ -7,6 +7,7 @@ source util/dl_functions.sh
 
 ASSETS_DIR="${1:-$ASSETS_DIR}"
 FFMPEG_SOURCE_DIR="${2:-$FFMPEG_SOURCE_DIR}"
+mkdir -p "$ASSETS_DIR"
 
 log_info "${START_MARK} Starting AI/OCR model and conditional asset collection..."
 
