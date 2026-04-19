@@ -121,12 +121,9 @@ fi
 # Build variables (inside the container)
 # just duplicate from Dockerfile for convenience
 export TOOLCHAIN_BIN="/opt/ct-ng/bin"
-export CUDA_PATH=/usr/lib/nvidia-cuda-toolkit
-export PATH="/usr/local/bin:/usr/local/cuda/bin:/usr/bin:/bin:${TOOLCHAIN_BIN}:/opt/cargo/bin"
 export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 export FFBUILD_CROSS_PREFIX="x86_64-w64-mingw32-"
-export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="${FFBUILD_CROSS_PREFIX}gcc"
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
 export FFBUILD_DESTDIR="/opt/ffdest"
 export FFBUILD_DESTPREFIX="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}"
@@ -141,6 +138,7 @@ export PKG_CONFIG_PATH="" # don't touch
 export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig:${FFBUILD_PREFIX}/lib64/pkgconfig"
 export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
+export PKG_CONFIG_ALLOW_CROSS=1
 # pkg-config libs collector options for final ffmpeg
 # * --libs                                   — only -l and -L paths
 # * --libs-only-l                            — only -l (-lSdl2) WITHOUT -L paths
@@ -152,9 +150,11 @@ export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 # * --cflags-only-other                      — only flags WITHOUT -I paths
 # without --static the Libs.private field will be ignored
 if [[ "$PREFER_SHARED" == "1" ]]; then
+    export PKG_CONFIG_ALL_DYNAMIC=1
     export PKG_CONFIG_CFLAGS="--cflags-only-other"
     export PKG_CONFIG_LIBS="--libs"
 else
+    export PKG_CONFIG_ALL_STATIC=1
     export PKG_CONFIG_FLAGS="--static"
     export PKG_CONFIG_CFLAGS="--cflags-only-other"
     export PKG_CONFIG_LIBS="--static --libs-only-l"
@@ -285,6 +285,7 @@ if [[ "$TARGET" == "win64" ]]; then
 
     export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${MAIN_LDFLAGS[@]}")"
     export LIBS="${LIBS:-$SYSTEM_LIBS}"
+    export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="${FFBUILD_CROSS_PREFIX}gcc"
 
 elif [[ "$TARGET" == "linux64" ]]; then
     export BASE_CFLAGS="-fstack-protector-strong${OPENMP_C}"
@@ -320,6 +321,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
 
     export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${MAIN_LDFLAGS[@]}")"
     export LIBS="${LIBS} -ldl -lrt"
+    export CUDA_PATH=/usr/lib/nvidia-cuda-toolkit
+    export PATH="/usr/local/bin:/usr/local/cuda/bin:/usr/bin:/bin:${TOOLCHAIN_BIN}:/opt/cargo/bin"
 
 fi
 
