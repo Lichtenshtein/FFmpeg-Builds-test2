@@ -31,7 +31,7 @@ ffbuild_dockerbuild() {
     local myconf=(
         --release
         --target="${FFBUILD_RUST_TARGET}"
-        --library-type=$([ "${PREFER_SHARED}" == "1" ] && echo cdylib || echo staticlib)
+        --crate-type=$([ "${PREFER_SHARED}" == "1" ] && echo cdylib || echo staticlib)
         --features ffi,pkg-config-meta,http3
     )
 
