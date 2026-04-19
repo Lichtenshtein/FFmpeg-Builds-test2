@@ -52,18 +52,18 @@ ffbuild_dockerbuild() {
     RUSTFLAGS="$RUSTFLAGS" \
     cargo build $CARGO_V "${myconf[@]}" || return 1
 
+    cd ..
+
     mkdir -p "$INSTALL_ROOT/include" "$INSTALL_ROOT/lib" "$PC_DIR"
 
-    local LIB_FILE=$(find . -name "libquiche.a" | grep "release" | head -n 1)
-    local HEADER_FILE=$(find . -name "quiche.h" | grep "include" | head -n 1)
+    local LIB_FILE=$(find target/${FFBUILD_RUST_TARGET}/release/ -maxdepth 1 \( -name "libquiche.a" -o -name "quiche.lib" \))
+    local HEADER_FILE=$(find quiche/include/ -name "quiche.h")
 
-    if [[ -z "$LIB_FILE" || -z "$HEADER_FILE" ]]; then
-        log_error "libquiche.a not found!"
+    if [[ -z "$LIB_FILE" ]]; then
+        return "libquiche.a not found! Contents of target release:"
+        ls -R target/${FFBUILD_RUST_TARGET}/release/
         return 1
     fi
-
-    log_info "Found lib: $LIB_FILE"
-    log_info "Found header: $HEADER_FILE"
 
     cp "$LIB_FILE" "$INSTALL_ROOT/lib/libquiche.a"
     cp "$HEADER_FILE" "$INSTALL_ROOT/include/quiche.h"
@@ -75,7 +75,6 @@ ffbuild_dockerbuild() {
         cp "target/$FFBUILD_RUST_TARGET/release/libquiche.a" "$INSTALL_ROOT/lib/"
     fi
 
-    # Генерация или исправление .pc файла
     cat <<EOF > "$PC_DIR/quiche.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
