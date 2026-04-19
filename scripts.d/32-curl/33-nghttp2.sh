@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/nghttp2/nghttp2.git"
-SCRIPT_COMMIT="21d54f4b926d412048038c8fda7f8c499bc3306e"
+SCRIPT_COMMIT="994d183964b542856a9f553a6ae950a37d8816bc"
 
 ffbuild_depends() {
     echo zlib
@@ -30,7 +30,7 @@ ffbuild_dockerbuild() {
         -DENABLE_HPACK_TOOLS=OFF
         -DENABLE_EXAMPLES=OFF
         -DENABLE_FAILMALLOC=OFF
-        -DENABLE_HTTP3=ON
+        -DENABLE_HTTP3=ON # OFF; HTTP/3 будет уровне curl в связке с quiche
         -DENABLE_DOC=OFF
         -DENABLE_LIB_ONLY=ON
         -DENABLE_APP=OFF
