@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     # Указываем OpenCV, где искать OpenVINO
-    export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake/openvino"
+    export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -73,7 +73,7 @@ ffbuild_dockerbuild() {
         -DBUILD_opencv_highgui=OFF -DBUILD_opencv_videoio=OFF -DBUILD_opencv_imgcodecs=OFF
         
         -DWITH_OPENVINO=ON
-        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake/openvino"
+        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
         -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
         -DOPENVINO_STATIC_COMPILATION=OFF
         -DCPU_BASELINE=AVX2
