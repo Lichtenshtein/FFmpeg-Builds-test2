@@ -101,6 +101,14 @@ ${FFBUILD_CROSS_PREFIX}nm "$INSTALL_ROOT/lib/libopenvino.a" | grep "get_shape" |
     echo "--- FINAL CHECK: NO MORE FRONTEN ERRORS ---"
     grep "onnx_frontend" OpenVINOTargets-release.cmake | head -n 2
 
+    # Удаляем зависимости от плагинов из CMake, так как они только в DLL
+    # и не должны линковаться намертво
+    find "$INSTALL_ROOT/lib/cmake" -name "OpenVINOTargets-release.cmake" -exec sed -i \
+        -e '/_static_plugin/d' \
+        -e '/openvino_.*_plugin/d' \
+        -e '/openvino_.*_frontend/d' \
+        {} +
+
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/openvino.pc"
 prefix=$FFBUILD_PREFIX
