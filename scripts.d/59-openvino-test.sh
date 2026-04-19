@@ -33,6 +33,9 @@ ffbuild_dockerbuild() {
     cp -r runtime/include/* "$INSTALL_ROOT/include/"
     cp -r runtime/bin/intel64/Release/* "$INSTALL_ROOT/bin/"
 
+    mkdir -p "$INSTALL_ROOT/lib/cmake"
+    cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
+
     # Копируем ВСЕ библиотеки фронтендов, иначе OpenCV не соберется
     find runtime/lib/intel64/Release/ -name "*.lib" | while read -r f; do
         name=$(basename "$f" .lib)
