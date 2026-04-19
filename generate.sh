@@ -122,14 +122,14 @@ VARS_LOGIC_HASH=$(grep -E "^(ffbuild_|stage_vars|get_stage_hash)" $UTIL_DIR/vars
 LOGIC_HASH="${RUN_STAGE_HASH}_${VARS_LOGIC_HASH}"
 
 # A static HASH ensures that when a variable in vars.sh is changed, all subsequent RUNs will NOT be rebuilt.
-if [[ "$DIR_NUMBERS" == "1" ]]; then
+if [[ "$DEBUG_NO_HASH" == "1" ]]; then
     log_warn "Hashes are now hardcoded to preserve Docker cache."
     ENV_HASH="env_static"
     LOGIC_HASH="logic_static"
 fi
 
 # Сборка и фильтрация активных скриптов
-if [[ "$DEBUG_NO_HASH" == "1" ]]; then
+if [[ "$DIR_NUMBERS" == "1" ]]; then
     # учитывать нумерацию только базового имени
     mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" -printf "%f\t%p\n" | sort -n | cut -f2)
 else
