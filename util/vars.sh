@@ -126,9 +126,10 @@ export PATH="/usr/local/bin:/usr/local/cuda/bin:/usr/bin:/bin:${TOOLCHAIN_BIN}:/
 export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 export FFBUILD_CROSS_PREFIX="x86_64-w64-mingw32-"
-export FFBUILD_PREFIX="/opt/ffbuild" # temporary per-stage component root --prefix
-export FFBUILD_DESTDIR="/opt/ffdest" # component install prefix + final ffmpeg.7z
-export FFBUILD_DESTPREFIX="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}" # where make install actually writes
+export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="${FFBUILD_CROSS_PREFIX}gcc"
+export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
+export FFBUILD_DESTDIR="/opt/ffdest"
+export FFBUILD_DESTPREFIX="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}"
 export INSTALL_ROOT="$FFBUILD_DESTPREFIX" # single less confusing source of truth
 # directory for saving .pc files from components
 export PC_DIR="${INSTALL_ROOT}/lib/pkgconfig"
