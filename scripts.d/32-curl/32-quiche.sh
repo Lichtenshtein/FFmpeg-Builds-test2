@@ -61,8 +61,15 @@ ffbuild_dockerbuild() {
     local HEADER_FILE=$(find quiche/include/ -name "quiche.h")
 
     # берем список всех символов, которые начинаются на SSL_, ERR_, EVP_, BN_ и т.д. и помечаем их как локальные.
-    ${FFBUILD_CROSS_PREFIX}nm "$LIB_FILE" | grep -E ' T (SSL_|ERR_|EVP_|BN_|OPENSSL_|AES_|MD5_|SHA)' | awk '{print $3}' > symbols_to_hide.txt
-    ${FFBUILD_CROSS_PREFIX}objcopy --localize-symbols=symbols_to_hide.txt "$LIB_FILE" libquiche_hidden.a
+    ${FFBUILD_CROSS_PREFIX}nm -g --defined-only "$LIB_FILE" | grep -E ' T (SSL_|ERR_|EVP_|BN_|OPENSSL_|AES_|MD5_|SHA|CBB_|CBS_)' | awk '{print $3}' | sort -u > symbols_to_hide.txt
+
+    ${FFBUILD_CROSS_PREFIX}objcopy --localize-symbols=symbols_to_hide.txt "$LIB_FILE" libquiche_hidden.a || {
+        # Если упало из-за пустых секций, пробуем более мягкий метод:
+        cp "$LIB_FILE" libquiche_hidden.a
+        while read sym; do
+            ${FFBUILD_CROSS_PREFIX}objcopy --localize-symbol="$sym" libquiche_hidden.a
+        done < symbols_to_hide.txt
+    }
 
     cp "$HEADER_FILE" "$INSTALL_ROOT/include/quiche.h"
     # Копируем заголовки BoringSSL
