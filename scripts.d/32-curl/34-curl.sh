@@ -24,16 +24,17 @@ ffbuild_dockerbuild() {
 
     autoreconf -fi
 
-    export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_PREFIX/share/pkgconfig:$PKG_CONFIG_PATH"
+    export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_PREFIX/share/pkgconfig"
+    export PKG_CONFIG_LIBDIR="$PKG_CONFIG_PATH"
+    export PKG_CONFIG_ALLOW_CROSS=1
 
     # Выделяем из CFLAGS только флаги компилятора (без -D и -I)
     local CLEAN_CFLAGS=$(echo "$CFLAGS" | sed 's/-[DU][^ ]*//g; s/-I[^ ]*//g')
 
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
     # Порядок: curl -> (+crypto, quiche) -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
-    local DEP_LIBS="-lssh -lquiche -lnghttp2 -lssl -lcrypto -lzstd -lbrotlidec -lbrotlicommon -lz"
-    local WIN_LIBS="-lcrypt32 -lwldap32 -lnormaliz -liphlpapi -lws2_32 -lbcrypt -ladvapi32 -luser32 -lntdll"
-    local ALL_LIBS="$DEP_LIBS $WIN_LIBS $LIBS"
+    local DEP_LIBS="-lssh -lquiche -lssl -lcrypto -lnghttp2 -lzstd -lbrotlidec -lbrotlicommon -lz"
+    local WIN_SYS_LIBS="-lws2_32 -lbcrypt -lcrypt32 -lwldap32 -lnormaliz -liphlpapi -ladvapi32 -luser32 -lntdll -lshlwapi -lole32 -lsetupapi -lgomp"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -88,7 +89,7 @@ ffbuild_dockerbuild() {
     CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
     CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
-    LIBS="$ALL_LIBS" \
+    LIBS="$DEP_LIBS $WIN_SYS_LIBS $LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
