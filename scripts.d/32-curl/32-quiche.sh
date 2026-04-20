@@ -60,16 +60,21 @@ ffbuild_dockerbuild() {
     local LIB_FILE=$(find target/${FFBUILD_RUST_TARGET}/release/ -maxdepth 1 \( -name "libquiche.a" -o -name "quiche.lib" \))
     local HEADER_FILE=$(find quiche/include/ -name "quiche.h")
 
-    # Это уберет ошибки "has no sections" при работе objcopy
-    ${FFBUILD_CROSS_PREFIX}objcopy --strip-debug "$LIB_FILE" libquiche_clean.a
+    mkdir -p libquiche_tmp && cd libquiche_tmp
 
-    # Добавляем больше префиксов (CBB, CBS, RSA, EVP, и т.д.), чтобы покрыть весь BoringSSL
-    ${FFBUILD_CROSS_PREFIX}nm -g --defined-only libquiche_clean.a | \
+    ${FFBUILD_CROSS_PREFIX}ar x "../$LIB_FILE"
+    ${FFBUILD_CROSS_PREFIX}nm -g --defined-only *.o 2>/dev/null | \
         grep -E ' T (SSL_|ERR_|EVP_|BN_|OPENSSL_|AES_|MD5_|SHA|CBB_|CBS_|RSA_|HMAC_|DH_|EC_|BIO_|ASN1_|PKCS|X509_|PEM_|ECDSA_|d2i_|i2d_)' | \
-        awk '{print $3 " __quiche_" $3}' | sort -u > symbols_redefine.txt
+        awk '{print $3 " __quiche_" $3}' | sort -u > ../symbols_redefine.txt
 
-    # Теперь objcopy не должен ругаться на пустые секции
-    ${FFBUILD_CROSS_PREFIX}objcopy --redefine-syms=symbols_redefine.txt libquiche_clean.a libquiche_fixed.a
+    for obj in *.o; do
+        ${FFBUILD_CROSS_PREFIX}objcopy --strip-debug --redefine-syms=../symbols_redefine.txt "$obj" "$obj.fixed" 2>/dev/null || cp "$obj" "$obj.fixed"
+    done
+
+    ${FFBUILD_CROSS_PREFIX}ar rc ../libquiche_fixed.a *.fixed
+    ${FFBUILD_CROSS_PREFIX}ranlib ../libquiche_fixed.a
+
+    cd ..
 
     cp "$HEADER_FILE" "$INSTALL_ROOT/include/quiche.h"
     # Копируем заголовки BoringSSL
