@@ -55,8 +55,7 @@ ffbuild_dockerbuild() {
         # --with-nghttp3
         # --with-quiche
         # --with-nghttp2
-        --without-openssl
-        # --with-openssl="$FFBUILD_PREFIX"
+        --with-openssl
         --with-nghttp2="$FFBUILD_PREFIX"
         --with-quiche="$FFBUILD_PREFIX" # ngtcp2 + nghttp3
         --with-libssh="$FFBUILD_PREFIX"
