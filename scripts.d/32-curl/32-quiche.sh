@@ -60,22 +60,6 @@ ffbuild_dockerbuild() {
     local LIB_FILE=$(find target/${FFBUILD_RUST_TARGET}/release/ -maxdepth 1 \( -name "libquiche.a" -o -name "quiche.lib" \))
     local HEADER_FILE=$(find quiche/include/ -name "quiche.h")
 
-    mkdir -p libquiche_tmp && cd libquiche_tmp
-
-    ${FFBUILD_CROSS_PREFIX}ar x "../$LIB_FILE"
-    ${FFBUILD_CROSS_PREFIX}nm -g --defined-only *.o 2>/dev/null | \
-        grep -E ' T (SSL_|ERR_|EVP_|BN_|OPENSSL_|AES_|MD5_|SHA|CBB_|CBS_|RSA_|HMAC_|DH_|EC_|BIO_|ASN1_|PKCS|X509_|PEM_|ECDSA_|d2i_|i2d_)' | \
-        awk '{print $3 " __quiche_" $3}' | sort -u > ../symbols_redefine.txt
-
-    for obj in *.o; do
-        ${FFBUILD_CROSS_PREFIX}objcopy --strip-debug --redefine-syms=../symbols_redefine.txt "$obj" "$obj.fixed" 2>/dev/null || cp "$obj" "$obj.fixed"
-    done
-
-    ${FFBUILD_CROSS_PREFIX}ar rc ../libquiche_fixed.a *.fixed
-    ${FFBUILD_CROSS_PREFIX}ranlib ../libquiche_fixed.a
-
-    cd ..
-
     cp "$HEADER_FILE" "$INSTALL_ROOT/include/quiche.h"
     # Копируем заголовки BoringSSL
     # cp -r quiche/deps/boringssl/src/include/openssl/* "$INSTALL_ROOT/include/boringssl/"
@@ -84,8 +68,7 @@ ffbuild_dockerbuild() {
         cp "target/$FFBUILD_RUST_TARGET/release/quiche.dll" "$INSTALL_ROOT/bin/"
         cp "target/$FFBUILD_RUST_TARGET/release/quiche.dll.a" "$INSTALL_ROOT/lib/"
     else
-        # cp "$LIB_FILE" "$INSTALL_ROOT/lib/libquiche.a"
-        cp libquiche_fixed.a "$INSTALL_ROOT/lib/libquiche.a"
+        cp "$LIB_FILE" "$INSTALL_ROOT/lib/libquiche.a"
     fi
 
     cat <<EOF > "$PC_DIR/quiche.pc"
@@ -98,7 +81,6 @@ Name: quiche
 Description: QUIC and HTTP/3 implementation
 Version: 0.20.0
 Libs: -L\${libdir} -lquiche
-Libs.private: -lws2_32 -lbcrypt -ladvapi32 -luser32 -lntdll
 Cflags: -I\${includedir}
 EOF
 }
