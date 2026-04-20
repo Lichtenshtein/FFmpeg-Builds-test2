@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://gitlab.com/libssh/libssh-mirror.git"
-SCRIPT_COMMIT="c853d86bb574420a2f24f99c7a400de25f122346"
+SCRIPT_COMMIT="effc68f71bec97e397a5b31bea56d5eff0e3cac9"
 
 ffbuild_depends() {
     echo base
@@ -22,6 +22,7 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
+    # Создаем файл реализации
     cat <<EOF > mingw_fix.c
 #include <string.h>
 #include <stdlib.h>
@@ -33,6 +34,15 @@ char *strndup(const char *s, size_t n) {
     new[len] = '\0';
     return (char *)memcpy(new, s, len);
 }
+EOF
+
+    # Создаем заголовочный файл
+    cat <<EOF > mingw_fix.h
+#ifndef MINGW_FIX_H
+#define MINGW_FIX_H
+#include <stddef.h>
+char *strndup(const char *s, size_t n);
+#endif
 EOF
 
     # Компилируем его в объектный файл
@@ -52,7 +62,6 @@ EOF
         -DWITH_MBEDTLS=OFF
         -DWITH_FIDO2=OFF
         -DWITH_BLOWFISH_CIPHER=OFF
-        -DHAVE_STRTOULL=ON
     )
 
     export static_flags=""
@@ -60,7 +69,7 @@ EOF
 
     local MINGW_FIX_CFLAGS="-D_GNU_SOURCE"
 
-    CFLAGS="$CFLAGS $CPPFLAGS $static_flags -Dmd5=libssh_md5" \
+    CFLAGS="$CFLAGS $CPPFLAGS $static_flags -include $(pwd)/mingw_fix.h -Dmd5=libssh_md5" \
     LDFLAGS="$LDFLAGS $(pwd)/mingw_fix.o" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
@@ -77,9 +86,9 @@ EOF
             fi
         fi
         if grep -q "^Libs.private:" "$PC_FILE"; then
-            sed -i "s|^Libs.private:.*|Libs.private: -lssl -lz -liphlpapi|" "$PC_FILE"
+            sed -i "s|^Libs.private:.*|Libs.private: -lssl -lcrypto -lz -liphlpapi|" "$PC_FILE"
         else
-            sed -i "/^Libs:/ a Libs.private: -lssl -lz -liphlpapi" "$PC_FILE"
+            sed -i "/^Libs:/ a Libs.private: -lssl -lcrypto -lz -liphlpapi" "$PC_FILE"
         fi
     fi
 }
