@@ -24,6 +24,10 @@ ffbuild_dockerbuild() {
 
     autoreconf -fi
 
+    # Это заставит curl увидеть все зависимости quiche из Libs.private во время тестов
+    sed -i 's/\$PKGCONFIG --libs-only-l quiche/\$PKGCONFIG --libs-only-l --static quiche/g' configure
+    sed -i 's/\$PKGCONFIG --libs-only-l libssh/\$PKGCONFIG --libs-only-l --static libssh/g' configure
+
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_PREFIX/share/pkgconfig"
     export PKG_CONFIG_LIBDIR="$PKG_CONFIG_PATH"
     export PKG_CONFIG_ALLOW_CROSS=1
@@ -34,7 +38,7 @@ ffbuild_dockerbuild() {
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
     # Порядок: curl -> (+crypto, quiche) -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
     local DEP_LIBS="-lssh -lquiche -lssl -lcrypto -lnghttp2 -lzstd -lbrotlidec -lbrotlicommon -lz"
-    local WIN_SYS_LIBS="-lws2_32 -lbcrypt -lcrypt32 -lwldap32 -lnormaliz -liphlpapi -ladvapi32 -luser32 -lntdll -lshlwapi -lole32 -lsetupapi -lgomp"
+    local WIN_SYS_LIBS="-lws2_32 -lbcrypt -lcrypt32 -liphlpapi -lntdll -ladvapi32 -luser32 -lshlwapi -lole32 -lsetupapi"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -89,7 +93,7 @@ ffbuild_dockerbuild() {
     CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
     CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
-    LIBS="$DEP_LIBS $WIN_SYS_LIBS $LIBS" \
+    LIBS="$WIN_SYS_LIBS $LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
