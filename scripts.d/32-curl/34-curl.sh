@@ -4,11 +4,13 @@ SCRIPT_REPO="https://github.com/curl/curl.git"
 SCRIPT_COMMIT="bcc8144b896a49738cd60cbbe8e4f8e6f70461ef"
 
 ffbuild_depends() {
-    echo openssl
+    # echo openssl
     echo zlib
     echo zstd
     echo brotli
     echo libssh
+    echo quiche
+    echo nghttp2
 }
 
 ffbuild_enabled() {
@@ -36,7 +38,7 @@ ffbuild_dockerbuild() {
 
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
     # Порядок: curl -> (+crypto, quiche) -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
-    local DEP_LIBS="-lssh -lquiche -lssl -lcrypto -lnghttp2 -lzstd -lbrotlidec -lbrotlicommon -lz"
+    local DEP_LIBS="-lssh -lquiche -lnghttp2 -lzstd -lbrotlidec -lbrotlicommon -lz"
     local WIN_SYS_LIBS="-luserenv -lcrypt32 -liphlpapi -lntdll -lsetupapi"
 
     local myconf=(
@@ -53,7 +55,8 @@ ffbuild_dockerbuild() {
         # --with-nghttp3
         # --with-quiche
         # --with-nghttp2
-        --with-openssl="$FFBUILD_PREFIX"
+        --without-openssl
+        # --with-openssl="$FFBUILD_PREFIX"
         --with-nghttp2="$FFBUILD_PREFIX"
         --with-quiche="$FFBUILD_PREFIX" # ngtcp2 + nghttp3
         --with-libssh="$FFBUILD_PREFIX"
@@ -123,7 +126,7 @@ ffbuild_dockerbuild() {
 }
 
 ffbuild_libs() {
-    echo "-lcrypt32 -lwldap32 -lnormaliz -liphlpapi"
+    echo "-lquiche -lnghttp2 -lcrypt32 -lwldap32 -lnormaliz -liphlpapi"
 }
 
 ffbuild_cppflags() {
