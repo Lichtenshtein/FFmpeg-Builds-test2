@@ -26,6 +26,24 @@ ffbuild_dockerbuild() {
 
     autoreconf -fi
 
+    # Создаем реализацию strndup специально для линковщика
+    cat <<EOF > strndup_fix.c
+#include <string.h>
+#include <stdlib.h>
+char *strndup(const char *s, size_t n) {
+    size_t len = 0;
+    while(len < n && s[len]) len++;
+    char *p = malloc(len + 1);
+    if(p) {
+        memcpy(p, s, len);
+        p[len] = '\0';
+    }
+    return p;
+}
+EOF
+
+    ${FFBUILD_CROSS_PREFIX}gcc -O2 -c strndup_fix.c -o strndup_fix.o
+
     if [[ $TARGET == win64 ]]; then
         sed -i 's/include <sys\/socket.h>/include <winsock2.h>/g' configure
     fi
@@ -38,7 +56,7 @@ ffbuild_dockerbuild() {
 
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
     # Порядок: curl -> (+crypto, quiche) -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
-    local DEP_LIBS="-lssh -lquiche -lnghttp2 -lssl -lcrypto -lzstd -lbrotlidec -lbrotlicommon -lz"
+    local DEP_LIBS="$(pwd)/strndup_fix.o -lssh -lquiche -lnghttp2 -lssl -lcrypto -lzstd -lbrotlidec -lbrotlicommon -lz"
     local WIN_SYS_LIBS="-luserenv -lcrypt32 -liphlpapi -lntdll -lsetupapi"
 
     local myconf=(
@@ -101,10 +119,6 @@ ffbuild_dockerbuild() {
         grep -A 50 "checking for HMAC_Update" config.log | grep -v "lt_cv"
         return 1
     }
-
-    # echo 'char *strndup(const char *s, size_t n) { char *p = memchr(s, 0, n); if(p) n = p-s; p = malloc(n+1); if(p) { memcpy(p,s,n); p[n]=0; } return p; }' > strndup_fix.c
-    # gcc -c strndup_fix.c -o strndup_fix.o
-    # export LIBS="$(pwd)/strndup_fix.o $LIBS"
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
