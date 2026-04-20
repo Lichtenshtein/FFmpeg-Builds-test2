@@ -262,7 +262,7 @@ export CPPFLAGS="$(echo ${CPPFLAGS} $STAGE_CPPFLAGS | xargs)"
 export CXXFLAGS="$(echo $RAW_CXXFLAGS $STAGE_CXXFLAGS | xargs)"
 export LDFLAGS="$(echo $RAW_LDFLAGS $STAGE_LDFLAGS | xargs)"
 
-[[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "${STAGENAME}-specific CFLAGS:\n$CFLAGS"
+[[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]] && log_debug "${STAGENAME}-specific CFLAGS:\n$CFLAGS" && log_debug "${STAGENAME}-specific LDFLAGS:\n$LDFLAGS"
 
 # Выполняем сборку ОДИН РАЗ с проверкой статуса
 build_cmd="ffbuild_dockerbuild"
