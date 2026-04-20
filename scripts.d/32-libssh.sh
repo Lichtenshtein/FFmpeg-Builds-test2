@@ -22,9 +22,15 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
-    echo '#include <string.h>' > mingw_fix.h
-    echo '#include <stdlib.h>' >> mingw_fix.h
-    echo 'char *strndup(const char *s, size_t n);' >> mingw_fix.h
+    cat <<EOF > mingw_fix.h
+#include <string.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+// Прототипы для MinGW
+char *strndup(const char *s, size_t n);
+unsigned long long strtoull(const char *nptr, char **endptr, int base);
+EOF
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -35,18 +41,19 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DWITH_EXAMPLES=OFF
         -DWITH_SERVER=OFF
-        -DHAVE_STRNDUP=ON
         -DWITH_SFTP=ON
         -DWITH_ZLIB=ON
         -DWITH_MBEDTLS=OFF
         -DWITH_FIDO2=OFF
         -DWITH_BLOWFISH_CIPHER=OFF
+        -DHAVE_STRNDUP=ON
+        -DHAVE_STRTOULL=ON
     )
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBSSH_STATIC"
 
-    export MINGW_FIX_CFLAGS="-include $(pwd)/mingw_fix.h -D_GNU_SOURCE -Dmd5=libssh_md5"
+    export MINGW_FIX_CFLAGS="-include $(pwd)/mingw_fix.h -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dmd5=libssh_md5"
 
     CFLAGS="$CFLAGS $CPPFLAGS $MINGW_FIX_CFLAGS $static_flags" \
     LDFLAGS="$LDFLAGS" \
