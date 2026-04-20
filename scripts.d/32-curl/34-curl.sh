@@ -95,12 +95,7 @@ ffbuild_dockerbuild() {
     CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}" \
     LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition ${USELTO}" \
     LIBS="$DEP_LIBS $WIN_SYS_LIBS $LIBS" \
-    ./configure "${myconf[@]}" || {
-        log_error "FAILED. Look at the end of config.log for link errors:"
-        grep -A 50 "checking for quiche_conn_send_ack_eliciting" config.log | grep -v "lt_cv"
-        grep -A 50 "checking for HMAC_Update" config.log | grep -v "lt_cv"
-        return 1
-    }
+    ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
