@@ -38,7 +38,7 @@ ffbuild_dockerbuild() {
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
     # Порядок: curl -> (+crypto, quiche) -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
     local DEP_LIBS="-lssh -lquiche -lssl -lcrypto -lnghttp2 -lzstd -lbrotlidec -lbrotlicommon -lz"
-    local WIN_SYS_LIBS="-lws2_32 -lbcrypt -lcrypt32 -liphlpapi -lntdll -ladvapi32 -luser32 -lshlwapi -lole32 -lsetupapi"
+    local WIN_SYS_LIBS="-lws2_32 -lbcrypt -lcrypt32 -liphlpapi -lntdll -ladvapi32 -luser32 -lshlwapi -lole32 -lsetupapi -lgomp -lpthread -lm"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -93,8 +93,12 @@ ffbuild_dockerbuild() {
     CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
     CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
-    LIBS="$WIN_SYS_LIBS $LIBS" \
-    ./configure "${myconf[@]}" || return 1
+    LIBS="$DEP_LIBS $WIN_SYS_LIBS $LIBS" \
+    ./configure "${myconf[@]}" || {
+        echo "❌ FAILED. Look at the end of config.log for link errors:"
+        tail -n 100 config.log
+        return 1
+    }
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
