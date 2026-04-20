@@ -22,15 +22,21 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
-    cat <<EOF > mingw_fix.h
+    cat <<EOF > mingw_fix.c
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
 
-// Прототипы для MinGW
-char *strndup(const char *s, size_t n);
-unsigned long long strtoull(const char *nptr, char **endptr, int base);
+char *strndup(const char *s, size_t n) {
+    size_t len = strnlen(s, n);
+    char *new = (char *)malloc(len + 1);
+    if (new == NULL) return NULL;
+    new[len] = '\0';
+    return (char *)memcpy(new, s, len);
+}
 EOF
+
+    # Компилируем его в объектный файл
+    $CC $CFLAGS -c mingw_fix.c -o mingw_fix.o
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -46,17 +52,16 @@ EOF
         -DWITH_MBEDTLS=OFF
         -DWITH_FIDO2=OFF
         -DWITH_BLOWFISH_CIPHER=OFF
-        -DHAVE_STRNDUP=ON
         -DHAVE_STRTOULL=ON
     )
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBSSH_STATIC"
 
-    export MINGW_FIX_CFLAGS="-include $(pwd)/mingw_fix.h -D_GNU_SOURCE -D_XOPEN_SOURCE=600 -Dmd5=libssh_md5"
+    local MINGW_FIX_CFLAGS="-D_GNU_SOURCE"
 
-    CFLAGS="$CFLAGS $CPPFLAGS $MINGW_FIX_CFLAGS $static_flags" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS $static_flags -Dmd5=libssh_md5" \
+    LDFLAGS="$LDFLAGS $(pwd)/mingw_fix.o" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

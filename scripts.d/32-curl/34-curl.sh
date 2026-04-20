@@ -91,7 +91,7 @@ ffbuild_dockerbuild() {
     fi
 
     CFLAGS="$CLEAN_CFLAGS ${USELTO}" \
-    CPPFLAGS="$CPPFLAGS -Dstrndup=curl_strndup $self_static_flags $static_flags" \
+    CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
     CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}" \
     LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition ${USELTO}" \
     LIBS="$DEP_LIBS $WIN_SYS_LIBS $LIBS" \
