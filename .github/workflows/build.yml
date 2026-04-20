@@ -17,7 +17,7 @@ on:
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
-        default: false
+        default: true
       cpu_arch:
         description: 'CPU march target (broadwell/x86-64-v3/znver3/native)'
         required: false
