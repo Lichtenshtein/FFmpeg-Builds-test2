@@ -60,11 +60,16 @@ ffbuild_dockerbuild() {
     local LIB_FILE=$(find target/${FFBUILD_RUST_TARGET}/release/ -maxdepth 1 \( -name "libquiche.a" -o -name "quiche.lib" \))
     local HEADER_FILE=$(find quiche/include/ -name "quiche.h")
 
-    # берем список всех символов, которые начинаются на SSL_, ERR_, EVP_, BN_ и т.д. и помечаем их как локальные.
-    ${FFBUILD_CROSS_PREFIX}nm -g --defined-only "$LIB_FILE" | grep -E ' T (SSL_|ERR_|EVP_|BN_|OPENSSL_|AES_|MD5_|SHA|CBB_|CBS_)' | awk '{print $3 " __quiche_" $3}' > symbols_redefine.txt
+    # Это уберет ошибки "has no sections" при работе objcopy
+    ${FFBUILD_CROSS_PREFIX}objcopy --strip-debug "$LIB_FILE" libquiche_clean.a
 
-    cp "$LIB_FILE" libquiche_fixed.a
-    ${FFBUILD_CROSS_PREFIX}objcopy --redefine-syms=symbols_redefine.txt libquiche_fixed.a
+    # Добавляем больше префиксов (CBB, CBS, RSA, EVP, и т.д.), чтобы покрыть весь BoringSSL
+    ${FFBUILD_CROSS_PREFIX}nm -g --defined-only libquiche_clean.a | \
+        grep -E ' T (SSL_|ERR_|EVP_|BN_|OPENSSL_|AES_|MD5_|SHA|CBB_|CBS_|RSA_|HMAC_|DH_|EC_|BIO_|ASN1_|PKCS|X509_|PEM_|ECDSA_|d2i_|i2d_)' | \
+        awk '{print $3 " __quiche_" $3}' | sort -u > symbols_redefine.txt
+
+    # Теперь objcopy не должен ругаться на пустые секции
+    ${FFBUILD_CROSS_PREFIX}objcopy --redefine-syms=symbols_redefine.txt libquiche_clean.a libquiche_fixed.a
 
     cp "$HEADER_FILE" "$INSTALL_ROOT/include/quiche.h"
     # Копируем заголовки BoringSSL
