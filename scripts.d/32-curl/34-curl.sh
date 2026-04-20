@@ -38,10 +38,8 @@ ffbuild_dockerbuild() {
 
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
     # Порядок: curl -> (+crypto, quiche) -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
-    # local DEP_LIBS="-lssh -lquiche -lnghttp2 -lzstd -lbrotlidec -lbrotlicommon -lz"
-    # local WIN_SYS_LIBS="-luserenv -lcrypt32 -liphlpapi -lntdll -lsetupapi"
-
-    export LIBS="-lssl -lcrypto -lssh -lnghttp2 -lzstd -lbrotlidec -lz -lquiche -luserenv -lws2_32 -lbcrypt -lcrypt32 -liphlpapi -lntdll -ladvapi32 -luser32 -lshlwapi -lole32 -lsetupapi -lpthread -lm"
+    local DEP_LIBS="-lssh -lquiche -lnghttp2 -lssl -lcrypto -lzstd -lbrotlidec -lbrotlicommon -lz"
+    local WIN_SYS_LIBS="-luserenv -lcrypt32 -liphlpapi -lntdll -lsetupapi"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -85,7 +83,7 @@ ffbuild_dockerbuild() {
     export self_static_flags=""
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
-        static_flags="-DLIBSSH_STATIC -DBROTLI_STATIC"
+        static_flags="-DLIBSSH_STATIC -DBROTLI_STATIC -DNGHTTP2_STATICLIB"
         self_static_flags="-DCURL_STATICLIB"
         myconf+=( --enable-static --disable-shared )
     else
@@ -93,15 +91,20 @@ ffbuild_dockerbuild() {
     fi
 
     CFLAGS="$CLEAN_CFLAGS ${USELTO}" \
-    CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
+    CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE $self_static_flags $static_flags" \
     CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}" \
     LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition ${USELTO}" \
+    LIBS="$DEP_LIBS $WIN_SYS_LIBS $LIBS" \
     ./configure "${myconf[@]}" || {
         log_error "FAILED. Look at the end of config.log for link errors:"
         grep -A 50 "checking for quiche_conn_send_ack_eliciting" config.log | grep -v "lt_cv"
         grep -A 50 "checking for HMAC_Update" config.log | grep -v "lt_cv"
         return 1
     }
+
+    # echo 'char *strndup(const char *s, size_t n) { char *p = memchr(s, 0, n); if(p) n = p-s; p = malloc(n+1); if(p) { memcpy(p,s,n); p[n]=0; } return p; }' > strndup_fix.c
+    # gcc -c strndup_fix.c -o strndup_fix.o
+    # export LIBS="$(pwd)/strndup_fix.o $LIBS"
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
