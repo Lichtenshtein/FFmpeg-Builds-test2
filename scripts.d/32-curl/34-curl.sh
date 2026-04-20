@@ -21,19 +21,19 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    # Генерируем configure, так как работаем с git-репозиторием
+
     autoreconf -fi
 
+    export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_PREFIX/share/pkgconfig:$PKG_CONFIG_PATH"
+
     # Выделяем из CFLAGS только флаги компилятора (без -D и -I)
-    # Это сохранит -march=broadwell, -O3, -pipe и т.д.
     local CLEAN_CFLAGS=$(echo "$CFLAGS" | sed 's/-[DU][^ ]*//g; s/-I[^ ]*//g')
-    # Формируем чистый CPPFLAGS, куда уйдут все макросы
-    # Добавляем -I$FFBUILD_PREFIX/include обязательно, чтобы curl видел openssl/zlib
 
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
-    # Порядок: curl -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
-    local DEP_LIBS="-lssh -lssl -lcrypto -lzstd -lbrotlienc -lbrotlidec -lbrotlicommon -lz"
-    local WIN_LIBS="-lcrypt32 -lwldap32 -lnormaliz -liphlpapi $LIBS"
+    # Порядок: curl -> (+crypto, quiche) -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
+    local DEP_LIBS="-lssh -lquiche -lnghttp2 -lssl -lcrypto -lzstd -lbrotlidec -lbrotlicommon -lz"
+    local WIN_LIBS="-lcrypt32 -lwldap32 -lnormaliz -liphlpapi -lws2_32 -lbcrypt -ladvapi32 -luser32 -lntdll"
+    local ALL_LIBS="$DEP_LIBS $WIN_LIBS $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -52,9 +52,9 @@ ffbuild_dockerbuild() {
         --with-openssl="$FFBUILD_PREFIX"
         --with-nghttp2="$FFBUILD_PREFIX"
         --with-quiche="$FFBUILD_PREFIX" # ngtcp2 + nghttp3
+        --with-libssh="$FFBUILD_PREFIX"
         --with-zlib
         --with-zstd
-        --with-libssh
         --with-brotli
         --with-pic
         --without-libpsl
@@ -75,16 +75,20 @@ ffbuild_dockerbuild() {
 
     export static_flags=""
     export self_static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBSSH_STATIC -DBROTLI_STATIC" && self_static_flags="-DCURL_STATICLIB"
-    [[ "${PREFER_SHARED}" == "1" ]] && \
-        myconf+=( --disable-static --enable-shared ) || \
+
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        static_flags="-DLIBSSH_STATIC -DBROTLI_STATIC"
+        self_static_flags="-DCURL_STATICLIB"
         myconf+=( --enable-static --disable-shared )
+    else
+        myconf+=( --disable-static --enable-shared )
+    fi
 
     CFLAGS="$CLEAN_CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
     CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
-    LIBS="$DEP_LIBS $WIN_LIBS" \
+    LIBS="$ALL_LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
