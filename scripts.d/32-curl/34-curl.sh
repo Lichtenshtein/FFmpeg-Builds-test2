@@ -24,11 +24,9 @@ ffbuild_dockerbuild() {
 
     autoreconf -fi
 
-    sed -i 's/include <sys\/socket.h>/include <winsock2.h>/g' configure
-
-    sed -i 's/\$PKGCONFIG --libs-only-l quiche/\$PKGCONFIG --libs-only-l --static quiche/g' configure
-    sed -i 's/\$PKGCONFIG --libs-only-l libssh/\$PKGCONFIG --libs-only-l --static libssh/g' configure
-    sed -i 's/\$PKGCONFIG --libs-only-l openssl/\$PKGCONFIG --libs-only-l --static openssl/g' configure
+    if [[ $TARGET == win64 ]]; then
+        sed -i 's/include <sys\/socket.h>/include <winsock2.h>/g' configure
+    fi
 
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_PREFIX/share/pkgconfig"
     export PKG_CONFIG_ALLOW_CROSS=1
@@ -39,7 +37,7 @@ ffbuild_dockerbuild() {
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
     # Порядок: curl -> (+crypto, quiche) -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
     local DEP_LIBS="-lssh -lquiche -lssl -lcrypto -lnghttp2 -lzstd -lbrotlidec -lbrotlicommon -lz"
-    local WIN_SYS_LIBS="-lws2_32 -lbcrypt -lcrypt32 -liphlpapi -lntdll -ladvapi32 -luser32 -lshlwapi -lole32 -lsetupapi -lgomp -lpthread -lm"
+    local WIN_SYS_LIBS="-luserenv -lcrypt32 -liphlpapi -lntdll -lsetupapi"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -90,12 +88,11 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared )
     fi
 
-    export LIBS="-lssl -lcrypto -lws2_32 -lbcrypt -lcrypt32 -liphlpapi -lntdll -lpthread -lm"
-
     CFLAGS="$CLEAN_CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
     CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
+    LIBS="$DEP_LIBS $WIN_SYS_LIBS $LIBS" \
     ./configure "${myconf[@]}" || {
         log_error "FAILED. Look at the end of config.log for link errors:"
         grep -A 50 "checking for quiche_conn_send_ack_eliciting" config.log | grep -v "lt_cv"
