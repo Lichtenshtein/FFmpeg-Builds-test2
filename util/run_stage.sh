@@ -70,7 +70,7 @@ stage_cleanup() {
                 # Неудача: системных логов нет, ищем общий лог
                 if [[ -f "$STAGE_LOG" ]]; then
                     log_debug "${LOGS_MARK} ▼ System logs missing. Falling back to STAGE_LOG ($STAGE_LOG) ▼"
-                    tail -n 100 "$STAGE_LOG" >&2
+                    tail -n 200 "$STAGE_LOG" >&2
                 else
                     # Ничего не нашли
                     if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
@@ -103,7 +103,7 @@ stage_cleanup() {
         else
             if [[ -f "$STAGE_LOG" ]]; then
                 log_debug "${LOGS_MARK} ▼ CONTENT OF ($STAGE_LOG) ▼"
-                tail -n 100 "$STAGE_LOG" >&2
+                tail -n 200 "$STAGE_LOG" >&2
                 log_debug "${LOGS_MARK} ▲ END OF $STAGE_LOG ▲"
             else
                 log_warn "Log file $STAGE_LOG is missing!"
