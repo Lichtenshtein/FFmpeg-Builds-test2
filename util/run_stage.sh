@@ -345,7 +345,7 @@ if [[ -d "$INSTALL_ROOT" ]]; then
             if [[ "$PREFER_SHARED" != "1" ]]; then
                 if [[ ! "$STAGENAME" =~ $DLL_PRESERVE_LIST ]]; then
                     # Remove DLLs, MinGW import libs (.dll.a), MSVC import/static (.lib) and .exe
-                    clean_unwanted_libs "dynamic DLLs and MSVC libs" "\( -name '*.dll' -o -name '*.dll.a' -o -name '*.lib' -o -name '*.def' -o -name '*.exp' -o -name '*.exe' \)"
+                    clean_unwanted_libs "dynamic .dll, .exe, MSVC libs" "\( -name '*.dll' -o -name '*.dll.a' -o -name '*.lib' -o -name '*.def' -o -name '*.exp' -o -name '*.exe' \)"
                 else
                     log_info "${LOCK_MARK} Preserving dynamic DLLs and generating import libs for $STAGENAME"
                     # First we deal with .lib, if they came from archives (as in TF) 

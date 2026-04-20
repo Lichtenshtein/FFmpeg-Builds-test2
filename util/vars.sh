@@ -193,6 +193,9 @@ if [[ -d "/builder" ]]; then
 fi
 mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 
+# Очистка базовых флагов перед объявлением
+unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS RUSTFLAGS LIBS
+
 # Flags for the component build stage
 # disable -fPIC, -ffast-math, if troubles occur
 # rust -C linker-plugin-lto LLVM Bitcode or LLVM MinGW
@@ -955,7 +958,7 @@ clean_unwanted_libs() {
     DELETED_FILES=$(eval "find \"$INSTALL_ROOT\" -type f $find_expr -print -delete 2>/dev/null" | sed "s|$FFBUILD_DESTDIR||g")
 
     if [[ -n "$DELETED_FILES" ]]; then
-        log_debug "${BROOM_MARK} $label: $STAGENAME\n$DELETED_FILES"
+        log_debug "${BROOM_MARK} Removing $label for ${STAGENAME}:\n$DELETED_FILES"
     else
         log_info "${CHECK_MARK} No unwanted $label found."
     fi
