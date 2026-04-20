@@ -55,7 +55,7 @@ ffbuild_dockerbuild() {
 
     cd ..
 
-    mkdir -p "$INSTALL_ROOT/include" "$INSTALL_ROOT/lib" "$PC_DIR"
+    mkdir -p "$INSTALL_ROOT/include/boringssl" "$INSTALL_ROOT/lib" "$PC_DIR"
 
     local LIB_FILE=$(find target/${FFBUILD_RUST_TARGET}/release/ -maxdepth 1 \( -name "libquiche.a" -o -name "quiche.lib" \))
     local HEADER_FILE=$(find quiche/include/ -name "quiche.h")
@@ -68,6 +68,8 @@ ffbuild_dockerbuild() {
 
     cp "$LIB_FILE" "$INSTALL_ROOT/lib/libquiche.a"
     cp "$HEADER_FILE" "$INSTALL_ROOT/include/quiche.h"
+    # Копируем заголовки BoringSSL
+    cp -r quiche/deps/boringssl/src/include/openssl/* "$INSTALL_ROOT/include/boringssl/"
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
         cp "target/$FFBUILD_RUST_TARGET/release/quiche.dll" "$INSTALL_ROOT/bin/"
