@@ -28,6 +28,7 @@ ffbuild_dockerbuild() {
 
     sed -i 's/\$PKGCONFIG --libs-only-l quiche/\$PKGCONFIG --libs-only-l --static quiche/g' configure
     sed -i 's/\$PKGCONFIG --libs-only-l libssh/\$PKGCONFIG --libs-only-l --static libssh/g' configure
+    sed -i 's/\$PKGCONFIG --libs-only-l openssl/\$PKGCONFIG --libs-only-l --static openssl/g' configure
 
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_PREFIX/share/pkgconfig"
     export PKG_CONFIG_ALLOW_CROSS=1
@@ -35,7 +36,10 @@ ffbuild_dockerbuild() {
     # Выделяем из CFLAGS только флаги компилятора (без -D и -I)
     local CLEAN_CFLAGS=$(echo "$CFLAGS" | sed 's/-[DU][^ ]*//g; s/-I[^ ]*//g')
 
-    export LIBS="-lws2_32 -lbcrypt -lpthread -lm"
+    # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
+    # Порядок: curl -> (+crypto, quiche) -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
+    local DEP_LIBS="-lssh -lquiche -lssl -lcrypto -lnghttp2 -lzstd -lbrotlidec -lbrotlicommon -lz"
+    local WIN_SYS_LIBS="-lws2_32 -lbcrypt -lcrypt32 -liphlpapi -lntdll -ladvapi32 -luser32 -lshlwapi -lole32 -lsetupapi -lgomp -lpthread -lm"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -86,13 +90,16 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared )
     fi
 
+    export LIBS="-lssl -lcrypto -lws2_32 -lbcrypt -lcrypt32 -liphlpapi -lntdll -lpthread -lm"
+
     CFLAGS="$CLEAN_CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
     CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     ./configure "${myconf[@]}" || {
         log_error "FAILED. Look at the end of config.log for link errors:"
-        grep -A 20 "checking for quiche_conn_send_ack_eliciting" config.log | grep -v "lt_cv"
+        grep -A 50 "checking for quiche_conn_send_ack_eliciting" config.log | grep -v "lt_cv"
+        grep -A 50 "checking for HMAC_Update" config.log | grep -v "lt_cv"
         return 1
     }
 
