@@ -42,8 +42,8 @@ ffbuild_dockerbuild() {
     local myconf=(
         --release
         --target="${FFBUILD_RUST_TARGET}"
-        --no-default-features
-        --features openssl,ffi,pkg-config-meta
+        # --no-default-features
+        --features ffi,pkg-config-meta
     )
 
     CFLAGS="$CFLAGS" \
@@ -85,7 +85,7 @@ Name: quiche
 Description: QUIC and HTTP/3 implementation
 Version: 0.20.0
 Libs: -L\${libdir} -lquiche
-Libs.private: -lws2_32 -lbcrypt -ladvapi32 -luser32 -lntdll -lcrypto -lssl
+Libs.private: -lws2_32 -lbcrypt -ladvapi32 -luser32 -lntdll
 Cflags: -I\${includedir}
 EOF
 }
