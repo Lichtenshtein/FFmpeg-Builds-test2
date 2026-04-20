@@ -63,7 +63,7 @@ stage_cleanup() {
                         continue
                     fi
                     log_debug "${LOGS_MARK} ▼ CONTENT OF ${logfile} (last 300 lines) ▼"
-                    tail -n 300 "$logfile" >&2
+                    tail -n 500 "$logfile" >&2
                     log_debug "${LOGS_MARK} ▲ END OF $(basename "$logfile") ▲"
                 done
             else
