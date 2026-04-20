@@ -38,8 +38,10 @@ ffbuild_dockerbuild() {
 
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
     # Порядок: curl -> (+crypto, quiche) -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
-    local DEP_LIBS="-lssh -lquiche -lnghttp2 -lzstd -lbrotlidec -lbrotlicommon -lz"
-    local WIN_SYS_LIBS="-luserenv -lcrypt32 -liphlpapi -lntdll -lsetupapi"
+    # local DEP_LIBS="-lssh -lquiche -lnghttp2 -lzstd -lbrotlidec -lbrotlicommon -lz"
+    # local WIN_SYS_LIBS="-luserenv -lcrypt32 -liphlpapi -lntdll -lsetupapi"
+
+    export LIBS="-lssl -lcrypto -lssh -lnghttp2 -lzstd -lbrotlidec -lz -lquiche -luserenv -lws2_32 -lbcrypt -lcrypt32 -liphlpapi -lntdll -ladvapi32 -luser32 -lshlwapi -lole32 -lsetupapi -lpthread -lm"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -93,8 +95,7 @@ ffbuild_dockerbuild() {
     CFLAGS="$CLEAN_CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
     CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
-    LIBS="$DEP_LIBS $WIN_SYS_LIBS $LIBS" \
+    LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition ${USELTO}" \
     ./configure "${myconf[@]}" || {
         log_error "FAILED. Look at the end of config.log for link errors:"
         grep -A 50 "checking for quiche_conn_send_ack_eliciting" config.log | grep -v "lt_cv"
