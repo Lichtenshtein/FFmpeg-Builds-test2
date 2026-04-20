@@ -26,24 +26,6 @@ ffbuild_dockerbuild() {
 
     autoreconf -fi
 
-    # Создаем реализацию strndup специально для линковщика
-    cat <<EOF > strndup_fix.c
-#include <string.h>
-#include <stdlib.h>
-char *strndup(const char *s, size_t n) {
-    size_t len = 0;
-    while(len < n && s[len]) len++;
-    char *p = malloc(len + 1);
-    if(p) {
-        memcpy(p, s, len);
-        p[len] = '\0';
-    }
-    return p;
-}
-EOF
-
-    ${FFBUILD_CROSS_PREFIX}gcc -O2 -c strndup_fix.c -o strndup_fix.o
-
     if [[ $TARGET == win64 ]]; then
         sed -i 's/include <sys\/socket.h>/include <winsock2.h>/g' configure
     fi
@@ -56,7 +38,7 @@ EOF
 
     # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
     # Порядок: curl -> (+crypto, quiche) -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
-    local DEP_LIBS="$(pwd)/strndup_fix.o -lssh -lquiche -lnghttp2 -lssl -lcrypto -lzstd -lbrotlidec -lbrotlicommon -lz"
+    local DEP_LIBS="-lssh -liberty -lquiche -lnghttp2 -lssl -lcrypto -lzstd -lbrotlidec -lbrotlicommon -lz"
     local WIN_SYS_LIBS="-luserenv -lcrypt32 -liphlpapi -lntdll -lsetupapi"
 
     local myconf=(
@@ -109,7 +91,7 @@ EOF
     fi
 
     CFLAGS="$CLEAN_CFLAGS ${USELTO}" \
-    CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE $self_static_flags $static_flags" \
+    CPPFLAGS="$CPPFLAGS -Dstrndup=curl_strndup $self_static_flags $static_flags" \
     CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}" \
     LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition ${USELTO}" \
     LIBS="$DEP_LIBS $WIN_SYS_LIBS $LIBS" \
