@@ -60,22 +60,20 @@ ffbuild_dockerbuild() {
     local LIB_FILE=$(find target/${FFBUILD_RUST_TARGET}/release/ -maxdepth 1 \( -name "libquiche.a" -o -name "quiche.lib" \))
     local HEADER_FILE=$(find quiche/include/ -name "quiche.h")
 
-    if [[ -z "$LIB_FILE" ]]; then
-        return "libquiche.a not found! Contents of target release:"
-        ls -R target/${FFBUILD_RUST_TARGET}/release/
-        return 1
-    fi
+    # берем список всех символов, которые начинаются на SSL_, ERR_, EVP_, BN_ и т.д. и помечаем их как локальные.
+    ${FFBUILD_CROSS_PREFIX}nm "$LIB_FILE" | grep -E ' T (SSL_|ERR_|EVP_|BN_|OPENSSL_|AES_|MD5_|SHA)' | awk '{print $3}' > symbols_to_hide.txt
+    ${FFBUILD_CROSS_PREFIX}objcopy --localize-symbols=symbols_to_hide.txt "$LIB_FILE" libquiche_hidden.a
 
-    cp "$LIB_FILE" "$INSTALL_ROOT/lib/libquiche.a"
     cp "$HEADER_FILE" "$INSTALL_ROOT/include/quiche.h"
     # Копируем заголовки BoringSSL
-    cp -r quiche/deps/boringssl/src/include/openssl/* "$INSTALL_ROOT/include/boringssl/"
+    # cp -r quiche/deps/boringssl/src/include/openssl/* "$INSTALL_ROOT/include/boringssl/"
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
         cp "target/$FFBUILD_RUST_TARGET/release/quiche.dll" "$INSTALL_ROOT/bin/"
         cp "target/$FFBUILD_RUST_TARGET/release/quiche.dll.a" "$INSTALL_ROOT/lib/"
     else
-        cp "target/$FFBUILD_RUST_TARGET/release/libquiche.a" "$INSTALL_ROOT/lib/"
+        # cp "$LIB_FILE" "$INSTALL_ROOT/lib/libquiche.a"
+        cp libquiche_hidden.a "$INSTALL_ROOT/lib/libquiche.a"
     fi
 
     cat <<EOF > "$PC_DIR/quiche.pc"
