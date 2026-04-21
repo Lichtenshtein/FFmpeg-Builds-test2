@@ -44,9 +44,9 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # # Check library names - SVT-JPEG-XS might use different library names
-    ls $FFBUILD_DESTPREFIX/lib/libSvt*
+    # ls $FFBUILD_DESTPREFIX/lib/libSvt*
     # # Check header locations:
-    ls $FFBUILD_DESTPREFIX/include/svt-jpegxs/
+    # ls $FFBUILD_DESTPREFIX/include/svt-jpegxs/
 
     # echo "=== Installed files ==="
     # find "$FFBUILD_DESTDIR" -type f
@@ -84,7 +84,7 @@ ffbuild_dockerbuild() {
 # EOF
     # fi
 
-    for pc in "$PC_DIR/"SvtJpegxs*.pc; do
+    for pc in "$PC_DIR"/SvtJpegxs*.pc; do
         [[ -f "$pc" ]] || continue
         # Исправляем префикс
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$pc"

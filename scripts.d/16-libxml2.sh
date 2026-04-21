@@ -24,7 +24,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset $LIBS"
+    # without icu for faster testing
+    # local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset $LIBS"
+    # with icu
+    local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -36,7 +39,7 @@ ffbuild_dockerbuild() {
         --without-modules
         --disable-maintainer-mode
         --with-pic
-        # --with-icu
+        --with-icu
         --with-thread-alloc
         --with-winpath
         --with-zlib
