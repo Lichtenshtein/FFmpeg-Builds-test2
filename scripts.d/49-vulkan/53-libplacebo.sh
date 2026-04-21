@@ -54,6 +54,7 @@ ffbuild_dockerbuild() {
         #-Dgl-proc-addr=enabled # Enable built-in OpenGL loader; uses dlopen, dlsym
         #-Dvk-proc-addr=enabled # Link directly against vkGetInstanceProcAddr from libvulkan.so
         -Dvulkan-registry="$FFBUILD_PREFIX"/share/vulkan/registry/vk.xml
+        -Dvulkan-sdk="$FFBUILD_PREFIX"
         -Dvulkan=enabled
         -Dxxhash=enabled # faster replacement for internal siphash
     )
@@ -70,11 +71,16 @@ ffbuild_dockerbuild() {
         )
     fi
 
+    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lstdc++"
+
+    # Принудительно заменяем поиск SPIRV, чтобы он учитывал наш префикс
+    # sed -i "s/cxx.find_library('SPIRV', required: required, static: static, dirs: vulkan_lib_dirs)/cxx.find_library('SPIRV', required: required, static: static, dirs:  ${FFBUILD_PREFIX}\/lib)/g" src/glsl/meson.build
+
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
-        -Dc_link_args="$LDFLAGS" \
-        -Dcpp_link_args="$LDFLAGS" || return 1
+        -Dc_link_args="$LDFLAGS $EXTRA_LDFLAGS" \
+        -Dcpp_link_args="$LDFLAGS $EXTRA_LDFLAGS" || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
