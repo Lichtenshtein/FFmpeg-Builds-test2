@@ -14,6 +14,7 @@ ffbuild_depends() {
     echo pango
     echo dav1d
     echo freetype2
+    echo avif
 }
 
 ffbuild_enabled() {
