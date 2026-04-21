@@ -20,6 +20,7 @@ ffbuild_depends() {
     echo quiche
     echo nghttp2
     echo freeglut
+    echo libxxhash
     # echo lcevcdec
     echo spirv-tools
     echo gavl

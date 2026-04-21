@@ -12,6 +12,7 @@ ffbuild_depends() {
     echo spirv-cross
     echo shaderc
     echo lcms2
+    echo libxxhash
 }
 
 ffbuild_enabled() {
@@ -37,20 +38,21 @@ ffbuild_dockerbuild() {
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         --prefix="$FFBUILD_PREFIX"
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
-        -Dbench=false
         -Dc_std=c11
         -Dcpp_std=c++17
         -Ddemos=false
         -Dfuzz=false
+        -Dbench=false
+        -Dtests=false
+        -Ddebug-abort=false
         -Dglslang=enabled # glslang SPIR-V compiler
-        -Dlcms2=enabled # LittleCMS 2 support
+        -Dlcms=enabled # LittleCMS 2 support
         -Dlibdovi=disabled # libdovi support
         -Ddovi=disabled # Dolby Vision reshaping support
         -Dshaderc=enabled # libshaderc SPIR-V compiler
-        -Dtests=false
         -Dopengl=enabled # OpenGL-based renderer
-        -Dgl-proc-addr=enabled # Enable built-in OpenGL loader; uses dlopen, dlsym
-        -Dvk-proc-addr=enabled # Link directly against vkGetInstanceProcAddr from libvulkan.so
+        #-Dgl-proc-addr=enabled # Enable built-in OpenGL loader; uses dlopen, dlsym
+        #-Dvk-proc-addr=enabled # Link directly against vkGetInstanceProcAddr from libvulkan.so
         -Dvulkan-registry="$FFBUILD_PREFIX"/share/vulkan/registry/vk.xml
         -Dvulkan=enabled
         -Dxxhash=enabled # faster replacement for internal siphash
