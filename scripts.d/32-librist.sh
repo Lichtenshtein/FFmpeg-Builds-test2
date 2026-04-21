@@ -4,7 +4,7 @@ SCRIPT_REPO="https://code.videolan.org/rist/librist.git"
 SCRIPT_COMMIT="9b4e359f4e5b2d9a922b6d4f0af61fe7acf78c66"
 
 ffbuild_depends() {
-    echo mbedtls
+    # echo mbedtls # does not recognize external mbedtls
     echo nettle
     # echo gnutls
 }
@@ -32,9 +32,9 @@ ffbuild_dockerbuild() {
         -Dtest=false
         -Dbuilt_tools=false
         -Dbuiltin_mbedtls=false
-        # -Duse_nettle=true
+        -Duse_nettle=true
         -Duse_gnutls=false
-        -Duse_mbedtls=true
+        # -Duse_mbedtls=true 
     )
 
     if [[ $TARGET == win* ]]; then

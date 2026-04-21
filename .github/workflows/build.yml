@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '08-zlib|30-mbedtls|30-openssl|32-librist|33-librabbitmq-test'
+        default: '08-zlib|12-snappy|15-libunibreak|18-cdio|18-cdiowpar|37-svtjpegxs-test'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'

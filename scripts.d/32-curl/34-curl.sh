@@ -124,7 +124,7 @@ ffbuild_libs() {
 }
 
 ffbuild_cppflags() {
-    echo "$self_static_flags"
+    echo "$static_flags $self_static_flags"
 }
 
 ffbuild_configure() {
