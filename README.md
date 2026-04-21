@@ -199,6 +199,11 @@ All of those can be optionally combined with any combination of addins:
 49-vulkan-headers|50-spirv-headers|50-spirv-tools|51-spirv-cross|52-shaderc|52-vulkan-loader|99-enable
 ```
 
+* `libplacebo`
+```
+08-zlib|27-freeglut|40-lcms2|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|53-libplacebo
+```
+
 * `libavif`
 ```
 44-dav1d|44-svtav1|45-libavif
