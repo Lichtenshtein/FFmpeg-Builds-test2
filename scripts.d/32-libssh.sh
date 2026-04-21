@@ -67,8 +67,6 @@ EOF
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBSSH_STATIC"
 
-    local MINGW_FIX_CFLAGS="-D_GNU_SOURCE"
-
     CFLAGS="$CFLAGS $CPPFLAGS $static_flags -include $(pwd)/mingw_fix.h -Dmd5=libssh_md5" \
     LDFLAGS="$LDFLAGS $(pwd)/mingw_fix.o" \
     cmake -G Ninja "${myconf[@]}" .. || return 1

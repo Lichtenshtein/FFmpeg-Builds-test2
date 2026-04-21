@@ -6,7 +6,7 @@ SCRIPT_COMMIT="391af7c976044bccf83238f9c132a40d7b30464e"
 # SCRIPT_TAGFILTER="v3.*"
 
 ffbuild_enabled() {
-    return 0
+    return 1
 }
 
 ffbuild_dockerdl() {
