@@ -28,7 +28,7 @@ ffbuild_dockerbuild() {
 
     ./autogen.sh
 
-    local DEP_LIBS="-lrsvg-2 -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lcairo-gobject -lcairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lpng16 -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz"
+    local DEP_LIBS="-lrsvg_2 -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lcairo-gobject -lcairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lpng16 -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz"
     local WIN_LIBS="$LIBS"
 
     local myconf=(

@@ -79,7 +79,7 @@ ffbuild_dockerbuild() {
 
     # Принудительно добавляем зависимости в pkg-config для статической линковки
     # sed -i 's/Libs:/Libs: -lshaderc_combined -lspirv-cross-c -lspirv-cross-glsl -lspirv-cross-core /' "$PC_DIR/libplacebo.pc"
-    sed -i '/^Libs.private:/ s/$/ -lstdc++ -lm -lshlwapi/' "$PC_DIR/libplacebo.pc"
+    # sed -i '/^Libs.private:/ s/$/ -lstdc++ -lm -lshlwapi/' "$PC_DIR/libplacebo.pc"
 }
 
 ffbuild_configure() {
