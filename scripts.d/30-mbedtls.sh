@@ -1,12 +1,12 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/ARMmbed/mbedtls.git"
-SCRIPT_COMMIT="0fe989b6b514192783c469039edd325fd0989806"
+SCRIPT_REPO="https://github.com/Mbed-TLS/mbedtls.git"
+SCRIPT_COMMIT="391af7c976044bccf83238f9c132a40d7b30464e"
 # SCRIPT_COMMIT="v3.6.5"
 # SCRIPT_TAGFILTER="v3.*"
 
 ffbuild_enabled() {
-    return 1
+    return 0
 }
 
 ffbuild_dockerdl() {

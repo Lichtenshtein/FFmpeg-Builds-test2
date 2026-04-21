@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://code.videolan.org/rist/librist.git"
-SCRIPT_COMMIT="1a5013b59ce098465e835a0510cd395872bb1c24"
+SCRIPT_COMMIT="9b4e359f4e5b2d9a922b6d4f0af61fe7acf78c66"
 
 ffbuild_depends() {
     echo mbedtls
@@ -27,13 +27,14 @@ ffbuild_dockerbuild() {
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         --prefix="$FFBUILD_PREFIX"
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
-        -Dbuilt_tools=false
-        -Dbuiltin_mbedtls=false
-        # -Duse_mbedtls=true
         -Dc_std=c11
         -Dcpp_std=c++17
         -Dtest=false
-        -Duse_nettle=true
+        -Dbuilt_tools=false
+        -Dbuiltin_mbedtls=false
+        # -Duse_nettle=true
+        -Duse_gnutls=false
+        -Duse_mbedtls=true
     )
 
     if [[ $TARGET == win* ]]; then
