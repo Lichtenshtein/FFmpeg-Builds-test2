@@ -29,6 +29,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DENABLE_CXX_DEPS=ON
         -DENABLE_ENCRYPTION=ON
+        -DENABLE_LOGGING=OFF
         -DENABLE_APPS=OFF
     )
 
