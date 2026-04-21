@@ -49,11 +49,15 @@ ffbuild_dockerbuild() {
         )
     fi
 
+    # Получаем флаги из pkg-config для mbedtls
+    MBED_CFLAGS=$(pkg-config --cflags mbedtls)
+    MBED_LIBS=$(pkg-config --libs --static mbedtls)
+
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
-        -Dc_link_args="$LDFLAGS" \
-        -Dcpp_link_args="$LDFLAGS" || return 1
+        -Dc_args="$CFLAGS $CPPFLAGS $MBED_CFLAGS" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS $MBED_CFLAGS" \
+        -Dc_link_args="$LDFLAGS $MBED_LIBS" \
+        -Dcpp_link_args="$LDFLAGS $MBED_LIBS" || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
