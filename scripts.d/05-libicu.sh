@@ -129,7 +129,7 @@ ffbuild_dockerbuild() {
     [[ -f "sicudt.a" ]] && mv "sicudt.a" "libsicudt.a"
 
     # Update .pc files
-    local ICU_SYS_LIBS="-pthread -lm -ladvapi32 -lws2_32"
+    local ICU_SYS_LIBS="-lstdc++ -pthread -lm -ladvapi32 -lws2_32"
     for pc in "$PC_DIR"/icu-*.pc; do
         [[ -e "$pc" ]] || continue
         # Меняем имена библиотек (icu -> sicu)
