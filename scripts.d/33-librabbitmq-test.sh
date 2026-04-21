@@ -28,7 +28,6 @@ ffbuild_dockerbuild() {
         -DBUILD_API_DOCS=OFF
         -DBUILD_EXAMPLES=OFF
         -DBUILD_OSSFUZZ=OFF
-        -DBUILD_TESTS=OFF
         -DBUILD_TOOLS=OFF
         -DCMAKE_BUILD_TYPE=Release
         -DENABLE_SSL_SUPPORT=ON
