@@ -98,11 +98,10 @@ ffbuild_dockerbuild() {
             fi
         fi
     done
-
 }
 
 ffbuild_libs() {
-    echo "-lssl -lcrypto -lz -lws2_32 -lgdi32 -lcrypt32 -lbcrypt"
+    echo "-lssl -lcrypto"
 }
 
 ffbuild_configure() {
