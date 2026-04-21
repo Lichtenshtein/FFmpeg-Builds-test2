@@ -64,6 +64,6 @@ Version: $VER_FULL
 
 Requires:
 Libs: -L\${libdir} -L\${sharedlibdir} -lspirv-cross-c -lspirv-cross-glsl -lspirv-cross-hlsl -lspirv-cross-reflect -lspirv-cross-msl -lspirv-cross-util -lspirv-cross-core -lstdc++
-Cflags: -I\${includedir}
+Cflags: -I\${includedir} -I\${includedir}\spirv_cross
 EOF
 }
