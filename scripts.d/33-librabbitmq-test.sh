@@ -18,6 +18,9 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Исправляем регистр для WinSock2.h -> winsock2.h
+    grep -rli "winsock2.h" . | xargs sed -i 's/[Ww][Ii][Nn][Ss][Oo][Cc][Kk]2\.h/winsock2.h/g'
+
     mkdir -p build && cd build
 
     local myconf=(
