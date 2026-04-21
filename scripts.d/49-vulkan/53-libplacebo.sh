@@ -36,14 +36,12 @@ ffbuild_dockerbuild() {
     sed -i "s/find_library('MachineIndependent',/find_library('MachineIndependent', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
     sed -i "s/find_library('OSDependent',/find_library('OSDependent', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
     sed -i "s/find_library('GenericCodeGen',/find_library('GenericCodeGen', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
+    sed -i "s/find_library('SPIRV-Tools',/find_library('SPIRV-Tools', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
+    sed -i "s/find_library('SPIRV-Tools-opt',/find_library('SPIRV-Tools-opt', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
 
     # Вырезаем поиск OGLCompiler, так как в новых glslang его больше нет
     # Мы заменяем его на пустую зависимость (disabler), чтобы не ломать логику массива glslang_deps
     sed -i "s/cxx.find_library('OGLCompiler',.*/disabler(),/g" src/glsl/meson.build
-
-    # На всякий случай поправим SPIRV-Tools компоненты, им тоже нужны dirs
-    sed -i "s/find_library('SPIRV-Tools',/find_library('SPIRV-Tools', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
-    sed -i "s/find_library('SPIRV-Tools-opt',/find_library('SPIRV-Tools-opt', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
 
     mkdir -p build && cd build
 
@@ -66,7 +64,7 @@ ffbuild_dockerbuild() {
         -Ddovi=disabled # Dolby Vision reshaping support
         -Dshaderc=enabled # libshaderc SPIR-V compiler
         -Dopengl=enabled # OpenGL-based renderer
-        #-Dgl-proc-addr=enabled # Enable built-in OpenGL loader; uses dlopen, dlsym
+        -Dgl-proc-addr=enabled # Enable built-in OpenGL loader; uses dlopen, dlsym
         #-Dvk-proc-addr=enabled # Link directly against vkGetInstanceProcAddr from libvulkan.so
         -Dvulkan-registry="$FFBUILD_PREFIX"/share/vulkan/registry/vk.xml
         -Dvulkan-sdk="$FFBUILD_PREFIX"
@@ -80,26 +78,27 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --cross-file=/cross.meson
-        )
-    fi
-
-    local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lstdc++"
+    local EXTRA_LDFLAGS="-lstdc++"
+    local EXTRA_CFLAGS="-I${FFBUILD_PREFIX}/include/spirv_cross"
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
+        -Dc_args="$CFLAGS $CPPFLAGS $EXTRA_CFLAGS" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS $EXTRA_CFLAGS" \
         -Dc_link_args="$LDFLAGS $EXTRA_LDFLAGS" \
         -Dcpp_link_args="$LDFLAGS $EXTRA_LDFLAGS" || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Принудительно добавляем зависимости в pkg-config для статической линковки
-    # sed -i 's/Libs:/Libs: -lshaderc_combined -lspirv-cross-c -lspirv-cross-glsl -lspirv-cross-core /' "$PC_DIR/libplacebo.pc"
-    # sed -i '/^Libs.private:/ s/$/ -lstdc++ -lm -lshlwapi/' "$PC_DIR/libplacebo.pc"
+    local DEP_LIBS="-lshaderc_combined -lspirv-cross-c -lspirv-cross-glsl -lspirv-cross-core -lstdc++ -lm"
+    local PC_FILE="$PC_DIR/libplacebo.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        if grep -q "^Libs.private:" "$PC_FILE"; then
+            sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS|" "$PC_FILE"
+        else
+            sed -i "/^Libs:/ a Libs.private: $DEP_LIBS" "$PC_FILE"
+        fi
+    fi
 }
 
 ffbuild_configure() {
