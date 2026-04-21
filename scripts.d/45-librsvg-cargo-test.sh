@@ -13,6 +13,7 @@ ffbuild_depends() {
     echo cairo
     echo pango
     echo dav1d
+    echo avif
 }
 
 ffbuild_enabled() {

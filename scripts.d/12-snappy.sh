@@ -37,6 +37,20 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/snappy.pc"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: Snappy
+Description: A fast compressor/decompressor library.
+Version: 1.2.2
+Libs: -L\${libdir} -lsnappy
+Cflags: -I\${includedir}
+EOF
 }
 
 ffbuild_configure() {
