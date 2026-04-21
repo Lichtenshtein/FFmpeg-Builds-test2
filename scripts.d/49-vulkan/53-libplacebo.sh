@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
     local myconf=(
         --buildtype=release
         --cross-file="$FFBUILD_MESON_CROSS"
-        --default-library=s$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         --prefix="$FFBUILD_PREFIX"
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         -Dbench=false
