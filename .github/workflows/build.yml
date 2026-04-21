@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '05-libicu|06-libiconv|07-gettext|11-brotli|11-bzlib|11-xz|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|37-libpng|39-fontconfig|39-pixman|40-cairo|40-harfbuzz|40-lensfun-test|41-freetype|43-pango|44-dav1d|44-rav1e|45-libavif|45-librsvg-cargo-test'
+        default: '05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|37-libpng|39-fontconfig|39-fribidi|39-pixman|40-cairo|40-harfbuzz|40-lensfun-test|41-freetype|43-pango|44-dav1d|44-rav1e|45-libavif|45-librsvg-cargo-test'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
