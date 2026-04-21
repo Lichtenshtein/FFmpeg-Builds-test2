@@ -25,37 +25,37 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    mkdir -p "include/sharpyuv"
-    cp -v "$FFBUILD_PREFIX/include/webp/sharpyuv/"*.h "include/sharpyuv/" 2>/dev/null || true
+    # mkdir -p "include/sharpyuv"
+    # cp -v "$FFBUILD_PREFIX/include/webp/sharpyuv/"*.h "include/sharpyuv/" 2>/dev/null || true
 
-    local XML2_INC="$FFBUILD_PREFIX/include/libxml2"
+    # local XML2_INC="$FFBUILD_PREFIX/include/libxml2"
 
-    cat <<EOF > fix_targets.cmake
-add_library(sharpyuv::sharpyuv STATIC IMPORTED GLOBAL)
-set_target_properties(sharpyuv::sharpyuv PROPERTIES 
-    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libsharpyuv.a"
-    INTERFACE_INCLUDE_DIRECTORIES "\${CMAKE_CURRENT_SOURCE_DIR}/include"
-    AVIF_LOCAL OFF)
+    # cat <<EOF > fix_targets.cmake
+# add_library(sharpyuv::sharpyuv STATIC IMPORTED GLOBAL)
+# set_target_properties(sharpyuv::sharpyuv PROPERTIES 
+    # IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libsharpyuv.a"
+    # INTERFACE_INCLUDE_DIRECTORIES "\${CMAKE_CURRENT_SOURCE_DIR}/include"
+    # AVIF_LOCAL OFF)
 
-add_library(LibXml2 STATIC IMPORTED GLOBAL)
-set_target_properties(LibXml2 PROPERTIES 
-    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libxml2.a"
-    INTERFACE_INCLUDE_DIRECTORIES "$XML2_INC"
-    AVIF_LOCAL OFF)
-target_compile_definitions(LibXml2 INTERFACE LIBXML_STATIC)
-target_link_libraries(LibXml2 INTERFACE bcrypt ws2_32)
+# add_library(LibXml2 STATIC IMPORTED GLOBAL)
+# set_target_properties(LibXml2 PROPERTIES 
+    # IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libxml2.a"
+    # INTERFACE_INCLUDE_DIRECTORIES "$XML2_INC"
+    # AVIF_LOCAL OFF)
+# target_compile_definitions(LibXml2 INTERFACE LIBXML_STATIC)
+# target_link_libraries(LibXml2 INTERFACE bcrypt ws2_32)
 
-add_library(LibXml2::LibXml2 ALIAS LibXml2)
+# add_library(LibXml2::LibXml2 ALIAS LibXml2)
 
-include_directories(BEFORE "\${CMAKE_CURRENT_SOURCE_DIR}/include")
-include_directories(SYSTEM "$XML2_INC")
-EOF
+# include_directories(BEFORE "\${CMAKE_CURRENT_SOURCE_DIR}/include")
+# include_directories(SYSTEM "$XML2_INC")
+# EOF
 
-    sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/fix_targets.cmake")' CMakeLists.txt
-    sed -i 's/check_avif_option(AVIF_LIBSHARPYUV.*/set(AVIF_LIBSHARPYUV_ENABLED ON)/' CMakeLists.txt
-    sed -i 's/check_avif_option(AVIF_LIBXML2.*/set(AVIF_LIBXML2_ENABLED ON)/' CMakeLists.txt
-    sed -i 's/find_package(libsharpyuv/#/' CMakeLists.txt
-    sed -i 's/find_package(LibXml2/#/' CMakeLists.txt
+    # sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/fix_targets.cmake")' CMakeLists.txt
+    # sed -i 's/check_avif_option(AVIF_LIBSHARPYUV.*/set(AVIF_LIBSHARPYUV_ENABLED ON)/' CMakeLists.txt
+    # sed -i 's/check_avif_option(AVIF_LIBXML2.*/set(AVIF_LIBXML2_ENABLED ON)/' CMakeLists.txt
+    # sed -i 's/find_package(libsharpyuv/#/' CMakeLists.txt
+    # sed -i 's/find_package(LibXml2/#/' CMakeLists.txt
 
     mkdir -p build && cd build
 
@@ -73,7 +73,7 @@ EOF
         # Включаем поддержку внешнего декодера dav1d
         -DAVIF_CODEC_DAV1D=SYSTEM # Декодер
         -DAVIF_CODEC_DAV1D_ENABLED=ON
-        -DAVIF_LIBSHARPYUV=SYSTEM # stupidly fails if no .cmake files found
+        #-DAVIF_LIBSHARPYUV=SYSTEM # stupidly fails if no .cmake files found
         -DAVIF_LIBXML2=SYSTEM # convert JPEG with gain maps to AVIF using avifenc
         -DAVIF_JPEG=SYSTEM
         -DAVIF_ZLIBPNG=SYSTEM
