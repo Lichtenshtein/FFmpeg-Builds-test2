@@ -114,7 +114,7 @@ EOF
         --cross-file="$FFBUILD_MESON_CROSS"
         --cross-file python_fix.ini
         --buildtype release
-        --default-library $([ "${PREFER_SHARED}" == "1" ] && echo static || echo shared)
+        --default-library $([ "${PREFER_SHARED}" == "1" ] && echo shared || static)
         -Dcpp_std=c++17
         -Dc_std=c11
         -Denable_vsscript=true

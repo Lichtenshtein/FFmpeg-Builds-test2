@@ -40,7 +40,7 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --cross-file="$FFBUILD_MESON_CROSS"
         --buildtype release
-        --default-library $([ "${PREFER_SHARED}" == "1" ] && echo static || echo shared)
+        --default-library $([ "${PREFER_SHARED}" == "1" ] && echo shared || static)
         -Dc_std=c11
         -Denable_x86_asm=true
         -Denable_vsscript=false

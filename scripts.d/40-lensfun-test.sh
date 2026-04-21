@@ -40,12 +40,10 @@ ffbuild_dockerbuild() {
         -DBUILD_FOR_SSE2=ON
         -DINSTALL_HELPER_SCRIPTS=ON # OFF
         # Отключаем Python принудительно
-        -DINSTALL_PYTHON_MODULE=ON # OFF; Install Python module for the helper scripts
+        -DINSTALL_PYTHON_MODULE=OFF # OFF; Install Python module for the helper scripts
         # -DPYTHON_EXECUTABLE=OFF
         # Уточняем пути для CMake-модуля поиска Glib
         -DGLIB2_LIBRARIES="$FFBUILD_PREFIX/lib/libglib-2.0.a"
-        -DGLIB2_BASE_INCLUDE_DIR="$FFBUILD_PREFIX/include/glib-2.0"
-        -DGLIB2_INTERNAL_INCLUDE_DIR="$FFBUILD_PREFIX/lib/glib-2.0/include"
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS $GLIB_INCLUDES" \
