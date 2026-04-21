@@ -30,6 +30,21 @@ ffbuild_dockerbuild() {
     # Remove static build workaround for libplacebo
     # sed -i 's/DPL_EXPORT/DPL_STATIC/' src/meson.build
 
+    # Исправляем meson.build, добавляя dirs: vulkan_lib_dirs в поиск glslang и MachineIndependent
+    # В оригинале они ищутся только в системных путях, игнорируя vulkan-sdk префикс
+    sed -i "s/find_library('glslang', required: required/find_library('glslang', required: required, dirs: vulkan_lib_dirs/g" src/glsl/meson.build
+    sed -i "s/find_library('MachineIndependent',/find_library('MachineIndependent', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
+    sed -i "s/find_library('OSDependent',/find_library('OSDependent', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
+    sed -i "s/find_library('GenericCodeGen',/find_library('GenericCodeGen', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
+
+    # Вырезаем поиск OGLCompiler, так как в новых glslang его больше нет
+    # Мы заменяем его на пустую зависимость (disabler), чтобы не ломать логику массива glslang_deps
+    sed -i "s/cxx.find_library('OGLCompiler',.*/disabler(),/g" src/glsl/meson.build
+
+    # На всякий случай поправим SPIRV-Tools компоненты, им тоже нужны dirs
+    sed -i "s/find_library('SPIRV-Tools',/find_library('SPIRV-Tools', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
+    sed -i "s/find_library('SPIRV-Tools-opt',/find_library('SPIRV-Tools-opt', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
+
     mkdir -p build && cd build
 
     local myconf=(
@@ -72,9 +87,6 @@ ffbuild_dockerbuild() {
     fi
 
     local EXTRA_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lstdc++"
-
-    # Принудительно заменяем поиск SPIRV, чтобы он учитывал наш префикс
-    # sed -i "s/cxx.find_library('SPIRV', required: required, static: static, dirs: vulkan_lib_dirs)/cxx.find_library('SPIRV', required: required, static: static, dirs:  ${FFBUILD_PREFIX}\/lib)/g" src/glsl/meson.build
 
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS" \
