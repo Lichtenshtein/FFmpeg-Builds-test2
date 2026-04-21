@@ -11,22 +11,16 @@ diff --git a/meson.build b/meson.build
 index bfee12b..8c2a602 100755
 --- a/meson.build
 +++ b/meson.build
-@@ -250,8 +250,13 @@ crypto_deps = []
+@@ -250,8 +250,6 @@ crypto_deps = []
  
  mbedcrypto_lib_found = false
  if use_mbedtls
 -	message('Building mbedtls')
 -	subdir('contrib/mbedtls')
-+	mbedtls_dep = dependency('mbedtls', required: false)
-+	if mbedtls_dep.found()
-+		mbedcrypto_lib = mbedtls_dep
-+		mbedcrypto_lib_found = true
-+	else
-+		subdir('contrib/mbedtls')
-+	endif
- 
- 	crypto_deps += mbedcrypto_lib
+-
+-	crypto_deps += mbedcrypto_lib
++	mbedcrypto_lib_found = true
++	message('Using external mbedtls')
  elif use_gnutls
 -- 
 2.52.0.windows.1
-
