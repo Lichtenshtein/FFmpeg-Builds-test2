@@ -80,10 +80,13 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    sed -i '/^Libs.private:/ s/$/ -lstdc++/' "$PC_DIR/openal.pc"
-
-    if [[ $TARGET == win* ]]; then
-        sed -i '/^Libs.private:/ s/$/ -lole32 -luuid -lwinmm/' "$PC_DIR/openal.pc"
+    local PRIVATE_LIBS="-lwinpthread -lavrt -latomic -lm -luuid -lwinmm -lz -lstdc++"
+    local PC_FILE="$PC_DIR/openal.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        # Удаляем существующую строку Libs.private целиком
+        sed -i '/^Libs.private:/d' "$PC_FILE"
+        # Записываем новую чистую строку
+        echo "Libs.private: $PRIVATE_LIBS" >> "$PC_FILE"
     fi
 }
 

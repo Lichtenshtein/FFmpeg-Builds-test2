@@ -5,7 +5,7 @@ SCRIPT_COMMIT="2e5642ea1e5dc4a1d2f0c2f331729acc9866caed"
 SCRIPT_BRANCH="HDC-encoder-PS-patch"
 
 ffbuild_enabled() {
-    # [[ $VARIANT == nonfree* ]] || return 1
+    [[ $VARIANT == nonfree* ]] || return 1
     return 0
 }
 
