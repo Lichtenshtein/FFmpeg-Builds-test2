@@ -1,0 +1,302 @@
+From 74f5c489b76051846fed0c81e9d8b0773e3baa1c Mon Sep 17 00:00:00 2001
+From: Yasith Harischandra <yasith.harischandra@outlook.com>
+Date: Wed, 15 May 2024 22:37:39 +0530
+Subject: [PATCH] Added CMake file
+
+---
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+new file mode 100644
+index 0000000..3cf003d
+--- /dev/null
++++ b/CMakeLists.txt
+@@ -0,0 +1,89 @@
++cmake_minimum_required(VERSION 3.10)
++project(libklvanc VERSION 1.0)
++
++# Specify C standard
++set(CMAKE_C_STANDARD 99)
++set(CMAKE_C_STANDARD_REQUIRED True)
++
++# Add include directories
++include_directories(${PROJECT_SOURCE_DIR}/src/)
++
++# Set the source files
++set(SOURCES
++    src/core.c
++    src/core-packet-eia_708b.c
++    src/core-packet-eia_608.c
++    src/core-packet-scte_104.c
++    src/core-packet-afd.c
++    src/core-packet-sdp.c
++    src/core-packet-smpte_12_2.c
++    src/core-packet-smpte_2108_1.c
++    src/core-packets.c
++    src/core-lines.c
++    src/core-did.c
++    src/core-pixels.c
++    src/core-checksum.c
++    src/smpte2038.c
++    src/core-cache.c
++    src/core-packet-kl_u64le_counter.c
++)
++
++# Set the header files
++set(HEADERS
++    src/core-private.h
++    src/xorg-list.h
++    src/klbitstream_readwriter.h
++    src/libklvanc/vanc.h
++    src/libklvanc/did.h
++    src/libklvanc/pixels.h
++    src/libklvanc/smpte2038.h
++    src/libklvanc/vanc-eia_708b.h
++    src/libklvanc/vanc-eia_608.h
++    src/libklvanc/vanc-scte_104.h
++    src/libklvanc/vanc-smpte_12_2.h
++    src/libklvanc/vanc-smpte_2108_1.h
++    src/libklvanc/vanc-packets.h
++    src/libklvanc/vanc-lines.h
++    src/libklvanc/vanc-afd.h
++    src/libklvanc/vanc-sdp.h
++    src/libklvanc/vanc-checksum.h
++    src/libklvanc/klrestricted_code_path.h
++    src/libklvanc/cache.h
++    src/libklvanc/vanc-kl_u64le_counter.h
++    src/libklvanc/builtins.h
++)
++
++# Add the library target
++add_library(klvanc SHARED ${SOURCES} ${HEADERS})
++
++# Compiler options
++target_compile_options(klvanc PRIVATE -Wall -D_FILE_OFFSET_BITS=64 -O3 -D_BSD_SOURCE)
++
++# Add version definition
++target_compile_definitions(klvanc PRIVATE VERSION=\"${PROJECT_VERSION}\" PROG=\"${PROJECT_NAME}\")
++
++# Set debug options if in debug mode
++if(CMAKE_BUILD_TYPE STREQUAL "Debug")
++    target_compile_options(klvanc PRIVATE -g)
++endif()
++
++# Find pthreads
++find_package(Threads REQUIRED)
++
++# Link pthreads to the library target
++target_link_libraries(klvanc PRIVATE Threads::Threads)
++
++
++# Installation directives
++install(TARGETS klvanc
++        RUNTIME DESTINATION bin         # For DLLs on Windows
++        LIBRARY DESTINATION lib         # For shared libraries
++        ARCHIVE DESTINATION lib)        # For static libraries
++
++install(FILES ${HEADERS}
++        DESTINATION include/libklvanc)  # Copy headers to include/libklvanc
++
++# Generate an import library for Windows
++if(WIN32)
++set_target_properties(klvanc PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS TRUE)
++endif()
+\ No newline at end of file
+diff --git a/src/core-packets.c b/src/core-packets.c
+index 9864ec1..d5832f0 100644
+--- a/src/core-packets.c
++++ b/src/core-packets.c
+@@ -20,6 +20,9 @@
+  */
+ 
+ #include <libklvanc/vanc.h>
++#ifndef _posix_
++#include "libklvanc/builtins.h"
++#endif
+ 
+ #include "core-private.h"
+ 
+diff --git a/src/core-private.h b/src/core-private.h
+index c2f861e..451e6c0 100644
+--- a/src/core-private.h
++++ b/src/core-private.h
+@@ -25,7 +25,9 @@
+ #define vanc_PRIVATE_H
+ 
+ #include <sys/types.h>
++#ifdef _posix_
+ #include <sys/errno.h>
++#endif
+ 
+ /* We'll have a mutex and a list of items */
+ #include <pthread.h>
+diff --git a/src/klbitstream_readwriter.h b/src/klbitstream_readwriter.h
+index cb822f1..e0e906c 100644
+--- a/src/klbitstream_readwriter.h
++++ b/src/klbitstream_readwriter.h
+@@ -16,6 +16,10 @@
+ #ifndef KLBITSTREAM_READWRITER_H
+ #define KLBITSTREAM_READWRITER_H
+ 
++#ifndef _posix_
++#define __inline__ inline
++#endif
++
+ #define KLBITSTREAM_DEBUG 0
+ 
+ struct klbs_context_s
+diff --git a/src/libklvanc/builtins.h b/src/libklvanc/builtins.h
+new file mode 100644
+index 0000000..a5a427e
+--- /dev/null
++++ b/src/libklvanc/builtins.h
+@@ -0,0 +1,54 @@
++#define WIN32_LEAN_AND_MEAN
++#include <Windows.h>
++#include <winsock.h>
++#include <stdint.h>
++
++#ifndef _BUILTINS_H
++#define _BUILTINS_H
++
++#ifndef _posix_
++#define __inline__ inline
++#endif
++
++/**
++ * @brief	Alternative function for GCC builtin __builtin_parity
++ * @param[x]	uint16_t x, integer value to calculate parity
++ * @return      Calculated parity
++ */
++static __inline__ int __builtin_parity(uint16_t x) {
++    int result = 0;
++    while (x) {
++        result ^= 1;
++        x &= x - 1; // This removes the lowest set bit
++    }
++    return result;
++}
++
++/**
++ * @brief	Alternative function for gettimeofday linux function
++ * source  - https://stackoverflow.com/questions/10905892/equivalent-of-gettimeofday-for-windows
++ * @param[x]	struct timeval* tp, time from epoch in seconds and microseconds
++ * @return      always return 0
++ */
++static __inline__ int gettimeofday(struct timeval* tp, struct timezone* tzp)
++{
++    // Note: some broken versions only have 8 trailing zero's, the correct epoch has 9 trailing zero's
++    // This magic number is the number of 100 nanosecond intervals since January 1, 1601 (UTC)
++    // until 00:00:00 January 1, 1970 
++    static const uint64_t EPOCH = ((uint64_t)116444736000000000ULL);
++
++    SYSTEMTIME  system_time;
++    FILETIME    file_time;
++    uint64_t    time;
++
++    GetSystemTime(&system_time);
++    SystemTimeToFileTime(&system_time, &file_time);
++    time = ((uint64_t)file_time.dwLowDateTime);
++    time += ((uint64_t)file_time.dwHighDateTime) << 32;
++
++    tp->tv_sec = (long)((time - EPOCH) / 10000000L);
++    tp->tv_usec = (long)(system_time.wMilliseconds * 1000);
++    return 0;
++}
++
++#endif /* _BUILTINS_H */
+\ No newline at end of file
+diff --git a/src/libklvanc/klrestricted_code_path.h b/src/libklvanc/klrestricted_code_path.h
+index 7589baf..2885f0f 100644
+--- a/src/libklvanc/klrestricted_code_path.h
++++ b/src/libklvanc/klrestricted_code_path.h
+@@ -45,12 +45,21 @@
+ 
+ #include <stdint.h>
+ #include <string.h>
++#ifdef _posix_
+ #include <sys/time.h>
++#else
++#include <Windows.h>
++#include "builtins.h"
++#endif
+ 
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+ 
++#ifndef _posix_
++#define __inline__ inline
++#endif
++
+ struct klrestricted_code_path_block_s
+ {
+ 	int enableChecking;
+diff --git a/src/libklvanc/vanc-eia_708b.h b/src/libklvanc/vanc-eia_708b.h
+index 1a500ba..dd8cbe5 100644
+--- a/src/libklvanc/vanc-eia_708b.h
++++ b/src/libklvanc/vanc-eia_708b.h
+@@ -48,7 +48,7 @@ struct klvanc_packet_eia_708b_cdp_header
+ 	uint8_t svc_info_change;
+ 	uint8_t svc_info_complete;
+ 	uint8_t caption_service_active;
+-	uint16_t cdp_hdr_sequence_cntr;;
++	uint16_t cdp_hdr_sequence_cntr;
+ };
+ 
+ struct klvanc_packet_eia_708b_time_code_section
+diff --git a/src/libklvanc/vanc-lines.h b/src/libklvanc/vanc-lines.h
+index 3e18fb8..6140fd6 100644
+--- a/src/libklvanc/vanc-lines.h
++++ b/src/libklvanc/vanc-lines.h
+@@ -38,7 +38,9 @@
+ 
+ #include <stdint.h>
+ #include <sys/types.h>
++#ifdef _posix_
+ #include <sys/errno.h>
++#endif
+ 
+ #ifdef __cplusplus
+ extern "C" {
+diff --git a/src/libklvanc/vanc-packets.h b/src/libklvanc/vanc-packets.h
+index 5e954d1..e410166 100644
+--- a/src/libklvanc/vanc-packets.h
++++ b/src/libklvanc/vanc-packets.h
+@@ -30,7 +30,9 @@
+ #define _VANC_PACKETS_H
+ 
+ #include <sys/types.h>
++#ifdef _posix_
+ #include <sys/errno.h>
++#endif
+ 
+ #ifdef __cplusplus
+ extern "C" {
+diff --git a/src/libklvanc/vanc.h b/src/libklvanc/vanc.h
+index 458adf0..c56169e 100644
+--- a/src/libklvanc/vanc.h
++++ b/src/libklvanc/vanc.h
+@@ -37,8 +37,10 @@
+ 
+ #include <stdint.h>
+ #include <stdarg.h>
++#ifdef _posix_
+ #include <sys/errno.h>
+ #include <sys/errno.h>
++#endif
+ #include <libklvanc/klrestricted_code_path.h>
+ 
+ #ifdef __cplusplus
+diff --git a/src/smpte2038.c b/src/smpte2038.c
+index 0796419..02d3f0f 100644
+--- a/src/smpte2038.c
++++ b/src/smpte2038.c
+@@ -26,6 +26,9 @@
+ #include <inttypes.h>
+ #include <libklvanc/smpte2038.h>
+ #include "klbitstream_readwriter.h"
++#ifndef _posix_
++#include "libklvanc/builtins.h"
++#endif
+ 
+ #define VANC8(n) ((n) & 0xff)
+ 
