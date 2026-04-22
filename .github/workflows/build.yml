@@ -115,7 +115,7 @@ env:
   # Список для хранения .git от очистки (в download.sh)
   GIT_PRESERVE_LIST: >-
     ffmpeg|glib2|x264|x265|opus|vulkan-loader|mbedtls|pcre2|
-    avisynth|openssl|pango|freetype|ilbc|libjxl|snappy|zimg|vmaf|dav1d|libplacebo
+    avisynth|openssl|pango|freetype|ilbc|libjxl|libvorbis|snappy|zimg|vmaf|dav1d|libplacebo
   # Список для сохранения DLL (в run_stage.sh)
   DLL_PRESERVE_LIST: >-
     openvino|torch|tensorflow|vulkan|mfx|opencv|

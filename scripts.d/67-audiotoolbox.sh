@@ -18,6 +18,9 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Поднимаем минимальную версию CMake до 3.5, чтобы не злить современный бинарник
+    sed -i 's/cmake_minimum_required (VERSION 3.0)/cmake_minimum_required (VERSION 3.5)/' CMakeLists.txt
+
     mkdir build && cd build
 
     local myconf=(
@@ -35,6 +38,20 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    # mkdir -p "$PC_FILE"
+    # cat <<EOF > "$PC_FILE/AudioToolboxWrapper.pc"
+# prefix=$FFBUILD_PREFIX
+# exec_prefix=\${prefix}
+# libdir=\${prefix}/lib
+# includedir=\${prefix}/include
+
+# Name: AudioToolboxWrapper
+# Description: AudioToolbox wrapper for MinGW
+# Version: 1.0
+# Libs: -L\${libdir} -lAudioToolboxWrapper
+# Cflags: -I\${includedir}
+# EOF
 
     # cd ..
 
