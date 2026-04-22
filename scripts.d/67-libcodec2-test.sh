@@ -25,17 +25,18 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    # Сначала полностью вырезаем проблемный блок ExternalProject
-    # Мы заменяем его на пустышку, чтобы CMake не ругался на отсутствие цели generate_codebook
-    sed -i '/if(CMAKE_CROSSCOMPILING)/,/endif(CMAKE_CROSSCOMPILING)/c\add_executable(generate_codebook IMPORTED)\nset_target_properties(generate_codebook PROPERTIES IMPORTED_LOCATION /usr/bin/true)' src/CMakeLists.txt
 
-    mkdir build && cd build
+    # 1Полностью отключаем попытки генерации кодовых книг
+    # Мы заменяем вызов add_custom_command на пустышку, чтобы CMake использовал существующие файлы
+    sed -i 's/add_custom_command/echo/g' src/CMakeLists.txt
+    
+    mkdir -p build && cd build
 
-    # В репозитории codec2 файлы кодовых книг лежат в папке 'src'.
-    # Мы создадим в папке build симлинки на них, чтобы CMake их увидел как "сгенерированные"
-    for f in ../src/codebook*.c; do
-        ln -sf "$f" "$(basename "$f")"
-    done
+    # Опций INSTALL_EXAMPLES и BUILD_TESTING в этой версии нет.
+    # Но нам нужно отключить сборку демо-утилит (c2dec, c2enc), которые и вызывают ошибку линковки.
+    # Мы сделаем это через -DUNITTEST=OFF и патч CMakeLists.txt (удалим папку demo и unit_tests)
+    sed -i 's/add_subdirectory(demo)/#add_subdirectory(demo)/g' ../CMakeLists.txt
+    sed -i 's/add_subdirectory(unittest)/#add_subdirectory(unittest)/g' ../CMakeLists.txt
 
     local myconf=(
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
@@ -46,8 +47,6 @@ ffbuild_dockerbuild() {
         -DGENERATE_CODEBOOK=/usr/bin/true
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DUNITTEST=OFF
-        -DINSTALL_EXAMPLES=OFF
-        -DBUILD_TESTING=OFF
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
@@ -56,22 +55,11 @@ ffbuild_dockerbuild() {
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     # Сборка только библиотеки. 
-    # Если 'make codec2' все еще капризничает из-за отсутствия исходников,
-    # мы скомпилируем их вручную и добавим в архив.
-    if ! ninja $NINJA_V codec2; then
-        log_warn "Standard make failed, performing manual object compilation..."
-        # Компилируем все .c файлы из папки src
-        for f in ../src/*.c; do
-            [[ "$f" == *"generate_codebook.c"* ]] && continue
-            ${CC} ${CFLAGS} -I../src -I. -c "$f" -o "$(basename "${f%.c}.obj")"
-        done
-        ${AR} rcs src/libcodec2.a *.obj
-    fi || return 1
+    ninja $NINJA_V codec2 || return 1
 
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Установка
-    mkdir -p "$PC_DIR"
+
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/codec2"
     
     # Проверяем, где в итоге оказался файл
@@ -83,7 +71,7 @@ ffbuild_dockerbuild() {
 
     cp ../src/codec2.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/codec2/"
     
-    # Генерируем pkg-config
+    mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/codec2.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
@@ -92,9 +80,10 @@ includedir=\${prefix}/include
 
 Name: codec2
 Description: Next generation digital radio voice codec
-Version: $VER_FULL
+Version: 1.2.0
 Libs: -L\${libdir} -lcodec2
-Cflags: -I\${includedir}/codec2
+Libs.private: -lm
+Cflags: -I\${includedir}
 EOF
 
     # Проверка финального наличия
@@ -103,14 +92,6 @@ EOF
     else
         log_error "libcodec2.a still missing!"
         return 1
-    fi
-
-    # Исправление .pc файла (Codec2 иногда забывает про -lm)
-    local PC_FILE="$PC_DIR/codec2.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        if ! grep -q "Libs.private" "$PC_FILE"; then
-            sed -i '/^Libs.private:/ s/$/ -lm/' "$PC_FILE"
-        fi
     fi
 }
 
