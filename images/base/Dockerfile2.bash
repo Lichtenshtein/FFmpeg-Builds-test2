@@ -13,21 +13,30 @@ RUN \
     apt-get -y update && \
     apt-get -y dist-upgrade && \
     apt-get -y install --no-install-recommends \
-        ca-certificates curl gnupg build-essential yasm nasm pv ccache \
-        xxd pkgconf wget unzip zip git subversion rsync jq bc \
-        autoconf automake libtool libtool-bin gettext qemu-user \
-        texinfo texi2html help2man flex bison groff pkg-config \
-        gperf itstool ragel autopoint parallel binutils pax-utils file \
+        $([ "$TARGETPLATFORM" != "linux/amd64" ] || echo gcc-multilib g++-multilib) \
+        ca-certificates curl gnupg build-essential pkg-config binutils pax-utils file yasm nasm pv ccache \
+        xxd pkgconf wget unzip zip git subversion mercurial rsync jq bc \
+        autoconf automake libtool libtool-bin autopoint parallel gettext cmake meson ninja-build \
+        clang llvm lcov lld qemu-user libunwind-dev \
+        clang-tidy clang-format cppcheck \
+        texinfo texi2html help2man flex bison groff \
+        gperf itstool ragel libc6-dev zlib1g-dev libssl-dev \
         gtk-doc-tools gobject-introspection gawk procps \
-        ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent zstd \
+        ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent p7zip-full zstd \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
-        gcc-14 g++-14 dos2unix re2c bsdmainutils p7zip-full tree \
-        \
-        patchutils ed osslsigncode python3-fonttools python3-mako \
-        python3-wheel iputils-ping dnsutils && \
+        python3-numpy libdlpack-dev \
+        gcc-14 g++-14 dos2unix re2c bsdmainutils tree \
+        doxygen shellcheck \
+        libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libavfilter-dev \
+        nvidia-cuda-dev nvidia-cuda-toolkit && \
+    \
+    curl -fsSL -o /usr/local/bin/shfmt \
+      "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64" && \
+    chmod +x /usr/local/bin/shfmt && \
     \
     pip3 install --break-system-packages --upgrade --ignore-installed \
-        meson cmake ninja Cython pytest build PythonLibs && \
+        meson cmake ninja Cython pytest build numpy \
+        pre-commit ruff black isort mypy semgrep && \
     \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 && \
     update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-14 100 && \
