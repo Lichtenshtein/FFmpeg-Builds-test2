@@ -27,9 +27,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Remove static build workaround for libplacebo
-    # sed -i 's/DPL_EXPORT/DPL_STATIC/' src/meson.build
-
     # Исправляем meson.build, добавляя dirs: vulkan_lib_dirs в поиск glslang и MachineIndependent
     # В оригинале они ищутся только в системных путях, игнорируя vulkan-sdk префикс
     sed -i "s/find_library('glslang', required: required/find_library('glslang', required: required, dirs: vulkan_lib_dirs/g" src/glsl/meson.build

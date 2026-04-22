@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '08-zlib|15-libxxhash|27-freeglut|40-lcms2|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|53-libplacebo'
+        default: '05-libicu|06-libiconv|08-zlib|14-freetype|15-libunibreak|17-harfbuzz|30-openssl|37-libpng|39-fontconfig|39-fribidi|47-libaribb24|47-libaribcaption|47-libass|47-zvbi|48-qrencode|48-quirc|54-amf|54-ffnvcodec|54-onevpl|57-decklink|57-libklvanc-test'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'

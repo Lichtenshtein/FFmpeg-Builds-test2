@@ -65,7 +65,7 @@ includedir=\${prefix}/include
 
 Name: OpenCL
 Description: OpenCL ICD Loader
-Version: 3.0
+Version: $VER_FULL
 Libs: -L\${libdir} -lOpenCL
 Cflags: -I\${includedir}
 EOF
