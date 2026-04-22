@@ -13,6 +13,7 @@ ffbuild_depends() {
     echo shaderc
     echo pulseaudio
     echo libsamplerate
+    echo freeglut
 }
 
 ffbuild_enabled() {
