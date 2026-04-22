@@ -92,7 +92,7 @@ includedir=\${prefix}/include
 
 Name: codec2
 Description: Next generation digital radio voice codec
-Version: 1.2.0
+Version: $VER_FULL
 Libs: -L\${libdir} -lcodec2
 Cflags: -I\${includedir}/codec2
 EOF

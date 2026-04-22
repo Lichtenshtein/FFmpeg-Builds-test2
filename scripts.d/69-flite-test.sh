@@ -71,7 +71,7 @@ includedir=\${prefix}/include/flite
 
 Name: flite
 Description: a text to speech library
-Version: 2.3.0
+Version: $VER_FULL
 Libs: -L\${libdir} $VOX_LIBS -lflite
 Cflags: -I\${includedir}
 EOF

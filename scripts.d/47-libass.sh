@@ -31,6 +31,7 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     local myconf=(
+        --cross-file="$FFBUILD_MESON_CROSS"
         --prefix="$FFBUILD_PREFIX"
         --buildtype=release
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
@@ -49,11 +50,6 @@ ffbuild_dockerbuild() {
     if [[ $TARGET == win* ]]; then
         myconf+=(
             -Ddirectwrite=enabled
-            --cross-file="$FFBUILD_MESON_CROSS"
-        )
-    elif [[ $TARGET == linux* ]]; then
-        myconf+=(
-            --cross-file="$FFBUILD_MESON_CROSS"
         )
     fi
 

@@ -140,7 +140,7 @@ includedir=\${prefix}/include
 
 Name: x265
 Description: H.265/HEVC video encoder
-Version: 3.5
+Version: $VER_FULL
 Libs: -L\${libdir} -lx265
 Libs.private: -lstdc++ -lm -lgcc -lmingwex -lmingw32 -luser32 -ladvapi32 -lshell32
 Cflags: -I\${includedir}
