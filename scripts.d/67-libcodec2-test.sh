@@ -29,8 +29,15 @@ ffbuild_dockerbuild() {
     perl -0777 -pi -e 's/add_custom_command\s*\(.*?\)//gs' src/CMakeLists.txt
 
     sed -i 's/\${CMAKE_CURRENT_BINARY_DIR}\///g' src/CMakeLists.txt
-
     sed -i 's/DEPENDS generate_codebook//g' src/CMakeLists.txt
+
+    cp src/codebooks/*.c src/ 2>/dev/null || true
+    
+    for f in lsp_cb.c lsp_cbd.c lsp_cbjmv.c ge_cb.c newamp1vq_cb.c newamp1_energy_cb.c newamp2vq_cb.c newamp2_energy_cb.c; do
+        if [ ! -f "src/$f" ]; then
+            find . -name "$f" -exec cp {} src/ \;
+        fi
+    done
 
     if [ -f "CMakeLists.txt" ]; then
         sed -i 's/add_subdirectory(demo)/#add_subdirectory(demo)/g' CMakeLists.txt
