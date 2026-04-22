@@ -8,7 +8,7 @@ ffbuild_depends() {
     echo base
     echo libiconv
     echo x11
-    echo fribidi
+    # echo fribidi
     echo vulkan-headers
     echo shaderc
     echo pulseaudio
@@ -36,18 +36,23 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DSDL_TESTS=OFF
-        -DSDL_EXAMPLES=OFF
         -DSDL_CCACHE=ON
         -DSDL_LIBSAMPLERATE=ON
-        -DSDL_INSTALL_DOCS=OFF
-        -DSDL_LIBICONV=ON
         -DSDL_OPENGL=ON
         -DSDL_PTHREADS=ON
-        -DSDL_FRIBIDI=ON
         -DSDL_WASAPI=ON
         -DSDL_VULKAN=ON
-        -DSDL_RENDER_VULKAN=ON
-        -DSDL_AVX512F=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF )
+        # блок поиска iconv
+        -DSDL_LIBICONV=ON
+        -DSDL_SYSTEM_ICONV=ON
+        -DICONV_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DICONV_LIBRARY="$FFBUILD_PREFIX/lib/libiconv.a"
+        # SDL3
+        # -DSDL_INSTALL_DOCS=OFF
+        # -DSDL_RENDER_VULKAN=ON
+        # -DSDL_AVX512F=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF )
+        # -DSDL_EXAMPLES=OFF
+        # -DSDL_FRIBIDI=ON
     )
 
     if [[ "${PREFER_SHARED}" == "1" ]]; then
@@ -103,6 +108,8 @@ ffbuild_dockerbuild() {
         "$PC_DIR/sdl2.pc"
 
     sed -i '/^Requires:/ s/$/ samplerate/' "$PC_DIR/sdl2.pc"
+    # Добавляем iconv в Requires.private или Libs.private
+    sed -i '/^Libs.private:/ s/$/ -liconv -lcharset/' "$PC_DIR/sdl2.pc"
 }
 
 ffbuild_configure() {
