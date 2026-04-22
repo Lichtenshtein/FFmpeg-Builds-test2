@@ -1,0 +1,85 @@
+From fb378b46215ef2f7fdad1361b03198796179d9a3 Mon Sep 17 00:00:00 2001
+From: Stuart Morgan <stuart@digital-nirvana.com>
+Date: Tue, 25 Mar 2025 09:56:06 +0000
+Subject: [PATCH] Add strings for SCTE 35 2022/2023 segmentation and upid types
+
+---
+ src/core-packet-scte_104.c | 37 +++++++++++++++++++++++++------------
+ 1 file changed, 25 insertions(+), 12 deletions(-)
+
+diff --git a/src/core-packet-scte_104.c b/src/core-packet-scte_104.c
+index d74ab36..af18c9a 100644
+--- a/src/core-packet-scte_104.c
++++ b/src/core-packet-scte_104.c
+@@ -155,7 +155,8 @@ static const char *seg_type_id(unsigned char type_id)
+ 	case 0x16: return "Program Runover Unplanned";
+ 	case 0x17: return "Program Overlap Start";
+ 	case 0x18: return "Program Blackout Override";
+-	case 0x19: return "Program Start - In Progress";
++	case 0x19: return "Program Join";
++	case 0x1A: return "Program Immediate Resumption";
+ 	case 0x20: return "Chapter Start";
+ 	case 0x21: return "Chapter End";
+ 	case 0x22: return "Break Start";
+@@ -174,11 +174,15 @@ static const char *seg_type_id(unsigned char type_id)
+ 	case 0x34: return "Provider Placement Opportunity Start";
+ 	case 0x35: return "Provider Placement Opportunity End";
+ 	case 0x36: return "Distributor Placement Opportunity Start";
+-	case 0x37: return "Distributor Placement Opportunity End";        
++	case 0x37: return "Distributor Placement Opportunity End";
+ 	case 0x38: return "Provider Overlay Placement Start";
+ 	case 0x39: return "Provider Overlay Placement End";
+ 	case 0x3A: return "Distributor Overlay Placement Start";
+ 	case 0x3B: return "Distributor Overlay Placement End";
++	case 0x3C: return "Provider Promo Start";
++	case 0x3D: return "Provider Promo End";
++	case 0x3E: return "Distributor Promo Start";
++	case 0x3F: return "Distributor Promo End";
+ 	case 0x40: return "Unscheduled Event Start";
+ 	case 0x41: return "Unscheduled Event End";
+ 	case 0x42: return "Alternate Content Opportunity Start";
+@@ -963,7 +976,7 @@ static int messageFragmentAppend(struct klvanc_context_s *ctx, struct klvanc_pac
+ 	if (ret < 0) {
+ 		return -1;
+ 	}
+-	ctx->scte104_fragments[ctx->scte104_fragment_count]->rawLengthWords = ctx->scte104_fragments[ctx->scte104_fragment_count]->payloadLengthWords + 7; 
++	ctx->scte104_fragments[ctx->scte104_fragment_count]->rawLengthWords = ctx->scte104_fragments[ctx->scte104_fragment_count]->payloadLengthWords + 7;
+ 
+ 	ctx->scte104_fragment_count++;
+ 
+@@ -1042,7 +1055,7 @@ static int messageFragmentFinal(struct klvanc_context_s *ctx, struct klvanc_pack
+ 	 * containign all of the defrag'd contents. Return this from this function,
+ 	 * expect the higher levels stack to switch parse to this new hader, instead of the closeing
+ 	 * framgment header that go us here.
+-	 * Clone the fragment final packet, which is mostly correctl, update its headers and paylaod 
++	 * Clone the fragment final packet, which is mostly correctl, update its headers and paylaod
+ 	 * to incoude al the fragments.
+ 	 */
+ 	struct klvanc_packet_header_s *dst;
+@@ -1066,7 +1079,7 @@ static int messageFragmentFinal(struct klvanc_context_s *ctx, struct klvanc_pack
+ 	memset(dst->payload, 0, sizeof(dst->payload));
+ 
+ 	for (int i = 0; i < ctx->scte104_fragment_count; i++) {
+-		int offset = 0; 
++		int offset = 0;
+ 		if (i > 0) {
+ 			offset = 1; /* Skip the payloadDscriptor byte on messages #2 onwards. */
+ 		}
+@@ -1170,7 +1183,7 @@ int parse_SCTE_104(struct klvanc_context_s *ctx,
+ 		/* Process a single complete message inside this hdr packet. */
+ 
+ 		/* Avoid cases where we're mixing single messages potentially when in the process
+-		 * of message fragment building. Lose any previous fragments 
++		 * of message fragment building. Lose any previous fragments
+ 		 */
+ 		messageFragmentReset(ctx);
+ 	}
+@@ -1256,7 +1269,7 @@ int parse_SCTE_104(struct klvanc_context_s *ctx,
+ 
+ 		unsigned char *p = &pkt->payload[10];
+ 		p = parse_mom_timestamp(ctx, p, &mom->timestamp);
+-		
++
+ 		mom->num_ops = *(p++);
+ 		mom->ops = calloc(mom->num_ops, sizeof(struct klvanc_multiple_operation_message_operation));
+ 		if (!mom->ops) {

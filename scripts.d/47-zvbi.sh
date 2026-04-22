@@ -55,6 +55,10 @@ ffbuild_dockerbuild() {
     make -C src -j$(nproc) $MAKE_V || return 1
     make -C src install DESTDIR="$FFBUILD_DESTDIR" || return 1
     make SUBDIRS=. install DESTDIR="$FFBUILD_DESTDIR" || return 1
+
+    mkdir -p "$PC_DIR"
+    ln -sf zvbi-0.2.pc "$PC_DIR/zvbi.pc"
+    ln -sf zvbi-0.2.pc "$PC_DIR/libzvbi.pc"
 }
 
 ffbuild_configure() {
