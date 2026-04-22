@@ -18,8 +18,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    sed -i '2i #include "common_audio/signal_processing/include/signal_processing_library.h"' modules/audio_coding/codecs/ilbc/defines.h
-
     mkdir -p build && cd build
 
     local myconf=(
@@ -33,7 +31,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
     )
 
-    # local EXTRA_CFLAGS="-Wno-error=implicit-function-declaration"
+    local EXTRA_CFLAGS="-include common_audio/signal_processing/include/signal_processing_library.h"
 
     CFLAGS="$CFLAGS $CPPFLAGS $EXTRA_CFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS $EXTRA_CFLAGS" \
