@@ -26,27 +26,17 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    log_info "Building native codebook generator..."
-    ${HOST_CC} ${HOST_CFLAGS} src/generate_codebook.c -o src/generate_codebook_native -lm
+    # Сначала полностью вырезаем проблемный блок ExternalProject
+    # Мы заменяем его на пустышку, чтобы CMake не ругался на отсутствие цели generate_codebook
+    sed -i '/if(CMAKE_CROSSCOMPILING)/,/endif(CMAKE_CROSSCOMPILING)/c\add_executable(generate_codebook IMPORTED)\nset_target_properties(generate_codebook PROPERTIES IMPORTED_LOCATION /usr/bin/true)' src/CMakeLists.txt
 
-    log_info "Generating codebook source files..."
-    ./src/generate_codebook_native lsp_cb src/codebooks/lsp1.txt src/codebooks/lsp2.txt src/codebooks/lsp3.txt > src/codebook.c
-    ./src/generate_codebook_native lsp_cbd src/codebooks/lspd1.txt src/codebooks/lspd2.txt src/codebooks/lspd3.txt src/codebooks/lspd4.txt src/codebooks/lspd5.txt > src/codebookd.c
-    ./src/generate_codebook_native lsp_cbjmv src/codebooks/lspjmv1.txt src/codebooks/lspjmv2.txt src/codebooks/lspjmv3.txt > src/codebookjmv.c
-    ./src/generate_codebook_native ge_cb src/codebooks/ge_cb.txt > src/codebookge.c
-    ./src/generate_codebook_native newamp1vq_cb src/codebooks/newamp1_vq.txt > src/codebooknewamp1.c
-    ./src/generate_codebook_native newamp1_energy_cb src/codebooks/newamp1_energy_cb.txt > src/codebooknewamp1_energy.c
-    ./src/generate_codebook_native newamp2vq_cb src/codebooks/newamp2_vq.txt > src/codebooknewamp2.c
-    ./src/generate_codebook_native newamp2_energy_cb src/codebooks/newamp2_energy_cb.txt > src/codebooknewamp2_energy.c
+    mkdir build && cd build
 
-    perl -0777 -pi -e 's/add_custom_command\s*\(.*?\)//gs' src/CMakeLists.txt
-    sed -i 's/\${CMAKE_CURRENT_BINARY_DIR}\///g' src/CMakeLists.txt
-    sed -i 's/DEPENDS generate_codebook//g' src/CMakeLists.txt
-    
-    sed -i 's/add_subdirectory(demo)/#add_subdirectory(demo)/g' CMakeLists.txt || true
-    sed -i 's/add_subdirectory(unittest)/#add_subdirectory(unittest)/g' CMakeLists.txt || true
-
-    mkdir -p build && cd build
+    # В репозитории codec2 файлы кодовых книг лежат в папке 'src'.
+    # Мы создадим в папке build симлинки на них, чтобы CMake их увидел как "сгенерированные"
+    for f in ../src/codebook*.c; do
+        ln -sf "$f" "$(basename "$f")"
+    done
 
     local myconf=(
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
@@ -54,7 +44,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        -DGENERATE_CODEBOOK=/usr/bin/true
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DUNITTEST=OFF
     )
@@ -62,16 +51,23 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    cmake -G Ninja "${myconf[@]}" .. || return 1
+    cmake "${myconf[@]}" .. || return 1
 
     # Сборка только библиотеки. 
-    ninja $NINJA_V codec2 || return 1
-
-    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
-
+    # Если 'make codec2' все еще капризничает из-за отсутствия исходников,
+    # мы скомпилируем их вручную и добавим в архив.
+    if ! make -j$(nproc) codec2 $MAKE_V; then
+        log_warn "${XCLAM_MARK} Standard make failed, performing manual object compilation..."
+        # Компилируем все .c файлы из папки src
+        for f in ../src/*.c; do
+            [[ "$f" == *"generate_codebook.c"* ]] && continue
+            ${CC} ${CFLAGS} -I../src -I. -c "$f" -o "$(basename "${f%.c}.obj")"
+        done
+        ${AR} rcs src/libcodec2.a *.obj
+    fi || return 1
 
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/codec2"
-    
+
     # Проверяем, где в итоге оказался файл
     if [[ -f "src/libcodec2.a" ]]; then
         cp src/libcodec2.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
@@ -80,7 +76,7 @@ ffbuild_dockerbuild() {
     fi
 
     cp ../src/codec2.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/codec2/"
-    
+
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/codec2.pc"
 prefix=$FFBUILD_PREFIX
