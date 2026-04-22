@@ -37,6 +37,8 @@ ffbuild_dockerbuild() {
         sed -i 's/add_subdirectory(unittest)/#add_subdirectory(unittest)/g' CMakeLists.txt
     fi
 
+    mkdir -p build && cd build
+
     local myconf=(
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
