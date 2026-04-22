@@ -6,6 +6,7 @@ SCRIPT_COMMIT="3db272507d23e2335bdd2c30903f466452edd344"
 ffbuild_depends() {
     echo freetype
     echo libicu
+    echo glib2
 }
 
 ffbuild_enabled() {
@@ -36,7 +37,7 @@ ffbuild_dockerbuild() {
         -Draster=enabled
         -Dvector=enabled
         -Dsubset=enabled
-        -Dglib=enabled
+        -Dglib=disabled
         -Dgobject=enabled
         -Dcairo=disabled
         -Dchafa=disabled
