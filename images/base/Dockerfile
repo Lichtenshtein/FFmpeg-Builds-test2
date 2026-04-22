@@ -24,18 +24,16 @@ RUN \
         gtk-doc-tools gobject-introspection gawk procps \
         ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent p7zip-full zstd \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
-        python3-numpy libdlpack-dev \
+        libdlpack-dev \
         gcc-14 g++-14 dos2unix re2c bsdmainutils tree \
-        doxygen shellcheck \
-        libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libavfilter-dev \
-        nvidia-cuda-dev nvidia-cuda-toolkit && \
+        doxygen shellcheck && \
     \
     curl -fsSL -o /usr/local/bin/shfmt \
       "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64" && \
     chmod +x /usr/local/bin/shfmt && \
     \
     pip3 install --break-system-packages --upgrade --ignore-installed \
-        meson cmake ninja Cython pytest build numpy \
+        meson cmake ninja Cython pytest build PythonLibs \
         pre-commit ruff black isort mypy semgrep && \
     \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 && \

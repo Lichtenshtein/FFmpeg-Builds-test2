@@ -53,9 +53,7 @@ ffbuild_dockerbuild() {
     LDFLAGS="$LDFLAGS" \
     cmake "${myconf[@]}" .. || return 1
 
-    # Сборка только библиотеки. 
-    # Если 'make codec2' все еще капризничает из-за отсутствия исходников,
-    # мы скомпилируем их вручную и добавим в архив.
+    # Сборка только библиотеки
     if ! make -j$(nproc) codec2 $MAKE_V; then
         log_warn "${XCLAM_MARK} Standard make failed, performing manual object compilation..."
         # Компилируем все .c файлы из папки src
@@ -66,18 +64,21 @@ ffbuild_dockerbuild() {
         ${AR} rcs src/libcodec2.a *.obj
     fi || return 1
 
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/codec2"
+    mkdir -p "$FFBUILD_DESTPREFIX/lib"
+    mkdir -p "$FFBUILD_DESTPREFIX/include/codec2"
+    mkdir -p "$PC_DIR"
 
-    # Проверяем, где в итоге оказался файл
+    # Копируем библиотеку (проверяем оба возможных места появления)
     if [[ -f "src/libcodec2.a" ]]; then
-        cp src/libcodec2.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+        cp src/libcodec2.a "$FFBUILD_DESTPREFIX/lib/libcodec2.a"
     elif [[ -f "libcodec2.a" ]]; then
-        cp libcodec2.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+        cp libcodec2.a "$FFBUILD_DESTPREFIX/lib/libcodec2.a"
     fi
 
-    cp ../src/codec2.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/codec2/"
+    # Копируем заголовочные файлы
+    cp ../src/codec2.h "$FFBUILD_DESTPREFIX/include/codec2/"
+    cp ../src/fsk.h ../src/fdmdv.h "$FFBUILD_DESTPREFIX/include/codec2/" 2>/dev/null || true
 
-    mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/codec2.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
@@ -93,10 +94,10 @@ Cflags: -I\${includedir}
 EOF
 
     # Проверка финального наличия
-    if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libcodec2.a" ]]; then
+    if [[ -f "$FFBUILD_DESTPREFIX/lib/libcodec2.a" ]]; then
         log_info "${CHECK_MARK} SUCCESS: libcodec2.a is ready."
     else
-        log_error "libcodec2.a still missing!"
+        log_error "libcodec2.a still missing in $FFBUILD_DESTPREFIX/lib/"
         return 1
     fi
 }
