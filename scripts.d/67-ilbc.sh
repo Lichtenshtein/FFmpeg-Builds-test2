@@ -18,22 +18,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-cat <<EOF >> modules/audio_coding/codecs/ilbc/defines.h
-
-static inline int32_t WebRtcSpl_DotProductWithScale(const int16_t* v1, const int16_t* v2, size_t len, int s) {
-    int32_t sum = 0;
-    for (size_t i = 0; i < len; i++) sum += (v1[i] * v2[i]) >> s;
-    return sum;
-}
-
-static inline int16_t WebRtcSpl_NormW32(int32_t a) {
-    if (a == 0) return 0;
-    if (a < 0) a = ~a;
-    int16_t count = 0;
-    while (a < 0x40000000) { a <<= 1; count++; }
-    return count;
-}
-EOF
+    sed -i '2i #include "common_audio/signal_processing/include/signal_processing_library.h"' modules/audio_coding/codecs/ilbc/defines.h
 
     mkdir -p build && cd build
 
