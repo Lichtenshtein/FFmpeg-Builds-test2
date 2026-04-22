@@ -152,7 +152,7 @@ libdir=\${prefix}/lib
 includedir=\${prefix}/include/vapoursynth
 Name: vapoursynth
 Description: A frameserver for the 21st century
-Version: 74
+Version: $VER_FULL
 Libs: -L\${libdir} -lvapoursynth
 Libs.private: -lstdc++ -lwinmm
 Cflags: -I\${includedir} $static_flags
@@ -164,7 +164,7 @@ libdir=\${prefix}/lib
 includedir=\${prefix}/include/vapoursynth
 Name: vapoursynth-script
 Description: Library for interfacing VapourSynth with Python
-Version: 74
+Version: $VER_FULL
 Libs: -L\${libdir} -lvsscript
 Libs.private: -l${PY_LIB} -lstdc++
 Cflags: -I\${includedir}

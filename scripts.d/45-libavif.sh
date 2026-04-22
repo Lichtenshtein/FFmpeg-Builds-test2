@@ -110,7 +110,7 @@ includedir=\${prefix}/include
 
 Name: libyuv
 Description: YUV conversion and scaling library (extracted from libavif)
-Version: 1.0.0
+Version: $VER_FULL
 Libs: -L\${libdir} -lyuv
 Libs.private: -lstdc++
 Cflags: -I\${includedir}

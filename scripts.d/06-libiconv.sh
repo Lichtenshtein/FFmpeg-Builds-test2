@@ -60,7 +60,7 @@ includedir=\${prefix}/include
 
 Name: iconv
 Description: Character set conversion library
-Version: 1.18
+Version: $VER_FULL
 Libs: -L\${libdir} -liconv
 Libs.private: -lcharset $LIBS
 Cflags: -I\${includedir} $static_flags

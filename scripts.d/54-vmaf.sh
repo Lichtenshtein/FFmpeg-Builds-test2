@@ -28,6 +28,7 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     local myconf=(
+        --cross-file="$FFBUILD_MESON_CROSS"
         --buildtype=release
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         --prefix="$FFBUILD_PREFIX"
@@ -41,18 +42,17 @@ ffbuild_dockerbuild() {
         -Denable_float=true
         -Denable_tests=false
         -Denable_tools=false
-        -Denable_cuda=false # Enable CUDA support; requires nvcc
         -Denable_nvtx=false # Enable NVTX range support
-        -Denable_nvcc=false # Use clang to compile CUDA code
         # added by patches
         -Denable_discord_mode=true # disable until fixed patch will be cached
         -Denable_sycl=false # Enable Intel oneAPI SYCL/DPC++ support for GPU-accelerated feature extraction
         -Dsycl_compiler=icpx # Path or name of the SYCL compiler (Intel icpx from oneAPI)
     )
 
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
+    if [[ $TARGET == linux* ]]; then
         myconf+=(
-            --cross-file="$FFBUILD_MESON_CROSS"
+        -Denable_nvcc=true # Use clang to compile CUDA code
+        -Denable_cuda=true # Enable CUDA support; requires nvcc
         )
     fi
 

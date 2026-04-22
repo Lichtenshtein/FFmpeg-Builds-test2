@@ -150,7 +150,7 @@ includedir=\${prefix}/include
 
 Name: leptonica
 Description: Leptonica image processing library
-Version: 1.88.0
+Version: $VER_FULL
 Libs: -L\${libdir} -lleptonica
 Libs.private: $WIN_LIBS
 Cflags: -I\${includedir} -I\${includedir}/leptonica
