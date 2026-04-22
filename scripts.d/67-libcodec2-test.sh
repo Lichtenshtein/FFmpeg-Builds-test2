@@ -26,23 +26,25 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    perl -0777 -pi -e 's/add_custom_command\s*\(.*?\)//gs' src/CMakeLists.txt
+    log_info "Building native codebook generator..."
+    ${HOST_CC} ${HOST_CFLAGS} src/generate_codebook.c -o src/generate_codebook_native -lm
 
+    log_info "Generating codebook source files..."
+    ./src/generate_codebook_native lsp_cb src/codebooks/lsp1.txt src/codebooks/lsp2.txt src/codebooks/lsp3.txt > src/codebook.c
+    ./src/generate_codebook_native lsp_cbd src/codebooks/lspd1.txt src/codebooks/lspd2.txt src/codebooks/lspd3.txt src/codebooks/lspd4.txt src/codebooks/lspd5.txt > src/codebookd.c
+    ./src/generate_codebook_native lsp_cbjmv src/codebooks/lspjmv1.txt src/codebooks/lspjmv2.txt src/codebooks/lspjmv3.txt > src/codebookjmv.c
+    ./src/generate_codebook_native ge_cb src/codebooks/ge_cb.txt > src/codebookge.c
+    ./src/generate_codebook_native newamp1vq_cb src/codebooks/newamp1_vq.txt > src/codebooknewamp1.c
+    ./src/generate_codebook_native newamp1_energy_cb src/codebooks/newamp1_energy_cb.txt > src/codebooknewamp1_energy.c
+    ./src/generate_codebook_native newamp2vq_cb src/codebooks/newamp2_vq.txt > src/codebooknewamp2.c
+    ./src/generate_codebook_native newamp2_energy_cb src/codebooks/newamp2_energy_cb.txt > src/codebooknewamp2_energy.c
+
+    perl -0777 -pi -e 's/add_custom_command\s*\(.*?\)//gs' src/CMakeLists.txt
     sed -i 's/\${CMAKE_CURRENT_BINARY_DIR}\///g' src/CMakeLists.txt
     sed -i 's/DEPENDS generate_codebook//g' src/CMakeLists.txt
-
-    cp src/codebooks/*.c src/ 2>/dev/null || true
     
-    for f in lsp_cb.c lsp_cbd.c lsp_cbjmv.c ge_cb.c newamp1vq_cb.c newamp1_energy_cb.c newamp2vq_cb.c newamp2_energy_cb.c; do
-        if [ ! -f "src/$f" ]; then
-            find . -name "$f" -exec cp {} src/ \;
-        fi
-    done
-
-    if [ -f "CMakeLists.txt" ]; then
-        sed -i 's/add_subdirectory(demo)/#add_subdirectory(demo)/g' CMakeLists.txt
-        sed -i 's/add_subdirectory(unittest)/#add_subdirectory(unittest)/g' CMakeLists.txt
-    fi
+    sed -i 's/add_subdirectory(demo)/#add_subdirectory(demo)/g' CMakeLists.txt || true
+    sed -i 's/add_subdirectory(unittest)/#add_subdirectory(unittest)/g' CMakeLists.txt || true
 
     mkdir -p build && cd build
 
