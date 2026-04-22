@@ -28,15 +28,14 @@ ffbuild_dockerbuild() {
 
     # 1Полностью отключаем попытки генерации кодовых книг
     # Мы заменяем вызов add_custom_command на пустышку, чтобы CMake использовал существующие файлы
-    sed -i 's/add_custom_command/echo/g' src/CMakeLists.txt
+    sed -i 's/add_custom_command/COMMAND ${CMAKE_COMMAND} -E true #/g' src/CMakeLists.txt
     
     mkdir -p build && cd build
 
-    # Опций INSTALL_EXAMPLES и BUILD_TESTING в этой версии нет.
-    # Но нам нужно отключить сборку демо-утилит (c2dec, c2enc), которые и вызывают ошибку линковки.
-    # Мы сделаем это через -DUNITTEST=OFF и патч CMakeLists.txt (удалим папку demo и unit_tests)
-    sed -i 's/add_subdirectory(demo)/#add_subdirectory(demo)/g' ../CMakeLists.txt
-    sed -i 's/add_subdirectory(unittest)/#add_subdirectory(unittest)/g' ../CMakeLists.txt
+    if [ -f "CMakeLists.txt" ]; then
+        sed -i 's/add_subdirectory(demo)/#add_subdirectory(demo)/g' CMakeLists.txt
+        sed -i 's/add_subdirectory(unittest)/#add_subdirectory(unittest)/g' CMakeLists.txt
+    fi
 
     local myconf=(
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
