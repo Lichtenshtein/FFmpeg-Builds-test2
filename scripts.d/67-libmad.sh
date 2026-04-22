@@ -46,6 +46,21 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+
+    mkdir -p "${PC_DIR}"
+    cat <<EOF > "${PC_DIR}/mad.pc"
+prefix=${FFBUILD_PREFIX}
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: mad
+Description: MPEG Audio Decoder
+Version: 0.15.1b
+Libs: -L\${libdir} -lmad
+Libs.private: -lm
+Cflags: -I\${includedir}
+EOF
 }
 
 ffbuild_configure() {

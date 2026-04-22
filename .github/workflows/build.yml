@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '06-libiconv|08-zlib|63-libogg|63-libvorbis|67-libcodec2-test|67-libgsm|67-libmad|67-libmp3lame|67-libmpeghdec-test|67-libopus|67-mp3shine|67-mpeghe|67-opencore-amr|67-twolame|67-vo-amrwb|68-gme|68-modplug|68-openmpt'
+        default: '06-libiconv|08-zlib|63-libogg|63-libvorbis|67-libmp3lame|67-libmpeghdec-test|67-libopus|67-mp3shine|67-mpeghe|67-opencore-amr|67-twolame|67-vo-amrwb|68-gme|68-modplug|68-openmpt'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
