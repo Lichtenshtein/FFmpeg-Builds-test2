@@ -26,11 +26,11 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # 1Полностью отключаем попытки генерации кодовых книг
-    # Мы заменяем вызов add_custom_command на пустышку, чтобы CMake использовал существующие файлы
-    sed -i 's/add_custom_command/COMMAND ${CMAKE_COMMAND} -E true #/g' src/CMakeLists.txt
-    
-    mkdir -p build && cd build
+    perl -0777 -pi -e 's/add_custom_command\s*\(.*?\)//gs' src/CMakeLists.txt
+
+    sed -i 's/\${CMAKE_CURRENT_BINARY_DIR}\///g' src/CMakeLists.txt
+
+    sed -i 's/DEPENDS generate_codebook//g' src/CMakeLists.txt
 
     if [ -f "CMakeLists.txt" ]; then
         sed -i 's/add_subdirectory(demo)/#add_subdirectory(demo)/g' CMakeLists.txt
