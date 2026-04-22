@@ -29,13 +29,12 @@ ffbuild_dockerbuild() {
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DWITH_NEON=OFF # Enable NEON optimization
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
-        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS -I${PROJECT_SOURCE_DIR}"
     )
 
-    # local EXTRA_CFLAGS="-Wno-error=implicit-function-declaration"
+    local EXTRA_CFLAGS="-Wno-error=implicit-function-declaration"
 
-    # CFLAGS="$CFLAGS $CPPFLAGS $EXTRA_CFLAGS"
-    # CXXFLAGS="$CXXFLAGS $CPPFLAGS $EXTRA_CFLAGS"
+    CFLAGS="$CFLAGS $CPPFLAGS $EXTRA_CFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS $EXTRA_CFLAGS" \
     LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
