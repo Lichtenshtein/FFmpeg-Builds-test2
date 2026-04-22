@@ -15,15 +15,20 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Исправляем errno и сокеты для MinGW
     grep -rl "sys/errno.h" . | xargs sed -i 's|sys/errno.h|errno.h|g'
+    grep -rl "sys/socket.h" . | xargs sed -i 's|sys/socket.h|winsock2.h|g'
+    grep -rl "netinet/in.h" . | xargs sed -i 's|netinet/in.h|ws2tcpip.h|g'
+    grep -rl "arpa/inet.h" . | xargs sed -i 's|arpa/inet.h|ws2tcpip.h|g'
+
+    # отключаем сборку инструментов (tools), так как они требуют POSIX-сокеты
+    sed -i 's/SUBDIRS = src tools/SUBDIRS = src/g' Makefile.am
 
     ./autogen.sh --build
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --disable-examples
-        --disable-gtk-doc
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
