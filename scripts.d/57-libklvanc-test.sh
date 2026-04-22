@@ -4,7 +4,6 @@ SCRIPT_REPO="https://github.com/stoth68000/libklvanc.git"
 SCRIPT_COMMIT="d2bec177f68fe807a8c12d3b8d18ee8208bbdc32"
 
 ffbuild_enabled() {
-    [[ $TARGET == linux* ]] && return 1
     return 0
 }
 
@@ -15,14 +14,15 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Исправляем errno и сокеты для MinGW
-    grep -rl "sys/errno.h" . | xargs sed -i 's|sys/errno.h|errno.h|g'
-    grep -rl "sys/socket.h" . | xargs sed -i 's|sys/socket.h|winsock2.h|g'
-    grep -rl "netinet/in.h" . | xargs sed -i 's|netinet/in.h|ws2tcpip.h|g'
-    grep -rl "arpa/inet.h" . | xargs sed -i 's|arpa/inet.h|ws2tcpip.h|g'
-
-    # отключаем сборку инструментов (tools), так как они требуют POSIX-сокеты
-    sed -i 's/SUBDIRS = src tools/SUBDIRS = src/g' Makefile.am
+    if [[ $TARGET == win64 ]]; then
+        # Исправляем errno и сокеты для MinGW
+        grep -rl "sys/errno.h" . | xargs sed -i 's|sys/errno.h|errno.h|g'
+        grep -rl "sys/socket.h" . | xargs sed -i 's|sys/socket.h|winsock2.h|g'
+        grep -rl "netinet/in.h" . | xargs sed -i 's|netinet/in.h|ws2tcpip.h|g'
+        grep -rl "arpa/inet.h" . | xargs sed -i 's|arpa/inet.h|ws2tcpip.h|g'
+        # отключаем сборку инструментов (tools), так как они требуют POSIX-сокеты
+        sed -i 's/SUBDIRS = src tools/SUBDIRS = src/g' Makefile.am
+    fi
 
     ./autogen.sh --build
 
