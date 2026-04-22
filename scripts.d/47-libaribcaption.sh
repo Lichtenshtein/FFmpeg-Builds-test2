@@ -51,7 +51,13 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    sed -i '/^Libs.private:/ s/$/ -lstdc++ -lcrypto/' "$PC_DIR/libaribcaption.pc"
+    local PC_FILE="$PC_DIR/libaribcaption.pc"
+    if [ -f "$PC_FILE" ]; then
+        # Вырезаем абсолютный путь к libstdc++.a
+        sed -i "s|/opt/ct-ng/[^ ]*libstdc++.a||g" "$PC_FILE"
+        # Добавляем необходимые зависимости, если их там нет
+        sed -i "/^Libs.private:/ s/$/ -lstdc++ -lcrypto/" "$PC_FILE"
+    fi
 }
 
 ffbuild_configure() {

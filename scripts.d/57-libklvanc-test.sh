@@ -4,6 +4,7 @@ SCRIPT_REPO="https://github.com/stoth68000/libklvanc.git"
 SCRIPT_COMMIT="d2bec177f68fe807a8c12d3b8d18ee8208bbdc32"
 
 ffbuild_enabled() {
+    [[ $TARGET == linux* ]] && return 1
     return 0
 }
 
@@ -14,7 +15,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    ./bootstrap.sh
+    ./autogen.sh --build
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"

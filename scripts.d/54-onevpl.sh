@@ -25,12 +25,10 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_INSTALL_BINDIR="$FFBUILD_PREFIX"/bin
         -DCMAKE_INSTALL_LIBDIR="$FFBUILD_PREFIX"/lib
-        -DBUILD_DEV=ON
         -DBUILD_EXAMPLES=OFF
         -DBUILD_EXPERIMENTAL=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DBUILD_TESTS=OFF
-        -DBUILD_TOOLS=OFF
         -DINSTALL_EXAMPLES=OFF
         -DINSTALL_LIB=ON
         )

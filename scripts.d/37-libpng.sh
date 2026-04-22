@@ -48,6 +48,6 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Многие старые пакеты ищут libpng16.pc или libpng.pc; pixman looks for png.pc
-    ln -sf libpng16.pc "$FFBUILD_DESTPREFIX/lib/pkgconfig/libpng.pc"
-    ln -sf libpng16.pc "$FFBUILD_DESTPREFIX/lib/pkgconfig/png.pc"
+    ln -sf libpng16.pc "$PC_DIR/libpng.pc"
+    ln -sf libpng16.pc "$PC_DIR/png.pc"
 }
