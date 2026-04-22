@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
         --disable-oggtest
-        --disable-docs
+        # --disable-docs
         --disable-examples
     )
 

@@ -39,19 +39,19 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # mkdir -p "$PC_FILE"
-    # cat <<EOF > "$PC_FILE/AudioToolboxWrapper.pc"
-# prefix=$FFBUILD_PREFIX
-# exec_prefix=\${prefix}
-# libdir=\${prefix}/lib
-# includedir=\${prefix}/include
+    mkdir -p "$PC_FILE"
+    cat <<EOF > "$PC_FILE/AudioToolboxWrapper.pc"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${prefix}/lib
+includedir=\${prefix}/include
 
-# Name: AudioToolboxWrapper
-# Description: AudioToolbox wrapper for MinGW
-# Version: 1.0
-# Libs: -L\${libdir} -lAudioToolboxWrapper
-# Cflags: -I\${includedir}
-# EOF
+Name: AudioToolboxWrapper
+Description: AudioToolbox wrapper for MinGW
+Version: 1.0
+Libs: -L\${libdir} -lAudioToolboxWrapper
+Cflags: -I\${includedir}
+EOF
 
     # cd ..
 
