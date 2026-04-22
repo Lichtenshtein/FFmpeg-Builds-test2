@@ -3,6 +3,11 @@ From: DisplayTalk <123604469+DisplayTalk@users.noreply.github.com>
 Date: Sat, 7 Jun 2025 14:51:30 -0600
 Subject: [PATCH] Update colorspace.h with kwerner72 changes
 
+Colorspace with Black level detection:
+- Added min_pq_y variable
+- Changed the histogram algotithm: It now consumes a bit more gpu-power, but therefore scales trustworthy from 0,0% to 100% pq beyond 12 histogram-bits. No slice-tricks anymore
+- Added the measure_black function as an adaption of the measure_peak function
+- Changed the scene-change detection algorithms (that correspond to scene-threshold-low/high values in mpv.conf)
 ---
 diff --git a/src/colorspace.c b/src/colorspace.c
 index 6ed10c86..4dfa4853 100644
