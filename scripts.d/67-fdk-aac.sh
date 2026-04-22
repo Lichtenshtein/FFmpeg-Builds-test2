@@ -1,8 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/mccakit/fdk-aac.git"
-SCRIPT_COMMIT="2e5642ea1e5dc4a1d2f0c2f331729acc9866caed"
-SCRIPT_BRANCH="HDC-encoder-PS-patch"
+SCRIPT_REPO="https://github.com/mstorsjo/fdk-aac.git"
+SCRIPT_COMMIT="d8e6b1a3aa606c450241632b64b703f21ea31ce3"
 
 ffbuild_enabled() {
     [[ $VARIANT == nonfree* ]] || return 1
