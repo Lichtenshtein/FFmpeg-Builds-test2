@@ -15,6 +15,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    grep -rl "sys/errno.h" . | xargs sed -i 's|sys/errno.h|errno.h|g'
+
     ./autogen.sh --build
 
     local myconf=(
