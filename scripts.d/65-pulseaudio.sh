@@ -1,7 +1,10 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://gitlab.freedesktop.org/pulseaudio/pulseaudio.git"
-SCRIPT_COMMIT="b096704c0d42c5e784deb781a07b23cfb5286a82"
+SCRIPT_REPO="https://github.com/Luiz-Monad/libpulseaudio.git"
+SCRIPT_COMMIT="dcf4d0523257b10d6b3e480e1fa56a397a00f0e2"
+
+SCRIPT_MIRROR="https://gitlab.freedesktop.org/pulseaudio/pulseaudio.git"
+SCRIPT_MIRROR_COMMIT="b096704c0d42c5e784deb781a07b23cfb5286a82"
 
 ffbuild_depends() {
     echo base

@@ -5,10 +5,10 @@ Subject: [PATCH] updated the Xing Header flags to handle the Info tag
 updated from Helix MP3 Encoder
 
 ---
-Index: libmp3lame/VbrTag.c
-===================================================================
---- libmp3lame/VbrTag.c	(revision 6531)
-+++ libmp3lame/VbrTag.c	(working copy)
+diff --git i/libmp3lame/VbrTag.c w/libmp3lame/VbrTag.c
+index 8881a364..0e51f515 100644
+--- i/libmp3lame/VbrTag.c
++++ w/libmp3lame/VbrTag.c
 @@ -48,13 +48,13 @@
  /*
   *    4 bytes for Header Tag
@@ -27,7 +27,7 @@ Index: libmp3lame/VbrTag.c
  */
  #define VBRHEADERSIZE (NUMTOCENTRIES+4+4+4+4+4)
  
-@@ -950,7 +950,7 @@
+@@ -950,7 +950,7 @@ lame_get_lametag_frame(lame_global_flags const *gfp, unsigned char *buffer, size
      }
  
      /* Put header flags */
@@ -36,14 +36,15 @@ Index: libmp3lame/VbrTag.c
      nStreamIndex += 4;
  
      /* Put Total Number of frames */
-Index: libmp3lame/VbrTag.h
-===================================================================
---- libmp3lame/VbrTag.h	(revision 6531)
-+++ libmp3lame/VbrTag.h	(working copy)
-@@ -40,11 +40,15 @@
+diff --git i/libmp3lame/VbrTag.h w/libmp3lame/VbrTag.h
+index 406af366..ca32e07f 100644
+--- i/libmp3lame/VbrTag.h
++++ w/libmp3lame/VbrTag.h
+@@ -39,11 +39,13 @@
+  * e.g. half duration seek point = (toc[50]/256.0) * total_bitstream_bytes
   */
  
- 
+-
 -#define FRAMES_FLAG     0x0001
 -#define BYTES_FLAG      0x0002
 -#define TOC_FLAG        0x0004
@@ -56,7 +57,5 @@ Index: libmp3lame/VbrTag.h
 +#define VBR_RESERVEDB_FLAG  0x0020
 +#define INFOTAG_FLAG        0x0040
  
-+
  #define NUMTOCENTRIES 100
  
- #ifndef lame_internal_flags_defined

@@ -71,13 +71,13 @@ diff -ur lame_orig/libmp3lame/encoder.c lame/libmp3lame/encoder.c
 diff -ur lame_orig/libmp3lame/lame.c lame/libmp3lame/lame.c
 --- lame_orig/libmp3lame/lame.c	2017-09-26 14:14:02.000000000 +0200
 +++ lame/libmp3lame/lame.c	2018-04-24 11:42:51.611006318 +0200
-@@ -2364,6 +2364,8 @@
+@@ -2381,6 +2381,8 @@ lame_init_internal_flags(lame_internal_flags* gfc)
      gfc->ov_rpg.noclipGainChange = 0;
      gfc->ov_rpg.noclipScale = -1.0;
  
 +    gfc->padding_type = PAD_ADJUST;
 +
-     gfc->ATH = lame_calloc(ATH_t, 1);
+     gfc->ATH = calloc_aligned16(1, sizeof(ATH_t));
      if (NULL == gfc->ATH)
          return -2;      /* maybe error codes should be enumerated in lame.h ?? */
 diff -ur lame_orig/libmp3lame/set_get.c lame/libmp3lame/set_get.c

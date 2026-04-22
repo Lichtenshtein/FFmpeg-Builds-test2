@@ -29,6 +29,20 @@ ffbuild_dockerbuild() {
     cp lib/libgsm.a "$FFBUILD_DESTPREFIX/lib/"
     cp include/gsm/*.h "$FFBUILD_DESTPREFIX/include/gsm"
     cp include/gsm/gsm.h "$FFBUILD_DESTPREFIX/include/"
+
+    mkdir -p "${PC_DIR}"
+    cat <<EOF > "${PC_DIR}/gsm.pc"
+prefix=${FFBUILD_PREFIX}
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: gsm
+Description: GSM 06.10 lossy speech compression library
+Version: 1.0.13
+Libs: -L\${libdir} -lgsm
+Cflags: -I\${includedir} -I\${includedir}/gsm
+EOF
 }
 
 ffbuild_configure() {
