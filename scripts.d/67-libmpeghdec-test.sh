@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/Fraunhofer-IIS/mpeghdec.git"
-SCRIPT_COMMIT="335a2587fed4d769f8a21ae8816afd0aaa226b4f"
+SCRIPT_COMMIT="c08b803dec53ee6e968253d6b031f8d14ce936ec"
 
 ffbuild_enabled() {
     return 0
@@ -38,7 +38,6 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # MPEG-H часто не генерирует .pc файл. Проверим и создадим, если нужно
     if [[ ! -f "$PC_DIR/mpeghdec.pc" ]]; then
         mkdir -p "$PC_DIR"
         cat <<EOF > "$PC_DIR/mpeghdec.pc"
