@@ -15,7 +15,12 @@ ffbuild_dockerbuild() {
     set -e
 
     rm -rf autom4te.cache config.cache
-    autoreconf -fiv
+    mkdir -p m4
+    libtoolize --force --copy
+    aclocal -I m4 -I /usr/share/aclocal
+    autoheader
+    automake --add-missing --copy --force-missing
+    autoconf
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
