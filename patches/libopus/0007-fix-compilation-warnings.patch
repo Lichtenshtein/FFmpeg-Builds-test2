@@ -1,0 +1,32 @@
+From 7292e55f48e36b5eb2631cb126f883c17cd09201 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Thu, 23 Apr 2026 08:40:23 +0300
+Subject: [PATCH] fix compilation warnings
+
+---
+ silk/decode_indices.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/silk/decode_indices.c b/silk/decode_indices.c
+index 268e4276..8867452f 100644
+--- a/silk/decode_indices.c
++++ b/silk/decode_indices.c
+@@ -70,6 +70,7 @@ void silk_decode_indices(
+     }
+ 
+     /* Remaining subframes */
++    celt_assert( psDec->nb_subfr <= MAX_NB_SUBFR );
+     for( i = 1; i < psDec->nb_subfr; i++ ) {
+         psDec->indices.GainsIndices[ i ] = (opus_int8)ec_dec_icdf( psRangeDec, silk_delta_gain_iCDF, 8 );
+     }
+@@ -129,6 +130,7 @@ void silk_decode_indices(
+         /* Decode PERIndex value */
+         psDec->indices.PERIndex = (opus_int8)ec_dec_icdf( psRangeDec, silk_LTP_per_index_iCDF, 8 );
+ 
++        celt_assert( psDec->nb_subfr <= MAX_NB_SUBFR );
+         for( k = 0; k < psDec->nb_subfr; k++ ) {
+             psDec->indices.LTPIndex[ k ] = (opus_int8)ec_dec_icdf( psRangeDec, silk_LTP_gain_iCDF_ptrs[ psDec->indices.PERIndex ], 8 );
+         }
+-- 
+2.52.0.windows.1
+
