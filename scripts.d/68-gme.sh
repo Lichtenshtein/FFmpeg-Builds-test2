@@ -1,7 +1,11 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libgme/game-music-emu.git"
-SCRIPT_COMMIT="bb58c4a9a9ba847fc8f423aec8ffe9eb957baadf"
+SCRIPT_COMMIT="dd3182a8bdae3ff761438632aace418fbcaed439"
+
+ffbuild_depends() {
+    echo zlib
+}
 
 ffbuild_enabled() {
     return 0
@@ -22,7 +26,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DCMAKE_DISABLE_FIND_PACKAGE_SDL2=1
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DGME_BUILD_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DGME_BUILD_FRAMEWORK=OFF
@@ -40,6 +43,15 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    local PRIVATE_LIBS="-lssp -lmingwthrd -lgcc -lstdc++"
+    local PC_FILE="$PC_DIR/libgme.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        # Удаляем существующую строку Libs.private целиком
+        sed -i '/^Libs.private:/d' "$PC_FILE"
+        # Записываем новую чистую строку
+        echo "Libs.private: $PRIVATE_LIBS" >> "$PC_FILE"
+    fi
 }
 
 ffbuild_configure() {

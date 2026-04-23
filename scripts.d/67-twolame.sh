@@ -54,6 +54,10 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/twolame.pc"
     if [[ -f "$PC_FILE" ]]; then
+        # Удаляем существующую строку Libs.private целиком
+        sed -i '/^Libs.private:/d' "$PC_FILE"
+        # Записываем новую чистую строку
+        echo "Libs.private: -lm" >> "$PC_FILE"
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
                 sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"

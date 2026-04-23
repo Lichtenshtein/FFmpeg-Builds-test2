@@ -326,13 +326,15 @@ index c07e223..2ddaa93 100644
      # GCC needs -static-libubsan
      if(NOT GME_BUILD_SHARED AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
          set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined -static-libubsan")
+         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined -static-libubsan")
      else()
          set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=undefined")
+         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=undefined")
      endif()
 +  endif()
  endif()
  
- # Shared library defined here
+ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND GME_ENABLE_ASAN)
 diff --git a/build.zig b/build.zig
 new file mode 100644
 index 0000000..e378357
@@ -3438,8 +3440,8 @@ index bd0bd65..c090c39 100644
  
  blargg_err_t Nes_Vrc7_Apu::init()
 @@ -26,7 +26,7 @@ blargg_err_t Nes_Vrc7_Apu::init()
- 	OPLL_SetChipMode((OPLL *) opll, 1);
- 	OPLL_setPatch((OPLL *) opll, vrc7_inst);
+ 	OPLL_setChipType((OPLL *) opll, 1);
+ 	OPLL_resetPatch((OPLL *) opll, 1);
  
 -	set_output( 0 );
 +	set_output( nullptr );
@@ -4977,7 +4979,7 @@ index c6f2c82..4e71921 100644
 --- a/gme/gme.h
 +++ b/gme/gme.h
 @@ -11,7 +11,7 @@
- #define GME_VERSION 0x000604 /* 1 byte major, 1 byte minor, 1 byte patch-level */
+ #define GME_VERSION 0x000606 /* 1 byte major, 1 byte minor, 1 byte patch-level */
  
  /* Error string returned by library functions, or NULL if no error (success) */
 -typedef const char* gme_err_t;
