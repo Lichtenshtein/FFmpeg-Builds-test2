@@ -31,6 +31,8 @@ ffbuild_dockerbuild() {
         --disable-libsyn123   # Библиотека синтеза/ресемплинга
         --with-cpu=x86-64
         --with-optimization=3
+        --enable-buffer
+        --enable-largefile
         --with-audio=dummy    # Отключаем системные аудио-движки (Win32/WASAPI)
         --disable-debug       # Убираем отладочный мусор
         --with-seektable=1000 # Стандартный размер таблицы поиска
@@ -50,10 +52,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    mkdir -p "${PC_DIR}"
-    if [ -f "${FFBUILD_DESTPREFIX}/lib/pkgconfig/libmpg123.pc" ]; then
-        cp "${FFBUILD_DESTPREFIX}/lib/pkgconfig/libmpg123.pc" "${PC_DIR}/"
-    else
+    if [[ ! -f "${PC_DIR}/libmpg123.pc" ]]; then
+        mkdir -p "${PC_DIR}"
         cat <<EOF > "${PC_DIR}/libmpg123.pc"
 prefix=${FFBUILD_PREFIX}
 exec_prefix=\${prefix}
