@@ -15,7 +15,7 @@ index e7ffd22..69db7fd 100644
 --- a/flite.sln
 +++ b/flite.sln
 @@ -1,17 +1,9 @@
- ﻿
+ 
  Microsoft Visual Studio Solution File, Format Version 12.00
  # Visual Studio 14
 -VisualStudioVersion = 14.0.23107.0
