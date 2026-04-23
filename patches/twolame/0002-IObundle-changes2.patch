@@ -8,6 +8,19 @@ Subject: [PATCH] IObundle changes
  libtwolame/psycho_3.c       |  80 ++++-
  2 files changed, 732 insertions(+), 7 deletions(-)
  create mode 100644 0001-IObundle-changes.patch
+diff --git a/simplefrontend/simplefrontend.c b/simplefrontend/simplefrontend.c
+index 85e2bd3..1e4e6b5 100644
+--- a/simplefrontend/simplefrontend.c
++++ b/simplefrontend/simplefrontend.c
+@@ -4,7 +4,7 @@
+ //#include "system.h"
+ //#include "periphs.h"
+ //#include "iob-uart.h"
+-#include "printf.h"
++// #include "printf.h"
+ 
+ #include <twolame.h>
+ #include "audio_wave.h"
 diff --git a/libtwolame/psycho_3.c b/libtwolame/psycho_3.c
 index 2c0c787..578ac27 100644
 --- a/libtwolame/psycho_3.c
