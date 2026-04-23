@@ -26,13 +26,12 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
         --disable-programs    # Нам не нужны mpg123.exe и прочие утилиты
+        --disable-components  # Выключает дефолтное "собирать всё"
         --enable-libmpg123    # Собираем только саму библиотеку декодирования
         --disable-libout123   # Библиотека вывода звука
         --disable-libsyn123   # Библиотека синтеза/ресемплинга
         --with-cpu=x86-64
         --with-optimization=3
-        --enable-buffer
-        --enable-largefile
         --with-audio=dummy    # Отключаем системные аудио-движки (Win32/WASAPI)
         --disable-debug       # Убираем отладочный мусор
         --with-seektable=1000 # Стандартный размер таблицы поиска
