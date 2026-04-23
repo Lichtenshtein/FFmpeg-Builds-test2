@@ -21,7 +21,6 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     local myconf=(
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         --prefix="$FFBUILD_PREFIX"
         --libdir="lib"
         --buildtype=release
@@ -29,6 +28,8 @@ ffbuild_dockerbuild() {
         --cross-file="$FFBUILD_MESON_CROSS"
         --wrap-mode=nodownload
     )
+
+    [[ "${USE_LTO}" == "1" ]] && myconf+=( -Db_lto=true )
 
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS" \
