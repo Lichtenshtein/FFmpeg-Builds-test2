@@ -114,7 +114,7 @@ env:
   # Списки исключений
   # Список для хранения .git от очистки (в download.sh)
   GIT_PRESERVE_LIST: >-
-    ffmpeg|glib2|x264|x265|vulkan-loader|mp3shine|mbedtls|pcre2|
+    ffmpeg|glib2|x264|x265|vulkan-loader|mp3shine|twolame|mbedtls|pcre2|
     avisynth|openssl|pango|freetype|ilbc|libjxl|libvorbis|snappy|zimg|vmaf|dav1d|libplacebo
   # Список для сохранения DLL (в run_stage.sh)
   DLL_PRESERVE_LIST: >-
