@@ -113,15 +113,6 @@ index 7ec0d67c..86644a5b 100644
  {
      uint32_t const frame_id = toID3v2TagId(id);
      if (frame_id == 0) {
-@@ -1184,7 +1167,7 @@ id3tag_set_textinfo_utf16(lame_t gfp, char const *id, unsigned short const *text
-         return id3tag_set_userinfo_ucs2(gfp, frame_id, text);
-     }
-     if (frame_id == ID_GENRE) {
--        return id3tag_set_genre_utf16(gfp, text);
-+        return id3tag_set_genre_utf8(gfp, text);
-     }
-     if (frame_id == ID_PCST) {
-         return id3v2_add_ucs2_lng(gfp, frame_id, 0, text);
 diff --git a/libmp3lame/psymodel.h b/libmp3lame/psymodel.h
 index f46083cd..1d972459 100644
 --- a/libmp3lame/psymodel.h
