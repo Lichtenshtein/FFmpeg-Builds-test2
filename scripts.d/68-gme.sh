@@ -44,13 +44,12 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    local PRIVATE_LIBS="-lssp -lmingwthrd -lgcc -lstdc++"
     local PC_FILE="$PC_DIR/libgme.pc"
     if [[ -f "$PC_FILE" ]]; then
         # Удаляем существующую строку Libs.private целиком
-        sed -i '/^Libs.private:/d' "$PC_FILE"
+        sed -i '/^[Ll]ibs\.[Pp]rivate:/d' "$PC_FILE"
         # Записываем новую чистую строку
-        echo "Libs.private: $PRIVATE_LIBS" >> "$PC_FILE"
+        sed -i '/^Libs:/a Libs.private: -lssp -lmingwthrd -lgcc -lstdc++' "$PC_FILE"
     fi
 }
 

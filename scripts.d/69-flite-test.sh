@@ -75,7 +75,6 @@ Version: $VER_FULL
 Libs: -L\${libdir} $VOX_LIBS -lflite
 Cflags: -I\${includedir}
 EOF
-
 }
 
 ffbuild_configure() {

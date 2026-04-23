@@ -712,6 +712,10 @@ patch_pc_files() {
         # Write clean public Libs line
         sed -i $sl "s|^Libs:.*|Libs: $lib_path $main_libs|" "$pc"
 
+        # Case normalization for variations (Libs.Private, REQUIRES.PRIVATE)
+        sed -i $sl -E 's/^[Ll]ibs\.[Pp]rivate:/Libs.private:/g' "$pc"
+        sed -i $sl -E 's/^[Rr]equires\.[Pp]rivate:/Requires.private:/g' "$pc"
+
         # Ensure Requires.private and Libs.private fields exist
         grep -q "^Requires.private:" "$pc" || sed -i $sl "/^Version:/a Requires.private:" "$pc"
         grep -q "^Libs.private:" "$pc" || sed -i $sl "/^Libs:/a Libs.private:" "$pc"
@@ -1115,6 +1119,34 @@ apply_patches() {
                     git am --abort 2>/dev/null || true
                 fi
             done
+        fi
+
+        # Try git apply (with temporary git init if needed)
+        if [[ "$success" == "false" ]]; then
+            local temp_git=false
+            if [[ ! -d ".git" ]]; then
+                temp_git=true
+                git init -q && git add -A && git commit -qm "temp_init"
+            fi
+
+            local apply_opts
+            for apply_opts in \
+                "--ignore-space-change --ignore-whitespace" \
+                "--ignore-space-change --ignore-whitespace --3way" \
+                "--ignore-space-change --ignore-whitespace --recount"
+            do
+                log_debug "Trying: git apply $apply_opts"
+                if last_output=$(git apply $apply_opts "$patch" 2>&1); then
+                    log_info "${CHECK_MARK} SUCCESS: Applied with [git apply $apply_opts]"
+                    success=true
+                    break
+                fi
+            done
+
+            # Cleanup temporary git
+            if [[ "$temp_git" == "true" ]]; then
+                rm -rf .git
+            fi
         fi
 
         # Fall back to patch utility
