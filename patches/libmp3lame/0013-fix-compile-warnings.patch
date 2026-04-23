@@ -1,0 +1,129 @@
+From 8e67cbed0d856a84e2d1c15a0ddf1539b8486629 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Thu, 23 Apr 2026 05:02:49 +0300
+Subject: [PATCH] fix compile warnings
+
+---
+ include/lame.h            |  2 +-
+ libmp3lame/VbrTag.c       | 16 ++++++----------
+ libmp3lame/id3tag.c       |  8 +++-----
+ libmp3lame/psymodel.h     |  4 ++--
+ libmp3lame/quantize_pvt.c |  2 +-
+ 5 files changed, 13 insertions(+), 19 deletions(-)
+
+diff --git a/include/lame.h b/include/lame.h
+index 4e1a345a..260bb149 100644
+--- a/include/lame.h
++++ b/include/lame.h
+@@ -1303,7 +1303,7 @@ int CDECL id3tag_set_textinfo_utf16(lame_t gfp, char const *id, unsigned short c
+ int CDECL id3tag_set_comment_utf16(lame_t gfp, char const *lang, unsigned short const *desc, unsigned short const *text);
+ 
+ /* experimental */
+-int CDECL id3tag_set_textinfo_utf8(lame_t gfp, char const *id, unsigned short const *text);
++int CDECL id3tag_set_textinfo_utf8(lame_t gfp, char const *id, char const *text);
+ 
+ /* experimental */
+ int CDECL id3tag_set_comment_utf8(lame_t gfp, char const *lang, char const *desc, char const *text);
+diff --git a/libmp3lame/VbrTag.c b/libmp3lame/VbrTag.c
+index 0e51f515..c627196d 100644
+--- a/libmp3lame/VbrTag.c
++++ b/libmp3lame/VbrTag.c
+@@ -394,10 +394,8 @@ GetVbrTag(VBRTAGDATA * pTagData, const unsigned char *buf)
+     }
+ 
+     if (head_flags & TOC_FLAG) {
+-        if (pTagData->toc != NULL) {
+-            for (i = 0; i < NUMTOCENTRIES; i++)
+-                pTagData->toc[i] = buf[i];
+-        }
++        for (i = 0; i < NUMTOCENTRIES; i++)
++            pTagData->toc[i] = buf[i];
+         buf += NUMTOCENTRIES;
+     }
+ 
+@@ -435,12 +433,10 @@ GetVbrTag(VBRTAGDATA * pTagData, const unsigned char *buf)
+     fprintf(stderr, "enc_delay  = %i \n", enc_delay);
+     fprintf(stderr, "enc_padding= %i \n", enc_padding);
+     fprintf(stderr, "toc:\n");
+-    if (pTagData->toc != NULL) {
+-        for (i = 0; i < NUMTOCENTRIES; i++) {
+-            if ((i % 10) == 0)
+-                fprintf(stderr, "\n");
+-            fprintf(stderr, " %3d", (int) (pTagData->toc[i]));
+-        }
++    for (i = 0; i < NUMTOCENTRIES; i++) {
++        if ((i % 10) == 0)
++            fprintf(stderr, "\n");
++        fprintf(stderr, " %3d", (int) (pTagData->toc[i]));
+     }
+     fprintf(stderr, "\n***************** END OF VBR TAG INFO ***************\n");
+ #endif
+diff --git a/libmp3lame/id3tag.c b/libmp3lame/id3tag.c
+index 7ec0d67c..e00f5817 100644
+--- a/libmp3lame/id3tag.c
++++ b/libmp3lame/id3tag.c
+@@ -587,7 +587,7 @@ local_char_pos(char const* str, char c)
+ }
+ 
+ static int
+-maybeLatin1(unsigned short const* text)
++maybeLatin1(char const* text)
+ {
+     if (text) {
+         unsigned short bom = *text++;
+@@ -638,8 +638,7 @@ local_strdup_utf16_to_latin1(unsigned short const* utf16)
+ }
+ 
+ 
+-static int
+-id3tag_set_genre_utf8(lame_t gfp, unsigned short const* text)
++static int id3tag_set_genre_utf8(lame_t gfp, char const* text)
+ {
+     lame_internal_flags* gfc = gfp->internal_flags;
+     int   ret;
+@@ -1124,8 +1123,7 @@ id3tag_set_userinfo_ucs2(lame_t gfp, uint32_t id, unsigned short const *fieldval
+     return rc;
+ }
+ 
+-int
+-id3tag_set_textinfo_utf8(lame_t gfp, char const *id, unsigned short const *text)
++int id3tag_set_textinfo_utf8(lame_t gfp, char const *id, char const *text)
+ {
+     uint32_t const frame_id = toID3v2TagId(id);
+     if (frame_id == 0) {
+diff --git a/libmp3lame/psymodel.h b/libmp3lame/psymodel.h
+index f46083cd..1d972459 100644
+--- a/libmp3lame/psymodel.h
++++ b/libmp3lame/psymodel.h
+@@ -27,13 +27,13 @@ int     L3psycho_anal_ns(lame_internal_flags * gfc,
+                          const sample_t *const buffer[2], int gr,
+                          III_psy_ratio ratio[2][2],
+                          III_psy_ratio MS_ratio[2][2],
+-                         FLOAT pe[2], FLOAT pe_MS[2], FLOAT ener[2], int blocktype_d[2]);
++                         FLOAT pe[2], FLOAT pe_MS[2], FLOAT ener[4], int blocktype_d[2]);
+ 
+ int     L3psycho_anal_vbr(lame_internal_flags * gfc,
+                           const sample_t *const buffer[2], int gr,
+                           III_psy_ratio ratio[2][2],
+                           III_psy_ratio MS_ratio[2][2],
+-                          FLOAT pe[2], FLOAT pe_MS[2], FLOAT ener[2], int blocktype_d[2]);
++                          FLOAT pe[2], FLOAT pe_MS[2], FLOAT ener[4], int blocktype_d[2]);
+ 
+ 
+ int     psymodel_init(lame_global_flags const* gfp);
+diff --git a/libmp3lame/quantize_pvt.c b/libmp3lame/quantize_pvt.c
+index 51d8168d..9bacf948 100644
+--- a/libmp3lame/quantize_pvt.c
++++ b/libmp3lame/quantize_pvt.c
+@@ -431,7 +431,7 @@ iteration_init(lame_internal_flags * gfc)
+  * bugfixes rh 8/01: often allocated more than the allowed 4095 bits
+  ************************************************************************/
+ int
+-on_pe(lame_internal_flags * gfc, const FLOAT pe[][2], int targ_bits[2], int mean_bits, int gr, int cbr)
++on_pe(lame_internal_flags * gfc, const FLOAT pe[2][2], int targ_bits[2], int mean_bits, int gr, int cbr)
+ {
+     SessionConfig_t const *const cfg = &gfc->cfg;
+     int     extra_bits = 0, tbits, bits;
+-- 
+2.52.0.windows.1
+
