@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/njh/twolame.git"
-SCRIPT_COMMIT="3c7d49d95be71c26afdbaef14def92f3460c7373"
+SCRIPT_COMMIT="6fced852d4d5cfad58cf9dbe3ea619b08e87d398"
 
 # SCRIPT_REPO="https://github.com/IObundle/twolame.git"
 # SCRIPT_COMMIT="b995218213887a57a702334730ed86f82749348e"
@@ -23,9 +23,8 @@ ffbuild_dockerbuild() {
     printf 'print "999999\\n"\n' > autogen-get-version-mock.pl
     sed -i -e 's|/autogen-get-version.pl|/autogen-get-version-mock.pl|g' ./autogen.sh
 
-    # NOCONFIGURE=1 ./autogen.sh
+    NOCONFIGURE=1 ./autogen.sh
 
-    # Заглушка для man-страниц, чтобы не требовать help2man
     mkdir -p doc
     touch doc/twolame.1
 
