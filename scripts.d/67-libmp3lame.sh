@@ -9,6 +9,7 @@ SCRIPT_COMMIT="fe309eb331421ee6534ba795dbc298e19093f96f"
 ffbuild_depends() {
     echo base
     echo libiconv
+    echo libmpg123
 }
 
 ffbuild_enabled() {
@@ -30,7 +31,7 @@ ffbuild_dockerbuild() {
     # Исправляем баг в Makefile, чтобы не собирать лишнее
     # Важно оставить libmp3lame и include.
     # mpglib нужен, если не используется внешняя библиотека для декодирования
-    sed -i 's/SUBDIRS = mpglib libmp3lame frontend include doc dev/SUBDIRS = mpglib libmp3lame include/' Makefile.am
+    sed -i '/SUBDIRS = mpglib/,/vc_solution/c\SUBDIRS = mpglib libmp3lame include' Makefile.am
 
     autoreconf -fi
 
