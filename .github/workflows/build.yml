@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '06-libiconv|08-zlib|63-libogg|63-libvorbis|66-libmpg123|67-libmp3lame|67-libmpeghdec-test|67-libopus|67-mp3shine|67-mpeghe|67-opencore-amr|67-twolame|67-vo-amrwb|68-gme|68-modplug|68-openmpt'
+        default: '06-libiconv|08-zlib|63-libogg|63-libvorbis|66-libmpg123|67-libmp3lame|67-libopus|67-mp3shine|67-mpeghe|67-opencore-amr|67-twolame|67-vo-amrwb|68-gme|68-modplug|68-openmpt'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
@@ -114,7 +114,7 @@ env:
   # Списки исключений
   # Список для хранения .git от очистки (в download.sh)
   GIT_PRESERVE_LIST: >-
-    ffmpeg|glib2|x264|x265|opus|vulkan-loader|mbedtls|pcre2|
+    ffmpeg|glib2|x264|x265|libopus|vulkan-loader|mbedtls|pcre2|
     avisynth|openssl|pango|freetype|ilbc|libjxl|libvorbis|snappy|zimg|vmaf|dav1d|libplacebo
   # Список для сохранения DLL (в run_stage.sh)
   DLL_PRESERVE_LIST: >-

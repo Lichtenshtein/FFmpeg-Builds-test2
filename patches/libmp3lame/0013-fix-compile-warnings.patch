@@ -59,29 +59,51 @@ index 0e51f515..c627196d 100644
      fprintf(stderr, "\n***************** END OF VBR TAG INFO ***************\n");
  #endif
 diff --git a/libmp3lame/id3tag.c b/libmp3lame/id3tag.c
-index 7ec0d67c..e00f5817 100644
+index 7ec0d67c..86644a5b 100644
 --- a/libmp3lame/id3tag.c
 +++ b/libmp3lame/id3tag.c
-@@ -587,7 +587,7 @@ local_char_pos(char const* str, char c)
+@@ -586,8 +586,7 @@ local_char_pos(char const* str, char c)
+     return -1;
  }
  
- static int
+-static int
 -maybeLatin1(unsigned short const* text)
-+maybeLatin1(char const* text)
++static int maybeLatin1(unsigned short const* text)
  {
      if (text) {
          unsigned short bom = *text++;
-@@ -638,8 +638,7 @@ local_strdup_utf16_to_latin1(unsigned short const* utf16)
+@@ -637,27 +636,12 @@ local_strdup_utf16_to_latin1(unsigned short const* utf16)
+     return (char*)latin1;
  }
  
- 
+-
 -static int
 -id3tag_set_genre_utf8(lame_t gfp, unsigned short const* text)
 +static int id3tag_set_genre_utf8(lame_t gfp, char const* text)
  {
      lame_internal_flags* gfc = gfp->internal_flags;
      int   ret;
-@@ -1124,8 +1123,7 @@ id3tag_set_userinfo_ucs2(lame_t gfp, uint32_t id, unsigned short const *fieldval
+-    if (text == 0) {
+-        return -3;
+-    }
+-    if (maybeLatin1(text)) {
+-        char*   latin1 = local_strdup_utf16_to_latin1(text);
+-        int     num = lookupGenre(latin1);
+-        free(latin1);
+-        if (num == -1) return -1; /* number out of range */
+-        if (num >= 0) {           /* common genre found  */
+-            gfc->tag_spec.flags |= CHANGED_FLAG;
+-            gfc->tag_spec.genre_id3v1 = num;
+-            copyV1ToV2(gfp, ID_GENRE, genre_names[num]);
+-            return 0;
+-        }
+-    }
++    if (text == 0) return -3;
++
+     ret = id3v2_add_utf8_lng(gfp, ID_GENRE, 0, text);
+     if (ret == 0) {
+         gfc->tag_spec.flags |= CHANGED_FLAG;
+@@ -1124,8 +1108,7 @@ id3tag_set_userinfo_ucs2(lame_t gfp, uint32_t id, unsigned short const *fieldval
      return rc;
  }
  
@@ -91,6 +113,15 @@ index 7ec0d67c..e00f5817 100644
  {
      uint32_t const frame_id = toID3v2TagId(id);
      if (frame_id == 0) {
+@@ -1184,7 +1167,7 @@ id3tag_set_textinfo_utf16(lame_t gfp, char const *id, unsigned short const *text
+         return id3tag_set_userinfo_ucs2(gfp, frame_id, text);
+     }
+     if (frame_id == ID_GENRE) {
+-        return id3tag_set_genre_utf16(gfp, text);
++        return id3tag_set_genre_utf8(gfp, text);
+     }
+     if (frame_id == ID_PCST) {
+         return id3v2_add_ucs2_lng(gfp, frame_id, 0, text);
 diff --git a/libmp3lame/psymodel.h b/libmp3lame/psymodel.h
 index f46083cd..1d972459 100644
 --- a/libmp3lame/psymodel.h
