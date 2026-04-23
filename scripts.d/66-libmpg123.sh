@@ -3,6 +3,8 @@
 SCRIPT_REPO="https://github.com/madebr/mpg123.git"
 SCRIPT_COMMIT="64972c017377bf8972d8d245bff8234a2032a3d2"
 
+# export USE_CONF_FINDER=1
+
 ffbuild_enabled() {
     return 0
 }
@@ -14,7 +16,13 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    autoreconf -fi
+    rm -rf autom4te.cache config.cache
+    mkdir -p m4
+    libtoolize --force --copy
+    aclocal -I m4 -I /usr/share/aclocal
+    autoheader
+    automake --add-missing --copy --force-missing
+    autoconf
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -47,5 +55,18 @@ ffbuild_dockerbuild() {
     mkdir -p "${PC_DIR}"
     if [ -f "${FFBUILD_DESTPREFIX}/lib/pkgconfig/libmpg123.pc" ]; then
         cp "${FFBUILD_DESTPREFIX}/lib/pkgconfig/libmpg123.pc" "${PC_DIR}/"
+    else
+        cat <<EOF > "${PC_DIR}/libmpg123.pc"
+prefix=${FFBUILD_PREFIX}
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: libmpg123
+Description: MPEG 1.0/2.0/2.5 audio decoder
+Version: 1.31.0
+Libs: -L\${libdir} -lmpg123
+Cflags: -I\${includedir}
+EOF
     fi
 }
