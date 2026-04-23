@@ -21,6 +21,7 @@ ffbuild_depends() {
     echo nghttp2
     echo freeglut
     echo libxxhash
+    echo libmpg123
     # echo lcevcdec
     echo spirv-tools
     echo gavl

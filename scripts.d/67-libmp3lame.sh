@@ -57,11 +57,34 @@ ffbuild_dockerbuild() {
     CPPFLAGS="$CPPFLAGS -DNDEBUG -D_ALLOW_INTERNAL_OPTIONS" \
     CXXFLAGS="$CXXFLAGS $FLAGS ${USELTO}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
+    ac_cv_sizeof_short=2 \
+    ac_cv_sizeof_int=4 \
+    ac_cv_sizeof_long=4 \
+    ac_cv_sizeof_long_long=8 \
+    ac_cv_sizeof_float=4 \
+    ac_cv_sizeof_double=8 \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+
+    if [[ ! -f "${PC_DIR}/mp3lame.pc" ]]; then
+    mkdir -p "${PC_DIR}"
+    cat <<EOF > "${PC_DIR}/mp3lame.pc"
+prefix=${FFBUILD_PREFIX}
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: lame
+Description: High quality MPEG Audio Layer III (MP3) encoder
+Version: 3.101
+Libs: -L\${libdir} -lmp3lame
+Libs.private: -lm
+Cflags: -I\${includedir}
+EOF
+    fi
 }
 
 ffbuild_configure() {
