@@ -48,6 +48,25 @@ index a27ab8e..3682da9 100644
  
  	set_track_count( spc_count_ );
  	set_voice_count( Snes_Spc::voice_count );
+diff --git a/gme/Vgm_Emu_Impl.cpp b/gme/Vgm_Emu_Impl.cpp
+index adfedad..5d9732a 100644
+--- a/gme/Vgm_Emu_Impl.cpp
++++ b/gme/Vgm_Emu_Impl.cpp
+@@ -287,12 +287,11 @@ blip_time_t Vgm_Emu_Impl::run_commands( vgm_time_t end_time )
+ 					if(pos > data_end)	pos = data_end;
+ 					if(cmd >= 0x30)		//0x30 is the smallest vgm opcode according to https://vgmrips.net/wiki/VGM_Specification#Commands
+ 					{
+-						snprintf(errstr, sizeof errstr, "Unknown stream event: 0x%x", cmd);
+-						set_warning( errstr );
++						set_warning( ERR_FILE_WRONG_TYPE ); 
+ 					}
+ 					else
+ 					{
+-						set_warning( "Tried to execute data" );
++						set_warning( ERR_FILE_WRONG_TYPE );
+ 					}
+ 			}
+ 		}
 -- 
 2.52.0.windows.1
 
