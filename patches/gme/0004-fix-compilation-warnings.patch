@@ -18,7 +18,8 @@ index a27ab8e..3682da9 100644
 -		return gme_wrong_file_type;
 +		return ERR_FILE_WRONG_TYPE;
  	if ( h.version_major != 1 )
- 		return "Unsupported SPC2 version";
+-		return "Unsupported SPC2 version";
++		return ERR_FILE_WRONG_TYPE;
  	return 0;
 @@ -268,7 +268,7 @@ struct Sp2_File : Gme_Info_
  	blargg_err_t load_mem_( byte const* data, long size )
@@ -38,6 +39,15 @@ index a27ab8e..3682da9 100644
  
  	header_t const& h = *(header_t const*) in;
  	RETURN_ERR( check_header( h ) );
+@@ -403,7 +403,7 @@ blargg_err_t Sp2_Emu::load_mem_( byte const* in, long size )
+ 	// Verify minimum size
+ 	long min_size = header_size + spc_block_size * spc_count_;
+ 	if ( size < min_size )
+-		return "Corrupt SPC2 file";
++		return ERR_FILE_WRONG_TYPE;
+ 
+ 	set_track_count( spc_count_ );
+ 	set_voice_count( Snes_Spc::voice_count );
 -- 
 2.52.0.windows.1
 
