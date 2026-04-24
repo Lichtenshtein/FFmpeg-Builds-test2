@@ -15,8 +15,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    autoreconf -if
-
     mkdir -p build && cd build
 
     local myconf=(
@@ -41,7 +39,7 @@ ffbuild_dockerbuild() {
     LIBS="$LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    ninja $NINJA_V || return 1
+    ninja $NINJA_V all || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     if [[ -n "$static_flags" ]]; then
