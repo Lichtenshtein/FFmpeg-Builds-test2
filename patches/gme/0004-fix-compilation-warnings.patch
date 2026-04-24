@@ -1,0 +1,43 @@
+From e25635c153e089f0d7239bd7053ada4ba834e28a Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Fri, 24 Apr 2026 03:17:35 +0300
+Subject: [PATCH] Fix compilation warnings
+
+---
+ gme/Sp2_Emu.cpp | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/gme/Sp2_Emu.cpp b/gme/Sp2_Emu.cpp
+index a27ab8e..3682da9 100644
+--- a/gme/Sp2_Emu.cpp
++++ b/gme/Sp2_Emu.cpp
+@@ -42,7 +42,7 @@ Sp2_Emu::~Sp2_Emu() { }
+ blargg_err_t Sp2_Emu::check_header( header_t const& h )
+ {
+ 	if ( memcmp( h.tag, "KSPC", 4 ) != 0 || h.eof_char != 0x1A )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 	if ( h.version_major != 1 )
+ 		return "Unsupported SPC2 version";
+ 	return 0;
+@@ -268,7 +268,7 @@ struct Sp2_File : Gme_Info_
+ 	blargg_err_t load_mem_( byte const* data, long size )
+ 	{
+ 		if ( size < Sp2_Emu::header_size )
+-			return gme_wrong_file_type;
++			return ERR_FILE_WRONG_TYPE;
+ 
+ 		file_data = data;
+ 		file_size = size;
+@@ -391,7 +391,7 @@ void Sp2_Emu::disable_echo_( bool disable )
+ blargg_err_t Sp2_Emu::load_mem_( byte const* in, long size )
+ {
+ 	if ( size < header_size )
+-		return gme_wrong_file_type;
++		return ERR_FILE_WRONG_TYPE;
+ 
+ 	header_t const& h = *(header_t const*) in;
+ 	RETURN_ERR( check_header( h ) );
+-- 
+2.52.0.windows.1
+
