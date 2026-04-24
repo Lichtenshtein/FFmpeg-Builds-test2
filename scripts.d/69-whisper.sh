@@ -40,12 +40,12 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS_DEFAULT=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DWHISPER_BUILD_TESTS=OFF
         -DWHISPER_ALL_WARNINGS=OFF
-        -DWHISPER_CURL=ON # to download models
+        # -DWHISPER_CURL=ON # to download models
         -DWHISPER_BUILD_EXAMPLES=OFF
         -DWHISPER_BUILD_SERVER=OFF
         -DWHISPER_USE_SYSTEM_GGML=OFF
-        -DWHISPER_OPENVINO=ON
-        -DWHISPER_SDL=ON # support for libSDL2
+        # -DWHISPER_OPENVINO=ON
+        # -DWHISPER_SDL=ON # support for libSDL2
         -DGGML_ALL_WARNINGS=OFF
         -DGGML_AVX2=ON
         -DGGML_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
@@ -63,13 +63,18 @@ ffbuild_dockerbuild() {
         -DGGML_FMA=ON
         -DGGML_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DGGML_NATIVE=OFF
-        -DGGML_OPENCL=ON
+        # -DGGML_OPENCL=ON
         -DGGML_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
-        -DGGML_OPENVINO=ON
+        # -DGGML_OPENVINO=ON
         -DGGML_SSE42=ON
         -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
-        -DGGML_VULKAN=ON
         -DGGML_WEBGPU=OFF
+        # VULKAN
+        -DGGML_VULKAN=ON
+        -DVulkan_GLSLC_EXECUTABLE="/opt/glslc_host"
+        -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
+        -DGGML_VULKAN_CHECK_RESULTS=OFF
         )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
@@ -79,6 +84,13 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    # Ручная очистка артефактов Vulkan/Shaderc после того, как whisper их использовал
+    log_info "Final cleanup of Vulkan/Shaderc build tools..."
+    rm -f /opt/glslc_host
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin" -name "glslc.exe" -delete
+    # Если нужно удалить импортные либы Vulkan, если они мешают статике:
+    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name '*.dll' -o -name '*.dll.a' -delete
 
     # Исправление имен файлов библиотек (MinGW prefix fix)
     # CMake в Windows часто сохраняет их как ggml-base.a, а линковщик ищет -lggml-base (т.е. libggml-base.a)
