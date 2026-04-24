@@ -55,6 +55,7 @@ ffbuild_dockerbuild() {
     if [[ -d "runtime/3rdparty/tbb" ]]; then
         find runtime/3rdparty/tbb/bin/ -name "*.dll" ! -name "*_debug.dll" -exec cp {} "$INSTALL_ROOT/bin/" \;
         find runtime/3rdparty/tbb/lib/ -name "*.lib" ! -name "*_debug.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
+        find runtime/3rdparty/tbb/lib/cmake/TBB/ -name "*.cmake" -exec cp {} "$INSTALL_ROOT/lib/cmake/" \;
     fi
 
     # Массированный патч путей и типов файлов
