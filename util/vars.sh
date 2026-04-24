@@ -1125,8 +1125,9 @@ apply_patches() {
         if [[ "$success" == "false" ]]; then
             local temp_git=false
             if [[ ! -d ".git" ]]; then
-                temp_git=true
-                git init -q && git add -A && git commit -qm "temp_init"
+                if git init -q && git add -A && git commit -qm "temp_init"; then
+                    temp_git=true
+                fi
             fi
 
             local apply_opts
@@ -1145,7 +1146,7 @@ apply_patches() {
 
             # Cleanup temporary git
             if [[ "$temp_git" == "true" ]]; then
-                rm -rf .git
+                rm -rf .git || true
             fi
         fi
 
