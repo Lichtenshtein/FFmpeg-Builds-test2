@@ -28,6 +28,12 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+ffbuild_dockerbuild() {
+    set -e
+
+    # Fixing the broken TBB search in whisper, which is tied to the Intel SDK folder structure
+    sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' ggml/src/ggml-openvino/CMakeLists.txt
+
     local triple="x86_64-w64-mingw32"
 
     cat <<EOF > main-toolchain.cmake
@@ -86,12 +92,11 @@ EOF
         -DBUILD_SHARED_LIBS_DEFAULT=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DWHISPER_BUILD_TESTS=OFF
         -DWHISPER_ALL_WARNINGS=OFF
-        -DWHISPER_CURL=ON # to download models
+        # -DWHISPER_CURL=ON # to download models
         -DWHISPER_BUILD_EXAMPLES=OFF
         -DWHISPER_BUILD_SERVER=OFF
         -DWHISPER_USE_SYSTEM_GGML=OFF
-        -DWHISPER_OPENVINO=ON
-        -DWHISPER_SDL=ON # support for libSDL2
+        # -DWHISPER_SDL=ON # support for libSDL2
         -DGGML_ALL_WARNINGS=OFF
         -DGGML_AVX2=ON
         -DGGML_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
@@ -110,9 +115,8 @@ EOF
         -DGGML_FMA=ON
         -DGGML_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DGGML_NATIVE=OFF
-        -DGGML_OPENCL=ON
+        # -DGGML_OPENCL=ON
         -DGGML_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
-        -DGGML_OPENVINO=ON
         -DGGML_SSE42=ON
         -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DGGML_WEBGPU=OFF
@@ -123,6 +127,12 @@ EOF
         # -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         # -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
         # -DGGML_VULKAN_CHECK_RESULTS=OFF
+        # OPENVINO
+        -DGGML_OPENVINO=ON
+        -DWHISPER_OPENVINO=ON
+        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+        -DTBB_DIR="$FFBUILD_PREFIX/lib/cmake"
+        -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
         )
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
