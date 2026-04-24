@@ -39,14 +39,16 @@ ffbuild_dockerbuild() {
         -DSDL_CCACHE=ON
         -DSDL_LIBSAMPLERATE=ON
         -DSDL_OPENGL=ON
-        -DSDL_PTHREADS=ON
         -DSDL_WASAPI=ON
         -DSDL_VULKAN=ON
         # блок поиска iconv
         -DSDL_LIBICONV=ON
         -DSDL_SYSTEM_ICONV=ON
-        -DICONV_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DICONV_LIBRARY="$FFBUILD_PREFIX/lib/libiconv.a"
+        -DIconv_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DIconv_LIBRARY="$FFBUILD_PREFIX/lib/libiconv.a"
+        # force pthreads
+        -DSDL_PTHREADS=ON
+        -DSDL_THREADS=ON
         # SDL3
         # -DSDL_INSTALL_DOCS=OFF
         # -DSDL_RENDER_VULKAN=ON
@@ -82,34 +84,53 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DSDL_STATIC_LIB"
+
+    CFLAGS="$CFLAGS $CPPFLAGS $static_flags -D_REENTRANT" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags -D_REENTRANT" \
+    LDFLAGS="$LDFLAGS -lpthread" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    if [[ $TARGET == linux* ]]; then
-        sed -ri -e 's/\-Wl,\-\-no\-undefined.*//' \
-            -e 's/ \-l\/.+?\.a//g' \
-            "$PC_DIR/sdl2.pc"
-        sed -i '/^Requires:/ s/$/ libpulse-simple xxf86vm xscrnsaver xrandr xfixes xi xinerama xcursor/' "$PC_DIR/sdl2.pc"
-    elif [[ $TARGET == win* ]]; then
-        sed -ri -e 's/\-Wl,\-\-no\-undefined.*//' \
-            -e 's/ \-mwindows//g' \
-            -e 's/ \-lSDL2main//g' \
-            -e 's/ \-Dmain=SDL_main//g' \
-            "$PC_DIR/sdl2.pc"
+    local PC_FILE="$PC_DIR/sdl2.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -ri -e 's/ -lSDL2//g' -e 's/Libs: /Libs: -lSDL2/' "$PC_FILE"
+        if grep -q "^Requires:" "$PC_FILE"; then
+            sed -i "/^Requires:/ s/$/ samplerate/" "$PC_FILE"
+        else
+            if grep -q "^Libs:" "$PC_FILE"; then
+                sed -i "/^Libs:/ a Requires: samplerate" "$PC_FILE"
+            fi
+        fi
+        if [[ $TARGET == linux* ]]; then
+            sed -ri -e 's/\-Wl,\-\-no\-undefined.*//' \
+                -e 's/ \-l\/.+?\.a//g' \
+                "$PC_FILE"
+            sed -i '/^Requires:/ s/$/ libpulse-simple \
+                xxf86vm xscrnsaver xrandr xfixes xi \
+                xinerama xcursor/' "$PC_FILE"
+        elif [[ $TARGET == win* ]]; then # why lSDL2main ?
+            sed -ri -e 's/\-Wl,\-\-no\-undefined.*//' \
+                -e 's/ \-mwindows//g' \
+                -e 's/ \-lSDL2main//g' \
+                -e 's/ \-Dmain=SDL_main//g' \
+                "$PC_FILE"
+        fi
+        # Add iconv to Requires.private or Libs.private
+        sed -i "/^Libs.private:/ s/$/ -liconv -lcharset/" "$PC_FILE"
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+            fi
+        fi
     fi
+}
 
-    sed -ri -e 's/ -lSDL2//g' \
-        -e 's/Libs: /Libs: -lSDL2 /'\
-        "$PC_DIR/sdl2.pc"
-
-    sed -i '/^Requires:/ s/$/ samplerate/' "$PC_DIR/sdl2.pc"
-    # Добавляем iconv в Requires.private или Libs.private
-    sed -i '/^Libs.private:/ s/$/ -liconv -lcharset/' "$PC_DIR/sdl2.pc"
+ffbuild_cppflags() {
+    echo "$static_flags"
 }
 
 ffbuild_configure() {
