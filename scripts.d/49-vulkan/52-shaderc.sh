@@ -23,7 +23,7 @@ ffbuild_dockerdl() {
         # Replace the DEPS file with the file from the patches folder.
         CUSTOM_DEPS="${PATCHES_DIR}/${COMPONENT_NAME}/DEPS"
         if [[ -f "$CUSTOM_DEPS" ]]; then
-            # The destination ./DEPS is relative to WORK_DIR (correct — runs after clone)
+            # The destination ./DEPS is relative to WORK_DIR (correct Р§ runs after clone)
             # Use cat instead of cp to avoid permission issues on read-only source
             echo "log_info '${SYNC_MARK} Replacing shaderc DEPS with custom version from patches...'"
             echo "cat $(printf '%q' "$CUSTOM_DEPS") > ./DEPS"
@@ -96,7 +96,6 @@ ffbuild_dockerbuild() {
 
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Создаем эталонный shaderc.pc, который реально будет работать при статической линковке FFmpeg
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/shaderc.pc"
 prefix=${FFBUILD_PREFIX}
@@ -125,7 +124,7 @@ Libs: -L\${libdir} -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent
 Cflags: -I\${includedir}
 EOF
 
-    # Дублируем его в shaderc_combined.pc и shaderc_static.pc для совместимости
+    # РґСѓР±Р»РёСЂСѓРµРј РµРіРѕ РІ shaderc_combined.pc Рё shaderc_static.pc РґР»СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё
     cp "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_combined.pc"
     cp "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_static.pc"
 
@@ -149,21 +148,23 @@ EOF
             -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF ) \
             -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
             -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=gcc \
+            -DCMAKE_CXX_COMPILER=g++ \
             -DSHADERC_SKIP_TESTS=ON \
             -DSHADERC_SKIP_EXAMPLES=OFF \
             -DENABLE_GLSLANG_BINARIES=ON \
             -DSPIRV_SKIP_EXECUTABLES=OFF \
             .. || exit 1
 
-        # Собираем цель glslc_exe — в последних версиях бинарник привязан к ней
+        # СЃРѕР±РёСЂР°РµРј С†РµР»СЊ glslc_exe РІ РїРѕСЃР»РµРґРЅРёС… РІРµСЂСЃРёСЏС… Р±РёРЅР°СЂРЅРёРє РїСЂРёРІСЏР·Р°РЅ Рє РЅРµР№
         ninja $NINJA_V glslc glslc_exe || true
 
-        # ищем любой исполняемый файл с именем glslc в текущей директории
+        # РёС‰РµРј Р»СЋР±РѕР№ РёСЃРїРѕР»РЅСЏРµРјС‹Р№ С„Р°Р№Р» СЃ РёРјРµРЅРµРј glslc РІ С‚РµРєСѓС‰РµР№ РґРёСЂРµРєС‚РѕСЂРёРё
         RAW_GLSLC=$(find . -type f -name "glslc" -executable | head -n 1)
 
         if [[ -n "$RAW_GLSLC" && -f "$RAW_GLSLC" ]]; then
-            log_info "Found glslc at $RAW_GLSLC, copying to /opt/glslc"
-            cp -v "$RAW_GLSLC" /opt/glslc
+            log_info "Found glslc at $RAW_GLSLC, copying to /opt/glslc_host"
+            cp -v "$RAW_GLSLC" /opt/glslc_host
         else
             log_error "Still no binary! Checking what WAS built:"
             find . -maxdepth 3 -executable -type f
