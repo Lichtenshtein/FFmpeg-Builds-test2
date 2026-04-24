@@ -10,6 +10,10 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+# Remove BOM marker before patch
+    cat <<EOF
+sed -i '1s/^\xEF\xBB\xBF//' flite.sln
+EOF
 }
 
 ffbuild_dockerbuild() {
