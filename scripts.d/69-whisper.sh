@@ -76,7 +76,7 @@ ffbuild_dockerbuild() {
         -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
         -DGGML_VULKAN_CHECK_RESULTS=OFF
-        -DGGML_VULKAN_HOST_LINKER_FLAGS="$HOST_LDFLAGS"
+        -DGGML_VULKAN_HOST_LINKER_FLAGS="-O3"
         )
 
     # CFLAGS="$CFLAGS $CPPFLAGS" \
@@ -87,9 +87,9 @@ ffbuild_dockerbuild() {
     (
         unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS
 
-        CFLAGS="$HOST_CFLAGS" \
-        CXXFLAGS="$HOST_CXXFLAGS" \
-        LDFLAGS="$HOST_LDFLAGS" \
+        LDFLAGS="-O3" \
+        CFLAGS="-O3" \
+        CXXFLAGS="-O3" \
         cmake -G Ninja "${myconf[@]}" ..
     ) || return 1
 
