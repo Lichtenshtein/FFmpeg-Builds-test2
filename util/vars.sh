@@ -730,6 +730,8 @@ patch_pc_files() {
         sed -i $sl 's/ -lrt\b//g' "$pc"
         # Apply -lzlib → -lz (after all -l tokens are in the file)
         sed -i $sl 's/-lzlib\b/-lz/g' "$pc"
+        # Исправляем дублирование префиксов lib
+        sed -i $sl 's/ -l-l/ -l/g' "$pc"
 
         # Smart deduplication
         # Cflags: simple dedup + -pthread alias
