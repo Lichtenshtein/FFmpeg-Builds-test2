@@ -28,11 +28,53 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    cat <<EOF > main-toolchain.cmake
+set(CMAKE_SYSTEM_NAME Windows)
+set(CMAKE_SYSTEM_PROCESSOR x86_64)
+set(CMAKE_SYSTEM_VERSION 10.0)
+set(triple x86_64-w64-mingw32)
+set(CMAKE_SYSROOT /opt/ct-ng/${triple}/sysroot)
+set(CMAKE_FIND_ROOT_PATH /opt/ffbuild /opt/ct-ng/${triple}/sysroot /opt/ct-ng)
+
+set(CMAKE_C_FLAGS "$CFLAGS $CPPFLAGS" CACHE STRING "" FORCE)
+set(CMAKE_CXX_FLAGS "$CXXFLAGS $CPPFLAGS" CACHE STRING "" FORCE)
+set(CMAKE_EXE_LINKER_FLAGS "$LDFLAGS" CACHE STRING "" FORCE)
+
+set(CMAKE_C_COMPILER ${triple}-gcc)
+set(CMAKE_CXX_COMPILER ${triple}-g++)
+set(CMAKE_RC_COMPILER ${triple}-windres)
+set(CMAKE_RANLIB ${triple}-gcc-ranlib)
+set(CMAKE_AR ${triple}-gcc-ar)
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+set(ENV{PKG_CONFIG_SYSROOT_DIR} "/")
+set(ENV{PKG_CONFIG_PATH} "")
+set(ENV{PKG_CONFIG_LIBDIR} "/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig")
+set(PKG_CONFIG_ARGN "--static")
+EOF
+
+    # Создаем правильный хост-тулчейн для сборщика шейдеров
+    cat <<EOF > host-fix-toolchain.cmake
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_C_COMPILER gcc)
+set(CMAKE_CXX_COMPILER g++)
+set(CMAKE_C_FLAGS "-O3" CACHE STRING "" FORCE)
+set(CMAKE_CXX_FLAGS "-O3" CACHE STRING "" FORCE)
+set(CMAKE_EXE_LINKER_FLAGS "" CACHE STRING "" FORCE)
+set(CMAKE_SHARED_LINKER_FLAGS "" CACHE STRING "" FORCE)
+set(CMAKE_MODULE_LINKER_FLAGS "" CACHE STRING "" FORCE)
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM BOTH)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+EOF
+
     mkdir build && cd build
 
     local myconf=(
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
-        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_TOOLCHAIN_FILE="/build/$STAGENAME/main-toolchain.cmake"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
@@ -72,26 +114,14 @@ ffbuild_dockerbuild() {
         -DGGML_WEBGPU=OFF
         # VULKAN
         -DGGML_VULKAN=ON
+        -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="/build/$STAGENAME/host-fix-toolchain.cmake"
         -DVulkan_GLSLC_EXECUTABLE="/opt/glslc_host"
         -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
         -DGGML_VULKAN_CHECK_RESULTS=OFF
-        -DGGML_VULKAN_HOST_LINKER_FLAGS="-O3"
         )
 
-    # CFLAGS="$CFLAGS $CPPFLAGS" \
-    # CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    # LDFLAGS="$LDFLAGS" \
-    # cmake -G Ninja "${myconf[@]}" .. || return 1
-
-    (
-        unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS
-
-        LDFLAGS="-O3" \
-        CFLAGS="-O3" \
-        CXXFLAGS="-O3" \
-        cmake -G Ninja "${myconf[@]}" ..
-    ) || return 1
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
