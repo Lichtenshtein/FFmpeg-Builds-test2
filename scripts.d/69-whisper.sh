@@ -31,8 +31,6 @@ ffbuild_dockerbuild() {
     # Fixing the broken TBB search in whisper, which is tied to the Intel SDK folder structure
     sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' ggml/src/ggml-openvino/CMakeLists.txt
 
-    local triple="x86_64-w64-mingw32"
-
     cat <<EOF > main-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
@@ -52,17 +50,16 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
 set(ENV{PKG_CONFIG_SYSROOT_DIR} "/")
 set(ENV{PKG_CONFIG_PATH} "")
 set(ENV{PKG_CONFIG_LIBDIR} "/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig")
-set(PKG_CONFIG_ARGN "--static")
 EOF
 
     # Внедряем переменные через sed
-    sed -i "s|@TRIPLE@|${triple}|g" main-toolchain.cmake
+    sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
     sed -i "s|@CFLAGS@|${CFLAGS}|g" main-toolchain.cmake
     sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
     sed -i "s|@CXXFLAGS@|${CXXFLAGS}|g" main-toolchain.cmake
     sed -i "s|@LDFLAGS@|${LDFLAGS}|g" main-toolchain.cmake
 
-    # Создаем правильный хост-тулчейн для сборщика шейдеров
+    # Создаем хост-тулчейн для сборщика шейдеров
     cat <<EOF > host-fix-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_C_COMPILER gcc)
@@ -89,11 +86,11 @@ EOF
         -DBUILD_SHARED_LIBS_DEFAULT=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DWHISPER_BUILD_TESTS=OFF
         -DWHISPER_ALL_WARNINGS=OFF
-        # -DWHISPER_CURL=ON # to download models
+        -DWHISPER_CURL=ON # to download models
         -DWHISPER_BUILD_EXAMPLES=OFF
         -DWHISPER_BUILD_SERVER=OFF
         -DWHISPER_USE_SYSTEM_GGML=OFF
-        # -DWHISPER_SDL=ON # support for libSDL2
+        -DWHISPER_SDL=ON # support for libSDL2
         -DGGML_ALL_WARNINGS=OFF
         -DGGML_AVX2=ON
         -DGGML_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
@@ -112,7 +109,7 @@ EOF
         -DGGML_FMA=ON
         -DGGML_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DGGML_NATIVE=OFF
-        # -DGGML_OPENCL=ON
+        -DGGML_OPENCL=ON
         -DGGML_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
         -DGGML_SSE42=ON
         -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
@@ -125,11 +122,10 @@ EOF
         # -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
         # -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
-        -DGGML_OPENVINO=ON
-        -DWHISPER_OPENVINO=ON
-        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-        -DTBB_DIR="$FFBUILD_PREFIX/lib/cmake"
-        -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
+        # -DGGML_OPENVINO=ON
+        # -DWHISPER_OPENVINO=ON
+        # -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+        # -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
         )
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
@@ -150,12 +146,24 @@ EOF
     find "$INSTALL_ROOT/lib" -name "ggml*.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
     find "$INSTALL_ROOT/lib" -name "whisper.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
 
-    local PC_FILE="$PC_DIR/whisper.pc"
-    # Полный список компонентов GGML, которые создаются при сборке
-    local GGML_LIBS="-lggml -lggml-base -lggml-cpu -lggml-vulkan -lggml-opencl"
+    if [[ -f "$PC_DIR/whisper.pc" ]]; then
+        local PC_FILE="$PC_DIR/whisper.pc"
+        if [[ "$GGML_OPENVINO" == "ON" ]]; then
+            sed -i '/^Libs.private:/ s/$/ -lopenvino -lopenvino_c -ltbb12 -ltbb/' "$PC_FILE"
+        fi
+        if [[ "$GGML_OPENCL" == "ON" ]]; then
+            if ! grep -qF -- "-lggml-opencl" "$PC_FILE"; then
+                sed -i "/^Libs.private:/ s/$/ -lggml-opencl/" "$PC_FILE"
+            fi
+        fi
+        if [[ "$GGML_VULKAN" == "ON" ]]; then
+            if ! grep -qF -- "-lggml-vulkan" "$PC_FILE"; then
+                sed -i "/^Libs.private:/ s/$/ -lggml-vulkan/" "$PC_FILE"
+            fi
+        fi
+    fi
 
-    # Переписываем Libs и добавляем зависимости
-    # sed -i "s|^Libs:.*|Libs: -L\${libdir} -lwhisper $GGML_LIBS|" "$PC_FILE"
+    ln -sf whisper.pc "$PC_DIR/libwhisper.pc"
 }
 
 ffbuild_configure() {
