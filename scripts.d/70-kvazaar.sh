@@ -15,7 +15,9 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    ./autogen.sh
+    autoreconf -if
+
+    mkdir -p build && cd build
 
     local myconf=(
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
@@ -47,7 +49,6 @@ ffbuild_dockerbuild() {
             sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_DIR/kvazaar.pc"
         fi
     fi
-    sed -i '/^Libs.private:/ s/$/ -pthread/' "$PC_DIR/kvazaar.pc"
 }
 
 ffbuild_cppflags() {
