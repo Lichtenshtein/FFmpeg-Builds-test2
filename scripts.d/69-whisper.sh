@@ -28,9 +28,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-ffbuild_dockerbuild() {
-    set -e
-
     # Fixing the broken TBB search in whisper, which is tied to the Intel SDK folder structure
     sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' ggml/src/ggml-openvino/CMakeLists.txt
 
