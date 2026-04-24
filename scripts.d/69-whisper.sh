@@ -28,7 +28,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    local CLEAN_LDFLAGS=$(echo "$LDFLAGS" | sed 's/-Wl,-z,[^ ]*//g')
     local triple="x86_64-w64-mingw32"
 
     cat <<EOF > main-toolchain.cmake
@@ -59,7 +58,6 @@ EOF
     sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
     sed -i "s|@CXXFLAGS@|${CXXFLAGS}|g" main-toolchain.cmake
     sed -i "s|@LDFLAGS@|${LDFLAGS}|g" main-toolchain.cmake
-    # sed -i "s|@LDFLAGS@|${CLEAN_LDFLAGS}|g" main-toolchain.cmake
 
     # Создаем правильный хост-тулчейн для сборщика шейдеров
     cat <<EOF > host-fix-toolchain.cmake
@@ -88,12 +86,12 @@ EOF
         -DBUILD_SHARED_LIBS_DEFAULT=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DWHISPER_BUILD_TESTS=OFF
         -DWHISPER_ALL_WARNINGS=OFF
-        # -DWHISPER_CURL=ON # to download models
+        -DWHISPER_CURL=ON # to download models
         -DWHISPER_BUILD_EXAMPLES=OFF
         -DWHISPER_BUILD_SERVER=OFF
         -DWHISPER_USE_SYSTEM_GGML=OFF
-        # -DWHISPER_OPENVINO=ON
-        # -DWHISPER_SDL=ON # support for libSDL2
+        -DWHISPER_OPENVINO=ON
+        -DWHISPER_SDL=ON # support for libSDL2
         -DGGML_ALL_WARNINGS=OFF
         -DGGML_AVX2=ON
         -DGGML_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
@@ -112,19 +110,19 @@ EOF
         -DGGML_FMA=ON
         -DGGML_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DGGML_NATIVE=OFF
-        # -DGGML_OPENCL=ON
+        -DGGML_OPENCL=ON
         -DGGML_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
-        # -DGGML_OPENVINO=ON
+        -DGGML_OPENVINO=ON
         -DGGML_SSE42=ON
         -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DGGML_WEBGPU=OFF
         # VULKAN
-        -DGGML_VULKAN=ON
-        -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
-        -DVulkan_GLSLC_EXECUTABLE="/opt/glslc_host"
-        -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
-        -DGGML_VULKAN_CHECK_RESULTS=OFF
+        # -DGGML_VULKAN=ON
+        # -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
+        # -DVulkan_GLSLC_EXECUTABLE="/opt/glslc_host"
+        # -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        # -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
+        # -DGGML_VULKAN_CHECK_RESULTS=OFF
         )
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
@@ -132,40 +130,25 @@ EOF
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Ручная очистка артефактов Vulkan/Shaderc после того, как whisper их использовал
+    # Ручная очистка артефактов Vulkan/Shaderc после whisper
     log_info "Final cleanup of Vulkan/Shaderc build tools..."
+    if [[ -f "$INSTALL_ROOT/bin/glslc.exe" ]]; then
+        find "$INSTALL_ROOT/bin" -name "glslc.exe" -delete
+        find "$INSTALL_ROOT/lib" -name 'libshaderc_shared.dll' -o -name 'libshaderc_shared.dll.a' -delete
+    fi
     rm -f /opt/glslc_host
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin" -name "glslc.exe" -delete
-    # Если нужно удалить импортные либы Vulkan, если они мешают статике:
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name '*.dll' -o -name '*.dll.a' -delete
 
-    # Исправление имен файлов библиотек (MinGW prefix fix)
     # CMake в Windows часто сохраняет их как ggml-base.a, а линковщик ищет -lggml-base (т.е. libggml-base.a)
     log_info "Fixing library prefixes for MinGW..."
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "ggml*.a" -not -name "lib*" -execdir mv {} lib{} \;
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "whisper.a" -not -name "lib*" -execdir mv {} lib{} \;
+    find "$INSTALL_ROOT/lib" -name "ggml*.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
+    find "$INSTALL_ROOT/lib" -name "whisper.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
 
-    # Исправление pkg-config для FFmpeg
-    # FFmpeg должен знать обо всех внутренних компонентах GGML
     local PC_FILE="$PC_DIR/whisper.pc"
-
     # Полный список компонентов GGML, которые создаются при сборке
     local GGML_LIBS="-lggml -lggml-base -lggml-cpu -lggml-vulkan -lggml-opencl"
 
     # Переписываем Libs и добавляем зависимости
-    sed -i "s|^Libs:.*|Libs: -L\${libdir} -lwhisper $GGML_LIBS|" "$PC_FILE"
-
-    # Добавляем системные зависимости Windows
-    if ! grep -q "Libs.private" "$PC_FILE"; then
-        sed -i '/^Libs.private:/ s/$/ -lstdc++ -lsetupapi -lshlwapi/' "$PC_FILE"
-    fi
-
-    # Указываем Requires для pkg-config, чтобы подтянулись флаги Vulkan и OpenCL
-    if ! grep -q "Requires:" "$PC_FILE"; then
-        sed -i '/^Requires:/ s/$/ vulkan OpenCL/' "$PC_FILE"
-    else
-        sed -i "s|^Requires:.*|Requires: vulkan OpenCL|" "$PC_FILE"
-    fi
+    # sed -i "s|^Libs:.*|Libs: -L\${libdir} -lwhisper $GGML_LIBS|" "$PC_FILE"
 }
 
 ffbuild_configure() {
