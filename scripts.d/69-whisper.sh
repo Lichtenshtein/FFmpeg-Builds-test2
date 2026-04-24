@@ -28,23 +28,21 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    local CLEAN_LDFLAGS=$(echo "$LDFLAGS" | sed 's/-Wl,-z,[^ ]*//g')
+    local triple="x86_64-w64-mingw32"
+
     cat <<EOF > main-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
-set(CMAKE_SYSTEM_VERSION 10.0)
-set(triple x86_64-w64-mingw32)
-set(CMAKE_SYSROOT /opt/ct-ng/${triple}/sysroot)
-set(CMAKE_FIND_ROOT_PATH /opt/ffbuild /opt/ct-ng/${triple}/sysroot /opt/ct-ng)
-
-set(CMAKE_C_FLAGS "$CFLAGS $CPPFLAGS" CACHE STRING "" FORCE)
-set(CMAKE_CXX_FLAGS "$CXXFLAGS $CPPFLAGS" CACHE STRING "" FORCE)
-set(CMAKE_EXE_LINKER_FLAGS "$LDFLAGS" CACHE STRING "" FORCE)
-
-set(CMAKE_C_COMPILER ${triple}-gcc)
-set(CMAKE_CXX_COMPILER ${triple}-g++)
-set(CMAKE_RC_COMPILER ${triple}-windres)
-set(CMAKE_RANLIB ${triple}-gcc-ranlib)
-set(CMAKE_AR ${triple}-gcc-ar)
+set(CMAKE_C_COMPILER @TRIPLE@-gcc)
+set(CMAKE_CXX_COMPILER @TRIPLE@-g++)
+set(CMAKE_RC_COMPILER @TRIPLE@-windres)
+set(CMAKE_AR @TRIPLE@-gcc-ar)
+set(CMAKE_C_FLAGS "@CFLAGS@ @CPPFLAGS@" CACHE STRING "" FORCE)
+set(CMAKE_CXX_FLAGS "@CXXFLAGS@ @CPPFLAGS@" CACHE STRING "" FORCE)
+set(CMAKE_EXE_LINKER_FLAGS "@LDFLAGS@" CACHE STRING "" FORCE)
+set(CMAKE_SYSROOT /opt/ct-ng/@TRIPLE@/sysroot)
+set(CMAKE_FIND_ROOT_PATH /opt/ffbuild /opt/ct-ng/@TRIPLE@/sysroot)
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
@@ -54,6 +52,14 @@ set(ENV{PKG_CONFIG_PATH} "")
 set(ENV{PKG_CONFIG_LIBDIR} "/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig")
 set(PKG_CONFIG_ARGN "--static")
 EOF
+
+    # Внедряем переменные через sed
+    sed -i "s|@TRIPLE@|${triple}|g" main-toolchain.cmake
+    sed -i "s|@CFLAGS@|${CFLAGS}|g" main-toolchain.cmake
+    sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
+    sed -i "s|@CXXFLAGS@|${CXXFLAGS}|g" main-toolchain.cmake
+    sed -i "s|@LDFLAGS@|${LDFLAGS}|g" main-toolchain.cmake
+    # sed -i "s|@LDFLAGS@|${CLEAN_LDFLAGS}|g" main-toolchain.cmake
 
     # Создаем правильный хост-тулчейн для сборщика шейдеров
     cat <<EOF > host-fix-toolchain.cmake
@@ -74,7 +80,7 @@ EOF
 
     local myconf=(
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
-        -DCMAKE_TOOLCHAIN_FILE="/build/$STAGENAME/main-toolchain.cmake"
+        -DCMAKE_TOOLCHAIN_FILE="$(pwd)/../main-toolchain.cmake"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
@@ -114,7 +120,7 @@ EOF
         -DGGML_WEBGPU=OFF
         # VULKAN
         -DGGML_VULKAN=ON
-        -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="/build/$STAGENAME/host-fix-toolchain.cmake"
+        -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
         -DVulkan_GLSLC_EXECUTABLE="/opt/glslc_host"
         -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
