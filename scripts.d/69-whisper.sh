@@ -58,6 +58,7 @@ ffbuild_dockerbuild() {
         -DGGML_BUILD_EXAMPLES=OFF
         -DGGML_BUILD_TESTS=OFF
         -DGGML_CCACHE=ON
+        -DGGML_SYCL=OFF
         -DGGML_CUDA=OFF
         -DGGML_F16C=ON
         -DGGML_FMA=ON
@@ -75,12 +76,22 @@ ffbuild_dockerbuild() {
         -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
         -DGGML_VULKAN_CHECK_RESULTS=OFF
+        -DGGML_VULKAN_HOST_LINKER_FLAGS="$HOST_LDFLAGS"
         )
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    LDFLAGS="$LDFLAGS" \
-    cmake -G Ninja "${myconf[@]}" .. || return 1
+    # CFLAGS="$CFLAGS $CPPFLAGS" \
+    # CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    # LDFLAGS="$LDFLAGS" \
+    # cmake -G Ninja "${myconf[@]}" .. || return 1
+
+    (
+        unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS
+
+        CFLAGS="$HOST_CFLAGS" \
+        CXXFLAGS="$HOST_CXXFLAGS" \
+        LDFLAGS="$HOST_LDFLAGS" \
+        cmake -G Ninja "${myconf[@]}" ..
+    ) || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
