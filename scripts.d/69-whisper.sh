@@ -90,7 +90,7 @@ EOF
         -DWHISPER_BUILD_EXAMPLES=OFF
         -DWHISPER_BUILD_SERVER=OFF
         -DWHISPER_USE_SYSTEM_GGML=OFF
-        -DWHISPER_SDL=ON # support for libSDL2
+        -DWHISPER_SDL2=ON # support for libSDL2
         -DGGML_ALL_WARNINGS=OFF
         -DGGML_AVX2=ON
         -DGGML_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
@@ -115,17 +115,17 @@ EOF
         -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DGGML_WEBGPU=OFF
         # VULKAN
-        # -DGGML_VULKAN=ON
-        # -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
-        # -DVulkan_GLSLC_EXECUTABLE="/opt/glslc_host"
-        # -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        # -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
-        # -DGGML_VULKAN_CHECK_RESULTS=OFF
+        -DGGML_VULKAN=ON
+        -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
+        -DVulkan_GLSLC_EXECUTABLE="/opt/glslc_host"
+        -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
+        -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
-        # -DGGML_OPENVINO=ON
-        # -DWHISPER_OPENVINO=ON
-        # -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-        # -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
+        -DGGML_OPENVINO=ON
+        -DWHISPER_OPENVINO=ON
+        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+        -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
         )
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
@@ -147,23 +147,21 @@ EOF
     find "$INSTALL_ROOT/lib" -name "whisper.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
 
     if [[ -f "$PC_DIR/whisper.pc" ]]; then
+        log_info "Updating $FINAL_PC with backend libraries..."
         local PC_FILE="$PC_DIR/whisper.pc"
-        if [[ "$GGML_OPENVINO" == "ON" ]]; then
-            sed -i '/^Libs.private:/ s/$/ -lopenvino -lopenvino_c -ltbb12 -ltbb/' "$PC_FILE"
+        if [[ "${myconf[@]}" =~ "-DGGML_OPENCL=ON" ]]; then
+            sed -i '/^Libs.private:/ s/$/ -lggml-opencl -lOpenCL/' "$FINAL_PC"
         fi
-        if [[ "$GGML_OPENCL" == "ON" ]]; then
-            if ! grep -qF -- "-lggml-opencl" "$PC_FILE"; then
-                sed -i "/^Libs.private:/ s/$/ -lggml-opencl/" "$PC_FILE"
-            fi
+        if [[ "${myconf[@]}" =~ "-DGGML_VULKAN=ON" ]]; then
+            sed -i '/^Libs.private:/ s/$/ -lggml-vulkan -lvulkan/' "$FINAL_PC"
         fi
-        if [[ "$GGML_VULKAN" == "ON" ]]; then
-            if ! grep -qF -- "-lggml-vulkan" "$PC_FILE"; then
-                sed -i "/^Libs.private:/ s/$/ -lggml-vulkan/" "$PC_FILE"
-            fi
+        if [[ "${myconf[@]}" =~ "-DGGML_OPENVINO=ON" ]]; then
+            sed -i '/^Libs.private:/ s/$/ -lopenvino -lopenvino_c -ltbb12 -ltbb/' "$FINAL_PC"
         fi
+        ln -sf whisper.pc "$PC_DIR/libwhisper.pc"
+    else
+        log_error "Cannot find .pc file at: $PC_DIR/whisper.pc"
     fi
-
-    ln -sf whisper.pc "$PC_DIR/libwhisper.pc"
 }
 
 ffbuild_configure() {

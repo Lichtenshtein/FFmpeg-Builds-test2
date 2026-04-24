@@ -36,4 +36,6 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    ln -sf samplerate.pc "$PC_DIR/libsamplerate.pc"
 }

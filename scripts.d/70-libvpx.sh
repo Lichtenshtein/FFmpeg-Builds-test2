@@ -32,7 +32,6 @@ ffbuild_dockerbuild() {
         --enable-ccache
         --enable-libyuv
         --enable-multi-res-encoding
-        --enable-multi_res_encoding
         --enable-multithread
         --enable-pic
         --enable-postproc
