@@ -16,31 +16,30 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     # Исправляем configure, чтобы он не игнорировал внешние CFLAGS (частая беда xavs)
     sed -i 's/CFLAGS="$CFLAGS -Wall/CFLAGS="$CFLAGS -Wall $EXTRA_CFLAGS/' configure
 
     local myconf=(
+        --host="$FFBUILD_TOOLCHAIN"
+        --cross-prefix="$FFBUILD_CROSS_PREFIX"
         --prefix="$FFBUILD_PREFIX"
         --enable-asm
         --enable-pthread
         --enable-pic
-        --disable-debug
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --enable-shared ) || \
-        myconf+=( --disable-shared )
+        myconf+=( --enable-static )
 
     if [[ $TARGET == win* ]]; then
-        myconf+=(
-            --host="$FFBUILD_TOOLCHAIN"
-            --cross-prefix="$FFBUILD_CROSS_PREFIX"
-        )
         export CC="${FFBUILD_CROSS_PREFIX}gcc"
         export AR="${FFBUILD_CROSS_PREFIX}ar"
         export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
     fi
 
+    # may need NOLTO
     ./configure "${myconf[@]}" \
         --extra-cflags="$CFLAGS $CPPFLAGS ${USELTO}" \
         --extra-ldflags="$LDFLAGS ${USELTO}" || return 1
@@ -48,12 +47,11 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # xavs часто не создает корректный pkg-config файл или ставит его не туда.
-    # Если xavs.pc отсутствует, FFmpeg его не найдет.
-    if [[ ! -f "$PC_DIR/xavs.pc" ]]; then
+    local PC_FILE="$PC_DIR/xavs.pc"
+    if [[ ! -f "$PC_FILE" ]]; then
         log_info "Creating missing xavs.pc manually..."
         mkdir -p "$PC_DIR"
-        cat <<EOF > "$PC_DIR/xavs.pc"
+        cat <<EOF > "$PC_FILE"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
