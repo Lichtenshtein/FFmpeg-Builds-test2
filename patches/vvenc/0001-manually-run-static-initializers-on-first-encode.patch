@@ -1,0 +1,180 @@
+From f3ae9d63397eb47327e53915e143596c0e50947d Mon Sep 17 00:00:00 2001
+From: BtbN <btbn@btbn.de>
+Date: Mon, 16 Dec 2024 23:01:11 +0100
+Subject: [PATCH] Manually run static initializers on first encode
+
+---
+ source/Lib/CommonLib/Buffer.cpp          |  2 +-
+ source/Lib/CommonLib/Buffer.h            |  2 +-
+ source/Lib/CommonLib/Rom.cpp             |  4 +---
+ source/Lib/CommonLib/Rom.h               | 14 +------------
+ source/Lib/CommonLib/TrQuant_EMT.cpp     |  2 +-
+ source/Lib/CommonLib/TrQuant_EMT.h       |  2 +-
+ source/Lib/vvenc/vvenc.cpp               | 26 ++++++++++++++++++++++++
+ test/vvenc_unit_test/vvenc_unit_test.cpp |  2 ++
+ 8 files changed, 34 insertions(+), 20 deletions(-)
+
+diff --git a/source/Lib/CommonLib/Buffer.cpp b/source/Lib/CommonLib/Buffer.cpp
+index 484753be7..4b879e96f 100644
+--- a/source/Lib/CommonLib/Buffer.cpp
++++ b/source/Lib/CommonLib/Buffer.cpp
+@@ -445,7 +445,7 @@ uint64_t AvgHighPassWithDownsamplingDiff2ndCore (const int width,const int heigh
+   return (taAct);
+ }
+ 
+-PelBufferOps::PelBufferOps()
++void PelBufferOps::initPelBufOps()
+ {
+   isInitX86Done = false;
+ 
+diff --git a/source/Lib/CommonLib/Buffer.h b/source/Lib/CommonLib/Buffer.h
+index e424d4caf..90a513788 100644
+--- a/source/Lib/CommonLib/Buffer.h
++++ b/source/Lib/CommonLib/Buffer.h
+@@ -75,7 +75,7 @@ using namespace arm_simd;
+ 
+ struct PelBufferOps
+ {
+-  PelBufferOps();
++  void initPelBufOps();
+ 
+   bool isInitX86Done;
+ 
+diff --git a/source/Lib/CommonLib/Rom.cpp b/source/Lib/CommonLib/Rom.cpp
+index 55c3581c2..f360c91af 100644
+--- a/source/Lib/CommonLib/Rom.cpp
++++ b/source/Lib/CommonLib/Rom.cpp
+@@ -1301,7 +1301,7 @@ uint32_t deriveWeightIdxBits(uint8_t bcwIdx) // Note: align this with TEncSbac::
+ //  }
+ //}
+ 
+-void InitGeoRom::initGeoTemplate() const
++void initGeoTemplate()
+ {
+   int modeIdx = 0;
+   for (int angleIdx = 0; angleIdx < GEO_NUM_ANGLES; angleIdx++)
+@@ -1381,8 +1381,6 @@ const int8_t    g_angle2mirror[GEO_NUM_ANGLES] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
+                                              0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 2 };
+ int16_t   g_weightOffset[GEO_NUM_CU_SIZE][GEO_NUM_CU_SIZE][GEO_NUM_PARTITION_MODE][2];
+ 
+-const InitGeoRom g_scanOrderRom;
+-
+ // ====================================================================================================================
+ // Data structure related table & variable
+ // ====================================================================================================================
+diff --git a/source/Lib/CommonLib/Rom.h b/source/Lib/CommonLib/Rom.h
+index 35a75d776..0c1609b7c 100644
+--- a/source/Lib/CommonLib/Rom.h
++++ b/source/Lib/CommonLib/Rom.h
+@@ -85,18 +85,8 @@ struct ScanElement
+ };
+ 
+ 
+-class InitGeoRom
+-{
+-  public:
+-    InitGeoRom() { initGeoTemplate(); }
+-
+-    ~InitGeoRom() { }
++void initGeoTemplate();
+ 
+-  private:
+-    void initGeoTemplate() const;
+-
+-  private:
+-};
+ 
+ extern const ScanElement  m_scanOrderBuf[32258];
+ extern const ScanElement* m_scanOrder[SCAN_NUMBER_OF_GROUP_TYPES][MAX_TU_SIZE_IDX][MAX_TU_SIZE_IDX];
+@@ -115,8 +105,6 @@ int8_t getBcwWeight(uint8_t bcwIdx, uint8_t uhRefFrmList);
+ void resetBcwCodingOrder(bool bRunDecoding, const CodingStructure &cs);
+ uint32_t deriveWeightIdxBits(uint8_t bcwIdx);
+ 
+-extern const InitGeoRom g_scanOrderRom;
+-
+ extern const uint32_t g_log2SbbSize[MAX_TU_SIZE_IDX][MAX_TU_SIZE_IDX][2];
+ extern const ScanElement g_coefTopLeftDiagScan8x8[MAX_TU_SIZE_IDX][64];
+ 
+diff --git a/source/Lib/CommonLib/TrQuant_EMT.cpp b/source/Lib/CommonLib/TrQuant_EMT.cpp
+index cf527b2e6..ae7e9d8ef 100644
+--- a/source/Lib/CommonLib/TrQuant_EMT.cpp
++++ b/source/Lib/CommonLib/TrQuant_EMT.cpp
+@@ -2000,7 +2000,7 @@ void fastFwdCore( const TMatrixCoeff* tc, const TCoeff* src, TCoeff* dst, unsign
+ }
+ 
+ 
+-TCoeffOps::TCoeffOps()
++void TCoeffOps::initTCoeffOps()
+ {
+   cpyResi4        = cpyResiCore;
+   cpyResi8        = cpyResiCore;
+diff --git a/source/Lib/CommonLib/TrQuant_EMT.h b/source/Lib/CommonLib/TrQuant_EMT.h
+index 177e6266b..841bee958 100644
+--- a/source/Lib/CommonLib/TrQuant_EMT.h
++++ b/source/Lib/CommonLib/TrQuant_EMT.h
+@@ -58,7 +58,7 @@ using namespace arm_simd;
+ #if ENABLE_SIMD_TRAFO
+ struct TCoeffOps
+ {
+-  TCoeffOps();
++  void initTCoeffOps();
+ 
+ #if defined(TARGET_SIMD_X86)  && ENABLE_SIMD_TRAFO
+   void initTCoeffOpsX86();
+diff --git a/source/Lib/vvenc/vvenc.cpp b/source/Lib/vvenc/vvenc.cpp
+index ceceea6ef..5a2b71f0b 100644
+--- a/source/Lib/vvenc/vvenc.cpp
++++ b/source/Lib/vvenc/vvenc.cpp
+@@ -51,6 +51,30 @@ POSSIBILITY OF SUCH DAMAGE.
+ 
+ #include "vvencimpl.h"
+ 
++#include "CommonLib/Unit.h"
++#include "CommonLib/Buffer.h"
++#include "CommonLib/Rom.h"
++#include "CommonLib/TrQuant_EMT.h"
++
++static std::mutex init_static_data_mutex;
++static bool init_static_data_done = false;
++
++static void init_static_data()
++{
++    std::lock_guard<std::mutex> lock(init_static_data_mutex);
++    if (init_static_data_done)
++        return;
++
++    vvenc::g_pelBufOP.initPelBufOps();
++    vvenc::initGeoTemplate();
++
++#if ENABLE_SIMD_TRAFO
++    vvenc::g_tCoeffOps.initTCoeffOps();
++#endif
++
++    init_static_data_done = true;
++}
++
+ VVENC_NAMESPACE_BEGIN
+ 
+ VVENC_DECL vvencYUVBuffer* vvenc_YUVBuffer_alloc()
+@@ -211,6 +235,8 @@ VVENC_DECL void vvenc_accessUnit_default(vvencAccessUnit *accessUnit )
+ 
+ VVENC_DECL vvencEncoder* vvenc_encoder_create()
+ {
++  init_static_data();
++
+   vvenc::VVEncImpl* encCtx = new vvenc::VVEncImpl();
+   if (!encCtx)
+   {
+diff --git a/test/vvenc_unit_test/vvenc_unit_test.cpp b/test/vvenc_unit_test/vvenc_unit_test.cpp
+index 59ac93bc9..d7d43decb 100644
+--- a/test/vvenc_unit_test/vvenc_unit_test.cpp
++++ b/test/vvenc_unit_test/vvenc_unit_test.cpp
+@@ -256,6 +256,8 @@ static bool test_TCoeffOps()
+ {
+   TCoeffOps ref;
+   TCoeffOps opt;
++  ref.initTCoeffOps();
++  opt.initTCoeffOps();
+ #if defined( TARGET_SIMD_X86 )
+   opt.initTCoeffOpsX86();
+ #endif

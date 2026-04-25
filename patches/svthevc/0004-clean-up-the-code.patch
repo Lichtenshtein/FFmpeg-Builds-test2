@@ -1,0 +1,78 @@
+From f082b91ae57703628ab06d98b75073cc31dff052 Mon Sep 17 00:00:00 2001
+From: Jun Tian <jun.tian@intel.com>
+Date: Mon, 10 Aug 2020 20:32:53 -0700
+Subject: [PATCH] Clean up the code
+
+Signed-off-by: Jun Tian <jun.tian@intel.com>
+---
+ Source/Lib/Codec/EbThreads.c | 48 ++++++++++++++++--------------------
+ 1 file changed, 21 insertions(+), 27 deletions(-)
+
+diff --git a/Source/Lib/Codec/EbThreads.c b/Source/Lib/Codec/EbThreads.c
+index 6ea8c033b..a08351a54 100644
+--- a/Source/Lib/Codec/EbThreads.c
++++ b/Source/Lib/Codec/EbThreads.c
+@@ -60,42 +60,36 @@ EB_HANDLE EbCreateThread(
+                        0,                              // thread active when created
+                        NULL);                          // new thread ID
+ #else
++    threadHandle = (pthread_t*) malloc(sizeof(pthread_t));
++    if (threadHandle == NULL)
++        return NULL;
++
+     pthread_attr_t attr;
+-    struct sched_param param = {
+-        .sched_priority = 99
+-    };
+     pthread_attr_init(&attr);
+     pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+-    pthread_attr_setschedparam(&attr, &param);
+-
+     pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+ 
+-    threadHandle = (pthread_t*) malloc(sizeof(pthread_t));
+-    if (threadHandle != NULL) {
+-        int ret = pthread_create(
++    struct sched_param param = {.sched_priority = 99};
++    pthread_attr_setschedparam(&attr, &param);
++
++    int ret = pthread_create(
+             (pthread_t*)threadHandle,      // Thread handle
+-            &attr,                       // attributes
+-            threadFunction,                 // function to be run by new thread
++            &attr,                         // attributes
++            threadFunction,                // function to be run by new thread
+             threadContext);
++    pthread_attr_destroy(&attr);
+ 
+-        if (ret != 0) {
+-            if (ret == EPERM) {
+-                pthread_cancel(*((pthread_t*)threadHandle));
+-                pthread_join(*((pthread_t*)threadHandle), NULL);
+-                free(threadHandle);
+-
+-                threadHandle = (pthread_t*)malloc(sizeof(pthread_t));
+-                if (threadHandle != NULL) {
+-                    pthread_create(
+-                        (pthread_t*)threadHandle,      // Thread handle
+-                        (const pthread_attr_t*)EB_NULL,                        // attributes
+-                        threadFunction,                 // function to be run by new thread
+-                        threadContext);
+-                }
+-            }
+-        }
++    if (ret == EPERM) {
++        ret = pthread_create(
++                (pthread_t*)threadHandle,       // Thread handle
++                (const pthread_attr_t*)EB_NULL, // attributes
++                threadFunction,                 // function to be run by new thread
++                threadContext);
++    }
++    if(ret != 0) {
++        free(threadHandle);
++        return NULL;
+     }
+-    pthread_attr_destroy(&attr);
+ #endif // _WIN32
+ 
+     return threadHandle;

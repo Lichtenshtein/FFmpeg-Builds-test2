@@ -1,0 +1,24 @@
+From 0698baec7051f1d552b7fe053b45960457196404 Mon Sep 17 00:00:00 2001
+From: HuaMeng <hmengab@connect.ust.hk>
+Date: Sun, 14 Dec 2025 15:54:19 +0800
+Subject: [PATCH] Remove first gop wait limitation.
+
+---
+ source/Lib/EncoderLib/EncLib.cpp | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/source/Lib/EncoderLib/EncLib.cpp b/source/Lib/EncoderLib/EncLib.cpp
+index 4827e2ec6..b42954744 100644
+--- a/source/Lib/EncoderLib/EncLib.cpp
++++ b/source/Lib/EncoderLib/EncLib.cpp
+@@ -273,7 +273,9 @@ void EncLib::initPass( int pass, const char* statsFName )
+ 
+   // gop encoder
+   m_gopEncoder = new EncGOP( msg );
+-  const int minQueueSize = m_encCfg.m_GOPSize + 1;
++  // For low-latency real-time encoding, use minQueueSize=1 to process frames immediately
++  // instead of waiting for GOP size + 1 frames
++  const int minQueueSize = (m_encCfg.m_maxParallelFrames == 0 && m_encCfg.m_leadFrames == 0) ? 1 : (m_encCfg.m_GOPSize + 1);
+   m_gopEncoder->initStage( m_encCfg, minQueueSize, 0, false, false, m_encCfg.m_stageParallelProc );
+   m_gopEncoder->init( m_encCfg, m_preProcess->getGOPCfg(), *m_rateCtrl, m_threadPool, false );
+   m_encStages.push_back( m_gopEncoder );

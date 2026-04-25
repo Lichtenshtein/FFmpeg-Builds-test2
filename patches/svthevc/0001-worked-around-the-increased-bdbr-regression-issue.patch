@@ -1,0 +1,52 @@
+From 0ab7c8666e0b0cbf88d373e79194ad3187433686 Mon Sep 17 00:00:00 2001
+From: Austin Hu <austin.hu@intel.com>
+Date: Tue, 19 Nov 2019 12:26:12 -0700
+Subject: [PATCH] Worked around the increased BDBR regression issue.
+
+The regression was caused by the tile group implementation (PR #348),
+when ImproveSharpness is used, as it would impact the QP values of
+each CU and latter mode decision process.
+
+So temporarily work around the issue and need to fix it in the future.
+
+Signed-off-by: Austin Hu <austin.hu@intel.com>
+---
+ Source/Lib/Codec/EbDefinitions.h            | 4 ++--
+ Source/Lib/Codec/EbPictureDecisionProcess.c | 6 ++++++
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/Source/Lib/Codec/EbDefinitions.h b/Source/Lib/Codec/EbDefinitions.h
+index a1700a758..ae7d712fd 100644
+--- a/Source/Lib/Codec/EbDefinitions.h
++++ b/Source/Lib/Codec/EbDefinitions.h
+@@ -54,8 +54,8 @@ extern "C" {
+     typedef int errno_t;
+ #endif  /* _ERRNO_T_DEFINED */
+ 
+-
+-
++// To sharpen frame background.
++#define USE_SOURCE_REFERENCE 0
+ 
+ //Maximum 8192x4320
+ #define EB_TILE_COLUMN_MAX_COUNT                    20u
+diff --git a/Source/Lib/Codec/EbPictureDecisionProcess.c b/Source/Lib/Codec/EbPictureDecisionProcess.c
+index 6b9863408..717ed2725 100644
+--- a/Source/Lib/Codec/EbPictureDecisionProcess.c
++++ b/Source/Lib/Codec/EbPictureDecisionProcess.c
+@@ -1020,9 +1020,15 @@ void* PictureDecisionKernel(void *inputPtr)
+ 
+                         pictureControlSetPtr->disableTmvpFlag = sequenceControlSetPtr->staticConfig.unrestrictedMotionVector == 0 ? EB_TRUE : EB_FALSE;
+ 
++                        // FIXME: work around the increased BDBR regression issue induced by the
++                        // tile group implementation (PR #348), when ImproveSharpness is used.
++#if USE_SOURCE_REFERENCE
+                         pictureControlSetPtr->useSrcRef = (sequenceControlSetPtr->staticConfig.improveSharpness && pictureControlSetPtr->temporalLayerIndex > 0) ?
+                             EB_TRUE :
+                             EB_FALSE;
++#else
++                        pictureControlSetPtr->useSrcRef = EB_FALSE;
++#endif
+ 
+                         SignalDerivationMultiProcessesOq(
+                                 sequenceControlSetPtr,
