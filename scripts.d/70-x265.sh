@@ -69,7 +69,7 @@ ffbuild_dockerbuild() {
         -DX265_TAG_DISTANCE="0"
         -DX265_VERSION="3.5"
         -Wno-dev
-        # SVT_HEVC
+        # SVT_HEVC; see svthevc.rst file
         -DENABLE_SVT_HEVC=ON # use the --svt flag in the x265 CLI to use the SVT-HEVC engine instead of the standard x265 core
         -DSVT_HEVC_INCLUDE_DIR="$FFBUILD_PREFIX/include/svt-hevc"
         -DSVT_HEVC_LIBRARY="$FFBUILD_PREFIX/lib/libSvtHevcEnc.a"
