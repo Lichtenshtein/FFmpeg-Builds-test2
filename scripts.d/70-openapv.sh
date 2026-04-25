@@ -55,20 +55,25 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Безопасное перемещение библиотеки
-    if [[ -f "$FFBUILD_DESTPREFIX/lib/oapv/liboapv.a" ]]; then
-        mv "$FFBUILD_DESTPREFIX/lib/oapv/liboapv.a" "$FFBUILD_DESTPREFIX/lib/liboapv.a"
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        # Перемещаем статику из подпапки в корень lib
+        if [[ -f "$FFBUILD_DESTPREFIX/lib/oapv/liboapv.a" ]]; then
+            mv "$FFBUILD_DESTPREFIX/lib/oapv/liboapv.a" "$FFBUILD_DESTPREFIX/lib/liboapv.a"
+        fi
+        # Удаляем мусор только при статической сборке
+        rm -rf "$FFBUILD_DESTPREFIX"/bin "$FFBUILD_DESTPREFIX"/lib/oapv
     fi
 
-    # Очистка динамических библиотек и мусора
-    rm -rf "$FFBUILD_DESTPREFIX"/{bin,lib/oapv,lib/liboapv.so*}
-
-    # Фикс pkg-config для статической линковки
-    if [[ -f "$PC_DIR/oapv.pc" ]]; then
-        sed -i 's/Libs: /Libs.private: -lm\nLibs: /' "$PC_DIR/oapv.pc"
+    local PC_FILE="$PC_DIR/oapv.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i '/^Libs.private:/d' "$PC_FILE"
+        sed -i "/^Libs:/i Libs.private: -lm" "$PC_FILE"
+        if [[ "${PREFER_SHARED}" != "1" ]]; then
+            sed -i 's|-L${libdir}/oapv|-L${libdir}|g' "$PC_FILE"
+        fi
         if [[ -n "$static_flags" ]]; then
-            if ! grep -qF -- "$static_flags" "$PC_DIR/oapv.pc"; then
-                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_DIR/oapv.pc"
+            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
             fi
         fi
     fi
