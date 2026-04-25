@@ -15,6 +15,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    ln -sf build/lib/libcryptopp.a "$FFBUILD_PREFIX/lib/libcryptopp.a" 
+
     mkdir -p build && cd build
 
     local myconf=(
@@ -27,6 +29,7 @@ ffbuild_dockerbuild() {
         -DBUILD_TESTS=OFF
         -DBUILD_KVAZAAR_BINARY=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON) # To build only the lib
         # crypto++
+        -DFETCHCONTENT_FULLY_DISCONNECTED=ON
         -DUSE_CRYPTO=ON # OFF
         -DCRYPTOPP_FOUND=ON
         -DCRYPTOPP_LIBRARIES="$FFBUILD_PREFIX/lib/libcryptopp.a"
