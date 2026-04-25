@@ -21,16 +21,6 @@ ffbuild_dockerbuild() {
 
     export SKIP_POST_STRIP=1
 
-    # Проверяем, под каким именем живет валидатор
-    if command -v glslang &> /dev/null && ! command -v glslangValidator &> /dev/null; then
-        ln -sf $(command -v glslang) /usr/local/bin/glslangValidator
-    fi
-    
-    # Если нет, пробуем использовать glslc (они часто взаимозаменяемы для -V)
-    if ! command -v glslangValidator &> /dev/null && command -v glslc &> /dev/null; then
-        ln -sf $(command -v glslc) /usr/local/bin/glslangValidator
-    fi
-
     mkdir -p build && cd build
 
     local myconf=(
@@ -87,7 +77,6 @@ Libs: -L\${libdir} -llcevc_dec_api
 Libs.private: -lstdc++ -lm $SYSTEM_LIBS
 Cflags: -I\${includedir} -DVNEnablePublicAPIExport
 EOF
-}
     fi
 
     rm -rf "$FFBUILD_DESTPREFIX"/share
