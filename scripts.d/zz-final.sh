@@ -22,6 +22,7 @@ ffbuild_depends() {
     echo freeglut
     echo libxxhash
     echo libmpg123
+    echo cryptopp
     # echo lcevcdec
     echo spirv-tools
     echo gavl

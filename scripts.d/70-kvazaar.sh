@@ -25,8 +25,11 @@ ffbuild_dockerbuild() {
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DBUILD_TESTS=OFF
-        -DUSE_CRYPTO=ON # OFF
         -DBUILD_KVAZAAR_BINARY=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON) # To build only the lib
+        # crypto++
+        -DUSE_CRYPTO=ON # OFF
+        -DCRYPTOPP_FOUND=ON
+        -DCRYPTOPP_LIBRARIES="$FFBUILD_PREFIX/lib/libcryptopp.a"
     )
 
     export static_flags=""
@@ -39,7 +42,7 @@ ffbuild_dockerbuild() {
     LIBS="$LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    ninja $NINJA_V all || return 1
+    ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     if [[ -n "$static_flags" ]]; then
