@@ -52,4 +52,6 @@ Version: 8.9.0
 Libs: -L\${libdir} -lcryptopp
 Cflags: -I\${includedir}
 EOF
+
+    ln -sf cryptopp.pc "$PC_DIR/libcryptopp.pc"
 }
