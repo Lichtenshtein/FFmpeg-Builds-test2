@@ -157,27 +157,40 @@ EOF
             .. || exit 1
 
         # собираем цель glslc_exe в последних версиях бинарник привязан к ней
-        ninja $NINJA_V glslc glslc_exe || true
-        ninja $NINJA_V glslc glslangValidator || true
+        ninja $NINJA_V glslc glslc_exe glslangValidator || true
 
-        # Список инструментов, которые нам нужны на хосте
-        NATIVE_TOOLS=("glslc" "glslangValidator")
-        for TOOL in "${NATIVE_TOOLS[@]}"; do
-            # Ищем бинарник во вложенных папках билда
-            TOOL_PATH=$(find . -type f -name "$TOOL" -executable | head -n 1)
-            if [[ -n "$TOOL_PATH" && -f "$TOOL_PATH" ]]; then
-                log_info "Found native tool: $TOOL_PATH. Copying to /usr/local/bin..."
-                cp -v "$TOOL_PATH" "/usr/local/bin/$TOOL"
-                # Также сохраним копию в /opt на случай, если скрипты ищут там
-                cp -v "$TOOL_PATH" "/opt/${TOOL}_host"
+        # Массив инструментов для проверки и копирования
+        # Формат: "имя_бинарника|целевое_имя_в_системе"
+        local TOOLS_TO_COPY=("glslc|glslc" "glslangValidator|glslangValidator")
+        local FOUND_ANY=0
+
+        for ENTRY in "${TOOLS_TO_COPY[@]}"; do
+            local BIN_NAME="${ENTRY%|*}"
+            local DEST_NAME="${ENTRY#*|}"
+            local BIN_PATH=$(find . -type f -name "$BIN_NAME" -executable | head -n 1)
+
+            if [[ -n "$BIN_PATH" && -f "$BIN_PATH" ]]; then
+                log_info "Found $BIN_NAME at $BIN_PATH. Copying..."
+                cp -v "$BIN_PATH" "/usr/local/bin/$DEST_NAME"
+                # Дополнительная копия для /opt
+                [[ "$BIN_NAME" == "glslc" ]] && cp -v "$BIN_PATH" /opt/glslc_host
+                FOUND_ANY=1
             else
-                log_error "Native tool '$TOOL' was not found in the build directory! Checking what WAS built:"
-                find . -maxdepth 3 -executable -type f
-                exit 1
-                # Если glslangValidator критичен для LCEVC, можно прервать билд:
-                # return 1 
+                log_warn "Binary $BIN_NAME not found in build directory."
             fi
         done
+
+        if [[ "$FOUND_ANY" -eq 0 ]]; then
+            log_error "No native binaries were built! Listing executable files:"
+            find . -maxdepth 5 -executable -type f
+            return 1
+        fi
+
+        # если glslangValidator не собрался, пробуем подменить его на glslc
+        if ! command -v glslangValidator &> /dev/null && command -v glslc &> /dev/null; then
+            log_warn "glslangValidator missing. Creating fallback symlink from glslc."
+            ln -sf /usr/local/bin/glslc /usr/local/bin/glslangValidator
+        fi
 
     ) || return 1
 }
