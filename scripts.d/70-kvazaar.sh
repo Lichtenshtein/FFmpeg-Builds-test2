@@ -15,7 +15,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    ln -sf build/lib/libcryptopp.a "$FFBUILD_PREFIX/lib/libcryptopp.a" 
+    ln -sf "$FFBUILD_PREFIX/lib/libcryptopp.a" build/lib/libcryptopp.a
 
     mkdir -p build && cd build
 
