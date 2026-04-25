@@ -134,17 +134,17 @@ EOF
     cp "$PC_DIR"/{shaderc_combined,shaderc}.pc
 
     # Native build for the glslc tool (Host side)
+    log_info "Building native glslang and shaderc tools..."
     mkdir ../native_build && cd ../native_build
 
     # Устанавливаем glslang через пакетный менеджер, если его нет
     # Это надежнее, чем пытаться выцепить glslangValidator из недр Shaderc
-    if ! command -v glslangValidator &> /dev/null; then
-        apt-get update && apt-get install -y glslang-tools
-    fi
+    # if ! command -v glslangValidator &> /dev/null; then
+        # apt-get update && apt-get install -y glslang-tools
+    # fi
 
     (
         unset CC CXX CFLAGS CXXFLAGS LD LDFLAGS AR RANLIB NM DLLTOOL PKG_CONFIG_LIBDIR PKG_CONFIG_PATH
-        log_info "Building native glslc..."
 
         # Note: We don't use the toolchain file for native build
         CFLAGS="$HOST_CFLAGS" \
@@ -163,13 +163,15 @@ EOF
             .. || exit 1
 
         # собираем цель glslc_exe в последних версиях бинарник привязан к ней
-        # ninja $NINJA_V glslc glslc_exe glslangValidator || true
+        log_info "Building native glslc..."
         ninja $NINJA_V glslc glslc_exe || true
+        log_info "Building native glslang..."
+        ninja $NINJA_V glslang-standalone || ninja $NINJA_V glslang || true
 
         # Массив инструментов для проверки и копирования
         # Формат: "имя_бинарника|целевое_имя_в_системе"
         # local TOOLS_TO_COPY=("glslc|glslc" "glslangValidator|glslangValidator")
-        local TOOLS_TO_COPY=("glslc|glslc")
+        local TOOLS_TO_COPY=("glslc|glslc" "glslang|glslang")
         local FOUND_ANY=0
 
         for ENTRY in "${TOOLS_TO_COPY[@]}"; do
@@ -183,6 +185,9 @@ EOF
                 # Дополнительная копия для /opt
                 [[ "$BIN_NAME" == "glslc" ]] && cp -v "$BIN_PATH" /opt/glslc_host
                 FOUND_ANY=1
+                # Создаем критически важный симлинк для LCEVC
+                ln -sf /usr/local/bin/glslang /usr/local/bin/glslangValidator
+                log_info "Native glslang and glslangValidator (symlink) installed."
             else
                 log_warn "Binary $BIN_NAME not found in build directory."
             fi
@@ -193,12 +198,6 @@ EOF
             find . -maxdepth 5 -executable -type f
             return 1
         fi
-
-        # если glslangValidator не собрался, пробуем подменить его на glslc
-        # if ! command -v glslangValidator &> /dev/null && command -v glslc &> /dev/null; then
-            # log_warn "glslangValidator missing. Creating fallback symlink from glslc."
-            # ln -sf /usr/local/bin/glslc /usr/local/bin/glslangValidator
-        # fi
 
     ) || return 1
 }
