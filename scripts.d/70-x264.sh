@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
         echo "#define X264_REV 3108" > x264_config.h
         echo "#define X264_REV_DIFF 0" >> x264_config.h
         echo "#define X264_VERSION \" r3108 0480cb0\"" >> x264_config.h
-        echo "#define X264_VER \"164\"" >> x264_config.h
+        echo "#define X264_VER \"165\"" >> x264_config.h
     fi
 
     local myconf=(
@@ -63,6 +63,12 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+
+    local PC_FILE="$PC_DIR/x264.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i 's|^Cflags:.*|Cflags: -I${includedir}|' "$PC_FILE"
+        sed -i "s|-L$FFBUILD_PREFIX/lib|-L\${libdir}|g" "$PC_FILE"
+    fi
 }
 
 ffbuild_configure() {
