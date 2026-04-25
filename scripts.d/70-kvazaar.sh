@@ -15,9 +15,18 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    ln -sf "$FFBUILD_PREFIX/lib/libcryptopp.a" build/lib/libcryptopp.a
+    # Вырезаем блок FetchContent и подмены путей для Crypto++
+    sed -i '/if (USE_CRYPTO)/,/endif ()/c\
+if (USE_CRYPTO)\
+    add_definitions(-DKVZ_SEL_ENCRYPTION)\
+    list(APPEND LIB_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/extras/crypto.cpp)\
+    list(APPEND CLI_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/extras/crypto.cpp)\
+    link_libraries(cryptopp)\
+endif ()' CMakeLists.txt
 
     mkdir -p build && cd build
+
+    ln -sf "$FFBUILD_PREFIX/lib/libcryptopp.a" build/lib/libcryptopp.a
 
     local myconf=(
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
@@ -47,9 +56,13 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    if [[ -n "$static_flags" ]]; then
-        if ! grep -qF -- "$static_flags" "$PC_DIR/kvazaar.pc"; then
-            sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_DIR/kvazaar.pc"
+    local PC_FILE="$PC_DIR/kvazaar.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i "/^Libs.private:/ s/$/ -lcryptopp -lgomp -lstdc++/" "$PC_FILE"
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+            fi
         fi
     fi
 }
