@@ -3,6 +3,10 @@
 SCRIPT_REPO="https://github.com/ultravideo/kvazaar.git"
 SCRIPT_COMMIT="45597d8de2e3ef7695ac54e8a3372572c4bb8213"
 
+ffbuild_depends() {
+    echo cryptopp
+}
+
 ffbuild_enabled() {
     return 0
 }
@@ -30,7 +34,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DBUILD_TESTS=OFF
-        -DBUILD_KVAZAAR_BINARY=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON) # To build only the lib
+        -DBUILD_KVAZAAR_BINARY=OFF # to build only the lib
         # crypto++
         -DFETCHCONTENT_FULLY_DISCONNECTED=ON
         -DUSE_CRYPTO=ON # OFF
