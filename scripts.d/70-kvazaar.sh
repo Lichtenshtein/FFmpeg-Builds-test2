@@ -32,7 +32,6 @@ ffbuild_dockerbuild() {
         -DFETCHCONTENT_FULLY_DISCONNECTED=ON
         -DUSE_CRYPTO=ON # OFF
         -DCRYPTOPP_FOUND=ON
-        -DCRYPTOPP_LIBRARIES="$FFBUILD_PREFIX/lib/libcryptopp.a"
     )
 
     export static_flags=""
