@@ -39,9 +39,17 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Исправляем .pc файл, если cryptopp-cmake его криво генерирует для статики
-    # local PC_FILE="$PC_DIR/cryptopp.pc"
-    # if [[ -f "$PC_FILE" ]]; then
-        # sed -i 's/-lcryptopp/-lcryptopp/g' "$PC_FILE"
-    # fi
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/cryptopp.pc"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${prefix}/lib
+includedir=\${prefix}/include
+
+Name: Crypto++
+Description: A modern CMake build project for Crypto++
+Version: 8.9.0
+Libs: -L\${libdir} -lcryptopp
+Cflags: -I\${includedir}
+EOF
 }
