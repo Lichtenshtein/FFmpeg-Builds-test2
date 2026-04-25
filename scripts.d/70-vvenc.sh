@@ -29,7 +29,7 @@ ffbuild_dockerbuild() {
         -DVVENC_LIBRARY_ONLY=ON
         -DVVENC_ENABLE_WERROR=OFF
         -DVVENC_ENABLE_LINK_TIME_OPT=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
-        # -DEXTRALIBS="-lstdc++ -lm"
+        -DEXTRALIBS="-lstdc++ -lm"
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS $FLAGS" \
@@ -39,6 +39,13 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    local PC_FILE="$PC_DIR/libvvdec.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i "s|Libs.private:.*|Libs.private: -lstdc++|g" "$PC_FILE"
+        sed -i 's|/[^ ]*libstdc++.a|-lstdc++|g' "$PC_FILE"
+        sed -i 's|/[^ ]*libssp.a|-lssp|g' "$PC_FILE"
+    fi
 }
 
 ffbuild_configure() {
