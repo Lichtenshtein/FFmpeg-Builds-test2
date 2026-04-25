@@ -32,7 +32,6 @@ ffbuild_dockerbuild() {
         -DVVDEC_ENABLE_BUILD_TYPE_POSTFIX=OFF
         -DVVDEC_ENABLE_WERROR=OFF
         -DVVDEC_OPT_TARGET_ARCH="${CPU_ARCH:-broadwell}"
-        -DEXTRALIBS="-lstdc++ -lm"
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS $FLAGS" \
@@ -45,7 +44,7 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/libvvdec.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i "s|Libs.private:.*|Libs.private: -lstdc++|g" "$PC_FILE"
+        sed -i "s|^Libs.private:.*|Libs.private: -lstdc++|g" "$PC_FILE"
         sed -i 's|/[^ ]*libstdc++.a|-lstdc++|g' "$PC_FILE"
         sed -i 's|/[^ ]*libssp.a|-lssp|g' "$PC_FILE"
     fi
