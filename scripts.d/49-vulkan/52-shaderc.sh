@@ -158,18 +158,27 @@ EOF
 
         # собираем цель glslc_exe в последних версиях бинарник привязан к ней
         ninja $NINJA_V glslc glslc_exe || true
+        ninja $NINJA_V glslc glslangValidator || true
 
-        # ищем любой исполняемый файл с именем glslc в текущей директории
-        RAW_GLSLC=$(find . -type f -name "glslc" -executable | head -n 1)
+        # Список инструментов, которые нам нужны на хосте
+        NATIVE_TOOLS=("glslc" "glslangValidator")
+        for TOOL in "${NATIVE_TOOLS[@]}"; do
+            # Ищем бинарник во вложенных папках билда
+            TOOL_PATH=$(find . -type f -name "$TOOL" -executable | head -n 1)
+            if [[ -n "$TOOL_PATH" && -f "$TOOL_PATH" ]]; then
+                log_info "Found native tool: $TOOL_PATH. Copying to /usr/local/bin..."
+                cp -v "$TOOL_PATH" "/usr/local/bin/$TOOL"
+                # Также сохраним копию в /opt на случай, если скрипты ищут там
+                cp -v "$TOOL_PATH" "/opt/${TOOL}_host"
+            else
+                log_error "Native tool '$TOOL' was not found in the build directory! Checking what WAS built:"
+                find . -maxdepth 3 -executable -type f
+                exit 1
+                # Если glslangValidator критичен для LCEVC, можно прервать билд:
+                # return 1 
+            fi
+        done
 
-        if [[ -n "$RAW_GLSLC" && -f "$RAW_GLSLC" ]]; then
-            log_info "Found glslc at $RAW_GLSLC, copying to /opt/glslc_host"
-            cp -v "$RAW_GLSLC" /opt/glslc_host
-        else
-            log_error "Still no binary! Checking what WAS built:"
-            find . -maxdepth 3 -executable -type f
-            exit 1
-        fi
     ) || return 1
 }
 

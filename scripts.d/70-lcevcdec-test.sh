@@ -21,6 +21,10 @@ ffbuild_dockerbuild() {
 
     export SKIP_POST_STRIP=1
 
+    # Ищем glslangValidator собранный shaderc
+    ln -sf /opt/glslc_host /usr/local/bin/glslc
+    [[ -f /opt/glslangValidator_host ]] && ln -sf /opt/glslangValidator_host /usr/local/bin/glslangValidator
+
     mkdir -p build && cd build
 
     local myconf=(
@@ -51,8 +55,8 @@ ffbuild_dockerbuild() {
         )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
-        myconf+=( -DBUILD_SHARED_LIBS=ON ) || \
-        myconf+=( -DBUILD_SHARED_LIBS=OFF )
+        myconf+=( -DBUILD_SHARED_LIBS=ON VN_MSVC_RUNTIME_STATIC=OFF ) || \
+        myconf+=( -DBUILD_SHARED_LIBS=OFF VN_MSVC_RUNTIME_STATIC=ON )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
@@ -62,17 +66,23 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # echo "prefix=$FFBUILD_DESTPREFIX" > lcevc_dec.pc
-    # echo "libdir=\${exec_prefix}/lib" >> lcevc_dec.pc
-    # echo "includedir=\${prefix}/include" >> lcevc_dec.pc
-    # echo >> lcevc_dec.pc
-    # echo "Name: lcevc_dec" >> lcevc_dec.pc
-    # echo "Description: LCEVC Decoder SDK" >> lcevc_dec.pc
-    # echo "Version: 3.3.7" >> lcevc_dec.pc
-    # echo "Libs: -L\${libdir} -llcevc_dec_api -lstdc++ -lm" >> lcevc_dec.pc
-    # echo "Cflags: -I\${includedir} -DVNEnablePublicAPIExport" >> lcevc_dec.pc
+    local PC_FILE="$PC_DIR/lcevc_dec.pc"
+    if [[ -f "$PC_FILE" ]]; then
+    cat <<EOF > "$PC_FILE"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${prefix}/lib
+includedir=\${prefix}/include
 
-    # mv lcevc_dec.pc "$PC_DIR/lcevc_dec.pc"
+Name: lcevc_dec
+Description: LCEVC Decoder SDK
+Version: 4.0.5
+Libs: -L\${libdir} -llcevc_dec_api
+Libs.private: -lstdc++ -lm $SYSTEM_LIBS
+Cflags: -I\${includedir} -DVNEnablePublicAPIExport
+EOF
+}
+    fi
 
     rm -rf "$FFBUILD_DESTPREFIX"/share
 }
