@@ -136,6 +136,12 @@ EOF
     # Native build for the glslc tool (Host side)
     mkdir ../native_build && cd ../native_build
 
+    # Устанавливаем glslang через пакетный менеджер, если его нет
+    # Это надежнее, чем пытаться выцепить glslangValidator из недр Shaderc
+    if ! command -v glslangValidator &> /dev/null; then
+        apt-get update && apt-get install -y glslang-tools
+    fi
+
     (
         unset CC CXX CFLAGS CXXFLAGS LD LDFLAGS AR RANLIB NM DLLTOOL PKG_CONFIG_LIBDIR PKG_CONFIG_PATH
         log_info "Building native glslc..."
@@ -157,11 +163,13 @@ EOF
             .. || exit 1
 
         # собираем цель glslc_exe в последних версиях бинарник привязан к ней
-        ninja $NINJA_V glslc glslc_exe glslangValidator || true
+        # ninja $NINJA_V glslc glslc_exe glslangValidator || true
+        ninja $NINJA_V glslc glslc_exe || true
 
         # Массив инструментов для проверки и копирования
         # Формат: "имя_бинарника|целевое_имя_в_системе"
-        local TOOLS_TO_COPY=("glslc|glslc" "glslangValidator|glslangValidator")
+        # local TOOLS_TO_COPY=("glslc|glslc" "glslangValidator|glslangValidator")
+        local TOOLS_TO_COPY=("glslc|glslc")
         local FOUND_ANY=0
 
         for ENTRY in "${TOOLS_TO_COPY[@]}"; do
@@ -187,10 +195,10 @@ EOF
         fi
 
         # если glslangValidator не собрался, пробуем подменить его на glslc
-        if ! command -v glslangValidator &> /dev/null && command -v glslc &> /dev/null; then
-            log_warn "glslangValidator missing. Creating fallback symlink from glslc."
-            ln -sf /usr/local/bin/glslc /usr/local/bin/glslangValidator
-        fi
+        # if ! command -v glslangValidator &> /dev/null && command -v glslc &> /dev/null; then
+            # log_warn "glslangValidator missing. Creating fallback symlink from glslc."
+            # ln -sf /usr/local/bin/glslc /usr/local/bin/glslangValidator
+        # fi
 
     ) || return 1
 }

@@ -21,9 +21,15 @@ ffbuild_dockerbuild() {
 
     export SKIP_POST_STRIP=1
 
-    # Ищем glslangValidator собранный shaderc
-    # ln -sf /opt/glslc_host /usr/local/bin/glslc
-    # [[ -f /opt/glslangValidator_host ]] && ln -sf /opt/glslangValidator_host /usr/local/bin/glslangValidator
+    # Проверяем, под каким именем живет валидатор
+    if command -v glslang &> /dev/null && ! command -v glslangValidator &> /dev/null; then
+        ln -sf $(command -v glslang) /usr/local/bin/glslangValidator
+    fi
+    
+    # Если нет, пробуем использовать glslc (они часто взаимозаменяемы для -V)
+    if ! command -v glslangValidator &> /dev/null && command -v glslc &> /dev/null; then
+        ln -sf $(command -v glslc) /usr/local/bin/glslangValidator
+    fi
 
     mkdir -p build && cd build
 
