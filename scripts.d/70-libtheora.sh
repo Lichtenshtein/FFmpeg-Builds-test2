@@ -37,13 +37,19 @@ ffbuild_dockerbuild() {
         --disable-spec
         --disable-doc
         --enable-asm
-        --enable-cuda # this added by patch
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
+    if [[ $TARGET == linux* ]]; then
+        myconf+=(
+        --enable-cuda # this added by patch; needs nvcc
+        )
+    fi
+
+    # may need NOLTO
     CFLAGS="$CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS ${USELTO}" \
@@ -53,6 +59,13 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+
+    local PC_FILE="$PC_DIR/theora.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        if ! grep -q "Requires:" "$PC_FILE"; then
+            sed -i '/^Libs:/i Requires: ogg' "$PC_FILE"
+        fi
+    fi
 }
 
 ffbuild_configure() {

@@ -137,12 +137,6 @@ EOF
     log_info "Building native glslang and shaderc tools..."
     mkdir ../native_build && cd ../native_build
 
-    # Устанавливаем glslang через пакетный менеджер, если его нет
-    # Это надежнее, чем пытаться выцепить glslangValidator из недр Shaderc
-    # if ! command -v glslangValidator &> /dev/null; then
-        # apt-get update && apt-get install -y glslang-tools
-    # fi
-
     (
         unset CC CXX CFLAGS CXXFLAGS LD LDFLAGS AR RANLIB NM DLLTOOL PKG_CONFIG_LIBDIR PKG_CONFIG_PATH
 
@@ -166,11 +160,10 @@ EOF
         log_info "Building native glslc..."
         ninja $NINJA_V glslc glslc_exe || true
         log_info "Building native glslang..."
-        ninja $NINJA_V glslang-standalone || ninja $NINJA_V glslang || true
+        ninja $NINJA_V glslang-standalone || true
 
         # Массив инструментов для проверки и копирования
         # Формат: "имя_бинарника|целевое_имя_в_системе"
-        # local TOOLS_TO_COPY=("glslc|glslc" "glslangValidator|glslangValidator")
         local TOOLS_TO_COPY=("glslc|glslc" "glslang|glslang")
         local FOUND_ANY=0
 
@@ -182,7 +175,7 @@ EOF
             if [[ -n "$BIN_PATH" && -f "$BIN_PATH" ]]; then
                 log_info "Found $BIN_NAME at $BIN_PATH. Copying..."
                 cp -v "$BIN_PATH" "/usr/local/bin/$DEST_NAME"
-                # Дополнительная копия для /opt
+                # Дополнительная копия для Whisper
                 [[ "$BIN_NAME" == "glslc" ]] && cp -v "$BIN_PATH" /opt/glslc_host
                 FOUND_ANY=1
                 # Создаем критически важный симлинк для LCEVC
