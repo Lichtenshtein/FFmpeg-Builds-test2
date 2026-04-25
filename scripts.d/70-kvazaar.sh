@@ -17,6 +17,8 @@ ffbuild_dockerbuild() {
 
     sed -i 's/FetchContent_MakeAvailable/message(STATUS "Skipping") #/g' CMakeLists.txt
     sed -i 's|${CMAKE_BINARY_DIR}/lib/libcryptopp.a|cryptopp|g' CMakeLists.txt
+    sed -i "1i include_directories($FFBUILD_PREFIX/include)" CMakeLists.txt
+    sed -i "1i link_directories($FFBUILD_PREFIX/lib)" CMakeLists.txt
 
     mkdir -p build && cd build
 
