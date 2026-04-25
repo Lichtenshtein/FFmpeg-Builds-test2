@@ -1,0 +1,206 @@
+From 243a7ef7ac2d3dc30e96c30799d840e0013204a1 Mon Sep 17 00:00:00 2001
+From: hope1985 <hossein.pejman@gmail.com>
+Date: Wed, 17 Jan 2024 03:31:16 -0500
+Subject: [PATCH] Adding fast affine method
+
+---
+diff --git a/README.md b/README.md
+index 49efefc..bec4cbc 100644
+--- a/README.md
++++ b/README.md
+@@ -20,6 +20,39 @@ See the [Wiki-Page](https://github.com/fraunhoferhhi/vvenc/wiki) for more inform
+ * [Publications](https://github.com/fraunhoferhhi/vvenc/wiki/Publications)
+ * [Version history](https://github.com/fraunhoferhhi/vvenc/wiki/Changelog)
+ 
++## Adjustable Fast Affine Decision Method
++
++This is the modified version of VVenC encoder with the fast affine decision method proposed in the paper below:
++
++[H. Pejman*, S. Coulombe*, C. Vazquez*, M. Jamali° and A. Vakili°, "An Adjustable Fast Decision Method for Affine Motion Estimation in VVC," ICIP, Kuala Lumpur, Malaysia, 2023, pp. 2695-2699, doi: 10.1109/ICIP49359.2023.10222750.](https://ieeexplore.ieee.org/document/10222750)
++
++*École de technologie supérieure, °Summit Tech Multimedia
++
++## Modifications
++
++To add the fast affine decision method to the VVenC encoder, the following files have been modified:
++
++-	include\vvenc\VVencCfg.h
++-	source\Lib\vvenc\VVencCfg.cpp
++-	source\Lib\EncoderLib\InterSearch.cpp
++-	source\Lib\apputil\VVEncAppCfg.h
++
++All the modified/Added codes are tagged between two comment lines as follows:
++
++```
++// =========== FAST_AFFINE, H.Pejman et al., ICIP2023 =============
++                    Added/Modified codes
++// =========== FAST_AFFINE, H.Pejman et al., ICIP2023 =============
++```
++
++The ```ENABLE_AFFINE_THR``` macro is defined in ```include\vvenc\vvencCfg.h``` file to enable the fast affine method (removing this macro disables all codes related to the fast affine method). 
++
++The ```-aft``` parameter is added to VVenC to determine the threshold value of the fast affine method. For example, the line below runs vvencFFapp with a threshold value of 0.6:
++
++```
++vvencFFapp -c randomaccess_medium.cfg  -i <input>  -aft 0.6  --affine 1  ...
++```
++
+ ## Build
+ 
+ VVenC uses CMake to describe and manage the build process. A working [CMake](https://cmake.org/) installation is required to build the software. In the following, the basic build steps are described. Please refer to the [Wiki](https://github.com/fraunhoferhhi/vvenc/wiki/Build) for the description of all build options.
+diff --git a/include/vvenc/vvencCfg.h b/include/vvenc/vvencCfg.h
+index f8d63fd..7e2c994 100644
+--- a/include/vvenc/vvencCfg.h
++++ b/include/vvenc/vvencCfg.h
+@@ -55,6 +55,15 @@ POSSIBILITY OF SUCH DAMAGE.
+ #define VVENC_NAMESPACE_BEGIN
+ #define VVENC_NAMESPACE_END
+ 
++// =============== FAST_AFFINE, H.Pejman et al., ICIP2023 ==================
++
++#define ENABLE_AFFINE_THR
++#ifdef ENABLE_AFFINE_THR
++double  const m_affine_thr_coffs[3] = { 2.534229853866437,0.05173246 ,0.87650414 };
++#endif
++// =============== FAST_AFFINE, H.Pejman et al., ICIP2023 ==================
++
++
+ #ifdef __cplusplus
+ extern "C" {
+ #endif
+@@ -421,6 +430,14 @@ VVENC_DECL void vvenc_vvencMCTF_default(vvencMCTF *vvencMCTF );
+ 
+ typedef struct vvenc_config
+ {
++
++// =============== FAST_AFFINE, H.Pejman et al., ICIP2023 ==================
++#ifdef ENABLE_AFFINE_THR
++// Custom params
++double              m_affineThr;
++#endif // ENABLE_AAFFINE_THR
++// =============== FAST_AFFINE, H.Pejman et al., ICIP2023 ==================
++
+   // core config params
+   int                 m_SourceWidth;                                                     // source width in pixel
+   int                 m_SourceHeight;                                                    // source height in pixel (when interlaced = field height)
+diff --git a/source/Lib/EncoderLib/InterSearch.cpp b/source/Lib/EncoderLib/InterSearch.cpp
+index ca0acb7..d08778d 100644
+--- a/source/Lib/EncoderLib/InterSearch.cpp
++++ b/source/Lib/EncoderLib/InterSearch.cpp
+@@ -1611,6 +1611,46 @@ bool InterSearch::predInterSearch(CodingUnit& cu, Partitioner& partitioner, doub
+         checkAffine = false;
+       }
+     }
++      
++    // =============== FAST_AFFINE, H.Pejman et al., ICIP2023 ==================
++
++    #ifdef ENABLE_AFFINE_THR
++
++        if (checkAffine && cu.Y().width > 8 && cu.Y().height > 8)
++        {
++            int qp = cu.qp;
++            int blk_area = cu.Y().width * cu.Y().height;
++
++            //Multi-dimensional  linears:
++            //Y = b0 + b1*(QP) + b2*(LOG2(BLK_AREA))
++            double log_affine_thr =
++                m_affine_thr_coffs[0] +
++                qp * m_affine_thr_coffs[1] +
++                log2(blk_area) * m_affine_thr_coffs[2];
++
++            //log_affine_thr is LOG 2 of estimated thr
++            //m_pcEncCfg->m_affineThr is the value of the adjustment paratemer (alpha)
++            double affine_thr = pow(2, log_affine_thr) * m_pcEncCfg->m_affineThr;
++
++            // The trained coefficients are based on the cost of 8-BitDepth videos. So, the cost should be scaled if they are not 8-bit pixel values
++            double scaled_uiHevcCost = (double)uiHevcCost;
++           
++            if (m_pcEncCfg->m_internalBitDepth[0] !=10)
++            {
++                //Based on the CTC documnet to convert 8 bit to 10 bit video or vice versa, the VTM only multiply (8 to 10 bits) or divide (10 to 8 bits) pixel values to 4.
++                //In this case, the cost values are approximately scaled by 4. 
++                //The trained data acquired from internal 10 bit data. So, if internal bit depth is 8, the conversion into 10-bit cost can be done as follows:
++                scaled_uiHevcCost = uiHevcCost * (pow(2.0, 10-m_pcEncCfg->m_internalBitDepth[0]));
++                
++            }
++            if (scaled_uiHevcCost < affine_thr)
++            {
++                checkAffine = false;
++            }
++        }
++    #endif
++    // =============== FAST_AFFINE, H.Pejman et al., ICIP2023 ==================
++      
+     if (cu.Y().width > 8 && cu.Y().height > 8 && cu.slice->sps->Affine && checkAffine)
+     {
+       PROFILER_SCOPE_AND_STAGE_EXT( 1, _TPROF, P_INTER_MVD_SEARCH_AFFINE, &cs, partitioner.chType );
+diff --git a/source/Lib/apputils/VVEncAppCfg.h b/source/Lib/apputils/VVEncAppCfg.h
+index b6f51f0..0bc57c9 100644
+--- a/source/Lib/apputils/VVEncAppCfg.h
++++ b/source/Lib/apputils/VVEncAppCfg.h
+@@ -554,6 +554,14 @@ int parse( int argc, char* argv[], vvenc_config* c, std::ostream& rcOstr )
+   {
+     opts.setLowerCaseOnly(); // easy app uses lower case option names only
+   }
++    
++ // =============== FAST_AFFINE, H.Pejman et al., ICIP2023 ==================
++  #ifdef ENABLE_AFFINE_THR
++      opts.setSubSection("Custom Options");
++      opts.addOptions()
++          ("affine_thr,-aft", c->m_affineThr, "The threshold value for skipping affine AVMP process");
++  #endif // ENABLE_AFFINE_THR
++// =============== FAST_AFFINE, H.Pejman et al., ICIP2023 ==================
+ 
+   opts.setSubSection("General Options");
+   opts.addOptions()
+diff --git a/source/Lib/vvenc/vvencCfg.cpp b/source/Lib/vvenc/vvencCfg.cpp
+index 982d2b9..30c48c1 100644
+--- a/source/Lib/vvenc/vvencCfg.cpp
++++ b/source/Lib/vvenc/vvencCfg.cpp
+@@ -339,6 +339,12 @@ VVENC_DECL void vvenc_vvencMCTF_default(vvencMCTF *vvencMCTF )
+ VVENC_DECL void vvenc_config_default(vvenc_config *c )
+ {
+   int i = 0;
++    
++  // =============== FAST_AFFINE, H.Pejman et al., ICIP2023 ==================
++  #ifdef ENABLE_AFFINE_THR
++  c->m_affineThr = 1;
++  #endif // ENABLE_AFFINE_THR
++  // =============== FAST_AFFINE, H.Pejman et al., ICIP2023 ==================
+ 
+   // internal params
+   c->m_configDone                              = false;         ///< state variable, Private context used for internal data ( do not change )
+@@ -3037,6 +3043,17 @@ VVENC_DECL const char* vvenc_get_config_as_string( vvenc_config *c, vvencMsgLeve
+     }
+     css << loglvl << "Cost function                          : " << getCostFunctionStr( c->m_costMode ) << "\n";
+     css << loglvl << "Film grain analysis                    : " << (int)c->m_fga << "\n";
++
++    // =============== FAST_AFFINE, H.Pejman et al., ICIP2023 ==================
++    css << "\n" << "CUSTOM OPTIONS: ";
++    #ifdef ENABLE_AFFINE_THR
++        css << "Affine Threshold: " << c->m_affineThr << "\n";
++        css << "Enable Affine Threshold: " << 1 << "\n";
++    #else
++        css << "Enable Affine Threshold: " << 0 << "\n";
++    #endif 
++    // =============== FAST_AFFINE, H.Pejman et al., ICIP2023 ==================
++      
+     }
+ 
+   if( eMsgLevel >= VVENC_VERBOSE )
+@@ -3210,6 +3227,15 @@ VVENC_DECL const char* vvenc_get_config_as_string( vvenc_config *c, vvencMsgLeve
+     }
+     css << "WppBitEqual:" << c->m_ensureWppBitEqual << " ";
+     css << "WF:" << (int) c->m_entropyCodingSyncEnabled << " ";
++    // =============== FAST_AFFINE, H.Pejman et al., ICIP2023 ==================
++    css << "\n" << "CUSTOM OPTIONS: ";
++    #ifdef ENABLE_AFFINE_THR
++        css << "Affine Threshold: " << c->m_affineThr << "\n";
++        css << "Enable Affine Threshold: " << 1 << "\n";
++    #else
++        css << "Enable Affine Threshold: " << 0 << "\n";
++    #endif 
++    // =============== FAST_AFFINE, H.Pejman et al., ICIP2023 ==================
+     css << "\n";
+   }
+ 

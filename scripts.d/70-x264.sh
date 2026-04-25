@@ -38,11 +38,13 @@ ffbuild_dockerbuild() {
         --bit-depth=all
         --chroma-format=all
         --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
+        --cross-prefix="$FFBUILD_CROSS_PREFIX"
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
-        myconf+=( --disable-static --enable-shared ) || \
-        myconf+=( --enable-static --disable-shared )
+        myconf+=( --enable-shared ) || \
+        myconf+=( --enable-static )
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     # Явно указываем инструменты для стабильности
@@ -61,12 +63,6 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
-
-    # ФИКС pkg-config для статической линковки
-    if [[ -f "$PC_DIR/x264.pc" ]]; then
-        # Добавляем -lpthread, так как x264 его использует
-        sed -i 's/Libs: /Libs.private: -pthread -lm\nLibs: /' "$PC_DIR/x264.pc"
-    fi
 }
 
 ffbuild_configure() {

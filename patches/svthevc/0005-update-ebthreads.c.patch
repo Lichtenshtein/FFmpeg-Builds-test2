@@ -1,0 +1,24 @@
+From 3ca70fbc76b5e1d07958c953b89f14b3a8608c47 Mon Sep 17 00:00:00 2001
+From: Jun <tianjun1.0@gmail.com>
+Date: Tue, 11 Aug 2020 13:46:26 -0700
+Subject: [PATCH] Update Source/Lib/Codec/EbThreads.c
+
+Co-authored-by: Christopher Degawa <ccom@randomderp.com>
+---
+ Source/Lib/Codec/EbThreads.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/Source/Lib/Codec/EbThreads.c b/Source/Lib/Codec/EbThreads.c
+index a08351a54..1c47e8d58 100644
+--- a/Source/Lib/Codec/EbThreads.c
++++ b/Source/Lib/Codec/EbThreads.c
+@@ -69,8 +69,7 @@ EB_HANDLE EbCreateThread(
+     pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+     pthread_attr_setinheritsched(&attr, PTHREAD_EXPLICIT_SCHED);
+ 
+-    struct sched_param param = {.sched_priority = 99};
+-    pthread_attr_setschedparam(&attr, &param);
++    pthread_attr_setschedparam(&attr, &(struct sched_param){.sched_priority = 99});
+ 
+     int ret = pthread_create(
+             (pthread_t*)threadHandle,      // Thread handle
