@@ -1,0 +1,24 @@
+From 09c9dfa823e7f80bd379cae8a759264bccabbee3 Mon Sep 17 00:00:00 2001
+From: Jing Li <jing.b.li@intel.com>
+Date: Mon, 27 Jul 2020 14:51:43 +0800
+Subject: [PATCH] fix the hang caused by pthread_cancel
+
+Signed-off-by: Jing Li <jing.b.li@intel.com>
+---
+ Source/Lib/Codec/EbThreads.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Source/Lib/Codec/EbThreads.c b/Source/Lib/Codec/EbThreads.c
+index d0b3c639f..6ea8c033b 100644
+--- a/Source/Lib/Codec/EbThreads.c
++++ b/Source/Lib/Codec/EbThreads.c
+@@ -80,8 +80,8 @@ EB_HANDLE EbCreateThread(
+ 
+         if (ret != 0) {
+             if (ret == EPERM) {
+-
+                 pthread_cancel(*((pthread_t*)threadHandle));
++                pthread_join(*((pthread_t*)threadHandle), NULL);
+                 free(threadHandle);
+ 
+                 threadHandle = (pthread_t*)malloc(sizeof(pthread_t));

@@ -1,0 +1,22 @@
+From 66a5ac3a3c675703a647a915c408c74d5a6df83d Mon Sep 17 00:00:00 2001
+From: HuaMeng <hmengab@connect.ust.hk>
+Date: Sun, 14 Dec 2025 17:36:29 +0800
+Subject: [PATCH] Increase max tile number limitation.
+
+---
+ source/Lib/CommonLib/ProfileLevelTier.cpp | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/source/Lib/CommonLib/ProfileLevelTier.cpp b/source/Lib/CommonLib/ProfileLevelTier.cpp
+index e5db8244f..40a22c08a 100644
+--- a/source/Lib/CommonLib/ProfileLevelTier.cpp
++++ b/source/Lib/CommonLib/ProfileLevelTier.cpp
+@@ -72,7 +72,7 @@ static const LevelTierFeatures mainLevelTierInfo[] =
+     { VVENC_LEVEL3  ,   552960, {     6000,        0 },       30,        4,          2,    2, 16588800ULL,   {    6000,        0 }, { 2, 2} },
+     { VVENC_LEVEL3_1,   983040, {    10000,        0 },       40,        9,          3,    3, 33177600ULL,   {   10000,        0 }, { 2, 2} },
+     { VVENC_LEVEL4  ,  2228224, {    12000,    30000 },       75,       25,          5,    5, 66846720ULL,   {   12000,    30000 }, { 4, 4} },
+-    { VVENC_LEVEL4_1,  2228224, {    20000,    50000 },       75,       25,          5,    5, 133693440ULL,  {   20000,    50000 }, { 4, 4} },
++    { VVENC_LEVEL4_1,  2228224, {    20000,    50000 },      200,      110,         10,   11, 133693440ULL,  {   20000,    50000 }, { 4, 4} },
+     { VVENC_LEVEL5  ,  8912896, {    25000,   100000 },      200,      110,         10,   11, 267386880ULL,  {   25000,   100000 }, { 6, 4} },
+     { VVENC_LEVEL5_1,  8912896, {    40000,   160000 },      200,      110,         10,   11, 534773760ULL,  {   40000,   160000 }, { 8, 4} },
+     { VVENC_LEVEL5_2,  8912896, {    60000,   240000 },      200,      110,         10,   11, 1069547520ULL, {   60000,   240000 }, { 8, 4} },

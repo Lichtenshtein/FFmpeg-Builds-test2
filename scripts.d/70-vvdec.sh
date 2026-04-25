@@ -18,6 +18,7 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
+    # -fpermissive нужен для некоторых версий GCC при сборке VVC
     local FLAGS="-fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
 
     local myconf=(
@@ -26,7 +27,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        -DVVDEC_ENABLE_LINK_TIME_OPT=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        -DVVDEC_ENABLE_LINK_TIME_OPT=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DVVDEC_LIBRARY_ONLY=ON
         -DVVDEC_ENABLE_BUILD_TYPE_POSTFIX=OFF
         -DVVDEC_ENABLE_WERROR=OFF
@@ -41,6 +42,13 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    local PC_FILE="$PC_DIR/libvvdec.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i "s|Libs.private:.*|Libs.private: -lstdc++|g" "$PC_FILE"
+        sed -i 's|/[^ ]*libstdc++.a|-lstdc++|g' "$PC_FILE"
+        sed -i 's|/[^ ]*libssp.a|-lssp|g' "$PC_FILE"
+    fi
 }
 
 ffbuild_configure() {
