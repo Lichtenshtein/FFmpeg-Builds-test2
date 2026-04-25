@@ -11,17 +11,18 @@ diff --git a/common/mc.c b/common/mc.c
 index 2db9a87..a49e578 100644
 --- a/common/mc.c
 +++ b/common/mc.c
-@@ -34,14 +34,12 @@
+@@ -34,14 +34,9 @@
  
  #include "common.h"
  
 -/*
  #ifdef HAVE_MMXEXT
- #include "i386/mc.h"
+-#include "i386/mc.h"
++#include "mc.h"
  #endif
- #ifdef ARCH_PPC
- #include "ppc/mc.h"
- #endif
+-#ifdef ARCH_PPC
+-#include "ppc/mc.h"
+-#endif
 -*/
  
  static inline int
