@@ -15,16 +15,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Вырезаем блок FetchContent и подмены путей для Crypto++
-    sed -i '/if (USE_CRYPTO)/,/endif[[:space:]]*()/c\
-if (USE_CRYPTO)\
-    add_definitions(-DKVZ_SEL_ENCRYPTION)\
-    list(APPEND LIB_SOURCES src/extras/crypto.cpp)\
-    list(APPEND CLI_SOURCES src/extras/crypto.cpp)\
-    include_directories('"$FFBUILD_PREFIX"'/include)\
-    link_directories('"$FFBUILD_PREFIX"'/lib)\
-    link_libraries(cryptopp)\
-endif ()' CMakeLists.txt
+    sed -i 's/FetchContent_MakeAvailable/message(STATUS "Skipping") #/g' CMakeLists.txt
+    sed -i 's|${CMAKE_BINARY_DIR}/lib/libcryptopp.a|cryptopp|g' CMakeLists.txt
 
     mkdir -p build && cd build
 
