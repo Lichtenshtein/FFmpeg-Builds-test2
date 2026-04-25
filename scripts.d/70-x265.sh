@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://bitbucket.org/multicoreware/x265_git.git"
-SCRIPT_COMMIT="afa0028dda3486bce8441473c6c7b99bec2f0961"
+SCRIPT_COMMIT="e444744c03978c1fb4e037168967020cf2648427"
 
 ffbuild_depends() {
     echo svthevc
@@ -57,7 +57,6 @@ ffbuild_dockerbuild() {
         -DENABLE_ALPHA=ON
         -DENABLE_ASSEMBLY=ON
         -DENABLE_CLI=OFF
-        -DENABLE_CHROME_APP=OFF
         -DENABLE_PIC=ON
         -DENABLE_SHARED=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF) # Для multilib статика обязательна
         -DNATIVE_BUILD=OFF # Target the build CPU
@@ -66,11 +65,14 @@ ffbuild_dockerbuild() {
         -DENABLE_MULTIVIEW=ON # Enable Multi-view encoding in HEVC
         -DENABLE_VTUNE=OFF # Enable Vtune profiling instrumentation
         -DENABLE_TESTS=OFF # Enable Unit Tests
-        -DENABLE_SVT_HEVC=ON # use the --svt flag in the x265 CLI to use the SVT-HEVC engine instead of the standard x265 core
         -DX265_LATEST_TAG="3.5"
         -DX265_TAG_DISTANCE="0"
         -DX265_VERSION="3.5"
         -Wno-dev
+        # SVT_HEVC
+        -DENABLE_SVT_HEVC=ON # use the --svt flag in the x265 CLI to use the SVT-HEVC engine instead of the standard x265 core
+        -DSVT_HEVC_INCLUDE_DIR="$FFBUILD_PREFIX/include/svt-hevc"
+        -DSVT_HEVC_LIBRARY="$FFBUILD_PREFIX/lib/libSvtHevcEnc.a"
         )
 
     mkdir -p 8bit 10bit 12bit
@@ -130,20 +132,20 @@ EOF
     # Установка из папки 8bit (которая содержит объединенную либу)
     DESTDIR="$FFBUILD_DESTDIR" ninja -C 8bit install || return 1
 
-    # mkdir -p "$PC_DIR"
-    # cat <<EOF > "$PC_DIR/x265.pc"
-# prefix=$FFBUILD_PREFIX
-# exec_prefix=\${prefix}
-# libdir=\${exec_prefix}/lib
-# includedir=\${prefix}/include
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/x265.pc"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
 
-# Name: x265
-# Description: H.265/HEVC video encoder
-# Version: $VER_FULL
-# Libs: -L\${libdir} -lx265
-# Libs.private: -lstdc++ -lm -lgcc -lmingwex -lmingw32 -luser32 -ladvapi32 -lshell32
-# Cflags: -I\${includedir}
-# EOF
+Name: x265
+Description: H.265/HEVC video encoder
+Version: 4.2
+Libs: -L\${libdir} -lx265
+Libs.private: -lstdc++ -lm -lgcc -lmingwex -lmingw32 -luser32 -ladvapi32 -lshell32
+Cflags: -I\${includedir}
+EOF
 }
 
 ffbuild_configure() {

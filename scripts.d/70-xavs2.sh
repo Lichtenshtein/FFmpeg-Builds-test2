@@ -47,19 +47,16 @@ ffbuild_dockerbuild() {
         --disable-lsmash
         --extra-asflags="-w-macro-params-legacy"
         --prefix="$FFBUILD_PREFIX"
+        --host="$FFBUILD_TOOLCHAIN"
+        --cross-prefix="$FFBUILD_CROSS_PREFIX"
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
-        myconf+=( --disable-static --enable-shared ) || \
-        myconf+=( --enable-static --disable-shared )
+        myconf+=( --enable-shared ) || \
+        myconf+=( --enable-static )
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     if [[ $TARGET == win* ]]; then
-        myconf+=(
-            --host="$FFBUILD_TOOLCHAIN"
-            --cross-prefix="$FFBUILD_CROSS_PREFIX"
-        )
-        # Явно указываем ассемблер, чтобы не пропустить оптимизации
         export AS="nasm"
     fi
 
@@ -70,12 +67,10 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # Проверка и фикс pkg-config
-    # xavs2 иногда пишет неверные пути в .pc файл при использовании DESTDIR
-    if [[ -f "$PC_DIR/xavs2.pc" ]]; then
-        sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_DIR/xavs2.pc"
-        # Для статической линковки в FFmpeg
-        sed -i '/^Libs.private:/ s/$/ -lstdc++ -lm/' "$PC_DIR/xavs2.pc"
+    local PC_FILE="$PC_DIR/xavs2.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
+        sed -i '/^Libs.private:/ s/$/ -lstdc++ -lm/' "$PC_FILE"
     fi
 }
 
