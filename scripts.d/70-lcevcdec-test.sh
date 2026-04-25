@@ -27,7 +27,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        # -DPC_LIBS_PRIVATE="Libs.private: -lstdc++"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DVN_SDK_BENCHMARK=OFF
         -DVN_SDK_DIAGNOSTICS_ASYNC=OFF
@@ -63,7 +62,6 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     local PC_FILE="$PC_DIR/lcevc_dec.pc"
-    if [[ -f "$PC_FILE" ]]; then
     cat <<EOF > "$PC_FILE"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
@@ -71,13 +69,15 @@ libdir=\${prefix}/lib
 includedir=\${prefix}/include
 
 Name: lcevc_dec
-Description: LCEVC Decoder SDK
+Description: LCEVC Decoder SDK (Static Combined)
 Version: 4.0.5
-Libs: -L\${libdir} -llcevc_dec_api
-Libs.private: -lstdc++ -lm $SYSTEM_LIBS
+Libs: -L\${libdir} -llcevc_dec_api -llcevc_dec_api_utility -llcevc_dec_common -llcevc_dec_enhancement -llcevc_dec_extract -llcevc_dec_legacy -llcevc_dec_overlay_images -llcevc_dec_pipeline -llcevc_dec_pipeline_cpu -llcevc_dec_pipeline_legacy -llcevc_dec_pipeline_vulkan -llcevc_dec_pixel_processing -llcevc_dec_sequencer
+Libs.private: -lstdc++ -lm
 Cflags: -I\${includedir} -DVNEnablePublicAPIExport
 EOF
-    fi
+
+    # Удаляем лишние/кривые .pc файлы, чтобы pkg-config не путался
+    rm -f "$PC_DIR"/lcevc_dec_utility.pc "$PC_DIR"/lcevc_dec_extract.pc
 
     rm -rf "$FFBUILD_DESTPREFIX"/share
 }

@@ -5,11 +5,14 @@ SCRIPT_COMMIT="0a35627ec8bb2d755b8a9a340543a37eb6b97ade"
 
 ffbuild_depends() {
     echo zlib
+    echo libiconv
     echo xz
     echo bzlib
     echo openssl
     echo libxml2
     echo zstd
+    # echo mbedtls
+    # echo nettle
 }
 
 ffbuild_enabled() {
@@ -35,12 +38,14 @@ ffbuild_dockerbuild() {
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DENABLE_TEST=OFF
+        -DENABLE_COVERAGE=OFF
+        -DENABLE_INSTALL=ON
         # Отключаем исполняемые файлы (bsdtar, bsdcpio), нам нужна только либа
         -DENABLE_TAR=OFF
         -DENABLE_CPIO=OFF
         -DENABLE_CAT=OFF
-        -DENABLE_UNZIP=OFF
-        -DENABLE_TEST=OFF
+        -DENABLE_UNZIP=ON
         # Включаем зависимости
         -DENABLE_ZLIB=ON
         -DENABLE_LZMA=ON
@@ -48,15 +53,24 @@ ffbuild_dockerbuild() {
         -DENABLE_OPENSSL=ON
         -DENABLE_LIBXML2=ON
         -DENABLE_ZSTD=ON
-        # Windows-специфичные опции
-        -DENABLE_CNG=ON
-        -DENABLE_ACL=ON
-        -DENABLE_XATTR=ON
+        -DENABLE_ICONV=ON
+        -DENABLE_MBEDTLS=OFF
+        -DENABLE_NETTLE=OFF
+        # libxml2
         -DLIBXML2_LIBRARIES="-lxml2"
         -DLIBXML2_INCLUDE_DIR="$FFBUILD_PREFIX/include/libxml2"
         -DCMAKE_REQUIRED_INCLUDES="$FFBUILD_PREFIX/include/libxml2"
         -DCMAKE_REQUIRED_LIBRARIES="-lxml2"
     )
+
+    if [[ $TARGET == win* ]]; then
+        # Windows-специфичные опции
+        myconf+=(
+        -DENABLE_CNG=ON
+        -DENABLE_ACL=ON
+        -DENABLE_XATTR=ON
+        )
+    fi
 
     export static_flags=""
     export self_static_flags=""

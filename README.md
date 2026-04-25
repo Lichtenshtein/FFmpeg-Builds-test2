@@ -28,6 +28,12 @@ This fork is an advanced FFmpeg build system architecture using GCC 14 and Ubunt
 
 - librsvg (Cargo-based): Completed cross-compiled Rust build chain, including cairo and pango dependencies.
 
+- Kvazaar with Crypto++ support.
+
+- LCEVC Decoder SDK with a fully natively generated SPIR-V shaders within a cross-compilation environment - compiled with full Vulkan pipeline.
+
+- Whisper with Vulkan and OpenVINO support.
+
 ### Implementation status:
 
 Added to the current build:
