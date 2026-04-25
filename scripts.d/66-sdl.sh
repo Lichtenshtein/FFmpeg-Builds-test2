@@ -44,9 +44,7 @@ ffbuild_dockerbuild() {
         # блок поиска iconv
         -DSDL_LIBICONV=ON
         -DSDL_SYSTEM_ICONV=ON
-        -DIconv_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DIconv_LIBRARY="$FFBUILD_PREFIX/lib/libiconv.a"
-        # force pthreads
+        # force pthreads; windows threads used anyway...
         -DSDL_PTHREADS=ON
         -DSDL_THREADS=ON
         # SDL3
@@ -97,13 +95,13 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/sdl2.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -ri -e 's/ -lSDL2//g' -e 's/Libs: /Libs: -lSDL2/' "$PC_FILE"
-        if grep -q "^Requires:" "$PC_FILE"; then
-            sed -i "/^Requires:/ s/$/ samplerate/" "$PC_FILE"
+        sed -i 's/-lSDL2//g' "$PC_FILE"
+        sed -i 's/-lSDL2main//g' "$PC_FILE"
+        sed -i "s|^Libs:.*|Libs: -L\${libdir} -lSDL2|" "$PC_FILE"
+        if ! grep -q "Requires:" "$PC_FILE"; then
+            sed -i '/^Libs:/i Requires: samplerate' "$PC_FILE"
         else
-            if grep -q "^Libs:" "$PC_FILE"; then
-                sed -i "/^Libs:/ a Requires: samplerate" "$PC_FILE"
-            fi
+            sed -i '/^Requires:/ s/$/ samplerate/' "$PC_FILE"
         fi
         if [[ $TARGET == linux* ]]; then
             sed -ri -e 's/\-Wl,\-\-no\-undefined.*//' \
@@ -112,15 +110,17 @@ ffbuild_dockerbuild() {
             sed -i '/^Requires:/ s/$/ libpulse-simple \
                 xxf86vm xscrnsaver xrandr xfixes xi \
                 xinerama xcursor/' "$PC_FILE"
-        elif [[ $TARGET == win* ]]; then # why lSDL2main ?
-            sed -ri -e 's/\-Wl,\-\-no\-undefined.*//' \
+            sed -i "/^Libs.private:/ s|.*|Libs.private: -lSDL2main|" "$PC_FILE"
+        elif [[ $TARGET == win* ]]; then
+            sed -ri -e 's/\-Wl,\-\-no\-undefined*//' \
                 -e 's/ \-mwindows//g' \
-                -e 's/ \-lSDL2main//g' \
                 -e 's/ \-Dmain=SDL_main//g' \
                 "$PC_FILE"
+            sed -i "/^Libs.private:/ s|.*|Libs.private: -lmingw32 -lSDL2main|" "$PC_FILE"
         fi
-        # Add iconv to Requires.private or Libs.private
-        sed -i "/^Libs.private:/ s/$/ -liconv -lcharset/" "$PC_FILE"
+        if [[ "${myconf[@]}" =~ "-DSDL_LIBICONV=ON" ]]; then
+            sed -i "/^Libs.private:/ s/$/ -liconv -lcharset/" "$PC_FILE"
+        fi
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
                 sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
