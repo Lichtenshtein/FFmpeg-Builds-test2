@@ -46,14 +46,13 @@ ffbuild_dockerbuild() {
         -DVN_SDK_SYSTEM_INSTALL=ON
         -DVN_SDK_THREADING=ON
         -DVN_SDK_TRACING=OFF
-        -DVN_SDK_TRACING=OFF
         -DVN_SDK_UNIT_TESTS=OFF
         -DVN_STRIP_RELEASE=ON
         )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
-        myconf+=( -DBUILD_SHARED_LIBS=ON VN_MSVC_RUNTIME_STATIC=OFF ) || \
-        myconf+=( -DBUILD_SHARED_LIBS=OFF VN_MSVC_RUNTIME_STATIC=ON )
+        myconf+=( -DBUILD_SHARED_LIBS=ON ) || \
+        myconf+=( -DBUILD_SHARED_LIBS=OFF )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
