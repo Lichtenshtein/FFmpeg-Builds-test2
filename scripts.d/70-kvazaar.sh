@@ -16,17 +16,17 @@ ffbuild_dockerbuild() {
     set -e
 
     # Вырезаем блок FetchContent и подмены путей для Crypto++
-    sed -i '/if (USE_CRYPTO)/,/endif ()/c\
+    sed -i '/if (USE_CRYPTO)/,/endif[[:space:]]*()/c\
 if (USE_CRYPTO)\
     add_definitions(-DKVZ_SEL_ENCRYPTION)\
-    list(APPEND LIB_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/extras/crypto.cpp)\
-    list(APPEND CLI_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/extras/crypto.cpp)\
+    list(APPEND LIB_SOURCES src/extras/crypto.cpp)\
+    list(APPEND CLI_SOURCES src/extras/crypto.cpp)\
+    include_directories('"$FFBUILD_PREFIX"'/include)\
+    link_directories('"$FFBUILD_PREFIX"'/lib)\
     link_libraries(cryptopp)\
 endif ()' CMakeLists.txt
 
     mkdir -p build && cd build
-
-    ln -sf "$FFBUILD_PREFIX/lib/libcryptopp.a" build/lib/libcryptopp.a
 
     local myconf=(
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
