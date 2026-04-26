@@ -17,12 +17,8 @@ ffbuild_dockerbuild() {
 
     export SKIP_POST_STRIP=1
 
-    # ФИКС ВЕРСИИ (если нет .git)
-    # x264 использует скрипт version.sh. Если он не находит git, 
-    # мы создадим файл version.gen вручную.
     if [[ ! -d ".git" ]]; then
         log_info "Creating x264 version metadata manually..."
-        # 164 — примерное число коммитов для данного хеша
         echo "#define X264_REV 3108" > x264_config.h
         echo "#define X264_REV_DIFF 0" >> x264_config.h
         echo "#define X264_VERSION \" r3108 0480cb0\"" >> x264_config.h
@@ -47,7 +43,7 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-static )
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    # Явно указываем инструменты для стабильности
+    # СЏРІРЅРѕ СѓРєР°Р·С‹РІР°РµРј РёРЅСЃС‚СЂСѓРјРµРЅС‚С‹ РґР»В¤ СЃС‚Р°Р±РёР»СЊРЅРѕСЃС‚Рё
     export AS="nasm"
     export CC="${FFBUILD_CROSS_PREFIX}gcc"
 
@@ -55,7 +51,7 @@ ffbuild_dockerbuild() {
         --extra-cflags="$CFLAGS $CPPFLAGS" \
         --extra-ldflags="$LDFLAGS" || return 1
 
-    # если в config.log написано "asm: no", значит nasm не подцепился
+    # РµСЃР»Рё РІ config.log РЅР°РїРёСЃР°РЅРѕ "asm: no", Р·РЅР°С‡РёС‚ nasm РЅРµ РїРѕРґС†РµРїРёР»СЃВ¤
     if grep -q "asm: no" config.log; then
         log_error "x264 configured WITHOUT assembly! Check config.log."
         return 1

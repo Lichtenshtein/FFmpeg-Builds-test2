@@ -29,8 +29,9 @@ ffbuild_dockerbuild() {
     sed -i 's/CFLAGS="-O4 -ffast-math $CFLAGS"/CFLAGS="$CFLAGS"/g' configure
     sed -i 's/ASFLAGS="$ASFLAGS -f win32 -m amd64 -DPREFIX"/ASFLAGS="$ASFLAGS -f win64 -DPIC"/g' configure
 
-    sed -i 's/%define PIC 0/%define PIC 1/g' common/i386/i386inc.asm
-    sed -i '1i %define ARCH_X86_64 1' common/i386/i386inc.asm
+    sed -i '/xavs_mc_mmxext_init/d' common/mc.c
+    sed -i '/xavs_mc_sse2_init/d' common/mc.c
+    sed -i '/xavs_mc_altivec_init/d' common/mc.c
 
     mkdir -p common/i386
     cat <<EOF > common/i386/mc.h
@@ -51,34 +52,16 @@ EOF
         --host="$FFBUILD_TOOLCHAIN"
         --cross-prefix="$FFBUILD_CROSS_PREFIX"
         --prefix="$FFBUILD_PREFIX"
-        --enable-asm
+        --disable-asm
         --enable-pthread
         --enable-pic
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && myconf+=( --enable-shared )
 
-    export AS="nasm"
-    export EXTRA_ASFLAGS="-I./common/i386/ -f win64 -DPIC"
-
-    sed -i 's/-f win32 -m amd64 -DPREFIX/-f win64/g' configure
-    sed -i 's/AS="yasm"/AS="nasm"/g' configure
-    sed -i 's/win32/win64/g' configure
-    sed -i 's/-m amd64//g' configure
-
     ./configure "${myconf[@]}" \
         --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO} -fno-strict-aliasing -fcommon -Wno-error -Wno-maybe-uninitialized -Wno-array-bounds -fno-stack-protector -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-incompatible-pointer-types" \
-        --extra-asflags="$EXTRA_ASFLAGS" \
         --extra-ldflags="$LDFLAGS ${NOLTO}" || return 1
-
-    if [ -f config.mak ]; then
-        log_info "Verifying config.mak content..."
-        sed -i 's/-m amd64//g' config.mak
-        sed -i 's/-f win32/-f win64/g' config.mak
-        cat config.mak
-    else
-        log_warn "config.mak not found, skipping verification"
-    fi
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
