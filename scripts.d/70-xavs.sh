@@ -20,24 +20,22 @@ ffbuild_dockerbuild() {
     # Исправляем configure, чтобы он не игнорировал внешние CFLAGS (частая беда xavs)
     sed -i 's/CFLAGS="$CFLAGS -Wall/CFLAGS="$CFLAGS -Wall $EXTRA_CFLAGS/' configure
 
-    # убираем конфликтующее определение pthread_num_processors_np
-    sed -i 's/static int pthread_num_processors_np/static inline int pthread_num_processors_np_xavs/g' common/common.h
-
-    # Принудительно раскомментируем и исправляем инклюд для архитектуры x86
     sed -i 's/\/\*#ifdef HAVE_MMXEXT/#ifdef HAVE_MMXEXT/g' common/mc.c
     sed -i 's/#include "i386\/mc.h"/#include "i386\/mc.h"/g' common/mc.c
     sed -i 's/#endif\*\/ /#endif/g' common/mc.c
+    if [ -f common/i386/dct.h ]; then
+        sed -i 's/int16_t \*tmp//g' common/i386/dct.h
+        sed -i 's/, )/)/g' common/i386/dct.h
+    fi
 
     mkdir -p common/i386
     cat <<EOF > common/i386/mc.h
 #ifndef XAVS_I386_MC_H
 #define XAVS_I386_MC_H
-#include "common.h"
-
+#include "../common.h"
 void xavs_mc_chroma_mmxext(uint8_t *src, int i_src_stride, uint8_t *dst, int i_dst_stride, int d8x, int d8y, int i_width, int i_height);
 void xavs_mc_mmxext_init(xavs_mc_functions_t *pf);
 void xavs_mc_sse2_init(xavs_mc_functions_t *pf);
-
 #endif
 EOF
 
@@ -59,7 +57,7 @@ EOF
     fi
 
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO} -Wno-error=implicit-function-declaration  -Wno-unused-const-variable -Wno-unused-function -fcommon" \
+        --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO} -Wno-error=implicit-function-declaration  -Wno-unused-const-variable -Wno-unused-function -Wno-error=incompatible-pointer-types -fcommon" \
         --extra-ldflags="$LDFLAGS ${NOLTO}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
