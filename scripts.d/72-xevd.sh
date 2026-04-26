@@ -35,6 +35,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         # added by patch
         -DXEVD_BUILD_APP=OFF
+        -DXEVD_INSTALL=ON
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
@@ -44,6 +45,9 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    # cp -v src_main/libxevd.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/" || true
+    # cp -v src_main/xevd.pc "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/" || true
 }
 
 ffbuild_configure() {
