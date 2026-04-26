@@ -1,0 +1,81 @@
+From 8511f1d73f52c6ba0b9ef8b1dce85a17b2d686dd Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sun, 26 Apr 2026 08:00:05 +0300
+Subject: [PATCH] fix potential segfault
+
+---
+ source/common/param.cpp |  31 +++++++-----
+
+diff --git a/source/common/param.cpp b/source/common/param.cpp
+index c09214d37..51b422eec 100755
+--- a/source/common/param.cpp
++++ b/source/common/param.cpp
+@@ -3236,48 +3236,53 @@ int svt_param_parse(x265_param* param, const char* name, const char* value)
+     OPT2("pools", "numa-pools")
+     {
+         char *pools = strdup(value);
+-        char *temp1, *temp2;
++        char *temp1 = NULL, *temp2 = NULL;
+         int count = 0;
+ 
+-        for (temp1 = strstr(pools, ","); temp1 != NULL; temp1 = strstr(temp2, ","))
++        for (char *p = strstr(pools, ","); p != NULL; p = strstr(temp2, ","))
+         {
+-            temp2 = ++temp1;
++            temp2 = ++p;
+             count++;
+         }
+ 
+         if (count > 1)
++        {
+             x265_log(param, X265_LOG_WARNING, "SVT-HEVC Encoder supports pools option only upto 2 sockets \n");
++        }
+         else if (count == 1)
+         {
+             temp1 = strtok(pools, ",");
+             temp2 = strtok(NULL, ",");
+ 
+-            if (!strcmp(temp1, "+"))
++            if (temp1 && !strcmp(temp1, "+"))
+             {
+-                if (!strcmp(temp2, "+")) svtHevcParam->targetSocket = -1;
+-                else if (!strcmp(temp2, "-")) svtHevcParam->targetSocket = 0;
++                if (temp2 && !strcmp(temp2, "+")) svtHevcParam->targetSocket = -1;
++                else if (temp2 && !strcmp(temp2, "-")) svtHevcParam->targetSocket = 0;
+                 else svtHevcParam->targetSocket = -1;
+             }
+-            else if (!strcmp(temp1, "-"))
++            else if (temp1 && !strcmp(temp1, "-"))
+             {
+-                if (!strcmp(temp2, "+")) svtHevcParam->targetSocket = 1;
+-                else if (!strcmp(temp2, "-")) x265_log(param, X265_LOG_ERROR, "Shouldn't exclude both sockets for pools option %s \n", pools);
+-                else if (!strcmp(temp2, "*")) svtHevcParam->targetSocket = 1;
++                if (temp2 && !strcmp(temp2, "+")) svtHevcParam->targetSocket = 1;
++                else if (temp2 && !strcmp(temp2, "-")) x265_log(param, X265_LOG_ERROR, "Shouldn't exclude both sockets for pools option %s \n", pools);
++                else if (temp2 && !strcmp(temp2, "*")) svtHevcParam->targetSocket = 1;
+                 else
+                 {
+                     svtHevcParam->targetSocket = 1;
+-                    svtHevcParam->logicalProcessors = atoi(temp2);
++                    if (temp2) svtHevcParam->logicalProcessors = atoi(temp2);
+                 }
+             }
+             else svtHevcParam->targetSocket = -1;
+         }
+         else
+         {
+-            if (!strcmp(temp1, "*")) svtHevcParam->targetSocket = -1;
++            if (!strcmp(pools, "*")) 
++            {
++                svtHevcParam->targetSocket = -1;
++            }
+             else
+             {
+                 svtHevcParam->targetSocket = 0;
+-                svtHevcParam->logicalProcessors = atoi(temp1);
++                svtHevcParam->logicalProcessors = atoi(pools);
+             }
+         }
+         free(pools);
+-- 
+2.52.0.windows.1
