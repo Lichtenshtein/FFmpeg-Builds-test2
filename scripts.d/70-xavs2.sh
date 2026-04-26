@@ -40,7 +40,7 @@ ffbuild_dockerbuild() {
         --disable-cli
         --enable-pic
         --enable-strip
-        --bit-depth=10
+        --bit-depth=8
         --chroma-format=all
         --disable-avs
         --disable-swscale
