@@ -18,10 +18,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    cd build/${STAGENAME}/xvidcore/build/generic
+    cd xvidcore/build/generic
 
     # The original code fails on a two-digit major...
-    sed -i 's/GCC_MAJOR=.*/GCC_MAJOR=14/' configure.in
+    sed -i 's/GCC_MAJOR=.*/GCC_MAJOR=4/' configure.in
     sed -i 's/GCC_MINOR=.*/GCC_MINOR=0/' configure.in
 
     ./bootstrap.sh
@@ -38,19 +38,28 @@ ffbuild_dockerbuild() {
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
-        myconf+=( --disable-static --enable-shared ) || \
-        myconf+=( --enable-static --disable-shared )
+        myconf+=( --enable-shared ) || \
+        myconf+=( --enable-static )
 
     # Xvid падает с LTO
-    CFLAGS="$CFLAGS ${NOLTO} -std=gnu99 -fcommon" \
+    CFLAGS="$CFLAGS ${NOLTO} -fcommon" \
     CPPFLAGS="$CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS ${NOLTO}" \
     LDFLAGS="$LDFLAGS ${NOLTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
+    # У Xvid есть баг: он может пытаться собрать .so даже для Windows
+    # Исправим Makefile, если он решит собирать разделяемую библиотеку при статике
+    [[ "${PREFER_SHARED}" != "1" ]] && sed -i 's/SHARED_LIB =.*/SHARED_LIB =/' Makefile
+
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+
+    if [[ -d "$FFBUILD_DESTPREFIX/lib64" ]]; then
+        mv "$FFBUILD_DESTPREFIX/lib64"/* "$FFBUILD_DESTPREFIX/lib/"
+        rmdir "$FFBUILD_DESTPREFIX/lib64"
+    fi
 }
 
 ffbuild_configure() {
