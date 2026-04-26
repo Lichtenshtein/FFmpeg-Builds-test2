@@ -20,6 +20,8 @@ ffbuild_dockerbuild() {
 
     export SKIP_POST_STRIP=1
 
+    find source -name "*.c" -exec sed -i 's/#define __int64 int64_t/\/\/ #define __int64 int64_t/g' {} +
+
     cd /build/${STAGENAME}/build/linux
 
     # Фикс для современных компиляторов (json11)
@@ -31,6 +33,9 @@ ffbuild_dockerbuild() {
     sed -i -e 's/EGIB/bss/g' -e 's/naidnePF/bss/g' configure
 
     sed -i 's/HIGH_BIT_DEPTH=NO/HIGH_BIT_DEPTH=YES/g' configure || true
+    sed -i 's/high_bit_depth="no"/high_bit_depth="yes"/g' configure
+    sed -i '/BitDepth $bit_depth not supported currently./d' configure
+    sed -i '/exit 1/ { N; /BitDepth/d }' configure
 
     local myconf=(
         --disable-cli
@@ -60,7 +65,7 @@ ffbuild_dockerbuild() {
     fi
 
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $CPPFLAGS" \
+        --extra-cflags="$CFLAGS $CPPFLAGS -Wno-tautological-compare -Wno-discarded-qualifiers -Wno-array-parameter -Wno-missing-braces" \
         --extra-ldflags="$LDFLAGS" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
