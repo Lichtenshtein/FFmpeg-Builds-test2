@@ -1,15 +1,15 @@
-From 6d1e01f540c6850eb34a217f50f2c15ddad5381a Mon Sep 17 00:00:00 2001
+From a9daa274adec2ad9644c90d69f54d5ab1f03c6b4 Mon Sep 17 00:00:00 2001
 From: Lichtenshtein <altruumann@protonmail.com>
-Date: Sun, 26 Apr 2026 21:05:23 +0300
+Date: Sun, 26 Apr 2026 21:11:54 +0300
 Subject: [PATCH] fix dynamic lib installation
 
 ---
- src_base/CMakeLists.txt | 126 ++++++++-----------------------
- src_main/CMakeLists.txt | 161 +++++++++-------------------------------
- 2 files changed, 67 insertions(+), 220 deletions(-)
+ src_base/CMakeLists.txt | 121 ++++++++++---------------------
+ src_main/CMakeLists.txt | 155 +++++++++++-----------------------------
+ 2 files changed, 78 insertions(+), 198 deletions(-)
 
 diff --git a/src_base/CMakeLists.txt b/src_base/CMakeLists.txt
-index 8683f40..2018b16 100644
+index 244740d..2018b16 100644
 --- a/src_base/CMakeLists.txt
 +++ b/src_base/CMakeLists.txt
 @@ -1,4 +1,4 @@
@@ -18,7 +18,7 @@ index 8683f40..2018b16 100644
  
  file (GLOB XEVD_INC "../inc/*.h")
  file (GLOB LIB_API_SRC "xevd.c")
-@@ -6,142 +6,78 @@ file (GLOB LIB_BASE_SRC "xevd_*.c")
+@@ -6,125 +6,78 @@ file (GLOB LIB_BASE_SRC "xevd_*.c")
  file (GLOB LIB_BASE_INC "xevd_*.h" )
  file (GLOB LIB_SSE_SRC "sse/xevd_*.c")
  file (GLOB LIB_SSE_INC "sse/xevd_*.h" )
@@ -34,18 +34,10 @@ index 8683f40..2018b16 100644
  
 -add_library(${LIB_NAME_BASE} STATIC ${LIB_API_SRC} ${XEVD_INC} ${LIB_BASE_SRC} ${LIB_BASE_INC})
 +set(BASE_SOURCES ${LIB_API_SRC} ${XEVD_INC} ${LIB_BASE_SRC} ${LIB_BASE_INC})
- 
--add_library(${LIB_NAME}_shared SHARED
--        ${LIB_API_MAIN_SRC}
--        ${XEVD_INC}
--        ${LIB_BASE_SRC}
--        ${LIB_BASE_INC}
--        ${LIB_MAIN_SRC}
--        ${LIB_MAIN_INC})
++
 +add_library(${LIB_NAME_BASE} STATIC ${BASE_SOURCES})
 +add_library(${LIB_NAME_BASE}_shared SHARED ${BASE_SOURCES})
- 
--set_target_properties(${LIB_NAME}_shared PROPERTIES OUTPUT_NAME ${LIB_NAME})
++
 +set_target_properties(${LIB_NAME_BASE} PROPERTIES OUTPUT_NAME ${LIB_NAME_BASE})
 +set_target_properties(${LIB_NAME_BASE}_shared PROPERTIES OUTPUT_NAME ${LIB_NAME_BASE})
  
@@ -106,13 +98,13 @@ index 8683f40..2018b16 100644
 -set( SSE ${BASE_INC_FILES} ${LIB_SSE_SRC})
 -set( AVX ${LIB_AVX_SRC} )
 -set( NEON ${LIB_NEON_SRC})
--
--
--if( MSVC )
--    target_compile_definitions( ${LIB_NAME_BASE} PUBLIC ANY _CRT_SECURE_NO_WARNINGS )
 +target_include_directories(${LIB_NAME_BASE} PUBLIC ${BASE_INCLUDE_DIRS})
 +target_include_directories(${LIB_NAME_BASE}_shared PUBLIC ${BASE_INCLUDE_DIRS})
  
+-
+-if( MSVC )
+-    target_compile_definitions( ${LIB_NAME_BASE} PUBLIC ANY _CRT_SECURE_NO_WARNINGS )
+-
 -    # Since both the import library associated with DLL and the static library have the same names
 -    # they must be build in different locations to avoid overwriting.
 -    #
@@ -150,21 +142,18 @@ index 8683f40..2018b16 100644
  
 -    # Install library and public headers
 -    install(TARGETS ${LIB_NAME_BASE}
--            EXPORT XEVDTargets
++    set_target_properties(${LIB_NAME_BASE} PROPERTIES PUBLIC_HEADER "${XEVD_INC}")
++
++    install(TARGETS ${LIB_NAME_BASE} ${LIB_NAME_BASE}_shared
+             EXPORT XEVDTargets
 -            ARCHIVE COMPONENT Development DESTINATION ${CMAKE_INSTALL_LIBDIR}
 -            LIBRARY COMPONENT Libraries DESTINATION ${CMAKE_INSTALL_LIBDIR}
 -            RUNTIME COMPONENT Libraries DESTINATION ${CMAKE_INSTALL_BINDIR}
 -            PUBLIC_HEADER COMPONENT Development DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 -            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
--    )
-+    set_target_properties(${LIB_NAME_BASE} PROPERTIES PUBLIC_HEADER "${XEVD_INC}")
- 
--    install(TARGETS ${LIB_NAME} ${LIB_NAME}_shared
-+    install(TARGETS ${LIB_NAME_BASE} ${LIB_NAME_BASE}_shared
-             EXPORT XEVDTargets
-             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
++            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
++            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
++            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 +            PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
      )
  
@@ -192,7 +181,7 @@ index 8683f40..2018b16 100644
 +            DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/XEVD)
  endif ()
 diff --git a/src_main/CMakeLists.txt b/src_main/CMakeLists.txt
-index d37582c..f905493 100644
+index 4decfca..20f5aaf 100644
 --- a/src_main/CMakeLists.txt
 +++ b/src_main/CMakeLists.txt
 @@ -1,4 +1,4 @@
@@ -201,7 +190,7 @@ index d37582c..f905493 100644
  
  file (GLOB XEVD_INC "../inc/*.h")
  file (GLOB LIB_BASE_SRC "../src_base/xevd_*.c")
-@@ -22,158 +22,69 @@ file (GLOB LIB_MAIN_NEON_INC "./neon/xevdm_*.h" )
+@@ -22,142 +22,69 @@ file (GLOB LIB_MAIN_NEON_INC "./neon/xevdm_*.h" )
  include(GenerateExportHeader)
  include_directories("${CMAKE_CURRENT_BINARY_DIR}")
  
@@ -212,18 +201,8 @@ index d37582c..f905493 100644
 -        ${LIB_BASE_INC}
 -        ${LIB_MAIN_SRC}
 -        ${LIB_MAIN_INC})
--
--add_library(${LIB_NAME}_shared SHARED
--        ${LIB_API_MAIN_SRC}
--        ${XEVD_INC}
--        ${LIB_BASE_SRC}
--        ${LIB_BASE_INC}
--        ${LIB_MAIN_SRC}
--        ${LIB_MAIN_INC})
 +set(ALL_SOURCES ${LIB_API_MAIN_SRC} ${XEVD_INC} ${LIB_BASE_SRC} ${LIB_BASE_INC} ${LIB_MAIN_SRC} ${LIB_MAIN_INC})
  
--set_target_properties(${LIB_NAME}_shared PROPERTIES OUTPUT_NAME ${LIB_NAME})
--
 -add_library(XEVD::${LIB_NAME} ALIAS ${LIB_NAME})
 +add_library(${LIB_NAME} STATIC ${ALL_SOURCES})
 +add_library(${LIB_NAME}_shared SHARED ${ALL_SOURCES})
@@ -253,6 +232,7 @@ index d37582c..f905493 100644
 -            -msse4.2
 -            -mavx
 -            -mavx2
+-            -mavx512f
 -            -fno-tree-vectorize
 -    )
 -endif ()
@@ -293,11 +273,11 @@ index d37582c..f905493 100644
  
 -set( SSE ${BASE_INC_FILES} ${LIB_SSE_SRC} ${LIB_MAIN_SSE_SRC})
 -set( AVX ${LIB_AVX_SRC} ${LIB_MAIN_AVX_SRC})
--
--set_target_properties(${LIB_NAME} PROPERTIES OUTPUT_NAME ${LIB_NAME})
 +target_sources(${LIB_NAME} PRIVATE ${SIMD_SOURCES})
 +target_sources(${LIB_NAME}_shared PRIVATE ${SIMD_SOURCES})
  
+-set_target_properties(${LIB_NAME} PROPERTIES OUTPUT_NAME ${LIB_NAME})
+-
 -if( MSVC )
 -    target_compile_definitions( ${LIB_NAME} PUBLIC ANY _CRT_SECURE_NO_WARNINGS )
 +set(XEVD_INCLUDE_DIRS
@@ -354,20 +334,18 @@ index d37582c..f905493 100644
  
 -    # Install library and public headers
 -    install(TARGETS ${LIB_NAME}
--            EXPORT XEVDTargets
++    set_target_properties(${LIB_NAME} PROPERTIES PUBLIC_HEADER "${XEVD_INC}")
++
++    install(TARGETS ${LIB_NAME} ${LIB_NAME}_shared
+             EXPORT XEVDTargets
 -            ARCHIVE COMPONENT Development DESTINATION ${CMAKE_INSTALL_LIBDIR}
 -            LIBRARY COMPONENT Libraries DESTINATION ${CMAKE_INSTALL_LIBDIR}
 -            RUNTIME COMPONENT Libraries DESTINATION ${CMAKE_INSTALL_BINDIR}
 -            PUBLIC_HEADER COMPONENT Development DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 -            INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
--    )
-+    set_target_properties(${LIB_NAME} PROPERTIES PUBLIC_HEADER "${XEVD_INC}")
- 
-     install(TARGETS ${LIB_NAME} ${LIB_NAME}_shared
-             EXPORT XEVDTargets
-             ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-             LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-             RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
++            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
++            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
++            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 +            PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
      )
  
@@ -395,7 +373,6 @@ index d37582c..f905493 100644
 -endif ()
 +            DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/XEVD)
 +endif()
-\ No newline at end of file
 -- 
 2.52.0.windows.1
 
