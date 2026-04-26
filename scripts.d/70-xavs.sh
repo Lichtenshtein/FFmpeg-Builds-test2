@@ -20,6 +20,27 @@ ffbuild_dockerbuild() {
     # Исправляем configure, чтобы он не игнорировал внешние CFLAGS (частая беда xavs)
     sed -i 's/CFLAGS="$CFLAGS -Wall/CFLAGS="$CFLAGS -Wall $EXTRA_CFLAGS/' configure
 
+    # убираем конфликтующее определение pthread_num_processors_np
+    sed -i 's/static int pthread_num_processors_np/static inline int pthread_num_processors_np_xavs/g' common/common.h
+
+    # Принудительно раскомментируем и исправляем инклюд для архитектуры x86
+    sed -i 's/\/\*#ifdef HAVE_MMXEXT/#ifdef HAVE_MMXEXT/g' common/mc.c
+    sed -i 's/#include "i386\/mc.h"/#include "i386\/mc.h"/g' common/mc.c
+    sed -i 's/#endif\*\/ /#endif/g' common/mc.c
+
+    mkdir -p common/i386
+    cat <<EOF > common/i386/mc.h
+#ifndef XAVS_I386_MC_H
+#define XAVS_I386_MC_H
+#include "common.h"
+
+void xavs_mc_chroma_mmxext(uint8_t *src, int i_src_stride, uint8_t *dst, int i_dst_stride, int d8x, int d8y, int i_width, int i_height);
+void xavs_mc_mmxext_init(xavs_mc_functions_t *pf);
+void xavs_mc_sse2_init(xavs_mc_functions_t *pf);
+
+#endif
+EOF
+
     local myconf=(
         --host="$FFBUILD_TOOLCHAIN"
         --cross-prefix="$FFBUILD_CROSS_PREFIX"
@@ -29,9 +50,7 @@ ffbuild_dockerbuild() {
         --enable-pic
     )
 
-    [[ "${PREFER_SHARED}" == "1" ]] && \
-        myconf+=( --enable-shared ) || \
-        myconf+=( --enable-static )
+    [[ "${PREFER_SHARED}" == "1" ]] && myconf+=( --enable-shared )
 
     if [[ $TARGET == win* ]]; then
         export CC="${FFBUILD_CROSS_PREFIX}gcc"
@@ -39,10 +58,9 @@ ffbuild_dockerbuild() {
         export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
     fi
 
-    # may need NOLTO
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $CPPFLAGS ${USELTO}" \
-        --extra-ldflags="$LDFLAGS ${USELTO}" || return 1
+        --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO} -Wno-error=implicit-function-declaration  -Wno-unused-const-variable -Wno-unused-function -fcommon" \
+        --extra-ldflags="$LDFLAGS ${NOLTO}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
