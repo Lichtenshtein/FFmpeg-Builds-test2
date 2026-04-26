@@ -43,8 +43,6 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
-
-    mv "$FFBUILD_DESTPREFIX"/lib/xeve/libxeve.a "$FFBUILD_DESTPREFIX"/lib
 }
 
 ffbuild_configure() {
