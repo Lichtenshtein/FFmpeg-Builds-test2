@@ -28,6 +28,7 @@ ffbuild_dockerbuild() {
         -DCOMPILE_10BIT=1
         -DCOMPILE_FFMPEG=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
