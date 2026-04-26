@@ -25,7 +25,7 @@ index 66665d3..7523044 100644
  # MMX/SSE optims
  ifneq ($(AS),)
  # asm --------------------------------------------------------------
-@@ -68,25 +78,19 @@ endif
+@@ -68,24 +78,18 @@ endif
  ## Until now, we do not have 64-bit asm
  ifeq ($(SYS_ARCH),X86_64)
  ARCH_X86 = yes
@@ -48,7 +48,6 @@ index 66665d3..7523044 100644
  		  common/vec/intrinsic_pixel_avx.cc \
 -		  common/vec/intrinsic_idct_avx2.cc
 +		  common/vec/intrinsic_idct_avx2.cc \
-+		  common/vec/intrinsic_alf_avx2.cc
  
  CFLAGS += -mmmx -msse -msse2 -msse3 -msse4 -msse4.1 -msse4.2 -msse4a -mssse3 -mavx
 +CFLAGS += -fpermissive
@@ -5596,32 +5595,6 @@ index ac90f74..b5ed726 100755
  interlaced:    $interlaced
  gpl:           $gpl
  thread:        $thread
-diff --git a/build/vs2013/libdavs2_intrin_avx.vcxproj b/build/vs2013/libdavs2_intrin_avx.vcxproj
-index 9913909..4f6c467 100644
---- a/build/vs2013/libdavs2_intrin_avx.vcxproj
-+++ b/build/vs2013/libdavs2_intrin_avx.vcxproj
-@@ -19,7 +19,7 @@
-     </ProjectConfiguration>
-   </ItemGroup>
-   <ItemGroup>
--    <ClCompile Include="..\..\source\common\vec\intrinsic_alf_avx2.c" />
-+    <ClCompile Include="..\..\source\common\vec\intrinsic_alf_avx2.cc" />
-     <ClCompile Include="..\..\source\common\vec\intrinsic_deblock_avx2.cc" />
-     <ClCompile Include="..\..\source\common\vec\intrinsic_idct_avx2.cc" />
-     <ClCompile Include="..\..\source\common\vec\intrinsic_inter_pred_avx2.cc" />
-diff --git a/build/vs2013/libdavs2_intrin_avx.vcxproj.filters b/build/vs2013/libdavs2_intrin_avx.vcxproj.filters
-index e7ad592..1e814df 100644
---- a/build/vs2013/libdavs2_intrin_avx.vcxproj.filters
-+++ b/build/vs2013/libdavs2_intrin_avx.vcxproj.filters
-@@ -25,7 +25,7 @@
-     <ClCompile Include="..\..\source\common\vec\intrinsic_pixel_avx.cc">
-       <Filter>vec</Filter>
-     </ClCompile>
--    <ClCompile Include="..\..\source\common\vec\intrinsic_alf_avx2.c">
-+    <ClCompile Include="..\..\source\common\vec\intrinsic_alf_avx2.cc">
-       <Filter>vec</Filter>
-     </ClCompile>
-   </ItemGroup>
 diff --git a/source/common/alf.cc b/source/common/alf.cc
 index 30e30f0..da3d097 100644
 --- a/source/common/alf.cc
@@ -6220,13 +6193,10 @@ index 5089167..c73d2b8 100644
  
  
              SS1 = _mm_adds_epi16(SS1, mAddOffset);
-diff --git a/source/common/vec/intrinsic_alf_avx2.c b/source/common/vec/intrinsic_alf_avx2.cc
-similarity index 99%
-rename from source/common/vec/intrinsic_alf_avx2.c
-rename to source/common/vec/intrinsic_alf_avx2.cc
+diff --git a/source/common/vec/intrinsic_alf_avx2.c b/source/common/vec/intrinsic_alf_avx2.c
 index 3c50ea1..8c8cfb3 100644
 --- a/source/common/vec/intrinsic_alf_avx2.c
-+++ b/source/common/vec/intrinsic_alf_avx2.cc
++++ b/source/common/vec/intrinsic_alf_avx2.c
 @@ -52,7 +52,7 @@ void alf_filter_block_avx2_10bit(pel_t* p_dst, const pel_t* p_src, int stride,
      int lcu_pix_x, int lcu_pix_y, int lcu_width, int lcu_height,
      int* alf_coeff, int b_top_avail, int b_down_avail)
