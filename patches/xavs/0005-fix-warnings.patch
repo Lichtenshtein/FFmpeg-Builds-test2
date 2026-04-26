@@ -1,0 +1,94 @@
+From e6e83829b5fb5a85d548e07f97648730d7a46f8a Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sun, 26 Apr 2026 10:22:01 +0300
+Subject: [PATCH] fix warnings
+
+---
+ common/dct.c | 23 +++++++++++------------
+ 1 file changed, 11 insertions(+), 12 deletions(-)
+
+diff --git a/common/dct.c b/common/dct.c
+index a3f99ff..48cd19a 100644
+--- a/common/dct.c
++++ b/common/dct.c
+@@ -293,11 +293,9 @@ void xavs_dct_init (int cpu, xavs_dct_function_t * dctf)
+       dctf->sub16x16_dct8 = sub16x16_dct8;
+       dctf->add16x16_idct8 = add16x16_idct8;
+ 
+-
+ #ifdef HAVE_MMXEXT
+       if (cpu & XAVS_CPU_MMX)
+       {
+-
+ #ifndef ARCH_X86_64
+ /*
+         dctf->sub8x8_dct8 = xavs_sub8x8_dct8_mmx;
+@@ -310,17 +308,18 @@ void xavs_dct_init (int cpu, xavs_dct_function_t * dctf)
+       }
+       if (cpu & XAVS_CPU_SSE2)
+       {
+-        dctf->sub8x8_dct8 = xavs_sub8x8_dct8_sse2;
+-        dctf->sub16x16_dct8 = xavs_sub16x16_dct8_sse2;
+-        dctf->add8x8_idct8 = xavs_add8x8_idct8_sse2;
+-        dctf->add16x16_idct8 = xavs_add16x16_idct8_sse2;
++        // Приведение типов для устранения ошибки incompatible-pointer-types
++        dctf->sub8x8_dct8 = (void (*)(int16_t (*)[8], uint8_t *, uint8_t *))xavs_sub8x8_dct8_sse2;
++        dctf->sub16x16_dct8 = (void (*)(int16_t (*)[8][8], uint8_t *, uint8_t *))xavs_sub16x16_dct8_sse2;
++        dctf->add8x8_idct8 = (void (*)(uint8_t *, int16_t (*)[8]))xavs_add8x8_idct8_sse2;
++        dctf->add16x16_idct8 = (void (*)(uint8_t *, int16_t (*)[8][8]))xavs_add16x16_idct8_sse2;
+       }
+ 
+ #ifdef HAVE_SSE3      
+       if (cpu & XAVS_CPU_SSSE3)
+       {
+-        dctf->sub8x8_dct8 = xavs_sub8x8_dct8_ssse3;
+-        dctf->sub16x16_dct8 = xavs_sub16x16_dct8_ssse3;
++        dctf->sub8x8_dct8 = (void (*)(int16_t (*)[8], uint8_t *, uint8_t *))xavs_sub8x8_dct8_ssse3;
++        dctf->sub16x16_dct8 = (void (*)(int16_t (*)[8][8], uint8_t *, uint8_t *))xavs_sub16x16_dct8_ssse3;
+       }
+ #endif /*HAVE_SSE3*/
+ #endif
+@@ -328,11 +327,11 @@ void xavs_dct_init (int cpu, xavs_dct_function_t * dctf)
+ #if defined(HAVE_SSE2) && defined(ARCH_X86_64)
+       if (cpu & XAVS_CPU_SSE2)
+       {
+-        dctf->sub8x8_dct8 = xavs_sub8x8_dct8_sse2;
+-        dctf->sub16x16_dct8 = xavs_sub16x16_dct8_sse2;
++        dctf->sub8x8_dct8 = (void (*)(int16_t (*)[8], uint8_t *, uint8_t *))xavs_sub8x8_dct8_sse2;
++        dctf->sub16x16_dct8 = (void (*)(int16_t (*)[8][8], uint8_t *, uint8_t *))xavs_sub16x16_dct8_sse2;
+ 
+-        dctf->add8x8_idct8 = xavs_add8x8_idct8_sse2;
+-        dctf->add16x16_idct8 = xavs_add16x16_idct8_sse2;
++        dctf->add8x8_idct8 = (void (*)(uint8_t *, int16_t (*)[8]))xavs_add8x8_idct8_sse2;
++        dctf->add16x16_idct8 = (void (*)(uint8_t *, int16_t (*)[8][8]))xavs_add16x16_idct8_sse2;
+       }
+ #endif
+ }
+@@ -337,7 +337,7 @@ void xavs_dct_init (int cpu, xavs_dct_function_t * dctf)
+ }
+ 
+ // gcc pessimizes multi-dimensional arrays here, even with constant indices
+-#define ZIG(i,y,x) level[i] = dct[0][y*8+x];
++#define ZIG(i,y,x) level[i] = dct[y][x];
+ #define ZIGZAG8_FRAME\
+     ZIG( 0,0,0) ZIG( 1,0,1) ZIG( 2,1,0) ZIG( 3,2,0)\
+     ZIG( 4,1,1) ZIG( 5,0,2) ZIG( 6,0,3) ZIG( 7,1,2)\
+diff --git a/common/macroblock.c b/common/macroblock.c
+index 553b832..6618f2e 100644
+--- a/common/macroblock.c
++++ b/common/macroblock.c
+@@ -846,8 +846,9 @@ xavs_macroblock_slice_init (xavs_t * h, int i_slice_type)
+     for (i = 0; i < h->i_ref1; i++)
+       h->fdec->ref_poc[1][i] = h->fref1[i]->i_poc;
+ 
+-    h->mb.map_col_to_list0[-1] = -1;
+-    h->mb.map_col_to_list0[-2] = -2;
++    int *map_fix = h->mb.map_col_to_list0;
++    map_fix[-1] = -1;
++    map_fix[-2] = -2;
+     for (i = 0; i < h->fref1[0]->i_ref[0]; i++)
+     {
+       int poc = h->fref1[0]->ref_poc[0][i];
+-- 
+2.52.0.windows.1
+
