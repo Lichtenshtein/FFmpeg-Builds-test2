@@ -21,7 +21,7 @@ ffbuild_dockerbuild() {
     set -e
 
     # Проверяем, почему пропал .git (для логов отладки)
-    if [[ ! -d ".git" ]]; then
+    if [[ ! -d "/build/${STAGENAME}/.git" ]]; then
         log_debug ".git directory is MISSING in $(pwd). Preservation failed?"
         # Если .git нет, создаем файл версии, чтобы CMake не падал
         echo "3.5" > "x265_version.txt"
@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
     fi
 
     # Фикс заголовка json11
-    find "$X265_ROOT" -name "json11.cpp" -exec sed -i '1i#include <cstdint>' {} +
+    find . -name "json11.cpp" -exec sed -i '1i#include <cstdint>' {} +
 
     # Фикс совместимости x265 с SVT-HEVC 1.5.0+ (изменение EB_SEI_MESSAGE)
     # Заменяем аллокацию на memcpy (так как payload теперь массив)
