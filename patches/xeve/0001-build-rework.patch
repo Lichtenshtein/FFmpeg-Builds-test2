@@ -657,7 +657,7 @@ index 366a3c3..5b91428 100644
  file (GLOB ETM_INC "../inc/*.h")
  file (GLOB LIB_BASE_SRC "../src_base/xeve_*.c")
  file (GLOB LIB_BASE_INC "../src_base/xeve_*.h" )
-@@ -21,38 +17,38 @@ file (GLOB LIB_MAIN_AVX_SRC "./avx/xevem_*.c")
+@@ -21,38 +17,37 @@ file (GLOB LIB_MAIN_AVX_SRC "./avx/xevem_*.c")
  file (GLOB LIB_MAIN_AVX_INC "./avx/xevem_*.h" )
  
  include(GenerateExportHeader)
@@ -716,7 +716,6 @@ index 366a3c3..5b91428 100644
 +            -msse4.2
 +            -mavx
 +            -mavx2
-+            -mavx512f
 +            -fno-tree-vectorize
 +    )
 +endif ()
