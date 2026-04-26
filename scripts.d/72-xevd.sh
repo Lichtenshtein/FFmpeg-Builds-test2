@@ -23,6 +23,9 @@ ffbuild_dockerbuild() {
         echo v0.5.0 >> version.txt
     fi
 
+    find src_base -name "CMakeLists.txt" -exec sed -i 's|${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig/|${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/|g' {} +
+    find src_main -name "CMakeLists.txt" -exec sed -i 's|${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig/|${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/|g' {} +
+
     mkdir -p _build && cd _build
 
     local myconf=(
