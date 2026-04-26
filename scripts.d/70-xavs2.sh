@@ -1,11 +1,11 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/pkuvcl/xavs2.git"
-SCRIPT_COMMIT="eae1e8b9d12468059bdd7dee893508e470fa83d8"
+# SCRIPT_REPO="https://github.com/pkuvcl/xavs2.git"
+# SCRIPT_COMMIT="eae1e8b9d12468059bdd7dee893508e470fa83d8"
 
-ffbuild_depends() {
-    echo avisynth
-}
+SCRIPT_REPO="https://github.com/Jamaika1/xavs2.git"
+SCRIPT_COMMIT="0fdc646f3249bd4258ed52efcba520b0d38cd8d4"
+SCRIPT_BRANCH="patch-4"
 
 ffbuild_enabled() {
     [[ $VARIANT == lgpl* ]] && return 1
@@ -27,11 +27,15 @@ ffbuild_dockerbuild() {
     # Фикс для современных компиляторов (json11)
     # Ищем файл во всем дереве, так как путь может варьироваться
     find . -name "json11.cpp" -exec sed -i '1i#include <cstdint>' {} +
-
+    find . -name "api.cpp" -exec sed -i 's/payload = NULL;//g' {} +
     cd build/linux
 
     # Фикс проверки endianness
     sed -i -e 's/EGIB/bss/g' -e 's/naidnePF/bss/g' configure
+
+    sed -i 's/HIGH_BIT_DEPTH=NO/HIGH_BIT_DEPTH=YES/g' configure || true
+
+    cd build/linux
 
     local myconf=(
         --disable-cli
@@ -39,13 +43,13 @@ ffbuild_dockerbuild() {
         --enable-strip
         --bit-depth=10
         --chroma-format=all
-        # --disable-avs
+        --disable-avs
         --disable-swscale
         --disable-lavf
         --disable-ffms
         --disable-gpac
         --disable-lsmash
-        --extra-asflags="-w-macro-params-legacy"
+        --extra-asflags="-w-macro-params-legacy -DARCH_X86_64=1"
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
         --cross-prefix="$FFBUILD_CROSS_PREFIX"
