@@ -28,14 +28,13 @@ ffbuild_dockerbuild() {
     # Ищем файл во всем дереве, так как путь может варьироваться
     find . -name "json11.cpp" -exec sed -i '1i#include <cstdint>' {} +
     find . -name "api.cpp" -exec sed -i 's/payload = NULL;//g' {} +
-    cd build/linux
 
     # Фикс проверки endianness
     sed -i -e 's/EGIB/bss/g' -e 's/naidnePF/bss/g' configure
 
     sed -i 's/HIGH_BIT_DEPTH=NO/HIGH_BIT_DEPTH=YES/g' configure || true
 
-    cd build/linux
+    cd /build/${STAGENAME}/build/linux
 
     local myconf=(
         --disable-cli
