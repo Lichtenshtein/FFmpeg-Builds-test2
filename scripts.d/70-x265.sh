@@ -19,33 +19,37 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    # Определяем реальный корень исходников (там, где папка 'source')
-    if [[ -d "source" ]]; then
-        X265_ROOT="$PWD/source"
-    elif [[ -f "CMakeLists.txt" && "$PWD" == *"/source" ]]; then
-        X265_ROOT="$PWD"
-        cd ..
-    else
-        log_error "Could not find x265 source directory"
-        return 1
-    fi
+
+    local X265_ROOT="$PWD/source"
 
     # Проверяем, почему пропал .git (для логов отладки)
     if [[ ! -d ".git" ]]; then
-        log_warn "DEBUG: .git directory is MISSING in $(pwd). Preservation failed?"
+        log_debug ".git directory is MISSING in $(pwd). Preservation failed?"
         # Если .git нет, создаем файл версии, чтобы CMake не падал
         echo "3.5" > "$X265_ROOT/x265_version.txt"
+        # Полностью вырезаем блок определения версии в CMakeLists.txt, 
+        # который вызывает ошибку "list GET", если нет .git
+        sed -i '/if(X265_LATEST_TAG)/,/endif(X265_LATEST_TAG)/d' "$X265_ROOT/CMakeLists.txt"
+        sed -i 's/list(GET /#list(GET /g' "$X265_ROOT/CMakeLists.txt"
     else
-        log_info "DEBUG: .git directory found. Version should be detected automatically."
+        log_debug ".git directory found. Version should be detected automatically."
     fi
-
-    # Полностью вырезаем блок определения версии в CMakeLists.txt, 
-    # который вызывает ошибку "list GET", если нет .git
-    sed -i '/if(X265_LATEST_TAG)/,/endif(X265_LATEST_TAG)/d' "$X265_ROOT/CMakeLists.txt"
-    sed -i 's/list(GET /#list(GET /g' "$X265_ROOT/CMakeLists.txt"
 
     # Фикс заголовка json11
     find "$X265_ROOT" -name "json11.cpp" -exec sed -i '1i#include <cstdint>' {} +
+
+    # Фикс совместимости x265 с SVT-HEVC 1.5.0+ (изменение EB_SEI_MESSAGE)
+    # Заменяем аллокацию на memcpy (так как payload теперь массив)
+    sed -i 's/inputData->dolbyVisionRpu.payload = X265_MALLOC(uint8_t, 1024);/memset(inputData->dolbyVisionRpu.payload, 0, 1024);/g' "$X265_ROOT/encoder/api.cpp"
+
+    # Убираем попытки обнуления указателя (статический массив нельзя занулить)
+    sed -i 's/inputData->dolbyVisionRpu.payload = NULL;//g' "$X265_ROOT/encoder/api.cpp"
+
+    # Убираем X265_FREE, так как массив не нужно освобождать
+    sed -i 's/if (inputData->dolbyVisionRpu.payload) X265_FREE(inputData->dolbyVisionRpu.payload);//g' "$X265_ROOT/encoder/api.cpp"
+
+    # Дополнительно исправляем варнинг сравнения типов в threading.h (Win64)
+    sed -i 's/rt != WAIT_TIMEOUT \&\& rt != WAIT_FAILED/rt != (DWORD)WAIT_TIMEOUT \&\& rt != (DWORD)WAIT_FAILED/g' "$X265_ROOT/common/threading.h"
 
     local myconf=(
         -G Ninja
@@ -70,10 +74,12 @@ ffbuild_dockerbuild() {
         -DX265_VERSION="3.5"
         -Wno-dev
         # SVT_HEVC; see svthevc.rst file
-        -DENABLE_SVT_HEVC=OFF # use the --svt flag in the x265 CLI to use the SVT-HEVC engine instead of the standard x265 core
+        -DENABLE_SVT_HEVC=ON # use the --svt flag in the x265 CLI to use the SVT-HEVC engine instead of the standard x265 core
         -DSVT_HEVC_INCLUDE_DIR="$FFBUILD_PREFIX/include/svt-hevc"
         -DSVT_HEVC_LIBRARY="$FFBUILD_PREFIX/lib/libSvtHevcEnc.a"
         )
+
+    cd "$X265_ROOT"
 
     mkdir -p 8bit 10bit 12bit
 
