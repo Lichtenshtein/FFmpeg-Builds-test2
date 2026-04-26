@@ -20,6 +20,8 @@ ffbuild_dockerbuild() {
     # Исправляем configure, чтобы он не игнорировал внешние CFLAGS (частая беда xavs)
     sed -i 's/CFLAGS="$CFLAGS -Wall/CFLAGS="$CFLAGS -Wall $EXTRA_CFLAGS/' configure
 
+    sed -i 's/AS="nasm"/AS="nasm -f win64"/g' configure
+
     sed -i 's/\/\*#ifdef HAVE_MMXEXT/#ifdef HAVE_MMXEXT/g' common/mc.c
     sed -i 's/#include "i386\/mc.h"/#include "i386\/mc.h"/g' common/mc.c
     sed -i 's/#endif\*\/ /#endif/g' common/mc.c
@@ -47,13 +49,15 @@ EOF
     [[ "${PREFER_SHARED}" == "1" ]] && myconf+=( --enable-shared )
 
     if [[ $TARGET == win* ]]; then
+        export AS="nasm"
         export CC="${FFBUILD_CROSS_PREFIX}gcc"
         export AR="${FFBUILD_CROSS_PREFIX}ar"
         export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
+        export ASFLAGS="-f win64 -DARCH_X86_64=1"
     fi
 
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO} -Wno-error=implicit-function-declaration  -Wno-unused-const-variable -Wno-unused-function -Wno-error=incompatible-pointer-types -fcommon" \
+        --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO} -Wno-error=implicit-function-declaration -Wno-unused-const-variable -Wno-unused-function -Wno-error=incompatible-pointer-types -fno-strict-aliasing -Wno-array-bound -fcommon" \
         --extra-ldflags="$LDFLAGS ${NOLTO}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
