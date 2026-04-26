@@ -17,10 +17,15 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    sed -i 's/\/\*#ifdef HAVE_MMXEXT/#ifdef HAVE_MMXEXT/g' common/mc.c
-    sed -i 's/#include "i386\/mc.h"/#include "i386\/mc.h"/g' common/mc.c
-    sed -i 's/#endif\*\/ /#endif/g' common/mc.c
+    sed -i '/#include <stdio.h>/a #include "common/i386/mc.h"' common/mc.c
+
     sed -i 's/dct\[0\]\[y\*8+x\]/dct[y][x]/g' common/dct.c
+
+    sed -i 's/dctf->sub8x8_dct8 = xavs_sub8x8_dct8_sse2/dctf->sub8x8_dct8 = (void (*)(int16_t (*)[8], uint8_t *, uint8_t *))xavs_sub8x8_dct8_sse2/g' common/dct.c
+    sed -i 's/dctf->sub16x16_dct8 = xavs_sub16x16_dct8_sse2/dctf->sub16x16_dct8 = (void (*)(int16_t (*)[8][8], uint8_t *, uint8_t *))xavs_sub16x16_dct8_sse2/g' common/dct.c
+    sed -i 's/dctf->add8x8_idct8 = xavs_add8x8_idct8_sse2/dctf->add8x8_idct8 = (void (*)(uint8_t *, int16_t (*)[8]))xavs_add8x8_idct8_sse2/g' common/dct.c
+    sed -i 's/dctf->add16x16_idct8 = xavs_add16x16_idct8_sse2/dctf->add16x16_idct8 = (void (*)(uint8_t *, int16_t (*)[8][8]))xavs_add16x16_idct8_sse2/g' common/dct.c
+
     sed -i 's/CFLAGS="-O4 -ffast-math $CFLAGS"/CFLAGS="$CFLAGS"/g' configure
     sed -i 's/AS="yasm"/AS="nasm"/g' configure
     sed -i 's/ASFLAGS="$ASFLAGS -f win32 -m amd64 -DPREFIX"/ASFLAGS="$ASFLAGS -f win64"/g' configure
@@ -29,10 +34,14 @@ ffbuild_dockerbuild() {
     cat <<EOF > common/i386/mc.h
 #ifndef XAVS_I386_MC_H
 #define XAVS_I386_MC_H
-#include "../common.h"
+#include "stdint.h"
+
+typedef struct xavs_mc_functions_t xavs_mc_functions_t;
+
 void xavs_mc_chroma_mmxext(uint8_t *src, int i_src_stride, uint8_t *dst, int i_dst_stride, int d8x, int d8y, int i_width, int i_height);
-void xavs_mc_mmxext_init(xavs_mc_functions_t *pf);
-void xavs_mc_sse2_init(xavs_mc_functions_t *pf);
+void xavs_mc_mmxext_init(void *pf);
+void xavs_mc_sse2_init(void *pf);
+
 #endif
 EOF
 
@@ -50,8 +59,12 @@ EOF
     export AS="nasm"
     export EXTRA_ASFLAGS="-I./common/i386/"
 
+    sed -i 's/AS="yasm"/AS="nasm"/g' configure
+    sed -i 's/win32/win64/g' configure
+    sed -i 's/-m amd64//g' configure
+
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO} -fno-strict-aliasing -fcommon -Wno-error -Wno-maybe-uninitialized -Wno-array-bounds -fno-stack-protector" \
+        --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO} -fno-strict-aliasing -fcommon -Wno-error -Wno-maybe-uninitialized -Wno-array-bounds -fno-stack-protector -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration" \
         --extra-asflags="$EXTRA_ASFLAGS" \
         --extra-ldflags="$LDFLAGS ${NOLTO}" || return 1
 
@@ -59,6 +72,7 @@ EOF
         sed -i 's/-m amd64//g' config.mak
         sed -i 's/-f win32/-f win64/g' config.mak
     fi
+
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
