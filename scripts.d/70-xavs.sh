@@ -20,11 +20,14 @@ ffbuild_dockerbuild() {
     # Исправляем configure, чтобы он не игнорировал внешние CFLAGS (частая беда xavs)
     sed -i 's/CFLAGS="$CFLAGS -Wall/CFLAGS="$CFLAGS -Wall $EXTRA_CFLAGS/' configure
 
-    sed -i 's/AS="nasm"/AS="nasm -f win64"/g' configure
+    sed -i 's/AS="yasm"/AS="nasm -f win64"/g' configure
+    sed -i 's/CFLAGS="-O4 -ffast-math $CFLAGS"/CFLAGS="$CFLAGS"/g' configure
 
     sed -i 's/\/\*#ifdef HAVE_MMXEXT/#ifdef HAVE_MMXEXT/g' common/mc.c
     sed -i 's/#include "i386\/mc.h"/#include "i386\/mc.h"/g' common/mc.c
     sed -i 's/#endif\*\/ /#endif/g' common/mc.c
+
+    sed -i 's/ASFLAGS="$ASFLAGS -f win32 -m amd64 -DPREFIX"/ASFLAGS="$ASFLAGS -f win64 -m amd64"/g' configure
 
     mkdir -p common/i386
     cat <<EOF > common/i386/mc.h
@@ -53,16 +56,14 @@ EOF
         export CC="${FFBUILD_CROSS_PREFIX}gcc"
         export AR="${FFBUILD_CROSS_PREFIX}ar"
         export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
-        export ASFLAGS="-f win64 -DARCH_X86_64=1"
+        export ASFLAGS="nasm -I./common/i386/"
     fi
 
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO} -Wno-error=implicit-function-declaration -Wno-unused-const-variable -Wno-unused-function -Wno-error=incompatible-pointer-types -fno-strict-aliasing -Wno-maybe-uninitialized -Wno-array-bounds -fcommon" \
-        --extra-asflags="-I./common/i386/ -DARCH_X86_64=1" \
+        --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO} -Wno-error=implicit-function-declaration -Wno-unused-const-variable -Wno-unused-function -Wno-error=incompatible-pointer-types -fno-strict-aliasing -Wno-maybe-uninitialized -Wno-array-bounds -fno-stack-protector -Wno-error -fcommon" \
         --extra-ldflags="$LDFLAGS ${NOLTO}" || return 1
 
-    sed -i 's/yasm -f win32/nasm -f win64/g' config.mak || true
-    sed -i 's/yasm/nasm/g' config.mak || true
+    sed -i 's/AS=yasm/AS=nasm/g' config.mak 2>/dev/null || true
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
