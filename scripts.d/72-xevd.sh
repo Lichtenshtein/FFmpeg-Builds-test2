@@ -46,14 +46,14 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    log_info "Manual installation of XEVD headers and missing files..."
+    # log_info "Manual installation of XEVD headers and missing files..."
 
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
+    # mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
+    # mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig"
 
-    cp -v "../inc/xevd.h" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
-    cp -v "src_main/libxevd.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/" || true
-    cp -v "src_main/xevd.pc" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/" || true
+    # cp -v "../inc/xevd.h" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
+    # cp -v "src_main/libxevd.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/" || true
+    # cp -v "src_main/xevd.pc" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/" || true
 }
 
 ffbuild_configure() {
