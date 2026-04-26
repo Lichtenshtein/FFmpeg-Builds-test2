@@ -20,17 +20,15 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    local X265_ROOT="$PWD/source"
-
     # Проверяем, почему пропал .git (для логов отладки)
     if [[ ! -d ".git" ]]; then
         log_debug ".git directory is MISSING in $(pwd). Preservation failed?"
         # Если .git нет, создаем файл версии, чтобы CMake не падал
-        echo "3.5" > "$X265_ROOT/x265_version.txt"
+        echo "3.5" > "x265_version.txt"
         # Полностью вырезаем блок определения версии в CMakeLists.txt, 
         # который вызывает ошибку "list GET", если нет .git
-        sed -i '/if(X265_LATEST_TAG)/,/endif(X265_LATEST_TAG)/d' "$X265_ROOT/CMakeLists.txt"
-        sed -i 's/list(GET /#list(GET /g' "$X265_ROOT/CMakeLists.txt"
+        sed -i '/if(X265_LATEST_TAG)/,/endif(X265_LATEST_TAG)/d' "CMakeLists.txt"
+        sed -i 's/list(GET /#list(GET /g' "CMakeLists.txt"
     else
         log_debug ".git directory found. Version should be detected automatically."
     fi
@@ -40,16 +38,16 @@ ffbuild_dockerbuild() {
 
     # Фикс совместимости x265 с SVT-HEVC 1.5.0+ (изменение EB_SEI_MESSAGE)
     # Заменяем аллокацию на memcpy (так как payload теперь массив)
-    sed -i 's/inputData->dolbyVisionRpu.payload = X265_MALLOC(uint8_t, 1024);/memset(inputData->dolbyVisionRpu.payload, 0, 1024);/g' "$X265_ROOT/encoder/api.cpp"
+    sed -i 's/inputData->dolbyVisionRpu.payload = X265_MALLOC(uint8_t, 1024);/memset(inputData->dolbyVisionRpu.payload, 0, 1024);/g' "encoder/api.cpp"
 
     # Убираем попытки обнуления указателя (статический массив нельзя занулить)
-    sed -i 's/inputData->dolbyVisionRpu.payload = NULL;//g' "$X265_ROOT/encoder/api.cpp"
+    sed -i 's/inputData->dolbyVisionRpu.payload = NULL;//g' "encoder/api.cpp"
 
     # Убираем X265_FREE, так как массив не нужно освобождать
-    sed -i 's/if (inputData->dolbyVisionRpu.payload) X265_FREE(inputData->dolbyVisionRpu.payload);//g' "$X265_ROOT/encoder/api.cpp"
+    sed -i 's/if (inputData->dolbyVisionRpu.payload) X265_FREE(inputData->dolbyVisionRpu.payload);//g' "encoder/api.cpp"
 
     # Дополнительно исправляем варнинг сравнения типов в threading.h (Win64)
-    sed -i 's/rt != WAIT_TIMEOUT \&\& rt != WAIT_FAILED/rt != (DWORD)WAIT_TIMEOUT \&\& rt != (DWORD)WAIT_FAILED/g' "$X265_ROOT/common/threading.h"
+    sed -i 's/rt != WAIT_TIMEOUT \&\& rt != WAIT_FAILED/rt != (DWORD)WAIT_TIMEOUT \&\& rt != (DWORD)WAIT_FAILED/g' "common/threading.h"
 
     local myconf=(
         -G Ninja
@@ -79,8 +77,6 @@ ffbuild_dockerbuild() {
         -DSVT_HEVC_LIBRARY="$FFBUILD_PREFIX/lib/libSvtHevcEnc.a"
         )
 
-    cd "$X265_ROOT"
-
     mkdir -p 8bit 10bit 12bit
 
     if [[ $TARGET != *32 ]]; then
@@ -88,14 +84,14 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS $CPPFLAGS" \
         CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
         LDFLAGS="$LDFLAGS" \
-        cmake "${myconf[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -DMAIN12=ON -S "$X265_ROOT" -B 12bit || return 1
+        cmake "${myconf[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -DMAIN12=ON -S . -B 12bit || return 1
         ninja -C 12bit -j$(nproc) $NINJA_V || return 1
 
         log_info "Building 10-bit x265..."
         CFLAGS="$CFLAGS $CPPFLAGS" \
         CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
         LDFLAGS="$LDFLAGS" \
-        cmake "${myconf[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -S "$X265_ROOT" -B 10bit || return 1
+        cmake "${myconf[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -S . -B 10bit || return 1
         ninja -C 10bit -j$(nproc) $NINJA_V || return 1
 
         log_info "Building 8-bit x265 (combined)..."
@@ -109,7 +105,7 @@ ffbuild_dockerbuild() {
         cmake "${myconf[@]}" \
             -DEXTRA_LIB="${PWD}/10bit/libx265.a;${PWD}/12bit/libx265.a" \
             -DLINKED_10BIT=ON -DLINKED_12BIT=ON \
-            -S "$X265_ROOT" -B 8bit || return 1
+            -S . -B 8bit || return 1
         ninja -C 8bit -j$(nproc) $NINJA_V || return 1
 
         # Объединяем библиотеки через MRI скрипт для ar
@@ -131,7 +127,7 @@ EOF
         CFLAGS="$CFLAGS $CPPFLAGS" \
         CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
         LDFLAGS="$LDFLAGS" \
-        cmake "${myconf[@]}" -S "$X265_ROOT" -B 8bit || return 1
+        cmake "${myconf[@]}" -S . -B 8bit || return 1
         ninja -C 8bit -j$(nproc) $NINJA_V || return 1
     fi
 
