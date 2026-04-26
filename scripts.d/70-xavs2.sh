@@ -24,6 +24,8 @@ ffbuild_dockerbuild() {
 
     export SKIP_POST_STRIP=1
 
+    cd /build/${STAGENAME}/build/linux
+
     # Фикс для современных компиляторов (json11)
     # Ищем файл во всем дереве, так как путь может варьироваться
     find . -name "json11.cpp" -exec sed -i '1i#include <cstdint>' {} +
@@ -33,8 +35,6 @@ ffbuild_dockerbuild() {
     sed -i -e 's/EGIB/bss/g' -e 's/naidnePF/bss/g' configure
 
     sed -i 's/HIGH_BIT_DEPTH=NO/HIGH_BIT_DEPTH=YES/g' configure || true
-
-    cd /build/${STAGENAME}/build/linux
 
     local myconf=(
         --disable-cli
