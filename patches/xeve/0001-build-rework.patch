@@ -4,7 +4,6 @@ Date: Sat, 4 Apr 2026 01:08:14 +0400
 Subject: [PATCH] Build rework
 
 ---
- .gitignore                  |   4 +
  CMakeLists.txt              | 238 ++++++++++++------------------------
  app/CMakeLists.txt          |   6 +-
  cmake_uninstall.cmake.in    |  21 ----
@@ -16,25 +15,13 @@ Subject: [PATCH] Build rework
  9 files changed, 232 insertions(+), 342 deletions(-)
  delete mode 100644 cmake_uninstall.cmake.in
 
-diff --git a/.gitignore b/.gitignore
-index c6127b3..d20c35d 100644
---- a/.gitignore
-+++ b/.gitignore
-@@ -50,3 +50,7 @@ modules.order
- Module.symvers
- Mkfile.old
- dkms.conf
-+
-+.idea
-+cmake-build-**
-+.DS_Store
 diff --git a/CMakeLists.txt b/CMakeLists.txt
 index a509b32..59f5bcb 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -1,80 +1,20 @@
 -cmake_minimum_required (VERSION 3.12)
-+cmake_minimum_required (VERSION 3.20)
++cmake_minimum_required (VERSION 3.50)
  
 -########################################
 -# Project versioning

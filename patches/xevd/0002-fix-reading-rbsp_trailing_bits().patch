@@ -1,0 +1,110 @@
+From e80f2977c9d5e8680b3569e9dfa57c520748999b Mon Sep 17 00:00:00 2001
+From: James Almer <jamrial@gmail.com>
+Date: Tue, 24 Feb 2026 10:17:12 -0300
+Subject: [PATCH] Fix reading rbsp_trailing_bits()
+
+Section 7.3.2.8 from ISO/IEC 23094-1:2020 states a rbsp_stop_one_bit must be present before
+the zeroes that align to the next byte boundary.
+
+Signed-off-by: James Almer <jamrial@gmail.com>
+---
+diff --git a/src_base/xevd.c b/src_base/xevd.c
+index 034aed4..96c1d98 100644
+--- a/src_base/xevd.c
++++ b/src_base/xevd.c
+@@ -1446,6 +1446,14 @@ int xevd_tile_eco(void * arg)
+         {
+             xevd_threadsafe_assign(&ctx->sync_row[core->y_lcu], THREAD_TERMINATED);
+             xevd_assert_gv(xevd_eco_tile_end_flag(bs, sbac) == 1, ret, XEVD_ERR, ERR);
++            u32 t0;
++            xevd_bsr_read1(bs, &t0);
++            xevd_assert_gv(1 == t0, ret, XEVD_ERR_MALFORMED_BITSTREAM, ERR);
++            while (!XEVD_BSR_IS_BYTE_ALIGN(bs))
++            {
++                xevd_bsr_read1(bs, &t0);
++                xevd_assert_gv(0 == t0, ret, XEVD_ERR_MALFORMED_BITSTREAM, ERR);
++            }
+             ret = xevd_eco_cabac_zero_word(bs);
+             xevd_assert_g(XEVD_SUCCEEDED(ret), ERR);
+             break;
+diff --git a/src_base/xevd_eco.c b/src_base/xevd_eco.c
+index 9d4f2e1..3c0c8ad 100644
+--- a/src_base/xevd_eco.c
++++ b/src_base/xevd_eco.c
+@@ -1382,6 +1382,7 @@ int xevd_eco_sps(XEVD_BSR * bs, XEVD_SPS * sps)
+     }
+ 
+     u32 t0;
++    xevd_bsr_read1(bs, &t0);
+     while (!XEVD_BSR_IS_BYTE_ALIGN(bs))
+     {
+         xevd_bsr_read1(bs, &t0);
+@@ -1420,6 +1421,7 @@ int xevd_eco_pps(XEVD_BSR * bs, XEVD_SPS * sps, XEVD_PPS * pps)
+     }
+ 
+     u32 t0;
++    xevd_bsr_read1(bs, &t0);
+     while(!XEVD_BSR_IS_BYTE_ALIGN(bs))
+     {
+         xevd_bsr_read1(bs, &t0);
+@@ -1567,6 +1569,8 @@ int xevd_eco_sh(XEVD_BSR * bs, XEVD_SPS * sps, XEVD_PPS * pps, XEVD_SH * sh, int
+ 
+     /* byte align */
+     u32 t0;
++    xevd_bsr_read1(bs, &t0);
++    xevd_assert_rv(1 == t0, XEVD_ERR_MALFORMED_BITSTREAM);
+     while(!XEVD_BSR_IS_BYTE_ALIGN(bs))
+     {
+         xevd_bsr_read1(bs, &t0);
+@@ -1643,6 +1647,14 @@ int xevd_eco_sei(XEVD_CTX * ctx, XEVD_BSR * bs)
+     default:
+         xevd_assert_rv(0, XEVD_ERR_UNEXPECTED);
+     }
++
++    u32 t0;
++    xevd_bsr_read1(bs, &t0);
++    while (!XEVD_BSR_IS_BYTE_ALIGN(bs))
++    {
++        xevd_bsr_read1(bs, &t0);
++    }
++
+ #if TRACE_HLS
+     XEVD_TRACE_STR("************ SEI End   ************\n");
+     XEVD_TRACE_STR("***********************************\n");
+diff --git a/src_main/xevdm_eco.c b/src_main/xevdm_eco.c
+index 501b431..a505ade 100644
+--- a/src_main/xevdm_eco.c
++++ b/src_main/xevdm_eco.c
+@@ -1992,6 +1992,7 @@ int xevdm_eco_sps(XEVD_BSR * bs, XEVD_SPS * sps)
+     if (sps->vui_parameters_present_flag)
+         xevd_eco_vui(bs, &(sps->vui_parameters));
+     u32 t0;
++    xevd_bsr_read1(bs, &t0);
+     while (!XEVD_BSR_IS_BYTE_ALIGN(bs))
+     {
+         xevd_bsr_read1(bs, &t0);
+@@ -2069,6 +2070,7 @@ int xevdm_eco_pps(XEVD_BSR * bs, XEVD_SPS * sps, XEVD_PPS * pps)
+         pps->cu_qp_delta_area += 6;
+     }
+     u32 t0;
++    xevd_bsr_read1(bs, &t0);
+     while(!XEVD_BSR_IS_BYTE_ALIGN(bs))
+     {
+         xevd_bsr_read1(bs, &t0);
+@@ -2126,6 +2128,7 @@ int xevdm_eco_aps_gen(XEVD_BSR * bs, XEVD_APS_GEN * aps, int  bit_depth)
+         }
+     }
+ 
++    xevd_bsr_read1(bs, &t0);
+     while (!XEVD_BSR_IS_BYTE_ALIGN(bs))
+     {
+         xevd_bsr_read1(bs, &t0);
+@@ -2796,6 +2799,8 @@ int xevdm_eco_sh(XEVD_BSR * bs, XEVD_SPS * sps, XEVD_PPS * pps, XEVD_SH * sh, XE
+ 
+     /* byte align */
+     u32 t0;
++    xevd_bsr_read1(bs, &t0);
++    xevd_assert_rv(1 == t0, XEVD_ERR_MALFORMED_BITSTREAM);
+     while(!XEVD_BSR_IS_BYTE_ALIGN(bs))
+     {
+         xevd_bsr_read1(bs, &t0);

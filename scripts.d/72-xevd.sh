@@ -3,6 +3,10 @@
 SCRIPT_REPO="https://github.com/mpeg5/xevd.git"
 SCRIPT_COMMIT="4087f635624cf4ee6ebe3f9ea165ff939b32117f"
 
+# SCRIPT_REPO="https://github.com/jamrial/xevd.git"
+# SCRIPT_COMMIT="1f7a2e79544ecdc71bbb51e938f392e5d00aa5b7"
+# SCRIPT_BRANCH="rbsp_fix"
+
 ffbuild_enabled() {
     [[ $TARGET == *arm64 ]] && return 1
     return 0
@@ -19,7 +23,7 @@ ffbuild_dockerbuild() {
         echo v0.5.0 >> version.txt
     fi
 
-    mkdir -p build && cd build
+    mkdir -p _build && cd _build
 
     local myconf=(
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
@@ -29,6 +33,8 @@ ffbuild_dockerbuild() {
         -DXEVD_APP_STATIC_BUILD=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        # added by patch
+        -DXEVD_BUILD_APP=OFF
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
@@ -40,13 +46,6 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     mv "$FFBUILD_DESTPREFIX"/lib/xevd/libxevd.a "$FFBUILD_DESTPREFIX"/lib
-    
-    if [[ $TARGET == win* ]]; then
-        rm "$FFBUILD_DESTPREFIX"/bin/libxevd.dll
-        rm "$FFBUILD_DESTPREFIX"/lib/libxevd.dll.a
-    elif [[ $TARGET == linux* ]]; then
-        rm "$FFBUILD_DESTPREFIX"/lib/libxevd.so*
-    fi
 }
 
 ffbuild_configure() {
