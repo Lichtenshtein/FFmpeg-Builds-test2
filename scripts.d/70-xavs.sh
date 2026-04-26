@@ -58,6 +58,7 @@ EOF
 
     ./configure "${myconf[@]}" \
         --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO} -Wno-error=implicit-function-declaration -Wno-unused-const-variable -Wno-unused-function -Wno-error=incompatible-pointer-types -fno-strict-aliasing -Wno-array-bound -fcommon" \
+        --extra-asflags="-Pcommon/i386/i386inc.asm -DPREFIX" \
         --extra-ldflags="$LDFLAGS ${NOLTO}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
