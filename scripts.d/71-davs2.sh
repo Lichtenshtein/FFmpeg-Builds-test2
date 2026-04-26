@@ -3,7 +3,6 @@
 SCRIPT_REPO="https://github.com/netony/davs2.git"
 SCRIPT_COMMIT="0a9f952f09343156575e75a2d733d95529ba2d8a"
 
-
 ffbuild_enabled() {
     [[ $VARIANT == lgpl* ]] && return 1
     [[ $TARGET == win32 ]] && return 1
@@ -50,7 +49,7 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CXXFLAGS $CPPFLAGS" \
+        --extra-cflags="$CFLAGS $CPPFLAGS" \
         --extra-ldflags="$LDFLAGS" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
