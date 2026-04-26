@@ -1,0 +1,130 @@
+From 09f3db47a9a191689257dfe8aff0c7a997571952 Mon Sep 17 00:00:00 2001
+From: shy_liu11 <shy_liu11@pku.edu.cn>
+Date: Fri, 22 Jan 2021 14:29:57 +0800
+Subject: [PATCH] =?UTF-8?q?=E8=B7=9F=E6=8D=AE=E5=B7=B2=E5=B0=9D=E8=AF=95?=
+ =?UTF-8?q?=E5=88=92=E5=88=86=E6=A8=A1=E5=BC=8F=E7=9A=84=E6=9C=80=E4=BC=98?=
+ =?UTF-8?q?=E5=AD=90=E6=A0=91=E6=B7=B1=E5=BA=A6=EF=BC=8C=E6=9D=A5=E7=BA=A6?=
+ =?UTF-8?q?=E6=9D=9Feqt=E6=B7=B1=E5=BA=A6?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ inc/com_type.h |  1 +
+ inc/define.h   |  1 +
+ src/analyze.c  | 28 ++++++++++++++++++++++++++++
+ src/uavs3e.c   |  1 +
+ src/util.c     |  4 +++-
+ 5 files changed, 34 insertions(+), 1 deletion(-)
+
+diff --git a/inc/com_type.h b/inc/com_type.h
+index 904f716..92e2153 100644
+--- a/inc/com_type.h
++++ b/inc/com_type.h
+@@ -463,6 +463,7 @@ typedef struct uavs3e_com_info_t {
+     int                     depth_neb_qtd;
+     int                     depth_limit_part_ratio;
+     int                     depth_rm_splite_by_border;
++    int                     depth_limit_eqt_by_cudepth;
+ 
+     int                     rpl_rmv_same_ref;
+     int                     adaptive_raster_range; 
+diff --git a/inc/define.h b/inc/define.h
+index ae38253..8dd3a99 100644
+--- a/inc/define.h
++++ b/inc/define.h
+@@ -179,6 +179,7 @@ typedef struct uavs3e_enc_cu_t {
+     pel *reco[N_C];
+     s8  *qtd;
+     s8  *border;
++    s8  *cudepth;
+ } enc_cu_t;
+ 
+ typedef struct uavs3e_enc_history_t {
+diff --git a/src/analyze.c b/src/analyze.c
+index 20bfed1..3d331d6 100644
+--- a/src/analyze.c
++++ b/src/analyze.c
+@@ -472,6 +472,7 @@ static int copy_cu_data(enc_cu_t *dst, enc_cu_t *src, int x, int y, int cu_width
+         com_mcpy(dst->tb_part     + idx_dst, src->tb_part     + idx_src, cuw_scu * sizeof(int));
+         com_mcpy(dst->qtd         + idx_dst, src->qtd         + idx_src, cuw_scu * sizeof(s8));
+         com_mcpy(dst->border      + idx_dst, src->border      + idx_src, cuw_scu * sizeof(s8));
++        com_mcpy(dst->cudepth     + idx_dst, src->cudepth     + idx_src, cuw_scu * sizeof(s8));
+     }
+     for (j = 0; j < cu_height; j++) {
+         int idx_dst = (y + j) * cus + x;
+@@ -1491,6 +1492,7 @@ static double mode_coding_tree(core_t *core, lbac_t *lbac_cur, int x0, int y0, i
+ 
+             memset(cu_data_bst->qtd, qt_depth, (cu_width >> MIN_CU_LOG2) * (cu_height >> MIN_CU_LOG2));
+             memset(cu_data_bst->border, 0,     (cu_width >> MIN_CU_LOG2) * (cu_height >> MIN_CU_LOG2));
++            memset(cu_data_bst->cudepth, 2 * (info->log2_max_cuwh - qt_depth) - cu_width_log2 - cu_height_log2, (cu_width >> MIN_CU_LOG2)* (cu_height >> MIN_CU_LOG2));
+             s8* b = cu_data_bst->border;
+             for (int i = 0; i < cu_width >> MIN_CU_LOG2; i++) {
+                 b[i] = 2;
+@@ -1545,6 +1547,32 @@ static double mode_coding_tree(core_t *core, lbac_t *lbac_cur, int x0, int y0, i
+             int is_mode_EQT = com_split_is_EQT(split_mode);
+             int enable_cur_split = is_mode_EQT ? (best_split_mode != NO_SPLIT || cost_best > MAX_D_COST_EXT) : 1;
+ 
++            if (info->depth_limit_eqt_by_cudepth) {
++                if (split_mode == SPLIT_EQT_HOR && enable_cur_split) {
++                    int cu_width_in_scu = cu_width >> MIN_CU_LOG2;
++                    int cu_height_in_scu = cu_height >> MIN_CU_LOG2;
++                    int depth1 = cu_data_bst->cudepth[0];
++                    int depth2 = cu_data_bst->cudepth[cu_height_in_scu / 4 * cu_width_in_scu];
++                    int depth3 = cu_data_bst->cudepth[cu_height_in_scu / 4 * cu_width_in_scu + cu_width_in_scu / 2];
++                    int depth4 = cu_data_bst->cudepth[(cu_height_in_scu - 1) * cu_width_in_scu];
++                    double avg_depth = ((double)(depth1 + depth2 + depth3 + depth4)) / 4.0;
++                    if (avg_depth < 2 && cu_width_log2 + cu_height_log2 > 9)
++                        enable_cur_split = 0;
++                }
++
++                if (split_mode == SPLIT_EQT_VER && enable_cur_split) {
++                    int cu_width_in_scu = cu_width >> MIN_CU_LOG2;
++                    int cu_height_in_scu = cu_height >> MIN_CU_LOG2;
++                    int depth1 = cu_data_bst->cudepth[0];
++                    int depth2 = cu_data_bst->cudepth[cu_width_in_scu / 4];
++                    int depth3 = cu_data_bst->cudepth[3 * cu_width_in_scu / 4];
++                    int depth4 = cu_data_bst->cudepth[(cu_height_in_scu / 2) * cu_width_in_scu + cu_width_in_scu / 4];
++                    double avg_depth = ((double)(depth1 + depth2 + depth3 + depth4)) / 4.0;
++                    if (avg_depth < 2 && cu_width_log2 + cu_height_log2 > 9)
++                        enable_cur_split = 0;
++                }
++            }
++            
+             if (info->depth_rm_splite_by_border) {
+                 if (split_mode == SPLIT_EQT_HOR && enable_cur_split && split_allow[SPLIT_EQT_HOR] && cu_width_log2 + cu_height_log2 >= 11) {
+                     if (score_from_bth[SPLIT_EQT_HOR] + score_from_btv[SPLIT_EQT_HOR] + score_from_qt[SPLIT_EQT_HOR] < 0) {
+diff --git a/src/uavs3e.c b/src/uavs3e.c
+index 1baf51b..c62b892 100644
+--- a/src/uavs3e.c
++++ b/src/uavs3e.c
+@@ -1365,6 +1365,7 @@ void *uavs3e_create(enc_cfg_t *cfg, int *err)
+     info->depth_neb_qtd              = SPEED_LEVEL(1, h->cfg.speed_level) && h->cfg.speed_level <= 1;
+     info->bind_emvr_to_amvr_P1       = SPEED_LEVEL(1, h->cfg.speed_level);
+     info->depth_rm_splite_by_border  = SPEED_LEVEL(1, h->cfg.speed_level);
++    info->depth_limit_eqt_by_cudepth = SPEED_LEVEL(1, h->cfg.speed_level);
+      
+     info->history_skip_intra         = SPEED_LEVEL(2, h->cfg.speed_level);
+     info->history_skip_idx           = SPEED_LEVEL(2, h->cfg.speed_level);
+diff --git a/src/util.c b/src/util.c
+index fcd0de2..6abf930 100644
+--- a/src/util.c
++++ b/src/util.c
+@@ -144,6 +144,7 @@ int enc_create_cu_data(enc_cu_t *cu_data, int cu_width_log2, int cu_height_log2)
+     enc_malloc_1d((void **)&cu_data->mvd, size_16b * REFP_NUM * MV_D);
+     enc_malloc_1d((void **)&cu_data->qtd, size_8b);
+     enc_malloc_1d((void **)&cu_data->border, size_8b);
++    enc_malloc_1d((void **)&cu_data->cudepth, size_8b);
+ 
+ 
+     for (i = 0; i < N_C; i++) {
+@@ -188,7 +189,8 @@ int enc_delete_cu_data(enc_cu_t *cu_data)
+     enc_free_1d((void *)cu_data->mv);
+     enc_free_1d((void *)cu_data->mvd);
+     enc_free_1d((void *)cu_data->qtd);
+-    enc_free_1d((void*)cu_data->border);
++    enc_free_1d((void *)cu_data->border);
++    enc_free_1d((void *)cu_data->cudepth);
+ 
+     for (i = 0; i < N_C; i++) {
+         enc_free_1d((void *)cu_data->coef[i]);
