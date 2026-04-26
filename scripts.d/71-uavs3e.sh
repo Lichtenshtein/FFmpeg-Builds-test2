@@ -17,8 +17,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    mkdir build/linux
-    cd build/linux
+    mkdir -p _build && cd _build
 
     local myconf=(
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
