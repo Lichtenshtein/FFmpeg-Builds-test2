@@ -57,9 +57,12 @@ EOF
     fi
 
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO} -Wno-error=implicit-function-declaration -Wno-unused-const-variable -Wno-unused-function -Wno-error=incompatible-pointer-types -fno-strict-aliasing -Wno-array-bounds -fcommon" \
-        --extra-asflags="-Pcommon/i386/i386inc.asm -DPREFIX" \
+        --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO} -Wno-error=implicit-function-declaration -Wno-unused-const-variable -Wno-unused-function -Wno-error=incompatible-pointer-types -fno-strict-aliasing -Wno-maybe-uninitialized -Wno-array-bounds -fcommon" \
+        --extra-asflags="-I./common/i386/ -DARCH_X86_64=1" \
         --extra-ldflags="$LDFLAGS ${NOLTO}" || return 1
+
+    sed -i 's/yasm -f win32/nasm -f win64/g' config.mak || true
+    sed -i 's/yasm/nasm/g' config.mak || true
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
