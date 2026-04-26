@@ -1,9 +1,13 @@
-From 208d153d747e88b1ddf9a09d29fe8c7a77cc45ef Mon Sep 17 00:00:00 2001
+From 282d61f221c1e323dad0b3afa6a1a753d9b50be9 Mon Sep 17 00:00:00 2001
 From: Lichtenshtein <altruumann@protonmail.com>
 Date: Sun, 26 Apr 2026 20:24:01 +0300
 Subject: [PATCH] fix dynamic lib installation
 
 ---
+ src_base/CMakeLists.txt | 124 ++++++++-----------------------
+ src_main/CMakeLists.txt | 159 +++++++++-------------------------------
+ 2 files changed, 65 insertions(+), 218 deletions(-)
+
 diff --git a/src_base/CMakeLists.txt b/src_base/CMakeLists.txt
 index 8683f40..18dd68b 100644
 --- a/src_base/CMakeLists.txt
@@ -379,3 +383,6 @@ index d37582c..1241651 100644
 -endif ()
 +            DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/XEVD)
 +endif()
+-- 
+2.52.0.windows.1
+
