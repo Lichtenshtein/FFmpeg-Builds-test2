@@ -34,6 +34,8 @@ This fork is an advanced FFmpeg build system architecture using GCC 14 and Ubunt
 
 - Whisper with Vulkan and OpenVINO support.
 
+- x265 with optional SVT-HEVC 1.5.1 as core for compliant bitstreams. [Link](https://bitbucket.org/multicoreware/x265_git/src/master/doc/reST/svthevc.rst)
+
 ### Implementation status:
 
 Added to the current build:
