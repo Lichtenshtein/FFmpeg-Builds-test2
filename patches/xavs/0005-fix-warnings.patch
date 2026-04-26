@@ -73,6 +73,22 @@ index a3f99ff..48cd19a 100644
  #define ZIGZAG8_FRAME\
      ZIG( 0,0,0) ZIG( 1,0,1) ZIG( 2,1,0) ZIG( 3,2,0)\
      ZIG( 4,1,1) ZIG( 5,0,2) ZIG( 6,0,3) ZIG( 7,1,2)\
+diff --git a/common/macroblock.c b/common/macroblock.c
+index 553b832..6618f2e 100644
+--- a/common/macroblock.c
++++ b/common/macroblock.c
+@@ -846,8 +846,9 @@ xavs_macroblock_slice_init (xavs_t * h, int i_slice_type)
+     for (i = 0; i < h->i_ref1; i++)
+       h->fdec->ref_poc[1][i] = h->fref1[i]->i_poc;
+ 
+-    h->mb.map_col_to_list0[-1] = -1;
+-    h->mb.map_col_to_list0[-2] = -2;
++    int *map_fix = h->mb.map_col_to_list0;
++    map_fix[-1] = -1;
++    map_fix[-2] = -2;
+     for (i = 0; i < h->fref1[0]->i_ref[0]; i++)
+     {
+       int poc = h->fref1[0]->ref_poc[0][i];
 -- 
 2.52.0.windows.1
 
