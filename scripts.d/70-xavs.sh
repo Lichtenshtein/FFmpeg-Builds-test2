@@ -17,7 +17,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    sed -i '/#include <stdio.h>/a #include "common/i386/mc.h"' common/mc.c
+    # sed -i '/#include <stdio.h>/a #include "common/i386/mc.h"' common/mc.c
 
     sed -i 's/dct\[0\]\[y\*8+x\]/dct[y][x]/g' common/dct.c
 
@@ -34,9 +34,7 @@ ffbuild_dockerbuild() {
     cat <<EOF > common/i386/mc.h
 #ifndef XAVS_I386_MC_H
 #define XAVS_I386_MC_H
-#include "stdint.h"
-
-typedef struct xavs_mc_functions_t xavs_mc_functions_t;
+#include <stdint.h>
 
 void xavs_mc_chroma_mmxext(uint8_t *src, int i_src_stride, uint8_t *dst, int i_dst_stride, int d8x, int d8y, int i_width, int i_height);
 void xavs_mc_mmxext_init(void *pf);
@@ -44,6 +42,8 @@ void xavs_mc_sse2_init(void *pf);
 
 #endif
 EOF
+
+    sed -i '/#include "common.h"/a #include "common/i386/mc.h"' common/mc.c
 
     local myconf=(
         --host="$FFBUILD_TOOLCHAIN"
