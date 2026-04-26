@@ -27,6 +27,9 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        # added by patch
+        -DXEVE_BUILD_APP=OFF
+        -DXEVE_INSTALL=ON
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
@@ -38,13 +41,6 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     mv "$FFBUILD_DESTPREFIX"/lib/xeve/libxeve.a "$FFBUILD_DESTPREFIX"/lib
-    
-    if [[ $TARGET == win* ]]; then
-        rm "$FFBUILD_DESTPREFIX"/bin/libxeve.dll
-        rm "$FFBUILD_DESTPREFIX"/lib/libxeve.dll.a
-    elif [[ $TARGET == linux* ]]; then
-        rm "$FFBUILD_DESTPREFIX"/lib/libxeve.so*
-    fi
 }
 
 ffbuild_configure() {
