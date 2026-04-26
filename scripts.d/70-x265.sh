@@ -22,9 +22,9 @@ ffbuild_dockerbuild() {
 
     # Проверяем, почему пропал .git (для логов отладки)
     if [[ ! -d "/build/${STAGENAME}/.git" ]]; then
-        log_debug ".git directory is MISSING in $(pwd). Preservation failed?"
+        log_debug ".git directory is MISSING in $(pwd)."
         # Если .git нет, создаем файл версии, чтобы CMake не падал
-        echo "3.5" > "x265_version.txt"
+        echo "4.2" > "x265_version.txt"
     else
         log_debug ".git directory found. Version should be detected automatically."
     fi
@@ -48,7 +48,7 @@ ffbuild_dockerbuild() {
     sed -i 's/if (inputData->dolbyVisionRpu.payload) X265_FREE(inputData->dolbyVisionRpu.payload);//g' "encoder/api.cpp"
 
     # Исправление потенциального крэша в парсинге параметров SVT-HEVC
-    sed -i 's/else { if (!strcmp(temp1, "\*"))/else { temp1 = pools; if (!strcmp(temp1, "\*"))/' "common/param.cpp"
+    # sed -i 's/else { if (!strcmp(temp1, "\*"))/else { temp1 = pools; if (!strcmp(temp1, "\*"))/' "common/param.cpp"
 
     # Дополнительно исправляем варнинг сравнения типов в threading.h (Win64)
     sed -i 's/rt != WAIT_TIMEOUT \&\& rt != WAIT_FAILED/rt != (DWORD)WAIT_TIMEOUT \&\& rt != (DWORD)WAIT_FAILED/g' "common/threading.h"
