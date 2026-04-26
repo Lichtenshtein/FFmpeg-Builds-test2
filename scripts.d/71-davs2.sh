@@ -46,12 +46,11 @@ ffbuild_dockerbuild() {
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
-        myconf+=( --disable-static --enable-shared ) || \
-        myconf+=( --enable-static --disable-shared )
+        myconf+=( --enable-shared --disable-static )
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $CPPFLAGS" \
+        --extra-cflags="$CXXFLAGS $CPPFLAGS" \
         --extra-ldflags="$LDFLAGS" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
