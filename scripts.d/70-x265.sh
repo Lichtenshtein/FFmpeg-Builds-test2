@@ -25,13 +25,14 @@ ffbuild_dockerbuild() {
         log_debug ".git directory is MISSING in $(pwd). Preservation failed?"
         # Если .git нет, создаем файл версии, чтобы CMake не падал
         echo "3.5" > "x265_version.txt"
-        # Полностью вырезаем блок определения версии в CMakeLists.txt, 
-        # который вызывает ошибку "list GET", если нет .git
-        sed -i '/if(X265_LATEST_TAG)/,/endif(X265_LATEST_TAG)/d' "CMakeLists.txt"
-        sed -i 's/list(GET /#list(GET /g' "CMakeLists.txt"
     else
         log_debug ".git directory found. Version should be detected automatically."
     fi
+
+    # Полностью вырезаем блок определения версии в CMakeLists.txt, 
+    # который вызывает ошибку "list GET"
+    sed -i '/if(X265_LATEST_TAG)/,/endif(X265_LATEST_TAG)/d' "CMakeLists.txt"
+    sed -i 's/list(GET /#list(GET /g' "CMakeLists.txt"
 
     # Фикс заголовка json11
     find . -name "json11.cpp" -exec sed -i '1i#include <cstdint>' {} +
