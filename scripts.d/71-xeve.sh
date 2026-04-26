@@ -14,11 +14,15 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     if [ ! -f "version.txt" ]; then
         echo v0.5.1 >> version.txt
     fi
-    
-    mkdir -p build && cd build
+
+    find src_base -name "CMakeLists.txt" -exec sed -i 's|${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig/|${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/|g' {} +
+    find src_main -name "CMakeLists.txt" -exec sed -i 's|${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig/|${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/|g' {} +
+
+    mkdir -p _build && cd _build
 
     local myconf=(
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
