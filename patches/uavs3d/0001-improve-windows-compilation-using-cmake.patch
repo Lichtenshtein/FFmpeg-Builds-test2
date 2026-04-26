@@ -1,0 +1,92 @@
+From 767db234993556890e498175f900fff18797c91f Mon Sep 17 00:00:00 2001
+From: "comoco.jiao" <comoco.jiao@ugreen.com>
+Date: Tue, 17 Mar 2026 14:17:01 +0800
+Subject: [PATCH] =?UTF-8?q?=E5=AE=8C=E5=96=84windows=E4=BD=BF=E7=94=A8cmak?=
+ =?UTF-8?q?e=E7=BC=96=E8=AF=91?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ CMakeLists.txt | 18 +++++++++---------
+ build.md       | 34 ++++++++++++++++++++++++++++++++++
+ 2 files changed, 43 insertions(+), 9 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 46458c7..8f6b8d5 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1,4 +1,4 @@
+-cmake_minimum_required(VERSION 3.1)
++cmake_minimum_required(VERSION 3.5...4.0)
+ 
+ project(uavs3d)
+ 
+@@ -7,14 +7,14 @@ option(COMPILE_10BIT "Enable 10bit streams decoding support." OFF)
+ set(CMAKE_C_STANDARD 99)
+ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+ 
+-aux_source_directory(./test DIR_SRC_TEST)
+-
+ add_subdirectory(./source)
+ 
+-add_executable(uavs3dec ${DIR_SRC_TEST})
+-
+-if (NOT MSVC)
+-    target_link_libraries(uavs3dec m)
++option(BUILD_TEST "Build test executable" OFF)
++if(BUILD_TEST)
++    aux_source_directory(./test DIR_SRC_TEST)
++    add_executable(uavs3dec ${DIR_SRC_TEST})
++    if (NOT MSVC)
++        target_link_libraries(uavs3dec m)
++    endif()
++    target_link_libraries(uavs3dec uavs3d)
+ endif()
+-target_link_libraries(uavs3dec uavs3d)
+-#target_link_libraries(uavs3dec dl)
+diff --git a/build.md b/build.md
+index ee42637..7ceadce 100644
+--- a/build.md
++++ b/build.md
+@@ -2,6 +2,40 @@
+ #### windows
+ 
+     直接使用build/vs2017下项目直接运行编译即可
++    （推荐）也可以使用cmake命令行生成项目
++    1. 生成平台项目
++        ` cmake -G "Visual Studio 16 2019" -A x64 -DCOMPILE_10BIT=1 -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="D:\work\player-deps\install\windows\uavs3d\x64\debug" ../../ ` 
++    2. 编译
++        ` cmake --build . --config Debug --target uavs3d ` 
++        ` cmake --build . --config Debug --target INSTALL `
++        这里有一个错误在编译uavs3dec是出现错误,需要指定编译目标来去掉测试项目
++    ```
++        utest.obj : error LNK2019: 无法解析的外部符号 __imp_uavs3d_create，函数 main 中引用了该符号 [D:\github\uavs3d\build\vs2019\uavs3dec.vcxpro
++        j]
++        utest.obj : error LNK2019: 无法解析的外部符号 __imp_uavs3d_delete，函数 main 中引用了该符号 [D:\github\uavs3d\build\vs2019\uavs3dec.vcxpro
++        j]
++        utest.obj : error LNK2019: 无法解析的外部符号 __imp_uavs3d_flush，函数 main 中引用了该符号 [D:\github\uavs3d\build\vs2019\uavs3dec.vcxproj
++        ]
++        utest.obj : error LNK2019: 无法解析的外部符号 __imp_uavs3d_decode，函数 main 中引用了该符号 [D:\github\uavs3d\build\vs2019\uavs3dec.vcxpro
++        j]
++        utest.obj : error LNK2019: 无法解析的外部符号 __imp_uavs3d_img_cpy_cvt，函数 write_dec_img 中引用了该符号 [D:\github\uavs3d\build\vs2019\u
++        avs3dec.vcxproj]
++        D:\github\uavs3d\build\vs2019\Debug\uavs3dec.exe : fatal error LNK1120: 5 个无法解析的外部命令 [D:\github\uavs3d\build\vs2019\uav
++        s3dec.vcxproj]
++    ```
++
++    3. x64 release
++        ` cmake -G "Visual Studio 16 2019" -A x64 -DCOMPILE_10BIT=1 -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="D:\work\player-deps\install\windows\uavs3d\x64\release" ../../
++
++        cmake --build . --config Release
++        cmake --build . --config Release --target INSTALL`
++
++    4. x86 release
++        ` cmake -G "Visual Studio 16 2019" -A Win32 -DCOMPILE_10BIT=1 -DBUILD_SHARED_LIBS=OFF -DCMAKE_INSTALL_PREFIX="D:\work\player-deps\install\windows\uavs3d\x86\release" ../../
++
++        cmake --build . --config Release
++        cmake --build . --config Release --target INSTALL`
++        
+ 
+ #### macosx
+     1. arm64

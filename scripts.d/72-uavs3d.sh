@@ -26,6 +26,9 @@ ffbuild_dockerbuild() {
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCOMPILE_10BIT=1
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo 1 || echo 0)
+        -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+        # added by patch
+        -DBUILD_TEST=OFF
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS" \
