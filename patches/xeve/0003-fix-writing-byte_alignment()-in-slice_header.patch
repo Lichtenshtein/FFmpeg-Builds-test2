@@ -1,0 +1,48 @@
+From 9311b4772ec9a68a6afcf8c51d152adf690c87bf Mon Sep 17 00:00:00 2001
+From: James Almer <jamrial@gmail.com>
+Date: Tue, 24 Feb 2026 14:41:02 -0300
+Subject: [PATCH] Fix writing byte_alignment() in slice_header
+
+Section 7.3.2.9 from ISO/IEC 23094-1:2020 states an alignment_bit_equal_to_one must be present
+before the zeroes that align to the next byte boundary.
+
+Signed-off-by: James Almer <jamrial@gmail.com>
+---
+ src_base/xeve_eco.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/src_base/xeve_eco.c b/src_base/xeve_eco.c
+index fee3ef7..e032644 100644
+--- a/src_base/xeve_eco.c
++++ b/src_base/xeve_eco.c
+@@ -281,6 +281,7 @@ int xeve_eco_sh(XEVE_BSW *bs, XEVE_SPS *sps, XEVE_PPS *pps, XEVE_SH *sh, int nut
+ 
+     /* byte align */
+     u32 t0 = 0;
++    xeve_bsw_write1(bs, 1);
+     while(!XEVE_BSW_IS_BYTE_ALIGN(bs)) {
+         xeve_bsw_write1(bs, t0);
+     }
+diff --git a/src_base/xeve_enc.c b/src_base/xeve_enc.c
+index 2deb3df..f9637e1 100644
+--- a/src_base/xeve_enc.c
++++ b/src_base/xeve_enc.c
+@@ -546,10 +546,18 @@ int xeve_pic(XEVE_CTX* ctx, XEVE_BITB* bitb, XEVE_STAT* stat)
+             bin_counts_in_units += tmp_sbac->bin_counter;
+             total_tiles_in_slice--;
+ 
++            // byte_alignment() should be here for all tiles but the last
++            // when the slice has more than one tile.
++
+             sh->entry_point_offset_minus1[k - 1] =
+                 (u32)((bs)->cur - bs_beg.cur - 4 + (4 - (bs->leftbits >> 3)) + (bs_beg.leftbits >> 3) - 1);
+         }  // End to tile encoding loop in a slice
+ 
++        xeve_bsw_write1(bs, 1);
++        while(!XEVE_BSW_IS_BYTE_ALIGN(bs)) {
++            xeve_bsw_write1(bs, 0);
++        }
++
+         num_bytes_in_units = (int)(bs->cur - cur_tmp) - 4;
+ 
+         int log2_sub_wh_c = 2;
