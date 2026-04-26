@@ -57,7 +57,7 @@ EOF
     [[ "${PREFER_SHARED}" == "1" ]] && myconf+=( --enable-shared )
 
     export AS="nasm"
-    export EXTRA_ASFLAGS="-I./common/i386/ -f win64 -DPIC -DARCH_X86_64=1"
+    export EXTRA_ASFLAGS="-I./common/i386/ -f win64 -DPIC -DARCH_X86_64=1 -DPREFIX"
 
     sed -i 's/AS="yasm"/AS="nasm"/g' configure
     sed -i 's/win32/win64/g' configure
