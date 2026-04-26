@@ -64,7 +64,7 @@ EOF
     sed -i 's/-m amd64//g' configure
 
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO} -fno-strict-aliasing -fcommon -Wno-error -Wno-maybe-uninitialized -Wno-array-bounds -fno-stack-protector -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration" \
+        --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO} -fno-strict-aliasing -fcommon -Wno-error -Wno-maybe-uninitialized -Wno-array-bounds -fno-stack-protector -Wno-error=implicit-function-declaration -Wno-implicit-function-declaration -Wno-incompatible-pointer-types" \
         --extra-asflags="$EXTRA_ASFLAGS" \
         --extra-ldflags="$LDFLAGS ${NOLTO}" || return 1
 
