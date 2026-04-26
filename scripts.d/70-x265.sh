@@ -47,8 +47,12 @@ ffbuild_dockerbuild() {
     # Убираем X265_FREE, так как массив не нужно освобождать
     sed -i 's/if (inputData->dolbyVisionRpu.payload) X265_FREE(inputData->dolbyVisionRpu.payload);//g' "encoder/api.cpp"
 
+    # Исправление потенциального крэша в парсинге параметров SVT-HEVC
+    sed -i 's/else { if (!strcmp(temp1, "\*"))/else { temp1 = pools; if (!strcmp(temp1, "\*"))/' "common/param.cpp"
+
     # Дополнительно исправляем варнинг сравнения типов в threading.h (Win64)
     sed -i 's/rt != WAIT_TIMEOUT \&\& rt != WAIT_FAILED/rt != (DWORD)WAIT_TIMEOUT \&\& rt != (DWORD)WAIT_FAILED/g' "common/threading.h"
+    sed -i 's/int32_t rt = WaitForSingleObject/DWORD rt = WaitForSingleObject/g' "common/threading.h"
 
     local myconf=(
         -G Ninja
@@ -68,9 +72,9 @@ ffbuild_dockerbuild() {
         -DENABLE_MULTIVIEW=ON # Enable Multi-view encoding in HEVC
         -DENABLE_VTUNE=OFF # Enable Vtune profiling instrumentation
         -DENABLE_TESTS=OFF # Enable Unit Tests
-        -DX265_LATEST_TAG="3.5"
-        -DX265_TAG_DISTANCE="0"
-        -DX265_VERSION="3.5"
+        # -DX265_LATEST_TAG="3.5"
+        # -DX265_TAG_DISTANCE="0"
+        # -DX265_VERSION="3.5"
         -Wno-dev
         # SVT_HEVC; see svthevc.rst file
         -DENABLE_SVT_HEVC=ON # use the --svt flag in the x265 CLI to use the SVT-HEVC engine instead of the standard x265 core
