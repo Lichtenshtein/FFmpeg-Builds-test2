@@ -64,6 +64,15 @@ index a3f99ff..48cd19a 100644
        }
  #endif
  }
+@@ -337,7 +337,7 @@ void xavs_dct_init (int cpu, xavs_dct_function_t * dctf)
+ }
+ 
+ // gcc pessimizes multi-dimensional arrays here, even with constant indices
+-#define ZIG(i,y,x) level[i] = dct[0][y*8+x];
++#define ZIG(i,y,x) level[i] = dct[y][x];
+ #define ZIGZAG8_FRAME\
+     ZIG( 0,0,0) ZIG( 1,0,1) ZIG( 2,1,0) ZIG( 3,2,0)\
+     ZIG( 4,1,1) ZIG( 5,0,2) ZIG( 6,0,3) ZIG( 7,1,2)\
 -- 
 2.52.0.windows.1
 
