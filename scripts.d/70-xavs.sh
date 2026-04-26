@@ -17,8 +17,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # sed -i '/#include <stdio.h>/a #include "common/i386/mc.h"' common/mc.c
-
     sed -i 's/dct\[0\]\[y\*8+x\]/dct[y][x]/g' common/dct.c
 
     sed -i 's/dctf->sub8x8_dct8 = xavs_sub8x8_dct8_sse2/dctf->sub8x8_dct8 = (void (*)(int16_t (*)[8], uint8_t *, uint8_t *))xavs_sub8x8_dct8_sse2/g' common/dct.c
@@ -52,7 +50,7 @@ EOF
         --host="$FFBUILD_TOOLCHAIN"
         --cross-prefix="$FFBUILD_CROSS_PREFIX"
         --prefix="$FFBUILD_PREFIX"
-        --disable-asm
+        --disable-asm # don't turn it on, it's a disaster
         --enable-pthread
         --enable-pic
     )
