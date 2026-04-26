@@ -383,6 +383,3 @@ index d37582c..1241651 100644
 -endif ()
 +            DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/XEVD)
 +endif()
--- 
-2.52.0.windows.1
-
