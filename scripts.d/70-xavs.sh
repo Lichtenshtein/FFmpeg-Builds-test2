@@ -23,10 +23,6 @@ ffbuild_dockerbuild() {
     sed -i 's/\/\*#ifdef HAVE_MMXEXT/#ifdef HAVE_MMXEXT/g' common/mc.c
     sed -i 's/#include "i386\/mc.h"/#include "i386\/mc.h"/g' common/mc.c
     sed -i 's/#endif\*\/ /#endif/g' common/mc.c
-    if [ -f common/i386/dct.h ]; then
-        sed -i 's/int16_t \*tmp//g' common/i386/dct.h
-        sed -i 's/, )/)/g' common/i386/dct.h
-    fi
 
     mkdir -p common/i386
     cat <<EOF > common/i386/mc.h
