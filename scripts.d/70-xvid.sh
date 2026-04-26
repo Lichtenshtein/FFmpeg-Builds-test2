@@ -37,10 +37,6 @@ ffbuild_dockerbuild() {
         #--disable-pthread
     )
 
-    [[ "${PREFER_SHARED}" == "1" ]] && \
-        myconf+=( --enable-shared ) || \
-        myconf+=( --enable-static )
-
     # Xvid падает с LTO
     CFLAGS="$CFLAGS ${NOLTO} -fcommon" \
     CPPFLAGS="$CPPFLAGS" \
@@ -49,17 +45,26 @@ ffbuild_dockerbuild() {
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
-    # У Xvid есть баг: он может пытаться собрать .so даже для Windows
-    # Исправим Makefile, если он решит собирать разделяемую библиотеку при статике
     [[ "${PREFER_SHARED}" != "1" ]] && sed -i 's/SHARED_LIB =.*/SHARED_LIB =/' Makefile
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    if [[ -d "$FFBUILD_DESTPREFIX/lib64" ]]; then
-        mv "$FFBUILD_DESTPREFIX/lib64"/* "$FFBUILD_DESTPREFIX/lib/"
-        rmdir "$FFBUILD_DESTPREFIX/lib64"
-    fi
+    local PC_FILE="$PC_DIR/xvidcore.pc"
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_FILE"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: xvidcore
+Description: Xvid MPEG-4 video codec library
+Version: 1.3.7
+Libs: -L\${libdir} -lxvidcore
+Libs.private: -pthread
+Cflags: -I\${includedir}
+EOF
 }
 
 ffbuild_configure() {
