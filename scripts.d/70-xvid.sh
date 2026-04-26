@@ -18,7 +18,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    cd /build/${STAGENAME}/build/linux
+    cd /build/${STAGENAME}/build/generic
 
     # The original code fails on a two-digit major...
     sed -i 's/GCC_MAJOR=.*/GCC_MAJOR=14/' configure.in

@@ -1,0 +1,31 @@
+From 71bacea5ac47f562176df150752fdeed75ba6f58 Mon Sep 17 00:00:00 2001
+From: Jamaika1 <lukaszcz18@wp.pl>
+Date: Sat, 20 Mar 2021 16:28:33 +0100
+Subject: [PATCH] Added u32
+
+```
+lookahead.c: In function 'loka_estimate_coding_cost':
+com_system.h:115:33: warning: conversion from 'long long unsigned int' to 'u32' {aka 'unsigned int'} changes value from '18446744073709551615' to '4294967295' [-Woverflow]
+  115 | #define COM_UINT64_MAX          ((u64)0xFFFFFFFFFFFFFFFFL)
+      |                                 ^
+lookahead.c:215:29: note: in expansion of macro 'COM_UINT64_MAX'
+  215 |             u32 min_icost = COM_UINT64_MAX;
+      |                             ^~~~~~~~~~~~~~
+```
+---
+ src/lookahead.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/lookahead.c b/src/lookahead.c
+index 463afc8..4aae69d 100644
+--- a/src/lookahead.c
++++ b/src/lookahead.c
+@@ -212,7 +212,7 @@ double loka_estimate_coding_cost(inter_search_t *pi, com_img_t *img_org, com_img
+ 
+             int avaliable_nb = (x ? AVAIL_LE : 0) | (y ? AVAIL_UP : 0) | ((x && y) ? AVAIL_UP_LE : 0);
+             static tab_s8 ipm_tab[] = { 0, 1, 2, 4, 8, 12, 16, 20, 24, 28, 32 };
+-            u32 min_icost = COM_UINT64_MAX;
++            u32 min_icost = (u32) COM_UINT64_MAX;
+             int best_mode;
+ 
+             for (int i = 0; i < sizeof(ipm_tab); i++) {
