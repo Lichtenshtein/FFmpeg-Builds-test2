@@ -1,0 +1,22 @@
+From f0b2aba4bad4acc97e655ce5cbc80a792119b8a2 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Mon, 27 Apr 2026 08:41:57 +0300
+Subject: [PATCH] fix Windows.h
+
+---
+diff --git a/testapp/mmap.cpp b/testapp/mmap.cpp
+index 5e124b3..6106d27 100644
+--- a/testapp/mmap.cpp
++++ b/testapp/mmap.cpp
+@@ -8,7 +8,7 @@
+ 
+ #ifdef _WIN32
+   #include <filesystem>
+-  #include <Windows.h>
++  #include <windows.h>
+ #else
+   #include <cerrno>
+   #include <cstdint>
+-- 
+2.52.0.windows.1
+

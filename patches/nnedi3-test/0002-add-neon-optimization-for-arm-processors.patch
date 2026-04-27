@@ -1,4 +1,4 @@
-From 3bd542a396371b1af404c8a51df144957419909c Mon Sep 17 00:00:00 2001
+From 66c1e9998e426f596a6306b33f924ac4d52e4d04 Mon Sep 17 00:00:00 2001
 From: Stefan-olt <stefan-oltmanns@gmx.net>
 Date: Thu, 10 Oct 2024 15:09:30 +0200
 Subject: [PATCH] Add NEON optimization for ARM processors
@@ -10260,3 +10260,6 @@ index 0564275..2010743 100644
  #endif
  
  	if (!ret)
+-- 
+2.52.0.windows.1
+
