@@ -30,6 +30,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     mkdir -p python_win/bin python_win/include
 
     if [[ ! -f python_embed.zip || ! -f python_hdrs.zip ]]; then
@@ -37,45 +38,49 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
+    # Распаковка DLL
     unzip -qo python_embed.zip -d python_win/bin
+
+    # Распаковка хедеров (используем универсальный путь через *)
     mkdir -p temp_hdrs
     unzip -qo python_hdrs.zip -d temp_hdrs
+
+    # чтобы не зависеть от того, cpython-3.12 это или cpython-3.12.3
     mv temp_hdrs/cpython-*/Include/* python_win/include/
+
+    # Проверяем, есть ли там PC/pyconfig.h (иногда он там) или создаем свой
+    # В Windows-сборке CPython pyconfig.h обычно генерируется, нам нужен статический вариант
     cp temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true
     rm -rf temp_hdrs
 
+    # pyconfig.h чтобы Meson не лез в системный /usr/include
     cat <<EOF > python_win/include/pyconfig.h
 #ifndef Py_PYCONFIG_H
 #define Py_PYCONFIG_H
+
 #define MS_WIN64
 #define MS_WINDOWS
 #define Py_ENABLE_SHARED
 #define SIZEOF_VOID_P 8
 #define SIZEOF_SIZE_T 8
+#define SIZEOF_OFF_T 4
 #define SIZEOF_LONG 4
 #define SIZEOF_WCHAR_T 2
-#define WIN32_THREADS 1
-#define HAVE_THREAD_H 1
+#define HAVE_UINTPTR_T 1
+#define HAVE_STDINT_H 1
+
 #define WITH_THREAD 1
+#define WIN32_THREADS 1
+
 #include <patchlevel.h>
 #endif
 EOF
 
+    # Решаем проблему Windows.h (Case-sensitivity)
     local SYSTEM_WIN_H=$(find /opt/ct-ng -name "windows.h" | head -n 1)
     if [[ -f "$SYSTEM_WIN_H" ]]; then
         ln -sf "$SYSTEM_WIN_H" python_win/include/Windows.h
     fi
-
-    # Создаем "заглушку" для Cython, которая всегда говорит "я ничего не умею"
-    mkdir -p bin_fake
-    cat <<EOF > bin_fake/cython
-#!/bin/sh
-exit 1
-EOF
-    chmod +x bin_fake/cython
-
-    # Добавляем нашу заглушку в начало PATH
-    export PATH="${PWD}/bin_fake:${PATH}"
 
     # Генерируем библиотеку импорта
     ${FFBUILD_CROSS_PREFIX}gendef python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
@@ -83,33 +88,31 @@ EOF
 
     local CUR_DIR=$(pwd)
 
-    # Исправленный python_fix.ini
+    # Настройка Meson (fake_pkgconfig)
+    mkdir -p fake_pkgconfig
+    cat <<EOF > fake_pkgconfig/python3.pc
+Name: python3
+Version: ${PY_VER}
+Description: Fake Python
+Libs: -L${CUR_DIR} -l${PY_LIB}
+Cflags: -I${CUR_DIR}/python_win/include
+EOF
+    # Создаем все возможные варианты имен .pc файлов
+    ln -sf python3.pc fake_pkgconfig/python-3.14.pc
+    ln -sf python3.pc fake_pkgconfig/python-3.14-embed.pc
+
     cat <<EOF > python_fix.ini
 [binaries]
-pkg-config = 'pkg-config'
-cython = '${PWD}/bin_fake/cython'
+pkgconfig = 'pkg-config'
 
 [built-in options]
-c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS', '-DWIN32_THREADS=1']
-cpp_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS', '-DWIN32_THREADS=1']
+c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
+cpp_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
 c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 EOF
 
-    # Создаем фейковый pkg-config в системном стиле
-    mkdir -p fake_pkgconfig
-    cat <<EOF > fake_pkgconfig/python-3.12.pc
-Name: Python
-Version: 3.14
-Description: Fake Python
-Libs: -L${CUR_DIR} -l${PY_LIB}
-Cflags: -I${CUR_DIR}/python_win/include -DMS_WIN64 -DMS_WINDOWS
-EOF
-    ln -sf python-3.14.pc fake_pkgconfig/python3.pc
-    ln -sf python-3.14.pc fake_pkgconfig/python-3.14-embed.pc
-
     export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig"
-    export CYTHON="/bin/false"
 
     mkdir -p build && cd build
 
@@ -134,8 +137,8 @@ EOF
     )
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS -DMS_WIN64 $static_flags" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS -DMS_WIN64 $static_flags" \
+        -Dc_args="$CFLAGS $CPPFLAGS $static_flags" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags" \
         -Dc_link_args="$LDFLAGS" \
         -Dcpp_link_args="$LDFLAGS" || return 1
 
@@ -149,7 +152,7 @@ EOF
     cp -v python_win/bin/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
 
     # Стандартная библиотека Python (БЕЗ НЕЁ НЕ ЗАРАБОТАЕТ)
-    cp -v python_win/bin/python312.zip "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
+    cp -v python_win/bin/python314.zip "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
 
     # Расширения .pyd, если они нужны внутри .vpy скриптов
     cp -v python_win/bin/*.pyd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" 2>/dev/null || true
