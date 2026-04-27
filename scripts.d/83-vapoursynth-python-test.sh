@@ -168,21 +168,22 @@ libvsscript = library('vsscript',
     install: true,
 )
 
-# Удален блок py.extension_module('vapoursynth', ...)
-# Удален блок py.install_sources(...)
+libdir = get_option('libdir')
+includedir = get_option('includedir')
 
 pc_data = configuration_data()
 pc_data.set('version', meson.project_version())
-# Указываем префикс вручную, так как py.get_install_dir() больше нет
 pc_data.set('prefix', get_option('prefix'))
+pc_data.set('libdir', get_option('prefix') / libdir)
+pc_data.set('includedir', get_option('prefix') / includedir)
 
 configure_file(
     configuration: pc_data,
     input: 'vapoursynth.pc.in',
     install: true,
+    install_dir: libdir / 'pkgconfig',
     output: 'vapoursynth.pc',
 )
-
 EOF
 
     # Подготовка структуры Python
