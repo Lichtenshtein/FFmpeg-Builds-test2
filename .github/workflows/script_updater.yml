@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       # Список исключений для обновления
-      UPDATE_PRESERVE_LIST: "glib2"
+      UPDATE_PRESERVE_LIST: "glib2,vapoursynth"
     permissions:
       contents: write
       pull-requests: write
