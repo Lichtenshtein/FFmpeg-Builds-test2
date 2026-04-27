@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '08-zlib|27-freeglut|40-zimg|59-opencl|80-avisynth|80-nnedi3-test|81-vidstab|83-vapoursynth-python-test|85-libcaca|85-libudfread|86-libdvdcss|86-libdvdread|87-libdvdnav|88-libbluray|96-lv2|96-serd|96-zix|97-sord|98-sratom|99-lilv'
+        default: '08-zlib|27-freeglut|40-zimg|64-soundtouch|59-opencl|80-avisynth|80-nnedi3-test|81-vidstab|83-vapoursynth-python-test|85-libcaca|85-libudfread|86-libdvdcss|86-libdvdread|87-libdvdnav|88-libbluray|96-lv2|96-serd|96-zix|97-sord|98-sratom|99-lilv'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
@@ -25,7 +25,7 @@ on:
       cpu_tune:
         description: 'CPU mtune target (broadwell/generic/native)'
         required: false
-        default: 'broadwell -mavx2 -mfma'
+        default: 'broadwell -ftree-vectorize -mavx2 -mfma -g0'
       use_lto:
         description: 'Enable LTO optimization'
         type: boolean
