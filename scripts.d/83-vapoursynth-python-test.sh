@@ -54,8 +54,16 @@ ffbuild_dockerbuild() {
 
     # Создаем фиктивный бинарник cython, который всегда выдает ошибку
     mkdir -p fake_bin
-    echo -e "#!/bin/sh\nexit 1" > fake_bin/cython
+    cat <<EOF > fake_bin/cython
+#!/bin/sh
+if [ "\$1" = "-V" ] || [ "\$1" = "--version" ]; then
+    echo "Cython version 3.0.10"
+    exit 0
+fi
+exit 1
+EOF
     chmod +x fake_bin/cython
+    ln -sf cython fake_bin/cython3
     export PATH="${PWD}/fake_bin:${PATH}"
 
     # ПРИНУДИТЕЛЬНЫЙ pyconfig.h (чтобы Meson не лез в системный /usr/include)
@@ -104,6 +112,7 @@ EOF
     cat <<EOF > python_fix.ini
 [binaries]
 pkg-config = 'pkg-config'
+cython = '${PWD}/fake_bin/cython'
 
 [built-in options]
 c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
