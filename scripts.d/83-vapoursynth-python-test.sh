@@ -45,10 +45,13 @@ ffbuild_dockerbuild() {
     sed -i "s/'cython'//g; s/, 'cython'//g; s/'cython',//g" meson.build
 
     # Фикс регистра для Windows.h (Критично для сборки Core)
-    local MINGW_INCLUDE=$(find /opt/ct-ng -name "windows.h" -exec dirname {} \; | head -n 1)
+    local MINGW_INCLUDE=$(find /opt/ct-ng -name "Windows.h" -exec dirname {} \; | head -n 1)
     mkdir -p extra_include
+    # Делаем так, чтобы и <windows.h> и <Windows.h> работали
     ln -sf "${MINGW_INCLUDE}/Windows.h" "extra_include/windows.h"
+    ln -sf "${MINGW_INCLUDE}/Windows.h" "extra_include/Windows.h"
     ln -sf "${MINGW_INCLUDE}/WinType.h" "extra_include/wintype.h"
+    ln -sf "${MINGW_INCLUDE}/WinType.h" "extra_include/WinType.h"
     
     # Ссылка для самого Python, чтобы он видел Windows.h внутри своих инклудов
     ln -sf "${MINGW_INCLUDE}/Windows.h" python_win/include/Windows.h
@@ -80,10 +83,11 @@ EOF
     cat <<EOF > fake_pkgconfig/python3.pc
 Name: python3
 Version: ${PY_VER}
-Description: Fake Python for VapourSynth
+Description: Fake Python
 Libs: -L${CUR_DIR} -l${PY_LIB}
-Cflags: -I${CUR_DIR}/python_win/include -DMS_WIN64
+Cflags: -I${CUR_DIR}/python_win/include -DMS_WIN64 -DMS_WINDOWS
 EOF
+
     ln -sf python3.pc fake_pkgconfig/python-3.12.pc
     export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig"
 
@@ -97,7 +101,7 @@ EOF
 
     # Флаги для исправления ошибок в VapourSynth4.h
     # Добавляем -D_WIN32, чтобы VS_CC определился как __stdcall
-    FIX_FLAGS="-I${CUR_DIR}/extra_include -D_WIN32 -D_WIN64 -D__stdcall=__attribute__((stdcall)) -D__cdecl=__attribute__((cdecl))"
+    FIX_FLAGS="-I${CUR_DIR}/extra_include -D_WIN32 -D_WIN64 -DUNICODE -D_UNICODE"
     
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DVAPOURSYNTH_STATIC"
