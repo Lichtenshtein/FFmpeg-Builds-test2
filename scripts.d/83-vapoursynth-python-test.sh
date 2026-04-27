@@ -101,7 +101,7 @@ EOF
 pkg-config = 'pkg-config'
 
 [properties]
-pkg_config_libdir = '${CUR_DIR}/fake_pkgconfig'
+pkg_config_libdir = ['${CUR_DIR}/fake_pkgconfig', '/opt/ffbuild/lib/pkgconfig', '/opt/ffbuild/share/pkgconfig']
 pkg_config_static = true
 
 [built-in options]
