@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/vapoursynth/vapoursynth.git"
-SCRIPT_COMMIT="42a3bba6f0fffe3a397fa3494aadb7be1e2af8de"
+SCRIPT_COMMIT="5ef8947b07ede8c265a219c081d2f29c05e52009"
 
 # Версия Python для встраивания (должна совпадать с той, что в Ubuntu 24.04 для сборки)
 PY_VER="3.12"
@@ -91,7 +91,7 @@ EOF
 
     cat <<EOF > python_fix.ini
 [binaries]
-pkgconfig = 'pkg-config'
+pkg-config = 'pkg-config'
 
 [built-in options]
 c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
