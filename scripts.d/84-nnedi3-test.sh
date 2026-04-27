@@ -33,8 +33,8 @@ ffbuild_dockerbuild() {
     )
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
+        -Dc_args="$CFLAGS $CPPFLAGS -w" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS -w" \
         -Dc_link_args="$LDFLAGS" \
         -Dcpp_link_args="$LDFLAGS" || return 1
 
