@@ -52,20 +52,6 @@ ffbuild_dockerbuild() {
     cp temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true
     rm -rf temp_hdrs
 
-    # Создаем фиктивный бинарник cython, который всегда выдает ошибку
-    mkdir -p fake_bin
-    cat <<EOF > fake_bin/cython
-#!/bin/sh
-if [ "\$1" = "-V" ] || [ "\$1" = "--version" ]; then
-    echo "Cython version 3.0.10"
-    exit 0
-fi
-exit 1
-EOF
-    chmod +x fake_bin/cython
-    ln -sf cython fake_bin/cython3
-    export PATH="${PWD}/fake_bin:${PATH}"
-
     # ПРИНУДИТЕЛЬНЫЙ pyconfig.h (чтобы Meson не лез в системный /usr/include)
     cat <<EOF > python_win/include/pyconfig.h
 #ifndef Py_PYCONFIG_H
@@ -109,10 +95,17 @@ EOF
     ln -sf python3.pc fake_pkgconfig/python-3.12.pc
     ln -sf python3.pc fake_pkgconfig/python-3.12-embed.pc
 
+    cat <<EOF > native_fix.ini
+[binaries]
+cython = '/bin/false'
+cython3 = '/bin/false'
+EOF
+
     cat <<EOF > python_fix.ini
 [binaries]
 pkg-config = 'pkg-config'
-cython = '${PWD}/fake_bin/cython'
+cython = '/bin/false'
+cython3 = '/bin/false'
 
 [built-in options]
 c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
@@ -134,6 +127,7 @@ EOF
         --prefix="$FFBUILD_PREFIX"
         --cross-file="$FFBUILD_MESON_CROSS"
         --cross-file ../python_fix.ini
+        --native-file ../native_fix.ini
         --buildtype release
         --default-library $([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=c++17
