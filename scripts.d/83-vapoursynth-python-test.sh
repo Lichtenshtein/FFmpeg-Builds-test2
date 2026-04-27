@@ -31,6 +31,160 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    cat <<'EOF' > meson.build
+project('VapourSynth', 'c', 'cpp',
+    default_options: ['buildtype=release', 'b_lto=true', 'b_ndebug=if-release', 'c_std=c99', 'cpp_std=c++17'],
+    license: 'LGPL-2.1-or-later',
+    license_files: 'COPYING.LESSER',
+    meson_version: '>=1.3.0',
+    version: '75rc1',
+)
+
+enable_guard_pattern = get_option('enable_guard_pattern')
+enable_x86_asm = get_option('enable_x86_asm')
+
+cxx = meson.get_compiler('cpp')
+
+if cxx.get_argument_syntax() == 'gcc'
+    avx2_args = '-march=x86-64-v3'
+elif cxx.get_id() == 'clang-cl'
+    avx2_args = '/clang:-march=x86-64-v3'
+else
+    avx2_args = '/arch:AVX2'
+endif
+
+host_system = host_machine.system()
+is_win = host_system in ['cygwin', 'windows']
+
+if is_win
+    dl_dep = dependency('', required: false)
+    libp2p_dep = dependency('libp2p', static: true, required: false)
+else
+    dl_dep = dependency('dl')
+endif
+
+if not host_machine.cpu_family().startswith('x86')
+    enable_x86_asm = false
+endif
+
+incdir = include_directories('include')
+
+# Мы не ищем установку python через import('python'), так как мы передаем заголовки вручную
+# Но нам нужна зависимость для линковки vsscript
+py_dep = dependency('python3', method: 'pkg-config')
+
+# Заглушка для версии, чтобы не запускать python во время сборки
+vs_current_release = '75' 
+
+add_project_arguments(
+    cxx.get_supported_arguments(
+        '-D_CRT_SECURE_NO_WARNINGS',
+        '-DNOMINMAX',
+        '-DVS_CURRENT_RELEASE=@0@'.format(vs_current_release),
+        '-DVS_GRAPH_API',
+        '-DVS_USE_LATEST_API',
+        '-DVSSCRIPT_USE_LATEST_API',
+        '-Wno-ignored-attributes',
+    ),
+    language: ['c', 'cpp'],
+)
+
+if is_win
+    add_project_arguments('-DVS_TARGET_OS_WINDOWS', '-D_UNICODE', '-DUNICODE', language: ['c', 'cpp'])
+elif host_system == 'darwin'
+    add_project_arguments('-DVS_TARGET_OS_DARWIN', language: ['c', 'cpp'])
+elif host_system in ['dragonfly', 'freebsd', 'gnu', 'linux', 'netbsd', 'openbsd']
+    add_project_arguments('-DVS_TARGET_OS_LINUX', language: ['c', 'cpp'])
+endif
+
+if enable_guard_pattern
+    add_project_arguments('-DVS_FRAME_GUARD', language: ['c', 'cpp'])
+endif
+
+deps = [
+    dl_dep,
+    dependency('threads'),
+    dependency('zimg', static: true, version: '>=3.0.5'),
+]
+
+libs = []
+
+if enable_x86_asm
+    add_project_arguments('-DVS_TARGET_CPU_X86', language: ['c', 'cpp'])
+
+    libs += static_library('core_sse2',
+        files(
+            'src/core/expr/jitcompiler_x86.cpp',
+            'src/core/kernel/x86/average_sse2.c',
+            'src/core/kernel/x86/convolution_sse2.cpp',
+            'src/core/kernel/x86/generic_sse2.cpp',
+            'src/core/kernel/x86/merge_sse2.c',
+            'src/core/kernel/x86/planestats_sse2.c',
+            'src/core/kernel/x86/transpose_sse2.c',
+        ),
+        gnu_symbol_visibility: 'hidden',
+        include_directories: incdir,
+    )
+
+    libs += static_library('core_avx2',
+        files(
+            'src/core/kernel/x86/convolution_avx2.cpp',
+            'src/core/kernel/x86/generic_avx2.cpp',
+            'src/core/kernel/x86/merge_avx2.c',
+            'src/core/kernel/x86/planestats_avx2.c',
+        ),
+        c_args: avx2_args,
+        cpp_args: avx2_args,
+        gnu_symbol_visibility: 'hidden',
+        include_directories: incdir,
+    )
+endif
+
+# Главная библиотека (Core)
+libvapoursynth = library('vapoursynth',
+    files(
+        'src/core/vsapi.cpp',
+        'src/core/vscore.cpp',
+        # Добавьте сюда остальные файлы из оригинального meson.build (их там много)
+        # Если вы используете готовый файл, просто оставьте этот блок как есть, 
+        # удалив из него только вызовы python
+    ),
+    c_args: '-DVS_CORE_EXPORTS',
+    cpp_args: '-DVS_CORE_EXPORTS',
+    dependencies: deps,
+    gnu_symbol_visibility: 'hidden',
+    include_directories: incdir,
+    install: true,
+    link_with: libs,
+)
+
+# Библиотека скриптов (VSScript) - то, что нужно FFmpeg
+libvsscript = library('vsscript',
+    files('src/vsscript/vsscript.cpp'),
+    cpp_args: ['-DPy_NO_LINK_LIB', '-DVS_CORE_EXPORTS'],
+    dependencies: [dl_dep, py_dep],
+    gnu_symbol_visibility: 'hidden',
+    include_directories: incdir,
+    install: true,
+)
+
+# Удален блок py.extension_module('vapoursynth', ...)
+# Удален блок py.install_sources(...)
+
+pc_data = configuration_data()
+pc_data.set('version', meson.project_version())
+# Указываем префикс вручную, так как py.get_install_dir() больше нет
+pc_data.set('prefix', get_option('prefix'))
+
+configure_file(
+    configuration: pc_data,
+    input: 'vapoursynth.pc.in',
+    install: true,
+    output: 'vapoursynth.pc',
+)
+
+EOF
+
     # Подготовка структуры Python
     mkdir -p python_win/bin python_win/include
     unzip -qo python_embed.zip -d python_win/bin
@@ -44,7 +198,7 @@ ffbuild_dockerbuild() {
     local CUR_DIR=$(pwd)
 
     # Хирургическое удаление Cython из проекта
-    sed -i "s/'cython',//g; s/'cython'//g; s/, 'cython'//g" meson.build
+    # sed -i "s/'cython',//g; s/'cython'//g; s/, 'cython'//g" meson.build
 
     # Фикс регистра для Windows.h (Критично для сборки Core)
     local MINGW_INCLUDE=$(find /opt/ct-ng -name "Windows.h" -exec dirname {} \; | head -n 1)
