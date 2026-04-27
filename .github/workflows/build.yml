@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '01-mingw-std-threads|02-mingw|08-zlib|40-zimg|83-vapoursynth-python-test|84-nnedi3-test|85-libcaca|85-libudfread|86-libdvdcss|86-libdvdread|87-libdvdnav|88-libbluray|96-lv2|96-serd|96-zix|97-sord|98-sratom|99-lilv'
+        default: '08-zlib|40-zimg|83-vapoursynth-python-test|84-nnedi3-test|85-libcaca|85-libudfread|86-libdvdcss|86-libdvdread|87-libdvdnav|88-libbluray|96-lv2|96-serd|96-zix|97-sord|98-sratom|99-lilv'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
