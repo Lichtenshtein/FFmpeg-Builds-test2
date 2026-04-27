@@ -30,36 +30,36 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    # Подготовка структуры Python
     mkdir -p python_win/bin python_win/include
-
-    if [[ ! -f python_embed.zip || ! -f python_hdrs.zip ]]; then
-        log_error "Required Python files missing! Check your download stage."
-        return 1
-    fi
-
-    # Распаковка DLL
     unzip -qo python_embed.zip -d python_win/bin
     
-    # Распаковка хедеров (используем универсальный путь через *)
     mkdir -p temp_hdrs
     unzip -qo python_hdrs.zip -d temp_hdrs
-    
-    # чтобы не зависеть от того, cpython-3.12 это или cpython-3.12.3
     mv temp_hdrs/cpython-*/Include/* python_win/include/
-    
-    # Проверяем, есть ли там PC/pyconfig.h (иногда он там) или создаем свой
-    # В Windows-сборке CPython pyconfig.h обычно генерируется, нам нужен статический вариант
     cp temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true
     rm -rf temp_hdrs
 
-    # Удаляем cython из списка языков проекта в meson.build
-    # Это уберет жесткую зависимость и Meson перестанет его искать
-    sed -i "s/'cython'//g" meson.build
-    sed -i "s/, 'cython'//g" meson.build
-    sed -i "s/'cython',//g" meson.build
+    # Хирургическое удаление Cython из проекта
+    sed -i "s/'cython'//g; s/, 'cython'//g; s/'cython',//g" meson.build
 
+    # Фикс регистра для Windows.h (Критично для сборки Core)
+    local MINGW_INCLUDE=$(find /opt/ct-ng -name "windows.h" -exec dirname {} \; | head -n 1)
+    mkdir -p extra_include
+    ln -sf "${MINGW_INCLUDE}/Windows.h" "extra_include/windows.h"
+    ln -sf "${MINGW_INCLUDE}/WinType.h" "extra_include/wintype.h"
+    
+    # Ссылка для самого Python, чтобы он видел Windows.h внутри своих инклудов
+    ln -sf "${MINGW_INCLUDE}/Windows.h" python_win/include/Windows.h
 
-    # ПРИНУДИТЕЛЬНЫЙ pyconfig.h (чтобы Meson не лез в системный /usr/include)
+    # Генерация библиотек импорта Python
+    ${FFBUILD_CROSS_PREFIX}gendef python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
+    ${FFBUILD_CROSS_PREFIX}dlltool -d ${PY_LIB}.def -l lib${PY_LIB}.a -D ${PY_LIB}.dll
+
+    local CUR_DIR=$(pwd)
+
+    # Создание правильного pyconfig.h
     cat <<EOF > python_win/include/pyconfig.h
 #ifndef Py_PYCONFIG_H
 #define Py_PYCONFIG_H
@@ -71,43 +71,23 @@ ffbuild_dockerbuild() {
 #define SIZEOF_LONG 4
 #define SIZEOF_WCHAR_T 2
 #define WIN32_THREADS 1
-#define HAVE_THREAD_H 1
 #define WITH_THREAD 1
 #include <patchlevel.h>
 #endif
 EOF
 
-    # Решаем проблему Windows.h (Case-sensitivity)
-    local SYSTEM_WIN_H=$(find /opt/ct-ng -name "windows.h" | head -n 1)
-    if [[ -f "$SYSTEM_WIN_H" ]]; then
-        ln -sf "$SYSTEM_WIN_H" python_win/include/Windows.h
-    fi
-
-    # Генерируем библиотеку импорта
-    ${FFBUILD_CROSS_PREFIX}gendef python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
-    ${FFBUILD_CROSS_PREFIX}dlltool -d ${PY_LIB}.def -l lib${PY_LIB}.a -D ${PY_LIB}.dll
-
-    local CUR_DIR=$(pwd)
-
-    # Настройка Meson (fake_pkgconfig)
     mkdir -p fake_pkgconfig
     cat <<EOF > fake_pkgconfig/python3.pc
 Name: python3
 Version: ${PY_VER}
-Description: Fake Python
+Description: Fake Python for VapourSynth
 Libs: -L${CUR_DIR} -l${PY_LIB}
-Cflags: -I${CUR_DIR}/python_win/include
+Cflags: -I${CUR_DIR}/python_win/include -DMS_WIN64
 EOF
-    # Создаем все возможные варианты имен .pc файлов
     ln -sf python3.pc fake_pkgconfig/python-3.12.pc
-    ln -sf python3.pc fake_pkgconfig/python-3.12-embed.pc
+    export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig"
 
     cat <<EOF > python_fix.ini
-[binaries]
-c = 'gcc'
-cpp = 'g++'
-pkg-config = 'pkg-config'
-
 [built-in options]
 c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
 cpp_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
@@ -115,33 +95,34 @@ c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 EOF
 
-    export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig"
-
-    mkdir -p build && cd build
-
+    # Флаги для исправления ошибок в VapourSynth4.h
+    # Добавляем -D_WIN32, чтобы VS_CC определился как __stdcall
+    FIX_FLAGS="-I${CUR_DIR}/extra_include -D_WIN32 -D_WIN64 -D__stdcall=__attribute__((stdcall)) -D__cdecl=__attribute__((cdecl))"
+    
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DVAPOURSYNTH_STATIC"
 
-    # Мы собираем vsscript как SHARED, так как он ОБЯЗАН грузить python3.dll
+    mkdir -p build && cd build
+
     local myconf=(
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         --prefix="$FFBUILD_PREFIX"
         --cross-file="$FFBUILD_MESON_CROSS"
         --cross-file ../python_fix.ini
         --buildtype release
         --default-library $([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         -Dcpp_std=c++17
         -Dc_std=c11
         -Denable_vsscript=true
         -Denable_vspipe=false
         -Denable_x86_asm=true
         # -Denable_core=true
-        -Denable_python_module=false # Requires Python, Cython, and the core
+        -Denable_python_module=false
     )
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS $static_flags" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags" \
+        -Dc_args="$CFLAGS $CPPFLAGS $FIX_FLAGS $static_flags" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS $FIX_FLAGS $static_flags" \
         -Dc_link_args="$LDFLAGS" \
         -Dcpp_link_args="$LDFLAGS" || return 1
 
