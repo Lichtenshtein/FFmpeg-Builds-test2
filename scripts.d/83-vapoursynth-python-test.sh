@@ -59,7 +59,13 @@ ffbuild_dockerbuild() {
 #define MS_WIN64
 #define MS_WINDOWS
 #define Py_ENABLE_SHARED
+#define SIZEOF_VOID_P 8
+#define SIZEOF_SIZE_T 8
+#define SIZEOF_LONG 4
 #define SIZEOF_WCHAR_T 2
+#define WIN32_THREADS 1
+#define HAVE_THREAD_H 1
+#define WITH_THREAD 1
 #include <patchlevel.h>
 #endif
 EOF
