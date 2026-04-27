@@ -206,7 +206,7 @@ EOF
     # Подготовка структуры Python
     mkdir -p python_win/bin python_win/include
     unzip -qo python_embed.zip -d python_win/bin
-    
+
     mkdir -p temp_hdrs
     unzip -qo python_hdrs.zip -d temp_hdrs
     mv temp_hdrs/cpython-*/Include/* python_win/include/
@@ -218,15 +218,7 @@ EOF
     # Фикс регистра для Windows.h (Критично для сборки Core)
     find . -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.c" \) -exec sed -i 's/[Ww]indows.h/windows.h/g' {} +
 
-    echo "--- DEBUG: Checking MINGW PATHS ---"
     local MINGW_INCLUDE=$(find /opt/ct-ng -name "windows.h" -exec dirname {} \; | head -n 1)
-    echo "MinGW include dir: $MINGW_INCLUDE"
-    ls -l "${MINGW_INCLUDE}/windows.h" || echo "windows.h NOT FOUND IN MINGW"
-
-    echo "--- DEBUG: Checking Local Source ---"
-    find src/vsscript -name "vsscript.cpp"
-    # Посмотрим, как sed изменил файл
-    grep "include <windows.h>" src/vsscript/vsscript.cpp || echo "SED failed to replace Windows.h"
 
     # Генерация библиотек импорта Python
     ${FFBUILD_CROSS_PREFIX}gendef python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
@@ -327,38 +319,44 @@ EOF
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Копируем DLL и критически важные файлы окружения Python
+    # Исправляем установку заголовков (Headers)
+    log_info "Manually installing headers..."
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/vapoursynth"
+    cp -v include/VapourSynth4.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/vapoursynth/"
+    cp -v include/VSScript4.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/vapoursynth/"
+
+    # Копируем DLL и рантайм Python
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
-    
-    # Все DLL (python312, python3, sqlite, ffi, ssl и т.д.)
-    cp -v python_win/bin/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
-    
-    # Стандартная библиотека Python (БЕЗ НЕЁ НЕ ЗАРАБОТАЕТ)
-    cp -v python_win/bin/python314.zip "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
-    
-    # Расширения .pyd, если они нужны внутри .vpy скриптов
-    cp -v python_win/bin/*.pyd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" 2>/dev/null || true
+
+    # Ищем DLL и ZIP в корне python_win, так как в embed-версии нет папки bin
+    find python_win -maxdepth 2 -name "*.dll" -exec cp -v {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" \;
+    find python_win -maxdepth 2 -name "python3*.zip" -exec cp -v {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" \;
+    find python_win -maxdepth 2 -name "*.pyd" -exec cp -v {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" \; 2>/dev/null || true
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/vapoursynth.pc"
 prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
 libdir=\${prefix}/lib
 includedir=\${prefix}/include/vapoursynth
+
 Name: vapoursynth
 Description: A frameserver for the 21st century
-Version: $VER_FULL
+Version: 75
 Libs: -L\${libdir} -lvapoursynth
-Libs.private: -lstdc++ -lwinmm
+Libs.private: -lstdc++ -lwinmm ${LIBS}
 Cflags: -I\${includedir} $static_flags
 EOF
 
     cat <<EOF > "$PC_DIR/vapoursynth-script.pc"
 prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
 libdir=\${prefix}/lib
 includedir=\${prefix}/include/vapoursynth
+
 Name: vapoursynth-script
 Description: Library for interfacing VapourSynth with Python
-Version: $VER_FULL
+Version: 75
 Libs: -L\${libdir} -lvsscript
 Libs.private: -l${PY_LIB} -lstdc++
 Cflags: -I\${includedir}
