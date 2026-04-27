@@ -30,8 +30,9 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     mkdir -p python_win/bin python_win/include
-    
+
     if [[ ! -f python_embed.zip || ! -f python_hdrs.zip ]]; then
         log_error "Required Python files missing! Check your download stage."
         return 1
@@ -39,20 +40,20 @@ ffbuild_dockerbuild() {
 
     # Распаковка DLL
     unzip -qo python_embed.zip -d python_win/bin
-    
+
     # Распаковка хедеров (используем универсальный путь через *)
     mkdir -p temp_hdrs
     unzip -qo python_hdrs.zip -d temp_hdrs
-    
+
     # чтобы не зависеть от того, cpython-3.12 это или cpython-3.12.3
     mv temp_hdrs/cpython-*/Include/* python_win/include/
-    
+
     # Проверяем, есть ли там PC/pyconfig.h (иногда он там) или создаем свой
     # В Windows-сборке CPython pyconfig.h обычно генерируется, нам нужен статический вариант
     cp temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true
     rm -rf temp_hdrs
 
-    # ПРИНУДИТЕЛЬНЫЙ pyconfig.h (чтобы Meson не лез в системный /usr/include)
+    # pyconfig.h чтобы Meson не лез в системный /usr/include
     cat <<EOF > python_win/include/pyconfig.h
 #ifndef Py_PYCONFIG_H
 #define Py_PYCONFIG_H
@@ -112,7 +113,7 @@ EOF
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         --prefix="$FFBUILD_PREFIX"
         --cross-file="$FFBUILD_MESON_CROSS"
-        --cross-file python_fix.ini
+        --cross-file ../python_fix.ini
         --buildtype release
         --default-library $([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=c++17
@@ -135,13 +136,13 @@ EOF
 
     # Копируем DLL и критически важные файлы окружения Python
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
-    
+
     # Все DLL (python312, python3, sqlite, ffi, ssl и т.д.)
     cp -v python_win/bin/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
-    
+
     # Стандартная библиотека Python (БЕЗ НЕЁ НЕ ЗАРАБОТАЕТ)
     cp -v python_win/bin/python312.zip "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
-    
+
     # Расширения .pyd, если они нужны внутри .vpy скриптов
     cp -v python_win/bin/*.pyd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" 2>/dev/null || true
 
