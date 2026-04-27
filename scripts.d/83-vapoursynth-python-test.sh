@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/vapoursynth/vapoursynth.git"
-SCRIPT_COMMIT="5ef8947b07ede8c265a219c081d2f29c05e52009"
+SCRIPT_COMMIT="72104546edcfa124113ee5093cf2821dedd64737"
 
 # Версия Python для встраивания (должна совпадать с той, что в Ubuntu 24.04 для сборки)
 PY_VER="3.12"
