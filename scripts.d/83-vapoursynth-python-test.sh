@@ -44,7 +44,7 @@ ffbuild_dockerbuild() {
     local CUR_DIR=$(pwd)
 
     # Хирургическое удаление Cython из проекта
-    sed -i "s/'cython'//g; s/, 'cython'//g; s/'cython',//g" meson.build
+    sed -i "s/'cython',//g; s/'cython'//g; s/, 'cython'//g" meson.build
 
     # Фикс регистра для Windows.h (Критично для сборки Core)
     local MINGW_INCLUDE=$(find /opt/ct-ng -name "Windows.h" -exec dirname {} \; | head -n 1)
@@ -133,13 +133,13 @@ EOF
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         -Dcpp_std=c++17
         -Dc_std=c11
-        -Denable_vsscript=true
-        -Denable_vspipe=false
+        # -Denable_vsscript=true
+        # -Denable_vspipe=false
         -Denable_x86_asm=true
         # -Denable_core=true
         -Dpython.platlibdir="${CUR_DIR}/python_win"
         -Dpython.purelibdir="${CUR_DIR}/python_win"
-        -Denable_python_module=false
+        # -Denable_python_module=false
         -Dpython.install_env=auto
         -Dpython.bytecompile=0
     )
