@@ -104,7 +104,7 @@ EOF
     cat <<EOF > python_fix.ini
 [binaries]
 pkg-config = 'pkg-config'
-# cython = '/bin/false'
+cython = '/bin/false'
 
 [built-in options]
 c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
