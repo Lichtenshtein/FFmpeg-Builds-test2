@@ -66,6 +66,17 @@ EOF
         ln -sf "$SYSTEM_WIN_H" python_win/include/Windows.h
     fi
 
+    # Создаем "заглушку" для Cython, которая всегда говорит "я ничего не умею"
+    mkdir -p bin_fake
+    cat <<EOF > bin_fake/cython
+#!/bin/sh
+exit 1
+EOF
+    chmod +x bin_fake/cython
+
+    # Добавляем нашу заглушку в начало PATH
+    export PATH="${PWD}/bin_fake:${PATH}"
+
     # Генерируем библиотеку импорта
     ${FFBUILD_CROSS_PREFIX}gendef python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
     ${FFBUILD_CROSS_PREFIX}dlltool -d ${PY_LIB}.def -l lib${PY_LIB}.a -D ${PY_LIB}.dll
@@ -76,36 +87,29 @@ EOF
     cat <<EOF > python_fix.ini
 [binaries]
 pkg-config = 'pkg-config'
-cython = '/bin/false'
+cython = '${PWD}/bin_fake/cython'
 
 [built-in options]
-c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64']
-cpp_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64']
+c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS', '-DWIN32_THREADS=1']
+cpp_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS', '-DWIN32_THREADS=1']
 c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
-
-[properties]
-# Это заставит Meson верить, что Python корректен для кросс-компиляции
-python_base_platform = 'win32'
 EOF
 
     # Создаем фейковый pkg-config в системном стиле
     mkdir -p fake_pkgconfig
     cat <<EOF > fake_pkgconfig/python-3.12.pc
-prefix=${CUR_DIR}/python_win
-libdir=${CUR_DIR}
-includedir=\${prefix}/include
-
 Name: Python
-Description: Python library
 Version: 3.12
-Libs: -L\${libdir} -l${PY_LIB}
-Cflags: -I\${includedir} -DMS_WIN64
+Description: Fake Python
+Libs: -L${CUR_DIR} -l${PY_LIB}
+Cflags: -I${CUR_DIR}/python_win/include -DMS_WIN64 -DMS_WINDOWS
 EOF
     ln -sf python-3.12.pc fake_pkgconfig/python3.pc
     ln -sf python-3.12.pc fake_pkgconfig/python-3.12-embed.pc
 
     export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig"
+    export CYTHON="/bin/false"
 
     mkdir -p build && cd build
 
@@ -122,6 +126,7 @@ EOF
         --default-library $([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=c++17
         -Dc_std=c11
+        -Dpython=disabled
         # -Denable_vsscript=true
         # -Denable_vspipe=false
         -Denable_x86_asm=true
