@@ -1,16 +1,11 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/Asd-g/AviSynthPlus-NNEDI3CL.git"
-SCRIPT_COMMIT="bd454d1e9fea7c9f7e059f4e6abe17e67f0935d8"
-
-# SCRIPT_REPO="https://github.com/Jamaika1/AviSynthPlus-NNEDI3CL.git"
-# SCRIPT_COMMIT="ae51fe937f44bfa8e9099a52f39897c1f181a80a"
-# SCRIPT_BRANCH="patch-1"
+SCRIPT_REPO="https://github.com/sekrit-twc/znedi3.git"
+SCRIPT_COMMIT="4cf67b9acad5bfc45b306b5187c5766695a94ca4"
 
 ffbuild_depends() {
-    # Этот фильтр требует OpenCL (opencl.sh)
     echo avisynth
-    echo opencl
+    echo zimg
 }
 
 ffbuild_enabled() {
@@ -25,22 +20,23 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    mkdir -p build && cd build
+    mkdir build && cd build
 
     local myconf=(
-        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
-        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DCMAKE_BUILD_TYPE=Release
-        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
-        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        -DUSE_SYSTEM_AVS_HELPER=OFF # Use an installed version of avs_c_api_loader
+        --buildtype=release
+        --cross-file="$FFBUILD_MESON_CROSS"
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
+        --prefix="$FFBUILD_PREFIX"
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
+        -Dc_std=c11
+        -Dcpp_std=c++17
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    LDFLAGS="$LDFLAGS" \
-    cmake -G Ninja "${myconf[@]}" .. || return 1
+    meson setup "${myconf[@]}" .. \
+        -Dc_args="$CFLAGS $CPPFLAGS" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
+        -Dc_link_args="$LDFLAGS" \
+        -Dcpp_link_args="$LDFLAGS" || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
