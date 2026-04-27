@@ -143,7 +143,6 @@ EOF
         -Denable_x86_asm=true
         # -Denable_core=true
         # -Denable_python_module=false # Requires Python, Cython, and the core
-        -Dpython_module=disabled
     )
 
     meson setup "${myconf[@]}" .. \
