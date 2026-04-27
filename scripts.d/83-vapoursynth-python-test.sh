@@ -97,12 +97,6 @@ EOF
     ln -sf python3.pc fake_pkgconfig/python-3.12.pc
     ln -sf python3.pc fake_pkgconfig/python-3.12-embed.pc
 
-    cat <<EOF > native_fix.ini
-[binaries]
-cython = '/bin/false'
-cython3 = '/bin/false'
-EOF
-
     cat <<EOF > python_fix.ini
 [binaries]
 c = 'gcc'
@@ -130,7 +124,6 @@ EOF
         --prefix="$FFBUILD_PREFIX"
         --cross-file="$FFBUILD_MESON_CROSS"
         --cross-file ../python_fix.ini
-        --native-file ../native_fix.ini
         --buildtype release
         --default-library $([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=c++17
