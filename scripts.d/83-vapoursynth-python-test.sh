@@ -54,7 +54,9 @@ ffbuild_dockerbuild() {
     ln -sf "${MINGW_INCLUDE}/Windows.h" "extra_include/Windows.h"
     ln -sf "${MINGW_INCLUDE}/WinType.h" "extra_include/wintype.h"
     ln -sf "${MINGW_INCLUDE}/WinType.h" "extra_include/WinType.h"
-    
+    ln -sf "${MINGW_INCLUDE}/Windows.h" "./Windows.h"
+    ln -sf "${MINGW_INCLUDE}/Windows.h" "Windows.h"
+    ln -sf "${MINGW_INCLUDE}/Windows.h" "windows.h"
     # Ссылка для самого Python, чтобы он видел Windows.h внутри своих инклудов
     ln -sf "${MINGW_INCLUDE}/Windows.h" python_win/include/Windows.h
 
@@ -95,6 +97,13 @@ EOF
     ln -sf python3.pc fake_pkgconfig/python-3.12.pc
 
     cat <<EOF > python_fix.ini
+[binaries]
+pkg-config = 'pkg-config'
+
+[properties]
+pkg_config_libdir = '${CUR_DIR}/fake_pkgconfig'
+pkg_config_static = true
+
 [built-in options]
 c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
 cpp_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
@@ -131,6 +140,8 @@ EOF
         -Dpython.platlibdir="${CUR_DIR}/python_win"
         -Dpython.purelibdir="${CUR_DIR}/python_win"
         -Denable_python_module=false
+        -Dpython.install_env=auto
+        -Dpython.bytecompile=0
     )
 
     unset CPATH
