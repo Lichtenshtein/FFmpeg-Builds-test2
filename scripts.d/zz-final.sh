@@ -23,6 +23,8 @@ ffbuild_depends() {
     echo libxxhash
     echo libmpg123
     echo cryptopp
+    echo soundtouch
+    echo gnutls
     # echo lcevcdec
     echo spirv-tools
     echo gavl
