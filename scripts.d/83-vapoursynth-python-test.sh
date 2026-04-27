@@ -1,12 +1,12 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/vapoursynth/vapoursynth.git"
-SCRIPT_COMMIT="1b93fd9649d4420b64863de9226e6e751ba2ba9d"
+SCRIPT_COMMIT="97296f703eff3ea8c065c65cdfa244b4de3756f4"
 
 # Версия Python для встраивания (должна совпадать с той, что в Ubuntu 24.04 для сборки)
-PY_VER="3.12"
-PY_FULL_VER="3.12.3"
-PY_LIB="python312" # Без точки для линковки
+PY_VER="3.14"
+PY_FULL_VER="3.14.1"
+PY_LIB="python314" # Без точки для линковки
 
 ffbuild_depends() {
     echo zlib
@@ -88,13 +88,13 @@ libdir=${CUR_DIR}
 includedir=\${prefix}/include
 
 Name: python3
-Version: 3.12
+Version: 3.14
 Description: Fake Python
 Libs: -L\${libdir} -l${PY_LIB}
 Cflags: -I\${includedir} -DMS_WIN64 -DMS_WINDOWS
 EOF
 
-    ln -sf python3.pc fake_pkgconfig/python-3.12.pc
+    ln -sf python3.pc fake_pkgconfig/python-3.14.pc
 
     cat <<EOF > python_fix.ini
 [binaries]
@@ -164,7 +164,7 @@ EOF
     cp -v python_win/bin/*.dll "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
     
     # Стандартная библиотека Python (БЕЗ НЕЁ НЕ ЗАРАБОТАЕТ)
-    cp -v python_win/bin/python312.zip "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
+    cp -v python_win/bin/python314.zip "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/"
     
     # Расширения .pyd, если они нужны внутри .vpy скриптов
     cp -v python_win/bin/*.pyd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" 2>/dev/null || true
