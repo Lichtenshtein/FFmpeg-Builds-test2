@@ -138,11 +138,12 @@ EOF
         --default-library $([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=c++17
         -Dc_std=c11
-        -Denable_vsscript=true
-        -Denable_vspipe=false
+        # -Denable_vsscript=true
+        # -Denable_vspipe=false
         -Denable_x86_asm=true
-        -Denable_core=true
-        -Denable_python_module=false # Requires Python, Cython, and the core
+        # -Denable_core=true
+        # -Denable_python_module=false # Requires Python, Cython, and the core
+        -Dpython_module=disabled
     )
 
     meson setup "${myconf[@]}" .. \
