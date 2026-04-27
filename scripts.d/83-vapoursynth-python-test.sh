@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/vapoursynth/vapoursynth.git"
-SCRIPT_COMMIT="97296f703eff3ea8c065c65cdfa244b4de3756f4"
+SCRIPT_COMMIT="140ed20676a2863cd8542030e630b13454035233"
 
 # Версия Python для встраивания (должна совпадать с той, что в Ubuntu 24.04 для сборки)
 PY_VER="3.14"
@@ -129,11 +129,11 @@ EOF
         --default-library $([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=c++17
         -Dc_std=c11
-        # -Denable_vsscript=true
-        # -Denable_vspipe=false
+        -Denable_vsscript=true
+        -Denable_vspipe=false
         -Denable_x86_asm=true
-        # -Denable_core=true
-        # -Denable_python_module=false # Requires Python, Cython, and the core
+        -Denable_core=true
+        -Denable_python_module=false # Requires Python, Cython, and the core
     )
 
     meson setup "${myconf[@]}" .. \
