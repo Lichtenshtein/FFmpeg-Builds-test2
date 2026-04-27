@@ -41,6 +41,8 @@ ffbuild_dockerbuild() {
     cp temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true
     rm -rf temp_hdrs
 
+    local CUR_DIR=$(pwd)
+
     # Хирургическое удаление Cython из проекта
     sed -i "s/'cython'//g; s/, 'cython'//g; s/'cython',//g" meson.build
 
@@ -59,8 +61,6 @@ ffbuild_dockerbuild() {
     # Генерация библиотек импорта Python
     ${FFBUILD_CROSS_PREFIX}gendef python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
     ${FFBUILD_CROSS_PREFIX}dlltool -d ${PY_LIB}.def -l lib${PY_LIB}.a -D ${PY_LIB}.dll
-
-    local CUR_DIR=$(pwd)
 
     # Создание правильного pyconfig.h
     cat <<EOF > python_win/include/pyconfig.h
@@ -81,15 +81,18 @@ EOF
 
     mkdir -p fake_pkgconfig
     cat <<EOF > fake_pkgconfig/python3.pc
+prefix=${CUR_DIR}/python_win
+libdir=${CUR_DIR}
+includedir=\${prefix}/include
+
 Name: python3
-Version: ${PY_VER}
+Version: 3.12
 Description: Fake Python
-Libs: -L${CUR_DIR} -l${PY_LIB}
-Cflags: -I${CUR_DIR}/python_win/include -DMS_WIN64 -DMS_WINDOWS
+Libs: -L\${libdir} -l${PY_LIB}
+Cflags: -I\${includedir} -DMS_WIN64 -DMS_WINDOWS
 EOF
 
     ln -sf python3.pc fake_pkgconfig/python-3.12.pc
-    export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig"
 
     cat <<EOF > python_fix.ini
 [built-in options]
@@ -99,10 +102,14 @@ c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 EOF
 
-    # Флаги для исправления ошибок в VapourSynth4.h
-    # Добавляем -D_WIN32, чтобы VS_CC определился как __stdcall
-    FIX_FLAGS="-I${CUR_DIR}/extra_include -D_WIN32 -D_WIN64 -DUNICODE -D_UNICODE"
-    
+    # Очищаем системные пути, чтобы Meson не видел Linux-заголовки
+    export PKG_CONFIG_LIBDIR="${CUR_DIR}/fake_pkgconfig"
+    export PKG_CONFIG_PATH=""
+    export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
+    export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
+
+    FIX_FLAGS="-I${CUR_DIR} -D_WIN32 -D_WIN64 -DUNICODE -D_UNICODE"
+
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DVAPOURSYNTH_STATIC"
 
@@ -121,8 +128,14 @@ EOF
         -Denable_vspipe=false
         -Denable_x86_asm=true
         # -Denable_core=true
+        -Dpython.platlibdir="${CUR_DIR}/python_win"
+        -Dpython.purelibdir="${CUR_DIR}/python_win"
         -Denable_python_module=false
     )
+
+    unset CPATH
+    unset C_INCLUDE_PATH
+    unset CPLUS_INCLUDE_PATH
 
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS $FIX_FLAGS $static_flags" \
