@@ -57,10 +57,21 @@ ffbuild_dockerbuild() {
     cat <<EOF > python_win/include/pyconfig.h
 #ifndef Py_PYCONFIG_H
 #define Py_PYCONFIG_H
+
 #define MS_WIN64
 #define MS_WINDOWS
 #define Py_ENABLE_SHARED
+#define SIZEOF_VOID_P 8
+#define SIZEOF_SIZE_T 8
+#define SIZEOF_OFF_T 8
+#define SIZEOF_LONG 4
 #define SIZEOF_WCHAR_T 2
+#define HAVE_UINTPTR_T 1
+#define HAVE_STDINT_H 1
+
+#define WITH_THREAD 1
+#define WIN32_THREADS 1
+
 #include <patchlevel.h>
 #endif
 EOF
@@ -92,7 +103,8 @@ EOF
 
     cat <<EOF > python_fix.ini
 [binaries]
-pkgconfig = 'pkg-config'
+pkg-config = 'pkg-config'
+# cython = '/bin/false'
 
 [built-in options]
 c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
