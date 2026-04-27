@@ -52,7 +52,12 @@ ffbuild_dockerbuild() {
     cp temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true
     rm -rf temp_hdrs
 
-pip3 install --break-system-packages --upgrade setuptools wheel
+    # Удаляем cython из списка языков проекта в meson.build
+    # Это уберет жесткую зависимость и Meson перестанет его искать
+    sed -i "s/'cython'//g" meson.build
+    sed -i "s/, 'cython'//g" meson.build
+    sed -i "s/'cython',//g" meson.build
+
 
     # ПРИНУДИТЕЛЬНЫЙ pyconfig.h (чтобы Meson не лез в системный /usr/include)
     cat <<EOF > python_win/include/pyconfig.h
@@ -101,7 +106,6 @@ EOF
 [binaries]
 c = 'gcc'
 cpp = 'g++'
-cython = '/usr/local/bin/cython'
 pkg-config = 'pkg-config'
 
 [built-in options]
@@ -136,8 +140,8 @@ EOF
     )
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS -DMS_WIN64 -DMS_WINDOWS $static_flags" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS -DMS_WIN64 -DMS_WINDOWS $static_flags" \
+        -Dc_args="$CFLAGS $CPPFLAGS $static_flags" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags" \
         -Dc_link_args="$LDFLAGS" \
         -Dcpp_link_args="$LDFLAGS" || return 1
 
