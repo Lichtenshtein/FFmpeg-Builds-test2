@@ -59,18 +59,26 @@ ffbuild_dockerbuild() {
 #define Py_PYCONFIG_H
 
 #define MS_WIN64
+#define _WIN64
 #define MS_WINDOWS
 #define Py_ENABLE_SHARED
+
 #define SIZEOF_VOID_P 8
 #define SIZEOF_SIZE_T 8
-#define SIZEOF_OFF_T 8
 #define SIZEOF_LONG 4
-#define SIZEOF_WCHAR_T 2
-#define HAVE_UINTPTR_T 1
+#define SIZEOF_LONG_LONG 8
+#define SIZEOF_SHORT 2
+#define SIZEOF_INT 4
+#define SIZEOF_UINTPTR_T 8
+
 #define HAVE_STDINT_H 1
+#define HAVE_SYS_TYPES_H 1
+#define HAVE_THREAD_H 1
 
 #define WITH_THREAD 1
 #define WIN32_THREADS 1
+
+#define HAVE_HYPOT 1
 
 #include <patchlevel.h>
 #endif
@@ -107,8 +115,8 @@ pkg-config = 'pkg-config'
 cython = '/bin/false'
 
 [built-in options]
-c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
-cpp_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
+c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS', '-DSIZEOF_VOID_P=8', '-DSIZEOF_LONG=4', '-DWIN32_THREADS=1', '-D_hypot=hypot']
+cpp_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS', '-DSIZEOF_VOID_P=8', '-DSIZEOF_LONG=4', '-DWIN32_THREADS=1', '-D_hypot=hypot']
 c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 EOF
@@ -130,11 +138,11 @@ EOF
         --default-library $([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=c++17
         -Dc_std=c11
-        # -Denable_vsscript=true
-        # -Denable_vspipe=false
+        -Denable_vsscript=true
+        -Denable_vspipe=false
         -Denable_x86_asm=true
-        # -Denable_core=true
-        # -Denable_python_module=false # Requires Python, Cython, and the core
+        -Denable_core=true
+        -Denable_python_module=false # Requires Python, Cython, and the core
     )
 
     meson setup "${myconf[@]}" .. \
