@@ -73,7 +73,6 @@ incdir = include_directories('include')
 # Но нам нужна зависимость для линковки vsscript
 py_dep = dependency('python3', method: 'pkg-config')
 
-# Заглушка для версии, чтобы не запускать python во время сборки
 vs_current_release = '75' 
 
 add_project_arguments(
@@ -140,14 +139,33 @@ if enable_x86_asm
     )
 endif
 
-# Главная библиотека (Core)
 libvapoursynth = library('vapoursynth',
     files(
+        'src/core/expr/expr.cpp',
+        'src/core/expr/jitcompiler.cpp',
+        'src/core/kernel/average.cpp',
+        'src/core/kernel/cpulevel.cpp',
+        'src/core/kernel/generic.cpp',
+        'src/core/kernel/merge.c',
+        'src/core/kernel/planestats.c',
+        'src/core/kernel/transpose.c',
+        'src/core/audiofilters.cpp',
+        'src/core/averageframesfilter.cpp',
+        'src/core/boxblurfilter.cpp',
+        'src/core/cpufeatures.cpp',
+        'src/core/exprfilter.cpp',
+        'src/core/genericfilters.cpp',
+        'src/core/lutfilters.cpp',
+        'src/core/memoryuse.cpp',
+        'src/core/mergefilters.cpp',
+        'src/core/reorderfilters.cpp',
+        'src/core/simplefilters.cpp',
+        'src/core/textfilter.cpp',
         'src/core/vsapi.cpp',
         'src/core/vscore.cpp',
-        # Добавьте сюда остальные файлы из оригинального meson.build (их там много)
-        # Если вы используете готовый файл, просто оставьте этот блок как есть, 
-        # удалив из него только вызовы python
+        'src/core/vslog.cpp',
+        'src/core/vsresize.cpp',
+        'src/core/vsthreadpool.cpp',
     ),
     c_args: '-DVS_CORE_EXPORTS',
     cpp_args: '-DVS_CORE_EXPORTS',
@@ -158,7 +176,6 @@ libvapoursynth = library('vapoursynth',
     link_with: libs,
 )
 
-# Библиотека скриптов (VSScript) - то, что нужно FFmpeg
 libvsscript = library('vsscript',
     files('src/vsscript/vsscript.cpp'),
     cpp_args: ['-DPy_NO_LINK_LIB', '-DVS_CORE_EXPORTS'],
@@ -198,16 +215,18 @@ EOF
 
     local CUR_DIR=$(pwd)
 
-    # Хирургическое удаление Cython из проекта
-    # sed -i "s/'cython',//g; s/'cython'//g; s/, 'cython'//g" meson.build
-
     # Фикс регистра для Windows.h (Критично для сборки Core)
-    local MINGW_INCLUDE=$(find /opt/ct-ng -name "Windows.h" -exec dirname {} \; | head -n 1)
+    find . -type f \( -name "*.cpp" -o -name "*.h" -o -name "*.c" \) -exec sed -i 's/[Ww]indows.h/windows.h/g' {} +
 
-    ln -sf "${MINGW_INCLUDE}/Windows.h" "./Windows.h"
-    ln -sf "${MINGW_INCLUDE}/Windows.h" "./windows.h"
-    mkdir -p src/vsscript
-    ln -sf "${MINGW_INCLUDE}/Windows.h" "src/vsscript/Windows.h"
+    echo "--- DEBUG: Checking MINGW PATHS ---"
+    local MINGW_INCLUDE=$(find /opt/ct-ng -name "windows.h" -exec dirname {} \; | head -n 1)
+    echo "MinGW include dir: $MINGW_INCLUDE"
+    ls -l "${MINGW_INCLUDE}/windows.h" || echo "windows.h NOT FOUND IN MINGW"
+
+    echo "--- DEBUG: Checking Local Source ---"
+    find src/vsscript -name "vsscript.cpp"
+    # Посмотрим, как sed изменил файл
+    grep "include <windows.h>" src/vsscript/vsscript.cpp || echo "SED failed to replace Windows.h"
 
     # Генерация библиотек импорта Python
     ${FFBUILD_CROSS_PREFIX}gendef python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
@@ -268,7 +287,7 @@ EOF
     export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
     export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 
-    FIX_FLAGS="-I${CUR_DIR} -D_WIN32 -D_WIN64 -DMS_WIN64 -D_AMD64_ -DUNICODE -D_UNICODE"
+    FIX_FLAGS="-I${MINGW_INCLUDE} -D_WIN32 -D_WIN64 -DUNICODE -D_UNICODE"
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DVAPOURSYNTH_STATIC"
