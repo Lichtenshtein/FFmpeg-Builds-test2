@@ -5,7 +5,7 @@ SCRIPT_COMMIT="97296f703eff3ea8c065c65cdfa244b4de3756f4"
 
 # Версия Python для встраивания (должна совпадать с той, что в Ubuntu 24.04 для сборки)
 PY_VER="3.12"
-PY_FULL_VER="3.12.3"
+PY_FULL_VER="3.12.7"
 PY_LIB="python312" # Без точки для линковки
 
 ffbuild_depends() {
@@ -30,7 +30,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-
     mkdir -p python_win/bin python_win/include
 
     if [[ ! -f python_embed.zip || ! -f python_hdrs.zip ]]; then
@@ -38,53 +37,30 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    # Распаковка DLL
     unzip -qo python_embed.zip -d python_win/bin
-
-    # Распаковка хедеров (используем универсальный путь через *)
     mkdir -p temp_hdrs
     unzip -qo python_hdrs.zip -d temp_hdrs
-
-    # чтобы не зависеть от того, cpython-3.12 это или cpython-3.12.3
     mv temp_hdrs/cpython-*/Include/* python_win/include/
-
-    # Проверяем, есть ли там PC/pyconfig.h (иногда он там) или создаем свой
-    # В Windows-сборке CPython pyconfig.h обычно генерируется, нам нужен статический вариант
     cp temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true
     rm -rf temp_hdrs
 
-    # pyconfig.h чтобы Meson не лез в системный /usr/include
     cat <<EOF > python_win/include/pyconfig.h
 #ifndef Py_PYCONFIG_H
 #define Py_PYCONFIG_H
-
 #define MS_WIN64
-#define _WIN64
 #define MS_WINDOWS
 #define Py_ENABLE_SHARED
-
 #define SIZEOF_VOID_P 8
 #define SIZEOF_SIZE_T 8
 #define SIZEOF_LONG 4
-#define SIZEOF_LONG_LONG 8
-#define SIZEOF_SHORT 2
-#define SIZEOF_INT 4
-#define SIZEOF_UINTPTR_T 8
-
-#define HAVE_STDINT_H 1
-#define HAVE_SYS_TYPES_H 1
-#define HAVE_THREAD_H 1
-
-#define WITH_THREAD 1
+#define SIZEOF_WCHAR_T 2
 #define WIN32_THREADS 1
-
-#define HAVE_HYPOT 1
-
+#define HAVE_THREAD_H 1
+#define WITH_THREAD 1
 #include <patchlevel.h>
 #endif
 EOF
 
-    # Решаем проблему Windows.h (Case-sensitivity)
     local SYSTEM_WIN_H=$(find /opt/ct-ng -name "windows.h" | head -n 1)
     if [[ -f "$SYSTEM_WIN_H" ]]; then
         ln -sf "$SYSTEM_WIN_H" python_win/include/Windows.h
@@ -96,30 +72,38 @@ EOF
 
     local CUR_DIR=$(pwd)
 
-    # Настройка Meson (fake_pkgconfig)
-    mkdir -p fake_pkgconfig
-    cat <<EOF > fake_pkgconfig/python3.pc
-Name: python3
-Version: ${PY_VER}
-Description: Fake Python
-Libs: -L${CUR_DIR} -l${PY_LIB}
-Cflags: -I${CUR_DIR}/python_win/include
-EOF
-    # Создаем все возможные варианты имен .pc файлов
-    ln -sf python3.pc fake_pkgconfig/python-3.12.pc
-    ln -sf python3.pc fake_pkgconfig/python-3.12-embed.pc
-
+    # Исправленный python_fix.ini
     cat <<EOF > python_fix.ini
 [binaries]
 pkg-config = 'pkg-config'
 cython = '/bin/false'
 
 [built-in options]
-c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS', '-DSIZEOF_VOID_P=8', '-DSIZEOF_LONG=4', '-DWIN32_THREADS=1', '-D_hypot=hypot']
-cpp_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS', '-DSIZEOF_VOID_P=8', '-DSIZEOF_LONG=4', '-DWIN32_THREADS=1', '-D_hypot=hypot']
+c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64']
+cpp_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64']
 c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
+
+[properties]
+# Это заставит Meson верить, что Python корректен для кросс-компиляции
+python_base_platform = 'win32'
 EOF
+
+    # Создаем фейковый pkg-config в системном стиле
+    mkdir -p fake_pkgconfig
+    cat <<EOF > fake_pkgconfig/python-3.12.pc
+prefix=${CUR_DIR}/python_win
+libdir=${CUR_DIR}
+includedir=\${prefix}/include
+
+Name: Python
+Description: Python library
+Version: 3.12
+Libs: -L\${libdir} -l${PY_LIB}
+Cflags: -I\${includedir} -DMS_WIN64
+EOF
+    ln -sf python-3.12.pc fake_pkgconfig/python3.pc
+    ln -sf python-3.12.pc fake_pkgconfig/python-3.12-embed.pc
 
     export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig"
 
@@ -146,8 +130,8 @@ EOF
     )
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS $static_flags" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags" \
+        -Dc_args="$CFLAGS $CPPFLAGS -DMS_WIN64 $static_flags" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS -DMS_WIN64 $static_flags" \
         -Dc_link_args="$LDFLAGS" \
         -Dcpp_link_args="$LDFLAGS" || return 1
 
