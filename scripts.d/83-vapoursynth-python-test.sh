@@ -203,17 +203,11 @@ EOF
 
     # Фикс регистра для Windows.h (Критично для сборки Core)
     local MINGW_INCLUDE=$(find /opt/ct-ng -name "Windows.h" -exec dirname {} \; | head -n 1)
-    mkdir -p extra_include
-    # Делаем так, чтобы и <windows.h> и <Windows.h> работали
-    ln -sf "${MINGW_INCLUDE}/Windows.h" "extra_include/windows.h"
-    ln -sf "${MINGW_INCLUDE}/Windows.h" "extra_include/Windows.h"
-    ln -sf "${MINGW_INCLUDE}/WinType.h" "extra_include/wintype.h"
-    ln -sf "${MINGW_INCLUDE}/WinType.h" "extra_include/WinType.h"
+
     ln -sf "${MINGW_INCLUDE}/Windows.h" "./Windows.h"
-    ln -sf "${MINGW_INCLUDE}/Windows.h" "Windows.h"
-    ln -sf "${MINGW_INCLUDE}/Windows.h" "windows.h"
-    # Ссылка для самого Python, чтобы он видел Windows.h внутри своих инклудов
-    ln -sf "${MINGW_INCLUDE}/Windows.h" python_win/include/Windows.h
+    ln -sf "${MINGW_INCLUDE}/Windows.h" "./windows.h"
+    mkdir -p src/vsscript
+    ln -sf "${MINGW_INCLUDE}/Windows.h" "src/vsscript/Windows.h"
 
     # Генерация библиотек импорта Python
     ${FFBUILD_CROSS_PREFIX}gendef python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
@@ -224,11 +218,13 @@ EOF
 #ifndef Py_PYCONFIG_H
 #define Py_PYCONFIG_H
 #define MS_WIN64
+#define _WIN64
 #define MS_WINDOWS
 #define Py_ENABLE_SHARED
 #define SIZEOF_VOID_P 8
 #define SIZEOF_SIZE_T 8
 #define SIZEOF_LONG 4
+#define SIZEOF_LONG_LONG 8
 #define SIZEOF_WCHAR_T 2
 #define WIN32_THREADS 1
 #define WITH_THREAD 1
@@ -272,7 +268,7 @@ EOF
     export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
     export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 
-    FIX_FLAGS="-I${CUR_DIR} -D_WIN32 -D_WIN64 -DUNICODE -D_UNICODE"
+    FIX_FLAGS="-I${CUR_DIR} -D_WIN32 -D_WIN64 -DMS_WIN64 -D_AMD64_ -DUNICODE -D_UNICODE"
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DVAPOURSYNTH_STATIC"
