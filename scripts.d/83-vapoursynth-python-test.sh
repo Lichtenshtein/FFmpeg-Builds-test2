@@ -52,6 +52,8 @@ ffbuild_dockerbuild() {
     cp temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true
     rm -rf temp_hdrs
 
+pip3 install --break-system-packages --upgrade setuptools wheel
+
     # ПРИНУДИТЕЛЬНЫЙ pyconfig.h (чтобы Meson не лез в системный /usr/include)
     cat <<EOF > python_win/include/pyconfig.h
 #ifndef Py_PYCONFIG_H
@@ -103,9 +105,10 @@ EOF
 
     cat <<EOF > python_fix.ini
 [binaries]
+c = 'gcc'
+cpp = 'g++'
+cython = '/usr/local/bin/cython'
 pkg-config = 'pkg-config'
-cython = '/bin/false'
-cython3 = '/bin/false'
 
 [built-in options]
 c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
