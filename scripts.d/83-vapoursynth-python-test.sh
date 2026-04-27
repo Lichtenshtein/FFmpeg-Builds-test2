@@ -322,16 +322,18 @@ EOF
     # Исправляем установку заголовков (Headers)
     log_info "Manually installing headers..."
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/vapoursynth"
-    cp -v include/VapourSynth4.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/vapoursynth/"
-    cp -v include/VSScript4.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/vapoursynth/"
+    cp -v ../include/VapourSynth4.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/vapoursynth/"
+    cp -v ../include/VSScript4.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/vapoursynth/"
+    cp -v ../include/VSHelper4.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/vapoursynth/" 2>/dev/null || true
 
+    log_info "Copying Python runtime DLLs and ZIP..."
     # Копируем DLL и рантайм Python
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
 
     # Ищем DLL и ZIP в корне python_win, так как в embed-версии нет папки bin
-    find python_win -maxdepth 2 -name "*.dll" -exec cp -v {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" \;
-    find python_win -maxdepth 2 -name "python3*.zip" -exec cp -v {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" \;
-    find python_win -maxdepth 2 -name "*.pyd" -exec cp -v {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" \; 2>/dev/null || true
+    find ../python_win -maxdepth 2 -name "*.dll" -exec cp -v {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" \;
+    find ../python_win -maxdepth 2 -name "python3*.zip" -exec cp -v {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" \;
+    find ../python_win -maxdepth 2 -name "*.pyd" -exec cp -v {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" \; 2>/dev/null || true
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/vapoursynth.pc"
@@ -344,7 +346,7 @@ Name: vapoursynth
 Description: A frameserver for the 21st century
 Version: 75
 Libs: -L\${libdir} -lvapoursynth
-Libs.private: -lstdc++ -lwinmm ${LIBS}
+Libs.private: -lstdc++ -lwinmm
 Cflags: -I\${includedir} $static_flags
 EOF
 
