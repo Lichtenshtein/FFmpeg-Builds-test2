@@ -4,9 +4,9 @@ SCRIPT_REPO="https://github.com/vapoursynth/vapoursynth.git"
 SCRIPT_COMMIT="97296f703eff3ea8c065c65cdfa244b4de3756f4"
 
 # Версия Python для встраивания (должна совпадать с той, что в Ubuntu 24.04 для сборки)
-PY_VER="3.12"
-PY_FULL_VER="3.12.7"
-PY_LIB="python312" # Без точки для линковки
+PY_VER="3.14"
+PY_FULL_VER="3.14.1"
+PY_LIB="python314" # Без точки для линковки
 
 ffbuild_depends() {
     echo zlib
@@ -100,13 +100,13 @@ EOF
     mkdir -p fake_pkgconfig
     cat <<EOF > fake_pkgconfig/python-3.12.pc
 Name: Python
-Version: 3.12
+Version: 3.14
 Description: Fake Python
 Libs: -L${CUR_DIR} -l${PY_LIB}
 Cflags: -I${CUR_DIR}/python_win/include -DMS_WIN64 -DMS_WINDOWS
 EOF
-    ln -sf python-3.12.pc fake_pkgconfig/python3.pc
-    ln -sf python-3.12.pc fake_pkgconfig/python-3.12-embed.pc
+    ln -sf python-3.14.pc fake_pkgconfig/python3.pc
+    ln -sf python-3.14.pc fake_pkgconfig/python-3.14-embed.pc
 
     export PKG_CONFIG_PATH="${CUR_DIR}/fake_pkgconfig"
     export CYTHON="/bin/false"
@@ -126,7 +126,6 @@ EOF
         --default-library $([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=c++17
         -Dc_std=c11
-        -Dpython=disabled
         # -Denable_vsscript=true
         # -Denable_vspipe=false
         -Denable_x86_asm=true
