@@ -12,12 +12,12 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '06-libiconv|08-zlib|09-gmp|11-zstd|31-nettle|32-gnutls|80-gavl'
+        default: '59-libtensorflow-test|59-libtorch-test'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
-        default: true
+        default: false
       cpu_arch:
         description: 'CPU march target (broadwell/x86-64-v3/znver3/native)'
         required: false
