@@ -24,8 +24,6 @@ ffbuild_dockerbuild() {
     export ac_cv_header_x11_xlib_h=no
     # export ac_cv_header_gl_gl_h=no
 
-    # Помогаем найти GLUT, так как pkg-config не найдет gl/glu на Windows
-    export GL_LIBS="-lglut -lglu32 -lopengl32 -lgdi32 -lwinmm"
     # Исправляем жестко зашитые имена либ в configure для MinGW
     sed -i 's/-lGL -lGLU/-lopengl32 -lglu32/g' configure
 
@@ -70,14 +68,15 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    export static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DFREEGLUT_STATIC"
+    local GL_LIBS="-lglut -lglu32 -lopengl32 -lgdi32 -lwinmm"
+    local GL_CFLAGS=""
+    [[ "${PREFER_SHARED}" != "1" ]] && GL_CFLAGS="-DFREEGLUT_STATIC"
 
     CC="${FFBUILD_CROSS_PREFIX}gcc" \
     CXX="${FFBUILD_CROSS_PREFIX}g++" \
-    CFLAGS="$CFLAGS -Wno-implicit-function-declaration $static_flags ${USELTO}" \
+    CFLAGS="$CFLAGS -Wno-implicit-function-declaration $GL_CFLAGS ${USELTO}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration $static_flags ${USELTO}" \
+    CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration $GL_CFLAGS ${USELTO}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS $GL_LIBS" \
     ./configure "${myconf[@]}" || return 1
