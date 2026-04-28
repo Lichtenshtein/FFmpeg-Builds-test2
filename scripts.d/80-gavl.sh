@@ -35,20 +35,22 @@ ffbuild_dockerbuild() {
 
     log_info "Neutralizing problematic C files..."
     for f in hw.c hw_dmabuf.c network.c socket.c charset.c compression.c; do
-        echo "/* Empty for Windows */" > "gavl/$f"
+        echo "/* Empty */" > "gavl/$f"
     done
     export ac_cv_func_ftruncate=yes
 
-    cat <<EOF > include/gavl_win_fix.h
+    ./autogen.sh
+
+    mkdir -p "local_include/gavl"
+    cp include/gavl/*.h "local_include/gavl/"
+    cat <<EOF > "local_include/gavl_win_fix.h"
 #ifndef GAVL_WIN_FIX_H
 #define GAVL_WIN_FIX_H
-#include <gavl/gavl_version.h>
-#include <gavl/gavl_types.h>
-#include <gavl/gavl.h>
+#include "gavl_version.h"
+#include "gavl_types.h"
 #endif
 EOF
 
-    ./autogen.sh
 
     # тотальная чистка от /usr/include во всех сгенерированных файлах
     log_info "Removing all references to /usr/include from generated files..."
@@ -68,9 +70,8 @@ EOF
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    CFLAGS="$CFLAGS ${USELTO} -Wno-implicit-function-declaration -include $(pwd)/include/gavl_win_fix.h" \
-    CPPFLAGS="$CPPFLAGS -I$(pwd)/include" \
-    CXXFLAGS="$CXXFLAGS ${USELTO} -Wno-implicit-function-declaration -include $(pwd)/include/gavl_win_fix.h" \
+    CFLAGS="$CFLAGS ${USELTO} -Wno-implicit-function-declaration" \
+    CPPFLAGS="$CPPFLAGS -I$(pwd)/local_include/gavl -I$(pwd)/local_include" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" \
@@ -81,7 +82,8 @@ EOF
         have_EGL=no \
         ac_cv_header_sys_times_h=no || return 1
 
-    make -C gavl -j$(nproc) $MAKE_V || return 1
+    make -C gavl -j$(nproc) $MAKE_V \
+        CFLAGS="$CFLAGS -include $(pwd)/local_include/gavl_win_fix.h" || return 1
     make -C gavl install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/gavl"
