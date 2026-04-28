@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
     sed -i 's/qsort_r(/ \/\/ qsort_r(/g' gavl/array.c
 
     log_info "Neutralizing problematic C files..."
-    for f in hw.c hw_dmabuf.c hw_memfd.c http.c httpclient.c network.c socket.c  compression.c io_fd.c io_socket.c io_stdio.c io_tls.c log.c; do
+    for f in hw.c hw_dmabuf.c hw_memfd.c http.c httpclient.c network.c socket.c compression.c io_fd.c io_socket.c io_stdio.c io_tls.c log.c metadata.c; do
         if [ -f "gavl/$f" ]; then
             echo "/* Empty for Windows compatibility */" > "gavl/$f"
         fi
@@ -48,20 +48,24 @@ ffbuild_dockerbuild() {
 #ifndef GAVL_WIN_FIX_H
 #define GAVL_WIN_FIX_H
 
-#define HAVE_FTRUNCATE 1
-#define _UNISTD_H_
+#define R_OK 4
+#define W_OK 2
+#define X_OK 1
+#define F_OK 0
+static inline int access(const char *path, int mode) { return 0; }
 
+#define HAVE_FTRUNCATE 1
+#define _UNISTD_H_ 
 #include <stddef.h>
 #include <stdint.h>
-
+#include <stdlib.h>
 EOF
-    
+
     # Склеиваем основные заголовки
     cat include/gavl/gavl_version.h \
         include/gavl/gavl_types.h \
         include/gavl/gavl.h >> gavl_fix.h
-
-    # Вычищаем рекурсивные инклюды
+    
     sed -i '/#include <gavl\/gavl.h>/d; /#include <gavl\/gavl_types.h>/d; /#include <gavl\/gavl_version.h>/d' gavl_fix.h
     echo "#endif" >> gavl_fix.h
 
