@@ -43,10 +43,11 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
-        -DWITHOUT_OPENCV=OFF
-        -DWITHOUT_FACERECOGNITION=OFF
-        -DWITHOUT_CAIRO=OFF
-        -DWITHOUT_GAVL=OFF
+        -DWITHOUT_FACERECOGNITION=OFF # facedetect and facebl0r plugins
+        -DWITHOUT_OPENCV=OFF # required for facebl0r filter
+        -DWITHOUT_CAIRO=OFF  # required for cairo- filters and mixers
+        -DWITHOUT_GAVL=OFF   # required for scale0tilt and vectorscope filters
+        # -DCairo_INCLUDE_DIR="" # ?
         -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4"
     )
 
