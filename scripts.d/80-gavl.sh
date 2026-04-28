@@ -36,10 +36,21 @@ ffbuild_dockerbuild() {
     log_info "Disabling Linux-only hardware modules..."
     sed -i 's/hw_dmabuf.lo//g' gavl/Makefile.am
     sed -i 's/hw.lo//g' gavl/Makefile.am
-    echo "/* Not for Windows */" > gavl/hw.c
-    echo "/* Not for Windows */" > gavl/hw_dmabuf.c
     sed -i '1i #include <gavl/gavl.h>' include/gavl/value.h
     sed -i '1i #include <gavl/gavl.h>' include/gavl/msg.h
+    sed -i 's/hw_dmabuf\.lo//g' gavl/Makefile.am
+    sed -i 's/network\.lo//g' gavl/Makefile.am
+    sed -i 's/socket\.lo//g' gavl/Makefile.am
+    sed -i 's/compression\.lo//g' gavl/Makefile.am
+    for h in include/gavl/*.h; do
+        sed -i '1i #include <gavl/gavl_version.h>\n#include <gavl/gavl_types.h>' "$h"
+    done
+    sed -i 's/#ifdef HAVE_UNISTD_H/#if 0/g' include/gavl/io.h
+    echo "/* No-op for Windows */" > gavl/hw.c
+    echo "/* No-op for Windows */" > gavl/hw_dmabuf.c
+    echo "/* No-op for Windows */" > gavl/network.c
+    echo "/* No-op for Windows */" > gavl/socket.c
+    echo "/* No-op for Windows */" > gavl/charset.c
     export ac_cv_func_ftruncate=yes
 
     ./autogen.sh
