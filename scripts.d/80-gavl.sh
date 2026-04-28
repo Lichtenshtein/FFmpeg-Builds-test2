@@ -34,23 +34,7 @@ ffbuild_dockerbuild() {
     sed -i 's/qsort_r(/ \/\/ qsort_r(/g' gavl/array.c
 
     log_info "Disabling Linux-only hardware modules..."
-    sed -i 's/hw_dmabuf.lo//g' gavl/Makefile.am
-    sed -i 's/hw.lo//g' gavl/Makefile.am
-    sed -i '1i #include <gavl/gavl.h>' include/gavl/value.h
-    sed -i '1i #include <gavl/gavl.h>' include/gavl/msg.h
-    sed -i 's/hw_dmabuf\.lo//g' gavl/Makefile.am
-    sed -i 's/network\.lo//g' gavl/Makefile.am
-    sed -i 's/socket\.lo//g' gavl/Makefile.am
-    sed -i 's/compression\.lo//g' gavl/Makefile.am
-    for h in include/gavl/*.h; do
-        sed -i '1i #include <gavl/gavl_version.h>\n#include <gavl/gavl_types.h>' "$h"
-    done
-    sed -i 's/#ifdef HAVE_UNISTD_H/#if 0/g' include/gavl/io.h
-    echo "/* No-op for Windows */" > gavl/hw.c
-    echo "/* No-op for Windows */" > gavl/hw_dmabuf.c
-    echo "/* No-op for Windows */" > gavl/network.c
-    echo "/* No-op for Windows */" > gavl/socket.c
-    echo "/* No-op for Windows */" > gavl/charset.c
+    sed -i -E 's/(hw\.lo|hw_dmabuf\.lo|network\.lo|socket\.lo|compression\.lo)//g' gavl/Makefile.am
     export ac_cv_func_ftruncate=yes
 
     ./autogen.sh
@@ -73,9 +57,9 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    CFLAGS="$CFLAGS ${USELTO}" \
+    CFLAGS="$CFLAGS ${USELTO} -Wno-implicit-function-declaration" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS ${USELTO}" \
+    CXXFLAGS="$CXXFLAGS ${USELTO} -Wno-implicit-function-declaration" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" \
@@ -88,4 +72,7 @@ ffbuild_dockerbuild() {
 
     make -C gavl -j$(nproc) $MAKE_V || return 1
     make -C gavl install DESTDIR="$FFBUILD_DESTDIR" || return 1
+
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/gavl"
+    cp include/gavl/*.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/gavl/"
 }
