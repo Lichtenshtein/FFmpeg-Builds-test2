@@ -29,6 +29,13 @@ ffbuild_dockerbuild() {
     sed -i 's/AC_MSG_ERROR(\[OpenGL not found\])/have_GL="false"/g' m4/check_funcs.m4
     sed -i 's/AC_MSG_ERROR(\[EGL not found\])/have_EGL="false"/g' m4/check_funcs.m4
 
+    # запрещаем лезть в папки хоста
+    find . -name "configure" -exec sed -i 's|-I/usr/include||g' {} + || true
+    find . -name "Makefile.in" -exec sed -i 's|-I/usr/include||g' {} + || true
+
+    # Исправляем архитектуру
+    sed -i "s/-march=native -mtune=native/-march=${CPU_ARCH} -mtune=${CPU_TUNE}/g" m4/lqt_opt_cflags.m4
+
     ./autogen.sh
 
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
@@ -56,7 +63,8 @@ ffbuild_dockerbuild() {
         ac_cv_func_memalign=no \
         ac_cv_func_posix_memalign=no \
         have_GL=no \
-        have_EGL=no || return 1
+        have_EGL=no \
+        ac_cv_header_sys_times_h=no || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
