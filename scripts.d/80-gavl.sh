@@ -7,6 +7,7 @@ ffbuild_depends() {
     echo gmp
     echo gnutls
     echo nettle
+    echo iconv
 }
 
 ffbuild_enabled() {
@@ -31,7 +32,15 @@ ffbuild_dockerbuild() {
     # Фикс qsort_r для MinGW
     log_info "Neutralizing gavl_array_sort to avoid qsort_r issues on Windows..."
     sed -i 's/qsort_r(/ \/\/ qsort_r(/g' gavl/array.c
-    # sed -i 's/qsort_r.*);//g' gavl/array.c
+
+    log_info "Disabling Linux-only hardware modules..."
+    sed -i 's/hw_dmabuf.lo//g' gavl/Makefile.am
+    sed -i 's/hw.lo//g' gavl/Makefile.am
+    echo "/* Not for Windows */" > gavl/hw.c
+    echo "/* Not for Windows */" > gavl/hw_dmabuf.c
+    sed -i '1i #include <gavl/gavl.h>' include/gavl/value.h
+    sed -i '1i #include <gavl/gavl.h>' include/gavl/msg.h
+    export ac_cv_func_ftruncate=yes
 
     ./autogen.sh
 
@@ -66,6 +75,6 @@ ffbuild_dockerbuild() {
         have_EGL=no \
         ac_cv_header_sys_times_h=no || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    make -C gavl -j$(nproc) $MAKE_V || return 1
+    make -C gavl install DESTDIR="$FFBUILD_DESTDIR" || return 1
 }
