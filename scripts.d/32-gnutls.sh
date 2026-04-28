@@ -22,6 +22,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    ./bootstrap
+
     local DEP_LIBS="-lcrypt32 -lncrypt"
 
     local myconf=(
