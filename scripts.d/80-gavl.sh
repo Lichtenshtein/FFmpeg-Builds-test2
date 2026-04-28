@@ -30,7 +30,7 @@ ffbuild_dockerbuild() {
     find . -name "Makefile.am" -exec sed -i 's/@DRM_CFLAGS@//g' {} + || true
     # Фикс qsort_r для MinGW
     log_info "Neutralizing gavl_array_sort to avoid qsort_r issues on Windows..."
-    sed -i '/void gavl_array_sort/,/^}/ { /^{/a return;' -e '}' gavl/array.c
+    sed -i 's/qsort_r(/ \/\/ qsort_r(/g' gavl/array.c
     # sed -i 's/qsort_r.*);//g' gavl/array.c
 
     ./autogen.sh
