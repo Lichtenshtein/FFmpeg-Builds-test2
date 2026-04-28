@@ -13,13 +13,15 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    mkdir build && cd build
+
+    mkdir -p build && cd build
 
     local myconf=(
         --buildtype=release
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         --prefix="$FFBUILD_PREFIX"
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
+        --cross-file="$FFBUILD_MESON_CROSS"
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         -Dbindings_py=disabled
         -Dc_std=c11
         -Dcpp_std=c++17
@@ -29,12 +31,6 @@ ffbuild_dockerbuild() {
         -Dtests=disabled
         -Dtools=disabled
     )
-
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --cross-file="$FFBUILD_MESON_CROSS"
-        )
-    fi
 
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS" \

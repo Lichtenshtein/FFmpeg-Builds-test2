@@ -20,24 +20,19 @@ ffbuild_dockerbuild() {
         --buildtype=release
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         --prefix="$FFBUILD_PREFIX"
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
+        --cross-file="$FFBUILD_MESON_CROSS"
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         -Dc_std=c11
         -Dcpp_std=c++17
         -Ddocs=disabled
         -Dhtml=disabled
         -Dman=disabled
         -Dman_html=disabled
-        -Dsinglehtm=disabled
+        -Dsinglehtml=disabled
         -Dstatic=$([ "${PREFER_SHARED}" == "1" ] && echo false || echo true)
         -Dtests=disabled
         -Dtools=disabled
     )
-
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --cross-file="$FFBUILD_MESON_CROSS"
-        )
-    fi
 
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS" \
