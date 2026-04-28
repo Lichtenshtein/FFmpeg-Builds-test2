@@ -60,6 +60,11 @@ ffbuild_dockerbuild() {
     LIBS="$LIBS $DEP_LIBS" \
     ./configure "${myconf[@]}" || return 1
 
+    log_info "Touching ASN.1 generated files to skip asn1Parser..."
+    touch lib/pkix_asn1_tab.c
+    touch lib/gnutls_asn1_tab.c
+    touch lib/priority_options.h
+
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
