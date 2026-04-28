@@ -34,9 +34,18 @@ ffbuild_dockerbuild() {
     sed -i 's/qsort_r(/ \/\/ qsort_r(/g' gavl/array.c
 
     log_info "Neutralizing problematic C files..."
-    for f in hw.c hw_dmabuf.c hw_memfd.c http.c httpclient.c network.c socket.c compression.c io_fd.c io_socket.c io_stdio.c io_tls.c log.c metadata.c; do
+    SYSTEM_FILES=(
+        hw.c hw_dmabuf.c hw_memfd.c 
+        http.c httpclient.c sap.c urlvars.c 
+        network.c socket.c socketaddress.c 
+        compression.c io_fd.c io_socket.c io_stdio.c io_tls.c io_cipher.c 
+        log.c metadata.c reftable.c 
+        timer.c threadpool.c
+    )
+
+    for f in "${SYSTEM_FILES[@]}"; do
         if [ -f "gavl/$f" ]; then
-            echo "/* Empty for Windows compatibility */" > "gavl/$f"
+            echo "/* Disabled for Windows */" > "gavl/$f"
         fi
     done
 
