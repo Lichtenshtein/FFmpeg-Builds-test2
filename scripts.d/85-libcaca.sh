@@ -68,17 +68,17 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    local GL_LIBS="-lglut -lglu32 -lopengl32 -lgdi32 -lwinmm"
-    local GL_CFLAGS=""
+    export GL_LIBS="-lglut -lglu32 -lopengl32 -lgdi32 -lwinmm"
+    export GL_CFLAGS=""
     [[ "${PREFER_SHARED}" != "1" ]] && GL_CFLAGS="-DFREEGLUT_STATIC"
 
     CC="${FFBUILD_CROSS_PREFIX}gcc" \
     CXX="${FFBUILD_CROSS_PREFIX}g++" \
-    CFLAGS="$CFLAGS -Wno-implicit-function-declaration $GL_CFLAGS ${USELTO}" \
+    CFLAGS="$CFLAGS -Wno-implicit-function-declaration ${USELTO}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration $GL_CFLAGS ${USELTO}" \
+    CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration ${USELTO}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
-    LIBS="$LIBS $GL_LIBS" \
+    LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     # Сборка только библиотеки
