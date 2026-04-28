@@ -27,37 +27,30 @@ ffbuild_dockerbuild() {
     sed -i 's/LIBGAVL_LIBS="-lrt"/LIBGAVL_LIBS=""/g' configure.ac
     sed -i 's/AC_MSG_ERROR(\[OpenGL not found\])/have_GL="false"/g' m4/check_funcs.m4
     sed -i 's/AC_MSG_ERROR(\[EGL not found\])/have_EGL="false"/g' m4/check_funcs.m4
-    sed -i "s/-march=native -mtune=native/-march=${CPU_ARCH} -mtune=${CPU_TUNE}/g" m4/lqt_opt_cflags.m4
+    sed -i "s/-march=native -mtune=native//g" m4/lqt_opt_cflags.m4
     find . -name "Makefile.am" -exec sed -i 's/@DRM_CFLAGS@//g' {} + || true
     # Фикс qsort_r для MinGW
     log_info "Neutralizing gavl_array_sort to avoid qsort_r issues on Windows..."
     sed -i 's/qsort_r(/ \/\/ qsort_r(/g' gavl/array.c
 
     log_info "Neutralizing problematic C files..."
-    for f in hw.c hw_dmabuf.c hw_memfd.c http.c httpclient.c network.c socket.c compression.c; do
+    for f in hw.c hw_dmabuf.c hw_memfd.c http.c httpclient.c network.c socket.c compression.c io_fd.c io_socket.c; do
         if [ -f "gavl/$f" ]; then
-            echo "/* Empty for Windows */" > "gavl/$f"
+            echo "/* Empty for Windows compatibility */" > "gavl/$f"
         fi
     done
-    export ac_cv_func_ftruncate=yes
+
+    # touch include/iconv.h
 
     ./autogen.sh
 
-    cat include/gavl/gavl_version.h \
-        include/gavl/gavl_types.h \
-        include/gavl/gavl.h > gavl_fix.h
-    # Чтобы избежать рекурсии, удалим самовключение gavl.h из фикса
-    sed -i '/#include <gavl\/gavl.h>/d' gavl_fix.h
-    sed -i '/#include <gavl\/gavl_types.h>/d' gavl_fix.h
-    sed -i '/#include <gavl\/gavl_version.h>/d' gavl_fix.h
+    cat include/gavl/gavl_version.h include/gavl/gavl_types.h include/gavl/gavl.h > gavl_fix.h
+    sed -i '/#include <gavl\/gavl.h>/d; /#include <gavl\/gavl_types.h>/d; /#include <gavl\/gavl_version.h>/d' gavl_fix.h
 
-    # Фикс unistd.h / ftruncate для io.h (убираем попытку gavl объявить его)
     sed -i 's/off_t ftruncate/#define ftruncate_skipped/g' include/gavl/io.h
 
-    # тотальная чистка от /usr/include во всех сгенерированных файлах
-    log_info "Removing all references to /usr/include from generated files..."
-    find . -type f \( -name "Makefile.am" -o -name "Makefile.in" -o -name "configure" \) -exec \
-        sed -i "s|-I/usr/include|-I${FFBUILD_PREFIX}/include|g" {} + || true
+    find . -type f \( -name "Makefile.in" -o -name "configure" \) -exec \
+        sed -i "s|-I/usr/include|-I\$(top_srcdir)/include|g" {} + || true
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -80,6 +73,7 @@ ffbuild_dockerbuild() {
         ac_cv_func_getaddrinfo_a=no \
         ac_cv_func_memalign=no \
         ac_cv_func_posix_memalign=no \
+        ac_cv_func_ftruncate=yes \
         have_GL=no \
         have_EGL=no \
         ac_cv_header_sys_times_h=no || return 1
