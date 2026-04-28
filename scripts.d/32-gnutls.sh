@@ -63,7 +63,13 @@ ffbuild_dockerbuild() {
     log_info "Touching ASN.1 generated files to skip asn1Parser..."
     touch lib/pkix_asn1_tab.c
     touch lib/gnutls_asn1_tab.c
-    touch lib/priority_options.h
+
+    # if [ ! -s lib/priority_options.h ]; then
+        # log_info "Generating priority_options.h using gperf..."
+        # gperf --global-table -t lib/priority_options.gperf > lib/priority_options.h-tmp
+        # sed 's/^const struct priority_options_st \*/static const struct priority_options_st \*/' < lib/priority_options.h-tmp > lib/priority_options.h
+        # rm -f lib/priority_options.h-tmp
+    # fi
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
