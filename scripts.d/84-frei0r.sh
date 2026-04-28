@@ -9,6 +9,8 @@ ffbuild_depends() {
     echo opencv-test
     echo cairo
     echo gavl
+    # echo nettle # from gavl
+    # echo gnutls # from gavl
 }
 
 ffbuild_enabled() {
@@ -39,13 +41,12 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DWITHOUT_OPENCV=OFF
         -DWITHOUT_FACERECOGNITION=OFF
-        -DWITHOUT_CAIRO=ON
-        -DWITHOUT_GAVL=ON
+        -DWITHOUT_CAIRO=OFF
+        -DWITHOUT_GAVL=OFF
         -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4"
     )
 
