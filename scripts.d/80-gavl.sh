@@ -41,16 +41,7 @@ ffbuild_dockerbuild() {
 
     ./autogen.sh
 
-    mkdir -p "local_include/gavl"
-    cp include/gavl/*.h "local_include/gavl/"
-    cat <<EOF > "local_include/gavl_win_fix.h"
-#ifndef GAVL_WIN_FIX_H
-#define GAVL_WIN_FIX_H
-#include "gavl_version.h"
-#include "gavl_types.h"
-#endif
-EOF
-
+    cat include/gavl/gavl_version.h include/gavl/gavl_types.h > gavl_fix.h
 
     # тотальная чистка от /usr/include во всех сгенерированных файлах
     log_info "Removing all references to /usr/include from generated files..."
@@ -71,7 +62,7 @@ EOF
         myconf+=( --enable-static --disable-shared )
 
     CFLAGS="$CFLAGS ${USELTO} -Wno-implicit-function-declaration" \
-    CPPFLAGS="$CPPFLAGS -I$(pwd)/local_include/gavl -I$(pwd)/local_include" \
+    CPPFLAGS="$CPPFLAGS -I$(pwd)/include -I$(pwd)/include/gavl" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" \
@@ -83,7 +74,7 @@ EOF
         ac_cv_header_sys_times_h=no || return 1
 
     make -C gavl -j$(nproc) $MAKE_V \
-        CFLAGS="$CFLAGS -include $(pwd)/local_include/gavl_win_fix.h" || return 1
+        CFLAGS="$CFLAGS -I$(pwd) -include gavl_fix.h" || return 1
     make -C gavl install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/gavl"
