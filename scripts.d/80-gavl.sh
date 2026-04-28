@@ -22,11 +22,14 @@ ffbuild_dockerbuild() {
 
     # исправляем фатальные ошибки
     sed -i 's/AC_MSG_ERROR("getaddrinfo_a not found in libanl")/echo "Skipping libanl"/g' configure.ac
-    sed -i 's/PKG_CHECK_MODULES(DRM, libdrm, have_drm="true")/have_drm="false"/g' configure.ac
+    sed -i 's/PKG_CHECK_MODULES(DRM, libdrm, have_drm="true")/have_drm="false"; DRM_CFLAGS=""; DRM_LIBS=""/g' configure.ac
     sed -i 's/LIBGAVL_LIBS="-lrt"/LIBGAVL_LIBS=""/g' configure.ac
     sed -i 's/AC_MSG_ERROR(\[OpenGL not found\])/have_GL="false"/g' m4/check_funcs.m4
     sed -i 's/AC_MSG_ERROR(\[EGL not found\])/have_EGL="false"/g' m4/check_funcs.m4
     sed -i "s/-march=native -mtune=native/-march=${CPU_ARCH} -mtune=${CPU_TUNE}/g" m4/lqt_opt_cflags.m4
+    find . -name "Makefile.am" -exec sed -i 's/@DRM_CFLAGS@//g' {} + || true
+    # Фикс qsort_r для MinGW
+    sed -i 's/qsort_r(\([^,]*\), \([^,]*\), \([^,]*\), \([^,]*\), \([^)]*\))/qsort(\1, \2, \3, \4)/g' gavl/array.c
 
     ./autogen.sh
 
