@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
 
     ./bootstrap
 
-    local DEP_LIBS="-lcrypt32 -lncrypt"
+    local DEP_LIBS="-lws2_32 -lbcrypt -lcrypt32 -lncrypt"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -40,11 +40,13 @@ ffbuild_dockerbuild() {
         --disable-padlock
         --enable-hardware-acceleration
         --with-included-unistring
+        --with-included-libtasn1
         --without-p11-kit
         --without-tpm
         --without-idn
         --with-zstd=link
         --with-zlib
+        --disable-full-test-suite
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
