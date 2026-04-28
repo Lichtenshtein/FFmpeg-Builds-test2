@@ -32,7 +32,8 @@ ffbuild_dockerbuild() {
 
     # тотальная чистка от /usr/include во всех сгенерированных файлах
     log_info "Removing all references to /usr/include from generated files..."
-    grep -rl "/usr/include" . | xargs sed -i 's|-I/usr/include||g' || true
+    find . -type f \( -name "Makefile.am" -o -name "Makefile.in" -o -name "configure" \) -exec \
+        sed -i "s|-I/usr/include|-I${FFBUILD_PREFIX}/include|g" {} + || true
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
