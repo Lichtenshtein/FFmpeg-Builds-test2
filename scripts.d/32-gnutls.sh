@@ -64,22 +64,8 @@ ffbuild_dockerbuild() {
     touch lib/pkix_asn1_tab.c
     touch lib/gnutls_asn1_tab.c
 
-    # if [ ! -s lib/priority_options.h ]; then
-        # log_info "Generating priority_options.h using gperf..."
-        # gperf --global-table -t lib/priority_options.gperf > lib/priority_options.h-tmp
-        # sed 's/^const struct priority_options_st \*/static const struct priority_options_st \*/' < lib/priority_options.h-tmp > lib/priority_options.h
-        # rm -f lib/priority_options.h-tmp
-    # fi
-
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
-
-    # local PC_FILE="$PC_DIR/gnutls.pc"
-    # if [[ -f "$PC_FILE" ]]; then
-        # if ! grep -q "\-lbcrypt" "$PC_FILE"; then
-            # sed -i "s/Libs.private:/& -lws2_32 -lbcrypt -lcrypt32 -lncrypt /" "$PC_FILE"
-        # fi
-    # fi
 }
 
 # only build as a dependency for other components
