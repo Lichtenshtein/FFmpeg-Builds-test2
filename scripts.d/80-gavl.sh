@@ -29,14 +29,18 @@ ffbuild_dockerbuild() {
     sed -i 's/AC_MSG_ERROR(\[OpenGL not found\])/have_GL="false"/g' m4/check_funcs.m4
     sed -i 's/AC_MSG_ERROR(\[EGL not found\])/have_EGL="false"/g' m4/check_funcs.m4
 
-    # запрещаем лезть в папки хоста
-    find . -name "configure" -exec sed -i 's|-I/usr/include||g' {} + || true
+    # Вырезаем хардкод системных путей из всех Makefile.am и Makefile.in
+    find . -name "Makefile.am" -exec sed -i 's|-I/usr/include||g' {} + || true
     find . -name "Makefile.in" -exec sed -i 's|-I/usr/include||g' {} + || true
+    sed -i 's|-I/usr/include||g' configure.ac || true
 
     # Исправляем архитектуру
     sed -i "s/-march=native -mtune=native/-march=${CPU_ARCH} -mtune=${CPU_TUNE}/g" m4/lqt_opt_cflags.m4
 
     ./autogen.sh
+
+    # запрещаем лезть в папки хоста
+    find . -name "configure" -exec sed -i 's|-I/usr/include||g' {} + || true
 
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
 
