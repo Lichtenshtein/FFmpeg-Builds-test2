@@ -34,8 +34,10 @@ ffbuild_dockerbuild() {
     sed -i 's/qsort_r(/ \/\/ qsort_r(/g' gavl/array.c
 
     log_info "Neutralizing problematic C files..."
-    for f in hw.c hw_dmabuf.c network.c socket.c charset.c compression.c; do
-        echo "/* Empty */" > "gavl/$f"
+    for f in hw.c hw_dmabuf.c hw_memfd.c http.c network.c socket.c compression.c; do
+        if [ -f "gavl/$f" ]; then
+            echo "/* Empty for Windows */" > "gavl/$f"
+        fi
     done
     export ac_cv_func_ftruncate=yes
 
