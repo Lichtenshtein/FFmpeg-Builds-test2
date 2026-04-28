@@ -72,10 +72,10 @@ static inline int access(const char *path, int mode) { return 0; }
 EOF
 
     # Склеиваем основные заголовки
-    cat include/gavl/gavl_version.h \
+    cat include/gavl/gavl_version.h.in \
         include/gavl/gavl_types.h \
         include/gavl/gavl.h >> gavl_fix.h
-    
+
     sed -i '/#include <gavl\/gavl.h>/d; /#include <gavl\/gavl_types.h>/d; /#include <gavl\/gavl_version.h>/d' gavl_fix.h
     echo "#endif" >> gavl_fix.h
 
@@ -114,6 +114,13 @@ EOF
         CFLAGS="$CFLAGS -I$(pwd) -include $(pwd)/gavl_fix.h" || return 1
     make -C gavl install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/gavl"
-    cp include/gavl/*.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/gavl/"
+    mkdir -p "$INSTALL_ROOT/include/gavl" "$PC_DIR"
+    cp include/gavl/*.h "$INSTALL_ROOT/include/gavl/"
+
+    # local PC_FILE="$PC_DIR/gavl.pc"
+    # if [[ -f "gavl.pc" ]]; then
+        # cp gavl.pc "$PC_DIR"
+        # sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
+        # sed -i 's/Libs.private:/Libs.private: -lnettle -lhogweed -lgnutls -lws2_32 -lbcrypt /' "$PC_FILE"
+    # fi
 }
