@@ -20,8 +20,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # заменяем вызов AC_MSG_ERROR на простое сообщение (echo), чтобы конфиг не падал
+    # исправляем фатальные ошибки configure.ac
     sed -i 's/AC_MSG_ERROR("getaddrinfo_a not found in libanl")/echo "Skipping libanl for Windows"/g' configure.ac
+    sed -i 's/PKG_CHECK_MODULES(DRM, libdrm, have_drm="true")/PKG_CHECK_MODULES(DRM, libdrm, have_drm="true", have_drm="false")/g' configure.ac
+    sed -i 's/LIBGAVL_LIBS="-lrt"/LIBGAVL_LIBS=""/g' configure.ac
 
     ./autogen.sh
 
@@ -46,7 +48,9 @@ ffbuild_dockerbuild() {
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" \
-        ac_cv_func_getaddrinfo_a=no || return 1
+        ac_cv_func_getaddrinfo_a=no \
+        ac_cv_func_memalign=no \
+        ac_cv_func_posix_memalign=no || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
