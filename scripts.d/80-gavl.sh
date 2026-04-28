@@ -31,7 +31,6 @@ ffbuild_dockerbuild() {
 
     ./autogen.sh
 
-    local GL_LIBS="-lglut -lopengl32 -lgdi32"
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
 
     local myconf=(
@@ -51,7 +50,7 @@ ffbuild_dockerbuild() {
     CPPFLAGS="$CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS ${USELTO}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
-    LIBS="$LIBS $GL_LIBS" \
+    LIBS="$LIBS" \
     ./configure "${myconf[@]}" \
         ac_cv_func_getaddrinfo_a=no \
         ac_cv_func_memalign=no \
