@@ -117,10 +117,10 @@ EOF
     mkdir -p "$INSTALL_ROOT/include/gavl" "$PC_DIR"
     cp include/gavl/*.h "$INSTALL_ROOT/include/gavl/"
 
-    # local PC_FILE="$PC_DIR/gavl.pc"
-    # if [[ -f "gavl.pc" ]]; then
-        # cp gavl.pc "$PC_DIR"
+    local PC_FILE="$PC_DIR/gavl.pc"
+    if [[ -f "gavl.pc" ]]; then
+        cp gavl.pc "$PC_DIR"
         # sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
         # sed -i 's/Libs.private:/Libs.private: -lnettle -lhogweed -lgnutls -lws2_32 -lbcrypt /' "$PC_FILE"
-    # fi
+    fi
 }
