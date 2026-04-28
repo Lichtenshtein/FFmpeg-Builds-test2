@@ -41,7 +41,7 @@ ffbuild_dockerbuild() {
         compression.c io_fd.c io_socket.c io_stdio.c io_tls.c io_cipher.c 
         log.c metadata.c reftable.c 
         timer.c threadpool.c
-        time.c
+        time.c utils.c
     )
 
     for f in "${SYSTEM_FILES[@]}"; do
