@@ -20,29 +20,19 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # исправляем фатальные ошибки configure.ac
-    sed -i 's/AC_MSG_ERROR("getaddrinfo_a not found in libanl")/echo "Skipping libanl for Windows"/g' configure.ac
-    sed -i 's/PKG_CHECK_MODULES(DRM, libdrm, have_drm="true")/PKG_CHECK_MODULES(DRM, libdrm, have_drm="true", have_drm="false")/g' configure.ac
+    # исправляем фатальные ошибки
+    sed -i 's/AC_MSG_ERROR("getaddrinfo_a not found in libanl")/echo "Skipping libanl"/g' configure.ac
+    sed -i 's/PKG_CHECK_MODULES(DRM, libdrm, have_drm="true")/have_drm="false"/g' configure.ac
     sed -i 's/LIBGAVL_LIBS="-lrt"/LIBGAVL_LIBS=""/g' configure.ac
-
-    # исправляем фатальные ошибки check_funcs.m4
     sed -i 's/AC_MSG_ERROR(\[OpenGL not found\])/have_GL="false"/g' m4/check_funcs.m4
     sed -i 's/AC_MSG_ERROR(\[EGL not found\])/have_EGL="false"/g' m4/check_funcs.m4
-
-    # Вырезаем хардкод системных путей из всех Makefile.am и Makefile.in
-    find . -name "Makefile.am" -exec sed -i 's|-I/usr/include||g' {} + || true
-    find . -name "Makefile.in" -exec sed -i 's|-I/usr/include||g' {} + || true
-    sed -i 's|-I/usr/include||g' configure.ac || true
-
-    # Исправляем архитектуру
     sed -i "s/-march=native -mtune=native/-march=${CPU_ARCH} -mtune=${CPU_TUNE}/g" m4/lqt_opt_cflags.m4
 
     ./autogen.sh
 
-    # запрещаем лезть в папки хоста
-    find . -name "configure" -exec sed -i 's|-I/usr/include||g' {} + || true
-
-    export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
+    # тотальная чистка от /usr/include во всех сгенерированных файлах
+    log_info "Removing all references to /usr/include from generated files..."
+    grep -rl "/usr/include" . | xargs sed -i 's|-I/usr/include||g' || true
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
