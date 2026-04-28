@@ -89,8 +89,8 @@ ffbuild_dockerbuild() {
     make -C caca install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Установка заголовочных файлов из корня (они нужны FFmpeg)
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
-    cp caca/caca.h caca/caca0.h caca/caca_conio.h caca/caca_types.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
+    mkdir -p "$INSTALL_ROOT/include"
+    cp caca/caca.h caca/caca0.h caca/caca_conio.h caca/caca_types.h "$INSTALL_ROOT/include/"
 
     # libcaca иногда кладет .pc файл в странные места или пишет туда мусор
     local PC_FILE="$PC_DIR/caca.pc"
