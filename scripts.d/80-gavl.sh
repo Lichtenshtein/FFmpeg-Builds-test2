@@ -33,9 +33,20 @@ ffbuild_dockerbuild() {
     log_info "Neutralizing gavl_array_sort to avoid qsort_r issues on Windows..."
     sed -i 's/qsort_r(/ \/\/ qsort_r(/g' gavl/array.c
 
-    log_info "Disabling Linux-only hardware modules..."
-    sed -i -E 's/(hw\.lo|hw_dmabuf\.lo|network\.lo|socket\.lo|compression\.lo)//g' gavl/Makefile.am
+    log_info "Neutralizing problematic C files..."
+    for f in hw.c hw_dmabuf.c network.c socket.c charset.c compression.c; do
+        echo "/* Empty for Windows */" > "gavl/$f"
+    done
     export ac_cv_func_ftruncate=yes
+
+    cat <<EOF > include/gavl_win_fix.h
+#ifndef GAVL_WIN_FIX_H
+#define GAVL_WIN_FIX_H
+#include <gavl/gavl_version.h>
+#include <gavl/gavl_types.h>
+#include <gavl/gavl.h>
+#endif
+EOF
 
     ./autogen.sh
 
@@ -57,9 +68,9 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    CFLAGS="$CFLAGS ${USELTO} -Wno-implicit-function-declaration" \
-    CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS ${USELTO} -Wno-implicit-function-declaration" \
+    CFLAGS="$CFLAGS ${USELTO} -Wno-implicit-function-declaration -include $(pwd)/include/gavl_win_fix.h" \
+    CPPFLAGS="$CPPFLAGS -I$(pwd)/include" \
+    CXXFLAGS="$CXXFLAGS ${USELTO} -Wno-implicit-function-declaration -include $(pwd)/include/gavl_win_fix.h" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" \
