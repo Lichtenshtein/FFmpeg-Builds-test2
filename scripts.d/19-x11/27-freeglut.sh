@@ -35,8 +35,11 @@ ffbuild_dockerbuild() {
         -DFREEGLUT_PRINT_ERRORS=OFF
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DFREEGLUT_STATIC"
+
+    CFLAGS="$CFLAGS $CPPFLAGS $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags" \
     LDFLAGS="$LDFLAGS" \
     LIBS="$LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1

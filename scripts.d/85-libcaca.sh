@@ -18,12 +18,13 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    ./bootstrap
+
     # Отключаем попытку собрать плагины, которые требуют нативного X11/GL во время кросс-компиляции
     export ac_cv_header_x11_xlib_h=no
     # export ac_cv_header_gl_gl_h=no
 
     # Помогаем найти GLUT, так как pkg-config не найдет gl/glu на Windows
-    export GL_CFLAGS="-DFREEGLUT_STATIC"
     export GL_LIBS="-lglut -lglu32 -lopengl32 -lgdi32 -lwinmm"
     # Исправляем жестко зашитые имена либ в configure для MinGW
     sed -i 's/-lGL -lGLU/-lopengl32 -lglu32/g' configure
@@ -34,8 +35,6 @@ ffbuild_dockerbuild() {
     find . -type f -name "*.c" -exec sed -i 's/\bsprintf_s\b/caca_sprintf_s/g' {} +
     find . -type f -name "*.c" -exec sed -i 's/\bvsnprintf_s\b/caca_vsnprintf_s/g' {} +
     sed -i 's/defined __KERNEL__/1/' caca/caca_types.h
-
-    ./bootstrap
 
     # Чтобы не тратить время на ошибки в тестах, мы просто обнуляем Makefile в папке с тестами
     echo "all:" > caca/t/Makefile.am
@@ -71,11 +70,14 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DFREEGLUT_STATIC"
+
     CC="${FFBUILD_CROSS_PREFIX}gcc" \
     CXX="${FFBUILD_CROSS_PREFIX}g++" \
-    CFLAGS="$CFLAGS -Wno-implicit-function-declaration $GL_CFLAGS ${USELTO}" \
+    CFLAGS="$CFLAGS -Wno-implicit-function-declaration $static_flags ${USELTO}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration $GL_CFLAGS ${USELTO}" \
+    CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration $static_flags ${USELTO}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS $GL_LIBS" \
     ./configure "${myconf[@]}" || return 1
