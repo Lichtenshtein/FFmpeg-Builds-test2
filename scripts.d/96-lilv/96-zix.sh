@@ -13,12 +13,14 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    mkdir build && cd build
+
+    mkdir -p build && cd build
 
     local myconf=(
         --buildtype=release
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         --prefix="$FFBUILD_PREFIX"
+        --cross-file="$FFBUILD_MESON_CROSS"
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
         -Dbenchmarks=disabled
         -Dc_std=c11
@@ -31,11 +33,6 @@ ffbuild_dockerbuild() {
         -Dthreads=enabled
     )
 
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --cross-file="$FFBUILD_MESON_CROSS"
-        )
-    fi
     if [[ $TARGET == linux* ]]; then
         myconf+=(
             -Dposix=enabled
