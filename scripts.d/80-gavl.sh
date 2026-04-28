@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
     sed -i 's/qsort_r(/ \/\/ qsort_r(/g' gavl/array.c
 
     log_info "Neutralizing problematic C files..."
-    for f in hw.c hw_dmabuf.c hw_memfd.c http.c network.c socket.c compression.c; do
+    for f in hw.c hw_dmabuf.c hw_memfd.c http.c httpclient.c network.c socket.c compression.c; do
         if [ -f "gavl/$f" ]; then
             echo "/* Empty for Windows */" > "gavl/$f"
         fi
@@ -43,7 +43,16 @@ ffbuild_dockerbuild() {
 
     ./autogen.sh
 
-    cat include/gavl/gavl_version.h include/gavl/gavl_types.h > gavl_fix.h
+    cat include/gavl/gavl_version.h \
+        include/gavl/gavl_types.h \
+        include/gavl/gavl.h > gavl_fix.h
+    # Чтобы избежать рекурсии, удалим самовключение gavl.h из фикса
+    sed -i '/#include <gavl\/gavl.h>/d' gavl_fix.h
+    sed -i '/#include <gavl\/gavl_types.h>/d' gavl_fix.h
+    sed -i '/#include <gavl\/gavl_version.h>/d' gavl_fix.h
+
+    # Фикс unistd.h / ftruncate для io.h (убираем попытку gavl объявить его)
+    sed -i 's/off_t ftruncate/#define ftruncate_skipped/g' include/gavl/io.h
 
     # тотальная чистка от /usr/include во всех сгенерированных файлах
     log_info "Removing all references to /usr/include from generated files..."
@@ -76,7 +85,7 @@ ffbuild_dockerbuild() {
         ac_cv_header_sys_times_h=no || return 1
 
     make -C gavl -j$(nproc) $MAKE_V \
-        CFLAGS="$CFLAGS -I$(pwd) -include gavl_fix.h" || return 1
+        CFLAGS="$CFLAGS -I$(pwd) -include $(pwd)/gavl_fix.h" || return 1
     make -C gavl install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/gavl"
