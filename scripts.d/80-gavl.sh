@@ -26,8 +26,8 @@ ffbuild_dockerbuild() {
     sed -i 's/LIBGAVL_LIBS="-lrt"/LIBGAVL_LIBS=""/g' configure.ac
 
     # исправляем фатальные ошибки check_funcs.m4
-    # sed -i 's/AC_MSG_ERROR(\[OpenGL not found\])/have_GL="false"/g' m4/check_funcs.m4
-    # sed -i 's/AC_MSG_ERROR(\[EGL not found\])/have_EGL="false"/g' m4/check_funcs.m4
+    sed -i 's/AC_MSG_ERROR(\[OpenGL not found\])/have_GL="false"/g' m4/check_funcs.m4
+    sed -i 's/AC_MSG_ERROR(\[EGL not found\])/have_EGL="false"/g' m4/check_funcs.m4
 
     ./autogen.sh
 
@@ -55,7 +55,9 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" \
         ac_cv_func_getaddrinfo_a=no \
         ac_cv_func_memalign=no \
-        ac_cv_func_posix_memalign=no || return 1
+        ac_cv_func_posix_memalign=no \
+        have_GL=no \
+        have_EGL=no || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
