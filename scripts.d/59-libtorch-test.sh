@@ -24,7 +24,13 @@ ffbuild_dockerbuild() {
     # cd libtorch_src
 
     # вырезаем TORCH_API и аналогичные макросы из всех заголовков уберет "definition is marked dllimport"
-    find include/ -type f -name "*.h" -exec sed -i 's/TORCH_API//g; s/C10_API//g; s/C10_IMPORT//g; s/AT_API//g;' {} +
+    log_info "Cleaning up dllimport attributes from headers..."
+    find include/ -type f \( -name "*.h" -o -name "*.hpp" \) -exec sed -i \
+        -e 's/\bTORCH_API\b//g' \
+        -e 's/\bC10_API\b//g' \
+        -e 's/\bC10_IMPORT\b//g' \
+        -e 's/\bAT_API\b//g' \
+        -e 's/\bCAFFE2_API\b//g' {} +
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin}
 
@@ -54,10 +60,7 @@ EOF
 }
 
 ffbuild_cxxflags() {
-    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include \
-          -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG \
-          -D_WIN32 -D_WIN64 -D_DLL=0 -D_WINDLL=0 \
-          -DTORCH_API= -DC10_IMPORT= -DAT_API= -DCAFFE2_API="
+    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG"
 }
 
 ffbuild_configure() {
