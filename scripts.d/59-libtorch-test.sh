@@ -71,13 +71,14 @@ Name: LibTorch
 Description: PyTorch C++ API
 Version: 2.10.0
 Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10
-Libs.private: -lshlwapi -luser32 -ladvapi32 -lstdc++
-Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX
+Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=0 -DNOMINMAX
 EOF
+
+nm -C /opt/ffbuild/lib/libtorch_cpu.a | grep "torchCheckFail"
 }
 
 ffbuild_cxxflags() {
-    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG"
+    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=0 -DNOMINMAX -DNDEBUG -DCPPUID_STATIC -DCAFFE2_USE_MKL -DCAFFE2_USE_OPENMP"
 }
 
 ffbuild_configure() {
