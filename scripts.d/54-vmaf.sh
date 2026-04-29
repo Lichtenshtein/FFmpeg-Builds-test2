@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# SCRIPT_REPO="https://github.com/Netflix/vmaf.git"
-# SCRIPT_COMMIT="332dde62838d91d8b5216e9822de58851f2fd64f"
+SCRIPT_REPO="https://github.com/Netflix/vmaf.git"
+SCRIPT_COMMIT="332dde62838d91d8b5216e9822de58851f2fd64f"
 
-SCRIPT_REPO="https://github.com/lusoris/vmaf.git"
-SCRIPT_COMMIT="4336736ae2e52ab6a12728f9708777886fe6a5dd"
+# SCRIPT_REPO="https://github.com/lusoris/vmaf.git"
+# SCRIPT_COMMIT="4336736ae2e52ab6a12728f9708777886fe6a5dd"
 
 ffbuild_enabled() {
     return 0
@@ -51,10 +51,10 @@ EOF
         -Denable_nvtx=false # Enable NVTX range support
         # added by patches
         # -Denable_discord_mode=true
-        -Denable_sycl=false # Enable Intel oneAPI SYCL/DPC++ support for GPU-accelerated feature extraction
-        -Denable_dnn=disabled # Build DNN runtime (ONNX Runtime) for tiny-model inference
-        -Denable_vulkan=disabled # Build Vulkan compute backend (ADR-0127 design; ADR-0175 scaffold; ADR-0178 / T5-1b runtime; ADR-0193 default-model kernel matrix complete). Default disabled; opt in to use it. Requires volk + Vulkan SDK 1.3+ + glslc + VMA.
-        -Dsycl_compiler=icpx # Path or name of the SYCL compiler (Intel icpx from oneAPI)
+        # -Denable_sycl=false # Enable Intel oneAPI SYCL/DPC++ support for GPU-accelerated feature extraction
+        # -Denable_dnn=disabled # Build DNN runtime (ONNX Runtime) for tiny-model inference
+        # -Denable_vulkan=disabled # Build Vulkan compute backend (ADR-0127 design; ADR-0175 scaffold; ADR-0178 / T5-1b runtime; ADR-0193 default-model kernel matrix complete). Default disabled; opt in to use it. Requires volk + Vulkan SDK 1.3+ + glslc + VMA.
+        # -Dsycl_compiler=icpx # Path or name of the SYCL compiler (Intel icpx from oneAPI)
     )
 
     if [[ $TARGET == linux* ]]; then
