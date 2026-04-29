@@ -1,14 +1,9 @@
-From 52be2097ea204782ad08146c26f63c9497ce6e1e Mon Sep 17 00:00:00 2001
 From: Grzegorz Rys <grzegorz.rys@intel.com>
-Date: Thu, 2 Apr 2026 11:05:22 +0200
-Subject: [PATCH 3/3] Update JPEGXS decoder and ecoder with GBR formats
+Date: Fri, 21 Jun 2024 12:43:23 +0200
+Subject: [PATCH] 3/3 Update JPEGXS decoder and ecoder with GBR formats
 
 Signed-off-by: Grzegorz Rys <grzegorz.rys@intel.com>
 ---
- libavcodec/libsvtjpegxsdec.c | 301 ++++++++++++++++++++++-------------
- libavcodec/libsvtjpegxsenc.c | 240 ++++++++++++++++------------
- 2 files changed, 328 insertions(+), 213 deletions(-)
-
 diff --git a/libavcodec/libsvtjpegxsdec.c b/libavcodec/libsvtjpegxsdec.c
 index 7a325c4446..325bef76f0 100644
 --- a/libavcodec/libsvtjpegxsdec.c
@@ -419,7 +414,7 @@ index d8dbc93075..cddc09a90b 100644
      int decomp_v;
      int decomp_h;
      int quant;
-@@ -50,216 +51,232 @@ typedef struct SvtJpegXsEncodeContext {
+@@ -50,51 +50,52 @@ typedef struct SvtJpegXsEncodeContext {
      int bitstream_frame_size;
  } SvtJpegXsEncodeContext;
  
@@ -494,15 +489,10 @@ index d8dbc93075..cddc09a90b 100644
      }
  
      pkt->size = enc_output.bitstream.used_size;
- 
-     *got_packet = 1;
--
-     return 0;
- }
- 
+@@ -106,159 +107,174 @@ static int svt_jpegxs_enc_encode(AVCodecContext* avctx, AVPacket* pkt,
  static av_cold int svt_jpegxs_enc_free(AVCodecContext* avctx) {
      SvtJpegXsEncodeContext* svt_enc = avctx->priv_data;
--
+ 
 -    svt_jpeg_xs_encoder_close(&svt_enc->encoder);
 +    svt_jpeg_xs_encoder_close(&(svt_enc->encoder));
 +    av_log(NULL, AV_LOG_DEBUG, "svt_jpeg_xs_encoder_close called\n");
@@ -525,7 +515,6 @@ index d8dbc93075..cddc09a90b 100644
 -        return;
 +        return 0;
      case AV_PIX_FMT_YUV444P:
-+    case AV_PIX_FMT_GBRP:
          encoder->input_bit_depth = 8;
          encoder->colour_format = COLOUR_FORMAT_PLANAR_YUV444_OR_RGB;
 -        return;
@@ -541,7 +530,6 @@ index d8dbc93075..cddc09a90b 100644
 -        return;
 +        return 0;
      case AV_PIX_FMT_YUV444P10LE:
-+    case AV_PIX_FMT_GBRP10LE:
          encoder->input_bit_depth = 10;
          encoder->colour_format = COLOUR_FORMAT_PLANAR_YUV444_OR_RGB;
 -        return;
@@ -570,8 +558,7 @@ index d8dbc93075..cddc09a90b 100644
      case AV_PIX_FMT_YUV422P14LE:
          encoder->input_bit_depth = 14;
          encoder->colour_format = COLOUR_FORMAT_PLANAR_YUV422;
--        return;
-+        return 0;
+         return;
      case AV_PIX_FMT_YUV444P14LE:
 +    case AV_PIX_FMT_GBRP14LE:
          encoder->input_bit_depth = 14;
@@ -651,9 +638,6 @@ index d8dbc93075..cddc09a90b 100644
 +    }
 +    else if (av_log_get_level() == AV_LOG_DEBUG) {
 +        svt_enc->encoder.verbose = VERBOSE_SYSTEM_INFO;
-+    }
-+    else {
-+        svt_enc->encoder.verbose = VERBOSE_WARNINGS;
      }
 -    if (avctx->bit_rate == 0) {
 -        const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(avctx->pix_fmt);
@@ -661,6 +645,9 @@ index d8dbc93075..cddc09a90b 100644
 -        avctx->bit_rate = (int64_t)avctx->width * avctx->height *
 -                          (av_get_bits_per_pixel(desc) * 2 / 3) * av_q2d(avctx->framerate);
 -        av_log(avctx, AV_LOG_WARNING, "No bitrate set, defaulting to %"PRId64"\n", avctx->bit_rate);
++    else {
++        svt_enc->encoder.verbose = VERBOSE_WARNINGS;
++    }
 +
 +    if (!svt_enc->bpp_str) {
 +        //TODO: Consider using avctx->bit_rate to specify bpp_num/bpp_denom in this case
@@ -791,6 +778,3 @@ index d8dbc93075..cddc09a90b 100644
      .p.wrapper_name = "libsvtjpegxs",
      .p.priv_class = &svtjpegxs_enc_class,
  };
--- 
-2.51.0
-

@@ -57,18 +57,20 @@ diff --git a/libavcodec/h264chroma.c b/libavcodec/h264chroma.c
 index 0d152de59d..1776a04f19 100644
 --- a/libavcodec/h264chroma.c
 +++ b/libavcodec/h264chroma.c
-@@ -24,9 +24,11 @@
- #include "h264chroma_template.c"
+@@ -26,11 +26,13 @@
+ #undef MC2_STATIC
  #undef BIT_DEPTH
-
+ 
 +#if H264_MAX_BIT_DEPTH > 8
  #define BIT_DEPTH 16
+ #define MC2_STATIC static
  #include "h264chroma_template.c"
+ #undef MC2_STATIC
  #undef BIT_DEPTH
 +#endif
-
- #define SET_CHROMA(depth)                                                   \
-     c->put_h264_chroma_pixels_tab[0] = put_h264_chroma_mc8_ ## depth ## _c; \
+ 
+ #define SET_CHROMA(depth)                                                      \
+     c->put_h264_chroma_pixels_tab[0] = put_h264_chroma_mc8_ ## depth ## _c;    \
 @@ -39,7 +41,9 @@
  av_cold void ff_h264chroma_init(H264ChromaContext *c, int bit_depth)
  {
@@ -123,9 +125,9 @@ index f4c5238372..b0b5885e89 100644
 
  av_cold void ff_h264dsp_init(H264DSPContext *c, const int bit_depth,
                               const int chroma_format_idc)
-@@ -79,7 +89,9 @@ av_cold void ff_h264dsp_init(H264DSPContext *c, const int bit_depth,
-     c->h264_add_pixels8_clear = FUNC(ff_h264_add_pixels8, depth)
-
+@@ -79,7 +79,9 @@ av_cold void ff_h264dsp_init(H264DSPContext *c, const int bit_depth,
+     c->add_pixels8_clear = FUNC(ff_h264_add_pixels8, depth)
+ 
      if (bit_depth > 8 && bit_depth <= 16) {
 +#if (H264_MAX_BIT_DEPTH > 8)
          SET_PIXSIZE_FUNCS(16);
@@ -133,9 +135,9 @@ index f4c5238372..b0b5885e89 100644
      } else {
          SET_PIXSIZE_FUNCS(8);
      }
-@@ -133,18 +145,26 @@ av_cold void ff_h264dsp_init(H264DSPContext *c, const int bit_depth,
-     c->h264_loop_filter_strength= NULL;
-
+@@ -133,18 +133,26 @@ av_cold void ff_h264dsp_init(H264DSPContext *c, const int bit_depth,
+     c->loop_filter_strength = NULL;
+ 
      switch (bit_depth) {
 +#if H264_MAX_BIT_DEPTH >= 9
      case 9:
@@ -358,17 +360,17 @@ diff --git a/libavcodec/x86/h264dsp_init.c b/libavcodec/x86/h264dsp_init.c
 index 66c2f36908..3d6fc6286b 100644
 --- a/libavcodec/x86/h264dsp_init.c
 +++ b/libavcodec/x86/h264dsp_init.c
-@@ -274,6 +274,7 @@ av_cold void ff_h264dsp_init_x86(H264DSPContext *c, const int bit_depth,
-             c->h264_idct_dc_add     = ff_h264_idct_dc_add_8_avx;
+@@ -269,6 +269,7 @@ av_cold void ff_h264dsp_init_x86(H264DSPContext *c, const int bit_depth,
+             c->idct_dc_add     = ff_h264_idct_dc_add_8_avx;
          }
      } else if (bit_depth == 10) {
 +#if H264_MAX_BIT_DEPTH >= 10
          if (EXTERNAL_MMXEXT(cpu_flags)) {
- #if ARCH_X86_32 && !HAVE_ALIGNED_STACK
-             c->h264_v_loop_filter_luma         = ff_deblock_v_luma_10_mmxext;
-@@ -361,5 +362,6 @@ av_cold void ff_h264dsp_init_x86(H264DSPContext *c, const int bit_depth,
-             c->h264_h_loop_filter_luma_intra   = ff_deblock_h_luma_intra_10_avx;
- #endif /* HAVE_ALIGNED_STACK */
+             c->idct_dc_add = ff_h264_idct_dc_add_10_mmxext;
+         }
+@@ -346,5 +347,6 @@ av_cold void ff_h264dsp_init_x86(H264DSPContext *c, const int bit_depth,
+             c->v_loop_filter_luma_intra   = ff_deblock_v_luma_intra_10_avx;
+             c->h_loop_filter_luma_intra   = ff_deblock_h_luma_intra_10_avx;
          }
 +#endif /* H264_MAX_BIT_DEPTH >= 10 */
      }

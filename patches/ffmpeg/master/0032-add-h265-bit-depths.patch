@@ -141,9 +141,9 @@ index 8d588382fa..78d3e12155 100644
 
  void ff_hevc_pred_init(HEVCPredContext *hpc, int bit_depth)
  {
-@@ -61,15 +69,21 @@ void ff_hevc_pred_init(HEVCPredContext *hpc, int bit_depth)
-     hpc->pred_angular[3] = FUNC(pred_angular_3, depth);
-
+@@ -65,15 +65,21 @@ void ff_hevc_pred_init(HEVCPredContext *hpc, int bit_depth)
+     hpc->ref_filter_strong  = FUNC(ref_filter_strong, depth);
+ 
      switch (bit_depth) {
 +#if (H265_BIT_DEPTH_9 + 0)
      case 9:
