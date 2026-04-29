@@ -23,20 +23,31 @@ ffbuild_dockerbuild() {
 
     # cd libtorch_src
 
-    # вырезаем TORCH_API и аналогичные макросы из всех заголовков уберет "definition is marked dllimport"
-    log_info "Cleaning up dllimport attributes from headers..."
-    find include/ -type f \( -name "*.h" -o -name "*.hpp" \) -exec sed -i \
-        -e 's/^#define C10_API.*/#define C10_API/' \
-        -e 's/^#define TORCH_API.*/#define TORCH_API/' \
-        -e 's/^#define C10_IMPORT.*/#define C10_IMPORT/' \
-        -e 's/^#define C10_EXPORT.*/#define C10_EXPORT/' \
-        -e 's/\bTORCH_API\b//g' \
-        -e 's/\bC10_API\b//g' \
-        -e 's/\bC10_IMPORT\b//g' \
-        -e 's/\bC10_EXPORT\b//g' {} +
+    log_info "Applying final structural fix for LibTorch headers..."
 
-    find include/ -name "Export.h" -exec sed -i 's/#define [A-Z0-9_]*_API C10_[A-Z]*/#define \0_EMPTY/g' {} +
-    find include/ -name "Export.h" -exec sed -i 's/__declspec(dllimport)//g; s/__declspec(dllexport)//g' {} +
+    find include/ -type f \( -name "*.h" -o -name "*.hpp" \) -exec sed -i \
+        -e 's/__declspec(dllimport)//g' \
+        -e 's/__declspec(dllexport)//g' {} +
+
+    local MACRO_H=$(find include/c10 -name "Macros.h" | head -n 1)
+    if [[ -f "$MACRO_H" ]]; then
+        cat <<EOF >> "$MACRO_H"
+#ifndef LIBTORCH_STATIC_FIX
+#define LIBTORCH_STATIC_FIX
+#define TORCH_API
+#define C10_API
+#define C10_IMPORT
+#define C10_EXPORT
+#define AT_API
+#define CAFFE2_API
+#define C10_API_ENUM
+#define TORCH_API_ENUM
+#endif
+EOF
+    fi
+
+    find include/torch/csrc/autograd/ -name "profiler_legacy.h" -exec sed -i '1i #include <cstdint>' {} +
+    find include/ATen/ -name "record_function.h" -exec sed -i '1i #include <cstdint>' {} +
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin}
 
