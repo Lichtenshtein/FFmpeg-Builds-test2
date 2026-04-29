@@ -42,8 +42,8 @@ ffbuild_dockerbuild() {
         # added by patches
         # -Denable_discord_mode=true
         -Denable_sycl=false # Enable Intel oneAPI SYCL/DPC++ support for GPU-accelerated feature extraction
-        -Denable_dnn=false # Build DNN runtime (ONNX Runtime) for tiny-model inference
-        -Denable_vulkan=false # Build Vulkan compute backend (ADR-0127 design; ADR-0175 scaffold; ADR-0178 / T5-1b runtime; ADR-0193 default-model kernel matrix complete). Default disabled; opt in to use it. Requires volk + Vulkan SDK 1.3+ + glslc + VMA.
+        -Denable_dnn=disabled # Build DNN runtime (ONNX Runtime) for tiny-model inference
+        -Denable_vulkan=disabled # Build Vulkan compute backend (ADR-0127 design; ADR-0175 scaffold; ADR-0178 / T5-1b runtime; ADR-0193 default-model kernel matrix complete). Default disabled; opt in to use it. Requires volk + Vulkan SDK 1.3+ + glslc + VMA.
         -Dsycl_compiler=icpx # Path or name of the SYCL compiler (Intel icpx from oneAPI)
     )
 
