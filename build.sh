@@ -38,7 +38,11 @@ cleanup() {
 # EXIT сработает всегда: и при успехе, и при ошибке, и при прерывании
 trap cleanup EXIT
 
-export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
+if [[ "${USE_WINE:-0}" = "1" ]]; then
+    export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
+else
+    export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin"
+fi
 
 # Инициализация локальных (не экспортируемых!) переменных
 # Обнуляем FF_ переменные перед загрузкой, чтобы не было старых хвостов
@@ -171,24 +175,20 @@ fi
 
 pushd "$FFMPEG_SOURCE_DIR"
 
+# АВТО-ПАТЧИНГ
 if [[ "$FFMPEG_PATCHES" == "1" ]]; then
     log_info_line
     log_info "${SEARCH_MARK} Looking for FFmpeg patches..."
     # Патчи ищем по имени ветки, пришедшей из ENV
     if [[ -d "$PATCHES_DIR/ffmpeg/$FFMPEG_BRANCH" ]]; then
-        # git reset --hard HEAD 2>/dev/null || true
-        for patch in "$PATCHES_DIR/ffmpeg/$FFMPEG_BRANCH"/*.patch; do
-            [[ -e "$patch" ]] || continue
-            log_info "${TARGET_MARK} APPLYING PATCH: $(basename "$patch")"
-            if patch -p1 < "$patch"; then
-                log_info "${CHECK_MARK} SUCCESS: Patch applied."
-            else
-                log_error "ERROR: Patch $(basename "$patch") failed to apply cleanly."
-                # exit 1 # если нужно прервать сборку при ошибке
-            fi
-        done
+        apply_patches
+        log_info_line
+    else
+        log_info "${CHECK_MARK} No patches found."
         log_info_line
     fi
+else
+    log_info "Skipping patches for $STAGENAME"
 fi
 
 [[ "$DEDUPE_FLAGS" == "1" ]] && log_info "${BROOM_MARK} Deduplicating ALL flags..."

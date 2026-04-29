@@ -31,8 +31,8 @@ ffbuild_dockerbuild() {
     # Копируем библиотеки и DLL
     # копируем как есть. Общая функция сама решит, 
     # сделать ли из .lib -> .a или сгенерировать импорт из .dll
-    cp lib/*.lib "$INSTALL_ROOT/lib/" 2>/dev/null || true
     cp lib/*.dll "$INSTALL_ROOT/bin/" 2>/dev/null || true
+    # cp lib/*.lib "$INSTALL_ROOT/lib/" 2>/dev/null || true
 
     # LibTorch требует много флагов, создаем .pc файл
     mkdir -p "$PC_DIR"
