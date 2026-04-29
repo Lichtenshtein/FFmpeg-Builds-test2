@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
 
     #  DLL идет в bin (чтобы быть рядом с ffmpeg.exe)
     cp lib/tensorflow.dll "$INSTALL_ROOT/bin/"
-    cp lib/tensorflow.lib "$INSTALL_ROOT/lib/libtensorflow.lib"
+    # cp lib/tensorflow.lib "$INSTALL_ROOT/lib/libtensorflow.lib"
 
     # Генерируем .pc файл и добавляем -ltensorflow.lib явно для линковщика
     mkdir -p "$PC_DIR"

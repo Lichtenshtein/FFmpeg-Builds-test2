@@ -8,6 +8,7 @@ ffbuild_depends() {
 }
 
 ffbuild_enabled() {
+    [[ $TARGET == win* ]] || return 1
     return 0
 }
 
@@ -17,15 +18,13 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    # Возвращаемся в корень распаковки, если run_stage увел нас в /tests
-    # $STAGENAME определена в run_stage.sh
+
     cd "/build/$STAGENAME"
 
     log_info "Installing mingw-std-threads headers from $(pwd)..."
-    
+
     mkdir -p "$FFBUILD_DESTPREFIX/include"
-    
-    # Копируем только существующие .h файлы
+
     if ls *.h >/dev/null 2>&1; then
         cp *.h "$FFBUILD_DESTPREFIX/include/"
         log_info "${CHECK_MARK} Headers installed successfully."
@@ -34,5 +33,4 @@ ffbuild_dockerbuild() {
         ls -F
         return 1
     fi
-
 }
