@@ -50,6 +50,10 @@ Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_
 EOF
 }
 
+ffbuild_cxxflags() {
+    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include"
+}
+
 ffbuild_configure() {
     echo --enable-libtorch
 }
