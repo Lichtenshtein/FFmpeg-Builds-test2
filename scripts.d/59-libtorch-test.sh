@@ -49,6 +49,14 @@ EOF
     find include/torch/csrc/autograd/ -name "profiler_legacy.h" -exec sed -i '1i #include <cstdint>' {} +
     find include/ATen/ -name "record_function.h" -exec sed -i '1i #include <cstdint>' {} +
 
+    # Принудительно выставляем импорт для всех API макросов
+    find include/ -type f \( -name "*.h" -o -name "*.hpp" \) -exec sed -i \
+        -e 's/define [A-Z0-9_]*_API .*/define \0 __declspec(dllimport)/g' \
+        -e 's/define [A-Z0-9_]*_IMPORT .*/define \0 __declspec(dllimport)/g' {} +
+
+    # Исправляем конкретно Macros.h и Export.h, чтобы они не переопределили это назад
+    find include/ -name "Export.h" -exec sed -i 's/define [A-Z0-9_]*_API.*/#define \0 __declspec(dllimport)/g' {} +
+
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin}
 
     # Копируем заголовочные файлы
@@ -71,12 +79,13 @@ Name: LibTorch
 Description: PyTorch C++ API
 Version: 2.10.0
 Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10
-Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX
+Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -D_DLL
 EOF
 }
 
 ffbuild_cxxflags() {
-    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG -D_DLL"
+    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG \
+          -D_DLL -DCAFFE2_USE_MKL -DUSE_CUDA=0"
 }
 
 ffbuild_configure() {
