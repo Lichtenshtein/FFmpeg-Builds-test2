@@ -248,7 +248,7 @@ export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 # Ветвление по TARGET
 if [[ "$TARGET" == "win64" ]]; then
     export BASE_CFLAGS="${OPENMP_C}-mms-bitfields -fstack-protector-strong"
-    export BASE_CPPFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0 -D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D__assert_fail=__mingw_assert -D_FORTIFY_SOURCE=2"
+    export BASE_CPPFLAGS="-D_GLIBCXX_USE_CXX11_ABI=1 -D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D__assert_fail=__mingw_assert -D_FORTIFY_SOURCE=2"
 
     BASE_LD_FLAGS=(
         "-pipe"
@@ -981,11 +981,14 @@ generate_implibs() {
 
     # Search for all DLLs that don't yet have a .dll.a or .a
     find "$target_dir" -name "*.dll" -type f | while read -r dll_file; do
-        local dll_name=$(basename "$dll_file")
+        local dll_full_path="$dll_file"
+        local dll_name=$(basename "$dll_full_path")
         local base_name="${dll_name%.dll}"
         local lib_name="lib${base_name}.a"
-        
-        local lib_out_dir=$(dirname "$dll_file")
+
+        # Определяем выходную директорию для .a
+        local dll_dir=$(dirname "$dll_full_path")
+        local lib_out_dir="$dll_dir"
         [[ "$lib_out_dir" == *"/bin" ]] && lib_out_dir="${lib_out_dir%/bin}/lib"
         mkdir -p "$lib_out_dir"
 
@@ -1000,18 +1003,30 @@ generate_implibs() {
         # If there is a .lib (MSVC) nearby, we try to use dlltool directly on it, but it’s safer to use gendef from the DLL itself
         log_debug "${BUILD_MARK} Processing $dll_name -> $lib_name"
 
+        # ПЕРЕХОДИМ в директорию с DLL, чтобы пути внутри .a стали относительными
+        pushd "$dll_dir" > /dev/null
+
         local def_file="${base_name}.def"
-        if ! $GENDEF "$dll_file" > /dev/null 2>&1; then
+        # Генерируем .def файл, используя только имя файла (без путей!)
+        if ! $GENDEF "$dll_name" > "$def_file" 2>/dev/null; then
             log_warn "gendef failed for $dll_name"
+            rm -f "$def_file"
+            popd > /dev/null
             continue
         fi
 
         # Creating an import library
         # The -k (kill-at) flag is useful for x86 (32bit), for x64 it usually doesn't interfere
-        $DLLTOOL -d "$def_file" -l "$out_file" -D "$dll_name"
+        # -D "$dll_name" жестко прописывает имя DLL в таблицу импорта
+        # -l задает путь к выходному файлу (может быть абсолютным, это не влияет на внутренности)
+        if ! $DLLTOOL -d "$def_file" -l "$out_file" -D "$dll_name"; then
+            log_error "dlltool failed for $dll_name"
+        else
+            log_info "${CHECK_MARK} Created $lib_name from DLL"
+        fi
 
         rm -f "$def_file"
-        log_info "${CHECK_MARK} Created $lib_name from DLL"
+        popd > /dev/null
     done
 }
 export -f generate_implibs
