@@ -140,6 +140,16 @@ if [[ -n "$ADDINS_STR" ]]; then
     done
 fi
 
+# Определяем целевой вариант (они могут добавить свои --enable)
+VARIANT_SCRIPT="${VARIANTS_DIR}/${TARGET}-${VARIANT}.sh"
+if [[ -f "$VARIANT_SCRIPT" ]]; then
+    log_info "Sourcing variant script: $VARIANT_SCRIPT"
+    source "$VARIANT_SCRIPT"
+else
+    log_error "Variant script not found: $VARIANT_SCRIPT"
+    exit 1
+fi
+
 # Capture echo-style output from "variants/${TARGET}-${VARIANT}.sh"
 _variant_conf=$(ffbuild_configure 2>/dev/null || true)
 _variant_cflags=$(ffbuild_cflags 2>/dev/null || true)
@@ -155,16 +165,6 @@ _variant_libs=$(ffbuild_libs 2>/dev/null || true)
 [[ -n "$_variant_ldflags" ]]    && VARIANT_FF_LDFLAGS="${_variant_ldflags}"
 [[ -n "$_variant_ldexeflags" ]] && VARIANT_FF_LDEXEFLAGS="${_variant_ldexeflags}"
 [[ -n "$_variant_libs" ]]       && VARIANT_FF_LIBS="${_variant_libs}"
-
-# Определяем целевой вариант (они могут добавить свои --enable)
-VARIANT_SCRIPT="${VARIANTS_DIR}/${TARGET}-${VARIANT}.sh"
-if [[ -f "$VARIANT_SCRIPT" ]]; then
-    log_info "Sourcing variant script: $VARIANT_SCRIPT"
-    source "$VARIANT_SCRIPT"
-else
-    log_error "Variant script not found: $VARIANT_SCRIPT"
-    exit 1
-fi
 
 # Клонирование и патчинг (прямо в текущем слое Docker)
 log_info "Using pre-mounted FFmpeg source..."
