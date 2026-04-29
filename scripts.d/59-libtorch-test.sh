@@ -26,11 +26,17 @@ ffbuild_dockerbuild() {
     # вырезаем TORCH_API и аналогичные макросы из всех заголовков уберет "definition is marked dllimport"
     log_info "Cleaning up dllimport attributes from headers..."
     find include/ -type f \( -name "*.h" -o -name "*.hpp" \) -exec sed -i \
+        -e 's/^#define C10_API.*/#define C10_API/' \
+        -e 's/^#define TORCH_API.*/#define TORCH_API/' \
+        -e 's/^#define C10_IMPORT.*/#define C10_IMPORT/' \
+        -e 's/^#define C10_EXPORT.*/#define C10_EXPORT/' \
         -e 's/\bTORCH_API\b//g' \
         -e 's/\bC10_API\b//g' \
         -e 's/\bC10_IMPORT\b//g' \
-        -e 's/\bAT_API\b//g' \
-        -e 's/\bCAFFE2_API\b//g' {} +
+        -e 's/\bC10_EXPORT\b//g' {} +
+
+    find include/ -name "Export.h" -exec sed -i 's/#define [A-Z0-9_]*_API C10_[A-Z]*/#define \0_EMPTY/g' {} +
+    find include/ -name "Export.h" -exec sed -i 's/__declspec(dllimport)//g; s/__declspec(dllexport)//g' {} +
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin}
 
