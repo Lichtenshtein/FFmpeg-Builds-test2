@@ -296,6 +296,9 @@ read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
 read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 
 ls -lh /opt/ffbuild/lib/libtorch_cpu.a || true
+# Принудительно вставляем макросы импорта в начало проблемного файла
+sed -i '1i #define TORCH_API __declspec(dllimport)\n#define C10_API __declspec(dllimport)\n#define AT_API __declspec(dllimport)' libavfilter/dnn/dnn_backend_torch.cpp
+x86_64-w64-mingw32-nm /opt/ffbuild/lib/libtorch_cpu.a | grep "__imp_.*getInstance"
 
 chmod +x configure
 
