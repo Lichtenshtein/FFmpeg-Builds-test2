@@ -254,6 +254,14 @@ jobs:
           df -h /
           echo "-------------------------------"
 
+      - name: Setup Swap Space
+        run: |
+          sudo fallocate -l 32G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          swapon --show
+
       - name: Check if base rebuild needed
         id: base_check
         run: |
