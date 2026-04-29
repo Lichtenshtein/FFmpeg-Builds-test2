@@ -19,12 +19,12 @@ _retry() {
             return 0
         else
             if [[ $n -lt $max ]]; then
-                log_warn "WARNING: Command failed: '$*'. Attempt $n/$max. Retrying in ${delay}s..."
+                log_warn "Command failed: '$*'. Attempt $n/$max. Retrying in ${delay}s..."
                 sleep "$delay"
                 ((n++))
                 delay=$((delay + 10))
             else
-                log_error "ERROR: Command '$1' failed after $max attempts: $*"
+                log_error "Command '$1' failed after $max attempts: $*"
                 return 1
             fi
         fi
