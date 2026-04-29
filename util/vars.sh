@@ -1204,41 +1204,21 @@ apply_ffmpeg_patches() {
 
     log_info "${SEARCH_MARK} Applying FFmpeg patches from: $FFMPEG_PATCH_DIR"
 
-    # Проверяем, что мы в git-репозитории
     if [[ ! -d ".git" ]]; then
         log_warn "FFmpeg source is not a git repo. Initializing temporary git for reliable patching..."
-        git init -q
-        git add -A
-        git commit -qm "temp_base"
+        git init -q && git add -A && git commit -qm "base"
     fi
 
     shopt -s nullglob
     for patch in "$FFMPEG_PATCH_DIR"/*.patch; do
-        local patch_name=$(basename "$patch")
-        log_info "${TARGET_MARK} APPLYING: $patch_name"
+        log_info "${TARGET_MARK} APPLYING: $(basename "$patch")"
 
-        # Сначала проверяем, применится ли патч (dry-run)
-        if ! git apply --check --ignore-whitespace "$patch" 2>/dev/null; then
-            # Если не применился, проверяем, может он уже применен?
-            if git apply --check --reverse --ignore-whitespace "$patch" 2>/dev/null; then
-                log_info "${CHECK_MARK} ALREADY APPLIED: $patch_name (skipping)"
-                continue
-            fi
-
-            log_error "ERROR: Patch $patch_name is incompatible with current source."
-            # Прерываем сборку, так как частичные патчи — это риск сломать бинарник
-            # exit 1
-        fi
-
-        # Реальное применение
-        if git apply --ignore-whitespace --verbose "$patch"; then
-            log_info "${CHECK_MARK} SUCCESS: Applied $patch_name"
-            # Фиксируем патч в локальном git, чтобы следующий --check работал корректно
-            git add -u
-            git commit -qm "Applied patch: $patch_name"
+        if git apply --ignore-whitespace --intent-to-add "$patch" 2>/dev/null; then
+            log_info "${CHECK_MARK} SUCCESS: Applied $(basename "$patch")"
+            git add -A || true
         else
-            log_error "FAILED: Unexpected error applying $patch_name"
-            # exit 1
+            log_error "FAILED: $(basename "$patch") - skipping"
+            git reset -q HEAD -- . || true
         fi
     done
     shopt -u nullglob
