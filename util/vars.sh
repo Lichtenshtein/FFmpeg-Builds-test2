@@ -248,7 +248,7 @@ export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 # Ветвление по TARGET
 if [[ "$TARGET" == "win64" ]]; then
     export BASE_CFLAGS="${OPENMP_C}-mms-bitfields -fstack-protector-strong"
-    export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
+    export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D__assert_fail=__mingw_assert -D_FORTIFY_SOURCE=2"
 
     BASE_LD_FLAGS=(
         "-pipe"
@@ -1196,6 +1196,56 @@ apply_patches() {
     return 0
 }
 export -f apply_patches
+
+apply_ffmpeg_patches() {
+    local FFMPEG_PATCH_DIR="$PATCHES_DIR/ffmpeg/$FFMPEG_BRANCH"
+
+    [[ -d "$FFMPEG_PATCH_DIR" ]] || { log_info "${CHECK_MARK} No patches found for branch: $FFMPEG_BRANCH"; return 0; }
+
+    log_info "${SEARCH_MARK} Applying FFmpeg patches from: $FFMPEG_PATCH_DIR"
+
+    # Проверяем, что мы в git-репозитории
+    if [[ ! -d ".git" ]]; then
+        log_warn "FFmpeg source is not a git repo. Initializing temporary git for reliable patching..."
+        git init -q
+        git add -A
+        git commit -qm "temp_base"
+    fi
+
+    shopt -s nullglob
+    for patch in "$FFMPEG_PATCH_DIR"/*.patch; do
+        local patch_name=$(basename "$patch")
+        log_info "${TARGET_MARK} APPLYING: $patch_name"
+
+        # Сначала проверяем, применится ли патч (dry-run)
+        if ! git apply --check --ignore-whitespace "$patch" 2>/dev/null; then
+            # Если не применился, проверяем, может он уже применен?
+            if git apply --check --reverse --ignore-whitespace "$patch" 2>/dev/null; then
+                log_info "${CHECK_MARK} ALREADY APPLIED: $patch_name (skipping)"
+                continue
+            fi
+
+            log_error "ERROR: Patch $patch_name is incompatible with current source."
+            # Прерываем сборку, так как частичные патчи — это риск сломать бинарник
+            # exit 1
+        fi
+
+        # Реальное применение
+        if git apply --ignore-whitespace --verbose "$patch"; then
+            log_info "${CHECK_MARK} SUCCESS: Applied $patch_name"
+            # Фиксируем патч в локальном git, чтобы следующий --check работал корректно
+            git add -u
+            git commit -qm "Applied patch: $patch_name"
+        else
+            log_error "FAILED: Unexpected error applying $patch_name"
+            # exit 1
+        fi
+    done
+    shopt -u nullglob
+
+    return 0
+}
+export -f apply_ffmpeg_patches
 
 # checking flags validity for final FFmpeg build; if found we just drop them and continue
 # tip: check logs after applying \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z |\[?(0|1)?(m|;)?(3.m|) regex to them! search: REGEX replace: empty

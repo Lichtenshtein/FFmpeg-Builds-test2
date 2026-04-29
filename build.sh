@@ -177,18 +177,7 @@ pushd "$FFMPEG_SOURCE_DIR"
 
 # АВТО-ПАТЧИНГ
 if [[ "$FFMPEG_PATCHES" == "1" ]]; then
-    log_info_line
-    log_info "${SEARCH_MARK} Looking for FFmpeg patches..."
-    # Патчи ищем по имени ветки, пришедшей из ENV
-    if [[ -d "$PATCHES_DIR/ffmpeg/$FFMPEG_BRANCH" ]]; then
-        apply_patches
-        log_info_line
-    else
-        log_info "${CHECK_MARK} No patches found."
-        log_info_line
-    fi
-else
-    log_info "Skipping patches for $STAGENAME"
+    apply_ffmpeg_patches
 fi
 
 [[ "$DEDUPE_FLAGS" == "1" ]] && log_info "${BROOM_MARK} Deduplicating ALL flags..."
@@ -326,8 +315,6 @@ CONF_FLAGS=(
     --disable-debug
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
 )
-
-ls -R /opt/ffbuild/include/torch
 
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
 [[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
