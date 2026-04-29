@@ -295,6 +295,8 @@ unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS LDEXEFLAGS ASFLAGS LIBS
 read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
 read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 
+ls -lh /opt/ffbuild/lib/libtorch_cpu.a || true
+
 chmod +x configure
 
 CONF_FLAGS=(
