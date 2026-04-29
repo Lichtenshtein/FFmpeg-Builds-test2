@@ -248,7 +248,7 @@ export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 # Ветвление по TARGET
 if [[ "$TARGET" == "win64" ]]; then
     export BASE_CFLAGS="${OPENMP_C}-mms-bitfields -fstack-protector-strong"
-    export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D__assert_fail=__mingw_assert -D_FORTIFY_SOURCE=2"
+    export BASE_CPPFLAGS="-D_GLIBCXX_USE_CXX11_ABI=0 -D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D__assert_fail=__mingw_assert -D_FORTIFY_SOURCE=2"
 
     BASE_LD_FLAGS=(
         "-pipe"
