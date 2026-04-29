@@ -4,12 +4,8 @@
 # SCRIPT_COMMIT="332dde62838d91d8b5216e9822de58851f2fd64f"
 
 SCRIPT_REPO="https://github.com/lusoris/vmaf.git"
-SCRIPT_COMMIT="5fe843fd03a90114de40f2bc6e5fc4a1a189fa5a"
-SCRIPT_BRANCH="sycl-gpu-optimizations"
-
-# SCRIPT_REPO="https://github.com/lusoris/vmaf.git"
-# SCRIPT_COMMIT="a438e699ddc7b59e7ffc06c68648dcf4ded9ac51"
-# SCRIPT_BRANCH="simd-bit-identical"
+SCRIPT_COMMIT="4336736ae2e52ab6a12728f9708777886fe6a5dd"
+# SCRIPT_BRANCH="sycl-gpu-optimizations"
 
 ffbuild_enabled() {
     return 0
@@ -44,8 +40,10 @@ ffbuild_dockerbuild() {
         -Denable_tools=false
         -Denable_nvtx=false # Enable NVTX range support
         # added by patches
-        -Denable_discord_mode=true # disable until fixed patch will be cached
+        # -Denable_discord_mode=true
         -Denable_sycl=false # Enable Intel oneAPI SYCL/DPC++ support for GPU-accelerated feature extraction
+        -Denable_dnn=false # Build DNN runtime (ONNX Runtime) for tiny-model inference
+        -Denable_vulkan=false # Build Vulkan compute backend (ADR-0127 design; ADR-0175 scaffold; ADR-0178 / T5-1b runtime; ADR-0193 default-model kernel matrix complete). Default disabled; opt in to use it. Requires volk + Vulkan SDK 1.3+ + glslc + VMA.
         -Dsycl_compiler=icpx # Path or name of the SYCL compiler (Intel icpx from oneAPI)
     )
 
