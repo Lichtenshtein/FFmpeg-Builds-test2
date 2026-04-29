@@ -75,8 +75,10 @@ EOF
 
     # вшиваем заглушку для avx512 в библиотеку
     if [[ "${PREFER_SHARED}" != "1" ]]; then
+        if [[ "${USE_AVX512}" != "1" ]]; then
         log_info "Injecting stubs into libvmaf.a"
         $AR rcs "$FFBUILD_DESTPREFIX/lib/libvmaf.a" ../vmaf_avx512_stubs.o
+        fi
     fi
 
     sed -i 's/Libs.private:/Libs.private: -lstdc++/; t; $ a Libs.private: -lstdc++' "$PC_DIR/libvmaf.pc"
