@@ -51,7 +51,7 @@ EOF
 }
 
 ffbuild_cxxflags() {
-    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include"
+    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG -DTORCH_API= -DC10_IMPORT="
 }
 
 ffbuild_configure() {
