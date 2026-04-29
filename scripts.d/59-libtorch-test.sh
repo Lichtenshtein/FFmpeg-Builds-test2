@@ -25,6 +25,9 @@ ffbuild_dockerbuild() {
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin}
 
+    # вырезаем TORCH_API и аналогичные макросы из всех заголовков уберет "definition is marked dllimport"
+    find include/ -type f -name "*.h" -exec sed -i 's/TORCH_API//g; s/C10_API//g; s/C10_IMPORT//g; s/AT_API//g;' {} +
+    
     # Копируем заголовочные файлы
     cp -r include/* "$INSTALL_ROOT/include/"
 
@@ -52,9 +55,7 @@ EOF
 
 ffbuild_cxxflags() {
     echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include \
-          -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG \
-          -D_WIN32 -D_WIN64 -D_DLL=0 -D_WINDLL=0 \
-          -DTORCH_API= -DC10_IMPORT= -DAT_API= -DCAFFE2_API="
+          -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX"
 }
 
 ffbuild_configure() {
