@@ -24,7 +24,7 @@ index f82a169fe6..3854b84f16 100755
 @@ -1020,6 +1021,10 @@ add_host_ldflags(){
      append host_ldflags $($host_ldflags_filter "$@")
  }
-
+ 
 +add_windresflags(){
 +    append WINDRESFLAGS "$@"
 +}
@@ -47,7 +47,7 @@ index f82a169fe6..3854b84f16 100755
  add_objcflags $extra_objcflags
  add_asflags $extra_cflags
 +add_windresflags $extra_windresflags
-
+ 
  if test -n "$sysroot"; then
      case "$cc_type" in
 @@ -8431,6 +8440,7 @@ DOXYGEN=$doxygen
@@ -62,14 +62,14 @@ diff --git a/ffbuild/common.mak b/ffbuild/common.mak
 index 89c0c413e1..6f3ad4ed29 100644
 --- a/ffbuild/common.mak
 +++ b/ffbuild/common.mak
-@@ -113,7 +113,7 @@ COMPILE_LASX = $(call COMPILE,CC,LASXFLAGS)
-	-$(if $(ASMSTRIPFLAGS), $(STRIP) $(ASMSTRIPFLAGS) $@)
-
+@@ -102,7 +102,7 @@ COMPILE_LASX = $(call COMPILE,CC,LASXFLAGS)
+ 	-$(if $(ASMSTRIPFLAGS), $(STRIP) $(ASMSTRIPFLAGS) $@)
+ 
  %.o: %.rc
 -	$(WINDRES) $(IFLAGS) $(foreach ARG,$(CC_DEPFLAGS),--preprocessor-arg "$(ARG)") -o $@ $<
 +	$(WINDRES) $(WINDRESFLAGS) $(IFLAGS) $(foreach ARG,$(CC_DEPFLAGS),--preprocessor-arg "$(ARG)") -o $@ $<
-
+ 
  %.i: %.c
-	$(CC) $(CCFLAGS) $(CC_E) $<
+ 	$(CC) $(CCFLAGS) $(CC_E) $<
 --
 2.50.1 (Apple Git-155)

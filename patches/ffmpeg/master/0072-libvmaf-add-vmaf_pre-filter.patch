@@ -1,41 +1,30 @@
-From b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2 Mon Sep 17 00:00:00 2001
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
 From: Lusoris <lusoris@pm.me>
-Date: Wed, 15 Apr 2026 12:05:00 +0000
-Subject: [PATCH 2/3] avfilter: add vmaf_pre filter (learned pre-processing)
+Date: Fri, 24 Apr 2026 22:23:38 +0200
+Subject: [PATCH] add vmaf_pre filter (8-bit + 10-bit + optional chroma)
 
-New video filter `vmaf_pre` that runs a residual CNN (C3 in Lusoris
-libvmaf's tiny-AI matrix) to pre-process luma planes before encoding.
-Uses the standalone vmaf_dnn_session_* public API — no scoring path is
-exercised. Requires libvmaf built with --enable_dnn.
-
-Options:
-  model   - path to .onnx learned-filter model (required)
-  device  - auto | cpu | cuda | openvino | rocm (default: auto)
-  threads - CPU EP intra-op threads (default: 0)
-
-Rebased against FFmpeg n8.1. The filter uses the FFFilter struct layout
-(`.p.name`, `.p.description`, ...) introduced in n8.0.
-
-Signed-off-by: Lusoris <lusoris@pm.me>
 ---
- configure                 |   3 +
+ configure                 |   2 +
  libavfilter/Makefile      |   1 +
  libavfilter/allfilters.c  |   1 +
- libavfilter/vf_vmaf_pre.c | 211 ++++++++++++++++++++++++++++++++++++++
- 4 files changed, 216 insertions(+)
+ libavfilter/vf_vmaf_pre.c | 264 +++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 268 insertions(+)
  create mode 100644 libavfilter/vf_vmaf_pre.c
 
 diff --git a/configure b/configure
+index 1759694..87a9d35 100755
 --- a/configure
 +++ b/configure
-@@ -4236,6 +4236,7 @@ vidstabtransform_filter_deps="libvidstab"
+@@ -4235,6 +4235,7 @@ vidstabdetect_filter_deps="libvidstab"
+ vidstabtransform_filter_deps="libvidstab"
  libvmaf_filter_deps="libvmaf"
  libvmaf_cuda_filter_deps="libvmaf libvmaf_cuda ffnvcodec"
 +vmaf_pre_filter_deps="libvmaf"
  zmq_filter_deps="libzmq"
  zoompan_filter_deps="swscale"
  zscale_filter_deps="libzimg const_nan"
-@@ -7391,6 +7392,7 @@ enabled libvidstab        && require_pkg_config libvidstab "vidstab >= 0.98" vid
+@@ -7390,6 +7391,7 @@ enabled libv4l2           && require_pkg_config libv4l2 libv4l2 libv4l2.h v4l2_i
+ enabled libvidstab        && require_pkg_config libvidstab "vidstab >= 0.98" vid.stab/libvidstab.h vsMotionDetectInit
  enabled libvmaf           && require_pkg_config libvmaf "libvmaf >= 2.0.0" libvmaf.h vmaf_init
  enabled libvmaf           && check_pkg_config libvmaf_cuda "libvmaf >= 2.0.0" libvmaf_cuda.h vmaf_cuda_state_init
 +enabled vmaf_pre_filter   && require_pkg_config libvmaf_dnn "libvmaf >= 3.0.0" libvmaf/dnn.h vmaf_dnn_session_open
@@ -43,17 +32,23 @@ diff --git a/configure b/configure
                                 require libvo_amrwbenc vo-amrwbenc/enc_if.h E_IF_init -lvo-amrwbenc; }
  enabled libvorbis         && require_pkg_config libvorbis vorbis vorbis/codec.h vorbis_info_init &&
 diff --git a/libavfilter/Makefile b/libavfilter/Makefile
+index a530cfa..db0e09b 100644
 --- a/libavfilter/Makefile
 +++ b/libavfilter/Makefile
-@@ -573,6 +573,7 @@ OBJS-$(CONFIG_VIGNETTE_FILTER)               += vf_vignette.o
+@@ -574,6 +574,7 @@ OBJS-$(CONFIG_VIDSTABTRANSFORM_FILTER)       += vidstabutils.o vf_vidstabtransfo
+ OBJS-$(CONFIG_VIF_FILTER)                    += vf_vif.o framesync.o
+ OBJS-$(CONFIG_VIGNETTE_FILTER)               += vf_vignette.o
  OBJS-$(CONFIG_VMAFMOTION_FILTER)             += vf_vmafmotion.o framesync.o
 +OBJS-$(CONFIG_VMAF_PRE_FILTER)               += vf_vmaf_pre.o
- OBJS-$(CONFIG_W3FDIF_FILTER)                 += vf_w3fdif.o
- OBJS-$(CONFIG_WAVEFORM_FILTER)               += vf_waveform.o
+ OBJS-$(CONFIG_VPP_AMF_FILTER)                += vf_vpp_amf.o scale_eval.o vf_amf_common.o
+ OBJS-$(CONFIG_FRC_AMF_FILTER)                += vf_frc_amf.o vf_amf_common.o
+ OBJS-$(CONFIG_VPP_QSV_FILTER)                += vf_vpp_qsv.o
 diff --git a/libavfilter/allfilters.c b/libavfilter/allfilters.c
+index e26859e..4e951ca 100644
 --- a/libavfilter/allfilters.c
 +++ b/libavfilter/allfilters.c
-@@ -539,6 +539,7 @@ extern const FFFilter ff_vf_vif;
+@@ -537,6 +537,7 @@ extern const FFFilter ff_vf_vidstabtransform;
+ extern const FFFilter ff_vf_vif;
  extern const FFFilter ff_vf_vignette;
  extern const FFFilter ff_vf_vmafmotion;
 +extern const FFFilter ff_vf_vmaf_pre;
@@ -62,9 +57,10 @@ diff --git a/libavfilter/allfilters.c b/libavfilter/allfilters.c
  extern const FFFilter ff_vf_w3fdif;
 diff --git a/libavfilter/vf_vmaf_pre.c b/libavfilter/vf_vmaf_pre.c
 new file mode 100644
+index 0000000..b339442
 --- /dev/null
 +++ b/libavfilter/vf_vmaf_pre.c
-@@ -0,0 +1,211 @@
+@@ -0,0 +1,264 @@
 +/*
 + * Copyright 2026 Lusoris and Claude (Anthropic)
 + *
@@ -85,13 +81,17 @@ new file mode 100644
 + * @file
 + * vmaf_pre: learned pre-processing filter backed by libvmaf's DNN runtime.
 + * Loads a residual-CNN ONNX model via the standalone vmaf_dnn_session_*
-+ * API and applies it to the luma plane. Chroma planes are copied through
-+ * untouched. 8-bit luma only (matches the current session API scope).
++ * API and applies it to the luma plane. 8-bit (yuv420p / 422p / 444p,
++ * gray8) dispatches to vmaf_dnn_session_run_luma8; 10/12-bit dispatches
++ * to vmaf_dnn_session_run_plane16 (ADR-0170 / T6-4). When chroma=1 is
++ * set, the same session is re-run on the U and V planes at their own
++ * dimensions; otherwise chroma passes through untouched.
 + */
 +
 +#include <libvmaf/dnn.h>
 +
 +#include "libavutil/avstring.h"
++#include "libavutil/imgutils.h"
 +#include "libavutil/mem.h"
 +#include "libavutil/opt.h"
 +#include "libavutil/pixdesc.h"
@@ -106,6 +106,7 @@ new file mode 100644
 +    char *model_path;
 +    char *device;
 +    int   threads;
++    int   chroma;   /* apply the filter to U/V as well as Y */
 +    VmafDnnSession *session;
 +} VmafPreContext;
 +
@@ -119,6 +120,9 @@ new file mode 100644
 +        AV_OPT_TYPE_STRING, {.str="auto"}, 0, 0,       FLAGS },
 +    { "threads", "CPU EP intra-op threads.",              OFFSET(threads),
 +        AV_OPT_TYPE_INT,    {.i64=0},      0, INT_MAX, FLAGS },
++    { "chroma",  "Also filter U/V planes (0/1; default 0 = luma-only).",
++        OFFSET(chroma),
++        AV_OPT_TYPE_BOOL,   {.i64=0},      0, 1,       FLAGS },
 +    { NULL }
 +};
 +
@@ -166,8 +170,9 @@ new file mode 100644
 +        return AVERROR(EINVAL);
 +    }
 +    av_log(ctx, AV_LOG_INFO,
-+           "vmaf_pre: loaded %s (device=%s threads=%d)\n",
-+           s->model_path, s->device ? s->device : "auto", s->threads);
++           "vmaf_pre: loaded %s (device=%s threads=%d chroma=%d)\n",
++           s->model_path, s->device ? s->device : "auto",
++           s->threads, s->chroma);
 +    return 0;
 +}
 +
@@ -180,13 +185,40 @@ new file mode 100644
 +    }
 +}
 +
++/* Dispatch one plane through the DNN session, picking the luma8 or
++ * plane16 entrypoint by bit-depth. */
++static int run_plane(VmafPreContext *s, int bpc,
++                     const uint8_t *in, size_t in_linesize,
++                     uint8_t *out, size_t out_linesize,
++                     int w, int h)
++{
++    if (bpc == 8) {
++        return vmaf_dnn_session_run_luma8(s->session, in, in_linesize, w, h,
++                                          out, out_linesize);
++    }
++    if (bpc >= 9 && bpc <= 16) {
++        return vmaf_dnn_session_run_plane16(s->session,
++                                            (const uint16_t *)in, in_linesize,
++                                            w, h, bpc,
++                                            (uint16_t *)out, out_linesize);
++    }
++    return AVERROR(EINVAL);
++}
++
 +static int filter_frame(AVFilterLink *inlink, AVFrame *in)
 +{
 +    AVFilterContext *ctx    = inlink->dst;
 +    AVFilterLink    *outlink = ctx->outputs[0];
 +    VmafPreContext  *s       = ctx->priv;
 +    AVFrame *out;
++    const AVPixFmtDescriptor *d = av_pix_fmt_desc_get(in->format);
 +    int err;
++
++    if (!d) {
++        av_frame_free(&in);
++        return AVERROR(EINVAL);
++    }
++    const int bpc = d->comp[0].depth; /* 8, 10, 12 for the formats we admit */
 +
 +    out = ff_get_video_buffer(outlink, in->width, in->height);
 +    if (!out) {
@@ -195,31 +227,60 @@ new file mode 100644
 +    }
 +    av_frame_copy_props(out, in);
 +
-+    err = vmaf_dnn_session_run_luma8(s->session,
-+                                     in->data[0], (size_t) in->linesize[0],
-+                                     in->width, in->height,
-+                                     out->data[0], (size_t) out->linesize[0]);
++    /* Luma plane — required for every accepted format. */
++    err = run_plane(s, bpc,
++                    in->data[0],  (size_t) in->linesize[0],
++                    out->data[0], (size_t) out->linesize[0],
++                    in->width, in->height);
 +    if (err < 0) {
 +        av_log(ctx, AV_LOG_ERROR,
-+               "vmaf_pre: inference failed (%d); passing the frame through.\n",
-+               err);
-+        /* Fail closed for the luma plane rather than silently drift. */
++               "vmaf_pre: luma inference failed (%d) at bpc=%d.\n", err, bpc);
 +        av_frame_free(&in);
 +        av_frame_free(&out);
 +        return AVERROR(EIO);
 +    }
 +
-+    /* Chroma (if any) passes through untouched. */
++    /* Chroma: filter when the caller opts in AND we have chroma planes;
++     * otherwise copy through. */
 +    if (in->data[1] && out->data[1]) {
-+        const AVPixFmtDescriptor *d = av_pix_fmt_desc_get(in->format);
-+        int sub_w = d ? d->log2_chroma_w : 0;
-+        int sub_h = d ? d->log2_chroma_h : 0;
-+        int cw = AV_CEIL_RSHIFT(in->width,  sub_w);
-+        int ch = AV_CEIL_RSHIFT(in->height, sub_h);
-+        av_image_copy_plane(out->data[1], out->linesize[1],
-+                            in->data[1],  in->linesize[1], cw, ch);
-+        av_image_copy_plane(out->data[2], out->linesize[2],
-+                            in->data[2],  in->linesize[2], cw, ch);
++        const int sub_w = d->log2_chroma_w;
++        const int sub_h = d->log2_chroma_h;
++        const int cw = AV_CEIL_RSHIFT(in->width,  sub_w);
++        const int ch = AV_CEIL_RSHIFT(in->height, sub_h);
++
++        if (s->chroma) {
++            err = run_plane(s, bpc,
++                            in->data[1],  (size_t) in->linesize[1],
++                            out->data[1], (size_t) out->linesize[1],
++                            cw, ch);
++            if (err < 0) {
++                av_log(ctx, AV_LOG_ERROR,
++                       "vmaf_pre: U inference failed (%d); chroma=off "
++                       "fallback by copy.\n", err);
++                av_image_copy_plane(out->data[1], out->linesize[1],
++                                    in->data[1],  in->linesize[1],
++                                    cw * (bpc > 8 ? 2 : 1), ch);
++            }
++            err = run_plane(s, bpc,
++                            in->data[2],  (size_t) in->linesize[2],
++                            out->data[2], (size_t) out->linesize[2],
++                            cw, ch);
++            if (err < 0) {
++                av_log(ctx, AV_LOG_ERROR,
++                       "vmaf_pre: V inference failed (%d); chroma=off "
++                       "fallback by copy.\n", err);
++                av_image_copy_plane(out->data[2], out->linesize[2],
++                                    in->data[2],  in->linesize[2],
++                                    cw * (bpc > 8 ? 2 : 1), ch);
++            }
++        } else {
++            av_image_copy_plane(out->data[1], out->linesize[1],
++                                in->data[1],  in->linesize[1],
++                                cw * (bpc > 8 ? 2 : 1), ch);
++            av_image_copy_plane(out->data[2], out->linesize[2],
++                                in->data[2],  in->linesize[2],
++                                cw * (bpc > 8 ? 2 : 1), ch);
++        }
 +    }
 +
 +    av_frame_free(&in);
@@ -231,8 +292,15 @@ new file mode 100644
 +                         AVFilterFormatsConfig **cfg_out)
 +{
 +    static const enum AVPixelFormat pix_fmts[] = {
++        /* 8-bit */
 +        AV_PIX_FMT_GRAY8,
 +        AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV422P, AV_PIX_FMT_YUV444P,
++        /* 10-bit LE (ADR-0170) */
++        AV_PIX_FMT_GRAY10LE,
++        AV_PIX_FMT_YUV420P10LE, AV_PIX_FMT_YUV422P10LE, AV_PIX_FMT_YUV444P10LE,
++        /* 12-bit LE */
++        AV_PIX_FMT_GRAY12LE,
++        AV_PIX_FMT_YUV420P12LE, AV_PIX_FMT_YUV422P12LE, AV_PIX_FMT_YUV444P12LE,
 +        AV_PIX_FMT_NONE,
 +    };
 +    return ff_set_common_formats_from_list2(ctx, cfg_in, cfg_out, pix_fmts);
@@ -257,5 +325,5 @@ new file mode 100644
 +    FILTER_OUTPUTS(ff_video_default_filterpad),
 +    FILTER_QUERY_FUNC2(query_formats),
 +};
---
-2.45.0
+-- 
+2.54.0
