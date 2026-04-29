@@ -51,7 +51,10 @@ EOF
 }
 
 ffbuild_cxxflags() {
-    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG -DTORCH_API= -DC10_IMPORT="
+    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include \
+          -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG \
+          -D_WIN32 -D_WIN64 -D_DLL=0 -D_WINDLL=0 \
+          -DTORCH_API= -DC10_IMPORT= -DAT_API= -DCAFFE2_API="
 }
 
 ffbuild_configure() {
