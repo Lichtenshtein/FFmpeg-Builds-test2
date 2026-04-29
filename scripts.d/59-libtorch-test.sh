@@ -73,8 +73,6 @@ Version: 2.10.0
 Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10
 Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=0 -DNOMINMAX
 EOF
-
-nm -C /opt/ffbuild/lib/libtorch_cpu.a | grep "torchCheckFail"
 }
 
 ffbuild_cxxflags() {
