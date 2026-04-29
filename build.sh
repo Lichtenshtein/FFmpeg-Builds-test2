@@ -295,8 +295,6 @@ unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS LDEXEFLAGS ASFLAGS LIBS
 read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
 read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 
-x86_64-w64-mingw32-nm /opt/ffbuild/lib/libtorch_cpu.a | grep "torchCheckFail"
-
 chmod +x configure
 
 CONF_FLAGS=(
