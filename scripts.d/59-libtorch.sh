@@ -5,7 +5,7 @@ SCRIPT_REPO="https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-
 export SKIP_POST_PATCH=1
 
 ffbuild_enabled() {
-    return 0
+    return 1
 }
 
 ffbuild_dockerdl() {
