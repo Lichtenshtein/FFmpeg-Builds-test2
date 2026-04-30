@@ -20,40 +20,35 @@ ffbuild_dockerbuild() {
     local LT_DIR=$(find . -maxdepth 1 -type d -name "libtorch*" | head -n 1)
     cd "$LT_DIR"
 
-    # Глобально убираем __declspec
     find include/ -type f -name "*.h" -exec sed -i 's/__declspec(dllimport)//g' {} +
     find include/ -type f -name "*.h" -exec sed -i 's/__declspec(dllexport)//g' {} +
 
-    # Очищаем Windows-макросы
+    # Нейтрализуем макросы Windows
     : > include/torch/csrc/WindowsTorchApiMacro.h
 
-    # Исправляем инклуды (используем find, чтобы не ошибиться с путем)
-    local IR_H=$(find include -name "ir.h" | grep "jit" | head -n 1)
-    if [ -n "$IR_H" ]; then
-        sed -i '1i #include <torch/csrc/jit/api/module.h>\n#include <torch/csrc/jit/serialization/callstack_at_node_serialization.h>' "$IR_H"
-    fi
+    find include/ -name "scope.h" -exec sed -i 's/struct InlinedCallStack;/struct InlinedCallStack { virtual ~InlinedCallStack() = default; };/' {} +
 
-    # Фикс для GCC 15 и стандартных библиотек
+    # 4. Базовые инклуды для GCC 15
     find include/ -name "*.h" -exec sed -i '1i #include <cstdint>\n#include <string>\n#include <stdexcept>' {} +
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin}
     cp -r include/* "$INSTALL_ROOT/include/"
 
-    # Копируем библиотеки (теперь libtorch_cpu.lib есть в архиве 2.0.1)
+    # Копируем библиотеки
     for libfile in lib/*.lib; do
         local name=$(basename "$libfile" .lib)
         cp -v "$libfile" "$INSTALL_ROOT/lib/lib${name}.a"
     done
+
     cp -v lib/*.dll "$INSTALL_ROOT/bin/" 2>/dev/null || true
 
-    # ln -sf libtorch.a "$INSTALL_ROOT/lib/libtorch_cpu.a"
-
-    # Исправляем имена protobuf (удаляем двойное 'liblib')
-    if [ -f "$INSTALL_ROOT/lib/liblibprotobuf.a" ]; then
-        mv "$INSTALL_ROOT/lib/liblibprotobuf.a" "$INSTALL_ROOT/lib/libprotobuf.a"
-        mv "$INSTALL_ROOT/lib/liblibprotobuf-lite.a" "$INSTALL_ROOT/lib/libprotobuf-lite.a"
-        mv "$INSTALL_ROOT/lib/liblibprotoc.a" "$INSTALL_ROOT/lib/libprotoc.a"
+    # Если в этой версии нет torch_cpu.lib, создаем заглушку
+    if [ ! -f "$INSTALL_ROOT/lib/libtorch_cpu.a" ]; then
+        ln -sf libtorch.a "$INSTALL_ROOT/lib/libtorch_cpu.a"
     fi
+
+    # Убираем liblib в именах protobuf
+    find "$INSTALL_ROOT/lib/" -name "liblib*.a" -exec bash -c 'mv "$1" "${1/liblib/lib}"' -- {} \;
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/libtorch.pc"
