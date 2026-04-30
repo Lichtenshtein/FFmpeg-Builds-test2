@@ -1006,27 +1006,30 @@ generate_implibs() {
 
         local def_file="${base_name}.def"
 
-        # FIX: Use objdump to extract exports instead of gendef
-        # This is more robust for large DLLs
+        # FIX: Use objdump to extract symbols, filter for imports
         if command -v objdump &> /dev/null; then
-            # Extract exports to a file
-            objdump -p "$dll_name" 2>/dev/null | grep "  [0-9A-F] [0-9A-F] [0-9A-F] [0-9A-F] " | grep -v " 00000000 " | cut -d' ' -f3 | sed 's/^_//' | sort -u > "$def_file"
+            # Extract all symbols and filter for import symbols (__imp_*)
+            # We look for lines that look like imports: 00000000 g     DF .idata 0000000000000000 _Z...
+            objdump -p "$dll_name" 2>/dev/null | \
+            grep -E "  [0-9A-F] [0-9A-F] [0-9A-F] [0-9A-F] " | \
+            grep -v " 00000000 " | \
+            awk '{print $NF}' | \
+            sort -u > "$def_file"
             
             # Ensure EXPORTS section exists
             if ! grep -q "^EXPORTS" "$def_file"; then
                 echo "EXPORTS" > "$def_file"
             fi
         else
-            # Fallback to minimal def if objdump not found
+            # Fallback
             log_warn "objdump not found, creating minimal def"
             echo "EXPORTS" > "$def_file"
         fi
 
-        # FIX: Create the import library with dlltool
-        # We use -k to create a .a file
+        # FIX: Create the import library
         if $DLLTOOL -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
             local size=$(stat -c%s "$lib_name" 2>/dev/null)
-            if [[ $size -lt 2097152 ]]; then # Less than 2MB is a good sign for an import lib
+            if [[ $size -lt 2097152 ]]; then
                 cp "$lib_name" "$out_lib"
                 log_info "${CHECK_MARK} Created valid import lib: $out_lib ($size bytes)"
             else
