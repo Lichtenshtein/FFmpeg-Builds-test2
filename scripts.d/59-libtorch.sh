@@ -20,28 +20,16 @@ ffbuild_dockerbuild() {
     local LT_DIR=$(find . -maxdepth 1 -type d -name "libtorch*" | head -n 1)
     cd "$LT_DIR"
 
-    log_info "Applying structural fix for LibTorch Windows Shared..."
+    # Глобально убираем все упоминания __declspec, чтобы GCC не спотыкался
+    find include/ -type f -name "*.h" -exec sed -i 's/__declspec(dllimport)//g' {} +
+    find include/ -type f -name "*.h" -exec sed -i 's/__declspec(dllexport)//g' {} +
 
-    # Исправляем заголовки (убираем dllimport, так как мы патчим макросы вручную)
-    find include/ -name "*.h" -exec sed -i 's/__declspec(dllimport)//g' {} +
-    find include/ -name "*.h" -exec sed -i 's/__declspec(dllexport)//g' {} +
+    # Нейтрализуем Windows-специфичные макросы PyTorch, которые ломают сборку
+    # Просто обнуляем файл, который пытается форсировать dllimport
+    echo "" > include/torch/csrc/WindowsTorchApiMacro.h
 
-    for header in $(find include -name "Macros.h" -o -name "Export.h" -o -name "cmake_macros.h"); do
-        # Удаляем существующие определения API, чтобы избежать конфликтов
-        sed -i '/#define.*_API/d' "$header" 2>/dev/null || true
-        {
-            echo "#define C10_API"
-            echo "#define TORCH_API"
-            echo "#define AT_API"
-            echo "#define CAFFE2_API"
-            echo "#define C10_IMPORT"
-            echo "#define C10_EXPORT"
-        } >> "$header"
-    done
-
-    find include/ -type f \( -name "*.h" -o -name "*.hpp" \) -exec sed -i '1i #include <cstdint>' {} +
-    # Принудительно включаем JIT заголовки, если они не подтянулись автоматически
-    find include/torch/csrc/jit/ -name "*.h" -exec sed -i '1i #include <torch/csrc/jit/api/module.h>' {} +
+    # Добавляем необходимые инклуды для GCC 13+
+    find include/ -name "*.h" -exec sed -i '1i #include <cstdint>\n#include <string>' {} +
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin}
 
@@ -82,7 +70,7 @@ EOF
 }
 
 ffbuild_cxxflags() {
-    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG -D\"is_xpu()=is_cpu()\" -D\"hasXPU()=false\""
+    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG -D\"is_xpu()=is_cpu()\" -D\"hasXPU()=false\""
 }
 
 ffbuild_configure() {
