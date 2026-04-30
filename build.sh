@@ -295,19 +295,13 @@ unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS LDEXEFLAGS ASFLAGS LIBS
 read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
 read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 
+chmod +x configure
+
 if [[ "$HAS_LIBTORCH" == "1" ]]; then
     ls -lh /opt/ffbuild/lib/libtorch_cpu.a || true
-
-    # Принудительно вставляем макросы импорта в начало проблемного файла
-    # sed -i '1i #define TORCH_API __declspec(dllimport)\n#define C10_API __declspec(dllimport)\n#define AT_API __declspec(dllimport)' libavfilter/dnn/dnn_backend_torch.cpp
-    # x86_64-w64-mingw32-nm /opt/ffbuild/lib/libtorch_cpu.a | grep "__imp_.*getInstance"
-    # x86_64-w64-mingw32-nm /opt/ffbuild/lib/libtorch_cpu.a | head -n 20
-
     TORCH_LIBS="-ltorch -ltorch_cpu -lc10"
     export TORCH_DYNAMIC_LIBS="-Wl,-Bdynamic ${TORCH_LIBS}"
 fi
-
-chmod +x configure
 
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
@@ -323,7 +317,6 @@ CONF_FLAGS=(
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --enable-opengl
-    --disable-w32threads --enable-pthreads
     --enable-pic
     --disable-debug
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
@@ -332,6 +325,7 @@ CONF_FLAGS=(
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
 [[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
 [[ "$HAS_AMF" == "1" ]] && CONF_FLAGS+=( --enable-filter=vpp_amf --enable-filter=sr_amf )
+[[ "${USE_AVX512}" != "1" ]] && CONF_FLAGS+=( --disable-avx512 --disable-avx512icl )
 # flags added by ffmpeg patches, not from mainline FFmpeg
 [[ "$FFMPEG_PATCHES" == "true" ]] && CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
 
