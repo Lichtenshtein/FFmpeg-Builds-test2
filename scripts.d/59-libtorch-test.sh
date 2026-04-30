@@ -25,37 +25,28 @@ ffbuild_dockerbuild() {
 
     # cd libtorch_src
 
-    # log_info "Applying final structural fix for LibTorch headers..."
+    # Patch LibTorch headers to force static linking (fixes dllimport/dllexport conflicts)
+    log_info "Patching LibTorch headers to force static linking..."
 
-    # find include/ -type f \( -name "*.h" -o -name "*.hpp" \) -exec sed -i \
-        # -e 's/__declspec(dllimport)//g' \
-        # -e 's/__declspec(dllexport)//g' {} +
+    # 1. Force TORCH_API and C10_API to be empty (no import/export)
+    find include/ -type f \( -name "*.h" -o -name "*.hpp" \) -exec sed -i \
+        -e 's/#define TORCH_API.*/#define TORCH_API/g' \
+        -e 's/#define C10_API.*/#define C10_API/g' \
+        -e 's/#define C10_IMPORT.*/#define C10_IMPORT/g' \
+        -e 's/#define C10_EXPORT.*/#define C10_EXPORT/g' \
+        -e 's/#define AT_API.*/#define AT_API/g' \
+        -e 's/#define CAFFE2_API.*/#define CAFFE2_API/g' \
+        {} +
 
-    # local MACRO_H=$(find include/c10 -name "Macros.h" | head -n 1)
-    # if [[ -f "$MACRO_H" ]]; then
-#         cat <<EOF >> "$MACRO_H"
-# #ifndef LIBTORCH_STATIC_FIX
-# #define LIBTORCH_STATIC_FIX
-# #define TORCH_API
-# #define C10_API
-# #define C10_IMPORT
-# #define C10_EXPORT
-# #define AT_API
-# #define CAFFE2_API
-# #define C10_API_ENUM
-# #define TORCH_API_ENUM
-# #endif
-# EOF
-    # fi
+    # 2. Remove explicit __declspec directives that conflict with empty macros
+    find include/ -type f \( -name "*.h" -o -name "*.hpp" \) -exec sed -i \
+        -e 's/__declspec(dllimport)//g' \
+        -e 's/__declspec(dllexport)//g' \
+        {} +
 
-    # find include/torch/csrc/autograd/ -name "profiler_legacy.h" -exec sed -i '1i #include <cstdint>' {} +
-    # find include/ATen/ -name "record_function.h" -exec sed -i '1i #include <cstdint>' {} +
-
-    # find include/ -type f \( -name "*.h" -o -name "*.hpp" \) -exec sed -i \
-        # -e 's/define [A-Z0-9_]*_API .*/define \0 __declspec(dllimport)/g' \
-        # -e 's/define [A-Z0-9_]*_IMPORT .*/define \0 __declspec(dllimport)/g' {} +
-
-    # find include/ -name "Export.h" -exec sed -i 's/define [A-Z0-9_]*_API.*/#define \0 __declspec(dllimport)/g' {} +
+    # 3. Fix missing includes that break compilation on newer GCC
+    find include/ATen/ -name "record_function.h" -exec sed -i '1i #include <cstdint>' {} +
+    find include/torch/csrc/autograd/ -name "profiler_legacy.h" -exec sed -i '1i #include <cstdint>' {} +
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin}
 
