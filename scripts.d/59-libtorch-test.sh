@@ -68,7 +68,7 @@ EOF
     cp lib/*.dll "$INSTALL_ROOT/bin/" 2>/dev/null || true
     # cp lib/*.lib "$INSTALL_ROOT/lib/" 2>/dev/null || true
 
-    # LibTorch требует много флагов, создаем .pc файл
+    # не добавляем либы torch в Libs:
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/libtorch.pc"
 prefix=$FFBUILD_PREFIX
@@ -78,16 +78,14 @@ includedir=\${prefix}/include
 Name: LibTorch
 Description: PyTorch C++ API (DLL version)
 Version: 2.10.0
-Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10
+Libs: -L\${libdir}
 Libs.private: -lstdc++
 Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX
-Libs.shared: -ltorch -ltorch_cpu -lc10
 EOF
 }
 
 ffbuild_cxxflags() {
-    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG \
-          -D_DLL -DCAFFE2_USE_MKL -DUSE_CUDA=0"
+    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG"
 }
 
 ffbuild_configure() {

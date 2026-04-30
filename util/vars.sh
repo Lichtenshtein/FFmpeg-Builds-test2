@@ -977,28 +977,24 @@ generate_implibs() {
     local target_dir="${1:-$INSTALL_ROOT}"
     [[ ! -d "$target_dir" ]] && return 0
 
-    log_info "${TARGET_MARK} Generating/Verifying import libraries for DLLs in $STAGENAME..."
+    log_info "${TARGET_MARK} Generating clean import libraries for DLLs..."
 
     find "$target_dir" -name "*.dll" -type f | while read -r dll_file; do
         local dll_name=$(basename "$dll_file")
         local base_name="${dll_name%.dll}"
         local lib_name="lib${base_name}.a"
         local dll_dir=$(dirname "$dll_file")
-
-        # Determine output directory for the .a file (usually lib/)
+        
+        # Output to lib/
         local lib_out_dir="$dll_dir"
-        [[ "$lib_out_dir" == *"/bin" ]] && lib_out_dir="${lib_out_dir%/bin}/lib"
+        [[ "$dll_dir" == *"/bin" ]] && lib_out_dir="${dll_dir%/bin}/lib"
         mkdir -p "$lib_out_dir"
 
-        local existing_lib=""
-        if [[ -f "$lib_out_dir/$lib_name" ]]; then
-            existing_lib="$lib_out_dir/$lib_name"
-        elif [[ -f "$lib_out_dir/lib${base_name}.dll.a" ]]; then
-            existing_lib="$lib_out_dir/lib${base_name}.dll.a"
-        fi
+        local out_lib="$lib_out_dir/$lib_name"
 
-        if [[ -n "$existing_lib" ]]; then
-            log_debug "${CHECK_MARK} Import lib for $dll_name exists: $existing_lib"
+        # Skip if valid lib exists
+        if [[ -f "$out_lib" ]] && [[ $(stat -c%s "$out_lib" 2>/dev/null) -lt 1048576 ]]; then
+            log_debug "${CHECK_MARK} Valid import lib exists for $dll_name (size: $(stat -c%s "$out_lib" | numfmt --to=si))"
             continue
         fi
 
@@ -1009,41 +1005,39 @@ generate_implibs() {
         pushd "$tmp_build" > /dev/null
 
         local def_file="${base_name}.def"
-        local success=0
 
-        # Attempt gendef
+        # Step A: Try gendef
         if command -v gendef &> /dev/null; then
             if gendef "$dll_name" 2>/dev/null; then
-                # Fix potential syntax errors in .def (common with MinGW gendef)
-                # Remove empty lines and ensure EXPORTS section exists
-                if [ -f "$def_file" ]; then
-                    sed -i '/^;/d' "$def_file"
-                    sed -i '/^$/d' "$def_file"
-                    if ! grep -q "^EXPORTS" "$def_file"; then
-                        echo "EXPORTS" >> "$def_file"
-                    fi
+                # Clean up .def file (remove comments, empty lines)
+                sed -i '/^;/d; /^$/d' "$def_file"
+                # Ensure EXPORTS section exists
+                if ! grep -q "^EXPORTS" "$def_file"; then
+                    echo "EXPORTS" >> "$def_file"
                 fi
-                
-                if $DLLTOOL -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
-                    cp "$lib_name" "$lib_out_dir/"
-                    log_info "${CHECK_MARK} Created $lib_name from $dll_name"
-                    success=1
-                fi
+            else
+                log_warn "gendef failed for $dll_name, creating minimal def"
+                echo "EXPORTS" > "$def_file"
             fi
+        else
+            log_warn "gendef not found, creating minimal def"
+            echo "EXPORTS" > "$def_file"
         fi
 
-        # Fallback: If gendef fails, try to use objdump or create a minimal stub
-        if [[ $success -eq 0 ]]; then
-            log_warn "Failed to generate import lib for $dll_name via gendef. Creating stub."
-            # Create a minimal .a that links to the DLL (trick: use dlltool with empty def)
-            echo "EXPORTS" > "$def_file"
-            $DLLTOOL -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null
-            if [[ -f "$lib_name" ]]; then
-                cp "$lib_name" "$lib_out_dir/"
-                log_info "${CHECK_MARK} Created stub $lib_name for $dll_name"
+        # Step B: Create the import library with dlltool
+        # -k: create a .a file (import lib)
+        # -D: name of the DLL this lib links to
+        if $DLLTOOL -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
+            local size=$(stat -c%s "$lib_name" 2>/dev/null)
+            if [[ $size -lt 2097152 ]]; then # Less than 2MB is a good sign for an import lib
+                cp "$lib_name" "$out_lib"
+                log_info "${CHECK_MARK} Created valid import lib: $out_lib ($size bytes)"
             else
-                log_error "Failed to create import lib for $dll_name"
+                log_warn "Generated lib too large ($size bytes), likely malformed. Deleting."
+                rm -f "$lib_name"
             fi
+        else
+            log_error "dlltool failed for $dll_name"
         fi
 
         popd > /dev/null
