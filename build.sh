@@ -303,7 +303,8 @@ if [[ "$HAS_LIBTORCH" == "1" ]]; then
     # x86_64-w64-mingw32-nm /opt/ffbuild/lib/libtorch_cpu.a | grep "__imp_.*getInstance"
     # x86_64-w64-mingw32-nm /opt/ffbuild/lib/libtorch_cpu.a | head -n 20
 
-    export EXTRA_LDFLAGS_TORCH="-Wl,-Bdynamic -ltorch -ltorch_cpu -lc10 -Wl,-Bstatic"
+    TORCH_LIBS="-ltorch -ltorch_cpu -lc10"
+    export TORCH_DYNAMIC_LIBS="-Wl,-Bdynamic ${TORCH_LIBS}"
 fi
 
 chmod +x configure
@@ -316,7 +317,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
-    --extra-ldflags="${ASAN_LDFLAGS}$EXTRA_LDFLAGS_TORCH ${FINAL_LDFLAGS}"
+    --extra-ldflags="${ASAN_LDFLAGS}${TORCH_DYNAMIC_LIBS} ${FINAL_LDFLAGS}"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
