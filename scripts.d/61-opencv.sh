@@ -6,7 +6,7 @@ SCRIPT_COMMIT="2027a3399076b099930fc8eb2721d8c028fdabc0"
 ffbuild_depends() {
     echo vulkan-headers
     echo vulkan-loader
-    echo glslang-test
+    echo glslang
     echo shaderc
     echo spirv-cross
     echo spirv-headers
