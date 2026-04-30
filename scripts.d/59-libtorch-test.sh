@@ -25,39 +25,37 @@ ffbuild_dockerbuild() {
 
     # cd libtorch_src
 
-    log_info "Applying final structural fix for LibTorch headers..."
+    # log_info "Applying final structural fix for LibTorch headers..."
 
-    find include/ -type f \( -name "*.h" -o -name "*.hpp" \) -exec sed -i \
-        -e 's/__declspec(dllimport)//g' \
-        -e 's/__declspec(dllexport)//g' {} +
+    # find include/ -type f \( -name "*.h" -o -name "*.hpp" \) -exec sed -i \
+        # -e 's/__declspec(dllimport)//g' \
+        # -e 's/__declspec(dllexport)//g' {} +
 
-    local MACRO_H=$(find include/c10 -name "Macros.h" | head -n 1)
-    if [[ -f "$MACRO_H" ]]; then
-        cat <<EOF >> "$MACRO_H"
-#ifndef LIBTORCH_STATIC_FIX
-#define LIBTORCH_STATIC_FIX
-#define TORCH_API
-#define C10_API
-#define C10_IMPORT
-#define C10_EXPORT
-#define AT_API
-#define CAFFE2_API
-#define C10_API_ENUM
-#define TORCH_API_ENUM
-#endif
-EOF
-    fi
+    # local MACRO_H=$(find include/c10 -name "Macros.h" | head -n 1)
+    # if [[ -f "$MACRO_H" ]]; then
+#         cat <<EOF >> "$MACRO_H"
+# #ifndef LIBTORCH_STATIC_FIX
+# #define LIBTORCH_STATIC_FIX
+# #define TORCH_API
+# #define C10_API
+# #define C10_IMPORT
+# #define C10_EXPORT
+# #define AT_API
+# #define CAFFE2_API
+# #define C10_API_ENUM
+# #define TORCH_API_ENUM
+# #endif
+# EOF
+    # fi
 
-    find include/torch/csrc/autograd/ -name "profiler_legacy.h" -exec sed -i '1i #include <cstdint>' {} +
-    find include/ATen/ -name "record_function.h" -exec sed -i '1i #include <cstdint>' {} +
+    # find include/torch/csrc/autograd/ -name "profiler_legacy.h" -exec sed -i '1i #include <cstdint>' {} +
+    # find include/ATen/ -name "record_function.h" -exec sed -i '1i #include <cstdint>' {} +
 
-    # Принудительно выставляем импорт для всех API макросов
-    find include/ -type f \( -name "*.h" -o -name "*.hpp" \) -exec sed -i \
-        -e 's/define [A-Z0-9_]*_API .*/define \0 __declspec(dllimport)/g' \
-        -e 's/define [A-Z0-9_]*_IMPORT .*/define \0 __declspec(dllimport)/g' {} +
+    # find include/ -type f \( -name "*.h" -o -name "*.hpp" \) -exec sed -i \
+        # -e 's/define [A-Z0-9_]*_API .*/define \0 __declspec(dllimport)/g' \
+        # -e 's/define [A-Z0-9_]*_IMPORT .*/define \0 __declspec(dllimport)/g' {} +
 
-    # Исправляем конкретно Macros.h и Export.h, чтобы они не переопределили это назад
-    find include/ -name "Export.h" -exec sed -i 's/define [A-Z0-9_]*_API.*/#define \0 __declspec(dllimport)/g' {} +
+    # find include/ -name "Export.h" -exec sed -i 's/define [A-Z0-9_]*_API.*/#define \0 __declspec(dllimport)/g' {} +
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin}
 
