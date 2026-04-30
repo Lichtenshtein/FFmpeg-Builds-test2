@@ -55,6 +55,15 @@ ffbuild_dockerbuild() {
 
     cp -v lib/*.dll "$INSTALL_ROOT/bin/" 2>/dev/null || true
 
+    ln -sf libtorch.a "$INSTALL_ROOT/lib/libtorch_cpu.a"
+
+    # Исправляем имена protobuf (удаляем двойное 'liblib')
+    if [ -f "$INSTALL_ROOT/lib/liblibprotobuf.a" ]; then
+        mv "$INSTALL_ROOT/lib/liblibprotobuf.a" "$INSTALL_ROOT/lib/libprotobuf.a"
+        mv "$INSTALL_ROOT/lib/liblibprotobuf-lite.a" "$INSTALL_ROOT/lib/libprotobuf-lite.a"
+        mv "$INSTALL_ROOT/lib/liblibprotoc.a" "$INSTALL_ROOT/lib/libprotoc.a"
+    fi
+
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/libtorch.pc"
 prefix=$FFBUILD_PREFIX
@@ -64,7 +73,7 @@ includedir=\${prefix}/include
 Name: LibTorch
 Description: PyTorch C++ API (Shared)
 Version: 2.10.0
-Libs: -L\${libdir} -ltorch -lc10
+Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10
 Libs.private: -lstdc++
 Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX
 EOF

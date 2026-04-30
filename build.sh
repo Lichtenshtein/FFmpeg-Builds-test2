@@ -298,8 +298,8 @@ read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 chmod +x configure
 
 if [[ "$HAS_LIBTORCH" == "1" ]]; then
-    ls -lh /opt/ffbuild/lib/libtorch_cpu.a || true
-    TORCH_LIBS="-ltorch -lc10"
+    # ls -lh /opt/ffbuild/lib/libtorch_cpu.a || true
+    TORCH_LIBS="-ltorch -ltorch_cpu -lc10"
     export TORCH_DYNAMIC_LIBS="-Wl,-Bdynamic ${TORCH_LIBS}"
 fi
 
