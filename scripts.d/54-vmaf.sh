@@ -49,7 +49,7 @@ EOF
         -Denable_docs=false
         -Denable_float=true
         -Denable_tests=false
-        -Denable_tools=false
+        # -Denable_tools=false
         -Denable_nvtx=false # Enable NVTX range support
         # added by patches
         # -Denable_discord_mode=true
