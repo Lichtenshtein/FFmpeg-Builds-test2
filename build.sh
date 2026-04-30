@@ -198,8 +198,18 @@ FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
 # чтобы если компонент принес свою версию, она вытеснила базовую в конец (право).
 FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
 
+if [[ "$HAS_LIBTORCH" == "1" ]]; then
+    # ls -lh /opt/ffbuild/lib/libtorch_cpu.a || true
+    # TORCH_LIBS="-ltorch -ltorch_cpu -lc10"
+    TORCH_LIBS="-lXNNPACK -lasmjit -lc10 -lc10d -lcaffe2_detectron_ops -lcaffe2_module_test_dynamic -lclog -lcpuinfo -ldnnl -lfbgemm -lfbjni -lkineto -lmkldnn -lprotobuf-lite -lprotobuf -lprotoc -lpthreadpool -lpytorch_jni -ltorch -ltorch_cpu"
+    export TORCH_DYNAMIC_LIBS="-Wl,-Bdynamic ${TORCH_LIBS}"
+    sed -i '/at::detail::getXPUHooks/d' libavfilter/dnn/dnn_backend_torch.cpp
+    sed -i 's/device.is_xpu()/false/g' libavfilter/dnn/dnn_backend_torch.cpp
+    sed -i 's/at::hasXPU()/false/g' libavfilter/dnn/dnn_backend_torch.cpp
+fi
+
 # Используем группы для решения проблем циклических зависимостей (особенно для Tesseract)
-FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} -Wl,--end-group -Wl,--allow-multiple-definition -lstdc++"
+FINAL_LIBS_GROUPED="-Wl,--start-group ${TORCH_LIBS} ${FINAL_LIBS} -Wl,--end-group -Wl,--allow-multiple-definition -lstdc++"
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
@@ -296,15 +306,6 @@ read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
 read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 
 chmod +x configure
-
-if [[ "$HAS_LIBTORCH" == "1" ]]; then
-    # ls -lh /opt/ffbuild/lib/libtorch_cpu.a || true
-    TORCH_LIBS="-ltorch -ltorch_cpu -lc10"
-    export TORCH_DYNAMIC_LIBS="-Wl,-Bdynamic ${TORCH_LIBS}"
-    sed -i '/at::detail::getXPUHooks/d' libavfilter/dnn/dnn_backend_torch.cpp
-    sed -i 's/device.is_xpu()/false/g' libavfilter/dnn/dnn_backend_torch.cpp
-    sed -i 's/at::hasXPU()/false/g' libavfilter/dnn/dnn_backend_torch.cpp
-fi
 
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
