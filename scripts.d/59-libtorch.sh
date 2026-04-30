@@ -1,11 +1,13 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-1.9.1%2Bcpu.zip"
+SCRIPT_REPO="https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-latest.zip"
+
+# SCRIPT_REPO="https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-1.9.1%2Bcpu.zip"
 
 export SKIP_POST_PATCH=1
 
 ffbuild_enabled() {
-    return 1
+    return 0
 }
 
 ffbuild_dockerdl() {
