@@ -9,6 +9,49 @@ ASSETS_DIR="${1:-$ASSETS_DIR}"
 FFMPEG_SOURCE_DIR="${2:-$FFMPEG_SOURCE_DIR}"
 mkdir -p "$ASSETS_DIR"
 
+# Копируем лицензию ПЕРЕД упаковкой
+log_info "${SYNC_MARK} Adding license and logs to package..."
+[[ -n "$LICENSE_FILE" ]] && cp "$FFMPEG_SOURCE_DIR/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"
+cp "$FFMPEG_CONFIG_LOG" "$PKG_DIR/config.log" || true
+
+# Копируем все DLL из нашего сборочного префикса в папку с бинарниками
+# Это подхватит DLL от OpenVINO, TBB, TensorFlow, LibTorch и других
+# OpenVINO часто ищет файлы openvino_intel_cpu_plugin.dll в той же папке
+# Если они лежат в /opt/ffbuild/bin, то всё ок. 
+# Но если они в подпапках (runtime/bin/intel64/...), нужно убедиться, что они попали в $PKG_DIR/bin/
+if [[ -d "$FFBUILD_PREFIX/bin" ]]; then
+    find "$FFBUILD_PREFIX/bin" "\( -name '*.dll' -o -name '*.pyd' -o -name '*.zip' \)" -exec cp -v {} "$PKG_DIR/bin/" \; || true
+    log_info "${SYNC_MARK} Collecting external DLLs and plugins..."
+else
+    log_warn "$FFBUILD_PREFIX/bin not found! Skipping DLLs copy."
+fi
+
+# Плагины лежат в lib/frei0r-1, а для работы в Windows должны быть в bin/frei0r-1
+if [[ -d "$FFBUILD_PREFIX/lib/frei0r-1" ]]; then
+    log_info "${SYNC_MARK} Collecting frei0r plugins..."
+    mkdir -p "$PKG_DIR/bin/frei0r-1"
+    find "$FFBUILD_PREFIX/lib/frei0r-1" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/frei0r-1/" \; || true
+else
+    log_warn "Frei0r plugins not found in $FFBUILD_PREFIX/lib/frei0r-1"
+fi
+
+# Плагины avisynth
+if [[ -d "$FFBUILD_PREFIX/lib/avisynth" ]]; then
+    log_info "${SYNC_MARK} Collecting avisynth plugins..."
+    find "$FFBUILD_PREFIX/lib/avisynth" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \; || true
+else
+    log_warn "avisynth plugins not found in $FFBUILD_PREFIX/lib/avisynth"
+fi
+
+# Плагины lensfun
+if [[ -d "$FFBUILD_PREFIX/share/lensfun" ]]; then
+    log_info "${SYNC_MARK} Collecting lensfun profiles..."
+    mkdir -p "$PKG_DIR/share/lensfun"
+    find "$FFBUILD_PREFIX/share/lensfun/version_2" -name "*.xml" -exec cp -v {} "$PKG_DIR/share/lensfun/" \; || true
+else
+    log_warn "lensfun profiles not found in $FFBUILD_PREFIX/share/lensfun"
+fi
+
 log_info "${START_MARK} Starting AI/OCR model and conditional asset collection..."
 
 # ТЕРРИТОРИЯ ССЫЛОК

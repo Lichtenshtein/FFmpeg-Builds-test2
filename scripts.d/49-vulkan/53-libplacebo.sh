@@ -7,7 +7,7 @@ ffbuild_depends() {
     echo base
     echo vulkan-headers
     echo vulkan-loader
-    echo glslang-test
+    echo glslang
     echo shaderc
     echo spirv-cross
     echo shaderc

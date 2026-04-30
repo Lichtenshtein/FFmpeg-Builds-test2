@@ -388,7 +388,7 @@ fi
 BUILD_NAME="ffmpeg-git-${FFMPEG_VERSION}-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
 PKG_DIR="$FFMPEG_PKG_ROOT/${BUILD_NAME}"
 
-mkdir -p "$PKG_DIR"/{include,lib,bin,doc,assets}
+mkdir -p "$PKG_DIR"/{include,lib,bin/assets,doc}
 
 export ASSETS_DIR="$PKG_DIR/bin/assets"
 
@@ -398,40 +398,14 @@ if ! declare -F package_variant >/dev/null; then
 fi
 package_variant "$FFBUILD_DESTPREFIX" "$PKG_DIR"
 
-# Копируем лицензию ПЕРЕД упаковкой
-log_info "${SYNC_MARK} Adding license and logs to package..."
-[[ -n "$LICENSE_FILE" ]] && cp "$FFMPEG_SOURCE_DIR/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"
-cp "$FFMPEG_CONFIG_LOG" "$PKG_DIR/config.log" || true
-
-# Копируем все DLL из нашего сборочного префикса в папку с бинарниками
-# Это подхватит DLL от OpenVINO, TBB, TensorFlow, LibTorch и других
-# OpenVINO часто ищет файлы openvino_intel_cpu_plugin.dll в той же папке
-# Если они лежат в /opt/ffbuild/bin, то всё ок. 
-# Но если они в подпапках (runtime/bin/intel64/...), нужно убедиться, что они попали в $PKG_DIR/bin/
-if [[ -d "$FFBUILD_PREFIX/bin" ]]; then
-    find "$FFBUILD_PREFIX/bin" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \; || true
-    log_info "${SYNC_MARK} Collecting external DLLs and plugins..."
-else
-    log_warn "$FFBUILD_PREFIX/bin not found! Skipping DLLs copy."
-fi
-
-# Плагины лежат в lib/frei0r-1, а для работы в Windows должны быть в bin/frei0r-1
-if [[ -d "$FFBUILD_PREFIX/lib/frei0r-1" ]]; then
-    log_info "${SYNC_MARK} Collecting frei0r plugins..."
-    mkdir -p "$PKG_DIR/bin/frei0r-1"
-    find "$FFBUILD_PREFIX/lib/frei0r-1" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/frei0r-1/" \; || true
-else
-    log_warn "Frei0r plugins not found in $FFBUILD_PREFIX/lib/frei0r-1"
-fi
-
 # Проверяем наличие критических библиотек (для отладки в логах)
 ls -lh "$PKG_DIR/bin/"
 
 # Скачиваем модели и ассеты
-log_info "${DOWN_MARK} Checking for additional assets..."
+log_info "${SYNC_MARK} Collecting additional assets..."
 
 # "$UTIL_DIR"/download_assets.sh "$ASSETS_DIR" "$(pwd)" || log_warn "Assets download failed, but continuing..."
-"$UTIL_DIR"/download_assets.sh "$ASSETS_DIR" "$FFMPEG_SOURCE_DIR" || log_warn "Assets download failed, but continuing..."
+"$UTIL_DIR"/collect_assets.sh "$ASSETS_DIR" "$FFMPEG_SOURCE_DIR" || log_warn "Assets download failed, but continuing..."
 
 # Стриппинг бинарников (удаление отладочных символов)
 # --strip-all; --strip-unneeded
