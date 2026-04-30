@@ -20,35 +20,33 @@ ffbuild_dockerbuild() {
     local LT_DIR=$(find . -maxdepth 1 -type d -name "libtorch*" | head -n 1)
     cd "$LT_DIR"
 
+    # Глобально убираем __declspec
     find include/ -type f -name "*.h" -exec sed -i 's/__declspec(dllimport)//g' {} +
     find include/ -type f -name "*.h" -exec sed -i 's/__declspec(dllexport)//g' {} +
 
-    # Очищаем Windows-макросы, которые форсируют импорт
+    # Очищаем Windows-макросы
     : > include/torch/csrc/WindowsTorchApiMacro.h
 
-    # Принудительно подключаем определение стека в начало IR (Interm. Representation)
-    sed -i '1i #include <torch/csrc/jit/api/module.h>\n#include <torch/csrc/jit/serialization/callstack_at_node_serialization.h>' include/torch/csrc/jit/ir.h
-    # Также патчим scope.h, чтобы он гарантированно имел все определения
-    find include/torch/csrc/jit/ -name "ir.h" -exec sed -i '1i #include <torch/csrc/jit/frontend/source_range.h>' {} +
+    # Исправляем инклуды (используем find, чтобы не ошибиться с путем)
+    local IR_H=$(find include -name "ir.h" | grep "jit" | head -n 1)
+    if [ -n "$IR_H" ]; then
+        sed -i '1i #include <torch/csrc/jit/api/module.h>\n#include <torch/csrc/jit/serialization/callstack_at_node_serialization.h>' "$IR_H"
+    fi
 
-    # Добавляем необходимые инклуды для GCC 13+
+    # Фикс для GCC 15 и стандартных библиотек
     find include/ -name "*.h" -exec sed -i '1i #include <cstdint>\n#include <string>\n#include <stdexcept>' {} +
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin}
-
-    # Копируем заголовочные файлы
     cp -r include/* "$INSTALL_ROOT/include/"
 
-    # MinGW ищет -ltorch как libtorch.a или libtorch.dll.a. 
-    # Мы копируем .lib файлы как .a, чтобы линковщик их подхватил.
+    # Копируем библиотеки (теперь libtorch_cpu.lib есть в архиве 2.0.1)
     for libfile in lib/*.lib; do
         local name=$(basename "$libfile" .lib)
         cp -v "$libfile" "$INSTALL_ROOT/lib/lib${name}.a"
     done
-
     cp -v lib/*.dll "$INSTALL_ROOT/bin/" 2>/dev/null || true
 
-    ln -sf libtorch.a "$INSTALL_ROOT/lib/libtorch_cpu.a"
+    # ln -sf libtorch.a "$INSTALL_ROOT/lib/libtorch_cpu.a"
 
     # Исправляем имена protobuf (удаляем двойное 'liblib')
     if [ -f "$INSTALL_ROOT/lib/liblibprotobuf.a" ]; then
@@ -73,7 +71,7 @@ EOF
 }
 
 ffbuild_cxxflags() {
-    echo "-fpermissive -I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG -D\"is_xpu()=is_cpu()\" -D\"hasXPU()=false\""
+    echo "-Wno-deprecated-declarations -Wno-error=deprecated-declarations -fpermissive -I$FFBUILD_PREFIX/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG -D\"is_xpu()=is_cpu()\" -D\"hasXPU()=false\""
 }
 
 ffbuild_configure() {
