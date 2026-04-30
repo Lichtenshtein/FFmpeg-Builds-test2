@@ -4,7 +4,7 @@ SCRIPT_REPO="https://github.com/tesseract-ocr/tesseract.git"
 SCRIPT_COMMIT="397887939a357f166f4674bc1d66bb155795f325"
 
 ffbuild_depends() {
-    echo leptonica-test
+    echo leptonica
     echo libarchive
     echo pango
     echo cairo

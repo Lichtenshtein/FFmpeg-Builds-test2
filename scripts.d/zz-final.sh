@@ -28,7 +28,7 @@ ffbuild_depends() {
     # echo lcevcdec
     echo spirv-tools
     echo gavl
-    echo lcevcdec-test
+    echo lcevcdec
     echo libvorbis
     echo opencl
     echo jbigkit
@@ -65,39 +65,38 @@ ffbuild_depends() {
     echo fdk-aac
     echo giflib
     echo ffnvcodec
-    echo flite-test
+    echo flite
     echo frei0r
     echo gme
     echo ilbc
     echo kvazaar
-    echo glslang-test
+    echo glslang
     echo lc3
-    echo lensfun-test
+    echo lensfun
     echo libaribcaption
     echo libass
     echo libbluray
     echo libcaca
     echo libcelt
-    echo libcodec2-test
+    echo libcodec2
     echo libarchive
     echo libgsm
     echo brotli
     echo lcms2
     echo libjxl
-    echo libklvanc-test
+    echo libklvanc
     echo zstd
     echo libmad
     echo libmp3lame
-    echo libmpeghdec-test
+    echo libmpeghdec
     echo libmysofa
     echo libopus
     echo libplacebo
     echo librist
-    echo librsvg-cargo-test
-    # echo librsvg-test
+    echo librsvg
     echo libssh
     echo libtheora
-    echo libtorch-test
+    echo libtorch
     echo libvpx
     echo libwebp
     echo libzmq
@@ -114,21 +113,21 @@ ffbuild_depends() {
     echo modplug
     echo mp3shine
     echo mpeghe
-    echo nnedi3-test
+    echo nnedi3
     echo onevpl
     echo openal
     echo openapv
     echo opencore-amr
-    echo opencv-test
-    echo opengl-test
+    echo opencv
+    echo opengl
     echo openh264
     echo openjpeg
     echo openmpt
-    echo openvino-test
+    echo openvino
     echo pocketsphinx
     echo qrencode
     echo quirc
-    echo librabbitmq-test
+    echo librabbitmq
     echo rav1e
     echo rubberband
     echo schannel
@@ -139,10 +138,10 @@ ffbuild_depends() {
     echo srt
     echo svtav1
     echo svthevc
-    echo svtjpegxs-test
+    echo svtjpegxs
     echo svtvp9
-    echo libtensorflow-test
-    echo libtesseract-test
+    echo libtensorflow
+    echo libtesseract
     echo twolame
     echo uavs3d
     echo uavs3e
@@ -150,8 +149,7 @@ ffbuild_depends() {
     echo libdrm
     echo libva
     echo finalize
-    # echo vapoursynth-test
-    echo vapoursynth-python-test
+    echo vapoursynth
     echo vidstab
     echo vo-amrwb
     echo vvdec
@@ -167,8 +165,6 @@ ffbuild_depends() {
     echo xvid
     echo zimg
     echo zvbi
-
-    echo rpath
 }
 
 ffbuild_enabled() {

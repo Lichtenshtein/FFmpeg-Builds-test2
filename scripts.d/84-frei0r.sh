@@ -6,7 +6,7 @@ SCRIPT_COMMIT="32e91405d2ec5e222f75175b36dc4cc7bc0667ef"
 # export SKIP_PRE_PATCH=1
 
 ffbuild_depends() {
-    echo opencv-test
+    echo opencv
     echo cairo
     echo gavl
     # echo nettle # from gavl
