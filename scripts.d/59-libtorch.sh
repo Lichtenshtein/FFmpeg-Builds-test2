@@ -20,16 +20,28 @@ ffbuild_dockerbuild() {
     local LT_DIR=$(find . -maxdepth 1 -type d -name "libtorch*" | head -n 1)
     cd "$LT_DIR"
 
+    # Базовая очистка
     find include/ -type f -name "*.h" -exec sed -i 's/__declspec(dllimport)//g' {} +
     find include/ -type f -name "*.h" -exec sed -i 's/__declspec(dllexport)//g' {} +
-
-    # Нейтрализуем макросы Windows
     : > include/torch/csrc/WindowsTorchApiMacro.h
 
-    find include/ -name "scope.h" -exec sed -i 's/struct InlinedCallStack;/struct InlinedCallStack { virtual ~InlinedCallStack() = default; };/' {} +
+    # ИСПРАВЛЕНИЕ InlinedCallStack (Incomplete type)
+    # Вместо создания новой структуры, мы просто находим, где она используется в intrusive_ptr, 
+    # и заставляем файл ir.h (и другие) видеть полное определение из scope.h
+    local SCOPE_H=$(find include -name "scope.h" | grep "jit" | head -n 1)
+    local IR_H=$(find include -name "ir.h" | grep "jit" | head -n 1)
+    
+    if [ -n "$IR_H" ] && [ -n "$SCOPE_H" ]; then
+        # Гарантируем, что scope.h включен ДО использования в ir.h
+        sed -i "1i #include <$(echo $SCOPE_H | sed 's|include/||')>" "$IR_H"
+    fi
 
-    # 4. Базовые инклуды для GCC 15
-    find include/ -name "*.h" -exec sed -i '1i #include <cstdint>\n#include <string>\n#include <stdexcept>' {} +
+    # ИСПРАВЛЕНИЕ XPU (чтобы не было конфликта перегрузки)
+    # Вместо макроса в командной строке, патчим заголовок, где это определено
+    find include/ATen/core/ -name "TensorBody.h" -exec sed -i 's/bool is_xpu()/inline bool is_xpu_disabled()/g' {} +
+
+    # Стандартные инклуды
+    find include/ -name "*.h" -exec sed -i '1i #include <cstdint>\n#include <string>' {} +
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin}
     cp -r include/* "$INSTALL_ROOT/include/"
@@ -66,7 +78,7 @@ EOF
 }
 
 ffbuild_cxxflags() {
-    echo "-Wno-deprecated-declarations -Wno-error=deprecated-declarations -fpermissive -I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG -D\"is_xpu()=is_cpu()\" -D\"hasXPU()=false\""
+    echo "-Wno-deprecated-declarations -Wno-error=deprecated-declarations -fpermissive -I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG"
 }
 
 ffbuild_configure() {
