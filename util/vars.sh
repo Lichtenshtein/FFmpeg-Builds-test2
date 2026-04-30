@@ -993,7 +993,7 @@ generate_implibs() {
         local out_lib="$lib_out_dir/$lib_name"
 
         # Skip if valid lib exists
-        if [[ -f "$out_lib" ]] && [[ $(stat -c%s "$out_lib" 2>/dev/null) -lt 1048576 ]]; then
+        if [[ -f "$out_lib" ]] && [[ $(stat -c%s "$out_lib" 2>/dev/null) -lt 2097152 ]]; then
             log_debug "${CHECK_MARK} Valid import lib exists for $dll_name (size: $(stat -c%s "$out_lib" | numfmt --to=si))"
             continue
         fi
@@ -1006,27 +1006,24 @@ generate_implibs() {
 
         local def_file="${base_name}.def"
 
-        # Step A: Try gendef
-        if command -v $GENDEF &> /dev/null; then
-            if $GENDEF "$dll_name" 2>/dev/null; then
-                # Clean up .def file (remove comments, empty lines)
-                sed -i '/^;/d; /^$/d' "$def_file"
-                # Ensure EXPORTS section exists
-                if ! grep -q "^EXPORTS" "$def_file"; then
-                    echo "EXPORTS" >> "$def_file"
-                fi
-            else
-                log_warn "gendef failed for $dll_name, creating minimal def"
+        # FIX: Use objdump to extract exports instead of gendef
+        # This is more robust for large DLLs
+        if command -v objdump &> /dev/null; then
+            # Extract exports to a file
+            objdump -p "$dll_name" 2>/dev/null | grep "  [0-9A-F] [0-9A-F] [0-9A-F] [0-9A-F] " | grep -v " 00000000 " | cut -d' ' -f3 | sed 's/^_//' | sort -u > "$def_file"
+            
+            # Ensure EXPORTS section exists
+            if ! grep -q "^EXPORTS" "$def_file"; then
                 echo "EXPORTS" > "$def_file"
             fi
         else
-            log_warn "gendef not found, creating minimal def"
+            # Fallback to minimal def if objdump not found
+            log_warn "objdump not found, creating minimal def"
             echo "EXPORTS" > "$def_file"
         fi
 
-        # Step B: Create the import library with dlltool
-        # -k: create a .a file (import lib)
-        # -D: name of the DLL this lib links to
+        # FIX: Create the import library with dlltool
+        # We use -k to create a .a file
         if $DLLTOOL -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
             local size=$(stat -c%s "$lib_name" 2>/dev/null)
             if [[ $size -lt 2097152 ]]; then # Less than 2MB is a good sign for an import lib

@@ -78,7 +78,7 @@ includedir=\${prefix}/include
 Name: LibTorch
 Description: PyTorch C++ API (DLL version)
 Version: 2.10.0
-Libs: -L\${libdir}
+Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10
 Libs.private: -lstdc++
 Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX
 EOF
