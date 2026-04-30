@@ -17,15 +17,17 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # создаем заглушку avx-512
-    log_info "Creating AVX-512 stubs for libvmaf..."
-    cat <<EOF > vmaf_avx512_stubs.c
+    if [[ "${USE_AVX512}" != "1" ]]; then
+        # создаем заглушку avx-512
+        log_info "Creating AVX-512 stubs for libvmaf..."
+        cat <<EOF > vmaf_avx512_stubs.c
 void cambi_increment_range_avx512() {}
 void cambi_decrement_range_avx512() {}
 void get_derivative_data_for_row_avx512() {}
 EOF
-    # Компилируем объектный файл тем же кросс-компилятором
-    $CC $CFLAGS $CPPFLAGS -c vmaf_avx512_stubs.c -o vmaf_avx512_stubs.o
+        # Компилируем объектный файл тем же кросс-компилятором
+        $CC $CFLAGS $CPPFLAGS -c vmaf_avx512_stubs.c -o vmaf_avx512_stubs.o
+    fi
 
     # Kill build of unused and broken tools
     # echo > libvmaf/tools/meson.build
