@@ -198,6 +198,36 @@ FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
 # чтобы если компонент принес свою версию, она вытеснила базовую в конец (право).
 FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
 
+# ГЕНЕРАЦИЯ ПЕРЕМЕННЫХ СОСТОЯНИЯ КОМПОНЕНТОВ
+log_debug "${SEARCH_MARK} Scanning FFmpeg configuration for enabled components..."
+# Список компонентов для проверки
+COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac openssl amf frei0r)
+# Создаем имя переменной libtesseract -> HAS_LIBTESSERACT
+for comp in "${COMPONENTS[@]}"; do
+    clean_name="${comp^^}"
+    clean_name="${clean_name//-/_}"
+    var_name="HAS_${clean_name}"
+    if [[ "$FINAL_CONFIGURE" == *"--enable-$comp"* ]]; then
+        export "$var_name=1"
+        log_debug "Component $comp: ${GREEN}ENABLED${NC} (${var_name}=1)"
+    else
+        export "$var_name=0"
+        log_debug "Component $comp: ${RED}DISABLED${NC} (${var_name}=0)"
+    fi
+done
+# Специальная обработка для ASAN (fdk-aac); should be at the end of all flags.
+# Вообще-то, я не помню нахера ASAN нужен fdk-aac. Вырубаем.
+# if [[ "$HAS_LIBFDK_AAC" == "0" ]]; then
+    # ASAN_CFLAGS=""
+    # ASAN_CXXFLAGS=""
+    # ASAN_LDFLAGS=""
+# else
+    # ASAN_CFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
+    # ASAN_CXXFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
+    # ASAN_LDFLAGS="-static-libasan -fsanitize=address,undefined "
+    # log_info "ASAN flags enabled due to fdk-aac presence."
+# fi
+
 if [[ "$HAS_LIBTORCH" == "1" ]]; then
     # ls -lh /opt/ffbuild/lib/libtorch_cpu.a || true
     # TORCH_LIBS="-ltorch -ltorch_cpu -lc10"
@@ -259,36 +289,6 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     # что выдает ассемблер на команду версии
     as --version | head -n 1
     x86_64-w64-mingw32-as --version | head -n 1
-
-    # ГЕНЕРАЦИЯ ПЕРЕМЕННЫХ СОСТОЯНИЯ КОМПОНЕНТОВ
-    log_debug "${SEARCH_MARK} Scanning FFmpeg configuration for enabled components..."
-    # Список компонентов для проверки
-    COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac openssl amf frei0r)
-    # Создаем имя переменной libtesseract -> HAS_LIBTESSERACT
-    for comp in "${COMPONENTS[@]}"; do
-        clean_name="${comp^^}"
-        clean_name="${clean_name//-/_}"
-        var_name="HAS_${clean_name}"
-        if [[ "$FINAL_CONFIGURE" == *"--enable-$comp"* ]]; then
-            export "$var_name=1"
-            log_debug "Component $comp: ${GREEN}ENABLED${NC} (${var_name}=1)"
-        else
-            export "$var_name=0"
-            log_debug "Component $comp: ${RED}DISABLED${NC} (${var_name}=0)"
-        fi
-    done
-    # Специальная обработка для ASAN (fdk-aac); should be at the end of all flags.
-    # Вообще-то, я не помню нахера ASAN нужен fdk-aac. Вырубаем.
-    # if [[ "$HAS_LIBFDK_AAC" == "0" ]]; then
-        # ASAN_CFLAGS=""
-        # ASAN_CXXFLAGS=""
-        # ASAN_LDFLAGS=""
-    # else
-        # ASAN_CFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
-        # ASAN_CXXFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
-        # ASAN_LDFLAGS="-static-libasan -fsanitize=address,undefined "
-        # log_info "ASAN flags enabled due to fdk-aac presence."
-    # fi
 
     log_info_line
     log_info "### ${BUILD_MARK} End of DEBUG audit section"
