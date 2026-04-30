@@ -1007,8 +1007,8 @@ generate_implibs() {
         local def_file="${base_name}.def"
 
         # Step A: Try gendef
-        if command -v gendef &> /dev/null; then
-            if gendef "$dll_name" 2>/dev/null; then
+        if command -v $GENDEF &> /dev/null; then
+            if $GENDEF "$dll_name" 2>/dev/null; then
                 # Clean up .def file (remove comments, empty lines)
                 sed -i '/^;/d; /^$/d' "$def_file"
                 # Ensure EXPORTS section exists
