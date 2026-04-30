@@ -40,6 +40,8 @@ ffbuild_dockerbuild() {
     done
 
     find include/ -type f \( -name "*.h" -o -name "*.hpp" \) -exec sed -i '1i #include <cstdint>' {} +
+    # Принудительно включаем JIT заголовки, если они не подтянулись автоматически
+    find include/torch/csrc/jit/ -name "*.h" -exec sed -i '1i #include <torch/csrc/jit/api/module.h>' {} +
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin}
 
@@ -80,7 +82,7 @@ EOF
 }
 
 ffbuild_cxxflags() {
-    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG"
+    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG -D\"is_xpu()=is_cpu()\" -D\"hasXPU()=false\""
 }
 
 ffbuild_configure() {
