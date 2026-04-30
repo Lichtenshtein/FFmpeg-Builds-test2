@@ -2,6 +2,8 @@
 
 SCRIPT_REPO="https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-2.10.0%2Bcpu.zip"
 
+export SKIP_POST_PATCH=1
+
 ffbuild_enabled() {
     return 0
 }

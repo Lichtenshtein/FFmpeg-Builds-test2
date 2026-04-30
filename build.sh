@@ -323,6 +323,7 @@ CONF_FLAGS=(
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --enable-opengl
+    --disable-w32threads --enable-pthreads
     --enable-pic
     --disable-debug
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
