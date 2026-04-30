@@ -295,10 +295,16 @@ unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS LDEXEFLAGS ASFLAGS LIBS
 read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
 read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 
-ls -lh /opt/ffbuild/lib/libtorch_cpu.a || true
-# Принудительно вставляем макросы импорта в начало проблемного файла
-sed -i '1i #define TORCH_API __declspec(dllimport)\n#define C10_API __declspec(dllimport)\n#define AT_API __declspec(dllimport)' libavfilter/dnn/dnn_backend_torch.cpp
-x86_64-w64-mingw32-nm /opt/ffbuild/lib/libtorch_cpu.a | grep "__imp_.*getInstance"
+if [[ "$HAS_LIBTESSERACT" == "1" ]]; then
+    ls -lh /opt/ffbuild/lib/libtorch_cpu.a || true
+
+    # Принудительно вставляем макросы импорта в начало проблемного файла
+    sed -i '1i #define TORCH_API __declspec(dllimport)\n#define C10_API __declspec(dllimport)\n#define AT_API __declspec(dllimport)' libavfilter/dnn/dnn_backend_torch.cpp
+    x86_64-w64-mingw32-nm /opt/ffbuild/lib/libtorch_cpu.a | grep "__imp_.*getInstance"
+    x86_64-w64-mingw32-nm /opt/ffbuild/lib/libtorch_cpu.a | head -n 20
+    
+    export EXTRA_LDFLAGS_TORCH="-Wl,-Bdynamic -ltorch -ltorch_cpu -lc10 -Wl,-Bstatic"
+fi
 
 chmod +x configure
 
@@ -310,7 +316,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
-    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS}"
+    --extra-ldflags="${ASAN_LDFLAGS}$EXTRA_LDFLAGS_TORCH ${FINAL_LDFLAGS}"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
