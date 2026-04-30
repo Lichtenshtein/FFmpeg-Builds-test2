@@ -20,28 +20,31 @@ ffbuild_dockerbuild() {
     local LT_DIR=$(find . -maxdepth 1 -type d -name "libtorch*" | head -n 1)
     cd "$LT_DIR"
 
-    # Базовая очистка
     find include/ -type f -name "*.h" -exec sed -i 's/__declspec(dllimport)//g' {} +
     find include/ -type f -name "*.h" -exec sed -i 's/__declspec(dllexport)//g' {} +
-    : > include/torch/csrc/WindowsTorchApiMacro.h
 
-    # ИСПРАВЛЕНИЕ InlinedCallStack (Incomplete type)
-    # Вместо создания новой структуры, мы просто находим, где она используется в intrusive_ptr, 
-    # и заставляем файл ir.h (и другие) видеть полное определение из scope.h
-    local SCOPE_H=$(find include -name "scope.h" | grep "jit" | head -n 1)
-    local IR_H=$(find include -name "ir.h" | grep "jit" | head -n 1)
-    
-    if [ -n "$IR_H" ] && [ -n "$SCOPE_H" ]; then
-        # Гарантируем, что scope.h включен ДО использования в ir.h
-        sed -i "1i #include <$(echo $SCOPE_H | sed 's|include/||')>" "$IR_H"
+    # Находим основной файл макросов. В разных версиях это Macros.h или Export.h
+    local MACRO_H=$(find include -name "Macros.h" | grep "c10" | head -n 1)
+    if [ -n "$MACRO_H" ]; then
+        # Очищаем и записываем пустые макросы в начало
+        sed -i '1i #define C10_API\n#define TORCH_API\n#define AT_API\n#define CAFFE2_API\n#define C10_IMPORT\n#define C10_EXPORT' "$MACRO_H"
     fi
 
-    # ИСПРАВЛЕНИЕ XPU (чтобы не было конфликта перегрузки)
-    # Вместо макроса в командной строке, патчим заголовок, где это определено
-    find include/ATen/core/ -name "TensorBody.h" -exec sed -i 's/bool is_xpu()/inline bool is_xpu_disabled()/g' {} +
+    # Нейтрализуем Windows-специфичный файл, который может переопределить TORCH_API обратно
+    if [ -f "include/torch/csrc/WindowsTorchApiMacro.h" ]; then
+        echo "#define TORCH_API" > include/torch/csrc/WindowsTorchApiMacro.h
+    fi
 
-    # Стандартные инклуды
-    find include/ -name "*.h" -exec sed -i '1i #include <cstdint>\n#include <string>' {} +
+    # ИСПРАВЛЕНИЕ InlinedCallStack (через инклуд в ir.h)
+    local SCOPE_H=$(find include -name "scope.h" | grep "jit" | head -n 1)
+    local IR_H=$(find include -name "ir.h" | grep "jit" | head -n 1)
+    if [ -n "$IR_H" ] && [ -n "$SCOPE_H" ]; then
+        local REL_SCOPE=$(echo "$SCOPE_H" | sed 's|include/||')
+        sed -i "1i #include <$REL_SCOPE>" "$IR_H"
+    fi
+
+    # Базовые типы для GCC 15
+    find include/ -name "*.h" -exec sed -i '1i #include <cstdint>\n#include <string>\n#include <stdexcept>' {} +
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin}
     cp -r include/* "$INSTALL_ROOT/include/"
