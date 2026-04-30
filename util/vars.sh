@@ -977,52 +977,72 @@ generate_implibs() {
     local target_dir="${1:-$INSTALL_ROOT}"
     [[ ! -d "$target_dir" ]] && return 0
 
-    log_info "${TARGET_MARK} Generating import libraries for DLLs in $STAGENAME..."
+    log_info "${TARGET_MARK} Generating/Verifying import libraries for DLLs in $STAGENAME..."
 
-    # Search for all DLLs that don't yet have a .dll.a or .a
     find "$target_dir" -name "*.dll" -type f | while read -r dll_file; do
         local dll_name=$(basename "$dll_file")
         local base_name="${dll_name%.dll}"
         local lib_name="lib${base_name}.a"
         local dll_dir=$(dirname "$dll_file")
 
+        # Determine output directory for the .a file (usually lib/)
         local lib_out_dir="$dll_dir"
         [[ "$lib_out_dir" == *"/bin" ]] && lib_out_dir="${lib_out_dir%/bin}/lib"
         mkdir -p "$lib_out_dir"
 
-        # Определяем выходную директорию для .a
-        if [[ -f "$lib_out_dir/$lib_name" || -f "$lib_out_dir/lib${base_name}.dll.a" ]]; then
-            log_debug "${CHECK_MARK} Import lib for $dll_name already exists, skipping to protect native libs."
+        local existing_lib=""
+        if [[ -f "$lib_out_dir/$lib_name" ]]; then
+            existing_lib="$lib_out_dir/$lib_name"
+        elif [[ -f "$lib_out_dir/lib${base_name}.dll.a" ]]; then
+            existing_lib="$lib_out_dir/lib${base_name}.dll.a"
+        fi
+
+        if [[ -n "$existing_lib" ]]; then
+            log_debug "${CHECK_MARK} Import lib for $dll_name exists: $existing_lib"
             continue
         fi
 
-        log_debug "${BUILD_MARK} Processing $dll_name -> $lib_name"
-
-        # If the library already exists, skip it (to avoid overwriting native .a files)
-        if [[ -f "$out_file" || -f "$lib_out_dir/lib${base_name}.dll.a" ]]; then
-            log_debug "${CHECK_MARK} Import lib for $dll_name already exists, skipping."
-            continue
-        fi
-
-        # If there is a .lib (MSVC) nearby, we try to use dlltool directly on it, but it’s safer to use gendef from the DLL itself
-        log_debug "${BUILD_MARK} Processing $dll_name -> $lib_name"
+        log_debug "${BUILD_MARK} Creating import lib for $dll_name"
 
         local tmp_build=$(mktemp -d)
         cp "$dll_file" "$tmp_build/"
         pushd "$tmp_build" > /dev/null
 
         local def_file="${base_name}.def"
+        local success=0
 
-        # Генерируем .def без путей
-        if ! $GENDEF "$dll_name" > "$def_file" 2>/dev/null; then
-            log_warn "gendef failed for $dll_name"
-        else
-            # Создаем .a без привязки к путям файловой системы
-            if $DLLTOOL -d "$def_file" -l "$lib_name" -D "$dll_name"; then
+        # Attempt gendef
+        if command -v gendef &> /dev/null; then
+            if gendef "$dll_name" 2>/dev/null; then
+                # Fix potential syntax errors in .def (common with MinGW gendef)
+                # Remove empty lines and ensure EXPORTS section exists
+                if [ -f "$def_file" ]; then
+                    sed -i '/^;/d' "$def_file"
+                    sed -i '/^$/d' "$def_file"
+                    if ! grep -q "^EXPORTS" "$def_file"; then
+                        echo "EXPORTS" >> "$def_file"
+                    fi
+                fi
+                
+                if $DLLTOOL -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
+                    cp "$lib_name" "$lib_out_dir/"
+                    log_info "${CHECK_MARK} Created $lib_name from $dll_name"
+                    success=1
+                fi
+            fi
+        fi
+
+        # Fallback: If gendef fails, try to use objdump or create a minimal stub
+        if [[ $success -eq 0 ]]; then
+            log_warn "Failed to generate import lib for $dll_name via gendef. Creating stub."
+            # Create a minimal .a that links to the DLL (trick: use dlltool with empty def)
+            echo "EXPORTS" > "$def_file"
+            $DLLTOOL -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null
+            if [[ -f "$lib_name" ]]; then
                 cp "$lib_name" "$lib_out_dir/"
-                log_info "${CHECK_MARK} Created $lib_name from DLL"
+                log_info "${CHECK_MARK} Created stub $lib_name for $dll_name"
             else
-                log_error "dlltool failed for $dll_name"
+                log_error "Failed to create import lib for $dll_name"
             fi
         fi
 
