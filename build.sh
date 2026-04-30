@@ -301,8 +301,8 @@ if [[ "$HAS_LIBTORCH" == "1" ]]; then
     # ls -lh /opt/ffbuild/lib/libtorch_cpu.a || true
     TORCH_LIBS="-ltorch -ltorch_cpu -lc10"
     export TORCH_DYNAMIC_LIBS="-Wl,-Bdynamic ${TORCH_LIBS}"
-    sed -i '1i #include <torch/script.h>' libavfilter/dnn/dnn_backend_torch.cpp
-    sed -i '1i #include <torch/torch.h>' libavfilter/dnn/dnn_backend_torch.cpp
+    # sed -i '1i #include <torch/script.h>' libavfilter/dnn/dnn_backend_torch.cpp
+    # sed -i '1i #include <torch/torch.h>' libavfilter/dnn/dnn_backend_torch.cpp
 fi
 
 CONF_FLAGS=(
