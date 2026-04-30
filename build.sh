@@ -301,8 +301,9 @@ if [[ "$HAS_LIBTORCH" == "1" ]]; then
     # ls -lh /opt/ffbuild/lib/libtorch_cpu.a || true
     TORCH_LIBS="-ltorch -ltorch_cpu -lc10"
     export TORCH_DYNAMIC_LIBS="-Wl,-Bdynamic ${TORCH_LIBS}"
-    # sed -i '1i #include <torch/script.h>' libavfilter/dnn/dnn_backend_torch.cpp
-    # sed -i '1i #include <torch/torch.h>' libavfilter/dnn/dnn_backend_torch.cpp
+    sed -i '/at::detail::getXPUHooks/d' libavfilter/dnn/dnn_backend_torch.cpp
+    sed -i 's/device.is_xpu()/false/g' libavfilter/dnn/dnn_backend_torch.cpp
+    sed -i 's/at::hasXPU()/false/g' libavfilter/dnn/dnn_backend_torch.cpp
 fi
 
 CONF_FLAGS=(
