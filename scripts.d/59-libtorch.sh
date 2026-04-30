@@ -20,16 +20,19 @@ ffbuild_dockerbuild() {
     local LT_DIR=$(find . -maxdepth 1 -type d -name "libtorch*" | head -n 1)
     cd "$LT_DIR"
 
-    # Глобально убираем все упоминания __declspec, чтобы GCC не спотыкался
     find include/ -type f -name "*.h" -exec sed -i 's/__declspec(dllimport)//g' {} +
     find include/ -type f -name "*.h" -exec sed -i 's/__declspec(dllexport)//g' {} +
 
-    # Нейтрализуем Windows-специфичные макросы PyTorch, которые ломают сборку
-    # Просто обнуляем файл, который пытается форсировать dllimport
-    echo "" > include/torch/csrc/WindowsTorchApiMacro.h
+    # Очищаем Windows-макросы, которые форсируют импорт
+    : > include/torch/csrc/WindowsTorchApiMacro.h
+
+    # Принудительно подключаем определение стека в начало IR (Interm. Representation)
+    sed -i '1i #include <torch/csrc/jit/api/module.h>\n#include <torch/csrc/jit/serialization/callstack_at_node_serialization.h>' include/torch/csrc/jit/ir.h
+    # Также патчим scope.h, чтобы он гарантированно имел все определения
+    find include/torch/csrc/jit/ -name "ir.h" -exec sed -i '1i #include <torch/csrc/jit/frontend/source_range.h>' {} +
 
     # Добавляем необходимые инклуды для GCC 13+
-    find include/ -name "*.h" -exec sed -i '1i #include <cstdint>\n#include <string>' {} +
+    find include/ -name "*.h" -exec sed -i '1i #include <cstdint>\n#include <string>\n#include <stdexcept>' {} +
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin}
 
@@ -70,7 +73,7 @@ EOF
 }
 
 ffbuild_cxxflags() {
-    echo "-I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG -D\"is_xpu()=is_cpu()\" -D\"hasXPU()=false\""
+    echo "-fpermissive -I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -D_GLIBCXX_USE_CXX11_ABI=1 -DNOMINMAX -DNDEBUG -D\"is_xpu()=is_cpu()\" -D\"hasXPU()=false\""
 }
 
 ffbuild_configure() {
