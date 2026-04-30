@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '01-mingw-std-threads|02-mingw|59-libtorch'
+        default: '59-libtorch'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
@@ -37,7 +37,7 @@ on:
       use_openmp:
         description: 'Enable OpenMP (Open Multi-Processing)'
         type: boolean
-        default: true
+        default: false
       prefer_shared:
         description: 'Enable shared/Disable static'
         type: boolean
