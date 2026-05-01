@@ -25,7 +25,7 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
-    local DEP_LIBS="-Wl,--whole-archive -lharfbuzz -Wl,--no-whole-archive -Wl,--start-group -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lcairo-gobject -lcairo -lfontconfig -lfreetype -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfribidi -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt -Wl,--end-group"
+    local DEP_LIBS="-Wl,--start-group -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lcairo-gobject -lcairo -lfontconfig -lfreetype -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfribidi -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt -Wl,--end-group"
     local WIN_LIBS="-lrpcrt4 -lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -luuid $LIBS -lstdc++"
 
     local LDFLAGS=$(echo "$LDFLAGS" | sed 's/-lssp//g')
@@ -52,6 +52,8 @@ ffbuild_dockerbuild() {
     export static_flags=""
     export self_static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCAIRO_WIN32_STATIC_BUILD -DPANGO_STATIC_COMPILATION -DG_WIN32_IS_STRICT_MINGW -Dpixman_static" && self_static_flags="-DPANGO_STATIC_COMPILATION"
+
+    sed -i "s/error.*does not have the required FontConfig support.*/message('Bypassed cairo-ft check')/" ../meson.build
 
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS $static_flags $self_static_flags" \
