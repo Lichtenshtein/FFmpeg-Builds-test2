@@ -93,15 +93,24 @@ ffbuild_dockerbuild() {
     # curl и gcc 15.2 захлёбываются на LTO и уходят в segmentation fault
     [[ "${USE_LTO}" = "1" ]] && local LTO_FIX="-fno-ipa-icf"
 
+# -Wl,--allow-multiple-definition 
     CFLAGS="$CLEAN_CFLAGS ${USELTO} ${LTO_FIX}" \
     CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
     CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO} ${LTO_FIX}" \
-    LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition ${USELTO} ${LTO_FIX}" \
+    LDFLAGS="$LDFLAGS ${USELTO} ${LTO_FIX}" \
     LIBS="$DEP_LIBS $WIN_SYS_LIBS $LIBS" \
     ./configure "${myconf[@]}" || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    # make -j$(nproc) $MAKE_V || return 1
+    # make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+
+    make -C lib -j$(nproc) $MAKE_V
+    make -C lib install DESTDIR="$FFBUILD_DESTDIR"
+    make -C include install DESTDIR="$FFBUILD_DESTDIR"
+
+    # 4. Устанавливаем pkg-config файл вручную (он генерируется в корне)
+    mkdir -p "$PC_DIR"
+    cp libcurl.pc "$PC_DIR/"
 
     local PC_FILE="$PC_DIR/libcurl.pc"
     if [[ -f "$PC_FILE" ]]; then
