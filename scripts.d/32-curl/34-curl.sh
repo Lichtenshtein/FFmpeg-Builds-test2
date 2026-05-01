@@ -50,11 +50,6 @@ ffbuild_dockerbuild() {
         --enable-optimize
         --enable-threaded-resolver
         --enable-ipv6
-        # --with-openssl
-        # --with-ngtcp2
-        # --with-nghttp3
-        # --with-quiche
-        # --with-nghttp2
         --with-openssl
         --with-nghttp2="$FFBUILD_PREFIX"
         --with-quiche="$FFBUILD_PREFIX" # ngtcp2 + nghttp3
@@ -90,25 +85,27 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared )
     fi
 
-    # curl и gcc 15.2 захлёбываются на LTO и уходят в segmentation fault
-    [[ "${USE_LTO}" = "1" ]] && local LTO_FIX="-fno-ipa-icf"
+    # curl и gcc 15.2 захлёбываются на LTO и уходят в segmentation fault при компиляции бинарника
+    # [[ "${USE_LTO}" = "1" ]] && local LTO_FIX=" -fno-ipa-icf"
 
-# -Wl,--allow-multiple-definition 
-    CFLAGS="$CLEAN_CFLAGS ${USELTO} ${LTO_FIX}" \
+    # конфликт boringssl и openssl; -Wl,--allow-multiple-definition
+
+    CFLAGS="$CLEAN_CFLAGS ${USELTO}${LTO_FIX}" \
     CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
-    CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO} ${LTO_FIX}" \
-    LDFLAGS="$LDFLAGS ${USELTO} ${LTO_FIX}" \
+    CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}${LTO_FIX}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${LTO_FIX}" \
     LIBS="$DEP_LIBS $WIN_SYS_LIBS $LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     # make -j$(nproc) $MAKE_V || return 1
     # make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
+    # собираем только библиотеку так как segmentation fault происходит на curl.exe
     make -C lib -j$(nproc) $MAKE_V
     make -C lib install DESTDIR="$FFBUILD_DESTDIR"
     make -C include install DESTDIR="$FFBUILD_DESTDIR"
 
-    # 4. Устанавливаем pkg-config файл вручную (он генерируется в корне)
+    # Устанавливаем pkg-config файл вручную (он генерируется в корне)
     mkdir -p "$PC_DIR"
     cp libcurl.pc "$PC_DIR/"
 
@@ -119,7 +116,7 @@ ffbuild_dockerbuild() {
         # Очищаем Requires, чтобы pkg-config не падал из-за отсутствующих имен .pc
         sed -i "s|^Requires:.*|Requires:|" "$PC_FILE"
         sed -i "s|^Requires.private:.*|Requires.private:|" "$PC_FILE"
-        # Перезаписываем Libs.private
+        # Перезаписываем Libs.private; хз куда пропадает -lz
         sed -i "/^Libs\.private:/d" "$PC_FILE"
         echo "Libs.private: $DEP_LIBS $WIN_LIBS" >> "$PC_FILE"
         # Убеждаемся, что макрос статики на месте
@@ -131,9 +128,9 @@ ffbuild_dockerbuild() {
     fi
 }
 
-ffbuild_libs() {
-    echo "-lquiche -lnghttp2 -lcrypt32 -lwldap32 -lnormaliz -liphlpapi"
-}
+# ffbuild_libs() {
+    # echo "-lquiche -lnghttp2 -lcrypt32 -lwldap32 -lnormaliz -liphlpapi"
+# }
 
 ffbuild_cppflags() {
     echo "$static_flags $self_static_flags"
