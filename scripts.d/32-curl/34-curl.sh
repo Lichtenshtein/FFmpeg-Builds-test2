@@ -91,7 +91,7 @@ ffbuild_dockerbuild() {
     fi
 
     # curl и gcc 15.2 захлёбываются на LTO и уходят в segmentation fault
-    [[ "${USE_LTO}" != "1" ]] && local LTO_FIX="-fno-ipa-icf"
+    [[ "${USE_LTO}" = "1" ]] && local LTO_FIX="-fno-ipa-icf"
 
     CFLAGS="$CLEAN_CFLAGS ${USELTO} ${LTO_FIX}" \
     CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
