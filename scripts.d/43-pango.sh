@@ -61,8 +61,29 @@ ffbuild_dockerbuild() {
         -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
 
-    ninja $NINJA_V || return 1
-    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+    if [[ "${PREFER_SHARED}" == "1" ]]; then
+        ninja $NINJA_V || return 1
+        DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+    else
+        # Собираем только статические библиотеки
+        ninja pango/libpango-1.0.a \
+              pango/libpangocairo-1.0.a \
+              pango/libpangoft2-1.0.a \
+              pango/libpangowin32-1.0.a || return 1
+
+        # Создаем структуру директорий в DESTDIR
+        mkdir -p "$PC_DIR" "$INSTALL_ROOT/include/pango-1.0/pango"
+
+        # Копируем собранные библиотеки вручную
+        cp pango/*.a "$INSTALL_ROOT/lib/"
+
+        # Копируем заголовочные файлы
+        cp ../pango/*.h "$INSTALL_ROOT/include/pango-1.0/pango/" 2>/dev/null || true
+        cp pango/*.h "$INSTALL_ROOT/include/pango-1.0/pango/" 2>/dev/null || true
+
+        # Копируем и правим pkg-config файлы
+        cp meson-private/*pango*.pc "$PC_DIR/"
+    fi
 
     for pc in "$PC_DIR"/*pango*.pc; do
         [[ -e "$pc" ]] || continue
