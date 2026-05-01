@@ -90,10 +90,13 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared )
     fi
 
-    CFLAGS="$CLEAN_CFLAGS ${USELTO}" \
+    # curl и gcc 15.2 захлёбываются на LTO и уходят в segmentation fault
+    [[ "${USE_LTO}" != "1" ]] && local LTO_FIX="-fno-ipa-icf"
+
+    CFLAGS="$CLEAN_CFLAGS ${USELTO} ${LTO_FIX}" \
     CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
-    CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}" \
-    LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition ${USELTO}" \
+    CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO} ${LTO_FIX}" \
+    LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition ${USELTO} ${LTO_FIX}" \
     LIBS="$DEP_LIBS $WIN_SYS_LIBS $LIBS" \
     ./configure "${myconf[@]}" || return 1
 
