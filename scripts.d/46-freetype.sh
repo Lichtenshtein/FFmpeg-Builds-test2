@@ -11,11 +11,11 @@ ffbuild_depends() {
     echo librsvg
     echo zlib
     echo fontconfig
-    echo freetype
 }
 
 ffbuild_enabled() {
-    return 0
+    # SVG support via librsvg is by default only for demo programs (FT_DEMO_LDFLAGS), not for the library itself
+    return 1
 }
 
 ffbuild_dockerdl() {
@@ -28,7 +28,7 @@ ffbuild_dockerbuild() {
 
     ./autogen.sh
 
-    local DEP_LIBS="-lrsvg_2 -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lcairo-gobject -lcairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lpng16 -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz"
+    local DEP_LIBS="-Wl,--start-group -lrsvg_2 -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lcairo-gobject -lcairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lpng16 -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -Wl,--end-group"
     local WIN_LIBS="$LIBS"
 
     local myconf=(
@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
         --with-zlib
         --with-bzip2
         --with-brotli
-        --with-librsvg
+        --with-librsvg # for demo programs (FT_DEMO_LDFLAGS)
         --with-pic
     )
 
