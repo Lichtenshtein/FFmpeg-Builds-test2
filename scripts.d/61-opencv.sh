@@ -24,7 +24,21 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    sed -i 's/-ljbig//g' "${FFBUILD_PREFIX}/lib/pkgconfig/libtiff-4.pc"
+    # Создаем фиктивный файл, который удовлетворит требование JBIG::JBIG
+    # Это создаст реальную цель в памяти CMake, которую ищет imgcodecs
+    cat <<EOF > fix_opencv_deps.cmake
+add_library(JBIG::JBIG STATIC IMPORTED)
+set_target_properties(JBIG::JBIG PROPERTIES 
+    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libjbig.a")
+
+add_library(ZLIB::ZLIB STATIC IMPORTED)
+set_target_properties(ZLIB::ZLIB PROPERTIES 
+    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libz.a")
+
+add_library(JPEG::JPEG STATIC IMPORTED)
+set_target_properties(JPEG::JPEG PROPERTIES 
+    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libjpeg.a")
+EOF
 
     mkdir -p build && cd build
 
@@ -36,6 +50,7 @@ ffbuild_dockerbuild() {
     NUMPY_PATH=$(python3 -c "import numpy; print(numpy.get_include())")
 
     local myconf=(
+        -DCMAKE_PROJECT_INCLUDE="${PWD}/fix_opencv_deps.cmake"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
@@ -57,7 +72,7 @@ ffbuild_dockerbuild() {
         -DBUILD_WEBP=OFF
         -DBUILD_TIFF=OFF
         -DBUILD_TBB=OFF
-        -DBUILD_IPP_IW=OFF
+        -DBUILD_IPP_IW=ON
         # Отключаем лишнее для ускорения сборки
         -DBUILD_EXAMPLES=OFF
         -DBUILD_PACKAGE=OFF
@@ -92,11 +107,6 @@ ffbuild_dockerbuild() {
         -DWITH_VULKAN=ON
         -DWITH_WEBP=ON
         -DWITH_ZLIB_NG=ON
-        # CUDA; linux only
-        # -DWITH_CUDA=OFF # not supported
-        # -DOPENCV_DNN_CUDA=ON
-        # -DCUDA_ARCH_BIN=6.1 # Например, для Pascal
-        # -DCUDA_ARCH_PTX=6.1
         # Parallel processing
         -DWITH_OPENMP=OFF
         -DWITH_PTHREADS_PF=OFF
@@ -104,10 +114,17 @@ ffbuild_dockerbuild() {
         -DTBB_INCLUDE_DIRS="$FFBUILD_PREFIX/include"
         -DTBB_LIB_DIR="$FFBUILD_PREFIX/lib"
         # Указываем пути к библиотекам
+        -DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON
+        -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
+        -DCMAKE_DISABLE_FIND_PACKAGE_JPEG=ON
         -DZLIB_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.a"
         -DOPENJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include/openjpeg-2.5"
         -DOPENJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libopenjp2.a"
+        -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.a"
+        -DJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.a"
         # Включаем интеграцию с OpenVINO (Inference Engine)
         -DWITH_OPENVINO=ON
         -DOPENVINO_STATIC_COMPILATION=OFF
@@ -130,6 +147,11 @@ ffbuild_dockerbuild() {
     elif [[ $TARGET == linux64 ]]; then
         myconf+=(
         -DWITH_GSTREAMER=ON
+        # CUDA; linux only
+        # -DWITH_CUDA=OFF # not supported
+        # -DOPENCV_DNN_CUDA=ON
+        # -DCUDA_ARCH_BIN=6.1 # Например, для Pascal
+        # -DCUDA_ARCH_PTX=6.1
         )
     fi
 
@@ -148,11 +170,6 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
-
-    # Возвращаем -ljbig в tiff.pc для последующих компонентов
-    if [ -f "${FFBUILD_PREFIX}/lib/pkgconfig/libtiff-4.pc" ]; then
-        sed -i 's/Libs.private: /& -ljbig /' "${FFBUILD_PREFIX}/lib/pkgconfig/libtiff-4.pc"
-    fi
 }
 
 ffbuild_libs() {
