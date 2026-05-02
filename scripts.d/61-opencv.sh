@@ -24,23 +24,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Создаем фиктивный файл, который удовлетворит требование JBIG::JBIG
-    # Это создаст реальную цель в памяти CMake, которую ищет imgcodecs
-    cat <<EOF > fix_opencv_deps.cmake
-add_library(JBIG::JBIG STATIC IMPORTED)
-set_target_properties(JBIG::JBIG PROPERTIES 
-    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libjbig.a")
-
-add_library(ZLIB::ZLIB STATIC IMPORTED)
-set_target_properties(ZLIB::ZLIB PROPERTIES 
-    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libz.a")
-
-add_library(JPEG::JPEG STATIC IMPORTED)
-set_target_properties(JPEG::JPEG PROPERTIES 
-    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libjpeg.a")
-EOF
-
-    mkdir -p build && cd build
+grep -r "JBIG" /opt/ffbuild/lib/cmake/tiff/ || true
 
     # export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
     export OpenJPEG_DIR="$FFBUILD_PREFIX/lib/cmake/openjpeg-2.5"
@@ -48,6 +32,28 @@ EOF
 
     PYTHON_ROOT=$(python3 -c "import sys; print(sys.prefix)")
     NUMPY_PATH=$(python3 -c "import numpy; print(numpy.get_include())")
+
+    # вырезаем поиск JBIG из процесса нахождения TIFF
+    sed -i 's/include(FindTIFF)/set(TIFF_FOUND TRUE); set(TIFF_LIBRARY "${TIFF_LIBRARY}"); set(TIFF_LIBRARIES "${TIFF_LIBRARY}")/g' cmake/OpenCVFindLibsGrfmt.cmake
+
+    # Убираем "умный" парсинг заголовков, который может запутать OpenCV
+    sed -i 's/ocv_parse_header.*TIFF_VERSION/message(STATUS "Skipping TIFF header parse")/g' cmake/OpenCVFindLibsGrfmt.cmake
+
+    # очищаем GRFMT_LIBS от мусора в imgcodecs
+    sed -i '/list(APPEND GRFMT_LIBS ${TIFF_LIBRARIES})/i set(TIFF_LIBRARIES "${TIFF_LIBRARY}")' modules/imgcodecs/CMakeLists.txt
+
+    mkdir -p build && cd build
+
+    # Создаем фиктивный файл, который удовлетворит требование JBIG::JBIG
+    # Это создаст реальную цель в памяти CMake, которую ищет imgcodecs
+    cat <<EOF > fix_opencv_deps.cmake
+add_library(JBIG::JBIG STATIC IMPORTED)
+set_target_properties(JBIG::JBIG PROPERTIES IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libjbig.a")
+add_library(ZLIB::ZLIB STATIC IMPORTED)
+set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libz.a")
+add_library(JPEG::JPEG STATIC IMPORTED)
+set_target_properties(JPEG::JPEG PROPERTIES IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libjpeg.a")
+EOF
 
     local myconf=(
         -DCMAKE_PROJECT_INCLUDE="${PWD}/fix_opencv_deps.cmake"
@@ -57,6 +63,7 @@ EOF
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DOPENCV_GENERATE_PKGCONFIG=ON
+        -DOPENCV_CHECK_COMPILER_FLAGS=OFF
         -DCMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release
         -DCMAKE_POLICY_DEFAULT_CMP0091=NEW 
         -DCPU_BASELINE=AVX2
