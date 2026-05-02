@@ -105,7 +105,7 @@ includedir=\${prefix}/include
 
 Name: shaderc
 Description: Tools and libraries for Vulkan shader compilation (Static Combined)
-Version: $VER_FULL
+Version: 2026.1
 Libs: -L\${libdir} -lshaderc_combined -lshaderc_util -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lSPIRV -lSPIRV-Tools-opt -lSPIRV-Tools-link -lSPIRV-Tools
 Libs.private: -lstdc++ -lgomp -lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread
 Cflags: -I\${includedir}
@@ -119,7 +119,7 @@ includedir=\${prefix}/include
 
 Name: glslang
 Description: glslang library
-Version: $VER_FULL
+Version: 16.2.0
 Libs: -L\${libdir} -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lSPIRV -lglslang-default-resource-limits
 Cflags: -I\${includedir}
 EOF
