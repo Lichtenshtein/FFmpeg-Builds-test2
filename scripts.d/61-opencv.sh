@@ -24,7 +24,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    sed -i 's/-ljbig//g' "$PC_DIR/libtiff-4.pc"
+    sed -i 's/-ljbig//g' "${FFBUILD_PREFIX}/lib/pkgconfig/libtiff-4.pc"
 
     mkdir -p build && cd build
 
@@ -108,9 +108,6 @@ ffbuild_dockerbuild() {
         -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.a"
         -DOPENJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include/openjpeg-2.5"
         -DOPENJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libopenjp2.a"
-        # cmake не должен искать -ljbig
-        -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.a"
         # Включаем интеграцию с OpenVINO (Inference Engine)
         -DWITH_OPENVINO=ON
         -DOPENVINO_STATIC_COMPILATION=OFF
@@ -153,8 +150,8 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Возвращаем -ljbig в tiff.pc для последующих компонентов
-    if [ -f "$PC_DIR/libtiff-4.pc" ]; then
-        sed -i 's/Libs.private: /& -ljbig /' "$PC_DIR/libtiff-4.pc"
+    if [ -f "${FFBUILD_PREFIX}/lib/pkgconfig/libtiff-4.pc" ]; then
+        sed -i 's/Libs.private: /& -ljbig /' "${FFBUILD_PREFIX}/lib/pkgconfig/libtiff-4.pc"
     fi
 }
 
