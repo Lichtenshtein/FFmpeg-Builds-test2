@@ -79,7 +79,7 @@ includedir=\${prefix}/include
 
 Name: quiche
 Description: QUIC and HTTP/3 implementation
-Version: $VER_FULL
+Version: 0.24.5
 Libs: -L\${libdir} -lquiche
 Cflags: -I\${includedir}
 EOF
