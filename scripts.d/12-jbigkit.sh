@@ -22,6 +22,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DCMAKE_POLICY_DEFAULT_CMP0069=NEW
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DBUILD_PROGRAMS=OFF
         -DBUILD_TOOLS=OFF
