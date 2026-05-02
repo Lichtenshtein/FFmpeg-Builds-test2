@@ -65,6 +65,8 @@ ffbuild_dockerbuild() {
             # sed -i "/^Libs:/ a Libs.private: $DEP_LIBS $WIN_LIBS" "$PC_FILE"
         # fi
     # fi
+
+    ln -sf librsvg_c.pc "$PC_DIR/librsvg-2.0.pc"
 }
 
 ffbuild_configure() {

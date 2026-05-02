@@ -64,3 +64,11 @@ ffbuild_dockerbuild() {
     local PC_LINK="$PC_DIR/freetype.pc"
     ln -sf freetype2.pc "$PC_LINK"
 }
+
+ffbuild_configure() {
+    echo --enable-libfreetype
+}
+
+ffbuild_unconfigure() {
+    echo --disable-libfreetype
+}

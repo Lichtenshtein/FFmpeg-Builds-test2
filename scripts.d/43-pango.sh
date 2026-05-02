@@ -72,14 +72,14 @@ ffbuild_dockerbuild() {
               pango/libpangowin32-1.0.a || return 1
 
         # Создаем структуру директорий в DESTDIR
-        mkdir -p "$PC_DIR" "$INSTALL_ROOT/include/pango-1.0/pango"
+        mkdir -p "$PC_DIR" "$INSTALL_ROOT/include/pango"
 
         # Копируем собранные библиотеки вручную
         cp pango/*.a "$INSTALL_ROOT/lib/"
 
         # Копируем заголовочные файлы
-        cp ../pango/*.h "$INSTALL_ROOT/include/pango-1.0/pango/" 2>/dev/null || true
-        cp pango/*.h "$INSTALL_ROOT/include/pango-1.0/pango/" 2>/dev/null || true
+        cp ../pango/*.h "$INSTALL_ROOT/include/pango/" 2>/dev/null || true
+        cp pango/*.h "$INSTALL_ROOT/include/pango/" 2>/dev/null || true
 
         # Копируем и правим pkg-config файлы
         cp meson-private/*pango*.pc "$PC_DIR/"
