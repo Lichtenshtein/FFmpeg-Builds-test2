@@ -47,7 +47,7 @@ includedir=\${prefix}/include
 
 Name: xxhash
 Description: Extremely fast hash algorithm
-Version: $VER_FULL
+Version: 0.8.3
 Libs: -L\${libdir} -lxxhash
 Cflags: -I\${includedir}
 EOF

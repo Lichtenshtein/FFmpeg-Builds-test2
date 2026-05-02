@@ -48,7 +48,7 @@ includedir=\${prefix}/include
 
 Name: mpeghdec
 Description: MPEG-H 3D Audio Decoder library
-Version: $VER_FULL
+Version: 3.0.3
 Libs: -L\${libdir} -lmpeghdec
 Libs.private: -lstdc++
 Cflags: -I\${includedir}

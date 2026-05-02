@@ -57,7 +57,7 @@ includedir=\${prefix}/include
 
 Name: intl
 Description: GNU gettext runtime library
-Version: $VER_FULL
+Version: 1.0
 Libs: -L\${libdir} -lintl
 Libs.private: -liconv -lcharset
 Cflags: -I\${includedir}

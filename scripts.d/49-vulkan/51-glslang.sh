@@ -59,7 +59,7 @@ includedir=\${prefix}/include
 
 Name: glslang
 Description: glslang library
-Version: $VER_FULL
+Version: 16.2.0
 Libs: -L\${libdir} -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lSPIRV -lglslang-default-resource-limits
 Cflags: -I\${includedir}
 EOF

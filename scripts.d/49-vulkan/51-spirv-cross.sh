@@ -60,7 +60,7 @@ includedir=\${prefix}/include/spirv_cross
 
 Name: spirv-cross-c-shared
 Description: C API for SPIRV-Cross
-Version: $VER_FULL
+Version: 1.4.341.0
 
 Requires:
 Libs: -L\${libdir} -L\${sharedlibdir} -lspirv-cross-c -lspirv-cross-glsl -lspirv-cross-hlsl -lspirv-cross-reflect -lspirv-cross-msl -lspirv-cross-util -lspirv-cross-core -lstdc++
