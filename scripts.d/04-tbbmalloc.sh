@@ -53,10 +53,10 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Создаем симлинки для совместимости, если их нет
-    ln -s libtbb12.a "${FFBUILD_PREFIX}/lib/libtbb.a" || true
+    ln -s libtbb12.a "${INSTALL_ROOT}/lib/libtbb.a" || true
     # Если tbbmalloc тоже имеет суффикс
-    if [ -f "${FFBUILD_PREFIX}/lib/libtbbmalloc12.a" ]; then
-        ln -s libtbbmalloc12.a "${FFBUILD_PREFIX}/lib/libtbbmalloc.a" || true
+    if [ -f "${INSTALL_ROOT}/lib/libtbbmalloc12.a" ]; then
+        ln -s libtbbmalloc12.a "${INSTALL_ROOT}/lib/libtbbmalloc.a" || true
     fi
 }
 

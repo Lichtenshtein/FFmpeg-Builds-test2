@@ -75,6 +75,8 @@ EOF
     elif [[ $TARGET == win* ]]; then
         echo "Libs.private: -lole32 -lshlwapi -lcfgmgr32" >> "$PC_DIR/OpenCL.pc"
     fi
+
+    ln -sf "${INSTALL_ROOT}/lib/OpenCL.a" "${INSTALL_ROOT}/lib/libOpenCL.a"
 }
 
 ffbuild_configure() {
