@@ -203,24 +203,24 @@ ffbuild_dockerbuild() {
     find 3rdparty -name "*.a" -exec cp {} "${INSTALL_ROOT}/lib/" \;
 
     local PC_FILE="$PC_DIR/opencv4.pc"
-    local LIB_DIR="$${FFBUILD_PREFIX}/lib"
+    local LIB_DIR="${FFBUILD_PREFIX}/lib"
     if [ -f "$PC_FILE" ]; then
         log_info "Cleaning up OpenCV pkg-config file..."
         # удаляем дубликаты (если они уже были собраны ранее)
         # Если libpng.a уже существует, удаляем то, что принес OpenCV
         for lib in png zlib jpeg webp tiff; do
-            if [ -f "${LIB_DIR}/lib${lib}.a" ] && [ -f "${LIB_DIR}/liblib${lib}.a" ]; then
+            if [ -f "${LIB_DIR}/lib${lib}.a" ] && [ -f "${INSTALL_ROOT}/liblib${lib}.a" ]; then
                 log_info "Removing OpenCV's duplicate: liblib${lib}.a"
-                rm "${LIB_DIR}/liblib${lib}.a"
+                rm "${INSTALL_ROOT}/liblib${lib}.a"
             fi
         done
         # исправляем имена для уникальных 3rdparty либ opencv
         # liblibprotobuf.a -> libprotobuf.a
         for lib in protobuf ade ippiw ipphal IlmImf; do
-            if [ -f "${LIB_DIR}/liblib${lib}.a" ]; then
-                mv "${LIB_DIR}/liblib${lib}.a" "${LIB_DIR}/lib${lib}.a"
-            elif [ -f "${LIB_DIR}/lib${lib}4140.a" ]; then # на случай если там версия
-                mv "${LIB_DIR}/lib${lib}4140.a" "${LIB_DIR}/lib${lib}.a"
+            if [ -f "${INSTALL_ROOT}/liblib${lib}.a" ]; then
+                mv "${INSTALL_ROOT}/liblib${lib}.a" "${INSTALL_ROOT}/lib${lib}.a"
+            elif [ -f "${INSTALL_ROOT}/lib${lib}4140.a" ]; then # на случай если там версия
+                mv "${INSTALL_ROOT}/lib${lib}4140.a" "${INSTALL_ROOT}/lib${lib}.a"
             fi
         done
         # переносим все модули opencv из Libs.private в основные Libs
@@ -239,7 +239,7 @@ ffbuild_dockerbuild() {
         # Убираем абсолютные пути, если остались
         PRIV_LIBS=$(echo "$PRIV_LIBS" | sed "s|-L/build/[^ ]*||g")
         sed -i "s|^Libs:.*|Libs: -L\${libdir} ${ACTUAL_LIBS}|" "$PC_FILE"
-        sed -i "s|^Libs.private:.*|Libs.private: ${PRIV_LIBS} -lopenvino -lgdi32 -lcomctl32 -lwsock32 -lshlwapi -lsetupapi -lws2_32|" "$PC_FILE"
+        sed -i "s|^Libs.private:.*|Libs.private: ${PRIV_LIBS} -lopenvino|" "$PC_FILE"
         # Удаляем пустые Requires.private или дубликаты
         sed -i "s/Requires.private:.*//g" "$PC_FILE"
         # Чистим остатки: двойные пробелы и пустые генераторы
