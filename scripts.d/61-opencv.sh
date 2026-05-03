@@ -24,27 +24,13 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # временно перемещаем "отравленные" .cmake файлы tiff
     local TIFF_CMAKE_DIR="$FFBUILD_PREFIX/lib/cmake/tiff"
-    local TIFF_BACKUP_DIR="$TMP_DIR/tiff_cmake_backup"
+    local TIFF_HIDE_DIR="$TMP_DIR/tiff_hide"
     if [ -d "$TIFF_CMAKE_DIR" ]; then
-        log_info "Applying surgical TIFF dependency bypass for OpenCV..."
-        mkdir -p "$TIFF_BACKUP_DIR"
-        cp "$TIFF_CMAKE_DIR"/*.cmake "$TIFF_BACKUP_DIR/"
-        # Удаляем JBIG вместе с экранированным разделителем, если он есть
-        sed -i 's/\\;\$<LINK_ONLY:JBIG::JBIG>//g' "$TIFF_CMAKE_DIR"/*.cmake
-        sed -i 's/\$<LINK_ONLY:JBIG::JBIG>\\;//g' "$TIFF_CMAKE_DIR"/*.cmake
-        # На случай, если он остался без LINK_ONLY
-        sed -i 's/JBIG::JBIG//g' "$TIFF_CMAKE_DIR"/*.cmake
-        # Схлопываем двойные и тройные разделители
-        # Это уберет те самые \;\; и ;;, которые ломают парсинг
-        sed -i 's/\\;\\;/\\;/g' "$TIFF_CMAKE_DIR"/*.cmake
-        sed -i 's/;;/;/g' "$TIFF_CMAKE_DIR"/*.cmake
-        # Убираем разделитель перед закрывающей кавычкой
-        sed -i 's/\\;\"/\"/g' "$TIFF_CMAKE_DIR"/*.cmake
-        sed -i 's/;\"/\"/g' "$TIFF_CMAKE_DIR"/*.cmake
-        log_info "Post-patch check (should be empty):"
-        grep "JBIG" "$TIFF_CMAKE_DIR"/*.cmake || echo "Clean."
-        cat /opt/ffbuild/lib/cmake/tiff/tiff-targets.cmake || true
+        log_info "Hiding TIFF CMake configs to force raw library usage..."
+        mkdir -p "$TIFF_HIDE_DIR"
+        mv "$TIFF_CMAKE_DIR"/* "$TIFF_HIDE_DIR/"
     fi
 
     # export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
@@ -166,10 +152,10 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
-    LIBS="$LIBS $ADDITIONAL_LIBS" \
+    LIBS="-ljbig $LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || {
         log_error "CMake failed, restoring TIFF..."
-        [ -d "$TIFF_BACKUP_DIR" ] && cp "$TIFF_BACKUP_DIR"/*.cmake "$TIFF_CMAKE_DIR/"
+        [ -d "$TIFF_HIDE_DIR" ] && mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
         return 1
     }
 
@@ -181,16 +167,17 @@ ffbuild_dockerbuild() {
     fi
 
     ninja $NINJA_V || {
-        [ -d "$TIFF_BACKUP_DIR" ] && cp "$TIFF_BACKUP_DIR"/*.cmake "$TIFF_CMAKE_DIR/"
+        log_error "Build failed, restoring TIFF..."
+        [ -d "$TIFF_HIDE_DIR" ] && mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
         return 1
     }
 
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
-    if [ -d "$TIFF_BACKUP_DIR" ]; then
-        log_info "Restoring original TIFF CMake files..."
-        cp "$TIFF_BACKUP_DIR"/*.cmake "$TIFF_CMAKE_DIR/"
-        rm -rf "$TIFF_BACKUP_DIR"
+    if [ -d "$TIFF_HIDE_DIR" ]; then
+        log_info "Restoring TIFF CMake files..."
+        mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
+        rm -rf "$TIFF_HIDE_DIR"
     fi
 }
 
