@@ -27,21 +27,23 @@ ffbuild_dockerbuild() {
     local TIFF_CMAKE_DIR="$FFBUILD_PREFIX/lib/cmake/tiff"
     local TIFF_BACKUP_DIR="$TMP_DIR/tiff_cmake_backup"
     if [ -d "$TIFF_CMAKE_DIR" ]; then
-        echo "Applying TIFF dependency bypass for OpenCV..."
+        log_info "Applying surgical TIFF dependency bypass for OpenCV..."
         mkdir -p "$TIFF_BACKUP_DIR"
-        # Бэкапим оригиналы
         cp "$TIFF_CMAKE_DIR"/*.cmake "$TIFF_BACKUP_DIR/"
-        # Удаляем JBIG из всех cmake файлов в префиксе
-        # Вырезаем из списка интерфейсных библиотек
-        sed -i 's/\$<LINK_ONLY:JBIG::JBIG>//g' "$TIFF_CMAKE_DIR"/*.cmake
-        # Удаляем упоминания как цели
+        # Удаляем JBIG вместе с экранированным разделителем, если он есть
+        sed -i 's/\\;\$<LINK_ONLY:JBIG::JBIG>//g' "$TIFF_CMAKE_DIR"/*.cmake
+        sed -i 's/\$<LINK_ONLY:JBIG::JBIG>\\;//g' "$TIFF_CMAKE_DIR"/*.cmake
+        # На случай, если он остался без LINK_ONLY
         sed -i 's/JBIG::JBIG//g' "$TIFF_CMAKE_DIR"/*.cmake
-        # Чистим двойные разделители (;;), которые ломают парсинг списков CMake
+        # Схлопываем двойные и тройные разделители
+        # Это уберет те самые \;\; и ;;, которые ломают парсинг
+        sed -i 's/\\;\\;/\\;/g' "$TIFF_CMAKE_DIR"/*.cmake
         sed -i 's/;;/;/g' "$TIFF_CMAKE_DIR"/*.cmake
-        # Убираем лишние точки с запятой в начале/конце строк
-        sed -i 's/\"\;/\"/g' "$TIFF_CMAKE_DIR"/*.cmake
-        sed -i 's/\;\"/\"/g' "$TIFF_CMAKE_DIR"/*.cmake
-        grep -r "JBIG" /opt/ffbuild/lib/cmake/tiff/ || true
+        # Убираем разделитель перед закрывающей кавычкой
+        sed -i 's/\\;\"/\"/g' "$TIFF_CMAKE_DIR"/*.cmake
+        sed -i 's/;\"/\"/g' "$TIFF_CMAKE_DIR"/*.cmake
+        log_info "Post-patch check (should be empty):"
+        grep "JBIG" "$TIFF_CMAKE_DIR"/*.cmake || echo "Clean."
         cat /opt/ffbuild/lib/cmake/tiff/tiff-targets.cmake || true
     fi
 
@@ -55,7 +57,6 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     local myconf=(
-        -DCMAKE_PROJECT_INCLUDE="${PWD}/fix_opencv_deps.cmake"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
