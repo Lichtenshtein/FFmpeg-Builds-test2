@@ -195,17 +195,21 @@ ffbuild_dockerbuild() {
         rm -rf "$TIFF_HIDE_DIR"
     fi
 
-    mkdir -p "${INSTALL_ROOT}/lib/opencv4/3rdparty"
+    # Физически копируем внутренние либы OpenCV туда, где линкер их точно найдет
+    log_info "Moving OpenCV 3rdparty libs to main lib directory..."
+    # Ищем все .a файлы внутри папки сборки 3rdparty и копируем в префикс
+    find 3rdparty -name "*.a" -exec cp {} "${INSTALL_ROOT}/lib/" \;
+
     local PC_FILE="$PC_DIR/opencv4.pc"
     if [ -f "$PC_FILE" ]; then
         log_info "Cleaning up OpenCV pkg-config file..."
         # Убираем абсолютные пути сборки (/build/...)
         sed -i "s|-L/build/[^ ]*||g" "$PC_FILE"
+        # Удаляем путь к 3rdparty, так как мы перенесли либы в общий корень
+        sed -i 's/-L\${exec_prefix}\/lib\/opencv4\/3rdparty//g' "$PC_FILE"
+        sed -i 's|-L${exec_prefix}/lib/opencv4/3rdparty||g' "$PC_FILE"
         # Убираем "lib" префиксы, которые превращаются в -llib...
-        sed -i 's/-llibprotobuf/-lprotobuf/g' "$PC_FILE"
-        sed -i 's/-llibpng/-lpng/g' "$PC_FILE"
-        sed -i 's/-llibwebp/-lwebp/g' "$PC_FILE"
-        sed -i 's/-llibjpeg/-ljpeg/g' "$PC_FILE"
+        sed -i -E 's/-llib(protobuf|ade|png|jpeg|webp|zlib|ipp)/-l\1/g' "$PC_FILE"
         # -lRunTmChk.a и -lntdll.a не нужны в таком виде
         sed -i 's/-lRunTmChk.a//g' "$PC_FILE"
         sed -i 's/-lntdll.a//g' "$PC_FILE"
@@ -213,8 +217,12 @@ ffbuild_dockerbuild() {
         sed -i "s|-lopencv_[^ ]*||g" "$PC_FILE"
         sed -i "s|^Libs.private:.*|& -lopenvino -lgdi32 -lcomctl32 -lwsock32|" "$PC_FILE"
         # переносим все модули opencv из Libs.private в основные Libs
-        local ALL_MODULES=$(grep -o -- "-lopencv_[^ ]*" "$PC_FILE" | sort -u | tr '\n' ' ')
-        sed -i "s|^Libs:.*|Libs: -L\${libdir} ${ALL_MODULES}|" "$PC_FILE"
+        local ACTUAL_LIBS=$(find "${FFBUILD_DESTDIR}${FFBUILD_PREFIX}/lib" -name "libopencv_*.a" -printf "%f\n" | sed 's/^lib//;s/\.a$//' | xargs -I{} echo -l{} | tr '\n' ' ')
+        # Убираем любые упоминания -lopencv_* из текущего файла, чтобы избежать дублей
+        sed -i "s/-lopencv_[^ ]*//g" "$PC_FILE"
+        # Вставляем актуальный список в основную секцию Libs
+        # Мы ставим их сразу после -L${libdir}
+        sed -i "s|^Libs:.*|Libs: -L\${libdir} ${ACTUAL_LIBS}|" "$PC_FILE"
     fi
 }
 
