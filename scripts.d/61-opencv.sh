@@ -197,54 +197,48 @@ ffbuild_dockerbuild() {
         rm -rf "$TIFF_HIDE_DIR"
     fi
 
-    # Физически копируем внутренние либы OpenCV туда, где линкер их точно найдет
-    log_info "Moving OpenCV 3rdparty libs to main lib directory..."
-    # Ищем все .a файлы внутри папки сборки 3rdparty и копируем в префикс
-    find 3rdparty -name "*.a" -exec cp {} "${INSTALL_ROOT}/lib/" \;
-
+    local DEST_LIB="${INSTALL_ROOT}/lib"
     local PC_FILE="$PC_DIR/opencv4.pc"
-    local LIB_DIR="${FFBUILD_PREFIX}/lib"
+
+    log_info "Moving OpenCV 3rdparty libs to main lib directory..."
+    find 3rdparty -name "*.a" -exec mv {} "${DEST_LIB}/" \;
+
+    # исправление имен liblib -> lib
+    pushd "${DEST_LIB}"
+    for f in liblib*.a; do
+        if [ -f "$f" ]; then
+            newname=$(echo "$f" | sed 's/liblib/lib/')
+            log_info "Renaming $f to $newname"
+            if [ -f "$newname" ]; then
+                rm "$f"
+            else
+                mv "$f" "$newname"
+            fi
+        fi
+    done
+    popd
+
     if [ -f "$PC_FILE" ]; then
         log_info "Cleaning up OpenCV pkg-config file..."
-        # удаляем дубликаты (если они уже были собраны ранее)
-        # Если libpng.a уже существует, удаляем то, что принес OpenCV
-        for lib in png zlib jpeg webp tiff; do
-            if [ -f "${LIB_DIR}/lib${lib}.a" ] && [ -f "${INSTALL_ROOT}/liblib${lib}.a" ]; then
-                log_info "Removing OpenCV's duplicate: liblib${lib}.a"
-                rm "${INSTALL_ROOT}/liblib${lib}.a"
-            fi
-        done
-        # исправляем имена для уникальных 3rdparty либ opencv
-        # liblibprotobuf.a -> libprotobuf.a
-        for lib in protobuf ade ippiw ipphal IlmImf; do
-            if [ -f "${INSTALL_ROOT}/liblib${lib}.a" ]; then
-                mv "${INSTALL_ROOT}/liblib${lib}.a" "${INSTALL_ROOT}/lib${lib}.a"
-            elif [ -f "${INSTALL_ROOT}/lib${lib}4140.a" ]; then # на случай если там версия
-                mv "${INSTALL_ROOT}/lib${lib}4140.a" "${INSTALL_ROOT}/lib${lib}.a"
-            fi
-        done
+        # Вытаскиваем версию для регулярки (динамически)
+        local OPENCV_VER_SUFFIX=$(find "${DEST_LIB}" -name "libopencv_core*.a" | grep -oE "[0-9]+.a$" | sed 's/.a//')
         # переносим все модули opencv из Libs.private в основные Libs
-        local ACTUAL_LIBS=$(find "${INSTALL_ROOT}/lib" -name "libopencv_*.a" -printf "%f\n" | sed 's/^lib//;s/\.a$//' | xargs -I{} echo -l{} | tr '\n' ' ')
+        local ACTUAL_LIBS=$(find "${DEST_LIB}" -name "libopencv_*.a" -printf "%f\n" | sed 's/^lib//;s/\.a$//' | xargs -I{} echo -l{} | tr '\n' ' ')
         # Убираем любые упоминания -lopencv_* из текущего файла, чтобы избежать дублей
-        sed -i "s|-lopencv_[^ ]*||g" "$PC_FILE"
         # Удаляем путь к 3rdparty, так как мы перенесли либы в общий корень
         sed -i 's|-L${exec_prefix}/lib/opencv4/3rdparty||g' "$PC_FILE"
-        # Убираем "lib" префиксы, которые превращаются в -llib...
-        sed -i "s/-llib/-l/g" "$PC_FILE"
-        # -lRunTmChk.a и -lntdll.a не нужны в таком виде
-        sed -i 's/-lRunTmChk.a//g' "$PC_FILE"
-        sed -i 's/-lntdll.a//g' "$PC_FILE"
         # Формируем чистую строку Libs
-        local PRIV_LIBS=$(grep "Libs.private:" "$PC_FILE" | cut -d':' -f2-)
-        # Убираем абсолютные пути, если остались
-        PRIV_LIBS=$(echo "$PRIV_LIBS" | sed "s|-L/build/[^ ]*||g")
+        local OLD_PRIVATES=$(grep "Libs.private:" "$PC_FILE" | cut -d':' -f2-)
+        # Чистим зависимости: liblib -> lib, абсолютные пути, мусор
+        local CLEAN_PRIVATES=$(echo "$OLD_PRIVATES" | sed -E 's/-llib/-l/g; s|-L/build/[^ ]*||g; s/-lRunTmChk.a//g; s/-lntdll.a//g; s/-lopencv_[^ ]*//g')
+        # Добавляем необходимые системные либы
+        CLEAN_PRIVATES="${CLEAN_PRIVATES} -lopenvino"
+        # Записываем в файл
         sed -i "s|^Libs:.*|Libs: -L\${libdir} ${ACTUAL_LIBS}|" "$PC_FILE"
-        sed -i "s|^Libs.private:.*|Libs.private: ${PRIV_LIBS} -lopenvino|" "$PC_FILE"
-        # Удаляем пустые Requires.private или дубликаты
-        sed -i "s/Requires.private:.*//g" "$PC_FILE"
-        # Чистим остатки: двойные пробелы и пустые генераторы
+        sed -i "s|^Libs.private:.*|Libs.private: ${CLEAN_PRIVATES}|" "$PC_FILE"
+        sed -i "s/Requires.private:.*/Requires.private: /" "$PC_FILE"
+        # Удаляем лишние пробелы
         sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"
-        log_info "Cleaned OpenCV .pc modules: ${ACTUAL_LIBS}"
     fi
 }
 
