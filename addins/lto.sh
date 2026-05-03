@@ -30,7 +30,7 @@ for tool in AR NM RANLIB; do
         exit 1
     fi
 done
-log_info "${CHECK_MARK} LTO tools verified: AR=$AR, NM=$NM, RANLIB=$RANLIB"
+log_info "${CHECK_MARK} LTO tools verified:\nAR=$AR\nNM=$NM\nRANLIB=$RANLIB"
 
 if [[ "$ENABLE_SHARED" == "1" ]]; then
     log_warn "LTO + Shared builds may have linker issues on some systems. Monitor carefully."
