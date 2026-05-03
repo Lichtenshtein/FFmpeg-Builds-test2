@@ -33,6 +33,15 @@ ffbuild_dockerbuild() {
         mv "$TIFF_CMAKE_DIR"/* "$TIFF_HIDE_DIR/"
     fi
 
+    # Фикс для IPP IW под MinGW (удаляем использование __try/__except)
+    # Этот файл распаковывается во время работы cmake, поэтому если его еще нет, 
+    # патч выше через -DIPP_W_NO_SEH предпочтительнее.
+    # Но если cmake уже отработал один раз, файлы лежат в build/3rdparty/...
+    if [ -f "build/3rdparty/ippicv/ippicv_win/iw/src/iw_own.c" ]; then
+        sed -i 's/__try/if(1)/g' build/3rdparty/ippicv/ippicv_win/iw/src/iw_own.c
+        sed -i 's/__except.*)/else if(0)/g' build/3rdparty/ippicv/ippicv_win/iw/src/iw_own.c
+    fi
+
     # export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
     export OpenJPEG_DIR="$FFBUILD_PREFIX/lib/cmake/openjpeg-2.5"
     export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
@@ -64,8 +73,6 @@ ffbuild_dockerbuild() {
         -DBUILD_OPENJPEG=OFF
         -DBUILD_WEBP=OFF
         -DBUILD_TIFF=OFF
-        -DBUILD_TBB=OFF
-        -DBUILD_IPP_IW=ON
         # Отключаем лишнее для ускорения сборки
         -DBUILD_EXAMPLES=OFF
         -DBUILD_PACKAGE=OFF
@@ -86,8 +93,6 @@ ffbuild_dockerbuild() {
         # -DOPENCV_SKIP_PYTHON_LOADER=ON
         # Включаем форматы
         -DWITH_AVIF=ON
-        -DWITH_IPP=ON
-        -DOPENCV_IPP_ENABLE_ALL=ON
         -DWITH_JPEG=ON
         -DWITH_JPEGXL=ON
         -DWITH_MSMF_DXVA=ON
@@ -100,7 +105,13 @@ ffbuild_dockerbuild() {
         -DWITH_VULKAN=ON
         -DWITH_WEBP=ON
         -DWITH_ZLIB_NG=ON
+        # IPP
+        -DBUILD_IPP_IW=ON
+        -DWITH_IPP=ON
+        -DOPENCV_IPP_ENABLE_ALL=ON
+        -DIPP_IW_DISABLE_SEH=ON
         # Parallel processing
+        -DBUILD_TBB=OFF
         -DWITH_OPENMP=OFF
         -DWITH_PTHREADS_PF=OFF
         -DWITH_TBB=ON
@@ -149,8 +160,8 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS -DIPP_W_NO_SEH" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS -DIPP_W_NO_SEH" \
     LDFLAGS="$LDFLAGS" \
     LIBS="-ljbig $LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || {
