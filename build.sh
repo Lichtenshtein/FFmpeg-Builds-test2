@@ -310,7 +310,7 @@ chmod +x configure
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
     "${TARGET_FLAGS_ARR[@]}"
-    --host-cc="gcc-14"
+    --host-cc="gcc"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
