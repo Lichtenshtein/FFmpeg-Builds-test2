@@ -72,14 +72,16 @@ ffbuild_dockerbuild() {
     ln -sf libzstd.pc "$PC_DIR/zstd.pc"
 }
 
-ffbuild_cppflags() {
-    echo "$static_flags -DZSTD_MULTITHREAD"
-}
+# no such flags :\
 
-ffbuild_configure() {
-    echo --enable-zstd
-}
+# ffbuild_cppflags() {
+    # echo "$static_flags -DZSTD_MULTITHREAD"
+# }
 
-ffbuild_unconfigure() {
-    echo --disable-zstd
-}
+# ffbuild_configure() {
+    # echo --enable-zstd
+# }
+
+# ffbuild_unconfigure() {
+    # echo --disable-zstd
+# }

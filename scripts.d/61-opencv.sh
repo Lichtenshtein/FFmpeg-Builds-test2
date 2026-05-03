@@ -194,11 +194,33 @@ ffbuild_dockerbuild() {
         mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
         rm -rf "$TIFF_HIDE_DIR"
     fi
+
+    mkdir -p "${INSTALL_ROOT}/lib/opencv4/3rdparty"
+    local PC_FILE="$PC_DIR/opencv4.pc"
+    if [ -f "$PC_FILE" ]; then
+        log_info "Cleaning up OpenCV pkg-config file..."
+        # Убираем абсолютные пути сборки (/build/...)
+        sed -i "s|-L/build/[^ ]*||g" "$PC_FILE"
+        # Убираем "lib" префиксы, которые превращаются в -llib...
+        sed -i 's/-llibprotobuf/-lprotobuf/g' "$PC_FILE"
+        sed -i 's/-llibpng/-lpng/g' "$PC_FILE"
+        sed -i 's/-llibwebp/-lwebp/g' "$PC_FILE"
+        sed -i 's/-llibjpeg/-ljpeg/g' "$PC_FILE"
+        # -lRunTmChk.a и -lntdll.a не нужны в таком виде
+        sed -i 's/-lRunTmChk.a//g' "$PC_FILE"
+        sed -i 's/-lntdll.a//g' "$PC_FILE"
+        # дубликаты модулей opencv из Libs.private, чтобы не раздувать строку
+        sed -i "s|-lopencv_[^ ]*||g" "$PC_FILE"
+        sed -i "s|^Libs.private:.*|& -lopenvino -lgdi32 -lcomctl32 -lwsock32|" "$PC_FILE"
+        # переносим все модули opencv из Libs.private в основные Libs
+        local ALL_MODULES=$(grep -o -- "-lopencv_[^ ]*" "$PC_FILE" | sort -u | tr '\n' ' ')
+        sed -i "s|^Libs:.*|Libs: -L\${libdir} ${ALL_MODULES}|" "$PC_FILE"
+    fi
 }
 
-ffbuild_libs() {
-    echo "-lopencv_dnn -lopencv_imgproc -lopencv_core"
-}
+# ffbuild_libs() {
+    # echo "-lopencv_dnn -lopencv_imgproc -lopencv_core"
+# }
 
 ffbuild_configure() {
     echo --enable-libopencv
