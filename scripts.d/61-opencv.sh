@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/opencv/opencv.git"
-SCRIPT_COMMIT="2027a3399076b099930fc8eb2721d8c028fdabc0"
+SCRIPT_COMMIT="10dad24385b547e4120cc07ddc27cdd202d753e0"
 
 ffbuild_depends() {
     echo vulkan-headers
@@ -31,15 +31,6 @@ ffbuild_dockerbuild() {
         log_info "Hiding TIFF CMake configs to force raw library usage..."
         mkdir -p "$TIFF_HIDE_DIR"
         mv "$TIFF_CMAKE_DIR"/* "$TIFF_HIDE_DIR/"
-    fi
-
-    # Фикс для IPP IW под MinGW (удаляем использование __try/__except)
-    # Этот файл распаковывается во время работы cmake, поэтому если его еще нет, 
-    # патч выше через -DIPP_W_NO_SEH предпочтительнее.
-    # Но если cmake уже отработал один раз, файлы лежат в build/3rdparty/...
-    if [ -f "build/3rdparty/ippicv/ippicv_win/iw/src/iw_own.c" ]; then
-        sed -i 's/__try/if(1)/g' build/3rdparty/ippicv/ippicv_win/iw/src/iw_own.c
-        sed -i 's/__except.*)/else if(0)/g' build/3rdparty/ippicv/ippicv_win/iw/src/iw_own.c
     fi
 
     # export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
@@ -160,8 +151,8 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    CFLAGS="$CFLAGS $CPPFLAGS -DIPP_W_NO_SEH" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS -DIPP_W_NO_SEH" \
+    CFLAGS="$CFLAGS $CPPFLAGS -D_WIN32_WINNT=0x0600" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS -D_WIN32_WINNT=0x0600" \
     LDFLAGS="$LDFLAGS" \
     LIBS="-ljbig $LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || {
@@ -169,6 +160,19 @@ ffbuild_dockerbuild() {
         [ -d "$TIFF_HIDE_DIR" ] && mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
         return 1
     }
+
+    # ПАТЧ IPP IW
+    local IPP_IW_FILE="3rdparty/ippicv/ippicv_win/iw/src/iw_own.c"
+    if [ -f "$IPP_IW_FILE" ]; then
+        log_info "Surgically removing SEH from IPP IW..."
+        # Заменяем __try на простой блок
+        sed -i 's/__try/if(1)/g' "$IPP_IW_FILE"
+        # Заменяем __except(...) на else if(0)
+        sed -i 's/__except(EXCEPTION_EXECUTE_HANDLER)/else if(0)/g' "$IPP_IW_FILE"
+        sed -i 's/__except(1)/else if(0)/g' "$IPP_IW_FILE"
+    else
+        log_warn "IPP IW file not found at $IPP_IW_FILE, skipping patch."
+    fi
 
     if ! grep -qiE "OPENVINO:.*(YES|ON|TRUE)" CMakeCache.txt && ! grep -qi "HAVE_OPENVINO:INTERNAL=ON" CMakeCache.txt; then
         log_error "OpenVINO was not detected in CMakeCache.txt!"
