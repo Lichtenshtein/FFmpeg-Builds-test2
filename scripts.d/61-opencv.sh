@@ -24,7 +24,25 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    local TIFF_CMAKE_DIR="$FFBUILD_PREFIX/lib/cmake/tiff"
+    local TIFF_BACKUP_DIR="$TMP_DIR/tiff_cmake_backup"
+
+    # Создаем бэкап файлов CMake от libtiff
+    if [ -d "$TIFF_CMAKE_DIR" ]; then
+        echo "Creating TIFF CMake backup..."
+        mkdir -p "$TIFF_BACKUP_DIR"
+        cp "$TIFF_CMAKE_DIR"/*.cmake "$TIFF_BACKUP_DIR/"
+        # Удаляем JBIG из целевых файлов CMake
+        # ищем JBIG::JBIG и ;jbig (как в списках) и вырезаем их
+        echo "Patching TIFF CMake files to remove JBIG..."
+        sed -i 's/JBIG::JBIG//g' "$TIFF_CMAKE_DIR"/*.cmake
+        sed -i 's/\$<LINK_ONLY:JBIG::JBIG>//g' "$TIFF_CMAKE_DIR"/*.cmake
+        # Удаляем возможные двойные точки с запятой, которые остаются после удаления
+        sed -i 's/;;/;/g' "$TIFF_CMAKE_DIR"/*.cmake
+    fi
+
 grep -r "JBIG" /opt/ffbuild/lib/cmake/tiff/ || true
+cat /opt/ffbuild/lib/cmake/tiff/tiff-targets.cmake || true
 
     # export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
     export OpenJPEG_DIR="$FFBUILD_PREFIX/lib/cmake/openjpeg-2.5"
@@ -33,27 +51,7 @@ grep -r "JBIG" /opt/ffbuild/lib/cmake/tiff/ || true
     PYTHON_ROOT=$(python3 -c "import sys; print(sys.prefix)")
     NUMPY_PATH=$(python3 -c "import numpy; print(numpy.get_include())")
 
-    # вырезаем поиск JBIG из процесса нахождения TIFF
-    sed -i 's/include(FindTIFF)/set(TIFF_FOUND TRUE); set(TIFF_LIBRARY "${TIFF_LIBRARY}"); set(TIFF_LIBRARIES "${TIFF_LIBRARY}")/g' cmake/OpenCVFindLibsGrfmt.cmake
-
-    # Убираем "умный" парсинг заголовков, который может запутать OpenCV
-    sed -i 's/ocv_parse_header.*TIFF_VERSION/message(STATUS "Skipping TIFF header parse")/g' cmake/OpenCVFindLibsGrfmt.cmake
-
-    # очищаем GRFMT_LIBS от мусора в imgcodecs
-    sed -i '/list(APPEND GRFMT_LIBS ${TIFF_LIBRARIES})/i set(TIFF_LIBRARIES "${TIFF_LIBRARY}")' modules/imgcodecs/CMakeLists.txt
-
     mkdir -p build && cd build
-
-    # Создаем фиктивный файл, который удовлетворит требование JBIG::JBIG
-    # Это создаст реальную цель в памяти CMake, которую ищет imgcodecs
-    cat <<EOF > fix_opencv_deps.cmake
-add_library(JBIG::JBIG STATIC IMPORTED)
-set_target_properties(JBIG::JBIG PROPERTIES IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libjbig.a")
-add_library(ZLIB::ZLIB STATIC IMPORTED)
-set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libz.a")
-add_library(JPEG::JPEG STATIC IMPORTED)
-set_target_properties(JPEG::JPEG PROPERTIES IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libjpeg.a")
-EOF
 
     local myconf=(
         -DCMAKE_PROJECT_INCLUDE="${PWD}/fix_opencv_deps.cmake"
@@ -166,7 +164,10 @@ EOF
     CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
     LIBS="$LIBS $ADDITIONAL_LIBS" \
-    cmake -G Ninja "${myconf[@]}" .. || return 1
+    cmake -G Ninja "${myconf[@]}" .. || {
+        # Если cmake упал, восстанавливаем бэкап и выходим
+        [ -d "$TIFF_BACKUP_DIR" ] && cp "$TIFF_BACKUP_DIR"/*.cmake "$TIFF_CMAKE_DIR/"
+        return 1
 
     if ! grep -qiE "OPENVINO:.*(YES|ON|TRUE)" CMakeCache.txt && ! grep -qi "HAVE_OPENVINO:INTERNAL=ON" CMakeCache.txt; then
         echo "ERROR: OpenVINO was not detected in CMakeCache.txt!"
@@ -176,7 +177,22 @@ EOF
     fi
 
     ninja $NINJA_V || return 1
-    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    if ! ninja $NINJA_V; then
+        [ -d "$TIFF_BACKUP_DIR" ] && cp "$TIFF_BACKUP_DIR"/*.cmake "$TIFF_CMAKE_DIR/"
+        return 1
+    fi
+
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || {
+        [ -d "$TIFF_BACKUP_DIR" ] && cp "$TIFF_BACKUP_DIR"/*.cmake "$TIFF_CMAKE_DIR/"
+        return 1
+    }
+
+    if [ -d "$TIFF_BACKUP_DIR" ]; then
+        echo "Restoring original TIFF CMake files..."
+        cp "$TIFF_BACKUP_DIR"/*.cmake "$TIFF_CMAKE_DIR/"
+        rm -rf "$TIFF_BACKUP_DIR"
+    fi
 }
 
 ffbuild_libs() {
