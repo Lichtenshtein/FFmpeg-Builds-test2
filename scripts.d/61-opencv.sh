@@ -3,6 +3,8 @@
 SCRIPT_REPO="https://github.com/opencv/opencv.git"
 SCRIPT_COMMIT="10dad24385b547e4120cc07ddc27cdd202d753e0"
 
+export SKIP_POST_PATCH=1
+
 ffbuild_depends() {
     echo vulkan-headers
     echo vulkan-loader
@@ -201,28 +203,48 @@ ffbuild_dockerbuild() {
     find 3rdparty -name "*.a" -exec cp {} "${INSTALL_ROOT}/lib/" \;
 
     local PC_FILE="$PC_DIR/opencv4.pc"
+    local LIB_DIR="$${FFBUILD_PREFIX}/lib"
     if [ -f "$PC_FILE" ]; then
         log_info "Cleaning up OpenCV pkg-config file..."
-        # Убираем абсолютные пути сборки (/build/...)
-        sed -i "s|-L/build/[^ ]*||g" "$PC_FILE"
+        # удаляем дубликаты (если они уже были собраны ранее)
+        # Если libpng.a уже существует, удаляем то, что принес OpenCV
+        for lib in png zlib jpeg webp tiff; do
+            if [ -f "${LIB_DIR}/lib${lib}.a" ] && [ -f "${LIB_DIR}/liblib${lib}.a" ]; then
+                log_info "Removing OpenCV's duplicate: liblib${lib}.a"
+                rm "${LIB_DIR}/liblib${lib}.a"
+            fi
+        done
+        # исправляем имена для уникальных 3rdparty либ opencv
+        # liblibprotobuf.a -> libprotobuf.a
+        for lib in protobuf ade ippiw ipphal IlmImf; do
+            if [ -f "${LIB_DIR}/liblib${lib}.a" ]; then
+                mv "${LIB_DIR}/liblib${lib}.a" "${LIB_DIR}/lib${lib}.a"
+            elif [ -f "${LIB_DIR}/lib${lib}4140.a" ]; then # на случай если там версия
+                mv "${LIB_DIR}/lib${lib}4140.a" "${LIB_DIR}/lib${lib}.a"
+            fi
+        done
+        # переносим все модули opencv из Libs.private в основные Libs
+        local ACTUAL_LIBS=$(find "${INSTALL_ROOT}/lib" -name "libopencv_*.a" -printf "%f\n" | sed 's/^lib//;s/\.a$//' | xargs -I{} echo -l{} | tr '\n' ' ')
+        # Убираем любые упоминания -lopencv_* из текущего файла, чтобы избежать дублей
+        sed -i "s|-lopencv_[^ ]*||g" "$PC_FILE"
         # Удаляем путь к 3rdparty, так как мы перенесли либы в общий корень
-        sed -i 's/-L\${exec_prefix}\/lib\/opencv4\/3rdparty//g' "$PC_FILE"
         sed -i 's|-L${exec_prefix}/lib/opencv4/3rdparty||g' "$PC_FILE"
         # Убираем "lib" префиксы, которые превращаются в -llib...
-        sed -i -E 's/-llib(protobuf|ade|png|jpeg|webp|zlib|ipp)/-l\1/g' "$PC_FILE"
+        sed -i "s/-llib/-l/g" "$PC_FILE"
         # -lRunTmChk.a и -lntdll.a не нужны в таком виде
         sed -i 's/-lRunTmChk.a//g' "$PC_FILE"
         sed -i 's/-lntdll.a//g' "$PC_FILE"
-        # дубликаты модулей opencv из Libs.private, чтобы не раздувать строку
-        sed -i "s|-lopencv_[^ ]*||g" "$PC_FILE"
-        sed -i "s|^Libs.private:.*|& -lopenvino -lgdi32 -lcomctl32 -lwsock32|" "$PC_FILE"
-        # переносим все модули opencv из Libs.private в основные Libs
-        local ACTUAL_LIBS=$(find "${FFBUILD_DESTDIR}${FFBUILD_PREFIX}/lib" -name "libopencv_*.a" -printf "%f\n" | sed 's/^lib//;s/\.a$//' | xargs -I{} echo -l{} | tr '\n' ' ')
-        # Убираем любые упоминания -lopencv_* из текущего файла, чтобы избежать дублей
-        sed -i "s/-lopencv_[^ ]*//g" "$PC_FILE"
-        # Вставляем актуальный список в основную секцию Libs
-        # Мы ставим их сразу после -L${libdir}
+        # Формируем чистую строку Libs
+        local PRIV_LIBS=$(grep "Libs.private:" "$PC_FILE" | cut -d':' -f2-)
+        # Убираем абсолютные пути, если остались
+        PRIV_LIBS=$(echo "$PRIV_LIBS" | sed "s|-L/build/[^ ]*||g")
         sed -i "s|^Libs:.*|Libs: -L\${libdir} ${ACTUAL_LIBS}|" "$PC_FILE"
+        sed -i "s|^Libs.private:.*|Libs.private: ${PRIV_LIBS} -lopenvino -lgdi32 -lcomctl32 -lwsock32 -lshlwapi -lsetupapi -lws2_32|" "$PC_FILE"
+        # Удаляем пустые Requires.private или дубликаты
+        sed -i "s/Requires.private:.*//g" "$PC_FILE"
+        # Чистим остатки: двойные пробелы и пустые генераторы
+        sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"
+        log_info "Cleaned OpenCV .pc modules: ${ACTUAL_LIBS}"
     fi
 }
 
