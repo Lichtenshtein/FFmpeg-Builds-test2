@@ -26,23 +26,24 @@ ffbuild_dockerbuild() {
 
     local TIFF_CMAKE_DIR="$FFBUILD_PREFIX/lib/cmake/tiff"
     local TIFF_BACKUP_DIR="$TMP_DIR/tiff_cmake_backup"
-
-    # Создаем бэкап файлов CMake от libtiff
     if [ -d "$TIFF_CMAKE_DIR" ]; then
-        echo "Creating TIFF CMake backup..."
+        echo "Applying TIFF dependency bypass for OpenCV..."
         mkdir -p "$TIFF_BACKUP_DIR"
+        # Бэкапим оригиналы
         cp "$TIFF_CMAKE_DIR"/*.cmake "$TIFF_BACKUP_DIR/"
-        # Удаляем JBIG из целевых файлов CMake
-        # ищем JBIG::JBIG и ;jbig (как в списках) и вырезаем их
-        echo "Patching TIFF CMake files to remove JBIG..."
-        sed -i 's/JBIG::JBIG//g' "$TIFF_CMAKE_DIR"/*.cmake
+        # Удаляем JBIG из всех cmake файлов в префиксе
+        # Вырезаем из списка интерфейсных библиотек
         sed -i 's/\$<LINK_ONLY:JBIG::JBIG>//g' "$TIFF_CMAKE_DIR"/*.cmake
-        # Удаляем возможные двойные точки с запятой, которые остаются после удаления
+        # Удаляем упоминания как цели
+        sed -i 's/JBIG::JBIG//g' "$TIFF_CMAKE_DIR"/*.cmake
+        # Чистим двойные разделители (;;), которые ломают парсинг списков CMake
         sed -i 's/;;/;/g' "$TIFF_CMAKE_DIR"/*.cmake
+        # Убираем лишние точки с запятой в начале/конце строк
+        sed -i 's/\"\;/\"/g' "$TIFF_CMAKE_DIR"/*.cmake
+        sed -i 's/\;\"/\"/g' "$TIFF_CMAKE_DIR"/*.cmake
+        grep -r "JBIG" /opt/ffbuild/lib/cmake/tiff/ || true
+        cat /opt/ffbuild/lib/cmake/tiff/tiff-targets.cmake || true
     fi
-
-grep -r "JBIG" /opt/ffbuild/lib/cmake/tiff/ || true
-cat /opt/ffbuild/lib/cmake/tiff/tiff-targets.cmake || true
 
     # export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
     export OpenJPEG_DIR="$FFBUILD_PREFIX/lib/cmake/openjpeg-2.5"
@@ -128,6 +129,7 @@ cat /opt/ffbuild/lib/cmake/tiff/tiff-targets.cmake || true
         -DOPENJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libopenjp2.a"
         -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.a"
+        -DTIFF_LIBRARIES="$FFBUILD_PREFIX/lib/libtiff.a"
         -DJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.a"
         # Включаем интеграцию с OpenVINO (Inference Engine)
@@ -165,31 +167,27 @@ cat /opt/ffbuild/lib/cmake/tiff/tiff-targets.cmake || true
     LDFLAGS="$LDFLAGS" \
     LIBS="$LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || {
-        # Если cmake упал, восстанавливаем бэкап и выходим
+        log_error "CMake failed, restoring TIFF..."
         [ -d "$TIFF_BACKUP_DIR" ] && cp "$TIFF_BACKUP_DIR"/*.cmake "$TIFF_CMAKE_DIR/"
         return 1
+    }
 
     if ! grep -qiE "OPENVINO:.*(YES|ON|TRUE)" CMakeCache.txt && ! grep -qi "HAVE_OPENVINO:INTERNAL=ON" CMakeCache.txt; then
-        echo "ERROR: OpenVINO was not detected in CMakeCache.txt!"
+        log_error "OpenVINO was not detected in CMakeCache.txt!"
         # Выведем для отладки, что там на самом деле
         grep -i "OPENVINO" CMakeCache.txt
         return 1
     fi
 
-    ninja $NINJA_V || return 1
-
-    if ! ninja $NINJA_V; then
-        [ -d "$TIFF_BACKUP_DIR" ] && cp "$TIFF_BACKUP_DIR"/*.cmake "$TIFF_CMAKE_DIR/"
-        return 1
-    fi
-
-    DESTDIR="$FFBUILD_DESTDIR" ninja install || {
+    ninja $NINJA_V || {
         [ -d "$TIFF_BACKUP_DIR" ] && cp "$TIFF_BACKUP_DIR"/*.cmake "$TIFF_CMAKE_DIR/"
         return 1
     }
 
+    DESTDIR="$FFBUILD_DESTDIR" ninja install
+
     if [ -d "$TIFF_BACKUP_DIR" ]; then
-        echo "Restoring original TIFF CMake files..."
+        log_info "Restoring original TIFF CMake files..."
         cp "$TIFF_BACKUP_DIR"/*.cmake "$TIFF_CMAKE_DIR/"
         rm -rf "$TIFF_BACKUP_DIR"
     fi
