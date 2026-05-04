@@ -195,10 +195,11 @@ EOF
     ) || return 1
 }
 
+# --enable-libshaderc or --enable-libglslang not both
 ffbuild_configure() {
-    echo --enable-libshaderc --enable-libglslang
+    echo --enable-libshaderc
 }
 
 ffbuild_unconfigure() {
-    echo --disable-libshaderc --disable-libglslang
+    echo --disable-libshaderc
 }
