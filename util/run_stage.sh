@@ -449,7 +449,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
         pc_name="$(basename "$pc" .pc)"
 
         # Извлекаем путь к инклудам напрямую из модуля
-        local actual_inc=$(pkg-config --variable=includedir "$pc_name" 2>/dev/null)
+        actual_inc=$(pkg-config --variable=includedir "$pc_name" 2>/dev/null)
         # Если путь существует и он "глубже" стандартного (содержит подпапку)
         if [[ -n "$actual_inc" && "$actual_inc" != "$FFBUILD_PREFIX/include" ]]; then
             # Добавляем его в CFLAGS, если еще не видели
