@@ -49,6 +49,12 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    local PC_FILE="$PC_DIR/libopenjp2.pc"
+    if [ -f "$PC_FILE" ]; then
+        log_info "Fixing includedir path in libopenjp2.pc..."
+        sed -i "s|includedir=\${prefix}/include|includedir=\${prefix}/include/openjpeg-2.5|g" "$PC_FILE"
+    fi
 }
 
 ffbuild_cppflags() {
