@@ -55,7 +55,7 @@ index 41738050f0..3b3f0f1d13 100755
 +    libvmaf_vulkan
      libvorbis
      libvpx
-     libvvenc
+     libvvdec
 @@ -4238,6 +4240,7 @@ vidstabtransform_filter_deps="libvidstab"
  libvmaf_filter_deps="libvmaf"
  libvmaf_cuda_filter_deps="libvmaf libvmaf_cuda ffnvcodec"
