@@ -33,7 +33,7 @@ export SAVE_MARK='💾'
 export SEARCH_MARK='🔎'
 export EXTR_MARK='📤'
 export START_MARK='🚀'
-export BUILD_MARK='🛠️'
+export BUILD_MARK='🔧️'
 export DIRS_MARK='📂'
 export LOCK_MARK='🔒'
 export SYNC_MARK="${GREEN}♻${NC}"
@@ -1270,61 +1270,131 @@ check_and_fix_configure() {
     local dropped=()
     local fixed=()
 
-    # Кэшируем список поддерживаемых опций один раз
-    # Включаем и внешние либы (EXTERNAL_LIBRARY_LIST) и общие опции
+    # Кэшируем справку. Используем расширенный поиск.
     local help_output=$(./configure --help)
 
     for flag in "${CONF_FLAGS[@]}"; do
-        # Если флаг содержит '=', пропускаем проверку (это фильтры, энкодеры и т.д.)
-        if [[ "$flag" == *=* ]]; then
+        # Извлекаем чистое имя опции для проверки (убираем --enable-/--disable- и всё что после =)
+        local clean_opt=$(echo "$flag" | sed -E 's/--[a-z]+-//; s/=.*//')
+        local action=$(echo "$flag" | grep -oE "^--(enable|disable)")
+        
+        # Если это не стандартный переключатель (например --prefix, --cc), проверяем и пропускаем
+        if [[ ! "$flag" =~ ^--enable- ]] && [[ ! "$flag" =~ ^--disable- ]]; then
             new_flags+=("$flag")
             continue
         fi
 
-        # Обрабатываем только --enable-* и --disable-*
-        if [[ "$flag" =~ ^--enable- ]] || [[ "$flag" =~ ^--disable- ]]; then
-            local action=$(echo "$flag" | cut -d'-' -f3)
-            local opt_name=$(echo "$flag" | sed -E 's/--enable-|--disable-//')
-            local current_flag="$flag"
+        # Блок автозамены (Aliasing)
+        local opt_name="$clean_opt"
+        case "$opt_name" in
+            zstd)          opt_name="libzstd" ;;
+            pcre2)         opt_name="libpcre2" ;;
+            pcre)          opt_name="libpcre" ;;
+            fontconfig)    opt_name="libfontconfig" ;;
+            openjpeg)      opt_name="libopenjpeg" ;;
+            curl)          opt_name="libcurl" ;;
+            brotli)        opt_name="libbrotli" ;;
+            rav1e)         opt_name="librav1e" ;;
+            dav1d)         opt_name="libdav1d" ;;
+            aom)           opt_name="libaom" ;;
+            svtav1)        opt_name="libsvtav1" ;;
+            vpx)           opt_name="libvpx" ;;
+            webp)          opt_name="libwebp" ;;
+            xml2)          opt_name="libxml2" ;;
+            # Можно добавить другие частые ошибки здесь
+        esac
 
-            # Блок автозамены (Aliasing)
-            case "$opt_name" in
-                zstd)          opt_name="libzstd" ;;
-                pcre2)         opt_name="libpcre2" ;;
-                pcre)          opt_name="libpcre" ;;
-                fontconfig)    opt_name="libfontconfig" ;;
-                openjpeg)      opt_name="libopenjpeg" ;;
-                curl)          opt_name="libcurl" ;; 
-                # Можно добавить другие частые ошибки здесь
-            esac
+        # Собираем флаг обратно (сохраняя аргумент после =, если он был)
+        local suffix=$(echo "$flag" | grep -oE "=.*$" || true)
+        # Формируем потенциально исправленный флаг
+        local current_flag="${action}-${opt_name}${suffix}"
 
-            # Формируем потенциально исправленный флаг
-            current_flag="--${action}-${opt_name}"
-
-            # Валидация
-            # Проверяем наличие опции в выводе help
-            if echo "$help_output" | grep -qE "(--(en|dis)able-${opt_name})($|[[:space:]|=])"; then
-                if [[ "$current_flag" != "$flag" ]]; then
-                    fixed+=("$flag -> $current_flag")
-                fi
-                new_flags+=("$current_flag")
-            else
-                dropped+=("$flag")
+        # Валидация через grep
+        # Ищем в help: --enable-opt_name, --enable-opt_name[=arg], или описание начинающееся с opt_name
+        # Используем [[:punct:]]? чтобы поймать опциональные скобки [=arg]
+        if echo "$help_output" | grep -qE "(--(en|dis)able-${opt_name}([[:punct:]]|=|$))"; then
+            if [[ "$current_flag" != "$flag" ]]; then
+                fixed+=("$flag -> $current_flag")
             fi
+            new_flags+=("$current_flag")
         else
-            # Все остальные флаги (--prefix, --extra-*) добавляем без изменений
-            new_flags+=("$flag")
+            # Специальная проверка для специфических компонентов (encoders/decoders/parsers)
+            # Они не всегда есть в явном виде --enable-xxx в help, но подразумеваются в списках
+            if echo "$help_output" | grep -qiE "($opt_name)"; then
+                 new_flags+=("$current_flag")
+            else
+                 dropped+=("$flag")
+            fi
         fi
     done
 
     # Вывод отчета
-    [ ${#fixed[@]} -ne 0 ] && log_info "${CHECK_MARK} FIXED flags (auto-alias): ${fixed[*]}"
+    [ ${#fixed[@]} -ne 0 ] && log_info "${BUILD_MARK} FIXED flags: ${fixed[*]}"
     [ ${#dropped[@]} -ne 0 ] && log_warn "DROPPED invalid flags: ${dropped[*]}"
 
-    # Перезаписываем глобальный массив с сохранением порядка
     CONF_FLAGS=("${new_flags[@]}")
 }
 export -f check_and_fix_configure
+
+# Получаем версию VER_FULL=$(get_stage_version)
+get_stage_version() {
+    local version_file=".ffbuild_version"
+
+    # Если файл уже существует, читаем из него
+    if [[ -f "$version_file" ]]; then
+        cat "$version_file"
+        return 0
+    fi
+
+    local ver=""
+
+    # Проверка Git (если папка .git еще жива)
+    if [[ -d ".git" ]]; then
+        ver=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+    fi
+
+    # Файлы VERSION / VERSION.txt
+    if [[ -z "$ver" ]]; then
+        local vf=$(find . -maxdepth 2 -iname "version*" | head -n 1)
+        if [[ -f "$vf" ]]; then
+            ver=$(cat "$vf" | tr -d '[:space:]' | sed 's/^v//')
+        fi
+    fi
+
+    # Meson (meson.build: version: '1.2.3')
+    if [[ -z "$ver" && -f "meson.build" ]]; then
+        ver=$(grep -m1 "version" meson.build | cut -d"'" -f2 | cut -d'"' -f2)
+    fi
+
+    # CMake (project(... VERSION 1.2.3))
+    if [[ -z "$ver" && -f "CMakeLists.txt" ]]; then
+        ver=$(grep -m1 "VERSION" CMakeLists.txt | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?')
+    fi
+
+    # Autotools (configure.ac / configure.in)
+    if [[ -z "$ver" ]]; then
+        local conf_ac=$(find . -maxdepth 1 \( -name "configure.ac" -o -name "configure.in" \))
+        if [[ -n "$conf_ac" ]]; then
+            ver=$(grep -m1 "AC_INIT" "$conf_ac" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?')
+        fi
+    fi
+
+    # Из имени папки (часто после распаковки архива: libname-1.2.3)
+    if [[ -z "$ver" ]]; then
+        ver=$(basename "$PWD" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?')
+    fi
+
+    # Валидация: только цифры, точки и тире (чтобы не пролез мусор)
+    if [[ "$ver" =~ ^[0-9]+[0-9a-zA-Z.-]*$ ]]; then
+        echo "$ver" > "$version_file"
+        echo "$ver"
+    else
+        # Дефолтное значение, если ничего не нашли
+        echo "0.0.1" > "$version_file"
+        echo "0.0.1"
+    fi
+}
+export -f get_stage_version
 
 if [[ "${USE_WINE:-0}" = "1" ]]; then
     # Динамическое определение путей для wine

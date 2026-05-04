@@ -3,6 +3,7 @@
 log_info "${XCLAM_MARK} LTO Addin: Enabling Link Time Optimization..."
 
 # Флаг для FFmpeg
+# --enable-lto=full (default); --enable-lto=thin (to save build time)
 ffbuild_configure() {
     echo "--enable-lto"
 }
