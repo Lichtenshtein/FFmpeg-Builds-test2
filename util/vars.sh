@@ -560,7 +560,14 @@ patch_pc_files() {
 
         # Если путь совпадает с префиксом или вложен в него
         if [[ "$path" == "$FFBUILD_PREFIX"* ]]; then
-            echo "\${includedir}${path#$FFBUILD_PREFIX/include}"
+            # Если путь — это просто корень инклудов
+            if [[ "$path" == "$FFBUILD_PREFIX/include" ]]; then
+                echo "\${includedir}"
+            else
+                # Если путь глубже (например /include/openjpeg-2.5), 
+                # сохраняем относительный путь от ${includedir}
+                echo "\${includedir}${path#$FFBUILD_PREFIX/include}"
+            fi
             return 0
         fi
 
@@ -596,13 +603,23 @@ patch_pc_files() {
         echo "$pc" >&2
     done
 
-    find "$pc_dir" -maxdepth 1 -name "*.pc" | while read -r pc; do
+    find "$pc_dir" -maxdepth 2 -name "*.pc" | while read -r pc; do
         [[ -f "$pc" ]] || continue
         log_debug "Processing: $(basename "$pc")"
 
+        # Проверяем, не содержит ли исходный файл уже специфичный путь
+        local original_inc=$(grep "^includedir=" "$pc" | cut -d'=' -f2-)
+
         # Пересоздание переменных путей
         sed -i $sl '/^prefix=/d; /^exec_prefix=/d; /^libdir=/d; /^includedir=/d; /^bindir=/d; /^libdir64=/d' "$pc"
-        sed -i $sl "1i prefix=$FFBUILD_PREFIX\nexec_prefix=\${prefix}\nlibdir=\${prefix}/lib\nincludedir=\${prefix}/include\nbindir=\${prefix}/bin" "$pc"
+
+        # Если оригинальный путь был глубже базового, восстанавливаем его
+        local target_inc="\${prefix}/include"
+        if [[ "$original_inc" == *"/openjpeg-"* || "$original_inc" == *"/freetype2"* ]]; then
+             target_inc="\${prefix}/include$(echo "$original_inc" | sed "s|.*include||")"
+        fi
+
+        sed -i $sl "1i prefix=$FFBUILD_PREFIX\nexec_prefix=\${prefix}\nlibdir=\${prefix}/lib\nincludedir=$target_inc\nbindir=\${prefix}/bin" "$pc"
 
         # Replace absolute paths with variables (only in non-assignment lines)
         sed -i $sl '/=/! s|'"$FFBUILD_PREFIX"'/include|\${includedir}|g' "$pc"
