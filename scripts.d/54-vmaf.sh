@@ -83,6 +83,19 @@ EOF
         fi
     fi
 
+    log_info "Installing missing headers for FFmpeg compatibility..."
+    # Копируем из исходников в папку установки только ОТСУТСТВУЮЩИЕ файлы
+    # используем путь от корня репозитория vmaf, где лежат исходные .h
+    cp -vn ../libvmaf/include/libvmaf/*.h "$INSTALL_ROOT/include/libvmaf/" || true
+
+    # если dnn.h или vulkan.h всё еще нет
+    # создаем их как пустые заглушки, чтобы configure FFmpeg не падал
+    for header in dnn.h libvmaf_vulkan.h libvmaf_cuda.h libvmaf_sycl.h; do
+        if [ ! -f "$INSTALL_ROOT/include/libvmaf/$header" ]; then
+            touch "$INSTALL_ROOT/include/libvmaf/$header"
+        fi
+    done
+
     sed -i 's/Libs.private:/Libs.private: -lstdc++/; t; $ a Libs.private: -lstdc++' "$PC_DIR/libvmaf.pc"
     ln -sf libvmaf.pc "$PC_DIR/vmaf.pc"
 }
