@@ -500,13 +500,10 @@ download_stage() {
     ) || dl_status=$?
 
     if [[ $dl_status -eq 0 ]]; then
-        # входим в рабочую директорию
-        pushd "$WORK_DIR" >/dev/null
-        # Определяем версию и сохраняем файл .ffbuild_version прямо в исходники
-        # версия соответствует этому конкретному состоянию кода
-        log_info "Detecting version for $STAGENAME..."
-        get_stage_version > /dev/null 
-        popd >/dev/null
+        (
+            cd "$WORK_DIR" || exit 0
+            get_stage_version > /dev/null 2>&1 || true
+        )
 
         # Whitelist метаданных .git (список подгружается из workflow.yaml). 
         if [[ "$STAGENAME" =~ $GIT_PRESERVE_LIST ]]; then
