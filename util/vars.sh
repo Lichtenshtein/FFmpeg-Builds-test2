@@ -1350,7 +1350,7 @@ get_stage_version() {
 
     # Проверка Git (если папка .git еще жива)
     if [[ -d ".git" ]]; then
-        ver=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
+        ver=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//') || ver=""
     fi
 
     # Файлы VERSION / VERSION.txt
@@ -1361,15 +1361,8 @@ get_stage_version() {
         fi
     fi
 
-    # Meson (meson.build: version: '1.2.3')
-    if [[ -z "$ver" && -f "meson.build" ]]; then
-        ver=$(grep -m1 "version" meson.build | cut -d"'" -f2 | cut -d'"' -f2)
-    fi
-
-    # CMake (project(... VERSION 1.2.3))
-    if [[ -z "$ver" && -f "CMakeLists.txt" ]]; then
-        ver=$(grep -m1 "VERSION" CMakeLists.txt | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?')
-    fi
+    [[ -z "$ver" ]] && [[ -f "meson.build" ]] && ver=$(grep -m1 "version" meson.build | cut -d"'" -f2 | cut -d'"' -f2)
+    [[ -z "$ver" ]] && [[ -f "CMakeLists.txt" ]] && ver=$(grep -m1 "VERSION" CMakeLists.txt | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)
 
     # Autotools (configure.ac / configure.in)
     if [[ -z "$ver" ]]; then
@@ -1381,7 +1374,7 @@ get_stage_version() {
 
     # Из имени папки (часто после распаковки архива: libname-1.2.3)
     if [[ -z "$ver" ]]; then
-        ver=$(basename "$PWD" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?')
+        ver=$(basename "$PWD" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)
     fi
 
     # Валидация: только цифры, точки и тире (чтобы не пролез мусор)
