@@ -271,6 +271,10 @@ build_cmd="ffbuild_dockerbuild"
 # wine starter
 setup_wine_env
 
+# Если файл .ffbuild_version уже был создан в download_stage, 
+# get_version просто быстро прочитает его.
+export VER_FULL=$(get_stage_version)
+
 log_info_line
 log_info "### ${START_MARK} ${LOG_INFO}STARTING STAGE: $STAGENAME${NC}"
 log_info "### DATE: $(date)"

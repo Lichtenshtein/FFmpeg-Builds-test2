@@ -152,9 +152,9 @@ ffbuild_dockerbuild() {
         # -DCUDA_ARCH_PTX=6.1
         )
     fi
-
-    CFLAGS="$CFLAGS $CPPFLAGS -D_WIN32_WINNT=0x0600" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS -D_WIN32_WINNT=0x0600" \
+    # -D_WIN32_WINNT=0x0600
+    CFLAGS="$CFLAGS $CPPFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
     LDFLAGS="$LDFLAGS" \
     LIBS="-ljbig $LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || {
@@ -218,6 +218,14 @@ ffbuild_dockerbuild() {
     done
     popd
 
+    # removing duplicate libraries
+    if [ -f "${FFBUILD_PREFIX}/lib/libpng.a" ]; then
+        rm -f "${DEST_LIB}/libpng.a"
+    fi
+    if [ -f "${FFBUILD_PREFIX}/lib/libprotobuf.a" ]; then
+        rm -f "${DEST_LIB}/libprotobuf.a"
+    fi
+
     if [ -f "$PC_FILE" ]; then
         log_info "Cleaning up OpenCV pkg-config file..."
         # Вытаскиваем версию для регулярки (динамически)
@@ -231,11 +239,13 @@ ffbuild_dockerbuild() {
         local OLD_PRIVATES=$(grep "Libs.private:" "$PC_FILE" | cut -d':' -f2-)
         # Чистим зависимости: liblib -> lib, абсолютные пути, мусор
         local CLEAN_PRIVATES=$(echo "$OLD_PRIVATES" | sed -E 's/-llib/-l/g; s|-L/build/[^ ]*||g; s/-lRunTmChk.a//g; s/-lntdll.a//g; s/-lopencv_[^ ]*//g')
-        # Добавляем необходимые системные либы
-        CLEAN_PRIVATES="${CLEAN_PRIVATES} -lopenvino"
         # Записываем в файл
         sed -i "s|^Libs:.*|Libs: -L\${libdir} ${ACTUAL_LIBS}|" "$PC_FILE"
         sed -i "s|^Libs.private:.*|Libs.private: ${CLEAN_PRIVATES}|" "$PC_FILE"
+        # Добавляем необходимые либы
+        if [[ "${myconf[@]}" =~ "-DWITH_OPENVINO=ON" ]]; then
+            sed -i '/^Libs.private:/ s/$/ -lopenvino/' "$PC_FILE"
+        fi
         sed -i "s/Requires.private:.*/Requires.private: /" "$PC_FILE"
         # Удаляем лишние пробелы
         sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"
