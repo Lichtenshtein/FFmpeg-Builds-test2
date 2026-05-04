@@ -1348,21 +1348,40 @@ get_stage_version() {
 
     local ver=""
 
-    # Проверка Git (если папка .git еще жива)
+    # Пытаемся достать тег через git ls-remote
+    # берем URL из origin и ищем последние теги, сортируя их по версии
     if [[ -d ".git" ]]; then
-        ver=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//') || ver=""
+        local remote_url=$(git config --get remote.origin.url 2>/dev/null)
+        if [[ -n "$remote_url" ]]; then
+            ver=$(git ls-remote --tags --sort="v:refname" "$remote_url" | tail -n1 | grep -oE 'v?[0-9]+\.[0-9]+(\.[0-9]+)?' | sed 's/^v//')
+        fi
+        # Если удаленно не вышло, пробуем локальный тег
+        [[ -z "$ver" ]] && ver=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
     fi
 
     # Файлы VERSION / VERSION.txt
     if [[ -z "$ver" ]]; then
-        local vf=$(find . -maxdepth 2 -iname "version*" | head -n 1)
-        if [[ -f "$vf" ]]; then
-            ver=$(cat "$vf" | tr -d '[:space:]' | sed 's/^v//')
-        fi
+        local vf=$(find . -maxdepth 2 -iname "version*" -not -name "*.cmake" | head -n 1)
+        [[ -f "$vf" ]] && ver=$(cat "$vf" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)
     fi
 
-    [[ -z "$ver" ]] && [[ -f "meson.build" ]] && ver=$(grep -m1 "version" meson.build | cut -d"'" -f2 | cut -d'"' -f2)
-    [[ -z "$ver" ]] && [[ -f "CMakeLists.txt" ]] && ver=$(grep -m1 "VERSION" CMakeLists.txt | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)
+    # Meson (игнорируем meson_version в пользу version проекта)
+    if [[ -z "$ver" && -f "meson.build" ]]; then
+        ver=$(grep -m1 "version" meson.build | grep -oP "['\"][0-9.]+'" | tr -d "'\"")
+    fi
+
+    # парсинг CMake (ищем PROJECT_VERSION или MAJOR/MINOR)
+    if [[ -z "$ver" && -f "CMakeLists.txt" ]]; then
+        # Пытаемся найти project(... VERSION 1.2.3)
+        ver=$(grep -iP 'VERSION\s+[0-9.]+' CMakeLists.txt | grep -oP '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)
+        # Если версии заданы через SET (как в OpenJPEG), собираем их
+        if [[ -z "$ver" ]]; then
+            local v_maj=$(grep -iP 'SET.*VERSION_MAJOR' CMakeLists.txt | grep -oP '[0-9]+')
+            local v_min=$(grep -iP 'SET.*VERSION_MINOR' CMakeLists.txt | grep -oP '[0-9]+')
+            local v_pat=$(grep -iP 'SET.*VERSION_BUILD|SET.*VERSION_PATCH' CMakeLists.txt | grep -oP '[0-9]+')
+            [[ -n "$v_maj" && -n "$v_min" ]] && ver="${v_maj}.${v_min}.${v_pat:-0}"
+        fi
+    fi
 
     # Autotools (configure.ac / configure.in)
     if [[ -z "$ver" ]]; then
@@ -1373,16 +1392,13 @@ get_stage_version() {
     fi
 
     # Из имени папки (часто после распаковки архива: libname-1.2.3)
-    if [[ -z "$ver" ]]; then
-        ver=$(basename "$PWD" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)
-    fi
+    [[ -z "$ver" ]] && ver=$(basename "$PWD" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)
 
     # Валидация: только цифры, точки и тире (чтобы не пролез мусор)
-    if [[ "$ver" =~ ^[0-9]+[0-9a-zA-Z.-]*$ ]]; then
+    if [[ "$ver" =~ ^[0-9]+\.[0-9]+ ]]; then
         echo "$ver" > "$version_file"
         echo "$ver"
     else
-        # Дефолтное значение, если ничего не нашли
         echo "0.0.1" > "$version_file"
         echo "0.0.1"
     fi
