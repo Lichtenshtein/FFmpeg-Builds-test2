@@ -41,7 +41,8 @@ trap cleanup EXIT
 if [[ "${USE_WINE:-0}" = "1" ]]; then
     export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
 else
-    export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin"
+    # export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin"
+    export PATH="/opt/ct-ng/bin:/opt/cargo/bin:/usr/local/bin:/usr/bin:/bin"
 fi
 
 # Инициализация локальных (не экспортируемых!) переменных
@@ -310,7 +311,7 @@ chmod +x configure
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
     "${TARGET_FLAGS_ARR[@]}"
-    --host-cc="gcc"
+    --host-cc="ccache gcc-14"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
