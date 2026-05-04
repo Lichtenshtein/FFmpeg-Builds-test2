@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# SCRIPT_REPO="https://github.com/Netflix/vmaf.git"
-# SCRIPT_COMMIT="332dde62838d91d8b5216e9822de58851f2fd64f"
+SCRIPT_REPO="https://github.com/Netflix/vmaf.git"
+SCRIPT_COMMIT="332dde62838d91d8b5216e9822de58851f2fd64f"
 
-SCRIPT_REPO="https://github.com/lusoris/vmaf.git"
-SCRIPT_COMMIT="49c738b0584337a45048429581214063e80831e2"
+# SCRIPT_REPO="https://github.com/lusoris/vmaf.git"
+# SCRIPT_COMMIT="49c738b0584337a45048429581214063e80831e2"
 
 ffbuild_enabled() {
     return 0
@@ -53,10 +53,10 @@ EOF
         -Denable_nvtx=false # Enable NVTX range support
         # added by patches
         # -Denable_discord_mode=true
-        -Denable_sycl=false # Enable Intel oneAPI SYCL/DPC++ support for GPU-accelerated feature extraction
-        -Denable_dnn=disabled # Build DNN runtime (ONNX Runtime) for tiny-model inference
-        -Denable_vulkan=disabled # Build Vulkan compute backend (ADR-0127 design; ADR-0175 scaffold; ADR-0178 / T5-1b runtime; ADR-0193 default-model kernel matrix complete). Default disabled; opt in to use it. Requires volk + Vulkan SDK 1.3+ + glslc + VMA.
-        -Dsycl_compiler=icpx # Path or name of the SYCL compiler (Intel icpx from oneAPI)
+        # -Denable_sycl=false # Enable Intel oneAPI SYCL/DPC++ support for GPU-accelerated feature extraction
+        # -Denable_dnn=disabled # Build DNN runtime (ONNX Runtime) for tiny-model inference
+        # -Denable_vulkan=disabled # Build Vulkan compute backend (ADR-0127 design; ADR-0175 scaffold; ADR-0178 / T5-1b runtime; ADR-0193 default-model kernel matrix complete). Default disabled; opt in to use it. Requires volk + Vulkan SDK 1.3+ + glslc + VMA.
+        # -Dsycl_compiler=icpx # Path or name of the SYCL compiler (Intel icpx from oneAPI)
     )
 
     if [[ $TARGET == linux* ]]; then
@@ -83,18 +83,18 @@ EOF
         fi
     fi
 
-    log_info "Installing missing headers for FFmpeg compatibility..."
+    # log_info "Installing missing headers for FFmpeg compatibility..."
     # Копируем из исходников в папку установки только ОТСУТСТВУЮЩИЕ файлы
     # используем путь от корня репозитория vmaf, где лежат исходные .h
-    cp -vn ../libvmaf/include/libvmaf/*.h "$INSTALL_ROOT/include/libvmaf/" || true
+    # cp -vn ../libvmaf/include/libvmaf/*.h "$INSTALL_ROOT/include/libvmaf/" || true
 
     # если dnn.h или vulkan.h всё еще нет
     # создаем их как пустые заглушки, чтобы configure FFmpeg не падал
-    for header in dnn.h libvmaf_vulkan.h libvmaf_cuda.h libvmaf_sycl.h; do
-        if [ ! -f "$INSTALL_ROOT/include/libvmaf/$header" ]; then
-            touch "$INSTALL_ROOT/include/libvmaf/$header"
-        fi
-    done
+    # for header in dnn.h libvmaf_vulkan.h libvmaf_cuda.h libvmaf_sycl.h; do
+        # if [ ! -f "$INSTALL_ROOT/include/libvmaf/$header" ]; then
+            # touch "$INSTALL_ROOT/include/libvmaf/$header"
+        # fi
+    # done
 
     sed -i 's/Libs.private:/Libs.private: -lstdc++/; t; $ a Libs.private: -lstdc++' "$PC_DIR/libvmaf.pc"
     ln -sf libvmaf.pc "$PC_DIR/vmaf.pc"
