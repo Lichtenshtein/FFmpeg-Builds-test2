@@ -52,10 +52,23 @@ ffbuild_dockerbuild() {
     done
 
     # TBB (Intel Threading Building Blocks)
-    if [[ -d "runtime/3rdparty/tbb" ]]; then
-        find runtime/3rdparty/tbb/bin/ -name "*.dll" ! -name "*_debug.dll" -exec cp {} "$INSTALL_ROOT/bin/" \;
-        find runtime/3rdparty/tbb/lib/ -name "*.lib" ! -name "*_debug.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
-        find runtime/3rdparty/tbb/lib/cmake/TBB/ -name "*.cmake" -exec cp {} "$INSTALL_ROOT/lib/cmake/" \;
+    if [ -f "${FFBUILD_PREFIX}/lib/libtbb.a" ]; then
+        log_info "Custom static TBB detected. Skipping OpenVINO's bundled TBB to avoid conflicts."
+        # Удаляем TBB из исходников OpenVINO, чтобы CMake его даже не пытался найти там
+        rm -rf runtime/3rdparty/tbb
+        # Очистка INSTALL_ROOT от случайных следов DLL-версий TBB
+        rm -f "${INSTALL_ROOT}/bin/tbb"*".dll" || true
+        rm -f "${INSTALL_ROOT}/lib/libtbb"*".dll.a" || true
+        # Удаляем CMake-конфиги TBB от OpenVINO, они ведут к DLL
+        rm -f "${INSTALL_ROOT}/lib/cmake/TBB"*".cmake" || true
+    else
+        # Если своей либы нет, используем то, что дали (но это будет динамика)
+        log_warn "No custom TBB found, using OpenVINO bundled TBB."
+        if [[ -d "runtime/3rdparty/tbb" ]]; then
+            find runtime/3rdparty/tbb/bin/ -name "*.dll" ! -name "*_debug.dll" -exec cp {} "$INSTALL_ROOT/bin/" \;
+            find runtime/3rdparty/tbb/lib/ -name "*.lib" ! -name "*_debug.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
+            find runtime/3rdparty/tbb/lib/cmake/TBB/ -name "*.cmake" -exec cp {} "$INSTALL_ROOT/lib/cmake/" \;
+        fi
     fi
 
     # Массированный патч путей и типов файлов
@@ -90,13 +103,13 @@ Name: OpenVINO
 Description: Intel OpenVINO Runtime
 Version: 2025.4.1
 Libs: -L\${libdir} -lopenvino -lopenvino_c
-Libs.private: -ltbb12 -ltbb
+Libs.private: -ltbb12
 Cflags: -I\${includedir}
 EOF
 }
 
 ffbuild_libs() {
-    echo "-lopenvino_c -ltbb12 -ltbb -lopenvino"
+    echo "-lopenvino_c -ltbb12 -lopenvino"
 }
 
 ffbuild_configure() {
