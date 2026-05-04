@@ -439,14 +439,25 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
 
     # This is much more reliable than name matching, it doesn't matter what the library calls its .pc file. Only .pc files newer than the pre-build timestamp
 
-    for pc in "$FFBUILD_PREFIX/lib/pkgconfig"/*.pc \
-              "$FFBUILD_PREFIX/lib64/pkgconfig"/*.pc \
-              "$FFBUILD_PREFIX/share/pkgconfig"/*.pc; do
+    while IFS= read -r -d '' pc; do
         [[ -e "$pc" ]] || continue
         [[ "$pc" -nt "$TIMESTAMP_FILE" ]] || continue
 
+        # Добавляем папку, где лежит этот .pc, в PKG_CONFIG_PATH для текущего вызова
+        export PKG_CONFIG_PATH="$(dirname "$pc"):$PKG_CONFIG_LIBDIR"
         # Собираем только если имя .pc файла соответствует или связано с компонентом
         pc_name="$(basename "$pc" .pc)"
+
+        # Извлекаем путь к инклудам напрямую из модуля
+        local actual_inc=$(pkg-config --variable=includedir "$pc_name" 2>/dev/null)
+        # Если путь существует и он "глубже" стандартного (содержит подпапку)
+        if [[ -n "$actual_inc" && "$actual_inc" != "$FFBUILD_PREFIX/include" ]]; then
+            # Добавляем его в CFLAGS, если еще не видели
+            if [[ -z "${_seen_pc_cflags["-I$actual_inc"]:-}" ]]; then
+                _seen_pc_cflags["-I$actual_inc"]=1
+                _pc_cflags="$_pc_cflags -I$actual_inc"
+            fi
+        fi
 
         # Deduplicate per-flag across multiple .pc files
         while IFS= read -r flag; do
@@ -456,8 +467,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
                 _pc_cflags="$_pc_cflags $flag"
             fi
         # просто pkg-config --cflags сохраняет с путями
-        done < <(pkg-config $PKG_CONFIG_CFLAGS "$pc_name" 2>/dev/null \
-                 | tr ' ' '\n' | grep -v '^$')
+        done < <(pkg-config $PKG_CONFIG_CFLAGS "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
 
         # Сначала собираем сами библиотеки (-l)
         # while IFS= read -r flag; do
@@ -476,7 +486,8 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
                 _pc_libs="$_pc_libs $flag"
             fi
         done < <(pkg-config $PKG_CONFIG_ALL_LIBS "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
-    done
+
+    done < <(find "$FFBUILD_PREFIX/lib" "$FFBUILD_PREFIX/lib64" "$FFBUILD_PREFIX/share" -maxdepth 3 -name "*.pc" -print0 2>/dev/null)
 
     # Merge script output with .pc output, then deduplicate the combined result
     FF_CONFIGURE=$(smart_dedupe "$_conf")
