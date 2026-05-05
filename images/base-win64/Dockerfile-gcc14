@@ -13,7 +13,7 @@ RUN --mount=src=ct-ng-config-gcc14,dst=/.config \
     ./bootstrap && \
     ./configure --enable-local && \
     make -j$(nproc) && \
-    cp /.config .config && \
+    cp /.config .config && chmod 644 .config \
     yes "" | ./ct-ng oldconfig && \
     ./ct-ng build && \
     cd / && \
