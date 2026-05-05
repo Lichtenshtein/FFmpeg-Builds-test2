@@ -57,7 +57,7 @@ EOF
 }
 
 ffbuild_configure() {
-    echo --enable-ffnvcodec --enable-cuda-llvm
+    echo --enable-ffnvcodec --enable-ffnvcodec --enable-cuda --enable-nvenc --enable-nvdec --enable-cuvid
 }
 
 ffbuild_unconfigure() {
