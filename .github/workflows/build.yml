@@ -29,6 +29,8 @@ on:
       use_lto:
         description: 'Enable LTO optimization'
         type: boolean
+# disabled LTO due to critical bug in gcc-15.2; ICE (Internal Compiler Error)
+# lto1: internal compiler error: in choose_baseaddr, at config/i386/i386.cc:7447
         default: true
       use_avx512:
         description: 'Enable AVX-512 instructions'
