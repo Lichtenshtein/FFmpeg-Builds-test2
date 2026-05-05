@@ -54,6 +54,9 @@ EOF
     else
         log_info "stdbit.h is natively supported by $CC, no stub needed."
     fi
+
+    # Копируем всё из include/ffnvcodec/ прямо в include/
+    cp -r "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/ffnvcodec/"* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
 }
 
 ffbuild_configure() {
