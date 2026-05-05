@@ -1332,15 +1332,15 @@ check_and_fix_configure() {
         # Валидация через grep
         # Ищем в help: --enable-opt_name, --enable-opt_name[=arg], или описание начинающееся с opt_name
         # Используем [[:punct:]]? чтобы поймать опциональные скобки [=arg]
-        if echo "$help_output" | grep -qE "(--(en|dis)able-${opt_name}([[:punct:]]|=|$))"; then
+        if echo "$help_output" | grep -qE "\--(en|dis)able-${opt_name}([[:punct:]]|=|[[:space:]]|$)"; then
             if [[ "$current_flag" != "$flag" ]]; then
                 fixed+=("$flag -> $current_flag")
             fi
             new_flags+=("$current_flag")
         else
-            # Специальная проверка для специфических компонентов (encoders/decoders/parsers)
-            # Они не всегда есть в явном виде --enable-xxx в help, но подразумеваются в списках
-            if echo "$help_output" | grep -qiE "($opt_name)"; then
+            # Если это специфический компонент (энкодер/декодер), проверяем его наличие в списках
+            # Но ТОЛЬКО если это действительно точное совпадение слова, а не часть другого флага
+            if echo "$help_output" | grep -qiwE "${opt_name}"; then
                  new_flags+=("$current_flag")
             else
                  dropped+=("$flag")

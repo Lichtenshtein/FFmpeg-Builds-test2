@@ -423,6 +423,7 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     log_debug "${LOGS_MARK} ▼ CONTENT OF $FFMPEG_CONFIG_LOG ▼"
     tail -n 300 "$FFMPEG_CONFIG_LOG"
     log_debug "${LOGS_MARK} ▲ END OF $FFMPEG_CONFIG_LOG ▲"
+grep -A 20 "Checking for cuda_llvm" ffbuild/config.log
     exit 1
 fi
 
