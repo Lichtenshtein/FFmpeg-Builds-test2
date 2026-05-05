@@ -270,7 +270,7 @@ if [[ "$TARGET" == "win64" ]]; then
     MAIN_LDFLAGS+=("-L/opt/ffbuild/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -fPIC -std=gnu11"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -fPIC -std=gnu23"
         export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -fPIC -std=gnu++17"
         RUST_STATIC_CFG=""
         export LDFLAGS="${MAIN_LDFLAGS[*]}"
