@@ -256,7 +256,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
         local path=$(which $cmd 2>/dev/null)
         if [[ -n "$path" ]]; then
             local version=$($cmd --version 2>&1 | head -n 1)
-            log_debug "${CHECK_MARK} $name: ${CYAN}$path${NC} (${GREY_B}$version${NC})"
+            log_debug "${CHECK_MARK} $name: ${CYAN}$path${NC}\n(${GREY_B}$version${NC})"
         else
             log_error "$name ($cmd) NOT FOUND!"
         fi
@@ -308,14 +308,14 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
 
     # Если AS или LD показывают /usr/bin/... вместо /opt/ct-ng/... — это 100% причина ошибок и проблем со ненайденными заголовками
     # Версии кросс-инструментов должны совпадать с ct-ng (2.46.0 / 15.2.0), а не Ubuntu (2.42).
-    check_tool "CC     " "$CC"
-    check_tool "CXX    " "$CXX"
-    check_tool "AS     " "x86_64-w64-mingw32-as"
-    check_tool "AR     " "$AR"
-    check_tool "NM     " "$NM"
-    check_tool "RANLIB " "$RANLIB"
-    check_tool "LD     " "$LD"
-    check_tool "STRIP  " "x86_64-w64-mingw32-strip"
+    check_tool "CC" "$CC"
+    check_tool "CXX" "$CXX"
+    check_tool "AS" "x86_64-w64-mingw32-as"
+    check_tool "AR" "$AR"
+    check_tool "NM" "$NM"
+    check_tool "RANLIB" "$RANLIB"
+    check_tool "LD" "$LD"
+    check_tool "STRIP" "x86_64-w64-mingw32-strip"
 
     # Проверка ccache
     if command -v ccache &>/dev/null; then
