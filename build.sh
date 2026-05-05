@@ -374,7 +374,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
-    --extra-ldflags="${ASAN_LDFLAGS}${TORCH_DYNAMIC_LIBS}${FINAL_LDFLAGS}"
+    --extra-ldflags="${ASAN_LDFLAGS}${TORCH_DYNAMIC_LIBS}${FINAL_LDFLAGS} -fno-use-linker-plugin"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
