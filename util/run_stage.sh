@@ -485,7 +485,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
                 _seen_pc_libs["$flag"]=1
                 _pc_libs="$_pc_libs $flag"
             fi
-        done < <(pkg-config $PKG_CONFIG_LIBS "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
+        done < <(pkg-config $PKG_CONFIG_ALL_LIBS "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
 
     done < <(find "$FFBUILD_PREFIX/lib" "$FFBUILD_PREFIX/lib64" "$FFBUILD_PREFIX/share" -maxdepth 3 -name "*.pc" -print0 2>/dev/null)
 
