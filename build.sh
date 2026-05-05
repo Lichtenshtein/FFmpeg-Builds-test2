@@ -367,8 +367,12 @@ export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
 export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
 dos2unix /opt/ffbuild/lib/pkgconfig/ffnvcodec.pc
 log_debug "PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+log_debug "--- PKG-CONFIG DEBUG START ---"
+which pkg-config
 pkg-config --exists --print-errors ffnvcodec || log_error "PKG_CONFIG FAILED TO FIND FFNVCODEC"
+pkg-config --variable=includedir ffnvcodec
 pkg-config --cflags ffnvcodec || true
+log_debug "--- PKG-CONFIG DEBUG END ---"
 
 
 CONF_FLAGS=(
