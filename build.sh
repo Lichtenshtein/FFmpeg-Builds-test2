@@ -380,7 +380,6 @@ CONF_FLAGS=(
     --enable-opengl
     --enable-pic
     --disable-debug
-    --disable-objcc
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
 )
 
