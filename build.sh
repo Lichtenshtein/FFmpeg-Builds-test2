@@ -345,6 +345,9 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
         log_warn "AR may not support LTO plugins! Make sure you're using gcc-ar."
     fi
 
+    log_debug "PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+    which pkg-config
+
     log_info_line
     log_info "### ${BUILD_MARK} End of DEBUG audit section"
     log_info_line
@@ -362,18 +365,6 @@ read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
 read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 
 chmod +x configure
-
-export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
-export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
-dos2unix /opt/ffbuild/lib/pkgconfig/ffnvcodec.pc
-log_debug "PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
-log_debug "--- PKG-CONFIG DEBUG START ---"
-which pkg-config
-pkg-config --exists --print-errors ffnvcodec || log_error "PKG_CONFIG FAILED TO FIND FFNVCODEC"
-pkg-config --variable=includedir ffnvcodec
-pkg-config --cflags ffnvcodec || true
-log_debug "--- PKG-CONFIG DEBUG END ---"
-
 
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
@@ -401,6 +392,9 @@ CONF_FLAGS=(
 [[ "${USE_AVX512}" != "1" ]] && CONF_FLAGS+=( --disable-avx512 --disable-avx512icl )
 # flags added by ffmpeg patches, not from mainline FFmpeg
 [[ "$FFMPEG_PATCHES" == "true" ]] && CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
+if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
+    CONF_FLAGS+=( --nvcc=clang )
+fi
 
 # Чтобы не перегружать RAM раннера (в среднем 7GB RAM / 2 ядра)
 # лучше ограничить параллелизм или вовсе собирать в 1 поток, если включен LTO
