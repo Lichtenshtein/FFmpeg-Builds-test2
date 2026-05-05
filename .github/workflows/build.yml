@@ -254,15 +254,15 @@ jobs:
           df -h /
           echo "-------------------------------"
 
-      # - name: Setup Swap Space
-        # run: |
-          # sudo swapoff -a || true
-          # sudo rm -f /swapfile
-          # sudo dd if=/dev/zero of=/swapfile bs=1M count=32768
-          # sudo chmod 600 /swapfile
-          # sudo mkswap /swapfile
-          # sudo swapon /swapfile
-          # swapon --show
+      - name: Setup Swap Space
+        run: |
+          sudo swapoff -a || true
+          sudo rm -f /swapfile
+          sudo dd if=/dev/zero of=/swapfile bs=1M count=32768
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          swapon --show
 
       - name: Check if base rebuild needed
         id: base_check
