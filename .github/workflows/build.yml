@@ -45,7 +45,7 @@ on:
       patch_ffmpeg:
         description: 'Enable FFmpeg custom patches'
         type: boolean
-        default: true
+        default: false
       safe_config:
         description: 'Enable FFmpeg flags validation'
         type: boolean
