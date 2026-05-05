@@ -29,7 +29,7 @@ on:
       use_lto:
         description: 'Enable LTO optimization'
         type: boolean
-        default: false
+        default: true
       use_avx512:
         description: 'Enable AVX-512 instructions'
         type: boolean
@@ -45,7 +45,7 @@ on:
       patch_ffmpeg:
         description: 'Enable FFmpeg custom patches'
         type: boolean
-        default: false
+        default: true
       safe_config:
         description: 'Enable FFmpeg flags validation'
         type: boolean
@@ -94,7 +94,7 @@ on:
       older_ffnv:
         description: 'Install older ffnvcodec version'
         type: boolean
-        default: false
+        default: true
         required: false
       dir_numbers:
         description: 'Ignore script folder numbering'
