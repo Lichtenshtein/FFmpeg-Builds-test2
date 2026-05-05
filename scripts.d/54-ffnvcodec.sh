@@ -35,31 +35,19 @@ ffbuild_dockerbuild() {
 
     # ffnvcodec - это просто заголовки, Makefile простой.
     make PREFIX="$FFBUILD_PREFIX" DESTDIR="$FFBUILD_DESTDIR" install || return 1
-
-#    # Fallback для stdbit.h (C23), если компилятор его не находит
-#    # Проверяем через сам компилятор, видит ли он файл в своих путях
-#    if ! echo "#include <stdbit.h>" | $CC -E - >/dev/null 2>&1; then
-#        log_warn "stdbit.h not found in default paths. Creating a fallback stub..."
-#        mkdir -p "$INSTALL_ROOT/include"
-#        # Минимально необходимый контент для FFmpeg (обертки над built-ins)
-#        cat <<EOF > "$INSTALL_ROOT/include/stdbit.h"
-##ifndef _STDBIT_H
-##define _STDBIT_H
-##define __STDC_VERSION_STDBIT_H__ 202311L
-##define stdc_count_ones(x) __builtin_popcountll((unsigned long long)(x))
-##define stdc_trailing_zeros(x) __builtin_ctzll((unsigned long long)(x))
-##define stdc_leading_zeros(x) __builtin_clzll((unsigned long long)(x))
-##endif
-#EOF
-#    else
-#        log_info "stdbit.h is natively supported by $CC, no stub needed."
-#    fi
 }
 
 ffbuild_configure() {
-    echo --enable-ffnvcodec --enable-ffnvcodec --enable-cuda --enable-nvenc --enable-nvdec --enable-cuvid
+    # Проверяем наличие clang и llvm-config на хосте (в контейнере)
+    if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
+        log_info "${CHECK_MARK} LLVM/Clang found. Enable cuda-llvm."
+        echo "--enable-ffnvcodec --enable-cuda-llvm"
+    else
+        log_warn "LLVM/Clang not found. We use standard CUDA components."
+        echo "--enable-ffnvcodec --enable-cuda --enable-nvenc --enable-nvdec --enable-cuvid"
+    fi
 }
 
 ffbuild_unconfigure() {
-    echo --disable-ffnvcodec --disable-cuda-llvm
+    echo "--disable-ffnvcodec --disable-cuda-llvm --disable-cuda --disable-nvenc --disable-nvdec --disable-cuvid"
 }
