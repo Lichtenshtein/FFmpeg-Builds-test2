@@ -376,7 +376,7 @@ CONF_FLAGS=(
     --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
     --extra-ldflags="${ASAN_LDFLAGS}${TORCH_DYNAMIC_LIBS}${FINAL_LDFLAGS}"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
-    # --extra-libs="${FINAL_LIBS_GROUPED}"
+    --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
