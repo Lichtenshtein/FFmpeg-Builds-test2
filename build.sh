@@ -247,6 +247,21 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info "### ${BUILD_MARK} Start of DEBUG audit section"
     log_info_line
 
+    # Проверка путей (PATH)
+    log_debug "${DIRS_MARK} Current PATH: $PATH"
+
+    check_tool() {
+        local name=$1
+        local cmd=$2
+        local path=$(which $cmd 2>/dev/null)
+        if [[ -n "$path" ]]; then
+            local version=$($cmd --version 2>&1 | head -n 1)
+            log_info "  ${CHECK_MARK} $name: ${CYAN}$path${NC} (${GREY_B}$version${NC})"
+        else
+            log_error " $name ($cmd) NOT FOUND!"
+        fi
+    }
+
     log_debug "FFBUILD_PREFIX:\n$FFBUILD_PREFIX"
     log_debug "FFBUILD_DESTDIR:\n$FFBUILD_DESTDIR"
     log_debug "PKG_DIR:\n$PKG_DIR"
@@ -291,8 +306,48 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     as --version | head -n 1
     x86_64-w64-mingw32-as --version | head -n 1
 
+    # Если AS или LD показывают /usr/bin/... вместо /opt/ct-ng/... — это 100% причина ошибок и проблем со ненайденными заголовками
+    # Версии кросс-инструментов должны совпадать с ct-ng (2.46.0 / 15.2.0), а не Ubuntu (2.42).
+    check_tool "CC     " "$CC"
+    check_tool "CXX    " "$CXX"
+    check_tool "AS     " "x86_64-w64-mingw32-as"
+    check_tool "AR     " "$AR"
+    check_tool "NM     " "$NM"
+    check_tool "RANLIB " "$RANLIB"
+    check_tool "LD     " "$LD"
+    check_tool "STRIP  " "x86_64-w64-mingw32-strip"
+
+    # Проверка ccache
+    if command -v ccache &>/dev/null; then
+        log_info "${CACHE_MARK} ccache found. Configuration:"
+        log_debug "  CCACHE_PATH: $CCACHE_PATH"
+        log_debug "  REAL_CC: $(ccache -p | grep compiler_check || echo 'default')"
+    else
+        log_warn "ccache not in use"
+    fi
+
+    # Проверка видимости библиотек ffnvcodec (твоя ошибка cuda_llvm)
+    log_info "${SEARCH_MARK} Checking ffnvcodec in pkg-config:"
+    if pkg-config --exists ffnvcodec; then
+        log_info "  ${CHECK_MARK} ffnvcodec found: $(pkg-config --modversion ffnvcodec)"
+        log_debug "  Cflags: $(pkg-config --cflags ffnvcodec)"
+    else
+        log_error "ffnvcodec NOT FOUND in PKG_CONFIG_PATH ($PKG_CONFIG_PATH)"
+        log_debug "  Contents of /opt/ffbuild/lib/pkgconfig:"
+        ls -1 /opt/ffbuild/lib/pkgconfig/*.pc 2>/dev/null | xargs -n1 basename | sed 's/^/    /'
+    fi
+
+    # Специфическая проверка для LTO (наличие плагинов)
+    log_info "${BUILD_MARK} Checking LTO support in AR:"
+    if $AR --help | grep -q "plugin"; then
+        log_info "  ${CHECK_MARK} AR supports plugins (required for LTO)"
+    else
+        log_warn "AR may not support LTO plugins! Make sure you're using gcc-ar."
+    fi
+
     log_info_line
     log_info "### ${BUILD_MARK} End of DEBUG audit section"
+    log_info_line
 fi
 
 # экспортируем флаги
@@ -325,7 +380,7 @@ CONF_FLAGS=(
     --enable-opengl
     --enable-pic
     --disable-debug
-    --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
+    --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
 )
 
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
@@ -349,6 +404,7 @@ if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
     log_warn "LTO detected. Forcing dual-thread build."
     MAKE_JOBS=2
 else
+    log_warn "LTO NOT detected. Using all available threads."
     # Берем минимум между количеством ядер и лимитом по памяти
     MAKE_JOBS=$(( CPU_CORES < MEM_JOBS ? CPU_CORES : MEM_JOBS ))
     log_info_line
