@@ -38,12 +38,12 @@ cleanup() {
 # EXIT сработает всегда: и при успехе, и при ошибке, и при прерывании
 trap cleanup EXIT
 
-if [[ "${USE_WINE:-0}" = "1" ]]; then
-    export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
-else
-    # export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin"
-    export PATH="/opt/ct-ng/bin:/opt/cargo/bin:/usr/local/bin:/usr/bin:/bin"
-fi
+# if [[ "${USE_WINE:-0}" = "1" ]]; then
+#     export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
+# else
+#     # export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin"
+#     export PATH="/opt/ct-ng/bin:/opt/cargo/bin:/usr/local/bin:/usr/bin:/bin"
+# fi
 
 # Инициализация локальных (не экспортируемых!) переменных
 # Обнуляем FF_ переменные перед загрузкой, чтобы не было старых хвостов
@@ -433,7 +433,7 @@ check_and_fix_configure && printf "  %s\n" "${CONF_FLAGS[@]}"
 if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     log_error "Configure failed!"
     log_debug "${LOGS_MARK} ▼ CONTENT OF $FFMPEG_CONFIG_LOG ▼"
-    tail -n 300 "$FFMPEG_CONFIG_LOG"
+    tail -n 700 "$FFMPEG_CONFIG_LOG"
     log_debug "${LOGS_MARK} ▲ END OF $FFMPEG_CONFIG_LOG ▲"
     exit 1
 fi
