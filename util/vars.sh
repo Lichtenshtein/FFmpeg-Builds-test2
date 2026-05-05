@@ -251,7 +251,8 @@ export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
 # Ветвление по TARGET
 if [[ "$TARGET" == "win64" ]]; then
-    export BASE_CFLAGS="${OPENMP_C}-mms-bitfields -fstack-protector-strong"
+    # -fstack-protector-strong
+    export BASE_CFLAGS="${OPENMP_C}-mms-bitfields"
     export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
 
     BASE_LD_FLAGS=(
@@ -295,7 +296,8 @@ if [[ "$TARGET" == "win64" ]]; then
     export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="${FFBUILD_CROSS_PREFIX}gcc"
 
 elif [[ "$TARGET" == "linux64" ]]; then
-    export BASE_CFLAGS="${OPENMP_C}-fstack-protector-strong"
+    # -fstack-protector-strong
+    export BASE_CFLAGS="${OPENMP_C}"
     export BASE_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
     # Используем Linux-специфичные LDFLAGS
