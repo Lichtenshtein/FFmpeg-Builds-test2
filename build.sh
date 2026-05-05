@@ -256,9 +256,9 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
         local path=$(which $cmd 2>/dev/null)
         if [[ -n "$path" ]]; then
             local version=$($cmd --version 2>&1 | head -n 1)
-            log_info "  ${CHECK_MARK} $name: ${CYAN}$path${NC} (${GREY_B}$version${NC})"
+            log_debug "${CHECK_MARK} $name: ${CYAN}$path${NC} (${GREY_B}$version${NC})"
         else
-            log_error " $name ($cmd) NOT FOUND!"
+            log_error "$name ($cmd) NOT FOUND!"
         fi
     }
 
@@ -320,8 +320,8 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     # Проверка ccache
     if command -v ccache &>/dev/null; then
         log_info "${CACHE_MARK} ccache found. Configuration:"
-        log_debug "  CCACHE_PATH: $CCACHE_PATH"
-        log_debug "  REAL_CC: $(ccache -p | grep compiler_check || echo 'default')"
+        log_debug "CCACHE_PATH: $CCACHE_PATH"
+        log_debug "REAL_CC: $(ccache -p | grep compiler_check || echo 'default')"
     else
         log_warn "ccache not in use"
     fi
@@ -329,18 +329,18 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     # Проверка видимости библиотек ffnvcodec (твоя ошибка cuda_llvm)
     log_info "${SEARCH_MARK} Checking ffnvcodec in pkg-config:"
     if pkg-config --exists ffnvcodec; then
-        log_info "  ${CHECK_MARK} ffnvcodec found: $(pkg-config --modversion ffnvcodec)"
-        log_debug "  Cflags: $(pkg-config --cflags ffnvcodec)"
+        log_info "${CHECK_MARK} ffnvcodec found: $(pkg-config --modversion ffnvcodec)"
+        log_debug "Cflags: $(pkg-config --cflags ffnvcodec)"
     else
         log_error "ffnvcodec NOT FOUND in PKG_CONFIG_PATH ($PKG_CONFIG_PATH)"
-        log_debug "  Contents of /opt/ffbuild/lib/pkgconfig:"
+        log_debug "Contents of /opt/ffbuild/lib/pkgconfig:"
         ls -1 /opt/ffbuild/lib/pkgconfig/*.pc 2>/dev/null | xargs -n1 basename | sed 's/^/    /'
     fi
 
     # Специфическая проверка для LTO (наличие плагинов)
     log_info "${BUILD_MARK} Checking LTO support in AR:"
     if $AR --help | grep -q "plugin"; then
-        log_info "  ${CHECK_MARK} AR supports plugins (required for LTO)"
+        log_info "${CHECK_MARK} AR supports plugins (required for LTO)"
     else
         log_warn "AR may not support LTO plugins! Make sure you're using gcc-ar."
     fi
@@ -380,6 +380,7 @@ CONF_FLAGS=(
     --enable-opengl
     --enable-pic
     --disable-debug
+    --disable-objcc
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
 )
 
