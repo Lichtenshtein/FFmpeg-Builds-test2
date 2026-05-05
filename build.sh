@@ -363,6 +363,14 @@ read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 
 chmod +x configure
 
+export PKG_CONFIG_PATH="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
+export PKG_CONFIG_LIBDIR="/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig"
+dos2unix /opt/ffbuild/lib/pkgconfig/ffnvcodec.pc
+log_debug "PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
+pkg-config --exists --print-errors ffnvcodec || log_error "PKG_CONFIG FAILED TO FIND FFNVCODEC"
+pkg-config --cflags ffnvcodec || true
+
+
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
     "${TARGET_FLAGS_ARR[@]}"
@@ -423,7 +431,6 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     log_debug "${LOGS_MARK} ▼ CONTENT OF $FFMPEG_CONFIG_LOG ▼"
     tail -n 300 "$FFMPEG_CONFIG_LOG"
     log_debug "${LOGS_MARK} ▲ END OF $FFMPEG_CONFIG_LOG ▲"
-grep -A 20 "Checking for cuda_llvm" ffbuild/config.log
     exit 1
 fi
 

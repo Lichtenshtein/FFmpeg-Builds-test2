@@ -11,7 +11,7 @@ SCRIPT_REPO4="https://github.com/FFmpeg/nv-codec-headers.git"
 SCRIPT_COMMIT4="09e12e3d803ce79c327a9709233e8cd858e59d9e"
 SCRIPT_BRANCH4="sdk/8.1"
 
-export SKIP_POST_PATCH=1
+# export SKIP_POST_PATCH=1
 
 ffbuild_enabled() {
     [[ $TARGET == winarm64 ]] && return 1
@@ -54,9 +54,6 @@ EOF
     else
         log_info "stdbit.h is natively supported by $CC, no stub needed."
     fi
-
-    # Копируем всё из include/ffnvcodec/ прямо в include/
-    cp -r "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/ffnvcodec/"* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
 }
 
 ffbuild_configure() {

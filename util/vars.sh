@@ -137,6 +137,7 @@ export PC_DIR="${INSTALL_ROOT}/lib/pkgconfig"
 # component variables and flags collected between stages
 export VARS_DIR="${FFBUILD_PREFIX}/config_vars"
 # pkg-config variables
+export PKG_CONFIG="pkgconf"
 export PKG_CONFIG_PATH="" # don't touch
 export PKG_CONFIG_LIBDIR="${FFBUILD_PREFIX}/lib/pkgconfig:${FFBUILD_PREFIX}/share/pkgconfig:${FFBUILD_PREFIX}/lib64/pkgconfig"
 export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
