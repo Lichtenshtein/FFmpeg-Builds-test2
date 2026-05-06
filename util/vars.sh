@@ -246,9 +246,9 @@ HOST_LINUX_LDFLAGS=(
 
 # Настраиваем HOST_RUSTFLAGS (всегда Linux ELF)
 export HOST_RUSTFLAGS="${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${HOST_LINUX_LDFLAGS[@]}") -C embed-bitcode=yes"
-export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]}"
-export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -std=gnu23"
-export HOST_CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections"
+export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]} -flto=auto -ffat-lto-objects -flto-compression-level=16"
+export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -std=gnu23 -flto=auto -ffat-lto-objects -flto-compression-level=16 -fno-asynchronous-unwind-tables -mpreferred-stack-boundary=4"
+export HOST_CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -flto=auto -ffat-lto-objects -flto-compression-level=16 -fno-asynchronous-unwind-tables -mpreferred-stack-boundary=4"
 export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
 # Ветвление по TARGET
