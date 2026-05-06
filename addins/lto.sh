@@ -19,6 +19,7 @@ ffbuild_cflags() {
 ffbuild_cxxflags() {
     echo "${USELTO} -flto-compression-level=16 -mstackrealign"
 }
+# "-fno-use-linker-plugin"
 ffbuild_ldflags() {
     echo "${USELTO}"
 }
