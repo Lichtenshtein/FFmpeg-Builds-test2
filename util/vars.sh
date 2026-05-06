@@ -207,9 +207,18 @@ unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS RUSTFLAGS LIBS
 # don't use -fno-plt flag other than host
 
 [[ "$USE_OPENMP" == "1" ]] && export OPENMP_C="-fopenmp " && export OPENMP_LIB="-lgomp "
+
 # LTO for ffmpeg disabled due to critical bug in gcc-15.2
 # -ffat-lto-objects is needed for ffmpeg linker to understand LTO code
-[[ "$USE_LTO" == "1" ]] && export RUSTLTO=" -C lto=fat" && export USELTO="-flto=auto" && export USELTO_C=" -ffat-lto-objects -flto-compression-level=16 -mpreferred-stack-boundary=4" && export NOLTO="-fno-lto"
+if [[ "$USE_LTO" == "1" ]]; then
+    export RUSTLTO=" -C lto=fat"
+    export USELTO="-flto=auto"
+    export USELTO_C=" -ffat-lto-objects -flto-compression-level=16"
+    export NOLTO="-fno-lto"
+    export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
+    export NM="${FFBUILD_CROSS_PREFIX}gcc-nm"
+    export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
+fi
 
 # Общие настройки Rust; codegen-units = 16 (default)
 COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 ${RUSTLTO}"

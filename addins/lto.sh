@@ -10,22 +10,23 @@ log_info "${XCLAM_MARK} LTO Addin: Enabling Link Time Optimization..."
 ffbuild_configure() {
     echo "--enable-lto"
 }
-# добавляем в аккумуляторы FFmpeg, чтобы они попали в --extra-cflags
+
 # -ffat-lto-objects позволит библиотекам содержать как LTO-код, так и обычный объектный код. Это увеличит размер промежуточных библиотек, но сделает линковку более стабильной
+# -mpreferred-stack-boundary=4
 ffbuild_cflags() {
-    echo "${USELTO}${USELTO_C}"
+    echo "${USELTO} -flto-compression-level=16 -mstackrealign"
 }
 ffbuild_cxxflags() {
-    echo "${USELTO}${USELTO_C}"
+    echo "${USELTO} -flto-compression-level=16 -mstackrealign"
 }
 ffbuild_ldflags() {
     echo "${USELTO}"
 }
 
 # для LTO нужны версии с плагинами)
-export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
-export NM="${FFBUILD_CROSS_PREFIX}gcc-nm"
-export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
+# export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
+# export NM="${FFBUILD_CROSS_PREFIX}gcc-nm"
+# export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
 
 for tool in AR NM RANLIB; do
     tool_path="${!tool}"

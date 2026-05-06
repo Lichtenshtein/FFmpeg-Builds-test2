@@ -197,34 +197,38 @@ ffbuild_dockerbuild() {
         rm -rf "$TIFF_HIDE_DIR"
     fi
 
+    local SRC_3RDPARTY="${INSTALL_ROOT}/lib/opencv4/3rdparty"
     local DEST_LIB="${INSTALL_ROOT}/lib"
     local PC_FILE="$PC_DIR/opencv4.pc"
 
-    log_info "Moving OpenCV 3rdparty libs to main lib directory..."
-    find 3rdparty -name "*.a" -exec mv {} "${DEST_LIB}/" \;
+    if [ -d "$SRC_3RDPARTY" ]; then
+        log_info "Moving OpenCV 3rdparty libs to main lib directory..."
+        if [[ "${PREFER_SHARED}" == "1" ]]; then
+            mv "$SRC_3RDPARTY"/*.dll "$DEST_LIB/" 2>/dev/null || true
+        else
+            mv "$SRC_3RDPARTY"/*.a "$DEST_LIB/" 2>/dev/null || true
+        fi
+        rm -rf "${INSTALL_ROOT}/lib/opencv4"
+    fi
 
     # исправление имен liblib -> lib
     pushd "${DEST_LIB}"
     for f in liblib*.a; do
         if [ -f "$f" ]; then
-            newname=$(echo "$f" | sed 's/liblib/lib/')
+            newname=$(echo "$f" | sed 's/^liblib/lib/')
             log_info "Renaming $f to $newname"
-            if [ -f "$newname" ]; then
-                rm "$f"
-            else
-                mv "$f" "$newname"
-            fi
+            mv -f "$f" "$newname"
         fi
     done
     popd
 
-    # removing duplicate libraries
-    if [ -f "${FFBUILD_PREFIX}/lib/libpng.a" ]; then
-        rm -f "${DEST_LIB}/libpng.a"
-    fi
-    if [ -f "${FFBUILD_PREFIX}/lib/libprotobuf.a" ]; then
-        rm -f "${DEST_LIB}/libprotobuf.a"
-    fi
+    # Удаляем системные дубликаты, если они пришли из OpenCV 3rdparty
+    for duplicate in libpng.a libprotobuf.a libz.a libjpeg.a libtiff.a; do
+        if [ -f "${FFBUILD_PREFIX}/lib/${duplicate}" ] && [ -f "${DEST_LIB}/${duplicate}" ]; then
+             log_info "Removing duplicate ${duplicate} from OpenCV build"
+             rm -f "${DEST_LIB}/${duplicate}"
+        fi
+    done
 
     if [ -f "$PC_FILE" ]; then
         log_info "Fixing includedir path in opencv4.pc..."
@@ -240,7 +244,7 @@ ffbuild_dockerbuild() {
         local OLD_PRIVATES=$(grep "Libs.private:" "$PC_FILE" | cut -d':' -f2-)
         # Убираем любые упоминания -lopencv_* из текущего файла, чтобы избежать дублей
         # Чистим зависимости: liblib -> lib, абсолютные пути, мусор
-        local CLEAN_PRIVATES=$(echo "$OLD_PRIVATES" | sed -E 's/-llib/-l/g; s|-L/build/[^ ]*||g; -L/opt/ffbuild/lib[^ ]*||g; s/-lRunTmChk.a//g; s/-lntdll.a//g; s/-lopencv_[^ ]*//g')
+        local CLEAN_PRIVATES=$(echo "$OLD_PRIVATES" | sed -E 's/-llib/-l/g; s|-L/[^ ]*||g; s/-lRunTmChk.a//g; s/-lntdll.a//g; s/-lopencv_[^ ]*//g')
         # Записываем в файл
         sed -i "s|^Libs:.*|Libs: -L\${libdir} ${ACTUAL_LIBS}|" "$PC_FILE"
         sed -i "s|^Libs.private:.*|Libs.private: ${CLEAN_PRIVATES}|" "$PC_FILE"
