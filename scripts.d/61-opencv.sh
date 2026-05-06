@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/opencv/opencv.git"
-SCRIPT_COMMIT="10dad24385b547e4120cc07ddc27cdd202d753e0"
+SCRIPT_COMMIT="30fffe2fa080b83b3cffecce05225475dbbdf012"
 
 export SKIP_POST_PATCH=1
 
@@ -163,21 +163,17 @@ ffbuild_dockerbuild() {
         return 1
     }
 
-    local IPP_PATH="3rdparty/ippicv/ippicv_win/icv/lib/intel64"
-    if [ -f "$IPP_PATH/ippicvmt.lib" ]; then
-        log_info "Found IPP ICV (.lib), converting for MinGW..."
-        cp "$IPP_PATH/ippicvmt.lib" "$IPP_PATH/libippicv.a"
-        cp "$IPP_PATH/ippicvmt.lib" "${INSTALL_ROOT}/lib/libippicv.a"
-    else
-        log_warn "IPP ICV library not found at $IPP_PATH"
-    fi
+    mkdir -p "$INSTALL_ROOT"/{include,bin,lib/pkgconfig}
 
-    local IPP_INC_DIR="3rdparty/ippicv/ippicv_win/icv/include"
-    if [ -d "$IPP_INC_DIR" ]; then
+    local IPP_PATH="3rdparty/ippicv/ippicv_win/icv"
+    if [ -f "$IPP_PATH/lib/intel64/ippicvmt.lib" ]; then
+        log_info "Found IPP ICV (.lib), converting for MinGW..."
+        cp "$IPP_PATH/lib/intel64/ippicvmt.lib" "$IPP_PATH/lib/intel64/libippicv.a"
+        mv "$IPP_PATH/lib/intel64/ippicvmt.lib" "${INSTALL_ROOT}/lib/libippicv.a"
         log_info "Copying IPP ICV headers to include directory..."
-        cp "$IPP_INC_DIR"/*.h "${INSTALL_ROOT}/include/"
+        cp "$IPP_PATH/include"/*.h "${INSTALL_ROOT}/include/"
     else
-        log_warn "IPP ICV headers not found at $IPP_INC_DIR"
+        log_warn "IPP ICV files not found at $IPP_PATH"
     fi
 
     # ПАТЧ IPP IW
@@ -249,6 +245,28 @@ ffbuild_dockerbuild() {
         fi
     done
 
+    # Создаем симлинк, чтобы заголовочные файлы находились по стандартному пути
+    # ln -sfn opencv4/opencv2 "${INSTALL_ROOT}/include/opencv2"
+
+    log_info "Creating MSVC security cookie stubs for IPP..."
+    # Создаем исходник заглушки
+    cat <<EOF > msvc_stub.c
+#include <stdint.h>
+#include <stdlib.h>
+
+uintptr_t __security_cookie = 0xBB40E64E;
+
+void __fastcall __security_check_cookie(uintptr_t _StackCookie) {
+    if (_StackCookie != __security_cookie) {
+        abort();
+    }
+}
+EOF
+
+    # Компилируем в объектный файл и упаковываем в статическую либу
+    ${FFBUILD_CROSS_PREFIX}gcc -c msvc_stub.c -o msvc_stub.o
+    ${FFBUILD_CROSS_PREFIX}ar rcs "${DEST_LIB}/libmsvc_stub.a" msvc_stub.o
+
     if [ -f "$PC_FILE" ]; then
         log_info "Fixing includedir path in opencv4.pc..."
         sed -i "s|^includedir=.*|includedir=\${prefix}/include/opencv4|g" "$PC_FILE"
@@ -272,7 +290,7 @@ ffbuild_dockerbuild() {
             sed -i '/^Libs.private:/ s/$/ -lopenvino/' "$PC_FILE"
         fi
         if [[ "${myconf[@]}" =~ "-DWITH_IPP=ON" ]]; then
-            sed -i 's|^Libs.private: |Libs.private: -lippicv |' "$PC_FILE"
+            sed -i 's|^Libs.private: |Libs.private: -lmsvc_stub -lippicv |' "$PC_FILE"
             sed -i 's/-lippicvmt//g; s/-lippicv -lippicv/-lippicv/g' "$PC_FILE"
         fi
         sed -i "s/Requires.private:.*/Requires.private: /" "$PC_FILE"
