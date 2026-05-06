@@ -255,6 +255,7 @@ jobs:
           echo "-------------------------------"
 
       - name: Setup Swap Space
+        if: github.event.inputs.use_lto == 'true'
         run: |
           sudo swapoff -a || true
           sudo rm -f /swapfile
