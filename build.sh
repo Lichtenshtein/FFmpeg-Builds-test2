@@ -239,8 +239,8 @@ if [[ "$HAS_LIBTORCH" == "1" ]]; then
     sed -i 's/at::hasXPU()/false/g' libavfilter/dnn/dnn_backend_torch.cpp
 fi
 
-# Используем группы для решения проблем циклических зависимостей (особенно для Tesseract)
-FINAL_LIBS_GROUPED="-Wl,--start-group ${TORCH_LIBS}${FINAL_LIBS} -Wl,--end-group -Wl,--allow-multiple-definition -lstdc++"
+# Используем группы для решения проблем циклических зависимостей (особенно для Tesseract) -Wl,--allow-multiple-definition 
+FINAL_LIBS_GROUPED="-Wl,--start-group ${TORCH_LIBS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
