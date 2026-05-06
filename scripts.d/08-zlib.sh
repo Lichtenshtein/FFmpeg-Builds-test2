@@ -49,21 +49,21 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DZLIB_STATIC"
 
-    CFLAGS="$CFLAGS $CPPFLAGS $static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     # Check for successful generation
     if [[ ! -f "build.ninja" ]]; then
-        log_error "ERROR: CMake failed to generate build.ninja"
+        log_error "CMake failed to generate build.ninja"
         return 1
     fi
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libzlibstatic.a" ]] && mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libzlibstatic.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libz.a"
+    [[ -f "$INSTALL_ROOT/lib/libzlibstatic.a" ]] && mv "$INSTALL_ROOT/lib/libzlibstatic.a" "$INSTALL_ROOT/lib/libz.a"
 
     for pc in "$PC_DIR"/*zlib*.pc; do
         [[ -e "$pc" ]] || continue

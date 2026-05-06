@@ -17,13 +17,13 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     if [[ "$CC" != *clang* ]]; then
-        export CFLAGS="$CFLAGS $CPPFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
-        export CXXFLAGS="$CXXFLAGS $CPPFLAGS -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
-        export LDFLAGS="$LDFLAGS"
+        export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
+        export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
+        export LDFLAGS="$LDFLAGS ${USELTO}"
     else
-        export CFLAGS="$CFLAGS $CPPFLAGS"
-        export CXXFLAGS="$CXXFLAGS $CPPFLAGS"
-        export LDFLAGS="$LDFLAGS"
+        export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}"
+        export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}"
+        export LDFLAGS="$LDFLAGS ${USELTO}"
     fi
 
     local myconf=(

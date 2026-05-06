@@ -85,9 +85,9 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DSDL_STATIC_LIB"
 
-    CFLAGS="$CFLAGS $CPPFLAGS $static_flags -D_REENTRANT" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags -D_REENTRANT" \
-    LDFLAGS="$LDFLAGS -lpthread" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT" \
+    LDFLAGS="$LDFLAGS ${USELTO} -lpthread" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

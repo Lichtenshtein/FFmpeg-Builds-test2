@@ -105,10 +105,10 @@ EOF
     # Передаем линковочные флаги через meson, чтобы проверки (типа наличия функций) проходили успешно
     meson setup _build . \
         "${myconf[@]}" \
-        -Dc_args="$CFLAGS $CPPFLAGS $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW" \
-        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
-        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
+        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW" \
+        -Dc_link_args="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" || return 1
 
     ninja -C _build $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja -C _build install || return 1

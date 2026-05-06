@@ -42,9 +42,9 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DZMQ_STATIC"
 
-    CFLAGS="$CFLAGS $CPPFLAGS -DZMQ_NO_EXPORT $static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS -DZMQ_NO_EXPORT $static_flags" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -DZMQ_NO_EXPORT $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -DZMQ_NO_EXPORT $static_flags" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

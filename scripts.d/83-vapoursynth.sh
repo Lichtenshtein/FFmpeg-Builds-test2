@@ -311,29 +311,29 @@ EOF
     unset CPLUS_INCLUDE_PATH
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS $FIX_FLAGS $static_flags" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS $FIX_FLAGS $static_flags" \
-        -Dc_link_args="$LDFLAGS" \
-        -Dcpp_link_args="$LDFLAGS" || return 1
+        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $FIX_FLAGS $static_flags" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $FIX_FLAGS $static_flags" \
+        -Dc_link_args="$LDFLAGS ${USELTO}" \
+        -Dcpp_link_args="$LDFLAGS ${USELTO}" || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Исправляем установку заголовков (Headers)
     log_info "Manually installing headers..."
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/vapoursynth"
-    cp -v ../include/VapourSynth4.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/vapoursynth/"
-    cp -v ../include/VSScript4.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/vapoursynth/"
-    cp -v ../include/VSHelper4.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/vapoursynth/" 2>/dev/null || true
+    mkdir -p "$INSTALL_ROOT/include/vapoursynth"
+    cp -v ../include/VapourSynth4.h "$INSTALL_ROOT/include/vapoursynth/"
+    cp -v ../include/VSScript4.h "$INSTALL_ROOT/include/vapoursynth/"
+    cp -v ../include/VSHelper4.h "$INSTALL_ROOT/include/vapoursynth/" 2>/dev/null || true
 
     log_info "Copying Python runtime DLLs and ZIP..."
     # Копируем DLL и рантайм Python
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
+    mkdir -p "$INSTALL_ROOT/bin"
 
     # Ищем DLL и ZIP в корне python_win, так как в embed-версии нет папки bin
-    find ../python_win -maxdepth 2 -name "*.dll" -exec cp -v {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" \;
-    find ../python_win -maxdepth 2 -name "python3*.zip" -exec cp -v {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" \;
-    find ../python_win -maxdepth 2 -name "*.pyd" -exec cp -v {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/" \; 2>/dev/null || true
+    find ../python_win -maxdepth 2 -name "*.dll" -exec cp -v {} "$INSTALL_ROOT/bin/" \;
+    find ../python_win -maxdepth 2 -name "python3*.zip" -exec cp -v {} "$INSTALL_ROOT/bin/" \;
+    find ../python_win -maxdepth 2 -name "*.pyd" -exec cp -v {} "$INSTALL_ROOT/bin/" \; 2>/dev/null || true
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/vapoursynth.pc"

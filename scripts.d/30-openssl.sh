@@ -67,7 +67,7 @@ ffbuild_dockerbuild() {
     fi
 
     ./Configure "${myconf[@]}" \
-        "$CFLAGS -fno-strict-aliasing -Wno-overflow ${USELTO}" \
+        "$CFLAGS -fno-strict-aliasing -Wno-overflow ${USELTO}${USELTO_C}" \
         "$CPPFLAGS" \
         "$LDFLAGS ${USELTO}" \
         "$LIBS" || return 1

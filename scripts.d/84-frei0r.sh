@@ -51,9 +51,9 @@ ffbuild_dockerbuild() {
         -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4"
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS $ADDITIONAL_FLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $ADDITIONAL_FLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $ADDITIONAL_FLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $ADDITIONAL_FLAGS" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

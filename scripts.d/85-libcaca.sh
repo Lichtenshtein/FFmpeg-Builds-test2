@@ -74,9 +74,9 @@ ffbuild_dockerbuild() {
 
     CC="${FFBUILD_CROSS_PREFIX}gcc" \
     CXX="${FFBUILD_CROSS_PREFIX}g++" \
-    CFLAGS="$CFLAGS -Wno-implicit-function-declaration ${USELTO}" \
+    CFLAGS="$CFLAGS -Wno-implicit-function-declaration ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration ${USELTO}" \
+    CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1

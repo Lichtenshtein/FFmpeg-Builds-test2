@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
     sed -i "s|^RANLIB  =.*|RANLIB  = $RANLIB|" Makefile
 
     make \
-      CFLAGS="$CFLAGS ${USELTO}" \
+      CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
       LDFLAGS="$LDFLAGS ${USELTO}" \
       -j$(nproc) $MAKE_V libgif.a || return 1
 

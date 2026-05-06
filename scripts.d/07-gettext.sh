@@ -37,9 +37,9 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-openmp ) || \
         myconf+=( --disable-openmp )
 
-    CFLAGS="$CFLAGS -Dasm=__asm__ ${USELTO}" \
+    CFLAGS="$CFLAGS -Dasm=__asm__ ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS -Dasm=__asm__ ${USELTO}" \
+    CXXFLAGS="$CXXFLAGS -Dasm=__asm__ ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
