@@ -13,10 +13,10 @@ ffbuild_configure() {
 # добавляем в аккумуляторы FFmpeg, чтобы они попали в --extra-cflags
 # -ffat-lto-objects позволит библиотекам содержать как LTO-код, так и обычный объектный код. Это увеличит размер промежуточных библиотек, но сделает линковку более стабильной
 ffbuild_cflags() {
-    echo "-flto=auto -ffat-lto-objects -flto-compression-level=16 -fno-asynchronous-unwind-tables -mpreferred-stack-boundary=4"
+    echo "-flto=auto -ffat-lto-objects -flto-compression-level=16 -mpreferred-stack-boundary=4"
 }
 ffbuild_cxxflags() {
-    echo "-flto=auto -ffat-lto-objects -flto-compression-level=16 -fno-asynchronous-unwind-tables -mpreferred-stack-boundary=4"
+    echo "-flto=auto -ffat-lto-objects -flto-compression-level=16 -mpreferred-stack-boundary=4"
 }
 ffbuild_ldflags() {
     echo "-flto=auto -ffat-lto-objects -flto-compression-level=16"
