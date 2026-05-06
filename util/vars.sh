@@ -212,7 +212,7 @@ unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS RUSTFLAGS LIBS
 [[ "$USE_LTO" == "1" ]] && export RUSTLTO=" -C lto=fat" && export USELTO="" && export NOLTO="-fno-lto"
 
 # Общие настройки Rust; codegen-units = 16 (default)
-COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 ${RUSTLTO} -C force-unwind-tables"
+COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 ${RUSTLTO}"
 
 # Общие и дополнительные либы
 SYSTEM_LIBS="${OPENMP_LIB}-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
