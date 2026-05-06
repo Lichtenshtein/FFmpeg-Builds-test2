@@ -158,7 +158,7 @@ EOF
 
         # собираем цель glslc_exe в последних версиях бинарник привязан к ней
         log_info "Building native glslc..."
-        ninja $NINJA_V glslc glslc_exe || true
+        ninja $NINJA_V glslc || true
         log_info "Building native glslang..."
         ninja $NINJA_V glslang-standalone || true
 
