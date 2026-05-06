@@ -7,14 +7,13 @@ ARG CPU_ARCH
 ARG CPU_TUNE
 
 # Build the Toolchain
-RUN --mount=src=ct-ng-config-gcc14,dst=/.config \
+RUN --mount=src=ct-ng-config,dst=/.config \
     git clone --filter=blob:none --depth=1 https://github.com/crosstool-ng/crosstool-ng.git /ct-ng && \
     cd /ct-ng && \
     ./bootstrap && \
     ./configure --enable-local && \
     make -j$(nproc) && \
-    cp /.config .config && chmod 644 .config \
-    yes "" | ./ct-ng oldconfig && \
+    cp /.config .config && \
     ./ct-ng build && \
     cd / && \
     rm -rf ct-ng && \

@@ -37,15 +37,15 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-shared=yes ) || \
         myconf+=( --enable-shared=no --disable-shared )
 
-    CFLAGS="$CFLAGS ${USELTO}" \
+    CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS -DWAIT_ANY=-1" \
-    CXXFLAGS="$CXXFLAGS ${USELTO}" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     # Предварительное создание структуры
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{lib/pkgconfig,include/flite}
+    mkdir -p "$INSTALL_ROOT"/{lib/pkgconfig,include/flite}
 
     make -j$(nproc) $MAKE_V || return 1
     # make install DESTDIR="$FFBUILD_DESTDIR"
@@ -54,18 +54,18 @@ ffbuild_dockerbuild() {
     local BUILDIR=$(find build -maxdepth 2 -type d -name "lib" | head -n 1)
     if [[ -d "$BUILDIR" ]]; then
         log_info "Found build libraries in $BUILDIR"
-        cp -v "$BUILDIR"/*.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+        cp -v "$BUILDIR"/*.a "$INSTALL_ROOT/lib/"
     else
         log_error "Could not find compiled libraries in build/ folder!"
         return 1
     fi
 
     # Копируем заголовки
-    cp -v include/*.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/flite/"
+    cp -v include/*.h "$INSTALL_ROOT/include/flite/"
 
     # Собираем список всех библиотек для Libs (согласно flite.pc.in и реальности)
     # Порядок важен: сначала голоса и лексиконы, в конце -lflite
-    local VOX_LIBS=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "libflite_*.a" | sed "s|.*/lib\(flite_.*\)\.a|-l\1|" | xargs)
+    local VOX_LIBS=$(find "$INSTALL_ROOT/lib" -name "libflite_*.a" | sed "s|.*/lib\(flite_.*\)\.a|-l\1|" | xargs)
 
     cat <<EOF > "$PC_DIR/flite.pc"
 prefix=$FFBUILD_PREFIX

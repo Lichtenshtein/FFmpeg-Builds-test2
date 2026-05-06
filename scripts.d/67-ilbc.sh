@@ -33,9 +33,9 @@ ffbuild_dockerbuild() {
 
     local EXTRA_CFLAGS="-Wno-error=implicit-function-declaration"
 
-    CFLAGS="$CFLAGS $CPPFLAGS $EXTRA_CFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $EXTRA_CFLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $EXTRA_CFLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $EXTRA_CFLAGS" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

@@ -59,12 +59,14 @@ ffbuild_dockerbuild() {
 
     if [[ $TARGET == linux* ]]; then
         # our glibc is too old(<2.25), and their detection fails for some reason
-        export CXXFLAGS="$CXXFLAGS -DVQSORT_GETRANDOM=0 -DVQSORT_SECURE_SEED=0"
+        export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}"
+        export CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C} -DVQSORT_GETRANDOM=0 -DVQSORT_SECURE_SEED=0"
+        export LDFLAGS="$LDFLAGS ${USELTO}"
     elif [[ $TARGET == win32 || $TARGET == win64 ]]; then
         # Fix AVX2 related crash due to unaligned stack memory
-        export CFLAGS="$CFLAGS $CPPFLAGS $static_flags -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
-        export CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
-        export LDFLAGS="$LDFLAGS"
+        export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
+        export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
+        export LDFLAGS="$LDFLAGS ${USELTO}"
     fi
 
     cmake -G Ninja "${myconf[@]}" .. || return 1

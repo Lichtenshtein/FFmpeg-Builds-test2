@@ -14,11 +14,11 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    export CFLAGS="$CFLAGS -DNeedFunctionPrototypes=1 -c -DSASR -DWAV49 -Wno-comment ${USELTO}"
-    export CCFLAGS="$CFLAGS -DNeedFunctionPrototypes=1 -c -DSASR -DWAV49 -Wno-comment ${USELTO}"
+    export CFLAGS="$CFLAGS -DNeedFunctionPrototypes=1 -c -DSASR -DWAV49 -Wno-comment ${USELTO}${USELTO_C}"
+    export CCFLAGS="$CFLAGS -DNeedFunctionPrototypes=1 -c -DSASR -DWAV49 -Wno-comment ${USELTO}${USELTO_C}"
     export LDFLAGS="$LDFLAGS ${USELTO}"
     export CPPFLAGS="$CPPFLAGS"
-    export CXXFLAGS="$CXXFLAGS ${USELTO}"
+    export CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}"
     export INSTALL_ROOT="$FFBUILD_DESTPREFIX"
     export CC="${FFBUILD_TOOLCHAIN}-gcc"
 

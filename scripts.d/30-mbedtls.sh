@@ -42,9 +42,9 @@ ffbuild_dockerbuild() {
         myconf+=( -DUSE_SHARED_MBEDTLS_LIBRARY=ON -DUSE_STATIC_MBEDTLS_LIBRARY=OFF ) || \
         myconf+=( -DUSE_SHARED_MBEDTLS_LIBRARY=OFF -DUSE_STATIC_MBEDTLS_LIBRARY=ON )
 
-    CFLAGS="$CFLAGS $CPPFLAGS -Wno-error=array-bounds" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS -Wno-error=array-bounds" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-error=array-bounds" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-error=array-bounds" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

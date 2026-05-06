@@ -44,9 +44,9 @@ ffbuild_dockerbuild() {
         myconf+=( -DBUILD_STATIC_LIBS=OFF -DBUILD_SHARED_LIBS=ON ) || \
         myconf+=( -DBUILD_STATIC_LIBS=ON -DBUILD_SHARED_LIBS=OFF )
 
-    CFLAGS="$CFLAGS $CPPFLAGS $static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

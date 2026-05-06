@@ -48,9 +48,9 @@ ffbuild_dockerbuild() {
         -DUNITTEST=OFF
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake "${myconf[@]}" .. || return 1
 
     # Сборка только библиотеки
@@ -64,20 +64,20 @@ ffbuild_dockerbuild() {
         ${AR} rcs src/libcodec2.a *.obj
     fi || return 1
 
-    mkdir -p "$FFBUILD_DESTPREFIX/lib"
-    mkdir -p "$FFBUILD_DESTPREFIX/include/codec2"
+    mkdir -p "$INSTALL_ROOT/lib"
+    mkdir -p "$INSTALL_ROOT/include/codec2"
     mkdir -p "$PC_DIR"
 
     # Копируем библиотеку (проверяем оба возможных места появления)
     if [[ -f "src/libcodec2.a" ]]; then
-        cp src/libcodec2.a "$FFBUILD_DESTPREFIX/lib/libcodec2.a"
+        cp src/libcodec2.a "$INSTALL_ROOT/lib/libcodec2.a"
     elif [[ -f "libcodec2.a" ]]; then
-        cp libcodec2.a "$FFBUILD_DESTPREFIX/lib/libcodec2.a"
+        cp libcodec2.a "$INSTALL_ROOT/lib/libcodec2.a"
     fi
 
     # Копируем заголовочные файлы
-    cp ../src/codec2.h "$FFBUILD_DESTPREFIX/include/codec2/"
-    cp ../src/fsk.h ../src/fdmdv.h "$FFBUILD_DESTPREFIX/include/codec2/" 2>/dev/null || true
+    cp ../src/codec2.h "$INSTALL_ROOT/include/codec2/"
+    cp ../src/fsk.h ../src/fdmdv.h "$INSTALL_ROOT/include/codec2/" 2>/dev/null || true
 
     cat <<EOF > "$PC_DIR/codec2.pc"
 prefix=$FFBUILD_PREFIX
@@ -94,10 +94,10 @@ Cflags: -I\${includedir}
 EOF
 
     # Проверка финального наличия
-    if [[ -f "$FFBUILD_DESTPREFIX/lib/libcodec2.a" ]]; then
+    if [[ -f "$INSTALL_ROOT/lib/libcodec2.a" ]]; then
         log_info "${CHECK_MARK} SUCCESS: libcodec2.a is ready."
     else
-        log_error "libcodec2.a still missing in $FFBUILD_DESTPREFIX/lib/"
+        log_error "libcodec2.a still missing in $INSTALL_ROOT/lib/"
         return 1
     fi
 }

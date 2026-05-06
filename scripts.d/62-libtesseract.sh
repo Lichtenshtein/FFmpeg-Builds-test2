@@ -250,16 +250,16 @@ WRAPPER_EOF
         -DCMAKE_FIND_LIBRARY_SUFFIXES=".a"
         -DPKG_CONFIG_EXECUTABLE="$(command -v pkg-config)"
         # Compiler flags
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS $static_flags \
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags \
 -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS \
 -Wno-narrowing -Wno-format"
-        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS $static_flags \
+        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags \
 -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS \
 -Wno-narrowing -Wno-format"
         # Linker flags
-        -DCMAKE_EXE_LINKER_FLAGS="$RAW_LDFLAGS $ALL_LIBS \
+        -DCMAKE_EXE_LINKER_FLAGS="$RAW_LDFLAGS ${USELTO} $ALL_LIBS \
 -Wl,--allow-multiple-definition"
-        -DCMAKE_SHARED_LINKER_FLAGS="$RAW_LDFLAGS $ALL_LIBS \
+        -DCMAKE_SHARED_LINKER_FLAGS="$RAW_LDFLAGS ${USELTO} $ALL_LIBS \
 -Wl,--allow-multiple-definition"
     )
 

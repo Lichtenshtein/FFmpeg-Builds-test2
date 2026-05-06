@@ -79,10 +79,10 @@ ffbuild_dockerbuild() {
     local EXTRA_CFLAGS="-I${FFBUILD_PREFIX}/include/spirv_cross"
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS $EXTRA_CFLAGS" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS $EXTRA_CFLAGS" \
-        -Dc_link_args="$LDFLAGS $EXTRA_LDFLAGS" \
-        -Dcpp_link_args="$LDFLAGS $EXTRA_LDFLAGS" || return 1
+        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $EXTRA_CFLAGS" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $EXTRA_CFLAGS" \
+        -Dc_link_args="$LDFLAGS ${USELTO} $EXTRA_LDFLAGS" \
+        -Dcpp_link_args="$LDFLAGS ${USELTO} $EXTRA_LDFLAGS" || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1

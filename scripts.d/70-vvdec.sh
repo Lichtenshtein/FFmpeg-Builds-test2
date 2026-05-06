@@ -34,9 +34,9 @@ ffbuild_dockerbuild() {
         -DVVDEC_OPT_TARGET_ARCH="${CPU_ARCH:-broadwell}"
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS $FLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $FLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $FLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $FLAGS" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

@@ -153,9 +153,9 @@ ffbuild_dockerbuild() {
         )
     fi
     # -D_WIN32_WINNT=0x0600
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="-ljbig $LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || {
         log_error "CMake failed, restoring TIFF..."
@@ -227,18 +227,20 @@ ffbuild_dockerbuild() {
     fi
 
     if [ -f "$PC_FILE" ]; then
+        log_info "Fixing includedir path in opencv4.pc..."
+        sed -i "s|includedir=\${prefix}/include/opencv4|includedir=\${prefix}/include|g" "$PC_FILE"
         log_info "Cleaning up OpenCV pkg-config file..."
         # Вытаскиваем версию для регулярки (динамически)
         local OPENCV_VER_SUFFIX=$(find "${DEST_LIB}" -name "libopencv_core*.a" | grep -oE "[0-9]+.a$" | sed 's/.a//')
         # переносим все модули opencv из Libs.private в основные Libs
         local ACTUAL_LIBS=$(find "${DEST_LIB}" -name "libopencv_*.a" -printf "%f\n" | sed 's/^lib//;s/\.a$//' | xargs -I{} echo -l{} | tr '\n' ' ')
-        # Убираем любые упоминания -lopencv_* из текущего файла, чтобы избежать дублей
         # Удаляем путь к 3rdparty, так как мы перенесли либы в общий корень
         sed -i 's|-L${exec_prefix}/lib/opencv4/3rdparty||g' "$PC_FILE"
         # Формируем чистую строку Libs
         local OLD_PRIVATES=$(grep "Libs.private:" "$PC_FILE" | cut -d':' -f2-)
+        # Убираем любые упоминания -lopencv_* из текущего файла, чтобы избежать дублей
         # Чистим зависимости: liblib -> lib, абсолютные пути, мусор
-        local CLEAN_PRIVATES=$(echo "$OLD_PRIVATES" | sed -E 's/-llib/-l/g; s|-L/build/[^ ]*||g; s/-lRunTmChk.a//g; s/-lntdll.a//g; s/-lopencv_[^ ]*//g')
+        local CLEAN_PRIVATES=$(echo "$OLD_PRIVATES" | sed -E 's/-llib/-l/g; s|-L/build/[^ ]*||g; -L/opt/ffbuild/lib[^ ]*||g; s/-lRunTmChk.a//g; s/-lntdll.a//g; s/-lopencv_[^ ]*//g')
         # Записываем в файл
         sed -i "s|^Libs:.*|Libs: -L\${libdir} ${ACTUAL_LIBS}|" "$PC_FILE"
         sed -i "s|^Libs.private:.*|Libs.private: ${CLEAN_PRIVATES}|" "$PC_FILE"

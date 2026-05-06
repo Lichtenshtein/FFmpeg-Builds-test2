@@ -46,9 +46,9 @@ ffbuild_dockerbuild() {
         -DGLIB2_LIBRARIES="$FFBUILD_PREFIX/lib/libglib-2.0.a"
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS $GLIB_INCLUDES" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $GLIB_INCLUDES" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $GLIB_INCLUDES" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $GLIB_INCLUDES" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

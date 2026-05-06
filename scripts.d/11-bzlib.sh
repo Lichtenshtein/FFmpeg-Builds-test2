@@ -35,17 +35,17 @@ ffbuild_dockerbuild() {
         myconf+=( -DENABLE_STATIC_LIB=OFF -DENABLE_SHARED_LIB=ON ) || \
         myconf+=( -DENABLE_STATIC_LIB=ON -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB_IS_PIC=ON )
 
-    CFLAGS="$CFLAGS $CPPFLAGS -Wno-conversion" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS -Wno-conversion" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-conversion" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-conversion" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
-        if [[ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libbz2_static.a" ]]; then
-            mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libbz2_static.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libbz2.a"
+        if [[ -f "$INSTALL_ROOT/lib/libbz2_static.a" ]]; then
+            mv "$INSTALL_ROOT/lib/libbz2_static.a" "$INSTALL_ROOT/lib/libbz2.a"
         fi
     fi
 }
