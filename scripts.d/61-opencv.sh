@@ -232,7 +232,7 @@ ffbuild_dockerbuild() {
 
     if [ -f "$PC_FILE" ]; then
         log_info "Fixing includedir path in opencv4.pc..."
-        sed -i "s|includedir=\${prefix}/include/opencv4|includedir=\${prefix}/include|g" "$PC_FILE"
+        sed -i "s|^includedir=.*|includedir=\${prefix}/include/opencv4|g" "$PC_FILE"
         log_info "Cleaning up OpenCV pkg-config file..."
         # Вытаскиваем версию для регулярки (динамически)
         local OPENCV_VER_SUFFIX=$(find "${DEST_LIB}" -name "libopencv_core*.a" | grep -oE "[0-9]+.a$" | sed 's/.a//')
