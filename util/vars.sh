@@ -247,13 +247,13 @@ HOST_LINUX_LDFLAGS=(
 # Настраиваем HOST_RUSTFLAGS (всегда Linux ELF)
 export HOST_RUSTFLAGS="${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${HOST_LINUX_LDFLAGS[@]}") -C embed-bitcode=yes"
 export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]} -flto=auto -ffat-lto-objects -flto-compression-level=16"
-export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -std=gnu23 -flto=auto -ffat-lto-objects -flto-compression-level=16 -fno-asynchronous-unwind-tables -mpreferred-stack-boundary=4"
-export HOST_CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -flto=auto -ffat-lto-objects -flto-compression-level=16 -fno-asynchronous-unwind-tables -mpreferred-stack-boundary=4"
+export HOST_CFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -std=gnu23 -flto=auto -ffat-lto-objects -flto-compression-level=16 -mpreferred-stack-boundary=4"
+export HOST_CXXFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -flto=auto -ffat-lto-objects -flto-compression-level=16 -mpreferred-stack-boundary=4"
 export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
 # Ветвление по TARGET
 if [[ "$TARGET" == "win64" ]]; then
-    export BASE_CFLAGS="${OPENMP_C}-mms-bitfields -fstack-protector-strong -flto=auto -ffat-lto-objects -flto-compression-level=16 -fno-asynchronous-unwind-tables -mpreferred-stack-boundary=4"
+    export BASE_CFLAGS="${OPENMP_C}-mms-bitfields -fstack-protector-strong -flto=auto -ffat-lto-objects -flto-compression-level=16 -mpreferred-stack-boundary=4"
     export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
 
     BASE_LD_FLAGS=(
