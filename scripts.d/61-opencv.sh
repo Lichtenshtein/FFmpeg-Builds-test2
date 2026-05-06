@@ -163,6 +163,23 @@ ffbuild_dockerbuild() {
         return 1
     }
 
+    local IPP_PATH="3rdparty/ippicv/ippicv_win/icv/lib/intel64"
+    if [ -f "$IPP_PATH/ippicvmt.lib" ]; then
+        log_info "Found IPP ICV (.lib), converting for MinGW..."
+        cp "$IPP_PATH/ippicvmt.lib" "$IPP_PATH/libippicv.a"
+        cp "$IPP_PATH/ippicvmt.lib" "${INSTALL_ROOT}/lib/libippicv.a"
+    else
+        log_warn "IPP ICV library not found at $IPP_PATH"
+    fi
+
+    local IPP_INC_DIR="3rdparty/ippicv/ippicv_win/icv/include"
+    if [ -d "$IPP_INC_DIR" ]; then
+        log_info "Copying IPP ICV headers to include directory..."
+        cp "$IPP_INC_DIR"/*.h "${INSTALL_ROOT}/include/"
+    else
+        log_warn "IPP ICV headers not found at $IPP_INC_DIR"
+    fi
+
     # ПАТЧ IPP IW
     local IPP_IW_FILE="3rdparty/ippicv/ippicv_win/iw/src/iw_own.c"
     if [ -f "$IPP_IW_FILE" ]; then
@@ -207,6 +224,8 @@ ffbuild_dockerbuild() {
             mv "$SRC_3RDPARTY"/*.dll "$DEST_LIB/" 2>/dev/null || true
         else
             mv "$SRC_3RDPARTY"/*.a "$DEST_LIB/" 2>/dev/null || true
+            log_info "Searching for IPP ICV library..."
+            find . -name "libippicv*.a" -exec cp {} "${DEST_LIB}/" \; || true
         fi
         rm -rf "${INSTALL_ROOT}/lib/opencv4"
     fi
@@ -251,6 +270,10 @@ ffbuild_dockerbuild() {
         # Добавляем необходимые либы
         if [[ "${myconf[@]}" =~ "-DWITH_OPENVINO=ON" ]]; then
             sed -i '/^Libs.private:/ s/$/ -lopenvino/' "$PC_FILE"
+        fi
+        if [[ "${myconf[@]}" =~ "-DWITH_IPP=ON" ]]; then
+            sed -i 's|^Libs.private: |Libs.private: -lippicv |' "$PC_FILE"
+            sed -i 's/-lippicvmt//g; s/-lippicv -lippicv/-lippicv/g' "$PC_FILE"
         fi
         sed -i "s/Requires.private:.*/Requires.private: /" "$PC_FILE"
         # Удаляем лишние пробелы
