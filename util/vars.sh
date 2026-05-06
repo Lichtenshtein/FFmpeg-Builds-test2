@@ -209,10 +209,10 @@ unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS RUSTFLAGS LIBS
 [[ "$USE_OPENMP" == "1" ]] && export OPENMP_C="-fopenmp " && export OPENMP_LIB="-lgomp "
 # LTO for ffmpeg disabled due to critical bug in gcc-15.2
 # -ffat-lto-objects is needed for ffmpeg linker to understand LTO code
-[[ "$USE_LTO" == "1" ]] && export RUSTLTO=" -C lto=fat" && export USELTO="-flto=auto -ffat-lto-objects -flto-compression-level=16" && export NOLTO="-fno-lto"
+[[ "$USE_LTO" == "1" ]] && export RUSTLTO=" -C lto=fat" && export USELTO="" && export NOLTO="-fno-lto"
 
 # Общие настройки Rust; codegen-units = 16 (default)
-COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 ${RUSTLTO}"
+COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 ${RUSTLTO} -C force-unwind-tables"
 
 # Общие и дополнительные либы
 SYSTEM_LIBS="${OPENMP_LIB}-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
@@ -253,7 +253,7 @@ export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
 # Ветвление по TARGET
 if [[ "$TARGET" == "win64" ]]; then
-    export BASE_CFLAGS="${OPENMP_C}-mms-bitfields -fstack-protector-strong"
+    export BASE_CFLAGS="${OPENMP_C}-mms-bitfields -fstack-protector-strong -flto=auto -ffat-lto-objects -flto-compression-level=16 -fno-asynchronous-unwind-tables -mpreferred-stack-boundary=4"
     export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
 
     BASE_LD_FLAGS=(
@@ -269,7 +269,7 @@ if [[ "$TARGET" == "win64" ]]; then
     [[ "$PREFER_SHARED" != "1" ]] && BASE_LD_FLAGS+=( "-Wl,--gc-sections" )
 
     MAIN_LDFLAGS=("${BASE_LD_FLAGS[@]}")
-    MAIN_LDFLAGS+=("-L/opt/ffbuild/lib")
+    MAIN_LDFLAGS+=("-L/opt/ffbuild/lib -flto=auto -ffat-lto-objects -flto-compression-level=16")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
         export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -fPIC -std=gnu23"
@@ -281,8 +281,8 @@ if [[ "$TARGET" == "win64" ]]; then
         export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu23"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++17"
+        export CFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu23"
+        export CXXFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++17"
         MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${MAIN_LDFLAGS[*]}"
