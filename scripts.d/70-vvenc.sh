@@ -31,9 +31,9 @@ ffbuild_dockerbuild() {
         -DVVENC_ENABLE_LINK_TIME_OPT=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS $FLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $FLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $FLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $FLAGS" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

@@ -76,10 +76,10 @@ ffbuild_dockerbuild() {
     export self_static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBXML_STATIC -DXML_STATIC" && self_static_flags="-DARCHIVE_STATIC"
 
-    CFLAGS="$CFLAGS $CPPFLAGS $self_static_flags $static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $self_static_flags $static_flags" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $self_static_flags $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $self_static_flags $static_flags" \
     cmake -G Ninja "${myconf[@]}" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $DEP_LIBS $WIN_LIBS" .. || return 1
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" .. || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1

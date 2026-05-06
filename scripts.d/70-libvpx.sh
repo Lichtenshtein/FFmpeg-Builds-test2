@@ -61,9 +61,9 @@ ffbuild_dockerbuild() {
         export CROSS="$FFBUILD_CROSS_PREFIX"
     fi
 
-    CFLAGS="$CFLAGS ${USELTO}" \
+    CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS ${USELTO}" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1

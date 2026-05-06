@@ -42,7 +42,7 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-static --disable-shared )
 
     # may need ${NOLTO}, так как mpg123 плохо дружит с LTO в ассемблере
-    CFLAGS="$CFLAGS ${USELTO}" \
+    CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \

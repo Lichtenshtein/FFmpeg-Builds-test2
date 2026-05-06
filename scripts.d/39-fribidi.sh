@@ -35,10 +35,10 @@ ffbuild_dockerbuild() {
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DFRIBIDI_LIB_STATIC"
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS $static_flags" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags" \
-        -Dc_link_args="$LDFLAGS" \
-        -Dcpp_link_args="$LDFLAGS" || return 1
+        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+        -Dc_link_args="$LDFLAGS ${USELTO}" \
+        -Dcpp_link_args="$LDFLAGS ${USELTO}" || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1

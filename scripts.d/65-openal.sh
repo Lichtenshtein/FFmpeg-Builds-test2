@@ -72,9 +72,9 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    CFLAGS="$CFLAGS $CPPFLAGS -include stdlib.h" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS -include cstdlib" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -include stdlib.h" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -include cstdlib" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

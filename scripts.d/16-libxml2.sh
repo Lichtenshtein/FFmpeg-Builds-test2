@@ -56,9 +56,9 @@ ffbuild_dockerbuild() {
 
     # Принудительно задаем AR как gcc-ar для стабильности архивации
     ./autogen.sh "${myconf[@]}" \
-        CFLAGS="$CFLAGS ${USELTO}" \
+        CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
         CPPFLAGS="$CPPFLAGS $static_flags" \
-        CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}" \
+        CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}${USELTO_C}" \
         LDFLAGS="$LDFLAGS ${USELTO}" \
         LIBS="$DEP_LIBS" \
         AR="${FFBUILD_TOOLCHAIN}-gcc-ar" \

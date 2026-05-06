@@ -45,9 +45,9 @@ ffbuild_dockerbuild() {
     local static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DNGHTTP2_STATICLIB"
 
-    CFLAGS="$CFLAGS $CPPFLAGS $static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

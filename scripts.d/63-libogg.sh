@@ -33,9 +33,9 @@ ffbuild_dockerbuild() {
         -DINSTALL_CMAKE_PACKAGE_MODULE=ON # CMake package configuration module
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1

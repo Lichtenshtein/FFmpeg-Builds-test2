@@ -14,9 +14,9 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    export CFLAGS="$CFLAGS ${USELTO}"
+    export CFLAGS="$CFLAGS ${USELTO}${USELTO_C}"
     export CPPFLAGS="$CPPFLAGS"
-    export CXXFLAGS="$CXXFLAGS ${USELTO}"
+    export CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}"
     export LDFLAGS="$LDFLAGS ${USELTO}"
 
     local myconf=(

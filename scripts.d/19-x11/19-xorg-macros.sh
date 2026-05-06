@@ -26,9 +26,9 @@ ffbuild_dockerbuild() {
 
     autoreconf -i
 
-    CFLAGS="$RAW_CFLAGS ${USELTO}" \
+    CFLAGS="$RAW_CFLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS ${USELTO}" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
     LDFLAGS="$RAW_LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure --prefix="$FFBUILD_PREFIX" || return 1

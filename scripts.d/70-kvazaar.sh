@@ -44,10 +44,9 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DKVZ_STATIC_LIB"
 
-    CFLAGS="$CFLAGS" \
-    CPPFLAGS="$CPPFLAGS $static_flags" \
-    CXXFLAGS="$CXXFLAGS $static_flags" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS ${USELTO}${USELTO_C} $CPPFLAGS $static_flags" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C} $CPPFLAGS $static_flags" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 

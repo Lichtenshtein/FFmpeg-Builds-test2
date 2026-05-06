@@ -42,9 +42,9 @@ ffbuild_dockerbuild() {
 
     local FLAGS="-DTIFF_DO_NOT_USE_NON_EXT_ALLOC_FUNCTIONS -D_FILE_OFFSET_BITS=64 -Dtiff_EXPORTS -Wall -Winline -Wformat-security -Wpointer-arith -Wdisabled-optimization -Wno-unknown-pragmas -fstrict-aliasing"
 
-    CFLAGS="$CFLAGS $CPPFLAGS $static_flags $FLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags $FLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags $FLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags $FLAGS" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

@@ -54,10 +54,10 @@ ffbuild_dockerbuild() {
     fi
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS -Dread_file=libass_internal_read_file" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS -Dread_file=libass_internal_read_file" \
-        -Dc_link_args="$LDFLAGS" \
-        -Dcpp_link_args="$LDFLAGS" || return 1
+        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Dread_file=libass_internal_read_file" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Dread_file=libass_internal_read_file" \
+        -Dc_link_args="$LDFLAGS ${USELTO}" \
+        -Dcpp_link_args="$LDFLAGS ${USELTO}" || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1

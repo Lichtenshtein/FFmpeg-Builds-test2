@@ -62,7 +62,7 @@ ffbuild_dockerbuild() {
     mkdir -p target-build && cd target-build
 
     # ПРЕДВАРИТЕЛЬНО создаем структуру папок, чтобы install не падал
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin"
+    mkdir -p "$INSTALL_ROOT/bin"
     mkdir -p "$PC_DIR"
 
     local myconf=(
@@ -90,9 +90,9 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DICU_STATIC -DU_STATIC_IMPLEMENTATION"
 
-    CFLAGS="${RAW_CFLAGS:-$CFLAGS} ${USELTO}" \
+    CFLAGS="${RAW_CFLAGS:-$CFLAGS} ${USELTO}${USELTO_C}" \
     CPPFLAGS="${RAW_CPPFLAGS:-$CPPFLAGS} $static_flags" \
-    CXXFLAGS="${RAW_CXXFLAGS:-$CXXFLAGS} $static_flags ${USELTO}" \
+    CXXFLAGS="${RAW_CXXFLAGS:-$CXXFLAGS} $static_flags ${USELTO}${USELTO_C}" \
     LDFLAGS="${RAW_LDFLAGS:-$LDFLAGS} ${USELTO}" \
     CC="$CC" \
     CXX="$CXX" \
@@ -112,15 +112,15 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Verify data library was created
-    if [[ ! -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libicudt.a" ]] && \
-       [[ ! -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libsicudt.a" ]]; then
+    if [[ ! -f "$INSTALL_ROOT/lib/libicudt.a" ]] && \
+       [[ ! -f "$INSTALL_ROOT/lib/libsicudt.a" ]]; then
         log_error "ICU data library not found!"
-        ls -la "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/" | grep -i icu || true
+        ls -la "$INSTALL_ROOT/lib/" | grep -i icu || true
         return 1
     fi
 
     # Rename libraries (libicu* → libsicu*)
-    cd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
+    cd "$INSTALL_ROOT/lib"
     for lib in libicu*.a; do
         [[ -f "$lib" ]] && mv "$lib" "s${lib#lib}" 2>/dev/null || true
     done

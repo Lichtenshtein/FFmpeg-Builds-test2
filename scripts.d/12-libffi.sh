@@ -45,9 +45,9 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DFFI_STATIC_BUILD"
 
-    CFLAGS="$CFLAGS ${USELTO}" \
+    CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS $static_flags" \
-    CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}" \
+    CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1

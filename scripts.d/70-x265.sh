@@ -86,16 +86,16 @@ ffbuild_dockerbuild() {
 
     if [[ $TARGET != *32 ]]; then
         log_info "Building 12-bit x265..."
-        CFLAGS="$CFLAGS $CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-        LDFLAGS="$LDFLAGS" \
+        CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        LDFLAGS="$LDFLAGS ${USELTO}" \
         cmake "${myconf[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -DMAIN12=ON -S . -B 12bit || return 1
         ninja -C 12bit -j$(nproc) $NINJA_V || return 1
 
         log_info "Building 10-bit x265..."
-        CFLAGS="$CFLAGS $CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-        LDFLAGS="$LDFLAGS" \
+        CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        LDFLAGS="$LDFLAGS ${USELTO}" \
         cmake "${myconf[@]}" -DHIGH_BIT_DEPTH=ON -DEXPORT_C_API=OFF -DENABLE_HDR10_PLUS=ON -S . -B 10bit || return 1
         ninja -C 10bit -j$(nproc) $NINJA_V || return 1
 
@@ -104,9 +104,9 @@ ffbuild_dockerbuild() {
         cp 12bit/libx265.a 8bit/libx265_main12.a
         cp 10bit/libx265.a 8bit/libx265_main10.a
 
-        CFLAGS="$CFLAGS $CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-        LDFLAGS="$LDFLAGS" \
+        CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        LDFLAGS="$LDFLAGS ${USELTO}" \
         cmake "${myconf[@]}" \
             -DEXTRA_LIB="${PWD}/10bit/libx265.a;${PWD}/12bit/libx265.a" \
             -DLINKED_10BIT=ON -DLINKED_12BIT=ON \
@@ -129,9 +129,9 @@ EOF
         cd ..
     else
         log_info "Building 8-bit x265 (32-bit target)..."
-        CFLAGS="$CFLAGS $CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-        LDFLAGS="$LDFLAGS" \
+        CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        LDFLAGS="$LDFLAGS ${USELTO}" \
         cmake "${myconf[@]}" -S . -B 8bit || return 1
         ninja -C 8bit -j$(nproc) $NINJA_V || return 1
     fi

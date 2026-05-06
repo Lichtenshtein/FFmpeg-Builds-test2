@@ -97,7 +97,7 @@ EOF
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    CFLAGS="$CFLAGS ${USELTO} -Wno-implicit-function-declaration" \
+    CFLAGS="$CFLAGS ${USELTO}${USELTO_C} -Wno-implicit-function-declaration" \
     CPPFLAGS="$CPPFLAGS -I$(pwd)/include -I$(pwd)/include/gavl" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
@@ -111,7 +111,8 @@ EOF
         ac_cv_header_sys_times_h=no || return 1
 
     make -C gavl -j$(nproc) $MAKE_V \
-        CFLAGS="$CFLAGS -I$(pwd) -include $(pwd)/gavl_fix.h" || return 1
+        CFLAGS="$CFLAGS ${USELTO}${USELTO_C} -I$(pwd) -include $(pwd)/gavl_fix.h" \
+        LDFLAGS="$LDFLAGS ${USELTO}" || return 1
     make -C gavl install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     mkdir -p "$INSTALL_ROOT/include/gavl" "$PC_DIR"

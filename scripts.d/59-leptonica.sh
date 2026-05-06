@@ -89,10 +89,10 @@ fi
     )
 
     # Принудительно устанавливаем C_FLAGS, чтобы избежать __imp_
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
     cmake -G Ninja "${myconf[@]}" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS $DEP_LIBS $WIN_LIBS" .. || return 1
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" .. || return 1
 
 if [[ "${PREFER_SHARED}" != "1" ]]; then
     log_debug "Fixing static library names and locations..."
@@ -114,21 +114,21 @@ fi
 if [[ "${PREFER_SHARED}" != "1" ]]; then
 
     # Ищем либу (она могла остаться в папке build/src). Если CMake создал файл с версией libleptonica-1.88.0.a, переименовываем
-    find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "libleptonica*.a" -exec mv {} "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a" \; 2>/dev/null || true
+    find "$INSTALL_ROOT/lib" -name "libleptonica*.a" -exec mv {} "$INSTALL_ROOT/lib/libleptonica.a" \; 2>/dev/null || true
 
     # Если вдруг либа оказалась в /bin (бывает в MinGW), переносим в /lib
-    if [ -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/libleptonica.a" ]; then
-        mv "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin/libleptonica.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a"
+    if [ -f "$INSTALL_ROOT/bin/libleptonica.a" ]; then
+        mv "$INSTALL_ROOT/bin/libleptonica.a" "$INSTALL_ROOT/lib/libleptonica.a"
     fi
 
     # Если файла libleptonica.a нет в целевой папке, ищем его везде в билде и копируем
-    if [ ! -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a" ]; then
+    if [ ! -f "$INSTALL_ROOT/lib/libleptonica.a" ]; then
         log_warn "Leptonica lib missing after install. Manual recovery..."
-        mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
+        mkdir -p "$INSTALL_ROOT/lib"
         # Ищем любой .a файл в папке src (он может называться liblept.a или libleptonica-1.88.0.a)
         local BUILT_LIB=$(find src -name "*.a" | head -n 1)
         if [[ -n "$BUILT_LIB" ]]; then
-            cp "$BUILT_LIB" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libleptonica.a"
+            cp "$BUILT_LIB" "$INSTALL_ROOT/lib/libleptonica.a"
             log_info "${CHECK_MARK} Recovered: $BUILT_LIB -> libleptonica.a"
         else
             log_error "No static library was built!"
@@ -160,7 +160,7 @@ EOF
     ln -sf lept.pc "$PC_DIR/leptonica.pc"
 
     # Удаляем CMake-файлы Leptonica. Это заставит Tesseract использовать pkg-config (lept.pc).
-    # rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/cmake/leptonica"
+    # rm -rf "$INSTALL_ROOT/lib/cmake/leptonica"
 
     # Возвращаем папки на место, чтобы они были доступны для Tesseract или FFmpeg
     # Возвращаем всё обратно в основную директорию

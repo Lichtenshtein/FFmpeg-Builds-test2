@@ -56,10 +56,10 @@ ffbuild_dockerbuild() {
     sed -i "s/error.*does not have the required FontConfig support.*/message('Bypassed cairo-ft check')/" ../meson.build
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS $static_flags $self_static_flags" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS $static_flags $self_static_flags" \
-        -Dc_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" \
-        -Dcpp_link_args="$LDFLAGS $DEP_LIBS $WIN_LIBS" || return 1
+        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags $self_static_flags" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags $self_static_flags" \
+        -Dc_link_args="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" || return 1
 
     if [[ "${PREFER_SHARED}" == "1" ]]; then
         ninja $NINJA_V || return 1

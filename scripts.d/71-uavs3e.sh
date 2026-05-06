@@ -31,17 +31,17 @@ ffbuild_dockerbuild() {
         -DCMAKE_POLICY_VERSION_MINIMUM=3.5
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Just in case to detect header files default before FFmpeg
-    cp -f "$FFBUILD_DESTPREFIX"/include/uavs3e/uavs3e.h "$FFBUILD_DESTPREFIX"/include
-    cp -f "$FFBUILD_DESTPREFIX"/include/uavs3e/com_api.h "$FFBUILD_DESTPREFIX"/include
+    cp -f "$INSTALL_ROOT"/include/uavs3e/uavs3e.h "$INSTALL_ROOT"/include
+    cp -f "$INSTALL_ROOT"/include/uavs3e/com_api.h "$INSTALL_ROOT"/include
 }
 
 ffbuild_configure() {

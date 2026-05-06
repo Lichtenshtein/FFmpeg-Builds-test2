@@ -35,9 +35,9 @@ ffbuild_dockerbuild() {
     )
 
     # Специальные флаги для MinGW, чтобы избежать сегфолтов (выравнивание стека)
-    CFLAGS="$CFLAGS $CPPFLAGS -mstackrealign -fno-asynchronous-unwind-tables" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS -mstackrealign -fno-asynchronous-unwind-tables" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -mstackrealign -fno-asynchronous-unwind-tables" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -mstackrealign -fno-asynchronous-unwind-tables" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

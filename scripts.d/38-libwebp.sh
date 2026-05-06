@@ -87,9 +87,9 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DWEBP_STATIC"
 
-    # CFLAGS="$CFLAGS ${USELTO}" \
+    # CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
     # CPPFLAGS="$CPPFLAGS $static_flags" \
-    # CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}" \
+    # CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}${USELTO_C}" \
     # LDFLAGS="$LDFLAGS ${USELTO}" \
     # JPEG_LIBS="-lturbojpeg -ljpeg" \
     # LIBS="$DEP_LIBS $WIN_LIBS" \
@@ -98,9 +98,9 @@ ffbuild_dockerbuild() {
     # make -j$(nproc) $MAKE_V || return 1
     # make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    CFLAGS="$CFLAGS $CPPFLAGS $static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags" \
-    LDFLAGS="$LDFLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

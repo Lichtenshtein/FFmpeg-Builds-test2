@@ -408,7 +408,7 @@ MEM_JOBS=$(( MEM_AVAILABLE / 2 ))
 CPU_CORES=$(nproc)
 if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
     log_warn "LTO detected. Forcing dual-thread build."
-    MAKE_JOBS=2
+    MAKE_JOBS=4
 else
     log_warn "LTO NOT detected. Using all available threads."
     # Берем минимум между количеством ядер и лимитом по памяти
