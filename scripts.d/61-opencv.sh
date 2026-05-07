@@ -111,9 +111,9 @@ ffbuild_dockerbuild() {
         -DTBB_INCLUDE_DIRS="$FFBUILD_PREFIX/include"
         -DTBB_LIB_DIR="$FFBUILD_PREFIX/lib"
         # Указываем пути к библиотекам
-        -DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON
+        # -DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON
         -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
-        -DCMAKE_DISABLE_FIND_PACKAGE_JPEG=ON
+        # -DCMAKE_DISABLE_FIND_PACKAGE_JPEG=ON
         -DZLIB_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.a"
         -DOPENJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include/openjpeg-2.5"
@@ -177,14 +177,19 @@ ffbuild_dockerbuild() {
     fi
 
     # ПАТЧ IPP IW
-    local IPP_IW_FILE="3rdparty/ippicv/ippicv_win/iw/src/iw_own.c"
+    local IPP_IW_FILE="3rdparty/ippicv/ippicv_win/iw/src/iw_own.cpp"
     if [ -f "$IPP_IW_FILE" ]; then
-        log_info "Surgically removing SEH from IPP IW..."
-        # Заменяем __try на простой блок
-        sed -i 's/__try/if(1)/g' "$IPP_IW_FILE"
-        # Заменяем __except(...) на else if(0)
-        sed -i 's/__except(EXCEPTION_EXECUTE_HANDLER)/else if(0)/g' "$IPP_IW_FILE"
-        sed -i 's/__except(1)/else if(0)/g' "$IPP_IW_FILE"
+        log_info "Surgically removing SEH from IPP IW ($IPP_IW_FILE)..."
+
+        # Force the file to use standard C++ try/catch instead of MSVC __try
+        # We do this by undefining ICV_BASE or just nuking the macro definitions
+        sed -i 's/#define OWN_TRY   __try/#define OWN_TRY   try/g' "$IPP_IW_FILE"
+        sed -i 's/#define OWN_CATCH __except (EXCEPTION_EXECUTE_HANDLER)/#define OWN_CATCH catch (...)/g' "$IPP_IW_FILE"
+
+        # Safety fallback for any direct usages
+        sed -i 's/__try/try/g' "$IPP_IW_FILE"
+        sed -i 's/__except(EXCEPTION_EXECUTE_HANDLER)/catch(...)/g' "$IPP_IW_FILE"
+        sed -i 's/__except(1)/catch(...)/g' "$IPP_IW_FILE"
     else
         log_warn "IPP IW file not found at $IPP_IW_FILE, skipping patch."
     fi

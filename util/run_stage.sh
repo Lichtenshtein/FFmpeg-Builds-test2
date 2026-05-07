@@ -116,8 +116,8 @@ stage_cleanup() {
 }
 trap stage_cleanup EXIT
 
-# Создаем и входим в директорию сборки ДО загрузки скрипта
-mkdir -p "/build/$STAGENAME" && cd "/build/$STAGENAME"
+# Создаем и входим в директории сборки ДО загрузки скрипта
+mkdir -p "$VARS_DIR" "$FFBUILD_DESTDIR" "$INSTALL_ROOT"/{include,bin,lib/pkgconfig} "/build/$STAGENAME" && cd "/build/$STAGENAME"
 
 # Подгружаем скрипт заранее, чтобы проверить SCRIPT_SKIP
 # любые $(pwd) или относительные пути внутри скрипта будут указывать на /build/STAGENAME
