@@ -274,7 +274,7 @@ if [[ "$TARGET" == "win64" ]]; then
     [[ "$PREFER_SHARED" != "1" ]] && BASE_LD_FLAGS+=( "-Wl,--gc-sections" )
 
     MAIN_LDFLAGS=("${BASE_LD_FLAGS[@]}")
-    MAIN_LDFLAGS+=("-L/opt/ffbuild/lib ${USELTO}")
+    MAIN_LDFLAGS+=("-Wl,--alias,___chkstk_ms,__chkstk -L/opt/ffbuild/lib ${USELTO}")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
         export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -fPIC -std=gnu23"
