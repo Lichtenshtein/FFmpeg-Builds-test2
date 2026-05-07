@@ -120,14 +120,13 @@ else
 fi
 # Build variables (inside the container)
 # just duplicate from Dockerfile for convenience
-export GCC_VERSION="15.2.0"
 export TOOLCHAIN_BIN="/opt/ct-ng/bin"
 export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 export FFBUILD_CROSS_PREFIX="x86_64-w64-mingw32-"
 export AS="${FFBUILD_TOOLCHAIN}-as"
-export CC="ccache ${FFBUILD_TOOLCHAIN}-gcc-${GCC_VERSION}"
-export CXX="ccache ${FFBUILD_TOOLCHAIN}-g++-${GCC_VERSION}"
+export CC="ccache ${FFBUILD_TOOLCHAIN}-gcc"
+export CXX="ccache ${FFBUILD_TOOLCHAIN}-g++"
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
 export FFBUILD_DESTDIR="/opt/ffdest"
 export FFBUILD_DESTPREFIX="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}"
