@@ -1,11 +1,11 @@
 #!/bin/bash
 
 package_variant() {
-    IN="$1"
-    OUT="$2"
+    local IN="$1"
+    local OUT="$2"
 
     mkdir -p "$OUT"/bin
-    cp "$IN"/bin/* "$OUT"/bin 2>/dev/null || log_warn "Failed to copy binaries"
+    cp -r "$IN"/bin/* "$OUT"/bin 2>/dev/null || log_warn "Failed to copy binaries"
 
     # For shared builds, also copy .so files
     if [[ -d "$IN/lib" ]]; then

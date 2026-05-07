@@ -396,30 +396,43 @@ if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
     CONF_FLAGS+=( --nvcc=clang )
 fi
 
-# Чтобы не перегружать RAM раннера (в среднем 7GB RAM / 2 ядра)
-# лучше ограничить параллелизм или вовсе собирать в 1 поток, если включен LTO
-# Считаем доступную память в ГБ (через awk, чтобы избежать ошибок деления)
-MEM_AVAILABLE=$(awk '/MemAvailable/ {printf "%d", $2/1024/1024}' /proc/meminfo)
-# Рассчитываем лимит потоков по памяти (1 поток на каждые 2 ГБ)
-# Если памяти меньше 2ГБ, результат будет 1
-MEM_JOBS=$(( MEM_AVAILABLE / 2 ))
-[[ $MEM_JOBS -lt 1 ]] && MEM_JOBS=1
-# Выбираем финальное число потоков
-CPU_CORES=$(nproc)
+# Считаем физическую память и Swap (в ГБ)
+MEM_PHYS=$(awk '/MemTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)
+SWAP_TOTAL=$(awk '/SwapTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)
+TOTAL_VIRTUAL=$(( MEM_PHYS + SWAP_TOTAL ))
+# Лимиты для LTO:
+# На этапе линковки каждый поток LTO требует много RAM.
+# Для 7GB RAM + 32GB Swap оптимально не превышать 4 потока, 
+# иначе диск не будет успевать за подкачкой.
 if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
-    log_warn "LTO detected. Forcing dual-thread build."
-    MAKE_JOBS=4
+    # Если виртуальной памяти много, можно позволить 4 потока.
+    # Если мало (менее 16ГБ общего), лучше оставить 2.
+    if [[ $TOTAL_VIRTUAL -gt 16 ]]; then
+        MAKE_JOBS=4
+        log_warn "LTO & High Swap: Using 4 threads for stability."
+    else
+        MAKE_JOBS=2
+        log_warn "LTO & Low Memory: Forcing dual-thread build to avoid OOM."
+    fi
 else
-    log_warn "LTO NOT detected. Using all available threads."
-    # Берем минимум между количеством ядер и лимитом по памяти
+    # Обычная сборка (не LTO) ориентируемся на MemAvailable
+    MEM_AVAIL=$(awk '/MemAvailable/ {printf "%d", $2/1024/1024}' /proc/meminfo)
+    # 1 поток на 1.5 ГБ доступной памяти для обычной компиляции
+    MEM_JOBS=$(( MEM_AVAIL * 10 / 15 ))
+    [[ $MEM_JOBS -lt 1 ]] && MEM_JOBS=1
+
+    CPU_CORES=$(nproc)
     MAKE_JOBS=$(( CPU_CORES < MEM_JOBS ? CPU_CORES : MEM_JOBS ))
-    log_info_line
-    log_info "### ${CACHE_MARK} HOST: MEMORY: ${MEM_AVAILABLE}GB, CPU CORES: ${CPU_CORES}; Setting MAKE_JOBS=${MAKE_JOBS}"
+    log_info "Non-LTO build: Setting MAKE_JOBS=${MAKE_JOBS} based on availability."
 fi
+
+log_info_line
+log_info "### ${CACHE_MARK} HOST INFO: Physical Memory: ${MEM_PHYS}GB, Swap: ${SWAP_TOTAL}GB, Total: ${TOTAL_VIRTUAL}GB; Setting MAKE_JOBS=${MAKE_JOBS}"
 
 log_info_line
 log_info "### ${START_MARK} Launching FFmpeg Configure..."
 log_info_line
+
 # Функция проверки и валидации флагов ffmpeg SAFE_CONFIGURE
 check_and_fix_configure && printf "  %s\n" "${CONF_FLAGS[@]}"
 
