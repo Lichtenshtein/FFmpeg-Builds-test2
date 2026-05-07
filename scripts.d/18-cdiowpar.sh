@@ -3,6 +3,10 @@
 SCRIPT_REPO="https://github.com/rocky/libcdio-paranoia.git"
 SCRIPT_COMMIT="307fa2e43dad116b5a9ffe36424fbfd08da30a8f"
 
+ffbuild_depends() {
+    echo libiconv
+}
+
 ffbuild_enabled() {
     return 0
 }
@@ -32,7 +36,7 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
+    CFLAGS="-std=gnu17 $CFLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS $DEP_LIBS ${USELTO}" \
