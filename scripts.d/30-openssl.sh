@@ -32,10 +32,16 @@ ffbuild_dockerbuild() {
     # sed -i '1i#ifndef SIO_UDP_NETRESET\n#define SIO_UDP_NETRESET _WSAIOW(IOC_VENDOR, 15)\n#endif' include/internal/sockets.h
     find . -name "quic_reactor.c" -o -name "sockets.h" | xargs sed -i '1i #ifndef SIO_UDP_NETRESET\n#define SIO_UDP_NETRESET _WSAIOW(IOC_VENDOR, 15)\n#endif'
 
-    export CC="${CC/${FFBUILD_CROSS_PREFIX}/}"
-    export CXX="${CXX/${FFBUILD_CROSS_PREFIX}/}"
-    export AR="${AR/${FFBUILD_CROSS_PREFIX}/}"
-    export RANLIB="${RANLIB/${FFBUILD_CROSS_PREFIX}/}"
+    # нужно передать только чистые имена команд без ccache и без префикса
+    local CC_PLAIN="gcc"
+    local CXX_PLAIN="g++"
+    local AR_PLAIN="gcc-ar"
+    local RANLIB_PLAIN="gcc-ranlib"
+
+    export CC="$CC_PLAIN"
+    export CXX="$CXX_PLAIN"
+    export AR="$AR_PLAIN"
+    export RANLIB="$RANLIB_PLAIN"
 
     local myconf=(
         threads # adding '-static' flag disables that, don't use it
