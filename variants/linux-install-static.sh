@@ -1,18 +1,28 @@
 #!/bin/bash
 
 package_variant() {
-    IN="$1"
-    OUT="$2"
+    local IN="$1"
+    local OUT="$2"
 
-    mkdir -p "$OUT"/bin
-    cp "$IN"/bin/* "$OUT"/bin
+    log_info "Packaging variant from $IN to $OUT..."
 
-    mkdir -p "$OUT/doc"
-    cp -r "$IN"/share/doc/ffmpeg/* "$OUT"/doc
+    mkdir -p "$OUT/bin"
+    if ls "$IN"/bin/*.exe >/dev/null 2>&1; then
+        cp "$IN"/bin/*.exe "$OUT/bin/"
+    fi
 
-    mkdir -p "$OUT/man"
-    cp -r "$IN"/share/man/* "$OUT"/man
+    if [ -d "$IN/share/doc/ffmpeg" ]; then
+        mkdir -p "$OUT/doc"
+        cp -r "$IN"/share/doc/ffmpeg/* "$OUT/doc/"
+    fi
 
-    mkdir -p "$OUT/presets"
-    cp "$IN"/share/ffmpeg/*.ffpreset "$OUT"/presets
+    if [ -d "$IN/share/man" ]; then
+        mkdir -p "$OUT/man"
+        cp -r "$IN"/share/man/* "$OUT/man/"
+    fi
+
+    if [ -d "$IN/share/ffmpeg" ]; then
+        mkdir -p "$OUT/presets"
+        cp "$IN"/share/ffmpeg/*.ffpreset "$OUT/presets/" 2>/dev/null || true
+    fi
 }

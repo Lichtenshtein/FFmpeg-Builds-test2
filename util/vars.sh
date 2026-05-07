@@ -1367,48 +1367,51 @@ export -f check_and_fix_configure
 # Получаем версию VER_FULL=$(get_stage_version)
 get_stage_version() {
     local version_file=".ffbuild_version"
-
-    # Если файл уже существует, читаем из него
-    if [[ -f "$version_file" ]]; then
-        cat "$version_file"
-        return 0
-    fi
+    [[ -f "$version_file" ]] && { cat "$version_file"; return 0; }
 
     local ver=""
 
-    # Пытаемся достать тег через git ls-remote
-    # берем URL из origin и ищем последние теги, сортируя их по версии
-    if [[ -d ".git" ]]; then
-        local remote_url=$(git config --get remote.origin.url 2>/dev/null)
-        if [[ -n "$remote_url" ]]; then
-            ver=$(git ls-remote --tags --sort="v:refname" "$remote_url" | tail -n1 | grep -oE 'v?[0-9]+\.[0-9]+(\.[0-9]+)?' | sed 's/^v//')
-        fi
-        # Если удаленно не вышло, пробуем локальный тег
-        [[ -z "$ver" ]] && ver=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//')
-    fi
-
-    # Файлы VERSION / VERSION.txt
+    # Поиск в файлах конфигурации пакетов
     if [[ -z "$ver" ]]; then
-        local vf=$(find . -maxdepth 2 -iname "version*" -not -name "*.cmake" | head -n 1)
-        [[ -f "$vf" ]] && ver=$(cat "$vf" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)
+        local pc_in=$(find . -maxdepth 3 -name "*.pc.in" -o -name "*.pc" | head -n 1)
+        if [[ -f "$pc_in" ]]; then
+            ver=$(grep -i "^Version:" "$pc_in" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' | head -n1)
+        fi
     fi
 
-    # Meson (игнорируем meson_version в пользу version проекта)
-    if [[ -z "$ver" && -f "meson.build" ]]; then
-        ver=$(grep -m1 "version" meson.build | grep -oP "['\"][0-9.]+'" | tr -d "'\"")
+    # Git (учитываем аннотированные теги и сортировку)
+    if [[ -z "$ver" && -d ".git" ]]; then
+        # Получаем последний тег, очищая от ^{} и префиксов v
+        ver=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//;s/\^{}//')
+        # Если локальных тегов нет, пробуем удаленные, но только если сеть доступна
+        if [[ -z "$ver" ]]; then
+            local remote_url=$(git config --get remote.origin.url 2>/dev/null)
+            if [[ -n "$remote_url" ]]; then
+                ver=$(git ls-remote --tags --refs "$remote_url" | tail -n1 | cut -d/ -f3 | sed 's/^v//;s/\^{}//')
+            fi
+        fi
+
+        # Если это "raw" репозиторий без тегов, берем короткий хэш
+        [[ -z "$ver" ]] && ver="git-$(git rev-parse --short HEAD 2>/dev/null)"
+    fi
+
+    # CMake (многострочный поиск)
+    if [[ -z "$ver" && -f "CMakeLists.txt" ]]; then
+        # Ищем паттерн VERSION 1.2.3 даже если он на другой строке после project(
+        ver=$(grep -Pzo '(?i)project\s*\(.*VERSION\s+([0-9.]+)' CMakeLists.txt | tr -d '\0' | grep -oE '[0-9]+(\.[0-9]+)+')
     fi
 
     # парсинг CMake (ищем PROJECT_VERSION или MAJOR/MINOR)
     if [[ -z "$ver" && -f "CMakeLists.txt" ]]; then
-        # Пытаемся найти project(... VERSION 1.2.3)
-        ver=$(grep -iP 'VERSION\s+[0-9.]+' CMakeLists.txt | grep -oP '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)
-        # Если версии заданы через SET (как в OpenJPEG), собираем их
-        if [[ -z "$ver" ]]; then
-            local v_maj=$(grep -iP 'SET.*VERSION_MAJOR' CMakeLists.txt | grep -oP '[0-9]+')
-            local v_min=$(grep -iP 'SET.*VERSION_MINOR' CMakeLists.txt | grep -oP '[0-9]+')
-            local v_pat=$(grep -iP 'SET.*VERSION_BUILD|SET.*VERSION_PATCH' CMakeLists.txt | grep -oP '[0-9]+')
-            [[ -n "$v_maj" && -n "$v_min" ]] && ver="${v_maj}.${v_min}.${v_pat:-0}"
-        fi
+        local v_maj=$(grep -iP 'SET.*VERSION_MAJOR' CMakeLists.txt | grep -oP '[0-9]+')
+        local v_min=$(grep -iP 'SET.*VERSION_MINOR' CMakeLists.txt | grep -oP '[0-9]+')
+        local v_pat=$(grep -iP 'SET.*VERSION_BUILD|SET.*VERSION_PATCH' CMakeLists.txt | grep -oP '[0-9]+')
+        [[ -n "$v_maj" && -n "$v_min" ]] && ver="${v_maj}.${v_min}.${v_pat:-0}"
+    fi
+
+    # Meson
+    if [[ -z "$ver" && -f "meson.build" ]]; then
+        ver=$(grep -m1 "version\s*:" meson.build | grep -oE "[0-9]+(\.[0-9]+)+" | head -n1)
     fi
 
     # Autotools (configure.ac / configure.in)
@@ -1419,11 +1422,23 @@ get_stage_version() {
         fi
     fi
 
-    # Из имени папки (часто после распаковки архива: libname-1.2.3)
-    [[ -z "$ver" ]] && ver=$(basename "$PWD" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)
+    # Header файлы (для библиотек вроде x264/x265)
+    if [[ -z "$ver" ]]; then
+        local h_file=$(find . -maxdepth 2 -name "version.h" -o -name "*_version.h" | head -n 1)
+        if [[ -f "$h_file" ]]; then
+            # Ищем макросы типа #define VERSION "..." или #define API_VERSION 123
+            ver=$(grep -iE 'define.*VERSION' "$h_file" | grep -oE '[0-9]+(\.[0-9]+)+[^ "]*' | head -n1)
+        fi
+    fi
 
-    # Валидация: только цифры, точки и тире (чтобы не пролез мусор)
-    if [[ "$ver" =~ ^[0-9]+\.[0-9]+ ]]; then
+    # Fallback на имя папки
+    [[ -z "$ver" ]] && ver=$(basename "$PWD" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' | head -n1)
+
+    # Очистка результата от лишних символов (запятые, кавычки)
+    ver=$(echo "$ver" | tr -d '",)')
+
+    # Валидация
+    if [[ -n "$ver" ]]; then
         echo "$ver" > "$version_file"
         echo "$ver"
     else
