@@ -97,7 +97,7 @@ ffbuild_dockerbuild() {
         -DWITH_TIFF=ON
         -DWITH_VULKAN=ON
         -DWITH_WEBP=ON
-        -DWITH_ZLIB_NG=ON
+        # -DWITH_ZLIB_NG=ON
         # IPP
         -DBUILD_IPP_IW=ON
         -DWITH_IPP=ON
@@ -116,6 +116,7 @@ ffbuild_dockerbuild() {
         # -DCMAKE_DISABLE_FIND_PACKAGE_JPEG=ON
         -DZLIB_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.a"
+        -DZLIB_LIBRARIES="$FFBUILD_PREFIX/lib/libz.a"
         -DOPENJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include/openjpeg-2.5"
         -DOPENJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libopenjp2.a"
         -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
@@ -242,6 +243,17 @@ ffbuild_dockerbuild() {
     done
     popd
 
+    # Create libopencv_core.a from libopencv_core4140.a
+    pushd "${DEST_LIB}"
+    for lib in libopencv_*.a; do
+        unversioned=$(echo "$lib" | sed -E 's/[0-9]+\.a$/.a/')
+        if [ "$lib" != "$unversioned" ]; then
+            log_info "Creating symlink $unversioned -> $lib"
+            ln -sf "$lib" "$unversioned"
+        fi
+    done
+    popd
+
     # Удаляем системные дубликаты, если они пришли из OpenCV 3rdparty
     for duplicate in libpng.a libprotobuf.a libz.a libjpeg.a libtiff.a; do
         if [ -f "${FFBUILD_PREFIX}/lib/${duplicate}" ] && [ -f "${DEST_LIB}/${duplicate}" ]; then
@@ -260,12 +272,16 @@ ffbuild_dockerbuild() {
 #include <stdlib.h>
 
 uintptr_t __security_cookie = 0xBB40E64E;
-
 void __fastcall __security_check_cookie(uintptr_t _StackCookie) {
-    if (_StackCookie != __security_cookie) {
-        abort();
-    }
+    if (_StackCookie != __security_cookie) abort();
 }
+
+int _fltused = 0;
+
+extern void ___chkstk_ms(void);
+void __chkstk(void) __attribute__((alias("___chkstk_ms")));
+
+long long _time64(long long* t) { return 0; } 
 EOF
 
     # Компилируем в объектный файл и упаковываем в статическую либу
