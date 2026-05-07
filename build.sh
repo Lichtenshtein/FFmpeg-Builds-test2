@@ -366,6 +366,8 @@ read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 
 chmod +x configure
 
+export AS="${FFBUILD_CROSS_PREFIX}gcc"
+
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
     "${TARGET_FLAGS_ARR[@]}"
