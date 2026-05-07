@@ -124,7 +124,7 @@ export TOOLCHAIN_BIN="/opt/ct-ng/bin"
 export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 export FFBUILD_CROSS_PREFIX="x86_64-w64-mingw32-"
-export AS="${FFBUILD_CROSS_PREFIX}gcc"
+export AS="${FFBUILD_CROSS_PREFIX}as"
 export CC="ccache ${FFBUILD_CROSS_PREFIX}gcc"
 export CXX="ccache ${FFBUILD_CROSS_PREFIX}g++"
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
@@ -252,8 +252,8 @@ HOST_LINUX_LDFLAGS=(
 # Настраиваем HOST_RUSTFLAGS (всегда Linux ELF)
 export HOST_RUSTFLAGS="${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${HOST_LINUX_LDFLAGS[@]}") -C embed-bitcode=yes"
 export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]} ${USELTO}"
-export HOST_CFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -std=gnu23 ${USELTO}${USELTO_C}"
-export HOST_CXXFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections ${USELTO}${USELTO_C}"
+export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -std=gnu23 ${USELTO}${USELTO_C}"
+export HOST_CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections ${USELTO}${USELTO_C}"
 export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
 # Ветвление по TARGET
@@ -286,8 +286,8 @@ if [[ "$TARGET" == "win64" ]]; then
         export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
-        export CFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu23"
-        export CXXFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++17"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu23"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++17"
         MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${MAIN_LDFLAGS[*]}"
