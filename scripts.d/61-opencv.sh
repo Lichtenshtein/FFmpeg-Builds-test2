@@ -278,14 +278,19 @@ void __fastcall __security_check_cookie(uintptr_t _StackCookie) {
 
 int _fltused = 0;
 
-extern void ___chkstk_ms(void);
-void __chkstk(void) __attribute__((alias("___chkstk_ms")));
+void __chkstk(void) {
+    extern void ___chkstk_ms(void);
+    ___chkstk_ms();
+}
 
-long long _time64(long long* t) { return 0; } 
+long long _time64(long long* t) { 
+    if (t) *t = 0;
+    return 0; 
+} 
 EOF
 
     # Компилируем в объектный файл и упаковываем в статическую либу
-    ${FFBUILD_CROSS_PREFIX}gcc -c msvc_stub.c -o msvc_stub.o
+    ${FFBUILD_CROSS_PREFIX}gcc $CFLAGS -c msvc_stub.c -o msvc_stub.o
     ${FFBUILD_CROSS_PREFIX}ar rcs "${DEST_LIB}/libmsvc_stub.a" msvc_stub.o
 
     if [ -f "$PC_FILE" ]; then
