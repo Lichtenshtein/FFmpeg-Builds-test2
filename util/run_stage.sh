@@ -117,6 +117,7 @@ stage_cleanup() {
 trap stage_cleanup EXIT
 
 # Создаем и входим в директории сборки ДО загрузки скрипта
+log_info "Creating the base folder structure if it doesn't exist..."
 mkdir -p "$VARS_DIR" "$FFBUILD_DESTDIR" "$INSTALL_ROOT"/{include,bin,lib/pkgconfig} "/build/$STAGENAME" && cd "/build/$STAGENAME"
 
 # Подгружаем скрипт заранее, чтобы проверить SCRIPT_SKIP
@@ -214,7 +215,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
 
     # Проверка, что после всех манипуляций папка не пуста
     if [[ -z "$(ls -A)" ]]; then
-        log_error "ERROR: Build directory is empty after unpacking/downloading $STAGENAME!"
+        log_error "Build directory is empty after unpacking/downloading $STAGENAME!"
         exit 1
     fi
 
@@ -271,8 +272,7 @@ build_cmd="ffbuild_dockerbuild"
 # wine starter
 setup_wine_env
 
-# Если файл .ffbuild_version уже был создан в download_stage, 
-# get_version просто быстро прочитает его.
+# Manually determining the component version
 export VER_FULL=$(get_stage_version)
 
 log_info_line

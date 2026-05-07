@@ -20,7 +20,7 @@ cp "$FFMPEG_CONFIG_LOG" "$PKG_DIR/config.log" || true
 # Если они лежат в /opt/ffbuild/bin, то всё ок. 
 # Но если они в подпапках (runtime/bin/intel64/...), нужно убедиться, что они попали в $PKG_DIR/bin/
 if [[ -d "$FFBUILD_PREFIX/bin" ]]; then
-    find "$FFBUILD_PREFIX/bin" "\( -name '*.dll' -o -name '*.pyd' -o -name '*.zip' \)" -exec cp -v {} "$PKG_DIR/bin/" \; || true
+    find "$FFBUILD_PREFIX/bin" \( -name '*.dll' -o -name '*.pyd' -o -name '*.zip' \) -exec cp -v {} "$PKG_DIR/bin/" \; || true
     log_info "${SYNC_MARK} Collecting external DLLs and plugins..."
 else
     log_warn "$FFBUILD_PREFIX/bin not found! Skipping DLLs copy."
