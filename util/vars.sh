@@ -191,10 +191,6 @@ export SKIP_POST_AUDIT=0
 export SKIP_POST_STRIP=0
 export USE_CONF_FINDER=0
 
-# Create the base structure if it doesn't exist
-if [[ -d "/builder" ]]; then
-    mkdir -p "$VARS_DIR" "$FFBUILD_DESTDIR" "$INSTALL_ROOT"/{include,bin,lib/pkgconfig}
-fi
 mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 
 # Очистка базовых флагов перед объявлением
