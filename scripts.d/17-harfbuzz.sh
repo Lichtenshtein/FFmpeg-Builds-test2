@@ -31,8 +31,8 @@ ffbuild_dockerbuild() {
         --libdir=lib
         --buildtype=release
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
-        -Dcpp_std=c++17
-        -Dc_std=c11
+        -Dcpp_std=gnu++20
+        -Dc_std=gnu17
         -Dfreetype=enabled
         -Draster=enabled
         -Dvector=enabled

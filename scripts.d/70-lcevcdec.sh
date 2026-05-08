@@ -35,7 +35,7 @@ ffbuild_dockerbuild() {
         -DVN_SDK_FORCE_OVERLAY=OFF
         -DVN_SDK_GENERATE_PGO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF) # this is NOT LTO
         -DVN_SDK_JSON_CONFIG=OFF
-        -DVN_SDK_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        # -DVN_SDK_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DVN_SDK_METRICS=OFF
         -DVN_SDK_PIPELINE_CPU=ON
         -DVN_SDK_PIPELINE_LEGACY=ON # ON

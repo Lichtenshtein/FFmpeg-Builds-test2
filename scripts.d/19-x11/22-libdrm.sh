@@ -20,8 +20,8 @@ ffbuild_dockerbuild() {
     local myconf=(
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         --prefix="$FFBUILD_PREFIX"
-        -Dcpp_std=c++17
-        -Dc_std=c11
+        -Dcpp_std=gnu++20
+        -Dc_std=gnu17
         -Ddefault_library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dudev=false
         -Dcairo-tests=disabled

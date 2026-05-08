@@ -47,7 +47,7 @@ ffbuild_dockerbuild() {
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         --wrap-mode=nodownload
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
-        -Dcpp_std=c++17
+        -Dcpp_std=gnu++20
         -Dfontconfig=enabled
         -Dfreetype=enabled
         -Dglib=enabled
