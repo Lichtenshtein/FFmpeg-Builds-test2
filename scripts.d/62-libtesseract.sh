@@ -228,7 +228,7 @@ WRAPPER_EOF
 -lgdi32 -lsetupapi -lole32 -lshlwapi -liphlpapi \
 -luser32 -ladvapi32 -ldbghelp -lwldap32 \
 -lws2_32 -lwinmm -lbcrypt  \
--pthread -lstdc++ -lm \
+-lpthread -lstdc++ -lm \
 -lusp10 -lmsimg32 -lruntimeobject \
 -ldwrite -ld2d1 -lwindowscodecs -lopengl32"
 
@@ -269,19 +269,23 @@ WRAPPER_EOF
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     # Clear INTERFACE_LINK_LIBRARIES (belt and suspenders)
-    find . -name "TesseractTargets.cmake" \
-        -o -name "*Targets*.cmake" 2>/dev/null \
+    find . -name "TesseractTargets.cmake" -o -name "*Targets*.cmake" 2>/dev/null \
     | xargs grep -l "INTERFACE_LINK_LIBRARIES" 2>/dev/null \
     | while read -r f; do
         log_debug "Clearing INTERFACE_LINK_LIBRARIES in $f"
-        sed -i \
-            's/INTERFACE_LINK_LIBRARIES "[^"]*"/INTERFACE_LINK_LIBRARIES ""/g' \
-            "$f"
+        sed -i 's/INTERFACE_LINK_LIBRARIES "[^"]*"/INTERFACE_LINK_LIBRARIES ""/g' "$f"
     done
 
     # Собираем только библиотеку
     ninja $NINJA_V libtesseract || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    local PC_FILE="$PC_DIR/tesseract.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        local DEP_LIBS="-lleptonica -ltiff"
+        sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS|" "$PC_FILE"
+        sed -i "s|^Requires.private:.*|Requires.private: |" "$PC_FILE"
+    fi
 
     # Возвращаем старые конфиги назад (не затирая новые от самого tesseract)
     log_debug "Restoring backed up CMake configs..."
@@ -289,6 +293,7 @@ WRAPPER_EOF
     rm -rf "$cmake_backup"
 
     log_debug "=== linkLibs.rsp full content ==="
+    cd ..
     find . -name "linkLibs.rsp" -exec echo "FILE: {}" \; -exec cat {} \; >&2
 }
 
