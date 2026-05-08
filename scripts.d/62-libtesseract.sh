@@ -65,11 +65,11 @@ ffbuild_dockerbuild() {
     if [[ ! -f "$gxx_bak" ]]; then
         cp -a "$gxx_proxy" "$gxx_bak"
 
-        cat > "$wrapper" << WRAPPER_EOF
+        cat > "$wrapper" << 'WRAPPER_EOF'
 #!/bin/bash
 # Transparent wrapper around x86_64-w64-mingw32-g++
 # Intercepts the final executable link and fixes library ordering.
-REAL_GXX="$gxx_bak"
+REAL_GXX="${0}.bak"
 
 # Only intercept executable links (they contain --whole-archive)
 if printf '%s\n' "$@" | grep -q -- '--whole-archive'; then
@@ -264,10 +264,8 @@ WRAPPER_EOF
 -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS \
 -Wno-narrowing -Wno-format"
         # Linker flags
-        -DCMAKE_EXE_LINKER_FLAGS="$RAW_LDFLAGS ${USELTO} $ALL_LIBS \
--Wl,--allow-multiple-definition"
-        -DCMAKE_SHARED_LINKER_FLAGS="$RAW_LDFLAGS ${USELTO} $ALL_LIBS \
--Wl,--allow-multiple-definition"
+        -DCMAKE_EXE_LINKER_FLAGS="$RAW_LDFLAGS ${USELTO} -Wl,--no-as-needed $ALL_LIBS -Wl,--as-needed -Wl,--allow-multiple-definition"
+        -DCMAKE_SHARED_LINKER_FLAGS="$RAW_LDFLAGS ${USELTO} -Wl,--no-as-needed $ALL_LIBS -Wl,--as-needed -Wl,--allow-multiple-definition"
     )
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
