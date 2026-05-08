@@ -29,11 +29,9 @@ ffbuild_dockerbuild() {
     # Fix Ws2_32 case
     find . -type f -name "CMakeLists.txt" -exec sed -i 's/Ws2_32/ws2_32/g' {} +
     # Disable the tesseract executable target and its links
-    sed -i 's/add_executable(tesseract/ # add_executable(tesseract/g' CMakeLists.txt
-    sed -i 's/target_link_libraries(tesseract/ # target_link_libraries(tesseract/g' CMakeLists.txt
-    sed -i 's/install(TARGETS tesseract/ # install(TARGETS tesseract/g' CMakeLists.txt
-    # Fix potential issue with version.h path in some tesseract versions
-    sed -i 's/include\/tesseract\/version.h/version.h/g' CMakeLists.txt 2>/dev/null || true
+    sed -i 's@^add_executable(tesseract@# add_executable(tesseract@g' CMakeLists.txt
+    sed -i 's@^target_link_libraries(tesseract@# target_link_libraries(tesseract@g' CMakeLists.txt
+    sed -i 's@install(TARGETS tesseract@# install(TARGETS tesseract@g' CMakeLists.txt
 
     mkdir -p build && cd build
 
