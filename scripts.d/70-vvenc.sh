@@ -28,7 +28,7 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DVVENC_LIBRARY_ONLY=ON
         -DVVENC_ENABLE_WERROR=OFF
-        -DVVENC_ENABLE_LINK_TIME_OPT=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        # -DVVENC_ENABLE_LINK_TIME_OPT=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $FLAGS" \

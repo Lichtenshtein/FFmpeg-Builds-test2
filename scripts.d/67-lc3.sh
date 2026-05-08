@@ -16,12 +16,12 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     local myconf=(
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         --prefix="$FFBUILD_PREFIX"
         --buildtype=release
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
-        -Dc_std=c11
-        -Dcpp_std=c++17
+        -Dc_std=gnu17
+        -Dcpp_std=gnu++20
         -Dtools=false
         -Dpython=false # Build python bindings
     )

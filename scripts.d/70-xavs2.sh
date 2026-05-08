@@ -58,15 +58,15 @@ ffbuild_dockerbuild() {
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --enable-shared ) || \
         myconf+=( --enable-static )
-    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
+    # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     if [[ $TARGET == win* ]]; then
         export AS="nasm"
     fi
 
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $CPPFLAGS -Wno-tautological-compare -Wno-discarded-qualifiers -Wno-array-parameter -Wno-missing-braces" \
-        --extra-ldflags="$LDFLAGS" || return 1
+        --extra-cflags="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-tautological-compare -Wno-discarded-qualifiers -Wno-array-parameter -Wno-missing-braces" \
+        --extra-ldflags="$LDFLAGS ${USELTO}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

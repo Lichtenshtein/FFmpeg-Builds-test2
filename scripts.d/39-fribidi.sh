@@ -23,10 +23,10 @@ ffbuild_dockerbuild() {
         --cross-file="$FFBUILD_MESON_CROSS"
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         --prefix="$FFBUILD_PREFIX"
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false )
+        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         -Dbin=false
-        -Dc_std=c11
-        -Dcpp_std=c++17
+        -Dc_std=gnu17
+        -Dcpp_std=gnu++20
         -Ddocs=false
         -Dtests=false
     )

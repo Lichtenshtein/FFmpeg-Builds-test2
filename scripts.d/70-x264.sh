@@ -41,15 +41,15 @@ ffbuild_dockerbuild() {
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --enable-shared ) || \
         myconf+=( --enable-static )
-    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
+    # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     # явно указываем инструменты дл¤ стабильности
     export AS="nasm"
     export CC="${FFBUILD_CROSS_PREFIX}gcc"
 
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $CPPFLAGS" \
-        --extra-ldflags="$LDFLAGS" || return 1
+        --extra-cflags="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        --extra-ldflags="$LDFLAGS ${USELTO}" || return 1
 
     # если в config.log написано "asm: no", значит nasm не подцепилс¤
     if grep -q "asm: no" config.log; then

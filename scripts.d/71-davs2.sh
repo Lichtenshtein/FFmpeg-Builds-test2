@@ -46,11 +46,11 @@ ffbuild_dockerbuild() {
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --enable-shared --disable-static )
-    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
+    # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $CPPFLAGS" \
-        --extra-ldflags="$LDFLAGS" || return 1
+        --extra-cflags="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        --extra-ldflags="$LDFLAGS ${USELTO}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1

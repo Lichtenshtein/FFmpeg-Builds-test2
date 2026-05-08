@@ -23,8 +23,8 @@ ffbuild_dockerbuild() {
         --buildtype=release
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
-        -Dcpp_std=c++17
-        -Dc_std=c11
+        -Dcpp_std=gnu++20
+        -Dc_std=gnu17
         -Denable_asm=true
         -Denable_tools=false
         -Denable_tests=false
