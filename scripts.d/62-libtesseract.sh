@@ -45,20 +45,34 @@ ffbuild_dockerbuild() {
            -o -name "*targets*.cmake" \) \
         -exec mv -t "$cmake_backup" {} + 2>/dev/null || true
 
+    # Back up real (not a symlink) g++ and install wrapper
+    # local gxx_proxy="/usr/local/bin/x86_64-w64-mingw32-g++"
+    # Определяем, где на самом деле лежит g++ (прокси или реальный)
+
     # Create a CXX compiler wrapper that intercepts the final link
     # When the wrapper sees --whole-archive (the tesseract link step),
     # it rewrites the command to wrap ALL -l flags AND bare .a files in one group.
-    local wrapper="/usr/local/bin/x86_64-w64-mingw32-g++-wrapper"
-    cat > "$wrapper" << 'WRAPPER_EOF'
+    # Делаем бэкап только если это еще не сделано
+    local gxx_proxy=$(command -v x86_64-w64-mingw32-g++)
+    local gxx_bak="${gxx_proxy}.bak"
+    local wrapper="${gxx_proxy}-wrapper"
+
+    if [[ -z "$gxx_proxy" ]]; then
+        log_error "Compiler x86_64-w64-mingw32-g++ not found in PATH"
+        return 1
+    fi
+
+    if [[ ! -f "$gxx_bak" ]]; then
+        cp -a "$gxx_proxy" "$gxx_bak"
+
+        cat > "$wrapper" << WRAPPER_EOF
 #!/bin/bash
 # Transparent wrapper around x86_64-w64-mingw32-g++
 # Intercepts the final executable link and fixes library ordering.
-
-REAL_GXX="/opt/ct-ng/bin/x86_64-w64-mingw32-g++"
+REAL_GXX="$gxx_bak"
 
 # Only intercept executable links (they contain --whole-archive)
 if printf '%s\n' "$@" | grep -q -- '--whole-archive'; then
-
     # Expand all @response_files into a flat argument list
     expanded=()
     for arg in "$@"; do
@@ -173,23 +187,16 @@ else
     exec "$REAL_GXX" "$@"
 fi
 WRAPPER_EOF
-    chmod +x "$wrapper"
 
-    # Back up real (not a symlink) g++ and install wrapper
-    local gxx_proxy="/usr/local/bin/x86_64-w64-mingw32-g++"
-    # Back up the current proxy (which is the ccache symlink)
-    if [[ ! -f "${gxx_proxy}.bak" ]]; then
-        mv "$gxx_proxy" "${gxx_proxy}.bak"
+        chmod +x "$wrapper"
         ln -sf "$wrapper" "$gxx_proxy"
-        log_debug "Installed g++ wrapper"
+        log_debug "Installed g++ wrapper at $gxx_proxy"
     fi
 
-    # Ensure wrapper is removed even if build fails
     restore_gxx() {
-        local gxx_proxy="/usr/local/bin/x86_64-w64-mingw32-g++"
-        if [[ -f "${gxx_proxy}.bak" ]]; then
-            mv -f "${gxx_proxy}.bak" "$gxx_proxy"
-            log_debug "Restored real g++"
+        if [[ -f "$gxx_bak" ]]; then
+            mv -f "$gxx_bak" "$gxx_proxy"
+            log_debug "Restored real g++ at $gxx_proxy"
         fi
     }
     trap restore_gxx EXIT
@@ -203,7 +210,7 @@ WRAPPER_EOF
 -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz \
 -lfontconfig -lfreetype -lpixman-1 -lfribidi \
 -lgio-2.0 -lgthread-2.0 -lglib-2.0 \
--lcurl -lssh -lssl -lcrypto \
+-lcurl -lquiche -lnghttp2 -lssh -lssl -lcrypto \
 -larchive \
 -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif \
 -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv \
