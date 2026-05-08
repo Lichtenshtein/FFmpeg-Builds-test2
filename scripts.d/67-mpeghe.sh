@@ -17,7 +17,7 @@ ffbuild_dockerbuild() {
 
     # Компиляция объектов с поддержкой LTO (через $CFLAGS)
     for mpeghe in *.c; do
-        "$CC" -Wall -Wsequence-point $CFLAGS $CPPFLAGS -I. "$mpeghe" -c -o "${mpeghe%.c}.o"
+        "$CC" -Wall -Wsequence-point $CFLAGS ${USELTO}${USELTO_C} $CPPFLAGS -I. "$mpeghe" -c -o "${mpeghe%.c}.o"
     done
 
     # Создание статической библиотеки. 
