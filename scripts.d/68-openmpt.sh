@@ -24,9 +24,9 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    export CFLAGS="$CFLAGS"
-    export CXXFLAGS="$CXXFLAGS"
-    export LDFLAGS="$LDFLAGS"
+    export CFLAGS="$CFLAGS ${USELTO}${USELTO_C}"
+    export CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}"
+    export LDFLAGS="$LDFLAGS ${USELTO}"
     export CPPFLAGS="$CPPFLAGS"
 
     local myconf=(
@@ -62,7 +62,7 @@ ffbuild_dockerbuild() {
         myconf+=( SHARED_LIB=1 STATIC_LIB=0 DYNLINK=1 ) || \
         myconf+=( SHARED_LIB=0 STATIC_LIB=1 DYNLINK=0 )
 
-    [[ "$USE_LTO" == "1" ]] && myconf+=( OPTIMIZE_LTO=1 )
+    # [[ "$USE_LTO" == "1" ]] && myconf+=( OPTIMIZE_LTO=1 )
 
     if [[ $TARGET == winarm64 ]]; then
         myconf+=(

@@ -27,7 +27,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        -DVVDEC_ENABLE_LINK_TIME_OPT=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        # -DVVDEC_ENABLE_LINK_TIME_OPT=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DVVDEC_LIBRARY_ONLY=ON
         -DVVDEC_ENABLE_BUILD_TYPE_POSTFIX=OFF
         -DVVDEC_ENABLE_WERROR=OFF

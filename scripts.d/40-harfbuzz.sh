@@ -36,8 +36,8 @@ ffbuild_dockerbuild() {
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         -Dfreetype=enabled
         -Dicu=enabled
-        -Dcpp_std=c++17
-        -Dc_std=c11
+        -Dcpp_std=gnu++20
+        -Dc_std=gnu17
         -Dwith_libstdcxx=true
         -Draster=enabled
         -Dvector=enabled

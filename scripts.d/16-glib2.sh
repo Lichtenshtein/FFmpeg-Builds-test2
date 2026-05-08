@@ -82,8 +82,8 @@ EOF
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         --wrap-mode=nodownload
         -Dtests=false
-        -Dcpp_std=c++17
-        -Dc_std=c11
+        -Dcpp_std=gnu++20
+        -Dc_std=gnu17
         -Dinstalled_tests=false
         -Dintrospection=disabled
         -Dlibmount=disabled
