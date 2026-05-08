@@ -27,7 +27,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DPNG_TESTS=OFF
         -DPNG_FRAMEWORK=OFF
         -DPNG_TOOLS=OFF

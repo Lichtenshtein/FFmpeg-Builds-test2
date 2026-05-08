@@ -40,7 +40,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DOPUS_BUILD_SHARED_LIBRARY=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DOPUS_BUILD_PROGRAMS=OFF
         -DOPUS_BUILD_TESTING=OFF
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
