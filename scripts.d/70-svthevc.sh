@@ -31,7 +31,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_APP=OFF
         # added by patch or from fork
-        -DSVT_ENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        # -DSVT_ENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DSVT_ENABLE_PORTABLE_RPATH=OFF # portable build RPATH for side-by-side binaries
         -DSVT_ENABLE_INSTALL_RPATH=OFF # RPATH to locate libraries under the install prefix
         -DSVT_ENABLE_NATIVE=OFF # Build for native performance (march=native)

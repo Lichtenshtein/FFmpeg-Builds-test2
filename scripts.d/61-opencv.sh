@@ -49,7 +49,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        -DENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        # -DENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DOPENCV_GENERATE_PKGCONFIG=ON
         -DOPENCV_CHECK_COMPILER_FLAGS=OFF
         -DCMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release
