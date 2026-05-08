@@ -50,7 +50,7 @@ ffbuild_dockerbuild() {
         -DJPEGXL_FORCE_SYSTEM_BROTLI=ON
         -DJPEGXL_FORCE_SYSTEM_LCMS2=ON
         -DJPEGXL_FORCE_SYSTEM_HWY=OFF
-        -DJPEGXL_ENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        # -DJPEGXL_ENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DBUILD_TESTING=OFF
     )
 
@@ -79,7 +79,7 @@ ffbuild_dockerbuild() {
     curl -fsSL "https://raw.githubusercontent.com/libjxl/libjxl/26494266bae545dc2084746a1fb22e805e119e85/lib/include/jxl/butteraugli.h" \
         -o "$FFBUILD_PREFIX/include/jxl/butteraugli.h"
     if [ ! -s "$FFBUILD_PREFIX/include/jxl/butteraugli.h" ]; then
-        echo "Error: Failed to download butteraugli.h"
+        log_error "Failed to download butteraugli.h"
         return 1
     fi
 

@@ -11,6 +11,7 @@ ffbuild_depends() {
     echo libtiff
     echo openssl
     echo libicu
+    echo libcurl
 }
 
 ffbuild_enabled() {
@@ -24,13 +25,17 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    mkdir -p build && cd build
+    log_debug "Patching CMakeLists.txt to fix case-sensitivity and disable executable..."
+    # Fix Ws2_32 case
+    find . -type f -name "CMakeLists.txt" -exec sed -i 's/Ws2_32/ws2_32/g' {} +
+    # Disable the tesseract executable target and its links
+    sed -i 's/add_executable(tesseract/ # add_executable(tesseract/g' CMakeLists.txt
+    sed -i 's/target_link_libraries(tesseract/ # target_link_libraries(tesseract/g' CMakeLists.txt
+    sed -i 's/install(TARGETS tesseract/ # install(TARGETS tesseract/g' CMakeLists.txt
+    # Fix potential issue with version.h path in some tesseract versions
+    sed -i 's/include\/tesseract\/version.h/version.h/g' CMakeLists.txt 2>/dev/null || true
 
-    # Исправляем фантомную libWs2_32 от которой компилятор падает
-    # Создаем симлинк libWs2_32.a -> libws2_32.a
-    # линкер найдет библиотеку при любом регистре
-    local ws2="/opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libws2_32.a"
-    [[ -f "$ws2" ]] && ln -sf "$ws2" /opt/ct-ng/x86_64-w64-mingw32/sysroot/lib/libWs2_32.a 2>/dev/null || true
+    mkdir -p build && cd build
 
     # Backing up "poisoned" CMake-конфиги TIFF и других либ, 
     # которые заставляют линкер искать ZLIB::ZLIB
@@ -72,7 +77,7 @@ ffbuild_dockerbuild() {
 REAL_GXX="${0}.bak"
 
 # Only intercept executable links (they contain --whole-archive)
-if printf '%s\n' "$@" | grep -q -- '--whole-archive'; then
+if printf '%s\n' "$@" | grep -e '\.exe' -e '\.dll' -e '--whole-archive' | grep -q -- '-o'; then
     # Expand all @response_files into a flat argument list
     expanded=()
     for arg in "$@"; do
@@ -230,8 +235,7 @@ WRAPPER_EOF
 -ldwrite -ld2d1 -lwindowscodecs -lopengl32"
 
     # Strip -Wl,-Bstatic — blocks import libs needed for __imp_ symbols
-    local RAW_LDFLAGS
-    RAW_LDFLAGS=$(echo "$LDFLAGS" | sed 's/-Wl,-Bstatic\b//g')
+    local RAW_LDFLAGS=$(echo "$LDFLAGS" | sed 's/-Wl,-Bstatic\b//g')
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB"
@@ -248,7 +252,7 @@ WRAPPER_EOF
         -DOPENMP_BUILD=$([[ $target != "win64" && "${USE_OPENMP}" == "1" ]] && echo ON || echo OFF) # DO NOT enable it for Win64
         -DFAST_FLOAT=ON
         -DSW_BUILD=OFF
-        -DENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        # -DENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         # Leptonica use our manual path, not CMake target
         -DLeptonica_DIR=OFF
         -DLEPT_TIFF_RESULT=0
@@ -257,12 +261,8 @@ WRAPPER_EOF
         -DCMAKE_FIND_LIBRARY_SUFFIXES=".a"
         -DPKG_CONFIG_EXECUTABLE="$(command -v pkg-config)"
         # Compiler flags
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags \
--DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS \
--Wno-narrowing -Wno-format"
-        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags \
--DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS \
--Wno-narrowing -Wno-format"
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS -Wno-narrowing -Wno-format"
+        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS -Wno-narrowing -Wno-format"
         # Linker flags
         -DCMAKE_EXE_LINKER_FLAGS="$RAW_LDFLAGS ${USELTO} -Wl,--no-as-needed $ALL_LIBS -Wl,--as-needed -Wl,--allow-multiple-definition"
         -DCMAKE_SHARED_LINKER_FLAGS="$RAW_LDFLAGS ${USELTO} -Wl,--no-as-needed $ALL_LIBS -Wl,--as-needed -Wl,--allow-multiple-definition"
@@ -281,7 +281,8 @@ WRAPPER_EOF
             "$f"
     done
 
-    ninja $NINJA_V || return 1
+    # Собираем только библиотеку
+    ninja $NINJA_V libtesseract || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Возвращаем старые конфиги назад (не затирая новые от самого tesseract)
