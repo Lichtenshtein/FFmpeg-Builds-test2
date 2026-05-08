@@ -32,7 +32,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         # -DXEVD_APP_STATIC_BUILD=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         # added by patch
         -DXEVD_BUILD_APP=OFF
         -DXEVD_INSTALL=ON

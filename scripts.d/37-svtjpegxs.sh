@@ -31,7 +31,7 @@ ffbuild_dockerbuild() {
         -DBUILD_APPS=OFF
         -DENABLE_NATIVE=OFF
         -DENABLE_NASM=ON
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
     )
 
     # Специальные флаги для MinGW, чтобы избежать сегфолтов (выравнивание стека)

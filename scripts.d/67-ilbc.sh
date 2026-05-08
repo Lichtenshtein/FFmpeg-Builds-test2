@@ -28,7 +28,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DWITH_NEON=OFF # Enable NEON optimization
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
     )
 
     local EXTRA_CFLAGS="-Wno-error=implicit-function-declaration"

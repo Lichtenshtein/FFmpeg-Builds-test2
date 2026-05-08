@@ -33,7 +33,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DSPIRV_CROSS_SHARED=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DSPIRV_CROSS_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DSPIRV_CROSS_CLI=OFF

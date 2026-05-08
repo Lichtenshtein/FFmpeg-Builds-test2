@@ -22,7 +22,7 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     local myconf=(
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
+        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_POLICY_DEFAULT_CMP0069=NEW
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
