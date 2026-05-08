@@ -128,18 +128,20 @@ ffbuild_dockerbuild() {
     fi
 }
 
+# that's odd; i thought ffmpeg used to support libcurl natively
+
 # ffbuild_libs() {
     # echo "-lquiche -lnghttp2 -lcrypt32 -lwldap32 -lnormaliz -liphlpapi"
 # }
 
-ffbuild_cppflags() {
-    echo "$static_flags $self_static_flags"
-}
+# ffbuild_cppflags() {
+    # echo "$static_flags $self_static_flags"
+# }
 
-ffbuild_configure() {
-    echo --enable-libcurl
-}
+# ffbuild_configure() {
+    # echo --enable-libcurl
+# }
 
-ffbuild_unconfigure() {
-    echo --disable-libcurl
-}
+# ffbuild_unconfigure() {
+    # echo --disable-libcurl
+# }

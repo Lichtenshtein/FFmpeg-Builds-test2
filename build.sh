@@ -248,7 +248,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
 
     # Проверка путей (PATH)
-    log_debug "${DIRS_MARK} Current PATH: $PATH"
+    log_debug "${DIRS_MARK} Current PATH:\n$PATH"
 
     check_tool() {
         local name=$1

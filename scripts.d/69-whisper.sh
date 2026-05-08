@@ -106,7 +106,7 @@ EOF
         -DGGML_CUDA=OFF
         -DGGML_F16C=ON
         -DGGML_FMA=ON
-        -DGGML_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
+        # -DGGML_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DGGML_NATIVE=OFF
         -DGGML_OPENCL=ON
         -DGGML_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
