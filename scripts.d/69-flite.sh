@@ -37,9 +37,9 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-shared=yes ) || \
         myconf+=( --enable-shared=no --disable-shared )
 
-    CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
+    CFLAGS="$CFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj" \
     CPPFLAGS="$CPPFLAGS -DWAIT_ANY=-1" \
-    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
@@ -75,7 +75,7 @@ includedir=\${prefix}/include/flite
 
 Name: flite
 Description: a text to speech library
-Version: 2.2
+Version: 2.3
 Libs: -L\${libdir} $VOX_LIBS -lflite
 Cflags: -I\${includedir}
 EOF
