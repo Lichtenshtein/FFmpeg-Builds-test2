@@ -44,6 +44,14 @@ ffbuild_dockerbuild() {
         #--disable-asm         # disable platform-specific assembly optimizations
     )
 
+    if command -v nasm >/dev/null 2>&1; then
+        # Если есть nasm, подставляем его явно
+        myconf+=( --as=nasm )
+    else
+        log_warn "NASM not found! Compiling davs2 without ASM optimizations."
+        myconf+=( --disable-asm )
+    fi
+
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --enable-shared --disable-static )
     # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
