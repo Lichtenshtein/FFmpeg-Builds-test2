@@ -293,7 +293,7 @@ EOF
         --buildtype release
         --default-library $([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
-        -Dcpp_std=gnu++20
+        -Dcpp_std=gnu++17 # -std=gnu++20 crashes
         -Dc_std=gnu17
         # -Denable_vsscript=true
         # -Denable_vspipe=false
