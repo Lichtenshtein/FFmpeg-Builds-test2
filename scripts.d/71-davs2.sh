@@ -20,6 +20,7 @@ ffbuild_dockerbuild() {
 
     export SKIP_POST_STRIP=1
 
+    local REPO_ROOT=$(pwd)
     cd build/linux
 
     # Фикс проверки endianness для современных GCC (уже было у вас, оставляем)
@@ -51,6 +52,7 @@ ffbuild_dockerbuild() {
 
     local CONF_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -std=gnu11"
     local CONF_LDFLAGS="-L${FFBUILD_PREFIX}/lib"
+    local EXTRA_INC="-I. -I../../source"
 
     AS=nasm \
     ./configure "${myconf[@]}" \
@@ -62,18 +64,15 @@ ffbuild_dockerbuild() {
     }
 
     make -j$(nproc) $MAKE_V \
-        CFLAGS="$CFLAGS -I. $CPPFLAGS ${USELTO}${USELTO_C}" \
-        CXXFLAGS="$CXXFLAGS -I. $CPPFLAGS ${USELTO}${USELTO_C}" \
+        CFLAGS="$CFLAGS $EXTRA_INC $CPPFLAGS ${USELTO}${USELTO_C}" \
+        CXXFLAGS="$CXXFLAGS $EXTRA_INC $CPPFLAGS ${USELTO}${USELTO_C}" \
         LDFLAGS="$LDFLAGS ${USELTO}" || return 1
 
-    # Исправляем pkg-config для статической линковки
     local PC_FILE="$PC_DIR/davs2.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Гарантируем, что префикс внутри .pc корректный
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
-        # Для статики иногда нужен -lpthread
         if ! grep -q "Libs.private" "$PC_FILE"; then
-            sed -i '/^Libs.private:/ s/$/ -lwinmm -pthread/' "$PC_FILE"
+            echo "Libs.private: -lwinmm -lpthread" >> "$PC_FILE"
         fi
     fi
 }
