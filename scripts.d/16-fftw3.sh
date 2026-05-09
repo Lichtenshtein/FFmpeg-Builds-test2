@@ -71,11 +71,11 @@ ffbuild_dockerbuild() {
         # Чистим перед пересборкой другой точности
         make distclean || true
 
-        CFLAGS="$CFLAGS -mincoming-stack-boundary=4 ${USELTO}${USELTO_C}" \
+        CFLAGS="$CFLAGS -mincoming-stack-boundary=4 ${OPENMP_C}${USELTO}${USELTO_C}" \
         CPPFLAGS="$CPPFLAGS" \
-        CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
+        CXXFLAGS="$CXXFLAGS ${OPENMP_C}${USELTO}${USELTO_C}" \
         LDFLAGS="$LDFLAGS ${USELTO}" \
-        LIBS="$LIBS" \
+        LIBS="${OPENMP_LIB}$LIBS" \
         ./configure "${myconf[@]}" || return 1
 
         make -j$(nproc) $MAKE_V || return 1

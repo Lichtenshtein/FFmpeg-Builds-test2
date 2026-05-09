@@ -79,6 +79,9 @@ Version: 2.3
 Libs: -L\${libdir} -Wl,--whole-archive $VOX_LIBS -Wl,--no-whole-archive -lflite
 Cflags: -I\${includedir}
 EOF
+
+# with ffmpeg patch we can load voices like this:
+# ffmpeg.exe -f lavfi -i "flite=text='Hello':voicefile='C:/path/to/my/voice.flitevox'" out.wav
 }
 
 ffbuild_configure() {

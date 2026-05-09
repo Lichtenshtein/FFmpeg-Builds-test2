@@ -39,10 +39,10 @@ ffbuild_dockerbuild() {
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-Dpixman_static"
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
-        -Dc_link_args="$LDFLAGS ${USELTO} $DEP_LIBS" \
-        -Dcpp_link_args="$LDFLAGS ${USELTO} $DEP_LIBS" || return 1
+        -Dc_args="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} $static_flags" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} $static_flags" \
+        -Dc_link_args="$LDFLAGS ${USELTO} ${OPENMP_LIB}$DEP_LIBS" \
+        -Dcpp_link_args="$LDFLAGS ${USELTO} ${OPENMP_LIB}$DEP_LIBS" || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
@@ -55,6 +55,9 @@ ffbuild_dockerbuild() {
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
                 sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
             fi
+        fi
+        if [[ "${USE_OPENMP}" == "1" ]]; then
+            sed -i '/^Libs.private:/ s/$/ -lgomp/' "$PC_FILE"
         fi
     fi
 }
