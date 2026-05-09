@@ -65,7 +65,7 @@ ffbuild_dockerbuild() {
     # компилируем, подставляя тяжелые LTO флаги из vars.sh
     # переопределяем CFLAGS и LDFLAGS прямо в make.
     make -j$(nproc) $MAKE_V \
-        CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        CFLAGS="$CFLAGS -std=gnu11 $CPPFLAGS ${USELTO}${USELTO_C}" \
         LDFLAGS="$LDFLAGS ${USELTO}" || return 1
 
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
