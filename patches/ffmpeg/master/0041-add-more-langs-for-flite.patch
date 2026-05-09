@@ -1,0 +1,36 @@
+From 5e2042e86a4946e9eb9241cca13d79045b79162a Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sat, 9 May 2026 10:02:20 +0300
+Subject: [PATCH] add more langs for flite
+
+---
+ libavfilter/asrc_flite.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/libavfilter/asrc_flite.c b/libavfilter/asrc_flite.c
+index a7471607cf..4eb11ff962 100644
+--- a/libavfilter/asrc_flite.c
++++ b/libavfilter/asrc_flite.c
+@@ -83,6 +83,9 @@ DECLARE_REGISTER_VOICE_FN(kal);
+ DECLARE_REGISTER_VOICE_FN(kal16);
+ DECLARE_REGISTER_VOICE_FN(rms);
+ DECLARE_REGISTER_VOICE_FN(slt);
++DECLARE_REGISTER_VOICE_FN(time_awb);
++DECLARE_REGISTER_VOICE_FN(indic_lang);
++DECLARE_REGISTER_VOICE_FN(grapheme_lang);
+ 
+ struct voice_entry {
+     const char *name;
+@@ -103,6 +106,9 @@ static struct voice_entry voice_entries[] = {
+     MAKE_VOICE_STRUCTURE(kal16),
+     MAKE_VOICE_STRUCTURE(rms),
+     MAKE_VOICE_STRUCTURE(slt),
++    MAKE_VOICE_STRUCTURE(time_awb),
++    MAKE_VOICE_STRUCTURE(indic_lang),
++    MAKE_VOICE_STRUCTURE(grapheme_lang),
+ };
+ 
+ static void list_voices(void *log_ctx, const char *sep)
+-- 
+2.52.0.windows.1
+

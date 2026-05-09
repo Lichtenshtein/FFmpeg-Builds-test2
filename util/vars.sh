@@ -197,16 +197,23 @@ mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS RUSTFLAGS LIBS
 
 # Flags for the component build stage
-# disable -fPIC, -ffast-math, if troubles occur
-# rust -C linker-plugin-lto LLVM Bitcode or LLVM MinGW
-# don't use cflags -ffunction-sections, -fdata-sections, linker flag -Wl,--gc-sections with non-static and non GCC builds
-# don't use -fno-plt flag other than host
 
+# Tip: disable -fPIC, -ffast-math, if troubles occur
+# Tip: don't use cflags -ffunction-sections, -fdata-sections, linker flag -Wl,--gc-sections with non-static and non GCC builds
+# Tip: don't use -fno-plt flag other than Linux host
+# Tip: use -Wa,-mbig-obj for c(xx)flags if see 'too many sections' and 'file too big'
+# Tip: add -Wl,--whole-archive $LIBS -Wl,--no-whole-archive $OTHER_LIBS in 'Libs:' section in .pc file to incapsulate more libs (voices or other) when using LTO for static builds
+
+# LTO in ffmpeg is bugged when compiled with gcc-(13-14-15) in mingw. You will meet 'lto1: internal compiler error: in choose_baseaddr, at config/i386/i386.cc:7447' or similar at linking time; compiler will crash.
+# You can 1) disable LTO for ffmpeg only, but enable LTO for ffmpeg components. 
+# Tip: -ffat-lto-objects is needed for ffmpeg linker to understand LTO code if LTO disabled for ffmpeg only bun enabled for components. You can also add -fno-use-linker-plugin to --extra-ldflags to avoud the use of LTO code by ffmpeg itself. But you must be sure to NOT use cmake-specific flags that enable LTO (IPO) because they forcefully add -fno-fat-lto-objects that is unacceptable in our case.
+# Option 2) add -mstackrealign to ffmpeg c(xx)flags. With this flag the compiler does not crash. -mpreferred-stack-boundary=4 should not be used.
+
+# these flags appear to conflict with pthread and other threading implementations and cannot be used simultaneously. They should only be used selectively where supported by the libraries themselves
 [[ "$USE_OPENMP" == "1" ]] && export OPENMP_C="-fopenmp " && export OPENMP_LIB="-lgomp "
 
-# LTO for ffmpeg disabled due to critical bug in gcc-15.2
-# -ffat-lto-objects is needed for ffmpeg linker to understand LTO code
 if [[ "$USE_LTO" == "1" ]]; then
+# Tip: rust has -C linker-plugin-lto LLVM Bitcode or LLVM MinGW
     export RUSTLTO=" -C lto=fat"
     export USELTO="-flto=auto"
     export USELTO_C=" -ffat-lto-objects -flto-compression-level=16"
@@ -220,8 +227,8 @@ fi
 COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 ${RUSTLTO}"
 
 # Общие и дополнительные либы
-SYSTEM_LIBS="${OPENMP_LIB}-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
-ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lnormaliz"
+SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
+ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lnormaliz -lgomp"
 
 # Функция для сборки строки RUSTFLAGS из массива
 # Принимает префикс (например "-C link-arg=") и имя массива
@@ -258,7 +265,7 @@ export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
 # Ветвление по TARGET
 if [[ "$TARGET" == "win64" ]]; then
-    export BASE_CFLAGS="${OPENMP_C}-mms-bitfields -fstack-protector-strong ${USELTO}${USELTO_C}"
+    export BASE_CFLAGS="-mms-bitfields -fstack-protector-strong ${USELTO}${USELTO_C}"
     export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
 
     BASE_LD_FLAGS=(
@@ -302,7 +309,7 @@ if [[ "$TARGET" == "win64" ]]; then
     export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="${FFBUILD_CROSS_PREFIX}gcc"
 
 elif [[ "$TARGET" == "linux64" ]]; then
-    export BASE_CFLAGS="${OPENMP_C}-fstack-protector-strong ${USELTO}${USELTO_C}"
+    export BASE_CFLAGS="-fstack-protector-strong ${USELTO}${USELTO_C}"
     export BASE_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
     # Используем Linux-специфичные LDFLAGS

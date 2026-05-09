@@ -26,15 +26,6 @@ ffbuild_dockerbuild() {
 
     mkdir -p _build && cd _build
 
-    # if we disable everything
-    # --disable-libwebpmux
-    # --disable-libwebpextras
-    # --disable-libwebpdemux
-    # remove broken internal library that depends on things we disable
-    # sed -i '/libanim_util/d' examples/Makefile.am
-
-    # ./autogen.sh
-
     # почему-то нужен для libwebp
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
 
@@ -69,34 +60,8 @@ ffbuild_dockerbuild() {
         -DWEBP_UNICODE=ON
     )
 
-    # local myconf=(
-        # --prefix="$FFBUILD_PREFIX"
-        # --host="$FFBUILD_TOOLCHAIN"
-        # --with-pic
-        # --enable-everything
-        # --enable-near-lossless
-        # --enable-swap-16bit-csp
-        # --disable-gl
-        # --disable-sdl
-    # )
-
-    # [[ "${PREFER_SHARED}" == "1" ]] && \
-        # myconf+=( --disable-static --enable-shared ) || \
-        # myconf+=( --enable-static --disable-shared )
-
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DWEBP_STATIC"
-
-    # CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
-    # CPPFLAGS="$CPPFLAGS $static_flags" \
-    # CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}${USELTO_C}" \
-    # LDFLAGS="$LDFLAGS ${USELTO}" \
-    # JPEG_LIBS="-lturbojpeg -ljpeg" \
-    # LIBS="$DEP_LIBS $WIN_LIBS" \
-    # ./configure "${myconf[@]}" || return 1
-
-    # make -j$(nproc) $MAKE_V || return 1
-    # make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
