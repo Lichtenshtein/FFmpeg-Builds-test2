@@ -55,9 +55,8 @@ ffbuild_dockerbuild() {
 
     local EXTRA_DEFS="-DBIT_DEPTH=10 -DHIGH_BIT_DEPTH=1"
 
-    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $EXTRA_DEFS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        --extra-cflags="$CFLAGS $CXXFLAGS $EXTRA_DEFS $CPPFLAGS ${USELTO}${USELTO_C}" \
         --extra-ldflags="$LDFLAGS ${USELTO}" ||  return 1
 
     make -j$(nproc) $MAKE_V  || return 1
