@@ -32,6 +32,7 @@ ffbuild_dockerbuild() {
         --disable-lavf
         --disable-swscale
         --bit-depth=all
+        --disable-win32thread
         --chroma-format=all
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"

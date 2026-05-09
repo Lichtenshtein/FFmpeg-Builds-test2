@@ -35,13 +35,12 @@ ffbuild_dockerbuild() {
         --chroma-format=all
         --host="$FFBUILD_TOOLCHAIN"
         --cross-prefix="$FFBUILD_CROSS_PREFIX"
-        --disable-win32thread
         # other existing options
         #--system-libdavs2 #use system libdavs2 instead of internal
         #--disable-opencl  # disable OpenCL features
         #--disable-gpl     # disable GPL-only features
         #--disable-thread  # disable multithreaded encoding
-        #--disable-win32thread # disable win32threads (windows only)
+        --disable-win32thread # disable win32threads (windows only)
         #--disable-interlaced  # disable interlaced encoding support
         #--disable-asm         # disable platform-specific assembly optimizations
     )
@@ -50,25 +49,18 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-shared --disable-static )
     # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    local CONF_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -std=gnu11"
-    local CONF_LDFLAGS="-L${FFBUILD_PREFIX}/lib"
+    if [[ $TARGET == win* ]]; then
+        export AS="nasm"
+    fi
+
     local EXTRA_INC="-I. -I../../source"
     local EXTRA_DEFS="-DBIT_DEPTH=10 -DHIGH_BIT_DEPTH=1"
 
-    AS=nasm \
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-        --extra-ldflags="$LDFLAGS ${USELTO}" || {
-        log_error "Configure failed. Check config.log below:"
-        cat config.log
-        return 1
-    }
+        --extra-cflags="$CFLAGS $CXXFLAGS $EXTRA_INC $EXTRA_DEFS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        --extra-ldflags="$LDFLAGS ${USELTO}" ||  return 1
 
-    make -j$(nproc) $MAKE_V \
-        CFLAGS="$CFLAGS $EXTRA_INC $EXTRA_DEFS $CPPFLAGS ${USELTO}${USELTO_C}" \
-        CXXFLAGS="$CXXFLAGS $EXTRA_INC $EXTRA_DEFS $CPPFLAGS ${USELTO}${USELTO_C}" \
-        LDFLAGS="$LDFLAGS ${USELTO}" || return 1
-
+    make -j$(nproc) $MAKE_V  || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     local PC_FILE="$PC_DIR/davs2.pc"
