@@ -60,7 +60,8 @@ ffbuild_dockerbuild() {
         --extra-cflags="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
         --extra-ldflags="$LDFLAGS ${USELTO}" || {
             cat config.log
-            return 1 }
+            return 1
+        }
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
