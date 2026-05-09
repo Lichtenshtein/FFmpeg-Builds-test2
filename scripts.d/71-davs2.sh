@@ -23,7 +23,6 @@ ffbuild_dockerbuild() {
     local REPO_ROOT=$(pwd)
     cd build/linux
 
-    # Фикс проверки endianness для современных GCC (уже было у вас, оставляем)
     sed -i -e 's/EGIB/bss/g' -e 's/naidnePF/bss/g' configure
     sed -i 's/CFLAGS="$CFLAGS -std=gnu++11 -D_GNU_SOURCE"/true/g' configure
 
@@ -53,6 +52,7 @@ ffbuild_dockerbuild() {
     local CONF_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -std=gnu11"
     local CONF_LDFLAGS="-L${FFBUILD_PREFIX}/lib"
     local EXTRA_INC="-I. -I../../source"
+    local EXTRA_DEFS="-DBIT_DEPTH=10 -DHIGH_BIT_DEPTH=1"
 
     AS=nasm \
     ./configure "${myconf[@]}" \
@@ -64,8 +64,8 @@ ffbuild_dockerbuild() {
     }
 
     make -j$(nproc) $MAKE_V \
-        CFLAGS="$CFLAGS $EXTRA_INC $CPPFLAGS ${USELTO}${USELTO_C}" \
-        CXXFLAGS="$CXXFLAGS $EXTRA_INC $CPPFLAGS ${USELTO}${USELTO_C}" \
+        CFLAGS="$CFLAGS $EXTRA_INC $EXTRA_DEFS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        CXXFLAGS="$CXXFLAGS $EXTRA_INC $EXTRA_DEFS $CPPFLAGS ${USELTO}${USELTO_C}" \
         LDFLAGS="$LDFLAGS ${USELTO}" || return 1
 
     local PC_FILE="$PC_DIR/davs2.pc"
