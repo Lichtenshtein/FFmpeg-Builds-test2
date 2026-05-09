@@ -281,7 +281,7 @@ if [[ "$TARGET" == "win64" ]]; then
     [[ "$PREFER_SHARED" != "1" ]] && BASE_LD_FLAGS+=( "-Wl,--gc-sections" )
 
     MAIN_LDFLAGS=("${BASE_LD_FLAGS[@]}")
-    MAIN_LDFLAGS+=("-L/opt/ffbuild/lib")
+    MAIN_LDFLAGS+=("-L{$FFBUILD_PREFIX}/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
         export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -fPIC -std=gnu17"
@@ -314,7 +314,7 @@ elif [[ "$TARGET" == "linux64" ]]; then
 
     # Используем Linux-специфичные LDFLAGS
     MAIN_LDFLAGS=("${HOST_LINUX_LDFLAGS[@]}")
-    MAIN_LDFLAGS+=("-L/opt/ffbuild/lib")
+    MAIN_LDFLAGS+=("-L{$FFBUILD_PREFIX}/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
         export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -fPIC -std=gnu17"
@@ -347,7 +347,7 @@ elif [[ "$TARGET" == "linux64" ]]; then
 
 fi
 
-export CPPFLAGS="-I/opt/ffbuild/include ${BASE_CPPFLAGS}"
+export CPPFLAGS="-I{$FFBUILD_PREFIX}/include ${BASE_CPPFLAGS}"
 
 # Validate TARGET and VARIANT only enforce when called directly OR when
 # arguments were explicitly passed (sourced scripts may not pass args)
