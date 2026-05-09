@@ -17,6 +17,10 @@ SECONDS=0
 
 # Определяем функцию очистки
 cleanup() {
+    # Вывод статистики ccache
+    log_info "${CACHE_MARK} CCACHE STATISTICS:"
+    ccache -s
+
     local exit_code=$? # Запоминаем код завершения (0 - успех, >0 - ошибка)
 
     log_info "Running cleanup (Exit code: $exit_code)..."
@@ -427,7 +431,7 @@ else
 fi
 
 log_info_line
-log_info "### ${CACHE_MARK} HOST INFO: Physical Memory: ${MEM_PHYS}GB, Swap: ${SWAP_TOTAL}GB, Total: ${TOTAL_VIRTUAL}GB; Setting MAKE_JOBS=${MAKE_JOBS}"
+log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
 
 log_info_line
 log_info "### ${START_MARK} Launching FFmpeg Configure..."
@@ -510,10 +514,5 @@ duration=$SECONDS
 elapsed=$(printf '%02dh:%02dm:%02ds' $((duration/3600)) $((duration%3600/60)) $((duration%60)))
 
 log_info "${CHECK_MARK} Build finished after ${GREY_B}${elapsed}${NC}"
-
-# Вывод статистики ccache
-log_info "${CACHE_MARK} CCACHE STATISTICS:"
-ccache -s
-sleep 2
 
 exit 0
