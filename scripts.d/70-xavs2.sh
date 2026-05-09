@@ -49,6 +49,7 @@ ffbuild_dockerbuild() {
         --disable-ffms
         --disable-gpac
         --disable-lsmash
+        --disable-win32thread
         --extra-asflags="-w-macro-params-legacy -DARCH_X86_64=1"
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
