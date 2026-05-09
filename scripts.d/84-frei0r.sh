@@ -30,6 +30,16 @@ ffbuild_dockerfinal() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Исправляем пути к 3rdparty либам в конфигах OpenCV
+    # Заменяем относительный путь 'lib/opencv4/3rdparty' на просто 'lib'
+    find "$FFBUILD_PREFIX/lib/cmake/opencv4" -name "*.cmake" -exec sed -i 's|lib/opencv4/3rdparty/|lib/|g' {} +
+
+    # Патчим CMakeLists.txt, чтобы он искал OpenCV через pkg-config вместо find_package
+    # И фиксим использование переменных (pkg-config использует OpenCV_LIBRARIES вместо OpenCV_LIBS)
+    # sed -i 's/find_package (OpenCV REQUIRED)/pkg_check_modules(OpenCV REQUIRED opencv4)/g' CMakeLists.txt
+    # sed -i 's/${OpenCV_LIBS}/${OpenCV_LIBRARIES}/g' src/filter/facebl0r/CMakeLists.txt
+    # sed -i 's/${OpenCV_LIBS}/${OpenCV_LIBRARIES}/g' src/filter/facedetect/CMakeLists.txt
+
     mkdir build && cd build
 
     # флаги для игнорирования несовместимых типов в SIMD коде (актуально для GCC 14)
