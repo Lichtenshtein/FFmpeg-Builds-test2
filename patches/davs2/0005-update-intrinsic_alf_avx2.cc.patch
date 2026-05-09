@@ -25,7 +25,7 @@ index 66665d3..7523044 100644
  # MMX/SSE optims
  ifneq ($(AS),)
  # asm --------------------------------------------------------------
-@@ -68,24 +78,18 @@ endif
+@@ -68,25 +78,18 @@ endif
  ## Until now, we do not have 64-bit asm
  ifeq ($(SYS_ARCH),X86_64)
  ARCH_X86 = yes
@@ -5648,10 +5648,10 @@ index 75a7ab3..7a3c9b7 100644
   * DCT pattern */
  enum dct_pattern_e {
      DCT_DEAULT,      /* default */
--    DCT_HALF,        /* ���ο�����Ͻ�1/2���ߣ����1/4���� �Ƿ��ο�Ϊ���Ͻ�1/2�����1/2�� */
--    DCT_QUAD,        /* ���ο�����Ͻ�1/4���ߣ����1/16�����Ƿ��ο�Ϊ���Ͻ�1/4�����1/4�� */
-+    DCT_HALF,        /* ���ο�����Ͻ�1/2��ߣ����1/4���� �Ƿ��ο�Ϊ���Ͻ�1/2�����1/2�� */
-+    DCT_QUAD,        /* ���ο�����Ͻ�1/4��ߣ����1/16�����Ƿ��ο�Ϊ���Ͻ�1/4�����1/4�� */
+-    DCT_HALF,        /* ·ЅРОїйЅцЧуЙПЅЗ1/2їнёЯЈЁГж»э1/4Ј©Ј¬ ·З·ЅРОїйОЄЧуЙПЅЗ1/2ЈЁГж»э1/2Ј© */
+-    DCT_QUAD,        /* ·ЅРОїйЅцЧуЙПЅЗ1/4їнёЯЈЁГж»э1/16Ј©Ј¬·З·ЅРОїйОЄЧуЙПЅЗ1/4ЈЁГж»э1/4Ј© */
++    DCT_HALF,        /* пїЅпїЅпїЅОїпїЅпїЅпїЅпїЅпїЅПЅпїЅ1/2пїЅпїЅЯЈпїЅпїЅпїЅпїЅ1/4пїЅпїЅпїЅпїЅ пїЅЗ·пїЅпїЅОїпїЅОЄпїЅпїЅпїЅПЅпїЅ1/2пїЅпїЅпїЅпїЅпїЅ1/2пїЅпїЅ */
++    DCT_QUAD,        /* пїЅпїЅпїЅОїпїЅпїЅпїЅпїЅпїЅПЅпїЅ1/4пїЅпїЅЯЈпїЅпїЅпїЅпїЅ1/16пїЅпїЅпїЅпїЅпїЅЗ·пїЅпїЅОїпїЅОЄпїЅпїЅпїЅПЅпїЅ1/4пїЅпїЅпїЅпїЅпїЅ1/4пїЅпїЅ */
      /* max number of DCT pattern */
      DCT_PATTERN_NUM
  };
@@ -5659,8 +5659,8 @@ index 75a7ab3..7a3c9b7 100644
  #define NUM_CUTYPE_CTX          6
  #define NUM_SPLIT_CTX           3     // CU depth
  #define NUM_INTRA_PU_TYPE_CTX   1
--/* Ԥ�� */
-+/* Ԥ�� */
+-/* Ф¤Ів */
++/* Ф¤пїЅпїЅ */
  #define NUM_MVD_CTX             3
  #define NUM_REF_NO_CTX          3
  #define NUM_DELTA_QP_CTX        4
@@ -5668,8 +5668,8 @@ index 75a7ab3..7a3c9b7 100644
  #define NUM_TU_SPLIT_CTX        3
  #define WPM_NUM                 3
  #define NUM_DIR_SKIP_CTX        4     /* B Skip mode, F Skip mode */
--/* �任ϵ�� */
-+/* �任ϵ�� */
+-/* ±д»»ПµКэ */
++/* пїЅд»»ПµпїЅпїЅ */
  #define NUM_BLOCK_TYPES         3
  #define NUM_MAP_CTX             11
  #define NUM_LAST_CG_CTX_LUMA    6
@@ -5677,8 +5677,8 @@ index 75a7ab3..7a3c9b7 100644
  #define NUM_LAST_CG_CTX         (NUM_LAST_CG_CTX_LUMA+NUM_LAST_CG_CTX_CHROMA)
  #define NUM_SIGCG_CTX           (NUM_SIGCG_CTX_LUMA+NUM_SIGCG_CTX_CHROMA)
  #define NUM_LAST_POS_CTX        (NUM_LAST_POS_CTX_LUMA+NUM_LAST_POS_CTX_CHROMA)
--/* ���� */
-+/* ���� */
+-/* єуґ¦Ан */
++/* пїЅпїЅпїЅпїЅ */
  #define NUM_SAO_MERGE_FLAG_CTX  3
  #define NUM_SAO_MODE_CTX        1
  #define NUM_SAO_OFFSET_CTX      2
@@ -5686,8 +5686,8 @@ index 75a7ab3..7a3c9b7 100644
  /* ---------------------------------------------------------------------------
   * syntax context management */
  typedef struct context_set_t {
--    /* CU�� */
-+    /* CU�� */
+-    /* CUј¶ */
++    /* CUпїЅпїЅ */
      context_t cu_type_contexts         [NUM_CUTYPE_CTX];
      context_t intra_pu_type_contexts   [NUM_INTRA_PU_TYPE_CTX];
      context_t cu_split_flag            [NUM_SPLIT_CTX];
@@ -5695,27 +5695,27 @@ index 75a7ab3..7a3c9b7 100644
      context_t pu_reference_index       [NUM_REF_NO_CTX];
      context_t cbp_contexts             [NUM_CTP_CTX];
      context_t mvd_contexts          [2][NUM_MVD_CTX];
--    /* ֡��Ԥ�� */
-+    /* ֡��Ԥ�� */
+-    /* ЦЎјдФ¤Ів */
++    /* ЦЎпїЅпїЅФ¤пїЅпїЅ */
      context_t pu_type_index            [NUM_INTER_DIR_CTX];    // b_pu_type_index[15] = f_pu_type_index[3] + dir_multi_hypothesis_mode[12]
      context_t b_pu_type_min_index      [NUM_INTER_DIR_MIN_CTX];
--    context_t cu_subtype_index         [NUM_DIR_SKIP_CTX];  // B_Skip/B_Direct, F_Skip/F_Direct ����
-+    context_t cu_subtype_index         [NUM_DIR_SKIP_CTX];  // B_Skip/B_Direct, F_Skip/F_Direct ����
+-    context_t cu_subtype_index         [NUM_DIR_SKIP_CTX];  // B_Skip/B_Direct, F_Skip/F_Direct №«УГ
++    context_t cu_subtype_index         [NUM_DIR_SKIP_CTX];  // B_Skip/B_Direct, F_Skip/F_Direct пїЅпїЅпїЅпїЅ
      context_t weighted_skip_mode       [WPM_NUM];
      context_t delta_qp_contexts        [NUM_DELTA_QP_CTX];
--    /* ֡��Ԥ�� */
-+    /* ֡��Ԥ�� */
+-    /* ЦЎДЪФ¤Ів */
++    /* ЦЎпїЅпїЅФ¤пїЅпїЅ */
      context_t intra_luma_pred_mode     [NUM_INTRA_MODE_CTX];
      context_t intra_chroma_pred_mode   [NUM_C_INTRA_MODE_CTX];
--    /* �任ϵ�� */
-+    /* �任ϵ�� */
+-    /* ±д»»ПµКэ */
++    /* пїЅд»»ПµпїЅпїЅ */
      context_t coeff_run             [2][NUM_BLOCK_TYPES][NUM_MAP_CTX];
      context_t coeff_level              [NUM_COEFF_LEVEL_CTX];
      context_t last_cg_contexts         [NUM_LAST_CG_CTX];
      context_t sig_cg_contexts          [NUM_SIGCG_CTX];
      context_t last_coeff_pos           [NUM_LAST_POS_CTX];
--    /* ���� */
-+    /* ���� */
+-    /* єуґ¦Ан */
++    /* пїЅпїЅпїЅпїЅ */
      context_t sao_mergeflag_context    [NUM_SAO_MERGE_FLAG_CTX];
      context_t sao_mode_context         [NUM_SAO_MODE_CTX];
      context_t sao_offset_context       [NUM_SAO_OFFSET_CTX];
@@ -5723,8 +5723,8 @@ index 75a7ab3..7a3c9b7 100644
      int         filters_per_group;
      int         componentID;
      int         filterPattern[ALF_NUM_VARS];
--    int         coeffmulti[ALF_NUM_VARS][ALF_MAX_NUM_COEF];  // ���ȷ���16�ף�ɫ�ȷ�����1��
-+    int         coeffmulti[ALF_NUM_VARS][ALF_MAX_NUM_COEF];  // ���ȷ���16�ף�ɫ�ȷ�����1��
+-    int         coeffmulti[ALF_NUM_VARS][ALF_MAX_NUM_COEF];  // ББ¶И·ЦБї16МЧЈ¬Й«¶И·ЦБїёч1МЧ
++    int         coeffmulti[ALF_NUM_VARS][ALF_MAX_NUM_COEF];  // пїЅпїЅпїЅИ·пїЅпїЅпїЅ16пїЅЧЈпїЅЙ«пїЅИ·пїЅпїЅпїЅпїЅпїЅ1пїЅпїЅ
  } alf_param_t;
  
  
@@ -5732,8 +5732,8 @@ index 75a7ab3..7a3c9b7 100644
  /* ---------------------------------------------------------------------------
   * Run-Level info */
  typedef struct runlevel_t {
--    ALIGN32(runlevel_pair_t  run_level[16]);     /* ���任ϵ����Ϊ32x32 */
-+    ALIGN32(runlevel_pair_t  run_level[16]);     /* ���任ϵ����Ϊ32x32 */
+-    ALIGN32(runlevel_pair_t  run_level[16]);     /* Чоґу±д»»ПµКэїйОЄ32x32 */
++    ALIGN32(runlevel_pair_t  run_level[16]);     /* пїЅпїЅпїЅд»»ПµпїЅпїЅпїЅпїЅОЄ32x32 */
      int         num_nonzero_cg;  // number of CGs with non-zero coefficients
      uint32_t    reserved;
      /* contexts pointer */
@@ -5741,8 +5741,8 @@ index 75a7ab3..7a3c9b7 100644
       * decoding */
      davs2_bs_t   *p_bs;               /* input bitstream pointer */
      aec_t         aec;                /* arithmetic entropy decoder */
--    int           decoding_error;     /* ����ֵ��ʾ�����˽������ */
-+    int           decoding_error;     /* ����ֵ��ʾ�����˽������ */
+-    int           decoding_error;     /* ·ЗБгЦµ±нКѕУцµЅБЛЅвВлґнОу */
++    int           decoding_error;     /* пїЅпїЅпїЅпїЅЦµпїЅпїЅКѕпїЅпїЅпїЅпїЅпїЅЛЅпїЅпїЅпїЅпїЅпїЅпїЅ */
  
      /* -------------------------------------------------------------
       * field */
@@ -5750,13 +5750,13 @@ index 75a7ab3..7a3c9b7 100644
  {
  #if SYS_WINDOWS
      LARGE_INTEGER nFreq;
--    if (QueryPerformanceFrequency(&nFreq)) { // ���ط����ʾӲ��֧�ָ߾��ȼ�����
-+    if (QueryPerformanceFrequency(&nFreq)) { // ���ط����ʾӲ��֧�ָ߾��ȼ�����
+-    if (QueryPerformanceFrequency(&nFreq)) { // ·µ»Ш·ЗБг±нКѕУІјюЦ§іЦёЯѕ«¶ИјЖКэЖч
++    if (QueryPerformanceFrequency(&nFreq)) { // пїЅпїЅпїЅШ·пїЅпїЅпїЅпїЅКѕУІпїЅпїЅЦ§пїЅЦёЯѕпїЅпїЅИјпїЅпїЅпїЅпїЅпїЅ
          LARGE_INTEGER t1;
          QueryPerformanceCounter(&t1);
          return (int64_t)(1000000 * t1.QuadPart / (double)nFreq.QuadPart);
--    } else {  // Ӳ����֧������£�ʹ�ú��뼶ϵͳʱ��
-+    } else {  // Ӳ����֧������£�ʹ�ú��뼶ϵͳʱ��
+-    } else {  // УІјюІ»Ц§іЦЗйїцПВЈ¬К№УГєБГлј¶ПµНіК±јд
++    } else {  // УІпїЅпїЅпїЅпїЅЦ§пїЅпїЅпїЅпїЅпїЅпїЅВЈпїЅК№пїЅГєпїЅпїЅлј¶ПµНіК±пїЅпїЅ
          int64_t tm = clock();
          return (tm * (1000000 / CLOCKS_PER_SEC));
      }
@@ -5764,22 +5764,22 @@ index 75a7ab3..7a3c9b7 100644
      return b;
  }
  
--// ������ֵ�ķ���λ����������-1�����򷵻�1
-+// ������ֵ�ķ���λ����������-1�����򷵻�1
+-// ·µ»ШКэЦµµД·ыєЕО»Ј¬ёєКэ·µ»Ш-1Ј¬·сФт·µ»Ш1
++// пїЅпїЅпїЅпїЅпїЅпїЅЦµпїЅД·пїЅпїЅпїЅО»пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ-1пїЅпїЅпїЅпїЅпїЅт·µ»пїЅ1
  static ALWAYS_INLINE int davs2_sign2(int val)
  {
      return ((val >> 31) << 1) + 1;
  }
  
--// ������ֵ�ķ���λ����������-1��0ֵ����0����������1
-+// ������ֵ�ķ���λ����������-1��0ֵ����0����������1
+-// ·µ»ШКэЦµµД·ыєЕО»Ј¬ёєКэ·µ»Ш-1Ј¬0Цµ·µ»Ш0Ј¬ХэКэ·µ»Ш1
++// пїЅпїЅпїЅпїЅпїЅпїЅЦµпїЅД·пїЅпїЅпїЅО»пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ-1пїЅпїЅ0ЦµпїЅпїЅпїЅпїЅ0пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ1
  static ALWAYS_INLINE int davs2_sign3(int val)
  {
      return (val >> 31) | (int)(((uint32_t)-val) >> 31u);
  }
  
--// ������������log2ֵ��0��1ʱ����0����������log2(val)
-+// ������������log2ֵ��0��1ʱ����0����������log2(val)
+-// јЖЛгХэХыКэµДlog2ЦµЈ¬0єН1К±·µ»Ш0Ј¬ЖдЛы·µ»Шlog2(val)
++// пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅlog2ЦµпїЅпїЅ0пїЅпїЅ1К±пїЅпїЅпїЅпїЅ0пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅlog2(val)
  #define davs2_log2u(val)  davs2_ctz(val)
  
  
@@ -5800,8 +5800,8 @@ index 8d60583..92781e2 100644
          b_filter_flag[1] = lf_skip_filter(h, scuP, scuQ, dir, (scu_x << 1) + dir, (scu_y << 1) + !dir);
  
          if (!b_filter_flag[0] && !b_filter_flag[1]) {
--            return;  // �������8x4�������˲�������Ҫ�������ú���ĺ���
-+            return;  // �������8x4�������˲�������Ҫ�������ú���ĺ���
+-            return;  // Из№ыБЅёц8x4¶јМш№эВЛІЁЈ¬ФтІ»РиТЄјМРшµчУГєуГжµДєЇКэ
++            return;  // пїЅпїЅпїЅпїЅпїЅпїЅпїЅ8x4пїЅпїЅпїЅпїЅпїЅпїЅпїЅЛІпїЅпїЅпїЅпїЅпїЅпїЅпїЅТЄпїЅпїЅпїЅпїЅпїЅпїЅпїЅГєпїЅпїЅпїЅДєпїЅпїЅпїЅ
          }
  
          /* deblock luma edge */
@@ -5820,8 +5820,8 @@ index 8d60583..92781e2 100644
      }
      if ((cpuid & DAVS2_CPU_AVX2) && !HDR_CHROMA_DELTA_QP) {
  #if !HIGH_BIT_DEPTH
--        // fh->deblock_luma[0] = deblock_edge_ver_avx2;  // @luofl i7-6700K �˺������� sse128
-+        // fh->deblock_luma[0] = deblock_edge_ver_avx2;  // @luofl i7-6700K �˺������� sse128
+-        // fh->deblock_luma[0] = deblock_edge_ver_avx2;  // @luofl i7-6700K ґЛєЇКэВэУЪ sse128
++        // fh->deblock_luma[0] = deblock_edge_ver_avx2;  // @luofl i7-6700K пїЅЛєпїЅпїЅпїЅпїЅпїЅпїЅпїЅ sse128
          // fh->deblock_luma[1] = deblock_edge_hor_avx2;
          // fh->deblock_chroma[0] = deblock_edge_ver_c_avx2;
          // fh->deblock_chroma[1] = deblock_edge_hor_c_avx2;
@@ -5833,8 +5833,8 @@ index ed760dc..7b8db97 100644
  static ALWAYS_INLINE
  uint32_t get_intra_neighbors(davs2_t *h, int x_4x4, int y_4x4, int bsx, int bsy, int cur_slice_idx)
  {
--    /* 1. ������ڿ��Ƿ�����ͬһ��Slice */
-+    /* 1. ������ڿ��Ƿ�����ͬһ��Slice */
+-    /* 1. јмІйПаБЪїйКЗ·сКфУЪН¬Т»ёцSlice */
++    /* 1. пїЅпїЅпїЅпїЅпїЅпїЅЪїпїЅпїЅЗ·пїЅпїЅпїЅпїЅпїЅН¬Т»пїЅпїЅSlice */
      int b_LEFT      = is_block_available(h, x_4x4, y_4x4, -1, 0, cur_slice_idx);
      int b_TOP       = is_block_available(h, x_4x4, y_4x4,  0, -1, cur_slice_idx);
      int b_TOP_LEFT  = is_block_available(h, x_4x4, y_4x4, -1, -1, cur_slice_idx);
@@ -5842,8 +5842,8 @@ index ed760dc..7b8db97 100644
      int log2_lcu_size_in_spu = (h->i_lcu_level - B4X4_IN_BIT);
      int i_lcu_mask = (1 << log2_lcu_size_in_spu) - 1;
  
--    /* 2. ������ڿ��Ƿ��ڵ�ǰ��֮ǰ�ع� */
-+    /* 2. ������ڿ��Ƿ��ڵ�ǰ��֮ǰ�ع� */
+-    /* 2. јмІйПаБЪїйКЗ·сФЪµ±З°їйЦ®З°ЦШ№№ */
++    /* 2. пїЅпїЅпїЅпїЅпїЅпїЅЪїпїЅпїЅЗ·пїЅпїЅЪµпїЅЗ°пїЅпїЅЦ®З°пїЅШ№пїЅ */
      x_4x4 = x_4x4 & i_lcu_mask;
      y_4x4 = y_4x4 & i_lcu_mask;
  
@@ -5851,8 +5851,8 @@ index ed760dc..7b8db97 100644
  
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU�����ϱ߽��PU
-+ * LCU�����ϱ߽��PU
+- * LCUДЪФЪЙП±ЯЅзµДPU
++ * LCUпїЅпїЅпїЅпїЅпїЅП±ЯЅпїЅпїЅPU
   */
  static 
  void fill_reference_samples_0_c(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
@@ -5860,8 +5860,8 @@ index ed760dc..7b8db97 100644
  
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU�����ϱ߽��PU
-+ * LCU�����ϱ߽��PU
+- * LCUДЪФЪЙП±ЯЅзµДPU
++ * LCUпїЅпїЅпїЅпїЅпїЅП±ЯЅпїЅпїЅPU
   */
  static 
  void fill_reference_samples_x_c(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
@@ -5869,8 +5869,8 @@ index ed760dc..7b8db97 100644
  
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU������߽��ϵ�PU
-+ * LCU������߽��ϵ�PU
+- * LCUДЪФЪЧу±ЯЅзЙПµДPU
++ * LCUпїЅпїЅпїЅпїЅпїЅпїЅЯЅпїЅпїЅПµпїЅPU
   */
  static 
  void fill_reference_samples_y_c(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
@@ -5878,8 +5878,8 @@ index ed760dc..7b8db97 100644
  
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU�ڲ��ڱ߽��ϵ�PU
-+ * LCU�ڲ��ڱ߽��ϵ�PU
+- * LCUДЪІ»ФЪ±ЯЅзЙПµДPU
++ * LCUпїЅЪІпїЅпїЅЪ±ЯЅпїЅпїЅПµпїЅPU
   */
  static 
  void fill_reference_samples_xy_c(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
@@ -5887,27 +5887,27 @@ index ed760dc..7b8db97 100644
      int real_mode   = (chroma_mode == DM_PRED_C) ? luma_mode : TAB_CHROMA_MODE_TO_REAL_MODE[chroma_mode];
      uint32_t avail;
  
--    /* Ԥ���λ�� */
-+    /* Ԥ���λ�� */
+-    /* Ф¤ІвїйО»ЦГ */
++    /* Ф¤пїЅпїЅпїЅО»пїЅпїЅ */
      int i_pred      = row_rec->ctu.i_fdec[1];
      pel_t *p_pred_u = row_rec->ctu.p_fdec[1] + ctu_c_y * i_pred + ctu_c_x;
      pel_t *p_pred_v = row_rec->ctu.p_fdec[2] + ctu_c_y * i_pred + ctu_c_x;
  
--    /* ����U��V���������Ͻ����ص��λ�� */
-+    /* ����U��V���������Ͻ����ص��λ�� */
+-    /* јЖЛгUЎўV·ЦБїµДЧуЙПЅЗПсЛШµгµДО»ЦГ */
++    /* пїЅпїЅпїЅпїЅUпїЅпїЅVпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅПЅпїЅпїЅпїЅпїЅШµпїЅпїЅО»пїЅпїЅ */
      int i_src       = i_pred;
      pel_t *pTL_u    = p_pred_u - i_src - 1;
      pel_t *pTL_v    = p_pred_v - i_src - 1;
  
--    /* �ο��߽�������ж���ο��߽���� */
-+    /* �ο��߽�������ж���ο��߽���� */
+-    /* ІОїј±ЯЅзїЙУГРФЕР¶ПУлІОїј±ЯЅзМоід */
++    /* пїЅОїпїЅпїЅЯЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅР¶пїЅпїЅпїЅОїпїЅпїЅЯЅпїЅпїЅпїЅпїЅ */
      avail = get_intra_neighbors(row_rec->h, b8_x, b8_y, bsize_c << 1, bsize_c << 1, p_cu->i_slice_nr);
  
      gf_davs2.fill_edge_f[xy](pTL_u, i_src, row_rec->ctu_border[1].rec_top + ctu_c_x - ctu_c_y, EP_u, avail, bsize_c, bsize_c);
      gf_davs2.fill_edge_f[xy](pTL_v, i_src, row_rec->ctu_border[2].rec_top + ctu_c_x - ctu_c_y, EP_v, avail, bsize_c, bsize_c);
  
--    /* ִ��Ԥ�� */
-+    /* ִ��Ԥ�� */
+-    /* ЦґРРФ¤Ів */
++    /* ЦґпїЅпїЅФ¤пїЅпїЅ */
      intra_pred(EP_u, p_pred_u, i_pred, real_mode, bsize_c, bsize_c, avail);
      intra_pred(EP_v, p_pred_v, i_pred, real_mode, bsize_c, bsize_c, avail);
  }
@@ -5944,8 +5944,8 @@ index 55c1da7..d30147b 100644
  static void
  intpl_chroma_block_ext_c(pel_t *dst, int i_dst, pel_t *src, int i_src, int width, int height, const int8_t *coeff_h, const int8_t *coeff_v)
  {
--    // TODO: ��lumaͳһ��������
-+    // TODO: ��lumaͳһ��������
+-    // TODO: УлlumaНіТ»КэѕЭАаРН
++    // TODO: пїЅпїЅlumaНіТ»пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
      ALIGN16(int32_t tmp_res[(32 + 3) * 32]);
      int32_t *tmp = tmp_res;
      const int shift1 = g_bit_depth - 8;
@@ -5964,10 +5964,10 @@ index 55c1da7..d30147b 100644
          pf->intpl_luma_hor[0][2] = intpl_luma_block_hor_sse128;
          pf->intpl_luma_ext[0] = intpl_luma_block_ext_sse128;
  
--        /*������ֵ�����в�ƥ�����⡣
--          �޸�ʱ��ע��ر�avx2��ຯ����
-+        /*������ֵ�����в�ƥ�����⡣
-+          �޸�ʱ��ע��ر�avx2��ຯ����
+-        /*БЅёцІоЦµєЇКэУРІ»ЖҐЕдОКМвЎЈ
+-          РЮёДК±ЗлЧўТв№Ш±Хavx2»г±аєЇКэЎЈ
++        /*пїЅпїЅпїЅпїЅпїЅпїЅЦµпїЅпїЅпїЅпїЅпїЅРІпїЅЖҐпїЅпїЅпїЅпїЅпїЅвЎЈ
++          пїЅЮёпїЅК±пїЅпїЅЧўпїЅпїЅШ±пїЅavx2пїЅпїЅаєЇпїЅпїЅпїЅпїЅ
           */
          //pf->intpl_chroma_ver[0] = intpl_chroma_block_ver_sse128;
          pf->intpl_chroma_hor[0] = intpl_chroma_block_hor_sse128;
@@ -6034,8 +6034,8 @@ index cbbbae9..9637e5c 100644
      int width_c = width >> 1;
      int height_c = height >> 1;
  
--    /* �����Ի�ȡ */
-+    /* �����Ի�ȡ */
+-    /* їЙУГРФ»сИЎ */
++    /* пїЅпїЅпїЅпїЅпїЅФ»пїЅИЎ */
      p_avail->b_left = i_lcu_x != 0;
      p_avail->b_top  = i_lcu_y != 0;
      p_avail->b_right = (i_lcu_x < h->i_width_in_lcu - 1);
@@ -6043,8 +6043,8 @@ index cbbbae9..9637e5c 100644
      p_avail->b_down_left = p_avail->b_down && p_avail->b_left;
      p_avail->b_right_down = p_avail->b_down && p_avail->b_right;
  
--    /* �˲�����ĵ��� */
-+    /* �˲�����ĵ��� */
+-    /* ВЛІЁЗшУтµДµчХы */
++    /* пїЅЛІпїЅпїЅпїЅпїЅпїЅДµпїЅпїЅпїЅ */
      if (!p_avail->b_right) {
          width += SAO_SHIFT_PIX_NUM;
          width_c += SAO_SHIFT_PIX_NUM;
@@ -6081,8 +6081,8 @@ index 1dd6acb..865d7fa 100644
          }
      }
  
--    /* TODO: ��ʼ����Ĭ��DCTģ�� */
-+    /* TODO: ��ʼ����Ĭ��DCTģ�� */
+-    /* TODO: іхКј»Ї·ЗД¬ИПDCTДЈ°е */
++    /* TODO: пїЅпїЅКјпїЅпїЅпїЅпїЅД¬пїЅпїЅDCTДЈпїЅпїЅ */
      if (cpuid & DAVS2_CPU_SSE2) {
          /* square */
          fh->idct[PART_8x8  ][DCT_HALF] = idct_8x8_half_sse128;
@@ -6090,8 +6090,8 @@ index 1dd6acb..865d7fa 100644
          fh->idct[PART_64x64][DCT_DEAULT] = idct_64x64_avx2;
          fh->idct[PART_64x16][DCT_DEAULT] = idct_64x16_avx2;
          fh->idct[PART_16x64][DCT_DEAULT] = idct_16x64_avx2;
--        fh->idct[PART_32x32][DCT_DEAULT] = idct_32x32_avx2;    // @luofl i7-6700k �ٶȱ�sse128��һ��
-+        fh->idct[PART_32x32][DCT_DEAULT] = idct_32x32_avx2;    // @luofl i7-6700k �ٶȱ�sse128��һ��
+-        fh->idct[PART_32x32][DCT_DEAULT] = idct_32x32_avx2;    // @luofl i7-6700k ЛЩ¶И±Иsse128їмТ»±¶
++        fh->idct[PART_32x32][DCT_DEAULT] = idct_32x32_avx2;    // @luofl i7-6700k пїЅЩ¶И±пїЅsse128пїЅпїЅТ»пїЅпїЅ
  
          /* square */
          // fh->idct[PART_8x8  ][DCT_HALF] = idct_8x8_half_avx2;
@@ -6138,27 +6138,27 @@ index 5089167..c73d2b8 100644
          imgPad5 = p_src + (yBottom - y) * stride;
          imgPad6 = p_src + (yUp     - y) * stride;
  
--        // ����176x144ʱ��V�������ֲ�ƥ�䣬�ĺ�ƥ��
-+        // ����176x144ʱ��V�������ֲ�ƥ�䣬�ĺ�ƥ��
+-        // ІвКФ176x144К±Ј¬V·ЦБїіцПЦІ»ЖҐЕдЈ¬ёДєуЖҐЕд
++        // пїЅпїЅпїЅпїЅ176x144К±пїЅпїЅVпїЅпїЅпїЅпїЅпїЅпїЅпїЅЦІпїЅЖҐпїЅдЈ¬пїЅДєпїЅЖҐпїЅпїЅ
          //for (x = lcu_pix_x; x < xPosEnd - 15; x += 16) {
          for (x = 0; x < lcu_width; x += 16) {
              T00 = _mm_loadu_si128((__m128i*)&imgPad6[x]);
              T01 = _mm_loadu_si128((__m128i*)&imgPad5[x]);
              E00 = _mm_unpacklo_epi8(T00, T01);
              E01 = _mm_unpackhi_epi8(T00, T01);
--            S00 = _mm_maddubs_epi16(E00, C0);//ǰ8����������C0*P0�Ľ��
--            S01 = _mm_maddubs_epi16(E01, C0);//��8����������C0*P0�Ľ��
-+            S00 = _mm_maddubs_epi16(E00, C0);//ǰ8����������C0*P0�Ľ��
-+            S01 = _mm_maddubs_epi16(E01, C0);//��8����������C0*P0�Ľ��
+-            S00 = _mm_maddubs_epi16(E00, C0);//З°8ёцПсЛШЛщУРC0*P0µДЅб№ы
+-            S01 = _mm_maddubs_epi16(E01, C0);//єу8ёцПсЛШЛщУРC0*P0µДЅб№ы
++            S00 = _mm_maddubs_epi16(E00, C0);//З°8пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅC0*P0пїЅДЅпїЅпїЅ
++            S01 = _mm_maddubs_epi16(E01, C0);//пїЅпїЅ8пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅC0*P0пїЅДЅпїЅпїЅ
  
              T10 = _mm_loadu_si128((__m128i*)&imgPad4[x]);
              T11 = _mm_loadu_si128((__m128i*)&imgPad3[x]);
              E10 = _mm_unpacklo_epi8(T10, T11);
              E11 = _mm_unpackhi_epi8(T10, T11);
--            S10 = _mm_maddubs_epi16(E10, C1);//ǰ8����������C1*P1�Ľ��
--            S11 = _mm_maddubs_epi16(E11, C1);//��8����������C1*P1�Ľ��
-+            S10 = _mm_maddubs_epi16(E10, C1);//ǰ8����������C1*P1�Ľ��
-+            S11 = _mm_maddubs_epi16(E11, C1);//��8����������C1*P1�Ľ��
+-            S10 = _mm_maddubs_epi16(E10, C1);//З°8ёцПсЛШЛщУРC1*P1µДЅб№ы
+-            S11 = _mm_maddubs_epi16(E11, C1);//єу8ёцПсЛШЛщУРC1*P1µДЅб№ы
++            S10 = _mm_maddubs_epi16(E10, C1);//З°8пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅC1*P1пїЅДЅпїЅпїЅ
++            S11 = _mm_maddubs_epi16(E11, C1);//пїЅпїЅ8пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅC1*P1пїЅДЅпїЅпїЅ
  
              T20 = _mm_loadu_si128((__m128i*)&imgPad2[x - 1]);
              T21 = _mm_loadu_si128((__m128i*)&imgPad1[x + 1]);
@@ -6166,30 +6166,30 @@ index 5089167..c73d2b8 100644
              S8  = _mm_maddubs_epi16(T4, C33);
              S50 = _mm_hadds_epi16(S5, S6);
              S51 = _mm_hadds_epi16(S7, S8);
--            S5  = _mm_hadds_epi16(S50, S51);//ǰ8��
-+            S5  = _mm_hadds_epi16(S50, S51);//ǰ8��
+-            S5  = _mm_hadds_epi16(S50, S51);//З°8ёц
++            S5  = _mm_hadds_epi16(S50, S51);//З°8пїЅпїЅ
              S4  = _mm_maddubs_epi16(T5, C33);
              S6  = _mm_maddubs_epi16(T6, C33);
              S7  = _mm_maddubs_epi16(T7, C33);
              S8  = _mm_maddubs_epi16(T8, C33);
              S60 = _mm_hadds_epi16(S4, S6);
              S61 = _mm_hadds_epi16(S7, S8);
--            S6  = _mm_hadds_epi16(S60, S61);//��8��
-+            S6  = _mm_hadds_epi16(S60, S61);//��8��
+-            S6  = _mm_hadds_epi16(S60, S61);//єу8ёц
++            S6  = _mm_hadds_epi16(S60, S61);//пїЅпїЅ8пїЅпїЅ
  
              S0  = _mm_adds_epi16(S00, S10);
              S1  = _mm_adds_epi16(S30, S20);
              S2  = _mm_adds_epi16(S40, S5);
              S3  = _mm_adds_epi16(S1, S0);
--            SS1 = _mm_adds_epi16(S2, S3);//ǰ8��
-+            SS1 = _mm_adds_epi16(S2, S3);//ǰ8��
+-            SS1 = _mm_adds_epi16(S2, S3);//З°8ёц
++            SS1 = _mm_adds_epi16(S2, S3);//З°8пїЅпїЅ
  
              S0  = _mm_adds_epi16(S01, S11);
              S1  = _mm_adds_epi16(S31, S21);
              S2  = _mm_adds_epi16(S41, S6);
              S3  = _mm_adds_epi16(S1, S0);
--            SS2 = _mm_adds_epi16(S2, S3);//��8��
-+            SS2 = _mm_adds_epi16(S2, S3);//��8��
+-            SS2 = _mm_adds_epi16(S2, S3);//єу8ёц
++            SS2 = _mm_adds_epi16(S2, S3);//пїЅпїЅ8пїЅпїЅ
  
  
              SS1 = _mm_adds_epi16(SS1, mAddOffset);
@@ -6229,8 +6229,8 @@ index 6ad916c..cb0ccbd 100644
  *  Project Leader: Ronggang Wang <rgwang@pkusz.edu.cn>
  *
  *  Main Authors: Zhenyu Wang <wangzhenyu@pkusz.edu.cn>, Kui Fan <kuifan@pku.edu.cn>
--*               Shenghao Zhang <1219759986@qq.com>�� Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
-+*               Shenghao Zhang <1219759986@qq.com>�� Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
+-*               Shenghao Zhang <1219759986@qq.com>Ј¬ Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
++*               Shenghao Zhang <1219759986@qq.com>пїЅпїЅ Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
  *               Jing Su, Jiaying Yan, Junru Li
  *
  * This program is free software; you can redistribute it and/or modify
@@ -6257,8 +6257,8 @@ index f49f72a..e34bd03 100644
  void idct_4x16_half_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/2��С�����Ͻǵ�4x8�з���ϵ��
-+    // ��1/2��С�����Ͻǵ�4x8�з���ϵ��
+-    // Ѕц1/2ґуРЎЈ¬ЧуЙПЅЗµД4x8УР·ЗБгПµКэ
++    // пїЅпїЅ1/2пїЅпїЅРЎпїЅпїЅпїЅпїЅпїЅПЅЗµпїЅ4x8пїЅР·пїЅпїЅпїЅПµпїЅпїЅ
      idct_4x16_sse128(src, dst, i_dst);
  }
  
@@ -6266,8 +6266,8 @@ index f49f72a..e34bd03 100644
  void idct_4x16_quad_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/4��С�����Ͻǵ�4x4�з���ϵ��
-+    // ��1/4��С�����Ͻǵ�4x4�з���ϵ��
+-    // Ѕц1/4ґуРЎЈ¬ЧуЙПЅЗµД4x4УР·ЗБгПµКэ
++    // пїЅпїЅ1/4пїЅпїЅРЎпїЅпїЅпїЅпїЅпїЅПЅЗµпїЅ4x4пїЅР·пїЅпїЅпїЅПµпїЅпїЅ
      idct_4x16_half_sse128(src, dst, i_dst);
  }
  
@@ -6275,8 +6275,8 @@ index f49f72a..e34bd03 100644
  void idct_16x4_half_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/2��С�����Ͻǵ�8x4�з���ϵ��
-+    // ��1/2��С�����Ͻǵ�8x4�з���ϵ��
+-    // Ѕц1/2ґуРЎЈ¬ЧуЙПЅЗµД8x4УР·ЗБгПµКэ
++    // пїЅпїЅ1/2пїЅпїЅРЎпїЅпїЅпїЅпїЅпїЅПЅЗµпїЅ8x4пїЅР·пїЅпїЅпїЅПµпїЅпїЅ
      idct_16x4_sse128(src, dst, i_dst);
  }
  
@@ -6284,8 +6284,8 @@ index f49f72a..e34bd03 100644
  void idct_16x4_quad_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/4��С�����Ͻǵ�4x4�з���ϵ��
-+    // ��1/4��С�����Ͻǵ�4x4�з���ϵ��
+-    // Ѕц1/4ґуРЎЈ¬ЧуЙПЅЗµД4x4УР·ЗБгПµКэ
++    // пїЅпїЅ1/4пїЅпїЅРЎпїЅпїЅпїЅпїЅпїЅПЅЗµпїЅ4x4пїЅР·пїЅпїЅпїЅПµпїЅпїЅ
      idct_16x4_half_sse128(src, dst, i_dst);
  }
  
@@ -6293,8 +6293,8 @@ index f49f72a..e34bd03 100644
      E2l = _mm_add_epi32(E2l, mAdd);
      E2h = _mm_sub_epi32(EE1h, E01h);
      E2h = _mm_add_epi32(E2h, mAdd);
--    S0 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));  // �״η��任��λ��
-+    S0 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));  // �״η��任��λ��
+-    S0 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));  // КЧґО·ґ±д»»ТЖО»Кэ
++    S0 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));  // пїЅЧґО·пїЅпїЅд»»пїЅпїЅО»пїЅпїЅ
      S7 = _mm_packs_epi32(_mm_srai_epi32(_mm_sub_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_sub_epi32(E0h, O0h), 5));
      S1 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E1l, O1l), 5), _mm_srai_epi32(_mm_add_epi32(E1h, O1h), 5));
      S6 = _mm_packs_epi32(_mm_srai_epi32(_mm_sub_epi32(E1l, O1l), 5), _mm_srai_epi32(_mm_sub_epi32(E1h, O1h), 5));
@@ -6302,8 +6302,8 @@ index f49f72a..e34bd03 100644
  void idct_8x8_half_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/2��С�����Ͻǵ�4x4�з���ϵ��
-+    // ��1/2��С�����Ͻǵ�4x4�з���ϵ��
+-    // Ѕц1/2ґуРЎЈ¬ЧуЙПЅЗµД4x4УР·ЗБгПµКэ
++    // пїЅпїЅ1/2пїЅпїЅРЎпїЅпїЅпїЅпїЅпїЅПЅЗµпїЅ4x4пїЅР·пїЅпїЅпїЅПµпїЅпїЅ
      idct_8x8_sse128(src, dst, i_dst);
  }
  
@@ -6311,8 +6311,8 @@ index f49f72a..e34bd03 100644
  void idct_8x8_quad_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/4��С�����Ͻǵ�2x2�з���ϵ��
-+    // ��1/4��С�����Ͻǵ�2x2�з���ϵ��
+-    // Ѕц1/4ґуРЎЈ¬ЧуЙПЅЗµД2x2УР·ЗБгПµКэ
++    // пїЅпїЅ1/4пїЅпїЅРЎпїЅпїЅпїЅпїЅпїЅПЅЗµпїЅ2x2пїЅР·пїЅпїЅпїЅПµпїЅпїЅ
      idct_8x8_half_sse128(src, dst, i_dst);
  }
  
@@ -6320,8 +6320,8 @@ index f49f72a..e34bd03 100644
  void idct_16x16_half_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/2��С�����Ͻǵ�8x8�з���ϵ��
-+    // ��1/2��С�����Ͻǵ�8x8�з���ϵ��
+-    // Ѕц1/2ґуРЎЈ¬ЧуЙПЅЗµД8x8УР·ЗБгПµКэ
++    // пїЅпїЅ1/2пїЅпїЅРЎпїЅпїЅпїЅпїЅпїЅПЅЗµпїЅ8x8пїЅР·пїЅпїЅпїЅПµпїЅпїЅ
      //idct_16x16_sse128(src, dst, i_dst);
  
  
@@ -6329,8 +6329,8 @@ index f49f72a..e34bd03 100644
  void idct_16x16_quad_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/4��С�����Ͻǵ�4x4�з���ϵ��
-+    // ��1/4��С�����Ͻǵ�4x4�з���ϵ��
+-    // Ѕц1/4ґуРЎЈ¬ЧуЙПЅЗµД4x4УР·ЗБгПµКэ
++    // пїЅпїЅ1/4пїЅпїЅРЎпїЅпїЅпїЅпїЅпїЅПЅЗµпїЅ4x4пїЅР·пїЅпїЅпїЅПµпїЅпїЅ
      //idct_16x16_half_sse128(src, dst, i_dst);
  
      const int shift1 = 5;
@@ -6338,8 +6338,8 @@ index f49f72a..e34bd03 100644
  void idct_32x32_half_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/2��С�����Ͻǵ�16x16�з���ϵ��
-+    // ��1/2��С�����Ͻǵ�16x16�з���ϵ��
+-    // Ѕц1/2ґуРЎЈ¬ЧуЙПЅЗµД16x16УР·ЗБгПµКэ
++    // пїЅпїЅ1/2пїЅпїЅРЎпїЅпїЅпїЅпїЅпїЅПЅЗµпїЅ16x16пїЅР·пїЅпїЅпїЅПµпїЅпїЅ
      int a_flag = i_dst & 0x01;
      int shift2 = 20 - g_bit_depth - a_flag;
      int clip_depth2 = g_bit_depth + 1 + a_flag;
@@ -6347,8 +6347,8 @@ index f49f72a..e34bd03 100644
  void idct_32x32_quad_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/4��С�����Ͻǵ�8x8�з���ϵ��
-+    // ��1/4��С�����Ͻǵ�8x8�з���ϵ��
+-    // Ѕц1/4ґуРЎЈ¬ЧуЙПЅЗµД8x8УР·ЗБгПµКэ
++    // пїЅпїЅ1/4пїЅпїЅРЎпїЅпїЅпїЅпїЅпїЅПЅЗµпїЅ8x8пїЅР·пїЅпїЅпїЅПµпїЅпїЅ
      int a_flag = i_dst & 0x01;
      int shift2 = 20 - g_bit_depth - a_flag;
      int clip_depth2 = g_bit_depth + 1 + a_flag;
@@ -6356,8 +6356,8 @@ index f49f72a..e34bd03 100644
          E2h = _mm_sub_epi32(EE1h, E01h);
          E2h = _mm_add_epi32(E2h,  m128iAdd);
  
--        m128iS0[pass] = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));    // �״η��任��λ��
-+        m128iS0[pass] = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));    // �״η��任��λ��
+-        m128iS0[pass] = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));    // КЧґО·ґ±д»»ТЖО»Кэ
++        m128iS0[pass] = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), 5));    // пїЅЧґО·пїЅпїЅд»»пїЅпїЅО»пїЅпїЅ
          m128iS7[pass] = _mm_packs_epi32(_mm_srai_epi32(_mm_sub_epi32(E0l, O0l), 5), _mm_srai_epi32(_mm_sub_epi32(E0h, O0h), 5));
          m128iS1[pass] = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E1l, O1l), 5), _mm_srai_epi32(_mm_add_epi32(E1h, O1h), 5));
          m128iS6[pass] = _mm_packs_epi32(_mm_srai_epi32(_mm_sub_epi32(E1l, O1l), 5), _mm_srai_epi32(_mm_sub_epi32(E1h, O1h), 5));
@@ -6365,8 +6365,8 @@ index f49f72a..e34bd03 100644
  void idct_32x8_half_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/2��С�����Ͻǵ�16x8�з���ϵ��
-+    // ��1/2��С�����Ͻǵ�16x8�з���ϵ��
+-    // Ѕц1/2ґуРЎЈ¬ЧуЙПЅЗµД16x8УР·ЗБгПµКэ
++    // пїЅпїЅ1/2пїЅпїЅРЎпїЅпїЅпїЅпїЅпїЅПЅЗµпїЅ16x8пїЅР·пїЅпїЅпїЅПµпїЅпїЅ
      idct_32x8_sse128(src, dst, i_dst);
  }
  
@@ -6374,8 +6374,8 @@ index f49f72a..e34bd03 100644
  void idct_32x8_quad_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/4��С�����Ͻǵ�8x8�з���ϵ��
-+    // ��1/4��С�����Ͻǵ�8x8�з���ϵ��
+-    // Ѕц1/4ґуРЎЈ¬ЧуЙПЅЗµД8x8УР·ЗБгПµКэ
++    // пїЅпїЅ1/4пїЅпїЅРЎпїЅпїЅпїЅпїЅпїЅПЅЗµпїЅ8x8пїЅР·пїЅпїЅпїЅПµпїЅпїЅ
      idct_32x8_half_sse128(src, dst, i_dst);
  }
  
@@ -6383,8 +6383,8 @@ index f49f72a..e34bd03 100644
              E2l = _mm_add_epi32(E2l, c32_rnd);
              E2h = _mm_sub_epi32(EE1h, E01h);
              E2h = _mm_add_epi32(E2h, c32_rnd);
--            in00 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), nShift), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), nShift));     // �״η��任��λ��
-+            in00 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), nShift), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), nShift));     // �״η��任��λ��
+-            in00 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), nShift), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), nShift));     // КЧґО·ґ±д»»ТЖО»Кэ
++            in00 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E0l, O0l), nShift), _mm_srai_epi32(_mm_add_epi32(E0h, O0h), nShift));     // пїЅЧґО·пїЅпїЅд»»пїЅпїЅО»пїЅпїЅ
              in07 = _mm_packs_epi32(_mm_srai_epi32(_mm_sub_epi32(E0l, O0l), nShift), _mm_srai_epi32(_mm_sub_epi32(E0h, O0h), nShift));
              in01 = _mm_packs_epi32(_mm_srai_epi32(_mm_add_epi32(E1l, O1l), nShift), _mm_srai_epi32(_mm_add_epi32(E1h, O1h), nShift));
              in06 = _mm_packs_epi32(_mm_srai_epi32(_mm_sub_epi32(E1l, O1l), nShift), _mm_srai_epi32(_mm_sub_epi32(E1h, O1h), nShift));
@@ -6392,8 +6392,8 @@ index f49f72a..e34bd03 100644
  void idct_8x32_half_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/2��С�����Ͻǵ�8x16�з���ϵ��
-+    // ��1/2��С�����Ͻǵ�8x16�з���ϵ��
+-    // Ѕц1/2ґуРЎЈ¬ЧуЙПЅЗµД8x16УР·ЗБгПµКэ
++    // пїЅпїЅ1/2пїЅпїЅРЎпїЅпїЅпїЅпїЅпїЅПЅЗµпїЅ8x16пїЅР·пїЅпїЅпїЅПµпїЅпїЅ
      idct_8x32_sse128(src, dst, i_dst);
  }
  
@@ -6401,8 +6401,8 @@ index f49f72a..e34bd03 100644
  void idct_8x32_quad_sse128(const coeff_t *src, coeff_t *dst, int i_dst)
  {
      // TODO: implement this
--    // ��1/4��С�����Ͻǵ�8x8�з���ϵ��
-+    // ��1/4��С�����Ͻǵ�8x8�з���ϵ��
+-    // Ѕц1/4ґуРЎЈ¬ЧуЙПЅЗµД8x8УР·ЗБгПµКэ
++    // пїЅпїЅ1/4пїЅпїЅРЎпїЅпїЅпїЅпїЅпїЅПЅЗµпїЅ8x8пїЅР·пїЅпїЅпїЅПµпїЅпїЅ
      idct_8x32_half_sse128(src, dst, i_dst);
  }
  
@@ -6410,12 +6410,12 @@ index f49f72a..e34bd03 100644
  void inv_wavelet_64x64_sse128(coeff_t *coeff)
  {
      int i;
--    //���� 64*64
-+    //���� 64*64
+-    //°ґРР 64*64
++    //пїЅпїЅпїЅпїЅ 64*64
      __m128i T00[8], T01[8], T02[8], T03[8], T04[8], T05[8], T06[8], T07[8], T08[8], T09[8], T10[8], T11[8], T12[8], T13[8], T14[8], T15[8], T16[8], T17[8], T18[8], T19[8], T20[8], T21[8], T22[8], T23[8], T24[8], T25[8], T26[8], T27[8], T28[8], T29[8], T30[8], T31[8], T32[8], T33[8], T34[8], T35[8], T36[8], T37[8], T38[8], T39[8], T40[8], T41[8], T42[8], T43[8], T44[8], T45[8], T46[8], T47[8], T48[8], T49[8], T50[8], T51[8], T52[8], T53[8], T54[8], T55[8], T56[8], T57[8], T58[8], T59[8], T60[8], T61[8], T62[8], T63[8];
  
--    //���� 16*64
-+    //���� 16*64
+-    //°ґБР 16*64
++    //пїЅпїЅпїЅпїЅ 16*64
      __m128i V00[8], V01[8], V02[8], V03[8], V04[8], V05[8], V06[8], V07[8], V08[8], V09[8], V10[8], V11[8], V12[8], V13[8], V14[8], V15[8], V16[8], V17[8], V18[8], V19[8], V20[8], V21[8], V22[8], V23[8], V24[8], V25[8], V26[8], V27[8], V28[8], V29[8], V30[8], V31[8], V32[8], V33[8], V34[8], V35[8], V36[8], V37[8], V38[8], V39[8], V40[8], V41[8], V42[8], V43[8], V44[8], V45[8], V46[8], V47[8], V48[8], V49[8], V50[8], V51[8], V52[8], V53[8], V54[8], V55[8], V56[8], V57[8], V58[8], V59[8], V60[8], V61[8], V62[8], V63[8];
  
      __m128i tr0_0, tr0_1, tr0_2, tr0_3, tr0_4, tr0_5, tr0_6, tr0_7;
@@ -6423,12 +6423,12 @@ index f49f72a..e34bd03 100644
  void inv_wavelet_64x16_sse128(coeff_t *coeff)
  {
      int i;
--    //���� 64*16
-+    //���� 64*16
+-    //°ґРР 64*16
++    //пїЅпїЅпїЅпїЅ 64*16
      __m128i T00[8], T01[8], T02[8], T03[8], T04[8], T05[8], T06[8], T07[8], T08[8], T09[8], T10[8], T11[8], T12[8], T13[8], T14[8], T15[8];
  
--    //���� 16*64
-+    //���� 16*64
+-    //°ґБР 16*64
++    //пїЅпїЅпїЅпїЅ 16*64
      __m128i V00[2], V01[2], V02[2], V03[2], V04[2], V05[2], V06[2], V07[2], V08[2], V09[2], V10[2], V11[2], V12[2], V13[2], V14[2], V15[2], V16[2], V17[2], V18[2], V19[2], V20[2], V21[2], V22[2], V23[2], V24[2], V25[2], V26[2], V27[2], V28[2], V29[2], V30[2], V31[2], V32[2], V33[2], V34[2], V35[2], V36[2], V37[2], V38[2], V39[2], V40[2], V41[2], V42[2], V43[2], V44[2], V45[2], V46[2], V47[2], V48[2], V49[2], V50[2], V51[2], V52[2], V53[2], V54[2], V55[2], V56[2], V57[2], V58[2], V59[2], V60[2], V61[2], V62[2], V63[2];
  
      __m128i tr0_0, tr0_1, tr0_2, tr0_3, tr0_4, tr0_5, tr0_6, tr0_7;
@@ -6436,12 +6436,12 @@ index f49f72a..e34bd03 100644
      __m128i S00, S01, S02, S03, S04, S05, S06, S07, S08, S09, S10, S11, S12, S13, S14, S15, S16, S17, S18, S19, S20, S21, S22, S23, S24, S25, S26, S27, S28, S29, S30, S31;
      __m128i S32, S33, S34, S35, S36, S37, S38, S39, S40, S41, S42, S43, S44, S45, S46, S47, S48, S49, S50, S51, S52, S53, S54, S55, S56, S57, S58, S59, S60, S61, S62, S63;
  
--    //���� 64*16
-+    //���� 64*16
+-    //°ґРР 64*16
++    //пїЅпїЅпїЅпїЅ 64*16
      __m128i T00[8], T01[8], T02[8], T03[8], T04[8], T05[8], T06[8], T07[8], T08[8], T09[8], T10[8], T11[8], T12[8], T13[8], T14[8], T15[8];
  
--    //���� 16*64
-+    //���� 16*64
+-    //°ґБР 16*64
++    //пїЅпїЅпїЅпїЅ 16*64
      __m128i V00[2], V01[2], V02[2], V03[2], V04[2], V05[2], V06[2], V07[2], V08[2], V09[2], V10[2], V11[2], V12[2], V13[2], V14[2], V15[2], V16[2], V17[2], V18[2], V19[2], V20[2], V21[2], V22[2], V23[2], V24[2], V25[2], V26[2], V27[2], V28[2], V29[2], V30[2], V31[2], V32[2], V33[2], V34[2], V35[2], V36[2], V37[2], V38[2], V39[2], V40[2], V41[2], V42[2], V43[2], V44[2], V45[2], V46[2], V47[2], V48[2], V49[2], V50[2], V51[2], V52[2], V53[2], V54[2], V55[2], V56[2], V57[2], V58[2], V59[2], V60[2], V61[2], V62[2], V63[2];
  
      __m128i tr0_0, tr0_1, tr0_2, tr0_3, tr0_4, tr0_5, tr0_6, tr0_7;
@@ -6476,8 +6476,8 @@ index 3996e1c..7e6bc83 100644
  
              T00 = _mm_adds_epi16(_mm_cvtepu8_epi16(T00), _mm_cvtepu8_epi16(T70));
              T10 = _mm_adds_epi16(_mm_cvtepu8_epi16(T10), _mm_cvtepu8_epi16(T60));
--            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//����������ԭ����12��Ϊ9
-+            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//����������ԭ����12��Ϊ9
+-            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//ФЛЛгЦЬЖЪУЙФ­АґµД12јхОЄ9
++            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅФ­пїЅпїЅпїЅпїЅ12пїЅпїЅОЄ9
              T20 = _mm_maddubs_epi16(_mm_unpacklo_epi8(T20, T30), coeff1);
              T30 = _mm_maddubs_epi16(_mm_unpacklo_epi8(T40, T50), coeff2);
              
@@ -6485,8 +6485,8 @@ index 3996e1c..7e6bc83 100644
  
              T00 = _mm_adds_epi16(_mm_cvtepu8_epi16(T00), _mm_cvtepu8_epi16(T70));
              T10 = _mm_adds_epi16(_mm_cvtepu8_epi16(T10), _mm_cvtepu8_epi16(T60));
--            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//����������ԭ����12��Ϊ9
-+            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//����������ԭ����12��Ϊ9
+-            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//ФЛЛгЦЬЖЪУЙФ­АґµД12јхОЄ9
++            T10 = _mm_subs_epi16(_mm_slli_epi16(T10, 2), _mm_cvtepu8_epi16(T60));//пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅФ­пїЅпїЅпїЅпїЅ12пїЅпїЅОЄ9
              T20 = _mm_maddubs_epi16(_mm_unpacklo_epi8(T20, T30), coeff1);
              T30 = _mm_maddubs_epi16(_mm_unpacklo_epi8(T40, T50), coeff2);
  
@@ -6511,8 +6511,8 @@ index 57da3e9..f2009c6 100644
  #if !HIGH_BIT_DEPTH
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU������߽��ϵ�PU
-+ * LCU������߽��ϵ�PU
+- * LCUДЪФЪЧу±ЯЅзЙПµДPU
++ * LCUпїЅпїЅпїЅпїЅпїЅпїЅЯЅпїЅпїЅПµпїЅPU
   */
  void fill_edge_samples_0_sse128(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
  {
@@ -6520,8 +6520,8 @@ index 57da3e9..f2009c6 100644
  
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU������߽��ϵ�PU
-+ * LCU������߽��ϵ�PU
+- * LCUДЪФЪЧу±ЯЅзЙПµДPU
++ * LCUпїЅпїЅпїЅпїЅпїЅпїЅЯЅпїЅпїЅПµпїЅPU
   */
  void fill_edge_samples_x_sse128(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
  {
@@ -6529,8 +6529,8 @@ index 57da3e9..f2009c6 100644
  
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU������߽��ϵ�PU
-+ * LCU������߽��ϵ�PU
+- * LCUДЪФЪЧу±ЯЅзЙПµДPU
++ * LCUпїЅпїЅпїЅпїЅпїЅпїЅЯЅпїЅпїЅПµпїЅPU
   */
  void fill_edge_samples_y_sse128(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
  {
@@ -6538,8 +6538,8 @@ index 57da3e9..f2009c6 100644
  
  /* ---------------------------------------------------------------------------
   * fill reference samples for intra prediction
-- * LCU������߽��ϵ�PU
-+ * LCU������߽��ϵ�PU
+- * LCUДЪФЪЧу±ЯЅзЙПµДPU
++ * LCUпїЅпїЅпїЅпїЅпїЅпїЅЯЅпїЅпїЅПµпїЅPU
   */
  void fill_edge_samples_xy_sse128(const pel_t *pTL, int i_TL, const pel_t *pLcuEP, pel_t *EP, uint32_t i_avai, int bsx, int bsy)
  {
@@ -6591,8 +6591,8 @@ index 365a69b..75fcc83 100644
   *  Project Leader: Ronggang Wang <rgwang@pkusz.edu.cn>
   *
   *  Main Authors: Zhenyu Wang <wangzhenyu@pkusz.edu.cn>, Kui Fan <kuifan@pku.edu.cn>
-- *               Shenghao Zhang <1219759986@qq.com>�� Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
-+ *               Shenghao Zhang <1219759986@qq.com>�� Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
+- *               Shenghao Zhang <1219759986@qq.com>Ј¬ Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
++ *               Shenghao Zhang <1219759986@qq.com>пїЅпїЅ Bingjie Han, Kaili Yao, Hongbin Cao,  Yueming Wang,
   *               Jing Su, Jiaying Yan, Junru Li
   *
   * This program is free software; you can redistribute it and/or modify
@@ -6610,8 +6610,8 @@ index 365a69b..75fcc83 100644
 +#endif
  
  #ifdef _MSC_VER
--#pragma warning(disable:4244)  // TODO: ��������warning
-+#pragma warning(disable:4244)  // TODO: ��������warning
+-#pragma warning(disable:4244)  // TODO: РЮХэ±аТлwarning
++#pragma warning(disable:4244)  // TODO: пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅwarning
  #endif
  
   /* ---------------------------------------------------------------------------
@@ -6641,7 +6641,7 @@ index 0000000..f5941cf
 +//   Sebastian Pop <spop@amazon.com>
 +//   Developer Ecosystem Engineering <DeveloperEcosystemEngineering@apple.com>
 +//   Danila Kutenin <danilak@google.com>
-+//   François Turban (JishinMaster) <francois.turban@gmail.com>
++//   FranГ§ois Turban (JishinMaster) <francois.turban@gmail.com>
 +//   Pei-Hsuan Hung <afcidk@gmail.com>
 +//   Yang-Hao Yuan <yuanyanghau@gmail.com>
 +//   Syoyo Fujita <syoyo@lighttransport.com>
