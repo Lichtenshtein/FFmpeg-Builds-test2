@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
 
     # Фикс проверки endianness для современных GCC (уже было у вас, оставляем)
     sed -i -e 's/EGIB/bss/g' -e 's/naidnePF/bss/g' configure
-    sed -i 's/CFLAGS="$CFLAGS -std=gnu++11 -D_GNU_SOURCE"//g' configure
+    sed -i 's/CFLAGS="$CFLAGS -std=gnu++11 -D_GNU_SOURCE"/true/g' configure
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
