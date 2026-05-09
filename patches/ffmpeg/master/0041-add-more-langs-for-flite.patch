@@ -19,8 +19,8 @@ index a7471607cf..4eb11ff962 100644
 +DECLARE_REGISTER_VOICE_FN(indic_lang);
 +DECLARE_REGISTER_VOICE_FN(grapheme_lang);
  
- struct voice_entry {
-     const char *name;
+ void usenglish_init(cst_voice *);
+ cst_lexicon *cmulex_init(void);
 @@ -103,6 +106,9 @@ static struct voice_entry voice_entries[] = {
      MAKE_VOICE_STRUCTURE(kal16),
      MAKE_VOICE_STRUCTURE(rms),
