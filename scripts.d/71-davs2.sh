@@ -25,6 +25,10 @@ ffbuild_dockerbuild() {
     # Фикс проверки endianness для современных GCC (уже было у вас, оставляем)
     sed -i -e 's/EGIB/bss/g' -e 's/naidnePF/bss/g' configure
 
+    # Очищаем CFLAGS для configure, оставляя только самое необходимое.
+    local CONF_CFLAGS="-O3 -march=${CPU_ARCH} -std=gnu11"
+    local CONF_LDFLAGS="-L/opt/ffbuild/lib"
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --disable-cli
@@ -44,26 +48,26 @@ ffbuild_dockerbuild() {
         #--disable-asm         # disable platform-specific assembly optimizations
     )
 
-    if command -v nasm >/dev/null 2>&1; then
-        # Если есть nasm, подставляем его явно
-        myconf+=( --as=nasm )
-    else
-        log_warn "NASM not found! Compiling davs2 without ASM optimizations."
-        myconf+=( --disable-asm )
-    fi
-
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --enable-shared --disable-static )
     # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-        --extra-ldflags="$LDFLAGS ${USELTO}" || {
-            cat config.log
-            return 1
-        }
+    # Запускаем configure с минимальными флагами и явным указанием NASM
+    AS=nasm \
+    CFLAGS="$CONF_CFLAGS" \
+    LDFLAGS="$CONF_LDFLAGS" \
+    ./configure "${myconf[@]}" || {
+        log_error "Configure failed. Check config.log below:"
+        cat config.log
+        return 1
+    }
 
-    make -j$(nproc) $MAKE_V || return 1
+    # компилируем, подставляя тяжелые LTO флаги из vars.sh
+    # переопределяем CFLAGS и LDFLAGS прямо в make.
+    make -j$(nproc) $MAKE_V \
+        CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        LDFLAGS="$LDFLAGS ${USELTO}" || return 1
+
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Исправляем pkg-config для статической линковки
