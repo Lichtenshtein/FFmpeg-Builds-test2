@@ -48,12 +48,21 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-shared --disable-static )
     # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    ./configure "${myconf[@]}" \
-        --extra-cflags="$CFLAGS $CPPFLAGS ${NOLTO}" \
-        --extra-ldflags="$LDFLAGS ${NOLTO}" || return 1
+    local CONF_CFLAGS="-O3 -march=${CPU_ARCH} -std=gnu11"
+    local CONF_LDFLAGS="-L{$FFBUILD_PREFIX}/lib"
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    AS=nasm \
+    ./configure "${myconf[@]}" \
+        --extra-cflags="$CONF_CFLAGS $CPPFLAGS ${NOLTO}" \
+        --extra-ldflags="$CONF_LDFLAGS ${NOLTO}" || {
+        log_error "Configure failed. Check config.log below:"
+        cat config.log
+        return 1
+    }
+
+    make -j$(nproc) $MAKE_V \
+        CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        LDFLAGS="$LDFLAGS ${USELTO}" || return 1
 
     # Исправляем pkg-config для статической линковки
     local PC_FILE="$PC_DIR/davs2.pc"
