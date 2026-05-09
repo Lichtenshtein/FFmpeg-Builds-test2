@@ -50,7 +50,7 @@ ffbuild_dockerbuild() {
     )
 
     if [[ "$USE_LTO" == "1" ]]; then
-        # myconf+=( -DSVT_AV1_LTO=ON )
+        myconf+=( -DSVT_AV1_LTO=OFF ) # something passes -fno-fat-lto-objects
         export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}"
         export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}"
         export LDFLAGS="$LDFLAGS ${USELTO}"
