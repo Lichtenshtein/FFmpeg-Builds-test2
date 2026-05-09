@@ -311,8 +311,8 @@ EOF
     unset CPLUS_INCLUDE_PATH
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $FIX_FLAGS $static_flags" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $FIX_FLAGS $static_flags" \
+        -Dc_args="${CFLAGS/-std=gnu17/} $CPPFLAGS ${USELTO}${USELTO_C} $FIX_FLAGS $static_flags" \
+        -Dcpp_args="${CXXFLAGS/-std=gnu++20/} $CPPFLAGS ${USELTO}${USELTO_C} $FIX_FLAGS $static_flags" \
         -Dc_link_args="$LDFLAGS ${USELTO}" \
         -Dcpp_link_args="$LDFLAGS ${USELTO}" || return 1
 
