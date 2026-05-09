@@ -35,6 +35,7 @@ ffbuild_dockerbuild() {
         --chroma-format=all
         --host="$FFBUILD_TOOLCHAIN"
         --cross-prefix="$FFBUILD_CROSS_PREFIX"
+        --disable-win32thread
         # other existing options
         #--system-libdavs2 #use system libdavs2 instead of internal
         #--disable-opencl  # disable OpenCL features
@@ -56,8 +57,8 @@ ffbuild_dockerbuild() {
 
     AS=nasm \
     ./configure "${myconf[@]}" \
-        --extra-cflags="$CONF_CFLAGS $CPPFLAGS ${NOLTO}" \
-        --extra-ldflags="$CONF_LDFLAGS ${NOLTO}" || {
+        --extra-cflags="$CFLAGS $CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        --extra-ldflags="$LDFLAGS ${USELTO}" || {
         log_error "Configure failed. Check config.log below:"
         cat config.log
         return 1
@@ -67,6 +68,8 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS $EXTRA_INC $EXTRA_DEFS $CPPFLAGS ${USELTO}${USELTO_C}" \
         CXXFLAGS="$CXXFLAGS $EXTRA_INC $EXTRA_DEFS $CPPFLAGS ${USELTO}${USELTO_C}" \
         LDFLAGS="$LDFLAGS ${USELTO}" || return 1
+
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     local PC_FILE="$PC_DIR/davs2.pc"
     if [[ -f "$PC_FILE" ]]; then
