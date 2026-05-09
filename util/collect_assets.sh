@@ -152,4 +152,4 @@ if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then
     fi
 fi
 
-log_info "${CHECK_MARK} All models and asset collection finished for enabled components and moved to $ASSETS_DIR"
+log_info "${CHECK_MARK} All models and asset collection finished for enabled components and moved to:\n$ASSETS_DIR"
