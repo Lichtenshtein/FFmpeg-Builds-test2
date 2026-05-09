@@ -24,6 +24,7 @@ ffbuild_dockerbuild() {
 
     # Фикс проверки endianness для современных GCC (уже было у вас, оставляем)
     sed -i -e 's/EGIB/bss/g' -e 's/naidnePF/bss/g' configure
+    sed -i 's/CFLAGS="$CFLAGS -std=gnu++11 -D_GNU_SOURCE"//g' configure
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -48,8 +49,8 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-shared --disable-static )
     # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    local CONF_CFLAGS="-O3 -march=${CPU_ARCH} -std=gnu11"
-    local CONF_LDFLAGS="-L{$FFBUILD_PREFIX}/lib"
+    local CONF_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -std=gnu11"
+    local CONF_LDFLAGS="-L${FFBUILD_PREFIX}/lib"
 
     AS=nasm \
     ./configure "${myconf[@]}" \
@@ -61,7 +62,8 @@ ffbuild_dockerbuild() {
     }
 
     make -j$(nproc) $MAKE_V \
-        CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        CFLAGS="$CFLAGS -I. $CPPFLAGS ${USELTO}${USELTO_C}" \
+        CXXFLAGS="$CXXFLAGS -I. $CPPFLAGS ${USELTO}${USELTO_C}" \
         LDFLAGS="$LDFLAGS ${USELTO}" || return 1
 
     # Исправляем pkg-config для статической линковки
@@ -71,7 +73,7 @@ ffbuild_dockerbuild() {
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
         # Для статики иногда нужен -lpthread
         if ! grep -q "Libs.private" "$PC_FILE"; then
-            sed -i '/^Libs.private:/ s/$/ -pthread/' "$PC_FILE"
+            sed -i '/^Libs.private:/ s/$/ -lwinmm -pthread/' "$PC_FILE"
         fi
     fi
 }
