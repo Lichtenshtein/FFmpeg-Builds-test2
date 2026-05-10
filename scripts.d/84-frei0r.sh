@@ -35,6 +35,8 @@ ffbuild_dockerbuild() {
     sed -i 's/find_package (OpenCV REQUIRED)/pkg_check_modules(OpenCV REQUIRED opencv4)/g' CMakeLists.txt
     # Исправляем переменные (pkg_check_modules наполняет OpenCV_LIBRARIES, а не OpenCV_LIBS)
     find . -name "CMakeLists.txt" -exec sed -i 's/${OpenCV_LIBS}/${OpenCV_LIBRARIES}/g' {} +
+    # Вырезаем тесты
+    sed -i '/add_subdirectory (test)/d' CMakeLists.txt
 
     mkdir build && cd build
 
