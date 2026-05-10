@@ -30,20 +30,17 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Патчим CMakeLists.txt, чтобы он искал OpenCV через pkg-config вместо find_package
+    # Патчим CMakeLists.txt, чтобы он искал OpenCV через pkg-config вместо cmake find_package
     sed -i '1i find_package(PkgConfig REQUIRED)' CMakeLists.txt
     sed -i 's/find_package (OpenCV REQUIRED)/pkg_check_modules(OpenCV REQUIRED opencv4)/g' CMakeLists.txt
     # Исправляем переменные (pkg_check_modules наполняет OpenCV_LIBRARIES, а не OpenCV_LIBS)
     find . -name "CMakeLists.txt" -exec sed -i 's/${OpenCV_LIBS}/${OpenCV_LIBRARIES}/g' {} +
-    # Вырезаем тесты
+    # Вырезаем тесты because no dlfcn exist
     sed -i '/add_subdirectory (test)/d' CMakeLists.txt
 
-    mkdir build && cd build
+    local EXTRA_STATIC_LIBS="-Wl,--start-group -lgavl -ltbb12 -lcairo -lpixman-1 -lfontconfig -lfreetype -lpng -lharfbuzz -lstdc++ $LIBS $ADDITIONAL_LIBS -Wl,--end-group"
 
-    # флаги для игнорирования несовместимых типов в SIMD коде (актуально для GCC 14)
-    # Флаг -flax-vector-conversions разрешает неявное приведение __m128i к __m128
-    # Добавляем -fpermissive для некоторых старых плагинов frei0r
-    # ADDITIONAL_FLAGS="-flax-vector-conversions -fpermissive -Wno-error=incompatible-pointer-types -Wno-error=int-conversion"
+    mkdir build && cd build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -55,15 +52,14 @@ ffbuild_dockerbuild() {
         -DWITHOUT_OPENCV=OFF # required for facebl0r filter
         -DWITHOUT_CAIRO=OFF  # required for cairo- filters and mixers
         -DWITHOUT_GAVL=OFF   # required for scale0tilt and vectorscope filters
-        # -DCairo_INCLUDE_DIR="" # ?
         # -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4"
-        # Указываем CMake, где искать .pc файлы
-        -DPKG_CONFIG_EXECUTABLE=$(which pkgconf)
+        # Для плагинов (DLL) в CMake нужно использовать SHARED_LINKER_FLAGS или MODULE_LINKER_FLAGS
+        -DCMAKE_SHARED_LINKER_FLAGS="$LDFLAGS ${USELTO} ${EXTRA_STATIC_LIBS}"
+        -DCMAKE_MODULE_LINKER_FLAGS="$LDFLAGS ${USELTO} ${EXTRA_STATIC_LIBS}"
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $ADDITIONAL_FLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $ADDITIONAL_FLAGS" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
