@@ -262,6 +262,13 @@ ffbuild_dockerbuild() {
         fi
     done
 
+    # Исправляем пути к 3rdparty либам в .cmake конфигах OpenCV
+    # Заменяем относительный путь 'lib/opencv4/3rdparty' на просто 'lib'
+    # исправляем названия библиотек с liblib -> lib
+    find "${DEST_LIB}/lib/cmake/opencv4" -name "*.cmake" -exec sed -i \
+        -e 's|lib/opencv4/3rdparty/|lib/|g' \
+        -e 's|liblib|lib|g' {} +
+
     # Создаем симлинк, чтобы заголовочные файлы находились по стандартному пути
     # ln -sfn opencv4/opencv2 "${INSTALL_ROOT}/include/opencv2"
 
