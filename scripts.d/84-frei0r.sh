@@ -38,8 +38,6 @@ ffbuild_dockerbuild() {
     # Вырезаем тесты because no dlfcn exist
     sed -i '/add_subdirectory (test)/d' CMakeLists.txt
 
-    local EXTRA_STATIC_LIBS="-Wl,--start-group -lgavl -ltbb12 -lcairo -lpixman-1 -lfontconfig -lfreetype -lpng -lharfbuzz -lstdc++ $LIBS $ADDITIONAL_LIBS -Wl,--end-group"
-
     mkdir build && cd build
 
     local myconf=(
@@ -53,10 +51,19 @@ ffbuild_dockerbuild() {
         -DWITHOUT_CAIRO=OFF  # required for cairo- filters and mixers
         -DWITHOUT_GAVL=OFF   # required for scale0tilt and vectorscope filters
         # -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4"
-        # Для плагинов (DLL) в CMake нужно использовать SHARED_LINKER_FLAGS или MODULE_LINKER_FLAGS
-        -DCMAKE_SHARED_LINKER_FLAGS="$LDFLAGS ${USELTO} ${EXTRA_STATIC_LIBS}"
-        -DCMAKE_MODULE_LINKER_FLAGS="$LDFLAGS ${USELTO} ${EXTRA_STATIC_LIBS}"
+        # Открываем группу в начале
+        -DCMAKE_SHARED_LINKER_FLAGS="${LDFLAGS} ${USELTO} -Wl,--start-group"
+        -DCMAKE_MODULE_LINKER_FLAGS="${LDFLAGS} ${USELTO} -Wl,--start-group"
+        # Закрываем группу и добавляем принудительно через параметр LINK_LIBRARIES
+        -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS} ${USELTO} -Wl,--start-group"
     )
+
+    # Используем переменную CMAKE_CXX_STANDARD_LIBRARIES
+    # CMake ставит её в самый конец
+    local DEP_LIBS="-lgavl -ltbb12 -lcairo -lpixman-1 -lfontconfig -lfreetype -lpng -lharfbuzz -lstdc++ $LIBS $ADDITIONAL_LIBS -Wl,--end-group"
+
+    myconf+=( -DCMAKE_CXX_STANDARD_LIBRARIES="${DEP_LIBS}" )
+    myconf+=( -DCMAKE_C_STANDARD_LIBRARIES="${DEP_LIBS}" )
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $ADDITIONAL_FLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $ADDITIONAL_FLAGS" \
