@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/dyne/frei0r.git"
-SCRIPT_COMMIT="32e91405d2ec5e222f75175b36dc4cc7bc0667ef"
+SCRIPT_COMMIT="dfc89ab1f40fc32d5609218ebc3dd0b3cc545dd8"
 
 # export SKIP_PRE_PATCH=1
 
@@ -22,23 +22,19 @@ ffbuild_dockerdl() {
     default_dl .
 }
 
-ffbuild_dockerfinal() {
-    to_df "COPY --link --from=${PREVLAYER} \$FFBUILD_PREFIX/. \$FFBUILD_PREFIX"
-    to_df "ENV FREI0R_PATH=\$FFBUILD_PREFIX/lib/frei0r-1"
-}
+# ffbuild_dockerfinal() {
+    # to_df "COPY --link --from=${PREVLAYER} \$FFBUILD_PREFIX/. \$FFBUILD_PREFIX"
+    # to_df "ENV FREI0R_PATH=\$FFBUILD_PREFIX/lib/frei0r-1"
+# }
 
 ffbuild_dockerbuild() {
     set -e
 
-    # Исправляем пути к 3rdparty либам в конфигах OpenCV
-    # Заменяем относительный путь 'lib/opencv4/3rdparty' на просто 'lib'
-    find "$FFBUILD_PREFIX/lib/cmake/opencv4" -name "*.cmake" -exec sed -i 's|lib/opencv4/3rdparty/|lib/|g' {} +
-
     # Патчим CMakeLists.txt, чтобы он искал OpenCV через pkg-config вместо find_package
-    # И фиксим использование переменных (pkg-config использует OpenCV_LIBRARIES вместо OpenCV_LIBS)
-    # sed -i 's/find_package (OpenCV REQUIRED)/pkg_check_modules(OpenCV REQUIRED opencv4)/g' CMakeLists.txt
-    # sed -i 's/${OpenCV_LIBS}/${OpenCV_LIBRARIES}/g' src/filter/facebl0r/CMakeLists.txt
-    # sed -i 's/${OpenCV_LIBS}/${OpenCV_LIBRARIES}/g' src/filter/facedetect/CMakeLists.txt
+    sed -i '1i find_package(PkgConfig REQUIRED)' CMakeLists.txt
+    sed -i 's/find_package (OpenCV REQUIRED)/pkg_check_modules(OpenCV REQUIRED opencv4)/g' CMakeLists.txt
+    # Исправляем переменные (pkg_check_modules наполняет OpenCV_LIBRARIES, а не OpenCV_LIBS)
+    find . -name "CMakeLists.txt" -exec sed -i 's/${OpenCV_LIBS}/${OpenCV_LIBRARIES}/g' {} +
 
     mkdir build && cd build
 
@@ -58,7 +54,9 @@ ffbuild_dockerbuild() {
         -DWITHOUT_CAIRO=OFF  # required for cairo- filters and mixers
         -DWITHOUT_GAVL=OFF   # required for scale0tilt and vectorscope filters
         # -DCairo_INCLUDE_DIR="" # ?
-        -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4"
+        # -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4"
+        # Указываем CMake, где искать .pc файлы
+        -DPKG_CONFIG_EXECUTABLE=$(which pkgconf)
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $ADDITIONAL_FLAGS" \
