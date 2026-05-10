@@ -38,6 +38,30 @@ ffbuild_dockerbuild() {
     # Вырезаем тесты because no dlfcn exist
     sed -i '/add_subdirectory (test)/d' CMakeLists.txt
 
+# -lgavl 
+    # Используем переменную CMAKE_CXX_STANDARD_LIBRARIES
+    # CMake ставит её в самый конец
+    local DEP_LIBS="-ltbb12 \
+-lcairo-gobject -lcairo \
+-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo \
+-lharfbuzz-vector -lharfbuzz-raster -lharfbuzz \
+-lfontconfig -lfreetype -lpixman-1 -lfribidi \
+-lgio-2.0 -lgthread-2.0 -lglib-2.0 \
+-lcurl -lquiche -lnghttp2 -lssh -lssl -lcrypto \
+-larchive \
+-ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif \
+-lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv \
+-llcms2_fast_float -llcms2_threaded -llcms2 \
+-lxml2 -lpcre2-posix -lpcre2-8 -lffi -ljbig \
+-lzstd -llzma \
+-lbrotlienc -lbrotlidec -lbrotlicommon \
+-lbz2 -lz \
+-lintl -liconv -lcharset \
+-lsicuin -lsicuuc -lsicudt \
+-lhogweed -lgmp -lnettle -lglut -lgnutls \
+-lstdc++ $LIBS $ADDITIONAL_LIBS \
+-Wl,--end-group"
+
     mkdir build && cd build
 
     local myconf=(
@@ -49,24 +73,19 @@ ffbuild_dockerbuild() {
         -DWITHOUT_FACERECOGNITION=OFF # facedetect and facebl0r plugins
         -DWITHOUT_OPENCV=OFF # required for facebl0r filter
         -DWITHOUT_CAIRO=OFF  # required for cairo- filters and mixers
-        -DWITHOUT_GAVL=OFF   # required for scale0tilt and vectorscope filters
+        -DWITHOUT_GAVL=ON   # required for scale0tilt and vectorscope filters
         # -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4"
-        # Открываем группу в начале
-        -DCMAKE_SHARED_LINKER_FLAGS="${LDFLAGS} ${USELTO} -Wl,--start-group"
-        -DCMAKE_MODULE_LINKER_FLAGS="${LDFLAGS} ${USELTO} -Wl,--start-group"
-        # Закрываем группу и добавляем принудительно через параметр LINK_LIBRARIES
-        -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS} ${USELTO} -Wl,--start-group"
+        -DCMAKE_C_STANDARD_LIBRARIES="${DEP_LIBS}"
+        -DCMAKE_CXX_STANDARD_LIBRARIES="${DEP_LIBS}"
     )
 
-    # Используем переменную CMAKE_CXX_STANDARD_LIBRARIES
-    # CMake ставит её в самый конец
-    local DEP_LIBS="-lgavl -ltbb12 -lcairo -lpixman-1 -lfontconfig -lfreetype -lpng -lharfbuzz -lstdc++ $LIBS $ADDITIONAL_LIBS -Wl,--end-group"
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCAIRO_WIN32_STATIC_BUILD -Dpixman_static -DHARFBUZZ_STATIC -DFT2_BUILD_LIBRARY -DLIBXML_STATIC -DXML_STATIC"
 
-    myconf+=( -DCMAKE_CXX_STANDARD_LIBRARIES="${DEP_LIBS}" )
-    myconf+=( -DCMAKE_C_STANDARD_LIBRARIES="${DEP_LIBS}" )
-
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $ADDITIONAL_FLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $ADDITIONAL_FLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LIBS="$DEP_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
