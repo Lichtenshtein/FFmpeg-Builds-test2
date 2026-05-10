@@ -38,7 +38,7 @@ ffbuild_dockerbuild() {
     # Вырезаем тесты because no dlfcn exist
     sed -i '/add_subdirectory (test)/d' CMakeLists.txt
 
-# -lgavl 
+# -lgavl -lhogweed -lgmp -lnettle -lgnutls 
     # Используем переменную CMAKE_CXX_STANDARD_LIBRARIES
     # CMake ставит её в самый конец
     local DEP_LIBS="-Wl,--start-group \
@@ -51,8 +51,6 @@ ffbuild_dockerbuild() {
 -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz \
 -lfontconfig -lfreetype -lpixman-1 -lfribidi \
 -lgio-2.0 -lgthread-2.0 -lglib-2.0 \
--lcurl -lquiche -lnghttp2 -lssh -lssl -lcrypto \
--larchive \
 -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif \
 -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv \
 -llcms2_fast_float -llcms2_threaded -llcms2 \
@@ -62,7 +60,7 @@ ffbuild_dockerbuild() {
 -lbz2 -lz \
 -lintl -liconv -lcharset \
 -lsicuin -lsicuuc -lsicudt \
--lhogweed -lgmp -lnettle -lglut -lgnutls \
+-lglut \
 -lstdc++ $LIBS $ADDITIONAL_LIBS \
 -Wl,--end-group"
 
