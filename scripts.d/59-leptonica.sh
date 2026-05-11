@@ -53,7 +53,7 @@ fi
     done
 
     # финальный список для линковки
-    local DEP_LIBS="-llcms2_fast_float -llcms2_threaded -llcms2 -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif -lzstd -llzma -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt"
+    local DEP_LIBS="-llcms2_fast_float -llcms2_threaded -llcms2 -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng -lgif -lzstd -llzma -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt"
     local WIN_LIBS="-lgdi32 $LIBS"
 
     # There is NO -DSTATIC=ON flag exist
