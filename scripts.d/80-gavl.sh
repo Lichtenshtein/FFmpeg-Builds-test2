@@ -21,6 +21,47 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+if [[ $TARGET == win64 ]]; then
+
+    log_info "Creating stubs for missing gavl functions..."
+    cat <<EOF > gavl/gavl_stubs.c
+#include <stdlib.h>
+#include <stdint.h>
+#include <string.h>
+
+// Логи и отладка
+void gavl_log_translate(int l) {}
+void gavl_dprintf(const char *format, ...) {}
+void gavl_diprintf(int indent, const char *format, ...) {}
+void gavl_hexdump(const uint8_t * d, int len, int max_len) {}
+void gavl_hexdumpi(int indent, const uint8_t * d, int len, int max_len) {}
+
+// Строковые утилиты (важно для Dictionary и Value)
+char * gavl_strdup(const char * s) { return s ? strdup(s) : NULL; }
+char * gavl_strtrim(char * s) { return s; }
+char ** gavl_strbreak(const char * s, const char * delim) { return NULL; }
+void gavl_strbreak_free(char ** s) {}
+int gavl_sprintf(char *str, const char *format, ...) { return 0; }
+
+// Hardware / HW (причина падения videoframe.o)
+void gavl_hw_destroy_video_frame(void *f) {}
+void gavl_hw_destroy_packet(void *p) {}
+int gavl_hw_ctx_get_type(void *c) { return 0; }
+const char * gavl_hw_type_to_string(int t) { return "none"; }
+
+// Thread Pool (причина падения scale_context.o)
+int gavl_thread_pool_get_num_threads(void *p) { return 1; }
+void gavl_thread_pool_run(void *p, void (*func)(void*), void *arg) { func(arg); }
+void gavl_thread_pool_stop(void *p) {}
+
+// Time / Benchmark (причина падения memcpy.o)
+int64_t gavl_time_unscale(int scale, int64_t t) { return t; }
+int64_t gavl_benchmark_get_time() { return 0; }
+EOF
+
+    # Добавляем файл в список сборки Makefile.am вручную
+    sed -i 's/libgavl_la_SOURCES = /libgavl_la_SOURCES = gavl_stubs.c /' gavl/Makefile.am
+
     # исправляем фатальные ошибки
     sed -i 's/AC_MSG_ERROR("getaddrinfo_a not found in libanl")/echo "Skipping libanl"/g' configure.ac
     sed -i 's/PKG_CHECK_MODULES(DRM, libdrm, have_drm="true")/have_drm="false"; DRM_CFLAGS=""; DRM_LIBS=""/g' configure.ac
@@ -46,13 +87,15 @@ ffbuild_dockerbuild() {
 
     for f in "${SYSTEM_FILES[@]}"; do
         if [ -f "gavl/$f" ]; then
-            echo "/* Disabled for Windows */" > "gavl/$f"
+            echo "/* Disabled */" > "gavl/$f"
         fi
     done
 
-    # touch include/iconv.h
+fi
 
     ./autogen.sh
+
+if [[ $TARGET == win64 ]]; then
 
     cat <<EOF > gavl_fix.h
 #ifndef GAVL_WIN_FIX_H
@@ -84,6 +127,8 @@ EOF
     find . -type f \( -name "Makefile.in" -o -name "configure" \) -exec \
         sed -i "s|-I/usr/include|-I\$(top_srcdir)/include|g" {} + || true
 
+fi
+
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
@@ -96,6 +141,8 @@ EOF
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
+
+if [[ $TARGET == win64 ]]; then
 
     CFLAGS="$CFLAGS ${NOLTO} -Wno-implicit-function-declaration" \
     CPPFLAGS="$CPPFLAGS -I$(pwd)/include -I$(pwd)/include/gavl" \
@@ -111,8 +158,23 @@ EOF
         ac_cv_header_sys_times_h=no || return 1
 
     make -C gavl -j$(nproc) $MAKE_V \
-        CFLAGS="$CFLAGS ${USELTO}${USELTO_C} -I$(pwd) -include $(pwd)/gavl_fix.h" \
+        CFLAGS="$CFLAGS ${NOLTO} -I$(pwd) -include $(pwd)/gavl_fix.h" \
+        LDFLAGS="$LDFLAGS ${NOLTO}" || return 1
+
+elif [[ $TARGET == linux64 ]]; then
+
+    CFLAGS="$CFLAGS ${USELTO}${USELTO_C} -Wno-implicit-function-declaration" \
+    CPPFLAGS="$CPPFLAGS" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_C}" \
+    LIBS="$LIBS" \
+    ./configure "${myconf[@]}" || return 1
+
+    make -C gavl -j$(nproc) $MAKE_V \
+        CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
         LDFLAGS="$LDFLAGS ${USELTO}" || return 1
+
+fi
+
     make -C gavl install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     mkdir -p "$INSTALL_ROOT/include/gavl" "$PC_DIR"
