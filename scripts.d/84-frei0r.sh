@@ -42,7 +42,8 @@ ffbuild_dockerbuild() {
     # Формируем список либ через pkg-config (так надежнее)
     local DEP_LIBS=$(pkgconf --static --libs opencv4 cairo)
     # Системные либы Windows, которые часто теряются
-    local WIN_SYS_LIBS="-lshell32 -loleaut32 -lcomctl32"
+    local WIN_SYS_LIBS="-lstdc++ -lshell32 -loleaut32 -lcomctl32"
+    local LINKER_GROUP="-Wl,--start-group ${DEP_LIBS} ${WIN_SYS_LIBS} ${LIBS} ${ADDITIONAL_LIBS} -Wl,--end-group"
     local RAW_LDFLAGS=$(echo "$LDFLAGS" | sed 's/-Wl,-Bstatic\b//g')
 
     mkdir build && cd build
@@ -56,9 +57,10 @@ ffbuild_dockerbuild() {
         -DWITHOUT_FACERECOGNITION=OFF # facedetect and facebl0r plugins
         -DWITHOUT_OPENCV=OFF # required for facebl0r filter
         -DWITHOUT_CAIRO=OFF  # required for cairo- filters and mixers
-        -DWITHOUT_GAVL=ON   # required for scale0tilt and vectorscope filters
+        -DWITHOUT_GAVL=ON    # required for scale0tilt and vectorscope filters
         # -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4"
-        -DOPENCV_LIBRARIES="opencv_core;opencv_imgproc;opencv_video;opencv_objdetect"
+        -DCMAKE_C_STANDARD_LIBRARIES="${LINKER_GROUP}"
+        -DCMAKE_CXX_STANDARD_LIBRARIES="${LINKER_GROUP}"
     )
 
     export static_flags=""
@@ -69,8 +71,6 @@ ffbuild_dockerbuild() {
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${NOLTO} -fcommon $static_flags" \
     LDFLAGS="$RAW_LDFLAGS ${NOLTO} -Wl,--allow-multiple-definition" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
-
-    export LIBS="$LIBS -lmsvc_stub -lippicv"
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
