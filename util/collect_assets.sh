@@ -35,6 +35,14 @@ else
     log_warn "Frei0r plugins not found in $FFBUILD_PREFIX/lib/frei0r-1"
 fi
 
+# Плагин nnedi3
+if [[ -f "$FFBUILD_PREFIX/lib/libvsznedi3.dll" ]]; then
+    log_info "${SYNC_MARK} Moving nnedi3 plugin..."
+    mv -f "$FFBUILD_PREFIX/lib/libvsznedi3.dll" "$PKG_DIR/bin/libvsznedi3.dll"
+else
+    log_warn "nnedi3 plugin not found in $FFBUILD_PREFIX/lib"
+fi
+
 # Плагины avisynth
 if [[ -d "$FFBUILD_PREFIX/lib/avisynth" ]]; then
     log_info "${SYNC_MARK} Collecting avisynth plugins..."
