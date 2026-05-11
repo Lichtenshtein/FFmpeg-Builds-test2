@@ -323,6 +323,9 @@ EOF
         if [[ "${myconf[@]}" =~ "-DWITH_OPENVINO=ON" ]]; then
             sed -i '/^Libs.private:/ s/$/ -lopenvino/' "$PC_FILE"
         fi
+        if [[ "${myconf[@]}" =~ "-DWITH_TBB=ON" ]]; then
+            sed -i '/^Libs.private:/ s/$/ -ltbb12/' "$PC_FILE"
+        fi
         if [[ "${myconf[@]}" =~ "-DWITH_IPP=ON" ]]; then
             sed -i 's|^Libs.private: |Libs.private: -lmsvc_stub -lippicv |' "$PC_FILE"
             sed -i 's/-lippicvmt//g; s/-lippicv -lippicv/-lippicv/g' "$PC_FILE"
