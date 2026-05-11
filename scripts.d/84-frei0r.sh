@@ -41,9 +41,10 @@ ffbuild_dockerbuild() {
 # -lgavl -lhogweed -lgmp -lnettle -lgnutls 
     # Формируем список либ через pkg-config (так надежнее)
     # local DEP_LIBS=$(pkgconf --static --libs opencv4 cairo)
+    local DEP_LIBS=$(pkgconf --static --libs gavl) 
     # Системные либы Windows, которые часто теряются
-    # local WIN_SYS_LIBS="-lstdc++ -lshell32 -loleaut32 -lcomctl32"
-    # local LINKER_GROUP="-Wl,--start-group ${DEP_LIBS} ${WIN_SYS_LIBS} ${LIBS} ${ADDITIONAL_LIBS} -Wl,--end-group"
+    local WIN_SYS_LIBS="-lstdc++ -lshell32 -loleaut32 -lcomctl32"
+    local LINKER_GROUP="-Wl,--start-group ${DEP_LIBS} ${WIN_SYS_LIBS} ${LIBS} ${ADDITIONAL_LIBS} -Wl,--end-group"
     local RAW_LDFLAGS=$(echo "$LDFLAGS" | sed 's/-Wl,-Bstatic\b//g')
 
     mkdir build && cd build

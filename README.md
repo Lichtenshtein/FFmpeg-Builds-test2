@@ -228,7 +228,7 @@ All of those can be optionally combined with any combination of addins:
 
 * `gavl`
 ```
-08-zlib|09-gmp|11-zstd|31-nettle|32-gnutls|80-gavl
+06-libiconv|08-zlib|09-gmp|11-zstd|31-nettle|32-gnutls|80-gavl
 ```
 
 * `frei0r`
