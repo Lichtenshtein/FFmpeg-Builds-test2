@@ -42,7 +42,7 @@ ffbuild_dockerbuild() {
     # Формируем список либ через pkg-config (так надежнее)
     local DEP_LIBS=$(pkgconf --static --libs opencv4 cairo)
     # Системные либы Windows, которые часто теряются
-    local WIN_SYS_LIBS="lcomdlg32 -lshell32 -loleaut32 -lcomctl32"
+    local WIN_SYS_LIBS="-lshell32 -loleaut32 -lcomctl32"
     local RAW_LDFLAGS=$(echo "$LDFLAGS" | sed 's/-Wl,-Bstatic\b//g')
 
     mkdir build && cd build
@@ -66,9 +66,9 @@ ffbuild_dockerbuild() {
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCAIRO_WIN32_STATIC_BUILD -Dpixman_static -DHARFBUZZ_STATIC -DFT2_BUILD_LIBRARY -DLIBXML_STATIC -DXML_STATIC"
 
 # -Wl,--unresolved-symbols=ignore-all
-    CFLAGS="$CFLAGS $CPPFLAGS ${NOLTO} -fcommon $static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${NOLTO} -fcommon $static_flags" \
-    LDFLAGS="$RAW_LDFLAGS ${NOLTO} -Wl,--allow-multiple-definition" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fcommon $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fcommon $static_flags" \
+    LDFLAGS="$RAW_LDFLAGS ${USELTO} -Wl,--allow-multiple-definition" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
