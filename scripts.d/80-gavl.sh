@@ -29,6 +29,9 @@ if [[ $TARGET == win64 ]]; then
 #include <stdint.h>
 #include <string.h>
 
+// Подключаем типы gavl, чтобы сигнатуры совпали
+typedef struct gavl_thread_pool_s gavl_thread_pool_t;
+
 // Логи и отладка
 void gavl_log_translate(int l) {}
 void gavl_dprintf(const char *format, ...) {}
@@ -36,27 +39,32 @@ void gavl_diprintf(int indent, const char *format, ...) {}
 void gavl_hexdump(const uint8_t * d, int len, int max_len) {}
 void gavl_hexdumpi(int indent, const uint8_t * d, int len, int max_len) {}
 
-// Строковые утилиты (важно для Dictionary и Value)
+// Строковые утилиты
 char * gavl_strdup(const char * s) { return s ? strdup(s) : NULL; }
 char * gavl_strtrim(char * s) { return s; }
 char ** gavl_strbreak(const char * s, const char * delim) { return NULL; }
 void gavl_strbreak_free(char ** s) {}
 int gavl_sprintf(char *str, const char *format, ...) { return 0; }
 
-// Hardware / HW (причина падения videoframe.o)
+// Hardware / HW
 void gavl_hw_destroy_video_frame(void *f) {}
 void gavl_hw_destroy_packet(void *p) {}
 int gavl_hw_ctx_get_type(void *c) { return 0; }
 const char * gavl_hw_type_to_string(int t) { return "none"; }
 
-// Thread Pool (причина падения scale_context.o)
-int gavl_thread_pool_get_num_threads(void *p) { return 1; }
-void gavl_thread_pool_run(void *p, void (*func)(void*), void *arg) { func(arg); }
-void gavl_thread_pool_stop(void *p) {}
+// Thread Pool (Исправлено под лог ошибки)
+int gavl_thread_pool_get_num_threads(gavl_thread_pool_t *p) { return 1; }
 
-// Time / Benchmark (причина падения memcpy.o)
+void gavl_thread_pool_run(void (*func)(void*, int, int), void *arg, 
+                          int start, int len, void * pool, int threads) {
+    if (func) func(arg, start, len);
+}
+
+void gavl_thread_pool_stop(void * client_data, int thread) {}
+
+// Time / Benchmark (Исправлено под лог ошибки)
 int64_t gavl_time_unscale(int scale, int64_t t) { return t; }
-int64_t gavl_benchmark_get_time() { return 0; }
+uint64_t gavl_benchmark_get_time(int flags) { return 0; }
 EOF
 
     # Добавляем файл в список сборки Makefile.am вручную
