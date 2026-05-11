@@ -58,8 +58,7 @@ ffbuild_dockerbuild() {
         -DWITHOUT_CAIRO=OFF  # required for cairo- filters and mixers
         -DWITHOUT_GAVL=ON   # required for scale0tilt and vectorscope filters
         # -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4"
-        -DCMAKE_C_STANDARD_LIBRARIES="${DEP_LIBS} ${WIN_SYS_LIBS} ${LIBS} ${ADDITIONAL_LIBS}"
-        -DCMAKE_CXX_STANDARD_LIBRARIES="${DEP_LIBS} -lstdc++ ${WIN_SYS_LIBS} ${LIBS} ${ADDITIONAL_LIBS}"
+        -DOPENCV_LIBRARIES="opencv_core;opencv_imgproc;opencv_video;opencv_objdetect"
     )
 
     export static_flags=""
@@ -70,6 +69,8 @@ ffbuild_dockerbuild() {
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${NOLTO} -fcommon $static_flags" \
     LDFLAGS="$RAW_LDFLAGS ${NOLTO} -Wl,--allow-multiple-definition" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
+
+    export LIBS="$LIBS -lmsvc_stub -lippicv"
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
