@@ -97,9 +97,9 @@ EOF
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    CFLAGS="$CFLAGS ${USELTO}${USELTO_C} -Wno-implicit-function-declaration" \
+    CFLAGS="$CFLAGS ${NOLTO} -Wno-implicit-function-declaration" \
     CPPFLAGS="$CPPFLAGS -I$(pwd)/include -I$(pwd)/include/gavl" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${NOLTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" \
         ac_cv_func_getaddrinfo_a=no \
