@@ -66,9 +66,9 @@ ffbuild_dockerbuild() {
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCAIRO_WIN32_STATIC_BUILD -Dpixman_static -DHARFBUZZ_STATIC -DFT2_BUILD_LIBRARY -DLIBXML_STATIC -DXML_STATIC"
 
 # -Wl,--unresolved-symbols=ignore-all
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fcommon $static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fcommon $static_flags" \
-    LDFLAGS="$RAW_LDFLAGS ${USELTO} -Wl,--allow-multiple-definition" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${NOLTO} -fcommon $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${NOLTO} -fcommon $static_flags" \
+    LDFLAGS="$RAW_LDFLAGS ${NOLTO} -Wl,--allow-multiple-definition" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
