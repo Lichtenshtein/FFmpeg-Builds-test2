@@ -40,10 +40,10 @@ ffbuild_dockerbuild() {
 
 # -lgavl -lhogweed -lgmp -lnettle -lgnutls 
     # Формируем список либ через pkg-config (так надежнее)
-    local DEP_LIBS=$(pkgconf --static --libs opencv4 cairo)
+    # local DEP_LIBS=$(pkgconf --static --libs opencv4 cairo)
     # Системные либы Windows, которые часто теряются
-    local WIN_SYS_LIBS="-lstdc++ -lshell32 -loleaut32 -lcomctl32"
-    local LINKER_GROUP="-Wl,--start-group ${DEP_LIBS} ${WIN_SYS_LIBS} ${LIBS} ${ADDITIONAL_LIBS} -Wl,--end-group"
+    # local WIN_SYS_LIBS="-lstdc++ -lshell32 -loleaut32 -lcomctl32"
+    # local LINKER_GROUP="-Wl,--start-group ${DEP_LIBS} ${WIN_SYS_LIBS} ${LIBS} ${ADDITIONAL_LIBS} -Wl,--end-group"
     local RAW_LDFLAGS=$(echo "$LDFLAGS" | sed 's/-Wl,-Bstatic\b//g')
 
     mkdir build && cd build
@@ -55,9 +55,9 @@ ffbuild_dockerbuild() {
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DWITHOUT_FACERECOGNITION=OFF # facedetect and facebl0r plugins
-        -DWITHOUT_OPENCV=OFF # required for facebl0r filter
-        -DWITHOUT_CAIRO=OFF  # required for cairo- filters and mixers
-        -DWITHOUT_GAVL=ON    # required for scale0tilt and vectorscope filters
+        -DWITHOUT_OPENCV=ON # required for facebl0r filter
+        -DWITHOUT_CAIRO=ON  # required for cairo- filters and mixers
+        -DWITHOUT_GAVL=OFF    # required for scale0tilt and vectorscope filters
         # -DOPENCV_DIR="$FFBUILD_PREFIX/lib/cmake/opencv4"
         -DCMAKE_C_STANDARD_LIBRARIES="${LINKER_GROUP}"
         -DCMAKE_CXX_STANDARD_LIBRARIES="${LINKER_GROUP}"

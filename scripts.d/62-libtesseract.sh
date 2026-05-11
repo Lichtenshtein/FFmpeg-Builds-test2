@@ -257,7 +257,7 @@ WRAPPER_EOF
         -DLEPT_TIFF_COMPILE_SUCCESS=ON
         # Explicit library paths so CMake's try_compile doesn't fail
         -DCMAKE_FIND_LIBRARY_SUFFIXES=".a"
-        -DPKG_CONFIG_EXECUTABLE="$(command -v pkg-config)"
+        -DPKG_CONFIG_EXECUTABLE="$(command -v pkgconf)"
         # Compiler flags
         -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS -Wno-narrowing -Wno-format"
         -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS -Wno-narrowing -Wno-format"
