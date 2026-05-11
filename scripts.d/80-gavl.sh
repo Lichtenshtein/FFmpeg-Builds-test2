@@ -7,7 +7,7 @@ ffbuild_depends() {
     echo gmp
     echo gnutls
     echo nettle
-    echo iconv
+    echo libiconv
 }
 
 ffbuild_enabled() {
@@ -20,6 +20,8 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+# let's create our own Frankenstein monster
 
 if [[ $TARGET == win64 ]]; then
 
