@@ -228,7 +228,7 @@ COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=
 
 # Общие и дополнительные либы
 SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
-export ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lkernel32 -lnormaliz -lwsock32 -lcomctl32 -lgomp"
+export ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lkernel32 -lnormaliz -lwsock32 -lcomctl32 -lshell32 -loleaut32 -lgomp"
 
 # Функция для сборки строки RUSTFLAGS из массива
 # Принимает префикс (например "-C link-arg=") и имя массива
@@ -999,6 +999,18 @@ clean_unwanted_libs() {
     fi
 }
 export -f clean_unwanted_libs
+
+# Использование в скрипте: local DEP_LIBS=$(get_pc_libs tesseract lept libarchive libcurl)
+get_pc_libs() {
+    local libs=""
+    for lib in "$@"; do
+        if "${PKG_CONFIG}" --exists "$lib"; then
+            libs="$libs $lib"
+        fi
+    done
+    "${PKG_CONFIG}" --static --libs $libs
+}
+export -f get_pc_libs
 
 # Generates .a files from .dll files for dynamic libraries we want to link.
 # Typically called for components in DLL_PRESERVE_LIST

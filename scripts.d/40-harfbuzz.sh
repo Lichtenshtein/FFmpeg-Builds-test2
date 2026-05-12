@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     # порядок линковки критичен для статики
-    local DEP_LIBS="-lcairo-gobject -lcairo -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lz -lfreetype -lsicuin -lsicuuc -lsicudt"
+    local DEP_LIBS="-lcairo-gobject -lcairo -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lz -lfreetype -licuin -licuuc -licudt"
     local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
 
     local myconf=(

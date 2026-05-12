@@ -111,48 +111,50 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # Verify data library was created
-    if [[ ! -f "$INSTALL_ROOT/lib/libicudt.a" ]] && \
-       [[ ! -f "$INSTALL_ROOT/lib/libsicudt.a" ]]; then
-        log_error "ICU data library not found!"
-        ls -la "$INSTALL_ROOT/lib/" | grep -i icu || true
-        return 1
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        # Verify data library was created
+        if [[ ! -f "$INSTALL_ROOT/lib/*.a" ]]; then
+            log_error "ICU data library not found!"
+            ls -la "$INSTALL_ROOT/lib/" | grep -i icu || true
+            return 1
+        fi
     fi
 
-    # Rename libraries (libicu* → libsicu*)
+    # Переходим в директорию скомпилированных библиотек
     cd "$INSTALL_ROOT/lib"
-    for lib in libicu*.a; do
-        [[ -f "$lib" ]] && mv "$lib" "s${lib#lib}" 2>/dev/null || true
-    done
-    # Исправляем специфичный sicudt (иногда он без 'lib' вначале)
-    [[ -f "icudt.a" ]] && mv "icudt.a" "libsicudt.a"
-    [[ -f "sicudt.a" ]] && mv "sicudt.a" "libsicudt.a"
 
-    # Update .pc files
+    # приводим ВСЕ вариации имен ICU к стандарту libicu*.a
+    [[ -f "sicudt.a" ]]  && mv "sicudt.a"  "libicudt.a"
+    [[ -f "libsicudt.a" ]] && mv "libsicudt.a" "libicudt.a"
+    [[ -f "libsicuin.a" ]] && mv "libsicuin.a" "libicuin.a"
+    [[ -f "libsicuuc.a" ]] && mv "libsicuuc.a" "libicuuc.a"
+
+    # если вдруг файлы собрались без префикса 'lib'
+    [[ -f "sicuuc.a" ]]  && mv "sicuuc.a"  "libicuuc.a"
+    [[ -f "sicuin.a" ]]  && mv "sicuin.a"  "libicuin.a"
+
     local ICU_SYS_LIBS="-lstdc++ -pthread -lm -ladvapi32 -lws2_32"
     for pc in "$PC_DIR"/icu-*.pc; do
         [[ -e "$pc" ]] || continue
-        # Меняем имена библиотек (icu -> sicu)
-        sed -i 's/-licu/-lsicu/g' "$pc"
-        # Добавляем статический флаг
+        # стандартные имена -licu
+        sed -i 's/-lsicu/-licu/g' "$pc"
+        # Добавляем макросы статики в Cflags
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$pc"; then
                 sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
             fi
         fi
-        # Вычищаем системные либы из основной строки Libs
-        # (Удаляем ${baselibs}, -lpthread, -lm, так как они пойдут в private)
+        # Вычищаем мусор из основной строки Libs
         sed -i 's/\${baselibs}//g; s/-lpthread//g; s/-lm//g' "$pc"
-        # обработка Libs.private (без дубликатов в конце файла)
+        # прописываем системные зависимости Windows в Libs.private
         if grep -q "^Libs.private:" "$pc"; then
             sed -i "s|^Libs.private:.*|Libs.private: $ICU_SYS_LIBS|" "$pc"
         else
-            # Вставляем ПОСЛЕ строки Libs, а не в конец файла
             sed -i "/^Libs:/ a Libs.private: $ICU_SYS_LIBS" "$pc"
         fi
-        # наличие -lsicudt только ОДИН раз
-        if ! grep -q -- "-lsicudt" "$pc"; then
-            sed -i '/^Libs:/ s/$/ -lsicudt/' "$pc"
+        # Добавляем библиотеку данных (-licudt) в строку линковки, если её там нет
+        if ! grep -q -- "-licudt" "$pc"; then
+            sed -i '/^Libs:/ s/$/ -licudt/' "$pc"
         fi
     done
 }

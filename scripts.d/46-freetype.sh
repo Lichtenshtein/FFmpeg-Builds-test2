@@ -28,8 +28,7 @@ ffbuild_dockerbuild() {
 
     ./autogen.sh
 
-    local DEP_LIBS="-Wl,--start-group -lrsvg_2 -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lcairo-gobject -lcairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lpng16 -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -Wl,--end-group"
-    local WIN_LIBS="$LIBS"
+    local DEP_LIBS="-Wl,--start-group -lrsvg_2 -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lcairo-gobject -lcairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lpng -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -Wl,--end-group"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -53,7 +52,7 @@ ffbuild_dockerbuild() {
     CPPFLAGS="$CPPFLAGS $static_flags" \
     CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
-    LIBS="$DEP_LIBS $WIN_LIBS" \
+    LIBS="$DEP_LIBS $LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1

@@ -22,7 +22,7 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
-    local DEP_LIBS="-lfreetype -lsicuin -lsicuuc -lsicudt"
+    local DEP_LIBS="-lfreetype -licuin -licuuc -licudt"
     local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
 
     local myconf=(

@@ -205,38 +205,32 @@ WRAPPER_EOF
     trap restore_gxx EXIT
 
     # Full lib list (flat, no group; we add group after configure)
-    local ALL_LIBS="\
--lleptonica \
--lpangocairo-1.0 -lpangowin32-1.0 -lpangoft2-1.0 -lpango-1.0 \
--lcairo-gobject -lcairo \
--lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo \
--lharfbuzz-vector -lharfbuzz-raster -lharfbuzz \
--lfontconfig -lfreetype -lpixman-1 -lfribidi \
--lgio-2.0 -lgthread-2.0 -lglib-2.0 \
--lcurl -lquiche -lnghttp2 -lssh -lssl -lcrypto \
--larchive \
--ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif \
--lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv \
--llcms2_fast_float -llcms2_threaded -llcms2 \
--lxml2 -lpcre2-posix -lpcre2-8 -lffi -ljbig \
--lzstd -llzma \
--lbrotlienc -lbrotlidec -lbrotlicommon \
--lbz2 -lz \
--lintl -liconv -lcharset \
--lsicuin -lsicuuc -lsicudt \
--luserenv -lcrypt32 -lnormaliz -luuid \
--lgdi32 -lsetupapi -lole32 -lshlwapi -liphlpapi \
--luser32 -ladvapi32 -ldbghelp -lwldap32 \
--lws2_32 -lwinmm -lbcrypt  \
--lpthread -lstdc++ -lm \
--lusp10 -lmsimg32 -lruntimeobject \
--ldwrite -ld2d1 -lwindowscodecs -lopengl32"
-
-    # Strip -Wl,-Bstatic — blocks import libs needed for __imp_ symbols
-    local RAW_LDFLAGS=$(echo "$LDFLAGS" | sed 's/-Wl,-Bstatic\b//g')
-
-    export static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB"
+    # local ALL_LIBS="\
+# -lleptonica \
+# -lpangocairo-1.0 -lpangowin32-1.0 -lpangoft2-1.0 -lpango-1.0 \
+# -lcairo-gobject -lcairo \
+# -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo \
+# -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz \
+# -lfontconfig -lfreetype -lpixman-1 -lfribidi \
+# -lgio-2.0 -lgthread-2.0 -lglib-2.0 \
+# -lcurl -lquiche -lnghttp2 -lssh -lssl -lcrypto \
+# -larchive \
+# -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng16 -lgif \
+# -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv \
+# -llcms2_fast_float -llcms2_threaded -llcms2 \
+# -lxml2 -lpcre2-posix -lpcre2-8 -lffi -ljbig \
+# -lzstd -llzma \
+# -lbrotlienc -lbrotlidec -lbrotlicommon \
+# -lbz2 -lz \
+# -lintl -liconv -lcharset \
+# -licuin -licuuc -licudt \
+# -luserenv -lcrypt32 -lnormaliz -luuid \
+# -lgdi32 -lsetupapi -lole32 -lshlwapi -liphlpapi \
+# -luser32 -ladvapi32 -ldbghelp -lwldap32 \
+# -lws2_32 -lwinmm -lbcrypt  \
+# -lpthread -lstdc++ -lm \
+# -lusp10 -lmsimg32 -lruntimeobject \
+# -ldwrite -ld2d1 -lwindowscodecs -lopengl32"
 
     local myconf=(
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
@@ -257,16 +251,31 @@ WRAPPER_EOF
         -DLEPT_TIFF_COMPILE_SUCCESS=ON
         # Explicit library paths so CMake's try_compile doesn't fail
         -DCMAKE_FIND_LIBRARY_SUFFIXES=".a"
-        -DPKG_CONFIG_EXECUTABLE="$(command -v pkgconf)"
-        # Compiler flags
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS -Wno-narrowing -Wno-format"
-        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS -Wno-narrowing -Wno-format"
-        # Linker flags
-        -DCMAKE_EXE_LINKER_FLAGS="$RAW_LDFLAGS ${USELTO} -Wl,--no-as-needed $ALL_LIBS -Wl,--as-needed -Wl,--allow-multiple-definition"
-        -DCMAKE_SHARED_LINKER_FLAGS="$RAW_LDFLAGS ${USELTO} -Wl,--no-as-needed $ALL_LIBS -Wl,--as-needed -Wl,--allow-multiple-definition"
+        -DPKG_CONFIG_EXECUTABLE="$(command -v ${PKG_CONFIG})"
     )
 
-    cmake -G Ninja "${myconf[@]}" .. || return 1
+    if [[ "${myconf[@]}" =~ "-DBUILD_TRAINING_TOOLS=ON" ]]; then
+        local DEP_LIBS=$(get_pc_libs lept pangocairo libarchive libcurl icu-i18n)
+    else
+        local DEP_LIBS=$(get_pc_libs lept libarchive libcurl)
+    fi
+    local SYS_LIBS="-lstdc++"
+    local C_FLAGS="-DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS -Wno-narrowing -Wno-format"
+    local LINKER_GROUP="-Wl,--start-group ${DEP_LIBS} ${LIBS} ${ADDITIONAL_LIBS} ${SYS_LIBS} -Wl,--end-group"
+    # Strip -Wl,-Bstatic — blocks import libs needed for __imp_ symbols
+    # local RAW_LDFLAGS=$(echo "$LDFLAGS" | sed 's/-Wl,-Bstatic\b//g')
+
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB"
+
+    cmake -G Ninja "${myconf[@]}"  \
+        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${C_FLAGS} $static_flags" \
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${C_FLAGS} $static_flags" \
+        -DCMAKE_C_STANDARD_LIBRARIES="${LINKER_GROUP}" \
+        -DCMAKE_CXX_STANDARD_LIBRARIES="${LINKER_GROUP}" \
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${USELTO} -Wl,--allow-multiple-definition" \
+        -DCMAKE_SHARED_LINKER_FLAGS="$LDFLAGS ${USELTO} -Wl,--allow-multiple-definition" \
+        .. ||  return 1
 
     # Clear INTERFACE_LINK_LIBRARIES (belt and suspenders)
     find . -name "TesseractTargets.cmake" -o -name "*Targets*.cmake" 2>/dev/null \
@@ -282,9 +291,12 @@ WRAPPER_EOF
 
     local PC_FILE="$PC_DIR/tesseract.pc"
     if [[ -f "$PC_FILE" ]]; then
-        local DEP_LIBS="-lleptonica -ltiff"
+        local DEP_LIBS="-larchive -lcurl"
         sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS|" "$PC_FILE"
-        sed -i "s|^Requires.private:.*|Requires.private: |" "$PC_FILE"
+    if [[ "${myconf[@]}" =~ "-DBUILD_TRAINING_TOOLS=ON" ]]; then
+        sed -i '/^Libs.private:/ s/$/ -pangocairo -lsicuin/' "$PC_FILE"
+    fi
+        sed -i "s|^Requires.private:.*|Requires.private: lept tiff|" "$PC_FILE"
     fi
 
     # Возвращаем старые конфиги назад (не затирая новые от самого tesseract)
