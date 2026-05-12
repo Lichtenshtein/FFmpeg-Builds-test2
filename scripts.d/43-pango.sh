@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     local DEP_LIBS="-Wl,--start-group -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lcairo-gobject -lcairo -lfontconfig -lfreetype -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfribidi -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -licuin -licuuc -licudt -Wl,--end-group"
-    local WIN_LIBS="-lrpcrt4 -lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -luuid $LIBS -lstdc++"
+    local WIN_LIBS="-lrpcrt4 -lusp10 -lgdi32 -lmsimg32 -lruntimkdir -p "$PC_DIR" "$INSTALL_ROOT/include/pango-1.0/pango"meobject -ldwrite -ld2d1 -lwindowscodecs -luuid $LIBS -lstdc++"
 
     local LDFLAGS=$(echo "$LDFLAGS" | sed 's/-lssp//g')
 
@@ -72,14 +72,14 @@ ffbuild_dockerbuild() {
               pango/libpangowin32-1.0.a || return 1
 
         # Создаем структуру директорий в DESTDIR
-        mkdir -p "$PC_DIR" "$INSTALL_ROOT/include/pango"
+        mkdir -p "$PC_DIR" "$INSTALL_ROOT/include/pango-1.0/pango"
 
         # Копируем собранные библиотеки вручную
         cp pango/*.a "$INSTALL_ROOT/lib/"
 
         # Копируем заголовочные файлы
-        cp ../pango/*.h "$INSTALL_ROOT/include/pango/" 2>/dev/null || true
-        cp pango/*.h "$INSTALL_ROOT/include/pango/" 2>/dev/null || true
+        cp ../pango/*.h "$INSTALL_ROOT/include/pango-1.0/pango/" 2>/dev/null || true
+        cp pango/*.h "$INSTALL_ROOT/include/pango-1.0/pango/" 2>/dev/null || true
 
         # Копируем и правим pkg-config файлы
         cp meson-private/*pango*.pc "$PC_DIR/"

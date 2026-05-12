@@ -83,6 +83,6 @@ ffbuild_dockerbuild() {
     done
 }
 
-ffbuild_libs() {
-    echo "-fftw3 -fftw3f"
-}
+# ffbuild_libs() {
+    # echo "-lfftw3 -lfftw3f"
+# }
