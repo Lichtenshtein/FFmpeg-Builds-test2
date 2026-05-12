@@ -22,6 +22,11 @@ ffbuild_dockerbuild() {
 
     export SKIP_POST_STRIP=1
 
+    # исправление ошибок LARGE_INTEGER и QueryPerformanceCounter
+    if [[ $TARGET == win* ]]; then
+        sed -i '/#if SYS_WINDOWS/a #include <windows.h>' source/common/common.c
+    fi
+
     find source -name "*.c" -exec sed -i 's/#define __int64 int64_t/\/\/ #define __int64 int64_t/g' {} +
 
     cd /build/${STAGENAME}/build/linux
@@ -61,7 +66,7 @@ ffbuild_dockerbuild() {
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --enable-shared ) || \
         myconf+=( --enable-static )
-    # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
+    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     if [[ $TARGET == win* ]]; then
         export AS="nasm"
