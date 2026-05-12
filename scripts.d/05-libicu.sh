@@ -112,26 +112,27 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # Verify data library was created
-        if [[ ! -f "$INSTALL_ROOT/lib/*.a" ]]; then
-            log_error "ICU data library not found!"
-            ls -la "$INSTALL_ROOT/lib/" | grep -i icu || true
+        # Переходим в директорию скомпилированных библиотек
+        cd "$INSTALL_ROOT/lib" || return 1
+        # Исправляем странное поведение ICU, когда данные улетают в bin
+        if [[ -f "$INSTALL_ROOT/bin/sicudt.a" ]]; then
+            mv "$INSTALL_ROOT/bin/sicudt.a" "$INSTALL_ROOT/lib/libicudt.a"
+        fi
+        # Приводим все к стандарту libicu*.a
+        for f in libsicu*.a; do
+            [[ -e "$f" ]] && mv "$f" "libicu${f#libsicu}" 2>/dev/null || true
+        done
+        # обрабатываем файлы, которые могли создаться без lib (sicudt.a, sicuuc.a)
+        for f in sicu*.a; do
+            [[ -e "$f" ]] && mv "$f" "libicu${f#sicu}" 2>/dev/null || true
+        done
+        # проверка наличия критически важных компонентов
+        if [[ ! -f "libicuuc.a" ]]; then
+            log_error "ICU core library (libicuuc.a) not found!"
+            ls -la .
             return 1
         fi
     fi
-
-    # Переходим в директорию скомпилированных библиотек
-    cd "$INSTALL_ROOT/lib"
-
-    # приводим ВСЕ вариации имен ICU к стандарту libicu*.a
-    [[ -f "sicudt.a" ]]  && mv "sicudt.a"  "libicudt.a"
-    [[ -f "libsicudt.a" ]] && mv "libsicudt.a" "libicudt.a"
-    [[ -f "libsicuin.a" ]] && mv "libsicuin.a" "libicuin.a"
-    [[ -f "libsicuuc.a" ]] && mv "libsicuuc.a" "libicuuc.a"
-
-    # если вдруг файлы собрались без префикса 'lib'
-    [[ -f "sicuuc.a" ]]  && mv "sicuuc.a"  "libicuuc.a"
-    [[ -f "sicuin.a" ]]  && mv "sicuin.a"  "libicuin.a"
 
     local ICU_SYS_LIBS="-lstdc++ -pthread -lm -ladvapi32 -lws2_32"
     for pc in "$PC_DIR"/icu-*.pc; do
