@@ -1,11 +1,9 @@
 #!/bin/bash
 
-# SCRIPT_REPO="https://github.com/pkuvcl/xavs2.git"
-# SCRIPT_COMMIT="eae1e8b9d12468059bdd7dee893508e470fa83d8"
+SCRIPT_REPO="https://github.com/pkuvcl/xavs2.git"
+SCRIPT_COMMIT="eae1e8b9d12468059bdd7dee893508e470fa83d8"
 
-SCRIPT_REPO="https://github.com/Jamaika1/xavs2.git"
-SCRIPT_COMMIT="0fdc646f3249bd4258ed52efcba520b0d38cd8d4"
-SCRIPT_BRANCH4="patch-4"
+# Tip to self: DON'T use jamaika1's forks
 
 ffbuild_enabled() {
     [[ $VARIANT == lgpl* ]] && return 1
