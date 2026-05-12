@@ -22,8 +22,9 @@ ffbuild_dockerbuild() {
 
     export SKIP_POST_STRIP=1
 
-    # исправление ошибок LARGE_INTEGER и QueryPerformanceCounter
+
     if [[ $TARGET == win* ]]; then
+        # исправление ошибок LARGE_INTEGER и QueryPerformanceCounter
         sed -i '/#if SYS_WINDOWS/a #include <windows.h>' source/common/common.c
     fi
 
@@ -75,6 +76,17 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" \
         --extra-cflags="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-tautological-compare -Wno-discarded-qualifiers -Wno-array-parameter -Wno-missing-braces" \
         --extra-ldflags="$LDFLAGS ${USELTO}" || return 1
+
+    if [[ $TARGET == win* ]]; then
+        local INTRINSIC_FILE=$(find /build/${STAGENAME} -name "intrinsic.h" | head -n 1)
+        if [[ -n "$INTRINSIC_FILE" ]]; then
+            log_info "Patch the generated file: $INTRINSIC_FILE"
+            sed -i '1i#include <immintrin.h>' "$INTRINSIC_FILE"
+            sed -i '/#else/,/#endif/ { /#else/! { /#endif/! d } }' "$INTRINSIC_FILE"
+        else
+            log_warn "The file intrinsic.h was not found after configure, the build may fail."
+        fi
+    fi
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
