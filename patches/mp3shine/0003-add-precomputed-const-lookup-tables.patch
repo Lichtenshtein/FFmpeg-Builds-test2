@@ -17,19 +17,6 @@ Enable placing in constant memory (.text) various tables that never change durin
  create mode 100644 src/lib/l3luts.c
  create mode 100644 src/lib/l3luts.h
 
-diff --git a/.gitignore b/.gitignore
-index aa76abe..f129ccb 100644
---- a/.gitignore
-+++ b/.gitignore
-@@ -37,6 +37,8 @@ src/l3bitstream.lo
- src/l3bitstream.o
- src/l3loop.lo
- src/l3loop.o
-+src/l3luts.lo
-+src/l3luts.o
- src/l3mdct.lo
- src/l3mdct.o
- src/l3subband.lo
 diff --git a/Makefile.am b/Makefile.am
 index bebf32d..8d483ad 100644
 --- a/Makefile.am

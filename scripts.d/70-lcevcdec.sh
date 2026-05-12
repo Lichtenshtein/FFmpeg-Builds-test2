@@ -83,9 +83,9 @@ EOF
 }
 
 ffbuild_configure() {
-    echo --enable-liblcevc-dec
+    echo --enable-liblcevc_dec
 }
 
 ffbuild_unconfigure() {
-    echo --disable-liblcevc-dec
+    echo --disable-liblcevc_dec
 }
