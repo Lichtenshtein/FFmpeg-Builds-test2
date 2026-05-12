@@ -117,7 +117,7 @@ stage_cleanup() {
 trap stage_cleanup EXIT
 
 # Создаем и входим в директории сборки ДО загрузки скрипта
-log_info "Creating the base folder structure if it doesn't exist..."
+log_info "${DIRS_MARK} Creating the base folder structure if it doesn't exist..."
 mkdir -p "$VARS_DIR" "$FFBUILD_DESTDIR" "$INSTALL_ROOT"/{include,bin,lib/pkgconfig} "/build/$STAGENAME" && cd "/build/$STAGENAME"
 
 # Подгружаем скрипт заранее, чтобы проверить SCRIPT_SKIP
