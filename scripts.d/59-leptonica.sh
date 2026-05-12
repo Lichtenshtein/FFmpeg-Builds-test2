@@ -52,10 +52,6 @@ fi
         fi
     done
 
-    # финальный список для линковки
-    local DEP_LIBS="-llcms2_fast_float -llcms2_threaded -llcms2 -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng -lgif -lzstd -llzma -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -lsicuin -lsicuuc -lsicudt"
-    local WIN_LIBS="-lgdi32 $LIBS"
-
     # There is NO -DSTATIC=ON flag exist
     local myconf=(
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
@@ -88,11 +84,20 @@ fi
         -DWebP_INCLUDE_DIR="$FFBUILD_PREFIX/include"
     )
 
-    # Принудительно устанавливаем C_FLAGS, чтобы избежать __imp_
+    # финальный список для линковки
+    # local DEP_LIBS="-llcms2_fast_float -llcms2_threaded -llcms2 -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng -lgif -lzstd -llzma -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -licuin -licuuc -licudt"
+    # local WIN_LIBS="-lgdi32 $LIBS"
+
+    local DEP_LIBS=$(get_pc_libs lcms2 tiff webp libopenjp2 png libturbojpeg libjpeg giflib zlib)
+    local LINKER_GROUP="-Wl,--start-group ${DEP_LIBS} ${LIBS} ${ADDITIONAL_LIBS} -Wl,--end-group"
+
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" .. || return 1
+        -DCMAKE_C_STANDARD_LIBRARIES="${LINKER_GROUP}" \
+        -DCMAKE_CXX_STANDARD_LIBRARIES="${LINKER_GROUP}" \
+        .. || return 1
 
 if [[ "${PREFER_SHARED}" != "1" ]]; then
     log_debug "Fixing static library names and locations..."

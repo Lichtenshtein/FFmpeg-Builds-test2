@@ -40,8 +40,8 @@ ffbuild_dockerbuild() {
     sed -i '/add_subdirectory (test)/d' CMakeLists.txt
 
     # Формируем список либ через pkg-config
-    local DEP_LIBS=$(pkgconf --static --libs opencv4 cairo gavl)
-    local WIN_SYS_LIBS="-lstdc++ -lshell32 -loleaut32 -lcomctl32"
+    local DEP_LIBS=$(get_pc_libs opencv4 cairo gavl)
+    local WIN_SYS_LIBS="-lstdc++"
     local LINKER_GROUP="-Wl,--start-group ${DEP_LIBS} ${WIN_SYS_LIBS} ${LIBS} ${ADDITIONAL_LIBS} -Wl,--end-group"
     local RAW_LDFLAGS=$(echo "$LDFLAGS" | sed 's/-Wl,-Bstatic\b//g')
 
