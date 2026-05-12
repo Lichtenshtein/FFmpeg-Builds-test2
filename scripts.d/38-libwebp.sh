@@ -29,7 +29,7 @@ ffbuild_dockerbuild() {
     # почему-то нужен для libwebp
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
 
-    local DEP_LIBS="-ltiffxx -ltiff -lturbojpeg -ljpeg -lpng16 -lgif -ljbig -lzstd -llzma -lz"
+    local DEP_LIBS="-ltiffxx -ltiff -lturbojpeg -ljpeg -lpng -lgif -ljbig -lzstd -llzma -lz"
     local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 $LIBS"
 
     local myconf=(

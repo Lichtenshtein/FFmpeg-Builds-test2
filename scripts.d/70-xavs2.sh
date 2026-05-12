@@ -22,7 +22,6 @@ ffbuild_dockerbuild() {
 
     export SKIP_POST_STRIP=1
 
-
     if [[ $TARGET == win* ]]; then
         # исправление ошибок LARGE_INTEGER и QueryPerformanceCounter
         sed -i '/#if SYS_WINDOWS/a #include <windows.h>' source/common/common.c
