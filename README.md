@@ -38,7 +38,15 @@ This fork is an advanced FFmpeg build system architecture using GCC 14 and Ubunt
 
 - VapourSynth (Core + VSScript + Python-runtime) r75 compiled and isolated from the system.
 
-- znedi3 (high performance nnedi3 via zimg) compiled.
+- znedi3 (high performance nnedi3 via zimg) Avisynth filter compiled.
+
+- frei0r with facerecognition plugins and all OpenCV/Cairo/Gavl filters.
+
+- libmp3lame with libmpg123 as a Decoder and SIMD Optimized LAME Encoder.
+
+- libvorbis with aoTuV 2021 and Lancer patch.
+
+- libopus with DRED, OSCE and custom modes enabled.
 
 ### Implementation status:
 
