@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
     unset CC CXX LD AR CPP LIBS CCAS
     unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
     # Используем runConfigureICU для правильной инициализации под Linux
-    mkdir -p host-build && cd host-build
+    mkdir -p host-build target-build "$INSTALL_ROOT"/{include,bin,lib/pkgconfig} && cd host-build
 
     log_info "${BUILD_MARK} Building ICU Host tools..."
     # Нам НУЖНЫ tools на хосте, чтобы создать icupkg
@@ -58,12 +58,9 @@ ffbuild_dockerbuild() {
     fi
 
     log_info "${BUILD_MARK} Building ICU Target (Win64)..."
-    # Теперь основная сборка под Windows (Target)
-    mkdir -p target-build && cd target-build
 
-    # ПРЕДВАРИТЕЛЬНО создаем структуру папок, чтобы install не падал
-    mkdir -p "$INSTALL_ROOT/bin"
-    mkdir -p "$PC_DIR"
+    # Теперь основная сборка под Windows (Target)
+    cd target-build
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -116,15 +113,18 @@ ffbuild_dockerbuild() {
         cd "$INSTALL_ROOT/lib" || return 1
         # Исправляем странное поведение ICU, когда данные улетают в bin
         if [[ -f "$INSTALL_ROOT/bin/sicudt.a" ]]; then
-            mv "$INSTALL_ROOT/bin/sicudt.a" "$INSTALL_ROOT/lib/libicudt.a"
+            mv -v "$INSTALL_ROOT/bin/sicudt.a" "$INSTALL_ROOT/lib/libicudt.a"
         fi
+        log_info "Renaming libraries in $(pwd)..."
         # Приводим все к стандарту libicu*.a
         for f in libsicu*.a; do
-            [[ -e "$f" ]] && mv "$f" "libicu${f#libsicu}" 2>/dev/null || true
+            if [[ -f "$f" ]]; then
+                mv -v "$f" "libicu${f#libsicu}"
+            fi
         done
         # обрабатываем файлы, которые могли создаться без lib (sicudt.a, sicuuc.a)
         for f in sicu*.a; do
-            [[ -e "$f" ]] && mv "$f" "libicu${f#sicu}" 2>/dev/null || true
+            [[ -e "$f" ]] && mv -v "$f" "libicu${f#sicu}" 2>/dev/null || true
         done
         # проверка наличия критически важных компонентов
         if [[ ! -f "libicuuc.a" ]]; then
