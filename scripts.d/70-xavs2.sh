@@ -26,6 +26,7 @@ ffbuild_dockerbuild() {
     if [[ $TARGET == win* ]]; then
         # исправление ошибок LARGE_INTEGER и QueryPerformanceCounter
         sed -i '/#if SYS_WINDOWS/a #include <windows.h>' source/common/common.c
+        sed -i '/#if SYS_WINDOWS/a #include <windows.h>' source/common/osdep.h
     fi
 
     find source -name "*.c" -exec sed -i 's/#define __int64 int64_t/\/\/ #define __int64 int64_t/g' {} +
