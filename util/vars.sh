@@ -758,7 +758,7 @@ patch_pc_files() {
         # Remove -lrt (Linux-only, not on Windows)
         [[ "$TARGET" != "linux64" ]] && sed -i $sl 's/ -lrt\b//g' "$pc"
         # Apply -lzlib → -lz (after all -l tokens are in the file)
-        sed -i $sl 's/-lc //g;s/-lzlib\b/-lz/g' "$pc"
+        sed -i $sl 's/-lc //g;s/-lwinapi_kernel32//g;s/-lzlib\b/-lz/g' "$pc"
         # Исправляем дублирование префиксов lib
         sed -i $sl 's/ -l-l/ -l/g' "$pc"
 
