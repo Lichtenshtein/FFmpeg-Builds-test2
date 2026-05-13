@@ -48,6 +48,20 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    local DEST_LIB="${INSTALL_ROOT}/lib"
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        # исправление имен liblib -> lib
+        pushd "${DEST_LIB}"
+        for f in liblib*.a; do
+            if [ -f "$f" ]; then
+                newname=$(echo "$f" | sed 's/^liblib/lib/')
+                log_info "Renaming $f to $newname"
+                mv -f "$f" "$newname"
+            fi
+        done
+        popd
+    fi
 }
 
 ffbuild_configure() {
