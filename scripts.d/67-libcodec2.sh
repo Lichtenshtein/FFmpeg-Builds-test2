@@ -30,6 +30,11 @@ ffbuild_dockerbuild() {
     # Мы заменяем его на пустышку, чтобы CMake не ругался на отсутствие цели generate_codebook
     sed -i '/if(CMAKE_CROSSCOMPILING)/,/endif(CMAKE_CROSSCOMPILING)/c\add_executable(generate_codebook IMPORTED)\nset_target_properties(generate_codebook PROPERTIES IMPORTED_LOCATION /usr/bin/true)' src/CMakeLists.txt
 
+    # Отключаем сборку всех встроенных исполняемых файлов (тестов и утилит), которые ломают линковку
+    sed -i 's/add_executable/# add_executable/g' src/CMakeLists.txt
+    sed -i 's/target_link_libraries(c2/# target_link_libraries(c2/g' src/CMakeLists.txt
+    sed -i 's/target_link_libraries(freedv/# target_link_libraries(freedv/g' src/CMakeLists.txt
+
     mkdir build && cd build
 
     # В репозитории codec2 файлы кодовых книг лежат в папке 'src'.
@@ -57,26 +62,29 @@ ffbuild_dockerbuild() {
     local version_file_copied=0
 
     # Пробуем штатно собрать и установить через DESTDIR
-    if make -j$(nproc) $MAKE_V && make install DESTDIR="$FFBUILD_DESTDIR"; then
+    if make -j$(nproc) codec2 $MAKE_V && make install DESTDIR="$FFBUILD_DESTDIR"; then
         log_info "Standard CMake install succeeded."
-        # Находим штатно сгенерированный файл во вложенных папках CMake
         if [ -f "codec2/version.h" ]; then
             mkdir -p "$INSTALL_ROOT/include/codec2"
             cp codec2/version.h "$INSTALL_ROOT/include/codec2/"
             version_file_copied=1
         fi
     else
-        log_warn "Standard build/install failed, performing manual fallback..."
-        # Ручная компиляция объектов, если CMake упал на целях генератора
+        log_warn "Standard build failed, executing clean fallback..."
+
+        # Ручная резервная компиляция объектов, если CMake всё равно упал
+        # Добавляем -DGIT_HASH и пути к заголовочным файлам тестов
         for f in ../src/*.c; do
             [[ "$f" == *"generate_codebook.c"* ]] && continue
-            $CC $CFLAGS $CPPFLAGS -I../src -I. -c "$f" -o "$(basename "${f%.c}.obj")"
+            $CC $CFLAGS $CPPFLAGS -DGIT_HASH='\"1.2.0\"' -I../src -I. -I../src/unittest -c "$f" -o "$(basename "${f%.c}.obj")"
         done
         mkdir -p src
         $AR rcs src/libcodec2.a *.obj
         $RANLIB src/libcodec2.a
-        # Установка статической библиотеки и базовых заголовков в правильную иерархию
-        mkdir -p "$INSTALL_ROOT/lib" "$INSTALL_ROOT/include/codec2"
+
+        mkdir -p "$INSTALL_ROOT/lib"
+        mkdir -p "$INSTALL_ROOT/include/codec2"
+
         cp src/libcodec2.a "$INSTALL_ROOT/lib/"
         cp ../src/codec2.h "$INSTALL_ROOT/include/codec2/"
         cp ../src/fsk.h ../src/fdmdv.h "$INSTALL_ROOT/include/codec2/" 2>/dev/null || true
@@ -86,17 +94,14 @@ ffbuild_dockerbuild() {
     if [ "$version_file_copied" -eq 0 ]; then
         log_info "Generating version.h manually based on repo structure..."
         mkdir -p "$INSTALL_ROOT/include/codec2"
-
         cat << 'EOF' > "$INSTALL_ROOT/include/codec2/version.h"
 #ifndef CODEC2_HAVE_VERSION
 #define CODEC2_HAVE_VERSION
-
 #define CODEC2_VERSION_MAJOR 1
 #define CODEC2_VERSION_MINOR 2
 /* #undef CODEC2_VERSION_PATCH */
 #define CODEC2_VERSION "1.2.0"
-
-#endif //CODEC2_HAVE_VERSION
+#endif
 EOF
     fi
 
@@ -112,7 +117,7 @@ Description: Next generation digital radio voice codec
 Version: 1.2.0
 Libs: -L\${libdir} -lcodec2
 Libs.private: -lm
-Cflags: -I\${includedir}
+Cflags: -I\${includedir} -I\${includedir}/codec2
 EOF
 
     # Финальная валидация артефактов перед выходом

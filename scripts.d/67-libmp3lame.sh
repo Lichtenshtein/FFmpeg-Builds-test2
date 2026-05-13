@@ -83,7 +83,7 @@ Description: High quality MPEG Audio Layer III (MP3) encoder
 Version: 3.101
 Libs: -L\${libdir} -lmp3lame
 Libs.private: -lm
-Cflags: -I\${includedir}
+Cflags: -I\${includedir} -I\${includedir}/lame
 EOF
     fi
 }
