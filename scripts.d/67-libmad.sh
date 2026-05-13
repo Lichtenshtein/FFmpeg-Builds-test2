@@ -18,8 +18,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Удаляем флаг -fforce-mem, который GCC 14 не поддерживает
-    sed -i 's/-fforce-mem//g' configure
     autoreconf -if
 
     local myconf=(
@@ -36,6 +34,9 @@ ffbuild_dockerbuild() {
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
+
+    # Удаляем флаг -fforce-mem, который GCC 14 не поддерживает
+    sed -i 's/-fforce-mem//g' configure
 
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS" \
