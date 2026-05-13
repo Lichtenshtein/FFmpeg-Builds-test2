@@ -232,35 +232,33 @@ ffbuild_dockerbuild() {
         rm -rf "${INSTALL_ROOT}/lib/opencv4"
     fi
 
-    # исправление имен liblib -> lib
-    pushd "${DEST_LIB}"
-    for f in liblib*.a; do
-        if [ -f "$f" ]; then
-            newname=$(echo "$f" | sed 's/^liblib/lib/')
-            log_info "Renaming $f to $newname"
-            mv -f "$f" "$newname"
-        fi
-    done
-    popd
-
-    # Create libopencv_core.a from libopencv_core4140.a
-    pushd "${DEST_LIB}"
-    for lib in libopencv_*.a; do
-        unversioned=$(echo "$lib" | sed -E 's/[0-9]+\.a$/.a/')
-        if [ "$lib" != "$unversioned" ]; then
-            log_info "Creating symlink $unversioned -> $lib"
-            ln -sf "$lib" "$unversioned"
-        fi
-    done
-    popd
-
-    # Удаляем системные дубликаты, если они пришли из OpenCV 3rdparty
-    for duplicate in libpng.a libprotobuf.a libz.a libjpeg.a libtiff.a; do
-        if [ -f "${FFBUILD_PREFIX}/lib/${duplicate}" ] && [ -f "${DEST_LIB}/${duplicate}" ]; then
-             log_info "Removing duplicate ${duplicate} from OpenCV build"
-             rm -f "${DEST_LIB}/${duplicate}"
-        fi
-    done
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        # исправление имен liblib -> lib
+        pushd "${DEST_LIB}"
+        for f in liblib*.a; do
+            if [ -f "$f" ]; then
+                newname=$(echo "$f" | sed 's/^liblib/lib/')
+                log_info "Renaming $f to $newname"
+                mv -f "$f" "$newname"
+            fi
+        done
+        # Create libopencv_core.a from libopencv_core4140.a
+        for lib in libopencv_*.a; do
+            unversioned=$(echo "$lib" | sed -E 's/[0-9]+\.a$/.a/')
+            if [ "$lib" != "$unversioned" ]; then
+                log_info "Creating symlink $unversioned -> $lib"
+                ln -sf "$lib" "$unversioned"
+            fi
+        done
+        popd
+        # Удаляем системные дубликаты, если они пришли из OpenCV 3rdparty
+        for duplicate in libpng.a libprotobuf.a libz.a libjpeg.a libtiff.a; do
+            if [ -f "${FFBUILD_PREFIX}/lib/${duplicate}" ] && [ -f "${DEST_LIB}/${duplicate}" ]; then
+                 log_info "Removing duplicate ${duplicate} from OpenCV build"
+                 rm -f "${DEST_LIB}/${duplicate}"
+            fi
+        done
+    fi
 
     # Исправляем пути к 3rdparty либам в .cmake конфигах OpenCV
     # Заменяем относительный путь 'lib/opencv4/3rdparty' на просто 'lib'

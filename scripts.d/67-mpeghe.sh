@@ -13,26 +13,30 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    mkdir -p "$INSTALL_ROOT"/{include/ia_mpegh,bin,lib/pkgconfig}
+
     cd encoder
 
     # Компиляция объектов с поддержкой LTO (через $CFLAGS)
+    log_info "Compiling MPEG-H HE Audio Encoder objects..."
     for mpeghe in *.c; do
-        "$CC" -Wall -Wsequence-point $CFLAGS ${USELTO}${USELTO_C} $CPPFLAGS -I. "$mpeghe" -c -o "${mpeghe%.c}.o"
+        $CC -Wall -Wsequence-point $CFLAGS ${USELTO}${USELTO_C} $CPPFLAGS -I. "$mpeghe" -c -o "${mpeghe%.c}.o"
     done
 
     # Создание статической библиотеки. 
     # Используем $AR для поддержки LTO
-    "$AR" -rcs libia_mpegh.a *.o
-    "$RANLIB" libia_mpegh.a
+    log_info "Creating static library with LTO wrapper..."
+    $AR rcs libia_mpegh.a *.o
+    $RANLIB libia_mpegh.a
 
     # Установка бинарников и заголовков
-    mkdir -p "$FFBUILD_DESTPREFIX"/lib
-    mkdir -p "$FFBUILD_DESTPREFIX"/include/ia_mpegh
-    cp libia_mpegh.a "$FFBUILD_DESTPREFIX"/lib
-    cp *.h "$FFBUILD_DESTPREFIX"/include/ia_mpegh/
+    log_info "Installing built artifacts..."
+    cp libia_mpegh.a "$INSTALL_ROOT"/lib
+    cp *.h "$INSTALL_ROOT"/include/ia_mpegh/
 
-    mkdir -p "$FFBUILD_DESTPREFIX"/lib/pkgconfig
-    cat << EOF > "$FFBUILD_DESTPREFIX"/lib/pkgconfig/ia_mpegh.pc
+    log_info "Generating pkg-config files..."
+    cat << 'EOF' > "$PC_DIR/ia_mpegh.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
@@ -45,6 +49,8 @@ Libs: -L\${libdir} -lia_mpegh
 Libs.private: -lm
 Cflags: -I\${includedir}
 EOF
+
+    ln -sf  "$PC_DIR/ia_mpegh.pc" "$PC_DIR/mpegh.pc"
 
     # Очистка
     rm -f *.o libia_mpegh.a
