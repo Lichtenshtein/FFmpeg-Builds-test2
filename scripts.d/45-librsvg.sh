@@ -66,6 +66,11 @@ ffbuild_dockerbuild() {
         # fi
     # fi
 
+    for pc in "$PC_DIR"/librsvg*.pc; do
+        [[ -e "$pc" ]] || continue
+        sed -i 's/-lwinapi_kernel32//g'
+    done
+
     ln -sf librsvg_c.pc "$PC_DIR/librsvg-2.0.pc"
 }
 

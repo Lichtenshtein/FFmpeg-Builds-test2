@@ -44,6 +44,11 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+
+    local PC_FILE="$PC_DIR/libklvanc.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i 's/-lc //g' "$PC_FILE"
+    fi
 }
 
 ffbuild_configure() {
