@@ -14,12 +14,14 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     # Явно передаем инструменты, чтобы quirc не собрался под хост (Linux)
-    make libquirc.a $MAKE_V -j$(nproc) CC="$CC" AR="$AR" CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" || return 1
+    make libquirc.a $MAKE_V -j$(nproc) CC=$CC AR=$AR CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" || return 1
     
-    mkdir -p "$FFBUILD_DESTPREFIX/lib/" "$FFBUILD_DESTPREFIX/include/"
-    cp libquirc.a "$FFBUILD_DESTPREFIX/lib/"
-    cp lib/quirc.h "$FFBUILD_DESTPREFIX/include/"
+    mkdir -p "$INSTALL_ROOT/lib/" "$INSTALL_ROOT/include/"
+
+    cp libquirc.a "$INSTALL_ROOT/lib/"
+    cp lib/quirc.h "$INSTALL_ROOT/include/"
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/quirc.pc"
