@@ -53,32 +53,54 @@ ffbuild_dockerbuild() {
     LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake "${myconf[@]}" .. || return 1
 
-    # Сборка только библиотеки
-    if ! make -j$(nproc) codec2 $MAKE_V; then
-        log_warn "${XCLAM_MARK} Standard make failed, performing manual object compilation..."
-        # Компилируем все .c файлы из папки src
+    # Переменная для контроля корректного копирования version.h
+    local version_file_copied=0
+
+    # Пробуем штатно собрать и установить через DESTDIR
+    if make -j$(nproc) $MAKE_V && make install DESTDIR="$FFBUILD_DESTDIR"; then
+        log_info "Standard CMake install succeeded."
+        # Находим штатно сгенерированный файл во вложенных папках CMake
+        if [ -f "codec2/version.h" ]; then
+            mkdir -p "$INSTALL_ROOT/include/codec2"
+            cp codec2/version.h "$INSTALL_ROOT/include/codec2/"
+            version_file_copied=1
+        fi
+    else
+        log_warn "Standard build/install failed, performing manual fallback..."
+        # Ручная компиляция объектов, если CMake упал на целях генератора
         for f in ../src/*.c; do
             [[ "$f" == *"generate_codebook.c"* ]] && continue
-            ${CC} ${CFLAGS} -I../src -I. -c "$f" -o "$(basename "${f%.c}.obj")"
+            $CC $CFLAGS $CPPFLAGS -I../src -I. -c "$f" -o "$(basename "${f%.c}.obj")"
         done
-        ${AR} rcs src/libcodec2.a *.obj
-    fi || return 1
-
-    mkdir -p "$INSTALL_ROOT/lib"
-    mkdir -p "$INSTALL_ROOT/include/codec2"
-    mkdir -p "$PC_DIR"
-
-    # Копируем библиотеку (проверяем оба возможных места появления)
-    if [[ -f "src/libcodec2.a" ]]; then
-        cp src/libcodec2.a "$INSTALL_ROOT/lib/libcodec2.a"
-    elif [[ -f "libcodec2.a" ]]; then
-        cp libcodec2.a "$INSTALL_ROOT/lib/libcodec2.a"
+        mkdir -p src
+        $AR rcs src/libcodec2.a *.obj
+        $RANLIB src/libcodec2.a
+        # Установка статической библиотеки и базовых заголовков в правильную иерархию
+        mkdir -p "$INSTALL_ROOT/lib" "$INSTALL_ROOT/include/codec2"
+        cp src/libcodec2.a "$INSTALL_ROOT/lib/"
+        cp ../src/codec2.h "$INSTALL_ROOT/include/codec2/"
+        cp ../src/fsk.h ../src/fdmdv.h "$INSTALL_ROOT/include/codec2/" 2>/dev/null || true
     fi
 
-    # Копируем заголовочные файлы
-    cp ../src/codec2.h "$INSTALL_ROOT/include/codec2/"
-    cp ../src/fsk.h ../src/fdmdv.h "$INSTALL_ROOT/include/codec2/" 2>/dev/null || true
+    # Если файл не был скопирован из CMake, генерируем точную копию оригинального конфига
+    if [ "$version_file_copied" -eq 0 ]; then
+        log_info "Generating version.h manually based on repo structure..."
+        mkdir -p "$INSTALL_ROOT/include/codec2"
 
+        cat << 'EOF' > "$INSTALL_ROOT/include/codec2/version.h"
+#ifndef CODEC2_HAVE_VERSION
+#define CODEC2_HAVE_VERSION
+
+#define CODEC2_VERSION_MAJOR 1
+#define CODEC2_VERSION_MINOR 2
+/* #undef CODEC2_VERSION_PATCH */
+#define CODEC2_VERSION "1.2.0"
+
+#endif //CODEC2_HAVE_VERSION
+EOF
+    fi
+
+    mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/codec2.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
@@ -93,11 +115,11 @@ Libs.private: -lm
 Cflags: -I\${includedir}
 EOF
 
-    # Проверка финального наличия
-    if [[ -f "$INSTALL_ROOT/lib/libcodec2.a" ]]; then
-        log_info "${CHECK_MARK} SUCCESS: libcodec2.a is ready."
+    # Финальная валидация артефактов перед выходом
+    if [[ -f "$INSTALL_ROOT/lib/libcodec2.a" && -f "$INSTALL_ROOT/include/codec2/version.h" ]]; then
+        log_info "${CHECK_MARK} SUCCESS: libcodec2.a and version.h are completely ready."
     else
-        log_error "libcodec2.a still missing in $INSTALL_ROOT/lib/"
+        log_error "Critical files missing in $INSTALL_ROOT"
         return 1
     fi
 }
