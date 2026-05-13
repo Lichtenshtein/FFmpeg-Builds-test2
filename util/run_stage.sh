@@ -333,7 +333,7 @@ if [[ -d "$INSTALL_ROOT" ]]; then
             (
                 echo "$CLEAN_LIST" | grep -E "/lib/pkgconfig/|/lib/cmake/|/lib/[^/]+\.a$" | sort
                 echo "$CLEAN_LIST" | grep -vE "/lib/pkgconfig/|/lib/cmake/|/lib/[^/]+\.a$" | sort
-            ) | head -n 50 >&2
+            ) | head -n 70 >&2
             # stripping the long DESTDIR prefix for readability
             [[ ${#NEW_FILES[@]} -gt 70 ]] && log_debug "  ... (and $((${#NEW_FILES[@]} - 70)) more)"
         fi
