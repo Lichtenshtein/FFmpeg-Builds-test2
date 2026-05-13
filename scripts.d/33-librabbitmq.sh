@@ -56,8 +56,15 @@ ffbuild_dockerbuild() {
         for f in liblib*.a; do
             if [ -f "$f" ]; then
                 newname=$(echo "$f" | sed 's/^liblib/lib/')
-                log_info "Renaming $f to $newname"
+                log_info "Renaming double prefix: $f to $newname"
                 mv -f "$f" "$newname"
+            fi
+        done
+        # Удаляем мажорную версию из имени файла (.4.a -> .a)
+        for f in librabbitmq.*.a; do
+            if [ -f "$f" ]; then
+                log_info "Fixing versioned static library name: $f to librabbitmq.a"
+                mv -f "$f" "librabbitmq.a"
             fi
         done
         popd
