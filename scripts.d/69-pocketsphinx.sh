@@ -16,7 +16,7 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
-    if [[ $CC != *clang* ]]; then
+    if [[ "${CC}" != *clang* ]]; then
         export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
         export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
         export LDFLAGS="$LDFLAGS ${USELTO}"
