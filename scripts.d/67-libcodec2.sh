@@ -30,11 +30,6 @@ ffbuild_dockerbuild() {
     # Мы заменяем его на пустышку, чтобы CMake не ругался на отсутствие цели generate_codebook
     sed -i '/if(CMAKE_CROSSCOMPILING)/,/endif(CMAKE_CROSSCOMPILING)/c\add_executable(generate_codebook IMPORTED)\nset_target_properties(generate_codebook PROPERTIES IMPORTED_LOCATION /usr/bin/true)' src/CMakeLists.txt
 
-    # Отключаем сборку всех встроенных исполняемых файлов (тестов и утилит), которые ломают линковку
-    sed -i 's/add_executable/# add_executable/g' src/CMakeLists.txt
-    sed -i 's/target_link_libraries(c2/# target_link_libraries(c2/g' src/CMakeLists.txt
-    sed -i 's/target_link_libraries(freedv/# target_link_libraries(freedv/g' src/CMakeLists.txt
-
     mkdir build && cd build
 
     # В репозитории codec2 файлы кодовых книг лежат в папке 'src'.
