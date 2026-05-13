@@ -25,9 +25,9 @@ ffbuild_dockerbuild() {
         BUILDTYPE=Release
         DEBUGSYMBOLS=False
         LIBDIR_NAME=lib
-        CC=$CC
-        CXX=$CXX
-        AR=$AR
+        CC="$CC"
+        CXX="$CXX"
+        AR="$AR"
     )
 
     if [[ $TARGET == win32 ]]; then
