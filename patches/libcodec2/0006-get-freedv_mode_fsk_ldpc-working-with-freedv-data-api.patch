@@ -39,4 +39,4 @@ index 06132630..db011754 100644
 +    }
    }
  
-   FREE(rx_filt);
+   return rx_status;
