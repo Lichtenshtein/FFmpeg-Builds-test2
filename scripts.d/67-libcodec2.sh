@@ -45,7 +45,11 @@ target_include_directories(codec2 PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CM
 set_target_properties(codec2 PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 install(TARGETS codec2 ARCHIVE DESTINATION lib)
-install(FILES src/codec2.h src/fsk.h src/fdmdv.h DESTINATION include/codec2)
+
+file(GLOB CODEC2_HEADERS "src/*.h")
+list(FILTER CODEC2_HEADERS EXCLUDE REGEX ".*_internal\\.h|.*_test\\.h|src/H.*\\.h|src/HRA.*\\.h|src/varicode_table\\.h|src/filter_coef\\.h|src/golay.*table\\.h")
+
+install(FILES ${CODEC2_HEADERS} DESTINATION include/codec2)
 EOF
 
     mkdir build && cd build
@@ -81,20 +85,20 @@ EOF
 #endif
 EOF
 
-    # mkdir -p "$PC_DIR"
-    # cat <<EOF > "$PC_DIR/codec2.pc"
-# prefix=$FFBUILD_PREFIX
-# exec_prefix=\${prefix}
-# libdir=\${exec_prefix}/lib
-# includedir=\${prefix}/include
+    mkdir -p "$PC_DIR"
+    cat <<EOF > "$PC_DIR/codec2.pc"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
 
-# Name: codec2
-# Description: Next generation digital radio voice codec
-# Version: 1.2.0
-# Libs: -L\${libdir} -lcodec2
-# Libs.private: -lm
-# Cflags: -I\${includedir} -I\${includedir}/codec2
-# EOF
+Name: codec2
+Description: A speech codec for 2400 bit/s and below
+Version: 1.2.0
+Libs: -L\${libdir} -lcodec2
+Libs.private: -lm
+Cflags: -I\${includedir} -I\${includedir}/codec2
+EOF
 
     # Финальная валидация артефактов перед выходом
     if [[ -f "$INSTALL_ROOT/lib/libcodec2.a" && -f "$INSTALL_ROOT/include/codec2/version.h" ]]; then
