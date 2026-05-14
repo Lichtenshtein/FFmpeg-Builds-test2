@@ -762,7 +762,7 @@ patch_pc_files() {
         # Исправляем дублирование префиксов lib
         sed -i $sl 's/ -l-l/ -l/g' "$pc"
         # Удаляем косую черту строки Cflags
-        sed -i $sl '/^Cflags:/ s|\${includedir}/|\${includedir}|g' "$pc"
+        sed -i $sl '/^Cflags:/ s|\${includedir}/\([[:space:]]\|$\)|\${includedir}\1|g' "$pc"
 
         # Smart deduplication
         # Cflags: simple dedup + -pthread alias
