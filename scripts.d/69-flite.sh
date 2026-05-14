@@ -71,13 +71,13 @@ ffbuild_dockerbuild() {
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
-includedir=\${prefix}/include/flite
+includedir=\${prefix}/include
 
-Name: flite
-Description: a text to speech library
+Name: Flite
+Description: A text to speech library
 Version: 2.3
 Libs: -L\${libdir} -Wl,--whole-archive $VOX_LIBS -Wl,--no-whole-archive -lflite
-Cflags: -I\${includedir}
+Cflags: -I\${includedir} -I\${includedir}/flite
 EOF
 
 # with ffmpeg patch we can load voices like this:

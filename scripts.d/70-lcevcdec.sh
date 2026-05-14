@@ -73,7 +73,7 @@ Description: LCEVC Decoder SDK (Static Combined)
 Version: 4.0.5
 Libs: -L\${libdir} -llcevc_dec_api -llcevc_dec_api_utility -llcevc_dec_common -llcevc_dec_enhancement -llcevc_dec_extract -llcevc_dec_legacy -llcevc_dec_overlay_images -llcevc_dec_pipeline -llcevc_dec_pipeline_cpu -llcevc_dec_pipeline_legacy -llcevc_dec_pipeline_vulkan -llcevc_dec_pixel_processing -llcevc_dec_sequencer
 Libs.private: -lstdc++ -lm
-Cflags: -I\${includedir} -DVNEnablePublicAPIExport
+Cflags: -I\${includedir} -I\${includedir}/LCEVC -DVNEnablePublicAPIExport
 EOF
 
     # Удаляем лишние/кривые .pc файлы, чтобы pkg-config не путался

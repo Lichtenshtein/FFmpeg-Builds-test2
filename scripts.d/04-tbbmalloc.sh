@@ -63,7 +63,7 @@ ffbuild_dockerbuild() {
 
     if [ -d "$PC_DIR" ]; then
         find "$PC_DIR" -name "*.pc" | while read -r PC_FILE; do
-        sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/oneapi|g' "$PC_FILE"
+        sed -i "s|^Cflags:.*|& -I${includedir}/oneapi|" "$PC_FILE"
         done
         log_info "Cflags paths have been updated."
     fi

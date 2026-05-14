@@ -24,9 +24,9 @@ ffbuild_dockerbuild() {
     fi
 
     # Установка хедеров
-    mkdir -p "$FFBUILD_DESTPREFIX/include/CL"
+    mkdir -p "$INSTALL_ROOT/include/CL"
     # Используем относительный путь от корня этапа
-    cp -r headers/CL/* "$FFBUILD_DESTPREFIX/include/CL/."
+    cp -r headers/CL/* "$INSTALL_ROOT/include/CL/."
 
     cd loader
     # Удаляем старый build если остался, и создаем чистый
@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         # Указываем путь к только что скопированным хедерам
-        -DOPENCL_ICD_LOADER_HEADERS_DIR="$FFBUILD_DESTPREFIX/include"
+        -DOPENCL_ICD_LOADER_HEADERS_DIR="$INSTALL_ROOT/include"
         -DOPENCL_ICD_LOADER_BUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DENABLE_OPENCL_LAYERS=ON # support for OpenCL layers in the ICD loader
         -DOPENCL_ICD_LOADER_BUILD_TESTING=OFF
@@ -67,7 +67,7 @@ Name: OpenCL
 Description: OpenCL ICD Loader
 Version: 2025.07.22
 Libs: -L\${libdir} -lOpenCL
-Cflags: -I\${includedir}
+Cflags: -I\${includedir} -I\${includedir}/CL
 EOF
 
     if [[ $TARGET == linux* ]]; then
@@ -76,7 +76,10 @@ EOF
         echo "Libs.private: -lole32 -lshlwapi -lcfgmgr32 -lruntimeobject" >> "$PC_DIR/OpenCL.pc"
     fi
 
-    cp "${INSTALL_ROOT}/lib/OpenCL.a" "${INSTALL_ROOT}/lib/libOpenCL.a"
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        cp "${INSTALL_ROOT}/lib/OpenCL.a" "${INSTALL_ROOT}/lib/libOpenCL.a"
+    fi
+
 }
 
 ffbuild_configure() {

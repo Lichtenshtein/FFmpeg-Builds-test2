@@ -66,11 +66,19 @@ ffbuild_dockerbuild() {
     ninja -j"$(nproc)" $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
+    mkdir -p "$PC_DIR"
+    if [ -d "$PC_DIR" ]; then
+        find "$PC_DIR" -name "*.pc" | while read -r PC_FILE; do
+            sed -i "s|^Cflags:.*|& -I${includedir}/va|" "$PC_FILE"
+        done
+        log_info "Cflags paths have been updated."
+    fi
+
     if [[ $TARGET == linux* ]]; then
-        gen-implib "$FFBUILD_DESTPREFIX"/lib/{libva.so.2,libva.a}
-        gen-implib "$FFBUILD_DESTPREFIX"/lib/{libva-drm.so.2,libva-drm.a}
-        gen-implib "$FFBUILD_DESTPREFIX"/lib/{libva-x11.so.2,libva-x11.a}
-        rm "$FFBUILD_DESTPREFIX"/lib/libva{,-drm,-x11}.so*
+        gen-implib "$INSTALL_ROOT"/lib/{libva.so.2,libva.a}
+        gen-implib "$INSTALL_ROOT"/lib/{libva-drm.so.2,libva-drm.a}
+        gen-implib "$INSTALL_ROOT"/lib/{libva-x11.so.2,libva-x11.a}
+        rm "$INSTALL_ROOT"/lib/libva{,-drm,-x11}.so*
 
         sed -i '/^Libs:/ s/$/ -ldl/' "$PC_DIR/libva.pc"
     fi

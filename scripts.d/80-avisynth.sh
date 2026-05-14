@@ -47,6 +47,8 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V VersionGen || return 1
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    sed -i "s|^Cflags:.*|& -I${includedir}/avisynth|" "$PC_DIR/avisynth.pc"
 }
 
 ffbuild_configure() {

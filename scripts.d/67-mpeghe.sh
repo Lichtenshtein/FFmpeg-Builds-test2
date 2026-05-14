@@ -40,14 +40,14 @@ ffbuild_dockerbuild() {
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
-includedir=\${prefix}/include/ia_mpegh
+includedir=\${prefix}/include
 
 Name: ia_mpegh
 Description: Ittiam MPEG-H HE Audio Encoder library
 Version: 1.0.0
 Libs: -L\${libdir} -lia_mpegh
 Libs.private: -lm
-Cflags: -I\${includedir}
+Cflags: -I\${includedir} -I\${includedir}/ia_mpegh
 EOF
 
     ln -sf  "$PC_DIR/ia_mpegh.pc" "$PC_DIR/mpegh.pc"

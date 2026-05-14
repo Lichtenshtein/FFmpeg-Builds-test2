@@ -41,6 +41,14 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+
+    mkdir -p "$PC_DIR"
+    if [ -d "$PC_DIR" ]; then
+        find "$PC_DIR" -name "*.pc" | while read -r PC_FILE; do
+            sed -i "s|^Cflags:.*|& -I${includedir}/vorbis|" "$PC_FILE"
+        done
+        log_info "Cflags paths have been updated."
+    fi
 }
 
 ffbuild_configure() {

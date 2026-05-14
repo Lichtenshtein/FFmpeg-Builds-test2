@@ -66,6 +66,9 @@ ffbuild_dockerbuild() {
             sed -i '/^Libs:/i Requires: ogg' "$PC_FILE"
         fi
     fi
+    find "$PC_DIR" -name "*.pc" | while read -r PC_FILE; do
+        sed -i "s|^Cflags:.*|& -I${includedir}/theora|" "$PC_FILE"
+    done
 }
 
 ffbuild_configure() {

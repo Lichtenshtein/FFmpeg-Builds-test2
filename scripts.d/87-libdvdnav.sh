@@ -50,6 +50,8 @@ ffbuild_dockerbuild() {
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    sed -i "s|^Cflags:.*|& -I${includedir}/dvdnav|" "$PC_DIR/dvdnav.pc"
 }
 
 ffbuild_configure() {

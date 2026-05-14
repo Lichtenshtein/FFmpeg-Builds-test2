@@ -50,6 +50,7 @@ ffbuild_dockerbuild() {
         sed -i '/^[Ll]ibs\.[Pp]rivate:/d' "$PC_FILE"
         # Записываем новую чистую строку
         sed -i '/^Libs:/a Libs.private: -lssp -lmingwthrd -lgcc -lstdc++' "$PC_FILE"
+        sed -i "s|^Cflags:.*|& -I${includedir}/gme|" "$PC_FILE"
     fi
 }
 

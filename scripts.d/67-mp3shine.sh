@@ -40,32 +40,7 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # autoreconf -i
-
-    # local myconf=(
-        # --prefix="$FFBUILD_PREFIX"
-        # --with-pic
-    # )
-
-    # [[ "${PREFER_SHARED}" == "1" ]] && \
-        # myconf+=( --disable-static --enable-shared ) || \
-        # myconf+=( --enable-static --disable-shared )
-
-    # if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        # myconf+=(
-            # --host="$FFBUILD_TOOLCHAIN"
-        # )
-    # fi
-
-    # CFLAGS="$CFLAGS ${USELTO}" \
-    # CPPFLAGS="$CPPFLAGS" \
-    # CXXFLAGS="$CXXFLAGS ${USELTO}" \
-    # LDFLAGS="$LDFLAGS ${USELTO}" \
-    # LIBS="$LIBS" \
-    # ./configure "${myconf[@]}" || return 1
-
-    # make -j$(nproc) $MAKE_V || return 1
-    # make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    sed -i "s|^Cflags:.*|& -I${includedir}/shine|" "$PC_DIR/shine.pc"
 }
 
 ffbuild_configure() {

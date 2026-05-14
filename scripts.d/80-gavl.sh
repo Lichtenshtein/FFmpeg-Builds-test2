@@ -194,6 +194,7 @@ fi
     if [[ -f "gavl.pc" ]]; then
         cp gavl.pc "$PC_DIR"
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
-        sed -i 's/Libs.private:/Libs.private: -lnettle -lhogweed -lgnutls -liconv/' "$PC_FILE"
+        sed -i 's|^Libs.private:\s*|& -lnettle -lhogweed -lgnutls -liconv |' "$PC_FILE"
+        sed -i 's|^Cflags:.*|& -I${includedir}/gavl|' "$PC_FILE"
     fi
 }
