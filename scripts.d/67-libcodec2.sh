@@ -26,17 +26,26 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Сначала полностью вырезаем проблемный блок ExternalProject
-    # Мы заменяем его на пустышку, чтобы CMake не ругался на отсутствие цели generate_codebook
-    sed -i '/if(CMAKE_CROSSCOMPILING)/,/endif(CMAKE_CROSSCOMPILING)/c\add_executable(generate_codebook IMPORTED)\nset_target_properties(generate_codebook PROPERTIES IMPORTED_LOCATION /usr/bin/true)' src/CMakeLists.txt
+    # Отключаем сборку утилит и тестов прямо в корневом CMakeLists.txt, чтобы не собирать c2enc.exe
+    sed -i 's|add_subdirectory(src)|# add_subdirectory(src)|g' CMakeLists.txt
+    sed -i 's|add_subdirectory(unittest)|# add_subdirectory(unittest)|g' CMakeLists.txt
+
+    # Переносим сборку только самой библиотеки в корень
+    cat << 'EOF' >> CMakeLists.txt
+# Ручное описание сборки только статической библиотеки libcodec2
+file(GLOB CODEC2_SRCS "src/*.c")
+# Исключаем генератор кодовых книг и файлы тестов
+list(FILTER CODEC2_SRCS EXCLUDE REGEX "generate_codebook.c|mac.c|vdec.c|venc.c")
+
+add_library(codec2 STATIC ${CODEC2_SRCS})
+target_include_directories(codec2 PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_BINARY_DIR}")
+set_target_properties(codec2 PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+install(TARGETS codec2 ARCHIVE DESTINATION lib)
+install(FILES src/codec2.h src/fsk.h src/fdmdv.h DESTINATION include/codec2)
+EOF
 
     mkdir build && cd build
-
-    # В репозитории codec2 файлы кодовых книг лежат в папке 'src'.
-    # Мы создадим в папке build симлинки на них, чтобы CMake их увидел как "сгенерированные"
-    for f in ../src/codebook*.c; do
-        ln -sf "$f" "$(basename "$f")"
-    done
 
     local myconf=(
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
@@ -48,57 +57,26 @@ ffbuild_dockerbuild() {
         -DUNITTEST=OFF
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
-    cmake "${myconf[@]}" .. || return 1
+    cmake "${myconf[@]}" \
+        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        -DCMAKE_STATIC_LINKER_FLAGS="$LDFLAGS ${USELTO}" \
+        .. || return 1
 
-    # Переменная для контроля корректного копирования version.h
-    local version_file_copied=0
+    # Собираем и устанавливаем штатно через CMake/DESTDIR
+    make -j$(nproc) || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # Пробуем штатно собрать и установить через DESTDIR
-    if make -j$(nproc) codec2 $MAKE_V && make install DESTDIR="$FFBUILD_DESTDIR"; then
-        log_info "Standard CMake install succeeded."
-        if [ -f "codec2/version.h" ]; then
-            mkdir -p "$INSTALL_ROOT/include/codec2"
-            cp codec2/version.h "$INSTALL_ROOT/include/codec2/"
-            version_file_copied=1
-        fi
-    else
-        log_warn "Standard build failed, executing clean fallback..."
-
-        # Ручная резервная компиляция объектов, если CMake всё равно упал
-        # Добавляем -DGIT_HASH и пути к заголовочным файлам тестов
-        for f in ../src/*.c; do
-            [[ "$f" == *"generate_codebook.c"* ]] && continue
-            $CC $CFLAGS $CPPFLAGS -DGIT_HASH='\"1.2.0\"' -I../src -I. -I../src/unittest -c "$f" -o "$(basename "${f%.c}.obj")"
-        done
-        mkdir -p src
-        $AR rcs src/libcodec2.a *.obj
-        $RANLIB src/libcodec2.a
-
-        mkdir -p "$INSTALL_ROOT/lib"
-        mkdir -p "$INSTALL_ROOT/include/codec2"
-
-        cp src/libcodec2.a "$INSTALL_ROOT/lib/"
-        cp ../src/codec2.h "$INSTALL_ROOT/include/codec2/"
-        cp ../src/fsk.h ../src/fdmdv.h "$INSTALL_ROOT/include/codec2/" 2>/dev/null || true
-    fi
-
-    # Если файл не был скопирован из CMake, генерируем точную копию оригинального конфига
-    if [ "$version_file_copied" -eq 0 ]; then
-        log_info "Generating version.h manually based on repo structure..."
-        mkdir -p "$INSTALL_ROOT/include/codec2"
-        cat << 'EOF' > "$INSTALL_ROOT/include/codec2/version.h"
+    # Вручную генерируем правильный version.h, так как мы обошли штатный src/CMakeLists.txt
+    log_info "Generating version.h manually..."
+    mkdir -p "$INSTALL_ROOT/include/codec2"
+    cat << 'EOF' > "$INSTALL_ROOT/include/codec2/version.h"
 #ifndef CODEC2_HAVE_VERSION
 #define CODEC2_HAVE_VERSION
 #define CODEC2_VERSION_MAJOR 1
 #define CODEC2_VERSION_MINOR 2
-/* #undef CODEC2_VERSION_PATCH */
 #define CODEC2_VERSION "1.2.0"
 #endif
 EOF
-    fi
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/codec2.pc"
