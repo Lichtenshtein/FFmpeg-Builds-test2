@@ -76,7 +76,7 @@ ffbuild_dockerbuild() {
     # "$RANLIB" "$FFBUILD_DESTPREFIX"/lib/libvpx.a
     "$RANLIB" "$INSTALL_ROOT/lib/libvpx.a"
 
-    sed -i "s|^Cflags:.*|& -I${includedir}/vpx|" "$PC_DIR/vpx.pc"
+    sed -i "s|^Cflags:.*|& -I\${includedir}/vpx|" "$PC_DIR/vpx.pc"
 }
 
 ffbuild_configure() {

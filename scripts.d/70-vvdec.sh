@@ -47,7 +47,7 @@ ffbuild_dockerbuild() {
         sed -i "s|^Libs.private:.*|Libs.private: -lstdc++|g" "$PC_FILE"
         sed -i 's|/[^ ]*libstdc++.a|-lstdc++|g' "$PC_FILE"
         sed -i 's|/[^ ]*libssp.a|-lssp|g' "$PC_FILE"
-        sed -i "s|^Cflags:.*|& -I${includedir}/vvdec|" "$PC_FILE"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/vvdec|" "$PC_FILE"
     fi
 }
 

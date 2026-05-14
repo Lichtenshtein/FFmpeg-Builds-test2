@@ -95,7 +95,7 @@ ffbuild_dockerbuild() {
         else
             sed -i "/^Libs:/ a Libs.private: $DEP_LIBS" "$PC_FILE"
         fi
-        sed -i "s|^Cflags:.*|& -I${includedir}/libplacebo|" "$PC_FILE"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/libplacebo|" "$PC_FILE"
     fi
 }
 

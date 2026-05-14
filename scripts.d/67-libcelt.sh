@@ -50,7 +50,7 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    sed -i "s|^Cflags:.*|& -I${includedir}/celt|" "$PC_DIR/celt.pc"
+    sed -i "s|^Cflags:.*|& -I\${includedir}/celt|" "$PC_DIR/celt.pc"
 }
 
 ffbuild_configure() {

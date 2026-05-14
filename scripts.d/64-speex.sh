@@ -59,7 +59,7 @@ ffbuild_dockerbuild() {
                 sed -i "s/Libs.private: /Libs.private: -lm /" "$PC_FILE"
             fi
         fi
-        sed -i "s|^Cflags:.*|& -I${includedir}/speex|" "$PC_FILE"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/speex|" "$PC_FILE"
     fi
 }
 

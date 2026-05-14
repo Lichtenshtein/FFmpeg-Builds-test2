@@ -195,9 +195,9 @@ EOF
     ) || return 1
 
     if [ -d "$PC_DIR" ]; then
-        sed -i "s|^Cflags:.*|& -I${includedir}/spirv-tools|" "$PC_DIR/SPIRV-Tools.pc"
-        sed -i "s|^Cflags:.*|& -I${includedir}/spirv-tools -I${includedir}/spirv -I${includedir}/glslang -I${includedir}/shaderc|" "$PC_DIR/shaderc_static.pc"
-        sed -i "s|^Cflags:.*|& -I${includedir}/spirv-tools -I${includedir}/spirv -I${includedir}/glslang -I${includedir}/shaderc|" "$PC_DIR/shaderc_combined.pc"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/spirv-tools|" "$PC_DIR/SPIRV-Tools.pc"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/spirv-tools -I\${includedir}/spirv -I\${includedir}/glslang -I\${includedir}/shaderc|" "$PC_DIR/shaderc_static.pc"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/spirv-tools -I\${includedir}/spirv -I\${includedir}/glslang -I\${includedir}/shaderc|" "$PC_DIR/shaderc_combined.pc"
         log_info "Cflags paths have been updated."
     fi
 }

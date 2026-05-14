@@ -139,7 +139,7 @@ ffbuild_dockerbuild() {
         [[ -e "$PC_FILE" ]] || continue
         # стандартные имена -licu
         sed -i 's/-lsicu/-licu/g' "$PC_FILE"
-        sed -i "s|^Cflags:.*|& -I${includedir}/unicode|" "$PC_FILE"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/unicode|" "$PC_FILE"
         # Добавляем макросы статики в Cflags
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then

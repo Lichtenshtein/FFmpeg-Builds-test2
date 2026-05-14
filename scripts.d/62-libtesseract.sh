@@ -293,7 +293,7 @@ WRAPPER_EOF
     if [[ -f "$PC_FILE" ]]; then
         local DEP_LIBS="-larchive -lcurl"
         sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS|" "$PC_FILE"
-        sed -i "s|^Cflags:.*|& -I${includedir}/tesseract|" "$PC_FILE"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/tesseract|" "$PC_FILE"
     if [[ "${myconf[@]}" =~ "-DBUILD_TRAINING_TOOLS=ON" ]]; then
         sed -i '/^Libs.private:/ s/$/ -pangocairo -lsicuin/' "$PC_FILE"
     fi
