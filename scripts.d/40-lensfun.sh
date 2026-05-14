@@ -54,12 +54,12 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    local pc_file="$PC_DIR/lensfun.pc"
-    if [[ -f "$pc_file" ]]; then
+    local PC_FILE="$PC_DIR/lensfun.pc"
+    if [[ -f "$PC_FILE" ]]; then
         log_info "Patching lensfun.pc for static MinGW build..."
         # Добавляем glib-2.0 в зависимости, чтобы пути -I подтянулись автоматически
-        if ! grep -q "Requires:" "$pc_file"; then
-            sed -i '/^Requires:/ s/$/ glib-2.0/' "$pc_file"
+        if ! grep -q "Requires:" "$PC_FILE"; then
+            sed -i '/^Requires:/ s/$/ glib-2.0/' "$PC_FILE"
         fi
     fi
 }

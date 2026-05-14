@@ -73,7 +73,7 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     local PC_FILE="$PC_DIR/liblzma.pc"
-    sed -i "s|^Cflags:.*|& -I${includedir}/lzma|" "$PC_FILE"
+    sed -i "s|^Cflags:.*|& -I\${includedir}/lzma|" "$PC_FILE"
     if [[ -n "$static_flags" ]]; then
         if ! grep -qF -- "$static_flags" "$PC_FILE"; then
             sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"

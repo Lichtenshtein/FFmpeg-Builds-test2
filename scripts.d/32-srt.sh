@@ -46,7 +46,14 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    sed -i '/^Libs.private:/ s/$/ -lstdc++"/' "$PC_DIR/srt.pc"
+    if [ -d "$PC_DIR" ]; then
+        find "$PC_DIR" -name "*srt*.pc" | while read -r PC_FILE; do
+            # Заменяем абсолютный путь к libstdc++.a
+            sed -i 's|/opt/ct-ng/[^ ]*/libstdc++.a|-lstdc++|g' "$PC_FILE"
+            # На всякий случай удаляем любые кавычки
+            sed -i 's|["'\'']||g' "$PC_FILE"
+        done
+    fi
 }
 
 ffbuild_configure() {

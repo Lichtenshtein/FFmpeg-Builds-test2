@@ -50,7 +50,7 @@ ffbuild_dockerbuild() {
 
     for PC_FILE in "$PC_DIR"/{nettle,hogweed}.pc; do
         [[ -f "$PC_FILE" ]] || continue
-        sed -i "s|^Cflags:.*|& -I${includedir}/nettle|" "$PC_FILE"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/nettle|" "$PC_FILE"
         log_info "Updated Cflags in $(basename "$PC_FILE")"
     done
 }

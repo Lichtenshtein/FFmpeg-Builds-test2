@@ -66,7 +66,7 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/oapv.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i "s|^Cflags:.*|& -I${includedir}/oapv|" "$PC_FILE"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/oapv|" "$PC_FILE"
         sed -i '/^Libs.private:/d' "$PC_FILE"
         sed -i "/^Libs:/i Libs.private: -lm" "$PC_FILE"
         if [[ "${PREFER_SHARED}" != "1" ]]; then

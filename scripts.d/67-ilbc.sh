@@ -40,6 +40,11 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    # сносим строку
+    sed -i '/^Cflags:/d' "$PC_DIR/libilbc.pc"
+    # «аписываем новую чистую строку
+    echo "Cflags: -I\${includedir}" >> "$PC_DIR/libilbc.pc"
 }
 
 ffbuild_configure() {

@@ -74,7 +74,7 @@ ffbuild_dockerbuild() {
     mkdir -p "$PC_DIR"
     if [ -d "$PC_DIR" ]; then
         find "$PC_DIR" -name "*.pc" | while read -r PC_FILE; do
-            sed -i "s|^Cflags:.*|& -I${includedir}/webp|" "$PC_FILE"
+            sed -i "s|^Cflags:.*|& -I\${includedir}/webp|" "$PC_FILE"
             if [[ -n "$static_flags" ]]; then
                 if ! grep -qF -- "$static_flags" "$PC_FILE"; then
                     sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
