@@ -58,10 +58,10 @@ EOF
         -DUNITTEST=OFF
     )
 
-    cmake "${myconf[@]}" \
-        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-        -DCMAKE_STATIC_LINKER_FLAGS="$LDFLAGS ${USELTO}" \
-        .. || return 1
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
+    cmake "${myconf[@]}" .. || return 1
 
     # Собираем и устанавливаем штатно через CMake/DESTDIR
     make -j$(nproc) || return 1
