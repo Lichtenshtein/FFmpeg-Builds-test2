@@ -101,11 +101,13 @@ Cflags: -I\${includedir} -I\${includedir}/codec2
 EOF
 
     # Финальная валидация артефактов перед выходом
-    if [[ -f "$INSTALL_ROOT/lib/libcodec2.a" && -f "$INSTALL_ROOT/include/codec2/version.h" ]]; then
-        log_info "${CHECK_MARK} SUCCESS: libcodec2.a and version.h are completely ready."
-    else
-        log_error "Critical files missing in $INSTALL_ROOT"
-        return 1
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        if [[ -f "$INSTALL_ROOT/lib/libcodec2.a" && -f "$INSTALL_ROOT/include/codec2/version.h" ]]; then
+            log_info "${CHECK_MARK} SUCCESS: libcodec2.a and version.h are completely ready."
+        else
+            log_error "Critical files missing in $INSTALL_ROOT"
+            return 1
+        fi
     fi
 }
 
