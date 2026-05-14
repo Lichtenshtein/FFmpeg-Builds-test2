@@ -26,6 +26,11 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Полностью очищаем файл поиска зависимостей
+    if [ -f "cmake/GetDependencies.cmake" ]; then
+        echo "" > cmake/GetDependencies.cmake
+    fi
+
     # Отключаем сборку утилит и тестов прямо в корневом CMakeLists.txt, чтобы не собирать c2enc.exe
     sed -i 's|add_subdirectory(src)|# add_subdirectory(src)|g' CMakeLists.txt
     sed -i 's|add_subdirectory(unittest)|# add_subdirectory(unittest)|g' CMakeLists.txt
