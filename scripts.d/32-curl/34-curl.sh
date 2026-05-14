@@ -125,6 +125,7 @@ ffbuild_dockerbuild() {
                 sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$PC_FILE"
             fi
         fi
+        sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/curl|g' "$PC_FILE"
     fi
 }
 

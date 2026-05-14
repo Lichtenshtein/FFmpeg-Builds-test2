@@ -49,7 +49,7 @@ Name: Crypto++
 Description: A modern CMake build project for Crypto++
 Version: 8.9.0
 Libs: -L\${libdir} -lcryptopp
-Cflags: -I\${includedir}
+Cflags: -I\${includedir} -I\${includedir}/cryptopp
 EOF
 
     ln -sf cryptopp.pc "$PC_DIR/libcryptopp.pc"

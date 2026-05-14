@@ -71,15 +71,18 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    for pc in libwebp.pc libwebpmux.pc libwebpdemux.pc libwebpdecoder.pc libsharpyuv.pc; do
-        local PC_PATH="$PC_DIR/$pc"
-        [[ -f "$PC_PATH" ]] || continue
-        if [[ -n "$static_flags" ]]; then
-            if ! grep -qF -- "$static_flags" "$PC_PATH"; then
-                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_PATH"
+    mkdir -p "$PC_DIR"
+    if [ -d "$PC_DIR" ]; then
+        find "$PC_DIR" -name "*.pc" | while read -r PC_FILE; do
+            sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/webp|g' "$PC_FILE"
+            if [[ -n "$static_flags" ]]; then
+                if ! grep -qF -- "$static_flags" "$PC_FILE"; then
+                    sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+                fi
             fi
-        fi
-    done
+        done
+        log_info "Cflags paths have been updated."
+    fi
 
     ln -sf libwebp.pc "$PC_DIR/webp.pc"
 }

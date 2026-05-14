@@ -40,6 +40,14 @@ ffbuild_dockerbuild() {
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    mkdir -p "$PC_DIR"
+    if [ -d "$PC_DIR" ]; then
+        find "$PC_DIR" -name "*.pc" | while read -r PC_FILE; do
+            sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/dav1d|g' "$PC_FILE"
+        done
+        log_info "Cflags paths have been updated."
+    fi
 }
 
 ffbuild_configure() {

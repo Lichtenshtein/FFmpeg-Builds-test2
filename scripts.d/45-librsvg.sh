@@ -55,16 +55,40 @@ ffbuild_dockerbuild() {
     RUSTFLAGS="${RUSTFLAGS} ${RF}" \
     cargo cinstall -p librsvg-c $CARGO_V "${myconf[@]}" || return 1
 
-    # Исправление .pc файла. 
-    # librsvg-2.0.pc после сборки часто не содержит Cairo/Pango в Requires.private
-    # local PC_FILE="$PC_DIR/librsvg-2.0.pc"
-    # if [[ -f "$PC_FILE" ]]; then
-        # if grep -q "^Libs.private:" "$PC_FILE"; then
-            # sed -i "s|^Libs.private:.*|Libs.private: $DEP_LIBS $WIN_LIBS|" "$PC_FILE"
-        # else
-            # sed -i "/^Libs:/ a Libs.private: $DEP_LIBS $WIN_LIBS" "$PC_FILE"
-        # fi
-    # fi
+    # ручная установка заголовочных файлов
+    local inc_dest="${INSTALL_ROOT}/include/librsvg"
+    mkdir -p "$inc_dest"
+
+    local src_inc="include/librsvg"
+    [ ! -d "$src_inc" ] && [ -d "librsvg-c/include/librsvg" ] && src_inc="librsvg-c/include/librsvg"
+
+    # Генерируем rsvg-version.h из шаблона .in
+    if [ -d "$src_inc" ]; then
+        cp -f "$src_inc"/rsvg.h "$src_inc"/rsvg-cairo.h "$src_inc"/rsvg-pixbuf.h "$inc_dest/" || true
+
+        # Генерация rsvg-version.h с точной подстановкой под структуру шаблона
+        sed -e 's/@LIBRSVG_MAJOR_VERSION@/2/g' \
+            -e 's/@LIBRSVG_MINOR_VERSION@/61/g' \
+            -e 's/@LIBRSVG_MICRO_VERSION@/4/g' \
+            -e 's/@PACKAGE_VERSION@/2.61.4/g' \
+            "$src_inc/rsvg-version.h.in" > "$inc_dest/rsvg-version.h"
+
+        # Генерация rsvg-features.h с активацией флагов возможностей
+        sed -e 's/@LIBRSVG_HAVE_PIXBUF@/TRUE/g' \
+            "$src_inc/rsvg-features.h.in" > "$inc_dest/rsvg-features.h"
+
+        log_info "The librsvg header files were successfully generated and installed."
+    else
+        log_error "The librsvg source header files were not found in the repository!"
+        return 1
+    fi
+
+    # Настройка путей в .pc файлах
+    if [ -d "$PC_DIR" ]; then
+        find "$PC_DIR" -name "*librsvg*.pc" | while read -r PC_FILE; do
+            sed -i 's|^Cflags:.*|Cflags: -I${includedir} -I${includedir}/librsvg|' "$PC_FILE"
+        done
+    fi
 
     ln -sf librsvg_c.pc "$PC_DIR/librsvg-2.0.pc"
 }

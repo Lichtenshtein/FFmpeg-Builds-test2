@@ -64,6 +64,8 @@ Version: 1.4.341.0
 
 Requires:
 Libs: -L\${libdir} -L\${sharedlibdir} -lspirv-cross-c -lspirv-cross-glsl -lspirv-cross-hlsl -lspirv-cross-reflect -lspirv-cross-msl -lspirv-cross-util -lspirv-cross-core -lstdc++
-Cflags: -I\${includedir} -I\${includedir}\spirv_cross
+Cflags: -I\${includedir} -I\${includedir}/spirv_cross
 EOF
+
+    sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/spirv_cross|g' "$PC_DIR/spirv-cross-c.pc"
 }
