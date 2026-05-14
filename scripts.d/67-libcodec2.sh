@@ -26,10 +26,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Полностью очищаем файл поиска зависимостей
-    if [ -f "cmake/GetDependencies.cmake" ]; then
-        echo "" > cmake/GetDependencies.cmake
-    fi
+    # Отключаем установщик чтобы избежать вызова GetDependencies.cmake
+    sed -i 's|if(WIN32)|if(FALSE)|g' CMakeLists.txt
 
     # Отключаем сборку утилит и тестов прямо в корневом CMakeLists.txt, чтобы не собирать c2enc.exe
     sed -i 's|add_subdirectory(src)|# add_subdirectory(src)|g' CMakeLists.txt
@@ -38,10 +36,8 @@ ffbuild_dockerbuild() {
 
     # Переносим сборку только самой библиотеки в корень с жесткой фильтрацией тестов
     cat << 'EOF' >> CMakeLists.txt
-# Ручное описание сборки только статической библиотеки libcodec2
 file(GLOB CODEC2_SRCS "src/*.c")
 
-# Исключаем генератор кодовых книг, тестовые файлы (*_test.c) и исполняемые утилиты
 list(FILTER CODEC2_SRCS EXCLUDE REGEX "generate_codebook\\.c|mac\\.c|vdec\\.c|venc\\.c|.*_test\\.c|c2enc\\.c|c2dec\\.c|freedv_.*\\.c")
 
 add_library(codec2 STATIC ${CODEC2_SRCS})
