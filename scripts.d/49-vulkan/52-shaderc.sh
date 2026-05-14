@@ -108,7 +108,7 @@ Description: Tools and libraries for Vulkan shader compilation (Static Combined)
 Version: 2026.1
 Libs: -L\${libdir} -lshaderc_combined -lshaderc_util -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lSPIRV -lSPIRV-Tools-opt -lSPIRV-Tools-link -lSPIRV-Tools
 Libs.private: -lstdc++ -lgomp -lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread
-Cflags: -I\${includedir}
+Cflags: -I\${includedir} -I\${includedir}/shaderc
 EOF
 
     cat >"$PC_DIR/glslang.pc" <<EOF
@@ -121,7 +121,7 @@ Name: glslang
 Description: glslang library
 Version: 16.2.0
 Libs: -L\${libdir} -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lSPIRV -lglslang-default-resource-limits
-Cflags: -I\${includedir}
+Cflags: -I\${includedir} -I\${includedir}/glslang
 EOF
 
     # дублируем его в shaderc_combined.pc и shaderc_static.pc для совместимости
@@ -193,6 +193,13 @@ EOF
         fi
 
     ) || return 1
+
+    if [ -d "$PC_DIR" ]; then
+        sed -i "s|^Cflags:.*|& -I${includedir}/spirv-tools|" "$PC_DIR/SPIRV-Tools.pc"
+        sed -i "s|^Cflags:.*|& -I${includedir}/spirv-tools -I${includedir}/spirv -I${includedir}/glslang -I${includedir}/shaderc|" "$PC_DIR/shaderc_static.pc"
+        sed -i "s|^Cflags:.*|& -I${includedir}/spirv-tools -I${includedir}/spirv -I${includedir}/glslang -I${includedir}/shaderc|" "$PC_DIR/shaderc_combined.pc"
+        log_info "Cflags paths have been updated."
+    fi
 }
 
 # --enable-libshaderc or --enable-libglslang not both

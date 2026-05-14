@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://gitlab.com/m-ab-s/decklink-headers.git"
-SCRIPT_COMMIT="1cc63fbdb06f26b39bbb85c918d863753d969ad9"
+SCRIPT_COMMIT="d841c2e7ca8e898eb5325a621975c7698f3f5dab"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm64 ]] && return 1
@@ -16,10 +16,10 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    # Создаем папку заранее, так как Decklink Makefile иногда капризен
-    mkdir -p "$FFBUILD_DESTPREFIX/include"
-    # Передаем префикс правильно
-    make PREFIX="$FFBUILD_DESTPREFIX" install || return 1
+
+    mkdir -p "$INSTALL_ROOT/include"
+
+    make PREFIX="$INSTALL_ROOT" install || return 1
 }
 
 ffbuild_configure() {

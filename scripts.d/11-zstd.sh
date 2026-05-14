@@ -57,7 +57,7 @@ ffbuild_dockerbuild() {
     local PC_FILE="$PC_DIR/libzstd.pc"
     if [[ -f "$PC_FILE" ]]; then
         if ! grep -q "\-lpthread" "$PC_FILE"; then
-            sed -i 's/Libs.private:/& -pthread /' "$PC_FILE"
+            sed -i 's/Libs.private:/& -pthread/' "$PC_FILE"
         fi
         if ! grep -q "\-DZSTD_MULTITHREAD" "$PC_FILE"; then
             sed -i "/^Cflags:/ s/$/ -DZSTD_MULTITHREAD/" "$PC_FILE"

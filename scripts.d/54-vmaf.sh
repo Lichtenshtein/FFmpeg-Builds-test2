@@ -79,7 +79,7 @@ EOF
     if [[ "${PREFER_SHARED}" != "1" ]]; then
         if [[ "${USE_AVX512}" != "1" ]]; then
         log_info "Injecting stubs into libvmaf.a"
-        $AR rcs "$FFBUILD_DESTPREFIX/lib/libvmaf.a" ../vmaf_avx512_stubs.o
+        $AR rcs "$INSTALL_ROOT/lib/libvmaf.a" ../vmaf_avx512_stubs.o
         fi
     fi
 
@@ -96,7 +96,10 @@ EOF
         # fi
     # done
 
+    mkdir -p "$PC_DIR"
     sed -i 's/Libs.private:/Libs.private: -lstdc++/; t; $ a Libs.private: -lstdc++' "$PC_DIR/libvmaf.pc"
+    sed -i 's| -pthread||g' "$PC_DIR/libvmaf.pc"
+
     ln -sf libvmaf.pc "$PC_DIR/vmaf.pc"
 }
 

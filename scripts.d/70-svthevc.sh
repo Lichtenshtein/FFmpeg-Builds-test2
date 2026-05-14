@@ -55,6 +55,8 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    sed -i "s|^Cflags:.*|& -I${includedir}/svt-hevc|" "$PC_DIR/SvtHevcEnc.pc"
 }
 
 ffbuild_configure() {

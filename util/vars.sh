@@ -761,6 +761,8 @@ patch_pc_files() {
         sed -i $sl 's/-lc //g;s/-lwinapi_kernel32//g;s/-lzlib\b/-lz/g' "$pc"
         # Исправляем дублирование префиксов lib
         sed -i $sl 's/ -l-l/ -l/g' "$pc"
+        # Удаляем косую черту строки Cflags
+        sed -i $sl '/^Cflags:/ s|\${includedir}/|\${includedir}|g' "$pc"
 
         # Smart deduplication
         # Cflags: simple dedup + -pthread alias

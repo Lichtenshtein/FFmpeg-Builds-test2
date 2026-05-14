@@ -44,6 +44,8 @@ ffbuild_dockerbuild() {
     if [[ $TARGET == linux* ]]; then
         sed -i '/^Libs.private:/ s/$/ -ldl/' "$PC_DIR/vidstab.pc"
     fi
+
+    sed -i "s|^Cflags:.*|& -I${includedir}/vid.stab|" "$PC_DIR/vidstab.pc"
 }
 
 ffbuild_configure() {

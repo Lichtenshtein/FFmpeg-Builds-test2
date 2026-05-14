@@ -39,7 +39,7 @@ Name: TensorFlow
 Description: TensorFlow C API library
 Version: 2.16.1
 Libs: -L\${libdir} -ltensorflow
-Cflags: -I\${includedir}
+Cflags: -I\${includedir} -I\${includedir}/tensorflow -I\${includedir}/tsl
 EOF
 }
 
