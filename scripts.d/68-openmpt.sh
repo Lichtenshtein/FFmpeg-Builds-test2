@@ -88,7 +88,7 @@ ffbuild_dockerbuild() {
     make $MAKE_V -j$(nproc) "${myconf[@]}" all install DESTDIR="$FFBUILD_DESTDIR" || return 1
     rm -r "$INSTALL_ROOT"/share/doc/libopenmpt
 
-    sed -i "s|^Cflags:.*|& -I${includedir}/libopenmpt|" "$PC_DIR/libopenmpt.pc"
+    sed -i "s|^Cflags:.*|& -I\${includedir}/libopenmpt|" "$PC_DIR/libopenmpt.pc"
 }
 
 ffbuild_configure() {

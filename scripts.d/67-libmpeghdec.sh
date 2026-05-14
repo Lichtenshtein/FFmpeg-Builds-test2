@@ -54,7 +54,7 @@ Libs.private: -lstdc++
 Cflags: -I\${includedir} -I\${includedir}/mpeghdec
 EOF
     else
-        sed -i "s|^Cflags:.*|& -I${includedir}/mpeghdec|" "$PC_DIR/mpeghdec.pc"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/mpeghdec|" "$PC_DIR/mpeghdec.pc"
     fi
 }
 

@@ -118,7 +118,7 @@ EOF
 
     for PC_FILE in "$PC_DIR"/libavif.pc; do
         [[ -f "$PC_FILE" ]] || continue
-        sed -i "s|^Cflags:.*|& -I${includedir}/avif|" "$PC_FILE"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/avif|" "$PC_FILE"
         log_info "Updated Cflags in $(basename "$PC_FILE")"
     done
 }

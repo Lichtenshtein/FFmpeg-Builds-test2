@@ -59,7 +59,7 @@ ffbuild_dockerbuild() {
 
     make $MAKE_V -j$(nproc) "${myconf[@]}" install-static DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    sed -i "s|^Cflags:.*|& -I${includedir}/wels|" "$PC_DIR/openh264.pc"
+    sed -i "s|^Cflags:.*|& -I\${includedir}/wels|" "$PC_DIR/openh264.pc"
 }
 
 ffbuild_configure() {

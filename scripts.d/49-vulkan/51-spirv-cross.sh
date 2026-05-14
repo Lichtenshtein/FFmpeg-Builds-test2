@@ -67,5 +67,5 @@ Libs: -L\${libdir} -L\${sharedlibdir} -lspirv-cross-c -lspirv-cross-glsl -lspirv
 Cflags: -I\${includedir} -I\${includedir}/spirv_cross
 EOF
 
-    sed -i "s|^Cflags:.*|& -I${includedir}/spirv_cross|" "$PC_DIR/spirv-cross-c.pc"
+    sed -i "s|^Cflags:.*|& -I\${includedir}/spirv_cross|" "$PC_DIR/spirv-cross-c.pc"
 }

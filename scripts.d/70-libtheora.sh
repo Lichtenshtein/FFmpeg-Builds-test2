@@ -67,7 +67,7 @@ ffbuild_dockerbuild() {
         fi
     fi
     find "$PC_DIR" -name "*.pc" | while read -r PC_FILE; do
-        sed -i "s|^Cflags:.*|& -I${includedir}/theora|" "$PC_FILE"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/theora|" "$PC_FILE"
     done
 }
 

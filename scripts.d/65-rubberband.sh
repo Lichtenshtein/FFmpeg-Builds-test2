@@ -48,7 +48,7 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    sed -i "s|^Cflags:.*|& -I${includedir}/rubberband|" "$PC_DIR/rubberband.pc"
+    sed -i "s|^Cflags:.*|& -I\${includedir}/rubberband|" "$PC_DIR/rubberband.pc"
 }
 
 ffbuild_configure() {

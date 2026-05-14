@@ -38,7 +38,7 @@ ffbuild_dockerbuild() {
 
     mkdir -p "$PC_DIR"
     if [ -f "$PC_DIR/ffnvcodec.pc" ]; then
-        sed -i "s|^Cflags:.*|& -I${includedir}/ffnvcodec|" "$PC_DIR/ffnvcodec.pc"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/ffnvcodec|" "$PC_DIR/ffnvcodec.pc"
         log_info "Cflags paths have been updated."
     fi
 }
