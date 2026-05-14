@@ -26,31 +26,24 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Отключаем установщик чтобы избежать вызова GetDependencies.cmake
-    sed -i 's|if(WIN32)|if(FALSE)|g' CMakeLists.txt
-
-    # Отключаем сборку утилит и тестов прямо в корневом CMakeLists.txt, чтобы не собирать c2enc.exe
-    sed -i 's|add_subdirectory(src)|# add_subdirectory(src)|g' CMakeLists.txt
+    # Отключаем сборку утилит и тестов прямо в корневом CMakeLists.txt
     sed -i 's|add_subdirectory(unittest)|# add_subdirectory(unittest)|g' CMakeLists.txt
     sed -i 's|add_subdirectory(demo)|# add_subdirectory(demo)|g' CMakeLists.txt
+    sed -i 's|if(WIN32)|if(FALSE)|g' CMakeLists.txt
 
-    # Переносим сборку только самой библиотеки в корень с жесткой фильтрацией тестов
-    cat << 'EOF' >> CMakeLists.txt
-file(GLOB CODEC2_SRCS "src/*.c")
-
-list(FILTER CODEC2_SRCS EXCLUDE REGEX "generate_codebook\\.c|mac\\.c|vdec\\.c|venc\\.c|.*_test\\.c|c2enc\\.c|c2dec\\.c|freedv_.*\\.c")
-
-add_library(codec2 STATIC ${CODEC2_SRCS})
-target_include_directories(codec2 PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src" "${CMAKE_CURRENT_BINARY_DIR}")
-set_target_properties(codec2 PROPERTIES POSITION_INDEPENDENT_CODE ON)
-
-install(TARGETS codec2 ARCHIVE DESTINATION lib)
-
-file(GLOB CODEC2_HEADERS "src/*.h")
-list(FILTER CODEC2_HEADERS EXCLUDE REGEX ".*_internal\\.h|.*_test\\.h|src/H.*\\.h|src/HRA.*\\.h|src/varicode_table\\.h|src/filter_coef\\.h|src/golay.*table\\.h")
-
-install(FILES ${CODEC2_HEADERS} DESTINATION include/codec2)
-EOF
+    # Отключаем сборку исполняемых файлов
+    # но ОСТАВЛЯЕМ генерацию кодовых книг (generate_codebook) и саму библиотеку
+    if [ -f "src/CMakeLists.txt" ]; then
+        sed -i 's|add_executable(c2enc|# add_executable(c2enc|g' src/CMakeLists.txt
+        sed -i 's|target_link_libraries(c2enc|# target_link_libraries(c2enc|g' src/CMakeLists.txt
+        sed -i 's|add_executable(c2dec|# add_executable(c2dec|g' src/CMakeLists.txt
+        sed -i 's|target_link_libraries(c2dec|# target_link_libraries(c2dec|g' src/CMakeLists.txt
+        sed -i 's|add_executable(freedv_rx|# add_executable(freedv_rx|g' src/CMakeLists.txt
+        sed -i 's|add_executable(freedv_tx|# add_executable(freedv_tx|g' src/CMakeLists.txt
+        # Отключаем инструкции установки для несуществующих теперь бинарников
+        sed -i 's|RUNTIME DESTINATION bin||g' src/CMakeLists.txt
+        sed -i 's|bundle_gavl_deps||g' src/CMakeLists.txt
+    fi
 
     mkdir build && cd build
 
