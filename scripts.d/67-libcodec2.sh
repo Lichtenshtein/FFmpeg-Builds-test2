@@ -29,6 +29,7 @@ ffbuild_dockerbuild() {
     # Отключаем сборку утилит и тестов прямо в корневом CMakeLists.txt, чтобы не собирать c2enc.exe
     sed -i 's|add_subdirectory(src)|# add_subdirectory(src)|g' CMakeLists.txt
     sed -i 's|add_subdirectory(unittest)|# add_subdirectory(unittest)|g' CMakeLists.txt
+    sed -i 's|add_subdirectory(demo)|# add_subdirectory(demo)|g' CMakeLists.txt
 
     # Переносим сборку только самой библиотеки в корень с жесткой фильтрацией тестов
     cat << 'EOF' >> CMakeLists.txt
