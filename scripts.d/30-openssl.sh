@@ -83,25 +83,32 @@ ffbuild_dockerbuild() {
 
     # OpenSSL 3.x иногда создает файлы lib64 или специфичные имена. 
     # Убедимся, что имена стандартные для FFmpeg
-    if [[ -d "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib64" ]]; then
-        mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
-        cp -rn "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib64/"* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
-        rm -rf "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib64"
+    if [[ -d "$INSTALL_ROOT/lib64" ]]; then
+        mkdir -p "$INSTALL_ROOT/lib"
+        cp -rn "$INSTALL_ROOT/lib64/"* "$INSTALL_ROOT/lib/"
+        rm -rf "$INSTALL_ROOT/lib64"
     fi
 
     local EXTRA_LIBS="-lz -lgdi32 -lcrypt32"
-    for pc in "$PC_DIR"/{openssl,libcrypto,libssl}.pc; do
-        [[ -f "$pc" ]] || continue
-        if grep -q "^Libs.private:" "$pc"; then
+    for PC_FILE in "$PC_DIR"/{openssl,libcrypto,libssl}.pc; do
+        [[ -f "$PC_FILE" ]] || continue
+        if grep -q "^Libs.private:" "$PC_FILE"; then
             for lib in $EXTRA_LIBS; do
-                grep -q -- "$lib" "$pc" || sed -i "/^Libs.private:/ s/$/ $lib/" "$pc"
+                grep -q -- "$lib" "$PC_FILE" || sed -i "/^Libs.private:/ s/$/ $lib/" "$PC_FILE"
             done
         else
-            if grep -q "^Libs:" "$pc"; then
-                sed -i "/^Libs:/ a Libs.private: $EXTRA_LIBS" "$pc"
+            if grep -q "^Libs:" "$PC_FILE"; then
+                sed -i "/^Libs:/ a Libs.private: $EXTRA_LIBS" "$PC_FILE"
             else
-                sed -i "/^Version:/ a Libs.private: $EXTRA_LIBS" "$pc"
+                sed -i "/^Version:/ a Libs.private: $EXTRA_LIBS" "$PC_FILE"
             fi
+        fi
+        if grep -q "^Cflags:" "$PC_FILE"; then
+            sed -i 's|^Cflags:.*|Cflags: -I${includedir} -I${includedir}/openssl|' "$PC_FILE"
+            log_info "Updated Cflags in $(basename "$PC_FILE")"
+        else
+            echo -e "\nCflags: -I\${includedir} -I\${includedir}/openssl" >> "$PC_FILE"
+            log_info "Added missing Cflags line to $(basename "$PC_FILE")"
         fi
     done
 }

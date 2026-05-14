@@ -66,6 +66,12 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+
+    for PC_FILE in "$PC_DIR"/gnutls.pc; do
+        [[ -f "$PC_FILE" ]] || continue
+        sed -i 's|^Cflags:.*|Cflags: -I${includedir} -I${includedir}/gnutls|' "$PC_FILE"
+        log_info "Updated Cflags in $(basename "$PC_FILE")"
+    done
 }
 
 # only build as a dependency for other components

@@ -39,13 +39,14 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    for pc in "$PC_DIR"/*brotli*.pc; do
-        [[ -e "$pc" ]] || continue
+    for PC_FILE in "$PC_DIR"/*brotli*.pc; do
+        [[ -e "$PC_FILE" ]] || continue
         if [[ -n "$static_flags" ]]; then
-            if ! grep -qF -- "$static_flags" "$pc"; then
-                sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
+            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
             fi
         fi
+        sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/brotli|g' "$PC_FILE"
     done
 }
 

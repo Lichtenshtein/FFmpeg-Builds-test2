@@ -96,9 +96,9 @@ EOF
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Извлекаем libyuv.a для послудующих стадий (она лежит в _deps/libyuv-build/)
-    cp "_deps/libyuv-build/libyuv.a" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/libyuv"
-    cp -r "_deps/libyuv-src/include/"* "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/libyuv/"
+    cp "_deps/libyuv-build/libyuv.a" "$INSTALL_ROOT/lib/"
+    mkdir -p "$INSTALL_ROOT/include/libyuv"
+    cp -r "_deps/libyuv-src/include/"* "$INSTALL_ROOT/include/"
 
     # Создаем pkg-config файл вручную, чтобы aom и avif-v2 его нашли
     mkdir -p "$PC_DIR"
@@ -113,6 +113,12 @@ Description: YUV conversion and scaling library (extracted from libavif)
 Version: 1.4.1
 Libs: -L\${libdir} -lyuv
 Libs.private: -lstdc++
-Cflags: -I\${includedir}
+Cflags: -I\${includedir} -I\${includedir}/libyuv
 EOF
+
+    for PC_FILE in "$PC_DIR"/libavif.pc; do
+        [[ -f "$PC_FILE" ]] || continue
+        sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/avif|g' "$PC_FILE"
+        log_info "Updated Cflags in $(basename "$PC_FILE")"
+    done
 }

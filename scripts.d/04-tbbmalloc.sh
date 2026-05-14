@@ -14,7 +14,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    mkdir -p build && cd build
+    mkdir -p build "$PC_DIR" && cd build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -52,11 +52,20 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Создаем симлинки для совместимости, если их нет
-    ln -s libtbb12.a "${INSTALL_ROOT}/lib/libtbb.a" || true
-    # Если tbbmalloc тоже имеет суффикс
-    if [ -f "${INSTALL_ROOT}/lib/libtbbmalloc12.a" ]; then
-        ln -s libtbbmalloc12.a "${INSTALL_ROOT}/lib/libtbbmalloc.a" || true
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        # Создаем симлинки для совместимости, если их нет
+        ln -s libtbb12.a "${INSTALL_ROOT}/lib/libtbb.a" || true
+        # Если tbbmalloc тоже имеет суффикс
+        if [ -f "${INSTALL_ROOT}/lib/libtbbmalloc12.a" ]; then
+            ln -s libtbbmalloc12.a "${INSTALL_ROOT}/lib/libtbbmalloc.a" || true
+        fi
+    fi
+
+    if [ -d "$PC_DIR" ]; then
+        find "$PC_DIR" -name "*.pc" | while read -r PC_FILE; do
+        sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/oneapi|g' "$PC_FILE"
+        done
+        log_info "Cflags paths have been updated."
     fi
 }
 
