@@ -29,17 +29,18 @@ ffbuild_dockerbuild() {
     local SYSROOT=$(${FFBUILD_TOOLCHAIN}-gcc -print-sysroot)
 
     unset CC CXX LD AR CPP LIBS CCAS
-    unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
+    # unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
     unset PKG_CONFIG_LIBDIR
+
     # Force use of cross-tools
     export CC="${FFBUILD_TOOLCHAIN}-gcc"
     export CXX="${FFBUILD_TOOLCHAIN}-g++"
-    export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
-    export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
+
+    local CRT_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -pipe -g0 -fno-lto"
 
     # 1. Headers
     cd mingw-w64-headers
-        ./configure \
+        CFLAGS="" CPPFLAGS="" ./configure \
           --prefix="$SYSROOT" \
           --host="$FFBUILD_TOOLCHAIN" \
           --with-default-win32-winnt="0x0A00" \
@@ -53,7 +54,10 @@ ffbuild_dockerbuild() {
 
     # 2. CRT
     cd mingw-w64-crt
-        ./configure \
+        export AR="${FFBUILD_TOOLCHAIN}-ar"
+        export RANLIB="${FFBUILD_TOOLCHAIN}-ranlib"
+
+        CFLAGS="$CRT_CFLAGS" CPPFLAGS="$BASE_CPPFLAGS" ./configure \
           --prefix="$SYSROOT" \
           --host="$FFBUILD_TOOLCHAIN" \
           --with-default-msvcrt=ucrt \
@@ -68,7 +72,18 @@ ffbuild_dockerbuild() {
 
     # 3. Winpthreads
     cd mingw-w64-libraries/winpthreads
-        ./configure \
+        if [[ "$USE_LTO" == "1" ]]; then
+            export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
+            export NM="${FFBUILD_CROSS_PREFIX}gcc-nm"
+            export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
+            local PTHREAD_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -pipe -g0 ${USELTO} ${USELTO_C}"
+        else
+            export AR="${FFBUILD_TOOLCHAIN}-ar"
+            export RANLIB="${FFBUILD_TOOLCHAIN}-ranlib"
+            local PTHREAD_CFLAGS="$CRT_CFLAGS"
+        fi
+
+        CFLAGS="$PTHREAD_CFLAGS" CPPFLAGS="$BASE_CPPFLAGS" ./configure \
           --prefix="$SYSROOT" \
           --host="$FFBUILD_TOOLCHAIN" \
           --with-pic \
