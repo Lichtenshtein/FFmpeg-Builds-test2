@@ -56,8 +56,9 @@ ffbuild_dockerbuild() {
     cd mingw-w64-crt
         export AR="${FFBUILD_TOOLCHAIN}-ar"
         export RANLIB="${FFBUILD_TOOLCHAIN}-ranlib"
+        local CLEAN_CPPFLAGS=$(echo "$BASE_CPPFLAGS" | sed 's/-D__USE_MINGW_ANSI_STDIO=1//g')
 
-        CFLAGS="$CRT_CFLAGS" CPPFLAGS="$BASE_CPPFLAGS" ./configure \
+        CFLAGS="$CRT_CFLAGS" CPPFLAGS="$CLEAN_CPPFLAGS" ./configure \
           --prefix="$SYSROOT" \
           --host="$FFBUILD_TOOLCHAIN" \
           --with-default-msvcrt=ucrt \
@@ -76,14 +77,14 @@ ffbuild_dockerbuild() {
             export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
             export NM="${FFBUILD_CROSS_PREFIX}gcc-nm"
             export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
-            local PTHREAD_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -pipe -g0 ${USELTO} ${USELTO_C}"
+            local PTHREAD_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -pipe -g0 ${USELTO}${USELTO_C}"
         else
             export AR="${FFBUILD_TOOLCHAIN}-ar"
             export RANLIB="${FFBUILD_TOOLCHAIN}-ranlib"
             local PTHREAD_CFLAGS="$CRT_CFLAGS"
         fi
 
-        CFLAGS="$PTHREAD_CFLAGS" CPPFLAGS="$BASE_CPPFLAGS" ./configure \
+        CFLAGS="$PTHREAD_CFLAGS" CPPFLAGS="$CLEAN_CPPFLAGS" ./configure \
           --prefix="$SYSROOT" \
           --host="$FFBUILD_TOOLCHAIN" \
           --with-pic \
