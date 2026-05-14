@@ -34,12 +34,10 @@ ffbuild_dockerbuild() {
     # Отключаем сборку исполняемых файлов
     # но ОСТАВЛЯЕМ генерацию кодовых книг (generate_codebook) и саму библиотеку
     if [ -f "src/CMakeLists.txt" ]; then
-        sed -i 's|add_executable(c2enc|# add_executable(c2enc|g' src/CMakeLists.txt
-        sed -i 's|target_link_libraries(c2enc|# target_link_libraries(c2enc|g' src/CMakeLists.txt
-        sed -i 's|add_executable(c2dec|# add_executable(c2dec|g' src/CMakeLists.txt
-        sed -i 's|target_link_libraries(c2dec|# target_link_libraries(c2dec|g' src/CMakeLists.txt
-        sed -i 's|add_executable(freedv_rx|# add_executable(freedv_rx|g' src/CMakeLists.txt
-        sed -i 's|add_executable(freedv_tx|# add_executable(freedv_tx|g' src/CMakeLists.txt
+        # Комментируем все add_executable, кроме генератора кодовых книг, который нужен для сборки таблиц
+        sed -i '/add_executable/ { /generate_codebook/! s|^|#| }' src/CMakeLists.txt
+        # Комментируем абсолютно все target_link_libraries, кроме той, что привязана к самой библиотеке codec2
+        sed -i '/target_link_libraries/ { /codec2/! s|^|#| }' src/CMakeLists.txt
         # Отключаем инструкции установки для несуществующих теперь бинарников
         sed -i 's|RUNTIME DESTINATION bin||g' src/CMakeLists.txt
         sed -i 's|bundle_gavl_deps||g' src/CMakeLists.txt
