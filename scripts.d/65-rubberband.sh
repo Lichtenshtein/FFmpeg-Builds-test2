@@ -30,6 +30,7 @@ ffbuild_dockerbuild() {
     local myconf=(
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         --prefix="$FFBUILD_PREFIX"
+        --cross-file="$FFBUILD_MESON_CROSS"
         -Ddefault_library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=gnu++20
         -Dc_std=gnu17
@@ -37,12 +38,6 @@ ffbuild_dockerbuild() {
         -Dtests=disabled
         -Dresampler=libsamplerate # speex or libsamplerate
     )
-
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --cross-file="$FFBUILD_MESON_CROSS"
-        )
-    fi
 
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
@@ -52,6 +47,8 @@ ffbuild_dockerbuild() {
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    sed -i "s|^Cflags:.*|& -I${includedir}/rubberband|" "$PC_DIR/rubberband.pc"
 }
 
 ffbuild_configure() {

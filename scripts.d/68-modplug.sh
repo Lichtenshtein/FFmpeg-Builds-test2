@@ -44,6 +44,8 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+
+    sed -i "s|^Cflags:.*|& -I${includedir}/libmodplug|" "$PC_DIR/libmodplug.pc"
 }
 
 ffbuild_cflags() {

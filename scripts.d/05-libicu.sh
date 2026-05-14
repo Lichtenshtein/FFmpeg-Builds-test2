@@ -139,13 +139,13 @@ ffbuild_dockerbuild() {
         [[ -e "$PC_FILE" ]] || continue
         # стандартные имена -licu
         sed -i 's/-lsicu/-licu/g' "$PC_FILE"
+        sed -i "s|^Cflags:.*|& -I${includedir}/unicode|" "$PC_FILE"
         # Добавляем макросы статики в Cflags
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
                 sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
             fi
         fi
-        sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/unicode|g' "$PC_FILE"
         # Вычищаем мусор из основной строки Libs
         sed -i 's/\${baselibs}//g; s/-lpthread//g; s/-lm//g' "$PC_FILE"
         # прописываем системные зависимости Windows в Libs.private

@@ -56,7 +56,7 @@ ffbuild_dockerbuild() {
     mkdir -p "$PC_DIR"
     if [ -d "$PC_DIR" ]; then
         find "$PC_DIR" -name "*.pc" | while read -r PC_FILE; do
-            sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/nghttp2|g' "$PC_FILE"
+            sed -i "s|^Cflags:.*|& -I${includedir}/nghttp2|" "$PC_FILE"
         done
         log_info "Cflags paths have been updated."
     fi

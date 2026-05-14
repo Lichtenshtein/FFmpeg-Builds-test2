@@ -83,6 +83,7 @@ ffbuild_dockerbuild() {
     if ! grep -q "libvmaf" "$PC_DIR/aom.pc"; then
         sed -i '/^Requires.private:/ s/$/ libvmaf libyuv/' "$PC_DIR/aom.pc"
     fi
+    sed -i "s|^Cflags:.*|& -I${includedir}/aom|" "$PC_DIR/aom.pc"
 }
 
 ffbuild_configure() {

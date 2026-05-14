@@ -77,6 +77,7 @@ EOF
     mkdir -p "$PC_DIR"
     local PC_FILE="$PC_DIR/libssh.pc"
     if [[ -f "$PC_FILE" ]]; then
+        sed -i "s|^Cflags:.*|& -I${includedir}/libssh|" "$PC_FILE"
         sed -i '/^Cflags:/ s/$/ -Dmd5=libssh_md5/' "$PC_FILE"
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
@@ -88,7 +89,6 @@ EOF
         else
             sed -i "/^Libs:/ a Libs.private: -lssl -lcrypto -lz -liphlpapi" "$PC_FILE"
         fi
-        sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/libssh|g' "$PC_FILE"
         log_info "Updated Cflags in $(basename "$PC_FILE")"
     fi
 }

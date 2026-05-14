@@ -74,7 +74,9 @@ ffbuild_dockerbuild() {
     # Исправление для LTO
     # Work around strip breaking LTO symbol index
     # "$RANLIB" "$FFBUILD_DESTPREFIX"/lib/libvpx.a
-    "$RANLIB" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/libvpx.a"
+    "$RANLIB" "$INSTALL_ROOT/lib/libvpx.a"
+
+    sed -i "s|^Cflags:.*|& -I${includedir}/vpx|" "$PC_DIR/vpx.pc"
 }
 
 ffbuild_configure() {

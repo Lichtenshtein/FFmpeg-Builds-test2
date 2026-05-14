@@ -57,15 +57,16 @@ ffbuild_dockerbuild() {
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
         # Перемещаем статику из подпапки в корень lib
-        if [[ -f "$FFBUILD_DESTPREFIX/lib/oapv/liboapv.a" ]]; then
-            mv "$FFBUILD_DESTPREFIX/lib/oapv/liboapv.a" "$FFBUILD_DESTPREFIX/lib/liboapv.a"
+        if [[ -f "$INSTALL_ROOT/lib/oapv/liboapv.a" ]]; then
+            mv "$INSTALL_ROOT/lib/oapv/liboapv.a" "$INSTALL_ROOT/lib/liboapv.a"
         fi
         # Удаляем мусор только при статической сборке
-        rm -rf "$FFBUILD_DESTPREFIX"/bin "$FFBUILD_DESTPREFIX"/lib/oapv
+        rm -rf "$INSTALL_ROOT"/bin "$INSTALL_ROOT"/lib/oapv
     fi
 
     local PC_FILE="$PC_DIR/oapv.pc"
     if [[ -f "$PC_FILE" ]]; then
+        sed -i "s|^Cflags:.*|& -I${includedir}/oapv|" "$PC_FILE"
         sed -i '/^Libs.private:/d' "$PC_FILE"
         sed -i "/^Libs:/i Libs.private: -lm" "$PC_FILE"
         if [[ "${PREFER_SHARED}" != "1" ]]; then

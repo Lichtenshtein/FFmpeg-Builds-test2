@@ -70,9 +70,9 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
+    mkdir -p "$PC_DIR"
     if [[ ! -f "${PC_DIR}/mp3lame.pc" ]]; then
-    mkdir -p "${PC_DIR}"
-    cat <<EOF > "${PC_DIR}/mp3lame.pc"
+        cat <<EOF > "${PC_DIR}/mp3lame.pc"
 prefix=${FFBUILD_PREFIX}
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
@@ -85,6 +85,8 @@ Libs: -L\${libdir} -lmp3lame
 Libs.private: -lm
 Cflags: -I\${includedir} -I\${includedir}/lame
 EOF
+    else
+        sed -i "s|^Cflags:.*|& -I${includedir}/lame|" "$PC_DIR/mp3lame.pc"
     fi
 }
 

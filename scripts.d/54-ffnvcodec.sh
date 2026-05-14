@@ -35,6 +35,12 @@ ffbuild_dockerbuild() {
 
     # ffnvcodec - это просто заголовки, Makefile простой.
     make PREFIX="$FFBUILD_PREFIX" DESTDIR="$FFBUILD_DESTDIR" install || return 1
+
+    mkdir -p "$PC_DIR"
+    if [ -f "$PC_DIR/ffnvcodec.pc" ]; then
+        sed -i "s|^Cflags:.*|& -I${includedir}/ffnvcodec|" "$PC_DIR/ffnvcodec.pc"
+        log_info "Cflags paths have been updated."
+    fi
 }
 
 ffbuild_configure() {

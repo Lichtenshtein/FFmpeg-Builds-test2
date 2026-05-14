@@ -85,10 +85,10 @@ ffbuild_dockerbuild() {
 
     sed -i "s/^Requires.private: /Requires.private: lcms2 libhwy libjxl_cms /" "$PC_DIR/libjxl_cms.pc"
     sed -i 's/Libs:/Libs: -lhwy/' "$PC_DIR/libjxl.pc"
-    sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/jxl|g' "$PC_DIR/libjxl_threads.pc"
-    sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/jxl|g' "$PC_DIR/libjxl.pc"
-    sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/jxl|g' "$PC_DIR/libjxl_cms.pc"
-    sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/hwy|g' "$PC_DIR/libhwy.pc"
+    sed -i "s|^Cflags:.*|& -I${includedir}/jxl|" "$PC_DIR/libjxl_threads.pc"
+    sed -i "s|^Cflags:.*|& -I${includedir}/jxl|" "$PC_DIR/libjxl.pc"
+    sed -i "s|^Cflags:.*|& -I${includedir}/jxl|" "$PC_DIR/libjxl_cms.pc"
+    sed -i "s|^Cflags:.*|& -I${includedir}/hwy|" "$PC_DIR/libhwy.pc"
 }
 
 ffbuild_cppflags() {

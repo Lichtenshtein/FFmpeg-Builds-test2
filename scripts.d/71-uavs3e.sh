@@ -42,6 +42,8 @@ ffbuild_dockerbuild() {
     # Just in case to detect header files default before FFmpeg
     cp -f "$INSTALL_ROOT"/include/uavs3e/uavs3e.h "$INSTALL_ROOT"/include
     cp -f "$INSTALL_ROOT"/include/uavs3e/com_api.h "$INSTALL_ROOT"/include
+
+    sed -i "s|^Cflags:.*|& -I${includedir}/uavs3e|" "$PC_DIR/uavs3e.pc"
 }
 
 ffbuild_configure() {

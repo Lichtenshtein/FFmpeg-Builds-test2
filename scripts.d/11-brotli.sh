@@ -41,12 +41,12 @@ ffbuild_dockerbuild() {
 
     for PC_FILE in "$PC_DIR"/*brotli*.pc; do
         [[ -e "$PC_FILE" ]] || continue
+        sed -i "s|^Cflags:.*|& -I${includedir}/brotli|" "$PC_FILE"
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
                 sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
             fi
         fi
-        sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/brotli|g' "$PC_FILE"
     done
 }
 

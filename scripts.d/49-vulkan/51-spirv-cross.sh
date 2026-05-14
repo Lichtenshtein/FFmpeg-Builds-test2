@@ -56,7 +56,7 @@ prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${prefix}/lib
 sharedlibdir=\${prefix}/lib
-includedir=\${prefix}/include/spirv_cross
+includedir=\${prefix}/include
 
 Name: spirv-cross-c-shared
 Description: C API for SPIRV-Cross
@@ -67,5 +67,5 @@ Libs: -L\${libdir} -L\${sharedlibdir} -lspirv-cross-c -lspirv-cross-glsl -lspirv
 Cflags: -I\${includedir} -I\${includedir}/spirv_cross
 EOF
 
-    sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/spirv_cross|g' "$PC_DIR/spirv-cross-c.pc"
+    sed -i "s|^Cflags:.*|& -I${includedir}/spirv_cross|" "$PC_DIR/spirv-cross-c.pc"
 }

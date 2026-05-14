@@ -43,4 +43,7 @@ ffbuild_dockerbuild() {
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    sed -i "s|^Cflags:.*|& -I${includedir}/lv2|" "$PC_DIR/lv2.pc"
+    sed -i 's| -pthread||g' "$PC_DIR/lv2.pc"
 }

@@ -347,7 +347,7 @@ Description: A frameserver for the 21st century
 Version: 75
 Libs: -L\${libdir} -lvapoursynth
 Libs.private: -lstdc++ -lwinmm
-Cflags: -I\${includedir} $static_flags
+Cflags: -I\${includedir} -I\${includedir}/vapoursynth $static_flags
 EOF
 
     cat <<EOF > "$PC_DIR/vapoursynth-script.pc"
@@ -361,7 +361,7 @@ Description: Library for interfacing VapourSynth with Python
 Version: 75
 Libs: -L\${libdir} -lvsscript
 Libs.private: -l${PY_LIB} -lstdc++
-Cflags: -I\${includedir}
+Cflags: -I\${includedir} -I\${includedir}/vapoursynth
 EOF
 }
 

@@ -45,6 +45,8 @@ ffbuild_dockerbuild() {
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    sed -i "s|^Cflags:.*|& -I${includedir}/dvdread|" "$PC_DIR/dvdread.pc"
 }
 
 ffbuild_configure() {

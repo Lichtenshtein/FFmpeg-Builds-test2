@@ -79,12 +79,12 @@ ffbuild_dockerbuild() {
     if [ -d "$PC_DIR" ]; then
         find "$PC_DIR" -name "*.pc" | while read -r PC_FILE; do
             sed -i "s/-lrt//g" "$PC_FILE"
+            sed -i "s|^Cflags:.*|& -I${includedir}/cairo|" "$PC_FILE"
             if [[ -n "$self_static_flags" ]]; then
                 if ! grep -qF -- "$self_static_flags" "$PC_FILE"; then
                     sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$PC_FILE"
                 fi
             fi
-            sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/cairo|g' "$PC_FILE"
         done
         log_info "Cflags paths have been updated."
     fi
