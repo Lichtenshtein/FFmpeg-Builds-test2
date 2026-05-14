@@ -75,17 +75,19 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    for pc in cairo-dwrite-font.pc cairo.pc cairo-fc.pc cairo-ft.pc cairo-gobject.pc cairo-pdf.pc cairo-png.pc cairo-ps.pc cairo-script-interpreter.pc cairo-script.pc cairo-svg.pc cairo-tee.pc cairo-win32-font.pc cairo-win32.pc; do
-    local TARGET_PC="$PC_DIR/$pc"
-        if [[ -f "$TARGET_PC" ]]; then
-            sed -i "s/-lrt//g" "$TARGET_PC"
+    mkdir -p "$PC_DIR"
+    if [ -d "$PC_DIR" ]; then
+        find "$PC_DIR" -name "*.pc" | while read -r PC_FILE; do
+            sed -i "s/-lrt//g" "$PC_FILE"
             if [[ -n "$self_static_flags" ]]; then
-                if ! grep -qF -- "$self_static_flags" "$TARGET_PC"; then
-                    sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$TARGET_PC"
+                if ! grep -qF -- "$self_static_flags" "$PC_FILE"; then
+                    sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$PC_FILE"
                 fi
             fi
-        fi
-    done
+            sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/cairo|g' "$PC_FILE"
+        done
+        log_info "Cflags paths have been updated."
+    fi
 }
 
 ffbuild_cppflags() {

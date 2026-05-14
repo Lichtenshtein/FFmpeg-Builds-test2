@@ -88,6 +88,8 @@ EOF
         else
             sed -i "/^Libs:/ a Libs.private: -lssl -lcrypto -lz -liphlpapi" "$PC_FILE"
         fi
+        sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/libssh|g' "$PC_FILE"
+        log_info "Updated Cflags in $(basename "$PC_FILE")"
     fi
 }
 

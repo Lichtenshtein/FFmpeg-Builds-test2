@@ -57,6 +57,7 @@ ffbuild_dockerbuild() {
         sed -i "s|/opt/ct-ng/[^ ]*libstdc++.a||g" "$PC_FILE"
         # Добавляем необходимые зависимости, если их там нет
         sed -i "/^Libs.private:/ s/$/ -lstdc++ -lcrypto/" "$PC_FILE"
+        sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/aribcaption|g' "$PC_FILE"
     fi
 }
 

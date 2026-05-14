@@ -135,27 +135,28 @@ ffbuild_dockerbuild() {
     fi
 
     local ICU_SYS_LIBS="-lstdc++ -pthread -lm -ladvapi32 -lws2_32"
-    for pc in "$PC_DIR"/icu-*.pc; do
-        [[ -e "$pc" ]] || continue
+    for PC_FILE in "$PC_DIR"/icu-*.pc; do
+        [[ -e "$PC_FILE" ]] || continue
         # стандартные имена -licu
-        sed -i 's/-lsicu/-licu/g' "$pc"
+        sed -i 's/-lsicu/-licu/g' "$PC_FILE"
         # Добавляем макросы статики в Cflags
         if [[ -n "$static_flags" ]]; then
-            if ! grep -qF -- "$static_flags" "$pc"; then
-                sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
+            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
             fi
         fi
+        sed -i 's| -I${includedir}| -I${includedir} -I${includedir}/unicode|g' "$PC_FILE"
         # Вычищаем мусор из основной строки Libs
-        sed -i 's/\${baselibs}//g; s/-lpthread//g; s/-lm//g' "$pc"
+        sed -i 's/\${baselibs}//g; s/-lpthread//g; s/-lm//g' "$PC_FILE"
         # прописываем системные зависимости Windows в Libs.private
-        if grep -q "^Libs.private:" "$pc"; then
-            sed -i "s|^Libs.private:.*|Libs.private: $ICU_SYS_LIBS|" "$pc"
+        if grep -q "^Libs.private:" "$PC_FILE"; then
+            sed -i "s|^Libs.private:.*|Libs.private: $ICU_SYS_LIBS|" "$PC_FILE"
         else
-            sed -i "/^Libs:/ a Libs.private: $ICU_SYS_LIBS" "$pc"
+            sed -i "/^Libs:/ a Libs.private: $ICU_SYS_LIBS" "$PC_FILE"
         fi
         # Добавляем библиотеку данных (-licudt) в строку линковки, если её там нет
-        if ! grep -q -- "-licudt" "$pc"; then
-            sed -i '/^Libs:/ s/$/ -licudt/' "$pc"
+        if ! grep -q -- "-licudt" "$PC_FILE"; then
+            sed -i '/^Libs:/ s/$/ -licudt/' "$PC_FILE"
         fi
     done
 }
