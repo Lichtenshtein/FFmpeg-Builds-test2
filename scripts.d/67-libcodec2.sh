@@ -26,14 +26,14 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Отключаем сборку утилит и тестов прямо в корневом CMakeLists.txt
-    sed -i 's|add_subdirectory(unittest)|# add_subdirectory(unittest)|g' CMakeLists.txt
-    sed -i 's|add_subdirectory(demo)|# add_subdirectory(demo)|g' CMakeLists.txt
-    sed -i 's|if(WIN32)|if(FALSE)|g' CMakeLists.txt
+    # компилируем генератор кодовых книг под хост-систему (linux) вручную
+    gcc $HOST_CFLAGS src/generate_codebook.c -o ./generate_codebook_host -lm
+    log_info "The generate_codebook_host utility compiled successfully on Linux."
 
     # Отключаем сборку исполняемых файлов
     # но ОСТАВЛЯЕМ генерацию кодовых книг (generate_codebook) и саму библиотеку
     if [ -f "src/CMakeLists.txt" ]; then
+        sed -i '/if(CMAKE_CROSSCOMPILING)/,/endif(CMAKE_CROSSCOMPILING)/c\add_executable(generate_codebook IMPORTED)\nset_target_properties(generate_codebook PROPERTIES IMPORTED_LOCATION "'$(pwd)'/generate_codebook_host")' src/CMakeLists.txt
         # Комментируем все add_executable, кроме генератора кодовых книг, который нужен для сборки таблиц
         sed -i '/add_executable/ { /generate_codebook/! s|^|#| }' src/CMakeLists.txt
         # Комментируем абсолютно все target_link_libraries, кроме той, что привязана к самой библиотеке codec2
@@ -42,6 +42,11 @@ ffbuild_dockerbuild() {
         sed -i 's|RUNTIME DESTINATION bin||g' src/CMakeLists.txt
         sed -i 's|bundle_gavl_deps||g' src/CMakeLists.txt
     fi
+
+    # Отключаем папки тестов и демо на верхнем уровне
+    sed -i 's|add_subdirectory(unittest)|# add_subdirectory(unittest)|g' CMakeLists.txt
+    sed -i 's|add_subdirectory(demo)|# add_subdirectory(demo)|g' CMakeLists.txt
+    sed -i 's|if(WIN32)|if(FALSE)|g' CMakeLists.txt
 
     mkdir build && cd build
 
