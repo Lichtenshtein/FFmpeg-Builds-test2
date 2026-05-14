@@ -79,20 +79,20 @@ EOF
 #endif
 EOF
 
-    mkdir -p "$PC_DIR"
-    cat <<EOF > "$PC_DIR/codec2.pc"
-prefix=$FFBUILD_PREFIX
-exec_prefix=\${prefix}
-libdir=\${exec_prefix}/lib
-includedir=\${prefix}/include
+    # mkdir -p "$PC_DIR"
+    # cat <<EOF > "$PC_DIR/codec2.pc"
+# prefix=$FFBUILD_PREFIX
+# exec_prefix=\${prefix}
+# libdir=\${exec_prefix}/lib
+# includedir=\${prefix}/include
 
-Name: codec2
-Description: Next generation digital radio voice codec
-Version: 1.2.0
-Libs: -L\${libdir} -lcodec2
-Libs.private: -lm
-Cflags: -I\${includedir} -I\${includedir}/codec2
-EOF
+# Name: codec2
+# Description: Next generation digital radio voice codec
+# Version: 1.2.0
+# Libs: -L\${libdir} -lcodec2
+# Libs.private: -lm
+# Cflags: -I\${includedir} -I\${includedir}/codec2
+# EOF
 
     # Финальная валидация артефактов перед выходом
     if [[ -f "$INSTALL_ROOT/lib/libcodec2.a" && -f "$INSTALL_ROOT/include/codec2/version.h" ]]; then
