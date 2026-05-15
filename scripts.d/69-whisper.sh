@@ -28,7 +28,9 @@ ffbuild_dockerbuild() {
     set -e
 
     # Fixing the broken TBB search in whisper, which is tied to the Intel SDK folder structure
-    sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' ggml/src/ggml-openvino/CMakeLists.txt
+    if [ -f "ggml/src/ggml-openvino/CMakeLists.txt" ]; then
+        sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' ggml/src/ggml-openvino/CMakeLists.txt
+    fi
 
     cat <<EOF > main-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Windows)
@@ -55,6 +57,7 @@ EOF
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
     sed -i "s|@CFLAGS@|${CFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
     sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
+    sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
     sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
     sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}|g" main-toolchain.cmake
 
@@ -85,11 +88,9 @@ EOF
         -DBUILD_SHARED_LIBS_DEFAULT=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DWHISPER_BUILD_TESTS=OFF
         -DWHISPER_ALL_WARNINGS=OFF
-        -DWHISPER_CURL=ON # to download models
         -DWHISPER_BUILD_EXAMPLES=OFF
         -DWHISPER_BUILD_SERVER=OFF
         -DWHISPER_USE_SYSTEM_GGML=OFF
-        -DWHISPER_SDL2=ON # support for libSDL2
         -DGGML_ALL_WARNINGS=OFF
         -DGGML_AVX2=ON
         -DGGML_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
@@ -108,18 +109,21 @@ EOF
         -DGGML_FMA=ON
         # -DGGML_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DGGML_NATIVE=OFF
-        -DGGML_OPENCL=ON
         -DGGML_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
         -DGGML_SSE42=ON
         -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DGGML_WEBGPU=OFF
+        #
+        -DGGML_OPENCL=OFF
+        -DWHISPER_SDL2=OFF # support for libSDL2
+        -DWHISPER_CURL=OFF # to download models
         # VULKAN
-        -DGGML_VULKAN=ON
-        -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
-        -DVulkan_GLSLC_EXECUTABLE="/opt/glslc_host"
-        -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
-        -DGGML_VULKAN_CHECK_RESULTS=OFF
+        # -DGGML_VULKAN=ON
+        # -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
+        # -DVulkan_GLSLC_EXECUTABLE="/opt/glslc_host"
+        # -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        # -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
+        # -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
         -DGGML_OPENVINO=ON
         -DWHISPER_OPENVINO=ON
@@ -142,24 +146,28 @@ EOF
 
     # CMake в Windows часто сохраняет их как ggml-base.a, а линковщик ищет -lggml-base (т.е. libggml-base.a)
     log_info "Fixing library prefixes for MinGW..."
+    # CMake часто создает 'ggml.a' вместо 'libggml.a'
     find "$INSTALL_ROOT/lib" -name "ggml*.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
     find "$INSTALL_ROOT/lib" -name "whisper.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
 
-    if [[ -f "$PC_DIR/whisper.pc" ]]; then
-        log_info "Updating $FINAL_PC with backend libraries..."
-        local PC_FILE="$PC_DIR/whisper.pc"
+    local PC_FILE="$PC_DIR/whisper.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        log_info "Updating $PC_FILE with backend libraries..."
+        if ! grep -q "^Libs.private:" "$PC_FILE"; then
+            echo "Libs.private:" >> "$PC_FILE"
+        fi
         if [[ "${myconf[@]}" =~ "-DGGML_OPENCL=ON" ]]; then
-            sed -i '/^Libs.private:/ s/$/ -lggml-opencl -lOpenCL/' "$FINAL_PC"
+            sed -i '/^Libs.private:/ s/$/ -lggml-opencl -lOpenCL/' "$PC_FILE"
         fi
         if [[ "${myconf[@]}" =~ "-DGGML_VULKAN=ON" ]]; then
-            sed -i '/^Libs.private:/ s/$/ -lggml-vulkan -lvulkan/' "$FINAL_PC"
+            sed -i '/^Libs.private:/ s/$/ -lggml-vulkan -lvulkan/' "$PC_FILE"
         fi
         if [[ "${myconf[@]}" =~ "-DGGML_OPENVINO=ON" ]]; then
-            sed -i '/^Libs.private:/ s/$/ -lopenvino -lopenvino_c -ltbb12 -ltbb/' "$FINAL_PC"
+            sed -i '/^Libs.private:/ s/$/ -lopenvino -lopenvino_c -ltbb12 -ltbb/' "$PC_FILE"
         fi
-        ln -sf whisper.pc "$PC_DIR/libwhisper.pc"
+        ln -sf "$PC_FILE" "$PC_DIR/libwhisper.pc"
     else
-        log_error "Cannot find .pc file at: $PC_DIR/whisper.pc"
+        log_error "Cannot find .pc file at: $PC_FILE"
     fi
 }
 
