@@ -55,10 +55,10 @@ EOF
 
     # Внедряем переменные через sed
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CFLAGS@|${CFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
+    sed -i "s|@CFLAGS@|${CFLAGS} ${USELTO}${USELTO_C} -DOPENVINO_STATIC_DEFINE -Dov_runtime_c_EXPORTS|g" main-toolchain.cmake
     sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
+    sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C} -DOPENVINO_STATIC_DEFINE -Dov_runtime_c_EXPORTS|g" main-toolchain.cmake
     sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}|g" main-toolchain.cmake
 
     # Создаем хост-тулчейн для сборщика шейдеров
@@ -165,7 +165,7 @@ EOF
             sed -i '/^Libs.private:/ s/$/ -lggml-vulkan -lvulkan/' "$PC_FILE"
         fi
         if [[ "${myconf[@]}" =~ "-DGGML_OPENVINO=ON" ]]; then
-            sed -i '/^Requires.private:/ s/$/ openvino/' "$PC_FILE"
+            echo "Requires.private: openvino" >> "$PC_FILE"
         fi
         ln -sf "$PC_FILE" "$PC_DIR/libwhisper.pc"
     else
