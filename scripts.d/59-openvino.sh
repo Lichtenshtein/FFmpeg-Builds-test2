@@ -77,14 +77,13 @@ done
         -e "s|runtime/bin/intel64/Release/|bin/|g" \
         -e "s|runtime/bin/intel64/Debug/|bin/|g" \
         -e "s|runtime/include|include|g" \
-        -e "s|\.lib|.a|g" \
         -e "s|liblib|lib|g" \
         {} +
 
     # код для удаления суффикса 'd'
     # Мы обрабатываем и .a, и .dll, и текстовые упоминания конфигураций
     find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
-        -e 's/d\.a/.a/g' -e 's/fronten\.a/frontend.a/g' \
+        -e 's/d\.lib/.lib/g' -e 's/fronten\.lib/frontend.lib/g' \
         -e 's/d\.dll/.dll/g' -e 's/fronten\.dll/frontend.dll/g' \
         -e 's/Debug/Release/g' -e 's/DEBUG/RELEASE/g' \
         {} +
