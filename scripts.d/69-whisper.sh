@@ -27,34 +27,11 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    local WHISPER_CMAKE="src/CMakeLists.txt"
-    if [ -f "$WHISPER_CMAKE" ]; then
-        log_info "Инжектируем принудительную линковку OpenVINO в $WHISPER_CMAKE..."
-
-        cat << 'EOF' >> "$WHISPER_CMAKE"
-
-# Принудительный фикс гибридной линковки для MinGW
-if (TARGET whisper)
-    target_link_libraries(whisper PRIVATE "${FFBUILD_PREFIX}/lib/libopenvino.a" "${FFBUILD_PREFIX}/lib/libopenvino_c.a")
-    target_link_options(whisper PRIVATE "-Wl,--enable-runtime-pseudo-reloc" "-Wl,--allow-shlib-undefined")
-endif()
-EOF
-    fi
-
     # Fixing the broken TBB search in whisper, which is tied to the Intel SDK folder structure
     if [ -f "ggml/src/ggml-openvino/CMakeLists.txt" ]; then
         sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' ggml/src/ggml-openvino/CMakeLists.txt
-        log_info "Updating ggml-openvino..."
+        log_info "Updating $PC_FILE with backend libraries..."
     fi
-
-    local CLEAN_LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' -e 's/ -static-libgcc / /g' -e 's/ -static-libstdc++ / /g' -e 's/ -flto=auto / /g' -e 's/ -flto / /g' | xargs)
-    CLEAN_LDFLAGS="${CLEAN_LDFLAGS} -Wl,--enable-runtime-pseudo-reloc -Wl,--allow-shlib-undefined"
-    local CLEAN_CFLAGS=$(echo " ${CFLAGS} " | sed -e 's/-fstack-protector-strong//g' -e 's/-flto=auto//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g' | xargs)
-    local CLEAN_CXXFLAGS=$(echo " ${CXXFLAGS} " | sed -e 's/-fstack-protector-strong//g' | sed -e 's/-flto=auto//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g' | xargs)
-
-    export CFLAGS="${CLEAN_CFLAGS}"
-    export CXXFLAGS="${CLEAN_CXXFLAGS}"
-    export LDFLAGS="${CLEAN_LDFLAGS}"
 
     cat <<EOF > main-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Windows)
@@ -63,13 +40,9 @@ set(CMAKE_C_COMPILER @TRIPLE@-gcc)
 set(CMAKE_CXX_COMPILER @TRIPLE@-g++)
 set(CMAKE_RC_COMPILER @TRIPLE@-windres)
 set(CMAKE_AR @TRIPLE@-gcc-ar)
-
 set(CMAKE_C_FLAGS "@CFLAGS@ @CPPFLAGS@" CACHE STRING "" FORCE)
 set(CMAKE_CXX_FLAGS "@CXXFLAGS@ @CPPFLAGS@" CACHE STRING "" FORCE)
 set(CMAKE_EXE_LINKER_FLAGS "@LDFLAGS@" CACHE STRING "" FORCE)
-set(CMAKE_SHARED_LINKER_FLAGS "@LDFLAGS@" CACHE STRING "" FORCE)
-set(CMAKE_MODULE_LINKER_FLAGS "@LDFLAGS@" CACHE STRING "" FORCE)
-
 set(CMAKE_SYSROOT /opt/ct-ng/@TRIPLE@/sysroot)
 set(CMAKE_FIND_ROOT_PATH /opt/ffbuild /opt/ct-ng/@TRIPLE@/sysroot)
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
@@ -83,10 +56,11 @@ EOF
 
     # Внедряем переменные через sed
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CFLAGS@|${CLEAN_CFLAGS}|g" main-toolchain.cmake
+    sed -i "s|@CFLAGS@|${CFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
     sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
-    sed -i "s|@CXXFLAGS@|${CLEAN_CXXFLAGS}|g" main-toolchain.cmake
-    sed -i "s|@LDFLAGS@|${CLEAN_LDFLAGS}|g" main-toolchain.cmake
+    sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
+    sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
+    sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}|g" main-toolchain.cmake
 
     # Создаем хост-тулчейн для сборщика шейдеров
     cat <<EOF > host-fix-toolchain.cmake
@@ -111,8 +85,8 @@ EOF
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-        # -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        # -DBUILD_SHARED_LIBS_DEFAULT=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DBUILD_SHARED_LIBS_DEFAULT=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DWHISPER_BUILD_TESTS=OFF
         -DWHISPER_ALL_WARNINGS=OFF
         -DWHISPER_BUILD_EXAMPLES=OFF
@@ -125,7 +99,7 @@ EOF
         -DGGML_AVX512_VBMI=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         -DGGML_AVX512_VNNI=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         -DGGML_AVX=ON
-        # -DGGML_BACKEND_DL=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF) # build backends as dynamic libraries
+        -DGGML_BACKEND_DL=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF) # build backends as dynamic libraries
         -DGGML_BMI2=ON
         -DGGML_BUILD_EXAMPLES=OFF
         -DGGML_BUILD_TESTS=OFF
@@ -138,16 +112,9 @@ EOF
         -DGGML_NATIVE=OFF
         -DGGML_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
         -DGGML_SSE42=ON
-        # -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
+        -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DGGML_WEBGPU=OFF
         #
-        -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=OFF
-        -DGGML_LTO=OFF
-        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF
-        -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=OFF
-        -DBUILD_SHARED_LIBS=ON
-        -DGGML_STATIC=OFF
-        -DGGML_BACKEND_DL=OFF
         -DGGML_OPENCL=OFF
         -DWHISPER_SDL2=OFF # support for libSDL2
         -DWHISPER_CURL=OFF # to download models
@@ -162,11 +129,8 @@ EOF
         -DGGML_OPENVINO=ON
         -DWHISPER_OPENVINO=ON
         -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-        -DGGML_OPENVINO_SKIP_TBB_FIND=ON
+        -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
         )
-
-    # [[ "${PREFER_SHARED}" == "1" ]] && \
-        # myconf+=( -DCMAKE_SHARED_LINK_EXECUTABLE=ON -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON )
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
