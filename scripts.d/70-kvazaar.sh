@@ -44,10 +44,10 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DKVZ_STATIC_LIB"
 
-    CFLAGS="$CFLAGS ${USELTO}${USELTO_C} $CPPFLAGS $static_flags" \
-    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C} $CPPFLAGS $static_flags" \
+    CFLAGS="$CFLAGS ${USELTO}${USELTO_C} $CPPFLAGS $OPENMP_C $static_flags -mpreferred-stack-boundary=5" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C} $CPPFLAGS $OPENMP_C $static_flags -mpreferred-stack-boundary=5" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
-    LIBS="$LIBS" \
+    LIBS="$LIBS $OPENMP_LIB" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
@@ -55,7 +55,7 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/kvazaar.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i "/^Libs.private:/ s/$/ -lcryptopp -lgomp -lstdc++/" "$PC_FILE"
+        sed -i "/^Libs.private:/ s/$/ -lcryptopp $OPENMP_LIB -lstdc++/" "$PC_FILE"
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
                 sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
