@@ -45,11 +45,10 @@ ffbuild_dockerbuild() {
     cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
 
     # Копируем ВСЕ библиотеки фронтендов, иначе OpenCV не соберется
-    find runtime/lib/intel64/Release/ -name "*.lib" | while read -r f; do
-        name=$(basename "$f" .lib)
-        cp "$f" "$INSTALL_ROOT/lib/lib${name}.a"
-        cp "$f" "$INSTALL_ROOT/lib/${name}.lib"
-    done
+find runtime/lib/intel64/Release/ -name "*.lib" | while read -r f; do
+    name=$(basename "$f")
+    cp "$f" "$INSTALL_ROOT/lib/${name}"
+done
 
     # TBB (Intel Threading Building Blocks)
     if [ -f "${FFBUILD_PREFIX}/lib/libtbb.a" ]; then
@@ -102,7 +101,7 @@ includedir=\${prefix}/include
 Name: OpenVINO
 Description: Intel OpenVINO Runtime
 Version: 2025.4.1
-Libs: -L\${libdir} -l:libopenvino.a -l:libopenvino_c.a -Wl,--enable-runtime-pseudo-reloc
+Libs: \${libdir}/openvino.lib \${libdir}/openvino_c.lib \${libdir}/tbb12.lib
 Libs.private: -lshlwapi -lole32 -lsetupapi -lm -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread
 Cflags: -I\${includedir} -I\${includedir}/openvino
 EOF
