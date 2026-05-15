@@ -246,7 +246,7 @@ All of those can be optionally combined with any combination of addins:
 
 * `whisper`
 ```
-85-libudfread|86-libdvdcss|86-libdvdread|87-libdvdnav|88-libbluray
+04-tbbmalloc|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|59-opencl|59-openvino|69-whisper
 ```
 
 * `vapoursynth`
