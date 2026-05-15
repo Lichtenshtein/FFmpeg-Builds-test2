@@ -203,7 +203,9 @@ FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
 # чтобы если компонент принес свою версию, она вытеснила базовую в конец (право).
 FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
 
-# ГЕНЕРАЦИЯ ПЕРЕМЕННЫХ СОСТОЯНИЯ КОМПОНЕНТОВ
+# =======================================
+# GENERATION OF COMPONENT STATE VARIABLES
+# =======================================
 log_debug "${SEARCH_MARK} Scanning FFmpeg configuration for enabled components..."
 # Список компонентов для проверки
 COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac openssl amf frei0r)
@@ -220,6 +222,10 @@ for comp in "${COMPONENTS[@]}"; do
         log_debug "Component $comp: ${RED}DISABLED${NC} (${var_name}=0)"
     fi
 done
+
+# ==================================
+# ASAN PROCESSING (If enabled)
+# ==================================
 # Специальная обработка для ASAN (fdk-aac); should be at the end of all flags.
 # Вообще-то, я не помню нахера ASAN нужен fdk-aac. Вырубаем.
 # if [[ "$HAS_LIBFDK_AAC" == "0" ]]; then
@@ -233,18 +239,63 @@ done
     # log_info "ASAN flags enabled due to fdk-aac presence."
 # fi
 
+# ==================================
+# OPENVINO PROCESSING (If enabled)
+# ==================================
+if [[ "$HAS_LIBOPENVINO" == "1" ]]; then
+    log_info "${TARGET_MARK} Setting up hybrid linking for OpenVINO..."
+    # Список библиотек OpenVINO, которые пришли из pkg-config и vars.sh
+    OV_TARGET_LIBS="-lopenvino -lopenvino_c"
+    # cut them out from the general list so that they are not affected by the global -Bstatic
+    for lib in ${OV_TARGET_LIBS}; do
+        FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
+    done
+    # accumulate into a dynamic group
+    DYNAMIC_LIBS_ACCUMULATOR+="${OV_TARGET_LIBS} "
+fi
+
+# ==========================================
+# TENSORFLOW PROCESSING
+# ==========================================
+if [[ "$HAS_LIBTENSORFLOW" == "1" ]]; then
+    log_info "${TARGET_MARK} Setting up hybrid linking for TensorFlow..."
+    TF_TARGET_LIBS="-ltensorflow"
+    for lib in ${TF_TARGET_LIBS}; do
+        FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
+    done
+    DYNAMIC_LIBS_ACCUMULATOR+="${TF_TARGET_LIBS} "
+fi
+
+# ==========================================
+# LIBTORCH PROCESSING
+# ==========================================
 if [[ "$HAS_LIBTORCH" == "1" ]]; then
     # ls -lh /opt/ffbuild/lib/libtorch_cpu.a || true
     # TORCH_LIBS="-ltorch -ltorch_cpu -lc10"
-    TORCH_LIBS="-lXNNPACK -lasmjit -lc10 -lc10d -lcaffe2_detectron_ops -lcaffe2_module_test_dynamic -lclog -lcpuinfo -ldnnl -lfbgemm -lfbjni -lkineto -lmkldnn -lprotobuf-lite -lprotobuf -lprotoc -lpthreadpool -lpytorch_jni -ltorch -ltorch_cpu "
-    export TORCH_DYNAMIC_LIBS="-Wl,-Bdynamic ${TORCH_LIBS} "
+    log_info "${TARGET_MARK} Setting up hybrid linking for LibTorch..."
+    TORCH_LIBS="-lXNNPACK -lasmjit -lc10 -lc10d -lcaffe2_detectron_ops -lcaffe2_module_test_dynamic -lclog -lcpuinfo -ldnnl -lfbgemm -lfbjni -lkineto -lmkldnn -lprotobuf-lite -lprotoc -lpthreadpool -lpytorch_jni -ltorch -ltorch_cpu "
+    for lib in ${TORCH_LIBS}; do
+        FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
+    done
+    DYNAMIC_LIBS_ACCUMULATOR+="${TORCH_LIBS} "
     sed -i '/at::detail::getXPUHooks/d' libavfilter/dnn/dnn_backend_torch.cpp
     sed -i 's/device.is_xpu()/false/g' libavfilter/dnn/dnn_backend_torch.cpp
     sed -i 's/at::hasXPU()/false/g' libavfilter/dnn/dnn_backend_torch.cpp
 fi
 
-# Используем группы для решения проблем циклических зависимостей (особенно для Tesseract) -Wl,--allow-multiple-definition 
-FINAL_LIBS_GROUPED="-Wl,--start-group ${TORCH_LIBS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
+# Чистим лишние пробелы, которые мог оставить sed
+FINAL_LIBS=$(echo ${FINAL_LIBS} | xargs)
+
+# Формируем изолированную строку для переключения контекста линкера
+# -Wl,-Bdynamic переключает MinGW ld в режим импорта DLL.
+# -Wl,-Bstatic возвращает линкер в режим сборки честной статики
+HYBRID_DYNAMIC_FLAGS=""
+if [[ -n "${DYNAMIC_LIBS_ACCUMULATOR}" ]]; then
+    HYBRID_DYNAMIC_FLAGS="-Wl,-Bdynamic ${DYNAMIC_LIBS_ACCUMULATOR} -Wl,-Bstatic "
+fi
+
+# Используем группы для решения проблем циклических зависимостей
+FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
@@ -370,6 +421,7 @@ read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 
 chmod +x configure
 
+# Tip: -Wl,--allow-multiple-definition
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
     "${TARGET_FLAGS_ARR[@]}"
@@ -378,7 +430,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
-    --extra-ldflags="${ASAN_LDFLAGS}${TORCH_DYNAMIC_LIBS}${FINAL_LDFLAGS}"
+    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -Wl,--allow-shlib-undefined"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
