@@ -33,7 +33,7 @@ ffbuild_dockerbuild() {
         log_info "Updating ggml-openvino..."
     fi
 
-    local CLEAN_LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' | xargs)
+    local CLEAN_LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' -e 's/ -static-libgcc / /g' -e 's/ -static-libstdc++ / /g' | xargs)
     local CLEAN_CFLAGS=$(echo " ${CFLAGS} " | sed -e 's/-fstack-protector-strong//g' | xargs)
     local CLEAN_CXXFLAGS=$(echo " ${CXXFLAGS} " | sed -e 's/-fstack-protector-strong//g' | xargs)
 
@@ -48,9 +48,13 @@ set(CMAKE_C_COMPILER @TRIPLE@-gcc)
 set(CMAKE_CXX_COMPILER @TRIPLE@-g++)
 set(CMAKE_RC_COMPILER @TRIPLE@-windres)
 set(CMAKE_AR @TRIPLE@-gcc-ar)
+
 set(CMAKE_C_FLAGS "@CFLAGS@ @CPPFLAGS@" CACHE STRING "" FORCE)
 set(CMAKE_CXX_FLAGS "@CXXFLAGS@ @CPPFLAGS@" CACHE STRING "" FORCE)
 set(CMAKE_EXE_LINKER_FLAGS "@LDFLAGS@" CACHE STRING "" FORCE)
+set(CMAKE_SHARED_LINKER_FLAGS "@LDFLAGS@" CACHE STRING "" FORCE)
+set(CMAKE_MODULE_LINKER_FLAGS "@LDFLAGS@" CACHE STRING "" FORCE)
+
 set(CMAKE_SYSROOT /opt/ct-ng/@TRIPLE@/sysroot)
 set(CMAKE_FIND_ROOT_PATH /opt/ffbuild /opt/ct-ng/@TRIPLE@/sysroot)
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
@@ -123,7 +127,7 @@ EOF
         -DGGML_WEBGPU=OFF
         #
         -DCMAKE_SHARED_LINK_EXECUTABLE=ON
-        -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON
+        -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=OFF
         -DBUILD_SHARED_LIBS=ON
         -DGGML_STATIC=OFF
         -DGGML_BACKEND_DL=OFF
