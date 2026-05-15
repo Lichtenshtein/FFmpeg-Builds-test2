@@ -210,7 +210,7 @@ FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VAR
 # =======================================
 log_debug "${SEARCH_MARK} Scanning FFmpeg configuration for enabled components..."
 # Список компонентов для проверки
-COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac openssl amf frei0r)
+COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac openssl amf frei0r whisper)
 # Создаем имя переменной libtesseract -> HAS_LIBTESSERACT
 for comp in "${COMPONENTS[@]}"; do
     clean_name="${comp^^}"
@@ -285,16 +285,31 @@ if [[ "$HAS_LIBTORCH" == "1" ]]; then
     sed -i 's/at::hasXPU()/false/g' libavfilter/dnn/dnn_backend_torch.cpp
 fi
 
+# ==========================================
+# WHISPER PROCESSING
+# ==========================================
+if [[ "$HAS_WHISPER" == "1" ]]; then
+    log_info "${TARGET_MARK} Setting up hybrid dynamic linking for Whisper..."
+    WHISPER_DYNAMIC_LIBS="-lwhisper -lggml"
+    for lib in ${WHISPER_DYNAMIC_LIBS}; do
+        FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
+    done
+    for lib in -lopenvino -lopenvino_c; do
+        FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
+    done
+    DYNAMIC_LIBS_ACCUMULATOR+="-Wl,-Bdynamic ${WHISPER_DYNAMIC_LIBS} -Wl,-Bstatic "
+fi
+
 # Чистим лишние пробелы, которые мог оставить sed
 FINAL_LIBS=$(echo ${FINAL_LIBS} | xargs)
 
 # Формируем изолированную строку для переключения контекста линкера
 # -Wl,-Bdynamic переключает MinGW ld в режим импорта DLL.
 # -Wl,-Bstatic возвращает линкер в режим сборки честной статики
-# HYBRID_DYNAMIC_FLAGS=""
-# if [[ -n "${DYNAMIC_LIBS_ACCUMULATOR}" ]]; then
-    # HYBRID_DYNAMIC_FLAGS="-Wl,-Bdynamic ${DYNAMIC_LIBS_ACCUMULATOR} -Wl,-Bstatic "
-# fi
+HYBRID_DYNAMIC_FLAGS=""
+if [[ -n "${DYNAMIC_LIBS_ACCUMULATOR}" ]]; then
+    HYBRID_DYNAMIC_FLAGS="-Wl,-Bdynamic ${DYNAMIC_LIBS_ACCUMULATOR} -Wl,-Bstatic "
+fi
 
 # Используем группы для решения проблем циклических зависимостей
 FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"

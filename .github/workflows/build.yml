@@ -12,7 +12,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '59-openvino|69-whisper'
+        default: '04-tbbmalloc|59-openvino|69-whisper'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
@@ -120,7 +120,7 @@ env:
   # Список для сохранения DLL (в run_stage.sh)
   DLL_PRESERVE_LIST: >-
     openvino|torch|tensorflow|vulkan|shaderc|mfx|opencv|
-    onevpl|leptonica|audiotoolbox|avisynth|vapoursynth|frei0r|nnedi3
+    onevpl|leptonica|audiotoolbox|avisynth|vapoursynth|frei0r|nnedi3|whisper
   # Список для сохранения статики .a (в run_stage.sh)
   LIB_PRESERVE_LIST:
   # Список компонентов к которым strip не применяется (openvino,cuda-llvm)
