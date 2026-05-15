@@ -161,7 +161,7 @@ EOF
         # OPENVINO
         -DGGML_OPENVINO=ON
         -DWHISPER_OPENVINO=ON
-        # -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
         -DGGML_OPENVINO_SKIP_TBB_FIND=ON
         )
 
