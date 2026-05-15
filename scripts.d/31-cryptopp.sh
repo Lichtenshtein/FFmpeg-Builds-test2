@@ -14,9 +14,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # принудительно удаляем dll.cpp из исходников перед сборкой
-    rm -f src/dll.cpp src/gcm-simd.cpp.bak 2>/dev/null || true
-
     mkdir -p build && cd build
 
     local myconf=(
@@ -44,6 +41,27 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        local TARGET_LIB="${INSTALL_ROOT}/lib/libcryptopp.a"
+        if [ -f "$TARGET_LIB" ]; then
+            log_info "${SEARCH_MARK} Checking for duplicate dll.cpp in the created archive..."
+            # Проверяем, содержит ли архив этот объектный файл
+            if "${AR}" t "$TARGET_LIB" | grep -q "dll.cpp"; then
+                log_warn "Detected dll.cpp.obj inside libcryptopp.a! Forcefully removing..."
+                "${AR}" d "$TARGET_LIB" dll.cpp.obj
+                # Проверяем успешность удаления
+                if "${AR}" t "$TARGET_LIB" | grep -q "dll.cpp"; then
+                    log_error "Failed to remove dll.cpp.obj from archive!"
+                    return 1
+                else
+                    log_info "${CHECK_MARK} Duplicate dll.cpp.obj successfully extracted from static archive."
+                fi
+            else
+                log_info "${CHECK_MARK} The archive is clean, there are no thunk duplicates."
+            fi
+        fi
+    fi
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/cryptopp.pc"
