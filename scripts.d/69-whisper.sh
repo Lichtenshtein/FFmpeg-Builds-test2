@@ -34,6 +34,7 @@ ffbuild_dockerbuild() {
     fi
 
     local CLEAN_LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' -e 's/ -static-libgcc / /g' -e 's/ -static-libstdc++ / /g' -e 's/ -flto=auto / /g' -e 's/ -flto / /g' | xargs)
+    CLEAN_LDFLAGS="${CLEAN_LDFLAGS} -Wl,--enable-runtime-pseudo-reloc -Wl,--allow-shlib-undefined"
     local CLEAN_CFLAGS=$(echo " ${CFLAGS} " | sed -e 's/-fstack-protector-strong//g' -e 's/-flto=auto//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g' | xargs)
     local CLEAN_CXXFLAGS=$(echo " ${CXXFLAGS} " | sed -e 's/-fstack-protector-strong//g' | sed -e 's/-flto=auto//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g' | xargs)
 
@@ -147,7 +148,8 @@ EOF
         -DGGML_OPENVINO=ON
         -DWHISPER_OPENVINO=ON
         -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-        -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
+        -DGGML_OPENVINO_SKIP_TBB_FIND=ON
+        -DOpenVINO_RUNTIME_LIBRARY="$FFBUILD_PREFIX/lib/libopenvino.a;$FFBUILD_PREFIX/lib/libopenvino_c.a"
         )
 
     # [[ "${PREFER_SHARED}" == "1" ]] && \
