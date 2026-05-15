@@ -38,6 +38,11 @@ ffbuild_dockerbuild() {
     find /opt/ffbuild/include/openvino -type f -exec sed -i 's/OPENVINO_API/ /g' {} +
     find /opt/ffbuild/include/openvino -type f -exec sed -i 's/__declspec(dllimport)/ /g' {} +
 
+    # if [ -f "src/openvino/whisper-openvino-encoder.cpp" ]; then
+        # log_warn "Очистка C++ OpenVINO кодогенератора во избежание конфликтов ABI..."
+        # echo "// Заглушка для сборки MinGW" > src/openvino/whisper-openvino-encoder.cpp
+    # fi
+
     cat <<EOF > main-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
@@ -132,7 +137,7 @@ EOF
         # -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
         -DGGML_OPENVINO=ON
-        -DWHISPER_OPENVINO=ON
+        -DWHISPER_OPENVINO=OFF
         -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
         -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
         )
