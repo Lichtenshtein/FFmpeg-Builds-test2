@@ -165,7 +165,7 @@ EOF
             sed -i '/^Libs.private:/ s/$/ -lggml-vulkan -lvulkan/' "$PC_FILE"
         fi
         if [[ "${myconf[@]}" =~ "-DGGML_OPENVINO=ON" ]]; then
-            sed -i '/^Libs.private:/ s/$/ -lopenvino -lopenvino_c -ltbb12 -ltbb/' "$PC_FILE"
+            sed -i '/^Requires.private:/ s/$/ openvino/' "$PC_FILE"
         fi
         ln -sf "$PC_FILE" "$PC_DIR/libwhisper.pc"
     else
