@@ -299,26 +299,20 @@ if [[ "$HAS_WHISPER" == "1" ]]; then
     # done
     # DYNAMIC_LIBS_ACCUMULATOR+="-Wl,-Bdynamic ${WHISPER_DYNAMIC_LIBS} -Wl,-Bstatic "
 
-    OV_LIBS="-lopenvino -lopenvino_c -ltbb12 -ltbb"
-    # 2. Вырезаем их из общего списка (FINAL_LIBS), 
-    # чтобы они не вставали ПЕРЕД -lwhisper и не выбрасывались линкером
+    OV_LIBS="-lopenvino -lopenvino_c"
+    
+    # Полностью вырезаем их из FINAL_LIBS, чтобы они не болтались в начале
     for lib in ${OV_LIBS}; do
         FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
     done
     
-    # 3. Полностью вырезаем дублирующее явное указание -lstdc++ из середины FINAL_LIBS,
-    # так как оно будет добавлено в самый конец FINAL_LIBS_GROUPED
+    # Вырезаем абсолютно все упоминания -lstdc++ из середины строки,
+    # чтобы они не прерывали поиск символов раньше времени
     FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ -lstdc++ / /g")
+    TOTAL_FF_LIBS=$(echo " ${TOTAL_FF_LIBS} " | sed "s/ -lstdc++ / /g")
     
-    # 4. Формируем изолированный хвост линковки.
-    # Флаг -Wl,--allow-multiple-definition спасет нас от конфликта
-    # статического и динамического std::runtime_error, принудительно отдавая приоритет статической либе.
-    # Флаг -Wl,--enable-runtime-pseudo-reloc разрешит C++ импорт данных.
-    HYBRID_TAIL_FLAGS="-Wl,--enable-runtime-pseudo-reloc -Wl,--allow-multiple-definition"
-    
-    # Помещаем файлы импорта OpenVINO строго в конец, ЗА пределами основной группы,
-    # чтобы они закрыли символы, затребованные из libwhisper.a
-    OV_FINAL_LINK="-lopenvino -lopenvino_c -ltbb12"
+    # Флаги релокации Windows DLL
+    HYBRID_FLAGS="-Wl,--enable-runtime-pseudo-reloc -Wl,--allow-multiple-definition"
 fi
 
 # Чистим лишние пробелы, которые мог оставить sed
@@ -334,7 +328,7 @@ FINAL_LIBS=$(echo ${FINAL_LIBS} | xargs)
 
 # Используем группы для решения проблем циклических зависимостей
 # FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
-FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} -Wl,--end-group ${HYBRID_TAIL_FLAGS} ${OV_FINAL_LINK} -lstdc++"
+FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} ${TOTAL_FF_LIBS} -lopenvino -lopenvino_c -Wl,--end-group ${HYBRID_FLAGS} -lstdc++"
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
