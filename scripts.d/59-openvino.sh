@@ -102,8 +102,8 @@ includedir=\${prefix}/include
 Name: OpenVINO
 Description: Intel OpenVINO Runtime
 Version: 2025.4.1
-Libs: \${libdir}/libopenvino.a \${libdir}/libopenvino_c.a \${libdir}/libtbb12.a
-Libs.private: -lshlwapi -lole32 -lsetupapi -lm -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread
+Libs: -L\${libdir} -lopenvino -lopenvino_c
+Libs.private: -ltbb12
 Cflags: -I\${includedir} -I\${includedir}/openvino
 EOF
 }
