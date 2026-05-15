@@ -27,6 +27,20 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    local WHISPER_CMAKE="src/CMakeLists.txt"
+    if [ -f "$WHISPER_CMAKE" ]; then
+        log_info "Инжектируем принудительную линковку OpenVINO в $WHISPER_CMAKE..."
+
+        cat << 'EOF' >> "$WHISPER_CMAKE"
+
+# Принудительный фикс гибридной линковки для MinGW
+if (TARGET whisper)
+    target_link_libraries(whisper PRIVATE "${FFBUILD_PREFIX}/lib/libopenvino.a" "${FFBUILD_PREFIX}/lib/libopenvino_c.a")
+    target_link_options(whisper PRIVATE "-Wl,--enable-runtime-pseudo-reloc" "-Wl,--allow-shlib-undefined")
+endif()
+EOF
+    fi
+
     # Fixing the broken TBB search in whisper, which is tied to the Intel SDK folder structure
     if [ -f "ggml/src/ggml-openvino/CMakeLists.txt" ]; then
         sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' ggml/src/ggml-openvino/CMakeLists.txt
@@ -34,7 +48,7 @@ ffbuild_dockerbuild() {
     fi
 
     local CLEAN_LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' -e 's/ -static-libgcc / /g' -e 's/ -static-libstdc++ / /g' -e 's/ -flto=auto / /g' -e 's/ -flto / /g' | xargs)
-    CLEAN_LDFLAGS="${CLEAN_LDFLAGS} -Wl,--enable-runtime-pseudo-reloc -Wl,--allow-shlib-undefined $FFBUILD_PREFIX/lib/libopenvino.a $FFBUILD_PREFIX/lib/libopenvino_c.a"
+    CLEAN_LDFLAGS="${CLEAN_LDFLAGS} -Wl,--enable-runtime-pseudo-reloc -Wl,--allow-shlib-undefined"
     local CLEAN_CFLAGS=$(echo " ${CFLAGS} " | sed -e 's/-fstack-protector-strong//g' -e 's/-flto=auto//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g' | xargs)
     local CLEAN_CXXFLAGS=$(echo " ${CXXFLAGS} " | sed -e 's/-fstack-protector-strong//g' | sed -e 's/-flto=auto//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g' | xargs)
 
@@ -147,9 +161,8 @@ EOF
         # OPENVINO
         -DGGML_OPENVINO=ON
         -DWHISPER_OPENVINO=ON
-        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+        # -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
         -DGGML_OPENVINO_SKIP_TBB_FIND=ON
-        -DOpenVINO_RUNTIME_LIBRARY="$FFBUILD_PREFIX/lib/libopenvino.a;$FFBUILD_PREFIX/lib/libopenvino_c.a"
         )
 
     # [[ "${PREFER_SHARED}" == "1" ]] && \
