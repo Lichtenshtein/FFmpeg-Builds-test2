@@ -33,6 +33,10 @@ ffbuild_dockerbuild() {
         log_info "Updating ggml-openvino..."
     fi
 
+    local CLEAN_LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' | xargs)
+    local CLEAN_CFLAGS=$(echo " ${CFLAGS} " | sed -e 's/-fstack-protector-strong//g' | xargs)
+    local CLEAN_CXXFLAGS=$(echo " ${CXXFLAGS} " | sed -e 's/-fstack-protector-strong//g' | xargs)
+
     cat <<EOF > main-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
@@ -56,11 +60,10 @@ EOF
 
     # Внедряем переменные через sed
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CFLAGS@|${CFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
+    sed -i "s|@CFLAGS@|${CLEAN_CFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
     sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
-    sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
-    sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}|g" main-toolchain.cmake
+    sed -i "s|@CXXFLAGS@|${CLEAN_CXXFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
+    sed -i "s|@LDFLAGS@|${CLEAN_LDFLAGS} ${USELTO}|g" main-toolchain.cmake
 
     # Создаем хост-тулчейн для сборщика шейдеров
     cat <<EOF > host-fix-toolchain.cmake
@@ -119,6 +122,7 @@ EOF
         -DGGML_STATIC=OFF
         -DGGML_BACKEND_DL=OFF
         -DGGML_OPENCL=OFF
+        -DCMAKE_SHARED_LINK_EXECUTABLE=ON
         -DWHISPER_SDL2=OFF # support for libSDL2
         -DWHISPER_CURL=OFF # to download models
         # VULKAN
@@ -149,10 +153,17 @@ EOF
     rm -f /opt/glslc_host
 
     # CMake в Windows часто сохраняет их как ggml-base.a, а линковщик ищет -lggml-base (т.е. libggml-base.a)
-    log_info "Fixing library prefixes for MinGW..."
-    # CMake часто создает 'ggml.a' вместо 'libggml.a'
-    find "$INSTALL_ROOT/lib" -name "ggml*.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
-    find "$INSTALL_ROOT/lib" -name "whisper.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
+    if [[ "${PREFER_SHARED}" == "1" ]]; then
+        # Фикс префиксов импортных библиотек, если CMake назвал их некорректно
+        log_info "Fixing shared library prefixes for MinGW..."
+        find "$INSTALL_ROOT/lib" -name "ggml*.dll.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
+        find "$INSTALL_ROOT/lib" -name "whisper*.dll.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
+    else
+        log_info "Fixing library prefixes for MinGW..."
+        # CMake часто создает 'ggml.a' вместо 'libggml.a'
+        find "$INSTALL_ROOT/lib" -name "ggml*.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
+        find "$INSTALL_ROOT/lib" -name "whisper.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
+    fi
 
     local PC_FILE="$PC_DIR/whisper.pc"
     if [[ -f "$PC_FILE" ]]; then
