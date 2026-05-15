@@ -33,9 +33,9 @@ ffbuild_dockerbuild() {
         log_info "Updating ggml-openvino..."
     fi
 
-    local CLEAN_LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' -e 's/ -static-libgcc / /g' -e 's/ -static-libstdc++ / /g' | xargs)
-    local CLEAN_CFLAGS=$(echo " ${CFLAGS} " | sed -e 's/-fstack-protector-strong//g' | xargs)
-    local CLEAN_CXXFLAGS=$(echo " ${CXXFLAGS} " | sed -e 's/-fstack-protector-strong//g' | xargs)
+    local CLEAN_LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' -e 's/ -static-libgcc / /g' -e 's/ -static-libstdc++ / /g' -e 's/ -flto=auto / /g' -e 's/ -flto / /g' | xargs)
+    local CLEAN_CFLAGS=$(echo " ${CFLAGS} " | sed -e 's/-fstack-protector-strong//g' -e 's/-flto=auto//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g' | xargs)
+    local CLEAN_CXXFLAGS=$(echo " ${CXXFLAGS} " | sed -e 's/-fstack-protector-strong//g' | sed -e 's/-flto=auto//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g' | xargs)
 
     export CFLAGS="${CLEAN_CFLAGS}"
     export CXXFLAGS="${CLEAN_CXXFLAGS}"
@@ -126,7 +126,9 @@ EOF
         # -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DGGML_WEBGPU=OFF
         #
-        -DCMAKE_SHARED_LINK_EXECUTABLE=ON
+        -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=OFF
+        -DGGML_LTO=OFF
+        -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=OFF
         -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=OFF
         -DBUILD_SHARED_LIBS=ON
         -DGGML_STATIC=OFF
