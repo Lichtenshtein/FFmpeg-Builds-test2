@@ -68,10 +68,10 @@ EOF
 
     # Внедряем переменные через sed
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CFLAGS@|${CLEAN_CFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
+    sed -i "s|@CFLAGS@|${CLEAN_CFLAGS}|g" main-toolchain.cmake
     sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
-    sed -i "s|@CXXFLAGS@|${CLEAN_CXXFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
-    sed -i "s|@LDFLAGS@|${CLEAN_LDFLAGS} ${USELTO}|g" main-toolchain.cmake
+    sed -i "s|@CXXFLAGS@|${CLEAN_CXXFLAGS}|g" main-toolchain.cmake
+    sed -i "s|@LDFLAGS@|${CLEAN_LDFLAGS}|g" main-toolchain.cmake
 
     # Создаем хост-тулчейн для сборщика шейдеров
     cat <<EOF > host-fix-toolchain.cmake
