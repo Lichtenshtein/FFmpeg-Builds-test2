@@ -36,12 +36,10 @@ ffbuild_dockerbuild() {
     LIBS="$LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    # принудительно вырезаем dll.cpp из объектных файлов
-    find . -name "dll.cpp.obj" -delete 2>/dev/null || true
-
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
+    # принудительно вырезаем dll.cpp из объектных файлов
     if [[ "${PREFER_SHARED}" != "1" ]]; then
         local TARGET_LIB="${INSTALL_ROOT}/lib/libcryptopp.a"
         if [ -f "$TARGET_LIB" ]; then
