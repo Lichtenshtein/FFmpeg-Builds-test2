@@ -45,10 +45,11 @@ ffbuild_dockerbuild() {
     cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
 
     # Копируем ВСЕ библиотеки фронтендов, иначе OpenCV не соберется
-find runtime/lib/intel64/Release/ -name "*.lib" | while read -r f; do
-    name=$(basename "$f")
-    cp "$f" "$INSTALL_ROOT/lib/${name}"
-done
+    find runtime/lib/intel64/Release/ -name "*.lib" | while read -r f; do
+        name=$(basename "$f" .lib)
+        cp "$f" "$INSTALL_ROOT/lib/lib${name}.a"
+        cp "$f" "$INSTALL_ROOT/lib/${name}.lib"
+    done
 
     # TBB (Intel Threading Building Blocks)
     if [ -f "${FFBUILD_PREFIX}/lib/libtbb.a" ]; then
@@ -77,13 +78,14 @@ done
         -e "s|runtime/bin/intel64/Release/|bin/|g" \
         -e "s|runtime/bin/intel64/Debug/|bin/|g" \
         -e "s|runtime/include|include|g" \
+        -e "s|\.lib|.a|g" \
         -e "s|liblib|lib|g" \
         {} +
 
     # код для удаления суффикса 'd'
     # Мы обрабатываем и .a, и .dll, и текстовые упоминания конфигураций
     find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
-        -e 's/d\.lib/.lib/g' -e 's/fronten\.lib/frontend.lib/g' \
+        -e 's/d\.a/.a/g' -e 's/fronten\.a/frontend.a/g' \
         -e 's/d\.dll/.dll/g' -e 's/fronten\.dll/frontend.dll/g' \
         -e 's/Debug/Release/g' -e 's/DEBUG/RELEASE/g' \
         {} +
@@ -100,8 +102,8 @@ includedir=\${prefix}/include
 Name: OpenVINO
 Description: Intel OpenVINO Runtime
 Version: 2025.4.1
-Libs: \${libdir}/openvino.lib \${libdir}/openvino_c.lib \${libdir}/tbb12.lib
-Libs.private: -lshlwapi -lole32 -lsetupapi -lm -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread
+Libs: -L\${libdir} -lopenvino -lopenvino_c
+Libs.private: -ltbb12
 Cflags: -I\${includedir} -I\${includedir}/openvino
 EOF
 }

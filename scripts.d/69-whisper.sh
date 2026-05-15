@@ -30,6 +30,7 @@ ffbuild_dockerbuild() {
     # Fixing the broken TBB search in whisper, which is tied to the Intel SDK folder structure
     if [ -f "ggml/src/ggml-openvino/CMakeLists.txt" ]; then
         sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' ggml/src/ggml-openvino/CMakeLists.txt
+        log_info "Updating ggml-openvino..."
     fi
 
     cat <<EOF > main-toolchain.cmake
@@ -84,8 +85,8 @@ EOF
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        -DBUILD_SHARED_LIBS_DEFAULT=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        # -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        # -DBUILD_SHARED_LIBS_DEFAULT=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DWHISPER_BUILD_TESTS=OFF
         -DWHISPER_ALL_WARNINGS=OFF
         -DWHISPER_BUILD_EXAMPLES=OFF
@@ -98,7 +99,7 @@ EOF
         -DGGML_AVX512_VBMI=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         -DGGML_AVX512_VNNI=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         -DGGML_AVX=ON
-        -DGGML_BACKEND_DL=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF) # build backends as dynamic libraries
+        # -DGGML_BACKEND_DL=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF) # build backends as dynamic libraries
         -DGGML_BMI2=ON
         -DGGML_BUILD_EXAMPLES=OFF
         -DGGML_BUILD_TESTS=OFF
@@ -114,6 +115,9 @@ EOF
         -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DGGML_WEBGPU=OFF
         #
+        -DBUILD_SHARED_LIBS=ON
+        -DGGML_STATIC=OFF
+        -DGGML_BACKEND_DL=OFF
         -DGGML_OPENCL=OFF
         -DWHISPER_SDL2=OFF # support for libSDL2
         -DWHISPER_CURL=OFF # to download models
