@@ -44,8 +44,10 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DKVZ_STATIC_LIB"
 
-    CFLAGS="$CFLAGS ${USELTO}${USELTO_C} $CPPFLAGS $OPENMP_C $static_flags -mpreferred-stack-boundary=5" \
-    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C} $CPPFLAGS $OPENMP_C $static_flags -mpreferred-stack-boundary=5" \
+    local STACK_FLAGS="-mincoming-stack-boundary=4"
+
+    CFLAGS="$CFLAGS ${USELTO}${USELTO_C} $CPPFLAGS $OPENMP_C $static_flags ${STACK_FLAGS}" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C} $CPPFLAGS $OPENMP_C $static_flags ${STACK_FLAGS}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS $OPENMP_LIB" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
