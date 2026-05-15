@@ -1022,6 +1022,10 @@ generate_implibs() {
 
     log_info "${TARGET_MARK} Generating clean import libraries for DLLs..."
 
+    # 1 Используем nm из нашего ct-ng тулчейна (он нативно понимает структуру Win64)
+    local NM_TOOL="${FFBUILD_CROSS_PREFIX}nm"
+    command -v "$NM_TOOL" &>/dev/null || NM_TOOL="nm"
+
     find "$target_dir" -name "*.dll" -type f | while read -r dll_file; do
         local dll_name=$(basename "$dll_file")
         local base_name="${dll_name%.dll}"
@@ -1036,9 +1040,20 @@ generate_implibs() {
         local out_lib="$lib_out_dir/$lib_name"
 
         # Skip if valid lib exists
-        if [[ -f "$out_lib" ]] && [[ $(stat -c%s "$out_lib" 2>/dev/null) -lt 2097152 ]]; then
-            log_debug "${CHECK_MARK} Valid import lib exists for $dll_name (size: $(stat -c%s "$out_lib" | numfmt --to=si))"
-            continue
+        # if [[ -f "$out_lib" ]] && [[ $(stat -c%s "$out_lib" 2>/dev/null) -lt 2097152 ]]; then
+            # log_debug "${CHECK_MARK} Valid import lib exists for $dll_name (size: $(stat -c%s "$out_lib" | numfmt --to=si))"
+            # continue
+        # fi
+
+        # 2 Если честный файл импорта уже существует и он БОЛЬШЕ 4 КБ,
+        # мы его ПРОПУСКАЕМ (continue). Пустые заглушки dlltool весят ~1.5 КБ.
+        # Это защищает оригинальные .lib файлы Intel/TensorFlow от затирания!
+        if [[ -f "$out_lib" ]]; then
+            local current_size=$(stat -c%s "$out_lib" 2>/dev/null)
+            if [[ $current_size -gt 4096 ]]; then
+                log_debug "${CACHE_MARK} Skipping: A valid import for $dll_name already exists ($(stat -c%s "$out_lib" | numfmt --to=si))"
+                continue
+            fi
         fi
 
         log_debug "${BUILD_MARK} Creating import lib for $dll_name"
@@ -1049,38 +1064,39 @@ generate_implibs() {
 
         local def_file="${base_name}.def"
 
-        # FIX: Use objdump to extract symbols, filter for imports
-        if command -v objdump &> /dev/null; then
-            # Extract all symbols and filter for import symbols (__imp_*)
-            # We look for lines that look like imports: 00000000 g     DF .idata 0000000000000000 _Z...
+        echo "EXPORTS" > "$def_file" # 3
+
+        # ФИКС СИМВОЛОВ №2: Используем nm --export-only для извлечения 
+        # как плоских Си-функций, так и тяжелых манглированных C++ символов.
+        # Фильтруем мусор, оставляя только легитимные имена экспорта.
+        "$NM_TOOL" --export-only "$dll_name" 2>/dev/null | \
+        awk '{if ($2 == "T" || $2 == "D" || $2 == "B" || $2 == "R") print $3}' | \
+        sed -e 's/^_*//' | sort -u >> "$def_file"
+
+        # ЗАЩИТА ОТ МУСОРА №3: Если nm ничего не нашел, используем старый objdump как фоллбэк,
+        # чтобы деф-файл не остался пустым.
+        if [[ $(wc -l < "$def_file") -le 1 ]]; then
             objdump -p "$dll_name" 2>/dev/null | \
             grep -E "  [0-9A-F] [0-9A-F] [0-9A-F] [0-9A-F] " | \
-            grep -v " 00000000 " | \
-            awk '{print $NF}' | \
-            sort -u > "$def_file"
-            
-            # Ensure EXPORTS section exists
-            if ! grep -q "^EXPORTS" "$def_file"; then
-                echo "EXPORTS" > "$def_file"
-            fi
-        else
-            # Fallback
-            log_warn "objdump not found, creating minimal def"
-            echo "EXPORTS" > "$def_file"
+            grep -v " 00000000 " | awk '{print $NF}' | sort -u >> "$def_file"
         fi
 
-        # FIX: Create the import library
+        # Генерация библиотеки импорта через dlltool
         if $DLLTOOL -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
             local size=$(stat -c%s "$lib_name" 2>/dev/null)
-            if [[ $size -lt 2097152 ]]; then
+            
+            # ФИКС ЛОГИКИ №4: raise the size threshold. 
+            # Библиотеки импорта для огромных C++ DLL (где тысячи методов) могут весить до 10-15 МБ.
+            # Ограничение в 2МБ было слишком жестким. Поднимаем до 50МБ, но защищаем от создания пустышек.
+            if [[ $size -gt 1024 && $size -lt 52428800 ]]; then
                 cp "$lib_name" "$out_lib"
-                log_info "${CHECK_MARK} Created valid import lib: $out_lib ($size bytes)"
+                log_info "${CHECK_MARK} Успешно создан C++ импорт: $out_lib ($(numfmt --to=si $size))"
             else
-                log_warn "Generated lib too large ($size bytes), likely malformed. Deleting."
+                log_warn "Сгенерированный файл импорта некорректен по размеру ($(numfmt --to=si $size)). Удаление."
                 rm -f "$lib_name"
             fi
         else
-            log_error "dlltool failed for $dll_name"
+            log_error "dlltool завершился с ошибкой для $dll_name"
         fi
 
         popd > /dev/null
