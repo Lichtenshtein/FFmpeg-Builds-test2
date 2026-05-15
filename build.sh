@@ -290,14 +290,35 @@ fi
 # ==========================================
 if [[ "$HAS_WHISPER" == "1" ]]; then
     log_info "${TARGET_MARK} Setting up hybrid dynamic linking for Whisper..."
-    WHISPER_DYNAMIC_LIBS="-lwhisper -lggml"
-    for lib in ${WHISPER_DYNAMIC_LIBS}; do
+    # WHISPER_DYNAMIC_LIBS="-lwhisper -lggml"
+    # for lib in ${WHISPER_DYNAMIC_LIBS}; do
+        # FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
+    # done
+    # for lib in -lopenvino -lopenvino_c; do
+        # FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
+    # done
+    # DYNAMIC_LIBS_ACCUMULATOR+="-Wl,-Bdynamic ${WHISPER_DYNAMIC_LIBS} -Wl,-Bstatic "
+
+    OV_LIBS="-lopenvino -lopenvino_c -ltbb12 -ltbb"
+    # 2. Вырезаем их из общего списка (FINAL_LIBS), 
+    # чтобы они не вставали ПЕРЕД -lwhisper и не выбрасывались линкером
+    for lib in ${OV_LIBS}; do
         FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
     done
-    for lib in -lopenvino -lopenvino_c; do
-        FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
-    done
-    DYNAMIC_LIBS_ACCUMULATOR+="-Wl,-Bdynamic ${WHISPER_DYNAMIC_LIBS} -Wl,-Bstatic "
+    
+    # 3. Полностью вырезаем дублирующее явное указание -lstdc++ из середины FINAL_LIBS,
+    # так как оно будет добавлено в самый конец FINAL_LIBS_GROUPED
+    FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ -lstdc++ / /g")
+    
+    # 4. Формируем изолированный хвост линковки.
+    # Флаг -Wl,--allow-multiple-definition спасет нас от конфликта
+    # статического и динамического std::runtime_error, принудительно отдавая приоритет статической либе.
+    # Флаг -Wl,--enable-runtime-pseudo-reloc разрешит C++ импорт данных.
+    HYBRID_TAIL_FLAGS="-Wl,--enable-runtime-pseudo-reloc -Wl,--allow-multiple-definition"
+    
+    # Помещаем файлы импорта OpenVINO строго в конец, ЗА пределами основной группы,
+    # чтобы они закрыли символы, затребованные из libwhisper.a
+    OV_FINAL_LINK="-lopenvino -lopenvino_c -ltbb12"
 fi
 
 # Чистим лишние пробелы, которые мог оставить sed
@@ -306,13 +327,14 @@ FINAL_LIBS=$(echo ${FINAL_LIBS} | xargs)
 # Формируем изолированную строку для переключения контекста линкера
 # -Wl,-Bdynamic переключает MinGW ld в режим импорта DLL.
 # -Wl,-Bstatic возвращает линкер в режим сборки честной статики
-HYBRID_DYNAMIC_FLAGS=""
-if [[ -n "${DYNAMIC_LIBS_ACCUMULATOR}" ]]; then
-    HYBRID_DYNAMIC_FLAGS="-Wl,-Bdynamic ${DYNAMIC_LIBS_ACCUMULATOR} -Wl,-Bstatic "
-fi
+# HYBRID_DYNAMIC_FLAGS=""
+# if [[ -n "${DYNAMIC_LIBS_ACCUMULATOR}" ]]; then
+    # HYBRID_DYNAMIC_FLAGS="-Wl,-Bdynamic ${DYNAMIC_LIBS_ACCUMULATOR} -Wl,-Bstatic "
+# fi
 
 # Используем группы для решения проблем циклических зависимостей
-FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
+# FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
+FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} -Wl,--end-group ${HYBRID_TAIL_FLAGS} ${OV_FINAL_LINK} -lstdc++"
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
@@ -447,7 +469,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
-    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -Wl,--allow-shlib-undefined -Wl,--enable-runtime-pseudo-reloc"
+    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -Wl,--allow-shlib-undefined -Wl,--enable-runtime-pseudo-reloc -Wl,--allow-multiple-definition"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
