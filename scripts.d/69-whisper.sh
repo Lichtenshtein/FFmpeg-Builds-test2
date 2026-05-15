@@ -115,7 +115,7 @@ EOF
         -DGGML_NATIVE=OFF
         -DGGML_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
         -DGGML_SSE42=ON
-        -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
+        # -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DGGML_WEBGPU=OFF
         #
         -DBUILD_SHARED_LIBS=ON
