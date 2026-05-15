@@ -153,9 +153,11 @@ EOF
     local PC_FILE="$PC_DIR/whisper.pc"
     if [[ -f "$PC_FILE" ]]; then
         log_info "Updating $PC_FILE with backend libraries..."
-        if ! grep -q "^Libs.private:" "$PC_FILE"; then
-            echo "Libs.private:" >> "$PC_FILE"
-        fi
+        local GGML_INTERNAL="-lggml-cpu -lggml -lggml-base"
+        local SYS_LIBS="-lstdc++ -lsetupapi -lws2_32 -lshlwapi -lbcrypt -pthread"
+        # Полностью перезаписываем строку Libs.private для идеального порядка
+        sed -i '/^Libs.private:/d' "$PC_FILE"
+        echo "Libs.private: ${GGML_INTERNAL} ${SYSTEM_MINGW}" >> "$PC_FILE"
         if [[ "${myconf[@]}" =~ "-DGGML_OPENCL=ON" ]]; then
             sed -i '/^Libs.private:/ s/$/ -lggml-opencl -lOpenCL/' "$PC_FILE"
         fi
