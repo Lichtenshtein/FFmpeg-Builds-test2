@@ -244,29 +244,29 @@ done
 # ==================================
 # OPENVINO PROCESSING (If enabled)
 # ==================================
-if [[ "$HAS_LIBOPENVINO" == "1" ]]; then
-    log_info "${TARGET_MARK} Setting up hybrid linking for OpenVINO..."
+# if [[ "$HAS_LIBOPENVINO" == "1" ]]; then
     # Список библиотек OpenVINO, которые пришли из pkg-config и vars.sh
-    OV_TARGET_LIBS="-lopenvino -lopenvino_c"
     # cut them out from the general list so that they are not affected by the global -Bstatic
-    for lib in ${OV_TARGET_LIBS}; do
-        FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
-    done
     # accumulate into a dynamic group
-    DYNAMIC_LIBS_ACCUMULATOR+="${OV_TARGET_LIBS} "
-fi
+    # log_info "${TARGET_MARK} Setting up hybrid linking for OpenVINO..."
+    # OV_TARGET_LIBS="-lopenvino -lopenvino_c"
+    # for lib in ${OV_TARGET_LIBS}; do
+        # FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
+    # done
+    # DYNAMIC_LIBS_ACCUMULATOR+="${OV_TARGET_LIBS} "
+# fi
 
 # ==========================================
 # TENSORFLOW PROCESSING
 # ==========================================
-if [[ "$HAS_LIBTENSORFLOW" == "1" ]]; then
-    log_info "${TARGET_MARK} Setting up hybrid linking for TensorFlow..."
-    TF_TARGET_LIBS="-ltensorflow"
-    for lib in ${TF_TARGET_LIBS}; do
-        FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
-    done
-    DYNAMIC_LIBS_ACCUMULATOR+="${TF_TARGET_LIBS} "
-fi
+# if [[ "$HAS_LIBTENSORFLOW" == "1" ]]; then
+    # log_info "${TARGET_MARK} Setting up hybrid linking for TensorFlow..."
+    # TF_TARGET_LIBS="-ltensorflow"
+    # for lib in ${TF_TARGET_LIBS}; do
+        # FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
+    # done
+    # DYNAMIC_LIBS_ACCUMULATOR+="${TF_TARGET_LIBS} "
+# fi
 
 # ==========================================
 # LIBTORCH PROCESSING
@@ -291,10 +291,10 @@ FINAL_LIBS=$(echo ${FINAL_LIBS} | xargs)
 # Формируем изолированную строку для переключения контекста линкера
 # -Wl,-Bdynamic переключает MinGW ld в режим импорта DLL.
 # -Wl,-Bstatic возвращает линкер в режим сборки честной статики
-HYBRID_DYNAMIC_FLAGS=""
-if [[ -n "${DYNAMIC_LIBS_ACCUMULATOR}" ]]; then
-    HYBRID_DYNAMIC_FLAGS="-Wl,-Bdynamic ${DYNAMIC_LIBS_ACCUMULATOR} -Wl,-Bstatic "
-fi
+# HYBRID_DYNAMIC_FLAGS=""
+# if [[ -n "${DYNAMIC_LIBS_ACCUMULATOR}" ]]; then
+    # HYBRID_DYNAMIC_FLAGS="-Wl,-Bdynamic ${DYNAMIC_LIBS_ACCUMULATOR} -Wl,-Bstatic "
+# fi
 
 # Используем группы для решения проблем циклических зависимостей
 FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
