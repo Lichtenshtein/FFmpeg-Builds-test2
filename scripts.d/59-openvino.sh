@@ -82,19 +82,16 @@ ffbuild_dockerbuild() {
         -e "s|liblib|lib|g" \
         {} +
 
+    # код для удаления суффикса 'd'
+    # Мы обрабатываем и .a, и .dll, и текстовые упоминания конфигураций
     find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
         -e 's/d\.a/.a/g' -e 's/fronten\.a/frontend.a/g' \
         -e 's/d\.dll/.dll/g' -e 's/fronten\.dll/frontend.dll/g' \
         -e 's/Debug/Release/g' -e 's/DEBUG/RELEASE/g' \
         {} +
 
-    # Удаляем проверки существования файлов, которые могут ломаться при кросс-компиляции
+    # Удаляем проверки существования файлов, которые часто ломают find_package в кросс-компиляции
     find "$INSTALL_ROOT/lib/cmake" -name "OpenVINOTargets-*.cmake" -exec sed -i '/_cmake_import_check_files_for_.* exists/d' {} +
-
-    mkdir -p "$INSTALL_ROOT/lib/ov_backup"
-    cp "$INSTALL_ROOT"/lib/libopenvino*.a "$INSTALL_ROOT/lib/ov_backup/"
-
-    trap 'cp '"$INSTALL_ROOT"'/lib/ov_backup/* '"$INSTALL_ROOT"'/lib/ 2>/dev/null || true; rm -rf '"$INSTALL_ROOT"'/lib/ov_backup' EXIT
 
     # Корректный pkg-config для динамической линковки
     mkdir -p "$PC_DIR"
