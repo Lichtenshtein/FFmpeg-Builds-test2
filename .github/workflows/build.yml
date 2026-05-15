@@ -12,12 +12,12 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        # default: '02-mingw'
-        default: '.*'
+        default: '31-cryptopp|70-kvazaar'
+        # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
-        default: false
+        default: true
       cpu_arch:
         description: 'CPU march target (broadwell/x86-64-v3/znver3/native)'
         required: false
@@ -27,7 +27,7 @@ on:
         required: false
         default: 'broadwell'
       use_lto:
-        description: 'Enable LTO optimization (libs only)'
+        description: 'Enable LTO optimization'
         type: boolean
         default: true
       use_avx512:
@@ -120,7 +120,7 @@ env:
   # Список для сохранения DLL (в run_stage.sh)
   DLL_PRESERVE_LIST: >-
     openvino|torch|tensorflow|vulkan|shaderc|mfx|opencv|
-    onevpl|leptonica-test|audiotoolbox|avisynth|vapoursynth|vapoursynth-python-test|frei0r|nnedi3
+    onevpl|leptonica|audiotoolbox|avisynth|vapoursynth|frei0r|nnedi3
   # Список для сохранения статики .a (в run_stage.sh)
   LIB_PRESERVE_LIST:
   # Список компонентов к которым strip не применяется (openvino,cuda-llvm)
@@ -254,16 +254,17 @@ jobs:
           df -h /
           echo "-------------------------------"
 
-      - name: Setup Swap Space
-        if: github.event.inputs.use_lto == 'true'
-        run: |
-          sudo swapoff -a || true
-          sudo rm -f /swapfile
-          sudo dd if=/dev/zero of=/swapfile bs=1M count=32768
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
-          swapon --show
+      # Allocates 32Gb swap instead of 2Gb when using LTO
+      # - name: Setup Swap Space
+        # if: github.event.inputs.use_lto == 'true'
+        # run: |
+          # sudo swapoff -a || true
+          # sudo rm -f /swapfile
+          # sudo dd if=/dev/zero of=/swapfile bs=1M count=32768
+          # sudo chmod 600 /swapfile
+          # sudo mkswap /swapfile
+          # sudo swapon /swapfile
+          # swapon --show
 
       - name: Check if base rebuild needed
         id: base_check
