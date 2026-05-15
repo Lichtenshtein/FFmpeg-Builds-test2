@@ -32,17 +32,6 @@ ffbuild_dockerbuild() {
         sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' ggml/src/ggml-openvino/CMakeLists.txt
     fi
 
-    # Принудительно отключаем макросы dllimport для C++ классов OpenVINO,
-    # превращая их в обычные инлайн-символы для линкера
-    find /opt/ffbuild/include/openvino -type f -exec sed -i 's/A_CORE_EXPORTS_INLINE/ /g' {} +
-    find /opt/ffbuild/include/openvino -type f -exec sed -i 's/OPENVINO_API/ /g' {} +
-    find /opt/ffbuild/include/openvino -type f -exec sed -i 's/__declspec(dllimport)/ /g' {} +
-
-    # if [ -f "src/openvino/whisper-openvino-encoder.cpp" ]; then
-        # log_warn "Очистка C++ OpenVINO кодогенератора во избежание конфликтов ABI..."
-        # echo "// Заглушка для сборки MinGW" > src/openvino/whisper-openvino-encoder.cpp
-    # fi
-
     cat <<EOF > main-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
@@ -66,10 +55,10 @@ EOF
 
     # Внедряем переменные через sed
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CFLAGS@|${CFLAGS} ${USELTO}${USELTO_C} -DOPENVINO_STATIC_DEFINE -Dov_runtime_c_EXPORTS|g" main-toolchain.cmake
+    sed -i "s|@CFLAGS@|${CFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
     sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C} -DOPENVINO_STATIC_DEFINE -Dov_runtime_c_EXPORTS|g" main-toolchain.cmake
+    sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
     sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}|g" main-toolchain.cmake
 
     # Создаем хост-тулчейн для сборщика шейдеров
@@ -137,7 +126,7 @@ EOF
         # -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
         -DGGML_OPENVINO=ON
-        -DWHISPER_OPENVINO=OFF
+        -DWHISPER_OPENVINO=ON
         -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
         -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
         )
