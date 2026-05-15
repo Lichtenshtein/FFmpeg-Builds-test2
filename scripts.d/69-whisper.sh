@@ -32,6 +32,12 @@ ffbuild_dockerbuild() {
         sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' ggml/src/ggml-openvino/CMakeLists.txt
     fi
 
+    # Принудительно отключаем макросы dllimport для C++ классов OpenVINO,
+    # превращая их в обычные инлайн-символы для линкера
+    find /opt/ffbuild/include/openvino -type f -exec sed -i 's/A_CORE_EXPORTS_INLINE/ /g' {} +
+    find /opt/ffbuild/include/openvino -type f -exec sed -i 's/OPENVINO_API/ /g' {} +
+    find /opt/ffbuild/include/openvino -type f -exec sed -i 's/__declspec(dllimport)/ /g' {} +
+
     cat <<EOF > main-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
