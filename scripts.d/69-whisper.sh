@@ -37,6 +37,10 @@ ffbuild_dockerbuild() {
     local CLEAN_CFLAGS=$(echo " ${CFLAGS} " | sed -e 's/-fstack-protector-strong//g' | xargs)
     local CLEAN_CXXFLAGS=$(echo " ${CXXFLAGS} " | sed -e 's/-fstack-protector-strong//g' | xargs)
 
+    export CFLAGS="${CLEAN_CFLAGS}"
+    export CXXFLAGS="${CLEAN_CXXFLAGS}"
+    export LDFLAGS="${CLEAN_LDFLAGS}"
+
     cat <<EOF > main-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
@@ -118,11 +122,12 @@ EOF
         # -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DGGML_WEBGPU=OFF
         #
+        -DCMAKE_SHARED_LINK_EXECUTABLE=ON
+        -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON
         -DBUILD_SHARED_LIBS=ON
         -DGGML_STATIC=OFF
         -DGGML_BACKEND_DL=OFF
         -DGGML_OPENCL=OFF
-        -DCMAKE_SHARED_LINK_EXECUTABLE=ON
         -DWHISPER_SDL2=OFF # support for libSDL2
         -DWHISPER_CURL=OFF # to download models
         # VULKAN
@@ -138,6 +143,9 @@ EOF
         -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
         -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
         )
+
+    # [[ "${PREFER_SHARED}" == "1" ]] && \
+        # myconf+=( -DCMAKE_SHARED_LINK_EXECUTABLE=ON -DCMAKE_WINDOWS_EXPORT_ALL_SYMBOLS=ON )
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
