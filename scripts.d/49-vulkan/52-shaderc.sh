@@ -141,9 +141,9 @@ EOF
         unset CC CXX CFLAGS CXXFLAGS LD LDFLAGS AR RANLIB NM DLLTOOL PKG_CONFIG_LIBDIR PKG_CONFIG_PATH
 
         # Note: We don't use the toolchain file for native build
-        CFLAGS="$HOST_CFLAGS" \
-        CXXFLAGS="$HOST_CXXFLAGS" \
-        LDFLAGS="$HOST_LDFLAGS" \
+        CFLAGS="-O3 -pipe" \
+        CXXFLAGS="-O3 -pipe" \
+        LDFLAGS="" \
         cmake -G Ninja \
             -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
             -DCMAKE_BUILD_TYPE=Release \
@@ -176,7 +176,7 @@ EOF
                 log_info "Found $BIN_NAME at $BIN_PATH. Copying..."
                 cp -v "$BIN_PATH" "/usr/local/bin/$DEST_NAME"
                 # Дополнительная копия для Whisper
-                [[ "$BIN_NAME" == "glslc" ]] && cp -v "$BIN_PATH" /opt/glslc_host
+                [[ "$BIN_NAME" == "glslc" ]] && cp -v "$BIN_PATH" /opt/glslc
                 FOUND_ANY=1
                 # Создаем критически важный симлинк для LCEVC
                 ln -sf /usr/local/bin/glslang /usr/local/bin/glslangValidator
