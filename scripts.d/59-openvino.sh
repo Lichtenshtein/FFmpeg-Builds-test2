@@ -71,6 +71,12 @@ ffbuild_dockerbuild() {
         -DENABLE_AVX2=ON
         -DENABLE_AVX512F=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         -DENABLE_FASTER_BUILD=OFF # OFF; precompiled headers and unity build
+        # кросс-компиляция
+        -DENABLE_API_VALIDATOR=OFF # поиск Windows SDK / apivalidator.exe
+        -DENABLE_INTEL_ITT=OFF # убирает привязку к Windows ITT/VTune API
+        -DENABLE_CPPLINT=OFF # не ищет python-линтеры
+        -DENABLE_NCC_STYLE=OFF # Отключает проверку стилей OpenVINO
+        -DOPENVINO_VERSION_BUILD=2026.3.0
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
