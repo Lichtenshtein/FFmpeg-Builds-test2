@@ -4,6 +4,9 @@
 
 SCRIPT_REPO="https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.1/windows/openvino_toolkit_windows_2026.1.0.21367.63e31528c62_x86_64.zip"
 
+# SCRIPT_REPO="https://github.com/openvinotoolkit/openvino.git"
+# SCRIPT_COMMIT="61d1ca8c471ff930477c8f27926688ba112642a7"
+
 export SKIP_POST_PATCH=1
 
 ffbuild_depends() {
@@ -103,7 +106,7 @@ libdir=\${prefix}/lib
 includedir=\${prefix}/include
 Name: OpenVINO
 Description: Intel OpenVINO Runtime
-Version: 2026.1
+Version: 2026.1.0
 Libs: -L\${libdir} -lopenvino -lopenvino_c
 Libs.private: -lopenvino_onnx_frontend -lopenvino_pytorch_frontend -lopenvino_tensorflow_frontend -lopenvino_tensorflow_lite_frontend -lopenvino_paddle_frontend -ltbb12 -lstdc++
 Cflags: -I\${includedir} -I\${includedir}/openvino
