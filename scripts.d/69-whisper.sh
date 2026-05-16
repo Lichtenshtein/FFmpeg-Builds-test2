@@ -136,10 +136,12 @@ EOF
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     # Fixing the broken TBB search in whisper, which is tied to the Intel SDK folder structure
-    if [ -f "/build/$STAGENAME/ggml/src/ggml-openvino/CMakeLists.txt" ]; then
-        sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' /build/$STAGENAME/ggml/src/ggml-openvino/CMakeLists.txt
-        log_info "Updating $PC_FILE with backend libraries..."
-    fi
+    find . -name "CMakeLists.txt" -type f | while read -r file; do
+        if grep -q 'include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")' "$file"; then
+            sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' "$file"
+            log_info "Updated TBB config in $file"
+        fi
+    done
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1

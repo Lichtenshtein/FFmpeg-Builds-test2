@@ -1061,9 +1061,9 @@ generate_implibs() {
         ' | grep -v '^[0-9]' | sort -u >> "$def_file"
 
         # Генерация библиотеки импорта через dlltool
-        if $DLLTOOL -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
+        if $DLLTOOL -m i386:x86-64 -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
             local size=$(stat -c%s "$lib_name" 2>/dev/null)
-            
+
             if [[ $size -gt 1024 && $size -lt 52428800 ]]; then
                 cp "$lib_name" "$out_lib"
                 log_info "${CHECK_MARK} Successfully created C++ import: $out_lib"
