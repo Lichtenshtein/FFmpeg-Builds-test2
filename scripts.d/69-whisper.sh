@@ -27,62 +27,16 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Fixing the broken TBB search in whisper, which is tied to the Intel SDK folder structure
-    if [ -f "ggml/src/ggml-openvino/CMakeLists.txt" ]; then
-        sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' ggml/src/ggml-openvino/CMakeLists.txt
-        log_info "Updating $PC_FILE with backend libraries..."
+    if [ -f "src/openvino/whisper-openvino-encoder.cpp.bak" ]; then
+        mv src/openvino/whisper-openvino-encoder.cpp.bak src/openvino/whisper-openvino-encoder.cpp
     fi
 
-    # Физически очищаем C++ энкодер, чтобы CMake даже принудительно не смог сгенерировать C++ вызовы
-    if [ -d "src/openvino" ]; then
-        echo "// Stub for MinGW" > src/openvino/whisper-openvino-encoder.cpp
-    fi
-
-
-    cat <<EOF > main-toolchain.cmake
-set(CMAKE_SYSTEM_NAME Windows)
-set(CMAKE_SYSTEM_PROCESSOR x86_64)
-set(CMAKE_C_COMPILER @TRIPLE@-gcc)
-set(CMAKE_CXX_COMPILER @TRIPLE@-g++)
-set(CMAKE_RC_COMPILER @TRIPLE@-windres)
-set(CMAKE_AR @TRIPLE@-gcc-ar)
-set(CMAKE_C_FLAGS "@CFLAGS@ @CPPFLAGS@" CACHE STRING "" FORCE)
-set(CMAKE_CXX_FLAGS "@CXXFLAGS@ @CPPFLAGS@" CACHE STRING "" FORCE)
-set(CMAKE_EXE_LINKER_FLAGS "@LDFLAGS@" CACHE STRING "" FORCE)
-set(CMAKE_SYSROOT /opt/ct-ng/@TRIPLE@/sysroot)
-set(CMAKE_FIND_ROOT_PATH /opt/ffbuild /opt/ct-ng/@TRIPLE@/sysroot)
-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
-set(ENV{PKG_CONFIG_SYSROOT_DIR} "/")
-set(ENV{PKG_CONFIG_PATH} "")
-set(ENV{PKG_CONFIG_LIBDIR} "/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig")
-EOF
-
-    # Внедряем переменные через sed
-    sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CFLAGS@|${CFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
-    sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
-    sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
-    sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}|g" main-toolchain.cmake
-
-    # Создаем хост-тулчейн для сборщика шейдеров
-    cat <<EOF > host-fix-toolchain.cmake
-set(CMAKE_SYSTEM_NAME Linux)
-set(CMAKE_C_COMPILER gcc)
-set(CMAKE_CXX_COMPILER g++)
-set(CMAKE_C_FLAGS "-O3" CACHE STRING "" FORCE)
-set(CMAKE_CXX_FLAGS "-O3" CACHE STRING "" FORCE)
-set(CMAKE_EXE_LINKER_FLAGS "" CACHE STRING "" FORCE)
-set(CMAKE_SHARED_LINKER_FLAGS "" CACHE STRING "" FORCE)
-set(CMAKE_MODULE_LINKER_FLAGS "" CACHE STRING "" FORCE)
-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM BOTH)
-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-EOF
-
+    # КРИТИЧЕСКИЙ ФИКС ДЕТЕКЦИИ CMAKE:
+    # Проекты GGML/Whisper ищут OpenVINO через переменные окружения Intel SDK.
+    # Прописываем их принудительно, чтобы CMake зацепил бэкэнд.
+    export INTEL_OPENVINO_DIR="$FFBUILD_PREFIX"
+    export InferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
+    export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake/OpenVINO"
     mkdir build && cd build
 
     local myconf=(
@@ -132,10 +86,12 @@ EOF
         # -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
         # -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
-        -DWHISPER_OPENVINO=OFF
+        -DWHISPER_OPENVINO=ON
         -DGGML_OPENVINO=ON
         -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
         -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
+        -DCMAKE_CXX_FLAGS="${CXXFLAGS} -DOPENVINO_STATIC_DEFINE -Dov_runtime_EXPORTS -Dov_runtime_c_EXPORTS"
+        -DCMAKE_C_FLAGS="${CFLAGS} -DOPENVINO_STATIC_DEFINE -Dov_runtime_EXPORTS -Dov_runtime_c_EXPORTS"
         )
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
