@@ -109,36 +109,8 @@ Description: Intel OpenVINO Runtime
 Version: 2026.1.0
 Libs: -L\${libdir} -lopenvino_c -lopenvino
 Libs.private: -lopenvino_onnx_frontend -lopenvino_pytorch_frontend -lopenvino_tensorflow_frontend -lopenvino_tensorflow_lite_frontend -lopenvino_paddle_frontend -ltbb12 -lstdc++
-Cflags: -I\${includedir} -I\${includedir}/openvino -DOV_BOOLEAN_TYPE=int
+Cflags: -I\${includedir} -I\${includedir}/openvino
 EOF
-
-    # Фикс для старых проверок FFmpeg (Inference Engine C-API Wrapper)
-    # Перенаправляем старый вызов c_api/ie_c_api.h на современный openvino/c/openvino.h
-    mkdir -p "$INSTALL_ROOT/include/c_api"
-    cat <<EOF > "$INSTALL_ROOT/include/c_api/ie_c_api.h"
-#ifndef COMPAT_IE_C_API_H
-#define COMPAT_IE_C_API_H
-#include <openvino/c/openvino.h>
-
-static __attribute__((unused)) const char* ie_c_api_version(void) { 
-    return "2025.4.1"; 
-}
-#endif
-EOF
-
-    # Дублируем заголовок для persistent storage
-    mkdir -p "$FFBUILD_PREFIX/include/c_api"
-    cp "$INSTALL_ROOT/include/c_api/ie_c_api.h" "$FFBUILD_PREFIX/include/c_api/ie_c_api.h"
-
-    # Создаем пустую библиотеку-пустышку libinference_engine_c_api.a, 
-    # чтобы удовлетворить жесткий фоллбэк линковщика FFmpeg (-linference_engine_c_api)
-    log_info "Creating inference_engine_c_api fallback stub for FFmpeg configure..."
-    rm -f "$INSTALL_ROOT/lib/libinference_engine_c_api.a"
-    ar rcs "$INSTALL_ROOT/lib/libinference_engine_c_api.a"
-
-    # Дублируем библиотеку-пустышку для постоянного префикса
-    mkdir -p "$FFBUILD_PREFIX/lib"
-    cp "$INSTALL_ROOT/lib/libinference_engine_c_api.a" "$FFBUILD_PREFIX/lib/libinference_engine_c_api.a"
 }
 
 # ffbuild_libs() {
