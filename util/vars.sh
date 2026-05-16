@@ -935,30 +935,32 @@ get_deps_list() {
         fi
     else
         # nm: undefined external symbols in static libs 
-        find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
-        xargs -0 -r -I{} bash -c '
-            file="$1"; tc="$2"; x_mark="$3"
-            raw_symbols=$("${tc}-nm" -uA "$file" 2>/dev/null || true)
-            if [[ -n "$raw_symbols" ]]; then
-                clean_symbols=$(echo "$raw_symbols" | \
-                    grep -Ev "(__imp_|__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
-                    awk -F: "{ 
-                        split(\$NF, a, \" \"); 
-                        sym = a[2]; 
-                        if (sym != \"\") printf \"%-15s %s→%s %s\n\", \$2, \"$GREY_B\", \"$NC\", sym 
-                    }" | sort -u | head -n 12)
+find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
+xargs -0 -r -I{} bash -c '
+    file="$1"; tc="$2"; x_mark="$3"
+    raw_symbols=$("${tc}-nm" -uA "$file" 2>/dev/null || true)
+    if [[ -n "$raw_symbols" ]]; then
+        # Если проверяем libopenvino.a, увеличиваем лимит и ищем наши символы
+        local limit=12
+        if [[ "$file" == *"libopenvino.a" ]]; then
+            limit=500
+        fi
 
-                if [[ -n "$clean_symbols" ]]; then
-                    printf "\n%b %bEXTERNAL SYMBOLS (OBJ %b→%b %bSYM)%b in %s:\n" \
-                        "$x_mark" "$YELLOW" "$GREY_B" "$YELLOW" "$YELLOW" "$NC" "$file"
-                    echo "$clean_symbols" | sed "s|^| ${LOG_INFO}•${NC} |"
+        clean_symbols=$(echo "$raw_symbols" | \
+            grep -Ev "(__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
+            awk -F: "{ 
+                split(\$NF, a, \" \"); 
+                sym = a[2]; 
+                if (sym != \"\") printf \"%-15s %s→%s %s\n\", \$2, \"$GREY_B\", \"$NC\", sym 
+            }" | sort -u | head -n $limit)
 
-                    # добавляем принудительный перенос строки
-                    # printf "\n"
-                fi
-            fi
-        ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
+        if [[ -n "$clean_symbols" ]]; then
+            printf "\n%b %bEXTERNAL SYMBOLS (OBJ %b→%b %bSYM)%b in %s:\n" \
+                "$x_mark" "$YELLOW" "$GREY_B" "$YELLOW" "$YELLOW" "$NC" "$file"
+            echo "$clean_symbols" | sed "s|^| ${LOG_INFO}•${NC} |"
+        fi
     fi
+' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
 
     # Output
     local error_count=0
@@ -1027,7 +1029,7 @@ generate_implibs() {
         local base_name="${dll_name%.dll}"
         local lib_name="lib${base_name}.a"
         local dll_dir=$(dirname "$dll_file")
-
+        
         local lib_out_dir="$dll_dir"
         [[ "$dll_dir" == *"/bin" ]] && lib_out_dir="${dll_dir%/bin}/lib"
         mkdir -p "$lib_out_dir"
@@ -1037,8 +1039,8 @@ generate_implibs() {
         if [[ -f "$out_lib" ]]; then
             # Если это основные библиотеки OpenVINO, мы ВСЕГДА удаляем их 
             # и генерируем заново, чтобы перебить MSVC-заглушки (.lib)
-            if [[ "$dll_name" == "openvino.dll" || "$dll_name" == "openvino_c.dll" ]]; then
-                log_warn "${XCLAM_MARK} Forcing regeneration of $lib_name for MinGW C++ ABI compatibility..."
+            if [[ "$dll_name" == "openvino.dll" || "$dll_name" == "openvino_c.dll" || "$STAGENAME" == *"opencv"* ]]; then
+                log_warn "Forcing regeneration of $lib_name for MinGW C++ ABI compatibility..."
                 rm -f "$out_lib"
             else
                 # Для всех остальных библиотек оставляем стандартную защиту по размеру
@@ -1057,24 +1059,24 @@ generate_implibs() {
         pushd "$tmp_build" > /dev/null
 
         local def_file="${base_name}.def"
-
         echo "EXPORTS" > "$def_file"
 
         # Безопасный парсинг таблицы экспорта C++ через objdump
         # Вытаскивает манглированные имена (содержащие ?, @, _ и т.д.)
-        objdump -p "$dll_name" 2>/dev/null | awk '
-            /\[Ordinal\/Name Pointer\] Table/ { f=1; next }
-            /^$/ { f=0 }
-            f { print $NF }
-        ' | grep -v '^[0-9]' | sort -u >> "$def_file"
+        objdump -p "$dll_name" 2>/dev/null | \
+        sed -n '/\[Ordinal\/Name Pointer\] Table/,/^$/p' | \
+        awk '{if (NF>1) print $NF; else if (NF==1 && $1 !~ /^[0-9]/) print $1}' | \
+        grep -E '^[A-Za-z0-9_?@$]' | sort -u >> "$def_file"
 
-        # Генерация библиотеки импорта через dlltool
-        if $DLLTOOL -m i386:x86-64 --as-flags=--64 -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
+        # Глобальные флаги для 64-битной Windows среды (для ВСЕХ библиотек)
+        # -k (--kill-at) гарантирует точное сохранение имен без срезания символов
+        local DLLTOOL_FLAGS="-m i386:x86-64 --as-flags=--64 -k"
+
+        if $DLLTOOL ${DLLTOOL_FLAGS} -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
             local size=$(stat -c%s "$lib_name" 2>/dev/null)
-
             if [[ $size -gt 1024 && $size -lt 52428800 ]]; then
                 cp "$lib_name" "$out_lib"
-                log_info "${CHECK_MARK} Successfully created C++ import: $out_lib"
+                log_info "${CHECK_MARK} Successfully created Win64 import: $out_lib"
             else
                 log_warn "The generated import file is invalid in size. Deleting."
                 rm -f "$lib_name"

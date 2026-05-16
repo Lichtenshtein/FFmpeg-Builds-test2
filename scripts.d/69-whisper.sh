@@ -136,7 +136,7 @@ EOF
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     # Fixing the broken TBB search in whisper, which is tied to the Intel SDK folder structure
-    find . -name "CMakeLists.txt" -type f | while read -r file; do
+    find "build/$STAGENAME" -name "CMakeLists.txt" -type f | while read -r file; do
         if grep -q 'include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")' "$file"; then
             sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' "$file"
             log_info "Updated TBB config in $file"
