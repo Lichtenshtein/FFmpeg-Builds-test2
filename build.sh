@@ -312,7 +312,8 @@ FINAL_LIBS=$(echo ${FINAL_LIBS} | xargs)
 # fi
 
 # Используем группы для решения проблем циклических зависимостей
-FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
+FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} -lopenvino -lopenvino_c -ltbb12 -Wl,--end-group -Wl,--enable-runtime-pseudo-reloc -Wl,--allow-multiple-definition -lstdc++"
+
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
