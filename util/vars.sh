@@ -1035,10 +1035,18 @@ generate_implibs() {
         local out_lib="$lib_out_dir/$lib_name"
 
         if [[ -f "$out_lib" ]]; then
-            local current_size=$(stat -c%s "$out_lib" 2>/dev/null)
-            if [[ $current_size -gt 4096 ]]; then
-                log_debug "${CACHE_MARK} Skipping: A valid import for $dll_name already exists"
-                continue
+            # Если это основные библиотеки OpenVINO, мы ВСЕГДА удаляем их 
+            # и генерируем заново, чтобы перебить MSVC-заглушки (.lib)
+            if [[ "$dll_name" == "openvino.dll" || "$dll_name" == "openvino_c.dll" ]]; then
+                log_warn "${XCLAM_MARK} Forcing regeneration of $lib_name for MinGW C++ ABI compatibility..."
+                rm -f "$out_lib"
+            else
+                # Для всех остальных библиотек оставляем стандартную защиту по размеру
+                local current_size=$(stat -c%s "$out_lib" 2>/dev/null)
+                if [[ $current_size -gt 4096 ]]; then
+                    log_debug "${CACHE_MARK} Skipping: A valid import for $dll_name already exists"
+                    continue
+                fi
             fi
         fi
 
@@ -1061,7 +1069,7 @@ generate_implibs() {
         ' | grep -v '^[0-9]' | sort -u >> "$def_file"
 
         # Генерация библиотеки импорта через dlltool
-        if $DLLTOOL -m i386:x86-64 -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
+        if $DLLTOOL -m i386:x86-64 --as-flags=--64 -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
             local size=$(stat -c%s "$lib_name" 2>/dev/null)
 
             if [[ $size -gt 1024 && $size -lt 52428800 ]]; then
