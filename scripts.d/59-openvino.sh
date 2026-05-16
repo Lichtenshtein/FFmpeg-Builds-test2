@@ -59,6 +59,7 @@ ffbuild_dockerbuild() {
         -DENABLE_SYSTEM_FLATBUFFERS=OFF # ON; for Tensorflow Lite frontend
         -DENABLE_SYSTEM_OPENCL=ON # ON; use OpenCL installed on the system
         # Оптимизации размера и сборки
+        -DENABLE_JS=OFF
         -DENABLE_SAMPLES=OFF
         -DENABLE_TESTS=OFF
         -DENABLE_FUNCTIONAL_TESTS=OFF
@@ -76,7 +77,8 @@ ffbuild_dockerbuild() {
         -DENABLE_INTEL_ITT=OFF # убирает привязку к Windows ITT/VTune API
         -DENABLE_CPPLINT=OFF # не ищет python-линтеры
         -DENABLE_NCC_STYLE=OFF # Отключает проверку стилей OpenVINO
-        -DOPENVINO_VERSION_BUILD=2026.3.0
+        -DCMAKE_CXX_STANDARD=23
+        -DCMAKE_CXX_STANDARD_REQUIRED=ON
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
