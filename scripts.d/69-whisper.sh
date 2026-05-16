@@ -33,24 +33,11 @@ ffbuild_dockerbuild() {
         log_info "Updating $PC_FILE with backend libraries..."
     fi
 
+    # Физически очищаем C++ энкодер, чтобы CMake даже принудительно не смог сгенерировать C++ вызовы
     if [ -d "src/openvino" ]; then
         echo "// Stub for MinGW" > src/openvino/whisper-openvino-encoder.cpp
     fi
 
-    local CLEAN_LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -flto=auto / /g' -e 's/ -flto / /g' | xargs)
-    local CLEAN_CFLAGS=$(echo " ${CFLAGS} " | sed -e 's/-flto=auto//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g' | xargs)
-    local CLEAN_CXXFLAGS=$(echo " ${CXXFLAGS} " | sed -e 's/-flto=auto//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g' | xargs)
-
-    # Принудительно очищаем глобальное окружение процесса для сборки Whisper
-    export CFLAGS="${CLEAN_CFLAGS}"
-    export CXXFLAGS="${CLEAN_CXXFLAGS}"
-    export LDFLAGS="${CLEAN_LDFLAGS}"
-
-    # Восстанавливаем оригинальные AR/NM/RANLIB компилятора (БЕЗ gcc-ar / gcc-nm плагинов LTO),
-    # чтобы архив упаковывался стандартным нативным образом
-    export AR="${FFBUILD_CROSS_PREFIX}ar"
-    export NM="${FFBUILD_CROSS_PREFIX}nm"
-    export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
 
     cat <<EOF > main-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Windows)
@@ -75,11 +62,11 @@ EOF
 
     # Внедряем переменные через sed
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CFLAGS@|${CLEAN_CFLAGS} ${NOLTO}|g" main-toolchain.cmake
+    sed -i "s|@CFLAGS@|${CFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
     sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CXXFLAGS@|${CLEAN_CXXFLAGS} ${NOLTO}|g" main-toolchain.cmake
-    sed -i "s|@LDFLAGS@|${CLEAN_LDFLAGS} ${NOLTO}|g" main-toolchain.cmake
+    sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
+    sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}|g" main-toolchain.cmake
 
     # Создаем хост-тулчейн для сборщика шейдеров
     cat <<EOF > host-fix-toolchain.cmake
@@ -191,9 +178,9 @@ EOF
         if [[ "${myconf[@]}" =~ "-DGGML_VULKAN=ON" ]]; then
             sed -i '/^Libs.private:/ s/$/ -lggml-vulkan -lvulkan/' "$PC_FILE"
         fi
-        # if [[ "${myconf[@]}" =~ "-DGGML_OPENVINO=ON" ]]; then
-            # echo "Requires.private: openvino" >> "$PC_FILE"
-        # fi
+        if [[ "${myconf[@]}" =~ "-DGGML_OPENVINO=ON" ]]; then
+            echo "Requires.private: openvino" >> "$PC_FILE"
+        fi
         ln -sf "$PC_FILE" "$PC_DIR/libwhisper.pc"
     else
         log_error "Cannot find .pc file at: $PC_FILE"
