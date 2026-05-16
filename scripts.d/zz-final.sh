@@ -25,6 +25,7 @@ ffbuild_depends() {
     echo cryptopp
     echo soundtouch
     echo gnutls
+    echo openvino_shared
     # echo lcevcdec
     echo spirv-tools
     echo gavl
