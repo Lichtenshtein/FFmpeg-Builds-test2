@@ -106,15 +106,6 @@ Libs: -L\${libdir} -lopenvino -lopenvino_c
 Libs.private: -ltbb12
 Cflags: -I\${includedir} -I\${includedir}/openvino
 EOF
-
-    log_info "Forcing regeneration of OpenVINO import libraries for MinGW compatibility..."
-    # Удаляем MSVC-версии библиотек импорта из временной папки установки
-    rm -f "$INSTALL_ROOT/lib/libopenvino.a"
-    rm -f "$INSTALL_ROOT/lib/libopenvino_c.a"
-
-    # На всякий случай чистим и в постоянном префиксе, если они там были
-    rm -f "$FFBUILD_PREFIX/lib/libopenvino.a"
-    rm -f "$FFBUILD_PREFIX/lib/libopenvino_c.a"
 }
 
 # ffbuild_libs() {
