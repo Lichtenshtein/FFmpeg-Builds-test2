@@ -940,7 +940,6 @@ xargs -0 -r -I{} bash -c '
     file="$1"; tc="$2"; x_mark="$3"
     raw_symbols=$("${tc}-nm" -uA "$file" 2>/dev/null || true)
     if [[ -n "$raw_symbols" ]]; then
-        # Если проверяем libopenvino.a, увеличиваем лимит и ищем наши символы
         local limit=12
         if [[ "$file" == *"libopenvino.a" ]]; then
             limit=500
@@ -961,6 +960,7 @@ xargs -0 -r -I{} bash -c '
         fi
     fi
 ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
+    fi
 
     # Output
     local error_count=0
