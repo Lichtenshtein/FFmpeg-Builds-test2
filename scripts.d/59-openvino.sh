@@ -1,8 +1,10 @@
 #!/bin/bash
 
-# Прямая ссылка на архив Runtime 2024.6.0
-# SCRIPT_REPO="https://storage.openvinotoolkit.org/repositories/openvino/packages/2024.6/windows/w_openvino_toolkit_windows_2024.6.0.17404.4c0f47d2335_x86_64.zip"
-SCRIPT_REPO="https://storage.openvinotoolkit.org/repositories/openvino/packages/2025.4.1/windows/openvino_toolkit_windows_2025.4.1.20426.82bbf0292c5_x86_64.zip"
+# SCRIPT_REPO="https://storage.openvinotoolkit.org/repositories/openvino/packages/2025.4.1/windows/openvino_toolkit_windows_2025.4.1.20426.82bbf0292c5_x86_64.zip"
+
+SCRIPT_REPO="https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.1/windows/openvino_toolkit_windows_2026.1.0.21367.63e31528c62_x86_64.zip"
+
+export SKIP_POST_PATCH=1
 
 ffbuild_depends() {
     echo tbbmalloc
@@ -101,9 +103,9 @@ libdir=\${prefix}/lib
 includedir=\${prefix}/include
 Name: OpenVINO
 Description: Intel OpenVINO Runtime
-Version: 2025.4.1
+Version: 2026.1
 Libs: -L\${libdir} -lopenvino -lopenvino_c
-Libs.private: -ltbb12
+Libs.private: -lopenvino_onnx_frontend -lopenvino_pytorch_frontend -lopenvino_tensorflow_frontend -lopenvino_tensorflow_lite_frontend -lopenvino_paddle_frontend -ltbb12 -lstdc++
 Cflags: -I\${includedir} -I\${includedir}/openvino
 EOF
 }
