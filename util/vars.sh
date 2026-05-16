@@ -1056,7 +1056,16 @@ generate_implibs() {
         local def_file="${base_name}.def"
         echo "EXPORTS" > "$def_file"
 
-        objdump -x "$dll_name" 2>/dev/null | sed -n '/^The Export Tables/,/^$/p' | awk '{if (NF>=4) print $NF}' | grep -E '^[A-Za-z0-9_?@$]' | sort -u >> "$def_file"
+        if command -v gendef &>/dev/null; then
+            gendef - "$dll_name" 2>/dev/null | grep -v '^;' >> "$def_file"
+        else
+            # Если gendef нет, используем objdump, но парсим его регулярным выражением,
+            # выдергивая только легитимные Си/C++ имена из строк экспорта
+            objdump -p "$dll_name" 2>/dev/null | \
+            sed -n '/\[Ordinal\/Name Pointer\] Table/,/^$/p' | \
+            grep -oE '[A-Za-z0-9_?@$]+$' | \
+            grep -vE '^[0-9]+$' | sort -u >> "$def_file"
+        fi
 
         # Глобальные флаги для 64-битной Windows среды
         local DLLTOOL_FLAGS="-m i386:x86-64 --as-flags=--64 -k"

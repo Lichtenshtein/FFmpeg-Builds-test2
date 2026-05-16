@@ -27,6 +27,25 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    local CLEAN_LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -flto=auto / /g' -e 's/ -flto / /g' | xargs)
+    local CLEAN_CFLAGS=$(echo " ${CFLAGS} " | sed -e 's/-flto=auto//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g' | xargs)
+    local CLEAN_CXXFLAGS=$(echo " ${CXXFLAGS} " | sed -e 's/-flto=auto//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g' | xargs)
+
+    # Принудительно очищаем глобальное окружение процесса для сборки Whisper
+    # export CFLAGS="${CLEAN_CFLAGS}"
+    # export CXXFLAGS="${CLEAN_CXXFLAGS}"
+    # export LDFLAGS="$CLEAN_LDFLAGS}"
+
+    export CFLAGS="-O3 -pipe ${NOLTO}"
+    export CXXFLAGS="-O3 -pipe ${NOLTO} -fno-use-linker-plugin"
+    export LDFLAGS="${NOLTO} -fno-use-linker-plugin"
+
+    # Восстанавливаем оригинальные AR/NM/RANLIB компилятора (БЕЗ gcc-ar / gcc-nm плагинов LTO),
+    # чтобы архив упаковывался стандартным нативным образом
+    export AR="${FFBUILD_CROSS_PREFIX}ar"
+    export NM="${FFBUILD_CROSS_PREFIX}nm"
+    export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
+
     cat <<EOF > main-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
@@ -48,20 +67,21 @@ set(ENV{PKG_CONFIG_PATH} "")
 set(ENV{PKG_CONFIG_LIBDIR} "/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig")
 EOF
 
+ # ${USELTO}${USELTO_C}
     # Внедряем переменные через sed
-    sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CFLAGS@|-O3 -pipe ${USELTO}${USELTO_C}|g" main-toolchain.cmake
-    sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
-    sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CXXFLAGS@|-O3 -pipe ${USELTO}${USELTO_C}|g" main-toolchain.cmake
-    sed -i "s|@LDFLAGS@|${USELTO}|g" main-toolchain.cmake
-
     # sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    # sed -i "s|@CFLAGS@|${CFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
+    # sed -i "s|@CFLAGS@|${CLEAN_CFLAGS} ${NOLTO}|g" main-toolchain.cmake
     # sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
     # sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    # sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
-    # sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}|g" main-toolchain.cmake
+    # sed -i "s|@CXXFLAGS@|${CLEAN_CXXFLAGS} ${NOLTO} -fno-use-linker-plugin|g" main-toolchain.cmake
+    # sed -i "s|@LDFLAGS@|${CLEAN_LDFLAGS} ${NOLTO} -fno-use-linker-plugin|g" main-toolchain.cmake
+
+    sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
+    sed -i "s|@CFLAGS@|${CFLAGS}|g" main-toolchain.cmake
+    sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
+    sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
+    sed -i "s|@CXXFLAGS@|${CXXFLAGS}|g" main-toolchain.cmake
+    sed -i "s|@LDFLAGS@|${LDFLAGS}|g" main-toolchain.cmake
 
     # Создаем хост-тулчейн для сборщика шейдеров
     cat <<EOF > host-fix-toolchain.cmake
