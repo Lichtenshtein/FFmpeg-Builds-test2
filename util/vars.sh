@@ -946,7 +946,7 @@ xargs -0 -r -I{} bash -c '
                 split(\$NF, a, \" \"); 
                 sym = a[2]; 
                 if (sym != \"\") printf \"%-15s %s→%s %s\n\", \$2, \"$GREY_B\", \"$NC\", sym 
-            }" | sort -u | head -n 100)
+            }" | sort -u | head -n 12)
 
         if [[ -n "$clean_symbols" ]]; then
             printf "\n%b %bEXTERNAL SYMBOLS (OBJ %b→%b %bSYM)%b in %s:\n" \

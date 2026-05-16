@@ -107,10 +107,25 @@ includedir=\${prefix}/include
 Name: OpenVINO
 Description: Intel OpenVINO Runtime
 Version: 2026.1.0
-Libs: -L\${libdir} -lopenvino -lopenvino_c
+Libs: -L\${libdir} -lopenvino_c -lopenvino
 Libs.private: -lopenvino_onnx_frontend -lopenvino_pytorch_frontend -lopenvino_tensorflow_frontend -lopenvino_tensorflow_lite_frontend -lopenvino_paddle_frontend -ltbb12 -lstdc++
-Cflags: -I\${includedir} -I\${includedir}/openvino
+Cflags: -I\${includedir} -I\${includedir}/openvino -DOV_BOOLEAN_TYPE=int
 EOF
+
+    # Фикс для старых проверок FFmpeg (Inference Engine C-API Wrapper)
+    # Перенаправляем старый вызов c_api/ie_c_api.h на современный openvino/c/openvino.h
+    mkdir -p "$INSTALL_ROOT/include/c_api"
+    cat <<EOF > "$INSTALL_ROOT/include/c_api/ie_c_api.h"
+#ifndef COMPAT_IE_C_API_H
+#define COMPAT_IE_C_API_H
+#include <openvino/c/openvino.h>
+inline const char* ie_c_api_version(void) { return "2025.4.1"; }
+#endif
+EOF
+
+    # Дублируем для persistent storage
+    mkdir -p "$FFBUILD_PREFIX/include/c_api"
+    cp "$INSTALL_ROOT/include/c_api/ie_c_api.h" "$FFBUILD_PREFIX/include/c_api/ie_c_api.h"
 }
 
 # ffbuild_libs() {
