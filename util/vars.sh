@@ -1056,9 +1056,7 @@ generate_implibs() {
         local def_file="${base_name}.def"
         echo "EXPORTS" > "$def_file"
 
-        # Безопасный парсинг таблицы экспорта C++ через objdump
-        # Вытаскивает манглированные имена (содержащие ?, @, _ и т.д.)
-        strings "$dll_name" | grep -E '^(\?[A-Za-z0-9_]+@[A-Za-z0-9_@$]+|_Z[NTVR][A-Za-z0-9_]+|[A-Za-z_][A-Za-z0-9_]{3,60})$' | sort -u >> "$def_file"
+        objdump -x "$dll_name" 2>/dev/null | sed -n '/^The Export Tables/,/^$/p' | awk '{if (NF>=4) print $NF}' | grep -E '^[A-Za-z0-9_?@$]' | sort -u >> "$def_file"
 
         # Глобальные флаги для 64-битной Windows среды
         local DLLTOOL_FLAGS="-m i386:x86-64 --as-flags=--64 -k"
