@@ -102,15 +102,15 @@ includedir=\${prefix}/include
 Name: OpenVINO
 Description: Intel OpenVINO Runtime
 Version: 2025.4.1
-# Libs: -L\${libdir} -lopenvino -lopenvino_c
+Libs: -L\${libdir} -lopenvino -lopenvino_c
 Libs.private: -ltbb12
 Cflags: -I\${includedir} -I\${includedir}/openvino
 EOF
 }
 
-# ffbuild_libs() {
-    # echo "-lopenvino_c -ltbb12 -lopenvino"
-# }
+ffbuild_libs() {
+    echo "-lopenvino_c -ltbb12 -lopenvino"
+}
 
 ffbuild_configure() {
     echo --enable-libopenvino
