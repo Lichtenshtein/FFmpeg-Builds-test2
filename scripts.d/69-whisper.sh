@@ -134,9 +134,9 @@ ffbuild_dockerbuild() {
         if [[ "${myconf[@]}" =~ "-DGGML_VULKAN=ON" ]]; then
             sed -i '/^Libs.private:/ s/$/ -lggml-vulkan -lvulkan/' "$PC_FILE"
         fi
-        if [[ "${myconf[@]}" =~ "-DGGML_OPENVINO=ON" ]]; then
-            echo "Requires.private: openvino" >> "$PC_FILE"
-        fi
+        # if [[ "${myconf[@]}" =~ "-DGGML_OPENVINO=ON" ]]; then
+            # echo "Requires.private: openvino" >> "$PC_FILE"
+        # fi
         ln -sf "$PC_FILE" "$PC_DIR/libwhisper.pc"
     else
         log_error "Cannot find .pc file at: $PC_FILE"
