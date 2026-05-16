@@ -141,9 +141,9 @@ EOF
         unset CC CXX CFLAGS CXXFLAGS LD LDFLAGS AR RANLIB NM DLLTOOL PKG_CONFIG_LIBDIR PKG_CONFIG_PATH
 
         # Note: We don't use the toolchain file for native build
-        CFLAGS="-O3 -pipe" \
-        CXXFLAGS="-O3 -pipe" \
-        LDFLAGS="" \
+        CFLAGS="$HOST_CFLAGS" \
+        CXXFLAGS="$HOST_CXXFLAGS" \
+        LDFLAGS="$HOST_LDFLAGS" \
         cmake -G Ninja \
             -DCMAKE_POSITION_INDEPENDENT_CODE=ON \
             -DCMAKE_BUILD_TYPE=Release \
@@ -158,7 +158,6 @@ EOF
         # собираем цель glslc_exe в последних версиях бинарник привязан к ней
         log_info "Building native glslc..."
         ninja $NINJA_V glslc glslc_exe || true
-        # ninja $NINJA_V glslc || true
         log_info "Building native glslang..."
         ninja $NINJA_V glslang-standalone || true
 
