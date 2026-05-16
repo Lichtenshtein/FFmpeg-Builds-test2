@@ -77,7 +77,7 @@ ffbuild_dockerbuild() {
         -DENABLE_INTEL_ITT=OFF # убирает привязку к Windows ITT/VTune API
         -DENABLE_CPPLINT=OFF # не ищет python-линтеры
         -DENABLE_NCC_STYLE=OFF # Отключает проверку стилей OpenVINO
-        -DCMAKE_CXX_STANDARD=23
+        -DCMAKE_CXX_STANDARD=20
         -DCMAKE_CXX_STANDARD_REQUIRED=ON
     )
 
