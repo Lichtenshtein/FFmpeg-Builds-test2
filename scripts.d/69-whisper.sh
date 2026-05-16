@@ -33,6 +33,10 @@ ffbuild_dockerbuild() {
         log_info "Updating $PC_FILE with backend libraries..."
     fi
 
+    if [ -d "src/openvino" ]; then
+        echo "// Stub for MinGW" > src/openvino/whisper-openvino-encoder.cpp
+    fi
+
     local CLEAN_LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -flto=auto / /g' -e 's/ -flto / /g' | xargs)
     local CLEAN_CFLAGS=$(echo " ${CFLAGS} " | sed -e 's/-flto=auto//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g' | xargs)
     local CLEAN_CXXFLAGS=$(echo " ${CXXFLAGS} " | sed -e 's/-flto=auto//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g' | xargs)
@@ -141,8 +145,8 @@ EOF
         # -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
         # -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
+        -DWHISPER_OPENVINO=OFF
         -DGGML_OPENVINO=ON
-        -DWHISPER_OPENVINO=ON
         -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
         -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
         )

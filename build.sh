@@ -288,8 +288,8 @@ fi
 # ==========================================
 # WHISPER PROCESSING
 # ==========================================
-if [[ "$HAS_WHISPER" == "1" ]]; then
-    log_info "${TARGET_MARK} Setting up hybrid dynamic linking for Whisper..."
+# if [[ "$HAS_WHISPER" == "1" ]]; then
+    # log_info "${TARGET_MARK} Setting up hybrid dynamic linking for Whisper..."
     # WHISPER_DYNAMIC_LIBS="-lwhisper -lggml"
     # for lib in ${WHISPER_DYNAMIC_LIBS}; do
         # FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
@@ -298,22 +298,7 @@ if [[ "$HAS_WHISPER" == "1" ]]; then
         # FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
     # done
     # DYNAMIC_LIBS_ACCUMULATOR+="-Wl,-Bdynamic ${WHISPER_DYNAMIC_LIBS} -Wl,-Bstatic "
-
-    OV_LIBS="-lopenvino -lopenvino_c"
-    
-    # Полностью вырезаем их из FINAL_LIBS, чтобы они не болтались в начале
-    for lib in ${OV_LIBS}; do
-        FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
-    done
-    
-    # Вырезаем абсолютно все упоминания -lstdc++ из середины строки,
-    # чтобы они не прерывали поиск символов раньше времени
-    FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ -lstdc++ / /g")
-    TOTAL_FF_LIBS=$(echo " ${TOTAL_FF_LIBS} " | sed "s/ -lstdc++ / /g")
-    
-    # Флаги релокации Windows DLL
-    HYBRID_FLAGS="-Wl,--enable-runtime-pseudo-reloc -Wl,--allow-multiple-definition"
-fi
+# fi
 
 # Чистим лишние пробелы, которые мог оставить sed
 FINAL_LIBS=$(echo ${FINAL_LIBS} | xargs)
@@ -327,8 +312,7 @@ FINAL_LIBS=$(echo ${FINAL_LIBS} | xargs)
 # fi
 
 # Используем группы для решения проблем циклических зависимостей
-# FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
-FINAL_LIBS_GROUPED="-Wl,--start-group ${FINAL_LIBS} ${TOTAL_FF_LIBS} -lopenvino -lopenvino_c -Wl,--end-group ${HYBRID_FLAGS} -lstdc++"
+FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
@@ -463,7 +447,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
-    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -Wl,--allow-shlib-undefined -Wl,--enable-runtime-pseudo-reloc -Wl,--allow-multiple-definition"
+    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS}"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
