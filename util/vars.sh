@@ -946,7 +946,7 @@ xargs -0 -r -I{} bash -c '
                 split(\$NF, a, \" \"); 
                 sym = a[2]; 
                 if (sym != \"\") printf \"%-15s %s→%s %s\n\", \$2, \"$GREY_B\", \"$NC\", sym 
-            }" | sort -u | head -n 12)
+            }" | sort -u | head -n 100)
 
         if [[ -n "$clean_symbols" ]]; then
             printf "\n%b %bEXTERNAL SYMBOLS (OBJ %b→%b %bSYM)%b in %s:\n" \
@@ -1024,7 +1024,7 @@ generate_implibs() {
         local base_name="${dll_name%.dll}"
         local lib_name="lib${base_name}.a"
         local dll_dir=$(dirname "$dll_file")
-        
+
         local lib_out_dir="$dll_dir"
         [[ "$dll_dir" == *"/bin" ]] && lib_out_dir="${dll_dir%/bin}/lib"
         mkdir -p "$lib_out_dir"
@@ -1032,13 +1032,11 @@ generate_implibs() {
         local out_lib="$lib_out_dir/$lib_name"
 
         if [[ -f "$out_lib" ]]; then
-            # Если это основные библиотеки OpenVINO, мы ВСЕГДА удаляем их 
-            # и генерируем заново, чтобы перебить MSVC-заглушки (.lib)
+            # Список стадий, где мы ВСЕГДА принудительно пересобираем импорт
             if [[ "$dll_name" == "openvino.dll" || "$dll_name" == "openvino_c.dll" || "$STAGENAME" == *"opencv"* ]]; then
-                log_warn "Forcing regeneration of $lib_name for MinGW C++ ABI compatibility..."
+                log_warn "Forcing regeneration of $lib_name for MinGW compatibility..."
                 rm -f "$out_lib"
             else
-                # Для всех остальных библиотек оставляем стандартную защиту по размеру
                 local current_size=$(stat -c%s "$out_lib" 2>/dev/null)
                 if [[ $current_size -gt 4096 ]]; then
                     log_debug "${CACHE_MARK} Skipping: A valid import for $dll_name already exists"
@@ -1056,18 +1054,21 @@ generate_implibs() {
         local def_file="${base_name}.def"
         echo "EXPORTS" > "$def_file"
 
+        # Пытаемся использовать официальный gendef (он идеален для PE32+)
         if command -v gendef &>/dev/null; then
             gendef - "$dll_name" 2>/dev/null | grep -v '^;' >> "$def_file"
         else
-            # Если gendef нет, используем objdump, но парсим его регулярным выражением,
-            # выдергивая только легитимные Си/C++ имена из строк экспорта
+            # Если gendef нет, парсим objdump с помощью grep -o
+            # Выдергиваем слова в самом конце строк секции Export Table.
+            # Паттерн захватывает Си, C++ GCC (_Z) и C++ MSVC (?).
             objdump -p "$dll_name" 2>/dev/null | \
             sed -n '/\[Ordinal\/Name Pointer\] Table/,/^$/p' | \
             grep -oE '[A-Za-z0-9_?@$]+$' | \
             grep -vE '^[0-9]+$' | sort -u >> "$def_file"
         fi
 
-        # Глобальные флаги для 64-битной Windows среды
+        # Строгие флаги для 64-битной Windows среды (целевая архитектура Broadwell/Win64)
+        # -k (--kill-at) защищает C++ манглинг от порчи утилитой dlltool
         local DLLTOOL_FLAGS="-m i386:x86-64 --as-flags=--64 -k"
 
         if $DLLTOOL ${DLLTOOL_FLAGS} -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
