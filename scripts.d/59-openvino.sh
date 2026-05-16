@@ -109,7 +109,7 @@ Description: Intel OpenVINO Runtime
 Version: 2026.1.0
 Libs: -L\${libdir} -lopenvino_c -lopenvino
 Libs.private: -lopenvino_onnx_frontend -lopenvino_pytorch_frontend -lopenvino_tensorflow_frontend -lopenvino_tensorflow_lite_frontend -lopenvino_paddle_frontend -ltbb12 -lstdc++
-Cflags: -I\${includedir} -I\${includedir}/openvino
+Cflags: -I\${includedir} -I\${includedir}/openvino -DOV_BOOLEAN_TYPE=int
 EOF
 
     # Фикс для старых проверок FFmpeg (Inference Engine C-API Wrapper)
