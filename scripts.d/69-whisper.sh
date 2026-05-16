@@ -27,12 +27,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Fixing the broken TBB search in whisper, which is tied to the Intel SDK folder structure
-    # if [ -f "ggml/src/ggml-openvino/CMakeLists.txt" ]; then
-        # sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' ggml/src/ggml-openvino/CMakeLists.txt
-        # log_info "Updating $PC_FILE with backend libraries..."
-    # fi
-
     cat <<EOF > main-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
@@ -61,6 +55,13 @@ EOF
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
     sed -i "s|@CXXFLAGS@|-O3 -pipe ${USELTO}${USELTO_C}|g" main-toolchain.cmake
     sed -i "s|@LDFLAGS@|${USELTO}|g" main-toolchain.cmake
+
+    # sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
+    # sed -i "s|@CFLAGS@|${CFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
+    # sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
+    # sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
+    # sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
+    # sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}|g" main-toolchain.cmake
 
     # Создаем хост-тулчейн для сборщика шейдеров
     cat <<EOF > host-fix-toolchain.cmake
@@ -119,32 +120,37 @@ EOF
         -DWHISPER_SDL2=OFF # support for libSDL2
         -DWHISPER_CURL=OFF # to download models
         # VULKAN
-        -DGGML_VULKAN=ON
-        -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
-        -DVulkan_GLSLC_EXECUTABLE="/opt/glslc"
-        -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
-        -DGGML_VULKAN_CHECK_RESULTS=OFF
+        # -DGGML_VULKAN=ON
+        # -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
+        # -DVulkan_GLSLC_EXECUTABLE="/opt/glslc"
+        # -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        # -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
+        # -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
-        # -DGGML_OPENVINO=ON
-        # -DWHISPER_OPENVINO=ON
-        # -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-        # -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
+        -DGGML_OPENVINO=ON
+        -DWHISPER_OPENVINO=ON
+        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+        -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
         )
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
+
+    # Fixing the broken TBB search in whisper, which is tied to the Intel SDK folder structure
+    if [ -f "/build/$STAGENAME/ggml/src/ggml-openvino/CMakeLists.txt" ]; then
+        sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' /build/$STAGENAME/ggml/src/ggml-openvino/CMakeLists.txt
+        log_info "Updating $PC_FILE with backend libraries..."
+    fi
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Ручная очистка артефактов Vulkan/Shaderc после whisper
-    log_info "Final cleanup of Vulkan/Shaderc build tools..."
     if [[ -f "$INSTALL_ROOT/bin/glslc.exe" ]]; then
+        log_info "Final cleanup of Vulkan/Shaderc build tools..."
         find "$INSTALL_ROOT/bin" -name "glslc.exe" -delete
         find "$INSTALL_ROOT/lib" -name 'libshaderc_shared.dll' -o -name 'libshaderc_shared.dll.a' -delete
+        rm -f /opt/glslc
     fi
-    rm -f /opt/glslc
-
     # CMake в Windows часто сохраняет их как ggml-base.a, а линковщик ищет -lggml-base (т.е. libggml-base.a)
     if [[ "${PREFER_SHARED}" == "1" ]]; then
         # Фикс префиксов импортных библиотек, если CMake назвал их некорректно
@@ -170,11 +176,11 @@ EOF
             sed -i '/^Libs.private:/ s/$/ -lggml-opencl -lOpenCL/' "$PC_FILE"
         fi
         if [[ "${myconf[@]}" =~ "-DGGML_VULKAN=ON" ]]; then
-            sed -i '/^Libs.private:/ s/$/ -lggml-vulkan -lvulkan/' "$PC_FILE"
+            sed -i '/^Libs.private:/ s/$/ -lggml-vulkan -lshaderc_combined/' "$PC_FILE"
         fi
-        # if [[ "${myconf[@]}" =~ "-DGGML_OPENVINO=ON" ]]; then
-            # echo "Requires.private: openvino" >> "$PC_FILE"
-        # fi
+        if [[ "${myconf[@]}" =~ "-DGGML_OPENVINO=ON" ]]; then
+            echo "Requires.private: openvino" >> "$PC_FILE"
+        fi
         ln -sf "$PC_FILE" "$PC_DIR/libwhisper.pc"
     else
         log_error "Cannot find .pc file at: $PC_FILE"
