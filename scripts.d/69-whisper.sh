@@ -56,19 +56,19 @@ EOF
 
     # Внедряем переменные через sed
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CFLAGS@|${CFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
+    sed -i "s|@CFLAGS@|-O3 -pipe ${USELTO}${USELTO_C}|g" main-toolchain.cmake
     sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
-    sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}|g" main-toolchain.cmake
+    sed -i "s|@CXXFLAGS@|-O3 -pipe ${USELTO}${USELTO_C}|g" main-toolchain.cmake
+    sed -i "s|@LDFLAGS@|${USELTO}|g" main-toolchain.cmake
 
     # Создаем хост-тулчейн для сборщика шейдеров
     cat <<EOF > host-fix-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_C_COMPILER gcc)
 set(CMAKE_CXX_COMPILER g++)
-set(CMAKE_C_FLAGS "-O3" CACHE STRING "" FORCE)
-set(CMAKE_CXX_FLAGS "-O3" CACHE STRING "" FORCE)
+set(CMAKE_C_FLAGS "-O3 -pipe" CACHE STRING "" FORCE)
+set(CMAKE_CXX_FLAGS "-O3 -pipe" CACHE STRING "" FORCE)
 set(CMAKE_EXE_LINKER_FLAGS "" CACHE STRING "" FORCE)
 set(CMAKE_SHARED_LINKER_FLAGS "" CACHE STRING "" FORCE)
 set(CMAKE_MODULE_LINKER_FLAGS "" CACHE STRING "" FORCE)
@@ -119,12 +119,12 @@ EOF
         -DWHISPER_SDL2=OFF # support for libSDL2
         -DWHISPER_CURL=OFF # to download models
         # VULKAN
-        # -DGGML_VULKAN=ON
-        # -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
-        # -DVulkan_GLSLC_EXECUTABLE="/opt/glslc_host"
-        # -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        # -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
-        # -DGGML_VULKAN_CHECK_RESULTS=OFF
+        -DGGML_VULKAN=ON
+        -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
+        -DVulkan_GLSLC_EXECUTABLE="/opt/glslc"
+        -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
+        -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
         # -DGGML_OPENVINO=ON
         # -DWHISPER_OPENVINO=ON
@@ -143,7 +143,7 @@ EOF
         find "$INSTALL_ROOT/bin" -name "glslc.exe" -delete
         find "$INSTALL_ROOT/lib" -name 'libshaderc_shared.dll' -o -name 'libshaderc_shared.dll.a' -delete
     fi
-    rm -f /opt/glslc_host
+    rm -f /opt/glslc
 
     # CMake в Windows часто сохраняет их как ggml-base.a, а линковщик ищет -lggml-base (т.е. libggml-base.a)
     if [[ "${PREFER_SHARED}" == "1" ]]; then
@@ -165,7 +165,7 @@ EOF
         local SYS_LIBS="-lstdc++ -lsetupapi -lws2_32 -lshlwapi -lbcrypt -pthread"
         # Полностью перезаписываем строку Libs.private для идеального порядка
         sed -i '/^Libs.private:/d' "$PC_FILE"
-        echo "Libs.private: ${GGML_INTERNAL} ${SYSTEM_MINGW}" >> "$PC_FILE"
+        echo "Libs.private: ${GGML_INTERNAL} ${SYS_LIBS}" >> "$PC_FILE"
         if [[ "${myconf[@]}" =~ "-DGGML_OPENCL=ON" ]]; then
             sed -i '/^Libs.private:/ s/$/ -lggml-opencl -lOpenCL/' "$PC_FILE"
         fi
