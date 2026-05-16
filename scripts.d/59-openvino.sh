@@ -1,16 +1,14 @@
 #!/bin/bash
 
-# SCRIPT_REPO="https://storage.openvinotoolkit.org/repositories/openvino/packages/2025.4.1/windows/openvino_toolkit_windows_2025.4.1.20426.82bbf0292c5_x86_64.zip"
+SCRIPT_REPO="https://github.com/openvinotoolkit/openvino.git"
+SCRIPT_COMMIT="61d1ca8c471ff930477c8f27926688ba112642a7"
 
-SCRIPT_REPO="https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.1/windows/openvino_toolkit_windows_2026.1.0.21367.63e31528c62_x86_64.zip"
-
-# SCRIPT_REPO="https://github.com/openvinotoolkit/openvino.git"
-# SCRIPT_COMMIT="61d1ca8c471ff930477c8f27926688ba112642a7"
-
-export SKIP_POST_PATCH=1
+# export SKIP_POST_PATCH=1
 
 ffbuild_depends() {
     echo tbbmalloc
+    echo opencl
+    echo opencv
 }
 
 ffbuild_enabled() {
@@ -18,104 +16,84 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    # Скачиваем с проверкой, что это действительно ZIP
-    # echo "curl -L \"$SCRIPT_REPO\" --output openvino.zip && unzip -qq openvino.zip && mv w_openvino_* openvino_src"
-    # echo "curl -sL \"$SCRIPT_REPO\" --output openvino.zip && unzip -qq openvino.zip && mv openvino_* openvino_src"
-    echo "download_file \"$SCRIPT_REPO\" \"openvino.zip\""
+    default_dl .
+    echo "git-submodule-clone"
 }
 
 ffbuild_dockerbuild() {
     set -e
-    unzip -qq openvino.zip
-    local OV_DIR=$(find . -maxdepth 1 -type d -name "*openvino_*" | head -n 1)
-    cd "$OV_DIR"
 
-    log_info "Applying deep MinGW fixes to OpenVINO headers..."
+    mkdir build && cd build
 
-    # Заменяем BOOLEAN на OV_BOOLEAN_TYPE во всех заголовочных файлах C-API
-    # Это исключит конфликт с typedef BYTE BOOLEAN в winnt.h
-    find runtime/include/openvino/c -type f -exec sed -i 's/\bBOOLEAN\b/OV_BOOLEAN_TYPE/g' {} +
+    local myconf=(
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        # Настройка многопоточности под статический TBB
+        -DTHREADING=TBB
+        -DENABLE_SYSTEM_TBB=ON
+        -DENABLE_TBBBIND_2_5=OFF # Выключаем гибридный шедулер
+        # Отключаем ВСЕ фронтенды
+        -DENABLE_OV_IR_FRONTEND=ON # Оставляем только базовый парсер IR XML/BIN
+        -DENABLE_OV_ONNX_FRONTEND=OFF
+        -DENABLE_OV_PADDLE_FRONTEND=OFF
+        -DENABLE_OV_TF_FRONTEND=OFF
+        -DENABLE_OV_TF_LITE_FRONTEND=OFF
+        -DENABLE_OV_PYTORCH_FRONTEND=OFF
+        -DENABLE_OV_JAX_FRONTEND=OFF
+        # Отключаем плагины и тяжелые зависимости
+        -DENABLE_INTEL_CPU=ON  # Оставляем только CPU плагин для Xeon
+        -DENABLE_INTEL_GPU=OFF # GPU требует OpenCL/Vulkan заголовков
+        -DENABLE_INTEL_NPU=OFF
+        -DENABLE_HETERO=OFF
+        -DENABLE_MULTI=OFF
+        -DENABLE_AUTO=OFF
+        -DENABLE_AUTO_BATCH=OFF
+        -DENABLE_PROXY=OFF
+        -DENABLE_TEMPLATE=OFF
+        -DENABLE_OPENCV=OFF # Не связываем с OpenCV samples
+        -DENABLE_SYSTEM_PUGIXML=OFF # ON
+        -DENABLE_SYSTEM_PROTOBUF=OFF # OFF; for ONNX, PaddlePaddle, TensorFlow
+        -DENABLE_SYSTEM_FLATBUFFERS=OFF # ON; for Tensorflow Lite frontend
+        -DENABLE_SYSTEM_OPENCL=ON # ON; use OpenCL installed on the system
+        # Оптимизации размера и сборки
+        -DENABLE_SAMPLES=OFF
+        -DENABLE_TESTS=OFF
+        -DENABLE_FUNCTIONAL_TESTS=OFF
+        -DENABLE_PYTHON=OFF
+        -DENABLE_WHEEL=OFF
+        -DENABLE_CLANG_FORMAT=OFF
+        -DENABLE_PROFILING_ITT=OFF
+        # Включаем аппаратные инструкции вашего Xeon E5 2690v4 (Broadwell)
+        -DENABLE_SSE42=ON
+        -DENABLE_AVX2=ON
+        -DENABLE_AVX512F=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
+        -DENABLE_FASTER_BUILD=OFF # OFF; precompiled headers and unity build
+    )
 
-    # Убираем опасный дефайн в openvino.h, который мы переименовали выше
-    sed -i '/#define BOOLEAN OV_BOOLEAN/d' runtime/include/openvino/c/openvino.h
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    # Фикс дубликатов свойств (уже был)
-    sed -i '/OPENVINO_C_VAR(const char\*) ov_property_key_intel_gpu_config_file;/d' runtime/include/openvino/c/gpu/gpu_plugin_properties.h
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    mkdir -p "$INSTALL_ROOT"/{include,lib,bin,lib/cmake}
-    cp -r runtime/include/* "$INSTALL_ROOT/include/"
-    cp -r runtime/bin/intel64/Release/* "$INSTALL_ROOT/bin/"
+    # mkdir -p "$PC_DIR"
+    # cat <<EOF > "$PC_DIR/openvino.pc"
+# prefix=$FFBUILD_PREFIX
+# libdir=\${prefix}/lib
+# includedir=\${prefix}/include
 
-    mkdir -p "$INSTALL_ROOT/lib/cmake"
-    cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
-
-    # Копируем ВСЕ библиотеки фронтендов, иначе OpenCV не соберется
-    find runtime/lib/intel64/Release/ -name "*.lib" | while read -r f; do
-        name=$(basename "$f" .lib)
-        cp "$f" "$INSTALL_ROOT/lib/lib${name}.a"
-        cp "$f" "$INSTALL_ROOT/lib/${name}.lib"
-    done
-
-    # TBB (Intel Threading Building Blocks)
-    if [ -f "${FFBUILD_PREFIX}/lib/libtbb.a" ]; then
-        log_info "Custom static TBB detected. Skipping OpenVINO's bundled TBB to avoid conflicts."
-        # Удаляем TBB из исходников OpenVINO, чтобы CMake его даже не пытался найти там
-        rm -rf runtime/3rdparty/tbb
-        # Очистка INSTALL_ROOT от случайных следов DLL-версий TBB
-        rm -f "${INSTALL_ROOT}/bin/tbb"*".dll" || true
-        rm -f "${INSTALL_ROOT}/lib/libtbb"*".dll.a" || true
-        # Удаляем CMake-конфиги TBB от OpenVINO, они ведут к DLL
-        rm -f "${INSTALL_ROOT}/lib/cmake/TBB"*".cmake" || true
-    else
-        # Если своей либы нет, используем то, что дали (но это будет динамика)
-        log_warn "No custom TBB found, using OpenVINO bundled TBB."
-        if [[ -d "runtime/3rdparty/tbb" ]]; then
-            find runtime/3rdparty/tbb/bin/ -name "*.dll" ! -name "*_debug.dll" -exec cp {} "$INSTALL_ROOT/bin/" \;
-            find runtime/3rdparty/tbb/lib/ -name "*.lib" ! -name "*_debug.lib" -exec cp {} "$INSTALL_ROOT/lib/" \;
-            find runtime/3rdparty/tbb/lib/cmake/TBB/ -name "*.cmake" -exec cp {} "$INSTALL_ROOT/lib/cmake/" \;
-        fi
-    fi
-
-    # Массированный патч путей и типов файлов
-    find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
-        -e "s|runtime/lib/intel64/Release/|lib/lib|g" \
-        -e "s|runtime/lib/intel64/Debug/|lib/lib|g" \
-        -e "s|runtime/bin/intel64/Release/|bin/|g" \
-        -e "s|runtime/bin/intel64/Debug/|bin/|g" \
-        -e "s|runtime/include|include|g" \
-        -e "s|\.lib|.a|g" \
-        -e "s|liblib|lib|g" \
-        {} +
-
-    # код для удаления суффикса 'd'
-    # Мы обрабатываем и .a, и .dll, и текстовые упоминания конфигураций
-    find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
-        -e 's/d\.a/.a/g' -e 's/fronten\.a/frontend.a/g' \
-        -e 's/d\.dll/.dll/g' -e 's/fronten\.dll/frontend.dll/g' \
-        -e 's/Debug/Release/g' -e 's/DEBUG/RELEASE/g' \
-        {} +
-
-    # Удаляем проверки существования файлов, которые часто ломают find_package в кросс-компиляции
-    find "$INSTALL_ROOT/lib/cmake" -name "OpenVINOTargets-*.cmake" -exec sed -i '/_cmake_import_check_files_for_.* exists/d' {} +
-
-    # Корректный pkg-config для динамической линковки
-    mkdir -p "$PC_DIR"
-    cat <<EOF > "$PC_DIR/openvino.pc"
-prefix=$FFBUILD_PREFIX
-libdir=\${prefix}/lib
-includedir=\${prefix}/include
-Name: OpenVINO
-Description: Intel OpenVINO Runtime
-Version: 2026.1.0
-Libs: -L\${libdir} -lopenvino_c -lopenvino
-Libs.private: -lopenvino_onnx_frontend -lopenvino_pytorch_frontend -lopenvino_tensorflow_frontend -lopenvino_tensorflow_lite_frontend -lopenvino_paddle_frontend -ltbb12 -lstdc++
-Cflags: -I\${includedir} -I\${includedir}/openvino
-EOF
+# Name: OpenVINO
+# Description: Intel OpenVINO Runtime (Static MinGW Broadwell Build)
+# Version: 2025.4.1
+# Libs: -L\${libdir} -lopenvino -lopenvino_intel_cpu_plugin -lopenvino_ir_frontend
+# Libs.private: -ltbb -lstdc++ -lshlwapi
+# Cflags: -I\${includedir} -I\${includedir}/openvino
+# EOF
 }
-
-# ffbuild_libs() {
-    # echo "-lopenvino_c -ltbb12 -lopenvino"
-# }
 
 ffbuild_configure() {
     echo --enable-libopenvino
