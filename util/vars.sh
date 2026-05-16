@@ -940,18 +940,13 @@ xargs -0 -r -I{} bash -c '
     file="$1"; tc="$2"; x_mark="$3"
     raw_symbols=$("${tc}-nm" -uA "$file" 2>/dev/null || true)
     if [[ -n "$raw_symbols" ]]; then
-        local limit=12
-        if [[ "$file" == *"libopenvino.a" ]]; then
-            limit=500
-        fi
-
         clean_symbols=$(echo "$raw_symbols" | \
             grep -Ev "(__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
             awk -F: "{ 
                 split(\$NF, a, \" \"); 
                 sym = a[2]; 
                 if (sym != \"\") printf \"%-15s %s→%s %s\n\", \$2, \"$GREY_B\", \"$NC\", sym 
-            }" | sort -u | head -n $limit)
+            }" | sort -u | head -n 100)
 
         if [[ -n "$clean_symbols" ]]; then
             printf "\n%b %bEXTERNAL SYMBOLS (OBJ %b→%b %bSYM)%b in %s:\n" \
@@ -1063,13 +1058,9 @@ generate_implibs() {
 
         # Безопасный парсинг таблицы экспорта C++ через objdump
         # Вытаскивает манглированные имена (содержащие ?, @, _ и т.д.)
-        objdump -p "$dll_name" 2>/dev/null | \
-        sed -n '/\[Ordinal\/Name Pointer\] Table/,/^$/p' | \
-        awk '{if (NF>1) print $NF; else if (NF==1 && $1 !~ /^[0-9]/) print $1}' | \
-        grep -E '^[A-Za-z0-9_?@$]' | sort -u >> "$def_file"
+        strings "$dll_name" | grep -E '^(\?[A-Za-z0-9_]+@[A-Za-z0-9_@$]+|_Z[NTVR][A-Za-z0-9_]+|[A-Za-z_][A-Za-z0-9_]{3,60})$' | sort -u >> "$def_file"
 
-        # Глобальные флаги для 64-битной Windows среды (для ВСЕХ библиотек)
-        # -k (--kill-at) гарантирует точное сохранение имен без срезания символов
+        # Глобальные флаги для 64-битной Windows среды
         local DLLTOOL_FLAGS="-m i386:x86-64 --as-flags=--64 -k"
 
         if $DLLTOOL ${DLLTOOL_FLAGS} -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
