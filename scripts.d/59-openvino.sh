@@ -134,15 +134,45 @@ ffbuild_dockerbuild() {
     mv "${INSTALL_ROOT}/runtime/cmake" "${INSTALL_ROOT}/lib/"
     rm -rf "${INSTALL_ROOT}/runtime"
 
+    log_info "===================================================================="
+    log_info "DEBUG: Inspecting generated OpenVINO CMake configuration files:"
+    log_info "===================================================================="
+
+    if [ -f "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake" ]; then
+        log_info "--- Content of OpenVINOConfig.cmake ---"
+        # Читаем файл построчно и каждую строку пускаем через debug-лог в stderr
+        while IFS= read -r line; do
+            log_debug "  $line"
+        done < "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake"
+    else
+        log_error "OpenVINOConfig.cmake NOT FOUND in ${INSTALL_ROOT}/lib/cmake/"
+    fi
+    if [ -f "${INSTALL_ROOT}/lib/cmake/OpenVINOTargets-release.cmake" ]; then
+        log_info "--- Content of OpenVINOTargets-release.cmake ---"
+        # Для скорости можно перенаправить весь cat целиком в stderr напрямую
+        cat "${INSTALL_ROOT}/lib/cmake/OpenVINOTargets-release.cmake" >&2
+    fi
+    log_info "===================================================================="
+
     # Патчим относительные пути внутри перенесенных CMake файлов
     log_info "Patching paths inside internal OpenVINO CMake files..."
-    find "${INSTALL_ROOT}/lib/cmake" -name "*.cmake" | while read -r CMAKE_FILE; do
-        # Меняем /runtime/include на /include/openvino
-        sed -i 's|/runtime/include|/include/openvino|g' "$CMAKE_FILE"
-        # Меняем /runtime/lib на /lib
-        sed -i 's|/runtime/lib|/lib|g' "$CMAKE_FILE"
-        # Исправляем относительные пути расчета IMPORT_PREFIX, так как файлы переехали глубез в lib/cmake/OpenVINO
-        sed -i 's|get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)|get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)\n  get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)|g' "$CMAKE_FILE"
+    find "${INSTALL_ROOT}/lib/cmake" -name "*.cmake" -type f | while read -r CMAKE_FILE; do
+        # Сначала убираем вычисление относительного префикса, чтобы он не перезаписывал пути
+        sed -i 's|get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)|# Absolute path used|g' "$CMAKE_FILE"
+        # Заменяем все хитрые относительные конструкции Intel на жесткий абсолютный путь
+        sed -i 's|"\${_IMPORT_PREFIX}/runtime/lib/intel64/Release/|"/opt/ffbuild/lib/|g' "$CMAKE_FILE"
+        sed -i 's|"\${_IMPORT_PREFIX}/runtime/lib/intel64/Debug/|"/opt/ffbuild/lib/|g' "$CMAKE_FILE"
+        sed -i 's|"\${_IMPORT_PREFIX}/runtime/lib/|"/opt/ffbuild/lib/|g' "$CMAKE_FILE"
+        sed -i 's|"\${_IMPORT_PREFIX}/runtime/include|"/opt/ffbuild/include/openvino|g' "$CMAKE_FILE"
+        sed -i 's|"\${_IMPORT_PREFIX}/runtime/bin/|"/opt/ffbuild/bin/|g' "$CMAKE_FILE"
+        # Исправляем расширения и структуры под GCC/MinGW статику
+        sed -i 's|\.lib|.a|g' "$CMAKE_FILE"
+        sed -i 's|liblib|lib|g' "$CMAKE_FILE"
+        sed -i 's|/intel64/Release/||g' "$CMAKE_FILE"
+        sed -i 's|/intel64/Debug/||g' "$CMAKE_FILE"
+        # Синхронизируем дебажные суффиксы, если они где-то проскочили
+        sed -i -e 's/d\.a/.a/g' -e 's/fronten\.a/frontend.a/g' "$CMAKE_FILE"
+        sed -i -e 's/Debug/Release/g' -e 's/DEBUG/RELEASE/g' "$CMAKE_FILE"
     done
 
     log_debug "Inspecting generated OpenVINO CMake configuration files:"
