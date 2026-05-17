@@ -102,11 +102,11 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0"
 
-    [[ "${USE_LTO}" == "1" ]] && LTO_flags="-Wno-odr -flto-odr-threshold=100"
+    [[ "${USE_LTO}" == "1" ]] && LTO_flags="-Wno-odr"
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_flags $static_flags" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_flags" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_flags $static_flags" \
-    LDFLAGS="$LDFLAGS ${USELTO} -Wl,--allow-multiple-definition" \
+    LDFLAGS="$LDFLAGS ${USELTO} $LTO_flags -Wl,--allow-multiple-definition" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1

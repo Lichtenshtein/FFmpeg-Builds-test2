@@ -935,26 +935,26 @@ get_deps_list() {
         fi
     else
         # nm: undefined external symbols in static libs 
-find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
-xargs -0 -r -I{} bash -c '
-    file="$1"; tc="$2"; x_mark="$3"
-    raw_symbols=$("${tc}-nm" -uA "$file" 2>/dev/null || true)
-    if [[ -n "$raw_symbols" ]]; then
-        clean_symbols=$(echo "$raw_symbols" | \
-            grep -Ev "(__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
-            awk -F: "{ 
-                split(\$NF, a, \" \"); 
-                sym = a[2]; 
-                if (sym != \"\") printf \"%-15s %s→%s %s\n\", \$2, \"$GREY_B\", \"$NC\", sym 
-            }" | sort -u | head -n 100)
-
-        if [[ -n "$clean_symbols" ]]; then
-            printf "\n%b %bEXTERNAL SYMBOLS (OBJ %b→%b %bSYM)%b in %s:\n" \
-                "$x_mark" "$YELLOW" "$GREY_B" "$YELLOW" "$YELLOW" "$NC" "$file"
-            echo "$clean_symbols" | sed "s|^| ${LOG_INFO}•${NC} |"
-        fi
-    fi
-' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
+        find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
+        xargs -0 -r -I{} bash -c '
+            file="$1"; tc="$2"; x_mark="$3"
+            raw_symbols=$("${tc}-nm" -uA "$file" 2>/dev/null || true)
+            if [[ -n "$raw_symbols" ]]; then
+                clean_symbols=$(echo "$raw_symbols" | \
+                    grep -Ev "(__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
+                    awk -F: "{ 
+                        split(\$NF, a, \" \"); 
+                        sym = a[2]; 
+                        if (sym != \"\") printf \"%-15s %s→%s %s\n\", \$2, \"$GREY_B\", \"$NC\", sym 
+                    }" | sort -u | head -n 40)
+        
+                if [[ -n "$clean_symbols" ]]; then
+                    printf "\n%b %bEXTERNAL SYMBOLS (OBJ %b→%b %bSYM)%b in %s:\n" \
+                        "$x_mark" "$YELLOW" "$GREY_B" "$YELLOW" "$YELLOW" "$NC" "$file"
+                    echo "$clean_symbols" | sed "s|^| ${LOG_INFO}•${NC} |"
+                fi
+            fi
+        ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
     fi
 
     # Output
