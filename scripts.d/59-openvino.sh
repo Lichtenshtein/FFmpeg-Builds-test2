@@ -25,8 +25,7 @@ ffbuild_dockerbuild() {
     set -e
 
     log_info "Disabling samples and snippets subdirectories precisely..."
-    sed -i 's/^[[:space:]]*add_subdirectory(snippets)/# add_subdirectory(snippets)/g' docs/CMakeLists.txt
-    sed -i 's/^[[:space:]]*add_subdirectory(snippets)/# add_subdirectory(snippets)/g' src/common/CMakeLists.txt
+    sed -i '/ov_mark_target_as_cc(${TARGET_NAME})/a return()' docs/snippets/CMakeLists.txt
     sed -i 's/^[[:space:]]*add_subdirectory(samples)/# add_subdirectory(samples)/g' CMakeLists.txt
 
     log_info "Fixing case-sensitive Shlwapi library names for Linux host..."
@@ -47,9 +46,6 @@ ffbuild_dockerbuild() {
         -DENABLE_SYSTEM_TBB=ON
         -DENABLE_TBBBIND_2_5=OFF # Выключаем гибридный шедулер
         -DTBB_DIR="${FFBUILD_PREFIX}/lib/cmake/TBB"
-        -DTBB_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
-        -DTBB_LIBRARY="${FFBUILD_PREFIX}/lib/libtbb.a"
-        -DTBB_MALLOC_LIBRARY="${FFBUILD_PREFIX}/lib/libtbbmalloc.a"
         # Отключаем ВСЕ фронтенды
         -DENABLE_OV_IR_FRONTEND=ON # Оставляем только базовый парсер IR XML/BIN
         -DENABLE_OV_ONNX_FRONTEND=OFF
@@ -102,7 +98,7 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0"
 
-    [[ "${USE_LTO}" == "1" ]] && LTO_flags="-Wno-odr"
+    [[ "${USE_LTO}" == "1" ]] && LTO_flags="-Wno-odr -fno-lto-odr-type-merging"
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_flags" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_flags $static_flags" \
