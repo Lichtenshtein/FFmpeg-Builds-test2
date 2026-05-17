@@ -107,19 +107,38 @@ ffbuild_dockerbuild() {
 
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # mkdir -p "$PC_DIR"
-    # cat <<EOF > "$PC_DIR/openvino.pc"
-# prefix=$FFBUILD_PREFIX
-# libdir=\${prefix}/lib
-# includedir=\${prefix}/include
+    log_info "Re-arranging OpenVINO layout for FFmpeg standard paths..."
+    # Переносим заголовочные файлы из runtime/include в стандартный include
+    if [ -d "${INSTALL_ROOT}/runtime/include" ]; then
+        cp -r "${INSTALL_ROOT}/runtime/include/"* "${INSTALL_ROOT}/include/"
+    fi
 
-# Name: OpenVINO
-# Description: Intel OpenVINO Runtime (Static MinGW Broadwell Clean Build)
-# Version: 2025.4.1
-# Libs: -L\${libdir} -lopenvino -lopenvino_intel_cpu_plugin -lopenvino_ir_frontend -lopenvino_shape_inference -lopenvino_onednn_cpu -lopenvino_common_translators -lopenvino_reference -lopenvino_util -lpugixml
-# Libs.private: -ltbb12 -lstdc++ -lshlwapi -lws2_32
-# Cflags: -I\${includedir} -I\${includedir}/openvino
-# EOF
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        # Собираем все статические .a библиотеки, разбросанные по папкам, в единый lib
+        mkdir -p "${INSTALL_ROOT}/lib"
+        find "${INSTALL_ROOT}/runtime/lib" -name "*.a" -exec cp {} "${INSTALL_ROOT}/lib/" \;
+
+        # Чистим LTO-секции из статических библиотек, чтобы сбросить вес с 1.7Гб до ~100Мб
+        log_info "Stripping heavy GCC LTO sections from .a files to optimize size..."
+        find "${INSTALL_ROOT}" -name "*.a" | while read -r LIB_FILE; do
+            "${FFBUILD_CROSS_PREFIX}objcopy" --remove-section=.gnu.lto_* "$LIB_FILE" || true
+    fi
+
+    log_info "Generating openvino.pc file for pkgconf..."
+    mkdir -p "${PC_DIR}"
+    cat <<EOF > "${PC_DIR}/openvino.pc"
+prefix=${FFBUILD_PREFIX}
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: OpenVINO
+Description: Intel OpenVINO Runtime Static Library for FFmpeg
+Version: 2026.3.0
+Cflags: -I\${includedir}
+Libs: -L\${libdir} -lopenvino -lopenvino_c -lopenvino_intel_cpu_plugin -lopenvino_ir_frontend -lopenvino_onednn_cpu -lopenvino_shape_inference -lopenvino_common_translators -lopenvino_reference -lopenvino_itt -lopenvino_util -lopenvino_xml_util -lopenvino_snippets -lpugixml
+Libs.private: -ltbb -lshlwapi -lsetupapi -lws2_32 -lbcrypt
+EOF
 }
 
 ffbuild_configure() {
