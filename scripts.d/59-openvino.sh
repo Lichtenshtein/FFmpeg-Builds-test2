@@ -122,6 +122,7 @@ ffbuild_dockerbuild() {
         log_info "Stripping heavy GCC LTO sections from .a files to optimize size..."
         find "${INSTALL_ROOT}" -name "*.a" | while read -r LIB_FILE; do
             "${FFBUILD_CROSS_PREFIX}objcopy" --remove-section=.gnu.lto_* "$LIB_FILE" || true
+        done
     fi
 
     log_info "Generating openvino.pc file for pkgconf..."
