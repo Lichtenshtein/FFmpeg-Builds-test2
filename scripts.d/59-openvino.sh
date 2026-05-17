@@ -114,7 +114,7 @@ ffbuild_dockerbuild() {
 
     # Переносим внутренние папки (c, core, frontend, op, opsets, pass, runtime) в папку openvino
     find "${INSTALL_ROOT}/runtime/include/" -mindepth 1 -maxdepth 1 | while read -r src_dir; do
-        mv "$src_dir" "${INSTALL_ROOT}/include/openvino/"
+        mv "$src_dir" "${INSTALL_ROOT}/include/"
     done
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
@@ -131,7 +131,7 @@ ffbuild_dockerbuild() {
 
     # Переносим файлы CMake в правильную стандартную директорию
     mkdir -p "${INSTALL_ROOT}/lib/cmake"
-    mv "${INSTALL_ROOT}/runtime/cmake" "${INSTALL_ROOT}/lib/cmake/"
+    mv "${INSTALL_ROOT}/runtime/cmake" "${INSTALL_ROOT}/lib/"
     rm -rf "${INSTALL_ROOT}/runtime"
 
     # Патчим относительные пути внутри перенесенных CMake файлов
