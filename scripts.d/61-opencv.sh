@@ -125,8 +125,8 @@ ffbuild_dockerbuild() {
         -DJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.a"
         # Включаем интеграцию с OpenVINO (Inference Engine)
-        -DWITH_OPENVINO=ON
-        -DOPENVINO_STATIC_COMPILATION=OFF
+        -DWITH_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
+        -DOPENVINO_STATIC_COMPILATION=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
         -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
         -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
         # Отключаем загрузку готовых DLL FFmpeg
@@ -195,11 +195,13 @@ ffbuild_dockerbuild() {
         log_warn "IPP IW file not found at $IPP_IW_FILE, skipping patch."
     fi
 
-    if ! grep -qiE "OPENVINO:.*(YES|ON|TRUE)" CMakeCache.txt && ! grep -qi "HAVE_OPENVINO:INTERNAL=ON" CMakeCache.txt; then
-        log_error "OpenVINO was not detected in CMakeCache.txt!"
-        # Выведем для отладки, что там на самом деле
-        grep -i "OPENVINO" CMakeCache.txt
-        return 1
+    if [[ "${BUILD_VINO}" == "1" ]]; then
+        if ! grep -qiE "OPENVINO:.*(YES|ON|TRUE)" CMakeCache.txt && ! grep -qi "HAVE_OPENVINO:INTERNAL=ON" CMakeCache.txt; then
+            log_error "OpenVINO was not detected in CMakeCache.txt!"
+            # Выведем для отладки, что там на самом деле
+            grep -i "OPENVINO" CMakeCache.txt
+            return 1
+        fi
     fi
 
     ninja $NINJA_V || {

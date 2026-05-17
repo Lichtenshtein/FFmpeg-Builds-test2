@@ -102,6 +102,10 @@ on:
         type: boolean
         default: true
         required: false
+      build_vino:
+        description: 'Build OpenVino'
+        type: boolean
+        default: true
 env:
   # Общие настройки локали
   LANG: C.UTF-8
@@ -141,6 +145,7 @@ env:
   PREFER_SHARED:  ${{ github.event.inputs.prefer_shared  == 'true' && '1' || '0' }}
   OLDER_FFNV:     ${{ github.event.inputs.older_ffnv     == 'true' && '1' || '0' }}
   DIR_NUMBERS:    ${{ github.event.inputs.dir_numbers    == 'true' && '1' || '0' }}
+  BUILD_VINO:     ${{ github.event.inputs.build_vino     == 'true' && '1' || '0' }}
   # Маппинг Inputs -> Env для всех динамических значений
   FFMPEG_REPO:     ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-VVC.git' }}
   FFMPEG_BRANCH:   ${{ github.event.inputs.ffmpeg_branch || 'master' }}
