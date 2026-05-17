@@ -3,8 +3,6 @@
 SCRIPT_REPO="https://github.com/openvinotoolkit/openvino.git"
 SCRIPT_COMMIT="61d1ca8c471ff930477c8f27926688ba112642a7"
 
-# export SKIP_POST_PATCH=1
-
 ffbuild_depends() {
     echo tbbmalloc
     echo opencl
@@ -23,6 +21,8 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    export SKIP_POST_PATCH=1
 
     log_info "Disabling samples and snippets subdirectories precisely..."
     sed -i '/ov_mark_target_as_cc(${TARGET_NAME})/a return()' docs/snippets/CMakeLists.txt
@@ -96,12 +96,12 @@ ffbuild_dockerbuild() {
     )
 
     export static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0"
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0" && self_static_flags="-DOPENVINO_STATIC_LIBRARY"
 
     [[ "${USE_LTO}" == "1" ]] && LTO_flags="-Wno-odr -fno-lto-odr-type-merging"
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_flags $static_flags" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_flags $self_static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_flags $static_flags $self_static_flags" \
     LDFLAGS="$LDFLAGS ${USELTO} $LTO_flags -Wl,--allow-multiple-definition" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
@@ -134,37 +134,25 @@ ffbuild_dockerbuild() {
     mv "${INSTALL_ROOT}/runtime/cmake" "${INSTALL_ROOT}/lib/"
     rm -rf "${INSTALL_ROOT}/runtime"
 
-    log_info "===================================================================="
-    log_info "DEBUG: Inspecting generated OpenVINO CMake configuration files:"
-    log_info "===================================================================="
-
-    if [ -f "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake" ]; then
-        log_info "--- Content of OpenVINOConfig.cmake ---"
-        # Читаем файл построчно и каждую строку пускаем через debug-лог в stderr
-        while IFS= read -r line; do
-            log_debug "  $line"
-        done < "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake"
-    else
-        log_error "OpenVINOConfig.cmake NOT FOUND in ${INSTALL_ROOT}/lib/cmake/"
-    fi
-    if [ -f "${INSTALL_ROOT}/lib/cmake/OpenVINOTargets-release.cmake" ]; then
-        log_info "--- Content of OpenVINOTargets-release.cmake ---"
-        # Для скорости можно перенаправить весь cat целиком в stderr напрямую
-        cat "${INSTALL_ROOT}/lib/cmake/OpenVINOTargets-release.cmake" >&2
-    fi
-    log_info "===================================================================="
-
     # Патчим относительные пути внутри перенесенных CMake файлов
-    log_info "Patching paths inside internal OpenVINO CMake files..."
+    log_info "Performing massive absolute path patching inside OpenVINO CMake files..."
     find "${INSTALL_ROOT}/lib/cmake" -name "*.cmake" -type f | while read -r CMAKE_FILE; do
-        # Сначала убираем вычисление относительного префикса, чтобы он не перезаписывал пути
-        sed -i 's|get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)|# Absolute path used|g' "$CMAKE_FILE"
+        # Намертво фиксируем PACKAGE_PREFIX_DIR на наш абсолютный корень кросс-компиляции
+        sed -i 's|get_filename_component(PACKAGE_PREFIX_DIR "${CMAKE_CURRENT_LIST_DIR}/../../" ABSOLUTE)|set(PACKAGE_PREFIX_DIR "/opt/ffbuild")|g' "$CMAKE_FILE"
+
+        # Ссылки на проверки путей, если ACL (ARM Compute Library) или onednn_gpu_lib_root вызываются
+        sed -i 's|"${PACKAGE_PREFIX_DIR}/runtime/lib/intel64/Release"|"/opt/ffbuild/lib"|g' "$CMAKE_FILE"
+
+        # Сначала убираем вычисление относительного префикса в Targets, чтобы он не перезаписывал пути
+        sed -i 's|get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)|# Использован абсолютный путь|g' "$CMAKE_FILE"
+
         # Заменяем все хитрые относительные конструкции Intel на жесткий абсолютный путь
         sed -i 's|"\${_IMPORT_PREFIX}/runtime/lib/intel64/Release/|"/opt/ffbuild/lib/|g' "$CMAKE_FILE"
         sed -i 's|"\${_IMPORT_PREFIX}/runtime/lib/intel64/Debug/|"/opt/ffbuild/lib/|g' "$CMAKE_FILE"
         sed -i 's|"\${_IMPORT_PREFIX}/runtime/lib/|"/opt/ffbuild/lib/|g' "$CMAKE_FILE"
         sed -i 's|"\${_IMPORT_PREFIX}/runtime/include|"/opt/ffbuild/include/openvino|g' "$CMAKE_FILE"
         sed -i 's|"\${_IMPORT_PREFIX}/runtime/bin/|"/opt/ffbuild/bin/|g' "$CMAKE_FILE"
+
         # Исправляем расширения и структуры под GCC/MinGW статику
         sed -i 's|\.lib|.a|g' "$CMAKE_FILE"
         sed -i 's|liblib|lib|g' "$CMAKE_FILE"
@@ -176,14 +164,46 @@ ffbuild_dockerbuild() {
     done
 
     log_debug "Inspecting generated OpenVINO CMake configuration files:"
+
     if [ -f "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake" ]; then
         log_info "--- Content of OpenVINOConfig.cmake ---"
-        cat "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake"
+        while IFS= read -r line; do
+            log_debug "  $line"
+        done < "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake"
+    else
+        log_error "OpenVINOConfig.cmake NOT FOUND in ${INSTALL_ROOT}/lib/cmake/"
     fi
-    if [ -f "${INSTALL_ROOT}/lib/cmake/OpenVINOTargets.cmake" ]; then
-        log_info "--- Content of OpenVINOTargets.cmake ---"
-        cat "${INSTALL_ROOT}/lib/cmake/OpenVINOTargets.cmake"
-    fi
+
+    # if [ -f "${INSTALL_ROOT}/lib/cmake/OpenVINOTargets-release.cmake" ]; then
+        # log_info "--- Content of OpenVINOTargets-release.cmake ---"
+        # cat "${INSTALL_ROOT}/lib/cmake/OpenVINOTargets-release.cmake" >&2
+    # fi
+
+    # собираем все либы
+    log_info "Dynamically collecting installed OpenVINO libraries..."
+
+    # Собираем главные интерфейсные либы, которые должны быть первыми в очереди линковки
+    local CORE_LIBS=""
+    for main_lib in libopenvino.a libopenvino_c.a; do
+        if [ -f "${INSTALL_ROOT}/lib/${main_lib}" ]; then
+            CORE_LIBS="${CORE_LIBS} -l${main_lib%.a}"
+            CORE_LIBS="${CORE_LIBS#lib}" # убираем префикс lib для флага -l
+        fi
+    done
+    # Исправляем строку (превращаем -llibopenvino в -lopenvino)
+    CORE_LIBS=$(echo "$CORE_LIBS" | sed 's/-llib/-l/g')
+
+    # Собираем все остальные внутренние компоненты OpenVINO, исключая уже добавленные и сторонние (tbb, pugixml)
+    local COMPONENT_LIBS=$(find "${INSTALL_ROOT}/lib" -name "libopenvino_*.a" | sed "s|.*/lib\(.*\)\.a|-l\1|" | xargs)
+
+    # Принудительно добавляем pugixml, если он собрался внутри OpenVINO
+    local PUGI_LIB=""
+    [ -f "${INSTALL_ROOT}/lib/libpugixml.a" ] && PUGI_LIB="-lpugixml"
+
+    local INTER_LIB=""
+    [ -f "${INSTALL_ROOT}/lib/libinference_engine_c_api.a" ] && INTER_LIB="-linference_engine_c_api.a"
+
+    log_info "Generated Libs sequence: ${CORE_LIBS} ${INTER_LIB} ${COMPONENT_LIBS} ${PUGI_LIB}"
 
     log_info "Generating openvino.pc file for pkg-config..."
     mkdir -p "${PC_DIR}"
@@ -196,8 +216,8 @@ includedir=\${prefix}/include
 Name: OpenVINO
 Description: Intel OpenVINO Runtime Static Library for FFmpeg
 Version: 2026.3.0
-Cflags: -I\${includedir} -I\${includedir}/openvino
-Libs: -L\${libdir} -lopenvino -lopenvino_c -lopenvino_intel_cpu_plugin -lopenvino_ir_frontend -lopenvino_onednn_cpu -lopenvino_shape_inference -lopenvino_common_translators -lopenvino_reference -lopenvino_itt -lopenvino_util -lopenvino_xml_util -lopenvino_snippets -lpugixml
+Cflags: -I\${includedir} -I\${includedir}/openvino -DOPENVINO_STATIC_LIBRARY -D__TBB_DYNAMIC_LOAD_ENABLED=0
+Libs: -L\${libdir} ${CORE_LIBS} ${INTER_LIB} ${COMPONENT_LIBS} ${PUGI_LIB}
 Libs.private: -ltbb -lshlwapi -lsetupapi -lws2_32 -lbcrypt
 EOF
 

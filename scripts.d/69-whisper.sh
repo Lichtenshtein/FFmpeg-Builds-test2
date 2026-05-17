@@ -27,6 +27,9 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0 -DOPENVINO_STATIC_LIBRARY"
+
     cat <<EOF > main-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
@@ -49,10 +52,10 @@ set(ENV{PKG_CONFIG_LIBDIR} "/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgcon
 EOF
 
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CFLAGS@|${CFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
+    sed -i "s|@CFLAGS@|${CFLAGS} ${USELTO}${USELTO_C} $static_flags|g" main-toolchain.cmake
     sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C}|g" main-toolchain.cmake
+    sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C} $static_flags|g" main-toolchain.cmake
     sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}|g" main-toolchain.cmake
 
     # Создаем хост-тулчейн для сборщика шейдеров
@@ -126,14 +129,6 @@ EOF
         )
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
-
-    # Fixing the broken TBB search in whisper, which is tied to the Intel SDK folder structure
-    find "build/$STAGENAME" -name "CMakeLists.txt" -type f | while read -r file; do
-        if grep -q 'include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")' "$file"; then
-            sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' "$file"
-            log_info "Updated TBB config in $file"
-        fi
-    done
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
