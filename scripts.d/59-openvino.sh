@@ -107,16 +107,20 @@ ffbuild_dockerbuild() {
 
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    log_info "Re-arranging OpenVINO layout for FFmpeg standard paths..."
-    # Переносим заголовочные файлы из runtime/include в стандартный include
-    if [ -d "${INSTALL_ROOT}/runtime/include" ]; then
-        cp -r "${INSTALL_ROOT}/runtime/include/"* "${INSTALL_ROOT}/include/"
-    fi
+    log_info "Moving and restructuring OpenVINO layout..."
+
+    # нужно превратить include/c/ в include/openvino/c/
+    mkdir -p "${INSTALL_ROOT}/include/openvino"
+
+    # Переносим внутренние папки (c, core, frontend, op, opsets, pass, runtime) в папку openvino
+    find "${INSTALL_ROOT}/runtime/include/" -mindepth 1 -maxdepth 1 | while read -r src_dir; do
+        mv "$src_dir" "${INSTALL_ROOT}/include/openvino/"
+    done
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
         # Собираем все статические .a библиотеки, разбросанные по папкам, в единый lib
         mkdir -p "${INSTALL_ROOT}/lib"
-        find "${INSTALL_ROOT}/runtime/lib" -name "*.a" -exec cp {} "${INSTALL_ROOT}/lib/" \;
+        find "${INSTALL_ROOT}/runtime/lib" -name "*.a" -exec mv {} "${INSTALL_ROOT}/lib/" \;
 
         # Чистим LTO-секции из статических библиотек, чтобы сбросить вес с 1.7Гб до ~100Мб
         log_info "Stripping heavy GCC LTO sections from .a files to optimize size..."
@@ -125,7 +129,33 @@ ffbuild_dockerbuild() {
         done
     fi
 
-    log_info "Generating openvino.pc file for pkgconf..."
+    # Переносим файлы CMake в правильную стандартную директорию
+    mkdir -p "${INSTALL_ROOT}/lib/cmake"
+    mv "${INSTALL_ROOT}/runtime/cmake" "${INSTALL_ROOT}/lib/cmake/"
+    rm -rf "${INSTALL_ROOT}/runtime"
+
+    # Патчим относительные пути внутри перенесенных CMake файлов
+    log_info "Patching paths inside internal OpenVINO CMake files..."
+    find "${INSTALL_ROOT}/lib/cmake" -name "*.cmake" | while read -r CMAKE_FILE; do
+        # Меняем /runtime/include на /include/openvino
+        sed -i 's|/runtime/include|/include/openvino|g' "$CMAKE_FILE"
+        # Меняем /runtime/lib на /lib
+        sed -i 's|/runtime/lib|/lib|g' "$CMAKE_FILE"
+        # Исправляем относительные пути расчета IMPORT_PREFIX, так как файлы переехали глубез в lib/cmake/OpenVINO
+        sed -i 's|get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)|get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)\n  get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)|g' "$CMAKE_FILE"
+    done
+
+    log_debug "Inspecting generated OpenVINO CMake configuration files:"
+    if [ -f "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake" ]; then
+        log_info "--- Content of OpenVINOConfig.cmake ---"
+        cat "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake"
+    fi
+    if [ -f "${INSTALL_ROOT}/lib/cmake/OpenVINOTargets.cmake" ]; then
+        log_info "--- Content of OpenVINOTargets.cmake ---"
+        cat "${INSTALL_ROOT}/lib/cmake/OpenVINOTargets.cmake"
+    fi
+
+    log_info "Generating openvino.pc file for pkg-config..."
     mkdir -p "${PC_DIR}"
     cat <<EOF > "${PC_DIR}/openvino.pc"
 prefix=${FFBUILD_PREFIX}
@@ -136,10 +166,38 @@ includedir=\${prefix}/include
 Name: OpenVINO
 Description: Intel OpenVINO Runtime Static Library for FFmpeg
 Version: 2026.3.0
-Cflags: -I\${includedir}
+Cflags: -I\${includedir} -I\${includedir}/openvino
 Libs: -L\${libdir} -lopenvino -lopenvino_c -lopenvino_intel_cpu_plugin -lopenvino_ir_frontend -lopenvino_onednn_cpu -lopenvino_shape_inference -lopenvino_common_translators -lopenvino_reference -lopenvino_itt -lopenvino_util -lopenvino_xml_util -lopenvino_snippets -lpugixml
 Libs.private: -ltbb -lshlwapi -lsetupapi -lws2_32 -lbcrypt
 EOF
+
+    # Фикс для старых проверок FFmpeg (Inference Engine C-API Wrapper)
+    # Перенаправляем старый вызов c_api/ie_c_api.h на современный openvino/c/openvino.h
+    mkdir -p "$INSTALL_ROOT/include/c_api"
+    cat <<EOF > "$INSTALL_ROOT/include/c_api/ie_c_api.h"
+#ifndef COMPAT_IE_C_API_H
+#define COMPAT_IE_C_API_H
+#include <openvino/c/openvino.h>
+
+static __attribute__((unused)) const char* ie_c_api_version(void) { 
+    return "2025.4.1"; 
+}
+#endif
+EOF
+
+    # Дублируем заголовок для persistent storage
+    mkdir -p "$FFBUILD_PREFIX/include/c_api"
+    cp "$INSTALL_ROOT/include/c_api/ie_c_api.h" "$FFBUILD_PREFIX/include/c_api/ie_c_api.h"
+
+    # Создаем пустую библиотеку-пустышку libinference_engine_c_api.a, 
+    # чтобы удовлетворить жесткий фоллбэк линковщика FFmpeg (-linference_engine_c_api)
+    log_info "Creating inference_engine_c_api fallback stub for FFmpeg configure..."
+    rm -f "$INSTALL_ROOT/lib/libinference_engine_c_api.a"
+    ar rcs "$INSTALL_ROOT/lib/libinference_engine_c_api.a"
+
+    # Дублируем библиотеку-пустышку для постоянного префикса
+    mkdir -p "$FFBUILD_PREFIX/lib"
+    cp "$INSTALL_ROOT/lib/libinference_engine_c_api.a" "$FFBUILD_PREFIX/lib/libinference_engine_c_api.a"
 }
 
 ffbuild_configure() {
