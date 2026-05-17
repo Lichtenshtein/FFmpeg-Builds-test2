@@ -119,10 +119,10 @@ EOF
         # -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
         # -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
-        # -DGGML_OPENVINO=ON
-        # -DWHISPER_OPENVINO=ON
-        # -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-        # -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
+        -DGGML_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
+        -DWHISPER_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
+        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+        -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
         )
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
