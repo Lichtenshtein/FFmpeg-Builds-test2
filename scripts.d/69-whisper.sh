@@ -119,21 +119,21 @@ EOF
         # -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
         # -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
-        -DGGML_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
-        -DWHISPER_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
+        -DGGML_OPENVINO=ON
+        -DWHISPER_OPENVINO=ON
         -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-        -DGGML_OPENVINO_SKIP_TBB_FIND=ON 
+        # -DGGML_OPENVINO_SKIP_TBB_FIND=ON
         )
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     # Fixing the broken TBB search in whisper, which is tied to the Intel SDK folder structure
-    # find "build/$STAGENAME" -name "CMakeLists.txt" -type f | while read -r file; do
-        # if grep -q 'include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")' "$file"; then
-            # sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' "$file"
-            # log_info "Updated TBB config in $file"
-        # fi
-    # done
+    find "build/$STAGENAME" -name "CMakeLists.txt" -type f | while read -r file; do
+        if grep -q 'include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")' "$file"; then
+            sed -i 's|include("${OpenVINO_DIR}/../3rdparty/tbb/lib/cmake/TBB/TBBConfig.cmake")|find_package(TBB REQUIRED)|' "$file"
+            log_info "Updated TBB config in $file"
+        fi
+    done
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
