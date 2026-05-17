@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/uxlfoundation/oneTBB.git"
-SCRIPT_COMMIT="49c45b1bcbfd4061e199d68044289b88be2e319d"
+SCRIPT_COMMIT="c2372fbbe640cc49327be2de3941fac2d5c76e7e"
 
 ffbuild_enabled() {
     return 0
@@ -34,6 +34,8 @@ ffbuild_dockerbuild() {
         -DTBB_DISABLE_HWLOC_AUTOMATIC_SEARCH=ON
         # Если при сборке самого FFmpeg возникнут ошибки "undefined reference
         # -DTBB_USE_DEBUG_BUILD_FLAGS=OFF
+        -DCMAKE_CXX_STANDARD=20 # Синхронизируем стандарт C++
+        -DCMAKE_CXX_STANDARD_REQUIRED=ON
     )
 
     if [[ "$USE_LTO" == "1" ]]; then
@@ -42,10 +44,13 @@ ffbuild_dockerbuild() {
         myconf+=( -DTBB_ENABLE_IPO=OFF )
     fi
 
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0"
+
     # oneTBB иногда игнорирует стандартные CFLAGS, прокидываем их через CMAKE
     cmake -G Ninja "${myconf[@]}" \
-        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${USELTO}" \
         .. || return 1
 
@@ -69,6 +74,6 @@ ffbuild_dockerbuild() {
     fi
 }
 
-ffbuild_libs() {
-    echo "-ltbb -ltbb12 -ltbbmalloc"
-}
+# ffbuild_libs() {
+    # echo "-ltbb -ltbb12 -ltbbmalloc"
+# }

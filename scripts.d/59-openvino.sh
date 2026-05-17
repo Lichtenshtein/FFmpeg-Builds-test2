@@ -12,7 +12,8 @@ ffbuild_depends() {
 }
 
 ffbuild_enabled() {
-    return 0
+    [[ "$BUILD_VINO" == "1" ]] && return 0
+    return 1
 }
 
 ffbuild_dockerdl() {
@@ -23,10 +24,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Исключаем сборку папки демонстрационных сниппетов из документации
-    if [ -f "docs/CMakeLists.txt" ]; then
-        sed -i 's/\badd_subdirectory(snippets)\b/# add_subdirectory(snippets)/g' docs/CMakeLists.txt
-    fi
+    log_info "Disabling samples and snippets subdirectories precisely..."
+    sed -i 's/^[[:space:]]*add_subdirectory(snippets)/# add_subdirectory(snippets)/g' docs/CMakeLists.txt
+    sed -i 's/^[[:space:]]*add_subdirectory(snippets)/# add_subdirectory(snippets)/g' src/common/CMakeLists.txt
+    sed -i 's/^[[:space:]]*add_subdirectory(samples)/# add_subdirectory(samples)/g' CMakeLists.txt
 
     log_info "Fixing case-sensitive Shlwapi library names for Linux host..."
     sed -i 's/\bShlwapi\b/shlwapi/g' src/common/util/CMakeLists.txt
@@ -45,6 +46,10 @@ ffbuild_dockerbuild() {
         -DTHREADING=TBB
         -DENABLE_SYSTEM_TBB=ON
         -DENABLE_TBBBIND_2_5=OFF # Выключаем гибридный шедулер
+        -DTBB_DIR="${FFBUILD_PREFIX}/lib/cmake/TBB"
+        -DTBB_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
+        -DTBB_LIBRARY="${FFBUILD_PREFIX}/lib/libtbb.a"
+        -DTBB_MALLOC_LIBRARY="${FFBUILD_PREFIX}/lib/libtbbmalloc.a"
         # Отключаем ВСЕ фронтенды
         -DENABLE_OV_IR_FRONTEND=ON # Оставляем только базовый парсер IR XML/BIN
         -DENABLE_OV_ONNX_FRONTEND=OFF
@@ -94,8 +99,13 @@ ffbuild_dockerbuild() {
         -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0"
+
+    [[ "${USE_LTO}" == "1" ]] && LTO_flags="-Wno-odr -flto-odr-threshold=100"
+
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_flags $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_flags $static_flags" \
     LDFLAGS="$LDFLAGS ${USELTO} -Wl,--allow-multiple-definition" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
