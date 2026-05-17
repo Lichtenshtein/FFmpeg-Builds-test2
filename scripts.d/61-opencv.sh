@@ -153,9 +153,13 @@ ffbuild_dockerbuild() {
         # -DCUDA_ARCH_PTX=6.1
         )
     fi
+
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0 -DOPENVINO_STATIC_LIBRARY"
+
     # -D_WIN32_WINNT=0x0600
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="-ljbig $LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || {
