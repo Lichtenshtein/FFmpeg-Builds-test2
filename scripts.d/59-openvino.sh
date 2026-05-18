@@ -37,6 +37,9 @@ ffbuild_dockerbuild() {
     log_info "Neutralizing forced -Werror in Intel GPU root CMakeLists..."
     sed -i 's/ov_add_compiler_flags(-Werror)/# ov_add_compiler_flags(-Werror)/g' src/plugins/intel_gpu/CMakeLists.txt
 
+    log_info "Completely neutralizing template_extension build via early return..."
+    echo "return()" | cat - src/core/template_extension/CMakeLists.txt > temp && mv temp src/core/template_extension/CMakeLists.txt
+
     export TBBROOT="$FFBUILD_PREFIX"
 
     mkdir build && cd build
