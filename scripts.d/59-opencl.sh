@@ -67,6 +67,10 @@ ffbuild_dockerbuild() {
     # 3. Установка C++ хедеров OpenCL (CLHPP)
     log_info "Installing OpenCL C++ headers (CLHPP)..."
     cd CLHPP
+
+    log_info "Patching CLHPP CMakeLists to support imported target style..."
+    sed -i 's/add_library(OpenCLHeaders INTERFACE)/add_library(OpenCLHeaders INTERFACE IMPORTED)/g' CMakeLists.txt
+
     rm -rf build && mkdir build && cd build
 
     local myconf_hpp=(
