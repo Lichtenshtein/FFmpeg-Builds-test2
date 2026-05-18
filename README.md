@@ -48,6 +48,8 @@ This fork is an advanced FFmpeg build system architecture using GCC 14 and Ubunt
 
 - libopus with DRED, OSCE and custom modes enabled.
 
+- OpenVINO built and linked statically with Intel CPU and Intel GPU (optionally) support.
+
 ### Implementation status:
 
 Added to the current build:

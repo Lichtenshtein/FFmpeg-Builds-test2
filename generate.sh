@@ -72,25 +72,26 @@ to_df() { echo "$*" >> Dockerfile; }
 # Making ENV from workflow avaliable inside Docker 
 # Объединяем все ENV в одну команду для оптимизации слоев
 COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_STR=\"$ADDINS_STR\" \\
-    FFBUILD_VERBOSE=\"$FFBUILD_VERBOSE\" \\
-    FFMPEG_REPO=\"$FFMPEG_REPO\" \\
-    FFMPEG_BRANCH=\"$FFMPEG_BRANCH\" \\
-    DEBUG_NO_HASH=\"$DEBUG_NO_HASH\" \\
-    DEDUPE_FLAGS=\"$DEDUPE_FLAGS\" \\
-    SAFE_CONFIGURE=\"$SAFE_CONFIGURE\" \\
-    FFMPEG_PATCHES=\"$FFMPEG_PATCHES\" \\
-    ONLY_STAGE=\"$ONLY_STAGE\" \\
-    USE_OPENMP=\"$USE_OPENMP\" \\
-    USE_WINE=\"$USE_WINE\" \\
-    USE_AVX512=\"$USE_AVX512\" \\
+    FFBUILD_VERBOSE=\"${FFBUILD_VERBOSE}\" \\
+    FFMPEG_REPO=\"${FFMPEG_REPO}\" \\
+    FFMPEG_BRANCH=\"${FFMPEG_BRANCH}\" \\
+    DEBUG_NO_HASH=\"${DEBUG_NO_HASH}\" \\
+    DEDUPE_FLAGS=\"${DEDUPE_FLAGS}\" \\
+    SAFE_CONFIGURE=\"${SAFE_CONFIGURE}\" \\
+    FFMPEG_PATCHES=\"${FFMPEG_PATCHES}\" \\
+    ONLY_STAGE=\"${ONLY_STAGE}\" \\
+    USE_OPENMP=\"${USE_OPENMP}\" \\
+    USE_WINE=\"${USE_WINE}\" \\
+    USE_AVX512=\"${USE_AVX512}\" \\
     PREFER_SHARED=\"${PREFER_SHARED:-0}\" \\
     OLDER_FFNV=\"${OLDER_FFNV}\" \\
+    BUILD_VINO=\"${BUILD_VINO}\" \\
     DIR_NUMBERS=\"${DIR_NUMBERS}\" \\
-    USE_LTO=\"$USE_LTO\" \\
+    USE_LTO=\"${USE_LTO}\" \\
     CPU_ARCH=\"${CPU_ARCH:-broadwell}\" \\
     CPU_TUNE=\"${CPU_TUNE:-broadwell}\" \\
-    DLL_PRESERVE_LIST=\"$DLL_PRESERVE_LIST\" \\
-    GIT_PRESERVE_LIST=\"$GIT_PRESERVE_LIST\""
+    DLL_PRESERVE_LIST=\"${DLL_PRESERVE_LIST}\" \\
+    GIT_PRESERVE_LIST=\"${GIT_PRESERVE_LIST}\""
 
 # BASE COMPONENT BUILD STAGE
 to_df "FROM base-win64 AS components_build"
