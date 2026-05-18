@@ -111,16 +111,16 @@ EOF
         -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DGGML_WEBGPU=OFF
         #
-        -DGGML_OPENCL=OFF
-        -DWHISPER_SDL2=OFF # support for libSDL2
-        -DWHISPER_CURL=OFF # to download models
+        -DGGML_OPENCL=ON
+        -DWHISPER_SDL2=ON # support for libSDL2
+        -DWHISPER_CURL=ON # to download models
         # VULKAN
-        # -DGGML_VULKAN=ON
-        # -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
-        # -DVulkan_GLSLC_EXECUTABLE="/opt/glslc"
-        # -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        # -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
-        # -DGGML_VULKAN_CHECK_RESULTS=OFF
+        -DGGML_VULKAN=ON
+        -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
+        -DVulkan_GLSLC_EXECUTABLE="/opt/glslc"
+        -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
+        -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
         -DGGML_OPENVINO=ON
         -DWHISPER_OPENVINO=ON

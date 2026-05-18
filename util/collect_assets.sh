@@ -7,24 +7,12 @@ source util/dl_functions.sh
 
 ASSETS_DIR="${1:-$ASSETS_DIR}"
 FFMPEG_SOURCE_DIR="${2:-$FFMPEG_SOURCE_DIR}"
-mkdir -p "$ASSETS_DIR"
+mkdir -p "$ASSETS_DIR" "$FFBUILD_PREFIX/bin"
 
 # Копируем лицензию ПЕРЕД упаковкой
 log_info "${SYNC_MARK} Adding license and logs to package..."
 [[ -n "$LICENSE_FILE" ]] && cp "$FFMPEG_SOURCE_DIR/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"
 cp "$FFMPEG_CONFIG_LOG" "$PKG_DIR/config.log" || true
-
-# Копируем все DLL из нашего сборочного префикса в папку с бинарниками
-# Это подхватит DLL от OpenVINO, TBB, TensorFlow, LibTorch и других
-# OpenVINO часто ищет файлы openvino_intel_cpu_plugin.dll в той же папке
-# Если они лежат в /opt/ffbuild/bin, то всё ок. 
-# Но если они в подпапках (runtime/bin/intel64/...), нужно убедиться, что они попали в $PKG_DIR/bin/
-if [[ -d "$FFBUILD_PREFIX/bin" ]]; then
-    find "$FFBUILD_PREFIX/bin" \( -name '*.dll' -o -name '*.pyd' -o -name '*.zip' \) -exec cp -v {} "$PKG_DIR/bin/" \; || true
-    log_info "${SYNC_MARK} Collecting external DLLs and plugins..."
-else
-    log_warn "$FFBUILD_PREFIX/bin not found! Skipping DLLs copy."
-fi
 
 # Плагины лежат в lib/frei0r-1, а для работы в Windows должны быть в bin/frei0r-1
 if [[ -d "$FFBUILD_PREFIX/lib/frei0r-1" ]]; then
@@ -58,6 +46,48 @@ if [[ -d "$FFBUILD_PREFIX/share/lensfun" ]]; then
     find "$FFBUILD_PREFIX/share/lensfun/version_2" -name "*.xml" -exec cp -v {} "$PKG_DIR/share/lensfun/" \; || true
 else
     log_warn "lensfun profiles not found in $FFBUILD_PREFIX/share/lensfun"
+fi
+
+# Копируем все DLL из нашего сборочного префикса в папку с бинарниками
+# Это подхватит DLL от OpenVINO, TBB, TensorFlow, LibTorch и других
+# OpenVINO часто ищет файлы openvino_intel_cpu_plugin.dll в той же папке
+# Если они лежат в /opt/ffbuild/bin, то всё ок. 
+# Но если они в подпапках (runtime/bin/intel64/...), нужно убедиться, что они попали в $PKG_DIR/bin/
+log_info "${SYNC_MARK} Collecting external component DLLs if present..."
+find "$FFBUILD_PREFIX" -maxdepth 3 \( -name '*.dll' -o -name '*.pyd' -o -name '*.zip' \) -exec cp -v {} "$PKG_DIR/bin/" \; 2>/dev/null || true
+
+# Автоматический поиск и упаковка системного рантайма MinGW (SSP, WinPthreads, GCC)
+log_info "${SYNC_MARK} Analyzing ffmpeg.exe for missing MinGW runtime DLLs..."
+if [[ -f "$PKG_DIR/bin/ffmpeg.exe" ]]; then
+    # Находим sysroot и бинарную директорию тулчейна, где живут системные DLL
+    local TOOLCHAIN_SYSROOT=$(${FFBUILD_TOOLCHAIN}-gcc -print-sysroot)
+    local TOOLCHAIN_BIN_DIR=$(dirname "$(${FFBUILD_TOOLCHAIN}-gcc -print-file-name=libssp.a)")
+
+    # Массив стандартных рантайм-библиотек MinGW, которые могут потребоваться
+    local RUNTIME_DLLS=("libssp-0.dll" "libwinpthread-1.dll" "libstdc++-6.dll" "libgcc_s_seh-1.dll" "libgomp-1.dll")
+
+    for dll in "${RUNTIME_DLLS[@]}"; do
+        # Проверяем, требует ли наш ffmpeg.exe эту конкретную DLL
+        if ${FFBUILD_CROSS_PREFIX}objdump -p "$PKG_DIR/bin/ffmpeg.exe" | grep -q -i "$dll"; then
+            log_warn "Detected dynamic dependency: $dll. Searching toolchain directories..."
+            # Ищем DLL в sysroot или в папках компилятора
+            local FOUND_DLL=""
+            if [[ -f "${TOOLCHAIN_SYSROOT}/bin/$dll" ]]; then
+                FOUND_DLL="${TOOLCHAIN_SYSROOT}/bin/$dll"
+            elif [[ -f "${TOOLCHAIN_BIN_DIR}/$dll" ]]; then
+                FOUND_DLL="${TOOLCHAIN_BIN_DIR}/$dll"
+            else
+                # Глобальный поиск по всему каталогу ct-ng на крайний случай
+                FOUND_DLL=$(find /opt/ct-ng -name "$dll" -type f -print -quit)
+            fi
+            if [[ -n "$FOUND_DLL" ]]; then
+                cp -v "$FOUND_DLL" "$PKG_DIR/bin/"
+                log_info "${CHECK_MARK} Successfully bundled system runtime: $dll"
+            else
+                log_error "Required system runtime $dll not found in toolchain!"
+            fi
+        fi
+    done
 fi
 
 log_info "${START_MARK} Starting AI/OCR model and conditional asset collection..."
