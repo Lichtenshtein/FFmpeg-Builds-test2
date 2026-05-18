@@ -1,7 +1,10 @@
 #!/bin/bash
 
-# Ссылка на официальный C-API архив (CPU-only для Windows x86_64)
+
 SCRIPT_REPO="https://storage.googleapis.com/tensorflow/versions/2.16.1/libtensorflow-cpu-windows-x86_64.zip"
+
+# WARNING! A ~960Mb library!
+# SCRIPT_REPO="https://storage.googleapis.com/tensorflow/versions/2.18.1/libtensorflow-cpu-windows-x86_64.zip"
 
 ffbuild_enabled() {
     return 0
@@ -24,8 +27,8 @@ ffbuild_dockerbuild() {
     # Копируем заголовки
     cp -r include/* "$INSTALL_ROOT/include/"
 
-    #  DLL идет в bin (чтобы быть рядом с ffmpeg.exe)
-    cp lib/tensorflow.dll "$INSTALL_ROOT/bin/"
+    #  DLL идет в bin? (чтобы быть рядом с ffmpeg.exe)
+    cp lib/tensorflow.dll "$INSTALL_ROOT/lib/"
     # cp lib/tensorflow.lib "$INSTALL_ROOT/lib/libtensorflow.lib"
 
     # Генерируем .pc файл и добавляем -ltensorflow.lib явно для линковщика
