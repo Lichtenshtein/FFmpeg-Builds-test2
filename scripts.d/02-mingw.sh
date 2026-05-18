@@ -101,11 +101,33 @@ ffbuild_dockerbuild() {
         cp -a "$SYSROOT/include/pthread"* "$INSTALL_ROOT/include/"
         cp -a "$SYSROOT/include/sched.h" "$INSTALL_ROOT/include/"
 
+    cd ../..
+
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
         # Копируем libwinpthread.a и делаем алиас libpthread.a
         cp -a "$SYSROOT/lib/libwinpthread.a" "$INSTALL_ROOT/lib/"
         ln -sf libwinpthread.a "$INSTALL_ROOT/lib/libpthread.a"
 
-    cd ../..
+        log_info "Isolating compiler runtime static libraries for FFmpeg..."
+        # Находим, где в недрах вашего ct-ng GCC спрятана оригинальная статическая libssp.a
+        local COMPILER_LIB_DIR=$(${FFBUILD_TOOLCHAIN}-gcc -print-file-name=libssp.a)
+        if [ -f "$COMPILER_LIB_DIR" ]; then
+            local COMPILER_DIR=$(dirname "$COMPILER_LIB_DIR")
+            log_info "Found compiler runtime directory at: ${COMPILER_DIR}"
+            # Копируем ssp статику во внешний префикс ffbuild
+            cp -a "${COMPILER_DIR}/libssp.a" "$INSTALL_ROOT/lib/"
+            cp -a "${COMPILER_DIR}/libssp_nonshared.a" "$INSTALL_ROOT/lib/" 2>/dev/null || true
+        else
+            log_warn "Could not pinpoint libssp.a path via GCC wrapper."
+        fi
+
+        # в sysroot не должно быть копий, мешающих линковке
+        log_info "Purging conflicting runtime DLL references from target folders..."
+        # удаляем случайные .dll winpthread/ssp из $SYSROOT/lib $INSTALL_ROOT/lib
+        rm -f "$INSTALL_ROOT/lib/libwinpthread.dll.a" "$INSTALL_ROOT/lib/libwinpthread-1.dll"
+        rm -f "$INSTALL_ROOT/lib/libssp.dll.a" "$INSTALL_ROOT/lib/libssp-0.dll"
+        log_info "Runtime static isolation complete."
+    fi
 
     # Объектные файлы (Нужны для финальной линковки .exe)
     # crt2.o это точка входа для консольных приложений Windows

@@ -3,6 +3,8 @@
 SCRIPT_REPO="https://github.com/openvinotoolkit/openvino.git"
 SCRIPT_COMMIT="61d1ca8c471ff930477c8f27926688ba112642a7"
 
+# export SKIP_POST_PATCH=1
+
 ffbuild_depends() {
     echo tbbmalloc
     echo opencl
@@ -21,8 +23,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-
-    export SKIP_POST_PATCH=1
 
     log_info "Disabling samples and snippets subdirectories precisely..."
     sed -i '/ov_mark_target_as_cc(${TARGET_NAME})/a return()' docs/snippets/CMakeLists.txt
@@ -163,17 +163,15 @@ ffbuild_dockerbuild() {
         sed -i -e 's/Debug/Release/g' -e 's/DEBUG/RELEASE/g' "$CMAKE_FILE"
     done
 
-    log_debug "Inspecting generated OpenVINO CMake configuration files:"
-
-    if [ -f "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake" ]; then
-        log_info "--- Content of OpenVINOConfig.cmake ---"
-        while IFS= read -r line; do
-            log_debug "  $line"
-        done < "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake"
-    else
-        log_error "OpenVINOConfig.cmake NOT FOUND in ${INSTALL_ROOT}/lib/cmake/"
-    fi
-
+    # log_debug "Inspecting generated OpenVINO CMake configuration files:"
+    # if [ -f "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake" ]; then
+        # log_info "--- Content of OpenVINOConfig.cmake ---"
+        # while IFS= read -r line; do
+            # log_debug "  $line"
+        # done < "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake"
+    # else
+        # log_error "OpenVINOConfig.cmake NOT FOUND in ${INSTALL_ROOT}/lib/cmake/"
+    # fi
     # if [ -f "${INSTALL_ROOT}/lib/cmake/OpenVINOTargets-release.cmake" ]; then
         # log_info "--- Content of OpenVINOTargets-release.cmake ---"
         # cat "${INSTALL_ROOT}/lib/cmake/OpenVINOTargets-release.cmake" >&2
@@ -201,7 +199,7 @@ ffbuild_dockerbuild() {
     [ -f "${INSTALL_ROOT}/lib/libpugixml.a" ] && PUGI_LIB="-lpugixml"
 
     local INTER_LIB=""
-    [ -f "${INSTALL_ROOT}/lib/libinference_engine_c_api.a" ] && INTER_LIB="-linference_engine_c_api.a"
+    [ -f "${INSTALL_ROOT}/lib/libinference_engine_c_api.a" ] && INTER_LIB="-linference_engine_c_api"
 
     log_info "Generated Libs sequence: ${CORE_LIBS} ${INTER_LIB} ${COMPONENT_LIBS} ${PUGI_LIB}"
 
