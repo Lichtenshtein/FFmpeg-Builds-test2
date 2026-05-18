@@ -31,6 +31,9 @@ ffbuild_dockerbuild() {
     log_info "Fixing case-sensitive Shlwapi library names for Linux host..."
     sed -i 's/\bShlwapi\b/shlwapi/g' src/common/util/CMakeLists.txt
 
+    log_info "Fixing MSVC -EP flag to GCC -E -P for Intel GPU CM codegen..."
+    find src/plugins/intel_gpu/src/graph/impls/ -name "CMakeLists.txt" -type f -exec sed -i 's/-EP/-E\ -P/g' {} +
+
     export TBBROOT="$FFBUILD_PREFIX"
 
     mkdir build && cd build
@@ -56,7 +59,7 @@ ffbuild_dockerbuild() {
         -DENABLE_OV_JAX_FRONTEND=OFF
         # Отключаем плагины и тяжелые зависимости
         -DENABLE_INTEL_CPU=ON # Оставляем только CPU плагин для Xeon
-        -DENABLE_INTEL_GPU=ON # GPU требует OpenCL/Vulkan заголовков
+        -DENABLE_INTEL_GPU=ON # GPU требует OpenCL/Vulkan заголовков; integrated (iGPU) and discrete (dGPU) Intel graphics cards
         -DENABLE_INTEL_NPU=OFF
         -DENABLE_HETERO=OFF
         -DENABLE_MULTI=OFF
@@ -98,11 +101,11 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0" && self_static_flags="-DOPENVINO_STATIC_LIBRARY"
 
-    [[ "${USE_LTO}" == "1" ]] && LTO_flags="-Wno-odr -fno-lto-odr-type-merging"
+    [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-Wno-odr -fno-lto-odr-type-merging"
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_flags $self_static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_flags $static_flags $self_static_flags" \
-    LDFLAGS="$LDFLAGS ${USELTO} $LTO_flags -Wl,--allow-multiple-definition" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_FLAGS $self_static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_FLAGS $static_flags $self_static_flags -DWINAPI_PARTITION_SYSTEM=1" \
+    LDFLAGS="$LDFLAGS ${USELTO} $LTO_FLAGS -Wl,--allow-multiple-definition" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
