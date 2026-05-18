@@ -65,7 +65,7 @@ ffbuild_dockerbuild() {
         -DENABLE_OV_JAX_FRONTEND=OFF
         # Отключаем плагины и тяжелые зависимости
         -DENABLE_INTEL_CPU=ON # Оставляем только CPU плагин для Xeon
-        -DENABLE_INTEL_GPU=ON # GPU требует OpenCL/Vulkan заголовков; integrated (iGPU) and discrete (dGPU) Intel graphics cards
+        -DENABLE_INTEL_GPU=OFF # GPU требует OpenCL/Vulkan заголовков; integrated (iGPU) and discrete (dGPU) Intel graphics cards
         -DENABLE_INTEL_NPU=OFF
         -DENABLE_HETERO=OFF
         -DENABLE_MULTI=OFF
