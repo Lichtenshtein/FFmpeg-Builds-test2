@@ -79,6 +79,7 @@ ffbuild_dockerbuild() {
         -DBUILD_DOCS=OFF
         -DBUILD_EXAMPLES=OFF
         -DOPENCL_CLHPP_BUILD_TESTING=OFF
+        -DBUILD_TESTING=OFF
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
