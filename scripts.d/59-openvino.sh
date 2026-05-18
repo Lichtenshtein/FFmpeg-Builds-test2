@@ -34,6 +34,9 @@ ffbuild_dockerbuild() {
     log_info "Fixing MSVC -EP flag to GCC -E -P for Intel GPU CM codegen..."
     find src/plugins/intel_gpu/src/graph/impls/ -name "CMakeLists.txt" -type f -exec sed -i 's/-EP/-E\ -P/g' {} +
 
+    log_info "Neutralizing forced -Werror in Intel GPU root CMakeLists..."
+    sed -i 's/ov_add_compiler_flags(-Werror)/# ov_add_compiler_flags(-Werror)/g' src/plugins/intel_gpu/CMakeLists.txt
+
     export TBBROOT="$FFBUILD_PREFIX"
 
     mkdir build && cd build
