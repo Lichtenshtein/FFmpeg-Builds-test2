@@ -112,8 +112,8 @@ EOF
         -DGGML_WEBGPU=OFF
         #
         -DGGML_OPENCL=ON
-        -DWHISPER_SDL2=ON # support for libSDL2
-        -DWHISPER_CURL=ON # to download models
+        -DWHISPER_SDL2=OFF # support for libSDL2
+        -DWHISPER_CURL=OFF # to download models
         # VULKAN
         -DGGML_VULKAN=ON
         -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
@@ -122,10 +122,10 @@ EOF
         -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
         -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
-        -DGGML_OPENVINO=ON
-        -DWHISPER_OPENVINO=ON
+        -DGGML_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
+        -DWHISPER_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
         -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-        # -DGGML_OPENVINO_SKIP_TBB_FIND=ON
+        -DGGML_OPENVINO_SKIP_TBB_FIND=ON # don't delete
         )
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
@@ -137,9 +137,12 @@ EOF
     if [[ -f "$INSTALL_ROOT/bin/glslc.exe" ]]; then
         log_info "Final cleanup of Vulkan/Shaderc build tools..."
         find "$INSTALL_ROOT/bin" -name "glslc.exe" -delete
-        find "$INSTALL_ROOT/lib" -name 'libshaderc_shared.dll' -o -name 'libshaderc_shared.dll.a' -delete
-        rm -f /opt/glslc
+        if [[ "${PREFER_SHARED}" != "1" ]]; then
+            find "$INSTALL_ROOT/lib" -name 'libshaderc_shared.dll' -o -name 'libshaderc_shared.dll.a' -delete
+            rm -f /opt/glslc
+        fi
     fi
+
     # CMake в Windows часто сохраняет их как ggml-base.a, а линковщик ищет -lggml-base (т.е. libggml-base.a)
     if [[ "${PREFER_SHARED}" == "1" ]]; then
         # Фикс префиксов импортных библиотек, если CMake назвал их некорректно

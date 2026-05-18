@@ -55,8 +55,8 @@ ffbuild_dockerbuild() {
         -DENABLE_OV_PYTORCH_FRONTEND=OFF
         -DENABLE_OV_JAX_FRONTEND=OFF
         # Отключаем плагины и тяжелые зависимости
-        -DENABLE_INTEL_CPU=ON  # Оставляем только CPU плагин для Xeon
-        -DENABLE_INTEL_GPU=OFF # GPU требует OpenCL/Vulkan заголовков
+        -DENABLE_INTEL_CPU=ON # Оставляем только CPU плагин для Xeon
+        -DENABLE_INTEL_GPU=ON # GPU требует OpenCL/Vulkan заголовков
         -DENABLE_INTEL_NPU=OFF
         -DENABLE_HETERO=OFF
         -DENABLE_MULTI=OFF
@@ -64,7 +64,7 @@ ffbuild_dockerbuild() {
         -DENABLE_AUTO_BATCH=OFF
         -DENABLE_PROXY=OFF
         -DENABLE_TEMPLATE=OFF
-        -DENABLE_OPENCV=OFF # Не связываем с OpenCV samples
+        -DENABLE_OPENCV=OFF # OpenCV samples; provides -lprotobuf, but goes after
         -DENABLE_SYSTEM_PUGIXML=OFF # ON
         -DENABLE_SYSTEM_PROTOBUF=OFF # OFF; for ONNX, PaddlePaddle, TensorFlow
         -DENABLE_SYSTEM_FLATBUFFERS=OFF # ON; for Tensorflow Lite frontend
@@ -214,7 +214,7 @@ includedir=\${prefix}/include
 Name: OpenVINO
 Description: Intel OpenVINO Runtime Static Library for FFmpeg
 Version: 2026.3.0
-Cflags: -I\${includedir} -I\${includedir}/openvino -DOPENVINO_STATIC_LIBRARY -D__TBB_DYNAMIC_LOAD_ENABLED=0
+Cflags: -I\${includedir} -I\${includedir}/openvino $static_flags $self_static_flags
 Libs: -L\${libdir} ${CORE_LIBS} ${INTER_LIB} ${COMPONENT_LIBS} ${PUGI_LIB}
 Libs.private: -ltbb -lshlwapi -lsetupapi -lws2_32 -lbcrypt
 EOF
@@ -228,7 +228,7 @@ EOF
 #include <openvino/c/openvino.h>
 
 static __attribute__((unused)) const char* ie_c_api_version(void) { 
-    return "2025.4.1"; 
+    return "2026.3.0"; 
 }
 #endif
 EOF

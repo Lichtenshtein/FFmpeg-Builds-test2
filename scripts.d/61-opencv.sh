@@ -126,7 +126,7 @@ ffbuild_dockerbuild() {
         -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.a"
         # Включаем интеграцию с OpenVINO (Inference Engine)
         -DWITH_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
-        -DOPENVINO_STATIC_COMPILATION=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
+        -DOPENVINO_STATIC_COMPILATION=$([[ "${PREFER_SHARED}" != "1" && "${BUILD_VINO}" == "1" ]] && echo ON || echo OFF)
         -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
         -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
         # Отключаем загрузку готовых DLL FFmpeg
@@ -328,7 +328,7 @@ EOF
             sed -i '/^Libs.private:/ s/$/ -lopenvino/' "$PC_FILE"
         fi
         if [[ "${myconf[@]}" =~ "-DWITH_TBB=ON" ]]; then
-            sed -i '/^Libs.private:/ s/$/ -ltbb12/' "$PC_FILE"
+            sed -i '/^Libs.private:/ s/$/ -ltbb/' "$PC_FILE"
         fi
         if [[ "${myconf[@]}" =~ "-DWITH_IPP=ON" ]]; then
             sed -i 's|^Libs.private: |Libs.private: -lmsvc_stub -lippicv |' "$PC_FILE"
