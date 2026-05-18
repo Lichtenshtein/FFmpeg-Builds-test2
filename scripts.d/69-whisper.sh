@@ -112,8 +112,8 @@ EOF
         -DGGML_WEBGPU=OFF
         #
         -DGGML_OPENCL=ON
-        -DWHISPER_SDL2=OFF # support for libSDL2
-        -DWHISPER_CURL=OFF # to download models
+        -DWHISPER_SDL2=ON # support for libSDL2
+        -DWHISPER_CURL=ON # to download models
         # VULKAN
         -DGGML_VULKAN=ON
         -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
