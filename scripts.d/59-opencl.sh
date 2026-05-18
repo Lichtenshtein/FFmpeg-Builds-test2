@@ -6,6 +6,9 @@ SCRIPT_COMMIT="e55138572c81dce15ffe402bd1142d9652ec5cb5"
 SCRIPT_REPO2="https://github.com/KhronosGroup/OpenCL-ICD-Loader.git"
 SCRIPT_COMMIT2="b1c57534df7ac82519b04606f51b71fb5d4053c3"
 
+SCRIPT_REPO3="https://github.com/KhronosGroup/OpenCL-CLHPP.git"
+SCRIPT_COMMIT3="40b6833d8c08de691c00e49bfca7081b06f53dd4"
+
 ffbuild_enabled() {
     return 0
 }
@@ -13,21 +16,24 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" headers"
     echo "git-mini-clone \"$SCRIPT_REPO2\" \"$SCRIPT_COMMIT2\" loader"
+    echo "git-mini-clone \"$SCRIPT_REPO3\" \"$SCRIPT_COMMIT3\" CLHPP"
 }
 
 ffbuild_dockerbuild() {
     set -e
 
-    # Возвращаемся в реальный корень этапа, если "умный поиск" зашел в /loader
-    if [[ "$(basename "$PWD")" == "loader" ]]; then
+    # Возвращаемся в реальный корень этапа, если "умный поиск" зашел в /loader или /CLHPP
+    if [[ "$(basename "$PWD")" == "loader" || "$(basename "$PWD")" == "CLHPP" ]]; then
         cd ..
     fi
 
-    # Установка хедеров
+    # 1. Установка базовых C-хедеров OpenCL
+    log_info "Installing OpenCL C headers..."
     mkdir -p "$INSTALL_ROOT/include/CL"
-    # Используем относительный путь от корня этапа
     cp -r headers/CL/* "$INSTALL_ROOT/include/CL/."
 
+    # 2. Сборка и установка OpenCL ICD Loader
+    log_info "Building OpenCL ICD Loader..."
     cd loader
     # Удаляем старый build если остался, и создаем чистый
     rm -rf build && mkdir build && cd build
@@ -56,6 +62,35 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
+    cd ../..
+
+    # 3. Установка C++ хедеров OpenCL (CLHPP)
+    log_info "Installing OpenCL C++ headers (CLHPP)..."
+    cd CLHPP
+    rm -rf build && mkdir build && cd build
+
+    local myconf_hpp=(
+        -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
+        -DCMAKE_BUILD_TYPE=Release
+        -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
+        # Указываем путь к C-хедерам, чтобы сработал внутренний IF в CMakeLists
+        -DOPENCL_INCLUDE_DIR="$INSTALL_ROOT/include"
+        # Отключаем сборку тестов, примеров и документации
+        -DBUILD_DOCS=OFF
+        -DBUILD_EXAMPLES=OFF
+        -DOPENCL_CLHPP_BUILD_TESTING=OFF
+    )
+
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
+    cmake -G Ninja "${myconf_hpp[@]}" .. || return 1
+
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+    
+    cd ../..
+
+    log_info "Generating OpenCL.pc and final post-processing..."
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/OpenCL.pc"
 prefix=$FFBUILD_PREFIX
@@ -79,7 +114,6 @@ EOF
     if [[ "${PREFER_SHARED}" != "1" ]]; then
         cp "${INSTALL_ROOT}/lib/OpenCL.a" "${INSTALL_ROOT}/lib/libOpenCL.a"
     fi
-
 }
 
 ffbuild_configure() {
