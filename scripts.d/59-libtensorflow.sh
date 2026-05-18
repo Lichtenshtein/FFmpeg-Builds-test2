@@ -22,16 +22,17 @@ ffbuild_dockerbuild() {
     unzip -qq tensorflow.zip -d tf_src
     cd tf_src
 
-    mkdir -p "$INSTALL_ROOT"/{include/tensorflow/c,lib,bin,lib/pkgconfig}
+    mkdir -p "$INSTALL_ROOT"/{include/tensorflow/c,bin,lib/pkgconfig}
 
     # Копируем заголовки
     cp -r include/* "$INSTALL_ROOT/include/"
 
-    #  DLL идет в bin? (чтобы быть рядом с ffmpeg.exe)
-    cp lib/tensorflow.dll "$INSTALL_ROOT/lib/"
-    # cp lib/tensorflow.lib "$INSTALL_ROOT/lib/libtensorflow.lib"
+    # DLL идет строго в bin к ffmpeg.exe
+    cp lib/tensorflow.dll "$INSTALL_ROOT/bin/"
 
-    # Генерируем .pc файл и добавляем -ltensorflow.lib явно для линковщика
+    # Библиотеку импорта кладем в lib, чтобы отработал флаг -ltensorflow
+    cp lib/tensorflow.lib "$INSTALL_ROOT/lib/libtensorflow.lib"
+
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/tensorflow.pc"
 prefix=$FFBUILD_PREFIX
