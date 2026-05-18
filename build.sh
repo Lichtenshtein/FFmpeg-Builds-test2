@@ -188,7 +188,8 @@ fi
 [[ "$DEDUPE_FLAGS" == "1" ]] && log_info "${BROOM_MARK} Deduplicating ALL flags..."
 
 # Удаляем жесткий -static и -Wl,-Bstatic из базовых флагов линковщика
-LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' | xargs)
+# LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' | xargs)
+[[ "${PREFER_SHARED}" != "1" ]] && export LDEXEFLAGS ="-static -static-libgcc -static-libstdc++"
 # Подготовка ФИНАЛЬНЫХ флагов (Dedupe + Combine)
 # объединяем базовые флаги из vars.sh и накопленные из компонентов
 # Конфигурация: сначала базовые, потом специфичные для варианта
