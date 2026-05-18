@@ -315,6 +315,7 @@ EOF
         local ACTUAL_LIBS=$(find "${DEST_LIB}" -name "libopencv_*.a" -printf "%f\n" | sed 's/^lib//;s/\.a$//' | xargs -I{} echo -l{} | tr '\n' ' ')
         # Удаляем путь к 3rdparty, так как мы перенесли либы в общий корень
         sed -i 's|-L${exec_prefix}/lib/opencv4/3rdparty||g' "$PC_FILE"
+        sed -i "s/Requires.private:.*/Requires.private: /" "$PC_FILE"
         # Формируем чистую строку Libs
         local OLD_PRIVATES=$(grep "Libs.private:" "$PC_FILE" | cut -d':' -f2-)
         # Убираем любые упоминания -lopencv_* из текущего файла, чтобы избежать дублей
@@ -325,7 +326,8 @@ EOF
         sed -i "s|^Libs.private:.*|Libs.private: ${CLEAN_PRIVATES}|" "$PC_FILE"
         # Добавляем необходимые либы
         if [[ "${myconf[@]}" =~ "-DWITH_OPENVINO=ON" ]]; then
-            sed -i '/^Libs.private:/ s/$/ -lopenvino/' "$PC_FILE"
+            # sed -i '/^Libs.private:/ s/$/ -lopenvino/' "$PC_FILE"
+            sed -i "s|^Requires.private:.*|Requires.private: openvino|" "$PC_FILE"
         fi
         if [[ "${myconf[@]}" =~ "-DWITH_TBB=ON" ]]; then
             sed -i '/^Libs.private:/ s/$/ -ltbb/' "$PC_FILE"
@@ -334,7 +336,6 @@ EOF
             sed -i 's|^Libs.private: |Libs.private: -lmsvc_stub -lippicv |' "$PC_FILE"
             sed -i 's/-lippicvmt//g; s/-lippicv -lippicv/-lippicv/g' "$PC_FILE"
         fi
-        sed -i "s/Requires.private:.*/Requires.private: /" "$PC_FILE"
         # Удаляем лишние пробелы
         sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"
     fi
