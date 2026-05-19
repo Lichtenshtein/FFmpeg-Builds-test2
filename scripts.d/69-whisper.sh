@@ -56,12 +56,12 @@ macro(find_package name)
 endmacro()
 EOF
 
-    # Внедряем заплатку в САМЫЙ КОРЕНЬ проекта (главный CMakeLists.txt) на первую строку
-    sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/patch-openvino.cmake")' CMakeLists.txt
+        # Внедряем заплатку в САМЫЙ КОРЕНЬ проекта (главный CMakeLists.txt) на первую строку
+        sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/patch-openvino.cmake")' CMakeLists.txt
 
-    # Вырезаем хардкод TBBConfig из всех подпапок ggml
-    find ggml/ -name "CMakeLists.txt" -exec sed -i 's|include(.*TBBConfig.cmake")|# cut|g' {} +
-    else()
+        # Вырезаем хардкод TBBConfig из всех подпапок ggml
+        find ggml/ -name "CMakeLists.txt" -exec sed -i 's|include(.*TBBConfig.cmake")|# cut|g' {} +
+    else
         log_info "OpenVINO is disabled. Skipping patch."
     fi
 
