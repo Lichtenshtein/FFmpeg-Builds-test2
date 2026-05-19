@@ -173,18 +173,40 @@ ffbuild_dockerbuild() {
     done
 
     # log_debug "Inspecting generated OpenVINO CMake configuration files:"
-    # if [ -f "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake" ]; then
-        # log_info "--- Content of OpenVINOConfig.cmake ---"
-        # while IFS= read -r line; do
-            # log_debug "  $line"
-        # done < "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake"
-    # else
-        # log_error "OpenVINOConfig.cmake NOT FOUND in ${INSTALL_ROOT}/lib/cmake/"
-    # fi
+    if [ -f "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake" ]; then
+        log_info "--- Content of OpenVINOConfig.cmake ---"
+        while IFS= read -r line; do
+            log_debug "  $line"
+        done < "${INSTALL_ROOT}/lib/cmake/OpenVINOConfig.cmake"
+    else
+        log_error "OpenVINOConfig.cmake NOT FOUND in ${INSTALL_ROOT}/lib/cmake/"
+    fi
     # if [ -f "${INSTALL_ROOT}/lib/cmake/OpenVINOTargets-release.cmake" ]; then
         # log_info "--- Content of OpenVINOTargets-release.cmake ---"
         # cat "${INSTALL_ROOT}/lib/cmake/OpenVINOTargets-release.cmake" >&2
     # fi
+
+    # Фикс для старых проверок FFmpeg (Inference Engine C-API Wrapper)
+    # Перенаправляем старый вызов c_api/ie_c_api.h на современный openvino/c/openvino.h
+    if [[ ! -f "$INSTALL_ROOT/include/c_api/ie_c_api.h" ]]; then
+    mkdir -p "$INSTALL_ROOT/include/c_api"
+    cat <<EOF > "$INSTALL_ROOT/include/c_api/ie_c_api.h"
+#ifndef COMPAT_IE_C_API_H
+#define COMPAT_IE_C_API_H
+#include <openvino/c/openvino.h>
+
+static __attribute__((unused)) const char* ie_c_api_version(void) { 
+    return "2026.3.0"; 
+}
+#endif
+EOF
+    fi
+
+    # Создаем пустую библиотеку-пустышку libinference_engine_c_api.a, 
+    # чтобы удовлетворить жесткий фоллбэк линковщика FFmpeg (-linference_engine_c_api)
+    log_info "Creating inference_engine_c_api fallback stub for FFmpeg configure..."
+    rm -f "$INSTALL_ROOT/lib/libinference_engine_c_api.a"
+    ar rcs "$INSTALL_ROOT/lib/libinference_engine_c_api.a"
 
     # собираем все либы
     log_info "Dynamically collecting installed OpenVINO libraries..."
@@ -227,34 +249,6 @@ Cflags: -I\${includedir} -I\${includedir}/openvino $static_flags $self_static_fl
 Libs: -L\${libdir} ${CORE_LIBS} ${INTER_LIB} ${COMPONENT_LIBS} ${PUGI_LIB}
 Libs.private: -ltbb -lshlwapi -lsetupapi -lws2_32 -lbcrypt
 EOF
-
-    # Фикс для старых проверок FFmpeg (Inference Engine C-API Wrapper)
-    # Перенаправляем старый вызов c_api/ie_c_api.h на современный openvino/c/openvino.h
-    mkdir -p "$INSTALL_ROOT/include/c_api"
-    cat <<EOF > "$INSTALL_ROOT/include/c_api/ie_c_api.h"
-#ifndef COMPAT_IE_C_API_H
-#define COMPAT_IE_C_API_H
-#include <openvino/c/openvino.h>
-
-static __attribute__((unused)) const char* ie_c_api_version(void) { 
-    return "2026.3.0"; 
-}
-#endif
-EOF
-
-    # Дублируем заголовок для persistent storage
-    mkdir -p "$FFBUILD_PREFIX/include/c_api"
-    cp "$INSTALL_ROOT/include/c_api/ie_c_api.h" "$FFBUILD_PREFIX/include/c_api/ie_c_api.h"
-
-    # Создаем пустую библиотеку-пустышку libinference_engine_c_api.a, 
-    # чтобы удовлетворить жесткий фоллбэк линковщика FFmpeg (-linference_engine_c_api)
-    log_info "Creating inference_engine_c_api fallback stub for FFmpeg configure..."
-    rm -f "$INSTALL_ROOT/lib/libinference_engine_c_api.a"
-    ar rcs "$INSTALL_ROOT/lib/libinference_engine_c_api.a"
-
-    # Дублируем библиотеку-пустышку для постоянного префикса
-    mkdir -p "$FFBUILD_PREFIX/lib"
-    cp "$INSTALL_ROOT/lib/libinference_engine_c_api.a" "$FFBUILD_PREFIX/lib/libinference_engine_c_api.a"
 }
 
 ffbuild_configure() {

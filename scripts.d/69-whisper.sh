@@ -33,17 +33,17 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(OV REQUIRED openvino)
 pkg_check_modules(TBB REQUIRED tbb)
 
-# Создаем фейковый CMake-таргет openvino::runtime
+# Create a fake CMake target openvino::runtime
 add_library(openvino::runtime INTERFACE IMPORTED)
 target_link_libraries(openvino::runtime INTERFACE ${OV_LIBRARIES} ${TBB_LIBRARIES})
 target_include_directories(openvino::runtime INTERFACE ${OV_INCLUDE_DIRS} ${TBB_INCLUDE_DIRS})
 
-# Создаем фейковый CMake-таргет TBB::tbb
+# Create a fake CMake target TBB::tbb
 add_library(TBB::tbb INTERFACE IMPORTED)
 target_link_libraries(TBB::tbb INTERFACE ${TBB_LIBRARIES})
 target_include_directories(TBB::tbb INTERFACE ${TBB_INCLUDE_DIRS})
 
-# Глобально переопределяем find_package для OpenVINO, чтобы он ничего не искал
+# Globally override find_package for OpenVINO so it doesn't search for anything
 macro(find_package name)
     if("${name}" STREQUAL "OpenVINO")
         set(OpenVINO_FOUND ON)
@@ -145,15 +145,15 @@ EOF
         -DGGML_WEBGPU=OFF
         #
         -DGGML_OPENCL=ON
-        -DWHISPER_SDL2=OFF # support for libSDL2
-        -DWHISPER_CURL=OFF # to download models
+        -DWHISPER_SDL2=ON # support for libSDL2
+        -DWHISPER_CURL=ON # to download models
         # VULKAN
-        # -DGGML_VULKAN=ON
-        # -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
-        # -DVulkan_GLSLC_EXECUTABLE="/opt/glslc"
-        # -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        # -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
-        # -DGGML_VULKAN_CHECK_RESULTS=OFF
+        -DGGML_VULKAN=ON
+        -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
+        -DVulkan_GLSLC_EXECUTABLE="/opt/glslc"
+        -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
+        -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
         -DGGML_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
         -DWHISPER_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
