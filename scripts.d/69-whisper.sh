@@ -27,8 +27,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Создаем файл-заплатку, который вытягивает флаги через pkg-config
-    cat << 'EOF' > patch-openvino.cmake
+    if [[ "${BUILD_VINO}" == "1" ]]; then
+        log_info "Applying OpenVINO pkg-config patch for Whisper..."
+        # Создаем файл-заплатку, который вытягивает флаги через pkg-config
+        cat << 'EOF' > patch-openvino.cmake
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(OV REQUIRED openvino)
 pkg_check_modules(TBB REQUIRED tbb)
@@ -59,6 +61,9 @@ EOF
 
     # Вырезаем хардкод TBBConfig из всех подпапок ggml
     find ggml/ -name "CMakeLists.txt" -exec sed -i 's|include(.*TBBConfig.cmake")|# cut|g' {} +
+    else()
+        log_info "OpenVINO is disabled. Skipping patch."
+    fi
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0 -DOPENVINO_STATIC_LIBRARY"
