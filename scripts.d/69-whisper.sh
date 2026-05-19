@@ -27,6 +27,23 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+
+    # Переписываем поиск OpenVINO и TBB через pkg-config
+    cat << 'EOF' > patch-openvino.cmake
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(OV REQUIRED openvino)
+pkg_check_modules(TBB REQUIRED tbb)
+find_package(OpenCL REQUIRED)
+EOF
+
+    # Заменяем find_package и жесткий include на pkg-config файл
+    sed -i '/find_package(OpenVINO REQUIRED)/,/include(.*TBBConfig.cmake")/d' ggml/src/ggml-openvino/CMakeLists.txt
+    sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/../../../patch-openvino.cmake")' ggml/src/ggml-openvino/CMakeLists.txt
+
+    # Переписываем линковку таргета на переменные из pkg-config
+    sed -i 's/target_link_libraries(ggml-openvino PRIVATE.*/target_link_libraries(ggml-openvino PRIVATE ${OV_LIBRARIES} ${TBB_LIBRARIES} OpenCL::OpenCL)/g' ggml/src/ggml-openvino/CMakeLists.txt
+    sed -i '/target_link_libraries(ggml-openvino PRIVATE.*/a target_include_directories(ggml-openvino PRIVATE ${OV_INCLUDE_DIRS} ${TBB_INCLUDE_DIRS})' ggml/src/ggml-openvino/CMakeLists.txt
+
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0 -DOPENVINO_STATIC_LIBRARY"
 
@@ -112,19 +129,19 @@ EOF
         -DGGML_WEBGPU=OFF
         #
         -DGGML_OPENCL=ON
-        -DWHISPER_SDL2=ON # support for libSDL2
-        -DWHISPER_CURL=ON # to download models
+        -DWHISPER_SDL2=OFF # support for libSDL2
+        -DWHISPER_CURL=OFF # to download models
         # VULKAN
-        -DGGML_VULKAN=ON
-        -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
-        -DVulkan_GLSLC_EXECUTABLE="/opt/glslc"
-        -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
-        -DGGML_VULKAN_CHECK_RESULTS=OFF
+        # -DGGML_VULKAN=ON
+        # -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
+        # -DVulkan_GLSLC_EXECUTABLE="/opt/glslc"
+        # -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        # -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
+        # -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
         -DGGML_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
         -DWHISPER_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
-        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+        # -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
         -DGGML_OPENVINO_SKIP_TBB_FIND=ON # don't delete
         )
 
