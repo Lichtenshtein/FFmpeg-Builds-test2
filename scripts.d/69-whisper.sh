@@ -27,22 +27,31 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-
-    # Переписываем поиск OpenVINO и TBB через pkg-config
+    # Создаем файл-заплатку, который вытягивает флаги через pkg-config
     cat << 'EOF' > patch-openvino.cmake
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(OV REQUIRED openvino)
 pkg_check_modules(TBB REQUIRED tbb)
-find_package(OpenCL REQUIRED)
+
+# Создаем фейковый CMake-таргет openvino::runtime, который требует whisper
+add_library(openvino::runtime INTERFACE IMPORTED)
+target_link_libraries(openvino::runtime INTERFACE ${OV_LIBRARIES} ${TBB_LIBRARIES})
+target_include_directories(openvino::runtime INTERFACE ${OV_INCLUDE_DIRS} ${TBB_INCLUDE_DIRS})
+
+# Создаем фейковый CMake-таргет TBB::tbb, чтобы не падали другие include
+add_library(TBB::tbb INTERFACE IMPORTED)
+target_link_libraries(TBB::tbb INTERFACE ${TBB_LIBRARIES})
+target_include_directories(TBB::tbb INTERFACE ${TBB_INCLUDE_DIRS})
+
+# Заглушка, чтобы заблокировать оригинальный find_package(OpenVINO)
+set(OpenVINO_FOUND ON)
+set(OpenVINO_DIR "STUB")
 EOF
 
-    # Заменяем find_package и жесткий include на pkg-config файл
-    sed -i '/find_package(OpenVINO REQUIRED)/,/include(.*TBBConfig.cmake")/d' ggml/src/ggml-openvino/CMakeLists.txt
-    sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/../../../patch-openvino.cmake")' ggml/src/ggml-openvino/CMakeLists.txt
-
-    # Переписываем линковку таргета на переменные из pkg-config
-    sed -i 's/target_link_libraries(ggml-openvino PRIVATE.*/target_link_libraries(ggml-openvino PRIVATE ${OV_LIBRARIES} ${TBB_LIBRARIES} OpenCL::OpenCL)/g' ggml/src/ggml-openvino/CMakeLists.txt
-    sed -i '/target_link_libraries(ggml-openvino PRIVATE.*/a target_include_directories(ggml-openvino PRIVATE ${OV_INCLUDE_DIRS} ${TBB_INCLUDE_DIRS})' ggml/src/ggml-openvino/CMakeLists.txt
+    # Внедряем заплатку в самое начало src/CMakeLists.txt
+    sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/../patch-openvino.cmake")' src/CMakeLists.txt
+    sed -i 's/find_package(OpenVINO REQUIRED)/# find_package(OpenVINO REQUIRED)/g' src/CMakeLists.txt
+    find ggml/ -name "CMakeLists.txt" -exec sed -i 's|include(.*TBBConfig.cmake")|# cut|g' {} +
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0 -DOPENVINO_STATIC_LIBRARY"
