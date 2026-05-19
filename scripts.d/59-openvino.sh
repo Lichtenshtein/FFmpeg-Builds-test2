@@ -51,7 +51,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         # Настройка многопоточности под статический TBB
-        -DTHREADING=TBB
+        -DTHREADING=TBB # OMP for OpenMP
         -DENABLE_SYSTEM_TBB=ON
         -DENABLE_TBBBIND_2_5=OFF # Выключаем гибридный шедулер
         -DTBB_DIR="${FFBUILD_PREFIX}/lib/cmake/TBB"
