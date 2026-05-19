@@ -33,24 +33,31 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(OV REQUIRED openvino)
 pkg_check_modules(TBB REQUIRED tbb)
 
-# Создаем фейковый CMake-таргет openvino::runtime, который требует whisper
+# Создаем фейковый CMake-таргет openvino::runtime
 add_library(openvino::runtime INTERFACE IMPORTED)
 target_link_libraries(openvino::runtime INTERFACE ${OV_LIBRARIES} ${TBB_LIBRARIES})
 target_include_directories(openvino::runtime INTERFACE ${OV_INCLUDE_DIRS} ${TBB_INCLUDE_DIRS})
 
-# Создаем фейковый CMake-таргет TBB::tbb, чтобы не падали другие include
+# Создаем фейковый CMake-таргет TBB::tbb
 add_library(TBB::tbb INTERFACE IMPORTED)
 target_link_libraries(TBB::tbb INTERFACE ${TBB_LIBRARIES})
 target_include_directories(TBB::tbb INTERFACE ${TBB_INCLUDE_DIRS})
 
-# Заглушка, чтобы заблокировать оригинальный find_package(OpenVINO)
-set(OpenVINO_FOUND ON)
-set(OpenVINO_DIR "STUB")
+# Глобально переопределяем find_package для OpenVINO, чтобы он ничего не искал
+macro(find_package name)
+    if("${name}" STREQUAL "OpenVINO")
+        set(OpenVINO_FOUND ON)
+        set(OpenVINO_DIR "STUB")
+    else()
+        _find_package(${ARGV})
+    endif()
+endmacro()
 EOF
 
-    # Внедряем заплатку в самое начало src/CMakeLists.txt
-    sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/../patch-openvino.cmake")' src/CMakeLists.txt
-    sed -i 's/find_package(OpenVINO REQUIRED)/# find_package(OpenVINO REQUIRED)/g' src/CMakeLists.txt
+    # Внедряем заплатку в САМЫЙ КОРЕНЬ проекта (главный CMakeLists.txt) на первую строку
+    sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/patch-openvino.cmake")' CMakeLists.txt
+
+    # Вырезаем хардкод TBBConfig из всех подпапок ggml
     find ggml/ -name "CMakeLists.txt" -exec sed -i 's|include(.*TBBConfig.cmake")|# cut|g' {} +
 
     export static_flags=""
