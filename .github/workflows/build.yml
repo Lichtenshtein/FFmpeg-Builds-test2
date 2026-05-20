@@ -12,9 +12,9 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '31-cryptopp|70-kvazaar'
+        # default: '31-cryptopp|70-kvazaar'
         # default: '04-tbbmalloc|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|59-opencl|69-whisper'
-        # default: '.*'
+        default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
@@ -261,16 +261,16 @@ jobs:
           echo "-------------------------------"
 
       # Allocates 32Gb swap instead of 2Gb when using LTO
-      # - name: Setup Swap Space
-        # if: github.event.inputs.use_lto == 'true'
-        # run: |
-          # sudo swapoff -a || true
-          # sudo rm -f /swapfile
-          # sudo dd if=/dev/zero of=/swapfile bs=1M count=32768
-          # sudo chmod 600 /swapfile
-          # sudo mkswap /swapfile
-          # sudo swapon /swapfile
-          # swapon --show
+      - name: Setup Swap Space
+        if: github.event.inputs.use_lto == 'true'
+        run: |
+          sudo swapoff -a || true
+          sudo rm -f /swapfile
+          sudo dd if=/dev/zero of=/swapfile bs=1M count=32768
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          swapon --show
 
       - name: Check if base rebuild needed
         id: base_check
