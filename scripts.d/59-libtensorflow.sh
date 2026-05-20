@@ -31,7 +31,7 @@ ffbuild_dockerbuild() {
     cp lib/tensorflow.dll "$INSTALL_ROOT/bin/"
 
     # Библиотеку импорта кладем в lib, чтобы отработал флаг -ltensorflow
-    cp lib/tensorflow.lib "$INSTALL_ROOT/lib/libtensorflow.lib"
+    cp lib/tensorflow.lib "$INSTALL_ROOT/lib/libtensorflow.a"
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/tensorflow.pc"

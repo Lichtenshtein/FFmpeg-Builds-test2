@@ -1031,6 +1031,12 @@ generate_implibs() {
 
         local out_lib="$lib_out_dir/$lib_name"
 
+        # исключения
+        if [[ "$dll_name" == "tensorflow.dll" ]]; then
+            log_info "${CACHE_MARK} Using pre-packaged MSVC import lib for tensorflow.dll"
+            continue
+        fi
+
         if [[ -f "$out_lib" ]]; then
             # Список стадий, где мы ВСЕГДА принудительно пересобираем импорт
             if [[ "$dll_name" == "openvino.dll" || "$dll_name" == "openvino_c.dll" || "$STAGENAME" == *"opencv"* ]]; then
