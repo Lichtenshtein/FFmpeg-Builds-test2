@@ -30,7 +30,7 @@ ffbuild_dockerbuild() {
         -DCRYPTOPP_USE_INTERMEDIATE_OBJECTS_TARGET=OFF
     )
 
-    [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-fno-devirtualize"
+    [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-fno-devirtualize -fno-devirtualize-speculatively"
 
     CFLAGS="$CFLAGS $CPPFLAGS $static_flags ${USELTO}${USELTO_C} $LTO_FLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags ${USELTO}${USELTO_C} $LTO_FLAGS" \
