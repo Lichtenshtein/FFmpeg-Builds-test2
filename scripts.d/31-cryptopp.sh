@@ -32,9 +32,9 @@ ffbuild_dockerbuild() {
 
     # [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-fno-devirtualize -fno-devirtualize-speculatively"
 
-    CFLAGS="$CFLAGS $CPPFLAGS $static_flags $OPENMP_C ${NOLTO}" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags $OPENMP_C ${NOLTO}" \
-    LDFLAGS="$LDFLAGS ${NOLTO}" \
+    CFLAGS="$CFLAGS $CPPFLAGS $static_flags $OPENMP_C ${USELTO}${USELTO_C} $LTO_FLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags $OPENMP_C ${USELTO}${USELTO_C} $LTO_FLAGS" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS $OPENMP_LIB" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
@@ -42,26 +42,24 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # принудительно вырезаем dll.cpp из объектных файлов
-    if [[ "${PREFER_SHARED}" != "1" ]]; then
-        local TARGET_LIB="${INSTALL_ROOT}/lib/libcryptopp.a"
-        if [ -f "$TARGET_LIB" ]; then
-            log_info "${SEARCH_MARK} Checking for duplicate dll.cpp in the created archive..."
-            # Проверяем, содержит ли архив этот объектный файл
-            if "${AR}" t "$TARGET_LIB" | grep -q "dll.cpp"; then
-                log_warn "Detected dll.cpp.obj inside libcryptopp.a! Forcefully removing..."
-                "${AR}" d "$TARGET_LIB" dll.cpp.obj
-                # Проверяем успешность удаления
-                if "${AR}" t "$TARGET_LIB" | grep -q "dll.cpp"; then
-                    log_error "Failed to remove dll.cpp.obj from archive!"
-                    return 1
-                else
-                    log_info "${CHECK_MARK} Duplicate dll.cpp.obj successfully extracted from static archive."
-                fi
-            else
-                log_info "${CHECK_MARK} The archive is clean, there are no thunk duplicates."
-            fi
-        fi
-    fi
+    # if [[ "${PREFER_SHARED}" != "1" ]]; then
+        # local TARGET_LIB="${INSTALL_ROOT}/lib/libcryptopp.a"
+        # if [ -f "$TARGET_LIB" ]; then
+            # log_info "${SEARCH_MARK} Checking for duplicate dll.cpp in the created archive..."
+            # if "${AR}" t "$TARGET_LIB" | grep -q "dll.cpp"; then
+                # log_warn "Detected dll.cpp.obj inside libcryptopp.a! Forcefully removing..."
+                # "${AR}" d "$TARGET_LIB" dll.cpp.obj
+                # if "${AR}" t "$TARGET_LIB" | grep -q "dll.cpp"; then
+                    # log_error "Failed to remove dll.cpp.obj from archive!"
+                    # return 1
+                # else
+                    # log_info "${CHECK_MARK} Duplicate dll.cpp.obj successfully extracted from static archive."
+                # fi
+            # else
+                # log_info "${CHECK_MARK} The archive is clean, there are no thunk duplicates."
+            # fi
+        # fi
+    # fi
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/cryptopp.pc"
