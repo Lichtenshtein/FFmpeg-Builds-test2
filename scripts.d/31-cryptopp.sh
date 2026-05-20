@@ -14,6 +14,14 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Удаляем dll.cpp из списка исходников CMake
+    if [ -f "sources.cmake" ]; then
+        log_info "${SEARCH_MARK} Removing dll.cpp from sources.cmake to prevent ODR violations..."
+        sed -i '/dll\.cpp/d' sources.cmake
+    elif [ -f "CMakeLists.txt" ]; then
+        sed -i '/dll\.cpp/d' CMakeLists.txt
+    fi
+
     mkdir -p build && cd build
 
     local myconf=(
@@ -22,12 +30,13 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
-        -DCRYPTOPP_BUILD_SHARED=OFF
+        -DCRYPTOPP_BUILD_SHARED=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DCRYPTOPP_BUILD_TESTING=OFF
         -DCRYPTOPP_BUILD_DOCUMENTATION=OFF
         -DCRYPTOPP_USE_OPENMP=$([ "$USE_OPENMP" == "1" ] && echo ON || echo OFF)
         # Отключаем промежуточный таргет объектов
         -DCRYPTOPP_USE_INTERMEDIATE_OBJECTS_TARGET=OFF
+        -DCRYPTOPP_BUILD_STATIC_WITH_DYNAMIC_FILES=OFF
     )
 
     # [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-fno-devirtualize -fno-devirtualize-speculatively"
@@ -40,26 +49,6 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
-
-    # принудительно вырезаем dll.cpp из объектных файлов
-    # if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # local TARGET_LIB="${INSTALL_ROOT}/lib/libcryptopp.a"
-        # if [ -f "$TARGET_LIB" ]; then
-            # log_info "${SEARCH_MARK} Checking for duplicate dll.cpp in the created archive..."
-            # if "${AR}" t "$TARGET_LIB" | grep -q "dll.cpp"; then
-                # log_warn "Detected dll.cpp.obj inside libcryptopp.a! Forcefully removing..."
-                # "${AR}" d "$TARGET_LIB" dll.cpp.obj
-                # if "${AR}" t "$TARGET_LIB" | grep -q "dll.cpp"; then
-                    # log_error "Failed to remove dll.cpp.obj from archive!"
-                    # return 1
-                # else
-                    # log_info "${CHECK_MARK} Duplicate dll.cpp.obj successfully extracted from static archive."
-                # fi
-            # else
-                # log_info "${CHECK_MARK} The archive is clean, there are no thunk duplicates."
-            # fi
-        # fi
-    # fi
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/cryptopp.pc"
