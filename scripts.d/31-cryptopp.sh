@@ -30,8 +30,10 @@ ffbuild_dockerbuild() {
         -DCRYPTOPP_USE_INTERMEDIATE_OBJECTS_TARGET=OFF
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS $static_flags ${USELTO}${USELTO_C}" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags ${USELTO}${USELTO_C}" \
+    [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-fno-devirtualize"
+
+    CFLAGS="$CFLAGS $CPPFLAGS $static_flags ${USELTO}${USELTO_C} $LTO_FLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags ${USELTO}${USELTO_C} $LTO_FLAGS" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
