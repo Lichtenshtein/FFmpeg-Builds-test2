@@ -55,15 +55,17 @@ ffbuild_dockerbuild() {
     RUSTFLAGS="${RUSTFLAGS} ${RF}" \
     cargo cinstall -p librsvg-c $CARGO_V "${myconf[@]}" || return 1
 
-    # ручная установка заголовочных файлов
-    local inc_dest="${INSTALL_ROOT}/include/librsvg"
+    # ручная установка заголовочных файлов; согласно стандарту FFmpeg/librsvg
+    local inc_dest="${INSTALL_ROOT}/include/librsvg-2.0/librsvg"
     mkdir -p "$inc_dest"
 
+    # Определяем, где лежат исходные заголовочные файлы в репозитории
     local src_inc="include/librsvg"
     [ ! -d "$src_inc" ] && [ -d "librsvg-c/include/librsvg" ] && src_inc="librsvg-c/include/librsvg"
 
     # Генерируем rsvg-version.h из шаблона .in
     if [ -d "$src_inc" ]; then
+        log_info "${BUILD_MARK} Copying base headers from source repository..."
         cp -f "$src_inc"/rsvg.h "$src_inc"/rsvg-cairo.h "$src_inc"/rsvg-pixbuf.h "$inc_dest/" || true
 
         # Генерация rsvg-version.h с точной подстановкой под структуру шаблона
@@ -76,17 +78,37 @@ ffbuild_dockerbuild() {
         # Генерация rsvg-features.h с активацией флагов возможностей
         sed -e 's/@LIBRSVG_HAVE_PIXBUF@/TRUE/g' \
             "$src_inc/rsvg-features.h.in" > "$inc_dest/rsvg-features.h"
-
-        log_info "The librsvg header files were successfully generated and installed."
+        
+        log_info "${CHECK_MARK} Base librsvg headers successfully generated in target directory."
     else
-        log_error "The librsvg source header files were not found in the repository!"
+        log_warn "Librsvg source headers not found in repository clone. Relying on auto-installation."
+    fi
+
+    # Перехватываем файлы, которые Cargo мог криво установить в /include/librsvg
+    local wrong_inc_dir="${INSTALL_ROOT}/include/librsvg"
+    if [ -d "$wrong_inc_dir" ]; then
+        log_info "${SEARCH_MARK} Detected automated installation in wrong folder: $wrong_inc_dir"
+        log_info "Moving any automatically installed files to correct path..."
+
+        # Переносим все .h файлы без перезаписи
+        find "$wrong_inc_dir" -name "*.h" -type f | while read -r h_file; do
+            mv -f "$h_file" "$inc_dest/"
+        done
+
+        # Удаляем пустую кривую папку, чтобы не засорять префикс
+        rmdir "$wrong_inc_dir" 2>/dev/null || true
+    fi
+
+    # Проверка финальной сборки заголовков
+    if [ ! -f "$inc_dest/rsvg.h" ]; then
+        log_error "rsvg.h is missing in $inc_dest! Compilation will fail."
         return 1
     fi
 
     # Настройка путей в .pc файлах
     if [ -d "$PC_DIR" ]; then
         find "$PC_DIR" -name "*librsvg*.pc" | while read -r PC_FILE; do
-            sed -i 's|^Cflags:.*|Cflags: -I${includedir} -I${includedir}/librsvg|' "$PC_FILE"
+            sed -i 's|^Cflags:.*|Cflags: -I${includedir}/librsvg-2.0|' "$PC_FILE"
         done
     fi
 
