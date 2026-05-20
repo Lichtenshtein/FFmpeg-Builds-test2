@@ -14,12 +14,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Удаляем dll.cpp из списка исходников CMake
-    if [ -f "cryptopp/sources.cmake" ]; then
-        log_info "${SEARCH_MARK} Removing dll.cpp from sources.cmake to prevent ODR violations..."
-        sed -i '/dll\.cpp/d' cryptopp/sources.cmake
-    fi
-
     mkdir -p build && cd build
 
     local myconf=(
