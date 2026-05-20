@@ -449,7 +449,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
-    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS}"
+    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
