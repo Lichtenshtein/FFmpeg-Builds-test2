@@ -15,11 +15,9 @@ ffbuild_dockerbuild() {
     set -e
 
     # Удаляем dll.cpp из списка исходников CMake
-    if [ -f "sources.cmake" ]; then
+    if [ -f "cryptopp/sources.cmake" ]; then
         log_info "${SEARCH_MARK} Removing dll.cpp from sources.cmake to prevent ODR violations..."
-        sed -i '/dll\.cpp/d' sources.cmake
-    elif [ -f "CMakeLists.txt" ]; then
-        sed -i '/dll\.cpp/d' CMakeLists.txt
+        sed -i '/dll\.cpp/d' cryptopp/sources.cmake
     fi
 
     mkdir -p build && cd build
@@ -36,7 +34,6 @@ ffbuild_dockerbuild() {
         -DCRYPTOPP_USE_OPENMP=$([ "$USE_OPENMP" == "1" ] && echo ON || echo OFF)
         # Отключаем промежуточный таргет объектов
         -DCRYPTOPP_USE_INTERMEDIATE_OBJECTS_TARGET=OFF
-        -DCRYPTOPP_BUILD_STATIC_WITH_DYNAMIC_FILES=OFF
     )
 
     # [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-fno-devirtualize -fno-devirtualize-speculatively"
