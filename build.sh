@@ -440,7 +440,7 @@ read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 
 chmod +x configure
 
-# Tip: -Wl,--allow-multiple-definition
+# Tip: -Wl,--allow-multiple-definition needed for KVAZAAR with cryptopp.
 CONF_FLAGS=(
     --prefix="$FFBUILD_DESTPREFIX"
     "${TARGET_FLAGS_ARR[@]}"
