@@ -197,15 +197,16 @@ fi
 FINAL_CONFIGURE=$(smart_dedupe "$TOTAL_FF_CONFIGURE" "$VARIANT_FF_CONFIGURE")
 # CFLAGS: Сначала кладем CPPFLAGS, затем CFLAGS компонентов, затем варианта.
 # Так как мы оставляем ПЕРВОЕ вхождение, самые важные флаги должны быть левее.
-FINAL_CFLAGS=$(smart_dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CFLAGS" "$VARIANT_FF_CPPFLAGS" | sed 's/-std=gnu17/-std=gnu23/g')
-FINAL_CXXFLAGS=$(smart_dedupe "$CXXFLAGS" "$CPPFLAGS" "$TOTAL_FF_CXXFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CXXFLAGS" "$VARIANT_FF_CPPFLAGS")
+FINAL_CFLAGS=$(smart_dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CFLAGS" "$VARIANT_FF_CPPFLAGS" | sed -E -e 's/-std=gnu17/-std=gnu23/g' -e 's| -I/opt/ffbuild/include\b||g' -e 's/-flto[=a-z0-9]*//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g')
+FINAL_CXXFLAGS=$(smart_dedupe "$CXXFLAGS" "$CPPFLAGS" "$TOTAL_FF_CXXFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CXXFLAGS" "$VARIANT_FF_CPPFLAGS" | sed -E -e 's| -I/opt/ffbuild/include\b||g' -e 's/-flto[=a-z0-9]*//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g')
 # LDFLAGS: Аналогично флагам компиляции
-FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$TOTAL_FF_LDFLAGS" "$VARIANT_FF_LDFLAGS")
+FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$TOTAL_FF_LDFLAGS" "$VARIANT_FF_LDFLAGS" | sed -E -e 's| -L/opt/ffbuild/lib\b||g' -e 's/-flto[=a-z0-9]*//g')
 FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
 # LIBS: ОБРАТНАЯ логика; smart_libs_dedupe оставляет ПОСЛЕДНЕЕ вхождение, 
 # базовые системные либы ($LIBS) лучше ставить в начало списка аргументов, 
 # чтобы если компонент принес свою версию, она вытеснила базовую в конец (право).
-FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
+CLEANED_TOTAL_LIBS=$(echo " ${TOTAL_FF_LIBS} " | sed -E -e 's| -L/opt/ffbuild/lib\b||g' -e 's| -I/opt/ffbuild/include\b||g')
+FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$CLEANED_TOTAL_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
 
 # =======================================
 # GENERATION OF COMPONENT STATE VARIABLES
@@ -449,7 +450,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
-    --extra-ldflags="$(echo "${ASAN_LDFLAGS}${FINAL_LDFLAGS}" | sed 's/-flto[=a-z0-9]*//g') -Wl,--allow-multiple-definition"
+    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
@@ -459,7 +460,12 @@ CONF_FLAGS=(
     --enable-pic
     --disable-debug
     # --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
-    --cc="$CC" --cxx="$CXX" --ar="${FFBUILD_CROSS_PREFIX}ar" --ranlib="${FFBUILD_CROSS_PREFIX}ranlib" --nm="${FFBUILD_CROSS_PREFIX}nm" --as="$CC"
+    --cc="${FFBUILD_CROSS_PREFIX}gcc" 
+    --cxx="${FFBUILD_CROSS_PREFIX}g++" 
+    --ar="${FFBUILD_CROSS_PREFIX}ar" 
+    --ranlib="${FFBUILD_CROSS_PREFIX}ranlib" 
+    --nm="${FFBUILD_CROSS_PREFIX}nm" 
+    --as="${FFBUILD_CROSS_PREFIX}gcc"
 )
 
 if [[ "${PREFER_SHARED}" != "1" ]]; then
