@@ -49,7 +49,7 @@ endian = 'little'
 c = '${FFBUILD_TOOLCHAIN}-gcc'
 cpp = '${FFBUILD_TOOLCHAIN}-g++'
 ar = '${FFBUILD_TOOLCHAIN}-gcc-ar'
-pkg-config = 'pkg-config'
+pkg-config = 'pkgconf'
 strip = '${FFBUILD_TOOLCHAIN}-strip'
 windres = '${FFBUILD_TOOLCHAIN}-windres'
 nm = '${FFBUILD_TOOLCHAIN}-gcc-nm'
@@ -105,10 +105,10 @@ EOF
     # Передаем линковочные флаги через meson, чтобы проверки (типа наличия функций) проходили успешно
     meson setup _build . \
         "${myconf[@]}" \
-        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW" \
-        -Dc_link_args="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" \
-        -Dcpp_link_args="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" || return 1
+        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW -fvisibility=default" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW -fvisibility=default" \
+        -Dc_link_args="$LDFLAGS ${USELTO}" \
+        -Dcpp_link_args="$LDFLAGS ${USELTO}" || return 1
 
     ninja -C _build $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja -C _build install || return 1
