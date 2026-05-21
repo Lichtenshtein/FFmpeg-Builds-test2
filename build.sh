@@ -449,7 +449,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
-    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
+    --extra-ldflags="$(echo "${ASAN_LDFLAGS}${FINAL_LDFLAGS}" | sed 's/-flto[=a-z0-9]*//g') -Wl,--allow-multiple-definition"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
@@ -458,12 +458,13 @@ CONF_FLAGS=(
     --enable-opengl
     --enable-pic
     --disable-debug
-    --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
+    # --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
+    --cc="$CC" --cxx="$CXX" --ar="${FFBUILD_CROSS_PREFIX}ar" --ranlib="${FFBUILD_CROSS_PREFIX}ranlib" --nm="${FFBUILD_CROSS_PREFIX}nm" --as="$CC"
 )
 
 if [[ "${PREFER_SHARED}" != "1" ]]; then
     CONF_FLAGS+=(
-        --pkg-config-flags="--static --libs-only-l"
+        --pkg-config-flags="--static"
     )
 else
     CONF_FLAGS+=(
