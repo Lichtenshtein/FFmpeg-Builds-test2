@@ -229,7 +229,7 @@ COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=
 # Общие и дополнительные либы
 SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
 #  -lssp 
-export ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32-lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lkernel32 -lnormaliz -lwsock32 -lcomctl32 -lshell32 -loleaut32 -lgomp"
+export ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lgdi32 -lrpcrt4 -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lkernel32 -lnormaliz -lwsock32 -lcomctl32 -lshell32 -loleaut32 -lgomp"
 
 # Функция для сборки строки RUSTFLAGS из массива
 # Принимает префикс (например "-C link-arg=") и имя массива
@@ -754,7 +754,8 @@ patch_pc_files() {
 
         # Append discovered deps (raw, dedup happens)
         sed -i $sl "/^Requires.private:/ s|$| $extra_requires|" "$pc"
-        sed -i $sl "/^Libs.private:/ s|$| $leftovers $extra_libs $LIBS|" "$pc"
+# $LIBS
+        sed -i $sl "/^Libs.private:/ s|$| $leftovers $extra_libs|" "$pc"
 
         # Capitalisation fixes
         sed -i $sl 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g; s/-lpthread/-pthread/g' "$pc"
