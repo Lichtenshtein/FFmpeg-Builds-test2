@@ -32,7 +32,7 @@ ffbuild_dockerbuild() {
     export CARGO_HOME="/opt/cargo"
     export RUSTUP_HOME="/opt/rustup"
     export PKG_CONFIG_ALLOW_CROSS=1
-    # export RUSTFLAGS="${RUSTFLAGS} -C linker=${CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER}"
+    export RUSTFLAGS="${RUSTFLAGS}"
 
     # Создаем директорию сборки
     mkdir -p build
@@ -61,8 +61,8 @@ ffbuild_dockerbuild() {
     )
 
     meson setup "${myconf[@]}" \
-        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        -Dc_args="$CFLAGS $CPPFLAGS" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
         -Dc_link_args="$LDFLAGS ${USELTO}" \
         -Dcpp_link_args="$LDFLAGS ${USELTO}" \
         . build || return 1
