@@ -42,7 +42,7 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --libdir="lib"
         --buildtype=release
-        -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
+        # -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=gnu++20
         -Dc_std=gnu17
@@ -63,8 +63,8 @@ ffbuild_dockerbuild() {
     meson setup "${myconf[@]}" \
         -Dc_args="$CFLAGS $CPPFLAGS" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS" \
-        -Dc_link_args="$LDFLAGS ${USELTO}" \
-        -Dcpp_link_args="$LDFLAGS ${USELTO}" \
+        -Dc_link_args="$LDFLAGS" \
+        -Dcpp_link_args="$LDFLAGS" \
         . build || return 1
 
     ninja -C build $NINJA_V || return 1
