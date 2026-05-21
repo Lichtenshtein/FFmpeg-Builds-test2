@@ -3,6 +3,8 @@
 SCRIPT_REPO="https://github.com/GNOME/librsvg.git"
 SCRIPT_COMMIT="c3db18133ba775d55a0f9c6c49ec16ac235a7d8a"
 
+export SKIP_POST_STRIP=1
+
 ffbuild_depends() {
     echo zlib
     echo xz
@@ -30,7 +32,7 @@ ffbuild_dockerbuild() {
     export CARGO_HOME="/opt/cargo"
     export RUSTUP_HOME="/opt/rustup"
     export PKG_CONFIG_ALLOW_CROSS=1
-    export RUSTFLAGS="${RUSTFLAGS}"
+    export RUSTFLAGS="${RUSTFLAGS} -C linker=${CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER}"
 
     # Создаем директорию сборки
     mkdir -p build
@@ -58,11 +60,12 @@ ffbuild_dockerbuild() {
         -Dtriplet="${FFBUILD_RUST_TARGET}"
     )
 
-    meson setup "${myconf[@]}" build . \
+    meson setup "${myconf[@]}" \
         -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
         -Dc_link_args="$LDFLAGS ${USELTO}" \
-        -Dcpp_link_args="$LDFLAGS ${USELTO}" || return 1
+        -Dcpp_link_args="$LDFLAGS ${USELTO}" \
+        . build || return 1
 
     ninja -C build $NINJA_V || return 1
 
@@ -72,15 +75,14 @@ ffbuild_dockerbuild() {
         find "$PC_DIR" -name "*librsvg*.pc" | while read -r PC_FILE; do
             log_info "${SEARCH_MARK} Fixing Meson-generated paths in $PC_FILE..."
             sed -i 's|^Cflags:.*|Cflags: -I${includedir}/librsvg-2.0|' "$PC_FILE"
+            # Очищаем Requires.private от "голых" версий (1.3.0, 20.0.14 и т.д.)
+            sed -i 's|^Requires.private:.*|Requires.private: cairo-gobject cairo-png dav1d freetype2 harfbuzz libxml-2.0 pangocairo pangoft2 gmodule-2.0 glib-2.0 gio-2.0|' "$PC_FILE"
         done
         if [ -f "$PC_DIR/librsvg_c.pc" ] && [ ! -f "$PC_DIR/librsvg-2.0.pc" ]; then
             ln -sf librsvg_c.pc "$PC_DIR/librsvg-2.0.pc"
         fi
     fi
-
-    log_info "${CHECK_MARK} Librsvg successfully cross-compiled via Meson."
 }
-
 
 ffbuild_configure() {
     echo "--enable-librsvg"
