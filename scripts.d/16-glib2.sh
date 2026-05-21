@@ -107,8 +107,8 @@ EOF
         "${myconf[@]}" \
         -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW -fvisibility=default" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW -fvisibility=default" \
-        -Dc_link_args="$LDFLAGS ${USELTO}" \
-        -Dcpp_link_args="$LDFLAGS ${USELTO}" || return 1
+        -Dc_link_args="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" || return 1
 
     ninja -C _build $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja -C _build install || return 1
