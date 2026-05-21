@@ -197,16 +197,15 @@ fi
 FINAL_CONFIGURE=$(smart_dedupe "$TOTAL_FF_CONFIGURE" "$VARIANT_FF_CONFIGURE")
 # CFLAGS: Сначала кладем CPPFLAGS, затем CFLAGS компонентов, затем варианта.
 # Так как мы оставляем ПЕРВОЕ вхождение, самые важные флаги должны быть левее.
-FINAL_CFLAGS=$(smart_dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CFLAGS" "$VARIANT_FF_CPPFLAGS" | sed -E -e 's/-std=gnu17/-std=gnu23/g' -e 's| -I/opt/ffbuild/include\b||g' -e 's/-flto[=a-z0-9]*//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g')
-FINAL_CXXFLAGS=$(smart_dedupe "$CXXFLAGS" "$CPPFLAGS" "$TOTAL_FF_CXXFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CXXFLAGS" "$VARIANT_FF_CPPFLAGS" | sed -E -e 's| -I/opt/ffbuild/include\b||g' -e 's/-flto[=a-z0-9]*//g' -e 's/-ffat-lto-objects//g' -e 's/-flto-compression-level=[0-9]*//g')
+FINAL_CFLAGS=$(smart_dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CFLAGS" "$VARIANT_FF_CPPFLAGS" | sed 's/-std=gnu17/-std=gnu23/g')
+FINAL_CXXFLAGS=$(smart_dedupe "$CXXFLAGS" "$CPPFLAGS" "$TOTAL_FF_CXXFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CXXFLAGS" "$VARIANT_FF_CPPFLAGS")
 # LDFLAGS: Аналогично флагам компиляции
-FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$TOTAL_FF_LDFLAGS" "$VARIANT_FF_LDFLAGS" | sed -E -e 's| -L/opt/ffbuild/lib\b||g' -e 's/-flto[=a-z0-9]*//g')
+FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$TOTAL_FF_LDFLAGS" "$VARIANT_FF_LDFLAGS")
 FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
 # LIBS: ОБРАТНАЯ логика; smart_libs_dedupe оставляет ПОСЛЕДНЕЕ вхождение, 
 # базовые системные либы ($LIBS) лучше ставить в начало списка аргументов, 
 # чтобы если компонент принес свою версию, она вытеснила базовую в конец (право).
-CLEANED_TOTAL_LIBS=$(echo " ${TOTAL_FF_LIBS} " | sed -E -e 's| -L/opt/ffbuild/lib\b||g' -e 's| -I/opt/ffbuild/include\b||g')
-FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$CLEANED_TOTAL_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
+FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
 
 # =======================================
 # GENERATION OF COMPONENT STATE VARIABLES
@@ -428,6 +427,9 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
 fi
 
+export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]}"
+export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -std=gnu23"
+
 # экспортируем флаги
 export FINAL_CONFIGURE FINAL_CFLAGS FINAL_CXXFLAGS FINAL_LDFLAGS FINAL_LDEXEFLAGS FINAL_LIBS_GROUPED
 # Очищаем тяжелые переменные, чтобы не мешать запуску процессов
@@ -470,7 +472,7 @@ CONF_FLAGS=(
 
 if [[ "${PREFER_SHARED}" != "1" ]]; then
     CONF_FLAGS+=(
-        --pkg-config-flags="--static"
+        --pkg-config-flags="--static --libs-only-l"
     )
 else
     CONF_FLAGS+=(
