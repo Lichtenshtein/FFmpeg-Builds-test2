@@ -32,7 +32,7 @@ ffbuild_dockerbuild() {
     export CARGO_HOME="/opt/cargo"
     export RUSTUP_HOME="/opt/rustup"
     export PKG_CONFIG_ALLOW_CROSS=1
-    export RUSTFLAGS="${RUSTFLAGS} -C linker=${CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER}"
+    # export RUSTFLAGS="${RUSTFLAGS} -C linker=${CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER}"
 
     # Создаем директорию сборки
     mkdir -p build
