@@ -7,9 +7,9 @@ log_info "${XCLAM_MARK} LTO Addin: Enabling Link Time Optimization..."
 
 # disabled LTO due to critical bug in gcc-15.2; ICE (Internal Compiler Error)
 # lto1: internal compiler error: in choose_baseaddr, at config/i386/i386.cc:7447
-ffbuild_configure() {
-    echo "--disable-lto"
-}
+# ffbuild_configure() {
+    # echo "--enable-lto"
+# }
 
 # -ffat-lto-objects позволит библиотекам содержать как LTO-код, так и обычный объектный код. Это увеличит размер промежуточных библиотек, но сделает линковку более стабильной
 # -mpreferred-stack-boundary=4
