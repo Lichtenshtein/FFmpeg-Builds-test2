@@ -6,5 +6,5 @@ eval "prev_ffbuild_configure_gpl() { $(declare -f ffbuild_configure | sed '1,2d;
 
 ffbuild_configure() {
     prev_ffbuild_configure_gpl 2>/dev/null || true
-    echo "--pkg-config-flags=\"\" --enable-shared --disable-static --enable-gpl --enable-version3"
+    echo "--enable-shared --disable-static --enable-gpl --enable-version3"
 }

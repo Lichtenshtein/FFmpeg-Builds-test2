@@ -9,5 +9,5 @@ ffbuild_configure() {
     # Вызываем "родителя"
     prev_ffbuild_configure_gpl 2>/dev/null || true
     # Добавляем свои флаги
-    echo "--pkg-config-flags=\"--static --libs-only-l\" --disable-shared --enable-static --enable-gpl --enable-version3"
+    echo "--disable-shared --enable-static --enable-gpl --enable-version3"
 }
