@@ -20,10 +20,19 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     echo "git-submodule-clone"
+    # donor-file for aom
+    curl -fsSL "https://raw.githubusercontent.com/libjxl/libjxl/26494266bae545dc2084746a1fb22e805e119e85/lib/include/jxl/butteraugli.h" -o "butteraugli.h"
 }
 
 ffbuild_dockerbuild() {
     set -e
+
+    mkdir -p "$FFBUILD_PREFIX/include/jxl"
+    find . -name "butteraugli.h" -exec cp {} "$FFBUILD_PREFIX/include/jxl/" \; || true
+    if [ ! -s "$FFBUILD_PREFIX/include/jxl/butteraugli.h" ]; then
+        log_error "Failed to copy butteraugli.h"
+        return 1
+    fi
 
     mkdir -p build && cd build
 
@@ -75,13 +84,13 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # donor-file for aom
-    mkdir -p "$FFBUILD_PREFIX/include/jxl"
-    curl -fsSL "https://raw.githubusercontent.com/libjxl/libjxl/26494266bae545dc2084746a1fb22e805e119e85/lib/include/jxl/butteraugli.h" \
-        -o "$FFBUILD_PREFIX/include/jxl/butteraugli.h"
-    if [ ! -s "$FFBUILD_PREFIX/include/jxl/butteraugli.h" ]; then
-        log_error "Failed to download butteraugli.h"
-        return 1
-    fi
+    # mkdir -p "$FFBUILD_PREFIX/include/jxl"
+    # curl -fsSL "https://raw.githubusercontent.com/libjxl/libjxl/26494266bae545dc2084746a1fb22e805e119e85/lib/include/jxl/butteraugli.h" \
+        # -o "$FFBUILD_PREFIX/include/jxl/butteraugli.h"
+    # if [ ! -s "$FFBUILD_PREFIX/include/jxl/butteraugli.h" ]; then
+        # log_error "Failed to download butteraugli.h"
+        # return 1
+    # fi
 
     sed -i "s/^Requires.private: /Requires.private: lcms2 libhwy libjxl_cms /" "$PC_DIR/libjxl_cms.pc"
     sed -i 's/Libs:/Libs: -lhwy/' "$PC_DIR/libjxl.pc"
