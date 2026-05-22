@@ -427,8 +427,8 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
 fi
 
-export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]}"
-export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -std=gnu23"
+# export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]}"
+# export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -std=gnu23"
 
 # экспортируем флаги
 export FINAL_CONFIGURE FINAL_CFLAGS FINAL_CXXFLAGS FINAL_LDFLAGS FINAL_LDEXEFLAGS FINAL_LIBS_GROUPED
@@ -461,13 +461,13 @@ CONF_FLAGS=(
     --enable-opengl
     --enable-pic
     --disable-debug
-    # --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
-    --cc="${FFBUILD_CROSS_PREFIX}gcc" 
-    --cxx="${FFBUILD_CROSS_PREFIX}g++" 
-    --ar="${FFBUILD_CROSS_PREFIX}ar" 
-    --ranlib="${FFBUILD_CROSS_PREFIX}ranlib" 
-    --nm="${FFBUILD_CROSS_PREFIX}nm" 
-    --as="${FFBUILD_CROSS_PREFIX}gcc"
+    --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
+    # --cc="${FFBUILD_CROSS_PREFIX}gcc" 
+    # --cxx="${FFBUILD_CROSS_PREFIX}g++" 
+    # --ar="${FFBUILD_CROSS_PREFIX}ar" 
+    # --ranlib="${FFBUILD_CROSS_PREFIX}ranlib" 
+    # --nm="${FFBUILD_CROSS_PREFIX}nm" 
+    # --as="${FFBUILD_CROSS_PREFIX}gcc"
 )
 
 if [[ "${PREFER_SHARED}" != "1" ]]; then
