@@ -24,6 +24,22 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Патчим генератор макросов, убирая __attribute__ visibility
+    if [ -f "tools/gen-visibility-macros.py" ]; then
+        sed -i 's/visibility("default")//g' tools/gen-visibility-macros.py
+        sed -i 's/visibility("hidden")//g' tools/gen-visibility-macros.py
+    fi
+
+    # Ищем по всему дереву исходников 'gnu_symbol_visibility' и удаляем эти строки
+    find . -name "meson.build" -type f -exec sed -i "/gnu_symbol_visibility/d" {} +
+
+    # Находим определение макроса во внутренних заголовочных файлах GLib и принудительно зануляем его
+    find . -name "*.h" -o -name "*.h.in" -type f -exec sed -i 's/#define G_GNUC_INTERNAL.*/#define G_GNUC_INTERNAL/g' {} +
+
+    # Принудительно гасим внутренние переменные видимости в корневом meson.build
+    sed -i "s/glib_have_gnuc_visibility = .*/glib_have_gnuc_visibility = false/g" meson.build 2>/dev/null || true
+    sed -i "s/have_visibility_hidden = .*/have_visibility_hidden = false/g" meson.build 2>/dev/null || true
+
     if [ -f "gio/meson.build" ]; then
         # Вставляем объявление деактивации в самое начало файла.
         # Переопределяем массивы исходников и зависимости в disabler().
