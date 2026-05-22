@@ -24,35 +24,28 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Создаем пустой си-файл в корне и в gio
-    echo "int main() { return 0; }" > dummy.c
-    echo "int main() { return 0; }" > gio/dummy.c
+    if [ -f "gio/meson.build" ]; then
+        # Вставляем объявление деактивации в начало файла, после инициализации базовых переменных
+        sed -i '1i \
+gio_tool_sources = disabler() \
+gresource_tool_sources = disabler() \
+gio_querymodules_sources = disabler() \
+glib_compile_schemas_sources = disabler() \
+glib_compile_resources_sources = disabler() \
+gsettings_tool_sources = disabler() \
+gdbus_tool_sources = disabler() \
+gapplication_tool_sources = disabler() \
+app_profile_dep = disabler()' gio/meson.build
 
-    # Меняем исходники на 'dummy.c', а install на false
-
-    # gio_tool
-    sed -i "s/executable('gio', gio_tool_sources/executable('gio', 'dummy.c', install : false, #/g" gio/meson.build
-
-    # gresource
-    sed -i "s/executable('gresource', 'gresource-tool.c'/executable('gresource', 'dummy.c', install : false/g" gio/meson.build
-
-    # gio-querymodules
-    sed -i "s/executable('gio-querymodules', 'gio-querymodules.c', 'giomodule-priv.c'/gio_querymodules = executable('gio-querymodules', 'dummy.c', install : false/g" gio/meson.build
-
-    # glib-compile-schemas
-    sed -i "s/executable('glib-compile-schemas',/glib_compile_schemas = executable('glib-compile-schemas', 'dummy.c', install : false, #/g" gio/meson.build
-
-    # glib-compile-resources
-    sed -i "s/executable('glib-compile-resources',/glib_compile_resources = executable('glib-compile-resources', 'dummy.c', install : false, #/g" gio/meson.build
-
-    # gsettings
-    sed -i "s/executable('gsettings', 'gsettings-tool.c'/executable('gsettings', 'dummy.c', install : false/g" gio/meson.build
-
-    # gdbus
-    sed -i "s/executable('gdbus', 'gdbus-tool.c'/gdbus_tool = executable('gdbus', 'dummy.c', install : false/g" gio/meson.build
-
-    # gapplication
-    sed -i "s/executable('gapplication', 'gapplication-tool.c'/executable('gapplication', 'dummy.c', install : false/g" gio/meson.build
+        # Дополнительно подстрахуем переменные, которые проверяются в override_find_program
+        # Присваиваем им пустой disabler-объект, чтобы не было ошибки "Unknown variable" или "void assignment"
+        sed -i "s/gio_querymodules = executable/gio_querymodules = disabler() #/g" gio/meson.build
+        sed -i "s/glib_compile_schemas = executable/glib_compile_schemas = disabler() #/g" gio/meson.build
+        sed -i "s/glib_compile_resources = executable/glib_compile_resources = disabler() #/g" gio/meson.build
+        sed -i "s/gdbus_tool = executable/gdbus_tool = disabler() #/g" gio/meson.build
+        sed -i "s/gio_tool = executable/gio_tool = disabler() #/g" gio/meson.build
+        sed -i "s/subdir('tests')/# subdir('tests')/g" gio/meson.build
+    fi
 
     # Отключаем создание симлинков для многоархитектурных бинарников, так как они нам не нужны
     sed -i "s/if multiarch_bindir != get_option('bindir')/if false/g" gio/meson.build
@@ -67,16 +60,9 @@ ffbuild_dockerbuild() {
     sed -i '/#include <sys\/resource.h>/d' girepository/cmph/cmph_time.h 2>/dev/null || true
 
     # disable tests
-    if [ -f "gio/tests/meson.build" ]; then
-        echo "" > gio/tests/meson.build
-    fi
-    if [ -f "tests/meson.build" ]; then
-        echo "" > tests/meson.build
-    fi
-    # disable unnecessary executables
-    if [ -f "gio/meson.build" ]; then
-        sed -i "s/subdir('tests')/# subdir('tests')/g" gio/meson.build
-    fi
+    if [ -f "gio/tests/meson.build" ]; then echo "" > gio/tests/meson.build; fi
+    if [ -f "tests/meson.build" ]; then echo "" > tests/meson.build; fi
+
 
     # Clean up sysprof and third-party fallbacks
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
