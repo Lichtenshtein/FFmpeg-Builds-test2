@@ -203,7 +203,7 @@ All of those can be optionally combined with any combination of addins:
 
 * `glib2`
 ```
-05-libicu|06-libiconv|07-gettext|08-zlib|12-libffi|15-pcre2|16-glib2
+05-libicu|06-libiconv|07-gettext|08-zlib|11-bzlib|12-libffi|15-pcre2|16-glib2
 ```
 
 * `librsvg`
