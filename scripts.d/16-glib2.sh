@@ -1,8 +1,8 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/GNOME/glib.git"
-SCRIPT_COMMIT="2.82.4" # Стабильная ветка
-# SCRIPT_COMMIT="6b11cae1b3bf3e9cff9485481dd1c0f7e806c361"
+# SCRIPT_COMMIT="2.82.4"
+SCRIPT_COMMIT="94d297fe6bd1348f0d761b8adf4634663620091b"
 
 ffbuild_depends() {
     echo zlib
@@ -24,17 +24,23 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Исправляем неверный инклуд sys/resource.h в cmph
-    # В MinGW его нет, заменяем проверку или просто комментируем
-    # Точный патч для cmph_time.h
-    # sed -i '11,13s/^/\/\/ /' girepository/cmph/cmph_time.h
-    # sed -i 's/#ifndef WIN32/#if 0/' girepository/cmph/cmph_time.h
-    sed -i '/#include <sys\/resource.h>/d' girepository/cmph/cmph_time.h
+    # disable unnecessary executables
+    if [ -f "gio/meson.build" ]; then
+        sed -i "s/subdir('tests')/# subdir('tests')/g" gio/meson.build
+    fi
+    # Completely disable building glib tools/executables
+    sed -i "s/subdir('tools')/# subdir('tools')/g" meson.build
 
-    # Удаляем жесткое переопределение версии Windows из исходников GLib
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        # fix visibility attribute compatibility for windows static
+        sed -i '1i #define GLIB_STATIC_COMPILATION 1' glib/glibconfig.h.in 2>/dev/null || true
+    fi
+
+    # Clean legacy windows definitions
     sed -i '/#define _WIN32_WINNT 0x/d' meson.build
+    sed -i '/#include <sys\/resource.h>/d' girepository/cmph/cmph_time.h 2>/dev/null || true
 
-    # Удаляем субпроекты, которые ломают сборку
+    # Clean up sysprof and third-party fallbacks
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
 
     cat <<EOF > glib_cross.txt
@@ -72,8 +78,8 @@ EOF
 
     # Формируем список зависимостей из вашего чит-листа
     # pcre2 требует zlib/bz2 в некоторых конфигах
-    local DEP_LIBS="-lpcre2-posix -lpcre2-8 -lffi -lintl -liconv -lcharset -lz"
-    local WIN_LIBS="-luserenv -liphlpapi -lwinmm -luuid -ldnsapi $LIBS"
+    # local DEP_LIBS="-lpcre2-posix -lpcre2-8 -lffi -lintl -liconv -lcharset -lz"
+    # local WIN_LIBS="-luserenv -liphlpapi -lwinmm -luuid -ldnsapi $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -89,26 +95,32 @@ EOF
         -Dlibmount=disabled
         # -Dnls=disabled
         -Dnls=enabled
+        -Dforce_posix_threads=true
         -Dglib_debug=disabled
         -Dman-pages=disabled
         -Dselinux=disabled
         -Dsysprof=disabled
     )
 
-    [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
+    # Mitigate LTO compiler engine bugs inside GLib compilation 
+    local lto_cflags=""
+    local lto_ldflags=""
+    if [[ "$USE_LTO" == "1" ]]; then
+        myconf+=( -Db_lto=false ) # Keep internal meson lto safe
+        lto_cflags="${USELTO}${USELTO_C} -fno-use-linker-plugin"
+        lto_ldflags="${USELTO} -fno-use-linker-plugin"
+    fi
 
     export static_flags=""
     export self_static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DFFI_STATIC_BUILD" && self_static_flags="-DGLIB_STATIC_COMPILATION"
 
-# -Wno-error=missing-include-dirs -Wno-error=redundant-decls
-    # Передаем линковочные флаги через meson, чтобы проверки (типа наличия функций) проходили успешно
     meson setup _build . \
         "${myconf[@]}" \
-        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW -fvisibility=default" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW -fvisibility=default" \
-        -Dc_link_args="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" \
-        -Dcpp_link_args="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" || return 1
+        -Dc_args="$CFLAGS $CPPFLAGS ${lto_cflags} $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW -Wno-attributes -Wno-stringop-overflow" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${lto_cflags} $self_static_flags $static_flags -DG_WIN32_IS_STRICT_MINGW -Wno-attributes -Wno-stringop-overflow" \
+        -Dc_link_args="$LDFLAGS ${lto_ldflags}" \
+        -Dcpp_link_args="$LDFLAGS ${lto_ldflags}" || return 1
 
     ninja -C _build $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja -C _build install || return 1
