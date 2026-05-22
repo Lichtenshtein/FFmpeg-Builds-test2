@@ -24,12 +24,38 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # disable unnecessary executables
-    if [ -f "gio/meson.build" ]; then
-        sed -i "s/subdir('tests')/# subdir('tests')/g" gio/meson.build
-    fi
-    # Completely disable building glib tools/executables
-    sed -i "s/subdir('tools')/# subdir('tools')/g" meson.build
+    # Создаем пустой си-файл в корне и в gio
+    echo "int main() { return 0; }" > dummy.c
+    echo "int main() { return 0; }" > gio/dummy.c
+
+    # Меняем исходники на 'dummy.c', а install на false
+
+    # gio_tool
+    sed -i "s/executable('gio', gio_tool_sources/executable('gio', 'dummy.c', install : false, #/g" gio/meson.build
+
+    # gresource
+    sed -i "s/executable('gresource', 'gresource-tool.c'/executable('gresource', 'dummy.c', install : false/g" gio/meson.build
+
+    # gio-querymodules
+    sed -i "s/executable('gio-querymodules', 'gio-querymodules.c', 'giomodule-priv.c'/gio_querymodules = executable('gio-querymodules', 'dummy.c', install : false/g" gio/meson.build
+
+    # glib-compile-schemas
+    sed -i "s/executable('glib-compile-schemas',/glib_compile_schemas = executable('glib-compile-schemas', 'dummy.c', install : false, #/g" gio/meson.build
+
+    # glib-compile-resources
+    sed -i "s/executable('glib-compile-resources',/glib_compile_resources = executable('glib-compile-resources', 'dummy.c', install : false, #/g" gio/meson.build
+
+    # gsettings
+    sed -i "s/executable('gsettings', 'gsettings-tool.c'/executable('gsettings', 'dummy.c', install : false/g" gio/meson.build
+
+    # gdbus
+    sed -i "s/executable('gdbus', 'gdbus-tool.c'/gdbus_tool = executable('gdbus', 'dummy.c', install : false/g" gio/meson.build
+
+    # gapplication
+    sed -i "s/executable('gapplication', 'gapplication-tool.c'/executable('gapplication', 'dummy.c', install : false/g" gio/meson.build
+
+    # Отключаем создание симлинков для многоархитектурных бинарников, так как они нам не нужны
+    sed -i "s/if multiarch_bindir != get_option('bindir')/if false/g" gio/meson.build
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
         # fix visibility attribute compatibility for windows static
@@ -39,6 +65,18 @@ ffbuild_dockerbuild() {
     # Clean legacy windows definitions
     sed -i '/#define _WIN32_WINNT 0x/d' meson.build
     sed -i '/#include <sys\/resource.h>/d' girepository/cmph/cmph_time.h 2>/dev/null || true
+
+    # disable tests
+    if [ -f "gio/tests/meson.build" ]; then
+        echo "" > gio/tests/meson.build
+    fi
+    if [ -f "tests/meson.build" ]; then
+        echo "" > tests/meson.build
+    fi
+    # disable unnecessary executables
+    if [ -f "gio/meson.build" ]; then
+        sed -i "s/subdir('tests')/# subdir('tests')/g" gio/meson.build
+    fi
 
     # Clean up sysprof and third-party fallbacks
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
