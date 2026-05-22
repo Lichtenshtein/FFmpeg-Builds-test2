@@ -214,8 +214,8 @@ unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS RUSTFLAGS LIBS
 
 if [[ "$USE_LTO" == "1" ]]; then
 # Tip: rust has -C linker-plugin-lto LLVM Bitcode or LLVM MinGW
-    export RUSTLTO=" -C lto=thin" # fat
-    export USELTO="-flto=8" # try 8
+    export RUSTLTO=" -C lto=fat" # thin
+    export USELTO="-flto=8 -fno-use-linker-plugin" # try 8
     export USELTO_C=" -ffat-lto-objects -flto-compression-level=9" # try 9
     export NOLTO="-fno-lto"
     export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
@@ -293,8 +293,8 @@ if [[ "$TARGET" == "win64" ]]; then
         export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17 -fvisibility=default"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20 -fvisibility=default"
         MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${MAIN_LDFLAGS[*]}"
