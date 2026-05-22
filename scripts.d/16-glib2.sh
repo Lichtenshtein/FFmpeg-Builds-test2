@@ -25,7 +25,9 @@ ffbuild_dockerbuild() {
     set -e
 
     if [ -f "gio/meson.build" ]; then
-        # Вставляем объявление деактивации в начало файла, после инициализации базовых переменных
+        # Вставляем объявление деактивации в самое начало файла.
+        # Переопределяем массивы исходников и зависимости в disabler().
+        # Это заставит Meson штатно отключить сборку самих .exe.
         sed -i '1i \
 gio_tool_sources = disabler() \
 gresource_tool_sources = disabler() \
@@ -37,13 +39,20 @@ gdbus_tool_sources = disabler() \
 gapplication_tool_sources = disabler() \
 app_profile_dep = disabler()' gio/meson.build
 
-        # Дополнительно подстрахуем переменные, которые проверяются в override_find_program
-        # Присваиваем им пустой disabler-объект, чтобы не было ошибки "Unknown variable" или "void assignment"
-        sed -i "s/gio_querymodules = executable/gio_querymodules = disabler() #/g" gio/meson.build
-        sed -i "s/glib_compile_schemas = executable/glib_compile_schemas = disabler() #/g" gio/meson.build
-        sed -i "s/glib_compile_resources = executable/glib_compile_resources = disabler() #/g" gio/meson.build
-        sed -i "s/gdbus_tool = executable/gdbus_tool = disabler() #/g" gio/meson.build
-        sed -i "s/gio_tool = executable/gio_tool = disabler() #/g" gio/meson.build
+        # Дополнительно переопределяем переменные, которые используются ниже по коду.
+        # Делаем это БЕЗ комментирования оригинальных вызовов, просто объявляя их как disabler() ДО вызовов.
+        # Meson перезапишет их значения, а оригинальные блоки executable() пропустит, 
+        # так как их внутренние аргументы (выписанные выше) теперь являются disabler-объектами.
+        sed -i '1i \
+gio_tool = disabler() \
+gresource = disabler() \
+gio_querymodules = disabler() \
+glib_compile_schemas = disabler() \
+glib_compile_resources = disabler() \
+gsettings = disabler() \
+gdbus_tool = disabler() \
+gapplication = disabler()' gio/meson.build
+
         sed -i "s/subdir('tests')/# subdir('tests')/g" gio/meson.build
     fi
 
