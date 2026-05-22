@@ -19,20 +19,17 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "git-submodule-clone"
     # donor-file for aom
-    curl -fsSL "https://raw.githubusercontent.com/libjxl/libjxl/26494266bae545dc2084746a1fb22e805e119e85/lib/include/jxl/butteraugli.h" -o "butteraugli.h"
+    cat << 'EOF'
+mkdir -p lib/include/jxl
+curl -fsSL "https://raw.githubusercontent.com/libjxl/libjxl/26494266bae545dc2084746a1fb22e805e119e85/lib/include/jxl/butteraugli.h" \
+    -o "lib/include/jxl/butteraugli.h"
+EOF
+    echo "git-submodule-clone"
 }
 
 ffbuild_dockerbuild() {
     set -e
-
-    mkdir -p "$FFBUILD_PREFIX/include/jxl"
-    find . -name "butteraugli.h" -exec cp {} "$FFBUILD_PREFIX/include/jxl/" \; || true
-    if [ ! -s "$FFBUILD_PREFIX/include/jxl/butteraugli.h" ]; then
-        log_error "Failed to copy butteraugli.h"
-        return 1
-    fi
 
     mkdir -p build && cd build
 
@@ -91,6 +88,15 @@ ffbuild_dockerbuild() {
         # log_error "Failed to download butteraugli.h"
         # return 1
     # fi
+
+    # Извлекаем butteraugli.h
+    log_info "Copying butteraugli.h for the AOM compiler..."
+    mkdir -p "${INSTALL_ROOT}/include/jxl"
+    cp "../lib/include/jxl/butteraugli.h" "${INSTALL_ROOT}/include/jxl/butteraugli.h"
+    if [ ! -s "${INSTALL_ROOT}/include/jxl/butteraugli.h" ]; then
+        log_error "Failed to verify butteraugli.h in installation directory"
+        return 1
+    fi
 
     sed -i "s/^Requires.private: /Requires.private: lcms2 libhwy libjxl_cms /" "$PC_DIR/libjxl_cms.pc"
     sed -i 's/Libs:/Libs: -lhwy/' "$PC_DIR/libjxl.pc"

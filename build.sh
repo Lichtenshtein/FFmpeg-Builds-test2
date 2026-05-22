@@ -539,6 +539,22 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     exit 1
 fi
 
+# cleaning ffmpeg header
+if [ -f "ffbuild/config.sh" ]; then
+    log_info "Cleanup and shortening of configuration line in ffbuild/config.sh..."
+    # Вырезаем гигантские списки линковки (--extra-libs)
+    sed -i "s/--extra-libs='[^']*'//g" ffbuild/config.sh
+    # Вырезаем длинные списки внутренних флагов компиляции и путей
+    sed -i "s/--extra-cflags='[^']*'//g" ffbuild/config.sh
+    sed -i "s/--extra-cxxflags='[^']*'//g" ffbuild/config.sh
+    sed -i "s/--extra-ldflags='[^']*'//g" ffbuild/config.sh
+    sed -i "s/--extra-ldexeflags='[^']*'//g" ffbuild/config.sh
+    sed -i "s/--host-cflags='[^']*'//g" ffbuild/config.sh
+    sed -i "s/--host-ldflags='[^']*'//g" ffbuild/config.sh
+    # Схлопываем множественные пробелы, которые могли образоваться после удаления
+    sed -i "s/  */ /g" ffbuild/config.sh
+fi
+
 # Сборка и установка ffmpeg
 make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
 make install
