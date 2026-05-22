@@ -39,10 +39,7 @@ gdbus_tool_sources = disabler() \
 gapplication_tool_sources = disabler() \
 app_profile_dep = disabler()' gio/meson.build
 
-        # Дополнительно переопределяем переменные, которые используются ниже по коду.
-        # Делаем это БЕЗ комментирования оригинальных вызовов, просто объявляя их как disabler() ДО вызовов.
-        # Meson перезапишет их значения, а оригинальные блоки executable() пропустит, 
-        # так как их внутренние аргументы (выписанные выше) теперь являются disabler-объектами.
+        # переопределяем переменные, которые используются ниже по коду
         sed -i '1i \
 gio_tool = disabler() \
 gresource = disabler() \
@@ -126,8 +123,8 @@ EOF
         -Dinstalled_tests=false
         -Dintrospection=disabled
         -Dlibmount=disabled
-        # -Dnls=disabled
-        -Dnls=enabled
+        -Dnls=disabled
+        # -Dnls=enabled
         -Dforce_posix_threads=true
         -Dglib_debug=disabled
         -Dman-pages=disabled
