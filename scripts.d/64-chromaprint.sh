@@ -46,11 +46,6 @@ ffbuild_dockerbuild() {
 
     sed -i '/^Libs.private:/ s/$/ -lfftw3 -lstdc++/' "$PC_DIR/libchromaprint.pc"
     sed -i "s|^Cflags:.*|& $static_flags|" "$PC_DIR/libchromaprint.pc"
-    if [[ -n "$static_flags" ]]; then
-        if ! grep -qF -- "$static_flags" "$PC_DIR/libchromaprint.pc"; then
-            sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_DIR/libchromaprint.pc"
-        fi
-    fi
 }
 
 ffbuild_configure() {
