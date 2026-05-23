@@ -54,7 +54,7 @@ fi
 # Если они лежат в /opt/ffbuild/bin, то всё ок. 
 # Но если они в подпапках (runtime/bin/intel64/...), нужно убедиться, что они попали в $PKG_DIR/bin/
 log_info "${SYNC_MARK} Collecting external component DLLs if present..."
-find "$FFBUILD_PREFIX" -maxdepth 3 \( -name '*.dll' -o -name '*.pyd' -o -name '*.zip' \) -exec cp -v {} "$PKG_DIR/bin/" \; 2>/dev/null || true
+find "$FFBUILD_PREFIX" -maxdepth 3 \( -name '*.dll' -o -name '*.pyd' -o -name '*.bin' -o -name '*.sign' -o -name '*.zip' \) -exec cp -v {} "$PKG_DIR/bin/" \; 2>/dev/null || true
 
 # Автоматический поиск и упаковка системного рантайма MinGW (SSP, WinPthreads, GCC)
 log_info "${SYNC_MARK} Analyzing ffmpeg.exe for missing MinGW runtime DLLs..."
