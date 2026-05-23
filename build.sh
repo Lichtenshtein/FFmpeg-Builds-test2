@@ -314,7 +314,8 @@ fi
 # fi
 
 # Используем группы для решения проблем циклических зависимостей
-FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
+# прокидываем библиотеку обработки исключений LTO за пределы основной группы
+FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++ -lgcc_eh -lgcc"
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
@@ -512,6 +513,14 @@ if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
         MAKE_JOBS=2
         log_warn "LTO & Low Memory: Forcing dual-thread build to avoid OOM."
     fi
+
+    # Replace the unmanaged -flto=auto with a safe number of MAKE_JOBS threads
+    # specifically for the final build of FFmpeg executables
+    log_info "Tweaking final compiler and linker options: scaling LTO to ${MAKE_JOBS} threads..."
+
+    FINAL_CFLAGS=$(echo "$FINAL_CFLAGS" | sed "s/-flto=auto/-flto=${MAKE_JOBS}/g")
+    FINAL_CXXFLAGS=$(echo "$FINAL_CXXFLAGS" | sed "s/-flto=auto/-flto=${MAKE_JOBS}/g")
+    FINAL_LDFLAGS=$(echo "$FINAL_LDFLAGS" | sed "s/-flto=auto/-flto=${MAKE_JOBS}/g")
 else
     # Обычная сборка (не LTO) ориентируемся на MemAvailable
     MEM_AVAIL=$(awk '/MemAvailable/ {printf "%d", $2/1024/1024}' /proc/meminfo)
