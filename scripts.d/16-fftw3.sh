@@ -78,8 +78,8 @@ ffbuild_dockerbuild() {
         LIBS="${OPENMP_LIB}$LIBS" \
         ./configure "${myconf[@]}" || return 1
 
-        make -j$(nproc) $MAKE_V || return 1
-        make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+        make -j$(nproc) libfftw3.la $MAKE_V || return 1
+        DESTDIR="$FFBUILD_DESTDIR" make install-libLTLIBRARIES install-pkgconfigDATA install-includeHEADERS || return 1
     done
 }
 
