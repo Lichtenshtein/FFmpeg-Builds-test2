@@ -216,7 +216,7 @@ if [[ "$USE_LTO" == "1" ]]; then
 # Tip: rust has -C linker-plugin-lto LLVM Bitcode or LLVM MinGW
 # -fno-use-linker-plugin
     export RUSTLTO=" -C lto=fat" # thin
-    export USELTO="-flto=auto -flto-partition=max -fno-stack-clash-protection" # try 8
+    export USELTO="-flto=auto -flto-partition=max -fno-stack-clash-protection -fno-toplevel-reorder" # try 8
     export USELTO_C=" -ffat-lto-objects -flto-compression-level=3 -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline" # try 9
     export NOLTO="-fno-lto"
     export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
