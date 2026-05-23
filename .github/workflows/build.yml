@@ -286,7 +286,7 @@ jobs:
         with:
           context: images/base
           build-args: |
-            CARGO_C_VERSION=0.10.20
+            CARGO_C_VERSION=0.10.22
           tags: ${{ steps.images.outputs.repo_lc }}/base:latest
           push: true
           load: false
