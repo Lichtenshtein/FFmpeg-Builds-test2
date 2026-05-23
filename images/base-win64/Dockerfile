@@ -17,7 +17,12 @@ RUN --mount=src=ct-ng-config,dst=/.config \
     ./ct-ng build && \
     cd / && \
     rm -rf ct-ng && \
-    mkdir -p /opt/ffbuild /opt/ffdest
+    mkdir -p /opt/ffbuild /opt/ffdest && \
+    \
+    apt-get -y update && \
+    apt-get -y install --no-install-recommends wine && \
+    apt-get -y clean autoclean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Use login shell to ensure /etc/profile.d/toolchain.sh is sourced for every RUN
 SHELL ["/bin/bash", "-l", "-c"]
