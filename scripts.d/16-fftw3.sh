@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/FFTW/fftw3.git"
-SCRIPT_COMMIT="6c8f5c3e620ebc38262cd80ca6f65e9f85783d9e"
+SCRIPT_COMMIT="a3233fd0a30f0284e9935044c66f09defbd2bb50"
 
 ffbuild_enabled() {
     return 0
@@ -19,6 +19,13 @@ ffbuild_dockerbuild() {
         sed -i 's/-libs nums/-use-ocamlfind -package num/' genfft/Makefile.am
     fi
     sed -i 's/windows.h/process.h/' configure.ac
+
+    # отключаем сборку бинарников, скриптов и мануалов в директории tools
+    if [ -f tools/Makefile.am ]; then
+        sed -i 's/^bin_PROGRAMS =.*/bin_PROGRAMS =/' tools/Makefile.am
+        sed -i 's/^bin_SCRIPTS =.*/bin_SCRIPTS =/' tools/Makefile.am
+        sed -i 's/^dist_man_MANS =.*/dist_man_MANS =/' tools/Makefile.am
+    fi
 
     local base_conf=(
         --prefix="$FFBUILD_PREFIX"
@@ -78,8 +85,8 @@ ffbuild_dockerbuild() {
         LIBS="${OPENMP_LIB}$LIBS" \
         ./configure "${myconf[@]}" || return 1
 
-        make -j$(nproc) libfftw3.la $MAKE_V || return 1
-        DESTDIR="$FFBUILD_DESTDIR" make install-libLTLIBRARIES install-pkgconfigDATA install-includeHEADERS || return 1
+        make -j$(nproc) $MAKE_V || return 1
+        make install DESTDIR="$FFBUILD_DESTDIR" || return 1
     done
 }
 
