@@ -14,10 +14,10 @@ ffbuild_configure() {
 # -ffat-lto-objects позволит библиотекам содержать как LTO-код, так и обычный объектный код. Это увеличит размер промежуточных библиотек, но сделает линковку более стабильной
 # -mpreferred-stack-boundary=4
 ffbuild_cflags() {
-    echo "${USELTO} -flto-compression-level=9 -mstackrealign"
+    echo "${USELTO}${USELTO_C//-ffat-lto-objects/} -mstackrealign"
 }
 ffbuild_cxxflags() {
-    echo "${USELTO} -flto-compression-level=9 -mstackrealign"
+    echo "${USELTO}${USELTO_C//-ffat-lto-objects/} -mstackrealign"
 }
 
 # ffbuild_cflags() {

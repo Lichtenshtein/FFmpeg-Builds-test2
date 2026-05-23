@@ -22,8 +22,8 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
-    local DEP_LIBS="-lfreetype -licuin -licuuc -licudt"
-    local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
+    # local DEP_LIBS="-lfreetype -licuin -licuuc -licudt"
+    # local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
 
     local myconf=(
         --cross-file="$FFBUILD_MESON_CROSS"

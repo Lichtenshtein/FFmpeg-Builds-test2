@@ -499,6 +499,10 @@ TOTAL_VIRTUAL=$(( MEM_PHYS + SWAP_TOTAL ))
 # Для 7GB RAM + 32GB Swap оптимально не превышать 4 потока, 
 # иначе диск не будет успевать за подкачкой.
 if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
+
+    # Force disable LTO for the problematic VVC module to prevent GCC choose_baseaddr ICE
+    sed -i 's/X86/X86\n#ifndef __clang__\n__attribute__((optimize("no-lto")))\n#endif/' libavcodec/vvc/intra_template.c
+
     # Если виртуальной памяти много, можно позволить 4 потока.
     # Если мало (менее 16ГБ общего), лучше оставить 2.
     if [[ $TOTAL_VIRTUAL -gt 16 ]]; then
