@@ -28,8 +28,8 @@ ffbuild_dockerbuild() {
 
     mkdir -p build_dir && cd build_dir
 
-    local DEP_LIBS="-lssl -lcrypto -lxml2 -lzstd -llzma -lbz2 -lz -liconv -lcharset"
-    local WIN_LIBS="-lcrypt32 -luserenv $LIBS"
+    # local DEP_LIBS="-lssl -lcrypto -lxml2 -lzstd -llzma -lbz2 -lz -liconv -lcharset"
+    # local WIN_LIBS="-lcrypt32 -luserenv $LIBS"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"

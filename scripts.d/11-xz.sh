@@ -30,7 +30,7 @@ ffbuild_dockerbuild() {
     # Мы пропускаем генерацию документации и переводов для скорости
     ./autogen.sh --no-po4a --no-doxygen || return 1
 
-    local DEP_LIBS="-lintl -liconv -lcharset $LIBS"
+    # local DEP_LIBS="-lintl -liconv -lcharset $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
