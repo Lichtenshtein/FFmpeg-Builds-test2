@@ -215,7 +215,7 @@ unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS RUSTFLAGS LIBS
 if [[ "$USE_LTO" == "1" ]]; then
 # Tip: rust has -C linker-plugin-lto LLVM Bitcode or LLVM MinGW
     export RUSTLTO=" -C lto=fat" # thin
-    export USELTO="-flto=8" # try 8
+    export USELTO="-flto=8 -fno-use-linker-plugin" # try 8
     export USELTO_C=" -ffat-lto-objects -flto-compression-level=9" # try 9
     export NOLTO="-fno-lto"
     export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
