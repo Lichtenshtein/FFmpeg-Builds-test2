@@ -27,7 +27,7 @@ ffbuild_dockerbuild() {
     # without icu for faster testing
     # local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset $LIBS"
     # with icu
-    local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset -licuin -licuuc -licudt $LIBS"
+    # local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset -licuin -licuuc -licudt $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
