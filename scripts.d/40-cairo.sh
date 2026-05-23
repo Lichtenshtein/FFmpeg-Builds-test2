@@ -27,12 +27,27 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # local DEP_LIBS="-Wl,--start-group -lfontconfig -lpixman-1 -lxml2 -lpng16 -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfreetype -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -licuin -licuuc -licudt -Wl,--end-group"
-    # local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -luuid $LIBS -lstdc++"
+    local DEP_LIBS="-Wl,--start-group -lfontconfig -lpixman-1 -lxml2 -lpng16 -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfreetype -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -licuin -licuuc -licudt -Wl,--end-group"
+    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -luuid $LIBS -lstdc++"
 
     # конфликт hypot в коде Cairo для MinGW
     # error: implicit declaration of function '_hypot'
     sed -i 's/#define hypot _hypot/\/\/#define hypot _hypot/' src/cairo-compiler-private.h
+
+    # Удаляем gnu_symbol_visibility изо всех meson.build (включая src/ и util/)
+    if [ -f "src/cairo.h" ]; then
+        sed -i 's/# define _cairo_export __attribute__((__visibility__("default")))/# define _cairo_export/g' src/cairo.h
+    fi
+
+    # Гасим скрытые символы во внутренних хидерах
+    if [ -f "src/cairo-compiler-private.h" ]; then
+        sed -i 's/#define CAIRO_HAS_HIDDEN_SYMBOLS 1/#define CAIRO_HAS_HIDDEN_SYMBOLS 0/g' src/cairo-compiler-private.h
+        sed -i 's/#define cairo_private_no_warn.*/#define cairo_private_no_warn/g' src/cairo-compiler-private.h
+    fi
+
+    if [ -f "util/cairo-script/cairo-script-private.h" ]; then
+        sed -i 's/#define csi_private_no_warn.*/#define csi_private_no_warn/g' util/cairo-script/cairo-script-private.h
+    fi
 
     mkdir -p _build && cd _build
 
