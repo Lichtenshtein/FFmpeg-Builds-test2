@@ -216,7 +216,7 @@ if [[ "$USE_LTO" == "1" ]]; then
 # Tip: rust has -C linker-plugin-lto LLVM Bitcode or LLVM MinGW
 # -fno-use-linker-plugin
     export RUSTLTO=" -C lto=fat" # thin
-    export USELTO="-flto=8 -flto-partition=max -fno-stack-clash-protection" # try 8
+    export USELTO="-flto=auto -flto-partition=max -fno-stack-clash-protection" # try 8
     export USELTO_C=" -ffat-lto-objects -flto-compression-level=3 -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline" # try 9
     export NOLTO="-fno-lto"
     export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
@@ -260,8 +260,8 @@ HOST_LINUX_LDFLAGS=(
 # Настраиваем HOST_RUSTFLAGS (всегда Linux ELF)
 export HOST_RUSTFLAGS="${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${HOST_LINUX_LDFLAGS[@]}") -C embed-bitcode=yes"
 export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]} ${USELTO}"
-export HOST_CFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -std=gnu23 ${USELTO}${USELTO_C}"
-export HOST_CXXFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -std=gnu++20 ${USELTO}${USELTO_C}"
+export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -std=gnu23 ${USELTO}${USELTO_C}"
+export HOST_CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -std=gnu++20 ${USELTO}${USELTO_C}"
 export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
 # Ветвление по TARGET
@@ -285,8 +285,8 @@ if [[ "$TARGET" == "win64" ]]; then
     MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -fPIC -std=gnu17"
-        export CXXFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -fPIC -std=gnu++20"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -fPIC -std=gnu17"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -fPIC -std=gnu++20"
         RUST_STATIC_CFG=""
         export LDFLAGS="${MAIN_LDFLAGS[*]}"
         export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
@@ -294,8 +294,8 @@ if [[ "$TARGET" == "win64" ]]; then
         export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
-        export CFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17 -fvisibility=default"
-        export CXXFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20 -fvisibility=default"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17 -fvisibility=default"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20 -fvisibility=default"
         MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${MAIN_LDFLAGS[*]}"
@@ -318,8 +318,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
     MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -fPIC -std=gnu17"
-        export CXXFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -fPIC -std=gnu++20"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -fPIC -std=gnu17"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -fPIC -std=gnu++20"
         export STAGE_CFLAGS="-fno-semantic-interposition"
         export STAGE_CXXFLAGS="-fno-semantic-interposition"
         RUST_STATIC_CFG=""
@@ -329,8 +329,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
         export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
-        export CFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17"
-        export CXXFLAGS="-O2 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g0 ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20"
         # Для Linux статика — это -static и исключение динамических путей
         MAIN_LDFLAGS=("-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
