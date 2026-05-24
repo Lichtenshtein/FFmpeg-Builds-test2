@@ -153,8 +153,8 @@ EOF
     local lto_ldflags=""
     if [[ "$USE_LTO" == "1" ]]; then
         myconf+=( -Db_lto=false ) # Keep internal meson lto safe
-        lto_cflags="${USELTO}${USELTO_C}"
-        lto_ldflags="${USELTO}"
+        lto_cflags="${NOLTO}"
+        lto_ldflags="${NOLTO}"
     fi
 
     export static_flags=""
