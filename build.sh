@@ -442,6 +442,69 @@ unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS LDEXEFLAGS ASFLAGS LIBS
 read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
 read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 
+# Считаем физическую память и Swap (в ГБ)
+MEM_PHYS=$(awk '/MemTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)
+SWAP_TOTAL=$(awk '/SwapTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)
+TOTAL_VIRTUAL=$(( MEM_PHYS + SWAP_TOTAL ))
+# Лимиты для LTO:
+# На этапе линковки каждый поток LTO требует много RAM.
+# Для 7GB RAM + 32GB Swap оптимально не превышать 4 потока, 
+# иначе диск не будет успевать за подкачкой.
+if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
+
+    # Force disable LTO for the problematic VVC module to prevent GCC choose_baseaddr ICE
+    sed -i 's/X86/X86\n#ifndef __clang__\n__attribute__((optimize("no-lto")))\n#endif/' libavcodec/vvc/intra_template.c
+
+    # защита таблиц MLP от удаления оптимизатором LTO (Dead Code Elimination)
+    if [ -f "libavcodec/mlp.c" ]; then
+        log_info "Patching MLP tables to prevent LTO eviction..."
+        sed -i 's/const uint8_t ff_mlp_/\n__attribute__((used)) const uint8_t ff_mlp_/g' libavcodec/mlp.c
+    fi
+
+    # Если виртуальной памяти много, можно позволить 4 потока.
+    # Если мало (менее 16ГБ общего), лучше оставить 2.
+    if [[ $TOTAL_VIRTUAL -gt 16 ]]; then
+        MAKE_JOBS=4
+        log_warn "LTO & High Swap: Using 4 threads for stability."
+    else
+        MAKE_JOBS=2
+        log_warn "LTO & Low Memory: Forcing dual-thread build to avoid OOM."
+    fi
+
+    # Replace the unmanaged -flto=auto with a safe number of MAKE_JOBS threads
+    # specifically for the final build of FFmpeg executables
+    log_info "Tweaking final compiler and linker options: scaling LTO to ${MAKE_JOBS} threads..."
+
+    FINAL_CFLAGS=$(echo " ${FINAL_CFLAGS} " | sed -E "s/ -flto(=[a-z0-9]+)? / -flto=${MAKE_JOBS} /g")
+    FINAL_CXXFLAGS=$(echo " ${FINAL_CXXFLAGS} " | sed -E "s/ -flto(=[a-z0-9]+)? / -flto=${MAKE_JOBS} /g")
+    FINAL_LDFLAGS=$(echo " ${FINAL_LDFLAGS} " | sed -E "s/ -flto(=[a-z0-9]+)? / -flto=${MAKE_JOBS} /g")
+    HOST_CFLAGS=$(echo " ${HOST_CFLAGS} " | sed -E "s/ -flto(=[a-z0-9]+)? / -flto=${MAKE_JOBS} /g")
+    HOST_LDFLAGS=$(echo " ${HOST_LDFLAGS} " | sed -E "s/ -flto(=[a-z0-9]+)? / -flto=${MAKE_JOBS} /g")
+else
+    # Обычная сборка (не LTO) ориентируемся на MemAvailable
+    MEM_AVAIL=$(awk '/MemAvailable/ {printf "%d", $2/1024/1024}' /proc/meminfo)
+    # 1 поток на 1.5 ГБ доступной памяти для обычной компиляции
+    MEM_JOBS=$(( MEM_AVAIL * 10 / 15 ))
+    [[ $MEM_JOBS -lt 1 ]] && MEM_JOBS=1
+
+    CPU_CORES=$(nproc)
+    MAKE_JOBS=$(( CPU_CORES < MEM_JOBS ? CPU_CORES : MEM_JOBS ))
+    log_info "Non-LTO build: Setting MAKE_JOBS=${MAKE_JOBS} based on availability."
+fi
+
+# Создаем обертку для линкера, которая гарантирует правильный порядок библиотек рантайма
+log_info "Creating a smart linker wrapper to handle SjLj exceptions..."
+cat << 'EOF' > "${TMP_DIR}/ld-wrapper"
+#!/bin/bash
+REAL_LD="/opt/ct-ng/x86_64-w64-mingw32/bin/x86_64-w64-mingw32-ld"
+if [ ! -f "$REAL_LD" ]; then
+    REAL_LD=$(which x86_64-w64-mingw32-ld)
+fi
+# Вызываем оригинальный линкер, но принудительно дописываем рантайм исключений в самый конец
+exec "$REAL_LD" "$@" -lgcc_eh -lgcc
+EOF
+
+chmod +x "${TMP_DIR}/ld-wrapper"
 chmod +x configure
 
 # Tip: -Wl,--allow-multiple-definition needed for KVAZAAR with cryptopp.
@@ -469,6 +532,8 @@ CONF_FLAGS=(
     # --ranlib="${FFBUILD_CROSS_PREFIX}ranlib" 
     # --nm="${FFBUILD_CROSS_PREFIX}nm" 
     # --as="${FFBUILD_CROSS_PREFIX}gcc"
+    # ПОДМЕНА ЛИНКЕРА: направляем FFmpeg на наш враппер
+    --ld="${TMP_DIR}/ld-wrapper"
 )
 
 if [[ "${PREFER_SHARED}" != "1" ]]; then
@@ -489,48 +554,6 @@ fi
 [[ "$FFMPEG_PATCHES" == "1" ]] && CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
 if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
     CONF_FLAGS+=( --nvcc=clang )
-fi
-
-# Считаем физическую память и Swap (в ГБ)
-MEM_PHYS=$(awk '/MemTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)
-SWAP_TOTAL=$(awk '/SwapTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)
-TOTAL_VIRTUAL=$(( MEM_PHYS + SWAP_TOTAL ))
-# Лимиты для LTO:
-# На этапе линковки каждый поток LTO требует много RAM.
-# Для 7GB RAM + 32GB Swap оптимально не превышать 4 потока, 
-# иначе диск не будет успевать за подкачкой.
-if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
-
-    # Force disable LTO for the problematic VVC module to prevent GCC choose_baseaddr ICE
-    sed -i 's/X86/X86\n#ifndef __clang__\n__attribute__((optimize("no-lto")))\n#endif/' libavcodec/vvc/intra_template.c
-
-    # Если виртуальной памяти много, можно позволить 4 потока.
-    # Если мало (менее 16ГБ общего), лучше оставить 2.
-    if [[ $TOTAL_VIRTUAL -gt 16 ]]; then
-        MAKE_JOBS=4
-        log_warn "LTO & High Swap: Using 4 threads for stability."
-    else
-        MAKE_JOBS=2
-        log_warn "LTO & Low Memory: Forcing dual-thread build to avoid OOM."
-    fi
-
-    # Replace the unmanaged -flto=auto with a safe number of MAKE_JOBS threads
-    # specifically for the final build of FFmpeg executables
-    log_info "Tweaking final compiler and linker options: scaling LTO to ${MAKE_JOBS} threads..."
-
-    FINAL_CFLAGS=$(echo "$FINAL_CFLAGS" | sed "s/-flto=auto/-flto=${MAKE_JOBS}/g")
-    FINAL_CXXFLAGS=$(echo "$FINAL_CXXFLAGS" | sed "s/-flto=auto/-flto=${MAKE_JOBS}/g")
-    FINAL_LDFLAGS=$(echo "$FINAL_LDFLAGS" | sed "s/-flto=auto/-flto=${MAKE_JOBS}/g")
-else
-    # Обычная сборка (не LTO) ориентируемся на MemAvailable
-    MEM_AVAIL=$(awk '/MemAvailable/ {printf "%d", $2/1024/1024}' /proc/meminfo)
-    # 1 поток на 1.5 ГБ доступной памяти для обычной компиляции
-    MEM_JOBS=$(( MEM_AVAIL * 10 / 15 ))
-    [[ $MEM_JOBS -lt 1 ]] && MEM_JOBS=1
-
-    CPU_CORES=$(nproc)
-    MAKE_JOBS=$(( CPU_CORES < MEM_JOBS ? CPU_CORES : MEM_JOBS ))
-    log_info "Non-LTO build: Setting MAKE_JOBS=${MAKE_JOBS} based on availability."
 fi
 
 log_info_line
