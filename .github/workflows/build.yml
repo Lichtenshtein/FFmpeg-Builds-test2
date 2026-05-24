@@ -107,6 +107,10 @@ on:
         description: 'Build OpenVino'
         type: boolean
         default: false
+      skip_rsync:
+        description: 'Skip rsync'
+        type: boolean
+        default: true
 env:
   # Общие настройки локали
   LANG: C.UTF-8
@@ -147,6 +151,7 @@ env:
   OLDER_FFNV:     ${{ github.event.inputs.older_ffnv     == 'true' && '1' || '0' }}
   DIR_NUMBERS:    ${{ github.event.inputs.dir_numbers    == 'true' && '1' || '0' }}
   BUILD_VINO:     ${{ github.event.inputs.build_vino     == 'true' && '1' || '0' }}
+  SKIP_RSYNC:     ${{ github.event.inputs.skip_rsync     == 'true' && '1' || '0' }}
   # Маппинг Inputs -> Env для всех динамических значений
   FFMPEG_REPO:     ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-VVC.git' }}
   FFMPEG_BRANCH:   ${{ github.event.inputs.ffmpeg_branch || 'master' }}
@@ -365,54 +370,43 @@ jobs:
             .cache/ffmpeg
           key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
 
-      - name: Build Components Stage
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: Dockerfile
-          target: components_build  # <--- Собираем только до библиотек
-          build-args: |
-            CPU_ARCH=${{ env.CPU_ARCH }}
-            CPU_TUNE=${{ env.CPU_TUNE }}
-          # Пушим в GHCR, чтобы кэш не пропадал между запусками
-          push: true
-          tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
-          cache-from: type=gha,scope=ffmpeg-components
-          cache-to: type=gha,mode=max,scope=ffmpeg-components
-          build-contexts: |
-            base-win64=docker-image://${{ steps.images.outputs.target_base }}
+      - name: Prepare Cache Directories
+        run: |
+          mkdir -p .cache/components .cache/shared_prefix .cache/shared_dest
 
-      # - name: Save Cache After Components
-        # if: always()
-        # uses: actions/cache/save@v5
-        # with:
-          # path: |
-            # .cache/downloads
-            # .cache/ffmpeg
-          # key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}-post
+      # This step checks GitHub Cache for individual component tarballs
+      - name: Restore Component Caches
+        uses: actions/cache/restore@v5
+        with:
+          path: .cache/components
+          key: win64-${{ env.CPU_ARCH }}-${{ env.VARIANT }}-components-${{ github.run_id }}
+          restore-keys: |
+            win64-${{ env.CPU_ARCH }}-${{ env.VARIANT }}-components-
+
+      - name: Run Component Build Loop
+        run: |
+          chmod +x ./util/build_dispatcher.sh
+          ./util/build_dispatcher.sh
+
+      - name: Save Component Caches
+        uses: actions/cache/save@v5
+        with:
+          path: .cache/components
+          key: win64-${{ env.CPU_ARCH }}-${{ env.VARIANT }}-components-${{ github.run_id }}
 
       - name: Final FFmpeg Compilation
         if: env.SKIP_FFMPEG != '1'
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: Dockerfile
-          build-args: |
-            CPU_ARCH=${{ env.CPU_ARCH }}
-            CPU_TUNE=${{ env.CPU_TUNE }}
-          push: false
-          tags: ffmpeg-final:local
-          # Используем свежесобранный образ компонентов как контекст
-            # ffmpeg_src=${{ github.workspace }}/.cache/ffmpeg
-          build-contexts: |
-            base-win64=docker-image://${{ steps.images.outputs.target_base }}
-            components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
-          outputs: type=local,dest=artifacts/
-          cache-from: |
-            type=gha,scope=ffmpeg-components
-            type=gha,scope=ffmpeg-final
-          cache-to: type=gha,mode=max,scope=ffmpeg-final
-          provenance: false
+        run: |
+          # Ensure the shared prefix is merged into the expected location for the final build
+          # The final build expects files in /opt/ffbuild, which is now populated by the dispatcher
+          rsync -a .cache/shared_prefix/ /opt/ffbuild/ 2>/dev/null || true
+
+          # Run the final build using the existing Docker logic (which is now much faster)
+          docker run --rm \
+            --mount type=bind,source=.cache/ffmpeg,target=/builder/ffbuild/ffmpeg \
+            --mount type=bind,source=/opt/ffbuild,target=/opt/ffbuild \
+            ghcr.io/${GITHUB_REPOSITORY,,}/base-win64:latest \
+            /builder/build.sh "$TARGET" "$VARIANT"
 
       - name: Cleanup Old Caches
         if: github.event.inputs.regularClean == 'true' && !cancelled()
