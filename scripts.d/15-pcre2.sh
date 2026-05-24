@@ -44,10 +44,10 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DPCRE2_STATIC"
 
-    CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
+    CFLAGS="$CFLAGS ${NOLTO}" \
     CPPFLAGS="$CPPFLAGS $static_flags" \
-    CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}${USELTO_C}" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
+    CXXFLAGS="$CXXFLAGS $static_flags ${NOLTO}" \
+    LDFLAGS="$LDFLAGS ${NOLTO}" \
     LIBS="$DEP_LIBS" \
     ./configure "${myconf[@]}" || return 1
 
