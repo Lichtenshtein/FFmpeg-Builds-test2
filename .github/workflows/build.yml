@@ -59,7 +59,7 @@ on:
       debug_no_hash:
         description: 'Static ENV_HASH (Preserve Docker cache)'
         type: boolean
-        default: false
+        default: true
       clean_inactive:
         description: 'Clean sources for inactive components'
         type: boolean
