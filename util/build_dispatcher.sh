@@ -74,7 +74,10 @@ build_component() {
     # Ensure destdir is clean
     rm -rf "$HOST_SHARED_DESTDIR"/*
     mkdir -p "$HOST_SHARED_DESTDIR"
-    
+
+    # Get the script basename
+    local script_name=$(basename "$script_path")
+
     # Run the component inside Docker
     # We mount the host shared dirs so the build persists
     docker run --rm \
@@ -86,11 +89,9 @@ build_component() {
         --env FFBUILD_DESTDIR="$SHARED_DESTDIR" \
         --env FFBUILD_VERBOSE="$FFBUILD_VERBOSE" \
         --env SKIP_SYNC=1 \
-        --mount type=bind,source="$ROOT_DIR/util/run_stage.sh",target=/usr/bin/run_stage \
-        --mount type=bind,source="$ROOT_DIR/scripts.d",target="/builder/scripts.d" \
-        --mount type=bind,source="$ROOT_DIR/util",target="/builder/util" \
         --mount type=bind,source="$HOST_SHARED_PREFIX",target="$SHARED_PREFIX" \
         --mount type=bind,source="$HOST_SHARED_DESTDIR",target="$SHARED_DESTDIR" \
+        --mount type=bind,source="$ROOT_DIR/util/run_stage.sh",target=/usr/bin/run_stage \
         --mount type=bind,source="$ROOT_DIR/scripts.d",target="/builder/scripts.d" \
         --mount type=bind,source="$ROOT_DIR/util",target="/builder/util" \
         --mount type=bind,source="$ROOT_DIR/patches",target="/builder/patches" \
@@ -99,11 +100,11 @@ build_component() {
         --mount type=bind,source="$ROOT_DIR/.cache/downloads",target="/builder/.cache/downloads" \
         ghcr.io/${GITHUB_REPOSITORY,,}/base-win64:latest \
         /bin/bash -c "
-            chmod +x /usr/bin/run_stage
+            chmod +x /usr/bin/run_stage &&
             source /builder/util/vars.sh '$TARGET' '$VARIANT' &&
             export FFBUILD_PREFIX='$SHARED_PREFIX' &&
             export FFBUILD_DESTDIR='$SHARED_DESTDIR' &&
-            run_stage /builder/scripts.d/$(basename "$script_path")
+            run_stage /builder/scripts.d/$script_name
         "
     
     if [[ $? -eq 0 ]]; then
