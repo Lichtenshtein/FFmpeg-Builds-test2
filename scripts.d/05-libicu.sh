@@ -87,10 +87,10 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DICU_STATIC -DU_STATIC_IMPLEMENTATION"
 
-    CFLAGS="${RAW_CFLAGS:-$CFLAGS} ${USELTO}${USELTO_C}" \
+    CFLAGS="${RAW_CFLAGS:-$CFLAGS} ${NOLTO}" \
     CPPFLAGS="${RAW_CPPFLAGS:-$CPPFLAGS} $static_flags" \
-    CXXFLAGS="${RAW_CXXFLAGS:-$CXXFLAGS} $static_flags ${USELTO}${USELTO_C}" \
-    LDFLAGS="${RAW_LDFLAGS:-$LDFLAGS} ${USELTO}" \
+    CXXFLAGS="${RAW_CXXFLAGS:-$CXXFLAGS} $static_flags ${NOLTO}" \
+    LDFLAGS="${RAW_LDFLAGS:-$LDFLAGS} ${NOLTO}" \
     CC="$CC" \
     CXX="$CXX" \
     AR="$AR" \
