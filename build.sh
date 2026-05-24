@@ -514,15 +514,14 @@ if [ ! -f "$REAL_CC" ]; then
 fi
 
 IS_LINKING=0
-# Более надежная проверка на стадию финальной линковки
 if [[ " $@ " =~ " -o " ]] && [[ ! " $@ " =~ " -c " ]] && [[ ! " $@ " =~ " -E " ]]; then
     IS_LINKING=1
 fi
 
 if [ "$IS_LINKING" -eq 1 ]; then
-    # Добавляем -lmingwex (там часто сидят хелперы) и оборачиваем в start-group/end-group
-    # Это решает проблему циклической зависимости при жестком LTO
-    exec ccache "$REAL_CC" "$@" -Wl,--start-group -lmingwex -lgcc_eh -lgcc -lmingw32 -Wl,--end-group
+    # Безопасное добавление рантайма: не создаем вложенные группы, 
+    # а просто гарантируем наличие библиотек в конце строки вызова
+    exec ccache "$REAL_CC" "$@" -lmingwex -lgcc_eh -lgcc -lmingw32
 else
     exec ccache "$REAL_CC" "$@"
 fi
