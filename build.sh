@@ -493,15 +493,19 @@ else
 fi
 
 # Создаем обертку для линкера, которая гарантирует правильный порядок библиотек рантайма
-log_info "Creating a smart linker wrapper to handle SjLj exceptions..."
-cat << 'EOF' > "${TMP_DIR}/ld-wrapper"
+log_info "Creating a smart GCC-based linker wrapper..."
+
+    cat << 'EOF' > "${TMP_DIR}/ld-wrapper"
 #!/bin/bash
-REAL_LD="/opt/ct-ng/x86_64-w64-mingw32/bin/x86_64-w64-mingw32-ld"
-if [ ! -f "$REAL_LD" ]; then
-    REAL_LD=$(which x86_64-w64-mingw32-ld)
+# Используем x86_64-w64-mingw32-gcc в качестве линкера, чтобы он корректно
+# переваривал флаги -Wl и автоматически управлял рантаймом LTO/исключений
+REAL_GCC="/opt/ct-ng/bin/x86_64-w64-mingw32-gcc"
+if [ ! -f "$REAL_GCC" ]; then
+    REAL_GCC=$(which x86_64-w64-mingw32-gcc)
 fi
-# Вызываем оригинальный линкер, но принудительно дописываем рантайм исключений в самый конец
-exec "$REAL_LD" "$@" -lgcc_eh -lgcc
+
+# Вызываем GCC, передавая все флаги, и принудительно дописываем рантайм в хвост
+exec "$REAL_GCC" "$@" -lgcc_eh -lgcc
 EOF
 
 chmod +x "${TMP_DIR}/ld-wrapper"
