@@ -392,8 +392,12 @@ if [[ -d "$INSTALL_ROOT" ]]; then
 
         # sync to persistent prefix (So the next script sees them)
         # Using -u (update) to avoid overwriting newer files if layers run out of order
-        rsync -a --checksum "$INSTALL_ROOT/" "$FFBUILD_PREFIX/"
-        log_info "${CHECK_MARK} Sync completed and $STAGENAME is now available for dependencies."
+        if [[ "$SKIP_SYNC" != "1" ]]; then
+            rsync -a --checksum "$INSTALL_ROOT/" "$FFBUILD_PREFIX/"
+            log_info "${CHECK_MARK} Sync completed and $STAGENAME is now available for dependencies."
+        else
+            log_debug "${CHECK_MARK} Sync skipped (SKIP_SYNC=1). Result is in $INSTALL_ROOT."
+        fi
 
         # audit зависимостей (verbose only)
         [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && get_deps_list

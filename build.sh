@@ -456,7 +456,13 @@ TOTAL_VIRTUAL=$(( MEM_PHYS + SWAP_TOTAL ))
 if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
 
     # Force disable LTO for the problematic VVC module to prevent GCC choose_baseaddr ICE
-    sed -i 's/X86/X86\n#ifndef __clang__\n__attribute__((optimize("no-lto")))\n#endif/' libavcodec/vvc/intra_template.c
+    echo "CFLAGS-libavcodec/vvc/inter_template.o += -fno-lto" >> libavcodec/Makefile
+    echo "CFLAGS-libavcodec/vvc/intra_template.o += -fno-lto" >> libavcodec/Makefile
+    echo "CFLAGS-libavcodec/vvc/dsp.o += -fno-lto" >> libavcodec/Makefile
+
+    # На всякий случай отключаем LTO для всего каталога vvc
+    echo "CFLAGS-libavcodec/vvc/vvcdsp.o += -fno-lto" >> libavcodec/Makefile
+    echo "CFLAGS-libavcodec/vvc/vvcdec.o += -fno-lto" >> libavcodec/Makefile
 
     # защита таблиц MLP от удаления оптимизатором LTO (Dead Code Elimination)
     if [ -f "libavcodec/mlp.c" ]; then
