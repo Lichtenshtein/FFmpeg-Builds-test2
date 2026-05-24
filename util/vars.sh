@@ -217,7 +217,7 @@ if [[ "$USE_LTO" == "1" ]]; then
 # -fno-use-linker-plugin
     export RUSTLTO=" -C lto=fat" # thin
     export USELTO="-flto=auto -flto-partition=balanced -fno-stack-clash-protection -fno-toplevel-reorder" # try 8
-    export USELTO_C=" -ffat-lto-objects -flto-compression-level=3 -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-inline" # try 9
+    export USELTO_C=" -ffat-lto-objects -flto-compression-level=3 -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline -Wno-odr" # try 9
     export NOLTO="-fno-lto"
     export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
     export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
