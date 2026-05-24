@@ -86,6 +86,9 @@ build_component() {
         --env FFBUILD_DESTDIR="$SHARED_DESTDIR" \
         --env FFBUILD_VERBOSE="$FFBUILD_VERBOSE" \
         --env SKIP_SYNC=1 \
+        --mount type=bind,source="$ROOT_DIR/util/run_stage.sh",target=/usr/bin/run_stage \
+        --mount type=bind,source="$ROOT_DIR/scripts.d",target="/builder/scripts.d" \
+        --mount type=bind,source="$ROOT_DIR/util",target="/builder/util" \
         --mount type=bind,source="$HOST_SHARED_PREFIX",target="$SHARED_PREFIX" \
         --mount type=bind,source="$HOST_SHARED_DESTDIR",target="$SHARED_DESTDIR" \
         --mount type=bind,source="$ROOT_DIR/scripts.d",target="/builder/scripts.d" \
@@ -96,6 +99,7 @@ build_component() {
         --mount type=bind,source="$ROOT_DIR/.cache/downloads",target="/builder/.cache/downloads" \
         ghcr.io/${GITHUB_REPOSITORY,,}/base-win64:latest \
         /bin/bash -c "
+            chmod +x /usr/bin/run_stage
             source /builder/util/vars.sh '$TARGET' '$VARIANT' &&
             export FFBUILD_PREFIX='$SHARED_PREFIX' &&
             export FFBUILD_DESTDIR='$SHARED_DESTDIR' &&
