@@ -313,9 +313,12 @@ fi
     # HYBRID_DYNAMIC_FLAGS="-Wl,-Bdynamic ${DYNAMIC_LIBS_ACCUMULATOR} -Wl,-Bstatic "
 # fi
 
+# Добавляем системные библиотеки SjLj в финальные экстра-либсы
+FINAL_MINGW_LIBS="-lmingwex -lgcc_eh -lgcc"
+
 # Используем группы для решения проблем циклических зависимостей
 # прокидываем библиотеку обработки исключений LTO за пределы основной группы
-FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++ -lgcc_eh -lgcc"
+FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++ ${FINAL_MINGW_LIBS}"
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
@@ -453,14 +456,21 @@ TOTAL_VIRTUAL=$(( MEM_PHYS + SWAP_TOTAL ))
 if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
 
     # Force disable LTO for the problematic VVC module to prevent GCC choose_baseaddr ICE
-    # sed -i 's/X86/X86\n#ifndef __clang__\n__attribute__((optimize("no-lto")))\n#endif/' libavcodec/vvc/intra_template.c
+    sed -i 's/X86/X86\n#ifndef __clang__\n__attribute__((optimize("no-lto")))\n#endif/' libavcodec/vvc/intra_template.c
 
     # защита таблиц MLP от удаления оптимизатором LTO (Dead Code Elimination)
-    # if [ -f "libavcodec/mlp.c" ]; then
-        # log_info "Injecting anti-eviction attributes into MLP tables..."
-        # sed -i 's/static const uint8_t ff_mlp_/static __attribute__((used)) const uint8_t ff_mlp_/g' libavcodec/mlp.c
-        # sed -i 's/const uint8_t ff_mlp_/ __attribute__((used)) const uint8_t ff_mlp_/g' libavcodec/mlp.c
-    # fi
+    if [ -f "libavcodec/mlp.c" ]; then
+        log_info "Injecting anti-eviction attributes into MLP tables..."
+        sed -i 's/static const uint8_t ff_mlp_/static __attribute__((used)) const uint8_t ff_mlp_/g' libavcodec/mlp.c
+        sed -i 's/const uint8_t ff_mlp_/ __attribute__((used)) const uint8_t ff_mlp_/g' libavcodec/mlp.c
+    fi
+
+    log_info "Applying LTO fix for MLP codecs..."
+    # Дописываем правила в Makefile, чтобы mlp.o компилировался с флагом -fno-lto
+    echo "CFLAGS-libavcodec/mlp.o += -fno-lto" >> libavcodec/Makefile
+    echo "CFLAGS-libavcodec/mlpdsp.o += -fno-lto" >> libavcodec/Makefile
+    # Если компилируется x86-оптимизация
+    echo "CFLAGS-libavcodec/x86/mlpdsp.o += -fno-lto" >> libavcodec/Makefile
 
     # Если виртуальной памяти много, можно позволить 4 потока.
     # Если мало (менее 16ГБ общего), лучше оставить 2.
@@ -494,33 +504,30 @@ else
 fi
 
 # # Создаем обертку для линкера, которая гарантирует правильный порядок библиотек рантайма
-# log_info "Deploying global compiler-level interceptor..."
+log_info "Deploying global compiler-level interceptor..."
     
-#     cat << 'EOF' > "${TMP_DIR}/cc-wrapper"
-# #!/bin/bash
-# # Ссылка на реальный компилятор внутри ccache
-# REAL_CC="/opt/ct-ng/bin/x86_64-w64-mingw32-gcc"
-# if [ ! -f "$REAL_CC" ]; then
-#     REAL_CC=$(which x86_64-w64-mingw32-gcc)
-# fi
-# 
-# # Проверяем, является ли текущий вызов стадией линковки исполняемого файла или теста
-# # (Ищем ключ '-o', но исключаем промежуточную компиляцию '-c')
-# IS_LINKING=0
-# if [[ " $@ " =~ " -o " ]] && [[ ! " $@ " =~ " -c " ]]; then
-#     IS_LINKING=1
-# fi
-# 
-# if [ "$IS_LINKING" -eq 1 ]; then
-#     # Если это линковка, принудительно закидываем рантайм SjLj исключений в самый конец строки
-#     exec ccache "$REAL_CC" "$@" -lgcc_eh -lgcc
-# else
-#     # Если обычная компиляция, просто передаем аргументы дальше
-#     exec ccache "$REAL_CC" "$@"
-# fi
-# EOF
-#
-# chmod +x "${TMP_DIR}/cc-wrapper"
+cat << 'EOF' > "${TMP_DIR}/cc-wrapper"
+#!/bin/bash
+REAL_CC="/opt/ct-ng/bin/x86_64-w64-mingw32-gcc"
+if [ ! -f "$REAL_CC" ]; then
+    REAL_CC=$(which x86_64-w64-mingw32-gcc)
+fi
+
+IS_LINKING=0
+# Более надежная проверка на стадию финальной линковки
+if [[ " $@ " =~ " -o " ]] && [[ ! " $@ " =~ " -c " ]] && [[ ! " $@ " =~ " -E " ]]; then
+    IS_LINKING=1
+fi
+
+if [ "$IS_LINKING" -eq 1 ]; then
+    # Добавляем -lmingwex (там часто сидят хелперы) и оборачиваем в start-group/end-group
+    # Это решает проблему циклической зависимости при жестком LTO
+    exec ccache "$REAL_CC" "$@" -Wl,--start-group -lmingwex -lgcc_eh -lgcc -lmingw32 -Wl,--end-group
+else
+    exec ccache "$REAL_CC" "$@"
+fi
+EOF
+chmod +x "${TMP_DIR}/cc-wrapper"
 
 chmod +x configure
 
@@ -544,7 +551,7 @@ CONF_FLAGS=(
     --disable-debug
     --disable-ffprobe # crashes the compiler
     --disable-ffplay
-    --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
+    # --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
     # --cc="${FFBUILD_CROSS_PREFIX}gcc" 
     # --cxx="${FFBUILD_CROSS_PREFIX}g++" 
     # --ar="${FFBUILD_CROSS_PREFIX}ar" 
@@ -552,10 +559,10 @@ CONF_FLAGS=(
     # --nm="${FFBUILD_CROSS_PREFIX}nm" 
     # --as="${FFBUILD_CROSS_PREFIX}gcc"
     # Подменяем CC и AS на наш перехватчик
-    # --cc="${TMP_DIR}/cc-wrapper"
-    # --as="${TMP_DIR}/cc-wrapper"
-    # --cxx="ccache x86_64-w64-mingw32-g++"
-    # --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
+    --cc="${TMP_DIR}/cc-wrapper"
+    --as="${TMP_DIR}/cc-wrapper"
+    --cxx="ccache x86_64-w64-mingw32-g++"
+    --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
 )
 
 if [[ "${PREFER_SHARED}" != "1" ]]; then
