@@ -68,10 +68,10 @@ on:
         description: 'Free some Disk Space before Build'
         type: boolean
         default: false
-      regularClean:
-        description: 'Clean old caches after build (Regular Cleaning)'
-        type: boolean
-        default: false
+      # regularClean:
+        # description: 'Clean old caches after build (Regular Cleaning)'
+        # type: boolean
+        # default: false
       doClean:
         description: 'Nuke all cache before build (Full Rebuild)'
         type: boolean
