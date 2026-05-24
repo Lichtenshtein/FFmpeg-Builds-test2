@@ -457,8 +457,9 @@ if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
 
     # защита таблиц MLP от удаления оптимизатором LTO (Dead Code Elimination)
     if [ -f "libavcodec/mlp.c" ]; then
-        log_info "Patching MLP tables to prevent LTO eviction..."
-        sed -i 's/const uint8_t ff_mlp_/\n__attribute__((used)) const uint8_t ff_mlp_/g' libavcodec/mlp.c
+        log_info "Injecting anti-eviction attributes into MLP tables..."
+        sed -i 's/static const uint8_t ff_mlp_/static __attribute__((used)) const uint8_t ff_mlp_/g' libavcodec/mlp.c
+        sed -i 's/const uint8_t ff_mlp_/ __attribute__((used)) const uint8_t ff_mlp_/g' libavcodec/mlp.c
     fi
 
     # Если виртуальной памяти много, можно позволить 4 потока.
@@ -493,22 +494,34 @@ else
 fi
 
 # Создаем обертку для линкера, которая гарантирует правильный порядок библиотек рантайма
-log_info "Creating a smart GCC-based linker wrapper..."
-
-    cat << 'EOF' > "${TMP_DIR}/ld-wrapper"
+log_info "Deploying global compiler-level interceptor..."
+    
+    cat << 'EOF' > "${TMP_DIR}/cc-wrapper"
 #!/bin/bash
-# Используем x86_64-w64-mingw32-gcc в качестве линкера, чтобы он корректно
-# переваривал флаги -Wl и автоматически управлял рантаймом LTO/исключений
-REAL_GCC="/opt/ct-ng/bin/x86_64-w64-mingw32-gcc"
-if [ ! -f "$REAL_GCC" ]; then
-    REAL_GCC=$(which x86_64-w64-mingw32-gcc)
+# Ссылка на реальный компилятор внутри ccache
+REAL_CC="/opt/ct-ng/bin/x86_64-w64-mingw32-gcc"
+if [ ! -f "$REAL_CC" ]; then
+    REAL_CC=$(which x86_64-w64-mingw32-gcc)
 fi
 
-# Вызываем GCC, передавая все флаги, и принудительно дописываем рантайм в хвост
-exec "$REAL_GCC" "$@" -lgcc_eh -lgcc
+# Проверяем, является ли текущий вызов стадией линковки исполняемого файла или теста
+# (Ищем ключ '-o', но исключаем промежуточную компиляцию '-c')
+IS_LINKING=0
+if [[ " $@ " =~ " -o " ]] && [[ ! " $@ " =~ " -c " ]]; then
+    IS_LINKING=1
+fi
+
+if [ "$IS_LINKING" -eq 1 ]; then
+    # Если это линковка, принудительно закидываем рантайм SjLj исключений в самый конец строки
+    exec ccache "$REAL_CC" "$@" -lgcc_eh -lgcc
+else
+    # Если обычная компиляция, просто передаем аргументы дальше
+    exec ccache "$REAL_CC" "$@"
+fi
 EOF
 
-chmod +x "${TMP_DIR}/ld-wrapper"
+chmod +x "${TMP_DIR}/cc-wrapper"
+
 chmod +x configure
 
 # Tip: -Wl,--allow-multiple-definition needed for KVAZAAR with cryptopp.
@@ -529,15 +542,18 @@ CONF_FLAGS=(
     --enable-opengl
     --enable-pic
     --disable-debug
-    --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
+    # --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
     # --cc="${FFBUILD_CROSS_PREFIX}gcc" 
     # --cxx="${FFBUILD_CROSS_PREFIX}g++" 
     # --ar="${FFBUILD_CROSS_PREFIX}ar" 
     # --ranlib="${FFBUILD_CROSS_PREFIX}ranlib" 
     # --nm="${FFBUILD_CROSS_PREFIX}nm" 
     # --as="${FFBUILD_CROSS_PREFIX}gcc"
-    # ПОДМЕНА ЛИНКЕРА: направляем FFmpeg на наш враппер
-    --ld="${TMP_DIR}/ld-wrapper"
+    # Подменяем CC и AS на наш перехватчик
+    --cc="${TMP_DIR}/cc-wrapper"
+    --as="${TMP_DIR}/cc-wrapper"
+    --cxx="ccache x86_64-w64-mingw32-g++"
+    --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
 )
 
 if [[ "${PREFER_SHARED}" != "1" ]]; then
