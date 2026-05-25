@@ -473,10 +473,6 @@ else
     log_info "Non-LTO build: Setting MAKE_JOBS=${MAKE_JOBS} based on availability."
 fi
 
-# # Создаем обертку для линкера, которая гарантирует правильный порядок библиотек рантайма
-log_info "Deploying global compiler-level interceptor..."
-    
-
 chmod +x configure
 
 # Tip: -Wl,--allow-multiple-definition needed for KVAZAAR with cryptopp.
@@ -498,6 +494,7 @@ CONF_FLAGS=(
     --enable-pic
     --disable-debug
     --disable-ffplay
+    --disable-ffprobe
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
 )
 

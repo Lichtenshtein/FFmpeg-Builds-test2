@@ -433,61 +433,82 @@ stage_vars() {
 }
 export -f stage_vars
 
-# Удаляем ANSI цвета
-# Удаляем переносы строк (заменяем на пробел)
-# xargs схлопнет лишние пробелы в одну строку
 clean_val() {
-    echo "$*" | \
-        sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | \
-        sed -E "s/''|\"\"//g" | \
-        tr -s '[:space:]' ' ' | \
-        xargs -r echo
-}
-
-# быстрые дедупликаторы
-dedupe_logic() {
-    local input="$1"
-    local mode="$2"
-    # Split on whitespace, filter garbage words and empty lines
-    local clean=$(echo "$input" | tr ' ' '\n' | \
-        grep -vE "^(Package .* not found|No package .* found)$|^$")
-    if [[ "$mode" == "last" ]]; then
-        # Keep LAST occurrence (important for linker order)
-        echo "$clean" | tac | awk '!x[$0]++' | tac
-    else
-        # Keep FIRST occurrence (default for most flags)
-        echo "$clean" | awk '!x[$0]++'
-    fi
+    # Чистим ANSI-цвета, кавычки и превращаем множественные пробелы в один
+    local tmp
+    tmp=$(echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | sed -E "s/''|\"\"//g")
+    echo "$tmp"
 }
 
 smart_dedupe() {
     local input
     input=$(clean_val "$*")
-    [[ -z "$input" ]] && return
-    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
-        dedupe_logic "$input" "first" | tr '\n' ' ' | xargs -r
-    else
-        echo "$input" | tr '\n' ' ' | xargs -r
+    [[ -z "$input" ]] && return 0
+    
+    if [[ "$DEDUPE_FLAGS" != "1" ]]; then
+        echo "$input"
+        return 0
     fi
+
+    # Сохраняем ПЕРВЫЕ вхождения для обычных флагов (CFLAGS/CXXFLAGS)
+    read -ra words <<< "$input"
+    declare -A seen
+    local -a res=()
+    
+    for w in "${words[@]}"; do
+        [[ -z "$w" ]] && continue
+        if [[ -z "${seen[$w]:-}" ]]; then
+            seen[$w]=1
+            res+=("$w")
+        fi
+    done
+    echo "${res[*]}"
 }
 
 smart_libs_dedupe() {
-    local input=$(clean_val "$*")
-    [[ -z "$input" ]] && return
-    # Специфичная чистка для библиотек
-    # унифицируем pthread: заменяем -lpthread на -pthread
-    # чистим мусор и ПУТИ, убираем -lstdc++
-    local filtered=$(echo "$input" | tr ' ' '\n' | \
-        grep -vE "^-L|^-lstdc\+\+$" | \
-        sed 's/^-lpthread$/-pthread/')
-    # склеиваем в одну строку без удаления дублей?
-    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
-        dedupe_logic "$filtered" "last" | tr '\n' ' ' | xargs -r
-    else
-        echo "$filtered" | tr '\n' ' ' | xargs -r
+    local input
+    input=$(clean_val "$*")
+    [[ -z "$input" ]] && return 0
+
+    # Унифицируем pthread, убираем пути -L и чистим явную линковку stdc++
+    local -a filtered=()
+    read -ra raw_words <<< "$input"
+    for w in "${raw_words[@]}"; do
+        [[ -z "$w" ]] && continue
+        [[ "$w" =~ ^-L ]] && continue
+        [[ "$w" == "-lstdc++" ]] && continue
+        if [[ "$w" == "-lpthread" ]]; then
+            filtered+=("-pthread")
+        else
+            filtered+=("$w")
+        fi
+    done
+
+    if [[ "$DEDUPE_FLAGS" != "1" ]]; then
+        echo "${filtered[*]}"
+        return 0
     fi
+
+    declare -A seen_libs
+    local -a reversed_res=()
+    local i
+    for (( i=${#filtered[@]}-1; i>=0; i-- )); do
+        local lib="${filtered[$i]}"
+        if [[ -z "${seen_libs[$lib]:-}" ]]; then
+            seen_libs[$lib]=1
+            reversed_res+=("$lib")
+        fi
+    done
+
+    # Разворачиваем массив обратно в правильный порядок
+    local -a final_res=()
+    for (( i=${#reversed_res[@]}-1; i>=0; i-- )); do
+        final_res+=("${reversed_res[$i]}")
+    done
+
+    echo "${final_res[*]}"
 }
-export -f clean_val dedupe_logic smart_dedupe smart_libs_dedupe
+export -f clean_val smart_dedupe smart_libs_dedupe
 
 # Docker stage helpers
 ffbuild_dockerstage() {
@@ -752,8 +773,7 @@ patch_pc_files() {
 
         # Append discovered deps (raw, dedup happens)
         sed -i $sl "/^Requires.private:/ s|$| $extra_requires|" "$pc"
-# $LIBS
-        sed -i $sl "/^Libs.private:/ s|$| $leftovers $extra_libs|" "$pc"
+        sed -i $sl "/^Libs.private:/ s|$| $leftovers $extra_libs $LIBS|" "$pc"
 
         # Capitalisation fixes
         sed -i $sl 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g; s/-lpthread/-pthread/g' "$pc"
