@@ -435,9 +435,7 @@ export -f stage_vars
 
 clean_val() {
     # Чистим ANSI-цвета, кавычки и превращаем множественные пробелы в один
-    local tmp
-    tmp=$(echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | sed -E "s/''|\"\"//g")
-    echo "$tmp"
+    echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | sed -E "s/''|\"\"//g" | tr -s '[:space:]' ' '
 }
 
 smart_dedupe() {
@@ -450,19 +448,9 @@ smart_dedupe() {
         return 0
     fi
 
-    # Сохраняем ПЕРВЫЕ вхождения для обычных флагов (CFLAGS/CXXFLAGS)
-    read -ra words <<< "$input"
-    declare -A seen
-    local -a res=()
-    
-    for w in "${words[@]}"; do
-        [[ -z "$w" ]] && continue
-        if [[ -z "${seen[$w]:-}" ]]; then
-            seen[$w]=1
-            res+=("$w")
-        fi
-    done
-    echo "${res[*]}"
+    # Сохраняем ПЕРВЫЕ вхождения флагов. 
+    # Безопасный потоковый awk разбивает строку по пробелам независимо от её длины.
+    echo "$input" | tr ' ' '\n' | grep -v '^$' | awk '!x[$0]++' | tr '\n' ' ' | sed 's/ $//'
 }
 
 smart_libs_dedupe() {
@@ -470,43 +458,20 @@ smart_libs_dedupe() {
     input=$(clean_val "$*")
     [[ -z "$input" ]] && return 0
 
-    # Унифицируем pthread, убираем пути -L и чистим явную линковку stdc++
-    local -a filtered=()
-    read -ra raw_words <<< "$input"
-    for w in "${raw_words[@]}"; do
-        [[ -z "$w" ]] && continue
-        [[ "$w" =~ ^-L ]] && continue
-        [[ "$w" == "-lstdc++" ]] && continue
-        if [[ "$w" == "-lpthread" ]]; then
-            filtered+=("-pthread")
-        else
-            filtered+=("$w")
-        fi
-    done
+    # Потоковая фильтрация: убираем -L, -lstdc++, унифицируем pthread.
+    # Обрабатываем строго как вертикальный поток строк, что обходит любые лимиты буферов Bash.
+    local filtered
+    filtered=$(echo "$input" | tr ' ' '\n' | grep -vE "^-L|^-lstdc\+\+$|^$" | sed 's/^-lpthread$/-pthread/')
 
     if [[ "$DEDUPE_FLAGS" != "1" ]]; then
-        echo "${filtered[*]}"
+        echo "$filtered" | tr '\n' ' ' | sed 's/ $//'
         return 0
     fi
 
-    declare -A seen_libs
-    local -a reversed_res=()
-    local i
-    for (( i=${#filtered[@]}-1; i>=0; i-- )); do
-        local lib="${filtered[$i]}"
-        if [[ -z "${seen_libs[$lib]:-}" ]]; then
-            seen_libs[$lib]=1
-            reversed_res+=("$lib")
-        fi
-    done
-
-    # Разворачиваем массив обратно в правильный порядок
-    local -a final_res=()
-    for (( i=${#reversed_res[@]}-1; i>=0; i-- )); do
-        final_res+=("${reversed_res[$i]}")
-    done
-
-    echo "${final_res[*]}"
+    # КРИТИЧНО ДЛЯ СТАТИКИ: Сохраняем только ПОСЛЕДНИЕ вхождения библиотек.
+    # Используем связку 'tac' (разворот) -> 'awk' (дедупликация) -> 'tac' (возврат порядка).
+    # Это работает со 100% точностью на потоках любой длины.
+    echo "$filtered" | tac | awk '!x[$0]++' | tac | tr '\n' ' ' | sed 's/ $//'
 }
 export -f clean_val smart_dedupe smart_libs_dedupe
 
