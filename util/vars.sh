@@ -135,7 +135,7 @@ export INSTALL_ROOT="$FFBUILD_DESTPREFIX" # single less confusing source of trut
 export PC_DIR="${INSTALL_ROOT}/lib/pkgconfig"
 # directory for storing .vars files with
 # component variables and flags collected between stages
-export VARS_DIR="${FFBUILD_PREFIX}/config_vars"
+export VARS_DIR="${INSTALL_ROOT}/config_vars"
 # pkg-config variables
 export PKG_CONFIG="pkgconf"
 export PKG_CONFIG_PATH="" # don't touch

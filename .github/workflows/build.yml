@@ -393,6 +393,7 @@ jobs:
           mkdir -p artifacts
 
           docker run --rm \
+            --workdir /builder \
             -v "${{ github.workspace }}:/builder" \
             -v "${{ github.workspace }}/.cache/sysroot/opt/ffbuild:/opt/ffbuild" \
             -v "${{ github.workspace }}/.cache/ffmpeg:/builder/ffbuild/ffmpeg:rw" \
