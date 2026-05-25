@@ -97,7 +97,13 @@ for STAGE in "${ACTIVE_SCRIPTS[@]}"; do
     mkdir -p "${SYSROOT_DIR}/opt/ffbuild/config_vars"
 
     # Генерируем динамический .env файл на хосте, отсекая системные переменные раннера
-    printenv | grep -vE '^(HOME|PATH|PWD|HOSTNAME|TERM|SHLVL|OLDPWD|DEBIAN_FRONTEND|GITHUB_|RUNNER_|_)' > component_build.env
+    # используем export -p для гарантированного экранирования строк
+    # 1. Вытаскиваем строго белый список бинарных параметров
+    # 2. Превращаем declare -x KEY="VALUE" в формат KEY="VALUE"
+    # 3. Это исключает любые падения Docker из-за пробелов или скрытого кода
+    export -p | \
+    grep -E '^(declare -x )?(TARGET|VARIANT|CPU_|FFBUILD_|USE_|FFMPEG_|DEBUG_|DEDUPE_|SAFE_|ONLY_|DLL_|GIT_|STRIP_|OLDER_|REBUILD_|CLEAN_|PREFER_|SHADERC_|DIR_|BUILD_)' | \
+    sed -E 's/^declare -x //g' > component_build.env
 
     # Запускаем контейнер для выполнения ровно ОДНОГО скрипта.
     # Мы монтируем текущее состояние хост-папки sysroot в контейнерный /opt/ffbuild.

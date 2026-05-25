@@ -124,17 +124,13 @@ env:
   # Списки исключений
   # Список для хранения .git от очистки (в download.sh)
   # Some patches apply only with git am...
-  GIT_PRESERVE_LIST: >-
-    ffmpeg|glib2|x264|x265|vulkan-loader|twolame|gme|mbedtls|pcre2|
-    avisynth|openssl|pango|freetype|ilbc|libjxl|libvorbis|snappy|zimg|vmaf|dav1d|libplacebo
+  GIT_PRESERVE_LIST: "ffmpeg|glib2|x264|x265|vulkan-loader|twolame|gme|mbedtls|pcre2|avisynth|openssl|pango|freetype|ilbc|libjxl|libvorbis|snappy|zimg|vmaf|dav1d|libplacebo"
   # Список для сохранения DLL (в run_stage.sh)
-  DLL_PRESERVE_LIST: >-
-    openvino|torch|tensorflow|vulkan|shaderc|mfx|opencv|
-    onevpl|leptonica|audiotoolbox|avisynth|vapoursynth|frei0r|nnedi3|whisper
+  DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|shaderc|mfx|opencv|onevpl|leptonica|audiotoolbox|avisynth|vapoursynth|frei0r|nnedi3|whisper"
   # Список для сохранения статики .a (в run_stage.sh)
-  LIB_PRESERVE_LIST:
+  LIB_PRESERVE_LIST: ""
   # Список компонентов к которым strip не применяется (openvino,cuda-llvm)
-  STRIP_EXCLUDE_LIST:
+  STRIP_EXCLUDE_LIST: ""
   # Преобразование boolean для bash-скриптов
   DEBUG_NO_HASH:  ${{ github.event.inputs.debug_no_hash  == 'true' && '1' || '0' }}
   DEDUPE_FLAGS:   ${{ github.event.inputs.dedupe_flags   == 'true' && '1' || '0' }}
