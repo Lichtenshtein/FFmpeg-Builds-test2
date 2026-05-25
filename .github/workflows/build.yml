@@ -391,13 +391,14 @@ jobs:
         run: |
           echo "Compiling final FFmpeg binary using pre-built incremental sysroot..."
           mkdir -p artifacts
+
           docker run --rm \
-            -v "${{ github.workspace }}:${{ env.CONTAINER_ROOT }}" \
+            -v "${{ github.workspace }}:/builder" \
             -v "${{ github.workspace }}/.cache/sysroot/opt/ffbuild:/opt/ffbuild" \
-            -v "${{ github.workspace }}/.cache/ffmpeg:${{ env.CONTAINER_ROOT }}/ffbuild/ffmpeg:rw" \
-            -v "${{ github.workspace }}/artifacts:${{ env.CONTAINER_ROOT }}/opt/ffdest:rw" \
+            -v "${{ github.workspace }}/.cache/ffmpeg:/builder/ffbuild/ffmpeg:rw" \
+            -v "${{ github.workspace }}/artifacts:/opt/ffdest:rw" \
             --env-file <(env | grep -E '^(TARGET|VARIANT|CPU_|FFBUILD_|USE_|FFMPEG_)') \
-            "ghcr.io/${{ steps.images.outputs.repo_lc }}/base-${TARGET}:latest" \
+            "${{ steps.images.outputs.target_base }}" \
             /bin/bash -l -c "./build.sh \"$TARGET\" \"$VARIANT\""
 
       - name: Cleanup Old Caches
