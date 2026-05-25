@@ -47,6 +47,9 @@ ffbuild_dockerbuild() {
     # Предварительное создание структуры
     mkdir -p "$INSTALL_ROOT"/{lib/pkgconfig,include/flite}
 
+    # Однопоточная сборка конфигурационных файлов и списков голосов.
+    make time_info flite_voice_list.c || return 1
+
     make -j$(nproc) $MAKE_V || return 1
     # make install DESTDIR="$FFBUILD_DESTDIR"
 
