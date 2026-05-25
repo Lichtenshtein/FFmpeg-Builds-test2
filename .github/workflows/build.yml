@@ -31,7 +31,7 @@ on:
       use_lto:
         description: 'Enable LTO optimization'
         type: boolean
-        default: true
+        default: false
       use_avx512:
         description: 'Enable AVX-512 instructions'
         type: boolean
