@@ -101,9 +101,10 @@ for STAGE in "${ACTIVE_SCRIPTS[@]}"; do
     # 1. Вытаскиваем строго белый список бинарных параметров
     # 2. Превращаем declare -x KEY="VALUE" в формат KEY="VALUE"
     # 3. Это исключает любые падения Docker из-за пробелов или скрытого кода
-    export -p | \
-    grep -E '^(declare -x )?(TARGET|VARIANT|CPU_|FFBUILD_|USE_|FFMPEG_|DEBUG_|DEDUPE_|SAFE_|ONLY_|DLL_|GIT_|STRIP_|OLDER_|REBUILD_|CLEAN_|PREFER_|SHADERC_|DIR_|BUILD_)' | \
-    sed -E 's/^declare -x //g' > component_build.env
+    printenv | \
+    grep -E '^(TARGET|VARIANT|CPU_|FFBUILD_|USE_|FFMPEG_|DEBUG_|DEDUPE_|SAFE_|ONLY_|DLL_|GIT_|STRIP_|OLDER_|REBUILD_|CLEAN_|PREFER_|SHADERC_|DIR_|BUILD_)' | \
+    grep -vE '\[\[|&&|file|return' | \
+    sed -E "s/^([^=]+=)['\"](.*)['\"]$/\1\2/g" > component_build.env
 
     # Запускаем контейнер для выполнения ровно ОДНОГО скрипта.
     # Мы монтируем текущее состояние хост-папки sysroot в контейнерный /opt/ffbuild.
