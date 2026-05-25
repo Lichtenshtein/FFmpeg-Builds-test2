@@ -97,7 +97,7 @@ for STAGE in "${ACTIVE_SCRIPTS[@]}"; do
     mkdir -p "${SYSROOT_DIR}/opt/ffbuild/config_vars"
 
     # Генерируем динамический .env файл на хосте, отсекая системные переменные раннера
-    env | grep -vE '^(HOME|PATH|PWD|HOSTNAME|TERM|SHLVL|OLDPWD|DEBIAN_FRONTEND|GITHUB_|RUNNER_|_)' > component_build.env
+    printenv | grep -vE '^(HOME|PATH|PWD|HOSTNAME|TERM|SHLVL|OLDPWD|DEBIAN_FRONTEND|GITHUB_|RUNNER_|_)' > component_build.env
 
     # Запускаем контейнер для выполнения ровно ОДНОГО скрипта.
     # Мы монтируем текущее состояние хост-папки sysroot в контейнерный /opt/ffbuild.
