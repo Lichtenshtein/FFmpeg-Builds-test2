@@ -96,15 +96,6 @@ for STAGE in "${ACTIVE_SCRIPTS[@]}"; do
     # Создаем папку config_vars на хосте перед запуском, чтобы Docker не создал её от имени root
     mkdir -p "${SYSROOT_DIR}/opt/ffbuild/config_vars"
 
-    # Генерируем динамический .env файл на хосте, отсекая системные переменные раннера
-    # используем export -p для гарантированного экранирования строк
-    # 1. Вытаскиваем строго белый список бинарных параметров
-    # 2. Превращаем declare -x KEY="VALUE" в формат KEY="VALUE"
-    # 3. Это исключает любые падения Docker из-за пробелов или скрытого кода
-    printenv | \
-    grep -E '^(TARGET|VARIANT|CPU_|FFBUILD_|USE_|FFMPEG_|DEBUG_|DEDUPE_|SAFE_|ONLY_|DLL_|GIT_|STRIP_|OLDER_|REBUILD_|CLEAN_|PREFER_|SHADERC_|DIR_|BUILD_)' | \
-    grep -vE '\[\[|&&|file|return' | \
-    sed -E "s/^([^=]+=)['\"](.*)['\"]$/\1\2/g" > component_build.env
 
     # Запускаем контейнер для выполнения ровно ОДНОГО скрипта.
     # Мы монтируем текущее состояние хост-папки sysroot в контейнерный /opt/ffbuild.
@@ -115,11 +106,36 @@ for STAGE in "${ACTIVE_SCRIPTS[@]}"; do
         -v "${SYSROOT_DIR}/opt/ffbuild:/opt/ffbuild" \
         -v "${SYSROOT_DIR}/opt/ffbuild/config_vars:/opt/ffbuild/config_vars:rw" \
         -v "${ROOT_DIR}/.cache/downloads:${CONTAINER_ROOT}/.cache/downloads:rw" \
-        --env-file component_build.env \
+        -e TARGET="$TARGET" \
+        -e VARIANT="$VARIANT" \
+        -e CPU_ARCH="$CPU_ARCH" \
+        -e CPU_TUNE="$CPU_TUNE" \
+        -e DEDUPE_FLAGS="$DEDUPE_FLAGS" \
+        -e DEBUG_NO_HASH="$DEBUG_NO_HASH" \
+        -e REBUILD_COMPONENTS="$REBUILD_COMPONENTS" \
+        -e FFMPEG_PATCHES="$FFMPEG_PATCHES" \
+        -e SKIP_FFMPEG="$SKIP_FFMPEG" \
+        -e SAFE_CONFIGURE="$SAFE_CONFIGURE" \
+        -e USE_AVX512="$USE_AVX512" \
+        -e USE_LTO="$USE_LTO" \
+        -e USE_WINE="$USE_WINE" \
+        -e USE_OPENMP="$USE_OPENMP" \
+        -e SHADERC_UPDATE="$SHADERC_UPDATE" \
+        -e CLEAN_INACTIVE="$CLEAN_INACTIVE" \
+        -e PREFER_SHARED="$PREFER_SHARED" \
+        -e OLDER_FFNV="$OLDER_FFNV" \
+        -e DIR_NUMBERS="$DIR_NUMBERS" \
+        -e BUILD_VINO="$BUILD_VINO" \
+        -e FFMPEG_REPO="$FFMPEG_REPO" \
+        -e FFMPEG_BRANCH="$FFMPEG_BRANCH" \
+        -e ONLY_STAGE="$ONLY_STAGE" \
+        -e FFBUILD_VERBOSE="$FFBUILD_VERBOSE" \
+        -e GIT_PRESERVE_LIST="$GIT_PRESERVE_LIST" \
+        -e DLL_PRESERVE_LIST="$DLL_PRESERVE_LIST" \
+        -e LIB_PRESERVE_LIST="$LIB_PRESERVE_LIST" \
+        -e STRIP_EXCLUDE_LIST="$STRIP_EXCLUDE_LIST" \
         "ghcr.io/${GITHUB_REPOSITORY,,}/base-${TARGET}:latest" \
-        /bin/bash -l -c "./util/run_stage.sh ./$STAGE"
-
-    rm -f component_build.env
+        /bin/bash -l -c "./util/run_stage.sh ${CONTAINER_ROOT}/${STAGE}"
 
     # После успешной сборки фиксируем, что именно добавил этот компонент, и упаковываем в кэш
     log_info "${SAVE_MARK} Packaging ${STAGENAME} artifacts to cache..."
