@@ -268,7 +268,7 @@ jobs:
 
       # Allocates 32Gb swap instead of 2Gb when using LTO
       - name: Setup Swap Space
-        if: github.event.inputs.use_lto == 'true'
+        # if: github.event.inputs.use_lto == 'true'
         run: |
           sudo swapoff -a || true
           sudo rm -f /swapfile
