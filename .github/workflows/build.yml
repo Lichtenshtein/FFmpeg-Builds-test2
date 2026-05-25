@@ -397,15 +397,22 @@ jobs:
           echo "Compiling final FFmpeg binary using pre-built incremental sysroot..."
           mkdir -p artifacts
 
+          # Генерируем файл окружения содержащий ТОЛЬКО переменные из блока env:
+          echo '${{ toJson(env) }}' | jq -r 'to_entries | .[] | "\(.key)=\(.value)"' > docker_build.env
+
+          # Запускаем контейнер, скармливая ему сгенерированный файл
           docker run --rm \
             --workdir /builder \
             -v "${{ github.workspace }}:/builder" \
             -v "${{ github.workspace }}/.cache/sysroot/opt/ffbuild:/opt/ffbuild" \
             -v "${{ github.workspace }}/.cache/ffmpeg:/builder/ffbuild/ffmpeg:rw" \
             -v "${{ github.workspace }}/artifacts:/opt/ffdest:rw" \
-            --env-file <(env | grep -E '^(TARGET|VARIANT|CPU_|FFBUILD_|USE_|FFMPEG_)') \
+            --env-file docker_build.env \
             "${{ steps.images.outputs.target_base }}" \
             /bin/bash -l -c "./build.sh \"$TARGET\" \"$VARIANT\""
+
+          # Подчищаем за собой файл переменных
+          rm -f docker_build.env
 
       - name: Cleanup Old Caches
         if: github.event.inputs.regularClean == 'true' && !cancelled()
