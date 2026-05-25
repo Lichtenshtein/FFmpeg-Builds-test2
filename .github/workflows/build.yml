@@ -68,10 +68,10 @@ on:
         description: 'Free some Disk Space before Build'
         type: boolean
         default: false
-      # regularClean:
-        # description: 'Clean old caches after build (Regular Cleaning)'
-        # type: boolean
-        # default: false
+      regularClean:
+        description: 'Clean old caches after build (Regular Cleaning)'
+        type: boolean
+        default: false
       doClean:
         description: 'Nuke all cache before build (Full Rebuild)'
         type: boolean
@@ -107,10 +107,6 @@ on:
         description: 'Build OpenVino'
         type: boolean
         default: false
-      skip_rsync:
-        description: 'Skip rsync'
-        type: boolean
-        default: true
 env:
   # Общие настройки локали
   LANG: C.UTF-8
@@ -151,7 +147,6 @@ env:
   OLDER_FFNV:     ${{ github.event.inputs.older_ffnv     == 'true' && '1' || '0' }}
   DIR_NUMBERS:    ${{ github.event.inputs.dir_numbers    == 'true' && '1' || '0' }}
   BUILD_VINO:     ${{ github.event.inputs.build_vino     == 'true' && '1' || '0' }}
-  SKIP_RSYNC:     ${{ github.event.inputs.skip_rsync     == 'true' && '1' || '0' }}
   # Маппинг Inputs -> Env для всех динамических значений
   FFMPEG_REPO:     ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-VVC.git' }}
   FFMPEG_BRANCH:   ${{ github.event.inputs.ffmpeg_branch || 'master' }}
@@ -342,13 +337,12 @@ jobs:
           [[ "${{ github.event.inputs.doClean }}" == "true" ]] && rm -rf .cache/{downloads,ffmpeg,ccache}/* && echo "### CLEAN BUILD REQUESTED ###"
 
           chmod -R u+r patches/ || true
-          mkdir -p .cache/downloads .cache/ffmpeg .cache/tmp
+          mkdir -p .cache/downloads .cache/ffmpeg .cache/tmp .cache/components .cache/sysroot
           chmod -R u+w .cache/ || true
           find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
           chmod +x ./download.sh ./util/*.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
-          ./generate.sh "$TARGET" "$VARIANT"
 
       - name: Verify FFmpeg Source
         run: |
@@ -370,43 +364,43 @@ jobs:
             .cache/ffmpeg
           key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
 
-      - name: Prepare Cache Directories
-        run: |
-          mkdir -p .cache/components .cache/shared_prefix .cache/shared_dest
-
-      # This step checks GitHub Cache for individual component tarballs
-      - name: Restore Component Caches
+      # Восстанавливаем кэш скомпилированных шагов-компонентов
+      - name: Restore Pipeline Components Cache
         uses: actions/cache/restore@v5
         with:
           path: .cache/components
-          key: win64-${{ env.CPU_ARCH }}-${{ env.VARIANT }}-components-${{ github.run_id }}
+          key: pipeline-sysroot-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
           restore-keys: |
-            win64-${{ env.CPU_ARCH }}-${{ env.VARIANT }}-components-
+            pipeline-sysroot-${{ steps.dl_cache.outputs.key }}-
+            pipeline-sysroot-
 
-      - name: Run Component Build Loop
+      # Запускаем наш умный диспетчер вместо docker/build-push-action
+      - name: Execute Incremental Build Pipeline
         run: |
-          chmod +x ./util/build_dispatcher.sh
-          ./util/build_dispatcher.sh
+          chmod +x ./build_dispatcher.sh
+          ./build_dispatcher.sh "$TARGET" "$VARIANT"
 
-      - name: Save Component Caches
+      # Сохраняем получившиеся архивы стадий
+      - name: Save Pipeline Components Cache
+        if: always()
         uses: actions/cache/save@v5
         with:
           path: .cache/components
-          key: win64-${{ env.CPU_ARCH }}-${{ env.VARIANT }}-components-${{ github.run_id }}
+          key: pipeline-sysroot-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
 
       - name: Final FFmpeg Compilation
         if: env.SKIP_FFMPEG != '1'
         run: |
-          # Ensure the shared prefix is merged into the expected location for the final build
-          # The final build expects files in /opt/ffbuild, which is now populated by the dispatcher
-          rsync -a .cache/shared_prefix/ /opt/ffbuild/ 2>/dev/null || true
-
-          # Run the final build using the existing Docker logic (which is now much faster)
+          echo "Compiling final FFmpeg binary using pre-built incremental sysroot..."
+          mkdir -p artifacts
           docker run --rm \
-            --mount type=bind,source=.cache/ffmpeg,target=/builder/ffbuild/ffmpeg \
-            --mount type=bind,source=/opt/ffbuild,target=/opt/ffbuild \
-            ghcr.io/${GITHUB_REPOSITORY,,}/base-win64:latest \
-            /builder/build.sh "$TARGET" "$VARIANT"
+            -v "${{ github.workspace }}:${{ env.CONTAINER_ROOT }}" \
+            -v "${{ github.workspace }}/.cache/sysroot/opt/ffbuild:/opt/ffbuild" \
+            -v "${{ github.workspace }}/.cache/ffmpeg:${{ env.CONTAINER_ROOT }}/ffbuild/ffmpeg:rw" \
+            -v "${{ github.workspace }}/artifacts:${{ env.CONTAINER_ROOT }}/opt/ffdest:rw" \
+            --env-file <(env | grep -E '^(TARGET|VARIANT|CPU_|FFBUILD_|USE_|FFMPEG_)') \
+            "ghcr.io/${{ steps.images.outputs.repo_lc }}/base-${TARGET}:latest" \
+            /bin/bash -l -c "./build.sh \"$TARGET\" \"$VARIANT\""
 
       - name: Cleanup Old Caches
         if: github.event.inputs.regularClean == 'true' && !cancelled()
