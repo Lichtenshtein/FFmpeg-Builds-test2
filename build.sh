@@ -5,8 +5,8 @@ set -e
 shopt -s globstar
 cd "$(dirname "$0")"
 
-log_info "Infrastructure check: Current working directory is $(pwd)"
-log_info "Checking where util/vars.sh points to: $(readlink -f util/vars.sh)"
+echo "Infrastructure check: Current working directory is $(pwd)"
+echo "Checking where util/vars.sh points to: $(readlink -f util/vars.sh)"
 
 source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
     || { echo "ERROR: vars.sh failed in build.sh" >&2; exit 1; }
