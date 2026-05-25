@@ -434,41 +434,57 @@ stage_vars() {
 export -f stage_vars
 
 clean_val() {
-    echo "$*" | sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | sed -E "s/''|\"\"//g" | tr -s '[:space:]' ' '
+    echo "$*" | \
+        sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | \
+        sed -E "s/''|\"\"//g" | \
+        tr -s '[:space:]' ' ' | \
+        xargs -r echo
+}
+
+# быстрые дедупликаторы
+dedupe_logic() {
+    local input="$1"
+    local mode="$2"
+    # Split on whitespace, filter garbage words and empty lines
+    local clean=$(echo "$input" | tr ' ' '\n' | \
+        grep -vE "^(Package .* not found|No package .* found)$|^$")
+    if [[ "$mode" == "last" ]]; then
+        # Keep LAST occurrence (important for linker order)
+        echo "$clean" | tac | awk '!x[$0]++' | tac
+    else
+        # Keep FIRST occurrence (default for most flags)
+        echo "$clean" | awk '!x[$0]++'
+    fi
 }
 
 smart_dedupe() {
     local input
     input=$(clean_val "$*")
-    [[ -z "$input" ]] && return 0
-    
-    if [[ "$DEDUPE_FLAGS" != "1" ]]; then
-        echo "$input"
-        return 0
+    [[ -z "$input" ]] && return
+    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
+        dedupe_logic "$input" "first" | tr '\n' ' ' | xargs -r
+    else
+        echo "$input" | tr '\n' ' ' | xargs -r
     fi
-    # Сохраняем ПЕРВЫЕ вхождения для флагов компиляции (CFLAGS/CXXFLAGS)
-    echo "$input" | tr ' ' '\n' | grep -v '^$' | awk '!x[$0]++' | tr '\n' ' ' | sed 's/ $//'
 }
 
 smart_libs_dedupe() {
-    local input
-    input=$(clean_val "$*")
-    [[ -z "$input" ]] && return 0
-
-    # Очищаем системный мусор и унифицируем pthread
-    local filtered
-    filtered=$(echo "$input" | tr ' ' '\n' | grep -vE "^-L|^-lstdc\+\+$|^$" | sed 's/^-lpthread$/-pthread/')
-
-    if [[ "$DEDUPE_FLAGS" != "1" ]]; then
-        echo "$filtered" | tr '\n' ' ' | sed 's/ $//'
-        return 0
+    local input=$(clean_val "$*")
+    [[ -z "$input" ]] && return
+    # Специфичная чистка для библиотек
+    # унифицируем pthread: заменяем -lpthread на -pthread
+    # чистим мусор и ПУТИ, убираем -lstdc++
+    local filtered=$(echo "$input" | tr ' ' '\n' | \
+        grep -vE "^-L|^-lstdc\+\+$" | \
+        sed 's/^-lpthread$/-pthread/')
+    # склеиваем в одну строку без удаления дублей?
+    if [[ "$DEDUPE_FLAGS" == "1" ]]; then
+        dedupe_logic "$filtered" "last" | tr '\n' ' ' | xargs -r
+    else
+        echo "$filtered" | tr '\n' ' ' | xargs -r
     fi
-
-    # ЗОЛОТОЕ ПРАВИЛО СТАТИКИ: Сохраняем ПОСЛЕДНИЕ вхождения библиотек.
-    # Так как зависимые библиотеки должны идти в конце.
-    echo "$filtered" | tr ' ' '\n' | tac | awk '!x[$0]++' | tac | tr '\n' ' ' | sed 's/ $//'
 }
-export -f clean_val smart_dedupe smart_libs_dedupe
+export -f clean_val dedupe_logic smart_dedupe smart_libs_dedupe
 
 # Docker stage helpers
 ffbuild_dockerstage() {

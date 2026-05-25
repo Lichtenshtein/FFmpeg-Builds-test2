@@ -5,6 +5,9 @@ set -e
 shopt -s globstar
 cd "$(dirname "$0")"
 
+log_info "Infrastructure check: Current working directory is $(pwd)"
+log_info "Checking where util/vars.sh points to: $(readlink -f util/vars.sh)"
+
 source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
     || { echo "ERROR: vars.sh failed in build.sh" >&2; exit 1; }
 
@@ -86,32 +89,35 @@ fi
 
 # Сортировка важна: зависимости (низкие номера) должны быть в начале для CFLAGS 
 # и в конце для LIBS (но мы это решим дедупликацией tac)
-log_info "Loading component variables from cache..."
-
 counter=0
 while IFS= read -r f; do
+    # Обнуляем временные переменные перед каждым source
     unset FF_CONFIGURE FF_LIBS FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LDEXEFLAGS
     log_debug "Sourcing $f"
     [[ -s "$f" ]] && source "$f"
 
-    # Аккумулируем конфигурацию
+    # Аккумулируем данные из файла в итоговые переменные
     TOTAL_FF_CONFIGURE+=" ${FF_CONFIGURE:-}"
-
-    # Дедуплицируем CFLAGS/LDFLAGS «на лету» (сохраняем первые вхождения)
-    TOTAL_FF_CFLAGS=$(smart_dedupe "$TOTAL_FF_CFLAGS ${FF_CFLAGS:-} ${FF_CPPFLAGS:-}")
-    TOTAL_FF_CXXFLAGS=$(smart_dedupe "$TOTAL_FF_CXXFLAGS ${FF_CXXFLAGS:-} ${FF_CPPFLAGS:-}")
-    TOTAL_FF_LDFLAGS=$(smart_dedupe "$TOTAL_FF_LDFLAGS ${FF_LDFLAGS:-}")
-    TOTAL_FF_LDEXEFLAGS=$(smart_dedupe "$TOTAL_FF_LDEXEFLAGS ${FF_LDEXEFLAGS:-}")
-
-    # Дедуплицируем библиотеки «на лету» по правилу статики (сохраняем последние вхождения)
-    if [[ -n "${FF_LIBS:-}" ]]; then
-        TOTAL_FF_LIBS=$(smart_libs_dedupe "$TOTAL_FF_LIBS $FF_LIBS")
-    fi
+    TOTAL_FF_LIBS+=" ${FF_LIBS:-}"
+    TOTAL_FF_CFLAGS+=" ${FF_CFLAGS:-}"
+    TOTAL_FF_LDFLAGS+=" ${FF_LDFLAGS:-}"
+    TOTAL_FF_CXXFLAGS+=" ${FF_CXXFLAGS:-}"
+    TOTAL_FF_CPPFLAGS+=" ${FF_CPPFLAGS:-}"
+    TOTAL_FF_LDEXEFLAGS+=" ${FF_LDEXEFLAGS:-}"
 
     counter=$((counter + 1))
-done < <(find "$VARS_DIR" -name "*.vars" | sort)
 
-log_info "Successfully processed $counter component configuration files."
+    # Промежуточная очистка каждых 20 файлов,
+    # чтобы не допустить взрывного роста строк в памяти
+    if (( counter % 20 == 0 )); then
+        TOTAL_FF_LIBS=$(smart_libs_dedupe "$TOTAL_FF_LIBS")
+        TOTAL_FF_CFLAGS=$(smart_dedupe "$TOTAL_FF_CFLAGS")
+        TOTAL_FF_LDFLAGS=$(smart_dedupe "$TOTAL_FF_LDFLAGS")
+        TOTAL_FF_CXXFLAGS=$(smart_dedupe "$TOTAL_FF_CXXFLAGS")
+        TOTAL_FF_CPPFLAGS=$(smart_dedupe "$TOTAL_FF_CPPFLAGS")
+        TOTAL_FF_LDEXEFLAGS=$(smart_dedupe "$TOTAL_FF_LDEXEFLAGS")
+    fi
+done < <(find "$VARS_DIR" -name "*.vars" | sort)
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     # size guard for early failure diagnosis
@@ -491,7 +497,7 @@ CONF_FLAGS=(
     --enable-pic
     --disable-debug
     --disable-ffplay
-    --disable-ffprobe
+    --disable-ffprobe # crashes the compiler
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
 )
 
