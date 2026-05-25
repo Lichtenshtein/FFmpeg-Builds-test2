@@ -86,35 +86,32 @@ fi
 
 # Сортировка важна: зависимости (низкие номера) должны быть в начале для CFLAGS 
 # и в конце для LIBS (но мы это решим дедупликацией tac)
+log_info "Loading component variables from cache..."
+
 counter=0
 while IFS= read -r f; do
-    # Обнуляем временные переменные перед каждым source
     unset FF_CONFIGURE FF_LIBS FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LDEXEFLAGS
     log_debug "Sourcing $f"
     [[ -s "$f" ]] && source "$f"
 
-    # Аккумулируем данные из файла в итоговые переменные
+    # Аккумулируем конфигурацию
     TOTAL_FF_CONFIGURE+=" ${FF_CONFIGURE:-}"
-    TOTAL_FF_LIBS+=" ${FF_LIBS:-}"
-    TOTAL_FF_CFLAGS+=" ${FF_CFLAGS:-}"
-    TOTAL_FF_LDFLAGS+=" ${FF_LDFLAGS:-}"
-    TOTAL_FF_CXXFLAGS+=" ${FF_CXXFLAGS:-}"
-    TOTAL_FF_CPPFLAGS+=" ${FF_CPPFLAGS:-}"
-    TOTAL_FF_LDEXEFLAGS+=" ${FF_LDEXEFLAGS:-}"
+
+    # Дедуплицируем CFLAGS/LDFLAGS «на лету» (сохраняем первые вхождения)
+    TOTAL_FF_CFLAGS=$(smart_dedupe "$TOTAL_FF_CFLAGS ${FF_CFLAGS:-} ${FF_CPPFLAGS:-}")
+    TOTAL_FF_CXXFLAGS=$(smart_dedupe "$TOTAL_FF_CXXFLAGS ${FF_CXXFLAGS:-} ${FF_CPPFLAGS:-}")
+    TOTAL_FF_LDFLAGS=$(smart_dedupe "$TOTAL_FF_LDFLAGS ${FF_LDFLAGS:-}")
+    TOTAL_FF_LDEXEFLAGS=$(smart_dedupe "$TOTAL_FF_LDEXEFLAGS ${FF_LDEXEFLAGS:-}")
+
+    # Дедуплицируем библиотеки «на лету» по правилу статики (сохраняем последние вхождения)
+    if [[ -n "${FF_LIBS:-}" ]]; then
+        TOTAL_FF_LIBS=$(smart_libs_dedupe "$TOTAL_FF_LIBS $FF_LIBS")
+    fi
 
     counter=$((counter + 1))
-
-    # Промежуточная очистка каждых 20 файлов,
-    # чтобы не допустить взрывного роста строк в памяти
-    if (( counter % 20 == 0 )); then
-        TOTAL_FF_LIBS=$(smart_libs_dedupe "$TOTAL_FF_LIBS")
-        TOTAL_FF_CFLAGS=$(smart_dedupe "$TOTAL_FF_CFLAGS")
-        TOTAL_FF_LDFLAGS=$(smart_dedupe "$TOTAL_FF_LDFLAGS")
-        TOTAL_FF_CXXFLAGS=$(smart_dedupe "$TOTAL_FF_CXXFLAGS")
-        TOTAL_FF_CPPFLAGS=$(smart_dedupe "$TOTAL_FF_CPPFLAGS")
-        TOTAL_FF_LDEXEFLAGS=$(smart_dedupe "$TOTAL_FF_LDEXEFLAGS")
-    fi
 done < <(find "$VARS_DIR" -name "*.vars" | sort)
+
+log_info "Successfully processed $counter component configuration files."
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     # size guard for early failure diagnosis
@@ -537,19 +534,17 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     exit 1
 fi
 
-# cleaning ffmpeg header
 if [ -f "ffbuild/config.sh" ]; then
     log_info "Cleanup and shortening of configuration line in ffbuild/config.sh..."
-    # Вырезаем гигантские списки линковки (--extra-libs)
-    sed -i "s/--extra-libs='[^']*'//g" ffbuild/config.sh
-    # Вырезаем длинные списки внутренних флагов компиляции и путей
-    sed -i "s/--extra-cflags='[^']*'//g" ffbuild/config.sh
-    sed -i "s/--extra-cxxflags='[^']*'//g" ffbuild/config.sh
-    sed -i "s/--extra-ldflags='[^']*'//g" ffbuild/config.sh
-    sed -i "s/--extra-ldexeflags='[^']*'//g" ffbuild/config.sh
-    sed -i "s/--host-cflags='[^']*'//g" ffbuild/config.sh
-    sed -i "s/--host-ldflags='[^']*'//g" ffbuild/config.sh
-    # Схлопываем множественные пробелы, которые могли образоваться после удаления
+    # Поддерживаем очистку флагов как в одинарных, так и в двойных кавычках
+    sed -i -E "s/--extra-libs=['\"][^'\"]*['\"]//g" ffbuild/config.sh
+    sed -i -E "s/--extra-cflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
+    sed -i -E "s/--extra-cxxflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
+    sed -i -E "s/--extra-ldflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
+    sed -i -E "s/--extra-ldexeflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
+    sed -i -E "s/--host-cflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
+    sed -i -E "s/--host-ldflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
+    # Схлопываем лишние пробелы
     sed -i "s/  */ /g" ffbuild/config.sh
 fi
 
