@@ -408,6 +408,7 @@ fi
 
 # Сохраняем переменные для текущего слоя в файл 
 OUTFILE="$VARS_DIR/${STAGENAME}.vars"
+mkdir -p "$VARS_DIR"
 
 # Completely isolated subshell, no inherited FF_* state
 # The subshell is the critical isolation mechanism, no FF_* state can leak in from the parent environment.

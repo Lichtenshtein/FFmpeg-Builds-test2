@@ -93,14 +93,18 @@ for STAGE in "${ACTIVE_SCRIPTS[@]}"; do
 
     log_info "${BUILD_MARK} Cache MISS. Compiling ${STAGENAME} inside Docker toolchain..."
 
+    # Создаем папку config_vars на хосте перед запуском, чтобы Docker не создал её от имени root
+    mkdir -p "${SYSROOT_DIR}/opt/ffbuild/config_vars"
+
     # Запускаем контейнер для выполнения ровно ОДНОГО скрипта.
     # Мы монтируем текущее состояние хост-папки sysroot в контейнерный /opt/ffbuild.
     # Папка исходников .cache/downloads мантируется read-write, как и требовал run_stage.sh.
     docker run --rm \
         -v "${ROOT_DIR}:${CONTAINER_ROOT}" \
         -v "${SYSROOT_DIR}/opt/ffbuild:/opt/ffbuild" \
+        -v "${SYSROOT_DIR}/opt/ffbuild/config_vars:/opt/ffbuild/config_vars:rw" \
         -v "${ROOT_DIR}/.cache/downloads:${CONTAINER_ROOT}/.cache/downloads:rw" \
-        --env-file <(env | grep -E '^(TARGET|VARIANT|CPU_|FFBUILD_|USE_|FFMPEG_|DEBUG_|DEDUPE_|SAFE_|ONLY_|DLL_|GIT_|STRIP_|OLDER_)') \
+        --env-file <(env | grep -E '^(TARGET|VARIANT|CPU_|FFBUILD_|USE_|FFMPEG_|DEBUG_|DEDUPE_|SAFE_|ONLY_|DLL_|GIT_|STRIP_|OLDER_|REBUILD_)') \
         "ghcr.io/${GITHUB_REPOSITORY,,}/base-${TARGET}:latest" \
         /bin/bash -l -c "${CONTAINER_ROOT}/util/run_stage.sh ${CONTAINER_ROOT}/${STAGE}"
 

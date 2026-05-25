@@ -5,7 +5,7 @@ on:
     inputs:
       ffmpeg_repo:
         description: 'FFmpeg Repository URL'
-        default: 'https://github.com/MartinEesmaa/FFmpeg-VVC.git'
+        default: 'https://github.com/MartinEesmaa/FFmpeg-Plus.git'
       ffmpeg_branch:
         description: 'FFmpeg Branch'
         default: 'master'
@@ -153,7 +153,7 @@ env:
   BUILD_VINO:     ${{ github.event.inputs.build_vino     == 'true' && '1' || '0' }}
   REBUILD_COMPONENTS: ${{ github.event.inputs.rebuild_components == 'true' && '1' || '0' }}
   # Маппинг Inputs -> Env для всех динамических значений
-  FFMPEG_REPO:     ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-VVC.git' }}
+  FFMPEG_REPO:     ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-Plus.git' }}
   FFMPEG_BRANCH:   ${{ github.event.inputs.ffmpeg_branch || 'master' }}
   ONLY_STAGE:      ${{ github.event.inputs.only_stage }}
   # строковые параметры
