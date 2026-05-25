@@ -98,6 +98,11 @@ ffbuild_dockerbuild() {
     ../configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
+
+    # Ensure both bin and lib directories exist in DESTDIR
+    # This prevents "No such file or directory" if pkgdata tries to install to bin
+    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/bin" "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
+    log_info "${BUILD_MARK} Installing ICU..."
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
@@ -105,6 +110,7 @@ ffbuild_dockerbuild() {
         cd "$INSTALL_ROOT/lib" || return 1
         # Исправляем странное поведение ICU, когда данные улетают в bin
         if [[ -f "$INSTALL_ROOT/bin/sicudt.a" ]]; then
+            log_info "Moving sicudt.a from bin to lib..."
             mv -v "$INSTALL_ROOT/bin/sicudt.a" "$INSTALL_ROOT/lib/libicudt.a"
         fi
         log_info "Renaming libraries in $(pwd)..."
@@ -119,8 +125,8 @@ ffbuild_dockerbuild() {
             [[ -e "$f" ]] && mv -v "$f" "libicu${f#sicu}" 2>/dev/null || true
         done
         # проверка наличия критически важных компонентов
-        if [[ ! -f "libicuuc.a" ]]; then
-            log_error "ICU core library (libicuuc.a) not found!"
+        if [[ ! -f "libicuuc.a" ]] || [[ ! -f "libicudt.a" ]]; then
+            log_error "Critical ICU libraries (libicuuc.a or libicudt.a) missing!"
             ls -la .
             return 1
         fi
