@@ -431,9 +431,6 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
 fi
 
-# export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]}"
-# export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -std=gnu23"
-
 # экспортируем флаги
 export FINAL_CONFIGURE FINAL_CFLAGS FINAL_CXXFLAGS FINAL_LDFLAGS FINAL_LDEXEFLAGS FINAL_LIBS_GROUPED
 # Очищаем тяжелые переменные, чтобы не мешать запуску процессов
@@ -455,29 +452,6 @@ TOTAL_VIRTUAL=$(( MEM_PHYS + SWAP_TOTAL ))
 # иначе диск не будет успевать за подкачкой.
 if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
 
-    # Force disable LTO for the problematic VVC module to prevent GCC choose_baseaddr ICE
-    echo "CFLAGS-libavcodec/vvc/inter_template.o += -fno-lto" >> libavcodec/Makefile
-    echo "CFLAGS-libavcodec/vvc/intra_template.o += -fno-lto" >> libavcodec/Makefile
-    echo "CFLAGS-libavcodec/vvc/dsp.o += -fno-lto" >> libavcodec/Makefile
-
-    # На всякий случай отключаем LTO для всего каталога vvc
-    echo "CFLAGS-libavcodec/vvc/vvcdsp.o += -fno-lto" >> libavcodec/Makefile
-    echo "CFLAGS-libavcodec/vvc/vvcdec.o += -fno-lto" >> libavcodec/Makefile
-
-    # защита таблиц MLP от удаления оптимизатором LTO (Dead Code Elimination)
-    if [ -f "libavcodec/mlp.c" ]; then
-        log_info "Injecting anti-eviction attributes into MLP tables..."
-        sed -i 's/static const uint8_t ff_mlp_/static __attribute__((used)) const uint8_t ff_mlp_/g' libavcodec/mlp.c
-        sed -i 's/const uint8_t ff_mlp_/ __attribute__((used)) const uint8_t ff_mlp_/g' libavcodec/mlp.c
-    fi
-
-    log_info "Applying LTO fix for MLP codecs..."
-    # Дописываем правила в Makefile, чтобы mlp.o компилировался с флагом -fno-lto
-    echo "CFLAGS-libavcodec/mlp.o += -fno-lto" >> libavcodec/Makefile
-    echo "CFLAGS-libavcodec/mlpdsp.o += -fno-lto" >> libavcodec/Makefile
-    # Если компилируется x86-оптимизация
-    echo "CFLAGS-libavcodec/x86/mlpdsp.o += -fno-lto" >> libavcodec/Makefile
-
     # Если виртуальной памяти много, можно позволить 4 потока.
     # Если мало (менее 16ГБ общего), лучше оставить 2.
     if [[ $TOTAL_VIRTUAL -gt 16 ]]; then
@@ -487,16 +461,6 @@ if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
         MAKE_JOBS=2
         log_warn "LTO & Low Memory: Forcing dual-thread build to avoid OOM."
     fi
-
-    # # Replace the unmanaged -flto=auto with a safe number of MAKE_JOBS threads
-    # # specifically for the final build of FFmpeg executables
-    # log_info "Tweaking final compiler and linker options: scaling LTO to ${MAKE_JOBS} threads..."
-
-    # FINAL_CFLAGS=$(echo " ${FINAL_CFLAGS} " | sed -E "s/ -flto(=[a-z0-9]+)? / -flto=${MAKE_JOBS} /g")
-    # FINAL_CXXFLAGS=$(echo " ${FINAL_CXXFLAGS} " | sed -E "s/ -flto(=[a-z0-9]+)? / -flto=${MAKE_JOBS} /g")
-    # FINAL_LDFLAGS=$(echo " ${FINAL_LDFLAGS} " | sed -E "s/ -flto(=[a-z0-9]+)? / -flto=${MAKE_JOBS} /g")
-    # HOST_CFLAGS=$(echo " ${HOST_CFLAGS} " | sed -E "s/ -flto(=[a-z0-9]+)? / -flto=${MAKE_JOBS} /g")
-    # HOST_LDFLAGS=$(echo " ${HOST_LDFLAGS} " | sed -E "s/ -flto(=[a-z0-9]+)? / -flto=${MAKE_JOBS} /g")
 else
     # Обычная сборка (не LTO) ориентируемся на MemAvailable
     MEM_AVAIL=$(awk '/MemAvailable/ {printf "%d", $2/1024/1024}' /proc/meminfo)
@@ -512,27 +476,6 @@ fi
 # # Создаем обертку для линкера, которая гарантирует правильный порядок библиотек рантайма
 log_info "Deploying global compiler-level interceptor..."
     
-cat << 'EOF' > "${TMP_DIR}/cc-wrapper"
-#!/bin/bash
-REAL_CC="/opt/ct-ng/bin/x86_64-w64-mingw32-gcc"
-if [ ! -f "$REAL_CC" ]; then
-    REAL_CC=$(which x86_64-w64-mingw32-gcc)
-fi
-
-IS_LINKING=0
-if [[ " $@ " =~ " -o " ]] && [[ ! " $@ " =~ " -c " ]] && [[ ! " $@ " =~ " -E " ]]; then
-    IS_LINKING=1
-fi
-
-if [ "$IS_LINKING" -eq 1 ]; then
-    # Безопасное добавление рантайма: не создаем вложенные группы, 
-    # а просто гарантируем наличие библиотек в конце строки вызова
-    exec ccache "$REAL_CC" "$@" -lmingwex -lgcc_eh -lgcc -lmingw32
-else
-    exec ccache "$REAL_CC" "$@"
-fi
-EOF
-chmod +x "${TMP_DIR}/cc-wrapper"
 
 chmod +x configure
 
@@ -554,20 +497,8 @@ CONF_FLAGS=(
     --enable-opengl
     --enable-pic
     --disable-debug
-    --disable-ffprobe # crashes the compiler
     --disable-ffplay
-    # --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
-    # --cc="${FFBUILD_CROSS_PREFIX}gcc" 
-    # --cxx="${FFBUILD_CROSS_PREFIX}g++" 
-    # --ar="${FFBUILD_CROSS_PREFIX}ar" 
-    # --ranlib="${FFBUILD_CROSS_PREFIX}ranlib" 
-    # --nm="${FFBUILD_CROSS_PREFIX}nm" 
-    # --as="${FFBUILD_CROSS_PREFIX}gcc"
-    # Подменяем CC и AS на наш перехватчик
-    --cc="${TMP_DIR}/cc-wrapper"
-    --as="${TMP_DIR}/cc-wrapper"
-    --cxx="ccache x86_64-w64-mingw32-g++"
-    --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
+    --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
 )
 
 if [[ "${PREFER_SHARED}" != "1" ]]; then
