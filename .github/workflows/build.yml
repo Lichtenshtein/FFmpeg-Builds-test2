@@ -20,6 +20,10 @@ on:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
         default: false
+      rebuild_components:
+        description: 'Force clean rebuild of ALL components'
+        type: boolean
+        default: false
       cpu_arch:
         description: 'CPU march target (broadwell/x86-64-v3/znver3/native)'
         required: false
@@ -68,10 +72,10 @@ on:
         description: 'Free some Disk Space before Build'
         type: boolean
         default: false
-      regularClean:
-        description: 'Clean old caches after build (Regular Cleaning)'
-        type: boolean
-        default: false
+      # regularClean:
+        # description: 'Clean old caches after build (Regular Cleaning)'
+        # type: boolean
+        # default: false
       doClean:
         description: 'Nuke all cache before build (Full Rebuild)'
         type: boolean
@@ -147,6 +151,7 @@ env:
   OLDER_FFNV:     ${{ github.event.inputs.older_ffnv     == 'true' && '1' || '0' }}
   DIR_NUMBERS:    ${{ github.event.inputs.dir_numbers    == 'true' && '1' || '0' }}
   BUILD_VINO:     ${{ github.event.inputs.build_vino     == 'true' && '1' || '0' }}
+  REBUILD_COMPONENTS: ${{ github.event.inputs.rebuild_components == 'true' && '1' || '0' }}
   # Маппинг Inputs -> Env для всех динамических значений
   FFMPEG_REPO:     ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-VVC.git' }}
   FFMPEG_BRANCH:   ${{ github.event.inputs.ffmpeg_branch || 'master' }}

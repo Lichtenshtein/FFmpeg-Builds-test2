@@ -16,6 +16,14 @@ COMPONENTS_CACHE_DIR="${ROOT_DIR}/.cache/components"
 SYSROOT_DIR="${ROOT_DIR}/.cache/sysroot"
 mkdir -p "$COMPONENTS_CACHE_DIR" "$SYSROOT_DIR/opt/ffbuild"
 
+# Сброс кэша цепочки
+if [[ "${REBUILD_COMPONENTS}" == "1" ]]; then
+    log_warn "${BROOM_MARK} REBUILD_COMPONENTS is active! Wiping out old pipeline cache..."
+    rm -rf "${COMPONENTS_CACHE_DIR:?}"/*
+    rm -rf "${SYSROOT_DIR:?}"/opt/ffbuild/*
+    mkdir -p "$SYSROOT_DIR/opt/ffbuild"
+fi
+
 log_info "${TARGET_MARK} Starting Incremental Build Dispatcher for ${TARGET}-${VARIANT}"
 
 # Находим активные скрипты (логика полностью скопирована из вашего generate.sh)
