@@ -343,6 +343,7 @@ jobs:
           chmod +x ./download.sh ./util/*.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
+          ./generate.sh "$TARGET" "$VARIANT"
 
       - name: Verify FFmpeg Source
         run: |
@@ -351,9 +352,6 @@ jobs:
             exit 1
           fi
           echo "FFmpeg source OK: $(cat .cache/ffmpeg/VERSION 2>/dev/null || echo 'version unknown')"
-
-      - name: Inspect Dockerfile
-        run: head -n 50 Dockerfile
 
       - name: Force Save Cache
         if: always()

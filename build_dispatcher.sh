@@ -94,7 +94,7 @@ for STAGE in "${ACTIVE_SCRIPTS[@]}"; do
         -v "${ROOT_DIR}/.cache/downloads:${CONTAINER_ROOT}/.cache/downloads:rw" \
         --env-file <(env | grep -E '^(TARGET|VARIANT|CPU_|FFBUILD_|USE_|FFMPEG_|DEBUG_|DEDUPE_|SAFE_|ONLY_|DLL_|GIT_|STRIP_|OLDER_)') \
         "ghcr.io/${GITHUB_REPOSITORY,,}/base-${TARGET}:latest" \
-        /bin/bash -l -c "run_stage ${CONTAINER_ROOT}/${STAGE}"
+        /bin/bash -l -c "${CONTAINER_ROOT}/util/run_stage.sh ${CONTAINER_ROOT}/${STAGE}"
 
     # После успешной сборки фиксируем, что именно добавил этот компонент, и упаковываем в кэш
     log_info "${SAVE_MARK} Packaging ${STAGENAME} artifacts to cache..."
