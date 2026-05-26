@@ -232,9 +232,8 @@ jobs:
           password: ${{ github.token }}
 
       ## This cleans ~24Gb
-      - name: Free Disk Space
-        if: github.event.inputs.freeSpace == 'true'
       - name: Free Disk Space (Ubuntu)
+        if: ${{ github.event.inputs.freeSpace == 'true' || github.event.inputs.only_stage == '.*' }}
         uses: BRAINSia/free-disk-space@v2
         with:
           tool-cache: false
