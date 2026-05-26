@@ -48,9 +48,9 @@ ffbuild_dockerbuild() {
     mkdir -p "$INSTALL_ROOT"/{lib/pkgconfig,include/flite}
 
     # Однопоточная сборка конфигурационных файлов и списков голосов.
-    make time_info flite_voice_list.c || return 1
+    # make time_info flite_voice_list.c || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
+    make -j1 $MAKE_V || return 1
     # make install DESTDIR="$FFBUILD_DESTDIR"
 
     # Динамический поиск папки с либами (fix для x86_64-mingw32 vs x86_64-w64-mingw32)
