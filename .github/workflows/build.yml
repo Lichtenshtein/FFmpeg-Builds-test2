@@ -233,7 +233,7 @@ jobs:
 
       ## This cleans ~24Gb
       - name: Free Disk Space
-        if: ${{ github.event.inputs.freeSpace == 'true' || github.event.inputs.only_stage == '.*' }}
+        if: github.event.inputs.freeSpace == 'true'
       - name: Free Disk Space (Ubuntu)
         uses: BRAINSia/free-disk-space@v2
         with:
