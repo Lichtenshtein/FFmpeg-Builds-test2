@@ -87,7 +87,7 @@ for STAGE in "${ACTIVE_SCRIPTS[@]}"; do
     if [[ "${REBUILD_COMPONENTS}" != "1" ]] && docker manifest inspect "$COMPONENT_IMAGE" >/dev/null 2>&1; then
         log_info "${CACHE_MARK} Cache HIT in GHCR! Extracting OCI artifact layers..."
         # Создаем контейнер-пустышку и копируем файлы напрямую в sysroot хоста
-        docker create --name "temp_extract_${STAGENAME}" "$COMPONENT_IMAGE"
+        docker create --name "temp_extract_${STAGENAME}" "$COMPONENT_IMAGE" ""
         docker cp "temp_extract_${STAGENAME}:/opt/ffbuild" "$SYSROOT_DIR/opt/"
         docker rm "temp_extract_${STAGENAME}"
         continue
