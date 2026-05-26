@@ -144,13 +144,21 @@ for STAGE in "${ACTIVE_SCRIPTS[@]}"; do
     # Генерируем временный микро-Dockerfile на лету
     cat <<EOF > Dockerfile.component.cache
 FROM scratch
-COPY opt/ffbuild /opt/ffbuild
+COPY .cache/sysroot/opt/ffbuild /opt/ffbuild
 EOF
-    # Собираем плоский OCI-образ из текущего среза хост-папки sysroot
-    docker build -t "$COMPONENT_IMAGE" -f Dockerfile.component.cache "$SYSROOT_DIR"
+
+    # Запускаем сборку, передавая в качестве контекста КОРЕНЬ репозитория ($ROOT_DIR).
+    # Флаг --provenance=false отключает генерацию избыточных метаданных BuildKit, 
+    # которые часто приводят к ошибкам 'unknown blob' при пуше scratch-контейнеров.
+    docker build \
+        --provenance=false \
+        -t "$COMPONENT_IMAGE" \
+        -f Dockerfile.component.cache "$ROOT_DIR"
+
+    # Отправляем образ в реестр пакетов GitHub
     docker push "$COMPONENT_IMAGE"
 
-    # Жесткая очистка диска: удаляем срез и чистим зависшие слои билдера на хосте
+    # Удаляем временный Dockerfile и локальный образ
     rm -f Dockerfile.component.cache
     docker rmi "$COMPONENT_IMAGE" || true
     docker builder prune --filter type=exec.cachemount --force || true
