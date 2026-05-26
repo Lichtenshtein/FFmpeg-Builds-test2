@@ -483,7 +483,17 @@ download_stage() {
 
     # Cache miss
     local miss_reason="no archive"
-    [[ -L "$STAGE_LATEST_LINK" ]] && miss_reason="hash changed → ${STAGE_HASH:0:8}"
+    if [[ -L "$STAGE_LATEST_LINK" ]]; then
+        miss_reason="hash changed → ${STAGE_HASH:0:8}"
+        local old_archive
+        old_archive=$(readlink -f "$STAGE_LATEST_LINK" 2>/dev/null || true)
+        if [[ -f "$old_archive" ]]; then
+            log_warn "Cleaning up obsolete source archive to save space: $(basename "$old_archive")"
+            rm -f "$old_archive"
+        fi
+        rm -f "$STAGE_LATEST_LINK"
+    fi
+
     dl_result_line "miss" "$STAGENAME" "$STAGE_HASH" "$miss_reason"
     log_warn "Cache miss: $STAGENAME ($miss_reason). ${DOWN_MARK} Re-downloading..."
 
@@ -591,6 +601,7 @@ download_stage() {
 
         # Упаковка
         mkdir -p "$(dirname "$STAGE_CACHE_FILE")"
+        rm -f "$STAGE_CACHE_FILE"
         # -c: создать, -f: файл, -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
         tar -I 'zstd -T0 -3' -cf "$STAGE_CACHE_FILE" -C "$WORK_DIR" .
         ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"

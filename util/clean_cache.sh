@@ -35,19 +35,9 @@ count_skipped=0
 for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
     [[ -f "$STAGE" ]] || continue
 
-    # Unified var derivation consistent with dl_functions.sh
     unset STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK
     eval "$(stage_vars "$STAGE")"
 
-    # Is this stage active (listed in ONLY_STAGE)?
-    is_active=false
-    if [[ -z "$ONLY_STAGE" ]] || [[ "|${ONLY_STAGE}|" == *"|${STAGENAME}|"* ]]; then
-        is_active=true
-    fi
-
-    # Is this stage enabled (ffbuild_enabled returns 0)?
-    # source vars.sh first for default ffbuild_enabled
-    # then source $STAGE to get any override
     is_enabled=false
     if ( set +e
          source "${UTIL_DIR}/vars.sh" "$CLEAN_TARGET" "$CLEAN_VARIANT" >/dev/null 2>&1
@@ -56,42 +46,39 @@ for STAGE in "$SCRIPTS_DIR"/**/*.sh; do
         is_enabled=true
     fi
 
-    # Decision tree (matches spec exactly)
-    #
-    #  Active + Enabled   → ALWAYS PROTECT
-    #  Active + Disabled  → never protect
-    #  Inactive + Enabled + CLEAN_INACTIVE=0 → PROTECT
-    #  Inactive + Enabled + CLEAN_INACTIVE=1 → never protect
-    #  Inactive + Disabled                   → never protect
-
     should_protect=false
     reason=""
-    if [[ "$is_active" == "true" ]]; then
-        if [[ "$is_enabled" == "true" ]]; then
-            should_protect=true
-            reason="active+enabled"
-            count_active_enabled=$((count_active_enabled + 1))
+
+    if [[ "$is_enabled" == "true" ]]; then
+        if [[ "$CLEAN_INACTIVE" == "1" && -n "$ONLY_STAGE" ]]; then
+            is_active=false
+            IFS='|' read -ra _patterns <<< "$ONLY_STAGE"
+            for pattern in "${_patterns[@]}"; do
+                if [[ "$STAGENAME" =~ $pattern ]]; then is_active=true; break; fi
+            done
+
+            if [[ "$is_active" == "true" ]]; then
+                should_protect=true
+                reason="enabled+active (keep)"
+                count_active_enabled=$((count_active_enabled + 1))
+            else
+                reason="enabled+inactive (CLEAN_INACTIVE=1 → delete)"
+                count_skipped=$((count_skipped + 1))
+            fi
         else
-            reason="active+disabled → skip"
-            count_skipped=$((count_skipped + 1))
+            should_protect=true
+            reason="enabled (always keep)"
+            count_active_enabled=$((count_active_enabled + 1))
         fi
     else
-        # inactive
-        if [[ "$is_enabled" == "true" && "$CLEAN_INACTIVE" == "0" ]]; then
-            should_protect=true
-            reason="inactive+enabled+keep"
-            count_inactive_kept=$((count_inactive_kept + 1))
-        else
-            reason="inactive → skip (CLEAN_INACTIVE=${CLEAN_INACTIVE})"
-            count_skipped=$((count_skipped + 1))
-        fi
+        reason="disabled component → delete"
+        count_skipped=$((count_skipped + 1))
     fi
 
     # Add to keep-list if protecting
     if [[ "$should_protect" == "true" && -n "$STAGE_HASH" ]]; then
         echo "$(basename "$STAGE_CACHE_FILE")"  >> "$RAW_KEEP_LIST"
         echo "$(basename "$STAGE_LATEST_LINK")" >> "$RAW_KEEP_LIST"
-        # component's configs and options hashes
         echo "${STAGENAME}_${STAGE_HASH}.confhash" >> "$RAW_KEEP_LIST"
         echo "${STAGENAME}_${STAGE_HASH}.confopts" >> "$RAW_KEEP_LIST"
     fi

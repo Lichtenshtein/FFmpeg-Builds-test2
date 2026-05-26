@@ -141,22 +141,21 @@ mkdir -p "$FFBUILD_DESTDIR" "$FFBUILD_DESTPREFIX"
 
 log_info "${SEARCH_MARK} Searching source for $STAGENAME"
 
-# Ищем точное совпадение (Имя_Хеш)
 if [[ -f "$STAGE_CACHE_FILE" ]]; then
     REAL_CACHE="$STAGE_CACHE_FILE"
-    log_info "${CHECK_MARK} Exact cache match found: $(basename "$REAL_CACHE")"
+    log_info "${CHECK_MARK} Exact source cache match found: $(basename "$REAL_CACHE")"
     ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
-# Ищем по хешу (если скрипт переименован, например 25-glib2 -> 24-glib2)
 else
+    # Ищем строго по хэшу текущей версии скрипта сборки компонента
     EXISTING_BY_HASH=$(find "$CACHE_DIR" -maxdepth 1 -name "*_${STAGE_HASH}.tar.zst" -print -quit)
     if [[ -n "$EXISTING_BY_HASH" ]]; then
         REAL_CACHE="$EXISTING_BY_HASH"
-        log_info "${CHECK_MARK} Found cache with matching hash but different name: $(basename "$REAL_CACHE")"
+        log_info "${CHECK_MARK} Found source cache with matching hash: $(basename "$REAL_CACHE")"
         ln -sf "$(basename "$REAL_CACHE")" "$STAGE_LATEST_LINK"
-# Откат к последней ссылке (LATEST), если точный хеш не найден
-    elif [[ -L "$STAGE_LATEST_LINK" && -f "$STAGE_LATEST_LINK" ]]; then
-        REAL_CACHE=$(readlink -f "$STAGE_LATEST_LINK")
-        log_warn "Exact hash $STAGE_HASH not found. Falling back to latest symlink: $(basename "$REAL_CACHE")"
+    else
+        # В CI/CD мы НЕ делаем фоллбэк на случайные старые симлинки, чтобы не отравить кумулятивный хэш в GHCR
+        REAL_CACHE=""
+        log_warn "Source cache exact match NOT found for $STAGENAME (Hash: $STAGE_HASH)."
     fi
 fi
 
@@ -444,46 +443,31 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
 
     # This is much more reliable than name matching, it doesn't matter what the library calls its .pc file. Only .pc files newer than the pre-build timestamp
 
+    # Вместо поиска по всему FFBUILD_PREFIX с фильтром по времени (-nt TIMESTAMP_FILE),
+    # мы сканируем строго файлы .pc, которые текущий компонент только что установил в свой временный INSTALL_ROOT.
     while IFS= read -r -d '' pc; do
         [[ -e "$pc" ]] || continue
-        [[ "$pc" -nt "$TIMESTAMP_FILE" ]] || continue
 
-        # Добавляем папку, где лежит этот .pc, в PKG_CONFIG_PATH для текущего вызова
+        # Временно подменяем PKG_CONFIG_PATH, добавляя директорию текущего .pc файла
         export PKG_CONFIG_PATH="$(dirname "$pc"):$PKG_CONFIG_LIBDIR"
-        # Собираем только если имя .pc файла соответствует или связано с компонентом
         pc_name="$(basename "$pc" .pc)"
 
-        # Извлекаем путь к инклудам напрямую из модуля
         actual_inc=$(pkg-config --variable=includedir "$pc_name" 2>/dev/null)
-        # Если путь существует и он "глубже" стандартного (содержит подпапку)
         if [[ -n "$actual_inc" && "$actual_inc" != "$FFBUILD_PREFIX/include" ]]; then
-            # Добавляем его в CFLAGS, если еще не видели
             if [[ -z "${_seen_pc_cflags["-I$actual_inc"]:-}" ]]; then
                 _seen_pc_cflags["-I$actual_inc"]=1
                 _pc_cflags="$_pc_cflags -I$actual_inc"
             fi
         fi
 
-        # Deduplicate per-flag across multiple .pc files
         while IFS= read -r flag; do
             [[ -z "$flag" ]] && continue
             if [[ -z "${_seen_pc_cflags[$flag]:-}" ]]; then
                 _seen_pc_cflags["$flag"]=1
                 _pc_cflags="$_pc_cflags $flag"
             fi
-        # просто pkg-config --cflags сохраняет с путями
         done < <(pkg-config $PKG_CONFIG_CFLAGS "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
 
-        # Сначала собираем сами библиотеки (-l)
-        # while IFS= read -r flag; do
-            # [[ -z "$flag" ]] && continue
-            # if [[ -z "${_seen_pc_libs[$flag]:-}" ]]; then
-                # _seen_pc_libs["$flag"]=1
-                # _pc_libs="$_pc_libs $flag"
-            # fi
-        # done < <(pkg-config $PKG_CONFIG_LIBS "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
-
-        # Затем собираем системные флаги (-pthread и т.д.)
         while IFS= read -r flag; do
             [[ -z "$flag" ]] && continue
             if [[ -z "${_seen_pc_libs[$flag]:-}" ]]; then
@@ -492,7 +476,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
             fi
         done < <(pkg-config $PKG_CONFIG_ALL_LIBS "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
 
-    done < <(find "$FFBUILD_PREFIX/lib" "$FFBUILD_PREFIX/lib64" "$FFBUILD_PREFIX/share" -maxdepth 3 -name "*.pc" -print0 2>/dev/null)
+    done < <(find "$INSTALL_ROOT" -name "*.pc" -print0 2>/dev/null)
 
     # Merge script output with .pc output, then deduplicate the combined result
     FF_CONFIGURE=$(smart_dedupe "$_conf")

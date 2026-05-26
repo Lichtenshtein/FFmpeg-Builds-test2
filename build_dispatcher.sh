@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# build_dispatcher.sh
 set -e
 
 TARGET="${1:-win64}"
@@ -12,19 +11,18 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
     exit 1
 }
 
-COMPONENTS_CACHE_DIR="${ROOT_DIR}/.cache/components"
+# Подготовка локального sysroot хоста
 SYSROOT_DIR="${ROOT_DIR}/.cache/sysroot"
-mkdir -p "$COMPONENTS_CACHE_DIR" "$SYSROOT_DIR/opt/ffbuild"
+mkdir -p "$SYSROOT_DIR/opt/ffbuild/config_vars"
+mkdir -p "${ROOT_DIR}/.cache/ccache"
 
-# Сброс кэша цепочки
-if [[ "${REBUILD_COMPONENTS}" == "1" ]]; then
-    log_warn "${BROOM_MARK} REBUILD_COMPONENTS is active! Wiping out old pipeline cache..."
-    rm -rf "${COMPONENTS_CACHE_DIR:?}"/*
-    rm -rf "${SYSROOT_DIR:?}"/opt/ffbuild/*
-    mkdir -p "$SYSROOT_DIR/opt/ffbuild"
-fi
+# Автоматически определяем имя репозитория в нижнем регистре для GHCR
+REPO_LC="${GITHUB_REPOSITORY,,}"
+REGISTRY="ghcr.io"
+BASE_CACHE_IMAGE="${REGISTRY}/${REPO_LC}/component-cache"
+TARGET_IMAGE="${REGISTRY}/${REPO_LC}/base-win64:latest"
 
-log_info "${TARGET_MARK} Starting Incremental Build Dispatcher for ${TARGET}-${VARIANT}"
+log_info "${TARGET_MARK} Starting Permanent OCI-Registry Build Pipeline..."
 
 # Находим активные скрипты (логика полностью скопирована из вашего generate.sh)
 if [[ "$DIR_NUMBERS" == "1" ]]; then
@@ -77,37 +75,40 @@ for STAGE in "${ACTIVE_SCRIPTS[@]}"; do
 
     # КУМУЛЯТИВНЫЙ ХЭШ: зависит от себя, патчей и ВСЕЙ цепочки до него
     COMBINED_HASH=$(echo "${PREVIOUS_CHAIN_HASH}_S:${STAGE_HASH}_P:${PATCH_HASH}" | sha256sum | cut -c1-16)
-    COMPONENT_CACHE_FILE="${COMPONENTS_CACHE_DIR}/${STAGENAME}_${COMBINED_HASH}.tar.zst"
-
-    # Этот хэш становится базой для следующего компонента (эффект домино)
     PREVIOUS_CHAIN_HASH="$COMBINED_HASH"
 
-    log_info "Component: ${BLUE_B}${STAGENAME}${NC} | Pipeline-Hash: ${GREY_B}${COMBINED_HASH}${NC}"
+    # Имя OCI-образа для кэша этого конкретного компонента
+    COMPONENT_IMAGE="${BASE_CACHE_IMAGE}/${STAGENAME}:${COMBINED_HASH}"
 
-    # Если сборка этой цепочки уже выполнялась
-    if [[ -f "$COMPONENT_CACHE_FILE" ]]; then
-        log_info "${CACHE_MARK} Cache HIT. Extracting pre-built sysroot state..."
-        tar -I 'zstd -d -T0' -xaf "$COMPONENT_CACHE_FILE" -C "$SYSROOT_DIR/"
+    log_info "Processing component: ${BLUE_B}${STAGENAME}${NC} | Pipeline-Hash: ${GREY_B}${COMBINED_HASH}${NC}"
+
+    # ПРОВЕРКА CACHE HIT В GHCR
+    # Принудительный ребилд (REBUILD_COMPONENTS=1) пропускает этот шаг
+    if [[ "${REBUILD_COMPONENTS}" != "1" ]] && docker manifest inspect "$COMPONENT_IMAGE" >/dev/null 2>&1; then
+        log_info "${CACHE_MARK} Cache HIT in GHCR! Extracting OCI artifact layers..."
+        # Создаем контейнер-пустышку и копируем файлы напрямую в sysroot хоста
+        docker create --name "temp_extract_${STAGENAME}" "$COMPONENT_IMAGE"
+        docker cp "temp_extract_${STAGENAME}:/opt/ffbuild" "$SYSROOT_DIR/opt/"
+        docker rm "temp_extract_${STAGENAME}"
         continue
     fi
 
-    log_info "${BUILD_MARK} Cache MISS. Compiling ${STAGENAME} inside Docker toolchain..."
+    # CACHE MISS ЗАПУСК КОМПИЛЯЦИИ В DOCKER
+    log_info "${BUILD_MARK} Cache MISS. Launching Docker compiler toolchain..."
 
     # Создаем папку config_vars на хосте перед запуском, чтобы Docker не создал её от имени root
     mkdir -p "${SYSROOT_DIR}/opt/ffbuild/config_vars"
 
-
-    # Запускаем контейнер для выполнения ровно ОДНОГО скрипта.
-    # Мы монтируем текущее состояние хост-папки sysroot в контейнерный /opt/ffbuild.
-    # Папка исходников .cache/downloads мантируется read-write, как и требовал run_stage.sh.
     docker run --rm \
         --workdir "${CONTAINER_ROOT}" \
         -v "${ROOT_DIR}:${CONTAINER_ROOT}" \
         -v "${SYSROOT_DIR}/opt/ffbuild:/opt/ffbuild" \
         -v "${SYSROOT_DIR}/opt/ffbuild/config_vars:/opt/ffbuild/config_vars:rw" \
         -v "${ROOT_DIR}/.cache/downloads:${CONTAINER_ROOT}/.cache/downloads:rw" \
+        -v "${ROOT_DIR}/.cache/ccache:/root/.cache/ccache:rw" \
         -e TARGET="$TARGET" \
         -e VARIANT="$VARIANT" \
+        -e ADDINS_STR="$ADDINS_STR" \
         -e CPU_ARCH="$CPU_ARCH" \
         -e CPU_TUNE="$CPU_TUNE" \
         -e DEDUPE_FLAGS="$DEDUPE_FLAGS" \
@@ -134,15 +135,25 @@ for STAGE in "${ACTIVE_SCRIPTS[@]}"; do
         -e DLL_PRESERVE_LIST="$DLL_PRESERVE_LIST" \
         -e LIB_PRESERVE_LIST="$LIB_PRESERVE_LIST" \
         -e STRIP_EXCLUDE_LIST="$STRIP_EXCLUDE_LIST" \
-        "ghcr.io/${GITHUB_REPOSITORY,,}/base-${TARGET}:latest" \
+        "${TARGET_IMAGE}" \
         /bin/bash -l -c "./util/run_stage.sh ${CONTAINER_ROOT}/${STAGE}"
 
-    # После успешной сборки фиксируем, что именно добавил этот компонент, и упаковываем в кэш
-    log_info "${SAVE_MARK} Packaging ${STAGENAME} artifacts to cache..."
-    
-    # Создаем слепок состояния /opt/ffbuild после сборки этого компонента
-    # Для простоты и надёжности мы пакуем изменения всего sysroot, которые накопились к этому моменту
-    tar -I 'zstd -T0 -3' -cf "$COMPONENT_CACHE_FILE" -C "$SYSROOT_DIR/" opt/
+    # УПАКОВКА И ПУШ КЭШ-СЛОЯ В GHCR ПОСЛЕ УСПЕШНОЙ СБОРКИ
+    log_info "${SAVE_MARK} Packaging and pushing OCI cache layer to GHCR..."
+
+    # Генерируем временный микро-Dockerfile на лету
+    cat <<EOF > Dockerfile.component.cache
+FROM scratch
+COPY opt/ffbuild /opt/ffbuild
+EOF
+    # Собираем плоский OCI-образ из текущего среза хост-папки sysroot
+    docker build -t "$COMPONENT_IMAGE" -f Dockerfile.component.cache "$SYSROOT_DIR"
+    docker push "$COMPONENT_IMAGE"
+
+    # Жесткая очистка диска: удаляем срез и чистим зависшие слои билдера на хосте
+    rm -f Dockerfile.component.cache
+    docker rmi "$COMPONENT_IMAGE" || true
+    docker builder prune --filter type=exec.cachemount --force || true
 done
 
-log_info "${CHECK_MARK} All intermediate components processed successfully!"
+log_info "${CHECK_MARK} All intermediate pipeline components synchronized with GHCR successfully!"

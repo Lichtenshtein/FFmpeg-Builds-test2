@@ -99,12 +99,10 @@ export ROOT_DIR
 # Container root is always /builder
 export CONTAINER_ROOT="/builder"
 
-# ---------------------------------------------------------------------------
-# CACHE_DIR: always inside the project tree so host and container agree.
-# The workflow mounts .cache/downloads → $CACHE_DIR, so the target must
-# match what generate.sh writes into the Dockerfile --mount target.
-# ---------------------------------------------------------------------------
-export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
+export DOWNLOADS_CACHE_DIR="${ROOT_DIR}/.cache/downloads"
+export SYSROOT_CACHE_DIR="${ROOT_DIR}/.cache/sysroot"
+export COMPONENTS_CACHE_DIR="${ROOT_DIR}/.cache/components"
+export CACHE_DIR="${DOWNLOADS_CACHE_DIR}"
 
 # Build variables (inside the container)
 # Prefer positional args, fall back to ENV
