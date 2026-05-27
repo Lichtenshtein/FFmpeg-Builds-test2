@@ -545,7 +545,7 @@ if [ -d "ffbuild" ]; then
     log_info "Cleaning up and shortening the configuration string in build artifacts..."
 
     # Список файлов, где хранится строка конфигурации
-    local TARGET_FILES=("ffbuild/config.sh" "ffbuild/config.mak" "libavutil/ffversion.h")
+    TARGET_FILES=("ffbuild/config.sh" "ffbuild/config.mak" "libavutil/ffversion.h")
 
     for file in "${TARGET_FILES[@]}"; do
         if [ -f "$file" ]; then
