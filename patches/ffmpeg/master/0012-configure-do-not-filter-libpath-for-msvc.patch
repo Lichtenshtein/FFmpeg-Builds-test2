@@ -18,6 +18,6 @@ index 835f47622f..6ce252f84f 100755
 +            -libpath:*|-LIBPATH:*)echo $flag ;;
              -l*)                  echo ${flag#-l}.lib ;;
              -LARGEADDRESSAWARE)   echo $flag ;;
-             -L*) [ "$_flags_type" = "link" ] && echo -libpath:${flag#-L} ;;
+             -L*) [ "$_flags_type" != "link" ] || echo -libpath:${flag#-L} ;;
 --
 2.50.1 (Apple Git-155)
