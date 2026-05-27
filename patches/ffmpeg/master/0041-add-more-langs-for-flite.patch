@@ -11,41 +11,27 @@ diff --git a/libavfilter/asrc_flite.c b/libavfilter/asrc_flite.c
 index a7471607cf..5f12bd32a2 100644
 --- a/libavfilter/asrc_flite.c
 +++ b/libavfilter/asrc_flite.c
-@@ -46,6 +46,14 @@ DECLARE_REGISTER_VOICE_FN(kal16);
+@@ -46,6 +46,10 @@ DECLARE_REGISTER_VOICE_FN(kal16);
  DECLARE_REGISTER_VOICE_FN(rms);
  DECLARE_REGISTER_VOICE_FN(slt);
  
 +/* Declaring functions for voices with non-standard prefixes */
 +cst_voice *register_cmu_time_awb(const char *);
 +void     unregister_cmu_time_awb(cst_voice *);
-+cst_voice *register_cmu_indic_lang(const char *);
-+void     unregister_cmu_indic_lang(cst_voice *);
-+cst_voice *register_cmu_grapheme_lang(const char *);
-+void     unregister_cmu_grapheme_lang(cst_voice *);
 +
  void usenglish_init(cst_voice *);
  cst_lexicon *cmulex_init(void);
  
-@@ -66,6 +74,23 @@ static struct voice_entry voice_entries[] = {
+@@ -66,6 +70,13 @@ static struct voice_entry voice_entries[] = {
      MAKE_VOICE_STRUCTURE(kal16),
      MAKE_VOICE_STRUCTURE(rms),
      MAKE_VOICE_STRUCTURE(slt),
 +    
-+ /* Add new voices manually, bypassing the hard macro */
++    /* Add new voices manually, bypassing the hard macro */
 +    {
 +        .name          = "time_awb",
 +        .register_fn   = register_cmu_time_awb,
 +        .unregister_fn = unregister_cmu_time_awb,
-+    },
-+    {
-+        .name          = "indic_lang",
-+        .register_fn   = register_cmu_indic_lang,
-+        .unregister_fn = unregister_cmu_indic_lang,
-+    },
-+    {
-+        .name          = "grapheme_lang",
-+        .register_fn   = register_cmu_grapheme_lang,
-+        .unregister_fn = unregister_cmu_grapheme_lang,
 +    },
  };
  
