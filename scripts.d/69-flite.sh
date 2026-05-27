@@ -19,7 +19,12 @@ EOF
 ffbuild_dockerbuild() {
     set -e
 
-    # Flite не понимает --enable-static, он делает её по умолчанию при --enable-shared=no
+    # Патчим корневой Makefile.in, чтобы не собирать утилиты (main) и тесты
+    if [ -f Makefile.in ]; then
+        log_info "Patching Makefile.in to skip binaries generation..."
+        sed -i 's/SUBDIRS = .*/SUBDIRS =  src lang/g' Makefile.in
+    fi
+
     local myconf=(
         --host="$FFBUILD_TOOLCHAIN"
         --prefix="$FFBUILD_PREFIX"
