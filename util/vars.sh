@@ -755,8 +755,7 @@ patch_pc_files() {
 
         # Append discovered deps (raw, dedup happens)
         sed -i $sl "/^Requires.private:/ s|$| $extra_requires|" "$pc"
-# $LIBS
-        sed -i $sl "/^Libs.private:/ s|$| $leftovers $extra_libs|" "$pc"
+        sed -i $sl "/^Libs.private:/ s|$| $leftovers $extra_libs $LIBS|" "$pc"
 
         # Capitalisation fixes
         sed -i $sl 's/-lWs2_32/-lws2_32/g; s/-lWinmm/-lwinmm/g; s/-lpthread/-pthread/g' "$pc"
