@@ -14,8 +14,8 @@ on:
         required: false
         # default: '05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|37-libpng|37-libjpeg-turbo|37-giflib|37-libtiff|38-libwebp|39-fontconfig|39-fribidi|39-pixman|40-cairo|40-harfbuzz|41-freetype|43-pango|44-dav1d|44-svtav1|45-libavif|45-librsvg'
         # default: '06-libiconv|07-gettext|08-zlib|11-bzlib|12-libffi|15-pcre2|16-glib2'
-        # default: '08-zlib|16-fftw3'
-        default: '.*'
+        default: '69-flite'
+        # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
@@ -121,7 +121,8 @@ env:
   # Списки исключений
   # Список для хранения .git от очистки (в download.sh)
   # Some patches apply only with git am...
-  GIT_PRESERVE_LIST: "ffmpeg|glib2|x264|x265|vulkan-loader|twolame|gme|mbedtls|pcre2|avisynth|openssl|pango|freetype|ilbc|libjxl|libvorbis|snappy|zimg|vmaf|dav1d|libplacebo"
+  GIT_PRESERVE_LIST: "ffmpeg"
+  # GIT_PRESERVE_LIST: "ffmpeg|glib2|x264|x265|vulkan-loader|twolame|gme|mbedtls|pcre2|avisynth|openssl|pango|freetype|ilbc|libjxl|libvorbis|snappy|zimg|vmaf|dav1d|libplacebo"
   # Список для сохранения DLL (в run_stage.sh)
   DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|shaderc|mfx|opencv|onevpl|leptonica|audiotoolbox|avisynth|vapoursynth|frei0r|nnedi3|whisper"
   # Список для сохранения статики .a (в run_stage.sh)
