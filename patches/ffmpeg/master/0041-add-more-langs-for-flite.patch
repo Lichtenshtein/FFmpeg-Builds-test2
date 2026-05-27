@@ -23,9 +23,9 @@ index a7471607cf..5f12bd32a2 100644
 +cst_voice *register_cmu_grapheme_lang(const char *);
 +void     unregister_cmu_grapheme_lang(cst_voice *);
 +
- struct voice_entry {
-     const char *name;
-     cst_voice * (*register_fn)(const char *);
+ void usenglish_init(cst_voice *);
+ cst_lexicon *cmulex_init(void);
+ 
 @@ -66,6 +74,23 @@ static struct voice_entry voice_entries[] = {
      MAKE_VOICE_STRUCTURE(kal16),
      MAKE_VOICE_STRUCTURE(rms),
