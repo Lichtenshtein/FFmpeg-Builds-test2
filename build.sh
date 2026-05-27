@@ -455,29 +455,6 @@ TOTAL_VIRTUAL=$(( MEM_PHYS + SWAP_TOTAL ))
 # иначе диск не будет успевать за подкачкой.
 if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
 
-    # Force disable LTO for the problematic VVC module to prevent GCC choose_baseaddr ICE
-    echo "CFLAGS-libavcodec/vvc/inter_template.o += -fno-lto" >> libavcodec/Makefile
-    echo "CFLAGS-libavcodec/vvc/intra_template.o += -fno-lto" >> libavcodec/Makefile
-    echo "CFLAGS-libavcodec/vvc/dsp.o += -fno-lto" >> libavcodec/Makefile
-
-    # На всякий случай отключаем LTO для всего каталога vvc
-    echo "CFLAGS-libavcodec/vvc/vvcdsp.o += -fno-lto" >> libavcodec/Makefile
-    echo "CFLAGS-libavcodec/vvc/vvcdec.o += -fno-lto" >> libavcodec/Makefile
-
-    # защита таблиц MLP от удаления оптимизатором LTO (Dead Code Elimination)
-    if [ -f "libavcodec/mlp.c" ]; then
-        log_info "Injecting anti-eviction attributes into MLP tables..."
-        sed -i 's/static const uint8_t ff_mlp_/static __attribute__((used)) const uint8_t ff_mlp_/g' libavcodec/mlp.c
-        sed -i 's/const uint8_t ff_mlp_/ __attribute__((used)) const uint8_t ff_mlp_/g' libavcodec/mlp.c
-    fi
-
-    log_info "Applying LTO fix for MLP codecs..."
-    # Дописываем правила в Makefile, чтобы mlp.o компилировался с флагом -fno-lto
-    echo "CFLAGS-libavcodec/mlp.o += -fno-lto" >> libavcodec/Makefile
-    echo "CFLAGS-libavcodec/mlpdsp.o += -fno-lto" >> libavcodec/Makefile
-    # Если компилируется x86-оптимизация
-    echo "CFLAGS-libavcodec/x86/mlpdsp.o += -fno-lto" >> libavcodec/Makefile
-
     # Если виртуальной памяти много, можно позволить 4 потока.
     # Если мало (менее 16ГБ общего), лучше оставить 2.
     if [[ $TOTAL_VIRTUAL -gt 16 ]]; then
@@ -487,16 +464,6 @@ if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
         MAKE_JOBS=2
         log_warn "LTO & Low Memory: Forcing dual-thread build to avoid OOM."
     fi
-
-    # # Replace the unmanaged -flto=auto with a safe number of MAKE_JOBS threads
-    # # specifically for the final build of FFmpeg executables
-    # log_info "Tweaking final compiler and linker options: scaling LTO to ${MAKE_JOBS} threads..."
-
-    # FINAL_CFLAGS=$(echo " ${FINAL_CFLAGS} " | sed -E "s/ -flto(=[a-z0-9]+)? / -flto=${MAKE_JOBS} /g")
-    # FINAL_CXXFLAGS=$(echo " ${FINAL_CXXFLAGS} " | sed -E "s/ -flto(=[a-z0-9]+)? / -flto=${MAKE_JOBS} /g")
-    # FINAL_LDFLAGS=$(echo " ${FINAL_LDFLAGS} " | sed -E "s/ -flto(=[a-z0-9]+)? / -flto=${MAKE_JOBS} /g")
-    # HOST_CFLAGS=$(echo " ${HOST_CFLAGS} " | sed -E "s/ -flto(=[a-z0-9]+)? / -flto=${MAKE_JOBS} /g")
-    # HOST_LDFLAGS=$(echo " ${HOST_LDFLAGS} " | sed -E "s/ -flto(=[a-z0-9]+)? / -flto=${MAKE_JOBS} /g")
 else
     # Обычная сборка (не LTO) ориентируемся на MemAvailable
     MEM_AVAIL=$(awk '/MemAvailable/ {printf "%d", $2/1024/1024}' /proc/meminfo)
@@ -520,7 +487,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
-    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
+    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -Wl,--allow-multiple-definition"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
@@ -576,16 +543,15 @@ fi
 # cleaning ffmpeg header
 if [ -f "ffbuild/config.sh" ]; then
     log_info "Cleanup and shortening of configuration line in ffbuild/config.sh..."
-    # Вырезаем гигантские списки линковки (--extra-libs)
-    sed -i "s/--extra-libs='[^']*'//g" ffbuild/config.sh
-    # Вырезаем длинные списки внутренних флагов компиляции и путей
-    sed -i "s/--extra-cflags='[^']*'//g" ffbuild/config.sh
-    sed -i "s/--extra-cxxflags='[^']*'//g" ffbuild/config.sh
-    sed -i "s/--extra-ldflags='[^']*'//g" ffbuild/config.sh
-    sed -i "s/--extra-ldexeflags='[^']*'//g" ffbuild/config.sh
-    sed -i "s/--host-cflags='[^']*'//g" ffbuild/config.sh
-    sed -i "s/--host-ldflags='[^']*'//g" ffbuild/config.sh
-    # Схлопываем множественные пробелы, которые могли образоваться после удаления
+    # Поддерживаем очистку флагов как в одинарных, так и в двойных кавычках
+    sed -i -E "s/--extra-libs=['\"][^'\"]*['\"]//g" ffbuild/config.sh
+    sed -i -E "s/--extra-cflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
+    sed -i -E "s/--extra-cxxflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
+    sed -i -E "s/--extra-ldflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
+    sed -i -E "s/--extra-ldexeflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
+    sed -i -E "s/--host-cflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
+    sed -i -E "s/--host-ldflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
+    # Схлопываем лишние пробелы
     sed -i "s/  */ /g" ffbuild/config.sh
 fi
 
