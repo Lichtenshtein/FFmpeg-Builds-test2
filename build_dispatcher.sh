@@ -142,9 +142,9 @@ for STAGE in "${ACTIVE_SCRIPTS[@]}"; do
     log_info "${SAVE_MARK} Packaging and pushing OCI cache layer to GHCR..."
 
     # Генерируем временный микро-Dockerfile на лету
-    cat <<EOF > Dockerfile.component.cache
+    cat <<EOF > "$SYSROOT_DIR/Dockerfile.component.cache"
 FROM scratch
-COPY .cache/sysroot/opt/ffbuild /opt/ffbuild
+COPY opt/ffbuild /opt/ffbuild
 EOF
 
     # Запускаем сборку, передавая в качестве контекста КОРЕНЬ репозитория ($ROOT_DIR).
@@ -153,13 +153,13 @@ EOF
     docker build \
         --provenance=false \
         -t "$COMPONENT_IMAGE" \
-        -f Dockerfile.component.cache "$ROOT_DIR"
+        -f "$SYSROOT_DIR/Dockerfile.component.cache" "$SYSROOT_DIR"
 
     # Отправляем образ в реестр пакетов GitHub
     docker push "$COMPONENT_IMAGE"
 
     # Удаляем временный Dockerfile и локальный образ
-    rm -f Dockerfile.component.cache
+    rm -f "$SYSROOT_DIR/Dockerfile.component.cache"
     docker rmi "$COMPONENT_IMAGE" || true
     docker builder prune --filter type=exec.cachemount --force || true
 done
