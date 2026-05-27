@@ -540,19 +540,31 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     exit 1
 fi
 
-# cleaning ffmpeg header
-if [ -f "ffbuild/config.sh" ]; then
-    log_info "Cleanup and shortening of configuration line in ffbuild/config.sh..."
-    # Поддерживаем очистку флагов как в одинарных, так и в двойных кавычках
-    sed -i -E "s/--extra-libs=['\"][^'\"]*['\"]//g" ffbuild/config.sh
-    sed -i -E "s/--extra-cflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
-    sed -i -E "s/--extra-cxxflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
-    sed -i -E "s/--extra-ldflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
-    sed -i -E "s/--extra-ldexeflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
-    sed -i -E "s/--host-cflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
-    sed -i -E "s/--host-ldflags=['\"][^'\"]*['\"]//g" ffbuild/config.sh
-    # Схлопываем лишние пробелы
-    sed -i "s/  */ /g" ffbuild/config.sh
+# Очистка вывода конфигурации в самом бинарнике FFmpeg
+if [ -d "ffbuild" ]; then
+    log_info "Cleaning up and shortening the configuration string in build artifacts..."
+
+    # Список файлов, где хранится строка конфигурации
+    local TARGET_FILES=("ffbuild/config.sh" "ffbuild/config.mak" "libavutil/ffversion.h")
+
+    for file in "${TARGET_FILES[@]}"; do
+        if [ -f "$file" ]; then
+            # Вырезаем --extra-libs, --extra-cflags, --extra-cxxflags, --extra-ldflags, --extra-ldexeflags
+            # и --host-cflags, --host-ldflags вместе с их аргументами в любых кавычках
+            sed -i -E "s/--extra-libs=['\"][^'\"]*['\"]//g" "$file"
+            sed -i -E "s/--extra-cflags=['\"][^'\"]*['\"]//g" "$file"
+            sed -i -E "s/--extra-cxxflags=['\"][^'\"]*['\"]//g" "$file"
+            sed -i -E "s/--extra-ldflags=['\"][^'\"]*['\"]//g" "$file"
+            sed -i -E "s/--extra-ldexeflags=['\"][^'\"]*['\"]//g" "$file"
+            sed -i -E "s/--host-cflags=['\"][^'\"]*['\"]//g" "$file"
+            sed -i -E "s/--host-ldflags=['\"][^'\"]*['\"]//g" "$file"
+
+            # Схлопываем множественные пробелы, которые остались после удаления флагов
+            sed -i "s/  */ /g" "$file"
+            # Убираем пробелы перед закрывающими кавычками/апострофами, если они образовались
+            sed -i "s/ \(['\"]\)/\1/g" "$file"
+        fi
+    done
 fi
 
 # Сборка и установка ffmpeg
