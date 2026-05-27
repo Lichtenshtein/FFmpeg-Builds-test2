@@ -37,6 +37,10 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-shared=yes ) || \
         myconf+=( --enable-shared=no --disable-shared )
 
+    # Принудительно отключаем sockets для стабильности
+    export DEFS="-DCST_NO_SOCKETS -DUNDER_WINDOWS -DWIN32"
+
+    CC_FOR_BUILD="gcc" \
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj" \
     CPPFLAGS="$CPPFLAGS -DWAIT_ANY=-1" \
     CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj" \
@@ -44,14 +48,19 @@ ffbuild_dockerbuild() {
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
+    # Генерируем flite_voice_list.c и каталоги в строго один поток.
+    make -j1
+
+    # Теперь безопасно дособираем остальное в многопоточном режиме.
+    make -j$(nproc) $MAKE_V || return 1
+
     # Предварительное создание структуры
     mkdir -p "$INSTALL_ROOT"/{lib/pkgconfig,include/flite}
 
-    make -j$(nproc) $MAKE_V || return 1
     # make install DESTDIR="$FFBUILD_DESTDIR"
 
     # Динамический поиск папки с либами (fix для x86_64-mingw32 vs x86_64-w64-mingw32)
-    local BUILDIR=$(find build -maxdepth 2 -type d -name "lib" | head -n 1)
+    local BUILDIR=$(find build -maxdepth 3 -type d -name "lib" | head -n 1)
     if [[ -d "$BUILDIR" ]]; then
         log_info "Found build libraries in $BUILDIR"
         cp -v "$BUILDIR"/*.a "$INSTALL_ROOT/lib/"
