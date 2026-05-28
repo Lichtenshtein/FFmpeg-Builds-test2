@@ -88,13 +88,6 @@ ffbuild_dockerbuild() {
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
-    # Сборка только библиотеки
-    # Мы явно просим собрать папку caca, а не всё дерево с тестами
-    # make -C caca -j$(nproc) $MAKE_V || return 1
-
-    # Установка вручную, чтобы не заходить в папку 't'
-    # make -C caca install DESTDIR="$FFBUILD_DESTDIR" || return 1
-
     # Run full build and installation safely
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
@@ -103,13 +96,20 @@ ffbuild_dockerbuild() {
     mkdir -p "$INSTALL_ROOT/include"
     cp caca/caca.h caca/caca0.h caca/caca_conio.h caca/caca_types.h "$INSTALL_ROOT/include/"
 
+    # Force __declspec(dllimport) out of headers when FFmpeg links statically
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        echo "#ifndef CACA_STATIC" >> "$INSTALL_ROOT/include/caca_types.h"
+        echo "#define CACA_STATIC 1" >> "$INSTALL_ROOT/include/caca_types.h"
+        echo "#endif" >> "$INSTALL_ROOT/include/caca_types.h"
+    fi
+
     # libcaca иногда кладет .pc файл в странные места или пишет туда мусор
     local PC_FILE="$PC_DIR/caca.pc"
     if [[ -f "$PC_FILE" ]]; then
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
         # FFmpeg требует явного указания системных либ для статики
         sed -i '/^Libs.private:/ s/$/ -lgdi32 -lwinmm/' "$PC_FILE"
-        if [[ -n "$static_flags" ]]; then
+        if [[ -n "$self_static_flags" ]]; then
             if ! grep -qF -- "$self_static_flags" "$PC_FILE"; then
                 sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$PC_FILE"
             fi
