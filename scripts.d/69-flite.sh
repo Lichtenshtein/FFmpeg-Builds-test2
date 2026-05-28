@@ -53,14 +53,11 @@ ffbuild_dockerbuild() {
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
-    # Генерируем flite_voice_list.c и каталоги в строго один поток.
-    make -j1
-
-    # Теперь безопасно дособираем остальное в многопоточном режиме.
-    make -j$(nproc) $MAKE_V || return 1
-
     # Предварительное создание структуры
-    mkdir -p "$INSTALL_ROOT"/{lib/pkgconfig,include/flite}
+    mkdir -p build/${FFBUILD_TOOLCHAIN}/obj "$INSTALL_ROOT"/{lib/pkgconfig,include/flite}
+
+    # Генерируем flite_voice_list.c и каталоги в строго один поток.
+    make -j1 $MAKE_V || return 1
 
     # make install DESTDIR="$FFBUILD_DESTDIR"
 
