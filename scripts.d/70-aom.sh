@@ -29,8 +29,6 @@ ffbuild_dockerbuild() {
     # Если есть файл с hwy, принудительно ставим ему язык CXX
     echo "set_target_properties(aom_hwy PROPERTIES LINKER_LANGUAGE CXX)" >> CMakeLists.txt
 
-    sed -i '/function(test_nasm)/a \  return()' build/cmake/aom_optimization.cmake
-
     mkdir -p _build && cd _build
 
     local myconf=(
