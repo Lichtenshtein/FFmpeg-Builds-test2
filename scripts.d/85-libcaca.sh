@@ -34,6 +34,12 @@ ffbuild_dockerbuild() {
     find . -type f -name "*.c" -exec sed -i 's/\bvsnprintf_s\b/caca_vsnprintf_s/g' {} +
     sed -i 's/defined __KERNEL__/1/' caca/caca_types.h
 
+    # Match and clean multi-line SUBDIRS block in root Makefile.am
+    sed -i '/^SUBDIRS =/ { :loop; /\\$/ { N; b loop }; s/SUBDIRS =.*/SUBDIRS = kernel caca/ }' Makefile.am
+
+    # Strip tests out of the sub-makefile
+    sed -i 's/^SUBDIRS =.*/SUBDIRS = ./' caca/Makefile.am
+
     # Чтобы не тратить время на ошибки в тестах, мы просто обнуляем Makefile в папке с тестами
     echo "all:" > caca/t/Makefile.am
     echo "install:" >> caca/t/Makefile.am
@@ -88,9 +94,6 @@ ffbuild_dockerbuild() {
 
     # Установка вручную, чтобы не заходить в папку 't'
     # make -C caca install DESTDIR="$FFBUILD_DESTDIR" || return 1
-
-    # Disable the tests directory in the root Makefile to prevent make install from breaking
-    sed -i 's/\bt\b//g' Makefile
 
     # Run full build and installation safely
     make -j$(nproc) $MAKE_V || return 1
