@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://gitlab.com/damian101/aom-psy101.git"
-SCRIPT_COMMIT="6a3435223b36b29e6cc9815b1f86720dcaba57f6" 
+SCRIPT_COMMIT="9bfe3ecbce29748090655552939f8aabcf2b5f98" 
 
 # SCRIPT_REPO="https://github.com/libsdl-org/aom.git"
 # SCRIPT_COMMIT="dc0b27cfbc498aa8ecb2fd23c46b2b734314f3ea" 
@@ -26,9 +26,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # sed -i 's/add_library(aom_hwy/add_library(aom_hwy STATIC/g' CMakeLists.txt
     # Если есть файл с hwy, принудительно ставим ему язык CXX
     echo "set_target_properties(aom_hwy PROPERTIES LINKER_LANGUAGE CXX)" >> CMakeLists.txt
+
+    sed -i '/function(test_nasm)/a \  return()' build/cmake/aom_optimization.cmake
 
     mkdir -p _build && cd _build
 
