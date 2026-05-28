@@ -70,23 +70,31 @@ ffbuild_dockerbuild() {
 
     export GL_LIBS="-lglut -lglu32 -lopengl32 -lgdi32 -lwinmm"
     export GL_CFLAGS=""
-    [[ "${PREFER_SHARED}" != "1" ]] && GL_CFLAGS="-DFREEGLUT_STATIC"
+    export self_static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && GL_CFLAGS="-DFREEGLUT_STATIC" && self_static_flags="-DCACA_STATIC"
 
     CC="${FFBUILD_CROSS_PREFIX}gcc" \
     CXX="${FFBUILD_CROSS_PREFIX}g++" \
-    CFLAGS="$CFLAGS -Wno-implicit-function-declaration ${USELTO}${USELTO_C}" \
+    CFLAGS="$CFLAGS -Wno-implicit-function-declaration ${USELTO}${USELTO_C} $self_static_flags" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration ${USELTO}${USELTO_C}" \
+    CXXFLAGS="$CXXFLAGS -Wno-implicit-function-declaration ${USELTO}${USELTO_C} $self_static_flags" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     # Сборка только библиотеки
     # Мы явно просим собрать папку caca, а не всё дерево с тестами
-    make -C caca -j$(nproc) $MAKE_V || return 1
+    # make -C caca -j$(nproc) $MAKE_V || return 1
 
     # Установка вручную, чтобы не заходить в папку 't'
-    make -C caca install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    # make -C caca install DESTDIR="$FFBUILD_DESTDIR" || return 1
+
+    # Disable the tests directory in the root Makefile to prevent make install from breaking
+    sed -i 's/\bt\b//g' Makefile
+
+    # Run full build and installation safely
+    make -j$(nproc) $MAKE_V || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     # Установка заголовочных файлов из корня (они нужны FFmpeg)
     mkdir -p "$INSTALL_ROOT/include"
@@ -97,8 +105,17 @@ ffbuild_dockerbuild() {
     if [[ -f "$PC_FILE" ]]; then
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
         # FFmpeg требует явного указания системных либ для статики
-        sed -i '/^Libs.private:/ s/$/ -lgdi32/' "$PC_FILE"
+        sed -i '/^Libs.private:/ s/$/ -lgdi32 -lwinmm/' "$PC_FILE"
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$self_static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$PC_FILE"
+            fi
+        fi
     fi
+}
+
+ffbuild_cppflags() {
+    echo "$self_static_flags"
 }
 
 ffbuild_configure() {
