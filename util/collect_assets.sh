@@ -9,6 +9,11 @@ ASSETS_DIR="${1:-$ASSETS_DIR}"
 FFMPEG_SOURCE_DIR="${2:-$FFMPEG_SOURCE_DIR}"
 mkdir -p "$ASSETS_DIR" "$FFBUILD_PREFIX/bin"
 
+# ASSETS_DIR это ".../bin/assets", поднимаемся на 2 уровня вверх, чтобы получить корень пакета
+if [[ -z "$PKG_DIR" && -n "$ASSETS_DIR" ]]; then
+    PKG_DIR=$(dirname $(dirname "$ASSETS_DIR"))
+fi
+
 # Копируем лицензию ПЕРЕД упаковкой
 log_info "${SYNC_MARK} Adding license and logs to package..."
 [[ -n "$LICENSE_FILE" ]] && cp "$FFMPEG_SOURCE_DIR/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"
