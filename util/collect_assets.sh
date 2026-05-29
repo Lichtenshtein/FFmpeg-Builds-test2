@@ -179,14 +179,24 @@ if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then
     log_info "${DOWN_MARK} Downloading Apple AudioToolbox DLLs..."
     if download_file "$QTFILES_URL" "qtfiles64.7z" ""; then
         log_info "${EXTR_MARK} Extracting Apple DLLs..."
-        # Распаковываем только DLL во временную папку
-        7z e qtfiles64.7z -o"$ASSETS_DIR/bin_dlls" "QTfiles64/*.dll" -y
-        # Переносим их в корень к ffmpeg (обычно $PKG_DIR/bin)
-        # Если скрипт вызывается из build.sh, $PKG_DIR доступен
-        if [[ -d "$PKG_DIR/bin" ]]; then
-            mv "$ASSETS_DIR/bin_dlls"/*.dll "$PKG_DIR/bin/"
-            rm -rf "$ASSETS_DIR/bin_dlls"
+        # Гарантируем чистоту папки перед извлечением
+        mkdir -p "$ASSETS_DIR/bin_dlls"
+        7z e qtfiles64.7z -o"$ASSETS_DIR/bin_dlls" "*.dll" -y > /dev/null
+        # Проверяем, появились ли файлы в папке
+        if [ -n "$(ls -A "$ASSETS_DIR/bin_dlls" 2>/dev/null)" ]; then
+            if [[ -d "$PKG_DIR/bin" ]]; then
+                mv "$ASSETS_DIR/bin_dlls"/*.dll "$PKG_DIR/bin/"
+                log_info "${CHECK_MARK} Apple DLLs successfully deployed to $PKG_DIR/bin"
+            else
+                log_warn "Target directory \$PKG_DIR/bin ($PKG_DIR/bin) does not exist."
+            fi
+        else
+            log_error "No DLL files were extracted from qtfiles64.7z. Check archive structure."
         fi
+        # Очищаем временную папку сборщика в любом случае
+        rm -rf "$ASSETS_DIR/bin_dlls"
+    else
+        log_warn "Assets download failed, but continuing..."
     fi
 fi
 
