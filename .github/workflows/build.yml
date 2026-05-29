@@ -14,7 +14,7 @@ on:
         required: false
         # default: '05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|37-libpng|37-libjpeg-turbo|37-giflib|37-libtiff|38-libwebp|39-fontconfig|39-fribidi|39-pixman|40-cairo|40-harfbuzz|41-freetype|43-pango|44-dav1d|44-svtav1|45-libavif|45-librsvg'
         # default: '06-libiconv|07-gettext|08-zlib|11-bzlib|12-libffi|15-pcre2|16-glib2'
-        default: '71-xeve'
+        default: '06-libiconv|08-zlib|12-snappy|16-fftw3|18-cdio|18-cdiowpar|27-freeglut|32-libzmq|37-libpng|48-qrencode|48-quirc|63-libogg|63-libvorbis|64-bs2b|64-chromaprint|64-libmysofa|64-libsamplerate|64-soxr|64-speex|65-rubberband|66-libmpg123|67-audiotoolbox|67-fdk-aac|67-ilbc|67-lc3|67-libcelt|67-libgsm|67-libmad|67-libmp3lame|67-libmpeghdec|67-libopus|67-mp3shine|67-mpeghe|67-opencore-amr|67-twolame|67-vo-amrwb|68-gme|68-modplug|69-pocketsphinx|70-libtheora|70-openapv|70-openh264|70-svthevc|70-svtvp9|70-vvdec|70-vvenc|70-x264|70-xavs|70-xavs2|70-xvid|71-davs2|71-uavs3e|71-xeve|72-uavs3d|72-xevd|81-vidstab|85-libcaca|85-libudfread|86-libdvdcss|86-libdvdread|87-libdvdnav'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
