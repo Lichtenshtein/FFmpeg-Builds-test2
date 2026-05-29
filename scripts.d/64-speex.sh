@@ -5,7 +5,7 @@ SCRIPT_COMMIT="05895229896dc942d453446eba6f9f5ddcf95422"
 
 ffbuild_depends() {
     echo base
-    echo fftw3
+    # echo fftw3
 }
 
 ffbuild_enabled() {
@@ -33,10 +33,10 @@ ffbuild_dockerbuild() {
         -Dtools=disabled
         -Dtest-binaries=disabled
         -Dsse=enabled
-        -Dfft=gpl-fftw3 # try smallft
+        -Dfft=smallft # smallft; gpl-fftw3
         -Dfloat-api=enabled
         -Dfixed-point=disabled
-        -Dvorbis-psy=enabled
+        -Dvorbis-psy=enabled # must be disabled if fftw3 used
         -Db_staticpic=true
     )
 
