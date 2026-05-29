@@ -53,7 +53,7 @@ ffbuild_dockerbuild() {
     for pc in "$PC_DIR"/{freetype,freetype2}.pc; do
         [[ -f "$pc" ]] || continue
         # Убеждаемся, что Cflags указывает на правильную подпапку
-        sed -i "s|^Cflags:.*|Cflags: -I\${includedir}/freetype2|" "$pc"
+        sed -i "s|^Cflags:.*|Cflags: -I\${includedir}/freetype2 $static_flags|" "$pc"
     done
 
     # Создаем симлинк
