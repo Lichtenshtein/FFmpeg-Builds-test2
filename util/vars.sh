@@ -1399,25 +1399,39 @@ get_stage_version() {
 
     # Поиск в файлах конфигурации пакетов
     if [[ -z "$ver" ]]; then
-        local pc_in=$(find . -maxdepth 3 -name "*.pc.in" -o -name "*.pc" | head -n 1)
+        local pc_in=$(find . -maxdepth 3 \( -name "*.pc.in" -o -name "*.pc" \) | head -n 1)
         if [[ -f "$pc_in" ]]; then
             ver=$(grep -i "^Version:" "$pc_in" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' | head -n1)
         fi
     fi
 
+    # Прямой поиск текстовых файлов версий (version.txt / VERSION)
+    if [[ -z "$ver" ]]; then
+        local txt_ver=$(find . -maxdepth 2 \( -name "version.txt" -o -name "VERSION" \) | head -n 1)
+        if [[ -f "$txt_ver" ]]; then
+            ver=$(grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' "$txt_ver" | head -n1)
+        fi
+    fi
+
     # Git (учитываем аннотированные теги и сортировку)
     if [[ -z "$ver" && -d ".git" ]]; then
-        # Получаем последний тег, очищая от ^{} и префиксов v
+        # Сначала пробуем строгий классический describe
         ver=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//;s/\^{}//')
-        # Если локальных тегов нет, пробуем удаленные, но только если сеть доступна
+
+        # Если не вышло, ищем по паттерну семантического версионирования (как в XEVE)
+        if [[ -z "$ver" ]]; then
+            ver=$(git describe --match "v[0-9]*.[0-9]*.[0-9]*" --tags --abbrev=0 2>/dev/null | sed 's/^v//;s/\^{}//')
+        fi
+
+        # Если локальных тегов нет, пробуем удаленные (если доступна сеть)
         if [[ -z "$ver" ]]; then
             local remote_url=$(git config --get remote.origin.url 2>/dev/null)
             if [[ -n "$remote_url" ]]; then
-                ver=$(git ls-remote --tags --refs "$remote_url" | tail -n1 | cut -d/ -f3 | sed 's/^v//;s/\^{}//')
+                ver=$(git ls-remote --tags --refs "$remote_url" 2>/dev/null | tail -n1 | cut -d/ -f3 | sed 's/^v//;s/\^{}//')
             fi
         fi
 
-        # Если это "raw" репозиторий без тегов, берем короткий хэш
+        # Если репозиторий без тегов (raw), берем короткий хэш
         [[ -z "$ver" ]] && ver="git-$(git rev-parse --short HEAD 2>/dev/null)"
     fi
 
@@ -1429,9 +1443,9 @@ get_stage_version() {
 
     # парсинг CMake (ищем PROJECT_VERSION или MAJOR/MINOR)
     if [[ -z "$ver" && -f "CMakeLists.txt" ]]; then
-        local v_maj=$(grep -iP 'SET.*VERSION_MAJOR' CMakeLists.txt | grep -oP '[0-9]+')
-        local v_min=$(grep -iP 'SET.*VERSION_MINOR' CMakeLists.txt | grep -oP '[0-9]+')
-        local v_pat=$(grep -iP 'SET.*VERSION_BUILD|SET.*VERSION_PATCH' CMakeLists.txt | grep -oP '[0-9]+')
+        local v_maj=$(grep -iP 'SET.*VERSION_MAJOR' CMakeLists.txt | grep -oP '[0-9]+' | head -n1)
+        local v_min=$(grep -iP 'SET.*VERSION_MINOR' CMakeLists.txt | grep -oP '[0-9]+' | head -n1)
+        local v_pat=$(grep -iP 'SET.*VERSION_BUILD|SET.*VERSION_PATCH' CMakeLists.txt | grep -oP '[0-9]+' | head -n1)
         [[ -n "$v_maj" && -n "$v_min" ]] && ver="${v_maj}.${v_min}.${v_pat:-0}"
     fi
 
@@ -1448,9 +1462,9 @@ get_stage_version() {
         fi
     fi
 
-    # Header файлы (для библиотек вроде x264/x265)
+    # Header файлы (C/C++ Headers) (для библиотек вроде x264/x265)
     if [[ -z "$ver" ]]; then
-        local h_file=$(find . -maxdepth 2 -name "version.h" -o -name "*_version.h" | head -n 1)
+        local h_file=$(find . -maxdepth 2 \( -name "version.h" -o -name "*_version.h" \) | head -n 1)
         if [[ -f "$h_file" ]]; then
             # Ищем макросы типа #define VERSION "..." или #define API_VERSION 123
             ver=$(grep -iE 'define.*VERSION' "$h_file" | grep -oE '[0-9]+(\.[0-9]+)+[^ "]*' | head -n1)
