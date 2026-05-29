@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/mpeg5/xeve.git"
-SCRIPT_COMMIT="bc45faa2e8d22bf33b0d15c025662f2a8de61fbc"
+SCRIPT_COMMIT="429c18a7736ffc010e1c550e8015ff18a242d06c"
 
 ffbuild_enabled() {
     [[ $TARGET == *arm64 ]] && return 1
@@ -16,7 +16,7 @@ ffbuild_dockerbuild() {
     set -e
 
     if [ ! -f "version.txt" ]; then
-        echo v0.5.1 >> version.txt
+        echo v0.5.0 >> version.txt
     fi
 
     find src_base -name "CMakeLists.txt" -exec sed -i 's|${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig/|${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/|g' {} +
