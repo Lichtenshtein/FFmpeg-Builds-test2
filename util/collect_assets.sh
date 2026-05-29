@@ -182,24 +182,23 @@ fi
 # APPLE AUDIOTOOLBOX DLLS (Special handling)
 if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then
     log_info "${DOWN_MARK} Downloading Apple AudioToolbox DLLs..."
+
     if download_file "$QTFILES_URL" "qtfiles64.7z" ""; then
-        log_info "${EXTR_MARK} Extracting Apple DLLs..."
-        # Гарантируем чистоту папки перед извлечением
-        mkdir -p "$ASSETS_DIR/bin_dlls"
-        7z e qtfiles64.7z -o"$ASSETS_DIR/bin_dlls" "*.dll" -y > /dev/null
-        # Проверяем, появились ли файлы в папке
-        if [ -n "$(ls -A "$ASSETS_DIR/bin_dlls" 2>/dev/null)" ]; then
-            if [[ -d "$PKG_DIR/bin" ]]; then
-                mv "$ASSETS_DIR/bin_dlls"/*.dll "$PKG_DIR/bin/"
-                log_info "${CHECK_MARK} Apple DLLs successfully deployed to $PKG_DIR/bin"
-            else
-                log_warn "Target directory \$PKG_DIR/bin ($PKG_DIR/bin) does not exist."
-            fi
+        log_info "${EXTR_MARK} Extracting Apple DLLs directly to package..."
+
+        # Гарантируем, что целевая папка существует
+        mkdir -p "$PKG_DIR/bin"
+
+        # Распаковываем все DLL плоско (без подпапок) напрямую в $PKG_DIR/bin
+        7z e qtfiles64.7z -o"$PKG_DIR/bin" "*.dll" -y > /dev/null
+
+        # Проверяем, что файлы успешно легли на место
+        if ls "$PKG_DIR/bin"/CoreAudioToolbox.dll >/dev/null 2>&1; then
+            log_info "${CHECK_MARK} Apple AudioToolbox DLLs successfully deployed to $PKG_DIR/bin"
         else
-            log_error "No DLL files were extracted from qtfiles64.7z. Check archive structure."
+            log_error "AudioToolbox DLLs deployment verification failed!"
         fi
-        # Очищаем временную папку сборщика в любом случае
-        rm -rf "$ASSETS_DIR/bin_dlls"
+        rm -f qtfiles64.7z
     else
         log_warn "Assets download failed, but continuing..."
     fi
