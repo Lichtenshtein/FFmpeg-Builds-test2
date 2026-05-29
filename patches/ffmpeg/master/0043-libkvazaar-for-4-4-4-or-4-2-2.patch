@@ -1,0 +1,136 @@
+From dd7ac63a740ab4023ab0f02ba58a30e3320f91fe Mon Sep 17 00:00:00 2001
+From: Jamaika1 <lukaszcz18@wp.pl>
+Date: Wed, 7 Jan 2026 10:11:37 +0000
+Subject: [PATCH] libkvazaar for 4:4:4 or 4:2:2
+
+---
+diff --git a/libavcodec/libkvazaar.c b/libavcodec/libkvazaar.c
+index 908c7a0383..21b27fb7db 100644
+--- a/libavcodec/libkvazaar.c
++++ b/libavcodec/libkvazaar.c
+@@ -37,6 +37,7 @@
+ #include "avcodec.h"
+ #include "codec_internal.h"
+ #include "encode.h"
++#include "hevc/hevcdec.h"
+ 
+ typedef struct LibkvazaarContext {
+     const AVClass *class;
+@@ -50,7 +51,9 @@ typedef struct LibkvazaarContext {
+ 
+ static av_cold int libkvazaar_init(AVCodecContext *avctx)
+ {
++    const HEVCContext *s = avctx->priv_data;
+     LibkvazaarContext *const ctx = avctx->priv_data;
++    const HEVCPPS *pps = s->pps;
+     const kvz_api *const api = ctx->api = kvz_api_get(8);
+     kvz_config *cfg = NULL;
+     kvz_encoder *enc = NULL;
+@@ -87,6 +90,36 @@ static av_cold int libkvazaar_init(AVCodecContext *avctx)
+         cfg->framerate_denom = avctx->time_base.num;
+     }
+     cfg->target_bitrate = avctx->bit_rate;
++    if (avctx->pix_fmt == AV_PIX_FMT_YUV420P
++#if KVZ_BIT_DEPTH == 10
++        || avctx->pix_fmt == AV_PIX_FMT_YUV420P10LE
++#endif
++        ) {
++        cfg->chroma_format   = KVZ_CSP_420;
++        cfg->chroma_shift = cfg->chroma_shift_w = 1;
++        cfg->chroma_shift_h = 1;
++        cfg->enable_cross_component_prediction = 0;
++    } else if (avctx->pix_fmt == AV_PIX_FMT_YUV422P
++#if KVZ_BIT_DEPTH == 10
++               || avctx->pix_fmt == AV_PIX_FMT_YUV422P10LE
++#endif
++               ) {
++        cfg->chroma_format   = KVZ_CSP_422;
++        cfg->chroma_shift = cfg->chroma_shift_w = 1;
++        cfg->chroma_shift_h = 0;
++        cfg->enable_cross_component_prediction = 0;
++    } else if (avctx->pix_fmt == AV_PIX_FMT_YUV444P
++#if KVZ_BIT_DEPTH == 10
++               || avctx->pix_fmt == AV_PIX_FMT_YUV444P10LE
++#endif
++               ) {
++        cfg->chroma_format   = KVZ_CSP_444;
++        cfg->chroma_shift = cfg->chroma_shift_w = 0;
++        cfg->chroma_shift_h = 0;
++        cfg->enable_cross_component_prediction = pps->cross_component_prediction_enabled_flag;
++    } else {
++        return -1;
++    }
+     cfg->vui.sar_width  = avctx->sample_aspect_ratio.num;
+     cfg->vui.sar_height = avctx->sample_aspect_ratio.den;
+     if (avctx->bit_rate) {
+@@ -213,15 +246,49 @@ static int libkvazaar_encode(AVCodecContext *avctx,
+                 input_pic->data[2],
+                 NULL,
+             };
+-            int dst_linesizes[4] = {
+-              frame->width,
+-              frame->width / 2,
+-              frame->width / 2,
+-              0
+-            };
+-            av_image_copy2(dst, dst_linesizes,
++            if (avctx->pix_fmt == AV_PIX_FMT_YUV420P
++#if KVZ_BIT_DEPTH == 10
++                || avctx->pix_fmt == AV_PIX_FMT_YUV420P10LE
++#endif
++                ) {
++                int dst_linesizes[4] = {
++                    frame->width,
++                    frame->width / 2,
++                    frame->width / 2,
++                    0
++                };
++                av_image_copy2(dst, dst_linesizes,
++                           frame->data, frame->linesize,
++                           frame->format, frame->width, frame->height);
++            } else if (avctx->pix_fmt == AV_PIX_FMT_YUV422P
++#if KVZ_BIT_DEPTH == 10
++                       || avctx->pix_fmt == AV_PIX_FMT_YUV422P10LE
++#endif
++                       ) {
++                int dst_linesizes[4] = {
++                    frame->width,
++                    frame->width / 2,
++                    frame->width,
++                    0
++                };
++                av_image_copy2(dst, dst_linesizes,
++                           frame->data, frame->linesize,
++                           frame->format, frame->width, frame->height);
++            } else if (avctx->pix_fmt == AV_PIX_FMT_YUV444P
++#if KVZ_BIT_DEPTH == 10
++                       || avctx->pix_fmt == AV_PIX_FMT_YUV444P10LE
++#endif
++                       ) {
++                int dst_linesizes[4] = {
++                    frame->width,
++                    frame->width,
++                    frame->width,
++                    0
++                };
++                av_image_copy2(dst, dst_linesizes,
+                            frame->data, frame->linesize,
+                            frame->format, frame->width, frame->height);
++            }
+         }
+ 
+         input_pic->pts = frame->pts;
+@@ -294,6 +361,13 @@ done:
+ }
+ 
+ static const enum AVPixelFormat pix_fmts[] = {
++#if KVZ_BIT_DEPTH == 10
++    AV_PIX_FMT_YUV444P10LE
++    AV_PIX_FMT_YUV422P10LE
++    AV_PIX_FMT_YUV420P10LE
++#endif
++    AV_PIX_FMT_YUV444P,
++    AV_PIX_FMT_YUV422P,
+     AV_PIX_FMT_YUV420P,
+     AV_PIX_FMT_NONE
+ };

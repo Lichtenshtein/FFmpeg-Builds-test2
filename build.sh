@@ -541,22 +541,13 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
 fi
 
 # Очистка вывода конфигурации в самом бинарнике FFmpeg
-if [ -f "libavutil/ffversion.h" ]; then
-    log_info "Safe cleanup of the configuration string in libavutil/ffversion.h..."
-
-    # Модифицируем исключительно строку FFMPEG_CONFIGURATION в заголовочном файле
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-libs=[^"]*//g' libavutil/ffversion.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-cflags=[^"]*//g' libavutil/ffversion.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-cxxflags=[^"]*//g' libavutil/ffversion.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-ldflags=[^"]*//g' libavutil/ffversion.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-ldexeflags=[^"]*//g' libavutil/ffversion.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--host-cflags=[^"]*//g' libavutil/ffversion.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--host-ldflags=[^"]*//g' libavutil/ffversion.h
-
-    # Схлопываем лишние пробелы внутри кавычек
-    sed -i '/#define FFMPEG_CONFIGURATION/s/  */ /g' libavutil/ffversion.h
+if [ -f "ffbuild/config.sh" ]; then
+    log_info "Drastic cleanup of configuration string..."
+    # Оставляем в строке только префикс и включенные библиотеки/компоненты
+    CLEAN_CONFIG=$(grep "FFMPEG_CONFIGURATION=" ffbuild/config.sh | grep -oE '\-\-prefix=[^ ]*|\-\-enable-[a-zA-Z0-9_-]+|\-\-disable-[a-zA-Z0-9_-]+' | tr '\n' ' ')
+    # Перезаписываем строку конфигурации
+    sed -i "s|FFMPEG_CONFIGURATION=.*|FFMPEG_CONFIGURATION='${CLEAN_CONFIG}'|g" ffbuild/config.sh
 fi
-
 
 # Сборка и установка ffmpeg
 make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
