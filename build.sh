@@ -542,46 +542,32 @@ fi
 
 # Очистка вывода конфигурации в самом бинарнике FFmpeg
 # Безопасная очистка с дебагом (выполнять строго ПОСЛЕ ./configure)
-if [ -f "ffbuild/config.sh" ]; then
-    log_info "${LOGS_MARK} --- DEBUG: Finding FFMPEG_CONFIGURATION in config.sh ---"
-    grep -E "FFMPEG_CONFIGURATION=" ffbuild/config.sh || echo "Not found via simple grep"
-    log_info "${LOGS_MARK} --------------------------------------------------------"
-
-    log_info "Cleaning up overloaded flags from ffbuild/config.sh..."
-    
-    # Удаляем громоздкие флаги внутри кавычек переменной FFMPEG_CONFIGURATION
-    # Используем замену по всему файлу, так как регулярное выражение изолировано названиями флагов
-    sed -i -E 's/--extra-libs=[^'\''"]*//g' ffbuild/config.sh
-    sed -i -E 's/--extra-cflags=[^'\''"]*//g' ffbuild/config.sh
-    sed -i -E 's/--extra-cxxflags=[^'\''"]*//g' ffbuild/config.sh
-    sed -i -E 's/--extra-ldflags=[^'\''"]*//g' ffbuild/config.sh
-    sed -i -E 's/--extra-ldexeflags=[^'\''"]*//g' ffbuild/config.sh
-    sed -i -E 's/--host-cflags=[^'\''"]*//g' ffbuild/config.sh
-    sed -i -E 's/--host-ldflags=[^'\''"]*//g' ffbuild/config.sh
-    
-    # Схлопываем множественные пробелы и чистим пустые строки с обратными слэшами
-    sed -i 's/  */ /g' ffbuild/config.sh
-    # Удаляем пустые строки конфигурации, которые выглядят как одиночный слэш на переносе
-    sed -i '/^[[:space:]]*\\[[:space:]]*$/d' ffbuild/config.sh
-
-    log_info "${LOGS_MARK} --- DEBUG: Post-cleanup check in config.sh ---"
-    # Показываем последние 30 строк файла, где и лежит переменная конфигурации
-    tail -n 30 ffbuild/config.sh
-    log_info "${LOGS_MARK} --------------------------------------------------------"
-fi
-
 if [ -f "ffbuild/config.mak" ]; then
     log_info "Cleaning up overloaded flags from ffbuild/config.mak..."
-    # В config.mak всё лежит на одной строке, чистим её безопасной маской до пробела
+    
+    # Точечно вырезаем только сами флаги и их аргументы, ограниченные кавычками или пробелами
+    sed -i -E 's/--extra-libs=\x27[^\x27]*\x27//g' ffbuild/config.mak
+    sed -i -E 's/--extra-libs="[^"]*"//g' ffbuild/config.mak
     sed -i -E 's/--extra-libs=[^ ]*//g' ffbuild/config.mak
+    
+    sed -i -E 's/--extra-cflags=\x27[^\x27]*\x27//g' ffbuild/config.mak
+    sed -i -E 's/--extra-cflags="[^"]*"//g' ffbuild/config.mak
     sed -i -E 's/--extra-cflags=[^ ]*//g' ffbuild/config.mak
+
+    sed -i -E 's/--extra-cxxflags=\x27[^\x27]*\x27//g' ffbuild/config.mak
+    sed -i -E 's/--extra-cxxflags="[^"]*"//g' ffbuild/config.mak
     sed -i -E 's/--extra-cxxflags=[^ ]*//g' ffbuild/config.mak
+
+    sed -i -E 's/--extra-ldflags=\x27[^\x27]*\x27//g' ffbuild/config.mak
+    sed -i -E 's/--extra-ldflags="[^"]*"//g' ffbuild/config.mak
     sed -i -E 's/--extra-ldflags=[^ ]*//g' ffbuild/config.mak
+
     sed -i -E 's/--extra-ldexeflags=[^ ]*//g' ffbuild/config.mak
     sed -i -E 's/--host-cflags=[^ ]*//g' ffbuild/config.mak
     sed -i -E 's/--host-ldflags=[^ ]*//g' ffbuild/config.mak
     
-    sed -i 's/  */ /g' ffbuild/config.mak
+    # Схлопываем пробелы
+    sed -i '/^FFMPEG_CONFIGURATION=/s/  */ /g' ffbuild/config.mak
 fi
 
 
@@ -607,10 +593,9 @@ else
 fi
 
 BUILD_NAME="ffmpeg-git-${FFMPEG_VERSION}-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
-PKG_DIR="$FFMPEG_PKG_ROOT/${BUILD_NAME}"
 
+export PKG_DIR="$FFMPEG_PKG_ROOT/${BUILD_NAME}"
 mkdir -p "$PKG_DIR"/{include,lib,bin/assets,doc}
-
 export ASSETS_DIR="$PKG_DIR/bin/assets"
 
 if ! declare -F package_variant >/dev/null; then
@@ -624,8 +609,6 @@ ls -lh "$PKG_DIR/bin/"
 
 # Скачиваем модели и ассеты
 log_info "${SYNC_MARK} Collecting additional assets..."
-
-# "$UTIL_DIR"/download_assets.sh "$ASSETS_DIR" "$(pwd)" || log_warn "Assets download failed, but continuing..."
 "$UTIL_DIR"/collect_assets.sh "$ASSETS_DIR" "$FFMPEG_SOURCE_DIR" || log_warn "Assets download failed, but continuing..."
 
 # Стриппинг бинарников (удаление отладочных символов)
