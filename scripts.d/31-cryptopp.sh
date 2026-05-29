@@ -32,8 +32,8 @@ ffbuild_dockerbuild() {
 
     # [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-fno-devirtualize -fno-devirtualize-speculatively"
 
-    CFLAGS="$CFLAGS $CPPFLAGS $static_flags $OPENMP_C ${USELTO}${USELTO_C} $LTO_FLAGS" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS $static_flags $OPENMP_C ${USELTO}${USELTO_C} $LTO_FLAGS" \
+    CFLAGS="$CFLAGS $CPPFLAGS $OPENMP_C ${USELTO}${USELTO_C} $LTO_FLAGS" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS $OPENMP_C ${USELTO}${USELTO_C} $LTO_FLAGS" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS $OPENMP_LIB" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
