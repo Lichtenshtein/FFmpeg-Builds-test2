@@ -542,10 +542,35 @@ fi
 
 # Очистка вывода конфигурации в самом бинарнике FFmpeg
 # Безопасная очистка с дебагом (выполнять строго ПОСЛЕ ./configure)
-if [ -f "ffbuild/config.mak" ]; then
-    log_info "Cleaning up overloaded flags from ffbuild/config.mak..."
+log_info "${LOGS_MARK} ========================================================"
+log_info "${LOGS_MARK}    STARTING CONFIGURATION STRING CLEANUP AND DEBUG"
+log_info "${LOGS_MARK} ========================================================"
+
+# --- 1. ОБРАБОТКА CONFIG.H ---
+if [ -f "config.h" ]; then
+    log_info "${LOGS_MARK} >>> [BEFORE] config.h target line:"
+    grep "#define FFMPEG_CONFIGURATION" config.h || echo "Line not found"
     
-    # Точечно вырезаем только сами флаги и их аргументы, ограниченные кавычками или пробелами
+    # Очистка Си-строки
+    sed -i -E 's/--extra-libs=[^"]*//g' config.h
+    sed -i -E 's/--extra-cflags=[^"]*//g' config.h
+    sed -i -E 's/--extra-cxxflags=[^"]*//g' config.h
+    sed -i -E 's/--extra-ldflags=[^"]*//g' config.h
+    sed -i -E 's/--extra-ldexeflags=[^"]*//g' config.h
+    sed -i -E 's/--host-cflags=[^"]*//g' config.h
+    sed -i -E 's/--host-ldflags=[^"]*//g' config.h
+    sed -i '/#define FFMPEG_CONFIGURATION/s/  */ /g' config.h
+
+    log_info "${LOGS_MARK} <<< [AFTER] config.h target line:"
+    grep "#define FFMPEG_CONFIGURATION" config.h
+fi
+
+# --- 2. ОБРАБОТКА FFBUILD/CONFIG.MAK ---
+if [ -f "ffbuild/config.mak" ]; then
+    log_info "${LOGS_MARK} >>> [BEFORE] ffbuild/config.mak target line:"
+    grep "FFMPEG_CONFIGURATION=" ffbuild/config.mak || echo "Line not found"
+    
+    # Очистка строки Makefile (обрабатываем варианты с кавычками и без)
     sed -i -E 's/--extra-libs=\x27[^\x27]*\x27//g' ffbuild/config.mak
     sed -i -E 's/--extra-libs="[^"]*"//g' ffbuild/config.mak
     sed -i -E 's/--extra-libs=[^ ]*//g' ffbuild/config.mak
@@ -565,10 +590,36 @@ if [ -f "ffbuild/config.mak" ]; then
     sed -i -E 's/--extra-ldexeflags=[^ ]*//g' ffbuild/config.mak
     sed -i -E 's/--host-cflags=[^ ]*//g' ffbuild/config.mak
     sed -i -E 's/--host-ldflags=[^ ]*//g' ffbuild/config.mak
-    
-    # Схлопываем пробелы
     sed -i '/^FFMPEG_CONFIGURATION=/s/  */ /g' ffbuild/config.mak
+
+    log_info "${LOGS_MARK} <<< [AFTER] ffbuild/config.mak target line:"
+    grep "FFMPEG_CONFIGURATION=" ffbuild/config.mak
 fi
+
+# --- 3. ОБРАБОТКА FFBUILD/CONFIG.SH ---
+if [ -f "ffbuild/config.sh" ]; then
+    log_info "${LOGS_MARK} >>> [BEFORE] ffbuild/config.sh (Last 20 lines):"
+    tail -n 20 ffbuild/config.sh
+    
+    # Очистка многострочной или экранированной переменной Bash
+    sed -i -E 's/--extra-libs=[^'\''"]*//g' ffbuild/config.sh
+    sed -i -E 's/--extra-cflags=[^'\''"]*//g' ffbuild/config.sh
+    sed -i -E 's/--extra-cxxflags=[^'\''"]*//g' ffbuild/config.sh
+    sed -i -E 's/--extra-ldflags=[^'\''"]*//g' ffbuild/config.sh
+    sed -i -E 's/--extra-ldexeflags=[^'\''"]*//g' ffbuild/config.sh
+    sed -i -E 's/--host-cflags=[^'\''"]*//g' ffbuild/config.sh
+    sed -i -E 's/--host-ldflags=[^'\''"]*//g' ffbuild/config.sh
+    sed -i 's/  */ /g' ffbuild/config.sh
+    sed -i '/^[[:space:]]*\\[[:space:]]*$/d' ffbuild/config.sh
+
+    log_info "${LOGS_MARK} <<< [AFTER] ffbuild/config.sh (Last 20 lines):"
+    tail -n 20 ffbuild/config.sh
+fi
+
+log_info "${LOGS_MARK} ========================================================"
+log_info "${LOGS_MARK}    END OF CONFIGURATION STRING CLEANUP"
+log_info "${LOGS_MARK} ========================================================"
+
 
 
 # Сборка и установка ffmpeg
