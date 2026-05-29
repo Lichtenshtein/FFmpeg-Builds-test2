@@ -541,13 +541,44 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
 fi
 
 # Очистка вывода конфигурации в самом бинарнике FFmpeg
+# Безопасная очистка с дебагом (выполнять строго ПОСЛЕ ./configure)
 if [ -f "ffbuild/config.sh" ]; then
-    log_info "Drastic cleanup of configuration string..."
-    # Оставляем в строке только префикс и включенные библиотеки/компоненты
-    CLEAN_CONFIG=$(grep "FFMPEG_CONFIGURATION=" ffbuild/config.sh | grep -oE '\-\-prefix=[^ ]*|\-\-enable-[a-zA-Z0-9_-]+|\-\-disable-[a-zA-Z0-9_-]+' | tr '\n' ' ')
-    # Перезаписываем строку конфигурации
-    sed -i "s|FFMPEG_CONFIGURATION=.*|FFMPEG_CONFIGURATION='${CLEAN_CONFIG}'|g" ffbuild/config.sh
+    log_info "${LOGS_MARK} --- DEBUG: Original FFMPEG_CONFIGURATION in config.sh ---"
+    grep "FFMPEG_CONFIGURATION=" ffbuild/config.sh || cat ffbuild/config.sh | head -n 200
+    log_info "${LOGS_MARK} --------------------------------------------------------"
+
+    log_info "Cleaning up overloaded flags from ffbuild/config.sh..."
+
+    # Точечно вырезаем флаги компиляции и линковки, не ломая структуру кавычек и переносов
+    sed -i -E 's/--extra-libs=[^'\''"]*//g' ffbuild/config.sh
+    sed -i -E 's/--extra-cflags=[^'\''"]*//g' ffbuild/config.sh
+    sed -i -E 's/--extra-cxxflags=[^'\''"]*//g' ffbuild/config.sh
+    sed -i -E 's/--extra-ldflags=[^'\''"]*//g' ffbuild/config.sh
+    sed -i -E 's/--extra-ldexeflags=[^'\''"]*//g' ffbuild/config.sh
+    sed -i -E 's/--host-cflags=[^'\''"]*//g' ffbuild/config.sh
+    sed -i -E 's/--host-ldflags=[^'\''"]*//g' ffbuild/config.sh
+
+    # Схлопываем лишние пробелы и пустые строки/переносы, если они образовались
+    sed -i 's/  */ /g' ffbuild/config.sh
+
+    log_info "${LOGS_MARK} --- DEBUG: Modified FFMPEG_CONFIGURATION in config.sh ---"
+    grep "FFMPEG_CONFIGURATION=" ffbuild/config.sh || cat ffbuild/config.sh | head -n 200
+    log_info "${LOGS_MARK} --------------------------------------------------------"
 fi
+
+if [ -f "ffbuild/config.mak" ]; then
+    log_info "Cleaning up overloaded flags from ffbuild/config.mak..."
+    sed -i -E '/^FFMPEG_CONFIGURATION=/s/--extra-libs=[^ ]*//g' ffbuild/config.mak
+    sed -i -E '/^FFMPEG_CONFIGURATION=/s/--extra-cflags=[^ ]*//g' ffbuild/config.mak
+    sed -i -E '/^FFMPEG_CONFIGURATION=/s/--extra-cxxflags=[^ ]*//g' ffbuild/config.mak
+    sed -i -E '/^FFMPEG_CONFIGURATION=/s/--extra-ldflags=[^ ]*//g' ffbuild/config.mak
+    sed -i -E '/^FFMPEG_CONFIGURATION=/s/--extra-ldexeflags=[^ ]*//g' ffbuild/config.mak
+    sed -i -E '/^FFMPEG_CONFIGURATION=/s/--host-cflags=[^ ]*//g' ffbuild/config.mak
+    sed -i -E '/^FFMPEG_CONFIGURATION=/s/--host-ldflags=[^ ]*//g' ffbuild/config.mak
+    
+    sed -i '/^FFMPEG_CONFIGURATION=/s/  */ /g' ffbuild/config.mak
+fi
+
 
 # Сборка и установка ffmpeg
 make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
