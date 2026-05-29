@@ -1414,24 +1414,36 @@ get_stage_version() {
     fi
 
     # Git (учитываем аннотированные теги и сортировку)
-    if [[ -z "$ver" && -d ".git" ]]; then
-        # Сначала пробуем строгий классический describe
-        ver=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//;s/\^{}//')
+    if [[ -z "$ver" && -n "$SCRIPT_REPO" ]]; then
+        # Если задан конкретный коммит, пробуем сопоставить его с тегами через удаленный доступ
+        if [[ -n "$SCRIPT_COMMIT" ]]; then
+            # Получаем список тегов и их хэшей из удаленного репозитория
+            # Формат вывода: HASH refs/tags/v1.0.0
+            # ищем строку, где хэш совпадает с началом нашего SCRIPT_COMMIT
+            local matched_tag=$(git ls-remote --tags "$SCRIPT_REPO" 2>/dev/null | grep "^${SCRIPT_COMMIT:0:7}" | head -n1 | cut -d/ -f3)
 
-        # Если не вышло, ищем по паттерну семантического версионирования (как в XEVE)
-        if [[ -z "$ver" ]]; then
-            ver=$(git describe --match "v[0-9]*.[0-9]*.[0-9]*" --tags --abbrev=0 2>/dev/null | sed 's/^v//;s/\^{}//')
-        fi
-
-        # Если локальных тегов нет, пробуем удаленные (если доступна сеть)
-        if [[ -z "$ver" ]]; then
-            local remote_url=$(git config --get remote.origin.url 2>/dev/null)
-            if [[ -n "$remote_url" ]]; then
-                ver=$(git ls-remote --tags --refs "$remote_url" 2>/dev/null | tail -n1 | cut -d/ -f3 | sed 's/^v//;s/\^{}//')
+            if [[ -n "$matched_tag" ]]; then
+                ver=$(echo "$matched_tag" | sed 's/^v//;s/\^{}//')
             fi
         fi
 
-        # Если репозиторий без тегов (raw), берем короткий хэш
+        # Если по коммиту тег не найден (ветка master/main), берем самый свежий тег из репозитория
+        if [[ -z "$ver" ]]; then
+            ver=$(git ls-remote --tags --refs "$SCRIPT_REPO" 2>/dev/null | tail -n1 | cut -d/ -f3 | sed 's/^v//;s/\^{}//')
+        fi
+
+        # Если удаленный репозиторий доступен, но тегов нет вообще — используем короткий хэш коммита
+        if [[ -z "$ver" && -n "$SCRIPT_COMMIT" ]]; then
+            ver="git-${SCRIPT_COMMIT:0:7}"
+        fi
+    fi
+
+    # Локальный Git (Фоллбэк, если папка .git всё же осталась, а репозиторий локальный)
+    if [[ -z "$ver" && -d ".git" ]]; then
+        ver=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//;s/\^{}//')
+        if [[ -z "$ver" ]]; then
+            ver=$(git describe --match "v[0-9]*.[0-9]*.[0-9]*" --tags --abbrev=0 2>/dev/null | sed 's/^v//;s/\^{}//')
+        fi
         [[ -z "$ver" ]] && ver="git-$(git rev-parse --short HEAD 2>/dev/null)"
     fi
 
