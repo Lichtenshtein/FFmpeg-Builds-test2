@@ -540,6 +540,24 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     exit 1
 fi
 
+if [ -f "config.h" ]; then
+    log_info "${LOGS_MARK} >>> [BEFORE] config.h target line:"
+    grep "#define FFMPEG_CONFIGURATION" config.h || echo "Line not found"
+    
+    # Очистка Си-строки
+    sed -i -E 's/--extra-libs=[^"]*//g' config.h
+    sed -i -E 's/--extra-cflags=[^"]*//g' config.h
+    sed -i -E 's/--extra-cxxflags=[^"]*//g' config.h
+    sed -i -E 's/--extra-ldflags=[^"]*//g' config.h
+    sed -i -E 's/--extra-ldexeflags=[^"]*//g' config.h
+    sed -i -E 's/--host-cflags=[^"]*//g' config.h
+    sed -i -E 's/--host-ldflags=[^"]*//g' config.h
+    sed -i '/#define FFMPEG_CONFIGURATION/s/  */ /g' config.h
+
+    log_info "${LOGS_MARK} <<< [AFTER] config.h target line:"
+    grep "#define FFMPEG_CONFIGURATION" config.h
+fi
+
 # Сборка и установка ffmpeg
 make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
 make install
