@@ -52,7 +52,15 @@ ffbuild_dockerbuild() {
         # force pthreads; windows threads used anyway...
         -DSDL_PTHREADS=ON
         -DSDL_THREADS=ON
-        -DCMAKE_REQUIRED_FLAGS="-L${FFBUILD_PREFIX}/lib"
+        -DCMAKE_REQUIRED_INCLUDES="$FFBUILD_PREFIX/include"
+        -DCMAKE_REQUIRED_LINK_DIRECTORIES="$FFBUILD_PREFIX/lib"
+        -DCMAKE_REQUIRED_FLAGS="-I${FFBUILD_PREFIX}/include"
+        -DCMAKE_PREFIX_PATH="$FFBUILD_PREFIX"
+        -DTHREADS_PTHREAD_ARG=OFF
+        -DThreads_FOUND=TRUE
+        -DCMAKE_USE_PTHREADS_INIT=TRUE
+        -DPTHREAD_CFLAGS="-I${FFBUILD_PREFIX}/include -D_REENTRANT"
+        -DPTHREAD_LDFLAGS="-L${FFBUILD_PREFIX}/lib -lwinpthread"
         # SDL3
         # -DSDL_INSTALL_DOCS=OFF
         # -DSDL_RENDER_VULKAN=ON
@@ -130,12 +138,20 @@ ffbuild_dockerbuild() {
             fi
 
             sed -i 's|^Libs.private:[[:space:]]*|Libs.private: -lmingw32 -lSDL2main |' "$PC_FILE"
-            sed -i 's|^Libs.private:.*|& -mwindows -lkernel32 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lversion -luuid -ladvapi32 -lsetupapi -lshell32 -ldinput8 -lbcrypt -lwinpthread -lssl -lcrypto -pthread|' "$PC_FILE"
+            sed -i 's|^Libs.private:.*|& -mwindows -lkernel32 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lversion -luuid -ladvapi32 -lsetupapi -lshell32 -ldinput8 -lbcrypt|' "$PC_FILE"
+
+            if [[ "${myconf[@]}" =~ "-DSDL_PTHREADS=ON" ]]; then
+                sed -i "s|^Libs.private:.*|& -lwinpthread|" "$PC_FILE"
+            fi
         fi
 
         if [[ "${myconf[@]}" =~ "-DSDL_LIBICONV=ON" ]]; then
             sed -i "s|^Libs.private:.*|& -liconv -lcharset|" "$PC_FILE"
         fi
+
+            if [[ "${myconf[@]}" =~ "-DSDL_PTHREADS=ON" ]]; then
+                sed -i "s|^Libs.private:.*|& -pthread|" "$PC_FILE"
+            fi
 
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
