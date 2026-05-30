@@ -1,10 +1,8 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libsdl-org/SDL.git"
-SCRIPT_COMMIT="99eca2ca0d1386a0c6ab983a2fee5413a5cd081c"
+SCRIPT_COMMIT="5f25ce9282a798a382a4abd2c6857dc604e4a181"
 SCRIPT_BRANCH="SDL2"
-
-export SKIP_POST_PATCH=1
 
 ffbuild_depends() {
     echo base
@@ -32,8 +30,8 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     # Заменяем -std=gnu23 на стабильный -std=gnu17,
-    local CLEAN_CFLAGS=$(echo "$CFLAGS" | sed 's/-std=gnu23/-std=gnu17/g')
-    local CLEAN_CXXFLAGS=$(echo "$CXXFLAGS" | sed 's/-std=gnu++20/-std=gnu++17/g')
+    # local CLEAN_CFLAGS=$(echo "$CFLAGS" | sed 's/-std=gnu23/-std=gnu17/g')
+    # local CLEAN_CXXFLAGS=$(echo "$CXXFLAGS" | sed 's/-std=gnu++20/-std=gnu++17/g')
 
     local myconf=(
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
@@ -42,6 +40,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DSDL_TESTS=OFF
+        -DSDL_TEST=OFF
         -DSDL_CCACHE=ON
         -DSDL_LIBSAMPLERATE=ON
         -DSDL_OPENGL=ON
@@ -53,6 +52,7 @@ ffbuild_dockerbuild() {
         # force pthreads; windows threads used anyway...
         -DSDL_PTHREADS=ON
         -DSDL_THREADS=ON
+        -DCMAKE_REQUIRED_FLAGS="-L${FFBUILD_PREFIX}/lib"
         # SDL3
         # -DSDL_INSTALL_DOCS=OFF
         # -DSDL_RENDER_VULKAN=ON
@@ -91,9 +91,10 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DSDL_STATIC_LIB"
 
-    CFLAGS="$CLEAN_CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT" \
-    CXXFLAGS="$CLEAN_CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT" \
-    LDFLAGS="$LDFLAGS ${USELTO} -lpthread" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT" \
+    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LIBS="$LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
@@ -101,39 +102,48 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/sdl2.pc"
     if [[ -f "$PC_FILE" ]]; then
+        log_info "Processing sdl2.pc using precise sed automation..."
         sed -i 's/-lSDL2//g' "$PC_FILE"
         sed -i 's/-lSDL2main//g' "$PC_FILE"
         sed -i "s|^Libs:.*|Libs: -L\${libdir} -lSDL2|" "$PC_FILE"
+
         if ! grep -q "Requires:" "$PC_FILE"; then
             sed -i '/^Libs:/i Requires: samplerate' "$PC_FILE"
         else
             sed -i '/^Requires:/ s/$/ samplerate/' "$PC_FILE"
         fi
+
         if [[ $TARGET == linux* ]]; then
-            sed -ri -e 's/\-Wl,\-\-no\-undefined.*//' \
-                -e 's/ \-l\/.+?\.a//g' \
-                "$PC_FILE"
-            sed -i '/^Requires:/ s/$/ libpulse-simple \
-                xxf86vm xscrnsaver xrandr xfixes xi \
-                xinerama xcursor/' "$PC_FILE"
-            sed -i "/^Libs.private:/ s|.*|Libs.private: -lSDL2main|" "$PC_FILE"
+            sed -ri -e 's/\-Wl,\-\-no\-undefined.*//' -e 's/ \-l\/.+?\.a//g' "$PC_FILE"
+            sed -i '/^Requires:/ s/$/ libpulse-simple xxf86vm xscrnsaver xrandr xfixes xi xinerama xcursor/' "$PC_FILE"
+
+            if ! grep -q "Libs.private:" "$PC_FILE"; then
+                sed -i '/^Libs:/a Libs.private: -lSDL2main' "$PC_FILE"
+            else
+                sed -i "/^Libs.private:/ s|.*|Libs.private: -lSDL2main|" "$PC_FILE"
+            fi
         elif [[ $TARGET == win* ]]; then
-            sed -ri -e 's/\-Wl,\-\-no\-undefined*//' \
-                -e 's/ \-mwindows//g' \
-                -e 's/ \-Dmain=SDL_main//g' \
-                "$PC_FILE"
+            sed -ri -e 's/\-Wl,\-\-no\-undefined*//' -e 's/ \-mwindows//g' -e 's/ \-Dmain=SDL_main//g' "$PC_FILE"
+
+            if ! grep -q "Libs.private:" "$PC_FILE"; then
+                sed -i '/^Libs:/a Libs.private:' "$PC_FILE"
+            fi
+
             sed -i 's|^Libs.private:[[:space:]]*|Libs.private: -lmingw32 -lSDL2main |' "$PC_FILE"
-            sed -i 's|^Libs.private:.*|& -lgdi32 -lwinmm -limm32 -lversion -loleaut32 -luuid -pthread|' "$PC_FILE"
+            sed -i 's|^Libs.private:.*|& -mwindows -lkernel32 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lversion -luuid -ladvapi32 -lsetupapi -lshell32 -ldinput8 -lbcrypt -lwinpthread -lssl -lcrypto -pthread|' "$PC_FILE"
         fi
+
         if [[ "${myconf[@]}" =~ "-DSDL_LIBICONV=ON" ]]; then
             sed -i "s|^Libs.private:.*|& -liconv -lcharset|" "$PC_FILE"
         fi
+
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
                 sed -i "/^Cflags:/ s/$/ -D_REENTRANT $static_flags/" "$PC_FILE"
             fi
         fi
         sed -i 's/  */ /g' "$PC_FILE"
+        log_info "${CHECK_MARK} sdl2.pc processed successfully."
     fi
 }
 
