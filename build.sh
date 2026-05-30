@@ -540,30 +540,6 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     exit 1
 fi
 
-# Очистка вывода конфигурации в самом бинарнике FFmpeg
-# Безопасная очистка с дебагом (выполнять строго ПОСЛЕ ./configure)
-if [ -f "config.h" ]; then
-    log_info "${LOGS_MARK} >>> [BEFORE] config.h target line:"
-    grep "#define FFMPEG_CONFIGURATION" config.h || echo "Line not found"
-
-    # Точечно вырезаем флаги и их аргументы, не заходя на территорию --enable/--disable
-    sed -i -E 's/--extra-libs=[^ ]*//g' config.h
-    sed -i -E 's/--extra-cflags=[^ ]*//g' config.h
-    sed -i -E 's/--extra-cxxflags=[^ ]*//g' config.h
-    sed -i -E 's/--extra-ldflags=[^ ]*//g' config.h
-    sed -i -E 's/--extra-ldexeflags=[^ ]*//g' config.h
-
-    # Очищаем хостовые флаги, аккуратно обрабатывая блоки в одинарных кавычках '...'
-    sed -i -E "s/--host-cflags='[^']*'//g" config.h
-    sed -i -E "s/--host-ldflags='[^']*'//g" config.h
-
-    # Схлопываем множественные пробелы внутри строки
-    sed -i '/#define FFMPEG_CONFIGURATION/s/  */ /g' config.h
-
-    log_info "${LOGS_MARK} <<< [AFTER] config.h target line:"
-    grep "#define FFMPEG_CONFIGURATION" config.h
-fi
-
 # Сборка и установка ffmpeg
 make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
 make install
