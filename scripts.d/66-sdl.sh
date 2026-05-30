@@ -4,6 +4,8 @@ SCRIPT_REPO="https://github.com/libsdl-org/SDL.git"
 SCRIPT_COMMIT="99eca2ca0d1386a0c6ab983a2fee5413a5cd081c"
 SCRIPT_BRANCH="SDL2"
 
+export SKIP_POST_PATCH=1
+
 ffbuild_depends() {
     echo base
     echo libiconv
@@ -28,6 +30,10 @@ ffbuild_dockerbuild() {
     set -e
 
     mkdir -p build && cd build
+
+    # Заменяем -std=gnu23 на стабильный -std=gnu17,
+    local CLEAN_CFLAGS=$(echo "$CFLAGS" | sed 's/-std=gnu23/-std=gnu17/g')
+    local CLEAN_CXXFLAGS=$(echo "$CXXFLAGS" | sed 's/-std=gnu++20/-std=gnu++17/g')
 
     local myconf=(
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
@@ -85,8 +91,8 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DSDL_STATIC_LIB"
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT" \
+    CFLAGS="$CLEAN_CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT" \
+    CXXFLAGS="$CLEAN_CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT" \
     LDFLAGS="$LDFLAGS ${USELTO} -lpthread" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
@@ -117,14 +123,14 @@ ffbuild_dockerbuild() {
                 -e 's/ \-Dmain=SDL_main//g' \
                 "$PC_FILE"
             sed -i 's|^Libs.private:[[:space:]]*|Libs.private: -lmingw32 -lSDL2main |' "$PC_FILE"
-            sed -i 's|^Libs.private:.*|& -lgdi32 -lwinmm -limm32 -lversion -loleaut32 -luuid|' "$PC_FILE"
+            sed -i 's|^Libs.private:.*|& -lgdi32 -lwinmm -limm32 -lversion -loleaut32 -luuid -pthread|' "$PC_FILE"
         fi
         if [[ "${myconf[@]}" =~ "-DSDL_LIBICONV=ON" ]]; then
             sed -i "s|^Libs.private:.*|& -liconv -lcharset|" "$PC_FILE"
         fi
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
-                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+                sed -i "/^Cflags:/ s/$/ -D_REENTRANT $static_flags/" "$PC_FILE"
             fi
         fi
         sed -i 's/  */ /g' "$PC_FILE"
