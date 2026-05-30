@@ -7,6 +7,7 @@ SCRIPT_BRANCH="SDL2"
 ffbuild_depends() {
     echo base
     echo libiconv
+    echo mingw
     echo x11
     # echo fribidi
     echo vulkan-headers
@@ -86,8 +87,8 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DSDL_STATIC_LIB"
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT -DSDL_MAIN_HANDLED" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT -DSDL_MAIN_HANDLED" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
@@ -117,13 +118,17 @@ ffbuild_dockerbuild() {
                 sed -i "/^Libs.private:/ s|.*|Libs.private: -lSDL2main|" "$PC_FILE"
             fi
         elif [[ $TARGET == win* ]]; then
-            sed -ri -e 's/\-Wl,\-\-no\-undefined*//' -e 's/ \-mwindows//g' -e 's/ \-Dmain=SDL_main//g' "$PC_FILE"
+            sed -ri -e 's/\-Wl,\-\-no\-undefined*//' \
+                    -e 's/ \-mwindows//g' \
+                    -e 's/ \-Dmain=SDL_main//g' \
+                    "$PC_FILE"
 
             if ! grep -q "Libs.private:" "$PC_FILE"; then
                 sed -i '/^Libs:/a Libs.private:' "$PC_FILE"
             fi
 
             sed -i 's|^Libs.private:[[:space:]]*|Libs.private: -lmingw32 -lSDL2main |' "$PC_FILE"
+            sed -i 's|^Libs.private:.*|& -lkernel32 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lversion -luuid -ladvapi32 -lsetupapi -lshell32 -ldinput8 -lbcrypt -lwinpthread -lm -lshlwapi -ldbghelp -lws2_32|' "$PC_FILE"
         fi
 
         if [[ "${myconf[@]}" =~ "-DSDL_LIBICONV=ON" ]]; then
@@ -136,8 +141,10 @@ ffbuild_dockerbuild() {
 
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
-                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+                sed -i "/^Cflags:/ s/$/ -D_REENTRANT -DSDL_MAIN_HANDLED $static_flags/" "$PC_FILE"
             fi
+        else
+            sed -i "/^Cflags:/ s/$/ -D_REENTRANT -DSDL_MAIN_HANDLED/" "$PC_FILE"
         fi
         sed -i 's/  */ /g' "$PC_FILE"
         log_info "${CHECK_MARK} sdl2.pc processed successfully."
