@@ -89,7 +89,6 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
-    LIBS="$LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
@@ -125,7 +124,6 @@ ffbuild_dockerbuild() {
             fi
 
             sed -i 's|^Libs.private:[[:space:]]*|Libs.private: -lmingw32 -lSDL2main |' "$PC_FILE"
-            sed -i 's|^Libs.private:.*|& -mwindows -lkernel32 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lversion -luuid -ladvapi32 -lsetupapi -lshell32 -ldinput8 -lbcrypt|' "$PC_FILE"
         fi
 
         if [[ "${myconf[@]}" =~ "-DSDL_LIBICONV=ON" ]]; then
@@ -138,7 +136,7 @@ ffbuild_dockerbuild() {
 
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
-                sed -i "/^Cflags:/ s/$/ -D_REENTRANT $static_flags/" "$PC_FILE"
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
             fi
         fi
         sed -i 's/  */ /g' "$PC_FILE"
