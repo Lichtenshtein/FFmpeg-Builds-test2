@@ -40,7 +40,7 @@ ffbuild_dockerbuild() {
         -DSDL_LIBSAMPLERATE=ON
         -DSDL_OPENGL=ON
         -DSDL_WASAPI=ON
-        -DSDL_VULKAN=ON
+        -DSDL_VULKAN=OFF
         # блок поиска iconv
         -DSDL_LIBICONV=ON
         -DSDL_SYSTEM_ICONV=ON
@@ -116,16 +116,18 @@ ffbuild_dockerbuild() {
                 -e 's/ \-mwindows//g' \
                 -e 's/ \-Dmain=SDL_main//g' \
                 "$PC_FILE"
-            sed -i "/^Libs.private:/ s|.*|Libs.private: -lmingw32 -lSDL2main|" "$PC_FILE"
+            sed -i 's|^Libs.private:[[:space:]]*|Libs.private: -lmingw32 -lSDL2main |' "$PC_FILE"
+            sed -i 's|^Libs.private:.*|& -lgdi32 -lwinmm -limm32 -lversion -loleaut32 -luuid|' "$PC_FILE"
         fi
         if [[ "${myconf[@]}" =~ "-DSDL_LIBICONV=ON" ]]; then
-            sed -i "/^Libs.private:/ s/$/ -liconv -lcharset/" "$PC_FILE"
+            sed -i "s|^Libs.private:.*|& -liconv -lcharset|" "$PC_FILE"
         fi
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
                 sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
             fi
         fi
+        sed -i 's/  */ /g' "$PC_FILE"
     fi
 }
 
