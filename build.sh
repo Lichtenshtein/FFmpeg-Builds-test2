@@ -540,19 +540,35 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     exit 1
 fi
 
+# Очистка хедера ffmpeg
 if [ -f "config.h" ]; then
     log_info "${LOGS_MARK} >>> [BEFORE] config.h target line:"
     grep "#define FFMPEG_CONFIGURATION" config.h || echo "Line not found"
-    
-    # Очистка Си-строки
-    sed -i -E 's/--extra-libs=[^"]*//g' config.h
-    sed -i -E 's/--extra-cflags=[^"]*//g' config.h
-    sed -i -E 's/--extra-cxxflags=[^"]*//g' config.h
-    sed -i -E 's/--extra-ldflags=[^"]*//g' config.h
-    sed -i -E 's/--extra-ldexeflags=[^"]*//g' config.h
-    sed -i -E 's/--host-cflags=[^"]*//g' config.h
-    sed -i -E 's/--host-ldflags=[^"]*//g' config.h
+
+    # Очистка хостовых флагов компилятора и линкера (обрабатываем блоки в одинарных кавычках \x27)
+    sed -i -E "s/--host-cflags=\x27[^\x27]*\x27//g" config.h
+    sed -i -E "s/--host-ldflags=\x27[^\x27]*\x27//g" config.h
+
+    # Очистка дополнительных флагов сборки FFmpeg (также в одинарных кавычках)
+    sed -i -E "s/--extra-cflags=\x27[^\x27]*\x27//g" config.h
+    sed -i -E "s/--extra-cxxflags=\x27[^\x27]*\x27//g" config.h
+    sed -i -E "s/--extra-ldflags=\x27[^\x27]*\x27//g" config.h
+    sed -i -E "s/--extra-ldexeflags=\x27[^\x27]*\x27//g" config.h
+    sed -i -E "s/--extra-libs=\x27[^\x27]*\x27//g" config.h
+
+    # Очистка флагов для инструментов сборки (если они остались без кавычек)
+    sed -i -E "s/--pkg-config-flags=[^ ]*//g" config.h
+    sed -i -E "s/--cc=[^ ]*//g" config.h
+    sed -i -E "s/--cxx=[^ ]*//g" config.h
+    sed -i -E "s/--ar=[^ ]*//g" config.h
+    sed -i -E "s/--ranlib=[^ ]*//g" config.h
+    sed -i -E "s/--nm=[^ ]*//g" config.h
+    sed -i -E "s/--as=[^ ]*//g" config.h
+
+    # Схлопываем множественные пробелы внутри строки, чтобы баннер был красивым
     sed -i '/#define FFMPEG_CONFIGURATION/s/  */ /g' config.h
+    # Убираем висящий пробел перед закрывающей двойной кавычкой, если он образовался
+    sed -i 's/ \x22/\x22/g' config.h
 
     log_info "${LOGS_MARK} <<< [AFTER] config.h target line:"
     grep "#define FFMPEG_CONFIGURATION" config.h
