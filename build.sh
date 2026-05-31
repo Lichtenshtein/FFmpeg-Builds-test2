@@ -314,11 +314,11 @@ fi
 # fi
 
 # Добавляем системные библиотеки SjLj в финальные экстра-либсы
-FINAL_MINGW_LIBS="-lmingwex -lgcc_eh -lgcc"
+FINAL_MINGW_LIBS="-lmingwex -lgcc_eh -lgcc -ld3d11 -ldxgi"
 
 # Используем группы для решения проблем циклических зависимостей
 # прокидываем библиотеку обработки исключений LTO за пределы основной группы
-FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} ${FINAL_MINGW_LIBS} -ld3d11 -ldxgi -Wl,--end-group -lstdc++"
+FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} ${FINAL_MINGW_LIBS} -Wl,--end-group -lstdc++"
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
@@ -485,7 +485,7 @@ CONF_FLAGS=(
     --host-cc="ccache gcc-14"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
-    --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
+    --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS} -DCOBJMACROS"
     --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
     --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -Wl,--allow-multiple-definition"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
@@ -493,7 +493,6 @@ CONF_FLAGS=(
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
-    --enable-d3d11va
     --enable-opengl
     --enable-pic
     --disable-debug
@@ -542,7 +541,41 @@ else
     log_error "Файл ${TARGET_PC_FILE} не найден! Проверьте правильность пути."
 fi
 
+log_info "Применяем защитный патч к vf_amf_common.c для предотвращения падения без CONFIG_D3D11VA..."
+sed -i 's/#if CONFIG_D3D11VA/#if CONFIG_D3D11VA || defined(_WIN32)/g' libavfilter/vf_amf_common.c
 
+# Принудительно заставляем GCC развернуть COM-интерфейсы в C-стиле для Direct3D 11
+sed -i '1s/^/#define COBJMACROS\n/' libavfilter/vf_amf_common.c
+
+# Тотальное выравнивание зависимостей в AMF фильтре
+# sed -i '1s/^/#define COBJMACROS\n#include <d3d11.h>\n/' libavfilter/vf_amf_common.c
+
+
+if [ -f "libavfilter/vf_amf_common.c" ]; then
+    log_info "Injecting ultimate MinGW D3D11 fix into vf_amf_common.c..."
+    
+    # Создаем временный файл с кодом инъекции
+    cat << 'EOF' > amf_fix_header.tmp
+#ifdef WIN32_LEAN_AND_MEAN
+#undef WIN32_LEAN_AND_MEAN
+#endif
+#define COBJMACROS
+#define CINTERFACE
+#include <windows.h>
+#include <initguid.h>
+#include <d3d11.h>
+#include <dxgi1_2.h>
+EOF
+
+    # Объединяем фикс и оригинальный файл в новый временный файл
+    cat amf_fix_header.tmp libavfilter/vf_amf_common.c > vf_amf_common.c.new
+    
+    # Заменяем оригинальный файл полученным результатом
+    mv vf_amf_common.c.new libavfilter/vf_amf_common.c
+    
+    # Чистим за собой временный заголовок
+    rm -f amf_fix_header.tmp
+fi
 
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
 [[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
