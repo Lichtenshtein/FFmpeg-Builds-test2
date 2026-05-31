@@ -431,9 +431,6 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
 fi
 
-# export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]}"
-# export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g0 -ffunction-sections -fdata-sections -std=gnu23"
-
 # экспортируем флаги
 export FINAL_CONFIGURE FINAL_CFLAGS FINAL_CXXFLAGS FINAL_LDFLAGS FINAL_LDEXEFLAGS FINAL_LIBS_GROUPED
 # Очищаем тяжелые переменные, чтобы не мешать запуску процессов
@@ -533,6 +530,11 @@ if [[ -f "$TARGET_PC_FILE" ]]; then
         sed -i '/^Libs:/ a Libs.private: -ld3d11 -ldxgi -luuid' "$TARGET_PC_FILE"
     fi
 
+    # Удаляем конкретно часть " -I\${includedir}/libplacebo" из строки Cflags
+    sed -i 's| -I${includedir}/libplacebo||g' "$TARGET_PC_FILE"
+    # На случай если там были другие кавычки или пробелы, подстрахуемся:
+    sed -i 's| -I/opt/ffbuild/include/libplacebo||g' "$TARGET_PC_FILE"
+
     log_info "Содержимое ${TARGET_PC_FILE} после модификации:"
     log_debug "--- НАЧАЛО ИЗМЕНЕННОГО LIBPLACEBO.PC ---"
     cat "$TARGET_PC_FILE" >&2
@@ -541,41 +543,6 @@ else
     log_error "Файл ${TARGET_PC_FILE} не найден! Проверьте правильность пути."
 fi
 
-log_info "Применяем защитный патч к vf_amf_common.c для предотвращения падения без CONFIG_D3D11VA..."
-sed -i 's/#if CONFIG_D3D11VA/#if CONFIG_D3D11VA || defined(_WIN32)/g' libavfilter/vf_amf_common.c
-
-# Принудительно заставляем GCC развернуть COM-интерфейсы в C-стиле для Direct3D 11
-sed -i '1s/^/#define COBJMACROS\n/' libavfilter/vf_amf_common.c
-
-# Тотальное выравнивание зависимостей в AMF фильтре
-# sed -i '1s/^/#define COBJMACROS\n#include <d3d11.h>\n/' libavfilter/vf_amf_common.c
-
-
-if [ -f "libavfilter/vf_amf_common.c" ]; then
-    log_info "Injecting ultimate MinGW D3D11 fix into vf_amf_common.c..."
-    
-    # Создаем временный файл с кодом инъекции
-    cat << 'EOF' > amf_fix_header.tmp
-#ifdef WIN32_LEAN_AND_MEAN
-#undef WIN32_LEAN_AND_MEAN
-#endif
-#define COBJMACROS
-#define CINTERFACE
-#include <windows.h>
-#include <initguid.h>
-#include <d3d11.h>
-#include <dxgi1_2.h>
-EOF
-
-    # Объединяем фикс и оригинальный файл в новый временный файл
-    cat amf_fix_header.tmp libavfilter/vf_amf_common.c > vf_amf_common.c.new
-    
-    # Заменяем оригинальный файл полученным результатом
-    mv vf_amf_common.c.new libavfilter/vf_amf_common.c
-    
-    # Чистим за собой временный заголовок
-    rm -f amf_fix_header.tmp
-fi
 
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
 [[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
