@@ -527,7 +527,7 @@ echo '#include <DeckLinkAPI.h>' > "$FFBUILD_PREFIX/include/DeckLinkAPI_v14_2_1.h
 if [ -f "libavfilter/vf_amf_common.c" ]; then
     log_info "Injecting MinGW C-interface macros for D3D11 into vf_amf_common.c..."
 
-    local mingw_d3d_fix="#define COBJMACROS\n#define CINTERFACE\n"
+    mingw_d3d_fix="#define COBJMACROS\n#define CINTERFACE\n"
 
     sed -i "1s/^/${mingw_d3d_fix}/" libavfilter/vf_amf_common.c
 fi
