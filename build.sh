@@ -485,8 +485,8 @@ CONF_FLAGS=(
     --host-cc="ccache gcc-14"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
-    --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS} -include d3d11.h"
-    --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS} -include d3d11.h"
+    --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
+    --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
     --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -Wl,--allow-multiple-definition"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
     --extra-libs="${FINAL_LIBS_GROUPED}"
@@ -514,7 +514,13 @@ fi
 # FIX1; decklink. Создаем DeckLinkAPI_v14_2_1.h, который просто перенаправляет на новый DeckLinkAPI.h
 echo '#include <DeckLinkAPI.h>' > "$FFBUILD_PREFIX/include/DeckLinkAPI_v14_2_1.h"
 # FIX2; libplacebo, amf. Внедряем инклюд d3d11.h прямо в проблемный файл vf_amf_common.c до инклюда libplacebo
-sed -i 's|#include <libplacebo/d3d11.h>|#include <d3d11.h>\n#include <libplacebo/d3d11.h>|' libavfilter/vf_amf_common.c
+if [ -f "$FFBUILD_PREFIX/include/libplacebo/d3d11.h" ]; then
+    log_info "Patching libplacebo d3d11.h header for MinGW..."
+    sed -i '1s/^/#include <d3d11.h>\n/' "$FFBUILD_PREFIX/include/libplacebo/d3d11.h"
+
+    cat $FFBUILD_PREFIX/include/libplacebo/d3d11.h
+    sed -i 's|#include <libplacebo/d3d11.h>|#include <d3d11.h>\n#include <libplacebo/d3d11.h>|' libavfilter/vf_amf_common.c
+fi
 
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
 [[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
