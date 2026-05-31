@@ -519,7 +519,7 @@ if [ -f "libavfilter/vf_amf_common.c" ]; then
     log_info "Patching vf_amf_common.c to bypass MinGW D3D11 encapsulation..."
 
     # Создаем блок, который принудительно включает DirectX C-интерфейсы в обход LEAN_AND_MEAN
-    local amf_patch="#define COBJMACROS\n#define CINTERFACE\n#include <d3d11.h>\n"
+    amf_patch="#define COBJMACROS\n#define CINTERFACE\n#include <d3d11.h>\n"
 
     # Вставляем этот блок в самый верх файла vf_amf_common.c
     sed -i "1s/^/${amf_patch}/" libavfilter/vf_amf_common.c
