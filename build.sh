@@ -212,7 +212,7 @@ FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VAR
 # =======================================
 log_debug "${SEARCH_MARK} Scanning FFmpeg configuration for enabled components..."
 # Список компонентов для проверки
-COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac openssl amf frei0r whisper lcevcdec)
+COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract libfdk-aac openssl amf frei0r whisper liblcevc_dec)
 # Создаем имя переменной libtesseract -> HAS_LIBTESSERACT
 for comp in "${COMPONENTS[@]}"; do
     clean_name="${comp^^}"
@@ -543,7 +543,7 @@ else
     log_error "Файл ${TARGET_PC_FILE} не найден! Проверьте правильность пути."
 fi
 
-if [[ "$HAS_LCEVCDEC" == "1" ]]; then
+if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
     log_info "Patch libavfilter/vf_lcevc.c to support LCEVC SDK 4.0.5 signatures..."
 
     # Исправляем LCEVC_SendDecoderEnhancementData
