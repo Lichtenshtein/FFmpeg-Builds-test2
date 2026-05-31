@@ -558,9 +558,20 @@ if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
     sed -i 's/LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, in)/LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, in)/g' libavfilter/vf_lcevc.c
 fi
 
-# Заменяем проверку #if HAVE_FCNTL на проверку, исключающую Windows
-[[ "$TARGET" == "win64" ]] && log_info "Patching libavformat/file.c: blocking HAVE_FCNTL for Windows..." && sed -i 's/#if HAVE_FCNTL/#if HAVE_FCNTL \&\& !defined(_WIN32)/g' libavformat/file.c
+if [[ "$TARGET" == "win64" ]]; then
+    log_info "We're adjusting the generated config.h: we're forcibly disabling HAVE_FCNTL for Windows..."
 
+    # sed -i 's/#if HAVE_FCNTL/#if HAVE_FCNTL \&\& !defined(_WIN32)/g' libavformat/file.c
+
+    if [[ -f "config.h" ]]; then
+        sed -i 's/#define HAVE_FCNTL 1/#define HAVE_FCNTL 0/g' config.h
+        
+        log_info "Status of the HAVE_FCNTL macro in config.h:"
+        grep "HAVE_FCNTL" config.h >&2
+    else
+        log_error "config.h file not found! Make sure the patch is run AFTER ./configure"
+    fi
+fi
 
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
 [[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
