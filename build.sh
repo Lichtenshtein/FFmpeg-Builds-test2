@@ -511,8 +511,10 @@ else
     )
 fi
 
-# ХАК ДЛЯ FFMPEG: Создаем DeckLinkAPI_v14_2_1.h, который просто перенаправляет на новый DeckLinkAPI.h
+# FIX1; decklink. Создаем DeckLinkAPI_v14_2_1.h, который просто перенаправляет на новый DeckLinkAPI.h
 echo '#include <DeckLinkAPI.h>' > "$FFBUILD_PREFIX/include/DeckLinkAPI_v14_2_1.h"
+# FIX2; libplacebo, amf. Внедряем инклюд d3d11.h прямо в проблемный файл vf_amf_common.c до инклюда libplacebo
+sed -i 's|#include <libplacebo/d3d11.h>|#include <d3d11.h>\n#include <libplacebo/d3d11.h>|' libavfilter/vf_amf_common.c
 
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
 [[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
