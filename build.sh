@@ -514,12 +514,15 @@ fi
 # FIX1; decklink. Создаем DeckLinkAPI_v14_2_1.h, который просто перенаправляет на новый DeckLinkAPI.h
 echo '#include <DeckLinkAPI.h>' > "$FFBUILD_PREFIX/include/DeckLinkAPI_v14_2_1.h"
 # FIX2; libplacebo, amf. Внедряем инклюд d3d11.h прямо в проблемный файл vf_amf_common.c до инклюда libplacebo
-if [ -f "$FFBUILD_PREFIX/include/libplacebo/d3d11.h" ]; then
-    log_info "Patching libplacebo d3d11.h header for MinGW..."
-    sed -i '1s/^/#include <d3d11.h>\n/' "$FFBUILD_PREFIX/include/libplacebo/d3d11.h"
+# возвращаем видимость D3D11-структурам в C
+if [ -f "libavfilter/vf_amf_common.c" ]; then
+    log_info "Patching vf_amf_common.c to bypass MinGW D3D11 encapsulation..."
 
-    cat $FFBUILD_PREFIX/include/libplacebo/d3d11.h
-    sed -i 's|#include <libplacebo/d3d11.h>|#include <d3d11.h>\n#include <libplacebo/d3d11.h>|' libavfilter/vf_amf_common.c
+    # Создаем блок, который принудительно включает DirectX C-интерфейсы в обход LEAN_AND_MEAN
+    local amf_patch="#define COBJMACROS\n#define CINTERFACE\n#include <d3d11.h>\n"
+
+    # Вставляем этот блок в самый верх файла vf_amf_common.c
+    sed -i "1s/^/${amf_patch}/" libavfilter/vf_amf_common.c
 fi
 
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
