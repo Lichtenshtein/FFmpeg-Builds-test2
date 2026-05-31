@@ -318,7 +318,7 @@ FINAL_MINGW_LIBS="-lmingwex -lgcc_eh -lgcc"
 
 # Используем группы для решения проблем циклических зависимостей
 # прокидываем библиотеку обработки исключений LTO за пределы основной группы
-FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} ${FINAL_MINGW_LIBS} -Wl,--end-group -lstdc++"
+FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} ${FINAL_MINGW_LIBS} -ld3d11 -ldxgi -Wl,--end-group -lstdc++"
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
@@ -493,6 +493,7 @@ CONF_FLAGS=(
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
+    --enable-d3d11va
     --enable-opengl
     --enable-pic
     --disable-debug
@@ -514,27 +515,31 @@ fi
 # FIX1; decklink. Создаем DeckLinkAPI_v14_2_1.h, который просто перенаправляет на новый DeckLinkAPI.h
 echo '#include <DeckLinkAPI.h>' > "$FFBUILD_PREFIX/include/DeckLinkAPI_v14_2_1.h"
 # FIX2; libplacebo, amf
-if [ -f "libavfilter/vf_amf_common.c" ]; then
-    log_info "Injecting ultimate MinGW D3D11 fix into vf_amf_common.c..."
-    
-    # Создаем блок, который обнуляет ограничения LEAN_AND_MEAN и
-    # принудительно разворачивает интерфейсы D3D11 для чистого C в MinGW
-    mingw_d3d_magic=$(cat << 'EOF'
-#ifdef WIN32_LEAN_AND_MEAN
-#undef WIN32_LEAN_AND_MEAN
-#endif
-#define COBJMACROS
-#define CINTERFACE
-#include <windows.h>
-#include <initguid.h>
-#include <d3d11.h>
-#include <dxgi1_2.h>
-EOF
-)
+# Определяем точный путь к файлу pkgconfig в префиксе
+TARGET_PC_FILE="${FFBUILD_PREFIX}/lib/pkgconfig/libplacebo.pc"
 
-    # Записываем эту магию на самую первую строчку файла vf_amf_common.c
-    # до того, как FFmpeg успеет подключить любые свои внутренние конфиги
-    sed -i "1s|^|${mingw_d3d_magic}\n|" libavfilter/vf_amf_common.c
+log_info "Проверяем исходное содержимое ${TARGET_PC_FILE}:"
+if [[ -f "$TARGET_PC_FILE" ]]; then
+    log_debug "--- НАЧАЛО LIBPLACEBO.PC ---"
+    cat "$TARGET_PC_FILE" >&2
+    log_debug "--- КОНЕЦ LIBPLACEBO.PC ---"
+
+    log_info "Патчим libplacebo.pc для поддержки статической линковки D3D11..."
+    
+    # 1. Если строка Libs.private уже существует, внедряем туда системные библиотеки d3d11, dxgi и uuid
+    if grep -q "^Libs.private:" "$TARGET_PC_FILE"; then
+        sed -i 's|^Libs.private:.*|& -ld3d11 -ldxgi -luuid|' "$TARGET_PC_FILE"
+    else
+        # 2. Если строки Libs.private нет, создаем её сразу под строкой Libs:
+        sed -i '/^Libs:/ a Libs.private: -ld3d11 -ldxgi -luuid' "$TARGET_PC_FILE"
+    fi
+
+    log_info "Содержимое ${TARGET_PC_FILE} после модификации:"
+    log_debug "--- НАЧАЛО ИЗМЕНЕННОГО LIBPLACEBO.PC ---"
+    cat "$TARGET_PC_FILE" >&2
+    log_debug "--- КОНЕЦ ИЗМЕНЕННОГО LIBPLACEBO.PC ---"
+else
+    log_error "Файл ${TARGET_PC_FILE} не найден! Проверьте правильность пути."
 fi
 
 
