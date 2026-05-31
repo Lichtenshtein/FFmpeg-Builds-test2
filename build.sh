@@ -508,6 +508,35 @@ else
     )
 fi
 
+[[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
+[[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
+[[ "$HAS_AMF" == "1" ]] && CONF_FLAGS+=( --enable-filter=vpp_amf --enable-filter=sr_amf )
+[[ "${USE_AVX512}" != "1" ]] && CONF_FLAGS+=( --disable-avx512 --disable-avx512icl )
+# flags added by ffmpeg patches, not from mainline FFmpeg
+[[ "$FFMPEG_PATCHES" == "1" ]] && CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
+if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
+    CONF_FLAGS+=( --nvcc=clang )
+fi
+
+log_info_line
+log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
+
+log_info_line
+log_info "### ${START_MARK} Launching FFmpeg Configure..."
+log_info_line
+
+# Функция проверки и валидации флагов ffmpeg SAFE_CONFIGURE
+check_and_fix_configure && printf "  %s\n" "${CONF_FLAGS[@]}"
+
+# Перенаправляем stderr в config.log для полноты картины
+if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
+    log_error "Configure failed!"
+    log_debug "${LOGS_MARK} ▼ CONTENT OF $FFMPEG_CONFIG_LOG ▼"
+    tail -n 1000 "$FFMPEG_CONFIG_LOG"
+    log_debug "${LOGS_MARK} ▲ END OF $FFMPEG_CONFIG_LOG ▲"
+    exit 1
+fi
+
 # FIX1; decklink. Создаем DeckLinkAPI_v14_2_1.h, который просто перенаправляет на новый DeckLinkAPI.h
 echo '#include <DeckLinkAPI.h>' > "$FFBUILD_PREFIX/include/DeckLinkAPI_v14_2_1.h"
 # FIX2; libplacebo, amf
@@ -556,6 +585,23 @@ if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
     # Сигнатура 4.0.5 ожидает 5 аргументов. Скорее всего, удаляется лишний флаг (0 или -1).
     # Исходя из прототипа lcevc_dec.h, убираем внутренний ноль, чтобы picture встал на место base
     sed -i 's/LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, in)/LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, in)/g' libavfilter/vf_lcevc.c
+
+    log_info "Патчим libavcodec/lcevcdec.c под сигнатуры LCEVC SDK 4.0.5..."
+    
+    if [[ -f "libavcodec/lcevcdec.c" ]]; then
+        # 1. Исправляем LCEVC_SendDecoderEnhancementData (удаляем лишний аргумент '0')
+        # Было: LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)
+        sed -i 's/LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)/LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size)/g' libavcodec/lcevcdec.c
+    
+        # 2. Исправляем LCEVC_SendDecoderBase (удаляем лишний аргумент '0', сдвигая picture на место base)
+        # Было: LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, opaque)
+        sed -i 's/LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, opaque)/LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, opaque)/g' libavcodec/lcevcdec.c
+        
+        log_info "Патч для libavcodec/lcevcdec.c успешно применен."
+    else
+        log_error "Файл libavcodec/lcevcdec.c не найден!"
+    fi
+
 fi
 
 if [[ "$TARGET" == "win64" ]]; then
@@ -612,34 +658,6 @@ if [[ "$TARGET" == "win64" ]]; then
     fi
 fi
 
-[[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
-[[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
-[[ "$HAS_AMF" == "1" ]] && CONF_FLAGS+=( --enable-filter=vpp_amf --enable-filter=sr_amf )
-[[ "${USE_AVX512}" != "1" ]] && CONF_FLAGS+=( --disable-avx512 --disable-avx512icl )
-# flags added by ffmpeg patches, not from mainline FFmpeg
-[[ "$FFMPEG_PATCHES" == "1" ]] && CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
-if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
-    CONF_FLAGS+=( --nvcc=clang )
-fi
-
-log_info_line
-log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
-
-log_info_line
-log_info "### ${START_MARK} Launching FFmpeg Configure..."
-log_info_line
-
-# Функция проверки и валидации флагов ffmpeg SAFE_CONFIGURE
-check_and_fix_configure && printf "  %s\n" "${CONF_FLAGS[@]}"
-
-# Перенаправляем stderr в config.log для полноты картины
-if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
-    log_error "Configure failed!"
-    log_debug "${LOGS_MARK} ▼ CONTENT OF $FFMPEG_CONFIG_LOG ▼"
-    tail -n 1000 "$FFMPEG_CONFIG_LOG"
-    log_debug "${LOGS_MARK} ▲ END OF $FFMPEG_CONFIG_LOG ▲"
-    exit 1
-fi
 
 # Очистка хедера ffmpeg
 # if [ -f "config.h" ]; then
