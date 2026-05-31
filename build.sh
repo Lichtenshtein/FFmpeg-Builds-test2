@@ -543,6 +543,19 @@ else
     log_error "Файл ${TARGET_PC_FILE} не найден! Проверьте правильность пути."
 fi
 
+log_info "Патчим libavfilter/vf_lcevc.c под сигнатуры LCEVC SDK 4.0.5..."
+
+# 1. Исправляем LCEVC_SendDecoderEnhancementData
+# Старый вызов: LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size);
+# Новый вызов удаляет 3-й аргумент (0), сдвигая указатель и размер:
+sed -i 's/LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)/LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size)/g' libavfilter/vf_lcevc.c
+
+# 2. Исправляем LCEVC_SendDecoderBase
+# Старый вызов: LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, in);
+# Сигнатура 4.0.5 ожидает 5 аргументов. Скорее всего, удаляется лишний флаг (0 или -1). 
+# Исходя из прототипа lcevc_dec.h, убираем внутренний ноль, чтобы picture встал на место base:
+sed -i 's/LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, in)/LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, in)/g' libavfilter/vf_lcevc.c
+
 
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
 [[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
