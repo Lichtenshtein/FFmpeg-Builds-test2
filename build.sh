@@ -513,14 +513,19 @@ fi
 
 # FIX1; decklink. Создаем DeckLinkAPI_v14_2_1.h, который просто перенаправляет на новый DeckLinkAPI.h
 echo '#include <DeckLinkAPI.h>' > "$FFBUILD_PREFIX/include/DeckLinkAPI_v14_2_1.h"
-# FIX2; libplacebo, amf. Внедряем инклюд d3d11.h прямо в проблемный файл vf_amf_common.c до инклюда libplacebo
-cat /opt/ffbuild/include/libplacebo/config.h | grep -i d3d11
-if [ -f "libavfilter/Makefile" ]; then
-    log_info "Forcing vf_amf_common.c to compile as C++ via Makefile target..."
-    # Дописываем в конец Makefile явное правило: компилировать этот .c файл с помощью CXX и CXXFLAGS
-    echo -e "\nlibavfilter/vf_amf_common.o: libavfilter/vf_amf_common.c\n\t\$(CXX) \$(CXXFLAGS) \$(CPPFLAGS) -c -o \$@ \$<" >> libavfilter/Makefile
-fi
+# FIX2; libplacebo, amf
+if [ -f "libavfilter/vf_amf_common.c" ]; then
+    log_info "Injecting config.h and D3D11 standard headers into vf_amf_common.c..."
 
+    # Готовим правильный блок инклудов:
+    # 1. Сначала config.h, чтобы CONFIG_D3D11VA стал равен 1
+    # 2. Дефайны CINTERFACE и COBJMACROS для развертывания структур в MinGW
+    # 3. Безусловный инклуд d3d11.h
+    mingw_amf_fix="#include \"config.h\"\n#define COBJMACROS\n#define CINTERFACE\n#include <windows.h>\n#include <d3d11.h>\n#include <dxgi1_2.h>\n"
+    
+    # Вставляем этот блок на самую первую строчку файла
+    sed -i "1s/^/${mingw_amf_fix}/" libavfilter/vf_amf_common.c
+fi
 
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
 [[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
