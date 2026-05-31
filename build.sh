@@ -514,16 +514,24 @@ fi
 # FIX1; decklink. Создаем DeckLinkAPI_v14_2_1.h, который просто перенаправляет на новый DeckLinkAPI.h
 echo '#include <DeckLinkAPI.h>' > "$FFBUILD_PREFIX/include/DeckLinkAPI_v14_2_1.h"
 # FIX2; libplacebo, amf. Внедряем инклюд d3d11.h прямо в проблемный файл vf_amf_common.c до инклюда libplacebo
-# возвращаем видимость D3D11-структурам в C
+# if [ -f "libavfilter/vf_amf_common.c" ]; then
+    # log_info "Patching vf_amf_common.c to force D3D11 headers inclusion..."
+    
+    # sed -i '/#if CONFIG_D3D11VA/,/#endif/d' libavfilter/vf_amf_common.c
+
+    # local amf_fix="#define COBJMACROS\n#define CINTERFACE\n#include <stdbool.h>\n#include <windows.h>\n#include <d3d11.h>\n#include <dxgi1_2.h>\n"
+    
+    # sed -i "s|#include \"vf_amf_common.h\"|${amf_fix}#include \"vf_amf_common.h\"|" libavfilter/vf_amf_common.c
+# fi
+
 if [ -f "libavfilter/vf_amf_common.c" ]; then
-    log_info "Patching vf_amf_common.c to bypass MinGW D3D11 encapsulation..."
+    log_info "Injecting MinGW C-interface macros for D3D11 into vf_amf_common.c..."
 
-    # Создаем блок, который принудительно включает DirectX C-интерфейсы в обход LEAN_AND_MEAN
-    amf_patch="#define COBJMACROS\n#define CINTERFACE\n#include <d3d11.h>\n"
+    local mingw_d3d_fix="#define COBJMACROS\n#define CINTERFACE\n"
 
-    # Вставляем этот блок в самый верх файла vf_amf_common.c
-    sed -i "1s/^/${amf_patch}/" libavfilter/vf_amf_common.c
+    sed -i "1s/^/${mingw_d3d_fix}/" libavfilter/vf_amf_common.c
 fi
+
 
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
 [[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
