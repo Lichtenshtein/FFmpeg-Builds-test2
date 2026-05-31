@@ -508,35 +508,6 @@ else
     )
 fi
 
-[[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
-[[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
-[[ "$HAS_AMF" == "1" ]] && CONF_FLAGS+=( --enable-filter=vpp_amf --enable-filter=sr_amf )
-[[ "${USE_AVX512}" != "1" ]] && CONF_FLAGS+=( --disable-avx512 --disable-avx512icl )
-# flags added by ffmpeg patches, not from mainline FFmpeg
-[[ "$FFMPEG_PATCHES" == "1" ]] && CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
-if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
-    CONF_FLAGS+=( --nvcc=clang )
-fi
-
-log_info_line
-log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
-
-log_info_line
-log_info "### ${START_MARK} Launching FFmpeg Configure..."
-log_info_line
-
-# Функция проверки и валидации флагов ffmpeg SAFE_CONFIGURE
-check_and_fix_configure && printf "  %s\n" "${CONF_FLAGS[@]}"
-
-# Перенаправляем stderr в config.log для полноты картины
-if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
-    log_error "Configure failed!"
-    log_debug "${LOGS_MARK} ▼ CONTENT OF $FFMPEG_CONFIG_LOG ▼"
-    tail -n 1000 "$FFMPEG_CONFIG_LOG"
-    log_debug "${LOGS_MARK} ▲ END OF $FFMPEG_CONFIG_LOG ▲"
-    exit 1
-fi
-
 # FIX1; decklink. Создаем DeckLinkAPI_v14_2_1.h, который просто перенаправляет на новый DeckLinkAPI.h
 echo '#include <DeckLinkAPI.h>' > "$FFBUILD_PREFIX/include/DeckLinkAPI_v14_2_1.h"
 # FIX2; libplacebo, amf
@@ -570,6 +541,35 @@ if [[ -f "$TARGET_PC_FILE" ]]; then
     log_debug "--- КОНЕЦ ИЗМЕНЕННОГО LIBPLACEBO.PC ---"
 else
     log_error "Файл ${TARGET_PC_FILE} не найден! Проверьте правильность пути."
+fi
+
+[[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
+[[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
+[[ "$HAS_AMF" == "1" ]] && CONF_FLAGS+=( --enable-filter=vpp_amf --enable-filter=sr_amf )
+[[ "${USE_AVX512}" != "1" ]] && CONF_FLAGS+=( --disable-avx512 --disable-avx512icl )
+# flags added by ffmpeg patches, not from mainline FFmpeg
+[[ "$FFMPEG_PATCHES" == "1" ]] && CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
+if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
+    CONF_FLAGS+=( --nvcc=clang )
+fi
+
+log_info_line
+log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
+
+log_info_line
+log_info "### ${START_MARK} Launching FFmpeg Configure..."
+log_info_line
+
+# Функция проверки и валидации флагов ffmpeg SAFE_CONFIGURE
+check_and_fix_configure && printf "  %s\n" "${CONF_FLAGS[@]}"
+
+# Перенаправляем stderr в config.log для полноты картины
+if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
+    log_error "Configure failed!"
+    log_debug "${LOGS_MARK} ▼ CONTENT OF $FFMPEG_CONFIG_LOG ▼"
+    tail -n 1000 "$FFMPEG_CONFIG_LOG"
+    log_debug "${LOGS_MARK} ▲ END OF $FFMPEG_CONFIG_LOG ▲"
+    exit 1
 fi
 
 if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
