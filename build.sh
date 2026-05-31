@@ -515,24 +515,28 @@ fi
 echo '#include <DeckLinkAPI.h>' > "$FFBUILD_PREFIX/include/DeckLinkAPI_v14_2_1.h"
 # FIX2; libplacebo, amf
 if [ -f "libavfilter/vf_amf_common.c" ]; then
-    log_info "Wrapping vf_amf_common.c in extern C and forcing g++ compilation..."
+    log_info "Injecting ultimate MinGW D3D11 fix into vf_amf_common.c..."
+    
+    # Создаем блок, который обнуляет ограничения LEAN_AND_MEAN и
+    # принудительно разворачивает интерфейсы D3D11 для чистого C в MinGW
+    mingw_d3d_magic=$(cat << 'EOF'
+#ifdef WIN32_LEAN_AND_MEAN
+#undef WIN32_LEAN_AND_MEAN
+#endif
+#define COBJMACROS
+#define CINTERFACE
+#include <windows.h>
+#include <initguid.h>
+#include <d3d11.h>
+#include <dxgi1_2.h>
+EOF
+)
 
-    # 1. Оборачиваем ВСЁ содержимое файла в extern "C" для совместимости с g++
-    # Добавляем открывающую скобку на первую строку
-    sed -i '1s/^/#ifdef __cplusplus\nextern "C" {\n#endif\n/' libavfilter/vf_amf_common.c
-    # Добавляем закрывающую скобку в самый конец файла
-    echo -e "\n#ifdef __cplusplus\n}\n#endif" >> libavfilter/vf_amf_common.c
-
-    # 2. Переименовываем файл в .cpp, чтобы FFmpeg автоматически применил к нему C++ правила линковки
-    mv libavfilter/vf_amf_common.c libavfilter/vf_amf_common.cpp
-
-    # 3. Подменяем правила в Makefile (после генерации или прямо сейчас в шаблоне), 
-    # чтобы файл компилировался через CXX, но с мягкими флагами совместимости c++11
-    if [ -f "libavfilter/Makefile" ]; then
-        sed -i 's/vf_amf_common.o/vf_amf_common.o/' libavfilter/Makefile
-        echo -e "\nlibavfilter/vf_amf_common.o: libavfilter/vf_amf_common.cpp\n\t\$(CXX) -std=c++11 \$(CPPFLAGS) \$(CFLAGS) -Wno-c++11-compat -c -o \$@ \$<" >> libavfilter/Makefile
-    fi
+    # Записываем эту магию на самую первую строчку файла vf_amf_common.c
+    # до того, как FFmpeg успеет подключить любые свои внутренние конфиги
+    sed -i "1s|^|${mingw_d3d_magic}\n|" libavfilter/vf_amf_common.c
 fi
+
 
 
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
