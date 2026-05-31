@@ -561,15 +561,54 @@ fi
 if [[ "$TARGET" == "win64" ]]; then
     log_info "We're adjusting the generated config.h: we're forcibly disabling HAVE_FCNTL for Windows..."
 
-    # sed -i 's/#if HAVE_FCNTL/#if HAVE_FCNTL \&\& !defined(_WIN32)/g' libavformat/file.c
-
-    if [[ -f "config.h" ]]; then
-        sed -i 's/#define HAVE_FCNTL 1/#define HAVE_FCNTL 0/g' config.h
-        
-        log_info "Status of the HAVE_FCNTL macro in config.h:"
-        grep "HAVE_FCNTL" config.h >&2
+    log_info "Ищем и патчим все сгенерированные файлы config.h..."
+    
+    # Находим все файлы config.h в текущем дереве сборки
+    CONFIG_FILES=$(find . -type f -name "config.h")
+    
+    if [[ -n "$CONFIG_FILES" ]]; then
+        for cfg in $CONFIG_FILES; do
+            log_debug "Патчим файл: $cfg"
+            
+            # Заменяем "#define HAVE_FCNTL 1" на "#define HAVE_FCNTL 0"
+            sed -i 's/#define HAVE_FCNTL 1/#define HAVE_FCNTL 0/g' "$cfg"
+            
+            # На всякий случай, если он записан как "#undef HAVE_FCNTL", 
+            # но мы хотим жестко гарантировать ноль:
+            if ! grep -q "HAVE_FCNTL" "$cfg"; then
+                echo "#define HAVE_FCNTL 0" >> "$cfg"
+            fi
+        done
+        log_info "Все файлы config.h успешно скорректированы!"
     else
-        log_error "config.h file not found! Make sure the patch is run AFTER ./configure"
+        log_error "${CROSS_MARK} Ни одного файла config.h не найдено! Проверьте, успешно ли отработал ./configure"
+
+        log_info "Применяем 3 патча для удаления fcntl из файлов FFmpeg..."
+        
+        # 1. Патчим libavformat/file.c
+        if [[ -f "libavformat/file.c" ]]; then
+            sed -i 's/#if HAVE_FCNTL/#if HAVE_FCNTL \&\& !defined(_WIN32)/g' libavformat/file.c
+            log_info "Патч 1/3 (file.c) успешно применен."
+        else
+            log_warn "Файл libavformat/file.c не найден по этому пути."
+        fi
+        
+        # 2. Патчим libavformat/network.c
+        if [[ -f "libavformat/network.c" ]]; then
+            sed -i 's/#if HAVE_FCNTL/#if HAVE_FCNTL \&\& !defined(_WIN32)/g' libavformat/network.c
+            log_info "Патч 2/3 (network.c) успешно применен."
+        else
+            log_warn "Файл libavformat/network.c не найден по этому пути."
+        fi
+        
+        # 3. Патчим libavutil/file_open.c
+        if [[ -f "libavutil/file_open.c" ]]; then
+            sed -i 's/#if HAVE_FCNTL/#if HAVE_FCNTL \&\& !defined(_WIN32)/g' libavutil/file_open.c
+            log_info "Патч 3/3 (file_open.c) успешно применен."
+        else
+            log_warn "Файл libavutil/file_open.c не найден по этому пути."
+        fi
+
     fi
 fi
 
