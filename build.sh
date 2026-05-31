@@ -519,7 +519,7 @@ if [ -f "libavfilter/vf_amf_common.c" ]; then
     
     sed -i '/#if CONFIG_D3D11VA/,/#endif/d' libavfilter/vf_amf_common.c
 
-    local amf_fix="#define COBJMACROS\n#define CINTERFACE\n#include <stdbool.h>\n#include <windows.h>\n#include <d3d11.h>\n#include <dxgi1_2.h>\n"
+    amf_fix="#define COBJMACROS\n#define CINTERFACE\n#include <stdbool.h>\n#include <windows.h>\n#include <d3d11.h>\n#include <dxgi1_2.h>\n"
     
     sed -i "s|#include \"vf_amf_common.h\"|${amf_fix}#include \"vf_amf_common.h\"|" libavfilter/vf_amf_common.c
 fi
