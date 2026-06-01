@@ -95,7 +95,11 @@ ffbuild_dockerbuild() {
         else
             sed -i "/^Libs:/ a Libs.private: $DEP_LIBS" "$PC_FILE"
         fi
-        sed -i "s|^Cflags:.*|& -I\${includedir}/libplacebo|" "$PC_FILE"
+        if [[ "${myconf[@]}" =~ "-Dd3d11=enabled" ]]; then
+            sed -i 's|^Libs.private:.*|& -ld3d11 -ldxgi -luuid|' "$PC_FILE"
+        fi
+        # this confuses ffmpeg; it finds wrong d3d11.h
+        # sed -i "s|^Cflags:.*|& -I\${includedir}/libplacebo|" "$PC_FILE"
     fi
 }
 
