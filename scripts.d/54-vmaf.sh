@@ -26,7 +26,7 @@ void cambi_decrement_range_avx512() {}
 void get_derivative_data_for_row_avx512() {}
 EOF
         # Компилируем объектный файл тем же кросс-компилятором
-        $CC $CFLAGS $CPPFLAGS -c vmaf_avx512_stubs.c -o vmaf_avx512_stubs.o
+        $CC $CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -c vmaf_avx512_stubs.c -o vmaf_avx512_stubs.o
     fi
 
     # Kill build of unused and broken tools
@@ -51,19 +51,20 @@ EOF
         -Denable_tests=false
         # -Denable_tools=false
         -Denable_nvtx=false # Enable NVTX range support
-        # added by patches
-        # -Denable_discord_mode=true
-        # -Denable_sycl=false # Enable Intel oneAPI SYCL/DPC++ support for GPU-accelerated feature extraction
-        # -Denable_dnn=disabled # Build DNN runtime (ONNX Runtime) for tiny-model inference
-        # -Denable_vulkan=disabled # Build Vulkan compute backend (ADR-0127 design; ADR-0175 scaffold; ADR-0178 / T5-1b runtime; ADR-0193 default-model kernel matrix complete). Default disabled; opt in to use it. Requires volk + Vulkan SDK 1.3+ + glslc + VMA.
-        # -Dsycl_compiler=icpx # Path or name of the SYCL compiler (Intel icpx from oneAPI)
     )
 
     if [[ $TARGET == linux* ]]; then
         myconf+=(
-        -Denable_nvcc=true # Use clang to compile CUDA code
-        -Denable_cuda=true # Enable CUDA support; requires nvcc
+        -Denable_nvcc=false # Use clang to compile CUDA code
+        -Denable_cuda=false # Enable CUDA support; requires nvcc
         )
+    fi
+
+    # added by patch
+    # Проверяем наличие опции enable_discord_mode в meson_options.txt
+    if grep -q "enable_discord_mode" "../meson_options.txt" 2>/dev/null || grep -q "enable_discord_mode" "../libvmaf/meson_options.txt" 2>/dev/null; then
+        log_info "Found enable_discord_mode option, enabling Discord mode..."
+        myconf+=("-Denable_discord_mode=true")
     fi
 
     meson setup "${myconf[@]}" .. \

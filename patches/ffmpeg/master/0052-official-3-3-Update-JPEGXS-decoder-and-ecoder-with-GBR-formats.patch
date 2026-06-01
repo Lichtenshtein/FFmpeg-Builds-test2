@@ -558,7 +558,8 @@ index d8dbc93075..cddc09a90b 100644
      case AV_PIX_FMT_YUV422P14LE:
          encoder->input_bit_depth = 14;
          encoder->colour_format = COLOUR_FORMAT_PLANAR_YUV422;
-         return;
+-        return;
++        return 0;
      case AV_PIX_FMT_YUV444P14LE:
 +    case AV_PIX_FMT_GBRP14LE:
          encoder->input_bit_depth = 14;
