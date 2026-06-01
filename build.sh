@@ -409,7 +409,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     else
         log_error "ffnvcodec NOT FOUND in PKG_CONFIG_PATH ($PKG_CONFIG_PATH)"
         log_debug "Contents of /opt/ffbuild/lib/pkgconfig:"
-        ls -1 /opt/ffbuild/lib/pkgconfig/*.pc 2>/dev/null | xargs -n1 basename | sed 's/^/ /'
+        ls -1 /opt/ffbuild/lib/pkgconfig/*.pc 2>/dev/null | xargs -r -n1 basename | sed 's/^/ /'
     fi
 
     # Специфическая проверка для LTO (наличие плагинов)
