@@ -25,7 +25,6 @@ ffbuild_dockerdl() {
 mkdir -p lib/include/jxl
 curl -fsSL "https://raw.githubusercontent.com/libjxl/libjxl/26494266bae545dc2084746a1fb22e805e119e85/lib/include/jxl/butteraugli.h" \
     -o "lib/include/jxl/butteraugli.h"
-sed -i '1s/^/#define JXL_STATIC_DEFINE 1\n/' "lib/include/jxl/butteraugli.h"
 EOF
 
     echo "git-submodule-clone"
@@ -33,6 +32,10 @@ EOF
 
 ffbuild_dockerbuild() {
     set -e
+
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        sed -i '1s/^/#define JXL_STATIC_DEFINE 1\n/' "lib/include/jxl/butteraugli.h"
+    fi
 
     mkdir -p build && cd build
 
