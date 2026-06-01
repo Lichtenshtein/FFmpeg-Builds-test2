@@ -13,7 +13,7 @@ on:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
         # default: '05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|37-libpng|37-libjpeg-turbo|37-giflib|37-libtiff|38-libwebp|39-fontconfig|39-fribidi|39-pixman|40-cairo|40-harfbuzz|41-freetype|43-pango|44-dav1d|44-svtav1|45-libavif|45-librsvg'
-        default: '02-mingw|70-lcevcdec'
+        default: '02-mingw|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|70-lcevcdec'
         # default: '02-mingw|06-libiconv|07-gettext|08-zlib|11-bzlib|12-libffi|15-pcre2|16-glib2|16-fftw3|27-freeglut|30-openssl|64-libsamplerate|64-soxr|65-pulseaudio|66-sdl'
         # default: '.*'
       skip_ffmpeg:
