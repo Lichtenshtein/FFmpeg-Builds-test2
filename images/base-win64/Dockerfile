@@ -5,7 +5,12 @@ FROM ubuntu:26.04 AS stage-os-base
 
 ARG CARGO_C_VERSION=0.10.22
 ARG SHFMT_VERSION="v3.9.0"
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive \
+    CARGO_HOME="/opt/cargo" \
+    RUSTUP_HOME="/opt/rustup" \
+    PATH="/opt/cargo/bin:${PATH}" \
+    HOST_CC="gcc-14" \
+    HOST_CXX="g++-14"
 
 RUN \
     --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -42,21 +47,14 @@ RUN \
     git config --global user.name "Builder" && \
     git config --global advice.detachedHead false && \
     git config --global core.autocrlf false && \
-    git config --global --add safe.directory "*"
-
-ENV \
-    CARGO_HOME="/opt/cargo" \
-    RUSTUP_HOME="/opt/rustup" \
-    PATH="/opt/cargo/bin:${PATH}" \
-    HOST_CC="gcc-14" \
-    HOST_CXX="g++-14"
-
-RUN curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path && \
+    git config --global --add safe.directory "*" && \
+    \
+    curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path && \
     curl -fsSL "https://github.com/lu-zero/cargo-c/releases/download/v${CARGO_C_VERSION}/cargo-c-x86_64-unknown-linux-musl.tar.gz" | tar -xz -C /opt/cargo/bin && \
     \
     apt-get -y clean && \
     npm cache clean --force && \
-    rm -rf /opt/cargo/registry /opt/cargo/git && \
+    rm -rf /opt/cargo/registry /opt/cargo/git /opt/rustup/downloads /opt/rustup/tmp && \
     rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/info/* && \
     rm -rf /var/lib/apt/lists/*
 
@@ -72,7 +70,13 @@ RUN --mount=src=images/base-win64/ct-ng-config,dst=/.config \
     ./configure --enable-local && \
     make -j$(nproc) && \
     cp /.config .config && \
-    ./ct-ng build
+    ./ct-ng build && \
+    \
+    echo "Cleaning up toolchain artifacts..." && \
+    # Удаляем документацию, мануалы и локали из готового тулчейна
+    rm -rf /opt/ct-ng/share/doc /opt/ct-ng/share/info /opt/ct-ng/share/man /opt/ct-ng/share/locale && \
+    # Вырезаем отладочную информацию (strip) из всех бинарников компилятора
+    find /opt/ct-ng/bin /opt/ct-ng/libexec /opt/ct-ng/x86_64-w64-mingw32/bin -type f -executable -exec strip --strip-all {} + 2>/dev/null || true
 
 # ==========================================
 # STAGE 3: Final Clean Image

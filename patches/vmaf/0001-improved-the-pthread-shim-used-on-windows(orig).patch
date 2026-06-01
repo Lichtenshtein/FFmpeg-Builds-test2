@@ -1,0 +1,836 @@
+From ab7c859539fef25cafbeec40f099fe2120c378ab Mon Sep 17 00:00:00 2001
+From: Shaun Hedrick <shaun.hedrick@discordapp.com>
+Date: Tue, 5 Sep 2023 15:20:49 -0700
+Subject: [PATCH] [VMAF] Improved the pthread shim used on Windows (#6)
+
+This replaces the very problematic `#define`-based pthread replacement with a much-less-but-still-problematic C implementation.
+
+- Since they are functions, this fixes bugs in the `#define`s that didn't "return" values for a few functions
+- Allows state to exist, so that we don't have to quirk the callback signature for `pthread_create`
+- Notably does **not** implement the entire surface area of functions. They will emit failures if certain arguments (unused by VMAF) are used.
+- Biggest remaining issue with this implementation is if a thread is started, detached, and the process exits soon after, you can hit some UB (read: crash) related to not joining the thread and it executing after important things are destroyed via `main` exit
+---
+diff --git a/libvmaf/meson.build b/libvmaf/meson.build
+index 6809c493..d8ba772e 100644
+--- a/libvmaf/meson.build
++++ b/libvmaf/meson.build
+@@ -49,8 +49,33 @@ if not cc.check_header('stdatomic.h')
+     endif
+ endif
+ 
++# to compile with msvc, we need to bring in a POSIX translation layer
++posix_dependency = []
++
++if get_option('enable_discord_mode') == true
++    add_global_arguments('-DDISCORD_PORT', language: 'c')
++    # instead of quirking to MSVC in code, guard with a specific flag for easier auditing
++    if cc.get_id() == 'msvc'
++        add_global_arguments('-DDISCORD_WINDOWS_PORT', language: 'c')
++        pthread_shim_library = static_library(
++            'pthread_shim_library',
++            ['./src/compat/discord_win/pthread.c'],
++        )
++        posix_dependency = declare_dependency(
++            link_with: pthread_shim_library,
++            include_directories : include_directories('src/compat/discord_win'),
++        )
++    endif
++elif cc.get_id() == 'msvc'
++    posix_dependency = declare_dependency(
++        include_directories : include_directories('src/compat/discord_win'),
++    )
++endif
++
+ subdir('include')
+ subdir('src')
+-subdir('tools')
++if cc.get_id() != 'msvc'
++    subdir('tools')
++endif
+ subdir('doc')
+ subdir('test')
+diff --git a/libvmaf/meson_options.txt b/libvmaf/meson_options.txt
+index f1601f77..f3aadfad 100644
+--- a/libvmaf/meson_options.txt
++++ b/libvmaf/meson_options.txt
+@@ -37,3 +37,8 @@ option('enable_nvtx',
+     type: 'boolean',
+     value: true,
+     description: 'Use clang to compile CUDA code.')
++
++option('enable_discord_mode',
++    type: 'boolean',
++    value: false,
++    description: 'Enabled discord-specfic quirks in the codebase')
+\ No newline at end of file
+diff --git a/libvmaf/src/compat/discord_win/pthread.c b/libvmaf/src/compat/discord_win/pthread.c
+new file mode 100644
+index 00000000..b7889665
+--- /dev/null
++++ b/libvmaf/src/compat/discord_win/pthread.c
+@@ -0,0 +1,119 @@
++#include "pthread.h"
++
++#include <stdlib.h>
++
++typedef struct {
++    void* (*startFn)(void*);
++    void *args;
++} ThreadState;
++
++#define EINVAL 22
++
++int pthread_mutex_init(pthread_mutex_t *mutex, const void* mustBeUnused) {
++    if (mustBeUnused) {
++        return EINVAL;
++    }
++
++    InitializeCriticalSection(mutex);
++    return 0;
++}
++
++int pthread_mutex_lock(pthread_mutex_t* mutex) {
++    EnterCriticalSection(mutex);
++    return 0;
++}
++
++int pthread_mutex_unlock(pthread_mutex_t* mutex) {
++    LeaveCriticalSection(mutex);
++    return 0;
++}
++
++int pthread_mutex_destroy(pthread_mutex_t* mutex) {
++    DeleteCriticalSection(mutex);
++    return 0;
++}
++
++int pthread_cond_init(pthread_cond_t* cond, const void* mustBeUnused) {
++    if (mustBeUnused) {
++        return EINVAL;
++    }
++
++    InitializeConditionVariable(cond);
++    return 0;
++}
++
++int pthread_cond_wait(pthread_cond_t* cond, pthread_mutex_t* mutex) {
++    BOOL ret = SleepConditionVariableCS(cond, mutex, INFINITE);
++    if (ret == 0) {
++        // If the function succeeds, the return value is nonzero.
++        return EINVAL;
++    }
++
++    return 0;
++}
++
++int pthread_cond_signal(pthread_cond_t* cond) {
++    WakeConditionVariable(cond);
++    return 0;
++}
++
++int pthread_cond_broadcast(pthread_cond_t* cond) {
++    WakeAllConditionVariable(cond);
++    return 0;
++}
++
++int pthread_cond_destroy(pthread_cond_t* cond) {
++    (void)cond; // Not needed with *ConditionVariable API
++    return 0;
++}
++
++static unsigned __stdcall begin_thread_to_pthread(void* in) {
++    ThreadState* threadState = (ThreadState*)(in);
++
++    threadState->startFn(threadState->args);
++
++    free(threadState);
++    return 0;
++}
++
++int pthread_create(pthread_t* thread, void* mustBeUnused, void* (*startFn)(void*), void* arg) {
++    if (mustBeUnused || !thread) {
++        return EINVAL;
++    }
++
++    ThreadState* threadState = (ThreadState*)(malloc(sizeof(ThreadState)));
++    if (threadState == NULL) {
++        return EINVAL;
++    }
++
++    threadState->args = arg;
++    threadState->startFn = startFn;
++
++    // Begin suspended to handle a case where _beginthreadex can execute the thread before returning
++    uintptr_t ret = _beginthreadex(NULL, 0, begin_thread_to_pthread, threadState, CREATE_SUSPENDED, NULL);
++    if (ret == 0) {
++        // "On an error, _beginthreadex returns 0, and errno and _doserrno are set"
++        free(threadState);
++        return EINVAL;
++    }
++    HANDLE handle = (HANDLE)(ret);
++    (void)SetThreadPriority(handle, THREAD_PRIORITY_BELOW_NORMAL);
++    // If the return value of ResumeThread is 1, the specified thread was suspended but was restarted. 
++    if (ResumeThread(handle) != 1) {
++        // ... so, since the thread was started suspended, it should be started, and any other return value is a failure
++        // TODO: intentionally leaking the malloc as the documentation of ResumeThread is ambiguous if the thread can still run in the presence of failures to ResumeThread
++        return EINVAL;
++    }
++    *thread = handle;
++    return 0;
++}
++
++int pthread_detach(pthread_t thread) {
++    // Note that CloseHandle of a thread can race process destruction--you can end up with the thread exiting after main returns/when parts of the runtime have already been torn down, and crash.
++    BOOL ret = CloseHandle(thread);
++    if (ret == 0) {
++        return EINVAL;
++    }
++
++    return 0;
++}
+diff --git a/libvmaf/src/compat/discord_win/pthread.h b/libvmaf/src/compat/discord_win/pthread.h
+new file mode 100644
+index 00000000..42269545
+--- /dev/null
++++ b/libvmaf/src/compat/discord_win/pthread.h
+@@ -0,0 +1,23 @@
++#ifndef __PTHREAD_H
++#define __PTHREAD_H
++
++#include <windows.h>
++#include <process.h>
++
++typedef CRITICAL_SECTION pthread_mutex_t;
++typedef CONDITION_VARIABLE pthread_cond_t;
++typedef HANDLE pthread_t;
++
++int pthread_mutex_init(pthread_mutex_t* mutex, const void* mustBeUnused);
++int pthread_mutex_lock(pthread_mutex_t* mutex);
++int pthread_mutex_unlock(pthread_mutex_t* mutex);
++int pthread_mutex_destroy(pthread_mutex_t* mutex);
++int pthread_cond_init(pthread_cond_t* cond, const void* mustBeUnused);
++int pthread_cond_wait(pthread_cond_t* cond, pthread_mutex_t* mutex);
++int pthread_cond_signal(pthread_cond_t* cond);
++int pthread_cond_broadcast(pthread_cond_t* cond);
++int pthread_cond_destroy(pthread_cond_t* cond);
++int pthread_create(pthread_t* thread, void* mustBeUnused, void* (*startFn)(void*), void* arg);
++int pthread_detach(pthread_t thread);
++
++#endif
+diff --git a/libvmaf/src/compat/discord_win/unistd.h b/libvmaf/src/compat/discord_win/unistd.h
+new file mode 100644
+index 00000000..c3772e1a
+--- /dev/null
++++ b/libvmaf/src/compat/discord_win/unistd.h
+@@ -0,0 +1,10 @@
++#ifndef _UNISTD_H
++#define _UNISTD_H
++
++#include <stdlib.h>
++#include <io.h>
++
++#define fileno _fileno
++#define isatty _isatty
++
++#endif
+\ No newline at end of file
+diff --git a/libvmaf/src/compat/msvc/stdatomic.h b/libvmaf/src/compat/msvc/stdatomic.h
+index 979ee2ba..033ec818 100644
+--- a/libvmaf/src/compat/msvc/stdatomic.h
++++ b/libvmaf/src/compat/msvc/stdatomic.h
+@@ -39,7 +39,10 @@
+ 
+ #include <windows.h>
+ 
++// Unconvinced that this code compiles, but marking for now
++#ifndef DISCORD_WINDOWS_PORT
+ #include "common/attributes.h"
++#endif
+ 
+ typedef volatile LONG  __declspec(align(32)) atomic_int;
+ typedef volatile ULONG __declspec(align(32)) atomic_uint;
+diff --git a/libvmaf/src/feature/adm.c b/libvmaf/src/feature/adm.c
+index 99dc142c..8b8534f7 100644
+--- a/libvmaf/src/feature/adm.c
++++ b/libvmaf/src/feature/adm.c
+@@ -49,7 +49,9 @@ static char *init_dwt_band(adm_dwt_band_t *band, char *data_top, size_t buf_sz_o
+     return data_top;
+ }
+ 
++#ifndef DISCORD_WINDOWS_PORT
+ UNUSED_FUNCTION
++#endif
+ static char *init_dwt_band_d(adm_dwt_band_t_d *band, char *data_top, size_t buf_sz_one)
+ {
+     band->band_a = (double *)data_top; data_top += buf_sz_one;
+diff --git a/libvmaf/src/feature/ciede.c b/libvmaf/src/feature/ciede.c
+index 7bbfa8f6..6e874ff7 100644
+--- a/libvmaf/src/feature/ciede.c
++++ b/libvmaf/src/feature/ciede.c
+@@ -43,6 +43,9 @@ SOFTWARE.
+ */
+ 
+ #include <errno.h>
++#ifdef DISCORD_WINDOWS_PORT
++#define _USE_MATH_DEFINES
++#endif
+ #include <math.h>
+ #include <stddef.h>
+ #include <string.h>
+diff --git a/libvmaf/src/feature/integer_adm.c b/libvmaf/src/feature/integer_adm.c
+index 269dbb5e..e36cd8ab 100644
+--- a/libvmaf/src/feature/integer_adm.c
++++ b/libvmaf/src/feature/integer_adm.c
+@@ -22,6 +22,8 @@
+ #include "feature_extractor.h"
+ #include "feature_name.h"
+ #include "integer_adm.h"
++// TODO: need __builtin_clz from:
++#include "integer_vif.h"
+ #include "log.h"
+ 
+ #if ARCH_X86
+diff --git a/libvmaf/src/feature/integer_motion.c b/libvmaf/src/feature/integer_motion.c
+index 071d6737..52b317b3 100644
+--- a/libvmaf/src/feature/integer_motion.c
++++ b/libvmaf/src/feature/integer_motion.c
+@@ -269,6 +269,13 @@ static int extract_force_zero(VmafFeatureExtractor *fex,
+     return vmaf_dictionary_free(&s->feature_name_dict);
+ }
+ 
++static int close_force_zero(VmafFeatureExtractor *fex)
++{
++    MotionState *s = fex->priv;
++
++    return vmaf_dictionary_free(&s->feature_name_dict);
++}
++
+ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
+                 unsigned bpc, unsigned w, unsigned h)
+ {
+diff --git a/libvmaf/src/feature/integer_vif.c b/libvmaf/src/feature/integer_vif.c
+index 534a7b59..5b69b04e 100644
+--- a/libvmaf/src/feature/integer_vif.c
++++ b/libvmaf/src/feature/integer_vif.c
+@@ -643,7 +643,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
+     const size_t data_sz =
+         2 * (pad_size + frame_size + pad_size) + 2 * (h * s->public.buf.stride_16) +
+         5 * (s->public.buf.stride_32) + 7 * s->public.buf.stride_tmp;
+-    void *data = aligned_malloc(data_sz, MAX_ALIGN);
++    char *data = aligned_malloc(data_sz, MAX_ALIGN);
+     if (!data) return -ENOMEM;
+     memset(data, 0, data_sz);
+ 
+diff --git a/libvmaf/src/feature/integer_vif.h b/libvmaf/src/feature/integer_vif.h
+index a8135cdb..9e272208 100644
+--- a/libvmaf/src/feature/integer_vif.h
++++ b/libvmaf/src/feature/integer_vif.h
+@@ -130,6 +130,25 @@ VifResiduals vif_compute_line_residuals(VifPublicState *s, unsigned from,
+ #ifdef _MSC_VER
+ #include <intrin.h>
+ 
++#ifdef DISCORD_WINDOWS_PORT
++#if !defined(__has_builtin) || !__has_builtin(__builtin_clz)
++static inline int __builtin_clz(unsigned x) {
++    unsigned long out = 0;
++    if (x == 0 || !_BitScanReverse(&out, x)) return 32;
++    return 31 - out;
++}
++#endif
++
++#if !defined(__has_builtin) || !__has_builtin(__builtin_clzll)
++static inline int __builtin_clzll(unsigned long long x) {
++    if (x <= UINT32_MAX) return 32 + __builtin_clz((unsigned)x);
++    return __builtin_clz(x >> 32u);
++}
++#endif
++
++#else // DISCORD_WINDOWS_PORT
++// Note that these implementations assume a hardware instruction is available, otherwise they will be wrong
++// TODO: consider using the Discord variants universally
+ static inline int __builtin_clz(unsigned x) {
+     return (int)__lzcnt(x);
+ }
+@@ -140,6 +159,8 @@ static inline int __builtin_clzll(unsigned long long x) {
+ 
+ #endif
+ 
++#endif
++
+ static inline int32_t log2_32(const uint16_t *log2_table, uint32_t temp)
+ {
+     int k = __builtin_clz(temp);
+diff --git a/libvmaf/src/feature/mkdirp.c b/libvmaf/src/feature/mkdirp.c
+index 16fe966b..0eefe112 100644
+--- a/libvmaf/src/feature/mkdirp.c
++++ b/libvmaf/src/feature/mkdirp.c
+@@ -12,6 +12,10 @@
+ #include <string.h>
+ #include "mkdirp.h"
+ 
++#if DISCORD_WINDOWS_PORT
++#include <direct.h>
++#endif
++
+ static char *
+ path_normalize(const char *path) {
+   if (!path) return NULL;
+@@ -65,8 +69,12 @@ mkdirp(const char *path, mode_t mode) {
+ 
+   // make this one if parent has been made
+   #ifdef _WIN32
++    #if DISCORD_WINDOWS_PORT
++    int rc = _mkdir(pathname);
++    #else
+     // http://msdn.microsoft.com/en-us/library/2fkk4dzw.aspx
+     int rc = mkdir(pathname);
++    #endif
+   #else
+     int rc = mkdir(pathname, mode);
+   #endif
+diff --git a/libvmaf/src/feature/mkdirp.h b/libvmaf/src/feature/mkdirp.h
+index 02371fb5..15e99e03 100644
+--- a/libvmaf/src/feature/mkdirp.h
++++ b/libvmaf/src/feature/mkdirp.h
+@@ -12,6 +12,10 @@
+ #include <sys/types.h>
+ #include <sys/stat.h>
+ 
++#ifdef DISCORD_WINDOWS_PORT
++#define mode_t int
++#endif
++
+ /*
+  * Recursively `mkdir(path, mode)`
+  */
+diff --git a/libvmaf/src/libvmaf.c b/libvmaf/src/libvmaf.c
+index 3fbb050c..5f832b3e 100644
+--- a/libvmaf/src/libvmaf.c
++++ b/libvmaf/src/libvmaf.c
+@@ -864,7 +864,8 @@ int vmaf_score_pooled_model_collection(VmafContext *vmaf,
+     const char *suffix_stddev = "_stddev";
+     const size_t name_sz =
+         strlen(model_collection->name) + strlen(suffix_lo) + 1;
+-    char name[name_sz];
++    char* name = malloc(name_sz);
++    if (!name) return -ENOMEM;
+     memset(name, 0, name_sz);
+ 
+     snprintf(name, name_sz, "%s%s", model_collection->name, suffix_bagging);
+@@ -887,6 +888,7 @@ int vmaf_score_pooled_model_collection(VmafContext *vmaf,
+                                      &score->bootstrap.ci.p95.hi,
+                                      index_low, index_high);
+ 
++    free(name);
+     return err;
+ }
+ 
+diff --git a/libvmaf/src/meson.build b/libvmaf/src/meson.build
+index 94e2f4d7..a7c9dc28 100644
+--- a/libvmaf/src/meson.build
++++ b/libvmaf/src/meson.build
+@@ -123,21 +123,27 @@ cdata.set10('VMAF_FLOAT_FEATURES', float_enabled)
+             error('xxd with support for -n option is required building as a subproject. Please install a newer version of xxd or disable built-in models.')
+         endif
+ 
+-        model_files = [
+-            'vmaf_v0.6.1.json',
+-            'vmaf_b_v0.6.3.json',
+-            'vmaf_v0.6.1neg.json',
+-            'vmaf_4k_v0.6.1.json',
+-            'vmaf_4k_v0.6.1neg.json',
+-        ]
+-
+-        if float_enabled
+-            model_files += [
+-              'vmaf_float_v0.6.1neg.json',
+-              'vmaf_float_v0.6.1.json',
+-              'vmaf_float_b_v0.6.3.json',
+-              'vmaf_float_4k_v0.6.1.json',
++        if get_option('enable_discord_mode') == true
++            model_files = [
++                'vmaf_v0.6.1.json',
++            ]
++        else
++            model_files = [
++                'vmaf_v0.6.1.json',
++                'vmaf_b_v0.6.3.json',
++                'vmaf_v0.6.1neg.json',
++                'vmaf_4k_v0.6.1.json',
++                'vmaf_4k_v0.6.1neg.json',
+             ]
++
++            if float_enabled
++                model_files += [
++                'vmaf_float_v0.6.1neg.json',
++                'vmaf_float_v0.6.1.json',
++                'vmaf_float_b_v0.6.3.json',
++                'vmaf_float_4k_v0.6.1.json',
++                ]
++            endif
+         endif
+ 
+         foreach model_file : model_files
+@@ -364,7 +370,8 @@ if is_cuda_enabled
+     common_cuda_objects += cuda_static_lib.extract_all_objects()
+ endif
+ 
+-thread_lib = dependency('threads')
++threads_impl_lib = dependency('threads')
++thread_lib = declare_dependency(dependencies: [threads_impl_lib, posix_dependency])
+ math_lib = cc.find_library('m', required : false)
+ 
+ vmaf_include = include_directories(
+@@ -439,7 +446,7 @@ libvmaf_feature_static_lib = static_library(
+     'libvmaf_feature',
+     libvmaf_feature_sources,
+     include_directories : [libvmaf_include, vmaf_include, cuda_dir],
+-    dependencies: [stdatomic_dependency, cuda_dependency],
++    dependencies: [posix_dependency, stdatomic_dependency, cuda_dependency],
+     objects: common_cuda_objects
+ )
+ 
+diff --git a/libvmaf/src/model.c b/libvmaf/src/model.c
+index 4661ec14..d852e898 100644
+--- a/libvmaf/src/model.c
++++ b/libvmaf/src/model.c
+@@ -43,6 +43,13 @@ extern const int src_vmaf_4k_v0_6_1neg_json_len;
+ #endif
+ 
+ static const VmafBuiltInModel built_in_models[] = {
++#if DISCORD_PORT
++    {
++        .version = "vmaf_v0.6.1",
++        .data = &src_vmaf_v0_6_1_json,
++        .data_len = &src_vmaf_v0_6_1_json_len,
++    },
++#else
+ #if VMAF_BUILT_IN_MODELS
+ #if VMAF_FLOAT_FEATURES
+     {
+@@ -91,6 +98,7 @@ static const VmafBuiltInModel built_in_models[] = {
+         .data = src_vmaf_4k_v0_6_1neg_json,
+         .data_len = &src_vmaf_4k_v0_6_1neg_json_len,
+     },
++#endif
+ #endif
+     { 0 }
+ };
+diff --git a/libvmaf/src/predict.c b/libvmaf/src/predict.c
+index ee25dca7..ba483273 100644
+--- a/libvmaf/src/predict.c
++++ b/libvmaf/src/predict.c
+@@ -354,7 +354,8 @@ static int vmaf_bootstrap_predict_score_at_index(
+                                         VmafModelCollectionScore *score)
+ {
+     int err = 0;
+-    double scores[model_collection->cnt];
++    double *scores = malloc(model_collection->cnt*sizeof(double));
++    if (!scores) return -ENOMEM;
+ 
+     for (unsigned i = 0; i < model_collection->cnt; i++) {
+         // mean, stddev, etc. are calculated on untransformed/unclipped scores
+@@ -366,7 +367,7 @@ static int vmaf_bootstrap_predict_score_at_index(
+                                           feature_collector, index,
+                                           &scores[i], false,
+                                           false, flags);
+-        if (err) return err;
++        if (err) break;
+ 
+         // do not override the model's transform/clip behavior
+         // write the scores to the feature collector
+@@ -374,7 +375,11 @@ static int vmaf_bootstrap_predict_score_at_index(
+         err = vmaf_predict_score_at_index(model_collection->model[i],
+                                           feature_collector, index,
+                                           &score, true, false, 0);
+-        if (err) return err;
++        if (err) break;
++    }
++    if (err) {
++        free(scores);
++        return err;
+     }
+ 
+     score->type = VMAF_MODEL_COLLECTION_SCORE_BOOTSTRAP;
+@@ -397,6 +402,8 @@ static int vmaf_bootstrap_predict_score_at_index(
+     qsort(scores, model_collection->cnt, sizeof(double), score_compare);
+     score->bootstrap.ci.p95.lo = percentile(scores, model_collection->cnt, 2.5);
+     score->bootstrap.ci.p95.hi = percentile(scores, model_collection->cnt, 97.5);
++    free(scores);
++    scores = NULL;
+ 
+     const VmafModel *model = model_collection->model[0];
+     transform(model, &score->bootstrap.bagging_score, 0);
+@@ -420,7 +427,10 @@ static int vmaf_bootstrap_predict_score_at_index(
+     const char *suffix_stddev = "_stddev";
+     const size_t name_sz =
+         strlen(model_collection->name) + strlen(suffix_lo) + 1;
+-    char name[name_sz];
++    char* name = malloc(name_sz);
++    if (!name) {
++        return -ENOMEM;
++    }
+     memset(name, 0, name_sz);
+ 
+     snprintf(name, name_sz, "%s%s", model_collection->name, suffix_bagging);
+@@ -439,6 +449,7 @@ static int vmaf_bootstrap_predict_score_at_index(
+     err |= vmaf_feature_collector_append(feature_collector, name,
+                                          score->bootstrap.ci.p95.hi,
+                                          index);
++    free(name);
+     return err;
+ }
+ 
+diff --git a/libvmaf/src/read_json_model.c b/libvmaf/src/read_json_model.c
+index 4022b8e7..d1d962b5 100644
+--- a/libvmaf/src/read_json_model.c
++++ b/libvmaf/src/read_json_model.c
+@@ -486,10 +486,10 @@ static int model_collection_parse(json_stream *s, VmafModel **model,
+     if (!c.name) return -ENOMEM;
+ 
+     const size_t cfg_name_sz = strlen(name) + 5 + 1;
+-    char cfg_name[cfg_name_sz];
++    char* cfg_name = malloc(cfg_name_sz);
++    if (!cfg_name) return -ENOMEM;
+ 
+-    const size_t generated_key_sz = 4 + 1;
+-    char generated_key[generated_key_sz];
++    char generated_key[4 + 1]; // const size_t generated_key_sz = 4 + 1;
+ 
+     unsigned i = 0;
+     while (json_peek(s) != JSON_OBJECT_END && !json_get_error(s)) {
+@@ -497,19 +497,19 @@ static int model_collection_parse(json_stream *s, VmafModel **model,
+             return -EINVAL;
+ 
+         const char *key = json_get_string(s, NULL);
+-        snprintf(generated_key, generated_key_sz, "%d", i);
++        snprintf(generated_key, sizeof(generated_key), "%d", i);
+ 
+         if (!strcmp(key, generated_key)) {
+             VmafModel *m;
+             err = vmaf_read_json_model(&m, &c, s);
+-            if (err) return err;
++            if (err) break;
+ 
+             if (i == 0) {
+                 *model = m;
+                 c.name = cfg_name;
+             } else {
+                 err = vmaf_model_collection_append(model_collection, m);
+-                if (err) return err;
++                if (err) break;
+             }
+ 
+             sprintf((char*)c.name, "%s_%04d", name, ++i);
+@@ -518,8 +518,9 @@ static int model_collection_parse(json_stream *s, VmafModel **model,
+ 
+         json_skip(s);
+     }
+-
++    free(cfg_name);
+     free((char*)name);
++    if (err) return err;
+     if (!(*model_collection)) return -EINVAL;
+     return err;
+ }
+diff --git a/libvmaf/src/x86/cpu.c b/libvmaf/src/x86/cpu.c
+index ec2059af..30d50c7e 100644
+--- a/libvmaf/src/x86/cpu.c
++++ b/libvmaf/src/x86/cpu.c
+@@ -35,13 +35,18 @@ typedef struct {
+     uint32_t eax, ebx, ecx, edx;
+ } CpuidRegisters;
+ 
++typedef struct {
++    uint32_t eax, edx;
++} XgetbvRegisters;
++
+ void vmaf_cpu_cpuid(CpuidRegisters *regs, unsigned leaf, unsigned subleaf);
+-uint64_t vmaf_cpu_xgetbv(unsigned xcr);
++void vmaf_cpu_xgetbv(XgetbvRegisters *regs, unsigned xcr);
+ 
+ #define X(reg, mask) (((reg) & (mask)) == (mask))
+ 
+ unsigned vmaf_get_cpu_flags_x86(void) {
+     CpuidRegisters r = { 0 };
++    XgetbvRegisters xr = { 0 };
+     vmaf_cpu_cpuid(&r, 0, 0);
+     const unsigned max_leaf = r.eax;
+     unsigned flags = 0;
+@@ -56,13 +61,13 @@ unsigned vmaf_get_cpu_flags_x86(void) {
+ 
+         /* We only support >128-bit SIMD on x86-64. */
+         if (X(r.ecx, 0x18000000)) /* OSXSAVE/AVX */ {
+-            const uint64_t xcr0 = vmaf_cpu_xgetbv(0);
+-            if (X(xcr0, 0x00000006)) /* XMM/YMM */ {
++            vmaf_cpu_xgetbv(&xr, 0);
++            if (X(xr.eax, 0x00000006)) /* XMM/YMM */ {
+                 if (max_leaf >= 7) {
+                     vmaf_cpu_cpuid(&r, 7, 0);
+                     if (X(r.ebx, 0x00000128)) /* BMI1/BMI2/AVX2 */ {
+                         flags |= VMAF_X86_CPU_FLAG_AVX2;
+-                        if (X(xcr0, 0x000000e0)) /* ZMM/OPMASK */ {
++                        if (X(xr.eax, 0x000000e0)) /* ZMM/OPMASK */ {
+                             if (X(r.ebx, 0xd0030000))
+                                 flags |= VMAF_X86_CPU_FLAG_AVX512;
+                             if (X(r.ebx, 0xd0230000) && X(r.ecx, 0x00005f42))
+diff --git a/libvmaf/src/x86/cpuid.asm b/libvmaf/src/x86/cpuid.asm
+index c08df502..0a2abd2d 100644
+--- a/libvmaf/src/x86/cpuid.asm
++++ b/libvmaf/src/x86/cpuid.asm
+@@ -44,11 +44,10 @@ cglobal cpu_cpuid, 0, 5, 0, regs, leaf, subleaf
+ %endif
+     RET
+ 
+-cglobal cpu_xgetbv, 0, 0, 0, xcr
++cglobal cpu_xgetbv, 0, 5, 0, regs, xcr
++    mov        r4, regsmp
+     movifnidn ecx, xcrm
+     xgetbv
+-%if ARCH_X86_64
+-    shl       rdx, 32
+-    or        rax, rdx
+-%endif
++    mov  [r4+4*0], eax
++    mov  [r4+4*1], edx
+     RET
+diff --git a/libvmaf/test/meson.build b/libvmaf/test/meson.build
+index 21f7777a..c4662073 100644
+--- a/libvmaf/test/meson.build
++++ b/libvmaf/test/meson.build
+@@ -26,13 +26,14 @@ test_feature_collector = executable('test_feature_collector',
+     ['test.c', 'test_feature_collector.c', '../src/log.c', '../src/predict.c', '../src/metadata_handler.c'],
+     include_directories : [libvmaf_inc, test_inc, include_directories('../src/feature/'), include_directories('../src')],
+     link_with : get_option('default_library') == 'both' ? libvmaf.get_static_lib() : libvmaf,
+-    dependencies: cuda_dependency,
++    dependencies: [cuda_dependency, thread_lib]
+     objects : libsvm_static_lib.extract_all_objects(recursive: true),
+ )
+ 
+ test_log = executable('test_log',
+     ['test.c', 'test_log.c', '../src/log.c'],
+     include_directories : [libvmaf_inc, test_inc, include_directories('../src/')],
++    dependencies: posix_dependency
+ )
+ 
+ test_thread_pool = executable('test_thread_pool',
+@@ -46,7 +46,7 @@ test_model = executable('test_model',
+     include_directories : [libvmaf_inc, test_inc, include_directories('../src')],
+     link_with : get_option('default_library') == 'both' ? libvmaf.get_static_lib() : libvmaf,
+     c_args : [vmaf_cflags_common, '-DJSON_MODEL_PATH="'+join_paths(meson.project_source_root(), '../model/')+'"'],
+-    dependencies : [thread_lib, cuda_dependency],
++    dependencies : [stdatomic_dependency, thread_lib, cuda_dependency],
+     objects : libsvm_static_lib.extract_all_objects(recursive: true),
+ )
+ 
+@@ -57,7 +57,7 @@ test_predict = executable('test_predict',
+     include_directories : [libvmaf_inc, test_inc, include_directories('../src/')],
+     link_with : get_option('default_library') == 'both' ? libvmaf.get_static_lib() : libvmaf,
+     c_args : vmaf_cflags_common,
+-    dependencies : [thread_lib, cuda_dependency],
++    dependencies : [stdatomic_dependency, thread_lib, cuda_dependency],
+     objects : libsvm_static_lib.extract_all_objects(recursive: true),
+ )
+ 
+@@ -66,7 +66,7 @@ test_feature_extractor = executable('test_feature_extractor',
+      '../src/dict.c', '../src/opt.c', '../src/log.c', '../src/predict.c',
+      '../src/metadata_handler.c'],
+     include_directories : [libvmaf_inc, test_inc, include_directories('../src/')],
+-    dependencies : [math_lib, stdatomic_dependency, thread_lib, cuda_dependency],
++    dependencies : [math_lib, posix_dependency, stdatomic_dependency, cuda_dependency],
+     objects : [
+       common_cuda_objects,
+       platform_specific_cpu_objects,
+@@ -82,6 +83,7 @@ test_cpu = executable('test_cpu',
+ test_ref = executable('test_ref',
+     ['test.c', 'test_ref.c', '../src/ref.c'],
+     include_directories : [libvmaf_inc, test_inc, include_directories('../src/')],
++    dependencies: stdatomic_dependency
+ )
+ 
+ test_feature = executable('test_feature',
+@@ -93,14 +95,14 @@ test_ciede = executable('test_ciede',
+     ['test.c', 'test_ciede.c'],
+     include_directories : [libvmaf_inc, test_inc, include_directories('../src/')],
+     link_with : get_option('default_library') == 'both' ? libvmaf.get_static_lib() : libvmaf,
+-    dependencies: cuda_dependency
++    dependencies: [posix_dependency, stdatomic_dependency, cuda_dependency]
+ )
+ 
+ test_cambi = executable('test_cambi',
+     ['test.c', 'test_cambi.c', '../src/picture.c', '../src/mem.c', '../src/ref.c'],
+     include_directories : [libvmaf_inc, test_inc, include_directories('../src/')],
+     link_with : get_option('default_library') == 'both' ? libvmaf.get_static_lib() : libvmaf,
+-    dependencies: cuda_dependency
++    dependencies: [posix_dependency, stdatomic_dependency, cuda_dependency]
+ )
+ 
+ test_luminance_tools = executable('test_luminance_tools',
+diff --git a/libvmaf/test/test_cambi.c b/libvmaf/test/test_cambi.c
+index 3043a750..77ab4b81 100644
+--- a/libvmaf/test/test_cambi.c
++++ b/libvmaf/test/test_cambi.c
+@@ -234,8 +234,9 @@ static char *test_decimate_generic()
+ 
+ static char *test_filter_mode()
+ {
++#define w 5
+     VmafPicture filtered_image, image;
+-    unsigned w = 5, h = 5;
++    unsigned h = 5;
+     uint16_t buffer[3 * w];
+ 
+     int err = 0;
+@@ -279,6 +280,7 @@ static char *test_filter_mode()
+     vmaf_picture_unref(&filtered_image);
+ 
+     return NULL;
++#undef w
+ }
+ 
+ static char *test_get_mask_index()
+diff --git a/libvmaf/test/test_feature_extractor.c b/libvmaf/test/test_feature_extractor.c
+index 3476872f..215ce43f 100644
+--- a/libvmaf/test/test_feature_extractor.c
++++ b/libvmaf/test/test_feature_extractor.c
+@@ -54,9 +54,9 @@ static char *test_get_feature_extractor_by_name_and_feature_name()
+ 
+ static char *test_feature_extractor_context_pool()
+ {
++#define n_threads 8
+     int err = 0;
+ 
+-    const unsigned n_threads = 8;
+     VmafFeatureExtractorContextPool *pool;
+     err = vmaf_fex_ctx_pool_create(&pool, n_threads);
+     mu_assert("problem during vmaf_fex_ctx_pool_create", !err);
+@@ -82,6 +82,7 @@ static char *test_feature_extractor_context_pool()
+     mu_assert("problem during vmaf_fex_ctx_pool_destroy", !err);
+ 
+     return NULL;
++#undef n_threads
+ }
+ 
+ static char *test_feature_extractor_flush()
+diff --git a/libvmaf/test/test_model.c b/libvmaf/test/test_model.c
+index ff965cd3..275c7a0d 100644
+--- a/libvmaf/test/test_model.c
++++ b/libvmaf/test/test_model.c
+@@ -90,7 +90,7 @@ static char *test_json_model()
+     return NULL;
+ }
+ 
+-#if VMAF_BUILT_IN_MODELS
++#if defined(VMAF_BUILT_IN_MODELS) && VMAF_BUILT_IN_MODELS && !defined(DISCORD_PORT)
+ static char *test_built_in_model()
+ {
+     int err = 0;
+@@ -374,7 +374,7 @@ static char *test_model_set_flags()
+ char *run_tests()
+ {
+     mu_run_test(test_json_model);
+-#if VMAF_BUILT_IN_MODELS
++#if defined(VMAF_BUILT_IN_MODELS) && VMAF_BUILT_IN_MODELS && !defined(DISCORD_PORT)
+     mu_run_test(test_built_in_model);
+ #endif
+     mu_run_test(test_model_load_and_destroy);

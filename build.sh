@@ -565,7 +565,7 @@ if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
 fi
 
 # fix libsvtjpegxsenc; until i update the patch which will reset the whole cache
-sed -i '/static int set_pix_fmt/,/^}/ s/^[[:space:]]*return;/        return 0;/' libavcodec/libsvtjpegxsenc.c
+# sed -i '/static int set_pix_fmt/,/^}/ s/^[[:space:]]*return;/        return 0;/' libavcodec/libsvtjpegxsenc.c
 
 if [[ "$TARGET" == "win64" ]]; then
     log_info "We're adjusting the generated config.h: we're forcibly disabling HAVE_FCNTL for Windows..."
