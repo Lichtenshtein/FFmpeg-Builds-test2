@@ -12,7 +12,7 @@ index 1eef9176367..0c051f6c820 100644
 --- a/lib/jxl_cms.cmake
 +++ b/lib/jxl_cms.cmake
 @@ -86,6 +86,20 @@ add_library(jxl_cms ALIAS jxl_cms-static)
- endif()  # BUILD_SHARED_LIBS
+   "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>")
  
  set(JPEGXL_CMS_LIBRARY_REQUIRES "")
 +
@@ -29,6 +29,6 @@ index 1eef9176367..0c051f6c820 100644
 +    set(PKGCONFIG_TARGET_LIBS "\${exec_prefix}/${CMAKE_INSTALL_LIBDIR}")
 +endif()
 +
- configure_file("${CMAKE_CURRENT_SOURCE_DIR}/jxl/libjxl_cms.pc.in"
-                "libjxl_cms.pc" @ONLY)
- install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libjxl_cms.pc"
+ 
+ if (JPEGXL_ENABLE_SKCMS)
+   target_link_skcms(jxl_cms)
