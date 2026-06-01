@@ -534,7 +534,7 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     exit 1
 fi
 
-if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
+if [[ "$HAS_LIBLCEVC_DEC" == "2" ]]; then
     log_info "Patch libavfilter/vf_lcevc.c to support LCEVC SDK 4.0.5 signatures..."
 
     # Исправляем LCEVC_SendDecoderEnhancementData
