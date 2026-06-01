@@ -535,36 +535,37 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
 fi
 
 if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
-    log_info "Patch libavfilter/vf_lcevc.c to support LCEVC SDK 4.0.5 signatures..."
+    log_info "Applying precise LCEVC SDK 4.0.0 migration patches..."
 
-    # Исправляем LCEVC_SendDecoderEnhancementData
-    # Старый вызов: LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size);
-    # Новый вызов удаляет 3-й аргумент (0), сдвигая указатель и размер
-    sed -i 's/LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)/LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size)/g' libavfilter/vf_lcevc.c
+    # === Патчим libavfilter/vf_lcevc.c ===
+    if [[ -f "libavfilter/vf_lcevc.c" ]]; then
+        # Удаляем флаг discontinuity (0) из LCEVC_SendDecoderEnhancementData
+        sed -i 's|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size)|g' libavfilter/vf_lcevc.c
 
-    # Исправляем LCEVC_SendDecoderBase
-    # Старый вызов: LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, in);
-    # Сигнатура 4.0.5 ожидает 5 аргументов. Скорее всего, удаляется лишний флаг (0 или -1).
-    # Исходя из прототипа lcevc_dec.h, убираем внутренний ноль, чтобы picture встал на место base
-    sed -i 's/LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, in)/LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, in)/g' libavfilter/vf_lcevc.c
+        # Удаляем флаг discontinuity (0) из LCEVC_SendDecoderBase, сдвигая picture и оставляя -1 на месте timeoutUs
+        sed -i 's|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, in)|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, in)|g' libavfilter/vf_lcevc.c
 
-    log_info "Patch libavcodec/lcevcdec.c to support LCEVC SDK 4.0.5 signatures..."
-    
-    if [[ -f "libavcodec/lcevcdec.c" ]]; then
-        # Исправляем LCEVC_SendDecoderEnhancementData (удаляем лишний аргумент '0')
-        # Было: LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)
-        sed -i 's/LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)/LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size)/g' libavcodec/lcevcdec.c
-    
-        # Исправляем LCEVC_SendDecoderBase (удаляем лишний аргумент '0', сдвигая picture на место base)
-        # Было: LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, opaque)
-        sed -i 's/LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, opaque)/LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, opaque)/g' libavcodec/lcevcdec.c
-
-        log_info "Patch for libavcodec/lcevcdec.c successfully applied."
+        log_info "Successfully patched libavfilter/vf_lcevc.c"
     else
-        log_error "File libavcodec/lcevcdec.c not found!"
+        log_warn "File libavfilter/vf_lcevc.c not found, skipping."
     fi
 
+    # === Патчим libavcodec/lcevcdec.c ===
+    if [[ -f "libavcodec/lcevcdec.c" ]]; then
+        # Удаляем флаг discontinuity (0) из LCEVC_SendDecoderEnhancementData
+        sed -i 's|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size)|g' libavcodec/lcevcdec.c
+
+        # Удаляем флаг discontinuity (0) из LCEVC_SendDecoderBase, сдвигая picture и оставляя -1 на месте timeoutUs
+        sed -i 's|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, opaque)|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, opaque)|g' libavcodec/lcevcdec.c
+
+        log_info "Successfully patched libavcodec/lcevcdec.c"
+    else
+        log_error "libavcodec/lcevcdec.c not found!"
+    fi
 fi
+
+# fix libsvtjpegxsenc; until i update the patch which will reset the whole cache
+sed -i '/AV_PIX_FMT_YUV444P14LE:/,/return;/ s/return;/return 0;/' libavcodec/libsvtjpegxsenc.c
 
 if [[ "$TARGET" == "win64" ]]; then
     log_info "We're adjusting the generated config.h: we're forcibly disabling HAVE_FCNTL for Windows..."
