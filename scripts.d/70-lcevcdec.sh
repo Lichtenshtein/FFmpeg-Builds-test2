@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/v-novaltd/LCEVCdec.git"
-SCRIPT_COMMIT="655f029d0008f00da9c976567ea159437aa86a36"
+SCRIPT_COMMIT="b033a6d1f68a80ac1d972f34cf1740000b544571"
 
 ffbuild_depends() {
     echo vulkan-headers
@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
         -DVN_SDK_METRICS=OFF
         -DVN_SDK_PIPELINE_CPU=ON
         -DVN_SDK_PIPELINE_LEGACY=ON # ON
-        -DVN_SDK_PIPELINE_VULKAN=ON # OFF; experimental Vulkan GPU pipeline for decoding LCEVC stream
+        -DVN_SDK_PIPELINE_VULKAN=OFF # OFF; experimental Vulkan GPU pipeline for decoding LCEVC stream
         -DVN_SDK_SAMPLE_SOURCE=OFF
         -DVN_SDK_SIMD=ON
         -DVN_SDK_SYSTEM_INSTALL=ON
@@ -70,7 +70,7 @@ includedir=\${prefix}/include
 
 Name: lcevc_dec
 Description: LCEVC Decoder SDK (Static Combined)
-Version: 4.0.5
+Version: 4.1.0
 Libs: -L\${libdir} -llcevc_dec_api -llcevc_dec_api_utility -llcevc_dec_common -llcevc_dec_enhancement -llcevc_dec_extract -llcevc_dec_legacy -llcevc_dec_overlay_images -llcevc_dec_pipeline -llcevc_dec_pipeline_cpu -llcevc_dec_pipeline_legacy -llcevc_dec_pipeline_vulkan -llcevc_dec_pixel_processing -llcevc_dec_sequencer
 Libs.private: -lstdc++ -lm
 Cflags: -I\${includedir} -I\${includedir}/LCEVC -DVNEnablePublicAPIExport
