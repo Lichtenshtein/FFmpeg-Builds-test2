@@ -32,14 +32,14 @@ ffbuild_dockerbuild() {
         -DVN_SDK_DIAGNOSTICS_ASYNC=OFF
         -DVN_SDK_DOCS=OFF
         -DVN_SDK_EXECUTABLES=OFF
-        -DVN_SDK_FORCE_OVERLAY=OFF
+        # -DVN_SDK_FORCE_OVERLAY=OFF # old
         -DVN_SDK_GENERATE_PGO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF) # this is NOT LTO
         -DVN_SDK_JSON_CONFIG=OFF
         # -DVN_SDK_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DVN_SDK_METRICS=OFF
         -DVN_SDK_PIPELINE_CPU=ON
-        -DVN_SDK_PIPELINE_LEGACY=ON # ON
-        -DVN_SDK_PIPELINE_VULKAN=OFF # OFF; experimental Vulkan GPU pipeline for decoding LCEVC stream
+        # -DVN_SDK_PIPELINE_LEGACY=ON # ON; old
+        -DVN_SDK_PIPELINE_VULKAN=ON # OFF; experimental Vulkan GPU pipeline for decoding LCEVC stream
         -DVN_SDK_SAMPLE_SOURCE=OFF
         -DVN_SDK_SIMD=ON
         -DVN_SDK_SYSTEM_INSTALL=ON
@@ -61,20 +61,28 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    local PC_FILE="$PC_DIR/lcevc_dec.pc"
-    cat <<EOF > "$PC_FILE"
-prefix=$FFBUILD_PREFIX
-exec_prefix=\${prefix}
-libdir=\${prefix}/lib
-includedir=\${prefix}/include
+    if [[ "${myconf[@]}" =~ "-DVN_SDK_PIPELINE_LEGACY=ON" ]]; then
+        local SDK_PIPELINE_LEGACY="-llcevc_dec_legacy"
+    fi
 
-Name: lcevc_dec
-Description: LCEVC Decoder SDK (Static Combined)
-Version: 4.1.0
-Libs: -L\${libdir} -llcevc_dec_api -llcevc_dec_api_utility -llcevc_dec_common -llcevc_dec_enhancement -llcevc_dec_extract -llcevc_dec_legacy -llcevc_dec_overlay_images -llcevc_dec_pipeline -llcevc_dec_pipeline_cpu -llcevc_dec_pipeline_legacy -llcevc_dec_pipeline_vulkan -llcevc_dec_pixel_processing -llcevc_dec_sequencer
-Libs.private: -lstdc++ -lm
-Cflags: -I\${includedir} -I\${includedir}/LCEVC -DVNEnablePublicAPIExport
-EOF
+    # if [[ "${myconf[@]}" =~ "-DVN_SDK_PIPELINE_LEGACY=ON" ]]; then
+        # local SDK_PIPELINE_LEGACY="-llcevc_dec_legacy"
+    # fi
+
+    # local PC_FILE="$PC_DIR/lcevc_dec.pc"
+    # cat <<EOF > "$PC_FILE"
+# prefix=$FFBUILD_PREFIX
+# exec_prefix=\${prefix}
+# libdir=\${prefix}/lib
+# includedir=\${prefix}/include
+
+# Name: lcevc_dec
+# Description: LCEVC Decoder SDK (Static Combined)
+# Version: 4.1.0
+# Libs: -L\${libdir} -llcevc_dec_api -llcevc_dec_api_utility -llcevc_dec_common -llcevc_dec_enhancement -llcevc_dec_extract $SDK_PIPELINE_LEGACY -llcevc_dec_overlay_images -llcevc_dec_pipeline -llcevc_dec_pipeline_cpu -llcevc_dec_pipeline_legacy -llcevc_dec_pipeline_vulkan -llcevc_dec_pixel_processing -llcevc_dec_sequencer
+# Libs.private: -lstdc++ -lm
+# Cflags: -I\${includedir} -I\${includedir}/LCEVC -DVNEnablePublicAPIExport
+# EOF
 
     # Удаляем лишние/кривые .pc файлы, чтобы pkg-config не путался
     rm -f "$PC_DIR"/lcevc_dec_utility.pc "$PC_DIR"/lcevc_dec_extract.pc
