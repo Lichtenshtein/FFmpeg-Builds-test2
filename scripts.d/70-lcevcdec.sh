@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
         -DVN_SDK_METRICS=OFF
         -DVN_SDK_PIPELINE_CPU=ON
         # -DVN_SDK_PIPELINE_LEGACY=ON # ON; old
-        -DVN_SDK_PIPELINE_VULKAN=ON # OFF; experimental Vulkan GPU pipeline for decoding LCEVC stream
+        -DVN_SDK_PIPELINE_VULKAN=OFF # OFF; experimental Vulkan GPU pipeline for decoding LCEVC stream
         -DVN_SDK_SAMPLE_SOURCE=OFF
         -DVN_SDK_SIMD=ON
         -DVN_SDK_SYSTEM_INSTALL=ON
@@ -61,10 +61,6 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    if [[ "${myconf[@]}" =~ "-DVN_SDK_PIPELINE_LEGACY=ON" ]]; then
-        local SDK_PIPELINE_LEGACY="-llcevc_dec_legacy"
-    fi
-
     # if [[ "${myconf[@]}" =~ "-DVN_SDK_PIPELINE_LEGACY=ON" ]]; then
         # local SDK_PIPELINE_LEGACY="-llcevc_dec_legacy"
     # fi
@@ -84,10 +80,24 @@ ffbuild_dockerbuild() {
 # Cflags: -I\${includedir} -I\${includedir}/LCEVC -DVNEnablePublicAPIExport
 # EOF
 
+    local PC_FILE="$PC_DIR/lcevc_dec.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        sed -i 's|^Libs.private:.*|& -llcevc_dec_extract.a|' "$PC_FILE"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/LCEVC|" "$PC_FILE"
+
+        # Вырезаем glfw3 из строки Requires.private
+        sed -i 's/glfw3//g' "$PC_FILE"
+    
+        # Подчищаем возможные висячие пробелы, чтобы строка осталась валидной
+        sed -i 's/Requires.private:  /Requires.private: /g' "$PC_FILE"
+        sed -i 's/Requires.private: *$/Requires.private: vulkan/g' "$PC_FILE"
+    fi
+
     # Удаляем лишние/кривые .pc файлы, чтобы pkg-config не путался
     rm -f "$PC_DIR"/lcevc_dec_utility.pc "$PC_DIR"/lcevc_dec_extract.pc
 
     rm -rf "$FFBUILD_DESTPREFIX"/share
+
 }
 
 ffbuild_configure() {
