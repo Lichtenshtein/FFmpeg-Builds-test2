@@ -67,7 +67,7 @@ on:
       freeSpace:
         description: 'Free some Disk Space before Build'
         type: boolean
-        default: false
+        default: true
       regularClean:
         description: 'Clean old caches after build (Regular Cleaning)'
         type: boolean
@@ -359,6 +359,11 @@ jobs:
             .cache/ffmpeg
             .cache/ccache
           key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
+
+      - name: Inject Downloads into Buildx Cache
+        run: |
+          echo "=== Injecting host downloads into docker buildx cache ==="
+          mkdir -p .cache/downloads
 
       - name: Build Components Stage
         uses: docker/build-push-action@v7
