@@ -253,7 +253,7 @@ All of those can be optionally combined with any combination of addins:
 
 * `aom`
 ```
-01-mingw-std-threads|02-mingw|05-libicu|06-libiconv|07-gettext|08-zlib|11-xz|16-libxml2|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|38-libwebp|40-lcms2|44-dav1d|44-svtav1|45-libavif|45-libjxl|54-vmaf|70-aom
+01-mingw-std-threads|02-mingw|05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-xz|16-libxml2|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|38-libwebp|40-lcms2|44-dav1d|44-svtav1|45-libavif|45-libjxl|54-vmaf|70-aom
 ```
 
 * `whisper`
