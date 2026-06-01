@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libjxl/libjxl.git"
-SCRIPT_COMMIT="15c547544296c29a2da931e9112e3c45e3972ef6"
+SCRIPT_COMMIT="32577f459c51d3a11da661b1ddba751d84dc560d"
 
 ffbuild_depends() {
     echo brotli
@@ -21,20 +21,12 @@ ffbuild_dockerdl() {
     default_dl .
 
     # donor-file for aom
-if [[ "${PREFER_SHARED}" != "1" ]]; then
     cat << 'EOF'
 mkdir -p lib/include/jxl
 curl -fsSL "https://raw.githubusercontent.com/libjxl/libjxl/26494266bae545dc2084746a1fb22e805e119e85/lib/include/jxl/butteraugli.h" \
     -o "lib/include/jxl/butteraugli.h"
 sed -i '1s/^/#define JXL_STATIC_DEFINE 1\n/' "lib/include/jxl/butteraugli.h"
 EOF
-else
-    cat << 'EOF'
-mkdir -p lib/include/jxl
-curl -fsSL "https://raw.githubusercontent.com/libjxl/libjxl/26494266bae545dc2084746a1fb22e805e119e85/lib/include/jxl/butteraugli.h" \
-    -o "lib/include/jxl/butteraugli.h"
-EOF
-fi
 
     echo "git-submodule-clone"
 }
