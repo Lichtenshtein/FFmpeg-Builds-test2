@@ -42,7 +42,7 @@ ffbuild_dockerbuild() {
         -DSDL_LIBSAMPLERATE=ON
         -DSDL_OPENGL=ON
         -DSDL_WASAPI=ON
-        -DSDL_VULKAN=OFF
+        -DSDL_VULKAN=ON
         # блок поиска iconv
         -DSDL_LIBICONV=ON
         -DSDL_SYSTEM_ICONV=ON
