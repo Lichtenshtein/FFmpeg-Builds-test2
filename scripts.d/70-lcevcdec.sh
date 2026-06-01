@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
         -DVN_SDK_METRICS=OFF
         -DVN_SDK_PIPELINE_CPU=ON
         # -DVN_SDK_PIPELINE_LEGACY=ON # ON; old
-        -DVN_SDK_PIPELINE_VULKAN=OFF # OFF; experimental Vulkan GPU pipeline for decoding LCEVC stream
+        -DVN_SDK_PIPELINE_VULKAN=ON # OFF; experimental Vulkan GPU pipeline for decoding LCEVC stream
         -DVN_SDK_SAMPLE_SOURCE=OFF
         -DVN_SDK_SIMD=ON
         -DVN_SDK_SYSTEM_INSTALL=ON
@@ -97,7 +97,6 @@ ffbuild_dockerbuild() {
     rm -f "$PC_DIR"/lcevc_dec_utility.pc "$PC_DIR"/lcevc_dec_extract.pc
 
     rm -rf "$FFBUILD_DESTPREFIX"/share
-
 }
 
 ffbuild_configure() {

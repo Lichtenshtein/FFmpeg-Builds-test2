@@ -24,11 +24,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # without icu for faster testing
-    # local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset $LIBS"
-    # with icu
-    local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset -licuin -licuuc -licudt $LIBS"
-
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
@@ -39,7 +34,6 @@ ffbuild_dockerbuild() {
         --without-modules
         --disable-maintainer-mode
         --with-pic
-        --with-icu
         --with-thread-alloc
         --with-winpath
         --with-zlib
@@ -50,6 +44,17 @@ ffbuild_dockerbuild() {
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
+
+    # Проверяем наличие статической библиотеки libicudt.a
+    if [[ -f "/opt/ffbuild/lib/libicudt.a" ]]; then
+        log_info "ICU library detected. Building libxml2 with ICU support..."
+        local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset -licuin -licuuc -licudt $LIBS"
+        myconf+=("--with-icu")
+    else
+        log_warn "ICU library not found. Building libxml2 without ICU for faster testing..."
+        local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset $LIBS"
+        myconf+=("--without-icu")
+    fi
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBXML_STATIC -DXML_STATIC"

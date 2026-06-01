@@ -13,9 +13,9 @@ on:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
         # default: '05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|37-libpng|37-libjpeg-turbo|37-giflib|37-libtiff|38-libwebp|39-fontconfig|39-fribidi|39-pixman|40-cairo|40-harfbuzz|41-freetype|43-pango|44-dav1d|44-svtav1|45-libavif|45-librsvg'
-        # default: '02-mingw|70-lcevcdec'
+        default: '01-mingw-std-threads|02-mingw|06-libiconv|07-gettext|08-zlib|11-xz|16-libxml2|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|38-libwebp|40-lcms2|44-dav1d|44-svtav1|45-libavif|45-libjxl|54-vmaf|70-aom'
         # default: '02-mingw|06-libiconv|07-gettext|08-zlib|11-bzlib|12-libffi|15-pcre2|16-glib2|16-fftw3|27-freeglut|30-openssl|64-libsamplerate|64-soxr|65-pulseaudio|66-sdl'
-        default: '.*'
+        # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
@@ -68,10 +68,10 @@ on:
         description: 'Free some Disk Space before Build'
         type: boolean
         default: false
-      regularClean:
-        description: 'Clean old caches after build (Regular Cleaning)'
-        type: boolean
-        default: false
+      # regularClean:
+        # description: 'Clean old caches after build (Regular Cleaning)'
+        # type: boolean
+        # default: false
       doClean:
         description: 'Nuke all cache before build (Full Rebuild)'
         type: boolean
@@ -172,9 +172,7 @@ jobs:
           gh extension install actions/gh-actions-cache || true
           echo "Purging GitHub Actions Cache..."
           gh cache delete --succeed-on-no-caches --all --repo ${{ github.repository }}
-          
           echo "Purging Docker BuildKit Cache Mounts..."
-          # This specifically targets the 'prefix' and 'ccache' mounts
           docker builder prune --filter type=exec.cachemount --all --force
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -183,9 +181,9 @@ jobs:
         uses: docker/setup-buildx-action@v4
         with:
           driver: docker-container
-          # buildkitd-flags: ${{ github.event.inputs.verbosity == '1' && '--debug' || '' }}
 
       - name: Install Host Tools
+        if: github.event.inputs.regularClean == 'true'
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y subversion subversion-tools nasm yasm
@@ -311,10 +309,10 @@ jobs:
             CARGO_C_VERSION=0.10.22
             CPU_ARCH=${{ env.CPU_ARCH }}
             CPU_TUNE=${{ env.CPU_TUNE }}
-          cache-from: type=gha,scope=ffmpeg-target-base
-          cache-to: type=gha,mode=max,scope=ffmpeg-target-base
+          cache-from: type=gha,scope=ffmpeg-target-base-${{ steps.docker_hash.outputs.hash }}
+          cache-to: type=gha,mode=max,scope=ffmpeg-target-base-${{ steps.docker_hash.outputs.hash }}
           push: true
-          load: true
+          load: false
           tags: ${{ steps.images.outputs.target_base }}
 
       - name: Get Download Cache Key
@@ -352,6 +350,13 @@ jobs:
       - name: Inspect Dockerfile
         run: head -n 50 Dockerfile
 
+      - name: Post-Download Cleanup
+        run: |
+          echo "=== Cleaning up non-essential download artifacts before cache save ==="
+          # Удаляем временные распакованные файлы, оставляя только архивы
+          rm -rf .cache/tmp/*
+          df -h /
+
       - name: Force Save Cache
         if: always()
         uses: actions/cache/save@v5
@@ -367,15 +372,14 @@ jobs:
         with:
           context: .
           file: Dockerfile
-          target: components_build  # <--- Собираем только до библиотек
+          target: components_build
           build-args: |
             CPU_ARCH=${{ env.CPU_ARCH }}
             CPU_TUNE=${{ env.CPU_TUNE }}
-          # Пушим в GHCR, чтобы кэш не пропадал между запусками
           push: true
           tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
           cache-from: type=gha,scope=ffmpeg-components
-          cache-to: type=gha,mode=max,scope=ffmpeg-components
+          cache-to: type=gha,mode=min,scope=ffmpeg-components
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
 
@@ -410,96 +414,96 @@ jobs:
           cache-to: type=gha,mode=max,scope=ffmpeg-final
           provenance: false
 
-      - name: Cleanup Old Caches
-        if: github.event.inputs.regularClean == 'true' && !cancelled()
+      # - name: Cleanup Old Caches
+        # if: github.event.inputs.regularClean == 'true' && !cancelled()
         # # if: always() && !cancelled()
-        continue-on-error: true
-        run: |
-          echo "### 🛡️ Smart Cache Cleanup Report" >> $GITHUB_STEP_SUMMARY
-          echo "| Group | Kept | Deleted | Saved Size | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "| :--- | :---: | :---: | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
+        # continue-on-error: true
+        # run: |
+          # echo "### 🛡️ Smart Cache Cleanup Report" >> $GITHUB_STEP_SUMMARY
+          # echo "| Group | Kept | Deleted | Saved Size | Status |" >> $GITHUB_STEP_SUMMARY
+          # echo "| :--- | :---: | :---: | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
 
-          gh cache list --limit 1000 --json key,sizeInBytes > all_caches.json
+          # gh cache list --limit 1000 --json key,sizeInBytes > all_caches.json
 
-          if [[ $(jq '. | length' all_caches.json) -eq 0 ]]; then
-            echo "| All | 0 | 0 | 0 MB | No caches |" >> $GITHUB_STEP_SUMMARY
-            exit 0
-          fi
+          # if [[ $(jq '. | length' all_caches.json) -eq 0 ]]; then
+            # echo "| All | 0 | 0 | 0 MB | No caches |" >> $GITHUB_STEP_SUMMARY
+            # exit 0
+          # fi
 
-          prefixes=("index-base-root" "index-base" "index-ffmpeg-build" "dl-cache" "buildkit-blob")
-          grand_total_size=0
-          grand_total_deleted=0
+          # prefixes=("index-base-root" "index-base" "index-ffmpeg-build" "dl-cache" "buildkit-blob")
+          # grand_total_size=0
+          # grand_total_deleted=0
 
-          for prefix in "${prefixes[@]}"; do
-            data=$(jq -r --arg pref "$prefix" \
-                '[.[] | select(.key | startswith($pref))] | sort_by(.createdAt) | reverse | .[50:] | .[] | "\(.key)|\(.sizeInBytes)"' \
-                all_caches.json)
+          # for prefix in "${prefixes[@]}"; do
+            # data=$(jq -r --arg pref "$prefix" \
+                # '[.[] | select(.key | startswith($pref))] | sort_by(.createdAt) | reverse | .[50:] | .[] | "\(.key)|\(.sizeInBytes)"' \
+                # all_caches.json)
 
-            if [ -n "$data" ]; then
-              keys=$(echo "$data" | cut -d'|' -f1)
-              sizes=$(echo "$data" | cut -d'|' -f2)
+            # if [ -n "$data" ]; then
+              # keys=$(echo "$data" | cut -d'|' -f1)
+              # sizes=$(echo "$data" | cut -d'|' -f2)
 
-              group_size_bytes=$(echo "$sizes" | awk '{s+=$1} END {print s}')
-              group_count=$(echo "$keys" | wc -l)
+              # group_size_bytes=$(echo "$sizes" | awk '{s+=$1} END {print s}')
+              # group_count=$(echo "$keys" | wc -l)
 
-              echo "$keys" | xargs -P 4 -I {} bash -c '
-                  key="{}"
-                  attempt=1
-                  while [ $attempt -le 3 ]; do
-                      RESPONSE=$(gh cache delete "$key" 2>&1)
-                      [ $? -eq 0 ] && exit 0
-                      if echo "$RESPONSE" | grep -qE "403|rate limit"; then
-                          sleep 10
-                          attempt=$((attempt + 1))
-                      else
-                          exit 1
-                      fi
-                  done
-              '
+              # echo "$keys" | xargs -P 4 -I {} bash -c '
+                  # key="{}"
+                  # attempt=1
+                  # while [ $attempt -le 3 ]; do
+                      # RESPONSE=$(gh cache delete "$key" 2>&1)
+                      # [ $? -eq 0 ] && exit 0
+                      # if echo "$RESPONSE" | grep -qE "403|rate limit"; then
+                          # sleep 10
+                          # attempt=$((attempt + 1))
+                      # else
+                          # exit 1
+                      # fi
+                  # done
+              # '
 
-              group_size_mb=$(echo "scale=2; $group_size_bytes / 1048576" | bc)
-              grand_total_size=$((grand_total_size + group_size_bytes))
-              grand_total_deleted=$((grand_total_deleted + group_count))
+              # group_size_mb=$(echo "scale=2; $group_size_bytes / 1048576" | bc)
+              # grand_total_size=$((grand_total_size + group_size_bytes))
+              # grand_total_deleted=$((grand_total_deleted + group_count))
 
-              echo "| $prefix | 50 | $group_count | ${group_size_mb} MB | ✅ Cleaned |" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "| $prefix | ALL | 0 | 0 MB | 🧊 Kept all |" >> $GITHUB_STEP_SUMMARY
-            fi
-          done
+              # echo "| $prefix | 50 | $group_count | ${group_size_mb} MB | ✅ Cleaned |" >> $GITHUB_STEP_SUMMARY
+            # else
+              # echo "| $prefix | ALL | 0 | 0 MB | 🧊 Kept all |" >> $GITHUB_STEP_SUMMARY
+            # fi
+          # done
 
-          others=$(jq -r '.[] | select(.key as $k | ["index-base-root", "index-base", "index-ffmpeg-build", "dl-cache", "buildkit-blob"] | map($k | startswith(.)) | any | not) | "\(.key)|\(.sizeInBytes)"' all_caches.json | tail -n +41)
-          if [ -n "$others" ]; then
-             other_keys=$(echo "$others" | cut -d'|' -f1)
-             other_sizes=$(echo "$others" | cut -d'|' -f2)
-             other_count=$(echo "$other_keys" | wc -l)
-             other_size_bytes=$(echo "$other_sizes" | awk '{s+=$1} END {print s}')
+          # others=$(jq -r '.[] | select(.key as $k | ["index-base-root", "index-base", "index-ffmpeg-build", "dl-cache", "buildkit-blob"] | map($k | startswith(.)) | any | not) | "\(.key)|\(.sizeInBytes)"' all_caches.json | tail -n +41)
+          # if [ -n "$others" ]; then
+             # other_keys=$(echo "$others" | cut -d'|' -f1)
+             # other_sizes=$(echo "$others" | cut -d'|' -f2)
+             # other_count=$(echo "$other_keys" | wc -l)
+             # other_size_bytes=$(echo "$other_sizes" | awk '{s+=$1} END {print s}')
 
-             echo "$other_keys" | xargs -P 4 -I {} bash -c '
-                  key="{}"
-                  attempt=1
-                  while [ $attempt -le 3 ]; do
-                      RESPONSE=$(gh cache delete "$key" 2>&1)
-                      [ $? -eq 0 ] && exit 0
-                      if echo "$RESPONSE" | grep -qE "403|rate limit"; then
-                          sleep 10
-                          attempt=$((attempt + 1))
-                      else
-                          exit 1
-                      fi
-                  done
-              '
+             # echo "$other_keys" | xargs -P 4 -I {} bash -c '
+                  # key="{}"
+                  # attempt=1
+                  # while [ $attempt -le 3 ]; do
+                      # RESPONSE=$(gh cache delete "$key" 2>&1)
+                      # [ $? -eq 0 ] && exit 0
+                      # if echo "$RESPONSE" | grep -qE "403|rate limit"; then
+                          # sleep 10
+                          # attempt=$((attempt + 1))
+                      # else
+                          # exit 1
+                      # fi
+                  # done
+              # '
 
-             other_size_mb=$(echo "scale=2; $other_size_bytes / 1048576" | bc)
-             grand_total_size=$((grand_total_size + other_size_bytes))
-             grand_total_deleted=$((grand_total_deleted + other_count))
-             echo "| Others | 40 | $other_count | ${other_size_mb} MB | 🗑️ Extra |" >> $GITHUB_STEP_SUMMARY
-          fi
+             # other_size_mb=$(echo "scale=2; $other_size_bytes / 1048576" | bc)
+             # grand_total_size=$((grand_total_size + other_size_bytes))
+             # grand_total_deleted=$((grand_total_deleted + other_count))
+             # echo "| Others | 40 | $other_count | ${other_size_mb} MB | 🗑️ Extra |" >> $GITHUB_STEP_SUMMARY
+          # fi
 
-          printf '\n**🚀 Total Purged:** %d caches\n' "$grand_total_deleted" >> $GITHUB_STEP_SUMMARY
-          final_gb=$(echo "scale=2; $grand_total_size / 1073741824" | bc)
-          printf '**📦 Total Space Recovered:** %s GB\n' "$final_gb" >> $GITHUB_STEP_SUMMARY
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # printf '\n**🚀 Total Purged:** %d caches\n' "$grand_total_deleted" >> $GITHUB_STEP_SUMMARY
+          # final_gb=$(echo "scale=2; $grand_total_size / 1073741824" | bc)
+          # printf '**📦 Total Space Recovered:** %s GB\n' "$final_gb" >> $GITHUB_STEP_SUMMARY
+        # env:
+          # GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Final Artifacts
         if: ${{ github.event.inputs.skip_ffmpeg != 'true' }}
