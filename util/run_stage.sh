@@ -186,7 +186,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
             ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
         else
             # блок ошибки, срабатывает только если загрузка провалилась.
-            log_error "ERROR: No source cache and download failed for $STAGENAME"
+            log_error "No source cache and download failed for $STAGENAME"
             log_info "Expected hash: $STAGE_HASH"
             if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
                 log_debug "${DIRS_MARK} Available files in cache for this component:"

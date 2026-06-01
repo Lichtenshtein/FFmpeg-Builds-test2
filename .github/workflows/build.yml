@@ -348,7 +348,7 @@ jobs:
           ./generate.sh "$TARGET" "$VARIANT"
 
       - name: Inspect Dockerfile
-        run: head -n 50 Dockerfile
+        run: head -n 80 Dockerfile
 
       - name: Force Save Cache
         if: always()
