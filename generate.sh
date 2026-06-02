@@ -95,6 +95,12 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
 
 # BASE COMPONENT BUILD STAGE
 to_df "FROM base-win64 AS components_build"
+# Слой-донор: принимает файлы, которые download.sh скачал на хост
+to_df "COPY .cache/downloads/ /tmp/host_downloads/"
+# Копируем их внутрь постоянного кэша Buildx, чтобы run_stage их увидел
+to_df "RUN --mount=type=cache,id=ffmpeg-downloads-win64,target=/builder/.cache/downloads \\"
+to_df "    mkdir -p /builder/.cache/downloads && \\"
+to_df "    cp -r /tmp/host_downloads/* /builder/.cache/downloads/ 2>/dev/null || true"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "$COMMON_ENV"
 to_df "WORKDIR ${CONTAINER_ROOT}"
