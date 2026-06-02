@@ -59,7 +59,7 @@ ffbuild_dockerbuild() {
         -DCONFIG_NN_V2=0 # Fully-connected neural nets ver.2; def 0
         -DCONFIG_AV1_DECODER=1
         -DCONFIG_AV1_ENCODER=1
-        -DCONFIG_TUNE_BUTTERAUGLI=1 # need libjxl
+        -DCONFIG_TUNE_BUTTERAUGLI=0 # need libjxl; cut from libjxl code, leads to "undefined reference" errors
         -DCONFIG_LIBYUV=1 # need libavif
         -DCONFIG_PIC=1
         -DCONFIG_RUNTIME_CPU_DETECT=1
@@ -82,8 +82,15 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
+    if [[ "${myconf[@]}" =~ "-DCONFIG_LIBYUV=1" ]]; then
+        local JXL_LIBS=" libjxl libjxl_cms libhwy"
+    fi
+
     if ! grep -q "libvmaf" "$PC_DIR/aom.pc"; then
-        sed -i '/^Requires.private:/ s/$/ libvmaf libyuv/' "$PC_DIR/aom.pc"
+        # Удаляем старую строку Requires, если была
+        sed -i '/^Requires:/d' "$PC_DIR/aom.pc"
+        # Прописываем зависимости в Requires.private, чтобы они линковались ПОСЛЕ -laom
+        sed -i "/^Description:/a Requires.private: libvmaf${JXL_LIBS}" "$PC_DIR/aom.pc"
     fi
     sed -i "s|^Cflags:.*|& -I\${includedir}/aom|" "$PC_DIR/aom.pc"
 }
