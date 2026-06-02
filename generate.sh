@@ -96,10 +96,7 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
 # Стейдж-донор для проброса кэша загрузок с хоста
 to_df "FROM base-win64 AS downloads_pool"
 to_df "COPY .cache/downloads/ /tmp/host_downloads/"
-to_df "RUN --mount=type=cache,id=ffmpeg-downloads-win64,target=${CONTAINER_ROOT}/.cache/downloads,rw
- \\"
-to_df "    mkdir -p ${CONTAINER_ROOT}/.cache/downloads && \\"
-to_df "    cp -r /tmp/host_downloads/* ${CONTAINER_ROOT}/.cache/downloads/ 2>/dev/null || true"
+to_df "RUN --mount=type=cache,id=ffmpeg-downloads-win64,target=${CONTAINER_ROOT}/.cache/downloads mkdir -p ${CONTAINER_ROOT}/.cache/downloads && cp -r /tmp/host_downloads/* ${CONTAINER_ROOT}/.cache/downloads/ 2>/dev/null || true"
 
 # Очищаем содержимое перед хешированием:
 # 1. Берем только переменные, влияющие на бинарный код
@@ -209,7 +206,7 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "# Component: $STAGENAME | LayerID: $LAYER_ID"
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
     # Подключаем пул загрузок, который мы наполнили в самом первом стейдже
-    to_df "    --mount=type=cache,id=ffmpeg-downloads-win64,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
+    to_df "    --mount=type=cache,id=ffmpeg-downloads-win64,from=downloads_pool,source=${CONTAINER_ROOT}/.cache/downloads,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
     to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\"
