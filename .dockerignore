@@ -5,7 +5,5 @@
 artifacts
 
 # We allow copying ONLY download archives
-! .cache/downloads/*.tar.zst
-! .cache/downloads/*.confhash
-! .cache/downloads/*.confopts
+! .cache/downloads
 ! .cache/ffmpeg
