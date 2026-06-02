@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/Netflix/vmaf.git"
-SCRIPT_COMMIT="332dde62838d91d8b5216e9822de58851f2fd64f"
+SCRIPT_COMMIT="30f472b146b9228f76c684360d6a976774290b5e"
 
 # SCRIPT_REPO="https://github.com/lusoris/vmaf.git"
 # SCRIPT_COMMIT="49c738b0584337a45048429581214063e80831e2"
