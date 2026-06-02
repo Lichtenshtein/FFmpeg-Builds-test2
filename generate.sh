@@ -172,6 +172,10 @@ if [[ ${#active_scripts[@]} -eq 0 ]]; then
     log_warn "No active scripts matched ONLY_STAGE=${ONLY_STAGE}"
 fi
 
+# Переменная для отслеживания цепочки зависимостей. 
+# Самая первая либа начнет сборку на чистом base-win64.
+PREVIOUS_STAGE="base-win64"
+
 # Генерируем блоки RUN для каждой стадии
 for STAGE in "${active_scripts[@]}"; do
     unset STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK
@@ -196,16 +200,23 @@ for STAGE in "${active_scripts[@]}"; do
     LAYER_ID="E:${ENV_HASH}_L:${LOGIC_HASH}_S:${STAGE_HASH}_P:${PATCH_HASH}"
 
     # === ДОБАВЛЯЕМ ДИНАМИЧЕСКИЙ STAGE ДЛЯ КАЖДОЙ ЛИБЫ ===
+    # КАЖДАЯ библиотека начинается со своего изолированного стейджа
     to_df "FROM base-win64 AS stage_${STAGENAME}"
-    to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
     to_df "$COMMON_ENV"
     to_df "WORKDIR ${CONTAINER_ROOT}"
+
+    # === МАГИЯ ЗАВИСИМОСТЕЙ ===
+    # Если это не самая первая библиотека, мы копируем ВСЕ скомпилированные ранее 
+    # зависимости из предыдущего стейджа напрямую в наш префикс сборки /opt/ffbuild
+    if [[ "$PREVIOUS_STAGE" != "base-win64" ]]; then
+        to_df "COPY --from=${PREVIOUS_STAGE} ${FFBUILD_PREFIX}/ ${FFBUILD_PREFIX}/"
+    fi
+
     to_df "COPY util/run_stage.sh /usr/bin/run_stage"
     to_df "RUN chmod +x /usr/bin/run_stage"
 
     to_df "# Component: $STAGENAME | LayerID: $LAYER_ID"
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
-    # Подключаем пул загрузок, который мы наполнили в самом первом стейдже
     to_df "    --mount=type=bind,from=downloads_pool,source=/tmp/shared_downloads,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
@@ -213,16 +224,15 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    --mount=type=bind,source=variants,target=${CONTAINER_ROOT}/variants \\"
     to_df "    --mount=type=bind,source=addins,target=${CONTAINER_ROOT}/addins \\"
     to_df "    set -e && export _H=${LAYER_ID} && . ${CONTAINER_ROOT}/util/vars.sh \"${TARGET}\" \"${VARIANT}\" && run_stage ${CONTAINER_ROOT}/${STAGE}"
+
+    # Запоминаем текущий стейдж как родительский для СЛЕДУЮЩЕЙ библиотеки в цикле
+    PREVIOUS_STAGE="stage_${STAGENAME}"
 done
 
-# Собираем все скомпилированные артефакты в один финальный стейдж компонентов
+# В самом конце склеивать COPY --from уже не нужно, так как последний стейдж 
+# благодаря цепочке уже содержит в себе абсолютно все скомпилированные библиотеки!
 to_df "FROM base-win64 AS components_build"
-for STAGE in "${active_scripts[@]}"; do
-    unset STAGENAME
-    eval "$(stage_vars "$STAGE")"
-    # Копируем результаты компиляции (.a, .h, .pc) из индивидуального стейджа в общий префикс
-    to_df "COPY --from=stage_${STAGENAME} ${FFBUILD_PREFIX}/ ${FFBUILD_PREFIX}/"
-done
+to_df "COPY --from=${PREVIOUS_STAGE} ${FFBUILD_PREFIX}/ ${FFBUILD_PREFIX}/"
 
 # FINAL FFMPEG BUILD STAGE
 to_df "FROM base-win64 AS final_build"
