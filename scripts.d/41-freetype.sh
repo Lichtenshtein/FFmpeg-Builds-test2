@@ -19,6 +19,9 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     echo "git-mini-clone \"https://github.com/nyorain/dlg.git\" \"master\" subprojects/dlg"
+    if [[ -d ".git" ]]; then
+        git add .
+    fi
 }
 
 ffbuild_dockerbuild() {
