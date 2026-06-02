@@ -409,7 +409,7 @@ jobs:
           cache-from: |
             type=gha,scope=ffmpeg-components
             type=gha,scope=ffmpeg-final
-          cache-to: type=gha,mode=max,scope=ffmpeg-final
+          cache-to: type=gha,mode=min,scope=ffmpeg-final
           provenance: false
 
       - name: Cleanup Old Caches

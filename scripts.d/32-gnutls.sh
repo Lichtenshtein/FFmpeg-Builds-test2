@@ -22,6 +22,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    log_info "Redownload the archive"
+
     ./bootstrap
 
     local DEP_LIBS="-lws2_32 -lbcrypt -lcrypt32 -lncrypt"
