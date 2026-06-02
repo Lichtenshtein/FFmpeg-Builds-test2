@@ -703,7 +703,7 @@ index 21f7777a..c4662073 100644
      include_directories : [libvmaf_inc, test_inc, include_directories('../src/feature/'), include_directories('../src')],
      link_with : get_option('default_library') == 'both' ? libvmaf.get_static_lib() : libvmaf,
 -    dependencies: cuda_dependency,
-+    dependencies: [cuda_dependency, thread_lib]
++    dependencies: [cuda_dependency, thread_lib],
      objects : libsvm_static_lib.extract_all_objects(recursive: true),
  )
  
