@@ -93,19 +93,13 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     DLL_PRESERVE_LIST=\"${DLL_PRESERVE_LIST}\" \\
     GIT_PRESERVE_LIST=\"${GIT_PRESERVE_LIST}\""
 
-# BASE COMPONENT BUILD STAGE
-to_df "FROM base-win64 AS components_build"
-# Слой-донор: принимает файлы, которые download.sh скачал на хост
+# Стейдж-донор для проброса кэша загрузок с хоста
+to_df "FROM base-win64 AS downloads_pool"
 to_df "COPY .cache/downloads/ /tmp/host_downloads/"
-# Копируем их внутрь постоянного кэша Buildx, чтобы run_stage их увидел
-to_df "RUN --mount=type=cache,id=ffmpeg-downloads-win64,target=/builder/.cache/downloads \\"
-to_df "    mkdir -p /builder/.cache/downloads && \\"
-to_df "    cp -r /tmp/host_downloads/* /builder/.cache/downloads/ 2>/dev/null || true"
-to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
-to_df "$COMMON_ENV"
-to_df "WORKDIR ${CONTAINER_ROOT}"
-to_df "COPY util/run_stage.sh /usr/bin/run_stage"
-to_df "RUN chmod +x /usr/bin/run_stage"
+to_df "RUN --mount=type=cache,id=ffmpeg-downloads-win64,target=${CONTAINER_ROOT}/.cache/downloads,rw
+ \\"
+to_df "    mkdir -p ${CONTAINER_ROOT}/.cache/downloads && \\"
+to_df "    cp -r /tmp/host_downloads/* ${CONTAINER_ROOT}/.cache/downloads/ 2>/dev/null || true"
 
 # Очищаем содержимое перед хешированием:
 # 1. Берем только переменные, влияющие на бинарный код
@@ -204,10 +198,17 @@ for STAGE in "${active_scripts[@]}"; do
     # If you change CFLAGS in vars.sh, ENV_HASH changes -> GLOBAL REBUILD.
     LAYER_ID="E:${ENV_HASH}_L:${LOGIC_HASH}_S:${STAGE_HASH}_P:${PATCH_HASH}"
 
+    # === ДОБАВЛЯЕМ ДИНАМИЧЕСКИЙ STAGE ДЛЯ КАЖДОЙ ЛИБЫ ===
+    to_df "FROM base-win64 AS stage_${STAGENAME}"
+    to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
+    to_df "$COMMON_ENV"
+    to_df "WORKDIR ${CONTAINER_ROOT}"
+    to_df "COPY util/run_stage.sh /usr/bin/run_stage"
+    to_df "RUN chmod +x /usr/bin/run_stage"
+
     to_df "# Component: $STAGENAME | LayerID: $LAYER_ID"
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
-    # to_df "    --mount=type=cache,id=prefix-${TARGET},target=${FFBUILD_PREFIX} \\"
-    # to_df "    --mount=type=bind,source=.cache/downloads,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
+    # Подключаем пул загрузок, который мы наполнили в самом первом стейдже
     to_df "    --mount=type=cache,id=ffmpeg-downloads-win64,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
@@ -215,6 +216,15 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    --mount=type=bind,source=variants,target=${CONTAINER_ROOT}/variants \\"
     to_df "    --mount=type=bind,source=addins,target=${CONTAINER_ROOT}/addins \\"
     to_df "    set -e && export _H=${LAYER_ID} && . ${CONTAINER_ROOT}/util/vars.sh \"${TARGET}\" \"${VARIANT}\" && run_stage ${CONTAINER_ROOT}/${STAGE}"
+done
+
+# Собираем все скомпилированные артефакты в один финальный стейдж компонентов
+to_df "FROM base-win64 AS components_build"
+for STAGE in "${active_scripts[@]}"; do
+    unset STAGENAME
+    eval "$(stage_vars "$STAGE")"
+    # Копируем результаты компиляции (.a, .h, .pc) из индивидуального стейджа в общий префикс
+    to_df "COPY --from=stage_${STAGENAME} ${FFBUILD_PREFIX}/ ${FFBUILD_PREFIX}/"
 done
 
 # FINAL FFMPEG BUILD STAGE

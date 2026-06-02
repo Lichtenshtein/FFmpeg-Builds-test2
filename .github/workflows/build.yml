@@ -377,7 +377,7 @@ jobs:
           push: true
           tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
           cache-from: type=gha,scope=ffmpeg-components
-          cache-to: type=gha,mode=min,scope=ffmpeg-components
+          cache-to: type=gha,mode=max,scope=ffmpeg-components
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
 
