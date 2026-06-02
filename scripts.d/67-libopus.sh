@@ -28,6 +28,10 @@ EOF
 # tar -xzomf "dnn/opus_data-${OPUS_DATA_HASH}.tar.gz"
 # rm -f "dnn/opus_data-${OPUS_DATA_HASH}.tar.gz"
 # EOF
+
+    if [[ -d ".git" ]]; then
+        git add .
+    fi
 }
 
 ffbuild_dockerbuild() {

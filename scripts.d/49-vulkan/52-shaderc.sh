@@ -35,6 +35,10 @@ ffbuild_dockerdl() {
     # Run dependency synchronization.
     # It will now use our updated DEPS file with the new hashes.
     echo "./utils/git-sync-deps || exit $?"
+
+    if [[ -d ".git" ]]; then
+        git add .
+    fi
 }
 
 ffbuild_dockerbuild() {

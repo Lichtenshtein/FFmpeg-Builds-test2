@@ -10,6 +10,9 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     echo "rm -rf .git Thirdparty"
+    if [[ -d ".git" ]]; then
+        git add .
+    fi
 }
 
 ffbuild_dockerbuild() {

@@ -14,6 +14,9 @@ ffbuild_dockerdl() {
     cat <<EOF
 sed -i '1s/^\xEF\xBB\xBF//' flite.sln
 EOF
+    if [[ -d ".git" ]]; then
+        git add .
+    fi
 }
 
 ffbuild_dockerbuild() {

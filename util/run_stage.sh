@@ -178,6 +178,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
             # Очистка перед сохранением в кэш
             if [[ -d ".git" ]]; then
                 log_debug "${BROOM_MARK} Running git clean -fdx for $STAGENAME..."
+                # Исключаем папки или файлы из очистки, напр. -e "lib/include/*"
                 git clean -fdx
             fi
             # Сразу создаем архив в кэше, чтобы в следующий раз он подхватился мгновенно

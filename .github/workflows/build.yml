@@ -13,7 +13,7 @@ on:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
         # default: '05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|37-libpng|37-libjpeg-turbo|37-giflib|37-libtiff|38-libwebp|39-fontconfig|39-fribidi|39-pixman|40-cairo|40-harfbuzz|41-freetype|43-pango|44-dav1d|44-svtav1|45-libavif|45-librsvg'
-        default: '01-mingw-std-threads|02-mingw|06-libiconv|07-gettext|08-zlib|11-brotli|11-xz|16-libxml2|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|38-libwebp|40-lcms2|44-dav1d|44-svtav1|45-libavif|45-libjxl|54-vmaf|70-aom'
+        default: '01-mingw-std-threads|02-mingw|06-libiconv|07-gettext|08-zlib|11-brotli|11-xz|16-libxml2|27-freeglut|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|38-libwebp|40-lcms2|44-dav1d|44-svtav1|45-libavif|45-libjxl|54-vmaf|70-aom'
         # default: '02-mingw|06-libiconv|07-gettext|08-zlib|11-bzlib|12-libffi|15-pcre2|16-glib2|16-fftw3|27-freeglut|30-openssl|64-libsamplerate|64-soxr|65-pulseaudio|66-sdl'
         # default: '.*'
       skip_ffmpeg:
@@ -310,7 +310,7 @@ jobs:
             CPU_ARCH=${{ env.CPU_ARCH }}
             CPU_TUNE=${{ env.CPU_TUNE }}
           cache-from: type=gha,scope=ffmpeg-target-base-${{ steps.docker_hash.outputs.hash }}
-          cache-to: type=gha,mode=max,scope=ffmpeg-target-base-${{ steps.docker_hash.outputs.hash }}
+          cache-to: type=gha,mode=min,scope=ffmpeg-target-base-${{ steps.docker_hash.outputs.hash }}
           push: true
           load: false
           tags: ${{ steps.images.outputs.target_base }}
