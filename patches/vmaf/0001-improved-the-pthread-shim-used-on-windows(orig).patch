@@ -290,24 +290,6 @@ index 269dbb5e..e36cd8ab 100644
  #include "log.h"
  
  #if ARCH_X86
-diff --git a/libvmaf/src/feature/integer_motion.c b/libvmaf/src/feature/integer_motion.c
-index 071d6737..52b317b3 100644
---- a/libvmaf/src/feature/integer_motion.c
-+++ b/libvmaf/src/feature/integer_motion.c
-@@ -269,6 +269,13 @@ static int extract_force_zero(VmafFeatureExtractor *fex,
-     return vmaf_dictionary_free(&s->feature_name_dict);
- }
- 
-+static int close_force_zero(VmafFeatureExtractor *fex)
-+{
-+    MotionState *s = fex->priv;
-+
-+    return vmaf_dictionary_free(&s->feature_name_dict);
-+}
-+
- static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
-                 unsigned bpc, unsigned w, unsigned h)
- {
 diff --git a/libvmaf/src/feature/integer_vif.c b/libvmaf/src/feature/integer_vif.c
 index 534a7b59..5b69b04e 100644
 --- a/libvmaf/src/feature/integer_vif.c
