@@ -1,4 +1,8 @@
-# .dockerignore
-.cache
+# Eliminate the heavy compiler and ffmpeg cache
+.cache/ccache
+.cache/ffmpeg
 .git
 artifacts
+
+# We allow copying ONLY download archives
+! .cache/downloads
