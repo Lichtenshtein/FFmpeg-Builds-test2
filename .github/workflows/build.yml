@@ -396,21 +396,19 @@ jobs:
         run: |
           echo "TensorFlow enabled. Pulling miratmu/ffmpeg-tensorflow image..."
           docker pull miratmu/ffmpeg-tensorflow:latest
-
           echo "Creating temporary container..."
           CONTAINER_ID=$(docker create miratmu/ffmpeg-tensorflow:latest)
 
-          echo "Creating independent directory on host..."
-          mkdir -p ./.cache/tensorflow_models
+          echo "Creating isolated independent directory on host..."
+
+          mkdir -p ./host_tensorflow_models
 
           echo "Extracting .pb models..."
-          docker cp ${CONTAINER_ID}:/usr/local/share/ffmpeg-tensorflow-models/. ./.cache/tensorflow_models/
-
+          docker cp ${CONTAINER_ID}:/usr/local/share/ffmpeg-tensorflow-models/. ./host_tensorflow_models/
           echo "Cleaning up temporary container..."
           docker rm ${CONTAINER_ID}
-
           echo "Models successfully prepared on host:"
-          ls -la ./.cache/tensorflow_models/
+          ls -la ./host_tensorflow_models/
 
       - name: Final FFmpeg Compilation
         if: env.SKIP_FFMPEG != '1'
