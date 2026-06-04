@@ -14,10 +14,21 @@ if [[ -z "$PKG_DIR" && -n "$ASSETS_DIR" ]]; then
     PKG_DIR=$(dirname $(dirname "$ASSETS_DIR"))
 fi
 
+# ====================
+# # ASSET COLLECTION
+# ====================
+
 # Копируем лицензию ПЕРЕД упаковкой
-log_info "${SYNC_MARK} Adding license and logs to package..."
-[[ -n "$LICENSE_FILE" ]] && cp "$FFMPEG_SOURCE_DIR/$LICENSE_FILE" "$PKG_DIR/LICENSE.txt"
-cp "$FFMPEG_CONFIG_LOG" "$PKG_DIR/config.log" || true
+log_info "${SYNC_MARK} Adding licenses to package..."
+for lic in "${LICENSE_FILES[@]}"; do
+    if [[ -f "$FFMPEG_SOURCE_DIR/$lic" ]]; then
+        # Копируем файл, сохраняя оригинальное имя, в папку пакета
+        cp -v "$FFMPEG_SOURCE_DIR/$lic" "$PKG_DIR/"
+        log_info "${CHECK_MARK} License bundled: $lic"
+    else
+        log_warn "License file not found in source dir: $lic"
+    fi
+done
 
 # Плагины лежат в lib/frei0r-1, а для работы в Windows должны быть в bin/frei0r-1
 if [[ -d "$FFBUILD_PREFIX/lib/frei0r-1" ]]; then
@@ -47,21 +58,17 @@ fi
 # Плагины lensfun
 if [[ -d "$FFBUILD_PREFIX/share/lensfun" ]]; then
     log_info "${SYNC_MARK} Collecting lensfun profiles..."
-    mkdir -p "$PKG_DIR/share/lensfun"
-    find "$FFBUILD_PREFIX/share/lensfun/version_2" -name "*.xml" -exec mv -v {} "$PKG_DIR/share/lensfun/" \; || true
+    mkdir -p "$ASSETS_DIR/lensfun"
+    find "$FFBUILD_PREFIX/share/lensfun/version_2" -name "*.xml" -exec mv -v {} "$ASSETS_DIR/lensfun/" \; || true
 else
     log_warn "lensfun profiles not found in $FFBUILD_PREFIX/share/lensfun"
 fi
 
-# Копируем все DLL из нашего сборочного префикса в папку с бинарниками
-# Это подхватит DLL от OpenVINO, TBB, TensorFlow, LibTorch и других
-# OpenVINO часто ищет файлы openvino_intel_cpu_plugin.dll в той же папке
-# Если они лежат в /opt/ffbuild/bin, то всё ок. 
-# Но если они в подпапках (runtime/bin/intel64/...), нужно убедиться, что они попали в $PKG_DIR/bin/
+# Пылесосим все оставшиеся DLL изсборочного префикса в папку с бинарниками
 log_info "${SYNC_MARK} Collecting external component DLLs if present..."
 find "$FFBUILD_PREFIX" -maxdepth 3 \( -name '*.dll' -o -name '*.pyd' -o -name '*.bin' -o -name '*.sign' -o -name '*.zip' \) -exec cp -v {} "$PKG_DIR/bin/" \; 2>/dev/null || true
 
-# Автоматический поиск и упаковка системного рантайма MinGW (SSP, WinPthreads, GCC)
+# Автопоиск и упаковка системного рантайма MinGW (SSP, WinPthreads, GCC)
 log_info "${SYNC_MARK} Analyzing ffmpeg.exe for missing MinGW runtime DLLs..."
 if [[ -f "$PKG_DIR/bin/ffmpeg.exe" ]]; then
     # Находим sysroot и бинарную директорию тулчейна, где живут системные DLL
@@ -95,16 +102,17 @@ if [[ -f "$PKG_DIR/bin/ffmpeg.exe" ]]; then
     done
 fi
 
-log_info "${START_MARK} Starting AI/OCR model and conditional asset collection..."
+# Копируем лог сборки
+log_info "${SYNC_MARK} Coping build log file..."
+cp "$FFMPEG_CONFIG_LOG" "$PKG_DIR/config.log" || true
 
-# ТЕРРИТОРИЯ ССЫЛОК
+# ===================
+# TERRITORY OF LINKS
+# ===================
 
 # Tesseract (tessdata_best)
 URL_TESS_BASE="https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/refs/heads/main"
 URL_TESS_SCRIPT="https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/refs/heads/main/script"
-
-# TensorFlow (SRCNN)
-URL_TF_SRCNN="https://github.com/uzh-rpg/rpg_vimo/raw/master/model/srcnn.pb"
 
 # OpenVINO (ESPCN)
 URL_OV_BASE="https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/single-image-super-resolution-1033/FP32"
@@ -116,7 +124,11 @@ URL_TORCH_EDSR="https://github.com/pytorch/examples/raw/main/super_resolution/mo
 # APPLE AUDIOTOOLBOX
 QTFILES_URL="https://github.com/AnimMouse/QTFiles/releases/download/v12.13.9.1/QTfiles64.7z"
 
-# ЛОГИКА ЗАГРУЗКИ
+# ===================
+# DOWNLOADING LOGIC
+# ===================
+
+log_info "${START_MARK} Starting AI/OCR model and conditional asset collection..."
 
 # TESSERACT MODELS (OCR)
 if [[ "$HAS_LIBTESSERACT" == "1" ]]; then
@@ -156,27 +168,42 @@ if [[ "$HAS_LIBTESSERACT" == "1" ]]; then
 fi
 
 # TENSORFLOW / DNN MODELS (Super Resolution)
-# Проверяем флаг HAS_LIBTENSORFLOW или наличие в config.h
-# if [[ "$HAS_LIBTENSORFLOW" == "1" ]]; then
-    # log_info "${DOWN_MARK} Downloading TensorFlow SR models"
-    # LINK_TF=$(echo "$URL_TF_SRCNN" | tr -d ' ')
-    # download_file "$LINK_TF" "$ASSETS_DIR/srcnn.pb" ""
-# fi
+if [[ "$HAS_LIBTENSORFLOW" == "1" ]]; then
+    log_info "${SYNC_MARK} Extracting TensorFlow SR models from Docker image..."
+    mkdir -p "$ASSETS_DIR/tensorflow"
+
+    # Проверяем, доступен ли docker в текущем контексте
+    if command -v docker &> /dev/null; then
+        # Извлекаем файлы на лету
+        TMP_CONTAINER=$(docker create miratmu/ffmpeg-tensorflow:latest 2>/dev/null || true)
+        if [[ -n "$TMP_CONTAINER" ]]; then
+            docker cp "${TMP_CONTAINER}":/usr/local/share/ffmpeg-tensorflow-models/. "$ASSETS_DIR/tensorflow/"
+            docker rm "$TMP_CONTAINER" > /dev/null
+            log_info "${CHECK_MARK} TensorFlow SR models successfully extracted to package!"
+        else
+            log_warn "Failed to create docker container from miratmu/ffmpeg-tensorflow"
+        fi
+    else
+        log_warn "Docker command not found inside build context, skipping SR models extraction."
+    fi
+fi
 
 # OPENVINO MODELS (VPP_OPENVINO)
 # OpenVINO Models (ESPCN - Super Resolution x2) работают через vpp_openvino
 if [[ "$HAS_LIBOPENVINO" == "1" ]]; then
-    log_info "${DOWN_MARK} Downloading OpenVINO models"
+    log_info "${DOWN_MARK} Downloading OpenVINO models..."
+    mkdir -p "$ASSETS_DIR/openvino"
     LINK_OV=$(echo "$URL_OV_BASE" | tr -d ' ')
-    download_file "$LINK_OV/single-image-super-resolution-1033.xml" "$ASSETS_DIR/sr_model.xml" ""
-    download_file "$LINK_OV/single-image-super-resolution-1033.bin" "$ASSETS_DIR/sr_model.bin" ""
+    download_file "$LINK_OV/single-image-super-resolution-1033.xml" "$ASSETS_DIR/openvino/sr_model.xml" ""
+    download_file "$LINK_OV/single-image-super-resolution-1033.bin" "$ASSETS_DIR/openvino/sr_model.bin" ""
 fi
 
 # LIBTORCH MODELS (EDSR) Модели .torch для фильтра 'sr'
 if [[ "$HAS_LIBTORCH" == "1" ]]; then
     log_info "${DOWN_MARK} Downloading LibTorch models..."
+    mkdir -p "$ASSETS_DIR/torch"
     LINK_TORCH=$(echo "$URL_TORCH_EDSR" | tr -d ' ')
-    download_file "$LINK_TORCH" "$ASSETS_DIR/edsr_x2.torch" ""
+    download_file "$LINK_TORCH" "$ASSETS_DIR/torch/edsr_x2.torch" ""
 fi
 
 # APPLE AUDIOTOOLBOX DLLS (Special handling)
@@ -194,7 +221,7 @@ if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then
 
         # Проверяем, что файлы успешно легли на место
         if ls "$PKG_DIR/bin"/CoreAudioToolbox.dll >/dev/null 2>&1; then
-            log_info "${CHECK_MARK} Apple AudioToolbox DLLs successfully deployed to $PKG_DIR/bin"
+            log_info "${CHECK_MARK} Apple AudioToolbox DLLs successfully deployed to:\n${PKG_DIR}/bin"
         else
             log_error "AudioToolbox DLLs deployment verification failed!"
         fi
@@ -204,4 +231,7 @@ if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then
     fi
 fi
 
-log_info "${CHECK_MARK} All models and asset collection finished for enabled components and moved to:\n$ASSETS_DIR"
+log_info "${CHECK_MARK} All models and asset collection finished for enabled components."
+
+# Проверяем наличие критических библиотек (для отладки в логах)
+ls -lh "$PKG_DIR/bin/"

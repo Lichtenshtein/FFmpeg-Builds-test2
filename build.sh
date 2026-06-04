@@ -273,19 +273,19 @@ done
 # ==========================================
 # LIBTORCH PROCESSING
 # ==========================================
-if [[ "$HAS_LIBTORCH" == "1" ]]; then
+# if [[ "$HAS_LIBTORCH" == "1" ]]; then
     # ls -lh /opt/ffbuild/lib/libtorch_cpu.a || true
     # TORCH_LIBS="-ltorch -ltorch_cpu -lc10"
-    log_info "${TARGET_MARK} Setting up hybrid linking for LibTorch..."
-    TORCH_LIBS="-lXNNPACK -lasmjit -lc10 -lc10d -lcaffe2_detectron_ops -lcaffe2_module_test_dynamic -lclog -lcpuinfo -ldnnl -lfbgemm -lfbjni -lkineto -lmkldnn -lprotobuf-lite -lprotoc -lpthreadpool -lpytorch_jni -ltorch -ltorch_cpu "
-    for lib in ${TORCH_LIBS}; do
-        FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
-    done
-    DYNAMIC_LIBS_ACCUMULATOR+="${TORCH_LIBS} "
-    sed -i '/at::detail::getXPUHooks/d' libavfilter/dnn/dnn_backend_torch.cpp
-    sed -i 's/device.is_xpu()/false/g' libavfilter/dnn/dnn_backend_torch.cpp
-    sed -i 's/at::hasXPU()/false/g' libavfilter/dnn/dnn_backend_torch.cpp
-fi
+    # log_info "${TARGET_MARK} Setting up hybrid linking for LibTorch..."
+    # TORCH_LIBS="-lXNNPACK -lasmjit -lc10 -lc10d -lcaffe2_detectron_ops -lcaffe2_module_test_dynamic -lclog -lcpuinfo -ldnnl -lfbgemm -lfbjni -lkineto -lmkldnn -lprotobuf-lite -lprotoc -lpthreadpool -lpytorch_jni -ltorch -ltorch_cpu "
+    # for lib in ${TORCH_LIBS}; do
+        # FINAL_LIBS=$(echo " ${FINAL_LIBS} " | sed "s/ ${lib} / /g")
+    # done
+    # DYNAMIC_LIBS_ACCUMULATOR+="${TORCH_LIBS} "
+    # sed -i '/at::detail::getXPUHooks/d' libavfilter/dnn/dnn_backend_torch.cpp
+    # sed -i 's/device.is_xpu()/false/g' libavfilter/dnn/dnn_backend_torch.cpp
+    # sed -i 's/at::hasXPU()/false/g' libavfilter/dnn/dnn_backend_torch.cpp
+# fi
 
 # ==========================================
 # WHISPER PROCESSING
@@ -620,31 +620,33 @@ if [ -f "config.h" ]; then
     log_info "${LOGS_MARK} >>> [BEFORE] config.h target line:"
     grep "#define FFMPEG_CONFIGURATION" config.h || echo "Line not found"
 
-    # Удаляем host/extra флаги, обернутые в одинарные кавычки \x27
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--host-cflags=\x27[^\x27]*\x27//g' config.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--host-ldflags=\x27[^\x27]*\x27//g' config.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-cflags=\x27[^\x27]*\x27//g' config.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-cxxflags=\x27[^\x27]*\x27//g' config.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-ldflags=\x27[^\x27]*\x27//g' config.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-ldexeflags=\x27[^\x27]*\x27//g' config.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-libs=\x27[^\x27]*\x27//g' config.h
+    # Извлекаем только саму строку конфигурации (всё, что внутри кавычек)
+    RAW_CONFIG=$(sed -n 's/^#define FFMPEG_CONFIGURATION "\(.*\)"/\1/p' config.h)
 
-    # Удаляем параметры инструментов и их флаги
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--pkg-config-flags=\x27[^\x27]*\x27//g' config.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--pkg-config-flags=[^ ]*//g' config.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--(cc|cxx|ar|ranlib|nm|as)=\x27[^\x27]*\x27//g' config.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--(cc|cxx|ar|ranlib|nm|as)=[^ ]*//g' config.h
+    if [ -n "$RAW_CONFIG" ]; then
+        # Очищаем извлеченную строку с помощью bash/sed в переменной
+        # Удаляем тяжелые флаги компиляции и линковки вместе с их кавычками
+        CLEANED_CONFIG=$(echo "$RAW_CONFIG" | sed -E \
+            -e "s/--host-cflags='\x27[^\x27]*\x27//g" \
+            -e "s/--host-ldflags='\x27[^\x27]*\x27//g" \
+            -e "s/--extra-cflags='\x27[^\x27]*\x27//g" \
+            -e "s/--extra-cxxflags='\x27[^\x27]*\x27//g" \
+            -e "s/--extra-ldflags='\x27[^\x27]*\x27//g" \
+            -e "s/--extra-ldexeflags='\x27[^\x27]*\x27//g" \
+            -e "s/--extra-libs='\x27[^\x27]*\x27//g" \
+            -e "s/--pkg-config-flags='\x27[^\x27]*\x27//g" \
+            -e "s/--pkg-config-flags=[^ ]*//g" \
+            -e "s/--(cc|cxx|ar|ranlib|nm|as)='\x27[^\x27]*\x27//g" \
+            -e "s/--(cc|cxx|ar|ranlib|nm|as)=[^ ]*//g")
 
-    # Схлопываем множественные пробелы внутри строки в один пробел
-    sed -i '/#define FFMPEG_CONFIGURATION/s/  */ /g' config.h
+        # Нормализуем пробелы: схлопываем множественные пробелы в один и удаляем пробелы по краям
+        CLEANED_CONFIG=$(echo "$CLEANED_CONFIG" | xargs)
 
-    # пробел между именем макроса и открывающей кавычкой
-    # (Исправляет ситуацию, когда удаление первого флага уничтожило разделитель)
-    sed -i -E 's/#define FFMPEG_CONFIGURATION ?" ?/#define FFMPEG_CONFIGURATION "/g' config.h
-
-    # Удаляем лишние пробелы в самом конце строки конфигурации (перед закрывающей кавычкой)
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/ "\x22/\x22/g' config.h
-    sed -i -E '/#define FFMPEG_CONFIGURATION/s/ \x22/\x22/g' config.h
+        # Полностью заменяем старую строку в файле на ИДЕАЛЬНО отформатированную новую
+        sed -i "s|^#define FFMPEG_CONFIGURATION.*|#define FFMPEG_CONFIGURATION \"${CLEANED_CONFIG}\"|" config.h
+    else
+        log_warn "Failed to parse FFMPEG_CONFIGURATION content for cleaning."
+    fi
 
     log_info "${LOGS_MARK} <<< [AFTER] config.h target line:"
     grep "#define FFMPEG_CONFIGURATION" config.h
@@ -674,18 +676,14 @@ fi
 BUILD_NAME="ffmpeg-git-${FFMPEG_VERSION}-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
 
 export PKG_DIR="$FFMPEG_PKG_ROOT/${BUILD_NAME}"
-mkdir -p "$PKG_DIR"/{include,lib,bin/assets,doc}
-export ASSETS_DIR="$PKG_DIR/bin/assets"
+mkdir -p "$PKG_DIR"/{bin,doc,share}
+export ASSETS_DIR="$PKG_DIR/share"
 
 if ! declare -F package_variant >/dev/null; then
     log_error "package_variant not defined - variant script missing or broken"
     exit 1
 fi
 package_variant "$FFBUILD_DESTPREFIX" "$PKG_DIR"
-
-# Проверяем наличие критических библиотек (для отладки в логах)
-# Каких библиотек?
-# ls -lh "$PKG_DIR/bin/"
 
 # Скачиваем модели и ассеты
 log_info "${SYNC_MARK} Collecting additional assets..."
