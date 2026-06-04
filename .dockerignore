@@ -5,6 +5,6 @@
 artifacts
 
 # We allow copying ONLY download archives
-! .cache/downloads
-! .cache/ffmpeg
-! .cache/tensorflow_models
+!.cache/downloads
+!.cache/ffmpeg
+!.cache/tensorflow_models
