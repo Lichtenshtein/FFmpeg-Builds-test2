@@ -373,7 +373,7 @@ if [[ -n "$TARGET" && -n "$VARIANT" ]]; then
     fi
 fi
 
-export LICENSE_FILE="COPYING.LGPLv2.1"
+export LICENSE_FILES=("COPYING.GPLv3" "COPYING.LGPLv3" "LICENSE.md")
 
 export ADDINS_STR="${ADDINS_STR:-}"
 
