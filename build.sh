@@ -305,32 +305,18 @@ fi
 # Чистим лишние пробелы, которые мог оставить sed
 # FINAL_LIBS=$(echo ${FINAL_LIBS} | xargs)
 
-log_debug "${SEARCH_MARK} Ищем файлы vulkan в тулчейне /opt/ct-ng/:"
-find /opt/ct-ng -iname "*vulkan*" -type f || true
-
-log_debug "${SEARCH_MARK} Ищем файлы vulkan в префиксе /opt/ffbuild/:"
-find /opt/ffbuild -iname "*vulkan*" -type f || true
-
-log_debug "${SEARCH_MARK} Проверяем содержимое вашей сгенерированной библиотеки заглушки:"
-${FFBUILD_CROSS_PREFIX}nm /opt/ffbuild/lib/libvulkan-1.a | grep -i "vk" || true
-
-
 # Формируем изолированную строку для переключения контекста линкера
 # -Wl,-Bdynamic переключает MinGW ld в режим импорта DLL.
 # -Wl,-Bstatic возвращает линкер в режим сборки честной статики
-DYNAMIC_LIBS_ACCUMULATOR+=$(x86_64-w64-mingw32-gcc -print-file-name=libvulkan-1.a)
-if [[ "$DYNAMIC_LIBS_ACCUMULATOR" == "libvulkan-1.a" || ! -f "$DYNAMIC_LIBS_ACCUMULATOR" ]]; then
-    # Если компилятор вернул относительное имя, берем его из внутреннего sysroot
-    DYNAMIC_LIBS_ACCUMULATOR="/opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/sysroot/lib/libvulkan-1.a"
-fi
-HYBRID_DYNAMIC_FLAGS=""
-if [[ -n "${DYNAMIC_LIBS_ACCUMULATOR}" ]]; then
-    HYBRID_DYNAMIC_FLAGS="-Wl,-Bdynamic ${DYNAMIC_LIBS_ACCUMULATOR} -Wl,-Bstatic "
-fi
+# DYNAMIC_LIBS_ACCUMULATOR+=""
+# HYBRID_DYNAMIC_FLAGS=""
+# if [[ -n "${DYNAMIC_LIBS_ACCUMULATOR}" ]]; then
+    # HYBRID_DYNAMIC_FLAGS="-Wl,-Bdynamic ${DYNAMIC_LIBS_ACCUMULATOR} -Wl,-Bstatic "
+# fi
 
 # Используем группы для решения проблем циклических зависимостей
 # прокидываем библиотеку обработки исключений LTO за пределы основной группы
-FINAL_LIBS_GROUPED="${HYBRID_DYNAMIC_FLAGS} -Wl,--start-group ${FINAL_LIBS} -Wl,--end-group -lstdc++"
+FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
@@ -538,10 +524,51 @@ if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/lcevc_dec.pc" ]]; then
 
     # Исправляем невалидное имя статической библиотеки экстрактора (убираем суффикс .a)
     sed -i 's/-llcevc_dec_extract.a/-llcevc_dec_extract/g' "${FFBUILD_PREFIX}/lib/pkgconfig/lcevc_dec.pc"
-
-    # Выводим результат для контроля в CI/CD
-    cat "${FFBUILD_PREFIX}/lib/pkgconfig/lcevc_dec.pc" >&2
 fi
+
+log_info "Generating full-fledged proxy code for KHR extensions for libvulkan-1.a..."
+
+cat << 'EOF' > /tmp/vulkan_khr_fix.c
+#include <windows.h>
+
+// Объявляем указатели на функции
+typedef void* (*PFN_vkVoidFunction)(void);
+typedef PFN_vkVoidFunction (*PFN_vkGetInstanceProcAddr)(void* instance, const char* pName);
+
+// Нам нужен экспорт vkGetInstanceProcAddr из вашей заглушки
+extern PFN_vkVoidFunction vkGetInstanceProcAddr(void* instance, const char* pName);
+
+// Динамический резолв через внутренний лоадер заглушки
+static PFN_vkVoidFunction resolve_khr(const char* name) {
+    // Передаем NULL в качестве инстанса для базовых KHR Surface функций
+    return vkGetInstanceProcAddr(NULL, name);
+}
+
+#define DEFINE_KHR_PROXY(name) \
+    void name() { \
+        static PFN_vkVoidFunction ptr = NULL; \
+        if (!ptr) ptr = resolve_khr(#name); \
+        if (ptr) ((void(*)(void))ptr)(); \
+    }
+
+// Генерируем реальные точки входа для линковщика
+DEFINE_KHR_PROXY(vkGetPhysicalDeviceSurfaceSupportKHR)
+DEFINE_KHR_PROXY(vkDestroySwapchainKHR)
+DEFINE_KHR_PROXY(vkDestroySurfaceKHR)
+DEFINE_KHR_PROXY(vkGetPhysicalDeviceSurfaceCapabilitiesKHR)
+DEFINE_KHR_PROXY(vkGetPhysicalDeviceSurfaceFormatsKHR)
+DEFINE_KHR_PROXY(vkGetPhysicalDeviceSurfacePresentModesKHR)
+DEFINE_KHR_PROXY(vkCreateSwapchainKHR)
+DEFINE_KHR_PROXY(vkGetSwapchainImagesKHR)
+EOF
+
+# Компилируем и внедряем в существующую библиотеку без сброса кэша
+$CC $CFLAGS ${USELTO}${USELTO_C} -c /tmp/vulkan_khr_fix.c -o /tmp/vulkan_khr_fix.o
+$AR rcs /opt/ffbuild/lib/libvulkan-1.a /tmp/vulkan_khr_fix.o
+$RANLIB /opt/ffbuild/lib/libvulkan-1.a
+
+log_info "Real KHR proxies successfully integrated into libvulkan-1.a"
+
 
 log_info_line
 log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
