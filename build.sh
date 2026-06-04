@@ -516,60 +516,6 @@ if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
     CONF_FLAGS+=( --nvcc=clang )
 fi
 
-# Модифицируем lcevc_dec.pc на лету, чтобы скрыть несуществующую зависимость от vulkan.pc
-if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/lcevc_dec.pc" ]]; then
-    log_info "Patching lcevc_dec.pc to work around a Vulkan error..."
-
-    sed -i 's/Requires.private:.*/Requires.private: /g' "${FFBUILD_PREFIX}/lib/pkgconfig/lcevc_dec.pc"
-
-    # Исправляем невалидное имя статической библиотеки экстрактора (убираем суффикс .a)
-    sed -i 's/-llcevc_dec_extract.a/-llcevc_dec_extract/g' "${FFBUILD_PREFIX}/lib/pkgconfig/lcevc_dec.pc"
-fi
-
-log_info "Generating full-fledged proxy code for KHR extensions for libvulkan-1.a..."
-
-cat << 'EOF' > /tmp/vulkan_khr_fix.c
-#include <windows.h>
-
-// Объявляем указатели на функции
-typedef void* (*PFN_vkVoidFunction)(void);
-typedef PFN_vkVoidFunction (*PFN_vkGetInstanceProcAddr)(void* instance, const char* pName);
-
-// Нам нужен экспорт vkGetInstanceProcAddr из вашей заглушки
-extern PFN_vkVoidFunction vkGetInstanceProcAddr(void* instance, const char* pName);
-
-// Динамический резолв через внутренний лоадер заглушки
-static PFN_vkVoidFunction resolve_khr(const char* name) {
-    // Передаем NULL в качестве инстанса для базовых KHR Surface функций
-    return vkGetInstanceProcAddr(NULL, name);
-}
-
-#define DEFINE_KHR_PROXY(name) \
-    void name() { \
-        static PFN_vkVoidFunction ptr = NULL; \
-        if (!ptr) ptr = resolve_khr(#name); \
-        if (ptr) ((void(*)(void))ptr)(); \
-    }
-
-// Генерируем реальные точки входа для линковщика
-DEFINE_KHR_PROXY(vkGetPhysicalDeviceSurfaceSupportKHR)
-DEFINE_KHR_PROXY(vkDestroySwapchainKHR)
-DEFINE_KHR_PROXY(vkDestroySurfaceKHR)
-DEFINE_KHR_PROXY(vkGetPhysicalDeviceSurfaceCapabilitiesKHR)
-DEFINE_KHR_PROXY(vkGetPhysicalDeviceSurfaceFormatsKHR)
-DEFINE_KHR_PROXY(vkGetPhysicalDeviceSurfacePresentModesKHR)
-DEFINE_KHR_PROXY(vkCreateSwapchainKHR)
-DEFINE_KHR_PROXY(vkGetSwapchainImagesKHR)
-EOF
-
-# Компилируем и внедряем в существующую библиотеку без сброса кэша
-$CC $CFLAGS ${USELTO}${USELTO_C} -c /tmp/vulkan_khr_fix.c -o /tmp/vulkan_khr_fix.o
-$AR rcs /opt/ffbuild/lib/libvulkan-1.a /tmp/vulkan_khr_fix.o
-$RANLIB /opt/ffbuild/lib/libvulkan-1.a
-
-log_info "Real KHR proxies successfully integrated into libvulkan-1.a"
-
-
 log_info_line
 log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
 

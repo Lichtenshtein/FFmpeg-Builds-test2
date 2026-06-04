@@ -23,7 +23,7 @@ cp "$FFMPEG_CONFIG_LOG" "$PKG_DIR/config.log" || true
 if [[ -d "$FFBUILD_PREFIX/lib/frei0r-1" ]]; then
     log_info "${SYNC_MARK} Collecting frei0r plugins..."
     mkdir -p "$PKG_DIR/bin/frei0r-1"
-    find "$FFBUILD_PREFIX/lib/frei0r-1" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/frei0r-1/" \; || true
+    find "$FFBUILD_PREFIX/lib/frei0r-1" -name "*.dll" -exec mv -v {} "$PKG_DIR/bin/frei0r-1/" \; || true
 else
     log_warn "Frei0r plugins not found in $FFBUILD_PREFIX/lib/frei0r-1"
 fi
@@ -39,7 +39,7 @@ fi
 # Плагины avisynth
 if [[ -d "$FFBUILD_PREFIX/lib/avisynth" ]]; then
     log_info "${SYNC_MARK} Collecting avisynth plugins..."
-    find "$FFBUILD_PREFIX/lib/avisynth" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \; || true
+    find "$FFBUILD_PREFIX/lib/avisynth" -name "*.dll" -exec mv -v {} "$PKG_DIR/bin/" \; || true
 else
     log_warn "avisynth plugins not found in $FFBUILD_PREFIX/lib/avisynth"
 fi
@@ -48,7 +48,7 @@ fi
 if [[ -d "$FFBUILD_PREFIX/share/lensfun" ]]; then
     log_info "${SYNC_MARK} Collecting lensfun profiles..."
     mkdir -p "$PKG_DIR/share/lensfun"
-    find "$FFBUILD_PREFIX/share/lensfun/version_2" -name "*.xml" -exec cp -v {} "$PKG_DIR/share/lensfun/" \; || true
+    find "$FFBUILD_PREFIX/share/lensfun/version_2" -name "*.xml" -exec mv -v {} "$PKG_DIR/share/lensfun/" \; || true
 else
     log_warn "lensfun profiles not found in $FFBUILD_PREFIX/share/lensfun"
 fi
@@ -121,7 +121,7 @@ QTFILES_URL="https://github.com/AnimMouse/QTFiles/releases/download/v12.13.9.1/Q
 # TESSERACT MODELS (OCR)
 if [[ "$HAS_LIBTESSERACT" == "1" ]]; then
     log_info "${DOWN_MARK} Downloading Tesseract OCR models (tessdata_best)"
-    TESS_DEST="$ASSETS_DIR/tessdata"
+    TESS_DEST="$PKG_DIR/tessdata"
     mkdir -p "$TESS_DEST/script"
 
     # Список необходимых файлов

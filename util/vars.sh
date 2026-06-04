@@ -184,11 +184,11 @@ export FFMPEG_HASH_FILE="${FFMPEG_DIR}/.current_commit" # хеш последн�
 # add ffbuild_dockerbuild() { export SKIP_POST_PATCH=1 } to disable
 # add SKIP_PRE_PATCH=1 to the top of the script
 # add USE_CONF_FINDER=1 for crooked autogen scripts
-export SKIP_PRE_PATCH=0
+export SKIP_PRE_PATCH=0  # inside main
 export SKIP_POST_PATCH=0 # inside main
 export SKIP_POST_CLEAN=0
 export SKIP_POST_AUDIT=0
-export SKIP_POST_STRIP=0 # inside main
+export SKIP_POST_STRIP=0 # inside dockerbuild
 export USE_CONF_FINDER=0
 
 mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
