@@ -100,7 +100,7 @@ to_df "FROM base-win64 AS components_build"
 # Слой-донор: принимает файлы, которые download.sh скачал на хост
 to_df "COPY .cache/downloads/ /tmp/host_downloads/"
 if [[ "${USE_TENSORFLOW}" == "1" ]]; then
-    to_df "MOVE .cache/tensorflow_models/ /tmp/host_tensorflow_models/"
+    to_df "COPY .cache/tensorflow_models/ /tmp/host_tensorflow_models/"
 fi
 # Копируем их внутрь постоянного кэша Buildx, чтобы run_stage их увидел
 to_df "RUN --mount=type=cache,id=ffmpeg-downloads-win64,target=/builder/.cache/downloads \\"
