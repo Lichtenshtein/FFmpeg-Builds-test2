@@ -157,15 +157,15 @@ fi
 
 # TENSORFLOW / DNN MODELS (Super Resolution)
 # Проверяем флаг HAS_LIBTENSORFLOW или наличие в config.h
-if [[ "$HAS_LIBTENSORFLOW" == "1" ]] || grep -q "CONFIG_SR_FILTER 1" "$FFMPEG_SOURCE_DIR/config.h" 2>/dev/null; then
-    log_info "${DOWN_MARK} Downloading TensorFlow SR models"
-    LINK_TF=$(echo "$URL_TF_SRCNN" | tr -d ' ')
-    download_file "$LINK_TF" "$ASSETS_DIR/srcnn.pb" ""
-fi
+# if [[ "$HAS_LIBTENSORFLOW" == "1" ]]; then
+    # log_info "${DOWN_MARK} Downloading TensorFlow SR models"
+    # LINK_TF=$(echo "$URL_TF_SRCNN" | tr -d ' ')
+    # download_file "$LINK_TF" "$ASSETS_DIR/srcnn.pb" ""
+# fi
 
 # OPENVINO MODELS (VPP_OPENVINO)
 # OpenVINO Models (ESPCN - Super Resolution x2) работают через vpp_openvino
-if [[ "$HAS_LIBOPENVINO" == "1" ]] || grep -q "CONFIG_VPP_OPENVINO_FILTER 1" "$FFMPEG_SOURCE_DIR/config.h" 2>/dev/null; then
+if [[ "$HAS_LIBOPENVINO" == "1" ]]; then
     log_info "${DOWN_MARK} Downloading OpenVINO models"
     LINK_OV=$(echo "$URL_OV_BASE" | tr -d ' ')
     download_file "$LINK_OV/single-image-super-resolution-1033.xml" "$ASSETS_DIR/sr_model.xml" ""

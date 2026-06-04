@@ -165,11 +165,9 @@ download_file() {
     # -L (location) следовать редиректам SourceForge
 
     # если первая попытка провалилась (или нет pv) запускаем _retry
-    # try 
-    # if ! _retry curl -A "$useragent" -fsSL --connect-timeout 15 "$URL" -o "$DEST"; then
-    if ! _retry bash -c "curl -A $(printf '%q' "$useragent") \
+    if ! _retry curl -A "$useragent" \
             -fsSL --connect-timeout 15 \
-            $(printf '%q' "$URL") -o $(printf '%q' "$DEST")"; then
+            "$URL" -o "$DEST"; then
         log_error "All download attempts failed for $(basename "$DEST")"
         rm -f "$DEST"
         return 1
