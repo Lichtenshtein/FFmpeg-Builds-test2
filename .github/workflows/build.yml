@@ -399,13 +399,13 @@ jobs:
           echo "Creating temporary container..."
           CONTAINER_ID=$(docker create miratmu/ffmpeg-tensorflow:latest)
           echo "Creating local assets directory on host..."
-          mkdir -p ./tensorflow_models
+          mkdir -p ./.cache/tensorflow_models/
           echo "Extracting .pb models..."
-          docker cp ${CONTAINER_ID}:/usr/local/share/ffmpeg-tensorflow-models/. ./tensorflow_models/
+          docker cp ${CONTAINER_ID}:/usr/local/share/ffmpeg-tensorflow-models/. ./.cache/tensorflow_models/
           echo "Cleaning up temporary container..."
           docker rm ${CONTAINER_ID}
           echo "Models successfully prepared on host:"
-          ls -la ./tensorflow_models/
+          ls -la ./.cache/tensorflow_models/
 
       - name: Final FFmpeg Compilation
         if: env.SKIP_FFMPEG != '1'
