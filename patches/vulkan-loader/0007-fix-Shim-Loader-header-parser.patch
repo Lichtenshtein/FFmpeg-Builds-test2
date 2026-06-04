@@ -1,0 +1,28 @@
+From ecbc7e9539733b925aff14edb0924d2188b58abe Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Thu, 4 Jun 2026 08:06:17 +0300
+Subject: [PATCH] fix Shim-Loader header parser
+
+---
+ gen_shim.py | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/gen_shim.py b/gen_shim.py
+index f4416d1..8c73b18 100755
+--- a/gen_shim.py
++++ b/gen_shim.py
+@@ -17,7 +17,10 @@ for cmd in ET.parse(vkxml).getroot().findall(".//commands/command"):
+     proto = cmd.find("proto")
+     if proto is None:
+         continue
+-    if "vulkan" not in cmd.get("export", "").lower().split(","):
++
++    name = proto.find("name").text
++
++    if any(cmd_item[1] == name for cmd_item in commands):
+         continue
+ 
+     name = proto.find("name").text
+-- 
+2.52.0.windows.1
+
