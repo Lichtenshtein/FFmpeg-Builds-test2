@@ -538,7 +538,6 @@ fi
 if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
     log_info "Applying precise LCEVC SDK 4.0.0 migration patches..."
 
-    # === Патчим libavfilter/vf_lcevc.c ===
     if [[ -f "libavfilter/vf_lcevc.c" ]]; then
         # Удаляем флаг discontinuity (0) из LCEVC_SendDecoderEnhancementData
         sed -i 's|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size)|g' libavfilter/vf_lcevc.c
@@ -551,7 +550,6 @@ if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
         log_warn "File libavfilter/vf_lcevc.c not found, skipping."
     fi
 
-    # === Патчим libavcodec/lcevcdec.c ===
     if [[ -f "libavcodec/lcevcdec.c" ]]; then
         # Удаляем флаг discontinuity (0) из LCEVC_SendDecoderEnhancementData
         sed -i 's|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size)|g' libavcodec/lcevcdec.c
@@ -564,9 +562,6 @@ if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
         log_error "libavcodec/lcevcdec.c not found!"
     fi
 fi
-
-# fix libsvtjpegxsenc; until i update the patch which will reset the whole cache
-# sed -i '/static int set_pix_fmt/,/^}/ s/^[[:space:]]*return;/        return 0;/' libavcodec/libsvtjpegxsenc.c
 
 if [[ "$TARGET" == "win64" ]]; then
     log_info "We're adjusting the generated config.h: we're forcibly disabling HAVE_FCNTL for Windows..."
@@ -625,7 +620,7 @@ if [ -f "config.h" ]; then
     log_info "${LOGS_MARK} >>> [BEFORE] config.h target line:"
     grep "#define FFMPEG_CONFIGURATION" config.h || echo "Line not found"
 
-    # # cut out the host/extra flags wrapped in single quotes \x27
+    # Удаляем host/extra флаги, обернутые в одинарные кавычки \x27
     sed -i -E '/#define FFMPEG_CONFIGURATION/s/--host-cflags=\x27[^\x27]*\x27//g' config.h
     sed -i -E '/#define FFMPEG_CONFIGURATION/s/--host-ldflags=\x27[^\x27]*\x27//g' config.h
     sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-cflags=\x27[^\x27]*\x27//g' config.h
@@ -634,20 +629,22 @@ if [ -f "config.h" ]; then
     sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-ldexeflags=\x27[^\x27]*\x27//g' config.h
     sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-libs=\x27[^\x27]*\x27//g' config.h
 
-    # # Strip out the tool parameters, including any surrounding single quotes
+    # Удаляем параметры инструментов и их флаги
     sed -i -E '/#define FFMPEG_CONFIGURATION/s/--pkg-config-flags=\x27[^\x27]*\x27//g' config.h
     sed -i -E '/#define FFMPEG_CONFIGURATION/s/--pkg-config-flags=[^ ]*//g' config.h
-
     sed -i -E '/#define FFMPEG_CONFIGURATION/s/--(cc|cxx|ar|ranlib|nm|as)=\x27[^\x27]*\x27//g' config.h
     sed -i -E '/#define FFMPEG_CONFIGURATION/s/--(cc|cxx|ar|ranlib|nm|as)=[^ ]*//g' config.h
 
-    # # Collapsing spaces STRICTLY inside the FFMPEG CONFIGURATION macro string
+    # Схлопываем множественные пробелы внутри строки в один пробел
     sed -i '/#define FFMPEG_CONFIGURATION/s/  */ /g' config.h
 
-    sed -i 's/#define FFMPEG_CONFIGURATION"/#define FFMPEG_CONFIGURATION "/g' config.h
+    # пробел между именем макроса и открывающей кавычкой
+    # (Исправляет ситуацию, когда удаление первого флага уничтожило разделитель)
+    sed -i -E 's/#define FFMPEG_CONFIGURATION ?" ?/#define FFMPEG_CONFIGURATION "/g' config.h
 
-    # # Remove the trailing space before the closing double quote at the end of the line.
-    sed -i '/#define FFMPEG_CONFIGURATION/s/ \x22/\x22/g' config.h
+    # Удаляем лишние пробелы в самом конце строки конфигурации (перед закрывающей кавычкой)
+    sed -i -E '/#define FFMPEG_CONFIGURATION/s/ "\x22/\x22/g' config.h
+    sed -i -E '/#define FFMPEG_CONFIGURATION/s/ \x22/\x22/g' config.h
 
     log_info "${LOGS_MARK} <<< [AFTER] config.h target line:"
     grep "#define FFMPEG_CONFIGURATION" config.h
@@ -687,7 +684,8 @@ fi
 package_variant "$FFBUILD_DESTPREFIX" "$PKG_DIR"
 
 # Проверяем наличие критических библиотек (для отладки в логах)
-ls -lh "$PKG_DIR/bin/"
+# Каких библиотек?
+# ls -lh "$PKG_DIR/bin/"
 
 # Скачиваем модели и ассеты
 log_info "${SYNC_MARK} Collecting additional assets..."
