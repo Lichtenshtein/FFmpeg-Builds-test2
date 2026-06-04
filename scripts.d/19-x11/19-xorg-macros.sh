@@ -17,8 +17,8 @@ ffbuild_dockerdl() {
 }
 
 ffbuild_dockerlayer() {
-    to_df "COPY --link --from=${SELFLAYER} \$FFBUILD_DESTPREFIX/. \$FFBUILD_PREFIX"
-    to_df "COPY --link --from=${SELFLAYER} \$FFBUILD_DESTPREFIX/share/aclocal/. /usr/share/aclocal"
+    to_df "COPY --link --from=${SELFLAYER} \$INSTALL_ROOT/. \$FFBUILD_PREFIX"
+    to_df "COPY --link --from=${SELFLAYER} \$INSTALL_ROOT/share/aclocal/. /usr/share/aclocal"
 }
 
 ffbuild_dockerbuild() {

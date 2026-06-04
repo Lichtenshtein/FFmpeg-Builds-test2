@@ -130,7 +130,7 @@ export CXX="ccache ${FFBUILD_TOOLCHAIN}-g++"
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
 export FFBUILD_DESTDIR="/opt/ffdest"
 export FFBUILD_DESTPREFIX="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}"
-export INSTALL_ROOT="$FFBUILD_DESTPREFIX" # single less confusing source of truth
+export INSTALL_ROOT="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}" # single less confusing source of truth
 # directory for saving .pc files from components
 export PC_DIR="${INSTALL_ROOT}/lib/pkgconfig"
 # directory for storing .vars files with
@@ -372,8 +372,6 @@ if [[ -n "$TARGET" && -n "$VARIANT" ]]; then
         return 1 2>/dev/null || exit 1
     fi
 fi
-
-export LICENSE_FILES=("COPYING.GPLv3" "COPYING.LGPLv3" "LICENSE.md")
 
 export ADDINS_STR="${ADDINS_STR:-}"
 

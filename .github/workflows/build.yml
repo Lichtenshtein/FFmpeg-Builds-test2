@@ -145,6 +145,7 @@ env:
   OLDER_FFNV:     ${{ github.event.inputs.older_ffnv     == 'true' && '1' || '0' }}
   DIR_NUMBERS:    ${{ github.event.inputs.dir_numbers    == 'true' && '1' || '0' }}
   BUILD_VINO:     ${{ github.event.inputs.build_vino     == 'true' && '1' || '0' }}
+  USE_TENSORFLOW: '1'
   # Маппинг Inputs -> Env для всех динамических значений
   FFMPEG_REPO:     ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-Plus.git' }}
   FFMPEG_BRANCH:   ${{ github.event.inputs.ffmpeg_branch || 'master' }}
@@ -389,6 +390,22 @@ jobs:
             exit 1
           fi
           echo "FFmpeg source OK: $(cat .cache/ffmpeg/VERSION 2>/dev/null || echo 'version unknown')"
+
+      - name: Extract Pre-compiled TensorFlow SR Models (Host Side)
+        if: env.USE_TENSORFLOW == '1'
+        run: |
+          echo "TensorFlow enabled. Pulling miratmu/ffmpeg-tensorflow image..."
+          docker pull miratmu/ffmpeg-tensorflow:latest
+          echo "Creating temporary container..."
+          CONTAINER_ID=$(docker create miratmu/ffmpeg-tensorflow:latest)
+          echo "Creating local assets directory on host..."
+          mkdir -p ./tensorflow_models
+          echo "Extracting .pb models..."
+          docker cp ${CONTAINER_ID}:/usr/local/share/ffmpeg-tensorflow-models/. ./tensorflow_models/
+          echo "Cleaning up temporary container..."
+          docker rm ${CONTAINER_ID}
+          echo "Models successfully prepared on host:"
+          ls -la ./tensorflow_models/
 
       - name: Final FFmpeg Compilation
         if: env.SKIP_FFMPEG != '1'

@@ -23,10 +23,10 @@ ffbuild_dockerbuild() {
 
     log_info "Installing mingw-std-threads headers from $(pwd)..."
 
-    mkdir -p "$FFBUILD_DESTPREFIX/include"
+    mkdir -p "$INSTALL_ROOT/include"
 
     if ls *.h >/dev/null 2>&1; then
-        cp *.h "$FFBUILD_DESTPREFIX/include/"
+        cp *.h "$INSTALL_ROOT/include/"
         log_info "${CHECK_MARK} Headers installed successfully."
     else
         log_error "No .h files found in $(pwd)!"

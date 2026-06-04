@@ -44,6 +44,6 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    gen-implib "$FFBUILD_DESTPREFIX"/lib/{libXinerama.so.1,libXinerama.a}
-    rm "$FFBUILD_DESTPREFIX"/lib/libXinerama{.so*,.la}
+    gen-implib "$INSTALL_ROOT"/lib/{libXinerama.so.1,libXinerama.a}
+    rm "$INSTALL_ROOT"/lib/libXinerama{.so*,.la}
 }

@@ -49,7 +49,7 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Исправление для корректной линковки в FFmpeg (иногда CMake не копирует все хедеры)
-    cp -r ../glslang/Public "$FFBUILD_DESTPREFIX/include/glslang"
+    cp -r ../glslang/Public "$INSTALL_ROOT/include/glslang"
 
     mkdir -p "$PC_DIR"
     cat >"$PC_DIR/glslang.pc" <<EOF

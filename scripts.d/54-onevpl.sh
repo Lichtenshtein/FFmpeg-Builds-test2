@@ -41,7 +41,7 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    rm -rf "$FFBUILD_DESTPREFIX"/{etc,share}
+    rm -rf "$INSTALL_ROOT"/{etc,share}
 
     sed -i '/^Libs.private:/ s/$/ -lstdc++/' "$PC_DIR/vpl.pc"
 }

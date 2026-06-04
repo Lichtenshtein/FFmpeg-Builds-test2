@@ -475,7 +475,7 @@ chmod +x configure
 
 # Tip: -Wl,--allow-multiple-definition needed for KVAZAAR with cryptopp.
 CONF_FLAGS=(
-    --prefix="$FFBUILD_DESTPREFIX"
+    --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
     --host-cc="ccache gcc-14"
     --host-cflags="$HOST_CFLAGS"
@@ -564,7 +564,7 @@ if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
 fi
 
 if [[ "$TARGET" == "win64" ]]; then
-    log_info "We're adjusting the generated config.h: we're forcibly disabling HAVE_FCNTL for Windows..."
+    log_info "Adjusting the generated config.h: forcibly disabling HAVE_FCNTL for Windows..."
 
     log_info "Searching for and patching all generated config.h files..."
 
@@ -617,39 +617,58 @@ fi
 
 # Очистка хедера ffmpeg
 if [ -f "config.h" ]; then
-    log_info "${LOGS_MARK} >>> [BEFORE] config.h target line:"
-    grep "#define FFMPEG_CONFIGURATION" config.h || echo "Line not found"
 
-    # Извлекаем только саму строку конфигурации (всё, что внутри кавычек)
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+        log_info "${LOGS_MARK} >>> [BEFORE] config.h target line:"
+        grep "#define FFMPEG_CONFIGURATION" config.h || echo "Line not found"
+    fi
+
+    # Извлекаем только контент внутри кавычек макроса
     RAW_CONFIG=$(sed -n 's/^#define FFMPEG_CONFIGURATION "\(.*\)"/\1/p' config.h)
 
     if [ -n "$RAW_CONFIG" ]; then
-        # Очищаем извлеченную строку с помощью bash/sed в переменной
-        # Удаляем тяжелые флаги компиляции и линковки вместе с их кавычками
-        CLEANED_CONFIG=$(echo "$RAW_CONFIG" | sed -E \
-            -e "s/--host-cflags='\x27[^\x27]*\x27//g" \
-            -e "s/--host-ldflags='\x27[^\x27]*\x27//g" \
-            -e "s/--extra-cflags='\x27[^\x27]*\x27//g" \
-            -e "s/--extra-cxxflags='\x27[^\x27]*\x27//g" \
-            -e "s/--extra-ldflags='\x27[^\x27]*\x27//g" \
-            -e "s/--extra-ldexeflags='\x27[^\x27]*\x27//g" \
-            -e "s/--extra-libs='\x27[^\x27]*\x27//g" \
-            -e "s/--pkg-config-flags='\x27[^\x27]*\x27//g" \
-            -e "s/--pkg-config-flags=[^ ]*//g" \
-            -e "s/--(cc|cxx|ar|ranlib|nm|as)='\x27[^\x27]*\x27//g" \
-            -e "s/--(cc|cxx|ar|ranlib|nm|as)=[^ ]*//g")
+        # парсим строку в настоящий массив. 
+        # Оболочка сама разберется с вложенными кавычками типа '--extra-cflags=...'
+        eval "FINAL_ARGS=($RAW_CONFIG)"
 
-        # Нормализуем пробелы: схлопываем множественные пробелы в один и удаляем пробелы по краям
-        CLEANED_CONFIG=$(echo "$CLEANED_CONFIG" | xargs)
+        CLEANED_ARGS=()
 
-        # Полностью заменяем старую строку в файле на ИДЕАЛЬНО отформатированную новую
+        # Фильтруем аргументы, исключая все тяжелые флаги и пути к компиляторам
+        for arg in "${FINAL_ARGS[@]}"; do
+            case "$arg" in
+                --host-cflags=*|--host-ldflags=*|--extra-cflags=*|--extra-cxxflags=*|--extra-ldflags=*|--extra-ldexeflags=*|--extra-libs=*)
+                    # Пропускаем флаги компиляции и линковки
+                    continue
+                    ;;
+                --pkg-config-flags=*|--cc=*|--cxx=*|--ar=*|--ranlib=*|--nm=*|--as=*)
+                    # Пропускаем пути к тулчейну
+                    continue
+                    ;;
+                *)
+                    # Сохраняем только эстетичные и полезные опции (--enable-...)
+                    # Если аргумент содержит пробелы, мы вернем ему одинарные кавычки для красоты
+                    if [[ "$arg" == *" "* ]]; then
+                        CLEANED_ARGS+=("'$arg'")
+                    else
+                        CLEANED_ARGS+=("$arg")
+                    fi
+                    ;;
+            esac
+        done
+
+        # Собираем элементы обратно в красивую строку через один пробел
+        CLEANED_CONFIG="${CLEANED_ARGS[*]}"
+
+        # Жестко перезаписываем строку в файле, гарантируя идеальный пробел перед кавычкой (ISO C99)
         sed -i "s|^#define FFMPEG_CONFIGURATION.*|#define FFMPEG_CONFIGURATION \"${CLEANED_CONFIG}\"|" config.h
     else
         log_warn "Failed to parse FFMPEG_CONFIGURATION content for cleaning."
     fi
 
-    log_info "${LOGS_MARK} <<< [AFTER] config.h target line:"
-    grep "#define FFMPEG_CONFIGURATION" config.h
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+        log_info "${LOGS_MARK} <<< [AFTER] config.h target line:"
+        grep "#define FFMPEG_CONFIGURATION" config.h
+    fi
 fi
 
 # Сборка и установка ffmpeg
@@ -683,7 +702,7 @@ if ! declare -F package_variant >/dev/null; then
     log_error "package_variant not defined - variant script missing or broken"
     exit 1
 fi
-package_variant "$FFBUILD_DESTPREFIX" "$PKG_DIR"
+package_variant "$INSTALL_ROOT" "$PKG_DIR"
 
 # Скачиваем модели и ассеты
 log_info "${SYNC_MARK} Collecting additional assets..."

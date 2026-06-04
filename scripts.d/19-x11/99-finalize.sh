@@ -8,8 +8,8 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerlayer() {
-    to_df "COPY --link --from=${SELFLAYER} \$FFBUILD_DESTPREFIX/. \$FFBUILD_PREFIX"
-    to_df "COPY --link --from=${SELFLAYER} \$FFBUILD_DESTPREFIX/share/aclocal/. /usr/share/aclocal"
+    to_df "COPY --link --from=${SELFLAYER} \$INSTALL_ROOT/. \$FFBUILD_PREFIX"
+    to_df "COPY --link --from=${SELFLAYER} \$INSTALL_ROOT/share/aclocal/. /usr/share/aclocal"
 }
 
 ffbuild_dockerdl() {
@@ -18,8 +18,8 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     if [[ "${PREFER_SHARED}" != "1" ]]; then
-            rm "$FFBUILD_DESTPREFIX"/lib/lib*.so* || true
-            rm "$FFBUILD_DESTPREFIX"/lib/*.la || true
+            rm "$INSTALL_ROOT"/lib/lib*.so* || true
+            rm "$INSTALL_ROOT"/lib/*.la || true
     fi
 }
 

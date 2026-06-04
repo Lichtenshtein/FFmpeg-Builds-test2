@@ -65,6 +65,7 @@ log_info "${CHECK_MARK} Active addins: ${GREY_B}${ADDINS_STR:-none}${NC}"
 [[ "$OLDER_FFNV" == "1" ]]     && log_info "${XCLAM_MARK} FFNVcodec sdk version 8.1 will be installed."
 [[ "$DIR_NUMBERS" == "1" ]]    && log_info "${XCLAM_MARK} Script collector will ignore numbering of folders."
 [[ "$BUILD_VINO" == "1" ]]     && log_info "${XCLAM_MARK} Will build OpenVINO from source. You'll gonna carry that weight..."
+[[ "$USE_TENSORFLOW" == "1" ]] && log_info "${XCLAM_MARK} TensorFlow component is enabled."
 
 echo -n "" > Dockerfile # Явно очищаем файл перед началом записи
 to_df() { echo "$*" >> Dockerfile; }
@@ -88,6 +89,7 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     BUILD_VINO=\"${BUILD_VINO}\" \\
     DIR_NUMBERS=\"${DIR_NUMBERS}\" \\
     USE_LTO=\"${USE_LTO}\" \\
+    USE_TENSORFLOW=\"${USE_TENSORFLOW}\" \\
     CPU_ARCH=\"${CPU_ARCH:-broadwell}\" \\
     CPU_TUNE=\"${CPU_TUNE:-broadwell}\" \\
     DLL_PRESERVE_LIST=\"${DLL_PRESERVE_LIST}\" \\
