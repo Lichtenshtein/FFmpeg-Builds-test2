@@ -305,6 +305,16 @@ fi
 # Чистим лишние пробелы, которые мог оставить sed
 # FINAL_LIBS=$(echo ${FINAL_LIBS} | xargs)
 
+log_debug "${SEARCH_MARK} Ищем файлы vulkan в тулчейне /opt/ct-ng/:"
+find /opt/ct-ng -iname "*vulkan*" -type f || true
+
+log_debug "${SEARCH_MARK} Ищем файлы vulkan в префиксе /opt/ffbuild/:"
+find /opt/ffbuild -iname "*vulkan*" -type f || true
+
+log_debug "${SEARCH_MARK} Проверяем содержимое вашей сгенерированной библиотеки заглушки:"
+${FFBUILD_CROSS_PREFIX}nm /opt/ffbuild/lib/libvulkan-1.a | grep -i "vk" || true
+
+
 # Формируем изолированную строку для переключения контекста линкера
 # -Wl,-Bdynamic переключает MinGW ld в режим импорта DLL.
 # -Wl,-Bstatic возвращает линкер в режим сборки честной статики
