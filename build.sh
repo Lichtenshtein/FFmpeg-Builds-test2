@@ -308,10 +308,11 @@ fi
 # Формируем изолированную строку для переключения контекста линкера
 # -Wl,-Bdynamic переключает MinGW ld в режим импорта DLL.
 # -Wl,-Bstatic возвращает линкер в режим сборки честной статики
-# HYBRID_DYNAMIC_FLAGS=""
-# if [[ -n "${DYNAMIC_LIBS_ACCUMULATOR}" ]]; then
-    # HYBRID_DYNAMIC_FLAGS="-Wl,-Bdynamic ${DYNAMIC_LIBS_ACCUMULATOR} -Wl,-Bstatic "
-# fi
+DYNAMIC_LIBS_ACCUMULATOR+="-lvulkan-1"
+HYBRID_DYNAMIC_FLAGS=""
+if [[ -n "${DYNAMIC_LIBS_ACCUMULATOR}" ]]; then
+    HYBRID_DYNAMIC_FLAGS="-Wl,-Bdynamic ${DYNAMIC_LIBS_ACCUMULATOR} -Wl,-Bstatic "
+fi
 
 # Используем группы для решения проблем циклических зависимостей
 # прокидываем библиотеку обработки исключений LTO за пределы основной группы
@@ -519,11 +520,19 @@ fi
 if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/lcevc_dec.pc" ]]; then
     log_info "Patching lcevc_dec.pc to work around a Vulkan error..."
 
-    # Избавляемся от вызова vulkan.pc через pkg-config
-    sed -i 's/Requires.private: vulkan/Requires.private: shaderc_combined/g' "${FFBUILD_PREFIX}/lib/pkgconfig/lcevc_dec.pc"
+    sed -i 's/Requires.private:.*/Requires.private: /g' "${FFBUILD_PREFIX}/lib/pkgconfig/lcevc_dec.pc"
 
     # Исправляем невалидное имя статической библиотеки экстрактора (убираем суффикс .a)
     sed -i 's/-llcevc_dec_extract.a/-llcevc_dec_extract/g' "${FFBUILD_PREFIX}/lib/pkgconfig/lcevc_dec.pc"
+
+    # Добавляем явную линковку с системным таргетом Windows vfw32/gdi32,
+    # а также заставляем ld искать функции напрямую в драйвере.
+    # Флаг -l:libvulkan.a может не сработать из-за конфликта имен, 
+    # поэтому мы передаем -Wl,-lvulkan-1 в обход путей (-L) вашего префикса.
+    sed -i 's|^Libs.private:.*|& -llcevc_dec_extract -Wl,-Bdynamic -lkernel32 -luser32 -Wl,-Bstatic|' "${FFBUILD_PREFIX}/lib/pkgconfig/lcevc_dec.pc"
+
+    # Выводим результат для контроля в CI/CD
+    cat "${FFBUILD_PREFIX}/lib/pkgconfig/lcevc_dec.pc" >&2
 fi
 
 log_info_line
