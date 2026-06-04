@@ -515,6 +515,17 @@ if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
     CONF_FLAGS+=( --nvcc=clang )
 fi
 
+# Модифицируем lcevc_dec.pc на лету, чтобы скрыть несуществующую зависимость от vulkan.pc
+if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/lcevc_dec.pc" ]]; then
+    log_info "Patching lcevc_dec.pc to work around a Vulkan error..."
+
+    # Избавляемся от вызова vulkan.pc через pkg-config
+    sed -i 's/Requires.private: vulkan/Requires.private: shaderc_combined/g' "${FFBUILD_PREFIX}/lib/pkgconfig/lcevc_dec.pc"
+
+    # Исправляем невалидное имя статической библиотеки экстрактора (убираем суффикс .a)
+    sed -i 's/-llcevc_dec_extract.a/-llcevc_dec_extract/g' "${FFBUILD_PREFIX}/lib/pkgconfig/lcevc_dec.pc"
+fi
+
 log_info_line
 log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
 
