@@ -34,9 +34,10 @@ ffbuild_dockerbuild() {
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
     )
 
-    # Специальные флаги для MinGW, чтобы избежать сегфолтов (выравнивание стека)
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -mstackrealign -fno-asynchronous-unwind-tables" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -mstackrealign -fno-asynchronous-unwind-tables" \
+    # Специальные флаги для MinGW, чтобы избежать сегфолтов
+    # -mstackrealign (выравнивание стека для cflags moved to base_cflags)
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fno-asynchronous-unwind-tables" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fno-asynchronous-unwind-tables" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
@@ -44,9 +45,9 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # # Check library names - SVT-JPEG-XS might use different library names
-    # ls $FFBUILD_DESTPREFIX/lib/libSvt*
+    # ls $INSTALL_ROOT/lib/libSvt*
     # # Check header locations:
-    # ls $FFBUILD_DESTPREFIX/include/svt-jpegxs/
+    # ls $INSTALL_ROOT/include/svt-jpegxs/
 
     # echo "=== Installed files ==="
     # find "$FFBUILD_DESTDIR" -type f

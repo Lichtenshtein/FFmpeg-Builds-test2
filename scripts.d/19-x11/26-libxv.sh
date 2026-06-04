@@ -46,8 +46,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc)
     make install DESTDIR="$FFBUILD_DESTDIR"
 
-    gen-implib "$FFBUILD_DESTPREFIX"/lib/{libXv.so.1,libXv.a}
-    rm "$FFBUILD_DESTPREFIX"/lib/libXv{.so*,.la}
+    gen-implib "$INSTALL_ROOT"/lib/{libXv.so.1,libXv.a}
+    rm "$INSTALL_ROOT"/lib/libXv{.so*,.la}
 }
 
 ffbuild_configure() {

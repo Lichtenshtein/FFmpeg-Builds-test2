@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
 
     mkdir -p tiff_build && cd tiff_build
 
-    export WebP_LIBRARY="$FFBUILD_DESTPREFIX/lib/libwebp.a;$FFBUILD_DESTPREFIX/lib/libsharpyuv.a"
+    export WebP_LIBRARY="$INSTALL_ROOT/lib/libwebp.a;$INSTALL_ROOT/lib/libsharpyuv.a"
     
     local DEP_LIBS="-lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv -lturbojpeg -ljpeg -ljbig -lzstd -llzma -lz"
 

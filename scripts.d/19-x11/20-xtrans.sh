@@ -40,5 +40,5 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    cp -r "$FFBUILD_DESTPREFIX"/share/aclocal/. /usr/share/aclocal
+    cp -r "$INSTALL_ROOT"/share/aclocal/. /usr/share/aclocal
 }
