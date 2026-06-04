@@ -73,7 +73,7 @@ ffbuild_dockerbuild() {
     RUSTFLAGS="$HOST_RUSTFLAGS" \
     cargo cinstall $CARGO_V "${myconf[@]}" || return 1
 
-    chmod 644 "${FFBUILD_DESTPREFIX}"/lib/*rav1e* || true
+    chmod 644 "${INSTALL_ROOT}"/lib/*rav1e* || true
 }
 
 ffbuild_configure() {

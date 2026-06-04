@@ -52,8 +52,8 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    gen-implib "$FFBUILD_DESTPREFIX"/lib/{libdrm.so.2,libdrm.a}
-    rm "$FFBUILD_DESTPREFIX"/lib/libdrm*.so*
+    gen-implib "$INSTALL_ROOT"/lib/{libdrm.so.2,libdrm.a}
+    rm "$INSTALL_ROOT"/lib/libdrm*.so*
 
     echo "Libs: -ldl" >> "$PC_DIR/libdrm.pc"
 }

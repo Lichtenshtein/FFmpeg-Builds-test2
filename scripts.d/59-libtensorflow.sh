@@ -7,7 +7,8 @@ SCRIPT_REPO="https://storage.googleapis.com/tensorflow/versions/2.16.1/libtensor
 # SCRIPT_REPO="https://storage.googleapis.com/tensorflow/versions/2.18.1/libtensorflow-cpu-windows-x86_64.zip"
 
 ffbuild_enabled() {
-    return 0
+    [[ "$USE_TENSORFLOW" == "1" ]] && return 0
+    return 1
 }
 
 ffbuild_dockerdl() {

@@ -19,16 +19,16 @@ ffbuild_dockerbuild() {
     export LDFLAGS="$LDFLAGS ${USELTO}"
     export CPPFLAGS="$CPPFLAGS"
     export CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}"
-    export INSTALL_ROOT="$FFBUILD_DESTPREFIX"
+    export INSTALL_ROOT="$INSTALL_ROOT"
     export CC="${FFBUILD_TOOLCHAIN}-gcc"
 
     make libgsm -j$(nproc) $MAKE_V || return 1
     
-    mkdir -p "$FFBUILD_DESTPREFIX/include/gsm"
-    mkdir -p "$FFBUILD_DESTPREFIX/lib"
-    cp lib/libgsm.a "$FFBUILD_DESTPREFIX/lib/"
-    cp include/gsm/*.h "$FFBUILD_DESTPREFIX/include/gsm"
-    cp include/gsm/gsm.h "$FFBUILD_DESTPREFIX/include/"
+    mkdir -p "$INSTALL_ROOT/include/gsm"
+    mkdir -p "$INSTALL_ROOT/lib"
+    cp lib/libgsm.a "$INSTALL_ROOT/lib/"
+    cp include/gsm/*.h "$INSTALL_ROOT/include/gsm"
+    cp include/gsm/gsm.h "$INSTALL_ROOT/include/"
 
     mkdir -p "${PC_DIR}"
     cat <<EOF > "${PC_DIR}/gsm.pc"

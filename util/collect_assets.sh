@@ -7,11 +7,29 @@ source util/dl_functions.sh
 
 ASSETS_DIR="${1:-$ASSETS_DIR}"
 FFMPEG_SOURCE_DIR="${2:-$FFMPEG_SOURCE_DIR}"
+
+# На всякий случай восстанавливаем путь, если FFMPEG_SOURCE_DIR внезапно оказалась пустой
+if [[ -z "${FFMPEG_SOURCE_DIR:-}" ]]; then
+    if [[ -d "${ROOT_DIR}/ffbuild/ffmpeg" ]]; then
+        FFMPEG_SOURCE_DIR="${ROOT_DIR}/ffbuild/ffmpeg"
+    elif [[ -d "./ffbuild/ffmpeg" ]]; then
+        FFMPEG_SOURCE_DIR="$(pwd)/ffbuild/ffmpeg"
+    else
+        FFMPEG_SOURCE_DIR="."
+    fi
+fi
+
 mkdir -p "$ASSETS_DIR" "$FFBUILD_PREFIX/bin"
 
 # ASSETS_DIR это ".../bin/assets", поднимаемся на 2 уровня вверх, чтобы получить корень пакета
 if [[ -z "$PKG_DIR" && -n "$ASSETS_DIR" ]]; then
     PKG_DIR=$(dirname $(dirname "$ASSETS_DIR"))
+fi
+
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+    log_debug "${DIRS_MARK} FFmpeg source directory:\n${FFMPEG_SOURCE_DIR}"
+    log_debug "${DIRS_MARK} FFmpeg assets directory:\n${ASSETS_DIR}"
+    log_debug "${DIRS_MARK} FFmpeg package directory:\n${PKG_DIR}"
 fi
 
 # ====================
@@ -20,13 +38,23 @@ fi
 
 # Копируем лицензию ПЕРЕД упаковкой
 log_info "${SYNC_MARK} Adding licenses to package..."
+LICENSE_FILES=("COPYING.GPLv3" "COPYING.LGPLv3" "LICENSE.md")
 for lic in "${LICENSE_FILES[@]}"; do
-    if [[ -f "$FFMPEG_SOURCE_DIR/$lic" ]]; then
-        # Копируем файл, сохраняя оригинальное имя, в папку пакета
-        cp -v "$FFMPEG_SOURCE_DIR/$lic" "$PKG_DIR/"
-        log_info "${CHECK_MARK} License bundled: $lic"
+    # Формируем полный абсолютный путь к файлу лицензии
+    FULL_LIC_PATH="${FFMPEG_SOURCE_DIR}/${lic}"
+
+    if [[ -f "$FULL_LIC_PATH" ]]; then
+        # Копируем файл в корень архива ($PKG_DIR)
+        cp -v "$FULL_LIC_PATH" "$PKG_DIR/"
+        log_info "${CHECK_MARK} License bundled successfully from ${FFMPEG_SOURCE_DIR}: $lic"
     else
-        log_warn "License file not found in source dir: $lic"
+        # Если не нашли в основной папке, ищем в текущей рабочей директории
+        if [[ -f "./$lic" ]]; then
+            cp -v "./$lic" "$PKG_DIR/"
+            log_info "${CHECK_MARK} License bundled from current dir: $lic"
+        else
+            log_error "License file not found anywhere: $lic (Checked path: $FULL_LIC_PATH)"
+        fi
     fi
 done
 
@@ -169,22 +197,22 @@ fi
 
 # TENSORFLOW / DNN MODELS (Super Resolution)
 if [[ "$HAS_LIBTENSORFLOW" == "1" ]]; then
-    log_info "${SYNC_MARK} Extracting TensorFlow SR models from Docker image..."
-    mkdir -p "$ASSETS_DIR/tensorflow"
+    log_info "${SYNC_MARK} Collecting TensorFlow SR models from build context..."
 
-    # Проверяем, доступен ли docker в текущем контексте
-    if command -v docker &> /dev/null; then
-        # Извлекаем файлы на лету
-        TMP_CONTAINER=$(docker create miratmu/ffmpeg-tensorflow:latest 2>/dev/null || true)
-        if [[ -n "$TMP_CONTAINER" ]]; then
-            docker cp "${TMP_CONTAINER}":/usr/local/share/ffmpeg-tensorflow-models/. "$ASSETS_DIR/tensorflow/"
-            docker rm "$TMP_CONTAINER" > /dev/null
-            log_info "${CHECK_MARK} TensorFlow SR models successfully extracted to package!"
-        else
-            log_warn "Failed to create docker container from miratmu/ffmpeg-tensorflow"
-        fi
+    TARGET_MODEL_DIR="$ASSETS_DIR/tensorflow"
+    HOST_EXTRACTED_DIR="${ROOT_DIR}/tensorflow_models"
+
+    mkdir -p "$TARGET_MODEL_DIR"
+
+    if [[ -d "$HOST_EXTRACTED_DIR" && "$(ls -A "$HOST_EXTRACTED_DIR")" ]]; then
+        mv -v "$HOST_EXTRACTED_DIR"/*.pb "$TARGET_MODEL_DIR/"
+        log_info "${CHECK_MARK} TensorFlow SR models successfully bundled into package!"
+    elif [[ -d "./tensorflow_models" && "$(ls -A "./tensorflow_models")" ]]; then
+        mv -v ./tensorflow_models/*.pb "$TARGET_MODEL_DIR/"
+        log_info "${CHECK_MARK} TensorFlow SR models successfully bundled into package (local fallback)!"
     else
-        log_warn "Docker command not found inside build context, skipping SR models extraction."
+        log_error "TensorFlow SR models not found in build context! Verify BUILD_TENSORFLOW in workflow env."
+        return 1
     fi
 fi
 

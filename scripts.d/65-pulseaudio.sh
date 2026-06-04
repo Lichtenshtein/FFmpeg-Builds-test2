@@ -71,7 +71,7 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    rm -r "$FFBUILD_DESTPREFIX"/share
+    rm -r "$INSTALL_ROOT"/share
 
     sed -i '/^Libs.private:/ s/$/ -ldl -lrt -liconv/' "$PC_DIR/libpulse.pc"
     sed -i '/^Libs.private:/ s/$/ -ldl -lrt -liconv/' "$PC_DIR/libpulse-simple.pc"

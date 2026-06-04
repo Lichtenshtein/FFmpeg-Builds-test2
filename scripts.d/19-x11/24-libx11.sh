@@ -52,7 +52,7 @@ ffbuild_dockerbuild() {
 
     echo "Libs: -ldl" >> "$PC_DIR/x11.pc"
 
-    gen-implib "$FFBUILD_DESTPREFIX"/lib/{libX11-xcb.so.1,libX11-xcb.a}
-    gen-implib "$FFBUILD_DESTPREFIX"/lib/{libX11.so.6,libX11.a}
-    rm "$FFBUILD_DESTPREFIX"/lib/libX11{,-xcb}{.so*,.la}
+    gen-implib "$INSTALL_ROOT"/lib/{libX11-xcb.so.1,libX11-xcb.a}
+    gen-implib "$INSTALL_ROOT"/lib/{libX11.so.6,libX11.a}
+    rm "$INSTALL_ROOT"/lib/libX11{,-xcb}{.so*,.la}
 }

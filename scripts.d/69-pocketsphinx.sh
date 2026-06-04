@@ -40,8 +40,8 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    cp -f ../include/pocketsphinx.h "$FFBUILD_DESTPREFIX"/include/pocketsphinx/
-    rm -f "$FFBUILD_DESTPREFIX"/bin/pocketsphin*
+    cp -f ../include/pocketsphinx.h "$INSTALL_ROOT"/include/pocketsphinx/
+    rm -f "$INSTALL_ROOT"/bin/pocketsphin*
 }
 
 ffbuild_configure() {

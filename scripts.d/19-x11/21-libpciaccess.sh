@@ -47,8 +47,8 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    gen-implib "$FFBUILD_DESTPREFIX"/lib/{libpciaccess.so.0,libpciaccess.a}
-    rm "$FFBUILD_DESTPREFIX"/lib/libpciaccess.so*
+    gen-implib "$INSTALL_ROOT"/lib/{libpciaccess.so.0,libpciaccess.a}
+    rm "$INSTALL_ROOT"/lib/libpciaccess.so*
 
     echo "Libs: -ldl" >> "$PC_DIR/pciaccess.pc"
 }
