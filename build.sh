@@ -621,37 +621,37 @@ if [[ "$TARGET" == "win64" ]]; then
 fi
 
 # Очистка хедера ffmpeg
-# if [ -f "config.h" ]; then
-    # log_info "${LOGS_MARK} >>> [BEFORE] config.h target line:"
-    # grep "#define FFMPEG_CONFIGURATION" config.h || echo "Line not found"
+if [ -f "config.h" ]; then
+    log_info "${LOGS_MARK} >>> [BEFORE] config.h target line:"
+    grep "#define FFMPEG_CONFIGURATION" config.h || echo "Line not found"
 
-    # Вырезаем host/extra флаги, обернутые в одинарные кавычки \x27
-    # sed -i -E '/#define FFMPEG_CONFIGURATION/s/--host-cflags=\x27[^\x27]*\x27//g' config.h
-    # sed -i -E '/#define FFMPEG_CONFIGURATION/s/--host-ldflags=\x27[^\x27]*\x27//g' config.h
-    # sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-cflags=\x27[^\x27]*\x27//g' config.h
-    # sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-cxxflags=\x27[^\x27]*\x27//g' config.h
-    # sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-ldflags=\x27[^\x27]*\x27//g' config.h
-    # sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-ldexeflags=\x27[^\x27]*\x27//g' config.h
-    # sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-libs=\x27[^\x27]*\x27//g' config.h
+    # # cut out the host/extra flags wrapped in single quotes \x27
+    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--host-cflags=\x27[^\x27]*\x27//g' config.h
+    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--host-ldflags=\x27[^\x27]*\x27//g' config.h
+    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-cflags=\x27[^\x27]*\x27//g' config.h
+    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-cxxflags=\x27[^\x27]*\x27//g' config.h
+    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-ldflags=\x27[^\x27]*\x27//g' config.h
+    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-ldexeflags=\x27[^\x27]*\x27//g' config.h
+    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--extra-libs=\x27[^\x27]*\x27//g' config.h
 
-    # Вырезаем параметры инструментов, включая возможные окружающие одинарные кавычки
-    # sed -i -E '/#define FFMPEG_CONFIGURATION/s/--pkg-config-flags=\x27[^\x27]*\x27//g' config.h
-    # sed -i -E '/#define FFMPEG_CONFIGURATION/s/--pkg-config-flags=[^ ]*//g' config.h
+    # # Strip out the tool parameters, including any surrounding single quotes
+    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--pkg-config-flags=\x27[^\x27]*\x27//g' config.h
+    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--pkg-config-flags=[^ ]*//g' config.h
 
-    # sed -i -E '/#define FFMPEG_CONFIGURATION/s/--(cc|cxx|ar|ranlib|nm|as)=\x27[^\x27]*\x27//g' config.h
-    # sed -i -E '/#define FFMPEG_CONFIGURATION/s/--(cc|cxx|ar|ranlib|nm|as)=[^ ]*//g' config.h
+    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--(cc|cxx|ar|ranlib|nm|as)=\x27[^\x27]*\x27//g' config.h
+    sed -i -E '/#define FFMPEG_CONFIGURATION/s/--(cc|cxx|ar|ranlib|nm|as)=[^ ]*//g' config.h
 
-    # Схлопываем пробелы СТРОГО внутри строки макроса FFMPEG_CONFIGURATION
-    # sed -i '/#define FFMPEG_CONFIGURATION/s/  */ /g' config.h
+    # # Collapsing spaces STRICTLY inside the FFMPEG CONFIGURATION macro string
+    sed -i '/#define FFMPEG_CONFIGURATION/s/  */ /g' config.h
 
-    # sed -i 's/#define FFMPEG_CONFIGURATION"/#define FFMPEG_CONFIGURATION "/g' config.h
+    sed -i 's/#define FFMPEG_CONFIGURATION"/#define FFMPEG_CONFIGURATION "/g' config.h
 
-    # Убираем висящий пробел перед закрывающей двойной кавычкой в конце строки
-    # sed -i '/#define FFMPEG_CONFIGURATION/s/ \x22/\x22/g' config.h
+    # # Remove the trailing space before the closing double quote at the end of the line.
+    sed -i '/#define FFMPEG_CONFIGURATION/s/ \x22/\x22/g' config.h
 
-    # log_info "${LOGS_MARK} <<< [AFTER] config.h target line:"
-    # grep "#define FFMPEG_CONFIGURATION" config.h
-# fi
+    log_info "${LOGS_MARK} <<< [AFTER] config.h target line:"
+    grep "#define FFMPEG_CONFIGURATION" config.h
+fi
 
 # Сборка и установка ffmpeg
 make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
