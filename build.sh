@@ -308,7 +308,11 @@ fi
 # Формируем изолированную строку для переключения контекста линкера
 # -Wl,-Bdynamic переключает MinGW ld в режим импорта DLL.
 # -Wl,-Bstatic возвращает линкер в режим сборки честной статики
-DYNAMIC_LIBS_ACCUMULATOR+="-l:vulkan-1.dll"
+DYNAMIC_LIBS_ACCUMULATOR+=$(x86_64-w64-mingw32-gcc -print-file-name=libvulkan-1.a)
+if [[ "$DYNAMIC_LIBS_ACCUMULATOR" == "libvulkan-1.a" || ! -f "$DYNAMIC_LIBS_ACCUMULATOR" ]]; then
+    # Если компилятор вернул относительное имя, берем его из внутреннего sysroot
+    DYNAMIC_LIBS_ACCUMULATOR="/opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/sysroot/lib/libvulkan-1.a"
+fi
 HYBRID_DYNAMIC_FLAGS=""
 if [[ -n "${DYNAMIC_LIBS_ACCUMULATOR}" ]]; then
     HYBRID_DYNAMIC_FLAGS="-Wl,-Bdynamic ${DYNAMIC_LIBS_ACCUMULATOR} -Wl,-Bstatic "
