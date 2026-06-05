@@ -48,10 +48,11 @@ jobs:
         run: |
           echo "=== Removing potential duplicate authorization headers from local git config ==="
           git config --local --unset http.https://github.com/.extraheader || true
-
           git config --local --unset-all credential.helper || true
 
-          echo "Git local config sanitized successfully."
+          echo "=== Hard resetting non-script changes to avoid checkout blocks ==="
+          git checkout -- patches/ || true
+          log_info "Git local config and working tree sanitized successfully."
 
       - name: Create Pull Request
         if: steps.git-check.outputs.changed == 'true'
