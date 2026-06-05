@@ -1,6 +1,6 @@
-From 53ea8ad5f7023a300b3b7eee1c1aa8acebc9ba57 Mon Sep 17 00:00:00 2001
+From e12e03559b88b7070910972761ad3c75aee836ac Mon Sep 17 00:00:00 2001
 From: Lichtenshtein <altruumann@protonmail.com>
-Date: Fri, 5 Jun 2026 08:43:51 +0300
+Date: Fri, 5 Jun 2026 08:51:27 +0300
 Subject: [PATCH] fix Shim-Loader header parser
 
 ---
@@ -8,14 +8,14 @@ Subject: [PATCH] fix Shim-Loader header parser
  1 file changed, 30 insertions(+), 4 deletions(-)
 
 diff --git a/gen_shim.py b/gen_shim.py
-index f4416d1..957c854 100755
+index f4416d1..78b8d95 100755
 --- a/gen_shim.py
 +++ b/gen_shim.py
 @@ -13,15 +13,42 @@ os.chdir(os.path.dirname(__file__))
  vkxml = "Vulkan-Headers/registry/vk.xml"
  
  commands = []
-+# Набор платформ и расширений, которые НЕЛЬЗЯ компилировать под Windows/MinGW
++# РќР°Р±РѕСЂ РїР»Р°С‚С„РѕСЂРј Рё СЂР°СЃС€РёСЂРµРЅРёР№, РєРѕС‚РѕСЂС‹Рµ РќР•Р›Р¬Р—РЇ РєРѕРјРїРёР»РёСЂРѕРІР°С‚СЊ РїРѕРґ Windows/MinGW
 +BLACK_LIST_PLATFORMS = {"android", "ohos", "wayland", "xlib", "xcb", "fuchsia", "ggp", "qnx", "directfb"}
 +
  for cmd in ET.parse(vkxml).getroot().findall(".//commands/command"):
@@ -25,35 +25,35 @@ index f4416d1..957c854 100755
 -    if "vulkan" not in cmd.get("export", "").lower().split(","):
 -        continue
  
-+    # Извлекаем имя функции
++    # РР·РІР»РµРєР°РµРј РёРјСЏ С„СѓРЅРєС†РёРё
      name = proto.find("name").text
 -    # The XML is weird, stuff like "const" or "*" Are outside of the <type> tags.
 +
-+    # Проверяем, к какому расширению или платформе относится команда
-+    # Проверяем атрибуты самой команды или её родителей в XML
++    # РџСЂРѕРІРµСЂСЏРµРј, Рє РєР°РєРѕРјСѓ СЂР°СЃС€РёСЂРµРЅРёСЋ РёР»Рё РїР»Р°С‚С„РѕСЂРјРµ РѕС‚РЅРѕСЃРёС‚СЃСЏ РєРѕРјР°РЅРґР°
++    # РџСЂРѕРІРµСЂСЏРµРј Р°С‚СЂРёР±СѓС‚С‹ СЃР°РјРѕР№ РєРѕРјР°РЅРґС‹ РёР»Рё РµС‘ СЂРѕРґРёС‚РµР»РµР№ РІ XML
 +    cmd_platform = cmd.get("platform", "").lower()
 +
-+    # Жестко отсекаем мобильные и Linux платформы, чтобы не ломать MinGW
++    # Р–РµСЃС‚РєРѕ РѕС‚СЃРµРєР°РµРј РјРѕР±РёР»СЊРЅС‹Рµ Рё Linux РїР»Р°С‚С„РѕСЂРјС‹, С‡С‚РѕР±С‹ РЅРµ Р»РѕРјР°С‚СЊ MinGW
 +    if any(p in cmd_platform for p in BLACK_LIST_PLATFORMS):
 +        continue
 +    if any(p in name.lower() for p in ["android", "ohos", "fuchsia", "wayland"]):
 +        continue
 +
-+    # Избегаем дубликатов команд
++    # РР·Р±РµРіР°РµРј РґСѓР±Р»РёРєР°С‚РѕРІ РєРѕРјР°РЅРґ
 +    if any(cmd_item[1] == name for cmd_item in commands):
 +        continue
 +
-+    # Разрешаем функции, если они экспортируются vulkan, являются частью KHR/EXT 
-+    # или явно предназначены для win32
++    # Р Р°Р·СЂРµС€Р°РµРј С„СѓРЅРєС†РёРё, РµСЃР»Рё РѕРЅРё СЌРєСЃРїРѕСЂС‚РёСЂСѓСЋС‚СЃСЏ vulkan, СЏРІР»СЏСЋС‚СЃСЏ С‡Р°СЃС‚СЊСЋ KHR/EXT 
++    # РёР»Рё СЏРІРЅРѕ РїСЂРµРґРЅР°Р·РЅР°С‡РµРЅС‹ РґР»СЏ win32
 +    export_attr = cmd.get("export", "").lower().split(",")
 +    is_vulkan_export = "vulkan" in export_attr
 +    is_khr_ext_or_win32 = any(ext in name.lower() for ext in ["khr", "ext", "win32"])
 +
-+    # Если это не базовый экспорт И не нужный нам KHR/EXT/Win32 — пропускаем
++    # Р•СЃР»Рё СЌС‚Рѕ РЅРµ Р±Р°Р·РѕРІС‹Р№ СЌРєСЃРїРѕСЂС‚ Р РЅРµ РЅСѓР¶РЅС‹Р№ РЅР°Рј KHR/EXT/Win32 вЂ” РїСЂРѕРїСѓСЃРєР°РµРј
 +    if not (is_vulkan_export or is_khr_ext_or_win32):
 +        continue
 +
-+    # Обработка типов и параметров (оригинальный код без изменений)
++    # РћР±СЂР°Р±РѕС‚РєР° С‚РёРїРѕРІ Рё РїР°СЂР°РјРµС‚СЂРѕРІ (РѕСЂРёРіРёРЅР°Р»СЊРЅС‹Р№ РєРѕРґ Р±РµР· РёР·РјРµРЅРµРЅРёР№)
      ret_type = "".join(proto.itertext()).strip().rsplit(" ", 1)[0]
      params = []
      param_names = []
