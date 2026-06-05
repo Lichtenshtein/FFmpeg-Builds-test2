@@ -13,6 +13,7 @@ jobs:
       UPDATE_PRESERVE_LIST: "decklink,vapoursynth"
       TARGET: win64
       VARIANT: nonfree
+      FFBUILD_VERBOSE: 1
     permissions:
       contents: write
       pull-requests: write
@@ -26,18 +27,24 @@ jobs:
           chmod +x util/update_scripts.sh
           ./util/update_scripts.sh
 
+        # Проверяем наличие изменений в папке scripts.d
       - name: Check for changes
         id: git-check
         run: |
-          # Проверяем наличие изменений в папке scripts.d
-          if [[ -n "$(git status --porcelain scripts.d/)" ]]; then
+          git status --porcelain
+          if [[ -n "$(git status --porcelain)" ]]; then
             echo "changed=true" >> $GITHUB_OUTPUT
+            echo "Changes detected!"
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No changes found."
           fi
 
       - name: Create Pull Request
         if: steps.git-check.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v6
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "chore: bump component versions"
           title: "🤖 Auto-Update Library Commits"
           body: |
