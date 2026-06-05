@@ -205,7 +205,7 @@ if [[ "$HAS_LIBTENSORFLOW" == "1" ]]; then
     mkdir -p "$TARGET_MODEL_DIR"
 
     if [[ -d "$INTERNAL_MODELS_DIR" && "$(ls -A "$INTERNAL_MODELS_DIR" 2>/dev/null)" ]]; then
-        mv -v "$INTERNAL_MODELS_DIR" "$TARGET_MODEL_DIR/"
+        mv -v "$INTERNAL_MODELS_DIR"/*.pb "$TARGET_MODEL_DIR/"
         log_info "${CHECK_MARK} TensorFlow SR models successfully bundled into package!"
     else
         log_error "TensorFlow SR models not found in internal storage ($INTERNAL_MODELS_DIR)!"
