@@ -51,7 +51,7 @@ jobs:
 
           git config --local --unset-all credential.helper || true
 
-          log_info "Git local config sanitized successfully."
+          echo "Git local config sanitized successfully."
 
       - name: Create Pull Request
         if: steps.git-check.outputs.changed == 'true'
