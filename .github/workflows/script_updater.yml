@@ -52,7 +52,7 @@ jobs:
 
           echo "=== Hard resetting non-script changes to avoid checkout blocks ==="
           git checkout -- patches/ || true
-          log_info "Git local config and working tree sanitized successfully."
+          echo "Git local config and working tree sanitized successfully."
 
       - name: Create Pull Request
         if: steps.git-check.outputs.changed == 'true'
