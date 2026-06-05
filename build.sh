@@ -491,7 +491,7 @@ CONF_FLAGS=(
     --enable-opengl
     --enable-pic
     --disable-debug
-    --disable-ffprobe
+    # --disable-ffprobe
     --disable-ffplay
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
 )
