@@ -1,22 +1,31 @@
-From e12e03559b88b7070910972761ad3c75aee836ac Mon Sep 17 00:00:00 2001
+From ef4f1ac4d09cdf88330615533ddb9b3a3aedde6c Mon Sep 17 00:00:00 2001
 From: Lichtenshtein <altruumann@protonmail.com>
-Date: Fri, 5 Jun 2026 08:51:27 +0300
+Date: Fri, 5 Jun 2026 08:59:18 +0300
 Subject: [PATCH] fix Shim-Loader header parser
 
 ---
- gen_shim.py | 34 ++++++++++++++++++++++++++++++----
- 1 file changed, 30 insertions(+), 4 deletions(-)
+ gen_shim.py | 26 ++++++++++++++++++++++----
+ 1 file changed, 22 insertions(+), 4 deletions(-)
 
 diff --git a/gen_shim.py b/gen_shim.py
-index f4416d1..78b8d95 100755
+index f4416d1..3d44329 100755
 --- a/gen_shim.py
 +++ b/gen_shim.py
-@@ -13,15 +13,42 @@ os.chdir(os.path.dirname(__file__))
+@@ -13,15 +13,34 @@ os.chdir(os.path.dirname(__file__))
  vkxml = "Vulkan-Headers/registry/vk.xml"
  
  commands = []
-+# Набор платформ и расширений, которые НЕЛЬЗЯ компилировать под Windows/MinGW
-+BLACK_LIST_PLATFORMS = {"android", "ohos", "wayland", "xlib", "xcb", "fuchsia", "ggp", "qnx", "directfb"}
++# Явный белый список KHR функций, жизненно необходимых для lcevc
++LCEVC_REQUIRED_FUNCTIONS = {
++    "vkGetPhysicalDeviceSurfaceSupportKHR",
++    "vkDestroySwapchainKHR",
++    "vkDestroySurfaceKHR",
++    "vkGetPhysicalDeviceSurfaceCapabilitiesKHR",
++    "vkGetPhysicalDeviceSurfaceFormatsKHR",
++    "vkGetPhysicalDeviceSurfacePresentModesKHR",
++    "vkCreateSwapchainKHR",
++    "vkGetSwapchainImagesKHR"
++}
 +
  for cmd in ET.parse(vkxml).getroot().findall(".//commands/command"):
      proto = cmd.find("proto")
@@ -25,39 +34,22 @@ index f4416d1..78b8d95 100755
 -    if "vulkan" not in cmd.get("export", "").lower().split(","):
 -        continue
  
-+    # Извлекаем имя функции
      name = proto.find("name").text
 -    # The XML is weird, stuff like "const" or "*" Are outside of the <type> tags.
 +
-+    # Проверяем, к какому расширению или платформе относится команда
-+    # Проверяем атрибуты самой команды или её родителей в XML
-+    cmd_platform = cmd.get("platform", "").lower()
-+
-+    # Жестко отсекаем мобильные и Linux платформы, чтобы не ломать MinGW
-+    if any(p in cmd_platform for p in BLACK_LIST_PLATFORMS):
-+        continue
-+    if any(p in name.lower() for p in ["android", "ohos", "fuchsia", "wayland"]):
-+        continue
-+
-+    # Избегаем дубликатов команд
 +    if any(cmd_item[1] == name for cmd_item in commands):
 +        continue
 +
-+    # Разрешаем функции, если они экспортируются vulkan, являются частью KHR/EXT 
-+    # или явно предназначены для win32
 +    export_attr = cmd.get("export", "").lower().split(",")
 +    is_vulkan_export = "vulkan" in export_attr
-+    is_khr_ext_or_win32 = any(ext in name.lower() for ext in ["khr", "ext", "win32"])
 +
-+    # Если это не базовый экспорт И не нужный нам KHR/EXT/Win32 — пропускаем
-+    if not (is_vulkan_export or is_khr_ext_or_win32):
++    if not (is_vulkan_export or name in LCEVC_REQUIRED_FUNCTIONS):
 +        continue
 +
-+    # Обработка типов и параметров (оригинальный код без изменений)
      ret_type = "".join(proto.itertext()).strip().rsplit(" ", 1)[0]
      params = []
      param_names = []
-@@ -31,7 +58,6 @@ for cmd in ET.parse(vkxml).getroot().findall(".//commands/command"):
+@@ -31,7 +50,6 @@ for cmd in ET.parse(vkxml).getroot().findall(".//commands/command"):
  
      commands.append((ret_type, name, params, param_names))
  
