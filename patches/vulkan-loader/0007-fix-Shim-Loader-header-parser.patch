@@ -1,17 +1,17 @@
-From 7519cf2b2e69d21895963566ab183e6bb2aa7de9 Mon Sep 17 00:00:00 2001
+From 4758ae8c5ba2abbdb75b8d416caf63790fe78f22 Mon Sep 17 00:00:00 2001
 From: Lichtenshtein <altruumann@protonmail.com>
-Date: Fri, 5 Jun 2026 09:24:25 +0300
+Date: Fri, 5 Jun 2026 09:33:05 +0300
 Subject: [PATCH] fix Shim-Loader header parser
 
 ---
- gen_shim.py | 61 ++++++++++++++++++++++++++++++++++++++++++++++++-----
- 1 file changed, 56 insertions(+), 5 deletions(-)
+ gen_shim.py | 60 ++++++++++++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 55 insertions(+), 5 deletions(-)
 
 diff --git a/gen_shim.py b/gen_shim.py
-index f4416d1..e9e7333 100755
+index f4416d1..abfe724 100755
 --- a/gen_shim.py
 +++ b/gen_shim.py
-@@ -13,21 +13,72 @@ os.chdir(os.path.dirname(__file__))
+@@ -13,21 +13,71 @@ os.chdir(os.path.dirname(__file__))
  vkxml = "Vulkan-Headers/registry/vk.xml"
  
  commands = []
@@ -38,20 +38,18 @@ index f4416d1..e9e7333 100755
      name = proto.find("name").text
 -    # The XML is weird, stuff like "const" or "*" Are outside of the <type> tags.
 +
-+    # Избегаем дубликатов самих функций
++    # Безопасная проверка дубликатов функций
 +    if any(cmd_item[1] == name for cmd_item in commands):
 +        continue
 +
-+    # Проверяем оригинальный фильтр BtbN
 +    export_attr = cmd.get("export", "").lower().split(",")
 +    is_vulkan_export = "vulkan" in export_attr
 +
-+    # Функция добавляется в shim-заглушку, если она является 
-+    # частью стандартного экспорта ИЛИ если она явно затребована компонентом lcevc
++    # Фильтруем функции
 +    if not (is_vulkan_export or name in LCEVC_REQUIRED_FUNCTIONS):
 +        continue
 +
-+    # Извлекаем тип возвращаемого значения (корректно берем строку, а не список)
++    # Извлекаем тип возвращаемого значения как строку
      ret_type = "".join(proto.itertext()).strip().rsplit(" ", 1)[0]
 +    
      params = []
@@ -69,23 +67,24 @@ index f4416d1..e9e7333 100755
 +        if p_name in param_names:
 +            continue
 +            
-+        # Атомарная сборка Си-типа параметра для защиты от аномалий нового vk.xml
++        # 1. Собираем базовый Си-тип (например: "const float")
 +        before_type = (p.text or "").strip()
-+        
 +        type_tag = p.find("type")
 +        type_text = (type_tag.text or "").strip() if type_tag is not None else ""
 +        
-+        # Захватываем указатели (*) и модификаторы, которые лежат между <type> и <name>
 +        after_type = ""
 +        if type_tag is not None and type_tag.tail:
 +            after_type = type_tag.tail.strip()
 +            
-+        # Соединяем всё в чистую Си-строку (например: "const VkSwapchainCreateInfoKHR*")
 +        full_param_type = f"{before_type} {type_text}{after_type}".strip()
 +        full_param_type = re.sub(r"\s+", " ", full_param_type)
 +        
++        # 2. ИСПРАВЛЕНИЕ: Захватываем хвост ПОСЛЕ тега <name>, где Vulkan прячет размеры массивов вроде [4]
++        array_tail = (p_name_tag.tail or "").strip()
++        
 +        param_names.append(p_name)
-+        params.append(f"{full_param_type} {p_name}")
++        # Формируем правильную Си-сигнатуру аргумента: "const float blendConstants[4]"
++        params.append(f"{full_param_type} {p_name}{array_tail}")
  
      commands.append((ret_type, name, params, param_names))
  
