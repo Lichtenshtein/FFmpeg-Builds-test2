@@ -50,9 +50,17 @@ jobs:
           git config --local --unset http.https://github.com/.extraheader || true
           git config --local --unset-all credential.helper || true
 
-          echo "=== Hard resetting non-script changes to avoid checkout blocks ==="
-          git checkout -- patches/ || true
-          echo "Git local config and working tree sanitized successfully."
+          echo "=== Hard-fixing Git attributes and CRLF blocks ==="
+          git config --local core.autocrlf false
+
+          git checkout -- patches/bs2b/buildonlylibrary.patch || true
+
+          if [[ -f "patches/bs2b/buildonlylibrary.patch" ]]; then
+            git update-index --assume-unchanged patches/bs2b/buildonlylibrary.patch || true
+            echo "Patch file locked in index."
+          fi
+
+          echo "Git local config and working tree thoroughly sanitized."
 
       - name: Create Pull Request
         if: steps.git-check.outputs.changed == 'true'
