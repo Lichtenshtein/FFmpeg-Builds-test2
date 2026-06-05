@@ -16,7 +16,7 @@ index f4416d1..abfe724 100755
  
  commands = []
 +
-+# Явный белый список KHR функций, жизненно необходимых для lcevc
++# Explicit whitelist of KHR functions vital to lcevc
 +LCEVC_REQUIRED_FUNCTIONS = {
 +    "vkGetPhysicalDeviceSurfaceSupportKHR",
 +    "vkDestroySwapchainKHR",
@@ -38,18 +38,18 @@ index f4416d1..abfe724 100755
      name = proto.find("name").text
 -    # The XML is weird, stuff like "const" or "*" Are outside of the <type> tags.
 +
-+    # Безопасная проверка дубликатов функций
++    # Safely check for duplicate functions
 +    if any(cmd_item[1] == name for cmd_item in commands):
 +        continue
 +
 +    export_attr = cmd.get("export", "").lower().split(",")
 +    is_vulkan_export = "vulkan" in export_attr
 +
-+    # Фильтруем функции
++    # Filtering functions
 +    if not (is_vulkan_export or name in LCEVC_REQUIRED_FUNCTIONS):
 +        continue
 +
-+    # Извлекаем тип возвращаемого значения как строку
++    # Extract the return type as a string
      ret_type = "".join(proto.itertext()).strip().rsplit(" ", 1)[0]
 +    
      params = []
@@ -63,11 +63,11 @@ index f4416d1..abfe724 100755
 +            continue
 +        p_name = p_name_tag.text
 +        
-+        # Строгая защита от дублирования имен параметров в одной функции
++        # Strict protection against duplicate parameter names in one function
 +        if p_name in param_names:
 +            continue
 +            
-+        # 1. Собираем базовый Си-тип (например: "const float")
++        # collect the basic C type (for example: "const float")
 +        before_type = (p.text or "").strip()
 +        type_tag = p.find("type")
 +        type_text = (type_tag.text or "").strip() if type_tag is not None else ""
@@ -79,11 +79,11 @@ index f4416d1..abfe724 100755
 +        full_param_type = f"{before_type} {type_text}{after_type}".strip()
 +        full_param_type = re.sub(r"\s+", " ", full_param_type)
 +        
-+        # 2. ИСПРАВЛЕНИЕ: Захватываем хвост ПОСЛЕ тега <name>, где Vulkan прячет размеры массивов вроде [4]
++        # Capture the tail AFTER the <name> tag where Vulkan hides array sizes like [4]
 +        array_tail = (p_name_tag.tail or "").strip()
 +        
 +        param_names.append(p_name)
-+        # Формируем правильную Си-сигнатуру аргумента: "const float blendConstants[4]"
++        # form the correct C-signature of the argument: "const float blendConstants[4]"
 +        params.append(f"{full_param_type} {p_name}{array_tail}")
  
      commands.append((ret_type, name, params, param_names))

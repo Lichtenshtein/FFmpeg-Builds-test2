@@ -51,9 +51,55 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    log_debug "${SEARCH_MARK} Checking the contents of your generated stub library:"
-    ${FFBUILD_CROSS_PREFIX}nm "${INSTALL_ROOT}"/lib/libvulkan-1.a | grep -i "vk" || true
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+    # Путь к скомпилированной статической библиотеке
+    local TARGET_LIB="${INSTALL_ROOT}/lib/libvulkan-1.a"
 
+    if [[ -f "$TARGET_LIB" ]]; then
+        log_info "${CHECK_MARK} libvulkan-1.a successfully compiled and installed."
+
+        # Массив функций, которые мы обязаны были прокинуть для lcevc
+        local LCEVC_CHECK_LIST=(
+            "vkGetPhysicalDeviceSurfaceSupportKHR"
+            "vkDestroySwapchainKHR"
+            "vkDestroySurfaceKHR"
+            "vkGetPhysicalDeviceSurfaceCapabilitiesKHR"
+            "vkGetPhysicalDeviceSurfaceFormatsKHR"
+            "vkGetPhysicalDeviceSurfacePresentModesKHR"
+            "vkCreateSwapchainKHR"
+            "vkGetSwapchainImagesKHR"
+        )
+
+        log_info "${SEARCH_MARK} Verifying required KHR extensions for LCEVC inside library..."
+        local found_count=0
+
+        for func in "${LCEVC_CHECK_LIST[@]}"; do
+            # Ищем символ указателя или функции через кросс-компиляторный nm
+            if ${FFBUILD_CROSS_PREFIX}nm "$TARGET_LIB" | grep -q "ptr_${func}"; then
+                log_debug "  ${CHECK_MARK} Found: ${func}"
+                ((found_count++))
+            else
+                log_warn "  Missing required function symbol: ${func}"
+            fi
+        done
+
+        # Выводим красивый финальный статус сборки патча
+        if [[ $found_count -eq ${#LCEVC_CHECK_LIST[@]} ]]; then
+            log_info "${SYNC_MARK} Vulkan-Shim patch verification: SUCCESS (${found_count}/${#LCEVC_CHECK_LIST[@]} extensions active)."
+        else
+            log_warn "Vulkan-Shim patch verification: PARTIAL ($found_count/${#LCEVC_CHECK_LIST[@]} found). Final linking might fail!"
+        fi
+
+        # Если включен глубокий дебаг, вываливаем весь список символов 'vk'
+        if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+            log_debug "${LOGS_MARK} Detailed library symbols dumping:"
+            ${FFBUILD_CROSS_PREFIX}nm "$TARGET_LIB" | grep -i "ptr_vk" || true
+        fi
+    else
+        log_error "Failed to verify library: libvulkan-1.a not found at ${TARGET_LIB}"
+        return 1
+    fi
+fi
 }
 
 ffbuild_configure() {
