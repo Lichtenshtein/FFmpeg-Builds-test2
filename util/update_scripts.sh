@@ -3,12 +3,10 @@
 set -eo pipefail
 shopt -s globstar
 
-# Load vars.sh with fallback for missing TARGET/VARIANT
-if ! source util/vars.sh "${TARGET:-}" "${VARIANT:-}" 2>/dev/null; then
-    # Logging functions may not be available, but continue anyway
-    # (update_scripts doesn't strictly need TARGET/VARIANT)
-    :
-fi
+source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
+    echo "ERROR: vars.sh failed (TARGET=$TARGET VARIANT=$VARIANT)" >&2
+    exit 1
+}
 
 # Читаем список из ENV или используем пустой, если переменная не задана
 # Превращаем строку "zlib base" в массив (zlib base)
