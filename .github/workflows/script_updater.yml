@@ -43,6 +43,16 @@ jobs:
             echo "No changes found."
           fi
 
+      - name: Clear Git Authorization Extraheaders
+        if: steps.git-check.outputs.changed == 'true'
+        run: |
+          echo "=== Removing potential duplicate authorization headers from local git config ==="
+          git config --local --unset http.https://github.com/.extraheader || true
+
+          git config --local --unset-all credential.helper || true
+
+          log_info "Git local config sanitized successfully."
+
       - name: Create Pull Request
         if: steps.git-check.outputs.changed == 'true'
         uses: peter-evans/create-pull-request@v6

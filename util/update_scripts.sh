@@ -190,6 +190,8 @@ for STAGE in $SEARCH_PATTERN; do
                 TARGET_VAR="${HGREV_VAR}"
                 NEW_VAL=$(hg identify "${CUR_REPO}" -r default 2>/dev/null | \
                     awk '{print $1}' || true)
+            elif [[ "$CUR_REPO" == *.tar.gz || "$CUR_REPO" == *.7z || "$CUR_REPO" == *.zip || "$CUR_REPO" == *.tar.xz ]]; then
+                continue
             else
                 # Unknown format
                 echo "REPORT_UNKNOWN|${STAGE}|${CUR_REPO}" >> "$TMP_REPORT"
