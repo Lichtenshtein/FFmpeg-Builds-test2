@@ -50,6 +50,10 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    log_debug "${SEARCH_MARK} Checking the contents of your generated stub library:"
+    ${FFBUILD_CROSS_PREFIX}nm "${INSTALL_ROOT}"/lib/libvulkan-1.a | grep -i "vk" || true
+
 }
 
 ffbuild_configure() {
