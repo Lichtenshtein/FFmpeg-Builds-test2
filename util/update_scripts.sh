@@ -82,7 +82,7 @@ update_shaderc_deps() {
         # Update if different
         if [[ -n "$new_hash" && "$new_hash" != "$current_hash" ]]; then
             log_info "  ${SYNC_MARK} shaderc/${var_name}: ${current_hash:0:7} -> ${new_hash:0:7}"
-            sed -i -E "s/(\x27${var_name}\x27\s*:\s*\x27)[a-f0-9]{40}(\x27)/\1${new_hash}\2/g" "$deps_file"
+            sed -i -E 's/(\x27'"${var_name}"'\x27\s*:\s*\x27)[a-f0-9]{40}(\x27)/\1'"${new_hash}"'\2/g' "$deps_file"
             echo "REPORT_UPDATE|${deps_file}|${var_name}|${current_hash}|${new_hash}" >> "$TMP_REPORT"
         fi
     done
@@ -189,7 +189,8 @@ for STAGE in $SEARCH_PATTERN; do
             if [[ -n "$NEW_VAL" && "$NEW_VAL" != "${!TARGET_VAR}" ]]; then
                 echo "REPORT_UPDATE|${STAGE}|${TARGET_VAR}|${!TARGET_VAR}|${NEW_VAL}" >> "$TMP_REPORT"
                 # Update the file using sed with proper escaping
-                sed -i -E "s|^(${TARGET_VAR}=['\"])[^'\"]*(['\"])|\\1${NEW_VAL}\\2|" "${STAGE}"
+                sed -i "s@^${TARGET_VAR}=\"[^\"]*\"@${TARGET_VAR}=\"${NEW_VAL}\"@g" "${STAGE}"
+                sed -i "s@^${TARGET_VAR}='[^']*'@${TARGET_VAR}='${NEW_VAL}'@g" "${STAGE}"
                 log_info "  ${SYNC_MARK} ${TARGET_VAR}: ${!TARGET_VAR:0:7} -> ${NEW_VAL:0:7}"
             fi
         done
