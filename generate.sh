@@ -108,7 +108,7 @@ to_df "    mkdir -p /builder/.cache/downloads && \\"
 to_df "    cp -r /tmp/host_downloads/* /builder/.cache/downloads/ 2>/dev/null || true"
 if [[ "${USE_TENSORFLOW}" == "1" ]]; then
     to_df "RUN mkdir -p ${FFBUILD_PREFIX}/share/tensorflow_models && \\"
-    to_df "    mv /tmp/host_tensorflow_models/ ${FFBUILD_PREFIX}/share/tensorflow_models/ 2>/dev/null || true"
+    to_df "    mv /tmp/host_tensorflow_models/* ${FFBUILD_PREFIX}/share/tensorflow_models/ 2>/dev/null || true"
 fi
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "$COMMON_ENV"
