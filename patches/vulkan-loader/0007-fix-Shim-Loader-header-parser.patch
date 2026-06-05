@@ -1,59 +1,91 @@
-From fdb8cf8357d2701fc6c38b48a52d115a46380dc7 Mon Sep 17 00:00:00 2001
+From 7519cf2b2e69d21895963566ab183e6bb2aa7de9 Mon Sep 17 00:00:00 2001
 From: Lichtenshtein <altruumann@protonmail.com>
-Date: Fri, 5 Jun 2026 09:18:35 +0300
+Date: Fri, 5 Jun 2026 09:24:25 +0300
 Subject: [PATCH] fix Shim-Loader header parser
 
 ---
- gen_shim.py | 36 +++++++++++++++++++++++-------------
- 1 file changed, 23 insertions(+), 13 deletions(-)
+ gen_shim.py | 61 ++++++++++++++++++++++++++++++++++++++++++++++++-----
+ 1 file changed, 56 insertions(+), 5 deletions(-)
 
 diff --git a/gen_shim.py b/gen_shim.py
-index f4416d1..8ead2c2 100755
+index f4416d1..e9e7333 100755
 --- a/gen_shim.py
 +++ b/gen_shim.py
-@@ -12,22 +12,32 @@ os.chdir(os.path.dirname(__file__))
- # Don't forget to fetch the submodule.
+@@ -13,21 +13,72 @@ os.chdir(os.path.dirname(__file__))
  vkxml = "Vulkan-Headers/registry/vk.xml"
  
--commands = []
--for cmd in ET.parse(vkxml).getroot().findall(".//commands/command"):
--    proto = cmd.find("proto")
--    if proto is None:
-+params = []
-+param_names = []
+ commands = []
 +
-+for p in cmd.findall("param"):
-+    p_name_tag = p.find("name")
-+    if p_name_tag is None:
++# Явный белый список KHR функций, жизненно необходимых для lcevc
++LCEVC_REQUIRED_FUNCTIONS = {
++    "vkGetPhysicalDeviceSurfaceSupportKHR",
++    "vkDestroySwapchainKHR",
++    "vkDestroySurfaceKHR",
++    "vkGetPhysicalDeviceSurfaceCapabilitiesKHR",
++    "vkGetPhysicalDeviceSurfaceFormatsKHR",
++    "vkGetPhysicalDeviceSurfacePresentModesKHR",
++    "vkCreateSwapchainKHR",
++    "vkGetSwapchainImagesKHR"
++}
++
+ for cmd in ET.parse(vkxml).getroot().findall(".//commands/command"):
+     proto = cmd.find("proto")
+     if proto is None:
          continue
 -    if "vulkan" not in cmd.get("export", "").lower().split(","):
-+    p_name = p_name_tag.text
-+    
-+    if p_name in param_names:
-         continue
+-        continue
  
--    name = proto.find("name").text
+     name = proto.find("name").text
 -    # The XML is weird, stuff like "const" or "*" Are outside of the <type> tags.
--    ret_type = "".join(proto.itertext()).strip().rsplit(" ", 1)[0]
--    params = []
--    param_names = []
--    for p in cmd.findall("param"):
++
++    # Избегаем дубликатов самих функций
++    if any(cmd_item[1] == name for cmd_item in commands):
++        continue
++
++    # Проверяем оригинальный фильтр BtbN
++    export_attr = cmd.get("export", "").lower().split(",")
++    is_vulkan_export = "vulkan" in export_attr
++
++    # Функция добавляется в shim-заглушку, если она является 
++    # частью стандартного экспорта ИЛИ если она явно затребована компонентом lcevc
++    if not (is_vulkan_export or name in LCEVC_REQUIRED_FUNCTIONS):
++        continue
++
++    # Извлекаем тип возвращаемого значения (корректно берем строку, а не список)
+     ret_type = "".join(proto.itertext()).strip().rsplit(" ", 1)[0]
++    
+     params = []
+     param_names = []
++    
+     for p in cmd.findall("param"):
 -        params.append(re.sub(r"\s+", " ", "".join(p.itertext()).strip()))
 -        param_names.append(p.find("name").text)
-+    before_type = (p.text or "").strip()
-+    type_text = (p.find("type").text or "").strip()
-+
-+    after_type = ""
-+    type_tag = p.find("type")
-+    if type_tag is not None and type_tag.tail:
-+        after_type = type_tag.tail.strip()
++        p_name_tag = p.find("name")
++        if p_name_tag is None:
++            continue
++        p_name = p_name_tag.text
 +        
-+
-+    full_param_type = f"{before_type} {type_text}{after_type}".strip()
-+    full_param_type = re.sub(r"\s+", " ", full_param_type)
-+    
-+    param_names.append(p_name)
-+    params.append(f"{full_param_type} {p_name}")
++        # Строгая защита от дублирования имен параметров в одной функции
++        if p_name in param_names:
++            continue
++            
++        # Атомарная сборка Си-типа параметра для защиты от аномалий нового vk.xml
++        before_type = (p.text or "").strip()
++        
++        type_tag = p.find("type")
++        type_text = (type_tag.text or "").strip() if type_tag is not None else ""
++        
++        # Захватываем указатели (*) и модификаторы, которые лежат между <type> и <name>
++        after_type = ""
++        if type_tag is not None and type_tag.tail:
++            after_type = type_tag.tail.strip()
++            
++        # Соединяем всё в чистую Си-строку (например: "const VkSwapchainCreateInfoKHR*")
++        full_param_type = f"{before_type} {type_text}{after_type}".strip()
++        full_param_type = re.sub(r"\s+", " ", full_param_type)
++        
++        param_names.append(p_name)
++        params.append(f"{full_param_type} {p_name}")
  
      commands.append((ret_type, name, params, param_names))
  
