@@ -68,24 +68,34 @@ update_shaderc_deps() {
 
     for entry in "${deps_map[@]}"; do
         IFS="|" read -r var_name repo_url <<< "$entry"
-        # Extract current hash from Python file (format: 'var_name': 'hash',)
+        
         local current_hash
         current_hash=$(grep "'${var_name}':" "$deps_file" | grep -oP "'\K[a-f0-9]{40}" | head -n1)
         [[ -z "$current_hash" ]] && continue
-        # Fetch new hash from remote
+        
         local new_hash
         new_hash=$(git ls-remote "$repo_url" HEAD 2>/dev/null | awk '{print $1}') || {
             log_warn "  ${CROSS_MARK} Failed to fetch ${var_name} from ${repo_url}"
             echo "REPORT_DEAD|${deps_file}|${var_name}" >> "$TMP_REPORT"
             continue
         }
-        # Update if different
+        
         if [[ -n "$new_hash" && "$new_hash" != "$current_hash" ]]; then
-            log_info "  ${SYNC_MARK} shaderc/${var_name}: ${current_hash:0:7} -> ${new_hash:0:7}"
+            # ДЕБАГ-ЛОГ №3: Проверяем, как выглядит строка в DEPS до изменения
+            log_debug "DEBUG_SHADERC_BEFORE: Target Var=[${var_name}] Matching line in DEPS:"
+            grep "'${var_name}':" "$deps_file" || true
+
+            # ДЕБАГ-ЛОГ №4: Показываем точную команду sed для Shaderc
+            log_debug "DEBUG_SHADERC_CMD: sed -i -E \"s/('${var_name}'\s*:\s*')[a-f0-9]{40}(')/\\1${new_hash}\\2/g\" \"$deps_file\""
+
+            # Выполняем замену
             sed -i -E "s/('${var_name}'\s*:\s*')[a-f0-9]{40}(')/\1${new_hash}\2/g" "$deps_file"
+            
+            log_info "  ${SYNC_MARK} shaderc/${var_name}: ${current_hash:0:7} -> ${new_hash:0:7}"
             echo "REPORT_UPDATE|${deps_file}|${var_name}|${current_hash}|${new_hash}" >> "$TMP_REPORT"
         fi
     done
+
 
     rm -f "$tmp_deps"
 }
@@ -202,10 +212,22 @@ for STAGE in $SEARCH_PATTERN; do
 
     if [[ -s "$STAGE_TASKS" ]]; then
         while IFS='|' read -r t_var old_val new_val; do
-            # Применяем атомарный sed, которому теперь никто не помешает
+            # ДЕБАГ-ЛОГ №1: Смотрим, что прилетело из подсессии
+            log_debug "DEBUG_REPLACE: File=[${STAGE##*/}] Var=[${t_var}] Old=[${old_val}] New=[${new_val}]"
+
+            # Проверяем на пустые значения, чтобы не портить файлы
+            if [[ -z "$t_var" || -z "$new_val" ]]; then
+                log_warn "DEBUG_ALERT: Skipped execution because variable name or new hash is empty!"
+                continue
+            fi
+
+            # ДЕБАГ-ЛОГ №2: Показываем точную команду sed перед её выполнением
+            log_debug "DEBUG_CMD: sed -i \"s@^${t_var}=\\\"[^\\\"]*\\\"@${t_var}=\\\"${new_val}\\\"@g\" \"${STAGE}\""
+
+            # Применяем атомарный sed
             sed -i "s@^${t_var}=\"[^\"]*\"@${t_var}=\"${new_val}\"@g" "${STAGE}"
             sed -i "s@^${t_var}='[^']*'@${t_var}='${new_val}'@g" "${STAGE}"
-
+            
             log_info "  ${SYNC_MARK} ${t_var}: ${old_val:0:7} -> ${new_val:0:7}"
             echo "REPORT_UPDATE|${STAGE}|${t_var}|${old_val}|${new_val}" >> "$TMP_REPORT"
         done < "$STAGE_TASKS"
