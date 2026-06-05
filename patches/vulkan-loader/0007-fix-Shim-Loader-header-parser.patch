@@ -1,17 +1,17 @@
-From ef4f1ac4d09cdf88330615533ddb9b3a3aedde6c Mon Sep 17 00:00:00 2001
+From d068509aa0cc8731e6c9cc6c3ebb5152f9c428ac Mon Sep 17 00:00:00 2001
 From: Lichtenshtein <altruumann@protonmail.com>
-Date: Fri, 5 Jun 2026 08:59:18 +0300
+Date: Fri, 5 Jun 2026 09:05:11 +0300
 Subject: [PATCH] fix Shim-Loader header parser
 
 ---
- gen_shim.py | 26 ++++++++++++++++++++++----
- 1 file changed, 22 insertions(+), 4 deletions(-)
+ gen_shim.py | 27 +++++++++++++++++++++++----
+ 1 file changed, 23 insertions(+), 4 deletions(-)
 
 diff --git a/gen_shim.py b/gen_shim.py
-index f4416d1..3d44329 100755
+index f4416d1..b0fdd53 100755
 --- a/gen_shim.py
 +++ b/gen_shim.py
-@@ -13,15 +13,34 @@ os.chdir(os.path.dirname(__file__))
+@@ -13,16 +13,36 @@ os.chdir(os.path.dirname(__file__))
  vkxml = "Vulkan-Headers/registry/vk.xml"
  
  commands = []
@@ -47,9 +47,11 @@ index f4416d1..3d44329 100755
 +        continue
 +
      ret_type = "".join(proto.itertext()).strip().rsplit(" ", 1)[0]
++    
      params = []
      param_names = []
-@@ -31,7 +50,6 @@ for cmd in ET.parse(vkxml).getroot().findall(".//commands/command"):
+     for p in cmd.findall("param"):
+@@ -31,7 +51,6 @@ for cmd in ET.parse(vkxml).getroot().findall(".//commands/command"):
  
      commands.append((ret_type, name, params, param_names))
  
