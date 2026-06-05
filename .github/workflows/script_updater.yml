@@ -11,6 +11,8 @@ jobs:
     env:
       # Список исключений для обновления
       UPDATE_PRESERVE_LIST: "decklink,vapoursynth"
+      TARGET: win64
+      VARIANT: nonfree
     permissions:
       contents: write
       pull-requests: write
