@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libjpeg-turbo/libjpeg-turbo.git"
-SCRIPT_COMMIT="4d293d9400281045e062b6e4eb8e1ccfc89d91f8"
+SCRIPT_COMMIT="94d5ff43ca91e7e69c984fed0ec0141b5fbd19b3"
 
 ffbuild_enabled() {
     return 0

@@ -4,7 +4,7 @@
 # SCRIPT_COMMIT="d72697bfc353b547efc58421ad54ac0345441bf4"
 
 SCRIPT_REPO="https://github.com/google/shaderc.git"
-SCRIPT_COMMIT="42c364eb27982ecfc9e00e384df205730e65b90c"
+SCRIPT_COMMIT="5f1ddcc6d53fae583aa833abad8b3d22ecf237ca"
 
 # patch skipper
 # export SKIP_PRE_PATCH=1

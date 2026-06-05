@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/haasn/libplacebo.git"
-SCRIPT_COMMIT="54e527552fa74467bcc7692e6985d35540861d19"
+SCRIPT_COMMIT="d4624cbfb37fdef337a7da5794b66202671a89cd"
 
 ffbuild_depends() {
     echo base

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/Mbed-TLS/mbedtls.git"
-SCRIPT_COMMIT="391af7c976044bccf83238f9c132a40d7b30464e"
+SCRIPT_COMMIT="545d1b77a29ac33b219a6681489d5e63b63c3b3a"
 # SCRIPT_COMMIT="v3.6.5"
 # SCRIPT_TAGFILTER="v3.*"
 

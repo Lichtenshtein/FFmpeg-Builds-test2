@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/gnutls/nettle.git"
-SCRIPT_COMMIT="b95548d9ce1ec3e9f258ecb82099abdc95bbdd46"
+SCRIPT_COMMIT="7e784d89875f6247f72ea251c28017fcd6616ff2"
 
 ffbuild_depends() {
     echo gmp

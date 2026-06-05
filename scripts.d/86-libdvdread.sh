@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://code.videolan.org/videolan/libdvdread.git"
-SCRIPT_COMMIT="e294cf7156ce8170ebb6786e21c4baf7aa5f48e4"
+SCRIPT_COMMIT="6acfc10af09b780b8357c880f89a788d246e520b"
 
 ffbuild_depends() {
     echo libudfread

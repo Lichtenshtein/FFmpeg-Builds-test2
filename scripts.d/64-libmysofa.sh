@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/hoene/libmysofa.git"
-SCRIPT_COMMIT="dd315a8ec1fee7193d40e4a59b12c5590a4a918c"
+SCRIPT_COMMIT="42f3ae68825a4eb2d5593a2308c3483ebbdd8bfe"
 
 ffbuild_enabled() {
     return 0
