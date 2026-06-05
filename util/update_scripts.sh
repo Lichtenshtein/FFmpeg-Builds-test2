@@ -118,7 +118,7 @@ for STAGE in $SEARCH_PATTERN; do
     # Process in subshell to avoid polluting the main environment
     # source the full script, not just grep variables
     # This ensures all variable assignments (including complex ones) are captured
-    if (
+    (
         set +e  # Don't exit on errors inside the subshell
         # Source the script to get all variables
         # Redirect stderr to avoid polluting logs with debug output
@@ -187,27 +187,32 @@ for STAGE in $SEARCH_PATTERN; do
 
             # Update if new value differs from current
             if [[ -n "$NEW_VAL" && "$NEW_VAL" != "${!TARGET_VAR}" ]]; then
-                echo "REPORT_UPDATE|${STAGE}|${TARGET_VAR}|${!TARGET_VAR}|${NEW_VAL}" >> "$TMP_REPORT"
-                # Update the file using sed with proper escaping
-                sed -i "s@^${TARGET_VAR}=\"[^\"]*\"@${TARGET_VAR}=\"${NEW_VAL}\"@g" "${STAGE}"
-                sed -i "s@^${TARGET_VAR}='[^']*'@${TARGET_VAR}='${NEW_VAL}'@g" "${STAGE}"
-                log_info "  ${SYNC_MARK} ${TARGET_VAR}: ${!TARGET_VAR:0:7} -> ${NEW_VAL:0:7}"
+                # Вместо запуска sed, записываем параметры во временный файл задач
+                echo "${TARGET_VAR}|${!TARGET_VAR}|${NEW_VAL}" >> "$STAGE_TASKS"
             fi
         done
-    ); then
 
-        # Subshell succeeded — validate syntax
-        if ! bash -n "$STAGE"; then
-            log_error "${CROSS_MARK} Syntax error in ${STAGENAME}! Rolling back."
-            echo "REPORT_SYNTAX|${STAGE}" >> "$TMP_REPORT"
-            mv "${STAGE}.bak" "$STAGE"
-        else
-            rm -f "${STAGE}.bak"
-        fi
-    else
-        # Subshell failed — rollback
-        log_error "${CROSS_MARK} Processing failed for ${STAGENAME}. Rolling back."
+    )
+
+    if [[ -s "$STAGE_TASKS" ]]; then
+        while IFS='|' read -r t_var old_val new_val; do
+            # Применяем атомарный sed, которому теперь никто не помешает
+            sed -i "s@^${t_var}=\"[^\"]*\"@${t_var}=\"${new_val}\"@g" "${STAGE}"
+            sed -i "s@^${t_var}='[^']*'@${t_var}='${new_val}'@g" "${STAGE}"
+
+            log_info "  ${SYNC_MARK} ${t_var}: ${old_val:0:7} -> ${new_val:0:7}"
+            echo "REPORT_UPDATE|${STAGE}|${t_var}|${old_val}|${new_val}" >> "$TMP_REPORT"
+        done < "$STAGE_TASKS"
+    fi
+    rm -f "$STAGE_TASKS"
+
+    # Subshell succeeded — validate syntax
+    if ! bash -n "$STAGE"; then
+        log_error "${CROSS_MARK} Syntax error in ${STAGENAME}! Rolling back."
+        echo "REPORT_SYNTAX|${STAGE}" >> "$TMP_REPORT"
         mv "${STAGE}.bak" "$STAGE"
+    else
+        rm -f "${STAGE}.bak"
     fi
 done
 
