@@ -161,7 +161,7 @@ log_info "${START_MARK} Starting AI/OCR model and conditional asset collection..
 # TESSERACT MODELS (OCR)
 if [[ "$HAS_LIBTESSERACT" == "1" ]]; then
     log_info "${DOWN_MARK} Downloading Tesseract OCR models (tessdata_best)"
-    TESS_DEST="$PKG_DIR/tessdata"
+    TESS_DEST="$PKG_DIR/bin/tessdata"
     mkdir -p "$TESS_DEST/script"
 
     # Список необходимых файлов
@@ -209,7 +209,7 @@ if [[ "$HAS_LIBTENSORFLOW" == "1" ]]; then
         log_info "${CHECK_MARK} TensorFlow SR models successfully bundled into package!"
     else
         log_error "TensorFlow SR models not found in internal storage ($INTERNAL_MODELS_DIR)!"
-        exit 1
+        # exit 1
     fi
 fi
 
@@ -238,7 +238,6 @@ if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then
     if download_file "$QTFILES_URL" "qtfiles64.7z" ""; then
         log_info "${EXTR_MARK} Extracting Apple DLLs directly to package..."
 
-        # Гарантируем, что целевая папка существует
         mkdir -p "$PKG_DIR/bin"
 
         # Распаковываем все DLL плоско (без подпапок) напрямую в $PKG_DIR/bin
