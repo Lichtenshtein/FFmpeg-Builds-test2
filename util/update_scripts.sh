@@ -82,7 +82,7 @@ update_shaderc_deps() {
         # Update if different
         if [[ -n "$new_hash" && "$new_hash" != "$current_hash" ]]; then
             log_info "  ${SYNC_MARK} shaderc/${var_name}: ${current_hash:0:7} -> ${new_hash:0:7}"
-            sed -i -E 's/(\x27'"${var_name}"'\x27\s*:\s*\x27)[a-f0-9]{40}(\x27)/\1'"${new_hash}"'\2/g' "$deps_file"
+            sed -i -E "s/('${var_name}'\s*:\s*')[a-f0-9]{40}(')/\1${new_hash}\2/g" "$deps_file"
             echo "REPORT_UPDATE|${deps_file}|${var_name}|${current_hash}|${new_hash}" >> "$TMP_REPORT"
         fi
     done
@@ -144,7 +144,10 @@ for STAGE in $SEARCH_PATTERN; do
             CUR_BRANCH="${!BRANCH_VAR:-}"
             CUR_TAG="${!TAG_VAR:-}"
 
-            [[ -z "${CUR_REPO}" ]] && break
+            # Если имя репозитория пустое или не похоже на URL, останавливаем
+            if [[ -z "${CUR_REPO}" || ! "${CUR_REPO}" =~ ^(https?|git|svn):// ]]; then
+                break
+            fi
 
             # Check if repo is accessible
             if ! check_repo_exists "$CUR_REPO"; then
