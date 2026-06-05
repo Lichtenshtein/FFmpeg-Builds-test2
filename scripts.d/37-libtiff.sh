@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libsdl-org/libtiff.git"
-SCRIPT_COMMIT="4225987ff183952a29f58322ec4792039c3a8e0c"
+SCRIPT_COMMIT="732665c2c8785cec3e1f46ba9908575f0f3a8059"
 
 ffbuild_enabled() {
     return 0

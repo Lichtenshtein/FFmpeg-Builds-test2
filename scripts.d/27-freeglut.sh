@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/freeglut/freeglut.git"
-SCRIPT_COMMIT="cc5f150ad86f01baee98a791b393a6d74b0bfb80"
+SCRIPT_COMMIT="463cef14281f41a8ae88a86590b64dba55b20846"
 
 ffbuild_enabled() {
     return 0

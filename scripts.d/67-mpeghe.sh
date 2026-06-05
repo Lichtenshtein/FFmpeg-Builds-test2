@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/ittiam-systems/libmpeghe.git"
-SCRIPT_COMMIT="603275bb7647cdf8db86dbdf2291495d8fdcfa7f"
+SCRIPT_COMMIT="9a2514ae322420b98c5d15922bdb64e171f38aa2"
 SCRIPT_BRANCH="multi-sig-grp-ln"
 
 ffbuild_enabled() {
