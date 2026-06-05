@@ -1,64 +1,62 @@
-From d068509aa0cc8731e6c9cc6c3ebb5152f9c428ac Mon Sep 17 00:00:00 2001
+From fdb8cf8357d2701fc6c38b48a52d115a46380dc7 Mon Sep 17 00:00:00 2001
 From: Lichtenshtein <altruumann@protonmail.com>
-Date: Fri, 5 Jun 2026 09:05:11 +0300
+Date: Fri, 5 Jun 2026 09:18:35 +0300
 Subject: [PATCH] fix Shim-Loader header parser
 
 ---
- gen_shim.py | 27 +++++++++++++++++++++++----
- 1 file changed, 23 insertions(+), 4 deletions(-)
+ gen_shim.py | 36 +++++++++++++++++++++++-------------
+ 1 file changed, 23 insertions(+), 13 deletions(-)
 
 diff --git a/gen_shim.py b/gen_shim.py
-index f4416d1..b0fdd53 100755
+index f4416d1..8ead2c2 100755
 --- a/gen_shim.py
 +++ b/gen_shim.py
-@@ -13,16 +13,36 @@ os.chdir(os.path.dirname(__file__))
+@@ -12,22 +12,32 @@ os.chdir(os.path.dirname(__file__))
+ # Don't forget to fetch the submodule.
  vkxml = "Vulkan-Headers/registry/vk.xml"
  
- commands = []
-+# Явный белый список KHR функций, жизненно необходимых для lcevc
-+LCEVC_REQUIRED_FUNCTIONS = {
-+    "vkGetPhysicalDeviceSurfaceSupportKHR",
-+    "vkDestroySwapchainKHR",
-+    "vkDestroySurfaceKHR",
-+    "vkGetPhysicalDeviceSurfaceCapabilitiesKHR",
-+    "vkGetPhysicalDeviceSurfaceFormatsKHR",
-+    "vkGetPhysicalDeviceSurfacePresentModesKHR",
-+    "vkCreateSwapchainKHR",
-+    "vkGetSwapchainImagesKHR"
-+}
+-commands = []
+-for cmd in ET.parse(vkxml).getroot().findall(".//commands/command"):
+-    proto = cmd.find("proto")
+-    if proto is None:
++params = []
++param_names = []
 +
- for cmd in ET.parse(vkxml).getroot().findall(".//commands/command"):
-     proto = cmd.find("proto")
-     if proto is None:
++for p in cmd.findall("param"):
++    p_name_tag = p.find("name")
++    if p_name_tag is None:
          continue
 -    if "vulkan" not in cmd.get("export", "").lower().split(","):
--        continue
- 
-     name = proto.find("name").text
--    # The XML is weird, stuff like "const" or "*" Are outside of the <type> tags.
-+
-+    if any(cmd_item[1] == name for cmd_item in commands):
-+        continue
-+
-+    export_attr = cmd.get("export", "").lower().split(",")
-+    is_vulkan_export = "vulkan" in export_attr
-+
-+    if not (is_vulkan_export or name in LCEVC_REQUIRED_FUNCTIONS):
-+        continue
-+
-     ret_type = "".join(proto.itertext()).strip().rsplit(" ", 1)[0]
++    p_name = p_name_tag.text
 +    
-     params = []
-     param_names = []
-     for p in cmd.findall("param"):
-@@ -31,7 +51,6 @@ for cmd in ET.parse(vkxml).getroot().findall(".//commands/command"):
++    if p_name in param_names:
+         continue
+ 
+-    name = proto.find("name").text
+-    # The XML is weird, stuff like "const" or "*" Are outside of the <type> tags.
+-    ret_type = "".join(proto.itertext()).strip().rsplit(" ", 1)[0]
+-    params = []
+-    param_names = []
+-    for p in cmd.findall("param"):
+-        params.append(re.sub(r"\s+", " ", "".join(p.itertext()).strip()))
+-        param_names.append(p.find("name").text)
++    before_type = (p.text or "").strip()
++    type_text = (p.find("type").text or "").strip()
++
++    after_type = ""
++    type_tag = p.find("type")
++    if type_tag is not None and type_tag.tail:
++        after_type = type_tag.tail.strip()
++        
++
++    full_param_type = f"{before_type} {type_text}{after_type}".strip()
++    full_param_type = re.sub(r"\s+", " ", full_param_type)
++    
++    param_names.append(p_name)
++    params.append(f"{full_param_type} {p_name}")
  
      commands.append((ret_type, name, params, param_names))
  
--
- print("""// Auto-Generated from vk.xml
- #define VK_NO_PROTOTYPES
- #include <vulkan/vulkan.h>
 -- 
 2.52.0.windows.1
 
