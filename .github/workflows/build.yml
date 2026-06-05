@@ -87,7 +87,7 @@ on:
       shaderc_update:
         description: 'Use own Shaderc DEPS file'
         type: boolean
-        default: false
+        default: true
       doRelease:
         description: 'Publish new release'
         type: boolean

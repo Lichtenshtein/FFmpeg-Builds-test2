@@ -10,7 +10,8 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
 
 # Читаем список из ENV или используем пустой, если переменная не задана
 # Превращаем строку "zlib base" в массив (zlib base)
-read -ra EXCLUDE_COMPONENTS <<< "${UPDATE_PRESERVE_LIST:-}"
+IFS=', ' read -ra EXCLUDE_COMPONENTS <<< "${UPDATE_PRESERVE_LIST:-}"
+
 [[ ${#EXCLUDE_COMPONENTS[@]} -gt 0 ]] && \
     log_debug "Exclusion list active: ${EXCLUDE_COMPONENTS[*]}"
 
@@ -42,7 +43,7 @@ update_shaderc_deps() {
     local deps_file="$PATCHES_DIR/shaderc/DEPS"
     [[ -f "$deps_file" ]] || return 0
 
-    log_info "${SEARCH_MARK} Checking Shaderc dependencies in ${deps_file}..."
+    log_info "${SEARCH_MARK} Checking Shaderc dependencies in: \n${deps_file}..."
 
     # Создаем временную копию
     local tmp_deps
