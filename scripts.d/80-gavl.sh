@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/bplaum/gavl.git"
-SCRIPT_COMMIT="f798ff76f6a4252f92cd209a1c973126e9673691"
+SCRIPT_COMMIT="e6e38c751bc9ee9e2dc854ddeacc75d6fa241344"
 
 ffbuild_depends() {
     echo gmp

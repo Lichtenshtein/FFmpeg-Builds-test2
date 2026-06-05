@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/cacalabs/libcaca.git"
-SCRIPT_COMMIT="69a42132350da166a98afe4ab36d89008197b5f2"
+SCRIPT_COMMIT="7c8e3338a1bda8a34297d16ac546c43548e4864d"
 
 ffbuild_depends() {
     echo freeglut

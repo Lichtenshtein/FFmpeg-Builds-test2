@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libarchive/libarchive.git"
-SCRIPT_COMMIT="0a35627ec8bb2d755b8a9a340543a37eb6b97ade"
+SCRIPT_COMMIT="cda40b999b46cdc019b34f1c2e88dfdd51bf915f"
 
 ffbuild_depends() {
     echo zlib

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/fraunhoferhhi/vvdec.git"
-SCRIPT_COMMIT="9a4349460e4c61232c3e2cfabecb508616ae8c2f"
+SCRIPT_COMMIT="26272de81a81f83eea4b4ff84ee3782fcef86ce9"
 
 ffbuild_enabled() {
     [[ $TARGET == win32 ]] && return 1

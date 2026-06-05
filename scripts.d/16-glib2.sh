@@ -2,7 +2,7 @@
 
 SCRIPT_REPO="https://github.com/GNOME/glib.git"
 # SCRIPT_COMMIT="2.82.4"
-SCRIPT_COMMIT="94d297fe6bd1348f0d761b8adf4634663620091b"
+SCRIPT_COMMIT="8ef2f3ad402daf9fb94615ddef63ceef978fd76f"
 
 ffbuild_depends() {
     echo zlib

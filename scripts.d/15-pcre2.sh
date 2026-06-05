@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/PCRE2Project/pcre2.git"
-SCRIPT_COMMIT="123424f8a2267aa12ef819c64744b9cea934e414"
+SCRIPT_COMMIT="ff92e0b9cea5b5ae3af12ba930d03556684f098b"
 
 ffbuild_depends() {
     echo zlib

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libjxl/libjxl.git"
-SCRIPT_COMMIT="32577f459c51d3a11da661b1ddba751d84dc560d"
+SCRIPT_COMMIT="462d28d89c151308278ac704db3daed5db07106a"
 
 ffbuild_depends() {
     echo brotli

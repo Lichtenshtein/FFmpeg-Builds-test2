@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://code.videolan.org/rist/librist.git"
-SCRIPT_COMMIT="9b4e359f4e5b2d9a922b6d4f0af61fe7acf78c66"
+SCRIPT_COMMIT="6955cd4c27eed8bd8f6ea5a79f8a4a97836b7b2f"
 
 ffbuild_depends() {
     # echo mbedtls # does not recognize external mbedtls

@@ -4,7 +4,7 @@
 # SCRIPT_COMMIT="ee950558a2e3d0f0e3d78365b61a8f6020bd24de"
 
 SCRIPT_REPO="https://github.com/possible947/SVT-HEVC.git"
-SCRIPT_COMMIT="a77bb334fc14381d7b3f4151d6cedad521c20181"
+SCRIPT_COMMIT="bbc686f04c4de43836c166c792377e21f8e630a5"
 # SCRIPT_BRANCH="main"
 
 ffbuild_enabled() {
