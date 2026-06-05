@@ -23,9 +23,6 @@ jobs:
 
       - name: Run Update Script
         run: |
-          git add util/update_scripts.sh
-          git commit -m "fix: add debug logs and sanitize sed rules"
-          git push origin personal  # или имя вашей текущей активной ветки
           chmod +x util/update_scripts.sh
           ./util/update_scripts.sh
 
