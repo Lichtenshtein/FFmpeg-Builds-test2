@@ -115,6 +115,9 @@ for STAGE in $SEARCH_PATTERN; do
     log_info "${SEARCH_MARK} Checking ${STAGENAME}..."
     cp "$STAGE" "${STAGE}.bak"
 
+    # Создаем изолированный файл задач для текущего скрипта
+    STAGE_TASKS=$(mktemp)
+
     # Process in subshell to avoid polluting the main environment
     # source the full script, not just grep variables
     # This ensures all variable assignments (including complex ones) are captured
