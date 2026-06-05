@@ -5,15 +5,17 @@ on:
     # - cron: '0 0 * * 0' # Каждое воскресенье в полночь
   workflow_dispatch:
 
+env:
+  # Список исключений для обновления
+  UPDATE_PRESERVE_LIST: "decklink,vapoursynth"
+  TARGET: win64
+  VARIANT: nonfree
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+  FFBUILD_VERBOSE: 1
+
 jobs:
   bump:
     runs-on: ubuntu-latest
-    env:
-      # Список исключений для обновления
-      UPDATE_PRESERVE_LIST: "decklink,vapoursynth"
-      TARGET: win64
-      VARIANT: nonfree
-      FFBUILD_VERBOSE: 1
     permissions:
       contents: write
       pull-requests: write
@@ -21,6 +23,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
+          persist-credentials: false 
 
       - name: Run Update Script
         run: |
