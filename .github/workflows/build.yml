@@ -68,7 +68,7 @@ on:
       freeSpace:
         description: 'Free some Disk Space before Build'
         type: boolean
-        default: true
+        default: false
       regularClean:
         description: 'Clean old caches after build (Regular Cleaning)'
         type: boolean
