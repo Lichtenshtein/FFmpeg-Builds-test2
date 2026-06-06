@@ -482,8 +482,8 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     # --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS} -DCOBJMACROS"
     # --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
-    # --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
-    # --extra-ldexeflags="$FINAL_LDEXEFLAGS"
+    --extra-ldflags="-Wl,-Bstatic -static -static-libgcc -static-libstdc++"
+    --extra-ldexeflags="$FINAL_LDEXEFLAGS"
     # --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
