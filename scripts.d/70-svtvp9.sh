@@ -30,10 +30,14 @@ ffbuild_dockerbuild() {
         -DNATIVE=OFF
         -DCOVERAGE=OFF
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DYASM=OFF
+        -DENABLE_NASM=ON
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    [[ "${USE_AVX512}" != "1" ]] && avx512_flags="-DDISABLE_AVX512"
+
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $avx512_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $avx512_flags" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
