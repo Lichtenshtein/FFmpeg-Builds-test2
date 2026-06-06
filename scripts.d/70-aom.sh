@@ -37,6 +37,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         # -DCMAKE_POLICY_VERSION_MINIMUM=3.5
         # -DCMAKE_POLICY_DEFAULT_CMP0169=OLD
         # -DCMAKE_POLICY_DEFAULT_CMP0135=NEW
@@ -72,10 +73,12 @@ ffbuild_dockerbuild() {
     )
 
     export static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DJXL_STATIC_DEFINE"
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DJXL_STATIC_DEFINE -DHWY_COMPILE_ONLY_STATIC"
+
+    [[ "${USE_AVX512}" != "1" ]] && instruct_off="-DHWY_DISABLED_TARGETS=0x1F8"
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags $instruct_off" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
