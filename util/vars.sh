@@ -188,7 +188,7 @@ export SKIP_PRE_PATCH=0  # inside main
 export SKIP_POST_PATCH=0 # inside main
 export SKIP_POST_CLEAN=0
 export SKIP_POST_AUDIT=0
-export SKIP_POST_STRIP=0 # inside dockerbuild
+export SKIP_POST_STRIP=1 # inside dockerbuild
 export USE_CONF_FINDER=0
 
 mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
