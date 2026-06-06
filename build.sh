@@ -474,6 +474,7 @@ fi
 chmod +x configure
 
 # Tip: -Wl,--allow-multiple-definition needed for KVAZAAR with cryptopp.
+# --extra-cflags="-DCOBJMACROS"
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
@@ -482,9 +483,10 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     # --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS} -DCOBJMACROS"
     # --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
-    --extra-ldflags="-Wl,-Bstatic -static -static-libgcc -static-libstdc++"
+    # --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
+    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS}"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
-    # --extra-libs="${FINAL_LIBS_GROUPED}"
+    --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
