@@ -46,7 +46,7 @@ ffbuild_dockerbuild() {
         -DVN_SDK_THREADING=ON
         -DVN_SDK_TRACING=OFF
         -DVN_SDK_UNIT_TESTS=OFF
-        -DVN_STRIP_RELEASE=ON
+        -DVN_STRIP_RELEASE=OFF
         )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
