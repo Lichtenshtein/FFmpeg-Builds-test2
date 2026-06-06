@@ -20,6 +20,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    export USE_AVX512="${USE_AVX512:-0}"
+
     mkdir build && cd build
 
     local myconf=(
@@ -49,7 +51,7 @@ ffbuild_dockerbuild() {
     cp "../nnedi3_weights.bin" "${INSTALL_ROOT}/bin/nnedi3_weights.bin"
 
     # Проверяем, что файл успешно скопирован и не пустой
-    if [ ! -s "${INSTALL_ROOT}/include/../bin/nnedi3_weights.bin" ]; then
+    if [ ! -s "${INSTALL_ROOT}/bin/nnedi3_weights.bin" ]; then
         log_warn "nnedi3_weights.bin was not found or is empty in the target folder!"
     fi
 }
