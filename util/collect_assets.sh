@@ -71,6 +71,8 @@ fi
 if [[ -f "$FFBUILD_PREFIX/lib/libvsznedi3.dll" ]]; then
     log_info "${SYNC_MARK} Moving nnedi3 plugin..."
     mv -f "$FFBUILD_PREFIX/lib/libvsznedi3.dll" "$PKG_DIR/bin/libvsznedi3.dll"
+elif [[ -f "$FFBUILD_PREFIX/lib/libznedi3.a" ]]; then
+    log_info "Found static libznedi3.a instead of libvsznedi3.dll in $FFBUILD_PREFIX/lib"
 else
     log_warn "nnedi3 plugin not found in $FFBUILD_PREFIX/lib"
 fi
