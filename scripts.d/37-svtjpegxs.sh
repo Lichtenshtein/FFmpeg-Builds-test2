@@ -15,19 +15,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Completely isolate SVT-JPEG-XS from the AVX-512 module assembly
-    # if [ "${USE_AVX512:-0}" == "0" ]; then
-    # log_info "Patching SVT-JPEG-XS: Evaporating AVX-512 C-code while preserving headers..."
-
-    # find Source/Lib/Encoder/ASM_AVX512 -type f \( -name "*.c" -o -name "*.asm" \) -exec cp /dev/null {} \;
-    # find Source/Lib/Decoder/ASM_AVX512 -type f \( -name "*.c" -o -name "*.asm" \) -exec cp /dev/null {} \;
-
-    # if [ -f "tests/UnitTests/CMakeLists.txt" ]; then
-        # sed -i '/UnitTest_AVX512/d' tests/UnitTests/CMakeLists.txt
-        # sed -i '/_AVX512/d' tests/UnitTests/CMakeLists.txt
-    # fi
-    # fi
-
     # отключаем автоматическое определение архитектуры хоста
     # чтобы он не взял флаги процессора GitHub раннера
     sed -i 's/-march=native//g' CMakeLists.txt || true
