@@ -19,6 +19,16 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Remove Skylake/Cascadelake flag checks
+    if [ "${USE_AVX512:-0}" == "0" ]; then
+        log_info "Patching zimg configure.ac to enforce disabling AVX-512..."
+        # Resetting tuning flag substitution for AVX-512 architectures
+        sed -i 's/AX_CHECK_COMPILE_FLAG(\[-mtune=skylake-avx512\],.*/AC_SUBST([SKX_CFLAGS], [])/g' configure.ac
+        sed -i 's/AX_CHECK_COMPILE_FLAG(\[-mtune=cascadelake\],.*/AC_SUBST([CLX_CFLAGS], [])/g' configure.ac
+        # Force the X86SIMD_AVX512 condition to false (stub)
+        sed -i 's/AM_CONDITIONAL(\[X86SIMD_AVX512\],.*/AM_CONDITIONAL([X86SIMD_AVX512], [false])/g' configure.ac
+    fi
+
     ./autogen.sh
 
     local myconf=(
