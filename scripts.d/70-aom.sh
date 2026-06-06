@@ -75,10 +75,10 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DJXL_STATIC_DEFINE -DHWY_COMPILE_ONLY_STATIC"
 
-    [[ "${USE_AVX512}" != "1" ]] && instruct_off="-DHWY_DISABLED_TARGETS=0x1F8"
+    [[ "${USE_AVX512}" != "1" ]] && avx512_flags="-DHWY_DISABLED_TARGETS=0x1F8"
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags $instruct_off" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags $avx512_flags" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
