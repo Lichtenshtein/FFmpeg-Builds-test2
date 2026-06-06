@@ -17,16 +17,15 @@ ffbuild_dockerbuild() {
 
     # Completely isolate SVT-JPEG-XS from the AVX-512 module assembly
     if [ "${USE_AVX512:-0}" == "0" ]; then
-        log_info "Patching SVT-JPEG-XS CMake trees to purge AVX-512 objects..."
+    log_info "Patching SVT-JPEG-XS: Evaporating AVX-512 C-code while preserving headers..."
 
-        # Disable adding AVX-512 subdirectories to Source/Lib/CMakeLists.txt
-        if [ -f "Source/Lib/CMakeLists.txt" ]; then
-            sed -i '/ASM_AVX512/d' Source/Lib/CMakeLists.txt
-        fi
+    find Source/Lib/Encoder/ASM_AVX512 -type f \( -name "*.c" -o -name "*.asm" \) -exec cp /dev/null {} \;
+    find Source/Lib/Decoder/ASM_AVX512 -type f \( -name "*.c" -o -name "*.asm" \) -exec cp /dev/null {} \;
 
-        # Clear the TARGET_OBJECTS and dependency lists in ALL CMakeLists.txt files
-        find . -name "CMakeLists.txt" -exec sed -i '/_ASM_AVX512/d' {} +
-        find . -name "CMakeLists.txt" -exec sed -i '/_AVX512/d' {} +
+    if [ -f "tests/UnitTests/CMakeLists.txt" ]; then
+        sed -i '/UnitTest_AVX512/d' tests/UnitTests/CMakeLists.txt
+        sed -i '/_AVX512/d' tests/UnitTests/CMakeLists.txt
+    fi
     fi
 
     # отключаем автоматическое определение архитектуры хоста
