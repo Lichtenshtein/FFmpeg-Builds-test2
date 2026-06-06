@@ -309,7 +309,7 @@ if [[ "$TARGET" == "win64" ]]; then
     fi
 
     export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${MAIN_LDFLAGS[@]}")"
-    export LIBS="${LIBS:-$SYSTEM_LIBS} -lwinpthread"
+    export LIBS="${LIBS:-$SYSTEM_LIBS}"
     export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="${FFBUILD_CROSS_PREFIX}gcc"
 
 elif [[ "$TARGET" == "linux64" ]]; then
