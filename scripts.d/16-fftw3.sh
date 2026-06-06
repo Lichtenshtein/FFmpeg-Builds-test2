@@ -27,7 +27,7 @@ ffbuild_dockerbuild() {
         sed -i 's/^dist_man_MANS =.*/dist_man_MANS =/' tools/Makefile.am
     fi
 
-    local base_conf=(
+    local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --enable-maintainer-mode
         --disable-fortran
@@ -36,15 +36,15 @@ ffbuild_dockerbuild() {
 
     # --with-combined-threads incompatible with --enable-openmp
     [[ "${USE_OPENMP}" == "1" ]] && \
-        base_conf+=( --enable-openmp ) || \
-        base_conf+=( --enable-threads --with-combined-threads )
+        myconf+=( --enable-openmp ) || \
+        myconf+=( --enable-threads --with-combined-threads )
     [[ "${PREFER_SHARED}" == "1" ]] && \
-        base_conf+=( --disable-static --enable-shared ) || \
-        base_conf+=( --enable-static --disable-shared )
-    [[ "$USE_AVX512" == "1" ]] && base_conf+=( --enable-avx512 )
+        myconf+=( --disable-static --enable-shared ) || \
+        myconf+=( --enable-static --disable-shared )
+    [[ "$USE_AVX512" == "1" ]] && myconf+=( --enable-avx512 )
 
     if [[ $TARGET != *arm64 ]]; then
-        base_conf+=(
+        myconf+=(
             --with-incoming-stack-boundary=4
             --enable-sse2
             --enable-avx
@@ -53,7 +53,7 @@ ffbuild_dockerbuild() {
         )
     fi
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        base_conf+=(
+        myconf+=(
             --host="$FFBUILD_TOOLCHAIN"
             # гарантирует выравнивание памяти по границе 16/32 байта
             --with-our-malloc
@@ -66,7 +66,7 @@ ffbuild_dockerbuild() {
     # Список точностей: "double" (стандарт) и "float" (одинарная)
     # FFTW для float требует флаг --enable-single
     for precision in double float; do
-        local myconf=("${base_conf[@]}")
+        local myconf=("${myconf[@]}")
 
         if [[ "$precision" == "float" ]]; then
             myconf+=( --enable-single )
