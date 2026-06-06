@@ -78,7 +78,7 @@ ffbuild_dockerbuild() {
         # Чистим перед пересборкой другой точности
         make distclean || true
 
-        CFLAGS="$CFLAGS -mincoming-stack-boundary=4 ${OPENMP_C}${USELTO}${USELTO_C}" \
+        CFLAGS="${CFLAGS//-mstackrealign/} -mincoming-stack-boundary=4 ${OPENMP_C}${USELTO}${USELTO_C}" \
         CPPFLAGS="$CPPFLAGS" \
         CXXFLAGS="$CXXFLAGS ${OPENMP_C}${USELTO}${USELTO_C}" \
         LDFLAGS="$LDFLAGS ${USELTO}" \
