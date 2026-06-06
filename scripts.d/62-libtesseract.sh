@@ -33,6 +33,13 @@ ffbuild_dockerbuild() {
     sed -i 's/.*target_link_libraries(tesseract.*/# REMOVED LINK/g' CMakeLists.txt
     sed -i 's/.*install(TARGETS tesseract.*/# REMOVED INSTALL/g' CMakeLists.txt
 
+    # Patch CMakeLists.txt to control AVX-512 builds based on an external variable
+    if [ "${USE_AVX512:-0}" == "0" ]; then
+        log_info "Patching Tesseract CMake to enforce disabling AVX-512..."
+        # Find the -mavx512f check block and forcibly disable the HAVE_AVX512F variable
+        sed -i 's/check_cxx_compiler_flag("-mavx512f" HAVE_AVX512F)/set(HAVE_AVX512F FALSE)/g' CMakeLists.txt
+    fi
+
     mkdir -p build && cd build
 
     # Backing up "poisoned" CMake-конфиги TIFF и других либ, 
