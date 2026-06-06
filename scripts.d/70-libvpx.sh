@@ -21,7 +21,7 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --as="nasm"
-        --cpu="${CPU_TUNE:-broadwell}"
+        --cpu="x86_64"
         --disable-debug
         --disable-docs
         --disable-examples
@@ -47,6 +47,10 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
     )
 
+    [[ "${USE_AVX512}" != "1" ]] && \
+        myconf+=( --disable-avx512 ) && \
+        avx512_flags="-DVPX_RTCD_HAS_AVX512=0"
+
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
@@ -61,9 +65,9 @@ ffbuild_dockerbuild() {
         export CROSS="$FFBUILD_CROSS_PREFIX"
     fi
 
-    CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
+    CFLAGS="$CFLAGS ${USELTO}${USELTO_C} $avx512_flags" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C} $avx512_flags" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
