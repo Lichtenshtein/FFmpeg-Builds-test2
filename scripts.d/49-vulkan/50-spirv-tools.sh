@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/khronosGroup/SPIRV-Tools.git"
-SCRIPT_COMMIT="2c75d08e3b31a673726ce6be80ab528250247064"
+SCRIPT_COMMIT="9b51d3d78717e29efd75adf1856cdbcc644eda7a"
 
 ffbuild_enabled() {
     return 1

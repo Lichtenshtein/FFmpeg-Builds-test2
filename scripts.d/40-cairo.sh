@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://gitlab.freedesktop.org/cairo/cairo.git"
-SCRIPT_COMMIT="d3a35678a2322046f6d034001f2970ed3f54a1b7"
+SCRIPT_COMMIT="8e3ac5e404f45b92ea186ad7a776b5e5160f38ac"
 
 ffbuild_depends() {
     echo zlib

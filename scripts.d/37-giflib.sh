@@ -3,7 +3,7 @@
 # SCRIPT_REPO="https://gh.msys2.org/repo/mingw/sources/mingw-w64-giflib-6.1.2.tar.gz"
 
 SCRIPT_REPO="https://github.com/codacy-open-source-projects-scans/giflib.git"
-SCRIPT_COMMIT="9bef00b547ef55f64d8fe66e38ca28aac8a72ad6"
+SCRIPT_COMMIT="374aa8f589b37ec787ffe800a20f6f0f66616df6"
 
 ffbuild_enabled() {
     return 0

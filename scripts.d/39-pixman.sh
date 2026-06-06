@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://gitlab.freedesktop.org/pixman/pixman.git"
-SCRIPT_COMMIT="f824cac6478971c0f71e4dfe8a60ebf70224076a"
+SCRIPT_COMMIT="2fc1f7142ba28460b0675c763186937481e02c25"
 
 ffbuild_depends() {
     echo libpng

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/rocky/libcdio-paranoia.git"
-SCRIPT_COMMIT="307fa2e43dad116b5a9ffe36424fbfd08da30a8f"
+SCRIPT_COMMIT="8c2b1b5584f1308e7a9b7668ad6e115b2456ada0"
 
 ffbuild_depends() {
     echo libiconv
