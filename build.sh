@@ -484,7 +484,7 @@ CONF_FLAGS=(
     --extra-cflags="-O3 -march=broadwell -mtune=broadwell -pipe -mms-bitfields -fstack-protector-strong -mstackrealign -std=gnu23 -I/opt/ffbuild/include -D_FORTIFY_SOURCE=2"
     --extra-cxxflags="-O3 -march=broadwell -mtune=broadwell -pipe -mms-bitfields -fstack-protector-strong -mstackrealign -std=gnu++20 -I/opt/ffbuild/include -D_FORTIFY_SOURCE=2"
     # --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
-    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
+    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE}"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
