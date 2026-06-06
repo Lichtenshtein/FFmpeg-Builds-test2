@@ -537,6 +537,10 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     exit 1
 fi
 
+sed -i 's/tf_options,\s*show_data_hash/tf_options, 0/g' fftools/ffprobe.c
+grep -n "avtext_context_open" fftools/ffprobe.c
+
+
 if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
     log_info "Applying precise LCEVC SDK 4.0.0 migration patches..."
 
