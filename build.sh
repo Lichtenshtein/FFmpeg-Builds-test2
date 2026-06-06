@@ -490,7 +490,9 @@ CONF_FLAGS=(
     --disable-w32threads --enable-pthreads
     --enable-opengl
     --enable-pic
-    --disable-debug
+ --enable-debug=3
+ --disable-stripping
+    # --disable-debug
     # --disable-ffprobe
     --disable-ffplay
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
@@ -721,8 +723,8 @@ fi
 
 # Стриппинг бинарников (удаление отладочных символов)
 # --strip-all; --strip-unneeded
-log_info "${BROOM_MARK} Stripping binaries..."
-find "$PKG_DIR/bin" -name "*.exe" -o -name "*.dll" -exec ${FFBUILD_CROSS_PREFIX}strip --strip-unneeded {} \;
+# log_info "${BROOM_MARK} Stripping binaries..."
+# find "$PKG_DIR/bin" -name "*.exe" -o -name "*.dll" -exec ${FFBUILD_CROSS_PREFIX}strip --strip-unneeded {} \;
 
 # Упаковка
 log_info "${ARCH_MARK} Creating archive: ${BUILD_NAME}.7z"
