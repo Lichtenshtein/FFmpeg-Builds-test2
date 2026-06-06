@@ -22,6 +22,13 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # completely cut AVX-512 files from the AVX2 build pool
+    if [ "${USE_AVX512:-0}" == "0" ]; then
+        log_info "Patching SVT-HEVC: Purging AVX-512 source files from AVX2 tree..."
+        # Find the CMakeLists.txt file in the ASM_AVX2 folder and remove any references to AVX512 from it.
+        sed -i '/_AVX512/d' "Source/Lib/ASM_AVX2/CMakeLists.txt"
+    fi
+
     mkdir -p _build && cd _build
 
     local myconf=(

@@ -708,6 +708,17 @@ package_variant "$INSTALL_ROOT" "$PKG_DIR"
 log_info "${SYNC_MARK} Collecting additional assets..."
 "$UTIL_DIR"/collect_assets.sh "$ASSETS_DIR" "$FFMPEG_SOURCE_DIR" || log_warn "Assets download failed, but continuing..."
 
+# If zmm registers (these are AVX-512 registers) or evex prefixes appear in the assembler output, it means that some library is still pushing this code.
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 && "$USE_AVX512" != "1" ]]; then
+    log_debug "Checking if AVX-512 instructions have leaked into the final binary..."
+    find "$PKG_DIR/bin" -name "*.exe" -exec sh -c '
+        for file; do
+            echo "=== Checking $file ==="
+            x86_64-w64-mingw32-objdump -d "$file" | grep -Ei "zmm|vex|evex" | head -n 30
+        done
+    ' _ {} +
+fi
+
 # Стриппинг бинарников (удаление отладочных символов)
 # --strip-all; --strip-unneeded
 log_info "${BROOM_MARK} Stripping binaries..."
