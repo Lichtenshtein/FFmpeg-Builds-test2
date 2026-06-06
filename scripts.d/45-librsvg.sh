@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/GNOME/librsvg.git"
-SCRIPT_COMMIT="c3db18133ba775d55a0f9c6c49ec16ac235a7d8a"
+SCRIPT_COMMIT="f7976944494b49518604cc03c36b7341db939010"
 
 export SKIP_POST_STRIP=1
 

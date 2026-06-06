@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/GNOME/libxml2.git"
-SCRIPT_COMMIT="2cc5834033db61fb7adc242fb15f7d1e13f66c14"
+SCRIPT_COMMIT="962bd10d01151d29190567e2d15ccf641be55063"
 
 export SKIP_CONF_FINDER=1
 

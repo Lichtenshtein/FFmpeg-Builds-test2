@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/kcat/openal-soft.git"
-SCRIPT_COMMIT="266538011d2fc8ee875abed0be43a537d0e59743"
+SCRIPT_COMMIT="f3ad9711d8700036328d5d6aeefa579b90acd74d"
 
 ffbuild_depends() {
     echo sdl

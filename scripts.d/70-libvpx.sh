@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/webmproject/libvpx.git"
-SCRIPT_COMMIT="30f3852521b11b5e361ec1eaeef5a12730bfe90f"
+SCRIPT_COMMIT="908e88c1aa6a12a86feb5d36a919c219c42f1e2c"
 
 ffbuild_depends() {
     echo libavif # for libyuv
