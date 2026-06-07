@@ -7,7 +7,7 @@ on:
 
 env:
   # Список исключений для обновления
-  UPDATE_PRESERVE_LIST: "vapoursynth"
+  UPDATE_PRESERVE_LIST: "vapoursynth quiche"
   TARGET: win64
   VARIANT: nonfree
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
