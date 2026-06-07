@@ -483,8 +483,8 @@ CONF_FLAGS=(
     --host-cc="ccache gcc-15"
     --host-cflags="-O3 -march=x86-64-v3 -mtune=generic"
     --host-ldflags=""
-    --extra-cflags="-O2 -march=x86-64-v3 -mtune=generic -pipe -I/opt/ffbuild/include"
-    --extra-cxxflags="-O2 -march=x86-64-v3 -mtune=generic -pipe -I/opt/ffbuild/include"
+    --extra-cflags="-O2 -march=x86-64-v3 -mtune=generic -I/opt/ffbuild/include"
+    --extra-cxxflags="-O2 -march=x86-64-v3 -mtune=generic -I/opt/ffbuild/include"
     # --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
     --extra-ldflags="-Wl,-Bstatic -static -static-libgcc -static-libstdc++"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
@@ -492,14 +492,14 @@ CONF_FLAGS=(
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
-    --enable-opengl
-    --enable-pic
+    # --enable-opengl
+    # --enable-pic
  --enable-debug=3
  --disable-stripping
     # --disable-debug
     # --disable-ffprobe
     --disable-ffplay
-    --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM"
+    --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
 )
 
 if [[ "${PREFER_SHARED}" != "1" ]]; then
