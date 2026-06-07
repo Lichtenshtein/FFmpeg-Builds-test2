@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/cloudflare/quiche.git"
-SCRIPT_COMMIT="f0c7193c3b130d766f0d6f3e75d4f2405c85d376"
+SCRIPT_COMMIT="ffb07b940673383fc29e78f52130ef60f5417c06"
 
 ffbuild_depends() {
     echo zlib
@@ -20,6 +20,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    echo "test"
     cd quiche
 
     # Заменяем crate-type = ["lib", "staticlib", "cdylib"] на ["staticlib"]
