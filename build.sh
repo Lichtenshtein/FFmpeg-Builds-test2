@@ -477,27 +477,28 @@ chmod +x configure
 
 # Tip: -Wl,--allow-multiple-definition needed for KVAZAAR with cryptopp.
 # --extra-cflags="-DCOBJMACROS"
+# --extra-ldflags="${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
+# -march=x86-64-v3 -mtune=generic
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
     --host-cc="ccache gcc-15"
-    --host-cflags="-O3 -march=x86-64-v3 -mtune=generic"
-    --host-ldflags=""
-    --extra-cflags="-O2 -march=x86-64-v3 -mtune=generic -I/opt/ffbuild/include"
-    --extra-cxxflags="-O2 -march=x86-64-v3 -mtune=generic -I/opt/ffbuild/include"
-    # --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
-    --extra-ldflags="-Wl,-Bstatic -static -static-libgcc -static-libstdc++"
+    --host-cflags="$HOST_CFLAGS"
+    --host-ldflags="$HOST_LDFLAGS"
+    --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
+    --extra-cxxflags="${FINAL_CXXFLAGS}"
+    --extra-ldflags="${FINAL_LDFLAGS}"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
-    # --extra-libs="${FINAL_LIBS_GROUPED}"
+    --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
-    # --enable-opengl
-    # --enable-pic
+    --enable-opengl
+    --enable-pic
  --enable-debug=3
  --disable-stripping
     # --disable-debug
-    # --disable-ffprobe
+    --disable-ffprobe
     --disable-ffplay
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
 )
