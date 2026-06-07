@@ -380,7 +380,9 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_debug "GNU assembler version:"
     # что выдает ассемблер на команду версии
     as --version | head -n 1
+    gcc --version | head -n 1
     x86_64-w64-mingw32-as --version | head -n 1
+    ccache --version | head -n 1
 
     # Если AS или LD показывают /usr/bin/... вместо /opt/ct-ng/... — это 100% причина ошибок и проблем со ненайденными заголовками
     # Версии кросс-инструментов должны совпадать с ct-ng (2.46.0 / 15.2.0), а не Ubuntu (2.42).
@@ -478,15 +480,15 @@ chmod +x configure
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
-    --host-cc="ccache gcc-14"
-    --host-cflags="$HOST_CFLAGS"
-    --host-ldflags="$HOST_LDFLAGS"
+    --host-cc="ccache gcc-15"
+    --host-cflags="-O3 -march=x86-64-v3 -mtune=generic"
+    --host-ldflags=""
     --extra-cflags="-O2 -march=x86-64-v3 -mtune=generic -pipe -fstack-protector-strong -I/opt/ffbuild/include"
     --extra-cxxflags="-O2 -march=x86-64-v3 -mtune=generic -pipe -fstack-protector-strong -I/opt/ffbuild/include"
     # --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
-    --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS}"
+    --extra-ldflags="-Wl,-Bstatic -static -static-libgcc -static-libstdc++"
     --extra-ldexeflags="$FINAL_LDEXEFLAGS"
-    --extra-libs="${FINAL_LIBS_GROUPED}"
+    # --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
