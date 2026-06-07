@@ -21,7 +21,7 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --as="nasm"
-        --cpu="x86_64"
+        --cpu="${CPU_ARCH}"
         --disable-debug
         --disable-docs
         --disable-examples
@@ -78,7 +78,7 @@ ffbuild_dockerbuild() {
     # Исправление для LTO
     # Work around strip breaking LTO symbol index
     # "$RANLIB" "$INSTALL_ROOT"/lib/libvpx.a
-    $RANLIB "$INSTALL_ROOT/lib/libvpx.a"
+    "$RANLIB" "$INSTALL_ROOT/lib/libvpx.a"
 
     sed -i "s|^Cflags:.*|& -I\${includedir}/vpx|" "$PC_DIR/vpx.pc"
 }

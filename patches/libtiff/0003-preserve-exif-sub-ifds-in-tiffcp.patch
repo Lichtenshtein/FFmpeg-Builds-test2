@@ -28,8 +28,8 @@ index f801738a..76a53bc9 100644
 +            if (!tiffcp(in, out) || !TIFFWriteDirectory(out) ||
 +                !cpExif(in, out, TIFFCurrentDirectory(out)))
              {
-                 (void)TIFFClose(in);
-                 (void)TIFFClose(out);
+                 TIFFClose(in);
+                 TIFFClose(out);
 @@ -712,6 +716,335 @@ static void usage(int code)
              TIFFSetField(out, tag, v1, v2, v3, v4);                            \
      } while (0)
