@@ -20,7 +20,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    echo "test"
     cd quiche
 
     # Заменяем crate-type = ["lib", "staticlib", "cdylib"] на ["staticlib"]
