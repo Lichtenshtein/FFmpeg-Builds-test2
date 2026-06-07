@@ -266,6 +266,11 @@ All of those can be optionally combined with any combination of addins:
 08-zlib|40-zimg|64-soundtouch|80-avisynth|83-vapoursynth
 ```
 
+* `curl`
+```
+08-zlib|11-brotli|11-zstd|12-libffi|16-libxml2|30-openssl|32-libssh|32-quiche|33-nghttp2|34-curl
+```
+
 * `libbluray`
 ```
 85-libudfread|86-libdvdcss|86-libdvdread|87-libdvdnav|88-libbluray
