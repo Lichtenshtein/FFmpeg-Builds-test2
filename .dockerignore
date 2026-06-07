@@ -1,11 +1,10 @@
 # Eliminate the heavy compiler and ffmpeg cache
-.cache/ccache
-.cache/ffmpeg
+#.cache/ccache
+#.cache/ffmpeg
 #.git
-artifacts
+#artifacts
 
 # We allow copying ONLY download archives
-!.cache/downloads
-!.cache/ffmpeg
-
-!host_tensorflow_models
+#!.cache/downloads
+#!.cache/ffmpeg
+#!host_tensorflow_models
