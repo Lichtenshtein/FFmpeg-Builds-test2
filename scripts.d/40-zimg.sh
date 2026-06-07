@@ -28,6 +28,7 @@ ffbuild_dockerbuild() {
         # Force the X86SIMD_AVX512 condition to false (stub)
         sed -i 's/AM_CONDITIONAL(\[X86SIMD_AVX512\],.*/AM_CONDITIONAL([X86SIMD_AVX512], [false])/g' configure.ac
     fi
+    # it still uses -mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq flags
 
     ./autogen.sh
 

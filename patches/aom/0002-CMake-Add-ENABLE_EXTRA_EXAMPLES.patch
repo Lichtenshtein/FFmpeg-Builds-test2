@@ -228,7 +228,7 @@ index 48d92f6a4b..ef17a40400 100644
 +  endif()
  endif()
  
- foreach(aom_app ${AOM_APP_TARGETS})
+ if(ENABLE_EXAMPLES AND CONFIG_AV1_ENCODER)
 -- 
 2.50.1
 
