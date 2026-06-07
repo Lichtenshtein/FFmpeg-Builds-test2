@@ -1,7 +1,15 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://code.videolan.org/videolan/x264.git"
-SCRIPT_COMMIT="0480cb05fa188d37ae87e8f4fd8f1aea3711f7ee"
+# SCRIPT_REPO="https://code.videolan.org/videolan/x264.git"
+# SCRIPT_COMMIT="0480cb05fa188d37ae87e8f4fd8f1aea3711f7ee"
+
+SCRIPT_REPO="https://github.com/jpsdr/x264.git"
+SCRIPT_COMMIT="ba817a33001f0179d5905eb25b8b64214d95341c"
+SCRIPT_BRANCH="t_mod_New"
+
+# SCRIPT_REPO="https://github.com/neil1123-cc/x264.git"
+# SCRIPT_COMMIT="2d0302bb5665ca3716bb5370cbfbf8a2a2475e6e"
+
 
 ffbuild_enabled() {
     [[ $VARIANT == lgpl* ]] && return 1
@@ -37,6 +45,9 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
         --cross-prefix="$FFBUILD_CROSS_PREFIX"
+        # fork settings
+        --enable-nonfree
+        --qtsdk="${FFBUILD_PREFIX}/bin" # root of QuickTime SDK for QuickTime AAC support
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
