@@ -146,7 +146,7 @@ env:
   OLDER_FFNV:     ${{ github.event.inputs.older_ffnv     == 'true' && '1' || '0' }}
   DIR_NUMBERS:    ${{ github.event.inputs.dir_numbers    == 'true' && '1' || '0' }}
   BUILD_VINO:     ${{ github.event.inputs.build_vino     == 'true' && '1' || '0' }}
-  USE_TENSORFLOW: '1'
+  USE_TENSORFLOW: '0'
   # Маппинг Inputs -> Env для всех динамических значений
   FFMPEG_REPO:     ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-Plus.git' }}
   FFMPEG_BRANCH:   ${{ github.event.inputs.ffmpeg_branch || 'master' }}
