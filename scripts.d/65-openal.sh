@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/kcat/openal-soft.git"
-SCRIPT_COMMIT="f3ad9711d8700036328d5d6aeefa579b90acd74d"
+SCRIPT_COMMIT="dc98bfbe6064d851e32428db83b06732a448810b"
 
 ffbuild_depends() {
     echo sdl
@@ -35,6 +35,7 @@ ffbuild_dockerbuild() {
         -DALSOFT_CPUEXT_SSE4_1=ON
         -DALSOFT_REQUIRE_SSE4_1=ON
         -DALSOFT_DLOPEN=OFF
+        # -DALSOFT_BUILD_MODULES=OFF
     )
 
     if [[ "${PREFER_SHARED}" == "1" ]]; then
@@ -72,8 +73,8 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -include stdlib.h" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -include cstdlib" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
