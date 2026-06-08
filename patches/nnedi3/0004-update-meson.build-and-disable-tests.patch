@@ -8,18 +8,17 @@ Subject: [PATCH] update meson.build and disable tests
  1 file changed, 19 insertions(+), 64 deletions(-)
 
 diff --git a/meson.build b/meson.build
-index 7e76e79..38147ed 100644
+index 7e76e79..17d3d24 100644
 --- a/meson.build
 +++ b/meson.build
-@@ -1,28 +1,22 @@
+@@ -1,29 +1,21 @@
  project('znedi3', 'c', 'cpp',
          version: '2.2',
 -        default_options: ['c_std=c99', 'cpp_std=c++14', 'buildtype=release', 'b_lto=true'],
 +        default_options: ['c_std=c11', 'cpp_std=c++17', 'buildtype=release', 'b_lto=true'],
          meson_version: '>=0.46')
  
-+env = environment()
- 
+-
  warnings = [
    '-Wall',
    '-Wextra',
@@ -40,10 +39,12 @@ index 7e76e79..38147ed 100644
 -]
 -
 -ldflags = [
- ]
+-]
++ ]
  
  includes = include_directories(
-@@ -39,26 +33,13 @@ znedi3_sources = [
+   'graphengine/include',
+@@ -39,26 +31,13 @@ znedi3_sources = [
    'znedi3/znedi3_impl.cpp',
  ]
  
@@ -71,7 +72,7 @@ index 7e76e79..38147ed 100644
  host_cpu_family = host_machine.cpu_family()
  
  if host_cpu_family.startswith('x86')
-@@ -71,89 +52,60 @@ if host_cpu_family.startswith('x86')
+@@ -71,89 +50,60 @@ if host_cpu_family.startswith('x86')
      'znedi3/x86/kernel_sse2.cpp',
    ]
  
@@ -85,14 +86,14 @@ index 7e76e79..38147ed 100644
 -  znedi3_sources_x86_f16c = [
 -    'znedi3/x86/kernel_f16c.cpp',
 -  ]
+-
+-  znedi3_sources_x86_avx2 = [
+-    'znedi3/x86/kernel_avx2.cpp',
+-  ]
 +  lib_f16c = static_library('znedi3_f16c_obj', ['znedi3/x86/kernel_f16c.cpp'],
 +                            include_directories: includes, cpp_args: [cflags, '-mavx', '-mf16c', '-mtune=ivybridge'], pic: true, install: false)
 +  znedi3_objects += lib_f16c.extract_all_objects(recursive: false)
  
--  znedi3_sources_x86_avx2 = [
--    'znedi3/x86/kernel_avx2.cpp',
--  ]
--
 -  znedi3_sources_x86_avx512 = [
 -    'znedi3/x86/kernel_avx512.cpp',
 -  ]
@@ -131,7 +132,7 @@ index 7e76e79..38147ed 100644
 -  graphengine_sources += [
 -    'graphengine/graphengine/x86/cpuinfo_x86.cpp'
 -  ]
-+  if env.get('USE_AVX512', '0') == '1'
++  if get_option('use_avx512')
 +    lib_avx512 = static_library('znedi3_avx512_obj', ['znedi3/x86/kernel_avx512.cpp'],
 +                                include_directories: includes, cpp_args: [cflags, '-mavx512f', '-mavx512bw', '-mavx512dq', '-mfma', '-mtune=skylake-avx512'], pic: true, install: false)
 +    znedi3_objects += lib_avx512.extract_all_objects(recursive: false)
@@ -199,6 +200,13 @@ index 7e76e79..38147ed 100644
 -              cpp_args: cflags,
 -              link_with: znedi3_helper_libs,
 -              install: false)
+diff --git a/meson_options.txt b/meson_options.txt
+new file mode 100644
+index 0000000..b279978
+--- /dev/null
++++ b/meson_options.txt
+@@ -0,0 +1 @@
++option('use_avx512', type: 'boolean', value: false, description: 'Enable AVX-512 compilation targets')
 -- 
 2.52.0.windows.1
 
