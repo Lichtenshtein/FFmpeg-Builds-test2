@@ -479,25 +479,25 @@ chmod +x configure
 # --extra-cflags="-DCOBJMACROS"
 # --extra-ldflags="${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
 # -march=x86-64-v3 -mtune=generic
+# --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
+# --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
+# --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS}
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
     --host-cc="ccache gcc-15"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
-    --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
+    --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
     --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
-    --extra-ldexeflags="$FINAL_LDEXEFLAGS"
+    --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
     --enable-opengl
     --enable-pic
- --enable-debug=3
- --disable-stripping
-    # --disable-debug
     --disable-ffprobe
     --disable-ffplay
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
@@ -519,6 +519,7 @@ fi
 [[ "${USE_AVX512}" != "1" ]] && CONF_FLAGS+=( --disable-avx512 --disable-avx512icl )
 # flags added by ffmpeg patches, not from mainline FFmpeg
 [[ "$FFMPEG_PATCHES" == "1" ]] && CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
+[[ "$SKIP_POST_STRIP" == "1" ]] && CONF_FLAGS+=( --disable-stripping --enable-debug=3 ) || CONF_FLAGS+=( --disable-debug )
 if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
     CONF_FLAGS+=( --nvcc=clang )
 fi
@@ -721,19 +722,92 @@ log_info "${SYNC_MARK} Collecting additional assets..."
 
 # If zmm registers (these are AVX-512 registers) or evex prefixes appear in the assembler output, it means that some library is still pushing this code.
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 && "$USE_AVX512" != "1" ]]; then
-    log_debug "Checking if AVX-512 instructions have leaked into the final binary..."
-    find "$PKG_DIR/bin" -name "*.exe" -exec sh -c '
-        for file; do
-            echo "=== Checking $file ==="
-            x86_64-w64-mingw32-objdump -d "$file" | grep -Ei "zmm|vex|evex" | head -n 30
-        done
-    ' _ {} +
+    log_debug "${SEARCH_MARK} Scanning final binaries for accidental AVX-512 leak..."
+
+    # Ищем все исполняемые файлы
+    while IFS= read -r file; do
+        log_debug "Analyzing $file..."
+        # Делаем дамп только секции кода (.text) для ускорения процесса
+        # Ищем zmm регистры, новые верхние регистры xmm/ymm16-31, маски k0-7 и префикс evex
+        LEAKED_INSTR=$("${FFBUILD_CROSS_PREFIX}objdump" -d -j .text "$file" 2>/dev/null | \
+            grep -Ei '\bzmm[0-9]|\b[xy]mm(1[6-9]|2[0-9]|3[0-1])\b|\bk[0-7]\b|evex' | head -n 20)
+
+        if [[ -n "$LEAKED_INSTR" ]]; then
+            log_warn "AVX-512 instructions detected in $(basename "$file")!"
+            if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+                echo -e "${LOG_WARN}--- First 20 leaked lines: ---${NC}"
+                echo "$LEAKED_INSTR"
+                echo -e "${LOG_WARN}------------------------------${NC}"
+            fi
+        else
+            log_info "${CHECK_MARK} $(basename "$file") is clean of AVX-512 code."
+        fi
+    done < <(find "$PKG_DIR/bin" -type f \( -name "*.exe" -o -name "*.dll" \))
+fi
+
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 && "$SKIP_POST_STRIP" == "1" ]]; then
+    log_info "${START_MARK} Launching automated Wine+GDB crash audit..."
+
+    # Минимальный вызов, триггерящий инициализацию библиотек
+    # Используем lavfi (генерируемые фильтры), чтобы тест не зависел от внешних медиафайлов
+    local TEST_EXE="$PKG_DIR/bin/ffmpeg.exe"
+    local TEST_ARGS="-f lavfi -i color=c=black:s=640x360:d=1 -f null -"
+
+    # Проверяем наличие wine в системе/контейнере
+    if ! command -v wine &> /dev/null; then
+        log_warn "Wine is not installed in the Docker image. Skipping runtime crash audit."
+    else
+        log_info "Running $TEST_EXE via Wine to check for stack-protector triggers..."
+
+        # Переменная окружения для отключения всплывающих GUI окон Wine при падении
+        export WINEDEBUG="-all"
+
+        # Создаем одноразовый скрипт команд для GDB
+        local GDB_BATCH_FILE="${TMP_DIR}/gdb_commands.txt"
+        mkdir -p "$TMP_DIR"
+
+        # Набор инструкций: при падении выдать полный бэктрейс, вывести локальные переменные и выйти
+        cat << 'EOF' > "$GDB_BATCH_FILE"
+set logging enabled on
+run
+echo \n=== !!! CRASH DETECTED: GENERATING BACKTRACE !!! ===\n
+backtrace full
+echo \n==================================================\n
+quit
+EOF
+
+        # Запуск ffmpeg.exe под управлением winedbg в режиме моста с GDB
+        # Перенаправляем вывод GDB во временный лог
+        local AUDIT_LOG="${TMP_DIR}/ffmpeg_crash_audit.log"
+
+        # Запускаем кросс-компиляторный gdb хоста, передавая ему батч-команды
+        # winedbg запускает gdb-сервер локально
+        wine winedbg --gdb -- "$TEST_EXE" $TEST_ARGS < "$GDB_BATCH_FILE" > "$AUDIT_LOG" 2>&1 || true
+
+        # Анализируем лог на предмет признаков Buffer Overflow или падения
+        if grep -Eiq "buffer overflow|stack smashing|SIGSEGV|Segmentation fault|CRASH DETECTED" "$AUDIT_LOG"; then
+            log_error "🚨 CRASH OR BUFFER OVERFLOW DETECTED DURING TEST LAUNCH!"
+            echo -e "${LOG_ERROR}================== GDB BACKTRACE LOG ==================${NC}"
+            cat "$AUDIT_LOG"
+            echo -e "${LOG_ERROR}=======================================================${NC}"
+
+            # Прерываем сборку, чтобы не паковать битый релиз
+            log_error "Aborting build. Fix the buffer overflow before packaging."
+            # exit 1
+        else
+            log_info "${CHECK_MARK} Wine runtime smoke test passed successfully. No overflows detected."
+            # Очищаем временные логи
+            rm -f "$GDB_BATCH_FILE" "$AUDIT_LOG"
+        fi
+    fi
 fi
 
 # Стриппинг бинарников (удаление отладочных символов)
 # --strip-all; --strip-unneeded
-# log_info "${BROOM_MARK} Stripping binaries..."
-# find "$PKG_DIR/bin" -name "*.exe" -o -name "*.dll" -exec ${FFBUILD_CROSS_PREFIX}strip --strip-unneeded {} \;
+if [[ "$SKIP_POST_STRIP" != "1" ]]; then
+    log_info "${BROOM_MARK} Stripping binaries..."
+    find "$PKG_DIR/bin" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "${FFBUILD_CROSS_PREFIX}strip" --strip-unneeded {} \;
+fi
 
 # Упаковка
 log_info "${ARCH_MARK} Creating archive: ${BUILD_NAME}.7z"

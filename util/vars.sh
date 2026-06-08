@@ -106,6 +106,14 @@ export CONTAINER_ROOT="/builder"
 # ---------------------------------------------------------------------------
 export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
 
+if [[ "${USE_WINE:-0}" = "1" ]]; then
+    export WINEARCH=win64
+    export WINEPREFIX="/root/.wine"
+    export DISPLAY=:99
+    export WINEDEBUG=-all
+    export WINEDLLOVERRIDES="mscoree,mshtml="
+fi
+
 # Build variables (inside the container)
 # Prefer positional args, fall back to ENV
 export TARGET="${1:-$TARGET}"
@@ -224,6 +232,15 @@ if [[ "$USE_LTO" == "1" ]]; then
     export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
 fi
 
+if [[ "$USE_ASAN" == "1" ]]; then
+    ASAN_CFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
+    ASAN_CXXFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
+    ASAN_LDFLAGS="-static-libasan -fsanitize=address,undefined "
+    STACK_FLAGS=" -mstackrealign"
+else
+    STACK_FLAGS=" -fstack-protector-strong -mstackrealign"
+fi
+
 # Общие настройки Rust; codegen-units = 16 (default)
 COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 ${RUSTLTO}"
 
@@ -268,7 +285,7 @@ export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 # Ветвление по TARGET
 # -g0 -fno-var-tracking-assignments - для компилятора GCC/G++: не раздувать отладочную информацию (даже скрытую)
 if [[ "$TARGET" == "win64" ]]; then
-    export BASE_CFLAGS="-mms-bitfields -fstack-protector-strong -mstackrealign -Wno-attributes"
+    export BASE_CFLAGS="-mms-bitfields${STACK_FLAGS} -Wno-attributes"
     export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
 
     BASE_LD_FLAGS=(
@@ -288,20 +305,20 @@ if [[ "$TARGET" == "win64" ]]; then
     MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu17"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu++20"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}${ASAN_CXXFLAGS}"
         RUST_STATIC_CFG=""
-        export LDFLAGS="${MAIN_LDFLAGS[*]}"
+        export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
         export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
         [[ "${USE_WINE}" == "1" ]] && \
         export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
         export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20"
         MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
-        export LDFLAGS="${MAIN_LDFLAGS[*]}"
+        export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
         export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
         [[ "${USE_WINE}" == "1" ]] && \
         export FFBUILD_MESON_CROSS=/cross_wine.meson || \
@@ -313,7 +330,7 @@ if [[ "$TARGET" == "win64" ]]; then
     export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="${FFBUILD_CROSS_PREFIX}gcc"
 
 elif [[ "$TARGET" == "linux64" ]]; then
-    export BASE_CFLAGS="-fstack-protector-strong -mstackrealign -Wno-attributes"
+    export BASE_CFLAGS="${STACK_FLAGS} -Wno-attributes"
     export BASE_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
     # Используем Linux-специфичные LDFLAGS
@@ -321,23 +338,23 @@ elif [[ "$TARGET" == "linux64" ]]; then
     MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu17"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu++20"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
         export STAGE_CFLAGS="-fno-semantic-interposition"
         export STAGE_CXXFLAGS="-fno-semantic-interposition"
         RUST_STATIC_CFG=""
-        export LDFLAGS="${MAIN_LDFLAGS[*]}"
+        export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
         export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
         [[ "${USE_WINE}" == "1" ]] && \
         export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
         # Для Linux статика — это -static и исключение динамических путей
         MAIN_LDFLAGS=("-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
-        export LDFLAGS="${MAIN_LDFLAGS[*]}"
+        export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
         export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
         [[ "${USE_WINE}" == "1" ]] && \
         export FFBUILD_MESON_CROSS=/cross_wine.meson || \
