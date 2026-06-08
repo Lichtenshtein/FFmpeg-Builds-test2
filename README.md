@@ -263,7 +263,7 @@ All of those can be optionally combined with any combination of addins:
 
 * `vapoursynth`
 ```
-08-zlib|40-zimg|64-soundtouch|80-avisynth|83-vapoursynth
+08-zlib|40-zimg|64-soundtouch|80-avisynth|83-vapoursynth|84-nnedi3
 ```
 
 * `curl`

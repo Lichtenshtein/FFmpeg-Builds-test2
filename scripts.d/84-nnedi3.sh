@@ -20,8 +20,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    export USE_AVX512="${USE_AVX512:-0}"
-
     mkdir build && cd build
 
     local myconf=(
@@ -32,6 +30,7 @@ ffbuild_dockerbuild() {
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         -Dc_std=gnu17
         -Dcpp_std=gnu++20
+        -Duse_avx512=$([ "${USE_AVX512}" == "1" ] && echo true || echo false)
     )
 
     meson setup "${myconf[@]}" .. \
