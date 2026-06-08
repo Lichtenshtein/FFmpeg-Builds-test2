@@ -160,7 +160,7 @@ index ceceea6ef..5a2b71f0b 100644
  
  VVENC_DECL vvencEncoder* vvenc_encoder_create()
  {
-+  init_static_data();
++  ::init_static_data();
 +
    vvenc::VVEncImpl* encCtx = new vvenc::VVEncImpl();
    if (!encCtx)
