@@ -62,7 +62,7 @@ done
 if [[ -d "$FFBUILD_PREFIX/lib/frei0r-1" ]]; then
     log_info "${SYNC_MARK} Collecting frei0r plugins..."
     mkdir -p "$PKG_DIR/bin/frei0r-1"
-    find "$FFBUILD_PREFIX/lib/frei0r-1" -name "*.dll" -exec mv -v {} "$PKG_DIR/bin/frei0r-1/" \; || true
+    find "$FFBUILD_PREFIX/lib/frei0r-1" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/frei0r-1/" \; || true
 else
     log_warn "Frei0r plugins not found in $FFBUILD_PREFIX/lib/frei0r-1"
 fi
@@ -70,7 +70,7 @@ fi
 # Плагин nnedi3
 if [[ -f "$FFBUILD_PREFIX/lib/libvsznedi3.dll" ]]; then
     log_info "${SYNC_MARK} Moving nnedi3 plugin..."
-    mv -f "$FFBUILD_PREFIX/lib/libvsznedi3.dll" "$PKG_DIR/bin/libvsznedi3.dll"
+    cp -v "$FFBUILD_PREFIX/lib/libvsznedi3.dll" "$PKG_DIR/bin/libvsznedi3.dll"
 elif [[ -f "$FFBUILD_PREFIX/lib/libznedi3.a" ]]; then
     log_info "Found static libznedi3.a instead of libvsznedi3.dll in $FFBUILD_PREFIX/lib"
 else
@@ -80,7 +80,7 @@ fi
 # Плагины avisynth
 if [[ -d "$FFBUILD_PREFIX/lib/avisynth" ]]; then
     log_info "${SYNC_MARK} Collecting avisynth plugins..."
-    find "$FFBUILD_PREFIX/lib/avisynth" -name "*.dll" -exec mv -v {} "$PKG_DIR/bin/" \; || true
+    find "$FFBUILD_PREFIX/lib/avisynth" -name "*.dll" -exec cp -v {} "$PKG_DIR/bin/" \; || true
 else
     log_warn "avisynth plugins not found in $FFBUILD_PREFIX/lib/avisynth"
 fi
@@ -89,7 +89,7 @@ fi
 if [[ -d "$FFBUILD_PREFIX/share/lensfun" ]]; then
     log_info "${SYNC_MARK} Collecting lensfun profiles..."
     mkdir -p "$ASSETS_DIR/lensfun"
-    find "$FFBUILD_PREFIX/share/lensfun/version_2" -name "*.xml" -exec mv -v {} "$ASSETS_DIR/lensfun/" \; || true
+    find "$FFBUILD_PREFIX/share/lensfun/version_2" -name "*.xml" -exec cp -v {} "$ASSETS_DIR/lensfun/" \; || true
 else
     log_warn "lensfun profiles not found in $FFBUILD_PREFIX/share/lensfun"
 fi
@@ -195,6 +195,14 @@ if [[ "$HAS_LIBTESSERACT" == "1" ]]; then
     for file in "${TESS_FILES2[@]}"; do
         download_file "$LINK_SCRIPT/$file" "$TESS_DEST/script/$file" ""
     done
+
+    log_info "${SYNC_MARK} Moving tessdata configs..."
+    if [ -d "$FFBUILD_PREFIX/share/tessdata" ]; then
+        cp -v "$FFBUILD_PREFIX/share/tessdata"/* "$TESS_DEST/"
+        # rm -rf "$FFBUILD_PREFIX/share/tessdata"
+    else
+        log_warn "Source tessdata configs directory not found in $FFBUILD_PREFIX/share/tessdata"
+    fi
 fi
 
 # TENSORFLOW / DNN MODELS (Super Resolution)
@@ -207,7 +215,7 @@ if [[ "$HAS_LIBTENSORFLOW" == "1" ]]; then
     mkdir -p "$TARGET_MODEL_DIR"
 
     if [[ -d "$INTERNAL_MODELS_DIR" && "$(ls -A "$INTERNAL_MODELS_DIR" 2>/dev/null)" ]]; then
-        mv -v "$INTERNAL_MODELS_DIR"/*.pb "$TARGET_MODEL_DIR/"
+        cp -v "$INTERNAL_MODELS_DIR"/*.pb "$TARGET_MODEL_DIR/"
         log_info "${CHECK_MARK} TensorFlow SR models successfully bundled into package!"
     else
         log_error "TensorFlow SR models not found in internal storage ($INTERNAL_MODELS_DIR)!"
