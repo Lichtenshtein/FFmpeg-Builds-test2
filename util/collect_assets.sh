@@ -198,8 +198,9 @@ if [[ "$HAS_LIBTESSERACT" == "1" ]]; then
 
     log_info "${SYNC_MARK} Moving tessdata configs..."
     if [ -d "$FFBUILD_PREFIX/share/tessdata" ]; then
-        cp -v "$FFBUILD_PREFIX/share/tessdata"/* "$TESS_DEST/"
-        # rm -rf "$FFBUILD_PREFIX/share/tessdata"
+        # -a (archive) включает рекурсию (-r) и сохраняет все права/структуру файлов
+        # -v (verbose) покажет в логах, какие файлы копируются
+        cp -av "$FFBUILD_PREFIX/share/tessdata"/* "$TESS_DEST/"
     else
         log_warn "Source tessdata configs directory not found in $FFBUILD_PREFIX/share/tessdata"
     fi
