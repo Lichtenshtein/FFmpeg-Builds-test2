@@ -35,7 +35,7 @@ ffbuild_dockerbuild() {
         -DALSOFT_CPUEXT_SSE4_1=ON
         -DALSOFT_REQUIRE_SSE4_1=ON
         -DALSOFT_DLOPEN=OFF
-        # -DALSOFT_BUILD_MODULES=OFF
+        -DALSOFT_ENABLE_MODULES=OFF
     )
 
     if [[ "${PREFER_SHARED}" == "1" ]]; then
