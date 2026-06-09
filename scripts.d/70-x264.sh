@@ -20,7 +20,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "git-mini-clone \"$SCRIPT_REPO4\" \"$SCRIPT_COMMIT4\" quicktime"
+    echo "mkdir -p quicktime && git-mini-clone \"$SCRIPT_REPO4\" \"$SCRIPT_COMMIT4\" quicktime"
     echo "rm -rf quicktime/samples"
 }
 
@@ -40,7 +40,6 @@ ffbuild_dockerbuild() {
     local myconf=(
         --disable-cli
         --enable-pic
-        --enable-strip
         --disable-lavf
         --disable-swscale
         --bit-depth=all
@@ -51,14 +50,15 @@ ffbuild_dockerbuild() {
         --cross-prefix="$FFBUILD_CROSS_PREFIX"
         # fork settings
         --enable-nonfree
-        --qtsdk="($pwd)/quicktime" # root of QuickTime SDK for QuickTime AAC support
+        --qtsdk="${PWD}/quicktime" # root of QuickTime SDK for QuickTime AAC support
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --enable-shared ) || \
         myconf+=( --enable-static )
     # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
-
+    [[ "${SKIP_POST_STRIP}" != "1" ]] && \
+        myconf+=( --enable-strip )
     # явно указываем инструменты дл¤ стабильности
     export AS="nasm"
     export CC="${FFBUILD_CROSS_PREFIX}gcc"
