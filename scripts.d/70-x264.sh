@@ -12,6 +12,7 @@ SCRIPT_BRANCH="t_mod_New"
 
 SCRIPT_REPO4="https://github.com/Olde-Skuul/quicktime7windows.git"
 SCRIPT_COMMIT4="8c1181141c1e08ed6b26335238b6d1fc0e065b12"
+SCRIPT_DIR4="quicktime"
 
 ffbuild_enabled() {
     [[ $VARIANT == lgpl* ]] && return 1
@@ -20,14 +21,11 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "git-mini-clone \"$SCRIPT_REPO4\" \"$SCRIPT_COMMIT4\" quicktime"
-    echo "rm -rf quicktime/samples"
 }
 
 ffbuild_dockerbuild() {
     set -e
 
-    echo "test"
     export SKIP_POST_STRIP=1
 
     if [[ ! -d ".git" ]]; then
