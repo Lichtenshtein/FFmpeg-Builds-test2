@@ -21,6 +21,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf quicktime/samples"
 }
 
 ffbuild_dockerbuild() {
@@ -39,6 +40,7 @@ ffbuild_dockerbuild() {
     local myconf=(
         --disable-cli
         --enable-pic
+        --enable-strip
         --disable-lavf
         --disable-swscale
         --bit-depth=all
@@ -56,8 +58,7 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-shared ) || \
         myconf+=( --enable-static )
     # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
-    [[ "${SKIP_POST_STRIP}" != "1" ]] && \
-        myconf+=( --enable-strip )
+
     # явно указываем инструменты дл¤ стабильности
     export AS="nasm"
     export CC="${FFBUILD_CROSS_PREFIX}gcc"
