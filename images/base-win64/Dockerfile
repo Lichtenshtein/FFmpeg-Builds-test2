@@ -83,8 +83,8 @@ RUN --mount=src=images/base-win64/ct-ng-config,dst=/.config \
 # ==========================================
 FROM stage-os-base AS stage-final
 
-ARG CPU_ARCH=broadwell
-ARG CPU_TUNE=broadwell
+ARG CPU_ARCH=${CPU_TUNE:-broadwell}
+ARG CPU_TUNE=${CPU_ARCH:-broadwell}
 
 # Copy ONLY the finalized toolchain binary tree, leaving all ct-ng sources behind
 COPY --from=stage-toolchain-builder /opt/ct-ng /opt/ct-ng
@@ -142,8 +142,12 @@ ENV \
     GENDEF="x86_64-w64-mingw32-gendef"
 
 # Inject toolchain configuration profiles
-COPY images/base-win64/toolchain.cmake /toolchain.cmake
-COPY images/base-win64/cross.meson /cross.meson
+COPY images/base-win64/cross.meson             /cross.meson
+COPY images/base-win64/cross_shared.meson      /cross_shared.meson
+COPY images/base-win64/cross_wine.meson        /cross_wine.meson
+COPY images/base-win64/cross_wine_shared.meson /cross_wine_shared.meson
+COPY images/base-win64/toolchain.cmake         /toolchain.cmake
+COPY images/base-win64/toolchain_shared.cmake  /toolchain_shared.cmake
 
 RUN rustup target add "$FFBUILD_RUST_TARGET" && \
     printf "[target.%s]\nlinker = \"%s-gcc\"\nar = \"%s-gcc-ar\"\n" "$FFBUILD_RUST_TARGET" "$FFBUILD_TOOLCHAIN" "$FFBUILD_TOOLCHAIN" > "$CARGO_HOME"/config.toml
