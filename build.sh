@@ -228,22 +228,6 @@ for comp in "${COMPONENTS[@]}"; do
 done
 
 # ==================================
-# ASAN PROCESSING (If enabled)
-# ==================================
-# Специальная обработка для ASAN (fdk-aac); should be at the end of all flags.
-# Вообще-то, я не помню нахера ASAN нужен fdk-aac. Вырубаем.
-# if [[ "$HAS_LIBFDK_AAC" == "0" ]]; then
-    # ASAN_CFLAGS=""
-    # ASAN_CXXFLAGS=""
-    # ASAN_LDFLAGS=""
-# else
-    # ASAN_CFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
-    # ASAN_CXXFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
-    # ASAN_LDFLAGS="-static-libasan -fsanitize=address,undefined "
-    # log_info "ASAN flags enabled due to fdk-aac presence."
-# fi
-
-# ==================================
 # OPENVINO PROCESSING (If enabled)
 # ==================================
 # if [[ "$HAS_LIBOPENVINO" == "1" ]]; then
@@ -479,9 +463,6 @@ chmod +x configure
 # --extra-cflags="-DCOBJMACROS"
 # --extra-ldflags="${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
 # -march=x86-64-v3 -mtune=generic
-# --extra-cflags="${FINAL_CFLAGS}${ASAN_CFLAGS}"
-# --extra-cxxflags="${FINAL_CXXFLAGS}${ASAN_CXXFLAGS}"
-# --extra-ldflags="${ASAN_LDFLAGS}${FINAL_LDFLAGS}
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
