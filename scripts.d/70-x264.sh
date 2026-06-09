@@ -20,7 +20,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "mkdir -p quicktime && git-mini-clone \"$SCRIPT_REPO4\" \"$SCRIPT_COMMIT4\" quicktime"
+    echo "git-mini-clone \"$SCRIPT_REPO4\" \"$SCRIPT_COMMIT4\" quicktime"
     echo "rm -rf quicktime/samples"
 }
 

@@ -494,7 +494,10 @@ download_stage() {
     # Выполняем загрузку
     local dl_status=0
     (   cd "$WORK_DIR" || exit 1
-        eval "$DL_COMMANDS"
+        echo "$DL_COMMANDS" | while IFS= read -r cmd; do
+            [[ -z "$cmd" ]] && continue
+            eval "$cmd" || exit 1
+        done
     ) || dl_status=$?
 
     if [[ $dl_status -eq 0 ]]; then
