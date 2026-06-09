@@ -416,11 +416,11 @@ get_stage_hash() {
     local STAGE_PATH="$1"
 
     # Если активирован форсированный статический режим кэша
-    if [[ "$DEBUG_NO_HASH" == "1" ]]; then
+    # if [[ "$DEBUG_NO_HASH" == "1" ]]; then
         # Вычисляем детерминированную строку заранее, без прерывания конвейера return-ом
-        local STAGE_NAME=$(basename "$STAGE_PATH" .sh)
-        printf "%s_static_cache" "$STAGE_NAME" | sha256sum | cut -c1-16
-    else
+        # local STAGE_NAME=$(basename "$STAGE_PATH" .sh)
+        # printf "%s_static_cache" "$STAGE_NAME" | sha256sum | cut -c1-16
+    # else
         # Берем весь контент файла
         # Удаляем \r (защита от Windows-переносов)
         # Удаляем пустые строки и комментарии (чтобы пробелы не ломали кэш)
@@ -430,7 +430,7 @@ get_stage_hash() {
             | grep -v '^[[:space:]]*$' \
             | tr -d '\r' \
             | sha256sum | cut -c1-16
-    fi
+    # fi
 }
 export -f get_stage_hash
 
