@@ -306,7 +306,7 @@ if [[ "$TARGET" == "win64" ]]; then
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
         export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}${ASAN_CXXFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
         RUST_STATIC_CFG=""
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
         export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
@@ -315,7 +315,7 @@ if [[ "$TARGET" == "win64" ]]; then
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
         export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
         MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
