@@ -243,26 +243,26 @@ if [[ "$HAS_LIBTORCH" == "1" ]]; then
 fi
 
 # APPLE AUDIOTOOLBOX DLLS (Special handling)
-# if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then
-    # log_info "${DOWN_MARK} Downloading Apple AudioToolbox DLLs..."
+if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then
+    log_info "${DOWN_MARK} Downloading Apple AudioToolbox DLLs..."
 
-    # if download_file "$QTFILES_URL" "qtfiles64.7z" ""; then
-        # log_info "${EXTR_MARK} Extracting Apple DLLs directly to package..."
+    if download_file "$QTFILES_URL" "qtfiles64.7z" ""; then
+        log_info "${EXTR_MARK} Extracting Apple DLLs directly to package..."
 
-        # mkdir -p "$PKG_DIR/bin"
+        mkdir -p "$PKG_DIR/bin"
 
-        # 7z e qtfiles64.7z -o"$PKG_DIR/bin" "*.dll" -y > /dev/null
+        7z e qtfiles64.7z -o"$PKG_DIR/bin" "*.dll" -y > /dev/null
 
-        # if ls "$PKG_DIR/bin"/CoreAudioToolbox.dll >/dev/null 2>&1; then
-            # log_info "${CHECK_MARK} Apple AudioToolbox DLLs successfully deployed to:\n${PKG_DIR}/bin"
-        # else
-            # log_error "AudioToolbox DLLs deployment verification failed!"
-        # fi
-        # rm -f qtfiles64.7z
-    # else
-        # log_warn "Assets download failed, but continuing..."
-    # fi
-# fi
+        if ls "$PKG_DIR/bin"/CoreAudioToolbox.dll >/dev/null 2>&1; then
+            log_info "${CHECK_MARK} Apple AudioToolbox DLLs successfully deployed to:\n${PKG_DIR}/bin"
+        else
+            log_error "AudioToolbox DLLs deployment verification failed!"
+        fi
+        rm -f qtfiles64.7z
+    else
+        log_warn "Assets download failed, but continuing..."
+    fi
+fi
 
 log_info "${CHECK_MARK} All models and asset collection finished for enabled components."
 
