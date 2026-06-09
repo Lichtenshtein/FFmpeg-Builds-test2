@@ -27,6 +27,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    echo "test"
     export SKIP_POST_STRIP=1
 
     if [[ ! -d ".git" ]]; then
