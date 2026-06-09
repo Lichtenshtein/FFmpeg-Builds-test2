@@ -48,6 +48,7 @@ ffbuild_dockerbuild() {
     local myconf=(
         --disable-cli
         --enable-pic
+        --enable-strip
         --bit-depth=8
         --chroma-format=all
         --disable-avs
@@ -67,8 +68,6 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-shared ) || \
         myconf+=( --enable-static )
     [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
-    [[ "${SKIP_POST_STRIP}" != "1" ]] && \
-        myconf+=( --enable-strip )
     if [[ $TARGET == win* ]]; then
         export AS="nasm"
     fi
