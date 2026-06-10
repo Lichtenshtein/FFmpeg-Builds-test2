@@ -273,7 +273,7 @@ HOST_LINUX_LDFLAGS=(
     "-Wl,--hash-style=gnu"
     # "-Wl,--no-keep-memory" # reread from disk not ram
     "-Wl,-O1"
-    # "-Wl,--as-needed"
+    "-Wl,--as-needed"
 )
 [[ "$PREFER_SHARED" != "1" ]] && HOST_LINUX_LDFLAGS+=( "-Wl,--gc-sections" )
 
