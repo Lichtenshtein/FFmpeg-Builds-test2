@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# set -e
-set -xe
+set -e
+# set -xe
 shopt -s globstar
 cd "$(dirname "$0")"
 
@@ -524,10 +524,6 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     exit 1
 fi
 
-sed -i 's/tf_options,\s*show_data_hash/tf_options, 0/g' fftools/ffprobe.c
-grep -n "avtext_context_open" fftools/ffprobe.c
-
-
 if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
     log_info "Applying precise LCEVC SDK 4.0.0 migration patches..."
 
@@ -708,10 +704,15 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 && "$USE_AVX512" != "1" ]]; then
     # Ищем все исполняемые файлы
     while IFS= read -r file; do
         log_debug "Analyzing $file..."
-        # Делаем дамп только секции кода (.text) для ускорения процесса
-        # Ищем zmm регистры, новые верхние регистры xmm/ymm16-31, маски k0-7 и префикс evex
+
+        # Отключаем pipefail локально для этой команды, чтобы head не ломал сборку
+        set +o pipefail 2>/dev/null || true
+
         LEAKED_INSTR=$("${FFBUILD_CROSS_PREFIX}objdump" -d -j .text "$file" 2>/dev/null | \
             grep -Ei '\bzmm[0-9]|\b[xy]mm(1[6-9]|2[0-9]|3[0-1])\b|\bk[0-7]\b|evex' | head -n 20)
+
+        # Возвращаем pipefail обратно, если он был включен
+        set -o pipefail 2>/dev/null || true
 
         if [[ -n "$LEAKED_INSTR" ]]; then
             log_warn "AVX-512 instructions detected in $(basename "$file")!"

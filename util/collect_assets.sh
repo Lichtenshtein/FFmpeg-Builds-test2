@@ -1,6 +1,7 @@
 #!/bin/bash
 
-set -e
+# set -e
+set -xe
 
 # Загружаем функции
 source util/dl_functions.sh
