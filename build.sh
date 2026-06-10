@@ -517,19 +517,19 @@ grep -n "vmaf_init" "libavfilter/vf_libvmaf.c"
 log_info "Patching FFmpeg ffprobe ABI bug: Changing avtext_context_open to pass options by pointer..."
 
 # Патчим заголовочный файл avtextformat.h (меняем AVTextFormatOptions opts на *opts)
-sed -i 's/AVTextFormatOptions opts,/const AVTextFormatOptions *opts,/g' "libavutil/avtextformat.h"
+sed -i 's/AVTextFormatOptions opts,/const AVTextFormatOptions *opts,/g' "fftools/textformat/avtextformat.h"
 
 # Патчим реализацию функции в avtextformat.c
-sed -i 's/AVTextFormatOptions opts,/const AVTextFormatOptions *opts,/g' "libavutil/avtextformat.c"
+sed -i 's/AVTextFormatOptions opts,/const AVTextFormatOptions *opts,/g' "fftools/textformat/avtextformat.c"
 
 # Меняем обращения к полям структуры с точки (.) на стрелочку (->) внутри avtextformat.c
-sed -i 's/opts\.is_key_selected/opts->is_key_selected/g' "libavutil/avtextformat.c"
-sed -i 's/opts\.show_optional_fields/opts->show_optional_fields/g' "libavutil/avtextformat.c"
-sed -i 's/opts\.show_value_unit/opts->show_value_unit/g' "libavutil/avtextformat.c"
-sed -i 's/opts\.use_value_prefix/opts->use_value_prefix/g' "libavutil/avtextformat.c"
-sed -i 's/opts\.use_byte_value_binary_prefix/opts->use_byte_value_binary_prefix/g' "libavutil/avtextformat.c"
-sed -i 's/opts\.use_value_sexagesimal_format/opts->use_value_sexagesimal_format/g' "libavutil/avtextformat.c"
-sed -i 's/opts\.data_dump_format/opts->data_dump_format/g' "libavutil/avtextformat.c"
+sed -i 's/opts\.is_key_selected/opts->is_key_selected/g' "fftools/textformat/avtextformat.c"
+sed -i 's/opts\.show_optional_fields/opts->show_optional_fields/g' "fftools/textformat/avtextformat.c"
+sed -i 's/opts\.show_value_unit/opts->show_value_unit/g' "fftools/textformat/avtextformat.c"
+sed -i 's/opts\.use_value_prefix/opts->use_value_prefix/g' "fftools/textformat/avtextformat.c"
+sed -i 's/opts\.use_byte_value_binary_prefix/opts->use_byte_value_binary_prefix/g' "fftools/textformat/avtextformat.c"
+sed -i 's/opts\.use_value_sexagesimal_format/opts->use_value_sexagesimal_format/g' "fftools/textformat/avtextformat.c"
+sed -i 's/opts\.data_dump_format/opts->data_dump_format/g' "fftools/textformat/avtextformat.c"
 
 # Патчим вызывающую сторону в fftools/ffprobe.c (добавляем амперсанд &tf_options)
 sed -i 's/tf_options, show_data_hash/\&tf_options, show_data_hash/g' "fftools/ffprobe.c"
