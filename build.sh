@@ -732,8 +732,8 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 && "$SKIP_POST_STRIP" == "1" ]]; then
 
     # Минимальный вызов, триггерящий инициализацию библиотек
     # Используем lavfi (генерируемые фильтры), чтобы тест не зависел от внешних медиафайлов
-    local TEST_EXE="$PKG_DIR/bin/ffmpeg.exe"
-    local TEST_ARGS="-f lavfi -i color=c=black:s=640x360:d=1 -f null -"
+    TEST_EXE="$PKG_DIR/bin/ffmpeg.exe"
+    TEST_ARGS="-f lavfi -i color=c=black:s=640x360:d=1 -f null -"
 
     # Проверяем наличие wine в системе/контейнере
     if ! command -v wine &> /dev/null; then
@@ -745,7 +745,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 && "$SKIP_POST_STRIP" == "1" ]]; then
         export WINEDEBUG="-all"
 
         # Создаем одноразовый скрипт команд для GDB
-        local GDB_BATCH_FILE="${TMP_DIR}/gdb_commands.txt"
+        GDB_BATCH_FILE="${TMP_DIR}/gdb_commands.txt"
         mkdir -p "$TMP_DIR"
 
         # Набор инструкций: при падении выдать полный бэктрейс, вывести локальные переменные и выйти
@@ -760,7 +760,7 @@ EOF
 
         # Запуск ffmpeg.exe под управлением winedbg в режиме моста с GDB
         # Перенаправляем вывод GDB во временный лог
-        local AUDIT_LOG="${TMP_DIR}/ffmpeg_crash_audit.log"
+        AUDIT_LOG="${TMP_DIR}/ffmpeg_crash_audit.log"
 
         # Запускаем кросс-компиляторный gdb хоста, передавая ему батч-команды
         # winedbg запускает gdb-сервер локально
