@@ -19,12 +19,16 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    log_info "Applying Pro ABI patch to libvmaf.h..."
+    log_info "Fixing Netflix Broken Windows ABI: Changing vmaf_init to pass configuration by pointer..."
     
-    # Мы добавляем явный атрибут выравнивания Windows (alignment), чтобы GCC гарантированно 
-    # передавал структуру VmafConfiguration через указатель на стек, как того требует Windows x64 ABI.
-    sed -i '} VmafConfiguration;' "libvmaf/include/libvmaf/libvmaf.h"
-    sed -i 's/\} VmafConfiguration;/__attribute__((aligned(16))) \} VmafConfiguration;/g' "libvmaf/include/libvmaf/libvmaf.h"
+    # Изменяем сигнатуру в заголовке
+    sed -i 's/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration cfg);/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration \*cfg);/g' "libvmaf/include/libvmaf/libvmaf.h"
+
+    # Изменяем сигнатуру и тело в исходнике libvmaf.c
+    sed -i 's/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration cfg)/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration \*cfg)/g' "libvmaf/src/libvmaf.c"
+    sed -i 's/v->cfg = cfg;/v->cfg = *cfg;/g' "libvmaf/src/libvmaf.c"
+    sed -i 's/vmaf_set_cpu_flags_mask(~cfg.cpumask);/vmaf_set_cpu_flags_mask(~cfg->cpumask);/g' "libvmaf/src/libvmaf.c"
+    sed -i 's/vmaf_set_log_level(cfg.log_level);/vmaf_set_log_level(cfg->log_level);/g' "libvmaf/src/libvmaf.c"
 
 
     if [[ "${USE_AVX512}" != "1" ]]; then

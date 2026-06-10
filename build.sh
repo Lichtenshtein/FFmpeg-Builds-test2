@@ -524,6 +524,9 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     exit 1
 fi
 
+log_info "Patching FFmpeg vf_libvmaf.c to match Pointer ABI..."
+sed -i 's/err = vmaf_init(\&s->vmaf, cfg);/err = vmaf_init(\&s->vmaf, \&cfg);/g' "libavfilter/vf_libvmaf.c"
+
 
 if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
     log_info "Applying precise LCEVC SDK 4.0.0 migration patches..."
@@ -663,6 +666,61 @@ fi
 
 # Сборка и установка ffmpeg
 make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
+
+log_info "${SEARCH_MARK} Starting professional assembly leak audit..."
+
+# Принудительно отключаем падение скрипта при ошибках find/objdump
+set +e
+
+# Ищем объектный файл во ВСЕМ контейнере (включая скрытые кэши meson/ccache/make)
+# Ищем как стандартный расширения .o, так и .obj, игнорируя регистр
+VMAF_OBJ_PATH=$(find / -type f \( -iname "vf_libvmaf.o" -o -iname "vf_libvmaf.obj" -o -iname "vf_libvmaf.c.obj" \) -print -quit 2>/dev/null)
+
+if [[ -n "$VMAF_OBJ_PATH" && -f "$VMAF_OBJ_PATH" ]]; then
+    log_info "SUCCESS: Found VMAF object at: $VMAF_OBJ_PATH"
+    log_info "Dumping assembly for function init..."
+
+    # Делаем полный листинг ассемблера с привязкой к исходному C-коду (-S)
+    "${FFBUILD_CROSS_PREFIX}objdump" -S -d "$VMAF_OBJ_PATH" > "${TMP_DIR}/ffmpeg_init_asm.txt" 2>/dev/null
+    
+    # Выводим в лог контекст вызова vmaf_init
+    echo -e "${LOG_DEBUG}================== FFMPEG CALLING SIDE ASM ==================${NC}"
+    if grep -q "vmaf_init" "${TMP_DIR}/ffmpeg_init_asm.txt"; then
+        grep -A 30 -B 10 "vmaf_init" "${TMP_DIR}/ffmpeg_init_asm.txt"
+    else
+        log_warn "vmaf_init symbol not found in dump text, printing head of file:"
+        head -n 100 "${TMP_DIR}/ffmpeg_init_asm.txt"
+    fi
+    echo -e "${LOG_DEBUG}=============================================================${NC}"
+else
+    log_error "CRITICAL: vf_libvmaf object file was NOT generated on disk (possibly fully cached by ccache)."
+    log_info "Attempting to dump directly from the intermediate static library if exists..."
+
+    # Альтернативный поиск: если .o нет, ищем саму собранную статическую libavfilter.a
+    AVFILTER_A=$(find "$FFMPEG_SOURCE_DIR" -name "libavfilter.a" -type f -print -quit 2>/dev/null)
+    if [[ -n "$AVFILTER_A" ]]; then
+        log_info "Found libavfilter.a at: $AVFILTER_A. Extracting asm..."
+        "${FFBUILD_CROSS_PREFIX}objdump" -d "$AVFILTER_A" > "${TMP_DIR}/libavfilter_asm.txt" 2>/dev/null
+        grep -A 40 "<init>:" "${TMP_DIR}/libavfilter_asm.txt" || grep -A 30 "vmaf_init" "${TMP_DIR}/libavfilter_asm.txt" || true
+    fi
+fi
+
+# Дамп принимающей стороны из установленной libvmaf.a
+# Место установки жестко определено через DESTDIR и PREFIX
+LIBVMAF_A_PATH="${FFBUILD_PREFIX}/lib/libvmaf.a"
+if [[ -f "$LIBVMAF_A_PATH" ]]; then
+    log_info "Dumping assembly for vmaf_init from libvmaf.a..."
+    "${FFBUILD_CROSS_PREFIX}objdump" -d "$LIBVMAF_A_PATH" > "${TMP_DIR}/libvmaf_lib_asm.txt" 2>/dev/null
+    
+    echo -e "${LOG_DEBUG}================== LIBVMAF RECEIVING SIDE ASM ==================${NC}"
+    grep -A 50 "<vmaf_init>:" "${TMP_DIR}/libvmaf_lib_asm.txt" || grep -A 40 "vmaf_init" "${TMP_DIR}/libvmaf_lib_asm.txt" || true
+    echo -e "${LOG_DEBUG}================================================================${NC}"
+fi
+
+# Возвращаем исходный режим остановки при ошибках
+set -e
+
+
 make install
 make install-doc || log_warn "install-doc failed, but proceeding."
 
@@ -783,38 +841,6 @@ EOF
             rm -f "$GDB_BATCH_FILE" "$AUDIT_LOG"
         fi
     fi
-fi
-
-log_info "${SEARCH_MARK} Searching for vf_libvmaf object file..."
-
-# Находим точный путь к скомпилированному объектнику внутри дерева сборки
-VMAF_OBJ_PATH=$(find "$FFMPEG_SOURCE_DIR" -name "vf_libvmaf.o" -o -name "vf_libvmaf.c.obj" -type f -print -quit)
-
-if [[ -n "$VMAF_OBJ_PATH" ]]; then
-    log_info "Found VMAF object at: $VMAF_OBJ_PATH"
-    log_info "Dumping assembly for function init..."
-
-    # Делаем ассемблерный дамп вызывающей стороны
-    "${FFBUILD_CROSS_PREFIX}objdump" -S -d "$VMAF_OBJ_PATH" > "${TMP_DIR}/ffmpeg_init_asm.txt"
-
-    # Выводим в лог кусок кода, где происходит подготовка к вызову vmaf_init
-    echo -e "${LOG_DEBUG}================== FFMPEG CALLING SIDE ASM ==================${NC}"
-    grep -A 50 -B 5 "call.*vmaf_init" "${TMP_DIR}/ffmpeg_init_asm.txt" || cat "${TMP_DIR}/ffmpeg_init_asm.txt" | head -n 100
-    echo -e "${LOG_DEBUG}=============================================================${NC}"
-else
-    log_error "vf_libvmaf object file not found in $FFMPEG_SOURCE_DIR"
-fi
-
-# Также сделаем дамп принимающей стороны из уже установленной либы libvmaf.a
-LIBVMAF_A_PATH="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}/lib/libvmaf.a"
-if [[ -f "$LIBVMAF_A_PATH" ]]; then
-    log_info "Dumping assembly for vmaf_init from libvmaf.a..."
-    "${FFBUILD_CROSS_PREFIX}objdump" -S -d "$LIBVMAF_A_PATH" > "${TMP_DIR}/libvmaf_lib_asm.txt"
-
-    echo -e "${LOG_DEBUG}================== LIBVMAF RECEIVING SIDE ASM ==================${NC}"
-    # Находим саму функцию vmaf_init в листинге библиотеки
-    grep -A 50 "<vmaf_init>:" "${TMP_DIR}/libvmaf_lib_asm.txt" || true
-    echo -e "${LOG_DEBUG}================================================================${NC}"
 fi
 
 # Стриппинг бинарников (удаление отладочных символов)
