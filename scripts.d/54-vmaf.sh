@@ -20,15 +20,19 @@ ffbuild_dockerbuild() {
     set -e
 
     log_info "Fixing Netflix Broken Windows ABI: Changing vmaf_init to pass configuration by pointer..."
-    
-    # Изменяем сигнатуру в заголовке
-    sed -i 's/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration cfg);/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration \*cfg);/g' "libvmaf/include/libvmaf/libvmaf.h"
 
-    # Изменяем сигнатуру и тело в исходнике libvmaf.c
-    sed -i 's/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration cfg)/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration \*cfg)/g' "libvmaf/src/libvmaf.c"
-    sed -i 's/v->cfg = cfg;/v->cfg = *cfg;/g' "libvmaf/src/libvmaf.c"
-    sed -i 's/vmaf_set_cpu_flags_mask(~cfg.cpumask);/vmaf_set_cpu_flags_mask(~cfg->cpumask);/g' "libvmaf/src/libvmaf.c"
-    sed -i 's/vmaf_set_log_level(cfg.log_level);/vmaf_set_log_level(cfg->log_level);/g' "libvmaf/src/libvmaf.c"
+    # Изменяем сигнатуру в заголовке (убрали префикс папки)
+    sed -i 's/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration cfg);/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration \*cfg);/g' "include/libvmaf/libvmaf.h"
+
+    # Изменяем сигнатуру и логику в исходнике (убрали префикс папки)
+    sed -i 's/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration cfg)/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration \*cfg)/g' "src/libvmaf.c"
+    sed -i 's/v->cfg = cfg;/v->cfg = *cfg;/g' "src/libvmaf.c"
+    sed -i 's/vmaf_set_cpu_flags_mask(~cfg.cpumask);/vmaf_set_cpu_flags_mask(~cfg->cpumask);/g' "src/libvmaf.c"
+    sed -i 's/vmaf_set_log_level(cfg.log_level);/vmaf_set_log_level(cfg->log_level);/g' "src/libvmaf.c"
+
+    # Временная отладочная проверка: выведет в лог результат патча, чтобы убедиться на 100%
+    log_info "Verifying header patch..."
+    grep -n "vmaf_init" "include/libvmaf/libvmaf.h"
 
 
     if [[ "${USE_AVX512}" != "1" ]]; then
