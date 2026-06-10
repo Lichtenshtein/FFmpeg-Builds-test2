@@ -529,12 +529,15 @@ sed -i 's/tctx->opts = options;/tctx->opts = *options;/g' "fftools/textformat/av
 # Добавляем амперсанд на стороне вызова в fftools/ffprobe.c
 sed -i 's/tf_options, show_data_hash/\&tf_options, show_data_hash/g' "fftools/ffprobe.c"
 
+# Патчим вызывающую сторону в fftools/graph/graphprint.c (добавляем амперсанд &)
+sed -i 's/tf_options, NULL/\&tf_options, NULL/g' "fftools/graph/graphprint.c"
+
 # Проверка успешности наката патча в логи сборщика
 log_info "Verifying patches application..."
 grep -n "avtext_context_open" "fftools/textformat/avtextformat.h"
 grep -n "avtext_context_open" "fftools/textformat/avtextformat.c" | head -n 2
 grep -n "avtext_context_open" "fftools/ffprobe.c"
-
+grep -n "avtext_context_open" "fftools/graph/graphprint.c"
 
 log_info_line
 log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
