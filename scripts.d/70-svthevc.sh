@@ -6,7 +6,7 @@
 SCRIPT_REPO="https://github.com/possible947/SVT-HEVC.git"
 SCRIPT_COMMIT="bbc686f04c4de43836c166c792377e21f8e630a5"
 
-export SKIP_PRE_PATCH=1
+# export SKIP_PRE_PATCH=1
 
 ffbuild_enabled() {
     [[ $TARGET == win32 ]] && return 1
