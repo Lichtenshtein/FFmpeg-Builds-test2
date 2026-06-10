@@ -7,7 +7,7 @@ SCRIPT_REPO="https://storage.openvinotoolkit.org/repositories/openvino/packages/
 # SCRIPT_REPO="https://github.com/openvinotoolkit/openvino.git"
 # SCRIPT_COMMIT="61d1ca8c471ff930477c8f27926688ba112642a7"
 
-export SKIP_POST_PATCH=1
+export SKIP_POST_PC_PATCH=1
 
 ffbuild_depends() {
     echo tbbmalloc

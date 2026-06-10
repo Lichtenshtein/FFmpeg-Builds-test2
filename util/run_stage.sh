@@ -63,14 +63,14 @@ stage_cleanup() {
                         continue
                     fi
                     log_debug "${LOGS_MARK} ▼ CONTENT OF ${logfile} (last 300 lines) ▼"
-                    tail -n 500 "$logfile" >&2
+                    tail -n ${LOG_SIZES} "$logfile" >&2
                     log_debug "${LOGS_MARK} ▲ END OF $(basename "$logfile") ▲"
                 done
             else
                 # Неудача: системных логов нет, ищем общий лог
                 if [[ -f "$STAGE_LOG" ]]; then
                     log_debug "${LOGS_MARK} ▼ System logs missing. Falling back to STAGE_LOG ($STAGE_LOG) ▼"
-                    tail -n 200 "$STAGE_LOG" >&2
+                    tail -n ${LOG_SIZES} "$STAGE_LOG" >&2
                 else
                     # Ничего не нашли
                     if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
@@ -103,7 +103,7 @@ stage_cleanup() {
         else
             if [[ -f "$STAGE_LOG" ]]; then
                 log_debug "${LOGS_MARK} ▼ CONTENT OF ($STAGE_LOG) ▼"
-                tail -n 200 "$STAGE_LOG" >&2
+                tail -n ${LOG_SIZES} "$STAGE_LOG" >&2
                 log_debug "${LOGS_MARK} ▲ END OF $STAGE_LOG ▲"
             else
                 log_warn "Log file $STAGE_LOG is missing!"
@@ -334,9 +334,9 @@ if [[ -d "$INSTALL_ROOT" ]]; then
             (
                 echo "$CLEAN_LIST" | grep -E "/lib/pkgconfig/|/lib/cmake/|/lib/[^/]+\.a$" | sort
                 echo "$CLEAN_LIST" | grep -vE "/lib/pkgconfig/|/lib/cmake/|/lib/[^/]+\.a$" | sort
-            ) | head -n 85 >&2
+            ) | head -n ${LOG_INSTALLED} >&2
             # stripping the long DESTDIR prefix for readability
-            [[ ${#NEW_FILES[@]} -gt 85 ]] && log_debug "  ... (and $((${#NEW_FILES[@]} - 85)) more)"
+            [[ ${#NEW_FILES[@]} -gt ${LOG_INSTALLED} ]] && log_debug "  ... (and $((${#NEW_FILES[@]} - ${LOG_INSTALLED} )) more)"
         fi
 
         # clean .la files (libtool archives)
@@ -388,8 +388,8 @@ if [[ -d "$INSTALL_ROOT" ]]; then
         [[ "$SKIP_POST_STRIP" != "1" ]] && strip_files "$INSTALL_ROOT" "$STAGENAME"
 
         # patch .pc files (пути, зависимости, Requires.private)
-        # Флаг SKIP_POST_PATCH=1 в скрипте может это отключить при необходимости
-        [[ "$SKIP_POST_PATCH" != "1" ]] && patch_pc_files
+        # Флаг SKIP_POST_PC_PATCH=1 в скрипте может это отключить при необходимости
+        [[ "$SKIP_POST_PC_PATCH" != "1" ]] && patch_pc_files
 
         # sync to persistent prefix (So the next script sees them)
         # Using -u (update) to avoid overwriting newer files if layers run out of order
