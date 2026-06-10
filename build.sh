@@ -505,6 +505,16 @@ if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
     CONF_FLAGS+=( --nvcc=clang )
 fi
 
+# Зашли в исходники FFmpeg
+log_info "Patching FFmpeg vf_libvmaf.c to use Pointer ABI..."
+
+# Подменяем вызов в исходнике фильтра на передачу адреса структуры
+sed -i 's/err = vmaf_init(\&s->vmaf, cfg);/err = vmaf_init(\&s->vmaf, \&cfg);/g' "libavfilter/vf_libvmaf.c"
+
+# На всякий случай жестко проверяем, применился ли патч (выводим строку в лог)
+grep -n "vmaf_init" "libavfilter/vf_libvmaf.c"
+
+
 log_info_line
 log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
 
@@ -523,9 +533,6 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     log_debug "${LOGS_MARK} ▲ END OF $FFMPEG_CONFIG_LOG ▲"
     exit 1
 fi
-
-log_info "Patching FFmpeg vf_libvmaf.c to match Pointer ABI..."
-sed -i 's/err = vmaf_init(\&s->vmaf, cfg);/err = vmaf_init(\&s->vmaf, \&cfg);/g' "libavfilter/vf_libvmaf.c"
 
 
 if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
