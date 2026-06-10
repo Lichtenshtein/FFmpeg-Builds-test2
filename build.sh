@@ -516,26 +516,23 @@ grep -n "vmaf_init" "libavfilter/vf_libvmaf.c"
 
 log_info "Patching FFmpeg ffprobe ABI bug: Changing avtext_context_open to pass options by pointer..."
 
-# Патчим заголовочный файл avtextformat.h (меняем AVTextFormatOptions opts на *opts)
-sed -i 's/AVTextFormatOptions opts,/const AVTextFormatOptions *opts,/g' "fftools/textformat/avtextformat.h"
+# Точечно меняем сигнатуру в заголовочном файле (обратите внимание на имя переменной 'options')
+sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.h"
 
-# Патчим реализацию функции в avtextformat.c
-sed -i 's/AVTextFormatOptions opts,/const AVTextFormatOptions *opts,/g' "fftools/textformat/avtextformat.c"
+# Точечно меняем объявление функции в файле реализации
+sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.c"
 
-# Меняем обращения к полям структуры с точки (.) на стрелочку (->) внутри avtextformat.c
-sed -i 's/opts\.is_key_selected/opts->is_key_selected/g' "fftools/textformat/avtextformat.c"
-sed -i 's/opts\.show_optional_fields/opts->show_optional_fields/g' "fftools/textformat/avtextformat.c"
-sed -i 's/opts\.show_value_unit/opts->show_value_unit/g' "fftools/textformat/avtextformat.c"
-sed -i 's/opts\.use_value_prefix/opts->use_value_prefix/g' "fftools/textformat/avtextformat.c"
-sed -i 's/opts\.use_byte_value_binary_prefix/opts->use_byte_value_binary_prefix/g' "fftools/textformat/avtextformat.c"
-sed -i 's/opts\.use_value_sexagesimal_format/opts->use_value_sexagesimal_format/g' "fftools/textformat/avtextformat.c"
-sed -i 's/opts\.data_dump_format/opts->data_dump_format/g' "fftools/textformat/avtextformat.c"
+# Меняем только одну строчку присвоения внутри тела avtext_context_open, 
+# чтобы данные разыменовывались из указателя обратно в объект контекста:
+sed -i 's/tctx->opts = options;/tctx->opts = *options;/g' "fftools/textformat/avtextformat.c"
 
-# Патчим вызывающую сторону в fftools/ffprobe.c (добавляем амперсанд &tf_options)
+# Добавляем амперсанд на стороне вызова в fftools/ffprobe.c
 sed -i 's/tf_options, show_data_hash/\&tf_options, show_data_hash/g' "fftools/ffprobe.c"
 
-# Проверяем в логах, что замена в ffprobe произошла успешно
-log_info "Verifying ffprobe call patch..."
+# Проверка успешности наката патча в логи сборщика
+log_info "Verifying patches application..."
+grep -n "avtext_context_open" "fftools/textformat/avtextformat.h"
+grep -n "avtext_context_open" "fftools/textformat/avtextformat.c" | head -n 2
 grep -n "avtext_context_open" "fftools/ffprobe.c"
 
 
