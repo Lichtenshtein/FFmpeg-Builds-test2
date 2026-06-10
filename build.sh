@@ -524,6 +524,19 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     exit 1
 fi
 
+# Дамп функции init из фильтра FFmpeg
+${FFBUILD_CROSS_PREFIX}objdump -S -d "libavfilter/vf_libvmaf.o" > ffmpeg_init_asm.txt
+
+# Дамп функции vmaf_init из скомпилированной libvmaf
+${FFBUILD_CROSS_PREFIX}objdump -S -d "${FFBUILD_PREFIX}/lib/libvmaf.a" | grep -A 50 "<vmaf_init>:" > libvmaf_init_asm.txt
+
+# Выводим первые 30 строк ассемблера вызова в лог сборщика Docker
+log_debug "ASM: FFmpeg calling side:"
+cat ffmpeg_init_asm.txt | grep -A 50 -B 5 "call.*vmaf_init" || true
+
+log_debug "ASM: libvmaf receiving side:"
+cat libvmaf_init_asm.txt | head -n 50
+
 if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
     log_info "Applying precise LCEVC SDK 4.0.0 migration patches..."
 
@@ -783,19 +796,6 @@ EOF
         fi
     fi
 fi
-
-# Дамп функции init из фильтра FFmpeg
-${FFBUILD_CROSS_PREFIX}objdump -S -d "libavfilter/vf_libvmaf.o" > ffmpeg_init_asm.txt
-
-# Дамп функции vmaf_init из скомпилированной libvmaf
-${FFBUILD_CROSS_PREFIX}objdump -S -d "${FFBUILD_PREFIX}/lib/libvmaf.a" | grep -A 50 "<vmaf_init>:" > libvmaf_init_asm.txt
-
-# Выводим первые 30 строк ассемблера вызова в лог сборщика Docker
-log_debug "ASM: FFmpeg calling side:"
-cat ffmpeg_init_asm.txt | grep -A 50 -B 5 "call.*vmaf_init" || true
-
-log_debug "ASM: libvmaf receiving side:"
-cat libvmaf_init_asm.txt | head -n 50
 
 # Стриппинг бинарников (удаление отладочных символов)
 # --strip-all; --strip-unneeded
