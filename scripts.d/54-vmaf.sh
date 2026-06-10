@@ -6,6 +6,7 @@ SCRIPT_COMMIT="30f472b146b9228f76c684360d6a976774290b5e"
 # SCRIPT_REPO="https://github.com/lusoris/vmaf.git"
 # SCRIPT_COMMIT="49c738b0584337a45048429581214063e80831e2"
 
+export SKIP_PRE_PATCH=1
 
 ffbuild_enabled() {
     return 0
@@ -17,6 +18,14 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    log_info "Applying Pro ABI patch to libvmaf.h..."
+    
+    # Мы добавляем явный атрибут выравнивания Windows (alignment), чтобы GCC гарантированно 
+    # передавал структуру VmafConfiguration через указатель на стек, как того требует Windows x64 ABI.
+    sed -i '} VmafConfiguration;' "libvmaf/include/libvmaf/libvmaf.h"
+    sed -i 's/\} VmafConfiguration;/__attribute__((aligned(16))) \} VmafConfiguration;/g' "libvmaf/include/libvmaf/libvmaf.h"
+
 
     if [[ "${USE_AVX512}" != "1" ]]; then
         # создаем заглушку avx-512
