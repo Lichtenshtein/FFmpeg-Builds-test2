@@ -197,8 +197,7 @@ fi
 FINAL_CONFIGURE=$(smart_dedupe "$TOTAL_FF_CONFIGURE" "$VARIANT_FF_CONFIGURE")
 # CFLAGS: Сначала кладем CPPFLAGS, затем CFLAGS компонентов, затем варианта.
 # Так как мы оставляем ПЕРВОЕ вхождение, самые важные флаги должны быть левее.
-# FINAL_CFLAGS=$(smart_dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CFLAGS" "$VARIANT_FF_CPPFLAGS" | sed 's/-std=gnu17/-std=gnu23/g')
-FINAL_CFLAGS=$(smart_dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CFLAGS" "$VARIANT_FF_CPPFLAGS")
+FINAL_CFLAGS=$(smart_dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CFLAGS" "$VARIANT_FF_CPPFLAGS" | sed 's/-std=gnu17/-std=gnu23/g')
 FINAL_CXXFLAGS=$(smart_dedupe "$CXXFLAGS" "$CPPFLAGS" "$TOTAL_FF_CXXFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CXXFLAGS" "$VARIANT_FF_CPPFLAGS")
 # LDFLAGS: Аналогично флагам компиляции
 FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$TOTAL_FF_LDFLAGS" "$VARIANT_FF_LDFLAGS")
@@ -784,6 +783,19 @@ EOF
         fi
     fi
 fi
+
+# Дамп функции init из фильтра FFmpeg
+${FFBUILD_CROSS_PREFIX}objdump -S -d "${FFMPEG_BUILD_ROOT}/ffmpeg/libavfilter/vf_libvmaf.o" > ${TMP_DIR}/ffmpeg_init_asm.txt
+
+# Дамп функции vmaf_init из скомпилированной libvmaf
+${FFBUILD_CROSS_PREFIX}objdump -S -d "${FFBUILD_PREFIX}/lib/libvmaf.a" | grep -A 50 "<vmaf_init>:" > ${TMP_DIR}/libvmaf_init_asm.txt
+
+# Выводим первые 30 строк ассемблера вызова в лог сборщика Docker
+log_debug "ASM: FFmpeg calling side:"
+cat ${TMP_DIR}/ffmpeg_init_asm.txt | grep -A 50 -B 5 "call.*vmaf_init" || true
+
+log_debug "ASM: libvmaf receiving side:"
+cat ${TMP_DIR}/libvmaf_init_asm.txt | head -n 50
 
 # Стриппинг бинарников (удаление отладочных символов)
 # --strip-all; --strip-unneeded
