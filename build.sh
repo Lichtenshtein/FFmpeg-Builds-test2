@@ -479,7 +479,7 @@ CONF_FLAGS=(
     --disable-w32threads --enable-pthreads
     --enable-opengl
     --enable-pic
-    --disable-ffprobe
+    # --disable-ffprobe
     --disable-ffplay
     --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
 )
