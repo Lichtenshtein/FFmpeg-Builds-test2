@@ -519,7 +519,7 @@ check_and_fix_configure && printf "  %s\n" "${CONF_FLAGS[@]}"
 if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     log_error "Configure failed!"
     log_debug "${LOGS_MARK} ▼ CONTENT OF $FFMPEG_CONFIG_LOG ▼"
-    tail -n 1000 "$FFMPEG_CONFIG_LOG"
+    tail -n ${LOG_FF_SIZES} "$FFMPEG_CONFIG_LOG"
     log_debug "${LOGS_MARK} ▲ END OF $FFMPEG_CONFIG_LOG ▲"
     exit 1
 fi

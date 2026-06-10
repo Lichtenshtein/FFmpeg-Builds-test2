@@ -3,7 +3,7 @@
 SCRIPT_REPO="https://github.com/opencv/opencv.git"
 SCRIPT_COMMIT="1b047868dda019a91bd116c4da48f6294ea18cce"
 
-export SKIP_POST_PATCH=1
+export SKIP_POST_PC_PATCH=1
 
 ffbuild_depends() {
     echo vulkan-headers

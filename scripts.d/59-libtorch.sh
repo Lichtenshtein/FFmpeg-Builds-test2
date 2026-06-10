@@ -4,7 +4,7 @@ SCRIPT_REPO="https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-
 
 # SCRIPT_REPO="https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-1.9.1%2Bcpu.zip"
 
-export SKIP_POST_PATCH=1
+export SKIP_POST_PC_PATCH=1
 
 ffbuild_enabled() {
     return 1

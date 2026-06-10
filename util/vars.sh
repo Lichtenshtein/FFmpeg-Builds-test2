@@ -114,6 +114,11 @@ if [[ "${USE_WINE:-0}" = "1" ]]; then
     export WINEDLLOVERRIDES="mscoree,mshtml="
 fi
 
+export LOG_RAW_SYMB="${LOG_RAW_SYMB:-20}" # number of lines displaying external library deps
+export LOG_SIZES="${LOG_SIZES:-500}" # number of lines displayed in logs
+export LOG_FF_SIZES="${FF_LOG_SIZES:-1000}" # number of lines displayed in ffmpeg logs
+export LOG_INSTALLED="${LOG_INSTALLED:-85}" # shown number of installed files in DESTDIR prefix
+
 # Build variables (inside the container)
 # Prefer positional args, fall back to ENV
 export TARGET="${1:-$TARGET}"
@@ -186,22 +191,19 @@ export FFMPEG_BUILD_ROOT="${ROOT_DIR}/ffbuild"
 export FFMPEG_SOURCE_DIR="${FFMPEG_BUILD_ROOT}/ffmpeg"
 export FFMPEG_PKG_ROOT="${FFMPEG_BUILD_ROOT}/pkgroot"
 export FFMPEG_CONFIG_LOG="${FFMPEG_SOURCE_DIR}/ffbuild/config.log"
-export FFMPEG_HASH_FILE="${FFMPEG_DIR}/.current_commit" # хеш последнего скачанного коммита
+export FFMPEG_HASH_FILE="${FFMPEG_DIR}/.current_commit" # hash of the last downloaded commit
 
 # Helper hooks to skip .la files, dependancies and .pc files auditing
-# add ffbuild_dockerbuild() { export SKIP_POST_PATCH=1 } to disable
-# add SKIP_PRE_PATCH=1 to the top of the script
-# add USE_CONF_FINDER=1 for crooked autogen scripts
-export SKIP_PRE_PATCH=0  # inside main
-export SKIP_POST_PATCH=0 # inside main
+export SKIP_PRE_PATCH=0  # inside main, to the top of the script
+export SKIP_POST_PC_PATCH=0 # inside main to disable .pc files normalization
 export SKIP_POST_CLEAN=0
 export SKIP_POST_AUDIT=0
 export SKIP_POST_STRIP=1 # inside dockerbuild
-export USE_CONF_FINDER=0
+export USE_CONF_FINDER=0 # inside main; 1 for crooked autogen scripts 
 
 mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 
-# Очистка базовых флагов перед объявлением
+# Clear base flags before declaration
 unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS RUSTFLAGS LIBS
 
 # Flags for the component build stage
@@ -278,8 +280,8 @@ HOST_LINUX_LDFLAGS=(
 # Настраиваем HOST_RUSTFLAGS (всегда Linux ELF)
 export HOST_RUSTFLAGS="${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${HOST_LINUX_LDFLAGS[@]}") -C embed-bitcode=yes"
 export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]} ${USELTO}"
-export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g -ffunction-sections -fdata-sections -std=gnu23 -fno-var-tracking-assignments ${USELTO}${USELTO_C}"
-export HOST_CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -fno-plt -pipe -g -ffunction-sections -fdata-sections -std=gnu++20 -fno-var-tracking-assignments ${USELTO}${USELTO_C}"
+export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -fno-plt -pipe -g -ffunction-sections -fdata-sections -std=gnu23 -fno-var-tracking-assignments ${USELTO}${USELTO_C}"
+export HOST_CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -fno-plt -pipe -g -ffunction-sections -fdata-sections -std=gnu++20 -fno-var-tracking-assignments ${USELTO}${USELTO_C}"
 export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
 # Ветвление по TARGET
@@ -296,6 +298,7 @@ if [[ "$TARGET" == "win64" ]]; then
         "-Wl,--reduce-memory-overheads"
         # "-Wl,--no-keep-memory" # reread from disk not ram
         "-Wl,--stack,16777216"
+        "-Wl,--large-address-aware" # for AI model weights > 2GB
         "-Wl,--as-needed"
     )
 
@@ -305,8 +308,8 @@ if [[ "$TARGET" == "win64" ]]; then
     MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
         RUST_STATIC_CFG=""
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
         export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
@@ -314,8 +317,8 @@ if [[ "$TARGET" == "win64" ]]; then
         export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
         MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
@@ -338,8 +341,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
     MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
         export STAGE_CFLAGS="-fno-semantic-interposition"
         export STAGE_CXXFLAGS="-fno-semantic-interposition"
         RUST_STATIC_CFG=""
@@ -349,8 +352,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
         export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
         # Для Linux статика — это -static и исключение динамических путей
         MAIN_LDFLAGS=("-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
@@ -399,9 +402,8 @@ BASE_IMAGE="${REGISTRY}/${REPO}/base:latest"
 TARGET_IMAGE="${REGISTRY}/${REPO}/base-${TARGET}:latest"
 IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:latest"
 
-# 1 для подробных логов, в 0 для кратких
-# export FFBUILD_VERBOSE=${FFBUILD_VERBOSE:-1}
-# Значение FFBUILD_VERBOSE уже пришло из Docker ENV
+# 2 for verbose logs, 0 for brief
+# FFBUILD_VERBOSE value from Docker ENV
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     export MAKE_V="V=1"
     export NINJA_V="-v"
@@ -415,16 +417,17 @@ fi
 get_stage_hash() {
     local STAGE_PATH="$1"
 
-    # Если активирован форсированный статический режим кэша
+    # If forced static cache mode is enabled
     # if [[ "$DEBUG_NO_HASH" == "1" ]]; then
-        # Вычисляем детерминированную строку заранее, без прерывания конвейера return-ом
+        # Compute a deterministic string in advance, without interrupting the pipeline with return
+        # Disabled because manual changes no longer force cache updates 
         # local STAGE_NAME=$(basename "$STAGE_PATH" .sh)
         # printf "%s_static_cache" "$STAGE_NAME" | sha256sum | cut -c1-16
     # else
-        # Берем весь контент файла
-        # Удаляем \r (защита от Windows-переносов)
-        # Удаляем пустые строки и комментарии (чтобы пробелы не ломали кэш)
-        # Считаем хеш от всего остального
+        # Take the entire file content
+        # Remove \r (protection against Windows hyphenation)
+        # Remove empty lines and comments
+        # Calculate the hash of everything else
         grep -v '^[[:space:]]*#' "$STAGE_PATH" \
             | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' \
             | grep -v '^[[:space:]]*$' \
@@ -470,7 +473,7 @@ clean_val() {
         xargs -r echo
 }
 
-# быстрые дедупликаторы
+# Fast deduplicators
 dedupe_logic() {
     local input="$1"
     local mode="$2"
@@ -850,16 +853,16 @@ get_deps_list() {
     # Used only for readelf/nm filtering of well-known system libs
     local sys_libs="libc\.so|libm\.so|libdl\.so|librt\.so|libpthread\.so|libgcc_s\.so|libstdc\+\+\.so|ld-linux|libresolv\.so|libutil\.so"
 
-    # Создаем временный файл для сбора вывода
+    # Create a temporary file to collect output
     local tmp_out=$(mktemp)
 
-    # Считаем общий вес установленных файлов компонента
+    # Calculate the total weight of installed component files
     local total_size="0"
     if [[ -d "$INSTALL_ROOT" ]]; then
         total_size=$(du -sh "$INSTALL_ROOT" | awk '{print $1}')
     fi
 
-    # Поиск pkg-config зависимостей
+    # Search for pkg-config dependencies
     if [[ -d "$pc_dir" ]]; then
         find "$pc_dir" -name "*.pc" -exec bash -c '
             pc_file="$1"; pkg_config_cmd="$2"; pc_dir="$3"; prefix="$4"
@@ -929,13 +932,13 @@ get_deps_list() {
                 file="$1"; cmd="$2"; sys_regex="$3"; x_mark="$4"; err_mark="$5"; nc="$6"
 
                 if head -c 4 "$file" | grep -q "ELF"; then
-                    # Получаем дерево, отсеиваем системный шум
+                    # We get a tree, filter out system noise
                     tree_out=$("$cmd" -n -p "$file" 2>/dev/null | grep -Ev "$sys_regex" || true)
 
                     if [[ -n "$tree_out" ]]; then
-                        # Проверяем наличие строк "not found" в выводе lddtree
+                        # Highlight missing libraries in red# Check for "not found" lines in lddtree output
                         if echo "$tree_out" | grep -q "not found"; then
-                            # Подсвечиваем отсутствующие библиотеки красным
+                            # Highlight missing libraries in red
                             tree_out=$(echo "$tree_out" | sed "s|not found|${err_mark} NOT FOUND${nc}|g")
                             printf "\n%b %bCRITICAL: MISSING DEPENDENCIES%b for %s:\n%s\n" \
                                 "$err_mark" "${LOG_ERROR}" "$nc" "$file" "$tree_out"
@@ -973,7 +976,7 @@ get_deps_list() {
                         split(\$NF, a, \" \"); 
                         sym = a[2]; 
                         if (sym != \"\") printf \"%-15s %s→%s %s\n\", \$2, \"$GREY_B\", \"$NC\", sym 
-                    }" | sort -u | head -n 15)
+                    }" | sort -u | head -n ${LOG_RAW_SYMB})
         
                 if [[ -n "$clean_symbols" ]]; then
                     printf "\n%b %bEXTERNAL SYMBOLS (OBJ %b→%b %bSYM)%b in %s:\n" \
