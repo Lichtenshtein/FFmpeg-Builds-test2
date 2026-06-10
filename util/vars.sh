@@ -298,7 +298,6 @@ if [[ "$TARGET" == "win64" ]]; then
         "-Wl,--reduce-memory-overheads"
         # "-Wl,--no-keep-memory" # reread from disk not ram
         "-Wl,--stack,16777216"
-        "-Wl,--large-address-aware" # for AI model weights > 2GB
         "-Wl,--as-needed"
     )
 

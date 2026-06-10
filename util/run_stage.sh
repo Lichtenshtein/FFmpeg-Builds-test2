@@ -62,7 +62,7 @@ stage_cleanup() {
                     if [[ "$(readlink -f "$logfile")" == "$(readlink -f "$STAGE_LOG")" ]]; then
                         continue
                     fi
-                    log_debug "${LOGS_MARK} ▼ CONTENT OF ${logfile} (last 300 lines) ▼"
+                    log_debug "${LOGS_MARK} ▼ CONTENT OF ${logfile} (last ${LOG_SIZES} lines) ▼"
                     tail -n ${LOG_SIZES} "$logfile" >&2
                     log_debug "${LOGS_MARK} ▲ END OF $(basename "$logfile") ▲"
                 done
