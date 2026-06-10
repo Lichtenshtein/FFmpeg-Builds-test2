@@ -298,7 +298,7 @@ if [[ "$TARGET" == "win64" ]]; then
         "-Wl,--reduce-memory-overheads"
         # "-Wl,--no-keep-memory" # reread from disk not ram
         "-Wl,--stack,16777216"
-        # "-Wl,--as-needed"
+        "-Wl,--as-needed"
     )
 
     [[ "$PREFER_SHARED" != "1" ]] && BASE_LD_FLAGS+=( "-Wl,--gc-sections" )

@@ -514,6 +514,30 @@ sed -i 's/err = vmaf_init(\&s->vmaf, cfg);/err = vmaf_init(\&s->vmaf, \&cfg);/g'
 # На всякий случай жестко проверяем, применился ли патч (выводим строку в лог)
 grep -n "vmaf_init" "libavfilter/vf_libvmaf.c"
 
+log_info "Patching FFmpeg ffprobe ABI bug: Changing avtext_context_open to pass options by pointer..."
+
+# Патчим заголовочный файл avtextformat.h (меняем AVTextFormatOptions opts на *opts)
+sed -i 's/AVTextFormatOptions opts,/const AVTextFormatOptions *opts,/g' "libavutil/avtextformat.h"
+
+# Патчим реализацию функции в avtextformat.c
+sed -i 's/AVTextFormatOptions opts,/const AVTextFormatOptions *opts,/g' "libavutil/avtextformat.c"
+
+# Меняем обращения к полям структуры с точки (.) на стрелочку (->) внутри avtextformat.c
+sed -i 's/opts\.is_key_selected/opts->is_key_selected/g' "libavutil/avtextformat.c"
+sed -i 's/opts\.show_optional_fields/opts->show_optional_fields/g' "libavutil/avtextformat.c"
+sed -i 's/opts\.show_value_unit/opts->show_value_unit/g' "libavutil/avtextformat.c"
+sed -i 's/opts\.use_value_prefix/opts->use_value_prefix/g' "libavutil/avtextformat.c"
+sed -i 's/opts\.use_byte_value_binary_prefix/opts->use_byte_value_binary_prefix/g' "libavutil/avtextformat.c"
+sed -i 's/opts\.use_value_sexagesimal_format/opts->use_value_sexagesimal_format/g' "libavutil/avtextformat.c"
+sed -i 's/opts\.data_dump_format/opts->data_dump_format/g' "libavutil/avtextformat.c"
+
+# Патчим вызывающую сторону в fftools/ffprobe.c (добавляем амперсанд &tf_options)
+sed -i 's/tf_options, show_data_hash/\&tf_options, show_data_hash/g' "fftools/ffprobe.c"
+
+# Проверяем в логах, что замена в ffprobe произошла успешно
+log_info "Verifying ffprobe call patch..."
+grep -n "avtext_context_open" "fftools/ffprobe.c"
+
 
 log_info_line
 log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
@@ -673,61 +697,6 @@ fi
 
 # Сборка и установка ffmpeg
 make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
-
-log_info "${SEARCH_MARK} Starting professional assembly leak audit..."
-
-# Принудительно отключаем падение скрипта при ошибках find/objdump
-set +e
-
-# Ищем объектный файл во ВСЕМ контейнере (включая скрытые кэши meson/ccache/make)
-# Ищем как стандартный расширения .o, так и .obj, игнорируя регистр
-VMAF_OBJ_PATH=$(find / -type f \( -iname "vf_libvmaf.o" -o -iname "vf_libvmaf.obj" -o -iname "vf_libvmaf.c.obj" \) -print -quit 2>/dev/null)
-
-if [[ -n "$VMAF_OBJ_PATH" && -f "$VMAF_OBJ_PATH" ]]; then
-    log_info "SUCCESS: Found VMAF object at: $VMAF_OBJ_PATH"
-    log_info "Dumping assembly for function init..."
-
-    # Делаем полный листинг ассемблера с привязкой к исходному C-коду (-S)
-    "${FFBUILD_CROSS_PREFIX}objdump" -S -d "$VMAF_OBJ_PATH" > "${TMP_DIR}/ffmpeg_init_asm.txt" 2>/dev/null
-    
-    # Выводим в лог контекст вызова vmaf_init
-    echo -e "${LOG_DEBUG}================== FFMPEG CALLING SIDE ASM ==================${NC}"
-    if grep -q "vmaf_init" "${TMP_DIR}/ffmpeg_init_asm.txt"; then
-        grep -A 30 -B 10 "vmaf_init" "${TMP_DIR}/ffmpeg_init_asm.txt"
-    else
-        log_warn "vmaf_init symbol not found in dump text, printing head of file:"
-        head -n 100 "${TMP_DIR}/ffmpeg_init_asm.txt"
-    fi
-    echo -e "${LOG_DEBUG}=============================================================${NC}"
-else
-    log_error "CRITICAL: vf_libvmaf object file was NOT generated on disk (possibly fully cached by ccache)."
-    log_info "Attempting to dump directly from the intermediate static library if exists..."
-
-    # Альтернативный поиск: если .o нет, ищем саму собранную статическую libavfilter.a
-    AVFILTER_A=$(find "$FFMPEG_SOURCE_DIR" -name "libavfilter.a" -type f -print -quit 2>/dev/null)
-    if [[ -n "$AVFILTER_A" ]]; then
-        log_info "Found libavfilter.a at: $AVFILTER_A. Extracting asm..."
-        "${FFBUILD_CROSS_PREFIX}objdump" -d "$AVFILTER_A" > "${TMP_DIR}/libavfilter_asm.txt" 2>/dev/null
-        grep -A 40 "<init>:" "${TMP_DIR}/libavfilter_asm.txt" || grep -A 30 "vmaf_init" "${TMP_DIR}/libavfilter_asm.txt" || true
-    fi
-fi
-
-# Дамп принимающей стороны из установленной libvmaf.a
-# Место установки жестко определено через DESTDIR и PREFIX
-LIBVMAF_A_PATH="${FFBUILD_PREFIX}/lib/libvmaf.a"
-if [[ -f "$LIBVMAF_A_PATH" ]]; then
-    log_info "Dumping assembly for vmaf_init from libvmaf.a..."
-    "${FFBUILD_CROSS_PREFIX}objdump" -d "$LIBVMAF_A_PATH" > "${TMP_DIR}/libvmaf_lib_asm.txt" 2>/dev/null
-    
-    echo -e "${LOG_DEBUG}================== LIBVMAF RECEIVING SIDE ASM ==================${NC}"
-    grep -A 50 "<vmaf_init>:" "${TMP_DIR}/libvmaf_lib_asm.txt" || grep -A 40 "vmaf_init" "${TMP_DIR}/libvmaf_lib_asm.txt" || true
-    echo -e "${LOG_DEBUG}================================================================${NC}"
-fi
-
-# Возвращаем исходный режим остановки при ошибках
-set -e
-
-
 make install
 make install-doc || log_warn "install-doc failed, but proceeding."
 
