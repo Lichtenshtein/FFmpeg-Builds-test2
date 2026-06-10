@@ -524,18 +524,6 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     exit 1
 fi
 
-# Дамп функции init из фильтра FFmpeg
-${FFBUILD_CROSS_PREFIX}objdump -S -d "libavfilter/vf_libvmaf.o" > ffmpeg_init_asm.txt
-
-# Дамп функции vmaf_init из скомпилированной libvmaf
-${FFBUILD_CROSS_PREFIX}objdump -S -d "${FFBUILD_PREFIX}/lib/libvmaf.a" | grep -A 50 "<vmaf_init>:" > libvmaf_init_asm.txt
-
-# Выводим первые 30 строк ассемблера вызова в лог сборщика Docker
-log_debug "ASM: FFmpeg calling side:"
-cat ffmpeg_init_asm.txt | grep -A 50 -B 5 "call.*vmaf_init" || true
-
-log_debug "ASM: libvmaf receiving side:"
-cat libvmaf_init_asm.txt | head -n 50
 
 if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
     log_info "Applying precise LCEVC SDK 4.0.0 migration patches..."
@@ -795,6 +783,38 @@ EOF
             rm -f "$GDB_BATCH_FILE" "$AUDIT_LOG"
         fi
     fi
+fi
+
+log_info "${SEARCH_MARK} Searching for vf_libvmaf object file..."
+
+# Находим точный путь к скомпилированному объектнику внутри дерева сборки
+VMAF_OBJ_PATH=$(find "$FFMPEG_SOURCE_DIR" -name "vf_libvmaf.o" -o -name "vf_libvmaf.c.obj" -type f -print -quit)
+
+if [[ -n "$VMAF_OBJ_PATH" ]]; then
+    log_info "Found VMAF object at: $VMAF_OBJ_PATH"
+    log_info "Dumping assembly for function init..."
+
+    # Делаем ассемблерный дамп вызывающей стороны
+    "${FFBUILD_CROSS_PREFIX}objdump" -S -d "$VMAF_OBJ_PATH" > "${TMP_DIR}/ffmpeg_init_asm.txt"
+
+    # Выводим в лог кусок кода, где происходит подготовка к вызову vmaf_init
+    echo -e "${LOG_DEBUG}================== FFMPEG CALLING SIDE ASM ==================${NC}"
+    grep -A 50 -B 5 "call.*vmaf_init" "${TMP_DIR}/ffmpeg_init_asm.txt" || cat "${TMP_DIR}/ffmpeg_init_asm.txt" | head -n 100
+    echo -e "${LOG_DEBUG}=============================================================${NC}"
+else
+    log_error "vf_libvmaf object file not found in $FFMPEG_SOURCE_DIR"
+fi
+
+# Также сделаем дамп принимающей стороны из уже установленной либы libvmaf.a
+LIBVMAF_A_PATH="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}/lib/libvmaf.a"
+if [[ -f "$LIBVMAF_A_PATH" ]]; then
+    log_info "Dumping assembly for vmaf_init from libvmaf.a..."
+    "${FFBUILD_CROSS_PREFIX}objdump" -S -d "$LIBVMAF_A_PATH" > "${TMP_DIR}/libvmaf_lib_asm.txt"
+
+    echo -e "${LOG_DEBUG}================== LIBVMAF RECEIVING SIDE ASM ==================${NC}"
+    # Находим саму функцию vmaf_init в листинге библиотеки
+    grep -A 50 "<vmaf_init>:" "${TMP_DIR}/libvmaf_lib_asm.txt" || true
+    echo -e "${LOG_DEBUG}================================================================${NC}"
 fi
 
 # Стриппинг бинарников (удаление отладочных символов)
