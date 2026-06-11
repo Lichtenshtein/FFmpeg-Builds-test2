@@ -22,6 +22,7 @@ EOF
 ffbuild_dockerbuild() {
     set -e
 
+echo "test"
     # Патчим корневой Makefile.in, чтобы не собирать утилиты (main) и тесты
     if [ -f Makefile.in ]; then
         log_info "Patching Makefile.in to skip binaries generation..."
