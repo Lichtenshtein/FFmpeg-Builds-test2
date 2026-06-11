@@ -7,6 +7,7 @@ SCRIPT_REPO="https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-
 export SKIP_POST_PC_PATCH=1
 
 ffbuild_enabled() {
+    # LibTorch is broken due to incompatible ABI (tried very hard to add this lib)
     return 1
 }
 

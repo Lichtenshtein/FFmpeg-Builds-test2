@@ -57,11 +57,11 @@ ffbuild_dockerbuild() {
 
     # У libffi очень странная привычка ставить хедеры в $(libdir)/libffi-$(version)/include
     # Нам нужно вытащить их в стандартное место
-    local FFI_INC_DIR=$(find "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib" -name "ffi.h" -exec dirname {} \;)
+    local FFI_INC_DIR=$(find "$INSTALL_ROOT/lib" -name "ffi.h" -exec dirname {} \;)
     if [[ -n "$FFI_INC_DIR" ]]; then
         log_info "Moving libffi headers from $FFI_INC_DIR"
-        mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include"
-        mv -f "$FFI_INC_DIR"/*.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
+        mkdir -p "$INSTALL_ROOT/include"
+        mv -f "$FFI_INC_DIR"/*.h "$INSTALL_ROOT/include/"
         rm -rf "${FFI_INC_DIR}"
     fi
 

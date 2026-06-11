@@ -216,9 +216,9 @@ All of those can be optionally combined with any combination of addins:
 05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|30-openssl|32-libssh|32-quiche|33-nghttp2|34-curl|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|37-openjpeg|38-libwebp|39-fontconfig|39-fribidi|39-libtiff|39-pixman|40-cairo|40-harfbuzz|40-lcms2|42-libarchive|43-pango|59-leptonica|62-libtesseract
 ```
 
-* `vulkan` (shaderc downloads, installs and compiles 'spirv-headers', 'spirv-tools', 'glslang' itself: 49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader).
+* `vulkan` (shaderc downloads, installs and compiles 'spirv-headers', 'spirv-tools', 'glslang' itself).
 ```
-49-vulkan-headers|50-spirv-headers|50-spirv-tools|51-spirv-cross|52-shaderc|52-vulkan-loader|99-enable
+49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader
 ```
 
 * `libplacebo`
@@ -231,9 +231,24 @@ All of those can be optionally combined with any combination of addins:
 44-dav1d|44-svtav1|45-libavif
 ```
 
+* `libavif full`
+```
+06-libiconv|07-gettext|08-zlib|11-xz|16-libxml2|37-giflib|37-libpng|37-libjpeg-turbo|37-libtiff|38-libwebp|44-dav1d|44-svtav1|45-libavif
+```
+
+* `libjxl`
+```
+06-libiconv|07-gettext|08-zlib|11-brotli|11-xz|16-libxml2|37-giflib|37-libpng|37-libjpeg-turbo|37-libtiff|38-libwebp|40-lcms2|44-dav1d|44-svtav1|45-libavif|45-libjxl
+```
+
 * `libSDL2`
 ```
 06-libiconv|07-gettext|08-zlib|11-bzlib|12-libffi|15-pcre2|16-glib2|16-fftw3|27-freeglut|30-openssl|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|64-libsamplerate|64-soxr|65-pulseaudio|66-sdl
+```
+
+* `libmp3lame`
+```
+06-libiconv|66-libmpg123|67-libmp3lame
 ```
 
 * `opencv`

@@ -252,8 +252,7 @@ WRAPPER_EOF
         -DFAST_FLOAT=ON
         -DSW_BUILD=OFF
         # -DENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
-        # Leptonica use our manual path, not CMake target
-        -DLeptonica_DIR=OFF
+        -DLeptonica_DIR=OFF # Leptonica use our manual path, not CMake target
         -DLEPT_TIFF_RESULT=0
         -DLEPT_TIFF_COMPILE_SUCCESS=ON
         # Explicit library paths so CMake's try_compile doesn't fail
