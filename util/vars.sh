@@ -235,14 +235,14 @@ if [[ "$USE_LTO" == "1" ]]; then
     export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
 fi
 
-# if [[ "$USE_ASAN" == "1" ]]; then
-    # ASAN_CFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
-    # ASAN_CXXFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
-    # ASAN_LDFLAGS="-static-libasan -fsanitize=address,undefined "
-    # STACK_FLAGS=" -mstackrealign"
-# else
-    # STACK_FLAGS=" -fstack-protector-strong -mstackrealign"
-# fi
+if [[ "$USE_ASAN" == "1" ]]; then
+    ASAN_CFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
+    ASAN_CXXFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
+    ASAN_LDFLAGS="-static-libasan -fsanitize=address,undefined "
+    STACK_FLAGS=" -mstackrealign"
+else
+    STACK_FLAGS=" -fstack-protector-strong" # -mstackrealign
+fi
 
 # Общие настройки Rust; codegen-units = 16 (default)
 COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 ${RUSTLTO}"

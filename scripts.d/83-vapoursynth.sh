@@ -3,10 +3,10 @@
 SCRIPT_REPO="https://github.com/vapoursynth/vapoursynth.git"
 SCRIPT_COMMIT="33769c5401c63a68b92212430b53abb058bc5f83"
 
-# Версия Python для встраивания (должна совпадать с той, что в Ubuntu 24.04 для сборки)
 PY_VER="3.14"
 PY_FULL_VER="3.14.1"
 PY_LIB="python314" # Без точки для линковки
+VS_VER="77"
 
 ffbuild_depends() {
     echo zlib
@@ -31,13 +31,13 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    cat <<'EOF' > meson.build
+    cat << EOF > meson.build
 project('VapourSynth', 'c', 'cpp',
     default_options: ['buildtype=release', 'b_lto=true', 'b_ndebug=if-release', 'c_std=c99', 'cpp_std=c++17'],
     license: 'LGPL-2.1-or-later',
     license_files: 'COPYING.LESSER',
     meson_version: '>=1.3.0',
-    version: '75rc1',
+    version: '${VS_VER}',
 )
 
 enable_guard_pattern = get_option('enable_guard_pattern')
@@ -256,7 +256,7 @@ Libs: -L\${libdir} -l${PY_LIB}
 Cflags: -I\${includedir} -DMS_WIN64 -DMS_WINDOWS
 EOF
 
-    ln -sf python3.pc fake_pkgconfig/python-3.14.pc
+    ln -sf python3.pc fake_pkgconfig/python-${PY_VER}.pc
 
     cat <<EOF > python_fix.ini
 [binaries]
@@ -344,7 +344,7 @@ includedir=\${prefix}/include/vapoursynth
 
 Name: vapoursynth
 Description: A frameserver for the 21st century
-Version: ${VER_FULL}
+Version: ${VS_VER}
 Libs: -L\${libdir} -lvapoursynth
 Libs.private: -lstdc++ -lwinmm
 Cflags: -I\${includedir} -I\${includedir}/vapoursynth $static_flags
@@ -358,7 +358,7 @@ includedir=\${prefix}/include/vapoursynth
 
 Name: vapoursynth-script
 Description: Library for interfacing VapourSynth with Python
-Version: ${VER_FULL}
+Version: ${VS_VER}
 Libs: -L\${libdir} -lvsscript
 Libs.private: -l${PY_LIB} -lstdc++
 Cflags: -I\${includedir} -I\${includedir}/vapoursynth

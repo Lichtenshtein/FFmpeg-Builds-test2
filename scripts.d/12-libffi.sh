@@ -9,8 +9,6 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    # echo "download_file \"$SCRIPT_REPO\" \"libffi.tar.gz\""
-    # echo "tar xzf libffi.tar.gz --strip-components=1"
 }
 
 ffbuild_dockerbuild() {

@@ -32,7 +32,7 @@ includedir=\${prefix}/include
 
 Name: quirc
 Description: QR decoder library
-Version: 1.2
+Version: ${VER_FULL}
 Libs: -L\${libdir} -lquirc
 Cflags: -I\${includedir}
 EOF

@@ -54,7 +54,7 @@ includedir=\${prefix}/include
 
 Name: SoundTouch
 Description: Audio Processing Library
-Version: 2.4.1
+Version: ${VER_FULL}
 Libs: -L\${libdir} -lSoundTouch
 Libs.private: -lstdc++ -lm
 Cflags: -I\${includedir}/soundtouch -DSOUNDTOUCH_FLOAT_SAMPLES
