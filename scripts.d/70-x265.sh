@@ -20,7 +20,11 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Проверяем, почему пропал .git (для логов отладки)
+    log_info "Patching x265 to match VMAF Pointer ABI..."
+    # Ищем файлы, где встречается vmaf_init, и точечно правим вызов на передачу адреса &cfg
+    find . -type f \( -name "encoder.cpp" -o -name "api.cpp" -o -name "*vmaf*" \) -exec sed -i 's/vmaf_init(\&vmafContext, cfg)/vmaf_init(\&vmafContext, \&cfg)/g' {} + || true
+    find . -type f \( -name "encoder.cpp" -o -name "api.cpp" -o -name "*vmaf*" \) -exec sed -i 's/vmaf_init(vmaf_context, cfg)/vmaf_init(vmaf_context, \&cfg)/g' {} + || true
+
     if [[ ! -d "/build/${STAGENAME}/.git" ]]; then
         log_debug ".git directory is MISSING in $(pwd)."
         # Если .git нет, создаем файл версии, чтобы CMake не падал
@@ -65,16 +69,13 @@ ffbuild_dockerbuild() {
         -DENABLE_ASSEMBLY=ON
         -DENABLE_CLI=OFF
         -DENABLE_PIC=ON
-        -DENABLE_SHARED=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF) # Для multilib статика обязательна
+        -DENABLE_SHARED=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DNATIVE_BUILD=OFF # Target the build CPU
         -DENABLE_LIBVMAF=ON
         -DENABLE_SCC_EXT=ON # Enable screen content coding extension in HEVC
         -DENABLE_MULTIVIEW=ON # Enable Multi-view encoding in HEVC
         -DENABLE_VTUNE=OFF # Enable Vtune profiling instrumentation
         -DENABLE_TESTS=OFF # Enable Unit Tests
-        # -DX265_LATEST_TAG="3.5"
-        # -DX265_TAG_DISTANCE="0"
-        # -DX265_VERSION="3.5"
         -Wno-dev
         # SVT_HEVC; see svthevc.rst file
         -DENABLE_SVT_HEVC=ON # use the --svt flag in the x265 CLI to use the SVT-HEVC engine instead of the standard x265 core
@@ -138,6 +139,13 @@ EOF
 
     # Установка из папки 8bit (которая содержит объединенную либу)
     DESTDIR="$FFBUILD_DESTDIR" ninja -C 8bit install || return 1
+
+    # I guess this is just a copy
+    if [[ "${myconf[@]}" =~ "-DENABLE_SVT_HEVC=ON" ]]; then
+        if [[ -f "${INSTALL_ROOT}/lib/libSvtHevcEnc.a" ]]; then
+            rm -f "${INSTALL_ROOT}/lib/libSvtHevcEnc.a"
+        fi
+    fi
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/x265.pc"
