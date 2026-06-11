@@ -1445,13 +1445,6 @@ get_stage_version() {
         done
     fi
 
-    # Локальный Git (Фоллбэк, если папка .git всё же осталась на диске)
-    if [[ -z "$ver" && -d ".git" ]]; then
-        # Универсальный поиск тегов, отсекающий любые буквенные префиксы (v, r, release-)
-        ver=$(git describe --tags --abbrev=0 2>/dev/null | sed -E 's/^[a-zA-Z_-]+//;s/\^{}//')
-        [[ -z "$ver" ]] && ver="git-$(git rev-parse --short HEAD 2>/dev/null)"
-    fi
-
     # Удаленный Git через ls-remote (без .git)
     if [[ -z "$ver" && -n "$current_repo" ]]; then
         if [[ -n "$current_commit" ]]; then
@@ -1482,6 +1475,13 @@ get_stage_version() {
         if [[ -z "$ver" && -n "$current_commit" ]]; then
             ver="git-${current_commit:0:7}"
         fi
+    fi
+
+    # Локальный Git (Фоллбэк, если папка .git всё же осталась на диске)
+    if [[ -z "$ver" && -d ".git" ]]; then
+        # Универсальный поиск тегов, отсекающий любые буквенные префиксы (v, r, release-)
+        ver=$(git describe --tags --abbrev=0 2>/dev/null | sed -E 's/^[a-zA-Z_-]+//;s/\^{}//')
+        [[ -z "$ver" ]] && ver="git-$(git rev-parse --short HEAD 2>/dev/null)"
     fi
 
     # Поиск в файлах конфигурации пакетов
