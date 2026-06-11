@@ -26,6 +26,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    log_info "Patching libaom to match VMAF Pointer ABI..."
+    # Add an ampersand (&) before cfg in the vmaf_init call
+    sed -i 's/if (vmaf_init(vmaf_context, cfg))/if (vmaf_init(vmaf_context, \&cfg))/g' "aom_dsp/vmaf.c"
+
     # Если есть файл с hwy, принудительно ставим ему язык CXX
     echo "set_target_properties(aom_hwy PROPERTIES LINKER_LANGUAGE CXX)" >> CMakeLists.txt
 
