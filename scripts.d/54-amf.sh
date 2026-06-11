@@ -29,7 +29,7 @@ includedir=\${prefix}/include
 
 Name: AMF
 Description: The Advanced Media Framework (AMF) SDK to access to AMD devices for multimedia processing
-Version: ${VER_FULL}
+Version: 1.5.2
 Cflags: -I\${includedir} -I\${includedir}/AMF
 EOF
 }

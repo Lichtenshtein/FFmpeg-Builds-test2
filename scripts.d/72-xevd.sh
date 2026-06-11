@@ -20,7 +20,7 @@ ffbuild_dockerbuild() {
     set -e
 
     if [ ! -f "version.txt" ]; then
-        echo "v${VER_FULL}" >> version.txt
+        echo "v0.5.0" >> version.txt
     fi
 
     mkdir -p _build && cd _build

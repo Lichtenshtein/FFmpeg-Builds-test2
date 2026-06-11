@@ -50,7 +50,7 @@ includedir=\${prefix}/include
 
 Name: Crypto++
 Description: A modern CMake build project for Crypto++
-Version: ${VER_FULL}
+Version: 8.9.0
 Libs: -L\${libdir} -lcryptopp
 Libs.private: -lstdc++
 Cflags: -I\${includedir} -I\${includedir}/cryptopp
