@@ -52,7 +52,7 @@ includedir=\${prefix}/include
 
 Name: jbigkit
 Description: JBIG1 lossless image compression library
-Version: 2.1
+Version: ${VER_FULL}
 Libs: -L\${libdir} -ljbig
 Cflags: -I\${includedir}
 EOF

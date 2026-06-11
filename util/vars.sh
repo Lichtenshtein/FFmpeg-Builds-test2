@@ -1423,7 +1423,9 @@ get_stage_version() {
     local version_file=".ffbuild_version"
     [[ -f "$version_file" ]] && { cat "$version_file"; return 0; }
 
-    log_debug "--- STARTING VERSION DETECTION FOR PWD: $PWD ---" >&2
+    ver_log() { [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]] && log_debug "[VER] $*" >&2; }
+
+    ver_log "--- STARTING VERSION DETECTION FOR ${STAGENAME:-$PWD} ---"
 
     local ver=""
     local current_repo=""
@@ -1442,21 +1444,20 @@ get_stage_version() {
             if [[ -n "${!repo_var:-}" ]]; then
                 current_repo="${!repo_var}"
                 current_commit="${!commit_var:-}"
-                log_debug "Selected MULTI-REPO Index $i: $current_repo" >&2
+                ver_log "Selected MULTI-REPO Index $i: $current_repo"
                 break
             fi
         done
     fi
 
-    log_debug "Active Repo: $current_repo" >&2
-    log_debug "Active Commit: $current_commit" >&2
+    ver_log "Active Repo: $current_repo"
+    ver_log "Active Commit: $current_commit"
 
     # Удаленный Git через ls-remote (без .git)
     if [[ -z "$ver" && -n "$current_repo" ]]; then
         if [[ -n "$current_commit" ]]; then
             local full_commit="${current_commit}"
-            log_debug "Querying ls-remote for commit: $short_commit" >&2
-
+            ver_log "Querying ls-remote for commit: ${full_commit:0:7}"
             # Разрешаем проблему аннотированных тегов: 
             # git ls-remote -t выводит и хэш тега, и хэш коммита с суффиксом ^{}
             # Получаем таблицу удаленных ссылок
@@ -1465,12 +1466,11 @@ get_stage_version() {
             if [[ -n "$remote_refs" ]]; then
                 # Ищем точный коммит, включая разыменованные указатели тегов (*^{})
                 local matched_line=$(echo "$remote_refs" | grep -E "^${full_commit:0:7}[0-9a-f]*[[:space:]]+refs/tags/" | head -n1)
-                log_debug "ls-remote matched string: $matched_line" >&2
-
+                ver_log "ls-remote matched string: $matched_line"
                 if [[ -n "$matched_line" ]]; then
                     # Вырезаем имя тега и очищаем его от префиксов (v, r) и суффикса ^{}
                     ver=$(echo "$matched_line" | awk -F'/' '{print $3}' | sed -E 's/\^\{\}//g')
-                    log_debug "Extracted version from tag: $ver" >&2
+                    ver_log "Extracted version from tag: $ver"
                 fi
             fi
         fi
@@ -1478,18 +1478,13 @@ get_stage_version() {
         # Если по коммиту тег не сопоставился, берем самый последний хронологический тег из репозитория
         if [[ -z "$ver" ]]; then
             local last_tag=$(git ls-remote --tags --refs "$current_repo" 2>/dev/null | tail -n1 | cut -d/ -f3)
-            log_debug "Fallback last remote tag raw: $last_tag" >&2
+            ver_log "Fallback last remote tag raw: $last_tag"
             if [[ -n "$last_tag" ]]; then
                 ver=$(echo "$last_tag" | sed -E 's/^[a-zA-Z_-]+//; s/\^\{\}//g')
-                log_debug "Cleaned last remote tag: $ver" >&2
+                ver_log "Cleaned last remote tag: $ver"
             fi
         fi
 
-        # Если удаленный репозиторий доступен, но тегов нет вообще — используем хэш
-        if [[ -z "$ver" && -n "$current_commit" ]]; then
-            ver="git-${current_commit:0:7}"
-            log_debug "No tags or local versions found. Defaulting to commit hash: $ver" >&2
-        fi
     fi
 
     # Локальный Git (Фоллбэк, если папка .git всё же осталась на диске)
@@ -1497,18 +1492,17 @@ get_stage_version() {
         # Универсальный поиск тегов, отсекающий любые буквенные префиксы (v, r, release-)
         ver=$(git describe --tags --abbrev=0 2>/dev/null | sed -E 's/^[a-zA-Z_-]+//; s/\^\{\}//g')
         [[ -z "$ver" ]] && ver="git-$(git rev-parse --short HEAD 2>/dev/null)"
-        log_debug "Found in local .git: $ver" >&2
+        ver_log "Found in local .git: $ver"
     fi
-
 
     # Поиск в файлах конфигурации пакетов
     if [[ -z "$ver" ]]; then
-        log_debug "Remote Git failed. Scanning local files..." >&2
+        log_debug "Remote Git failed. Scanning local files..."
         local pc_in=$(find . -maxdepth 3 \( -name "*.pc.in" -o -name "*.pc" \) ! -path "*/build/*" ! -path "*/_build/*" 2>/dev/null | head -n 1)
         if [[ -f "$pc_in" ]]; then
             ver=$(grep -i "^Version:" "$pc_in" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' | head -n1)
         fi
-        log_debug "Found in local PC file ($pc_in): $ver" >&2
+        ver_log "Found in local PC file ($pc_in): $ver"
     fi
 
     # Прямой поиск текстовых файлов версий (version.txt / VERSION)
@@ -1517,14 +1511,14 @@ get_stage_version() {
         if [[ -f "$txt_ver" ]]; then
             ver=$(grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' "$txt_ver" | head -n1)
         fi
-        log_debug "Found in version files of project(): $ver" >&2
+        ver_log "Found in version files of project(): $ver"
     fi
 
     # CMake (многострочный поиск)
     if [[ -z "$ver" && -f "CMakeLists.txt" ]]; then
         # Ищем паттерн VERSION 1.2.3 даже если он на другой строке после project(
         ver=$(grep -Pzo '(?i)project\s*\(.*VERSION\s+([0-9.]+)' CMakeLists.txt | tr -d '\0' | grep -oE '[0-9]+(\.[0-9]+)+')
-        log_debug "Found in CMakeLists project(): $ver" >&2
+        ver_log "Found in CMakeLists project(): $ver"
     fi
 
     # парсинг CMake (ищем PROJECT_VERSION или MAJOR/MINOR)
@@ -1533,13 +1527,13 @@ get_stage_version() {
         local v_min=$(grep -iP 'SET.*VERSION_MINOR' CMakeLists.txt | grep -oP '[0-9]+' | head -n1)
         local v_pat=$(grep -iP 'SET.*VERSION_BUILD|SET.*VERSION_PATCH' CMakeLists.txt | grep -oP '[0-9]+' | head -n1)
         [[ -n "$v_maj" && -n "$v_min" ]] && ver="${v_maj}.${v_min}.${v_pat:-0}"
-        log_debug "Found in CMakeLists project(): $ver" >&2
+        ver_log "Found in CMakeLists project(): $ver"
     fi
 
     # Meson
     if [[ -z "$ver" && -f "meson.build" ]]; then
         ver=$(grep -m1 "version\s*:" meson.build | grep -oE "[0-9]+(\.[0-9]+)+" | head -n1)
-        log_debug "Found in Meson project(): $ver" >&2
+        ver_log "Found in Meson project(): $ver"
     fi
 
     # Autotools (configure.ac / configure.in)
@@ -1548,7 +1542,7 @@ get_stage_version() {
         if [[ -n "$conf_ac" ]]; then
             ver=$(grep -m1 "AC_INIT" "$conf_ac" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?')
         fi
-        log_debug "Found in Autotools project(): $ver" >&2
+        ver_log "Found in Autotools project(): $ver"
     fi
 
     # Header файлы (C/C++ Headers) (для библиотек вроде x264/x265)
@@ -1558,15 +1552,21 @@ get_stage_version() {
             # Ищем макросы типа #define VERSION "..." или #define API_VERSION 123
             ver=$(grep -iE 'define.*VERSION' "$h_file" | grep -oE '[0-9]+(\.[0-9]+)+[^ "]*' | head -n1)
         fi
-        log_debug "Found in Headers project(): $ver" >&2
+        ver_log "Found in Headers project(): $ver"
+    fi
+
+    # Если удаленный репозиторий доступен, но тегов нет вообще — используем хэш
+    if [[ -z "$ver" && -n "$current_commit" ]]; then
+        ver="git-${current_commit:0:7}"
+        ver_log "No tags or local versions found. Defaulting to commit hash: $ver"
     fi
 
     # Fallback на имя папки
-    [[ -z "$ver" ]] && ver=$(basename "$PWD" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' | head -n1) && log_debug "Fallback to folder name: $ver" >&2
+    [[ -z "$ver" ]] && ver=$(basename "$PWD" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' | head -n1) && log_debug "Fallback to folder name: $ver"
 
     # Очистка результата от лишних символов (запятые, кавычки)
     ver=$(echo "${ver:-0.0.1}" | sed -E 's/^[a-zA-Z_-]+//' | tr -d '"' | xargs)
-    log_debug "--- FINAL RESULT FOR PC: $ver ---" >&2
+    ver_log "--- FINAL RESULT FOR $STAGENAME: $ver ---"
 
     # Валидация
     if [[ -z "$ver" ]]; then

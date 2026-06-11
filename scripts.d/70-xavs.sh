@@ -76,7 +76,7 @@ includedir=\${prefix}/include
 
 Name: xavs
 Description: AVS (Audio Video Standard) encoder library
-Version: r55
+Version: 55
 Libs: -L\${libdir} -lxavs
 Cflags: -I\${includedir}
 EOF

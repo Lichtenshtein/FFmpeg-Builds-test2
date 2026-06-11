@@ -73,7 +73,7 @@ incdir = include_directories('include')
 # Но нам нужна зависимость для линковки vsscript
 py_dep = dependency('python3', method: 'pkg-config')
 
-vs_current_release = '75' 
+vs_current_release = '${VS_VER}' 
 
 add_project_arguments(
     cxx.get_supported_arguments(
