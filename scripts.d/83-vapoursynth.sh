@@ -250,7 +250,7 @@ libdir=${CUR_DIR}
 includedir=\${prefix}/include
 
 Name: python3
-Version: 3.14
+Version: ${PY_VER}
 Description: Fake Python
 Libs: -L\${libdir} -l${PY_LIB}
 Cflags: -I\${includedir} -DMS_WIN64 -DMS_WINDOWS
@@ -260,7 +260,7 @@ EOF
 
     cat <<EOF > python_fix.ini
 [binaries]
-pkg-config = 'pkg-config'
+pkg-config = 'pkgconf'
 
 [properties]
 pkg_config_libdir = ['${CUR_DIR}/fake_pkgconfig', '/opt/ffbuild/lib/pkgconfig', '/opt/ffbuild/share/pkgconfig']
@@ -344,7 +344,7 @@ includedir=\${prefix}/include/vapoursynth
 
 Name: vapoursynth
 Description: A frameserver for the 21st century
-Version: 75
+Version: ${VER_FULL}
 Libs: -L\${libdir} -lvapoursynth
 Libs.private: -lstdc++ -lwinmm
 Cflags: -I\${includedir} -I\${includedir}/vapoursynth $static_flags
@@ -358,7 +358,7 @@ includedir=\${prefix}/include/vapoursynth
 
 Name: vapoursynth-script
 Description: Library for interfacing VapourSynth with Python
-Version: 75
+Version: ${VER_FULL}
 Libs: -L\${libdir} -lvsscript
 Libs.private: -l${PY_LIB} -lstdc++
 Cflags: -I\${includedir} -I\${includedir}/vapoursynth

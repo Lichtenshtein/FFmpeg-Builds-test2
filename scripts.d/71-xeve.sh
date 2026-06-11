@@ -17,7 +17,7 @@ ffbuild_dockerbuild() {
 
     if [ ! -f "version.txt" ]; then
         rm -f version.txt
-        echo "v0.5.1" > version.txt
+        echo "v${VER_FULL}" > version.txt
     fi
 
     find pkgconfig -name "*.pc.in" -exec sed -i 's|Version: .*|Version: 0.5.1|g' {} +

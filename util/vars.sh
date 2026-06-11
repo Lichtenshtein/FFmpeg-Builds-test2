@@ -193,7 +193,8 @@ export FFMPEG_PKG_ROOT="${FFMPEG_BUILD_ROOT}/pkgroot"
 export FFMPEG_CONFIG_LOG="${FFMPEG_SOURCE_DIR}/ffbuild/config.log"
 export FFMPEG_HASH_FILE="${FFMPEG_DIR}/.current_commit" # hash of the last downloaded commit
 
-# Helper hooks to skip .la files, dependancies and .pc files auditing
+# Helper hooks to skip .la files, dependancies and .pc files auditing and patching
+# Can be added individually to any component script
 export SKIP_PRE_PATCH=0  # inside main, to the top of the script
 export SKIP_POST_PC_PATCH=0 # inside main to disable .pc files normalization
 export SKIP_POST_CLEAN=0

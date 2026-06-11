@@ -34,7 +34,6 @@ ffbuild_dockerbuild() {
     log_info "Verifying header patch..."
     grep -n "vmaf_init" "include/libvmaf/libvmaf.h"
 
-
     if [[ "${USE_AVX512}" != "1" ]]; then
         # создаем заглушку avx-512
         log_info "Creating AVX-512 stubs for libvmaf..."

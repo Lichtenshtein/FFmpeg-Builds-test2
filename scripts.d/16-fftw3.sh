@@ -89,7 +89,3 @@ ffbuild_dockerbuild() {
         make install DESTDIR="$FFBUILD_DESTDIR" || return 1
     done
 }
-
-# ffbuild_libs() {
-    # echo "-lfftw3 -lfftw3f"
-# }

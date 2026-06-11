@@ -80,7 +80,7 @@ includedir=\${prefix}/include
 
 Name: lame
 Description: High quality MPEG Audio Layer III (MP3) encoder
-Version: 3.101
+Version: ${VER_FULL}
 Libs: -L\${libdir} -lmp3lame
 Libs.private: -lm
 Cflags: -I\${includedir} -I\${includedir}/lame

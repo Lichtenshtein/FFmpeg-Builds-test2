@@ -341,10 +341,6 @@ EOF
     fi
 }
 
-# ffbuild_libs() {
-    # echo "-lopencv_dnn -lopencv_imgproc -lopencv_core"
-# }
-
 ffbuild_configure() {
     echo --enable-libopencv
 }

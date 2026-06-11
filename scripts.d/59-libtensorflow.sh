@@ -1,10 +1,9 @@
 #!/bin/bash
 
+# WARNING! 2.18.1 is a ~960Mb library!
+TF_VER="2.18.1"
 
-SCRIPT_REPO="https://storage.googleapis.com/tensorflow/versions/2.16.1/libtensorflow-cpu-windows-x86_64.zip"
-
-# WARNING! A ~960Mb library!
-# SCRIPT_REPO="https://storage.googleapis.com/tensorflow/versions/2.18.1/libtensorflow-cpu-windows-x86_64.zip"
+SCRIPT_REPO="https://storage.googleapis.com/tensorflow/versions/${TF_VER}/libtensorflow-cpu-windows-x86_64.zip"
 
 ffbuild_enabled() {
     [[ "$USE_TENSORFLOW" == "1" ]] && return 0
@@ -12,7 +11,6 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    # echo "curl -sL \"$SCRIPT_REPO\" --output tensorflow.zip && unzip -qq tensorflow.zip -d tf_src"
     echo "download_file \"$SCRIPT_REPO\" \"tensorflow.zip\""
 }
 
@@ -42,7 +40,7 @@ includedir=\${prefix}/include
 
 Name: TensorFlow
 Description: TensorFlow C API library
-Version: 2.16.1
+Version: ${TF_VER}
 Libs: -L\${libdir} -ltensorflow
 Cflags: -I\${includedir} -I\${includedir}/tensorflow -I\${includedir}/tsl
 EOF
