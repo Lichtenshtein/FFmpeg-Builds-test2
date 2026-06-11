@@ -37,7 +37,7 @@ ffbuild_dockerbuild() {
     cp *.h "$INSTALL_ROOT"/include/ia_mpegh/
 
     log_info "Generating pkg-config files..."
-    cat << 'EOF' > "$PC_DIR/ia_mpegh.pc"
+    cat << EOF > "$PC_DIR/ia_mpegh.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib

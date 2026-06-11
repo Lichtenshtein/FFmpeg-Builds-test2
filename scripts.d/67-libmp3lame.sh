@@ -80,14 +80,13 @@ includedir=\${prefix}/include
 
 Name: lame
 Description: High quality MPEG Audio Layer III (MP3) encoder
-Version: ${VER_FULL}
+Version: 3.101
 Libs: -L\${libdir} -lmp3lame
 Libs.private: -lm
 Cflags: -I\${includedir} -I\${includedir}/lame
 EOF
     else
         sed -i "s|^Cflags:.*|& -I\${includedir}/lame|" "$PC_DIR/mp3lame.pc"
-        sed -i "s|^Cflags:.*|& -I${includedir}|" "$PC_DIR/lame.pc"
     fi
 }
 
