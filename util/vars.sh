@@ -1445,6 +1445,13 @@ get_stage_version() {
         done
     fi
 
+    # Локальный Git (Фоллбэк, если папка .git всё же осталась на диске)
+    if [[ -z "$ver" && -d ".git" ]]; then
+        # Универсальный поиск тегов, отсекающий любые буквенные префиксы (v, r, release-)
+        ver=$(git describe --tags --abbrev=0 2>/dev/null | sed -E 's/^[a-zA-Z_-]+//; s/\^\{\}//g')
+        [[ -z "$ver" ]] && ver="git-$(git rev-parse --short HEAD 2>/dev/null)"
+    fi
+
     # Удаленный Git через ls-remote (без .git)
     if [[ -z "$ver" && -n "$current_repo" ]]; then
         if [[ -n "$current_commit" ]]; then
@@ -1461,14 +1468,14 @@ get_stage_version() {
 
                 if [[ -n "$matched_ref" ]]; then
                     # Вырезаем имя тега и очищаем его от префиксов (v, r) и суффикса ^{}
-                    ver=$(echo "$matched_ref" | cut -d/ -f3 | sed -E 's/^[a-zA-Z_-]+//;s/\^{}//')
+                    ver=$(echo "$matched_ref" | cut -d/ -f3 | sed -E 's/^[a-zA-Z_-]+//; s/\^\{\}//g')
                 fi
             fi
         fi
 
         # Если по коммиту тег не сопоставился, берем самый последний хронологический тег из репозитория
         if [[ -z "$ver" ]]; then
-            ver=$(git ls-remote --tags --refs "$current_repo" 2>/dev/null | tail -n1 | cut -d/ -f3 | sed -E 's/^[a-zA-Z_-]+//;s/\^{}//')
+            ver=$(git ls-remote --tags --refs "$current_repo" 2>/dev/null | tail -n1 | cut -d/ -f3 | sed -E 's/^[a-zA-Z_-]+//; s/\^\{\}//g')
         fi
 
         # Если удаленный репозиторий доступен, но тегов нет вообще — используем хэш
@@ -1477,16 +1484,9 @@ get_stage_version() {
         fi
     fi
 
-    # Локальный Git (Фоллбэк, если папка .git всё же осталась на диске)
-    if [[ -z "$ver" && -d ".git" ]]; then
-        # Универсальный поиск тегов, отсекающий любые буквенные префиксы (v, r, release-)
-        ver=$(git describe --tags --abbrev=0 2>/dev/null | sed -E 's/^[a-zA-Z_-]+//;s/\^{}//')
-        [[ -z "$ver" ]] && ver="git-$(git rev-parse --short HEAD 2>/dev/null)"
-    fi
-
     # Поиск в файлах конфигурации пакетов
     if [[ -z "$ver" ]]; then
-        local pc_in=$(find . -maxdepth 3 \( -name "*.pc.in" -o -name "*.pc" \) ! -path "*/build/*" ! -path "*/_build/*" | head -n 1)
+        local pc_in=$(find . -maxdepth 3 \( -name "*.pc.in" -o -name "*.pc" \) ! -path "*/build/*" ! -path "*/_build/*" 2>/dev/null | head -n 1)
         if [[ -f "$pc_in" ]]; then
             ver=$(grep -i "^Version:" "$pc_in" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' | head -n1)
         fi
@@ -1494,7 +1494,7 @@ get_stage_version() {
 
     # Прямой поиск текстовых файлов версий (version.txt / VERSION)
     if [[ -z "$ver" ]]; then
-        local txt_ver=$(find . -maxdepth 2 \( -name "version.txt" -o -name "VERSION" \) | head -n 1)
+        local txt_ver=$(find . -maxdepth 2 \( -name "version.txt" -o -name "VERSION" \) 2>/dev/null | head -n 1)
         if [[ -f "$txt_ver" ]]; then
             ver=$(grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' "$txt_ver" | head -n1)
         fi
@@ -1529,7 +1529,7 @@ get_stage_version() {
 
     # Header файлы (C/C++ Headers) (для библиотек вроде x264/x265)
     if [[ -z "$ver" ]]; then
-        local h_file=$(find . -maxdepth 2 \( -name "version.h" -o -name "*_version.h" \) | head -n 1)
+        local h_file=$(find . -maxdepth 2 \( -name "version.h" -o -name "*_version.h" \) 2>/dev/null | head -n 1)
         if [[ -f "$h_file" ]]; then
             # Ищем макросы типа #define VERSION "..." или #define API_VERSION 123
             ver=$(grep -iE 'define.*VERSION' "$h_file" | grep -oE '[0-9]+(\.[0-9]+)+[^ "]*' | head -n1)
@@ -1540,7 +1540,7 @@ get_stage_version() {
     [[ -z "$ver" ]] && ver=$(basename "$PWD" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' | head -n1)
 
     # Очистка результата от лишних символов (запятые, кавычки)
-    ver=$(echo "${ver:-0.0.1}" | tr -d '",)')
+    ver=$(echo "${ver:-0.0.1}" | tr -d '",)^}{')
     ver=$(echo "$ver" | xargs)
 
     # Валидация
