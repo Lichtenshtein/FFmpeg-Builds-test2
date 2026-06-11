@@ -8,8 +8,6 @@ cd "$(dirname "$0")"
 source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
     || { echo "ERROR: vars.sh failed in build.sh" >&2; exit 1; }
 
-log_info "${CACHE_MARK} CCACHE STATISTICS:"
-ccache -s
 # Сброс статистики для чистого лога
 ccache -z > /dev/null
 # Сбрасываем счетчик секунд в начале этапа
@@ -17,10 +15,6 @@ SECONDS=0
 
 # Определяем функцию очистки
 cleanup() {
-    # Вывод статистики ccache
-    log_info "${CACHE_MARK} CCACHE STATISTICS:"
-    ccache -s
-
     local exit_code=$? # Запоминаем код завершения (0 - успех, >0 - ошибка)
 
     log_info "Running cleanup (Exit code: $exit_code)..."
@@ -41,13 +35,6 @@ cleanup() {
 # Устанавливаем ловушку
 # EXIT сработает всегда: и при успехе, и при ошибке, и при прерывании
 trap cleanup EXIT
-
-# if [[ "${USE_WINE:-0}" = "1" ]]; then
-#     export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin:/opt/wine-stable/bin"
-# else
-#     # export PATH="/usr/local/bin:/usr/bin:/bin:/opt/ct-ng/bin"
-#     export PATH="/opt/ct-ng/bin:/opt/cargo/bin:/usr/local/bin:/usr/bin:/bin"
-# fi
 
 # Инициализация локальных (не экспортируемых!) переменных
 # Обнуляем FF_ переменные перед загрузкой, чтобы не было старых хвостов
@@ -185,6 +172,40 @@ if [[ "$FFMPEG_PATCHES" == "1" ]]; then
     apply_ffmpeg_patches
 fi
 
+# =======================================
+# FFMPEG SOURCE PATCHING SECTION 1
+# =======================================
+log_info "Patching FFmpeg vf_libvmaf.c to use Pointer ABI..."
+# Подменяем вызов в исходнике фильтра на передачу адреса структуры
+sed -i 's/err = vmaf_init(\&s->vmaf, cfg);/err = vmaf_init(\&s->vmaf, \&cfg);/g' "libavfilter/vf_libvmaf.c"
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+    # На всякий случай жестко проверяем, применился ли патч (выводим строку в лог)
+    grep -n "vmaf_init" "libavfilter/vf_libvmaf.c"
+fi
+log_info "Patching FFmpeg ffprobe ABI bug: Changing avtext_context_open to pass options by pointer..."
+# Точечно меняем сигнатуру в заголовочном файле (обратите внимание на имя переменной 'options')
+sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.h"
+# Точечно меняем объявление функции в файле реализации
+sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.c"
+# Меняем только одну строчку присвоения внутри тела avtext_context_open, 
+# чтобы данные разыменовывались из указателя обратно в объект контекста:
+sed -i 's/tctx->opts = options;/tctx->opts = *options;/g' "fftools/textformat/avtextformat.c"
+# Добавляем амперсанд на стороне вызова в fftools/ffprobe.c
+sed -i 's/tf_options, show_data_hash/\&tf_options, show_data_hash/g' "fftools/ffprobe.c"
+# Патчим вызывающую сторону в fftools/graph/graphprint.c (добавляем амперсанд &)
+sed -i 's/tf_options, NULL/\&tf_options, NULL/g' "fftools/graph/graphprint.c"
+# Проверка успешности наката патча в логи сборщика
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+    log_info "Verifying patches application..."
+    grep -n "avtext_context_open" "fftools/textformat/avtextformat.h"
+    grep -n "avtext_context_open" "fftools/textformat/avtextformat.c" | head -n 2
+    grep -n "avtext_context_open" "fftools/ffprobe.c"
+    grep -n "avtext_context_open" "fftools/graph/graphprint.c"
+fi
+
+# =======================================
+# FLAGS DEDUPLICATION SECTION
+# =======================================
 # Удаляем жесткий -static и -Wl,-Bstatic из базовых флагов линковщика
 # LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' | xargs)
 [[ "${PREFER_SHARED}" != "1" ]] && export LDEXEFLAGS="-static -static-libgcc -static-libstdc++"
@@ -302,6 +323,9 @@ done
 # прокидываем библиотеку обработки исключений LTO за пределы основной группы
 FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -lntdll -Wl,--end-group -lstdc++"
 
+# =======================================
+# FFMPEG SOURCE PATCHING SECTION 1
+# =======================================
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_info_line
     log_info "### ${BUILD_MARK} Start of DEBUG audit section"
@@ -505,40 +529,6 @@ if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
     CONF_FLAGS+=( --nvcc=clang )
 fi
 
-# Зашли в исходники FFmpeg
-log_info "Patching FFmpeg vf_libvmaf.c to use Pointer ABI..."
-
-# Подменяем вызов в исходнике фильтра на передачу адреса структуры
-sed -i 's/err = vmaf_init(\&s->vmaf, cfg);/err = vmaf_init(\&s->vmaf, \&cfg);/g' "libavfilter/vf_libvmaf.c"
-
-# На всякий случай жестко проверяем, применился ли патч (выводим строку в лог)
-grep -n "vmaf_init" "libavfilter/vf_libvmaf.c"
-
-log_info "Patching FFmpeg ffprobe ABI bug: Changing avtext_context_open to pass options by pointer..."
-
-# Точечно меняем сигнатуру в заголовочном файле (обратите внимание на имя переменной 'options')
-sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.h"
-
-# Точечно меняем объявление функции в файле реализации
-sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.c"
-
-# Меняем только одну строчку присвоения внутри тела avtext_context_open, 
-# чтобы данные разыменовывались из указателя обратно в объект контекста:
-sed -i 's/tctx->opts = options;/tctx->opts = *options;/g' "fftools/textformat/avtextformat.c"
-
-# Добавляем амперсанд на стороне вызова в fftools/ffprobe.c
-sed -i 's/tf_options, show_data_hash/\&tf_options, show_data_hash/g' "fftools/ffprobe.c"
-
-# Патчим вызывающую сторону в fftools/graph/graphprint.c (добавляем амперсанд &)
-sed -i 's/tf_options, NULL/\&tf_options, NULL/g' "fftools/graph/graphprint.c"
-
-# Проверка успешности наката патча в логи сборщика
-log_info "Verifying patches application..."
-grep -n "avtext_context_open" "fftools/textformat/avtextformat.h"
-grep -n "avtext_context_open" "fftools/textformat/avtextformat.c" | head -n 2
-grep -n "avtext_context_open" "fftools/ffprobe.c"
-grep -n "avtext_context_open" "fftools/graph/graphprint.c"
-
 log_info_line
 log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
 
@@ -558,7 +548,9 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     exit 1
 fi
 
-
+# =======================================
+# FFMPEG DEBUGGING SECTION 1
+# =======================================
 if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
     log_info "Applying precise LCEVC SDK 4.0.0 migration patches..."
 
@@ -695,28 +687,39 @@ if [ -f "config.h" ]; then
     fi
 fi
 
+# =======================================
+# FFMPEG MAKE & INSTALL
+# =======================================
 # Сборка и установка ffmpeg
 make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
 make install
 make install-doc || log_warn "install-doc failed, but proceeding."
+
+# Вывод статистики ccache
+log_info "${CACHE_MARK} CCACHE STATISTICS:"
+ccache -s
 
 log_info "${DIRS_MARK} Leaving FFmpeg folder..."
 popd # Выход из ffbuild/ffmpeg
 
 log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
 # Удаляем пустые папки или старые логи, если они остались
-find /opt/ffbuild -type d -empty -delete || true
+find "${FFBUILD_PREFIX}" -type d -empty -delete || true
 
 # Определение версии
-if [[ -f "$FFMPEG_SOURCE_DIR/VERSION" ]]; then
-    FFMPEG_VERSION=$(cat $FFMPEG_SOURCE_DIR/VERSION)-$(date +%Y-%m-%d)
-elif [[ -d "$FFMPEG_SOURCE_DIR/.git" ]]; then
-    FFMPEG_VERSION=$(git -C $FFMPEG_SOURCE_DIR describe --tags --always)-$(date +%Y-%m-%d)
+# Проверяем наличие официального скрипта определения версии
+if [[ -f "$FFMPEG_SOURCE_DIR/ffbuild/version.sh" ]]; then
+    log_info "Detecting FFmpeg version using official ffbuild/version.sh..."
+    # Запускаем скрипт, передав ему путь к корню исходников FFmpeg
+    FFMPEG_VERSION=$(bash "$FFMPEG_SOURCE_DIR/ffbuild/version.sh" "$FFMPEG_SOURCE_DIR")
 else
+    log_warn "ffbuild/version.sh not found, falling back to basic date-string."
     FFMPEG_VERSION=$(date +%Y-%m-%d)
 fi
+# Убираем возможные пробелы или спецсимволы переноса строки из переменной
+FFMPEG_VERSION=$(echo "$FFMPEG_VERSION" | xargs)
 
-BUILD_NAME="ffmpeg-git-${FFMPEG_VERSION}-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
+BUILD_NAME="ffmpeg-${FFMPEG_VERSION}-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
 
 export PKG_DIR="$FFMPEG_PKG_ROOT/${BUILD_NAME}"
 mkdir -p "$PKG_DIR"/{bin,doc,share}
@@ -728,10 +731,16 @@ if ! declare -F package_variant >/dev/null; then
 fi
 package_variant "$INSTALL_ROOT" "$PKG_DIR"
 
+# =======================================
+# FFMPEG ASSETS & PLUGINS COLLECTION
+# =======================================
 # Скачиваем модели и ассеты
 log_info "${SYNC_MARK} Collecting additional assets..."
 "$UTIL_DIR"/collect_assets.sh "$ASSETS_DIR" "$FFMPEG_SOURCE_DIR" || log_warn "Assets download failed, but continuing..."
 
+# =======================================
+# FFMPEG DEBUGGING SECTION 2
+# =======================================
 # If zmm registers (these are AVX-512 registers) or evex prefixes appear in the assembler output, it means that some library is still pushing this code.
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 && "$USE_AVX512" != "1" ]]; then
     log_debug "${SEARCH_MARK} Scanning final binaries for accidental AVX-512 leak..."
@@ -768,7 +777,10 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 && "$SKIP_POST_STRIP" == "1" ]]; then
     # Минимальный вызов, триггерящий инициализацию библиотек
     # Используем lavfi (генерируемые фильтры), чтобы тест не зависел от внешних медиафайлов
     TEST_EXE="$PKG_DIR/bin/ffmpeg.exe"
-    TEST_ARGS="-f lavfi -i color=c=black:s=640x360:d=1 -f null -"
+    # TEST_ARGS="-f lavfi -i color=c=black:s=640x360:d=1 -f null -"
+
+# Специально передаем сломанный аргумент, который вызовет ошибку инициализации
+TEST_ARGS="-f lavfi -i color=c=black -vf CRASH_TEST_NONEXISTENT_FILTER -f null -"
 
     # Проверяем наличие wine в системе/контейнере
     if ! command -v wine &> /dev/null; then
@@ -819,6 +831,9 @@ EOF
     fi
 fi
 
+# =======================================
+# FFMPEG FINAL STAGE
+# =======================================
 # Стриппинг бинарников (удаление отладочных символов)
 # --strip-all; --strip-unneeded
 if [[ "$SKIP_POST_STRIP" != "1" ]]; then

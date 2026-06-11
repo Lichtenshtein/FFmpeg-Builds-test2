@@ -87,6 +87,7 @@ Cflags: -I\${includedir} -I\${includedir}/lame
 EOF
     else
         sed -i "s|^Cflags:.*|& -I\${includedir}/lame|" "$PC_DIR/mp3lame.pc"
+        sed -i "s|^Cflags:.*|& -I${includedir}|" "$PC_DIR/lame.pc"
     fi
 }
 
