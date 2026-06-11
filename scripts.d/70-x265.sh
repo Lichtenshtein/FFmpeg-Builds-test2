@@ -28,7 +28,7 @@ ffbuild_dockerbuild() {
     if [[ ! -d "/build/${STAGENAME}/.git" ]]; then
         log_debug ".git directory is MISSING in $(pwd)."
         # Если .git нет, создаем файл версии, чтобы CMake не падал
-        echo "${VER_FULL}" > "x265_version.txt"
+        echo "4.2" > "x265_version.txt"
     else
         log_debug ".git directory found. Version should be detected automatically."
     fi
@@ -156,7 +156,7 @@ includedir=\${prefix}/include
 
 Name: x265
 Description: H.265/HEVC video encoder
-Version: ${VER_FULL}
+Version: 4.2
 Libs: -L\${libdir} -lx265
 Libs.private: -lstdc++ -lm -lgcc -lmingwex -lmingw32 -luser32 -ladvapi32 -lshell32
 Cflags: -I\${includedir}

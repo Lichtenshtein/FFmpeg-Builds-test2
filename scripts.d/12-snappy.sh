@@ -47,7 +47,7 @@ includedir=\${prefix}/include
 
 Name: Snappy
 Description: A fast compressor/decompressor library.
-Version: ${VER_FULL}
+Version: 1.2.2
 Libs: -L\${libdir} -lsnappy
 Cflags: -I\${includedir}
 EOF

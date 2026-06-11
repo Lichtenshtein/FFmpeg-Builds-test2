@@ -45,7 +45,7 @@ includedir=\${prefix}/include
 
 Name: ia_mpegh
 Description: Ittiam MPEG-H HE Audio Encoder library
-Version: ${VER_FULL}
+Version: 1.0.1
 Libs: -L\${libdir} -lia_mpegh
 Libs.private: -lm
 Cflags: -I\${includedir} -I\${includedir}/ia_mpegh

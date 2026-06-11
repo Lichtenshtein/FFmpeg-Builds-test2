@@ -77,7 +77,7 @@ ffbuild_dockerbuild() {
 #define CODEC2_HAVE_VERSION
 #define CODEC2_VERSION_MAJOR 1
 #define CODEC2_VERSION_MINOR 2
-#define CODEC2_VERSION "${VER_FULL}"
+#define CODEC2_VERSION "1.2.0"
 #endif
 EOF
 
@@ -90,7 +90,7 @@ includedir=\${prefix}/include
 
 Name: codec2
 Description: A speech codec for 2400 bit/s and below
-Version: ${VER_FULL}
+Version: 1.2.0
 Libs: -L\${libdir} -lcodec2
 Libs.private: -lm
 Cflags: -I\${includedir} -I\${includedir}/codec2

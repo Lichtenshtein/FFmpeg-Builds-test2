@@ -39,7 +39,7 @@ includedir=\${prefix}/include
 
 Name: gsm
 Description: GSM 06.10 lossy speech compression library
-Version: ${VER_FULL}
+Version: 1.0.13
 Libs: -L\${libdir} -lgsm
 Cflags: -I\${includedir} -I\${includedir}/gsm
 EOF
