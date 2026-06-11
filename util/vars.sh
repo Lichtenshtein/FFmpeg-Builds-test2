@@ -284,8 +284,8 @@ HOST_LINUX_LDFLAGS=(
 # Настраиваем HOST_RUSTFLAGS (всегда Linux ELF)
 export HOST_RUSTFLAGS="${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${HOST_LINUX_LDFLAGS[@]}") -C embed-bitcode=yes"
 export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]} ${USELTO}"
-export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -fno-plt -pipe -g -ffunction-sections -fdata-sections -std=gnu23 -fno-var-tracking-assignments ${USELTO}${USELTO_C}"
-export HOST_CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -fno-plt -pipe -g -ffunction-sections -fdata-sections -std=gnu++20 -fno-var-tracking-assignments ${USELTO}${USELTO_C}"
+export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -fno-plt -pipe -g3 -ffunction-sections -fdata-sections -std=gnu23 -fno-var-tracking-assignments ${USELTO}${USELTO_C}"
+export HOST_CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -fno-plt -pipe -g3 -ffunction-sections -fdata-sections -std=gnu++20 -fno-var-tracking-assignments ${USELTO}${USELTO_C}"
 export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
 # Ветвление по TARGET
@@ -311,8 +311,8 @@ if [[ "$TARGET" == "win64" ]]; then
     MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g3 -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g3 -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
         RUST_STATIC_CFG=""
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
         export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
@@ -320,8 +320,8 @@ if [[ "$TARGET" == "win64" ]]; then
         export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g3 -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g3 -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
         MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
@@ -344,8 +344,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
     MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g3 -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g3 -fno-var-tracking-assignments ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
         export STAGE_CFLAGS="-fno-semantic-interposition"
         export STAGE_CXXFLAGS="-fno-semantic-interposition"
         RUST_STATIC_CFG=""
@@ -355,8 +355,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
         export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g3 -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g3 -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
         MAIN_LDFLAGS=("-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
@@ -1424,10 +1424,69 @@ get_stage_version() {
     [[ -f "$version_file" ]] && { cat "$version_file"; return 0; }
 
     local ver=""
+    local current_repo=""
+    local current_commit=""
+
+    # Автоопределение активной пары REPO/COMMIT (мульти-репозитории от 1 до 9)
+    # Сначала проверяем базовые SCRIPT_REPO / SCRIPT_COMMIT
+    if [[ -n "${SCRIPT_REPO:-}" ]]; then
+        current_repo="$SCRIPT_REPO"
+        current_commit="${SCRIPT_COMMIT:-}"
+    else
+        # Если базовых нет, ищем первый попавшийся индекс от 1 до 9 (например, SCRIPT_REPO3)
+        for i in {1..9}; do
+            local repo_var="SCRIPT_REPO$i"
+            local commit_var="SCRIPT_COMMIT$i"
+            if [[ -n "${!repo_var:-}" ]]; then
+                current_repo="${!repo_var}"
+                current_commit="${!commit_var:-}"
+                break
+            fi
+        done
+    fi
+
+    # Локальный Git (Фоллбэк, если папка .git всё же осталась на диске)
+    if [[ -z "$ver" && -d ".git" ]]; then
+        # Универсальный поиск тегов, отсекающий любые буквенные префиксы (v, r, release-)
+        ver=$(git describe --tags --abbrev=0 2>/dev/null | sed -E 's/^[a-zA-Z_-]+//;s/\^{}//')
+        [[ -z "$ver" ]] && ver="git-$(git rev-parse --short HEAD 2>/dev/null)"
+    fi
+
+    # Удаленный Git через ls-remote (без .git)
+    if [[ -z "$ver" && -n "$current_repo" ]]; then
+        if [[ -n "$current_commit" ]]; then
+            local short_commit="${current_commit:0:7}"
+
+            # Разрешаем проблему аннотированных тегов: 
+            # git ls-remote -t выводит и хэш тега, и хэш коммита с суффиксом ^{}
+            # Получаем таблицу удаленных ссылок
+            local remote_refs=$(git ls-remote --tags "$current_repo" 2>/dev/null)
+
+            if [[ -n "$remote_refs" ]]; then
+                # Ищем точный коммит, включая разыменованные указатели тегов (*^{})
+                local matched_ref=$(echo "$remote_refs" | grep -E "^[0-9a-f]*${short_commit}.*refs/tags/" | head -n1)
+
+                if [[ -n "$matched_ref" ]]; then
+                    # Вырезаем имя тега и очищаем его от префиксов (v, r) и суффикса ^{}
+                    ver=$(echo "$matched_ref" | cut -d/ -f3 | sed -E 's/^[a-zA-Z_-]+//;s/\^{}//')
+                fi
+            fi
+        fi
+
+        # Если по коммиту тег не сопоставился, берем самый последний хронологический тег из репозитория
+        if [[ -z "$ver" ]]; then
+            ver=$(git ls-remote --tags --refs "$current_repo" 2>/dev/null | tail -n1 | cut -d/ -f3 | sed -E 's/^[a-zA-Z_-]+//;s/\^{}//')
+        fi
+
+        # Если удаленный репозиторий доступен, но тегов нет вообще — используем хэш
+        if [[ -z "$ver" && -n "$current_commit" ]]; then
+            ver="git-${current_commit:0:7}"
+        fi
+    fi
 
     # Поиск в файлах конфигурации пакетов
     if [[ -z "$ver" ]]; then
-        local pc_in=$(find . -maxdepth 3 \( -name "*.pc.in" -o -name "*.pc" \) | head -n 1)
+        local pc_in=$(find . -maxdepth 3 \( -name "*.pc.in" -o -name "*.pc" \) ! -path "*/build/*" ! -path "*/_build/*" | head -n 1)
         if [[ -f "$pc_in" ]]; then
             ver=$(grep -i "^Version:" "$pc_in" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' | head -n1)
         fi
@@ -1439,40 +1498,6 @@ get_stage_version() {
         if [[ -f "$txt_ver" ]]; then
             ver=$(grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' "$txt_ver" | head -n1)
         fi
-    fi
-
-    # Git (учитываем аннотированные теги и сортировку)
-    if [[ -z "$ver" && -n "$SCRIPT_REPO" ]]; then
-        # Если задан конкретный коммит, пробуем сопоставить его с тегами через удаленный доступ
-        if [[ -n "$SCRIPT_COMMIT" ]]; then
-            # Получаем список тегов и их хэшей из удаленного репозитория
-            # Формат вывода: HASH refs/tags/v1.0.0
-            # ищем строку, где хэш совпадает с началом нашего SCRIPT_COMMIT
-            local matched_tag=$(git ls-remote --tags "$SCRIPT_REPO" 2>/dev/null | grep "^${SCRIPT_COMMIT:0:7}" | head -n1 | cut -d/ -f3)
-
-            if [[ -n "$matched_tag" ]]; then
-                ver=$(echo "$matched_tag" | sed 's/^v//;s/\^{}//')
-            fi
-        fi
-
-        # Если по коммиту тег не найден (ветка master/main), берем самый свежий тег из репозитория
-        if [[ -z "$ver" ]]; then
-            ver=$(git ls-remote --tags --refs "$SCRIPT_REPO" 2>/dev/null | tail -n1 | cut -d/ -f3 | sed 's/^v//;s/\^{}//')
-        fi
-
-        # Если удаленный репозиторий доступен, но тегов нет вообще — используем короткий хэш коммита
-        if [[ -z "$ver" && -n "$SCRIPT_COMMIT" ]]; then
-            ver="git-${SCRIPT_COMMIT:0:7}"
-        fi
-    fi
-
-    # Локальный Git (Фоллбэк, если папка .git всё же осталась, а репозиторий локальный)
-    if [[ -z "$ver" && -d ".git" ]]; then
-        ver=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//;s/\^{}//')
-        if [[ -z "$ver" ]]; then
-            ver=$(git describe --match "v[0-9]*.[0-9]*.[0-9]*" --tags --abbrev=0 2>/dev/null | sed 's/^v//;s/\^{}//')
-        fi
-        [[ -z "$ver" ]] && ver="git-$(git rev-parse --short HEAD 2>/dev/null)"
     fi
 
     # CMake (многострочный поиск)
@@ -1515,16 +1540,16 @@ get_stage_version() {
     [[ -z "$ver" ]] && ver=$(basename "$PWD" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' | head -n1)
 
     # Очистка результата от лишних символов (запятые, кавычки)
-    ver=$(echo "$ver" | tr -d '",)')
+    ver=$(echo "${ver:-0.0.1}" | tr -d '",)')
+    ver=$(echo "$ver" | xargs)
 
     # Валидация
-    if [[ -n "$ver" ]]; then
-        echo "$ver" > "$version_file"
-        echo "$ver"
-    else
-        echo "0.0.1" > "$version_file"
-        echo "0.0.1"
+    if [[ -z "$ver" ]]; then
+        ver="0.0.1"
     fi
+
+    echo "$ver" > "$version_file"
+    echo "$ver"
 }
 export -f get_stage_version
 
