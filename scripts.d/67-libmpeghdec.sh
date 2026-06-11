@@ -13,7 +13,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-echo "test"
+
     mkdir -p build && cd build
 
     local myconf=(

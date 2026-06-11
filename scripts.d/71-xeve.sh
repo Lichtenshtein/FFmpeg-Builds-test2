@@ -15,7 +15,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-echo "test"
     if [ ! -f "version.txt" ]; then
         rm -f version.txt
         echo "v${VER_FULL}" > version.txt

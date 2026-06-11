@@ -1454,7 +1454,7 @@ get_stage_version() {
     # Удаленный Git через ls-remote (без .git)
     if [[ -z "$ver" && -n "$current_repo" ]]; then
         if [[ -n "$current_commit" ]]; then
-            local short_commit="${current_commit:0:7}"
+            local full_commit="${current_commit}"
             log_debug "Querying ls-remote for commit: $short_commit" >&2
 
             # Разрешаем проблему аннотированных тегов: 
@@ -1464,12 +1464,12 @@ get_stage_version() {
 
             if [[ -n "$remote_refs" ]]; then
                 # Ищем точный коммит, включая разыменованные указатели тегов (*^{})
-                local matched_ref=$(echo "$remote_refs" | grep -E "^[0-9a-f]*${short_commit}.*refs/tags/" | head -n1)
-                log_debug "ls-remote matched string: $matched_ref" >&2
+                local matched_line=$(echo "$remote_refs" | grep -E "^${full_commit:0:7}[0-9a-f]*[[:space:]]+refs/tags/" | head -n1)
+                log_debug "ls-remote matched string: $matched_line" >&2
 
-                if [[ -n "$matched_ref" ]]; then
+                if [[ -n "$matched_line" ]]; then
                     # Вырезаем имя тега и очищаем его от префиксов (v, r) и суффикса ^{}
-                    ver=$(echo "$matched_ref" | cut -d/ -f3 | sed -E 's/^[a-zA-Z_-]+//; s/\^\{\}//g')
+                    ver=$(echo "$matched_line" | awk -F'/' '{print $3}' | sed -E 's/\^\{\}//g')
                     log_debug "Extracted version from tag: $ver" >&2
                 fi
             fi
@@ -1565,7 +1565,7 @@ get_stage_version() {
     [[ -z "$ver" ]] && ver=$(basename "$PWD" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' | head -n1) && log_debug "Fallback to folder name: $ver" >&2
 
     # Очистка результата от лишних символов (запятые, кавычки)
-    ver=$(echo "${ver:-0.0.1}" | tr -d '",)^}{' | xargs)
+    ver=$(echo "${ver:-0.0.1}" | sed -E 's/^[a-zA-Z_-]+//' | tr -d '"' | xargs)
     log_debug "--- FINAL RESULT FOR PC: $ver ---" >&2
 
     # Валидация
