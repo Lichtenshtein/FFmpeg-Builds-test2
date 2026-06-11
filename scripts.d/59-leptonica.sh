@@ -109,8 +109,8 @@ if [[ "${PREFER_SHARED}" != "1" ]]; then
     ls -lh src/*.a src/*.dll* 2>/dev/null || echo "No libs found in src"
 
     # Исправляем расширение в сгенерированных файлах сборки, если CMake сошел с ума
-    find . -name "build.make" -exec sed -i 's/libleptonica-1.88.0.dll/libleptonica.a/g' {} +
-    find . -name "link.txt" -exec sed -i 's/libleptonica-1.88.0.dll/libleptonica.a/g' {} +
+    find . -name "build.make" -exec sed -i -E 's/libleptonica-[0-9.]+\.dll/libleptonica.a/g' {} +
+    find . -name "link.txt" -exec sed -i -E 's/libleptonica-[0-9.]+\.dll/libleptonica.a/g' {} +
 fi
 
     ninja $NINJA_V || return 1
