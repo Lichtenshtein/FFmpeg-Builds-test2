@@ -114,6 +114,9 @@ if [[ "${USE_WINE:-0}" = "1" ]]; then
     export WINEDLLOVERRIDES="mscoree,mshtml="
 fi
 
+# Заставляет glibc выводить подробный бэктрейс в stderr при срабатывании fortify/overflow
+export LIBC_FATAL_STDERR_=1
+
 export LOG_RAW_SYMB="${LOG_RAW_SYMB:-20}" # number of lines displaying external library deps
 export LOG_SIZES="${LOG_SIZES:-500}" # number of lines displayed in logs
 export LOG_FF_SIZES="${FF_LOG_SIZES:-1000}" # number of lines displayed in ffmpeg logs
@@ -283,13 +286,13 @@ export HOST_RUSTFLAGS="${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${HOS
 export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]} ${USELTO}"
 export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -fno-plt -pipe -g -ffunction-sections -fdata-sections -std=gnu23 -fno-var-tracking-assignments ${USELTO}${USELTO_C}"
 export HOST_CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -fno-plt -pipe -g -ffunction-sections -fdata-sections -std=gnu++20 -fno-var-tracking-assignments ${USELTO}${USELTO_C}"
-export HOST_CPPFLAGS="" # -D_FORTIFY_SOURCE=2
+export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
 # Ветвление по TARGET
 # -g0 -fno-var-tracking-assignments - для компилятора GCC/G++: не раздувать отладочную информацию (даже скрытую)
 if [[ "$TARGET" == "win64" ]]; then
     export BASE_CFLAGS="-mms-bitfields${STACK_FLAGS} -Wno-attributes"
-    export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32" # -D_FORTIFY_SOURCE=2
+    export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
 
     BASE_LD_FLAGS=(
         "-pipe"
@@ -334,7 +337,7 @@ if [[ "$TARGET" == "win64" ]]; then
 
 elif [[ "$TARGET" == "linux64" ]]; then
     export BASE_CFLAGS="${STACK_FLAGS} -Wno-attributes"
-    export BASE_CPPFLAGS="" # -D_FORTIFY_SOURCE=2
+    export BASE_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
     # Используем Linux-специфичные LDFLAGS
     MAIN_LDFLAGS=("${HOST_LINUX_LDFLAGS[@]}")
@@ -354,7 +357,6 @@ elif [[ "$TARGET" == "linux64" ]]; then
     else
         export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
         export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -ftree-vectorize -pipe -g -fno-var-tracking-assignments ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
-        # Для Linux статика — это -static и исключение динамических путей
         MAIN_LDFLAGS=("-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
