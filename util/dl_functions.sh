@@ -500,7 +500,8 @@ download_stage() {
     if [[ $dl_status -eq 0 ]]; then
         (
             cd "$WORK_DIR" || exit 0
-            get_stage_version > /dev/null 2>&1 || true
+            get_stage_version
+            # get_stage_version > /dev/null 2>&1 || true
         )
 
         # Whitelist метаданных .git (список подгружается из workflow.yaml). 
