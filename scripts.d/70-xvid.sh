@@ -18,6 +18,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+echo "test"
     cd xvidcore/build/generic
 
     # The original code fails on a two-digit major...

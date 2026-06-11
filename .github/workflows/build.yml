@@ -80,7 +80,7 @@ on:
       use_wine:
         description: 'Enable Wine for tests/conftest'
         type: boolean
-        default: true
+        default: false
       verbosity:
         description: 'Log Verbosity (2: Full, 0: Quiet)'
         required: false

@@ -14,7 +14,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-
+echo "test"
     mkdir -p "$INSTALL_ROOT"/{include/ia_mpegh,bin,lib/pkgconfig}
 
     cd encoder
