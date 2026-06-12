@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/openvinotoolkit/openvino.git"
-SCRIPT_COMMIT="ce500e96fff2fb332b727a6d2bf61ffe2182136b"
+SCRIPT_COMMIT="7b32f06bcaa24fc319a253251395c2061bbbdc0a"
 
 # export SKIP_POST_PC_PATCH=1
 
@@ -196,7 +196,7 @@ ffbuild_dockerbuild() {
 #include <openvino/c/openvino.h>
 
 static __attribute__((unused)) const char* ie_c_api_version(void) { 
-    return "2026.3.0"; 
+    return "${VER_FULL}"; 
 }
 #endif
 EOF
@@ -244,7 +244,7 @@ includedir=\${prefix}/include
 
 Name: OpenVINO
 Description: Intel OpenVINO Runtime Static Library for FFmpeg
-Version: 2026.3.0
+Version: ${VER_FULL}
 Cflags: -I\${includedir} -I\${includedir}/openvino $static_flags $self_static_flags
 Libs: -L\${libdir} ${CORE_LIBS} ${INTER_LIB} ${COMPONENT_LIBS} ${PUGI_LIB}
 Libs.private: -ltbb -lshlwapi -lsetupapi -lws2_32 -lbcrypt
