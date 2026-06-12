@@ -753,11 +753,11 @@ log_info "${SYNC_MARK} Collecting additional assets..."
 # =======================================
 # If zmm registers (these are AVX-512 registers) or evex prefixes appear in the assembler output, it means that some library is still pushing this code.
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 && "$USE_AVX512" != "1" ]]; then
-    log_debug "${SEARCH_MARK} Scanning final binaries for accidental AVX-512 leak..."
+    log_info "${SEARCH_MARK} Scanning final binaries for accidental AVX-512 leak..."
 
     # Ищем все исполняемые файлы
     while IFS= read -r file; do
-        log_debug "Analyzing $file..."
+        log_debug "Analyzing $(basename "$file")..."
 
         # Отключаем pipefail локально для этой команды, чтобы head не ломал сборку
         set +o pipefail 2>/dev/null || true
@@ -794,7 +794,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 && "$SKIP_POST_STRIP" == "1" ]]; then
     if ! command -v wine64 &> /dev/null && ! command -v wine &> /dev/null; then
         log_warn "Wine is not installed in the Docker image. Skipping runtime crash audit."
     else
-        log_info "Running $TEST_EXE via Wine to check for stack-protector triggers..."
+        log_info "Running $(basename "$TEST_EXE") via Wine to check for stack-protector triggers..."
 
         # Включаем логирование критических ошибок и системных сбоев самой Windows/Wine
         # status - покажет коды завершения и исключения (например, STATUS_STACK_BUFFER_OVERRUN)
@@ -803,7 +803,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 && "$SKIP_POST_STRIP" == "1" ]]; then
         export WINEARCH=win64
         export DISPLAY=:99
 
-        local AUDIT_LOG="${TMP_DIR}/ffmpeg_crash_audit.log"
+        AUDIT_LOG="${TMP_DIR}/ffmpeg_crash_audit.log"
         mkdir -p "$TMP_DIR"
 
         # Запускаем напрямую через wine/wine64 без посредников
