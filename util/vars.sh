@@ -1420,10 +1420,9 @@ export -f check_and_fix_configure
 
 # Получаем версию VER_FULL=$(get_stage_version)
 get_stage_version() {
-    trap 'echo "DEBUG: Failed at line $LINENO with error: $?" >&2; exit 1' ERR
     local version_file=".ffbuild_version"
-
-    # Check for cached version first
+    
+    # 1. Check for cached version first
     if [[ -f "$version_file" ]]; then
         local cached_ver
         cached_ver=$(cat "$version_file")
@@ -1446,8 +1445,7 @@ get_stage_version() {
     local current_repo=""
     local current_commit=""
 
-    # Автоопределение активной пары REPO/COMMIT (мульти-репозитории от 1 до 9)
-    # Сначала проверяем базовые SCRIPT_REPO / SCRIPT_COMMIT
+    # 2. Determine Repo/Commit
     if [[ -n "${SCRIPT_REPO:-}" ]]; then
         current_repo="$SCRIPT_REPO"
         current_commit="${SCRIPT_COMMIT:-}"
@@ -1467,28 +1465,27 @@ get_stage_version() {
     ver_log "Active Repo: $current_repo"
     ver_log "Active Commit: $current_commit"
 
-    # A. Check for explicit VERSION files (common in many projects)
+    # 3. Local File Detection (HIGHEST PRIORITY)
+    
+    # A. Check for explicit VERSION files
     if [[ -z "$ver" ]]; then
         local txt_file
         txt_file=$(find . -maxdepth 2 \( -name "VERSION" -o -name "version.txt" -o -name "VERSION.txt" -o -name "version" \) 2>/dev/null | head -n 1)
         if [[ -n "$txt_file" && -f "$txt_file" ]]; then
-            # Try to extract version from first line
-            ver=$(head -n1 "$txt_file" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
+            ver=$(head -n1 "$txt_file" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' 2>/dev/null | head -n 1 || true)
             [[ -n "$ver" ]] && ver_log "Found in VERSION file ($txt_file): $ver"
         fi
     fi
 
     # B. CMakeLists.txt
     if [[ -z "$ver" && -f "CMakeLists.txt" ]]; then
-        # Try project(...) VERSION
-        ver=$(grep -Pzo 'project\s*\([^)]*VERSION\s+([0-9.]+)' CMakeLists.txt 2>/dev/null | tr -d '\0' | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1)
+        ver=$(grep -Pzo 'project\s*\([^)]*VERSION\s+([0-9.]+)' CMakeLists.txt 2>/dev/null | tr -d '\0' | grep -oE '[0-9]+(\.[0-9]+)+' 2>/dev/null | head -n1 || true)
         [[ -n "$ver" ]] && ver_log "Found in CMakeLists project(): $ver"
-
-        # Fallback to SET variables if project() didn't work
+        
         if [[ -z "$ver" ]]; then
-            local v_maj=$(grep -iE 'SET\s*\(\s*VERSION_MAJOR' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' | head -n1)
-            local v_min=$(grep -iE 'SET\s*\(\s*VERSION_MINOR' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' | head -n1)
-            local v_pat=$(grep -iE 'SET\s*\(\s*VERSION_(PATCH|BUILD)' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' | head -n1)
+            local v_maj=$(grep -iE 'SET\s*\(\s*VERSION_MAJOR' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
+            local v_min=$(grep -iE 'SET\s*\(\s*VERSION_MINOR' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
+            local v_pat=$(grep -iE 'SET\s*\(\s*VERSION_(PATCH|BUILD)' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
             [[ -n "$v_maj" && -n "$v_min" ]] && ver="${v_maj}.${v_min}.${v_pat:-0}"
             [[ -n "$ver" ]] && ver_log "Found in CMakeLists custom vars: $ver"
         fi
@@ -1496,16 +1493,17 @@ get_stage_version() {
 
     # C. Meson.build
     if [[ -z "$ver" && -f "meson.build" ]]; then
-        ver=$(grep -m1 "version\s*:" meson.build 2>/dev/null | grep -oE "[0-9]+(\.[0-9]+)+" | head -n 1)
+        ver=$(grep -m1 "version\s*:" meson.build 2>/dev/null | grep -oE "[0-9]+(\.[0-9]+)+" 2>/dev/null | head -n 1 || true)
         [[ -n "$ver" ]] && ver_log "Found in Meson: $ver"
     fi
 
-    # D. .pc files (pkg-config)
+    # D. .pc files (pkg-config) - THE FIXED BLOCK
     if [[ -z "$ver" ]]; then
         local pc_file
         pc_file=$(find . -maxdepth 3 \( -name "*.pc.in" -o -name "*.pc" \) ! -path "*/build/*" ! -path "*/_build/*" 2>/dev/null | head -n 1)
         if [[ -n "$pc_file" && -f "$pc_file" ]]; then
-            ver=$(grep -i "^Version:" "$pc_file" 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' | head -n 1)
+            # FIXED: Added '|| true' to prevent crash
+            ver=$(grep -i "^Version:" "$pc_file" 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' 2>/dev/null | head -n 1 || true)
             [[ -n "$ver" ]] && ver_log "Found in PC file ($pc_file): $ver"
         fi
     fi
@@ -1513,18 +1511,16 @@ get_stage_version() {
     # E. Header files
     if [[ -z "$ver" ]]; then
         local h_file
-        # Common patterns for version headers
-        h_file=$(find . -maxdepth 2 \( -name "version.h" -o -name "*_version.h" -o -name "mpg123.h" -o -name "gsm.h" \) 2>/dev/null | head -n 1)
+        h_file=$(find . -maxdepth 2 \( -name "version.h" -o -name "*_version.h" -o -name "mpg123.h" -o -name "gsm.h" -o -name "lame.h" \) 2>/dev/null | head -n 1)
         if [[ -n "$h_file" && -f "$h_file" ]]; then
-            local maj=$(grep -iE 'define\s+.*VERSION_MAJOR' "$h_file" 2>/dev/null | grep -oE '[0-9]+' | head -n1)
-            local min=$(grep -iE 'define\s+.*VERSION_MINOR' "$h_file" 2>/dev/null | grep -oE '[0-9]+' | head -n1)
-            local pat=$(grep -iE 'define\s+.*VERSION_(MICRO|PATCH|BUILD)' "$h_file" 2>/dev/null | grep -oE '[0-9]+' | head -n1)
-
+            local maj=$(grep -iE 'define\s+.*VERSION_MAJOR' "$h_file" 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
+            local min=$(grep -iE 'define\s+.*VERSION_MINOR' "$h_file" 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
+            local pat=$(grep -iE 'define\s+.*VERSION_(MICRO|PATCH|BUILD)' "$h_file" 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
+            
             if [[ -n "$maj" && -n "$min" ]]; then
                 ver="${maj}.${min}.${pat:-0}"
             else
-                # Try finding a single VERSION string define
-                local ver_str=$(grep -iE 'define\s+VERSION\s+"?([0-9.]+)"?' "$h_file" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1)
+                local ver_str=$(grep -iE 'define\s+VERSION\s+"?([0-9.]+)"?' "$h_file" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' 2>/dev/null | head -n1 || true)
                 if [[ -n "$ver_str" ]]; then
                     ver="$ver_str"
                 fi
@@ -1533,47 +1529,40 @@ get_stage_version() {
         fi
     fi
 
-    # F. Autotools (configure.ac)
+    # F. Autotools
     if [[ -z "$ver" ]]; then
         local conf_ac
         conf_ac=$(find . -maxdepth 1 \( -name "configure.ac" -o -name "configure.in" \) 2>/dev/null | head -n 1)
         if [[ -n "$conf_ac" && -f "$conf_ac" ]]; then
-            ver=$(grep -m1 "AC_INIT" "$conf_ac" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1)
+            ver=$(grep -m1 "AC_INIT" "$conf_ac" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' 2>/dev/null | head -n 1 || true)
             [[ -n "$ver" ]] && ver_log "Found in Autotools: $ver"
         fi
     fi
 
-    # 4. Remote Git Detection (ONLY if local detection failed)
-    # This is the LAST resort before giving up.
+    # 4. Remote Git Detection
     if [[ -z "$ver" && -n "$current_repo" ]]; then
         if ! command -v git &> /dev/null; then
             ver_log "WARNING: git not found in PATH, skipping remote version check"
         else
             ver_log "No local version found. Attempting remote git check..."
-
+            
             if [[ -n "$current_commit" ]]; then
                 local full_commit="${current_commit}"
                 ver_log "Checking remote tags for commit: ${full_commit:0:7}"
                 
-                # Use timeout to prevent hanging (10 seconds)
                 local remote_refs
-                remote_refs=$(timeout 10 git ls-remote --tags "$current_repo" 2>/dev/null) || {
-                    ver_log "Remote git ls-remote failed or timed out"
-                    remote_refs=""
-                }
-
+                remote_refs=$(timeout 10 git ls-remote --tags "$current_repo" 2>/dev/null || true)
+                
                 if [[ -n "$remote_refs" ]]; then
-                    # Look for the commit hash at the start of a tag reference
                     local matched_tag
-                    matched_tag=$(echo "$remote_refs" | grep -E "^${full_commit:0:7}" | grep "refs/tags/" | head -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//')
-
+                    matched_tag=$(echo "$remote_refs" | grep -E "^${full_commit:0:7}" | grep "refs/tags/" | head -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//' || true)
+                    
                     if [[ -n "$matched_tag" ]]; then
                         ver="$matched_tag"
                         ver_log "Found remote tag matching commit: $ver"
                     else
-                        # Fallback: try to find the latest tag chronologically (last in list)
                         local last_tag
-                        last_tag=$(echo "$remote_refs" | grep "refs/tags/" | tail -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//')
+                        last_tag=$(echo "$remote_refs" | grep "refs/tags/" | tail -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//' || true)
                         if [[ -n "$last_tag" ]]; then
                             ver="$last_tag"
                             ver_log "Fallback to last remote tag: $ver"
@@ -1581,57 +1570,48 @@ get_stage_version() {
                     fi
                 fi
             fi
-
-            # If still no version from remote tags
-            if [[ -z "$ver" ]]; then
-                 ver_log "No tag found on remote, will fallback to hash."
-            fi
         fi
     fi
 
-    # ПРИОРИТЕТ 3: Локальный Git (Фоллбэк, если папка .git всё же осталась на диске)
+    # 5. Local Git Fallback
     if [[ -z "$ver" && -d ".git" ]]; then
         if command -v git &> /dev/null; then
             local local_git_tag
-            local_git_tag=$(git describe --tags --abbrev=0 2>/dev/null) || local_git_tag=""
+            local_git_tag=$(git describe --tags --abbrev=0 2>/dev/null || true)
             if [[ -n "$local_git_tag" ]]; then
-                ver=$(echo "$local_git_tag" | sed -E 's/^[a-zA-Z_-]+//')
+                ver=$(echo "$local_git_tag" | sed -E 's/^[a-zA-Z_-]+//' || true)
                 ver_log "Found in local .git: $ver"
             fi
-
+            
             if [[ -z "$ver" ]]; then
-                # This is the LAST resort: commit hash
                 ver="git-$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")"
                 ver_log "Local .git found but no tag, using hash: $ver"
             fi
         fi
     fi
 
-    # ФОЛЛБЭК: тегов нет вообще — используем хэш
+    # 6. Final Fallbacks
     if [[ -z "$ver" && -n "$current_commit" ]]; then
         ver="git-${current_commit:0:7}"
         ver_log "No tags found anywhere, defaulting to commit hash: $ver"
     fi
 
-    # Самый крайний фоллбэк на имя текущей рабочей папки
     if [[ -z "$ver" ]]; then
-        ver=$(basename "$PWD" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' | head -n 1)
+        ver=$(basename "$PWD" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' 2>/dev/null | head -n 1 || true)
         [[ -n "$ver" ]] && ver_log "Fallback to folder name: $ver"
     fi
 
     # Final Sanitization
     if [[ -z "$ver" ]]; then
-        ver="0.0.1" # Ultimate default
+        ver="0.0.1"
     fi
-
-    # Clean up the version string
+    
     ver=$(echo "$ver" | sed -E 's/^[a-zA-Z_-]+//' | tr -d '"' | tr -d "'" | xargs)
-
+    
     ver_log "--- FINAL RESULT FOR $STAGENAME: $ver ---"
 
     echo "$ver" > "$version_file"
     echo "$ver"
-
     return 0
 }
 export -f get_stage_version
