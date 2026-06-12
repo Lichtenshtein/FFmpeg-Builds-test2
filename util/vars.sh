@@ -1429,7 +1429,7 @@ get_stage_version() {
     fi
 
     # Define verbose logger locally
-    ver_log() { 
+    ver_log() {
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then 
             log_debug "[VER] $*" >&2; 
         fi 
@@ -1535,12 +1535,6 @@ get_stage_version() {
             if [[ -n "$current_commit" ]]; then
                 local full_commit="${current_commit}"
                 ver_log "Checking remote tags for commit: ${full_commit:0:7}"
-        if [[ -n "$current_commit" ]]; then
-            local full_commit="${current_commit}"
-            ver_log "Querying ls-remote for commit: ${full_commit:0:7}"
-            # Разрешаем проблему аннотированных тегов: 
-            # git ls-remote -t выводит и хэш тега, и хэш коммита с суффиксом ^{}
-            # Получаем таблицу удаленных ссылок
                 local remote_refs
                 remote_refs=$(timeout 10 git ls-remote --tags "$current_repo" 2>/dev/null) || {
                     ver_log "Remote git ls-remote failed or timed out"
