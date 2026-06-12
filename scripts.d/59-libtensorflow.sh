@@ -12,6 +12,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     echo "download_file \"$SCRIPT_REPO\" \"tensorflow.zip\""
+    echo "mkdir -p tf_src"
     echo "unzip -qq tensorflow.zip -d tf_src"
     echo "rm -f tensorflow.zip"
 }

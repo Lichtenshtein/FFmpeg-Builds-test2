@@ -14,6 +14,7 @@ ffbuild_dockerdl() {
     default_dl .
     # echo "git clean -fdx"
     # echo "download_file \"$QTFILES_URL\" \"qtfiles64.7z\""
+    # echo "mkdir -p apple_dlls"
     # echo "7z x qtfiles64.7z -o\"apple_dlls\""
     # echo "rm -f qtfiles64.7z"
     # if [[ -d ".git" ]]; then
