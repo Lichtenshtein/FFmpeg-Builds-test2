@@ -22,19 +22,21 @@ ffbuild_dockerdl() {
     set -xe
     default_dl .
 
+    # Очистка перед скачиванием
     echo "git clean -fdx"
     # Windows-версия Python (embed); забраем dll и либы для кросс-компиляции
     echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}-embed-amd64.zip\" \"python_embed.zip\""
     # Хедеры из официального репозитория
     echo "download_file \"https://github.com/python/cpython/archive/refs/tags/v${PY_FULL_VER}.zip\" \"python_hdrs.zip\""
 
+    echo "mkdir -p python_win/bin python_win/include temp_hdrs"
+
     # Распаковка (mkdir не нужен, -d создаст python_win/bin сам)
     echo "unzip -qo python_embed.zip -d python_win/bin"
     echo "unzip -qo python_hdrs.zip -d temp_hdrs"
 
     # Перемещение заголовков и очистка временных файлов
-    echo "mkdir -p python_win/include"
-    echo "mv temp_hdrs/cpython-*/Include/* python_win/include/"
+    echo "cp -r temp_hdrs/cpython-*/Include/* python_win/include/"
     echo "cp temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true"
 
     echo "rm -rf temp_hdrs python_embed.zip python_hdrs.zip"
