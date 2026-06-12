@@ -60,7 +60,7 @@ includedir=\${prefix}/include
 
 Name: xvidcore
 Description: Xvid MPEG-4 video codec library
-Version: 1.3.7
+Version: ${VER_FULL}
 Libs: -L\${libdir} -lxvidcore
 Libs.private: -pthread
 Cflags: -I\${includedir}

@@ -69,7 +69,7 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
-echo "test"
+
     mkdir -p "$PC_DIR"
     if [[ ! -f "${PC_DIR}/mp3lame.pc" ]]; then
         cat <<EOF > "${PC_DIR}/mp3lame.pc"

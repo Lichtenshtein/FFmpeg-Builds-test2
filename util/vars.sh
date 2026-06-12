@@ -1421,7 +1421,7 @@ export -f check_and_fix_configure
 # Получаем версию VER_FULL=$(get_stage_version)
 get_stage_version() {
     local version_file=".ffbuild_version"
-    
+
     # 1. Check for cached version first
     if [[ -f "$version_file" ]]; then
         local cached_ver
@@ -1435,11 +1435,11 @@ get_stage_version() {
     # Define verbose logger locally
     ver_log() { 
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then 
-            log_debug "[VER] $*" >&2; 
+            log_debug "$*" >&2; 
         fi 
     }
 
-    ver_log "--- STARTING VERSION DETECTION FOR: ${STAGENAME:-$PWD} ---"
+    ver_log "${LOG_WARN}--- STARTING VERSION DETECTION FOR:${NC} ${STAGENAME:-$PWD} {LOG_WARN}---${NC}"
 
     local ver=""
     local current_repo=""
@@ -1473,28 +1473,28 @@ get_stage_version() {
         txt_file=$(find . -maxdepth 2 \( -name "VERSION" -o -name "version.txt" -o -name "VERSION.txt" -o -name "version" \) 2>/dev/null | head -n 1)
         if [[ -n "$txt_file" && -f "$txt_file" ]]; then
             ver=$(head -n1 "$txt_file" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' 2>/dev/null | head -n 1 || true)
-            [[ -n "$ver" ]] && ver_log "Found in VERSION file ($txt_file): $ver"
+            [[ -n "$ver" ]] && ver_log "Found in VERSION file ($txt_file): ${LOG_INFO}$ver${NC}"
         fi
     fi
 
     # B. CMakeLists.txt
     if [[ -z "$ver" && -f "CMakeLists.txt" ]]; then
         ver=$(grep -Pzo 'project\s*\([^)]*VERSION\s+([0-9.]+)' CMakeLists.txt 2>/dev/null | tr -d '\0' | grep -oE '[0-9]+(\.[0-9]+)+' 2>/dev/null | head -n1 || true)
-        [[ -n "$ver" ]] && ver_log "Found in CMakeLists project(): $ver"
+        [[ -n "$ver" ]] && ver_log "Found in CMakeLists project(): ${LOG_INFO}$ver${NC}"
         
         if [[ -z "$ver" ]]; then
             local v_maj=$(grep -iE 'SET\s*\(\s*VERSION_MAJOR' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
             local v_min=$(grep -iE 'SET\s*\(\s*VERSION_MINOR' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
             local v_pat=$(grep -iE 'SET\s*\(\s*VERSION_(PATCH|BUILD)' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
             [[ -n "$v_maj" && -n "$v_min" ]] && ver="${v_maj}.${v_min}.${v_pat:-0}"
-            [[ -n "$ver" ]] && ver_log "Found in CMakeLists custom vars: $ver"
+            [[ -n "$ver" ]] && ver_log "Found in CMakeLists custom vars: ${LOG_INFO}$ver${NC}"
         fi
     fi
 
     # C. Meson.build
     if [[ -z "$ver" && -f "meson.build" ]]; then
         ver=$(grep -m1 "version\s*:" meson.build 2>/dev/null | grep -oE "[0-9]+(\.[0-9]+)+" 2>/dev/null | head -n 1 || true)
-        [[ -n "$ver" ]] && ver_log "Found in Meson: $ver"
+        [[ -n "$ver" ]] && ver_log "Found in Meson: ${LOG_INFO}$ver${NC}"
     fi
 
     # D. .pc files (pkg-config) - THE FIXED BLOCK
@@ -1504,7 +1504,7 @@ get_stage_version() {
         if [[ -n "$pc_file" && -f "$pc_file" ]]; then
             # FIXED: Added '|| true' to prevent crash
             ver=$(grep -i "^Version:" "$pc_file" 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' 2>/dev/null | head -n 1 || true)
-            [[ -n "$ver" ]] && ver_log "Found in PC file ($pc_file): $ver"
+            [[ -n "$ver" ]] && ver_log "Found in PC file ($pc_file): ${LOG_INFO}$ver${NC}"
         fi
     fi
 
@@ -1525,7 +1525,7 @@ get_stage_version() {
                     ver="$ver_str"
                 fi
             fi
-            [[ -n "$ver" ]] && ver_log "Found in Header ($h_file): $ver"
+            [[ -n "$ver" ]] && ver_log "Found in Header ($h_file): ${LOG_INFO}$ver${NC}"
         fi
     fi
 
@@ -1535,7 +1535,7 @@ get_stage_version() {
         conf_ac=$(find . -maxdepth 1 \( -name "configure.ac" -o -name "configure.in" \) 2>/dev/null | head -n 1)
         if [[ -n "$conf_ac" && -f "$conf_ac" ]]; then
             ver=$(grep -m1 "AC_INIT" "$conf_ac" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' 2>/dev/null | head -n 1 || true)
-            [[ -n "$ver" ]] && ver_log "Found in Autotools: $ver"
+            [[ -n "$ver" ]] && ver_log "Found in Autotools: ${LOG_INFO}$ver${NC}"
         fi
     fi
 
@@ -1559,13 +1559,13 @@ get_stage_version() {
                     
                     if [[ -n "$matched_tag" ]]; then
                         ver="$matched_tag"
-                        ver_log "Found remote tag matching commit: $ver"
+                        ver_log "Found remote tag matching commit: ${LOG_INFO}$ver${NC}"
                     else
                         local last_tag
                         last_tag=$(echo "$remote_refs" | grep "refs/tags/" | tail -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//' || true)
                         if [[ -n "$last_tag" ]]; then
                             ver="$last_tag"
-                            ver_log "Fallback to last remote tag: $ver"
+                            ver_log "Fallback to last remote tag: ${LOG_INFO}$ver${NC}"
                         fi
                     fi
                 fi
@@ -1580,12 +1580,12 @@ get_stage_version() {
             local_git_tag=$(git describe --tags --abbrev=0 2>/dev/null || true)
             if [[ -n "$local_git_tag" ]]; then
                 ver=$(echo "$local_git_tag" | sed -E 's/^[a-zA-Z_-]+//' || true)
-                ver_log "Found in local .git: $ver"
+                ver_log "Found in local .git: ${LOG_INFO}$ver${NC}"
             fi
             
             if [[ -z "$ver" ]]; then
                 ver="git-$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")"
-                ver_log "Local .git found but no tag, using hash: $ver"
+                ver_log "Local .git found but no tag, using hash: ${LOG_INFO}$ver${NC}"
             fi
         fi
     fi
@@ -1593,12 +1593,12 @@ get_stage_version() {
     # 6. Final Fallbacks
     if [[ -z "$ver" && -n "$current_commit" ]]; then
         ver="git-${current_commit:0:7}"
-        ver_log "No tags found anywhere, defaulting to commit hash: $ver"
+        ver_log "No tags found anywhere, defaulting to commit hash: ${LOG_INFO}$ver${NC}"
     fi
 
     if [[ -z "$ver" ]]; then
         ver=$(basename "$PWD" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' 2>/dev/null | head -n 1 || true)
-        [[ -n "$ver" ]] && ver_log "Fallback to folder name: $ver"
+        [[ -n "$ver" ]] && ver_log "Fallback to folder name: ${LOG_INFO}$ver${NC}"
     fi
 
     # Final Sanitization
@@ -1608,7 +1608,7 @@ get_stage_version() {
     
     ver=$(echo "$ver" | sed -E 's/^[a-zA-Z_-]+//' | tr -d '"' | tr -d "'" | xargs)
     
-    ver_log "--- FINAL RESULT FOR $STAGENAME: $ver ---"
+    ver_log "${LOG_WARN}--- FINAL RESULT FOR${NC} $STAGENAME: ${LOG_INFO}$ver${NC} ${LOG_WARN}---${NC}"
 
     echo "$ver" > "$version_file"
     echo "$ver"
