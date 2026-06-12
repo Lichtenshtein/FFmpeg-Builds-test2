@@ -36,8 +36,8 @@ index 7db28ddef1..87bd1585ab 100755
    --enable-libtwolame      enable MP2 encoding via libtwolame [no]
    --enable-libuavs3d       enable AVS3 decoding via libuavs3d [no]
 @@ -301,6 +301,8 @@ External library support:
-   --enable-libvpx          enable VP8 and VP9 de/encoding via libvpx [no]
    --enable-libvvenc        enable H.266/VVC encoding via vvenc [no]
+   --enable-ia_mpegh        enable MPEG-H 3D Audio encoding via ia_mpegh [no]
    --enable-libwebp         enable WebP encoding via libwebp [no]
 +  --enable-wolfssl         enable WolfSSL), needed for https support
 +                           if openssl, gnutls, libtls or mbedtls is not used [no]

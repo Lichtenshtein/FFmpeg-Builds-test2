@@ -61,7 +61,7 @@ includedir=\${prefix}/include
 
 Name: libmpg123
 Description: MPEG 1.0/2.0/2.5 audio decoder
-Version: 1.31.0
+Version: ${VER_FULL}
 Libs: -L\${libdir} -lmpg123
 Cflags: -I\${includedir}
 EOF

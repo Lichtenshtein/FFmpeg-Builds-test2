@@ -203,9 +203,6 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     grep -n "avtext_context_open" "fftools/graph/graphprint.c"
 fi
 
-sed -i "s/Version:.*/Version: /" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
-sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
-
 # =======================================
 # FLAGS DEDUPLICATION SECTION
 # =======================================
