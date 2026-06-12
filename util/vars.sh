@@ -1584,6 +1584,18 @@ get_stage_version() {
         [[ -n "$ver" ]] && ver_log "Found vapoursynth version in meson.build: ${LOG_INFO}$ver${NC}"
     fi
 
+    # quirc lib
+    if [[ "$STAGENAME" == *"quirc"* ]]; then
+        local make_file="Makefile"
+        if [[ -f "$make_file" ]]; then
+            ver=$(grep -E '^\s*LIB_VERSION\s*=' "$make_file" 2>/dev/null | awk -F'=' '{print $NF}' | xargs || true)
+            ver=$(echo "$ver" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' | head -n1 || true)
+            if [[ -n "$ver" ]]; then
+                ver_log "Found quirc version in $make_file: ${LOG_INFO}$ver${NC}"
+            fi
+        fi
+    fi
+
     # jbigkit lib
     if [[ "$STAGENAME" == *"jbigkit"* ]]; then
         local h_file="libjbig/jbig.h"

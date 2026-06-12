@@ -31,7 +31,7 @@ libdir=\${prefix}/lib
 includedir=\${prefix}/include
 
 Name: quirc
-Description: QR decoder library
+Description: QR decoder library, for extracting and decoding them from images
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lquirc
 Cflags: -I\${includedir}
