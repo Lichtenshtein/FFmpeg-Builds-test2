@@ -1593,7 +1593,7 @@ get_stage_version() {
         # 2. CMakeLists.txt
         if [[ -z "$ver" && -f "CMakeLists.txt" ]]; then
             ver=$(grep -Pzo 'project\s*\([^)]*VERSION\s+([0-9.]+)' CMakeLists.txt 2>/dev/null | tr -d '\0' | grep -oE '[0-9]+(\.[0-9]+)+' 2>/dev/null | head -n1 || true)
-            [[ -n "$ver" ]] && ver_log "Found in CMakeLists project(): ${LOG_INFO}$ver${NC}"
+            [[ -n "$ver" ]] && ver_log "Found in CMakeLists project files: ${LOG_INFO}$ver${NC}"
 
             if [[ -z "$ver" ]]; then
                 local v_maj=$(grep -iE 'SET\s*\(\s*VERSION_MAJOR' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)

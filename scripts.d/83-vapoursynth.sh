@@ -19,6 +19,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
+    set -xe
     default_dl .
 
     echo "git clean -fdx"
