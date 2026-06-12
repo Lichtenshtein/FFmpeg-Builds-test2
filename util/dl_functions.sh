@@ -500,13 +500,13 @@ download_stage() {
     if [[ $dl_status -eq 0 ]]; then
         (
             cd "$WORK_DIR" || exit 0
-            # if [[ -f "$STAGE" ]]; then
-                # source "$STAGE"
-            # else
-                # source "${ROOT_DIR}/${STAGE}" 2>/dev/null || true
-            # fi
-            # log_info "Running version auto-detection for ${STAGENAME}..."
-            # get_stage_version > /dev/null
+            if [[ -f "$STAGE" ]]; then
+                source "$STAGE"
+            else
+                source "${ROOT_DIR}/${STAGE}" 2>/dev/null || true
+            fi
+            log_info "Running version auto-detection for ${STAGENAME}..."
+            get_stage_version > /dev/null
         )
 
         # Whitelist метаданных .git (список подгружается из workflow.yaml). 
