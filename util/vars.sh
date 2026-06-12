@@ -1420,6 +1420,7 @@ export -f check_and_fix_configure
 
 # Получаем версию VER_FULL=$(get_stage_version)
 get_stage_version() {
+    trap 'echo "DEBUG: Failed at line $LINENO with error: $?" >&2; exit 1' ERR
     local version_file=".ffbuild_version"
 
     # Check for cached version first
@@ -1630,6 +1631,8 @@ get_stage_version() {
 
     echo "$ver" > "$version_file"
     echo "$ver"
+
+    return 0
 }
 export -f get_stage_version
 
