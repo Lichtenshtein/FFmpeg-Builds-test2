@@ -1475,7 +1475,7 @@ get_stage_version() {
     # Local File Detection (HIGHEST PRIORITY)
 
     # A. libmpg123: Parse MPG123_MAJOR, MINOR, PATCH from src/version.h
-    if [[ "$STAGENAME" == *"libmpg123"* || -f "src/version.h" ]]; then
+    if [[ "$STAGENAME" == *"libmpg123"* ]]; then
         local h_file="src/version.h"
         [[ ! -f "$h_file" ]] && h_file=$(find . -maxdepth 3 -name "version.h" -path "*/src/*" 2>/dev/null | head -n1)
         if [[ -n "$h_file" && -f "$h_file" ]]; then
@@ -1495,7 +1495,7 @@ get_stage_version() {
     fi
 
     # B. libflite: Parse PROJECT_VERSION from config/project.mak
-    if [[ "$STAGENAME" == *"flite"* || -f "config/project.mak" ]]; then
+    if [[ "$STAGENAME" == *"flite"* ]]; then
         local mak_file="config/project.mak"
         [[ ! -f "$mak_file" ]] && mak_file=$(find . -maxdepth 3 -name "project.mak" 2>/dev/null | head -n1)
         if [[ -n "$mak_file" && -f "$mak_file" ]]; then
@@ -1505,7 +1505,7 @@ get_stage_version() {
     fi
 
     # C. libgsm: Parse "Release 1.0 Patchlevel 24" from ChangeLog
-    if [[ "$STAGENAME" == *"libgsm"* || -f "ChangeLog" ]]; then
+    if [[ "$STAGENAME" == *"libgsm"* ]]; then
         local changelog="ChangeLog"
         if [[ -f "$changelog" ]]; then
             ver=$(grep -i "Release.*Patchlevel" "$changelog" 2>/dev/null | head -n1 | sed -E 's/.*Release[[:space:]]+([0-9]+\.[0-9]+)[[:space:]]+Patchlevel[[:space:]]+([0-9]+).*/\1.\2/I' || true)
@@ -1554,14 +1554,14 @@ get_stage_version() {
     fi
 
     # E. vapoursynth: Parse version from meson.build (version: '77')
-    if [[ "$STAGENAME" == *"vapoursynth"* && -f "meson.build" ]]; then
+    if [[ "$STAGENAME" == *"vapoursynth"* ]]; then
         local meson="meson.build"
         ver=$(grep -E "^\s*version\s*:\s*['\"][0-9]+['\"]" "$meson" 2>/dev/null | head -n1 | sed -E "s/.*version\s*:\s*['\"]([0-9]+)['\"].*/\1/" || true)
         [[ -n "$ver" ]] && ver_log "Found vapoursynth version in meson.build: ${LOG_INFO}$ver${NC}"
     fi
 
     # jbigkit lib
-    if [[ "$STAGENAME" == *"jbigkit"* || -f "libjbig/jbig.h" ]]; then
+    if [[ "$STAGENAME" == *"jbigkit"* ]]; then
         local h_file="libjbig/jbig.h"
         [[ ! -f "$h_file" ]] && h_file=$(find . -maxdepth 3 -name "jbig.h" -path "*/libjbig/*" 2>/dev/null | head -n1)
         if [[ -n "$h_file" && -f "$h_file" ]]; then
@@ -1652,9 +1652,15 @@ get_stage_version() {
 
     # opencl (OpenCL-Headers)
     # CMakeLists.txt says "3.0", but releases are date-based (v2026.05.29).
-    if [[ "$STAGENAME" == *"opencl"* || "$STAGENAME" == *"OpenCL"* ]]; then
+    if [[ "$STAGENAME" == *"opencl"* ]]; then
         ver_log "OpenCL detected: Skipping CMake version, forcing remote tag lookup."
         ver="" # Force empty to trigger remote check immediately
+    fi
+
+    # openvino (Intel OpenVINO)
+    if [[ "$STAGENAME" == *"openvino"* ]]; then
+        ver_log "OpenVINO detected: Skipping generic file versions, forcing remote tag lookup."
+        ver="" # Сбрасываем версию, чтобы гарантированно уйти в парсинг тегов Git
     fi
 
     # 4. Remote Git Detection
@@ -1687,6 +1693,16 @@ get_stage_version() {
                                 if [[ -n "$date_tag" ]]; then
                                     ver=$(clean_ver "$date_tag")
                                     ver_log "Found OpenCL date tag: ${LOG_INFO}$ver${NC}"
+                                fi
+                            fi
+
+                            # OpenVINO (Ищет теги вида 2026.2.0 или v2026.2.0)
+                            if [[ "$STAGENAME" == *"openvino"* ]]; then
+                                local vino_tag
+                                vino_tag=$(echo "$remote_refs" | grep -E "refs/tags/v?[0-9]+\.[0-9]+\.[0-9]+" | tail -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//' || true)
+                                if [[ -n "$vino_tag" ]]; then
+                                    ver=$(clean_ver "$vino_tag")
+                                    ver_log "Found OpenVINO version tag: $ver"
                                 fi
                             fi
 
