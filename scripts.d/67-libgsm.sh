@@ -13,7 +13,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-
+echo "test"
     export CFLAGS="$CFLAGS -DNeedFunctionPrototypes=1 -c -DSASR -DWAV49 -Wno-comment ${USELTO}${USELTO_C}"
     export CCFLAGS="$CFLAGS -DNeedFunctionPrototypes=1 -c -DSASR -DWAV49 -Wno-comment ${USELTO}${USELTO_C}"
     export LDFLAGS="$LDFLAGS ${USELTO}"
