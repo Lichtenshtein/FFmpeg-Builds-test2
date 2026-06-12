@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/Cyan4973/xxHash.git"
 SCRIPT_COMMIT="e573d4d2aaeaba0f3e5a0a9a54144a1f2b4b56e7"
 

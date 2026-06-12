@@ -274,7 +274,7 @@ build_cmd="ffbuild_dockerbuild"
 setup_wine_env
 
 # Manually determining the component version
-export VER_FULL=$(get_stage_version)
+[[ "$USE_VERS_FINDER" == "1" ]] && export VER_FULL=$(get_stage_version)
 
 log_info_line
 log_info "### ${START_MARK} ${LOG_INFO}STARTING STAGE: $STAGENAME${NC}"

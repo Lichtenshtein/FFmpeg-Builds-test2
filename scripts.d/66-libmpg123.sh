@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/madebr/mpg123.git"
 SCRIPT_COMMIT="febfff51f762e644e8620536fc847af4c6b741bb"
 

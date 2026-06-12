@@ -486,10 +486,7 @@ download_stage() {
     log_warn "Cache miss: $STAGENAME ($miss_reason). ${DOWN_MARK} Re-downloading..."
 
     # Use subshell for cleanup isolation — avoids clobbering EXIT trap
-    local WORK_DIR
-    WORK_DIR=$(mktemp -d -p "$TMP_DIR")
-    # Очистка при выходе. Удаляем только WORK_DIR конкретного процесса, а не весь TMP_DIR! Иначе параллельные процессы удалят чужие папки.
-    # trap 'rm -rf "$WORK_DIR"' EXIT
+    local WORK_DIR=$(mktemp -d -p "$TMP_DIR")
 
     # Выполняем загрузку
     local dl_status=0
@@ -499,7 +496,8 @@ download_stage() {
 
     if [[ $dl_status -eq 0 ]]; then
         (
-            cd "$WORK_DIR" || exit 0
+        cd "$WORK_DIR" || exit 0
+        if [[ "$USE_VERS_FINDER" == "1" ]]; then
             if [[ -f "$STAGE" ]]; then
                 source "$STAGE"
             else
@@ -507,6 +505,7 @@ download_stage() {
             fi
             log_info "Running version auto-detection for ${STAGENAME}..."
             get_stage_version > /dev/null
+        fi
         )
 
         # Whitelist метаданных .git (список подгружается из workflow.yaml). 

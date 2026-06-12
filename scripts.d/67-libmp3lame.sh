@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/Luiz-Monad/liblame.git"
 SCRIPT_COMMIT="fe309eb331421ee6534ba795dbc298e19093f96f"
 

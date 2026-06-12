@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/maekawa-mugi/libgsm-playground.git"
 SCRIPT_COMMIT="f7fed756ba3c28792b876236cfbc69524ca048c7"
 
