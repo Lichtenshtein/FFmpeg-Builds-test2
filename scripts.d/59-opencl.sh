@@ -94,7 +94,7 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
     
     cd ../..
-echo "test2"
+
     log_info "Generating OpenCL.pc and final post-processing..."
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/OpenCL.pc"

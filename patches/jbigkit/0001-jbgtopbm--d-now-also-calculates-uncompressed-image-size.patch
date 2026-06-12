@@ -1,0 +1,41 @@
+From 0e5b77e81aff2b377eb55bd5df09e1ab9e1ae63c Mon Sep 17 00:00:00 2001
+From: Markus Kuhn <Markus.Kuhn@cl.cam.ac.uk>
+Date: Mon, 3 Aug 2020 21:59:30 +0100
+Subject: [PATCH] =?UTF-8?q?=E2=80=9Cjbgtopbm=20-d=E2=80=9D=20now=20also=20?=
+ =?UTF-8?q?calculates=20uncompressed=20image=20size?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+---
+ pbmtools/jbgtopbm.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/pbmtools/jbgtopbm.c b/pbmtools/jbgtopbm.c
+index dd42083..097087e 100644
+--- a/pbmtools/jbgtopbm.c
++++ b/pbmtools/jbgtopbm.c
+@@ -129,6 +129,7 @@ void diagnose_bie(FILE *fin)
+   unsigned long stripes;
+   int layers, planes;
+   unsigned long sdes, sde = 0;
++  double size;
+ 
+   /* read BIH */
+   read_file(&bie, &buflen, &len, fin);
+@@ -174,12 +175,14 @@ void diagnose_bie(FILE *fin)
+ 	  stripes, layers, planes);
+   if (planes == 0 || (ULONG_MAX / layers) / planes >= stripes) {
+     sdes = stripes * layers * planes;
+-    fprintf(f, "%lu SDEs\n\n", sdes);
++    fprintf(f, "%lu SDEs\n", sdes);
+   } else {
+     /* handle integer overflow */
+     fprintf(f, ">%lu SDEs!\n", ULONG_MAX);
+     return;
+   }
++  size = (double) planes * (double) yd * (double) jbg_ceil_half(xd, 3);
++  fprintf(f, "  decompressed %.15g bytes\n\n", size);
+   if (planes == 0) { fprintf(f, "P > 0 required!\n\n"); }
+ 
+   /* parse BID */
