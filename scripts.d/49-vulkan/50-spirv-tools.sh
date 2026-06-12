@@ -44,6 +44,6 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Удаляем ненужный .pc файл
-    rm -f "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/pkgconfig/SPIRV-Tools-shared.pc" || true
+    rm -f "$INSTALL_ROOT/lib/pkgconfig/SPIRV-Tools-shared.pc" || true
 }
 

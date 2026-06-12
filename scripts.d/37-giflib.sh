@@ -13,6 +13,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     # Принудительно используем кросс-инструменты
     sed -i "s|^CC      =.*|CC      = $CC|" Makefile
     sed -i "s|^AR      =.*|AR      = $AR|" Makefile
@@ -24,9 +25,9 @@ ffbuild_dockerbuild() {
       -j$(nproc) $MAKE_V libgif.a || return 1
 
     # Ручная установка, так как штатный install хочет в /usr/local
-    mkdir -p "$FFBUILD_DESTDIR$FFBUILD_PREFIX"/{include,lib,lib/pkgconfig}
-    cp gif_lib.h "$FFBUILD_DESTDIR$FFBUILD_PREFIX/include/"
-    cp libgif.a "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib/"
+    mkdir -p "$INSTALL_ROOT"/{include,lib,lib/pkgconfig}
+    cp gif_lib.h "$INSTALL_ROOT/include/"
+    cp libgif.a "$INSTALL_ROOT/lib/"
 
     # Генерируем pkg-config файл вручную
     cat <<EOF > "$PC_DIR/giflib.pc"
