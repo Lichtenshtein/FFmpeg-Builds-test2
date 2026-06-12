@@ -1,7 +1,7 @@
 #!/bin/bash
 export USE_VERS_FINDER=1
-SCRIPT_REPO="https://github.com/humlatech/quirc.git"
-SCRIPT_COMMIT="34bae22c40dca0eaaad6bfa9a430ac6b350f472c"
+SCRIPT_REPO="https://github.com/dlbeer/quirc.git"
+SCRIPT_COMMIT="927d680904dc95fdff4cd9d022eb374b438ff8f2"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm64 ]] && return 1
