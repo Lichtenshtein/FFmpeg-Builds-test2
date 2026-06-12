@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+# export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/mpeg5/xeve.git"
 SCRIPT_COMMIT="429c18a7736ffc010e1c550e8015ff18a242d06c"
 
@@ -18,7 +18,7 @@ ffbuild_dockerbuild() {
     if [ ! -f "version.txt" ]; then
         rm -f version.txt
         log_info "Adding version..."
-        echo "v${VER_FULL}" > version.txt
+        echo "v0.5.1" > version.txt
     fi
 
     find pkgconfig -name "*.pc.in" -exec sed -i "s|Version: .*|Version: ${VER_FULL}|g" {} +

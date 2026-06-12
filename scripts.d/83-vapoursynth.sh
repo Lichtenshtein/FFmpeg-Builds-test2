@@ -6,7 +6,6 @@ SCRIPT_COMMIT="33769c5401c63a68b92212430b53abb058bc5f83"
 PY_VER="3.14"
 PY_FULL_VER="3.14.1"
 PY_LIB="python314" # Без точки для линковки
-VS_VER="${VER_FULL}" # 77
 
 ffbuild_depends() {
     echo zlib
@@ -48,7 +47,7 @@ project('VapourSynth', 'c', 'cpp',
     license: 'LGPL-2.1-or-later',
     license_files: 'COPYING.LESSER',
     meson_version: '>=1.3.0',
-    version: '${VS_VER}',
+    version: '${VER_FULL}',
 )
 
 enable_guard_pattern = get_option('enable_guard_pattern')
@@ -85,7 +84,7 @@ incdir = include_directories('include')
 
 py_dep = dependency('python3', method: 'pkg-config')
 
-vs_current_release = '${VS_VER}' 
+vs_current_release = '${VER_FULL}' 
 
 add_project_arguments(
     cxx.get_supported_arguments(
@@ -346,7 +345,7 @@ includedir=\${prefix}/include/vapoursynth
 
 Name: vapoursynth
 Description: A script-based video processing frameserver for the 21st century
-Version: ${VS_VER}
+Version: ${VER_FULL}
 Libs: -L\${libdir} -lvapoursynth
 Libs.private: -lstdc++ -lwinmm
 Cflags: -I\${includedir} -I\${includedir}/vapoursynth $static_flags
@@ -360,7 +359,7 @@ includedir=\${prefix}/include/vapoursynth
 
 Name: vapoursynth-script
 Description: Library for interfacing VapourSynth with Python
-Version: ${VS_VER}
+Version: ${VER_FULL}
 Libs: -L\${libdir} -lvsscript
 Libs.private: -l${PY_LIB} -lstdc++
 Cflags: -I\${includedir} -I\${includedir}/vapoursynth
