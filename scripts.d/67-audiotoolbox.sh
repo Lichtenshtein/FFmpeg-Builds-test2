@@ -49,7 +49,7 @@ includedir=\${prefix}/include
 
 Name: AudioToolboxWrapper
 Description: AudioToolbox wrapper for MinGW
-Version: ${VER_FULL}
+Version: 1.0
 Libs: -L\${libdir} -lAudioToolboxWrapper
 Cflags: -I\${includedir} -I\${includedir}/AudioToolbox
 EOF

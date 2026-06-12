@@ -1435,11 +1435,11 @@ get_stage_version() {
     # Define verbose logger locally
     ver_log() { 
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then 
-            log_debug "$*" >&2; 
+            log_debug "${LOG_WARN}[VER]${NC} $*" >&2; 
         fi 
     }
 
-    ver_log "${LOG_WARN}--- STARTING VERSION DETECTION FOR:${NC} ${STAGENAME:-$PWD} {LOG_WARN}---${NC}"
+    ver_log "${LOG_WARN}--- STARTING VERSION DETECTION FOR:${NC} ${GREY_B}${STAGENAME:-$PWD}${NC} ${LOG_WARN}---${NC}"
 
     local ver=""
     local current_repo=""
@@ -1465,78 +1465,175 @@ get_stage_version() {
     ver_log "Active Repo: $current_repo"
     ver_log "Active Commit: $current_commit"
 
-    # 3. Local File Detection (HIGHEST PRIORITY)
-    
-    # A. Check for explicit VERSION files
+    # Helper to clean version strings
+    clean_ver() {
+        local v="$1"
+        # Remove quotes, spaces, 'v', 'R', etc.
+        echo "$v" | sed -E 's/^[vRr_-]+//; s/["'\'']//g; s/^[[:space:]]+//; s/[[:space:]]+$//' | head -n1
+    }
+
+    # Local File Detection (HIGHEST PRIORITY)
+
+    # A. libmpg123: Parse MPG123_MAJOR, MINOR, PATCH from src/version.h
+    if [[ "$STAGENAME" == *"libmpg123"* || -f "src/version.h" ]]; then
+        local h_file="src/version.h"
+        [[ ! -f "$h_file" ]] && h_file=$(find . -maxdepth 3 -name "version.h" -path "*/src/*" 2>/dev/null | head -n1)
+        if [[ -n "$h_file" && -f "$h_file" ]]; then
+            local maj=$(grep -E '^#define\s+MPG123_MAJOR\s+' "$h_file" 2>/dev/null | grep -oE '[0-9]+' || true)
+            local min=$(grep -E '^#define\s+MPG123_MINOR\s+' "$h_file" 2>/dev/null | grep -oE '[0-9]+' || true)
+            local pat=$(grep -E '^#define\s+MPG123_PATCH\s+' "$h_file" 2>/dev/null | grep -oE '[0-9]+' || true)
+            if [[ -n "$maj" && -n "$min" ]]; then
+                ver="${maj}.${min}.${pat:-0}"
+                ver_log "Found mpg123 version in $h_file: ${LOG_INFO}$ver${NC}"
+            fi
+        fi
+    fi
+
+    # B. libflite: Parse PROJECT_VERSION from config/project.mak
+    if [[ "$STAGENAME" == *"flite"* || -f "config/project.mak" ]]; then
+        local mak_file="config/project.mak"
+        [[ ! -f "$mak_file" ]] && mak_file=$(find . -maxdepth 3 -name "project.mak" 2>/dev/null | head -n1)
+        if [[ -n "$mak_file" && -f "$mak_file" ]]; then
+            ver=$(grep -E '^PROJECT_VERSION\s*=' "$mak_file" 2>/dev/null | grep -oE '[0-9.]+' || true)
+            [[ -n "$ver" ]] && ver_log "Found flite version in $mak_file: ${LOG_INFO}$ver${NC}"
+        fi
+    fi
+
+    # C. libgsm: Parse "Release 1.0 Patchlevel 24" from ChangeLog
+    if [[ "$STAGENAME" == *"libgsm"* || -f "ChangeLog" ]]; then
+        local changelog="ChangeLog"
+        if [[ -f "$changelog" ]]; then
+            # Look for "Release 1.0 Patchlevel X"
+            ver=$(grep -i "Release.*Patchlevel" "$changelog" 2>/dev/null | head -n1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+            # Fallback to "Release 1.0" if Patchlevel is missing
+            if [[ -z "$ver" ]]; then
+                ver=$(grep -i "Release 1.0" "$changelog" 2>/dev/null | head -n1 | grep -oE '[0-9]+\.[0-9]+' || true)
+                [[ -n "$ver" ]] && ver="${ver}.0"
+            fi
+            [[ -n "$ver" ]] && ver_log "Found gsm version in ChangeLog: ${LOG_INFO}$ver${NC}"
+        fi
+    fi
+
+    # D. libxvid: Handle deep paths and XVID_MAKE_VERSION
+    if [[ "$STAGENAME" == *"xvid"* ]]; then
+        # Xvid is often in a subfolder 'xvidcore'
+        local xvid_h=""
+        if [[ -f "xvidcore/src/xvid.h" ]]; then
+            xvid_h="xvidcore/src/xvid.h"
+        else
+            xvid_h=$(find . -maxdepth 4 -name "xvid.h" -path "*/src/*" 2>/dev/null | head -n1)
+        fi
+
+        if [[ -n "$xvid_h" && -f "$xvid_h" ]]; then
+            # Parse XVID_MAKE_VERSION(1,4,-127) -> 1.4.-127 (or handle negative)
+            # Or look for XVID_VERSION which might be a macro call
+            local raw_ver=$(grep -E '#define\s+XVID_VERSION\s+' "$xvid_h" 2>/dev/null | head -n1 || true)
+            if [[ -n "$raw_ver" ]]; then
+                # Try to extract numbers from XVID_MAKE_VERSION(a,b,c)
+                local maj min pat
+                maj=$(echo "$raw_ver" | grep -oE 'XVID_MAKE_VERSION\s*\(\s*([0-9]+)' | grep -oE '[0-9]+' | head -n1 || true)
+                min=$(echo "$raw_ver" | grep -oE 'XVID_MAKE_VERSION\s*\([0-9]+,\s*([0-9-]+)' | grep -oE '[0-9-]+' | tail -n1 | sed 's/^,//' || true)
+                # If we can't parse the macro, fallback to tag search
+                if [[ -n "$maj" && -n "$min" ]]; then
+                    # Handle negative patch (e.g., -127) -> treat as 0 or skip? 
+                    # Usually XVID_PATCH is positive in releases. 
+                    # If the macro is XVID_MAKE_VERSION(1,4,-127), it's a dev version.
+                    # Let's just try to get the numbers:
+                    ver="${maj}.${min}"
+                    # If patch is negative, we might just use maj.min or look for a tag
+                    if [[ "$min" == *"-"* || "$maj" == *"-"* ]]; then
+                        ver="" # Invalid dev version, fallback to tags
+                    fi
+                fi
+            fi
+            [[ -n "$ver" ]] && ver_log "Found xvid version in $xvid_h: ${LOG_INFO}$ver${NC}"
+        fi
+    fi
+
+    # E. vapoursynth: Parse version from meson.build (version: '77')
+    if [[ "$STAGENAME" == *"vapoursynth"* || -f "meson.build" ]]; then
+        local meson="meson.build"
+        if [[ -f "$meson" ]]; then
+            # Look for version: '77' or version: "77"
+            ver=$(grep -E "^\s*version\s*:\s*['\"]" "$meson" 2>/dev/null | grep -oE "['\"] [0-9]+['\"]" | tr -d "'\"" | head -n1 || true)
+            [[ -n "$ver" ]] && ver_log "Found vapoursynth version in meson.build: ${LOG_INFO}$ver${NC}"
+        fi
+    fi
+
+
+    # F. Generic Fallbacks (CMake, PC, Headers, Autotools)
+    # Only run these if we haven't found a version yet
     if [[ -z "$ver" ]]; then
-        local txt_file
-        txt_file=$(find . -maxdepth 2 \( -name "VERSION" -o -name "version.txt" -o -name "VERSION.txt" -o -name "version" \) 2>/dev/null | head -n 1)
+        # 1. VERSION files
+        local txt_file=$(find . -maxdepth 2 \( -name "VERSION" -o -name "version.txt" -o -name "VERSION.txt" -o -name "version" \) 2>/dev/null | head -n 1)
         if [[ -n "$txt_file" && -f "$txt_file" ]]; then
             ver=$(head -n1 "$txt_file" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' 2>/dev/null | head -n 1 || true)
             [[ -n "$ver" ]] && ver_log "Found in VERSION file ($txt_file): ${LOG_INFO}$ver${NC}"
         fi
-    fi
 
-    # B. CMakeLists.txt
-    if [[ -z "$ver" && -f "CMakeLists.txt" ]]; then
-        ver=$(grep -Pzo 'project\s*\([^)]*VERSION\s+([0-9.]+)' CMakeLists.txt 2>/dev/null | tr -d '\0' | grep -oE '[0-9]+(\.[0-9]+)+' 2>/dev/null | head -n1 || true)
-        [[ -n "$ver" ]] && ver_log "Found in CMakeLists project(): ${LOG_INFO}$ver${NC}"
-        
-        if [[ -z "$ver" ]]; then
-            local v_maj=$(grep -iE 'SET\s*\(\s*VERSION_MAJOR' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
-            local v_min=$(grep -iE 'SET\s*\(\s*VERSION_MINOR' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
-            local v_pat=$(grep -iE 'SET\s*\(\s*VERSION_(PATCH|BUILD)' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
-            [[ -n "$v_maj" && -n "$v_min" ]] && ver="${v_maj}.${v_min}.${v_pat:-0}"
-            [[ -n "$ver" ]] && ver_log "Found in CMakeLists custom vars: ${LOG_INFO}$ver${NC}"
-        fi
-    fi
+        # 2. CMakeLists.txt
+        if [[ -z "$ver" && -f "CMakeLists.txt" ]]; then
+            ver=$(grep -Pzo 'project\s*\([^)]*VERSION\s+([0-9.]+)' CMakeLists.txt 2>/dev/null | tr -d '\0' | grep -oE '[0-9]+(\.[0-9]+)+' 2>/dev/null | head -n1 || true)
+            [[ -n "$ver" ]] && ver_log "Found in CMakeLists project(): ${LOG_INFO}$ver${NC}"
 
-    # C. Meson.build
-    if [[ -z "$ver" && -f "meson.build" ]]; then
-        ver=$(grep -m1 "version\s*:" meson.build 2>/dev/null | grep -oE "[0-9]+(\.[0-9]+)+" 2>/dev/null | head -n 1 || true)
-        [[ -n "$ver" ]] && ver_log "Found in Meson: ${LOG_INFO}$ver${NC}"
-    fi
-
-    # D. .pc files (pkg-config) - THE FIXED BLOCK
-    if [[ -z "$ver" ]]; then
-        local pc_file
-        pc_file=$(find . -maxdepth 3 \( -name "*.pc.in" -o -name "*.pc" \) ! -path "*/build/*" ! -path "*/_build/*" 2>/dev/null | head -n 1)
-        if [[ -n "$pc_file" && -f "$pc_file" ]]; then
-            # FIXED: Added '|| true' to prevent crash
-            ver=$(grep -i "^Version:" "$pc_file" 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' 2>/dev/null | head -n 1 || true)
-            [[ -n "$ver" ]] && ver_log "Found in PC file ($pc_file): ${LOG_INFO}$ver${NC}"
-        fi
-    fi
-
-    # E. Header files
-    if [[ -z "$ver" ]]; then
-        local h_file
-        h_file=$(find . -maxdepth 2 \( -name "version.h" -o -name "*_version.h" -o -name "mpg123.h" -o -name "gsm.h" -o -name "lame.h" \) 2>/dev/null | head -n 1)
-        if [[ -n "$h_file" && -f "$h_file" ]]; then
-            local maj=$(grep -iE 'define\s+.*VERSION_MAJOR' "$h_file" 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
-            local min=$(grep -iE 'define\s+.*VERSION_MINOR' "$h_file" 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
-            local pat=$(grep -iE 'define\s+.*VERSION_(MICRO|PATCH|BUILD)' "$h_file" 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
-            
-            if [[ -n "$maj" && -n "$min" ]]; then
-                ver="${maj}.${min}.${pat:-0}"
-            else
-                local ver_str=$(grep -iE 'define\s+VERSION\s+"?([0-9.]+)"?' "$h_file" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' 2>/dev/null | head -n1 || true)
-                if [[ -n "$ver_str" ]]; then
-                    ver="$ver_str"
-                fi
+            if [[ -z "$ver" ]]; then
+                local v_maj=$(grep -iE 'SET\s*\(\s*VERSION_MAJOR' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
+                local v_min=$(grep -iE 'SET\s*\(\s*VERSION_MINOR' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
+                local v_pat=$(grep -iE 'SET\s*\(\s*VERSION_(PATCH|BUILD)' CMakeLists.txt 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
+                [[ -n "$v_maj" && -n "$v_min" ]] && ver="${v_maj}.${v_min}.${v_pat:-0}"
+                [[ -n "$ver" ]] && ver_log "Found in CMakeLists custom vars: ${LOG_INFO}$ver${NC}"
             fi
-            [[ -n "$ver" ]] && ver_log "Found in Header ($h_file): ${LOG_INFO}$ver${NC}"
+        fi
+
+        # 3. Meson.build (Generic)
+        if [[ -z "$ver" && -f "meson.build" ]]; then
+            ver=$(grep -m1 "version\s*:" meson.build 2>/dev/null | grep -oE "[0-9]+(\.[0-9]+)+" 2>/dev/null | head -n 1 || true)
+            [[ -n "$ver" ]] && ver_log "Found in Meson: ${LOG_INFO}$ver${NC}"
+        fi
+
+        # 4. .pc files
+        if [[ -z "$ver" ]]; then
+            local pc_file=$(find . -maxdepth 3 \( -name "*.pc.in" -o -name "*.pc" \) ! -path "*/build/*" ! -path "*/_build/*" 2>/dev/null | head -n 1)
+
+            if [[ -n "$pc_file" && -f "$pc_file" ]]; then
+                ver=$(grep -i "^Version:" "$pc_file" 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' 2>/dev/null | head -n 1 || true)
+                [[ -n "$ver" ]] && ver_log "Found in PC file ($pc_file): ${LOG_INFO}$ver${NC}"
+            fi
+        fi
+
+        # 5. Headers (Generic)
+        if [[ -z "$ver" ]]; then
+            local h_file=$(find . -maxdepth 3 \( -name "version.h" -o -name "*_version.h" \) 2>/dev/null | head -n 1)
+            if [[ -n "$h_file" && -f "$h_file" ]]; then
+                local maj=$(grep -iE 'define\s+.*VERSION_MAJOR' "$h_file" 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
+                local min=$(grep -iE 'define\s+.*VERSION_MINOR' "$h_file" 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
+                local pat=$(grep -iE 'define\s+.*VERSION_(MICRO|PATCH|BUILD)' "$h_file" 2>/dev/null | grep -oE '[0-9]+' 2>/dev/null | head -n1 || true)
+
+                if [[ -n "$maj" && -n "$min" ]]; then
+                    ver="${maj}.${min}.${pat:-0}"
+                else
+                    local ver_str=$(grep -iE 'define\s+VERSION\s+"?([0-9.]+)"?' "$h_file" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n1 || true)
+                    [[ -n "$ver_str" ]] && ver="$ver_str"
+                fi
+                [[ -n "$ver" ]] && ver_log "Found in Header ($h_file): ${LOG_INFO}$ver${NC}"
+            fi
+        fi
+
+        # 6. Autotools
+        if [[ -z "$ver" ]]; then
+            local conf_ac=$(find . -maxdepth 2 \( -name "configure.ac" -o -name "configure.in" \) 2>/dev/null | head -n 1)
+            if [[ -n "$conf_ac" && -f "$conf_ac" ]]; then
+                ver=$(grep -m1 "AC_INIT" "$conf_ac" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' 2>/dev/null | head -n 1 || true)
+                [[ -n "$ver" ]] && ver_log "Found in Autotools: ${LOG_INFO}$ver${NC}"
+            fi
         fi
     fi
 
-    # F. Autotools
-    if [[ -z "$ver" ]]; then
-        local conf_ac
-        conf_ac=$(find . -maxdepth 1 \( -name "configure.ac" -o -name "configure.in" \) 2>/dev/null | head -n 1)
-        if [[ -n "$conf_ac" && -f "$conf_ac" ]]; then
-            ver=$(grep -m1 "AC_INIT" "$conf_ac" 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' 2>/dev/null | head -n 1 || true)
-            [[ -n "$ver" ]] && ver_log "Found in Autotools: ${LOG_INFO}$ver${NC}"
-        fi
+    # 59-opencl (OpenCL-Headers)
+    # CMakeLists.txt says "3.0", but releases are date-based (v2026.05.29).
+    if [[ "$STAGENAME" == *"opencl"* || "$STAGENAME" == *"OpenCL"* ]]; then
+        ver_log "OpenCL detected: Skipping CMake version, forcing remote tag lookup."
+        ver="" # Force empty to trigger remote check immediately
     fi
 
     # 4. Remote Git Detection
@@ -1558,14 +1655,34 @@ get_stage_version() {
                     matched_tag=$(echo "$remote_refs" | grep -E "^${full_commit:0:7}" | grep "refs/tags/" | head -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//' || true)
                     
                     if [[ -n "$matched_tag" ]]; then
-                        ver="$matched_tag"
+                        ver=$(clean_ver "$matched_tag")
                         ver_log "Found remote tag matching commit: ${LOG_INFO}$ver${NC}"
                     else
+                        # OpenCL Headers - prefer date-based tags
+                        if [[ "$STAGENAME" == *"opencl"* ]]; then
+                            # Filter for tags starting with 'v' followed by a date pattern (YYYY.MM.DD)
+                            local date_tag
+                            date_tag=$(echo "$remote_refs" | grep "refs/tags/v[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}" | tail -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//' || true)
+                            if [[ -n "$date_tag" ]]; then
+                                ver=$(clean_ver "$date_tag")
+                                ver_log "Found OpenCL date tag: ${LOG_INFO}$ver${NC}"
+                            fi
+                        fi
+                        # Fallback: Get the LATEST tag (chronologically last in list is usually newest for simple tags)
+                        # This fixes xvid where the commit might not match a tag exactly but a recent tag exists.
                         local last_tag
                         last_tag=$(echo "$remote_refs" | grep "refs/tags/" | tail -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//' || true)
+
                         if [[ -n "$last_tag" ]]; then
-                            ver="$last_tag"
-                            ver_log "Fallback to last remote tag: ${LOG_INFO}$ver${NC}"
+                            # Clean the tag (remove 'v', 'R', etc.)
+                            ver=$(clean_ver "$last_tag")
+                            # If the tag looks like "xvidcore" (just the name), skip it
+                            if [[ "$ver" == "xvidcore" || "$ver" == "flite" || "$ver" == "mpg123" ]]; then
+                                ver_log "Remote tag '$last_tag' is just a repo name, skipping."
+                                ver=""
+                            else
+                                ver_log "Fallback to last remote tag: ${LOG_INFO}$ver${NC}"
+                            fi
                         fi
                     fi
                 fi
@@ -1579,10 +1696,10 @@ get_stage_version() {
             local local_git_tag
             local_git_tag=$(git describe --tags --abbrev=0 2>/dev/null || true)
             if [[ -n "$local_git_tag" ]]; then
-                ver=$(echo "$local_git_tag" | sed -E 's/^[a-zA-Z_-]+//' || true)
+                ver=$(clean_ver "$local_git_tag")
                 ver_log "Found in local .git: ${LOG_INFO}$ver${NC}"
             fi
-            
+
             if [[ -z "$ver" ]]; then
                 ver="git-$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")"
                 ver_log "Local .git found but no tag, using hash: ${LOG_INFO}$ver${NC}"
@@ -1590,7 +1707,7 @@ get_stage_version() {
         fi
     fi
 
-    # 6. Final Fallbacks
+    # 6. Final Fallbacks (Commit hash or Folder name)
     if [[ -z "$ver" && -n "$current_commit" ]]; then
         ver="git-${current_commit:0:7}"
         ver_log "No tags found anywhere, defaulting to commit hash: ${LOG_INFO}$ver${NC}"
@@ -1605,10 +1722,10 @@ get_stage_version() {
     if [[ -z "$ver" ]]; then
         ver="0.0.1"
     fi
-    
+
     ver=$(echo "$ver" | sed -E 's/^[a-zA-Z_-]+//' | tr -d '"' | tr -d "'" | xargs)
-    
-    ver_log "${LOG_WARN}--- FINAL RESULT FOR${NC} $STAGENAME: ${LOG_INFO}$ver${NC} ${LOG_WARN}---${NC}"
+
+    ver_log "${LOG_WARN}--- FINAL RESULT FOR${NC} ${GREY_B}$STAGENAME${NC}: ${LOG_INFO}$ver${NC} ${LOG_WARN}---${NC}"
 
     echo "$ver" > "$version_file"
     echo "$ver"

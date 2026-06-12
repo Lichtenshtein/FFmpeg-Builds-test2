@@ -80,7 +80,7 @@ ffbuild_dockerbuild() {
     # Собираем список всех библиотек для Libs (согласно flite.pc.in и реальности)
     # Порядок важен: сначала голоса и лексиконы, в конце -lflite
     local VOX_LIBS=$(find "$INSTALL_ROOT/lib" -name "libflite_*.a" | sed "s|.*/lib\(flite_.*\)\.a|-l\1|" | xargs)
-
+echo "test"
     cat <<EOF > "$PC_DIR/flite.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
