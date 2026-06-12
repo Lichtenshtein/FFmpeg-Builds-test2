@@ -3,7 +3,7 @@
 SCRIPT_REPO="https://github.com/cynagenautes/AudioToolboxWrapper.git"
 SCRIPT_COMMIT="191aa1bf840e093cad48a5d34c961086641bacbd"
 
-# Ссылка на бинарные файлы Apple (CoreAudio)
+# Apple (CoreAudio)
 # QTFILES_URL="https://github.com/AnimMouse/QTFiles/releases/download/v12.13.9.1/QTfiles64.7z"
 
 ffbuild_enabled() {
@@ -14,6 +14,11 @@ ffbuild_dockerdl() {
     default_dl .
     # echo "git clean -fdx"
     # echo "download_file \"$QTFILES_URL\" \"qtfiles64.7z\""
+    # echo "7z x qtfiles64.7z -o\"apple_dlls\""
+    # echo "rm -f qtfiles64.7z"
+    # if [[ -d ".git" ]]; then
+        # git add .
+    # fi
 }
 
 ffbuild_dockerbuild() {
@@ -55,11 +60,6 @@ Cflags: -I\${includedir} -I\${includedir}/AudioToolbox
 EOF
 
     # cd ..
-
-    # Обработка бинарных DLL Apple
-    # log_info "Extracting Apple CoreAudio DLLs..."
-    # Распаковываем
-    # 7z x qtfiles64.7z -o"apple_dlls"
 
     # Создаем папку bin в префиксе назначения, если её нет
     # mkdir -p "$INSTALL_ROOT/bin"

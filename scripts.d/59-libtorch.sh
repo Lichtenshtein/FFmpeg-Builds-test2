@@ -12,14 +12,14 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    # echo "curl -sL \"$SCRIPT_REPO\" --output libtorch.zip && unzip -qq libtorch.zip && mv libtorch libtorch_src"
     echo "download_file \"$SCRIPT_REPO\" \"libtorch.zip\""
+    echo "unzip -qq libtorch.zip"
+    echo "rm -f libtorch.zip"
 }
 
 ffbuild_dockerbuild() {
     set -e
 
-    unzip -qq libtorch.zip
     local LT_DIR=$(find . -maxdepth 1 -type d -name "libtorch*" | head -n 1)
     cd "$LT_DIR"
 
