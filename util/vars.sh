@@ -1479,9 +1479,14 @@ get_stage_version() {
         local h_file="src/version.h"
         [[ ! -f "$h_file" ]] && h_file=$(find . -maxdepth 3 -name "version.h" -path "*/src/*" 2>/dev/null | head -n1)
         if [[ -n "$h_file" && -f "$h_file" ]]; then
-            local maj=$(grep -E '^#define\s+MPG123_MAJOR\s+' "$h_file" 2>/dev/null | grep -oE '[0-9]+' || true)
-            local min=$(grep -E '^#define\s+MPG123_MINOR\s+' "$h_file" 2>/dev/null | grep -oE '[0-9]+' || true)
-            local pat=$(grep -E '^#define\s+MPG123_PATCH\s+' "$h_file" 2>/dev/null | grep -oE '[0-9]+' || true)
+            local maj=$(grep -E '^#define\s+MPG123_MAJOR\s+' "$h_file" 2>/dev/null | awk '{print $NF}' || true)
+            local min=$(grep -E '^#define\s+MPG123_MINOR\s+' "$h_file" 2>/dev/null | awk '{print $NF}' || true)
+            local pat=$(grep -E '^#define\s+MPG123_PATCH\s+' "$h_file" 2>/dev/null | awk '{print $NF}' || true)
+
+            maj=$(echo "$maj" | grep -oE '[0-9]+' | head -n1)
+            min=$(echo "$min" | grep -oE '[0-9]+' | head -n1)
+            pat=$(echo "$pat" | grep -oE '[0-9]+' | head -n1)
+
             if [[ -n "$maj" && -n "$min" ]]; then
                 ver="${maj}.${min}.${pat:-0}"
                 ver_log "Found mpg123 version in $h_file: ${LOG_INFO}$ver${NC}"
@@ -1560,10 +1565,16 @@ get_stage_version() {
         local h_file="libjbig/jbig.h"
         [[ ! -f "$h_file" ]] && h_file=$(find . -maxdepth 3 -name "jbig.h" -path "*/libjbig/*" 2>/dev/null | head -n1)
         if [[ -n "$h_file" && -f "$h_file" ]]; then
-            local maj=$(grep -E '^#define\s+JBG85_VERSION_MAJOR\s+' "$h_file" 2>/dev/null | grep -oE '[0-9]+' || true)
-            local min=$(grep -E '^#define\s+JBG85_VERSION_MINOR\s+' "$h_file" 2>/dev/null | grep -oE '[0-9]+' || true)
+            local maj=$(grep -E '^#define\s+JBG_VERSION_MAJOR\s+' "$h_file" 2>/dev/null | grep -oE '[0-9]+' || true)
+            local min=$(grep -E '^#define\s+JBG_VERSION_MINOR\s+' "$h_file" 2>/dev/null | grep -oE '[0-9]+' || true)
+
             if [[ -n "$maj" && -n "$min" ]]; then
                 ver="${maj}.${min}"
+            else
+                ver=$(grep -E '^#define\s+JBG_VERSION\s+' "$h_file" 2>/dev/null | grep -oE '[0-9]+(\.[0-9]+)+' | head -n1 || true)
+            fi
+
+            if [[ -n "$ver" ]]; then
                 ver_log "Found jbigkit version in $h_file: ${LOG_INFO}$ver${NC}"
             fi
         fi

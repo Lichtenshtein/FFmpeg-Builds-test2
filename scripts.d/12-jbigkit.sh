@@ -42,7 +42,7 @@ ffbuild_dockerbuild() {
         mv "$f" "${f#lib}" 2>/dev/null || true
     done
     popd
-
+echo "test"
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/jbigkit.pc"
 prefix=$FFBUILD_PREFIX
