@@ -155,7 +155,7 @@ libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
 Name: x265
-Description: H.265/HEVC video encoder
+Description: H.265/HEVC (High Efficiency Video Coding) video encoder
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lx265
 Libs.private: -lstdc++ -lm -lgcc -lmingwex -lmingw32 -luser32 -ladvapi32 -lshell32

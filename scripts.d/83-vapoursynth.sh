@@ -345,7 +345,7 @@ libdir=\${prefix}/lib
 includedir=\${prefix}/include/vapoursynth
 
 Name: vapoursynth
-Description: A frameserver for the 21st century
+Description: A script-based video processing frameserver for the 21st century
 Version: ${VS_VER}
 Libs: -L\${libdir} -lvapoursynth
 Libs.private: -lstdc++ -lwinmm

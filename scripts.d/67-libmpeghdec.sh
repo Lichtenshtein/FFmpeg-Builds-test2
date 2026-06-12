@@ -47,7 +47,7 @@ libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
 Name: mpeghdec
-Description: MPEG-H 3D Audio Decoder library
+Description: Fraunhofer MPEG-H 3D Audio Decoder library
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lmpeghdec
 Libs.private: -lstdc++

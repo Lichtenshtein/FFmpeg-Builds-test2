@@ -49,7 +49,7 @@ libdir=\${prefix}/lib
 includedir=\${prefix}/include
 
 Name: Crypto++
-Description: A modern CMake build project for Crypto++
+Description: Free C++ class library of cryptographic schemes with modern CMake build
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lcryptopp
 Libs.private: -lstdc++

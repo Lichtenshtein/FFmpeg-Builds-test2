@@ -89,7 +89,7 @@ libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
 Name: codec2
-Description: A speech codec for 2400 bit/s and below
+Description: A speech codec designed for communications quality speech between 700 and 3200 bit/s
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lcodec2
 Libs.private: -lm

@@ -60,7 +60,7 @@ libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
 Name: libmpg123
-Description: MPEG 1.0/2.0/2.5 audio decoder
+Description: Fast console MPEG Audio Player and decoder library
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lmpg123
 Cflags: -I\${includedir}
