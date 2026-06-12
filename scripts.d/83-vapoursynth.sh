@@ -19,7 +19,6 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    set -xe
     default_dl .
 
     # Очистка перед скачиванием
@@ -31,11 +30,9 @@ ffbuild_dockerdl() {
 
     echo "mkdir -p python_win/bin python_win/include temp_hdrs"
 
-    # Распаковка (mkdir не нужен, -d создаст python_win/bin сам)
     echo "unzip -qo python_embed.zip -d python_win/bin"
     echo "unzip -qo python_hdrs.zip -d temp_hdrs"
 
-    # Перемещение заголовков и очистка временных файлов
     echo "cp -r temp_hdrs/cpython-*/Include/* python_win/include/"
     echo "cp temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true"
 
