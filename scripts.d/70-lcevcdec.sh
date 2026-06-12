@@ -5,6 +5,7 @@ SCRIPT_COMMIT="b033a6d1f68a80ac1d972f34cf1740000b544571"
 
 ffbuild_depends() {
     echo vulkan-headers
+    echo vulkan-loader
     echo shaderc
 }
 
