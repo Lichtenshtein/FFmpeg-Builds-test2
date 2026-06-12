@@ -37,8 +37,8 @@ exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
-Name: gsm
-Description: GSM 06.10 lossy speech compression library
+Name: GSM
+Description: GSM 06.10 lossy speech compression library used in Mobile telecommunication (GSM)
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lgsm
 Cflags: -I\${includedir} -I\${includedir}/gsm

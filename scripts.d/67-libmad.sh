@@ -55,8 +55,8 @@ exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
-Name: mad
-Description: MPEG Audio Decoder
+Name: MAD
+Description: MPEG audio decoder library
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lmad
 Libs.private: -lm

@@ -104,7 +104,7 @@ libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
 Name: OpenCL
-Description: OpenCL ICD Loader
+Description: OpenCL ICD Loader project
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lOpenCL
 Cflags: -I\${includedir} -I\${includedir}/CL

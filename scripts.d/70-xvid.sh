@@ -1,8 +1,5 @@
 #!/bin/bash
 export USE_VERS_FINDER=1
-# SCRIPT_REPO="https://svn.xvid.org/trunk/xvidcore"
-# SCRIPT_REV="2202"
-
 SCRIPT_REPO="https://github.com/m-ab-s/xvid.git"
 SCRIPT_COMMIT="04bccf378d628d78efe28e39b0a94f0c206664a9"
 SCRIPT_BRANCH="mabs"
@@ -59,7 +56,7 @@ libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
 Name: xvidcore
-Description: Xvid MPEG-4 video codec library
+Description: Xvid MPEG-4 open-source video codec library
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lxvidcore
 Libs.private: -pthread

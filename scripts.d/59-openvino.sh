@@ -243,7 +243,7 @@ libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
 Name: OpenVINO
-Description: Intel OpenVINO Runtime Static Library for FFmpeg
+Description: Intel OpenVINO Runtime Static Library
 Version: ${VER_FULL}
 Cflags: -I\${includedir} -I\${includedir}/openvino $static_flags $self_static_flags
 Libs: -L\${libdir} ${CORE_LIBS} ${INTER_LIB} ${COMPONENT_LIBS} ${PUGI_LIB}

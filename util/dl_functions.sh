@@ -497,12 +497,14 @@ download_stage() {
     if [[ $dl_status -eq 0 ]]; then
         (
         cd "$WORK_DIR" || exit 0
-        if [[ "$USE_VERS_FINDER" == "1" ]]; then
-            if [[ -f "$STAGE" ]]; then
-                source "$STAGE"
-            else
-                source "${ROOT_DIR}/${STAGE}" 2>/dev/null || true
-            fi
+
+        if [[ -f "$STAGE" ]]; then
+            source "$STAGE"
+        else
+            source "${ROOT_DIR}/${STAGE}" 2>/dev/null || true
+        fi
+
+        if [[ "${USE_VERS_FINDER:-0}" == "1" ]]; then
             log_info "Running version auto-detection for ${STAGENAME}..."
             get_stage_version > /dev/null
         fi

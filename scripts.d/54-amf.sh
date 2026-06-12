@@ -9,7 +9,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "rm -rf .git Thirdparty"
+    echo "rm -rf Thirdparty"
     if [[ -d ".git" ]]; then
         git add .
     fi
@@ -17,6 +17,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     mkdir -p "$INSTALL_ROOT"/include
     mv amf/public/include "$INSTALL_ROOT"/include/AMF
 
@@ -28,7 +29,7 @@ libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
 Name: AMF
-Description: The Advanced Media Framework (AMF) SDK to access to AMD devices for multimedia processing
+Description: The Advanced Media Framework SDK to access to AMD devices for multimedia processing
 Version: ${VER_FULL}
 Cflags: -I\${includedir} -I\${includedir}/AMF
 EOF

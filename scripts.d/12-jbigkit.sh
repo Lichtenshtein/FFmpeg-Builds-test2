@@ -51,7 +51,7 @@ libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
 Name: jbigkit
-Description: JBIG1 lossless image compression library
+Description: JBIG1 lossless highly effective image data compression library
 Version: ${VER_FULL}
 Libs: -L\${libdir} -ljbig
 Cflags: -I\${includedir}

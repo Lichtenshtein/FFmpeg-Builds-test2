@@ -45,7 +45,7 @@ libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
 Name: xxhash
-Description: Extremely fast hash algorithm
+Description: Extremely fast hash non-cryptographic algorithm
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lxxhash
 Cflags: -I\${includedir}

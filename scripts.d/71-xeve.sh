@@ -17,6 +17,7 @@ ffbuild_dockerbuild() {
 
     if [ ! -f "version.txt" ]; then
         rm -f version.txt
+        log_info "Adding version..."
         echo "v${VER_FULL}" > version.txt
     fi
 

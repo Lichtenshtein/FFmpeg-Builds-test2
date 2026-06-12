@@ -3,9 +3,6 @@ export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/Luiz-Monad/liblame.git"
 SCRIPT_COMMIT="fe309eb331421ee6534ba795dbc298e19093f96f"
 
-# SCRIPT_REPO="https://svn.code.sf.net/p/lame/svn/trunk/lame"
-# SCRIPT_REV="6531"
-
 ffbuild_depends() {
     echo base
     echo libiconv
@@ -79,7 +76,7 @@ libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
 Name: lame
-Description: High quality MPEG Audio Layer III (MP3) encoder
+Description: High quality MPEG Audio Layer III (MP3) open-source encoder
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lmp3lame
 Libs.private: -lm

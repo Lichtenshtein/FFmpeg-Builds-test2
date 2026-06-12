@@ -46,7 +46,7 @@ libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
 Name: Snappy
-Description: A fast compressor/decompressor library.
+Description: A fast compressor/decompressor library
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lsnappy
 Cflags: -I\${includedir}

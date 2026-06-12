@@ -37,7 +37,7 @@ libdir=\${exec_prefix}/lib
 includedir=\${prefix}/include
 
 Name: giflib
-Description: Library for reading and writing GIF files
+Description: Library for reading, writing, and manipulating GIF image files
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lgif
 Cflags: -I\${includedir}

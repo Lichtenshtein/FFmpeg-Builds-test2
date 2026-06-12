@@ -53,7 +53,7 @@ libdir=\${prefix}/lib
 includedir=\${prefix}/include
 
 Name: SoundTouch
-Description: Audio Processing Library
+Description: Audio Processing Library that allows changing the sound tempo, pitch and playback rate
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lSoundTouch
 Libs.private: -lstdc++ -lm
