@@ -17,10 +17,10 @@ ffbuild_dockerbuild() {
 
     if [ ! -f "version.txt" ]; then
         rm -f version.txt
-        echo "v0.5.0" > version.txt
+        echo "v${VER_FULL}" > version.txt
     fi
 
-    find pkgconfig -name "*.pc.in" -exec sed -i "s|Version: .*|Version: 0.5.0|g" {} +
+    find pkgconfig -name "*.pc.in" -exec sed -i "s|Version: .*|Version: ${VER_FULL}|g" {} +
 
     find src_base -name "CMakeLists.txt" -exec sed -i 's|${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig/|${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/|g' {} +
     find src_main -name "CMakeLists.txt" -exec sed -i 's|${CMAKE_CURRENT_SOURCE_DIR}/pkgconfig/|${CMAKE_CURRENT_SOURCE_DIR}/../pkgconfig/|g' {} +
