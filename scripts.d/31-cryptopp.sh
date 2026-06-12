@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/abdes/cryptopp-cmake.git"
 SCRIPT_COMMIT="866aceb8b13b6427a3c4541288ff412ad54f11ea"
 

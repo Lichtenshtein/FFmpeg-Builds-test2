@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/vapoursynth/vapoursynth.git"
 SCRIPT_COMMIT="33769c5401c63a68b92212430b53abb058bc5f83"
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/mpeg5/xevd.git"
 SCRIPT_COMMIT="4087f635624cf4ee6ebe3f9ea165ff939b32117f"
 

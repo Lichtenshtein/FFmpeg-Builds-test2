@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/Fraunhofer-IIS/mpeghdec.git"
 SCRIPT_COMMIT="c08b803dec53ee6e968253d6b031f8d14ce936ec"
 

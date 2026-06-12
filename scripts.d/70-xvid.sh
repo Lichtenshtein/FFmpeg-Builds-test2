@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 # SCRIPT_REPO="https://svn.xvid.org/trunk/xvidcore"
 # SCRIPT_REV="2202"
 

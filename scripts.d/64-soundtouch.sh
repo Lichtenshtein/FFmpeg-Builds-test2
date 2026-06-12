@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 SCRIPT_REPO="https://codeberg.org/soundtouch/soundtouch.git"
 SCRIPT_COMMIT="f738b1132ec1fd56efc90367898244cf52d9e6a5"
 

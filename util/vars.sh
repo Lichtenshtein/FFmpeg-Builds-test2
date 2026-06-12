@@ -203,6 +203,7 @@ export SKIP_POST_PC_PATCH=0 # inside main to disable .pc files normalization
 export SKIP_POST_CLEAN=0
 export SKIP_POST_AUDIT=0
 export SKIP_POST_STRIP=1 # inside dockerbuild
+export USE_VERS_FINDER=0 # inside main; enables component version lookup
 export USE_CONF_FINDER=0 # inside main; 1 for crooked autogen scripts 
 
 mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
@@ -1421,11 +1422,34 @@ export -f check_and_fix_configure
 # Получаем версию VER_FULL=$(get_stage_version)
 get_stage_version() {
     local version_file=".ffbuild_version"
+    local global_version_file=""
+
+    if [[ -n "${STAGENAME:-}" ]]; then
+        local base_build_dir="${ROOT_DIR:-/build}"
+        if [[ -d "${base_build_dir}/${STAGENAME}" ]]; then
+            global_version_file="${base_build_dir}/${STAGENAME}/${version_file}"
+        fi
+    fi
+
+    # Если глобальный путь вычислить не удалось, ищем файл вверх по дереву
+    if [[ -z "$global_version_file" || ! -f "$global_version_file" ]]; then
+        local current_dir="$PWD"
+        # Поднимаемся максимум на 3 уровня вверх в поисках файла
+        for _ in {1..3}; do
+            if [[ -f "${current_dir}/${version_file}" ]]; then
+                global_version_file="${current_dir}/${version_file}"
+                break
+            fi
+            # Предотвращаем выход за пределы корня системы
+            [[ "$current_dir" == "/" ]] && break
+            current_dir=$(dirname "$current_dir")
+        done
+    fi
 
     # 1. Check for cached version first
-    if [[ -f "$version_file" ]]; then
+    if [[ -n "$global_version_file" && -f "$global_version_file" ]]; then
         local cached_ver
-        cached_ver=$(cat "$version_file")
+        cached_ver=$(cat "$global_version_file")
         if [[ -n "$cached_ver" ]]; then
             echo "$cached_ver"
             return 0
@@ -1773,7 +1797,12 @@ get_stage_version() {
 
     ver_log "${LOG_WARN}--- FINAL RESULT FOR${NC} ${GREY_B}$STAGENAME${NC}: ${LOG_INFO}$ver${NC} ${LOG_WARN}---${NC}"
 
-    echo "$ver" > "$version_file"
+    if [[ -n "$global_version_file" ]]; then
+        echo "$ver" > "$global_version_file"
+    else
+        echo "$ver" > "$version_file"
+    fi
+
     echo "$ver"
     return 0
 }

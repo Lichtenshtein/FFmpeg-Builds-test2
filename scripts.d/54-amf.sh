@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git"
 SCRIPT_COMMIT="eadd00804d5f7e5cd8c85d540073198312870776"
 
