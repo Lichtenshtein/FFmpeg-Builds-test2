@@ -6,7 +6,7 @@ SCRIPT_COMMIT="33769c5401c63a68b92212430b53abb058bc5f83"
 PY_VER="3.14"
 PY_FULL_VER="3.14.1"
 PY_LIB="python314" # Без точки для линковки
-VS_VER="77"
+VS_VER="${VER_FULL}" # 77
 
 ffbuild_depends() {
     echo zlib

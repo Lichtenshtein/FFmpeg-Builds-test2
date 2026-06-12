@@ -1,10 +1,10 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/KhronosGroup/OpenCL-Headers.git"
-SCRIPT_COMMIT="a98488062f50c77c3e2edaf9c4f8dca7c41781ec"
-
 SCRIPT_REPO2="https://github.com/KhronosGroup/OpenCL-ICD-Loader.git"
 SCRIPT_COMMIT2="b7bd2803acc779c03d96588e9ca9e9568a18698a"
+
+SCRIPT_REPO="https://github.com/KhronosGroup/OpenCL-Headers.git"
+SCRIPT_COMMIT="a98488062f50c77c3e2edaf9c4f8dca7c41781ec"
 
 SCRIPT_REPO3="https://github.com/KhronosGroup/OpenCL-CLHPP.git"
 SCRIPT_COMMIT3="5661a0efc215b1e05d3b90315c64f670101fdbde"
@@ -105,7 +105,7 @@ includedir=\${prefix}/include
 
 Name: OpenCL
 Description: OpenCL ICD Loader
-Version: 2026.05.29
+Version: ${VER_FULL}
 Libs: -L\${libdir} -lOpenCL
 Cflags: -I\${includedir} -I\${includedir}/CL
 EOF

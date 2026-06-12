@@ -57,7 +57,7 @@ includedir=\${prefix}/include
 
 Name: mad
 Description: MPEG Audio Decoder
-Version: 0.15.1b
+Version: ${VER_FULL}
 Libs: -L\${libdir} -lmad
 Libs.private: -lm
 Cflags: -I\${includedir}

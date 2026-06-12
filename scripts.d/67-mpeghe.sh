@@ -18,7 +18,7 @@ ffbuild_dockerbuild() {
     mkdir -p "$INSTALL_ROOT"/{include/ia_mpegh,bin,lib/pkgconfig}
 
     cd encoder
-echo "test"
+
     # Компиляция объектов с поддержкой LTO (через $CFLAGS)
     log_info "Compiling MPEG-H HE Audio Encoder objects..."
     for mpeghe in *.c; do
