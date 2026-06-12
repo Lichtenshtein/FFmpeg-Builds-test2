@@ -50,7 +50,7 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
-echo "test"
+
     if [[ ! -f "${PC_DIR}/libmpg123.pc" ]]; then
         mkdir -p "${PC_DIR}"
         cat <<EOF > "${PC_DIR}/libmpg123.pc"

@@ -1,11 +1,6 @@
 #!/bin/bash
 
-# SCRIPT_REPO="https://storage.openvinotoolkit.org/repositories/openvino/packages/2025.4.1/windows/openvino_toolkit_windows_2025.4.1.20426.82bbf0292c5_x86_64.zip"
-
 SCRIPT_REPO="https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.1/windows/openvino_toolkit_windows_2026.1.0.21367.63e31528c62_x86_64.zip"
-
-# SCRIPT_REPO="https://github.com/openvinotoolkit/openvino.git"
-# SCRIPT_COMMIT="61d1ca8c471ff930477c8f27926688ba112642a7"
 
 export SKIP_POST_PC_PATCH=1
 
@@ -18,15 +13,14 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    # Скачиваем с проверкой, что это действительно ZIP
-    # echo "curl -L \"$SCRIPT_REPO\" --output openvino.zip && unzip -qq openvino.zip && mv w_openvino_* openvino_src"
-    # echo "curl -sL \"$SCRIPT_REPO\" --output openvino.zip && unzip -qq openvino.zip && mv openvino_* openvino_src"
     echo "download_file \"$SCRIPT_REPO\" \"openvino.zip\""
+    echo "unzip -qq openvino.zip"
+    echo "rm -f openvino.zip"
 }
 
 ffbuild_dockerbuild() {
     set -e
-    unzip -qq openvino.zip
+
     local OV_DIR=$(find . -maxdepth 1 -type d -name "*openvino_*" | head -n 1)
     cd "$OV_DIR"
 

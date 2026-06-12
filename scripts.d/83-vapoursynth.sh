@@ -20,12 +20,23 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    # Добавляем команду очистки ПЕРЕД скачиванием тяжелых файлов
+
     echo "git clean -fdx"
-    # Загружаем Windows-версию Python (embed), чтобы забрать оттуда dll и либы для кросс-компиляции
+    # Windows-версия Python (embed); забраем dll и либы для кросс-компиляции
     echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}-embed-amd64.zip\" \"python_embed.zip\""
-    # Хедеры из официального репозитория (ветка 3.12)
+    # Хедеры из официального репозитория
     echo "download_file \"https://github.com/python/cpython/archive/refs/tags/v${PY_FULL_VER}.zip\" \"python_hdrs.zip\""
+
+    # Распаковка (mkdir не нужен, -d создаст python_win/bin сам)
+    echo "unzip -qo python_embed.zip -d python_win/bin"
+    echo "unzip -qo python_hdrs.zip -d temp_hdrs"
+
+    # Перемещение заголовков и очистка временных файлов
+    echo "mkdir -p python_win/include"
+    echo "mv temp_hdrs/cpython-*/Include/* python_win/include/"
+    echo "cp temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true"
+
+    echo "rm -rf temp_hdrs python_embed.zip python_hdrs.zip"
 }
 
 ffbuild_dockerbuild() {
@@ -69,8 +80,9 @@ endif
 
 incdir = include_directories('include')
 
-# Мы не ищем установку python через import('python'), так как мы передаем заголовки вручную
-# Но нам нужна зависимость для линковки vsscript
+# We don't look for a Python installation via import('python'), since we're passing the headers manually.
+# But we do need a dependency for linking vsscript.
+
 py_dep = dependency('python3', method: 'pkg-config')
 
 vs_current_release = '${VS_VER}' 
@@ -202,16 +214,6 @@ configure_file(
     output: 'vapoursynth.pc',
 )
 EOF
-
-    # Подготовка структуры Python
-    mkdir -p python_win/bin python_win/include
-    unzip -qo python_embed.zip -d python_win/bin
-
-    mkdir -p temp_hdrs
-    unzip -qo python_hdrs.zip -d temp_hdrs
-    mv temp_hdrs/cpython-*/Include/* python_win/include/
-    cp temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true
-    rm -rf temp_hdrs
 
     local CUR_DIR=$(pwd)
 

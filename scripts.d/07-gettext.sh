@@ -9,6 +9,7 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     echo "download_file \"$SCRIPT_REPO\" \"gettext.tar.gz\""
     echo "tar -xaf gettext.tar.gz --strip-components=1"
+    echo "rm -f gettext.tar.gz"
 }
 
 ffbuild_dockerbuild() {

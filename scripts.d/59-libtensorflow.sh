@@ -12,13 +12,13 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     echo "download_file \"$SCRIPT_REPO\" \"tensorflow.zip\""
+    echo "unzip -qq tensorflow.zip -d tf_src"
+    echo "rm -f tensorflow.zip"
 }
 
 ffbuild_dockerbuild() {
     set -e
 
-    # Распаковываем (unzip должен быть в base образе)
-    unzip -qq tensorflow.zip -d tf_src
     cd tf_src
 
     mkdir -p "$INSTALL_ROOT"/{include/tensorflow/c,bin,lib/pkgconfig}
