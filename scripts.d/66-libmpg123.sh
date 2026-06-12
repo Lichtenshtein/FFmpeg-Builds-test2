@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/madebr/mpg123.git"
-SCRIPT_COMMIT="f1c44b42a97e42294b839787ec6f7aaa4d40381a"
+SCRIPT_COMMIT="febfff51f762e644e8620536fc847af4c6b741bb"
 
 ffbuild_enabled() {
     return 0
@@ -50,7 +50,7 @@ ffbuild_dockerbuild() {
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
-echo "test"
+
     if [[ ! -f "${PC_DIR}/libmpg123.pc" ]]; then
         mkdir -p "${PC_DIR}"
         cat <<EOF > "${PC_DIR}/libmpg123.pc"
