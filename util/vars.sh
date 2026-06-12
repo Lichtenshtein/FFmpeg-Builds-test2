@@ -1435,7 +1435,7 @@ get_stage_version() {
     # Define verbose logger locally
     ver_log() { 
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then 
-            log_debug "${LOG_WARN}[VER]${NC} $*" >&2; 
+            log_debug "$*" >&2; 
         fi 
     }
 
@@ -1503,10 +1503,8 @@ get_stage_version() {
     if [[ "$STAGENAME" == *"libgsm"* || -f "ChangeLog" ]]; then
         local changelog="ChangeLog"
         if [[ -f "$changelog" ]]; then
-            # Look for "Release 1.0 Patchlevel X"
-            ver=$(grep -i "Release.*Patchlevel" "$changelog" 2>/dev/null | head -n1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
-            # Fallback to "Release 1.0" if Patchlevel is missing
-            if [[ -z "$ver" ]]; then
+            ver=$(grep -i "Release.*Patchlevel" "$changelog" 2>/dev/null | head -n1 | sed -E 's/.*Release[[:space:]]+([0-9]+\.[0-9]+)[[:space:]]+Patchlevel[[:space:]]+([0-9]+).*/\1.\2/I' || true)
+            if [[ -z "$ver" || "$ver" == *"Release"* ]]; then
                 ver=$(grep -i "Release 1.0" "$changelog" 2>/dev/null | head -n1 | grep -oE '[0-9]+\.[0-9]+' || true)
                 [[ -n "$ver" ]] && ver="${ver}.0"
             fi
@@ -1551,15 +1549,25 @@ get_stage_version() {
     fi
 
     # E. vapoursynth: Parse version from meson.build (version: '77')
-    if [[ "$STAGENAME" == *"vapoursynth"* || -f "meson.build" ]]; then
+    if [[ "$STAGENAME" == *"vapoursynth"* && -f "meson.build" ]]; then
         local meson="meson.build"
-        if [[ -f "$meson" ]]; then
-            # Look for version: '77' or version: "77"
-            ver=$(grep -E "^\s*version\s*:\s*['\"]" "$meson" 2>/dev/null | grep -oE "['\"] [0-9]+['\"]" | tr -d "'\"" | head -n1 || true)
-            [[ -n "$ver" ]] && ver_log "Found vapoursynth version in meson.build: ${LOG_INFO}$ver${NC}"
-        fi
+        ver=$(grep -E "^\s*version\s*:\s*['\"][0-9]+['\"]" "$meson" 2>/dev/null | head -n1 | sed -E "s/.*version\s*:\s*['\"]([0-9]+)['\"].*/\1/" || true)
+        [[ -n "$ver" ]] && ver_log "Found vapoursynth version in meson.build: ${LOG_INFO}$ver${NC}"
     fi
 
+    # jbigkit lib
+    if [[ "$STAGENAME" == *"jbigkit"* || -f "libjbig/jbig.h" ]]; then
+        local h_file="libjbig/jbig.h"
+        [[ ! -f "$h_file" ]] && h_file=$(find . -maxdepth 3 -name "jbig.h" -path "*/libjbig/*" 2>/dev/null | head -n1)
+        if [[ -n "$h_file" && -f "$h_file" ]]; then
+            local maj=$(grep -E '^#define\s+JBG85_VERSION_MAJOR\s+' "$h_file" 2>/dev/null | grep -oE '[0-9]+' || true)
+            local min=$(grep -E '^#define\s+JBG85_VERSION_MINOR\s+' "$h_file" 2>/dev/null | grep -oE '[0-9]+' || true)
+            if [[ -n "$maj" && -n "$min" ]]; then
+                ver="${maj}.${min}"
+                ver_log "Found jbigkit version in $h_file: ${LOG_INFO}$ver${NC}"
+            fi
+        fi
+    fi
 
     # F. Generic Fallbacks (CMake, PC, Headers, Autotools)
     # Only run these if we haven't found a version yet
@@ -1586,9 +1594,11 @@ get_stage_version() {
         fi
 
         # 3. Meson.build (Generic)
-        if [[ -z "$ver" && -f "meson.build" ]]; then
-            ver=$(grep -m1 "version\s*:" meson.build 2>/dev/null | grep -oE "[0-9]+(\.[0-9]+)+" 2>/dev/null | head -n 1 || true)
-            [[ -n "$ver" ]] && ver_log "Found in Meson: ${LOG_INFO}$ver${NC}"
+        if [[ -z "$ver" && "$STAGENAME" != *"vapoursynth"* ]]; then
+            if [[ -f "meson.build" ]]; then
+                ver=$(grep -i "version\s*:" meson.build 2>/dev/null | grep -v "meson_version" | grep -oE "[0-9]+(\.[0-9]+)+" | head -n 1 || true)
+                [[ -n "$ver" ]] && ver_log "Found in Meson: ${LOG_INFO}$ver${NC}"
+            fi
         fi
 
         # 4. .pc files
@@ -1629,7 +1639,7 @@ get_stage_version() {
         fi
     fi
 
-    # 59-opencl (OpenCL-Headers)
+    # opencl (OpenCL-Headers)
     # CMakeLists.txt says "3.0", but releases are date-based (v2026.05.29).
     if [[ "$STAGENAME" == *"opencl"* || "$STAGENAME" == *"OpenCL"* ]]; then
         ver_log "OpenCL detected: Skipping CMake version, forcing remote tag lookup."

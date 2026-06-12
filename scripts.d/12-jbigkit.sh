@@ -37,7 +37,7 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Исправляем странное именование CMake (liblibjbig.a -> libjbig.a)
-    pushd "$FFBUILD_DESTDIR$FFBUILD_PREFIX/lib"
+    pushd "$INSTALL_ROOT/lib"
     for f in liblibjbig*.a; do
         mv "$f" "${f#lib}" 2>/dev/null || true
     done
@@ -52,7 +52,7 @@ includedir=\${prefix}/include
 
 Name: jbigkit
 Description: JBIG1 lossless image compression library
-Version: 2.1
+Version: ${VER_FULL}
 Libs: -L\${libdir} -ljbig
 Cflags: -I\${includedir}
 EOF
