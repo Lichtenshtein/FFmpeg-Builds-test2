@@ -1658,51 +1658,51 @@ get_stage_version() {
     fi
 
     # 4. Remote Git Detection
-    if [[ -z "$ver" && -n "$current_repo" ]]; then
-        if ! command -v git &> /dev/null; then
-            ver_log "WARNING: git not found in PATH, skipping remote version check"
-        else
-            ver_log "No local version found. Attempting remote git check..."
-            
-            if [[ -n "$current_commit" ]]; then
-                local full_commit="${current_commit}"
-                ver_log "Checking remote tags for commit: ${full_commit:0:7}"
-                
-                local remote_refs
-                remote_refs=$(timeout 10 git ls-remote --tags "$current_repo" 2>/dev/null || true)
-                
-                if [[ -n "$remote_refs" ]]; then
-                    local matched_tag
-                    matched_tag=$(echo "$remote_refs" | grep -E "^${full_commit:0:7}" | grep "refs/tags/" | head -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//' || true)
-                    
-                    if [[ -n "$matched_tag" ]]; then
-                        ver=$(clean_ver "$matched_tag")
-                        ver_log "Found remote tag matching commit: ${LOG_INFO}$ver${NC}"
-                    else
-                        # OpenCL Headers - prefer date-based tags
-                        if [[ "$STAGENAME" == *"opencl"* ]]; then
-                            # Filter for tags starting with 'v' followed by a date pattern (YYYY.MM.DD)
-                            local date_tag
-                            date_tag=$(echo "$remote_refs" | grep "refs/tags/v[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}" | tail -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//' || true)
-                            if [[ -n "$date_tag" ]]; then
-                                ver=$(clean_ver "$date_tag")
-                                ver_log "Found OpenCL date tag: ${LOG_INFO}$ver${NC}"
-                            fi
-                        fi
-                        # Fallback: Get the LATEST tag (chronologically last in list is usually newest for simple tags)
-                        # This fixes xvid where the commit might not match a tag exactly but a recent tag exists.
-                        local last_tag
-                        last_tag=$(echo "$remote_refs" | grep "refs/tags/" | tail -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//' || true)
+    if [[ -z "$ver" ]]; then
+        if [[ -n "$current_repo" ]]; then
+            if ! command -v git &> /dev/null; then
+                ver_log "WARNING: git not found in PATH, skipping remote version check"
+            else
+                ver_log "No local version found. Attempting remote git check..."
 
-                        if [[ -n "$last_tag" ]]; then
-                            # Clean the tag (remove 'v', 'R', etc.)
-                            ver=$(clean_ver "$last_tag")
-                            # If the tag looks like "xvidcore" (just the name), skip it
-                            if [[ "$ver" == "xvidcore" || "$ver" == "flite" || "$ver" == "mpg123" ]]; then
-                                ver_log "Remote tag '$last_tag' is just a repo name, skipping."
-                                ver=""
-                            else
-                                ver_log "Fallback to last remote tag: ${LOG_INFO}$ver${NC}"
+                if [[ -n "$current_commit" ]]; then
+                    ver_log "Checking remote tags for commit: ${current_commit:0:7}"
+
+                    local remote_refs
+                    remote_refs=$(timeout 10 git ls-remote --tags "$current_repo" 2>/dev/null || true)
+
+                    if [[ -n "$remote_refs" ]]; then
+                        local matched_tag
+                        matched_tag=$(echo "$remote_refs" | grep -E "^${current_commit:0:7}" | grep "refs/tags/" | head -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//' || true)
+
+                        if [[ -n "$matched_tag" ]]; then
+                            ver=$(clean_ver "$matched_tag")
+                            ver_log "Found remote tag matching commit: ${LOG_INFO}$ver${NC}"
+                        else
+                            # OpenCL Headers - prefer date-based tags
+                            if [[ "$STAGENAME" == *"opencl"* ]]; then
+                                # Filter for tags starting with 'v' followed by a date pattern (YYYY.MM.DD)
+                                local date_tag
+                                date_tag=$(echo "$remote_refs" | grep "refs/tags/v[0-9]\{4\}\.[0-9]\{2\}\.[0-9]\{2\}" | tail -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//' || true)
+                                if [[ -n "$date_tag" ]]; then
+                                    ver=$(clean_ver "$date_tag")
+                                    ver_log "Found OpenCL date tag: ${LOG_INFO}$ver${NC}"
+                                fi
+                            fi
+
+                            if [[ -z "$ver" ]]; then
+                                local last_tag
+                                last_tag=$(echo "$remote_refs" | grep "refs/tags/" | tail -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//' || true)
+
+                                if [[ -n "$last_tag" ]]; then
+                                    local check_tag=$(clean_ver "$last_tag")
+                                    if [[ "$check_tag" == "xvidcore" || "$check_tag" == "flite" || "$check_tag" == "mpg123" || -z "$check_tag" ]]; then
+                                        ver_log "Remote tag '$last_tag' is invalid or just a repo name, skipping."
+                                    else
+                                        ver="$check_tag"
+                                        ver_log "Fallback to last remote tag: ${LOG_INFO}$ver${NC}"
+                                    fi
+                                fi
                             fi
                         fi
                     fi
@@ -1734,17 +1734,26 @@ get_stage_version() {
         ver_log "No tags found anywhere, defaulting to commit hash: ${LOG_INFO}$ver${NC}"
     fi
 
+    # Фоллбэк на имя папки
     if [[ -z "$ver" ]]; then
         ver=$(basename "$PWD" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' 2>/dev/null | head -n 1 || true)
         [[ -n "$ver" ]] && ver_log "Fallback to folder name: ${LOG_INFO}$ver${NC}"
     fi
 
-    # Final Sanitization
+    # Дефолт дефолтов
     if [[ -z "$ver" ]]; then
         ver="0.0.1"
     fi
 
-    ver=$(echo "$ver" | sed -E 's/^[a-zA-Z_-]+//' | tr -d '"' | tr -d "'" | xargs)
+    # Финальная очистка строк не ломает хэш, если он остался
+    if [[ "$ver" == "git-"* ]]; then
+        # Если это хэш, сохраняем префикс git- аккуратно
+        local hash_part="${ver#git-}"
+        ver="git-$(echo "$hash_part" | tr -d '"' | tr -d "'" | xargs)"
+    else
+        # Для обычных версий срезаем буквы
+        ver=$(echo "$ver" | sed -E 's/^[a-zA-Z_-]+//' | tr -d '"' | tr -d "'" | xargs)
+    fi
 
     ver_log "${LOG_WARN}--- FINAL RESULT FOR${NC} ${GREY_B}$STAGENAME${NC}: ${LOG_INFO}$ver${NC} ${LOG_WARN}---${NC}"
 
