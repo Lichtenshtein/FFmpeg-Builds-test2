@@ -1,0 +1,84 @@
+From 4ff725102c7662e209d8bc053d3ea0e7ea9a9c30 Mon Sep 17 00:00:00 2001
+From: MartinEesmaa <martin.eesmaa@protonmail.com>
+Date: Wed, 9 Oct 2024 09:18:46 +1100
+Subject: [PATCH] Add target library file & rename inc folder
+
+---
+ Makefile                       | 7 +++++--
+ {inc => include/gsm}/config.h  | 0
+ {inc => include/gsm}/gsm.h     | 0
+ {inc => include/gsm}/private.h | 0
+ {inc => include/gsm}/proto.h   | 0
+ {inc => include/gsm}/toast.h   | 0
+ {inc => include/gsm}/unproto.h | 0
+ 7 files changed, 5 insertions(+), 2 deletions(-)
+ rename {inc => include/gsm}/config.h (100%)
+ rename {inc => include/gsm}/gsm.h (100%)
+ rename {inc => include/gsm}/private.h (100%)
+ rename {inc => include/gsm}/proto.h (100%)
+ rename {inc => include/gsm}/toast.h (100%)
+ rename {inc => include/gsm}/unproto.h (100%)
+
+diff --git a/Makefile b/Makefile
+index 2ad5e5d..9a59002 100644
+--- a/Makefile
++++ b/Makefile
+@@ -80,7 +80,7 @@ INSTALL_ROOT	=
+ 
+ GSM_INSTALL_ROOT = $(INSTALL_ROOT)
+ GSM_INSTALL_LIB = $(GSM_INSTALL_ROOT)/lib
+-GSM_INSTALL_INC = $(GSM_INSTALL_ROOT)/inc
++GSM_INSTALL_INC = $(GSM_INSTALL_ROOT)/include/gsm
+ GSM_INSTALL_MAN = $(GSM_INSTALL_ROOT)/man/man3
+ 
+ 
+@@ -122,7 +122,7 @@ BIN	= $(ROOT)/bin
+ SRC	= $(ROOT)/src
+ LIB	= $(ROOT)/lib
+ TLS	= $(ROOT)/tls
+-INC	= $(ROOT)/inc
++INC	= $(ROOT)/include/gsm
+ 
+ # Flags
+ 
+@@ -282,6 +282,8 @@ TOAST_INSTALL_TARGETS =	\
+ all:		$(LIBGSM) $(TOAST) $(TCAT) $(UNTOAST)
+ 		@-echo $(ROOT): Done.
+ 
++libgsm:     $(LIBGSM)
++
+ tst:		$(TST)/lin2cod $(TST)/cod2lin $(TOAST) $(TST)/test-result
+ 		@-echo tst: Done.
+ 
+@@ -296,6 +298,7 @@ misc:		$(TLS)/sweet $(TLS)/bitter $(TLS)/sour $(TLS)/ginger 	\
+ install:	toastinstall gsminstall
+ 		@-echo install: Done.
+ 
++libgsm-install : gsminstall
+ 
+ # The basic API: libgsm
+ 
+diff --git a/inc/config.h b/include/gsm/config.h
+similarity index 100%
+rename from inc/config.h
+rename to include/gsm/config.h
+diff --git a/inc/gsm.h b/include/gsm/gsm.h
+similarity index 100%
+rename from inc/gsm.h
+rename to include/gsm/gsm.h
+diff --git a/inc/private.h b/include/gsm/private.h
+similarity index 100%
+rename from inc/private.h
+rename to include/gsm/private.h
+diff --git a/inc/proto.h b/include/gsm/proto.h
+similarity index 100%
+rename from inc/proto.h
+rename to include/gsm/proto.h
+diff --git a/inc/toast.h b/include/gsm/toast.h
+similarity index 100%
+rename from inc/toast.h
+rename to include/gsm/toast.h
+diff --git a/inc/unproto.h b/include/gsm/unproto.h
+similarity index 100%
+rename from inc/unproto.h
+rename to include/gsm/unproto.h

@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/MartinEesmaa/libgsm.git"
-SCRIPT_COMMIT="0f915c8872786fed91bb67837e3ad0c7a7144c1e"
+SCRIPT_REPO="https://github.com/maekawa-mugi/libgsm-playground.git"
+SCRIPT_COMMIT="f7fed756ba3c28792b876236cfbc69524ca048c7"
 
 ffbuild_enabled() {
     return 0
