@@ -13,7 +13,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-echo "test"
+
     rm -rf autom4te.cache config.cache
     mkdir -p m4
     libtoolize --force --copy
