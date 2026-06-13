@@ -209,24 +209,13 @@ if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
 fi
 
 if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc" ]]; then
-    log_info "🎯 Patching SvtJpegxs.pc for native C static linking..."
-    
-    # Полностью очищаем Cflags от прошлых экспериментов с C++
+    log_info "🎯 Applying force preprocessor override for SvtJpegxs.pc..."
+    # Очистка
     sed -i 's| -x c++||g' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
-    sed -i 's| -fpermissive||g' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
-    sed -i 's| -Wno-error=permissive||g' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
-    sed -i 's| -Wno-c++11-extensions||g' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
-    sed -i 's| -Wno-deprecated-declarations||g' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
-
-    #  Добавляем -lstdc++ в private libs (это необходимо, так как библиотека внутри написана на C++)
-    if ! grep -q -- "-lstdc++" "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"; then
-        sed -i '/^Libs.private:/ s/$/ -lstdc++/' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
-    fi
-
-    # Принудительно гасим генерацию __declspec(dllimport).
-    # Для этого в заголовочных файлах SVT используется подмена макросов. 
-    # Передаем -D_SVT_JPEG_XS_STATIC_ -DSHARED_LIBS=0 -DDLL_EXPORT=0
-    sed -i 's|^Cflags:.*|Cflags: -I${includedir}/svt-jpegxs -UDEF_DLL -D_SVT_JPEG_XS_STATIC_ -DSHARED_LIBS=0 -DDLL_EXPORT=0|' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
+    
+    # Хак: Переопределяем dllimport в пустую строку через макрос компилятора!
+    # Когда GCC встретит __declspec(dllimport), он проигнорирует его.
+    sed -i 's|^Cflags:.*|Cflags: -I${includedir}/svt-jpegxs -UDEF_DLL -D__declspec\(x\)=|' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
 fi
 
 
