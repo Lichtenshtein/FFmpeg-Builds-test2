@@ -36,7 +36,7 @@ ffbuild_dockerbuild() {
     export CC="${FFBUILD_TOOLCHAIN}-gcc"
     export CXX="${FFBUILD_TOOLCHAIN}-g++"
 
-    local CRT_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -pipe -g0 -fno-lto"
+    local CRT_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe -g0 -fno-lto"
 
     # 1. Headers
     cd mingw-w64-headers
@@ -77,7 +77,7 @@ ffbuild_dockerbuild() {
             export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
             export NM="${FFBUILD_CROSS_PREFIX}gcc-nm"
             export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
-            local PTHREAD_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma -pipe -g0 ${USELTO}${USELTO_C}"
+            local PTHREAD_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe -g0 ${USELTO}${USELTO_C}"
         else
             export AR="${FFBUILD_TOOLCHAIN}-ar"
             export RANLIB="${FFBUILD_TOOLCHAIN}-ranlib"

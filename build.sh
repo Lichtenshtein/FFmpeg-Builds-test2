@@ -791,30 +791,24 @@ if [[ "$DEBUG_MODE" == "1" && "$USE_AVX512" != "1" ]]; then
 fi
 
 if [[ "$DEBUG_MODE" == "1" ]]; then
-    # Печатаем прямо в stderr (>&2), чтобы Docker гарантированно это показал
-    echo -e "${LOG_WARN}[AUDIT-DEBUG] Entering audit block...${NC}" >&2
-    echo -e "${LOG_WARN}[AUDIT-DEBUG] PKG_DIR is: '${PKG_DIR}'${NC}" >&2
-    echo -e "${LOG_WARN}[AUDIT-DEBUG] TMP_DIR is: '${TMP_DIR}'${NC}" >&2
+    log_info "${START_MARK} Launching automated Wine+GDB crash audit..."
 
     TEST_EXE="${PKG_DIR}/bin/ffmpeg.exe"
-    # Если PKG_DIR пустой, попробуем поискать в дефолтном месте вашего дестдира
     if [[ ! -f "$TEST_EXE" ]]; then
-        echo -e "${LOG_ERROR}[AUDIT-DEBUG] NOT FOUND: $TEST_EXE. Trying alternative...${NC}" >&2
         TEST_EXE="/opt/ffdest/opt/ffbuild/bin/ffmpeg.exe"
     fi
-    echo -e "${LOG_WARN}[AUDIT-DEBUG] Target binary path: ${TEST_EXE}${NC}" >&2
 
     TEST_ARGS="-f lavfi -i color=c=black:s=640x360:d=1 -f null -"
 
     if ! command -v wine64 &> /dev/null && ! command -v wine &> /dev/null; then
         log_warn "Wine is not installed. Skipping."
     else
-        export WINEDEBUG="status,err,seh"
+        # Оставляем детальный лог только для критических ошибок
+        export WINEDEBUG="err,seh,status"
         export WINEARCH=win64
         export DISPLAY=:99
         export WINEDBG="--gdb --no-start" 
 
-        # Безопасно инициализируем TMP_DIR, если он пуст
         [[ -z "$TMP_DIR" ]] && TMP_DIR="/tmp"
         AUDIT_LOG="${TMP_DIR}/ffmpeg_crash_audit.log"
         mkdir -p "$TMP_DIR"
@@ -822,44 +816,35 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
 
         if command -v wine64 &> /dev/null; then WINE_CMD="wine64"; else WINE_CMD="wine"; fi
 
-        echo -e "${LOG_WARN}[AUDIT-DEBUG] Launching Wine command now...${NC}" >&2
+        # Безопасно выполняем тест
+        $WINE_CMD "$TEST_EXE" $TEST_ARGS > "$AUDIT_LOG" 2>&1 || true
+        WINE_EXIT=${PIPESTATUS}
 
-        # КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Защищаем от set -e с помощью "|| true" 
-        # Теперь скрипт НЕ упадет тут, даже если Wine вернет код ошибки!
-        $WINE_CMD "$TEST_EXE" $TEST_ARGS > "$AUDIT_LOG" 2>&1 || {
-            echo -e "${LOG_ERROR}[AUDIT-DEBUG] Wine command exited with non-zero status, but we saved it.${NC}" >&2
-        }
-        
-        # Получаем реальный код через специальную переменную баша
-        WINE_EXIT=${PIPESTATUS[0]}
-
-        # Гарантированный вывод в stderr (пробьет любое скрытие логов Docker)
-        echo -e "${LOG_DEBUG}=======================================================${NC}" >&2
-        echo -e "${LOG_DEBUG}   🚨 FORCED WINE SMOKE TEST LOG (>&2 DIRECT OUTPUT) 🚨" >&2
-        echo -e "${LOG_DEBUG}=======================================================${NC}" >&2
-        echo -e "${LOG_DEBUG}Wine Exit Code: $WINE_EXIT${NC}" >&2
-
+        # Выводим лог в консоль Docker
+        log_debug "${LOG_DEBUG}=======================================================${NC}"
+        log_debug "🚨 WINE SMOKE TEST ANALYSIS (DEBUG_MODE=1)"
+        log_debug "${LOG_DEBUG}=======================================================${NC}"
+        log_debug "Wine Exit Code: ${LOG_DEBUG}$WINE_EXIT${NC}"
         if [ -f "$AUDIT_LOG" ] && [ -s "$AUDIT_LOG" ]; then
             cat "$AUDIT_LOG" >&2
-        else
-            echo -e "${LOG_WARN}The log file $AUDIT_LOG is empty or missing!${NC}" >&2
-            echo -e "${LOG_WARN}Let's try to run ffmpeg textually without redirect to see output:${NC}" >&2
-            # Пробуем запустить без редиректа в файл, чисто на секунду
-            $WINE_CMD "$TEST_EXE" -version 2>&1 | head -n 5 >&2
         fi
-        echo -e "${LOG_DEBUG}=======================================================${NC}" >&2
+        log_debug  "${LOG_DEBUG}=======================================================${NC}"
 
-        # Логика проверок (оставляем без изменений, но вывод тоже в stderr)
-        if [[ $WINE_EXIT -ne 0 ]] || grep -Eiq "buffer overflow|stack smashing|stack_chk_fail|access violation|0xc000" "$AUDIT_LOG" 2>/dev/null; then
-            if [[ $WINE_EXIT -eq 1 ]] && ! grep -Eiq "access violation|stack_chk_fail|0xc000" "$AUDIT_LOG" 2>/dev/null; then
-                echo -e "${LOG_INFO}[INFO] Wine test responded textually.${NC}" >&2
+        # Ищем только маркеры переполнения буфера, 
+        # жесткие падения памяти (0xc0000005) или падения защиты стека (0xc0000409)
+        if [[ $WINE_EXIT -ne 0 ]] || grep -Eiq "buffer overflow|stack smashing|stack_chk_fail|stack-buffer-overflow|AddressSanitizer|SIGSEGV|Segmentation fault|access violation|illegal instruction|unhandled exception|0xc0000005|0xc0000409" "$AUDIT_LOG" 2>/dev/null; then
+
+            # Исключение для чисто текстовых некритичных ошибок синтаксиса FFmpeg
+            if [[ $WINE_EXIT -eq 1 ]] && ! grep -Eiq "access violation|illegal instruction|stack_chk_fail|stack-buffer-overflow|0xc0000005|0xc0000409" "$AUDIT_LOG" 2>/dev/null; then
+                log_info "${CHECK_MARK} Wine runtime smoke test responded textually. Binary structure is solid."
             else
-                echo -e "${LOG_ERROR}🚨 CRASH OR BUFFER OVERFLOW DETECTED!${NC}" >&2
+                log_error "HARDWARE FAULT OR BUFFER OVERFLOW DETECTED IN RUNTIME!"
+                log_error "Aborting build. Inspect the dump above to find the failing component."
+                exit 1 # включаем жесткое падение CI
             fi
         else
-            echo -e "${LOG_INFO}[INFO] Wine test passed without markers.${NC}" >&2
+            log_info "${CHECK_MARK} Wine runtime smoke test passed successfully. No overflows detected."
         fi
-        
         mv "$AUDIT_LOG" "${TMP_DIR}/last_audit_run.log" 2>/dev/null
     fi
 fi
@@ -870,15 +855,30 @@ fi
 # Стриппинг бинарников (удаление отладочных символов)
 # --strip-all; --strip-unneeded
 if [[ "$SKIP_POST_STRIP" != "1" ]]; then
-    log_info "${BROOM_MARK} Stripping binaries..."
-    find "$PKG_DIR/bin" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "${FFBUILD_CROSS_PREFIX}strip" --strip-unneeded {} \;
+    if declare -F strip_files >/dev/null; then
+        strip_files "$PKG_DIR/bin" "ffmpeg"
+    else
+        log_warn "strip_files function not found, falling back to basic strip"
+        find "$PKG_DIR/bin" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "${FFBUILD_CROSS_PREFIX}strip" --strip-unneeded {} \;
+    fi
 fi
+
+# Заходим в pkgroot, чтобы внутри архива не было лишних вложенных папок
+pushd "$FFMPEG_PKG_ROOT"
 
 # Упаковка
 log_info "${ARCH_MARK} Creating archive: ${BUILD_NAME}.7z"
-# Заходим в pkgroot, чтобы внутри архива не было лишних вложенных папок
-pushd "$FFMPEG_PKG_ROOT"
-7z a -mx7 -mmt=on "$FFBUILD_DESTDIR/${BUILD_NAME}.7z" "./${BUILD_NAME}/*"
+if [[ "$DEBUG_MODE" == "1" ]]; then
+    log_info "${SAVE_MARK} Packaging external debug symbols separately..."
+    # Находим все созданные .debug файлы и пакуем их отдельно
+    find "./${BUILD_NAME}" -name "*.debug" | 7z a -mx7 -mmt=on "$FFBUILD_DESTDIR/${BUILD_NAME}-debug-symbols.7z" -ai@
+    # Исключаем файлы .debug из основного пользовательского архива
+    7z a -mx7 -mmt=on "$FFBUILD_DESTDIR/${BUILD_NAME}.7z" "./${BUILD_NAME}/*" -xr!"*.debug"
+else
+    # Обычная сборка без дебаг-файлов
+    7z a -mx7 -mmt=on "$FFBUILD_DESTDIR/${BUILD_NAME}.7z" "./${BUILD_NAME}/*"
+fi
+
 popd
 
 # Генерация метаданных для GitHub Actions

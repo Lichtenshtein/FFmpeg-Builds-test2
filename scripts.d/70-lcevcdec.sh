@@ -20,8 +20,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    export SKIP_POST_STRIP=1
-
     mkdir -p build && cd build
 
     local myconf=(

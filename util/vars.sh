@@ -6,20 +6,20 @@ export LANG=C.UTF-8
 export LC_ALL=C.UTF-8
 
 # ANSI Color Codes
-export LOG_DEBUG='\x1b[1;35m'   # Purple (Bold)
-export LOG_INFO='\x1b[1;32m'    # Green (Bold)
-export LOG_WARN='\x1b[1;33m'    # Yellow (Bold)
-export LOG_ERROR='\x1b[1;31m'   # Red (Bold)
-export CYAN_B='\x1b[1;36m'      # Cyan (Bold)
-export GREY_B='\x1b[1;30m'      # Grey (Bold)
-export BLUE_B='\x1b[1;34m'      # Blue (Bold)
-export NC='\x1b[0m'             # No Color (Reset)
-export RED='\x1b[0;31m'         # Red
-export GREEN='\x1b[0;32m'       # Green
-export YELLOW='\x1b[0;33m'      # Yellow
-export BLUE='\x1b[0;34m'        # Blue
-export PURPLE='\x1b[0;35m'      # Purple
-export CYAN='\x1b[0;36m'        # Cyan
+export LOG_DEBUG='\x1b[1;35m' # Purple (Bold)
+export LOG_INFO='\x1b[1;32m'  # Green (Bold)
+export LOG_WARN='\x1b[1;33m'  # Yellow (Bold)
+export LOG_ERROR='\x1b[1;31m' # Red (Bold)
+export CYAN_B='\x1b[1;36m'    # Cyan (Bold)
+export GREY_B='\x1b[1;30m'    # Grey (Bold)
+export BLUE_B='\x1b[1;34m'    # Blue (Bold)
+export NC='\x1b[0m'           # No Color (Reset)
+export RED='\x1b[0;31m'       # Red
+export GREEN='\x1b[0;32m'     # Green
+export YELLOW='\x1b[0;33m'    # Yellow
+export BLUE='\x1b[0;34m'      # Blue
+export PURPLE='\x1b[0;35m'    # Purple
+export CYAN='\x1b[0;36m'      # Cyan
 
 # Marks
 export CHECK_MARK="${LOG_INFO}✔${NC}"
@@ -204,8 +204,7 @@ export SKIP_POST_CLEAN=0
 export SKIP_POST_AUDIT=0
 export USE_CONF_FINDER=0 # inside main; 1 for crooked autogen scripts 
 export USE_VERS_FINDER="${USE_VERS_FINDER:-0}" # inside main; enables component version lookup
-[[ "$DEBUG_MODE" == "1" ]] && \
-export SKIP_POST_STRIP=1 || export SKIP_POST_STRIP=0 # inside dockerbuild
+export SKIP_POST_STRIP=0 # inside dockerbuild
 
 mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 
@@ -230,20 +229,47 @@ should_apply_lto() {
     # Если имя стадии не определено
     [[ -z "$STAGENAME" ]] && return 1
 
-    # ЧЕРНЫЙ СПИСОК (Blacklist)
+
+    # ========================================
+    # ЧЕРНЫЙ СПИСОК (Blacklist): LTO запрещён
+    # ========================================
     # Библиотеки, которые ломают таблицы символов линкера
     case "$STAGENAME" in
-        "dav1d"|"openssl")
+        "05-libicu"|"16-glib2"|"16-libxml2"|"06-libiconv"|"07-gettext"|"11-bzlib"|"11-xz"|"11-zstd"|"12-libffi"|"15-pcre2"|"30-openssl"|"32-libssh"|"34-curl"|"62-libtesseract"|"59-leptonica"|"59-libtensorflow"|"59-libtorch"|"45-librsvg"|"40-cairo"|"43-pango")
             return 1
             ;;
     esac
 
-    # ВАРИАНТ А: БЕЛЫЙ СПИСОК
+    # ========================================
+    # БЕЛОЙ СПИСОК (WHITELIST): LTO разрешен
+    # ========================================
     # LTO включится ТОЛЬКО для этих библиотек.
     case "$STAGENAME" in
-        "fdk-aac"|"x264"|"x265"|"libopus"|"libmp3lame")
+        # Основные либы
+        "04-tbbmalloc"|"08-zlib"|"16-fftw3"|"27-freeglut")
             return 0
             ;;
+        # Основные тяжелые видеокодеки
+        "44-rav1e"|"70-aom"|"70-kvazaar"|"70-lcevcdec"|"70-libtheora"|"70-libvpx"|"70-openapv"|"70-openh264"|"70-svthevc"|"70-svtvp9"|"70-vvdec"|"70-vvenc"|"70-x264"|"70-x265"|"71-xeve"|"72-xevd")
+            return 0
+            ;;
+        # Аудиокодеки и обработка звука
+        "63-libogg"|"64-bs2b"|"64-chromaprint"|"64-libmysofa"|"64-libsamplerate"|"64-soundtouch"|"64-soxr"|"64-speex"|"65-rubberband"|"66-libmpg123"|"67-audiotoolbox"|"67-fdk-aac"|"67-ilbc"|"67-lc3"|"67-libcelt"|"67-libcodec2"|"67-libgsm"|"67-libmad"|"67-libmp3lame"|"67-libmpeghdec"|"67-libopus"|"67-mp3shine"|"67-mpeghe"|"67-opencore-amr"|"67-twolame"|"67-vo-amrwb"|"68-gme"|"68-modplug"|"68-openmpt")
+            return 0
+            ;;
+        # Ключевые графические фильтры высокого уровня
+        "40-zimg"|"51-spirv-cross"|"52-shaderc"|"53-libplacebo"|"59-opencl"|"59-openvino"|"61-opencv"|"84-nnedi3")
+            return 0
+            ;;
+        # легковесные кодеки
+        "37-giflib"|"37-libjpeg-turbo"|"37-libpng"|"37-libtiff"|"37-openjpeg"|"37-svtjpegxs"|"38-libwebp"|"45-libavif"|"45-libjxl")
+            return 0
+            ;;
+        # прочее
+        "18-cdio"|"18-cdiowpar"|"40-lensfun"|"47-libaribb24"|"47-libaribcaption"|"47-libass"|"47-zvbi"|"48-qrencode"|"48-quirc"|"54-amf"|"57-libklvanc"|"81-vidstab"|"85-libcaca"|"85-libudfread"|"86-libdvdcss"|"86-libdvdread"|"87-libdvdnav"|"88-libbluray")
+            return 0
+            ;;
+        # Все остальные компоненты собираются БЕЗ LTO
         *)
             return 1
             ;;
@@ -306,11 +332,17 @@ else
     STACK_FLAGS=" -fstack-protector-strong" # -mstackrealign
 fi
 
-[[ "$DEBUG_MODE" == "1" ]] && \
-export G_FLAGS="-g3" || export G_FLAGS="-g0 -fno-var-tracking-assignments"
+if [[ "$DEBUG_MODE" == "1" ]]; then
+    G_FLAGS="-g1"
+    RUST_STRIP_POLICY="none"
+else
+    # -g0 -fno-var-tracking-assignments - для компилятора GCC/G++: не раздувать отладочную информацию (даже скрытую)
+    G_FLAGS="-g0 -fno-var-tracking-assignments"
+    RUST_STRIP_POLICY="debuginfo"
+fi
 
 # Общие настройки Rust; codegen-units = 16 (default)
-COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=debuginfo -C codegen-units=1 -C opt-level=3 ${RUSTLTO}"
+COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=${RUST_STRIP_POLICY} -C codegen-units=1 -C opt-level=3 ${RUSTLTO}"
 
 # Общие и дополнительные либы
 SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
@@ -351,7 +383,6 @@ export HOST_CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -fno-plt -pipe $
 export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
 # Ветвление по TARGET
-# -g0 -fno-var-tracking-assignments - для компилятора GCC/G++: не раздувать отладочную информацию (даже скрытую)
 if [[ "$TARGET" == "win64" ]]; then
     export BASE_CFLAGS="-mms-bitfields${STACK_FLAGS} -Wno-attributes"
     export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
@@ -1232,20 +1263,49 @@ strip_files() {
     [[ ! -d "$target_dir" ]] && return 0
 
     local _strip_cmd="${FFBUILD_CROSS_PREFIX}strip"
+    local _objcopy_cmd="${FFBUILD_CROSS_PREFIX}objcopy"
     local size_before=$(du -sh "$target_dir" | cut -f1) # Замеряем размер ДО
 
-    log_info "${BROOM_MARK} Stripping $stage_name from debug symbols: [Size: ${GREY_B}$size_before${NC}]"
+    if [[ "$DEBUG_MODE" == "1" ]]; then
+        log_info "${BROOM_MARK} Extracting symbols from $stage_name... [Size: ${GREY_B}$size_before${NC}]"
 
-    find "$target_dir" -type f \
-        \( -name "*.exe" -o -name "*.dll" -o -name "*.a" -o -name "*.so*" \) \
-        ! -name "*.dll.a" -exec "$_strip_cmd" --strip-debug {} + 2>/dev/null || true
+        # Находим все исполняемые файлы и статические библиотеки
+        find "$target_dir" -type f \
+            \( -name "*.exe" -o -name "*.dll" -o -name "*.a" -o -name "*.so*" \) \
+            ! -name "*.dll.a" | while read -r file; do
+
+                # Проверяем, есть ли вообще в файле отладочные символы, чтобы не плодить пустые пустышки
+                if $_objcopy_cmd --help | grep -q "only-keep-debug" 2>/dev/null; then
+
+                    # Имя файла для внешних символов (например, libfdk-aac.a.debug)
+                    local debug_file="${file}.debug"
+
+                    # Копируем ТОЛЬКО отладочные символы во внешний файл
+                    "$_objcopy_cmd" --only-keep-debug "$file" "$debug_file" 2>/dev/null || continue
+
+                    # Вырезаем отладочные символы из оригинального файла бинарника/библиотеки
+                    "$_strip_cmd" --strip-debug "$file" 2>/dev/null || continue
+
+                    # Добавляем в оригинальный файл ссылку на внешний файл с дебагом (.gnu_debuglink)
+                    # Когда Wine или GDB загрузят этот файл, они увидят ссылку и автоматически подгрузят .debug файл
+                    cd "$(dirname "$file")"
+                    "$_objcopy_cmd" --add-gnu-debuglink="$(basename "$debug_file")" "$(basename "$file")" 2>/dev/null || true
+                    cd - >/dev/null
+                fi
+            done
+    else
+        log_info "${BROOM_MARK} Stripping $stage_name from debug symbols: [Size: ${GREY_B}$size_before${NC}]"
+        find "$target_dir" -type f \
+            \( -name "*.exe" -o -name "*.dll" -o -name "*.a" -o -name "*.so*" \) \
+            ! -name "*.dll.a" -exec "$_strip_cmd" --strip-debug {} + 2>/dev/null || true
+    fi
 
     local size_after=$(du -sh "$target_dir" | cut -f1)
 
     if [[ "$size_before" == "$size_after" ]]; then
-        log_info "${CHECK_MARK} Stripping finished. [Size unchanged: ${GREY_B}$size_after${NC}]"
+        log_info "${CHECK_MARK} Splitting/Stripping finished. [Size unchanged: ${GREY_B}$size_after${NC}]"
     else
-        log_info "${CHECK_MARK} Stripping finished. [$size_before -> ${GREY_B}$size_after${NC}]"
+        log_info "${CHECK_MARK} Splitting/Stripping finished. [$size_before -> ${GREY_B}$size_after${NC}]"
     fi
 }
 export -f strip_files

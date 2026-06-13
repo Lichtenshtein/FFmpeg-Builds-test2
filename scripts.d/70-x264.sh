@@ -27,8 +27,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    export SKIP_POST_STRIP=1
-
     if [[ ! -d ".git" ]]; then
         log_info "Creating x264 version metadata manually..."
         echo "#define X264_REV 3108" > x264_config.h
@@ -56,10 +54,9 @@ ffbuild_dockerbuild() {
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --enable-shared ) || \
         myconf+=( --enable-static )
-    [[ "$DEBUG_MODE" != "1" ]] && myconf+=( --enable-strip )
     # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    # явно указываем инструменты дл¤ стабильности
+    # явно указываем инструменты для стабильности
     export AS="nasm"
     export CC="${FFBUILD_CROSS_PREFIX}gcc"
 
@@ -67,7 +64,7 @@ ffbuild_dockerbuild() {
         --extra-cflags="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
         --extra-ldflags="$LDFLAGS ${USELTO}" || return 1
 
-    # если в config.log написано "asm: no", значит nasm не подцепилс¤
+    # если в config.log написано "asm: no", значит nasm не подцепился
     if grep -q "asm: no" config.log; then
         log_error "x264 configured WITHOUT assembly! Check config.log."
         return 1

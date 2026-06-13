@@ -18,8 +18,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    export SKIP_POST_STRIP=1
-
     local REPO_ROOT=$(pwd)
     cd build/linux
 
@@ -46,7 +44,6 @@ ffbuild_dockerbuild() {
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --enable-shared --disable-static )
-    [[ "$DEBUG_MODE" != "1" ]] && myconf+=( --enable-strip )
     # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     if [[ $TARGET == win* ]]; then
