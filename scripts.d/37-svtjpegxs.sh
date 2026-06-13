@@ -3,6 +3,8 @@
 SCRIPT_REPO="https://github.com/OpenVisualCloud/SVT-JPEG-XS.git"
 SCRIPT_COMMIT="8e50180ad909a0bdcdf91b462c64033f0fe3e112"
 
+export SKIP_PRE_PATCH=1
+
 ffbuild_enabled() {
     [[ $TARGET == win32 ]] && return 1
     return 0
@@ -14,15 +16,6 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-
-    log_info "🔧 Patching SvtJpegxs internal API macros for forced static linking..."
-
-    find . -type f -name "SvtJpegxs*.h" | while read -r header; do
-        if ! grep -q "FORCE_STATIC_FIX" "$header"; then
-            sed -i '1i #define FORCE_STATIC_FIX\n#ifdef PREFIX_API\n#undef PREFIX_API\n#endif\n#define PREFIX_API' "$header"
-            log_debug "Forced static macros applied to: $(basename "$header")"
-        fi
-    done
 
     # отключаем автоматическое определение архитектуры хоста
     # чтобы он не взял флаги процессора GitHub раннера
@@ -60,7 +53,7 @@ ffbuild_dockerbuild() {
         if ! grep -q -- "-lstdc++" "$PC_FILE"; then
             sed -i '/^Libs.private:/ s/$/ -lstdc++/' "$PC_FILE"
         fi
-        sed -i 's|^Cflags:.*|Cflags: -I${includedir} -UDEF_DLL|' "$PC_FILE"
+        sed -i 's|^Cflags:.*|Cflags: -I${includedir} -I${includedir}/svt-jpegxs -UDEF_DLL|' "$PC_FILE"
     done
 
     # FFmpeg иногда ищет просто svtjpegxs.pc. Создадим алиас.
