@@ -807,9 +807,11 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         # Включаем логирование критических ошибок и системных сбоев самой Windows/Wine
         # status - покажет коды завершения и исключения (например, STATUS_STACK_BUFFER_OVERRUN)
         # tid,seh - покажут Segmentation Faults и падения памяти (Access Violation)
-        export WINEDEBUG="status,err,seh"
+        export WINEDEBUG="status,err,seh,module"
         export WINEARCH=win64
         export DISPLAY=:99
+        # Предотвращает появление интерактивных окон Wine ( crash dialogs ), которые вешают контейнер
+        export WINEDBG="--gdb" 
 
         AUDIT_LOG="${TMP_DIR}/ffmpeg_crash_audit.log"
         mkdir -p "$TMP_DIR"
@@ -817,27 +819,35 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         # Запускаем напрямую через wine/wine64 без посредников
         # Захватываем код возврата в переменную WINE_EXIT
         set +o pipefail
-        wine "$TEST_EXE" $TEST_ARGS > "$AUDIT_LOG" 2>&1
+
+        if command -v wine64 &> /dev/null; then
+            WINE_CMD="wine64"
+        else
+            WINE_CMD="wine"
+        fi
+        $WINE_CMD "$TEST_EXE" $TEST_ARGS > "$AUDIT_LOG" 2>&1
         WINE_EXIT=$?
+
         set -o pipefail
 
         # Отладочный вывод результатов теста в общие логи Docker при verbose-режиме
-        if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-            echo -e "${LOG_DEBUG}--- Wine Smoke Test Executed ---${NC}"
-            echo -e "${LOG_DEBUG}Exit Code: $WINE_EXIT${NC}"
-            echo -e "${LOG_DEBUG}--- Content of Test Log: ---${NC}"
+        echo -e "${LOG_DEBUG}--- Wine Smoke Test Executed ---${NC}"
+        echo -e "${LOG_DEBUG}Exit Code: $WINE_EXIT${NC}"
+        echo -e "${LOG_DEBUG}--- Content of Test Log: ---${NC}"
+        if [ -f "$AUDIT_LOG" ] && [ -s "$AUDIT_LOG" ]; then
             cat "$AUDIT_LOG"
-            echo -e "${LOG_DEBUG}----------------------------${NC}"
+        else
+            echo -e "${LOG_WARN}Log file is empty or missing!${NC}"
         fi
+        echo -e "${LOG_DEBUG}----------------------------${NC}"
 
         # Проверяем: если код не 0, ИЛИ в логе есть системные маркеры краша Windows
-        if [[ $WINE_EXIT -ne 0 ]] || grep -Eiq "buffer overflow|stack smashing|SIGSEGV|Segmentation fault|access violation|illegal instruction|unhandled exception|0xc0000" "$AUDIT_LOG"; then
+        if [[ $WINE_EXIT -ne 0 ]] || grep -Eiq "buffer overflow|stack smashing|stack_chk_fail|SIGSEGV|Segmentation fault|access violation|illegal instruction|unhandled exception|0xc000" "$AUDIT_LOG"; then
 
             # ИСКЛЮЧЕНИЕ: Если FFmpeg просто ругается на неверный синтаксис, 
             # но при этом завершился нормально без падения памяти (код 1) - это НЕ краш ABI.
-            if [[ $WINE_EXIT -eq 1 ]] && ! grep -Eiq "access violation|illegal instruction|0xc0000005|0xc0000409" "$AUDIT_LOG"; then
+            if [[ $WINE_EXIT -eq 1 ]] && ! grep -Eiq "access violation|illegal instruction|stack_chk_fail|0xc0000005|0xc0000409" "$AUDIT_LOG"; then
                 log_info "${CHECK_MARK} Wine runtime smoke test responded textually. Binary structure is solid."
-                rm -f "$AUDIT_LOG"
             else
                 log_error "🚨 CRASH, HARDWARE FAULT OR BUFFER OVERFLOW DETECTED DURING TEST LAUNCH!"
                 echo -e "${LOG_ERROR}================== WINE RUNTIME LOG ==================${NC}"
@@ -850,7 +860,6 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
             fi
         else
             log_info "${CHECK_MARK} Wine runtime smoke test passed successfully. No overflows detected."
-            rm -f "$AUDIT_LOG"
         fi
     fi
 fi
