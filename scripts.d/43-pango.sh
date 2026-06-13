@@ -65,7 +65,7 @@ ffbuild_dockerbuild() {
         ninja $NINJA_V || return 1
         DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
     else
-        # Собираем только статические библиотеки
+        # Собираем только библиотеки (because building exes crashes with LTO)
         ninja pango/libpango-1.0.a \
               pango/libpangocairo-1.0.a \
               pango/libpangoft2-1.0.a \
