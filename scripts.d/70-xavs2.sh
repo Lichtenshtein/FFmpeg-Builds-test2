@@ -20,8 +20,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    export SKIP_POST_STRIP=1
-
     if [[ $TARGET == win* ]]; then
         # исправление ошибок LARGE_INTEGER и QueryPerformanceCounter
         sed -i '/#if SYS_WINDOWS/a #include <windows.h>' source/common/common.c
@@ -66,8 +64,7 @@ ffbuild_dockerbuild() {
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --enable-shared ) || \
         myconf+=( --enable-static )
-    [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
-    [[ "$DEBUG_MODE" != "1" ]] && myconf+=( --enable-strip )
+    # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
     if [[ $TARGET == win* ]]; then
         export AS="nasm"
     fi

@@ -3,8 +3,6 @@
 SCRIPT_REPO="https://github.com/GNOME/librsvg.git"
 SCRIPT_COMMIT="f7976944494b49518604cc03c36b7341db939010"
 
-export SKIP_POST_STRIP=1
-
 ffbuild_depends() {
     echo zlib
     echo xz
@@ -28,6 +26,8 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    export SKIP_POST_STRIP=1
 
     export CARGO_HOME="/opt/cargo"
     export RUSTUP_HOME="/opt/rustup"
