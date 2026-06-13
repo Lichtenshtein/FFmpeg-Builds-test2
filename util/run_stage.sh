@@ -34,6 +34,10 @@ sleep 1
 unset STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK REAL_CACHE
 eval "$(stage_vars "$STAGE")"
 
+if declare -F apply_lto_policy >/dev/null; then
+    apply_lto_policy
+fi
+
 # Очистка при выходе. Удаляем старые файлы, если они остались от прошлых запусков
 stage_cleanup() {
     local exit_code=$?

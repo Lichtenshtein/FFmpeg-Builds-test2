@@ -212,32 +212,81 @@ mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 # Clear base flags before declaration
 unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS RUSTFLAGS LIBS
 
-# Flags for the component build stage
+# ==============================================================
+# SMART SELECTIVE LTO OPTIMIZATION UNIT
+# ==============================================================
+# LTO in ffmpeg is bugged when compiled with gcc-(13-14-15) in mingw. You will meet 'lto1: internal compiler error: in choose_baseaddr, at config/i386/i386.cc:7447' or similar at linking time; compiler will crash.
+# You can 1) disable LTO for ffmpeg only, but enable LTO for ffmpeg components. 
+# Tip: -ffat-lto-objects is needed for ffmpeg linker to understand LTO code if LTO disabled for ffmpeg only but enabled for components. You can also add -fno-use-linker-plugin to --extra-ldflags to avoud the use of LTO code by ffmpeg itself. But you must be sure to NOT use cmake-specific flags that enable LTO (IPO) because they forcefully add -fno-fat-lto-objects that is unacceptable in our case.
+# Option 2) add -mstackrealign to ffmpeg c(xx)flags. With this flag the compiler does not crash. -mpreferred-stack-boundary=4 should not be used.
+# LTO will crash anyway because GCC is bugged, so don't bother too much. You may try to activate LTO selectivly for some components only.
+# Tip: rust has -C linker-plugin-lto LLVM Bitcode or LLVM MinGW
+# Tip: RUST may use -C lto=thin
 
+should_apply_lto() {
+    # Если глобальный флаг LTO выключен, оптимизация не применяется
+    [[ "$USE_LTO" != "1" ]] && return 1
+
+    # Если имя стадии не определено
+    [[ -z "$STAGENAME" ]] && return 1
+
+    # ЧЕРНЫЙ СПИСОК (Blacklist)
+    # Библиотеки, которые ломают таблицы символов линкера
+    case "$STAGENAME" in
+        "dav1d"|"openssl")
+            return 1
+            ;;
+    esac
+
+    # ВАРИАНТ А: БЕЛЫЙ СПИСОК
+    # LTO включится ТОЛЬКО для этих библиотек.
+    case "$STAGENAME" in
+        "fdk-aac"|"x264"|"x265"|"libopus"|"libmp3lame")
+            return 0
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    # ВАРИАНТ Б: Включить LTO для всего, кроме черного списка.
+    # (Раскомментировать строку ниже, блок Варианта А закомментировать)
+
+    # return 0
+}
+
+# Динамически перестраиваем переменные окружения
+apply_lto_policy() {
+    if should_apply_lto; then
+        log_info "⚡ [LTO ENABLED] Applying Link-Time Optimization for: $STAGENAME"
+        export RUSTLTO=" -C lto=fat"
+        export USELTO="-flto=auto -flto-partition=balanced -fno-stack-clash-protection -fno-toplevel-reorder"
+        export USELTO_C=" -ffat-lto-objects -flto-compression-level=14 -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline -Wno-odr"
+        export NOLTO="-fno-lto"
+        export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
+        export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
+        export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
+    else
+        # Принудительно гасим LTO для стадии без LTO
+        export RUSTLTO=""
+        export USELTO="-fno-lto"
+        export USELTO_C=""
+        export NOLTO="-fno-lto"
+        export AR="${FFBUILD_CROSS_PREFIX}ar" # Перепишет gcc-ar на обычный ar
+        export NM="${FFBUILD_CROSS_PREFIX}nm" # Перепишет gcc-nm на обычный nm
+        export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib" # Или ${FFBUILD_CROSS_PREFIX}ranlib
+    fi
+}
+
+# ==============================================================
+# Flags for the component build stage
+# ==============================================================
 # Tip: disable -fPIC, -ffast-math, if troubles occur
 # Tip: enable -ftree-vectorize for opt levels lower than -O3
 # Tip: don't use cflags -ffunction-sections, -fdata-sections, linker flag -Wl,--gc-sections with non-static and non GCC builds
 # Tip: don't use -fno-plt flag other than Linux host
 # Tip: use -Wa,-mbig-obj for c(xx)flags if see 'too many sections' and 'file too big'
 # Tip: add -Wl,--whole-archive $LIBS -Wl,--no-whole-archive $OTHER_LIBS in 'Libs:' section in .pc file to incapsulate more libs (voices or other) when using LTO for static builds
-
-# LTO in ffmpeg is bugged when compiled with gcc-(13-14-15) in mingw. You will meet 'lto1: internal compiler error: in choose_baseaddr, at config/i386/i386.cc:7447' or similar at linking time; compiler will crash.
-# You can 1) disable LTO for ffmpeg only, but enable LTO for ffmpeg components. 
-# Tip: -ffat-lto-objects is needed for ffmpeg linker to understand LTO code if LTO disabled for ffmpeg only but enabled for components. You can also add -fno-use-linker-plugin to --extra-ldflags to avoud the use of LTO code by ffmpeg itself. But you must be sure to NOT use cmake-specific flags that enable LTO (IPO) because they forcefully add -fno-fat-lto-objects that is unacceptable in our case.
-# Option 2) add -mstackrealign to ffmpeg c(xx)flags. With this flag the compiler does not crash. -mpreferred-stack-boundary=4 should not be used.
-# LTO will crash anyway because GCC is bugged, so don't bother too much. You may try to activate LTO selectivly for some components only.
-
-if [[ "$USE_LTO" == "1" ]]; then
-# Tip: rust has -C linker-plugin-lto LLVM Bitcode or LLVM MinGW
-# -fno-use-linker-plugin
-    export RUSTLTO=" -C lto=fat" # thin
-    export USELTO="-flto=auto -flto-partition=balanced -fno-stack-clash-protection -fno-toplevel-reorder" # try 8
-    export USELTO_C=" -ffat-lto-objects -flto-compression-level=14 -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline -Wno-odr" # try 9
-    export NOLTO="-fno-lto"
-    export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
-    export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
-    export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
-fi
 
 # these flags appear to conflict with pthread and other threading implementations and cannot be used simultaneously. They should only be used selectively where supported by the libraries themselves
 [[ "$USE_OPENMP" == "1" ]] && \

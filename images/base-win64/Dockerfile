@@ -131,9 +131,9 @@ ENV \
     CHOST="x86_64-w64-mingw32" \
     CC="ccache x86_64-w64-mingw32-gcc" \
     CXX="ccache x86_64-w64-mingw32-g++" \
-    AR="x86_64-w64-mingw32-gcc-ar" \
-    NM="x86_64-w64-mingw32-gcc-nm" \
-    RANLIB="x86_64-w64-mingw32-gcc-ranlib" \
+    AR="x86_64-w64-mingw32-ar" \
+    NM="x86_64-w64-mingw32-nm" \
+    RANLIB="x86_64-w64-mingw32-ranlib" \
     LD="x86_64-w64-mingw32-ld" \
     STRIP="x86_64-w64-mingw32-strip" \
     WINDRES="x86_64-w64-mingw32-windres" \
