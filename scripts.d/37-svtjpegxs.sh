@@ -60,10 +60,13 @@ ffbuild_dockerbuild() {
         if ! grep -q -- "-lstdc++" "$PC_FILE"; then
             sed -i '/^Libs.private:/ s/$/ -lstdc++/' "$PC_FILE"
         fi
-        sed -i 's|^Cflags:.*|Cflags: -I${includedir}/svt-jpegxs -UDEF_DLL|' "$PC_FILE"
+        sed -i 's|^Cflags:.*|Cflags: -I${includedir} -I${includedir}/svt-jpegxs -UDEF_DLL|' "$PC_FILE"
     done
 
-    ln -sf "$PC_DIR/SvtJpegxsEnc.pc" "$PC_DIR/svtjpegxs.pc"
+    # FFmpeg иногда ищет просто svtjpegxs.pc. Создадим алиас.
+    if [[ -f "$PC_DIR/SvtJpegxsEnc.pc" ]]; then
+        cp "$PC_DIR/SvtJpegxsEnc.pc" "$PC_DIR/svtjpegxs.pc"
+    fi
 }
 
 ffbuild_configure() {
