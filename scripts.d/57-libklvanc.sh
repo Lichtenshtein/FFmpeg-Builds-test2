@@ -9,6 +9,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf samples"
 }
 
 ffbuild_dockerbuild() {

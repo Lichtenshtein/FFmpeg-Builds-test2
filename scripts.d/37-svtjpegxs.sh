@@ -15,6 +15,29 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Это принудительно отключит манглинг имен C++ на этапе сборки самой библиотеки!
+    log_info "🔧 Patching SvtJpegxs API headers with extern \"C\" blocks for MinGW..."
+
+    # Находим все заголовочные файлы API
+    find . -type f -name "SvtJpegxs*.h" | while read -r header; do
+        # Проверяем, нет ли там уже extern "C" (чтобы избежать дублирования при повторной сборке из кэша)
+        if ! grep -q 'extern "C"' "$header"; then
+            # Создаем временный файл
+            local tmp_h=$(mktemp)
+
+            # Записываем открывающий блок extern "C" в начало файла
+            echo -e "#ifdef __cplusplus\nextern \"C\" {\n#endif\n" > "$tmp_h"
+            # Копируем оригинальное содержимое заголовка
+            cat "$header" >> "$tmp_h"
+            # Записываем закрывающий блок в самый конец файла
+            echo -e "\n#ifdef __cplusplus\n}\n#endif" >> "$tmp_h"
+
+            # Заменяем оригинал исправленной версией
+            mv "$tmp_h" "$header"
+            log_debug "Successfully wrapped: $(basename "$header")"
+        fi
+    done
+
     # отключаем автоматическое определение архитектуры хоста
     # чтобы он не взял флаги процессора GitHub раннера
     sed -i 's/-march=native//g' CMakeLists.txt || true
@@ -44,58 +67,16 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # # Check library names - SVT-JPEG-XS might use different library names
-    # ls $INSTALL_ROOT/lib/libSvt*
-    # # Check header locations:
-    # ls $INSTALL_ROOT/include/svt-jpegxs/
-
-    # echo "=== Installed files ==="
-    # find "$FFBUILD_DESTDIR" -type f
-
-    # # Create pkg-config files manually if they don't exist
-    # if [[ ! -f "$PC_DIR/SvtJpegxsEnc.pc" ]]; then
-        # mkdir -p "$PC_DIR"
-        
-        # cat > "$PC_DIR/SvtJpegxsEnc.pc" <<EOF
-# prefix=$FFBUILD_PREFIX
-# exec_prefix=\${prefix}
-# libdir=\${prefix}/lib
-# includedir=\${prefix}/include
-
-# Name: SvtJpegxsEnc
-# Description: SVT JPEG XS Encoder
-# Version: 0.9
-# Libs: -L\${libdir} -lSvtJpegxsEnc
-# Libs.private: -lstdc++ -lpthread -lm
-# Cflags: -I\${includedir}
-# EOF
-
-        # cat > "$PC_DIR/SvtJpegxsDec.pc" <<EOF
-# prefix=$FFBUILD_PREFIX
-# exec_prefix=\${prefix}
-# libdir=\${prefix}/lib
-# includedir=\${prefix}/include
-
-# Name: SvtJpegxsDec
-# Description: SVT JPEG XS Decoder
-# Version: 0.9
-# Libs: -L\${libdir} -lSvtJpegxsDec
-# Libs.private: -lstdc++ -pthread -lm
-# Cflags: -I\${includedir}
-# EOF
-    # fi
-
-    for pc in "$PC_DIR"/SvtJpegxs*.pc; do
-        [[ -f "$pc" ]] || continue
+    for PC_FILE in "$PC_DIR"/SvtJpegxs*.pc; do
+        [[ -f "$PC_FILE" ]] || continue
         # Исправляем префикс
-        sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$pc"
+        sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
+        if ! grep -q -- "-lstdc++" "$PC_FILE"; then
+            sed -i '/^Libs.private:/ s/$/ -lstdc++/' "$PC_FILE"
+        fi
     done
 
-    # FFmpeg иногда ищет просто svtjpegxs.pc. Создадим алиас.
-    if [[ -f "$PC_DIR/SvtJpegxsEnc.pc" ]]; then
-        cp "$PC_DIR/SvtJpegxsEnc.pc" \
-           "$PC_DIR/svtjpegxs.pc"
-    fi
+    ln -sf "$PC_DIR/SvtJpegxsEnc.pc" "$PC_DIR/svtjpegxs.pc"
 }
 
 ffbuild_configure() {
