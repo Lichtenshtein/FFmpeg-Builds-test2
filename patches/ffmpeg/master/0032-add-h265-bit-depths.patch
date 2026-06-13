@@ -117,25 +117,25 @@ index 8d588382fa..78d3e12155 100644
 
 +#if (H265_BIT_DEPTH_8 + 0)
  #define BIT_DEPTH 8
- #include "pred_template.c"
+ #include "libavcodec/hevc/pred_template.c"
  #undef BIT_DEPTH
 +#endif
 
 +#if (H265_BIT_DEPTH_9 + 0)
  #define BIT_DEPTH 9
- #include "pred_template.c"
+ #include "libavcodec/hevc/pred_template.c"
  #undef BIT_DEPTH
 +#endif
 
 +#if (H265_BIT_DEPTH_10 + 0)
  #define BIT_DEPTH 10
- #include "pred_template.c"
+ #include "libavcodec/hevc/pred_template.c"
  #undef BIT_DEPTH
 +#endif
 
 +#if (H265_BIT_DEPTH_12 + 0)
  #define BIT_DEPTH 12
- #include "pred_template.c"
+ #include "libavcodec/hevc/pred_template.c"
  #undef BIT_DEPTH
 +#endif
 
