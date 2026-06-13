@@ -15,10 +15,12 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    local VER_FULL="${VER_FULL:-0.5.1}"
+
     if [ ! -f "version.txt" ]; then
         rm -f version.txt
         log_info "Adding version..."
-        echo "v0.5.1" > version.txt
+        echo "v${VER_FULL}" > version.txt
     fi
 
     find pkgconfig -name "*.pc.in" -exec sed -i "s|Version: .*|Version: ${VER_FULL}|g" {} +

@@ -178,7 +178,7 @@ fi
 log_info "Patching FFmpeg vf_libvmaf.c to use Pointer ABI..."
 # Подменяем вызов в исходнике фильтра на передачу адреса структуры
 sed -i 's/err = vmaf_init(\&s->vmaf, cfg);/err = vmaf_init(\&s->vmaf, \&cfg);/g' "libavfilter/vf_libvmaf.c"
-if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     # На всякий случай жестко проверяем, применился ли патч (выводим строку в лог)
     grep -n "vmaf_init" "libavfilter/vf_libvmaf.c"
 fi
@@ -195,7 +195,7 @@ sed -i 's/tf_options, show_data_hash/\&tf_options, show_data_hash/g' "fftools/ff
 # Патчим вызывающую сторону в fftools/graph/graphprint.c (добавляем амперсанд &)
 sed -i 's/tf_options, NULL/\&tf_options, NULL/g' "fftools/graph/graphprint.c"
 # Проверка успешности наката патча в логи сборщика
-if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     log_debug "Verifying patches application..."
     grep -n "avtext_context_open" "fftools/textformat/avtextformat.h"
     grep -n "avtext_context_open" "fftools/textformat/avtextformat.c" | head -n 2
@@ -282,7 +282,7 @@ done
 # LIBTORCH PROCESSING
 # ==========================================
 # if [[ "$HAS_LIBTORCH" == "1" ]]; then
-    # ls -lh /opt/ffbuild/lib/libtorch_cpu.a || true
+    # ls -lh ${FFBUILD_PREFIX}/lib/libtorch_cpu.a || true
     # TORCH_LIBS="-ltorch -ltorch_cpu -lc10"
     # log_info "${TARGET_MARK} Setting up hybrid linking for LibTorch..."
     # TORCH_LIBS="-lXNNPACK -lasmjit -lc10 -lc10d -lcaffe2_detectron_ops -lcaffe2_module_test_dynamic -lclog -lcpuinfo -ldnnl -lfbgemm -lfbjni -lkineto -lmkldnn -lprotobuf-lite -lprotoc -lpthreadpool -lpytorch_jni -ltorch -ltorch_cpu "
@@ -417,13 +417,13 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
 
     # Проверка видимости библиотек ffnvcodec (твоя ошибка cuda_llvm)
     log_info "${SEARCH_MARK} Checking ffnvcodec in pkg-config:"
-    if pkg-config --exists ffnvcodec; then
-        log_info "${CHECK_MARK} ffnvcodec found: $(pkg-config --modversion ffnvcodec)"
-        log_debug "Cflags: $(pkg-config --cflags ffnvcodec)"
+    if "${PKG_CONFIG}" --exists ffnvcodec; then
+        log_info "${CHECK_MARK} ffnvcodec found: $("${PKG_CONFIG}" --modversion ffnvcodec)"
+        log_debug "Cflags: $("${PKG_CONFIG}" --cflags ffnvcodec)"
     else
         log_error "ffnvcodec NOT FOUND in PKG_CONFIG_PATH ($PKG_CONFIG_PATH)"
-        log_debug "Contents of /opt/ffbuild/lib/pkgconfig:"
-        ls -1 /opt/ffbuild/lib/pkgconfig/*.pc 2>/dev/null | xargs -r -n1 basename | sed 's/^/ /'
+        log_debug "Contents of ${FFBUILD_PREFIX}/lib/pkgconfig:"
+        ls -1 "${FFBUILD_PREFIX}"/lib/pkgconfig/*.pc 2>/dev/null | xargs -r -n1 basename | sed 's/^/ /'
     fi
 
     log_info "${SEARCH_MARK} Auditing pkg-config files for overflow triggers..."
@@ -442,7 +442,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     fi
 
     log_debug "PKG_CONFIG_PATH: $PKG_CONFIG_PATH"
-    which pkg-config
+    which "${PKG_CONFIG}"
 
     log_info_line
     log_info "### ${BUILD_MARK} End of DEBUG audit section"

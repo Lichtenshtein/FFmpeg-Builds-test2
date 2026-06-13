@@ -41,6 +41,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    local VER_FULL="${VER_FULL:-77}"
+
     cat << EOF > meson.build
 project('VapourSynth', 'c', 'cpp',
     default_options: ['buildtype=release', 'b_lto=true', 'b_ndebug=if-release', 'c_std=c99', 'cpp_std=c++17'],
