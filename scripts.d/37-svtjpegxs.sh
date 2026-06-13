@@ -15,28 +15,14 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Это принудительно отключит манглинг имен C++ на этапе сборки самой библиотеки!
-    log_info "🔧 Patching SvtJpegxs API headers with extern \"C\" blocks for MinGW..."
+    # log_info "🔧 Patching SvtJpegxs internal API macros for forced static linking..."
 
-    # Находим все заголовочные файлы API
-    find . -type f -name "SvtJpegxs*.h" | while read -r header; do
-        # Проверяем, нет ли там уже extern "C" (чтобы избежать дублирования при повторной сборке из кэша)
-        if ! grep -q 'extern "C"' "$header"; then
-            # Создаем временный файл
-            local tmp_h=$(mktemp)
-
-            # Записываем открывающий блок extern "C" в начало файла
-            echo -e "#ifdef __cplusplus\nextern \"C\" {\n#endif\n" > "$tmp_h"
-            # Копируем оригинальное содержимое заголовка
-            cat "$header" >> "$tmp_h"
-            # Записываем закрывающий блок в самый конец файла
-            echo -e "\n#ifdef __cplusplus\n}\n#endif" >> "$tmp_h"
-
-            # Заменяем оригинал исправленной версией
-            mv "$tmp_h" "$header"
-            log_debug "Successfully wrapped: $(basename "$header")"
-        fi
-    done
+    # find . -type f -name "SvtJpegxs*.h" | while read -r header; do
+        # if ! grep -q "FORCE_STATIC_FIX" "$header"; then
+            # sed -i '1i #define FORCE_STATIC_FIX\n#ifdef PREFIX_API\n#undef PREFIX_API\n#endif\n#define PREFIX_API' "$header"
+            # log_debug "Forced static macros applied to: $(basename "$header")"
+        # fi
+    # done
 
     # отключаем автоматическое определение архитектуры хоста
     # чтобы он не взял флаги процессора GitHub раннера
@@ -74,6 +60,7 @@ ffbuild_dockerbuild() {
         if ! grep -q -- "-lstdc++" "$PC_FILE"; then
             sed -i '/^Libs.private:/ s/$/ -lstdc++/' "$PC_FILE"
         fi
+        sed -i 's|^Cflags:.*|Cflags: -I${includedir}/svt-jpegxs -UDEF_DLL|' "$PC_DIR/SvtJpegxs.pc"
     done
 
     ln -sf "$PC_DIR/SvtJpegxsEnc.pc" "$PC_DIR/svtjpegxs.pc"
