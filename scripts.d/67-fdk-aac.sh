@@ -1,7 +1,10 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/mstorsjo/fdk-aac.git"
-SCRIPT_COMMIT="d8e6b1a3aa606c450241632b64b703f21ea31ce3"
+# SCRIPT_REPO="https://github.com/mstorsjo/fdk-aac.git"
+# SCRIPT_COMMIT="d8e6b1a3aa606c450241632b64b703f21ea31ce3"
+
+SCRIPT_REPO="https://github.com/Rancemxn/fdk-aac.git"
+SCRIPT_COMMIT="d05a2f3e7678d987bde2a2c10101c7cb91711905"
 
 ffbuild_enabled() {
     [[ $VARIANT == nonfree* ]] || return 1
@@ -16,15 +19,6 @@ ffbuild_dockerbuild() {
     set -e
 
     mkdir -p _build && cd _build
-
-    # Флаги санитайзера замедляют работу ffmpeg в 2-3 раза (плохо)
-    # Без части из них ffmpeg не слинкуется, нужно прокидывать и для него (плохо)
-    # -fno-sanitize-recover=all при малейшей ошибке в fdk-aac FFmpeg мгновенно завершит работу без шанса на продолжение (плохо)
-    # если оставить только -fsanitize=undefined (UBSan), то это даёт гораздо меньше оверхеда, чем address. Но это все равно замедляет работу, хоть и не в 3 раза (плохо)
-    # Я не помню нахера это тут (хорошо)
-    # Итог: Вырубаем.
-    ASAN_CFLAGS="-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize=shift-base -fno-sanitize-recover=all"
-    ASAN_LDFLAGS="-fsanitize=address,undefined"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -48,24 +42,6 @@ ffbuild_dockerbuild() {
 
     sed -i "s|^Cflags:.*|& -I\${includedir}/fdk-aac|" "$PC_DIR/fdk-aac.pc"
 }
-
-# Comment out; we will handle this directly in build.sh to avoid the deduplication process (not).
-
-# ffbuild_cflags() {
-    # echo "$ASAN_CFLAGS"
-# }
-
-# ffbuild_cxxflags() {
-    # echo "$ASAN_CFLAGS"
-# } 
-
-# ffbuild_ldflags() {
-    # echo "$ASAN_LDFLAGS"
-# }
-
-# ffbuild_libs() {
-    # echo "-lasan"
-# }
 
 ffbuild_configure() {
     echo --enable-libfdk-aac

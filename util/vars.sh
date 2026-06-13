@@ -244,6 +244,10 @@ fi
 export OPENMP_C="-fopenmp " && \
 export OPENMP_LIB="-lgomp "
 
+# Флаги санитайзера замедляют работу ffmpeg в 2-3 раза (плохо)
+# Без части из них ffmpeg не слинкуется, нужно прокидывать и для него (плохо)
+# -fno-sanitize-recover=all при малейшей ошибке в fdk-aac FFmpeg мгновенно завершит работу без шанса на продолжение (плохо)
+# если оставить только -fsanitize=undefined (UBSan), то это даёт гораздо меньше оверхеда, чем address. Но это все равно замедляет работу, хоть и не в 3 раза (плохо)
 if [[ "$USE_ASAN" == "1" ]]; then
     ASAN_CFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
     ASAN_CXXFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
