@@ -209,16 +209,26 @@ if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
 fi
 
 if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc" ]]; then
-    log_info "🎯 Patching SvtJpegxs.pc via permissive C++ flags..."
+    log_info "🎯 Patching SvtJpegxs.pc for native C static linking..."
     
-    # Гарантируем наличие C++ линковки
+    # Полностью очищаем Cflags от прошлых экспериментов с C++
+    sed -i 's| -x c++||g' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
+    sed -i 's| -fpermissive||g' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
+    sed -i 's| -Wno-error=permissive||g' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
+    sed -i 's| -Wno-c++11-extensions||g' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
+    sed -i 's| -Wno-deprecated-declarations||g' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
+
+    #  Добавляем -lstdc++ в private libs (это необходимо, так как библиотека внутри написана на C++)
     if ! grep -q -- "-lstdc++" "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"; then
         sed -i '/^Libs.private:/ s/$/ -lstdc++/' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
     fi
 
-    # Переводим в C++, снижаем строгость компилятора до warning и гасим ругань на несовместимые стандарты C
-    sed -i 's|^Cflags:.*|Cflags: -I${includedir}/svt-jpegxs -UDEF_DLL -x c++ -fpermissive -Wno-error=permissive -Wno-c++11-extensions -Wno-deprecated-declarations|' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
+    # Принудительно гасим генерацию __declspec(dllimport).
+    # Для этого в заголовочных файлах SVT используется подмена макросов. 
+    # Передаем -D_SVT_JPEG_XS_STATIC_ -DSHARED_LIBS=0 -DDLL_EXPORT=0
+    sed -i 's|^Cflags:.*|Cflags: -I${includedir}/svt-jpegxs -UDEF_DLL -D_SVT_JPEG_XS_STATIC_ -DSHARED_LIBS=0 -DDLL_EXPORT=0|' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
 fi
+
 
 # =======================================
 # FLAGS DEDUPLICATION SECTION
