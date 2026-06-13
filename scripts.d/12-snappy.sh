@@ -9,7 +9,8 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "git-submodule-clone"
+    # echo "git-submodule-clone"
+    echo "rm -rf testdata"
 }
 
 ffbuild_dockerbuild() {

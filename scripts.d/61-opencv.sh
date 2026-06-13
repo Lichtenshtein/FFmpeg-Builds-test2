@@ -17,6 +17,7 @@ ffbuild_depends() {
 
 ffbuild_enabled() {
     return 0
+    echo "rm -rf samples doc/tutorials"
 }
 
 ffbuild_dockerdl() {
