@@ -208,6 +208,16 @@ if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
     sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
 fi
 
+if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc" ]]; then
+    log_info "Patching SvtJpegxs.pc to fix C/C++ MinGW mangling..."
+
+    if ! grep -q -- "-lstdc++" "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"; then
+        sed -i '/^Libs.private:/ s/$/ -lstdc++/' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
+    fi
+
+    sed -i 's|^Cflags:.*|& -x c++|' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
+fi
+
 # =======================================
 # FLAGS DEDUPLICATION SECTION
 # =======================================
