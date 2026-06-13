@@ -161,6 +161,7 @@ env:
   LOG_SIZES: '500' # number of lines displayed in logs
   LOG_FF_SIZES: '1000' # number of lines displayed in ffmpeg logs
   LOG_INSTALLED: '85' # shown number of installed files in DESTDIR prefix
+  DEBUG_MODE: '1' # use with verbose=2; disables stripping, enables some commands
 
 jobs:
   build_all:
