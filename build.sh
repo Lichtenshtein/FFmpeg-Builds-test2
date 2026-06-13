@@ -208,16 +208,6 @@ if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
     sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
 fi
 
-if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc" ]]; then
-    log_info "🎯 Applying force preprocessor override for SvtJpegxs.pc..."
-    # Очистка
-    sed -i 's| -x c++||g' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
-    
-    # Хак: Переопределяем dllimport в пустую строку через макрос компилятора!
-    # Когда GCC встретит __declspec(dllimport), он проигнорирует его.
-    sed -i 's|^Cflags:.*|Cflags: -I${includedir}/svt-jpegxs -UDEF_DLL -D__declspec\(x\)=|' "${FFBUILD_PREFIX}/lib/pkgconfig/SvtJpegxs.pc"
-fi
-
 
 # =======================================
 # FLAGS DEDUPLICATION SECTION
@@ -555,9 +545,9 @@ fi
 if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
     CONF_FLAGS+=( --nvcc=clang )
 fi
-# flags added by ffmpeg patches, not from mainline FFmpeg
-# [[ "$FFMPEG_PATCHES" == "1" ]] && \
-    # CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
+flags added by ffmpeg patches, not from mainline FFmpeg
+[[ "$FFMPEG_PATCHES" == "1" ]] && \
+    CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
 
 log_info_line
 log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
