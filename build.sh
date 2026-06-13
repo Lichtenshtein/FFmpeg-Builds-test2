@@ -811,7 +811,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         export WINEARCH=win64
         export DISPLAY=:99
         # Предотвращает появление интерактивных окон Wine ( crash dialogs ), которые вешают контейнер
-        export WINEDBG="--gdb" 
+        export WINEDBG="--gdb --no-start" 
 
         AUDIT_LOG="${TMP_DIR}/ffmpeg_crash_audit.log"
         mkdir -p "$TMP_DIR"
@@ -842,11 +842,11 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         echo -e "${LOG_DEBUG}----------------------------${NC}"
 
         # Проверяем: если код не 0, ИЛИ в логе есть системные маркеры краша Windows
-        if [[ $WINE_EXIT -ne 0 ]] || grep -Eiq "buffer overflow|stack smashing|stack_chk_fail|SIGSEGV|Segmentation fault|access violation|illegal instruction|unhandled exception|0xc000" "$AUDIT_LOG"; then
+        if [[ $WINE_EXIT -ne 0 ]] || grep -Eiq "buffer overflow|stack smashing|stack_chk_fail|SIGSEGV|Segmentation fault|access violation|illegal instruction|unhandled exception|0xc000|stack-buffer-overflow|AddressSanitizer" "$AUDIT_LOG"; then
 
             # ИСКЛЮЧЕНИЕ: Если FFmpeg просто ругается на неверный синтаксис, 
             # но при этом завершился нормально без падения памяти (код 1) - это НЕ краш ABI.
-            if [[ $WINE_EXIT -eq 1 ]] && ! grep -Eiq "access violation|illegal instruction|stack_chk_fail|0xc0000005|0xc0000409" "$AUDIT_LOG"; then
+            if [[ $WINE_EXIT -eq 1 ]] && ! grep -Eiq "access violation|illegal instruction|stack-buffer-overflow|stack_chk_fail|0xc0000005|0xc0000409" "$AUDIT_LOG"; then
                 log_info "${CHECK_MARK} Wine runtime smoke test responded textually. Binary structure is solid."
             else
                 log_error "🚨 CRASH, HARDWARE FAULT OR BUFFER OVERFLOW DETECTED DURING TEST LAUNCH!"
@@ -861,6 +861,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         else
             log_info "${CHECK_MARK} Wine runtime smoke test passed successfully. No overflows detected."
         fi
+        mv "$AUDIT_LOG" "${TMP_DIR}/last_audit_run.log" 2>/dev/null
     fi
 fi
 

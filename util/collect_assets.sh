@@ -267,4 +267,6 @@ fi
 log_info "${CHECK_MARK} All models and asset collection finished for enabled components."
 
 # Проверяем наличие критических библиотек (для отладки в логах)
-ls -lh "$PKG_DIR/bin/"
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+    ls -lh "$PKG_DIR/bin/"
+fi
