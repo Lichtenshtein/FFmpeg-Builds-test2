@@ -1,9 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/OpenVisualCloud/SVT-JPEG-XS.git"
-SCRIPT_COMMIT="8e50180ad909a0bdcdf91b462c64033f0fe3e112"
-
-export SKIP_PRE_PATCH=1
+SCRIPT_COMMIT="c36f29aa417a7be11773f1cb1f302dff801ef4cc"
 
 ffbuild_enabled() {
     [[ $TARGET == win32 ]] && return 1
