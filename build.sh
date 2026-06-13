@@ -203,8 +203,10 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     grep -n "avtext_context_open" "fftools/graph/graphprint.c"
 fi
 
-sed -i "s/Version:.*/Version: /" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
-sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
+if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
+    sed -i "s/Version:.*/Version: /" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
+    sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
+fi
 
 # =======================================
 # FLAGS DEDUPLICATION SECTION
@@ -329,7 +331,7 @@ FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -lntd
 # =======================================
 # FFMPEG SOURCE PATCHING SECTION 1
 # =======================================
-if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     log_info_line
     log_info "### ${BUILD_MARK} Start of DEBUG audit section"
     log_info_line
@@ -528,16 +530,23 @@ else
     )
 fi
 
-[[ "$HAS_AUDIOTOOLBOX" == "0" ]] && CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
-[[ "$HAS_OPENSSL" == "0" ]] && CONF_FLAGS+=( --disable-securetransport )
-[[ "$HAS_AMF" == "1" ]] && CONF_FLAGS+=( --enable-filter=vpp_amf --enable-filter=sr_amf )
-[[ "${USE_AVX512}" != "1" ]] && CONF_FLAGS+=( --disable-avx512 --disable-avx512icl )
-# flags added by ffmpeg patches, not from mainline FFmpeg
-[[ "$FFMPEG_PATCHES" == "1" ]] && CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
-[[ "$SKIP_POST_STRIP" == "1" ]] && CONF_FLAGS+=( --disable-stripping --enable-debug=3 ) || CONF_FLAGS+=( --disable-debug )
+[[ "$HAS_AUDIOTOOLBOX" == "0" ]] && \
+    CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
+[[ "$HAS_OPENSSL" == "0" ]] && \
+    CONF_FLAGS+=( --disable-securetransport )
+[[ "$HAS_AMF" == "1" ]] && \
+    CONF_FLAGS+=( --enable-filter=vpp_amf --enable-filter=sr_amf )
+[[ "${USE_AVX512}" != "1" ]] && \
+    CONF_FLAGS+=( --disable-avx512 --disable-avx512icl )
+[[ "$DEBUG_MODE" == "1" ]] && \
+    CONF_FLAGS+=( --disable-stripping --enable-debug=3 ) || \
+    CONF_FLAGS+=( --disable-debug )
 if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
     CONF_FLAGS+=( --nvcc=clang )
 fi
+# flags added by ffmpeg patches, not from mainline FFmpeg
+[[ "$FFMPEG_PATCHES" == "1" ]] && \
+    CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
 
 log_info_line
 log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
@@ -752,7 +761,7 @@ log_info "${SYNC_MARK} Collecting additional assets..."
 # FFMPEG DEBUGGING SECTION 2
 # =======================================
 # If zmm registers (these are AVX-512 registers) or evex prefixes appear in the assembler output, it means that some library is still pushing this code.
-if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 && "$USE_AVX512" != "1" ]]; then
+if [[ "$DEBUG_MODE" == "1" && "$USE_AVX512" != "1" ]]; then
     log_info "${SEARCH_MARK} Scanning final binaries for accidental AVX-512 leak..."
 
     # Ищем все исполняемые файлы
@@ -781,7 +790,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 && "$USE_AVX512" != "1" ]]; then
     done < <(find "$PKG_DIR/bin" -type f \( -name "*.exe" -o -name "*.dll" \))
 fi
 
-if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 && "$SKIP_POST_STRIP" == "1" ]]; then
+if [[ "$DEBUG_MODE" == "1" ]]; then
     log_info "${START_MARK} Launching automated Wine+GDB crash audit..."
 
     # Минимальный вызов, триггерящий инициализацию библиотек
@@ -789,7 +798,6 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 && "$SKIP_POST_STRIP" == "1" ]]; then
     TEST_EXE="$PKG_DIR/bin/ffmpeg.exe"
     TEST_ARGS="-f lavfi -i color=c=black:s=640x360:d=1 -f null -"
 
-    # Проверяем наличие wine в системе/контейнере
     # Проверяем наличие wine в системе/контейнере
     if ! command -v wine64 &> /dev/null && ! command -v wine &> /dev/null; then
         log_warn "Wine is not installed in the Docker image. Skipping runtime crash audit."

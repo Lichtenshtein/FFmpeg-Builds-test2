@@ -40,7 +40,6 @@ ffbuild_dockerbuild() {
     local myconf=(
         --disable-cli
         --enable-pic
-        --enable-strip
         --disable-lavf
         --disable-swscale
         --bit-depth=all
@@ -57,6 +56,7 @@ ffbuild_dockerbuild() {
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --enable-shared ) || \
         myconf+=( --enable-static )
+    [[ "$DEBUG_MODE" != "1" ]] && myconf+=( --enable-strip )
     # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
     # явно указываем инструменты дл¤ стабильности
