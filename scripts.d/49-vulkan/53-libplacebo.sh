@@ -64,7 +64,7 @@ ffbuild_dockerbuild() {
         -Dopengl=disabled # OpenGL-based renderer
         -Dgl-proc-addr=disabled # Enable built-in OpenGL loader; uses dlopen, dlsym
         #-Dvk-proc-addr=enabled # Link directly against vkGetInstanceProcAddr from libvulkan.so
-        -Dvulkan-registry="$FFBUILD_PREFIX"/share/vulkan/registry/vk.xml
+        # -Dvulkan-registry="$FFBUILD_PREFIX"/share/vulkan/registry/vk.xml
         -Dvulkan-sdk="$FFBUILD_PREFIX"
         -Dvulkan=disabled
         -Dxxhash=disabled # faster replacement for internal siphash
@@ -77,7 +77,7 @@ ffbuild_dockerbuild() {
     fi
 
     local EXTRA_LDFLAGS="-lstdc++"
-    local EXTRA_CFLAGS="-I${FFBUILD_PREFIX}/include/spirv_cross"
+    # local EXTRA_CFLAGS="-I${FFBUILD_PREFIX}/include/spirv_cross"
 
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $EXTRA_CFLAGS" \
