@@ -1064,16 +1064,8 @@ find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
 xargs -0 -r -I{} bash -c '
     file="$1"; tc="$2"; x_mark="$3"
 
-    # Экспортируем цвета в окружение subshell, чтобы awk их видел
-    export GREEN="'"$GREEN"'"
-    export CYAN_B="'"$CYAN_B"'"
-    export NC="'"$NC"'"
-    export LOG_INFO="'"$LOG_INFO"'"
-    export LOG_WARN="'"$LOG_WARN"'"
-    export PURPLE="'"$PURPLE"'"
-    export GREY_B="'"$GREY_B"'"
-
-    # Сбор внешних зависимостей (IMP)
+    # 1. Сбор внешних зависимостей (IMP)
+    # Используем -A, чтобы awk мог вытащить имя конкретного объектного файла ($2)
     raw_imports=$("${tc}-nm" -uA "$file" 2>/dev/null || true)
     clean_imports=""
     if [[ -n "$raw_imports" ]]; then
@@ -1082,43 +1074,44 @@ xargs -0 -r -I{} bash -c '
             awk -F: "{ 
                 split(\$NF, a, \" \"); 
                 sym = a[2]; 
-                if (sym != \"\") printf \"  %s•%s %-15s %s[IMP]%s %s\n\", ENVIRON[\"LOG_WARN\"], ENVIRON[\"NC\"], \$2, ENVIRON[\"GREY_B\"], ENVIRON[\"NC\"], sym 
+                if (sym != \"\") printf \"  ${LOG_WARN}•${NC} %-15s ${GREY_B}[IMP]${NC} %s\n\", \$2, sym 
             }" | sort -u | head -n ${LOG_RAW_SYMB})
     fi
 
-    # сбор реальных экспортов (EXP) - берем любые определенные глобальные символы
+    # 2. Сбор реальных экспортов (EXP)
+    # Убираем флаг -A, чтобы не ломать структуру полей двоеточиями
     raw_exports=$("${tc}-nm" -g --defined-only "$file" 2>/dev/null || true)
     clean_exports=""
     if [[ -n "$raw_exports" ]]; then
         clean_exports=$(echo "$raw_exports" | \
             grep -Ev "(__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
-            awk -F: "{
+            awk "{
+                # В выводе nm без -A структура жесткая: [адрес] [тип] [имя]
+                # Если адреса нет, имя будет во 2-м поле, иначе в 3-м.
+                sym = (\$3 == \"\") ? \$2 : \$3;
+                type = (\$3 == \"\") ? \$1 : \$2;
 
-                line = \$NF;
-                gsub(/^[ \t]+/, \"\", line);
-                split(line, a, \" \");
-                type = a[1];
-                sym = a[2];
-                if (sym == \"\") { sym = a[1]; type = \"T\"; }
-
-                if (sym !~ /^(\.)/ && sym != \"\") {
-                    printf \"  %s•%s %-15s %s[EXP]%s %s%s%s\n\", ENVIRON[\"LOG_INFO\"], ENVIRON[\"NC\"], \"\", ENVIRON[\"CYAN_B\"], ENVIRON[\"NC\"], ENVIRON[\"GREEN\"], sym, ENVIRON[\"NC\"]
+                # Проверяем, что это не служебный мусор и символ не пустой
+                if (sym !~ /^(\.)/ && sym != \"\" && type ~ /[TTDDRR]/) {
+                    printf \"  ${LOG_INFO}•${NC} %-15s ${CYAN_B}[EXP]${NC} ${GREEN}%s${NC}\n\", \"\", sym
                 }
             }" | sort -u | head -n ${LOG_RAW_SYMB})
     fi
 
+    # 3. Красивый вывод результатов
     if [[ -n "$clean_imports" || -n "$clean_exports" ]]; then
-        printf "\n%b %bSYMBOL ANALYSIS%b for %s:\n" "$x_mark" "'"$YELLOW"'" "'"$NC"'" "$file"
+        printf "\n%b %bSYMBOL ANALYSIS%b for %s:\n" "$x_mark" "${YELLOW}" "${NC}" "$file"
         if [[ -n "$clean_exports" ]]; then
-            printf " %b↳ EXPORTED FUNCTIONS (What this library provides):%b\n" "'"$CYAN"'" "'"$NC"'"
+            printf " %b↳ EXPORTED FUNCTIONS (What this library provides):%b\n" "${CYAN}" "${NC}"
             echo "$clean_exports"
         fi
         if [[ -n "$clean_imports" ]]; then
-            printf " %b↳ EXTERNAL DEPENDENCIES (What this library requires):%b\n" "'"$PURPLE"'" "'"$NC"'"
+            printf " %b↳ EXTERNAL DEPENDENCIES (What this library requires):%b\n" "${PURPLE}" "${NC}"
             echo "$clean_imports"
         fi
     fi
 ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
+
     fi
 
     # Output

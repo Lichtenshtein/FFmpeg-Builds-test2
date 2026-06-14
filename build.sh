@@ -799,7 +799,8 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         TEST_EXE="/opt/ffdest/opt/ffbuild/bin/ffmpeg.exe"
     fi
 
-    TEST_ARGS="-f lavfi -i color=c=black:s=640x360:d=1 -f null -"
+    TEST_ARGS="-v debug -f lavfi -i testsrc=size=1280x720:rate=60:duration=2 -f lavfi -i sine=frequency=1000:duration=2 -vf scale=640x360,format=yuv420p -c:v wrapped_avframe -c:a pcm_s16le -f null -"
+
 
     if ! command -v wine64 &> /dev/null && ! command -v wine &> /dev/null; then
         log_warn "Wine is not installed. Skipping."
@@ -872,7 +873,7 @@ log_info "${ARCH_MARK} Creating archive: ${BUILD_NAME}.7z"
 if [[ "$DEBUG_MODE" == "1" ]]; then
     log_info "${SAVE_MARK} Packaging external debug symbols separately..."
     # Находим все созданные .debug файлы и пакуем их отдельно
-    find "./${BUILD_NAME}" -name "*.debug" | 7z a -mx7 -mmt=on "$FFBUILD_DESTDIR/${BUILD_NAME}-debug-symbols.7z" -ai@
+    7z a -mx7 -mmt=on "$FFBUILD_DESTDIR/${BUILD_NAME}-debug-symbols.7z" "./${BUILD_NAME}/*" -ir!"*.debug"
     # Исключаем файлы .debug из основного пользовательского архива
     7z a -mx7 -mmt=on "$FFBUILD_DESTDIR/${BUILD_NAME}.7z" "./${BUILD_NAME}/*" -xr!"*.debug"
 else

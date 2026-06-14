@@ -4,7 +4,6 @@ SCRIPT_REPO="https://github.com/OpenVisualCloud/SVT-JPEG-XS.git"
 SCRIPT_COMMIT="8e50180ad909a0bdcdf91b462c64033f0fe3e112"
 
 ffbuild_enabled() {
-    [[ $TARGET == win32 ]] && return 1
     return 0
 }
 
