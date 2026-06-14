@@ -26,10 +26,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Отключаем принудительное обновление субмодулей внутри bootstrap
-    sed -i 's/git submodule update/# git submodule update/g' bootstrap || true
+    sed -i 's/^use_git=.*/use_git=false/g' bootstrap || true
+    sed -i 's/use_git=true/use_git=false/g' bootstrap || true
 
-    # Перехватываем хук и заменяем флаг --with-tests на --without-tests
+    # Перехватываем хук в bootstrap.conf и заменяем флаг --with-tests на --without-tests для ggl-модулей
     sed -i 's/--macro-prefix=ggl --with-tests/--macro-prefix=ggl --without-tests/g' bootstrap.conf || true
 
     # вырезаем инклуд cligen.mk из Makefile.am, который вешал automake
