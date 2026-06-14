@@ -23,11 +23,14 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "rm -rf third_party/googletest test Docs/img"
+    echo "rm -rf svt-av1-tritium/third_party/googletest svt-av1-tritium/test svt-av1-tritium/Docs/img"
 }
 
 ffbuild_dockerbuild() {
     set -e
+
+    find . -name "CMakeLists.txt" -exec sed -i 's/set(CMAKE_C_VISIBILITY_PRESET hidden)//g' {} + 2>/dev/null || true
+    find . -name "CMakeLists.txt" -exec sed -i 's/-fvisibility=hidden//g' {} + 2>/dev/null || true
 
     # ФИКС ВЕРСИИ (SVT-AV1 специфичный)
     # Если нет .git, CMakeLists.txt не сможет определить версию. 
@@ -41,7 +44,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DVERSION_TAG="${VER_FULL}"
+        -DVERSION_TAG="${VER_FULL:-4.1.0}"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DBUILD_TESTING=OFF
