@@ -18,28 +18,25 @@ set -xe
     default_dl .
 
     # Список субмодулей, которые нам НЕ нужны (экономит сотни мегабайт трафика и места)
-    FORBIDDEN_SUBMODULES=(
-        "wycheproof" "tlslite-ng" "tlsfuzzer" "python-ecdsa" 
-        "pyca-cryptography" "pkcs11-provider" "oqs-provider" "krb5" "gost-engine"
-    )
+    # FORBIDDEN_SUBMODULES=(
+        # "wycheproof" "tlslite-ng" "tlsfuzzer" "python-ecdsa" 
+        # "pyca-cryptography" "pkcs11-provider" "oqs-provider" "krb5" "gost-engine"
+    # )
 
-    # Настраиваем Git, чтобы он полностью игнорировал эти субмодули при сборке дерева
-    if [[ -f ".gitmodules" ]]; then
-        for sub in "${FORBIDDEN_SUBMODULES[@]}"; do
-            # Извлекаем точный путь субмодуля из .gitmodules
-            local sub_path=$(git config -f .gitmodules --get-regexp "submodule\..*\.path" | grep "$sub" | awk '{print $2}' || echo "")
-            if [[ -n "$sub_path" ]]; then
-                log_debug "De-initializing and ignoring submodule: $sub_path"
-                git submodule deinit -f "$sub_path" 2>/dev/null || true
-                git config -f .gitmodules --remove-section "submodule.$sub" 2>/dev/null || true
-            fi
-            # Физически удаляем остатки, если они были в кэше
-            echo "rm -rf $sub external/$sub 2>/dev/null || true"
-        done
-    fi
+    # if [[ -f ".gitmodules" ]]; then
+        # for sub in "${FORBIDDEN_SUBMODULES[@]}"; do
+            # local sub_path=$(git config -f .gitmodules --get-regexp "submodule\..*\.path" | grep "$sub" | awk '{print $2}' || echo "")
+            # if [[ -n "$sub_path" ]]; then
+                # log_debug "De-initializing and ignoring submodule: $sub_path"
+                # git submodule deinit -f "$sub_path" 2>/dev/null || true
+                # git config -f .gitmodules --remove-section "submodule.$sub" 2>/dev/null || true
+            # fi
+            # echo "rm -rf $sub external/$sub 2>/dev/null || true"
+        # done
+    # fi
 
     # Запускаем клонирование оставшихся (скачается только cloudflare-quiche)
-    echo "git-submodule-clone"
+    # echo "git-submodule-clone"
 
     # Вырезаем тяжелый тестовый и демонстрационный мусор
     echo "rm -rf test demos apps/demo doc html Configurations/windows-makefile.tmpl"
