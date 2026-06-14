@@ -489,7 +489,7 @@ index d8dbc93075..cddc09a90b 100644
      }
  
      pkt->size = enc_output.bitstream.used_size;
-@@ -106,159 +107,174 @@ static int svt_jpegxs_enc_encode(AVCodecContext* avctx, AVPacket* pkt,
+@@ -106,159 +107,176 @@ static int svt_jpegxs_enc_encode(AVCodecContext* avctx, AVPacket* pkt,
  static av_cold int svt_jpegxs_enc_free(AVCodecContext* avctx) {
      SvtJpegXsEncodeContext* svt_enc = avctx->priv_data;
  
@@ -515,6 +515,7 @@ index d8dbc93075..cddc09a90b 100644
 -        return;
 +        return 0;
      case AV_PIX_FMT_YUV444P:
++    case AV_PIX_FMT_GBRP:
          encoder->input_bit_depth = 8;
          encoder->colour_format = COLOUR_FORMAT_PLANAR_YUV444_OR_RGB;
 -        return;
@@ -530,6 +531,7 @@ index d8dbc93075..cddc09a90b 100644
 -        return;
 +        return 0;
      case AV_PIX_FMT_YUV444P10LE:
++    case AV_PIX_FMT_GBRP10LE:
          encoder->input_bit_depth = 10;
          encoder->colour_format = COLOUR_FORMAT_PLANAR_YUV444_OR_RGB;
 -        return;
