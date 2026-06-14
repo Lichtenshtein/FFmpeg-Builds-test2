@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/OpenVisualCloud/SVT-JPEG-XS.git"
-SCRIPT_COMMIT="c36f29aa417a7be11773f1cb1f302dff801ef4cc"
+SCRIPT_COMMIT="8e50180ad909a0bdcdf91b462c64033f0fe3e112"
 
 ffbuild_enabled() {
     [[ $TARGET == win32 ]] && return 1
@@ -46,18 +46,15 @@ ffbuild_dockerbuild() {
 
     for PC_FILE in "$PC_DIR"/SvtJpegxs*.pc; do
         [[ -f "$PC_FILE" ]] || continue
-        # Исправляем префикс
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
+        if grep -q -- "-lSvtJpegxs" "$PC_FILE" && [[ ! $(grep -q -- "-lSvtJpegxsEnc" "$PC_FILE") ]]; then
+            sed -i 's|-lSvtJpegxs|-lSvtJpegxsEnc -lSvtJpegxs|g' "$PC_FILE"
+        fi
         if ! grep -q -- "-lstdc++" "$PC_FILE"; then
             sed -i '/^Libs.private:/ s/$/ -lstdc++/' "$PC_FILE"
         fi
         sed -i 's|^Cflags:.*|Cflags: -I${includedir} -I${includedir}/svt-jpegxs -UDEF_DLL|' "$PC_FILE"
     done
-
-    # FFmpeg иногда ищет просто svtjpegxs.pc. Создадим алиас.
-    if [[ -f "$PC_DIR/SvtJpegxsEnc.pc" ]]; then
-        cp "$PC_DIR/SvtJpegxsEnc.pc" "$PC_DIR/svtjpegxs.pc"
-    fi
 }
 
 ffbuild_configure() {
