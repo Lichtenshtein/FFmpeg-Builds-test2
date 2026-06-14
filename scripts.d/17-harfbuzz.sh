@@ -23,7 +23,6 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
-    # local DEP_LIBS="-lfreetype -licuin -licuuc -licudt"
     # local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
 
     local myconf=(
@@ -51,6 +50,17 @@ ffbuild_dockerbuild() {
         -Dgdi=enabled
         -Dbenchmark=disabled
     )
+
+    # ѕровер€ем наличие статической библиотеки libicudt.a
+    if [[ -f "/opt/ffbuild/lib/libicudt.a" ]]; then
+        log_info "ICU library detected. Building with ICU support..."
+        local DEP_LIBS="-lfreetype -licuin -licuuc -licudt"
+        myconf+=("-Dicu=enabled")
+    else
+        log_warn "ICU library not found. Building without ICU for faster testing..."
+        local DEP_LIBS="-lfreetype"
+        myconf+=("-Dicu=disabled")
+    fi
 
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 

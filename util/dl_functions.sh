@@ -515,8 +515,9 @@ download_stage() {
             log_info "${LOCK_MARK} Preserving Git metadata for $STAGENAME (Whitelist match)"
         else
             log_debug "${BROOM_MARK} Stripping Git metadata for $STAGENAME to save cache space"
-            # Удаляем .git папки и .gitignore файлы
-            find "$WORK_DIR" -maxdepth 8 -name ".git*" -exec rm -rf {} + 2>/dev/null || true
+            find "$WORK_DIR" -maxdepth 8 -type d -name ".git" -exec rm -rf {} + 2>/dev/null || true
+            # Точечно удаляем только конкретные служебные файлы Git, не трогая .gitlab
+            find "$WORK_DIR" -maxdepth 8 -type f \( -name ".gitignore" -o -name ".gitattributes" -o -name ".gitmodules" \) -exec rm -f {} + 2>/dev/null || true
         fi
 
         # Config option changes tracing and hashing
