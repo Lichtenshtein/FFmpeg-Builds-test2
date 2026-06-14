@@ -26,10 +26,9 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    sed -i 's/^use_git=.*/use_git=false/g' bootstrap || true
-    sed -i 's/use_git=true/use_git=false/g' bootstrap || true
+    sed -i 's/use_git=false/use_git=true/g' bootstrap || true
 
-    # Перехватываем хук в bootstrap.conf и заменяем флаг --with-tests на --without-tests для ggl-модулей
+    # 2. Перехватываем хук в bootstrap.conf и заменяем флаг --with-tests на --without-tests для ggl-модулей
     sed -i 's/--macro-prefix=ggl --with-tests/--macro-prefix=ggl --without-tests/g' bootstrap.conf || true
 
     # вырезаем инклуд cligen.mk из Makefile.am, который вешал automake
@@ -48,7 +47,7 @@ ffbuild_dockerbuild() {
     sed -i '/SUBDIRS +=/d' Makefile.am
     sed -i '/if ENABLE_DANE/,/endif/ { /SUBDIRS +=/s/+=/=/; /libdane/p; d }' Makefile.am
 
-    ./bootstrap
+    ./bootstrap --no-git --gnulib-srcdir=gnulib
 
     local DEP_LIBS="-lws2_32 -lbcrypt -lcrypt32 -lncrypt"
 
