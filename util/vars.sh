@@ -1072,8 +1072,8 @@ get_deps_list() {
                     grep -Ev "(__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
                     awk -F: "{ 
                         split(\$NF, a, \" \"); 
-                        sym = a[1]; 
-                        if (sym != \"\") printf \"  ${LOG_WARN}•${NC} %-22s ${GREY_B}%b←%b${NC} %s\n\", \$2, sym 
+                        sym = a[2]; 
+                        if (sym != \"\") printf \"  ${LOG_WARN}•${NC} %-15s ${GREY_B}←${NC} %s\n\", \$2, sym 
                     }" | sort -u | head -n ${LOG_RAW_SYMB})
             fi
 
@@ -1088,7 +1088,7 @@ get_deps_list() {
                         type = (\$3 == \"\") ? \$1 : \$2;
         
                         if (sym !~ /^(\.)/ && sym != \"\" && type ~ /[TTDDRR]/) {
-                            printf \"  ${LOG_INFO}•${NC} ${CYAN_B}%b→%b${NC} ${GREEN}%s${NC}\n\", sym
+                            printf \"  ${LOG_INFO}•${NC} ${CYAN_B}→${NC} ${GREEN}%s${NC}\n\", sym
                         }
                     }" | sort -u | head -n ${LOG_RAW_SYMB})
             fi
