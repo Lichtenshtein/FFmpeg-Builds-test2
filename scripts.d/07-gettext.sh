@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 SCRIPT_REPO="https://ftp.gnu.org/pub/gnu/gettext/gettext-1.0.tar.gz"
 
 ffbuild_enabled() {
@@ -10,10 +10,18 @@ ffbuild_dockerdl() {
     echo "download_file \"$SCRIPT_REPO\" \"gettext.tar.gz\""
     echo "tar -xaf gettext.tar.gz --strip-components=1"
     echo "rm -f gettext.tar.gz"
+    # Агрессивная очистка неиспользуемых тяжелых компонентов
+    echo "rm -rf gnulib-local libtextstyle"
+    # Очищаем gettext-tools, но подменяем Makefile, чтобы верхний configure не падал
+    echo "rm -rf gettext-tools/*"
+    echo "mkdir -p gettext-tools"
+    echo "echo 'all: ;' > gettext-tools/Makefile.in"
+    echo "echo 'install: ;' >> gettext-tools/Makefile.in"
 }
 
 ffbuild_dockerbuild() {
     set -e
+
     # Собираем только из подпапки gettext-runtime, чтобы не собирать тяжелые Java/C# компоненты
     cd gettext-runtime
 
@@ -27,8 +35,10 @@ ffbuild_dockerbuild() {
         # --disable-nls
         --with-libiconv-prefix="$FFBUILD_PREFIX"
         --enable-pic
+        --enable-year2038
         --with-included-gettext
         --enable-relocatable
+        --enable-threads=posix
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
@@ -58,9 +68,9 @@ includedir=\${prefix}/include
 
 Name: intl
 Description: GNU gettext runtime library
-Version: 1.0
+Version: ${VER_FULL}
 Libs: -L\${libdir} -lintl
-Libs.private: -liconv -lcharset
+Libs.private: -liconv -lcharset ${OPENMP_LIB} -pthread
 Cflags: -I\${includedir}
 EOF
 }

@@ -21,7 +21,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    echo "test"
+
     ./autogen.sh
 
     local myconf=(
