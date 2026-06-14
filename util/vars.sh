@@ -1689,8 +1689,7 @@ get_stage_version() {
 
     # svt-av1
     if [[ "$STAGENAME" == *"svtav1"* ]]; then
-        # local svtav1="svt-av1-tritium/CMakeLists.txt"
-        local svtav1=$(find . -maxdepth 2 -name "CMakeLists.txt" -print -quit 2>/dev/null)
+        local svtav1="svt-av1-tritium/CMakeLists.txt"
         ver_log "SVT-AV1 detected: parsing version from CMakeLists.txt..."
         ver="" # Сбрасываем предыдущие значения
 
