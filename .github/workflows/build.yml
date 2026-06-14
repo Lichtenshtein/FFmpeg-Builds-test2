@@ -122,7 +122,7 @@ env:
   # Списки исключений
   # Список для хранения .git от очистки (в download.sh)
   # Some patches apply only with git am...
-  GIT_PRESERVE_LIST: "ffmpeg|x264|x265|vulkan-loader|twolame|gme|mbedtls|avisynth|openssl|pango|freetype|ilbc|libvorbis|snappy|zimg|dav1d|libplacebo"
+  GIT_PRESERVE_LIST: "ffmpeg|x264|x265|vulkan-loader|twolame|gme|mbedtls|avisynth|openssl|pango|ilbc|libvorbis|snappy|zimg|dav1d|libplacebo"
   # GIT_PRESERVE_LIST: "ffmpeg|glib2|x264|x265|vulkan-loader|twolame|gme|mbedtls|pcre2|avisynth|openssl|pango|freetype|ilbc|libjxl|libvorbis|snappy|zimg|vmaf|dav1d|libplacebo"
   # Список для сохранения DLL (в run_stage.sh)
   DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|mfx|opencv|onevpl|leptonica|audiotoolbox|avisynth|vapoursynth|frei0r|nnedi3|whisper"
