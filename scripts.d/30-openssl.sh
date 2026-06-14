@@ -6,6 +6,7 @@ SCRIPT_COMMIT="d099e33e5733bb9d3975fc4f3ac4a85b6ed1a4cb"
 ffbuild_depends() {
     echo base
     echo zlib
+    echo zstd
 }
 
 ffbuild_enabled() {
@@ -15,29 +16,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-
-    # Список субмодулей, которые нам НЕ нужны (экономит сотни мегабайт трафика и места)
-    # FORBIDDEN_SUBMODULES=(
-        # "wycheproof" "tlslite-ng" "tlsfuzzer" "python-ecdsa" 
-        # "pyca-cryptography" "pkcs11-provider" "oqs-provider" "krb5" "gost-engine"
-    # )
-
-    # if [[ -f ".gitmodules" ]]; then
-        # for sub in "${FORBIDDEN_SUBMODULES[@]}"; do
-            # local sub_path=$(git config -f .gitmodules --get-regexp "submodule\..*\.path" | grep "$sub" | awk '{print $2}' || echo "")
-            # if [[ -n "$sub_path" ]]; then
-                # log_debug "De-initializing and ignoring submodule: $sub_path"
-                # git submodule deinit -f "$sub_path" 2>/dev/null || true
-                # git config -f .gitmodules --remove-section "submodule.$sub" 2>/dev/null || true
-            # fi
-            # echo "rm -rf $sub external/$sub 2>/dev/null || true"
-        # done
-    # fi
-
-    # Запускаем клонирование оставшихся (скачается только cloudflare-quiche)
     # echo "git-submodule-clone"
-
-    # Вырезаем тяжелый тестовый и демонстрационный мусор
     echo "rm -rf test apps/demo doc/designs"
 }
 
@@ -68,7 +47,6 @@ ffbuild_dockerbuild() {
         no-async
         no-docs
         # ---- пытаемся очистить crypto/ folder----
-        no-comp      # сжатие будет через zlib
         no-idea      # crypto/idea (Устаревший)
         no-md2       # crypto/md2  (Древний и небезопасный)
         no-md4       # crypto/md4  (Древний)
@@ -119,7 +97,7 @@ ffbuild_dockerbuild() {
 
     if has_library "z"; then
         log_info "ZLib library detected. Building with ZLib support..."
-        myconf+=( "zlib" )
+        myconf+=( "zlib no-comp" )
     fi
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
