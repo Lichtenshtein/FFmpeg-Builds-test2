@@ -1,8 +1,6 @@
 #!/bin/bash
-
-LI_VER="1.19"
-
-SCRIPT_REPO="https://ftp.gnu.org/pub/gnu/libiconv/libiconv-${LI_VER}.tar.gz"
+export USE_VERS_FINDER=1
+SCRIPT_REPO="https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.19.tar.gz"
 
 ffbuild_enabled() {
     return 0
@@ -50,7 +48,7 @@ includedir=\${prefix}/include
 
 Name: iconv
 Description: Character set conversion library
-Version: ${LI_VER}
+Version: ${VER_FULL}
 Libs: -L\${libdir} -liconv
 Libs.private: -lcharset
 Cflags: -I\${includedir} $static_flags

@@ -24,6 +24,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+echo "test"
+
     sed -i '/exe_wrapper:/,/)/ s/required: true/required: false/' meson.build
 
     # Патчим генератор макросов, убирая __attribute__ visibility

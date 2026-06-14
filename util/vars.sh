@@ -1845,6 +1845,16 @@ get_stage_version() {
         ver="" # Сбрасываем версию, чтобы гарантированно уйти в парсинг тегов Git
     fi
 
+    # GetText
+    if [[ "$STAGENAME" == *"gettext"* || "$current_repo" =~ \.tar\.(gz|xz|bz2)$ ]]; then
+        ver_log "GetText detected, parsing version from URL..."
+        ver="" # Сбрасываем версию
+        if [[ "$current_repo" =~ -([0-9.]+)\.tar ]]; then
+            ver="${BASH_REMATCH[1]}"
+            ver_log "Extracted version from archive name: ${LOG_INFO}$ver${NC}"
+        fi
+    fi
+
     # 4. Remote Git Detection
     if [[ -z "$ver" ]]; then
         if [[ -n "$current_repo" ]]; then
