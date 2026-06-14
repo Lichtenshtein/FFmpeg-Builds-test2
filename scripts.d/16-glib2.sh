@@ -18,6 +18,8 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     echo "git-submodule-clone"
+    echo "rm -rf docs tests po glib/tests gio/tests gobject/tests"
+
 }
 
 ffbuild_dockerbuild() {
@@ -99,12 +101,12 @@ endian = 'little'
 # exe_wrapper = ['wine']
 c = '${FFBUILD_TOOLCHAIN}-gcc'
 cpp = '${FFBUILD_TOOLCHAIN}-g++'
-ar = '${FFBUILD_TOOLCHAIN}-gcc-ar'
+ar = '${FFBUILD_CROSS_PREFIX}ar'
 pkg-config = 'pkgconf'
 strip = '${FFBUILD_TOOLCHAIN}-strip'
 windres = '${FFBUILD_TOOLCHAIN}-windres'
-nm = '${FFBUILD_TOOLCHAIN}-gcc-nm'
-ranlib = '${FFBUILD_TOOLCHAIN}-gcc-ranlib'
+nm = '${FFBUILD_CROSS_PREFIX}nm'
+ranlib = '${FFBUILD_CROSS_PREFIX}ranlib'
 nasm = '/usr/bin/nasm'
 
 [properties]
@@ -121,7 +123,6 @@ EOF
 
     mkdir -p _build
 
-    # Формируем список зависимостей из вашего чит-листа
     # pcre2 требует zlib/bz2 в некоторых конфигах
     # local DEP_LIBS="-lpcre2-posix -lpcre2-8 -lffi -lintl -liconv -lcharset -lz"
     # local WIN_LIBS="-luserenv -liphlpapi -lwinmm -luuid -ldnsapi $LIBS"
@@ -139,7 +140,6 @@ EOF
         -Dintrospection=disabled
         -Dlibmount=disabled
         -Dnls=disabled
-        # -Dnls=enabled
         -Dforce_posix_threads=true
         -Dglib_debug=disabled
         -Dman-pages=disabled
