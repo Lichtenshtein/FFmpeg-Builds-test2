@@ -18,7 +18,7 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     echo "git-submodule-clone"
-    echo "rm -rf docs tests po glib/tests gio/tests gobject/tests"
+    echo "rm -rf docs po glib/tests gio/tests gobject/tests"
 
 }
 

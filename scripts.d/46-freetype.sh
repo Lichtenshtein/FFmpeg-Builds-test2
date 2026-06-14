@@ -20,7 +20,8 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "git-submodule-clone"
+    echo "git-mini-clone \"https://github.com/nyorain/dlg.git\" \"master\" subprojects/dlg"
+    echo "rm -rf docs/oldlogs"
 }
 
 ffbuild_dockerbuild() {
