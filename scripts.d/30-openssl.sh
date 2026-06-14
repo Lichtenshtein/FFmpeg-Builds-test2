@@ -39,7 +39,7 @@ set -xe
     # echo "git-submodule-clone"
 
     # Вырезаем тяжелый тестовый и демонстрационный мусор
-    echo "rm -rf test demos apps/demo doc html Configurations/windows-makefile.tmpl"
+    echo "rm -rf test apps/demo doc/designs"
 }
 
 ffbuild_dockerbuild() {
