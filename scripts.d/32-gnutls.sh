@@ -106,6 +106,7 @@ ffbuild_dockerbuild() {
         [[ -f "$PC_FILE" ]] || continue
         sed -i "s|^Cflags:.*|& -I\${includedir}/gnutls|" "$PC_FILE"
         log_info "Updated Cflags in $(basename "$PC_FILE")"
+        sed -i '/^Requires\.private:/ {s/ zstd //g; s/ zstd$//; s/: zstd/: /}' "$PC_FILE"
     done
 }
 
