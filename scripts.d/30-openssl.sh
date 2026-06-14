@@ -14,7 +14,6 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-set -xe
     default_dl .
 
     # Список субмодулей, которые нам НЕ нужны (экономит сотни мегабайт трафика и места)
@@ -52,14 +51,13 @@ ffbuild_dockerbuild() {
     fi
 
     # Фикс для QUIC
-    # sed -i '1i#ifndef SIO_UDP_NETRESET\n#define SIO_UDP_NETRESET _WSAIOW(IOC_VENDOR, 15)\n#endif' include/internal/sockets.h
     find . -name "quic_reactor.c" -o -name "sockets.h" | xargs sed -i '1i #ifndef SIO_UDP_NETRESET\n#define SIO_UDP_NETRESET _WSAIOW(IOC_VENDOR, 15)\n#endif'
 
     # нужно передать только чистые имена команд без ccache и без префикса
-    local CC="${FFBUILD_TOOLCHAIN}-gcc"
-    local CXX="${FFBUILD_TOOLCHAIN}-g++"
-    local AR="${FFBUILD_CROSS_PREFIX}ar"
-    local RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
+    local CC="gcc"
+    local CXX="g++"
+    local AR="ar"
+    local RANLIB="gcc-ranlib"
 
     local myconf=(
         threads # adding '-static' flag disables that, don't use it
