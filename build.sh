@@ -872,7 +872,7 @@ log_info "${ARCH_MARK} Creating archive: ${BUILD_NAME}.7z"
 if [[ "$DEBUG_MODE" == "1" ]]; then
     log_info "${SAVE_MARK} Packaging external debug symbols separately..."
     # Находим все созданные .debug файлы и пакуем их отдельно
-    7z a -mx7 -mmt=on "$FFBUILD_DESTDIR/${BUILD_NAME}-debug-symbols.7z" -an -ai!r"./${BUILD_NAME}/*.debug"
+    7z a -mx7 -mmt=on -r "$FFBUILD_DESTDIR/${BUILD_NAME}-debug-symbols.7z" "./${BUILD_NAME}/*.debug"
     # Исключаем файлы .debug из основного пользовательского архива
     7z a -mx7 -mmt=on "$FFBUILD_DESTDIR/${BUILD_NAME}.7z" "./${BUILD_NAME}/*" -xr!"*.debug"
 else

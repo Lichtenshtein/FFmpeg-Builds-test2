@@ -16,6 +16,7 @@ ffbuild_depends() {
 
 ffbuild_enabled() {
     return 0
+    echo "rm -rf android_jni tests"
 }
 
 ffbuild_dockerdl() {

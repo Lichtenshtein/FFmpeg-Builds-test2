@@ -23,6 +23,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf third_party/googletest test Docs/img"
 }
 
 ffbuild_dockerbuild() {
