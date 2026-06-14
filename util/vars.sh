@@ -1060,58 +1060,65 @@ get_deps_list() {
         fi
     else
         # nm: undefined external symbols in static libs 
-        find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
-        xargs -0 -r -I{} bash -c '
-            file="$1"; tc="$2"; x_mark="$3"
-        
-            # Сбор неразрешенных внешних зависимостей (то, что библиотека требует извне)
-            raw_imports=$("${tc}-nm" -uA "$file" 2>/dev/null || true)
-            clean_imports=""
-            if [[ -n "$raw_imports" ]]; then
-                clean_imports=$(echo "$raw_imports" | \
-                    grep -Ev "(__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
-                    awk -F: "{ 
-                        split(\$NF, a, \" \"); 
-                        sym = a[2]; 
-                        if (sym != \"\") printf \"  ${LOG_WARN}•${NC} %-15s %s[IMP]%s %s\n\", \$2, \"$GREY_B\", \"$NC\", sym 
-                    }" | sort -u | head -n ${LOG_RAW_SYMB})
-            fi
-        
-            # Сбор реальных экспортируемых функций (то, что библиотека отдает наружу)
-            raw_exports=$("${tc}-nm" -g --defined-only "$file" 2>/dev/null || true)
-            clean_exports=""
-            if [[ -n "$raw_exports" ]]; then
-                clean_exports=$(echo "$raw_exports" | \
-                    grep -Ev "(__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
-                    awk "{
-                        # В выводе nm для определенных символов формат обычно: объектный_файл:адрес тип имя
-                        # Если nm выводит имя файла, парсим его, иначе берем имя символа
-                        sym = \$3;
-                        type = \$2;
-                        if (sym == \"\") { sym = \$2; type = \$1; }
-                        
-                        # Фильтруем только текстовые секции (T/t), инициализацию (D/d) и readonly (R/r)
-                        if (type ~ /[TTDDRR]/ && sym !~ /^(\.)/) {
-                            printf \"  ${LOG_INFO}•${NC} %-15s %s[EXP]%s %b%s%b\n\", \"\", \"$CYAN_B\", \"$NC\", \"$GREEN\", sym, \"$NC\"
-                        }
-                    }" | sort -u | head -n ${LOG_RAW_SYMB})
-            fi
-        
-            # Вывод результатов, если хоть что-то найдено
-            if [[ -n "$clean_imports" || -n "$clean_exports" ]]; then
-                printf "\n%b %bSYMBOL ANALYSIS%b for %s:\n" "$x_mark" "$YELLOW" "$NC" "$file"
-                
-                if [[ -n "$clean_exports" ]]; then
-                    printf " %b↳ EXPORTED FUNCTIONS (What this library provides):%b\n" "$CYAN" "$NC"
-                    echo "$clean_exports"
-                fi
-                
-                if [[ -n "$clean_imports" ]]; then
-                    printf " %b↳ EXTERNAL DEPENDENCIES (What this library requires):%b\n" "$PURPLE" "$NC"
-                    echo "$clean_imports"
-                fi
-            fi
-        ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
+find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
+xargs -0 -r -I{} bash -c '
+    file="$1"; tc="$2"; x_mark="$3"
+
+    # Экспортируем цвета в окружение subshell, чтобы awk их видел
+    export GREEN="'"$GREEN"'"
+    export CYAN_B="'"$CYAN_B"'"
+    export NC="'"$NC"'"
+    export LOG_INFO="'"$LOG_INFO"'"
+    export LOG_WARN="'"$LOG_WARN"'"
+    export PURPLE="'"$PURPLE"'"
+    export GREY_B="'"$GREY_B"'"
+
+    # Сбор внешних зависимостей (IMP)
+    raw_imports=$("${tc}-nm" -uA "$file" 2>/dev/null || true)
+    clean_imports=""
+    if [[ -n "$raw_imports" ]]; then
+        clean_imports=$(echo "$raw_imports" | \
+            grep -Ev "(__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
+            awk -F: "{ 
+                split(\$NF, a, \" \"); 
+                sym = a[2]; 
+                if (sym != \"\") printf \"  %s•%s %-15s %s[IMP]%s %s\n\", ENVIRON[\"LOG_WARN\"], ENVIRON[\"NC\"], \$2, ENVIRON[\"GREY_B\"], ENVIRON[\"NC\"], sym 
+            }" | sort -u | head -n ${LOG_RAW_SYMB})
+    fi
+
+    # сбор реальных экспортов (EXP) - берем любые определенные глобальные символы
+    raw_exports=$("${tc}-nm" -g --defined-only "$file" 2>/dev/null || true)
+    clean_exports=""
+    if [[ -n "$raw_exports" ]]; then
+        clean_exports=$(echo "$raw_exports" | \
+            grep -Ev "(__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
+            awk -F: "{
+
+                line = \$NF;
+                gsub(/^[ \t]+/, \"\", line);
+                split(line, a, \" \");
+                type = a[1];
+                sym = a[2];
+                if (sym == \"\") { sym = a[1]; type = \"T\"; }
+
+                if (sym !~ /^(\.)/ && sym != \"\") {
+                    printf \"  %s•%s %-15s %s[EXP]%s %s%s%s\n\", ENVIRON[\"LOG_INFO\"], ENVIRON[\"NC\"], \"\", ENVIRON[\"CYAN_B\"], ENVIRON[\"NC\"], ENVIRON[\"GREEN\"], sym, ENVIRON[\"NC\"]
+                }
+            }" | sort -u | head -n ${LOG_RAW_SYMB})
+    fi
+
+    if [[ -n "$clean_imports" || -n "$clean_exports" ]]; then
+        printf "\n%b %bSYMBOL ANALYSIS%b for %s:\n" "$x_mark" "'"$YELLOW"'" "'"$NC"'" "$file"
+        if [[ -n "$clean_exports" ]]; then
+            printf " %b↳ EXPORTED FUNCTIONS (What this library provides):%b\n" "'"$CYAN"'" "'"$NC"'"
+            echo "$clean_exports"
+        fi
+        if [[ -n "$clean_imports" ]]; then
+            printf " %b↳ EXTERNAL DEPENDENCIES (What this library requires):%b\n" "'"$PURPLE"'" "'"$NC"'"
+            echo "$clean_imports"
+        fi
+    fi
+' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
     fi
 
     # Output
