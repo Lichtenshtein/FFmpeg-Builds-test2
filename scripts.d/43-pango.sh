@@ -23,12 +23,17 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    mkdir -p build && cd build
+    if has_library "icudt"; then
+        log_info "ICU library detected."
+        local ICU_LIBS="-licuin -licuuc -licudt"
+        local ICU_H_LIBS="-lharfbuzz-icu"
+    fi
 
-    local DEP_LIBS="-Wl,--start-group -lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lcairo-gobject -lcairo -lfontconfig -lfreetype -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfribidi -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -licuin -licuuc -licudt -Wl,--end-group"
+    local DEP_LIBS="-Wl,--start-group ${ICU_H_LIBS} -lharfbuzz-subset -lharfbuzz-cairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lcairo-gobject -lcairo -lfontconfig -lfreetype -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfribidi -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset ${ICU_LIBS} -Wl,--end-group"
     local WIN_LIBS="-lrpcrt4 -lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -luuid $LIBS -lstdc++"
-
     local LDFLAGS=$(echo "$LDFLAGS" | sed 's/-lssp//g')
+
+    mkdir -p build && cd build
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"

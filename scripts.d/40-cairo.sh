@@ -22,12 +22,19 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf test perf"
 }
 
 ffbuild_dockerbuild() {
     set -e
 
-    local DEP_LIBS="-Wl,--start-group -lfontconfig -lpixman-1 -lxml2 -lpng16 -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfreetype -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -licuin -licuuc -licudt -Wl,--end-group"
+    # проверяем наличие библиотеки libicudt.a
+    if has_library "icudt"; then
+        log_info "ICU library detected."
+        local ICU_LIBS="-licuin -licuuc -licudt"
+    fi
+
+    local DEP_LIBS="-Wl,--start-group -lfontconfig -lpixman-1 -lxml2 -lpng16 -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfreetype -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset ${ICU_LIBS} -Wl,--end-group"
     local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -luuid $LIBS -lstdc++"
 
     # конфликт hypot в коде Cairo для MinGW
@@ -65,6 +72,7 @@ ffbuild_dockerbuild() {
         -Dfreetype=enabled
         -Dglib=enabled
         -Dspectre=disabled
+        -Dgtk_doc=false
         -Dpng=enabled
         -Dsymbol-lookup=disabled
         -Dtee=enabled

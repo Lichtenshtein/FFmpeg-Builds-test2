@@ -23,8 +23,6 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
-    local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
-
     local myconf=(
         --cross-file="$FFBUILD_MESON_CROSS"
         --prefix="$FFBUILD_PREFIX"
@@ -51,7 +49,9 @@ ffbuild_dockerbuild() {
         -Dbenchmark=disabled
     )
 
-    # Проверяем наличие статической библиотеки libicudt.a
+    local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
+
+    # РїСЂРѕРІРµСЂСЏРµРј РЅР°Р»РёС‡РёРµ Р±РёР±Р»РёРѕС‚РµРєРё libicudt
     if has_library "icudt"; then
         log_info "ICU library detected. Building with ICU support..."
         local DEP_LIBS="-lfreetype -licuin -licuuc -licudt"
