@@ -16,19 +16,24 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Вырезаем ломающий статику флаг -fvisibility=hidden из configure.ac
-    sed -i 's/AX_CHECK_COMPILE_FLAG(\[-fvisibility=hidden\].*)/# Hidden visibility disabled for MinGW Static/g' configure.ac
+    # Вырезаем макрос скрытия видимости -fvisibility=hidden из configure.ac
+    sed -i '/-fvisibility=hidden/,/\])/d' configure.ac
 
     # Remove Skylake/Cascadelake flag checks
     if [ "${USE_AVX512:-0}" == "0" ]; then
         log_info "Patching zimg configure.ac to enforce disabling AVX-512..."
-        # Resetting tuning flag substitution for AVX-512 architectures
-        sed -i 's/AX_CHECK_COMPILE_FLAG(\[-mtune=skylake-avx512\],.*/AC_SUBST([SKX_CFLAGS], [])/g' configure.ac
-        sed -i 's/AX_CHECK_COMPILE_FLAG(\[-mtune=cascadelake\],.*/AC_SUBST([CLX_CFLAGS], [])/g' configure.ac
-        # Force the X86SIMD_AVX512 condition to false (stub)
+        # Заменяем жесткие флаги -mavx512* на безопасные -mavx2 -mfma -mf16c
+        sed -i 's/-mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq -mavx512vnni/-mavx2 -mfma -mf16c/g' Makefile.am || true
+        sed -i 's/-mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq/-mavx2 -mfma -mf16c/g' Makefile.am || true
+        # Сбрасываем подстановку макросов настройки, если они остались пустыми
+        sed -i 's/\$(SKX_CFLAGS)/$(HSW_CFLAGS)/g' Makefile.am || true
+        sed -i 's/\$(CLX_CFLAGS)/$(HSW_CFLAGS)/g' Makefile.am || true
+        sed -i 's/-march=skylake-avx512/-march=haswell/g' Makefile.am || true
+        sed -i 's/-mtune=skylake-avx512/-mtune=haswell/g' Makefile.am || true
+        sed -i 's/-mtune=cascadelake/-mtune=haswell/g' Makefile.am || true
+        # Принудительно отключаем условный макрос сборщика для AVX512, чтобы защитить логику
         sed -i 's/AM_CONDITIONAL(\[X86SIMD_AVX512\],.*/AM_CONDITIONAL([X86SIMD_AVX512], [false])/g' configure.ac
     fi
-    # it still uses -mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq flags
 
     ./autogen.sh
 
@@ -59,6 +64,8 @@ ffbuild_dockerbuild() {
     local PC_FILE="$PC_DIR/zimg.pc"
     if [[ -f "$PC_FILE" ]]; then
         if ! grep -q "Libs.private" "$PC_FILE"; then
+            echo "Libs.private: -lstdc++" >> "$PC_FILE"
+        else
             sed -i '/^Libs.private:/ s/$/ -lstdc++/' "$PC_FILE"
         fi
     fi
