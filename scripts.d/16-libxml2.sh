@@ -46,14 +46,14 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-static --disable-shared )
 
     # Проверяем наличие статической библиотеки libicudt.a
-    if [[ -f "${FFBUILD_PREFIX}/lib/libicudt.a" ]]; then
+    if has_library "icudt"; then
         log_info "ICU library detected. Building libxml2 with ICU support..."
         local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset -licuin -licuuc -licudt $LIBS"
-        myconf+=("--with-icu")
+        myconf+=( "--with-icu" )
     else
         log_warn "ICU library not found. Building libxml2 without ICU for faster testing..."
         local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset $LIBS"
-        myconf+=("--without-icu")
+        myconf+=( "--without-icu" )
     fi
 
     export static_flags=""
