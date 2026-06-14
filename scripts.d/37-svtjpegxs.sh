@@ -15,6 +15,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Вырезаем идиотский флаг -flto, который ломает классический линкер
+    sed -i 's/check_both_flags_add(-flto)//g' CMakeLists.txt || true
     # Удаляем принудительное скрытие символов на уровне всего проекта CMake
     sed -i 's/set(CMAKE_C_VISIBILITY_PRESET hidden)//g' CMakeLists.txt || true
     # Удаляем точечное скрытие символов для библиотеки SvtJpegxsLib

@@ -5,22 +5,19 @@ Subject: [PATCH] patch for 10.0
 
 ---
 diff --git a/Source/API/SvtJpegxs.h b/Source/API/SvtJpegxs.h
-index 4bdc178..e47fd39 100644
+index 4bdc178..dc7d47c 100644
 --- a/Source/API/SvtJpegxs.h
 +++ b/Source/API/SvtJpegxs.h
-@@ -20,6 +20,7 @@ extern "C" {
- #ifdef DEF_DLL
- #ifdef DEF_BUILDING_SHARED_LIBS
- #if defined(_WIN32)
-+#undef PREFIX_API
- #define PREFIX_API __declspec(dllexport)
- #elif defined(__GNUC__) && __GNUC__ >= 4
- #define PREFIX_API __attribute__((visibility("default")))
-@@ -28,6 +29,7 @@ extern "C" {
+@@ -34,7 +34,11 @@ extern "C" {
  #endif
- #else /*DEF_BUILDING_SHARED_LIBS*/
- #if defined(_WIN32)
-+#undef PREFIX_API
- #define PREFIX_API __declspec(dllimport)
- #else /*other compiler*/
+ #endif /*DEF_BUILDING_SHARED_LIBS*/
+ #else  /*DEF_DLL*/
++#if defined(__MINGW32__) || defined(_WIN32)
++#define PREFIX_API __declspec(dllexport)
++#else
  #define PREFIX_API
++#endif
+ #endif /*DEF_DLL*/
+ 
+ /********************************
+ 
