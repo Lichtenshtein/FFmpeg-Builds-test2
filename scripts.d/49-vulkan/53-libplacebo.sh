@@ -22,6 +22,7 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     echo "git-submodule-clone"
+    echo "rm -rf fast_float/tests"
 }
 
 ffbuild_dockerbuild() {
@@ -55,18 +56,18 @@ ffbuild_dockerbuild() {
         -Dbench=false
         -Dtests=false
         -Ddebug-abort=false
-        -Dglslang=enabled # glslang SPIR-V compiler
-        -Dlcms=enabled # LittleCMS 2 support
+        -Dglslang=disabled # glslang SPIR-V compiler
+        -Dlcms=disabled # LittleCMS 2 support
         -Dlibdovi=disabled # libdovi support
         -Ddovi=disabled # Dolby Vision reshaping support
-        -Dshaderc=enabled # libshaderc SPIR-V compiler
-        -Dopengl=enabled # OpenGL-based renderer
-        -Dgl-proc-addr=enabled # Enable built-in OpenGL loader; uses dlopen, dlsym
+        -Dshaderc=disabled # libshaderc SPIR-V compiler
+        -Dopengl=disabled # OpenGL-based renderer
+        -Dgl-proc-addr=disabled # Enable built-in OpenGL loader; uses dlopen, dlsym
         #-Dvk-proc-addr=enabled # Link directly against vkGetInstanceProcAddr from libvulkan.so
         -Dvulkan-registry="$FFBUILD_PREFIX"/share/vulkan/registry/vk.xml
         -Dvulkan-sdk="$FFBUILD_PREFIX"
-        -Dvulkan=enabled
-        -Dxxhash=enabled # faster replacement for internal siphash
+        -Dvulkan=disabled
+        -Dxxhash=disabled # faster replacement for internal siphash
     )
 
     if [[ $TARGET == win* ]]; then
