@@ -4,28 +4,23 @@ Date: Sat, 25 Apr 2026 17:15:23 +0300
 Subject: [PATCH] patch for 10.0
 
 ---
---- a/Source/Lib/CMakeLists.txt
-+++ b/Source/Lib/CMakeLists.txt
-@@ -48,7 +48,9 @@
- set_target_properties(SvtJpegxsLib PROPERTIES OUTPUT_NAME "SvtJpegxs")
- set_target_properties(SvtJpegxsLib PROPERTIES VERSION ${SVT_LIB_VERSION})
- set_target_properties(SvtJpegxsLib PROPERTIES SOVERSION ${SVT_LIB_VERSION_MAJOR})
--set_target_properties(SvtJpegxsLib PROPERTIES C_VISIBILITY_PRESET hidden)
-+if (BUILD_SHARED_LIBS)
-+    set_target_properties(SvtJpegxsLib PROPERTIES C_VISIBILITY_PRESET hidden)
-+endif()
- target_link_libraries(SvtJpegxsLib PUBLIC ${PLATFORM_LIBS})
- target_link_libraries(SvtJpegxsLib PRIVATE cpuinfo_public)
- 
+diff --git a/Source/API/SvtJpegxs.h b/Source/API/SvtJpegxs.h
+index 4bdc178..e47fd39 100644
 --- a/Source/API/SvtJpegxs.h
 +++ b/Source/API/SvtJpegxs.h
-@@ -37,6 +37,9 @@
- #endif /*DEF_BUILDING_SHARED_LIBS*/
- #else  /*DEF_DLL*/
+@@ -20,6 +20,7 @@ extern "C" {
+ #ifdef DEF_DLL
+ #ifdef DEF_BUILDING_SHARED_LIBS
+ #if defined(_WIN32)
++#undef PREFIX_API
+ #define PREFIX_API __declspec(dllexport)
+ #elif defined(__GNUC__) && __GNUC__ >= 4
+ #define PREFIX_API __attribute__((visibility("default")))
+@@ -28,6 +29,7 @@ extern "C" {
+ #endif
+ #else /*DEF_BUILDING_SHARED_LIBS*/
+ #if defined(_WIN32)
++#undef PREFIX_API
+ #define PREFIX_API __declspec(dllimport)
+ #else /*other compiler*/
  #define PREFIX_API
-+#if defined(__GNUC__) && (defined(_WIN32) || defined(__MINGW32__))
-+#define PREFIX_API __attribute__((visibility("default")))
-+#endif
- #endif /*DEF_DLL*/
- 
- /********************************

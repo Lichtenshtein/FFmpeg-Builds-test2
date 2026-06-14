@@ -15,6 +15,11 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Удаляем принудительное скрытие символов на уровне всего проекта CMake
+    sed -i 's/set(CMAKE_C_VISIBILITY_PRESET hidden)//g' CMakeLists.txt || true
+    # Удаляем точечное скрытие символов для библиотеки SvtJpegxsLib
+    sed -i 's/set_target_properties(SvtJpegxsLib PROPERTIES C_VISIBILITY_PRESET hidden)//g' Source/Lib/CMakeLists.txt || true
+
     # отключаем автоматическое определение архитектуры хоста
     # чтобы он не взял флаги процессора GitHub раннера
     sed -i 's/-march=native//g' CMakeLists.txt || true
