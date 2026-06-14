@@ -9,7 +9,7 @@ ffbuild_depends() {
     echo vulkan-loader
     echo glslang
     echo shaderc
-    echo spirv-cross
+    echo spirv-cross # main
     echo shaderc
     echo lcms2
     echo libxxhash
@@ -56,18 +56,18 @@ ffbuild_dockerbuild() {
         -Dbench=false
         -Dtests=false
         -Ddebug-abort=false
-        -Dglslang=disabled # glslang SPIR-V compiler
-        -Dlcms=disabled # LittleCMS 2 support
+        -Dglslang=enabled # glslang SPIR-V compiler
+        -Dlcms=enabled # LittleCMS 2 support
         -Dlibdovi=disabled # libdovi support
         -Ddovi=disabled # Dolby Vision reshaping support
-        -Dshaderc=disabled # libshaderc SPIR-V compiler
-        -Dopengl=disabled # OpenGL-based renderer
-        -Dgl-proc-addr=disabled # Enable built-in OpenGL loader; uses dlopen, dlsym
+        -Dshaderc=enabled # libshaderc SPIR-V compiler
+        -Dopengl=enabled # OpenGL-based renderer
+        -Dgl-proc-addr=enabled # Enable built-in OpenGL loader; uses dlopen, dlsym
         #-Dvk-proc-addr=enabled # Link directly against vkGetInstanceProcAddr from libvulkan.so
-        # -Dvulkan-registry="$FFBUILD_PREFIX"/share/vulkan/registry/vk.xml
+        -Dvulkan-registry="$FFBUILD_PREFIX"/share/vulkan/registry/vk.xml
         -Dvulkan-sdk="$FFBUILD_PREFIX"
-        -Dvulkan=disabled
-        -Dxxhash=disabled # faster replacement for internal siphash
+        -Dvulkan=enabled
+        -Dxxhash=enabled # faster replacement for internal siphash
     )
 
     if [[ $TARGET == win* ]]; then
@@ -77,7 +77,7 @@ ffbuild_dockerbuild() {
     fi
 
     local EXTRA_LDFLAGS="-lstdc++"
-    # local EXTRA_CFLAGS="-I${FFBUILD_PREFIX}/include/spirv_cross"
+    local EXTRA_CFLAGS="-I${FFBUILD_PREFIX}/include/spirv_cross"
 
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $EXTRA_CFLAGS" \
