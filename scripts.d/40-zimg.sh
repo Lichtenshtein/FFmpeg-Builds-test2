@@ -31,6 +31,11 @@ ffbuild_dockerbuild() {
         sed -i 's/-march=skylake-avx512/-march=haswell/g' Makefile.am || true
         sed -i 's/-mtune=skylake-avx512/-mtune=haswell/g' Makefile.am || true
         sed -i 's/-mtune=cascadelake/-mtune=haswell/g' Makefile.am || true
+        # Удаляем регистрацию библиотек libavx512.la и libavx512_vnni.la
+        sed -i 's/libavx512.la libavx512_vnni.la//g' Makefile.am || true
+        # На всякий случай зачищаем строку связей, если они были объявлены в конце списка
+        sed -i 's/+= libavx512.la/+= /g' Makefile.am || true
+        sed -i 's/+= libavx512_vnni.la/+= /g' Makefile.am || true
         # Принудительно отключаем условный макрос сборщика для AVX512, чтобы защитить логику
         sed -i 's/AM_CONDITIONAL(\[X86SIMD_AVX512\],.*/AM_CONDITIONAL([X86SIMD_AVX512], [false])/g' configure.ac
     fi
