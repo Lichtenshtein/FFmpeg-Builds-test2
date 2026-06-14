@@ -8,6 +8,7 @@ ffbuild_depends() {
     echo zstd
     echo gmp
     echo nettle
+    echo brotli
 }
 
 ffbuild_enabled() {
@@ -19,11 +20,24 @@ ffbuild_dockerdl() {
     # echo "git-submodule-clone"
     echo "git-mini-clone \"https://gitlab.com/libidn/gnulib-mirror.git\" \"master\" gnulib"
     echo "git-mini-clone \"https://gitlab.com/gnutls/libtasn1.git\" \"master\" devel/libtasn1"
-    echo "rm -rf tests fuzz gnulib/tests devel/libtasn1/tests"
+    echo "rm -rf tests fuzz doc po src/gl/tests gnulib/tests devel/libtasn1/tests"
 }
 
 ffbuild_dockerbuild() {
     set -e
+
+    # Удаляем блок тестов, документации и утилит, чтобы configure даже не пытался их создать
+    sed -i '/doc\/Makefile/,/doc\/scripts\/Makefile/d' configure.ac
+    sed -i '/tests\/Makefile/,/fuzz\/Makefile/d' configure.ac
+    sed -i '/src\/Makefile/d' configure.ac
+    sed -i '/src\/gl\/Makefile/d' configure.ac
+    sed -i '/src\/gl\/tests\/Makefile/d' configure.ac
+    sed -i '/po\/Makefile.in/d' configure.ac
+
+    # Очищаем корневой Makefile.am от всех вырезанных подпапок
+    sed -i 's/^SUBDIRS = .*/SUBDIRS = gl lib/g' Makefile.am
+    sed -i '/SUBDIRS +=/d' Makefile.am
+    sed -i '/if ENABLE_DANE/,/endif/ { /SUBDIRS +=/s/+=/=/; /libdane/p; d }' Makefile.am
 
     ./bootstrap
 
@@ -47,10 +61,21 @@ ffbuild_dockerbuild() {
         --without-p11-kit
         --without-tpm
         --without-idn
-        --with-zstd=link
-        --with-zlib
         --disable-full-test-suite
     )
+
+    if has_library "zstd"; then
+        log_info "ZSTD library detected. Building GnuTLS with ZSTD support..."
+        myconf+=( "--with-zstd=link" )
+    fi
+    if has_library "z"; then
+        log_info "ZLib library detected. Building GnuTLS with ZLib support..."
+        myconf+=( "--with-zlib=link" )
+    fi
+    if has_library "brotlienc"; then
+        log_info "Brotli library detected. Building GnuTLS with Brotli support..."
+        myconf+=( "--with-brotli=link" )
+    fi
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --enable-shared --disable-static ) || \
