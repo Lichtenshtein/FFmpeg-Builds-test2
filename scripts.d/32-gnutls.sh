@@ -18,7 +18,8 @@ ffbuild_dockerdl() {
     default_dl .
     # echo "git-submodule-clone"
     echo "git-mini-clone \"https://gitlab.com/libidn/gnulib-mirror.git\" \"master\" gnulib"
-    echo "rm -rf tests fuzz gnulib/tests"
+    echo "git-mini-clone \"https://gitlab.com/gnutls/libtasn1.git\" \"master\" devel/libtasn1"
+    echo "rm -rf tests fuzz gnulib/tests devel/libtasn1/tests"
 }
 
 ffbuild_dockerbuild() {
