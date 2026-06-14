@@ -16,13 +16,12 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "git-submodule-clone"
+    # echo "git-submodule-clone"
+    echo "rm -rf tests fuzz"
 }
 
 ffbuild_dockerbuild() {
     set -e
-
-    log_info "Redownload the archive"
 
     ./bootstrap
 
