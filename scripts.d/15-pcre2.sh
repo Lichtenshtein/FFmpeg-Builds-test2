@@ -14,8 +14,8 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    # echo "git-submodule-clone"
-    echo "rm -rf testdata"
+    echo "git-submodule-clone"
+    echo "rm -rf testdata" # safe for non-cmake
 }
 
 ffbuild_dockerbuild() {
