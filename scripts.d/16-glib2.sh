@@ -24,9 +24,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-echo "test"
-
+    # disable docs search
     sed -i '/exe_wrapper:/,/)/ s/required: true/required: false/' meson.build
+    sed -i "s|subdir('docs/reference')|if get_option('documentation')\n  subdir('docs/reference')\nendif|g" meson.build
+    sed -i "s|gnome = import('gnome')|# gnome = import('gnome')|g" meson.build
 
     # Патчим генератор макросов, убирая __attribute__ visibility
     if [ -f "tools/gen-visibility-macros.py" ]; then
@@ -89,7 +90,6 @@ gapplication = disabler()' gio/meson.build
     if [ -f "gio/tests/meson.build" ]; then echo "" > gio/tests/meson.build; fi
     if [ -f "tests/meson.build" ]; then echo "" > tests/meson.build; fi
 
-
     # Clean up sysprof and third-party fallbacks
     rm -rf subprojects/sysprof subprojects/pcre2 subprojects/libffi
 
@@ -142,7 +142,7 @@ EOF
         -Dinstalled_tests=false
         -Dintrospection=disabled
         -Dlibmount=disabled
-        -Dnls=disabled
+        -Dnls=disabled # po folder is deleted
         -Dforce_posix_threads=true
         -Dglib_debug=disabled
         -Dman-pages=disabled
