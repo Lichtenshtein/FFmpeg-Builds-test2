@@ -1979,6 +1979,18 @@ get_stage_version() {
 }
 export -f get_stage_version
 
+# Проверяет наличие статической или динамической библиотеки по её базовому имени
+has_library() {
+    local lib_name="$1"
+    # Ищет: libname.a, libname.dll.a, libname.so, libname.so.1 и т.д.
+    find "${FFBUILD_PREFIX}/lib" -maxdepth 1 -type f \( \
+        -name "lib${lib_name}.a" -o \
+        -name "lib${lib_name}.dll.a" -o \
+        -name "lib${lib_name}.so*" \
+    \) | grep -q .
+}
+export -f has_library
+
 if [[ "${USE_WINE:-0}" = "1" ]]; then
     # Динамическое определение путей для wine
     if [ -d "/opt/ct-ng" ]; then

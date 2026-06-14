@@ -14,6 +14,7 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
+set -xe
     default_dl .
 
     # Список субмодулей, которые нам НЕ нужны (экономит сотни мегабайт трафика и места)
@@ -41,7 +42,7 @@ ffbuild_dockerdl() {
     echo "git-submodule-clone"
 
     # Вырезаем тяжелый тестовый и демонстрационный мусор
-    echo "rm -rf test fuzz demos apps/demo doc html Configurations/windows-makefile.tmpl"
+    echo "rm -rf test demos apps/demo doc html Configurations/windows-makefile.tmpl"
 }
 
 ffbuild_dockerbuild() {
@@ -72,6 +73,7 @@ ffbuild_dockerbuild() {
         no-async
         no-docs
         # ---- пытаемся очистить crypto/ folder----
+        no-comp      # сжатие будет через zlib
         no-idea      # crypto/idea (Устаревший)
         no-md2       # crypto/md2  (Древний и небезопасный)
         no-md4       # crypto/md4  (Древний)
@@ -80,7 +82,6 @@ ffbuild_dockerbuild() {
         no-rc5       # crypto/rc5  (Не используется)
         # no-bf        # crypto/bf   (Blowfish)
         no-cast      # crypto/cast (Cast-128)
-        no-ripemd    # crypto/ripemd
         no-seed      # crypto/seed
         no-aria      # crypto/aria (Корейский стандарт шифрования)
         # no-camellia  # crypto/camellia
@@ -115,6 +116,16 @@ ffbuild_dockerbuild() {
         --cross-compile-prefix="$FFBUILD_CROSS_PREFIX"
         --openssldir="$FFBUILD_PREFIX/etc/ssl"
     )
+
+    if has_library "zstd"; then
+        log_info "ZSTD library detected. Building with ZSTD support..."
+        myconf+=( "enable-zstd" )
+    fi
+
+    if has_library "z"; then
+        log_info "ZLib library detected. Building with ZLib support..."
+        myconf+=( "zlib" )
+    fi
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( shared zlib-dynamic pic ) || \

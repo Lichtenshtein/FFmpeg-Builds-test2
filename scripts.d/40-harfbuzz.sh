@@ -55,14 +55,14 @@ ffbuild_dockerbuild() {
     )
 
     # Проверяем наличие статической библиотеки libicudt.a
-    if [[ -f "${FFBUILD_PREFIX}/lib/libicudt.a" ]]; then
+    if has_library "icudt"; then
         log_info "ICU library detected. Building with ICU support..."
         local DEP_LIBS="-lcairo-gobject -lcairo -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lz -lfreetype -licuin -licuuc -licudt"
-        myconf+=("-Dicu=enabled")
+        myconf+=( "-Dicu=enabled" )
     else
         log_warn "ICU library not found. Building without ICU for faster testing..."
         local DEP_LIBS="-lcairo-gobject -lcairo -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lz -lfreetype"
-        myconf+=("-Dicu=disabled")
+        myconf+=( "-Dicu=disabled" )
     fi
 
     export static_flags=""
