@@ -20,11 +20,20 @@ ffbuild_dockerdl() {
     # echo "git-submodule-clone"
     echo "git-mini-clone \"https://gitlab.com/libidn/gnulib-mirror.git\" \"master\" gnulib"
     echo "git-mini-clone \"https://gitlab.com/gnutls/libtasn1.git\" \"master\" devel/libtasn1"
-    echo "rm -rf tests fuzz doc po src/gl/tests gnulib/tests devel/libtasn1/tests"
+    echo "rm -rf tests fuzz doc po src/gl/tests devel/libtasn1/tests"
 }
 
 ffbuild_dockerbuild() {
     set -e
+
+    # Отключаем принудительное обновление субмодулей внутри bootstrap
+    sed -i 's/git submodule update/# git submodule update/g' bootstrap || true
+
+    # Перехватываем хук и заменяем флаг --with-tests на --without-tests
+    sed -i 's/--macro-prefix=ggl --with-tests/--macro-prefix=ggl --without-tests/g' bootstrap.conf || true
+
+    # вырезаем инклуд cligen.mk из Makefile.am, который вешал automake
+    sed -i '/cligen\.mk/d' Makefile.am || true
 
     # Удаляем блок тестов, документации и утилит, чтобы configure даже не пытался их создать
     sed -i '/doc\/Makefile/,/doc\/scripts\/Makefile/d' configure.ac
@@ -51,7 +60,6 @@ ffbuild_dockerbuild() {
         --disable-tests
         --disable-bash-tests
         --disable-cxx
-        --disable-guile
         --disable-libdane
         --disable-nls
         --disable-padlock
