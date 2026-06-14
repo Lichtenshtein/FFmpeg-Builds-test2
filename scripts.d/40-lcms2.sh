@@ -4,8 +4,8 @@ SCRIPT_REPO="https://github.com/mm2/Little-CMS.git"
 SCRIPT_COMMIT="eca75f462f1d1a1caf9da5098eb2acc2a2a0053a"
 
 ffbuild_depends() {
-    echo libjpeg-turbo
-    echo libtiff
+    echo libjpeg-turbo # for tools
+    echo libtiff # for tools
 }
 
 ffbuild_enabled() {
@@ -14,6 +14,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf doc testbed"
 }
 
 ffbuild_dockerbuild() {
@@ -21,8 +22,8 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
-    local DEP_LIBS="-ltiffxx -ltiff -lturbojpeg -ljpeg -ljbig -lzstd -llzma -lz"
-    local WIN_LIBS="$LIBS"
+    # local DEP_LIBS="-ltiffxx -ltiff -lturbojpeg -ljpeg -ljbig -lzstd -llzma -lz"
+    # local WIN_LIBS="$LIBS"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -33,17 +34,18 @@ ffbuild_dockerbuild() {
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DLCMS2_BUILD_SHARED=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DLCMS2_BUILD_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
+        -DLCMS2_WITH_THREADS=ON # enable thread support where applicable
+        -DLCMS2_WITH_FASTFLOAT=ON
+        -DLCMS2_WITH_THREADED_PLUGIN=ON
+        # --- for tools only ---
         -DLCMS2_BUILD_TOOLS=OFF
         -DLCMS2_BUILD_TESTS=OFF
         -DLCMS2_BUILD_JPGICC=OFF # build jpgicc tool (requires JPEG)
-        -DLCMS2_BUILD_TIFICC=OFF # build tificc tool (requires TIFF, optionally ZLIB)
+        -DLCMS2_BUILD_TIFICC=OFF # build tificc tool (requires TIFF, ZLIB)
         -DLCMS2_BUILD_TIFFDIFF=OFF # build tiffdiff tool (requires TIFF)
         -DLCMS2_WITH_JPEG=OFF
         -DLCMS2_WITH_TIFF=OFF
         -DLCMS2_WITH_ZLIB=OFF
-        -DLCMS2_WITH_THREADS=ON # enable thread support where applicable
-        -DLCMS2_WITH_FASTFLOAT=ON
-        -DLCMS2_WITH_THREADED_PLUGIN=ON
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \

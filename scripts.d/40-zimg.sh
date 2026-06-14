@@ -7,17 +7,17 @@ ffbuild_enabled() {
     return 0
 }
 
-ffbuild_depends() {
-    return 0
-}
-
 ffbuild_dockerdl() {
     default_dl .
     echo "git-submodule-clone"
+    echo "rm -rf graphengine/testapp graphengine/test graphengine/_msvc _msvc"
 }
 
 ffbuild_dockerbuild() {
     set -e
+
+    # Вырезаем ломающий статику флаг -fvisibility=hidden из configure.ac
+    sed -i 's/AX_CHECK_COMPILE_FLAG(\[-fvisibility=hidden\].*)/# Hidden visibility disabled for MinGW Static/g' configure.ac
 
     # Remove Skylake/Cascadelake flag checks
     if [ "${USE_AVX512:-0}" == "0" ]; then
@@ -46,9 +46,9 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
+    CFLAGS="$CFLAGS ${USELTO}${USELTO_C} -fno-fast-math -ffp-contract=off" \
     CPPFLAGS="$CPPFLAGS" \
-    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C} -fno-fast-math -ffp-contract=off" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
