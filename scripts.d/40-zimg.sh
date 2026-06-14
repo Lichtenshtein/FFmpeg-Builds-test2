@@ -22,23 +22,13 @@ ffbuild_dockerbuild() {
     # Remove Skylake/Cascadelake flag checks
     if [ "${USE_AVX512:-0}" == "0" ]; then
         log_info "Patching zimg configure.ac to enforce disabling AVX-512..."
-        # Заменяем жесткие флаги -mavx512* на безопасные -mavx2 -mfma -mf16c
-        sed -i 's/-mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq -mavx512vnni/-mavx2 -mfma -mf16c/g' Makefile.am || true
-        sed -i 's/-mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq/-mavx2 -mfma -mf16c/g' Makefile.am || true
-        # Сбрасываем подстановку макросов настройки, если они остались пустыми
-        sed -i 's/\$(SKX_CFLAGS)/$(HSW_CFLAGS)/g' Makefile.am || true
-        sed -i 's/\$(CLX_CFLAGS)/$(HSW_CFLAGS)/g' Makefile.am || true
-        sed -i 's/-march=skylake-avx512/-march=haswell/g' Makefile.am || true
-        sed -i 's/-mtune=skylake-avx512/-mtune=haswell/g' Makefile.am || true
-        sed -i 's/-mtune=cascadelake/-mtune=haswell/g' Makefile.am || true
-        # Удаляем регистрацию библиотек libavx512.la и libavx512_vnni.la
-        sed -i 's/libavx512.la libavx512_vnni.la//g' Makefile.am || true
-        # На всякий случай зачищаем строку связей, если они были объявлены в конце списка
-        sed -i 's/+= libavx512.la/+= /g' Makefile.am || true
-        sed -i 's/+= libavx512_vnni.la/+= /g' Makefile.am || true
-        # Принудительно отключаем условный макрос сборщика для AVX512, чтобы защитить логику
-        sed -i 's/AM_CONDITIONAL(\[X86SIMD_AVX512\],.*/AM_CONDITIONAL([X86SIMD_AVX512], [false])/g' configure.ac
+        # Resetting tuning flag substitution for AVX-512 architectures
+        sed -i 's/AX_CHECK_COMPILE_FLAG(\[-mtune=skylake-avx512\],.*/AC_SUBST([SKX_CFLAGS], [])/g' configure.ac
+        sed -i 's/AX_CHECK_COMPILE_FLAG(\[-mtune=cascadelake\],.*/AC_SUBST([CLX_CFLAGS], [])/g' configure.ac
+        # Force the X86SIMD_AVX512 condition to false (stub)
+        # sed -i 's/AM_CONDITIONAL(\[X86SIMD_AVX512\],.*/AM_CONDITIONAL([X86SIMD_AVX512], [false])/g' configure.ac
     fi
+    # it still uses -mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq flags
 
     ./autogen.sh
 
