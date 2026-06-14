@@ -17,7 +17,8 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     # echo "git-submodule-clone"
-    echo "rm -rf tests fuzz"
+    echo "git-mini-clone \"https://gitlab.com/libidn/gnulib-mirror.git\" \"master\" gnulib"
+    echo "rm -rf tests fuzz gnulib/tests"
 }
 
 ffbuild_dockerbuild() {
