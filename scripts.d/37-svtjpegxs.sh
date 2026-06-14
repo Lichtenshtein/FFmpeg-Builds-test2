@@ -36,8 +36,8 @@ ffbuild_dockerbuild() {
 
     # Специальные флаги для MinGW, чтобы избежать сегфолтов
     # -mstackrealign (выравнивание стека для cflags moved to base_cflags)
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fno-asynchronous-unwind-tables -mstackrealign" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fno-asynchronous-unwind-tables -mstackrealign" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fno-asynchronous-unwind-tables -mstackrealign -DSVT_STATIC_API" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fno-asynchronous-unwind-tables -mstackrealign -DSVT_STATIC_API" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
@@ -47,13 +47,11 @@ ffbuild_dockerbuild() {
     for PC_FILE in "$PC_DIR"/SvtJpegxs*.pc; do
         [[ -f "$PC_FILE" ]] || continue
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
-        if grep -q -- "-lSvtJpegxs" "$PC_FILE" && [[ ! $(grep -q -- "-lSvtJpegxsEnc" "$PC_FILE") ]]; then
-            sed -i 's|-lSvtJpegxs|-lSvtJpegxsEnc -lSvtJpegxs|g' "$PC_FILE"
-        fi
+
         if ! grep -q -- "-lstdc++" "$PC_FILE"; then
             sed -i '/^Libs.private:/ s/$/ -lstdc++/' "$PC_FILE"
         fi
-        sed -i 's|^Cflags:.*|Cflags: -I${includedir} -I${includedir}/svt-jpegxs -UDEF_DLL|' "$PC_FILE"
+        sed -i 's|^Cflags:.*|Cflags: -I${includedir} -I${includedir}/svt-jpegxs -UDEF_DLL -DSVT_STATIC_API|' "$PC_FILE"
     done
 }
 

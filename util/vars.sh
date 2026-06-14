@@ -378,8 +378,8 @@ HOST_LINUX_LDFLAGS=(
 # Настраиваем HOST_RUSTFLAGS (всегда Linux ELF)
 export HOST_RUSTFLAGS="${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${HOST_LINUX_LDFLAGS[@]}") -C embed-bitcode=yes"
 export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]} ${USELTO}"
-export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -fno-plt -pipe ${G_FLAGS} -ffunction-sections -fdata-sections -std=gnu23 ${USELTO}${USELTO_C}"
-export HOST_CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -fno-plt -pipe ${G_FLAGS} -ffunction-sections -fdata-sections -std=gnu++20 ${USELTO}${USELTO_C}"
+export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -ftree-vectorize -fno-plt -pipe ${G_FLAGS} -ffunction-sections -fdata-sections -std=gnu23 ${USELTO}${USELTO_C}"
+export HOST_CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -ftree-vectorize -fno-plt -pipe ${G_FLAGS} -ffunction-sections -fdata-sections -std=gnu++20 ${USELTO}${USELTO_C}"
 export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
 # Ветвление по TARGET
@@ -404,8 +404,8 @@ if [[ "$TARGET" == "win64" ]]; then
     MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -ftree-vectorize -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -ftree-vectorize -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
         RUST_STATIC_CFG=""
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
         export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
@@ -413,8 +413,8 @@ if [[ "$TARGET" == "win64" ]]; then
         export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -ftree-vectorize -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -ftree-vectorize -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
         MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
@@ -437,8 +437,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
     MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -ftree-vectorize -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -ftree-vectorize -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
         export STAGE_CFLAGS="-fno-semantic-interposition"
         export STAGE_CXXFLAGS="-fno-semantic-interposition"
         RUST_STATIC_CFG=""
@@ -448,8 +448,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
         export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -ftree-vectorize -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -ftree-vectorize -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
         MAIN_LDFLAGS=("-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
@@ -1063,20 +1063,52 @@ get_deps_list() {
         find "$lib_dir" -name "*.a" -print0 2>/dev/null | \
         xargs -0 -r -I{} bash -c '
             file="$1"; tc="$2"; x_mark="$3"
-            raw_symbols=$("${tc}-nm" -uA "$file" 2>/dev/null || true)
-            if [[ -n "$raw_symbols" ]]; then
-                clean_symbols=$(echo "$raw_symbols" | \
+        
+            # Сбор неразрешенных внешних зависимостей (то, что библиотека требует извне)
+            raw_imports=$("${tc}-nm" -uA "$file" 2>/dev/null || true)
+            clean_imports=""
+            if [[ -n "$raw_imports" ]]; then
+                clean_imports=$(echo "$raw_imports" | \
                     grep -Ev "(__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
                     awk -F: "{ 
                         split(\$NF, a, \" \"); 
                         sym = a[2]; 
-                        if (sym != \"\") printf \"%-15s %s→%s %s\n\", \$2, \"$GREY_B\", \"$NC\", sym 
+                        if (sym != \"\") printf \"  ${LOG_WARN}•${NC} %-15s %s[IMP]%s %s\n\", \$2, \"$GREY_B\", \"$NC\", sym 
                     }" | sort -u | head -n ${LOG_RAW_SYMB})
+            fi
         
-                if [[ -n "$clean_symbols" ]]; then
-                    printf "\n%b %bEXTERNAL SYMBOLS (OBJ %b→%b %bSYM)%b in %s:\n" \
-                        "$x_mark" "$YELLOW" "$GREY_B" "$YELLOW" "$YELLOW" "$NC" "$file"
-                    echo "$clean_symbols" | sed "s|^| ${LOG_INFO}•${NC} |"
+            # Сбор реальных экспортируемых функций (то, что библиотека отдает наружу)
+            raw_exports=$("${tc}-nm" -g --defined-only "$file" 2>/dev/null || true)
+            clean_exports=""
+            if [[ -n "$raw_exports" ]]; then
+                clean_exports=$(echo "$raw_exports" | \
+                    grep -Ev "(__mingw_|_Unwind_|__gcc_|___chkstk|__stack_chk|__main)" | \
+                    awk "{
+                        # В выводе nm для определенных символов формат обычно: объектный_файл:адрес тип имя
+                        # Если nm выводит имя файла, парсим его, иначе берем имя символа
+                        sym = \$3;
+                        type = \$2;
+                        if (sym == \"\") { sym = \$2; type = \$1; }
+                        
+                        # Фильтруем только текстовые секции (T/t), инициализацию (D/d) и readonly (R/r)
+                        if (type ~ /[TTDDRR]/ && sym !~ /^(\.)/) {
+                            printf \"  ${LOG_INFO}•${NC} %-15s %s[EXP]%s %b%s%b\n\", \"\", \"$CYAN_B\", \"$NC\", \"$GREEN\", sym, \"$NC\"
+                        }
+                    }" | sort -u | head -n ${LOG_RAW_SYMB})
+            fi
+        
+            # Вывод результатов, если хоть что-то найдено
+            if [[ -n "$clean_imports" || -n "$clean_exports" ]]; then
+                printf "\n%b %bSYMBOL ANALYSIS%b for %s:\n" "$x_mark" "$YELLOW" "$NC" "$file"
+                
+                if [[ -n "$clean_exports" ]]; then
+                    printf " %b↳ EXPORTED FUNCTIONS (What this library provides):%b\n" "$CYAN" "$NC"
+                    echo "$clean_exports"
+                fi
+                
+                if [[ -n "$clean_imports" ]]; then
+                    printf " %b↳ EXTERNAL DEPENDENCIES (What this library requires):%b\n" "$PURPLE" "$NC"
+                    echo "$clean_imports"
                 fi
             fi
         ' _ {} "$toolchain" "$XCLAM_MARK" >> "$tmp_out" || true
