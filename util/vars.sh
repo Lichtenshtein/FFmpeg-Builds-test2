@@ -1687,6 +1687,26 @@ get_stage_version() {
         fi
     fi
 
+    # svt-av1
+    if [[ "$STAGENAME" == *"svtav1"* ]]; then
+        local svtav1="CMakeLists.txt"
+        ver_log "SVT-AV1 detected: parsing version from CMakeLists.txt..."
+        ver="" # Сбрасываем предыдущие значения
+
+        if [[ -f "$svtav1" ]]; then
+            # Читаем файл построчно, чтобы найти объявление версии проекта
+            while IFS= read -r line; do
+                # Ищем строку с объявлением версии (без учета регистра и пробелов)
+                if [[ "$line" =~ [Pp][Rr][Oo][[Ee][Cc][Tt].*[Vv][Ee][Rr][Ss][Ii][Oo][Nn][[:space:]]+([0-9.]+) ]]; then
+                    ver="${BASH_REMATCH[1]}"
+                    break
+                fi
+            done < "$svtav1"
+        fi
+
+        [[ -n "$ver" ]] && ver_log "Found svtav1 version in CMakeLists.txt: ${LOG_INFO}$ver${NC}"
+    fi
+
     # D. libxvid: Handle deep paths and XVID_MAKE_VERSION
     if [[ "$STAGENAME" == *"xvid"* ]]; then
         # Xvid is often in a subfolder 'xvidcore'
@@ -1725,8 +1745,8 @@ get_stage_version() {
 
     # E. vapoursynth: Parse version from meson.build (version: '77')
     if [[ "$STAGENAME" == *"vapoursynth"* ]]; then
-        local meson="meson.build"
-        ver=$(grep -E "^\s*version\s*:\s*['\"][0-9]+['\"]" "$meson" 2>/dev/null | head -n1 | sed -E "s/.*version\s*:\s*['\"]([0-9]+)['\"].*/\1/" || true)
+        local vapor="meson.build"
+        ver=$(grep -E "^\s*version\s*:\s*['\"][0-9]+['\"]" "$vapor" 2>/dev/null | head -n1 | sed -E "s/.*version\s*:\s*['\"]([0-9]+)['\"].*/\1/" || true)
         [[ -n "$ver" ]] && ver_log "Found vapoursynth version in meson.build: ${LOG_INFO}$ver${NC}"
     fi
 

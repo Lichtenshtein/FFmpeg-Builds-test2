@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 # SCRIPT_REPO="https://gitlab.com/AOMediaCodec/SVT-AV1.git"
 # SCRIPT_COMMIT="b7328c60c417ede0d3673119eeee305cce82c215"
 
@@ -33,7 +33,7 @@ ffbuild_dockerbuild() {
     # Если нет .git, CMakeLists.txt не сможет определить версию. 
     # Запишем её принудительно в файл, который ожидает система сборки (если он есть)
     # или через параметры CMake.
-    local SVT_VER="4.0.1-tritium"
+    # local SVT_VER="4.0.1-tritium"
 
     rm -rf _build && mkdir _build && cd _build
 
@@ -41,11 +41,13 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DVERSION_TAG="$SVT_VER"
+        -DVERSION_TAG="${VER_FULL}"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DBUILD_TESTING=OFF
         -DBUILD_APPS=OFF
+        -DSVT_AV1_PGO=ON
+        -DUSE_FFMS2=OFF # Install FFMS2 first
         -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         -DNATIVE=OFF
     )
