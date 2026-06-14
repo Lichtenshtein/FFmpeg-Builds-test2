@@ -23,7 +23,7 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
-    # local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
+    local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
 
     local myconf=(
         --cross-file="$FFBUILD_MESON_CROSS"
@@ -37,7 +37,7 @@ ffbuild_dockerbuild() {
         -Draster=enabled
         -Dvector=enabled
         -Dsubset=enabled
-        # -Dglib=enabled
+        -Dglib=enabled
         -Dgobject=enabled
         -Dcairo=disabled
         -Dchafa=disabled
@@ -52,7 +52,7 @@ ffbuild_dockerbuild() {
     )
 
     # ѕровер€ем наличие статической библиотеки libicudt.a
-    if [[ -f "/opt/ffbuild/lib/libicudt.a" ]]; then
+    if [[ -f "${FFBUILD_PREFIX}/lib/libicudt.a" ]]; then
         log_info "ICU library detected. Building with ICU support..."
         local DEP_LIBS="-lfreetype -licuin -licuuc -licudt"
         myconf+=("-Dicu=enabled")
@@ -65,7 +65,7 @@ ffbuild_dockerbuild() {
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     export static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DHARFBUZZ_STATIC"
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DHARFBUZZ_STATIC -DICU_STATIC -DU_STATIC_IMPLEMENTATION"
 
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -I$FFBUILD_PREFIX/include/freetype2 $static_flags -Wno-redundant-decls" \

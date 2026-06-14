@@ -2,7 +2,6 @@
 
 SCRIPT_REPO="https://github.com/openssl/openssl.git"
 SCRIPT_COMMIT="d099e33e5733bb9d3975fc4f3ac4a85b6ed1a4cb"
-# SCRIPT_COMMIT="c9a9e5b10105ad850b6e4d1122c645c67767c341"
 
 ffbuild_depends() {
     echo base
@@ -16,7 +15,33 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+
+    # Список субмодулей, которые нам НЕ нужны (экономит сотни мегабайт трафика и места)
+    FORBIDDEN_SUBMODULES=(
+        "wycheproof" "tlslite-ng" "tlsfuzzer" "python-ecdsa" 
+        "pyca-cryptography" "pkcs11-provider" "oqs-provider" "krb5" "gost-engine"
+    )
+
+    # Настраиваем Git, чтобы он полностью игнорировал эти субмодули при сборке дерева
+    if [[ -f ".gitmodules" ]]; then
+        for sub in "${FORBIDDEN_SUBMODULES[@]}"; do
+            # Извлекаем точный путь субмодуля из .gitmodules
+            local sub_path=$(git config -f .gitmodules --get-regexp "submodule\..*\.path" | grep "$sub" | awk '{print $2}' || echo "")
+            if [[ -n "$sub_path" ]]; then
+                log_debug "De-initializing and ignoring submodule: $sub_path"
+                git submodule deinit -f "$sub_path" 2>/dev/null || true
+                git config -f .gitmodules --remove-section "submodule.$sub" 2>/dev/null || true
+            fi
+            # Физически удаляем остатки, если они были в кэше
+            echo "rm -rf $sub external/$sub 2>/dev/null || true"
+        done
+    fi
+
+    # Запускаем клонирование оставшихся (скачается только cloudflare-quiche)
     echo "git-submodule-clone"
+
+    # Вырезаем тяжелый тестовый и демонстрационный мусор
+    echo "rm -rf test fuzz demos apps/demo doc html Configurations/windows-makefile.tmpl"
 }
 
 ffbuild_dockerbuild() {
@@ -33,15 +58,10 @@ ffbuild_dockerbuild() {
     find . -name "quic_reactor.c" -o -name "sockets.h" | xargs sed -i '1i #ifndef SIO_UDP_NETRESET\n#define SIO_UDP_NETRESET _WSAIOW(IOC_VENDOR, 15)\n#endif'
 
     # нужно передать только чистые имена команд без ccache и без префикса
-    local CC_PLAIN="gcc"
-    local CXX_PLAIN="g++"
-    local AR_PLAIN="gcc-ar"
-    local RANLIB_PLAIN="gcc-ranlib"
-
-    export CC="$CC_PLAIN"
-    export CXX="$CXX_PLAIN"
-    export AR="$AR_PLAIN"
-    export RANLIB="$RANLIB_PLAIN"
+    local CC="${FFBUILD_TOOLCHAIN}-gcc"
+    local CXX="${FFBUILD_TOOLCHAIN}-g++"
+    local AR="${FFBUILD_CROSS_PREFIX}ar"
+    local RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
 
     local myconf=(
         threads # adding '-static' flag disables that, don't use it
@@ -51,6 +71,40 @@ ffbuild_dockerbuild() {
         no-unit-test
         no-async
         no-docs
+        # ---- пытаемся очистить crypto/ folder----
+        no-idea      # crypto/idea (Устаревший)
+        no-md2       # crypto/md2  (Древний и небезопасный)
+        no-md4       # crypto/md4  (Древний)
+        no-rc2       # crypto/rc2  (Заменяется AES)
+        no-rc4       # crypto/rc4  (Потоковый шифр RC4)
+        no-rc5       # crypto/rc5  (Не используется)
+        # no-bf        # crypto/bf   (Blowfish)
+        no-cast      # crypto/cast (Cast-128)
+        no-ripemd    # crypto/ripemd
+        no-seed      # crypto/seed
+        no-aria      # crypto/aria (Корейский стандарт шифрования)
+        # no-camellia  # crypto/camellia
+        no-sm2       # crypto/sm2  (Китайский нац. стандарт)
+        no-sm3       # crypto/sm3  (Китайский хэш)
+        no-sm4       # crypto/sm4  (Китайский шифр)
+        # no-blake2    # blake2 (В FFmpeg есть свой встроенный)
+        # no-whirlpool # crypto/whrlpool
+        # no-rmd160    # RIPEMD-160
+        # no-mdc2      # crypto/mdc2
+        # no-srp       # crypto/srp (Secure Remote Password, для TLS не нужен)
+        # no-cms       # crypto/cms (Cryptographic Message Syntax, почта/токены)
+        # no-cmp       # crypto/cmp (Certificate Management Protocol)
+        # no-crmf      # crypto/crmf
+        # no-ocsp      # crypto/ocsp (Проверка сертификатов онлайн)
+        # no-ct        # crypto/ct   (Certificate Transparency)
+        # no-ts        # crypto/ts   (Time Stamping)
+        # no-scrypt    # scrypt KDF
+        # no-argon2    # argon2 KDF
+
+        # Пост-квантотмы OpenSSL 3.4+, которые весят слишком много:
+        # no-ml-dsa    # crypto/slh_dsa и ml_dsa
+        # no-ml-kem    # crypto/ml_kem
+        # --------------------------------------------
         enable-camellia
         enable-ec
         enable-srp
