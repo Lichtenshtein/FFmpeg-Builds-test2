@@ -15,6 +15,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf test perf"
 }
 
 ffbuild_dockerbuild() {
@@ -22,8 +23,8 @@ ffbuild_dockerbuild() {
 
     mkdir build && cd build
 
-    local DEP_LIBS="-lfreetype -licuin -licuuc -licudt"
-    local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
+    # local DEP_LIBS="-lfreetype -licuin -licuuc -licudt"
+    # local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
 
     local myconf=(
         --cross-file="$FFBUILD_MESON_CROSS"
@@ -37,7 +38,7 @@ ffbuild_dockerbuild() {
         -Draster=enabled
         -Dvector=enabled
         -Dsubset=enabled
-        -Dglib=enabled
+        # -Dglib=enabled
         -Dgobject=enabled
         -Dcairo=disabled
         -Dchafa=disabled
