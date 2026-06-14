@@ -19,11 +19,12 @@ ffbuild_dockerdl() {
     default_dl .
     echo "git-submodule-clone"
     echo "rm -rf docs po glib/tests gio/tests gobject/tests"
-
 }
 
 ffbuild_dockerbuild() {
     set -e
+
+    sed -i '/exe_wrapper:/,/)/ s/required: true/required: false/' meson.build
 
     # Патчим генератор макросов, убирая __attribute__ visibility
     if [ -f "tools/gen-visibility-macros.py" ]; then

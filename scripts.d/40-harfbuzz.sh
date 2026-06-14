@@ -16,6 +16,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf test perf"
 }
 
 ffbuild_dockerbuild() {
@@ -23,8 +24,6 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
-    # порядок линковки критичен для статики
-    local DEP_LIBS="-lcairo-gobject -lcairo -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lz -lfreetype -licuin -licuuc -licudt"
     local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
 
     local myconf=(
@@ -35,7 +34,6 @@ ffbuild_dockerbuild() {
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
         -Dfreetype=enabled
-        -Dicu=enabled
         -Dcpp_std=gnu++20
         -Dc_std=gnu17
         -Dwith_libstdcxx=true
@@ -55,6 +53,17 @@ ffbuild_dockerbuild() {
         -Dgdi=enabled
         -Dbenchmark=disabled
     )
+
+    # Проверяем наличие статической библиотеки libicudt.a
+    if [[ -f "/opt/ffbuild/lib/libicudt.a" ]]; then
+        log_info "ICU library detected. Building with ICU support..."
+        local DEP_LIBS="-lcairo-gobject -lcairo -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lz -lfreetype -licuin -licuuc -licudt"
+        myconf+=("-Dicu=enabled")
+    else
+        log_warn "ICU library not found. Building without ICU for faster testing..."
+        local DEP_LIBS="-lcairo-gobject -lcairo -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lz -lfreetype"
+        myconf+=("-Dicu=disabled")
+    fi
 
     export static_flags=""
     export self_static_flags=""
