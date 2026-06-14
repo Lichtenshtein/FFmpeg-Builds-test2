@@ -1689,13 +1689,14 @@ get_stage_version() {
 
     # svt-av1
     if [[ "$STAGENAME" == *"svtav1"* ]]; then
-        local svtav1="svt-av1-tritium/CMakeLists.txt"
+        # local svtav1="svt-av1-tritium/CMakeLists.txt"
+        local svtav1=$(find . -maxdepth 2 -name "CMakeLists.txt" -print -quit 2>/dev/null)
         ver_log "SVT-AV1 detected: parsing version from CMakeLists.txt..."
         ver="" # Сбрасываем предыдущие значения
 
         if [[ -n "$svtav1" && -f "$svtav1" ]]; then
             while IFS= read -r line; do
-                if [[ "$line" =~ [Pp][Rr][Oo][[Ee][Cc][Tt].*[Vv][Ee][Rr][Ss][Ii][Oo][Nn][[:space:]]+([0-9.]+) ]]; then
+                if [[ "$line" =~ project.*VERSION[[:space:]]+([0-9.]+) ]]; then
                     ver="${BASH_REMATCH[1]}"
                     break
                 fi

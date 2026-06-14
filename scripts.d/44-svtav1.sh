@@ -17,7 +17,6 @@ SCRIPT_COMMIT3="c94dfe66b96027022f84c97e196ab618de4c6cde"
 # SCRIPT_BRANCH5="ffms2_v3_PSYfeat2"
 
 ffbuild_enabled() {
-    [[ $TARGET == win32 ]] && return 1
     return 0
 }
 
@@ -31,12 +30,6 @@ ffbuild_dockerbuild() {
 
     find . -name "CMakeLists.txt" -exec sed -i 's/set(CMAKE_C_VISIBILITY_PRESET hidden)//g' {} + 2>/dev/null || true
     find . -name "CMakeLists.txt" -exec sed -i 's/-fvisibility=hidden//g' {} + 2>/dev/null || true
-
-    # ФИКС ВЕРСИИ (SVT-AV1 специфичный)
-    # Если нет .git, CMakeLists.txt не сможет определить версию. 
-    # Запишем её принудительно в файл, который ожидает система сборки (если он есть)
-    # или через параметры CMake.
-    # local SVT_VER="4.0.1-tritium"
 
     rm -rf _build && mkdir _build && cd _build
 
