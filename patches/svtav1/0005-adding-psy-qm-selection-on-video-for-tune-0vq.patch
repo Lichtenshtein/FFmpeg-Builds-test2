@@ -34,10 +34,10 @@ index 996c1b350..d930ea227 100644
 +        case TUNE_VQ:
 +            //psy_get_qmlevel has been tuned on varied video content, including live action and some anime clips
 +            //at mid to high fidelity or quality targets
-+            pcs->frm_hdr.quantization_params.qm[AOM_PLANE_Y] = psy_get_qmlevel(
++            pcs->frm_hdr.quantization_params.qm[PLANE_Y] = psy_get_qmlevel(
 +                base_qindex, min_qmlevel, max_qmlevel);
-+            pcs->frm_hdr.quantization_params.qm[AOM_PLANE_U] = psy_get_qmlevel
-+            (base_qindex + pcs->frm_hdr.quantization_params.delta_q_ac[AOM_PLANE_U],
++            pcs->frm_hdr.quantization_params.qm[PLANE_U] = psy_get_qmlevel
++            (base_qindex + pcs->frm_hdr.quantization_params.delta_q_ac[PLANE_U],
 +                min_chroma_qmlevel,
 +                max_chroma_qmlevel);
 +            pcs->frm_hdr.quantization_params.qm[PLANE_V] = psy_get_qmlevel(
