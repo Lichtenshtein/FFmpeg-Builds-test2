@@ -7,7 +7,7 @@ export USE_VERS_FINDER=1
 # SCRIPT_COMMIT2="16b4c9449883298c87dde012a76e64ec0d8c78da"
 
 SCRIPT_REPO3="https://github.com/Uranite/svt-av1-tritium.git"
-SCRIPT_COMMIT3="8ee7ff4f017a8a136535308910a8484bcb187d4f"
+SCRIPT_COMMIT3="c94dfe66b96027022f84c97e196ab618de4c6cde"
 
 # SCRIPT_REPO4="https://github.com/BlueSwordM/svt-av1-hdr.git"
 # SCRIPT_COMMIT4="f6e65133f2317b996a95f413e964289300d6dbfd"
@@ -46,7 +46,7 @@ ffbuild_dockerbuild() {
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DBUILD_TESTING=OFF
         -DBUILD_APPS=OFF
-        -DSVT_AV1_PGO=ON
+        -DSVT_AV1_PGO=OFF # for use with -DBUILD_APPS
         -DUSE_FFMS2=OFF # Install FFMS2 first
         -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         -DNATIVE=OFF
