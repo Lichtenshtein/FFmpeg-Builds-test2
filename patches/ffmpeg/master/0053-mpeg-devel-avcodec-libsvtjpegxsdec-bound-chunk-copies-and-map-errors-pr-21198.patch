@@ -1,0 +1,127 @@
+From 1e53dadf8c629f7530e465d90c7e71a029370fe8 Mon Sep 17 00:00:00 2001
+From: Ruikai Peng <ruikai@pwno.io>
+Date: Sun, 14 Dec 2025 14:29:05 -0500
+Subject: [PATCH] avcodec/libsvtjpegxsdec: bound chunk copies and map errors
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Regression since: 08db850159
+
+Chunked JPEG-XS decode returned positive libsvtjpegxs errors directly,
+so FFmpeg treated failures as “bytes consumed” and kept calling the
+decoder with a stale buffer_filled_len. If a libsvtjpegxs error occurred
+after the chunk buffer reached frame_size, the next call underflowed
+frame_size - buffer_filled_len and memcpy wrote out of bounds.
+
+Fix by translating libsvtjpegxs errors to AVERROR codes, guarding the
+chunk memcpy with strict bounds, and resetting buffer_filled_len on
+decoder errors so fragmented JPEG-XS input remains safe instead of
+crashing.
+
+Repro (ASan):
+1) Build with ASan + --enable-libsvtjpegxs.
+2) Generate a valid JPEG-XS stream and split into chunks:
+   - 64x64 yuv420p 8-bit -> sample.jxs
+   - chunk1 = first 400 bytes; chunk2 = 2500 zero bytes; chunk3 = 1 byte 0xff
+   - chunks.ffconcat:
+     ffconcat version 1.0
+     file chunk1.jxs
+     duration 0.04
+     file chunk2.jxs
+     duration 0.04
+     file chunk3.jxs
+     duration 0.04
+3) Run:
+   LD_LIBRARY_PATH=/usr/local/lib ASAN_OPTIONS=detect_leaks=0    ./ffmpeg -v debug -safe 0 -protocol_whitelist file      -f concat -i chunks.ffconcat      -c:v libsvtjpegxs -f null -
+
+ASan: AddressSanitizer: negative-size-param in memcpy
+  at libavcodec/libsvtjpegxsdec.c:161
+  libsvtjpegxs returns err=-2147471359 (positive), FFmpeg continues, next
+  packet underflows bytes_to_copy and triggers the OOB write.
+
+Found-by: Pwno
+---
+ libavcodec/libsvtjpegxsdec.c | 33 ++++++++++++++++++++++++---------
+ 1 file changed, 24 insertions(+), 9 deletions(-)
+
+diff --git a/libavcodec/libsvtjpegxsdec.c b/libavcodec/libsvtjpegxsdec.c
+index 45d9134cd4..bb2625eca5 100644
+--- a/libavcodec/libsvtjpegxsdec.c
++++ b/libavcodec/libsvtjpegxsdec.c
+@@ -51,6 +51,15 @@ typedef struct SvtJpegXsDecodeContext {
+     int proxy_mode;
+ } SvtJpegXsDecodeContext;
+ 
++static av_always_inline int map_svt_err(SvtJxsErrorType_t err)
++{
++    if (err == SvtJxsErrorDecoderConfigChange)
++        return AVERROR_INPUT_CHANGED;
++    if (err != SvtJxsErrorNone)
++        return AVERROR_EXTERNAL;
++    return 0;
++}
++
+ 
+ static int set_pix_fmt(AVCodecContext* avctx, svt_jpeg_xs_image_config_t config) {
+     if (config.format == COLOUR_FORMAT_PLANAR_YUV420) {
+@@ -109,7 +118,7 @@ static int svt_jpegxs_dec_decode(AVCodecContext* avctx, AVFrame* picture, int* g
+             avpkt->data, avpkt->size, NULL, &svt_dec->frame_size, 1 /*quick search*/, svt_dec->decoder.proxy_mode);
+         if (err) {
+             av_log(NULL, AV_LOG_ERROR, "svt_jpeg_xs_decoder_get_single_frame_size_with_proxy failed, err=%d\n", err);
+-            return err;
++            return map_svt_err(err);
+         }
+         if (avpkt->size < svt_dec->frame_size) {
+             svt_dec->chunk_decoding = 1;
+@@ -129,7 +138,7 @@ static int svt_jpegxs_dec_decode(AVCodecContext* avctx, AVFrame* picture, int* g
+             SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &(svt_dec->decoder), avpkt->data, avpkt->size, &(svt_dec->config));
+         if (err) {
+             av_log(NULL, AV_LOG_ERROR, "svt_jpeg_xs_decoder_init failed, err=%d\n", err);
+-            return err;
++            return map_svt_err(err);
+         }
+ 
+         ret = set_pix_fmt(avctx, svt_dec->config);
+@@ -151,12 +160,14 @@ static int svt_jpegxs_dec_decode(AVCodecContext* avctx, AVFrame* picture, int* g
+     }
+ 
+     if (svt_dec->chunk_decoding) {
++        if (svt_dec->buffer_filled_len >= svt_dec->frame_size)
++            return AVERROR_INVALIDDATA;
++
++        if (avpkt->size > svt_dec->frame_size - svt_dec->buffer_filled_len)
++            return AVERROR_INVALIDDATA;
++
+         uint8_t* bitstrream_addr = svt_dec->bitstream_buffer + svt_dec->buffer_filled_len;
+-        int bytes_to_copy = avpkt->size;
+-        //Do not copy more data than allocation
+-        if ((bytes_to_copy + svt_dec->buffer_filled_len) > svt_dec->frame_size) {
+-            bytes_to_copy = svt_dec->frame_size - svt_dec->buffer_filled_len;
+-        }
++        const int bytes_to_copy = avpkt->size;
+ 
+         memcpy(bitstrream_addr, avpkt->data, bytes_to_copy);
+         svt_dec->buffer_filled_len += avpkt->size;
+@@ -190,7 +201,9 @@ static int svt_jpegxs_dec_decode(AVCodecContext* avctx, AVFrame* picture, int* g
+     err = svt_jpeg_xs_decoder_send_frame(&(svt_dec->decoder), &dec_input, 1 /*blocking*/);
+     if (err) {
+         av_log(NULL, AV_LOG_ERROR, "svt_jpeg_xs_decoder_send_frame failed, err=%d\n", err);
+-        return err;
++        if (svt_dec->chunk_decoding)
++            svt_dec->buffer_filled_len = 0;
++        return map_svt_err(err);
+     }
+ 
+     err = svt_jpeg_xs_decoder_get_frame(&(svt_dec->decoder), &dec_output, 1 /*blocking*/);
+@@ -200,7 +213,9 @@ static int svt_jpegxs_dec_decode(AVCodecContext* avctx, AVFrame* picture, int* g
+     }
+     if (err) {
+         av_log(NULL, AV_LOG_ERROR, "svt_jpeg_xs_decoder_get_frame failed, err=%d\n", err);
+-        return err;
++        if (svt_dec->chunk_decoding)
++            svt_dec->buffer_filled_len = 0;
++        return map_svt_err(err);
+     }
+ 
+     if (dec_output.user_prv_ctx_ptr != avpkt) {
