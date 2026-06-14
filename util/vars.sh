@@ -1845,11 +1845,14 @@ get_stage_version() {
         ver="" # Сбрасываем версию, чтобы гарантированно уйти в парсинг тегов Git
     fi
 
-    # GetText
-    if [[ "$STAGENAME" == *"gettext"* || "$current_repo" =~ \.tar\.(gz|xz|bz2)$ ]]; then
-        ver_log "GetText detected, parsing version from URL..."
+    # Агрессивный парсинг любых типов архивов (tar.gz, xz, bz2, zst, tgz, zip, 7z)
+    if [[ "$current_repo" =~ \.(tar\.[a-z0-9]+|tgz|zip|7z|rar)$ ]]; then
+        ver_log "Archive link detected, parsing version from URL..."
         ver="" # Сбрасываем версию
-        if [[ "$current_repo" =~ -([0-9.]+)\.tar ]]; then
+        # ищет разделитель (- или _), за которым идет цифра,
+        # захватывает всю цепочку цифр, точек, дефисов и букв ДО расширения архива.
+        # Пример: gettext-1.0.tar.gz -> 1.0; libwebp-1.4.0-rc1.zip -> 1.4.0-rc1
+        if [[ "$current_repo" =~ [-_]([0-9][a-zA-Z0-9.-]*)\.(tar\.[a-z0-9]+|tgz|zip|7z|rar)$ ]]; then
             ver="${BASH_REMATCH[1]}"
             ver_log "Extracted version from archive name: ${LOG_INFO}$ver${NC}"
         fi

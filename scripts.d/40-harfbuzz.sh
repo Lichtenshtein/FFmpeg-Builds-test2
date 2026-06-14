@@ -55,7 +55,7 @@ ffbuild_dockerbuild() {
     )
 
     # Проверяем наличие статической библиотеки libicudt.a
-    if [[ -f "/opt/ffbuild/lib/libicudt.a" ]]; then
+    if [[ -f "${FFBUILD_PREFIX}/lib/libicudt.a" ]]; then
         log_info "ICU library detected. Building with ICU support..."
         local DEP_LIBS="-lcairo-gobject -lcairo -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lz -lfreetype -licuin -licuuc -licudt"
         myconf+=("-Dicu=enabled")
@@ -67,7 +67,7 @@ ffbuild_dockerbuild() {
 
     export static_flags=""
     export self_static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCAIRO_WIN32_STATIC_BUILD" && self_static_flags="-DHARFBUZZ_STATIC"
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCAIRO_WIN32_STATIC_BUILD -DICU_STATIC -DU_STATIC_IMPLEMENTATION" && self_static_flags="-DHARFBUZZ_STATIC"
 
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -I$FFBUILD_PREFIX/include/freetype2 $self_static_flags $static_flags -Wno-redundant-decls" \
