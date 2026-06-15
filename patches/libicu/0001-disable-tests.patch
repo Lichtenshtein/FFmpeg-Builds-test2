@@ -1,0 +1,118 @@
+From 0b6ade5354eca9ef2b40e0bf7b0ca55369c2ebb1 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Mon, 15 Jun 2026 12:25:20 +0300
+Subject: [PATCH] disable tests
+
+---
+ icu4c/source/Makefile.in  |  1 -
+ icu4c/source/configure    | 11 -----------
+ icu4c/source/configure.ac | 39 ---------------------------------------
+ 3 files changed, 51 deletions(-)
+
+diff --git a/icu4c/source/Makefile.in b/icu4c/source/Makefile.in
+index 9e15b6a0169..2274f5eba24 100644
+--- a/icu4c/source/Makefile.in
++++ b/icu4c/source/Makefile.in
+@@ -386,7 +386,6 @@ config/%.$(SECTION): $(srcdir)/config/%.$(SECTION).in
+ 
+ icu4j-data-install icu4j-data: all tests
+ 	@echo ICU4J_ROOT=$(ICU4J_ROOT)
+-	@$(MAKE) -C test/testdata $@
+ 	@$(MAKE) -C data $@
+ 
+ # For updating Windows makefiles
+diff --git a/icu4c/source/configure b/icu4c/source/configure
+index dfa3a091f83..0015ea8e45d 100755
+--- a/icu4c/source/configure
++++ b/icu4c/source/configure
+@@ -9529,7 +9529,6 @@ fi
+ if test -z "$PYTHON";
+ then
+     echo "" > data/rules.mk
+-    echo "" > test/testdata/rules.mk
+ else
+     if test -f "$srcdir/data/locales/root.txt";
+     then
+@@ -9549,16 +9548,6 @@ else
+       echo "Not rebuilding data/rules.mk, assuming prebuilt data in data/in"
+       touch data/rules.mk
+     fi
+-    echo "Spawning Python to generate test/testdata/rules.mk..."
+-    PYTHONPATH="$srcdir/python" \
+-        $PYTHON -m icutools.databuilder \
+-        --mode gnumake \
+-        --seqmode parallel \
+-        --src_dir "$srcdir/test/testdata" \
+-        > test/testdata/rules.mk
+-    if test "$?" != "0"; then
+-        as_fn_error $? "Python failed to run; see above error." "$LINENO" 5
+-    fi
+ fi
+ 
+ echo
+diff --git a/icu4c/source/configure.ac b/icu4c/source/configure.ac
+index ec84aaec536..8a6439f2d69 100644
+--- a/icu4c/source/configure.ac
++++ b/icu4c/source/configure.ac
+@@ -1215,41 +1215,12 @@ AC_CONFIG_FILES([icudefs.mk \
+ 		tools/tzcode/Makefile \
+ 		tools/gencfu/Makefile \
+ 		tools/escapesrc/Makefile \
+-		test/Makefile \
+-		test/compat/Makefile \
+-		test/testdata/Makefile \
+-		test/testdata/pkgdataMakefile \
+-		test/hdrtst/Makefile \
+-		test/intltest/Makefile \
+-		test/cintltst/Makefile \
+-		test/iotest/Makefile \
+-		test/letest/Makefile \
+-		test/perf/Makefile \
+-		test/perf/collationperf/Makefile \
+-		test/perf/collperf/Makefile \
+-		test/perf/collperf2/Makefile \
+-		test/perf/dicttrieperf/Makefile \
+-		test/perf/ubrkperf/Makefile \
+-		test/perf/charperf/Makefile \
+-		test/perf/convperf/Makefile \
+-		test/perf/localecanperf/Makefile \
+-		test/perf/normperf/Makefile \
+-		test/perf/DateFmtPerf/Makefile \
+-		test/perf/howExpensiveIs/Makefile \
+-		test/perf/strsrchperf/Makefile \
+-		test/perf/unisetperf/Makefile \
+-		test/perf/usetperf/Makefile \
+-		test/perf/ustrperf/Makefile \
+-		test/perf/utfperf/Makefile \
+-		test/perf/utrie2perf/Makefile \
+-		test/fuzzer/Makefile \
+ 		samples/Makefile])
+ AC_OUTPUT
+ 
+ if test -z "$PYTHON";
+ then
+     echo "" > data/rules.mk
+-    echo "" > test/testdata/rules.mk
+ else
+     if test -f "$srcdir/data/locales/root.txt";
+     then
+@@ -1269,16 +1240,6 @@ else
+       echo "Not rebuilding data/rules.mk, assuming prebuilt data in data/in"
+       touch data/rules.mk
+     fi
+-    echo "Spawning Python to generate test/testdata/rules.mk..."
+-    PYTHONPATH="$srcdir/python" \
+-        $PYTHON -m icutools.databuilder \
+-        --mode gnumake \
+-        --seqmode parallel \
+-        --src_dir "$srcdir/test/testdata" \
+-        > test/testdata/rules.mk
+-    if test "$?" != "0"; then
+-        AC_MSG_ERROR(Python failed to run; see above error.)
+-    fi
+ fi
+ 
+ echo
+-- 
+2.52.0.windows.1
+
