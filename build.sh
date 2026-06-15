@@ -799,51 +799,65 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         TEST_EXE="/opt/ffdest/opt/ffbuild/bin/ffmpeg.exe"
     fi
 
-    TEST_ARGS="-v debug -f lavfi -i testsrc=size=1280x720:rate=60:duration=2 -f lavfi -i sine=frequency=1000:duration=2 -vf scale=640x360,format=yuv420p -c:v wrapped_avframe -c:a pcm_s16le -f null -"
-
     if ! command -v wine64 &> /dev/null && ! command -v wine &> /dev/null; then
         log_warn "Wine is not installed. Skipping."
     else
-        # Оставляем детальный лог только для критических ошибок
+        # Глушим fixme/status, оставляем критические системные исключения Windows
         export WINEDEBUG="-all,err,seh"
         export WINEARCH=win64
         export DISPLAY=:99
-        # export WINEDBG="--gdb --no-start"
 
         [[ -z "$TMP_DIR" ]] && TMP_DIR="/tmp"
         AUDIT_LOG="${TMP_DIR}/ffmpeg_crash_audit.log"
         mkdir -p "$TMP_DIR"
         rm -f "$AUDIT_LOG"
 
-        if command -v wine64 &> /dev/null; then WINE_CMD="wine64"; else WINE_CMD="wine"; fi
+        # Генерируем правильный файл команд для встроенного WineDbg
+        # Команда 'where' выведет стек функций (Backtrace), 'quit' корректно завершит процесс
+        echo "run" > "${TMP_DIR}/winedbg_commands.txt"
+        echo "where" >> "${TMP_DIR}/winedbg_commands.txt"
+        echo "quit" >> "${TMP_DIR}/winedbg_commands.txt"
 
-        TEST_ARGS="-codecs -formats -filters -protocols"
+        # Тест №1: Глубокая инициализация всех компонентов (парсеров, кодеков, фильтров)
+        log_info "Running Component Initialization Test..."
+        TEST_ARGS_INIT="-codecs -formats -filters -protocols -pix_fmts"
+        winedbg --command "${TMP_DIR}/winedbg_commands.txt" "$TEST_EXE" $TEST_ARGS_INIT >> "$AUDIT_LOG" 2>&1 || true
 
-        # Запускаем через winedbg
-        winedbg --command "${TMP_DIR}/winedbg_commands.txt" "$TEST_EXE" $TEST_ARGS > "$AUDIT_LOG" 2>&1 || true
+        # Тест №2: Рендеринг и кодирование потоков (нагрузка на функции обработки сигналов)
+        log_info "Running Lavfi Stream Encoding Test..."
+        TEST_ARGS_ENC="-v debug -f lavfi -i testsrc=size=1280x720:rate=60:duration=2 -f lavfi -i sine=frequency=1000:duration=2 -vf scale=640x360,format=yuv420p -c:v wrapped_avframe -c:a pcm_s16le -f null -"
+        winedbg --command "${TMP_DIR}/winedbg_commands.txt" "$TEST_EXE" $TEST_ARGS_ENC >> "$AUDIT_LOG" 2>&1 || true
+
         WINE_EXIT=${PIPESTATUS}
 
-        # Выводим лог в консоль Docker
+        # Выводим отфильтрованный лог в консоль Docker
         log_debug "${LOG_DEBUG}=======================================================${NC}"
         log_debug "🚨 WINE SMOKE TEST ANALYSIS (DEBUG_MODE=1)"
         log_debug "${LOG_DEBUG}=======================================================${NC}"
         log_debug "Wine Exit Code: ${LOG_DEBUG}$WINE_EXIT${NC}"
+        
         if [ -f "$AUDIT_LOG" ] && [ -s "$AUDIT_LOG" ]; then
+            # Фильтруем ТОЛЬКО нерелевантный мусор графической оболочки Wine, 
+            # оставляя сообщения об исключениях, падениях и Backtrace!
             grep -Ev "nodrv_CreateWindow|Could not find dependent assembly|vulkan_init_once|systray|RpcSs|ZwLoadDriver|SetupDiInstallDevice|ntlm_auth" "$AUDIT_LOG" >&2 || true
         fi
         log_debug  "${LOG_DEBUG}=======================================================${NC}"
 
-        # Ищем только маркеры переполнения буфера, 
-        # жесткие падения памяти (0xc0000005) или падения защиты стека (0xc0000409)
-        if [[ $WINE_EXIT -ne 0 ]] || grep -Eiq "buffer overflow|stack smashing|stack_chk_fail|stack-buffer-overflow|AddressSanitizer|SIGSEGV|Segmentation fault|access violation|illegal instruction|unhandled exception|0xc0000005|0xc0000409" "$AUDIT_LOG" 2>/dev/null; then
+        # Полный массив маркеров для поиска переполнений и аппаратных сбоев
+        # c0000005 = Access Violation (ошибка памяти)
+        # c0000409 = Stack Buffer Overrun (срабатывание libssp / защиты стека)
+        # c000001d = Illegal Instruction (вызов инструкций, которые не поддерживает Xeon E5 v4, например AVX-512)
+        CRITICAL_PATTERN="buffer overflow|stack smashing|stack_chk_fail|stack-buffer-overflow|global-buffer-overflow|AddressSanitizer|SIGSEGV|Segmentation fault|access violation|illegal instruction|unhandled exception|0xc0000005|0xc0000409|0xc000001d|Exception"
 
-            # Исключение для чисто текстовых некритичных ошибок синтаксиса FFmpeg
-            if [[ $WINE_EXIT -eq 1 ]] && ! grep -Eiq "access violation|illegal instruction|stack_chk_fail|stack-buffer-overflow|0xc0000005|0xc0000409" "$AUDIT_LOG" 2>/dev/null; then
+        if [[ $WINE_EXIT -ne 0 ]] || grep -Eiq "$CRITICAL_PATTERN" "$AUDIT_LOG" 2>/dev/null; then
+
+            # Исключение для чисто текстовых некритичных ошибок синтаксиса самого FFmpeg (код выхлопа 1)
+            if [[ $WINE_EXIT -eq 1 ]] && ! grep -Eiq "access violation|illegal instruction|stack_chk_fail|stack-buffer-overflow|0xc0000005|0xc0000409|0xc000001d" "$AUDIT_LOG" 2>/dev/null; then
                 log_info "${CHECK_MARK} Wine runtime smoke test responded textually. Binary structure is solid."
             else
-                log_error "HARDWARE FAULT OR BUFFER OVERFLOW DETECTED IN RUNTIME!"
-                log_error "Aborting build. Inspect the dump above to find the failing component."
-                exit 1 # включаем жесткое падение CI
+                log_error "HARDWARE FAULT, ILLEGAL INSTRUCTION OR BUFFER OVERFLOW DETECTED IN RUNTIME!"
+                log_error "Aborting build. Inspect the backtrace dump above to find the failing component."
+                exit 1 # Жесткое падение CI для блокировки дефектного релиза
             fi
         else
             log_info "${CHECK_MARK} Wine runtime smoke test passed successfully. No overflows detected."
