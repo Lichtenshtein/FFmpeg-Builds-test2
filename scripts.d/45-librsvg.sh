@@ -22,6 +22,9 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf \
+rsvg/tests/fixtures \
+rsvg/tests/resources"
 }
 
 ffbuild_dockerbuild() {
