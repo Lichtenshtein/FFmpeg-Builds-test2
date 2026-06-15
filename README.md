@@ -303,4 +303,5 @@ SCRIPT_MIRROR_COMMIT[1-9] - may differ if mirror is not updated in time
 SCRIPT_COMMIT="v3.4.5" - specific version
 SCRIPT_REV - SVN
 SCRIPT_TAGFILTER - filter by tag
+SCRIPT_DIR - target dir name
 SCRIPT_SKIP="1" - skip script (meta-component)
