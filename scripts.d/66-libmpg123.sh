@@ -66,4 +66,7 @@ Libs: -L\${libdir} -lmpg123
 Cflags: -I\${includedir}
 EOF
     fi
+
+    # symlink for openmpt
+    ln -sf "$PC_DIR/libmpg123.pc" "$PC_DIR/mpg123.pc"
 }

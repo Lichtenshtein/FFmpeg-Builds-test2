@@ -22,7 +22,10 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "rm -rf svt-av1-tritium/third_party/googletest svt-av1-tritium/test svt-av1-tritium/Docs/img"
+    echo "rm -rf \
+svt-av1-tritium/third_party/googletest \
+svt-av1-tritium/test \
+svt-av1-tritium/Docs/img"
 }
 
 ffbuild_dockerbuild() {

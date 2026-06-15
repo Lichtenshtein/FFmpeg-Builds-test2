@@ -19,10 +19,30 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf \
+include \
+build/vs2017win7 \
+build/vs2017winxp \
+build/vs2017winxpansi \
+build/vs2017winxpx64 \
+build/vs2019win7 \
+build/vs2022win7 \
+build/vs2022win8 \
+build/vs2022win10 \
+build/vs2022win10uwp \
+build/vs2022win11 \
+build/vs2022win11clang \
+build/vs2022win11uwp \
+build/vs2022win81 \
+build/vs2026win11 \
+build/vs2026win11clang \
+build/vs2026win11uwp"
 }
 
 ffbuild_dockerbuild() {
     set -e
+
+    find . -name "Makefile" -exec sed -i 's/-fvisibility=hidden//g' {} + 2>/dev/null || true
 
     export CFLAGS="$CFLAGS ${USELTO}${USELTO_C}"
     export CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}"
@@ -31,7 +51,7 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         PREFIX="$FFBUILD_PREFIX"
-        # CXXSTDLIB_PCLIBSPRIVATE="-lstdc++"
+        CXXSTDLIB_PCLIBSPRIVATE="-lstdc++"
         VERBOSE=2
         EXAMPLES=0
         OPENMPT123=0
@@ -40,7 +60,7 @@ ffbuild_dockerbuild() {
         DEBUG=0
         NATIVE=0
         OPTIMIZE=vectorize
-        OPTIMIZE_FASTMATH=1
+        OPTIMIZE_FASTMATH=0
         TEST=0
         MODERN=1
         FORCE_DEPS=1
