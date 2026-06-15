@@ -32,7 +32,6 @@ ffbuild_dockerbuild() {
     set -e
 
     find . -name "CMakeLists.txt" -exec sed -i 's/set(CMAKE_C_VISIBILITY_PRESET hidden)//g' {} + 2>/dev/null || true
-    find . -name "CMakeLists.txt" -exec sed -i 's/-fvisibility=hidden//g' {} + 2>/dev/null || true
 
     rm -rf _build && mkdir _build && cd _build
 

@@ -38,3 +38,28 @@ if(NOT DEFINED CMAKE_INSTALL_PREFIX)
 endif()
 
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
+
+# =============================================================================
+# GLOBAL VISIBILITY OVERRIDE (Forcing static links transparency)
+# =============================================================================
+
+# форсируем дефолтную (видимую) видимость символов в кэше
+set(CMAKE_C_VISIBILITY_PRESET "default" CACHE INTERNAL "Global override" FORCE)
+set(CMAKE_CXX_VISIBILITY_PRESET "default" CACHE INTERNAL "Global override" FORCE)
+set(CMAKE_VISIBILITY_INLINES_HIDDEN 0 CACHE INTERNAL "Global override" FORCE)
+
+# Защита от переопределения свойств конкретных таргетов (set_target_properties)
+# CMake позволяет задать глобальное поведение для всех создаваемых таргетов по умолчанию
+set(CMAKE_PROPERTY_LINKER_LANGUAGE CXX)
+
+# Перехватываем создание любых библиотек и принудительно сбрасываем свойства видимости
+macro(add_library target)
+    _add_library(${target} ${ARGN})
+    if(TARGET ${target})
+        set_target_properties(${target} PROPERTIES
+            C_VISIBILITY_PRESET "default"
+            CXX_VISIBILITY_PRESET "default"
+            VISIBILITY_INLINES_HIDDEN 0
+        )
+    endif()
+endmacro()
