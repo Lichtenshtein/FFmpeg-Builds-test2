@@ -17,12 +17,12 @@ ffbuild_dockerdl() {
     echo "git-submodule-clone"
     echo "rm -rf \
 quiche/deps/boringssl/.git \
-quiche/deps/boringssl/fuzz \
-quiche/deps/boringssl/pki/testdata \
-quiche/deps/boringssl/ssl/test \
-quiche/deps/boringssl/third_party/benchmark \
-quiche/deps/boringssl/third_party/googletest \
-quiche/deps/boringssl/third_party/wycheproof_testvectors"
+quiche/deps/boringssl/crypto_test_data.cc \
+quiche/deps/boringssl/src/fuzz \
+quiche/deps/boringssl/src/pki/testdata \
+quiche/deps/boringssl/src/ssl/test \
+quiche/deps/boringssl/src/third_party/googletest \
+quiche/deps/boringssl/src/third_party/wycheproof_testvectors"
 }
 
 ffbuild_dockerbuild() {
