@@ -25,10 +25,15 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    ./autogen.sh
+    if has_library "icudt"; then
+        log_info "ICU library detected."
+        local ICU_H_LIBS="-lharfbuzz-icu"
+    fi
 
-    local DEP_LIBS="-lharfbuzz-icu -lharfbuzz-subset -lharfbuzz-cairo -lcairo-gobject -lcairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lpng -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz"
+    local DEP_LIBS="${ICU_H_LIBS} -lharfbuzz-subset -lharfbuzz-cairo -lcairo-gobject -lcairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lpng -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz"
     local WIN_LIBS="$LIBS"
+
+    ./autogen.sh
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
