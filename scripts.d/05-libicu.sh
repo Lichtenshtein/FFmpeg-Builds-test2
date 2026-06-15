@@ -14,6 +14,21 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf \
+vendor/double-conversion/upstream/test \
+icu4j/perf-tests/data/collation \
+icu4j/main/charset/src/test \
+icu4j/main/collate/src/test \
+icu4j/main/common_tests \
+icu4j/main/core/src/test \
+icu4j/main/framework/src/test \
+icu4j/main/translit/src/test \
+vendor/double-conversion/upstream/test/cctest \
+icu4c/source/test/cintltst \
+icu4c/source/test/intltest \
+icu4c/source/test/testdata \
+docs/devsetup/java \
+docs/userguide"
 }
 
 ffbuild_dockerbuild() {

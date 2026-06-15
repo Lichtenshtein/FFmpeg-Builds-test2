@@ -241,8 +241,8 @@ if [[ -n "$DL_COMMANDS" ]]; then
         # Собираем список: сначала папки (с /), потом файлы
         # -F добавляет / к папкам, -1 выводит в один столбец
                 # paste объединяет их через табуляцию, чтобы column понял разделитель
-        paste <(ls -ad .*/ */ 2>/dev/null | grep -v '^\./\?$' | head -n 15) \
-              <(ls -AF 2>/dev/null | grep -v / | head -n 15) | \
+        paste <(ls -ad .*/ */ 2>/dev/null | grep -v '^\./\?$' | head -n 17) \
+              <(ls -AF 2>/dev/null | grep -v / | head -n 17) | \
               column -t -s $'\t' -N "DIRECTORIES","FILES" | \
               sed 's/^/ /' # Добавляем отступ слева для красоты
     fi
