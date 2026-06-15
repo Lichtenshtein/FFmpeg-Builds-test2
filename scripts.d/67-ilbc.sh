@@ -18,10 +18,12 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Удаляем скрытые атрибуты видимости (учитывая любые пробелы)
-    sed -i 's/set[[:space:]]*([[:space:]]*CMAKE_C_VISIBILITY_PRESET[[:space:]]\+hidden[[:space:]]*)/#&/g' CMakeLists.txt
-    sed -i 's/set[[:space:]]*([[:space:]]*CMAKE_CXX_VISIBILITY_PRESET[[:space:]]\+hidden[[:space:]]*)/#&/g' CMakeLists.txt
-    sed -i 's/set[[:space:]]*([[:space:]]*CMAKE_VISIBILITY_INLINES_HIDDEN[[:space:]]\+1[[:space:]]*)/#&/g' CMakeLists.txt
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        # Удаляем скрытые атрибуты видимости (учитывая любые пробелы)
+        sed -i 's/set[[:space:]]*([[:space:]]*CMAKE_C_VISIBILITY_PRESET[[:space:]]\+hidden[[:space:]]*)/#&/g' CMakeLists.txt
+        sed -i 's/set[[:space:]]*([[:space:]]*CMAKE_CXX_VISIBILITY_PRESET[[:space:]]\+hidden[[:space:]]*)/#&/g' CMakeLists.txt
+        sed -i 's/set[[:space:]]*([[:space:]]*CMAKE_VISIBILITY_INLINES_HIDDEN[[:space:]]\+1[[:space:]]*)/#&/g' CMakeLists.txt
+    fi
 
     # Вырезаем сборку тестовых исполняемых файлов из CMakeLists.txt
     sed -i '/add_executable[[:space:]]*(ilbc_test/,/)/d' CMakeLists.txt
