@@ -1296,8 +1296,7 @@ strip_files() {
 
         # Находим все исполняемые файлы и статические библиотеки
         find "$target_dir" -type f \
-            \( -name "*.exe" -o -name "*.dll" -o -name "*.a" -o -name "*.so*" \) \
-            ! -name "*.dll.a" | while read -r file; do
+            \( -name "*.exe" -o -name "*.dll" -o -name "*.so*" \) | while read -r file; do
 
                 # Проверяем, есть ли вообще в файле отладочные символы, чтобы не плодить пустые пустышки
                 if $_objcopy_cmd --help | grep -q "only-keep-debug" 2>/dev/null; then
