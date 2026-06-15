@@ -9,11 +9,12 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    # echo "git fetch --unshallow --filter=blob:none"
+    echo "rm -rf test"
 }
 
 ffbuild_dockerbuild() {
     set -e
+
     # Очищаем CMakeLists для приложений, чтобы не собирать лишний мусор
     echo > app/CMakeLists.txt
 

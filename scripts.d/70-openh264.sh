@@ -9,6 +9,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf test res"
 }
 
 ffbuild_dockerbuild() {
@@ -25,6 +26,7 @@ ffbuild_dockerbuild() {
         BUILDTYPE=Release
         DEBUGSYMBOLS=False
         LIBDIR_NAME=lib
+        BUILD_UT_EXE=No
         CC="$CC"
         CXX="$CXX"
         AR="$AR"

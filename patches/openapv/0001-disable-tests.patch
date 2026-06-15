@@ -1,0 +1,153 @@
+From 76c0c9c9722044e7692344c41793e6c0dffdf400 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Mon, 15 Jun 2026 19:04:42 +0300
+Subject: [PATCH] disable tests
+
+---
+ CMakeLists.txt | 133 -------------------------------------------------
+ 1 file changed, 133 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 54b0a3f..b56c5ab 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -253,136 +253,3 @@ option(ENABLE_TESTS "Enable tests" ON)
+ if (${ENABLE_TESTS})
+     enable_testing()
+ endif()
+-
+-# Test - Check if encoder starts
+-add_test(NAME Encoder_runs COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_enc)
+-
+-# Test - Check if decoder starts
+-add_test(NAME Decoder_runs COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_dec)
+-
+-# Test - encode
+-add_test(NAME encode COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_enc -i ${CMAKE_CURRENT_SOURCE_DIR}/test/sequence/pattern1_yuv422p10le_320x240_25fps.y4m -w 320 -h 240 -z 25 -o out.oapv)
+-set_tests_properties(encode PROPERTIES
+-    TIMEOUT 20
+-    FAIL_REGULAR_EXPRESSION "Encoded frame count               = 0"
+-    PASS_REGULAR_EXPRESSION "Encoded frame count               = 125"
+-    RUN_SERIAL TRUE
+-)
+-
+-# Test - decode
+-add_test(NAME decode COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_dec -i out.oapv)
+-set_tests_properties(decode PROPERTIES
+-    TIMEOUT 10
+-    DEPENDS encode
+-    FAIL_REGULAR_EXPRESSION "Decoded frame count               = 0"
+-    PASS_REGULAR_EXPRESSION "Decoded frame count               = 125"
+-    RUN_SERIAL TRUE
+-)
+-
+-# Test - decode qp_A.apv
+-add_test(NAME decode_qp_A COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_dec -i ${CMAKE_CURRENT_SOURCE_DIR}/test/bitstream/qp_A.apv -v 3 --hash)
+-set_tests_properties(decode_qp_A PROPERTIES
+-    TIMEOUT 10
+-    FAIL_REGULAR_EXPRESSION "Decoded frame count               = 0"
+-    PASS_REGULAR_EXPRESSION "Decoded frame count               = 3"
+-    PASS_REGULAR_EXPRESSION ".*hash:match.*"
+-)
+-
+-# Test - decode qp_B.apv
+-add_test(NAME decode_qp_B COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_dec -i ${CMAKE_CURRENT_SOURCE_DIR}/test/bitstream/qp_B.apv -v 3 --hash)
+-set_tests_properties(decode_qp_B PROPERTIES
+-    TIMEOUT 10
+-    FAIL_REGULAR_EXPRESSION "Decoded frame count               = 0"
+-    PASS_REGULAR_EXPRESSION "Decoded frame count               = 3"
+-    PASS_REGULAR_EXPRESSION ".*hash:match.*"
+-)
+-
+-# Test - decode qp_C.apv
+-add_test(NAME decode_qp_C COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_dec -i ${CMAKE_CURRENT_SOURCE_DIR}/test/bitstream/qp_C.apv -v 3 --hash)
+-set_tests_properties(decode_qp_C PROPERTIES
+-    TIMEOUT 10
+-    FAIL_REGULAR_EXPRESSION "Decoded frame count               = 0"
+-    PASS_REGULAR_EXPRESSION "Decoded frame count               = 3"
+-    PASS_REGULAR_EXPRESSION ".*hash:match.*"
+-)
+-
+-# Test - decode qp_D.apv
+-add_test(NAME decode_qp_D COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_dec -i ${CMAKE_CURRENT_SOURCE_DIR}/test/bitstream/qp_D.apv -v 3 --hash)
+-set_tests_properties(decode_qp_D PROPERTIES
+-    TIMEOUT 10
+-    FAIL_REGULAR_EXPRESSION "Decoded frame count               = 0"
+-    PASS_REGULAR_EXPRESSION "Decoded frame count               = 3"
+-    PASS_REGULAR_EXPRESSION ".*hash:match.*"
+-)
+-
+-# Test - decode qp_E.apv
+-add_test(NAME decode_qp_E COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_dec -i ${CMAKE_CURRENT_SOURCE_DIR}/test/bitstream/qp_E.apv -v 3 --hash)
+-set_tests_properties(decode_qp_E PROPERTIES
+-    TIMEOUT 10
+-    FAIL_REGULAR_EXPRESSION "Decoded frame count               = 0"
+-    PASS_REGULAR_EXPRESSION "Decoded frame count               = 3"
+-    PASS_REGULAR_EXPRESSION ".*hash:match.*"
+-)
+-
+-# Test - decode syn_A.apv
+-add_test(NAME decode_syn_A COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_dec -i ${CMAKE_CURRENT_SOURCE_DIR}/test/bitstream/syn_A.apv -v 3 --hash)
+-set_tests_properties(decode_syn_A PROPERTIES
+-    TIMEOUT 10
+-    FAIL_REGULAR_EXPRESSION "Decoded frame count               = 0"
+-    PASS_REGULAR_EXPRESSION "Decoded frame count               = 3"
+-    PASS_REGULAR_EXPRESSION ".*hash:match.*"
+-)
+-
+-# Test - decode syn_B.apv
+-add_test(NAME decode_syn_B COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_dec -i ${CMAKE_CURRENT_SOURCE_DIR}/test/bitstream/syn_B.apv -v 3 --hash)
+-set_tests_properties(decode_syn_B PROPERTIES
+-    TIMEOUT 10
+-    FAIL_REGULAR_EXPRESSION "Decoded frame count               = 0"
+-    PASS_REGULAR_EXPRESSION "Decoded frame count               = 3"
+-    PASS_REGULAR_EXPRESSION ".*hash:match.*"
+-)
+-
+-# Test - decode tile_A.apv
+-add_test(NAME decode_tile_A COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_dec -i ${CMAKE_CURRENT_SOURCE_DIR}/test/bitstream/tile_A.apv -v 3 --hash)
+-set_tests_properties(decode_tile_A PROPERTIES
+-    TIMEOUT 10
+-    FAIL_REGULAR_EXPRESSION "Decoded frame count               = 0"
+-    PASS_REGULAR_EXPRESSION "Decoded frame count               = 3"
+-    PASS_REGULAR_EXPRESSION ".*hash:match.*"
+-)
+-
+-# Test - decode tile_B.apv
+-add_test(NAME decode_tile_B COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_dec -i ${CMAKE_CURRENT_SOURCE_DIR}/test/bitstream/tile_B.apv -v 3 --hash)
+-set_tests_properties(decode_tile_B PROPERTIES
+-    TIMEOUT 10
+-    FAIL_REGULAR_EXPRESSION "Decoded frame count               = 0"
+-    PASS_REGULAR_EXPRESSION "Decoded frame count               = 3"
+-    PASS_REGULAR_EXPRESSION ".*hash:match.*"
+-)
+-
+-# Test - decode tile_C.apv
+-add_test(NAME decode_tile_C COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_dec -i ${CMAKE_CURRENT_SOURCE_DIR}/test/bitstream/tile_C.apv -v 3 --hash)
+-set_tests_properties(decode_tile_C PROPERTIES
+-    TIMEOUT 10
+-    FAIL_REGULAR_EXPRESSION "Decoded frame count               = 0"
+-    PASS_REGULAR_EXPRESSION "Decoded frame count               = 3"
+-    PASS_REGULAR_EXPRESSION ".*hash:match.*"
+-)
+-
+-# Test - decode tile_D.apv
+-add_test(NAME decode_tile_D COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_dec -i ${CMAKE_CURRENT_SOURCE_DIR}/test/bitstream/tile_D.apv -v 3 --hash)
+-set_tests_properties(decode_tile_D PROPERTIES
+-    TIMEOUT 10
+-    FAIL_REGULAR_EXPRESSION "Decoded frame count               = 0"
+-    PASS_REGULAR_EXPRESSION "Decoded frame count               = 3"
+-    PASS_REGULAR_EXPRESSION ".*hash:match.*"
+-)
+-
+-# Test - decode tile_E.apv
+-add_test(NAME decode_tile_E COMMAND ${CMAKE_CURRENT_BINARY_DIR}/bin/oapv_app_dec -i ${CMAKE_CURRENT_SOURCE_DIR}/test/bitstream/tile_E.apv -v 3 --hash)
+-set_tests_properties(decode_tile_E PROPERTIES
+-    TIMEOUT 10
+-    FAIL_REGULAR_EXPRESSION "Decoded frame count               = 0"
+-    PASS_REGULAR_EXPRESSION "Decoded frame count               = 3"
+-    PASS_REGULAR_EXPRESSION ".*hash:match.*"
+-)
+-- 
+2.52.0.windows.1
+
