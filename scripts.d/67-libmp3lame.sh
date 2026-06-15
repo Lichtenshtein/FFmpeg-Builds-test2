@@ -37,7 +37,7 @@ ffbuild_dockerbuild() {
         --host="$FFBUILD_TOOLCHAIN"
         --with-pic
         --enable-nasm
-        --enable-expopt=full # full/norm/no; Whether to enable experimental optimizations
+        --enable-expopt=no # full/norm/no; Whether to enable experimental optimizations
         --disable-gtktest
         # --disable-decoder # Exclude mpg123 decoder
         --disable-frontend # Do not build the lame executable
