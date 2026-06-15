@@ -45,7 +45,7 @@ fi
     # echo "git-submodule-clone"
     echo "mkdir -p testdata"
     echo "git-mini-clone \"https://github.com/google/highway.git\" \"master\" third_party/highway"
-    echo "git-mini-clone \"https://github.com/webmproject/sjpeg.git\" \"master\" third_party/sjpeg"
+    echo "git-mini-clone \"https://github.com/webmproject/sjpeg.git\" \"main\" third_party/sjpeg"
     echo "rm -rf \
 third_party/sjpeg/tests \
 third_party/highway/g3doc \
