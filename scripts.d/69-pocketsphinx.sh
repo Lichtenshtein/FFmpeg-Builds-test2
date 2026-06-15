@@ -9,6 +9,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf test"
 }
 
 ffbuild_dockerbuild() {
@@ -31,6 +32,8 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DFIXED_POINT=OFF # Build using fixed-point math
+        -DPS_THREAD_LOCAL_RNG=ON # Use thread-local storage for random number generator
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
     )

@@ -50,16 +50,9 @@ set(CMAKE_VISIBILITY_INLINES_HIDDEN 0 CACHE INTERNAL "Global override" FORCE)
 
 # Защита от переопределения свойств конкретных таргетов (set_target_properties)
 # CMake позволяет задать глобальное поведение для всех создаваемых таргетов по умолчанию
-set(CMAKE_PROPERTY_LINKER_LANGUAGE CXX)
+set(CMAKE_C_VISIBILITY_PRESET_INIT "default")
+set(CMAKE_CXX_VISIBILITY_PRESET_INIT "default")
+set(CMAKE_VISIBILITY_INLINES_HIDDEN_INIT 0)
 
-# Перехватываем создание любых библиотек и принудительно сбрасываем свойства видимости
-macro(add_library target)
-    _add_library(${target} ${ARGN})
-    if(TARGET ${target})
-        set_target_properties(${target} PROPERTIES
-            C_VISIBILITY_PRESET "default"
-            CXX_VISIBILITY_PRESET "default"
-            VISIBILITY_INLINES_HIDDEN 0
-        )
-    endif()
-endmacro()
+set(CMAKE_STATIC_LIBRARY_CXX_FLAGS "${CMAKE_STATIC_LIBRARY_CXX_FLAGS} -fvisibility=default")
+set(CMAKE_STATIC_LIBRARY_C_FLAGS "${CMAKE_STATIC_LIBRARY_C_FLAGS} -fvisibility=default")

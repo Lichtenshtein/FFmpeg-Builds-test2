@@ -31,7 +31,9 @@ svt-av1-tritium/Docs/img"
 ffbuild_dockerbuild() {
     set -e
 
-    find . -name "CMakeLists.txt" -exec sed -i 's/set(CMAKE_C_VISIBILITY_PRESET hidden)//g' {} + 2>/dev/null || true
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        find . -name "CMakeLists.txt" -exec sed -i 's/set(CMAKE_C_VISIBILITY_PRESET hidden)//g' {} + 2>/dev/null || true
+    fi
 
     rm -rf _build && mkdir _build && cd _build
 

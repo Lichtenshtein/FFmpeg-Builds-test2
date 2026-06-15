@@ -16,8 +16,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Вырезаем макрос скрытия видимости -fvisibility=hidden из configure.ac
-    sed -i '/-fvisibility=hidden/,/\])/d' configure.ac
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        # РІС‹СЂРµР·Р°РµРј РјР°РєСЂРѕСЃ СЃРєСЂС‹С‚РёСЏ РІРёРґРёРјРѕСЃС‚Рё -fvisibility=hidden РёР· configure.ac
+        sed -i '/-fvisibility=hidden/,/\])/d' configure.ac
+    fi
 
     # Remove Skylake/Cascadelake flag checks
     if [ "${USE_AVX512:-0}" == "0" ]; then
