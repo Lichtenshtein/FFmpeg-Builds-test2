@@ -240,9 +240,9 @@ if [[ -n "$DL_COMMANDS" ]]; then
         log_debug "${DIRS_MARK} Contents of $(pwd) (current build directory):"
         # Собираем список: сначала папки (с /), потом файлы
         # -F добавляет / к папкам, -1 выводит в один столбец
-        # paste объединяет их через табуляцию, чтобы column понял разделитель
-        paste <(ls -d */ 2>/dev/null | head -n 15) \
-              <(ls -F 2>/dev/null | grep -v / | head -n 15) | \
+                # paste объединяет их через табуляцию, чтобы column понял разделитель
+        paste <(ls -ad .*/ */ 2>/dev/null | grep -v '^\./\?$' | head -n 15) \
+              <(ls -AF 2>/dev/null | grep -v / | head -n 15) | \
               column -t -s $'\t' -N "DIRECTORIES","FILES" | \
               sed 's/^/ /' # Добавляем отступ слева для красоты
     fi

@@ -18,6 +18,21 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Удаляем скрытые атрибуты видимости (учитывая любые пробелы)
+    sed -i 's/set[[:space:]]*([[:space:]]*CMAKE_C_VISIBILITY_PRESET[[:space:]]\+hidden[[:space:]]*)/#&/g' CMakeLists.txt
+    sed -i 's/set[[:space:]]*([[:space:]]*CMAKE_CXX_VISIBILITY_PRESET[[:space:]]\+hidden[[:space:]]*)/#&/g' CMakeLists.txt
+    sed -i 's/set[[:space:]]*([[:space:]]*CMAKE_VISIBILITY_INLINES_HIDDEN[[:space:]]\+1[[:space:]]*)/#&/g' CMakeLists.txt
+
+    # Вырезаем сборку тестовых исполняемых файлов из CMakeLists.txt
+    sed -i 's/add_executable[[:space:]]*(ilbc_test/#&/g' CMakeLists.txt
+    sed -i 's/target_link_libraries[[:space:]]*(ilbc_test/#&/g' CMakeLists.txt
+    sed -i 's/add_executable[[:space:]]*(ilbc_test2/#&/g' CMakeLists.txt
+    sed -i 's/target_link_libraries[[:space:]]*(ilbc_test2/#&/g' CMakeLists.txt
+    sed -i 's/add_custom_target[[:space:]]*(ilbc_test/#&/g' CMakeLists.txt
+
+    # Убираем упоминание ilbc_test из секции инсталляции
+    sed -i 's/install[[:space:]]*(TARGETS[[:space:]]\+ilbc[[:space:]]\+ilbc_test/install(TARGETS ilbc/g' CMakeLists.txt
+
     mkdir -p _build && cd _build
 
     local myconf=(
