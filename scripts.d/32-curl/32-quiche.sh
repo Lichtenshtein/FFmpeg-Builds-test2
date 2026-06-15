@@ -14,7 +14,19 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    # echo "git-submodule-clone"
+    echo "git-submodule-clone"
+    if [ -d "quiche/deps" ]; then
+        echo "rm -rf \
+quiche/deps/boringssl/.git \
+quiche/deps/boringssl/fuzz \
+quiche/deps/boringssl/pki/testdata \
+quiche/deps/boringssl/ssl/test \
+quiche/deps/boringssl/third_party/benchmark \
+quiche/deps/boringssl/third_party/googletest \
+quiche/deps/boringssl/third_party/wycheproof_testvectors"
+    else
+        log_warn "quiche/deps directory does not exist, skipping cleanup."
+    fi
 }
 
 ffbuild_dockerbuild() {
