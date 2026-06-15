@@ -817,8 +817,13 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
 
         if command -v wine64 &> /dev/null; then WINE_CMD="wine64"; else WINE_CMD="wine"; fi
 
-        # Безопасно выполняем тест
-        $WINE_CMD "$TEST_EXE" $TEST_ARGS > "$AUDIT_LOG" 2>&1 || true
+        # Вместо прямого запуска скармливаем его winedbg в режиме пакетной обработки команд
+        echo "run" > "${TMP_DIR}/winedbg_commands.txt"
+        echo "backtrace" >> "${TMP_DIR}/winedbg_commands.txt"
+        echo "quit" >> "${TMP_DIR}/winedbg_commands.txt"
+
+        # Запускаем через winedbg, чтобы при Buffer Overflow вывелся стек функций
+        winedbg --command "${TMP_DIR}/winedbg_commands.txt" "$TEST_EXE" $TEST_ARGS > "$AUDIT_LOG" 2>&1 || true
         WINE_EXIT=${PIPESTATUS}
 
         # Выводим лог в консоль Docker
@@ -870,6 +875,9 @@ pushd "$FFMPEG_PKG_ROOT"
 # Упаковка
 log_info "${ARCH_MARK} Creating archive: ${BUILD_NAME}.7z"
 if [[ "$DEBUG_MODE" == "1" ]]; then
+    log_info "${SAVE_MARK} Gathering all generated debug files..."
+    # Находим все .debug файлы в девелоперском префиксе и копируем их в структуру релиза к исполняемым файлам
+    find "${FFBUILD_PREFIX}" -type f -name "*.debug" -exec cp {} "./${BUILD_NAME}/bin/" \; 2>/dev/null || true
     log_info "${SAVE_MARK} Packaging external debug symbols separately..."
     # Находим все созданные .debug файлы и пакуем их отдельно
     7z a -mx7 -mmt=on -r "$FFBUILD_DESTDIR/${BUILD_NAME}-debug-symbols.7z" "./${BUILD_NAME}/*.debug"

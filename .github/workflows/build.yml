@@ -21,6 +21,10 @@ on:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
         default: false
+      verbosity:
+        description: 'Log Verbosity (2: Full, 0: Quiet)'
+        required: false
+        default: '2'
       cpu_arch:
         description: 'CPU march target (broadwell/x86-64-v3/znver3/native)'
         required: false
@@ -81,10 +85,6 @@ on:
         description: 'Enable Wine for tests/conftest'
         type: boolean
         default: false
-      verbosity:
-        description: 'Log Verbosity (2: Full, 0: Quiet)'
-        required: false
-        default: '2'
       shaderc_update:
         description: 'Use own Shaderc DEPS file'
         type: boolean
