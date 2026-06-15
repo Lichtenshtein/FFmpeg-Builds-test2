@@ -21,7 +21,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "rm -rf wav unittest doc build_win"
+    echo "rm -rf codec2/wav codec2/unittest codec2/doc codec2/build_win"
 }
 
 ffbuild_dockerbuild() {
