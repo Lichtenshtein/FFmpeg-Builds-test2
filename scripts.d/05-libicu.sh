@@ -35,7 +35,7 @@ ffbuild_dockerbuild() {
     set -e
     # [[ -d "source" ]] && cd source
     cd icu4c/source
-echo "test"
+
     unset CC CXX LD AR CPP LIBS CCAS
     unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
     # Используем runConfigureICU для правильной инициализации под Linux
