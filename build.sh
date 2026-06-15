@@ -805,10 +805,10 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         log_warn "Wine is not installed. Skipping."
     else
         # Оставляем детальный лог только для критических ошибок
-        export WINEDEBUG="err,seh,status"
+        export WINEDEBUG="-all,err,seh"
         export WINEARCH=win64
         export DISPLAY=:99
-        export WINEDBG="--gdb --no-start" 
+        # export WINEDBG="--gdb --no-start"
 
         [[ -z "$TMP_DIR" ]] && TMP_DIR="/tmp"
         AUDIT_LOG="${TMP_DIR}/ffmpeg_crash_audit.log"
@@ -817,12 +817,9 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
 
         if command -v wine64 &> /dev/null; then WINE_CMD="wine64"; else WINE_CMD="wine"; fi
 
-        # Вместо прямого запуска скармливаем его winedbg в режиме пакетной обработки команд
-        echo "run" > "${TMP_DIR}/winedbg_commands.txt"
-        echo "backtrace" >> "${TMP_DIR}/winedbg_commands.txt"
-        echo "quit" >> "${TMP_DIR}/winedbg_commands.txt"
+        TEST_ARGS="-codecs -formats -filters -protocols"
 
-        # Запускаем через winedbg, чтобы при Buffer Overflow вывелся стек функций
+        # Запускаем через winedbg
         winedbg --command "${TMP_DIR}/winedbg_commands.txt" "$TEST_EXE" $TEST_ARGS > "$AUDIT_LOG" 2>&1 || true
         WINE_EXIT=${PIPESTATUS}
 
@@ -832,7 +829,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         log_debug "${LOG_DEBUG}=======================================================${NC}"
         log_debug "Wine Exit Code: ${LOG_DEBUG}$WINE_EXIT${NC}"
         if [ -f "$AUDIT_LOG" ] && [ -s "$AUDIT_LOG" ]; then
-            cat "$AUDIT_LOG" >&2
+            grep -Ev "nodrv_CreateWindow|Could not find dependent assembly|vulkan_init_once|systray|RpcSs|ZwLoadDriver|SetupDiInstallDevice|ntlm_auth" "$AUDIT_LOG" >&2 || true
         fi
         log_debug  "${LOG_DEBUG}=======================================================${NC}"
 
