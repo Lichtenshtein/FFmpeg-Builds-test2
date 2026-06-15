@@ -9,7 +9,13 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "rm -rf tests java research/img js/test_data.tar js/test_data.ts test_data.js"
+    echo "rm -rf \
+tests \
+java \
+research/img \
+js/test_data.tar \
+js/test_data.ts \
+test_data.js"
 }
 
 ffbuild_dockerbuild() {
