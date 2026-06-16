@@ -819,24 +819,20 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         mkdir -p "$TMP_DIR"
         rm -f "$AUDIT_LOG"
 
-        # Генерируем правильный файл команд для встроенного WineDbg
-        # Команда 'where' выведет стек функций (Backtrace), 'quit' корректно завершит процесс
-        echo "run" > "${TMP_DIR}/winedbg_commands.txt"
-        echo "where" >> "${TMP_DIR}/winedbg_commands.txt"
-        echo "quit" >> "${TMP_DIR}/winedbg_commands.txt"
+        # Создаем массив тестов для последовательной проверки
+        TEST_SUITE=(
+            "-codecs -formats -filters -protocols -pix_fmts"
+            "-v debug -f lavfi -i testsrc=size=1280x720:rate=60:duration=2 -f lavfi -i sine=frequency=1000:duration=2 -vf scale=640x360,format=yuv420p -c:v wrapped_avframe -c:a pcm_s16le -f null -"
+        )
 
-        # Тест №1: Глубокая инициализация всех компонентов (парсеров, кодеков, фильтров)
-        log_info "Running Component Initialization Test..."
-        TEST_ARGS_INIT="-codecs -formats -filters -protocols -pix_fmts"
-        winedbg --command "${TMP_DIR}/winedbg_commands.txt" "$TEST_EXE" $TEST_ARGS_INIT >> "$AUDIT_LOG" 2>&1 || true
+        log_info "Running deep component crash audit via winedbg..."
 
-        # Тест №2: Рендеринг и кодирование потоков (нагрузка на функции обработки сигналов)
-        log_info "Running Lavfi Stream Encoding Test..."
-        TEST_ARGS_ENC="-v debug -f lavfi -i testsrc=size=1280x720:rate=60:duration=2 -f lavfi -i sine=frequency=1000:duration=2 -vf scale=640x360,format=yuv420p -c:v wrapped_avframe -c:a pcm_s16le -f null -"
-        winedbg --command "${TMP_DIR}/winedbg_commands.txt" "$TEST_EXE" $TEST_ARGS_ENC >> "$AUDIT_LOG" 2>&1 || true
-
-        # Запускаем через winedbg в автоматическом режиме (--auto)
-        winedbg --auto "$TEST_EXE" $TEST_ARGS_ENC > "$AUDIT_LOG" 2>&1 || true
+        # Последовательно запускаем каждый тест через winedbg
+        for TEST_ARGS in "${TEST_SUITE[@]}"; do
+            log_debug "Executing smoke sub-test with arguments: ${GREY_B}${TEST_ARGS:0:40}...${NC}"
+            # Используем официальный синтаксис winedbg: цепочка "run; bt; quit"
+            winedbg --command "run $TEST_ARGS; bt; quit" "$TEST_EXE" >> "$AUDIT_LOG" 2>&1 || true
+        done
 
         WINE_EXIT=${PIPESTATUS}
 
@@ -844,40 +840,23 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         log_debug "${LOG_DEBUG}=======================================================${NC}"
         log_debug "🚨 WINE SMOKE TEST ANALYSIS (DEBUG_MODE=1)"
         log_debug "${LOG_DEBUG}=======================================================${NC}"
-        log_debug "Wine Exit Code: ${LOG_DEBUG}$WINE_EXIT${NC}"
+        log_debug "Wine/Winedbg Exit Code: ${LOG_DEBUG}$WINE_EXIT${NC}"
         
         if [ -f "$AUDIT_LOG" ] && [ -s "$AUDIT_LOG" ]; then
-            # Фильтруем ТОЛЬКО нерелевантный мусор графической оболочки Wine, 
-            # оставляя сообщения об исключениях, падениях и Backtrace!
-            # grep -Ev "nodrv_CreateWindow|Could not find dependent assembly|vulkan_init_once|systray|RpcSs|ZwLoadDriver|SetupDiInstallDevice|ntlm_auth" "$AUDIT_LOG" >&2 || true
-            # Выводим лог полностью, чтобы увидеть рантайм-бэктрейс отладчика
-            cat "$AUDIT_LOG" >&2
+            # Очищаем лог от предупреждений о нехватке GUI-компонентов, оставляя чистый бэктрейс и ошибки адресации
+            grep -Ev "nodrv_CreateWindow|Could not find dependent assembly|vulkan_init_once|systray|RpcSs|ZwLoadDriver|SetupDiInstallDevice|ntlm_auth" "$AUDIT_LOG" >&2 || true
         fi
         log_debug  "${LOG_DEBUG}=======================================================${NC}"
 
-        # Полный массив маркеров для поиска переполнений и аппаратных сбоев
-        # c0000005 = Access Violation (ошибка памяти)
-        # c0000409 = Stack Buffer Overrun (срабатывание libssp / защиты стека)
-        # c000001d = Illegal Instruction (вызов инструкций, которые не поддерживает Xeon E5 v4, например AVX-512)
+        # Полный паттерн для поиска аппаратных ошибок и падений памяти
         CRITICAL_PATTERN="buffer overflow|stack smashing|stack_chk_fail|stack-buffer-overflow|global-buffer-overflow|AddressSanitizer|SIGSEGV|Segmentation fault|access violation|illegal instruction|unhandled exception|0xc0000005|0xc0000409|0xc000001d|Exception"
 
-        if [[ $WINE_EXIT -ne 0 ]] || grep -Eiq "$CRITICAL_PATTERN" "$AUDIT_LOG" 2>/dev/null; then
-            # Исключение для чисто текстовых некритичных ошибок синтаксиса самого FFmpeg (код выхлопа 1)
-            if [[ $WINE_EXIT -eq 1 ]] && ! grep -Eiq "access violation|illegal instruction|stack_chk_fail|stack-buffer-overflow|0xc0000005|0xc0000409|0xc000001d" "$AUDIT_LOG" 2>/dev/null; then
-                log_info "${CHECK_MARK} Wine runtime smoke test responded textually. Binary structure is solid."
-            else
-                log_error "HARDWARE FAULT, ILLEGAL INSTRUCTION OR BUFFER OVERFLOW DETECTED IN RUNTIME!"
-                # Автоматический поиск виновника по адресу из SEH лога:
-                if command -v ${FFBUILD_CROSS_PREFIX}addr2line &> /dev/null; then
-                    log_info "🔍 Resolving crash address 0x140007cd3a..."
-                    # Вычитаем базовый адрес 0x140000000
-                    ${FFBUILD_CROSS_PREFIX}addr2line -e "$TEST_EXE" -f -C 0x7cd3a || true
-                fi
-                log_error "Aborting build. Inspect the backtrace dump above to find the failing component."
-                exit 1 # Жесткое падение CI для блокировки дефектного релиза
-            fi
+        if grep -Eiq "$CRITICAL_PATTERN" "$AUDIT_LOG" 2>/dev/null; then
+            log_error "HARDWARE FAULT, ILLEGAL INSTRUCTION OR ACCESS VIOLATION DETECTED!"
+            log_error "Aborting build. Inspect the Backtrace (bt) printed above to identify the failing module."
+            exit 1 
         else
-            log_info "${CHECK_MARK} Wine runtime smoke test passed successfully. No overflows detected."
+            log_info "${CHECK_MARK} Wine runtime smoke test passed successfully. Binary structure is solid."
         fi
         mv "$AUDIT_LOG" "${TMP_DIR}/last_audit_run.log" 2>/dev/null
     fi
