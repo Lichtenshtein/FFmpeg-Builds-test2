@@ -10,6 +10,10 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf \
+examples \
+libvpl/test \
+doc/images"
 }
 
 ffbuild_dockerbuild() {

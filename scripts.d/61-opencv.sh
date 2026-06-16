@@ -37,19 +37,6 @@ samples doc \
 
 ffbuild_dockerbuild() {
     set -e
-echo "test"
-    # временно перемещаем "отравленные" .cmake файлы tiff
-    local TIFF_CMAKE_DIR="$FFBUILD_PREFIX/lib/cmake/tiff"
-    local TIFF_HIDE_DIR="$TMP_DIR/tiff_hide"
-    if [ -d "$TIFF_CMAKE_DIR" ]; then
-        log_info "Hiding TIFF CMake configs to force raw library usage..."
-        mkdir -p "$TIFF_HIDE_DIR"
-        mv "$TIFF_CMAKE_DIR"/* "$TIFF_HIDE_DIR/"
-    fi
-
-    # export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-    export OpenJPEG_DIR="$FFBUILD_PREFIX/lib/cmake/openjpeg-2.5"
-    export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
 
     PYTHON_ROOT=$(python3 -c "import sys; print(sys.prefix)")
     NUMPY_PATH=$(python3 -c "import numpy; print(numpy.get_include())")
@@ -73,12 +60,7 @@ echo "test"
         # Используем то, что уже собрали
         -DBUILD_OPENEXR=ON
         -DBUILD_JASPER=ON # jpeg2k
-        -DBUILD_ZLIB=OFF
-        -DBUILD_JPEG=OFF
         -DBUILD_PNG=OFF
-        -DBUILD_OPENJPEG=OFF
-        -DBUILD_WEBP=OFF
-        -DBUILD_TIFF=OFF
         # Отключаем лишнее для ускорения сборки
         -DBUILD_EXAMPLES=OFF
         -DBUILD_PACKAGE=OFF
@@ -98,57 +80,17 @@ echo "test"
         # -DPYTHON3_NUMPY_INCLUDE_DIRS="$NUMPY_PATH"
         # -DOPENCV_SKIP_PYTHON_LOADER=ON
         # Включаем форматы
-        -DWITH_AVIF=ON
-        -DWITH_JPEG=ON
-        -DWITH_JPEGXL=ON
         -DWITH_MSMF_DXVA=ON
-        -DWITH_OPENCL=ON
-        -DWITH_OPENCL_D3D11_NV=ON
-        -DWITH_OPENGL=ON
         -DWITH_NVCUVID=ON
         -DWITH_NVCUVENC=ON
-        -DWITH_QUIRC=ON
-        -DWITH_OPENJPEG=ON
         -DWITH_PNG=ON
-        -DWITH_TIFF=ON
-        # -DWITH_VULKAN=ON
-        -DWITH_WEBP=ON
         -DWITH_JASPER=ON # build it
         -DWITH_OPENEXR=ON # build it
-        # -DWITH_ZLIB_NG=ON
         # IPP
         -DBUILD_IPP_IW=ON
         -DWITH_IPP=ON
         -DOPENCV_IPP_ENABLE_ALL=ON
         -DIPP_IW_DISABLE_SEH=ON
-        # Parallel processing
-        -DBUILD_TBB=OFF
-        -DWITH_OPENMP=OFF
-        -DWITH_PTHREADS_PF=OFF
-        -DWITH_TBB=ON
-        -DTBB_INCLUDE_DIRS="$FFBUILD_PREFIX/include"
-        -DTBB_LIB_DIR="$FFBUILD_PREFIX/lib"
-        # Указываем пути к библиотекам
-        # -DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON
-        -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
-        # -DCMAKE_DISABLE_FIND_PACKAGE_JPEG=ON
-        -DOPENCL_LIBRARIES="$FFBUILD_PREFIX/lib/libOpenCL.a"
-        -DOPENCL_INCLUDE_DIRS="$FFBUILD_PREFIX/include/CL"
-        -DZLIB_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.a"
-        -DZLIB_LIBRARIES="$FFBUILD_PREFIX/lib/libz.a"
-        -DOPENJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include/openjpeg-2.5"
-        -DOPENJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libopenjp2.a"
-        -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.a"
-        -DTIFF_LIBRARIES="$FFBUILD_PREFIX/lib/libtiff.a"
-        -DJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.a"
-        # Включаем интеграцию с OpenVINO (Inference Engine)
-        # -DWITH_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
-        # -DOPENVINO_STATIC_COMPILATION=$([[ "${PREFER_SHARED}" != "1" && "${BUILD_VINO}" == "1" ]] && echo ON || echo OFF)
-        # -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-        # -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
         # Отключаем загрузку готовых DLL FFmpeg
         -DOPENCV_FFMPEG_SKIP_DOWNLOAD=ON
         -DWITH_FFMPEG=OFF # ON if standalone
@@ -156,6 +98,142 @@ echo "test"
         -DHIGHGUI_ENABLE_PLUGINS=ON
         -DVIDEOIO_ENABLE_PLUGINS=ON
     )
+
+if has_library "tiff"; then
+    log_info "TIFF library detected. Building with TIFF support..."
+    # временно перемещаем "отравленные" .cmake файлы tiff
+    local TIFF_CMAKE_DIR="$FFBUILD_PREFIX/lib/cmake/tiff"
+    local TIFF_HIDE_DIR="$TMP_DIR/tiff_hide"
+    if [ -d "$TIFF_CMAKE_DIR" ]; then
+        log_info "Hiding TIFF CMake configs to force raw library usage..."
+        mkdir -p "$TIFF_HIDE_DIR"
+        mv "$TIFF_CMAKE_DIR"/* "$TIFF_HIDE_DIR/"
+    fi
+    myconf+=(
+        -DBUILD_TIFF=OFF
+        -DWITH_TIFF=ON
+        -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.a"
+        -DTIFF_LIBRARIES="$FFBUILD_PREFIX/lib/libtiff.a"
+        -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
+    )
+fi
+
+if has_library "avif"; then
+    log_info "AVIF library detected. Building with AVIF support..."
+    myconf+=(
+        -DWITH_AVIF=ON
+        -DAVIF_INCLUDE_DIRS="$FFBUILD_PREFIX/include/avif"
+        -DAVIF_LIBRARIES="$FFBUILD_PREFIX/lib/libavif.a"
+    )
+fi
+
+if has_library "jpeg"; then
+    log_info "JPEG library detected. Building with JPEG support..."
+    myconf+=(
+        -DBUILD_JPEG=OFF
+        -DWITH_JPEG=ON
+        -DJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.a"
+        # -DCMAKE_DISABLE_FIND_PACKAGE_JPEG=ON
+    )
+fi
+
+if has_library "z"; then
+    log_info "ZLIB library detected. Building with ZLIB support..."
+    myconf+=(
+        -DBUILD_ZLIB=OFF
+        -DZLIB_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.a"
+        -DZLIB_LIBRARIES="$FFBUILD_PREFIX/lib/libz.a"
+        # -DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON
+        # -DWITH_ZLIB_NG=ON
+    )
+fi
+
+if has_library "OpenCL"; then
+    log_info "OPENCL library detected. Building with OPENCL support..."
+    myconf+=(
+        -DWITH_OPENCL=ON
+        -DWITH_OPENCL_D3D11_NV=ON
+        -DWITH_OPENGL=ON
+        -DOPENCL_LIBRARIES="$FFBUILD_PREFIX/lib/libOpenCL.a"
+        -DOPENCL_INCLUDE_DIR="$FFBUILD_PREFIX/include/CL"
+    )
+fi
+
+if has_library "vulkan-1"; then
+    log_info "VULKAN library detected. Building with VULKAN support..."
+    myconf+=(
+        -DWITH_VULKAN=ON
+        -DVULKAN_LIBRARIES="$FFBUILD_PREFIX/lib/libvulkan-1.a"
+        -DVULKAN_INCLUDE_DIRS="$FFBUILD_PREFIX/include/vulkan"
+    )
+fi
+
+if has_library "openjp2"; then
+    log_info "ZSTD library detected. Building with ZSTD support..."
+    export OpenJPEG_DIR="$FFBUILD_PREFIX/lib/cmake/openjpeg-2.5"
+    myconf+=(
+        -DBUILD_OPENJPEG=OFF
+        -DWITH_OPENJPEG=ON
+        -DOPENJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include/openjpeg-2.5"
+        -DOPENJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libopenjp2.a"
+    )
+fi
+
+if has_library "webp"; then
+    log_info "WEBP library detected. Building with WEBP support..."
+    myconf+=(
+        -DBUILD_WEBP=OFF
+        -DWITH_WEBP=ON
+    )
+fi
+
+if has_library "openvino"; then
+    log_info "OpenVINO library detected. Building with OpenVINO support..."
+    # export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+    export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+    myconf+=(
+        # Включаем интеграцию с OpenVINO (Inference Engine)
+        -DWITH_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
+        -DOPENVINO_STATIC_COMPILATION=$([[ "${PREFER_SHARED}" != "1" && "${BUILD_VINO}" == "1" ]] && echo ON || echo OFF)
+        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+        -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
+    )
+fi
+
+if has_library "quirc"; then
+    log_info "QUIRC library detected. Building with QUIRC support..."
+    myconf+=(
+        -DWITH_QUIRC=ON
+    )
+fi
+
+if has_library "jxl"; then
+    log_info "JPEGXL library detected. Building with JPEGXL support..."
+    myconf+=(
+        -DWITH_JPEGXL=ON
+    )
+fi
+
+if has_library "tbbmalloc"; then
+    log_info "TBB library detected. Building with TBB support..."
+    myconf+=(
+        -DBUILD_TBB=OFF
+        -DWITH_TBB=ON
+        -DTBB_INCLUDE_DIRS="$FFBUILD_PREFIX/include"
+        -DTBB_LIB_DIR="$FFBUILD_PREFIX/lib"
+    )
+elif [[ "${USE_OPENMP}" == "1" ]]; then
+    myconf+=(
+        -DWITH_OPENMP=ON
+    )
+else
+    myconf+=(
+        -DWITH_PTHREADS_PF=ON
+    )
+fi
 
     if [[ $TARGET == win64 ]]; then
         myconf+=(
@@ -219,26 +297,30 @@ echo "test"
         log_warn "IPP IW file not found at $IPP_IW_FILE, skipping patch."
     fi
 
-    # if [[ "${BUILD_VINO}" == "1" ]]; then
-        # if ! grep -qiE "OPENVINO:.*(YES|ON|TRUE)" CMakeCache.txt && ! grep -qi "HAVE_OPENVINO:INTERNAL=ON" CMakeCache.txt; then
-            # log_error "OpenVINO was not detected in CMakeCache.txt!"
-            # grep -i "OPENVINO" CMakeCache.txt # Выведем для отладки, что там на самом деле
-            # return 1
-        # fi
-    # fi
+    if [[ "${myconf[@]}" =~ "-DWITH_OPENVINO=ON" ]]; then
+        if ! grep -qiE "OPENVINO:.*(YES|ON|TRUE)" CMakeCache.txt && ! grep -qi "HAVE_OPENVINO:INTERNAL=ON" CMakeCache.txt; then
+            log_error "OpenVINO was not detected in CMakeCache.txt!"
+            grep -i "OPENVINO" CMakeCache.txt # Выведем для отладки, что там на самом деле
+            return 1
+        fi
+    fi
 
     ninja $NINJA_V || {
-        log_error "Build failed, restoring TIFF..."
-        [ -d "$TIFF_HIDE_DIR" ] && mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
+        if [[ "${myconf[@]}" =~ "-DWITH_TIFF=ON" ]]; then
+            log_error "Build failed, restoring TIFF..."
+            [ -d "$TIFF_HIDE_DIR" ] && mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
+        fi
         return 1
     }
 
     DESTDIR="$FFBUILD_DESTDIR" ninja install
 
-    if [ -d "$TIFF_HIDE_DIR" ]; then
-        log_info "Restoring TIFF CMake files..."
-        mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
-        rm -rf "$TIFF_HIDE_DIR"
+    if [[ "${myconf[@]}" =~ "-DWITH_TIFF=ON" ]]; then
+        if [ -d "$TIFF_HIDE_DIR" ]; then
+            log_info "Restoring TIFF CMake files..."
+            mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
+            rm -rf "$TIFF_HIDE_DIR"
+        fi
     fi
 
     local SRC_3RDPARTY="${INSTALL_ROOT}/lib/opencv4/3rdparty"
