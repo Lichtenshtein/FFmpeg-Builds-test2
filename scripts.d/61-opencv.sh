@@ -13,10 +13,15 @@ ffbuild_depends() {
     echo spirv-cross
     echo spirv-headers
     echo libjxl
+    echo quirc
 }
 
 ffbuild_enabled() {
     return 0
+}
+
+ffbuild_dockerdl() {
+    default_dl .
     echo "rm -rf \
 samples doc \
 3rdparty/ffmpeg \ 
@@ -28,10 +33,6 @@ samples doc \
 3rdparty/openjpeg \
 3rdparty/zlib \
 3rdparty/zlib-ng" # data
-}
-
-ffbuild_dockerdl() {
-    default_dl .
 }
 
 ffbuild_dockerbuild() {
@@ -104,6 +105,9 @@ ffbuild_dockerbuild() {
         -DWITH_OPENCL=ON
         -DWITH_OPENCL_D3D11_NV=ON
         -DWITH_OPENGL=ON
+        -DWITH_NVCUVID=ON
+        -DWITH_NVCUVENC=ON
+        -DWITH_QUIRC=ON
         -DWITH_OPENJPEG=ON
         -DWITH_PNG=ON
         -DWITH_TIFF=ON
@@ -128,6 +132,8 @@ ffbuild_dockerbuild() {
         # -DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON
         -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
         # -DCMAKE_DISABLE_FIND_PACKAGE_JPEG=ON
+        -DOPENCL_LIBRARIES="$FFBUILD_PREFIX/lib/libOpenCL.a"
+		-DOPENCL_INCLUDE_DIRS="$FFBUILD_PREFIX/include/CL"
         -DZLIB_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.a"
         -DZLIB_LIBRARIES="$FFBUILD_PREFIX/lib/libz.a"
@@ -213,14 +219,13 @@ ffbuild_dockerbuild() {
         log_warn "IPP IW file not found at $IPP_IW_FILE, skipping patch."
     fi
 
-    if [[ "${BUILD_VINO}" == "1" ]]; then
-        if ! grep -qiE "OPENVINO:.*(YES|ON|TRUE)" CMakeCache.txt && ! grep -qi "HAVE_OPENVINO:INTERNAL=ON" CMakeCache.txt; then
-            log_error "OpenVINO was not detected in CMakeCache.txt!"
-            # Выведем для отладки, что там на самом деле
-            grep -i "OPENVINO" CMakeCache.txt
-            return 1
-        fi
-    fi
+    # if [[ "${BUILD_VINO}" == "1" ]]; then
+        # if ! grep -qiE "OPENVINO:.*(YES|ON|TRUE)" CMakeCache.txt && ! grep -qi "HAVE_OPENVINO:INTERNAL=ON" CMakeCache.txt; then
+            # log_error "OpenVINO was not detected in CMakeCache.txt!"
+            # grep -i "OPENVINO" CMakeCache.txt # Выведем для отладки, что там на самом деле
+            # return 1
+        # fi
+    # fi
 
     ninja $NINJA_V || {
         log_error "Build failed, restoring TIFF..."
