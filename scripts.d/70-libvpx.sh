@@ -36,7 +36,7 @@ ffbuild_dockerbuild() {
         --disable-unit-tests
         --enable-better-hw-compatibility
         --enable-ccache
-        # --enable-libyuv
+        --enable-libyuv
         --enable-multi-res-encoding
         --enable-multithread
         --enable-pic

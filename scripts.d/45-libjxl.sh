@@ -105,18 +105,6 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # donor-file for aom
-    # mkdir -p "$FFBUILD_PREFIX/include/jxl"
-    # curl -fsSL "https://raw.githubusercontent.com/libjxl/libjxl/26494266bae545dc2084746a1fb22e805e119e85/lib/include/jxl/butteraugli.h" \
-        # -o "$FFBUILD_PREFIX/include/jxl/butteraugli.h"
-    # if [ ! -s "$FFBUILD_PREFIX/include/jxl/butteraugli.h" ]; then
-        # log_error "Failed to download butteraugli.h"
-        # return 1
-    # fi
-    # if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # sed -i '1s/^/#define JXL_STATIC_DEFINE 1\n/' "$FFBUILD_PREFIX/include/jxl/butteraugli.h"
-    # fi
-
     # Извлекаем butteraugli.h
     log_info "Copying butteraugli.h for the AOM compiler..."
     mkdir -p "${INSTALL_ROOT}/include/jxl"

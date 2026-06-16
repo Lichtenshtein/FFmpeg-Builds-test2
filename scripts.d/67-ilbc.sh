@@ -18,13 +18,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # sed -i 's/set[[:space:]]*([[:space:]]*CMAKE_C_VISIBILITY_PRESET[[:space:]]\+hidden[[:space:]]*)/#&/g' CMakeLists.txt
-        # sed -i 's/set[[:space:]]*([[:space:]]*CMAKE_CXX_VISIBILITY_PRESET[[:space:]]\+hidden[[:space:]]*)/#&/g' CMakeLists.txt
-        # sed -i 's/set[[:space:]]*([[:space:]]*CMAKE_VISIBILITY_INLINES_HIDDEN[[:space:]]\+1[[:space:]]*)/#&/g' CMakeLists.txt
-    # fi
-
-    # ‚ûðåçàåì ñáîðêó òåñòîâûõ èñïîëíßåìûõ ôàéëîâ èç CMakeLists.txt
+    # Ð’Ñ‹Ñ€ÐµÐ·Ð°ÐµÐ¼ ÑÐ±Ð¾Ñ€ÐºÑƒ Ñ‚ÐµÑÑ‚Ð¾Ð²Ñ‹Ñ… Ð¸ÑÐ¿Ð¾Ð»Ð½ÑÐµÐ¼Ñ‹Ñ… Ñ„Ð°Ð¹Ð»Ð¾Ð² Ð¸Ð· CMakeLists.txt
     sed -i '/add_executable[[:space:]]*(ilbc_test/,/)/d' CMakeLists.txt
     sed -i '/target_link_libraries[[:space:]]*(ilbc_test/,/)/d' CMakeLists.txt
     sed -i '/add_executable[[:space:]]*(ilbc_test2/,/)/d' CMakeLists.txt
@@ -32,7 +26,7 @@ ffbuild_dockerbuild() {
     sed -i '/add_custom_target[[:space:]]*(ilbc_test-sample/,/)/d' CMakeLists.txt
     sed -i '/add_custom_target[[:space:]]*(ilbc_test2-sample/,/)/d' CMakeLists.txt
 
-    # “áèðàåì óïîìèíàíèå ilbc_test èç ñåêöèè èíñòàëëßöèè
+    # Ð£Ð±Ð¸Ñ€Ð°ÐµÐ¼ ÑƒÐ¿Ð¾Ð¼Ð¸Ð½Ð°Ð½Ð¸Ðµ ilbc_test Ð¸Ð· ÑÐµÐºÑ†Ð¸Ð¸ Ð¸Ð½ÑÑ‚Ð°Ð»Ð»ÑÑ†Ð¸Ð¸
     sed -i 's/install[[:space:]]*([[:space:]]*TARGETS[[:space:]]\+ilbc[[:space:]]\+ilbc_test/install(TARGETS ilbc/g' CMakeLists.txt
 
     mkdir -p _build && cd _build
@@ -58,9 +52,9 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # ñíîñèì ñòðîêó
+    # ÑÐ½Ð¾ÑÐ¸Ð¼ ÑÑ‚Ñ€Ð¾ÐºÑƒ
     sed -i '/^Cflags:/d' "$PC_DIR/libilbc.pc"
-    # Çàïèñûâàåì íîâóþ ÷èñòóþ ñòðîêó
+    # Ð·Ð°Ð¿Ð¸ÑÑ‹Ð²Ð°ÐµÐ¼ Ð½Ð¾Ð²ÑƒÑŽ Ñ‡Ð¸ÑÑ‚ÑƒÑŽ ÑÑ‚Ñ€Ð¾ÐºÑƒ
     echo "Cflags: -I\${includedir}" >> "$PC_DIR/libilbc.pc"
 }
 

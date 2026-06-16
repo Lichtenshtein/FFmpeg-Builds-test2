@@ -31,10 +31,6 @@ svt-av1-tritium/Docs/img"
 ffbuild_dockerbuild() {
     set -e
 
-    # if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # find . -name "CMakeLists.txt" -exec sed -i 's/set(CMAKE_C_VISIBILITY_PRESET hidden)//g' {} + 2>/dev/null || true
-    # fi
-
     rm -rf _build && mkdir _build && cd _build
 
     local myconf=(
@@ -69,7 +65,7 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # SVT-AV1 иногда генерирует SvtAv1Enc.pc вместо svtav1.pc
+    # SVT-AV1 РёРЅРѕРіРґР° РіРµРЅРµСЂРёСЂСѓРµС‚ SvtAv1Enc.pc РІРјРµСЃС‚Рѕ svtav1.pc
     mkdir -p "$PC_DIR"
     if [[ -f "$PC_DIR/SvtAv1Enc.pc" ]]; then
         cp  "$PC_DIR/SvtAv1Enc.pc"  "$PC_DIR/svtav1.pc"

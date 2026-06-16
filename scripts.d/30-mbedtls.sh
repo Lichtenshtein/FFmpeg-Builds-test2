@@ -6,12 +6,13 @@ SCRIPT_COMMIT="545d1b77a29ac33b219a6681489d5e63b63c3b3a"
 # SCRIPT_TAGFILTER="v3.*"
 
 ffbuild_enabled() {
-    return 1
+    return 0
 }
 
 ffbuild_dockerdl() {
     default_dl .
     echo "git-submodule-clone"
+    echo "rm -rf tests"
 }
 
 ffbuild_dockerbuild() {

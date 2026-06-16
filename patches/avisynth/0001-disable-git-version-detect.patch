@@ -1,0 +1,37 @@
+From b8fb7a086fa9aa3faac96eb1130d51fc815cc55b Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Tue, 16 Jun 2026 18:00:07 +0300
+Subject: [PATCH] disable git version detect
+
+---
+ CMakeLists.txt          | 1 -
+ avs_core/CMakeLists.txt | 1 -
+ 2 files changed, 2 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 9ec349bd..789c8c20 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -578,7 +578,6 @@ else()
+                       -D DST=${CMAKE_CURRENT_BINARY_DIR}/version.h
+                       -D GIT=${GIT_EXECUTABLE}
+                       -D REPO=${CMAKE_SOURCE_DIR}
+-                      -P ${CMAKE_CURRENT_SOURCE_DIR}/avs_core/Version.cmake
+   )
+ 
+   include(GNUInstallDirs)
+diff --git a/avs_core/CMakeLists.txt b/avs_core/CMakeLists.txt
+index 346c9350..44458eb0 100644
+--- a/avs_core/CMakeLists.txt
++++ b/avs_core/CMakeLists.txt
+@@ -328,7 +328,6 @@ ADD_CUSTOM_TARGET(
+                      -D DST=${CMAKE_CURRENT_BINARY_DIR}/version.h
+                      -D GIT=${GIT_EXECUTABLE}
+                      -D REPO=${CMAKE_SOURCE_DIR}
+-                     -P ${CMAKE_CURRENT_SOURCE_DIR}/Version.cmake
+ )
+ ADD_DEPENDENCIES("AvsCore" VersionGen)
+ 
+-- 
+2.52.0.windows.1
+
