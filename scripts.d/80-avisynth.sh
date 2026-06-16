@@ -15,12 +15,11 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     echo "git-submodule-clone"
+    echo "rm -rf distrib"
 }
 
 ffbuild_dockerbuild() {
     set -e
-    # their version check is insistant on a tag to exist, so make one
-    git tag -a ffbuild -m "FFbuild Version"
 
     mkdir -p build && cd build
 

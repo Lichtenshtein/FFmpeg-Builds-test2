@@ -17,7 +17,17 @@ ffbuild_depends() {
 
 ffbuild_enabled() {
     return 0
-    echo "rm -rf samples doc/tutorials"
+    echo "rm -rf \
+samples doc \
+3rdparty/ffmpeg \ 
+3rdparty/libjpeg \
+3rdparty/libjpeg-turbo \
+3rdparty/libpng \
+3rdparty/libtiff \
+3rdparty/libwebp \
+3rdparty/openjpeg \
+3rdparty/zlib \
+3rdparty/zlib-ng" # data
 }
 
 ffbuild_dockerdl() {
@@ -60,7 +70,8 @@ ffbuild_dockerbuild() {
         -DENABLE_PIC=ON
         -DOPENCV_ENABLE_NONFREE=ON
         # Используем то, что уже собрали
-        -DBUILD_OPENEXR=ON # why not
+        -DBUILD_OPENEXR=ON
+        -DBUILD_JASPER=ON # jpeg2k
         -DBUILD_ZLIB=OFF
         -DBUILD_JPEG=OFF
         -DBUILD_PNG=OFF
@@ -96,8 +107,10 @@ ffbuild_dockerbuild() {
         -DWITH_OPENJPEG=ON
         -DWITH_PNG=ON
         -DWITH_TIFF=ON
-        -DWITH_VULKAN=ON
+        # -DWITH_VULKAN=ON
         -DWITH_WEBP=ON
+        -DWITH_JASPER=ON # build it
+        -DWITH_OPENEXR=ON # build it
         # -DWITH_ZLIB_NG=ON
         # IPP
         -DBUILD_IPP_IW=ON
@@ -126,10 +139,10 @@ ffbuild_dockerbuild() {
         -DJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.a"
         # Включаем интеграцию с OpenVINO (Inference Engine)
-        -DWITH_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
-        -DOPENVINO_STATIC_COMPILATION=$([[ "${PREFER_SHARED}" != "1" && "${BUILD_VINO}" == "1" ]] && echo ON || echo OFF)
-        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-        -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
+        # -DWITH_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
+        # -DOPENVINO_STATIC_COMPILATION=$([[ "${PREFER_SHARED}" != "1" && "${BUILD_VINO}" == "1" ]] && echo ON || echo OFF)
+        # -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+        # -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
         # Отключаем загрузку готовых DLL FFmpeg
         -DOPENCV_FFMPEG_SKIP_DOWNLOAD=ON
         -DWITH_FFMPEG=OFF # ON if standalone

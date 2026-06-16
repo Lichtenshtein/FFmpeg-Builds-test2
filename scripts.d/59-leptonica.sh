@@ -13,7 +13,6 @@ ffbuild_depends() {
     echo lcms2
     echo libwebp
     echo giflib
-    echo libarchive
 }
 
 ffbuild_enabled() {
@@ -22,6 +21,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf prog"
 }
 
 ffbuild_dockerbuild() {
@@ -63,7 +63,7 @@ fi
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DSW_BUILD=OFF
-        -DBUILD_PROG=OFF
+        -DBUILD_PROG=OFF # deleted prog folder
         -DINSTALL_CMAKE_CONFIG=OFF
         -DCMAKE_INSTALL_LIBDIR="lib"
         -DCMAKE_INSTALL_BINDIR="bin"

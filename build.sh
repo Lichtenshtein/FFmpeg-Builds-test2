@@ -835,6 +835,10 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
     # Счётчик для генерации уникальных имён файлов
     TEST_INDEX=0
 
+    log_debug "${LOG_DEBUG}=======================================================${NC}"
+    log_debug "🚨 WINE SMOKE TEST ANALYSIS (DEBUG_MODE=1)"
+    log_debug "${LOG_DEBUG}=======================================================${NC}"
+
     for TEST_ARGS in "${TEST_SUITE[@]}"; do
         ((++TEST_INDEX))
         # Создаем изолированный лог для конкретного подтеста первого этапа
@@ -887,7 +891,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
             # WINE_EXIT=$?
 
             # Проверяем лог на наличие критических аппаратных исключений и ошибок памяти
-            if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow" "$PHASE2_LOG"; then
+            if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow|stack_chk_fail|stack-buffer-overflow|global-buffer-overflow|access violation|SIGSEGV|illegal instruction" "$PHASE2_LOG"; then
                 log_error "CRITICAL FAULT DETECTED during sub-test: ${TEST_ARGS:0:60}..."
                 CRASH2_FOUND=1
                 cat "$PHASE2_LOG" >> "$AUDIT_LOG"
@@ -897,10 +901,6 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
             rm -f "$PHASE2_LOG"
         done
     fi
-
-    log_debug "${LOG_DEBUG}=======================================================${NC}"
-    log_debug "🚨 WINE SMOKE TEST ANALYSIS (DEBUG_MODE=1)"
-    log_debug "${LOG_DEBUG}=======================================================${NC}"
 
     if [[ -f "$AUDIT_LOG" && -s "$AUDIT_LOG" ]]; then
         if [[ $CRASH_FOUND -eq 1 ]]; then

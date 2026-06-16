@@ -42,8 +42,6 @@ build/vs2026win11uwp"
 ffbuild_dockerbuild() {
     set -e
 
-    find . -name "Makefile" -exec sed -i 's/-fvisibility=hidden//g' {} + 2>/dev/null || true
-
     export CFLAGS="$CFLAGS ${USELTO}${USELTO_C}"
     export CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}"
     export LDFLAGS="$LDFLAGS ${USELTO}"

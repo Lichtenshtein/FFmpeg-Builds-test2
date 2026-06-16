@@ -1,0 +1,24 @@
+From 279de50d660905a25e0763ca640ef152082ce1d5 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Tue, 16 Jun 2026 17:31:36 +0300
+Subject: [PATCH] disable docs
+
+---
+ CMakeLists.txt | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index a9321d07b2..b80aa68732 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -1115,7 +1115,6 @@ ocv_add_modules_compiler_options()
+ ocv_register_modules()
+ 
+ # Generate targets for documentation
+-add_subdirectory(doc)
+ 
+ # various data that is used by cv libraries and/or demo applications.
+ add_subdirectory(data)
+-- 
+2.52.0.windows.1
+
