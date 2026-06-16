@@ -830,8 +830,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         # Последовательно запускаем каждый тест через winedbg
         for TEST_ARGS in "${TEST_SUITE[@]}"; do
             log_debug "Executing smoke sub-test with arguments: ${GREY_B}${TEST_ARGS:0:40}...${NC}"
-            # Используем официальный синтаксис winedbg: цепочка "run; bt; quit"
-            winedbg --command "run $TEST_ARGS; bt; quit" "$TEST_EXE" >> "$AUDIT_LOG" 2>&1 || true
+            winedbg --command "cont; bt; quit" "$TEST_EXE" $TEST_ARGS >> "$AUDIT_LOG" 2>&1 || true
         done
 
         WINE_EXIT=${PIPESTATUS}
