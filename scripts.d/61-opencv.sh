@@ -24,7 +24,7 @@ ffbuild_dockerdl() {
     default_dl .
     echo "rm -rf \
 samples doc \
-3rdparty/ffmpeg \ 
+3rdparty/ffmpeg \
 3rdparty/libjpeg \
 3rdparty/libjpeg-turbo \
 3rdparty/libpng \
@@ -37,7 +37,7 @@ samples doc \
 
 ffbuild_dockerbuild() {
     set -e
-
+echo "test"
     # временно перемещаем "отравленные" .cmake файлы tiff
     local TIFF_CMAKE_DIR="$FFBUILD_PREFIX/lib/cmake/tiff"
     local TIFF_HIDE_DIR="$TMP_DIR/tiff_hide"
@@ -133,7 +133,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
         # -DCMAKE_DISABLE_FIND_PACKAGE_JPEG=ON
         -DOPENCL_LIBRARIES="$FFBUILD_PREFIX/lib/libOpenCL.a"
-		-DOPENCL_INCLUDE_DIRS="$FFBUILD_PREFIX/include/CL"
+        -DOPENCL_INCLUDE_DIRS="$FFBUILD_PREFIX/include/CL"
         -DZLIB_INCLUDE_DIR="$FFBUILD_PREFIX/include"
         -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.a"
         -DZLIB_LIBRARIES="$FFBUILD_PREFIX/lib/libz.a"
