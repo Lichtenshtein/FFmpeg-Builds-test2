@@ -71,7 +71,7 @@ fi
 if [[ -d "$FFBUILD_PREFIX/share/pocketsphinx" ]]; then
     log_info "${SYNC_MARK} Collecting pocketsphinx models..."
     mkdir -p "$ASSETS_DIR/pocketsphinx"
-    cp -v "$FFBUILD_PREFIX/share/pocketsphinx" "${ASSETS_DIR}/"
+    cp -vr "$FFBUILD_PREFIX/share/pocketsphinx" "${ASSETS_DIR}/"
 else
     log_warn "Pocketsphinx models not found in $FFBUILD_PREFIX/share/pocketsphinx"
 fi

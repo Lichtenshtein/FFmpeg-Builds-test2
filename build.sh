@@ -836,7 +836,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
     TEST_INDEX=0
 
     for TEST_ARGS in "${TEST_SUITE[@]}"; do
-        ((TEST_INDEX++))
+        ((++TEST_INDEX))
         # Создаем изолированный лог для конкретного подтеста первого этапа
         PHASE1_LOG="${TMP_DIR}/audit_p1_${TEST_INDEX}.log"
         rm -f "$PHASE1_LOG"
@@ -876,7 +876,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
     # Сбор бэктрейсов (winedbg --command)
     if [[ $CRASH_FOUND -eq 0 ]]; then
         for TEST_ARGS in "${TEST_SUITE[@]}"; do
-            ((TEST_INDEX++))
+            ((++TEST_INDEX))
             PHASE2_LOG="${TMP_DIR}/audit_p2_${TEST_INDEX}.log"
             rm -f "$PHASE2_LOG"
 

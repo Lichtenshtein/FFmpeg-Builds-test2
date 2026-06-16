@@ -14,6 +14,12 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf \
+build_debug \
+vpx_dsp/arm \
+vpx_dsp/mips \
+third_party/googletest \
+test"
 }
 
 ffbuild_dockerbuild() {
@@ -30,7 +36,7 @@ ffbuild_dockerbuild() {
         --disable-unit-tests
         --enable-better-hw-compatibility
         --enable-ccache
-        --enable-libyuv
+        # --enable-libyuv
         --enable-multi-res-encoding
         --enable-multithread
         --enable-pic
