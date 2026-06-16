@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+# export USE_VERS_FINDER=1
 # SCRIPT_REPO="https://code.videolan.org/videolan/x264.git"
 # SCRIPT_COMMIT="0480cb05fa188d37ae87e8f4fd8f1aea3711f7ee"
 
@@ -27,29 +27,24 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # if [[ ! -d ".git" ]]; then
-        # log_info "Creating x264 version metadata manually..."
-        # echo "#define X264_REV 3214" > x264_config.h
-        # echo "#define X264_REV_DIFF 0" >> x264_config.h
-        # echo "#define X264_VERSION \" r3214 0480cb0\"" >> x264_config.h
-        # echo "#define X264_VER \"165\"" >> x264_config.h
-    # fi
-
     if [[ ! -d ".git" ]]; then
         log_info "Creating x264 version metadata manually..."
-        cat << EOF > x264_config.h
-#define X264_REV ${VER_FULL}
-#define X264_REV_DIFF 0
-#define X264_VERSION " r${VER_FULL}"
-#define X264_BUILD 165
-#define X264_POINTVER "0.165.${VER_FULL}"
-EOF
-
-        # Обезвреживаем оригинальный version.sh, чтобы он не затер наш файл
-        echo "#!/usr/bin/env bash" > version.sh
-        echo "exit 0" >> version.sh
-        chmod +x version.sh
+        echo "#define X264_REV 3214" > x264_config.h
+        echo "#define X264_REV_DIFF 0" >> x264_config.h
+        echo "#define X264_VERSION \" r3214 0480cb0\"" >> x264_config.h
+        echo "#define X264_VER \"165\"" >> x264_config.h
     fi
+
+#     if [[ ! -d ".git" ]]; then
+#         log_info "Creating x264 version metadata manually..."
+#         cat << EOF > x264_config.h
+# #define X264_REV ${VER_FULL}
+# #define X264_REV_DIFF 0
+# #define X264_VERSION " r${VER_FULL}"
+# #define X264_BUILD 165
+# #define X264_POINTVER "0.165.${VER_FULL}"
+# EOF
+#     fi
 
     local myconf=(
         --disable-cli
