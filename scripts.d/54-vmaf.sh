@@ -14,6 +14,11 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf \
+libvmaf/test \
+python/test \
+resource/doc \
+resource/images"
 }
 
 ffbuild_dockerbuild() {

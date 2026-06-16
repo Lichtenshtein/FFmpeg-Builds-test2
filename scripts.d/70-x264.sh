@@ -36,12 +36,19 @@ ffbuild_dockerbuild() {
     # fi
 
     if [[ ! -d ".git" ]]; then
-cat << EOF > x264_version.h
+        log_info "Creating x264 version metadata manually..."
+        cat << EOF > x264_config.h
 #define X264_REV ${VER_FULL}
 #define X264_REV_DIFF 0
-#define X264_VERSION " r${VER_FULL} [10-bit@all x86_64]"
+#define X264_VERSION " r${VER_FULL}"
+#define X264_BUILD 165
 #define X264_POINTVER "0.165.${VER_FULL}"
 EOF
+
+        # Обезвреживаем оригинальный version.sh, чтобы он не затер наш файл
+        echo "#!/usr/bin/env bash" > version.sh
+        echo "exit 0" >> version.sh
+        chmod +x version.sh
     fi
 
     local myconf=(
