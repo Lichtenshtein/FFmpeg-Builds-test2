@@ -856,6 +856,12 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
                 log_info "${CHECK_MARK} Wine runtime smoke test responded textually. Binary structure is solid."
             else
                 log_error "HARDWARE FAULT, ILLEGAL INSTRUCTION OR BUFFER OVERFLOW DETECTED IN RUNTIME!"
+                # Автоматический поиск виновника по адресу из SEH лога:
+                if command -v ${FFBUILD_CROSS_PREFIX}addr2line &> /dev/null; then
+                    log_info "🔍 Resolving crash address 0x140007cd3a..."
+                    # Вычитаем базовый адрес 0x140000000
+                    ${FFBUILD_CROSS_PREFIX}addr2line -e "$TEST_EXE" -f -C 0x7cd3a || true
+                fi
                 log_error "Aborting build. Inspect the backtrace dump above to find the failing component."
                 exit 1 # Жесткое падение CI для блокировки дефектного релиза
             fi
