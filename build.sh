@@ -859,8 +859,8 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
             log_error "Test failed (winedbg exit non-zero). Checking for crash details..."
 
             # Extract crash info if available
-            if grep -q 'Exception c0000005\|Access Violation' "$PHASE1_LOG"; then
-                log_error "Access Violation detected!"
+            if grep -q 'Exception c0000005\|Access Violation\|Segmentation fault' "$PHASE1_LOG"; then
+                log_error "Crash detected!"
                 CRASH_FOUND=1
                 cat "$PHASE1_LOG" >> "$AUDIT_LOG"
                 break

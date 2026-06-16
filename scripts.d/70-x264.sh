@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 # SCRIPT_REPO="https://code.videolan.org/videolan/x264.git"
 # SCRIPT_COMMIT="0480cb05fa188d37ae87e8f4fd8f1aea3711f7ee"
 
@@ -27,12 +27,21 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # if [[ ! -d ".git" ]]; then
+        # log_info "Creating x264 version metadata manually..."
+        # echo "#define X264_REV 3214" > x264_config.h
+        # echo "#define X264_REV_DIFF 0" >> x264_config.h
+        # echo "#define X264_VERSION \" r3214 0480cb0\"" >> x264_config.h
+        # echo "#define X264_VER \"165\"" >> x264_config.h
+    # fi
+
     if [[ ! -d ".git" ]]; then
-        log_info "Creating x264 version metadata manually..."
-        echo "#define X264_REV 3108" > x264_config.h
-        echo "#define X264_REV_DIFF 0" >> x264_config.h
-        echo "#define X264_VERSION \" r3108 0480cb0\"" >> x264_config.h
-        echo "#define X264_VER \"165\"" >> x264_config.h
+cat << EOF > x264_version.h
+#define X264_REV ${VER_FULL}
+#define X264_REV_DIFF 0
+#define X264_VERSION " r${VER_FULL} [10-bit@all x86_64]"
+#define X264_POINTVER "0.165.${VER_FULL}"
+EOF
     fi
 
     local myconf=(
