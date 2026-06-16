@@ -26,7 +26,7 @@ on:
         required: false
         default: '2'
       cpu_arch:
-        description: 'CPU march target (x86-64-v3/znver3/native)'
+        description: 'CPU march target (x86-64-v3/znver3)'
         required: false
         default: 'broadwell'
       cpu_tune:
