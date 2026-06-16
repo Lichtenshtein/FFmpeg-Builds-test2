@@ -208,16 +208,18 @@ if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
     sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
 fi
 
-
 # =======================================
-# FLAGS DEDUPLICATION SECTION
+# FLAGS SECTION
 # =======================================
-log_info "Adjusting LDFLAGS locally for FFmpeg to allow precise debugging..."
 # Отключаем ASLR и High Entropy VA, чтобы зафиксировать базовый адрес PE
-LDFLAGS=$(echo " ${LDFLAGS} " | sed \
-    -e 's/ -Wl,--dynamicbase / /g' \
-    -e 's/ -Wl,--high-entropy-va / /g' \
-    -e 's/ -Wl,--stack,16777216 / /g' | xargs)
+if [[ "$DEBUG_MODE" == "1" ]]; then
+    log_info "Adjusting LDFLAGS locally for FFmpeg to allow precise debugging..."
+    LDFLAGS=$(echo " ${LDFLAGS} " | sed \
+        -e 's/ -Wl,--dynamicbase / /g' \
+        -e 's/ -Wl,--high-entropy-va / /g' \
+        -e 's/ -Wl,--stack,16777216 / /g' | xargs)
+fi
+
 # Удаляем жесткий -static и -Wl,-Bstatic из базовых флагов линковщика
 # LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' | xargs)
 
@@ -828,13 +830,22 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
 
     log_info "Running deep component crash audit via hybrid winedbg..."
     CRASH_FOUND=0
+    CRASH2_FOUND=0
+
+    # Счётчик для генерации уникальных имён файлов
+    TEST_INDEX=0
 
     for TEST_ARGS in "${TEST_SUITE[@]}"; do
-        log_debug "Executing test: ${GREY_B}${TEST_ARGS:0:30}...${NC}"
+        ((TEST_INDEX++))
+        # Создаем изолированный лог для конкретного подтеста первого этапа
+        PHASE1_LOG="${TMP_DIR}/audit_p1_${TEST_INDEX}.log"
+        rm -f "$PHASE1_LOG"
+
+        log_debug "Executing test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
 
         # Use --auto mode: robust, fast, and avoids interactive debugger pitfalls
         # It returns 0 on success, non-zero on crash
-        if winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$AUDIT_LOG" 2>&1; then
+        if winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$PHASE1_LOG" 2>&1; then
             # Double check: did ffmpeg itself exit with 0?
             # Sometimes winedbg exits 0 even if ffmpeg crashes if the crash is handled.
             # But usually, if winedbg --auto succeeds, the app ran.
@@ -844,48 +855,66 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
             log_error "Test failed (winedbg exit non-zero). Checking for crash details..."
 
             # Extract crash info if available
-            if grep -q "Exception c0000005\|Access Violation" "$AUDIT_LOG"; then
+            if grep -q "Exception c0000005\|Access Violation" "$PHASE1_LOG"; then
                 log_error "Access Violation detected!"
                 CRASH_FOUND=1
+                cat "$PHASE1_LOG" >> "$AUDIT_LOG"
                 break
             else
                 # It might be a non-critical error (e.g., missing codec)
                 log_warn "Non-zero exit, but no critical crash exception found. Continuing..."
             fi
         fi
+        # Переносим данные в общий лог для истории
+        cat "$PHASE1_LOG" >> "$AUDIT_LOG"
+        rm -f "$PHASE1_LOG"
     done
 
+    # Сбрасываем счётчик для второго этапа
+    TEST_INDEX=0
+
+    # Сбор бэктрейсов (winedbg --command)
     for TEST_ARGS in "${TEST_SUITE[@]}"; do
-        log_debug "Executing sub-test: ${GREY_B}${TEST_ARGS:0:40}...${NC}"
+        ((TEST_INDEX++))
+        PHASE2_LOG="${TMP_DIR}/audit_p2_${TEST_INDEX}.log"
+        rm -f "$PHASE2_LOG"
+
+        log_debug "Executing sub-test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
 
         # Если ffmpeg падает, cont прерывается, bt печатает стек, kill и quit чисто выходят.
-        winedbg --command "cont; bt; kill; quit" "$TEST_EXE" $TEST_ARGS >> "$AUDIT_LOG" 2>&1
-        WINE_EXIT=$?
+        winedbg --command "cont; bt; kill; quit" "$TEST_EXE" $TEST_ARGS >> "$PHASE2_LOG" 2>&1
+        # WINE_EXIT=$?
 
         # Проверяем лог на наличие критических аппаратных исключений и ошибок памяти
-        if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow" "$AUDIT_LOG"; then
-            log_error "CRITICAL FAULT DETECTED during sub-test: ${TEST_ARGS:0:30}..."
-            CRASH_FOUND=1
+        if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow" "$PHASE2_LOG"; then
+            log_error "CRITICAL FAULT DETECTED during sub-test: ${TEST_ARGS:0:60}..."
+            CRASH2_FOUND=1
+            cat "$PHASE2_LOG" >> "$AUDIT_LOG"
             break
         fi
+        cat "$PHASE2_LOG" >> "$AUDIT_LOG"
+        rm -f "$PHASE2_LOG"
     done
 
     log_debug "${LOG_DEBUG}=======================================================${NC}"
     log_debug "🚨 WINE SMOKE TEST ANALYSIS (DEBUG_MODE=1)"
     log_debug "${LOG_DEBUG}=======================================================${NC}"
 
-    if [ -f "$AUDIT_LOG" ] && [ -s "$AUDIT_LOG" ]; then
+    if [[ -f "$AUDIT_LOG" && -s "$AUDIT_LOG" ]]; then
         if [[ $CRASH_FOUND -eq 1 ]]; then
+            log_error "CRASH DETECTED."
+            cat "$AUDIT_LOG" >&2
+        elif [[ $CRASH2_FOUND -eq 1 ]]; then
             log_debug "Relevant Crash Backtrace:"
-            # Извлекаем блок бэктрейса для удобства чтения в CI
             sed -n '/Backtrace:/,$p' "$AUDIT_LOG" >&2 || cat "$AUDIT_LOG" >&2
         else
             log_debug "No critical errors found in log."
         fi
     fi
+
     log_debug "${LOG_DEBUG}=======================================================${NC}"
 
-    if [[ $CRASH_FOUND -eq 1 ]]; then
+    if [[ $CRASH_FOUND -eq 1 || $CRASH2_FOUND -eq 1 ]]; then
         log_error "HARDWARE FAULT, ILLEGAL INSTRUCTION OR ACCESS VIOLATION DETECTED!"
         log_error "Please review the Backtrace (bt) output printed above."
         # exit 1 # Жестко валим сборку, так как бинарник дефектный

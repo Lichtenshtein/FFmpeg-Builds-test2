@@ -1,57 +1,26 @@
-From 86b4692ec3c92af17391bc7bb38296aea5d79465 Mon Sep 17 00:00:00 2001
+From 84e2cec930698b72a161f021fc7db88a3a331bb3 Mon Sep 17 00:00:00 2001
 From: Lichtenshtein <altruumann@protonmail.com>
-Date: Mon, 15 Jun 2026 19:32:39 +0300
+Date: Tue, 16 Jun 2026 14:46:50 +0300
 Subject: [PATCH] disable tests
 
 ---
- Makefile | 18 ++----------------
- 1 file changed, 2 insertions(+), 16 deletions(-)
+ Makefile | 3 ---
+ 1 file changed, 3 deletions(-)
 
 diff --git a/Makefile b/Makefile
-index 65494f5f..78a2869c 100644
+index 65494f5f..d948b70d 100644
 --- a/Makefile
 +++ b/Makefile
-@@ -159,14 +159,10 @@ PROCESSING_INCLUDES += \
-     -I$(SRC_PATH)codec/processing/src/scrolldetection \
-     -I$(SRC_PATH)codec/processing/src/vaacalc
- 
--GTEST_INCLUDES += \
--    -I$(SRC_PATH)gtest/googletest \
--    -I$(SRC_PATH)gtest/googletest/include
-+GTEST_INCLUDES +=
- 
- CODEC_UNITTEST_INCLUDES += \
--    -I$(SRC_PATH)gtest/googletest/include \
--    -I$(SRC_PATH)codec/common/inc \
--    -I$(SRC_PATH)test
-+    -I$(SRC_PATH)codec/common/inc
- 
- CONSOLE_COMMON_INCLUDES += \
-     -I$(SRC_PATH)codec/console/common/inc
-@@ -212,10 +208,6 @@ gmp-bootstrap:
+@@ -212,9 +212,6 @@ gmp-bootstrap:
  	if [ ! -d gmp-api ] ; then git clone https://github.com/mozilla/gmp-api gmp-api ; fi
  	cd gmp-api && git fetch origin && git checkout $(GMP_API_BRANCH)
  
 -gtest-bootstrap:
 -	if [ ! -d gtest ] ; then git clone https://github.com/google/googletest.git gtest && \
 -       cd gtest && git checkout -b $(GTEST_VER) $(GTEST_VER) ; fi
--
+ 
  ifeq ($(HAVE_GTEST),Yes)
  
- ifneq (android,$(OS))
-@@ -359,12 +351,6 @@ ifneq ($(HAVE_GTEST),Yes)
- binaries:
- 	@:
- else
--include $(SRC_PATH)build/gtest-targets.mk
--include $(SRC_PATH)test/api/targets.mk
--include $(SRC_PATH)test/decoder/targets.mk
--include $(SRC_PATH)test/encoder/targets.mk
--include $(SRC_PATH)test/processing/targets.mk
--include $(SRC_PATH)test/common/targets.mk
- 
- LIBRARIES += $(LIBPREFIX)ut.$(LIBSUFFIX)
- $(LIBPREFIX)ut.$(LIBSUFFIX): $(DECODER_UNITTEST_OBJS) $(ENCODER_UNITTEST_OBJS) $(PROCESSING_UNITTEST_OBJS) $(COMMON_UNITTEST_OBJS) $(API_TEST_OBJS)
 -- 
 2.52.0.windows.1
 

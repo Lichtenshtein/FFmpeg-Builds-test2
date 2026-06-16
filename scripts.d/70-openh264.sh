@@ -9,7 +9,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "rm -rf test res"
+    echo "rm -rf test res gtest"
 }
 
 ffbuild_dockerbuild() {
