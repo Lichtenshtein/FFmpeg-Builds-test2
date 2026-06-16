@@ -1,0 +1,25 @@
+From 15521274a7ab07782ea287a49acbe00b63d102d4 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Tue, 16 Jun 2026 21:51:13 +0300
+Subject: [PATCH] disable examples
+
+---
+ CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 34504bc..348b7dd 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -99,7 +99,7 @@ endif()
+ 
+ add_subdirectory(api)
+ add_subdirectory(libvpl)
+-add_subdirectory(examples)
++
+ if(INSTALL_DEV)
+   add_subdirectory(env)
+ endif()
+-- 
+2.52.0.windows.1
+
