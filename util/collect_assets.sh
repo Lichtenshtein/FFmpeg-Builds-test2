@@ -67,6 +67,15 @@ else
     log_warn "Frei0r plugins not found in $FFBUILD_PREFIX/lib/frei0r-1"
 fi
 
+# Модели pocketsphinx
+if [[ -d "$FFBUILD_PREFIX/share/pocketsphinx" ]]; then
+    log_info "${SYNC_MARK} Collecting pocketsphinx models..."
+    mkdir -p "$ASSETS_DIR/pocketsphinx"
+    cp -v "$FFBUILD_PREFIX/share/pocketsphinx" "${ASSETS_DIR}/"
+else
+    log_warn "Pocketsphinx models not found in $FFBUILD_PREFIX/share/pocketsphinx"
+fi
+
 # Плагин nnedi3
 if [[ -f "$FFBUILD_PREFIX/lib/libvsznedi3.dll" ]]; then
     log_info "${SYNC_MARK} Moving nnedi3 plugin..."

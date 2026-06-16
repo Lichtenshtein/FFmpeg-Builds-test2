@@ -810,7 +810,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
 
     if ! command -v wine64 &> /dev/null && ! command -v wine &> /dev/null; then
         log_warn "Wine is not installed. Skipping audit."
-        return 0
+        exit 0
     fi
 
     export WINEDEBUG="-all,err,seh"
@@ -855,7 +855,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
             log_error "Test failed (winedbg exit non-zero). Checking for crash details..."
 
             # Extract crash info if available
-            if grep -q "Exception c0000005\|Access Violation" "$PHASE1_LOG"; then
+            if grep -q 'Exception c0000005\|Access Violation' "$PHASE1_LOG"; then
                 log_error "Access Violation detected!"
                 CRASH_FOUND=1
                 cat "$PHASE1_LOG" >> "$AUDIT_LOG"
@@ -874,27 +874,29 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
     TEST_INDEX=0
 
     # Сбор бэктрейсов (winedbg --command)
-    for TEST_ARGS in "${TEST_SUITE[@]}"; do
-        ((TEST_INDEX++))
-        PHASE2_LOG="${TMP_DIR}/audit_p2_${TEST_INDEX}.log"
-        rm -f "$PHASE2_LOG"
+    if [[ $CRASH_FOUND -eq 0 ]]; then
+        for TEST_ARGS in "${TEST_SUITE[@]}"; do
+            ((TEST_INDEX++))
+            PHASE2_LOG="${TMP_DIR}/audit_p2_${TEST_INDEX}.log"
+            rm -f "$PHASE2_LOG"
 
-        log_debug "Executing sub-test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
+            log_debug "Executing sub-test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
 
-        # Если ffmpeg падает, cont прерывается, bt печатает стек, kill и quit чисто выходят.
-        winedbg --command "cont; bt; kill; quit" "$TEST_EXE" $TEST_ARGS >> "$PHASE2_LOG" 2>&1
-        # WINE_EXIT=$?
+            # Если ffmpeg падает, cont прерывается, bt печатает стек, kill и quit чисто выходят.
+            winedbg --command "cont; bt; kill; quit" "$TEST_EXE" $TEST_ARGS >> "$PHASE2_LOG" 2>&1
+            # WINE_EXIT=$?
 
-        # Проверяем лог на наличие критических аппаратных исключений и ошибок памяти
-        if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow" "$PHASE2_LOG"; then
-            log_error "CRITICAL FAULT DETECTED during sub-test: ${TEST_ARGS:0:60}..."
-            CRASH2_FOUND=1
+            # Проверяем лог на наличие критических аппаратных исключений и ошибок памяти
+            if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow" "$PHASE2_LOG"; then
+                log_error "CRITICAL FAULT DETECTED during sub-test: ${TEST_ARGS:0:60}..."
+                CRASH2_FOUND=1
+                cat "$PHASE2_LOG" >> "$AUDIT_LOG"
+                break
+            fi
             cat "$PHASE2_LOG" >> "$AUDIT_LOG"
-            break
-        fi
-        cat "$PHASE2_LOG" >> "$AUDIT_LOG"
-        rm -f "$PHASE2_LOG"
-    done
+            rm -f "$PHASE2_LOG"
+        done
+    fi
 
     log_debug "${LOG_DEBUG}=======================================================${NC}"
     log_debug "🚨 WINE SMOKE TEST ANALYSIS (DEBUG_MODE=1)"
