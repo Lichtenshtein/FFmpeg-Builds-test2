@@ -1,0 +1,22 @@
+From 21dc2100332f7f76a185abab1a0c69b0b02b7bd5 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Tue, 16 Jun 2026 22:05:17 +0300
+Subject: [PATCH] disable tests
+
+---
+ libvmaf/meson.build | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libvmaf/meson.build b/libvmaf/meson.build
+index cf20cecb..ea5f5add 100644
+--- a/libvmaf/meson.build
++++ b/libvmaf/meson.build
+@@ -50,4 +50,4 @@ subdir('include')
+ subdir('src')
+ subdir('tools')
+ subdir('doc')
+-subdir('test')
++
+-- 
+2.52.0.windows.1
+

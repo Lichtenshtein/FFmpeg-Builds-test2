@@ -121,7 +121,7 @@ env:
   GIT_PRESERVE_LIST: "ffmpeg|x265|vulkan-loader|twolame|gme|pango|dav1d"
   # GIT_PRESERVE_LIST: "ffmpeg|glib2|x264|x265|vulkan-loader|twolame|gme|mbedtls|pcre2|avisynth|openssl|pango|freetype|ilbc|libjxl|libvorbis|snappy|zimg|vmaf|dav1d|libplacebo"
   # Список для сохранения DLL (в run_stage.sh)
-  DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|mfx|opencv|onevpl|leptonica|audiotoolbox|avisynth|vapoursynth|frei0r|nnedi3|whisper"
+  DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|mfx|opencv|leptonica|audiotoolbox|avisynth|vapoursynth|frei0r|nnedi3|whisper"
   # Список для сохранения статики .a (в run_stage.sh)
   LIB_PRESERVE_LIST:
   # Список компонентов к которым strip не применяется (openvino,cuda-llvm)
