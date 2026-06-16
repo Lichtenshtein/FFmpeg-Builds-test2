@@ -204,7 +204,7 @@ export SKIP_POST_CLEAN=0
 export SKIP_POST_AUDIT=0
 export USE_CONF_FINDER=0 # inside main; 1 for crooked autogen scripts 
 export USE_VERS_FINDER="${USE_VERS_FINDER:-0}" # inside main; enables component version lookup
-export SKIP_POST_STRIP=1 # inside dockerbuild
+export SKIP_POST_STRIP=0 # inside dockerbuild
 
 mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 
