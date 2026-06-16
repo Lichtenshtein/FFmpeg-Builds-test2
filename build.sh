@@ -212,8 +212,15 @@ fi
 # =======================================
 # FLAGS DEDUPLICATION SECTION
 # =======================================
+log_info "Adjusting LDFLAGS locally for FFmpeg to allow precise debugging..."
+# Отключаем ASLR и High Entropy VA, чтобы зафиксировать базовый адрес PE
+LDFLAGS=$(echo " ${LDFLAGS} " | sed \
+    -e 's/ -Wl,--dynamicbase / /g' \
+    -e 's/ -Wl,--high-entropy-va / /g' \
+    -e 's/ -Wl,--stack,16777216 / /g' | xargs)
 # Удаляем жесткий -static и -Wl,-Bstatic из базовых флагов линковщика
 # LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' | xargs)
+
 [[ "${PREFER_SHARED}" != "1" ]] && export LDEXEFLAGS="-static -static-libgcc -static-libstdc++"
 
 [[ "$DEDUPE_FLAGS" == "1" ]] && log_info "${BROOM_MARK} Deduplicating ALL flags..."
@@ -828,6 +835,9 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         TEST_ARGS_ENC="-v debug -f lavfi -i testsrc=size=1280x720:rate=60:duration=2 -f lavfi -i sine=frequency=1000:duration=2 -vf scale=640x360,format=yuv420p -c:v wrapped_avframe -c:a pcm_s16le -f null -"
         winedbg --command "${TMP_DIR}/winedbg_commands.txt" "$TEST_EXE" $TEST_ARGS_ENC >> "$AUDIT_LOG" 2>&1 || true
 
+        # Запускаем через winedbg в автоматическом режиме (--auto)
+        winedbg --auto "$TEST_EXE" $TEST_ARGS_ENC > "$AUDIT_LOG" 2>&1 || true
+
         WINE_EXIT=${PIPESTATUS}
 
         # Выводим отфильтрованный лог в консоль Docker
@@ -839,7 +849,9 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         if [ -f "$AUDIT_LOG" ] && [ -s "$AUDIT_LOG" ]; then
             # Фильтруем ТОЛЬКО нерелевантный мусор графической оболочки Wine, 
             # оставляя сообщения об исключениях, падениях и Backtrace!
-            grep -Ev "nodrv_CreateWindow|Could not find dependent assembly|vulkan_init_once|systray|RpcSs|ZwLoadDriver|SetupDiInstallDevice|ntlm_auth" "$AUDIT_LOG" >&2 || true
+            # grep -Ev "nodrv_CreateWindow|Could not find dependent assembly|vulkan_init_once|systray|RpcSs|ZwLoadDriver|SetupDiInstallDevice|ntlm_auth" "$AUDIT_LOG" >&2 || true
+            # Выводим лог полностью, чтобы увидеть рантайм-бэктрейс отладчика
+            cat "$AUDIT_LOG" >&2
         fi
         log_debug  "${LOG_DEBUG}=======================================================${NC}"
 
@@ -850,7 +862,6 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         CRITICAL_PATTERN="buffer overflow|stack smashing|stack_chk_fail|stack-buffer-overflow|global-buffer-overflow|AddressSanitizer|SIGSEGV|Segmentation fault|access violation|illegal instruction|unhandled exception|0xc0000005|0xc0000409|0xc000001d|Exception"
 
         if [[ $WINE_EXIT -ne 0 ]] || grep -Eiq "$CRITICAL_PATTERN" "$AUDIT_LOG" 2>/dev/null; then
-
             # Исключение для чисто текстовых некритичных ошибок синтаксиса самого FFmpeg (код выхлопа 1)
             if [[ $WINE_EXIT -eq 1 ]] && ! grep -Eiq "access violation|illegal instruction|stack_chk_fail|stack-buffer-overflow|0xc0000005|0xc0000409|0xc000001d" "$AUDIT_LOG" 2>/dev/null; then
                 log_info "${CHECK_MARK} Wine runtime smoke test responded textually. Binary structure is solid."
@@ -877,14 +888,14 @@ fi
 # =======================================
 # Стриппинг бинарников (удаление отладочных символов)
 # --strip-all; --strip-unneeded
-if [[ "$SKIP_POST_STRIP" != "1" ]]; then
-    if declare -F strip_files >/dev/null; then
-        strip_files "$PKG_DIR/bin" "ffmpeg"
-    else
-        log_warn "strip_files function not found, falling back to basic strip"
-        find "$PKG_DIR/bin" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "${FFBUILD_CROSS_PREFIX}strip" --strip-unneeded {} \;
-    fi
-fi
+# if [[ "$SKIP_POST_STRIP" != "1" ]]; then
+    # if declare -F strip_files >/dev/null; then
+        # strip_files "$PKG_DIR/bin" "ffmpeg"
+    # else
+        # log_warn "strip_files function not found, falling back to basic strip"
+        # find "$PKG_DIR/bin" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "${FFBUILD_CROSS_PREFIX}strip" --strip-unneeded {} \;
+    # fi
+# fi
 
 # Заходим в pkgroot, чтобы внутри архива не было лишних вложенных папок
 pushd "$FFMPEG_PKG_ROOT"

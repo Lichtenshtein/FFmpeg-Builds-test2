@@ -26,11 +26,11 @@ on:
         required: false
         default: '2'
       cpu_arch:
-        description: 'CPU march target (broadwell/x86-64-v3/znver3/native)'
+        description: 'CPU march target (x86-64-v3/znver3/native)'
         required: false
         default: 'broadwell'
       cpu_tune:
-        description: 'CPU mtune target (broadwell/generic/native)'
+        description: 'CPU mtune target (generic/native)'
         required: false
         default: 'broadwell'
       use_lto:
