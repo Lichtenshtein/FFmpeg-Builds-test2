@@ -12,8 +12,8 @@ index 0b8307f5..92bbbdaf 100644
 --- a/libvpl/src/mfx_config_interface/mfx_config_interface_string_api.cpp
 +++ b/libvpl/src/mfx_config_interface/mfx_config_interface_string_api.cpp
 @@ -303,6 +303,13 @@ struct value_converter<VType, typename std::enable_if<std::is_enum<VType>::value
+ // representation of a fourcc
  mfxStatus ConvertStrToFourCC(std::string value, mfxU32 &t) {
-     trim(value);
      uint32_t converted_value = 0;
 +
 +    // Some of the fourcc string only contains 3 characters. E.g. AVC, AV1, VP9.
