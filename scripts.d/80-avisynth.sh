@@ -21,13 +21,15 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    sed -i '/ADD_CUSTOM_TARGET(VersionGen/,/)/d' avs_core/CMakeLists.txt || true
-    sed -i '/ADD_DEPENDENCIES("AvsCore" VersionGen)/d' avs_core/CMakeLists.txt || true
-    sed -i '/ADD_CUSTOM_TARGET(VersionGen/,/)/d' CMakeLists.txt || true
+    if [[ ! -d ".git" ]]; then
+        log_info "Creating version metadata manually..."
+        sed -i '/ADD_CUSTOM_TARGET(VersionGen/,/)/d' avs_core/CMakeLists.txt || true
+        sed -i '/ADD_DEPENDENCIES("AvsCore" VersionGen)/d' avs_core/CMakeLists.txt || true
+        sed -i '/ADD_CUSTOM_TARGET(VersionGen/,/)/d' CMakeLists.txt || true
+        local extra_cxx_flags="-DRELEASE_TARBALL"
+    fi
 
     mkdir -p build && cd build
-
-    local extra_cxx_flags="-DRELEASE_TARBALL"
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -35,7 +37,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-        -DHEADERS_ONLY=OFF # Install only the Headers
+        -DHEADERS_ONLY=OFF # ON=Install only the Headers; OFF=Build lib
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DENABLE_INTEL_SIMD=ON
         -DENABLE_PLUGINS=ON
@@ -48,9 +50,13 @@ ffbuild_dockerbuild() {
     LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    mkdir -p avs_core
-
-    cp ../avs_core/core/version.h.in avs_core/version.h
+    if [[ ! -d ".git" ]]; then
+        mkdir -p avs_core
+        cp ../avs_core/core/version.h.in avs_core/version.h
+    else
+        # VersionGen должна быть собрана перед инсталляцией
+        ninja $NINJA_V VersionGen || return 1
+    fi
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
