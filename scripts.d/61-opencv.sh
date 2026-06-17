@@ -87,6 +87,7 @@ ffbuild_dockerbuild() {
         -DWITH_PNG=ON
         -DWITH_JASPER=ON # build it
         -DWITH_OPENEXR=ON # build it
+        -DWITH_OPENGL=ON
         # IPP
         -DBUILD_IPP_IW=ON
         -DWITH_IPP=ON
@@ -151,18 +152,17 @@ if has_library "z"; then
 fi
 
 if has_library "OpenCL"; then
-    log_info "OPENCL library detected. Building with OPENCL support..."
+    log_info "OpenCL library detected. Building with OpenCL support..."
     myconf+=(
         -DWITH_OPENCL=ON
         -DWITH_OPENCL_D3D11_NV=ON
-        -DWITH_OPENGL=ON
         -DOPENCL_LIBRARIES="$FFBUILD_PREFIX/lib/libOpenCL.a"
         -DOPENCL_INCLUDE_DIR="$FFBUILD_PREFIX/include/CL"
     )
 fi
 
 if has_library "vulkan-1"; then
-    log_info "VULKAN library detected. Building with VULKAN support..."
+    log_info "Vulkan library detected. Building with Vulkan support..."
     myconf+=(
         -DWITH_VULKAN=ON
         -DVULKAN_LIBRARIES="$FFBUILD_PREFIX/lib/libvulkan-1.a"
@@ -171,7 +171,7 @@ if has_library "vulkan-1"; then
 fi
 
 if has_library "openjp2"; then
-    log_info "ZSTD library detected. Building with ZSTD support..."
+    log_info "OpenJPEG library detected. Building with OpenJPEG support..."
     export OpenJPEG_DIR="$FFBUILD_PREFIX/lib/cmake/openjpeg-2.5"
     myconf+=(
         -DBUILD_OPENJPEG=OFF
@@ -182,7 +182,7 @@ if has_library "openjp2"; then
 fi
 
 if has_library "webp"; then
-    log_info "WEBP library detected. Building with WEBP support..."
+    log_info "WebP library detected. Building with WebP support..."
     myconf+=(
         -DBUILD_WEBP=OFF
         -DWITH_WEBP=ON
@@ -264,8 +264,10 @@ fi
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="-ljbig $LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || {
-        log_error "CMake failed, restoring TIFF..."
-        [ -d "$TIFF_HIDE_DIR" ] && mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
+        if [[ "${myconf[@]}" =~ "-DWITH_TIFF=ON" ]]; then
+            log_error "CMake failed, restoring TIFF..."
+            [ -d "$TIFF_HIDE_DIR" ] && mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
+        fi
         return 1
     }
 
