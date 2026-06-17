@@ -229,7 +229,6 @@ should_apply_lto() {
     # Если имя стадии не определено
     [[ -z "$STAGENAME" ]] && return 1
 
-
     # ========================================
     # ЧЕРНЫЙ СПИСОК (Blacklist): LTO запрещён
     # ========================================
@@ -246,7 +245,7 @@ should_apply_lto() {
     # LTO включится ТОЛЬКО для этих библиотек.
     case "$STAGENAME" in
         # Основные либы
-        "04-tbbmalloc"|"08-zlib"|"16-fftw3"|"27-freeglut")
+        "02-mingw"|"04-tbbmalloc"|"08-zlib"|"16-fftw3"|"27-freeglut")
             return 0
             ;;
         # Основные тяжелые видеокодеки
@@ -303,6 +302,7 @@ apply_lto_policy() {
         export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib" # Или ${FFBUILD_CROSS_PREFIX}ranlib
     fi
 }
+export -f apply_lto_policy
 
 # ==============================================================
 # Flags for the component build stage
