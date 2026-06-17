@@ -32,7 +32,10 @@ samples doc \
 3rdparty/libwebp \
 3rdparty/openjpeg \
 3rdparty/zlib \
-3rdparty/zlib-ng" # data
+3rdparty/zlib-ng \
+data/haarcascades_cuda \
+data/vec_files"
+# haarcascades_cuda may need manual installation instead of cleaning if build on linux and cuda SDK is installed
 }
 
 ffbuild_dockerbuild() {
@@ -81,8 +84,6 @@ ffbuild_dockerbuild() {
         # -DOPENCV_SKIP_PYTHON_LOADER=ON
         # Включаем форматы
         -DWITH_MSMF_DXVA=ON
-        -DWITH_NVCUVID=ON
-        -DWITH_NVCUVENC=ON
         -DWITH_PNG=ON
         -DWITH_JASPER=ON # build it
         -DWITH_OPENEXR=ON # build it
@@ -113,8 +114,7 @@ if has_library "tiff"; then
         -DBUILD_TIFF=OFF
         -DWITH_TIFF=ON
         -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.a"
-        -DTIFF_LIBRARIES="$FFBUILD_PREFIX/lib/libtiff.a"
+        -DTIFF_LIBRARIES="$FFBUILD_PREFIX/lib/libtiff.a;$FFBUILD_PREFIX/lib/libtiffxx.a"
         -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
     )
 fi
@@ -134,8 +134,7 @@ if has_library "jpeg"; then
         -DBUILD_JPEG=OFF
         -DWITH_JPEG=ON
         -DJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.a"
-        # -DCMAKE_DISABLE_FIND_PACKAGE_JPEG=ON
+        -DJPEG_LIBRARIES="$FFBUILD_PREFIX/lib/libjpeg.a;$FFBUILD_PREFIX/lib/libturbojpeg.a"
     )
 fi
 
@@ -226,10 +225,12 @@ if has_library "tbbmalloc"; then
         -DTBB_LIB_DIR="$FFBUILD_PREFIX/lib"
     )
 elif [[ "${USE_OPENMP}" == "1" ]]; then
+    log_info "Enabling OpenMP threading..."
     myconf+=(
         -DWITH_OPENMP=ON
     )
 else
+    log_info "Building with pthreads support..."
     myconf+=(
         -DWITH_PTHREADS_PF=ON
     )
@@ -247,6 +248,8 @@ fi
         # CUDA; linux only
         # -DWITH_CUDA=OFF # not supported
         # -DOPENCV_DNN_CUDA=ON
+        # -DWITH_NVCUVID=ON
+        # -DWITH_NVCUVENC=ON
         # -DCUDA_ARCH_BIN=6.1 # Например, для Pascal
         # -DCUDA_ARCH_PTX=6.1
         )
