@@ -208,6 +208,17 @@ if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
     sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
 fi
 
+
+for pc_file in "${FFBUILD_PREFIX}/lib/pkgconfig"/mbed*.pc; do
+    if [[ -f "$pc_file" ]]; then
+        sed -i 's| -I\${includedir}/mbedtls||g' "$pc_file"
+    fi
+done
+
+if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/tfpsacrypto.pc" ]]; then
+        sed -i 's| -I\${includedir}/mbedtls||g' "$pc_file"
+fi
+
 # =======================================
 # FLAGS SECTION
 # =======================================
