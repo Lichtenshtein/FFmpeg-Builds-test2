@@ -1872,6 +1872,12 @@ get_stage_version() {
         ver="" # Сбрасываем версию, чтобы гарантированно уйти в парсинг тегов Git
     fi
 
+    # avisynth
+    if [[ "$STAGENAME" == *"avisynth"* ]]; then
+        ver_log "Avisynth detected: Skipping generic file versions, forcing remote tag lookup."
+        ver=""
+    fi
+
     # Агрессивный парсинг любых типов архивов (tar.gz, xz, bz2, zst, tgz, zip, 7z)
     if [[ "$current_repo" =~ \.(tar\.[a-z0-9]+|tgz|zip|7z|rar)$ ]]; then
         ver_log "Archive link detected, parsing version from URL..."
