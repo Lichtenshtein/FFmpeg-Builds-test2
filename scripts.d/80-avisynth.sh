@@ -21,6 +21,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    sed -i '/ADD_CUSTOM_TARGET(VersionGen/,/)/d' avs_core/CMakeLists.txt || true
+    sed -i '/ADD_DEPENDENCIES("AvsCore" VersionGen)/d' avs_core/CMakeLists.txt || true
+    sed -i '/ADD_CUSTOM_TARGET(VersionGen/,/)/d' CMakeLists.txt || true
+
     mkdir -p build && cd build
 
     local extra_cxx_flags="-DRELEASE_TARBALL"
