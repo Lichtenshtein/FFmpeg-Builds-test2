@@ -1,8 +1,8 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/Mbed-TLS/mbedtls.git"
-SCRIPT_COMMIT="545d1b77a29ac33b219a6681489d5e63b63c3b3a"
-# SCRIPT_COMMIT="v3.6.5"
+SCRIPT_COMMIT="0bebf8b8c7f07abe3571ded48a11aa907a1ffb20"
+# SCRIPT_COMMIT="v3.6.6"
 # SCRIPT_TAGFILTER="v3.*"
 
 ffbuild_enabled() {
@@ -51,9 +51,12 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-# don't modify cflags paths
     mkdir -p "$PC_DIR"
     if [ -d "$PC_DIR" ]; then
+        find "$PC_DIR" -name "*.pc" | while read -r PC_FILE; do
+            sed -i "s|^Cflags:.*|& -I\${includedir}/mbedtls|" "$PC_FILE"
+        done
+        log_info "Cflags paths have been updated."
         if [[ $TARGET == win* ]]; then
             echo "Libs.private: -lws2_32 -lbcrypt -lwinmm -lgdi32" >> "$PC_DIR/mbedcrypto.pc"
         fi
