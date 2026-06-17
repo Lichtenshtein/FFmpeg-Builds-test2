@@ -23,19 +23,23 @@ ffbuild_dockerbuild() {
 
     # Отвязка от .git
     cat << EOF > avs_core/Version.cmake
-set(AVS_SEQREV "4600")
-set(AVS_BRANCH "master")
-set(AVS_NEWEST_TAG "${VER_FULL}")
-set(AVS_DEVNEXT_REV "0")
-set(AVS_DEV_REVDATE "2026-06-17")
-set(AVS_DEV_GITHASH "ffbuild")
-set(ENV{SOURCE_DATE_EPOCH} "1773781200")
+#define AVS_MAJOR_VER 3
+#define AVS_MINOR_VER 7
+#define AVS_BUGFIX_VER 5
 
-if(NOT SRC OR NOT DST)
-    message(FATAL_ERROR "SRC or DST not set")
-endif()
+#define AVS_SEQREV "4600"
+#define AVS_BRANCH "master"
 
-configure_file("${SRC}" "${DST}" @ONLY)
+#define AVS_NEWEST_TAG "${VER_FULL}"
+#define AVS_DEVNEXT_REV "0"
+#define AVS_DEV_REVDATE "2026-06-17"
+#define AVS_DEV_GITHASH "ffbuild-static"
+
+#define AVS_VERSION_STR "AviSynth+ ${VER_FULL} (r4600, master, x86_64)"
+EOF
+
+    # создаём пустышку
+    cat << 'EOF' > avs_core/Version.cmake
 EOF
 
     mkdir -p build && cd build
