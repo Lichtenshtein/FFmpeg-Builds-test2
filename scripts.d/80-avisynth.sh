@@ -1,5 +1,5 @@
 #!/bin/bash
-# export USE_VERS_FINDER=1
+
 SCRIPT_REPO="https://github.com/AviSynth/AviSynthPlus.git"
 SCRIPT_COMMIT="345a00034c6f167662119c129b06a1f65b72b619"
 
@@ -52,8 +52,6 @@ ffbuild_dockerbuild() {
 
     cp ../avs_core/core/version.h.in avs_core/version.h
 
-    # VersionGen должна быть собрана перед инсталляцией
-    # ninja $NINJA_V VersionGen || return 1
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 

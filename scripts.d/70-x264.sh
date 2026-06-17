@@ -1,5 +1,5 @@
 #!/bin/bash
-# export USE_VERS_FINDER=1
+export USE_VERS_FINDER=1
 # SCRIPT_REPO="https://code.videolan.org/videolan/x264.git"
 # SCRIPT_COMMIT="0480cb05fa188d37ae87e8f4fd8f1aea3711f7ee"
 
@@ -27,24 +27,47 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # if [[ ! -d ".git" ]]; then
+        # log_info "Creating x264 version metadata manually..."
+        # echo "#define X264_REV 3214" > x264_config.h
+        # echo "#define X264_REV_DIFF 0" >> x264_config.h
+        # echo "#define X264_VERSION \" r3214 0480cb0\"" >> x264_config.h
+        # echo "#define X264_VER \"165\"" >> x264_config.h
+    # fi
+
     if [[ ! -d ".git" ]]; then
         log_info "Creating x264 version metadata manually..."
-        echo "#define X264_REV 3214" > x264_config.h
-        echo "#define X264_REV_DIFF 0" >> x264_config.h
-        echo "#define X264_VERSION \" r3214 0480cb0\"" >> x264_config.h
-        echo "#define X264_VER \"165\"" >> x264_config.h
-    fi
+        export VER_FULL="${VER_FULL}"
+        cat << 'EOF' > version.sh
+#!/usr/bin/env bash
 
-#     if [[ ! -d ".git" ]]; then
-#         log_info "Creating x264 version metadata manually..."
-#         cat << EOF > x264_config.h
-# #define X264_REV ${VER_FULL}
-# #define X264_REV_DIFF 0
-# #define X264_VERSION " r${VER_FULL}"
-# #define X264_BUILD 165
-# #define X264_POINTVER "0.165.${VER_FULL}"
-# EOF
-#     fi
+PLAIN_VER="${VER_FULL}"
+VER_DIFF="0"
+
+BIT_DEPTH=$(grep "X264_BIT_DEPTH" < x264_config.h | awk '{print $3}')
+if [ "$BIT_DEPTH" == "0" ] || [ -z "$BIT_DEPTH" ] ; then
+    BIT_DEPTH="all"
+fi
+
+CHROMA_FORMATS=$(grep "X264_CHROMA_FORMAT" < x264_config.h | awk '{print $3}')
+if [ "$CHROMA_FORMATS" == "0" ] || [ -z "$CHROMA_FORMATS" ] ; then
+    CHROMA_FORMATS="all"
+fi
+
+BUILD_ARCH=$(grep "SYS_ARCH=" < config.mak | awk -F= '{print $2}')
+[ -z "$BUILD_ARCH" ] && BUILD_ARCH="X86_64"
+
+echo "#define X264_REV $PLAIN_VER"
+echo "#define X264_REV_DIFF $VER_DIFF"
+
+VER="$PLAIN_VER ffbuild_static t_mod_New [${BIT_DEPTH}-bit@${CHROMA_FORMATS} ${BUILD_ARCH}]"
+echo "#define X264_VERSION \" r$VER\""
+
+API=$(grep '#define X264_BUILD' < "$(dirname "$0")"/x264.h | sed -e 's/.* \([1-9][0-9]*\).*/\1/')
+echo "#define X264_POINTVER \"0.$API.$PLAIN_VER\""
+EOF
+    chmod +x version.sh
+    fi
 
     local myconf=(
         --disable-cli
