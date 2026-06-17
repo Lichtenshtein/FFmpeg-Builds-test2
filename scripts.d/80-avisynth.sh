@@ -34,7 +34,8 @@ set(ENV{SOURCE_DATE_EPOCH} "1773781200")
 if(NOT SRC OR NOT DST)
     message(FATAL_ERROR "SRC or DST not set")
 endif()
-configure_file(${SRC} ${DST} @ONLY)
+
+configure_file("${SRC}" "${DST}" @ONLY)
 EOF
 
     mkdir -p build && cd build
