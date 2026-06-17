@@ -37,36 +37,46 @@ ffbuild_dockerbuild() {
 
     if [[ ! -d ".git" ]]; then
         log_info "Creating x264 version metadata manually..."
-        export VER_FULL="${VER_FULL}"
-        cat << 'EOF' > version.sh
+
+        local plain_rev="${VER_FULL:-3214}"
+        local short_hash="${SCRIPT_COMMIT:0:7}"
+        [[ -z "$short_hash" ]] && short_hash="2d0302b"
+
+        cat << EOF > version.sh
 #!/usr/bin/env bash
 
-PLAIN_VER="${VER_FULL}"
-VER_DIFF="0"
-
-BIT_DEPTH=$(grep "X264_BIT_DEPTH" < x264_config.h | awk '{print $3}')
-if [ "$BIT_DEPTH" == "0" ] || [ -z "$BIT_DEPTH" ] ; then
-    BIT_DEPTH="all"
+BIT_DEPTH=\$(sed -n 's/^#define X264_BIT_DEPTH[[:space:]][[:space:]]*//p' < x264_config.h | awk '{print \$1}')
+if [ "\$BIT_DEPTH" = "0" ] || [ -z "\$BIT_DEPTH" ]; then
+    BIT_DEPTH="all-bit"
+else
+    BIT_DEPTH="\${BIT_DEPTH}bit"
 fi
 
-CHROMA_FORMATS=$(grep "X264_CHROMA_FORMAT" < x264_config.h | awk '{print $3}')
-if [ "$CHROMA_FORMATS" == "0" ] || [ -z "$CHROMA_FORMATS" ] ; then
+CHROMA_FORMATS=\$(sed -n 's/^#define X264_CHROMA_FORMAT[[:space:]][[:space:]]*//p' < x264_config.h | awk '{print \$1}')
+if [ "\$CHROMA_FORMATS" = "0" ] || [ -z "\$CHROMA_FORMATS" ]; then
     CHROMA_FORMATS="all"
+else
+    CHROMA_FORMATS="custom"
 fi
 
-BUILD_ARCH=$(grep "SYS_ARCH=" < config.mak | awk -F= '{print $2}')
-[ -z "$BUILD_ARCH" ] && BUILD_ARCH="X86_64"
+BUILD_ARCH=\$(sed -n 's/^SYS_ARCH=//p' < config.mak | head -n 1)
+[ -z "\$BUILD_ARCH" ] && BUILD_ARCH="X86_64"
 
-echo "#define X264_REV $PLAIN_VER"
-echo "#define X264_REV_DIFF $VER_DIFF"
+echo "#define X264_REV $plain_rev"
+echo "#define X264_REV_DIFF 0"
 
-VER="$PLAIN_VER ffbuild t_mod_New [${BIT_DEPTH}-bit@${CHROMA_FORMATS} ${BUILD_ARCH}]"
-echo "#define X264_VERSION \" r$VER\""
+VER="$plain_rev ffbuild-static [ \${BIT_DEPTH}@\${CHROMA_FORMATS} \${BUILD_ARCH} ]"
+echo "#define X264_VERSION \" r\${VER}\""
 
-API=$(grep '#define X264_BUILD' < "$(dirname "$0")"/x264.h | sed -e 's/.* \([1-9][0-9]*\).*/\1/')
-echo "#define X264_POINTVER \"0.$API.$PLAIN_VER\""
+API=\$(grep '#define X264_BUILD' < x264.h | sed -e 's/.* \([1-9][0-9]*\).*/\1/')
+
+POINTVER="\${VER} $short_hash [Windows] [gcc-ffbuild] [\${BUILD_ARCH}]"
+echo "#define X264_POINTVER \"0.\${API}.\${POINTVER}\""
+echo "#define X264_POINTVER_SHORT \"0.\${API}.\${VER} $short_hash\""
+echo "#define X264_COREVER \"core \${API} r\${VER} $short_hash [Windows] [gcc-ffbuild] [\${BUILD_ARCH}]\""
+echo "#define X264_COREVER_SHORT \"core \${API} r\${VER} $short_hash\""
 EOF
-    chmod +x version.sh
+        chmod +x version.sh
     fi
 
     local myconf=(
