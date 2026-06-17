@@ -117,7 +117,7 @@ env:
   # Списки исключений
   # Список для хранения .git от очистки (в download.sh)
   # Some patches apply only with git am...
-  GIT_PRESERVE_LIST: "ffmpeg|x264|x265|vulkan-loader|twolame|gme|pango|dav1d"
+  GIT_PRESERVE_LIST: "ffmpeg|x265|vulkan-loader|twolame|gme|pango|dav1d"
   # Список для сохранения DLL (в run_stage.sh)
   DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|mfx|opencv|leptonica|audiotoolbox|avisynth|vapoursynth|frei0r|nnedi3|whisper"
   # Список для сохранения статики .a (в run_stage.sh)
