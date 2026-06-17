@@ -211,15 +211,6 @@ fi
 # =======================================
 # FLAGS SECTION
 # =======================================
-# Отключаем ASLR и High Entropy VA, чтобы зафиксировать базовый адрес PE
-if [[ "$DEBUG_MODE" == "1" ]]; then
-    log_info "Adjusting LDFLAGS locally for FFmpeg to allow precise debugging..."
-    LDFLAGS=$(echo " ${LDFLAGS} " | sed \
-        -e 's/ -Wl,--dynamicbase / /g' \
-        -e 's/ -Wl,--high-entropy-va / /g' \
-        -e 's/ -Wl,--stack,16777216 / /g' | xargs)
-fi
-
 # Удаляем жесткий -static и -Wl,-Bstatic из базовых флагов линковщика
 # LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' | xargs)
 

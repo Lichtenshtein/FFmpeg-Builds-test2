@@ -428,6 +428,15 @@ if [[ "$TARGET" == "win64" ]]; then
     export LIBS="${LIBS:-$SYSTEM_LIBS}"
     export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="${FFBUILD_CROSS_PREFIX}gcc"
 
+    # Отключаем ASLR и High Entropy VA, чтобы зафиксировать базовый адрес PE
+    if [[ "$DEBUG_MODE" == "1" ]]; then
+        log_info "Adjusting LDFLAGS locally for FFmpeg to allow precise debugging..."
+        export LDFLAGS=$(echo " ${LDFLAGS} " | sed \
+            -e 's/ -Wl,--dynamicbase / /g' \
+            -e 's/ -Wl,--high-entropy-va / /g' \
+            -e 's/ -Wl,--stack,16777216 / /g' | xargs)
+    fi
+
 elif [[ "$TARGET" == "linux64" ]]; then
     export BASE_CFLAGS="${STACK_FLAGS} -Wno-attributes"
     export BASE_CPPFLAGS="-D_FORTIFY_SOURCE=2"
