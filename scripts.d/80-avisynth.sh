@@ -21,6 +21,29 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Отвязка от .git
+    cat << EOF > build/avs_core/version.h
+#ifndef AVISYNTH_VERSION_H
+#define AVISYNTH_VERSION_H
+#define AVS_MAJOR_VER 3
+#define AVS_MINOR_VER 7
+#define AVS_BUGFIX_VER 5
+
+#define AVS_SEQREV "4600"
+#define AVS_BRANCH "master"
+
+#define AVS_NEWEST_TAG "${VER_FULL}"
+#define AVS_DEVNEXT_REV "0"
+#define AVS_DEV_REVDATE "2026-06-17"
+#define AVS_DEV_GITHASH "ffbuild-static"
+
+#define AVS_VERSION_STR "AviSynth+ ${VER_FULL} (r4600, master, x86_64)"
+
+#endif // AVISYNTH_VERSION_H
+EOF
+
+    # cp avs_core/core/version.h avs_core/include/version.h
+
     # создаём пустышку
     cat << 'EOF' > avs_core/Version.cmake
 EOF
@@ -47,28 +70,6 @@ EOF
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${extra_cxx_flags} ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
-
-    # Отвязка от .git
-    mkdir -p avs_core
-    cat << EOF > avs_core/Version.cmake
-#ifndef AVISYNTH_VERSION_H
-#define AVISYNTH_VERSION_H
-#define AVS_MAJOR_VER 3
-#define AVS_MINOR_VER 7
-#define AVS_BUGFIX_VER 5
-
-#define AVS_SEQREV "4600"
-#define AVS_BRANCH "master"
-
-#define AVS_NEWEST_TAG "${VER_FULL}"
-#define AVS_DEVNEXT_REV "0"
-#define AVS_DEV_REVDATE "2026-06-17"
-#define AVS_DEV_GITHASH "ffbuild-static"
-
-#define AVS_VERSION_STR "AviSynth+ ${VER_FULL} (r4600, master, x86_64)"
-
-#endif // AVISYNTH_VERSION_H
-EOF
 
     # VersionGen должна быть собрана перед инсталляцией
     ninja $NINJA_V VersionGen || return 1
