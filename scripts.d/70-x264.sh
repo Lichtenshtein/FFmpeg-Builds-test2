@@ -121,6 +121,7 @@ EOF
     if [[ -f "$PC_FILE" ]]; then
         sed -i 's|^Cflags:.*|Cflags: -I${includedir}|' "$PC_FILE"
         sed -i "s|-L$FFBUILD_PREFIX/lib|-L\${libdir}|g" "$PC_FILE"
+        sed -i '/^0/d' "$PC_FILE"
     fi
 }
 
