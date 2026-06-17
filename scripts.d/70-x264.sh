@@ -60,7 +60,7 @@ BUILD_ARCH=$(grep "SYS_ARCH=" < config.mak | awk -F= '{print $2}')
 echo "#define X264_REV $PLAIN_VER"
 echo "#define X264_REV_DIFF $VER_DIFF"
 
-VER="$PLAIN_VER ffbuild_static t_mod_New [${BIT_DEPTH}-bit@${CHROMA_FORMATS} ${BUILD_ARCH}]"
+VER="$PLAIN_VER ffbuild t_mod_New [${BIT_DEPTH}-bit@${CHROMA_FORMATS} ${BUILD_ARCH}]"
 echo "#define X264_VERSION \" r$VER\""
 
 API=$(grep '#define X264_BUILD' < "$(dirname "$0")"/x264.h | sed -e 's/.* \([1-9][0-9]*\).*/\1/')
