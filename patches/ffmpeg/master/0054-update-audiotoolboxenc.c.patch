@@ -1,0 +1,22 @@
+From edd0f02879be0d295e6c2f50b1c1a5899de467fa Mon Sep 17 00:00:00 2001
+From: netony <hevc1@foxmail.com>
+Date: Fri, 5 Jun 2026 02:29:08 +0800
+Subject: [PATCH] Update audiotoolboxenc.c
+
+---
+ libavcodec/audiotoolboxenc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/libavcodec/audiotoolboxenc.c b/libavcodec/audiotoolboxenc.c
+index d999e5e8a2fcf..fe015e539163b 100644
+--- a/libavcodec/audiotoolboxenc.c
++++ b/libavcodec/audiotoolboxenc.c
+@@ -653,7 +653,7 @@ static const AVOption options[] = {
+         .p.profiles     = PROFILES, \
+         .p.wrapper_name = "at", \
+         CODEC_CH_LAYOUTS_ARRAY(CH_LAYOUTS), \
+-        CODEC_SAMPLEFMTS(AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_U8), \
++        CODEC_SAMPLEFMTS(AV_SAMPLE_FMT_S16, AV_SAMPLE_FMT_U8, AV_SAMPLE_FMT_S32), \
+     };
+ 
+ static const AVChannelLayout aac_at_ch_layouts[] = {

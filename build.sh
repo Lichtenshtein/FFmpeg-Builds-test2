@@ -24,10 +24,10 @@ cleanup() {
 
     # Если сборка упала, можно оставить лог конфига в доступном месте
     if [[ $exit_code -ne 0 && -f "$FFMPEG_CONFIG_LOG" ]]; then
-        cp "$FFMPEG_CONFIG_LOG" "$FFBUILD_DESTDIR/failed_config.log" 2>/dev/null || true
+        cp "$FFMPEG_CONFIG_LOG" "${FFBUILD_DESTDIR}/failed_config.log" 2>/dev/null || true
     else
     # Просто копируем лог в папку для упаковки
-        cp "$FFMPEG_CONFIG_LOG" "$FFBUILD_DESTDIR/config.log" 2>/dev/null || true
+        cp "$FFMPEG_CONFIG_LOG" "${FFBUILD_DESTDIR}/config.log" 2>/dev/null || true
     fi
 
     log_info "Cleanup done."
@@ -361,9 +361,9 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
         fi
     }
 
-    log_debug "FFBUILD_PREFIX:\n$FFBUILD_PREFIX"
-    log_debug "FFBUILD_DESTDIR:\n$FFBUILD_DESTDIR"
-    log_debug "PKG_DIR:\n$PKG_DIR"
+    log_debug "FFBUILD_PREFIX:\n${FFBUILD_PREFIX}"
+    log_debug "FFBUILD_DESTDIR:\n${FFBUILD_DESTDIR}"
+    log_debug "PKG_DIR:\n${PKG_DIR}"
     log_debug "INSTALL_ROOT:\n$INSTALL_ROOT"
 
     log_debug "RAW CONFIGURE: \n$TOTAL_FF_CONFIGURE"
@@ -439,7 +439,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     fi
 
     log_info "${SEARCH_MARK} Auditing pkg-config files for overflow triggers..."
-    for pc in "$FFBUILD_PREFIX"/lib/pkgconfig/*.pc; do
+    for pc in "${FFBUILD_PREFIX}"/lib/pkgconfig/*.pc; do
         log_debug "Testing pc file: $(basename "$pc")"
         # Проверяем, не падает ли pkgconf на чтении флагов этой либы
         pkgconf --static --libs "$(basename "$pc" .pc)" >/dev/null 2>&1 && log_info "  $(basename "$pc"): OK" || log_error "  $(basename "$pc"): CRASHED OR FAILED"
@@ -751,21 +751,21 @@ FFMPEG_VERSION=$(echo "$FFMPEG_VERSION" | xargs)
 BUILD_NAME="ffmpeg-${FFMPEG_VERSION}-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
 
 export PKG_DIR="$FFMPEG_PKG_ROOT/${BUILD_NAME}"
-mkdir -p "$PKG_DIR"/{bin,doc,share}
-export ASSETS_DIR="$PKG_DIR/share"
+mkdir -p "${PKG_DIR}"/{bin,doc,share}
+export ASSETS_DIR="${PKG_DIR}/share"
 
 if ! declare -F package_variant >/dev/null; then
     log_error "package_variant not defined - variant script missing or broken"
     exit 1
 fi
-package_variant "$INSTALL_ROOT" "$PKG_DIR"
+package_variant "$INSTALL_ROOT" "${PKG_DIR}"
 
 # =======================================
 # FFMPEG ASSETS & PLUGINS COLLECTION
 # =======================================
 # Скачиваем модели и ассеты
 log_info "${SYNC_MARK} Collecting additional assets..."
-"$UTIL_DIR"/collect_assets.sh "$ASSETS_DIR" "$FFMPEG_SOURCE_DIR" || log_warn "Assets download failed, but continuing..."
+"$UTIL_DIR"/collect_assets.sh "${ASSETS_DIR}" "$FFMPEG_SOURCE_DIR" || log_warn "Assets download failed, but continuing..."
 
 # =======================================
 # FFMPEG DEBUGGING SECTION 2
@@ -797,7 +797,7 @@ if [[ "$DEBUG_MODE" == "1" && "$USE_AVX512" != "1" ]]; then
         else
             log_info "${CHECK_MARK} $(basename "$file") is clean of AVX-512 code."
         fi
-    done < <(find "$PKG_DIR/bin" -type f \( -name "*.exe" -o -name "*.dll" \))
+    done < <(find "${PKG_DIR}/bin" -type f \( -name "*.exe" -o -name "*.dll" \))
 fi
 
 if [[ "$DEBUG_MODE" == "1" ]]; then
@@ -813,7 +813,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         exit 0
     fi
 
-    export WINEDEBUG="-all,err,seh"
+    export WINEDEBUG="-all,err,seh,bad,fixme:all"
     export WINEARCH=win64
     export DISPLAY=:99
 
@@ -933,10 +933,10 @@ fi
 # --strip-all; --strip-unneeded
 if [[ "$SKIP_POST_STRIP" != "1" ]]; then
     if declare -F strip_files >/dev/null; then
-        strip_files "$PKG_DIR/bin" "ffmpeg"
+        strip_files "${PKG_DIR}/bin" "ffmpeg"
     else
         log_warn "strip_files function not found, falling back to basic strip"
-        find "$PKG_DIR/bin" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "${FFBUILD_CROSS_PREFIX}strip" --strip-unneeded {} \;
+        find "${PKG_DIR}/bin" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "${FFBUILD_CROSS_PREFIX}strip" --strip-unneeded {} \;
     fi
 fi
 
@@ -951,12 +951,12 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
     find "${FFBUILD_PREFIX}" -type f -name "*.debug" -exec cp {} "./${BUILD_NAME}/bin/" \; 2>/dev/null || true
     log_info "${SAVE_MARK} Packaging external debug symbols separately..."
     # Находим все созданные .debug файлы и пакуем их отдельно
-    7z a -mx7 -mmt=on -r "$FFBUILD_DESTDIR/${BUILD_NAME}-debug-symbols.7z" "./${BUILD_NAME}/*.debug"
+    7z a -mx7 -mmt=on -r "${FFBUILD_DESTDIR}/${BUILD_NAME}-debug-symbols.7z" "./${BUILD_NAME}/*.debug"
     # Исключаем файлы .debug из основного пользовательского архива
-    7z a -mx7 -mmt=on "$FFBUILD_DESTDIR/${BUILD_NAME}.7z" "./${BUILD_NAME}/*" -xr!"*.debug"
+    7z a -mx7 -mmt=on "${FFBUILD_DESTDIR}/${BUILD_NAME}.7z" "./${BUILD_NAME}/*" -xr!"*.debug"
 else
     # Обычная сборка без дебаг-файлов
-    7z a -mx7 -mmt=on "$FFBUILD_DESTDIR/${BUILD_NAME}.7z" "./${BUILD_NAME}/*"
+    7z a -mx7 -mmt=on "${FFBUILD_DESTDIR}/${BUILD_NAME}.7z" "./${BUILD_NAME}/*"
 fi
 
 popd
@@ -964,7 +964,7 @@ popd
 # Генерация метаданных для GitHub Actions
 if [[ -n "$GITHUB_ACTIONS" ]]; then
     echo "build_name=${BUILD_NAME}" >> "$GITHUB_OUTPUT"
-    echo "${BUILD_NAME}.7z" > "$FFBUILD_DESTDIR/${TARGET}-${VARIANT}.txt"
+    echo "${BUILD_NAME}.7z" > "${FFBUILD_DESTDIR}/${TARGET}-${VARIANT}.txt"
 fi
 
 duration=$SECONDS
