@@ -160,7 +160,7 @@ ffbuild_libs() {
 }
 
 ffbuild_configure() {
-    echo --enable-openssl
+    [[ "${SEC_PROTO}" != "openssl" ]] && echo --disable-openssl || echo --enable-openssl
 }
 
 ffbuild_unconfigure() {

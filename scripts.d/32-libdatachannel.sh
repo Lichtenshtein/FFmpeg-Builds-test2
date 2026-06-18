@@ -56,9 +56,10 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    local PC_FILE="$PC_DIR/datachannel.pc"
+    local PC_FILE="$PC_DIR/libdatachannel.pc"
     if [[ ! -f "PC_FILE" ]]; then
-        log_info "Generating custom datachannel.pc for linking..."
+        log_info "Generating custom libdatachannel.pc for linking..."
+        mkdir -p "$(dirname "$PC_FILE")"
         cat <<EOF > "$PC_FILE"
 prefix=${FFBUILD_PREFIX}
 exec_prefix=\${prefix}

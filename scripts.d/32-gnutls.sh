@@ -110,12 +110,10 @@ ffbuild_dockerbuild() {
     done
 }
 
-# only build as a dependency for other components
+ffbuild_configure() {
+    [[ "${SEC_PROTO}" != "gnutls" ]] && echo --disable-gnutls || echo --enable-gnutls
+}
 
-# ffbuild_configure() {
-    # echo --enable-gnutls
-# }
-
-# ffbuild_unconfigure() {
-    # echo --disable-gnutls
-# }
+ffbuild_unconfigure() {
+    echo --disable-gnutls
+}

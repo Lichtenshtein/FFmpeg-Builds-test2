@@ -1,9 +1,9 @@
 #!/bin/bash
 
-SCRIPT_SKIP="1"
+[[ "${SEC_PROTO}" != "schannel" ]] && SCRIPT_SKIP="1"
 
 ffbuild_enabled() {
-    [[ $TARGET == win* ]]
+    [[ $TARGET == win* ]] && return 0
 }
 
 ffbuild_dockerdl() {
@@ -27,7 +27,7 @@ ffbuild_dockerbuild() {
 }
 
 ffbuild_configure() {
-    echo --enable-schannel
+    [[ "${SEC_PROTO}" != "schannel" ]] && echo --disable-schannel || echo --enable-schannel
 }
 
 ffbuild_unconfigure() {

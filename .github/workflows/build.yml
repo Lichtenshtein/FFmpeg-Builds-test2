@@ -143,9 +143,10 @@ env:
   CPU_ARCH:        ${{ github.event.inputs.cpu_arch || 'broadwell' }}
   CPU_TUNE:        ${{ github.event.inputs.cpu_tune || 'broadwell' }}
   # Strict params
+  SEC_PROTO:      "openssl" # openssl/gnutls/mbedtls/schannel
   DEDUPE_FLAGS:   '1' # Deduplicate LDFLAGS/LIBS
   OLDER_FFNV:     '0' # Install older ffnvcodec version (8.1)
-  USE_TENSORFLOW: '1'
+  USE_TENSORFLOW: '0'
   USE_ASAN:       '0' # Address Sanitizer not supported in ct-ng
   LOG_RAW_SYMB:   '20' # number of lines displaying external library deps
   LOG_SIZES:      '650' # number of lines displayed in logs
