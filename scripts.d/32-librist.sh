@@ -4,9 +4,9 @@ SCRIPT_REPO="https://code.videolan.org/rist/librist.git"
 SCRIPT_COMMIT="340fea4285893a9967f44efd56f6b731ed9f5e14"
 
 ffbuild_depends() {
-    # echo mbedtls # does not recognize external mbedtls
-    # echo nettle # broken
-    # echo gnutls # broken
+    echo mbedtls # does not recognize external mbedtls
+    echo nettle # broken
+    echo gnutls # broken
 }
 
 ffbuild_enabled() {
