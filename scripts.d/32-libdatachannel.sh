@@ -5,7 +5,7 @@ SCRIPT_COMMIT="a542d8703bfab42a5533852e18d6d1879e01080a"
 
 ffbuild_depends() {
     echo openssl # 1 of 2
-    echo gnutls
+    echo gnutls # 1 of 2
     echo nettle
 }
 
@@ -31,7 +31,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        -DBUILD_SHARED_DEPS_LIBS=OFF
+        -DBUILD_SHARED_DEPS_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DUSE_GNUTLS=OFF
         -DUSE_MBEDTLS=OFF
         -DPREFER_SYSTEM_LIB=OFF

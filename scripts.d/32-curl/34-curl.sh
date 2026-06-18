@@ -36,11 +36,6 @@ ffbuild_dockerbuild() {
     # Выделяем из CFLAGS только флаги компилятора (без -D и -I)
     local CLEAN_CFLAGS=$(echo "$CFLAGS" | sed 's/-[DU][^ ]*//g; s/-I[^ ]*//g')
 
-    # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
-    # Порядок: curl -> (+crypto, quiche) -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
-    local DEP_LIBS="-lssh -lquiche -lnghttp2 -lssl -lcrypto -lzstd -lbrotlidec -lbrotlicommon -lz"
-    local WIN_SYS_LIBS="-luserenv -lcrypt32 -liphlpapi -lntdll -lsetupapi"
-
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
@@ -50,17 +45,8 @@ ffbuild_dockerbuild() {
         --enable-optimize
         --enable-threaded-resolver
         --enable-ipv6
-        --with-openssl
-        --with-nghttp2="$FFBUILD_PREFIX"
-        --with-quiche="$FFBUILD_PREFIX" # ngtcp2 + nghttp3
-        --with-libssh="$FFBUILD_PREFIX"
-        --with-zlib
-        --with-zstd
-        --with-brotli
         --with-pic
         --without-libpsl
-        --enable-doh
-        --enable-ech
         --enable-cookies
         --enable-aws
         --enable-ntlm
@@ -72,7 +58,57 @@ ffbuild_dockerbuild() {
         --disable-ldaps
         --disable-manual
         --disable-docs
+        # other secure protocols; first=higher priority
+        # --with-schannel
+        # --with-gnutls
+        # --with-mbedtls
     )
+
+    if has_library "ssl"; then
+        log_info "OpenSSL library detected. Building with OpenSSL support..."
+        myconf+=( --with-openssl ) # lso for AWS-LC, BoringSSL, LibreSSL, and quictls
+        local SSL_LIBS="-lssl -lcrypto"
+    fi
+    if has_library "zstd"; then
+        log_info "ZSTD library detected. Building with ZSTD support..."
+        myconf+=( --with-zstd )
+        local ZSTD_LIBS="-lzstd"
+    fi
+    if has_library "z"; then
+        log_info "ZLib library detected. Building with ZLib support..."
+        myconf+=( --with-zlib )
+        local Z_LIBS="-lz"
+    fi
+    if has_library "brotlienc"; then
+        log_info "Brotli library detected. Building with Brotli support..."
+        myconf+=( --with-brotli )
+        local BROTLI_LIBS="-lbrotlidec -lbrotlicommon"
+    fi
+    if has_library "ssh"; then
+        log_info "SSH library detected. Building with SSH support..."
+        myconf+=( --with-libssh="$FFBUILD_PREFIX" )
+        local SSH_LIBS="-lssh"
+    fi
+    if has_library "quiche"; then
+        log_info "Quiche library detected. Building with Quiche support..."
+        # ngtcp2 + nghttp3
+        myconf+=(
+            --with-quiche="$FFBUILD_PREFIX"
+            --enable-doh
+            --enable-ech
+        )
+        local QUICHE_LIBS="-lquiche"
+    fi
+    if has_library "nghttp2"; then
+        log_info "nghttp2 library detected. Building with nghttp2 support..."
+        myconf+=( --with-nghttp2="$FFBUILD_PREFIX" )
+        local HTTP2_LIBS="-lnghttp2"
+    fi
+
+    # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
+    # Порядок: curl -> (+crypto, quiche) -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
+    local DEP_LIBS="${SSH_LIBS} ${QUICHE_LIBS} ${HTTP2_LIBS} ${SSL_LIBS} ${ZSTD_LIBS} ${BROTLI_LIBS} ${Z_LIBS}"
+    local WIN_LIBS="-luserenv -lcrypt32 -liphlpapi -lntdll -lsetupapi"
 
     export static_flags=""
     export self_static_flags=""
@@ -94,7 +130,7 @@ ffbuild_dockerbuild() {
     CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
     CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}${USELTO_C}${LTO_FIX}" \
     LDFLAGS="$LDFLAGS ${USELTO}${LTO_FIX}" \
-    LIBS="$DEP_LIBS $WIN_SYS_LIBS $LIBS" \
+    LIBS="$DEP_LIBS $WIN_LIBS $LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     # make -j$(nproc) $MAKE_V || return 1

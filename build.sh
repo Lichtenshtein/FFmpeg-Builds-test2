@@ -769,305 +769,6 @@ log_info "${SYNC_MARK} Collecting additional assets..."
 
 if [[ "$DEBUG_MODE" == "1" ]]; then
 
-# Map ffmpeg enable flags to their corresponding codec names
-# Format: 'enable_flag:codec_name:media_type'
-declare -A COMPONENT_TEST_MAP=(
-    ["enable-libx264"]="libx264:v"
-    ["enable-libx265"]="libx265:v"
-    ["enable-libsvtav1"]="libsvtav1:v"
-    ["enable-libaom"]="libaom:v"
-    ["enable-libvpx"]="libvpx:v"
-    ["enable-libsvtvp9"]="libsvtvp9:v"
-    ["enable-libopenh264"]="libopenh264:v"
-    ["enable-libvvdec"]="libvvdec:v" # Example mapping
-    ["enable-libxevd"]="libxevd:v"
-    ["enable-liblcevc_dec"]="lcevc_dec:v" # Decoder usually tested differently, but good for symbol check
-    ["enable-libmp3lame"]="libmp3lame:a"
-    ["enable-libopus"]="libopus:a"
-    ["enable-libvorbis"]="libvorbis:a"
-    ["enable-libfdk-aac"]="libfdk_aac:a"
-    ["enable-libsvtjpegxs"]="libsvtjpegxs:v"
-)
-
-generate_component_tests() {
-    local enabled_components=()
-    local tests=()
-
-    log_debug "${SEARCH_MARK} Scanning for enabled heavy components..."
-
-    # Scan FINAL_CONFIGURE or config.log for --enable-lib...
-    # Fallback to config.log if FINAL_CONFIGURE is not set in scope
-    local config_source="${FINAL_CONFIGURE:-$(cat ${FFMPEG_CONFIG_LOG:-/dev/null} 2>/dev/null)}"
-
-    for flag in "${!COMPONENT_TEST_MAP[@]}"; do
-        if [[ "$config_source" == *"$flag"* ]]; then
-            local codec_spec="${COMPONENT_TEST_MAP[$flag]}"
-            local codec_name="${codec_spec%%:*}"
-            local media_type="${codec_spec##*:}"
-
-            enabled_components+=("$codec_name ($media_type)")
-
-            # Construct the specific test command
-            # We use a 2-second duration to ensure the encoder initializes and processes frames
-            if [[ "$media_type" == "v" ]]; then
-                # Video test: testsrc -> scale -> codec -> null
-                tests+=("-loglevel warning -f lavfi -i testsrc2=s=1280x720:r=30:d=2 -vf scale=-1:720 -c:v $codec_name -b:v 500k -f null -")
-            else
-                # Audio test: sine -> codec -> null
-                tests+=("-loglevel warning -f lavfi -i sine=f=1000:d=2 -c:a $codec_name -b:a 128k -f null -")
-            fi
-        fi
-    done
-
-    # Output summary
-    if [[ ${#enabled_components[@]} -eq 0 ]]; then
-        log_warn "No heavy external components detected for specific testing."
-    else
-        log_info "Discovered ${#enabled_components[@]} components for deep audit:"
-        for comp in "${enabled_components[@]}"; do
-            log_debug "   - $comp"
-        done
-    fi
-
-    # Return the array of test strings (via global variable for simplicity in this context)
-    COMPREHENSIVE_TESTS=("${tests[@]}")
-}
-
-run_deep_component_audit() {
-    log_info "${START_MARK} Launching automated Wine+GDB crash audit..."
-
-    local TEST_EXE="${PKG_DIR}/bin/ffmpeg.exe"
-    [[ ! -f "$TEST_EXE" ]] && TEST_EXE="/opt/ffdest/opt/ffbuild/bin/ffmpeg.exe"
-
-    if ! command -v wine64 &> /dev/null && ! command -v wine &> /dev/null; then
-        log_warn "Wine is not installed. Skipping audit."
-        return 0
-    fi
-
-    local STRINGS_CMD="${FFBUILD_CROSS_PREFIX}strings"
-    command -v "$STRINGS_CMD" &>/dev/null || STRINGS_CMD="strings"
-
-    export WINEDEBUG="-all,err,seh,bad,fixme:all"
-    export WINEARCH=win64
-    export DISPLAY=:99
-
-    [[ -z "$TMP_DIR" ]] && TMP_DIR="/tmp"
-    local AUDIT_LOG="${TMP_DIR}/ffmpeg_deep_audit.log"
-    local CRASH_LOG="${TMP_DIR}/ffmpeg_crash_details.log"
-    local CRASH_AUDIT_LOG="${TMP_DIR}/ffmpeg_crash_audit.log"
-    mkdir -p "$TMP_DIR"
-    rm -f "$CRASH_AUDIT_LOG" "$AUDIT_LOG" "$CRASH_LOG"
-
-    log_debug "${LOG_DEBUG}=======================================================${NC}"
-    log_debug "🚨 WINE SMOKE TEST ANALYSIS (DEBUG_MODE=1)"
-    log_debug "${LOG_DEBUG}=======================================================${NC}"
-
-    log_info "${START_MARK} Launching Deep Component & Stability Audit..."
-
-    # --- PHASE 1: Static Symbol Verification ---
-    log_debug "${SEARCH_MARK} Verifying static symbols in binary..."
-
-    local MISSING_SYMBOLS=0
-
-    # Check for a few critical heavy libs if they were expected
-    # You can expand this list based on your 'COMPONENTS' array
-    if [[ "$FINAL_CONFIGURE" == *"--enable-libx264"* ]]; then
-        if ! "$STRINGS_CMD" "$TEST_EXE" 2>/dev/null | grep -q "x264_"; then
-            log_error "Symbol x264_ not found in binary! Linking failure detected."
-            MISSING_SYMBOLS=1
-        elif ! ${NM} "$TEST_EXE" 2>/dev/null | grep -q "x264_"; then
-            log_error "Symbol x264_ not found in binary! Linking failure detected."
-            MISSING_SYMBOLS=1
-        fi
-    fi
-
-    if [[ "$FINAL_CONFIGURE" == *"--enable-libsvtav1"* ]]; then
-        if ! "$STRINGS_CMD" "$TEST_EXE" 2>/dev/null | grep -q "svt_av1"; then
-            log_error "Symbol svt_av1 not found in binary! Linking failure detected."
-            MISSING_SYMBOLS=1
-        elif ! ${NM} "$TEST_EXE" 2>/dev/null | grep -q "svt_av1"; then
-            log_error "Symbol svt_av1 not found in binary! Linking failure detected."
-            MISSING_SYMBOLS=1
-        fi
-    fi
-
-    if [[ $MISSING_SYMBOLS -eq 1 ]]; then
-        log_error "Static linking verification FAILED. Binary may be broken."
-        # exit 1
-    fi
-
-    log_debug "${CHECK_MARK} Static symbols verified."
-
-    # --- PHASE 2: crash audit via hybrid winedbg ---
-
-    # Test suite: Basic info + a complex filter chain
-    TEST_SUITE=(
-        "-codecs -formats -filters -protocols -pix_fmts"
-        "-v debug -f lavfi -i testsrc=size=1280x720:rate=60:duration=2 -f lavfi -i sine=frequency=1000:duration=2 -vf scale=640x360,format=yuv420p -c:v wrapped_avframe -c:a pcm_s16le -f null -"
-    )
-
-    log_info "Running deep component crash audit via hybrid winedbg..."
-    CRASH_FOUND=0
-    CRASH2_FOUND=0
-
-    # Счётчик для генерации уникальных имён файлов
-    TEST_INDEX=0
-
-    for TEST_ARGS in "${TEST_SUITE[@]}"; do
-        ((++TEST_INDEX))
-        # Создаем изолированный лог для конкретного подтеста первого этапа
-        PHASE1_LOG="${TMP_DIR}/audit_p1_${TEST_INDEX}.log"
-        rm -f "$PHASE1_LOG"
-
-        log_debug "Executing test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
-
-        # Use --auto mode: robust, fast, and avoids interactive debugger pitfalls
-        # It returns 0 on success, non-zero on crash
-        if winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$PHASE1_LOG" 2>&1; then
-            # Double check: did ffmpeg itself exit with 0?
-            # Sometimes winedbg exits 0 even if ffmpeg crashes if the crash is handled.
-            # But usually, if winedbg --auto succeeds, the app ran.
-            log_debug "Test completed (winedbg exit 0)."
-        else
-            # winedbg --auto failed -> likely a crash
-            log_error "Test failed (winedbg exit non-zero). Checking for crash details..."
-
-            # Extract crash info if available
-            if grep -q 'Exception c0000005\|Access Violation\|Segmentation fault' "$PHASE1_LOG"; then
-                log_error "Crash detected!"
-                CRASH_FOUND=1
-                cat "$PHASE1_LOG" >> "$CRASH_AUDIT_LOG"
-                break
-            else
-                # It might be a non-critical error (e.g., missing codec)
-                log_warn "Non-zero exit, but no critical crash exception found. Continuing..."
-            fi
-        fi
-        # Переносим данные в общий лог для истории
-        cat "$PHASE1_LOG" >> "$CRASH_AUDIT_LOG"
-        rm -f "$PHASE1_LOG"
-    done
-
-    # Сбрасываем счётчик для второго этапа
-    TEST_INDEX=0
-
-    # Сбор бэктрейсов (winedbg --command)
-    if [[ $CRASH_FOUND -eq 0 ]]; then
-        for TEST_ARGS in "${TEST_SUITE[@]}"; do
-            ((++TEST_INDEX))
-            PHASE2_LOG="${TMP_DIR}/audit_p2_${TEST_INDEX}.log"
-            rm -f "$PHASE2_LOG"
-
-            log_debug "Executing sub-test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
-
-            # Если ffmpeg падает, cont прерывается, bt печатает стек, kill и quit чисто выходят.
-            winedbg --command "cont; bt; kill; quit" "$TEST_EXE" $TEST_ARGS >> "$PHASE2_LOG" 2>&1
-            # WINE_EXIT=$?
-
-            # Проверяем лог на наличие критических аппаратных исключений и ошибок памяти
-            if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow|stack_chk_fail|stack-buffer-overflow|global-buffer-overflow|access violation|SIGSEGV|illegal instruction" "$PHASE2_LOG"; then
-                log_error "CRITICAL FAULT DETECTED during sub-test: ${TEST_ARGS:0:60}..."
-                CRASH2_FOUND=1
-                cat "$PHASE2_LOG" >> "$CRASH_AUDIT_LOG"
-                break
-            fi
-            cat "$PHASE2_LOG" >> "$CRASH_AUDIT_LOG"
-            rm -f "$PHASE2_LOG"
-        done
-    fi
-
-    if [[ -f "$CRASH_AUDIT_LOG" && -s "$CRASH_AUDIT_LOG" ]]; then
-        if [[ $CRASH_FOUND -eq 1 ]]; then
-            log_error "CRASH DETECTED."
-            cat "$CRASH_AUDIT_LOG" >&2
-        elif [[ $CRASH2_FOUND -eq 1 ]]; then
-            log_debug "Relevant Crash Backtrace:"
-            sed -n '/Backtrace:/,$p' "$CRASH_AUDIT_LOG" >&2 || cat "$CRASH_AUDIT_LOG" >&2
-        else
-            log_debug "No critical errors found in log."
-        fi
-    fi
-
-    # --- PHASE 3: Generate Tests ---
-    generate_component_tests
-
-    # Add a generic "stability" test if no specific components found or as a baseline
-    if [[ ${#COMPREHENSIVE_TESTS[@]} -eq 0 ]]; then
-        COMPREHENSIVE_TESTS+=("-loglevel warning -f lavfi -i testsrc2=d=1 -c:v wrapped_avframe -f null -")
-    fi
-
-    local TOTAL_TESTS=${#COMPREHENSIVE_TESTS[@]}
-    local FAILED_TESTS=0
-
-    # --- PHASE 4: Execute Tests ---
-    for i in "${!COMPREHENSIVE_TESTS[@]}"; do
-        local TEST_ARGS="${COMPREHENSIVE_TESTS[$i]}"
-        local TEST_NUM=$((i + 1))
-
-        # Extract codec name for logging (heuristic)
-        local CODEC_NAME=$(echo "$TEST_ARGS" | grep -oE "lib[a-z0-9]+|svt[a-z0-9]+" | head -1)
-        [[ -z "$CODEC_NAME" ]] && CODEC_NAME="Generic"
-
-        log_debug "Running Test ${TEST_NUM}/${TOTAL_TESTS}: ${CYAN}${CODEC_NAME}${NC}..."
-
-        # Run with timeout and winedbg --auto
-        # Timeout prevents hanging on deadlocks
-        local PHASE_LOG="${TMP_DIR}/audit_phase_${TEST_NUM}.log"
-
-        if timeout 60s winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$PHASE_LOG" 2>&1; then
-            log_debug "   -> Passed (Exit 0)"
-        else
-            local EXIT_CODE=$?
-            if [[ $EXIT_CODE -eq 124 ]]; then
-                log_error "   -> FAILED: TIMEOUT (Hang detected in ${CODEC_NAME})"
-                FAILED_TESTS=$((FAILED_TESTS + 1))
-                cat "$PHASE_LOG" >> "$AUDIT_LOG"
-                continue
-            fi
-
-            # Check for crash signatures in the log
-            if grep -qE "Exception c0000005|Access Violation|Segmentation fault|0xc000001d|Illegal instruction" "$PHASE_LOG"; then
-                log_error "   -> FAILED: CRASH detected in ${CODEC_NAME}"
-                FAILED_TESTS=$((FAILED_TESTS + 1))
-
-                # Generate Backtrace
-                echo "=== CRASH REPORT: ${CODEC_NAME} ===" > "$CRASH_LOG"
-                echo "Command: ffmpeg $TEST_ARGS" >> "$CRASH_LOG"
-                echo "Exit Code: $EXIT_CODE" >> "$CRASH_LOG"
-                echo "Timestamp: $(date)" >> "$CRASH_LOG"
-                echo "--- Log Snippet ---" >> "$CRASH_LOG"
-                grep -A 5 -B 5 "Exception\|Access Violation" "$PHASE_LOG" >> "$CRASH_LOG"
-
-                cat "$CRASH_LOG" >&2
-                cat "$PHASE_LOG" >> "$AUDIT_LOG"
-            else
-                log_warn "   -> Non-zero exit ($EXIT_CODE) but no crash signature. (Logic error or missing feature?)"
-                # Don't fail the build on non-critical logic errors unless strict mode is on
-                cat "$PHASE_LOG" >> "$AUDIT_LOG"
-            fi
-        fi
-        rm -f "$PHASE_LOG"
-    done
-
-    # --- PHASE 5: Final Report ---
-    log_debug "${LOG_DEBUG}=======================================================${NC}"
-
-    if [[ $CRASH_FOUND -eq 1 || $CRASH2_FOUND -eq 1 ]]; then
-        log_error "HARDWARE FAULT, ILLEGAL INSTRUCTION OR ACCESS VIOLATION DETECTED!"
-        log_error "Please review the Backtrace (bt) output printed above."
-        # exit 1 # Жестко валим сборку, так как бинарник дефектный
-    elif [[ $FAILED_TESTS -gt 0 ]]; then
-        log_error "AUDIT FAILED: ${FAILED_TESTS}/${TOTAL_TESTS} tests failed."
-        log_error "Review ${AUDIT_LOG} and ${CRASH_LOG} for details."
-        # exit 1
-    else
-        log_info "${CHECK_MARK} Wine runtime smoke test passed successfully. Binary structure is solid."
-        log_info "${CHECK_MARK} Deep Component Audit PASSED. All critical paths stable."
-        mv "$AUDIT_LOG" "${TMP_DIR}/last_deep_audit.log" 2>/dev/null
-        mv "$CRASH_AUDIT_LOG" "${TMP_DIR}/last_audit_run.log" 2>/dev/null
-    fi
-}
-
     # If zmm registers (these are AVX-512 registers) or evex prefixes appear in the assembler output, it means that some library is still pushing this code.
     if [[ "$USE_AVX512" != "1" ]]; then
         log_info "${SEARCH_MARK} Scanning final binaries for accidental AVX-512 leak..."
@@ -1096,6 +797,308 @@ run_deep_component_audit() {
             fi
         done < <(find "${PKG_DIR}/bin" -type f \( -name "*.exe" -o -name "*.dll" \))
     fi
+
+    # Map ffmpeg enable flags to their corresponding codec names
+    # Format: 'enable_flag:codec_name:media_type'
+    declare -A COMPONENT_TEST_MAP=(
+        ["enable-libx264"]="libx264:v"
+        ["enable-libx265"]="libx265:v"
+        ["enable-libsvtav1"]="libsvtav1:v"
+        ["enable-libaom"]="libaom:v"
+        ["enable-libvpx"]="libvpx:v"
+        ["enable-libsvtvp9"]="libsvtvp9:v"
+        ["enable-libopenh264"]="libopenh264:v"
+        ["enable-libvvdec"]="libvvdec:v" # Example mapping
+        ["enable-libxevd"]="libxevd:v"
+        ["enable-liblcevc_dec"]="lcevc_dec:v" # Decoder usually tested differently, but good for symbol check
+        ["enable-libmp3lame"]="libmp3lame:a"
+        ["enable-libopus"]="libopus:a"
+        ["enable-libvorbis"]="libvorbis:a"
+        ["enable-libfdk-aac"]="libfdk_aac:a"
+        ["enable-libsvtjpegxs"]="libsvtjpegxs:v"
+    )
+
+    generate_component_tests() {
+        local enabled_components=()
+        local tests=()
+
+        log_debug "${SEARCH_MARK} Scanning for enabled heavy components..."
+
+        # Scan FINAL_CONFIGURE or config.log for --enable-lib...
+        # Fallback to config.log if FINAL_CONFIGURE is not set in scope
+        local config_source="${FINAL_CONFIGURE:-$(cat ${FFMPEG_CONFIG_LOG:-/dev/null} 2>/dev/null)}"
+
+        for flag in "${!COMPONENT_TEST_MAP[@]}"; do
+            if [[ "$config_source" == *"$flag"* ]]; then
+                local codec_spec="${COMPONENT_TEST_MAP[$flag]}"
+                local codec_name="${codec_spec%%:*}"
+                local media_type="${codec_spec##*:}"
+
+                enabled_components+=("$codec_name ($media_type)")
+
+                # Construct the specific test command
+                # We use a 2-second duration to ensure the encoder initializes and processes frames
+                if [[ "$media_type" == "v" ]]; then
+                    # Video test: testsrc -> scale -> codec -> null
+                    tests+=("-loglevel warning -f lavfi -i testsrc2=s=1280x720:r=30:d=2 -vf scale=-1:720 -c:v $codec_name -b:v 500k -f null -")
+                else
+                    # Audio test: sine -> codec -> null
+                    tests+=("-loglevel warning -f lavfi -i sine=f=1000:d=2 -c:a $codec_name -b:a 128k -f null -")
+                fi
+            fi
+        done
+
+        # Output summary
+        if [[ ${#enabled_components[@]} -eq 0 ]]; then
+            log_warn "No heavy external components detected for specific testing."
+        else
+            log_info "Discovered ${#enabled_components[@]} components for deep audit:"
+            for comp in "${enabled_components[@]}"; do
+                log_debug "   - $comp"
+            done
+        fi
+
+        # Return the array of test strings (via global variable for simplicity in this context)
+        COMPREHENSIVE_TESTS=("${tests[@]}")
+    }
+
+    run_deep_component_audit() {
+        log_info "${START_MARK} Launching automated Wine+GDB crash audit..."
+
+        local TEST_EXE="${PKG_DIR}/bin/ffmpeg.exe"
+        [[ ! -f "$TEST_EXE" ]] && TEST_EXE="/opt/ffdest/opt/ffbuild/bin/ffmpeg.exe"
+
+        if ! command -v wine64 &> /dev/null && ! command -v wine &> /dev/null; then
+            log_warn "Wine is not installed. Skipping audit."
+            return 0
+        fi
+
+        local STRINGS_CMD="${FFBUILD_CROSS_PREFIX}strings"
+        command -v "$STRINGS_CMD" &>/dev/null || STRINGS_CMD="strings"
+
+        export WINEDEBUG="-all,err,seh,bad,fixme:all"
+        export WINEARCH=win64
+        export DISPLAY=:99
+
+        [[ -z "$TMP_DIR" ]] && TMP_DIR="/tmp"
+        local AUDIT_LOG="${TMP_DIR}/ffmpeg_deep_audit.log"
+        local CRASH_LOG="${TMP_DIR}/ffmpeg_crash_details.log"
+        local CRASH_AUDIT_LOG="${TMP_DIR}/ffmpeg_crash_audit.log"
+        mkdir -p "$TMP_DIR"
+        rm -f "$CRASH_AUDIT_LOG" "$AUDIT_LOG" "$CRASH_LOG"
+
+        log_debug "${LOG_DEBUG}=======================================================${NC}"
+        log_debug "🚨 WINE SMOKE TEST ANALYSIS (DEBUG_MODE=1)"
+        log_debug "${LOG_DEBUG}=======================================================${NC}"
+
+        log_info "${START_MARK} Launching Deep Component & Stability Audit..."
+
+        # --- PHASE 1: Static Symbol Verification ---
+        log_debug "${SEARCH_MARK} Verifying static symbols in binary..."
+
+        local MISSING_SYMBOLS=0
+
+        # Check for a few critical heavy libs if they were expected
+        # You can expand this list based on your 'COMPONENTS' array
+        if [[ "$FINAL_CONFIGURE" == *"--enable-libx264"* ]]; then
+            if ! "$STRINGS_CMD" "$TEST_EXE" 2>/dev/null | grep -q "x264_"; then
+                log_error "Symbol x264_ not found in binary! Linking failure detected."
+                MISSING_SYMBOLS=1
+            elif ! ${NM} "$TEST_EXE" 2>/dev/null | grep -q "x264_"; then
+                log_error "Symbol x264_ not found in binary! Linking failure detected."
+                MISSING_SYMBOLS=1
+            fi
+        fi
+
+        if [[ "$FINAL_CONFIGURE" == *"--enable-libsvtav1"* ]]; then
+            if ! "$STRINGS_CMD" "$TEST_EXE" 2>/dev/null | grep -q "svt_av1"; then
+                log_error "Symbol svt_av1 not found in binary! Linking failure detected."
+                MISSING_SYMBOLS=1
+            elif ! ${NM} "$TEST_EXE" 2>/dev/null | grep -q "svt_av1"; then
+                log_error "Symbol svt_av1 not found in binary! Linking failure detected."
+                MISSING_SYMBOLS=1
+            fi
+        fi
+
+        if [[ $MISSING_SYMBOLS -eq 1 ]]; then
+            log_error "Static linking verification FAILED. Binary may be broken."
+            # exit 1
+        fi
+
+        log_debug "${CHECK_MARK} Static symbols verified."
+
+        # --- PHASE 2: crash audit via hybrid winedbg ---
+
+        # Test suite: Basic info + a complex filter chain
+        TEST_SUITE=(
+            "-codecs -formats -filters -protocols -pix_fmts"
+            "-v debug -f lavfi -i testsrc=size=1280x720:rate=60:duration=2 -f lavfi -i sine=frequency=1000:duration=2 -vf scale=640x360,format=yuv420p -c:v wrapped_avframe -c:a pcm_s16le -f null -"
+        )
+
+        log_info "Running deep component crash audit via hybrid winedbg..."
+        CRASH_FOUND=0
+        CRASH2_FOUND=0
+
+        # Счётчик для генерации уникальных имён файлов
+        TEST_INDEX=0
+
+        for TEST_ARGS in "${TEST_SUITE[@]}"; do
+            ((++TEST_INDEX))
+            # Создаем изолированный лог для конкретного подтеста первого этапа
+            PHASE1_LOG="${TMP_DIR}/audit_p1_${TEST_INDEX}.log"
+            rm -f "$PHASE1_LOG"
+
+            log_debug "Executing test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
+
+            # Use --auto mode: robust, fast, and avoids interactive debugger pitfalls
+            # It returns 0 on success, non-zero on crash
+            if winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$PHASE1_LOG" 2>&1; then
+                # Double check: did ffmpeg itself exit with 0?
+                # Sometimes winedbg exits 0 even if ffmpeg crashes if the crash is handled.
+                # But usually, if winedbg --auto succeeds, the app ran.
+                log_debug "Test completed (winedbg exit 0)."
+            else
+                # winedbg --auto failed -> likely a crash
+                log_error "Test failed (winedbg exit non-zero). Checking for crash details..."
+
+                # Extract crash info if available
+                if grep -q 'Exception c0000005\|Access Violation\|Segmentation fault' "$PHASE1_LOG"; then
+                    log_error "Crash detected!"
+                    CRASH_FOUND=1
+                    cat "$PHASE1_LOG" >> "$CRASH_AUDIT_LOG"
+                    break
+                else
+                    # It might be a non-critical error (e.g., missing codec)
+                    log_warn "Non-zero exit, but no critical crash exception found. Continuing..."
+                fi
+            fi
+            # Переносим данные в общий лог для истории
+            cat "$PHASE1_LOG" >> "$CRASH_AUDIT_LOG"
+            rm -f "$PHASE1_LOG"
+        done
+
+        # Сбрасываем счётчик для второго этапа
+        TEST_INDEX=0
+
+        # Сбор бэктрейсов (winedbg --command)
+        if [[ $CRASH_FOUND -eq 0 ]]; then
+            for TEST_ARGS in "${TEST_SUITE[@]}"; do
+                ((++TEST_INDEX))
+                PHASE2_LOG="${TMP_DIR}/audit_p2_${TEST_INDEX}.log"
+                rm -f "$PHASE2_LOG"
+
+                log_debug "Executing sub-test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
+
+                # Если ffmpeg падает, cont прерывается, bt печатает стек, kill и quit чисто выходят.
+                winedbg --command "cont; bt; kill; quit" "$TEST_EXE" $TEST_ARGS >> "$PHASE2_LOG" 2>&1
+                # WINE_EXIT=$?
+
+                # Проверяем лог на наличие критических аппаратных исключений и ошибок памяти
+                if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow|stack_chk_fail|stack-buffer-overflow|global-buffer-overflow|access violation|SIGSEGV|illegal instruction" "$PHASE2_LOG"; then
+                    log_error "CRITICAL FAULT DETECTED during sub-test: ${TEST_ARGS:0:60}..."
+                    CRASH2_FOUND=1
+                    cat "$PHASE2_LOG" >> "$CRASH_AUDIT_LOG"
+                    break
+                fi
+                cat "$PHASE2_LOG" >> "$CRASH_AUDIT_LOG"
+                rm -f "$PHASE2_LOG"
+            done
+        fi
+
+        if [[ -f "$CRASH_AUDIT_LOG" && -s "$CRASH_AUDIT_LOG" ]]; then
+            if [[ $CRASH_FOUND -eq 1 ]]; then
+                log_error "CRASH DETECTED."
+                cat "$CRASH_AUDIT_LOG" >&2
+            elif [[ $CRASH2_FOUND -eq 1 ]]; then
+                log_debug "Relevant Crash Backtrace:"
+                sed -n '/Backtrace:/,$p' "$CRASH_AUDIT_LOG" >&2 || cat "$CRASH_AUDIT_LOG" >&2
+            else
+                log_debug "No critical errors found in log."
+            fi
+        fi
+
+        # --- PHASE 3: Generate Tests ---
+        generate_component_tests
+
+        # Add a generic "stability" test if no specific components found or as a baseline
+        if [[ ${#COMPREHENSIVE_TESTS[@]} -eq 0 ]]; then
+            COMPREHENSIVE_TESTS+=("-loglevel warning -f lavfi -i testsrc2=d=1 -c:v wrapped_avframe -f null -")
+        fi
+
+        local TOTAL_TESTS=${#COMPREHENSIVE_TESTS[@]}
+        local FAILED_TESTS=0
+
+        # --- PHASE 4: Execute Tests ---
+        for i in "${!COMPREHENSIVE_TESTS[@]}"; do
+            local TEST_ARGS="${COMPREHENSIVE_TESTS[$i]}"
+            local TEST_NUM=$((i + 1))
+
+            # Extract codec name for logging (heuristic)
+            local CODEC_NAME=$(echo "$TEST_ARGS" | grep -oE "lib[a-z0-9]+|svt[a-z0-9]+" | head -1)
+            [[ -z "$CODEC_NAME" ]] && CODEC_NAME="Generic"
+
+            log_debug "Running Test ${TEST_NUM}/${TOTAL_TESTS}: ${CYAN}${CODEC_NAME}${NC}..."
+
+            # Run with timeout and winedbg --auto
+            # Timeout prevents hanging on deadlocks
+            local PHASE_LOG="${TMP_DIR}/audit_phase_${TEST_NUM}.log"
+
+            if timeout 60s winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$PHASE_LOG" 2>&1; then
+                log_debug "   -> Passed (Exit 0)"
+            else
+                local EXIT_CODE=$?
+                if [[ $EXIT_CODE -eq 124 ]]; then
+                    log_error "   -> FAILED: TIMEOUT (Hang detected in ${CODEC_NAME})"
+                    FAILED_TESTS=$((FAILED_TESTS + 1))
+                    cat "$PHASE_LOG" >> "$AUDIT_LOG"
+                    continue
+                fi
+
+                # Check for crash signatures in the log
+                if grep -qE "Exception c0000005|Access Violation|Segmentation fault|0xc000001d|Illegal instruction" "$PHASE_LOG"; then
+                    log_error "   -> FAILED: CRASH detected in ${CODEC_NAME}"
+                    FAILED_TESTS=$((FAILED_TESTS + 1))
+
+                    # Generate Backtrace
+                    echo "=== CRASH REPORT: ${CODEC_NAME} ===" > "$CRASH_LOG"
+                    echo "Command: ffmpeg $TEST_ARGS" >> "$CRASH_LOG"
+                    echo "Exit Code: $EXIT_CODE" >> "$CRASH_LOG"
+                    echo "Timestamp: $(date)" >> "$CRASH_LOG"
+                    echo "--- Log Snippet ---" >> "$CRASH_LOG"
+                    grep -A 5 -B 5 "Exception\|Access Violation" "$PHASE_LOG" >> "$CRASH_LOG"
+
+                    cat "$CRASH_LOG" >&2
+                    cat "$PHASE_LOG" >> "$AUDIT_LOG"
+                else
+                    log_warn "   -> Non-zero exit ($EXIT_CODE) but no crash signature. (Logic error or missing feature?)"
+                    # Don't fail the build on non-critical logic errors unless strict mode is on
+                    cat "$PHASE_LOG" >> "$AUDIT_LOG"
+                fi
+            fi
+            rm -f "$PHASE_LOG"
+        done
+
+        # --- PHASE 5: Final Report ---
+        log_debug "${LOG_DEBUG}=======================================================${NC}"
+
+        if [[ $CRASH_FOUND -eq 1 || $CRASH2_FOUND -eq 1 ]]; then
+            log_error "HARDWARE FAULT, ILLEGAL INSTRUCTION OR ACCESS VIOLATION DETECTED!"
+            log_error "Please review the Backtrace (bt) output printed above."
+            return 1 # Явно валим функцию, если бинарник дефектный
+        elif [[ $FAILED_TESTS -gt 0 ]]; then
+            log_error "AUDIT FAILED: ${FAILED_TESTS}/${TOTAL_TESTS} tests failed."
+            log_error "Review ${AUDIT_LOG} and ${CRASH_LOG} for details."
+            return 1 # Явно валим функцию, если тесты не прошли
+        else
+            log_info "${CHECK_MARK} Wine runtime smoke test passed successfully. Binary structure is solid."
+            log_info "${CHECK_MARK} Deep Component Audit PASSED. All critical paths stable."
+
+            [[ -f "$AUDIT_LOG" ]] && mv "$AUDIT_LOG" "${TMP_DIR}/last_deep_audit.log" 2>/dev/null
+            [[ -f "$CRASH_AUDIT_LOG" ]] && mv "$CRASH_AUDIT_LOG" "${TMP_DIR}/last_audit_run.log" 2>/dev/null
+
+            return 0
+        fi
+    }
 
     # run Deep Audit
     run_deep_component_audit
