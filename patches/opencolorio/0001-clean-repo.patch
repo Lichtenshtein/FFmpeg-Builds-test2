@@ -1,0 +1,27 @@
+From 3b08c22242ef9d6b2156978e651d3dcf0b30ec2c Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Thu, 18 Jun 2026 12:39:02 +0300
+Subject: [PATCH] clean repo
+
+---
+ CMakeLists.txt | 4 ----
+ 1 file changed, 4 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index ccf2dfbb..d5008221 100755
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -475,10 +475,6 @@ include(FindExtPackages)
+ # Progress to other sources
+ 
+ add_subdirectory(vendor)
+-if(OCIO_BUILD_DOCS)
+-	add_subdirectory(docs)
+-endif()
+-add_subdirectory(tests)
+ add_subdirectory(src)
+ add_subdirectory(ext)
+ 
+-- 
+2.52.0.windows.1
+
