@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/paullouisageneau/libdatachannel.git"
 SCRIPT_COMMIT="a542d8703bfab42a5533852e18d6d1879e01080a" 
 
@@ -32,7 +32,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-        -DCMAKE_POLICY_DEFAULT_CMP0069=NEW
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DBUILD_SHARED_DEPS_LIBS=OFF
         -DUSE_GNUTLS=OFF
@@ -58,12 +57,22 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     local PC_FILE="$PC_DIR/datachannel.pc"
-    if [[ -f "$PC_FILE" ]]; then
-        if grep -q "Libs.private:" "$PC_FILE"; then
-            sed -i '/^Libs.private:/ s/$/ -lssl -lcrypto -lws2_32 -lbcrypt -lcrypt32 -liphlpapi/' "$PC_FILE"
-        else
-            echo "Libs.private: -lssl -lcrypto -lws2_32 -lbcrypt -lcrypt32 -liphlpapi" >> "$PC_FILE"
-        fi
+    if [[ ! -f "PC_FILE" ]]; then
+        log_info "Generating custom datachannel.pc for linking..."
+        cat <<EOF > "$PC_FILE"
+prefix=${FFBUILD_PREFIX}
+exec_prefix=\${prefix}
+libdir=\${exec_prefix}/lib
+includedir=\${prefix}/include
+
+Name: datachannel
+Description: WebRTC Data Channels and Media Transport library (C/C++)
+Version: ${VER_FULL}
+Libs: -L\${libdir} -ldatachannel
+Requires: openssl
+Libs.private: -ljuice -libsrtp2 -libusrsctp -lws2_32 -lbcrypt -lcrypt32 -liphlpapi -luserenv
+Cflags: -I\${includedir} -I\${includedir}/rtc
+EOF
     fi
 }
 
