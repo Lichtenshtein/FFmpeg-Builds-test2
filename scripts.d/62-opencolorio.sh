@@ -42,8 +42,8 @@ ffbuild_dockerbuild() {
         -DOCIO_USE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         # Отключаем утилиты, тесты, документацию и биндинги
         -DOCIO_BUILD_APPS=OFF
-        -DOCIO_BUILD_OPENFX=OFF # OpenFX plugins
-        -DOCIO_BUILD_NUKE=OFF # nuke plugins
+        -DOCIO_BUILD_OPENFX=ON # OpenFX plugins
+        -DOCIO_BUILD_NUKE=ON # nuke plugins
         -DOCIO_BUILD_TESTS=OFF
         -DOCIO_BUILD_GPU_TESTS=OFF
         -DOCIO_BUILD_DOCS=OFF
@@ -87,7 +87,7 @@ ffbuild_dockerbuild() {
     fi
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -include cstdint" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
