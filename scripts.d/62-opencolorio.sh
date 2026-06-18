@@ -44,6 +44,15 @@ ffbuild_dockerbuild() {
          fi
     fi
 
+    local FILE_TRANSFORM_SRC="src/OpenColorIO/transforms/FileTransform.cpp"
+    if [[ -f "$FILE_TRANSFORM_SRC" ]]; then
+        log_info "Patching FileTransform.cpp for MinGW GCC 15 std::wstring compatibility..."
+
+        sed -i 's/Platform::filenameToUTF(filepath)/Platform::filenameToUTF(filepath).c_str()/g' "$FILE_TRANSFORM_SRC"
+    else
+        log_warn "Could not find $FILE_TRANSFORM_SRC to apply the c_str() patch!"
+    fi
+
     mkdir build && cd build
 
     local myconf=(
