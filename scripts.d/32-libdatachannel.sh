@@ -46,8 +46,11 @@ ffbuild_dockerbuild() {
         -DCAPI_STDCALL=OFF
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DRTC_STATIC -DJUICE_STATIC"
+
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
@@ -70,7 +73,7 @@ Version: ${VER_FULL}
 Libs: -L\${libdir} -ldatachannel
 Requires: openssl
 Libs.private: -ljuice -lsrtp2 -lusrsctp -lws2_32 -lbcrypt -lcrypt32 -liphlpapi -luserenv
-Cflags: -I\${includedir} -I\${includedir}/rtc
+Cflags: -I\${includedir} -I\${includedir}/rtc $static_flags
 EOF
     fi
 }
