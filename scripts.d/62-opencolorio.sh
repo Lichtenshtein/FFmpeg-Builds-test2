@@ -21,6 +21,29 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # update YAML-CPP to 0.9.0 ---
+    local TARGET_TAG_FILE=$(find . -name "Installyaml-cpp.cmake" -o -name "yaml-cpp.cmake" | head -n 1)
+    local YAML_CPP_FILE="share/cmake/modules/install/Installyaml-cpp.cmake"
+
+    if [[ -n "$TARGET_TAG_FILE" ]]; then
+        log_info "Found yaml-cpp installer configuration at: ${TARGET_TAG_FILE}"
+        log_info "Forcing yaml-cpp update to manual commit (v0.9.0)..."
+
+        sed -i 's/set(yaml-cpp_GIT_TAG .*/set(yaml-cpp_GIT_TAG "2decf96e915d2b0c26c68c1659665789dfef2633")/g' "$TARGET_TAG_FILE"
+        sed -i 's/set(yaml-cpp_VERSION .*/set(yaml-cpp_VERSION "0.9.0")/g' "$TARGET_TAG_FILE"
+    else
+        log_warn "Could not find Installyaml-cpp.cmake dynamically. Attempting direct sed on Installyaml-cpp.cmake"
+        if [[ -f "$YAML_CPP_FILE" ]]; then
+            sed -i 's/set(yaml-cpp_GIT_TAG .*/set(yaml-cpp_GIT_TAG "2decf96e915d2b0c26c68c1659665789dfef2633")/g' "$YAML_CPP_FILE"
+
+             log_info "Injecting -include cstdint directly into yaml-cpp compile flags..."
+
+             sed -i '/string(STRIP "${yaml-cpp_CXX_FLAGS}"/i \        set(yaml-cpp_CXX_FLAGS "${yaml-cpp_CXX_FLAGS} -include cstdint")' "$YAML_CPP_FILE"
+         else
+             log_warn "Target template file $YAML_CPP_FILE not found for flag injection!"
+         fi
+    fi
+
     mkdir build && cd build
 
     local myconf=(
@@ -87,7 +110,7 @@ ffbuild_dockerbuild() {
     fi
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -include cstdint" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
@@ -105,6 +128,8 @@ ffbuild_dockerbuild() {
         # fi
         # sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"
     # fi
+
+    find /build/62-opencolorio -type f -name "*.a" -printf "%p (%s bytes)\n"
 }
 
 ffbuild_configure() {
