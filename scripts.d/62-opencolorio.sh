@@ -54,7 +54,16 @@ ffbuild_dockerbuild() {
         log_warn "Could not find $FILE_TRANSFORM_SRC to apply the c_str() patch!"
     fi
 
-    mkdir build && cd build
+    local SRC_CMAKE_FILE="src/CMakeLists.txt"
+    if [[ -f "$SRC_CMAKE_FILE" ]]; then
+        log_info "Disabling the apps subdirectory to isolate oglapphelpers compilation..."
+
+        sed -i 's/add_subdirectory(apps)/# add_subdirectory(apps)/g' "$SRC_CMAKE_FILE"
+    else
+        log_warn "Could not find $SRC_CMAKE_FILE to patch apps directory out!"
+    fi
+
+    mkdir build "${INSTALL_ROOT}"/{lib,include} && cd build
 
     local myconf=(
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
@@ -74,7 +83,8 @@ ffbuild_dockerbuild() {
         -DOCIO_USE_F16C=ON
         -DOCIO_USE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         # Отключаем утилиты, тесты, документацию и биндинги
-        -DOCIO_BUILD_APPS=OFF
+        -DOCIO_BUILD_APPS=ON
+        -DOCIO_USE_OIIO_FOR_APPS=OFF
         -DOCIO_BUILD_OPENFX=ON # OpenFX plugins
         -DOCIO_BUILD_NUKE=OFF # nuke plugins
         -DOCIO_BUILD_TESTS=OFF
@@ -88,13 +98,12 @@ ffbuild_dockerbuild() {
     if has_library "vulkan-1"; then
         log_info "Vulkan library detected. Building with Vulkan support..."
         myconf+=(
-            -DOCIO_VULKAN_ENABLED=ON # also needs glslang.
-            -DVulkan_INCLUDE_DIRS="${FFBUILD_PREFIX}/include;${FFBUILD_PREFIX}/include/vulkan"
-            -DVulkan_LIBRARIES="${FFBUILD_PREFIX}/lib/libvulkan-1.a"
+            -DOCIO_VULKAN_ENABLED=ON
+            -DVulkan_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
             -DVulkan_LIBRARY="${FFBUILD_PREFIX}/lib/libvulkan-1.a"
             -Dglslang_DIR="${FFBUILD_PREFIX}/lib/cmake/glslang"
             -Dglslang_ROOT="${FFBUILD_PREFIX}"
-            -Dglslang_INCLUDE_DIR="${FFBUILD_PREFIX}/include;${FFBUILD_PREFIX}/include/glslang"
+            -Dglslang_INCLUDE_DIR="${FFBUILD_PREFIX}/include/glslang"
         )
         local VULKAN_FLAG="-DOCIO_VULKAN_ENABLED"
     fi
@@ -112,6 +121,7 @@ ffbuild_dockerbuild() {
             -DZLIB_LIBRARY="${FFBUILD_PREFIX}/lib/libz.a"
             -DZLIB_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
         )
+        local Z_FLAG="-lz"
     fi
 
     if has_library "lcms2"; then
@@ -168,47 +178,35 @@ ffbuild_dockerbuild() {
 
     log_info "Dynamically collecting and installing OpenColorIO donor libraries..."
 
-    # Находим все статические библиотеки, собранные внутри этой стадии
-    # Фильтруем оригинальную libOpenColorIO.a
-    local DEP_LIBS=$(find /build/$STAGENAME/build -type f -name "*.a" ! -name "libOpenColorIO.a" -printf "%f\n" | \
-                 sed 's/^lib//; s/\.a$//' | sort -u | xargs -I{} echo -l{} | tr '\n' ' ')
-
-    # Переносим статические библиотеки-доноры в общий куст сборки
-    mkdir -p "${INSTALL_ROOT}"/{lib,include}
-    local EXT_DIST_LIB="ext/dist/lib"
     local EXT_DIST_INC="ext/dist/include"
-
-    # log_info "Moving oglapphelpers to global prefix..."
-    # cp -f "build/src/libutils/oglapphelpers/libOpenColorIOoglapphelpers.a" "${FFBUILD_PREFIX}/lib/" 2>/dev/null || true
-    # cp -f "build/src/libutils/oglapphelpers/libOpenColorIOoglapphelpers.a" "${FFBUILD_DESTDIR}${FFBUILD_PREFIX}/lib/" 2>/dev/null || true
-
-    cp -fv "${EXT_DIST_LIB}"/libexpat.a      "${INSTALL_ROOT}/lib/"
-    cp -fv "${EXT_DIST_LIB}"/libyaml-cpp.a   "${INSTALL_ROOT}/lib/"
-    cp -fv "${EXT_DIST_LIB}"/libpystring.a   "${INSTALL_ROOT}/lib/"
-    cp -fv "${EXT_DIST_LIB}"/libImath-*.a    "${INSTALL_ROOT}/lib/"
-    cp -fv "${EXT_DIST_LIB}"/libminizip-ng.a "${INSTALL_ROOT}/lib/"
-
-    # Переносим все найденные .a библиотеки-доноры в префикс
-    find /build/$STAGENAME/build -type f -name "*.a" -exec cp -fv {} "${INSTALL_ROOT}/lib/" \;
-
     # Копируем заголовки expat на случай использования другими компонентами
     if [[ -d "${EXT_DIST_INC}" ]]; then
         cp -rfv "${EXT_DIST_INC}"/* "${INSTALL_ROOT}/include/"
     fi
 
+    # Находим все статические библиотеки, собранные внутри этой стадии
+    # Фильтруем оригинальную libOpenColorIO.a
+    local DEP_LIBS=$(find /build/$STAGENAME/build -type f -name "*.a" ! -name "libOpenColorIO.a" -printf "%f\n" | \
+                 sed 's/^lib//; s/\.a$//' | sort -u | xargs -I{} echo -l{} | tr '\n' ' ')
+
+    # Переносим все найденные .a библиотеки-доноры в префикс
+    find /build/$STAGENAME/build -type f -name "*.a" -exec cp -fv {} "${INSTALL_ROOT}/lib/" \;
+
     local PC_FILE="$PC_DIR/OpenColorIO.pc"
     local WIN_LIBS="-ld3d12 -ldxgi -ldxguid"
-    local OCIO_STATIC_LIBS="${DEP_LIBS} ${WIN_LIBS}"
+    local OCIO_STATIC_LIBS="${DEP_LIBS} ${Z_FLAG} ${WIN_LIBS} -lstdc++"
     if [[ -f "$PC_FILE" ]]; then
-        # sed -i 's/^Requires.private:.*/Requires.private: /g' "$PC_FILE"
-        log_info "Patching OpenColorIO.pc with dynamic donor list..."
-        sed -i "/^Libs.private:/ s/$/ ${OCIO_STATIC_LIBS}/" "$PC_FILE"
+        log_info "Patching OpenColorIO.pc with dynamic donor list"
+        if grep -q "Libs.private:" "$PC_FILE"; then
+            sed -i "/^Libs.private:/ s/$/ ${OCIO_STATIC_LIBS}/" "$PC_FILE"
+        else
+            echo "Libs.private: ${OCIO_STATIC_LIBS} -pthread" >> "$PC_FILE"
+        fi
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
                 sed -i "/^Cflags:/ s/$/ $static_flags ${VULKAN_FLAG} ${DIRECTX_FLAG}/" "$PC_FILE"
             fi
         fi
-        sed -i "/^Libs.private:/ s/$/ -lstdc++/" "$PC_FILE"
         sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"
     fi
 }
