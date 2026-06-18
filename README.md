@@ -290,7 +290,7 @@ All of those can be optionally combined with any combination of addins:
 
 * `opencolorio`
 ```
-08-zlib|27-freeglut|40-lcms2|49-vulkan-headers|52-vulkan-loader|62-opencolorio
+08-zlib|27-freeglut|40-lcms2|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|62-opencolorio
 ```
 
 * `libbluray`
