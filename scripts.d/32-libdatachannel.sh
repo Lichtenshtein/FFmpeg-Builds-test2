@@ -69,7 +69,7 @@ Description: WebRTC Data Channels and Media Transport library (C/C++)
 Version: ${VER_FULL}
 Libs: -L\${libdir} -ldatachannel
 Requires: openssl
-Libs.private: -ljuice -libsrtp2 -libusrsctp -lws2_32 -lbcrypt -lcrypt32 -liphlpapi -luserenv
+Libs.private: -ljuice -lsrtp2 -lusrsctp -lws2_32 -lbcrypt -lcrypt32 -liphlpapi -luserenv
 Cflags: -I\${includedir} -I\${includedir}/rtc
 EOF
     fi
