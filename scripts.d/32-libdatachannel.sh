@@ -16,10 +16,7 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     echo "git-submodule-clone"
-    echo "rm -rf \
-deps/json \
-examples \
-test"
+    echo "rm -rf deps/json examples test"
 }
 
 ffbuild_dockerbuild() {

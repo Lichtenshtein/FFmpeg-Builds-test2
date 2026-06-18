@@ -288,6 +288,11 @@ All of those can be optionally combined with any combination of addins:
 06-libiconv|07-gettext|08-zlib|11-brotli|11-xz|11-zstd|12-libffi|16-libxml2|30-openssl|32-libssh|32-quiche|33-nghttp2|34-curl
 ```
 
+* `opencolorio`
+```
+08-zlib|27-freeglut|40-lcms2|49-vulkan-headers|52-vulkan-loader|62-opencolorio
+```
+
 * `libbluray`
 ```
 85-libudfread|86-libdvdcss|86-libdvdread|87-libdvdnav|88-libbluray
