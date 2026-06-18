@@ -83,7 +83,7 @@ ffbuild_dockerbuild() {
         -DOCIO_BUILD_JAVA=OFF
         -DOCIO_WARNING_AS_ERROR=OFF
         # Аппаратное ускорение графики
-        -DOCIO_VULKAN_ENABLED=OFF
+        -DOCIO_VULKAN_ENABLED=ON
         # Интеграция с ZLIB
         -DZLIB_LIBRARY="${FFBUILD_PREFIX}/lib/libz.a"
         -DZLIB_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
@@ -92,12 +92,17 @@ ffbuild_dockerbuild() {
         -Dlcms2_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
     )
 
+    export static_flags=""
     if [[ "${PREFER_SHARED}" != "1" ]]; then
         myconf+=(
             -DBUILD_SHARED_LIBS=OFF
             -DZLIB_USE_STATIC_LIBS=ON
             -Dlcms2_STATIC_LIBRARY=ON
         )
+        # -DOpenColorIO_SKIP_IMPORTS (Убирает __imp_ с функций OCIO в FFmpeg)
+        # -DXML_STATIC               (статический импорт для expat)
+        # -DYAML_CPP_STATIC_DEFINE   (статический импорт для yaml-cpp)
+        static_flags="-DOpenColorIO_SKIP_IMPORTS -DXML_STATIC -DYAML_CPP_STATIC_DEFINE"
     else
         myconf+=(
             -DBUILD_SHARED_LIBS=ON
@@ -118,27 +123,42 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # local PC_FILE="$PC_DIR/OpenColorIO.pc"
-    # if [[ -f "$PC_FILE" ]]; then
-        # log_info "Fixing and auditing OpenColorIO.pc for static build..."
-        # sed -i '/^Cflags:/ s/[[:space:]]*-pthread//g' "$PC_FILE"
-        # if grep -q "Libs.private:" "$PC_FILE"; then
-            # sed -i '/^Libs.private:/ s/$/ -llcms2_fast_float -llcms2_threaded -lz -lvulkan-1 -lws2_32 -lshlwapi -lgnustl_static/' "$PC_FILE"
-        # else
-            # echo "Libs.private: -llcms2_fast_float -llcms2_threaded -lz -lvulkan-1 -lws2_32 -lshlwapi -lgnustl_static" >> "$PC_FILE"
-        # fi
-        # sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"
-    # fi
+    log_info "Moving found donor libraries to global prefix..."
 
-    find /build/62-opencolorio -type f -name "*.a" -printf "%p (%s bytes)\n"
+    # Переносим статические библиотеки-доноры в общий куст сборки
+    mkdir -p "${INSTALL_ROOT}"/{lib,include}
+    local EXT_DIST_LIB="ext/dist/lib"
+    local EXT_DIST_INC="ext/dist/include"
+
+    cp -fv "${EXT_DIST_LIB}"/libexpat.a      "${INSTALL_ROOT}/lib/"
+    cp -fv "${EXT_DIST_LIB}"/libyaml-cpp.a   "${INSTALL_ROOT}/lib/"
+    cp -fv "${EXT_DIST_LIB}"/libpystring.a   "${INSTALL_ROOT}/lib/"
+    cp -fv "${EXT_DIST_LIB}"/libImath-*.a    "${INSTALL_ROOT}/lib/"
+    cp -fv "${EXT_DIST_LIB}"/libminizip-ng.a "${INSTALL_ROOT}/lib/"
+
+    # Копируем заголовки expat на случай использования другими компонентами
+    if [[ -d "${EXT_DIST_INC}" ]]; then
+        cp -rfv "${EXT_DIST_INC}"/* "${INSTALL_ROOT}/include/"
+    fi
+
+    local PC_FILE="$PC_DIR/OpenColorIO.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+            fi
+        fi
+        sed -i "/^Libs.private:/ s/$/ -lstdc++/" "$PC_FILE"
+        sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"
+    fi
 }
 
 ffbuild_configure() {
