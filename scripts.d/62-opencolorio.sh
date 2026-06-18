@@ -43,7 +43,7 @@ ffbuild_dockerbuild() {
         # Отключаем утилиты, тесты, документацию и биндинги
         -DOCIO_BUILD_APPS=OFF
         -DOCIO_BUILD_OPENFX=ON # OpenFX plugins
-        -DOCIO_BUILD_NUKE=ON # nuke plugins
+        -DOCIO_BUILD_NUKE=OFF # nuke plugins
         -DOCIO_BUILD_TESTS=OFF
         -DOCIO_BUILD_GPU_TESTS=OFF
         -DOCIO_BUILD_DOCS=OFF
