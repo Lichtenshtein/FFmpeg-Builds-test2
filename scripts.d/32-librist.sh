@@ -32,7 +32,7 @@ ffbuild_dockerbuild() {
         -Dtest=false
         -Dbuilt_tools=false
         -Dbuiltin_mbedtls=false
-        -Duse_nettle=true
+        -Duse_nettle=false
         -Duse_gnutls=true
         -Duse_mbedtls=false
     )
