@@ -51,7 +51,7 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+if [[ "${PREFER_SHARED}" != "1" ]]; then
     # Путь к скомпилированной статической библиотеке
     local TARGET_LIB="${INSTALL_ROOT}/lib/libvulkan-1.a"
 

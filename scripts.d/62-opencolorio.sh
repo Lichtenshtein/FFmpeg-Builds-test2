@@ -7,6 +7,7 @@ ffbuild_depends() {
     echo zlib
     echo lcms2
     echo vulkan-loader
+    echo shaderc # needs glslang
 }
 
 ffbuild_enabled() {
@@ -87,7 +88,21 @@ ffbuild_dockerbuild() {
     if has_library "vulkan-1"; then
         log_info "Vulkan library detected. Building with Vulkan support..."
         myconf+=(
-            -DOCIO_VULKAN_ENABLED=ON # Аппаратное ускорение графики
+            -DOCIO_VULKAN_ENABLED=ON # also needs glslang.
+            -DVulkan_INCLUDE_DIRS="${FFBUILD_PREFIX}/include;${FFBUILD_PREFIX}/include/vulkan"
+            -DVulkan_LIBRARIES="${FFBUILD_PREFIX}/lib/libvulkan-1.a"
+            -DVulkan_LIBRARY="${FFBUILD_PREFIX}/lib/libvulkan-1.a"
+            -Dglslang_DIR="${FFBUILD_PREFIX}/lib/cmake/glslang"
+            -Dglslang_ROOT="${FFBUILD_PREFIX}"
+            -Dglslang_INCLUDE_DIR="${FFBUILD_PREFIX}/include;${FFBUILD_PREFIX}/include/glslang"
+        )
+        local VULKAN_FLAG="-DOCIO_VULKAN_ENABLED"
+    fi
+
+    if has_library "glut"; then
+        log_info "Freeglut library detected. Using with Freeglut support..."
+        myconf+=(
+            -DOCIO_GL_ENABLED=ON
         )
     fi
 
@@ -132,6 +147,7 @@ ffbuild_dockerbuild() {
             -DOCIO_USE_WINDOWS_UNICODE=ON
             -DOCIO_DIRECTX_ENABLED=ON # Включаем DX12 рендеринг для Windows
         )
+        local DIRECTX_FLAG="-DOCIO_DIRECTX_ENABLED"
     elif [[ $TARGET == linux64 ]]; then
         myconf+=(
             -DOCIO_DIRECTX_ENABLED=OFF
@@ -146,12 +162,25 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    log_info "Moving found donor libraries to global prefix..."
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+        find /build/$STAGENAME -type f -name "*.a" -printf "%p (%s bytes)\n"
+    fi
+
+    log_info "Dynamically collecting and installing OpenColorIO donor libraries..."
+
+    # Находим все статические библиотеки, собранные внутри этой стадии
+    # Фильтруем оригинальную libOpenColorIO.a
+    local DEP_LIBS=$(find /build/$STAGENAME/build -type f -name "*.a" ! -name "libOpenColorIO.a" -printf "%f\n" | \
+                 sed 's/^lib//; s/\.a$//' | sort -u | xargs -I{} echo -l{} | tr '\n' ' ')
 
     # Переносим статические библиотеки-доноры в общий куст сборки
     mkdir -p "${INSTALL_ROOT}"/{lib,include}
     local EXT_DIST_LIB="ext/dist/lib"
     local EXT_DIST_INC="ext/dist/include"
+
+    # log_info "Moving oglapphelpers to global prefix..."
+    # cp -f "build/src/libutils/oglapphelpers/libOpenColorIOoglapphelpers.a" "${FFBUILD_PREFIX}/lib/" 2>/dev/null || true
+    # cp -f "build/src/libutils/oglapphelpers/libOpenColorIOoglapphelpers.a" "${FFBUILD_DESTDIR}${FFBUILD_PREFIX}/lib/" 2>/dev/null || true
 
     cp -fv "${EXT_DIST_LIB}"/libexpat.a      "${INSTALL_ROOT}/lib/"
     cp -fv "${EXT_DIST_LIB}"/libyaml-cpp.a   "${INSTALL_ROOT}/lib/"
@@ -159,16 +188,24 @@ ffbuild_dockerbuild() {
     cp -fv "${EXT_DIST_LIB}"/libImath-*.a    "${INSTALL_ROOT}/lib/"
     cp -fv "${EXT_DIST_LIB}"/libminizip-ng.a "${INSTALL_ROOT}/lib/"
 
+    # Переносим все найденные .a библиотеки-доноры в префикс
+    find /build/$STAGENAME/build -type f -name "*.a" -exec cp -fv {} "${INSTALL_ROOT}/lib/" \;
+
     # Копируем заголовки expat на случай использования другими компонентами
     if [[ -d "${EXT_DIST_INC}" ]]; then
         cp -rfv "${EXT_DIST_INC}"/* "${INSTALL_ROOT}/include/"
     fi
 
     local PC_FILE="$PC_DIR/OpenColorIO.pc"
+    local WIN_LIBS="-ld3d12 -ldxgi -ldxguid"
+    local OCIO_STATIC_LIBS="${DEP_LIBS} ${WIN_LIBS}"
     if [[ -f "$PC_FILE" ]]; then
+        # sed -i 's/^Requires.private:.*/Requires.private: /g' "$PC_FILE"
+        log_info "Patching OpenColorIO.pc with dynamic donor list..."
+        sed -i "/^Libs.private:/ s/$/ ${OCIO_STATIC_LIBS}/" "$PC_FILE"
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
-                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+                sed -i "/^Cflags:/ s/$/ $static_flags ${VULKAN_FLAG} ${DIRECTX_FLAG}/" "$PC_FILE"
             fi
         fi
         sed -i "/^Libs.private:/ s/$/ -lstdc++/" "$PC_FILE"
