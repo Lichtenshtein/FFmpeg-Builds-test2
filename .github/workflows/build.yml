@@ -229,9 +229,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
+      - name: Check Initial Disk Space
+        id: space_check
+        run: |
+          echo "=== Initial Disk Space ==="
+          df -h /
+
+          # Получаем доступное место в мегабайтах
+          AVAILABLE_SPACE=$(df -m / | awk 'NR==2 {print $4}')
+          echo "available_space_mb=$AVAILABLE_SPACE" >> $GITHUB_OUTPUT
+
+          # Если места меньше 35840 МБ (35 ГБ), взводим флаг паники
+          if [ "$AVAILABLE_SPACE" -lt 35840 ]; then
+            echo "🚨 Low disk space detected! Forcing auto-clean."
+            echo "trigger_clean=true" >> $GITHUB_OUTPUT
+          else
+            echo "✅ Disk space is sufficient."
+            echo "trigger_clean=false" >> $GITHUB_OUTPUT
+          fi
+
       ## This cleans ~24Gb
       - name: Free Disk Space (Ubuntu)
-        if: ${{ github.event.inputs.freeSpace == 'true' || github.event.inputs.only_stage == '.*' }}
+        if: ${{ github.event.inputs.freeSpace == 'true' || steps.space_check.outputs.trigger_clean == 'true' || github.event.inputs.only_stage == '.*' }}
         uses: aausch/free-disk-space@fix/input-injection-and-mode-guard
         with:
           tool-cache: false
@@ -246,7 +265,7 @@ jobs:
 
       # This cleans ~400Mb
       - name: Final Deep Clean and Space Check
-        if: github.event.inputs.freeSpace == 'true'
+        if: ${{ github.event.inputs.freeSpace == 'true' || steps.space_check.outputs.trigger_clean == 'true' }}
         run: |
           sudo ionice -c 3 rm -rf /usr/share/dotnet &
           sudo ionice -c 3 rm -rf /usr/local/lib/android &
@@ -262,27 +281,24 @@ jobs:
       - name: Setup Swap Space
         # if: github.event.inputs.use_lto == 'true'
         run: |
-          echo "=== Initial Disk Space ==="
-          df -h /
+          CURRENT_SPACE=$(df -m / | awk 'NR==2 {print $4}')
+          echo "Current space after potential clean: $CURRENT_SPACE MB"
 
-          # Получаем доступное место в мегабайтах (10 ГБ = ~10240 МБ)
-          AVAILABLE_SPACE=$(df -m / | awk 'NR==2 {print $4}')
-
-          if [ "$AVAILABLE_SPACE" -lt 32768 ]; then
-            echo "⚠️ Low disk space detected ($AVAILABLE_SPACE MB)."
+          if [ "$CURRENT_SPACE" -lt 30720 ]; then
+            echo "⚠️ Post-clean disk space is still tight ($CURRENT_SPACE MB)."
 
             sudo swapoff -a || true
             sudo rm -f /swapfile
 
-            echo "=== Allocating 10GB Swap File ==="
-            sudo fallocate -l 10G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=32768
+            echo "=== Allocating 8GB Swap File ==="
+            sudo fallocate -l 8G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=8192
 
             sudo chmod 600 /swapfile
             sudo mkswap /swapfile
             sudo swapon /swapfile
             swapon --show
           else
-            echo "✅ Sufficient disk space available ($AVAILABLE_SPACE MB)."
+            echo "✅ Plenty of space available ($CURRENT_SPACE MB)."
             sudo swapoff -a || true
             sudo rm -f /swapfile
 
