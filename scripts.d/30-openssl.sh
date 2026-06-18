@@ -82,32 +82,36 @@ ffbuild_dockerbuild() {
         enable-camellia
         enable-ec
         enable-srp
+        enable-pie
         --prefix="$FFBUILD_PREFIX"
         --libdir=lib
-        --with-zlib-include="$FFBUILD_PREFIX/include"
-        --with-zlib-lib="$FFBUILD_PREFIX/lib"
         --cross-compile-prefix="$FFBUILD_CROSS_PREFIX"
         --openssldir="$FFBUILD_PREFIX/etc/ssl"
     )
 
     if has_library "zstd"; then
         log_info "ZSTD library detected. Building with ZSTD support..."
-        myconf+=( "enable-zstd" )
+        myconf+=( enable-zstd )
     fi
 
     if has_library "z"; then
         log_info "ZLib library detected. Building with ZLib support..."
-        myconf+=( "zlib no-comp" )
+        myconf+=(
+            no-comp
+            zlib
+            --with-zlib-include="$FFBUILD_PREFIX/include"
+            --with-zlib-lib="$FFBUILD_PREFIX/lib"
+        )
     fi
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
-        myconf+=( shared zlib-dynamic pic ) || \
-        myconf+=( no-shared zlib )
+        myconf+=( shared pic ) || \
+        myconf+=( no-shared )
 
     if [[ $TARGET == win64 ]]; then
         myconf+=( mingw64 )
     elif [[ $TARGET == linux64 ]]; then
-        myconf+=( linux-x86_64 )
+        myconf+=( linux-x86_64 enable-tfo )
     fi
 
     ./Configure "${myconf[@]}" \
