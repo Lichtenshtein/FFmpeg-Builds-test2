@@ -5,8 +5,8 @@ SCRIPT_COMMIT="340fea4285893a9967f44efd56f6b731ed9f5e14"
 
 ffbuild_depends() {
     # echo mbedtls # does not recognize external mbedtls
-    # echo nettle
-    echo gnutls
+    # echo nettle # broken
+    # echo gnutls # broken
 }
 
 ffbuild_enabled() {
@@ -32,10 +32,10 @@ ffbuild_dockerbuild() {
         -Dcpp_std=gnu++20
         -Dtest=false
         -Dbuilt_tools=false
-        -Dbuiltin_mbedtls=false
-        -Duse_nettle=false
-        -Duse_gnutls=true
-        -Duse_mbedtls=false
+        -Dbuiltin_mbedtls=true
+        -Duse_nettle=false # broken
+        -Duse_gnutls=false # broken
+        -Duse_mbedtls=true
     )
 
     if [[ $TARGET == win* ]]; then
