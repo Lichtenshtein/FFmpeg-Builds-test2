@@ -6,7 +6,7 @@ SCRIPT_COMMIT="0bebf8b8c7f07abe3571ded48a11aa907a1ffb20"
 # SCRIPT_TAGFILTER="v3.*"
 
 ffbuild_enabled() {
-    return 1
+    [[ "${SEC_PROTO}" != "mbedtls" ]] && return 1 || return 0
 }
 
 ffbuild_dockerdl() {
@@ -64,7 +64,7 @@ ffbuild_dockerbuild() {
 }
 
 ffbuild_configure() {
-    echo --enable-mbedtls
+    [[ "${SEC_PROTO}" != "mbedtls" ]] && echo --disable-mbedtls || echo --enable-mbedtls
 }
 
 ffbuild_unconfigure() {
