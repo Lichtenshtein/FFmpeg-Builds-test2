@@ -136,6 +136,85 @@ index 17d1dffa..c8e87f9b 100644
 -	add_subdirectory(examples/copy-paste-capi)
 -endif()
 -
+diff --git a/deps/libjuice/CMakeLists.txt b/deps/libjuice/CMakeLists.txt
+index 3c40a354..22f9198e 160000
+--- a/deps/libjuice/CMakeLists.txt
++++ b/deps/libjuice/CMakeLists.txt
+@@ -4,18 +4,18 @@ project (libjuice
+ 	LANGUAGES C)
+ set(PROJECT_DESCRIPTION "UDP Interactive Connectivity Establishment (ICE) library")
+ 
+-option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+-option(USE_NETTLE "Use Nettle for hash functions" OFF)
++option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
++option(USE_NETTLE "Use Nettle for hash functions" ON)
+ option(NO_SERVER "Disable server support" OFF)
+-option(NO_TESTS "Disable tests build" OFF)
++option(NO_TESTS "Disable tests build" ON)
+ option(WARNINGS_AS_ERRORS "Treat warnings as errors" OFF)
+ option(FUZZER "Enable oss-fuzz fuzzing" OFF)
+ option(CLANG_TIDY "Enable clang-tidy" OFF)
+ 
+ # Mitigations
+ option(DISABLE_CONSENT_FRESHNESS "Disable RFC 7675 Consent Freshness" OFF)
+-option(ENABLE_LOCALHOST_ADDRESS "List localhost addresses in candidates" OFF)
+-option(ENABLE_LOCAL_ADDRESS_TRANSLATION "Translate local addresses to localhost" OFF)
++option(ENABLE_LOCALHOST_ADDRESS "List localhost addresses in candidates" ON)
++option(ENABLE_LOCAL_ADDRESS_TRANSLATION "Translate local addresses to localhost" ON)
+ 
+ set(CMAKE_C_STANDARD 11)
+ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+diff --git a/deps/libsrtp/CMakeLists.txt b/deps/libsrtp/CMakeLists.txt
+index 24b3bf8f..a350a7a6 160000
+--- a/deps/libsrtp/CMakeLists.txt
++++ b/deps/libsrtp/CMakeLists.txt
+@@ -13,8 +13,8 @@ set(PACKAGE_STRING "${PROJECT_NAME} ${PROJECT_VERSION}")
+ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+ 
+ 
+-option(ENABLE_WARNINGS "Enable to add warnings to a target." ON)
+-option(ENABLE_WARNINGS_AS_ERRORS "Enable to treat warnings as errors." ON)
++option(ENABLE_WARNINGS "Enable to add warnings to a target." OFF)
++option(ENABLE_WARNINGS_AS_ERRORS "Enable to treat warnings as errors." OFF)
+ 
+ option(ENABLE_SANITIZE_ADDR "Enable address sanitize." OFF)
+ option(ENABLE_SANITIZE_UNDEF "Enable undefined sanitize." OFF)
+@@ -23,7 +23,7 @@ option(ENABLE_SANITIZE_THREAD "Enable thread sanitize (Gcc/Clang only)." OFF)
+ 
+ option(ENABLE_LTO "Enable to add Link Time Optimization." OFF)
+ 
+-option(LIBSRTP_TEST_APPS "Build libSRTP test applications" ON)
++option(LIBSRTP_TEST_APPS "Build libSRTP test applications" OFF)
+ option(BUILD_SHARED_LIBS "Build shared library" OFF)
+ 
+ include(TestBigEndian)
+diff --git a/deps/usrsctp/CMakeLists.txt b/deps/usrsctp/CMakeLists.txt
+index fec583d5..81276776 160000
+--- a/deps/usrsctp/CMakeLists.txt
++++ b/deps/usrsctp/CMakeLists.txt
+@@ -54,7 +54,7 @@ if (sctp_invariants)
+ 	add_definitions(-DINVARIANTS)
+ endif ()
+ 
+-option(sctp_debug "Provide debug information" 1)
++option(sctp_debug "Provide debug information" 0)
+ if (sctp_debug)
+ 	add_definitions(-DSCTP_DEBUG)
+ endif ()
+@@ -69,11 +69,11 @@ if (sctp_inet6)
+ 	add_definitions(-DINET6)
+ endif ()
+ 
+-option(sctp_werror "Treat warning as error" 1)
++option(sctp_werror "Treat warning as error" 0)
+ 
+ option(sctp_build_shared_lib "Build USRSCTP as shared library" 0)
+ 
+-option(sctp_build_programs "Build example programs" 1)
++option(sctp_build_programs "Build example programs" 0)
+ 
+ option(sctp_sanitizer_address "Compile with address sanitizer" 0)
+ 
 -- 
 2.52.0.windows.1
 
