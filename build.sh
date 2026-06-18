@@ -208,10 +208,10 @@ if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
     sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
 fi
 
-if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/libdatachannel.pc" ]]; then
-    log_info "Adding -DRTC_STATIC to libdatachannel.pc..."
-    sed -i '/^Cflags:/ s/$/ -DRTC_STATIC/' "${FFBUILD_PREFIX}/lib/pkgconfig/libdatachannel.pc"
-fi
+# if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/libdatachannel.pc" ]]; then
+    # log_info "Adding -DRTC_STATIC to libdatachannel.pc..."
+    # sed -i '/^Cflags:/ s/$/ -DRTC_STATIC/' "${FFBUILD_PREFIX}/lib/pkgconfig/libdatachannel.pc"
+# fi
 
 # =======================================
 # FLAGS SECTION
