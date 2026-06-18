@@ -26,6 +26,8 @@ ffbuild_depends() {
     echo soundtouch
     echo gnutls
     echo openvino_shared
+    echo libdatachannel
+    echo opencolorio
     # echo lcevcdec
     echo spirv-tools
     echo gavl
