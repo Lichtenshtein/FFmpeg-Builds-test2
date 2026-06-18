@@ -82,15 +82,30 @@ ffbuild_dockerbuild() {
         -DOCIO_BUILD_PYTHON=OFF
         -DOCIO_BUILD_JAVA=OFF
         -DOCIO_WARNING_AS_ERROR=OFF
-        # Аппаратное ускорение графики
-        -DOCIO_VULKAN_ENABLED=ON
-        # Интеграция с ZLIB
-        -DZLIB_LIBRARY="${FFBUILD_PREFIX}/lib/libz.a"
-        -DZLIB_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
-        # Интеграция с Little-CMS (lcms2)
-        -Dlcms2_LIBRARY="${FFBUILD_PREFIX}/lib/liblcms2.a"
-        -Dlcms2_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
     )
+
+    if has_library "vulkan-1"; then
+        log_info "Vulkan library detected. Building with Vulkan support..."
+        myconf+=(
+            -DOCIO_VULKAN_ENABLED=ON # Аппаратное ускорение графики
+        )
+    fi
+
+    if has_library "z"; then
+        log_info "ZLIB library detected. Using external ZLIB..."
+        myconf+=(
+            -DZLIB_LIBRARY="${FFBUILD_PREFIX}/lib/libz.a"
+            -DZLIB_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
+        )
+    fi
+
+    if has_library "lcms2"; then
+        log_info "lcms2 library detected. Using external lcms2..."
+        myconf+=(
+            -Dlcms2_LIBRARY="${FFBUILD_PREFIX}/lib/liblcms2.a"
+            -Dlcms2_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
+        )
+    fi
 
     export static_flags=""
     if [[ "${PREFER_SHARED}" != "1" ]]; then
