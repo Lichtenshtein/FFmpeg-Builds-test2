@@ -2,11 +2,13 @@
 
 SCRIPT_REPO="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-python-pytorch-2.12.0-4-any.pkg.tar.zst"
 
+# сбор сателлитных DLL
 GLOG_LINK="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-glog-0.7.1-10-any.pkg.tar.zst"
 SLEEF_LINK="https://mirror.accum.se/mirror/msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-sleef-3.9.0-2-any.pkg.tar.zst"
 OPENBLAS_LINK="https://mirrors.dotsrc.org/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-openblas-0.3.33-3-any.pkg.tar.zst"
 PROTOBUF_LINK="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-protobuf-35.0-1-any.pkg.tar.zst"
 UNWIND_LINK="https://distrohub.kyiv.ua/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-libunwind-22.1.7-1-any.pkg.tar.zst"
+ABSEIL_LINK="https://distrohub.kyiv.ua/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-abseil-cpp-20260526.0-1-any.pkg.tar.zst"
 
 export SKIP_POST_PC_PATCH=1
 
@@ -22,7 +24,6 @@ ffbuild_dockerdl() {
     echo "mv extracted/ucrt64/lib/python*/site-packages/torch/lib ."
     echo "rm -rf pytorch.tar.zst extracted"
 
-    # сбор сателлитных математических DLL
     echo "download_file \"$GLOG_LINK\" \"glog.tar.zst\""
     echo "mkdir -p extracted_glog"
     echo "tar --use-compress-program=unzstd -xf glog.tar.zst -C extracted_glog/ --wildcards \"*/include/glog*\" \"*/lib/*.a\" \"*/bin/*.dll\""
@@ -59,6 +60,13 @@ ffbuild_dockerdl() {
     echo "tar --use-compress-program=unzstd -xf unwind.tar.zst -C ext_unwind/ --wildcards \"*/bin/*.dll\""
     echo "cp -fv ext_unwind/ucrt64/bin/*.dll lib/"
     echo "rm -rf unwind.tar.zst ext_unwind"
+
+    # --- ABSL ---
+    echo "download_file \"$ABSEIL_LINK\" \"abseil.tar.zst\""
+    echo "mkdir -p ext_abseil"
+    echo "tar --use-compress-program=unzstd -xf abseil.tar.zst -C ext_abseil/ --wildcards \"*/bin/libabsl_*.dll\""
+    echo "cp -fv ext_abseil/ucrt64/bin/*.dll lib/"
+    echo "rm -rf abseil.tar.zst ext_abseil"
 }
 
 ffbuild_dockerbuild() {
@@ -76,43 +84,43 @@ ffbuild_dockerbuild() {
     cp -rf include/* "${INSTALL_ROOT}/include/"
 
     # Создаем минимальную заглушку Google Glog
-    mkdir -p "${INSTALL_ROOT}/include/glog"
-    cat << 'EOF' > "${INSTALL_ROOT}/include/glog/logging.h"
-#ifndef FAKE_GLOG_LOGGING_H_
-#define FAKE_GLOG_LOGGING_H_
-
-#include <iostream>
-#include <sstream>
-
-class FakeLogMessage {
-public:
-    FakeLogMessage() {}
-    template<typename T>
-    FakeLogMessage& operator<<(const T&) { return *this; }
-};
-
-namespace google {
-    enum LogSeverity { GLOG_INFO = 0, GLOG_WARNING = 1, GLOG_ERROR = 2, GLOG_FATAL = 3 };
-    class LogMessage {
-    public:
-        LogMessage(const char* file, int line, LogSeverity severity) {}
-        std::ostream& stream() { return std::cerr; }
-    };
-}
-
-#define INFO 0
-#define WARNING 1
-#define ERROR 2
-#define FATAL 3
-
-#define LOG(severity) FakeLogMessage()
-
-#define VLOG(verbose_level) FakeLogMessage()
-#define LOG_IF(severity, condition) if(condition) FakeLogMessage()
-
-#endif // FAKE_GLOG_LOGGING_H_
-EOF
-    log_info "Advanced fake glog stub successfully generated."
+#     mkdir -p "${INSTALL_ROOT}/include/glog"
+#     cat << 'EOF' > "${INSTALL_ROOT}/include/glog/logging.h"
+# #ifndef FAKE_GLOG_LOGGING_H_
+# #define FAKE_GLOG_LOGGING_H_
+# 
+# #include <iostream>
+# #include <sstream>
+# 
+# class FakeLogMessage {
+# public:
+#     FakeLogMessage() {}
+#     template<typename T>
+#     FakeLogMessage& operator<<(const T&) { return *this; }
+# };
+# 
+# namespace google {
+#     enum LogSeverity { GLOG_INFO = 0, GLOG_WARNING = 1, GLOG_ERROR = 2, GLOG_FATAL = 3 };
+#     class LogMessage {
+#     public:
+#         LogMessage(const char* file, int line, LogSeverity severity) {}
+#         std::ostream& stream() { return std::cerr; }
+#     };
+# }
+# 
+# #define INFO 0
+# #define WARNING 1
+# #define ERROR 2
+# #define FATAL 3
+# 
+# #define LOG(severity) FakeLogMessage()
+# 
+# #define VLOG(verbose_level) FakeLogMessage()
+# #define LOG_IF(severity, condition) if(condition) FakeLogMessage()
+# 
+# #endif // FAKE_GLOG_LOGGING_H_
+# EOF
+    # log_info "Advanced fake glog stub successfully generated."
 
     log_info "Distributing LibTorch and glog libraries..."
     # Копируем динамические .dll (они уйдут в финальный дистрибутив ffmpeg)
@@ -141,7 +149,7 @@ includedir=\${prefix}/include
 Name: LibTorch
 Description: PyTorch C++ API (MSYS2 MinGW-w64 Build)
 Version: 2.12.0
-Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10 -lglog
+Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10 -lglog-2 -lopenblas -lprotobuf -lsleef-3 -lunwind -labsl_cord-2605.0.0
 Libs.private: -lshlwapi -lws2_32 -lstdc++ -lpthread
 Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -DNOMINMAX -DNDEBUG -DC10_USE_MINIMAL_GLOG
 EOF
