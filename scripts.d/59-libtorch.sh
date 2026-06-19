@@ -1,7 +1,12 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-python-pytorch-2.12.0-4-any.pkg.tar.zst"
+
 GLOG_LINK="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-glog-0.7.1-10-any.pkg.tar.zst"
+SLEEF_LINK="https://mirror.accum.se/mirror/msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-sleef-3.9.0-2-any.pkg.tar.zst"
+OPENBLAS_LINK="https://mirrors.dotsrc.org/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-openblas-0.3.33-3-any.pkg.tar.zst"
+PROTOBUF_LINK="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-protobuf-35.0-1-any.pkg.tar.zst"
+UNWIND_LINK="https://distrohub.kyiv.ua/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-libunwind-22.1.7-1-any.pkg.tar.zst"
 
 export SKIP_POST_PC_PATCH=1
 
@@ -12,23 +17,48 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     echo "download_file \"$SCRIPT_REPO\" \"pytorch.tar.zst\""
     echo "mkdir -p extracted"
-    echo "tar --use-compress-program=unzstd -xf pytorch.tar.zst -C extracted/ \
-        --wildcards \
-        \"*/site-packages/torch/include*\" \
-        \"*/site-packages/torch/lib*\" "
+    echo "tar --use-compress-program=unzstd -xf pytorch.tar.zst -C extracted/ --wildcards \"*/site-packages/torch/include*\" \"*/site-packages/torch/lib*\""
     echo "mv extracted/ucrt64/lib/python*/site-packages/torch/include ."
     echo "mv extracted/ucrt64/lib/python*/site-packages/torch/lib ."
     echo "rm -rf pytorch.tar.zst extracted"
 
+    # сбор сателлитных математических DLL
     echo "download_file \"$GLOG_LINK\" \"glog.tar.zst\""
     echo "mkdir -p extracted_glog"
-    echo "tar --use-compress-program=unzstd -xf glog.tar.zst -C extracted_glog/ \
-        --wildcards \"*/include/glog*\" \"*/lib/*.a\" \"*/bin/*.dll\" "
+    echo "tar --use-compress-program=unzstd -xf glog.tar.zst -C extracted_glog/ --wildcards \"*/include/glog*\" \"*/lib/*.a\" \"*/bin/*.dll\""
     echo "mkdir -p include/glog lib"
     echo "cp -rf extracted_glog/ucrt64/include/glog/* include/glog/"
     echo "cp -fv extracted_glog/ucrt64/lib/libglog.dll.a lib/glog.dll.a"
     echo "cp -fv extracted_glog/ucrt64/bin/libglog-2.dll lib/"
     echo "rm -rf glog.tar.zst extracted_glog"
+
+    # --- SLEEF ---
+    echo "download_file \"$SLEEF_LINK\" \"sleef.tar.zst\""
+    echo "mkdir -p ext_sleef"
+    echo "tar --use-compress-program=unzstd -xf sleef.tar.zst -C ext_sleef/ --wildcards \"*/bin/*.dll\""
+    echo "cp -fv ext_sleef/ucrt64/bin/*.dll lib/"
+    echo "rm -rf sleef.tar.zst ext_sleef"
+
+    # --- OPENBLAS ---
+    echo "download_file \"$OPENBLAS_LINK\" \"openblas.tar.zst\""
+    echo "mkdir -p ext_openblas"
+    echo "tar --use-compress-program=unzstd -xf openblas.tar.zst -C ext_openblas/ --wildcards \"*/bin/*.dll\""
+    echo "cp -fv ext_openblas/ucrt64/bin/*.dll lib/"
+    echo "rm -rf openblas.tar.zst ext_openblas"
+
+    # --- PROTOBUF ---
+    echo "download_file \"$PROTOBUF_LINK\" \"protobuf.tar.zst\""
+    echo "mkdir -p ext_protobuf"
+    echo "tar --use-compress-program=unzstd -xf protobuf.tar.zst -C ext_protobuf/ --wildcards \"*/bin/*.dll\""
+    echo "cp -fv ext_protobuf/ucrt64/bin/*.dll lib/"
+    echo "rm -rf protobuf.tar.zst ext_protobuf"
+
+    # --- LIBUNWIND ---
+    echo "download_file \"$UNWIND_LINK\" \"unwind.tar.zst\""
+    echo "mkdir -p ext_unwind"
+    echo "tar --use-compress-program=unzstd -xf unwind.tar.zst -C ext_unwind/ --wildcards \"*/bin/*.dll\""
+    echo "cp -fv ext_unwind/ucrt64/bin/*.dll lib/"
+    echo "rm -rf unwind.tar.zst ext_unwind"
 }
 
 ffbuild_dockerbuild() {
