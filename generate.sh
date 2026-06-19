@@ -225,10 +225,17 @@ for STAGE in "${active_scripts[@]}"; do
     # If you change CFLAGS in vars.sh, ENV_HASH changes -> GLOBAL REBUILD.
     LAYER_ID="E:${ENV_HASH}_L:${LOGIC_HASH}_S:${STAGE_HASH}_P:${PATCH_HASH}"
 
+    # Используем абсолютные пути хоста раннера
+    # Это позволит Docker напрямую мапить папки из файловой системы хоста, 
+    # минуя проверку контекста сборки и полностью предотвращая инвалидацию слоев базового образа.
+    HOST_ROOT="/home/runner/work/FFmpeg-Builds-test2/FFmpeg-Builds-test2"
+
     to_df "# Component: $STAGENAME | LayerID: $LAYER_ID"
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
-    # to_df "    --mount=type=cache,id=prefix-${TARGET},target=${FFBUILD_PREFIX} \\"
-    to_df "    --mount=type=bind,source=.cache/downloads,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
+
+    to_df "    --mount=type=bind,source=${HOST_ROOT}/.cache/downloads,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
+    to_df "    --mount=type=bind,source=${HOST_ROOT}/.cache/ffmpeg,target=${CONTAINER_ROOT}/.cache/ffmpeg,rw \\"
+
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
     to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\"
@@ -258,8 +265,7 @@ if [[ "${SKIP_FFMPEG}" == "1" ]]; then
 else
     # Финальная сборка FFmpeg (инвалидируется только при изменении FFmpeg или build.sh)
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
-    # to_df "    --mount=from=ffmpeg_src,target=$FFMPEG_SOURCE_DIR,rw \\"
-    to_df "    --mount=type=bind,source=.cache/ffmpeg,target=/builder/ffbuild/ffmpeg,rw \\"
+    # to_df "    --mount=type=bind,source=${HOST_ROOT}/.cache/ffmpeg,target=/builder/ffbuild/ffmpeg,rw \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
 
