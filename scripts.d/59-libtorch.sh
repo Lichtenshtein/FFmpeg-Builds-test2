@@ -13,8 +13,6 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-set -xe
-
     echo "download_file \"$SCRIPT_REPO\" \"pytorch.tar.zst\""
     echo "mkdir -p extracted"
     echo "tar --use-compress-program=unzstd -xf pytorch.tar.zst -C extracted/ \
@@ -63,7 +61,7 @@ includedir=\${prefix}/include
 Name: LibTorch
 Description: PyTorch C++ API (MSYS2 MinGW-w64 Build)
 Version: 2.12.0
-Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10
+Libs: -L\${libdir} -llibtorch -llibtorch_cpu -llibc10
 Libs.private: -lshlwapi -lws2_32 -lstdc++
 Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -DNOMINMAX -DNDEBUG
 EOF
