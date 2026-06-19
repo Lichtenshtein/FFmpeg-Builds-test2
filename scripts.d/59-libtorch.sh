@@ -44,8 +44,17 @@ ffbuild_dockerbuild() {
     cat << 'EOF' > "${INSTALL_ROOT}/include/glog/logging.h"
 #ifndef FAKE_GLOG_LOGGING_H_
 #define FAKE_GLOG_LOGGING_H_
+
 #include <iostream>
 #include <sstream>
+
+class FakeLogMessage {
+public:
+    FakeLogMessage() {}
+    template<typename T>
+    FakeLogMessage& operator<<(const T&) { return *this; }
+};
+
 namespace google {
     enum LogSeverity { GLOG_INFO = 0, GLOG_WARNING = 1, GLOG_ERROR = 2, GLOG_FATAL = 3 };
     class LogMessage {
@@ -54,8 +63,20 @@ namespace google {
         std::ostream& stream() { return std::cerr; }
     };
 }
-#endif
+
+#define INFO 0
+#define WARNING 1
+#define ERROR 2
+#define FATAL 3
+
+#define LOG(severity) FakeLogMessage()
+
+#define VLOG(verbose_level) FakeLogMessage()
+#define LOG_IF(severity, condition) if(condition) FakeLogMessage()
+
+#endif // FAKE_GLOG_LOGGING_H_
 EOF
+    log_info "Advanced fake glog stub successfully generated."
 
     log_info "Distributing LibTorch libraries..."
     # Копируем динамические .dll (они уйдут в финальный дистрибутив ffmpeg)
