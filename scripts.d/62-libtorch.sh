@@ -72,6 +72,13 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    local GLOG_FLAGS_H="include/glog/flags.h"
+    if [[ -f "$GLOG_FLAGS_H" ]]; then
+        log_info "Injecting static macro definitions directly into glog/flags.h..."
+        # Вставляем принудительное обнуление макроса декларации на первую строчку файла
+        sed -i '1i #ifndef GOOGLE_GLOG_DLL_DECL\n#define GOOGLE_GLOG_DLL_DECL\n#endif' "$GLOG_FLAGS_H"
+    fi
+
     log_info "Preparing LibTorch headers for GCC 15 compatibility..."
 
     # Прописываем базовые типы в заголовки C10/Torch, чтобы GCC 15 не падал на uint64_t или std::string
@@ -151,12 +158,14 @@ Description: PyTorch C++ API (MSYS2 MinGW-w64 Build)
 Version: 2.12.0
 Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10 -lglog-2 -lopenblas -lprotobuf -lsleef-3 -lunwind -labsl_cord-2605.0.0
 Libs.private: -lshlwapi -lws2_32 -lstdc++ -lpthread
-Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -DNOMINMAX -DNDEBUG -DC10_USE_MINIMAL_GLOG
+Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -DNOMINMAX -DNDEBUG -DGOOGLE_GLOG_DLL_DECL=
 EOF
+
+# -DC10_USE_MINIMAL_GLOG
 }
 
 ffbuild_cxxflags() {
-    echo "-Wno-deprecated-declarations -Wno-error=deprecated-declarations -fpermissive -I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -DNOMINMAX -DNDEBUG -DC10_USE_MINIMAL_GLOG"
+    echo "-Wno-deprecated-declarations -Wno-error=deprecated-declarations -fpermissive -I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -DNOMINMAX -DNDEBUG -DGOOGLE_GLOG_DLL_DECL="
 }
 
 ffbuild_configure() {
