@@ -80,6 +80,20 @@ EOF
         log_warn "Could not find $SRC_CMAKE_FILE to patch apps directory out!"
     fi
 
+    local DXAPP_SRC="src/libutils/oglapphelpers/dxapp.cpp"
+    if [[ -f "$DXAPP_SRC" ]]; then
+        log_info "Applying deep MinGW compatibility patches to dxapp.cpp..."
+
+        # Патч _uuidof
+        sed -i 's/_uuidof(ID3D12Device)/IID_ID3D12Device/g' "$DXAPP_SRC"
+        # патч для ВСЕХ вызовов GetCPUDescriptorHandleForHeapStart()
+        sed -i 's/\([a-zA-Z0-9_]*\)->GetCPUDescriptorHandleForHeapStart()/([\&](){ D3D12_CPU_DESCRIPTOR_HANDLE h; \1->GetCPUDescriptorHandleForHeapStart(\&h); return h; })()/g' "$DXAPP_SRC"
+
+        # патч для вызова GetGPUDescriptorHandleForHeapStart()
+        sed -i 's/\([a-zA-Z0-9_]*\)->GetGPUDescriptorHandleForHeapStart()/([\&](){ D3D12_GPU_DESCRIPTOR_HANDLE h; \1->GetGPUDescriptorHandleForHeapStart(\&h); return h; })()/g' "$DXAPP_SRC"
+        log_info "dxapp.cpp successfully patched in all 6 locations."
+    fi
+
     mkdir build "${INSTALL_ROOT}"/{lib,include} && cd build
 
     local myconf=(
