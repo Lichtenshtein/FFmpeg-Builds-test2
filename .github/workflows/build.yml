@@ -450,10 +450,9 @@ jobs:
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
-          outputs: type=local,dest=artifacts/
           # Передаем абсолютный путь хоста в bind-контекст Buildx
-          build-contexts: |
             /builder/ffbuild/ffmpeg=/home/runner/work/FFmpeg-Builds-test2/FFmpeg-Builds-test2/.cache/ffmpeg
+          outputs: type=local,dest=artifacts/
           # Отключаем gha-кэш слоев, так как за компиляцию ffmpeg отвечает локальный ccache
           cache-from: ""
           cache-to: ""
