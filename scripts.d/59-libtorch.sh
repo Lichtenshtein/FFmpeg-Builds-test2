@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://mirror.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-python-pytorch-2.12.0-4-any.pkg.tar.zst"
+SCRIPT_REPO="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-python-pytorch-2.12.0-4-any.pkg.tar.zst"
 
 export SKIP_POST_PC_PATCH=1
 
