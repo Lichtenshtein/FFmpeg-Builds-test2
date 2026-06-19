@@ -233,8 +233,8 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "# Component: $STAGENAME | LayerID: $LAYER_ID"
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
 
-    to_df "    --mount=type=bind,source=${HOST_ROOT}/.cache/downloads,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
-    to_df "    --mount=type=bind,source=${HOST_ROOT}/.cache/ffmpeg,target=${CONTAINER_ROOT}/.cache/ffmpeg,rw \\"
+    to_df "    --mount=type=bind,from=downloads_context,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
+    to_df "    --mount=type=bind,from=ffmpeg_context,target=${CONTAINER_ROOT}/.cache/ffmpeg,rw \\"
 
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
@@ -265,7 +265,7 @@ if [[ "${SKIP_FFMPEG}" == "1" ]]; then
 else
     # Финальная сборка FFmpeg (инвалидируется только при изменении FFmpeg или build.sh)
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
-    to_df "    --mount=type=bind,from=ffmpeg_src_dir,target=/builder/ffbuild/ffmpeg,rw \\"
+    to_df "    --mount=type=bind,from=ffmpeg_context,target=/builder/ffbuild/ffmpeg,rw \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
 

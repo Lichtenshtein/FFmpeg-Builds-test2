@@ -7,9 +7,9 @@
 # BuildKit will no longer pull 910 MB of download archives into Docker during the context analysis phase. The base-win64 base layer will no longer be invalidated, and the two-minute download of the image will be completely stopped.
 
 #.cache/
-.git/
-artifacts/
-ffbuild/
+#.git/
+#artifacts/
+#ffbuild/
 
 # We allow copying ONLY download archives
 #!.cache/downloads
