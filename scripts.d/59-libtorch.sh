@@ -1,72 +1,58 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-latest.zip"
-
-# SCRIPT_REPO="https://download.pytorch.org/libtorch/cpu/libtorch-win-shared-with-deps-1.9.1%2Bcpu.zip"
+SCRIPT_REPO="https://mirror.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-python-pytorch-2.12.0-4-any.pkg.tar.zst"
 
 export SKIP_POST_PC_PATCH=1
 
+ffbuild_depends() {
+    echo openssl
+}
+
 ffbuild_enabled() {
-    # LibTorch is broken due to incompatible ABI (tried very hard to add this lib)
-    return 1
+    return 0
 }
 
 ffbuild_dockerdl() {
-    echo "download_file \"$SCRIPT_REPO\" \"libtorch.zip\""
-    echo "unzip -qq libtorch.zip"
-    echo "rm -f libtorch.zip"
+set -xe
+
+    echo "download_file \"$SCRIPT_REPO\" \"pytorch.tar.zst\""
+    echo "mkdir -p extracted"
+    echo "tar --use-compress-program=unzstd -xf pytorch.tar.zst -C extracted/ \
+        --wildcards \
+        \"*/site-packages/torch/include*\" \
+        \"*/site-packages/torch/lib*\" "
+    echo "mv extracted/ucrt64/lib/python*/site-packages/torch/include ."
+    echo "mv extracted/ucrt64/lib/python*/site-packages/torch/lib ."
+    echo "rm -rf pytorch.tar.zst extracted"
 }
 
 ffbuild_dockerbuild() {
     set -e
 
-    local LT_DIR=$(find . -maxdepth 1 -type d -name "libtorch*" | head -n 1)
-    cd "$LT_DIR"
+    log_info "Preparing LibTorch headers for GCC 15 compatibility..."
 
-    find include/ -type f -name "*.h" -exec sed -i 's/__declspec(dllimport)//g' {} +
-    find include/ -type f -name "*.h" -exec sed -i 's/__declspec(dllexport)//g' {} +
+    # Прописываем базовые типы в заголовки C10/Torch, чтобы GCC 15 не падал на uint64_t или std::string
+    find include/ -name "*.h" -o -name "*.hpp" -exec sed -i '1i #include <cstdint>\n#include <string>\n#include <stdexcept>' {} + 2>/dev/null || true
 
-    # Находим основной файл макросов. В разных версиях это Macros.h или Export.h
-    local MACRO_H=$(find include -name "Macros.h" | grep "c10" | head -n 1)
-    if [ -n "$MACRO_H" ]; then
-        # Очищаем и записываем пустые макросы в начало
-        sed -i '1i #define C10_API\n#define TORCH_API\n#define AT_API\n#define CAFFE2_API\n#define C10_IMPORT\n#define C10_EXPORT' "$MACRO_H"
-    fi
+    # Гарантируем структуру папок в префиксе
+    mkdir -p "${INSTALL_ROOT}"/{include,lib,bin}
 
-    # Нейтрализуем Windows-специфичный файл, который может переопределить TORCH_API обратно
-    if [ -f "include/torch/csrc/WindowsTorchApiMacro.h" ]; then
-        echo "#define TORCH_API" > include/torch/csrc/WindowsTorchApiMacro.h
-    fi
+    # Раскладываем заголовочные файлы
+    cp -rf include/* "${INSTALL_ROOT}/include/"
 
-    # ИСПРАВЛЕНИЕ InlinedCallStack (через инклуд в ir.h)
-    local SCOPE_H=$(find include -name "scope.h" | grep "jit" | head -n 1)
-    local IR_H=$(find include -name "ir.h" | grep "jit" | head -n 1)
-    if [ -n "$IR_H" ] && [ -n "$SCOPE_H" ]; then
-        local REL_SCOPE=$(echo "$SCOPE_H" | sed 's|include/||')
-        sed -i "1i #include <$REL_SCOPE>" "$IR_H"
-    fi
+    log_info "Distributing LibTorch libraries..."
+    # Копируем динамические .dll (они уйдут в финальный дистрибутив ffmpeg)
+    cp -fv lib/*.dll "${INSTALL_ROOT}/bin/" 2>/dev/null || true
 
-    # Базовые типы для GCC 15
-    find include/ -name "*.h" -exec sed -i '1i #include <cstdint>\n#include <string>\n#include <stdexcept>' {} +
-
-    mkdir -p "$INSTALL_ROOT"/{include,lib,bin}
-    cp -r include/* "$INSTALL_ROOT/include/"
-
-    # Копируем библиотеки
-    for libfile in lib/*.lib; do
-        local name=$(basename "$libfile" .lib)
-        cp -v "$libfile" "$INSTALL_ROOT/lib/lib${name}.a"
+    # Копируем библиотеки импорта. 
+    # В MSYS2 они называются *.dll.a, копируем их с переименованием в lib*.a, 
+    # чтобы ваш пайплайн и конфигуратор FFmpeg сочли их за статические доноры.
+    for libfile in lib/*.dll.a; do
+        if [[ -f "$libfile" ]]; then
+            local name=$(basename "$libfile" .dll.a)
+            cp -fv "$libfile" "${INSTALL_ROOT}/lib/${name}.a"
+        fi
     done
-
-    cp -v lib/*.dll "$INSTALL_ROOT/bin/" 2>/dev/null || true
-
-    # Если в этой версии нет torch_cpu.lib, создаем заглушку
-    if [ ! -f "$INSTALL_ROOT/lib/libtorch_cpu.a" ]; then
-        ln -sf libtorch.a "$INSTALL_ROOT/lib/libtorch_cpu.a"
-    fi
-
-    # Убираем liblib в именах protobuf
-    find "$INSTALL_ROOT/lib/" -name "liblib*.a" -exec bash -c 'mv "$1" "${1/liblib/lib}"' -- {} \;
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/libtorch.pc"
@@ -75,16 +61,16 @@ libdir=\${prefix}/lib
 includedir=\${prefix}/include
 
 Name: LibTorch
-Description: PyTorch C++ API (Shared)
-Version: 2.10.0
+Description: PyTorch C++ API (MSYS2 MinGW-w64 Build)
+Version: 2.12.0
 Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10
-Libs.private: -lstdc++
-Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -D_GLIBCXX_USE_CXX11_ABI=0 -DNOMINMAX
+Libs.private: -lshlwapi -lws2_32 -lstdc++
+Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -DNOMINMAX -DNDEBUG
 EOF
 }
 
 ffbuild_cxxflags() {
-    echo "-Wno-deprecated-declarations -Wno-error=deprecated-declarations -fpermissive -I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -D_GLIBCXX_USE_CXX11_ABI=0 -DNOMINMAX -DNDEBUG"
+    echo "-Wno-deprecated-declarations -Wno-error=deprecated-declarations -fpermissive -I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -DNOMINMAX -DNDEBUG"
 }
 
 ffbuild_configure() {

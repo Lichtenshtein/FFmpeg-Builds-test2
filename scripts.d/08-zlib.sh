@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/zlib-ng/zlib-ng.git"
-SCRIPT_COMMIT="48a24bbec7d15c59ce920c2fc1dc2402da5a08c0"
+SCRIPT_COMMIT="5d005c59dd782ac503a032aec2eba4c196dd1756"
 
 ffbuild_enabled() {
     return 0
@@ -13,12 +13,9 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    # Уходим в корень сборки этапа, чтобы сбросить любые cd из предыдущих скриптов
+
     cd "/build/$STAGENAME"
 
-    # Сброс инструментов для чистоты CMake
-    # unset CC CXX LD AR AS NM RANLIB
-    
     mkdir -p build_zlib && cd build_zlib
 
     local myconf=(
