@@ -1181,6 +1181,9 @@ generate_implibs() {
     find "$target_dir" -name "*.dll" -type f | while read -r dll_file; do
         local dll_name=$(basename "$dll_file")
         local base_name="${dll_name%.dll}"
+        if [[ "$base_name" == lib* ]]; then
+            base_name="${base_name#lib}"
+        fi
         local lib_name="lib${base_name}.a"
         local dll_dir=$(dirname "$dll_file")
 
