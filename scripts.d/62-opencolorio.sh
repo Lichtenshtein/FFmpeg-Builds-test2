@@ -52,6 +52,14 @@ ffbuild_dockerbuild() {
         log_warn "Could not find $FILE_TRANSFORM_SRC to apply the c_str() patch!"
     fi
 
+    # Отключаем проверки старого opengl (glew/glut) для mingw
+    local GL_CHECK_FILE="share/cmake/utils/CheckSupportGL.cmake"
+    if [[ -f "$GL_CHECK_FILE" ]]; then
+        log_info "Patching CheckSupportGL.cmake to bypass GLEW/GLUT checks for Vulkan/DX12..."
+        sed -i 's/set(OCIO_GL_ENABLED ON)/set(OCIO_GL_ENABLED OFF)/g' "$GL_CHECK_FILE"
+        sed -i 's/message(WARNING "GPU rendering disabled")/# message(WARNING "GPU rendering disabled")/g' "$GL_CHECK_FILE"
+    fi
+
     # игнорируем флаг OCIO_BUILD_APPS=OFF и заставляем CMake собрать хелперы
     local LIBUTILS_CMAKE="src/libutils/CMakeLists.txt"
     if [[ -f "$LIBUTILS_CMAKE" ]]; then
@@ -94,6 +102,7 @@ EOF
         # Отключаем утилиты, тесты, документацию и биндинги
         -DOCIO_BUILD_APPS=OFF
         -DOCIO_USE_OIIO_FOR_APPS=OFF
+        -DOCIO_GL_ENABLED=OFF
         -DOCIO_BUILD_OPENFX=ON # OpenFX plugins
         -DOCIO_BUILD_NUKE=OFF # nuke plugins
         -DOCIO_BUILD_TESTS=OFF
@@ -115,13 +124,6 @@ EOF
             -Dglslang_INCLUDE_DIR="${FFBUILD_PREFIX}/include/glslang"
         )
         local VULKAN_FLAG="-DOCIO_VULKAN_ENABLED"
-    fi
-
-    if has_library "glut"; then
-        log_info "Freeglut library detected. Using with Freeglut support..."
-        myconf+=(
-            -DOCIO_GL_ENABLED=ON # OFF
-        )
     fi
 
     if has_library "z"; then
