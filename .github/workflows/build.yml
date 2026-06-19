@@ -349,19 +349,20 @@ jobs:
         uses: actions/cache/restore@v5
         with:
           path: |
-            ../ext_cache/downloads
-            ../ext_cache/ffmpeg
-            ../ext_cache/ccache
+            local_ext_cache/downloads
+            local_ext_cache/ffmpeg
+            local_ext_cache/ccache
           key: dl-cache-${{ steps.dl_cache.outputs.key }}
           restore-keys: |
             dl-cache-
 
       - name: Run Download and Generate
         run: |
-          mkdir -p ../ext_cache/downloads ../ext_cache/ffmpeg ../ext_cache/ccache
-          ln -s ../ext_cache .cache
+          mkdir -p local_ext_cache/downloads local_ext_cache/ffmpeg local_ext_cache/ccache
+          rm -rf .cache
+          ln -s local_ext_cache .cache
 
-          [[ "${{ github.event.inputs.doClean }}" == "true" ]] && rm -rf ../ext_cache/{downloads,ffmpeg,ccache}/* && echo "### CLEAN BUILD REQUESTED ###"
+          [[ "${{ github.event.inputs.doClean }}" == "true" ]] && rm -rf local_ext_cache/{downloads,ffmpeg,ccache}/* && echo "### CLEAN BUILD REQUESTED ###"
 
           chmod -R u+r patches/ || true
           mkdir -p .cache/downloads .cache/ffmpeg .cache/tmp
@@ -399,10 +400,9 @@ jobs:
         uses: actions/cache/save@v5
         with:
           path: |
-            ../ext_cache/downloads
-            ../ext_cache/ffmpeg
-            ../ext_cache/ccache
-          # key: dl-cache-${{ steps.dl_cache.outputs.key }}-${{ github.run_id }}
+            local_ext_cache/downloads
+            local_ext_cache/ffmpeg
+            local_ext_cache/ccache
           key: dl-cache-${{ steps.dl_cache.outputs.key }}
 
       - name: Inject Downloads into Buildx Cache
@@ -423,8 +423,8 @@ jobs:
           tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
-            downloads_context=../ext_cache/downloads
-            ffmpeg_context=../ext_cache/ffmpeg
+            downloads_context=./local_ext_cache/downloads
+            ffmpeg_context=./local_ext_cache/ffmpeg
           cache-from: ""
           cache-to: ""
 
@@ -450,8 +450,8 @@ jobs:
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
-            downloads_context=../ext_cache/downloads
-            ffmpeg_context=../ext_cache/ffmpeg
+            downloads_context=./local_ext_cache/downloads
+            ffmpeg_context=./local_ext_cache/ffmpeg
           outputs: type=local,dest=artifacts/
           cache-from: ""
           cache-to: ""
