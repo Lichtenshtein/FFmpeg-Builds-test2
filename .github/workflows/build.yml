@@ -284,32 +284,32 @@ jobs:
           CURRENT_SPACE=$(df -m / | awk 'NR==2 {print $4}')
           echo "Current space after potential clean: $CURRENT_SPACE MB"
 
+          # Если места критически мало (меньше 30 ГБ / 30720 МБ)
           if [ "$CURRENT_SPACE" -lt 30720 ]; then
-            echo "⚠️ Post-clean disk space is still tight ($CURRENT_SPACE MB)."
+            echo "⚠️ Post-clean disk space is critically tight ($CURRENT_SPACE MB)."
+            echo "=== Allocating safe 4GB Swap File to preserve disk cache ==="
+            sudo fallocate -l 4G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=4096
 
-            sudo swapoff -a || true
-            sudo rm -f /swapfile
+          # Если места умеренно мало (меньше 55 ГБ / 56320 МБ)
+          elif [ "$CURRENT_SPACE" -lt 56320 ]; then
+            echo "ℹ️ Moderate disk space available ($CURRENT_SPACE MB). 32GB Swap is dangerous."
+            echo "=== Allocating balanced 12GB Swap File ==="
+            sudo fallocate -l 12G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=12288
 
-            echo "=== Allocating 8GB Swap File ==="
-            sudo fallocate -l 8G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=8192
-
-            sudo chmod 600 /swapfile
-            sudo mkswap /swapfile
-            sudo swapon /swapfile
-            swapon --show
+          # Если места действительно много (больше 55 ГБ)
           else
-            echo "✅ Plenty of space available ($CURRENT_SPACE MB)."
-            sudo swapoff -a || true
-            sudo rm -f /swapfile
-
-            echo "=== Allocating 32GB Swap File ==="
+            echo "✅ Abundant disk space available ($CURRENT_SPACE MB). Safe for maximum swap."
+            echo "=== Allocating maximum 32GB Swap File ==="
             sudo fallocate -l 32G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=32768
-
-            sudo chmod 600 /swapfile
-            sudo mkswap /swapfile
-            sudo swapon /swapfile
-            swapon --show
           fi
+
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          swapon --show
+
+          echo "=== Remaining Disk Space after Swap Allocation ==="
+          df -h /
 
       - name: Compute Unified Dockerfile Hash
         id: docker_hash
