@@ -54,6 +54,27 @@ ffbuild_dockerbuild() {
         log_warn "Could not find $FILE_TRANSFORM_SRC to apply the c_str() patch!"
     fi
 
+    # игнорируем флаг OCIO_BUILD_APPS=OFF и заставляем CMake собрать хелперы
+    local LIBUTILS_CMAKE="src/libutils/CMakeLists.txt"
+    if [[ -f "$LIBUTILS_CMAKE" ]]; then
+        log_info "Forcing unconditional activation of oglapphelpers and imageioapphelpers..."
+        cat << 'EOF' > "$LIBUTILS_CMAKE"
+add_subdirectory(oglapphelpers)
+add_subdirectory(imageioapphelpers)
+EOF
+    else
+        log_warn "Could not find $LIBUTILS_CMAKE to patch!"
+    fi
+
+    # Отключаем проверки старого opengl (glew/glut) для mingw
+    # local GL_CHECK_FILE="share/cmake/utils/CheckSupportGL.cmake"
+    # if [[ -f "$GL_CHECK_FILE" ]]; then
+        # log_info "Patching CheckSupportGL.cmake to bypass GLEW/GLUT checks for Vulkan/DX12..."
+        # sed -i 's/set(OCIO_GL_ENABLED ON)/set(OCIO_GL_ENABLED OFF)/g' "$GL_CHECK_FILE"
+        # sed -i 's/message(WARNING "GPU rendering disabled")/# message(WARNING "GPU rendering disabled")/g' "$GL_CHECK_FILE"
+    # fi
+
+    # Изолируем папку приложений 
     local SRC_CMAKE_FILE="src/CMakeLists.txt"
     if [[ -f "$SRC_CMAKE_FILE" ]]; then
         log_info "Disabling the apps subdirectory to isolate oglapphelpers compilation..."
@@ -83,7 +104,7 @@ ffbuild_dockerbuild() {
         -DOCIO_USE_F16C=ON
         -DOCIO_USE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         # Отключаем утилиты, тесты, документацию и биндинги
-        -DOCIO_BUILD_APPS=ON
+        -DOCIO_BUILD_APPS=OFF
         -DOCIO_USE_OIIO_FOR_APPS=OFF
         -DOCIO_BUILD_OPENFX=ON # OpenFX plugins
         -DOCIO_BUILD_NUKE=OFF # nuke plugins
@@ -111,7 +132,7 @@ ffbuild_dockerbuild() {
     if has_library "glut"; then
         log_info "Freeglut library detected. Using with Freeglut support..."
         myconf+=(
-            -DOCIO_GL_ENABLED=ON
+            -DOCIO_GL_ENABLED=ON # OFF
         )
     fi
 
