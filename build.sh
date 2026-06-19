@@ -520,6 +520,7 @@ CONF_FLAGS=(
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
     --enable-opengl
+    --enable-mediafoundation
     --enable-pic
     # --disable-ffprobe
     --disable-ffplay
