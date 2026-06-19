@@ -73,9 +73,36 @@ ffbuild_dockerbuild() {
     set -e
 
     local GLOG_FLAGS_H="include/glog/flags.h"
+    local GLOG_LOGGING_H="include/glog/logging.h"
+
+    # Патчим glog/flags.h
     if [[ -f "$GLOG_FLAGS_H" ]]; then
         log_info "Injecting direct macro overrides into glog/flags.h..."
+        # 1. Принудительно объявляем GLOG_EXPORT как пустоту
+        # 2. Обнуляем TORCH_STABLE_ONLY и TORCH_TARGET_VERSION на случай конфликтов
         sed -i '1i #undef GLOG_EXPORT\n#define GLOG_EXPORT' "$GLOG_FLAGS_H"
+    fi
+
+    # Патчим glog/logging.h
+    if [[ -f "$GLOG_LOGGING_H" ]]; then
+        log_info "Injecting direct macro overrides into glog/logging.h..."
+
+        # Вставляем в самую первую строчку главного файла glog:
+        # - Обнуление GLOG_EXPORT и GLOG_NO_EXPORT (уничтожит ошибку incomplete type)
+        # - Объявление макросов, чтобы пройти проверку #if !defined(GLOG_EXPORT) на строке 60
+        cat << 'EOF' > tmp_logging_patch
+#undef GLOG_EXPORT
+#define GLOG_EXPORT
+#undef GLOG_NO_EXPORT
+#define GLOG_NO_EXPORT
+#ifndef GLOG_USE_GLOG_EXPORT
+#define GLOG_USE_GLOG_EXPORT
+#endif
+EOF
+        # Склеиваем патч с оригинальным файлом
+        cat tmp_logging_patch "$GLOG_LOGGING_H" > tmp_log_fixed
+        mv -f tmp_log_fixed "$GLOG_LOGGING_H"
+        rm -f tmp_logging_patch
     fi
 
     log_info "Preparing LibTorch headers for GCC 15 compatibility..."
