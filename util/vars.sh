@@ -234,7 +234,7 @@ should_apply_lto() {
     # ========================================
     # Библиотеки, которые ломают таблицы символов линкера
     case "$STAGENAME" in
-        "05-libicu"|"16-glib2"|"16-libxml2"|"06-libiconv"|"07-gettext"|"11-bzlib"|"11-xz"|"11-zstd"|"12-libffi"|"15-pcre2"|"30-openssl"|"32-libssh"|"34-curl"|"62-libtesseract"|"59-leptonica"|"59-libtensorflow"|"59-libtorch"|"45-librsvg"|"40-cairo"|"43-pango")
+        *"libicu"|*"glib2"|*"libxml2"|*"libiconv"|*"gettext"|*"bzlib"|*"xz"|*"zstd"|*"libffi"|*"pcre2"|*"openssl"|*"libssh"|*"curl"|*"libtesseract"|*"leptonica"|*"libtensorflow"|*"libtorch"|*"librsvg"|*"cairo"|*"pango")
             return 1
             ;;
     esac
@@ -245,27 +245,27 @@ should_apply_lto() {
     # LTO включится ТОЛЬКО для этих библиотек.
     case "$STAGENAME" in
         # Основные либы
-        "02-mingw"|"04-tbbmalloc"|"08-zlib"|"16-fftw3"|"27-freeglut")
+        *"mingw"|*"tbbmalloc"|*"zlib"|*"fftw3"|*"freeglut")
             return 0
             ;;
         # Основные тяжелые видеокодеки
-        "44-rav1e"|"70-aom"|"70-kvazaar"|"70-lcevcdec"|"70-libtheora"|"70-libvpx"|"70-openapv"|"70-openh264"|"70-svthevc"|"70-svtvp9"|"70-vvdec"|"70-vvenc"|"70-x264"|"70-x265"|"71-xeve"|"72-xevd")
+        *"rav1e"|*"aom"|*"kvazaar"|*"lcevcdec"|*"libtheora"|*"libvpx"|*"openapv"|*"openh264"|*"svthevc"|*"svtvp9"|*"vvdec"|*"vvenc"|*"x264"|*"x265"|*"xeve"|*"xevd")
             return 0
             ;;
         # Аудиокодеки и обработка звука
-        "63-libogg"|"64-bs2b"|"64-chromaprint"|"64-libmysofa"|"64-libsamplerate"|"64-soundtouch"|"64-soxr"|"64-speex"|"65-rubberband"|"66-libmpg123"|"67-audiotoolbox"|"67-fdk-aac"|"67-ilbc"|"67-lc3"|"67-libcelt"|"67-libcodec2"|"67-libgsm"|"67-libmad"|"67-libmp3lame"|"67-libmpeghdec"|"67-libopus"|"67-mp3shine"|"67-mpeghe"|"67-opencore-amr"|"67-twolame"|"67-vo-amrwb"|"68-gme"|"68-modplug"|"68-openmpt")
+        *"libogg"|*"bs2b"|*"chromaprint"|*"libmysofa"|*"libsamplerate"|*"soundtouch"|*"soxr"|*"speex"|*"rubberband"|*"libmpg123"|*"audiotoolbox"|*"fdk-aac"|*"ilbc"|*"lc3"|*"libcelt"|*"libcodec2"|*"libgsm"|*"libmad"|*"libmp3lame"|*"libmpeghdec"|*"libopus"|*"mp3shine"|*"mpeghe"|*"opencore-amr"|*"twolame"|*"vo-amrwb"|*"gme"|*"modplug"|*"openmpt")
             return 0
             ;;
         # Ключевые графические фильтры высокого уровня
-        "40-zimg"|"51-spirv-cross"|"52-shaderc"|"53-libplacebo"|"59-opencl"|"59-openvino"|"61-opencv"|"84-nnedi3")
+        *"zimg"|*"spirv-cross"|*"shaderc"|*"libplacebo"|*"opencl"|*"openvino"|*"opencv"|*"nnedi3")
             return 0
             ;;
         # легковесные кодеки
-        "37-giflib"|"37-libjpeg-turbo"|"37-libpng"|"37-libtiff"|"37-openjpeg"|"37-svtjpegxs"|"38-libwebp"|"45-libavif"|"45-libjxl")
+        *"giflib"|*"libjpeg-turbo"|*"libpng"|*"libtiff"|*"openjpeg"|*"svtjpegxs"|*"libwebp"|*"libavif"|*"libjxl")
             return 0
             ;;
         # прочее
-        "18-cdio"|"18-cdiowpar"|"40-lensfun"|"47-libaribb24"|"47-libaribcaption"|"47-libass"|"47-zvbi"|"48-qrencode"|"48-quirc"|"54-amf"|"57-libklvanc"|"81-vidstab"|"85-libcaca"|"85-libudfread"|"86-libdvdcss"|"86-libdvdread"|"87-libdvdnav"|"88-libbluray")
+        *"cdio"|*"cdiowpar"|*"lensfun"|*"libaribb24"|*"libaribcaption"|*"libass"|*"zvbi"|*"qrencode"|*"quirc"|*"amf"|*"libklvanc"|*"vidstab"|*"libcaca"|*"libudfread"|*"libdvdcss"|*"libdvdread"|*"libdvdnav"|*"libbluray")
             return 0
             ;;
         # Все остальные компоненты собираются БЕЗ LTO
@@ -279,6 +279,7 @@ should_apply_lto() {
 
     # return 0
 }
+export -f should_apply_lto
 
 # Динамически перестраиваем переменные окружения
 apply_lto_policy() {
