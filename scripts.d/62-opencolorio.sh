@@ -88,6 +88,21 @@ EOF
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+        -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
+        -DOCIO_USE_WINDOWS_UNICODE=$([ "${TARGET}" == "win64" ] && echo ON || echo OFF)
+        -DOCIO_USE_SOVERSION=ON
+        -DOCIO_BUILD_APPS=OFF
+        -DOCIO_USE_OIIO_FOR_APPS=OFF
+        -DOCIO_GL_ENABLED=OFF
+        -DOCIO_DIRECTX_ENABLED=$([ "${TARGET}" == "win64" ] && echo ON || echo OFF)
+        -DOCIO_BUILD_OPENFX=ON # OpenFX plugins
+        -DOCIO_BUILD_NUKE=OFF # nuke plugins
+        -DOCIO_BUILD_TESTS=OFF
+        -DOCIO_BUILD_GPU_TESTS=OFF
+        -DOCIO_BUILD_DOCS=OFF
+        -DOCIO_BUILD_PYTHON=OFF
+        -DOCIO_BUILD_JAVA=OFF
+        -DOCIO_WARNING_AS_ERROR=OFF
         # Настройки SIMD-оптимизаций
         -DOCIO_USE_SIMD=ON
         -DOCIO_USE_SSE2=ON
@@ -99,18 +114,6 @@ EOF
         -DOCIO_USE_AVX2=ON
         -DOCIO_USE_F16C=ON
         -DOCIO_USE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
-        # Отключаем утилиты, тесты, документацию и биндинги
-        -DOCIO_BUILD_APPS=OFF
-        -DOCIO_USE_OIIO_FOR_APPS=OFF
-        -DOCIO_GL_ENABLED=OFF
-        -DOCIO_BUILD_OPENFX=ON # OpenFX plugins
-        -DOCIO_BUILD_NUKE=OFF # nuke plugins
-        -DOCIO_BUILD_TESTS=OFF
-        -DOCIO_BUILD_GPU_TESTS=OFF
-        -DOCIO_BUILD_DOCS=OFF
-        -DOCIO_BUILD_PYTHON=OFF
-        -DOCIO_BUILD_JAVA=OFF
-        -DOCIO_WARNING_AS_ERROR=OFF
     )
 
     if has_library "vulkan-1"; then
@@ -131,6 +134,7 @@ EOF
         myconf+=(
             -DZLIB_LIBRARY="${FFBUILD_PREFIX}/lib/libz.a"
             -DZLIB_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
+            -DZLIB_USE_STATIC_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         )
         local Z_FLAG="-lz"
     fi
@@ -140,40 +144,15 @@ EOF
         myconf+=(
             -Dlcms2_LIBRARY="${FFBUILD_PREFIX}/lib/liblcms2.a"
             -Dlcms2_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
+            -Dlcms2_STATIC_LIBRARY=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         )
     fi
 
+    # -DOpenColorIO_SKIP_IMPORTS (Убирает __imp_ с функций OCIO в FFmpeg)
+    # -DXML_STATIC               (статический импорт для expat)
+    # -DYAML_CPP_STATIC_DEFINE   (статический импорт для yaml-cpp)
     export static_flags=""
-    if [[ "${PREFER_SHARED}" != "1" ]]; then
-        myconf+=(
-            -DBUILD_SHARED_LIBS=OFF
-            -DZLIB_USE_STATIC_LIBS=ON
-            -Dlcms2_STATIC_LIBRARY=ON
-        )
-        # -DOpenColorIO_SKIP_IMPORTS (Убирает __imp_ с функций OCIO в FFmpeg)
-        # -DXML_STATIC               (статический импорт для expat)
-        # -DYAML_CPP_STATIC_DEFINE   (статический импорт для yaml-cpp)
-        static_flags="-DOpenColorIO_SKIP_IMPORTS -DXML_STATIC -DYAML_CPP_STATIC_DEFINE"
-    else
-        myconf+=(
-            -DBUILD_SHARED_LIBS=ON
-            -DOCIO_USE_SOVERSION=ON
-            -DZLIB_USE_STATIC_LIBS=OFF
-            -Dlcms2_STATIC_LIBRARY=OFF
-        )
-    fi
-
-    if [[ $TARGET == win64 ]]; then
-        myconf+=(
-            -DOCIO_USE_WINDOWS_UNICODE=ON
-            -DOCIO_DIRECTX_ENABLED=ON # Включаем DX12 рендеринг для Windows
-        )
-        local DIRECTX_FLAG="-DOCIO_DIRECTX_ENABLED"
-    elif [[ $TARGET == linux64 ]]; then
-        myconf+=(
-            -DOCIO_DIRECTX_ENABLED=OFF
-        )
-    fi
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DOpenColorIO_SKIP_IMPORTS -DXML_STATIC -DYAML_CPP_STATIC_DEFINE"
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
@@ -204,7 +183,9 @@ EOF
     find /build/$STAGENAME/build -type f -name "*.a" -exec cp -fv {} "${INSTALL_ROOT}/lib/" \;
 
     local PC_FILE="$PC_DIR/OpenColorIO.pc"
-    local WIN_LIBS="-ld3d12 -ldxgi -ldxguid"
+    if [[ "${myconf[@]}" =~ "-DOCIO_DIRECTX_ENABLED=ON" ]]; then
+        local WIN_LIBS="-ld3d12 -ldxgi -ldxguid"
+    fi
     local DEP_LIBS="${OCIO_STATIC_LIBS} ${Z_FLAG} ${WIN_LIBS} -lstdc++"
     if [[ -f "$PC_FILE" ]]; then
         log_info "Patching OpenColorIO.pc with dynamic donor list"
