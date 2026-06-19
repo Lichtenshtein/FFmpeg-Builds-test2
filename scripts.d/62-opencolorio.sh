@@ -29,22 +29,20 @@ ffbuild_dockerbuild() {
     if [[ -n "$TARGET_TAG_FILE" ]]; then
         log_info "Found yaml-cpp installer configuration at: ${TARGET_TAG_FILE}"
         log_info "Forcing yaml-cpp update to manual commit (v0.9.0)..."
-
         sed -i 's/set(yaml-cpp_GIT_TAG .*/set(yaml-cpp_GIT_TAG "2decf96e915d2b0c26c68c1659665789dfef2633")/g' "$TARGET_TAG_FILE"
         sed -i 's/set(yaml-cpp_VERSION .*/set(yaml-cpp_VERSION "0.9.0")/g' "$TARGET_TAG_FILE"
-    else
-        log_warn "Could not find Installyaml-cpp.cmake dynamically. Attempting direct sed on Installyaml-cpp.cmake"
-        if [[ -f "$YAML_CPP_FILE" ]]; then
-            sed -i 's/set(yaml-cpp_GIT_TAG .*/set(yaml-cpp_GIT_TAG "2decf96e915d2b0c26c68c1659665789dfef2633")/g' "$YAML_CPP_FILE"
-
-             log_info "Injecting -include cstdint directly into yaml-cpp compile flags..."
-
-             sed -i '/string(STRIP "${yaml-cpp_CXX_FLAGS}"/i \        set(yaml-cpp_CXX_FLAGS "${yaml-cpp_CXX_FLAGS} -include cstdint")' "$YAML_CPP_FILE"
-         else
-             log_warn "Target template file $YAML_CPP_FILE not found for flag injection!"
-         fi
     fi
 
+    if [[ -f "$YAML_CPP_FILE" ]]; then
+        log_warn "Attempting direct sed on Installyaml-cpp.cmake"
+        sed -i 's/set(yaml-cpp_GIT_TAG .*/set(yaml-cpp_GIT_TAG "2decf96e915d2b0c26c68c1659665789dfef2633")/g' "$YAML_CPP_FILE"
+        log_info "Injecting -include cstdint directly into yaml-cpp compile flags..."
+        sed -i '/string(STRIP "${yaml-cpp_CXX_FLAGS}"/i \        set(yaml-cpp_CXX_FLAGS "${yaml-cpp_CXX_FLAGS} -include cstdint")' "$YAML_CPP_FILE"
+    else
+        log_warn "Target template file $YAML_CPP_FILE not found for flag injection!"
+    fi
+
+    # Патч FileTransform.cpp для совместимости std::wstring
     local FILE_TRANSFORM_SRC="src/OpenColorIO/transforms/FileTransform.cpp"
     if [[ -f "$FILE_TRANSFORM_SRC" ]]; then
         log_info "Patching FileTransform.cpp for MinGW GCC 15 std::wstring compatibility..."
@@ -57,28 +55,18 @@ ffbuild_dockerbuild() {
     # игнорируем флаг OCIO_BUILD_APPS=OFF и заставляем CMake собрать хелперы
     local LIBUTILS_CMAKE="src/libutils/CMakeLists.txt"
     if [[ -f "$LIBUTILS_CMAKE" ]]; then
-        log_info "Forcing unconditional activation of oglapphelpers and imageioapphelpers..."
+        log_info "Forcing unconditional activation of oglapphelpers..."
         cat << 'EOF' > "$LIBUTILS_CMAKE"
 add_subdirectory(oglapphelpers)
-add_subdirectory(imageioapphelpers)
 EOF
     else
         log_warn "Could not find $LIBUTILS_CMAKE to patch!"
     fi
 
-    # Отключаем проверки старого opengl (glew/glut) для mingw
-    # local GL_CHECK_FILE="share/cmake/utils/CheckSupportGL.cmake"
-    # if [[ -f "$GL_CHECK_FILE" ]]; then
-        # log_info "Patching CheckSupportGL.cmake to bypass GLEW/GLUT checks for Vulkan/DX12..."
-        # sed -i 's/set(OCIO_GL_ENABLED ON)/set(OCIO_GL_ENABLED OFF)/g' "$GL_CHECK_FILE"
-        # sed -i 's/message(WARNING "GPU rendering disabled")/# message(WARNING "GPU rendering disabled")/g' "$GL_CHECK_FILE"
-    # fi
-
     # Изолируем папку приложений 
     local SRC_CMAKE_FILE="src/CMakeLists.txt"
     if [[ -f "$SRC_CMAKE_FILE" ]]; then
         log_info "Disabling the apps subdirectory to isolate oglapphelpers compilation..."
-
         sed -i 's/add_subdirectory(apps)/# add_subdirectory(apps)/g' "$SRC_CMAKE_FILE"
     else
         log_warn "Could not find $SRC_CMAKE_FILE to patch apps directory out!"
@@ -207,7 +195,7 @@ EOF
 
     # Находим все статические библиотеки, собранные внутри этой стадии
     # Фильтруем оригинальную libOpenColorIO.a
-    local DEP_LIBS=$(find /build/$STAGENAME/build -type f -name "*.a" ! -name "libOpenColorIO.a" -printf "%f\n" | \
+    local OCIO_STATIC_LIBS=$(find /build/$STAGENAME/build -type f -name "*.a" ! -name "libOpenColorIO.a" -printf "%f\n" | \
                  sed 's/^lib//; s/\.a$//' | sort -u | xargs -I{} echo -l{} | tr '\n' ' ')
 
     # Переносим все найденные .a библиотеки-доноры в префикс
@@ -215,13 +203,13 @@ EOF
 
     local PC_FILE="$PC_DIR/OpenColorIO.pc"
     local WIN_LIBS="-ld3d12 -ldxgi -ldxguid"
-    local OCIO_STATIC_LIBS="${DEP_LIBS} ${Z_FLAG} ${WIN_LIBS} -lstdc++"
+    local DEP_LIBS="${OCIO_STATIC_LIBS} ${Z_FLAG} ${WIN_LIBS} -lstdc++"
     if [[ -f "$PC_FILE" ]]; then
         log_info "Patching OpenColorIO.pc with dynamic donor list"
         if grep -q "Libs.private:" "$PC_FILE"; then
-            sed -i "/^Libs.private:/ s/$/ ${OCIO_STATIC_LIBS}/" "$PC_FILE"
+            sed -i "/^Libs.private:/ s/$/ ${DEP_LIBS}/" "$PC_FILE"
         else
-            echo "Libs.private: ${OCIO_STATIC_LIBS} -pthread" >> "$PC_FILE"
+            echo "Libs.private: ${DEP_LIBS} -pthread" >> "$PC_FILE"
         fi
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
