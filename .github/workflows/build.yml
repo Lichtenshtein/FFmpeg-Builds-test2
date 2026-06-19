@@ -420,13 +420,12 @@ jobs:
             CPU_TUNE=${{ env.CPU_TUNE }}
           push: true
           tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
-          # За кэш теперь отвечает только папка .cache/downloads
-          # cache-from: type=gha,scope=ffmpeg-components
-          # cache-to: type=gha,mode=min,scope=ffmpeg-components
-          cache-from: ""
-          cache-to: ""
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
+            downloads_context=./.cache/downloads
+            ffmpeg_context=./.cache/ffmpeg
+          cache-from: ""
+          cache-to: ""
 
       - name: Verify FFmpeg Source
         run: |
@@ -450,16 +449,10 @@ jobs:
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
-            # Передаем абсолютный путь хоста в bind-контекст Buildx
-            ffmpeg_src_dir=/home/runner/work/FFmpeg-Builds-test2/FFmpeg-Builds-test2/.cache/ffmpeg
+            ffmpeg_context=./.cache/ffmpeg
           outputs: type=local,dest=artifacts/
-          # Отключаем gha-кэш слоев, так как за компиляцию ffmpeg отвечает локальный ccache
           cache-from: ""
           cache-to: ""
-          # cache-from: |
-            # type=gha,scope=ffmpeg-components
-            # type=gha,scope=ffmpeg-final
-          # cache-to: type=gha,mode=min,scope=ffmpeg-final
           provenance: false
 
       - name: Cleanup Old Caches
