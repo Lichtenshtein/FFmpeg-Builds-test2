@@ -287,18 +287,24 @@ jobs:
           # Если места критически мало (меньше 30 ГБ / 30720 МБ)
           if [ "$CURRENT_SPACE" -lt 30720 ]; then
             echo "⚠️ Post-clean disk space is critically tight ($CURRENT_SPACE MB)."
-            echo "=== Allocating safe 4GB Swap File to preserve disk cache ==="
-            sudo fallocate -l 4G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=4096
+            sudo swapoff -a || true
+            sudo rm -f /swapfile
+            echo "=== Allocating safe 6GB Swap File to preserve disk cache ==="
+            sudo fallocate -l 6G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=6096
 
           # Если места умеренно мало (меньше 55 ГБ / 56320 МБ)
           elif [ "$CURRENT_SPACE" -lt 56320 ]; then
             echo "ℹ️ Moderate disk space available ($CURRENT_SPACE MB). 32GB Swap is dangerous."
+            sudo swapoff -a || true
+            sudo rm -f /swapfile
             echo "=== Allocating balanced 12GB Swap File ==="
             sudo fallocate -l 12G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=12288
 
           # Если места действительно много (больше 55 ГБ)
           else
             echo "✅ Abundant disk space available ($CURRENT_SPACE MB). Safe for maximum swap."
+            sudo swapoff -a || true
+            sudo rm -f /swapfile
             echo "=== Allocating maximum 32GB Swap File ==="
             sudo fallocate -l 32G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=32768
           fi
