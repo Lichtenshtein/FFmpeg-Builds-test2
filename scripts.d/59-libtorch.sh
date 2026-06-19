@@ -45,6 +45,45 @@ ffbuild_dockerbuild() {
     # Раскладываем заголовочные файлы
     cp -rf include/* "${INSTALL_ROOT}/include/"
 
+    # Создаем минимальную заглушку Google Glog
+    mkdir -p "${INSTALL_ROOT}/include/glog"
+    cat << 'EOF' > "${INSTALL_ROOT}/include/glog/logging.h"
+#ifndef FAKE_GLOG_LOGGING_H_
+#define FAKE_GLOG_LOGGING_H_
+
+#include <iostream>
+#include <sstream>
+
+class FakeLogMessage {
+public:
+    FakeLogMessage() {}
+    template<typename T>
+    FakeLogMessage& operator<<(const T&) { return *this; }
+};
+
+namespace google {
+    enum LogSeverity { GLOG_INFO = 0, GLOG_WARNING = 1, GLOG_ERROR = 2, GLOG_FATAL = 3 };
+    class LogMessage {
+    public:
+        LogMessage(const char* file, int line, LogSeverity severity) {}
+        std::ostream& stream() { return std::cerr; }
+    };
+}
+
+#define INFO 0
+#define WARNING 1
+#define ERROR 2
+#define FATAL 3
+
+#define LOG(severity) FakeLogMessage()
+
+#define VLOG(verbose_level) FakeLogMessage()
+#define LOG_IF(severity, condition) if(condition) FakeLogMessage()
+
+#endif // FAKE_GLOG_LOGGING_H_
+EOF
+    log_info "Advanced fake glog stub successfully generated."
+
     log_info "Distributing LibTorch and glog libraries..."
     # Копируем динамические .dll (они уйдут в финальный дистрибутив ffmpeg)
     cp -fv lib/*.dll "${INSTALL_ROOT}/bin/" 2>/dev/null || true
@@ -74,12 +113,12 @@ Description: PyTorch C++ API (MSYS2 MinGW-w64 Build)
 Version: 2.12.0
 Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10 -lglog
 Libs.private: -lshlwapi -lws2_32 -lstdc++ -lpthread
-Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -DNOMINMAX -DNDEBUG
+Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -DNOMINMAX -DNDEBUG -DC10_USE_MINIMAL_GLOG
 EOF
 }
 
 ffbuild_cxxflags() {
-    echo "-Wno-deprecated-declarations -Wno-error=deprecated-declarations -fpermissive -I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -DNOMINMAX -DNDEBUG"
+    echo "-Wno-deprecated-declarations -Wno-error=deprecated-declarations -fpermissive -I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -DNOMINMAX -DNDEBUG -DC10_USE_MINIMAL_GLOG"
 }
 
 ffbuild_configure() {
