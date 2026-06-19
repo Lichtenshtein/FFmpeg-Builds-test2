@@ -425,7 +425,7 @@ jobs:
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
             downloads_context=./local_ext_cache/downloads
             ffmpeg_context=./local_ext_cache/ffmpeg
-          cache-from: ""
+          cache-from: type=gha,scope=ffmpeg-target-base-${{ steps.docker_hash.outputs.hash }}
           cache-to: ""
 
       - name: Verify FFmpeg Source
