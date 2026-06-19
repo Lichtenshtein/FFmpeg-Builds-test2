@@ -101,8 +101,8 @@ includedir=\${prefix}/include
 Name: LibTorch
 Description: PyTorch C++ API (MSYS2 MinGW-w64 Build)
 Version: 2.12.0
-Libs: -L\${libdir} -llibtorch -llibtorch_cpu -llibc10
-Libs.private: -lshlwapi -lws2_32 -lstdc++
+Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10
+Libs.private: -lshlwapi -lws2_32 -lstdc++ -lpthread
 Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -DNOMINMAX -DNDEBUG -DC10_USE_MINIMAL_GLOG
 EOF
 }
