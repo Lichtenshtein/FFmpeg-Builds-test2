@@ -118,8 +118,8 @@ log_info "${SYNC_MARK} Collecting external component DLLs if present..."
 find "${FFBUILD_PREFIX}" -maxdepth 3 \( -name '*.dll' -o -name '*.pyd' -o -name '*.bin' -o -name '*.sign' -o -name '*.zip' \) -exec cp -v {} "${PKG_DIR}/bin/" \; 2>/dev/null || true
 
 # Автопоиск и упаковка системного рантайма MinGW (SSP, WinPthreads, GCC)
-log_info "${SYNC_MARK} Analyzing ffmpeg.exe for missing MinGW runtime DLLs..."
-if [[ -f "${PKG_DIR}/bin/ffmpeg.exe" ]]; then
+log_info "${SYNC_MARK} Analyzing binaries for missing MinGW runtime DLLs..."
+if [[ -d "${PKG_DIR}/bin" ]]; then
     # Находим sysroot и бинарную директорию тулчейна, где живут системные DLL
     TOOLCHAIN_SYSROOT=$(${FFBUILD_TOOLCHAIN}-gcc -print-sysroot)
     TOOLCHAIN_BIN_DIR=$(dirname "$(${FFBUILD_TOOLCHAIN}-gcc -print-file-name=libssp.a)")
@@ -128,8 +128,12 @@ if [[ -f "${PKG_DIR}/bin/ffmpeg.exe" ]]; then
     RUNTIME_DLLS=("libssp-0.dll" "libwinpthread-1.dll" "libstdc++-6.dll" "libgcc_s_seh-1.dll" "libgomp-1.dll")
 
     for dll in "${RUNTIME_DLLS[@]}"; do
-        # Проверяем, требует ли наш ffmpeg.exe эту конкретную DLL
-        if ${FFBUILD_CROSS_PREFIX}objdump -p "${PKG_DIR}/bin/ffmpeg.exe" | grep -q -i "$dll"; then
+        # Сканируем ВСЕ .exe и .dll в папке bin на наличие зависимости
+        if ${FFBUILD_CROSS_PREFIX}objdump -p "${PKG_DIR}/bin"/*.{exe,dll} 2>/dev/null | grep -q -i "$dll"; then
+            # Проверяем, не скопировали ли мы её уже ранее
+            if [[ -f "${PKG_DIR}/bin/$dll" ]]; then
+                continue
+            fi
             log_warn "Detected dynamic dependency: $dll. Searching toolchain directories..."
             # Ищем DLL в sysroot или в папках компилятора
             FOUND_DLL=""

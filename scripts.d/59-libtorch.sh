@@ -1,12 +1,9 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-python-pytorch-2.12.0-4-any.pkg.tar.zst"
+GLOG_LINK="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-glog-0.7.1-10-any.pkg.tar.zst"
 
 export SKIP_POST_PC_PATCH=1
-
-ffbuild_depends() {
-    echo openssl
-}
 
 ffbuild_enabled() {
     return 0
@@ -22,6 +19,16 @@ ffbuild_dockerdl() {
     echo "mv extracted/ucrt64/lib/python*/site-packages/torch/include ."
     echo "mv extracted/ucrt64/lib/python*/site-packages/torch/lib ."
     echo "rm -rf pytorch.tar.zst extracted"
+
+    echo "download_file \"$GLOG_LINK\" \"glog.tar.zst\""
+    echo "mkdir -p extracted_glog"
+    echo "tar --use-compress-program=unzstd -xf glog.tar.zst -C extracted_glog/ \
+        --wildcards \"*/include/glog*\" \"*/lib/*.a\" \"*/bin/*.dll\" "
+    echo "mkdir -p include/glog lib"
+    echo "cp -rf extracted_glog/ucrt64/include/glog/* include/glog/"
+    echo "cp -fv extracted_glog/ucrt64/lib/libglog.dll.a lib/glog.dll.a"
+    echo "cp -fv extracted_glog/ucrt64/bin/libglog-2.dll lib/"
+    echo "rm -rf glog.tar.zst extracted_glog"
 }
 
 ffbuild_dockerbuild() {
@@ -38,57 +45,21 @@ ffbuild_dockerbuild() {
     # Раскладываем заголовочные файлы
     cp -rf include/* "${INSTALL_ROOT}/include/"
 
-
-    # Создаем минимальную заглушку Google Glog
-    mkdir -p "${INSTALL_ROOT}/include/glog"
-    cat << 'EOF' > "${INSTALL_ROOT}/include/glog/logging.h"
-#ifndef FAKE_GLOG_LOGGING_H_
-#define FAKE_GLOG_LOGGING_H_
-
-#include <iostream>
-#include <sstream>
-
-class FakeLogMessage {
-public:
-    FakeLogMessage() {}
-    template<typename T>
-    FakeLogMessage& operator<<(const T&) { return *this; }
-};
-
-namespace google {
-    enum LogSeverity { GLOG_INFO = 0, GLOG_WARNING = 1, GLOG_ERROR = 2, GLOG_FATAL = 3 };
-    class LogMessage {
-    public:
-        LogMessage(const char* file, int line, LogSeverity severity) {}
-        std::ostream& stream() { return std::cerr; }
-    };
-}
-
-#define INFO 0
-#define WARNING 1
-#define ERROR 2
-#define FATAL 3
-
-#define LOG(severity) FakeLogMessage()
-
-#define VLOG(verbose_level) FakeLogMessage()
-#define LOG_IF(severity, condition) if(condition) FakeLogMessage()
-
-#endif // FAKE_GLOG_LOGGING_H_
-EOF
-    log_info "Advanced fake glog stub successfully generated."
-
-    log_info "Distributing LibTorch libraries..."
+    log_info "Distributing LibTorch and glog libraries..."
     # Копируем динамические .dll (они уйдут в финальный дистрибутив ffmpeg)
     cp -fv lib/*.dll "${INSTALL_ROOT}/bin/" 2>/dev/null || true
 
     # Копируем библиотеки импорта. 
-    # В MSYS2 они называются *.dll.a, копируем их с переименованием в lib*.a, 
-    # чтобы ваш пайплайн и конфигуратор FFmpeg сочли их за статические доноры.
+    # В MSYS2 они называются *.dll.a, копируем их с переименованием в lib*.a
     for libfile in lib/*.dll.a; do
         if [[ -f "$libfile" ]]; then
-            local name=$(basename "$libfile" .dll.a)
-            cp -fv "$libfile" "${INSTALL_ROOT}/lib/${name}.a"
+            local filename=$(basename "$libfile")
+            local clean_name=$(echo "$filename" | sed 's/\.dll\.a$//')
+            if [[ "$clean_name" == lib* ]]; then
+                cp -fv "$libfile" "${INSTALL_ROOT}/lib/${clean_name}.a"
+            else
+                cp -fv "$libfile" "${INSTALL_ROOT}/lib/lib${clean_name}.a"
+            fi
         fi
     done
 
@@ -101,14 +72,14 @@ includedir=\${prefix}/include
 Name: LibTorch
 Description: PyTorch C++ API (MSYS2 MinGW-w64 Build)
 Version: 2.12.0
-Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10
+Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10 -lglog
 Libs.private: -lshlwapi -lws2_32 -lstdc++ -lpthread
-Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -DNOMINMAX -DNDEBUG -DC10_USE_MINIMAL_GLOG
+Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -DNOMINMAX -DNDEBUG
 EOF
 }
 
 ffbuild_cxxflags() {
-    echo "-Wno-deprecated-declarations -Wno-error=deprecated-declarations -fpermissive -I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -DNOMINMAX -DNDEBUG -DC10_USE_MINIMAL_GLOG"
+    echo "-Wno-deprecated-declarations -Wno-error=deprecated-declarations -fpermissive -I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -DNOMINMAX -DNDEBUG"
 }
 
 ffbuild_configure() {
