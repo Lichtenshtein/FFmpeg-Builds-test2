@@ -10,7 +10,7 @@ ffbuild/
 *.confopts
 
 # РАЗРЕШАЕМ BuildKit видеть исходный код FFmpeg и его маркер коммита
-# !local_ext_cache/ffmpeg/
-!local_ext_cache/ffmpeg/.current_commit
+!local_ext_cache/ffmpeg/
+#!local_ext_cache/ffmpeg/.current_commit
 !local_ext_cache/downloads/
 !local_ext_cache/ccache/

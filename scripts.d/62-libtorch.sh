@@ -133,12 +133,12 @@ ffbuild_dockerdl() {
     for mask in "\${whitelist[@]}"; do
         for f in lib/\$mask; do
             if [[ -f "\$f" ]]; then
-                cp -f${OP_V} "\$f" lib_cleaned/
+                cp -f "\$f" lib_cleaned/
             fi
         done
     done
 
-    cp -f${OP_V} lib/*.dll.a lib_cleaned/ 2>/dev/null || true
+    cp -f lib/*.dll.a lib_cleaned/ 2>/dev/null || true
     rm -rf lib
     mv -f lib_cleaned lib
 EOF
@@ -205,7 +205,7 @@ EOF
     elif [[ -f "${INSTALL_ROOT}/lib/libglog-2.a" ]]; then
         cp -f${OP_V} "${INSTALL_ROOT}/lib/libglog-2.a" "${INSTALL_ROOT}/lib/libglog.a"
     fi
-
+# -ltorch -ltorch_cpu -lc10 -lglog -lopenblas -lprotobuf -lsleef-3 -lunwind -labsl_cord-2605.0.0
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/libtorch.pc"
 prefix=$FFBUILD_PREFIX
@@ -215,7 +215,7 @@ includedir=\${prefix}/include
 Name: LibTorch
 Description: PyTorch C++ API (MSYS2 MinGW-w64 Build)
 Version: 2.12.0
-Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10 -lglog -lopenblas -lprotobuf -lsleef-3 -lunwind -labsl_cord-2605.0.0
+Libs: -L\${libdir} -ltorch_cpu -lc10 -lglog -lopenblas -lprotobuf -lsleef-3 -lunwind -labsl_cord-2605.0.0
 Libs.private: -lshlwapi -lws2_32 -lstdc++ -lpthread
 Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -DNOMINMAX -DNDEBUG -DGLOG_NO_ABBREVIATED_SEVERITIES
 EOF
