@@ -544,6 +544,9 @@ get_stage_hash() {
 }
 export -f get_stage_hash
 
+move_dir_safely() { mv -f "$1" "$2"; }
+export -f move_dir_safely
+
 # ---------------------------------------------------------------------------
 # Stage-specific variables.
 # These are intentionally NOT set here at source time because $STAGE and
