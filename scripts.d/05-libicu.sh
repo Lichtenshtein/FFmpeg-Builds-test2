@@ -120,18 +120,18 @@ ffbuild_dockerbuild() {
         cd "$INSTALL_ROOT/lib" || return 1
         # Исправляем странное поведение ICU, когда данные улетают в bin
         if [[ -f "$INSTALL_ROOT/bin/sicudt.a" ]]; then
-            mv -v "$INSTALL_ROOT/bin/sicudt.a" "$INSTALL_ROOT/lib/libicudt.a"
+            mv ${OP_VERB} "$INSTALL_ROOT/bin/sicudt.a" "$INSTALL_ROOT/lib/libicudt.a"
         fi
         log_info "Renaming libraries in $(pwd)..."
         # Приводим все к стандарту libicu*.a
         for f in libsicu*.a; do
             if [[ -f "$f" ]]; then
-                mv -v "$f" "libicu${f#libsicu}"
+                mv ${OP_VERB} "$f" "libicu${f#libsicu}"
             fi
         done
         # обрабатываем файлы, которые могли создаться без lib (sicudt.a, sicuuc.a)
         for f in sicu*.a; do
-            [[ -e "$f" ]] && mv -v "$f" "libicu${f#sicu}" 2>/dev/null || true
+            [[ -e "$f" ]] && mv ${OP_VERB} "$f" "libicu${f#sicu}" 2>/dev/null || true
         done
         # проверка наличия критически важных компонентов
         if [[ ! -f "libicuuc.a" ]]; then

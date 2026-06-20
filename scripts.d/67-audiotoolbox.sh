@@ -67,7 +67,7 @@ EOF
 
     # Копируем все DLL из папки QTfiles64 напрямую в bin префикса
     # Согласно инструкции, они должны лежать рядом с ffmpeg.exe
-    # cp -v apple_dlls/QTfiles64/*.dll "$INSTALL_ROOT/bin/"
+    # cp ${OP_VERB} apple_dlls/QTfiles64/*.dll "$INSTALL_ROOT/bin/"
 
     # Удаляем ldwrapper, так как он нужен только для сборки самого враппера
     # rm -f "$INSTALL_ROOT/bin/atw_ldwrapper"

@@ -185,7 +185,7 @@ EOF
     local EXT_DIST_INC="ext/dist/include"
     # Копируем заголовки expat на случай использования другими компонентами
     if [[ -d "${EXT_DIST_INC}" ]]; then
-        cp -rfv "${EXT_DIST_INC}"/* "${INSTALL_ROOT}/include/"
+        cp -rf${OP_V} "${EXT_DIST_INC}"/* "${INSTALL_ROOT}/include/"
     fi
 
     # Находим все статические библиотеки, собранные внутри этой стадии
@@ -194,7 +194,7 @@ EOF
                  sed 's/^lib//; s/\.a$//' | sort -u | xargs -I{} echo -l{} | tr '\n' ' ')
 
     # Переносим все найденные .a библиотеки-доноры в префикс
-    find /build/$STAGENAME/build -type f -name "*.a" -exec cp -fv {} "${INSTALL_ROOT}/lib/" \;
+    find /build/$STAGENAME/build -type f -name "*.a" -exec cp -f${OP_V} {} "${INSTALL_ROOT}/lib/" \;
 
     local PC_FILE="$PC_DIR/OpenColorIO.pc"
     if [[ "${myconf[@]}" =~ "-DOCIO_DIRECTX_ENABLED=ON" ]]; then

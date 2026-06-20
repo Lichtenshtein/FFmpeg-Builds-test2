@@ -129,13 +129,13 @@ Cflags: -I\${includedir} -I\${includedir}/glslang
 EOF
 
     # дублируем его в shaderc_combined.pc и shaderc_static.pc для совместимости
-    cp "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_combined.pc"
-    cp "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_static.pc"
+    cp ${OP_VERB} "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_combined.pc"
+    cp ${OP_VERB} "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_static.pc"
 
     sed -i '/^Libs:/ s/$/ -lstdc++/' "$PC_DIR/shaderc_combined.pc"
     sed -i '/^Libs:/ s/$/ -lstdc++/' "$PC_DIR/shaderc_static.pc"
 
-    cp "$PC_DIR"/{shaderc_combined,shaderc}.pc
+    cp ${OP_VERB} "$PC_DIR"/{shaderc_combined,shaderc}.pc
 
     # Native build for the glslc tool (Host side)
     log_info "Building native glslang and shaderc tools..."
@@ -177,9 +177,9 @@ EOF
 
             if [[ -n "$BIN_PATH" && -f "$BIN_PATH" ]]; then
                 log_info "Found $BIN_NAME at $BIN_PATH. Copying..."
-                cp -v "$BIN_PATH" "/usr/local/bin/$DEST_NAME"
+                cp ${OP_VERB} "$BIN_PATH" "/usr/local/bin/$DEST_NAME"
                 # Дополнительная копия для Whisper
-                [[ "$BIN_NAME" == "glslc" ]] && cp -v "$BIN_PATH" /opt/glslc
+                [[ "$BIN_NAME" == "glslc" ]] && cp ${OP_VERB} "$BIN_PATH" /opt/glslc
                 FOUND_ANY=1
                 # Создаем критически важный симлинк для LCEVC
                 ln -sf /usr/local/bin/glslang /usr/local/bin/glslangValidator

@@ -32,8 +32,8 @@ ffbuild_dockerdl() {
     echo "unzip -qo python_embed.zip -d python_win/bin"
     echo "unzip -qo python_hdrs.zip -d temp_hdrs"
 
-    echo "cp -r temp_hdrs/cpython-*/Include/* python_win/include/"
-    echo "cp temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true"
+    echo "cp -r${OP_V} temp_hdrs/cpython-*/Include/* python_win/include/"
+    echo "cp ${OP_VERB} temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true"
 
     echo "rm -rf temp_hdrs python_embed.zip python_hdrs.zip"
 }
@@ -325,18 +325,18 @@ EOF
     # Исправляем установку заголовков (Headers)
     log_info "Manually installing headers..."
     mkdir -p "$INSTALL_ROOT/include/vapoursynth"
-    cp -v ../include/VapourSynth4.h "$INSTALL_ROOT/include/vapoursynth/"
-    cp -v ../include/VSScript4.h "$INSTALL_ROOT/include/vapoursynth/"
-    cp -v ../include/VSHelper4.h "$INSTALL_ROOT/include/vapoursynth/" 2>/dev/null || true
+    cp ${OP_VERB} ../include/VapourSynth4.h "$INSTALL_ROOT/include/vapoursynth/"
+    cp ${OP_VERB} ../include/VSScript4.h "$INSTALL_ROOT/include/vapoursynth/"
+    cp ${OP_VERB} ../include/VSHelper4.h "$INSTALL_ROOT/include/vapoursynth/" 2>/dev/null || true
 
     log_info "Copying Python runtime DLLs and ZIP..."
     # Копируем DLL и рантайм Python
     mkdir -p "$INSTALL_ROOT/bin"
 
     # Ищем DLL и ZIP в корне python_win, так как в embed-версии нет папки bin
-    find ../python_win -maxdepth 2 -name "*.dll" -exec cp -v {} "$INSTALL_ROOT/bin/" \;
-    find ../python_win -maxdepth 2 -name "python3*.zip" -exec cp -v {} "$INSTALL_ROOT/bin/" \;
-    find ../python_win -maxdepth 2 -name "*.pyd" -exec cp -v {} "$INSTALL_ROOT/bin/" \; 2>/dev/null || true
+    find ../python_win -maxdepth 2 -name "*.dll" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \;
+    find ../python_win -maxdepth 2 -name "python3*.zip" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \;
+    find ../python_win -maxdepth 2 -name "*.pyd" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \; 2>/dev/null || true
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/vapoursynth.pc"
