@@ -10,7 +10,7 @@ cd "$(dirname "$0")/.."
 {
     echo "$TARGET-$VARIANT"
     echo "$FFMPEG_REPO-$FFMPEG_BRANCH"
-    find scripts.d patches -type f -name "*.sh" -o -name "*.patch" | sort
+    find scripts.d patches -type f \( -name "*.sh" -o -name "*.patch" \) | sort
 } > cache_state.tmp
 
 sha256sum cache_state.tmp | cut -d" " -f1 | cut -c1-16
