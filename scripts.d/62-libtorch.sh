@@ -92,120 +92,22 @@ ffbuild_dockerbuild() {
 
     mkdir -p "${INSTALL_ROOT}"/{include,lib,bin}
 
-    # local GLOG_FLAGS_H="include/glog/flags.h"
-    # local GLOG_LOGGING_H="include/glog/logging.h"
-
-    # Патчим glog/flags.h
-    # 1. Принудительно объявляем GLOG_EXPORT как пустоту
-    # 2. Обнуляем TORCH_STABLE_ONLY и TORCH_TARGET_VERSION на случай конфликтов
-    # if [[ -f "$GLOG_FLAGS_H" ]]; then
-        # log_info "Injecting direct macro overrides into glog/flags.h..."
-        # sed -i '1i #undef GLOG_EXPORT\n#define GLOG_EXPORT' "$GLOG_FLAGS_H"
-    # fi
-
-    # Патчим glog/logging.h
-    # Обнуление GLOG_EXPORT и GLOG_NO_EXPORT (уничтожит ошибку incomplete type)
-    # Объявление макросов, чтобы пройти проверку #if !defined(GLOG_EXPORT) на строке 60
-#     if [[ -f "$GLOG_LOGGING_H" ]]; then
-#         log_info "Injecting direct macro overrides into glog/logging.h..."
-# 
-#         cat << 'EOF' > tmp_logging_patch
-# #undef GLOG_EXPORT
-# #define GLOG_EXPORT
-# #undef GLOG_NO_EXPORT
-# #define GLOG_NO_EXPORT
-# #ifndef GLOG_USE_GLOG_EXPORT
-# #define GLOG_USE_GLOG_EXPORT
-# #endif
-# EOF
-        # Склеиваем патч с оригинальным файлом
-        # cat tmp_logging_patch "$GLOG_LOGGING_H" > tmp_log_fixed
-        # mv -f tmp_log_fixed "$GLOG_LOGGING_H"
-        # rm -f tmp_logging_patch
-    # fi
-
-    # Заглушка glog от конфликтов abi
-    mkdir -p "${INSTALL_ROOT}/include/glog"
-    cat << 'EOF' > "${INSTALL_ROOT}/include/glog/logging.h"
-#ifndef FAKE_GLOG_LOGGING_H_
-#define FAKE_GLOG_LOGGING_H_
-#include <iostream>
-#include <sstream>
-
-class FakeLogStream {
-public:
-    FakeLogStream() {}
-    template<typename T> FakeLogStream& operator<<(const T&) { return *this; }
-};
-
-namespace google {
-    enum LogSeverity { GLOG_INFO = 0, GLOG_WARNING = 1, GLOG_ERROR = 2, GLOG_FATAL = 3 };
-    class LogMessage {
-    public:
-        LogMessage(const char* f, int l, LogSeverity s) {}
-        std::ostream& stream() { return std::cerr; }
-    };
-}
-
-#define INFO 0
-#define WARNING 1
-#define ERROR 2
-#define FATAL 3
-#define LOG(severity) FakeLogStream()
-#define VLOG(verbose_level) FakeLogStream()
-#define LOG_IF(severity, condition) if(condition) FakeLogStream()
-#endif
-EOF
-
-    # Дублируем заглушку во второй файл, который запрашивал профайлер PyTorch
-    cp -f "${INSTALL_ROOT}/include/glog/logging.h" "${INSTALL_ROOT}/include/glog/stl_logging.h"
-
     log_info "Preparing LibTorch headers for GCC 15 compatibility..."
 
     # Прописываем базовые типы в заголовки C10/Torch, чтобы GCC 15 не падал на uint64_t или std::string
     find include/ -name "*.h" -o -name "*.hpp" -exec sed -i '1i #include <cstdint>\n#include <string>\n#include <stdexcept>' {} + 2>/dev/null || true
 
+    # Решение abi/api конфликта glog
+    # отключаем конфликтующие макросы макросы (INFO, WARNING, ERROR, FATAL)
+    # Внедряем GLOG_NO_ABBREVIATED_SEVERITIES в самый верх оригинального файла glog
+    local GLOG_LOGGING_H="include/glog/logging.h"
+    if [[ -f "$GLOG_LOGGING_H" ]]; then
+        log_info "Patching original glog/logging.h to prevent macro collisions with FFmpeg..."
+        sed -i '1i #ifndef GLOG_NO_ABBREVIATED_SEVERITIES\n#define GLOG_NO_ABBREVIATED_SEVERITIES\n#endif' "$GLOG_LOGGING_H"
+    fi
+
     # Раскладываем заголовочные файлы
     cp -rf include/* "${INSTALL_ROOT}/include/"
-
-    # Создаем минимальную заглушку Google Glog
-#     mkdir -p "${INSTALL_ROOT}/include/glog"
-#     cat << 'EOF' > "${INSTALL_ROOT}/include/glog/logging.h"
-# #ifndef FAKE_GLOG_LOGGING_H_
-# #define FAKE_GLOG_LOGGING_H_
-# 
-# #include <iostream>
-# #include <sstream>
-# 
-# class FakeLogMessage {
-# public:
-#     FakeLogMessage() {}
-#     template<typename T>
-#     FakeLogMessage& operator<<(const T&) { return *this; }
-# };
-# 
-# namespace google {
-#     enum LogSeverity { GLOG_INFO = 0, GLOG_WARNING = 1, GLOG_ERROR = 2, GLOG_FATAL = 3 };
-#     class LogMessage {
-#     public:
-#         LogMessage(const char* file, int line, LogSeverity severity) {}
-#         std::ostream& stream() { return std::cerr; }
-#     };
-# }
-# 
-# #define INFO 0
-# #define WARNING 1
-# #define ERROR 2
-# #define FATAL 3
-# 
-# #define LOG(severity) FakeLogMessage()
-# 
-# #define VLOG(verbose_level) FakeLogMessage()
-# #define LOG_IF(severity, condition) if(condition) FakeLogMessage()
-# 
-# #endif // FAKE_GLOG_LOGGING_H_
-# EOF
-    # log_info "Advanced fake glog stub successfully generated."
 
     log_info "Distributing LibTorch and glog libraries..."
     # Копируем динамические .dll (они уйдут в финальный дистрибутив ffmpeg)
@@ -225,6 +127,13 @@ EOF
         fi
     done
 
+    # делаем копию libglog.a, чтобы линкер понимал как -lglog, так и -lglog-2
+    if [[ -f "${INSTALL_ROOT}/lib/libglog.a" ]]; then
+        cp -fv "${INSTALL_ROOT}/lib/libglog.a" "${INSTALL_ROOT}/lib/libglog-2.a"
+    elif [[ -f "${INSTALL_ROOT}/lib/libglog-2.a" ]]; then
+        cp -fv "${INSTALL_ROOT}/lib/libglog-2.a" "${INSTALL_ROOT}/lib/libglog.a"
+    fi
+
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/libtorch.pc"
 prefix=$FFBUILD_PREFIX
@@ -234,16 +143,14 @@ includedir=\${prefix}/include
 Name: LibTorch
 Description: PyTorch C++ API (MSYS2 MinGW-w64 Build)
 Version: 2.12.0
-Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10 -lglog-2 -lopenblas -lprotobuf -lsleef-3 -lunwind -labsl_cord-2605.0.0
+Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10 -lglog -lopenblas -lprotobuf -lsleef-3 -lunwind -labsl_cord-2605.0.0
 Libs.private: -lshlwapi -lws2_32 -lstdc++ -lpthread
-Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -DNOMINMAX -DNDEBUG
+Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -DNOMINMAX -DNDEBUG -DGLOG_NO_ABBREVIATED_SEVERITIES
 EOF
-
-# -DC10_USE_MINIMAL_GLOG
 }
 
 ffbuild_cxxflags() {
-    echo "-Wno-deprecated-declarations -Wno-error=deprecated-declarations -fpermissive -I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -DNOMINMAX -DNDEBUG"
+    echo "-Wno-deprecated-declarations -Wno-error=deprecated-declarations -fpermissive -I$FFBUILD_PREFIX/include/torch/csrc/api/include -I$FFBUILD_PREFIX/include/torch/csrc/jit -DNOMINMAX -DNDEBUG -DGLOG_NO_ABBREVIATED_SEVERITIES"
 }
 
 ffbuild_configure() {
