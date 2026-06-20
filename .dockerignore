@@ -7,14 +7,6 @@ ffbuild/
 *.confhash
 *.confopts
 
-# !local_ext_cache/ffmpeg/
-# !local_ext_cache/ffmpeg/.current_commit
-# !local_ext_cache/ffmpeg/.*
-# !local_ext_cache/downloads/
-# !local_ext_cache/ccache/
-
-local_ext_cache/ccache/
-local_ext_cache/downloads/
 local_ext_cache/ffmpeg/
-
-!local_ext_cache/ffmpeg.current_commit
+local_ext_cache/ccache/
+!local_ext_cache/downloads/
