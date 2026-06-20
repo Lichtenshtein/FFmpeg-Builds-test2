@@ -435,10 +435,9 @@ jobs:
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
             downloads_context=./local_ext_cache/downloads
-            # ffmpeg_context=./local_ext_cache/ffmpeg
           cache-from: type=gha,scope=ffmpeg-target-base-${{ steps.docker_hash.outputs.hash }}
           cache-to: ""
-
+            # ffmpeg_context=./local_ext_cache/ffmpeg
       - name: Verify FFmpeg Source
         run: |
           if [[ ! -f ".cache/ffmpeg/configure" ]]; then

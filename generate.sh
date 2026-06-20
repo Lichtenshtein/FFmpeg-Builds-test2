@@ -227,11 +227,6 @@ for STAGE in "${active_scripts[@]}"; do
     # If you change CFLAGS in vars.sh, ENV_HASH changes -> GLOBAL REBUILD.
     LAYER_ID="E:${ENV_HASH}_L:${LOGIC_HASH}_S:${STAGE_HASH}_P:${PATCH_HASH}"
 
-    # Используем абсолютные пути хоста раннера
-    # Это позволит Docker напрямую мапить папки из файловой системы хоста, 
-    # минуя проверку контекста сборки и полностью предотвращая инвалидацию слоев базового образа.
-    HOST_ROOT="/home/runner/work/FFmpeg-Builds-test2/FFmpeg-Builds-test2"
-
     to_df "# Component: $STAGENAME | LayerID: $LAYER_ID"
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
 
