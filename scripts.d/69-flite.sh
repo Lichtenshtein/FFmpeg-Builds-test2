@@ -68,7 +68,7 @@ ffbuild_dockerbuild() {
     local BUILDIR=$(find build -maxdepth 3 -type d -name "lib" | head -n 1)
     if [[ -d "$BUILDIR" ]]; then
         log_info "Found build libraries in $BUILDIR"
-        cp -v "$BUILDIR"/*.a "$INSTALL_ROOT/lib/"
+        cp ${OP_VERB} "$BUILDIR"/*.a "$INSTALL_ROOT/lib/"
     else
         log_error "Could not find compiled libraries in build/ folder!"
         return 1

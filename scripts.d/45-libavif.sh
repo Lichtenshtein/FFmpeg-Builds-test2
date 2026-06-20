@@ -27,7 +27,7 @@ ffbuild_dockerbuild() {
     set -e
 
     mkdir -p "include/sharpyuv"
-    cp -v "$FFBUILD_PREFIX/include/webp/sharpyuv/"*.h "include/sharpyuv/" 2>/dev/null || true
+    cp ${OP_VERB} "$FFBUILD_PREFIX/include/webp/sharpyuv/"*.h "include/sharpyuv/" 2>/dev/null || true
 
     local XML2_INC="$FFBUILD_PREFIX/include/libxml2"
 
@@ -97,9 +97,9 @@ EOF
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     # Извлекаем libyuv.a для послудующих стадий (она лежит в _deps/libyuv-build/)
-    cp "_deps/libyuv-build/libyuv.a" "$INSTALL_ROOT/lib/"
+    cp ${OP_VERB} "_deps/libyuv-build/libyuv.a" "$INSTALL_ROOT/lib/"
     mkdir -p "$INSTALL_ROOT/include/libyuv"
-    cp -r "_deps/libyuv-src/include/"* "$INSTALL_ROOT/include/"
+    cp -r${OP_V} "_deps/libyuv-src/include/"* "$INSTALL_ROOT/include/"
 
     # Создаем pkg-config файл вручную, чтобы aom и avif-v2 его нашли
     mkdir -p "$PC_DIR"
