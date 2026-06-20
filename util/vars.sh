@@ -194,7 +194,7 @@ export FFMPEG_BUILD_ROOT="${ROOT_DIR}/ffbuild"
 export FFMPEG_SOURCE_DIR="${FFMPEG_BUILD_ROOT}/ffmpeg"
 export FFMPEG_PKG_ROOT="${FFMPEG_BUILD_ROOT}/pkgroot"
 export FFMPEG_CONFIG_LOG="${FFMPEG_SOURCE_DIR}/ffbuild/config.log"
-export FFMPEG_HASH_FILE="${ROOT_DIR}/.cache/ffmpeg.current_commit" # hash of the last downloaded commit
+export FFMPEG_HASH_FILE="local_ext_cache/downloads/ffmpeg.current_commit" # hash of the last downloaded commit
 
 # Helper hooks to skip .la files, dependancies and .pc files auditing and patching
 # Can be added individually to any component script

@@ -926,9 +926,9 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         if [[ $MISSING_SYMBOLS -eq 1 ]]; then
             log_error "Static linking verification FAILED. Binary may be broken."
             # exit 1
+        else
+            log_debug "${CHECK_MARK} Static symbols verified."
         fi
-
-        log_debug "${CHECK_MARK} Static symbols verified."
 
         # --- PHASE 2: crash audit via hybrid winedbg ---
 
