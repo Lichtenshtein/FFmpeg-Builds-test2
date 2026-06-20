@@ -513,6 +513,8 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     export MAKE_V="V=1"
     export NINJA_V="-v"
     export CARGO_V="-v"
+    export OP_VERB="$NINJA_V" # mv and cp operations verbocity
+    export OP_V="v"
 else
     export MAKE_V=""
     export NINJA_V=""
