@@ -24,86 +24,124 @@ ffbuild_enabled() {
 }
 
 ffbuild_dockerdl() {
-    echo "download_file \"$SCRIPT_REPO\" \"pytorch.tar.zst\""
-    echo "mkdir -p extracted"
-    echo "tar --use-compress-program=unzstd -xf pytorch.tar.zst -C extracted/ --wildcards \"*/site-packages/torch/include*\" \"*/site-packages/torch/lib*\""
-    echo "mv extracted/ucrt64/lib/python*/site-packages/torch/include ."
-    echo "mv extracted/ucrt64/lib/python*/site-packages/torch/lib ."
-    echo "rm -rf pytorch.tar.zst extracted"
+    cat << EOF
+    download_file "$SCRIPT_REPO" "pytorch.tar.zst"
+    mkdir -p extracted
+    tar --use-compress-program=unzstd -xf pytorch.tar.zst -C extracted/ --wildcards "*/site-packages/torch/include*" "*/site-packages/torch/lib*"
+    mv extracted/ucrt64/lib/python*/site-packages/torch/include .
+    mv extracted/ucrt64/lib/python*/site-packages/torch/lib .
+    rm -rf pytorch.tar.zst extracted
 
     # --- GCC LIBS ---
-    echo "download_file \"$GCC_LINK\" \"gcc-libs.tar.zst\""
-    echo "mkdir -p ext_gcclibs"
-    echo "tar --use-compress-program=unzstd -xf gcc-libs.tar.zst -C ext_gcclibs/ --wildcards \"*/bin/*.dll\""
-    echo "cp -f${OP_V} ext_gcclibs/ucrt64/bin/*.dll lib/"
-    echo "rm -rf gcc-libs.tar.zst ext_gcclibs"
+    download_file "$GCC_LINK" "gcc-libs.tar.zst"
+    mkdir -p ext_gcclibs
+    tar --use-compress-program=unzstd -xf gcc-libs.tar.zst -C ext_gcclibs/ --wildcards "*/bin/*.dll"
+    cp -f${OP_V} ext_gcclibs/ucrt64/bin/*.dll lib/
+    rm -rf gcc-libs.tar.zst ext_gcclibs
 
     # --- GOOGLE LOG ---
-    echo "download_file \"$GLOG_LINK\" \"glog.tar.zst\""
-    echo "mkdir -p extracted_glog"
-    echo "tar --use-compress-program=unzstd -xf glog.tar.zst -C extracted_glog/ --wildcards \"*/include/glog*\" \"*/lib/*.a\" \"*/bin/*.dll\""
-    echo "mkdir -p include/glog lib"
-    echo "cp -rf extracted_glog/ucrt64/include/glog/* include/glog/"
-    echo "cp -f${OP_V} extracted_glog/ucrt64/lib/libglog.dll.a lib/glog.dll.a"
-    echo "cp -f${OP_V} extracted_glog/ucrt64/bin/libglog-*.dll lib/"
-    echo "rm -rf glog.tar.zst extracted_glog"
+    download_file "$GLOG_LINK" "glog.tar.zst"
+    mkdir -p extracted_glog
+    tar --use-compress-program=unzstd -xf glog.tar.zst -C extracted_glog/ --wildcards "*/include/glog*" "*/lib/*.a" "*/bin/*.dll"
+    mkdir -p include/glog lib
+    cp -rf extracted_glog/ucrt64/include/glog/* include/glog/
+    cp -f${OP_V} extracted_glog/ucrt64/lib/libglog.dll.a lib/glog.dll.a
+    cp -f${OP_V} extracted_glog/ucrt64/bin/libglog-*.dll lib/
+    rm -rf glog.tar.zst extracted_glog
 
     # --- SLEEF ---
-    echo "download_file \"$SLEEF_LINK\" \"sleef.tar.zst\""
-    echo "mkdir -p ext_sleef"
-    echo "tar --use-compress-program=unzstd -xf sleef.tar.zst -C ext_sleef/ --wildcards \"*/bin/*.dll\""
-    echo "cp -f${OP_V} ext_sleef/ucrt64/bin/*.dll lib/"
-    echo "rm -rf sleef.tar.zst ext_sleef"
+    download_file "$SLEEF_LINK" "sleef.tar.zst"
+    mkdir -p ext_sleef
+    tar --use-compress-program=unzstd -xf sleef.tar.zst -C ext_sleef/ --wildcards "*/bin/*.dll"
+    cp -f${OP_V} ext_sleef/ucrt64/bin/*.dll lib/
+    rm -rf sleef.tar.zst ext_sleef
 
     # --- OPENBLAS ---
-    echo "download_file \"$OPENBLAS_LINK\" \"openblas.tar.zst\""
-    echo "mkdir -p ext_openblas"
-    echo "tar --use-compress-program=unzstd -xf openblas.tar.zst -C ext_openblas/ --wildcards \"*/bin/*.dll\""
-    echo "cp -f${OP_V} ext_openblas/ucrt64/bin/*.dll lib/"
-    echo "rm -rf openblas.tar.zst ext_openblas"
+    download_file "$OPENBLAS_LINK" "openblas.tar.zst"
+    mkdir -p ext_openblas
+    tar --use-compress-program=unzstd -xf openblas.tar.zst -C ext_openblas/ --wildcards "*/bin/*.dll"
+    cp -f${OP_V} ext_openblas/ucrt64/bin/*.dll lib/
+    rm -rf openblas.tar.zst ext_openblas
 
     # --- PROTOBUF ---
-    echo "download_file \"$PROTOBUF_LINK\" \"protobuf.tar.zst\""
-    echo "mkdir -p ext_protobuf"
-    echo "tar --use-compress-program=unzstd -xf protobuf.tar.zst -C ext_protobuf/ --wildcards \"*/bin/*.dll\""
-    echo "cp -f${OP_V} ext_protobuf/ucrt64/bin/*.dll lib/"
-    echo "rm -rf protobuf.tar.zst ext_protobuf"
+    download_file "$PROTOBUF_LINK" "protobuf.tar.zst"
+    mkdir -p ext_protobuf
+    tar --use-compress-program=unzstd -xf protobuf.tar.zst -C ext_protobuf/ --wildcards "*/bin/*.dll"
+    cp -f${OP_V} ext_protobuf/ucrt64/bin/*.dll lib/
+    rm -rf protobuf.tar.zst ext_protobuf
 
     # --- LIBUNWIND ---
-    echo "download_file \"$UNWIND_LINK\" \"unwind.tar.zst\""
-    echo "mkdir -p ext_unwind"
-    echo "tar --use-compress-program=unzstd -xf unwind.tar.zst -C ext_unwind/ --wildcards \"*/bin/*.dll\""
-    echo "cp -f${OP_V} ext_unwind/ucrt64/bin/*.dll lib/"
-    echo "rm -rf unwind.tar.zst ext_unwind"
+    download_file "$UNWIND_LINK" "unwind.tar.zst"
+    mkdir -p ext_unwind
+    tar --use-compress-program=unzstd -xf unwind.tar.zst -C ext_unwind/ --wildcards "*/bin/*.dll"
+    cp -f${OP_V} ext_unwind/ucrt64/bin/*.dll lib/
+    rm -rf unwind.tar.zst ext_unwind
 
     # --- ABSL ---
-    echo "download_file \"$ABSEIL_LINK\" \"abseil.tar.zst\""
-    echo "mkdir -p ext_abseil"
-    echo "tar --use-compress-program=unzstd -xf abseil.tar.zst -C ext_abseil/ --wildcards \"*/bin/libabsl_*.dll\""
-    echo "cp -f${OP_V} ext_abseil/ucrt64/bin/*.dll lib/"
-    # echo "cp -fv ext_abseil/ucrt64/bin/libabsl_cord-2605.0.0.dll lib/"
-    echo "rm -rf abseil.tar.zst ext_abseil"
+    download_file "$ABSEIL_LINK" "abseil.tar.zst"
+    mkdir -p ext_abseil
+    tar --use-compress-program=unzstd -xf abseil.tar.zst -C ext_abseil/ --wildcards "*/bin/libabsl_*.dll"
+    cp -f${OP_V} ext_abseil/ucrt64/bin/*.dll lib/
+    rm -rf abseil.tar.zst ext_abseil
 
     # --- VULKAN ---
-    echo "download_file \"$VULKAN_LINK\" \"vulkan.tar.zst\""
-    echo "mkdir -p ext_vulkan"
-    echo "tar --use-compress-program=unzstd -xf vulkan.tar.zst -C ext_vulkan/ --wildcards \"*/bin/*.dll\""
-    echo "cp -f${OP_V} ext_vulkan/ucrt64/bin/vulkan-*.dll lib/"
-    echo "rm -rf vulkan.tar.zst ext_vulkan"
+    download_file "$VULKAN_LINK" "vulkan.tar.zst"
+    mkdir -p ext_vulkan
+    tar --use-compress-program=unzstd -xf vulkan.tar.zst -C ext_vulkan/ --wildcards "*/bin/*.dll"
+    cp -f${OP_V} ext_vulkan/ucrt64/bin/vulkan-*.dll lib/
+    rm -rf vulkan.tar.zst ext_vulkan
 
     # --- ZLIB ---
-    echo "download_file \"$ZLIB_LINK\" \"zlib.tar.zst\""
-    echo "mkdir -p ext_zlib"
-    echo "tar --use-compress-program=unzstd -xf zlib.tar.zst -C ext_zlib/ --wildcards \"*/bin/*.dll\""
-    echo "cp -f${OP_V} ext_zlib/ucrt64/bin/zlib*.dll lib/"
-    echo "rm -rf zlib.tar.zst ext_zlib"
+    download_file "$ZLIB_LINK" "zlib.tar.zst"
+    mkdir -p ext_zlib
+    tar --use-compress-program=unzstd -xf zlib.tar.zst -C ext_zlib/ --wildcards "*/bin/*.dll"
+    cp -f${OP_V} ext_zlib/ucrt64/bin/zlib*.dll lib/
+    rm -rf zlib.tar.zst ext_zlib
 
     # --- FORTRAN ---
-    echo "download_file \"$FORTRAN_LINK\" \"fortran.tar.zst\""
-    echo "mkdir -p ext_fortran"
-    echo "tar --use-compress-program=unzstd -xf fortran.tar.zst -C ext_fortran/ --wildcards \"*/bin/*.dll\""
-    echo "cp -f${OP_V} ext_fortran/ucrt64/bin/libgfortran*.dll lib/"
-    echo "rm -rf fortran.tar.zst ext_fortran"
+    download_file "$FORTRAN_LINK" "fortran.tar.zst"
+    mkdir -p ext_fortran
+    tar --use-compress-program=unzstd -xf fortran.tar.zst -C ext_fortran/ --wildcards "*/bin/*.dll"
+    cp -f${OP_V} ext_fortran/ucrt64/bin/libgfortran*.dll lib/
+    rm -rf fortran.tar.zst ext_fortran
+
+    log_info "Filtering and cleaning up unused MSYS2 DLLs via LDD wildcard mask..."
+    mkdir -p lib_cleaned
+
+    local whitelist=(
+        "libabsl_base-*.dll" "libabsl_city-*.dll" "libabsl_cord-*.dll"
+        "libabsl_cord_internal-*.dll" "libabsl_cordz_handle-*.dll" "libabsl_cordz_info-*.dll"
+        "libabsl_crc32c-*.dll" "libabsl_crc_cord_state-*.dll" "libabsl_crc_internal-*.dll"
+        "libabsl_die_if_null-*.dll" "libabsl_examine_stack-*.dll" "libabsl_hash-*.dll"
+        "libabsl_hashtablez_sampler-*.dll" "libabsl_int128-*.dll" "libabsl_kernel_timeout_internal-*.dll"
+        "libabsl_leak_check-*.dll" "libabsl_log_globals-*.dll" "libabsl_log_internal_check_op-*.dll"
+        "libabsl_log_internal_conditions-*.dll" "libabsl_log_internal_format-*.dll" "libabsl_log_internal_globals-*.dll"
+        "libabsl_log_internal_log_sink_set-*.dll" "libabsl_log_internal_message-*.dll" "libabsl_log_internal_nullguard-*.dll"
+        "libabsl_log_internal_proto-*.dll" "libabsl_log_internal_structured_proto-*.dll" "libabsl_log_sink-*.dll"
+        "libabsl_malloc_internal-*.dll" "libabsl_raw_hash_set-*.dll" "libabsl_raw_logging_internal-*.dll"
+        "libabsl_spinlock_wait-*.dll" "libabsl_stacktrace-*.dll" "libabsl_status-*.dll"
+        "libabsl_statusor-*.dll" "libabsl_str_format_internal-*.dll" "libabsl_strerror-*.dll"
+        "libabsl_strings-*.dll" "libabsl_strings_internal-*.dll" "libabsl_symbolize-*.dll"
+        "libabsl_synchronization-*.dll" "libabsl_throw_delegate-*.dll" "libabsl_time-*.dll"
+        "libabsl_time_zone-*.dll" "libabsl_tracing_internal-*.dll" "libc*.dll"
+        "libgcc_s_*.dll" "libgfortran*.dll" "libglog*.dll" "libgomp*.dll"
+        "libopenblas*.dll" "libprotobuf*.dll" "libquadmath*.dll" "libsleef*.dll"
+        "libstdc++*.dll" "libtorch_cpu*.dll" "libunwind*.dll" "libutf8_validity*.dll"
+        "libwinpthread*.dll" "vulkan*.dll" "zlib*.dll"
+    )
+
+    for mask in "\${whitelist[@]}"; do
+        for f in lib/\$mask; do
+            if [[ -f "\$f" ]]; then
+                cp -f${OP_V} "\$f" lib_cleaned/
+            fi
+        done
+    done
+
+    cp -f${OP_V} lib/*.dll.a lib_cleaned/ 2>/dev/null || true
+    rm -rf lib
+    mv -f lib_cleaned lib
+EOF
 }
 
 ffbuild_dockerbuild() {
