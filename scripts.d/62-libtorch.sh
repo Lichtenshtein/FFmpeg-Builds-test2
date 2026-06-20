@@ -9,6 +9,8 @@ OPENBLAS_LINK="https://mirrors.dotsrc.org/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_
 PROTOBUF_LINK="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-protobuf-35.0-1-any.pkg.tar.zst"
 UNWIND_LINK="https://distrohub.kyiv.ua/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-libunwind-22.1.7-1-any.pkg.tar.zst"
 ABSEIL_LINK="https://distrohub.kyiv.ua/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-abseil-cpp-20260526.0-1-any.pkg.tar.zst"
+VULKAN_LINK="https://mirror.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-vulkan-loader-1~1.4.350.0-1-any.pkg.tar.zst"
+ZLIB_LINK="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-zlib-1.3.2-2-any.pkg.tar.zst"
 
 export SKIP_POST_PC_PATCH=1
 
@@ -24,13 +26,14 @@ ffbuild_dockerdl() {
     echo "mv extracted/ucrt64/lib/python*/site-packages/torch/lib ."
     echo "rm -rf pytorch.tar.zst extracted"
 
+    # --- GOOGLE LOG ---
     echo "download_file \"$GLOG_LINK\" \"glog.tar.zst\""
     echo "mkdir -p extracted_glog"
     echo "tar --use-compress-program=unzstd -xf glog.tar.zst -C extracted_glog/ --wildcards \"*/include/glog*\" \"*/lib/*.a\" \"*/bin/*.dll\""
     echo "mkdir -p include/glog lib"
     echo "cp -rf extracted_glog/ucrt64/include/glog/* include/glog/"
     echo "cp -fv extracted_glog/ucrt64/lib/libglog.dll.a lib/glog.dll.a"
-    echo "cp -fv extracted_glog/ucrt64/bin/libglog-2.dll lib/"
+    echo "cp -fv extracted_glog/ucrt64/bin/libglog-*.dll lib/"
     echo "rm -rf glog.tar.zst extracted_glog"
 
     # --- SLEEF ---
@@ -65,53 +68,102 @@ ffbuild_dockerdl() {
     echo "download_file \"$ABSEIL_LINK\" \"abseil.tar.zst\""
     echo "mkdir -p ext_abseil"
     echo "tar --use-compress-program=unzstd -xf abseil.tar.zst -C ext_abseil/ --wildcards \"*/bin/libabsl_*.dll\""
-    echo "cp -fv ext_abseil/ucrt64/bin/*.dll lib/"
+    # echo "cp -fv ext_abseil/ucrt64/bin/*.dll lib/"
+    echo "cp -fv ext_abseil/ucrt64/bin/libabsl_cord-2605.0.0.dll lib/"
     echo "rm -rf abseil.tar.zst ext_abseil"
+
+    # --- VULKAN ---
+    echo "download_file \"$VULKAN_LINK\" \"vulkan.tar.zst\""
+    echo "mkdir -p ext_vulkan"
+    echo "tar --use-compress-program=unzstd -xf vulkan.tar.zst -C ext_vulkan/ --wildcards \"*/bin/*.dll\""
+    echo "cp -fv ext_vulkan/ucrt64/bin/vulkan-*.dll lib/"
+    echo "rm -rf vulkan.tar.zst ext_vulkan"
+
+    # --- ZLIB ---
+    echo "download_file \"$ZLIB_LINK\" \"zlib.tar.zst\""
+    echo "mkdir -p ext_zlib"
+    echo "tar --use-compress-program=unzstd -xf zlib.tar.zst -C ext_zlib/ --wildcards \"*/bin/*.dll\""
+    echo "cp -fv ext_zlib/ucrt64/bin/zlib*.dll lib/"
+    echo "rm -rf zlib.tar.zst ext_zlib"
 }
 
 ffbuild_dockerbuild() {
     set -e
 
-    local GLOG_FLAGS_H="include/glog/flags.h"
-    local GLOG_LOGGING_H="include/glog/logging.h"
+    mkdir -p "${INSTALL_ROOT}"/{include,lib,bin}
+
+    # local GLOG_FLAGS_H="include/glog/flags.h"
+    # local GLOG_LOGGING_H="include/glog/logging.h"
 
     # Патчим glog/flags.h
-    if [[ -f "$GLOG_FLAGS_H" ]]; then
-        log_info "Injecting direct macro overrides into glog/flags.h..."
-        # 1. Принудительно объявляем GLOG_EXPORT как пустоту
-        # 2. Обнуляем TORCH_STABLE_ONLY и TORCH_TARGET_VERSION на случай конфликтов
-        sed -i '1i #undef GLOG_EXPORT\n#define GLOG_EXPORT' "$GLOG_FLAGS_H"
-    fi
+    # 1. Принудительно объявляем GLOG_EXPORT как пустоту
+    # 2. Обнуляем TORCH_STABLE_ONLY и TORCH_TARGET_VERSION на случай конфликтов
+    # if [[ -f "$GLOG_FLAGS_H" ]]; then
+        # log_info "Injecting direct macro overrides into glog/flags.h..."
+        # sed -i '1i #undef GLOG_EXPORT\n#define GLOG_EXPORT' "$GLOG_FLAGS_H"
+    # fi
 
     # Патчим glog/logging.h
-    if [[ -f "$GLOG_LOGGING_H" ]]; then
-        log_info "Injecting direct macro overrides into glog/logging.h..."
+    # Обнуление GLOG_EXPORT и GLOG_NO_EXPORT (уничтожит ошибку incomplete type)
+    # Объявление макросов, чтобы пройти проверку #if !defined(GLOG_EXPORT) на строке 60
+#     if [[ -f "$GLOG_LOGGING_H" ]]; then
+#         log_info "Injecting direct macro overrides into glog/logging.h..."
+# 
+#         cat << 'EOF' > tmp_logging_patch
+# #undef GLOG_EXPORT
+# #define GLOG_EXPORT
+# #undef GLOG_NO_EXPORT
+# #define GLOG_NO_EXPORT
+# #ifndef GLOG_USE_GLOG_EXPORT
+# #define GLOG_USE_GLOG_EXPORT
+# #endif
+# EOF
+        # Склеиваем патч с оригинальным файлом
+        # cat tmp_logging_patch "$GLOG_LOGGING_H" > tmp_log_fixed
+        # mv -f tmp_log_fixed "$GLOG_LOGGING_H"
+        # rm -f tmp_logging_patch
+    # fi
 
-        # Вставляем в самую первую строчку главного файла glog:
-        # - Обнуление GLOG_EXPORT и GLOG_NO_EXPORT (уничтожит ошибку incomplete type)
-        # - Объявление макросов, чтобы пройти проверку #if !defined(GLOG_EXPORT) на строке 60
-        cat << 'EOF' > tmp_logging_patch
-#undef GLOG_EXPORT
-#define GLOG_EXPORT
-#undef GLOG_NO_EXPORT
-#define GLOG_NO_EXPORT
-#ifndef GLOG_USE_GLOG_EXPORT
-#define GLOG_USE_GLOG_EXPORT
+    # Заглушка glog от конфликтов abi
+    mkdir -p "${INSTALL_ROOT}/include/glog"
+    cat << 'EOF' > "${INSTALL_ROOT}/include/glog/logging.h"
+#ifndef FAKE_GLOG_LOGGING_H_
+#define FAKE_GLOG_LOGGING_H_
+#include <iostream>
+#include <sstream>
+
+class FakeLogStream {
+public:
+    FakeLogStream() {}
+    template<typename T> FakeLogStream& operator<<(const T&) { return *this; }
+};
+
+namespace google {
+    enum LogSeverity { GLOG_INFO = 0, GLOG_WARNING = 1, GLOG_ERROR = 2, GLOG_FATAL = 3 };
+    class LogMessage {
+    public:
+        LogMessage(const char* f, int l, LogSeverity s) {}
+        std::ostream& stream() { return std::cerr; }
+    };
+}
+
+#define INFO 0
+#define WARNING 1
+#define ERROR 2
+#define FATAL 3
+#define LOG(severity) FakeLogStream()
+#define VLOG(verbose_level) FakeLogStream()
+#define LOG_IF(severity, condition) if(condition) FakeLogStream()
 #endif
 EOF
-        # Склеиваем патч с оригинальным файлом
-        cat tmp_logging_patch "$GLOG_LOGGING_H" > tmp_log_fixed
-        mv -f tmp_log_fixed "$GLOG_LOGGING_H"
-        rm -f tmp_logging_patch
-    fi
+
+    # Дублируем заглушку во второй файл, который запрашивал профайлер PyTorch
+    cp -f "${INSTALL_ROOT}/include/glog/logging.h" "${INSTALL_ROOT}/include/glog/stl_logging.h"
 
     log_info "Preparing LibTorch headers for GCC 15 compatibility..."
 
     # Прописываем базовые типы в заголовки C10/Torch, чтобы GCC 15 не падал на uint64_t или std::string
     find include/ -name "*.h" -o -name "*.hpp" -exec sed -i '1i #include <cstdint>\n#include <string>\n#include <stdexcept>' {} + 2>/dev/null || true
-
-    # Гарантируем структуру папок в префиксе
-    mkdir -p "${INSTALL_ROOT}"/{include,lib,bin}
 
     # Раскладываем заголовочные файлы
     cp -rf include/* "${INSTALL_ROOT}/include/"
