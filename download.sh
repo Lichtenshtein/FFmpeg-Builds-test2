@@ -163,8 +163,6 @@ else
         # Сохраняем новый хеш после успешного обновления
         echo "$REMOTE_HASH" > "$FFMPEG_HASH_FILE"
         log_info "${CHECK_MARK} FFmpeg updated to: ${REMOTE_HASH:0:7}"
-        # Создаем временный файл-флаг для GitHub Actions
-        touch "local_ext_cache/ffmpeg_was_updated"
     fi
 fi
 
