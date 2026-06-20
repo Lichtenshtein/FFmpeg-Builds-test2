@@ -98,12 +98,27 @@ ffbuild_dockerbuild() {
     find include/ -name "*.h" -o -name "*.hpp" -exec sed -i '1i #include <cstdint>\n#include <string>\n#include <stdexcept>' {} + 2>/dev/null || true
 
     # Решение abi/api конфликта glog
-    # отключаем конфликтующие макросы макросы (INFO, WARNING, ERROR, FATAL)
-    # Внедряем GLOG_NO_ABBREVIATED_SEVERITIES в самый верх оригинального файла glog
-    local GLOG_LOGGING_H="include/glog/logging.h"
-    if [[ -f "$GLOG_LOGGING_H" ]]; then
-        log_info "Patching original glog/logging.h to prevent macro collisions with FFmpeg..."
-        sed -i '1i #ifndef GLOG_NO_ABBREVIATED_SEVERITIES\n#define GLOG_NO_ABBREVIATED_SEVERITIES\n#endif' "$GLOG_LOGGING_H"
+    # Создаем преамбулу, которая активирует родной export.h и отключает опасные макросы
+    if [[ -d "include/glog" ]]; then
+        log_info "Injecting official macro triggers into glog master headers..."
+
+        cat << 'EOF' > include/glog/ffmpeg_glog_fix.h
+#ifndef FFMPEG_GLOG_FIX_H_
+#define FFMPEG_GLOG_FIX_H_
+
+#ifndef GLOG_NO_ABBREVIATED_SEVERITIES
+#define GLOG_NO_ABBREVIATED_SEVERITIES
+#endif
+
+#ifndef GLOG_USE_GLOG_EXPORT
+#define GLOG_USE_GLOG_EXPORT
+#endif
+
+#endif // FFMPEG_GLOG_FIX_H_
+EOF
+
+        # Инжектируем преамбулу первой строкой во ВСЕ заголовки glog
+        find include/glog/ -name "*.h" ! -name "ffmpeg_glog_fix.h" -exec sed -i '1i #include "ffmpeg_glog_fix.h"' {} +
     fi
 
     # Раскладываем заголовочные файлы
