@@ -342,18 +342,27 @@ jobs:
           echo "Cache Key: $KEY"
           echo "key=$KEY" >> $GITHUB_OUTPUT
 
-      - name: Restore Downloads & FFmpeg
-        id: restore_dl
+      # --- КЭШ 1: ЗАВИСИМОСТИ СТОРОННИХ БИБЛИОТЕК (Загрузки) ---
+      - name: Restore Third-Party Downloads
+        id: restore_downloads
         uses: actions/cache/restore@v5.0.5
         with:
-          path: |
-            local_ext_cache/downloads
-            local_ext_cache/ffmpeg
-          key: dl-cache-${{ steps.dl_cache.outputs.key }}
+          path: local_ext_cache/downloads
+          key: thirdparty-dl-${{ steps.dl_cache.outputs.key }}
           restore-keys: |
-            dl-cache-
+            thirdparty-dl-
 
+      # --- КЭШ 2: ИСХОДНЫЙ КОД FFMPEG ---
+      - name: Restore FFmpeg Source Tree
+        id: restore_ffmpeg
+        uses: actions/cache/restore@v5.0.5
+        with:
+          path: local_ext_cache/ffmpeg
+          key: ffmpeg-src-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            ffmpeg-src-
 
+      # --- КЭШ 3: КЭШ КОМПИЛЯТОРА (CCACHE) ---
       - name: Restore Compiler Cache (ccache)
         id: restore_ccache
         uses: actions/cache/restore@v5.0.5
@@ -402,15 +411,35 @@ jobs:
       - name: Inspect Dockerfile
         run: head -n 80 Dockerfile
 
-      - name: Save Downloads Cache
-        if: always() && steps.restore_step.outputs.cache-hit != 'true'
+      - name: Get Final FFmpeg Commit for Cache Key
+        id: ffmpeg_commit
+        if: always()
+        run: |
+          COMMIT=$(cat local_ext_cache/ffmpeg/.current_commit 2>/dev/null || echo "none")
+          echo "commit=${COMMIT:0:12}" >> $GITHUB_OUTPUT
+
+      # --- SAVE 1: Зависимости сторонних библиотек ---
+      - name: Save Third-Party Downloads
+        # Сохраняем ТОЛЬКО если скрипты менялись и произошел cache-miss. 
+        # Если совпадение точное (hit), этот шаг мгновенно пропускается, экономя место и время.
+        if: always() && steps.restore_downloads.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5.0.5
         with:
-          path: |
-            local_ext_cache/downloads
-            local_ext_cache/ffmpeg
-          key: dl-cache-${{ steps.dl_cache.outputs.key }}
+          path: local_ext_cache/downloads
+          key: thirdparty-dl-${{ steps.dl_cache.outputs.key }}
 
+      # --- SAVE 2: Исходный код FFmpeg ---
+      - name: Save FFmpeg Source Tree
+        # Сохраняем, если скачался новый коммит из Git. 
+        # Проверяем, отличается ли то, что мы восстановили вначале, от того, что записал download.sh
+        if: always() && steps.ffmpeg_commit.outputs.commit != 'none' && !endsWith(steps.restore_ffmpeg.outputs.cache-primary-key, steps.ffmpeg_commit.outputs.commit)
+        uses: actions/cache/save@v5.0.5
+        with:
+          path: local_ext_cache/ffmpeg
+          # Ключ уникален для каждого коммита FFmpeg master
+          key: ffmpeg-src-${{ steps.ffmpeg_commit.outputs.commit }}
+
+      # --- SAVE 3: Кэш компилятора ---
       - name: Save Compiler Cache (ccache)
         if: always()
         uses: actions/cache/save@v5.0.5
