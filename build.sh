@@ -907,7 +907,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
             if ! "$STRINGS_CMD" "$TEST_EXE" 2>/dev/null | grep -q "x264_"; then
                 log_error "Symbol x264_ not found in binary! Linking failure detected."
                 MISSING_SYMBOLS=1
-            elif ! ${NM} "$TEST_EXE" 2>/dev/null | grep -q "x264_"; then
+            elif ! nm "$TEST_EXE" 2>/dev/null | grep -q "x264_"; then
                 log_error "Symbol x264_ not found in binary! Linking failure detected."
                 MISSING_SYMBOLS=1
             fi
@@ -917,7 +917,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
             if ! "$STRINGS_CMD" "$TEST_EXE" 2>/dev/null | grep -q "svt_av1"; then
                 log_error "Symbol svt_av1 not found in binary! Linking failure detected."
                 MISSING_SYMBOLS=1
-            elif ! ${NM} "$TEST_EXE" 2>/dev/null | grep -q "svt_av1"; then
+            elif ! nm "$TEST_EXE" 2>/dev/null | grep -q "svt_av1"; then
                 log_error "Symbol svt_av1 not found in binary! Linking failure detected."
                 MISSING_SYMBOLS=1
             fi
