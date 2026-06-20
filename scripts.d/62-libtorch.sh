@@ -126,7 +126,7 @@ ffbuild_dockerdl() {
         "libabsl_time_zone-*.dll" "libabsl_tracing_internal-*.dll" "libc*.dll"
         "libgcc_s_*.dll" "libgfortran*.dll" "libglog*.dll" "libgomp*.dll"
         "libopenblas*.dll" "libprotobuf*.dll" "libquadmath*.dll" "libsleef*.dll"
-        "libstdc++*.dll" "libtorch_cpu*.dll" "libunwind*.dll" "libutf8_validity*.dll"
+        "libstdc++*.dll" "libtorch_cpu*.dll" "libtorch.dll" "libunwind*.dll" "libutf8_validity*.dll"
         "libwinpthread*.dll" "vulkan*.dll" "zlib*.dll"
     )
 
@@ -205,7 +205,7 @@ EOF
     elif [[ -f "${INSTALL_ROOT}/lib/libglog-2.a" ]]; then
         cp -f${OP_V} "${INSTALL_ROOT}/lib/libglog-2.a" "${INSTALL_ROOT}/lib/libglog.a"
     fi
-# -ltorch -ltorch_cpu -lc10 -lglog -lopenblas -lprotobuf -lsleef-3 -lunwind -labsl_cord-2605.0.0
+
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/libtorch.pc"
 prefix=$FFBUILD_PREFIX
@@ -215,7 +215,7 @@ includedir=\${prefix}/include
 Name: LibTorch
 Description: PyTorch C++ API (MSYS2 MinGW-w64 Build)
 Version: 2.12.0
-Libs: -L\${libdir} -ltorch_cpu -lc10 -lglog -lopenblas -lprotobuf -lsleef-3 -lunwind -labsl_cord-2605.0.0
+Libs: -L\${libdir} -ltorch -ltorch_cpu -lc10 -lglog -lopenblas -lprotobuf -lsleef-3 -lunwind -labsl_cord-2605.0.0
 Libs.private: -lshlwapi -lws2_32 -lstdc++ -lpthread
 Cflags: -I\${includedir} -I\${includedir}/torch/csrc/api/include -DNOMINMAX -DNDEBUG -DGLOG_NO_ABBREVIATED_SEVERITIES
 EOF
