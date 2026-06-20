@@ -45,12 +45,12 @@ for lic in "${LICENSE_FILES[@]}"; do
 
     if [[ -f "$FULL_LIC_PATH" ]]; then
         # Копируем файл в корень архива (${PKG_DIR})
-        cp -v "$FULL_LIC_PATH" "${PKG_DIR}/"
+        cp ${OP_VERB} "$FULL_LIC_PATH" "${PKG_DIR}/"
         log_info "${CHECK_MARK} License bundled successfully from ${FFMPEG_SOURCE_DIR}: $lic"
     else
         # Если не нашли в основной папке, ищем в текущей рабочей директории
         if [[ -f "./$lic" ]]; then
-            cp -v "./$lic" "${PKG_DIR}/"
+            cp ${OP_VERB} "./$lic" "${PKG_DIR}/"
             log_info "${CHECK_MARK} License bundled from current dir: $lic"
         else
             log_error "License file not found anywhere: $lic (Checked path: $FULL_LIC_PATH)"
@@ -62,7 +62,7 @@ done
 if [[ -d "${FFBUILD_PREFIX}/lib/frei0r-1" ]]; then
     log_info "${SYNC_MARK} Collecting frei0r plugins..."
     mkdir -p "${PKG_DIR}/bin/frei0r-1"
-    find "${FFBUILD_PREFIX}/lib/frei0r-1" -name "*.dll" -exec cp -v {} "${PKG_DIR}/bin/frei0r-1/" \; || true
+    find "${FFBUILD_PREFIX}/lib/frei0r-1" -name "*.dll" -exec cp ${OP_VERB} {} "${PKG_DIR}/bin/frei0r-1/" \; || true
 else
     log_warn "Frei0r plugins not found in ${FFBUILD_PREFIX}/lib/frei0r-1"
 fi
@@ -71,7 +71,7 @@ fi
 if [[ -d "${FFBUILD_PREFIX}/share/pocketsphinx" ]]; then
     log_info "${SYNC_MARK} Collecting pocketsphinx models..."
     mkdir -p "${ASSETS_DIR}/pocketsphinx"
-    cp -vr "${FFBUILD_PREFIX}/share/pocketsphinx" "${ASSETS_DIR}/"
+    cp -${OP_V}r "${FFBUILD_PREFIX}/share/pocketsphinx" "${ASSETS_DIR}/"
 else
     log_warn "Pocketsphinx models not found in ${FFBUILD_PREFIX}/share/pocketsphinx"
 fi
@@ -80,7 +80,7 @@ fi
 if [[ -d "${FFBUILD_PREFIX}/share/opencv4" ]]; then
     log_info "${SYNC_MARK} Collecting OpenCV models..."
     mkdir -p "${ASSETS_DIR}/opencv4"/{haarcascades,lbpcascades}
-    cp -vr "${FFBUILD_PREFIX}/share/opencv4" "${ASSETS_DIR}/"
+    cp -${OP_V}r "${FFBUILD_PREFIX}/share/opencv4" "${ASSETS_DIR}/"
 else
     log_warn "OpenCV models not found in ${FFBUILD_PREFIX}/share/opencv4"
 fi
@@ -88,7 +88,7 @@ fi
 # Плагин nnedi3
 if [[ -f "${FFBUILD_PREFIX}/lib/libvsznedi3.dll" ]]; then
     log_info "${SYNC_MARK} Moving nnedi3 plugin..."
-    cp -v "${FFBUILD_PREFIX}/lib/libvsznedi3.dll" "${PKG_DIR}/bin/libvsznedi3.dll"
+    cp ${OP_VERB} "${FFBUILD_PREFIX}/lib/libvsznedi3.dll" "${PKG_DIR}/bin/libvsznedi3.dll"
 elif [[ -f "${FFBUILD_PREFIX}/lib/libznedi3.a" ]]; then
     log_info "Found static libznedi3.a instead of libvsznedi3.dll in ${FFBUILD_PREFIX}/lib"
 else
@@ -98,7 +98,7 @@ fi
 # Плагины avisynth
 if [[ -d "${FFBUILD_PREFIX}/lib/avisynth" ]]; then
     log_info "${SYNC_MARK} Collecting avisynth plugins..."
-    find "${FFBUILD_PREFIX}/lib/avisynth" -name "*.dll" -exec cp -v {} "${PKG_DIR}/bin/" \; || true
+    find "${FFBUILD_PREFIX}/lib/avisynth" -name "*.dll" -exec cp ${OP_VERB} {} "${PKG_DIR}/bin/" \; || true
 else
     log_warn "avisynth plugins not found in ${FFBUILD_PREFIX}/lib/avisynth"
 fi
@@ -107,15 +107,15 @@ fi
 if [[ -d "${FFBUILD_PREFIX}/share/lensfun" ]]; then
     log_info "${SYNC_MARK} Collecting lensfun profiles..."
     mkdir -p "${ASSETS_DIR}/lensfun/version_2"
-    # find "${FFBUILD_PREFIX}/share/lensfun/version_2" -name "*.xml" -exec cp -v {} "${ASSETS_DIR}/lensfun/" \; || true
-    cp -vr "${FFBUILD_PREFIX}/share/lensfun" "${ASSETS_DIR}/"
+    # find "${FFBUILD_PREFIX}/share/lensfun/version_2" -name "*.xml" -exec cp ${OP_VERB} {} "${ASSETS_DIR}/lensfun/" \; || true
+    cp -${OP_V}r "${FFBUILD_PREFIX}/share/lensfun" "${ASSETS_DIR}/"
 else
     log_warn "lensfun profiles not found in ${FFBUILD_PREFIX}/share/lensfun"
 fi
 
 # Пылесосим все оставшиеся DLL изсборочного префикса в папку с бинарниками
 log_info "${SYNC_MARK} Collecting external component DLLs if present..."
-find "${FFBUILD_PREFIX}" -maxdepth 3 \( -name '*.dll' -o -name '*.pyd' -o -name '*.bin' -o -name '*.sign' -o -name '*.zip' \) -exec cp -v {} "${PKG_DIR}/bin/" \; 2>/dev/null || true
+find "${FFBUILD_PREFIX}" -maxdepth 3 \( -name '*.dll' -o -name '*.pyd' -o -name '*.bin' -o -name '*.sign' -o -name '*.zip' \) -exec cp ${OP_VERB} {} "${PKG_DIR}/bin/" \; 2>/dev/null || true
 
 # Автопоиск и упаковка системного рантайма MinGW (SSP, WinPthreads, GCC)
 log_info "${SYNC_MARK} Analyzing binaries for missing MinGW runtime DLLs..."
@@ -127,37 +127,57 @@ if [[ -d "${PKG_DIR}/bin" ]]; then
     # Массив стандартных рантайм-библиотек MinGW, которые могут потребоваться
     RUNTIME_DLLS=("libssp-0.dll" "libwinpthread-1.dll" "libstdc++-6.dll" "libgcc_s_seh-1.dll" "libgomp-1.dll")
 
-    for dll in "${RUNTIME_DLLS[@]}"; do
-        # Сканируем ВСЕ .exe и .dll в папке bin на наличие зависимости
-        if ${FFBUILD_CROSS_PREFIX}objdump -p "${PKG_DIR}/bin"/*.{exe,dll} 2>/dev/null | grep -q -i "$dll"; then
-            # Проверяем, не скопировали ли мы её уже ранее
-            if [[ -f "${PKG_DIR}/bin/$dll" ]]; then
-                continue
-            fi
-            log_warn "Detected dynamic dependency: $dll. Searching toolchain directories..."
-            # Ищем DLL в sysroot или в папках компилятора
-            FOUND_DLL=""
-            if [[ -f "${TOOLCHAIN_SYSROOT}/bin/$dll" ]]; then
-                FOUND_DLL="${TOOLCHAIN_SYSROOT}/bin/$dll"
-            elif [[ -f "${TOOLCHAIN_BIN_DIR}/$dll" ]]; then
-                FOUND_DLL="${TOOLCHAIN_BIN_DIR}/$dll"
-            else
-                # Глобальный поиск по всему каталогу ct-ng на крайний случай
-                FOUND_DLL=$(find /opt/ct-ng -name "$dll" -type f -print -quit)
-            fi
-            if [[ -n "$FOUND_DLL" ]]; then
-                cp -v "$FOUND_DLL" "${PKG_DIR}/bin/"
-                log_info "${CHECK_MARK} Successfully bundled system runtime: $dll"
-            else
-                log_error "Required system runtime $dll not found in toolchain!"
-            fi
+    # Динамически определяем список файлов для анализа
+    FILES_TO_CHECK=()
+    if [[ "$HAS_LIBTORCH" == "1" || "$HAS_LIBTENSORFLOW" == "1" ]]; then
+        # берем все .exe и .dll
+        # nullglob предотвращает ошибку, если файлов какого-то типа нет
+        shopt -s nullglob
+        FILES_TO_CHECK=("${PKG_DIR}/bin"/*.{exe,dll})
+        shopt -u nullglob
+    else
+        # Иначе проверяем строго только ffmpeg.exe, если он существует
+        if [[ -f "${PKG_DIR}/bin/ffmpeg.exe" ]]; then
+            FILES_TO_CHECK=("${PKG_DIR}/bin/ffmpeg.exe")
         fi
-    done
+    fi
+
+    # Запускаем проверку только если есть файлы для анализа
+    if [[ ${#FILES_TO_CHECK[@]} -gt 0 ]]; then
+        for dll in "${RUNTIME_DLLS[@]}"; do
+            # Сканируем определенные выше файлы на наличие зависимости
+            if ${FFBUILD_CROSS_PREFIX}objdump -p "${FILES_TO_CHECK[@]}" 2>/dev/null | grep -q -i "$dll"; then
+                # Проверяем, не скопировали ли мы её уже ранее
+                if [[ -f "${PKG_DIR}/bin/$dll" ]]; then
+                    continue
+                fi
+                log_warn "Detected dynamic dependency: $dll. Searching toolchain directories..."
+                # Ищем DLL в sysroot или в папках компилятора
+                FOUND_DLL=""
+                if [[ -f "${TOOLCHAIN_SYSROOT}/bin/$dll" ]]; then
+                    FOUND_DLL="${TOOLCHAIN_SYSROOT}/bin/$dll"
+                elif [[ -f "${TOOLCHAIN_BIN_DIR}/$dll" ]]; then
+                    FOUND_DLL="${TOOLCHAIN_BIN_DIR}/$dll"
+                else
+                    # Глобальный поиск по всему каталогу ct-ng на крайний случай
+                    FOUND_DLL=$(find /opt/ct-ng -name "$dll" -type f -print -quit)
+                fi
+                if [[ -n "$FOUND_DLL" ]]; then
+                    cp ${OP_VERB} "$FOUND_DLL" "${PKG_DIR}/bin/"
+                    log_info "${CHECK_MARK} Successfully bundled system runtime: $dll"
+                else
+                    log_error "Required system runtime $dll not found in toolchain!"
+                fi
+            fi
+        done
+    else
+        log_info "No targets found for runtime analysis."
+    fi
 fi
 
 # Копируем лог сборки
 log_info "${SYNC_MARK} Coping build log file..."
-cp "$FFMPEG_CONFIG_LOG" "${PKG_DIR}/config.log" || true
+cp ${OP_VERB} "$FFMPEG_CONFIG_LOG" "${PKG_DIR}/config.log" || true
 
 # ===================
 # TERRITORY OF LINKS
@@ -223,7 +243,7 @@ if [[ "$HAS_LIBTESSERACT" == "1" ]]; then
     if [ -d "${FFBUILD_PREFIX}/share/tessdata" ]; then
         # -a (archive) включает рекурсию (-r) и сохраняет все права/структуру файлов
         # -v (verbose) покажет в логах, какие файлы копируются
-        cp -av "${FFBUILD_PREFIX}/share/tessdata"/* "$TESS_DEST/"
+        cp -a${OP_V} "${FFBUILD_PREFIX}/share/tessdata"/* "$TESS_DEST/"
     else
         log_warn "Source tessdata configs directory not found in ${FFBUILD_PREFIX}/share/tessdata"
     fi
@@ -239,7 +259,7 @@ if [[ "$HAS_LIBTENSORFLOW" == "1" ]]; then
     mkdir -p "$TARGET_MODEL_DIR"
 
     if [[ -d "$INTERNAL_MODELS_DIR" && "$(ls -A "$INTERNAL_MODELS_DIR" 2>/dev/null)" ]]; then
-        cp -v "$INTERNAL_MODELS_DIR"/*.pb "$TARGET_MODEL_DIR/"
+        cp ${OP_VERB} "$INTERNAL_MODELS_DIR"/*.pb "$TARGET_MODEL_DIR/"
         log_info "${CHECK_MARK} TensorFlow SR models successfully bundled into package!"
     else
         log_error "TensorFlow SR models not found in internal storage ($INTERNAL_MODELS_DIR)!"
