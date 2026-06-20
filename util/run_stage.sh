@@ -22,6 +22,9 @@ fi
 
 # Обнуляем статистику
 ccache -z > /dev/null
+# размер кэша компилятора
+ccache -M 2G
+
 # Сбрасываем счетчик секунд в начале этапа
 SECONDS=0
 STAGE_START_TIME=$(date +%s)

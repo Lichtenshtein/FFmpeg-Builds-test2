@@ -14,13 +14,13 @@ VULKAN_LINK="https://mirrors.dotsrc.org/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64
 ZLIB_LINK="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-zlib-1.3.2-2-any.pkg.tar.zst"
 FORTRAN_LINK="https://distrohub.kyiv.ua/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-gcc-libgfortran-16.1.0-5-any.pkg.tar.zst"
 
-
 export SKIP_POST_PC_PATCH=1
 
 ffbuild_enabled() {
 # конфликт версий рантайма C++ (libstdc++-6.dll) между кросс-компилятором и бинарным пакетом
 # Символ _ZSt15__get_once_callv (std::__get_once_call()) символ стандартной библиотеки C++ (libstdc++) для реализации std::call_once
-    return 0
+    [[ "$USE_LIBTORCH" == "1" ]] && return 0
+    return 1
 }
 
 ffbuild_dockerdl() {
@@ -34,8 +34,7 @@ ffbuild_dockerdl() {
     # --- GCC LIBS ---
     echo "download_file \"$GCC_LINK\" \"gcc-libs.tar.zst\""
     echo "mkdir -p ext_gcclibs"
-    # echo "tar --use-compress-program=unzstd -xf gcc-libs.tar.zst -C ext_gcclibs/ --wildcards \"*/bin/libstdc++*.dll\" \"*/bin/libgcc_s_*.dll\""
-    echo "tar --use-compress-program=unzstd -xf gcc-libs.tar.zst -C ext_gcclibs/ --wildcards \"*/bin/libstdc++*.dll\" \"*/bin/libgcc_s_*.dll\" \"*/bin/libgomp-*.dll\""
+    echo "tar --use-compress-program=unzstd -xf gcc-libs.tar.zst -C ext_gcclibs/ --wildcards \"*/bin/*.dll\""
     echo "cp -f${OP_V} ext_gcclibs/ucrt64/bin/*.dll lib/"
     echo "rm -rf gcc-libs.tar.zst ext_gcclibs"
 

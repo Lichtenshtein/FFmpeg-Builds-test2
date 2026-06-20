@@ -85,6 +85,7 @@ FROM stage-os-base AS stage-final
 
 ARG CPU_ARCH=${CPU_TUNE:-broadwell}
 ARG CPU_TUNE=${CPU_ARCH:-broadwell}
+ARG CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-2G}"
 
 # Copy ONLY the finalized toolchain binary tree, leaving all ct-ng sources behind
 COPY --from=stage-toolchain-builder /opt/ct-ng /opt/ct-ng
@@ -110,7 +111,7 @@ ENV \
     PATH="/opt/ct-ng/bin:/opt/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
     CCACHE_PATH="/opt/ct-ng/bin:/usr/bin" \
     CCACHE_DIR=/root/.cache/ccache \
-    CCACHE_MAXSIZE=4G \
+    CCACHE_MAXSIZE="${CCACHE_MAXSIZE}" \
     CCACHE_SLOPPINESS="include_file_ctime,include_file_mtime,locale,time_macros,file_macro,pch_defines" \
     CCACHE_BASEDIR="/builder" \
     CCACHE_COMPILERCHECK="content" \

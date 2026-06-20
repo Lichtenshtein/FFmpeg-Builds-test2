@@ -89,10 +89,6 @@ on:
         type: boolean
         default: true
         required: false
-      build_vino:
-        description: 'Build OpenVino'
-        type: boolean
-        default: true
       ffmpeg_repo:
         description: 'FFmpeg Repository URL'
         default: 'https://github.com/MartinEesmaa/FFmpeg-Plus.git'
@@ -109,7 +105,7 @@ env:
   # Параметры сборки
   TARGET: win64
   VARIANT: nonfree
-  CCACHE_MAXSIZE: "4G"
+  CCACHE_MAXSIZE: "2G"
   # Списки исключений
   # Список для хранения .git от очистки (в download.sh)
   # Some patches apply only with git am...
@@ -133,7 +129,6 @@ env:
   CLEAN_INACTIVE: ${{ github.event.inputs.clean_inactive == 'true' && '1' || '0' }}
   PREFER_SHARED:  ${{ github.event.inputs.prefer_shared  == 'true' && '1' || '0' }}
   DIR_NUMBERS:    ${{ github.event.inputs.dir_numbers    == 'true' && '1' || '0' }}
-  BUILD_VINO:     ${{ github.event.inputs.build_vino     == 'true' && '1' || '0' }}
   # Inputs -> Env mapping for all dynamic values
   FFMPEG_REPO:     ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-Plus.git' }}
   FFMPEG_BRANCH:   ${{ github.event.inputs.ffmpeg_branch || 'master' }}
@@ -147,6 +142,8 @@ env:
   DEDUPE_FLAGS:   '1' # Deduplicate LDFLAGS/LIBS
   OLDER_FFNV:     '0' # Install older ffnvcodec version (8.1)
   USE_TENSORFLOW: '0'
+  USE_LIBTORCH:   '1'
+  BUILD_VINO:     '1' # Build OpenVino
   USE_ASAN:       '0' # Address Sanitizer not supported in ct-ng
   LOG_RAW_SYMB:   '20' # number of lines displaying external library deps
   LOG_SIZES:      '650' # number of lines displayed in logs
@@ -345,16 +342,24 @@ jobs:
           echo "Cache Key: $KEY"
           echo "key=$KEY" >> $GITHUB_OUTPUT
 
-      - name: Restore Source Cache
-        uses: actions/cache/restore@v5
+      - name: Restore Downloads & FFmpeg
+        id: restore_dl
+        uses: actions/cache/restore@v5.0.5
         with:
           path: |
             local_ext_cache/downloads
             local_ext_cache/ffmpeg
-            local_ext_cache/ccache
           key: dl-cache-${{ steps.dl_cache.outputs.key }}
+          restore-keys: dl-cache-
+
+      - name: Restore Compiler Cache (ccache)
+        id: restore_ccache
+        uses: actions/cache/restore@v5.0.5
+        with:
+          path: local_ext_cache/ccache
+          key: ccache-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            dl-cache-
+            ccache-${{ matrix.target }}-
 
       - name: Run Download and Generate
         run: |
@@ -395,15 +400,21 @@ jobs:
       - name: Inspect Dockerfile
         run: head -n 80 Dockerfile
 
-      - name: Force Save Cache
-        if: always()
-        uses: actions/cache/save@v5
+      - name: Save Downloads Cache
+        if: always() && steps.restore_dl.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5.0.5
         with:
           path: |
             local_ext_cache/downloads
             local_ext_cache/ffmpeg
-            local_ext_cache/ccache
-          key: dl-cache-${{ steps.dl_cache.outputs.key }}
+          key: ${{ steps.restore_dl.outputs.cache-primary-key }}
+
+      - name: Save Compiler Cache (ccache)
+        if: always()
+        uses: actions/cache/save@v5.0.5
+        with:
+          path: local_ext_cache/ccache
+          key: ccache-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Inject Downloads into Buildx Cache
         run: |

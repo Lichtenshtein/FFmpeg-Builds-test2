@@ -66,6 +66,7 @@ log_info "${CHECK_MARK} Active addins: ${GREY_B}${ADDINS_STR:-none}${NC}"
 [[ "$DIR_NUMBERS" == "1" ]]    && log_info "${XCLAM_MARK} Script collector will ignore numbering of folders."
 [[ "$BUILD_VINO" == "1" ]]     && log_info "${XCLAM_MARK} Will build OpenVINO from source. You'll gonna carry that weight..."
 [[ "$USE_TENSORFLOW" == "1" ]] && log_info "${XCLAM_MARK} TensorFlow component is enabled."
+[[ "$USE_LIBTORCH" == "1" ]]   && log_info "${XCLAM_MARK} LibTorch component is enabled."
 [[ "$USE_ASAN" == "1" ]]       && log_info "${XCLAM_MARK} Address Sanitizer (ASAN) is enabled."
 [[ "$DEBUG_MODE" == "1" ]]     && log_info "${XCLAM_MARK} Debug mode is enabled. Stripping will be disabled. Binary sizes will increase."
 if [[ "$SEC_PROTO" == "openssl"  ]]; then
@@ -105,6 +106,7 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     LOG_FF_SIZES=\"${LOG_FF_SIZES}\" \\
     LOG_INSTALLED=\"${LOG_INSTALLED}\" \\
     USE_TENSORFLOW=\"${USE_TENSORFLOW}\" \\
+    USE_LIBTORCH=\"${USE_LIBTORCH}\" \\
     USE_ASAN=\"${USE_ASAN}\" \\
     DEBUG_MODE=\"${DEBUG_MODE}\" \\
     SEC_PROTO=\"${SEC_PROTO}\" \\

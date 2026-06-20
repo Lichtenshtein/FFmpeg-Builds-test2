@@ -1,12 +1,5 @@
-# Eliminate the heavy compiler and ffmpeg cache
-#.cache/ccache
-#.cache/ffmpeg
-#.git
-#artifacts
-
 # BuildKit will no longer pull 910 MB of download archives into Docker during the context analysis phase. The base-win64 base layer will no longer be invalidated, and the two-minute download of the image will be completely stopped.
 
-local_ext_cache/
 .git/
 artifacts/
 ffbuild/
@@ -16,7 +9,8 @@ ffbuild/
 *.confhash
 *.confopts
 
-# We allow copying ONLY download archives
-#!.cache/downloads
-#!.cache/ffmpeg
-#!host_tensorflow_models
+# РАЗРЕШАЕМ BuildKit видеть исходный код FFmpeg и его маркер коммита
+# !local_ext_cache/ffmpeg/
+!local_ext_cache/ffmpeg/.current_commit
+!local_ext_cache/downloads/
+!local_ext_cache/ccache/

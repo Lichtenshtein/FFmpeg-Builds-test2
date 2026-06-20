@@ -10,6 +10,8 @@ source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
 
 # Сброс статистики для чистого лога
 ccache -z > /dev/null
+# размер кэша компилятора
+ccache -M 2G
 # Сбрасываем счетчик секунд в начале этапа
 SECONDS=0
 
