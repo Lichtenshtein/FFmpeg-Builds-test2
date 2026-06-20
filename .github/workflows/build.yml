@@ -350,7 +350,9 @@ jobs:
             local_ext_cache/downloads
             local_ext_cache/ffmpeg
           key: dl-cache-${{ steps.dl_cache.outputs.key }}
-          restore-keys: dl-cache-
+          restore-keys: |
+            dl-cache-
+
 
       - name: Restore Compiler Cache (ccache)
         id: restore_ccache
@@ -401,13 +403,13 @@ jobs:
         run: head -n 80 Dockerfile
 
       - name: Save Downloads Cache
-        if: always() && (steps.restore_step.outputs.cache-hit != 'true' || hashFiles('local_ext_cache/ffmpeg_was_updated') != '')
+        if: always() && steps.restore_step.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5.0.5
         with:
           path: |
             local_ext_cache/downloads
             local_ext_cache/ffmpeg
-          key: ${{ steps.restore_dl.outputs.cache-primary-key }}
+          key: dl-cache-${{ steps.dl_cache.outputs.key }}
 
       - name: Save Compiler Cache (ccache)
         if: always()
