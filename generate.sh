@@ -236,7 +236,7 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
 
     to_df "    --mount=type=bind,from=downloads_context,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
-    to_df "    --mount=type=bind,from=ffmpeg_context,target=${CONTAINER_ROOT}/.cache/ffmpeg,rw \\"
+    # to_df "    --mount=type=bind,from=ffmpeg_context,target=${CONTAINER_ROOT}/.cache/ffmpeg,rw \\"
 
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"

@@ -8,7 +8,7 @@ on:
         required: false
         # default: '01-mingw-std-threads|02-mingw|05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|27-freeglut|30-openssl|32-libssh|32-quiche|33-nghttp2|34-curl|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|37-openjpeg|37-svtjpegxs|38-libwebp|39-fontconfig|39-fribidi|39-libtiff|39-pixman|40-cairo|40-harfbuzz|40-lcms2|40-zimg|42-libarchive|43-pango|44-dav1d|44-svtav1|45-libavif|45-libjxl|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|54-vmaf|59-leptonica|62-libtesseract|70-aom|70-libvpx|70-lcevcdec'
         # default: '01-mingw-std-threads|02-mingw|06-libiconv|07-gettext|08-zlib|11-brotli|11-xz|16-libxml2|27-freeglut|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|38-libwebp|40-lcms2|44-dav1d|44-svtav1|45-libavif|45-libjxl|54-vmaf|70-aom'
-        default: '62-libtorch'
+        default: '70-openh264|70-x264|44-svtav1'
         # default: '02-mingw|06-libiconv|07-gettext|08-zlib|11-bzlib|12-libffi|15-pcre2|16-glib2|16-fftw3|27-freeglut|30-openssl|64-libsamplerate|64-soxr|65-pulseaudio|66-sdl'
         # default: '.*'
       skip_ffmpeg:
@@ -401,7 +401,7 @@ jobs:
         run: head -n 80 Dockerfile
 
       - name: Save Downloads Cache
-        if: always() && steps.restore_dl.outputs.cache-hit != 'true'
+        if: always() && (steps.restore_step.outputs.cache-hit != 'true' || hashFiles('local_ext_cache/ffmpeg_was_updated') != '')
         uses: actions/cache/save@v5.0.5
         with:
           path: |
@@ -435,7 +435,7 @@ jobs:
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
             downloads_context=./local_ext_cache/downloads
-            ffmpeg_context=./local_ext_cache/ffmpeg
+            # ffmpeg_context=./local_ext_cache/ffmpeg
           cache-from: type=gha,scope=ffmpeg-target-base-${{ steps.docker_hash.outputs.hash }}
           cache-to: ""
 
