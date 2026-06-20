@@ -258,12 +258,12 @@ if [[ "$HAS_LIBOPENVINO" == "1" ]]; then
 fi
 
 # LIBTORCH MODELS (EDSR) Модели .torch для фильтра 'sr'
-if [[ "$HAS_LIBTORCH" == "1" ]]; then
-    log_info "${DOWN_MARK} Downloading LibTorch models..."
-    mkdir -p "${ASSETS_DIR}/torch"
-    LINK_TORCH=$(echo "$URL_TORCH_EDSR" | tr -d ' ')
-    download_file "$LINK_TORCH" "${ASSETS_DIR}/torch/edsr_x2.torch" ""
-fi
+# if [[ "$HAS_LIBTORCH" == "1" ]]; then
+    # log_info "${DOWN_MARK} Downloading LibTorch models..."
+    # mkdir -p "${ASSETS_DIR}/torch"
+    # LINK_TORCH=$(echo "$URL_TORCH_EDSR" | tr -d ' ')
+    # download_file "$LINK_TORCH" "${ASSETS_DIR}/torch/edsr_x2.torch" ""
+# fi
 
 # APPLE AUDIOTOOLBOX DLLS (Special handling)
 if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then

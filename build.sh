@@ -546,7 +546,7 @@ fi
 [[ "${USE_AVX512}" != "1" ]] && \
     CONF_FLAGS+=( --disable-avx512 --disable-avx512icl )
 [[ "$DEBUG_MODE" == "1" ]] && \
-    CONF_FLAGS+=( --disable-stripping --enable-debug=2 ) || \
+    CONF_FLAGS+=( --disable-stripping --enable-debug=3 --disable-optimizations ) || \
     CONF_FLAGS+=( --disable-debug )
 if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
     CONF_FLAGS+=( --nvcc=clang )

@@ -3,18 +3,21 @@
 SCRIPT_REPO="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-python-pytorch-2.12.0-4-any.pkg.tar.zst"
 
 # сбор сателлитных DLL
+GCC_LINK="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-gcc-libs-16.1.0-5-any.pkg.tar.zst"
 GLOG_LINK="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-glog-0.7.1-10-any.pkg.tar.zst"
 SLEEF_LINK="https://mirror.accum.se/mirror/msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-sleef-3.9.0-2-any.pkg.tar.zst"
 OPENBLAS_LINK="https://mirrors.dotsrc.org/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-openblas-0.3.33-3-any.pkg.tar.zst"
 PROTOBUF_LINK="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-protobuf-35.0-1-any.pkg.tar.zst"
 UNWIND_LINK="https://distrohub.kyiv.ua/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-libunwind-22.1.7-1-any.pkg.tar.zst"
 ABSEIL_LINK="https://distrohub.kyiv.ua/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-abseil-cpp-20260526.0-1-any.pkg.tar.zst"
-VULKAN_LINK="https://mirror.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-vulkan-loader-1~1.4.350.0-1-any.pkg.tar.zst"
+VULKAN_LINK="https://mirrors.dotsrc.org/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-vulkan-loader-1~1.4.350.0-1-any.pkg.tar.zst"
 ZLIB_LINK="https://mirror.yandex.ru/mirrors/msys2/mingw/ucrt64/mingw-w64-ucrt-x86_64-zlib-1.3.2-2-any.pkg.tar.zst"
 
 export SKIP_POST_PC_PATCH=1
 
 ffbuild_enabled() {
+# конфликт версий рантайма C++ (libstdc++-6.dll) между кросс-компилятором и бинарным пакетом
+# Символ _ZSt15__get_once_callv (std::__get_once_call()) символ стандартной библиотеки C++ (libstdc++) для реализации std::call_once
     return 0
 }
 
@@ -25,6 +28,14 @@ ffbuild_dockerdl() {
     echo "mv extracted/ucrt64/lib/python*/site-packages/torch/include ."
     echo "mv extracted/ucrt64/lib/python*/site-packages/torch/lib ."
     echo "rm -rf pytorch.tar.zst extracted"
+
+    # --- GCC LIBS ---
+    echo "download_file \"$GCC_LINK\" \"gcc-libs.tar.zst\""
+    echo "mkdir -p ext_gcclibs"
+    # echo "tar --use-compress-program=unzstd -xf gcc-libs.tar.zst -C ext_gcclibs/ --wildcards \"*/bin/libstdc++*.dll\" \"*/bin/libgcc_s_*.dll\""
+    echo "tar --use-compress-program=unzstd -xf gcc-libs.tar.zst -C ext_gcclibs/ --wildcards \"*/bin/libstdc++*.dll\" \"*/bin/libgcc_s_*.dll\" \"*/bin/libgomp-*.dll\""
+    echo "cp -fv ext_gcclibs/ucrt64/bin/*.dll lib/"
+    echo "rm -rf gcc-libs.tar.zst ext_gcclibs"
 
     # --- GOOGLE LOG ---
     echo "download_file \"$GLOG_LINK\" \"glog.tar.zst\""
@@ -68,8 +79,8 @@ ffbuild_dockerdl() {
     echo "download_file \"$ABSEIL_LINK\" \"abseil.tar.zst\""
     echo "mkdir -p ext_abseil"
     echo "tar --use-compress-program=unzstd -xf abseil.tar.zst -C ext_abseil/ --wildcards \"*/bin/libabsl_*.dll\""
-    # echo "cp -fv ext_abseil/ucrt64/bin/*.dll lib/"
-    echo "cp -fv ext_abseil/ucrt64/bin/libabsl_cord-2605.0.0.dll lib/"
+    echo "cp -fv ext_abseil/ucrt64/bin/*.dll lib/"
+    # echo "cp -fv ext_abseil/ucrt64/bin/libabsl_cord-2605.0.0.dll lib/"
     echo "rm -rf abseil.tar.zst ext_abseil"
 
     # --- VULKAN ---
