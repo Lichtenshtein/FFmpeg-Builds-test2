@@ -147,7 +147,7 @@ env:
   SEC_PROTO:      "openssl" # openssl/gnutls/mbedtls/schannel
   DEDUPE_FLAGS:   '1' # Deduplicate LDFLAGS/LIBS
   OLDER_FFNV:     '0' # Install older ffnvcodec version (8.1)
-  USE_TENSORFLOW: '0'
+  USE_TENSORFLOW: '1'
   USE_LIBTORCH:   '1'
   BUILD_VINO:     '1' # Build OpenVino
   USE_ASAN:       '0' # Address Sanitizer not supported in ct-ng
@@ -357,16 +357,17 @@ jobs:
           load: false
           tags: ${{ steps.images.outputs.target_base }}
 
-      - name: Get Download Cache Key
-        id: dl_cache
+      # --- STEP 1: Calculate the "Stable" Key (Based on config only) ---
+      - name: Get Download Cache Key (Stable)
+        id: dl_cache_stable
         run: |
           export TARGET="${{ env.TARGET }}"
           export VARIANT="${{ env.VARIANT }}"
           export FFMPEG_REPO="${{ env.FFMPEG_REPO }}"
           export FFMPEG_BRANCH="${{ env.FFMPEG_BRANCH }}"
           KEY=$(./util/get_dl_cache_tag.sh)
-          echo "Cache Key: $KEY"
-          echo "key=$KEY" >> $GITHUB_OUTPUT
+          echo "stable_key=thirdparty-dl-${KEY}" >> $GITHUB_OUTPUT
+          echo "🔑 Stable Key: thirdparty-dl-${KEY}"
 
       # --- КЭШ 1: ЗАВИСИМОСТИ СТОРОННИХ БИБЛИОТЕК (Загрузки) ---
       - name: Restore Third-Party Downloads
@@ -375,7 +376,7 @@ jobs:
         with:
           path: |
             .cache/downloads
-          key: thirdparty-dl-${{ steps.dl_cache.outputs.key }}
+          key: ${{ steps.dl_cache_stable.outputs.stable_key }}
           restore-keys: |
             thirdparty-dl-
 
@@ -403,6 +404,8 @@ jobs:
 
       - name: Run Download and Generate
         run: |
+          echo "📥 Running download.sh..."
+
           if [[ "${{ github.event.inputs.doClean }}" == "true" ]]; then
             # Handle Full Clean
             echo "🧹 Cleaning ALL caches..."
@@ -435,6 +438,26 @@ jobs:
           ./util/clean_cache.sh
           ./generate.sh "$TARGET" "$VARIANT"
 
+          # ---------------------------------------------------
+          # Generate DYNAMIC Key based on ACTUAL file content
+          # ---------------------------------------------------
+          if [[ -d ".cache/downloads" ]]; then
+            # Hash all files in the folder
+            # List all files with sizes (no content hashing)
+            FILE_LIST=$(find .cache/downloads -type f -printf "%s %p\n" | sort)
+            FILE_COUNT=$(echo "$FILE_LIST" | wc -l)
+            # Hash the listing (much faster than hashing each file)
+            # DYNAMIC_HASH=$(echo "$FILE_LIST" | sha256sum | cut -c1-16)
+            DYNAMIC_HASH=$(echo "$FILE_LIST" | cksum | cut -d' ' -f1 | cut -c1-12)
+            echo "📁 Files in cache: $FILE_COUNT"
+            echo "🔍 Dynamic Hash: $DYNAMIC_HASH"
+            # Output the new key for the Save step
+            echo "dynamic_key=thirdparty-dl-${DYNAMIC_HASH}" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Downloads folder empty!"
+            echo "dynamic_key=thirdparty-dl-empty" >> $GITHUB_OUTPUT
+          fi
+
       - name: Extract Pre-compiled TensorFlow SR Models (Host Side)
         if: env.USE_TENSORFLOW == '1'
         run: |
@@ -464,15 +487,14 @@ jobs:
           COMMIT=$(cat .cache/ffmpeg/.current_commit 2>/dev/null || echo "none")
           echo "commit=${COMMIT:0:12}" >> $GITHUB_OUTPUT
 
-      # --- SAVE 1: Зависимости сторонних библиотек ---
+      # --- SAVE 1: Save Cache (Use the NEW Dynamic Key) ---
       - name: Save Third-Party Downloads
-        # Сохраняем ТОЛЬКО если скрипты менялись и произошел cache-miss. 
-        # Если совпадение точное (hit), этот шаг мгновенно пропускается, экономя место и время.
-        if: always() && steps.restore_downloads.outputs.cache-hit != 'true'
+        if: always()
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/downloads
-          key: thirdparty-dl-${{ steps.dl_cache.outputs.key }}
+          # Save using the unique key generated from the actual files
+          key: ${{ steps.download_step.outputs.dynamic_key }}
 
       # --- SAVE 2: Исходный код FFmpeg ---
       - name: Save FFmpeg Source Tree
@@ -485,19 +507,6 @@ jobs:
           path: .cache/ffmpeg
           # Ключ уникален для каждого коммита FFmpeg master
           key: ffmpeg-src-${{ steps.ffmpeg_commit.outputs.commit }}
-
-      # --- SAVE 3: Кэш компилятора ---
-      - name: Save Compiler Cache (ccache)
-        if: always()
-        uses: actions/cache/save@v5.0.5
-        with:
-          path: .cache/ccache
-          key: ${{ steps.ccache_key.outputs.key }}
-
-      - name: Inject Downloads into Buildx Cache
-        run: |
-          echo "=== Injecting host downloads into docker buildx cache ==="
-          mkdir -p .cache/downloads
 
       - name: Build Components Stage
         uses: docker/build-push-action@v7
@@ -515,6 +524,14 @@ jobs:
             downloads_context=.cache/downloads
           cache-from: type=gha,scope=ffmpeg-target-base-${{ steps.docker_hash.outputs.hash }}
           cache-to: ""
+
+      # --- SAVE 3: Кэш компилятора ---
+      - name: Save Compiler Cache (ccache)
+        if: always()
+        uses: actions/cache/save@v5.0.5
+        with:
+          path: .cache/ccache
+          key: ${{ steps.ccache_key.outputs.key }}
 
       - name: Verify FFmpeg Source
         run: |
