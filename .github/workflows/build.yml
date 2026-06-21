@@ -6,11 +6,11 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|30-openssl|32-libssh|32-quiche|33-nghttp2|34-curl|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|37-openjpeg|38-libwebp|39-fontconfig|39-fribidi|39-libtiff|39-pixman|40-cairo|40-harfbuzz|40-lcms2|42-libarchive|43-pango|59-leptonica|62-libtesseract'
+        # default: '05-libicu|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|30-openssl|32-libssh|32-quiche|33-nghttp2|34-curl|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|37-openjpeg|38-libwebp|39-fontconfig|39-fribidi|39-libtiff|39-pixman|40-cairo|40-harfbuzz|40-lcms2|42-libarchive|43-pango|59-leptonica|62-libtesseract'
         # default: '01-mingw-std-threads|02-mingw|06-libiconv|07-gettext|08-zlib|11-brotli|11-xz|16-libxml2|27-freeglut|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|38-libwebp|40-lcms2|44-dav1d|44-svtav1|45-libavif|45-libjxl|54-vmaf|70-aom'
         # default: '08-zlib|40-lcms2|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|62-opencolorio'
         # default: '02-mingw|06-libiconv|07-gettext|08-zlib|11-bzlib|12-libffi|15-pcre2|16-glib2|16-fftw3|27-freeglut|30-openssl|64-libsamplerate|64-soxr|65-pulseaudio|66-sdl'
-        # default: '.*'
+        default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
@@ -110,7 +110,7 @@ env:
   # Параметры сборки
   TARGET: win64
   VARIANT: nonfree
-  CCACHE_MAXSIZE: "2G"
+  CCACHE_MAXSIZE: "3G"
   # Списки исключений
   # Список для хранения .git от очистки (в download.sh)
   # Some patches apply only with git am...
@@ -134,6 +134,7 @@ env:
   CLEAN_INACTIVE: ${{ github.event.inputs.clean_inactive == 'true' && '1' || '0' }}
   PREFER_SHARED:  ${{ github.event.inputs.prefer_shared  == 'true' && '1' || '0' }}
   DIR_NUMBERS:    ${{ github.event.inputs.dir_numbers    == 'true' && '1' || '0' }}
+  RESET_CCACHE:   ${{ github.event.inputs.reset_ccache   == 'true' && '1' || '0' }}
   # Inputs -> Env mapping for all dynamic values
   FFMPEG_REPO:     ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-Plus.git' }}
   FFMPEG_BRANCH:   ${{ github.event.inputs.ffmpeg_branch || 'master' }}
