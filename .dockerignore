@@ -1,3 +1,5 @@
+# Note: Ensure .cache/downloads, .cache/ffmpeg, and .cache/ccache are NOT ignored. Your current list only ignores .cache/tmp/, which is correct.
+
 .git/
 artifacts/
 ffbuild/
@@ -6,7 +8,5 @@ ffbuild/
 *.zst
 *.confhash
 *.confopts
-
-local_ext_cache/ccache/
-local_ext_cache/downloads/
-local_ext_cache/ffmpeg/
+*.tmp
+.cache/tmp/

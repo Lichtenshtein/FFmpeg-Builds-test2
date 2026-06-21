@@ -338,6 +338,10 @@ jobs:
       - name: Get Download Cache Key
         id: dl_cache
         run: |
+          export TARGET="${{ env.TARGET }}"
+          export VARIANT="${{ env.VARIANT }}"
+          export FFMPEG_REPO="${{ env.FFMPEG_REPO }}"
+          export FFMPEG_BRANCH="${{ env.FFMPEG_BRANCH }}"
           KEY=$(./util/get_dl_cache_tag.sh)
           echo "Cache Key: $KEY"
           echo "key=$KEY" >> $GITHUB_OUTPUT
@@ -347,7 +351,8 @@ jobs:
         id: restore_downloads
         uses: actions/cache/restore@v5.0.5
         with:
-          path: local_ext_cache/downloads
+          path: |
+            .cache/downloads
           key: thirdparty-dl-${{ steps.dl_cache.outputs.key }}
           restore-keys: |
             thirdparty-dl-
@@ -357,8 +362,9 @@ jobs:
         id: restore_ffmpeg
         uses: actions/cache/restore@v5.0.5
         with:
-          path: local_ext_cache/ffmpeg
-          key: ffmpeg-src-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .cache/ffmpeg
+          key: ffmpeg-src-${{ steps.dl_cache.outputs.key }}
           restore-keys: |
             ffmpeg-src-
 
@@ -367,24 +373,32 @@ jobs:
         id: restore_ccache
         uses: actions/cache/restore@v5.0.5
         with:
-          path: local_ext_cache/ccache
-          key: ccache-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            .cache/ccache
+          key: ccache-${{ env.TARGET }}-${{ github.sha }}
           restore-keys: |
-            ccache-${{ matrix.target }}-
+            ccache-${{ env.TARGET }}-
 
       - name: Run Download and Generate
         run: |
-          mkdir -p local_ext_cache/downloads local_ext_cache/ffmpeg local_ext_cache/ccache
-          rm -rf .cache
-          ln -s local_ext_cache .cache
+          [[ "${{ github.event.inputs.doClean }}" == "true" ]] && rm -rf .cache/{downloads,ffmpeg,ccache}/* && echo "### CLEAN BUILD REQUESTED ###"
 
-          [[ "${{ github.event.inputs.doClean }}" == "true" ]] && rm -rf local_ext_cache/{downloads,ffmpeg,ccache}/* && echo "### CLEAN BUILD REQUESTED ###"
-
+          # Ensure proper permissions
+          mkdir -p .cache/downloads .cache/ffmpeg .cache/ccache .cache/tmp
           chmod -R u+r patches/ || true
-          mkdir -p .cache/downloads .cache/ffmpeg .cache/tmp
           chmod -R u+w .cache/ || true
+
+          # Normalize line endings
           find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
+
           chmod +x ./download.sh ./util/*.sh ./generate.sh
+
+          # Export all necessary variables for get_dl_cache_tag.sh
+          export TARGET="${{ env.TARGET }}"
+          export VARIANT="${{ env.VARIANT }}"
+          export FFMPEG_REPO="${{ env.FFMPEG_REPO }}"
+          export FFMPEG_BRANCH="${{ env.FFMPEG_BRANCH }}"
+
           ./download.sh
           ./util/clean_cache.sh
           ./generate.sh "$TARGET" "$VARIANT"
@@ -415,7 +429,7 @@ jobs:
         id: ffmpeg_commit
         if: always()
         run: |
-          COMMIT=$(cat local_ext_cache/ffmpeg/.current_commit 2>/dev/null || echo "none")
+          COMMIT=$(cat .cache/ffmpeg/.current_commit 2>/dev/null || echo "none")
           echo "commit=${COMMIT:0:12}" >> $GITHUB_OUTPUT
 
       # --- SAVE 1: Зависимости сторонних библиотек ---
@@ -425,7 +439,7 @@ jobs:
         if: always() && steps.restore_downloads.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5.0.5
         with:
-          path: local_ext_cache/downloads
+          path: .cache/downloads
           key: thirdparty-dl-${{ steps.dl_cache.outputs.key }}
 
       # --- SAVE 2: Исходный код FFmpeg ---
@@ -436,7 +450,7 @@ jobs:
         if: always() && steps.ffmpeg_commit.outputs.commit != 'none' && steps.restore_ffmpeg.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5.0.5
         with:
-          path: local_ext_cache/ffmpeg
+          path: .cache/ffmpeg
           # Ключ уникален для каждого коммита FFmpeg master
           key: ffmpeg-src-${{ steps.ffmpeg_commit.outputs.commit }}
 
@@ -445,8 +459,8 @@ jobs:
         if: always()
         uses: actions/cache/save@v5.0.5
         with:
-          path: local_ext_cache/ccache
-          key: ccache-${{ matrix.target }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .cache/ccache
+          key: ccache-${{ env.TARGET }}-${{ github.sha }}
 
       - name: Inject Downloads into Buildx Cache
         run: |
@@ -466,10 +480,10 @@ jobs:
           tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
-            downloads_context=./local_ext_cache/downloads
+            downloads_context=.cache/downloads
           cache-from: type=gha,scope=ffmpeg-target-base-${{ steps.docker_hash.outputs.hash }}
           cache-to: ""
-            # ffmpeg_context=./local_ext_cache/ffmpeg
+
       - name: Verify FFmpeg Source
         run: |
           if [[ ! -f ".cache/ffmpeg/configure" ]]; then
@@ -492,8 +506,8 @@ jobs:
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
-            downloads_context=./local_ext_cache/downloads
-            ffmpeg_context=./local_ext_cache/ffmpeg
+            downloads_context=.cache/downloads
+            ffmpeg_context=.cache/ffmpeg
           outputs: type=local,dest=artifacts/
           cache-from: ""
           cache-to: ""
