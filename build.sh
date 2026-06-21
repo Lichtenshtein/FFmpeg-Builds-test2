@@ -522,6 +522,7 @@ CONF_FLAGS=(
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
     --enable-opengl
+    --enable-dxva2
     --enable-mediafoundation
     --enable-pic
     # --disable-ffprobe
@@ -769,23 +770,17 @@ log_info "${SYNC_MARK} Collecting additional assets..."
 # =======================================
 # FFMPEG DEBUGGING SECTION
 # =======================================
-
 if [[ "$DEBUG_MODE" == "1" ]]; then
 
+    # 1. AVX-512 Leakage Scan
     # If zmm registers (these are AVX-512 registers) or evex prefixes appear in the assembler output, it means that some library is still pushing this code.
     if [[ "$USE_AVX512" != "1" ]]; then
         log_info "${SEARCH_MARK} Scanning final binaries for accidental AVX-512 leak..."
-        # Ищем все исполняемые файлы
         while IFS= read -r file; do
             log_debug "Analyzing $(basename "$file")..."
-
-            # Отключаем pipefail локально для этой команды, чтобы head не ломал сборку
             set +o pipefail 2>/dev/null || true
-
             LEAKED_INSTR=$("${FFBUILD_CROSS_PREFIX}objdump" -d -j .text "$file" 2>/dev/null | \
                 grep -Ei '\bzmm[0-9]|\b[xy]mm(1[6-9]|2[0-9]|3[0-1])\b|\bk[0-7]\b|evex' | head -n 20)
-
-            # Возвращаем pipefail обратно, если он был включен
             set -o pipefail 2>/dev/null || true
 
             if [[ -n "$LEAKED_INSTR" ]]; then
@@ -801,59 +796,177 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         done < <(find "${PKG_DIR}/bin" -type f \( -name "*.exe" -o -name "*.dll" \))
     fi
 
-    # Map ffmpeg enable flags to their corresponding codec names
-    # Format: 'enable_flag:codec_name:media_type'
+    # 2. Component Mapping & Dynamic Symbol Verification
+    # Map ffmpeg enable flags to their corresponding codec names and symbol prefixes
+    # Format: 'enable_flag:codec_name:media
     declare -A COMPONENT_TEST_MAP=(
-        ["enable-libx264"]="libx264:v"
-        ["enable-libx265"]="libx265:v"
-        ["enable-libsvtav1"]="libsvtav1:v"
-        ["enable-libaom"]="libaom:v"
-        ["enable-libvpx"]="libvpx:v"
-        ["enable-libsvtvp9"]="libsvtvp9:v"
-        ["enable-libopenh264"]="libopenh264:v"
-        ["enable-libvvdec"]="libvvdec:v" # Example mapping
-        ["enable-libxevd"]="libxevd:v"
-        ["enable-liblcevc_dec"]="lcevc_dec:v" # Decoder usually tested differently, but good for symbol check
-        ["enable-libmp3lame"]="libmp3lame:a"
-        ["enable-libopus"]="libopus:a"
-        ["enable-libvorbis"]="libvorbis:a"
-        ["enable-libfdk-aac"]="libfdk_aac:a"
-        ["enable-libsvtjpegxs"]="libsvtjpegxs:v"
+        ["enable-libx264"]="libx264:v:x264_"
+        ["enable-libx265"]="libx265:v:x265_"
+        ["enable-libsvtav1"]="libsvtav1:v:svt_av1"
+        ["enable-libaom"]="libaom:v:aom_"
+        ["enable-libvpx"]="libvpx:v:vp8_"
+        ["enable-libsvtvp9"]="libsvtvp9:v:svt_vp9"
+        ["enable-libopenh264"]="libopenh264:v:openh264_"
+        ["enable-libvvdec"]="libvvdec:v:VVDEC_"
+        ["enable-libxevd"]="libxevd:v:xevd_"
+        ["enable-liblcevc_dec"]="liblcevc_dec:v:lcevc_"
+        ["enable-libmp3lame"]="libmp3lame:a:lame_"
+        ["enable-libopus"]="libopus:a:opus_"
+        ["enable-libvorbis"]="libvorbis:a:vorbis_"
+        ["enable-libfdk-aac"]="libfdk_aac:a:fdk_aac"
+        ["enable-libsvtjpegxs"]="libsvtjpegxs:v:svt_jpegxs"
+        ["enable-libopenjpeg"]="libopenjpeg:v:libopenjpeg"
+        ["enable-libwebp"]="libwebp:v:WebP"
+        ["enable-libgme"]="libgme:a:gme_"
+        ["enable-libmodplug"]="libmodplug:a:ModPlug_"
+        ["enable-libopenmpt"]="libopenmpt:a:OpenMpt_"
+        ["enable-libass"]="libass:v:ass_"
+        ["enable-libfreetype"]="libfreetype:v:FT_"
+        ["enable-libfontconfig"]="libfontconfig:v:Fc_"
+        ["enable-libfribidi"]="libfribidi:v:fribidi_"
+        ["enable-libharfbuzz"]="libharfbuzz:v:hb_"
+        ["enable-libbluray"]="libbluray:v:BLURAY_"
+        ["enable-libdvdnav"]="libdvdnav:v:DVDNav_"
+        ["enable-libdvdread"]="libdvdread:v:DVDRead_"
+        ["enable-libvidstab"]="libvidstab:v:vid_stab_"
+        ["enable-libvmaf"]="libvmaf:v:vmaf_"
+        ["enable-libxml2"]="libxml2:v:xml_"
+        ["enable-vaapi"]="vaapi:v:va_"
+        ["enable-nvenc"]="nvenc:v:NVENC_"
+        ["enable-nvdec"]="nvdec:v:NVDEC_"
+        ["enable-libpulse"]="libpulse:a:pa_"
+        ["enable-libsoxr"]="libsoxr:a:soxr_"
+        ["enable-librubberband"]="librubberband:a:rubberband_"
+        ["enable-libzimg"]="libzimg:v:zimg_"
+        ["enable-libopenvino"]="libopenvino:v:openvino_"
+        ["enable-libtensorflow"]="libtensorflow:v:tensorflow_"
+        ["enable-libtorch"]="libtorch:v:torch_"
+        ["enable-vulkan"]="vulkan:v:vk_"
+        ["enable-libglslang"]="libglslang:v:glslang_"
+        ["enable-libshaderc"]="libshaderc:v:shaderc_"
+        ["enable-libvpl"]="libvpl:v:vpl_"
+        ["enable-libmfx"]="libmfx:v:libmfx_"
+        ["enable-d3d11va"]="d3d11va:v:D3D11_"
+        ["enable-dxva2"]="dxva2:v:DXVA2_"
+        ["enable-libcodec2"]="libcodec2:v:codec2"
+        ["enable-libmad"]="libmad:a:mad_"
+        ["enable-libmpeghdec"]="libmpeghdec:v:mpegh_"
+        ["enable-libshine"]="libshine:v:shine_"
+        ["enable-ia_mpegh"]="ia_mpegh:v:mpegh_"
+        ["enable-libopencore-amrnb"]="libopencore_amrnb:a:opencore"
+        ["enable-libtwolame"]="libtwolame:a:twolame"
+        ["enable-libvo-amrwbenc"]="libvo_amrwbenc:a:vo_amr"
+        ["enable-libtheora"]="libtheora:v:theora_"
+        ["enable-libsvthevc"]="libsvthevc:v:svthevc"
+        ["enable-libxvid"]="libxvid:v:Xvid"
     )
 
+    # Function to verify symbols for ALL enabled components dynamically
+    verify_all_symbols() {
+        local config_source="${FINAL_CONFIGURE:-$(cat ${FFMPEG_CONFIG_LOG:-/dev/null} 2>/dev/null)}"
+        local MISSING_SYMBOLS=0
+        local VERIFIED_COUNT=0
+        local STRINGS_CMD="${FFBUILD_CROSS_PREFIX}strings"
+        command -v "$STRINGS_CMD" &>/dev/null || STRINGS_CMD="strings"
+        local TEST_EXE="${PKG_DIR}/bin/ffmpeg.exe"
+        [[ ! -f "$TEST_EXE" ]] && TEST_EXE="/opt/ffdest/opt/ffbuild/bin/ffmpeg.exe"
+
+        log_debug "${SEARCH_MARK} Verifying static symbols for ALL enabled components..."
+
+        for flag in "${!COMPONENT_TEST_MAP[@]}"; do
+            # Check if this feature is enabled
+            if [[ "$config_source" == *"$flag"* ]]; then
+                local codec_spec="${COMPONENT_TEST_MAP[$flag]}"
+                local codec_name="${codec_spec%%:*}"
+                local media_type="${codec_spec#*:}"
+                local symbol_prefix="${codec_spec##*:}"
+
+                # Check for symbol presence
+                local has_strings=0
+                local has_nm=0
+
+                if "$STRINGS_CMD" "$TEST_EXE" 2>/dev/null | grep -q "$symbol_prefix"; then
+                    has_strings=1
+                fi
+
+                # Use nm if available, fall back to strings only
+                if command -v nm &>/dev/null; then
+                    if nm "$TEST_EXE" 2>/dev/null | grep -q "$symbol_prefix"; then
+                        has_nm=1
+                    fi
+                fi
+
+                if [[ $has_strings -eq 0 && $has_nm -eq 0 ]]; then
+                    log_error "Symbol '$symbol_prefix' NOT found in binary for $codec_name! Linking failure detected."
+                    MISSING_SYMBOLS=1
+                else
+                    log_debug "   ${CHECK_MARK} Verified: $codec_name ($media_type) - Symbol: $symbol_prefix"
+                    VERIFIED_COUNT=$((VERIFIED_COUNT + 1))
+                fi
+            fi
+        done
+
+        if [[ $MISSING_SYMBOLS -eq 1 ]]; then
+            log_error "Static linking verification FAILED: $VERIFIED_COUNT verified, but some symbols missing."
+            return 1
+        else
+            log_info "${CHECK_MARK} Static symbols verified for $VERIFIED_COUNT components."
+            return 0
+        fi
+    }
+
+    # 3. Generate Dynamic Component Tests
     generate_component_tests() {
         local enabled_components=()
         local tests=()
-
-        log_debug "${SEARCH_MARK} Scanning for enabled heavy components..."
-
-        # Scan FINAL_CONFIGURE or config.log for --enable-lib...
-        # Fallback to config.log if FINAL_CONFIGURE is not set in scope
         local config_source="${FINAL_CONFIGURE:-$(cat ${FFMPEG_CONFIG_LOG:-/dev/null} 2>/dev/null)}"
+
+        log_debug "${SEARCH_MARK} Generating specific tests for enabled components..."
 
         for flag in "${!COMPONENT_TEST_MAP[@]}"; do
             if [[ "$config_source" == *"$flag"* ]]; then
                 local codec_spec="${COMPONENT_TEST_MAP[$flag]}"
                 local codec_name="${codec_spec%%:*}"
-                local media_type="${codec_spec##*:}"
-
+                local media_type="${codec_spec#*:}"
+                
                 enabled_components+=("$codec_name ($media_type)")
 
-                # Construct the specific test command
-                # We use a 2-second duration to ensure the encoder initializes and processes frames
+                # Build specific test based on media type
                 if [[ "$media_type" == "v" ]]; then
-                    # Video test: testsrc -> scale -> codec -> null
-                    tests+=("-loglevel warning -f lavfi -i testsrc2=s=1280x720:r=30:d=2 -vf scale=-1:720 -c:v $codec_name -b:v 500k -f null -")
+                    # Video tests: Add 10-bit test for x265 and x264 if enabled
+                    if [[ "$codec_name" == "libx265" || "$codec_name" == "libx264" ]]; then
+                        # Test 10-bit encoding
+                        tests+=("-loglevel warning -f lavfi -i testsrc2=s=1920x1080:r=30:d=2 -c:v $codec_name -pix_fmt yuv420p10le -b:v 500k -f null -")
+                        # Test standard 8-bit
+                        tests+=("-loglevel warning -f lavfi -i testsrc2=s=1280x720:r=30:d=1 -c:v $codec_name -pix_fmt yuv420p -b:v 500k -f null -")
+                    elif [[ "$codec_name" == "libaom" || "$codec_name" == "libsvtav1" ]]; then
+                        # AV1 specific tests (often memory heavy)
+                        tests+=("-loglevel warning -f lavfi -i testsrc2=s=1280x720:r=30:d=2 -c:v $codec_name -crf 30 -f null -")
+                    else
+                        # Standard video test
+                        tests+=("-loglevel warning -f lavfi -i testsrc2=s=1280x720:r=30:d=2 -c:v $codec_name -b:v 500k -f null -")
+                    fi
                 else
-                    # Audio test: sine -> codec -> null
-                    tests+=("-loglevel warning -f lavfi -i sine=f=1000:d=2 -c:a $codec_name -b:a 128k -f null -")
+                    # Audio tests
+                    if [[ "$codec_name" == "libopus" || "$codec_name" == "libvorbis" ]]; then
+                        # Test resampling (common audio bug)
+                        tests+=("-loglevel warning -f lavfi -i sine=f=1000:d=2 -ar 48000 -c:a $codec_name -b:a 128k -f null -")
+                    else
+                        tests+=("-loglevel warning -f lavfi -i sine=f=1000:d=2 -c:a $codec_name -b:a 128k -f null -")
+                    fi
                 fi
             fi
         done
 
-        # Output summary
+        # Add a complex filter chain test if video codecs are present
+        if [[ ${#enabled_components[@]} -gt 0 ]] && [[ "$config_source" == *"--enable-libx264"* || "$config_source" == *"--enable-libx265"* ]]; then
+            tests+=("-loglevel warning -f lavfi -i color=c=red:s=1280x720:d=2 -vf scale=640x360,format=yuv444p10le -c:v libx264 -pix_fmt yuv444p10le -b:v 1M -f null -")
+        fi
+
         if [[ ${#enabled_components[@]} -eq 0 ]]; then
             log_warn "No heavy external components detected for specific testing."
+            # Add a minimal fallback
+            tests+=("-loglevel warning -f lavfi -i testsrc2=d=1 -c:v wrapped_avframe -f null -")
         else
             log_info "Discovered ${#enabled_components[@]} components for deep audit:"
             for comp in "${enabled_components[@]}"; do
@@ -861,10 +974,10 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
             done
         fi
 
-        # Return the array of test strings (via global variable for simplicity in this context)
         COMPREHENSIVE_TESTS=("${tests[@]}")
     }
 
+    # 4. Main Audit Runner
     run_deep_component_audit() {
         log_info "${START_MARK} Launching automated Wine+GDB crash audit..."
 
@@ -875,9 +988,6 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
             log_warn "Wine is not installed. Skipping audit."
             return 0
         fi
-
-        local STRINGS_CMD="${FFBUILD_CROSS_PREFIX}strings"
-        command -v "$STRINGS_CMD" &>/dev/null || STRINGS_CMD="strings"
 
         export WINEDEBUG="-all,err,seh,bad,fixme:all"
         export WINEARCH=win64
@@ -896,44 +1006,16 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
 
         log_info "${START_MARK} Launching Deep Component & Stability Audit..."
 
-        # --- PHASE 1: Static Symbol Verification ---
-        log_debug "${SEARCH_MARK} Verifying static symbols in binary..."
-
-        local MISSING_SYMBOLS=0
-
-        # Check for a few critical heavy libs if they were expected
-        # You can expand this list based on your 'COMPONENTS' array
-        if [[ "$FINAL_CONFIGURE" == *"--enable-libx264"* ]]; then
-            if ! "$STRINGS_CMD" "$TEST_EXE" 2>/dev/null | grep -q "x264_"; then
-                log_error "Symbol x264_ not found in binary! Linking failure detected."
-                MISSING_SYMBOLS=1
-            elif ! nm "$TEST_EXE" 2>/dev/null | grep -q "x264_"; then
-                log_error "Symbol x264_ not found in binary! Linking failure detected."
-                MISSING_SYMBOLS=1
-            fi
+        # --- PHASE 1: Dynamic Symbol Verification ---
+        if ! verify_all_symbols; then
+            log_error "Static linking verification FAILED. Build may be broken."
+            # Don't exit 1 immediately, let the rest run to gather more info, but mark failure
+            MISSING_SYMBOLS=1
         fi
 
-        if [[ "$FINAL_CONFIGURE" == *"--enable-libsvtav1"* ]]; then
-            if ! "$STRINGS_CMD" "$TEST_EXE" 2>/dev/null | grep -q "svt_av1"; then
-                log_error "Symbol svt_av1 not found in binary! Linking failure detected."
-                MISSING_SYMBOLS=1
-            elif ! nm "$TEST_EXE" 2>/dev/null | grep -q "svt_av1"; then
-                log_error "Symbol svt_av1 not found in binary! Linking failure detected."
-                MISSING_SYMBOLS=1
-            fi
-        fi
-
-        if [[ $MISSING_SYMBOLS -eq 1 ]]; then
-            log_error "Static linking verification FAILED. Binary may be broken."
-            # exit 1
-        else
-            log_debug "${CHECK_MARK} Static symbols verified."
-        fi
-
-        # --- PHASE 2: crash audit via hybrid winedbg ---
-
-        # Test suite: Basic info + a complex filter chain
-        TEST_SUITE=(
+        # --- PHASE 2: Basic Smoke Tests ---
+        # Basic info + a filter chain
+        local TEST_SUITE=(
             "-codecs -formats -filters -protocols -pix_fmts"
             "-v debug -f lavfi -i testsrc=size=1280x720:rate=60:duration=2 -f lavfi -i sine=frequency=1000:duration=2 -vf scale=640x360,format=yuv420p -c:v wrapped_avframe -c:a pcm_s16le -f null -"
         )
@@ -941,14 +1023,12 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         log_info "Running deep component crash audit via hybrid winedbg..."
         CRASH_FOUND=0
         CRASH2_FOUND=0
-
-        # Счётчик для генерации уникальных имён файлов
-        TEST_INDEX=0
+        TEST_INDEX=0 # Счётчик для генерации уникальных имён файлов
 
         for TEST_ARGS in "${TEST_SUITE[@]}"; do
             ((++TEST_INDEX))
             # Создаем изолированный лог для конкретного подтеста первого этапа
-            PHASE1_LOG="${TMP_DIR}/audit_p1_${TEST_INDEX}.log"
+            local PHASE1_LOG="${TMP_DIR}/audit_p1_${TEST_INDEX}.log"
             rm -f "$PHASE1_LOG"
 
             log_debug "Executing test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
@@ -963,7 +1043,6 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
             else
                 # winedbg --auto failed -> likely a crash
                 log_error "Test failed (winedbg exit non-zero). Checking for crash details..."
-
                 # Extract crash info if available
                 if grep -q 'Exception c0000005\|Access Violation\|Segmentation fault' "$PHASE1_LOG"; then
                     log_error "Crash detected!"
@@ -1020,7 +1099,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
             fi
         fi
 
-        # --- PHASE 3: Generate Tests ---
+        # --- PHASE 3: Generate Component Tests ---
         generate_component_tests
 
         # Add a generic "stability" test if no specific components found or as a baseline
@@ -1030,22 +1109,21 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
 
         local TOTAL_TESTS=${#COMPREHENSIVE_TESTS[@]}
         local FAILED_TESTS=0
+        TEST_INDEX=0
 
-        # --- PHASE 4: Execute Tests ---
+        # --- PHASE 4: Execute Component Tests ---
         for i in "${!COMPREHENSIVE_TESTS[@]}"; do
             local TEST_ARGS="${COMPREHENSIVE_TESTS[$i]}"
             local TEST_NUM=$((i + 1))
-
             # Extract codec name for logging (heuristic)
             local CODEC_NAME=$(echo "$TEST_ARGS" | grep -oE "lib[a-z0-9]+|svt[a-z0-9]+" | head -1)
             [[ -z "$CODEC_NAME" ]] && CODEC_NAME="Generic"
 
             log_debug "Running Test ${TEST_NUM}/${TOTAL_TESTS}: ${CYAN}${CODEC_NAME}${NC}..."
+            local PHASE_LOG="${TMP_DIR}/audit_phase_${TEST_NUM}.log"
 
             # Run with timeout and winedbg --auto
             # Timeout prevents hanging on deadlocks
-            local PHASE_LOG="${TMP_DIR}/audit_phase_${TEST_NUM}.log"
-
             if timeout 60s winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$PHASE_LOG" 2>&1; then
                 log_debug "   -> Passed (Exit 0)"
             else
@@ -1062,19 +1140,16 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
                     log_error "   -> FAILED: CRASH detected in ${CODEC_NAME}"
                     FAILED_TESTS=$((FAILED_TESTS + 1))
 
-                    # Generate Backtrace
                     echo "=== CRASH REPORT: ${CODEC_NAME} ===" > "$CRASH_LOG"
                     echo "Command: ffmpeg $TEST_ARGS" >> "$CRASH_LOG"
                     echo "Exit Code: $EXIT_CODE" >> "$CRASH_LOG"
                     echo "Timestamp: $(date)" >> "$CRASH_LOG"
                     echo "--- Log Snippet ---" >> "$CRASH_LOG"
                     grep -A 5 -B 5 "Exception\|Access Violation" "$PHASE_LOG" >> "$CRASH_LOG"
-
                     cat "$CRASH_LOG" >&2
                     cat "$PHASE_LOG" >> "$AUDIT_LOG"
                 else
-                    log_warn "   -> Non-zero exit ($EXIT_CODE) but no crash signature. (Logic error or missing feature?)"
-                    # Don't fail the build on non-critical logic errors unless strict mode is on
+                    log_warn "   -> Non-zero exit ($EXIT_CODE) but no crash signature."
                     cat "$PHASE_LOG" >> "$AUDIT_LOG"
                 fi
             fi
@@ -1090,15 +1165,15 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
             return 1 # Явно валим функцию, если бинарник дефектный
         elif [[ $FAILED_TESTS -gt 0 ]]; then
             log_error "AUDIT FAILED: ${FAILED_TESTS}/${TOTAL_TESTS} tests failed."
-            log_error "Review ${AUDIT_LOG} and ${CRASH_LOG} for details."
             return 1 # Явно валим функцию, если тесты не прошли
+        elif [[ $MISSING_SYMBOLS -eq 1 ]]; then
+            log_error "AUDIT FAILED: Missing static symbols detected."
+            return 1
         else
             log_info "${CHECK_MARK} Wine runtime smoke test passed successfully. Binary structure is solid."
             log_info "${CHECK_MARK} Deep Component Audit PASSED. All critical paths stable."
-
             [[ -f "$AUDIT_LOG" ]] && mv "$AUDIT_LOG" "${TMP_DIR}/last_deep_audit.log" 2>/dev/null
             [[ -f "$CRASH_AUDIT_LOG" ]] && mv "$CRASH_AUDIT_LOG" "${TMP_DIR}/last_audit_run.log" 2>/dev/null
-
             return 0
         fi
     }
