@@ -261,7 +261,7 @@ if [[ "${SKIP_FFMPEG}" == "1" ]]; then
     to_df "    echo 'Components built successfully' > ${FFBUILD_DESTDIR}/BUILD_SUCCESS"
 else
     # Финальная сборка FFmpeg (инвалидируется только при изменении FFmpeg или build.sh)
-    to_df "RUN --mount=type=bind,source=.cache/ccache,target=${CCACHE_DIR} \\"
+    to_df "RUN --mount=type=bind,source=.cache/ccache,target=${CCACHE_DIR},rw \\"
     to_df "    --mount=type=bind,from=ffmpeg_context,target=/builder/ffbuild/ffmpeg,rw \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
