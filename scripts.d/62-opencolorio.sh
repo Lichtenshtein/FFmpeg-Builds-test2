@@ -134,6 +134,7 @@ EOF
         log_info "Vulkan library detected. Building with Vulkan support..."
         myconf+=(
             -DOCIO_VULKAN_ENABLED=ON
+            -DCMAKE_PREFIX_PATH="${FFBUILD_PREFIX}"
             -DVulkan_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
             -DVulkan_LIBRARY="${FFBUILD_PREFIX}/lib/libvulkan-1.a"
             -Dglslang_DIR="${FFBUILD_PREFIX}/lib/cmake/glslang"
@@ -200,7 +201,7 @@ EOF
     if [[ "${myconf[@]}" =~ "-DOCIO_DIRECTX_ENABLED=ON" ]]; then
         local WIN_LIBS="-ld3d12 -ldxgi -ldxguid"
     fi
-    local DEP_LIBS="${OCIO_STATIC_LIBS} ${Z_FLAG} ${WIN_LIBS} -lstdc++"
+    local DEP_LIBS="${OCIO_STATIC_LIBS} ${Z_FLAG} ${WIN_LIBS} -lshlwapi -lstdc++"
     if [[ -f "$PC_FILE" ]]; then
         log_info "Patching OpenColorIO.pc with dynamic donor list"
         if grep -q "Libs.private:" "$PC_FILE"; then

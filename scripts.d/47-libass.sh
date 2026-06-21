@@ -4,7 +4,8 @@
 # SCRIPT_COMMIT="fadc390583f24eb5cf98f16925fd3adee50bca88"
 
 SCRIPT_REPO="https://github.com/amanosatosi/libassmod.git"
-SCRIPT_COMMIT="3f5640045bbd737661f3858480ec948fece929cb"
+SCRIPT_COMMIT="c248bbba98db65872fdb9f08ab93fef1f59e32cd"
+SCRIPT_BRANCH="mangetsu"
 
 ffbuild_depends() {
     echo base

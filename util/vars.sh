@@ -1501,7 +1501,6 @@ apply_ffmpeg_patches() {
 export -f apply_ffmpeg_patches
 
 # checking flags validity for final FFmpeg build; if found we just drop them and continue
-# tip: check logs after applying \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z |\[?(0|1)?(m|;)?(3.m|) regex to them! search: REGEX replace: empty
 check_and_fix_configure() {
     if [[ "$SAFE_CONFIGURE" != "1" ]]; then
         return 0
