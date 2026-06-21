@@ -135,17 +135,19 @@ to_df "RUN chmod +x /usr/bin/run_stage"
 # 2. Удаляем комментарии и лишние пробелы
 # 3. Сортируем (чтобы порядок строк в файле не влиял на хеш)
 ENV_HASH=$({
-    grep "^export CFLAGS=" $UTIL_DIR/vars.sh | sed 's/#.*//'
-    grep "^export CXXFLAGS=" $UTIL_DIR/vars.sh | sed 's/#.*//'
-    grep "^export LDFLAGS=" $UTIL_DIR/vars.sh | sed 's/#.*//'
-    grep "^export CPPFLAGS=" $UTIL_DIR/vars.sh | sed 's/#.*//'
-    grep "^export RUSTFLAGS=" $UTIL_DIR/vars.sh | sed 's/#.*//'
-    grep "^export BASE_CFLAGS=" $UTIL_DIR/vars.sh | sed 's/#.*//'
-    grep "^export SYSTEM_LIBS=" $UTIL_DIR/vars.sh | sed 's/#.*//'
+    # Only hash compiler flags that affect binary output
+    grep -E "^(CFLAGS|CXXFLAGS|LDFLAGS|CPPFLAGS|RUSTFLAGS|BASE_CFLAGS|SYSTEM_LIBS)=" $UTIL_DIR/vars.sh \
+        | grep -v "^#" \
+        | grep -v "^\s*$" \
+        | sed 's/[[:space:]]\+/ /g' \
+        | sort \
     echo "TARGET=$TARGET"
     echo "CPU_ARCH=$CPU_ARCH"
-    } | tr -s '[:space:]' ' ' | sha256sum | cut -c1-8
-)
+    echo "VARIANT=$VARIANT"
+    echo "USE_LTO=$USE_LTO"
+    echo "USE_AVX512=$USE_AVX512"
+    echo "USE_OPENMP=$USE_OPENMP"
+} | sha256sum | cut -c1-8)
 
 # Global Logic Hash: Changes if run_stage.sh or the internal functions of vars.sh change.
 RUN_STAGE_HASH=$(sha256sum $UTIL_DIR/run_stage.sh | cut -c1-8 | tr -d '\n\r')
@@ -228,11 +230,9 @@ for STAGE in "${active_scripts[@]}"; do
     LAYER_ID="E:${ENV_HASH}_L:${LOGIC_HASH}_S:${STAGE_HASH}_P:${PATCH_HASH}"
 
     to_df "# Component: $STAGENAME | LayerID: $LAYER_ID"
-    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
 
-    to_df "    --mount=type=bind,from=downloads_context,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
-    # to_df "    --mount=type=bind,from=ffmpeg_context,target=${CONTAINER_ROOT}/.cache/ffmpeg,rw \\"
-
+    to_df "RUN --mount=type=bind,source=.cache/ccache,target=${CCACHE_DIR},rw \\"
+    to_df "    --mount=type=bind,source=.cache/downloads,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
     to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\"
@@ -261,7 +261,7 @@ if [[ "${SKIP_FFMPEG}" == "1" ]]; then
     to_df "    echo 'Components built successfully' > ${FFBUILD_DESTDIR}/BUILD_SUCCESS"
 else
     # Финальная сборка FFmpeg (инвалидируется только при изменении FFmpeg или build.sh)
-    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
+    to_df "RUN --mount=type=bind,source=.cache/ccache,target=${CCACHE_DIR} \\"
     to_df "    --mount=type=bind,from=ffmpeg_context,target=/builder/ffbuild/ffmpeg,rw \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi

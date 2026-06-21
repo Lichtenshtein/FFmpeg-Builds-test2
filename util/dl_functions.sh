@@ -460,6 +460,17 @@ download_stage() {
     # Проверяем, что у нас есть путь к кэшу, иначе упадем на mkdir/tar
     if [[ -z "$CACHE_DIR" ]]; then
         log_error "CACHE_DIR is empty! Check if vars.sh is sourced."
+        # return 1
+        CACHE_DIR="${ROOT_DIR}/.cache/downloads"
+        export CACHE_DIR
+    fi
+
+    # Ensure the directory exists
+    mkdir -p "$CACHE_DIR"
+
+    # Verify we can write to it
+    if [[ ! -w "$CACHE_DIR" ]]; then
+        log_error "Cannot write to CACHE_DIR: $CACHE_DIR"
         return 1
     fi
 
