@@ -298,6 +298,14 @@ All of those can be optionally combined with any combination of addins:
 85-libudfread|86-libdvdcss|86-libdvdread|87-libdvdnav|88-libbluray
 ```
 
+### Logs reading
+
+regex to apply on the downloaded logs from GitHub;
+
+Find: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z |\[?(0|1)?(m|;)?(3.m|)| 
+
+Replace: empty
+
 ### Download functions memo tips
 
 SCRIPT_REPO[1-9] - each REPO should be downloaded simultaneously or in sequence
