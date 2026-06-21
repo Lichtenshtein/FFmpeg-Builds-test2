@@ -107,8 +107,6 @@ WRAPPER_EOF
         -DSW_BUILD=OFF
         # -DENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DLeptonica_DIR=OFF # Leptonica use our manual path, not CMake target
-        -DLEPT_TIFF_RESULT=0
-        -DLEPT_TIFF_COMPILE_SUCCESS=ON
         # Explicit library paths so CMake's try_compile doesn't fail
         -DCMAKE_CXX_COMPILER="$LOCAL_GXX" # <--- Use local wrapper
         -DCMAKE_C_COMPILER="${FFBUILD_TOOLCHAIN}-gcc"
@@ -120,11 +118,56 @@ WRAPPER_EOF
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCURL_STATICLIB -DLIBARCHIVE_STATIC -DPTW32_STATIC_LIB"
-    if [[ "${myconf[@]}" =~ "-DBUILD_TRAINING_TOOLS=ON" ]]; then
-        local DEP_LIBS=$(get_pc_libs lept pangocairo libarchive libcurl icu-i18n)
+
+    if has_library "curl"; then
+        log_info "curl library detected. Building with curl support..."
+        myconf+=(
+            -DDISABLE_CURL=OFF
+        )
+        local CURL_LIBS="-lcurl"
+        local CURL_PC="libcurl"
     else
-        local DEP_LIBS=$(get_pc_libs lept libarchive libcurl)
+        myconf+=(
+            -DDISABLE_CURL=ON
+        )
     fi
+
+    if has_library "tiff"; then
+        log_info "TIFF library detected. Building with TIFF support..."
+        myconf+=(
+            -DDISABLE_TIFF=OFF
+            -DLEPT_TIFF_RESULT=0
+            -DLEPT_TIFF_COMPILE_SUCCESS=ON
+        )
+        local TIFF_PC="tiff"
+    else
+        myconf+=(
+            -DDISABLE_TIFF=ON
+        )
+    fi
+
+    if has_library "archive"; then
+        log_info "Libarchive library detected. Building with Libarchive support..."
+        myconf+=(
+            -DDISABLE_ARCHIVE=OFF
+        )
+        local ARCHIVE_LIBS="-larchive"
+        local ARCHIVE_PC="libarchive"
+    else
+        myconf+=(
+            -DDISABLE_ARCHIVE=ON
+        )
+    fi
+
+    if [[ "${myconf[@]}" =~ "-DBUILD_TRAINING_TOOLS=ON" ]]; then
+        local DEP_LIBS=$(get_pc_libs lept pangocairo ${ARCHIVE_PC} ${CURL_PC} icu-i18n)
+        myconf+=(
+            -DUSE_SYSTEM_ICU=ON
+        )
+    else
+        local DEP_LIBS=$(get_pc_libs lept ${ARCHIVE_PC} ${CURL_PC})
+    fi
+
     local C_FLAGS="-DWIN32_LEAN_AND_MEAN -D_WINSOCK_DEPRECATED_NO_WARNINGS"
     local LINKER_GROUP="-Wl,--start-group ${DEP_LIBS} ${LIBS} -Wl,--end-group"
 
@@ -156,9 +199,9 @@ WRAPPER_EOF
 
     local PC_FILE="$PC_DIR/tesseract.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i "s|^Libs.private:.*|Libs.private: -larchive -lcurl|" "$PC_FILE"
+        sed -i "/^Libs.private:/ s/$/ ${ARCHIVE_LIBS} ${CURL_LIBS}/" "$PC_FILE"
         sed -i "s|^Cflags:.*|& -I\${includedir}/tesseract|" "$PC_FILE"
-        sed -i "s|^Requires.private:.*|Requires.private: lept tiff|" "$PC_FILE"
+        sed -i "s|^Requires.private:.*|Requires.private: lept ${TIFF_PC}|" "$PC_FILE"
         if [[ "${myconf[@]}" =~ "-DBUILD_TRAINING_TOOLS=ON" ]]; then
             sed -i '/^Requires.private:.*/ s/$/ pangocairo icu-uc/' "$PC_FILE"
         fi

@@ -239,7 +239,7 @@ if [[ "$HAS_LIBTESSERACT" == "1" ]]; then
         download_file "$LINK_SCRIPT/$file" "$TESS_DEST/script/$file" ""
     done
 
-    log_info "${SYNC_MARK} Moving tessdata configs..."
+    log_info "${SYNC_MARK} Coping tessdata configs..."
     if [ -d "${FFBUILD_PREFIX}/share/tessdata" ]; then
         # -a (archive) включает рекурсию (-r) и сохраняет все права/структуру файлов
         # -v (verbose) покажет в логах, какие файлы копируются

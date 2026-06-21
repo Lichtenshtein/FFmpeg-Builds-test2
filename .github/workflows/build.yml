@@ -63,6 +63,11 @@ on:
         description: 'Free some Disk Space before Build'
         type: boolean
         default: false
+      reset_ccache:
+        description: 'Reset CCACHE (force clean build)'
+        required: false
+        type: boolean
+        default: false
       regularClean:
         description: 'Clean old caches after build (Regular Cleaning)'
         type: boolean
@@ -320,6 +325,22 @@ jobs:
           HASH=$(sha256sum images/base-win64/Dockerfile images/base-win64/toolchain.cmake images/base-win64/cross.meson 2>/dev/null | sha256sum | cut -c1-16)
           echo "hash=$HASH" >> $GITHUB_OUTPUT
 
+      - name: Compute CCache Key
+        id: ccache_key
+        run: |
+          TOOLS_HASH=$(sha256sum images/base-win64/Dockerfile | cut -c1-8)
+
+          KEY="ccache-${{ env.TARGET }}-${{ env.VARIANT }}-${TOOLS_HASH}"
+
+          if [[ "${{ github.event.inputs.reset_ccache }}" == "true" ]]; then
+            KEY="${KEY}-reset-${{ github.run_id }}"
+            echo "🧹 Manual CCACHE reset requested. Using new key: $KEY"
+          else
+            echo "💾 Using stable CCACHE key: $KEY"
+          fi
+
+          echo "key=$KEY" >> $GITHUB_OUTPUT
+
       - name: Build and Load Unified Toolchain Image
         uses: docker/build-push-action@v7
         with:
@@ -373,15 +394,25 @@ jobs:
         id: restore_ccache
         uses: actions/cache/restore@v5.0.5
         with:
-          path: |
-            .cache/ccache
-          key: ccache-${{ env.TARGET }}-${{ github.sha }}
+          path: .cache/ccache
+          key: ${{ steps.ccache_key.outputs.key }}
           restore-keys: |
+            ccache-${{ env.TARGET }}-${{ env.VARIANT }}-
             ccache-${{ env.TARGET }}-
 
       - name: Run Download and Generate
         run: |
-          [[ "${{ github.event.inputs.doClean }}" == "true" ]] && rm -rf .cache/{downloads,ffmpeg,ccache}/* && echo "### CLEAN BUILD REQUESTED ###"
+          if [[ "${{ github.event.inputs.doClean }}" == "true" ]]; then
+            # Handle Full Clean
+            echo "🧹 Cleaning ALL caches..."
+            rm -rf .cache/{downloads,ffmpeg,ccache,tmp}/*
+          fi
+
+          # Handle Manual CCACHE Reset
+          if [[ "${{ github.event.inputs.reset_ccache }}" == "true" ]]; then
+            echo "🧹 Clearing CCACHE directory due to manual reset request..."
+            rm -rf .cache/ccache/*
+          fi
 
           # Ensure proper permissions
           mkdir -p .cache/downloads .cache/ffmpeg .cache/ccache .cache/tmp
@@ -460,7 +491,7 @@ jobs:
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/ccache
-          key: ccache-${{ env.TARGET }}-${{ github.sha }}
+          key: ${{ steps.ccache_key.outputs.key }}
 
       - name: Inject Downloads into Buildx Cache
         run: |
