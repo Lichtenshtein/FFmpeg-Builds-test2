@@ -1715,12 +1715,8 @@ get_stage_version() {
         ver=""
 
         if [[ -n "$leptonica_cm" && -f "$leptonica_cm" ]]; then
-            ver=$(grep -Pzoh 'project\([\s\S]*?VERSION\s+\K[0-9.]+' "$leptonica_cm" | tr -d '\0')
+            ver=$(tr '\n' ' ' < "$leptonica_cm" | sed -nE 's/.*project\([^)]*VERSION[[:space:]]+([0-9.]+).*/\1/p')
         fi
-
-        # if [[ -n "$leptonica_cm" && -f "$leptonica_cm" ]]; then
-            # ver=$(tr '\n' ' ' < "$leptonica_cm" | sed -nE 's/.*project\([^)]*VERSION[[:space:]]+([0-9.]+).*/\1/p')
-        # fi
 
         [[ -n "$ver" ]] && ver_log "Found leptonica version in CMakeLists.txt: ${LOG_INFO}$ver${NC}"
     fi
