@@ -143,7 +143,7 @@ env:
   SEC_PROTO:      "openssl" # openssl/gnutls/mbedtls/schannel
   DEDUPE_FLAGS:   '1' # Deduplicate LDFLAGS/LIBS
   OLDER_FFNV:     '0' # Install older ffnvcodec version (8.1)
-  USE_TENSORFLOW: '0'
+  USE_TENSORFLOW: '1'
   USE_LIBTORCH:   '1'
   BUILD_VINO:     '1' # Build OpenVino
   USE_ASAN:       '0' # Address Sanitizer not supported in ct-ng
