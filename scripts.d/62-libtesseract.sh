@@ -125,7 +125,7 @@ WRAPPER_EOF
         -DCMAKE_C_COMPILER="${FFBUILD_TOOLCHAIN}-gcc"
         -DCMAKE_FIND_ROOT_PATH="$FFBUILD_PREFIX" # <--- Isolate search paths
         -DCMAKE_PREFIX_PATH="$FFBUILD_PREFIX"
-        -DCMAKE_FIND_LIBRARY_SUFFIXES=".a"
+        -DCMAKE_FIND_LIBRARY_SUFFIXES=".${lib_ext}"
         -DPKG_CONFIG_EXECUTABLE="$(command -v ${PKG_CONFIG})"
     )
 

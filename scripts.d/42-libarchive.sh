@@ -28,9 +28,6 @@ ffbuild_dockerbuild() {
 
     mkdir -p build_dir && cd build_dir
 
-    local DEP_LIBS="-lssl -lcrypto -lxml2 -lzstd -llzma -lbz2 -lz -liconv -lcharset"
-    local WIN_LIBS="-lcrypt32 -luserenv $LIBS"
-
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
@@ -46,22 +43,91 @@ ffbuild_dockerbuild() {
         -DENABLE_CPIO=OFF
         -DENABLE_CAT=OFF
         -DENABLE_UNZIP=ON
-        # Включаем зависимости
-        -DENABLE_ZLIB=ON
-        -DENABLE_LZMA=ON
-        -DENABLE_BZip2=ON
-        -DENABLE_OPENSSL=ON
-        -DENABLE_LIBXML2=ON
-        -DENABLE_ZSTD=ON
-        -DENABLE_ICONV=ON
-        -DENABLE_MBEDTLS=OFF
-        -DENABLE_NETTLE=OFF
-        # libxml2
-        -DLIBXML2_LIBRARIES="-lxml2"
-        -DLIBXML2_INCLUDE_DIR="$FFBUILD_PREFIX/include/libxml2"
-        -DCMAKE_REQUIRED_INCLUDES="$FFBUILD_PREFIX/include/libxml2"
-        -DCMAKE_REQUIRED_LIBRARIES="-lxml2"
     )
+
+    if has_library "xml2"; then
+        log_info "LibXML2 library detected. Building with LibXML2 support..."
+        myconf+=(
+            -DENABLE_LIBXML2=ON
+            -DLIBXML2_LIBRARIES="-lxml2"
+            -DLIBXML2_INCLUDE_DIR="$FFBUILD_PREFIX/include/libxml2"
+            -DCMAKE_REQUIRED_INCLUDES="$FFBUILD_PREFIX/include/libxml2"
+            -DCMAKE_REQUIRED_LIBRARIES="-lxml2"
+        )
+        local XML2_LIB="-lxml2"
+    else
+        myconf+=(
+            -DENABLE_LIBXML2=OFF
+        )
+    fi
+    if has_library "z"; then
+        log_info "Zlib library detected. Building with Zlib support..."
+        myconf+=(
+            -DENABLE_ZLIB=ON
+        )
+        local ZLIB_LIB="-lz"
+    else
+        myconf+=(
+            -DENABLE_ZLIB=OFF
+        )
+    fi
+    if has_library "zstd"; then
+        log_info "ZSTD library detected. Building with ZSTD support..."
+        myconf+=(
+            -DENABLE_ZSTD=ON
+        )
+        local ZSTD_LIB="-lzstd"
+    else
+        myconf+=(
+            -DENABLE_ZSTD=OFF
+        )
+    fi
+    if has_library "lzma"; then
+        log_info "LZMA library detected. Building with lZMA support..."
+        myconf+=(
+            -DENABLE_LZMA=ON
+        )
+        local LZMA_LIB="-llzma"
+    else
+        myconf+=(
+            -DENABLE_LZMA=OFF
+        )
+    fi
+    if has_library "bz2"; then
+        log_info "BZ2 library detected. Building with BZ2 support..."
+        myconf+=(
+            -DENABLE_BZip2=ON
+        )
+        local BZ2_LIB="-lbz2"
+    else
+        myconf+=(
+            -DENABLE_BZip2=OFF
+        )
+    fi
+    if has_library "iconv"; then
+        log_info "Iconv library detected. Building with iconv support..."
+        myconf+=(
+            -DENABLE_ICONV=ON
+        )
+        local ICONV_LIB="-liconv -lcharset"
+    else
+        myconf+=(
+            -DENABLE_ICONV=OFF
+        )
+    fi
+    if has_library "ssl"; then
+        log_info "OpenSSL library detected. Building with OpenSSL support..."
+        myconf+=(
+            -DENABLE_OPENSSL=ON
+            -DENABLE_MBEDTLS=OFF
+            -DENABLE_NETTLE=OFF
+        )
+        local OPENSSL_LIB="-lssl -lcrypto"
+    else
+        myconf+=(
+            -DENABLE_OPENSSL=OFF
+        )
+    fi
 
     if [[ $TARGET == win* ]]; then
         # Windows-специфичные опции
@@ -71,6 +137,9 @@ ffbuild_dockerbuild() {
         -DENABLE_XATTR=ON
         )
     fi
+
+    local DEP_LIBS="${OPENSSL_LIB} ${XML2_LIB} ${ZSTD_LIB} ${LZMA_LIB} ${BZ2_LIB} ${ZLIB_LIB} ${ICONV_LIB}"
+    local WIN_LIBS="-lcrypt32 -luserenv $LIBS"
 
     export static_flags=""
     export self_static_flags=""
