@@ -94,6 +94,42 @@ EOF
         log_info "dxapp.cpp successfully patched in all 6 locations."
     fi
 
+    # патч поиска glslang с эмуляцией внутренних CMake-таргетов
+    local OGL_HELPERS_CMAKE="src/libutils/oglapphelpers/CMakeLists.txt"
+    if [[ -f "$OGL_HELPERS_CMAKE" ]]; then
+        log_info "Injecting bulletproof glslang PkgConfig emulator into ${OGL_HELPERS_CMAKE}..."
+
+        # Создаем блок эмуляции таргетов glslang на основеpkg-config
+        local GLSLANG_EMULATOR=$(cat << 'EOF'
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(GLSLANG REQUIRED IMPORTED_TARGET glslang)
+
+    if(TARGET PkgConfig::GLSLANG AND NOT TARGET glslang::glslang)
+        add_library(glslang::glslang INTERFACE IMPORTED)
+        target_link_libraries(glslang::glslang INTERFACE PkgConfig::GLSLANG)
+    endif()
+
+    if(NOT TARGET glslang::glslang-default-resource-limits)
+        add_library(glslang::glslang-default-resource-limits INTERFACE IMPORTED)
+        target_link_libraries(glslang::glslang-default-resource-limits INTERFACE "${GLSLANG_PREFIX}/lib/libglslang-default-resource-limits.a")
+    endif()
+
+    if(NOT TARGET glslang::SPIRV)
+        add_library(glslang::SPIRV INTERFACE IMPORTED)
+        target_link_libraries(glslang::SPIRV INTERFACE "${GLSLANG_PREFIX}/lib/libSPIRV.a")
+    endif()
+EOF
+)
+        # Удаляем оригинальную строчку find_package(glslang REQUIRED)
+        sed -i 's/find_package(glslang REQUIRED)//g' "$OGL_HELPERS_CMAKE"
+
+        # Вставляем наш эмулятор сразу после find_package(Vulkan REQUIRED)
+        # Используем альтернативный разделитель |, так как в коде есть слэши
+        sed -i "s|find_package(Vulkan REQUIRED)|find_package(Vulkan REQUIRED)\n${GLSLANG_EMULATOR}|g" "$OGL_HELPERS_CMAKE"
+    else
+        log_warn "Could not find ${OGL_HELPERS_CMAKE} to apply glslang emulator!"
+    fi
+
     mkdir build "${INSTALL_ROOT}"/{lib,include} && cd build
 
     local myconf=(
@@ -191,11 +227,11 @@ EOF
 
     # Находим все статические библиотеки, собранные внутри этой стадии
     # Фильтруем оригинальную libOpenColorIO.a
-    local OCIO_STATIC_LIBS=$(find /build/$STAGENAME/build -type f -name "*.a" ! -name "libOpenColorIO.a" -printf "%f\n" | \
+    local OCIO_STATIC_LIBS=$(find /build/$STAGENAME -type f -name "*.a" ! -name "libOpenColorIO.a" -printf "%f\n" | \
                  sed 's/^lib//; s/\.a$//' | sort -u | xargs -I{} echo -l{} | tr '\n' ' ')
 
     # Переносим все найденные .a библиотеки-доноры в префикс
-    find /build/$STAGENAME/build -type f -name "*.a" -exec cp -f${OP_V} {} "${INSTALL_ROOT}/lib/" \;
+    find /build/$STAGENAME -type f -name "*.a" -exec cp -f${OP_V} {} "${INSTALL_ROOT}/lib/" \;
 
     local PC_FILE="$PC_DIR/OpenColorIO.pc"
     if [[ "${myconf[@]}" =~ "-DOCIO_DIRECTX_ENABLED=ON" ]]; then
