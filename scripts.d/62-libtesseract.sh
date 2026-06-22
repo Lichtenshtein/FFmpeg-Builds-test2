@@ -53,6 +53,15 @@ ffbuild_dockerbuild() {
            -o -name "*targets*.cmake" \) \
         -exec mv -t "$cmake_backup" {} + 2>/dev/null || true
 
+    # Восстанавливаем cmake файлы
+    trap '
+        log_debug "Executing absolute fallback config restoration..."
+        if [ -d "'"$cmake_backup"'" ]; then
+            cp -n "'"$cmake_backup"'"/* "'"$FFBUILD_PREFIX"'/lib/cmake/" 2>/dev/null || true
+            rm -rf "'"$cmake_backup"'"
+        fi
+    ' EXIT
+
     # Create a LOCAL wrapper script
     local WRAPPER_DIR="${TMP_DIR}/tesseract_wrapper"
     mkdir -p "$WRAPPER_DIR"
@@ -178,12 +187,7 @@ WRAPPER_EOF
         -DCMAKE_CXX_STANDARD_LIBRARIES="${LINKER_GROUP}" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${USELTO} -Wl,--allow-multiple-definition" \
         -DCMAKE_SHARED_LINKER_FLAGS="$LDFLAGS ${USELTO} -Wl,--allow-multiple-definition" \
-        .. || {
-            log_error "CMake failed, restoring backed up CMake configs..."
-            cp -n "$cmake_backup"/* "$FFBUILD_PREFIX/lib/cmake/" 2>/dev/null || true
-            rm -rf "$cmake_backup"
-            return 1
-        }
+        .. || return 1
 
     # Clear INTERFACE_LINK_LIBRARIES (belt and suspenders)
     # find . -name "TesseractTargets.cmake" -o -name "*Targets*.cmake" 2>/dev/null \
@@ -206,11 +210,6 @@ WRAPPER_EOF
             sed -i '/^Requires.private:.*/ s/$/ pangocairo icu-uc/' "$PC_FILE"
         fi
     fi
-
-    # Возвращаем старые конфиги назад (не затирая новые от самого tesseract)
-    log_debug "Restoring backed up CMake configs..."
-    cp -n "$cmake_backup"/* "$FFBUILD_PREFIX/lib/cmake/" 2>/dev/null || true
-    rm -rf "$cmake_backup"
 
     # log_debug "=== linkLibs.rsp full content ==="
     # cd ..

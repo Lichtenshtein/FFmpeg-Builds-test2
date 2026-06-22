@@ -625,23 +625,6 @@ smart_libs_dedupe() {
 }
 export -f clean_val dedupe_logic smart_dedupe smart_libs_dedupe
 
-# Docker stage helpers
-ffbuild_dockerstage() {
-    if [[ -n "$SELFCACHE" ]]; then
-        to_df "RUN --mount=src=${SELF},dst=/stage.sh --mount=src=${SELFCACHE},dst=/cache.tar.zst run_stage /stage.sh"
-    else
-        to_df "RUN --mount=src=${SELF},dst=/stage.sh run_stage /stage.sh"
-    fi
-}
-
-ffbuild_dockerlayer() {
-    to_df "COPY --link --from=${SELFLAYER} \$INSTALL_ROOT/. \$FFBUILD_PREFIX"
-}
-
-ffbuild_dockerfinal() {
-    to_df "COPY --link --from=${PREVLAYER} \$FFBUILD_PREFIX/. \$FFBUILD_PREFIX"
-}
-
 ffbuild_dockerdl() {
     [[ -n "$SCRIPT_REPO" ]] && default_dl .
 }

@@ -27,20 +27,17 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-if [[ "${PREFER_SHARED}" != "1" ]]; then
-    # Принудительно отключаем SHARED в самом коде Leptonica
-    sed -i 's/SHARED/STATIC/g' src/CMakeLists.txt
-fi
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        # Принудительно отключаем SHARED в самом коде Leptonica
+        sed -i 's/SHARED/STATIC/g' src/CMakeLists.txt
+    fi
+
     # Убеждаемся, что она не пытается выставлять суффиксы версий вроде libleptonica-1.88.0.a
+    log_info "Forcing static library target properties in CMakeLists.txt..."
     sed -i 's/set_target_properties.*PROPERTIES.*OUTPUT_NAME.*//g' src/CMakeLists.txt
 
-    mkdir build && cd build
-
-    # Удаляем "ядовитые" CMake-конфиги TIFF и других либ,
+    # Временно перемещаем "ядовитые" CMake-конфиги TIFF и других либ,
     # которые заставляют линкер искать ZLIB::ZLIB
-    # rm -rf "$FFBUILD_PREFIX/lib/cmake/"{tiff,OpenJPEG,libwebp,WebP,lcms2}
-
-    # Временная папка для хранения "ядовитых" конфигов
     local LEPT_BACKUP="/tmp/leptonica_deps_backup"
     mkdir -p "$LEPT_BACKUP"
     local TARGETS=(tiff OpenJPEG libwebp WebP lcms2 TIFF)
@@ -51,6 +48,22 @@ fi
             mv "$FFBUILD_PREFIX/lib/cmake/$target" "$LEPT_BACKUP/"
         fi
     done
+
+    # Восстанавливаем cmake файлы
+    trap '
+        log_debug "Executing Leptonica backup restoration trap..."
+        if [ -d "'"$LEPT_BACKUP"'" ] && [ "$(ls -A "'"$LEPT_BACKUP"'" 2>/dev/null)" ]; then
+            mkdir -p "'"$FFBUILD_PREFIX"'/lib/cmake"
+            log_info "Restoring CMAKE files from backup..."
+            mv "'"$LEPT_BACKUP"'"/* "'"$FFBUILD_PREFIX"'/lib/cmake/" 2>/dev/null || true
+        fi
+        rm -rf "'"$LEPT_BACKUP"'"
+    ' EXIT
+
+    mkdir build && cd build
+
+    # подставляем пути к библиотекам в зависимости от PREFER_SHARED
+    local lib_ext=$([ "${PREFER_SHARED}" == "1" ] && echo "dll.a" || echo "a")
 
     # There is NO -DSTATIC=ON flag exist
     local myconf=(
@@ -76,20 +89,16 @@ fi
         -DENABLE_ZLIB=ON
         -DENABLE_OPENJPEG=ON
         -DENABLE_WEBP=ON
-        # Помогаем CMake найти наши статические либы
-        -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.a"
+        # Помогаем CMake найти наши либы
+        -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.${lib_ext}"
         -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DPNG_LIBRARY="$FFBUILD_PREFIX/lib/libpng.a"
-        -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.a"
+        -DPNG_LIBRARY="$FFBUILD_PREFIX/lib/libpng.${lib_ext}"
+        -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.${lib_ext}"
         -DWebP_INCLUDE_DIR="$FFBUILD_PREFIX/include"
     )
 
-    # финальный список для линковки
-    # local DEP_LIBS="-llcms2_fast_float -llcms2_threaded -llcms2 -lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv -ltiffxx -ltiff -lopenjp2 -lturbojpeg -ljpeg -lpng -lgif -lzstd -llzma -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset -licuin -licuuc -licudt"
-    # local WIN_LIBS="-lgdi32 $LIBS"
-
     local DEP_LIBS=$(get_pc_libs lcms2 tiff webp libopenjp2 png libturbojpeg libjpeg giflib zlib)
-    local LINKER_GROUP="-Wl,--start-group ${DEP_LIBS} ${LIBS} ${ADDITIONAL_LIBS} -Wl,--end-group"
+    local LINKER_GROUP="-Wl,--start-group ${DEP_LIBS} ${LIBS} -Wl,--end-group"
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
@@ -99,48 +108,52 @@ fi
         -DCMAKE_CXX_STANDARD_LIBRARIES="${LINKER_GROUP}" \
         .. || return 1
 
-if [[ "${PREFER_SHARED}" != "1" ]]; then
-    log_debug "Fixing static library names and locations..."
-    # где лежит файл?
-    log_debug "Searching for compiled lib..."
-    find . -name "*.a"
-    # смотрим, что реально собралось в папке src
-    log_debug "Content of build/src:"
-    ls -lh src/*.a src/*.dll* 2>/dev/null || echo "No libs found in src"
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        log_debug "Fixing static library names and locations..."
+        # где лежит файл?
+        log_debug "Searching for compiled lib..."
+        find . -name "*.a"
+        # смотрим, что реально собралось в папке src
+        log_debug "Content of build/src:"
+        ls -lh src/*.a src/*.dll* 2>/dev/null || echo "No libs found in src"
 
-    # Исправляем расширение в сгенерированных файлах сборки, если CMake сошел с ума
-    find . -name "build.make" -exec sed -i -E 's/libleptonica-[0-9.]+\.dll/libleptonica.a/g' {} +
-    find . -name "link.txt" -exec sed -i -E 's/libleptonica-[0-9.]+\.dll/libleptonica.a/g' {} +
-fi
+        # Исправляем расширение в сгенерированных файлах сборки, если CMake сошел с ума
+        find . -name "build.make" -exec sed -i -E 's/libleptonica-[0-9.]+\.dll/libleptonica.a/g' {} +
+        find . -name "link.txt" -exec sed -i -E 's/libleptonica-[0-9.]+\.dll/libleptonica.a/g' {} +
+    fi
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-if [[ "${PREFER_SHARED}" != "1" ]]; then
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        # Защита от багов MinGW, когда статические либы улетают в /bin
+        if [ -f "$INSTALL_ROOT/bin/libleptonica.a" ]; then
+            mv "$INSTALL_ROOT/bin/libleptonica.a" "$INSTALL_ROOT/lib/libleptonica.a"
+        fi
 
-    # Ищем либу (она могла остаться в папке build/src). Если CMake создал файл с версией libleptonica-1.88.0.a, переименовываем
-    find "$INSTALL_ROOT/lib" -name "libleptonica*.a" -exec mv {} "$INSTALL_ROOT/lib/libleptonica.a" \; 2>/dev/null || true
+        # Если при статической MinGW-сборке файл назвался liblept.a вместо libleptonica.a
+        if [ -f "$INSTALL_ROOT/lib/liblept.a" ] && [ ! -f "$INSTALL_ROOT/lib/libleptonica.a" ]; then
+            ln -sf liblept.a "$INSTALL_ROOT/lib/libleptonica.a"
+        fi
 
-    # Если вдруг либа оказалась в /bin (бывает в MinGW), переносим в /lib
-    if [ -f "$INSTALL_ROOT/bin/libleptonica.a" ]; then
-        mv "$INSTALL_ROOT/bin/libleptonica.a" "$INSTALL_ROOT/lib/libleptonica.a"
-    fi
+        # Если файл сохранил суффикс версии (напр. libleptonica-1.88.0.a), нормализуем его
+        find "$INSTALL_ROOT/lib" -name "libleptonica*.a" ! -name "libleptonica.a" -exec mv {} "$INSTALL_ROOT/lib/libleptonica.a" \; 2>/dev/null || true
 
-    # Если файла libleptonica.a нет в целевой папке, ищем его везде в билде и копируем
-    if [ ! -f "$INSTALL_ROOT/lib/libleptonica.a" ]; then
-        log_warn "Leptonica lib missing after install. Manual recovery..."
-        mkdir -p "$INSTALL_ROOT/lib"
-        # Ищем любой .a файл в папке src (он может называться liblept.a или libleptonica-1.88.0.a)
-        local BUILT_LIB=$(find src -name "*.a" | head -n 1)
-        if [[ -n "$BUILT_LIB" ]]; then
-            cp "$BUILT_LIB" "$INSTALL_ROOT/lib/libleptonica.a"
-            log_info "${CHECK_MARK} Recovered: $BUILT_LIB -> libleptonica.a"
-        else
-            log_error "No static library was built!"
-            return 1
+        # Если файла libleptonica.a нет в целевой папке, ищем его везде в билде и копируем
+        if [ ! -f "$INSTALL_ROOT/lib/libleptonica.a" ]; then
+            log_warn "Leptonica lib missing after install. Manual recovery..."
+            mkdir -p "$INSTALL_ROOT/lib"
+            # Ищем любой .a файл в папке src (он может называться liblept.a или libleptonica-1.88.0.a)
+            local BUILT_LIB=$(find src -name "*.a" | head -n 1)
+            if [[ -n "$BUILT_LIB" ]]; then
+                cp "$BUILT_LIB" "$INSTALL_ROOT/lib/libleptonica.a"
+                log_info "${CHECK_MARK} Recovered: $BUILT_LIB -> libleptonica.a"
+            else
+                log_error "No static library was built!"
+                return 1
+            fi
         fi
     fi
-fi
 
     # Удаляем все автосгенерированные конфиги
     rm -f "$PC_DIR"/lept*.pc
@@ -156,23 +169,12 @@ includedir=\${prefix}/include
 Name: leptonica
 Description: Leptonica image processing library
 Version: 1.88.0
+Requires.private: lcms2 tiff webp libopenjp2 png libjpeg giflib zlib
 Libs: -L\${libdir} -lleptonica
-Libs.private: $WIN_LIBS
+Libs.private: ${LIBS} -lm
 Cflags: -I\${includedir} -I\${includedir}/leptonica
 EOF
 
     # Всё равно создаем симлинк, если Tesseract ищет leptonica.pc вместо lept.pc и флаг -DSYM_LINK=ON не сработал
     ln -sf lept.pc "$PC_DIR/leptonica.pc"
-
-    # Удаляем CMake-файлы Leptonica. Это заставит Tesseract использовать pkg-config (lept.pc).
-    # rm -rf "$INSTALL_ROOT/lib/cmake/leptonica"
-
-    # Возвращаем папки на место, чтобы они были доступны для Tesseract или FFmpeg
-    # Возвращаем всё обратно в основную директорию
-    if [ -d "$LEPT_BACKUP" ] && [ "$(ls -A "$LEPT_BACKUP")" ]; then
-        mkdir -p "$FFBUILD_PREFIX/lib/cmake"
-        log_info "Restoring CMAKE files from backup..."
-        mv "$LEPT_BACKUP"/* "$FFBUILD_PREFIX/lib/cmake/" 2>/dev/null || true
-    fi
-    rm -rf "$LEPT_BACKUP"
 }
