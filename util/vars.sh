@@ -1702,6 +1702,23 @@ get_stage_version() {
         [[ -n "$ver" ]] && ver_log "Found svtav1 version in CMakeLists.txt: ${LOG_INFO}$ver${NC}"
     fi
 
+    # leptonica
+    if [[ "$STAGENAME" == *"leptonica"* ]]; then
+        local leptonica_cm=$(find . -maxdepth 2 -name "CMakeLists.txt" -print -quit 2>/dev/null)
+        ver_log "Leptonica detected: parsing version from CMakeLists.txt..."
+        ver=""
+
+        if [[ -n "$leptonica_cm" && -f "$leptonica_cm" ]]; then
+            ver=$(grep -Pzoh 'project\([\s\S]*?VERSION\s+\K[0-9.]+' "$leptonica_cm" | tr -d '\0')
+        fi
+
+        # if [[ -n "$leptonica_cm" && -f "$leptonica_cm" ]]; then
+            # ver=$(tr '\n' ' ' < "$leptonica_cm" | sed -nE 's/.*project\([^)]*VERSION[[:space:]]+([0-9.]+).*/\1/p')
+        # fi
+
+        [[ -n "$ver" ]] && ver_log "Found leptonica version in CMakeLists.txt: ${LOG_INFO}$ver${NC}"
+    fi
+
     # D. libxvid: Handle deep paths and XVID_MAKE_VERSION
     if [[ "$STAGENAME" == *"xvid"* ]]; then
         # Xvid is often in a subfolder 'xvidcore'
