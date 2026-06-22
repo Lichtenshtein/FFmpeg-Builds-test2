@@ -2022,12 +2022,14 @@ export -f get_stage_version
 # Проверяет наличие статической или динамической библиотеки по её базовому имени
 has_library() {
     local lib_name="$1"
-    # Ищет: libname.a, libname.dll.a, libname.so, libname.so.1 и т.д.
-    find "${FFBUILD_PREFIX}/lib" -maxdepth 1 -type f \( \
-        -name "lib${lib_name}.a" -o \
-        -name "lib${lib_name}.dll.a" -o \
-        -name "lib${lib_name}.so*" \
-    \) | grep -q .
+    local lib_dir="${FFBUILD_PREFIX}/lib"
+    if [ -e "${lib_dir}/lib${lib_name}.a" ] || \
+       [ -e "${lib_dir}/lib${lib_name}.dll" ] || \
+       [ -e "${lib_dir}/lib${lib_name}.dll.a" ] || \
+       compgen -G "${lib_dir}/lib${lib_name}.so*" >/dev/null 2>&1; then
+        return 0
+    fi
+    return 1
 }
 export -f has_library
 
