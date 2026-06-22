@@ -428,14 +428,12 @@ jobs:
           ./util/clean_cache.sh
           ./generate.sh "$TARGET" "$VARIANT"
 
-          # ---------------------------------------------------
           # Generate DYNAMIC Key based on ACTUAL file content
-          # ---------------------------------------------------
           if [[ -d ".cache/downloads" ]]; then
-            FILE_LIST=$(find .cache/downloads -type f \( -name "*.tar*" -o -name "*.zip" -o -name "*.zst" -o -name "*.tgz" \) -printf "%s " -exec basename {} \;)
+            FILE_LIST=$(find .cache/downloads -type f \( -name "*.tar*" -o -name "*.zip" -o -name "*.zst" -o -name "*.tgz" \) -printf "%s " -exec basename {} \; | sort)
             FILE_COUNT=$(echo "$FILE_LIST" | wc -l)
-            # Hash the listing (much faster than hashing each file)
-            DYNAMIC_HASH=$(echo "$FILE_LIST" | sort | sha256sum | cut -c1-16)
+        
+            DYNAMIC_HASH=$(echo "$FILE_LIST" | sha256sum | cut -c1-16)
             echo "📁 Core archives in cache: $FILE_COUNT"
             echo "🔍 Dynamic Hash: $DYNAMIC_HASH"
             echo "dynamic_key=thirdparty-dl-${DYNAMIC_HASH}" >> $GITHUB_OUTPUT
