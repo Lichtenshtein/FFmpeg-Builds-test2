@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# set -e
-set -xe
+set -e
+# set -xe
 
 shopt -s globstar
 cd "$(dirname "$0")"
@@ -137,12 +137,12 @@ to_df "RUN chmod +x /usr/bin/run_stage"
 # 2. Удаляем комментарии и лишние пробелы
 # 3. Сортируем (чтобы порядок строк в файле не влиял на хеш)
 ENV_HASH=$({
-    # Only hash compiler flags that affect binary output
-    grep -E "^(CFLAGS|CXXFLAGS|LDFLAGS|CPPFLAGS|RUSTFLAGS|BASE_CFLAGS|SYSTEM_LIBS)=" $UTIL_DIR/vars.sh \
+    grep -E "^(CFLAGS|CXXFLAGS|LDFLAGS|CPPFLAGS|RUSTFLAGS|BASE_CFLAGS|SYSTEM_LIBS)=" "$UTIL_DIR/vars.sh" \
         | grep -v "^#" \
         | grep -v "^\s*$" \
         | sed 's/[[:space:]]\+/ /g' \
-        | sort \
+        | sort
+
     echo "TARGET=$TARGET"
     echo "CPU_ARCH=$CPU_ARCH"
     echo "VARIANT=$VARIANT"
