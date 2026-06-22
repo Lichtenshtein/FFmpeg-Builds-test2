@@ -95,15 +95,18 @@ EOF
     fi
 
     # патч поиска glslang с эмуляцией внутренних CMake-таргетов
+    # Безопасный патч поиска glslang с эмуляцией внутренних CMake-таргетов
     local OGL_HELPERS_CMAKE="src/libutils/oglapphelpers/CMakeLists.txt"
     if [[ -f "$OGL_HELPERS_CMAKE" ]]; then
         log_info "Injecting bulletproof glslang PkgConfig emulator into ${OGL_HELPERS_CMAKE}..."
 
-        # Создаем блок эмуляции таргетов glslang на основеpkg-config
-        local GLSLANG_EMULATOR=$(cat << 'EOF'
+        # Создаем временный файл с новым содержимым для блока Vulkan
+        cat << 'EOF' > /tmp/vulkan_patch.cmake
+if(OCIO_VULKAN_ENABLED)
+    find_package(Vulkan REQUIRED)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(GLSLANG REQUIRED IMPORTED_TARGET glslang)
-
+    
     if(TARGET PkgConfig::GLSLANG AND NOT TARGET glslang::glslang)
         add_library(glslang::glslang INTERFACE IMPORTED)
         target_link_libraries(glslang::glslang INTERFACE PkgConfig::GLSLANG)
@@ -111,21 +114,33 @@ EOF
 
     if(NOT TARGET glslang::glslang-default-resource-limits)
         add_library(glslang::glslang-default-resource-limits INTERFACE IMPORTED)
-        target_link_libraries(glslang::glslang-default-resource-limits INTERFACE "${GLSLANG_PREFIX}/lib/libglslang-default-resource-limits.a")
+        target_link_libraries(glslang::glslang-default-resource-limits INTERFACE "${FFBUILD_PREFIX}/lib/libglslang-default-resource-limits.a")
     endif()
 
     if(NOT TARGET glslang::SPIRV)
         add_library(glslang::SPIRV INTERFACE IMPORTED)
-        target_link_libraries(glslang::SPIRV INTERFACE "${GLSLANG_PREFIX}/lib/libSPIRV.a")
+        target_link_libraries(glslang::SPIRV INTERFACE "${FFBUILD_PREFIX}/lib/libSPIRV.a")
     endif()
-EOF
-)
-        # Удаляем оригинальную строчку find_package(glslang REQUIRED)
-        sed -i 's/find_package(glslang REQUIRED)//g' "$OGL_HELPERS_CMAKE"
 
-        # Вставляем наш эмулятор сразу после find_package(Vulkan REQUIRED)
-        # Используем альтернативный разделитель |, так как в коде есть слэши
-        sed -i "s|find_package(Vulkan REQUIRED)|find_package(Vulkan REQUIRED)\n${GLSLANG_EMULATOR}|g" "$OGL_HELPERS_CMAKE"
+    list(APPEND SOURCES vulkanapp.cpp)
+    list(APPEND INCLUDES vulkanapp.h)
+endif()
+EOF
+
+        awk '
+        /if\(OCIO_VULKAN_ENABLED\)/ {
+            print "include(/tmp/vulkan_patch.cmake)"
+            skip=1
+            next
+        }
+        /endif\(\)/ && skip {
+            skip=0
+            next
+        }
+        !skip { print }
+        ' "$OGL_HELPERS_CMAKE" > "${OGL_HELPERS_CMAKE}.tmp" && mv "${OGL_HELPERS_CMAKE}.tmp" "$OGL_HELPERS_CMAKE"
+
+        log_info "glslang PkgConfig emulator successfully integrated via awk bridge."
     else
         log_warn "Could not find ${OGL_HELPERS_CMAKE} to apply glslang emulator!"
     fi
