@@ -377,9 +377,7 @@ jobs:
         uses: actions/cache/restore@v5.0.5
         with:
           path: .cache/downloads
-          key: ${{ steps.dl_cache.outputs.stable_key }}
-          restore-keys: |
-            dl_cache-
+          restore-keys: dl_cache-
 
       # --- КЭШ 2: ИСХОДНЫЙ КОД FFMPEG ---
       - name: Restore FFmpeg Source Tree
