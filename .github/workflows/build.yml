@@ -374,9 +374,9 @@ jobs:
         uses: actions/cache/restore@v5.0.5
         with:
           path: .cache/downloads
-          key: ${{ steps.dl_cache.outputs.stable_key }}
+          key: ${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            ${{ steps.dl_cache.outputs.stable_key }}
+            ${{ steps.dl_cache.outputs.stable_key }}-
             dl_cache-
 
       # --- КЭШ 2: ИСХОДНЫЙ КОД FFMPEG ---
@@ -385,8 +385,9 @@ jobs:
         uses: actions/cache/restore@v5.0.5
         with:
           path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}
+          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
+            ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-
             ffmpeg-src-
 
       - name: Run Download and Generate
@@ -461,16 +462,15 @@ jobs:
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/downloads
-          key: ${{ steps.dl_cache.outputs.stable_key }}
+          key: ${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       # --- SAVE 2: Исходный код FFmpeg ---
       - name: Save FFmpeg Source Tree
-        # Сохраняем ТОЛЬКО если у нас есть валлидный коммит, и этот коммит отличается от того, что восстановился
-        if: always() && steps.ffmpeg_commit.outputs.commit != 'none' && steps.restore_ffmpeg.outputs.cache-hit != 'true'
+        if: always() && steps.ffmpeg_commit.outputs.commit != 'none'
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.ffmpeg_commit.outputs.commit }}
+          key: ffmpeg-src-${{ steps.ffmpeg_commit.outputs.commit }}-${{ github.run_id }}
 
       - name: Build Components Stage
         uses: docker/build-push-action@v7
