@@ -360,7 +360,7 @@ jobs:
 
       # --- STEP 1: Calculate the "Stable" Key (Based on config only) ---
       - name: Get Download Cache Key (Stable)
-        id: dl_cache_stable
+        id: dl_cache
         run: |
           chmod +x ./util/state_hash.sh
           export TARGET="${{ env.TARGET }}"
@@ -368,8 +368,8 @@ jobs:
           export FFMPEG_REPO="${{ env.FFMPEG_REPO }}"
           export FFMPEG_BRANCH="${{ env.FFMPEG_BRANCH }}"
           KEY=$(./util/state_hash.sh)
-          echo "stable_key=thirdparty-dl-${KEY}" >> $GITHUB_OUTPUT
-          echo "🔑 Stable Key: thirdparty-dl-${KEY}"
+          echo "stable_key=dl_cache-${KEY}" >> $GITHUB_OUTPUT
+          echo "🔑 Stable Key: dl_cache-${KEY}"
 
       # --- КЭШ 1: ЗАВИСИМОСТИ СТОРОННИХ БИБЛИОТЕК (Загрузки) ---
       - name: Restore Third-Party Downloads
@@ -377,9 +377,9 @@ jobs:
         uses: actions/cache/restore@v5.0.5
         with:
           path: .cache/downloads
-          key: ${{ steps.dl_cache_stable.outputs.stable_key }}
+          key: dl_cache-${{ steps.dl_cache.outputs.stable_key }}
           restore-keys: |
-            thirdparty-dl-
+            dl_cache-
 
       # --- КЭШ 2: ИСХОДНЫЙ КОД FFMPEG ---
       - name: Restore FFmpeg Source Tree
@@ -387,7 +387,7 @@ jobs:
         uses: actions/cache/restore@v5.0.5
         with:
           path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.dl_cache_stable.outputs.stable_key }}
+          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}
           restore-keys: |
             ffmpeg-src-
 
@@ -428,20 +428,6 @@ jobs:
           ./util/clean_cache.sh
           ./generate.sh "$TARGET" "$VARIANT"
 
-          # Generate DYNAMIC Key based on ACTUAL file content
-          if [[ -d ".cache/downloads" ]]; then
-            FILE_LIST=$(find .cache/downloads -type f \( -name "*.tar*" -o -name "*.zip" -o -name "*.zst" -o -name "*.tgz" \) -printf "%s " -exec basename {} \; | sort)
-            FILE_COUNT=$(echo "$FILE_LIST" | wc -l)
-        
-            DYNAMIC_HASH=$(echo "$FILE_LIST" | sha256sum | cut -c1-16)
-            echo "📁 Core archives in cache: $FILE_COUNT"
-            echo "🔍 Dynamic Hash: $DYNAMIC_HASH"
-            echo "dynamic_key=thirdparty-dl-${DYNAMIC_HASH}" >> $GITHUB_OUTPUT
-          else
-            echo "⚠️ Downloads folder empty!"
-            echo "dynamic_key=thirdparty-dl-empty" >> $GITHUB_OUTPUT
-          fi
-
       - name: Extract Pre-compiled TensorFlow SR Models (Host Side)
         if: env.USE_TENSORFLOW == '1'
         run: |
@@ -473,20 +459,20 @@ jobs:
 
       # --- SAVE 1: Save Cache (Use the NEW Dynamic Key) ---
       - name: Save Third-Party Downloads
-        if: always() && steps.download_step.outputs.dynamic_key != 'thirdparty-dl-empty'
+        if: always()
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/downloads
-          key: ${{ steps.download_step.outputs.dynamic_key }}
+          key: dl_cache-${{ steps.dl_cache.outputs.stable_key }}
 
       # --- SAVE 2: Исходный код FFmpeg ---
       - name: Save FFmpeg Source Tree
         # Сохраняем ТОЛЬКО если у нас есть валлидный коммит, и этот коммит отличается от того, что восстановился
-        if: always() && steps.ffmpeg_commit.outputs.commit != 'none' && steps.restore_ffmpeg.outputs.restored-key != format('ffmpeg-src-{0}', steps.ffmpeg_commit.outputs.commit)
+        if: always() && steps.ffmpeg_commit.outputs.commit != 'none' && steps.restore_ffmpeg.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.ffmpeg_commit.outputs.commit }}-${{ github.run_id }}
+          key: ffmpeg-src-${{ steps.ffmpeg_commit.outputs.commit }}
 
       - name: Build Components Stage
         uses: docker/build-push-action@v7
