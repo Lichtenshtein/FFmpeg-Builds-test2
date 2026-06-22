@@ -377,7 +377,7 @@ jobs:
         uses: actions/cache/restore@v5.0.5
         with:
           path: .cache/downloads
-          key: dl_cache-${{ steps.dl_cache.outputs.stable_key }}
+          key: ${{ steps.dl_cache.outputs.stable_key }}
           restore-keys: |
             dl_cache-
 
@@ -463,7 +463,7 @@ jobs:
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/downloads
-          key: dl_cache-${{ steps.dl_cache.outputs.stable_key }}
+          key: ${{ steps.dl_cache.outputs.stable_key }}
 
       # --- SAVE 2: Исходный код FFmpeg ---
       - name: Save FFmpeg Source Tree
