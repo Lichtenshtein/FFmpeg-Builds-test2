@@ -54,13 +54,17 @@ ffbuild_dockerbuild() {
         -exec mv -t "$cmake_backup" {} + 2>/dev/null || true
 
     # Восстанавливаем cmake файлы
-    trap '
+    restore() {
         log_debug "Executing absolute fallback config restoration..."
-        if [ -d "'"$cmake_backup"'" ]; then
-            cp -n "'"$cmake_backup"'"/* "'"$FFBUILD_PREFIX"'/lib/cmake/" 2>/dev/null || true
-            rm -rf "'"$cmake_backup"'"
+        if [ -d "$cmake_backup" ]; then
+            cp -n "$cmake_backup"/* "$FFBUILD_PREFIX/lib/cmake/" 2>/dev/null || true
+            rm -rf "$cmake_backup"
         fi
-    ' EXIT
+        if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+            ls -lh "$FFBUILD_PREFIX/lib/cmake/"
+        fi
+    }
+    trap restore EXIT
 
     # Create a LOCAL wrapper script
     local WRAPPER_DIR="${TMP_DIR}/tesseract_wrapper"

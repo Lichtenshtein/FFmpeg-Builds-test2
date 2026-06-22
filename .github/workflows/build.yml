@@ -329,20 +329,19 @@ jobs:
       - name: Compute CCache Key
         id: ccache_key
         run: |
-          TOOLS_HASH=$(sha256sum images/base-win64/Dockerfile | cut -c1-8)
-
-          BASE_KEY="ccache-${{ env.TARGET }}-${{ env.VARIANT }}-${TOOLS_HASH}"
+          BASE_SCOPE="ccache-${{ env.TARGET }}-${{ env.VARIANT }}-${{ steps.docker_hash.outputs.hash }}"
 
           if [[ "${{ github.event.inputs.reset_ccache }}" == "true" ]]; then
-            SAVE_KEY="${BASE_KEY}-reset-${{ github.run_id }}"
-            echo "🧹 Manual CCACHE reset requested."
+            # Если запрошен сброс, добавляем уникальный суффикс текущего запуска, 
+            # чтобы Docker создал абсолютно пустой и чистый изолированный scope.
+            TARGET_SCOPE="${BASE_SCOPE}-reset-${{ github.run_id }}"
+            echo "🧹 Manual CCACHE reset requested. New clean scope: $TARGET_SCOPE"
           else
-            SAVE_KEY="${BASE_KEY}-${{ github.run_id }}-${{ github.run_attempt }}"
+            TARGET_SCOPE="${BASE_SCOPE}"
+            echo "💾 Using stable CCACHE scope: $TARGET_SCOPE"
           fi
 
-          echo "base_key=$BASE_KEY" >> $GITHUB_OUTPUT
-          echo "save_key=$SAVE_KEY" >> $GITHUB_OUTPUT
-          echo "💾 Target Save Key: $SAVE_KEY"
+          echo "scope=$TARGET_SCOPE" >> $GITHUB_OUTPUT
 
       - name: Build and Load Unified Toolchain Image
         uses: docker/build-push-action@v7
@@ -392,16 +391,6 @@ jobs:
           restore-keys: |
             ffmpeg-src-
 
-      # --- КЭШ 3: КЭШ КОМПИЛЯТОРА (CCACHE) ---
-      - name: Restore Compiler Cache (ccache)
-        id: restore_ccache
-        uses: actions/cache/restore@v5.0.5
-        with:
-          path: .cache/ccache
-          key: ${{ steps.ccache_key.outputs.save_key }}
-          restore-keys: |
-            ${{ steps.ccache_key.outputs.base_key }}-
-
       - name: Run Download and Generate
         id: download_step
         run: |
@@ -443,15 +432,12 @@ jobs:
           # Generate DYNAMIC Key based on ACTUAL file content
           # ---------------------------------------------------
           if [[ -d ".cache/downloads" ]]; then
-            # Hash all files in the folder
-            # List all files with sizes (no content hashing)
-            FILE_LIST=$(find .cache/downloads -type f -printf "%s %p\n" | sort)
+            FILE_LIST=$(find .cache/downloads -type f \( -name "*.tar*" -o -name "*.zip" -o -name "*.zst" -o -name "*.tgz" \) -printf "%s " -exec basename {} \;)
             FILE_COUNT=$(echo "$FILE_LIST" | wc -l)
             # Hash the listing (much faster than hashing each file)
-            DYNAMIC_HASH=$(echo "$FILE_LIST" | sha256sum | cut -c1-16)
-            echo "📁 Files in cache: $FILE_COUNT"
+            DYNAMIC_HASH=$(echo "$FILE_LIST" | sort | sha256sum | cut -c1-16)
+            echo "📁 Core archives in cache: $FILE_COUNT"
             echo "🔍 Dynamic Hash: $DYNAMIC_HASH"
-            # Output the new key for the Save step
             echo "dynamic_key=thirdparty-dl-${DYNAMIC_HASH}" >> $GITHUB_OUTPUT
           else
             echo "⚠️ Downloads folder empty!"
@@ -513,21 +499,13 @@ jobs:
           build-args: |
             CPU_ARCH=${{ env.CPU_ARCH }}
             CPU_TUNE=${{ env.CPU_TUNE }}
-          push: true
+          push: false 
           tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
             downloads_context=.cache/downloads
-          cache-from: type=gha,scope=ffmpeg-target-base-${{ steps.docker_hash.outputs.hash }}
-          cache-to: ""
-
-      # --- SAVE 3: Кэш компилятора ---
-      - name: Save Compiler Cache (ccache)
-        if: always()
-        uses: actions/cache/save@v5.0.5
-        with:
-          path: .cache/ccache
-          key: ${{ steps.ccache_key.outputs.save_key }}
+          cache-from: type=gha,scope=${{ steps.ccache_key.outputs.scope }}
+          cache-to: type=gha,mode=max,scope=${{ steps.ccache_key.outputs.scope }}
 
       - name: Verify FFmpeg Source
         run: |
@@ -554,8 +532,8 @@ jobs:
             downloads_context=.cache/downloads
             ffmpeg_context=.cache/ffmpeg
           outputs: type=local,dest=artifacts/
-          cache-from: ""
-          cache-to: ""
+          cache-from: type=gha,scope=${{ steps.ccache_key.outputs.scope }}
+          cache-to: type=gha,mode=max,scope=${{ steps.ccache_key.outputs.scope }}
           provenance: false
 
       - name: Cleanup Old Caches

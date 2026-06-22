@@ -114,18 +114,21 @@ if(OCIO_VULKAN_ENABLED)
 
     if(NOT TARGET glslang::glslang-default-resource-limits)
         add_library(glslang::glslang-default-resource-limits INTERFACE IMPORTED)
-        target_link_libraries(glslang::glslang-default-resource-limits INTERFACE "${FFBUILD_PREFIX}/lib/libglslang-default-resource-limits.a")
+        target_link_libraries(glslang::glslang-default-resource-limits INTERFACE "${FFBUILD_PREFIX}/lib/libglslang-default-resource-limits.@LIB_EXT@")
     endif()
 
     if(NOT TARGET glslang::SPIRV)
         add_library(glslang::SPIRV INTERFACE IMPORTED)
-        target_link_libraries(glslang::SPIRV INTERFACE "${FFBUILD_PREFIX}/lib/libSPIRV.a")
+        target_link_libraries(glslang::SPIRV INTERFACE "${FFBUILD_PREFIX}/lib/libSPIRV.@LIB_EXT@")
     endif()
 
     list(APPEND SOURCES vulkanapp.cpp)
     list(APPEND INCLUDES vulkanapp.h)
 endif()
 EOF
+
+        # меняем плейсхолдер на реальное значение переменной
+        sed -i "s|@LIB_EXT@|${lib_ext}|g" /tmp/vulkan_patch.cmake
 
         awk '
         /if\(OCIO_VULKAN_ENABLED\)/ {
@@ -187,7 +190,7 @@ EOF
             -DOCIO_VULKAN_ENABLED=ON
             -DCMAKE_PREFIX_PATH="${FFBUILD_PREFIX}"
             -DVulkan_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
-            -DVulkan_LIBRARY="${FFBUILD_PREFIX}/lib/libvulkan-1.a"
+            -DVulkan_LIBRARY="${FFBUILD_PREFIX}/lib/libvulkan-1.${lib_ext}"
             -Dglslang_DIR="${FFBUILD_PREFIX}/lib/cmake/glslang"
             -Dglslang_ROOT="${FFBUILD_PREFIX}"
             -Dglslang_INCLUDE_DIR="${FFBUILD_PREFIX}/include/glslang"
@@ -198,7 +201,7 @@ EOF
     if has_library "z"; then
         log_info "ZLIB library detected. Using external ZLIB..."
         myconf+=(
-            -DZLIB_LIBRARY="${FFBUILD_PREFIX}/lib/libz.a"
+            -DZLIB_LIBRARY="${FFBUILD_PREFIX}/lib/libz.${lib_ext}"
             -DZLIB_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
             -DZLIB_USE_STATIC_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         )
@@ -208,7 +211,7 @@ EOF
     if has_library "lcms2"; then
         log_info "lcms2 library detected. Using external lcms2..."
         myconf+=(
-            -Dlcms2_LIBRARY="${FFBUILD_PREFIX}/lib/liblcms2.a"
+            -Dlcms2_LIBRARY="${FFBUILD_PREFIX}/lib/liblcms2.${lib_ext}"
             -Dlcms2_INCLUDE_DIR="${FFBUILD_PREFIX}/include"
             -Dlcms2_STATIC_LIBRARY=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         )
@@ -229,7 +232,7 @@ EOF
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-        find /build/$STAGENAME -type f -name "*.a" -printf "%p (%s bytes)\n"
+        find /build/$STAGENAME -type f -name "*.${lib_ext}" -printf "%p (%s bytes)\n"
     fi
 
     log_info "Dynamically collecting and installing OpenColorIO donor libraries..."
@@ -242,11 +245,11 @@ EOF
 
     # Находим все статические библиотеки, собранные внутри этой стадии
     # Фильтруем оригинальную libOpenColorIO.a
-    local OCIO_STATIC_LIBS=$(find /build/$STAGENAME -type f -name "*.a" ! -name "libOpenColorIO.a" -printf "%f\n" | \
-                 sed 's/^lib//; s/\.a$//' | sort -u | xargs -I{} echo -l{} | tr '\n' ' ')
+    local OCIO_STATIC_LIBS=$(find /build/$STAGENAME -type f -name "*.${lib_ext}" ! -name "libOpenColorIO.${lib_ext}" -printf "%f\n" | \
+                 sed 's/^lib//; s/\.${lib_ext}$//' | sort -u | xargs -I{} echo -l{} | tr '\n' ' ')
 
     # Переносим все найденные .a библиотеки-доноры в префикс
-    find /build/$STAGENAME -type f -name "*.a" -exec cp -f${OP_V} {} "${INSTALL_ROOT}/lib/" \;
+    find /build/$STAGENAME -type f -name "*.${lib_ext}" -exec cp -f${OP_V} {} "${INSTALL_ROOT}/lib/" \;
 
     local PC_FILE="$PC_DIR/OpenColorIO.pc"
     if [[ "${myconf[@]}" =~ "-DOCIO_DIRECTX_ENABLED=ON" ]]; then

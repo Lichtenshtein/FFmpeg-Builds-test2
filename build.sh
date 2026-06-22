@@ -33,6 +33,10 @@ cleanup() {
     fi
 
     log_info "Cleanup done."
+
+    # Вывод статистики ccache
+    log_info "${CACHE_MARK} CCACHE STATISTICS:"
+    ccache -s 2>&1 || echo "ccache command failed entirely with exit code $?"
 }
 # Устанавливаем ловушку
 # EXIT сработает всегда: и при успехе, и при ошибке, и при прерывании
@@ -723,10 +727,6 @@ fi
 make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
 make install
 make install-doc || log_warn "install-doc failed, but proceeding."
-
-# Вывод статистики ccache
-log_info "${CACHE_MARK} CCACHE STATISTICS:"
-ccache -s 2>&1 || echo "ccache command failed entirely with exit code $?"
 
 log_info "${DIRS_MARK} Leaving FFmpeg folder..."
 popd # Выход из ffbuild/ffmpeg
