@@ -1,5 +1,5 @@
 #!/bin/bash
-
+export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/DanBloomberg/leptonica.git"
 SCRIPT_COMMIT="19e4d64c62521d34b6ad9a100fcce1bc4dee5a73"
 
@@ -9,7 +9,6 @@ ffbuild_depends() {
     echo libjpeg-turbo
     echo openjpeg
     echo libtiff
-    echo brotli
     echo lcms2
     echo libwebp
     echo giflib
@@ -65,10 +64,8 @@ ffbuild_dockerbuild() {
     # подставляем пути к библиотекам в зависимости от PREFER_SHARED
     local lib_ext=$([ "${PREFER_SHARED}" == "1" ] && echo "dll.a" || echo "a")
 
-    # There is NO -DSTATIC=ON flag exist
     local myconf=(
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
-        # -DCMAKE_PROJECT_INCLUDE="${PWD}/extra_targets.cmake"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
@@ -82,22 +79,92 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_BINDIR="bin"
         -DCMAKE_INSTALL_INCLUDEDIR="include"
         -DSYM_LINK=ON # Create symlink leptonica -> lept on UNIX
-        -DENABLE_PNG=ON
-        -DENABLE_JPEG=ON
-        -DENABLE_TIFF=ON
-        -DENABLE_GIF=ON
-        -DENABLE_ZLIB=ON
-        -DENABLE_OPENJPEG=ON
-        -DENABLE_WEBP=ON
-        # Помогаем CMake найти наши либы
-        -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.${lib_ext}"
-        -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DPNG_LIBRARY="$FFBUILD_PREFIX/lib/libpng.${lib_ext}"
-        -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.${lib_ext}"
-        -DWebP_INCLUDE_DIR="$FFBUILD_PREFIX/include"
     )
 
-    local DEP_LIBS=$(get_pc_libs lcms2 tiff webp libopenjp2 png libturbojpeg libjpeg giflib zlib)
+    if has_library "z"; then
+        log_info "Zlib library detected. Building with Zlib support..."
+        myconf+=(
+            -DENABLE_ZLIB=ON
+        )
+        local ZLIB_PC="zlib"
+    else
+        myconf+=(
+            -DENABLE_ZLIB=OFF
+        )
+    fi
+    if has_library "gif"; then
+        log_info "Gif library detected. Building with Gif support..."
+        myconf+=(
+            -DENABLE_GIF=ON
+        )
+        local GIF_PC="giflib"
+    else
+        myconf+=(
+            -DENABLE_GIF=OFF
+        )
+    fi
+    if has_library "openjp2"; then
+        log_info "OpenJPEG library detected. Building with OpenJPEG support..."
+        myconf+=(
+            -DENABLE_OPENJPEG=ON
+        )
+        local OPENJPG_PC="libopenjp2"
+    else
+        myconf+=(
+            -DENABLE_OPENJPEG=OFF
+        )
+    fi
+    if has_library "webp"; then
+        log_info "WebP library detected. Building with WebP support..."
+        myconf+=(
+            -DENABLE_WEBP=ON
+            -DWebP_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        )
+        local WEBP_PC="webp"
+    else
+        myconf+=(
+            -DENABLE_WEBP=OFF
+        )
+    fi
+    if has_library "png"; then
+        log_info "PNG library detected. Building with PNG support..."
+        myconf+=(
+            -DENABLE_PNG=ON
+            -DPNG_LIBRARY="$FFBUILD_PREFIX/lib/libpng.${lib_ext}"
+        )
+        local PNG_PC="png"
+    else
+        myconf+=(
+            -DENABLE_PNG=OFF
+        )
+    fi
+    if has_library "jpeg"; then
+        log_info "JPEG library detected. Building with JPEG support..."
+        myconf+=(
+            -DENABLE_JPEG=ON
+            -DJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libjpeg.${lib_ext}"
+        )
+        local JPEG_PC="libjpeg libturbojpeg"
+    else
+        myconf+=(
+            -DENABLE_JPEG=OFF
+        )
+    fi
+    if has_library "tiff"; then
+        log_info "TIFF library detected. Building with TIFF support..."
+        myconf+=(
+            -DENABLE_TIFF=ON
+            -DTIFF_LIBRARY="$FFBUILD_PREFIX/lib/libtiff.${lib_ext}"
+            -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+        )
+        local TIFF_PC="tiff"
+    else
+        myconf+=(
+            -DENABLE_TIFF=OFF
+        )
+    fi
+
+    local DEP_LIBS=$(get_pc_libs lcms2 ${TIFF_PC} ${WEBP_PC} ${OPENJPG_PC} ${PNG_PC} ${JPEG_PC} ${GIF_PC} ${ZLIB_PC})
     local LINKER_GROUP="-Wl,--start-group ${DEP_LIBS} ${LIBS} -Wl,--end-group"
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
@@ -107,20 +174,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_C_STANDARD_LIBRARIES="${LINKER_GROUP}" \
         -DCMAKE_CXX_STANDARD_LIBRARIES="${LINKER_GROUP}" \
         .. || return 1
-
-    if [[ "${PREFER_SHARED}" != "1" ]]; then
-        log_debug "Fixing static library names and locations..."
-        # где лежит файл?
-        log_debug "Searching for compiled lib..."
-        find . -name "*.a"
-        # смотрим, что реально собралось в папке src
-        log_debug "Content of build/src:"
-        ls -lh src/*.a src/*.dll* 2>/dev/null || echo "No libs found in src"
-
-        # Исправляем расширение в сгенерированных файлах сборки, если CMake сошел с ума
-        find . -name "build.make" -exec sed -i -E 's/libleptonica-[0-9.]+\.dll/libleptonica.a/g' {} +
-        find . -name "link.txt" -exec sed -i -E 's/libleptonica-[0-9.]+\.dll/libleptonica.a/g' {} +
-    fi
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
@@ -168,8 +221,8 @@ includedir=\${prefix}/include
 
 Name: leptonica
 Description: Leptonica image processing library
-Version: 1.88.0
-Requires.private: lcms2 tiff webp libopenjp2 png libjpeg giflib zlib
+Version: ${VER_FULL}
+Requires.private: lcms2 ${TIFF_PC} ${WEBP_PC} ${OPENJPG_PC} ${PNG_PC} ${JPEG_PC} ${GIF_PC} ${ZLIB_PC}
 Libs: -L\${libdir} -lleptonica
 Libs.private: ${LIBS} -lm
 Cflags: -I\${includedir} -I\${includedir}/leptonica

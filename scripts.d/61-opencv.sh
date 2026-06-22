@@ -101,140 +101,129 @@ ffbuild_dockerbuild() {
         -DVIDEOIO_ENABLE_PLUGINS=ON
     )
 
-if has_library "tiff"; then
-    log_info "TIFF library detected. Building with TIFF support..."
-    # временно перемещаем "отравленные" .cmake файлы tiff
-    local TIFF_CMAKE_DIR="$FFBUILD_PREFIX/lib/cmake/tiff"
-    local TIFF_HIDE_DIR="$TMP_DIR/tiff_hide"
-    if [ -d "$TIFF_CMAKE_DIR" ]; then
-        log_info "Hiding TIFF CMake configs to force raw library usage..."
-        mkdir -p "$TIFF_HIDE_DIR"
-        mv "$TIFF_CMAKE_DIR"/* "$TIFF_HIDE_DIR/"
+    if has_library "tiff"; then
+        log_info "TIFF library detected. Building with TIFF support..."
+        # временно перемещаем "отравленные" .cmake файлы tiff
+        local TIFF_CMAKE_DIR="$FFBUILD_PREFIX/lib/cmake/tiff"
+        local TIFF_HIDE_DIR="$TMP_DIR/tiff_hide"
+        if [ -d "$TIFF_CMAKE_DIR" ]; then
+            log_info "Hiding TIFF CMake configs to force raw library usage..."
+            mkdir -p "$TIFF_HIDE_DIR"
+            mv "$TIFF_CMAKE_DIR"/* "$TIFF_HIDE_DIR/"
+        fi
+        myconf+=(
+            -DBUILD_TIFF=OFF
+            -DWITH_TIFF=ON
+            -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+            -DTIFF_LIBRARIES="$FFBUILD_PREFIX/lib/libtiff.a;$FFBUILD_PREFIX/lib/libtiffxx.a"
+            -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
+        )
     fi
-    myconf+=(
-        -DBUILD_TIFF=OFF
-        -DWITH_TIFF=ON
-        -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DTIFF_LIBRARIES="$FFBUILD_PREFIX/lib/libtiff.a;$FFBUILD_PREFIX/lib/libtiffxx.a"
-        -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
-    )
-fi
-
-if has_library "avif"; then
-    log_info "AVIF library detected. Building with AVIF support..."
-    myconf+=(
-        -DWITH_AVIF=ON
-        -DAVIF_INCLUDE_DIRS="$FFBUILD_PREFIX/include/avif"
-        -DAVIF_LIBRARIES="$FFBUILD_PREFIX/lib/libavif.a"
-    )
-fi
-
-if has_library "jpeg"; then
-    log_info "JPEG library detected. Building with JPEG support..."
-    myconf+=(
-        -DBUILD_JPEG=OFF
-        -DWITH_JPEG=ON
-        -DJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DJPEG_LIBRARIES="$FFBUILD_PREFIX/lib/libjpeg.a;$FFBUILD_PREFIX/lib/libturbojpeg.a"
-    )
-fi
-
-if has_library "z"; then
-    log_info "ZLIB library detected. Building with ZLIB support..."
-    myconf+=(
-        -DBUILD_ZLIB=OFF
-        -DZLIB_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.a"
-        -DZLIB_LIBRARIES="$FFBUILD_PREFIX/lib/libz.a"
-        # -DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON
-        # -DWITH_ZLIB_NG=ON
-    )
-fi
-
-if has_library "OpenCL"; then
-    log_info "OpenCL library detected. Building with OpenCL support..."
-    myconf+=(
-        -DWITH_OPENCL=ON
-        -DWITH_OPENCL_D3D11_NV=ON
-        -DOPENCL_LIBRARIES="$FFBUILD_PREFIX/lib/libOpenCL.a"
-        -DOPENCL_INCLUDE_DIR="$FFBUILD_PREFIX/include/CL"
-    )
-fi
-
-if has_library "vulkan-1"; then
-    log_info "Vulkan library detected. Building with Vulkan support..."
-    myconf+=(
-        -DWITH_VULKAN=ON
-        -DVULKAN_LIBRARIES="$FFBUILD_PREFIX/lib/libvulkan-1.a"
-        -DVULKAN_INCLUDE_DIRS="$FFBUILD_PREFIX/include/vulkan"
-    )
-fi
-
-if has_library "openjp2"; then
-    log_info "OpenJPEG library detected. Building with OpenJPEG support..."
-    export OpenJPEG_DIR="$FFBUILD_PREFIX/lib/cmake/openjpeg-2.5"
-    myconf+=(
-        -DBUILD_OPENJPEG=OFF
-        -DWITH_OPENJPEG=ON
-        -DOPENJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include/openjpeg-2.5"
-        -DOPENJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libopenjp2.a"
-    )
-fi
-
-if has_library "webp"; then
-    log_info "WebP library detected. Building with WebP support..."
-    myconf+=(
-        -DBUILD_WEBP=OFF
-        -DWITH_WEBP=ON
-    )
-fi
-
-if has_library "openvino"; then
-    log_info "OpenVINO library detected. Building with OpenVINO support..."
-    # export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-    export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-    myconf+=(
-        # Включаем интеграцию с OpenVINO (Inference Engine)
-        -DWITH_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
-        -DOPENVINO_STATIC_COMPILATION=$([[ "${PREFER_SHARED}" != "1" && "${BUILD_VINO}" == "1" ]] && echo ON || echo OFF)
-        -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-        -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
-    )
-fi
-
-if has_library "quirc"; then
-    log_info "QUIRC library detected. Building with QUIRC support..."
-    myconf+=(
-        -DWITH_QUIRC=ON
-    )
-fi
-
-if has_library "jxl"; then
-    log_info "JPEGXL library detected. Building with JPEGXL support..."
-    myconf+=(
-        -DWITH_JPEGXL=ON
-    )
-fi
-
-if has_library "tbbmalloc"; then
-    log_info "TBB library detected. Building with TBB support..."
-    myconf+=(
-        -DBUILD_TBB=OFF
-        -DWITH_TBB=ON
-        -DTBB_INCLUDE_DIRS="$FFBUILD_PREFIX/include"
-        -DTBB_LIB_DIR="$FFBUILD_PREFIX/lib"
-    )
-elif [[ "${USE_OPENMP}" == "1" ]]; then
-    log_info "Enabling OpenMP threading..."
-    myconf+=(
-        -DWITH_OPENMP=ON
-    )
-else
-    log_info "Building with pthreads support..."
-    myconf+=(
-        -DWITH_PTHREADS_PF=ON
-    )
-fi
+    if has_library "avif"; then
+        log_info "AVIF library detected. Building with AVIF support..."
+        myconf+=(
+            -DWITH_AVIF=ON
+            -DAVIF_INCLUDE_DIRS="$FFBUILD_PREFIX/include/avif"
+            -DAVIF_LIBRARIES="$FFBUILD_PREFIX/lib/libavif.a"
+        )
+    fi
+    if has_library "jpeg"; then
+        log_info "JPEG library detected. Building with JPEG support..."
+        myconf+=(
+            -DBUILD_JPEG=OFF
+            -DWITH_JPEG=ON
+            -DJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+            -DJPEG_LIBRARIES="$FFBUILD_PREFIX/lib/libjpeg.a;$FFBUILD_PREFIX/lib/libturbojpeg.a"
+        )
+    fi
+    if has_library "z"; then
+        log_info "ZLIB library detected. Building with ZLIB support..."
+        myconf+=(
+            -DBUILD_ZLIB=OFF
+            -DZLIB_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+            -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.a"
+            -DZLIB_LIBRARIES="$FFBUILD_PREFIX/lib/libz.a"
+            # -DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON
+            # -DWITH_ZLIB_NG=ON
+        )
+    fi
+    if has_library "OpenCL"; then
+        log_info "OpenCL library detected. Building with OpenCL support..."
+        myconf+=(
+            -DWITH_OPENCL=ON
+            -DWITH_OPENCL_D3D11_NV=ON
+            -DOPENCL_LIBRARIES="$FFBUILD_PREFIX/lib/libOpenCL.a"
+            -DOPENCL_INCLUDE_DIR="$FFBUILD_PREFIX/include/CL"
+        )
+    fi
+    if has_library "vulkan-1"; then
+        log_info "Vulkan library detected. Building with Vulkan support..."
+        myconf+=(
+            -DWITH_VULKAN=ON
+            -DVULKAN_LIBRARIES="$FFBUILD_PREFIX/lib/libvulkan-1.a"
+            -DVULKAN_INCLUDE_DIRS="$FFBUILD_PREFIX/include/vulkan"
+        )
+    fi
+    if has_library "openjp2"; then
+        log_info "OpenJPEG library detected. Building with OpenJPEG support..."
+        export OpenJPEG_DIR="$FFBUILD_PREFIX/lib/cmake/openjpeg-2.5"
+        myconf+=(
+            -DBUILD_OPENJPEG=OFF
+            -DWITH_OPENJPEG=ON
+            -DOPENJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include/openjpeg-2.5"
+            -DOPENJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libopenjp2.a"
+        )
+    fi
+    if has_library "webp"; then
+        log_info "WebP library detected. Building with WebP support..."
+        myconf+=(
+            -DBUILD_WEBP=OFF
+            -DWITH_WEBP=ON
+        )
+    fi
+    if has_library "openvino"; then
+        log_info "OpenVINO library detected. Building with OpenVINO support..."
+        # export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+        export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+        myconf+=(
+            # Включаем интеграцию с OpenVINO (Inference Engine)
+            -DWITH_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
+            -DOPENVINO_STATIC_COMPILATION=$([[ "${PREFER_SHARED}" != "1" && "${BUILD_VINO}" == "1" ]] && echo ON || echo OFF)
+            -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+            -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
+        )
+    fi
+    if has_library "quirc"; then
+        log_info "QUIRC library detected. Building with QUIRC support..."
+        myconf+=(
+            -DWITH_QUIRC=ON
+        )
+    fi
+    if has_library "jxl"; then
+        log_info "JPEGXL library detected. Building with JPEGXL support..."
+        myconf+=(
+            -DWITH_JPEGXL=ON
+        )
+    fi
+    if has_library "tbbmalloc"; then
+        log_info "TBB library detected. Building with TBB support..."
+        myconf+=(
+            -DBUILD_TBB=OFF
+            -DWITH_TBB=ON
+            -DTBB_INCLUDE_DIRS="$FFBUILD_PREFIX/include"
+            -DTBB_LIB_DIR="$FFBUILD_PREFIX/lib"
+        )
+    elif [[ "${USE_OPENMP}" == "1" ]]; then
+        log_info "Enabling OpenMP threading..."
+        myconf+=(
+            -DWITH_OPENMP=ON
+        )
+    else
+        log_info "Building with pthreads support..."
+        myconf+=(
+            -DWITH_PTHREADS_PF=ON
+        )
+    fi
 
     if [[ $TARGET == win64 ]]; then
         myconf+=(
