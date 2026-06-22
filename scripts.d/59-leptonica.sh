@@ -64,7 +64,7 @@ ffbuild_dockerbuild() {
     }
     trap restore EXIT
 
-    mkdir build && cd build
+    mkdir build "${INSTALL_ROOT}/lib" && cd build
 
     local myconf=(
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
@@ -180,34 +180,26 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # Защита от багов MinGW, когда статические либы улетают в /bin
-        if [ -f "$INSTALL_ROOT/bin/libleptonica.a" ]; then
-            mv "$INSTALL_ROOT/bin/libleptonica.a" "$INSTALL_ROOT/lib/libleptonica.a"
+    if [[ "${PREFER_SHARED}" == "1" ]]; then
+        if [ ! -f "$INSTALL_ROOT/lib/libleptonica*.dll*" ]; then
+            log_info "Enforcing explicit deployment for SHARED Leptonica binaries..."
+            cp -f${OP_V} src/libleptonica*.dll* "${INSTALL_ROOT}/lib/" 2>/dev/null || \
+            cp -f${OP_V} src/liblept*.dll* "${INSTALL_ROOT}/lib/" || return 1
         fi
-
-        # Если при статической MinGW-сборке файл назвался liblept.a вместо libleptonica.a
-        if [ -f "$INSTALL_ROOT/lib/liblept.a" ] && [ ! -f "$INSTALL_ROOT/lib/libleptonica.a" ]; then
-            ln -sf liblept.a "$INSTALL_ROOT/lib/libleptonica.a"
-        fi
-
-        # Если файл сохранил суффикс версии (напр. libleptonica-1.88.0.a), нормализуем его
-        find "$INSTALL_ROOT/lib" -name "libleptonica*.a" ! -name "libleptonica.a" -exec mv {} "$INSTALL_ROOT/lib/libleptonica.a" \; 2>/dev/null || true
-
-        # Если файла libleptonica.a нет в целевой папке, ищем его везде в билде и копируем
+    else
+        log_info "Enforcing explicit deployment for STATIC Leptonica archive..."
         if [ ! -f "$INSTALL_ROOT/lib/libleptonica.a" ]; then
-            log_warn "Leptonica lib missing after install. Manual recovery..."
-            mkdir -p "$INSTALL_ROOT/lib"
-            # Ищем любой .a файл в папке src (он может называться liblept.a или libleptonica-1.88.0.a)
-            local BUILT_LIB=$(find src -name "*.a" | head -n 1)
-            if [[ -n "$BUILT_LIB" ]]; then
-                cp "$BUILT_LIB" "$INSTALL_ROOT/lib/libleptonica.a"
-                log_info "${CHECK_MARK} Recovered: $BUILT_LIB -> libleptonica.a"
+            if [ -f "src/libleptonica-${VER_FULL}.a" ]; then
+                cp -f${OP_V} "src/libleptonica-${VER_FULL}.a" "${INSTALL_ROOT}/lib/libleptonica.a"
+            elif [ -f "src/liblept.a" ]; then
+                cp -f${OP_V} "src/liblept.a" "${INSTALL_ROOT}/lib/libleptonica.a"
             else
-                log_error "No static library was built!"
+                log_error "Critical: Static Leptonica archive not found in build tree!"
                 return 1
             fi
         fi
+        # симлинк на случай, если Tesseract жестко ищет флаг -llept
+        ln -sf${OP_V} libleptonica.a "${INSTALL_ROOT}/lib/liblept.a"
     fi
 
     # Удаляем все автосгенерированные конфиги
