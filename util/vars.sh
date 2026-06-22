@@ -114,6 +114,9 @@ if [[ "${USE_WINE:-0}" = "1" ]]; then
     export WINEDLLOVERRIDES="mscoree,mshtml="
 fi
 
+# чтобы пути к заголовочным файлам хоста не сбивали хэш
+export CCACHE_COMPILERCHECK="none"
+
 # Заставляет glibc выводить подробный бэктрейс в stderr при срабатывании fortify/overflow
 export LIBC_FATAL_STDERR_=1
 
@@ -568,6 +571,9 @@ stage_vars() {
     printf 'STAGE_LATEST_LINK=%q\n' "${CACHE_DIR}/${_name}.tar.zst"
 }
 export -f stage_vars
+
+# подставляем пути к библиотекам в зависимости от PREFER_SHARED
+export lib_ext=$([ "${PREFER_SHARED}" == "1" ] && echo "dll.a" || echo "a")
 
 # Удаляем ANSI цвета
 # Удаляем переносы строк (заменяем на пробел)

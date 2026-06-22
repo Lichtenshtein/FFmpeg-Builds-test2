@@ -49,20 +49,22 @@ ffbuild_dockerbuild() {
     done
 
     # Восстанавливаем cmake файлы
-    trap '
+    restore() {
         log_debug "Executing Leptonica backup restoration trap..."
-        if [ -d "'"$LEPT_BACKUP"'" ] && [ "$(ls -A "'"$LEPT_BACKUP"'" 2>/dev/null)" ]; then
-            mkdir -p "'"$FFBUILD_PREFIX"'/lib/cmake"
+        if [ -d "$LEPT_BACKUP" ] && [ "$(ls -A "$LEPT_BACKUP" 2>/dev/null)" ]; then
+            mkdir -p "$FFBUILD_PREFIX/lib/cmake"
             log_info "Restoring CMAKE files from backup..."
-            mv "'"$LEPT_BACKUP"'"/* "'"$FFBUILD_PREFIX"'/lib/cmake/" 2>/dev/null || true
+            mv "$LEPT_BACKUP"/* "$FFBUILD_PREFIX/lib/cmake/" 2>/dev/null || true
         fi
-        rm -rf "'"$LEPT_BACKUP"'"
-    ' EXIT
+        rm -rf "$LEPT_BACKUP"
+
+        if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+            ls -lh "$FFBUILD_PREFIX/lib/cmake/"
+        fi
+    }
+    trap restore EXIT
 
     mkdir build && cd build
-
-    # подставляем пути к библиотекам в зависимости от PREFER_SHARED
-    local lib_ext=$([ "${PREFER_SHARED}" == "1" ] && echo "dll.a" || echo "a")
 
     local myconf=(
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)

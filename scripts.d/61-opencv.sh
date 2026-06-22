@@ -103,19 +103,29 @@ ffbuild_dockerbuild() {
 
     if has_library "tiff"; then
         log_info "TIFF library detected. Building with TIFF support..."
+
         # временно перемещаем "отравленные" .cmake файлы tiff
         local TIFF_CMAKE_DIR="$FFBUILD_PREFIX/lib/cmake/tiff"
         local TIFF_HIDE_DIR="$TMP_DIR/tiff_hide"
+
         if [ -d "$TIFF_CMAKE_DIR" ]; then
             log_info "Hiding TIFF CMake configs to force raw library usage..."
             mkdir -p "$TIFF_HIDE_DIR"
             mv "$TIFF_CMAKE_DIR"/* "$TIFF_HIDE_DIR/"
         fi
+
+        restore() {
+            log_info "Restoring TIFF CMake files..."
+            mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
+            rm -rf "$TIFF_HIDE_DIR"
+        }
+        trap restore EXIT
+
         myconf+=(
             -DBUILD_TIFF=OFF
             -DWITH_TIFF=ON
             -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-            -DTIFF_LIBRARIES="$FFBUILD_PREFIX/lib/libtiff.a;$FFBUILD_PREFIX/lib/libtiffxx.a"
+            -DTIFF_LIBRARIES="$FFBUILD_PREFIX/lib/libtiff.${lib_ext};$FFBUILD_PREFIX/lib/libtiffxx.${lib_ext}"
             -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
         )
     fi
@@ -124,7 +134,7 @@ ffbuild_dockerbuild() {
         myconf+=(
             -DWITH_AVIF=ON
             -DAVIF_INCLUDE_DIRS="$FFBUILD_PREFIX/include/avif"
-            -DAVIF_LIBRARIES="$FFBUILD_PREFIX/lib/libavif.a"
+            -DAVIF_LIBRARIES="$FFBUILD_PREFIX/lib/libavif.${lib_ext}"
         )
     fi
     if has_library "jpeg"; then
@@ -133,7 +143,7 @@ ffbuild_dockerbuild() {
             -DBUILD_JPEG=OFF
             -DWITH_JPEG=ON
             -DJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-            -DJPEG_LIBRARIES="$FFBUILD_PREFIX/lib/libjpeg.a;$FFBUILD_PREFIX/lib/libturbojpeg.a"
+            -DJPEG_LIBRARIES="$FFBUILD_PREFIX/lib/libjpeg.${lib_ext};$FFBUILD_PREFIX/lib/libturbojpeg.${lib_ext}"
         )
     fi
     if has_library "z"; then
@@ -141,8 +151,8 @@ ffbuild_dockerbuild() {
         myconf+=(
             -DBUILD_ZLIB=OFF
             -DZLIB_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-            -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.a"
-            -DZLIB_LIBRARIES="$FFBUILD_PREFIX/lib/libz.a"
+            -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.${lib_ext}"
+            -DZLIB_LIBRARIES="$FFBUILD_PREFIX/lib/libz.${lib_ext}"
             # -DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON
             # -DWITH_ZLIB_NG=ON
         )
@@ -152,7 +162,7 @@ ffbuild_dockerbuild() {
         myconf+=(
             -DWITH_OPENCL=ON
             -DWITH_OPENCL_D3D11_NV=ON
-            -DOPENCL_LIBRARIES="$FFBUILD_PREFIX/lib/libOpenCL.a"
+            -DOPENCL_LIBRARIES="$FFBUILD_PREFIX/lib/libOpenCL.${lib_ext}"
             -DOPENCL_INCLUDE_DIR="$FFBUILD_PREFIX/include/CL"
         )
     fi
@@ -160,7 +170,7 @@ ffbuild_dockerbuild() {
         log_info "Vulkan library detected. Building with Vulkan support..."
         myconf+=(
             -DWITH_VULKAN=ON
-            -DVULKAN_LIBRARIES="$FFBUILD_PREFIX/lib/libvulkan-1.a"
+            -DVULKAN_LIBRARIES="$FFBUILD_PREFIX/lib/libvulkan-1.${lib_ext}"
             -DVULKAN_INCLUDE_DIRS="$FFBUILD_PREFIX/include/vulkan"
         )
     fi
@@ -171,7 +181,7 @@ ffbuild_dockerbuild() {
             -DBUILD_OPENJPEG=OFF
             -DWITH_OPENJPEG=ON
             -DOPENJPEG_INCLUDE_DIR="$FFBUILD_PREFIX/include/openjpeg-2.5"
-            -DOPENJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libopenjp2.a"
+            -DOPENJPEG_LIBRARY="$FFBUILD_PREFIX/lib/libopenjp2.${lib_ext}"
         )
     fi
     if has_library "webp"; then
@@ -252,13 +262,7 @@ ffbuild_dockerbuild() {
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
     LIBS="-ljbig $LIBS $ADDITIONAL_LIBS" \
-    cmake -G Ninja "${myconf[@]}" .. || {
-        if [[ "${myconf[@]}" =~ "-DWITH_TIFF=ON" ]]; then
-            log_error "CMake failed, restoring TIFF..."
-            [ -d "$TIFF_HIDE_DIR" ] && mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
-        fi
-        return 1
-    }
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
     mkdir -p "$INSTALL_ROOT"/{include,bin,lib/pkgconfig}
 
@@ -299,23 +303,9 @@ ffbuild_dockerbuild() {
         fi
     fi
 
-    ninja $NINJA_V || {
-        if [[ "${myconf[@]}" =~ "-DWITH_TIFF=ON" ]]; then
-            log_error "Build failed, restoring TIFF..."
-            [ -d "$TIFF_HIDE_DIR" ] && mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
-        fi
-        return 1
-    }
+    ninja $NINJA_V || return 1
 
     DESTDIR="$FFBUILD_DESTDIR" ninja install
-
-    if [[ "${myconf[@]}" =~ "-DWITH_TIFF=ON" ]]; then
-        if [ -d "$TIFF_HIDE_DIR" ]; then
-            log_info "Restoring TIFF CMake files..."
-            mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
-            rm -rf "$TIFF_HIDE_DIR"
-        fi
-    fi
 
     local SRC_3RDPARTY="${INSTALL_ROOT}/lib/opencv4/3rdparty"
     local DEST_LIB="${INSTALL_ROOT}/lib"
