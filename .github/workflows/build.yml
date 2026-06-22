@@ -331,16 +331,18 @@ jobs:
         run: |
           TOOLS_HASH=$(sha256sum images/base-win64/Dockerfile | cut -c1-8)
 
-          KEY="ccache-${{ env.TARGET }}-${{ env.VARIANT }}-${TOOLS_HASH}"
+          BASE_KEY="ccache-${{ env.TARGET }}-${{ env.VARIANT }}-${TOOLS_HASH}"
 
           if [[ "${{ github.event.inputs.reset_ccache }}" == "true" ]]; then
-            KEY="${KEY}-reset-${{ github.run_id }}"
-            echo "🧹 Manual CCACHE reset requested. Using new key: $KEY"
+            SAVE_KEY="${BASE_KEY}-reset-${{ github.run_id }}"
+            echo "🧹 Manual CCACHE reset requested."
           else
-            echo "💾 Using stable CCACHE key: $KEY"
+            SAVE_KEY="${BASE_KEY}-${{ github.run_id }}-${{ github.run_attempt }}"
           fi
 
-          echo "key=$KEY" >> $GITHUB_OUTPUT
+          echo "base_key=$BASE_KEY" >> $GITHUB_OUTPUT
+          echo "save_key=$SAVE_KEY" >> $GITHUB_OUTPUT
+          echo "💾 Target Save Key: $SAVE_KEY"
 
       - name: Build and Load Unified Toolchain Image
         uses: docker/build-push-action@v7
@@ -375,8 +377,7 @@ jobs:
         id: restore_downloads
         uses: actions/cache/restore@v5.0.5
         with:
-          path: |
-            .cache/downloads
+          path: .cache/downloads
           key: ${{ steps.dl_cache_stable.outputs.stable_key }}
           restore-keys: |
             thirdparty-dl-
@@ -386,9 +387,8 @@ jobs:
         id: restore_ffmpeg
         uses: actions/cache/restore@v5.0.5
         with:
-          path: |
-            .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.dl_cache.outputs.key }}
+          path: .cache/ffmpeg
+          key: ffmpeg-src-${{ steps.dl_cache_stable.outputs.stable_key }}
           restore-keys: |
             ffmpeg-src-
 
@@ -398,12 +398,12 @@ jobs:
         uses: actions/cache/restore@v5.0.5
         with:
           path: .cache/ccache
-          key: ${{ steps.ccache_key.outputs.key }}
+          key: ${{ steps.ccache_key.outputs.save_key }}
           restore-keys: |
-            ccache-${{ env.TARGET }}-${{ env.VARIANT }}-
-            ccache-${{ env.TARGET }}-
+            ${{ steps.ccache_key.outputs.base_key }}-
 
       - name: Run Download and Generate
+        id: download_step
         run: |
           echo "📥 Running download.sh..."
 
@@ -448,8 +448,7 @@ jobs:
             FILE_LIST=$(find .cache/downloads -type f -printf "%s %p\n" | sort)
             FILE_COUNT=$(echo "$FILE_LIST" | wc -l)
             # Hash the listing (much faster than hashing each file)
-            # DYNAMIC_HASH=$(echo "$FILE_LIST" | sha256sum | cut -c1-16)
-            DYNAMIC_HASH=$(echo "$FILE_LIST" | cksum | cut -d' ' -f1 | cut -c1-12)
+            DYNAMIC_HASH=$(echo "$FILE_LIST" | sha256sum | cut -c1-16)
             echo "📁 Files in cache: $FILE_COUNT"
             echo "🔍 Dynamic Hash: $DYNAMIC_HASH"
             # Output the new key for the Save step
@@ -490,24 +489,20 @@ jobs:
 
       # --- SAVE 1: Save Cache (Use the NEW Dynamic Key) ---
       - name: Save Third-Party Downloads
-        if: always()
+        if: always() && steps.download_step.outputs.dynamic_key != 'thirdparty-dl-empty'
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/downloads
-          # Save using the unique key generated from the actual files
           key: ${{ steps.download_step.outputs.dynamic_key }}
 
       # --- SAVE 2: Исходный код FFmpeg ---
       - name: Save FFmpeg Source Tree
-        # Сохраняем, если скачался новый коммит из Git. 
-        # Сохраняем ТОЛЬКО если сборка завершилась, коммит существует,
-        # И на первом шаге НЕ БЫЛО точного совпадения (то есть вышел новый коммит)
-        if: always() && steps.ffmpeg_commit.outputs.commit != 'none' && steps.restore_ffmpeg.outputs.cache-hit != 'true'
+        # Сохраняем ТОЛЬКО если у нас есть валлидный коммит, и этот коммит отличается от того, что восстановился
+        if: always() && steps.ffmpeg_commit.outputs.commit != 'none' && steps.restore_ffmpeg.outputs.restored-key != format('ffmpeg-src-{0}', steps.ffmpeg_commit.outputs.commit)
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/ffmpeg
-          # Ключ уникален для каждого коммита FFmpeg master
-          key: ffmpeg-src-${{ steps.ffmpeg_commit.outputs.commit }}
+          key: ffmpeg-src-${{ steps.ffmpeg_commit.outputs.commit }}-${{ github.run_id }}
 
       - name: Build Components Stage
         uses: docker/build-push-action@v7
@@ -532,7 +527,7 @@ jobs:
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/ccache
-          key: ${{ steps.ccache_key.outputs.key }}
+          key: ${{ steps.ccache_key.outputs.save_key }}
 
       - name: Verify FFmpeg Source
         run: |

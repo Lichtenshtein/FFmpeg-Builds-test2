@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# set -e
-set -xe
+set -e
+# set -xe
 
 cd "$(dirname "$0")"
 
