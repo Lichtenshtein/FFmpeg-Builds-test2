@@ -348,8 +348,8 @@ jobs:
             CARGO_C_VERSION=0.10.22
             CPU_ARCH=${{ env.CPU_ARCH }}
             CPU_TUNE=${{ env.CPU_TUNE }}
-          cache-from: type=gha,scope=ffmpeg-target-base-${{ steps.docker_hash.outputs.hash }}
-          cache-to: type=gha,mode=min,scope=ffmpeg-target-base-${{ steps.docker_hash.outputs.hash }}
+          cache-from: type=gha,scope=ffmpeg-global-build-cache
+          cache-to: type=gha,mode=max,scope=ffmpeg-global-build-cache
           push: true
           load: false
           tags: ${{ steps.images.outputs.target_base }}
@@ -484,8 +484,8 @@ jobs:
           tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
-          cache-from: type=gha,scope=ffmpeg-final-global-cache
-          cache-to: type=gha,mode=max,scope=ffmpeg-final-global-cache
+          cache-from: type=gha,scope=ffmpeg-global-build-cache
+          cache-to: type=gha,mode=max,scope=ffmpeg-global-build-cache
 
       - name: Verify FFmpeg Source
         run: |
@@ -510,8 +510,8 @@ jobs:
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
           outputs: type=local,dest=artifacts/
-          cache-from: type=gha,scope=ffmpeg-final-global-cache
-          cache-to: type=gha,mode=max,scope=ffmpeg-final-global-cache
+          cache-from: type=gha,scope=ffmpeg-global-build-cache
+          cache-to: type=gha,mode=max,scope=ffmpeg-global-build-cache
           provenance: false
 
       - name: Cleanup Old Caches

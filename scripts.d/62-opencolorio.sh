@@ -246,18 +246,22 @@ EOF
     # Находим все статические библиотеки, собранные внутри этой стадии
     # Фильтруем оригинальную libOpenColorIO.a
     local OCIO_STATIC_LIBS=$(find /build/$STAGENAME -type f -name "*.${lib_ext}" ! -name "libOpenColorIO.${lib_ext}" -printf "%f\n" | \
-                 sed 's/^lib//; s/\.${lib_ext}$//' | sort -u | xargs -I{} echo -l{} | tr '\n' ' ')
+                 sed "s/^lib//; s/\.${lib_ext}$//" | sort -u | xargs -I{} echo -l{} | tr '\n' ' ')
 
     # Переносим все найденные .a библиотеки-доноры в префикс
     find /build/$STAGENAME -type f -name "*.${lib_ext}" -exec cp -f${OP_V} {} "${INSTALL_ROOT}/lib/" \;
 
     local PC_FILE="$PC_DIR/OpenColorIO.pc"
     if [[ "${myconf[@]}" =~ "-DOCIO_DIRECTX_ENABLED=ON" ]]; then
-        local WIN_LIBS="-ld3d12 -ldxgi -ldxguid"
+        local DIRECTX_LIBS="-ld3d12 -ldxgi -ldxguid"
+        local DIRECTX_FLAG="-DOCIO_DIRECTX_ENABLED"
     fi
-    local DEP_LIBS="${OCIO_STATIC_LIBS} ${Z_FLAG} ${WIN_LIBS} -lshlwapi -lstdc++"
+    local DEP_LIBS="${OCIO_STATIC_LIBS} ${Z_FLAG} ${DIRECTX_LIBS} -lshlwapi -lstdc++"
     if [[ -f "$PC_FILE" ]]; then
         log_info "Patching OpenColorIO.pc with dynamic donor list"
+        # вырезаем любые расширения .a
+        sed -i 's/\.a\b//g' "$PC_FILE"
+        # Добавляем собранные системные зависимости
         if grep -q "Libs.private:" "$PC_FILE"; then
             sed -i "/^Libs.private:/ s/$/ ${DEP_LIBS}/" "$PC_FILE"
         else
@@ -268,7 +272,11 @@ EOF
                 sed -i "/^Cflags:/ s/$/ $static_flags ${VULKAN_FLAG} ${DIRECTX_FLAG}/" "$PC_FILE"
             fi
         fi
+        # Финальная чистка двойных расширений .a.a
+        sed -i -E 's/\.a([[:space:]]|$)/\1/g' "$PC_FILE"
+        sed -i -E 's/\.a\b//g' "$PC_FILE"
         sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"
+        log_info "Sanitized OpenColorIO.pc successfully."
     fi
 }
 

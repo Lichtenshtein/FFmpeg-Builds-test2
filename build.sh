@@ -214,46 +214,21 @@ if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
     sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
 fi
 
-PREFIX_PC="${FFBUILD_PREFIX}/lib/pkgconfig/OpenColorIO.pc"
-if [[ -f "$PREFIX_PC" ]]; then
-    log_info "Fixing OpenColorIO.pc in active prefix..."
+# PREFIX_PC="${FFBUILD_PREFIX}/lib/pkgconfig/OpenColorIO.pc"
+# if [[ -f "$PREFIX_PC" ]]; then
+    # log_info "Fixing OpenColorIO.pc in active prefix..."
 
-    sed -i -E 's/\.a([[:space:]]|$)/\1/g' "$PREFIX_PC"
-    sed -i -E 's/\.a\b//g' "$PREFIX_PC"
+    # sed -i -E 's/\.a([[:space:]]|$)/\1/g' "$PREFIX_PC"
+    # sed -i -E 's/\.a\b//g' "$PREFIX_PC"
 
-    sed -i 's/[[:space:]]\+/ /g' "$PREFIX_PC"
+    # sed -i 's/[[:space:]]\+/ /g' "$PREFIX_PC"
 
-    log_info "--- Content of fixed OpenColorIO.pc ---"
-    cat "$PREFIX_PC"
-    log_info "---------------------------------------"
-else
-    log_error "OpenColorIO.pc NOT FOUND at $PREFIX_PC !"
-fi
-
-# Находим и исправляем ВСЕ файлы OpenColorIO.pc, до которых можем дотянуться
-log_info "Performing global sanitization of OpenColorIO.pc files..."
-
-# Ищем файлы и в /opt/ffbuild, и в /opt/ffdest
-find /opt/ffbuild /opt/ffdest -name "OpenColorIO.pc" -type f 2>/dev/null | while read -r pc_path; do
-    log_info "Sanitizing: $pc_path"
-
-    # Полностью вырезаем суффиксы .a перед пробелами и концом строк
-    sed -i -E 's/\.a([[:space:]]|$)/\1/g' "$pc_path"
-    sed -i -E 's/\.a\b//g' "$pc_path"
-    sed -i 's/[[:space:]]\+/ /g' "$pc_path"
-    
-    log_info "--- Content of $pc_path after fix ---"
-    grep "Libs.private:" "$pc_path" || true
-done
-
-# Принудительно очищаем системный кэш pkg-config, чтобы он перечитал файлы с диска
-export PKG_CONFIG_PC_PATH=""
-if command -v pkgconf >/dev/null 2>&1; then
-    log_info "Clearing pkgconf internal cache..."
-    # Некоторые версии pkgconf сбрасывают кэш при переинициализации путей
-    export PKG_CONFIG_LIBDIR="${PKG_CONFIG_LIBDIR}"
-fi
-
+    # log_info "--- Content of fixed OpenColorIO.pc ---"
+    # cat "$PREFIX_PC"
+    # log_info "---------------------------------------"
+# else
+    # log_error "OpenColorIO.pc NOT FOUND at $PREFIX_PC !"
+# fi
 
 
 # =======================================
