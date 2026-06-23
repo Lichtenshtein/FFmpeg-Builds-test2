@@ -443,6 +443,25 @@ EOF
         sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"
     fi
 
+    if has_library "tiff"; then
+        log_info "Explicitly restoring TIFF CMake files before successful exit..."
+        restore # Вызываем функцию восстановления вручную
+
+        # Сбрасываем trap, чтобы он не выполнялся повторно
+        trap - EXIT 
+
+        # Блок проверки возврата файлов
+        if [ -d "$FFBUILD_PREFIX/lib/cmake/tiff" ]; then
+            log_info "Verification: $FFBUILD_PREFIX/lib/cmake/tiff directory exists."
+            if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+                log_info "Content of TIFF CMake directory:"
+                ls -lh "$FFBUILD_PREFIX/lib/cmake/tiff/"
+            fi
+        else
+            log_warn "Verification failed: $FFBUILD_PREFIX/lib/cmake/tiff directory was NOT restored!"
+        fi
+    fi
+
     return 0
 }
 
