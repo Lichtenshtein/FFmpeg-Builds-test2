@@ -215,6 +215,9 @@ ffbuild_dockerbuild() {
             -DWITH_JPEGXL=ON
         )
     fi
+    if has_library "jbig"; then
+        local JBIG_LIB="-ljbig"
+    fi
     if has_library "tbbmalloc"; then
         log_info "TBB library detected. Building with TBB support..."
         myconf+=(
@@ -261,7 +264,7 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
     LDFLAGS="$LDFLAGS ${USELTO}" \
-    LIBS="-ljbig $LIBS $ADDITIONAL_LIBS" \
+    LIBS="${JBIG_LIB} $LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     mkdir -p "$INSTALL_ROOT"/{include,bin,lib/pkgconfig}
@@ -304,8 +307,7 @@ ffbuild_dockerbuild() {
     fi
 
     ninja $NINJA_V || return 1
-
-    DESTDIR="$FFBUILD_DESTDIR" ninja install
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     local SRC_3RDPARTY="${INSTALL_ROOT}/lib/opencv4/3rdparty"
     local DEST_LIB="${INSTALL_ROOT}/lib"
@@ -325,7 +327,10 @@ ffbuild_dockerbuild() {
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
         # исправление имен liblib -> lib
-        pushd "${DEST_LIB}"
+        pushd "${DEST_LIB}" || return 1
+
+        shopt -s nullglob
+
         for f in liblib*.a; do
             if [ -f "$f" ]; then
                 newname=$(echo "$f" | sed 's/^liblib/lib/')
@@ -333,6 +338,7 @@ ffbuild_dockerbuild() {
                 mv -f "$f" "$newname"
             fi
         done
+
         # Create libopencv_core.a from libopencv_core4140.a
         for lib in libopencv_*.a; do
             unversioned=$(echo "$lib" | sed -E 's/[0-9]+\.a$/.a/')
@@ -341,7 +347,10 @@ ffbuild_dockerbuild() {
                 ln -sf "$lib" "$unversioned"
             fi
         done
+
+        shopt -u nullglob
         popd
+
         # Удаляем системные дубликаты, если они пришли из OpenCV 3rdparty
         for duplicate in libpng.a libprotobuf.a libz.a libjpeg.a libtiff.a; do
             if [ -f "${FFBUILD_PREFIX}/lib/${duplicate}" ] && [ -f "${DEST_LIB}/${duplicate}" ]; then
@@ -354,10 +363,12 @@ ffbuild_dockerbuild() {
     # Исправляем пути к 3rdparty либам в .cmake конфигах OpenCV
     # Заменяем относительный путь 'lib/opencv4/3rdparty' на просто 'lib'
     # исправляем названия библиотек с liblib -> lib
-    log_info "Fixing paths and names in .cmake files..."
-    find "${DEST_LIB}/cmake/opencv4" -name "*.cmake" -exec sed -i \
-        -e 's|lib/opencv4/3rdparty/|lib/|g' \
-        -e 's|liblib|lib|g' {} +
+    if [ -d "${DEST_LIB}/cmake/opencv4" ]; then
+        log_info "Fixing paths and names in .cmake files..."
+        find "${DEST_LIB}/cmake/opencv4" -name "*.cmake" -exec sed -i \
+            -e 's|lib/opencv4/3rdparty/|lib/|g' \
+            -e 's|liblib|lib|g' {} +
+    fi
 
     # Создаем симлинк, чтобы заголовочные файлы находились по стандартному пути
     # ln -sfn opencv4/opencv2 "${INSTALL_ROOT}/include/opencv2"
@@ -424,6 +435,8 @@ EOF
         # Удаляем лишние пробелы
         sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"
     fi
+
+    return 0
 }
 
 ffbuild_configure() {
