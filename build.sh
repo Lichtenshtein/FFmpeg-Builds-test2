@@ -214,9 +214,20 @@ if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
     sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
 fi
 
-if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/OpenColorIO.pc" ]]; then
-    log_info "Fixing OpenColorIO.pc..."
-    sed -i 's/\.a\b//g' "${FFBUILD_PREFIX}/lib/pkgconfig/OpenColorIO.pc"
+local PREFIX_PC="${FFBUILD_PREFIX}/lib/pkgconfig/OpenColorIO.pc"
+if [[ -f "$PREFIX_PC" ]]; then
+    log_info "Fixing OpenColorIO.pc in active prefix..."
+
+    sed -i -E 's/\.a([[:space:]]|$)/\1/g' "$PREFIX_PC"
+    sed -i -E 's/\.a\b//g' "$PREFIX_PC"
+
+    sed -i 's/[[:space:]]\+/ /g' "$PREFIX_PC"
+
+    log_info "--- Content of fixed OpenColorIO.pc ---"
+    cat "$PREFIX_PC"
+    log_info "---------------------------------------"
+else
+    log_error "OpenColorIO.pc NOT FOUND at $PREFIX_PC !"
 fi
 
 # =======================================
