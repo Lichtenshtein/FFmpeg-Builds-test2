@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/opencv/opencv.git"
-SCRIPT_COMMIT="1b047868dda019a91bd116c4da48f6294ea18cce"
+SCRIPT_COMMIT="af1e2232cd13603699932ca40c258e0203ba3e3a"
 
 export SKIP_POST_PC_PATCH=1
 
@@ -115,9 +115,16 @@ ffbuild_dockerbuild() {
         fi
 
         restore() {
-            log_info "Restoring TIFF CMake files..."
-            mv "$TIFF_HIDE_DIR"/* "$TIFF_CMAKE_DIR/"
-            rm -rf "$TIFF_HIDE_DIR"
+            if [ -n "${TIFF_HIDE_DIR}" ] && [ -d "${TIFF_HIDE_DIR}" ]; then
+                log_info "Restoring TIFF CMake files..."
+                shopt -s nullglob
+                local files=("${TIFF_HIDE_DIR}"/*)
+                if [ ${#files[@]} -gt 0 ]; then
+                    mv "${TIFF_HIDE_DIR}"/* "${TIFF_CMAKE_DIR}/"
+                fi
+                shopt -u nullglob
+                rm -rf "${TIFF_HIDE_DIR}"
+            fi
         }
         trap restore EXIT
 
