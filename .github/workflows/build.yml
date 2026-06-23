@@ -484,9 +484,8 @@ jobs:
           tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
-            downloads_context=.cache/downloads
-          cache-from: type=gha,scope=${{ steps.ccache_key.outputs.scope }}
-          cache-to: type=gha,mode=max,scope=${{ steps.ccache_key.outputs.scope }}
+          cache-from: type=gha,scope=ffmpeg-final-global-cache
+          cache-to: type=gha,mode=max,scope=ffmpeg-final-global-cache
 
       - name: Verify FFmpeg Source
         run: |
@@ -510,11 +509,9 @@ jobs:
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.target_base }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
-            downloads_context=.cache/downloads
-            ffmpeg_context=.cache/ffmpeg
           outputs: type=local,dest=artifacts/
-          cache-from: type=gha,scope=${{ steps.ccache_key.outputs.scope }}
-          cache-to: type=gha,mode=max,scope=${{ steps.ccache_key.outputs.scope }}
+          cache-from: type=gha,scope=ffmpeg-final-global-cache
+          cache-to: type=gha,mode=max,scope=ffmpeg-final-global-cache
           provenance: false
 
       - name: Cleanup Old Caches

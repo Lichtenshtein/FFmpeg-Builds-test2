@@ -235,7 +235,7 @@ for STAGE in "${active_scripts[@]}"; do
 
     to_df "RUN --mount=type=cache,target=${CCACHE_DIR},id=ccache-${TARGET}-${VARIANT},sharing=shared \\"
 
-    to_df "    --mount=type=bind,source=.cache/downloads,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
+    to_df "    --mount=type=cache,target=${CONTAINER_ROOT}/.cache/downloads,id=downloads-${TARGET}-${VARIANT},sharing=shared \\"
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
     to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\"
@@ -266,7 +266,7 @@ else
     # Финальная сборка FFmpeg (инвалидируется только при изменении FFmpeg или build.sh)
     to_df "RUN --mount=type=cache,target=${CCACHE_DIR},id=ccache-${TARGET}-${VARIANT},sharing=shared \\"
 
-    to_df "    --mount=type=bind,from=ffmpeg_context,target=/builder/ffbuild/ffmpeg,rw \\"
+    to_df "    --mount=type=cache,target=/builder/ffbuild/ffmpeg,id=ffmpeg-src-${TARGET}-${VARIANT},sharing=shared \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
 
