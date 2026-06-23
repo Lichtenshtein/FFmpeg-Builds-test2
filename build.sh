@@ -9,9 +9,9 @@ source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
     || { echo "ERROR: vars.sh failed in build.sh" >&2; exit 1; }
 
 # Сброс статистики для чистого лога
-ccache -z > /dev/null
+# ccache -z > /dev/null
 # размер кэша компилятора
-ccache -M 2G > /dev/null
+ccache -M ${CCACHE_MAXSIZE} > /dev/null
 # Сбрасываем счетчик секунд в начале этапа
 SECONDS=0
 

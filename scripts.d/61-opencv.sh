@@ -39,7 +39,7 @@ data/vec_files"
 }
 
 ffbuild_dockerbuild() {
-    set -e
+    set -xe
 
     PYTHON_ROOT=$(python3 -c "import sys; print(sys.prefix)")
     NUMPY_PATH=$(python3 -c "import numpy; print(numpy.get_include())")

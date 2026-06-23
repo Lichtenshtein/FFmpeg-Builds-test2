@@ -21,9 +21,9 @@ if ! declare -F default_dl >/dev/null; then
 fi
 
 # Обнуляем статистику
-ccache -z > /dev/null
+# ccache -z > /dev/null
 # размер кэша компилятора
-ccache -M 2G > /dev/null
+ccache -M ${CCACHE_MAXSIZE} > /dev/null
 
 # Сбрасываем счетчик секунд в начале этапа
 SECONDS=0
