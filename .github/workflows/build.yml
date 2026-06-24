@@ -352,6 +352,7 @@ jobs:
           cache-from: type=gha,scope=ffmpeg-base-cache
           cache-to: type=gha,mode=max,scope=ffmpeg-base-cache
           push: true
+          load: true
           tags: |
             ${{ steps.images.outputs.target_base }}
             ${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
@@ -524,8 +525,9 @@ jobs:
             CPU_TUNE=${{ env.CPU_TUNE }}
           push: false
           tags: ffmpeg-final:local
+          builder: docker 
           build-contexts: |
-            components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
+            components_build=docker-image://ghcr.io/lichtenshtein/ffmpeg-builds-test2/components-cache:latest
             ffmpeg_src_ctx=.cache/ffmpeg
             downloads_ctx=.cache/downloads
             tf_models_ctx=./host_tensorflow_models
