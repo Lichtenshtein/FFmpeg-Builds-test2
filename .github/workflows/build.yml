@@ -6,8 +6,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        # default: '.*'
-        default: '30-openssl|32-libdatachannel'
+        default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
@@ -390,7 +389,7 @@ jobs:
           chmod -R u+w .cache/ || true
           # find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
           export TARGET_IMAGE="${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}"
-          export DOCKER_HASH="${{ steps.docker_hash.outputs.hash }}"
+          # export DOCKER_HASH="${{ steps.docker_hash.outputs.hash }}"
           chmod +x ./download.sh ./util/*.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
