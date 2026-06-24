@@ -269,6 +269,20 @@ if [[ -f "$PREFIX_WHISPER_PC" ]]; then
     log_info "--------------------------------------------"
 fi
 
+log_info "Injecting hotfix stub for broken upstream OpenVINO symbol..."
+
+# Создаем микроскопический C++ файл с пустой реализацией недостающей функции
+cat << 'EOF' > /tmp/ggml_openvino_stub.cpp
+#include <stdint.h>
+extern "C" void* ggml_backend_openvino_reg(void) {
+    return nullptr;
+}
+EOF
+
+# Компилируем его с помощью вашего MinGW-компилятора в статическую библиотеку
+${FFBUILD_TOOLCHAIN}-g++ -c /tmp/ggml_openvino_stub.cpp -o /tmp/ggml_openvino_stub.o
+${FFBUILD_CROSS_PREFIX}ar rcs ${FFBUILD_PREFIX}/lib/libggml_openvino_stub.a /tmp/ggml_openvino_stub.o
+
 # =======================================
 # FLAGS SECTION
 # =======================================
@@ -571,7 +585,7 @@ CONF_FLAGS=(
     --extra-cxxflags="${FINAL_CXXFLAGS}"
     --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
-    --extra-libs="${FINAL_LIBS_GROUPED} -lopenal -ldsound"
+    --extra-libs="${FINAL_LIBS_GROUPED} -lopenal -ldsound -lggml_openvino_stub"
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
