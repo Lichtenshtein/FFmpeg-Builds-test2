@@ -360,10 +360,6 @@ jobs:
         id: dl_cache
         run: |
           chmod +x ./util/state_hash.sh
-          export TARGET="${{ env.TARGET }}"
-          export VARIANT="${{ env.VARIANT }}"
-          export FFMPEG_REPO="${{ env.FFMPEG_REPO }}"
-          export FFMPEG_BRANCH="${{ env.FFMPEG_BRANCH }}"
           KEY=$(./util/state_hash.sh)
           echo "stable_key=dl_cache-${KEY}" >> $GITHUB_OUTPUT
           echo "🔑 Stable Key: dl_cache-${KEY}"
@@ -417,34 +413,52 @@ jobs:
 
           chmod +x ./download.sh ./util/*.sh ./generate.sh
 
-          # Export all necessary variables for state_hash.sh
-          export TARGET="${{ env.TARGET }}"
-          export VARIANT="${{ env.VARIANT }}"
-          export FFMPEG_REPO="${{ env.FFMPEG_REPO }}"
-          export FFMPEG_BRANCH="${{ env.FFMPEG_BRANCH }}"
-
           ./download.sh
           ./util/clean_cache.sh
           ./generate.sh "$TARGET" "$VARIANT"
 
-      - name: Extract Pre-compiled TensorFlow SR Models (Host Side)
+      # --- КЭШ 3: МОДЕЛИ TENSORFLOW ---
+      - name: Restore TensorFlow Models Cache
         if: env.USE_TENSORFLOW == '1'
+        id: cache-tf-models
+        uses: actions/cache/restore@v5.0.5
+        with:
+          path: ./host_tensorflow_models
+          key: tf-models-${{ env.TARGET }}-${{ hashFiles('generate.sh') }} 
+          restore-keys: |
+            tf-models-${{ env.TARGET }}-
+            tf-models-
+
+      - name: Extract Pre-compiled TensorFlow SR Models (Host Side)
+        if: env.USE_TENSORFLOW == '1' && steps.cache-tf-models.outputs.cache-hit != 'true'
         run: |
-          echo "TensorFlow enabled. Pulling miratmu/ffmpeg-tensorflow image..."
+          echo "TensorFlow enabled and cache missed. Pulling miratmu/ffmpeg-tensorflow image..."
           docker pull miratmu/ffmpeg-tensorflow:latest
+
           echo "Creating temporary container..."
           CONTAINER_ID=$(docker create miratmu/ffmpeg-tensorflow:latest)
 
           echo "Creating isolated independent directory on host..."
-
           mkdir -p ./host_tensorflow_models
 
           echo "Extracting .pb models..."
           docker cp ${CONTAINER_ID}:/usr/local/share/ffmpeg-tensorflow-models/. ./host_tensorflow_models/
+
           echo "Cleaning up temporary container..."
           docker rm ${CONTAINER_ID}
+
+      - name: Verify TensorFlow Models
+        if: env.USE_TENSORFLOW == '1'
+        run: |
           echo "Models successfully prepared on host:"
           ls -la ./host_tensorflow_models/
+
+      - name: Save TensorFlow Models Cache
+        if: env.USE_TENSORFLOW == '1' && steps.cache-tf-models.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5.0.5
+        with:
+          path: ./host_tensorflow_models
+          key: ${{ steps.cache-tf-models.outputs.primary-key }}
 
       - name: Inspect Dockerfile
         run: head -n 80 Dockerfile

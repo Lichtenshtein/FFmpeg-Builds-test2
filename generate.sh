@@ -119,13 +119,17 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
 
 # BASE COMPONENT BUILD STAGE
 to_df "FROM base-win64 AS components_build"
+
 if [[ "${USE_TENSORFLOW}" == "1" ]]; then
+    mkdir -p host_tensorflow_models
+
     to_df "COPY host_tensorflow_models/ /tmp/host_tensorflow_models/"
-fi
-if [[ "${USE_TENSORFLOW}" == "1" ]]; then
     to_df "RUN mkdir -p ${FFBUILD_PREFIX}/share/tensorflow_models && \\"
-    to_df "    mv /tmp/host_tensorflow_models/* ${FFBUILD_PREFIX}/share/tensorflow_models/ 2>/dev/null || true"
+    to_df "    if [ -d /tmp/host_tensorflow_models ] && [ \"\$(ls -A /tmp/host_tensorflow_models 2>/dev/null)\" ]; then \\"
+    to_df "        mv /tmp/host_tensorflow_models/* ${FFBUILD_PREFIX}/share/tensorflow_models/; \\"
+    to_df "    fi && rm -rf /tmp/host_tensorflow_models"
 fi
+
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "$COMMON_ENV"
 to_df "WORKDIR ${CONTAINER_ROOT}"
