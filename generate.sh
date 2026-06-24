@@ -130,6 +130,10 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     DLL_PRESERVE_LIST=\"${DLL_PRESERVE_LIST}\" \\
     GIT_PRESERVE_LIST=\"${GIT_PRESERVE_LIST}\""
 
+# Регистрируем именованные контексты как глобальные алиасы. 
+to_df "FROM tf_models_ctx AS tf_models_snapshot"
+to_df "FROM downloads_ctx AS downloads_snapshot"
+
 # BASE COMPONENT BUILD STAGE
 to_df "FROM ${TARGET_IMAGE} AS components_build"
 
@@ -143,7 +147,7 @@ to_df "RUN chmod +x /usr/bin/run_stage"
 # ДИНАМИЧЕСКИЕ СЛОИ
 if [[ "${USE_TENSORFLOW}" == "1" ]]; then
     mkdir -p host_tensorflow_models
-    to_df "COPY --from=tf_models_ctx / /tmp/host_tensorflow_models/"
+    to_df "COPY --from=tf_models_snapshot / /tmp/host_tensorflow_models/"
     to_df "RUN mkdir -p /opt/ffbuild/share/tensorflow_models && \\"
     to_df "    if [ -d /tmp/host_tensorflow_models ] && [ \"\$(ls -A /tmp/host_tensorflow_models 2>/dev/null)\" ]; then \\"
     to_df "        mv /tmp/host_tensorflow_models/* /opt/ffbuild/share/tensorflow_models/; \\"
@@ -253,7 +257,7 @@ for STAGE in "${active_scripts[@]}"; do
 
     to_df "RUN --mount=type=cache,target=${CCACHE_DIR},id=ccache-${TARGET}-${VARIANT},sharing=shared,rw \\"
 
-    to_df "    --mount=type=bind,from=downloads_ctx,source=/,target=/builder/.cache/downloads,rw \\"
+    to_df "    --mount=type=bind,from=downloads_snapshot,source=/,target=/builder/.cache/downloads,rw \\"
 
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
@@ -269,6 +273,11 @@ to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "WORKDIR ${CONTAINER_ROOT}"
 # Копируем всё собранное из COMPONENT BUILD STAGE (этот слой закешируется Docker)
 to_df "COPY --from=components_build ${FFBUILD_PREFIX}/ ${FFBUILD_PREFIX}/"
+# Копируем модели TensorFlow напрямую в финальный префикс сборки
+if [[ "${USE_TENSORFLOW}" == "1" ]]; then
+    to_df "COPY --from=components_build ${FFBUILD_PREFIX}/share/tensorflow_models/ ${FFBUILD_PREFIX}/share/tensorflow_models/"
+fi
+
 to_df "$COMMON_ENV"
 # Копируем всё необходимое для финальной сборки
 to_df "COPY build.sh ./build.sh"
@@ -286,6 +295,10 @@ else
     to_df "RUN --mount=type=cache,target=${CCACHE_DIR},id=ccache-${TARGET}-${VARIANT},sharing=shared \\"
 
     to_df "    --mount=type=cache,target=${FFMPEG_SOURCE_DIR},id=ffmpeg-src-${TARGET}-${VARIANT},sharing=shared \\"
+
+    # ЕСЛИ build.sh НУЖНЫ ЗАГРУЗКИ
+    # to_df "    --mount=type=bind,from=downloads_snapshot,source=/,target=/builder/.cache/downloads \\"
+
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
 
