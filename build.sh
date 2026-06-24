@@ -2,6 +2,7 @@
 
 set -e
 # set -xe
+
 shopt -s globstar
 cd "$(dirname "$0")"
 
