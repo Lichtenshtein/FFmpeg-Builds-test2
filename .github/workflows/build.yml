@@ -323,23 +323,6 @@ jobs:
           HASH=$(sha256sum images/base-win64/Dockerfile images/base-win64/toolchain.cmake images/base-win64/cross.meson 2>/dev/null | sha256sum | cut -c1-16)
           echo "hash=$HASH" >> $GITHUB_OUTPUT
 
-      - name: Compute CCache Key
-        id: ccache_key
-        run: |
-          BASE_SCOPE="ccache-${{ env.TARGET }}-${{ env.VARIANT }}-${{ steps.docker_hash.outputs.hash }}"
-
-          if [[ "${{ github.event.inputs.reset_ccache }}" == "true" ]]; then
-            # Если запрошен сброс, добавляем уникальный суффикс текущего запуска, 
-            # чтобы Docker создал абсолютно пустой и чистый изолированный scope.
-            TARGET_SCOPE="${BASE_SCOPE}-reset-${{ github.run_id }}"
-            echo "🧹 Manual CCACHE reset requested. New clean scope: $TARGET_SCOPE"
-          else
-            TARGET_SCOPE="${BASE_SCOPE}"
-            echo "💾 Using stable CCACHE scope: $TARGET_SCOPE"
-          fi
-
-          echo "scope=$TARGET_SCOPE" >> $GITHUB_OUTPUT
-
       - name: Build and Load Unified Toolchain Image
         uses: docker/build-push-action@v7
         with:
@@ -355,18 +338,6 @@ jobs:
           tags: |
             ${{ steps.images.outputs.target_base }}
             ${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
-
-      - name: Pull Base Image to Host Daemon
-        run: |
-          echo "Pulling base image to host daemon..."
-          docker pull ghcr.io/lichtenshtein/ffmpeg-builds-test2/base-win64:latest
-          echo "Base image loaded."
-
-      - name: Set up Docker Buildx (Host Driver)
-        uses: docker/setup-buildx-action@v4
-        with:
-          driver: docker
-          name: host-builder
 
       # --- STEP 1: Calculate the "Stable" Key (Based on config only) ---
       - name: Get Download Cache Key (Stable)
@@ -403,34 +374,22 @@ jobs:
         id: download_step
         run: |
           echo "📥 Running download.sh..."
-
           if [[ "${{ github.event.inputs.doClean }}" == "true" ]]; then
-            # Handle Full Clean
             echo "🧹 Cleaning ALL caches..."
             rm -rf .cache/{downloads,ffmpeg,ccache,tmp}/*
           fi
-
-          # Handle Manual CCACHE Reset
           if [[ "${{ github.event.inputs.reset_ccache }}" == "true" ]]; then
-            echo "🧹 Clearing CCACHE directory due to manual reset request..."
+            echo "🧹 Clearing CCACHE directory..."
             rm -rf .cache/ccache/*
           fi
-
-          # Ensure proper permissions
           mkdir -p .cache/downloads .cache/ffmpeg .cache/ccache .cache/tmp
           chmod -R u+r patches/ || true
           chmod -R u+w .cache/ || true
-
-          # Normalize line endings
           find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
-
           export TARGET_IMAGE="${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}"
-
           chmod +x ./download.sh ./util/*.sh ./generate.sh
-
           ./download.sh
           ./util/clean_cache.sh
-          ./generate.sh "$TARGET" "$VARIANT"
 
       # --- КЭШ 3: МОДЕЛИ TENSORFLOW ---
       - name: Restore TensorFlow Models Cache
@@ -454,18 +413,11 @@ jobs:
       - name: Verify TensorFlow Models Directory
         if: env.USE_TENSORFLOW == '1'
         run: |
-          echo "Checking host_tensorflow_models directory..."
-          if [[ ! -d "./host_tensorflow_models" ]]; then
-            echo "ERROR: Directory './host_tensorflow_models' not found."
+          if [[ ! -d "./host_tensorflow_models" ] || [ -z "$(ls -A ./host_tensorflow_models 2>/dev/null)" ]]; then
+            echo "🔴 ERROR: TensorFlow models directory invalid or empty."
             exit 1
           fi
-          if [[ -z "$(ls -A ./host_tensorflow_models 2>/dev/null)" ]]; then
-            echo "ERROR: Directory './host_tensorflow_models' is empty."
-            ls -la ./host_tensorflow_models
-            exit 1
-          fi
-          echo "Directory verified. Content:"
-          ls -la ./host_tensorflow_models/
+          echo "✅ TensorFlow models directory verified."
 
       - name: Save TensorFlow Models Cache
         if: env.USE_TENSORFLOW == '1' && steps.cache-tf-models.outputs.cache-hit != 'true'
@@ -516,14 +468,7 @@ jobs:
           build-contexts: |
             tf_models_ctx=./host_tensorflow_models
             downloads_ctx=.cache/downloads
-
-      - name: Verify FFmpeg Source
-        run: |
-          if [[ ! -f ".cache/ffmpeg/configure" ]]; then
-            echo "ERROR: FFmpeg source not found at .cache/ffmpeg/configure" >&2
-            exit 1
-          fi
-          echo "FFmpeg source OK: $(cat .cache/ffmpeg/VERSION 2>/dev/null || echo 'version unknown')"
+            ffmpeg_src_ctx=.cache/ffmpeg
 
       - name: Final FFmpeg Compilation
         if: env.SKIP_FFMPEG != '1'
@@ -536,16 +481,14 @@ jobs:
             CPU_TUNE=${{ env.CPU_TUNE }}
           push: false
           tags: ffmpeg-final:local
-          builder: host-builder
           build-contexts: |
-            components_build=docker-image://ghcr.io/lichtenshtein/ffmpeg-builds-test2/components-cache:latest
+            components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
             ffmpeg_src_ctx=.cache/ffmpeg
             downloads_ctx=.cache/downloads
             tf_models_ctx=./host_tensorflow_models
           outputs: type=local,dest=artifacts/
-          cache-from: |
-            type=gha,scope=ffmpeg-components
-            type=gha,scope=ffmpeg-final
+          cache-from: type=gha,scope=ffmpeg-global-build-cache
+          cache-to: type=gha,mode=max,scope=ffmpeg-global-build-cache
           provenance: false
 
       - name: Cleanup Old Caches

@@ -16,6 +16,8 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
     exit 1
 }
 
+CONTAINER_ROOT="${CONTAINER_ROOT:-/builder}"
+
 # build ADDINS array based on ENV VARIABLES
 ADDINS=()
 ADDINS_STR=""
@@ -87,19 +89,19 @@ to_df() { echo "$*" >> Dockerfile; }
 # Making ENV from workflow avaliable inside Docker 
 # Объединяем все ENV в одну команду для оптимизации слоев
 COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_STR=\"$ADDINS_STR\" \\
-    ROOT_DIR=\"/builder\" \\
-    CACHE_DIR=\"/builder/.cache/downloads\" \\
-    FFMPEG_DIR=\"/builder/.cache/ffmpeg\" \\
-    FFMPEG_BUILD_ROOT=\"/builder/ffbuild\" \\
-    FFMPEG_SOURCE_DIR=\"/builder/ffbuild/ffmpeg\" \\
-    FFMPEG_PKG_ROOT=\"/builder/ffbuild/pkgroot\" \\
-    FFMPEG_CONFIG_LOG=\"/builder/ffbuild/ffmpeg/ffbuild/config.log\" \\
-    FFMPEG_HASH_FILE=\"/builder/.cache/ffmpeg/.current_commit\" \\
-    PATCHES_DIR=\"/builder/patches\" \\
-    SCRIPTS_DIR=\"/builder/scripts.d\" \\
-    TMP_DIR=\"/builder/.cache/tmp\" \\
-    UTIL_DIR=\"/builder/util\" \\
-    VARIANTS_DIR=\"/builder/variants\" \\
+    ROOT_DIR=\"${CONTAINER_ROOT}\" \\
+    CACHE_DIR=\"${CONTAINER_ROOT}/.cache/downloads\" \\
+    FFMPEG_DIR=\"${CONTAINER_ROOT}/.cache/ffmpeg\" \\
+    FFMPEG_BUILD_ROOT=\"${CONTAINER_ROOT}/ffbuild\" \\
+    FFMPEG_SOURCE_DIR=\"${CONTAINER_ROOT}/ffbuild/ffmpeg\" \\
+    FFMPEG_PKG_ROOT=\"${CONTAINER_ROOT}/ffbuild/pkgroot\" \\
+    FFMPEG_CONFIG_LOG=\"${CONTAINER_ROOT}/ffbuild/ffmpeg/ffbuild/config.log\" \\
+    FFMPEG_HASH_FILE=\"${CONTAINER_ROOT}/.cache/ffmpeg/.current_commit\" \\
+    PATCHES_DIR=\"${CONTAINER_ROOT}/patches\" \\
+    SCRIPTS_DIR=\"${CONTAINER_ROOT}/scripts.d\" \\
+    TMP_DIR=\"${CONTAINER_ROOT}/.cache/tmp\" \\
+    UTIL_DIR=\"${CONTAINER_ROOT}/util\" \\
+    VARIANTS_DIR=\"${CONTAINER_ROOT}/variants\" \\
     FFBUILD_VERBOSE=\"${FFBUILD_VERBOSE}\" \\
     FFMPEG_REPO=\"${FFMPEG_REPO}\" \\
     FFMPEG_BRANCH=\"${FFMPEG_BRANCH}\" \\
@@ -130,29 +132,24 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     DLL_PRESERVE_LIST=\"${DLL_PRESERVE_LIST}\" \\
     GIT_PRESERVE_LIST=\"${GIT_PRESERVE_LIST}\""
 
-# BASE COMPONENT BUILD STAGE
-to_df "FROM ${TARGET_IMAGE} AS components_build"
-
 # СТАБИЛЬНЫЕ СЛОИ
+to_df "FROM ${TARGET_IMAGE} AS components_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "$COMMON_ENV"
-to_df "WORKDIR /builder"
+to_df "WORKDIR ${CONTAINER_ROOT}"
 to_df "COPY util/run_stage.sh /usr/bin/run_stage"
 to_df "RUN chmod +x /usr/bin/run_stage"
 
 # ДИНАМИЧЕСКИЕ СЛОИ
 if [[ "${USE_TENSORFLOW}" == "1" ]]; then
-
     if [[ ! -d "host_tensorflow_models" ]] || [[ -z "$(ls -A host_tensorflow_models 2>/dev/null)" ]]; then
         log_warn "TensorFlow is enabled, but 'host_tensorflow_models' is missing or empty."
-        log_warn "The build will likely fail unless the context is provided correctly."
     fi
-
-    to_df "COPY --from=tf_models_ctx / /tmp/host_tensorflow_models/"
-    to_df "RUN mkdir -p /opt/ffbuild/share/tensorflow_models && \\"
-    to_df "    if [ -d /tmp/host_tensorflow_models ] && [ \"\$(ls -A /tmp/host_tensorflow_models 2>/dev/null)\" ]; then \\"
-    to_df "        mv /tmp/host_tensorflow_models/* /opt/ffbuild/share/tensorflow_models/; \\"
-    to_df "    fi && rm -rf /tmp/host_tensorflow_models"
+    to_df "RUN --mount=type=bind,from=tf_models_ctx,source=/,target=/tmp/tf_ctx \\"
+    to_df "    mkdir -p /opt/ffbuild/share/tensorflow_models && \\"
+    to_df "    if [ -d /tmp/tf_ctx ] && [ \"\$(ls -A /tmp/tf_ctx 2>/dev/null)\" ]; then \\"
+    to_df "        cp -r /tmp/tf_ctx/* /opt/ffbuild/share/tensorflow_models/; \\"
+    to_df "    fi"
 fi
 
 # Очищаем содержимое перед хешированием:
@@ -257,30 +254,27 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "# Component: $STAGENAME | LayerID: $LAYER_ID"
 
     to_df "RUN --mount=type=cache,target=${CCACHE_DIR},id=ccache-${TARGET}-${VARIANT},sharing=shared,rw \\"
-
-    to_df "    --mount=type=bind,from=downloads_ctx,source=/,target=/builder/.cache/downloads,rw \\"
-
-    to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
-    to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
-    to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\"
-    to_df "    --mount=type=bind,source=variants,target=${CONTAINER_ROOT}/variants \\"
-    to_df "    --mount=type=bind,source=addins,target=${CONTAINER_ROOT}/addins \\"
-    to_df "    set -e && export _H=${LAYER_ID} && . ${CONTAINER_ROOT}/util/vars.sh \"${TARGET}\" \"${VARIANT}\" && run_stage ${CONTAINER_ROOT}/${STAGE}"
+    to_df "    --mount=type=bind,from=downloads_ctx,source=/,target=/tmp/downloads_source,rw \\"
+    to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d,ro \\"
+    to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util,ro \\"
+    to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches,ro \\"
+    to_df "    --mount=type=bind,source=variants,target=${CONTAINER_ROOT}/variants,ro \\"
+    to_df "    --mount=type=bind,source=addins,target=${CONTAINER_ROOT}/addins,ro \\"
+    to_df "    set -e && mkdir -p ${CONTAINER_ROOT}/.cache/downloads ${CONTAINER_ROOT}/.cache/tmp && \\"
+    to_df "    if [ -d /tmp/downloads_source ] && [ \"\$(ls -A /tmp/downloads_source 2>/dev/null)\" ]; then cp -rn /tmp/downloads_source/* ${CONTAINER_ROOT}/.cache/downloads/ || true; fi && \\"
+    to_df "    export _H=${LAYER_ID} && . ${CONTAINER_ROOT}/util/vars.sh \"${TARGET}\" \"${VARIANT}\" && run_stage ${CONTAINER_ROOT}/${STAGE}"
 done
 
 # FINAL FFMPEG BUILD STAGE
 to_df "FROM ${TARGET_IMAGE} AS final_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "WORKDIR ${CONTAINER_ROOT}"
-# Копируем всё собранное из COMPONENT BUILD STAGE (этот слой закешируется Docker)
 to_df "COPY --from=components_build ${FFBUILD_PREFIX}/ ${FFBUILD_PREFIX}/"
-# Копируем модели TensorFlow напрямую в финальный префикс сборки
 if [[ "${USE_TENSORFLOW}" == "1" ]]; then
-    to_df "COPY --from=components_build ${FFBUILD_PREFIX}/share/tensorflow_models/ ${FFBUILD_PREFIX}/share/tensorflow_models/"
+    to_df "COPY --from=components_build /opt/ffbuild/share/tensorflow_models/ /opt/ffbuild/share/tensorflow_models/"
 fi
 
 to_df "$COMMON_ENV"
-# Копируем всё необходимое для финальной сборки
 to_df "COPY build.sh ./build.sh"
 to_df "COPY addins ./addins"
 to_df "COPY patches ./patches"
@@ -288,18 +282,13 @@ to_df "COPY util ./util"
 to_df "COPY variants ./variants"
 
 if [[ "${SKIP_FFMPEG}" == "1" ]]; then
-    # Создаем пустой файл в artifacts, чтобы экшн загрузки не падал
     to_df "RUN mkdir -p ${FFBUILD_DESTDIR} && \\"
     to_df "    echo 'Components built successfully' > ${FFBUILD_DESTDIR}/BUILD_SUCCESS"
 else
-    # Финальная сборка FFmpeg (инвалидируется только при изменении FFmpeg или build.sh)
     to_df "RUN --mount=type=cache,target=${CCACHE_DIR},id=ccache-${TARGET}-${VARIANT},sharing=shared \\"
-
-    to_df "    --mount=type=bind,from=ffmpeg_src_ctx,source=/,target=/builder/ffbuild/ffmpeg,rw \\"
-
-    # ЕСЛИ build.sh НУЖНЫ ЗАГРУЗКИ
-    # to_df "    --mount=type=bind,from=downloads_snapshot,source=/,target=/builder/.cache/downloads \\"
-
+    to_df "    --mount=type=bind,from=ffmpeg_src_ctx,source=/,target=/tmp/ffmpeg_src_ctx,ro \\"
+    to_df "    set -e && mkdir -p ${CONTAINER_ROOT}/ffbuild/ffmpeg && \\"
+    to_df "    cp -r /tmp/ffmpeg_src_ctx/* ${CONTAINER_ROOT}/ffbuild/ffmpeg/ && \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
 
