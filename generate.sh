@@ -294,7 +294,7 @@ else
     # Финальная сборка FFmpeg (инвалидируется только при изменении FFmpeg или build.sh)
     to_df "RUN --mount=type=cache,target=${CCACHE_DIR},id=ccache-${TARGET}-${VARIANT},sharing=shared \\"
 
-    to_df "    --mount=type=cache,target=${FFMPEG_SOURCE_DIR},id=ffmpeg-src-${TARGET}-${VARIANT},sharing=shared \\"
+    to_df "    --mount=type=bind,from=ffmpeg_src_ctx,source=/,target=/builder/ffbuild/ffmpeg,rw \\"
 
     # ЕСЛИ build.sh НУЖНЫ ЗАГРУЗКИ
     # to_df "    --mount=type=bind,from=downloads_snapshot,source=/,target=/builder/.cache/downloads \\"
