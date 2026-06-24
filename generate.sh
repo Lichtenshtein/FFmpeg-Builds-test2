@@ -91,6 +91,14 @@ to_df() { echo "$*" >> Dockerfile; }
 COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_STR=\"$ADDINS_STR\" \\
     ROOT_DIR=\"${CONTAINER_ROOT}\" \\
     CACHE_DIR=\"${CONTAINER_ROOT}/.cache/downloads\" \\
+    CCACHE_DIR=\"/root/.cache/ccache\" \\
+    CCACHE_MAXSIZE=\"${CCACHE_MAXSIZE:-3G}\" \\
+    CCACHE_COMPRESS=\"1\" \\
+    CCACHE_COMPRESSLEVEL=\"6\" \\
+    CCACHE_NOHASHDIR=\"1\" \\
+    CCACHE_DEPEND=\"1\" \\
+    CCACHE_COMPILERCHECK=\"content\" \\
+    CCACHE_SLOPPINESS=\"include_file_ctime,include_file_mtime,locale,time_macros,file_macro,pch_defines\" \\
     FFMPEG_DIR=\"${CONTAINER_ROOT}/.cache/ffmpeg\" \\
     FFMPEG_BUILD_ROOT=\"${CONTAINER_ROOT}/ffbuild\" \\
     FFMPEG_SOURCE_DIR=\"${CONTAINER_ROOT}/ffbuild/ffmpeg\" \\
@@ -137,8 +145,7 @@ to_df "FROM ${TARGET_IMAGE} AS components_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "$COMMON_ENV"
 to_df "WORKDIR ${CONTAINER_ROOT}"
-to_df "COPY util/run_stage.sh /usr/bin/run_stage"
-to_df "RUN chmod +x /usr/bin/run_stage"
+to_df "COPY --chmod=755 util/run_stage.sh /usr/bin/run_stage"
 
 # ДИНАМИЧЕСКИЕ СЛОИ
 if [[ "${USE_TENSORFLOW}" == "1" ]]; then
