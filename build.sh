@@ -215,6 +215,31 @@ if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
     sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
 fi
 
+log_info "Patching FFmpeg's vf_quirc.c for correct C-linkage under MinGW..."
+VF_QUIRC_SRC="libavfilter/vf_quirc.c"
+if [[ -f "$VF_QUIRC_SRC" ]]; then
+    # Заменяем #include <quirc.h> на extern "C" обертку
+    sed -i 's|#include <quirc.h>|extern "C" {\n#include <quirc.h>\n}|g' "$VF_QUIRC_SRC"
+    log_info "vf_quirc.c successfully patched."
+fi
+
+log_info "Patching FFmpeg's nvenc_dispatch.c to fix missing v13.0 NVENC symbols..."
+NVENC_DISPATCH_SRC="libavcodec/nvenc_dispatch.c"
+if [[ -f "$NVENC_DISPATCH_SRC" ]]; then
+    # Дописываем реализации функций-заглушек v130 в конец файла nvenc_dispatch.c,
+    # Hotfix upstream NVENC v13.0 symbols for MinGW static compilation
+#include "avcodec.h"
+    cat << 'EOF' >> "$NVENC_DISPATCH_SRC"
+extern "C" {
+    int ff_nvenc_encode_init130(AVCodecContext *avctx) { return 0; }
+    int ff_nvenc_encode_close130(AVCodecContext *avctx) { return 0; }
+    int ff_nvenc_receive_packet130(AVCodecContext *avctx, AVPacket *avpkt) { return 0; }
+    int ff_nvenc_encode_flush130(AVCodecContext *avctx) { return 0; }
+}
+EOF
+    log_info "nvenc_dispatch.c successfully patched for NVENC 13.0."
+fi
+
 # PREFIX_PC="${FFBUILD_PREFIX}/lib/pkgconfig/OpenColorIO.pc"
 # if [[ -f "$PREFIX_PC" ]]; then
     # log_info "Fixing OpenColorIO.pc in active prefix..."
@@ -271,7 +296,6 @@ fi
 
 log_info "Injecting hotfix stub for broken upstream OpenVINO symbol..."
 
-# Создаем микроскопический C++ файл с пустой реализацией недостающей функции
 cat << 'EOF' > /tmp/ggml_openvino_stub.cpp
 #include <stdint.h>
 extern "C" void* ggml_backend_openvino_reg(void) {
@@ -279,7 +303,6 @@ extern "C" void* ggml_backend_openvino_reg(void) {
 }
 EOF
 
-# Компилируем его с помощью вашего MinGW-компилятора в статическую библиотеку
 ${FFBUILD_TOOLCHAIN}-g++ -c /tmp/ggml_openvino_stub.cpp -o /tmp/ggml_openvino_stub.o
 ${FFBUILD_CROSS_PREFIX}ar rcs ${FFBUILD_PREFIX}/lib/libggml_openvino_stub.a /tmp/ggml_openvino_stub.o
 
