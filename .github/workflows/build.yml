@@ -166,6 +166,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Fix Line Endings (CRLF to LF)
+        run: find scripts.d util addins images variants -type f -name "*.sh" -exec sed -i 's/\r$//' {} +
+
       - name: 🗑️ Nuke All Caches
         if: github.event.inputs.doClean == 'true'
         run: |
@@ -385,8 +388,9 @@ jobs:
           mkdir -p .cache/downloads .cache/ffmpeg .cache/ccache .cache/tmp
           chmod -R u+r patches/ || true
           chmod -R u+w .cache/ || true
-          find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
+          # find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
           export TARGET_IMAGE="${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}"
+          export DOCKER_HASH="${{ steps.docker_hash.outputs.hash }}"
           chmod +x ./download.sh ./util/*.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh

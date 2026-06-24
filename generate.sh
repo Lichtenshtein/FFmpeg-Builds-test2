@@ -1,7 +1,7 @@
 #!/bin/bash
 
-set -e
-# set -xe
+# set -e
+set -xe
 
 shopt -s globstar
 cd "$(dirname "$0")"
@@ -15,6 +15,13 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
     echo "ERROR: vars.sh failed (TARGET=$TARGET VARIANT=$VARIANT)" >&2
     exit 1
 }
+
+# Если передан конкретный хэш из workflow, используем его, иначе откатываемся на latest
+if [ -n "$DOCKER_HASH" ]; then
+    TARGET_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/base-win64:${DOCKER_HASH}"
+else
+    TARGET_IMAGE="${TARGET_IMAGE:-ghcr.io/${GITHUB_REPOSITORY,,}/base-win64:latest}"
+fi
 
 CONTAINER_ROOT="${CONTAINER_ROOT:-/builder}"
 
