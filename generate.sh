@@ -150,14 +150,6 @@ if [[ "${USE_TENSORFLOW}" == "1" ]]; then
     to_df "    fi && rm -rf /tmp/host_tensorflow_models"
 fi
 
-# ДИНАМИЧЕСКИЕ СЛОИ
-to_df "COPY --from=downloads_ctx / /tmp/downloads_host/"
-to_df "RUN --mount=type=cache,target=/builder/.cache/downloads,id=downloads-win64-shared,sharing=shared \\"
-to_df "    mkdir -p /builder/.cache/downloads && \\"
-to_df "    if [ -d /tmp/downloads_host ] && [ \"\$(ls -A /tmp/downloads_host 2>/dev/null)\" ]; then \\"
-to_df "        cp -r /tmp/downloads_host/* /builder/.cache/downloads/; \\"
-to_df "    fi && rm -rf /tmp/downloads_host"
-
 # Очищаем содержимое перед хешированием:
 # 1. Берем только переменные, влияющие на бинарный код
 # 2. Удаляем комментарии и лишние пробелы
@@ -259,9 +251,10 @@ for STAGE in "${active_scripts[@]}"; do
 
     to_df "# Component: $STAGENAME | LayerID: $LAYER_ID"
 
-    to_df "RUN --mount=type=cache,target=${CCACHE_DIR},id=ccache-${TARGET}-${VARIANT},sharing=shared \\"
+    to_df "RUN --mount=type=cache,target=${CCACHE_DIR},id=ccache-${TARGET}-${VARIANT},sharing=shared,rw \\"
 
-    to_df "    --mount=type=cache,target=${CONTAINER_ROOT}/.cache/downloads,id=downloads-win64-shared,sharing=shared \\"
+    to_df "    --mount=type=bind,from=downloads_ctx,source=/,target=/builder/.cache/downloads,rw \\"
+
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
     to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\"
