@@ -255,15 +255,19 @@ fi
 
 PREFIX_WHISPER_PC="${FFBUILD_PREFIX}/lib/pkgconfig/libwhisper.pc"
 if [[ -f "$PREFIX_WHISPER_PC" ]]; then
-    log_info "Fixing libwhisper.pc to include missing ggml-openvino backend..."
+    log_info "Applying bulletproof static link grouping to libwhisper.pc..."
 
-    sed -i 's/-lggml /-lggml-openvino -lggml /g' "$PREFIX_WHISPER_PC"
+    sed -i '/^Libs.private:/d' "$PREFIX_WHISPER_PC"
 
-    log_info "--- Content of fixed libwhisper.pc ---"
+    local GGML_GROUP="-Wl,--start-group -lggml-cpu -lggml-openvino -lggml -lggml-base -Wl,--end-group"
+    local SYS_LIBS="-lstdc++ -lsetupapi -lws2_32 -lshlwapi -lbcrypt -pthread -lggml-opencl -lOpenCL -lggml-vulkan -lshaderc_combined -lm -lole32 -luser32 -ladvapi32 -ldbghelp"
+    
+
+    echo "Libs.private: ${GGML_GROUP} ${SYS_LIBS}" >> "$PREFIX_WHISPER_PC"
+
+    log_info "--- Content of bulletproof libwhisper.pc ---"
     cat "$PREFIX_WHISPER_PC"
-    log_info "---------------------------------------"
-else
-    log_error "CRITICAL: libwhisper.pc not found at $PREFIX_WHISPER_PC"
+    log_info "--------------------------------------------"
 fi
 
 # =======================================
