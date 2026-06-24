@@ -143,6 +143,8 @@ if [[ "${USE_TENSORFLOW}" == "1" ]]; then
     to_df "    fi && rm -rf /tmp/host_tensorflow_models"
 fi
 
+to_df "RUN mkdir -p ${CONTAINER_ROOT}/.cache/downloads"
+to_df "COPY .cache/downloads/ ${CONTAINER_ROOT}/.cache/downloads/"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "$COMMON_ENV"
 to_df "WORKDIR ${CONTAINER_ROOT}"
@@ -252,7 +254,7 @@ for STAGE in "${active_scripts[@]}"; do
 
     to_df "RUN --mount=type=cache,target=${CCACHE_DIR},id=ccache-${TARGET}-${VARIANT},sharing=shared \\"
 
-    to_df "    --mount=type=bind,source=.cache/downloads,target=${CACHE_DIR},rw \\"
+    to_df "    --mount=type=cache,target=${CONTAINER_ROOT}/.cache/downloads,id=downloads-win64-shared,sharing=shared \\"
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
     to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\"

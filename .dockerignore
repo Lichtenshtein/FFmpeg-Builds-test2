@@ -1,5 +1,3 @@
-# Note: Ensure .cache/downloads, .cache/ffmpeg, and .cache/ccache are NOT ignored.
-
 .git/
 artifacts/
 ffbuild/
