@@ -413,7 +413,7 @@ jobs:
       - name: Verify TensorFlow Models Directory
         if: env.USE_TENSORFLOW == '1'
         run: |
-          if [[ ! -d "./host_tensorflow_models" ] || [ -z "$(ls -A ./host_tensorflow_models 2>/dev/null)" ]]; then
+          if [[ ! -d "./host_tensorflow_models" || -z "$(ls -A ./host_tensorflow_models 2>/dev/null)" ]]; then
             echo "🔴 ERROR: TensorFlow models directory invalid or empty."
             exit 1
           fi
