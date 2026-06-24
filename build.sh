@@ -259,11 +259,10 @@ if [[ -f "$PREFIX_WHISPER_PC" ]]; then
 
     sed -i '/^Libs.private:/d' "$PREFIX_WHISPER_PC"
 
-    local GGML_GROUP="-Wl,--start-group -lggml-cpu -lggml-openvino -lggml -lggml-base -Wl,--end-group"
-    local SYS_LIBS="-lstdc++ -lsetupapi -lws2_32 -lshlwapi -lbcrypt -pthread -lggml-opencl -lOpenCL -lggml-vulkan -lshaderc_combined -lm -lole32 -luser32 -ladvapi32 -ldbghelp"
-    
+    GGML_GROUP="-Wl,--start-group -lggml-cpu -lggml-openvino -lggml -lggml-base -Wl,--end-group"
+    SYSTE_LIBS="-lstdc++ -lsetupapi -lws2_32 -lshlwapi -lbcrypt -pthread -lggml-opencl -lOpenCL -lggml-vulkan -lshaderc_combined -lm -lole32 -luser32 -ladvapi32 -ldbghelp"
 
-    echo "Libs.private: ${GGML_GROUP} ${SYS_LIBS}" >> "$PREFIX_WHISPER_PC"
+    echo "Libs.private: ${GGML_GROUP} ${SYSTE_LIBS}" >> "$PREFIX_WHISPER_PC"
 
     log_info "--- Content of bulletproof libwhisper.pc ---"
     cat "$PREFIX_WHISPER_PC"
