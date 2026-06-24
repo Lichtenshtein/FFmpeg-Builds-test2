@@ -231,6 +231,16 @@ fi
     # log_error "OpenColorIO.pc NOT FOUND at $PREFIX_PC !"
 # fi
 
+PREFIX_PC="${FFBUILD_PREFIX}/lib/pkgconfig/libopenal.pc"
+if [[ -f "$PREFIX_PC" ]]; then
+    log_info "Fixing libopenal.pc in active prefix..."
+
+    sed -i '/^Libs.private:/ s/$/ -ldsound/' "$PREFIX_PC"
+
+    log_info "--- Content of fixed libopenal.pc ---"
+    cat "$PREFIX_PC"
+    log_info "---------------------------------------"
+fi
 
 # =======================================
 # FLAGS SECTION
