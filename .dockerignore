@@ -1,4 +1,4 @@
-# Note: Ensure .cache/downloads, .cache/ffmpeg, and .cache/ccache are NOT ignored. Your current list only ignores .cache/tmp/, which is correct.
+# Note: Ensure .cache/downloads, .cache/ffmpeg, and .cache/ccache are NOT ignored.
 
 .git/
 artifacts/
