@@ -442,17 +442,17 @@ jobs:
       - name: Verify TensorFlow Models Directory
         if: env.USE_TENSORFLOW == '1'
         run: |
+          echo "Checking host_tensorflow_models directory..."
           if [[ ! -d "./host_tensorflow_models" ]]; then
-            echo "🔴 ERROR: TensorFlow models directory './host_tensorflow_models' does not exist."
-            echo "   The build will fail because the Docker context cannot be resolved."
+            echo "ERROR: Directory './host_tensorflow_models' not found."
             exit 1
           fi
           if [[ -z "$(ls -A ./host_tensorflow_models 2>/dev/null)" ]]; then
-            echo "🔴 ERROR: TensorFlow models directory './host_tensorflow_models' is empty."
-            echo "   Docker Buildx cannot use an empty directory as a build context."
+            echo "ERROR: Directory './host_tensorflow_models' is empty."
+            ls -la ./host_tensorflow_models
             exit 1
           fi
-          echo "✅ TensorFlow models directory verified ($((du -sh ./host_tensorflow_models | cut -f1)) total size)."
+          echo "Directory verified. Content:"
           ls -la ./host_tensorflow_models/
 
       - name: Save TensorFlow Models Cache
@@ -528,7 +528,7 @@ jobs:
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
             ffmpeg_src_ctx=.cache/ffmpeg
             downloads_ctx=.cache/downloads
-            tf_models_ctx=local:./host_tensorflow_models
+            tf_models_ctx=./host_tensorflow_models
           outputs: type=local,dest=artifacts/
           cache-from: |
             type=gha,scope=ffmpeg-components
