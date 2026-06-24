@@ -133,27 +133,30 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
 # BASE COMPONENT BUILD STAGE
 to_df "FROM ${TARGET_IMAGE} AS components_build"
 
-if [[ "${USE_TENSORFLOW}" == "1" ]]; then
-    mkdir -p host_tensorflow_models
-    to_df "COPY host_tensorflow_models/ /tmp/host_tensorflow_models/"
-    to_df "RUN mkdir -p ${FFBUILD_PREFIX}/share/tensorflow_models && \\"
-    to_df "    if [ -d /tmp/host_tensorflow_models ] && [ \"\$(ls -A /tmp/host_tensorflow_models 2>/dev/null)\" ]; then \\"
-    to_df "        mv /tmp/host_tensorflow_models/* ${FFBUILD_PREFIX}/share/tensorflow_models/; \\"
-    to_df "    fi && rm -rf /tmp/host_tensorflow_models"
-fi
-
-to_df "COPY .cache/downloads/ /tmp/downloads_host/"
-to_df "RUN --mount=type=cache,target=/builder/.cache/downloads,id=downloads-win64-shared,sharing=shared \\"
-to_df "    mkdir -p /builder/.cache/downloads && \\"
-to_df "    if [ -d /tmp/downloads_host ] && [ \"\$(ls -A /tmp/downloads_host 2>/dev/null)\" ]; then \\"
-to_df "        cp -r /tmp/downloads_host/* /builder/.cache/downloads/; \\"
-to_df "    fi && rm -rf /tmp/downloads_host"
-
+# СТАБИЛЬНЫЕ СЛОИ
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "$COMMON_ENV"
 to_df "WORKDIR /builder"
 to_df "COPY util/run_stage.sh /usr/bin/run_stage"
 to_df "RUN chmod +x /usr/bin/run_stage"
+
+# ДИНАМИЧЕСКИЕ СЛОИ
+if [[ "${USE_TENSORFLOW}" == "1" ]]; then
+    mkdir -p host_tensorflow_models
+    to_df "COPY --link host_tensorflow_models/ /tmp/host_tensorflow_models/"
+    to_df "RUN mkdir -p /opt/ffbuild/share/tensorflow_models && \\"
+    to_df "    if [ -d /tmp/host_tensorflow_models ] && [ \"\$(ls -A /tmp/host_tensorflow_models 2>/dev/null)\" ]; then \\"
+    to_df "        mv /tmp/host_tensorflow_models/* /opt/ffbuild/share/tensorflow_models/; \\"
+    to_df "    fi && rm -rf /tmp/host_tensorflow_models"
+fi
+
+# ДИНАМИЧЕСКИЕ СЛОИ
+to_df "COPY --link .cache/downloads/ /tmp/downloads_host/"
+to_df "RUN --mount=type=cache,target=/builder/.cache/downloads,id=downloads-win64-shared,sharing=shared \\"
+to_df "    mkdir -p /builder/.cache/downloads && \\"
+to_df "    if [ -d /tmp/downloads_host ] && [ \"\$(ls -A /tmp/downloads_host 2>/dev/null)\" ]; then \\"
+to_df "        cp -r /tmp/downloads_host/* /builder/.cache/downloads/; \\"
+to_df "    fi && rm -rf /tmp/downloads_host"
 
 # Очищаем содержимое перед хешированием:
 # 1. Берем только переменные, влияющие на бинарный код
