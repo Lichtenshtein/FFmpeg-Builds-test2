@@ -17,11 +17,11 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
 }
 
 # Если передан конкретный хэш из workflow, используем его, иначе откатываемся на latest
-if [ -n "$DOCKER_HASH" ]; then
-    TARGET_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/base-win64:${DOCKER_HASH}"
-else
-    TARGET_IMAGE="${TARGET_IMAGE:-ghcr.io/${GITHUB_REPOSITORY,,}/base-win64:latest}"
-fi
+# if [ -n "$DOCKER_HASH" ]; then
+    # TARGET_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/base-win64:${DOCKER_HASH}"
+# else
+    # TARGET_IMAGE="${TARGET_IMAGE:-ghcr.io/${GITHUB_REPOSITORY,,}/base-win64:latest}"
+# fi
 
 CONTAINER_ROOT="${CONTAINER_ROOT:-/builder}"
 

@@ -18,10 +18,10 @@ source util/vars.sh "${TARGET:-win64}" "${VARIANT:-nonfree}" 2>/dev/null || {
 {
     echo "${TARGET}-${VARIANT}"
     echo "${FFMPEG_REPO:-https://git.ffmpeg.org/ffmpeg.git}-${FFMPEG_BRANCH:-master}"
-    # find scripts.d patches -type f \( -name "*.sh" -o -name "*.patch" \) 2>/dev/null | sort
+    find scripts.d patches -type f \( -name "*.sh" -o -name "*.patch" \) 2>/dev/null | sort
 
     # Находим все файлы и вычисляем sha256sum от их содержимого, сортируя для детерминизма
-    find scripts.d patches -type f \( -name "*.sh" -o -name "*.patch" \) -exec sha256sum {} + | sort
+    # find scripts.d patches -type f \( -name "*.sh" -o -name "*.patch" \) -exec sha256sum {} + | sort
 } > cache_state.tmp
 
 sha256sum cache_state.tmp | cut -d" " -f1 | cut -c1-16
