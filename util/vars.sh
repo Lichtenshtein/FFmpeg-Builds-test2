@@ -507,7 +507,7 @@ export REPO="${GITHUB_REPOSITORY:-lichtenshtein/ffmpeg-build}"
 export REPO="${REPO,,}"
 export REGISTRY="${REGISTRY_OVERRIDE:-ghcr.io}"
 export BASE_IMAGE="${REGISTRY}/${REPO}/base:latest"
-export TARGET_IMAGE="${REGISTRY}/${REPO}/base-${TARGET}:latest"
+export TARGET_IMAGE="${TARGET_IMAGE:-${REGISTRY}/${REPO}/base-${TARGET}:latest}"
 export IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:latest"
 
 # 2 for verbose logs, 0 for brief
