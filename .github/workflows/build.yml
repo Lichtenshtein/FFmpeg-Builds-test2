@@ -390,6 +390,7 @@ jobs:
           chmod +x ./download.sh ./util/*.sh ./generate.sh
           ./download.sh
           ./util/clean_cache.sh
+          ./generate.sh "$TARGET" "$VARIANT"
 
       # --- КЭШ 3: МОДЕЛИ TENSORFLOW ---
       - name: Restore TensorFlow Models Cache
