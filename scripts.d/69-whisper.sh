@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/ggml-org/whisper.cpp.git"
-SCRIPT_COMMIT="99613cb720b65036237d44b52f753b51f75c2797"
+SCRIPT_COMMIT="43d78af5be58f41d6ffbc227d608f104577741ea"
 
 ffbuild_depends() {
     echo base
@@ -157,7 +157,7 @@ EOF
         -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
         -DVulkan_GLSLC_EXECUTABLE="/opt/glslc"
         -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.a"
+        -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.${lib_ext}"
         -DGGML_VULKAN_CHECK_RESULTS=OFF
         # OPENVINO
         -DGGML_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
@@ -182,16 +182,13 @@ EOF
     fi
 
     # CMake в Windows часто сохраняет их как ggml-base.a, а линковщик ищет -lggml-base (т.е. libggml-base.a)
-    if [[ "${PREFER_SHARED}" == "1" ]]; then
-        # Фикс префиксов импортных библиотек, если CMake назвал их некорректно
-        log_info "Fixing shared library prefixes for MinGW..."
-        find "$INSTALL_ROOT/lib" -name "ggml*.dll.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
-        find "$INSTALL_ROOT/lib" -name "whisper*.dll.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
-    else
-        log_info "Fixing library prefixes for MinGW..."
-        # CMake часто создает 'ggml.a' вместо 'libggml.a'
-        find "$INSTALL_ROOT/lib" -name "ggml*.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
-        find "$INSTALL_ROOT/lib" -name "whisper.a" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
+    log_info "Fixing library prefixes for MinGW..."
+    # CMake часто создает 'ggml.a' вместо 'libggml.a'
+    find "$INSTALL_ROOT/lib" -name "ggml*.${lib_ext}" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
+    find "$INSTALL_ROOT/lib" -name "whisper.${lib_ext}" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
+
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+        find /build/$STAGENAME -type f -name "*.${lib_ext}" -printf "%p (%s bytes)\n"
     fi
 
     local PC_FILE="$PC_DIR/whisper.pc"
@@ -199,7 +196,7 @@ EOF
         log_info "Updating $PC_FILE with backend libraries..."
         local GGML_INTERNAL="-lggml-cpu -lggml -lggml-base"
         local SYS_LIBS="-lstdc++ -lsetupapi -lws2_32 -lshlwapi -lbcrypt -pthread"
-        # Полностью перезаписываем строку Libs.private для идеального порядка
+
         sed -i '/^Libs.private:/d' "$PC_FILE"
         echo "Libs.private: ${GGML_INTERNAL} ${SYS_LIBS}" >> "$PC_FILE"
         if [[ "${myconf[@]}" =~ "-DGGML_OPENCL=ON" ]]; then
@@ -210,6 +207,7 @@ EOF
         fi
         if [[ "${myconf[@]}" =~ "-DGGML_OPENVINO=ON" ]]; then
             echo "Requires.private: openvino" >> "$PC_FILE"
+            sed -i 's/-lggml /-lggml-openvino -lggml /g' "$PC_FILE"
         fi
         ln -sf "$PC_FILE" "$PC_DIR/libwhisper.pc"
     else

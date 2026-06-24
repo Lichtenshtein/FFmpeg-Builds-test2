@@ -256,55 +256,39 @@ fi
     # log_error "OpenColorIO.pc NOT FOUND at $PREFIX_PC !"
 # fi
 
-PREFIX_PC="${FFBUILD_PREFIX}/lib/pkgconfig/openal.pc"
-if [[ -f "$PREFIX_PC" ]]; then
-    log_info "Fixing openal.pc in active prefix..."
+# PREFIX_PC="${FFBUILD_PREFIX}/lib/pkgconfig/openal.pc"
+# if [[ -f "$PREFIX_PC" ]]; then
+    # log_info "Fixing openal.pc in active prefix..."
 
-    sed -i '/^Libs.private:/ s/$/ -ldsound/' "$PREFIX_PC"
+    # sed -i '/^Libs.private:/ s/$/ -ldsound/' "$PREFIX_PC"
 
-    log_info "--- Content of fixed openal.pc ---"
-    cat "$PREFIX_PC"
-    log_info "---------------------------------------"
-fi
+    # log_info "--- Content of fixed openal.pc ---"
+    # cat "$PREFIX_PC"
+    # log_info "---------------------------------------"
+# fi
 
-PREFIX2_PC="${FFBUILD_PREFIX}/lib/pkgconfig/libdatachannel.pc"
-if [[ -f "$PREFIX2_PC" ]]; then
-    log_info "Fixing libdatachannel.pc in active prefix..."
+# PREFIX2_PC="${FFBUILD_PREFIX}/lib/pkgconfig/libdatachannel.pc"
+# if [[ -f "$PREFIX2_PC" ]]; then
+    # log_info "Fixing libdatachannel.pc in active prefix..."
 
-    sed -i '/^Libs.private:/ s/$/ -lopenal/' "$PREFIX2_PC"
+    # sed -i '/^Libs.private:/ s/$/ -lopenal/' "$PREFIX2_PC"
 
-    log_info "--- Content of fixed libdatachannel.pc ---"
-    cat "$PREFIX2_PC"
-    log_info "---------------------------------------"
-fi
+    # log_info "--- Content of fixed libdatachannel.pc ---"
+    # cat "$PREFIX2_PC"
+    # log_info "---------------------------------------"
+# fi
 
-PREFIX_WHISPER_PC="${FFBUILD_PREFIX}/lib/pkgconfig/libwhisper.pc"
-if [[ -f "$PREFIX_WHISPER_PC" ]]; then
-    log_info "Applying bulletproof static link grouping to libwhisper.pc..."
+# log_info "Injecting hotfix stub for broken upstream OpenVINO symbol..."
 
-    sed -i '/^Libs.private:/d' "$PREFIX_WHISPER_PC"
+# cat << 'EOF' > /tmp/ggml_openvino_stub.cpp
+include <stdint.h>
+# extern "C" void* ggml_backend_openvino_reg(void) {
+    # return nullptr;
+# }
+# EOF
 
-    GGML_GROUP="-Wl,--start-group -lggml-cpu -lggml-openvino -lggml -lggml-base -Wl,--end-group"
-    SYSTE_LIBS="-lstdc++ -lsetupapi -lws2_32 -lshlwapi -lbcrypt -pthread -lggml-opencl -lOpenCL -lggml-vulkan -lshaderc_combined -lm -lole32 -luser32 -ladvapi32 -ldbghelp"
-
-    echo "Libs.private: ${GGML_GROUP} ${SYSTE_LIBS}" >> "$PREFIX_WHISPER_PC"
-
-    log_info "--- Content of bulletproof libwhisper.pc ---"
-    cat "$PREFIX_WHISPER_PC"
-    log_info "--------------------------------------------"
-fi
-
-log_info "Injecting hotfix stub for broken upstream OpenVINO symbol..."
-
-cat << 'EOF' > /tmp/ggml_openvino_stub.cpp
-#include <stdint.h>
-extern "C" void* ggml_backend_openvino_reg(void) {
-    return nullptr;
-}
-EOF
-
-${FFBUILD_TOOLCHAIN}-g++ -c /tmp/ggml_openvino_stub.cpp -o /tmp/ggml_openvino_stub.o
-${FFBUILD_CROSS_PREFIX}ar rcs ${FFBUILD_PREFIX}/lib/libggml_openvino_stub.a /tmp/ggml_openvino_stub.o
+# ${FFBUILD_TOOLCHAIN}-g++ -c /tmp/ggml_openvino_stub.cpp -o /tmp/ggml_openvino_stub.o
+# ${FFBUILD_CROSS_PREFIX}ar rcs ${FFBUILD_PREFIX}/lib/libggml_openvino_stub.a /tmp/ggml_openvino_stub.o
 
 # =======================================
 # FLAGS SECTION

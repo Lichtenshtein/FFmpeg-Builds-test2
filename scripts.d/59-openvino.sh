@@ -1,7 +1,7 @@
 #!/bin/bash
 export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/openvinotoolkit/openvino.git"
-SCRIPT_COMMIT="7b32f06bcaa24fc319a253251395c2061bbbdc0a"
+SCRIPT_COMMIT="1b4eee0fb05a1d708d6864577beaeed8ec3137c3"
 
 # export SKIP_POST_PC_PATCH=1
 

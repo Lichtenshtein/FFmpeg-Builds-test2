@@ -57,6 +57,8 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
+# -lopenal # i don't know why it wants it
+
     local PC_FILE="$PC_DIR/libdatachannel.pc"
     if [[ ! -f "PC_FILE" ]]; then
         log_info "Generating custom libdatachannel.pc for linking..."
@@ -71,7 +73,7 @@ Name: datachannel
 Description: WebRTC Data Channels and Media Transport library (C/C++)
 Version: ${VER_FULL}
 Libs: -L\${libdir} -ldatachannel
-Requires: openssl
+Requires: openssl openal
 Libs.private: -ljuice -lsrtp2 -lusrsctp -lws2_32 -lbcrypt -lcrypt32 -liphlpapi -luserenv
 Cflags: -I\${includedir} -I\${includedir}/rtc $static_flags
 EOF

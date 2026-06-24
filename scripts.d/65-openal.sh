@@ -81,7 +81,7 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    local PRIVATE_LIBS="-lwinpthread -lavrt -latomic -lm -luuid -lwinmm -lz -lstdc++"
+    local PRIVATE_LIBS="-lwinpthread -lavrt -ldsound -latomic -lm -luuid -lwinmm -lz -lstdc++"
     local PC_FILE="$PC_DIR/openal.pc"
     if [[ -f "$PC_FILE" ]]; then
         # Удаляем существующую строку Libs.private целиком
