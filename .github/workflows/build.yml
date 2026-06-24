@@ -488,6 +488,9 @@ jobs:
           tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
           cache-from: type=gha,scope=ffmpeg-global-build-cache
           cache-to: type=gha,mode=max,scope=ffmpeg-global-build-cache
+          build-contexts: |
+            tf_models_ctx=./host_tensorflow_models
+            downloads_ctx=.cache/downloads
 
       - name: Verify FFmpeg Source
         run: |

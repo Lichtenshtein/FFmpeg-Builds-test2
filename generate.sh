@@ -143,7 +143,7 @@ to_df "RUN chmod +x /usr/bin/run_stage"
 # ДИНАМИЧЕСКИЕ СЛОИ
 if [[ "${USE_TENSORFLOW}" == "1" ]]; then
     mkdir -p host_tensorflow_models
-    to_df "COPY --link host_tensorflow_models/ /tmp/host_tensorflow_models/"
+    to_df "COPY --from=tf_models_ctx / /tmp/host_tensorflow_models/"
     to_df "RUN mkdir -p /opt/ffbuild/share/tensorflow_models && \\"
     to_df "    if [ -d /tmp/host_tensorflow_models ] && [ \"\$(ls -A /tmp/host_tensorflow_models 2>/dev/null)\" ]; then \\"
     to_df "        mv /tmp/host_tensorflow_models/* /opt/ffbuild/share/tensorflow_models/; \\"
@@ -151,7 +151,7 @@ if [[ "${USE_TENSORFLOW}" == "1" ]]; then
 fi
 
 # ДИНАМИЧЕСКИЕ СЛОИ
-to_df "COPY --link .cache/downloads/ /tmp/downloads_host/"
+to_df "COPY --from=downloads_ctx / /tmp/downloads_host/"
 to_df "RUN --mount=type=cache,target=/builder/.cache/downloads,id=downloads-win64-shared,sharing=shared \\"
 to_df "    mkdir -p /builder/.cache/downloads && \\"
 to_df "    if [ -d /tmp/downloads_host ] && [ \"\$(ls -A /tmp/downloads_host 2>/dev/null)\" ]; then \\"
