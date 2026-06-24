@@ -87,19 +87,19 @@ to_df() { echo "$*" >> Dockerfile; }
 # Making ENV from workflow avaliable inside Docker 
 # Объединяем все ENV в одну команду для оптимизации слоев
 COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_STR=\"$ADDINS_STR\" \\
-    ROOT_DIR=\"${CONTAINER_ROOT}\" \\
-    CACHE_DIR=\"${CACHE_DIR}\" \\
-    FFMPEG_DIR=\"${FFMPEG_DIR}\" \\
-    FFMPEG_BUILD_ROOT=\"${FFMPEG_BUILD_ROOT}\" \\
-    FFMPEG_SOURCE_DIR=\"${FFMPEG_SOURCE_DIR}\" \\
-    FFMPEG_PKG_ROOT=\"${FFMPEG_PKG_ROOT}\" \\
-    FFMPEG_CONFIG_LOG=\"${FFMPEG_CONFIG_LOG}\" \\
-    FFMPEG_HASH_FILE=\"${FFMPEG_HASH_FILE}\" \\
-    PATCHES_DIR=\"${PATCHES_DIR}\" \\
-    SCRIPTS_DIR=\"${SCRIPTS_DIR}\" \\
-    TMP_DIR=\"${TMP_DIR}\" \\
-    UTIL_DIR=\"${UTIL_DIR}\" \\
-    VARIANTS_DIR=\"${VARIANTS_DIR}\" \\
+    ROOT_DIR=\"/builder\" \\
+    CACHE_DIR=\"/builder/.cache/downloads\" \\
+    FFMPEG_DIR=\"/builder/.cache/ffmpeg\" \\
+    FFMPEG_BUILD_ROOT=\"/builder/ffbuild\" \\
+    FFMPEG_SOURCE_DIR=\"/builder/ffbuild/ffmpeg\" \\
+    FFMPEG_PKG_ROOT=\"/builder/ffbuild/pkgroot\" \\
+    FFMPEG_CONFIG_LOG=\"/builder/ffbuild/ffmpeg/ffbuild/config.log\" \\
+    FFMPEG_HASH_FILE=\"/builder/.cache/ffmpeg/.current_commit\" \\
+    PATCHES_DIR=\"/builder/patches\" \\
+    SCRIPTS_DIR=\"/builder/scripts.d\" \\
+    TMP_DIR=\"/builder/.cache/tmp\" \\
+    UTIL_DIR=\"/builder/util\" \\
+    VARIANTS_DIR=\"/builder/variants\" \\
     FFBUILD_VERBOSE=\"${FFBUILD_VERBOSE}\" \\
     FFMPEG_REPO=\"${FFMPEG_REPO}\" \\
     FFMPEG_BRANCH=\"${FFMPEG_BRANCH}\" \\
@@ -135,7 +135,6 @@ to_df "FROM ${TARGET_IMAGE} AS components_build"
 
 if [[ "${USE_TENSORFLOW}" == "1" ]]; then
     mkdir -p host_tensorflow_models
-
     to_df "COPY host_tensorflow_models/ /tmp/host_tensorflow_models/"
     to_df "RUN mkdir -p ${FFBUILD_PREFIX}/share/tensorflow_models && \\"
     to_df "    if [ -d /tmp/host_tensorflow_models ] && [ \"\$(ls -A /tmp/host_tensorflow_models 2>/dev/null)\" ]; then \\"
@@ -143,11 +142,16 @@ if [[ "${USE_TENSORFLOW}" == "1" ]]; then
     to_df "    fi && rm -rf /tmp/host_tensorflow_models"
 fi
 
-to_df "RUN mkdir -p ${CONTAINER_ROOT}/.cache/downloads"
-to_df "COPY .cache/downloads/ ${CONTAINER_ROOT}/.cache/downloads/"
+to_df "COPY .cache/downloads/ /tmp/downloads_host/"
+to_df "RUN --mount=type=cache,target=/builder/.cache/downloads,id=downloads-win64-shared,sharing=shared \\"
+to_df "    mkdir -p /builder/.cache/downloads && \\"
+to_df "    if [ -d /tmp/downloads_host ] && [ \"\$(ls -A /tmp/downloads_host 2>/dev/null)\" ]; then \\"
+to_df "        cp -r /tmp/downloads_host/* /builder/.cache/downloads/; \\"
+to_df "    fi && rm -rf /tmp/downloads_host"
+
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "$COMMON_ENV"
-to_df "WORKDIR ${CONTAINER_ROOT}"
+to_df "WORKDIR /builder"
 to_df "COPY util/run_stage.sh /usr/bin/run_stage"
 to_df "RUN chmod +x /usr/bin/run_stage"
 
