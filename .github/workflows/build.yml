@@ -349,11 +349,12 @@ jobs:
             CARGO_C_VERSION=0.10.22
             CPU_ARCH=${{ env.CPU_ARCH }}
             CPU_TUNE=${{ env.CPU_TUNE }}
-          cache-from: type=gha,scope=ffmpeg-global-build-cache
-          cache-to: type=gha,mode=max,scope=ffmpeg-global-build-cache
+          cache-from: type=gha,scope=ffmpeg-base-cache
+          cache-to: type=gha,mode=max,scope=ffmpeg-base-cache
           push: true
-          load: false
-          tags: ${{ steps.images.outputs.target_base }}
+          tags: |
+            ${{ steps.images.outputs.target_base }}
+            ${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
 
       # --- STEP 1: Calculate the "Stable" Key (Based on config only) ---
       - name: Get Download Cache Key (Stable)
@@ -410,6 +411,8 @@ jobs:
 
           # Normalize line endings
           find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
+
+          export TARGET_IMAGE="${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}"
 
           chmod +x ./download.sh ./util/*.sh ./generate.sh
 
