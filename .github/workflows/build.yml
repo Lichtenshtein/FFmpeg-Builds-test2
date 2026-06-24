@@ -180,7 +180,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
         with:
-          driver: docker-container
+          driver: docker
 
       - name: Install Host Tools
         if: github.event.inputs.regularClean == 'true'
@@ -525,7 +525,7 @@ jobs:
             CPU_TUNE=${{ env.CPU_TUNE }}
           push: false
           tags: ffmpeg-final:local
-          builder: docker 
+          builder: buildkit
           build-contexts: |
             components_build=docker-image://ghcr.io/lichtenshtein/ffmpeg-builds-test2/components-cache:latest
             ffmpeg_src_ctx=.cache/ffmpeg
