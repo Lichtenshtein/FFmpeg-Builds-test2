@@ -253,6 +253,19 @@ if [[ -f "$PREFIX2_PC" ]]; then
     log_info "---------------------------------------"
 fi
 
+PREFIX_WHISPER_PC="${FFBUILD_PREFIX}/lib/pkgconfig/libwhisper.pc"
+if [[ -f "$PREFIX_WHISPER_PC" ]]; then
+    log_info "Fixing libwhisper.pc to include missing ggml-openvino backend..."
+
+    sed -i 's/-lggml /-lggml-openvino -lggml /g' "$PREFIX_WHISPER_PC"
+
+    log_info "--- Content of fixed libwhisper.pc ---"
+    cat "$PREFIX_WHISPER_PC"
+    log_info "---------------------------------------"
+else
+    log_error "CRITICAL: libwhisper.pc not found at $PREFIX_WHISPER_PC"
+fi
+
 # =======================================
 # FLAGS SECTION
 # =======================================
