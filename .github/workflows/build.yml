@@ -180,7 +180,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
         with:
-          driver: docker
+          driver: docker-container
 
       - name: Install Host Tools
         if: github.event.inputs.regularClean == 'true'
@@ -352,10 +352,21 @@ jobs:
           cache-from: type=gha,scope=ffmpeg-base-cache
           cache-to: type=gha,mode=max,scope=ffmpeg-base-cache
           push: true
-          load: true
           tags: |
             ${{ steps.images.outputs.target_base }}
             ${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
+
+      - name: Pull Base Image to Host Daemon
+        run: |
+          echo "Pulling base image to host daemon..."
+          docker pull ghcr.io/lichtenshtein/ffmpeg-builds-test2/base-win64:latest
+          echo "Base image loaded."
+
+      - name: Set up Docker Buildx (Host Driver)
+        uses: docker/setup-buildx-action@v4
+        with:
+          driver: docker
+          name: host-builder
 
       # --- STEP 1: Calculate the "Stable" Key (Based on config only) ---
       - name: Get Download Cache Key (Stable)
@@ -365,13 +376,6 @@ jobs:
           KEY=$(./util/state_hash.sh)
           echo "stable_key=dl_cache-${KEY}" >> $GITHUB_OUTPUT
           echo "🔑 Stable Key: dl_cache-${KEY}"
-
-      # --- STEP 2: Create a Temporary Builder using Host Driver ---
-      - name: Set up Docker Buildx (Host Driver)
-        uses: docker/setup-buildx-action@v3
-        with:
-          driver: docker
-          name: host-builder
 
       # --- КЭШ 1: ЗАВИСИМОСТИ СТОРОННИХ БИБЛИОТЕК (Загрузки) ---
       - name: Restore Third-Party Downloads
@@ -542,7 +546,6 @@ jobs:
           cache-from: |
             type=gha,scope=ffmpeg-components
             type=gha,scope=ffmpeg-final
-          cache-to: type=gha,mode=min,scope=ffmpeg-final
           provenance: false
 
       - name: Cleanup Old Caches
