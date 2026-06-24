@@ -6,7 +6,8 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '.*'
+        default: '04-tbbmalloc|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|59-opencl|59-openvino|69-whisper'
+        # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
@@ -372,29 +373,6 @@ jobs:
             ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-
             ffmpeg-src-
 
-      - name: Run Download and Generate
-        id: download_step
-        run: |
-          echo "📥 Running download.sh..."
-          if [[ "${{ github.event.inputs.doClean }}" == "true" ]]; then
-            echo "🧹 Cleaning ALL caches..."
-            rm -rf .cache/{downloads,ffmpeg,ccache,tmp}/*
-          fi
-          if [[ "${{ github.event.inputs.reset_ccache }}" == "true" ]]; then
-            echo "🧹 Clearing CCACHE directory..."
-            rm -rf .cache/ccache/*
-          fi
-          mkdir -p .cache/downloads .cache/ffmpeg .cache/ccache .cache/tmp
-          chmod -R u+r patches/ || true
-          chmod -R u+w .cache/ || true
-          # find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
-          export TARGET_IMAGE="${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}"
-          # export DOCKER_HASH="${{ steps.docker_hash.outputs.hash }}"
-          chmod +x ./download.sh ./util/*.sh ./generate.sh
-          ./download.sh
-          ./util/clean_cache.sh
-          ./generate.sh "$TARGET" "$VARIANT"
-
       # --- КЭШ 3: МОДЕЛИ TENSORFLOW ---
       - name: Restore TensorFlow Models Cache
         if: env.USE_TENSORFLOW == '1'
@@ -429,6 +407,29 @@ jobs:
         with:
           path: ./host_tensorflow_models
           key: tf-models-${{ env.TARGET }}
+
+      - name: Run Download and Generate
+        id: download_step
+        run: |
+          echo "📥 Running download.sh..."
+          if [[ "${{ github.event.inputs.doClean }}" == "true" ]]; then
+            echo "🧹 Cleaning ALL caches..."
+            rm -rf .cache/{downloads,ffmpeg,ccache,tmp}/*
+          fi
+          if [[ "${{ github.event.inputs.reset_ccache }}" == "true" ]]; then
+            echo "🧹 Clearing CCACHE directory..."
+            rm -rf .cache/ccache/*
+          fi
+          mkdir -p .cache/downloads .cache/ffmpeg .cache/ccache .cache/tmp
+          chmod -R u+r patches/ || true
+          chmod -R u+w .cache/ || true
+          # find scripts.d util addins images variants -name "*.sh" -exec sed -i 's/\r$//' {} +
+          export TARGET_IMAGE="${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}"
+          # export DOCKER_HASH="${{ steps.docker_hash.outputs.hash }}"
+          chmod +x ./download.sh ./util/*.sh ./generate.sh
+          ./download.sh
+          ./util/clean_cache.sh
+          ./generate.sh "$TARGET" "$VARIANT"
 
       - name: Inspect Dockerfile
         run: head -n 80 Dockerfile

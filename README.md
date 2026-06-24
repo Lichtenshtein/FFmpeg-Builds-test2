@@ -1,65 +1,211 @@
 ## FFmpeg Custom Build
 
-This fork is an advanced FFmpeg build system architecture using GCC 14 and Ubuntu 24.04.
+This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubuntu 26.04.
 
-### Key changes and improvements:
-
-- Architectural optimization: All components are built with the -march=broadwell -mtune=broadwell -O3 flags, which ensures maximum performance on Xeon E5 v4 series processors.
-
-- Docker Build Kit Infrastructure: Using --mount=type=cache for ccache and downloads, which reduces rebuild time on GitHub Actions by 60-80%.
-
-- LTO (Link Time Optimization) support: Stable LTO support for Windows (MinGW) has been implemented, which allows you to reduce the size of binaries and increase code execution speed through inter-module optimization.
-
-### Successfully Implemented:
-
-- Improved AI and OCR integration: Tesseract OCR 5.x: Full OCR support (including Leptonica, Pango, Cairo and Libarchive dependencies).
-
-- Libflite: Integration of Speech Synthesis with support for all built-in voices (including CMU Arctic).
-
-- QTFiles Automation: The build now automatically includes and packages the necessary DLLs (CoreAudioToolbox, etc.) from the QTFiles project, allowing the aac_at encoder to work out of the box without installing iTunes.
-
-- Fixed dependency chains: Successfully resolved compilation issues for complex components such as libarchive (with CNG/Crypto support) and zstd (with multithreading support).
-
-- zstd (v1.6.0): Implemented full multithreading support (ZSTD_MULTITHREAD) for Windows. Optimized for BMI2 (Xeon Broadwell) instructions. Fixed critical CMake configuration error (CXX initialization). Static linking with correct forwarding -lpthread to libzstd.pc.
-
-- libarchive (v3.7.x): Includes support for Windows CNG (Crypto Next Generation) for hardware encryption. Integrated support for formats: zstd, xz, bzip2, openssl and libxml2. Cleared of unnecessary utilities (bsdtar/bsdcpio), leaving only a clean static library for FFmpeg.
-
-- lcms2 (v2.18): Built with support for multithreading (threaded) and acceleration of floating point calculations (fast_float). Full static linking, optimized for SSE2 and modern Broadwell instructions.
-
-- librsvg (Cargo-based): Completed cross-compiled Rust build chain, including cairo and pango dependencies.
-
-- Kvazaar with Crypto++ support.
-
-- LCEVC Decoder SDK with a fully natively generated SPIR-V shaders within a cross-compilation environment - compiled with full Vulkan pipeline.
-
-- Whisper with Vulkan and OpenVINO support.
-
-- x265 with optional SVT-HEVC 1.5.1 as core for compliant bitstreams. [Link](https://bitbucket.org/multicoreware/x265_git/src/master/doc/reST/svthevc.rst)
-
-- VapourSynth (Core + VSScript + Python-runtime) r75 compiled and isolated from the system.
-
-- znedi3 (high performance nnedi3 via zimg) Avisynth filter compiled.
-
-- frei0r with facerecognition plugins and all OpenCV/Cairo/Gavl filters.
-
-- libmp3lame with libmpg123 as a Decoder and SIMD Optimized LAME Encoder.
-
-- libvorbis with aoTuV 2021 and Lancer patch.
-
-- libopus with DRED, OSCE and custom modes enabled.
-
-- OpenVINO built and linked statically with Intel CPU and Intel GPU (optionally) support.
-
-### Implementation status:
-
-Added to the current build:
-
-[x] libflite (Speech Synthesis)
-[x] zstd (libzstd with activated multithreading for static builds)
-[x] libarchive (Universal Archive Support)
-[x] lcms2 (Little CMS)
-[x] pango / cairo (Advanced Text Rendering)
-[x] libtesseract (OCR Engine)
+  ╭─[ Toolchain ]----------------
+  │ mingw-std-threads
+  │ mingw
+  ╰-------------------------------
+  ╭─[ System Integration ]--------
+  │ tbbmalloc
+  │ libicu
+  │ libiconv
+  │ gettext
+  │ gmp
+  ╰-------------------------------
+  ╭─[ Compression & Runtime ]-----
+  │ zlib
+  │ brotli
+  │ bzlib
+  │ xz
+  │ zstd
+  │ jbigkit
+  │ libffi
+  │ snappy
+  │ libarchive
+  ╰-------------------------------
+  ╭─[ Base Integration ]----------
+  │ libunibreak
+  │ libxxhash
+  │ pcre2
+  │ fftw3
+  │ glib2
+  │ libxml2
+  ╰-------------------------------
+  ╭─[ Hardware Integration ]------
+  │ cdio
+  │ cdiowpar
+  ╰-------------------------------
+  ╭─[ OpenGL & Display Drivers ]--
+  │ freeglut
+  ╰-------------------------------
+  ╭─[ Net ]----------------------
+  │ openssl
+  │ cryptopp
+  │ nettle
+  │ gnutls
+  │ libdatachannel
+  │ librist
+  │ libssh
+  │ libzmq
+  │ quiche
+  │ srt
+  │ librabbitmq
+  │ nghttp2
+  │ curl
+  ╰-------------------------------
+  ╭─[ Core Graphics & Fonts ]-----
+  │ giflib
+  │ libjpeg-turbo
+  │ libpng
+  │ libtiff
+  │ openjpeg
+  │ svtjpegxs
+  │ libwebp
+  │ fontconfig
+  │ fribidi
+  │ libtiff
+  │ pixman
+  │ cairo
+  │ harfbuzz
+  │ lcms2
+  │ lensfun
+  │ zimg
+  │ freetype
+  │ pango
+  │ libavif
+  │ libjxl
+  │ librsvg
+  ╰-------------------------------
+  ╭─[ Subtitles & Teletext ]------
+  │ libaribb24
+  │ libaribcaption
+  │ libass
+  │ zvbi
+  ╰-------------------------------
+  ╭─[ QR-Codes ]-----------------
+  │ qrencode
+  │ quirc
+  ╰-------------------------------
+  ╭─[ Vulkan & Shaders ]----------
+  │ vulkan-headers
+  │ spirv-cross
+  │ shaderc
+  │ vulkan-loader
+  │ libplacebo
+  ╰-------------------------------
+  ╭─[ Hardware Acceleration API ]-
+  │ amf
+  │ ffnvcodec
+  │ onevpl
+  │ vmaf
+  │ libva
+  │ sdl
+  ╰-------------------------------
+  ╭─[ Video Capture ]-------------
+  │ decklink
+  │ libklvanc
+  ╰-------------------------------
+  ╭─[ Compute & Vision ]----------
+  │ leptonica
+  │ libtensorflow
+  │ opencl
+  │ openvino / built and linked statically with Intel CPU and working (optional) Intel GPU support
+  │ opencv
+  │ libtesseract
+  │ libtorch
+  │ opencolorio
+  ╰-------------------------------
+  ╭─[ Audio API & Codecs ]--------
+  │ libogg
+  │ libvorbis / with aoTuV 2021 and Lancer patch
+  │ bs2b
+  │ chromaprint
+  │ libmysofa
+  │ libsamplerate
+  │ soundtouch
+  │ soxr
+  │ speex
+  │ openal
+  │ rubberband
+  │ libmpg123
+  │ audiotoolbox
+  │ fdk-aac
+  │ ilbc
+  │ lc3
+  │ libcelt
+  │ libcodec2
+  │ libgsm
+  │ libmad
+  │ libmp3lame / with libmpg123 as a decoder and SIMD Optimized LAME encoder
+  │ libmpeghdec
+  │ libopus / with DRED, OSCE and custom modes enabled
+  │ mp3shine
+  │ mpeghe
+  │ opencore-amr
+  │ twolame
+  │ vo-amrwb
+  │ gme
+  │ modplug
+  │ openmpt
+  ╰-------------------------------
+  ╭─[ Speech Recognition ]--------
+  │ flite
+  │ pocketsphinx
+  │ whisper / with Vulkan and OpenVINO support
+  ╰-------------------------------
+  ╭─[ Software Codecs ]-----------
+  │ dav1d
+  │ rav1e
+  │ svtav1
+  │ aom
+  │ kvazaar / with Crypto++ support.
+  │ lcevcdec / with a natively generated SPIR-V shaders and compiled with full Vulkan pipeline
+  │ libtheora
+  │ libvpx
+  │ openapv
+  │ openh264
+  │ svthevc
+  │ svtvp9
+  │ vvdec
+  │ vvenc
+  │ x264
+  │ x265 / with optional SVT-HEVC 1.5.1 as core for compliant bitstreams [Link](https://bitbucket.org/multicoreware/x265_git/src/master/doc/reST/svthevc.rst)
+  │ xavs
+  │ xavs2
+  │ xvid
+  │ davs2
+  │ uavs3e
+  │ xeve
+  │ uavs3d
+  │ xevd
+  ╰-------------------------------
+  ╭─[ Frameservers & Filtering ]--
+  │ avisynth
+  │ gavl
+  │ vidstab
+  │ vapoursynth / v77 compiled core + VSScript + Python-runtime
+  │ frei0r / with facerecognition plugins + all OpenCV/Cairo/Gavl filters
+  │ nnedi3
+  ╰-------------------------------
+  ╭─[ Video Extensions ]----------
+  │ libcaca
+  │ libudfread
+  │ libdvdcss
+  │ libdvdread
+  │ libdvdnav
+  │ libbluray
+  ╰-------------------------------
+  ╭─[ LV2 & Plugins ]-------------
+  │ lv2
+  │ serd
+  │ zix
+  │ sord
+  │ sratom
+  ╰-------------------------------
+  ╭─[ Meta ]---------------------
+  │ lilv
+  ╰-------------------------------
 
 ---
 

@@ -283,13 +283,14 @@ done
 to_df "FROM ${TARGET_IMAGE} AS final_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "WORKDIR ${CONTAINER_ROOT}"
+
 to_df "COPY --from=components_build ${FFBUILD_PREFIX}/ ${FFBUILD_PREFIX}/"
 if [[ "${USE_TENSORFLOW}" == "1" ]]; then
     to_df "COPY --from=components_build /opt/ffbuild/share/tensorflow_models/ /opt/ffbuild/share/tensorflow_models/"
 fi
 
 to_df "$COMMON_ENV"
-to_df "COPY build.sh ./build.sh"
+# to_df "COPY build.sh ./build.sh"
 to_df "COPY addins ./addins"
 to_df "COPY patches ./patches"
 to_df "COPY util ./util"
@@ -301,6 +302,7 @@ if [[ "${SKIP_FFMPEG}" == "1" ]]; then
 else
     to_df "RUN --mount=type=cache,target=${CCACHE_DIR},id=ccache-${TARGET}-${VARIANT},sharing=shared \\"
     to_df "    --mount=type=bind,from=ffmpeg_src_ctx,source=/,target=/tmp/ffmpeg_src_ctx,ro \\"
+    to_df "    --mount=type=bind,source=build.sh,target=${CONTAINER_ROOT}/build.sh,ro \\"
     to_df "    set -e && mkdir -p ${CONTAINER_ROOT}/ffbuild/ffmpeg && \\"
     to_df "    cp -r /tmp/ffmpeg_src_ctx/* ${CONTAINER_ROOT}/ffbuild/ffmpeg/ && \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
