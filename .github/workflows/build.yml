@@ -424,27 +424,16 @@ jobs:
         uses: actions/cache/restore@v5.0.5
         with:
           path: ./host_tensorflow_models
-          key: tf-models-${{ env.TARGET }}-${{ hashFiles('generate.sh') }} 
-          restore-keys: |
-            tf-models-${{ env.TARGET }}-
-            tf-models-
+          key: tf-models-${{ env.TARGET }}
 
       - name: Extract Pre-compiled TensorFlow SR Models (Host Side)
         if: env.USE_TENSORFLOW == '1' && steps.cache-tf-models.outputs.cache-hit != 'true'
         run: |
-          echo "TensorFlow enabled and cache missed. Pulling miratmu/ffmpeg-tensorflow image..."
+          echo "TensorFlow enabled and cache missed. Pulling image..."
           docker pull miratmu/ffmpeg-tensorflow:latest
-
-          echo "Creating temporary container..."
           CONTAINER_ID=$(docker create miratmu/ffmpeg-tensorflow:latest)
-
-          echo "Creating isolated independent directory on host..."
           mkdir -p ./host_tensorflow_models
-
-          echo "Extracting .pb models..."
           docker cp ${CONTAINER_ID}:/usr/local/share/ffmpeg-tensorflow-models/. ./host_tensorflow_models/
-
-          echo "Cleaning up temporary container..."
           docker rm ${CONTAINER_ID}
 
       - name: Verify TensorFlow Models
@@ -458,7 +447,7 @@ jobs:
         uses: actions/cache/save@v5.0.5
         with:
           path: ./host_tensorflow_models
-          key: ${{ steps.cache-tf-models.outputs.primary-key }}
+          key: tf-models-${{ env.TARGET }}
 
       - name: Inspect Dockerfile
         run: head -n 80 Dockerfile
