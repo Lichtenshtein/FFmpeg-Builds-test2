@@ -104,7 +104,8 @@ export CONTAINER_ROOT="/builder"
 # The workflow mounts .cache/downloads → $CACHE_DIR, so the target must
 # match what generate.sh writes into the Dockerfile --mount target.
 # ---------------------------------------------------------------------------
-export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
+# export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
+export CACHE_DIR="/home/runner/work/FFmpeg-Builds-test2/FFmpeg-Builds-test2/.cache/downloads"
 
 if [[ "${USE_WINE:-0}" = "1" ]]; then
     export WINEARCH=win64
