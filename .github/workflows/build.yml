@@ -497,8 +497,6 @@ jobs:
             CPU_TUNE=${{ env.CPU_TUNE }}
           push: true
           tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
-          build-contexts: |
-            base-win64=docker-image://${{ steps.images.outputs.target_base }}
           cache-from: type=gha,scope=ffmpeg-global-build-cache
           cache-to: type=gha,mode=max,scope=ffmpeg-global-build-cache
 
@@ -522,7 +520,6 @@ jobs:
           push: false
           tags: ffmpeg-final:local
           build-contexts: |
-            base-win64=docker-image://${{ steps.images.outputs.target_base }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
           outputs: type=local,dest=artifacts/
           cache-from: type=gha,scope=ffmpeg-global-build-cache

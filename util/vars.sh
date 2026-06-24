@@ -104,8 +104,7 @@ export CONTAINER_ROOT="/builder"
 # The workflow mounts .cache/downloads → $CACHE_DIR, so the target must
 # match what generate.sh writes into the Dockerfile --mount target.
 # ---------------------------------------------------------------------------
-# export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
-export CACHE_DIR="/home/runner/work/FFmpeg-Builds-test2/FFmpeg-Builds-test2/.cache/downloads"
+export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
 
 if [[ "${USE_WINE:-0}" = "1" ]]; then
     export WINEARCH=win64
@@ -504,12 +503,12 @@ fi
 
 export ADDINS_STR="${ADDINS_STR:-}"
 
-REPO="${GITHUB_REPOSITORY:-lichtenshtein/ffmpeg-build}"
-REPO="${REPO,,}"
-REGISTRY="${REGISTRY_OVERRIDE:-ghcr.io}"
-BASE_IMAGE="${REGISTRY}/${REPO}/base:latest"
-TARGET_IMAGE="${REGISTRY}/${REPO}/base-${TARGET}:latest"
-IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:latest"
+export REPO="${GITHUB_REPOSITORY:-lichtenshtein/ffmpeg-build}"
+export REPO="${REPO,,}"
+export REGISTRY="${REGISTRY_OVERRIDE:-ghcr.io}"
+export BASE_IMAGE="${REGISTRY}/${REPO}/base:latest"
+export TARGET_IMAGE="${REGISTRY}/${REPO}/base-${TARGET}:latest"
+export IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:latest"
 
 # 2 for verbose logs, 0 for brief
 # FFBUILD_VERBOSE value from Docker ENV
