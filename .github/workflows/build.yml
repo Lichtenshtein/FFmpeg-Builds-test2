@@ -515,11 +515,8 @@ jobs:
           push: false
           tags: ffmpeg-final:local
           build-contexts: |
-            base-win64=docker-image://${{ steps.images.outputs.target_base }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
             ffmpeg_src_ctx=.cache/ffmpeg
-            tf_models_ctx=./host_tensorflow_models
-            downloads_ctx=.cache/downloads
           outputs: type=local,dest=artifacts/
           cache-from: |
             type=gha,scope=ffmpeg-components

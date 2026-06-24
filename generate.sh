@@ -130,12 +130,12 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     DLL_PRESERVE_LIST=\"${DLL_PRESERVE_LIST}\" \\
     GIT_PRESERVE_LIST=\"${GIT_PRESERVE_LIST}\""
 
+# BASE COMPONENT BUILD STAGE
+to_df "FROM ${TARGET_IMAGE} AS components_build"
+
 # Регистрируем именованные контексты как глобальные алиасы. 
 to_df "FROM tf_models_ctx AS tf_models_snapshot"
 to_df "FROM downloads_ctx AS downloads_snapshot"
-
-# BASE COMPONENT BUILD STAGE
-to_df "FROM ${TARGET_IMAGE} AS components_build"
 
 # СТАБИЛЬНЫЕ СЛОИ
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
