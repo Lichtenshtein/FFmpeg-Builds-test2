@@ -142,7 +142,12 @@ to_df "RUN chmod +x /usr/bin/run_stage"
 
 # ДИНАМИЧЕСКИЕ СЛОИ
 if [[ "${USE_TENSORFLOW}" == "1" ]]; then
-    mkdir -p host_tensorflow_models
+
+    if [[ ! -d "host_tensorflow_models" ]] || [[ -z "$(ls -A host_tensorflow_models 2>/dev/null)" ]]; then
+        log_warn "TensorFlow is enabled, but 'host_tensorflow_models' is missing or empty."
+        log_warn "The build will likely fail unless the context is provided correctly."
+    fi
+
     to_df "COPY --from=tf_models_ctx / /tmp/host_tensorflow_models/"
     to_df "RUN mkdir -p /opt/ffbuild/share/tensorflow_models && \\"
     to_df "    if [ -d /tmp/host_tensorflow_models ] && [ \"\$(ls -A /tmp/host_tensorflow_models 2>/dev/null)\" ]; then \\"
