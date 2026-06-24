@@ -242,6 +242,17 @@ if [[ -f "$PREFIX_PC" ]]; then
     log_info "---------------------------------------"
 fi
 
+PREFIX2_PC="${FFBUILD_PREFIX}/lib/pkgconfig/libdatachannel.pc"
+if [[ -f "$PREFIX2_PC" ]]; then
+    log_info "Fixing libdatachannel.pc in active prefix..."
+
+    sed -i '/^Libs.private:/ s/$/ -lopenal/' "$PREFIX2_PC"
+
+    log_info "--- Content of fixed libdatachannel.pc ---"
+    cat "$PREFIX2_PC"
+    log_info "---------------------------------------"
+fi
+
 # =======================================
 # FLAGS SECTION
 # =======================================
@@ -544,7 +555,7 @@ CONF_FLAGS=(
     --extra-cxxflags="${FINAL_CXXFLAGS}"
     --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
-    --extra-libs="${FINAL_LIBS_GROUPED}"
+    --extra-libs="${FINAL_LIBS_GROUPED} -lopenal -ldsound"
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
