@@ -485,6 +485,8 @@ jobs:
             base-win64=docker-image://${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
             cache_ffmpeg_ctx=${{ github.workspace }}/.cache/ffmpeg
+            tf_models_ctx=${{ github.workspace }}/host_tensorflow_models
+            cache_downloads_ctx=${{ github.workspace }}/.cache/downloads
           provenance: false
 
       - name: Get Final FFmpeg Commit for Cache Key
