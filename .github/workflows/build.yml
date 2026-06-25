@@ -170,6 +170,13 @@ jobs:
       - name: Fix Line Endings (CRLF to LF)
         run: find scripts.d util addins images variants -type f -name "*.sh" -exec sed -i 's/\r$//' {} +
 
+      - name: Guarantee Cache Directories Existence
+        run: |
+          mkdir -p .cache/downloads .cache/ffmpeg .cache/ccache .cache/tmp artifacts
+          touch .cache/downloads/.keep .cache/ffmpeg/.keep
+          chmod -R u+r patches/ || true
+          chmod -R u+w .cache/ || true
+
       - name: 🗑️ Nuke All Caches
         if: github.event.inputs.doClean == 'true'
         run: |
@@ -434,10 +441,6 @@ jobs:
             echo "🧹 Clearing CCACHE directory..."
             rm -rf .cache/ccache/*
           fi
-
-          mkdir -p .cache/downloads .cache/ffmpeg .cache/ccache .cache/tmp
-          chmod -R u+r patches/ || true
-          chmod -R u+w .cache/ || true
 
           export TARGET_IMAGE="base-win64"
 
