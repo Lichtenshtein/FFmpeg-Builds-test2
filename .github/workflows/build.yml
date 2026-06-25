@@ -452,23 +452,36 @@ jobs:
       - name: Inspect Generated Dockerfile
         run: head -n 100 Dockerfile
 
-      - name: Execute FFmpeg Compilation Workflow
+      - name: Build Components Stage
         uses: docker/build-push-action@v7
         with:
           context: .
           file: Dockerfile
-          target: ${{ env.SKIP_FFMPEG == '1' && 'components_build' || 'artifacts' }}
-          build-args: |
-            CPU_ARCH=${{ env.CPU_ARCH }}
-            CPU_TUNE=${{ env.CPU_TUNE }}
-          outputs: ${{ env.SKIP_FFMPEG == '1' && '' || 'type=local,dest=artifacts/' }}
-          push: false
-          cache-from: type=gha,scope=ffmpeg-global-pipeline
-          cache-to: type=gha,mode=max,scope=ffmpeg-global-pipeline
+          target: components_build
+          push: true
+          tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
+          cache-from: type=gha,scope=ffmpeg-components
+          cache-to: type=gha,mode=max,scope=ffmpeg-components
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
-            tf_models_ctx=${{ github.workspace }}/host_tensorflow_models
             cache_downloads_ctx=${{ github.workspace }}/.cache/downloads
+
+      - name: Final FFmpeg Compilation
+        if: env.SKIP_FFMPEG != '1'
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          target: artifacts
+          push: false
+          outputs: type=local,dest=artifacts/
+          cache-from: |
+            type=gha,scope=ffmpeg-components
+            type=gha,scope=ffmpeg-final
+          cache-to: type=gha,mode=max,scope=ffmpeg-final
+          build-contexts: |
+            base-win64=docker-image://${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
+            components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
             cache_ffmpeg_ctx=${{ github.workspace }}/.cache/ffmpeg
           provenance: false
 
