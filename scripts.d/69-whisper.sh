@@ -36,7 +36,7 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(OV REQUIRED openvino)
 pkg_check_modules(TBB REQUIRED tbb)
 
-# 1. Сreating a fake CMake target openvino::runtime
+# 1. Creating a fake CMake target openvino::runtime
 if(NOT TARGET openvino::runtime)
     add_library(openvino::runtime INTERFACE IMPORTED)
     target_link_libraries(openvino::runtime INTERFACE ${OV_LIBRARIES} ${TBB_LIBRARIES})
@@ -60,12 +60,9 @@ endif()
 
 # 4. Creating a fake CMake target OpenCL::OpenCL (Required by ggml-openvino)
 if(NOT TARGET OpenCL::OpenCL)
-    find_foreign_target_cl() # Пробуем найти системный, если нет - делаем заглушку
-    if(NOT TARGET OpenCL::OpenCL)
-        add_library(OpenCL_cl INTERFACE)
-        target_link_libraries(OpenCL_cl INTERFACE OpenCL)
-        add_library(OpenCL::OpenCL ALIAS OpenCL_cl)
-    fi()
+    add_library(OpenCL_cl INTERFACE)
+    target_link_libraries(OpenCL_cl INTERFACE OpenCL)
+    add_library(OpenCL::OpenCL ALIAS OpenCL_cl)
 endif()
 
 # Globally override find_package for OpenVINO so it satisfies components

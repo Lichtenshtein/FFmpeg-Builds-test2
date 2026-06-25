@@ -205,7 +205,7 @@ git-submodule-clone() {
     # Попытка стандартного обновления
     # --force поможет, если локально были внесены небольшие изменения
     log_info "${SYNC_MARK} Attempting standard update..."
-    if _retry git submodule update --quiet --init --recursive --depth 1; then
+    if _retry git submodule update --quiet --init --recursive --depth 1 --single-branch --no-tags; then
         log_info "${CHECK_MARK} Submodules synchronized successfully via standard update."
         return 0
     fi
@@ -223,10 +223,11 @@ git-submodule-clone() {
         source \"\$UTIL_DIR/dl_functions.sh\"
         log_info \"Processing submodule: \$name\"
         git reset --hard HEAD && git clean -fd
-        if _retry git fetch --quiet --no-tags --depth=1 origin; then
+        if _retry git fetch --quiet --no-tags --depth=1 --update-shallow --prune origin; then
             git checkout -q FETCH_HEAD || \
             git checkout -q \$(git config -f \"\$toplevel/.gitmodules\" \
                 \"submodule.\$name.branch\" 2>/dev/null || echo 'master')
+            git gc --prune=now --aggressive
         else
             log_error \"Failed to fetch submodule \$name\"
             exit 1
