@@ -148,7 +148,7 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     GIT_PRESERVE_LIST=\"${GIT_PRESERVE_LIST}\""
 
 # СТАБИЛЬНЫЕ СЛОИ
-to_df "FROM ${TARGET_IMAGE} AS components_build"
+to_df "FROM base-win64 AS components_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "$COMMON_ENV"
 to_df "WORKDIR ${CONTAINER_ROOT}"
@@ -267,30 +267,29 @@ for STAGE in "${active_scripts[@]}"; do
 
     to_df "# Component: $STAGENAME | LayerID: $LAYER_ID"
 
-    to_df "RUN --mount=type=cache,target=${CCACHE_DIR},id=ccache-${TARGET}-${VARIANT},sharing=shared,rw \\"
-    to_df "    --mount=type=bind,from=downloads_ctx,source=/,target=/tmp/downloads_source,rw \\"
-    to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d,ro \\"
-    to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util,ro \\"
-    to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches,ro \\"
-    to_df "    --mount=type=bind,source=variants,target=${CONTAINER_ROOT}/variants,ro \\"
-    to_df "    --mount=type=bind,source=addins,target=${CONTAINER_ROOT}/addins,ro \\"
-    to_df "    set -e && mkdir -p ${CONTAINER_ROOT}/.cache/downloads ${CONTAINER_ROOT}/.cache/tmp && \\"
-    to_df "    if [ -d /tmp/downloads_source ] && [ \"\$(ls -A /tmp/downloads_source 2>/dev/null)\" ]; then cp -rn /tmp/downloads_source/* ${CONTAINER_ROOT}/.cache/downloads/ || true; fi && \\"
+    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
+    to_df "    --mount=type=bind,source=.cache/downloads,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
+    to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
+    to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
+    to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\"
+    to_df "    --mount=type=bind,source=variants,target=${CONTAINER_ROOT}/variants \\"
+    to_df "    --mount=type=bind,source=addins,target=${CONTAINER_ROOT}/addins \\"
     to_df "    export _H=${LAYER_ID} && . ${CONTAINER_ROOT}/util/vars.sh \"${TARGET}\" \"${VARIANT}\" && run_stage ${CONTAINER_ROOT}/${STAGE}"
 done
 
 # FINAL FFMPEG BUILD STAGE
-to_df "FROM ${TARGET_IMAGE} AS final_build"
+to_df "FROM base-win64 AS final_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "WORKDIR ${CONTAINER_ROOT}"
 
 to_df "COPY --from=components_build ${FFBUILD_PREFIX}/ ${FFBUILD_PREFIX}/"
+
 if [[ "${USE_TENSORFLOW}" == "1" ]]; then
     to_df "COPY --from=components_build /opt/ffbuild/share/tensorflow_models/ /opt/ffbuild/share/tensorflow_models/"
 fi
 
 to_df "$COMMON_ENV"
-# to_df "COPY build.sh ./build.sh"
+to_df "COPY build.sh ./build.sh"
 to_df "COPY addins ./addins"
 to_df "COPY patches ./patches"
 to_df "COPY util ./util"
@@ -300,11 +299,8 @@ if [[ "${SKIP_FFMPEG}" == "1" ]]; then
     to_df "RUN mkdir -p ${FFBUILD_DESTDIR} && \\"
     to_df "    echo 'Components built successfully' > ${FFBUILD_DESTDIR}/BUILD_SUCCESS"
 else
-    to_df "RUN --mount=type=cache,target=${CCACHE_DIR},id=ccache-${TARGET}-${VARIANT},sharing=shared \\"
-    to_df "    --mount=type=bind,from=ffmpeg_src_ctx,source=/,target=/tmp/ffmpeg_src_ctx,ro \\"
-    to_df "    --mount=type=bind,source=build.sh,target=${CONTAINER_ROOT}/build.sh,ro \\"
-    to_df "    set -e && mkdir -p ${CONTAINER_ROOT}/ffbuild/ffmpeg && \\"
-    to_df "    cp -r /tmp/ffmpeg_src_ctx/* ${CONTAINER_ROOT}/ffbuild/ffmpeg/ && \\"
+    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
+    to_df "    --mount=type=bind,source=.cache/ffmpeg,target=/builder/ffbuild/ffmpeg,rw \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
 
