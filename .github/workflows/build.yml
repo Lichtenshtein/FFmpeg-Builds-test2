@@ -188,10 +188,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # - name: Set up Docker Buildx
-        # uses: docker/setup-buildx-action@v4
-        # with:
-          # driver: docker-container
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+        with:
+          driver: docker-container
 
       - name: Install Host Tools
         if: github.event.inputs.regularClean == 'true'
@@ -468,6 +468,8 @@ jobs:
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
             tf_models_ctx=${{ github.workspace }}/host_tensorflow_models
+            cache_downloads_ctx=${{ github.workspace }}/.cache/downloads
+            cache_ffmpeg_ctx=${{ github.workspace }}/.cache/ffmpeg
           provenance: false
 
       - name: Get Final FFmpeg Commit for Cache Key
