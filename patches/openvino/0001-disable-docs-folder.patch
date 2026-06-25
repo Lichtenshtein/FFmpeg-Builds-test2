@@ -19,6 +19,45 @@ index 8d234c44ae..4a048471e8 100644
  add_subdirectory(tools)
  add_subdirectory(scripts)
  add_subdirectory(licensing)
+diff --git a/src/plugins/intel_gpu/thirdparty/onednn_gpu/CMakeLists.txt b/src/plugins/intel_gpu/thirdparty/onednn_gpu/CMakeLists.txt
+index df5b819..8c56932 100644
+--- a/src/plugins/intel_gpu/thirdparty/onednn_gpu/CMakeLists.txt
++++ b/src/plugins/intel_gpu/thirdparty/onednn_gpu/CMakeLists.txt
+@@ -153,8 +153,6 @@ include(GNUInstallDirs)
+ include(CMakePackageConfigHelpers)
+ 
+ add_subdirectory(src)
+-add_subdirectory(examples)
+-add_subdirectory(tests)
+ 
+ if(DNNL_INSTALL_MODE STREQUAL "BUNDLE")
+     install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/doc/${LIB_PACKAGE_NAME})
+diff --git a/src/plugins/intel_cpu/thirdparty/ComputeLibrary/third_party/kleidiai/CMakeLists.txt b/src/plugins/intel_cpu/thirdparty/ComputeLibrary/third_party/kleidiai/CMakeLists.txt
+index d1eec4e..4982330 100644
+--- a/src/plugins/intel_cpu/thirdparty/ComputeLibrary/third_party/kleidiai/CMakeLists.txt
++++ b/src/plugins/intel_cpu/thirdparty/ComputeLibrary/third_party/kleidiai/CMakeLists.txt
+@@ -29,7 +29,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+ include(GNUInstallDirs)
+ include(CheckCSourceCompiles)
+ 
+-option(KLEIDIAI_BUILD_TESTS       "Build unit tests."             ON)
++option(KLEIDIAI_BUILD_TESTS       "Build unit tests."             OFF)
+ option(KLEIDIAI_BUILD_BENCHMARK   "Build the benchmark tool."     OFF)
+ option(KLEIDIAI_ENABLE_CLANG_TIDY "Build with Clang-Tidy checks." OFF)
+ option(KLEIDIAI_ERROR_TRAP        "Use trap instead of abort."    OFF)
+diff --git a/src/plugins/intel_cpu/thirdparty/onednn/CMakeLists.txt b/src/plugins/intel_cpu/thirdparty/onednn/CMakeLists.txt
+index 4af933e..896cd2f 100644
+--- a/src/plugins/intel_cpu/thirdparty/onednn/CMakeLists.txt
++++ b/src/plugins/intel_cpu/thirdparty/onednn/CMakeLists.txt
+@@ -157,8 +157,6 @@ include(GNUInstallDirs)
+ include(CMakePackageConfigHelpers)
+ 
+ add_subdirectory(src)
+-add_subdirectory(examples)
+-add_subdirectory(tests)
+ 
+ if(DNNL_INSTALL_MODE STREQUAL "BUNDLE")
+     install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/doc/${LIB_PACKAGE_NAME})
 -- 
 2.52.0.windows.1
 

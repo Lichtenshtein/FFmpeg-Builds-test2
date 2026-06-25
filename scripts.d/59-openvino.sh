@@ -19,7 +19,25 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     echo "git-submodule-clone"
-    echo "rm -rf .github samples tests src/core/tests src/tests"
+    # can probably clean more from /thirdparty folder
+    echo "rm -rf .github samples tests src/core/tests src/tests \
+src/plugins/intel_npu/thirdparty/yaml-cpp/test \
+src/plugins/intel_npu/tests \
+src/plugins/intel_gpu/tests \
+src/plugins/intel_gpu/thirdparty/onednn_gpu/examples \
+src/plugins/intel_gpu/thirdparty/onednn_gpu/doc \
+src/plugins/intel_gpu/thirdparty/onednn_gpu/tests \
+src/plugins/intel_cpu/tests \
+src/plugins/intel_cpu/thirdparty/ComputeLibrary/tests \
+src/plugins/intel_cpu/thirdparty/ComputeLibrary/third_party/kleidiai/third_party \
+src/plugins/intel_cpu/thirdparty/ComputeLibrary/third_party/kleidiai/test \
+src/plugins/intel_cpu/thirdparty/ComputeLibrary/third_party/kleidiai/benchmark \
+src/plugins/intel_cpu/thirdparty/libxsmm/tests \
+src/plugins/intel_cpu/thirdparty/libxsmm/samples \
+src/plugins/intel_cpu/thirdparty/libxsmm/documentation \
+src/plugins/intel_cpu/thirdparty/onednn/tests \
+src/plugins/intel_cpu/thirdparty/onednn/examples \
+src/plugins/intel_cpu/thirdparty/onednn/doc"
 }
 
 ffbuild_dockerbuild() {
