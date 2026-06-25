@@ -205,7 +205,7 @@ git-submodule-clone() {
     # Попытка стандартного обновления
     # --force поможет, если локально были внесены небольшие изменения
     log_info "${SYNC_MARK} Attempting standard update..."
-    if _retry git submodule update --quiet --init --recursive --depth 1 --single-branch --no-tags; then
+    if _retry git submodule update --quiet --init --recursive --depth 1 --single-branch; then
         log_info "${CHECK_MARK} Submodules synchronized successfully via standard update."
         return 0
     fi
@@ -218,7 +218,7 @@ git-submodule-clone() {
     # 2. Получаем данные напрямую
     # 3. Пытаемся переключиться на нужный коммит (записанный в основном репозитории)
     # Обычно это FETCH_HEAD после fetch, если мы тянем конкретный коммит
-    git submodule foreach --recursive bash -c "
+    if git submodule foreach --recursive bash -c "
         source \"\$UTIL_DIR/vars.sh\" \"\$TARGET\" \"\$VARIANT\" 2>/dev/null
         source \"\$UTIL_DIR/dl_functions.sh\"
         log_info \"Processing submodule: \$name\"
@@ -232,10 +232,7 @@ git-submodule-clone() {
             log_error \"Failed to fetch submodule \$name\"
             exit 1
         fi
-    "
-
-    # Финальная проверка
-    if [ $? -eq 0 ]; then
+    "; then
         log_info "${CHECK_MARK} Submodules synchronized after manual intervention."
         return 0
     else
