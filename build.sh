@@ -281,12 +281,12 @@ fi
 # log_info "Injecting hotfix stub for broken upstream OpenVINO symbol..."
 
 # cat << 'EOF' > /tmp/ggml_openvino_stub.cpp
-include <stdint.h>
+# # include <stdint.h>
 # extern "C" void* ggml_backend_openvino_reg(void) {
-    # return nullptr;
+#     return nullptr;
 # }
 # EOF
-
+# 
 # ${FFBUILD_TOOLCHAIN}-g++ -c /tmp/ggml_openvino_stub.cpp -o /tmp/ggml_openvino_stub.o
 # ${FFBUILD_CROSS_PREFIX}ar rcs ${FFBUILD_PREFIX}/lib/libggml_openvino_stub.a /tmp/ggml_openvino_stub.o
 
