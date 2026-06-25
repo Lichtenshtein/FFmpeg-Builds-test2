@@ -148,7 +148,7 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     GIT_PRESERVE_LIST=\"${GIT_PRESERVE_LIST}\""
 
 # СТАБИЛЬНЫЕ СЛОИ
-to_df "FROM base-win64 AS components_build"
+to_df "FROM ${TARGET_IMAGE} AS components_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "$COMMON_ENV"
 to_df "WORKDIR ${CONTAINER_ROOT}"
@@ -278,7 +278,7 @@ for STAGE in "${active_scripts[@]}"; do
 done
 
 # FINAL FFMPEG BUILD STAGE
-to_df "FROM base-win64 AS final_build"
+to_df "FROM ${TARGET_IMAGE} AS final_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "WORKDIR ${CONTAINER_ROOT}"
 
