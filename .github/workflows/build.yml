@@ -465,6 +465,8 @@ jobs:
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
             cache_downloads_ctx=${{ github.workspace }}/.cache/downloads
+            tf_models_ctx=${{ github.workspace }}/host_tensorflow_models
+          provenance: false
 
       - name: Final FFmpeg Compilation
         if: env.SKIP_FFMPEG != '1'
