@@ -327,7 +327,19 @@ jobs:
           HASH=$(sha256sum images/base-win64/Dockerfile images/base-win64/toolchain.cmake images/base-win64/cross.meson 2>/dev/null | sha256sum | cut -c1-16)
           echo "hash=$HASH" >> $GITHUB_OUTPUT
 
+      - name: Check if Base Image Already Exists
+        id: check_base
+        run: |
+          if docker manifest inspect ${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }} >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Базовый образ с хэшем ${{ steps.docker_hash.outputs.hash }} уже есть в реестре. Сборка не требуется!"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Базового образа нет в реестре. Требуется сборка."
+          fi
+
       - name: Build and Push Unified Toolchain Image
+        if: steps.check_base.outputs.exists != 'true'
         uses: docker/build-push-action@v7
         with:
           context: .
@@ -336,12 +348,12 @@ jobs:
             CARGO_C_VERSION=0.10.22
             CPU_ARCH=${{ env.CPU_ARCH }}
             CPU_TUNE=${{ env.CPU_TUNE }}
-          cache-from: type=gha,scope=ffmpeg-base-cache
-          cache-to: type=gha,mode=max,scope=ffmpeg-base-cache
           push: true
           tags: |
             ${{ steps.images.outputs.target_base }}
             ${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
+          cache-from: type=gha,scope=ffmpeg-base-cache
+          cache-to: type=gha,mode=max,scope=ffmpeg-base-cache
 
       # --- Calculate the Key  ---
       - name: Get Download Cache Key (Stable)
