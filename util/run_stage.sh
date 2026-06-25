@@ -148,6 +148,13 @@ mkdir -p "$FFBUILD_DESTDIR" "$FFBUILD_DESTPREFIX"
 
 log_info "${SEARCH_MARK} Searching source for $STAGENAME"
 
+# Проверяем, доступна ли папка кэша на запись
+if [ ! -w "$CACHE_DIR" ]; then
+    # Если кэш Read-Only (BuildKit context), перенаправляем декоративные ссылки в /tmp,
+    # чтобы утилита ln не пыталась писать в защищенную память.
+    STAGE_LATEST_LINK="/tmp/$(basename "$STAGE_LATEST_LINK")"
+fi
+
 # Ищем точное совпадение (Имя_Хеш)
 if [[ -f "$STAGE_CACHE_FILE" ]]; then
     REAL_CACHE="$STAGE_CACHE_FILE"
@@ -191,8 +198,11 @@ if [[ -n "$DL_COMMANDS" ]]; then
                 git clean -fdx
             fi
             # Сразу создаем архив в кэше, чтобы в следующий раз он подхватился мгновенно
-            log_info "${ARCH_MARK} Creating new cache archive for $STAGENAME..."
-            tar -I 'zstd -T0 -3' -cf "$STAGE_CACHE_FILE" .
+            if [ -w "$CACHE_DIR" ]; then
+                log_info "${ARCH_MARK} Creating new cache archive for $STAGENAME..."
+                tar -I 'zstd -T0 -3' -cf "$STAGE_CACHE_FILE" .
+            fi
+
             rm -f "$STAGE_LATEST_LINK"
             ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK" || true
         else
