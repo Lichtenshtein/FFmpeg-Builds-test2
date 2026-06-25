@@ -16,13 +16,6 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
     exit 1
 }
 
-# Если передан конкретный хэш из workflow, используем его, иначе откатываемся на latest
-# if [ -n "$DOCKER_HASH" ]; then
-    # TARGET_IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}/base-win64:${DOCKER_HASH}"
-# else
-    # TARGET_IMAGE="${TARGET_IMAGE:-ghcr.io/${GITHUB_REPOSITORY,,}/base-win64:latest}"
-# fi
-
 CONTAINER_ROOT="${CONTAINER_ROOT:-/builder}"
 
 # build ADDINS array based on ENV VARIABLES
@@ -147,23 +140,16 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     DLL_PRESERVE_LIST=\"${DLL_PRESERVE_LIST}\" \\
     GIT_PRESERVE_LIST=\"${GIT_PRESERVE_LIST}\""
 
-# СТАБИЛЬНЫЕ СЛОИ
 to_df "FROM ${TARGET_IMAGE} AS components_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "$COMMON_ENV"
 to_df "WORKDIR ${CONTAINER_ROOT}"
 to_df "COPY --chmod=755 util/run_stage.sh /usr/bin/run_stage"
 
-# ДИНАМИЧЕСКИЕ СЛОИ
 if [[ "${USE_TENSORFLOW}" == "1" ]]; then
-    if [[ ! -d "host_tensorflow_models" ]] || [[ -z "$(ls -A host_tensorflow_models 2>/dev/null)" ]]; then
-        log_warn "TensorFlow is enabled, but 'host_tensorflow_models' is missing or empty."
-    fi
-    to_df "RUN --mount=type=bind,from=tf_models_ctx,source=/,target=/tmp/tf_ctx \\"
+    to_df "RUN --mount=type=bind,from=tf_models_ctx,target=/tmp/tf_ctx \\"
     to_df "    mkdir -p /opt/ffbuild/share/tensorflow_models && \\"
-    to_df "    if [ -d /tmp/tf_ctx ] && [ \"\$(ls -A /tmp/tf_ctx 2>/dev/null)\" ]; then \\"
-    to_df "        cp -r /tmp/tf_ctx/* /opt/ffbuild/share/tensorflow_models/; \\"
-    to_df "    fi"
+    to_df "    cp -fRP /tmp/tf_ctx/. /opt/ffbuild/share/tensorflow_models/"
 fi
 
 # Очищаем содержимое перед хешированием:
@@ -171,7 +157,7 @@ fi
 # 2. Удаляем комментарии и лишние пробелы
 # 3. Сортируем (чтобы порядок строк в файле не влиял на хеш)
 ENV_HASH=$({
-    grep -E "^(CFLAGS|CXXFLAGS|LDFLAGS|CPPFLAGS|RUSTFLAGS|BASE_CFLAGS|SYSTEM_LIBS)=" "$UTIL_DIR/vars.sh" \
+    grep -E "^(CFLAGS|CXXFLAGS|LDFLAGS|CPPFLAGS|RUSTFLAGS|BASE_CFLAGS|LIBS)=" "$UTIL_DIR/vars.sh" \
         | grep -v "^#" \
         | grep -v "^\s*$" \
         | sed 's/[[:space:]]\+/ /g' \
@@ -183,6 +169,7 @@ ENV_HASH=$({
     echo "USE_LTO=$USE_LTO"
     echo "USE_AVX512=$USE_AVX512"
     echo "USE_OPENMP=$USE_OPENMP"
+    echo "FFBUILD_PREFIX=$FFBUILD_PREFIX"
 } | sha256sum | cut -c1-8)
 
 # Global Logic Hash: Changes if run_stage.sh or the internal functions of vars.sh change.
@@ -196,6 +183,9 @@ if [[ "$DEBUG_NO_HASH" == "1" ]]; then
     ENV_HASH="env_static"
     LOGIC_HASH="logic_static"
 fi
+
+# кумулятивный хэш цепочки для инвалидации последующих слоев
+CHAIN_HASH="${ENV_HASH}_${LOGIC_HASH}"
 
 # Сборка и фильтрация активных скриптов
 if [[ "$DIR_NUMBERS" == "1" ]]; then
@@ -263,9 +253,17 @@ for STAGE in "${active_scripts[@]}"; do
     # Combine them into a unique ID for this specific layer
     # If you change a log message in vars.sh, ENV_HASH stays the same -> NO REBUILD.
     # If you change CFLAGS in vars.sh, ENV_HASH changes -> GLOBAL REBUILD.
-    LAYER_ID="E:${ENV_HASH}_L:${LOGIC_HASH}_S:${STAGE_HASH}_P:${PATCH_HASH}"
+    # LAYER_ID="E:${ENV_HASH}_L:${LOGIC_HASH}_S:${STAGE_HASH}_P:${PATCH_HASH}"
+
+    # Добавляем хэш текущего компонента в кумулятивную цепочку
+    CHAIN_HASH=$(echo "${CHAIN_HASH}_${STAGE_HASH}_${PATCH_HASH}" | sha256sum | cut -c1-16)
+    LAYER_ID="CH:${CHAIN_HASH}"
 
     to_df "# Component: $STAGENAME | LayerID: $LAYER_ID"
+
+    # Внедряем ARG, уникальный для каждого шага. 
+    # Если цепочка до этого шага изменилась, Docker гарантированно сбросит кэш здесь и далее.
+    to_df "ARG CACHE_BYPASS_${STAGENAME}=\"${LAYER_ID}\""
 
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
     to_df "    --mount=type=bind,source=.cache/downloads,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
@@ -274,7 +272,7 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\"
     to_df "    --mount=type=bind,source=variants,target=${CONTAINER_ROOT}/variants \\"
     to_df "    --mount=type=bind,source=addins,target=${CONTAINER_ROOT}/addins \\"
-    to_df "    export _H=${LAYER_ID} && . ${CONTAINER_ROOT}/util/vars.sh \"${TARGET}\" \"${VARIANT}\" && run_stage ${CONTAINER_ROOT}/${STAGE}"
+    to_df "    export _H=\${CACHE_BYPASS_${STAGENAME}} && . ${CONTAINER_ROOT}/util/vars.sh \"${TARGET}\" \"${VARIANT}\" && run_stage ${CONTAINER_ROOT}/${STAGE}"
 done
 
 # FINAL FFMPEG BUILD STAGE
@@ -305,5 +303,6 @@ else
 fi
 
 # ARTIFACTS COLLECTOR STAGE
+to_df ""
 to_df "FROM scratch AS artifacts"
 to_df "COPY --from=final_build ${FFBUILD_DESTDIR}/ ."
