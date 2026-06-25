@@ -215,13 +215,7 @@ if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
     sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
 fi
 
-log_info "Patching FFmpeg's vf_quirc.c for correct C-linkage under MinGW..."
-VF_QUIRC_SRC="libavfilter/vf_quirc.c"
-if [[ -f "$VF_QUIRC_SRC" ]]; then
-    # Заменяем #include <quirc.h> на extern "C" обертку
-    sed -i 's|#include <quirc.h>|extern "C" {\n#include <quirc.h>\n}|g' "$VF_QUIRC_SRC"
-    log_info "vf_quirc.c successfully patched."
-fi
+
 
 log_info "Patching FFmpeg's nvenc_dispatch.c to fix missing v13.0 NVENC symbols..."
 NVENC_DISPATCH_SRC="libavcodec/nvenc_dispatch.c"
