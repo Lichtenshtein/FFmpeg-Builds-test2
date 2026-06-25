@@ -266,7 +266,7 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "ARG CACHE_BYPASS_${STAGENAME}=\"${LAYER_ID}\""
 
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
-    to_df "    --mount=type=bind,from=cache_downloads_ctx,source=/,target=${CONTAINER_ROOT}/.cache/downloads,rw \\"
+    to_df "    --mount=type=bind,from=cache_downloads_ctx,source=/,target=${CONTAINER_ROOT}/.cache/downloads \\"
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
     to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\"
