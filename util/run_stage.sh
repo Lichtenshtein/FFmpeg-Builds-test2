@@ -152,14 +152,16 @@ log_info "${SEARCH_MARK} Searching source for $STAGENAME"
 if [[ -f "$STAGE_CACHE_FILE" ]]; then
     REAL_CACHE="$STAGE_CACHE_FILE"
     log_info "${CHECK_MARK} Exact cache match found: $(basename "$REAL_CACHE")"
-    ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
+    rm -f "$STAGE_LATEST_LINK"
+    ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK" || true
 # Ищем по хешу (если скрипт переименован, например 25-glib2 -> 24-glib2)
 else
     EXISTING_BY_HASH=$(find "$CACHE_DIR" -maxdepth 1 -name "*_${STAGE_HASH}.tar.zst" -print -quit)
     if [[ -n "$EXISTING_BY_HASH" ]]; then
         REAL_CACHE="$EXISTING_BY_HASH"
         log_info "${CHECK_MARK} Found cache with matching hash but different name: $(basename "$REAL_CACHE")"
-        ln -sf "$(basename "$REAL_CACHE")" "$STAGE_LATEST_LINK"
+        rm -f "$STAGE_LATEST_LINK"
+        ln -sf "$(basename "$REAL_CACHE")" "$STAGE_LATEST_LINK" || true
 # Откат к последней ссылке (LATEST), если точный хеш не найден
     elif [[ -L "$STAGE_LATEST_LINK" && -f "$STAGE_LATEST_LINK" ]]; then
         REAL_CACHE=$(readlink -f "$STAGE_LATEST_LINK")
@@ -191,7 +193,8 @@ if [[ -n "$DL_COMMANDS" ]]; then
             # Сразу создаем архив в кэше, чтобы в следующий раз он подхватился мгновенно
             log_info "${ARCH_MARK} Creating new cache archive for $STAGENAME..."
             tar -I 'zstd -T0 -3' -cf "$STAGE_CACHE_FILE" .
-            ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
+            rm -f "$STAGE_LATEST_LINK"
+            ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK" || true
         else
             # блок ошибки, срабатывает только если загрузка провалилась.
             log_error "No source cache and download failed for $STAGENAME"
