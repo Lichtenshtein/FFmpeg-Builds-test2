@@ -6,7 +6,8 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '04-tbbmalloc|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|59-opencl|59-openvino|69-whisper'
+        default: '48-quirc'
+        # default: '04-tbbmalloc|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|59-opencl|59-openvino|69-whisper'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
@@ -468,12 +469,10 @@ jobs:
             CPU_TUNE=${{ env.CPU_TUNE }}
           push: true
           tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
-          cache-from: type=gha,scope=ffmpeg-global-build-cache
-          cache-to: type=gha,mode=max,scope=ffmpeg-global-build-cache
+          cache-from: type=gha,scope=ffmpeg-components
+          cache-to: type=gha,mode=max,scope=ffmpeg-components
           build-contexts: |
-            tf_models_ctx=./host_tensorflow_models
-            downloads_ctx=.cache/downloads
-            ffmpeg_src_ctx=.cache/ffmpeg
+            base-win64=docker-image://${{ steps.images.outputs.target_base }}
 
       - name: Final FFmpeg Compilation
         if: env.SKIP_FFMPEG != '1'
@@ -487,13 +486,13 @@ jobs:
           push: false
           tags: ffmpeg-final:local
           build-contexts: |
+            base-win64=docker-image://${{ steps.images.outputs.target_base }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
-            ffmpeg_src_ctx=.cache/ffmpeg
-            downloads_ctx=.cache/downloads
-            tf_models_ctx=./host_tensorflow_models
           outputs: type=local,dest=artifacts/
-          cache-from: type=gha,scope=ffmpeg-global-build-cache
-          cache-to: type=gha,mode=max,scope=ffmpeg-global-build-cache
+          cache-from: |
+            type=gha,scope=ffmpeg-components
+            type=gha,scope=ffmpeg-final
+          cache-to: type=gha,mode=max,scope=ffmpeg-final
           provenance: false
 
       - name: Cleanup Old Caches
