@@ -1,0 +1,24 @@
+From 03853bbeb9d300e6b506eefb44ce1869c8fbd005 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Thu, 25 Jun 2026 14:26:15 +0300
+Subject: [PATCH] disable docs folder
+
+---
+ CMakeLists.txt | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 8d234c44ae..4a048471e8 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -199,7 +199,6 @@ if(ENABLE_TESTS OR ENABLE_TEMPLATE)
+ endif()
+ 
+ include(cmake/extra_modules.cmake)
+-add_subdirectory(docs)
+ add_subdirectory(tools)
+ add_subdirectory(scripts)
+ add_subdirectory(licensing)
+-- 
+2.52.0.windows.1
+

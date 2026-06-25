@@ -22,6 +22,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf examples"
 }
 
 ffbuild_dockerbuild() {
@@ -35,20 +36,44 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(OV REQUIRED openvino)
 pkg_check_modules(TBB REQUIRED tbb)
 
-# Create a fake CMake target openvino::runtime
-add_library(openvino::runtime INTERFACE IMPORTED)
-target_link_libraries(openvino::runtime INTERFACE ${OV_LIBRARIES} ${TBB_LIBRARIES})
-target_include_directories(openvino::runtime INTERFACE ${OV_INCLUDE_DIRS} ${TBB_INCLUDE_DIRS})
+# 1. Сreating a fake CMake target openvino::runtime
+if(NOT TARGET openvino::runtime)
+    add_library(openvino::runtime INTERFACE IMPORTED)
+    target_link_libraries(openvino::runtime INTERFACE ${OV_LIBRARIES} ${TBB_LIBRARIES})
+    target_include_directories(openvino::runtime INTERFACE ${OV_INCLUDE_DIRS} ${TBB_INCLUDE_DIRS})
+endif()
 
-# Create a fake CMake target TBB::tbb
-add_library(TBB::tbb INTERFACE IMPORTED)
-target_link_libraries(TBB::tbb INTERFACE ${TBB_LIBRARIES})
-target_include_directories(TBB::tbb INTERFACE ${TBB_INCLUDE_DIRS})
+# 2. Creating a fake CMake target openvino::threading (Fix for new ggml)
+if(NOT TARGET openvino::threading)
+    add_library(openvino_threading INTERFACE)
+    target_link_libraries(openvino_threading INTERFACE ${TBB_LIBRARIES})
+    target_include_directories(openvino_threading INTERFACE ${TBB_INCLUDE_DIRS})
+    add_library(openvino::threading ALIAS openvino_threading)
+endif()
 
-# Globally override find_package for OpenVINO so it doesn't search for anything
+# 3. Creating a fake CMake target TBB::tbb
+if(NOT TARGET TBB::tbb)
+    add_library(TBB::tbb INTERFACE IMPORTED)
+    target_link_libraries(TBB::tbb INTERFACE ${TBB_LIBRARIES})
+    target_include_directories(TBB::tbb INTERFACE ${TBB_INCLUDE_DIRS})
+endif()
+
+# 4. Creating a fake CMake target OpenCL::OpenCL (Required by ggml-openvino)
+if(NOT TARGET OpenCL::OpenCL)
+    find_foreign_target_cl() # Пробуем найти системный, если нет - делаем заглушку
+    if(NOT TARGET OpenCL::OpenCL)
+        add_library(OpenCL_cl INTERFACE)
+        target_link_libraries(OpenCL_cl INTERFACE OpenCL)
+        add_library(OpenCL::OpenCL ALIAS OpenCL_cl)
+    fi()
+endif()
+
+# Globally override find_package for OpenVINO so it satisfies components
 macro(find_package name)
     if("${name}" STREQUAL "OpenVINO")
         set(OpenVINO_FOUND ON)
+        set(OpenVINO_Runtime_FOUND ON)
+        set(OpenVINO_Threading_FOUND ON)
         set(OpenVINO_DIR "STUB")
     else()
         _find_package(${ARGV})
