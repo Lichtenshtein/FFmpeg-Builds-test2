@@ -71,6 +71,8 @@ log_err_line()  { echo -e "${LOG_ERROR}[ERROR]${NC} !!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 export -f log_info log_warn log_error log_debug log_info_line log_err_line print_info print_warn print_error print_debug log_raw
 
+export PATH="/opt/ccache-links:${PATH}"
+
 # ---------------------------------------------------------------------------
 # ROOT_DIR: always the project root, regardless of where vars.sh lives or
 # how it is sourced.
@@ -104,6 +106,7 @@ export CONTAINER_ROOT="/builder"
 # The workflow mounts .cache/downloads → $CACHE_DIR, so the target must
 # match what generate.sh writes into the Dockerfile --mount target.
 # ---------------------------------------------------------------------------
+
 export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
 
 if [[ "${USE_WINE:-0}" = "1" ]]; then
