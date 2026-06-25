@@ -42,7 +42,7 @@ src/plugins/intel_cpu/thirdparty/onednn/doc"
 
 ffbuild_dockerbuild() {
     set -e
-
+echo "test"
     log_info "Disabling samples and snippets subdirectories precisely..."
     sed -i '/ov_mark_target_as_cc(${TARGET_NAME})/a return()' docs/snippets/CMakeLists.txt
     sed -i 's/^[[:space:]]*add_subdirectory(samples)/# add_subdirectory(samples)/g' CMakeLists.txt
