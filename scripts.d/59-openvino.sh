@@ -19,6 +19,7 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     echo "git-submodule-clone"
+    echo "rm -rf .github samples tests src/core/tests src/tests"
 }
 
 ffbuild_dockerbuild() {
