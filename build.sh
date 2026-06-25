@@ -582,6 +582,7 @@ chmod +x configure
 # --extra-cflags="-DCOBJMACROS"
 # --extra-ldflags="${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
 # -march=x86-64-v3 -mtune=generic
+# -lopenal -ldsound -lggml_openvino_stub
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
@@ -592,7 +593,7 @@ CONF_FLAGS=(
     --extra-cxxflags="${FINAL_CXXFLAGS}"
     --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
-    --extra-libs="${FINAL_LIBS_GROUPED} -lopenal -ldsound -lggml_openvino_stub"
+    --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
