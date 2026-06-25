@@ -63,7 +63,9 @@ RUN \
 # ==========================================
 FROM stage-os-base AS stage-toolchain-builder
 
-RUN --mount=src=images/base-win64/ct-ng-config,dst=/.config \
+COPY images/base-win64/ct-ng-config /.config
+
+RUN \
     git clone --filter=blob:none --depth=1 https://github.com/crosstool-ng/crosstool-ng.git /ct-ng && \
     cd /ct-ng && \
     ./bootstrap && \
@@ -74,6 +76,7 @@ RUN --mount=src=images/base-win64/ct-ng-config,dst=/.config \
     \
     echo "Cleaning up toolchain artifacts..." && \
     # Удаляем документацию, мануалы и локали из готового тулчейна
+    rm -rf /ct-ng/.obj /ct-ng/.build /ct-ng/src /ct-ng/build && \
     rm -rf /opt/ct-ng/share/doc /opt/ct-ng/share/info /opt/ct-ng/share/man /opt/ct-ng/share/locale && \
     # Вырезаем отладочную информацию (strip) из всех бинарников компилятора
     find /opt/ct-ng/bin /opt/ct-ng/libexec /opt/ct-ng/x86_64-w64-mingw32/bin -type f -executable -exec strip --strip-all {} + 2>/dev/null || true
@@ -93,8 +96,8 @@ COPY --from=stage-toolchain-builder /opt/ct-ng /opt/ct-ng
 RUN mkdir -p /opt/ffbuild /opt/ffdest
 
 # Install custom scripts from the repo addins root
-RUN --mount=src=addins,dst=/input \
-    for s in /input/*.sh; do \
+COPY addins/ /opt/addins/
+RUN for s in /opt/addins/*.sh; do \
         dest="/usr/bin/$(basename $s .sh)"; \
         cp "$s" "$dest" && chmod +x "$dest" && dos2unix "$dest"; \
     done
