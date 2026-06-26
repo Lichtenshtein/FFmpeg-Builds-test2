@@ -586,7 +586,7 @@ CONF_FLAGS=(
     --extra-cxxflags="${FINAL_CXXFLAGS} -DRTC_STATIC -DJUICE_STATIC"
     --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
-    --extra-libs="${FINAL_LIBS_GROUPED}"
+    --extra-libs="${FINAL_LIBS_GROUPED} -ljuice -lsrtp2 -lusrsctp"
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
