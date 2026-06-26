@@ -575,14 +575,15 @@ chmod +x configure
 # --extra-ldflags="${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
 # -march=x86-64-v3 -mtune=generic
 # -lopenal -ldsound -lggml_openvino_stub
+# export cflags_libdatachannel="-DRTC_STATIC -DJUICE_STATIC"
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
     --host-cc="ccache gcc-15"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
-    --extra-cflags="${FINAL_CFLAGS}"
-    --extra-cxxflags="${FINAL_CXXFLAGS}"
+    --extra-cflags="${FINAL_CFLAGS} -DRTC_STATIC -DJUICE_STATIC"
+    --extra-cxxflags="${FINAL_CXXFLAGS} -DRTC_STATIC -DJUICE_STATIC"
     --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
