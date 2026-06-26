@@ -148,6 +148,16 @@ EOF
         log_warn "Could not find ${OGL_HELPERS_CMAKE} to apply glslang emulator!"
     fi
 
+    MINIZIP_PATCH_FILE="share/cmake/modules/install/Installminizip-ng.cmake"
+    if [ -f "$MINIZIP_PATCH_FILE" ]; then
+        log_info "Injecting hardcoded static ZLIB paths into OpenColorIO minizip-ng installer..."
+
+        sed -i 's|-DZLIB_LIBRARY=${ZLIB_LIBRARIES}|-DZLIB_LIBRARY=/opt/ffbuild/lib/libz.a|g' "$MINIZIP_PATCH_FILE"
+        sed -i 's|-DZLIB_INCLUDE_DIR=${ZLIB_INCLUDE_DIRS}|-DZLIB_INCLUDE_DIR=/opt/ffbuild/include|g' "$MINIZIP_PATCH_FILE"
+
+        sed -i '/-DBUILD_SHARED_LIBS=OFF/a \\            -DCMAKE_C_FLAGS="-I/opt/ffbuild/include"\n            -DCMAKE_CXX_FLAGS="-I/opt/ffbuild/include"' "$MINIZIP_PATCH_FILE"
+    fi
+
     mkdir build "${INSTALL_ROOT}"/{lib,include} && cd build
 
     local myconf=(
