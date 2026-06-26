@@ -6,8 +6,8 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '04-tbbmalloc|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|59-opencl|59-openvino|69-whisper'
-        # default: '.*'
+        # default: '04-tbbmalloc|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|59-opencl|59-openvino|69-whisper'
+        default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
@@ -58,6 +58,11 @@ on:
         default: false
       freeSpace:
         description: 'Free some Disk Space before Build'
+        type: boolean
+        default: false
+      rebuild_base:
+        description: 'Force REBUILD of Toolchain Image'
+        required: false
         type: boolean
         default: false
       reset_ccache:
@@ -336,12 +341,20 @@ jobs:
       - name: Check if Base Image Already Exists
         id: check_base
         run: |
+          if [[ "${{ github.event.inputs.rebuild_base }}" == "true" ]]; then
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "🚨 Forced base image rebuild requested by user!"
+            exit 0
+          fi
+
+          echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin >/dev/null 2>&1
+
           if docker manifest inspect ${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }} >/dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
-            echo "✅ Базовый образ с хэшем ${{ steps.docker_hash.outputs.hash }} уже есть в реестре. Сборка не требуется!"
+            echo "✅ The base image with the hash ${{ steps.docker_hash.outputs.hash }} is already in the registry."
           else
             echo "exists=false" >> $GITHUB_OUTPUT
-            echo "⚠️ Базового образа нет в реестре. Требуется сборка."
+            echo "⚠️ The base image is not in the registry. Let's start the build..."
           fi
 
       - name: Build and Push Unified Toolchain Image
