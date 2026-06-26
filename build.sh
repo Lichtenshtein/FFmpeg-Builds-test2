@@ -290,6 +290,20 @@ Libs.private: -lbcrypt -lcrypt32 -luserenv -lstdc++ -lsetupapi -lm -lole32 -lshl
 Cflags: -I\${includedir} -I\${includedir}/rtc -DRTC_STATIC -DJUICE_STATIC
 EOF
 
+THPENC_C="libavformat/thpenc.c"
+if [ -f "$THPENC_C" ]; then
+    log_info "Fixing outdated packet_list API inside custom muxer: $THPENC_C..."
+
+    sed -i 's/avpriv_packet_list_put/ff_packet_list_put/g' "$THPENC_C"
+    sed -i 's/avpriv_packet_list_get/ff_packet_list_get/g' "$THPENC_C"
+    sed -i 's/avpriv_packet_list_free/ff_packet_list_free/g' "$THPENC_C"
+
+    # Новые функции ff_packet_list_* требуют инклюд "packet_list.h" вместо старых кодековых.
+    if ! grep -q '#include "packet_list.h"' "$THPENC_C"; then
+        sed -i '2i #include "packet_list.h"' "$THPENC_C"
+    fi
+fi
+
 # =======================================
 # FLAGS SECTION
 # =======================================
@@ -590,8 +604,8 @@ CONF_FLAGS=(
     --host-cc="ccache gcc-15"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
-    --extra-cflags="${FINAL_CFLAGS} -DRTC_STATIC -DJUICE_STATIC -Wno-implicit-function-declaration"
-    --extra-cxxflags="${FINAL_CXXFLAGS} -DRTC_STATIC -DJUICE_STATIC -Wno-implicit-function-declaration"
+    --extra-cflags="${FINAL_CFLAGS} -DRTC_STATIC -DJUICE_STATIC"
+    --extra-cxxflags="${FINAL_CXXFLAGS} -DRTC_STATIC -DJUICE_STATIC"
     --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED} -ljuice -lsrtp2 -lusrsctp -liphlpapi"
