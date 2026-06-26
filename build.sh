@@ -215,8 +215,6 @@ if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
     sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
 fi
 
-
-
 log_info "Patching FFmpeg's nvenc_dispatch.c to fix missing v13.0 NVENC symbols..."
 NVENC_DISPATCH_SRC="libavcodec/nvenc_dispatch.c"
 if [[ -f "$NVENC_DISPATCH_SRC" ]]; then

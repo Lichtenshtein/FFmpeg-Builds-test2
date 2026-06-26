@@ -112,7 +112,15 @@ env:
   # Параметры сборки
   TARGET: win64
   VARIANT: nonfree
-  CCACHE_MAXSIZE: "3G"
+  # ccache
+  CCACHE_MAXSIZE: "2G"
+  CCACHE_COMPILERCHECK: "none"
+  CCACHE_DEPEND: "1"
+  CCACHE_COMPRESS: "1"
+  CCACHE_COMPRESSLEVEL: "6"
+  CCACHE_NOHASHDIR: "1"
+  CCACHE_NLEVELS: "4"
+  CCACHE_SLOPPINESS: "include_file_ctime,include_file_mtime,locale,time_macros,file_macro,pch_defines,modules,system_headers,wrong_number_of_arguments"
   # Списки исключений
   # Список для хранения .git от очистки (в download.sh)
   # Some patches apply only with git am...

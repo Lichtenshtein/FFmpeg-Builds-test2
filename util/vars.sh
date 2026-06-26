@@ -109,6 +109,18 @@ export CONTAINER_ROOT="/builder"
 
 export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
 
+export CCACHE_PATH="/opt/ct-ng/bin:/usr/bin"
+export CCACHE_DIR="/root/.cache/ccache"
+export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-2G}"
+export CCACHE_BASEDIR="/builder"
+export CCACHE_COMPILERCHECK="${CCACHE_COMPILERCHECK:-none}"
+export CCACHE_DEPEND="${CCACHE_DEPEND:-1}"
+export CCACHE_COMPRESS="${CCACHE_COMPRESS:-1}"
+export CCACHE_COMPRESSLEVEL="${CCACHE_COMPRESSLEVEL:-6}"
+export CCACHE_NOHASHDIR="${CCACHE_NOHASHDIR:-1}"
+export CCACHE_NLEVELS="${CCACHE_NLEVELS:-4}"
+export CCACHE_SLOPPINESS="${CCACHE_SLOPPINESS}"
+
 if [[ "${USE_WINE:-0}" = "1" ]]; then
     export WINEARCH=win64
     export WINEPREFIX="/root/.wine"
@@ -116,9 +128,6 @@ if [[ "${USE_WINE:-0}" = "1" ]]; then
     export WINEDEBUG=-all
     export WINEDLLOVERRIDES="mscoree,mshtml="
 fi
-
-# чтобы пути к заголовочным файлам хоста не сбивали хэш
-export CCACHE_COMPILERCHECK="none"
 
 # Заставляет glibc выводить подробный бэктрейс в stderr при срабатывании fortify/overflow
 export LIBC_FATAL_STDERR_=1
