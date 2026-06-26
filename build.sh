@@ -312,6 +312,14 @@ if [ -f "$IA_MPEGH_C" ]; then
     sed -i 's/\.p\.sample_fmts =/\.sample_fmts =/g' "$IA_MPEGH_C"
 fi
 
+LIBMADDEC_C="libavcodec/libmaddec.c"
+if [ -f "$LIBMADDEC_C" ]; then
+    log_info "Fixing modern AVCodec sample_fmts API refactoring inside $LIBMADDEC_C..."
+
+    # Переносим .sample_fmts из структуры .p в корень FFCodec
+    sed -i 's/\.p\.sample_fmts =/\.sample_fmts =/g' "$LIBMADDEC_C"
+fi
+
 # =======================================
 # FLAGS SECTION
 # =======================================
