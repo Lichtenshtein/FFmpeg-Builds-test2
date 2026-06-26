@@ -304,21 +304,12 @@ if [ -f "$THPENC_C" ]; then
     fi
 fi
 
-IA_MPEGH_C="libavcodec/ia_mpegh_enc.c"
-if [ -f "$IA_MPEGH_C" ]; then
-    log_info "Fixing modern AVCodec sample_fmts API refactoring inside $IA_MPEGH_C..."
+log_info "Mass-patching outdated AVCodec structure fields (.sample_fmts, .pix_fmts)..."
 
-    # Переносим .sample_fmts из структуры .p в корень FFCodec
-    sed -i 's/\.p\.sample_fmts =/\.sample_fmts =/g' "$IA_MPEGH_C"
-fi
+find libavcodec/ -type f -name "*.c" -exec sed -i \
+    -e 's/\.p\.sample_fmts/\.sample_fmts/g' \
+    -e 's/\.p\.pix_fmts/\.pix_fmts/g' {} +
 
-LIBMADDEC_C="libavcodec/libmaddec.c"
-if [ -f "$LIBMADDEC_C" ]; then
-    log_info "Fixing modern AVCodec sample_fmts API refactoring inside $LIBMADDEC_C..."
-
-    # Переносим .sample_fmts из структуры .p в корень FFCodec
-    sed -i 's/\.p\.sample_fmts =/\.sample_fmts =/g' "$LIBMADDEC_C"
-fi
 
 # =======================================
 # FLAGS SECTION
