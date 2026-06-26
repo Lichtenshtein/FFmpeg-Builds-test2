@@ -266,7 +266,8 @@ for STAGE in "${active_scripts[@]}"; do
     # Если цепочка до этого шага изменилась, Docker гарантированно сбросит кэш здесь и далее.
     to_df "ARG CACHE_BYPASS_${STAGENAME}=\"${LAYER_ID}\""
 
-    to_df "RUN --mount=type=bind,from=cache_downloads_ctx,source=/../ccache,target=${CCACHE_DIR},rw \\"
+    to_df "RUN --mount=type=bind,from=cache_ccache_ctx,source=/,target=${CCACHE_DIR},rw \\"
+
     to_df "    --mount=type=bind,from=cache_downloads_ctx,source=/,target=${CONTAINER_ROOT}/.cache/downloads \\"
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
@@ -298,7 +299,7 @@ if [[ "${SKIP_FFMPEG}" == "1" ]]; then
     to_df "RUN mkdir -p ${FFBUILD_DESTDIR} && \\"
     to_df "    echo 'Components built successfully' > ${FFBUILD_DESTDIR}/BUILD_SUCCESS"
 else
-    to_df "RUN --mount=type=bind,from=cache_downloads_ctx,source=/../ccache,target=${CCACHE_DIR},rw \\"
+    to_df "RUN --mount=type=bind,from=cache_ccache_ctx,source=/,target=${CCACHE_DIR},rw \\"
     to_df "    --mount=type=bind,from=cache_ffmpeg_ctx,source=/,target=/builder/ffbuild/ffmpeg,rw \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
