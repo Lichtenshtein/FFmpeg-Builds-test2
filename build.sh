@@ -259,17 +259,6 @@ fi
     # log_info "---------------------------------------"
 # fi
 
-# PREFIX2_PC="${FFBUILD_PREFIX}/lib/pkgconfig/libdatachannel.pc"
-# if [[ -f "$PREFIX2_PC" ]]; then
-    # log_info "Fixing libdatachannel.pc in active prefix..."
-
-    # sed -i '/^Libs.private:/ s/$/ -lopenal/' "$PREFIX2_PC"
-
-    # log_info "--- Content of fixed libdatachannel.pc ---"
-    # cat "$PREFIX2_PC"
-    # log_info "---------------------------------------"
-# fi
-
 # log_info "Injecting hotfix stub for broken upstream OpenVINO symbol..."
 
 # cat << 'EOF' > /tmp/ggml_openvino_stub.cpp
@@ -601,8 +590,8 @@ CONF_FLAGS=(
     --host-cc="ccache gcc-15"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
-    --extra-cflags="${FINAL_CFLAGS} -DRTC_STATIC -DJUICE_STATIC"
-    --extra-cxxflags="${FINAL_CXXFLAGS} -DRTC_STATIC -DJUICE_STATIC"
+    --extra-cflags="${FINAL_CFLAGS} -DRTC_STATIC -DJUICE_STATIC -Wno-implicit-function-declaration"
+    --extra-cxxflags="${FINAL_CXXFLAGS} -DRTC_STATIC -DJUICE_STATIC -Wno-implicit-function-declaration"
     --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED} -ljuice -lsrtp2 -lusrsctp -liphlpapi"
