@@ -188,6 +188,7 @@ jobs:
           touch .cache/downloads/.keep .cache/ffmpeg/.keep
           chmod -R u+r patches/ || true
           chmod -R u+w .cache/ || true
+          chmod -R 777 .cache/ccache || true
 
       - name: 🗑️ Nuke All Caches
         if: github.event.inputs.doClean == 'true'
@@ -463,7 +464,10 @@ jobs:
             rm -rf .cache/ccache/*
           fi
 
-          export TARGET_IMAGE="base-win64"
+          mkdir -p .cache/downloads .cache/ffmpeg .cache/ccache .cache/tmp
+          chmod -R 777 .cache/ccache || true
+
+          export TARGET_IMAGE="base-$TARGET"
 
           chmod +x ./download.sh ./util/*.sh ./generate.sh
           ./download.sh
