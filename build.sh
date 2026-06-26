@@ -430,7 +430,7 @@ done
 
 # Используем группы для решения проблем циклических зависимостей
 # прокидываем библиотеку обработки исключений LTO за пределы основной группы
-FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -lntdll -Wl,--end-group -lstdc++"
+FINAL_LIBS_GROUPED="-Wl,--start-group -Wl,--no-as-needed -lquirc -Wl,--as-needed ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
 
 # =======================================
 # FFMPEG SOURCE PATCHING SECTION 1
