@@ -486,6 +486,7 @@ jobs:
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
             cache_downloads_ctx=${{ github.workspace }}/.cache/downloads
+            cache_ccache_ctx=${{ github.workspace }}/.cache/ccache
             tf_models_ctx=${{ github.workspace }}/host_tensorflow_models
           provenance: false
 
@@ -506,6 +507,7 @@ jobs:
             base-win64=docker-image://${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
             cache_ffmpeg_ctx=${{ github.workspace }}/.cache/ffmpeg
+            cache_ccache_ctx=${{ github.workspace }}/.cache/ccache
             tf_models_ctx=${{ github.workspace }}/host_tensorflow_models
             cache_downloads_ctx=${{ github.workspace }}/.cache/downloads
           provenance: false
