@@ -363,6 +363,7 @@ jobs:
         with:
           context: .
           file: images/base-win64/Dockerfile
+          no-cache-filters: ${{ github.event.inputs.rebuild_base == 'true' && 'stage-final' || '' }}
           build-args: |
             CARGO_C_VERSION=0.10.22
             CPU_ARCH=${{ env.CPU_ARCH }}
