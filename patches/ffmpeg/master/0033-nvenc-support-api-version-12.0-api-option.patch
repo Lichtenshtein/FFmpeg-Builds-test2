@@ -98,7 +98,7 @@ index 2ae86a1388..619a4ddd9c 100644
 +        preset_config.version = struct_ver_rt(ctx, 5) | (1u<<31);
      preset_config.presetCfg.version = ctx->config_ver_rt;//NV_ENC_CONFIG_VER;
 
- #ifdef NVENC_HAVE_NEW_PRESETS
+     ctx->init_encode_params.tuningInfo = ctx->tuning_info;
 @@ -2081,6 +2123,8 @@ static av_cold int nvenc_alloc_surface(AVCodecContext *avctx, int idx)
          }
 
@@ -192,9 +192,9 @@ index df6a93edcb..ee0308ad8a 100644
  #define VE AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM
  static const AVOption options[] = {
 +    { "api",           "Set the API version",               OFFSET(apiver_req),   AV_OPT_TYPE_FLOAT, { .dbl = 0 }, 0, 100, VE },
-     { "preset",       "Set the encoding preset",            OFFSET(preset),       AV_OPT_TYPE_INT,   { .i64 = PRESET_P4 }, PRESET_DEFAULT, PRESET_P7, VE, .unit = "preset" },
-     { "default",      "",                                   0,                    AV_OPT_TYPE_CONST, { .i64 = PRESET_DEFAULT }, 0, 0, VE, .unit = "preset" },
+     { "preset",       "Set the encoding preset",            OFFSET(preset),       AV_OPT_TYPE_INT,   { .i64 = PRESET_P4 }, PRESET_SLOW, PRESET_P7, VE, .unit = "preset" },
      { "slow",         "hq 2 passes",                        0,                    AV_OPT_TYPE_CONST, { .i64 = PRESET_SLOW },    0, 0, VE, .unit = "preset" },
+     { "medium",       "hq 1 pass",                          0,                    AV_OPT_TYPE_CONST, { .i64 = PRESET_MEDIUM },  0, 0, VE, .unit = "preset" },
 diff --git a/libavcodec/nvenc_h264.c b/libavcodec/nvenc_h264.c
 index 842e4eef60..c2eae054c4 100644
 --- a/libavcodec/nvenc_h264.c
@@ -204,9 +204,9 @@ index 842e4eef60..c2eae054c4 100644
  #define VE AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM
  static const AVOption options[] = {
 +    { "api",           "Set the API version",               OFFSET(apiver_req),   AV_OPT_TYPE_FLOAT, { .dbl = 0 }, 0, 100, VE },
- #ifdef NVENC_HAVE_NEW_PRESETS
-     { "preset",       "Set the encoding preset",            OFFSET(preset),       AV_OPT_TYPE_INT,   { .i64 = PRESET_P4 },     PRESET_DEFAULT, PRESET_P7,          VE, .unit = "preset" },
- #else
+     { "preset",       "Set the encoding preset",            OFFSET(preset),       AV_OPT_TYPE_INT,   { .i64 = PRESET_P4 },     PRESET_SLOW, PRESET_P7,             VE, .unit = "preset" },
+     { "slow",         "hq 2 passes",                        0,                    AV_OPT_TYPE_CONST, { .i64 = PRESET_SLOW },                0, 0, VE, .unit = "preset" },
+     { "medium",       "hq 1 pass",                          0,                    AV_OPT_TYPE_CONST, { .i64 = PRESET_MEDIUM },              0, 0, VE, .unit = "preset" },
 diff --git a/libavcodec/nvenc_hevc.c b/libavcodec/nvenc_hevc.c
 index 54e2fe323e..15c93c12e8 100644
 --- a/libavcodec/nvenc_hevc.c
@@ -216,8 +216,8 @@ index 54e2fe323e..15c93c12e8 100644
  #define VE AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM
  static const AVOption options[] = {
 +    { "api",           "Set the API version",               OFFSET(apiver_req),   AV_OPT_TYPE_FLOAT, { .dbl = 0 }, 0, 100, VE },
- #ifdef NVENC_HAVE_NEW_PRESETS
-     { "preset",       "Set the encoding preset",            OFFSET(preset),       AV_OPT_TYPE_INT,   { .i64 = PRESET_P4 },     PRESET_DEFAULT, PRESET_P7,          VE, .unit = "preset" },
- #else
+     { "preset",       "Set the encoding preset",            OFFSET(preset),       AV_OPT_TYPE_INT,   { .i64 = PRESET_P4 },     PRESET_SLOW, PRESET_P7,             VE, .unit = "preset" },
+     { "slow",         "hq 2 passes",                        0,                    AV_OPT_TYPE_CONST, { .i64 = PRESET_SLOW },                0, 0, VE, .unit = "preset" },
+     { "medium",       "hq 1 pass",                          0,                    AV_OPT_TYPE_CONST, { .i64 = PRESET_MEDIUM },              0, 0, VE, .unit = "preset" },
 --
 2.50.1 (Apple Git-155)
