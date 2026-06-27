@@ -327,45 +327,43 @@ ffbuild_dockerbuild() {
         else
             mv "$SRC_3RDPARTY"/*.a "$DEST_LIB/" 2>/dev/null || true
             log_info "Searching for IPP ICV library..."
-            find . -name "libippicv*.a" -exec cp {} "${DEST_LIB}/" \; || true
+            find . -name "libippicv*.${lib_ext}" -exec cp {} "${DEST_LIB}/" \; || true
         fi
         rm -rf "${INSTALL_ROOT}/lib/opencv4"
     fi
 
-    if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # исправление имен liblib -> lib
-        pushd "${DEST_LIB}" || return 1
+    # исправление имен liblib -> lib
+    pushd "${DEST_LIB}" || return 1
 
-        shopt -s nullglob
+    shopt -s nullglob
 
-        for f in liblib*.a; do
-            if [ -f "$f" ]; then
-                newname=$(echo "$f" | sed 's/^liblib/lib/')
-                log_info "Renaming $f to $newname"
-                mv -f "$f" "$newname"
-            fi
-        done
+    for f in liblib*.a; do
+        if [ -f "$f" ]; then
+            newname=$(echo "$f" | sed 's/^liblib/lib/')
+            log_info "Renaming $f to $newname"
+            mv -f "$f" "$newname"
+        fi
+    done
 
-        # Create libopencv_core.a from libopencv_core4140.a
-        for lib in libopencv_*.a; do
-            unversioned=$(echo "$lib" | sed -E 's/[0-9]+\.a$/.a/')
-            if [ "$lib" != "$unversioned" ]; then
-                log_info "Creating symlink $unversioned -> $lib"
-                ln -sf "$lib" "$unversioned"
-            fi
-        done
+    # Create libopencv_core.a from libopencv_core4140.a
+    for lib in libopencv_*.${lib_ext}; do
+        unversioned=$(echo "$lib" | sed -E "s/[0-9]+\.${lib_ext}$/.${lib_ext}/" )
+        if [ "$lib" != "$unversioned" ]; then
+            log_info "Creating symlink $unversioned -> $lib"
+            ln -sf "$lib" "$unversioned"
+        fi
+    done
 
-        shopt -u nullglob
-        popd
+    shopt -u nullglob
+    popd
 
-        # Удаляем системные дубликаты, если они пришли из OpenCV 3rdparty
-        for duplicate in libpng.a libprotobuf.a libz.a libjpeg.a libtiff.a; do
-            if [ -f "${FFBUILD_PREFIX}/lib/${duplicate}" ] && [ -f "${DEST_LIB}/${duplicate}" ]; then
-                 log_info "Removing duplicate ${duplicate} from OpenCV build"
-                 rm -f "${DEST_LIB}/${duplicate}"
-            fi
-        done
-    fi
+    # Удаляем системные дубликаты, если они пришли из OpenCV 3rdparty
+    for duplicate in libpng.${lib_ext} libprotobuf.${lib_ext} libz.${lib_ext} libjpeg.${lib_ext} libtiff.${lib_ext} libquirc.${lib_ext}; do
+        if [ -f "${FFBUILD_PREFIX}/lib/${duplicate}" ] && [ -f "${DEST_LIB}/${duplicate}" ]; then
+             log_info "Removing duplicate ${duplicate} from OpenCV build"
+             rm -f "${DEST_LIB}/${duplicate}"
+        fi
+    done
 
     # Исправляем пути к 3rdparty либам в .cmake конфигах OpenCV
     # Заменяем относительный путь 'lib/opencv4/3rdparty' на просто 'lib'
@@ -406,16 +404,16 @@ EOF
 
     # Компилируем в объектный файл и упаковываем в статическую либу
     ${FFBUILD_CROSS_PREFIX}gcc $CFLAGS -c msvc_stub.c -o msvc_stub.o
-    ${FFBUILD_CROSS_PREFIX}ar rcs "${DEST_LIB}/libmsvc_stub.a" msvc_stub.o
+    ${FFBUILD_CROSS_PREFIX}ar rcs "${DEST_LIB}/libmsvc_stub.${lib_ext}" msvc_stub.o
 
     if [ -f "$PC_FILE" ]; then
         log_info "Fixing includedir path in opencv4.pc..."
         sed -i "s|^includedir=.*|includedir=\${prefix}/include/opencv4|g" "$PC_FILE"
         log_info "Cleaning up OpenCV pkg-config file..."
         # Вытаскиваем версию для регулярки (динамически)
-        local OPENCV_VER_SUFFIX=$(find "${DEST_LIB}" -name "libopencv_core*.a" | grep -oE "[0-9]+.a$" | sed 's/.a//')
+        local OPENCV_VER_SUFFIX=$(find "${DEST_LIB}" -name "libopencv_core*.${lib_ext}" | grep -oE "[0-9]+.${lib_ext}$" | sed "s/.${lib_ext}//")
         # переносим все модули opencv из Libs.private в основные Libs
-        local ACTUAL_LIBS=$(find "${DEST_LIB}" -name "libopencv_*.a" -printf "%f\n" | sed 's/^lib//;s/\.a$//' | xargs -I{} echo -l{} | tr '\n' ' ')
+        local ACTUAL_LIBS=$(find "${DEST_LIB}" -name "libopencv_*.${lib_ext}" -printf "%f\n" | sed "s/^lib//;s/\.${lib_ext}$//" | xargs -I{} echo -l{} | tr '\n' ' ')
         # Удаляем путь к 3rdparty, так как мы перенесли либы в общий корень
         sed -i 's|-L${exec_prefix}/lib/opencv4/3rdparty||g' "$PC_FILE"
         sed -i "s/Requires.private:.*/Requires.private: /" "$PC_FILE"
@@ -423,7 +421,7 @@ EOF
         local OLD_PRIVATES=$(grep "Libs.private:" "$PC_FILE" | cut -d':' -f2-)
         # Убираем любые упоминания -lopencv_* из текущего файла, чтобы избежать дублей
         # Чистим зависимости: liblib -> lib, абсолютные пути, мусор
-        local CLEAN_PRIVATES=$(echo "$OLD_PRIVATES" | sed -E 's/-llib/-l/g; s|-L/[^ ]*||g; s/-lRunTmChk.a//g; s/-lntdll.a//g; s/-lopencv_[^ ]*//g')
+        local CLEAN_PRIVATES=$(echo "$OLD_PRIVATES" | sed -E "s/-llib/-l/g; s|-L/[^ ]*||g; s/-lRunTmChk.${lib_ext}//g; s/-lntdll.${lib_ext}//g; s/-lopencv_[^ ]*//g")
         # Записываем в файл
         sed -i "s|^Libs:.*|Libs: -L\${libdir} ${ACTUAL_LIBS}|" "$PC_FILE"
         sed -i "s|^Libs.private:.*|Libs.private: ${CLEAN_PRIVATES}|" "$PC_FILE"
