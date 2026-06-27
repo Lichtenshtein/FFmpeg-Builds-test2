@@ -135,8 +135,8 @@ index 392230526d..858c79250a 100644
 +    preset_config.version = struct_ver_rt(ctx, 4) | (1<<31);// NV_ENC_PRESET_CONFIG_VER;
 +    preset_config.presetCfg.version = ctx->config_ver_rt;//NV_ENC_CONFIG_VER;
 
- #ifdef NVENC_HAVE_NEW_PRESETS
      ctx->init_encode_params.tuningInfo = ctx->tuning_info;
+ 
 @@ -1864,7 +1885,7 @@ static av_cold int nvenc_setup_encoder(AVCodecContext *avctx)
 
      memcpy(&ctx->encode_config, &preset_config.presetCfg, sizeof(ctx->encode_config));
