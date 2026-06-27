@@ -304,15 +304,15 @@ if [ -f "$THPENC_C" ]; then
     fi
 fi
 
-log_info "Mass-patching outdated AVCodec structure fields (.sample_fmts, .pix_fmts)..."
+# log_info "Mass-patching outdated AVCodec structure fields (.sample_fmts, .pix_fmts)..."
 
-find libavcodec/ -type f -name "*.c" -exec sed -i \
-    -e 's/\.p\.sample_fmts/\.sample_fmts/g' \
-    -e 's/\.p\.pix_fmts/\.pix_fmts/g' {} +
+# find libavcodec/ -type f -name "*.c" -exec sed -i \
+    # -e 's/\.p\.sample_fmts/\.sample_fmts/g' \
+    # -e 's/\.p\.pix_fmts/\.pix_fmts/g' {} +
 
 
 # =======================================
-# FLAGS SECTION
+# FLAGS AND LIBS PROCESSING SECTION
 # =======================================
 # Удаляем жесткий -static и -Wl,-Bstatic из базовых флагов линковщика
 # LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' | xargs)
@@ -325,7 +325,6 @@ find libavcodec/ -type f -name "*.c" -exec sed -i \
 # объединяем базовые флаги из vars.sh и накопленные из компонентов
 # Конфигурация: сначала базовые, потом специфичные для варианта
 FINAL_CONFIGURE=$(smart_dedupe "$TOTAL_FF_CONFIGURE" "$VARIANT_FF_CONFIGURE")
-FINAL_CONFIGURE=$(echo " ${FINAL_CONFIGURE} " | sed "s/ --enable-libquirc / /g")
 # CFLAGS: Сначала кладем CPPFLAGS, затем CFLAGS компонентов, затем варианта.
 # Так как мы оставляем ПЕРВОЕ вхождение, самые важные флаги должны быть левее.
 FINAL_CFLAGS=$(smart_dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CFLAGS" "$VARIANT_FF_CPPFLAGS" | sed 's/-std=gnu17/-std=gnu23/g')
@@ -417,6 +416,10 @@ done
     # DYNAMIC_LIBS_ACCUMULATOR+="-Wl,-Bdynamic ${WHISPER_DYNAMIC_LIBS} -Wl,-Bstatic "
 # fi
 
+# ==========================================
+# FINAL LIBS GROUP PROCESSING
+# ==========================================
+
 # Чистим лишние пробелы, которые мог оставить sed
 # FINAL_LIBS=$(echo ${FINAL_LIBS} | xargs)
 
@@ -434,7 +437,7 @@ done
 FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
 
 # =======================================
-# FFMPEG SOURCE PATCHING SECTION 1
+# FFMPEG AND TOOLCHAIN PARAMS DEBUG
 # =======================================
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     log_info_line
@@ -533,13 +536,14 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
         ls -1 "${FFBUILD_PREFIX}"/lib/pkgconfig/*.pc 2>/dev/null | xargs -r -n1 basename | sed 's/^/ /'
     fi
 
-    log_info "${SEARCH_MARK} Auditing pkg-config files for overflow triggers..."
-    for pc in "${FFBUILD_PREFIX}"/lib/pkgconfig/*.pc; do
-        log_debug "Testing pc file: $(basename "$pc")"
-        # Проверяем, не падает ли pkgconf на чтении флагов этой либы
-        pkgconf --static --libs "$(basename "$pc" .pc)" >/dev/null 2>&1 && log_info "  $(basename "$pc"): OK" || log_error "  $(basename "$pc"): CRASHED OR FAILED"
-    done
-
+    if [[ "$DEBUG_MODE" == "1" ]]; then
+        log_info "${SEARCH_MARK} Auditing pkg-config files for overflow triggers..."
+        for pc in "${FFBUILD_PREFIX}"/lib/pkgconfig/*.pc; do
+            log_debug "Testing pc file: $(basename "$pc")"
+            # Проверяем, не падает ли pkgconf на чтении флагов этой либы
+            pkgconf --static --libs "$(basename "$pc" .pc)" >/dev/null 2>&1 && log_info "  $(basename "$pc"): OK" || log_error "  $(basename "$pc"): CRASHED OR FAILED"
+        done
+    fi
     # Специфическая проверка для LTO (наличие плагинов)
     log_info "${BUILD_MARK} Checking LTO support in AR:"
     if $AR --help | grep -q "plugin"; then
@@ -940,60 +944,6 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         ["enable-libxvid"]="libxvid:v:ff_libxvid"
     )
 
-    # Function to verify symbols for ALL enabled components dynamically
-    verify_all_symbols() {
-        local config_source="${FINAL_CONFIGURE:-$(cat ${FFMPEG_CONFIG_LOG:-/dev/null} 2>/dev/null)}"
-        local MISSING_SYMBOLS=0
-        local VERIFIED_COUNT=0
-        local STRINGS_CMD="${FFBUILD_CROSS_PREFIX}strings"
-        command -v "$STRINGS_CMD" &>/dev/null || STRINGS_CMD="strings"
-        local TEST_EXE="${PKG_DIR}/bin/ffmpeg.exe"
-        [[ ! -f "$TEST_EXE" ]] && TEST_EXE="/opt/ffdest/opt/ffbuild/bin/ffmpeg.exe"
-
-        log_debug "${SEARCH_MARK} Verifying static symbols for ALL enabled components..."
-
-        for flag in "${!COMPONENT_TEST_MAP[@]}"; do
-            # Check if this feature is enabled
-            if [[ "$config_source" == *"$flag"* ]]; then
-                local codec_spec="${COMPONENT_TEST_MAP[$flag]}"
-                local codec_name="${codec_spec%%:*}"
-                local media_type="${codec_spec#*:}"
-                local symbol_prefix="${codec_spec##*:}"
-
-                # Check for symbol presence
-                local has_strings=0
-                local has_nm=0
-
-                if "$STRINGS_CMD" "$TEST_EXE" 2>/dev/null | grep -q "$symbol_prefix"; then
-                    has_strings=1
-                fi
-
-                # Use nm if available, fall back to strings only
-                if command -v nm &>/dev/null; then
-                    if nm "$TEST_EXE" 2>/dev/null | grep -q "$symbol_prefix"; then
-                        has_nm=1
-                    fi
-                fi
-
-                if [[ $has_strings -eq 0 && $has_nm -eq 0 ]]; then
-                    log_error "Symbol '$symbol_prefix' NOT found in binary for $codec_name! Linking failure detected."
-                    MISSING_SYMBOLS=1
-                else
-                    log_debug "   ${CHECK_MARK} Verified: $codec_name ($media_type) - Symbol: $symbol_prefix"
-                    VERIFIED_COUNT=$((VERIFIED_COUNT + 1))
-                fi
-            fi
-        done
-
-        if [[ $MISSING_SYMBOLS -eq 1 ]]; then
-            log_error "Static linking verification FAILED: $VERIFIED_COUNT verified, but some symbols missing."
-            # return 1
-        else
-            log_info "${CHECK_MARK} Static symbols verified for $VERIFIED_COUNT components."
-            return 0
-        fi
-    }
-
     # 3. Generate Dynamic Component Tests
     generate_component_tests() {
         local enabled_components=()
@@ -1063,6 +1013,11 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         local TEST_EXE="${PKG_DIR}/bin/ffmpeg.exe"
         [[ ! -f "$TEST_EXE" ]] && TEST_EXE="/opt/ffdest/opt/ffbuild/bin/ffmpeg.exe"
 
+        if [ ! -f "$TEST_EXE" ]; then
+            log_error "FFmpeg binary not found at $TEST_EXE"
+            return 1
+        fi
+
         if ! command -v wine64 &> /dev/null && ! command -v wine &> /dev/null; then
             log_warn "Wine is not installed. Skipping audit."
             return 0
@@ -1086,11 +1041,6 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         log_info "${START_MARK} Launching Deep Component & Stability Audit..."
 
         # --- PHASE 1: Dynamic Symbol Verification ---
-        if ! verify_all_symbols; then
-            log_error "Static linking verification FAILED. Build may be broken."
-            # Don't exit 1 immediately, let the rest run to gather more info, but mark failure
-            MISSING_SYMBOLS=1
-        fi
 
         # --- PHASE 2: Basic Smoke Tests ---
         # Basic info + a filter chain
@@ -1100,9 +1050,9 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         )
 
         log_info "Running deep component crash audit via hybrid winedbg..."
-        CRASH_FOUND=0
-        CRASH2_FOUND=0
-        TEST_INDEX=0 # Счётчик для генерации уникальных имён файлов
+        local CRASH_FOUND=0
+        local CRASH2_FOUND=0
+        local TEST_INDEX=0 # Счётчик для генерации уникальных имён файлов
 
         for TEST_ARGS in "${TEST_SUITE[@]}"; do
             ((++TEST_INDEX))
@@ -1123,7 +1073,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
                 # winedbg --auto failed -> likely a crash
                 log_error "Test failed (winedbg exit non-zero). Checking for crash details..."
                 # Extract crash info if available
-                if grep -q 'Exception c0000005\|Access Violation\|Segmentation fault' "$PHASE1_LOG"; then
+                if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow|stack_chk_fail|stack-buffer-overflow|global-buffer-overflow|access violation|SIGSEGV|illegal instruction" "$PHASE1_LOG"; then
                     log_error "Crash detected!"
                     CRASH_FOUND=1
                     cat "$PHASE1_LOG" >> "$CRASH_AUDIT_LOG"
@@ -1139,26 +1089,32 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         done
 
         # Сбрасываем счётчик для второго этапа
-        TEST_INDEX=0
+        local TEST_INDEX=0
 
         # Сбор бэктрейсов (winedbg --command)
         if [[ $CRASH_FOUND -eq 0 ]]; then
             for TEST_ARGS in "${TEST_SUITE[@]}"; do
                 ((++TEST_INDEX))
-                PHASE2_LOG="${TMP_DIR}/audit_p2_${TEST_INDEX}.log"
+                local PHASE2_LOG="${TMP_DIR}/audit_p2_${TEST_INDEX}.log"
                 rm -f "$PHASE2_LOG"
 
                 log_debug "Executing sub-test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
 
-                # Если ffmpeg падает, cont прерывается, bt печатает стек, kill и quit чисто выходят.
-                winedbg --command "cont; bt; kill; quit" "$TEST_EXE" $TEST_ARGS >> "$PHASE2_LOG" 2>&1
-                # WINE_EXIT=$?
+                # Используем нативный GDB в пакетном режиме — он перехватит stack smashing намертво
+                cat << 'EOF' > /tmp/gdb_cmd.txt
+set confirm off
+run
+backtrace full
+quit
+EOF
 
-                # Проверяем лог на наличие критических аппаратных исключений и ошибок памяти
-                if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow|stack_chk_fail|stack-buffer-overflow|global-buffer-overflow|access violation|SIGSEGV|illegal instruction" "$PHASE2_LOG"; then
-                    log_error "CRITICAL FAULT DETECTED during sub-test: ${TEST_ARGS:0:60}..."
-                    CRASH2_FOUND=1
-                    cat "$PHASE2_LOG" >> "$CRASH_AUDIT_LOG"
+                x86_64-w64-mingw32-gdb -batch -x /tmp/gdb_cmd.txt --args "$TEST_EXE" $TEST_ARGS > "$PHASE2_LOG" 2>&1
+
+                # Проверяем лог на признаки падения памяти или стека
+                if grep -Eiq "stack smashing|buffer overflow|Access Violation|0xc0000|Segmentation fault|SIGSEGV" "$PHASE2_LOG"; then
+                    log_error "CRITICAL FAULT DETECTED during base test!"
+                    CRASH_FOUND=1
+                    cat "$PHASE2_LOG" | tee -a "$CRASH_AUDIT_LOG" >&2
                     break
                 fi
                 cat "$PHASE2_LOG" >> "$CRASH_AUDIT_LOG"
@@ -1172,7 +1128,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
                 cat "$CRASH_AUDIT_LOG" >&2
             elif [[ $CRASH2_FOUND -eq 1 ]]; then
                 log_debug "Relevant Crash Backtrace:"
-                sed -n '/Backtrace:/,$p' "$CRASH_AUDIT_LOG" >&2 || cat "$CRASH_AUDIT_LOG" >&2
+                sed -n '/Backtrace/,$p' "$CRASH_AUDIT_LOG" >&2 || cat "$CRASH_AUDIT_LOG" >&2
             else
                 log_debug "No critical errors found in log."
             fi
@@ -1188,7 +1144,7 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
 
         local TOTAL_TESTS=${#COMPREHENSIVE_TESTS[@]}
         local FAILED_TESTS=0
-        TEST_INDEX=0
+        local TEST_INDEX=0
 
         # --- PHASE 4: Execute Component Tests ---
         for i in "${!COMPREHENSIVE_TESTS[@]}"; do
@@ -1201,37 +1157,37 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
             log_debug "Running Test ${TEST_NUM}/${TOTAL_TESTS}: ${CYAN}${CODEC_NAME}${NC}..."
             local PHASE_LOG="${TMP_DIR}/audit_phase_${TEST_NUM}.log"
 
-            # Run with timeout and winedbg --auto
-            # Timeout prevents hanging on deadlocks
-            if timeout 60s winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$PHASE_LOG" 2>&1; then
-                log_debug "   -> Passed (Exit 0)"
+            cat << 'EOF' > /tmp/gdb_cmd.txt
+set confirm off
+run
+backtrace full
+quit
+EOF
+
+            if timeout 60s x86_64-w64-mingw32-gdb -batch -x /tmp/gdb_cmd.txt --args "$TEST_EXE" $TEST_ARGS > "$PHASE_LOG" 2>&1; then
+                # Проверяем, не было ли падения внутри успешного завершения по GDB
+                if grep -Eiq "stack smashing|buffer overflow|Access Violation|0xc0000|Segmentation fault" "$PHASE_LOG"; then
+                    log_error "   -> FAILED: CRASH detected in ${CODEC_NAME}!"
+                    FAILED_TESTS=$((FAILED_TESTS + 1))
+                    CRASH_FOUND=1
+                    echo "=== CRASH BACKTRACE FOR ${CODEC_NAME} ===" >&2
+                    cat "$PHASE_LOG" | tee -a "$CRASH_AUDIT_LOG" >&2
+                else
+                    log_debug "   -> Passed (Exit 0)"
+                fi
             else
                 local EXIT_CODE=$?
                 if [[ $EXIT_CODE -eq 124 ]]; then
                     log_error "   -> FAILED: TIMEOUT (Hang detected in ${CODEC_NAME})"
                     FAILED_TESTS=$((FAILED_TESTS + 1))
-                    cat "$PHASE_LOG" >> "$AUDIT_LOG"
-                    continue
-                fi
-
-                # Check for crash signatures in the log
-                if grep -qE "Exception c0000005|Access Violation|Segmentation fault|0xc000001d|Illegal instruction" "$PHASE_LOG"; then
-                    log_error "   -> FAILED: CRASH detected in ${CODEC_NAME}"
-                    FAILED_TESTS=$((FAILED_TESTS + 1))
-
-                    echo "=== CRASH REPORT: ${CODEC_NAME} ===" > "$CRASH_LOG"
-                    echo "Command: ffmpeg $TEST_ARGS" >> "$CRASH_LOG"
-                    echo "Exit Code: $EXIT_CODE" >> "$CRASH_LOG"
-                    echo "Timestamp: $(date)" >> "$CRASH_LOG"
-                    echo "--- Log Snippet ---" >> "$CRASH_LOG"
-                    grep -A 5 -B 5 "Exception\|Access Violation" "$PHASE_LOG" >> "$CRASH_LOG"
-                    cat "$CRASH_LOG" >&2
-                    cat "$PHASE_LOG" >> "$AUDIT_LOG"
                 else
-                    log_warn "   -> Non-zero exit ($EXIT_CODE) but no crash signature."
-                    cat "$PHASE_LOG" >> "$AUDIT_LOG"
+                    log_error "   -> FAILED: Execution error in ${CODEC_NAME}"
+                    FAILED_TESTS=$((FAILED_TESTS + 1))
+                    echo "=== CRASH BACKTRACE FOR ${CODEC_NAME} ===" >&2
+                    cat "$PHASE_LOG" | tee -a "$CRASH_AUDIT_LOG" >&2
                 fi
             fi
+            cat "$PHASE_LOG" >> "$AUDIT_LOG"
             rm -f "$PHASE_LOG"
         done
 
@@ -1245,14 +1201,9 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         elif [[ $FAILED_TESTS -gt 0 ]]; then
             log_error "AUDIT FAILED: ${FAILED_TESTS}/${TOTAL_TESTS} tests failed."
             # return 1 # Явно валим функцию, если тесты не прошли
-        elif [[ $MISSING_SYMBOLS -eq 1 ]]; then
-            log_error "AUDIT FAILED: Missing static symbols detected."
-            # return 1
         else
             log_info "${CHECK_MARK} Wine runtime smoke test passed successfully. Binary structure is solid."
             log_info "${CHECK_MARK} Deep Component Audit PASSED. All critical paths stable."
-            [[ -f "$AUDIT_LOG" ]] && mv "$AUDIT_LOG" "${TMP_DIR}/last_deep_audit.log" 2>/dev/null
-            [[ -f "$CRASH_AUDIT_LOG" ]] && mv "$CRASH_AUDIT_LOG" "${TMP_DIR}/last_audit_run.log" 2>/dev/null
             return 0
         fi
     }

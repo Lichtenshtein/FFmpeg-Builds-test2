@@ -102,6 +102,10 @@ on:
       ffmpeg_branch:
         description: 'FFmpeg Branch'
         default: 'master'
+      ffmpeg_update:
+        description: 'Enable FFmpeg Updating'
+        type: boolean
+        default: true
 env:
   # Общие настройки локали
   LANG: C.UTF-8
@@ -134,6 +138,7 @@ env:
   # Преобразование boolean для bash-скриптов
   DEBUG_NO_HASH:  ${{ github.event.inputs.debug_no_hash  == 'true' && '1' || '0' }}
   FFMPEG_PATCHES: ${{ github.event.inputs.patch_ffmpeg   == 'true' && '1' || '0' }}
+  FFMPEG_UPDATE:  ${{ github.event.inputs.ffmpeg_update  == 'true' && '1' || '0' }}
   SKIP_FFMPEG:    ${{ github.event.inputs.skip_ffmpeg    == 'true' && '1' || '0' }}
   SAFE_CONFIGURE: ${{ github.event.inputs.safe_config    == 'true' && '1' || '0' }}
   USE_AVX512:     ${{ github.event.inputs.use_avx512     == 'true' && '1' || '0' }}
