@@ -316,6 +316,7 @@ find libavcodec/ -type f -name "*.c" -exec sed -i \
 # =======================================
 # Удаляем жесткий -static и -Wl,-Bstatic из базовых флагов линковщика
 # LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' | xargs)
+LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -Wl,--as-needed / /g' | xargs)
 
 [[ "${PREFER_SHARED}" != "1" ]] && export LDEXEFLAGS="-static -static-libgcc -static-libstdc++"
 
@@ -430,7 +431,7 @@ done
 
 # Используем группы для решения проблем циклических зависимостей
 # прокидываем библиотеку обработки исключений LTO за пределы основной группы
-FINAL_LIBS_GROUPED="-Wl,--start-group -Wl,--no-as-needed -lquirc -Wl,--as-needed ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
+FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
 
 # =======================================
 # FFMPEG SOURCE PATCHING SECTION 1
