@@ -123,6 +123,15 @@ printf_has_glibc_res1 = true
 printf_has_glibc_res2 = true
 EOF
 
+    # патч glib gio для изоляции stack smashing из реестра windows
+    # *** stack smashing detected ***:  terminated / Illegal instruction
+    local GWIN32_APPINFO="gio/gwin32appinfo.c"
+    if [ -f "$GWIN32_APPINFO" ]; then
+        log_info "Injecting clean-bypass patch into GLib GIO Win32 AppInfo registry scanner..."
+        sed -i '/alloc_end = GetTickCount ();/a \  goto skip_registry_scan;' "$GWIN32_APPINFO"
+        sed -i '/g_clear_object (&classes_root);/i \skip_registry_scan:' "$GWIN32_APPINFO"
+    fi
+
     mkdir -p _build
 
     # pcre2 требует zlib/bz2 в некоторых конфигах
