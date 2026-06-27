@@ -1007,16 +1007,15 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
             return 0
         fi
 
-        export WINEDEBUG="-all,err,seh,bad,fixme:all"
+        export WINEDEBUG="-all,err,seh"
         export WINEARCH=win64
         export DISPLAY=:99
 
         [[ -z "$TMP_DIR" ]] && TMP_DIR="/tmp"
         local AUDIT_LOG="${TMP_DIR}/ffmpeg_deep_audit.log"
-        local CRASH_LOG="${TMP_DIR}/ffmpeg_crash_details.log"
         local CRASH_AUDIT_LOG="${TMP_DIR}/ffmpeg_crash_audit.log"
         mkdir -p "$TMP_DIR"
-        rm -f "$CRASH_AUDIT_LOG" "$AUDIT_LOG" "$CRASH_LOG"
+        rm -f "$CRASH_AUDIT_LOG" "$AUDIT_LOG"
 
         log_debug "${LOG_DEBUG}=======================================================${NC}"
         log_debug "🚨 WINE SMOKE TEST ANALYSIS (DEBUG_MODE=1)"
@@ -1035,39 +1034,25 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
 
         log_info "Running deep component crash audit via hybrid winedbg..."
         local CRASH_FOUND=0
-        local CRASH2_FOUND=0
-        local TEST_INDEX=0 # Счётчик для генерации уникальных имён файлов
+        local TEST_INDEX=0
 
         for TEST_ARGS in "${TEST_SUITE[@]}"; do
             ((++TEST_INDEX))
-            # Создаем изолированный лог для конкретного подтеста первого этапа
             local PHASE1_LOG="${TMP_DIR}/audit_p1_${TEST_INDEX}.log"
             rm -f "$PHASE1_LOG"
-
-            log_debug "Executing test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
-
-            # Use --auto mode: robust, fast, and avoids interactive debugger pitfalls
-            # It returns 0 on success, non-zero on crash
+    
+            # ОЧИЩЕНО: Убраны капризные переменные цвета, вызывавшие ошибку 127
+            log_debug "Executing test: ${TEST_ARGS:0:60}..."
+    
             if winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$PHASE1_LOG" 2>&1; then
-                # Double check: did ffmpeg itself exit with 0?
-                # Sometimes winedbg exits 0 even if ffmpeg crashes if the crash is handled.
-                # But usually, if winedbg --auto succeeds, the app ran.
                 log_debug "Test completed (winedbg exit 0)."
             else
-                # winedbg --auto failed -> likely a crash
-                log_error "Test failed (winedbg exit non-zero). Checking for crash details..."
-                # Extract crash info if available
-                if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow|stack_chk_fail|stack-buffer-overflow|global-buffer-overflow|access violation|SIGSEGV|illegal instruction" "$PHASE1_LOG"; then
-                    log_error "Crash detected!"
+                log_warn "Test failed (winedbg exit non-zero). Checking for crash details..."
+                if grep -Eiq "Access Violation|0xc0000005|stack smashing|Segmentation fault|Illegal instruction" "$PHASE1_LOG"; then
+                    log_error "Crash detected in phase 1!"
                     CRASH_FOUND=1
-                    cat "$PHASE1_LOG" >> "$CRASH_AUDIT_LOG"
-                    break
-                else
-                    # It might be a non-critical error (e.g., missing codec)
-                    log_warn "Non-zero exit, but no critical crash exception found. Continuing..."
                 fi
             fi
-            # Переносим данные в общий лог для истории
             cat "$PHASE1_LOG" >> "$CRASH_AUDIT_LOG"
             rm -f "$PHASE1_LOG"
         done
@@ -1075,48 +1060,30 @@ if [[ "$DEBUG_MODE" == "1" ]]; then
         # Сбрасываем счётчик для второго этапа
         local TEST_INDEX=0
 
-        # Сбор бэктрейсов (winedbg --command)
-        if [[ $CRASH_FOUND -eq 0 ]]; then
-            for TEST_ARGS in "${TEST_SUITE[@]}"; do
-                ((++TEST_INDEX))
-                local PHASE2_LOG="${TMP_DIR}/audit_p2_${TEST_INDEX}.log"
-                rm -f "$PHASE2_LOG"
-
-                log_debug "Executing sub-test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
-
-                # Используем нативный GDB в пакетном режиме — он перехватит stack smashing намертво
-                cat << 'EOF' > /tmp/gdb_cmd.txt
+        for TEST_ARGS in "${TEST_SUITE[@]}"; do
+            ((++TEST_INDEX))
+            local PHASE2_LOG="${TMP_DIR}/audit_p2_${TEST_INDEX}.log"
+            rm -f "$PHASE2_LOG"
+    
+            log_debug "Executing GDB sub-test for base parameters..."
+    
+            cat << 'EOF' > /tmp/gdb_cmd.txt
 set confirm off
 run
 backtrace full
 quit
 EOF
 
-                x86_64-w64-mingw32-gdb -batch -x /tmp/gdb_cmd.txt --args "$TEST_EXE" $TEST_ARGS > "$PHASE2_LOG" 2>&1
+            x86_64-w64-mingw32-gdb -batch -x /tmp/gdb_cmd.txt --args "$TEST_EXE" $TEST_ARGS > "$PHASE2_LOG" 2>&1
 
-                # Проверяем лог на признаки падения памяти или стека
-                if grep -Eiq "stack smashing|buffer overflow|Access Violation|0xc0000|Segmentation fault|SIGSEGV" "$PHASE2_LOG"; then
-                    log_error "CRITICAL FAULT DETECTED during base test!"
-                    CRASH_FOUND=1
-                    cat "$PHASE2_LOG" | tee -a "$CRASH_AUDIT_LOG" >&2
-                    break
-                fi
-                cat "$PHASE2_LOG" >> "$CRASH_AUDIT_LOG"
-                rm -f "$PHASE2_LOG"
-            done
-        fi
-
-        if [[ -f "$CRASH_AUDIT_LOG" && -s "$CRASH_AUDIT_LOG" ]]; then
-            if [[ $CRASH_FOUND -eq 1 ]]; then
-                log_error "CRASH DETECTED."
-                cat "$CRASH_AUDIT_LOG" >&2
-            elif [[ $CRASH2_FOUND -eq 1 ]]; then
-                log_debug "Relevant Crash Backtrace:"
-                sed -n '/Backtrace/,$p' "$CRASH_AUDIT_LOG" >&2 || cat "$CRASH_AUDIT_LOG" >&2
-            else
-                log_debug "No critical errors found in log."
+            if grep -Eiq "stack smashing|buffer overflow|Access Violation|0xc0000|Segmentation fault|SIGSEGV" "$PHASE2_LOG"; then
+                log_error "CRITICAL FAULT CAPTURED BY GDB!"
+                CRASH_FOUND=1
+                cat "$PHASE2_LOG" | tee -a "$CRASH_AUDIT_LOG" >&2
             fi
-        fi
+            cat "$PHASE2_LOG" >> "$CRASH_AUDIT_LOG"
+            rm -f "$PHASE2_LOG"
+        done
 
         # --- PHASE 3: Generate Component Tests ---
         generate_component_tests
@@ -1128,17 +1095,15 @@ EOF
 
         local TOTAL_TESTS=${#COMPREHENSIVE_TESTS[@]}
         local FAILED_TESTS=0
-        local TEST_INDEX=0
 
         # --- PHASE 4: Execute Component Tests ---
         for i in "${!COMPREHENSIVE_TESTS[@]}"; do
             local TEST_ARGS="${COMPREHENSIVE_TESTS[$i]}"
             local TEST_NUM=$((i + 1))
-            # Extract codec name for logging (heuristic)
             local CODEC_NAME=$(echo "$TEST_ARGS" | grep -oE "lib[a-z0-9]+|svt[a-z0-9]+" | head -1)
             [[ -z "$CODEC_NAME" ]] && CODEC_NAME="Generic"
 
-            log_debug "Running Test ${TEST_NUM}/${TOTAL_TESTS}: ${CYAN}${CODEC_NAME}${NC}..."
+            log_debug "Running Test ${TEST_NUM}/${TOTAL_TESTS}: [${CODEC_NAME}]..."
             local PHASE_LOG="${TMP_DIR}/audit_phase_${TEST_NUM}.log"
 
             cat << 'EOF' > /tmp/gdb_cmd.txt
@@ -1149,12 +1114,10 @@ quit
 EOF
 
             if timeout 60s x86_64-w64-mingw32-gdb -batch -x /tmp/gdb_cmd.txt --args "$TEST_EXE" $TEST_ARGS > "$PHASE_LOG" 2>&1; then
-                # Проверяем, не было ли падения внутри успешного завершения по GDB
                 if grep -Eiq "stack smashing|buffer overflow|Access Violation|0xc0000|Segmentation fault" "$PHASE_LOG"; then
                     log_error "   -> FAILED: CRASH detected in ${CODEC_NAME}!"
                     FAILED_TESTS=$((FAILED_TESTS + 1))
                     CRASH_FOUND=1
-                    echo "=== CRASH BACKTRACE FOR ${CODEC_NAME} ===" >&2
                     cat "$PHASE_LOG" | tee -a "$CRASH_AUDIT_LOG" >&2
                 else
                     log_debug "   -> Passed (Exit 0)"
@@ -1167,7 +1130,6 @@ EOF
                 else
                     log_error "   -> FAILED: Execution error in ${CODEC_NAME}"
                     FAILED_TESTS=$((FAILED_TESTS + 1))
-                    echo "=== CRASH BACKTRACE FOR ${CODEC_NAME} ===" >&2
                     cat "$PHASE_LOG" | tee -a "$CRASH_AUDIT_LOG" >&2
                 fi
             fi
@@ -1178,7 +1140,7 @@ EOF
         # --- PHASE 5: Final Report ---
         log_debug "${LOG_DEBUG}=======================================================${NC}"
 
-        if [[ $CRASH_FOUND -eq 1 || $CRASH2_FOUND -eq 1 ]]; then
+        if [[ $CRASH_FOUND -eq 1 ]]; then
             log_error "HARDWARE FAULT, ILLEGAL INSTRUCTION OR ACCESS VIOLATION DETECTED!"
             log_error "Please review the Backtrace (bt) output printed above."
             # return 1 # Явно валим функцию, если бинарник дефектный
