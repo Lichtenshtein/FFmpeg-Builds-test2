@@ -271,25 +271,6 @@ fi
 # ${FFBUILD_TOOLCHAIN}-g++ -c /tmp/ggml_openvino_stub.cpp -o /tmp/ggml_openvino_stub.o
 # ${FFBUILD_CROSS_PREFIX}ar rcs ${FFBUILD_PREFIX}/lib/libggml_openvino_stub.a /tmp/ggml_openvino_stub.o
 
-
-PREFIX2_PC="${FFBUILD_PREFIX}/lib/pkgconfig/libdatachannel.pc"
-rm -f "$PREFIX2_PC"
-log_info "Generating handcrafted static libdatachannel.pc with Windows Network Libs..."
-    cat <<EOF > "$PREFIX2_PC"
-prefix=${FFBUILD_PREFIX}
-exec_prefix=\${prefix}
-libdir=\${exec_prefix}/lib
-includedir=\${prefix}/include
-
-Name: datachannel
-Description: WebRTC Data Channels and Media Transport library (C/C++)
-Version: 0.24.5
-Libs: -L\${libdir} -Wl,--start-group -ldatachannel -ljuice -lsrtp2 -lusrsctp -lws2_32 -liphlpapi -Wl,--end-group
-Requires: openssl
-Libs.private: -lbcrypt -lcrypt32 -luserenv -lstdc++ -lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -pthread
-Cflags: -I\${includedir} -I\${includedir}/rtc -DRTC_STATIC -DJUICE_STATIC
-EOF
-
 THPENC_C="libavformat/thpenc.c"
 if [ -f "$THPENC_C" ]; then
     log_info "Fixing outdated packet_list API inside custom muxer: $THPENC_C..."
@@ -325,6 +306,9 @@ fi
 # объединяем базовые флаги из vars.sh и накопленные из компонентов
 # Конфигурация: сначала базовые, потом специфичные для варианта
 FINAL_CONFIGURE=$(smart_dedupe "$TOTAL_FF_CONFIGURE" "$VARIANT_FF_CONFIGURE")
+
+FINAL_CONFIGURE=$(echo " ${FINAL_CONFIGURE} " | sed -e 's/ --enable-libsvtjpegxs / /g' | xargs)
+
 # CFLAGS: Сначала кладем CPPFLAGS, затем CFLAGS компонентов, затем варианта.
 # Так как мы оставляем ПЕРВОЕ вхождение, самые важные флаги должны быть левее.
 FINAL_CFLAGS=$(smart_dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CFLAGS" "$VARIANT_FF_CPPFLAGS" | sed 's/-std=gnu17/-std=gnu23/g')
