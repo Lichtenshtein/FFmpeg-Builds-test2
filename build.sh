@@ -1,7 +1,7 @@
 #!/bin/bash
 
-set -e
-# set -xe
+# set -e
+set -xe
 
 shopt -s globstar
 cd "$(dirname "$0")"
@@ -853,7 +853,7 @@ log_info "${SYNC_MARK} Collecting additional assets..."
 # =======================================
 # FFMPEG DEBUGGING SECTION
 # =======================================
-if [[ "$DEBUG_MODE" == "1" ]]; then
+if [[ "$DEBUG_MODE" == "0" ]]; then
 
     # 1. AVX-512 Leakage Scan
     # If zmm registers (these are AVX-512 registers) or evex prefixes appear in the assembler output, it means that some library is still pushing this code.
