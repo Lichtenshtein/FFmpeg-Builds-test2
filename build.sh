@@ -316,7 +316,6 @@ find libavcodec/ -type f -name "*.c" -exec sed -i \
 # =======================================
 # Удаляем жесткий -static и -Wl,-Bstatic из базовых флагов линковщика
 # LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' | xargs)
-LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -Wl,--as-needed / /g' | xargs)
 
 [[ "${PREFER_SHARED}" != "1" ]] && export LDEXEFLAGS="-static -static-libgcc -static-libstdc++"
 
@@ -326,6 +325,7 @@ LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -Wl,--as-needed / /g' | xargs)
 # объединяем базовые флаги из vars.sh и накопленные из компонентов
 # Конфигурация: сначала базовые, потом специфичные для варианта
 FINAL_CONFIGURE=$(smart_dedupe "$TOTAL_FF_CONFIGURE" "$VARIANT_FF_CONFIGURE")
+FINAL_CONFIGURE=$(echo " ${FINAL_CONFIGURE} " | sed "s/ --enable-libquirc / /g")
 # CFLAGS: Сначала кладем CPPFLAGS, затем CFLAGS компонентов, затем варианта.
 # Так как мы оставляем ПЕРВОЕ вхождение, самые важные флаги должны быть левее.
 FINAL_CFLAGS=$(smart_dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CFLAGS" "$VARIANT_FF_CPPFLAGS" | sed 's/-std=gnu17/-std=gnu23/g')
