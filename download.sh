@@ -129,7 +129,7 @@ else
 
     if [[ "$REMOTE_HASH" == "$LOCAL_HASH" && -f "$FFMPEG_DIR/configure" ]]; then
         log_info "${CHECK_MARK} FFmpeg is up to date (Commit: ${REMOTE_HASH:0:7}). Skipping clone."
-    else
+    elif [[ "${FFMPEG_UPDATE}" != "0" ]]; then
         log_warn "New version detected or source missing. ${SYNC_MARK} Fetching FFmpeg ${FFMPEG_BRANCH} → ${REMOTE_HASH:0:7}..."
         # FFmpeg update (--quiet для чистоты логов)
         # Используем переменные FFMPEG_REPO и FFMPEG_BRANCH из workflow.yaml
@@ -164,6 +164,8 @@ else
         # Сохраняем новый хеш после успешного обновления
         echo "$REMOTE_HASH" > "$FFMPEG_HASH_FILE"
         log_info "${CHECK_MARK} FFmpeg updated to: ${REMOTE_HASH:0:7}"
+    else
+        log_warn "FFmpeg updates manually disabled."
     fi
 fi
 
