@@ -1,0 +1,48 @@
+From e66dbe925e9bd620f11e9cf9646601af7ce15fd6 Mon Sep 17 00:00:00 2001
+From: Jamaika1 <lukaszcz18@wp.pl>
+Date: Sat, 27 Jun 2026 19:02:39 +0200
+Subject: [PATCH] Added bpp bits per pixel
+
+Currently pixel format functions rgb24, brg24, gbrp are removed.
+---
+diff --git a/ffmpeg-plugin/libsvtjpegxsenc.c b/ffmpeg-plugin/libsvtjpegxsenc.c
+index 5c8dc7d..39cf388 100644
+--- a/ffmpeg-plugin/libsvtjpegxsenc.c
++++ b/ffmpeg-plugin/libsvtjpegxsenc.c
+@@ -187,6 +187,23 @@ static av_cold int svt_jpegxs_enc_init(AVCodecContext* avctx) {
+     SvtJxsErrorType_t err = svt_jpeg_xs_encoder_load_default_parameters(
+         SVT_JPEGXS_API_VER_MAJOR, SVT_JPEGXS_API_VER_MINOR, &(svt_enc->encoder));
+ 
++    if (!svt_enc->bpp_str) {
++      svt_enc->bpp_str = (avctx->pix_fmt == AV_PIX_FMT_YUV420P/*)*/ ? "12" :
++                         (avctx->pix_fmt == AV_PIX_FMT_YUV420P10LE ? "15" :
++                         (avctx->pix_fmt == AV_PIX_FMT_YUV420P12LE ? "18" :
++                         (avctx->pix_fmt == AV_PIX_FMT_YUV422P ? "16" :
++                         (avctx->pix_fmt == AV_PIX_FMT_YUV422P10LE ? "20" :
++                        ((avctx->pix_fmt == AV_PIX_FMT_YUV422P12LE ||
++                          avctx->pix_fmt == AV_PIX_FMT_YUV444P /*||
++                          avctx->pix_fmt == AV_PIX_FMT_GBRP ||
++                          avctx->pix_fmt == AV_PIX_FMT_RGB24 ||
++                          avctx->pix_fmt == AV_PIX_FMT_BGR24*/) ? "24" :
++                        (/*(*/avctx->pix_fmt == AV_PIX_FMT_YUV444P10LE /*||
++                          avctx->pix_fmt == AV_PIX_FMT_GBRP10LE)*/ ? "30" :
++                        (/*(*/avctx->pix_fmt == AV_PIX_FMT_YUV444P12LE /*||
++                          avctx->pix_fmt == AV_PIX_FMT_GBRP10LE)*/ ? "36" : "X"))))))));
++    }
++    
+     if (err != SvtJxsErrorNone) {
+         av_log(NULL, AV_LOG_ERROR, "svt_jpeg_xs_encoder_load_default_parameters failed\n");
+         return AVERROR_UNKNOWN;
+@@ -210,12 +227,6 @@ static av_cold int svt_jpegxs_enc_init(AVCodecContext* avctx) {
+         svt_enc->encoder.verbose = VERBOSE_WARNINGS;
+     }
+ 
+-    if (!svt_enc->bpp_str) {
+-        // TODO: Consider using avctx->bit_rate to specify bpp_num/bpp_denom in this case
+-        av_log(NULL, AV_LOG_ERROR, "libsvtjpegxs Encoder require -bpp(bits per pixel) param\n");
+-        return AVERROR_OPTION_NOT_FOUND;
+-    }
+-
+     set_bpp(svt_enc->bpp_str, &(svt_enc->encoder));
+ 
+     if (svt_enc->decomp_v != -1) {
