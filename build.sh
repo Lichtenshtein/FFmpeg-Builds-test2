@@ -399,6 +399,14 @@ done
 # fi
 
 # ==========================================
+# FREI0R PROCESSING
+# ==========================================
+if [[ "$HAS_FREI0R" == "1" && "$TARGET" == "win64" ]]; then
+    log_info "${TARGET_MARK} Patching FFmpeg source to change frei0r plugins default location..."
+    sed -i '/static const char\* const frei0r_pathlist\[\] = {/,/};/c\    static const char* const frei0r_pathlist[] = {\n        "frei0r-1/"\n    };' libavfilter/vf_frei0r.c
+fi
+
+# ==========================================
 # FINAL LIBS GROUP PROCESSING
 # ==========================================
 
