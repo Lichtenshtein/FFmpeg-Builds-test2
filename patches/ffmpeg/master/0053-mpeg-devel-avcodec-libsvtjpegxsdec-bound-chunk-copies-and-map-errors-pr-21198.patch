@@ -9,7 +9,7 @@ Content-Transfer-Encoding: 8bit
 Regression since: 08db850159
 
 Chunked JPEG-XS decode returned positive libsvtjpegxs errors directly,
-so FFmpeg treated failures as ìbytes consumedî and kept calling the
+so FFmpeg treated failures as ‚Äúbytes consumed‚Äù and kept calling the
 decoder with a stale buffer_filled_len. If a libsvtjpegxs error occurred
 after the chunk buffer reached frame_size, the next call underflowed
 frame_size - buffer_filled_len and memcpy wrote out of bounds.
