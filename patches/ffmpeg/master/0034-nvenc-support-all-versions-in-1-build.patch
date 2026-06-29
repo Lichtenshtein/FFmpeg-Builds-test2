@@ -64,9 +64,9 @@ index 619a4ddd9c..333e428441 100644
  #define IS_10BIT(pix_fmt)  (pix_fmt == AV_PIX_FMT_P010         || \
                              pix_fmt == AV_PIX_FMT_P012         || \
 @@ -429,14 +435,16 @@ static av_cold int nvenc_load_libraries(AVCodecContext *avctx)
-     func_ver = struct_ver_rt(ctx, 2);
-     av_log(avctx, AV_LOG_INFO, "Loaded Nvenc version %d.%d\n", nvenc_max_major, nvenc_max_minor);
-
+    func_ver = struct_ver_rt(ctx, 2);
+    av_log(avctx, AV_LOG_INFO, "Loaded Nvenc version %u.%u, max: %u.%u, build api: %u.%u. config_ver: %u\n", ctx->apiver_rt & 0xff, (ctx->apiver_rt >> 24) & 0xff, nvenc_max_major, nvenc_max_minor, NVENCAPI_MAJOR_VERSION, NVENCAPI_MINOR_VERSION, config_ver);
+ 
 +#if 0
      if ((NVENCAPI_MAJOR_VERSION << 4 | NVENCAPI_MINOR_VERSION) > nvenc_max_ver) {
          av_log(avctx, AV_LOG_WARNING, "Driver does not support the required nvenc API version. "

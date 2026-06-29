@@ -25,7 +25,7 @@ index 8ffea48829..9a54c2649d 100755
 +            LIBPREF=    # if only build static libs, fftools exes always link to .lib without lib prefix
          fi
 +        LIBSUF=.lib
-         ! enabled small && test_cmd $windres --version && enable gnu_windres
+         test_cmd $windres --version && enable gnu_windres
          enabled x86_32 && check_ldflags -LARGEADDRESSAWARE
          add_cppflags -DWIN32_LEAN_AND_MEAN
 @@ -6133,8 +6136,6 @@ case $target_os in
