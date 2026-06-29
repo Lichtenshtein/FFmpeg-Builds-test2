@@ -204,7 +204,7 @@ QTFILES_URL="https://github.com/AnimMouse/QTFiles/releases/download/v12.13.9.1/Q
 log_info "${START_MARK} Starting AI/OCR model and conditional asset collection..."
 
 # TESSERACT MODELS (OCR)
-if [[ "$HAS_LIBTESSERACT" == "1" ]]; then
+if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBTESSERACT" == "1" ]]; then
     log_info "${DOWN_MARK} Downloading Tesseract OCR models (tessdata_best)"
     TESS_DEST="${PKG_DIR}/bin/tessdata"
     mkdir -p "$TESS_DEST/script"
@@ -250,7 +250,7 @@ if [[ "$HAS_LIBTESSERACT" == "1" ]]; then
 fi
 
 # TENSORFLOW / DNN MODELS (Super Resolution)
-if [[ "$HAS_LIBTENSORFLOW" == "1" ]]; then
+if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBTENSORFLOW" == "1" ]]; then
     log_info "${SYNC_MARK} Collecting TensorFlow SR models from build context..."
 
     TARGET_MODEL_DIR="${ASSETS_DIR}/tensorflow"
@@ -269,7 +269,7 @@ fi
 
 # OPENVINO MODELS (VPP_OPENVINO)
 # OpenVINO Models (ESPCN - Super Resolution x2) работают через vpp_openvino
-if [[ "$HAS_LIBOPENVINO" == "1" ]]; then
+if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBOPENVINO" == "1" ]]; then
     log_info "${DOWN_MARK} Downloading OpenVINO models..."
     mkdir -p "${ASSETS_DIR}/openvino"
     LINK_OV=$(echo "$URL_OV_BASE" | tr -d ' ')
