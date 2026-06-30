@@ -400,6 +400,15 @@ jobs:
           restore-keys: |
             ffmpeg-downloads-
 
+      - name: Restore FFmpeg Source Tree
+        id: restore_ffmpeg
+        uses: actions/cache/restore@v5.0.5
+        with:
+          path: .cache/ffmpeg
+          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}
+          restore-keys: |
+            ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-
+
       - name: Restore TensorFlow Models Cache
         if: env.USE_TENSORFLOW == '1'
         id: cache-tf-models
@@ -486,7 +495,6 @@ jobs:
             cache_ffmpeg_ctx=${{ github.workspace }}/.cache/ffmpeg
           provenance: false
 
-      # --- SAVE: Save Cache ---
       - name: Save Third-Party Downloads
         if: always() && steps.restore_downloads.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5.0.5
