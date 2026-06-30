@@ -293,7 +293,7 @@ if [[ "${SKIP_FFMPEG}" == "1" ]]; then
     to_df "    echo 'Components built successfully' > ${FFBUILD_DESTDIR}/BUILD_SUCCESS"
 else
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
-    to_df "    --mount=type=bind,from=cache_ffmpeg_ctx,source=/,target=/builder/.cache/ffmpeg,rw \\"
+    to_df "    --mount=type=bind,from=cache_ffmpeg_ctx,source=/,target=/builder/ffbuild/ffmpeg,rw \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
 
