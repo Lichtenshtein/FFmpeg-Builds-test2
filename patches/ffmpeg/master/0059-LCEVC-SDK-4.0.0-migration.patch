@@ -1,0 +1,64 @@
+From 00a5da3bba6c5da4b34a31cf0a777605200b7b60 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Tue, 30 Jun 2026 13:16:21 +0300
+Subject: [PATCH] precise LCEVC SDK 4.0.0 migration
+
+---
+ libavcodec/lcevcdec.c  | 11 +++++++++--
+ libavfilter/vf_lcevc.c |  4 ++--
+ 2 files changed, 11 insertions(+), 4 deletions(-)
+
+diff --git a/libavcodec/lcevcdec.c b/libavcodec/lcevcdec.c
+index 97a29d8..2e16a5a 100644
+--- a/libavcodec/lcevcdec.c
++++ b/libavcodec/lcevcdec.c
+@@ -149,7 +149,7 @@ static int lcevc_send_frame(FFLCEVCFrame *frame_ctx, const AVFrame *in)
+     if (!sd || fmt == LCEVC_ColorFormat_Unknown)
+         return 1;
+ 
+-    res = LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size);
++    res = LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size);
+     if (res != LCEVC_Success)
+         return AVERROR_EXTERNAL;
+ 
+@@ -163,7 +163,14 @@ static int lcevc_send_frame(FFLCEVCFrame *frame_ctx, const AVFrame *in)
+         return AVERROR(ENOMEM);
+     }
+ 
+-    res = LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, opaque);
++    res = LCEVC_SetPictureUserData(lcevc->decoder, picture, opaque);
++    if (res != LCEVC_Success) {
++        LCEVC_FreePicture(lcevc->decoder, picture);
++        av_frame_free(&opaque);
++        return AVERROR_EXTERNAL;
++    }
++
++    res = LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, opaque);
+     if (res != LCEVC_Success) {
+         LCEVC_FreePicture(lcevc->decoder, picture);
+         av_frame_free(&opaque);
+diff --git a/libavfilter/vf_lcevc.c b/libavfilter/vf_lcevc.c
+index cedf12b..7960943 100644
+--- a/libavfilter/vf_lcevc.c
++++ b/libavfilter/vf_lcevc.c
+@@ -155,7 +155,7 @@ static int send_frame(AVFilterLink *inlink, AVFrame *in)
+         return ret;
+ 
+     if (sd) {
+-        res = LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size);
++        res = LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size);
+         if (res == LCEVC_Again)
+             return AVERROR(EAGAIN);
+         else if (res != LCEVC_Success) {
+@@ -171,7 +171,7 @@ static int send_frame(AVFilterLink *inlink, AVFrame *in)
+         return AVERROR_EXTERNAL;
+     }
+ 
+-    res = LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, in);
++    res = LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, in);
+     if (res != LCEVC_Success) {
+         av_log(ctx, AV_LOG_ERROR, "LCEVC_SendDecoderBase failed\n");
+         LCEVC_FreePicture(lcevc->decoder, picture);
+-- 
+2.52.0.windows.1
+
