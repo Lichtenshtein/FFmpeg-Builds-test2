@@ -483,6 +483,7 @@ jobs:
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
             tf_models_ctx=${{ github.workspace }}/host_tensorflow_models
             cache_downloads_ctx=${{ github.workspace }}/.cache/downloads
+            cache_ffmpeg_ctx=${{ github.workspace }}/.cache/ffmpeg
           provenance: false
 
       # --- SAVE: Save Cache ---
