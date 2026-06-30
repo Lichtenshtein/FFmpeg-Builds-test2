@@ -460,6 +460,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=ffmpeg-components-v2
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
+            cache_ffmpeg_ctx=${{ github.workspace }}/.cache/ffmpeg
             cache_downloads_ctx=${{ github.workspace }}/.cache/downloads
             tf_models_ctx=${{ github.workspace }}/host_tensorflow_models
           provenance: false
