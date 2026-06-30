@@ -398,8 +398,9 @@ jobs:
         uses: actions/cache/restore@v5.0.5
         with:
           path: .cache/downloads
-          key: ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}
+          key: ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}
           restore-keys: |
+            ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}-
             ffmpeg-downloads-
 
       - name: Restore FFmpeg Source Tree
@@ -498,11 +499,11 @@ jobs:
           provenance: false
 
       - name: Save Third-Party Downloads
-        if: always() && steps.restore_downloads.outputs.cache-hit != 'true'
+        if: always()
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/downloads
-          key: ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}
+          key: ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}
 
       - name: Get Final FFmpeg Commit for Cache Key
         id: ffmpeg_commit

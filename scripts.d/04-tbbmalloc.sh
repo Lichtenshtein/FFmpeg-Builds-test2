@@ -49,8 +49,8 @@ ffbuild_dockerbuild() {
 
     # oneTBB иногда игнорирует стандартные CFLAGS, прокидываем их через CMAKE
     cmake -G Ninja "${myconf[@]}" \
-        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
-        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+        -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-undef $static_flags" \
+        -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-undef $static_flags" \
         -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${USELTO}" \
         .. || return 1
 
