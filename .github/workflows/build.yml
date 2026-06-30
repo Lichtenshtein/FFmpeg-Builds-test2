@@ -189,11 +189,9 @@ jobs:
 
       - name: Guarantee Cache Directories Existence
         run: |
-          mkdir -p .cache/downloads .cache/ffmpeg .cache/ccache .cache/tmp artifacts
-          touch .cache/downloads/.keep .cache/ffmpeg/.keep
+          mkdir -p .cache/downloads artifacts
           chmod -R u+r patches/ || true
           chmod -R u+w .cache/ || true
-          chmod -R 777 .cache/ccache || true
 
       - name: 🗑️ Nuke All Caches
         if: github.event.inputs.doClean == 'true'
@@ -360,9 +358,6 @@ jobs:
             echo "🚨 Forced base image rebuild requested by user!"
             exit 0
           fi
-
-          echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin >/dev/null 2>&1
-
           if docker manifest inspect ${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }} >/dev/null 2>&1; then
             echo "exists=true" >> $GITHUB_OUTPUT
             echo "✅ The base image with the hash ${{ steps.docker_hash.outputs.hash }} is already in the registry."
@@ -389,39 +384,22 @@ jobs:
           cache-from: type=gha,scope=ffmpeg-base-cache
           cache-to: type=gha,mode=max,scope=ffmpeg-base-cache
 
-      # --- Calculate the Key  ---
       - name: Get Download Cache Key (Stable)
         id: dl_cache
         run: |
           chmod +x ./util/state_hash.sh
           KEY=$(./util/state_hash.sh)
           echo "stable_key=dl_cache-${KEY}" >> $GITHUB_OUTPUT
-          echo "🔑 Stable Key: dl_cache-${KEY}"
 
-      # --- CACHE 1: THIRD-PARTY Downloads ---
-      - name: Restore Third-Party Downloads and Ccache
-        id: restore_caches
+      - name: Restore Third-Party Downloads
+        id: restore_downloads
         uses: actions/cache/restore@v5.0.5
         with:
-          path: |
-            .cache/downloads
-            .cache/ccache
-          key: ffmpeg-assets-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .cache/downloads
+          key: ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}
           restore-keys: |
-            ffmpeg-assets-${{ steps.dl_cache.outputs.stable_key }}-
-            ffmpeg-assets-
+            ffmpeg-downloads-
 
-      # --- CACHE 2: FFMPEG SOURCE CODE ---
-      - name: Restore FFmpeg Source Tree
-        id: restore_ffmpeg
-        uses: actions/cache/restore@v5.0.5
-        with:
-          path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}
-          restore-keys: |
-            ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-
-
-      # --- CACHE 3: TENSORFLOW MODELS ---
       - name: Restore TensorFlow Models Cache
         if: env.USE_TENSORFLOW == '1'
         id: cache-tf-models
@@ -439,15 +417,6 @@ jobs:
           mkdir -p ./host_tensorflow_models
           docker cp ${CONTAINER_ID}:/usr/local/share/ffmpeg-tensorflow-models/. ./host_tensorflow_models/
           docker rm ${CONTAINER_ID}
-
-      - name: Verify TensorFlow Models Directory
-        if: env.USE_TENSORFLOW == '1'
-        run: |
-          if [[ ! -d "./host_tensorflow_models" || -z "$(ls -A ./host_tensorflow_models 2>/dev/null)" ]]; then
-            echo "🔴 ERROR: TensorFlow models directory invalid or empty."
-            exit 1
-          fi
-          echo "✅ TensorFlow models directory verified."
 
       - name: Save TensorFlow Models Cache
         if: env.USE_TENSORFLOW == '1' && steps.cache-tf-models.outputs.cache-hit != 'true'
@@ -469,9 +438,6 @@ jobs:
             rm -rf .cache/ccache/*
           fi
 
-          mkdir -p .cache/downloads .cache/ffmpeg .cache/ccache .cache/tmp
-          chmod -R 777 .cache/ccache || true
-
           export TARGET_IMAGE="base-$TARGET"
 
           chmod +x ./download.sh ./util/*.sh ./generate.sh
@@ -490,12 +456,11 @@ jobs:
           target: components_build
           push: true
           tags: ${{ steps.images.outputs.repo_lc }}/components-cache:latest
-          cache-from: type=gha,scope=ffmpeg-components
-          cache-to: type=gha,mode=max,scope=ffmpeg-components
+          cache-from: type=gha,scope=ffmpeg-components-v2
+          cache-to: type=gha,mode=max,scope=ffmpeg-components-v2
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
             cache_downloads_ctx=${{ github.workspace }}/.cache/downloads
-            cache_ccache_ctx=${{ github.workspace }}/.cache/ccache
             tf_models_ctx=${{ github.workspace }}/host_tensorflow_models
           provenance: false
 
@@ -509,42 +474,23 @@ jobs:
           push: false
           outputs: type=local,dest=artifacts/
           cache-from: |
-            type=gha,scope=ffmpeg-components
-            type=gha,scope=ffmpeg-final
-          cache-to: type=gha,mode=max,scope=ffmpeg-final
+            type=gha,scope=ffmpeg-components-v2
+            type=gha,scope=ffmpeg-final-v2
+          cache-to: type=gha,mode=max,scope=ffmpeg-final-v2
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
-            cache_ffmpeg_ctx=${{ github.workspace }}/.cache/ffmpeg
-            cache_ccache_ctx=${{ github.workspace }}/.cache/ccache
             tf_models_ctx=${{ github.workspace }}/host_tensorflow_models
             cache_downloads_ctx=${{ github.workspace }}/.cache/downloads
           provenance: false
 
-      - name: Get Final FFmpeg Commit for Cache Key
-        id: ffmpeg_commit
-        if: always()
-        run: |
-          COMMIT=$(cat .cache/ffmpeg/.current_commit 2>/dev/null || echo "none")
-          echo "commit=${COMMIT:0:12}" >> $GITHUB_OUTPUT
-
       # --- SAVE: Save Cache ---
       - name: Save Third-Party Downloads and Ccache
-        if: always()
+        if: always() && steps.restore_downloads.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5.0.5
         with:
-          path: |
-            .cache/downloads
-            .cache/ccache
-          key: ffmpeg-assets-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}-${{ github.run_attempt }}
-
-      # --- SAVE: FFmpeg source code ---
-      - name: Save FFmpeg Source Tree
-        if: always() && steps.ffmpeg_commit.outputs.commit != 'none'
-        uses: actions/cache/save@v5.0.5
-        with:
-          path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg_commit.outputs.commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .cache/downloads
+          key: ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}
 
       - name: Cleanup Old Caches
         if: github.event.inputs.regularClean == 'true' && !cancelled()

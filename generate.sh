@@ -261,12 +261,9 @@ for STAGE in "${active_scripts[@]}"; do
     LAYER_ID="CH:${CHAIN_HASH}"
 
     to_df "# Component: $STAGENAME | LayerID: $LAYER_ID"
-
-    # Внедряем ARG, уникальный для каждого шага. 
-    # Если цепочка до этого шага изменилась, Docker гарантированно сбросит кэш здесь и далее.
     to_df "ARG CACHE_BYPASS_${STAGENAME}=\"${LAYER_ID}\""
 
-    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
+    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
     to_df "    --mount=type=bind,from=cache_downloads_ctx,source=/,target=${CONTAINER_ROOT}/.cache/downloads \\"
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
@@ -280,13 +277,10 @@ done
 to_df "FROM ${TARGET_IMAGE} AS final_build"
 to_df "SHELL [\"/bin/bash\", \"-l\", \"-c\"]"
 to_df "WORKDIR ${CONTAINER_ROOT}"
-
 to_df "COPY --from=components_build ${FFBUILD_PREFIX}/ ${FFBUILD_PREFIX}/"
-
 if [[ "${USE_TENSORFLOW}" == "1" ]]; then
     to_df "COPY --from=components_build /opt/ffbuild/share/tensorflow_models/ /opt/ffbuild/share/tensorflow_models/"
 fi
-
 to_df "$COMMON_ENV"
 to_df "COPY build.sh ./build.sh"
 to_df "COPY addins ./addins"
@@ -298,7 +292,7 @@ if [[ "${SKIP_FFMPEG}" == "1" ]]; then
     to_df "RUN mkdir -p ${FFBUILD_DESTDIR} && \\"
     to_df "    echo 'Components built successfully' > ${FFBUILD_DESTDIR}/BUILD_SUCCESS"
 else
-    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=${CCACHE_DIR} \\"
+    to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
     to_df "    --mount=type=bind,from=cache_ffmpeg_ctx,source=/,target=/builder/ffbuild/ffmpeg,rw \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
