@@ -502,12 +502,20 @@ jobs:
           path: .cache/downloads
           key: ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}
 
-      - name: Save FFmpeg Source Tree
+      - name: Get Final FFmpeg Commit for Cache Key
+        id: ffmpeg_commit
         if: always()
+        run: |
+          COMMIT=$(cat .cache/ffmpeg/.current_commit 2>/dev/null || echo "none")
+          echo "commit=${COMMIT:0:12}" >> $GITHUB_OUTPUT
+          echo "🎯 Detected FFmpeg Commit: ${COMMIT:0:12}"
+
+      - name: Save FFmpeg Source Tree
+        if: always() && steps.ffmpeg_commit.outputs.commit != 'none'
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg_commit.outputs.commit }}-${{ github.run_id }}
 
       - name: Cleanup Old Caches
         if: github.event.inputs.regularClean == 'true' && !cancelled()
