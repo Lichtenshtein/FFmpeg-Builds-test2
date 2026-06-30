@@ -134,7 +134,6 @@ RUN rustup target add "$FFBUILD_RUST_TARGET" && \
     printf "[target.%s]\nlinker = \"%s-gcc\"\nar = \"%s-gcc-ar\"\n" "$FFBUILD_RUST_TARGET" "$FFBUILD_TOOLCHAIN" "$FFBUILD_TOOLCHAIN" > "$CARGO_HOME"/config.toml && \
     \
     mkdir -p /opt/ccache-links && \
-    for tool in gcc g++ cpp c++ gcc-ar gcc-nm gcc-ranlib; do \
+    for tool in gcc g++ cpp c++ gcc-ar gcc-nm gcc-ranlib ranlib; do \
         ln -sf /usr/bin/ccache "/opt/ccache-links/x86_64-w64-mingw32-${tool}"; \
     done
-

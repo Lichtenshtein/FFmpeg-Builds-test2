@@ -16,8 +16,6 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
     exit 1
 }
 
-ln -sf /usr/bin/ccache /opt/ccache-links/x86_64-w64-mingw32-ranlib
-
 CONTAINER_ROOT="${CONTAINER_ROOT:-/builder}"
 
 # build ADDINS array based on ENV VARIABLES
