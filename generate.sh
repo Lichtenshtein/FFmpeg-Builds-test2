@@ -16,6 +16,8 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
     exit 1
 }
 
+ln -sf /usr/bin/ccache /opt/ccache-links/x86_64-w64-mingw32-ranlib
+
 CONTAINER_ROOT="${CONTAINER_ROOT:-/builder}"
 
 # build ADDINS array based on ENV VARIABLES
@@ -92,6 +94,7 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     ROOT_DIR=\"${CONTAINER_ROOT}\" \\
     CACHE_DIR=\"${CONTAINER_ROOT}/.cache/downloads\" \\
     CCACHE_DIR=\"${CCACHE_DIR}\" \\
+    CCACHE_BASEDIR=\"${CONTAINER_ROOT}\" \\
     CCACHE_MAXSIZE=\"${CCACHE_MAXSIZE:-2G}\" \\
     CCACHE_COMPRESS=\"${CCACHE_COMPRESS:-1}\" \\
     CCACHE_COMPRESSLEVEL=\"${CCACHE_COMPRESSLEVEL:-6}\" \\
