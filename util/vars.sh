@@ -71,8 +71,6 @@ log_err_line()  { echo -e "${LOG_ERROR}[ERROR]${NC} !!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 export -f log_info log_warn log_error log_debug log_info_line log_err_line print_info print_warn print_error print_debug log_raw
 
-export PATH="/opt/ccache-links:${PATH}"
-
 # ---------------------------------------------------------------------------
 # ROOT_DIR: always the project root, regardless of where vars.sh lives or
 # how it is sourced.
@@ -106,36 +104,7 @@ export CONTAINER_ROOT="/builder"
 # The workflow mounts .cache/downloads → $CACHE_DIR, so the target must
 # match what generate.sh writes into the Dockerfile --mount target.
 # ---------------------------------------------------------------------------
-
 export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
-
-export CCACHE_PATH="/opt/ct-ng/bin:/usr/bin"
-export CCACHE_DIR="/root/.cache/ccache"
-export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-2G}"
-export CCACHE_BASEDIR="/builder"
-export CCACHE_COMPILERCHECK="${CCACHE_COMPILERCHECK:-none}"
-export CCACHE_DEPEND="${CCACHE_DEPEND:-1}"
-export CCACHE_COMPRESS="${CCACHE_COMPRESS:-1}"
-export CCACHE_COMPRESSLEVEL="${CCACHE_COMPRESSLEVEL:-6}"
-export CCACHE_NOHASHDIR="${CCACHE_NOHASHDIR:-1}"
-export CCACHE_NLEVELS="${CCACHE_NLEVELS:-4}"
-export CCACHE_SLOPPINESS="${CCACHE_SLOPPINESS}"
-
-if [[ "${USE_WINE:-0}" = "1" ]]; then
-    export WINEARCH=win64
-    export WINEPREFIX="/root/.wine"
-    export DISPLAY=:99
-    export WINEDEBUG=-all
-    export WINEDLLOVERRIDES="mscoree,mshtml="
-fi
-
-# Заставляет glibc выводить подробный бэктрейс в stderr при срабатывании fortify/overflow
-export LIBC_FATAL_STDERR_=1
-
-export LOG_RAW_SYMB="${LOG_RAW_SYMB:-20}" # number of lines displaying external library deps
-export LOG_SIZES="${LOG_SIZES:-500}" # number of lines displayed in logs
-export LOG_FF_SIZES="${FF_LOG_SIZES:-1000}" # number of lines displayed in ffmpeg logs
-export LOG_INSTALLED="${LOG_INSTALLED:-85}" # shown number of installed files in DESTDIR prefix
 
 # Build variables (inside the container)
 # Prefer positional args, fall back to ENV
@@ -156,8 +125,9 @@ export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 export FFBUILD_CROSS_PREFIX="x86_64-w64-mingw32-"
 export AS="${FFBUILD_TOOLCHAIN}-as"
-export CC="ccache ${FFBUILD_TOOLCHAIN}-gcc"
-export CXX="ccache ${FFBUILD_TOOLCHAIN}-g++"
+export CC="${FFBUILD_TOOLCHAIN}-gcc"
+export CXX="${FFBUILD_TOOLCHAIN}-g++"
+export LD="${FFBUILD_TOOLCHAIN}-ld"
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
 export FFBUILD_DESTDIR="/opt/ffdest"
 export FFBUILD_DESTPREFIX="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}"
@@ -210,6 +180,37 @@ export FFMPEG_SOURCE_DIR="${FFMPEG_BUILD_ROOT}/ffmpeg"
 export FFMPEG_PKG_ROOT="${FFMPEG_BUILD_ROOT}/pkgroot"
 export FFMPEG_CONFIG_LOG="${FFMPEG_SOURCE_DIR}/ffbuild/config.log"
 export FFMPEG_HASH_FILE="${FFMPEG_DIR}/.current_commit" # hash of the last downloaded commit
+
+# ccache
+export PATH="/opt/ccache-links:${PATH}"
+export CCACHE_PATH="/opt/ct-ng/bin:/usr/bin"
+export CCACHE_DIR="/root/.cache/ccache"
+export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-2G}"
+export CCACHE_BASEDIR="/builder"
+export CCACHE_COMPILERCHECK="${CCACHE_COMPILERCHECK:-none}"
+export CCACHE_DEPEND="${CCACHE_DEPEND:-1}"
+export CCACHE_COMPRESS="${CCACHE_COMPRESS:-1}"
+export CCACHE_COMPRESSLEVEL="${CCACHE_COMPRESSLEVEL:-6}"
+export CCACHE_NOHASHDIR="${CCACHE_NOHASHDIR:-1}"
+export CCACHE_NLEVELS="${CCACHE_NLEVELS:-4}"
+export CCACHE_SLOPPINESS="${CCACHE_SLOPPINESS}"
+
+# wine
+if [[ "${USE_WINE:-0}" = "1" ]]; then
+    export WINEARCH=win64
+    export WINEPREFIX="/root/.wine"
+    export DISPLAY=:99
+    export WINEDEBUG=-all
+    export WINEDLLOVERRIDES="mscoree,mshtml="
+fi
+
+# Заставляет glibc выводить подробный бэктрейс в stderr при срабатывании fortify/overflow
+export LIBC_FATAL_STDERR_=1
+
+export LOG_RAW_SYMB="${LOG_RAW_SYMB:-20}" # number of lines displaying external library deps
+export LOG_SIZES="${LOG_SIZES:-500}" # number of lines displayed in logs
+export LOG_FF_SIZES="${FF_LOG_SIZES:-1000}" # number of lines displayed in ffmpeg logs
+export LOG_INSTALLED="${LOG_INSTALLED:-85}" # shown number of installed files in DESTDIR prefix
 
 # Helper hooks to skip .la files, dependancies and .pc files auditing and patching
 # Can be added individually to any component script
