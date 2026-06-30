@@ -95,16 +95,6 @@ if [[ -z "${ROOT_DIR:-}" ]]; then
     fi
 fi
 export ROOT_DIR
-# Or if we don't like long paths in logs
-# Container root is always /builder
-export CONTAINER_ROOT="/builder"
-
-# ---------------------------------------------------------------------------
-# CACHE_DIR: always inside the project tree so host and container agree.
-# The workflow mounts .cache/downloads → $CACHE_DIR, so the target must
-# match what generate.sh writes into the Dockerfile --mount target.
-# ---------------------------------------------------------------------------
-export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
 
 # Build variables (inside the container)
 # Prefer positional args, fall back to ENV
@@ -185,10 +175,21 @@ export FFMPEG_PKG_ROOT="${FFMPEG_BUILD_ROOT}/pkgroot"
 export FFMPEG_CONFIG_LOG="${FFMPEG_SOURCE_DIR}/ffbuild/config.log"
 export FFMPEG_HASH_FILE="${FFMPEG_DIR}/.current_commit" # hash of the last downloaded commit
 
+# Container root is always /builder
+export CONTAINER_ROOT="/builder"
+
+# ---------------------------------------------------------------------------
+# CACHE_DIR: always inside the project tree so host and container agree.
+# The workflow mounts .cache/downloads → $CACHE_DIR, so the target must
+# match what generate.sh writes into the Dockerfile --mount target.
+# ---------------------------------------------------------------------------
+export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
+
 # ccache
 export PATH="/opt/ccache-links:${PATH}"
 export CCACHE_PATH="/opt/ct-ng/bin:/usr/bin"
 export CCACHE_DIR="/root/.cache/ccache"
+export CCACHE_BASEDIR="${CONTAINER_ROOT}"
 export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-2G}"
 export CCACHE_BASEDIR="/builder"
 export CCACHE_COMPILERCHECK="${CCACHE_COMPILERCHECK:-none}"
