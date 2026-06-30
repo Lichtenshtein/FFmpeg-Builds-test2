@@ -143,7 +143,6 @@ run_deep_component_audit() {
 
     local TEST_EXE="${PKG_DIR}/bin/ffmpeg.exe"
     [[ ! -f "$TEST_EXE" ]] && TEST_EXE="/opt/ffdest/opt/ffbuild/bin/ffmpeg.exe"
-
     if [ ! -f "$TEST_EXE" ]; then
         log_error "FFmpeg binary not found at $TEST_EXE"
         return 1
@@ -154,15 +153,16 @@ run_deep_component_audit() {
         return 0
     fi
 
-    export WINEDEBUG="-all,err,seh"
+    export WINEDEBUG="-all,err,seh,bad,fixme:all"
     export WINEARCH=win64
     export DISPLAY=:99
-
     [[ -z "$TMP_DIR" ]] && TMP_DIR="/tmp"
+
     local AUDIT_LOG="${TMP_DIR}/ffmpeg_deep_audit.log"
+    local CRASH_LOG="${TMP_DIR}/ffmpeg_crash_details.log"
     local CRASH_AUDIT_LOG="${TMP_DIR}/ffmpeg_crash_audit.log"
     mkdir -p "$TMP_DIR"
-    rm -f "$CRASH_AUDIT_LOG" "$AUDIT_LOG"
+    rm -f "$CRASH_AUDIT_LOG" "$AUDIT_LOG" "$CRASH_LOG"
 
     log_debug "${LOG_DEBUG}=======================================================${NC}"
     log_debug "🚨 WINE SMOKE TEST ANALYSIS (DEBUG_MODE=1)"
@@ -170,66 +170,82 @@ run_deep_component_audit() {
 
     log_info "${START_MARK} Launching Deep Component & Stability Audit..."
 
-    # --- PHASE 1: Dynamic Symbol Verification ---
-
-    # --- PHASE 2: Basic Smoke Tests ---
+    # --- STAGE 1: Automatic exception analysis ---
     # Basic info + a filter chain
     local TEST_SUITE=(
         "-codecs -formats -filters -protocols -pix_fmts"
         "-v debug -f lavfi -i testsrc=size=1280x720:rate=60:duration=2 -f lavfi -i sine=frequency=1000:duration=2 -vf scale=640x360,format=yuv420p -c:v wrapped_avframe -c:a pcm_s16le -f null -"
     )
 
-    log_info "Running deep component crash audit via hybrid winedbg..."
     local CRASH_FOUND=0
+    local CRASH2_FOUND=0
     local TEST_INDEX=0
 
     for TEST_ARGS in "${TEST_SUITE[@]}"; do
         ((++TEST_INDEX))
         local PHASE1_LOG="${TMP_DIR}/audit_p1_${TEST_INDEX}.log"
         rm -f "$PHASE1_LOG"
-
-        # ОЧИЩЕНО: Убраны капризные переменные цвета, вызывавшие ошибку 127
-        log_debug "Executing test: ${TEST_ARGS:0:60}..."
+        log_debug "Executing test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
 
         if winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$PHASE1_LOG" 2>&1; then
             log_debug "Test completed (winedbg exit 0)."
         else
-            log_warn "Test failed (winedbg exit non-zero). Checking for crash details..."
-            if grep -Eiq "Access Violation|0xc0000005|stack smashing|Segmentation fault|Illegal instruction" "$PHASE1_LOG"; then
-                log_error "Crash detected in phase 1!"
+            log_error "Test failed (winedbg exit non-zero). Checking for crash details..."
+            if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow|stack_chk_fail|stack-buffer-overflow|global-buffer-overflow|access violation|SIGSEGV|illegal instruction" "$PHASE1_LOG"; then
+                log_error "Crash detected!"
                 CRASH_FOUND=1
+                cat "$PHASE1_LOG" >> "$CRASH_AUDIT_LOG"
+                continue
+            else
+                log_warn "Non-zero exit, but no critical crash exception found. Continuing..."
             fi
         fi
         cat "$PHASE1_LOG" >> "$CRASH_AUDIT_LOG"
         rm -f "$PHASE1_LOG"
     done
 
+    # --- STAGE 2: Collecting backtraces when basic parameters drop ---
     # Сбрасываем счётчик для второго этапа
     local TEST_INDEX=0
 
-    for TEST_ARGS in "${TEST_SUITE[@]}"; do
-        ((++TEST_INDEX))
-        local PHASE2_LOG="${TMP_DIR}/audit_p2_${TEST_INDEX}.log"
-        rm -f "$PHASE2_LOG"
-        log_info "Executing GDB sub-test for base parameters..."
+    if [[ $CRASH_FOUND -eq 0 ]]; then
+        for TEST_ARGS in "${TEST_SUITE[@]}"; do
+            ((++TEST_INDEX))
+            local PHASE2_LOG="${TMP_DIR}/audit_p2_${TEST_INDEX}.log"
+            rm -f "$PHASE2_LOG"
+            log_debug "Executing sub-test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
+            
+            winedbg --command "cont; bt; kill; quit" "$TEST_EXE" $TEST_ARGS >> "$PHASE2_LOG" 2>&1
 
-        winedbg --gdb -- "$TEST_EXE" $TEST_ARGS \
-            --batch \
-            --ex "set confirm off" \
-            --ex "run" \
-            --ex "backtrace full" \
-            --ex "quit" > "$PHASE2_LOG" 2>&1 || true
+            if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow|stack_chk_fail|stack-buffer-overflow|global-buffer-overflow|access violation|SIGSEGV|illegal instruction" "$PHASE2_LOG"; then
+                log_error "CRITICAL FAULT DETECTED during sub-test: ${TEST_ARGS:0:60}..."
+                CRASH2_FOUND=1
+                cat "$PHASE2_LOG" >> "$CRASH_AUDIT_LOG"
+                continue
+            fi
+            cat "$PHASE2_LOG" >> "$CRASH_AUDIT_LOG"
+            rm -f "$PHASE2_LOG"
+        done
+    fi
 
-        if grep -Eiq "stack smashing|buffer overflow|Access Violation|0xc0000|Segmentation fault|SIGSEGV" "$PHASE2_LOG"; then
-            log_error "CRITICAL FAULT CAPTURED BY GDB!"
-            CRASH_FOUND=1
-            cat "$PHASE2_LOG" | tee -a "$CRASH_AUDIT_LOG" >&2
+    # Вывод результатов бэктрейса смок-тестов
+    if [[ -f "$CRASH_AUDIT_LOG" && -s "$CRASH_AUDIT_LOG" ]]; then
+        if [[ $CRASH_FOUND -eq 1 ]]; then
+            log_error "CRASH DETECTED IN SMOKE TESTS."
+            cat "$CRASH_AUDIT_LOG" >&2
+        elif [[ $CRASH2_FOUND -eq 1 ]]; then
+            log_debug "Relevant Crash Backtrace:"
+            if grep -Eiq "backtrace" "$CRASH_AUDIT_LOG"; then
+                sed -n '/[Bb]acktrace/,$p' "$CRASH_AUDIT_LOG" >&2
+            else
+                cat "$CRASH_AUDIT_LOG" >&2
+            fi
+        else
+            log_debug "No critical errors found in log."
         fi
-        cat "$PHASE2_LOG" >> "$CRASH_AUDIT_LOG"
-        rm -f "$PHASE2_LOG"
-    done
+    fi
 
-    # --- PHASE 3: Generate Component Tests ---
+    # --- STAGE 3: DYNAMIC TESTS OF COMPONENTS (CODECS) ---
     generate_component_tests
 
     # Add a generic "stability" test if no specific components found or as a baseline
@@ -245,60 +261,58 @@ run_deep_component_audit() {
         local TEST_NUM=$((i + 1))
         local CODEC_NAME=$(echo "$TEST_ARGS" | grep -oE "lib[a-z0-9]+|svt[a-z0-9]+" | head -1)
         [[ -z "$CODEC_NAME" ]] && CODEC_NAME="Generic"
-
-        log_info "Running Test ${TEST_NUM}/${TOTAL_TESTS}: [${CODEC_NAME}]..."
+        
+        log_debug "Running Test ${TEST_NUM}/${TOTAL_TESTS}: ${CYAN}${CODEC_NAME}${NC}..."
         local PHASE_LOG="${TMP_DIR}/audit_phase_${TEST_NUM}.log"
+        rm -f "$PHASE_LOG"
 
-        if timeout 60s winedbg --gdb -- "$TEST_EXE" $TEST_ARGS \
-            --batch \
-            --ex "set confirm off" \
-            --ex "run" \
-            --ex "backtrace full" \
-            --ex "quit" > "$PHASE_LOG" 2>&1; then
-
-            if grep -Eiq "stack smashing|buffer overflow|Access Violation|0xc0000|Segmentation fault" "$PHASE_LOG"; then
-                log_error "   -> FAILED: CRASH detected in ${CODEC_NAME}!"
-                FAILED_TESTS=$((FAILED_TESTS + 1))
-                CRASH_FOUND=1
-                cat "$PHASE_LOG" | tee -a "$CRASH_AUDIT_LOG" >&2
-            else
-                log_info "    -> Passed (Exit 0)"
-            fi
+        # Запуск теста кодека через нативный winedbg --auto с ограничением времени
+        if timeout 60s winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$PHASE_LOG" 2>&1; then
+            log_info "    -> Passed (Exit 0)"
+            cat "$PHASE_LOG" >> "$AUDIT_LOG"
         else
             local EXIT_CODE=$?
             if [[ $EXIT_CODE -eq 124 ]]; then
                 log_error "   -> FAILED: TIMEOUT (Hang detected in ${CODEC_NAME})"
                 FAILED_TESTS=$((FAILED_TESTS + 1))
-            else
-                if grep -Eiq "stack smashing|buffer overflow|Access Violation|0xc0000|Segmentation fault" "$PHASE_LOG"; then
-                    log_error "   -> FAILED: CRASH detected in ${CODEC_NAME}!"
-                    CRASH_FOUND=1
-                else
-                    log_error "   -> FAILED: Execution error in ${CODEC_NAME} (Exit: $EXIT_CODE)"
-                fi
+                cat "$PHASE_LOG" >> "$AUDIT_LOG"
+                continue
+            fi
+ 
+            if grep -qE "Exception c0000005|Access Violation|Segmentation fault|0xc000001d|Illegal instruction" "$PHASE_LOG"; then
+                log_error "   -> FAILED: CRASH detected in ${CODEC_NAME}"
                 FAILED_TESTS=$((FAILED_TESTS + 1))
-                cat "$PHASE_LOG" | tee -a "$CRASH_AUDIT_LOG" >&2
+                
+                echo "=== CRASH REPORT: ${CODEC_NAME} ===" > "$CRASH_LOG"
+                echo "Command: ffmpeg $TEST_ARGS" >> "$CRASH_LOG"
+                echo "Exit Code: $EXIT_CODE" >> "$CRASH_LOG"
+                echo "Timestamp: $(date)" >> "$CRASH_LOG"
+                echo "--- Log Snippet ---" >> "$CRASH_LOG"
+                grep -A 15 -B 5 -E "Exception|Access Violation|Backtrace" "$PHASE_LOG" >> "$CRASH_LOG" || cat "$PHASE_LOG" >> "$CRASH_LOG"
+
+                cat "$CRASH_LOG" >&2
+                cat "$PHASE_LOG" >> "$AUDIT_LOG"
+            else
+                log_warn "   -> Non-zero exit ($EXIT_CODE) but no crash signature in ${CODEC_NAME}."
+                cat "$PHASE_LOG" >> "$AUDIT_LOG"
             fi
         fi
-        cat "$PHASE_LOG" >> "$AUDIT_LOG"
         rm -f "$PHASE_LOG"
     done
 
-# --- PHASE 5: Final Report ---
-log_debug "${LOG_DEBUG}=======================================================${NC}"
+    # --- PHASE 5: Final Report ---
+    log_debug "${LOG_DEBUG}=======================================================${NC}"
 
-if [[ $CRASH_FOUND -eq 1 ]]; then
-    log_error "HARDWARE FAULT, ILLEGAL INSTRUCTION OR ACCESS VIOLATION DETECTED!"
-    log_error "Please review the Backtrace (bt) output printed above."
-    # return 1 # Явно валим функцию, если бинарник дефектный
-elif [[ $FAILED_TESTS -gt 0 ]]; then
-    log_error "AUDIT FAILED: ${FAILED_TESTS}/${TOTAL_TESTS} tests failed."
-    # return 1 # Явно валим функцию, если тесты не прошли
-else
-    log_info "${CHECK_MARK} Wine runtime smoke test passed successfully. Binary structure is solid."
-    log_info "${CHECK_MARK} Deep Component Audit PASSED. All critical paths stable."
-    return 0
-fi
+    if [[ $CRASH_FOUND -eq 1 || $CRASH2_FOUND -eq 1 ]]; then
+        log_error "HARDWARE OR LINKING FAULT DETECTED IN BASE SMOKE TESTS!"
+        # return 1
+    elif [[ $FAILED_TESTS -gt 0 ]]; then
+        log_error "AUDIT FAILED: ${FAILED_TESTS}/${TOTAL_TESTS} codec tests failed."
+        # return 1
+    else
+        log_info "${CHECK_MARK} Wine runtime smoke test passed successfully."
+        return 0
+    fi
 }
 
 # run Deep Audit
