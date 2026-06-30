@@ -211,12 +211,14 @@ run_deep_component_audit() {
         ((++TEST_INDEX))
         local PHASE2_LOG="${TMP_DIR}/audit_p2_${TEST_INDEX}.log"
         rm -f "$PHASE2_LOG"
-
         log_info "Executing GDB sub-test for base parameters..."
 
-        # Пробрасываем команды GDB напрямую через конвейер (pipe) без промежуточных файлов в /tmp!
-        printf "set confirm off\nrun\nbacktrace full\nquit\n" | \
-            x86_64-w64-mingw32-gdb -batch -x /dev/stdin --args "$TEST_EXE" $TEST_ARGS > "$PHASE2_LOG" 2>&1
+        winedbg --gdb -- "$TEST_EXE" $TEST_ARGS \
+            --batch \
+            --ex "set confirm off" \
+            --ex "run" \
+            --ex "backtrace full" \
+            --ex "quit" > "$PHASE2_LOG" 2>&1 || true
 
         if grep -Eiq "stack smashing|buffer overflow|Access Violation|0xc0000|Segmentation fault|SIGSEGV" "$PHASE2_LOG"; then
             log_error "CRITICAL FAULT CAPTURED BY GDB!"
@@ -247,10 +249,13 @@ run_deep_component_audit() {
         log_info "Running Test ${TEST_NUM}/${TOTAL_TESTS}: [${CODEC_NAME}]..."
         local PHASE_LOG="${TMP_DIR}/audit_phase_${TEST_NUM}.log"
 
-        # Безопасный вызов отладчика через пайп с ограничением по времени
-        if printf "set confirm off\nrun\nbacktrace full\nquit\n" | \
-            timeout 60s x86_64-w64-mingw32-gdb -batch -x /dev/stdin --args "$TEST_EXE" $TEST_ARGS > "$PHASE_LOG" 2>&1; then
-            
+        if timeout 60s winedbg --gdb -- "$TEST_EXE" $TEST_ARGS \
+            --batch \
+            --ex "set confirm off" \
+            --ex "run" \
+            --ex "backtrace full" \
+            --ex "quit" > "$PHASE_LOG" 2>&1; then
+
             if grep -Eiq "stack smashing|buffer overflow|Access Violation|0xc0000|Segmentation fault" "$PHASE_LOG"; then
                 log_error "   -> FAILED: CRASH detected in ${CODEC_NAME}!"
                 FAILED_TESTS=$((FAILED_TESTS + 1))
@@ -265,7 +270,12 @@ run_deep_component_audit() {
                 log_error "   -> FAILED: TIMEOUT (Hang detected in ${CODEC_NAME})"
                 FAILED_TESTS=$((FAILED_TESTS + 1))
             else
-                log_error "   -> FAILED: Execution error in ${CODEC_NAME}"
+                if grep -Eiq "stack smashing|buffer overflow|Access Violation|0xc0000|Segmentation fault" "$PHASE_LOG"; then
+                    log_error "   -> FAILED: CRASH detected in ${CODEC_NAME}!"
+                    CRASH_FOUND=1
+                else
+                    log_error "   -> FAILED: Execution error in ${CODEC_NAME} (Exit: $EXIT_CODE)"
+                fi
                 FAILED_TESTS=$((FAILED_TESTS + 1))
                 cat "$PHASE_LOG" | tee -a "$CRASH_AUDIT_LOG" >&2
             fi
