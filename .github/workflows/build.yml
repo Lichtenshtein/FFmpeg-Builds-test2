@@ -441,8 +441,8 @@ jobs:
           export TARGET_IMAGE="base-$TARGET"
 
           chmod +x ./download.sh ./util/*.sh ./generate.sh
-          ./download.sh
-          ./util/clean_cache.sh
+          # ./download.sh
+          # ./util/clean_cache.sh
           ./generate.sh "$TARGET" "$VARIANT"
 
       - name: Inspect Generated Dockerfile
