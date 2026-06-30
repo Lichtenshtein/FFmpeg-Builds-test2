@@ -487,12 +487,19 @@ jobs:
           provenance: false
 
       # --- SAVE: Save Cache ---
-      - name: Save Third-Party Downloads and Ccache
+      - name: Save Third-Party Downloads
         if: always() && steps.restore_downloads.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/downloads
           key: ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}
+
+      - name: Save FFmpeg Source Tree
+        if: always()
+        uses: actions/cache/save@v5.0.5
+        with:
+          path: .cache/ffmpeg
+          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Cleanup Old Caches
         if: github.event.inputs.regularClean == 'true' && !cancelled()
