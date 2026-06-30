@@ -189,6 +189,8 @@ run_deep_component_audit() {
 
         if winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$PHASE1_LOG" 2>&1; then
             log_debug "Test completed (winedbg exit 0)."
+            # ! Выводим лог успешного смок-теста на экран в сером цвете
+            sed 's/^/  /' "$PHASE1_LOG" >&2
         else
             log_error "Test failed (winedbg exit non-zero). Checking for crash details..."
             if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow|stack_chk_fail|stack-buffer-overflow|global-buffer-overflow|access violation|SIGSEGV|illegal instruction" "$PHASE1_LOG"; then
@@ -269,6 +271,14 @@ run_deep_component_audit() {
         # Запуск теста кодека через нативный winedbg --auto с ограничением времени
         if timeout 60s winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$PHASE_LOG" 2>&1; then
             log_info "    -> Passed (Exit 0)"
+
+            # ! Печатаем содержимое успешного теста кодека
+            if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] || [[ "$DEBUG_MODE" == "1" ]]; then
+                log_debug "--- [${CODEC_NAME}] Success Log Target ---"
+                sed 's/^/    /' "$PHASE_LOG" >&2
+                log_debug "----------------------------------------"
+            fi
+
             cat "$PHASE_LOG" >> "$AUDIT_LOG"
         else
             local EXIT_CODE=$?

@@ -6,8 +6,8 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '70-x264'
-        # default: '.*'
+        # default: '70-x264'
+        default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
@@ -170,7 +170,7 @@ env:
   LOG_SIZES:      '650' # number of lines displayed in logs
   LOG_FF_SIZES:   '1000' # number of lines displayed in ffmpeg logs
   LOG_INSTALLED:  '500' # shown number of installed files in DESTDIR prefix
-  DEBUG_MODE:     '1' # use with verbose=2; disables stripping, enables some commands
+  DEBUG_MODE:     '0' # use with verbose=2; disables stripping, enables some commands
 
 jobs:
   build_all:
@@ -372,7 +372,7 @@ jobs:
         with:
           context: .
           file: images/base-win64/Dockerfile
-          no-cache-filters: ${{ github.event.inputs.rebuild_base == 'true' && 'stage-final' || '' }}
+          no-cache: ${{ github.event.inputs.rebuild_base == 'true' }}
           build-args: |
             CARGO_C_VERSION=0.10.22
             CPU_ARCH=${{ env.CPU_ARCH }}
@@ -381,8 +381,10 @@ jobs:
           tags: |
             ${{ steps.images.outputs.target_base }}
             ${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
-          cache-from: type=gha,scope=ffmpeg-base-cache
-          cache-to: type=gha,mode=max,scope=ffmpeg-base-cache
+          cache-from: |
+            type=gha,scope=${{ github.event.inputs.rebuild_base == 'true' && format('empty-scope-{0}', github.run_id) || 'ffmpeg-base-cache' }}
+          cache-to: |
+            type=gha,mode=max,scope=ffmpeg-base-cache
 
       - name: Get Download Cache Key (Stable)
         id: dl_cache
