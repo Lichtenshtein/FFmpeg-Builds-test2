@@ -264,12 +264,12 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "ARG CACHE_BYPASS_${STAGENAME}=\"${LAYER_ID}\""
 
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
-    to_df "    --mount=type=bind,from=cache_downloads_ctx,source=/,target=${CONTAINER_ROOT}/.cache/downloads,ro \\" \
-    to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\" \
-    to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\" \
-    to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\" \
-    to_df "    --mount=type=bind,source=variants,target=${CONTAINER_ROOT}/variants \\" \
-    to_df "    --mount=type=bind,source=addins,target=${CONTAINER_ROOT}/addins \\" \
+    to_df "    --mount=type=bind,from=cache_downloads_ctx,source=/,target=${CONTAINER_ROOT}/.cache/downloads,ro \\"
+    to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
+    to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
+    to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\"
+    to_df "    --mount=type=bind,source=variants,target=${CONTAINER_ROOT}/variants \\"
+    to_df "    --mount=type=bind,source=addins,target=${CONTAINER_ROOT}/addins \\"
     to_df "    export _H=\${CACHE_BYPASS_${STAGENAME}} && . ${CONTAINER_ROOT}/util/vars.sh \"${TARGET}\" \"${VARIANT}\" && run_stage ${CONTAINER_ROOT}/${STAGE}"
 done
 
@@ -293,7 +293,7 @@ if [[ "${SKIP_FFMPEG}" == "1" ]]; then
     to_df "    echo 'Components built successfully' > ${FFBUILD_DESTDIR}/BUILD_SUCCESS"
 else
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
-    to_df "    --mount=type=bind,from=cache_ffmpeg_ctx,source=/,target=/builder/.cache/ffmpeg,rw \\" \
+    to_df "    --mount=type=bind,from=cache_ffmpeg_ctx,source=/,target=/builder/.cache/ffmpeg,rw \\"
     to_df "    ./build.sh \"$TARGET\" \"$VARIANT\""
 fi
 
