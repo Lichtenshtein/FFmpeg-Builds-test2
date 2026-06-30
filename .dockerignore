@@ -7,5 +7,5 @@ ffbuild/
 *.confhash
 *.confopts
 *.tmp
-.cache/
+#.cache/
 host_tensorflow_models/
