@@ -9,6 +9,10 @@ cd "$(dirname "$0")"
 source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
     || { echo "ERROR: vars.sh failed in build.sh" >&2; exit 1; }
 
+if declare -F apply_lto_policy >/dev/null; then
+    apply_lto_policy
+fi
+
 # Сброс статистики для чистого лога
 # ccache -z > /dev/null
 # размер кэша компилятора
@@ -536,7 +540,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     fi
     # Специфическая проверка для LTO (наличие плагинов)
     log_info "${BUILD_MARK} Checking LTO support in AR:"
-    if $AR --help | grep -q "plugin"; then
+    if "$AR" --help 2>&1 | grep -q "plugin"; then
         log_info "${CHECK_MARK} AR supports plugins (required for LTO)"
     else
         log_warn "AR may not support LTO plugins! Make sure you're using gcc-ar."

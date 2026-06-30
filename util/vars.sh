@@ -124,10 +124,14 @@ export TOOLCHAIN_BIN="/opt/ct-ng/bin"
 export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 export FFBUILD_CROSS_PREFIX="x86_64-w64-mingw32-"
-export AS="${FFBUILD_TOOLCHAIN}-as"
-export CC="${FFBUILD_TOOLCHAIN}-gcc"
-export CXX="${FFBUILD_TOOLCHAIN}-g++"
-export LD="${FFBUILD_TOOLCHAIN}-ld"
+export AS="${FFBUILD_CROSS_PREFIX}as"
+export CC="${FFBUILD_CROSS_PREFIX}gcc"
+export CXX="${FFBUILD_CROSS_PREFIX}g++"
+export LD="${FFBUILD_CROSS_PREFIX}ld"
+export AR="${FFBUILD_CROSS_PREFIX}ar"
+export NM="${FFBUILD_CROSS_PREFIX}nm"
+export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
+export STRIP="${FFBUILD_CROSS_PREFIX}strip"
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
 export FFBUILD_DESTDIR="/opt/ffdest"
 export FFBUILD_DESTPREFIX="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}"
@@ -299,6 +303,14 @@ export -f should_apply_lto
 
 # Динамически перестраиваем переменные окружения
 apply_lto_policy() {
+    # Если это финальный билд FFmpeg (STAGENAME пустой), 
+    # принудительно выставляем стандартный LTO или дефолтные утилиты
+    if [[ -z "$STAGENAME" ]]; then
+        export AR="${FFBUILD_CROSS_PREFIX}ar"
+        export NM="${FFBUILD_CROSS_PREFIX}nm"
+        export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
+        return 0
+    fi
     if should_apply_lto; then
         log_info "⚡ [LTO ENABLED] Applying Link-Time Optimization for: $STAGENAME"
         export RUSTLTO=" -C lto=fat"
@@ -316,7 +328,7 @@ apply_lto_policy() {
         export NOLTO="-fno-lto"
         export AR="${FFBUILD_CROSS_PREFIX}ar" # Перепишет gcc-ar на обычный ar
         export NM="${FFBUILD_CROSS_PREFIX}nm" # Перепишет gcc-nm на обычный nm
-        export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib" # Или ${FFBUILD_CROSS_PREFIX}ranlib
+        export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
     fi
 }
 export -f apply_lto_policy
