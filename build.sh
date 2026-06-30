@@ -673,33 +673,33 @@ fi
 # =======================================
 # FFMPEG SOURCE PATCHING SECTION 2
 # =======================================
-if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
-    log_info "Applying precise LCEVC SDK 4.0.0 migration patches..."
+# if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
+    # log_info "Applying precise LCEVC SDK 4.0.0 migration patches..."
 
-    if [[ -f "libavfilter/vf_lcevc.c" ]]; then
+    # if [[ -f "libavfilter/vf_lcevc.c" ]]; then
         # Удаляем флаг discontinuity (0) из LCEVC_SendDecoderEnhancementData
-        sed -i 's|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size)|g' libavfilter/vf_lcevc.c
+        # sed -i 's|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size)|g' libavfilter/vf_lcevc.c
 
         # Удаляем флаг discontinuity (0) из LCEVC_SendDecoderBase, сдвигая picture и оставляя -1 на месте timeoutUs
-        sed -i 's|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, in)|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, in)|g' libavfilter/vf_lcevc.c
+        # sed -i 's|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, in)|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, in)|g' libavfilter/vf_lcevc.c
 
-        log_info "Successfully patched libavfilter/vf_lcevc.c"
-    else
-        log_warn "File libavfilter/vf_lcevc.c not found, skipping."
-    fi
+        # log_info "Successfully patched libavfilter/vf_lcevc.c"
+    # else
+        # log_warn "File libavfilter/vf_lcevc.c not found, skipping."
+    # fi
 
-    if [[ -f "libavcodec/lcevcdec.c" ]]; then
+    # if [[ -f "libavcodec/lcevcdec.c" ]]; then
         # Удаляем флаг discontinuity (0) из LCEVC_SendDecoderEnhancementData
-        sed -i 's|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size)|g' libavcodec/lcevcdec.c
+        # sed -i 's|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size)|g' libavcodec/lcevcdec.c
 
         # Удаляем флаг discontinuity (0) из LCEVC_SendDecoderBase, сдвигая picture и оставляя -1 на месте timeoutUs
-        sed -i 's|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, opaque)|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, opaque)|g' libavcodec/lcevcdec.c
+        # sed -i 's|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, opaque)|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, opaque)|g' libavcodec/lcevcdec.c
 
-        log_info "Successfully patched libavcodec/lcevcdec.c"
-    else
-        log_error "libavcodec/lcevcdec.c not found!"
-    fi
-fi
+        # log_info "Successfully patched libavcodec/lcevcdec.c"
+    # else
+        # log_error "libavcodec/lcevcdec.c not found!"
+    # fi
+# fi
 
 if [[ "$TARGET" == "win64" ]]; then
     log_info "Adjusting the generated config.h: forcibly disabling HAVE_FCNTL for Windows..."
