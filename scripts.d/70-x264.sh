@@ -26,7 +26,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-echo "test"
+
     # if [[ ! -d ".git" ]]; then
         # log_info "Creating x264 version metadata manually..."
         # echo "#define X264_REV 3214" > x264_config.h

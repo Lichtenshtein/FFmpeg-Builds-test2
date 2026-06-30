@@ -88,7 +88,6 @@ FROM stage-os-base AS stage-final
 
 ARG CPU_ARCH=${CPU_TUNE:-broadwell}
 ARG CPU_TUNE=${CPU_ARCH:-broadwell}
-ARG CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-2G}"
 
 # Copy ONLY the finalized toolchain binary tree, leaving all ct-ng sources behind
 COPY --from=stage-toolchain-builder /opt/ct-ng /opt/ct-ng

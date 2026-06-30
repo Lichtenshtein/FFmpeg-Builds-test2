@@ -21,9 +21,7 @@ if ! declare -F default_dl >/dev/null; then
 fi
 
 # Обнуляем статистику
-# ccache -z > /dev/null
-# размер кэша компилятора
-ccache -M ${CCACHE_MAXSIZE} > /dev/null
+ccache -z > /dev/null
 
 # Сбрасываем счетчик секунд в начале этапа
 SECONDS=0
@@ -559,7 +557,7 @@ fi
 # Вывод статистики в конце каждой стадии
 # Это покажет Hit Rate прямо в логах GitHub
 log_info "${CACHE_MARK} CCACHE STATISTICS:"
-ccache -s
+ccache -s --verbose || ccache -s
 
 log_info_line
 log_info "### ${CHECK_MARK} Post-build automation completed."

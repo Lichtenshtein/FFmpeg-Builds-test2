@@ -13,10 +13,11 @@ if declare -F apply_lto_policy >/dev/null; then
     apply_lto_policy
 fi
 
+export CCACHE_PATH="${CCACHE_PATH}"
+export CCACHE_BASEDIR="${CONTAINER_ROOT}"
+
 # Сброс статистики для чистого лога
-# ccache -z > /dev/null
-# размер кэша компилятора
-ccache -M ${CCACHE_MAXSIZE} > /dev/null
+ccache -z > /dev/null
 # Сбрасываем счетчик секунд в начале этапа
 SECONDS=0
 
@@ -41,7 +42,7 @@ cleanup() {
 
     # Вывод статистики ccache
     log_info "${CACHE_MARK} CCACHE STATISTICS:"
-    ccache -s 2>&1 || echo "ccache command failed entirely with exit code $?"
+    ccache -s --verbose || ccache -s
 }
 # Устанавливаем ловушку
 # EXIT сработает всегда: и при успехе, и при ошибке, и при прерывании
@@ -607,7 +608,7 @@ chmod +x configure
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
-    --host-cc="ccache gcc-15"
+    --host-cc="ccache gcc"
     --host-cflags="$HOST_CFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
