@@ -9,10 +9,6 @@ cd "$(dirname "$0")"
 source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
     || { echo "ERROR: vars.sh failed in build.sh" >&2; exit 1; }
 
-if declare -F apply_lto_policy >/dev/null; then
-    apply_lto_policy
-fi
-
 export CCACHE_PATH="${CCACHE_PATH}"
 export CCACHE_BASEDIR="${CONTAINER_ROOT}"
 
