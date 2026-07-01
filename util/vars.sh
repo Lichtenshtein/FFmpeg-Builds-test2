@@ -313,7 +313,6 @@ apply_lto_policy() {
         export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
         export NM="${FFBUILD_CROSS_PREFIX}gcc-nm"
         export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
-        export AS="${FFBUILD_CROSS_PREFIX}gcc" # В LTO режиме ассемблирование часто передают gcc
     else
         # Принудительно гасим LTO для стадии без LTO
         export RUSTLTO=""
@@ -324,7 +323,6 @@ apply_lto_policy() {
         export AR="${FFBUILD_CROSS_PREFIX}ar"
         export NM="${FFBUILD_CROSS_PREFIX}nm"
         export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
-        export AS="${FFBUILD_CROSS_PREFIX}as"
     fi
 }
 export -f apply_lto_policy
