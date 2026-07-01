@@ -118,9 +118,6 @@ export AS="${FFBUILD_CROSS_PREFIX}as"
 export CC="${FFBUILD_CROSS_PREFIX}gcc"
 export CXX="${FFBUILD_CROSS_PREFIX}g++"
 export LD="${FFBUILD_CROSS_PREFIX}ld"
-export AR="${FFBUILD_CROSS_PREFIX}ar"
-export NM="${FFBUILD_CROSS_PREFIX}nm"
-export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
 export STRIP="${FFBUILD_CROSS_PREFIX}strip"
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
 export FFBUILD_DESTDIR="/opt/ffdest"
@@ -246,7 +243,10 @@ should_apply_lto() {
     # Если глобальный флаг LTO выключен, оптимизация не применяется
     [[ "$USE_LTO" != "1" ]] && return 1
 
-    # Если имя стадии не определено
+    # Если это точно финальный билд FFmpeg — LTO разрешен
+    [[ "$FFMPEG_BUILD_STAGE" == "1" ]] && return 0
+
+    # Если имя стадии не определено ниже или вообще
     [[ -z "$STAGENAME" ]] && return 1
 
     # ========================================
@@ -303,32 +303,28 @@ export -f should_apply_lto
 
 # Динамически перестраиваем переменные окружения
 apply_lto_policy() {
-    # Если это финальный билд FFmpeg (STAGENAME пустой), 
-    # принудительно выставляем стандартный LTO или дефолтные утилиты
-    if [[ -z "$STAGENAME" ]]; then
-        export AR="${FFBUILD_CROSS_PREFIX}ar"
-        export NM="${FFBUILD_CROSS_PREFIX}nm"
-        export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
-        return 0
-    fi
     if should_apply_lto; then
         log_info "⚡ [LTO ENABLED] Applying Link-Time Optimization for: $STAGENAME"
         export RUSTLTO=" -C lto=fat"
         export USELTO="-flto=auto -flto-partition=balanced -fno-stack-clash-protection -fno-toplevel-reorder"
         export USELTO_C=" -ffat-lto-objects -flto-compression-level=14 -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline -Wno-odr"
         export NOLTO="-fno-lto"
-        export AR="${FFBUILD_TOOLCHAIN}-gcc-ar"
-        export NM="${FFBUILD_TOOLCHAIN}-gcc-nm"
-        export RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib"
+        # Переключаемся на плагины GCC, корректно обрабатывающие LTO байт-код
+        export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
+        export NM="${FFBUILD_CROSS_PREFIX}gcc-nm"
+        export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
+        export AS="${FFBUILD_CROSS_PREFIX}gcc" # В LTO режиме ассемблирование часто передают gcc
     else
         # Принудительно гасим LTO для стадии без LTO
         export RUSTLTO=""
         export USELTO="-fno-lto"
         export USELTO_C=""
         export NOLTO="-fno-lto"
-        export AR="${FFBUILD_CROSS_PREFIX}ar" # Перепишет gcc-ar на обычный ar
-        export NM="${FFBUILD_CROSS_PREFIX}nm" # Перепишет gcc-nm на обычный nm
-        export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
+        # Возвращаем стандартные утилиты сборки без LTO плагинов
+        export AR="${FFBUILD_CROSS_PREFIX}ar"
+        export NM="${FFBUILD_CROSS_PREFIX}nm"
+        export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
+        export AS="${FFBUILD_CROSS_PREFIX}as"
     fi
 }
 export -f apply_lto_policy
