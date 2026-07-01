@@ -28,14 +28,20 @@ ffbuild_dockerbuild() {
 
     if [[ -n "$TARGET_TAG_FILE" ]]; then
         log_info "Found yaml-cpp installer configuration at: ${TARGET_TAG_FILE}"
-        log_info "Forcing yaml-cpp update to manual commit (v0.9.0)..."
+        log_info "Forcing yaml-cpp update to manual commit (v0.9.0) and disabling shallow clone..."
+        # прописываем коммит в переменную тега
         sed -i 's/set(yaml-cpp_GIT_TAG .*/set(yaml-cpp_GIT_TAG "2decf96e915d2b0c26c68c1659665789dfef2633")/g' "$TARGET_TAG_FILE"
         sed -i 's/set(yaml-cpp_VERSION .*/set(yaml-cpp_VERSION "0.9.0")/g' "$TARGET_TAG_FILE"
+        # разрешить Git скачать глубокую историю коммитов
+        sed -i '/GIT_SHALLOW/d' "$TARGET_TAG_FILE"
     fi
 
     if [[ -f "$YAML_CPP_FILE" ]]; then
         log_warn "Attempting direct sed on Installyaml-cpp.cmake"
         sed -i 's/set(yaml-cpp_GIT_TAG .*/set(yaml-cpp_GIT_TAG "2decf96e915d2b0c26c68c1659665789dfef2633")/g' "$YAML_CPP_FILE"
+        # вырезаем shallow clone на случай, если сработает этот путь
+        sed -i '/GIT_SHALLOW/d' "$YAML_CPP_FILE"
+
         log_info "Injecting -include cstdint directly into yaml-cpp compile flags..."
         sed -i '/string(STRIP "${yaml-cpp_CXX_FLAGS}"/i \        set(yaml-cpp_CXX_FLAGS "${yaml-cpp_CXX_FLAGS} -include cstdint")' "$YAML_CPP_FILE"
     else
