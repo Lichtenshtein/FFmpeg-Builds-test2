@@ -241,7 +241,7 @@ unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS RUSTFLAGS LIBS
 # LTO will crash anyway because GCC is bugged, so don't bother too much. You may try to activate LTO selectivly for some components only.
 # Tip: rust has -C linker-plugin-lto LLVM Bitcode or LLVM MinGW
 # Tip: RUST may use -C lto=thin
-
+# Tip: add -Wa,-mbig-obj to cflags to accept non-PE-COFF file format
 should_apply_lto() {
     # Если глобальный флаг LTO выключен, оптимизация не применяется
     [[ "$USE_LTO" != "1" ]] && return 1

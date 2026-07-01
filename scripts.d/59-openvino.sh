@@ -126,7 +126,7 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0" && self_static_flags="-DOPENVINO_STATIC_LIBRARY"
 
-    [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-Wno-odr -mbig-obj -fno-lto-odr-type-merging"
+    [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-Wno-odr -Wa,-mbig-obj -fno-lto-odr-type-merging"
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-undef $LTO_FLAGS $self_static_flags" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-undef $LTO_FLAGS $static_flags $self_static_flags -DWINAPI_PARTITION_SYSTEM=1" \
