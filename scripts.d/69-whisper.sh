@@ -116,7 +116,7 @@ EOF
     sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
     sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C} $static_flags|g" main-toolchain.cmake
-    sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}|g" main-toolchain.cmake
+    sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}${USELTO_L}|g" main-toolchain.cmake
 
     # Создаем хост-тулчейн для сборщика шейдеров
     cat <<EOF > host-fix-toolchain.cmake

@@ -130,7 +130,7 @@ ffbuild_dockerbuild() {
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-undef $LTO_FLAGS $self_static_flags" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-undef $LTO_FLAGS $static_flags $self_static_flags -DWINAPI_PARTITION_SYSTEM=1" \
-    LDFLAGS="$LDFLAGS ${USELTO} $LTO_FLAGS -Wl,--allow-multiple-definition" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L} $LTO_FLAGS -Wl,--allow-multiple-definition" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1

@@ -37,7 +37,7 @@ ffbuild_dockerbuild() {
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-conversion" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-conversion" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

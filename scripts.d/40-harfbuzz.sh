@@ -72,8 +72,8 @@ ffbuild_dockerbuild() {
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -I$FFBUILD_PREFIX/include/freetype2 $self_static_flags $static_flags -Wno-redundant-decls" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -I$FFBUILD_PREFIX/include/freetype2 $self_static_flags $static_flags -Wno-redundant-decls" \
-        -Dc_link_args="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" \
-        -Dcpp_link_args="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" || return 1
+        -Dc_link_args="$LDFLAGS ${USELTO}${USELTO_L} $DEP_LIBS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS ${USELTO}${USELTO_L} $DEP_LIBS $WIN_LIBS" || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1

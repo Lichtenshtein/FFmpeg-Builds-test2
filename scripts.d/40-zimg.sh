@@ -51,7 +51,7 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C} -fno-fast-math -ffp-contract=off" \
     CPPFLAGS="$CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C} -fno-fast-math -ffp-contract=off" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 

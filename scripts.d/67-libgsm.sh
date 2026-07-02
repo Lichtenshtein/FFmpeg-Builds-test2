@@ -21,7 +21,7 @@ ffbuild_dockerbuild() {
 
     export CFLAGS="$CFLAGS -DNeedFunctionPrototypes=1 -c -DSASR -DWAV49 -Wno-comment ${USELTO}${USELTO_C}"
     export CCFLAGS="$CFLAGS -DNeedFunctionPrototypes=1 -c -DSASR -DWAV49 -Wno-comment ${USELTO}${USELTO_C}"
-    export LDFLAGS="$LDFLAGS ${USELTO}"
+    export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
     export CPPFLAGS="$CPPFLAGS"
     export CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}"
     export INSTALL_ROOT="$INSTALL_ROOT"

@@ -65,7 +65,7 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS -Wno-error=implicit-function-declaration ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE $static_flags" \
     CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}${USELTO_C}" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     LIBS="$DEP_LIBS" \
     ./configure "${myconf[@]}" || return 1
 

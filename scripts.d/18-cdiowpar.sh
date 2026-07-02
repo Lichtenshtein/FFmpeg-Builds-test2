@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
-    LDFLAGS="$LDFLAGS $DEP_LIBS ${USELTO}" \
+    LDFLAGS="$LDFLAGS $DEP_LIBS ${USELTO}${USELTO_L}" \
     LIBS="$LIBS $DEP_LIBS" \
     ./configure "${myconf[@]}" || return 1
 

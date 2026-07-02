@@ -52,7 +52,7 @@ ffbuild_dockerbuild() {
         myconf+=( -DSVT_AV1_LTO=OFF ) # something passes -fno-fat-lto-objects
         export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}"
         export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}"
-        export LDFLAGS="$LDFLAGS ${USELTO}"
+        export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
     else
         myconf+=( -DSVT_AV1_LTO=OFF )
         export CFLAGS="$CFLAGS $CPPFLAGS"

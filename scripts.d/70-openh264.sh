@@ -18,7 +18,7 @@ ffbuild_dockerbuild() {
     export CFLAGS="$CFLAGS ${USELTO}${USELTO_C}"
     export CPPFLAGS="$CPPFLAGS"
     export CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}"
-    export LDFLAGS="$LDFLAGS ${USELTO}"
+    export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
 
     local myconf=(
         PREFIX="$FFBUILD_PREFIX"

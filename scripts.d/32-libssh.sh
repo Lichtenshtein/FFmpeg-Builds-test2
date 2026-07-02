@@ -68,7 +68,7 @@ EOF
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBSSH_STATIC"
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -include $(pwd)/mingw_fix.h -Dmd5=libssh_md5" \
-    LDFLAGS="$LDFLAGS ${USELTO} $(pwd)/mingw_fix.o" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L} $(pwd)/mingw_fix.o" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

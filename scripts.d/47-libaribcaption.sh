@@ -45,7 +45,7 @@ ffbuild_dockerbuild() {
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -DHAVE_OPENSSL=1" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -DHAVE_OPENSSL=1" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

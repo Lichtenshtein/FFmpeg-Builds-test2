@@ -54,7 +54,7 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $FLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS -DNDEBUG -D_ALLOW_INTERNAL_OPTIONS" \
     CXXFLAGS="$CXXFLAGS $FLAGS ${USELTO}${USELTO_C}" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     ac_cv_sizeof_short=2 \
     ac_cv_sizeof_int=4 \
     ac_cv_sizeof_long=4 \

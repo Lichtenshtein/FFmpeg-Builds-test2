@@ -58,7 +58,7 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags $FLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags $FLAGS" \
     cmake -G Ninja "${myconf[@]}" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${USELTO}" .. || return 1
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${USELTO}${USELTO_L}" .. || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1

@@ -64,7 +64,7 @@ ffbuild_dockerbuild() {
         CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
         CPPFLAGS="$CPPFLAGS $static_flags" \
         CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}${USELTO_C}" \
-        LDFLAGS="$LDFLAGS ${USELTO}" \
+        LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
         LIBS="$DEP_LIBS" \
         AR="${FFBUILD_TOOLCHAIN}-gcc-ar" \
         NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \

@@ -45,7 +45,7 @@ ffbuild_dockerbuild() {
     CFLAGS="$RAW_CFLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE" \
     CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
-    LDFLAGS="$RAW_LDFLAGS ${USELTO}" \
+    LDFLAGS="$RAW_LDFLAGS ${USELTO}${USELTO_L}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
