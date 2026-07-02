@@ -600,6 +600,10 @@ export HOST_LDFLAGS="-pipe -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -Wl,--hash
 export HOST_CFLAGS="-O3 -march=broadwell -mtune=broadwell -fno-plt -pipe -g0 -fno-var-tracking-assignments -ffunction-sections -fdata-sections -std=gnu23 -flto=auto -flto-partition=balanced -fno-stack-clash-protection -fno-toplevel-reorder -ffat-lto-objects -flto-compression-level=14 -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline -Wno-odr"
 export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
+export FINAL_CFLAGS=$(echo "$FINAL_CFLAGS" | sed 's/-flto-partition=balanced//g')
+export FINAL_CXXFLAGS=$(echo "$FINAL_CXXFLAGS" | sed 's/-flto-partition=balanced//g')
+export FINAL_LDFLAGS=$(echo "$FINAL_LDFLAGS" | sed 's/-flto-partition=balanced//g')
+
 # Tip: -Wl,--allow-multiple-definition needed for KVAZAAR/cryptopp & OpenSSL/quiche.
 # --extra-cflags="-DCOBJMACROS"
 # --extra-ldflags="${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
