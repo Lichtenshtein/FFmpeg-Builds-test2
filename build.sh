@@ -493,7 +493,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     # что выдает ассемблер на команду версии
     as --version | head -n 1
     gcc --version | head -n 1
-    mold --version | head -n 1
+    # mold --version | head -n 1
     x86_64-w64-mingw32-as --version | head -n 1
     ccache --version | head -n 1
 
