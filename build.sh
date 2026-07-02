@@ -12,6 +12,14 @@ source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
 export CCACHE_PATH="${CCACHE_PATH}"
 export CCACHE_BASEDIR="${CONTAINER_ROOT}"
 
+# a hook announcing that we're at the final stage
+export FFMPEG_BUILD_STAGE="1"
+export STAGENAME="FFmpeg"
+
+if declare -F apply_lto_policy >/dev/null; then
+    apply_lto_policy
+fi
+
 # Сброс статистики для чистого лога
 ccache -z > /dev/null
 # Сбрасываем счетчик секунд в начале этапа
@@ -609,12 +617,11 @@ CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
     --host-cc="ccache gcc"
-    --host-ld="$LD"
     --host-cflags="$HOST_CFLAGS $HOST_CPPFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
+    --extra-ldflags="${FINAL_LDFLAGS} -fuse-ld=mold-wrapper -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
@@ -629,7 +636,6 @@ CONF_FLAGS=(
     --cc="$CC"
     --cxx="$CXX"
     --ar="$AR"
-    --ld="$LD"
     --nm="$NM"
     --as="$AS"
     --ranlib="$RANLIB"
