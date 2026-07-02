@@ -364,6 +364,7 @@ to_rust_flags() {
 # * -Wl,-z,noexecstack: Прямой аналог --nxcompat. Запрещает выполнение кода в стеке.
 HOST_LINUX_LDFLAGS=(
     "-pipe"
+    "-fuse-ld=mold"
     "-Wl,-z,relro"
     "-Wl,-z,now"
     "-Wl,-z,noexecstack"
@@ -379,10 +380,10 @@ apply_lto_policy() {
     if should_apply_lto; then
         log_info "⚡ [LTO ENABLED] Applying Link-Time Optimization for: $STAGENAME"
         export RUSTLTO=" -C lto=fat"
-        # -O3 optimization will be added to LDFLAGS as well
         export USELTO="-flto=auto -fno-stack-clash-protection -fno-toplevel-reorder"
         export USELTO_C=" -ffat-lto-objects -flto-compression-level=6 -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline -Wno-odr"
-        export USELTO_L=" ${OPT_LEVEL} -fuse-ld=mold"
+        # -O3 optimization will be added to LDFLAGS as well
+        export USELTO_L=" ${OPT_LEVEL}"
         export NOLTO="-fno-lto"
         # Переключаемся на плагины GCC, корректно обрабатывающие LTO байт-код
         export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
@@ -418,6 +419,7 @@ if [[ "$TARGET" == "win64" ]]; then
 
     BASE_LD_FLAGS=(
         "-pipe"
+        "-fuse-ld=mold"
         "-Wl,--high-entropy-va"
         "-Wl,--nxcompat"
         "-Wl,--dynamicbase"
