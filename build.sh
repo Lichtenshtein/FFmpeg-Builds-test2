@@ -191,9 +191,9 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     grep -n "vmaf_init" "libavfilter/vf_libvmaf.c"
 fi
 log_info "Patching FFmpeg ffprobe ABI bug: Changing avtext_context_open to pass options by pointer..."
-# Точечно меняем сигнатуру в заголовочном файле (обратите внимание на имя переменной 'options')
+# меняем сигнатуру в заголовочном файле
 sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.h"
-# Точечно меняем объявление функции в файле реализации
+# меняем объявление функции в файле реализации
 sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.c"
 # Меняем только одну строчку присвоения внутри тела avtext_context_open, 
 # чтобы данные разыменовывались из указателя обратно в объект контекста:
@@ -493,6 +493,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     # что выдает ассемблер на команду версии
     as --version | head -n 1
     gcc --version | head -n 1
+    mold --version | head -n 1
     x86_64-w64-mingw32-as --version | head -n 1
     ccache --version | head -n 1
 
@@ -595,17 +596,22 @@ fi
 
 chmod +x configure
 
+export HOST_LDFLAGS="-pipe -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack -Wl,--hash-style=gnu -Wl,-O1 -Wl,--as-needed -Wl,--gc-sections -flto=auto -flto-partition=balanced -fno-stack-clash-protection -fno-toplevel-reorder -O3"
+export HOST_CFLAGS="-O3 -march=broadwell -mtune=broadwell -fno-plt -pipe -g0 -fno-var-tracking-assignments -ffunction-sections -fdata-sections -std=gnu23 -flto=auto -flto-partition=balanced -fno-stack-clash-protection -fno-toplevel-reorder -ffat-lto-objects -flto-compression-level=14 -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline -Wno-odr"
+export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
+
 # Tip: -Wl,--allow-multiple-definition needed for KVAZAAR/cryptopp & OpenSSL/quiche.
 # --extra-cflags="-DCOBJMACROS"
 # --extra-ldflags="${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
 # -march=x86-64-v3 -mtune=generic
 # -lopenal -ldsound -lggml_openvino_stub
 # export cflags_libdatachannel="-DRTC_STATIC -DJUICE_STATIC"
+# --as="$CC"
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
     --host-cc="ccache gcc"
-    --host-cflags="$HOST_CFLAGS"
+    --host-cflags="$HOST_CFLAGS $HOST_CPPFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
@@ -621,7 +627,7 @@ CONF_FLAGS=(
     --enable-pic
     # --disable-ffprobe
     --disable-ffplay
-    --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$CC"
+    --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$AS"
 )
 
 if [[ "${PREFER_SHARED}" != "1" ]]; then
