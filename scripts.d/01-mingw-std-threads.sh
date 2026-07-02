@@ -18,7 +18,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-mold --version | head -n 1
+
     cd "/build/$STAGENAME"
 
     log_info "Installing mingw-std-threads headers from $(pwd)..."
