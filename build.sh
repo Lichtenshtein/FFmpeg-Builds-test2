@@ -596,6 +596,8 @@ fi
 
 chmod +x configure
 
+export HOST_CFLAGS="${HOST_CFLAGS//-ffat-lto-objects/-fno-fat-lto-objects}"
+
 # Tip: -Wl,--allow-multiple-definition needed for KVAZAAR/cryptopp & OpenSSL/quiche.
 # --extra-cflags="-DCOBJMACROS"
 # --extra-ldflags="${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
@@ -607,6 +609,7 @@ CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
     --host-cc="ccache gcc"
+    --host-ld="$LD"
     --host-cflags="$HOST_CFLAGS $HOST_CPPFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
@@ -623,7 +626,13 @@ CONF_FLAGS=(
     --enable-pic
     # --disable-ffprobe
     --disable-ffplay
-    --cc="$CC" --cxx="$CXX" --ar="$AR" --ranlib="$RANLIB" --nm="$NM" --as="$AS"
+    --cc="$CC"
+    --cxx="$CXX"
+    --ar="$AR"
+    --ld="$LD"
+    --nm="$NM"
+    --as="$AS"
+    --ranlib="$RANLIB"
 )
 
 if [[ "${PREFER_SHARED}" != "1" ]]; then
