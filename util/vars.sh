@@ -117,7 +117,8 @@ export FFBUILD_CROSS_PREFIX="x86_64-w64-mingw32-"
 export AS="${FFBUILD_CROSS_PREFIX}as"
 export CC="${FFBUILD_CROSS_PREFIX}gcc"
 export CXX="${FFBUILD_CROSS_PREFIX}g++"
-export LD="${FFBUILD_CROSS_PREFIX}ld"
+# export LD="${FFBUILD_CROSS_PREFIX}ld"
+export LD="mold"
 export STRIP="${FFBUILD_CROSS_PREFIX}strip"
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
 export FFBUILD_DESTDIR="/opt/ffdest"
@@ -419,7 +420,7 @@ if [[ "$TARGET" == "win64" ]]; then
 
     BASE_LD_FLAGS=(
         "-pipe"
-        "-fuse-ld=mold"
+        # "-fuse-ld=mold-wrapper"
         "-Wl,--high-entropy-va"
         "-Wl,--nxcompat"
         "-Wl,--dynamicbase"
