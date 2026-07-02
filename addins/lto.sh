@@ -24,7 +24,7 @@ ffbuild_cxxflags() {
     echo "${USELTO}${USELTO_C//-ffat-lto-objects/-fno-fat-lto-objects} -mstackrealign"
 }
 ffbuild_ldflags() {
-    echo "${USELTO}${USELTO_L} -fuse-linker-plugin"
+    echo "${USELTO}${USELTO_L}"
 }
 
 for tool in AR NM RANLIB; do
