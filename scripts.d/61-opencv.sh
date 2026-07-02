@@ -272,7 +272,7 @@ ffbuild_dockerbuild() {
     # -D_WIN32_WINNT=0x0600
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_FLAGS $static_flags" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_FLAGS $static_flags" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     LIBS="${JBIG_LIB} $LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 

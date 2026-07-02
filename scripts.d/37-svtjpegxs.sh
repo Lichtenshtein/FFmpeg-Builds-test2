@@ -47,7 +47,7 @@ ffbuild_dockerbuild() {
     # -mstackrealign (выравнивание стека для cflags moved to base_cflags)
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fno-asynchronous-unwind-tables -mstackrealign" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fno-asynchronous-unwind-tables -mstackrealign" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

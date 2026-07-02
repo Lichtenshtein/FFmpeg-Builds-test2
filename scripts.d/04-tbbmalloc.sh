@@ -51,7 +51,7 @@ ffbuild_dockerbuild() {
     cmake -G Ninja "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-undef $static_flags" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-undef $static_flags" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${USELTO}" \
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
         .. || return 1
 
     ninja -j$(nproc) $NINJA_V || return 1

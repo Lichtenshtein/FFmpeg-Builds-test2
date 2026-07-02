@@ -301,32 +301,6 @@ should_apply_lto() {
 }
 export -f should_apply_lto
 
-# Динамически перестраиваем переменные окружения
-apply_lto_policy() {
-    if should_apply_lto; then
-        log_info "⚡ [LTO ENABLED] Applying Link-Time Optimization for: $STAGENAME"
-        export RUSTLTO=" -C lto=fat"
-        export USELTO="-flto=auto -flto-partition=balanced -fno-stack-clash-protection -fno-toplevel-reorder"
-        export USELTO_C=" -ffat-lto-objects -flto-compression-level=14 -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline -Wno-odr"
-        export NOLTO="-fno-lto"
-        # Переключаемся на плагины GCC, корректно обрабатывающие LTO байт-код
-        export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
-        export NM="${FFBUILD_CROSS_PREFIX}gcc-nm"
-        export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
-    else
-        # Принудительно гасим LTO для стадии без LTO
-        export RUSTLTO=""
-        export USELTO="-fno-lto"
-        export USELTO_C=""
-        export NOLTO="-fno-lto"
-        # Возвращаем стандартные утилиты сборки без LTO плагинов
-        export AR="${FFBUILD_CROSS_PREFIX}ar"
-        export NM="${FFBUILD_CROSS_PREFIX}nm"
-        export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
-    fi
-}
-export -f apply_lto_policy
-
 # ==============================================================
 # Flags for the component build stage
 # ==============================================================
@@ -364,6 +338,8 @@ else
     RUST_STRIP_POLICY="debuginfo"
 fi
 
+OPT_LEVEL="-O3"
+
 # Общие настройки Rust; codegen-units = 16 (default)
 COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=${RUST_STRIP_POLICY} -C codegen-units=1 -C opt-level=3 ${RUSTLTO}"
 
@@ -398,12 +374,42 @@ HOST_LINUX_LDFLAGS=(
 )
 [[ "$PREFER_SHARED" != "1" ]] && HOST_LINUX_LDFLAGS+=( "-Wl,--gc-sections" )
 
-# Настраиваем HOST_RUSTFLAGS (всегда Linux ELF)
-export HOST_RUSTFLAGS="${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${HOST_LINUX_LDFLAGS[@]}") -C embed-bitcode=yes"
-export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]} ${USELTO}"
-export HOST_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -fno-plt -pipe ${G_FLAGS} -ffunction-sections -fdata-sections -std=gnu23 ${USELTO}${USELTO_C}"
-export HOST_CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -fno-plt -pipe ${G_FLAGS} -ffunction-sections -fdata-sections -std=gnu++20 ${USELTO}${USELTO_C}"
-export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
+# Динамически перестраиваем переменные окружения
+apply_lto_policy() {
+    if should_apply_lto; then
+        log_info "⚡ [LTO ENABLED] Applying Link-Time Optimization for: $STAGENAME"
+        export RUSTLTO=" -C lto=fat"
+        # -O3 optimization will be added to LDFLAGS as well
+        export USELTO="-flto=auto -fno-stack-clash-protection -fno-toplevel-reorder"
+        export USELTO_C=" -ffat-lto-objects -flto-compression-level=6 -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline -Wno-odr"
+        export USELTO_L=" ${OPT_LEVEL} -fuse-ld=mold"
+        export NOLTO="-fno-lto"
+        # Переключаемся на плагины GCC, корректно обрабатывающие LTO байт-код
+        export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
+        export NM="${FFBUILD_CROSS_PREFIX}gcc-nm"
+        export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
+    else
+        # Принудительно гасим LTO для стадии без LTO
+        export RUSTLTO=""
+        export USELTO="-fno-lto"
+        export USELTO_C=""
+        export USELTO_L=""
+        export NOLTO="-fno-lto"
+        # Возвращаем стандартные утилиты сборки без LTO плагинов
+        export AR="${FFBUILD_CROSS_PREFIX}ar"
+        export NM="${FFBUILD_CROSS_PREFIX}nm"
+        export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
+    fi
+
+    # Пересчитываем хостовые флаги с учетом нового статуса LTO
+    # Настраиваем HOST_RUSTFLAGS (всегда Linux ELF)
+    export HOST_RUSTFLAGS="${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${HOST_LINUX_LDFLAGS[@]}") -C embed-bitcode=yes"
+    export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]} ${USELTO}${USELTO_L}"
+    export HOST_CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -fno-plt -pipe ${G_FLAGS} -ffunction-sections -fdata-sections -std=gnu23 ${USELTO}${USELTO_C}"
+    export HOST_CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -fno-plt -pipe ${G_FLAGS} -ffunction-sections -fdata-sections -std=gnu++20 ${USELTO}${USELTO_C}"
+    export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
+}
+export -f apply_lto_policy
 
 # Ветвление по TARGET
 if [[ "$TARGET" == "win64" ]]; then
@@ -427,8 +433,8 @@ if [[ "$TARGET" == "win64" ]]; then
     MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
         RUST_STATIC_CFG=""
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
         export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
@@ -436,8 +442,8 @@ if [[ "$TARGET" == "win64" ]]; then
         export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
         MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
@@ -469,8 +475,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
     MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
         export STAGE_CFLAGS="-fno-semantic-interposition"
         export STAGE_CXXFLAGS="-fno-semantic-interposition"
         RUST_STATIC_CFG=""
@@ -480,8 +486,8 @@ elif [[ "$TARGET" == "linux64" ]]; then
         export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
         export FFBUILD_MESON_CROSS=/cross_shared.meson
     else
-        export CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
+        export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
         MAIN_LDFLAGS=("-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"

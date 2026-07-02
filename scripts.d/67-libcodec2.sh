@@ -63,7 +63,7 @@ ffbuild_dockerbuild() {
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake "${myconf[@]}" .. || return 1
 
     # Собираем и устанавливаем штатно через CMake/DESTDIR

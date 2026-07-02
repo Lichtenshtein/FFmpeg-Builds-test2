@@ -29,7 +29,7 @@ ffbuild_dockerbuild() {
     CFLAGS="$RAW_CFLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
-    LDFLAGS="$RAW_LDFLAGS ${USELTO}" \
+    LDFLAGS="$RAW_LDFLAGS ${USELTO}${USELTO_L}" \
     LIBS="$LIBS" \
     ./configure --prefix="$FFBUILD_PREFIX" || return 1
 

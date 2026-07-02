@@ -48,7 +48,7 @@ ffbuild_dockerbuild() {
 
     CFLAGS="${CFLAGS//-mstackrealign/} ${USELTO}${USELTO_C} $CPPFLAGS $OPENMP_C $static_flags ${STACK_FLAGS}" \
     CXXFLAGS="${CXXFLAGS//-mstackrealign/} ${USELTO}${USELTO_C} $CPPFLAGS $OPENMP_C $static_flags ${STACK_FLAGS}" \
-    LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition ${USELTO}" \
+    LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition ${USELTO}${USELTO_L}" \
     LIBS="$LIBS $OPENMP_LIB" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 

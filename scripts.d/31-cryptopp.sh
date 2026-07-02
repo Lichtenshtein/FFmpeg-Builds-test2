@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
 
     CFLAGS="$CFLAGS $CPPFLAGS $OPENMP_C ${USELTO}${USELTO_C} $LTO_FLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS $OPENMP_C ${USELTO}${USELTO_C} $LTO_FLAGS" \
-    LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition ${USELTO}" \
+    LDFLAGS="$LDFLAGS -Wl,--allow-multiple-definition ${USELTO}${USELTO_L}" \
     LIBS="$LIBS $OPENMP_LIB" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 

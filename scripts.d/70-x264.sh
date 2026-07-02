@@ -106,7 +106,7 @@ EOF
 
     ./configure "${myconf[@]}" \
         --extra-cflags="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-        --extra-ldflags="$LDFLAGS ${USELTO}" || return 1
+        --extra-ldflags="$LDFLAGS ${USELTO}${USELTO_L}" || return 1
 
     # если в config.log написано "asm: no", значит nasm не подцепился
     if grep -q "asm: no" config.log; then

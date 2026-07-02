@@ -175,13 +175,13 @@ elif [[ $TARGET == linux64 ]]; then
 
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C} -Wno-implicit-function-declaration" \
     CPPFLAGS="$CPPFLAGS" \
-    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_C}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}${USELTO_C}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -C gavl -j$(nproc) $MAKE_V \
         CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
-        LDFLAGS="$LDFLAGS ${USELTO}" || return 1
+        LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" || return 1
 
 fi
 

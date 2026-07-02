@@ -74,7 +74,7 @@ ffbuild_dockerbuild() {
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C} $avx512_flags" \
     CPPFLAGS="$CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C} $avx512_flags" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 

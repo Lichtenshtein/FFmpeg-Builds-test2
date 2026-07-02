@@ -18,13 +18,13 @@ ffbuild_configure() {
 
 # -ffat-lto-objects позволит библиотекам содержать как LTO-код, так и обычный объектный код. Это увеличит размер промежуточных библиотек, но сделает линковку более стабильной
 ffbuild_cflags() {
-    echo "${USELTO}${USELTO_C} -mstackrealign"
+    echo "${USELTO}${USELTO_C//-ffat-lto-objects/-fno-fat-lto-objects} -mstackrealign"
 }
 ffbuild_cxxflags() {
-    echo "${USELTO}${USELTO_C} -mstackrealign"
+    echo "${USELTO}${USELTO_C//-ffat-lto-objects/-fno-fat-lto-objects} -mstackrealign"
 }
 ffbuild_ldflags() {
-    echo "${USELTO}"
+    echo "${USELTO}${USELTO_L} -fuse-linker-plugin"
 }
 
 for tool in AR NM RANLIB; do

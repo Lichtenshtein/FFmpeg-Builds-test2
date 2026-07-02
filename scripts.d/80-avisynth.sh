@@ -47,7 +47,7 @@ ffbuild_dockerbuild() {
 
     CFLAGS="$CFLAGS $CPPFLAGS ${extra_flags} ${USELTO}${USELTO_C}" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${extra_cxx_flags} ${USELTO}${USELTO_C}" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     if [[ ! -d ".git" ]]; then

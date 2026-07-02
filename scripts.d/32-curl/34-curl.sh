@@ -129,7 +129,7 @@ ffbuild_dockerbuild() {
     CFLAGS="$CLEAN_CFLAGS ${USELTO}${USELTO_C}${LTO_FIX}" \
     CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
     CXXFLAGS="$CXXFLAGS $self_static_flags $static_flags ${USELTO}${USELTO_C}${LTO_FIX}" \
-    LDFLAGS="$LDFLAGS ${USELTO}${LTO_FIX}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}${LTO_FIX}" \
     LIBS="$DEP_LIBS $WIN_LIBS $LIBS" \
     ./configure "${myconf[@]}" || return 1
 

@@ -189,8 +189,8 @@ WRAPPER_EOF
         -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${C_FLAGS} $static_flags" \
         -DCMAKE_C_STANDARD_LIBRARIES="${LINKER_GROUP}" \
         -DCMAKE_CXX_STANDARD_LIBRARIES="${LINKER_GROUP}" \
-        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${USELTO} -Wl,--allow-multiple-definition" \
-        -DCMAKE_SHARED_LINKER_FLAGS="$LDFLAGS ${USELTO} -Wl,--allow-multiple-definition" \
+        -DCMAKE_EXE_LINKER_FLAGS="$LDFLAGS ${USELTO}${USELTO_L} -Wl,--allow-multiple-definition" \
+        -DCMAKE_SHARED_LINKER_FLAGS="$LDFLAGS ${USELTO}${USELTO_L} -Wl,--allow-multiple-definition" \
         .. || return 1
 
     # Clear INTERFACE_LINK_LIBRARIES (belt and suspenders)

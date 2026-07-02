@@ -54,7 +54,7 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-static --disable-shared )
 
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     CPPFLAGS="$CPPFLAGS $static_flags" \
     CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}${USELTO_C}" \
     LIBS="$DEP_LIBS $WIN_LIBS" \

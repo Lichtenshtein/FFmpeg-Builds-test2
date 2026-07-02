@@ -171,7 +171,7 @@ ffbuild_dockerbuild() {
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" \
         -DCMAKE_C_STANDARD_LIBRARIES="${LINKER_GROUP}" \
         -DCMAKE_CXX_STANDARD_LIBRARIES="${LINKER_GROUP}" \

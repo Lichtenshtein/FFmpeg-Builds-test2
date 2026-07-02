@@ -71,7 +71,7 @@ ffbuild_dockerbuild() {
 
     ./configure "${myconf[@]}" \
         --extra-cflags="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-tautological-compare -Wno-discarded-qualifiers -Wno-array-parameter -Wno-missing-braces" \
-        --extra-ldflags="$LDFLAGS ${USELTO}" || return 1
+        --extra-ldflags="$LDFLAGS ${USELTO}${USELTO_L}" || return 1
 
     if [[ $TARGET == win* ]]; then
         local INTRINSIC_FILE=$(find /build/${STAGENAME} -name "intrinsic.h" | head -n 1)

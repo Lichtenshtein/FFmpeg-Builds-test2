@@ -63,8 +63,8 @@ ffbuild_dockerbuild() {
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags $self_static_flags" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags $self_static_flags" \
-        -Dc_link_args="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" \
-        -Dcpp_link_args="$LDFLAGS ${USELTO} $DEP_LIBS $WIN_LIBS" || return 1
+        -Dc_link_args="$LDFLAGS ${USELTO}${USELTO_L} $DEP_LIBS $WIN_LIBS" \
+        -Dcpp_link_args="$LDFLAGS ${USELTO}${USELTO_L} $DEP_LIBS $WIN_LIBS" || return 1
 
     if [[ "${PREFER_SHARED}" == "1" ]]; then
         ninja $NINJA_V || return 1

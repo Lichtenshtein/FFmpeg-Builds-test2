@@ -44,7 +44,7 @@ ffbuild_dockerbuild() {
     # may need ${NOLTO}, так как mpg123 плохо дружит с LTO в ассемблере
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS" \
-    LDFLAGS="$LDFLAGS ${USELTO}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 

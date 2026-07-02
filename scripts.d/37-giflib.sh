@@ -21,7 +21,7 @@ ffbuild_dockerbuild() {
 
     make \
       CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
-      LDFLAGS="$LDFLAGS ${USELTO}" \
+      LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
       -j$(nproc) $MAKE_V libgif.a || return 1
 
     # Ручная установка, так как штатный install хочет в /usr/local

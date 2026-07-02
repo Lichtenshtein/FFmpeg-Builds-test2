@@ -81,7 +81,7 @@ ffbuild_dockerbuild() {
         CFLAGS="${CFLAGS//-mstackrealign/} -mincoming-stack-boundary=4 ${OPENMP_C}${USELTO}${USELTO_C}" \
         CPPFLAGS="$CPPFLAGS" \
         CXXFLAGS="${CXXFLAGS//-mstackrealign/} -mincoming-stack-boundary=4 ${OPENMP_C}${USELTO}${USELTO_C}" \
-        LDFLAGS="$LDFLAGS ${USELTO}" \
+        LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
         LIBS="${OPENMP_LIB}$LIBS" \
         ./configure "${myconf[@]}" || return 1
 

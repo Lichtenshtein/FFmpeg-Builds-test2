@@ -20,11 +20,11 @@ ffbuild_dockerbuild() {
     if [[ "${CC}" != *clang* ]]; then
         export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
         export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
-        export LDFLAGS="$LDFLAGS ${USELTO}"
+        export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
     else
         export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}"
         export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}"
-        export LDFLAGS="$LDFLAGS ${USELTO}"
+        export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
     fi
 
     local myconf=(
