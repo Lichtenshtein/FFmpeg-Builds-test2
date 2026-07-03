@@ -557,7 +557,7 @@ fi
 # Вывод статистики в конце каждой стадии
 # Это покажет Hit Rate прямо в логах GitHub
 log_info "${CACHE_MARK} CCACHE STATISTICS:"
-ccache -s --verbose || ccache -s
+ccache -s "${OP_VERB2}"
 
 log_info_line
 log_info "### ${CHECK_MARK} Post-build automation completed."
