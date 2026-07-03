@@ -381,10 +381,8 @@ jobs:
           tags: |
             ${{ steps.images.outputs.target_base }}
             ${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
-          cache-from: |
-            type=gha,scope=${{ github.event.inputs.rebuild_base == 'true' && format('empty-scope-{0}', github.run_id) || 'ffmpeg-base-cache' }}
-          cache-to: |
-            type=gha,mode=max,scope=ffmpeg-base-cache
+          cache-from: ${{ github.event.inputs.rebuild_base != 'true' && 'type=gha,scope=ffmpeg-base-cache' || '' }}
+          cache-to: ${{ github.event.inputs.rebuild_base != 'true' && 'type=gha,mode=max,scope=ffmpeg-base-cache' || '' }}
 
       - name: Get Download Cache Key (Stable)
         id: dl_cache

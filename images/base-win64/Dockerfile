@@ -47,11 +47,17 @@ RUN \
     apt-get -y install --no-install-recommends lld-23 && \
     ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
     \
-    MOLD_VERSION=$(curl -s "https://api.github.com/repos/rui314/mold/releases/latest" | jq -r .tag_name | sed 's/^v//') && \
-    curl -fsSL -o mold.tar.gz "https://github.com/rui314/mold/releases/latest/download/mold-${MOLD_VERSION}-x86_64-linux.tar.gz" && \
+    MOLD_VERSION=$(curl -fL "https://api.github.com/repos/rui314/mold/releases/latest" | jq -r .tag_name | sed 's/^v//') && \
+    echo "=== Найдена последняя версия Mold: ${MOLD_VERSION} ===" && \
+    curl -fL -v -# -o mold.tar.gz "https://github.com/rui314/mold/releases/latest/download/mold-${MOLD_VERSION}-x86_64-linux.tar.gz" && \
+    echo "=== Скачивание завершено. Создание директории... ===" && \
     mkdir -p /opt/mold && \
-    tar xf mold.tar.gz --strip-components=1 -C /opt/mold && \
-    rm mold.tar.gz && \
+    echo "=== Распаковка архива (список файлов): ===" && \
+    tar -x -v -f mold.tar.gz --strip-components=1 -C /opt/mold && \
+    echo "=== Удаление скачанного архива: ===" && \
+    rm -v mold.tar.gz && \
+    echo "=== Проверка установленной версии: ===" && \
+    /opt/mold/bin/mold --version && \
     \
     pip3 install --break-system-packages --upgrade --ignore-installed \
         meson cmake ninja Cython pytest build PythonLibs && \
