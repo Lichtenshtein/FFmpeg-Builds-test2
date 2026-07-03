@@ -29,14 +29,13 @@ RUN \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
         gcc-14 g++-14 dos2unix re2c bsdmainutils p7zip-full tree \
         patchutils ed osslsigncode python3-fonttools python3-mako \
-        python3-wheel iputils-ping dnsutils wine mold && \
+        python3-wheel iputils-ping dnsutils wine lsb-release mold && \
     \
-    wget https://apt.llvm.org/llvm.sh && \
-    chmod +x llvm.sh && \
-    ./llvm.sh 23 all && \
-    rm llvm.sh && \
-    LATEST_LLD_BIN=$(ls /usr/bin/ld.lld-* | sort -V | tail -n 1) && \
-    ln -sf "$LATEST_LLD_BIN" /usr/bin/ld.lld && \
+    curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc && \
+    echo "deb https://apt.llvm.org/plucky/llvm-toolchain-plucky main" > /etc/apt/sources.list.d/llvm-trunk.list && \
+    apt-get -y update && \
+    apt-get -y install --no-install-recommends lld-23 && \
+    ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
     \
     pip3 install --break-system-packages --upgrade --ignore-installed \
         meson cmake ninja Cython pytest build PythonLibs && \
