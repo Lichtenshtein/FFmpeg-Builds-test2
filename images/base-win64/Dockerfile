@@ -31,9 +31,14 @@ RUN \
         patchutils ed osslsigncode python3-fonttools python3-mako \
         python3-wheel iputils-ping dnsutils wine lsb-release mold && \
     \
-    curl -fsSL https://llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc && \
-    printf "Types: deb\nURIs: https://llvm.org/plucky/\nSuites: llvm-toolchain-plucky\nComponents: main\nSigned-By: /etc/apt/trusted.gpg.d/apt.llvm.org.asc\n" > /etc/apt/sources.list.d/llvm-trunk.sources && \
     rm -f /etc/apt/sources.list.d/llvm-trunk.list && \
+    DOMAIN="apt.llvm.org" && \
+    curl -fsSL https://${DOMAIN}/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc && \
+    echo "Types: deb" > /etc/apt/sources.list.d/llvm-trunk.sources && \
+    echo "URIs: https://${DOMAIN}/resolute/" >> /etc/apt/sources.list.d/llvm-trunk.sources && \
+    echo "Suites: llvm-toolchain-resolute" >> /etc/apt/sources.list.d/llvm-trunk.sources && \
+    echo "Components: main" >> /etc/apt/sources.list.d/llvm-trunk.sources && \
+    echo "Signed-By: /etc/apt/trusted.gpg.d/apt.llvm.org.asc" >> /etc/apt/sources.list.d/llvm-trunk.sources && \
     apt-get -y update && \
     apt-get -y install --no-install-recommends lld-23 && \
     ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
