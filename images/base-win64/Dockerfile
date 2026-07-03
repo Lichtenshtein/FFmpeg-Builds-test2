@@ -5,6 +5,9 @@ FROM ubuntu:26.04 AS stage-os-base
 
 ARG CARGO_C_VERSION=0.10.22
 ARG SHFMT_VERSION="v3.9.0"
+ARG DEBUG_MODE=0
+ARG USE_WINE=0
+
 ENV DEBIAN_FRONTEND=noninteractive \
     CARGO_HOME="/opt/cargo" \
     RUSTUP_HOME="/opt/rustup" \
@@ -29,7 +32,8 @@ RUN \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
         gcc-14 g++-14 dos2unix re2c bsdmainutils p7zip-full tree \
         patchutils ed osslsigncode python3-fonttools python3-mako \
-        python3-wheel iputils-ping dnsutils wine lsb-release mold && \
+        python3-wheel iputils-ping dnsutils mold && \
+        $([ "$DEBUG_MODE" = "1" ] || [ "$USE_WINE" = "1" ] && echo wine) && \
     \
     rm -f /etc/apt/sources.list.d/llvm-trunk.list && \
     DOMAIN="apt.llvm.org" && \
@@ -42,6 +46,9 @@ RUN \
     apt-get -y update && \
     apt-get -y install --no-install-recommends lld-23 && \
     ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
+    mkdir -p /opt/mingw-lld-wrapper && \
+    ln -sf /usr/bin/ld.lld-23 /opt/mingw-lld-wrapper/x86_64-w64-mingw32-ld && \
+    ln -sf /usr/bin/ld.lld-23 /opt/mingw-lld-wrapper/ld && \
     \
     pip3 install --break-system-packages --upgrade --ignore-installed \
         meson cmake ninja Cython pytest build PythonLibs && \
