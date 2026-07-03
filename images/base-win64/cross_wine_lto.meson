@@ -1,9 +1,9 @@
 [binaries]
 c = 'x86_64-w64-mingw32-gcc'
 cpp = 'x86_64-w64-mingw32-g++'
-ar = 'x86_64-w64-mingw32-ar'
-ranlib = 'x86_64-w64-mingw32-ranlib'
-nm = 'x86_64-w64-mingw32-nm'
+ar = 'x86_64-w64-mingw32-gcc-ar'
+ranlib = 'x86_64-w64-mingw32-gcc-ranlib'
+nm = 'x86_64-w64-mingw32-gcc-nm'
 strip = 'x86_64-w64-mingw32-strip'
 windres = 'x86_64-w64-mingw32-windres'
 dlltool = 'x86_64-w64-mingw32-dlltool'
@@ -13,7 +13,7 @@ ld = '/usr/bin/ld.lld'
 
 [properties]
 pkg_config_static = true
-needs_exe_wrapper = false
+needs_exe_wrapper = true
 sys_root = '/'
 pkg_config_libdir = '/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig'
 

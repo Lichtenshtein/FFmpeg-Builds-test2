@@ -1,14 +1,15 @@
 [binaries]
 c = 'x86_64-w64-mingw32-gcc'
 cpp = 'x86_64-w64-mingw32-g++'
-ar = 'x86_64-w64-mingw32-gcc-ar'
-ranlib = 'x86_64-w64-mingw32-gcc-ranlib'
-nm = 'x86_64-w64-mingw32-gcc-nm'
+ar = 'x86_64-w64-mingw32-ar'
+ranlib = 'x86_64-w64-mingw32-ranlib'
+nm = 'x86_64-w64-mingw32-nm'
 strip = 'x86_64-w64-mingw32-strip'
 windres = 'x86_64-w64-mingw32-windres'
 dlltool = 'x86_64-w64-mingw32-dlltool'
 nasm = 'nasm'
 exe_wrapper = 'wine'
+ld = '/usr/bin/ld.lld'
 
 [properties]
 pkg_config_static = false

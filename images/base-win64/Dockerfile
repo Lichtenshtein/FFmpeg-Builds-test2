@@ -46,9 +46,6 @@ RUN \
     apt-get -y update && \
     apt-get -y install --no-install-recommends lld-23 && \
     ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
-    mkdir -p /opt/mingw-lld-wrapper && \
-    ln -sf /usr/bin/ld.lld-23 /opt/mingw-lld-wrapper/x86_64-w64-mingw32-ld && \
-    ln -sf /usr/bin/ld.lld-23 /opt/mingw-lld-wrapper/ld && \
     \
     pip3 install --break-system-packages --upgrade --ignore-installed \
         meson cmake ninja Cython pytest build PythonLibs && \
@@ -141,12 +138,19 @@ ENV \
     GENDEF="x86_64-w64-mingw32-gendef"
 
 # Inject toolchain configuration profiles
-COPY images/base-win64/cross.meson             /cross.meson
-COPY images/base-win64/cross_shared.meson      /cross_shared.meson
-COPY images/base-win64/cross_wine.meson        /cross_wine.meson
-COPY images/base-win64/cross_wine_shared.meson /cross_wine_shared.meson
-COPY images/base-win64/toolchain.cmake         /toolchain.cmake
-COPY images/base-win64/toolchain_shared.cmake  /toolchain_shared.cmake
+COPY images/base-win64/cross.meson                 /cross.meson
+COPY images/base-win64/cross_shared.meson          /cross_shared.meson
+COPY images/base-win64/cross_wine.meson            /cross_wine.meson
+COPY images/base-win64/cross_wine_shared.meson     /cross_wine_shared.meson
+COPY images/base-win64/cross_lto.meson             /cross_lto.meson
+COPY images/base-win64/cross_shared_lto.meson      /cross_shared_lto.meson
+COPY images/base-win64/cross_wine_lto.meson        /cross_wine_lto.meson
+COPY images/base-win64/cross_wine_shared_lto.meson /cross_wine_shared_lto.meson
+
+COPY images/base-win64/toolchain.cmake             /toolchain.cmake
+COPY images/base-win64/toolchain_shared.cmake      /toolchain_shared.cmake
+COPY images/base-win64/toolchain_lto.cmake         /toolchain_lto.cmake
+COPY images/base-win64/toolchain_shared_lto.cmake  /toolchain_shared_lto.cmake
 
 RUN rustup target add "$FFBUILD_RUST_TARGET" && \
     printf "[target.%s]\nlinker = \"%s-gcc\"\nar = \"%s-gcc-ar\"\n" "$FFBUILD_RUST_TARGET" "$FFBUILD_TOOLCHAIN" "$FFBUILD_TOOLCHAIN" > "$CARGO_HOME"/config.toml && \
