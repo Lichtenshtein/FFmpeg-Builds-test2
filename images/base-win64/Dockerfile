@@ -31,6 +31,13 @@ RUN \
         patchutils ed osslsigncode python3-fonttools python3-mako \
         python3-wheel iputils-ping dnsutils wine mold && \
     \
+    wget https://github.com/opencollab/llvm-jenkins.debian.net/raw/refs/heads/master/llvm.sh && \
+    chmod +x llvm.sh && \
+    ./llvm.sh all && \
+    rm llvm.sh && \
+    LATEST_LLD_BIN=$(ls /usr/bin/ld.lld-* | sort -V | tail -n 1) && \
+    ln -sf "$LATEST_LLD_BIN" /usr/bin/ld.lld && \
+    \
     pip3 install --break-system-packages --upgrade --ignore-installed \
         meson cmake ninja Cython pytest build PythonLibs && \
     \
