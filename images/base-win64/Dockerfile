@@ -48,15 +48,15 @@ RUN \
     ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
     \
     MOLD_VERSION=$(curl -fL "https://api.github.com/repos/rui314/mold/releases/latest" | jq -r .tag_name | sed 's/^v//') && \
-    echo "=== Найдена последняя версия Mold: ${MOLD_VERSION} ===" && \
-    curl -fL -v -# -o mold.tar.gz "https://github.com/rui314/mold/releases/latest/download/mold-${MOLD_VERSION}-x86_64-linux.tar.gz" && \
-    echo "=== Скачивание завершено. Создание директории... ===" && \
+    echo "=== Mold version found: ${MOLD_VERSION} ===" && \
+    curl -fL -v -o mold.tar.gz "https://github.com/rui314/mold/releases/latest/download/mold-${MOLD_VERSION}-x86_64-linux.tar.gz" && \
+    echo "=== download complete. creating directory... ===" && \
     mkdir -p /opt/mold && \
-    echo "=== Распаковка архива (список файлов): ===" && \
+    echo "=== unpacking archive (file list): ===" && \
     tar -x -v -f mold.tar.gz --strip-components=1 -C /opt/mold && \
-    echo "=== Удаление скачанного архива: ===" && \
+    echo "=== removing archive: ===" && \
     rm -v mold.tar.gz && \
-    echo "=== Проверка установленной версии: ===" && \
+    echo "=== vesion check: ===" && \
     /opt/mold/bin/mold --version && \
     \
     pip3 install --break-system-packages --upgrade --ignore-installed \
