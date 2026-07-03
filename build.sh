@@ -604,8 +604,6 @@ fi
 
 chmod +x configure
 
-export HOST_CFLAGS="${HOST_CFLAGS//-ffat-lto-objects/-fno-fat-lto-objects}"
-
 # Tip: -Wl,--allow-multiple-definition needed for KVAZAAR/cryptopp & OpenSSL/quiche.
 # --extra-cflags="-DCOBJMACROS"
 # --extra-ldflags="${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
@@ -613,6 +611,7 @@ export HOST_CFLAGS="${HOST_CFLAGS//-ffat-lto-objects/-fno-fat-lto-objects}"
 # -lopenal -ldsound -lggml_openvino_stub
 # export cflags_libdatachannel="-DRTC_STATIC -DJUICE_STATIC"
 # --as="$CC"
+# -fno-use-linker-plugin
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
@@ -621,7 +620,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="${FINAL_LDFLAGS} -fuse-ld=mold -Wl,--allow-multiple-definition"
+    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"

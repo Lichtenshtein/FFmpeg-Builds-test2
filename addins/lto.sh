@@ -2,13 +2,7 @@
 
 log_info "${XCLAM_MARK} LTO Addin: Enabling Link Time Optimization..."
 
-# a hook announcing that we're at the final stage
-export FFMPEG_BUILD_STAGE="1"
-export STAGENAME="FFmpeg"
-
-if declare -F apply_lto_policy >/dev/null; then
-    apply_lto_policy
-fi
+export HOST_CFLAGS="${HOST_CFLAGS//-ffat-lto-objects/-fno-fat-lto-objects}"
 
 # Флаг для FFmpeg
 # --enable-lto=full (default); --enable-lto=thin (to save build time)

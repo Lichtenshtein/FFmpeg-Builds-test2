@@ -255,7 +255,7 @@ should_apply_lto() {
     # ========================================
     # Библиотеки, которые ломают таблицы символов линкера
     case "$STAGENAME" in
-        *"libicu"|*"glib2"|*"libxml2"|*"libiconv"|*"gettext"|*"bzlib"|*"xz"|*"zstd"|*"libffi"|*"pcre2"|*"openssl"|*"libssh"|*"curl"|*"libtesseract"|*"leptonica"|*"libtensorflow"|*"libtorch"|*"librsvg"|*"cairo"|*"pango"|*"spirv-cross"|*"shaderc"|*"spirv-tools"|*"glslang")
+        *"mingw"|*"zlib"|*"libicu"|*"glib2"|*"libxml2"|*"libiconv"|*"gettext"|*"bzlib"|*"xz"|*"zstd"|*"libffi"|*"pcre2"|*"openssl"|*"libssh"|*"curl"|*"libtesseract"|*"leptonica"|*"libtensorflow"|*"libtorch"|*"librsvg"|*"cairo"|*"pango"|*"spirv-cross"|*"shaderc"|*"spirv-tools"|*"glslang")
             return 1
             ;;
     esac
@@ -266,7 +266,7 @@ should_apply_lto() {
     # LTO включится ТОЛЬКО для этих библиотек.
     case "$STAGENAME" in
         # Основные либы
-        *"mingw"|*"tbbmalloc"|*"zlib"|*"fftw3"|*"freeglut")
+        *"tbbmalloc"|*"fftw3"|*"freeglut")
             return 0
             ;;
         # Основные тяжелые видеокодеки
@@ -421,7 +421,7 @@ if [[ "$TARGET" == "win64" ]]; then
 
     BASE_LD_FLAGS=(
         "-pipe"
-        # "-fuse-ld=mold-wrapper"
+        "-fuse-ld=mold"
         "-Wl,--high-entropy-va"
         "-Wl,--nxcompat"
         "-Wl,--dynamicbase"
