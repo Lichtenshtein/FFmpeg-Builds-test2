@@ -423,11 +423,11 @@ if [[ "$TARGET" == "win64" ]]; then
     BASE_LD_FLAGS=(
         "-pipe"
         "-fuse-ld=lld"
-        "-Wl,--allow-shlib-undefined"
+        # "-Wl,--allow-shlib-undefined"
         "-Wl,--high-entropy-va"
         "-Wl,--nxcompat"
         "-Wl,--dynamicbase"
-        "-Wl,--reduce-memory-overheads" # not supported by lld
+        # "-Wl,--reduce-memory-overheads" # not supported by lld
         # "-Wl,--no-keep-memory" # reread from disk not ram
         "-Wl,--stack,16777216"
         "-Wl,--as-needed"
@@ -451,9 +451,9 @@ if [[ "$TARGET" == "win64" ]]; then
         fi
 
         if [[ "${USE_WINE}" == "1" && "$USE_LTO" == "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_wine_lto_shared.meson
+            export FFBUILD_MESON_CROSS=/cross_wine_shared_lto.meson
         elif [[ "${USE_WINE}" != "1" && "$USE_LTO" == "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_lto_shared.meson
+            export FFBUILD_MESON_CROSS=/cross_shared_lto.meson
         elif [[ "${USE_WINE}" != "1" && "$USE_LTO" != "1" ]]; then
             export FFBUILD_MESON_CROSS=/cross_shared.meson
         elif [[ "${USE_WINE}" == "1" && "$USE_LTO" != "1" ]]; then
