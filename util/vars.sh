@@ -118,8 +118,9 @@ export AS="${FFBUILD_CROSS_PREFIX}as"
 export CC="${FFBUILD_CROSS_PREFIX}gcc"
 export CXX="${FFBUILD_CROSS_PREFIX}g++"
 # export LD="${FFBUILD_CROSS_PREFIX}ld"
-export LD="ld.lld"
+# export LD="ld.lld"
 # export LD="mold"
+export LD="/opt/mingw-lld-wrapper/${FFBUILD_CROSS_PREFIX}ld"
 export STRIP="${FFBUILD_CROSS_PREFIX}strip"
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
 export FFBUILD_DESTDIR="/opt/ffdest"
@@ -185,7 +186,7 @@ export CONTAINER_ROOT="/builder"
 export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
 
 # ccache
-export PATH="/opt/ccache-links:${PATH}"
+export PATH="/opt/ccache-links:/opt/mingw-lld-wrapper:${PATH}"
 export CCACHE_PATH="/opt/ct-ng/bin:/usr/bin"
 export CCACHE_DIR="/root/.cache/ccache"
 export CCACHE_BASEDIR="${CONTAINER_ROOT}"
@@ -422,11 +423,11 @@ if [[ "$TARGET" == "win64" ]]; then
 
     BASE_LD_FLAGS=(
         "-pipe"
-        "-fuse-ld=lld"
+        "-Wl,--allow-shlib-undefined"
         "-Wl,--high-entropy-va"
         "-Wl,--nxcompat"
         "-Wl,--dynamicbase"
-        # "-Wl,--reduce-memory-overheads" # not supported by lld
+        "-Wl,--reduce-memory-overheads" # not supported by lld
         # "-Wl,--no-keep-memory" # reread from disk not ram
         "-Wl,--stack,16777216"
         "-Wl,--as-needed"
