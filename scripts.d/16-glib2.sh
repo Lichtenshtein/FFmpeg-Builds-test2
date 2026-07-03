@@ -110,6 +110,7 @@ windres = '${FFBUILD_TOOLCHAIN}-windres'
 nm = '${FFBUILD_CROSS_PREFIX}nm'
 ranlib = '${FFBUILD_CROSS_PREFIX}ranlib'
 nasm = '/usr/bin/nasm'
+ld = '$LD'
 
 [properties]
 have_c99_snprintf = true
