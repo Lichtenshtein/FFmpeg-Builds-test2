@@ -17,8 +17,8 @@ set(CMAKE_FIND_ROOT_PATH /opt/ffbuild /opt/ct-ng/${triple}/sysroot /opt/ct-ng)
 set(CMAKE_C_COMPILER ${triple}-gcc)
 set(CMAKE_CXX_COMPILER ${triple}-g++)
 set(CMAKE_RC_COMPILER ${triple}-windres)
-set(CMAKE_RANLIB ${triple}-ranlib)
-set(CMAKE_AR ${triple}-ar)
+set(CMAKE_RANLIB ${triple}-gcc-ranlib)
+set(CMAKE_AR ${triple}-gcc-ar)
 
 # =============================================================================
 # LINKER CONFIGURATION (Forcing LLVM LLD for MinGW Target)
@@ -42,8 +42,28 @@ set(ENV{PKG_CONFIG_SYSROOT_DIR} "/")
 set(ENV{PKG_CONFIG_PATH} "") # Очищаем, чтобы не было мусора
 set(ENV{PKG_CONFIG_LIBDIR} "/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgconfig:/opt/ffbuild/lib64/pkgconfig")
 
+set(PKG_CONFIG_ARGN "--static")
+
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
     set(CMAKE_INSTALL_PREFIX "$ENV{FFBUILD_DESTPREFIX}" CACHE PATH "")
 endif()
 
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
+
+# =============================================================================
+# GLOBAL VISIBILITY OVERRIDE (Forcing static links transparency)
+# =============================================================================
+
+# форсируем дефолтную (видимую) видимость символов в кэше
+# set(CMAKE_C_VISIBILITY_PRESET "default" CACHE INTERNAL "Global override" FORCE)
+# set(CMAKE_CXX_VISIBILITY_PRESET "default" CACHE INTERNAL "Global override" FORCE)
+# set(CMAKE_VISIBILITY_INLINES_HIDDEN 0 CACHE INTERNAL "Global override" FORCE)
+
+# Защита от переопределения свойств конкретных таргетов (set_target_properties)
+# CMake позволяет задать глобальное поведение для всех создаваемых таргетов по умолчанию
+# set(CMAKE_C_VISIBILITY_PRESET_INIT "default")
+# set(CMAKE_CXX_VISIBILITY_PRESET_INIT "default")
+# set(CMAKE_VISIBILITY_INLINES_HIDDEN_INIT 0)
+
+# set(CMAKE_STATIC_LIBRARY_CXX_FLAGS "${CMAKE_STATIC_LIBRARY_CXX_FLAGS} -fvisibility=default")
+# set(CMAKE_STATIC_LIBRARY_C_FLAGS "${CMAKE_STATIC_LIBRARY_C_FLAGS} -fvisibility=default")

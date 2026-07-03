@@ -17,8 +17,8 @@ set(CMAKE_FIND_ROOT_PATH /opt/ffbuild /opt/ct-ng/${triple}/sysroot /opt/ct-ng)
 set(CMAKE_C_COMPILER ${triple}-gcc)
 set(CMAKE_CXX_COMPILER ${triple}-g++)
 set(CMAKE_RC_COMPILER ${triple}-windres)
-set(CMAKE_RANLIB ${triple}-ranlib)
-set(CMAKE_AR ${triple}-ar)
+set(CMAKE_RANLIB ${triple}-gcc-ranlib)
+set(CMAKE_AR ${triple}-gcc-ar)
 
 # =============================================================================
 # LINKER CONFIGURATION (Forcing LLVM LLD for MinGW Target)

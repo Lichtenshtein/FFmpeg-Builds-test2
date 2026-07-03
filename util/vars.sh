@@ -118,9 +118,8 @@ export AS="${FFBUILD_CROSS_PREFIX}as"
 export CC="${FFBUILD_CROSS_PREFIX}gcc"
 export CXX="${FFBUILD_CROSS_PREFIX}g++"
 # export LD="${FFBUILD_CROSS_PREFIX}ld"
-# export LD="ld.lld"
+export LD="ld.lld"
 # export LD="mold"
-export LD="/opt/mingw-lld-wrapper/${FFBUILD_CROSS_PREFIX}ld"
 export STRIP="${FFBUILD_CROSS_PREFIX}strip"
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
 export FFBUILD_DESTDIR="/opt/ffdest"
@@ -186,7 +185,7 @@ export CONTAINER_ROOT="/builder"
 export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
 
 # ccache
-export PATH="/opt/ccache-links:/opt/mingw-lld-wrapper:${PATH}"
+export PATH="/opt/ccache-links:${PATH}"
 export CCACHE_PATH="/opt/ct-ng/bin:/usr/bin"
 export CCACHE_DIR="/root/.cache/ccache"
 export CCACHE_BASEDIR="${CONTAINER_ROOT}"
@@ -423,6 +422,7 @@ if [[ "$TARGET" == "win64" ]]; then
 
     BASE_LD_FLAGS=(
         "-pipe"
+        "-fuse-ld=lld"
         "-Wl,--allow-shlib-undefined"
         "-Wl,--high-entropy-va"
         "-Wl,--nxcompat"
@@ -443,20 +443,44 @@ if [[ "$TARGET" == "win64" ]]; then
         export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
         RUST_STATIC_CFG=""
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
-        export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
-        [[ "${USE_WINE}" == "1" ]] && \
-        export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
-        export FFBUILD_MESON_CROSS=/cross_shared.meson
+
+        if [[ "$USE_LTO" == "1"  ]]; then
+            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared_lto.cmake
+        else
+            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
+        fi
+
+        if [[ "${USE_WINE}" == "1" && "$USE_LTO" == "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross_wine_lto_shared.meson
+        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" == "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross_lto_shared.meson
+        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" != "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross_shared.meson
+        elif [[ "${USE_WINE}" == "1" && "$USE_LTO" != "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross_wine_shared.meson
+        fi
     else
         export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
         export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
         MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
-        export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
-        [[ "${USE_WINE}" == "1" ]] && \
-        export FFBUILD_MESON_CROSS=/cross_wine.meson || \
-        export FFBUILD_MESON_CROSS=/cross.meson
+
+        if [[ "$USE_LTO" == "1"  ]]; then
+            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_lto.cmake
+        else
+            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
+        fi
+
+        if [[ "${USE_WINE}" == "1" && "$USE_LTO" == "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross_wine_lto.meson
+        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" == "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross_lto.meson
+        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" != "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross.meson
+        elif [[ "${USE_WINE}" == "1" && "$USE_LTO" != "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross_wine.meson
+        fi
     fi
 
     export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${MAIN_LDFLAGS[@]}")"
@@ -487,20 +511,44 @@ elif [[ "$TARGET" == "linux64" ]]; then
         export STAGE_CXXFLAGS="-fno-semantic-interposition"
         RUST_STATIC_CFG=""
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
-        export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
-        [[ "${USE_WINE}" == "1" ]] && \
-        export FFBUILD_MESON_CROSS=/cross_wine_shared.meson || \
-        export FFBUILD_MESON_CROSS=/cross_shared.meson
+
+        if [[ "$USE_LTO" == "1"  ]]; then
+            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared_lto.cmake
+        else
+            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
+        fi
+
+        if [[ "${USE_WINE}" == "1" && "$USE_LTO" == "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross_wine_lto_shared.meson
+        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" == "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross_lto_shared.meson
+        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" != "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross_shared.meson
+        elif [[ "${USE_WINE}" == "1" && "$USE_LTO" != "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross_wine_shared.meson
+        fi
     else
         export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
         export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
         MAIN_LDFLAGS=("-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
-        export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
-        [[ "${USE_WINE}" == "1" ]] && \
-        export FFBUILD_MESON_CROSS=/cross_wine.meson || \
-        export FFBUILD_MESON_CROSS=/cross.meson
+
+        if [[ "$USE_LTO" == "1"  ]]; then
+            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_lto.cmake
+        else
+            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
+        fi
+
+        if [[ "${USE_WINE}" == "1" && "$USE_LTO" == "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross_wine_lto.meson
+        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" == "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross_lto.meson
+        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" != "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross.meson
+        elif [[ "${USE_WINE}" == "1" && "$USE_LTO" != "1" ]]; then
+            export FFBUILD_MESON_CROSS=/cross_wine.meson
+        fi
     fi
 
     export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${MAIN_LDFLAGS[@]}")"
