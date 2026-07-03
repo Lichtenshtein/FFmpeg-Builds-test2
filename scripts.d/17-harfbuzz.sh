@@ -24,6 +24,7 @@ ffbuild_dockerbuild() {
     mkdir build && cd build
 
     local myconf=(
+        -Db_lundef=false
         --cross-file="$FFBUILD_MESON_CROSS"
         --prefix="$FFBUILD_PREFIX"
         --libdir=lib
