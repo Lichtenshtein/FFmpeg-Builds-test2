@@ -264,6 +264,7 @@ EOF
     cat <<EOF > python_fix.ini
 [binaries]
 pkg-config = 'pkgconf'
+ld = '$LD'
 
 [properties]
 pkg_config_libdir = ['${CUR_DIR}/fake_pkgconfig', '/opt/ffbuild/lib/pkgconfig', '/opt/ffbuild/share/pkgconfig']
