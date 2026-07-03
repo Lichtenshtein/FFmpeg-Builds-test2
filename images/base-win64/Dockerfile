@@ -32,7 +32,7 @@ RUN \
         python3-wheel iputils-ping dnsutils wine lsb-release mold && \
     \
     curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc && \
-    echo "deb https://apt.llvm.org/plucky/llvm-toolchain-plucky main" > /etc/apt/sources.list.d/llvm-trunk.list && \
+    echo "deb https://apt.llvm.org/plucky/llvm-toolchain main" > /etc/apt/sources.list.d/llvm-trunk.list && \
     apt-get -y update && \
     apt-get -y install --no-install-recommends lld-23 && \
     ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
