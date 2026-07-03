@@ -32,7 +32,7 @@ RUN \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
         dos2unix re2c bsdmainutils p7zip-full tree \
         patchutils ed osslsigncode python3-fonttools python3-mako \
-        python3-wheel iputils-ping dnsutils mold \
+        python3-wheel iputils-ping dnsutils \
         $([ "$DEBUG_MODE" = "1" ] || [ "$USE_WINE" = "1" ] && echo wine) && \
     \
     rm -f /etc/apt/sources.list.d/llvm-trunk.list && \
@@ -46,6 +46,12 @@ RUN \
     apt-get -y update && \
     apt-get -y install --no-install-recommends lld-23 && \
     ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
+    \
+    MOLD_VERSION=$(curl -s "https://api.github.com/repos/rui314/mold/releases/latest" | jq -r .tag_name | sed 's/^v//') && \
+    curl -fsSL -o mold.tar.gz "https://github.com/rui314/mold/releases/latest/download/mold-${MOLD_VERSION}-x86_64-linux.tar.gz" && \
+    mkdir -p /opt/mold && \
+    tar xf mold.tar.gz --strip-components=1 -C /opt/mold && \
+    rm mold.tar.gz && \
     \
     pip3 install --break-system-packages --upgrade --ignore-installed \
         meson cmake ninja Cython pytest build PythonLibs && \
@@ -126,7 +132,7 @@ ENV \
     FFBUILD_RUST_TARGET=x86_64-pc-windows-gnu \
     CPU_ARCH="${CPU_ARCH}" \
     CPU_TUNE="${CPU_TUNE}" \
-    PATH="/opt/ct-ng/bin:/opt/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+    PATH="/opt/mold/bin:/opt/ct-ng/bin:/opt/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
     FFBUILD_TARGET_FLAGS="--pkg-config=pkgconf --cross-prefix=x86_64-w64-mingw32- --arch=x86_64 --target-os=mingw32" \
     FFBUILD_CROSS_PREFIX=x86_64-w64-mingw32- \
     FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake \

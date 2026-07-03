@@ -31,6 +31,8 @@ set(CMAKE_MODULE_LINKER_FLAGS_INIT "-fuse-ld=lld")
 # Задаем тип линкера, чтобы CMake правильно понимал его возможности
 set(CMAKE_LINKER "ld.lld" CACHE FILEPATH "Forced LLD Linker")
 
+# =============================================================================
+
 # Искать программы (типа bison) на хосте, а либы и инклюды только в таргете
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
 set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)

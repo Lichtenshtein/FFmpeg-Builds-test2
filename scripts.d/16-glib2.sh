@@ -158,7 +158,6 @@ EOF
         -Dman-pages=disabled
         -Dselinux=disabled
         -Dsysprof=disabled
-        -Db_lundef=false
     )
 
     # Mitigate LTO compiler engine bugs inside GLib compilation 

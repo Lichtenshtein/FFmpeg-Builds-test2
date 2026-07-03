@@ -10,6 +10,8 @@ dlltool = 'x86_64-w64-mingw32-dlltool'
 nasm = 'nasm'
 exe_wrapper = 'wine'
 ld = '/usr/bin/ld.lld'
+c_ld = 'lld'
+cpp_ld = 'lld'
 
 [properties]
 pkg_config_static = false
