@@ -119,6 +119,7 @@ export CC="${FFBUILD_CROSS_PREFIX}gcc"
 export CXX="${FFBUILD_CROSS_PREFIX}g++"
 # export LD="${FFBUILD_CROSS_PREFIX}ld"
 export LD="ld.lld"
+# export LD="mold"
 export STRIP="${FFBUILD_CROSS_PREFIX}strip"
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
 export FFBUILD_DESTDIR="/opt/ffdest"
@@ -425,7 +426,7 @@ if [[ "$TARGET" == "win64" ]]; then
         "-Wl,--high-entropy-va"
         "-Wl,--nxcompat"
         "-Wl,--dynamicbase"
-        "-Wl,--reduce-memory-overheads"
+        # "-Wl,--reduce-memory-overheads" # not supported by lld
         # "-Wl,--no-keep-memory" # reread from disk not ram
         "-Wl,--stack,16777216"
         "-Wl,--as-needed"
