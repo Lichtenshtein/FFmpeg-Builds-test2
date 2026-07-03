@@ -30,7 +30,7 @@ RUN \
         gtk-doc-tools gobject-introspection gawk procps \
         ocaml ocaml-findlib ocamlbuild libnum-ocaml-dev indent zstd \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
-        gcc-14 g++-14 dos2unix re2c bsdmainutils p7zip-full tree \
+        dos2unix re2c bsdmainutils p7zip-full tree \
         patchutils ed osslsigncode python3-fonttools python3-mako \
         python3-wheel iputils-ping dnsutils mold \
         $([ "$DEBUG_MODE" = "1" ] || [ "$USE_WINE" = "1" ] && echo wine) && \
@@ -53,10 +53,10 @@ RUN \
     pip3 install --break-system-packages --upgrade --ignore-installed \
         meson cmake ninja Cython pytest build PythonLibs && \
     \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 100 && \
-    update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-14 100 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 100 && \
-    update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-14 100 && \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100 && \
+    update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-15 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-15 100 && \
+    update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-15 100 && \
     \
     curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
     apt-get -y install nodejs && \
