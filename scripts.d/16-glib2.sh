@@ -110,7 +110,8 @@ windres = '${FFBUILD_TOOLCHAIN}-windres'
 nm = '${FFBUILD_CROSS_PREFIX}nm'
 ranlib = '${FFBUILD_CROSS_PREFIX}ranlib'
 nasm = '/usr/bin/nasm'
-ld = '$LD'
+c_ld = 'lld'
+cpp_ld = 'lld'
 
 [properties]
 have_c99_snprintf = true
@@ -157,6 +158,7 @@ EOF
         -Dman-pages=disabled
         -Dselinux=disabled
         -Dsysprof=disabled
+        -Db_lundef=false
     )
 
     # Mitigate LTO compiler engine bugs inside GLib compilation 
