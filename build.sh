@@ -46,7 +46,7 @@ cleanup() {
 
     # Вывод статистики ccache
     log_info "${CACHE_MARK} CCACHE STATISTICS:"
-    ccache -s --verbose || ccache -s
+    ccache -s "${OP_VERB2}"
 }
 # Устанавливаем ловушку
 # EXIT сработает всегда: и при успехе, и при ошибке, и при прерывании
