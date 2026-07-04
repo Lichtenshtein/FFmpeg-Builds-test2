@@ -378,12 +378,6 @@ FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
 # чтобы если компонент принес свою версию, она вытеснила базовую в конец (право).
 FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
 
-FINAL_LIBS="${FINAL_LIBS//-Wl,--start-group/}"
-FINAL_LIBS="${FINAL_LIBS//-Wl,--end-group/}"
-FINAL_LIBS="${FINAL_LIBS//-Wl,--no-as-needed/}"
-FINAL_LIBS="${FINAL_LIBS//-Wl,--as-needed/}"
-FINAL_LIBS=$(echo "$FINAL_LIBS" | xargs)
-
 # =======================================
 # GENERATION OF COMPONENT STATE VARIABLES
 # =======================================
@@ -671,6 +665,12 @@ chmod +x configure
 
 GCC_LTO_PLUGIN=$("${FFBUILD_CROSS_PREFIX}gcc" -print-prog-name=liblto_plugin.so)
 
+FINAL_LIBS="${FINAL_LIBS//-Wl,--start-group/}"
+FINAL_LIBS="${FINAL_LIBS//-Wl,--end-group/}"
+FINAL_LIBS="${FINAL_LIBS//-Wl,--no-as-needed/}"
+FINAL_LIBS="${FINAL_LIBS//-Wl,--as-needed/}"
+FINAL_LIBS=$(echo "$FINAL_LIBS" | xargs)
+
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
@@ -681,8 +681,8 @@ CONF_FLAGS=(
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
     --extra-ldflags="-mconsole ${FINAL_LDFLAGS} -Wl,--entry=mainCRTStartup -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
-    --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
-    --extra-libs="${FINAL_LIBS_GROUPED}"
+    --extra-ldexeflags="${FINAL_LDEXEFLAGS} ${FINAL_LIBS_GROUPED}"
+    --extra-libs=""
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
