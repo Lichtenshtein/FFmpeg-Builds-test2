@@ -390,8 +390,8 @@ apply_lto_policy() {
 
         log_info "⚡ [LTO ENABLED] Applying Link-Time Optimization for: $STAGENAME"
         export RUSTLTO=" -C lto=fat"
-        export USELTO="-flto=auto -flto-partition=one -fno-stack-clash-protection -fno-toplevel-reorder"
-        export USELTO_C=" -ffat-lto-objects -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline -Wno-odr"
+        export USELTO="-flto=4"
+        export USELTO_C=" -ffat-lto-objects"
         # -O3 optimization will be added to LDFLAGS as well
         export USELTO_L=" ${OPT_LEVEL} -Wl,-plugin,${GCC_LTO_PLUGIN}"
         export NOLTO="-fno-lto"
