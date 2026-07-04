@@ -224,6 +224,22 @@ fi
     # sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
 # fi
 
+QUIRC_PC="${FFBUILD_PREFIX}/lib/pkgconfig/quirc.pc"
+if [[ -f "$QUIRC_PC"; then
+    cat <<EOF > "$QUIRC_PC"
+prefix=$FFBUILD_PREFIX
+exec_prefix=\${prefix}
+libdir=\${prefix}/lib
+includedir=\${prefix}/include
+
+Name: quirc
+Description: QR decoder library, for extracting and decoding them from images
+Version: 1.2
+Libs: -L\${libdir} -lquirc
+Cflags: -I\${includedir}
+EOF
+fi
+
 log_info "Patching FFmpeg's nvenc_dispatch.c to fix missing v13.0 NVENC symbols..."
 NVENC_DISPATCH_SRC="libavcodec/nvenc_dispatch.c"
 if [[ -f "$NVENC_DISPATCH_SRC" ]]; then
