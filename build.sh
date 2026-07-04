@@ -351,20 +351,22 @@ fi
     # -e 's/\.p\.pix_fmts/\.pix_fmts/g' {} +
 
 
-log_info "Applying a hard patch to the FFmpeg configurator against WinMain..."
-CONF_CONTENT=$(cat configure)
-WINMAIN_STUB='__attribute__((used)) int __stdcall WinMain(void* h, void* p, char* l, int n){ return 0; }'
-OLD_TARGET1='echo "int main(void) { $code; return 0; }"'
-NEW_TARGET1="echo \"${WINMAIN_STUB} int main(void) { \$code; return 0; }\""
-CONF_CONTENT="${CONF_CONTENT//"$OLD_TARGET1"/$NEW_TARGET1}"
-OLD_TARGET2='int main(void){ return 0; }'
-NEW_TARGET2="${WINMAIN_STUB} int main(void){ return 0; }"
-CONF_CONTENT="${CONF_CONTENT//"$OLD_TARGET2"/$NEW_TARGET2}"
-OLD_TARGET3='echo "int main(void) { return 0; }"'
-NEW_TARGET3="echo \"${WINMAIN_STUB} int main(void) { return 0; }\""
-CONF_CONTENT="${CONF_CONTENT//"$OLD_TARGET3"/$NEW_TARGET3}"
-echo "$CONF_CONTENT" > configure
+log_info "🔎 Starting a deep audit of static libraries in ${FFBUILD_PREFIX}/lib..."
 
+# We are looking for libraries that can override main with WinMain or force the GUI subsystem to be enabled.
+FOUND_POISONERS=()
+
+cd "${FFBUILD_PREFIX}/lib"
+for lib in *.a; do
+    # Проверяем, содержит ли библиотека ссылки на WinMain или директивы subsystem
+    if "${FFBUILD_CROSS_PREFIX}nm" "$lib" 2>/dev/null | grep -qi "WinMain" || \
+       strings "$lib" 2>/dev/null | grep -qi "subsystem,windows"; then
+        log_warn "The $lib library contains a reference to WinMain or subsystem:windows!"
+        FOUND_POISONERS+=("$lib")
+    fi
+done
+cd - > /dev/null
+log_info "🎯 Potential culprits found: ${#FOUND_POISONERS[@]}"
 
 # =======================================
 # FLAGS AND LIBS PROCESSING SECTION
@@ -695,7 +697,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="-mconsole ${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
+    --extra-ldflags="-Wl,--subsystem,console ${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS} ${FINAL_LIBS_GROUPED}"
     --extra-libs=""
     "${FF_CONF_ARR[@]}"
