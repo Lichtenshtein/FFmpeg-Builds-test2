@@ -612,6 +612,9 @@ chmod +x configure
 # export cflags_libdatachannel="-DRTC_STATIC -DJUICE_STATIC"
 # --as="$CC"
 # -fno-use-linker-plugin
+
+GCC_LTO_PLUGIN=$($FFBUILD_CROSS_PREFIX}gcc -print-prog-name=liblto_plugin.so)
+
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
@@ -621,7 +624,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,$($FFBUILD_CROSS_PREFIX}gcc -print-prog-name=liblto_plugin.so)"
+    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN})"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
