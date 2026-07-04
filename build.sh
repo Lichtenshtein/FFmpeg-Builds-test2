@@ -727,13 +727,16 @@ chmod +x configure
 # Если medium не поможет (сборка окажется совсем гигантской), 
 # следующим шагом поменяй на -mcmodel=large
 
+export HOST_FF_LDFLAGS="${HOST_LINUX_LDFLAGS[*]}"
+export HOST_FF_CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -fno-plt -pipe ${G_FLAGS} -ffunction-sections -fdata-sections -std=gnu23"
+
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
     --host-cc="ccache gcc"
     --host-ld="mold"
-    --host-cflags="$HOST_CFLAGS $HOST_CPPFLAGS"
-    --host-ldflags="$HOST_LDFLAGS"
+    --host-cflags="$HOST_FF_CFLAGS $HOST_CPPFLAGS"
+    --host-ldflags="$HOST_FF_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS} -mcmodel=medium"
     --extra-cxxflags="${FINAL_CXXFLAGS} -mcmodel=medium"
     --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
