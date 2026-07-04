@@ -390,7 +390,7 @@ apply_lto_policy() {
 
         log_info "⚡ [LTO ENABLED] Applying Link-Time Optimization for: $STAGENAME"
         export RUSTLTO=" -C lto=fat"
-        export USELTO="-flto=4"
+        export USELTO="-flto=4 -flto-partition=balanced"
         export USELTO_C=" -ffat-lto-objects"
         # -O3 optimization will be added to LDFLAGS as well
         export USELTO_L=" ${OPT_LEVEL} -Wl,-plugin,${GCC_LTO_PLUGIN}"
@@ -430,13 +430,12 @@ if [[ "$TARGET" == "win64" ]]; then
     BASE_LD_FLAGS=(
         "-pipe"
         "-fuse-ld=lld"
-        # "-Wl,--allow-shlib-undefined"
         "-Wl,--high-entropy-va"
         "-Wl,--nxcompat"
         "-Wl,--dynamicbase"
         # "-Wl,--reduce-memory-overheads" # not supported by lld
         # "-Wl,--no-keep-memory" # reread from disk not ram
-        "-Wl,--stack,16777216"
+        "-Wl,--stack,8388608"
         "-Wl,--as-needed"
     )
 
