@@ -352,9 +352,13 @@ fi
 
 
 log_info "Applying a hard patch to the FFmpeg configurator against WinMain..."
-sed -i '/echo "int main(void){ return 0; }"/i \    echo "int __stdcall WinMain(void* hInstance, void* hPrevInstance, char* lpCmdLine, int nShowCmd){ return 0; }"' configure
-sed -i 's/int main(void)/int main(void)/g' configure
-sed -i 's/int main(void)/int __stdcall WinMain(void* h, void* p, char* l, int n){return 0;} int main(void)/g' configure
+WINMAIN_STUB='__attribute__((used)) int __stdcall WinMain(void* h, void* p, char* l, int n){ return 0; }'
+# Патчим функцию test_code (основной генератор динамических проверок)
+sed -i "s_echo \"int main(void) { \$code; return 0; }\"_echo \"${WINMAIN_STUB} int main(void) { \$code; return 0; }\"_g" configure
+# Патчим функцию test_ldflags (проверка флагов линкера, на которой сейчас все падает)
+sed -i "s_int main(void){ return 0; }_${WINMAIN_STUB} int main(void){ return 0; }_g" configure
+# Патчим функцию check_header_objcc и check_func (на случай проверок Objective-C и внешних функций)
+sed -i "s_echo \"int main(void) { return 0; }\"_echo \"${WINMAIN_STUB} int main(void) { return 0; }\"_g" configure
 
 # =======================================
 # FLAGS AND LIBS PROCESSING SECTION
