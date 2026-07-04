@@ -224,21 +224,55 @@ fi
     # sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
 # fi
 
-QUIRC_PC="${FFBUILD_PREFIX}/lib/pkgconfig/quirc.pc"
-if [[ -f "$QUIRC_PC" ]]; then
-    cat <<EOF > "$QUIRC_PC"
-prefix=$FFBUILD_PREFIX
-exec_prefix=\${prefix}
-libdir=\${prefix}/lib
-includedir=\${prefix}/include
+# QUIRC_PC="${FFBUILD_PREFIX}/lib/pkgconfig/quirc.pc"
+# if [[ -f "$QUIRC_PC" ]]; then
+    # cat <<EOF > "$QUIRC_PC"
+# prefix=$FFBUILD_PREFIX
+# exec_prefix=\${prefix}
+# libdir=\${prefix}/lib
+# includedir=\${prefix}/include
 
-Name: quirc
-Description: QR decoder library, for extracting and decoding them from images
-Version: 1.2
-Libs: -L\${libdir} -lquirc
-Cflags: -I\${includedir}
-EOF
-fi
+# Name: quirc
+# Description: QR decoder library, for extracting and decoding them from images
+# Version: 1.2
+# Libs: -L\${libdir} -lquirc
+# Cflags: -I\${includedir}
+# EOF
+# fi
+
+# QUIRC_PC="${FFBUILD_PREFIX}/lib/pkgconfig/quirc.pc"
+# if [[ -f "$QUIRC_PC" ]]; then
+    # cat <<EOF > "$QUIRC_PC"
+# prefix=$FFBUILD_PREFIX
+# exec_prefix=\${prefix}
+# libdir=\${prefix}/lib
+# includedir=\${prefix}/include
+
+# Name: quirc
+# Description: QR decoder library, for extracting and decoding them from images
+# Version: ${VER_FULL}
+# Libs: -L\${libdir} -Wl,--no-as-needed -lquirc -Wl,--as-needed
+# Cflags: -I\${includedir}
+# EOF
+# fi
+
+# LIBDATACHANNEL_PC="${FFBUILD_PREFIX}/lib/pkgconfig/libdatachannel.pc"
+# if [[ -f "$LIBDATACHANNEL_PC" ]]; then
+    # cat <<EOF > "$LIBDATACHANNEL_PC"
+# prefix=${FFBUILD_PREFIX}
+# exec_prefix=\${prefix}
+# libdir=\${exec_prefix}/lib
+# includedir=\${prefix}/include
+
+# Name: datachannel
+# Description: WebRTC Data Channels and Media Transport library (C/C++)
+# Version: 0.24.5
+# Libs: -L\${libdir} -Wl,--start-group -ldatachannel -ljuice -lsrtp2 -lusrsctp -lws2_32 -liphlpapi -Wl,--end-group
+# Requires: openssl
+# Libs.private: -lbcrypt -lcrypt32 -luserenv -lstdc++ -lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -pthread
+# Cflags: -I\${includedir} -I\${includedir}/rtc $static_flags
+# EOF
+# fi
 
 log_info "Patching FFmpeg's nvenc_dispatch.c to fix missing v13.0 NVENC symbols..."
 NVENC_DISPATCH_SRC="libavcodec/nvenc_dispatch.c"
@@ -343,6 +377,11 @@ FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
 # базовые системные либы ($LIBS) лучше ставить в начало списка аргументов, 
 # чтобы если компонент принес свою версию, она вытеснила базовую в конец (право).
 FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
+
+FINAL_LIBS="${FINAL_LIBS//-Wl,--start-group/}"
+FINAL_LIBS="${FINAL_LIBS//-Wl,--end-group/}"
+FINAL_LIBS="${FINAL_LIBS//-Wl,--no-as-needed/}"
+FINAL_LIBS="${FINAL_LIBS//-Wl,--as-needed/}"
 
 # =======================================
 # GENERATION OF COMPONENT STATE VARIABLES
