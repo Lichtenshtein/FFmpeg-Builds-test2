@@ -352,13 +352,19 @@ fi
 
 
 log_info "Applying a hard patch to the FFmpeg configurator against WinMain..."
+CONF_CONTENT=$(cat configure)
 WINMAIN_STUB='__attribute__((used)) int __stdcall WinMain(void* h, void* p, char* l, int n){ return 0; }'
-# Патчим функцию test_code (основной генератор динамических проверок)
-sed -i "s_echo \"int main(void) { \$code; return 0; }\"_echo \"${WINMAIN_STUB} int main(void) { \$code; return 0; }\"_g" configure
-# Патчим функцию test_ldflags (проверка флагов линкера, на которой сейчас все падает)
-sed -i "s_int main(void){ return 0; }_${WINMAIN_STUB} int main(void){ return 0; }_g" configure
-# Патчим функцию check_header_objcc и check_func (на случай проверок Objective-C и внешних функций)
-sed -i "s_echo \"int main(void) { return 0; }\"_echo \"${WINMAIN_STUB} int main(void) { return 0; }\"_g" configure
+OLD_TARGET1='echo "int main(void) { $code; return 0; }"'
+NEW_TARGET1="echo \"${WINMAIN_STUB} int main(void) { \$code; return 0; }\""
+CONF_CONTENT="${CONF_CONTENT//"$OLD_TARGET1"/$NEW_TARGET1}"
+OLD_TARGET2='int main(void){ return 0; }'
+NEW_TARGET2="${WINMAIN_STUB} int main(void){ return 0; }"
+CONF_CONTENT="${CONF_CONTENT//"$OLD_TARGET2"/$NEW_TARGET2}"
+OLD_TARGET3='echo "int main(void) { return 0; }"'
+NEW_TARGET3="echo \"${WINMAIN_STUB} int main(void) { return 0; }\""
+CONF_CONTENT="${CONF_CONTENT//"$OLD_TARGET3"/$NEW_TARGET3}"
+echo "$CONF_CONTENT" > configure
+
 
 # =======================================
 # FLAGS AND LIBS PROCESSING SECTION
