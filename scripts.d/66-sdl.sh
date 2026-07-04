@@ -93,7 +93,7 @@ ffbuild_dockerbuild() {
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT -DSDL_MAIN_HANDLED -mconsole" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT -DSDL_MAIN_HANDLED -mconsole" \
-    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L} -mconsole -Wl,-subsystem:console" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L} -mconsole" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
