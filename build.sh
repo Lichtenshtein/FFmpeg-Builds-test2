@@ -225,7 +225,7 @@ fi
 # fi
 
 QUIRC_PC="${FFBUILD_PREFIX}/lib/pkgconfig/quirc.pc"
-if [[ -f "$QUIRC_PC"; then
+if [[ -f "$QUIRC_PC" ]]; then
     cat <<EOF > "$QUIRC_PC"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
