@@ -350,11 +350,12 @@ fi
     # -e 's/\.p\.sample_fmts/\.sample_fmts/g' \
     # -e 's/\.p\.pix_fmts/\.pix_fmts/g' {} +
 
-FINAL_LIBS="${FINAL_LIBS//-Wl,--start-group/}"
-FINAL_LIBS="${FINAL_LIBS//-Wl,--end-group/}"
-FINAL_LIBS="${FINAL_LIBS//-Wl,--no-as-needed/}"
-FINAL_LIBS="${FINAL_LIBS//-Wl,--as-needed/}"
-FINAL_LIBS=$(echo "$FINAL_LIBS" | xargs)
+
+log_info "Applying a hard patch to the FFmpeg configurator against WinMain..."
+sed -i '/echo "int main(void){ return 0; }"/i \    echo "int __stdcall WinMain(void* hInstance, void* hPrevInstance, char* lpCmdLine, int nShowCmd){ return 0; }"' configure
+sed -i 's/int main(void)/int main(void)/g' configure
+sed -i 's/int main(void)/int __stdcall WinMain(void* h, void* p, char* l, int n){return 0;} int main(void)/g' configure
+
 # =======================================
 # FLAGS AND LIBS PROCESSING SECTION
 # =======================================
@@ -684,7 +685,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="-mconsole ${FINAL_LDFLAGS} -Wl,--entry=mainCRTStartup -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
+    --extra-ldflags="-mconsole ${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS} ${FINAL_LIBS_GROUPED}"
     --extra-libs=""
     "${FF_CONF_ARR[@]}"
