@@ -350,23 +350,19 @@ fi
     # -e 's/\.p\.sample_fmts/\.sample_fmts/g' \
     # -e 's/\.p\.pix_fmts/\.pix_fmts/g' {} +
 
-
-log_info "🔎 Starting a deep audit of static libraries in ${FFBUILD_PREFIX}/lib..."
-
 # We are looking for libraries that can override main with WinMain or force the GUI subsystem to be enabled.
-FOUND_POISONERS=()
-
-cd "${FFBUILD_PREFIX}/lib"
-for lib in *.a; do
-    # Проверяем, содержит ли библиотека ссылки на WinMain или директивы subsystem
-    if "${FFBUILD_CROSS_PREFIX}nm" "$lib" 2>/dev/null | grep -qi "WinMain" || \
-       strings "$lib" 2>/dev/null | grep -qi "subsystem,windows"; then
-        log_warn "The $lib library contains a reference to WinMain or subsystem:windows!"
-        FOUND_POISONERS+=("$lib")
-    fi
-done
-cd - > /dev/null
-log_info "🎯 Potential culprits found: ${#FOUND_POISONERS[@]}"
+# log_info "🔎 Starting a deep audit of static libraries in ${FFBUILD_PREFIX}/lib..."
+# FOUND_POISONERS=()
+# cd "${FFBUILD_PREFIX}/lib"
+# for lib in *.a; do
+    # if "${FFBUILD_CROSS_PREFIX}nm" "$lib" 2>/dev/null | grep -qi "WinMain" || \
+       # strings "$lib" 2>/dev/null | grep -qi "subsystem,windows"; then
+        # log_warn "The $lib library contains a reference to WinMain or subsystem:windows!"
+        # FOUND_POISONERS+=("$lib")
+    # fi
+# done
+# cd - > /dev/null
+# log_info "🎯 Potential culprits found: ${#FOUND_POISONERS[@]}"
 
 # =======================================
 # FLAGS AND LIBS PROCESSING SECTION
@@ -399,6 +395,7 @@ FINAL_LIBS="${FINAL_LIBS//-Wl,--start-group/}"
 FINAL_LIBS="${FINAL_LIBS//-Wl,--end-group/}"
 FINAL_LIBS="${FINAL_LIBS//-Wl,--no-as-needed/}"
 FINAL_LIBS="${FINAL_LIBS//-Wl,--as-needed/}"
+FINAL_LIBS="${FINAL_LIBS//-lSDL2main/}"
 FINAL_LIBS=$(echo "$FINAL_LIBS" | xargs)
 
 # =======================================
@@ -697,7 +694,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="-Wl,--subsystem,console ${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
+    --extra-ldflags="-mconsole ${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS} ${FINAL_LIBS_GROUPED}"
     --extra-libs=""
     "${FF_CONF_ARR[@]}"
