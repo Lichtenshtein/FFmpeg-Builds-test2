@@ -385,12 +385,15 @@ HOST_LINUX_LDFLAGS=(
 # Динамически перестраиваем переменные окружения
 apply_lto_policy() {
     if should_apply_lto; then
+        # Locate the cross-compiler's LTO plugin path automatically
+        GCC_LTO_PLUGIN=$("${FFBUILD_CROSS_PREFIX}gcc" -print-prog-name=liblto_plugin.so)
+
         log_info "⚡ [LTO ENABLED] Applying Link-Time Optimization for: $STAGENAME"
         export RUSTLTO=" -C lto=fat"
-        export USELTO="-flto=auto -flto-partition=balanced -fno-stack-clash-protection -fno-toplevel-reorder"
-        export USELTO_C=" -ffat-lto-objects -flto-compression-level=14 -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline -Wno-odr"
+        export USELTO="-flto=auto -flto-partition=one -fno-stack-clash-protection -fno-toplevel-reorder"
+        export USELTO_C=" -ffat-lto-objects -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline -Wno-odr"
         # -O3 optimization will be added to LDFLAGS as well
-        export USELTO_L=" ${OPT_LEVEL}"
+        export USELTO_L=" ${OPT_LEVEL} -Wl,-plugin,${GCC_LTO_PLUGIN}"
         export NOLTO="-fno-lto"
         # Переключаемся на плагины GCC, корректно обрабатывающие LTO байт-код
         export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
