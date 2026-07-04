@@ -426,19 +426,12 @@ FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
 # чтобы если компонент принес свою версию, она вытеснила базовую в конец (право).
 FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
 
-FINAL_CFLAGS="${FINAL_CFLAGS//-DFREEGLUT_STATIC/}"
-FINAL_CFLAGS="${FINAL_CFLAGS//-pthread/}"
-FINAL_CFLAGS=$(echo "$FINAL_CFLAGS" | xargs)
-
-FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-DFREEGLUT_STATIC/}"
-FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-pthread/}"
-FINAL_CXXFLAGS=$(echo "$FINAL_CXXFLAGS" | xargs)
+FINAL_LDFLAGS="${FINAL_LDFLAGS// -fuse-ld=lld/}"
 
 FINAL_LIBS="${FINAL_LIBS//-Wl,--start-group/}"
 FINAL_LIBS="${FINAL_LIBS//-Wl,--end-group/}"
 FINAL_LIBS="${FINAL_LIBS//-Wl,--no-as-needed/}"
 FINAL_LIBS="${FINAL_LIBS//-Wl,--as-needed/}"
-FINAL_LIBS="${FINAL_LIBS//-lSDL2main/}"
 FINAL_LIBS=$(echo "$FINAL_LIBS" | xargs)
 
 # =======================================
@@ -725,8 +718,14 @@ chmod +x configure
 # export cflags_libdatachannel="-DRTC_STATIC -DJUICE_STATIC"
 # --as="$CC"
 # -fno-use-linker-plugin
-#  ${FINAL_LIBS_GROUPED}
-GCC_LTO_PLUGIN=$("${FFBUILD_CROSS_PREFIX}gcc" -print-prog-name=liblto_plugin.so)
+
+# Переключаем GCC на среднюю модель памяти. 
+# Это заставит компилятор использовать более широкие адреса для переходов, 
+# что полностью решает проблему lto1: internal compiler error: in choose_baseaddr
+# export CFLAGS="${CFLAGS} -mcmodel=medium"
+# export CXXFLAGS="${CXXFLAGS} -mcmodel=medium"
+# Если medium не поможет (сборка окажется совсем гигантской), 
+# следующим шагом поменяй на -mcmodel=large
 
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
@@ -735,11 +734,11 @@ CONF_FLAGS=(
     --host-ld="mold"
     --host-cflags="$HOST_CFLAGS $HOST_CPPFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
-    --extra-cflags="${FINAL_CFLAGS}"
-    --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
+    --extra-cflags="${FINAL_CFLAGS} -mcmodel=medium"
+    --extra-cxxflags="${FINAL_CXXFLAGS} -mcmodel=medium"
+    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
-    --extra-libs=""
+    --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
     --disable-w32threads --enable-pthreads
@@ -808,20 +807,6 @@ fi
 # =======================================
 # FFMPEG SOURCE PATCHING SECTION 2
 # =======================================
-# Внедряем библиотеки прямо в сгенерированный make-файл конфигурации
-if [[ -f "ffbuild/config.mak" ]]; then
-    log_info "📝 Injecting heavy static library payload directly into ffbuild/config.mak..."
-
-    # Дописываем блок библиотек в переменные EXTRALIBS, которые Make использует для сборки ffmpeg.exe
-    sed -i "s|^EXTRALIB_FFMPEG=.*|EXTRALIB_FFMPEG=${FINAL_LIBS_GROUPED}|g" ffbuild/config.mak
-    sed -i "s|^EXTRALIBS=.*|EXTRALIBS=${FINAL_LIBS_GROUPED}|g" ffbuild/config.mak
-    
-    log_info "✨ Injection complete. Ready for make stage."
-else
-    log_error "Ffmpeg configure failed to produce config.mak!"
-    exit 1
-fi
-
 # if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
     # log_info "Applying precise LCEVC SDK 4.0.0 migration patches..."
 
