@@ -350,42 +350,60 @@ fi
     # -e 's/\.p\.sample_fmts/\.sample_fmts/g' \
     # -e 's/\.p\.pix_fmts/\.pix_fmts/g' {} +
 
-# look for libraries that can override main with WinMain or force the GUI subsystem to be enabled.
-# log_info "🔎 Starting a deep audit of static libraries in ${FFBUILD_PREFIX}/lib..."
-# FOUND_POISONERS=()
-# cd "${FFBUILD_PREFIX}/lib"
-# for lib in *.a; do
-    # if "${FFBUILD_CROSS_PREFIX}nm" "$lib" 2>/dev/null | grep -qi "WinMain" || \
-       # strings "$lib" 2>/dev/null | grep -qi "subsystem,windows"; then
-        # log_warn "The $lib library contains a reference to WinMain or subsystem:windows!"
-        # FOUND_POISONERS+=("$lib")
-    # fi
-# done
-# cd - > /dev/null
-# log_info "🎯 Potential culprits found: ${#FOUND_POISONERS[@]}"
 
-# Show which specific .o file inside the archive contains this directive
-TARGET_DIR="/opt/ffbuild/lib"
+
+TARGET_SEARCH_DIR="${FFBUILD_PREFIX}/lib"
 OBJDUMP="x86_64-w64-mingw32-objdump"
-echo "🔎 Scanning .drectve sections for subsystem:windows..."
-cd "$TARGET_DIR" || exit 1
-for lib in *.a; do
-    if $OBJDUMP -s -j .drectve "$lib" 2>/dev/null | grep -E "subsystem|windows|entry" > /dev/null; then
-        log_warn "Severed Symbol/Directive Found in: \033[1;31m$lib\033[0m"
+OBJCOPY="x86_64-w64-mingw32-objcopy"
 
-        $OBJDUMP -s -j .drectve "$lib" 2>/dev/null | grep -B 2 -A 5 -E "subsystem|windows|entry"
-    fi
-done
+log_info "🔎 Starting automatic search for hidden subsystem directives in ${TARGET_SEARCH_DIR}..."
+
+DYNAMIC_POISON_LIBS=()
+
+cd "${TARGET_SEARCH_DIR}" || exit 1
 
 # Search for WinMain symbols (U = undefined/requires, T = text/declares)
 echo "🔎 Searching for object files that request or declare WinMain..."
 for lib in *.a; do
-    RES=$("x86_64-w64-mingw32-nm" -A "$lib" 2>/dev/null | grep -i "WinMain")
+    RES=$("x86_64-w64-mingw32-nm" -A "$lib" 2>/dev/null | grep -i "WinMain" || true)
     if [ ! -z "$RES" ]; then
         echo -e "\n📦 Library: \033[1;33m$lib\033[0m"
         echo "$RES"
     fi
 done
+
+for lib in *.a; do
+    if "${FFBUILD_CROSS_PREFIX}nm" "$lib" 2>/dev/null | grep -qi "WinMain" || \
+       strings "$lib" 2>/dev/null | grep -qi "subsystem,windows"; then
+        log_warn "The $lib library contains a reference to WinMain or subsystem:windows!"
+        FOUND_POISONERS+=("$lib")
+    fi
+done
+log_info "🎯 Potential culprits found: ${#FOUND_POISONERS[@]}"
+
+for lib in *.a; do
+    if $OBJDUMP -s -j .drectve "$lib" 2>/dev/null | grep -E "subsystem|windows|entry" > /dev/null 2>&1; then
+        log_warn "Found hidden directives in: ${lib}"
+        DYNAMIC_POISON_LIBS+=("$lib")
+    fi
+done
+
+log_info "🎯 Total number of problematic libraries found: ${#DYNAMIC_POISON_LIBS[@]}"
+
+if [ ${#DYNAMIC_POISON_LIBS[@]} -gt 0 ]; then
+    log_info "🧹 Starting automatic cleaning of .drectve sections..."
+    for poison_lib in "${DYNAMIC_POISON_LIBS[@]}"; do
+        if [[ -f "$poison_lib" ]]; then
+            log_info "🪓 Remove the .drectve section from: ${poison_lib}"
+            $OBJCOPY --remove-section=.drectve "$poison_lib"
+        fi
+    done
+    log_info "✨ All detected libraries were successfully normalized."
+else
+    log_info "✅ No malicious subsystem directives were found. No cleanup is required."
+fi
+
+cd - > /dev/null
 
 # =======================================
 # FLAGS AND LIBS PROCESSING SECTION
@@ -717,7 +735,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
+    --extra-ldflags="-mconsole ${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS} ${FINAL_LIBS_GROUPED}"
     --extra-libs=""
     "${FF_CONF_ARR[@]}"
