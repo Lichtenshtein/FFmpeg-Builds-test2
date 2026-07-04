@@ -613,7 +613,7 @@ chmod +x configure
 # --as="$CC"
 # -fno-use-linker-plugin
 
-GCC_LTO_PLUGIN=$($FFBUILD_CROSS_PREFIX}gcc -print-prog-name=liblto_plugin.so)
+GCC_LTO_PLUGIN=$("${FFBUILD_CROSS_PREFIX}gcc" -print-prog-name=liblto_plugin.so)
 
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
