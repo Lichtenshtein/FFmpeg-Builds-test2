@@ -731,7 +731,7 @@ CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
     --host-cc="ccache gcc"
-    --host-ld="mold"
+    --host-ld="gcc"
     --host-cflags="$HOST_CFLAGS $HOST_CPPFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS} -mcmodel=medium"
