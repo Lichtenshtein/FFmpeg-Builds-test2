@@ -350,7 +350,11 @@ fi
     # -e 's/\.p\.sample_fmts/\.sample_fmts/g' \
     # -e 's/\.p\.pix_fmts/\.pix_fmts/g' {} +
 
-
+FINAL_LIBS="${FINAL_LIBS//-Wl,--start-group/}"
+FINAL_LIBS="${FINAL_LIBS//-Wl,--end-group/}"
+FINAL_LIBS="${FINAL_LIBS//-Wl,--no-as-needed/}"
+FINAL_LIBS="${FINAL_LIBS//-Wl,--as-needed/}"
+FINAL_LIBS=$(echo "$FINAL_LIBS" | xargs)
 # =======================================
 # FLAGS AND LIBS PROCESSING SECTION
 # =======================================
@@ -377,6 +381,12 @@ FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
 # базовые системные либы ($LIBS) лучше ставить в начало списка аргументов, 
 # чтобы если компонент принес свою версию, она вытеснила базовую в конец (право).
 FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
+
+FINAL_LIBS="${FINAL_LIBS//-Wl,--start-group/}"
+FINAL_LIBS="${FINAL_LIBS//-Wl,--end-group/}"
+FINAL_LIBS="${FINAL_LIBS//-Wl,--no-as-needed/}"
+FINAL_LIBS="${FINAL_LIBS//-Wl,--as-needed/}"
+FINAL_LIBS=$(echo "$FINAL_LIBS" | xargs)
 
 # =======================================
 # GENERATION OF COMPONENT STATE VARIABLES
@@ -664,12 +674,6 @@ chmod +x configure
 # -fno-use-linker-plugin
 
 GCC_LTO_PLUGIN=$("${FFBUILD_CROSS_PREFIX}gcc" -print-prog-name=liblto_plugin.so)
-
-FINAL_LIBS="${FINAL_LIBS//-Wl,--start-group/}"
-FINAL_LIBS="${FINAL_LIBS//-Wl,--end-group/}"
-FINAL_LIBS="${FINAL_LIBS//-Wl,--no-as-needed/}"
-FINAL_LIBS="${FINAL_LIBS//-Wl,--as-needed/}"
-FINAL_LIBS=$(echo "$FINAL_LIBS" | xargs)
 
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
