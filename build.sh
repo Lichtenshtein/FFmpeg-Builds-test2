@@ -680,7 +680,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="-mconsole -Wl,-entry:mainCRTStartup ${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
+    --extra-ldflags="-mconsole ${FINAL_LDFLAGS} -Wl,--entry=mainCRTStartup -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
