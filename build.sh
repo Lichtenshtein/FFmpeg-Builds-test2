@@ -350,7 +350,7 @@ fi
     # -e 's/\.p\.sample_fmts/\.sample_fmts/g' \
     # -e 's/\.p\.pix_fmts/\.pix_fmts/g' {} +
 
-# We are looking for libraries that can override main with WinMain or force the GUI subsystem to be enabled.
+# look for libraries that can override main with WinMain or force the GUI subsystem to be enabled.
 # log_info "🔎 Starting a deep audit of static libraries in ${FFBUILD_PREFIX}/lib..."
 # FOUND_POISONERS=()
 # cd "${FFBUILD_PREFIX}/lib"
@@ -363,6 +363,29 @@ fi
 # done
 # cd - > /dev/null
 # log_info "🎯 Potential culprits found: ${#FOUND_POISONERS[@]}"
+
+# Show which specific .o file inside the archive contains this directive
+TARGET_DIR="/opt/ffbuild/lib"
+OBJDUMP="x86_64-w64-mingw32-objdump"
+echo "🔎 Scanning .drectve sections for subsystem:windows..."
+cd "$TARGET_DIR" || exit 1
+for lib in *.a; do
+    if $OBJDUMP -s -j .drectve "$lib" 2>/dev/null | grep -E "subsystem|windows|entry" > /dev/null; then
+        log_warn "Severed Symbol/Directive Found in: \033[1;31m$lib\033[0m"
+
+        $OBJDUMP -s -j .drectve "$lib" 2>/dev/null | grep -B 2 -A 5 -E "subsystem|windows|entry"
+    fi
+done
+
+# Search for WinMain symbols (U = undefined/requires, T = text/declares)
+echo "🔎 Searching for object files that request or declare WinMain..."
+for lib in *.a; do
+    RES=$("x86_64-w64-mingw32-nm" -A "$lib" 2>/dev/null | grep -i "WinMain")
+    if [ ! -z "$RES" ]; then
+        echo -e "\n📦 Library: \033[1;33m$lib\033[0m"
+        echo "$RES"
+    fi
+done
 
 # =======================================
 # FLAGS AND LIBS PROCESSING SECTION
@@ -694,7 +717,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="-mconsole ${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
+    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS} ${FINAL_LIBS_GROUPED}"
     --extra-libs=""
     "${FF_CONF_ARR[@]}"
