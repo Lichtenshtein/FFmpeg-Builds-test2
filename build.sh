@@ -351,59 +351,53 @@ fi
     # -e 's/\.p\.pix_fmts/\.pix_fmts/g' {} +
 
 
+# TARGET_SEARCH_DIR="${FFBUILD_PREFIX}/lib"
+# OBJDUMP="x86_64-w64-mingw32-objdump"
+# OBJCOPY="x86_64-w64-mingw32-objcopy"
+# log_info "🔎 Starting automatic search for hidden subsystem directives in ${TARGET_SEARCH_DIR}..."
+# DYNAMIC_POISON_LIBS=()
+# cd "${TARGET_SEARCH_DIR}" || exit 1
+# echo "🔎 Searching for object files that request or declare WinMain..."
+# for lib in *.a; do
+    # RES=$("x86_64-w64-mingw32-nm" -A "$lib" 2>/dev/null | grep -i "WinMain" || true)
+    # if [ ! -z "$RES" ]; then
+        # echo -e "\n📦 Library: \033[1;33m$lib\033[0m"
+        # echo "$RES"
+    # fi
+# done
 
-TARGET_SEARCH_DIR="${FFBUILD_PREFIX}/lib"
-OBJDUMP="x86_64-w64-mingw32-objdump"
-OBJCOPY="x86_64-w64-mingw32-objcopy"
+# for lib in *.a; do
+    # if "${FFBUILD_CROSS_PREFIX}nm" "$lib" 2>/dev/null | grep -qi "WinMain" || \
+       # strings "$lib" 2>/dev/null | grep -qi "subsystem,windows"; then
+        # log_warn "The $lib library contains a reference to WinMain or subsystem:windows!"
+        # FOUND_POISONERS+=("$lib")
+    # fi
+# done
+# log_info "🎯 Potential culprits found: ${#FOUND_POISONERS[@]}"
 
-log_info "🔎 Starting automatic search for hidden subsystem directives in ${TARGET_SEARCH_DIR}..."
+# for lib in *.a; do
+    # if $OBJDUMP -s -j .drectve "$lib" 2>/dev/null | grep -E "subsystem|windows|entry" > /dev/null 2>&1; then
+        # log_warn "Found hidden directives in: ${lib}"
+        # DYNAMIC_POISON_LIBS+=("$lib")
+    # fi
+# done
 
-DYNAMIC_POISON_LIBS=()
+# log_info "🎯 Total number of problematic libraries found: ${#DYNAMIC_POISON_LIBS[@]}"
 
-cd "${TARGET_SEARCH_DIR}" || exit 1
+# if [ ${#DYNAMIC_POISON_LIBS[@]} -gt 0 ]; then
+    # log_info "🧹 Starting automatic cleaning of .drectve sections..."
+    # for poison_lib in "${DYNAMIC_POISON_LIBS[@]}"; do
+        # if [[ -f "$poison_lib" ]]; then
+            # log_info "🪓 Remove the .drectve section from: ${poison_lib}"
+            # $OBJCOPY --remove-section=.drectve "$poison_lib"
+        # fi
+    # done
+    # log_info "✨ All detected libraries were successfully normalized."
+# else
+    # log_info "✅ No malicious subsystem directives were found. No cleanup is required."
+# fi
 
-# Search for WinMain symbols (U = undefined/requires, T = text/declares)
-echo "🔎 Searching for object files that request or declare WinMain..."
-for lib in *.a; do
-    RES=$("x86_64-w64-mingw32-nm" -A "$lib" 2>/dev/null | grep -i "WinMain" || true)
-    if [ ! -z "$RES" ]; then
-        echo -e "\n📦 Library: \033[1;33m$lib\033[0m"
-        echo "$RES"
-    fi
-done
-
-for lib in *.a; do
-    if "${FFBUILD_CROSS_PREFIX}nm" "$lib" 2>/dev/null | grep -qi "WinMain" || \
-       strings "$lib" 2>/dev/null | grep -qi "subsystem,windows"; then
-        log_warn "The $lib library contains a reference to WinMain or subsystem:windows!"
-        FOUND_POISONERS+=("$lib")
-    fi
-done
-log_info "🎯 Potential culprits found: ${#FOUND_POISONERS[@]}"
-
-for lib in *.a; do
-    if $OBJDUMP -s -j .drectve "$lib" 2>/dev/null | grep -E "subsystem|windows|entry" > /dev/null 2>&1; then
-        log_warn "Found hidden directives in: ${lib}"
-        DYNAMIC_POISON_LIBS+=("$lib")
-    fi
-done
-
-log_info "🎯 Total number of problematic libraries found: ${#DYNAMIC_POISON_LIBS[@]}"
-
-if [ ${#DYNAMIC_POISON_LIBS[@]} -gt 0 ]; then
-    log_info "🧹 Starting automatic cleaning of .drectve sections..."
-    for poison_lib in "${DYNAMIC_POISON_LIBS[@]}"; do
-        if [[ -f "$poison_lib" ]]; then
-            log_info "🪓 Remove the .drectve section from: ${poison_lib}"
-            $OBJCOPY --remove-section=.drectve "$poison_lib"
-        fi
-    done
-    log_info "✨ All detected libraries were successfully normalized."
-else
-    log_info "✅ No malicious subsystem directives were found. No cleanup is required."
-fi
-
-cd - > /dev/null
+# cd - > /dev/null
 
 # =======================================
 # FLAGS AND LIBS PROCESSING SECTION
@@ -723,7 +717,7 @@ chmod +x configure
 # export cflags_libdatachannel="-DRTC_STATIC -DJUICE_STATIC"
 # --as="$CC"
 # -fno-use-linker-plugin
-
+#  ${FINAL_LIBS_GROUPED}
 GCC_LTO_PLUGIN=$("${FFBUILD_CROSS_PREFIX}gcc" -print-prog-name=liblto_plugin.so)
 
 CONF_FLAGS=(
@@ -735,8 +729,8 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="-mconsole ${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
-    --extra-ldexeflags="${FINAL_LDEXEFLAGS} ${FINAL_LIBS_GROUPED}"
+    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN}"
+    --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs=""
     "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
@@ -806,6 +800,20 @@ fi
 # =======================================
 # FFMPEG SOURCE PATCHING SECTION 2
 # =======================================
+# Внедряем библиотеки прямо в сгенерированный make-файл конфигурации
+if [[ -f "ffbuild/config.mak" ]]; then
+    log_info "📝 Injecting heavy static library payload directly into ffbuild/config.mak..."
+
+    # Дописываем блок библиотек в переменные EXTRALIBS, которые Make использует для сборки ffmpeg.exe
+    sed -i "s|^EXTRALIB_FFMPEG=.*|EXTRALIB_FFMPEG=${FINAL_LIBS_GROUPED}|g" ffbuild/config.mak
+    sed -i "s|^EXTRALIBS=.*|EXTRALIBS=${FINAL_LIBS_GROUPED}|g" ffbuild/config.mak
+    
+    log_info "✨ Injection complete. Ready for make stage."
+else
+    log_error "Ffmpeg configure failed to produce config.mak!"
+    exit 1
+fi
+
 # if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
     # log_info "Applying precise LCEVC SDK 4.0.0 migration patches..."
 
