@@ -70,7 +70,7 @@ includedir=\${prefix}/include
 Name: datachannel
 Description: WebRTC Data Channels and Media Transport library (C/C++)
 Version: ${VER_FULL}
-Libs: -L\${libdir} -Wl,--start-group -ldatachannel -ljuice -lsrtp2 -lusrsctp -lws2_32 -liphlpapi -Wl,--end-group
+Libs: -L\${libdir} -ldatachannel -ljuice -lsrtp2 -lusrsctp -lws2_32 -liphlpapi
 Requires: openssl
 Libs.private: -lbcrypt -lcrypt32 -luserenv -lstdc++ -lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -pthread
 Cflags: -I\${includedir} -I\${includedir}/rtc $static_flags

@@ -736,7 +736,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS} -mcmodel=medium"
     --extra-cxxflags="${FINAL_CXXFLAGS} -mcmodel=medium"
-    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -fno-lto"
+    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"

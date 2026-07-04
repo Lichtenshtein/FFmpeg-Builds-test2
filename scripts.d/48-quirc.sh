@@ -33,7 +33,7 @@ includedir=\${prefix}/include
 Name: quirc
 Description: QR decoder library, for extracting and decoding them from images
 Version: ${VER_FULL}
-Libs: -L\${libdir} -Wl,--no-as-needed -lquirc -Wl,--as-needed
+Libs: -L\${libdir} -lquirc
 Cflags: -I\${includedir}
 EOF
 }
