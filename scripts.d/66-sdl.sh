@@ -82,14 +82,18 @@ ffbuild_dockerbuild() {
             -DSDL_PULSEAUDIO=ON
             -DSDL_PULSEAUDIO_SHARED=OFF
         )
+    elif [[ $TARGET == win* ]]; then
+        myconf+=(
+            -DCMAKE_WIN32_EXECUTABLE=OFF
+        )
     fi
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DSDL_STATIC_LIB"
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT -DSDL_MAIN_HANDLED" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT -DSDL_MAIN_HANDLED" \
-    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT -DSDL_MAIN_HANDLED -mconsole" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -D_REENTRANT -DSDL_MAIN_HANDLED -mconsole" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L} -mconsole -Wl,-subsystem:console" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

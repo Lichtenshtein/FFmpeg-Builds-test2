@@ -62,11 +62,16 @@ ffbuild_dockerbuild() {
 
     # 3. Winpthreads
     cd mingw-w64-libraries/winpthreads
-        export AR="${FFBUILD_TOOLCHAIN}-ar"
-        export RANLIB="${FFBUILD_TOOLCHAIN}-ranlib"
-        export NM="${FFBUILD_TOOLCHAIN}-nm"
-
-        local PTHREAD_CFLAGS="$CRT_CFLAGS"
+        if [[ "$USE_LTO" == "1" ]]; then
+            export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
+            export NM="${FFBUILD_CROSS_PREFIX}gcc-nm"
+            export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
+            local PTHREAD_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe -g0 ${USELTO}${USELTO_C}"
+        else
+            export AR="${FFBUILD_TOOLCHAIN}-ar"
+            export RANLIB="${FFBUILD_TOOLCHAIN}-ranlib"
+            local PTHREAD_CFLAGS="$CRT_CFLAGS"
+        fi
 
         CFLAGS="$PTHREAD_CFLAGS" CPPFLAGS="$CLEAN_CPPFLAGS" ./configure \
           --prefix="$SYSROOT" \

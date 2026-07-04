@@ -118,6 +118,10 @@ export AS="${FFBUILD_CROSS_PREFIX}as"
 export CC="${FFBUILD_CROSS_PREFIX}gcc"
 export CXX="${FFBUILD_CROSS_PREFIX}g++"
 # export LD="${FFBUILD_CROSS_PREFIX}ld"
+# warning: lld+ffmpeg is broken
+# ld.lld: error: undefined symbol: WinMain
+# referenced by /ct-ng/build/x86_64-w64-mingw32/src/mingw-w64/mingw-w64-crt/crt/crtexewin.c:66
+# libmingw32.a(lib64_libmingw32_a-crtexewin.o):(.text.startup)
 export LD="ld.lld"
 # export LD="mold"
 export STRIP="${FFBUILD_CROSS_PREFIX}strip"
@@ -256,7 +260,7 @@ should_apply_lto() {
     # ========================================
     # Библиотеки, которые ломают таблицы символов линкера
     case "$STAGENAME" in
-        *"mingw"|*"zlib"|*"libicu"|*"glib2"|*"libxml2"|*"libiconv"|*"gettext"|*"bzlib"|*"xz"|*"zstd"|*"libffi"|*"pcre2"|*"openssl"|*"libssh"|*"curl"|*"libtesseract"|*"leptonica"|*"libtensorflow"|*"libtorch"|*"librsvg"|*"cairo"|*"pango"|*"spirv-cross"|*"shaderc"|*"spirv-tools"|*"glslang")
+        *"libicu"|*"glib2"|*"libxml2"|*"libiconv"|*"gettext"|*"bzlib"|*"xz"|*"zstd"|*"libffi"|*"pcre2"|*"openssl"|*"libssh"|*"curl"|*"libtesseract"|*"leptonica"|*"libtensorflow"|*"libtorch"|*"librsvg"|*"cairo"|*"pango"|*"spirv-cross"|*"shaderc"|*"spirv-tools"|*"glslang"|*"openmpt")
             return 1
             ;;
     esac
@@ -267,7 +271,7 @@ should_apply_lto() {
     # LTO включится ТОЛЬКО для этих библиотек.
     case "$STAGENAME" in
         # Основные либы
-        *"tbbmalloc"|*"fftw3"|*"freeglut")
+        *"mingw"|*"zlib"|*"tbbmalloc"|*"fftw3"|*"freeglut")
             return 0
             ;;
         # Основные тяжелые видеокодеки
@@ -275,7 +279,7 @@ should_apply_lto() {
             return 0
             ;;
         # Аудиокодеки и обработка звука
-        *"libogg"|*"bs2b"|*"chromaprint"|*"libmysofa"|*"libsamplerate"|*"soundtouch"|*"soxr"|*"speex"|*"rubberband"|*"libmpg123"|*"audiotoolbox"|*"fdk-aac"|*"ilbc"|*"lc3"|*"libcelt"|*"libcodec2"|*"libgsm"|*"libmad"|*"libmp3lame"|*"libmpeghdec"|*"libopus"|*"mp3shine"|*"mpeghe"|*"opencore-amr"|*"twolame"|*"vo-amrwb"|*"gme"|*"modplug"|*"openmpt")
+        *"libogg"|*"bs2b"|*"chromaprint"|*"libmysofa"|*"libsamplerate"|*"soundtouch"|*"soxr"|*"speex"|*"rubberband"|*"libmpg123"|*"audiotoolbox"|*"fdk-aac"|*"ilbc"|*"lc3"|*"libcelt"|*"libcodec2"|*"libgsm"|*"libmad"|*"libmp3lame"|*"libmpeghdec"|*"libopus"|*"mp3shine"|*"mpeghe"|*"opencore-amr"|*"twolame"|*"vo-amrwb"|*"gme"|*"modplug")
             return 0
             ;;
         # Ключевые графические фильтры высокого уровня
@@ -383,8 +387,8 @@ apply_lto_policy() {
     if should_apply_lto; then
         log_info "⚡ [LTO ENABLED] Applying Link-Time Optimization for: $STAGENAME"
         export RUSTLTO=" -C lto=fat"
-        export USELTO="-flto=auto -fno-stack-clash-protection -fno-toplevel-reorder"
-        export USELTO_C=" -ffat-lto-objects -flto-compression-level=6 -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline -Wno-odr"
+        export USELTO="-flto=auto -flto-partition=balanced -fno-stack-clash-protection -fno-toplevel-reorder"
+        export USELTO_C=" -ffat-lto-objects -flto-compression-level=14 -fno-omit-frame-pointer -Wno-stringop-overflow -Wno-attributes -Wno-inline -Wno-odr"
         # -O3 optimization will be added to LDFLAGS as well
         export USELTO_L=" ${OPT_LEVEL}"
         export NOLTO="-fno-lto"
