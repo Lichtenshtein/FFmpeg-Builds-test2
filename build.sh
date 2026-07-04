@@ -382,6 +382,7 @@ FINAL_LIBS="${FINAL_LIBS//-Wl,--start-group/}"
 FINAL_LIBS="${FINAL_LIBS//-Wl,--end-group/}"
 FINAL_LIBS="${FINAL_LIBS//-Wl,--no-as-needed/}"
 FINAL_LIBS="${FINAL_LIBS//-Wl,--as-needed/}"
+FINAL_LIBS=$(echo "$FINAL_LIBS" | xargs)
 
 # =======================================
 # GENERATION OF COMPONENT STATE VARIABLES
@@ -679,7 +680,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN})"
+    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-plugin,${GCC_LTO_PLUGIN} -mconsole"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     "${FF_CONF_ARR[@]}"
