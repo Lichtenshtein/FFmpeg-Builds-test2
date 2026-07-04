@@ -719,14 +719,6 @@ chmod +x configure
 # --as="$CC"
 # -fno-use-linker-plugin
 
-# Переключаем GCC на среднюю модель памяти. 
-# Это заставит компилятор использовать более широкие адреса для переходов, 
-# что полностью решает проблему lto1: internal compiler error: in choose_baseaddr
-# export CFLAGS="${CFLAGS} -mcmodel=medium"
-# export CXXFLAGS="${CXXFLAGS} -mcmodel=medium"
-# Если medium не поможет (сборка окажется совсем гигантской), 
-# следующим шагом поменяй на -mcmodel=large
-
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"
@@ -734,8 +726,8 @@ CONF_FLAGS=(
     # --host-ld="gcc"
     --host-cflags="$HOST_CFLAGS $HOST_CPPFLAGS"
     --host-ldflags="$HOST_LDFLAGS"
-    --extra-cflags="${FINAL_CFLAGS} -mcmodel=medium"
-    --extra-cxxflags="${FINAL_CXXFLAGS} -mcmodel=medium"
+    --extra-cflags="${FINAL_CFLAGS}"
+    --extra-cxxflags="${FINAL_CXXFLAGS}"
     --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
@@ -753,7 +745,7 @@ CONF_FLAGS=(
     --ar="$AR"
     # --ld="$CC"
     --nm="$NM"
-    --as="$CC"
+    --as="$AS"
     --ranlib="$RANLIB"
 )
 
