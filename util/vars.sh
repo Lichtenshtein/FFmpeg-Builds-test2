@@ -117,13 +117,13 @@ export FFBUILD_CROSS_PREFIX="x86_64-w64-mingw32-"
 export AS="${FFBUILD_CROSS_PREFIX}as"
 export CC="${FFBUILD_CROSS_PREFIX}gcc"
 export CXX="${FFBUILD_CROSS_PREFIX}g++"
-export LD="${FFBUILD_CROSS_PREFIX}gcc"
+# export LD="${FFBUILD_CROSS_PREFIX}gcc"
 # export LD="${FFBUILD_CROSS_PREFIX}ld"
 # warning: lld+ffmpeg is broken
 # ld.lld: error: undefined symbol: WinMain
 # referenced by /ct-ng/build/x86_64-w64-mingw32/src/mingw-w64/mingw-w64-crt/crt/crtexewin.c:66
 # libmingw32.a(lib64_libmingw32_a-crtexewin.o):(.text.startup)
-# export LD="ld.lld"
+export LD="ld.lld"
 # export LD="mold"
 export STRIP="${FFBUILD_CROSS_PREFIX}strip"
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
@@ -387,11 +387,14 @@ HOST_LINUX_LDFLAGS=(
 apply_lto_policy() {
     if should_apply_lto; then
         log_info "⚡ [LTO ENABLED] Applying Link-Time Optimization for: $STAGENAME"
+        # Locate the cross-compiler's LTO plugin path automatically
+        GCC_LTO_PLUGIN=$("${FFBUILD_CROSS_PREFIX}gcc" -print-prog-name=liblto_plugin.so)
+
         export RUSTLTO=" -C lto=fat"
         export USELTO="-flto=4 -flto-partition=balanced"
         export USELTO_C=" -ffat-lto-objects"
         # -O3 optimization will be added to LDFLAGS as well
-        export USELTO_L=" ${OPT_LEVEL}"
+        export USELTO_L=" ${OPT_LEVEL} -Wl,-plugin,${GCC_LTO_PLUGIN}"
         export NOLTO="-fno-lto"
         # Переключаемся на плагины GCC, корректно обрабатывающие LTO байт-код
         export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
