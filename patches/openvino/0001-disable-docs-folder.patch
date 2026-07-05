@@ -58,6 +58,150 @@ index 4af933e..896cd2f 100644
  
  if(DNNL_INSTALL_MODE STREQUAL "BUNDLE")
      install(FILES LICENSE DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/doc/${LIB_PACKAGE_NAME})
+diff --git a/thirdparty/flatbuffers/flatbuffers/CMakeLists.txt b/thirdparty/flatbuffers/flatbuffers/CMakeLists.txt
+index c036885..c7e064c 100644
+--- a/thirdparty/flatbuffers/flatbuffers/CMakeLists.txt
++++ b/thirdparty/flatbuffers/flatbuffers/CMakeLists.txt
+@@ -13,7 +13,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+ 
+ # NOTE: Code coverage only works on Linux & OSX.
+ option(FLATBUFFERS_CODE_COVERAGE "Enable the code coverage build option." OFF)
+-option(FLATBUFFERS_BUILD_TESTS "Enable the build of tests and samples." ON)
++option(FLATBUFFERS_BUILD_TESTS "Enable the build of tests and samples." OFF)
+ option(FLATBUFFERS_INSTALL "Enable the installation of targets." ON)
+ option(FLATBUFFERS_BUILD_FLATLIB "Enable the build of the flatbuffers library"
+        ON)
+diff --git a/thirdparty/gtest/gtest/CMakeLists.txt b/thirdparty/gtest/gtest/CMakeLists.txt
+index 0567ae7..a1c5924 100644
+--- a/thirdparty/gtest/gtest/CMakeLists.txt
++++ b/thirdparty/gtest/gtest/CMakeLists.txt
+@@ -16,8 +16,8 @@ include(CMakeDependentOption)
+ include(GNUInstallDirs)
+ 
+ # Note that googlemock target already builds googletest.
+-option(BUILD_GMOCK "Builds the googlemock subproject" ON)
+-option(INSTALL_GTEST "Enable installation of googletest. (Projects embedding googletest may want to turn this OFF.)" ON)
++option(BUILD_GMOCK "Builds the googlemock subproject" OFF)
++option(INSTALL_GTEST "Enable installation of googletest. (Projects embedding googletest may want to turn this OFF.)" OFF)
+ option(GTEST_HAS_ABSL "Use Abseil and RE2. Requires Abseil and RE2 to be separately added to the build." OFF)
+ 
+ if(GTEST_HAS_ABSL)
+@@ -29,8 +29,3 @@ if(GTEST_HAS_ABSL)
+   endif()
+ endif()
+ 
+-if(BUILD_GMOCK)
+-  add_subdirectory( googlemock )
+-else()
+-  add_subdirectory( googletest )
+-endif()
+diff --git a/thirdparty/json/nlohmann_json/CMakeLists.txt b/thirdparty/json/nlohmann_json/CMakeLists.txt
+index 7a49dc4..c659c27 100644
+--- a/thirdparty/json/nlohmann_json/CMakeLists.txt
++++ b/thirdparty/json/nlohmann_json/CMakeLists.txt
+@@ -33,7 +33,7 @@ endif ()
+ 
+ # VERSION_GREATER_EQUAL is not available in CMake 3.1
+ if(${MAIN_PROJECT} AND (${CMAKE_VERSION} VERSION_EQUAL 3.13 OR ${CMAKE_VERSION} VERSION_GREATER 3.13))
+-    set(JSON_BuildTests_INIT ON)
++    set(JSON_BuildTests_INIT OFF)
+ else()
+     set(JSON_BuildTests_INIT OFF)
+ endif()
+diff --git a/thirdparty/ocl/clhpp_headers/CMakeLists.txt b/thirdparty/ocl/clhpp_headers/CMakeLists.txt
+index 138d3dd..000bbcb 100644
+--- a/thirdparty/ocl/clhpp_headers/CMakeLists.txt
++++ b/thirdparty/ocl/clhpp_headers/CMakeLists.txt
+@@ -10,8 +10,8 @@ enable_testing()
+ set(CMAKE_CXX_STANDARD 11)
+ set(CMAKE_CXX_STANDARD_REQUIRED ON)
+ 
+-option(BUILD_DOCS "Build Documentation" ON)
+-option(BUILD_EXAMPLES "Build Examples" ON)
++option(BUILD_DOCS "Build Documentation" OFF)
++option(BUILD_EXAMPLES "Build Examples" OFF)
+ option(OPENCL_CLHPP_BUILD_TESTING "Enable support for OpenCL C++ headers testing." OFF)
+ set(THREADS_PREFER_PTHREAD_FLAG ON CACHE BOOL
+   "find_package(Threads) preference. Recommendation is to keep default value."
+@@ -32,7 +32,7 @@ if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OR OPENCL_CLHPP_BUILD_TESTING)
+   include(CTest)
+ endif()
+ if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OR OPENCL_CLHPP_BUILD_TESTING) AND BUILD_TESTING)
+-  set(CLHPP_BUILD_TESTS ON)
++  set(CLHPP_BUILD_TESTS OFF)
+ endif()
+ 
+ # In the spirit of backward compatibility, to not break existing build automation
+diff --git a/thirdparty/onnx/onnx/CMakeLists.txt b/thirdparty/onnx/onnx/CMakeLists.txt
+index 8b5af30..930c0b3 100644
+--- a/thirdparty/onnx/onnx/CMakeLists.txt
++++ b/thirdparty/onnx/onnx/CMakeLists.txt
+@@ -462,12 +462,7 @@ list(APPEND ONNX_PROTO_SRCS ${__tmp_srcs})
+ list(APPEND ONNX_PROTO_HDRS ${__tmp_hdrs})
+ 
+ file(GLOB_RECURSE __tmp_srcs "${ONNX_ROOT}/onnx/*.h" "${ONNX_ROOT}/onnx/*.cc")
+-file(GLOB_RECURSE onnx_gtests_src "${ONNX_ROOT}/onnx/test/cpp/*.h"
+-    "${ONNX_ROOT}/onnx/test/cpp/*.cc"
+-    "${ONNX_ROOT}/onnx/backend/test/cpp/*.cc"
+-    "${ONNX_ROOT}/onnx/backend/test/cpp/*.h")
+ list(REMOVE_ITEM __tmp_srcs "${ONNX_ROOT}/onnx/cpp2py_export.cc")
+-list(REMOVE_ITEM __tmp_srcs ${onnx_gtests_src})
+ list(APPEND ONNX_SRCS ${__tmp_srcs})
+ 
+ add_library(onnx_proto ${ONNX_PROTO_SRCS} ${ONNX_PROTO_HDRS})
+@@ -661,9 +656,7 @@ endif()
+ install(DIRECTORY ${ONNX_ROOT}/onnx
+         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+         FILES_MATCHING
+-        PATTERN "*.h"
+-        PATTERN "backend/test/case" EXCLUDE
+-        PATTERN "backend/test/data" EXCLUDE)
++        PATTERN "*.h")
+ install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/onnx
+         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+         FILES_MATCHING
+diff --git a/thirdparty/protobuf/protobuf/CMakeLists.txt b/thirdparty/protobuf/protobuf/CMakeLists.txt
+index 04cb330..8eb3db1 100644
+--- a/thirdparty/protobuf/protobuf/CMakeLists.txt
++++ b/thirdparty/protobuf/protobuf/CMakeLists.txt
+@@ -54,7 +54,7 @@ option(protobuf_INSTALL "Install protobuf binaries and files" ON)
+ if(WITH_PROTOC)
+   set(protobuf_PROTOC_EXE ${WITH_PROTOC} CACHE FILEPATH "Protocol Buffer Compiler executable" FORCE)
+ endif()
+-option(protobuf_BUILD_TESTS "Build tests" ON)
++option(protobuf_BUILD_TESTS "Build tests" OFF)
+ option(protobuf_BUILD_CONFORMANCE "Build conformance tests" OFF)
+ option(protobuf_BUILD_EXAMPLES "Build examples" OFF)
+ option(protobuf_BUILD_PROTOC_BINARIES "Build libprotoc and protoc compiler" ON)
+diff --git a/thirdparty/snappy/CMakeLists.txt b/thirdparty/snappy/CMakeLists.txt
+index 644df24..2bd6870 100644
+--- a/thirdparty/snappy/CMakeLists.txt
++++ b/thirdparty/snappy/CMakeLists.txt
+@@ -91,9 +91,9 @@ endif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+ # it prominent in the GUI.
+ option(BUILD_SHARED_LIBS "Build shared libraries(DLLs)." OFF)
+ 
+-option(SNAPPY_BUILD_TESTS "Build Snappy's own tests." ON)
++option(SNAPPY_BUILD_TESTS "Build Snappy's own tests." OFF)
+ 
+-option(SNAPPY_BUILD_BENCHMARKS "Build Snappy's benchmarks" ON)
++option(SNAPPY_BUILD_BENCHMARKS "Build Snappy's benchmarks" OFF)
+ 
+ option(SNAPPY_FUZZING_BUILD "Build Snappy for fuzzing." OFF)
+ 
+diff --git a/thirdparty/zlib/zlib/CMakeLists.txt b/thirdparty/zlib/zlib/CMakeLists.txt
+index 15ceebe..e862ab3 100644
+--- a/thirdparty/zlib/zlib/CMakeLists.txt
++++ b/thirdparty/zlib/zlib/CMakeLists.txt
+@@ -5,7 +5,7 @@ project(zlib C)
+ 
+ set(VERSION "1.3.1")
+ 
+-option(ZLIB_BUILD_EXAMPLES "Enable Zlib Examples" ON)
++option(ZLIB_BUILD_EXAMPLES "Enable Zlib Examples" OFF)
+ 
+ set(INSTALL_BIN_DIR "${CMAKE_INSTALL_PREFIX}/bin" CACHE PATH "Installation directory for executables")
+ set(INSTALL_LIB_DIR "${CMAKE_INSTALL_PREFIX}/lib" CACHE PATH "Installation directory for libraries")
 -- 
 2.52.0.windows.1
 

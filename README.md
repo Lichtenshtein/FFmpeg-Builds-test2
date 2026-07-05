@@ -2,210 +2,175 @@
 
 This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubuntu 26.04.
 
-  ╭─[ Toolchain ]----------------
-  │ mingw-std-threads
-  │ mingw
-  ╰-------------------------------
-  ╭─[ System Integration ]--------
-  │ tbbmalloc
-  │ libicu
-  │ libiconv
-  │ gettext
-  │ gmp
-  ╰-------------------------------
-  ╭─[ Compression & Runtime ]-----
-  │ zlib
-  │ brotli
-  │ bzlib
-  │ xz
-  │ zstd
-  │ jbigkit
-  │ libffi
-  │ snappy
-  │ libarchive
-  ╰-------------------------------
-  ╭─[ Base Integration ]----------
-  │ libunibreak
-  │ libxxhash
-  │ pcre2
-  │ fftw3
-  │ glib2
-  │ libxml2
-  ╰-------------------------------
-  ╭─[ Hardware Integration ]------
-  │ cdio
-  │ cdiowpar
-  ╰-------------------------------
-  ╭─[ OpenGL & Display Drivers ]--
-  │ freeglut
-  ╰-------------------------------
-  ╭─[ Net ]----------------------
-  │ openssl
-  │ cryptopp
-  │ nettle
-  │ gnutls
-  │ libdatachannel
-  │ librist
-  │ libssh
-  │ libzmq
-  │ quiche
-  │ srt
-  │ librabbitmq
-  │ nghttp2
-  │ curl
-  ╰-------------------------------
-  ╭─[ Core Graphics & Fonts ]-----
-  │ giflib
-  │ libjpeg-turbo
-  │ libpng
-  │ libtiff
-  │ openjpeg
-  │ svtjpegxs
-  │ libwebp
-  │ fontconfig
-  │ fribidi
-  │ libtiff
-  │ pixman
-  │ cairo
-  │ harfbuzz
-  │ lcms2
-  │ lensfun
-  │ zimg
-  │ freetype
-  │ pango
-  │ libavif
-  │ libjxl
-  │ librsvg
-  ╰-------------------------------
-  ╭─[ Subtitles & Teletext ]------
-  │ libaribb24
-  │ libaribcaption
-  │ libass
-  │ zvbi
-  ╰-------------------------------
-  ╭─[ QR-Codes ]-----------------
-  │ qrencode
-  │ quirc
-  ╰-------------------------------
-  ╭─[ Vulkan & Shaders ]----------
-  │ vulkan-headers
-  │ spirv-cross
-  │ shaderc
-  │ vulkan-loader
-  │ libplacebo
-  ╰-------------------------------
-  ╭─[ Hardware Acceleration API ]-
-  │ amf
-  │ ffnvcodec
-  │ onevpl
-  │ vmaf
-  │ libva
-  │ sdl
-  ╰-------------------------------
-  ╭─[ Video Capture ]-------------
-  │ decklink
-  │ libklvanc
-  ╰-------------------------------
-  ╭─[ Compute & Vision ]----------
-  │ leptonica
-  │ libtensorflow
-  │ opencl
-  │ openvino / built and linked statically with Intel CPU and working (optional) Intel GPU support
-  │ opencv
-  │ libtesseract
-  │ libtorch
-  │ opencolorio
-  ╰-------------------------------
-  ╭─[ Audio API & Codecs ]--------
-  │ libogg
-  │ libvorbis / with aoTuV 2021 and Lancer patch
-  │ bs2b
-  │ chromaprint
-  │ libmysofa
-  │ libsamplerate
-  │ soundtouch
-  │ soxr
-  │ speex
-  │ openal
-  │ rubberband
-  │ libmpg123
-  │ audiotoolbox
-  │ fdk-aac
-  │ ilbc
-  │ lc3
-  │ libcelt
-  │ libcodec2
-  │ libgsm
-  │ libmad
-  │ libmp3lame / with libmpg123 as a decoder and SIMD Optimized LAME encoder
-  │ libmpeghdec
-  │ libopus / with DRED, OSCE and custom modes enabled
-  │ mp3shine
-  │ mpeghe
-  │ opencore-amr
-  │ twolame
-  │ vo-amrwb
-  │ gme
-  │ modplug
-  │ openmpt
-  ╰-------------------------------
-  ╭─[ Speech Recognition ]--------
-  │ flite
-  │ pocketsphinx
-  │ whisper / with Vulkan and OpenVINO support
-  ╰-------------------------------
-  ╭─[ Software Codecs ]-----------
-  │ dav1d
-  │ rav1e
-  │ svtav1
-  │ aom
-  │ kvazaar / with Crypto++ support.
-  │ lcevcdec / with a natively generated SPIR-V shaders and compiled with full Vulkan pipeline
-  │ libtheora
-  │ libvpx
-  │ openapv
-  │ openh264
-  │ svthevc
-  │ svtvp9
-  │ vvdec
-  │ vvenc
-  │ x264
-  │ x265 / with optional SVT-HEVC 1.5.1 as core for compliant bitstreams [Link](https://bitbucket.org/multicoreware/x265_git/src/master/doc/reST/svthevc.rst)
-  │ xavs
-  │ xavs2
-  │ xvid
-  │ davs2
-  │ uavs3e
-  │ xeve
-  │ uavs3d
-  │ xevd
-  ╰-------------------------------
-  ╭─[ Frameservers & Filtering ]--
-  │ avisynth
-  │ gavl
-  │ vidstab
-  │ vapoursynth / v77 compiled core + VSScript + Python-runtime
-  │ frei0r / with facerecognition plugins + all OpenCV/Cairo/Gavl filters
-  │ nnedi3
-  ╰-------------------------------
-  ╭─[ Video Extensions ]----------
-  │ libcaca
-  │ libudfread
-  │ libdvdcss
-  │ libdvdread
-  │ libdvdnav
-  │ libbluray
-  ╰-------------------------------
-  ╭─[ LV2 & Plugins ]-------------
-  │ lv2
-  │ serd
-  │ zix
-  │ sord
-  │ sratom
-  ╰-------------------------------
-  ╭─[ Meta ]---------------------
-  │ lilv
-  ╰-------------------------------
+  ╭─[ Base Integration ]----------  
+  │ libunibreak  
+  │ fftw3  
+  │ libxml2  
+  │ libiconv  
+  │ gettext  
+  │ gmp  
+  ╰-------------------------------  
+  ╭─[ Compression & Runtime ]-----  
+  │ zlib  
+  │ bzlib  
+  │ lzma  
+  │ snappy  
+  ╰-------------------------------  
+  ╭─[ Hardware Integration ]------  
+  │ cdio  
+  │ cdiowpar  
+  ╰-------------------------------  
+  ╭─[ Net ]----------------------  
+  │ openssl  
+  │ gnutls  
+  │ mbedtls  
+  │ libdatachannel  
+  │ librist  
+  │ libssh  
+  │ libzmq  
+  │ srt  
+  │ librabbitmq  
+  ╰-------------------------------  
+  ╭─[ Core Graphics & Fonts ]-----  
+  │ openjpeg  
+  │ svtjpegxs  
+  │ libwebp  
+  │ fontconfig  
+  │ fribidi  
+  │ cairo  
+  │ harfbuzz  
+  │ lcms2  
+  │ lensfun  
+  │ zimg  
+  │ freetype  
+  │ libjxl / with avif dec/enc support  
+  │ librsvg / with avif support  
+  ╰-------------------------------  
+  ╭─[ Subtitles & Teletext ]------  
+  │ libaribb24  
+  │ libaribcaption  
+  │ libass  
+  │ zvbi  
+  ╰-------------------------------  
+  ╭─[ QR-Codes ]-----------------  
+  │ qrencode  
+  │ quirc  
+  ╰-------------------------------  
+  ╭─[ Vulkan & Shaders ]----------  
+  │ vulkan-headers  
+  │ spirv-cross  
+  │ shaderc / shaderc_combined  
+  │ vulkan-loader  
+  │ libplacebo  
+  ╰-------------------------------  
+  ╭─[ Hardware Acceleration API ]-  
+  │ amf  
+  │ ffnvcodec  
+  │ onevpl  
+  │ vmaf  
+  │ libva  
+  │ sdl  
+  ╰-------------------------------  
+  ╭─[ Video Capture ]-------------  
+  │ decklink  
+  │ libklvanc  
+  ╰-------------------------------  
+  ╭─[ Compute & Vision ]----------  
+  │ libtensorflow  
+  │ opencl  
+  │ openvino / built and linked statically with Intel CPU and working (optional) Intel GPU support  
+  │ opencv  
+  │ libtesseract  
+  │ libtorch  
+  │ opencolorio  
+  ╰-------------------------------  
+  ╭─[ Audio API & Codecs ]--------  
+  │ libogg  
+  │ libvorbis / with aoTuV 2021 and Lancer patch  
+  │ bs2b  
+  │ chromaprint  
+  │ libmysofa  
+  │ libsamplerate  
+  │ soxr  
+  │ speex  
+  │ openal  
+  │ rubberband  
+  │ audiotoolbox  
+  │ fdk-aac  
+  │ ilbc  
+  │ lc3  
+  │ libcelt  
+  │ libcodec2  
+  │ libgsm  
+  │ libmad  
+  │ libmp3lame / with libmpg123 as a decoder and SIMD Optimized LAME encoder  
+  │ libmpeghdec  
+  │ libopus / with DRED, OSCE and custom modes enabled  
+  │ mp3shine  
+  │ mpeghe  
+  │ opencore-amr  
+  │ twolame  
+  │ vo-amrwb  
+  │ gme  
+  │ modplug  
+  │ openmpt  
+  ╰-------------------------------  
+  ╭─[ Speech Recognition ]--------  
+  │ flite  
+  │ pocketsphinx / with models  
+  │ whisper / with Vulkan and OpenVINO support  
+  ╰-------------------------------  
+  ╭─[ Software Codecs ]-----------  
+  │ dav1d  
+  │ rav1e  
+  │ svtav1  
+  │ aom  
+  │ kvazaar / with Crypto++ support.  
+  │ lcevcdec / with a natively generated SPIR-V shaders and compiled with full Vulkan pipeline  
+  │ libtheora  
+  │ libvpx  
+  │ openapv  
+  │ openh264  
+  │ svthevc  
+  │ svtvp9  
+  │ vvdec  
+  │ vvenc  
+  │ x264  
+  │ x265 / with optional SVT-HEVC 1.5.1 as core for compliant bitstreams [Link](https://bitbucket.org/multicoreware/x265_git/src/master/doc/reST/svthevc.rst)  
+  │ xavs  
+  │ xavs2  
+  │ xvid  
+  │ davs2  
+  │ uavs3e  
+  │ xeve  
+  │ uavs3d  
+  │ xevd  
+  ╰-------------------------------  
+  ╭─[ Frameservers & Filtering ]--  
+  │ avisynth  
+  │ vidstab  
+  │ vapoursynth / v77 compiled core + VSScript + Python-runtime  
+  │ frei0r / with facerecognition plugins + all OpenCV/Cairo/Gavl filters  
+  │ nnedi3  
+  ╰-------------------------------  
+  ╭─[ Video Extensions ]----------  
+  │ libcaca  
+  │ libudfread  
+  │ libdvdcss  
+  │ libdvdread  
+  │ libdvdnav  
+  │ libbluray  
+  ╰-------------------------------  
+  ╭─[ LV2 & Plugins ]-------------  
+  │ lv2  
+  │ serd  
+  │ zix  
+  │ sord  
+  │ sratom  
+  ╰-------------------------------  
+  ╭─[ Meta ]---------------------  
+  │ lilv  
+  ╰-------------------------------  
 
 ---
 
