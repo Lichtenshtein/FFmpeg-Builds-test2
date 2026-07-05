@@ -229,13 +229,15 @@ ffbuild_dockerbuild() {
         log_info "TBB library detected. Building with TBB support..."
         myconf+=(
             -DBUILD_TBB=OFF
-            -DWITH_TBB=ON
+            -DWITH_TBB=$([ "${USE_OPENMP}" == "1" ] && echo OFF || echo ON)
+            -DWITH_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
             -DTBB_INCLUDE_DIRS="$FFBUILD_PREFIX/include"
             -DTBB_LIB_DIR="$FFBUILD_PREFIX/lib"
         )
     elif [[ "${USE_OPENMP}" == "1" ]]; then
         log_info "Enabling OpenMP threading..."
         myconf+=(
+            -DWITH_TBB=OFF
             -DWITH_OPENMP=ON
         )
     else
@@ -270,10 +272,10 @@ ffbuild_dockerbuild() {
     [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-Wa,-mbig-obj"
 
     # -D_WIN32_WINNT=0x0600
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_FLAGS $static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_FLAGS $static_flags" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} $LTO_FLAGS $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} $LTO_FLAGS $static_flags" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
-    LIBS="${JBIG_LIB} $LIBS $ADDITIONAL_LIBS" \
+    LIBS="${JBIG_LIB} ${OPENMP_LIB}$LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     mkdir -p "$INSTALL_ROOT"/{include,bin,lib/pkgconfig}
