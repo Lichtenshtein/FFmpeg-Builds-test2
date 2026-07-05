@@ -2,25 +2,25 @@
 
 This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubuntu 26.04.
 
-  ╭─[ Base Integration ]----------  
+  ╭─[ Base Integration ]  
   │ libunibreak  
   │ fftw3  
   │ libxml2  
   │ libiconv  
   │ gettext  
   │ gmp  
-  ╰-------------------------------  
-  ╭─[ Compression & Runtime ]-----  
+  ╰-  
+  ╭─[ Compression & Runtime ]  
   │ zlib  
   │ bzlib  
   │ lzma  
-  │ snappy  
-  ╰-------------------------------  
-  ╭─[ Hardware Integration ]------  
+  │ snappy   
+  ╰-  
+  ╭─[ Hardware Integration ]  
   │ cdio  
-  │ cdiowpar  
-  ╰-------------------------------  
-  ╭─[ Net ]----------------------  
+  │ cdiowpar   
+  ╰-  
+  ╭─[ Net ]  
   │ openssl  
   │ gnutls  
   │ mbedtls  
@@ -30,8 +30,8 @@ This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubunt
   │ libzmq  
   │ srt  
   │ librabbitmq  
-  ╰-------------------------------  
-  ╭─[ Core Graphics & Fonts ]-----  
+  ╰-  
+  ╭─[ Core Graphics & Fonts ]  
   │ openjpeg  
   │ svtjpegxs  
   │ libwebp  
@@ -45,37 +45,37 @@ This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubunt
   │ freetype  
   │ libjxl / with avif dec/enc support  
   │ librsvg / with avif support  
-  ╰-------------------------------  
-  ╭─[ Subtitles & Teletext ]------  
+  ╰-  
+  ╭─[ Subtitles & Teletext ]  
   │ libaribb24  
   │ libaribcaption  
   │ libass  
   │ zvbi  
-  ╰-------------------------------  
-  ╭─[ QR-Codes ]-----------------  
+  ╰-  
+  ╭─[ QR-Codes ]  
   │ qrencode  
   │ quirc  
-  ╰-------------------------------  
-  ╭─[ Vulkan & Shaders ]----------  
+  ╰-  
+  ╭─[ Vulkan & Shaders ]  
   │ vulkan-headers  
   │ spirv-cross  
   │ shaderc / shaderc_combined  
   │ vulkan-loader  
   │ libplacebo  
-  ╰-------------------------------  
-  ╭─[ Hardware Acceleration API ]-  
+  ╰-  
+  ╭─[ Hardware Acceleration API ]  
   │ amf  
   │ ffnvcodec  
   │ onevpl  
   │ vmaf  
   │ libva  
   │ sdl  
-  ╰-------------------------------  
-  ╭─[ Video Capture ]-------------  
+  ╰-  
+  ╭─[ Video Capture ]  
   │ decklink  
   │ libklvanc  
-  ╰-------------------------------  
-  ╭─[ Compute & Vision ]----------  
+  ╰-  
+  ╭─[ Compute & Vision ]  
   │ libtensorflow  
   │ opencl  
   │ openvino / built and linked statically with Intel CPU and working (optional) Intel GPU support  
@@ -83,8 +83,8 @@ This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubunt
   │ libtesseract  
   │ libtorch  
   │ opencolorio  
-  ╰-------------------------------  
-  ╭─[ Audio API & Codecs ]--------  
+  ╰-  
+  ╭─[ Audio API & Codecs ]  
   │ libogg  
   │ libvorbis / with aoTuV 2021 and Lancer patch  
   │ bs2b  
@@ -114,13 +114,13 @@ This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubunt
   │ gme  
   │ modplug  
   │ openmpt  
-  ╰-------------------------------  
-  ╭─[ Speech Recognition ]--------  
+  ╰-  
+  ╭─[ Speech Recognition ]  
   │ flite  
   │ pocketsphinx / with models  
-  │ whisper / with Vulkan and OpenVINO support  
-  ╰-------------------------------  
-  ╭─[ Software Codecs ]-----------  
+  │ whisper / with Vulkan and OpenVINO support   
+  ╰-  
+  ╭─[ Software Codecs ]  
   │ dav1d  
   │ rav1e  
   │ svtav1  
@@ -145,32 +145,32 @@ This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubunt
   │ xeve  
   │ uavs3d  
   │ xevd  
-  ╰-------------------------------  
-  ╭─[ Frameservers & Filtering ]--  
+  ╰-  
+  ╭─[ Frameservers & Filtering ]  
   │ avisynth  
   │ vidstab  
   │ vapoursynth / v77 compiled core + VSScript + Python-runtime  
   │ frei0r / with facerecognition plugins + all OpenCV/Cairo/Gavl filters  
   │ nnedi3  
-  ╰-------------------------------  
-  ╭─[ Video Extensions ]----------  
+  ╰-  
+  ╭─[ Video Extensions ]  
   │ libcaca  
   │ libudfread  
   │ libdvdcss  
   │ libdvdread  
   │ libdvdnav  
   │ libbluray  
-  ╰-------------------------------  
-  ╭─[ LV2 & Plugins ]-------------  
+  ╰-  
+  ╭─[ LV2 & Plugins ]  
   │ lv2  
   │ serd  
   │ zix  
   │ sord  
   │ sratom  
-  ╰-------------------------------  
-  ╭─[ Meta ]---------------------  
+  ╰-  
+  ╭─[ Meta ]  
   │ lilv  
-  ╰-------------------------------  
+  ╰-  
 
 ---
 
