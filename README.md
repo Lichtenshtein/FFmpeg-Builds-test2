@@ -334,6 +334,11 @@ All of those can be optionally combined with any combination of addins:
 49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader
 ```
 
+* `OpenVINO`
+```
+04-tbbmalloc|08-zlib|59-opencl|59-openvino
+```
+
 * `libplacebo`
 ```
 08-zlib|27-freeglut|40-lcms2|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|53-libplacebo

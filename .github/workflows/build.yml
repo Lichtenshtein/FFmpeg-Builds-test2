@@ -6,8 +6,8 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        # default: '08-zlib|30-openssl|32-libdatachannel|48-quirc'
-        default: '.*'
+        default: '04-tbbmalloc|08-zlib|59-opencl|59-openvino'
+        # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean

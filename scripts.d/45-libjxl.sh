@@ -93,10 +93,13 @@ ffbuild_dockerbuild() {
         export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}"
         export CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C} -DVQSORT_GETRANDOM=0 -DVQSORT_SECURE_SEED=0"
         export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
-    elif [[ $TARGET == win32 || $TARGET == win64 ]]; then
+    elif [[ $TARGET == win* ]]; then
         # Fix AVX2 related crash due to unaligned stack memory
-        export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
-        export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags -Wa,-muse-unaligned-vector-move -DHWY_COMPILE_ALL_ATTRIBUTES"
+        [[ "${USE_LTO}" == "1" ]] && \
+            STACK_FLAGS="-mstackrealign -mincoming-stack-boundary=4" || \
+            STACK_FLAGS="-Wa,-muse-unaligned-vector-move" )
+        export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags ${STACK_FLAGS} -DHWY_COMPILE_ALL_ATTRIBUTES"
+        export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags ${STACK_FLAGS} -DHWY_COMPILE_ALL_ATTRIBUTES"
         export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
     fi
 
