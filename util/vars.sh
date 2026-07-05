@@ -261,7 +261,7 @@ should_apply_lto() {
     # ========================================
     # Библиотеки, которые ломают таблицы символов линкера
     case "$STAGENAME" in
-        *"libicu"|*"glib2"|*"libxml2"|*"libiconv"|*"gettext"|*"bzlib"|*"xz"|*"zstd"|*"libffi"|*"pcre2"|*"openssl"|*"libssh"|*"curl"|*"libtesseract"|*"leptonica"|*"libtensorflow"|*"libtorch"|*"librsvg"|*"cairo"|*"pango"|*"spirv-cross"|*"shaderc"|*"spirv-tools"|*"glslang"|*"openmpt"|*"cryptopp"|*"kvazaar")
+        *"libicu"|*"glib2"|*"libxml2"|*"libiconv"|*"gettext"|*"bzlib"|*"xz"|*"zstd"|*"libffi"|*"pcre2"|*"openssl"|*"libssh"|*"curl"|*"libtensorflow"|*"libtorch"|*"librsvg"|*"cairo"|*"pango"|*"spirv-cross"|*"shaderc"|*"spirv-tools"|*"glslang"|*"openmpt"|*"cryptopp"|*"kvazaar")
             return 1
             ;;
     esac
@@ -284,7 +284,7 @@ should_apply_lto() {
             return 0
             ;;
         # Ключевые графические фильтры высокого уровня
-        *"zimg"|*"libplacebo"|*"opencl"|*"openvino"|*"opencv"|*"nnedi3")
+        *"zimg"|*"libtesseract"|*"leptonica"|*"libplacebo"|*"opencl"|*"openvino"|*"opencv"|*"nnedi3")
             return 0
             ;;
         # легковесные кодеки

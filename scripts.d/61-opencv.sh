@@ -46,7 +46,23 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0 -DOPENVINO_STATIC_LIBRARY"
+
+    [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-Wa,-mbig-obj"
+
+    # -D_WIN32_WINNT=0x0600
+    local TARGET_C_FLAGS_INIT="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_FLAGS $static_flags"
+    local TARGET_CXX_FLAGS_INIT="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_FLAGS $static_flags"
+    local TARGET_LD_FLAGS_INIT="$LDFLAGS ${USELTO}${USELTO_L}"
+
     local myconf=(
+        -DCMAKE_C_FLAGS_INIT="${TARGET_C_FLAGS_INIT}"
+        -DCMAKE_CXX_FLAGS_INIT="${TARGET_CXX_FLAGS_INIT}"
+        -DCMAKE_EXE_LINKER_FLAGS_INIT="${TARGET_LD_FLAGS_INIT}"
+        -DCMAKE_STATIC_LINKER_FLAGS_INIT="${TARGET_LD_FLAGS_INIT}"
+        -DCMAKE_SHARED_LINKER_FLAGS_INIT="${TARGET_LD_FLAGS_INIT}"
+
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
@@ -264,15 +280,6 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    export static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0 -DOPENVINO_STATIC_LIBRARY"
-
-    [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-Wa,-mbig-obj"
-
-    # -D_WIN32_WINNT=0x0600
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_FLAGS $static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_FLAGS $static_flags" \
-    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     LIBS="${JBIG_LIB} $LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
