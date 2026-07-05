@@ -8,7 +8,8 @@ SCRIPT_COMMIT="1b4eee0fb05a1d708d6864577beaeed8ec3137c3"
 ffbuild_depends() {
     echo tbbmalloc
     echo opencl
-    echo opencv
+    echo zlib
+    # echo opencv # cross dep with opencv itself which compiled after Vino
 }
 
 ffbuild_enabled() {
@@ -20,24 +21,64 @@ ffbuild_dockerdl() {
     default_dl .
     echo "git-submodule-clone"
     # can probably clean more from /thirdparty folder
-    echo "rm -rf .github samples tests src/core/tests src/tests \
-src/plugins/intel_npu/thirdparty/yaml-cpp/test \
+    echo "rm -rf .github samples \
+tests \
+src/core/tests \
+src/tests \
 src/plugins/intel_npu/tests \
 src/plugins/intel_gpu/tests \
+src/plugins/intel_cpu/tests \
+\
+src/plugins/intel_npu/thirdparty/yaml-cpp/test \
+\
 src/plugins/intel_gpu/thirdparty/onednn_gpu/examples \
 src/plugins/intel_gpu/thirdparty/onednn_gpu/doc \
 src/plugins/intel_gpu/thirdparty/onednn_gpu/tests \
-src/plugins/intel_cpu/tests \
+\
 src/plugins/intel_cpu/thirdparty/ComputeLibrary/tests \
 src/plugins/intel_cpu/thirdparty/ComputeLibrary/third_party/kleidiai/third_party \
 src/plugins/intel_cpu/thirdparty/ComputeLibrary/third_party/kleidiai/test \
 src/plugins/intel_cpu/thirdparty/ComputeLibrary/third_party/kleidiai/benchmark \
+\
 src/plugins/intel_cpu/thirdparty/libxsmm/tests \
 src/plugins/intel_cpu/thirdparty/libxsmm/samples \
 src/plugins/intel_cpu/thirdparty/libxsmm/documentation \
+\
 src/plugins/intel_cpu/thirdparty/onednn/tests \
 src/plugins/intel_cpu/thirdparty/onednn/examples \
-src/plugins/intel_cpu/thirdparty/onednn/doc"
+src/plugins/intel_cpu/thirdparty/onednn/doc \
+\
+thirdparty/flatbuffers/flatbuffers/benchmarks \
+thirdparty/flatbuffers/flatbuffers/tests \
+\
+thirdparty/gtest/gtest/googlemock \
+thirdparty/gtest/gtest/googletest \
+\
+thirdparty/json/nlohmann_json/tests \
+thirdparty/json/nlohmann_json/docs/usages/ios.png \
+thirdparty/json/nlohmann_json/docs/usages/macos.png \
+thirdparty/json/nlohmann_json/docs/avatars.png \
+thirdparty/json/nlohmann_json/docs/json.gif \
+\
+thirdparty/ocl/clhpp_headers/tests \
+thirdparty/ocl/clhpp_headers/external/CMock/test/iar \
+\
+thirdparty/onnx/onnx/docs \
+thirdparty/onnx/onnx/onnx/test \
+thirdparty/onnx/onnx/onnx/backend/test \
+\
+thirdparty/protobuf/protobuf/csharp \
+thirdparty/protobuf/protobuf/java \
+thirdparty/protobuf/protobuf/objectivec/Tests \
+thirdparty/protobuf/protobuf/third_party/googletest \
+\
+thirdparty/pugixml/docs \
+thirdparty/pugixml/tests \
+\
+thirdparty/snappy/testdata \
+thirdparty/snappy/third_party \
+\
+thirdparty/zlib/zlib/contrib"
 }
 
 ffbuild_dockerbuild() {
@@ -83,7 +124,7 @@ ffbuild_dockerbuild() {
         -DENABLE_OV_PYTORCH_FRONTEND=OFF
         -DENABLE_OV_JAX_FRONTEND=OFF
         # Отключаем плагины и тяжелые зависимости
-        -DENABLE_INTEL_CPU=ON # Оставляем только CPU плагин для Xeon
+        -DENABLE_INTEL_CPU=ON # Оставляем только CPU плагин
         -DENABLE_INTEL_GPU=OFF # GPU требует OpenCL/Vulkan заголовков; it's for integrated (iGPU) and discrete (dGPU) Intel graphics cards; build works
         -DENABLE_INTEL_NPU=OFF
         -DENABLE_HETERO=OFF
