@@ -107,7 +107,7 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     FFMPEG_SOURCE_DIR=\"${CONTAINER_ROOT}/ffbuild/ffmpeg\" \\
     FFMPEG_PKG_ROOT=\"${CONTAINER_ROOT}/ffbuild/pkgroot\" \\
     FFMPEG_CONFIG_LOG=\"${CONTAINER_ROOT}/ffbuild/ffmpeg/ffbuild/config.log\" \\
-    FFMPEG_HASH_FILE=\"${CONTAINER_ROOT}/.cache/ffmpeg/.current_commit\" \\
+    FFMPEG_HASH_FILE=\"${CONTAINER_ROOT}/.cache/.current_commit\" \\
     PATCHES_DIR=\"${CONTAINER_ROOT}/patches\" \\
     SCRIPTS_DIR=\"${CONTAINER_ROOT}/scripts.d\" \\
     TMP_DIR=\"${CONTAINER_ROOT}/.cache/tmp\" \\
