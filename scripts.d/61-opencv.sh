@@ -44,22 +44,9 @@ ffbuild_dockerbuild() {
     PYTHON_ROOT=$(python3 -c "import sys; print(sys.prefix)")
     NUMPY_PATH=$(python3 -c "import numpy; print(numpy.get_include())")
 
-    export static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0 -DOPENVINO_STATIC_LIBRARY"
-
-    [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-Wa,-mbig-obj"
-
-    local TARGET_C_FLAGS_INIT="$CFLAGS ${USELTO}${USELTO_C} $LTO_FLAGS"
-    local TARGET_CXX_FLAGS_INIT="$CXXFLAGS ${USELTO}${USELTO_C} $LTO_FLAGS"
-    local TARGET_LD_FLAGS_INIT="${USELTO}${USELTO_L}"
-
     mkdir -p build && cd build
 
     local myconf=(
-        -DCMAKE_C_FLAGS_INIT="${TARGET_C_FLAGS_INIT}"
-        -DCMAKE_CXX_FLAGS_INIT="${TARGET_CXX_FLAGS_INIT}"
-        -DCMAKE_EXE_LINKER_FLAGS_INIT="${TARGET_LD_FLAGS_INIT}"
-
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
@@ -276,6 +263,11 @@ ffbuild_dockerbuild() {
         # -DCUDA_ARCH_PTX=6.1
         )
     fi
+
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0 -DOPENVINO_STATIC_LIBRARY"
+
+    [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-Wa,-mbig-obj"
 
     # -D_WIN32_WINNT=0x0600
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $LTO_FLAGS $static_flags" \

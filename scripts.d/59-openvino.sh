@@ -100,24 +100,14 @@ ffbuild_dockerbuild() {
     log_info "Completely neutralizing template_extension build via early return..."
     echo "return()" | cat - src/core/template_extension/CMakeLists.txt > temp && mv temp src/core/template_extension/CMakeLists.txt
 
+    log_info "${BROOM_MARK} Patching OpenVINO and submodules CMake scripts to suppress warnings..."
+    find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wformat/-Wno-format/g' 2>/dev/null || true
+
     export TBBROOT="$FFBUILD_PREFIX"
-    local NO_WARNS="-Wno-undef -Wno-format -Wno-format-extra-args"
-    export static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0" && self_static_flags="-DOPENVINO_STATIC_LIBRARY"
-
-    [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-Wno-odr -Wa,-mbig-obj -fno-lto-odr-type-merging"
-
-    local TARGET_C_FLAGS_INIT="$CFLAGS ${NO_WARNS} ${USELTO}${USELTO_C} ${LTO_FLAGS}"
-    local TARGET_CXX_FLAGS_INIT="$CXXFLAGS ${NO_WARNS} ${USELTO}${USELTO_C} ${LTO_FLAGS}"
-    local TARGET_LD_FLAGS_INIT="${USELTO}${USELTO_L} ${LTO_FLAGS}"
 
     mkdir build && cd build
 
     local myconf=(
-        -DCMAKE_C_FLAGS_INIT="${TARGET_C_FLAGS_INIT}"
-        -DCMAKE_CXX_FLAGS_INIT="${TARGET_CXX_FLAGS_INIT}"
-        -DCMAKE_EXE_LINKER_FLAGS_INIT="${TARGET_LD_FLAGS_INIT}"
-
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
@@ -176,6 +166,14 @@ ffbuild_dockerbuild() {
         -DCMAKE_CXX_STANDARD_REQUIRED=ON
         -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
     )
+
+    # will not work for submodules, likely same appends to lto flags
+    local NO_WARNS="-Wno-undef -Wno-format -Wno-format-extra-args"
+
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0" && self_static_flags="-DOPENVINO_STATIC_LIBRARY"
+
+    [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-Wno-odr -Wa,-mbig-obj -fno-lto-odr-type-merging"
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${NO_WARNS} $LTO_FLAGS $self_static_flags" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${NO_WARNS} $LTO_FLAGS $static_flags $self_static_flags -DWINAPI_PARTITION_SYSTEM=1" \
