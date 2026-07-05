@@ -57,6 +57,7 @@ if [[ -n "$CUSTOM_ADDINS" ]]; then
 fi
 export ADDINS ADDINS_STR
 
+log_info "${XCLAM_MARK} Current FFmpeg version: ${FFMPEG_API_VERSION}"
 log_info "${CHECK_MARK} Active addins: ${GREY_B}${ADDINS_STR:-none}${NC}"
 
 # other early indications for "Run Download and Generate" build stage
@@ -137,6 +138,7 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     USE_ASAN=\"${USE_ASAN}\" \\
     DEBUG_MODE=\"${DEBUG_MODE}\" \\
     SEC_PROTO=\"${SEC_PROTO}\" \\
+    FFMPEG_API_VERSION=\"${FFMPEG_API_VERSION}\" \\
     CPU_ARCH=\"${CPU_ARCH:-broadwell}\" \\
     CPU_TUNE=\"${CPU_TUNE:-broadwell}\" \\
     DLL_PRESERVE_LIST=\"${DLL_PRESERVE_LIST}\" \\
