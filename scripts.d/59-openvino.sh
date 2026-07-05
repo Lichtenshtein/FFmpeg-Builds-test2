@@ -100,8 +100,6 @@ ffbuild_dockerbuild() {
     log_info "Completely neutralizing template_extension build via early return..."
     echo "return()" | cat - src/core/template_extension/CMakeLists.txt > temp && mv temp src/core/template_extension/CMakeLists.txt
 
-    # финальные строки флагов для инициализации CMake
-
     export TBBROOT="$FFBUILD_PREFIX"
     local NO_WARNS="-Wno-undef -Wno-format -Wno-format-extra-args"
     export static_flags=""
@@ -109,9 +107,9 @@ ffbuild_dockerbuild() {
 
     [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-Wno-odr -Wa,-mbig-obj -fno-lto-odr-type-merging"
 
-    local TARGET_C_FLAGS_INIT="$CFLAGS $CPPFLAGS ${NO_WARNS} ${USELTO}${USELTO_C} ${LTO_FLAGS} ${self_static_flags}"
-    local TARGET_CXX_FLAGS_INIT="$CXXFLAGS $CPPFLAGS ${NO_WARNS} ${USELTO}${USELTO_C} ${LTO_FLAGS} ${static_flags} ${self_static_flags} -DWINAPI_PARTITION_SYSTEM=1"
-    local TARGET_LD_FLAGS_INIT="$LDFLAGS ${USELTO}${USELTO_L} ${LTO_FLAGS} -Wl,--allow-multiple-definition"
+    local TARGET_C_FLAGS_INIT="$CFLAGS ${NO_WARNS} ${USELTO}${USELTO_C} ${LTO_FLAGS}"
+    local TARGET_CXX_FLAGS_INIT="$CXXFLAGS ${NO_WARNS} ${USELTO}${USELTO_C} ${LTO_FLAGS}"
+    local TARGET_LD_FLAGS_INIT="${USELTO}${USELTO_L} ${LTO_FLAGS}"
 
     mkdir build && cd build
 
@@ -119,8 +117,8 @@ ffbuild_dockerbuild() {
         -DCMAKE_C_FLAGS_INIT="${TARGET_C_FLAGS_INIT}"
         -DCMAKE_CXX_FLAGS_INIT="${TARGET_CXX_FLAGS_INIT}"
         -DCMAKE_EXE_LINKER_FLAGS_INIT="${TARGET_LD_FLAGS_INIT}"
-        -DCMAKE_STATIC_LINKER_FLAGS_INIT="${TARGET_LD_FLAGS_INIT}"
         -DCMAKE_SHARED_LINKER_FLAGS_INIT="${TARGET_LD_FLAGS_INIT}"
+        -DCMAKE_STATIC_LINKER_FLAGS_INIT="${TARGET_LD_FLAGS_INIT}"
 
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
@@ -181,6 +179,9 @@ ffbuild_dockerbuild() {
         -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
     )
 
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${NO_WARNS} $LTO_FLAGS $self_static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${NO_WARNS} $LTO_FLAGS $static_flags $self_static_flags -DWINAPI_PARTITION_SYSTEM=1" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L} $LTO_FLAGS -Wl,--allow-multiple-definition" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
