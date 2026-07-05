@@ -150,11 +150,13 @@ else
             [[ -f "$FFMPEG_DIR/.git/index.lock" ]] && rm -f "$FFMPEG_DIR/.git/index.lock"
             ( cd "$FFMPEG_DIR" && \
               git remote set-url origin "$FFMPEG_REPO" && \
-              git fetch --quiet --depth=1 --update-shallow origin "$FFMPEG_BRANCH" && \
+              git truncate --depth=1 2>/dev/null || true && \
+              git fetch --depth=1 --force origin "refs/heads/$FFMPEG_BRANCH:refs/remotes/origin/$FFMPEG_BRANCH" && \
               git reset --hard FETCH_HEAD && \
-              git clean -df && \
+              git clean -dfx -e "$(basename "$FFMPEG_HASH_FILE")" && \
               git reflog expire --expire=now --all && \
-              git gc --prune=now --aggressive ) 2>&1 \
+              git prune --expire=now && \
+              git gc --prune=now ) 2>&1 \
                 | while IFS= read -r line; do log_debug "$line"; done
             if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
                 log_error "git fetch/reset failed for $FFMPEG_REPO"
