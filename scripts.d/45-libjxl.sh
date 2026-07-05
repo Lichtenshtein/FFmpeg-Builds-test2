@@ -97,7 +97,7 @@ ffbuild_dockerbuild() {
         # Fix AVX2 related crash due to unaligned stack memory
         [[ "${USE_LTO}" == "1" ]] && \
             STACK_FLAGS="-mstackrealign -mincoming-stack-boundary=4" || \
-            STACK_FLAGS="-Wa,-muse-unaligned-vector-move" )
+            STACK_FLAGS="-Wa,-muse-unaligned-vector-move"
         export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags ${STACK_FLAGS} -DHWY_COMPILE_ALL_ATTRIBUTES"
         export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags ${STACK_FLAGS} -DHWY_COMPILE_ALL_ATTRIBUTES"
         export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
