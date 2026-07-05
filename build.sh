@@ -426,7 +426,7 @@ FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
 # чтобы если компонент принес свою версию, она вытеснила базовую в конец (право).
 FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
 
-FINAL_LDFLAGS="${FINAL_LDFLAGS// -fuse-ld=lld/}"
+# FINAL_LDFLAGS="${FINAL_LDFLAGS// -fuse-ld=lld/}"
 
 FINAL_LIBS="${FINAL_LIBS//-Wl,--start-group/}"
 FINAL_LIBS="${FINAL_LIBS//-Wl,--end-group/}"
