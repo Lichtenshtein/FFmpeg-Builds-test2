@@ -102,6 +102,7 @@ ffbuild_dockerbuild() {
 
     log_info "${BROOM_MARK} Patching OpenVINO and submodules CMake scripts to suppress warnings..."
     find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wformat/-Wno-format/g' 2>/dev/null || true
+    find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wundef/-Wno-undef/g' 2>/dev/null || true
 
     export TBBROOT="$FFBUILD_PREFIX"
 
@@ -113,11 +114,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        # Настройка многопоточности под статический TBB
-        -DTHREADING=TBB # OMP for OpenMP
-        -DENABLE_SYSTEM_TBB=ON
-        -DENABLE_TBBBIND_2_5=OFF # Выключаем гибридный шедулер
-        -DTBB_DIR="${FFBUILD_PREFIX}/lib/cmake/TBB"
         # Отключаем ВСЕ фронтенды
         -DENABLE_OV_IR_FRONTEND=ON # Оставляем только базовый парсер IR XML/BIN
         -DENABLE_OV_ONNX_FRONTEND=OFF
@@ -167,6 +163,21 @@ ffbuild_dockerbuild() {
         -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
     )
 
+    if has_library "tbbmalloc"; then
+        log_info "TBB library detected. Building with TBB support..."
+        myconf+=(
+            -DTHREADING=$([ "${USE_OPENMP}" == "1" ] && echo OMP || echo TBB)
+            -DENABLE_SYSTEM_TBB=$([ "${USE_OPENMP}" == "1" ] && echo OFF || echo ON)
+            -DENABLE_TBBBIND_2_5=OFF # Выключаем гибридный шедулер
+            -DTBB_DIR="${FFBUILD_PREFIX}/lib/cmake/TBB"
+        )
+    elif [[ "${USE_OPENMP}" == "1" ]]; then
+        log_info "Enabling OpenMP threading..."
+        myconf+=(
+            -DTHREADING=OMP
+        )
+    fi
+
     # will not work for submodules, likely same appends to lto flags
     local NO_WARNS="-Wno-undef -Wno-format -Wno-format-extra-args"
 
@@ -175,8 +186,8 @@ ffbuild_dockerbuild() {
 
     [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-Wno-odr -Wa,-mbig-obj -fno-lto-odr-type-merging"
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${NO_WARNS} $LTO_FLAGS $self_static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${NO_WARNS} $LTO_FLAGS $static_flags $self_static_flags -DWINAPI_PARTITION_SYSTEM=1" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} ${NO_WARNS} $LTO_FLAGS $self_static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} ${NO_WARNS} $LTO_FLAGS $static_flags $self_static_flags -DWINAPI_PARTITION_SYSTEM=1" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L} $LTO_FLAGS -Wl,--allow-multiple-definition" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
