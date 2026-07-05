@@ -410,6 +410,17 @@ jobs:
           restore-keys: |
             ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-
 
+      - name: Get FFmpeg latest version
+        id: ffmpeg-info
+        run: |
+          version=$(curl -s https://endoflife.date/api/ffmpeg.json | jq -r .[0].latest)
+          # Cut off the .0 at the end if the version is major (e.g. 8.0 -> 8)
+          version=${version%.0}
+          echo "version=${version}" >> $GITHUB_OUTPUT
+          echo "FFMPEG_API_VERSION=${version}" >> $GITHUB_ENV
+        env:
+          GH_TOKEN: ${{ secrets.TOKEN_REPO }}
+
       - name: Restore TensorFlow Models Cache
         if: env.USE_TENSORFLOW == '1'
         id: cache-tf-models
@@ -449,6 +460,7 @@ jobs:
           fi
 
           export TARGET_IMAGE="base-$TARGET"
+          export FFMPEG_API_VERSION=${{ env.FFMPEG_API_VERSION }}
 
           chmod +x ./download.sh ./util/*.sh ./generate.sh
           ./download.sh
@@ -488,6 +500,8 @@ jobs:
             type=gha,scope=ffmpeg-components-v2
             type=gha,scope=ffmpeg-final-v2
           cache-to: type=gha,mode=max,scope=ffmpeg-final-v2
+          build-args: |
+            FFMPEG_API_VERSION=${{ env.FFMPEG_API_VERSION }}
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest

@@ -287,17 +287,18 @@ fi
 
 # APPLE AUDIOTOOLBOX DLLS (Special handling)
 if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then
+    QT_DIR="${PKG_DIR}/bin/QTfiles64"
+    mkdir -p "${QT_DIR}"
+
     log_info "${DOWN_MARK} Downloading Apple AudioToolbox DLLs..."
 
     if download_file "$QTFILES_URL" "qtfiles64.7z" ""; then
         log_info "${EXTR_MARK} Extracting Apple DLLs directly to package..."
 
-        mkdir -p "${PKG_DIR}/bin"
+        7z e qtfiles64.7z -o"${QT_DIR}" "*.dll" -y > /dev/null
 
-        7z e qtfiles64.7z -o"${PKG_DIR}/bin" "*.dll" -y > /dev/null
-
-        if ls "${PKG_DIR}/bin"/CoreAudioToolbox.dll >/dev/null 2>&1; then
-            log_info "${CHECK_MARK} Apple AudioToolbox DLLs successfully deployed to:\n${PKG_DIR}/bin"
+        if ls "${QT_DIR}"/CoreAudioToolbox.dll >/dev/null 2>&1; then
+            log_info "${CHECK_MARK} Apple AudioToolbox DLLs successfully deployed to:\n${QT_DIR}"
         else
             log_error "AudioToolbox DLLs deployment verification failed!"
         fi
