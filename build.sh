@@ -951,15 +951,21 @@ log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
 find "${FFBUILD_PREFIX}" -type d -empty -delete || true
 
 # Определение версии
-# Проверяем наличие официального скрипта определения версии
-if [[ -f "$FFMPEG_SOURCE_DIR/ffbuild/version.sh" ]]; then
+if [[ -n "$FFMPEG_API_VERSION" ]]; then
+    # Если переменная прилетела из GitHub Actions / Docker ENV, используем её
+    log_info "Using FFmpeg version from API: ${FFMPEG_API_VERSION}"
+    FFMPEG_VERSION="$FFMPEG_API_VERSION"
+elif [[ -f "$FFMPEG_SOURCE_DIR/ffbuild/version.sh" ]]; then
+    # Проверяем наличие официального скрипта определения версии
     log_info "Detecting FFmpeg version using official ffbuild/version.sh..."
     # Запускаем скрипт, передав ему путь к корню исходников FFmpeg
     FFMPEG_VERSION=$(bash "$FFMPEG_SOURCE_DIR/ffbuild/version.sh" "$FFMPEG_SOURCE_DIR")
 else
+    # Фолбэк по дате
     log_warn "ffbuild/version.sh not found, falling back to basic date-string."
     FFMPEG_VERSION=$(date +%Y-%m-%d)
 fi
+
 # Убираем возможные пробелы или спецсимволы переноса строки из переменной
 FFMPEG_VERSION=$(echo "$FFMPEG_VERSION" | xargs)
 
