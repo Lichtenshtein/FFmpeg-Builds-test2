@@ -118,21 +118,6 @@ EOF
     sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C} $static_flags|g" main-toolchain.cmake
     sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}${USELTO_L}|g" main-toolchain.cmake
 
-    # Создаем хост-тулчейн для сборщика шейдеров
-    cat <<EOF > host-fix-toolchain.cmake
-set(CMAKE_SYSTEM_NAME Linux)
-set(CMAKE_C_COMPILER gcc)
-set(CMAKE_CXX_COMPILER g++)
-set(CMAKE_C_FLAGS "-O3 -pipe" CACHE STRING "" FORCE)
-set(CMAKE_CXX_FLAGS "-O3 -pipe" CACHE STRING "" FORCE)
-set(CMAKE_EXE_LINKER_FLAGS "" CACHE STRING "" FORCE)
-set(CMAKE_SHARED_LINKER_FLAGS "" CACHE STRING "" FORCE)
-set(CMAKE_MODULE_LINKER_FLAGS "" CACHE STRING "" FORCE)
-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM BOTH)
-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-EOF
-
     mkdir build && cd build
 
     local myconf=(
@@ -170,23 +155,60 @@ EOF
         -DGGML_SSE42=ON
         -DGGML_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DGGML_WEBGPU=OFF
-        #
-        -DGGML_OPENCL=ON
-        -DWHISPER_SDL2=ON # support for libSDL2
-        -DWHISPER_CURL=ON # to download models
-        # VULKAN
-        -DGGML_VULKAN=ON
-        -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
-        -DVulkan_GLSLC_EXECUTABLE="/opt/glslc"
-        -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
-        -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.${lib_ext}"
-        -DGGML_VULKAN_CHECK_RESULTS=OFF
-        # OPENVINO
-        -DGGML_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
-        -DWHISPER_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
-        # -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-        -DGGML_OPENVINO_SKIP_TBB_FIND=ON # don't delete
         )
+
+    if has_library "vulkan-1"; then
+        log_info "Vulkan library detected. Building with Vulkan support..."
+        # Создаем хост-тулчейн для сборщика шейдеров
+        cat <<EOF > host-fix-toolchain.cmake
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_C_COMPILER gcc)
+set(CMAKE_CXX_COMPILER g++)
+set(CMAKE_C_FLAGS "-O3 -pipe" CACHE STRING "" FORCE)
+set(CMAKE_CXX_FLAGS "-O3 -pipe" CACHE STRING "" FORCE)
+set(CMAKE_EXE_LINKER_FLAGS "" CACHE STRING "" FORCE)
+set(CMAKE_SHARED_LINKER_FLAGS "" CACHE STRING "" FORCE)
+set(CMAKE_MODULE_LINKER_FLAGS "" CACHE STRING "" FORCE)
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM BOTH)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+EOF
+        myconf+=(
+            -DGGML_VULKAN=ON
+            -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
+            -DVulkan_GLSLC_EXECUTABLE="/opt/glslc"
+            -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
+            -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.${lib_ext}"
+            -DGGML_VULKAN_CHECK_RESULTS=OFF
+        )
+    fi
+    if has_library "curl"; then
+        log_info "Curl library detected. Building with Curl support..."
+        myconf+=(
+            -DWHISPER_CURL=ON # to download models
+        )
+    fi
+    if has_library "OpenCL"; then
+        log_info "OpenCL library detected. Building with OpenCL support..."
+        myconf+=(
+            -DGGML_OPENCL=ON
+        )
+    fi
+    if has_library "SDL2"; then
+        log_info "SDL2 library detected. Building with SDL2 support..."
+        myconf+=(
+            -DWHISPER_SDL2=ON # support for libSDL2
+        )
+    fi
+    if has_library "openvino"; then
+        log_info "OpenVINO library detected. Building with OpenVINO support..."
+        myconf+=(
+            -DGGML_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
+            -DWHISPER_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
+            # -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+            -DGGML_OPENVINO_SKIP_TBB_FIND=ON # don't delete
+        )
+    fi
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
