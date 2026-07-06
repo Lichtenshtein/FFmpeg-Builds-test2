@@ -220,268 +220,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
 fi
 
 # if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
-    # sed -i "s/Version:.*/Version: /" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
-    # sed -i "s|^Version:.*|Version: 0.5.1|" "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc"
 # fi
-
-# QUIRC_PC="${FFBUILD_PREFIX}/lib/pkgconfig/quirc.pc"
-# if [[ -f "$QUIRC_PC" ]]; then
-    # cat <<EOF > "$QUIRC_PC"
-# prefix=$FFBUILD_PREFIX
-# exec_prefix=\${prefix}
-# libdir=\${prefix}/lib
-# includedir=\${prefix}/include
-
-# Name: quirc
-# Description: QR decoder library, for extracting and decoding them from images
-# Version: 1.2
-# Libs: -L\${libdir} -lquirc
-# Cflags: -I\${includedir}
-# EOF
-# fi
-
-# QUIRC_PC="${FFBUILD_PREFIX}/lib/pkgconfig/quirc.pc"
-# if [[ -f "$QUIRC_PC" ]]; then
-    # cat <<EOF > "$QUIRC_PC"
-# prefix=$FFBUILD_PREFIX
-# exec_prefix=\${prefix}
-# libdir=\${prefix}/lib
-# includedir=\${prefix}/include
-
-# Name: quirc
-# Description: QR decoder library, for extracting and decoding them from images
-# Version: ${VER_FULL}
-# Libs: -L\${libdir} -Wl,--no-as-needed -lquirc -Wl,--as-needed
-# Cflags: -I\${includedir}
-# EOF
-# fi
-
-# LIBDATACHANNEL_PC="${FFBUILD_PREFIX}/lib/pkgconfig/libdatachannel.pc"
-# if [[ -f "$LIBDATACHANNEL_PC" ]]; then
-    # cat <<EOF > "$LIBDATACHANNEL_PC"
-# prefix=${FFBUILD_PREFIX}
-# exec_prefix=\${prefix}
-# libdir=\${exec_prefix}/lib
-# includedir=\${prefix}/include
-
-# Name: datachannel
-# Description: WebRTC Data Channels and Media Transport library (C/C++)
-# Version: 0.24.5
-# Libs: -L\${libdir} -Wl,--start-group -ldatachannel -ljuice -lsrtp2 -lusrsctp -lws2_32 -liphlpapi -Wl,--end-group
-# Requires: openssl
-# Libs.private: -lbcrypt -lcrypt32 -luserenv -lstdc++ -lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -pthread
-# Cflags: -I\${includedir} -I\${includedir}/rtc $static_flags
-# EOF
-# fi
-
-log_info "Patching FFmpeg's nvenc_dispatch.c to fix missing v13.0 NVENC symbols..."
-NVENC_DISPATCH_SRC="libavcodec/nvenc_dispatch.c"
-if [[ -f "$NVENC_DISPATCH_SRC" ]]; then
-    # Дописываем реализации функций-заглушек v130 в конец файла nvenc_dispatch.c,
-    # Hotfix upstream NVENC v13.0 symbols for MinGW static compilation
-#include "avcodec.h"
-    cat << 'EOF' > "$NVENC_DISPATCH_SRC"
-#include "nvenc.h"
-
-int ff_nvenc_encode_init131(AVCodecContext *avctx);
-int ff_nvenc_encode_close131(AVCodecContext *avctx);
-int ff_nvenc_receive_packet131(AVCodecContext *avctx, AVPacket *pkt);
-void ff_nvenc_encode_flush131(AVCodecContext *avctx);
-
-int ff_nvenc_encode_init121(AVCodecContext *avctx);
-int ff_nvenc_encode_close121(AVCodecContext *avctx);
-int ff_nvenc_receive_packet121(AVCodecContext *avctx, AVPacket *pkt);
-void ff_nvenc_encode_flush121(AVCodecContext *avctx);
-
-int ff_nvenc_encode_init120(AVCodecContext *avctx);
-int ff_nvenc_encode_close120(AVCodecContext *avctx);
-int ff_nvenc_receive_packet120(AVCodecContext *avctx, AVPacket *pkt);
-void ff_nvenc_encode_flush120(AVCodecContext *avctx);
-
-int ff_nvenc_encode_init111(AVCodecContext *avctx);
-int ff_nvenc_encode_close111(AVCodecContext *avctx);
-int ff_nvenc_receive_packet111(AVCodecContext *avctx, AVPacket *pkt);
-void ff_nvenc_encode_flush111(AVCodecContext *avctx);
-
-#if !__has_include(<nv-codec-headers-12.1/include/ffnvcodec/nvEncodeAPI.h>)
-av_cold int ff_nvenc_encode_init121(AVCodecContext *avctx) { return AVERROR_EXTERNAL; }
-av_cold int ff_nvenc_encode_close121(AVCodecContext *avctx) { return AVERROR_EXTERNAL; }
-int ff_nvenc_receive_packet121(AVCodecContext *avctx, AVPacket *pkt) { return AVERROR_EXTERNAL; }
-av_cold void ff_nvenc_encode_flush121(AVCodecContext *avctx) {}
-#endif
-
-#if !__has_include(<nv-codec-headers-12.0/include/ffnvcodec/nvEncodeAPI.h>)
-av_cold int ff_nvenc_encode_init120(AVCodecContext *avctx) { return AVERROR_EXTERNAL; }
-av_cold int ff_nvenc_encode_close120(AVCodecContext *avctx) { return AVERROR_EXTERNAL; }
-int ff_nvenc_receive_packet120(AVCodecContext *avctx, AVPacket *pkt) { return AVERROR_EXTERNAL; }
-av_cold void ff_nvenc_encode_flush120(AVCodecContext *avctx) {}
-#endif
-
-#if !__has_include(<nv-codec-headers-11.1/include/ffnvcodec/nvEncodeAPI.h>)
-av_cold int ff_nvenc_encode_init111(AVCodecContext *avctx) { return AVERROR_EXTERNAL; }
-av_cold int ff_nvenc_encode_close111(AVCodecContext *avctx) { return AVERROR_EXTERNAL; }
-int ff_nvenc_receive_packet111(AVCodecContext *avctx, AVPacket *pkt) { return AVERROR_EXTERNAL; }
-av_cold void ff_nvenc_encode_flush111(AVCodecContext *avctx) {}
-#endif
-
-static const char* nvenc_driver_requirement(float api)
-{
-    const struct {
-        float api;
-        const char* win;
-        const  char* linux;
-    } requirements[] = {
-        {13.2f, "(unknown)", "(unknown)"},
-        {13.1f, "610.00", "610.00"},
-        {13.0f, "570.0", "570.0"},
-        {12.2f, "551.76", "550.54.14"},
-        {12.1f, "531.61", "530.41.03"},
-        {12.0f, "522.25", "520.56.06"},
-        {11.1f, "471.41", "470.57.02"},
-        {11.0f, "456.71", "455.28"},
-        {10.0f, "450.51", "445.87"},
-        {9.1f,  "436.15", "435.21"},
-        {9.0f,  "418.81", "418.30"},
-        {8.2f,  "397.93", "396.24"},
-        {8.1f,  "390.77", "390.25"},
-        {8.0f,  "378.66", "378.13"},
-    };
-
-    for (int i = 0; i < FF_ARRAY_ELEMS(requirements); i++) {
-        if (requirements[i].api <= api) {
-#if defined(_WIN32) || defined(__CYGWIN__)
-            return requirements[i].win;
-#else
-            return requirements[i].linux;
-#endif
-        }
-    }
-    return "(unknown)";
-}
-
-static av_cold int nvenc_load_api(AVCodecContext *avctx)
-{
-    NvencContext *ctx            = avctx->priv_data;
-    NvencDynLoadFunctions *dl_fn = &ctx->nvenc_dload_funcs;
-    NVENCSTATUS err;
-    uint32_t nvenc_max_ver;
-    uint32_t nvenc_max_major;
-    uint32_t nvenc_max_minor;
-    int ret;
-    ret = nvenc_load_functions(&dl_fn->nvenc_dl, avctx);
-    if (ret < 0) {
-        av_log(avctx, AV_LOG_ERROR, "nvenc_load_functions error\n");
-        return ret;
-    }
-
-    err = dl_fn->nvenc_dl->NvEncodeAPIGetMaxSupportedVersion(&nvenc_max_ver);
-    if (err != NV_ENC_SUCCESS) {
-        av_log(avctx, AV_LOG_ERROR, "Failed to query nvenc max version\n");
-        return AVERROR_UNKNOWN;
-    }
-    nvenc_max_major = nvenc_max_ver >> 4;
-    nvenc_max_minor = nvenc_max_ver & 0xf;
-
-    if (ctx->apiver_req <= 0) {
-        ctx->apiver_req = nvenc_max_major + nvenc_max_minor / 10.0f;
-    }
-    if (ctx->apiver_req > nvenc_max_major + nvenc_max_minor / 10.0f) {
-        av_log(avctx, AV_LOG_ERROR, "Requested nvenc API version %.1f is not supported, the minimum required Nvidia driver is %s\n", ctx->apiver_req, nvenc_driver_requirement(ctx->apiver_req));
-        return AVERROR(ENOSYS);
-    }
-    return 0;
-}
-
-av_cold int ff_nvenc_encode_init(AVCodecContext *avctx)
-{
-    nvenc_load_api(avctx); // don't return error, a future version may be supported
-    NvencContext *ctx = avctx->priv_data;
-    if (ctx->apiver_req >= 12.2f)
-        return ff_nvenc_encode_init131(avctx);
-    if (ctx->apiver_req >= 12.1f)
-        return ff_nvenc_encode_init121(avctx);
-    if (ctx->apiver_req >= 12.0f)
-        return ff_nvenc_encode_init120(avctx);
-    return ff_nvenc_encode_init111(avctx);
-}
-
-av_cold int ff_nvenc_encode_close(AVCodecContext *avctx)
-{
-    NvencContext *ctx = avctx->priv_data;
-    if (ctx->apiver_req >= 12.2f)
-        return ff_nvenc_encode_close131(avctx);
-    if (ctx->apiver_req >= 12.1f)
-        return ff_nvenc_encode_close121(avctx);
-    if (ctx->apiver_req >= 12.0f)
-        return ff_nvenc_encode_close120(avctx);
-    return ff_nvenc_encode_close111(avctx);
-}
-
-int ff_nvenc_receive_packet(AVCodecContext *avctx, AVPacket *pkt)
-{
-    NvencContext *ctx = avctx->priv_data;
-    if (ctx->apiver_req >= 12.2f)
-        return ff_nvenc_receive_packet131(avctx, pkt);
-    if (ctx->apiver_req >= 12.1f)
-        return ff_nvenc_receive_packet121(avctx, pkt);
-    if (ctx->apiver_req >= 12.0f)
-        return ff_nvenc_receive_packet120(avctx, pkt);
-    return ff_nvenc_receive_packet111(avctx, pkt);
-}
-
-av_cold void ff_nvenc_encode_flush(AVCodecContext *avctx)
-{
-    NvencContext *ctx = avctx->priv_data;
-    if (ctx->apiver_req >= 12.2f)
-        return ff_nvenc_encode_flush131(avctx);
-    if (ctx->apiver_req >= 12.1f)
-        return ff_nvenc_encode_flush121(avctx);
-    if (ctx->apiver_req >= 12.0f)
-        return ff_nvenc_encode_flush120(avctx);
-    return ff_nvenc_encode_flush111(avctx);
-}
-EOF
-    log_info "nvenc_dispatch.c successfully patched for NVENC 13.0."
-fi
-
-# PREFIX_PC="${FFBUILD_PREFIX}/lib/pkgconfig/OpenColorIO.pc"
-# if [[ -f "$PREFIX_PC" ]]; then
-    # log_info "Fixing OpenColorIO.pc in active prefix..."
-
-    # sed -i -E 's/\.a([[:space:]]|$)/\1/g' "$PREFIX_PC"
-    # sed -i -E 's/\.a\b//g' "$PREFIX_PC"
-
-    # sed -i 's/[[:space:]]\+/ /g' "$PREFIX_PC"
-
-    # log_info "--- Content of fixed OpenColorIO.pc ---"
-    # cat "$PREFIX_PC"
-    # log_info "---------------------------------------"
-# else
-    # log_error "OpenColorIO.pc NOT FOUND at $PREFIX_PC !"
-# fi
-
-# PREFIX_PC="${FFBUILD_PREFIX}/lib/pkgconfig/openal.pc"
-# if [[ -f "$PREFIX_PC" ]]; then
-    # log_info "Fixing openal.pc in active prefix..."
-
-    # sed -i '/^Libs.private:/ s/$/ -ldsound/' "$PREFIX_PC"
-
-    # log_info "--- Content of fixed openal.pc ---"
-    # cat "$PREFIX_PC"
-    # log_info "---------------------------------------"
-# fi
-
-# log_info "Injecting hotfix stub for broken upstream OpenVINO symbol..."
-
-# cat << 'EOF' > /tmp/ggml_openvino_stub.cpp
-# # include <stdint.h>
-# extern "C" void* ggml_backend_openvino_reg(void) {
-#     return nullptr;
-# }
-# EOF
-# 
-# ${FFBUILD_TOOLCHAIN}-g++ -c /tmp/ggml_openvino_stub.cpp -o /tmp/ggml_openvino_stub.o
-# ${FFBUILD_CROSS_PREFIX}ar rcs ${FFBUILD_PREFIX}/lib/libggml_openvino_stub.a /tmp/ggml_openvino_stub.o
 
 THPENC_C="libavformat/thpenc.c"
 if [ -f "$THPENC_C" ]; then
@@ -496,13 +235,6 @@ if [ -f "$THPENC_C" ]; then
         sed -i '2i #include "packet_list.h"' "$THPENC_C"
     fi
 fi
-
-# log_info "Mass-patching outdated AVCodec structure fields (.sample_fmts, .pix_fmts)..."
-
-# find libavcodec/ -type f -name "*.c" -exec sed -i \
-    # -e 's/\.p\.sample_fmts/\.sample_fmts/g' \
-    # -e 's/\.p\.pix_fmts/\.pix_fmts/g' {} +
-
 
 # TARGET_SEARCH_DIR="${FFBUILD_PREFIX}/lib"
 # OBJDUMP="x86_64-w64-mingw32-objdump"
@@ -578,14 +310,6 @@ FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
 # базовые системные либы ($LIBS) лучше ставить в начало списка аргументов, 
 # чтобы если компонент принес свою версию, она вытеснила базовую в конец (право).
 FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
-
-FINAL_LDFLAGS="${FINAL_LDFLAGS// -fuse-ld=lld/}"
-
-FINAL_LIBS="${FINAL_LIBS//-Wl,--start-group/}"
-FINAL_LIBS="${FINAL_LIBS//-Wl,--end-group/}"
-FINAL_LIBS="${FINAL_LIBS//-Wl,--no-as-needed/}"
-FINAL_LIBS="${FINAL_LIBS//-Wl,--as-needed/}"
-FINAL_LIBS=$(echo "$FINAL_LIBS" | xargs)
 
 # =======================================
 # GENERATION OF COMPONENT STATE VARIABLES
@@ -865,12 +589,12 @@ chmod +x configure
 
 # Tip: -Wl,--allow-multiple-definition needed for KVAZAAR/cryptopp & OpenSSL/quiche.
 # --extra-cflags="-DCOBJMACROS"
-# --extra-ldflags="${FINAL_LDFLAGS} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -mavx2 -mfma"
 # -march=x86-64-v3 -mtune=generic
-# -lopenal -ldsound -lggml_openvino_stub
-# export cflags_libdatachannel="-DRTC_STATIC -DJUICE_STATIC"
 # --as="$CC"
 # -fno-use-linker-plugin
+
+# lld linker is broken, use ld
+FINAL_LDFLAGS="${FINAL_LDFLAGS// -fuse-ld=lld/}"
 
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"

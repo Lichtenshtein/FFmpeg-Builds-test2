@@ -1,0 +1,3493 @@
+From: Diego de Souza <ddesouza@nvidia.com>
+Date: Sat, 14 Mar 2026 01:11:31 +0100
+Subject: [PATCH 1/8] avutil/pixfmt: add AV_PIX_FMT_CUARRAY for opaque CUDA
+ block-linear surfaces
+
+Add a new hardware pixel format representing opaque block-linear CUDA
+arrays (CUarray). This format is used by NVDEC when decoding into
+opaque surfaces registered with cuvidRegisterDecodeSurfaces, and can
+be consumed directly by NVENC as CUDA array input without requiring
+a pitch-linear copy.
+
+Bump libavutil minor version.
+
+Signed-off-by: Diego de Souza <ddesouza@nvidia.com>
+---
+ doc/APIchanges      | 3 +++
+ libavutil/pixdesc.c | 4 ++++
+ libavutil/pixfmt.h  | 6 ++++++
+ libavutil/version.h | 4 ++--
+ 4 files changed, 15 insertions(+), 2 deletions(-)
+
+diff --git a/libavutil/pixdesc.c b/libavutil/pixdesc.c
+index 90f9596def..9152afd554 100644
+--- a/libavutil/pixdesc.c
++++ b/libavutil/pixdesc.c
+@@ -3267,6 +3267,10 @@ static const AVPixFmtDescriptor av_pix_fmt_descriptors[AV_PIX_FMT_NB] = {
+         .name = "ohcodec",
+         .flags = AV_PIX_FMT_FLAG_HWACCEL,
+     },
++    [AV_PIX_FMT_CUARRAY] = {
++        .name = "cuarray",
++        .flags = AV_PIX_FMT_FLAG_HWACCEL,
++    },
+ };
+ 
+ static const char * const color_range_names[] = {
+diff --git a/libavutil/pixfmt.h b/libavutil/pixfmt.h
+index 2e7b6457e0..b08881cc1f 100644
+--- a/libavutil/pixfmt.h
++++ b/libavutil/pixfmt.h
+@@ -499,6 +499,12 @@ enum AVPixelFormat {
+ 
+     AV_PIX_FMT_OHCODEC, /// hardware decoding through openharmony
+ 
++    /**
++     * CUDA block-linear (opaque). data[0] is a CUarray in block-linear layout,
++     * e.g. from NVDEC opaque decode. Use for zero-copy to NVENC (CUDA array input).
++     */
++    AV_PIX_FMT_CUARRAY,
++
+     AV_PIX_FMT_NB         ///< number of pixel formats, DO NOT USE THIS if you want to link with shared libav* because the number of formats might differ between versions
+ };
+ 
+-- 
+2.52.0
+
+
+From 0ddcd2d98435dba585a24cd3ebd6c6071786a143 Mon Sep 17 00:00:00 2001
+From: Timo Rothenpieler <timo@rothenpieler.org>
+Date: Mon, 16 Mar 2026 16:11:32 +0100
+Subject: [PATCH 2/8] avutil/hwcontext_cuda: add CUarray surface pool support
+
+Extend the internal CUDA frames context (CUDAFramesContext) to manage
+block-linear CUarray surfaces alongside the existing pitched-linear
+allocations.
+
+When the frames context format is AV_PIX_FMT_CUARRAY, the caller
+(e.g. NVDEC) can fill cuarray_desc and cuarray_num_surfaces before
+calling av_hwframe_ctx_init(), which then allocates the CUarray
+surfaces.
+
+Also add cuda_transfer_data_from_cuarray() to support hwdownload
+from CUarray frames to host memory via cuMemcpy2DAsync.
+
+Co-authored-by: Diego de Souza <ddesouza@nvidia.com>
+Signed-off-by: Diego de Souza <ddesouza@nvidia.com>
+---
+ doc/APIchanges                      |   3 +
+ libavutil/hwcontext_cuda.c          | 394 +++++++++++++++++++++++++---
+ libavutil/hwcontext_cuda.h          |  74 +++++-
+ libavutil/hwcontext_cuda_internal.h |  21 ++
+ libavutil/version.h                 |   2 +-
+ 5 files changed, 455 insertions(+), 39 deletions(-)
+
+diff --git a/libavutil/hwcontext_cuda.c b/libavutil/hwcontext_cuda.c
+index b0b65b2446..5f21082960 100644
+--- a/libavutil/hwcontext_cuda.c
++++ b/libavutil/hwcontext_cuda.c
+@@ -31,8 +31,12 @@
+ #include "imgutils.h"
+ 
+ typedef struct CUDAFramesContext {
++    AVCUDAFramesContext p;
++
+     int shift_width, shift_height;
+     int tex_alignment;
++
++    int cuarray_num_surfaces_used;
+ } CUDAFramesContext;
+ 
+ typedef struct CUDADeviceContext {
+@@ -46,10 +50,14 @@ static const enum AVPixelFormat supported_formats[] = {
+     AV_PIX_FMT_YUV444P,
++    AV_PIX_FMT_NV24,
+     AV_PIX_FMT_P010,
+     AV_PIX_FMT_P012,
+     AV_PIX_FMT_P016,
+     AV_PIX_FMT_P210,
+     AV_PIX_FMT_P212,
+     AV_PIX_FMT_P216,
++    AV_PIX_FMT_P410,
++    AV_PIX_FMT_P412,
++    AV_PIX_FMT_P416,
+     AV_PIX_FMT_YUV422P,
+     AV_PIX_FMT_YUV420P10,
+     AV_PIX_FMT_YUV422P10,
+@@ -68,27 +76,46 @@ static const enum AVPixelFormat supported_formats[] = {
+ 
+ #define CHECK_CU(x) FF_CUDA_CHECK_DL(device_ctx, cu, x)
+ 
++static CUarray_format cuda_array_format_for_pix_fmt(enum AVPixelFormat fmt);
++static unsigned int cuda_array_numchannels_for_pix_fmt(enum AVPixelFormat fmt);
++
+ static int cuda_frames_get_constraints(AVHWDeviceContext *ctx,
+                                        const void *hwconfig,
+                                        AVHWFramesConstraints *constraints)
+ {
+-    int i;
++    const AVCUDAHWConfig *config = hwconfig;
++    enum AVPixelFormat req_fmt = config ? config->hw_format : AV_PIX_FMT_NONE;
++    int i, nb_sw_formats = 0;
+ 
+     constraints->valid_sw_formats = av_malloc_array(FF_ARRAY_ELEMS(supported_formats) + 1,
+                                                     sizeof(*constraints->valid_sw_formats));
+     if (!constraints->valid_sw_formats)
+         return AVERROR(ENOMEM);
+ 
+-    for (i = 0; i < FF_ARRAY_ELEMS(supported_formats); i++)
+-        constraints->valid_sw_formats[i] = supported_formats[i];
+-    constraints->valid_sw_formats[FF_ARRAY_ELEMS(supported_formats)] = AV_PIX_FMT_NONE;
++    for (i = 0; i < FF_ARRAY_ELEMS(supported_formats); i++) {
++        if (req_fmt == AV_PIX_FMT_CUARRAY &&
++            !cuda_array_format_for_pix_fmt(supported_formats[i]))
++            continue;
++        constraints->valid_sw_formats[nb_sw_formats++] = supported_formats[i];
++    }
++    constraints->valid_sw_formats[nb_sw_formats] = AV_PIX_FMT_NONE;
+ 
+-    constraints->valid_hw_formats = av_malloc_array(2, sizeof(*constraints->valid_hw_formats));
+-    if (!constraints->valid_hw_formats)
+-        return AVERROR(ENOMEM);
++    if (req_fmt == AV_PIX_FMT_CUDA || req_fmt == AV_PIX_FMT_CUARRAY) {
++        constraints->valid_hw_formats = av_malloc_array(2, sizeof(*constraints->valid_hw_formats));
++        if (!constraints->valid_hw_formats)
++            return AVERROR(ENOMEM);
+ 
+-    constraints->valid_hw_formats[0] = AV_PIX_FMT_CUDA;
+-    constraints->valid_hw_formats[1] = AV_PIX_FMT_NONE;
++        constraints->valid_hw_formats[0] = req_fmt;
++        constraints->valid_hw_formats[1] = AV_PIX_FMT_NONE;
++    } else {
++        constraints->valid_hw_formats = av_malloc_array(3, sizeof(*constraints->valid_hw_formats));
++        if (!constraints->valid_hw_formats)
++            return AVERROR(ENOMEM);
++
++        constraints->valid_hw_formats[0] = AV_PIX_FMT_CUDA;
++        constraints->valid_hw_formats[1] = AV_PIX_FMT_CUARRAY;
++        constraints->valid_hw_formats[2] = AV_PIX_FMT_NONE;
++    }
+ 
+     return 0;
+ }
+@@ -104,7 +131,13 @@ static void cuda_buffer_free(void *opaque, uint8_t *data)
+ 
+     CHECK_CU(cu->cuCtxPushCurrent(hwctx->cuda_ctx));
+ 
+-    CHECK_CU(cu->cuMemFree((CUdeviceptr)data));
++    if (ctx->format == AV_PIX_FMT_CUARRAY) {
++        AVCUDAArrayFrameDescriptor *desc = (AVCUDAArrayFrameDescriptor*)data;
++        CHECK_CU(cu->cuArrayDestroy(desc->array));
++        av_free(desc);
++    } else {
++        CHECK_CU(cu->cuMemFree((CUdeviceptr)data));
++    }
+ 
+     CHECK_CU(cu->cuCtxPopCurrent(&dummy));
+ }
+@@ -112,6 +145,7 @@ static void cuda_buffer_free(void *opaque, uint8_t *data)
+ static AVBufferRef *cuda_pool_alloc(void *opaque, size_t size)
+ {
+     AVHWFramesContext        *ctx = opaque;
++    CUDAFramesContext       *priv = ctx->hwctx;
+     AVHWDeviceContext *device_ctx = ctx->device_ctx;
+     AVCUDADeviceContext    *hwctx = device_ctx->hwctx;
+     CudaFunctions             *cu = hwctx->internal->cuda_dl;
+@@ -125,21 +159,120 @@ static AVBufferRef *cuda_pool_alloc(void *opaque, size_t size)
+     if (err < 0)
+         return NULL;
+ 
++    if (ctx->format == AV_PIX_FMT_CUARRAY) {
++        AVCUDAArrayFrameDescriptor *desc = av_mallocz(sizeof(*desc));
++        if (!desc)
++            goto done;
++
++        if (priv->p.cuarray_num_surfaces > 0) {
++            if (priv->cuarray_num_surfaces_used >= priv->p.cuarray_num_surfaces) {
++                av_log(ctx, AV_LOG_ERROR, "Static surface pool size exceeded.\n");
++                av_free(desc);
++                goto done;
++            }
++            desc->index = priv->cuarray_num_surfaces_used++;
++            desc->array = priv->p.cuarray_surfaces[desc->index];
++        } else {
++            err = CHECK_CU(cu->cuArray3DCreate(&desc->array, &priv->p.cuarray_desc));
++            if (err < 0) {
++                av_free(desc);
++                goto done;
++            }
++        }
++
++        ret = av_buffer_create((uint8_t*)desc, sizeof(*desc), cuda_buffer_free, ctx, 0);
++        if (!ret) {
++            // It is okay (and neccesary) to free a pool array here,
++            // since cuarray_num_surfaces_used is already incremented.
++            CHECK_CU(cu->cuArrayDestroy(desc->array));
++            av_free(desc);
++            goto done;
++        }
++
++        goto done;
++    }
++
+     err = CHECK_CU(cu->cuMemAlloc(&data, size));
+     if (err < 0)
+-        goto fail;
++        goto done;
+ 
+     ret = av_buffer_create((uint8_t*)data, size, cuda_buffer_free, ctx, 0);
+     if (!ret) {
+         CHECK_CU(cu->cuMemFree(data));
+-        goto fail;
++        goto done;
+     }
+ 
+-fail:
++    // Common exit: reached on both success (ret holds the buffer) and
++    // failure (ret == NULL); restores the CUDA context and returns ret.
++done:
+     CHECK_CU(cu->cuCtxPopCurrent(&dummy));
+     return ret;
+ }
+ 
++static void cuda_frames_uninit(AVHWFramesContext *ctx)
++{
++    AVHWDeviceContext *device_ctx = ctx->device_ctx;
++    AVCUDADeviceContext    *hwctx = device_ctx->hwctx;
++    CUDAFramesContext       *priv = ctx->hwctx;
++    CudaFunctions             *cu = hwctx->internal->cuda_dl;
++
++    if (priv->p.cuarray_surfaces) {
++        CUcontext dummy;
++        CHECK_CU(cu->cuCtxPushCurrent(hwctx->cuda_ctx));
++
++        // Make sure we don't free surfaces that have been adopted by the pool already
++        for (int i = priv->cuarray_num_surfaces_used; i < priv->p.cuarray_num_surfaces; i++)
++            if (priv->p.cuarray_surfaces[i])
++                CHECK_CU(cu->cuArrayDestroy(priv->p.cuarray_surfaces[i]));
++
++        CHECK_CU(cu->cuCtxPopCurrent(&dummy));
++
++        av_freep(&priv->p.cuarray_surfaces);
++        priv->p.cuarray_num_surfaces = 0;
++    }
++}
++
++static CUarray_format cuda_array_format_for_pix_fmt(enum AVPixelFormat fmt)
++{
++    switch (fmt) {
++    case AV_PIX_FMT_NV12:      return CU_AD_FORMAT_NV12;
++    case AV_PIX_FMT_P010:
++    case AV_PIX_FMT_P016:      return CU_AD_FORMAT_P016;
++    case AV_PIX_FMT_NV16:      return CU_AD_FORMAT_NV16;
++    case AV_PIX_FMT_P210:
++    case AV_PIX_FMT_P216:      return CU_AD_FORMAT_P216;
++    case AV_PIX_FMT_NV24:      return CU_AD_FORMAT_YUV444_8BIT_SEMIPLANAR;
++    case AV_PIX_FMT_P410:
++    case AV_PIX_FMT_P412:
++    case AV_PIX_FMT_P416:      return CU_AD_FORMAT_YUV444_16BIT_SEMIPLANAR;
++    case AV_PIX_FMT_YUV420P:   return CU_AD_FORMAT_UINT8_PLANAR_420;
++    case AV_PIX_FMT_YUV422P:   return CU_AD_FORMAT_UINT8_PLANAR_422;
++    case AV_PIX_FMT_YUV444P:   return CU_AD_FORMAT_UINT8_PLANAR_444;
++    case AV_PIX_FMT_YUV420P10: return CU_AD_FORMAT_UINT16_PLANAR_420;
++    case AV_PIX_FMT_YUV422P10: return CU_AD_FORMAT_UINT16_PLANAR_422;
++    case AV_PIX_FMT_YUV444P10:
++    case AV_PIX_FMT_YUV444P10MSB:
++    case AV_PIX_FMT_YUV444P12MSB:
++    case AV_PIX_FMT_YUV444P16: return CU_AD_FORMAT_UINT16_PLANAR_444;
++    case AV_PIX_FMT_0RGB32:
++    case AV_PIX_FMT_0BGR32:
++    case AV_PIX_FMT_RGB32:
++    case AV_PIX_FMT_BGR32:     return CU_AD_FORMAT_UNSIGNED_INT8;
++    default:                   return 0;
++    }
++}
++
++static unsigned int cuda_array_numchannels_for_pix_fmt(enum AVPixelFormat fmt)
++{
++    switch (fmt) {
++    case AV_PIX_FMT_0RGB32:
++    case AV_PIX_FMT_0BGR32:
++    case AV_PIX_FMT_RGB32:
++    case AV_PIX_FMT_BGR32:     return 4;
++    default:                   return 3;
++    }
++}
++
+ static int cuda_frames_init(AVHWFramesContext *ctx)
+ {
+     AVHWDeviceContext *device_ctx = ctx->device_ctx;
+@@ -148,6 +281,8 @@ static int cuda_frames_init(AVHWFramesContext *ctx)
+     CudaFunctions             *cu = hwctx->internal->cuda_dl;
+     int err, i;
+ 
++    CUcontext dummy;
++
+     for (i = 0; i < FF_ARRAY_ELEMS(supported_formats); i++) {
+         if (ctx->sw_format == supported_formats[i])
+             break;
+@@ -158,6 +293,11 @@ static int cuda_frames_init(AVHWFramesContext *ctx)
+         return AVERROR(ENOSYS);
+     }
+ 
++    if (ctx->format == AV_PIX_FMT_CUARRAY && !cu->cuArrayGetPlane) {
++        av_log(ctx, AV_LOG_ERROR, "cuArrayGetPlane not available, update your driver\n");
++        return AVERROR(ENOSYS);
++    }
++
+     err = CHECK_CU(cu->cuDeviceGetAttribute(&priv->tex_alignment,
+                                             14 /* CU_DEVICE_ATTRIBUTE_TEXTURE_ALIGNMENT */,
+                                             hwctx->internal->cuda_device));
+@@ -174,47 +314,184 @@ static int cuda_frames_init(AVHWFramesContext *ctx)
+ 
+     av_pix_fmt_get_chroma_sub_sample(ctx->sw_format, &priv->shift_width, &priv->shift_height);
+ 
++    if (ctx->format == AV_PIX_FMT_CUARRAY) {
++        if (!priv->p.cuarray_desc.Width)
++            priv->p.cuarray_desc.Width = ctx->width;
++        if (!priv->p.cuarray_desc.Height)
++            priv->p.cuarray_desc.Height = ctx->height;
++        if (!priv->p.cuarray_desc.NumChannels)
++            priv->p.cuarray_desc.NumChannels = cuda_array_numchannels_for_pix_fmt(ctx->sw_format);
++
++        if (priv->p.cuarray_desc.Depth) {
++            av_log(ctx, AV_LOG_ERROR, "CUarrays with non-zero depth are not supported.\n");
++            return AVERROR(EINVAL);
++        }
++
++        if (!priv->p.cuarray_desc.Format)
++            priv->p.cuarray_desc.Format = cuda_array_format_for_pix_fmt(ctx->sw_format);
++        if (!priv->p.cuarray_desc.Format) {
++            av_log(ctx, AV_LOG_ERROR, "Invalid CUarray pixel format\n");
++            return AVERROR_BUG;
++        }
++
++        priv->p.cuarray_desc.Flags |= CUDA_ARRAY3D_SURFACE_LDST | CUDA_ARRAY3D_VIDEO_ENCODE_DECODE;
++    }
++
++    if (ctx->format == AV_PIX_FMT_CUARRAY && priv->p.cuarray_num_surfaces > 0) {
++        priv->p.cuarray_surfaces = av_calloc(priv->p.cuarray_num_surfaces, sizeof(*priv->p.cuarray_surfaces));
++        if (!priv->p.cuarray_surfaces)
++            return AVERROR(ENOMEM);
++
++        err = CHECK_CU(cu->cuCtxPushCurrent(hwctx->cuda_ctx));
++        if (err < 0) {
++            av_freep(&priv->p.cuarray_surfaces);
++            return err;
++        }
++
++        for (i = 0; i < priv->p.cuarray_num_surfaces; i++) {
++            err = CHECK_CU(cu->cuArray3DCreate(&priv->p.cuarray_surfaces[i], &priv->p.cuarray_desc));
++            if (err < 0) {
++                for (i = i - 1; i >= 0; i--)
++                    CHECK_CU(cu->cuArrayDestroy(priv->p.cuarray_surfaces[i]));
++                CHECK_CU(cu->cuCtxPopCurrent(&dummy));
++
++                av_freep(&priv->p.cuarray_surfaces);
++                return err;
++            }
++        }
++
++        err = CHECK_CU(cu->cuCtxPopCurrent(&dummy));
++        if (err < 0)
++            goto fail;
++
++        av_log(ctx, AV_LOG_DEBUG, "allocated %d CUarray surfaces (%zux%zu)\n",
++               priv->p.cuarray_num_surfaces, priv->p.cuarray_desc.Width, priv->p.cuarray_desc.Height);
++    }
++
+     if (!ctx->pool) {
+         int size = av_image_get_buffer_size(ctx->sw_format, ctx->width, ctx->height, priv->tex_alignment);
+-        if (size < 0)
+-            return size;
++        if (size < 0) {
++            err = size;
++            goto fail;
++        }
+ 
+         ffhwframesctx(ctx)->pool_internal =
+             av_buffer_pool_init2(size, ctx, cuda_pool_alloc, NULL);
+-        if (!ffhwframesctx(ctx)->pool_internal)
+-            return AVERROR(ENOMEM);
++        if (!ffhwframesctx(ctx)->pool_internal) {
++            err = AVERROR(ENOMEM);
++            goto fail;
++        }
+     }
+ 
+     return 0;
++
++fail:
++    cuda_frames_uninit(ctx);
++    return err;
++}
++
++static int cuda_cuarray_element_size(CUarray_format fmt)
++{
++    return ff_cuda_cuarray_elem_size(fmt);
+ }
+ 
+ static int cuda_get_buffer(AVHWFramesContext *ctx, AVFrame *frame)
+ {
+-    CUDAFramesContext *priv = ctx->hwctx;
++    AVHWDeviceContext *device_ctx = ctx->device_ctx;
++    AVCUDADeviceContext    *hwctx = device_ctx->hwctx;
++    CUDAFramesContext       *priv = ctx->hwctx;
++    CudaFunctions             *cu = hwctx->internal->cuda_dl;
++
++    CUcontext dummy;
+     int res;
+ 
+     frame->buf[0] = av_buffer_pool_get(ctx->pool);
+     if (!frame->buf[0])
+         return AVERROR(ENOMEM);
+ 
+-    res = av_image_fill_arrays(frame->data, frame->linesize, frame->buf[0]->data,
+-                               ctx->sw_format, ctx->width, ctx->height, priv->tex_alignment);
+-    if (res < 0)
+-        return res;
++    if (ctx->format == AV_PIX_FMT_CUARRAY) {
++        AVCUDAArrayFrameDescriptor *desc = (AVCUDAArrayFrameDescriptor*)frame->buf[0]->data;
++        if (!desc) {
++            frame->format = ctx->format;
++            frame->width  = ctx->width;
++            frame->height = ctx->height;
++            return 0;
++        }
++        frame->data[0] = (uint8_t*)desc->array;
++        frame->data[1] = (uint8_t*)desc->index;
+ 
+-    // YUV420P is a special case.
+-    // Nvenc expects the U/V planes in swapped order from how ffmpeg expects them, also chroma is half-aligned
+-    if (ctx->sw_format == AV_PIX_FMT_YUV420P) {
+-        frame->linesize[1] = frame->linesize[2] = frame->linesize[0] / 2;
+-        frame->data[2]     = frame->data[1];
+-        frame->data[1]     = frame->data[2] + frame->linesize[2] * AV_CEIL_RSHIFT(ctx->height, 1);
++        res = CHECK_CU(cu->cuCtxPushCurrent(hwctx->cuda_ctx));
++        if (res < 0)
++            return res;
++
++        for (int i = 0; i < FF_ARRAY_ELEMS(frame->linesize); i++) {
++            CUDA_ARRAY3D_DESCRIPTOR plane_desc = { 0 };
++            CUarray plane_array;
++            CUresult arr_plane_res = cu->cuArrayGetPlane(&plane_array, desc->array, i);
++
++            if (arr_plane_res == CUDA_ERROR_INVALID_VALUE) {
++                if (i > 0)
++                    break;
++                /* Non-planar format (e.g. UNSIGNED_INT8 x4 for packed RGB):
++                 * cuArrayGetPlane is unsupported, query the array directly. */
++                res = CHECK_CU(cu->cuArray3DGetDescriptor(&plane_desc, desc->array));
++                if (res < 0)
++                    goto fail;
++            } else if (arr_plane_res != CUDA_SUCCESS) {
++                res = CHECK_CU(arr_plane_res);
++                goto fail;
++            } else {
++                res = CHECK_CU(cu->cuArray3DGetDescriptor(&plane_desc, plane_array));
++                if (res < 0)
++                    goto fail;
++            }
++
++            int elem_size = cuda_cuarray_element_size(plane_desc.Format);
++            if (elem_size <= 0) {
++                res = AVERROR_BUG;
++                goto fail;
++            }
++
++            frame->linesize[i] = plane_desc.Width * plane_desc.NumChannels * elem_size;
++
++            if (arr_plane_res == CUDA_ERROR_INVALID_VALUE)
++                break;
++        }
++
++        res = CHECK_CU(cu->cuCtxPopCurrent(&dummy));
++        if (res < 0)
++            return res;
++    } else {
++        res = av_image_fill_arrays(frame->data, frame->linesize, frame->buf[0]->data,
++                                   ctx->sw_format, ctx->width, ctx->height, priv->tex_alignment);
++        if (res < 0)
++            return res;
++
++        // YUV420P is a special case.
++        // Nvenc expects the U/V planes in swapped order from how ffmpeg expects them, also chroma is half-aligned
++        if (ctx->sw_format == AV_PIX_FMT_YUV420P) {
++            frame->linesize[1] = frame->linesize[2] = frame->linesize[0] / 2;
++            frame->data[2]     = frame->data[1];
++            frame->data[1]     = frame->data[2] + frame->linesize[2] * (ctx->height / 2);
++        }
+     }
+ 
+-    frame->format = AV_PIX_FMT_CUDA;
++    frame->format = ctx->format;
+     frame->width  = ctx->width;
+     frame->height = ctx->height;
+ 
+     return 0;
++
++fail:
++    CHECK_CU(cu->cuCtxPopCurrent(&dummy));
++    return res;
++}
++
++static enum AVPixelFormat cuda_frame_hw_format(const AVFrame *frame)
++{
++    if (!frame->hw_frames_ctx)
++        return AV_PIX_FMT_NONE;
++    return ((AVHWFramesContext *)frame->hw_frames_ctx->data)->format;
+ }
+ 
+ static int cuda_transfer_get_formats(AVHWFramesContext *ctx,
+@@ -246,15 +523,24 @@ static int cuda_transfer_data(AVHWFramesContext *ctx, AVFrame *dst,
+     CUcontext dummy;
+     int i, ret;
+ 
+-    if ((src->hw_frames_ctx && ((AVHWFramesContext*)src->hw_frames_ctx->data)->format != AV_PIX_FMT_CUDA) ||
+-        (dst->hw_frames_ctx && ((AVHWFramesContext*)dst->hw_frames_ctx->data)->format != AV_PIX_FMT_CUDA))
+-        return AVERROR(ENOSYS);
++    {
++        enum AVPixelFormat src_fmt = cuda_frame_hw_format(src);
++        enum AVPixelFormat dst_fmt = cuda_frame_hw_format(dst);
++        if ((src_fmt != AV_PIX_FMT_NONE &&
++             src_fmt != AV_PIX_FMT_CUDA && src_fmt != AV_PIX_FMT_CUARRAY) ||
++            (dst_fmt != AV_PIX_FMT_NONE &&
++             dst_fmt != AV_PIX_FMT_CUDA && dst_fmt != AV_PIX_FMT_CUARRAY))
++            return AVERROR(ENOSYS);
++    }
+ 
+     ret = CHECK_CU(cu->cuCtxPushCurrent(hwctx->cuda_ctx));
+     if (ret < 0)
+         return ret;
+ 
+-    for (i = 0; i < FF_ARRAY_ELEMS(src->data) && src->data[i]; i++) {
++    for (i = 0; i < FF_ARRAY_ELEMS(src->data) && src->linesize[i]; i++) {
++        int src_is_nonplanar_cuarray = 0;
++        int dst_is_nonplanar_cuarray = 0;
++
+         CUDA_MEMCPY2D cpy = {
+             .srcPitch      = src->linesize[i],
+             .dstPitch      = dst->linesize[i],
+@@ -262,17 +548,47 @@ static int cuda_transfer_data(AVHWFramesContext *ctx, AVFrame *dst,
+             .Height        = AV_CEIL_RSHIFT(src->height, ((i == 0 || i == 3) ? 0 : priv->shift_height)),
+         };
+ 
+-        if (src->hw_frames_ctx) {
++        if (src->format == AV_PIX_FMT_CUDA) {
+             cpy.srcMemoryType = CU_MEMORYTYPE_DEVICE;
+             cpy.srcDevice     = (CUdeviceptr)src->data[i];
++        } else if (src->format == AV_PIX_FMT_CUARRAY) {
++            CUarray array;
++            CUresult cures = cu->cuArrayGetPlane(&array, (CUarray)src->data[0], i);
++            if (cures == CUDA_ERROR_INVALID_VALUE) {
++                if (i > 0)
++                    break;
++                array = (CUarray)src->data[0];
++                src_is_nonplanar_cuarray = 1;
++            } else if (cures != CUDA_SUCCESS) {
++                ret = CHECK_CU(cures);
++                goto exit;
++            }
++
++            cpy.srcMemoryType = CU_MEMORYTYPE_ARRAY;
++            cpy.srcArray      = array;
+         } else {
+             cpy.srcMemoryType = CU_MEMORYTYPE_HOST;
+             cpy.srcHost       = src->data[i];
+         }
+ 
+-        if (dst->hw_frames_ctx) {
++        if (dst->format == AV_PIX_FMT_CUDA) {
+             cpy.dstMemoryType = CU_MEMORYTYPE_DEVICE;
+             cpy.dstDevice     = (CUdeviceptr)dst->data[i];
++        } else if (dst->format == AV_PIX_FMT_CUARRAY) {
++            CUarray array;
++            CUresult cures = cu->cuArrayGetPlane(&array, (CUarray)dst->data[0], i);
++            if (cures == CUDA_ERROR_INVALID_VALUE) {
++                if (i > 0)
++                    break;
++                array = (CUarray)dst->data[0];
++                dst_is_nonplanar_cuarray = 1;
++            } else if (cures != CUDA_SUCCESS) {
++                ret = CHECK_CU(cures);
++                goto exit;
++            }
++
++            cpy.dstMemoryType = CU_MEMORYTYPE_ARRAY;
++            cpy.dstArray      = array;
+         } else {
+             cpy.dstMemoryType = CU_MEMORYTYPE_HOST;
+             cpy.dstHost       = dst->data[i];
+@@ -281,6 +597,9 @@ static int cuda_transfer_data(AVHWFramesContext *ctx, AVFrame *dst,
+         ret = CHECK_CU(cu->cuMemcpy2DAsync(&cpy, hwctx->stream));
+         if (ret < 0)
+             goto exit;
++
++        if (src_is_nonplanar_cuarray || dst_is_nonplanar_cuarray)
++            break;
+     }
+ 
+     if (!dst->hw_frames_ctx) {
+@@ -292,7 +611,7 @@ static int cuda_transfer_data(AVHWFramesContext *ctx, AVFrame *dst,
+ exit:
+     CHECK_CU(cu->cuCtxPopCurrent(&dummy));
+ 
+-    return 0;
++    return ret;
+ }
+ 
+ static void cuda_device_uninit(AVHWDeviceContext *device_ctx)
+@@ -582,10 +901,11 @@ const HWContextType ff_hwcontext_type_cuda = {
+     .device_uninit        = cuda_device_uninit,
+     .frames_get_constraints = cuda_frames_get_constraints,
+     .frames_init          = cuda_frames_init,
++    .frames_uninit        = cuda_frames_uninit,
+     .frames_get_buffer    = cuda_get_buffer,
+     .transfer_get_formats = cuda_transfer_get_formats,
+     .transfer_data_to     = cuda_transfer_data,
+     .transfer_data_from   = cuda_transfer_data,
+ 
+-    .pix_fmts             = (const enum AVPixelFormat[]){ AV_PIX_FMT_CUDA, AV_PIX_FMT_NONE },
++    .pix_fmts             = (const enum AVPixelFormat[]){ AV_PIX_FMT_CUDA, AV_PIX_FMT_CUARRAY, AV_PIX_FMT_NONE },
+ };
+diff --git a/libavutil/hwcontext_cuda.h b/libavutil/hwcontext_cuda.h
+index cbad434fea..38e5369794 100644
+--- a/libavutil/hwcontext_cuda.h
++++ b/libavutil/hwcontext_cuda.h
+@@ -24,6 +24,8 @@
+ #include <cuda.h>
+ #endif
+ 
++#include <stdint.h>
++
+ #include "pixfmt.h"
+ 
+ /**
+@@ -46,8 +48,78 @@ typedef struct AVCUDADeviceContext {
+ } AVCUDADeviceContext;
+ 
+ /**
+- * AVHWFramesContext.hwctx is currently not used
++ * CUDA frame descriptor for pool allocation of AV_PIX_FMT_CUARRAY frames.
++ *
++ * In user-allocated pools, AVHWFramesContext.pool must return AVBufferRefs
++ * with the data pointer pointing at an object of this type describing the
++ * planes of the frame.
++ *
++ * This has no use outside of custom allocation, and AVFrame AVBufferRef do not
++ * necessarily point to an instance of this struct.
+  */
++typedef struct AVCUDAArrayFrameDescriptor {
++    /**
++     * The CUarray containing the frame data.
++     *
++     * Normally stored in AVFrame.data[0].
++     */
++    CUarray array;
++
++    /**
++     * The index into AVCUDAFramesContext.cuarray_surfaces, or 0 if not applicable.
++     *
++     * Normally stored in AVFrame.data[1] (cast from intptr_t).
++     */
++    intptr_t index;
++} AVCUDAArrayFrameDescriptor;
++
++/**
++ * This struct is allocated as AVHWFramesContext.hwctx
++ */
++typedef struct AVCUDAFramesContext {
++    /**
++     * CUDA_ARRAY3D_DESCRIPTOR CUarrays will be initialized with.
++     * Mostly used to provide external Flags.
++     *
++     * Width, Height and Format only honored if != 0.
++     * Filled with default parameters from the FramesContext otherwise.
++     *
++     * Only applicable for AV_PIX_FMT_CUARRAY.
++     */
++    CUDA_ARRAY3D_DESCRIPTOR cuarray_desc;
++
++    /**
++     * If >0, pre-allocate a fixed pool of surfaces.
++     * The surfaces will be available via cuarray_surfaces after init.
++     * Size of the pool cannot be changed afterwards.
++     *
++     * Only applicable for AV_PIX_FMT_CUARRAY.
++     */
++    int cuarray_num_surfaces;
++
++    /**
++     * If cuarray_num_surfaces is >0, this contains the array of pre-allocated surfaces.
++     *
++     * Only applicable for AV_PIX_FMT_CUARRAY.
++     */
++    CUarray *cuarray_surfaces;
++} AVCUDAFramesContext;
++
++/**
++ * CUDA hardware pipeline configuration details.
++ *
++ * Passed to av_hwdevice_get_hwframe_constraints() to query
++ * per-hw-format constraints. When provided, valid_sw_formats
++ * will be filtered to only those compatible with the specified
++ * hw_format.
++ */
++typedef struct AVCUDAHWConfig {
++    /**
++     * The hardware pixel format to query constraints for.
++     * Must be AV_PIX_FMT_CUDA or AV_PIX_FMT_CUARRAY.
++     */
++    enum AVPixelFormat hw_format;
++} AVCUDAHWConfig;
+ 
+ /**
+  * @defgroup hwcontext_cuda Device context creation flags
+diff --git a/libavutil/hwcontext_cuda_internal.h b/libavutil/hwcontext_cuda_internal.h
+index a989c45861..9ca6edf7d3 100644
+--- a/libavutil/hwcontext_cuda_internal.h
++++ b/libavutil/hwcontext_cuda_internal.h
+@@ -35,4 +35,25 @@ struct AVCUDADeviceContextInternal {
+     int flags;
+ };
+ 
++/**
++ * Return the element size in bytes for a CUarray_format, or 0 for unknown.
++ *
++ * Used to compute frame->linesize[] for CUarray frames (block-linear).
++ * Callers that need a fallback should treat a 0 return as an error.
++ */
++static inline int ff_cuda_cuarray_elem_size(CUarray_format fmt)
++{
++    switch (fmt) {
++    case CU_AD_FORMAT_UNSIGNED_INT8:
++    case CU_AD_FORMAT_SIGNED_INT8:   return 1;
++    case CU_AD_FORMAT_UNSIGNED_INT16:
++    case CU_AD_FORMAT_SIGNED_INT16:
++    case CU_AD_FORMAT_HALF:          return 2;
++    case CU_AD_FORMAT_UNSIGNED_INT32:
++    case CU_AD_FORMAT_SIGNED_INT32:
++    case CU_AD_FORMAT_FLOAT:         return 4;
++    default:                         return 0;
++    }
++}
++
+ #endif /* AVUTIL_HWCONTEXT_CUDA_INTERNAL_H */
+-- 
+2.52.0
+
+
+From 4707b518c9b2c4e920e96255c0a859af3cc04a6f Mon Sep 17 00:00:00 2001
+From: Diego de Souza <ddesouza@nvidia.com>
+Date: Sat, 14 Mar 2026 01:24:24 +0100
+Subject: [PATCH 3/8] avcodec/nvdec: add opaque CUARRAY output and zero-copy
+ decode support
+
+Add support for NVDEC opaque output using block-linear CUarray surfaces
+registered with cuvidRegisterDecodeSurfaces (Video Codec SDK 13.1+).
+
+Two output modes are implemented:
+
+  - Zero-copy (unsafe_output): decode surfaces are exposed directly
+    to the consumer (e.g. NVENC). The surface is locked via
+    surface_in_use[] and released when the downstream AVBufferRef
+    is freed.
+
+  - Safe copy (!unsafe_output): the frame is set up pointing to the
+    decode CUarray, then av_frame_make_writable() copies it into a
+    new CUarray from the output hwframes pool via cuda_transfer_data().
+    This decouples the decode and encode surface lifetimes.
+
+All opaque-specific code is guarded by NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT,
+with a AVERROR(ENOSYS) fallback when building against older SDK versions.
+
+Signed-off-by: Diego de Souza <ddesouza@nvidia.com>
+---
+ libavcodec/nvdec.c | 446 ++++++++++++++++++++++++++++++++++++++++++---
+ libavcodec/nvdec.h |  11 ++
+ 2 files changed, 436 insertions(+), 21 deletions(-)
+
+diff --git a/libavcodec/nvdec.c b/libavcodec/nvdec.c
+index e64ee7a9d6..32c3784ced 100644
+--- a/libavcodec/nvdec.c
++++ b/libavcodec/nvdec.c
+@@ -23,6 +23,9 @@
+ #include "config.h"
+ #include "config_components.h"
+ 
++#include <stdatomic.h>
++
++#include "libavutil/avassert.h"
+ #include "libavutil/common.h"
+ #include "libavutil/error.h"
+ #include "libavutil/hwcontext.h"
+@@ -47,6 +50,7 @@ typedef struct NVDECDecoder {
+     CUvideodecoder decoder;
+ 
+     AVBufferRef *hw_device_ref;
++    AVBufferRef *decode_hw_frames_ref;
+     AVBufferRef *real_hw_frames_ref;
+     CUcontext    cuda_ctx;
+     CUstream     stream;
+@@ -55,6 +59,11 @@ typedef struct NVDECDecoder {
+     CuvidFunctions *cvdl;
+ 
+     int unsafe_output;
++    int opaque_output;
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++    atomic_int *surface_in_use;
++    int          num_surfaces;
++#endif
+ } NVDECDecoder;
+ 
+ typedef struct NVDECFramePool {
+@@ -166,15 +175,44 @@ static int nvdec_test_capabilities(NVDECDecoder *decoder,
+ static void nvdec_decoder_free(AVRefStructOpaque unused, void *obj)
+ {
+     NVDECDecoder *decoder = obj;
++    void *logctx = decoder->hw_device_ref ? decoder->hw_device_ref->data : NULL;
+ 
+     if (decoder->decoder) {
+-        void *logctx = decoder->hw_device_ref->data;
+         CUcontext dummy;
+         CHECK_CU(decoder->cudl->cuCtxPushCurrent(decoder->cuda_ctx));
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++        if (decoder->opaque_output) {
++            /*
++             * Every opaque output frame holds a reference to this decoder
++             * (NVDECOpaqueRelease.decoder, attached as frame->buf[0]) and only
++             * clears its surface_in_use slot when that buffer is released. This
++             * RefStruct free callback therefore cannot run until all surfaces
++             * have been handed back, so the decoder always outlives its
++             * surfaces and is safe to destroy unconditionally. The check below
++             * is purely a guard against a future regression of that invariant;
++             * it must never defer destruction (which would leak the decoder).
++             */
++            decoder->cudl->cuCtxSynchronize();
++            if (decoder->surface_in_use) {
++                int busy = 0;
++                for (int i = 0; i < decoder->num_surfaces; i++)
++                    busy += atomic_load_explicit(&decoder->surface_in_use[i],
++                                                 memory_order_acquire) != 0;
++                if (busy)
++                    av_log(logctx, AV_LOG_ERROR,
++                           "%d CUarray surface(s) unexpectedly still in use at "
++                           "decoder teardown; destroying anyway\n", busy);
++            }
++        }
++#endif
+         CHECK_CU(decoder->cvdl->cuvidDestroyDecoder(decoder->decoder));
+         CHECK_CU(decoder->cudl->cuCtxPopCurrent(&dummy));
+     }
+ 
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++    av_freep(&decoder->surface_in_use);
++#endif
++    av_buffer_unref(&decoder->decode_hw_frames_ref);
+     av_buffer_unref(&decoder->real_hw_frames_ref);
+     av_buffer_unref(&decoder->hw_device_ref);
+ 
+@@ -324,12 +362,52 @@ static int nvdec_init_hwframes(AVCodecContext *avctx, AVBufferRef **out_frames_r
+     return 0;
+ }
+ 
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++void ff_nvdec_fill_cuarray_desc(CUDA_ARRAY3D_DESCRIPTOR *desc,
++                                AVCodecContext *avctx,
++                                cudaVideoSurfaceFormat output_format)
++{
++    CUarray_format arr_fmt;
++
++    switch (output_format) {
++    case cudaVideoSurfaceFormat_NV12:
++    case cudaVideoSurfaceFormat_NV12_Opaque:           arr_fmt = CU_AD_FORMAT_NV12; break;
++    case cudaVideoSurfaceFormat_P016:
++    case cudaVideoSurfaceFormat_P016_Opaque:           arr_fmt = CU_AD_FORMAT_P016; break;
++    case cudaVideoSurfaceFormat_NV16:
++    case cudaVideoSurfaceFormat_NV16_Opaque:           arr_fmt = CU_AD_FORMAT_NV16; break;
++    case cudaVideoSurfaceFormat_P216:
++    case cudaVideoSurfaceFormat_P216_Opaque:           arr_fmt = CU_AD_FORMAT_P216; break;
++    case cudaVideoSurfaceFormat_YUV444:
++    case cudaVideoSurfaceFormat_YUV444_Opaque:         arr_fmt = CU_AD_FORMAT_YUV444_8BIT_SEMIPLANAR; break;
++    case cudaVideoSurfaceFormat_YUV444_16Bit:
++    case cudaVideoSurfaceFormat_YUV444_16Bit_Opaque:   arr_fmt = CU_AD_FORMAT_YUV444_16BIT_SEMIPLANAR; break;
++    default:
++        /* The caller's bit-depth/chroma switch only ever yields the formats
++         * handled above (and errors out otherwise), so this is unreachable;
++         * assert rather than silently producing a wrong descriptor. */
++        av_assert0(0);
++    }
++
++    memset(desc, 0, sizeof(*desc));
++    desc->Width       = avctx->coded_width;
++    desc->Height      = avctx->coded_height;
++    desc->Depth       = 0;
++    desc->Format      = arr_fmt;
++    desc->NumChannels = 3;
++    desc->Flags       = CUDA_ARRAY3D_SURFACE_LDST |
++                        CUDA_ARRAY3D_VIDEO_ENCODE_DECODE;
++}
++
++#endif
++
+ int ff_nvdec_decode_init(AVCodecContext *avctx)
+ {
+     NVDECContext *ctx = avctx->internal->hwaccel_priv_data;
+ 
+     NVDECDecoder        *decoder;
+-    AVBufferRef         *real_hw_frames_ref;
++    AVBufferRef         *decode_hw_frames_ref = NULL;
++    AVBufferRef         *real_hw_frames_ref = NULL;
+     NVDECFramePool      *pool;
+     AVHWFramesContext   *frames_ctx;
+     const AVPixFmtDescriptor *sw_desc;
+@@ -339,9 +417,13 @@ int ff_nvdec_decode_init(AVCodecContext *avctx)
+     cudaVideoSurfaceFormat output_format;
+     int cuvid_codec_type, cuvid_chroma_format, chroma_444;
+     int ret = 0;
++    int need_real_hwframes = 0;
+ 
+     int unsafe_output = !!(avctx->hwaccel_flags & AV_HWACCEL_FLAG_UNSAFE_OUTPUT);
+ 
++    int opaque_output = 0;
++    int decode_pool_size;
++
+     sw_desc = av_pix_fmt_desc_get(avctx->sw_pix_fmt);
+     if (!sw_desc)
+         return AVERROR_BUG;
+@@ -363,47 +445,196 @@ int ff_nvdec_decode_init(AVCodecContext *avctx)
+         ret = nvdec_init_hwframes(avctx, &avctx->hw_frames_ctx, 1);
+         if (ret < 0)
+             return ret;
+-
+-        ret = nvdec_init_hwframes(avctx, &real_hw_frames_ref, 0);
+-        if (ret < 0)
+-            return ret;
+-    } else {
+-        real_hw_frames_ref = av_buffer_ref(avctx->hw_frames_ctx);
+-        if (!real_hw_frames_ref)
+-            return AVERROR(ENOMEM);
++        need_real_hwframes = 1;
+     }
+ 
++    frames_ctx = (AVHWFramesContext*)avctx->hw_frames_ctx->data;
++
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++    if (frames_ctx->format == AV_PIX_FMT_CUARRAY) {
++        opaque_output = 1;
++    }
++#else
++    if (frames_ctx->format == AV_PIX_FMT_CUARRAY) {
++        av_log(avctx, AV_LOG_ERROR,
++               "CUarray opaque output requires Video Codec SDK 13.1 or later\n");
++        return AVERROR(ENOSYS);
++    }
++#endif
++
++    decode_pool_size = frames_ctx->initial_pool_size;
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++    if (opaque_output) {
++        if (unsafe_output) {
++            decode_pool_size = FFMIN(frames_ctx->initial_pool_size + 16,
++                                     MAX_NUM_REGISTERED_DECODE_SURFACES);
++            av_log(avctx, AV_LOG_VERBOSE,
++                   "unsafe_output + cuarray: %d decode surfaces (pool=%d, max=%d)\n",
++                   decode_pool_size, frames_ctx->initial_pool_size,
++                   MAX_NUM_REGISTERED_DECODE_SURFACES);
++        } else if (avctx->extra_hw_frames > 0) {
++            decode_pool_size = frames_ctx->initial_pool_size - avctx->extra_hw_frames;
++            if (decode_pool_size < 1)
++                decode_pool_size = 1;
++            av_log(avctx, AV_LOG_VERBOSE,
++                   "Opaque copy mode: %d decode surfaces, "
++                   "%d extra surfaces reserved for output pool\n",
++                   decode_pool_size, avctx->extra_hw_frames);
++        }
++    }
++#endif
++
+     switch (sw_desc->comp[0].depth) {
+     case 8:
+         if (chroma_444) {
+             output_format = cudaVideoSurfaceFormat_YUV444;
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++            if (opaque_output) output_format = cudaVideoSurfaceFormat_YUV444_Opaque;
++#endif
+ #ifdef NVDEC_HAVE_422_SUPPORT
+         } else if (cuvid_chroma_format == cudaVideoChromaFormat_422) {
+             output_format = cudaVideoSurfaceFormat_NV16;
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++            if (opaque_output) output_format = cudaVideoSurfaceFormat_NV16_Opaque;
++#endif
+ #endif
+         } else {
+             output_format = cudaVideoSurfaceFormat_NV12;
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++            if (opaque_output) output_format = cudaVideoSurfaceFormat_NV12_Opaque;
++#endif
+         }
+         break;
+     case 10:
+     case 12:
+         if (chroma_444) {
+             output_format = cudaVideoSurfaceFormat_YUV444_16Bit;
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++            if (opaque_output) output_format = cudaVideoSurfaceFormat_YUV444_16Bit_Opaque;
++#endif
+ #ifdef NVDEC_HAVE_422_SUPPORT
+         } else if (cuvid_chroma_format == cudaVideoChromaFormat_422) {
+             output_format = cudaVideoSurfaceFormat_P216;
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++            if (opaque_output) output_format = cudaVideoSurfaceFormat_P216_Opaque;
++#endif
+ #endif
+         } else {
+             output_format = cudaVideoSurfaceFormat_P016;
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++            if (opaque_output) output_format = cudaVideoSurfaceFormat_P016_Opaque;
++#endif
+         }
+         break;
+     default:
+         av_log(avctx, AV_LOG_ERROR, "Unsupported bit depth\n");
+-        av_buffer_unref(&real_hw_frames_ref);
+         return AVERROR(ENOSYS);
+     }
+ 
+-    frames_ctx = (AVHWFramesContext*)avctx->hw_frames_ctx->data;
++    if (need_real_hwframes) {
++        if (frames_ctx->format == AV_PIX_FMT_CUARRAY) {
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++            AVHWFramesContext *real_ctx;
++            AVCUDAFramesContext *cuda_priv;
++
++            ret = avcodec_get_hw_frames_parameters(avctx, avctx->hw_device_ctx,
++                                                   avctx->hwaccel->pix_fmt,
++                                                   &real_hw_frames_ref);
++            if (ret < 0)
++                return ret;
++
++            real_ctx = (AVHWFramesContext*)real_hw_frames_ref->data;
++            real_ctx->initial_pool_size = 0;
++
++            cuda_priv = real_ctx->hwctx;
++            ff_nvdec_fill_cuarray_desc(&cuda_priv->cuarray_desc, avctx, output_format);
++            cuda_priv->cuarray_num_surfaces = unsafe_output ? decode_pool_size
++                                                           : frames_ctx->initial_pool_size;
++
++            ret = av_hwframe_ctx_init(real_hw_frames_ref);
++            if (ret < 0) {
++                av_buffer_unref(&real_hw_frames_ref);
++                return ret;
++            }
++
++            if (unsafe_output) {
++                decode_hw_frames_ref = av_buffer_ref(real_hw_frames_ref);
++                if (!decode_hw_frames_ref) {
++                    av_buffer_unref(&real_hw_frames_ref);
++                    return AVERROR(ENOMEM);
++                }
++            } else {
++                ret = avcodec_get_hw_frames_parameters(avctx, avctx->hw_device_ctx,
++                                                       avctx->hwaccel->pix_fmt,
++                                                       &decode_hw_frames_ref);
++                if (ret < 0) {
++                    av_buffer_unref(&real_hw_frames_ref);
++                    return ret;
++                }
++
++                real_ctx = (AVHWFramesContext*)decode_hw_frames_ref->data;
++                real_ctx->initial_pool_size = 0;
++
++                cuda_priv = real_ctx->hwctx;
++                ff_nvdec_fill_cuarray_desc(&cuda_priv->cuarray_desc, avctx, output_format);
++                cuda_priv->cuarray_num_surfaces = decode_pool_size;
++
++                ret = av_hwframe_ctx_init(decode_hw_frames_ref);
++                if (ret < 0) {
++                    av_buffer_unref(&decode_hw_frames_ref);
++                    av_buffer_unref(&real_hw_frames_ref);
++                    return ret;
++                }
++            }
++#endif
++        } else {
++            ret = nvdec_init_hwframes(avctx, &real_hw_frames_ref, 0);
++            if (ret < 0)
++                return ret;
++        }
++    } else {
++        real_hw_frames_ref = av_buffer_ref(avctx->hw_frames_ctx);
++        if (!real_hw_frames_ref)
++            return AVERROR(ENOMEM);
++
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++        if (frames_ctx->format == AV_PIX_FMT_CUARRAY) {
++            if (unsafe_output) {
++                decode_hw_frames_ref = av_buffer_ref(real_hw_frames_ref);
++            } else {
++                AVHWFramesContext *real_ctx;
++                AVCUDAFramesContext *cuda_priv;
++
++                ret = avcodec_get_hw_frames_parameters(avctx, frames_ctx->device_ref,
++                                                       avctx->hwaccel->pix_fmt,
++                                                       &decode_hw_frames_ref);
++                if (ret < 0) {
++                    av_buffer_unref(&real_hw_frames_ref);
++                    return ret;
++                }
++
++                real_ctx = (AVHWFramesContext*)decode_hw_frames_ref->data;
++                real_ctx->initial_pool_size = 0;
++
++                cuda_priv = real_ctx->hwctx;
++                ff_nvdec_fill_cuarray_desc(&cuda_priv->cuarray_desc, avctx, output_format);
++                cuda_priv->cuarray_num_surfaces = decode_pool_size;
++
++                ret = av_hwframe_ctx_init(decode_hw_frames_ref);
++                if (ret < 0) {
++                    av_buffer_unref(&decode_hw_frames_ref);
++                    av_buffer_unref(&real_hw_frames_ref);
++                    return ret;
++                }
++            }
++
++            if (!decode_hw_frames_ref) {
++                av_buffer_unref(&real_hw_frames_ref);
++                return AVERROR(ENOMEM);
++            }
++        }
++#endif
++    }
+ 
+     params.ulWidth             = avctx->coded_width;
+     params.ulHeight            = avctx->coded_height;
+@@ -413,8 +644,8 @@ int ff_nvdec_decode_init(AVCodecContext *avctx)
+     params.OutputFormat        = output_format;
+     params.CodecType           = cuvid_codec_type;
+     params.ChromaFormat        = cuvid_chroma_format;
+-    params.ulNumDecodeSurfaces = FFMIN(frames_ctx->initial_pool_size, 32);
+-    params.ulNumOutputSurfaces = unsafe_output ? FFMIN(frames_ctx->initial_pool_size, 64) : 1;
++    params.ulNumDecodeSurfaces = FFMIN(decode_pool_size, 32);
++    params.ulNumOutputSurfaces = opaque_output ? 0 : (unsafe_output ? FFMIN(frames_ctx->initial_pool_size, 64) : 1);
+ 
+     ret = nvdec_decoder_create(&ctx->decoder, frames_ctx->device_ref, &params, avctx);
+     if (ret < 0) {
+@@ -424,12 +655,57 @@ int ff_nvdec_decode_init(AVCodecContext *avctx)
+             av_log(avctx, AV_LOG_WARNING, "Try lowering the amount of threads. Using %d right now.\n",
+                    avctx->thread_count);
+         }
++        av_buffer_unref(&decode_hw_frames_ref);
+         av_buffer_unref(&real_hw_frames_ref);
+         return ret;
+     }
+ 
+     decoder = ctx->decoder;
+     decoder->unsafe_output = unsafe_output;
++    decoder->opaque_output = opaque_output;
++
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++    if (opaque_output && decoder->cvdl->cuvidRegisterDecodeSurfaces) {
++        void *logctx = avctx;
++        AVHWFramesContext *real_ctx = (AVHWFramesContext*)decode_hw_frames_ref->data;
++        AVCUDAFramesContext *cuda_priv = real_ctx->hwctx;
++        CUVIDREGISTERDECODESURFACESINFO reg_info = { 0 };
++        CUcontext dummy;
++
++        ret = CHECK_CU(decoder->cudl->cuCtxPushCurrent(decoder->cuda_ctx));
++        if (ret < 0) {
++            av_buffer_unref(&decode_hw_frames_ref);
++            av_buffer_unref(&real_hw_frames_ref);
++            ff_nvdec_decode_uninit(avctx);
++            return ret;
++        }
++
++        reg_info.ulNumDecodeSurfaces = FFMIN(cuda_priv->cuarray_num_surfaces,
++                                             (unsigned)decode_pool_size);
++        reg_info.pDecodeSurfaces     = cuda_priv->cuarray_surfaces;
++        ret = CHECK_CU(decoder->cvdl->cuvidRegisterDecodeSurfaces(decoder->decoder, &reg_info));
++        CHECK_CU(decoder->cudl->cuCtxPopCurrent(&dummy));
++        if (ret < 0) {
++            av_buffer_unref(&decode_hw_frames_ref);
++            av_buffer_unref(&real_hw_frames_ref);
++            ff_nvdec_decode_uninit(avctx);
++            return ret;
++        }
++
++        decoder->num_surfaces = reg_info.ulNumDecodeSurfaces;
++        decoder->surface_in_use = av_calloc(decoder->num_surfaces,
++                                            sizeof(*decoder->surface_in_use));
++        if (!decoder->surface_in_use) {
++            av_buffer_unref(&decode_hw_frames_ref);
++            av_buffer_unref(&real_hw_frames_ref);
++            ff_nvdec_decode_uninit(avctx);
++            return AVERROR(ENOMEM);
++        }
++    }
++#endif
++
++    decoder->decode_hw_frames_ref = decode_hw_frames_ref;
++    decode_hw_frames_ref = NULL;
+     decoder->real_hw_frames_ref = real_hw_frames_ref;
+     real_hw_frames_ref = NULL;
+ 
+@@ -438,7 +714,7 @@ int ff_nvdec_decode_init(AVCodecContext *avctx)
+         ret = AVERROR(ENOMEM);
+         goto fail;
+     }
+-    pool->dpb_size = FFMIN(frames_ctx->initial_pool_size, 32);
++    pool->dpb_size = FFMIN(decode_pool_size, 32);
+ 
+     ctx->decoder_pool = av_refstruct_pool_alloc_ext(sizeof(unsigned int), 0, pool,
+                                                     nvdec_decoder_frame_init,
+@@ -492,6 +768,25 @@ finish:
+     av_free(unmap_data);
+ }
+ 
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++typedef struct NVDECOpaqueRelease {
++    NVDECDecoder  *decoder;
++    int            idx;
++    unsigned int  *idx_ref;     ///< RefStruct reference keeping the surface index locked
++} NVDECOpaqueRelease;
++
++static void nvdec_opaque_release_slot(void *opaque, uint8_t *data)
++{
++    NVDECOpaqueRelease *r = (NVDECOpaqueRelease *)opaque;
++    if (r->decoder->surface_in_use)
++        atomic_store_explicit(&r->decoder->surface_in_use[r->idx], 0,
++                              memory_order_release);
++    av_refstruct_unref(&r->idx_ref);
++    av_refstruct_unref(&r->decoder);
++    av_free(r);
++}
++#endif
++
+ static int nvdec_retrieve_data(void *logctx, AVFrame *frame)
+ {
+     FrameDecodeData  *fdd = frame->private_ref;
+@@ -511,6 +806,102 @@ static int nvdec_retrieve_data(void *logctx, AVFrame *frame)
+     int shift_h = 0, shift_v = 0;
+     int ret = 0;
+ 
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++    if (decoder->opaque_output) {
++        AVHWFramesContext *decode_ctx = (AVHWFramesContext *)decoder->decode_hw_frames_ref->data;
++        AVCUDAFramesContext *cuda_priv = decode_ctx->hwctx;
++
++        if (cf->idx >= (unsigned)cuda_priv->cuarray_num_surfaces) {
++            av_log(logctx, AV_LOG_ERROR,
++                   "NVDEC opaque surface index %u out of range (%d surfaces)\n",
++                   cf->idx, cuda_priv->cuarray_num_surfaces);
++            return AVERROR_BUG;
++        }
++
++        {
++            CUarray arr = cuda_priv->cuarray_surfaces[cf->idx];
++            AVBufferRef *buf0;
++            NVDECOpaqueRelease *rel;
++
++            rel = av_malloc(sizeof(*rel));
++            if (!rel)
++                return AVERROR(ENOMEM);
++            rel->decoder = av_refstruct_ref(decoder);
++            rel->idx     = cf->idx;
++            rel->idx_ref = av_refstruct_ref(cf->idx_ref);
++            buf0 = av_buffer_create((uint8_t *)arr, 0,
++                                    nvdec_opaque_release_slot, rel,
++                                    AV_BUFFER_FLAG_READONLY);
++            if (!buf0) {
++                av_refstruct_unref(&rel->idx_ref);
++                av_refstruct_unref(&rel->decoder);
++                av_free(rel);
++                return AVERROR(ENOMEM);
++            }
++
++            /*
++             * Mark the surface in use only now that buf0 owns rel:
++             * nvdec_opaque_release_slot (buf0's free callback) is the sole path
++             * that clears the flag, so deferring the set until buf0 exists keeps
++             * every set paired with a clear, even on a later error return.
++             */
++            if (decoder->surface_in_use)
++                atomic_store_explicit(&decoder->surface_in_use[cf->idx], 1,
++                                      memory_order_release);
++
++            ret = av_buffer_replace(&frame->hw_frames_ctx,
++                                    decoder->unsafe_output
++                                        ? decoder->decode_hw_frames_ref
++                                        : decoder->real_hw_frames_ref);
++            if (ret < 0) {
++                av_buffer_unref(&buf0);
++                return ret;
++            }
++
++            av_buffer_unref(&frame->buf[0]);
++            frame->buf[0] = buf0;
++            frame->data[0] = (uint8_t *)arr;
++
++            {
++                CUcontext dummy;
++                ret = CHECK_CU(decoder->cudl->cuCtxPushCurrent(decoder->cuda_ctx));
++                if (ret < 0) {
++                    return ret;
++                }
++                for (int p = 0; p < FF_ARRAY_ELEMS(frame->linesize); p++) {
++                    CUDA_ARRAY3D_DESCRIPTOR plane_desc = { 0 };
++                    CUarray plane_array;
++                    int elem_size;
++                    CUresult cures = decoder->cudl->cuArrayGetPlane(&plane_array, arr, p);
++                    if (cures == CUDA_ERROR_INVALID_VALUE)
++                        break;
++                    if (cures != CUDA_SUCCESS) {
++                        CHECK_CU(decoder->cudl->cuCtxPopCurrent(&dummy));
++                        return AVERROR_EXTERNAL;
++                    }
++                    ret = CHECK_CU(decoder->cudl->cuArray3DGetDescriptor(&plane_desc, plane_array));
++                    if (ret < 0) {
++                        CHECK_CU(decoder->cudl->cuCtxPopCurrent(&dummy));
++                        return ret;
++                    }
++                    elem_size = ff_cuda_cuarray_elem_size(plane_desc.Format);
++                    if (elem_size <= 0)
++                        elem_size = 1;
++                    frame->linesize[p] = plane_desc.Width * plane_desc.NumChannels * elem_size;
++                }
++                CHECK_CU(decoder->cudl->cuCtxPopCurrent(&dummy));
++            }
++
++            frame->format = AV_PIX_FMT_CUARRAY;
++
++            if (decoder->unsafe_output)
++                return 0;
++
++            return av_frame_make_writable(frame);
++        }
++    }
++#endif
++
+     vpp.progressive_frame = 1;
+     vpp.output_stream = decoder->stream;
+ 
+@@ -663,7 +1054,14 @@ int ff_nvdec_end_frame(AVCodecContext *avctx)
+     if (ret < 0)
+         return ret;
+ 
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++    if (decoder->opaque_output && decoder->cvdl->cuvidDecodePictureAsync)
++        ret = CHECK_CU(decoder->cvdl->cuvidDecodePictureAsync(decoder->decoder, &ctx->pic_params, decoder->stream));
++    else
++        ret = CHECK_CU(decoder->cvdl->cuvidDecodePicture(decoder->decoder, &ctx->pic_params));
++#else
+     ret = CHECK_CU(decoder->cvdl->cuvidDecodePicture(decoder->decoder, &ctx->pic_params));
++#endif
+     if (ret < 0)
+         goto finish;
+ 
+@@ -731,7 +1129,8 @@ int ff_nvdec_frame_params(AVCodecContext *avctx,
+     }
+     chroma_444 = supports_444 && cuvid_chroma_format == cudaVideoChromaFormat_444;
+ 
+-    frames_ctx->format            = AV_PIX_FMT_CUDA;
++    frames_ctx->format            = (avctx->hwaccel->pix_fmt == AV_PIX_FMT_CUARRAY)
++                                    ? AV_PIX_FMT_CUARRAY : AV_PIX_FMT_CUDA;
+     // NVDEC target dimensions must be even-aligned for internal surface allocation.
+     // For chroma-subsampled formats (420/422), the output dimensions must also be
+     // even. For monochrome/444, keep the original output dimensions and only
+@@ -753,7 +1152,8 @@ int ff_nvdec_frame_params(AVCodecContext *avctx,
+     switch (sw_desc->comp[0].depth) {
+     case 8:
+         if (chroma_444) {
+-            frames_ctx->sw_format = AV_PIX_FMT_YUV444P;
++            frames_ctx->sw_format = (frames_ctx->format == AV_PIX_FMT_CUARRAY)
++                                    ? AV_PIX_FMT_NV24 : AV_PIX_FMT_YUV444P;
+ #ifdef NVDEC_HAVE_422_SUPPORT
+         } else if (cuvid_chroma_format == cudaVideoChromaFormat_422) {
+             frames_ctx->sw_format = AV_PIX_FMT_NV16;
+@@ -765,5 +1165,6 @@ int ff_nvdec_frame_params(AVCodecContext *avctx,
+     case 10:
+         if (chroma_444) {
+-            frames_ctx->sw_format = AV_PIX_FMT_YUV444P10MSB;
++            frames_ctx->sw_format = (frames_ctx->format == AV_PIX_FMT_CUARRAY)
++                                    ? AV_PIX_FMT_P410 : AV_PIX_FMT_YUV444P10MSB;
+ #ifdef NVDEC_HAVE_422_SUPPORT
+         } else if (cuvid_chroma_format == cudaVideoChromaFormat_422) {
+@@ -780,5 +1182,6 @@ int ff_nvdec_frame_params(AVCodecContext *avctx,
+     case 12:
+         if (chroma_444) {
+-            frames_ctx->sw_format = AV_PIX_FMT_YUV444P12MSB;
++            frames_ctx->sw_format = (frames_ctx->format == AV_PIX_FMT_CUARRAY)
++                                    ? AV_PIX_FMT_P412 : AV_PIX_FMT_YUV444P12MSB;
+ #ifdef NVDEC_HAVE_422_SUPPORT
+         } else if (cuvid_chroma_format == cudaVideoChromaFormat_422) {
+diff --git a/libavcodec/nvdec.h b/libavcodec/nvdec.h
+index 2e80c0dc1e..756192acd2 100644
+--- a/libavcodec/nvdec.h
++++ b/libavcodec/nvdec.h
+@@ -46,6 +46,11 @@
+ #define NVDEC_HAVE_422_SUPPORT
+ #endif
+ 
++// SDK 13.1 compile time feature checks
++#if NVDECAPI_CHECK_VERSION(13, 1)
++#define NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++#endif
++
+ typedef struct NVDECFrame {
+     unsigned int idx;
+     unsigned int ref_idx;
+@@ -87,4 +92,10 @@ int ff_nvdec_frame_params(AVCodecContext *avctx,
+                           int supports_444);
+ int ff_nvdec_get_ref_idx(AVFrame *frame);
+ 
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++void ff_nvdec_fill_cuarray_desc(CUDA_ARRAY3D_DESCRIPTOR *desc,
++                                AVCodecContext *avctx,
++                                cudaVideoSurfaceFormat output_format);
++#endif
++
+ #endif /* AVCODEC_NVDEC_H */
+-- 
+2.52.0
+
+
+From 54ab6333f51b6066577f0a9829a039f02a72c2ea Mon Sep 17 00:00:00 2001
+From: Diego de Souza <ddesouza@nvidia.com>
+Date: Sat, 14 Mar 2026 01:31:56 +0100
+Subject: [PATCH 4/8] avcodec/nvdec: register CUARRAY hwaccel variants for all
+ supported codecs
+
+Add CUARRAY hwaccel structs (ff_<codec>_nvdec_cuarray_hwaccel) and the
+corresponding AV_PIX_FMT_CUARRAY entries in each decoder's pixel format
+negotiation list. This allows decoders to advertise CUARRAY as a
+supported hardware output format alongside AV_PIX_FMT_CUDA.
+
+Codecs: H.264, HEVC, AV1, MPEG-1, MPEG-2, MPEG-4, VC-1, WMV3, VP8, VP9.
+
+Signed-off-by: Diego de Souza <ddesouza@nvidia.com>
+---
+ libavcodec/av1dec.c        |  7 ++++++-
+ libavcodec/h263dec.c       |  2 ++
+ libavcodec/h264_slice.c    |  4 +++-
+ libavcodec/h264dec.c       |  1 +
+ libavcodec/hevc/hevcdec.c  |  9 ++++++++-
+ libavcodec/hwaccels.h      | 10 ++++++++++
+ libavcodec/hwconfig.h      |  2 ++
+ libavcodec/mpeg12dec.c     |  4 ++++
+ libavcodec/mpeg4videodec.c |  1 +
+ libavcodec/nvdec_av1.c     | 14 ++++++++++++++
+ libavcodec/nvdec_h264.c    | 14 ++++++++++++++
+ libavcodec/nvdec_hevc.c    | 14 ++++++++++++++
+ libavcodec/nvdec_mpeg12.c  | 28 ++++++++++++++++++++++++++++
+ libavcodec/nvdec_mpeg4.c   | 14 ++++++++++++++
+ libavcodec/nvdec_vc1.c     | 28 ++++++++++++++++++++++++++++
+ libavcodec/nvdec_vp8.c     | 14 ++++++++++++++
+ libavcodec/nvdec_vp9.c     | 14 ++++++++++++++
+ libavcodec/vc1dec.c        |  2 ++
+ libavcodec/vp8.c           |  2 ++
+ libavcodec/vp9.c           |  5 ++++-
+ 20 files changed, 185 insertions(+), 4 deletions(-)
+
+diff --git a/libavcodec/av1dec.c b/libavcodec/av1dec.c
+index 424bbfc431..7649db4c5b 100644
+--- a/libavcodec/av1dec.c
++++ b/libavcodec/av1dec.c
+@@ -542,7 +542,7 @@ static int get_pixel_format(AVCodecContext *avctx)
+ #define HWACCEL_MAX (CONFIG_AV1_DXVA2_HWACCEL + \
+                      CONFIG_AV1_D3D11VA_HWACCEL * 2 + \
+                      CONFIG_AV1_D3D12VA_HWACCEL + \
+-                     CONFIG_AV1_NVDEC_HWACCEL + \
++                     CONFIG_AV1_NVDEC_HWACCEL * 2 + \
+                      CONFIG_AV1_VAAPI_HWACCEL + \
+                      CONFIG_AV1_VDPAU_HWACCEL + \
+                      CONFIG_AV1_VIDEOTOOLBOX_HWACCEL + \
+@@ -566,6 +566,7 @@ static int get_pixel_format(AVCodecContext *avctx)
+ #endif
+ #if CONFIG_AV1_NVDEC_HWACCEL
+         *fmtp++ = AV_PIX_FMT_CUDA;
++        *fmtp++ = AV_PIX_FMT_CUARRAY;
+ #endif
+ #if CONFIG_AV1_VAAPI_HWACCEL
+         *fmtp++ = AV_PIX_FMT_VAAPI;
+@@ -593,6 +594,7 @@ static int get_pixel_format(AVCodecContext *avctx)
+ #endif
+ #if CONFIG_AV1_NVDEC_HWACCEL
+         *fmtp++ = AV_PIX_FMT_CUDA;
++        *fmtp++ = AV_PIX_FMT_CUARRAY;
+ #endif
+ #if CONFIG_AV1_VAAPI_HWACCEL
+         *fmtp++ = AV_PIX_FMT_VAAPI;
+@@ -645,11 +647,13 @@ static int get_pixel_format(AVCodecContext *avctx)
+     case AV_PIX_FMT_GRAY8:
+ #if CONFIG_AV1_NVDEC_HWACCEL
+         *fmtp++ = AV_PIX_FMT_CUDA;
++        *fmtp++ = AV_PIX_FMT_CUARRAY;
+ #endif
+         break;
+     case AV_PIX_FMT_GRAY10:
+ #if CONFIG_AV1_NVDEC_HWACCEL
+         *fmtp++ = AV_PIX_FMT_CUDA;
++        *fmtp++ = AV_PIX_FMT_CUARRAY;
+ #endif
+         break;
+     }
+@@ -1563,6 +1567,7 @@ const FFCodec ff_av1_decoder = {
+ #endif
+ #if CONFIG_AV1_NVDEC_HWACCEL
+         HWACCEL_NVDEC(av1),
++        HWACCEL_NVDEC_CUARRAY(av1),
+ #endif
+ #if CONFIG_AV1_VAAPI_HWACCEL
+         HWACCEL_VAAPI(av1),
+diff --git a/libavcodec/h263dec.c b/libavcodec/h263dec.c
+index 23fd16b726..3a90e23669 100644
+--- a/libavcodec/h263dec.c
++++ b/libavcodec/h263dec.c
+@@ -55,6 +55,7 @@ static const enum AVPixelFormat h263_hwaccel_pixfmt_list_420[] = {
+ #endif
+ #if CONFIG_MPEG4_NVDEC_HWACCEL
+     AV_PIX_FMT_CUDA,
++    AV_PIX_FMT_CUARRAY,
+ #endif
+ #if CONFIG_MPEG4_VDPAU_HWACCEL
+     AV_PIX_FMT_VDPAU,
+@@ -667,6 +668,7 @@ static const AVCodecHWConfigInternal *const h263_hw_config_list[] = {
+ #endif
+ #if CONFIG_MPEG4_NVDEC_HWACCEL
+     HWACCEL_NVDEC(mpeg4),
++    HWACCEL_NVDEC_CUARRAY(mpeg4),
+ #endif
+ #if CONFIG_MPEG4_VDPAU_HWACCEL
+     HWACCEL_VDPAU(mpeg4),
+diff --git a/libavcodec/h264_slice.c b/libavcodec/h264_slice.c
+index 7e2c460293..761248f588 100644
+--- a/libavcodec/h264_slice.c
++++ b/libavcodec/h264_slice.c
+@@ -789,7 +789,7 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
+ #define HWACCEL_MAX (CONFIG_H264_DXVA2_HWACCEL + \
+                      (CONFIG_H264_D3D11VA_HWACCEL * 2) + \
+                      CONFIG_H264_D3D12VA_HWACCEL + \
+-                     CONFIG_H264_NVDEC_HWACCEL + \
++                     (CONFIG_H264_NVDEC_HWACCEL * 2) + \
+                      CONFIG_H264_VAAPI_HWACCEL + \
+                      CONFIG_H264_VIDEOTOOLBOX_HWACCEL + \
+                      CONFIG_H264_VDPAU_HWACCEL + \
+@@ -818,6 +818,7 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
+ #endif
+ #if CONFIG_H264_NVDEC_HWACCEL
+         *fmt++ = AV_PIX_FMT_CUDA;
++        *fmt++ = AV_PIX_FMT_CUARRAY;
+ #endif
+         if (CHROMA444(h)) {
+             if (h->avctx->colorspace == AVCOL_SPC_RGB) {
+@@ -870,6 +871,7 @@ static enum AVPixelFormat get_pixel_format(H264Context *h, int force_callback)
+ #endif
+ #if CONFIG_H264_NVDEC_HWACCEL
+         *fmt++ = AV_PIX_FMT_CUDA;
++        *fmt++ = AV_PIX_FMT_CUARRAY;
+ #endif
+ #if CONFIG_H264_VIDEOTOOLBOX_HWACCEL
+         if (h->avctx->colorspace != AVCOL_SPC_RGB)
+diff --git a/libavcodec/h264dec.c b/libavcodec/h264dec.c
+index ca65df2b84..1bb1ffe578 100644
+--- a/libavcodec/h264dec.c
++++ b/libavcodec/h264dec.c
+@@ -1133,6 +1133,7 @@ const FFCodec ff_h264_decoder = {
+ #endif
+ #if CONFIG_H264_NVDEC_HWACCEL
+                                HWACCEL_NVDEC(h264),
++                               HWACCEL_NVDEC_CUARRAY(h264),
+ #endif
+ #if CONFIG_H264_VAAPI_HWACCEL
+                                HWACCEL_VAAPI(h264),
+diff --git a/libavcodec/hevc/hevcdec.c b/libavcodec/hevc/hevcdec.c
+index 304c7447ca..ab4e2be19b 100644
+--- a/libavcodec/hevc/hevcdec.c
++++ b/libavcodec/hevc/hevcdec.c
+@@ -580,7 +580,7 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+ #define HWACCEL_MAX (CONFIG_HEVC_DXVA2_HWACCEL + \
+                      CONFIG_HEVC_D3D11VA_HWACCEL * 2 + \
+                      CONFIG_HEVC_D3D12VA_HWACCEL + \
+-                     CONFIG_HEVC_NVDEC_HWACCEL + \
++                     CONFIG_HEVC_NVDEC_HWACCEL * 2 + \
+                      CONFIG_HEVC_VAAPI_HWACCEL + \
+                      CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL + \
+                      CONFIG_HEVC_VDPAU_HWACCEL + \
+@@ -613,6 +613,7 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+ #endif
+ #if CONFIG_HEVC_NVDEC_HWACCEL
+         *fmt++ = AV_PIX_FMT_CUDA;
++        *fmt++ = AV_PIX_FMT_CUARRAY;
+ #endif
+ #if CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL
+         *fmt++ = AV_PIX_FMT_VIDEOTOOLBOX;
+@@ -646,6 +647,7 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+ #endif
+ #if CONFIG_HEVC_NVDEC_HWACCEL
+         *fmt++ = AV_PIX_FMT_CUDA;
++        *fmt++ = AV_PIX_FMT_CUARRAY;
+ #endif
+         break;
+     case AV_PIX_FMT_YUV444P:
+@@ -657,6 +659,7 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+ #endif
+ #if CONFIG_HEVC_NVDEC_HWACCEL
+         *fmt++ = AV_PIX_FMT_CUDA;
++        *fmt++ = AV_PIX_FMT_CUARRAY;
+ #endif
+ #if CONFIG_HEVC_VIDEOTOOLBOX_HWACCEL
+         *fmt++ = AV_PIX_FMT_VIDEOTOOLBOX;
+@@ -678,6 +681,7 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+ #endif
+ #if CONFIG_HEVC_NVDEC_HWACCEL
+         *fmt++ = AV_PIX_FMT_CUDA;
++        *fmt++ = AV_PIX_FMT_CUARRAY;
+ #endif
+         break;
+     case AV_PIX_FMT_YUV444P10:
+@@ -698,6 +702,7 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+ #endif
+ #if CONFIG_HEVC_NVDEC_HWACCEL
+         *fmt++ = AV_PIX_FMT_CUDA;
++        *fmt++ = AV_PIX_FMT_CUARRAY;
+ #endif
+         break;
+     case AV_PIX_FMT_YUV422P12:
+@@ -709,6 +714,7 @@ static enum AVPixelFormat get_format(HEVCContext *s, const HEVCSPS *sps)
+ #endif
+ #if CONFIG_HEVC_NVDEC_HWACCEL
+         *fmt++ = AV_PIX_FMT_CUDA;
++        *fmt++ = AV_PIX_FMT_CUARRAY;
+ #endif
+         break;
+     }
+@@ -4276,6 +4282,7 @@ const FFCodec ff_hevc_decoder = {
+ #endif
+ #if CONFIG_HEVC_NVDEC_HWACCEL
+                                HWACCEL_NVDEC(hevc),
++                               HWACCEL_NVDEC_CUARRAY(hevc),
+ #endif
+ #if CONFIG_HEVC_VAAPI_HWACCEL
+                                HWACCEL_VAAPI(hevc),
+diff --git a/libavcodec/hwaccels.h b/libavcodec/hwaccels.h
+index 4f8da46c13..e593bf3b71 100644
+--- a/libavcodec/hwaccels.h
++++ b/libavcodec/hwaccels.h
+@@ -25,6 +25,7 @@ extern const struct FFHWAccel ff_av1_d3d11va2_hwaccel;
+ extern const struct FFHWAccel ff_av1_d3d12va_hwaccel;
+ extern const struct FFHWAccel ff_av1_dxva2_hwaccel;
+ extern const struct FFHWAccel ff_av1_nvdec_hwaccel;
++extern const struct FFHWAccel ff_av1_nvdec_cuarray_hwaccel;
+ extern const struct FFHWAccel ff_av1_vaapi_hwaccel;
+ extern const struct FFHWAccel ff_av1_vdpau_hwaccel;
+ extern const struct FFHWAccel ff_av1_videotoolbox_hwaccel;
+@@ -38,6 +39,7 @@ extern const struct FFHWAccel ff_h264_d3d11va2_hwaccel;
+ extern const struct FFHWAccel ff_h264_d3d12va_hwaccel;
+ extern const struct FFHWAccel ff_h264_dxva2_hwaccel;
+ extern const struct FFHWAccel ff_h264_nvdec_hwaccel;
++extern const struct FFHWAccel ff_h264_nvdec_cuarray_hwaccel;
+ extern const struct FFHWAccel ff_h264_vaapi_hwaccel;
+ extern const struct FFHWAccel ff_h264_vdpau_hwaccel;
+ extern const struct FFHWAccel ff_h264_videotoolbox_hwaccel;
+@@ -47,6 +49,7 @@ extern const struct FFHWAccel ff_hevc_d3d11va2_hwaccel;
+ extern const struct FFHWAccel ff_hevc_d3d12va_hwaccel;
+ extern const struct FFHWAccel ff_hevc_dxva2_hwaccel;
+ extern const struct FFHWAccel ff_hevc_nvdec_hwaccel;
++extern const struct FFHWAccel ff_hevc_nvdec_cuarray_hwaccel;
+ extern const struct FFHWAccel ff_hevc_vaapi_hwaccel;
+ extern const struct FFHWAccel ff_hevc_vdpau_hwaccel;
+ extern const struct FFHWAccel ff_hevc_videotoolbox_hwaccel;
+@@ -54,6 +57,7 @@ extern const struct FFHWAccel ff_hevc_vulkan_hwaccel;
+ extern const struct FFHWAccel ff_mjpeg_nvdec_hwaccel;
+ extern const struct FFHWAccel ff_mjpeg_vaapi_hwaccel;
+ extern const struct FFHWAccel ff_mpeg1_nvdec_hwaccel;
++extern const struct FFHWAccel ff_mpeg1_nvdec_cuarray_hwaccel;
+ extern const struct FFHWAccel ff_mpeg1_vdpau_hwaccel;
+ extern const struct FFHWAccel ff_mpeg1_videotoolbox_hwaccel;
+ extern const struct FFHWAccel ff_mpeg2_d3d11va_hwaccel;
+@@ -61,10 +65,12 @@ extern const struct FFHWAccel ff_mpeg2_d3d11va2_hwaccel;
+ extern const struct FFHWAccel ff_mpeg2_d3d12va_hwaccel;
+ extern const struct FFHWAccel ff_mpeg2_dxva2_hwaccel;
+ extern const struct FFHWAccel ff_mpeg2_nvdec_hwaccel;
++extern const struct FFHWAccel ff_mpeg2_nvdec_cuarray_hwaccel;
+ extern const struct FFHWAccel ff_mpeg2_vaapi_hwaccel;
+ extern const struct FFHWAccel ff_mpeg2_vdpau_hwaccel;
+ extern const struct FFHWAccel ff_mpeg2_videotoolbox_hwaccel;
+ extern const struct FFHWAccel ff_mpeg4_nvdec_hwaccel;
++extern const struct FFHWAccel ff_mpeg4_nvdec_cuarray_hwaccel;
+ extern const struct FFHWAccel ff_mpeg4_vaapi_hwaccel;
+ extern const struct FFHWAccel ff_mpeg4_vdpau_hwaccel;
+ extern const struct FFHWAccel ff_mpeg4_videotoolbox_hwaccel;
+@@ -77,15 +83,18 @@ extern const struct FFHWAccel ff_vc1_d3d11va2_hwaccel;
+ extern const struct FFHWAccel ff_vc1_d3d12va_hwaccel;
+ extern const struct FFHWAccel ff_vc1_dxva2_hwaccel;
+ extern const struct FFHWAccel ff_vc1_nvdec_hwaccel;
++extern const struct FFHWAccel ff_vc1_nvdec_cuarray_hwaccel;
+ extern const struct FFHWAccel ff_vc1_vaapi_hwaccel;
+ extern const struct FFHWAccel ff_vc1_vdpau_hwaccel;
+ extern const struct FFHWAccel ff_vp8_nvdec_hwaccel;
++extern const struct FFHWAccel ff_vp8_nvdec_cuarray_hwaccel;
+ extern const struct FFHWAccel ff_vp8_vaapi_hwaccel;
+ extern const struct FFHWAccel ff_vp9_d3d11va_hwaccel;
+ extern const struct FFHWAccel ff_vp9_d3d11va2_hwaccel;
+ extern const struct FFHWAccel ff_vp9_d3d12va_hwaccel;
+ extern const struct FFHWAccel ff_vp9_dxva2_hwaccel;
+ extern const struct FFHWAccel ff_vp9_nvdec_hwaccel;
++extern const struct FFHWAccel ff_vp9_nvdec_cuarray_hwaccel;
+ extern const struct FFHWAccel ff_vp9_vaapi_hwaccel;
+ extern const struct FFHWAccel ff_vp9_vdpau_hwaccel;
+ extern const struct FFHWAccel ff_vp9_videotoolbox_hwaccel;
+@@ -96,6 +105,7 @@ extern const struct FFHWAccel ff_wmv3_d3d11va2_hwaccel;
+ extern const struct FFHWAccel ff_wmv3_d3d12va_hwaccel;
+ extern const struct FFHWAccel ff_wmv3_dxva2_hwaccel;
+ extern const struct FFHWAccel ff_wmv3_nvdec_hwaccel;
++extern const struct FFHWAccel ff_wmv3_nvdec_cuarray_hwaccel;
+ extern const struct FFHWAccel ff_wmv3_vaapi_hwaccel;
+ extern const struct FFHWAccel ff_wmv3_vdpau_hwaccel;
+ 
+diff --git a/libavcodec/hwconfig.h b/libavcodec/hwconfig.h
+index ee29ca631d..c7b1888017 100644
+--- a/libavcodec/hwconfig.h
++++ b/libavcodec/hwconfig.h
+@@ -67,6 +67,8 @@ void ff_hwaccel_uninit(AVCodecContext *avctx);
+     HW_CONFIG_HWACCEL(1, 1, 0, D3D11,        D3D11VA,      ff_ ## codec ## _d3d11va2_hwaccel)
+ #define HWACCEL_NVDEC(codec) \
+     HW_CONFIG_HWACCEL(1, 1, 0, CUDA,         CUDA,         ff_ ## codec ## _nvdec_hwaccel)
++#define HWACCEL_NVDEC_CUARRAY(codec) \
++    HW_CONFIG_HWACCEL(1, 1, 0, CUARRAY,      CUDA,         ff_ ## codec ## _nvdec_cuarray_hwaccel)
+ #define HWACCEL_VAAPI(codec) \
+     HW_CONFIG_HWACCEL(1, 1, 1, VAAPI,        VAAPI,        ff_ ## codec ## _vaapi_hwaccel)
+ #define HWACCEL_VDPAU(codec) \
+diff --git a/libavcodec/mpeg12dec.c b/libavcodec/mpeg12dec.c
+index ce3066e4a0..19f2cbb2ce 100644
+--- a/libavcodec/mpeg12dec.c
++++ b/libavcodec/mpeg12dec.c
+@@ -790,6 +790,7 @@ static av_cold int mpeg_decode_init(AVCodecContext *avctx)
+ static const enum AVPixelFormat mpeg1_hwaccel_pixfmt_list_420[] = {
+ #if CONFIG_MPEG1_NVDEC_HWACCEL
+     AV_PIX_FMT_CUDA,
++    AV_PIX_FMT_CUARRAY,
+ #endif
+ #if CONFIG_MPEG1_VDPAU_HWACCEL
+     AV_PIX_FMT_VDPAU,
+@@ -801,6 +802,7 @@ static const enum AVPixelFormat mpeg1_hwaccel_pixfmt_list_420[] = {
+ static const enum AVPixelFormat mpeg2_hwaccel_pixfmt_list_420[] = {
+ #if CONFIG_MPEG2_NVDEC_HWACCEL
+     AV_PIX_FMT_CUDA,
++    AV_PIX_FMT_CUARRAY,
+ #endif
+ #if CONFIG_MPEG2_VDPAU_HWACCEL
+     AV_PIX_FMT_VDPAU,
+@@ -2653,6 +2655,7 @@ const FFCodec ff_mpeg1video_decoder = {
+     .hw_configs            = (const AVCodecHWConfigInternal *const []) {
+ #if CONFIG_MPEG1_NVDEC_HWACCEL
+                                HWACCEL_NVDEC(mpeg1),
++                               HWACCEL_NVDEC_CUARRAY(mpeg1),
+ #endif
+ #if CONFIG_MPEG1_VDPAU_HWACCEL
+                                HWACCEL_VDPAU(mpeg1),
+@@ -2724,6 +2727,7 @@ const FFCodec ff_mpeg2video_decoder = {
+ #endif
+ #if CONFIG_MPEG2_NVDEC_HWACCEL
+                         HWACCEL_NVDEC(mpeg2),
++                        HWACCEL_NVDEC_CUARRAY(mpeg2),
+ #endif
+ #if CONFIG_MPEG2_VAAPI_HWACCEL
+                         HWACCEL_VAAPI(mpeg2),
+diff --git a/libavcodec/mpeg4videodec.c b/libavcodec/mpeg4videodec.c
+index 3d20f7c389..e6ac96c668 100644
+--- a/libavcodec/mpeg4videodec.c
++++ b/libavcodec/mpeg4videodec.c
+@@ -4100,6 +4100,7 @@ const FFCodec ff_mpeg4_decoder = {
+     .hw_configs            = (const AVCodecHWConfigInternal *const []) {
+ #if CONFIG_MPEG4_NVDEC_HWACCEL
+                                HWACCEL_NVDEC(mpeg4),
++                               HWACCEL_NVDEC_CUARRAY(mpeg4),
+ #endif
+ #if CONFIG_MPEG4_VAAPI_HWACCEL
+                                HWACCEL_VAAPI(mpeg4),
+diff --git a/libavcodec/nvdec_av1.c b/libavcodec/nvdec_av1.c
+index d07fe6324c..87ce7aef3e 100644
+--- a/libavcodec/nvdec_av1.c
++++ b/libavcodec/nvdec_av1.c
+@@ -352,3 +352,17 @@ const FFHWAccel ff_av1_nvdec_hwaccel = {
+     .uninit               = ff_nvdec_decode_uninit,
+     .priv_data_size       = sizeof(NVDECContext),
+ };
++
++const FFHWAccel ff_av1_nvdec_cuarray_hwaccel = {
++    .p.name               = "av1_nvdec_cuarray",
++    .p.type               = AVMEDIA_TYPE_VIDEO,
++    .p.id                 = AV_CODEC_ID_AV1,
++    .p.pix_fmt            = AV_PIX_FMT_CUARRAY,
++    .start_frame          = nvdec_av1_start_frame,
++    .end_frame            = ff_nvdec_simple_end_frame,
++    .decode_slice         = nvdec_av1_decode_slice,
++    .frame_params         = nvdec_av1_frame_params,
++    .init                 = ff_nvdec_decode_init,
++    .uninit               = ff_nvdec_decode_uninit,
++    .priv_data_size       = sizeof(NVDECContext),
++};
+diff --git a/libavcodec/nvdec_h264.c b/libavcodec/nvdec_h264.c
+index 54c98e611d..b92f88ce36 100644
+--- a/libavcodec/nvdec_h264.c
++++ b/libavcodec/nvdec_h264.c
+@@ -185,3 +185,17 @@ const FFHWAccel ff_h264_nvdec_hwaccel = {
+     .uninit               = ff_nvdec_decode_uninit,
+     .priv_data_size       = sizeof(NVDECContext),
+ };
++
++const FFHWAccel ff_h264_nvdec_cuarray_hwaccel = {
++    .p.name               = "h264_nvdec_cuarray",
++    .p.type               = AVMEDIA_TYPE_VIDEO,
++    .p.id                 = AV_CODEC_ID_H264,
++    .p.pix_fmt            = AV_PIX_FMT_CUARRAY,
++    .start_frame          = nvdec_h264_start_frame,
++    .end_frame            = ff_nvdec_end_frame,
++    .decode_slice         = nvdec_h264_decode_slice,
++    .frame_params         = nvdec_h264_frame_params,
++    .init                 = ff_nvdec_decode_init,
++    .uninit               = ff_nvdec_decode_uninit,
++    .priv_data_size       = sizeof(NVDECContext),
++};
+diff --git a/libavcodec/nvdec_hevc.c b/libavcodec/nvdec_hevc.c
+index 2b9df3e702..8479a652b4 100644
+--- a/libavcodec/nvdec_hevc.c
++++ b/libavcodec/nvdec_hevc.c
+@@ -334,3 +334,17 @@ const FFHWAccel ff_hevc_nvdec_hwaccel = {
+     .uninit               = ff_nvdec_decode_uninit,
+     .priv_data_size       = sizeof(NVDECContext),
+ };
++
++const FFHWAccel ff_hevc_nvdec_cuarray_hwaccel = {
++    .p.name               = "hevc_nvdec_cuarray",
++    .p.type               = AVMEDIA_TYPE_VIDEO,
++    .p.id                 = AV_CODEC_ID_HEVC,
++    .p.pix_fmt            = AV_PIX_FMT_CUARRAY,
++    .start_frame          = nvdec_hevc_start_frame,
++    .end_frame            = ff_nvdec_end_frame,
++    .decode_slice         = nvdec_hevc_decode_slice,
++    .frame_params         = nvdec_hevc_frame_params,
++    .init                 = nvdec_hevc_decode_init,
++    .uninit               = ff_nvdec_decode_uninit,
++    .priv_data_size       = sizeof(NVDECContext),
++};
+diff --git a/libavcodec/nvdec_mpeg12.c b/libavcodec/nvdec_mpeg12.c
+index ca0a1001dc..f5fd0116c5 100644
+--- a/libavcodec/nvdec_mpeg12.c
++++ b/libavcodec/nvdec_mpeg12.c
+@@ -116,6 +116,20 @@ const FFHWAccel ff_mpeg2_nvdec_hwaccel = {
+     .uninit               = ff_nvdec_decode_uninit,
+     .priv_data_size       = sizeof(NVDECContext),
+ };
++
++const FFHWAccel ff_mpeg2_nvdec_cuarray_hwaccel = {
++    .p.name               = "mpeg2_nvdec_cuarray",
++    .p.type               = AVMEDIA_TYPE_VIDEO,
++    .p.id                 = AV_CODEC_ID_MPEG2VIDEO,
++    .p.pix_fmt            = AV_PIX_FMT_CUARRAY,
++    .start_frame          = nvdec_mpeg12_start_frame,
++    .end_frame            = ff_nvdec_simple_end_frame,
++    .decode_slice         = ff_nvdec_simple_decode_slice,
++    .frame_params         = nvdec_mpeg12_frame_params,
++    .init                 = ff_nvdec_decode_init,
++    .uninit               = ff_nvdec_decode_uninit,
++    .priv_data_size       = sizeof(NVDECContext),
++};
+ #endif
+ 
+ #if CONFIG_MPEG1_NVDEC_HWACCEL
+@@ -132,4 +146,18 @@ const FFHWAccel ff_mpeg1_nvdec_hwaccel = {
+     .uninit               = ff_nvdec_decode_uninit,
+     .priv_data_size       = sizeof(NVDECContext),
+ };
++
++const FFHWAccel ff_mpeg1_nvdec_cuarray_hwaccel = {
++    .p.name               = "mpeg1_nvdec_cuarray",
++    .p.type               = AVMEDIA_TYPE_VIDEO,
++    .p.id                 = AV_CODEC_ID_MPEG1VIDEO,
++    .p.pix_fmt            = AV_PIX_FMT_CUARRAY,
++    .start_frame          = nvdec_mpeg12_start_frame,
++    .end_frame            = ff_nvdec_simple_end_frame,
++    .decode_slice         = ff_nvdec_simple_decode_slice,
++    .frame_params         = nvdec_mpeg12_frame_params,
++    .init                 = ff_nvdec_decode_init,
++    .uninit               = ff_nvdec_decode_uninit,
++    .priv_data_size       = sizeof(NVDECContext),
++};
+ #endif
+diff --git a/libavcodec/nvdec_mpeg4.c b/libavcodec/nvdec_mpeg4.c
+index 369bd5b997..aafb0bf8fb 100644
+--- a/libavcodec/nvdec_mpeg4.c
++++ b/libavcodec/nvdec_mpeg4.c
+@@ -125,3 +125,17 @@ const FFHWAccel ff_mpeg4_nvdec_hwaccel = {
+     .uninit               = ff_nvdec_decode_uninit,
+     .priv_data_size       = sizeof(NVDECContext),
+ };
++
++const FFHWAccel ff_mpeg4_nvdec_cuarray_hwaccel = {
++    .p.name               = "mpeg4_nvdec_cuarray",
++    .p.type               = AVMEDIA_TYPE_VIDEO,
++    .p.id                 = AV_CODEC_ID_MPEG4,
++    .p.pix_fmt            = AV_PIX_FMT_CUARRAY,
++    .start_frame          = nvdec_mpeg4_start_frame,
++    .end_frame            = ff_nvdec_simple_end_frame,
++    .decode_slice         = nvdec_mpeg4_decode_slice,
++    .frame_params         = nvdec_mpeg4_frame_params,
++    .init                 = ff_nvdec_decode_init,
++    .uninit               = ff_nvdec_decode_uninit,
++    .priv_data_size       = sizeof(NVDECContext),
++};
+diff --git a/libavcodec/nvdec_vc1.c b/libavcodec/nvdec_vc1.c
+index d00cf5237a..ce24d8b04b 100644
+--- a/libavcodec/nvdec_vc1.c
++++ b/libavcodec/nvdec_vc1.c
+@@ -173,6 +173,20 @@ const FFHWAccel ff_vc1_nvdec_hwaccel = {
+     .priv_data_size       = sizeof(NVDECContext),
+ };
+ 
++const FFHWAccel ff_vc1_nvdec_cuarray_hwaccel = {
++    .p.name               = "vc1_nvdec_cuarray",
++    .p.type               = AVMEDIA_TYPE_VIDEO,
++    .p.id                 = AV_CODEC_ID_VC1,
++    .p.pix_fmt            = AV_PIX_FMT_CUARRAY,
++    .start_frame          = nvdec_vc1_start_frame,
++    .end_frame            = ff_nvdec_simple_end_frame,
++    .decode_slice         = nvdec_vc1_decode_slice,
++    .frame_params         = nvdec_vc1_frame_params,
++    .init                 = ff_nvdec_decode_init,
++    .uninit               = ff_nvdec_decode_uninit,
++    .priv_data_size       = sizeof(NVDECContext),
++};
++
+ #if CONFIG_WMV3_NVDEC_HWACCEL
+ const FFHWAccel ff_wmv3_nvdec_hwaccel = {
+     .p.name               = "wmv3_nvdec",
+@@ -187,4 +201,18 @@ const FFHWAccel ff_wmv3_nvdec_hwaccel = {
+     .uninit               = ff_nvdec_decode_uninit,
+     .priv_data_size       = sizeof(NVDECContext),
+ };
++
++const FFHWAccel ff_wmv3_nvdec_cuarray_hwaccel = {
++    .p.name               = "wmv3_nvdec_cuarray",
++    .p.type               = AVMEDIA_TYPE_VIDEO,
++    .p.id                 = AV_CODEC_ID_WMV3,
++    .p.pix_fmt            = AV_PIX_FMT_CUARRAY,
++    .start_frame          = nvdec_vc1_start_frame,
++    .end_frame            = ff_nvdec_simple_end_frame,
++    .decode_slice         = ff_nvdec_simple_decode_slice,
++    .frame_params         = nvdec_vc1_frame_params,
++    .init                 = ff_nvdec_decode_init,
++    .uninit               = ff_nvdec_decode_uninit,
++    .priv_data_size       = sizeof(NVDECContext),
++};
+ #endif
+diff --git a/libavcodec/nvdec_vp8.c b/libavcodec/nvdec_vp8.c
+index e273a6ec35..0f01e4c696 100644
+--- a/libavcodec/nvdec_vp8.c
++++ b/libavcodec/nvdec_vp8.c
+@@ -106,3 +106,17 @@ const FFHWAccel ff_vp8_nvdec_hwaccel = {
+     .uninit               = ff_nvdec_decode_uninit,
+     .priv_data_size       = sizeof(NVDECContext),
+ };
++
++const FFHWAccel ff_vp8_nvdec_cuarray_hwaccel = {
++    .p.name               = "vp8_nvdec_cuarray",
++    .p.type               = AVMEDIA_TYPE_VIDEO,
++    .p.id                 = AV_CODEC_ID_VP8,
++    .p.pix_fmt            = AV_PIX_FMT_CUARRAY,
++    .start_frame          = nvdec_vp8_start_frame,
++    .end_frame            = ff_nvdec_simple_end_frame,
++    .decode_slice         = ff_nvdec_simple_decode_slice,
++    .frame_params         = nvdec_vp8_frame_params,
++    .init                 = ff_nvdec_decode_init,
++    .uninit               = ff_nvdec_decode_uninit,
++    .priv_data_size       = sizeof(NVDECContext),
++};
+diff --git a/libavcodec/nvdec_vp9.c b/libavcodec/nvdec_vp9.c
+index f83ff93818..70db8d6fce 100644
+--- a/libavcodec/nvdec_vp9.c
++++ b/libavcodec/nvdec_vp9.c
+@@ -185,3 +185,17 @@ const FFHWAccel ff_vp9_nvdec_hwaccel = {
+     .uninit               = ff_nvdec_decode_uninit,
+     .priv_data_size       = sizeof(NVDECContext),
+ };
++
++const FFHWAccel ff_vp9_nvdec_cuarray_hwaccel = {
++    .p.name               = "vp9_nvdec_cuarray",
++    .p.type               = AVMEDIA_TYPE_VIDEO,
++    .p.id                 = AV_CODEC_ID_VP9,
++    .p.pix_fmt            = AV_PIX_FMT_CUARRAY,
++    .start_frame          = nvdec_vp9_start_frame,
++    .end_frame            = ff_nvdec_simple_end_frame,
++    .decode_slice         = ff_nvdec_simple_decode_slice,
++    .frame_params         = nvdec_vp9_frame_params,
++    .init                 = ff_nvdec_decode_init,
++    .uninit               = ff_nvdec_decode_uninit,
++    .priv_data_size       = sizeof(NVDECContext),
++};
+diff --git a/libavcodec/vc1dec.c b/libavcodec/vc1dec.c
+index 12b1e09415..ab9288c22e 100644
+--- a/libavcodec/vc1dec.c
++++ b/libavcodec/vc1dec.c
+@@ -1416,6 +1416,7 @@ const FFCodec ff_vc1_decoder = {
+ #endif
+ #if CONFIG_VC1_NVDEC_HWACCEL
+                         HWACCEL_NVDEC(vc1),
++                        HWACCEL_NVDEC_CUARRAY(vc1),
+ #endif
+ #if CONFIG_VC1_VAAPI_HWACCEL
+                         HWACCEL_VAAPI(vc1),
+@@ -1455,6 +1456,7 @@ const FFCodec ff_wmv3_decoder = {
+ #endif
+ #if CONFIG_WMV3_NVDEC_HWACCEL
+                         HWACCEL_NVDEC(wmv3),
++                        HWACCEL_NVDEC_CUARRAY(wmv3),
+ #endif
+ #if CONFIG_WMV3_VAAPI_HWACCEL
+                         HWACCEL_VAAPI(wmv3),
+diff --git a/libavcodec/vp8.c b/libavcodec/vp8.c
+index c54e79173c..f4fa818b36 100644
+--- a/libavcodec/vp8.c
++++ b/libavcodec/vp8.c
+@@ -185,6 +185,7 @@ static enum AVPixelFormat get_pixel_format(VP8Context *s)
+ #endif
+ #if CONFIG_VP8_NVDEC_HWACCEL
+         AV_PIX_FMT_CUDA,
++        AV_PIX_FMT_CUARRAY,
+ #endif
+         AV_PIX_FMT_YUV420P,
+         AV_PIX_FMT_NONE,
+@@ -2976,6 +2977,7 @@ const FFCodec ff_vp8_decoder = {
+ #endif
+ #if CONFIG_VP8_NVDEC_HWACCEL
+                                HWACCEL_NVDEC(vp8),
++                               HWACCEL_NVDEC_CUARRAY(vp8),
+ #endif
+                                NULL
+                            },
+diff --git a/libavcodec/vp9.c b/libavcodec/vp9.c
+index 7957cbeab9..8e42df2c4c 100644
+--- a/libavcodec/vp9.c
++++ b/libavcodec/vp9.c
+@@ -167,7 +167,7 @@ static int update_size(AVCodecContext *avctx, int w, int h)
+ #define HWACCEL_MAX (CONFIG_VP9_DXVA2_HWACCEL + \
+                      CONFIG_VP9_D3D11VA_HWACCEL * 2 + \
+                      CONFIG_VP9_D3D12VA_HWACCEL + \
+-                     CONFIG_VP9_NVDEC_HWACCEL + \
++                     CONFIG_VP9_NVDEC_HWACCEL * 2 + \
+                      CONFIG_VP9_VAAPI_HWACCEL + \
+                      CONFIG_VP9_VDPAU_HWACCEL + \
+                      CONFIG_VP9_VIDEOTOOLBOX_HWACCEL + \
+@@ -201,6 +201,7 @@ static int update_size(AVCodecContext *avctx, int w, int h)
+ #endif
+ #if CONFIG_VP9_NVDEC_HWACCEL
+             *fmtp++ = AV_PIX_FMT_CUDA;
++            *fmtp++ = AV_PIX_FMT_CUARRAY;
+ #endif
+ #if CONFIG_VP9_VAAPI_HWACCEL
+             *fmtp++ = AV_PIX_FMT_VAAPI;
+@@ -218,6 +219,7 @@ static int update_size(AVCodecContext *avctx, int w, int h)
+         case AV_PIX_FMT_YUV420P12:
+ #if CONFIG_VP9_NVDEC_HWACCEL
+             *fmtp++ = AV_PIX_FMT_CUDA;
++            *fmtp++ = AV_PIX_FMT_CUARRAY;
+ #endif
+ #if CONFIG_VP9_VAAPI_HWACCEL
+             *fmtp++ = AV_PIX_FMT_VAAPI;
+@@ -1952,6 +1954,7 @@ const FFCodec ff_vp9_decoder = {
+ #endif
+ #if CONFIG_VP9_NVDEC_HWACCEL
+                                HWACCEL_NVDEC(vp9),
++                               HWACCEL_NVDEC_CUARRAY(vp9),
+ #endif
+ #if CONFIG_VP9_VAAPI_HWACCEL
+                                HWACCEL_VAAPI(vp9),
+-- 
+2.52.0
+
+
+From 56fa38dbeb310a1b1f8efb7d446256bcecb0f30c Mon Sep 17 00:00:00 2001
+From: Diego de Souza <ddesouza@nvidia.com>
+Date: Sat, 14 Mar 2026 01:33:08 +0100
+Subject: [PATCH 5/8] avcodec/cuviddec: add CUARRAY opaque output and zero-copy
+ support
+
+Implement opaque block-linear output for the CUVID decoder, mirroring
+the NVDEC hwaccel path but within the standalone CUVID demuxer/decoder.
+
+Key additions:
+  - output_format=cuarray option and zero_copy toggle
+  - CUarray surface creation and cuvidRegisterDecodeSurfaces
+  - Zero-copy path: frames reference decode CUarray surfaces directly
+  - Copy path: output surfaces allocated from the hwcontext_cuda pool
+  - Deferred decoder cleanup (CuvidDecoderCleanup) to handle the case
+    where surfaces outlive the decoder due to encoder buffering
+  - 444 chroma sw_pix_fmt remapping to semi-planar (NV24, P410, P412,
+    P416) to match the native CUarray layout
+  - Per-plane linesize derived from CUarray plane descriptors via
+    cuArrayGetPlane / cuArray3DGetDescriptor
+  - Crop, resize, and deinterlace forced off (with warnings) for
+    cuarray output, as the decode surfaces are used directly
+
+All opaque-specific code is guarded by NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT.
+
+Signed-off-by: Diego de Souza <ddesouza@nvidia.com>
+---
+ libavcodec/cuviddec.c | 629 +++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 592 insertions(+), 37 deletions(-)
+
+diff --git a/libavcodec/cuviddec.c b/libavcodec/cuviddec.c
+index 10e4cb3e21..e981f04b2a 100644
+--- a/libavcodec/cuviddec.c
++++ b/libavcodec/cuviddec.c
+@@ -21,6 +21,8 @@
+ 
+ #include "config_components.h"
+ 
++#include <stdatomic.h>
++
+ #include "compat/cuda/dynlink_loader.h"
+ 
+ #include "libavutil/buffer.h"
+@@ -51,6 +53,16 @@
+ #define CUVID_HAS_AV1_SUPPORT
+ #endif
+ 
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++typedef struct CuvidDecoderCleanup {
++    CUvideodecoder cudecoder;
++    CUarray *cuarray_surfaces;
++    int cuarray_num_surfaces;
++    AVBufferRef *hwdevice;
++    CuvidFunctions *cvdl;
++} CuvidDecoderCleanup;
++#endif
++
+ typedef struct CuvidContext
+ {
+     AVClass *avclass;
+@@ -92,6 +104,7 @@ typedef struct CuvidContext
+ 
+     int internal_error;
+     int decoder_flushing;
++    atomic_int abort_decode;
+ 
+     int *key_frame;
+ 
+@@ -105,6 +118,18 @@ typedef struct CuvidContext
+ 
+     CudaFunctions *cudl;
+     CuvidFunctions *cvdl;
++
++    enum AVPixelFormat output_format;
++    int zero_copy;
++    int opaque_output;
++    CUstream cuda_stream;
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++    CUarray *cuarray_surfaces;
++    int cuarray_num_surfaces;
++    AVBufferRef  *surface_in_use_ref;
++    atomic_int   *surface_in_use;
++    CuvidDecoderCleanup *decoder_cleanup;
++#endif
+ } CuvidContext;
+ 
+ typedef struct CuvidParsedFrame
+@@ -122,6 +147,104 @@ typedef struct CuvidParsedFrame
+ // Actual pool size will be determined by parser.
+ #define CUVID_DEFAULT_NUM_SURFACES (CUVID_MAX_DISPLAY_DELAY + 1)
+ 
++static int cuvid_get_requested_hw_format(AVCodecContext *avctx, CuvidContext *ctx,
++                                         enum AVPixelFormat *fmt)
++{
++    enum AVPixelFormat requested = ctx->output_format;
++
++    if (requested == AV_PIX_FMT_NONE)
++        requested = AV_PIX_FMT_CUDA;
++
++    if (ctx->zero_copy && requested != AV_PIX_FMT_CUARRAY) {
++        av_log(avctx, AV_LOG_WARNING,
++               "zero_copy requires cuarray output format; "
++               "overriding -output_format %s -> cuarray\n",
++               av_get_pix_fmt_name(requested) ? av_get_pix_fmt_name(requested) : "unknown");
++        requested = AV_PIX_FMT_CUARRAY;
++    }
++
++    switch (requested) {
++    case AV_PIX_FMT_CUDA:
++        break;
++    case AV_PIX_FMT_CUARRAY:
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++        break;
++#else
++        av_log(avctx, AV_LOG_ERROR,
++               "CUARRAY output requires Video Codec SDK 13.1 or later\n");
++        return AVERROR(ENOSYS);
++#endif
++    default:
++        av_log(avctx, AV_LOG_ERROR,
++               "Unsupported cuvid output format: %s\n",
++               av_get_pix_fmt_name(requested) ? av_get_pix_fmt_name(requested) : "unknown");
++        return AVERROR(EINVAL);
++    }
++
++    *fmt = requested;
++    return 0;
++}
++
++static void cuvid_prepare_format_list(enum AVPixelFormat *pix_fmts,
++                                      enum AVPixelFormat hw_format,
++                                      enum AVPixelFormat sw_format)
++{
++    pix_fmts[0] = hw_format;
++    pix_fmts[1] = sw_format;
++    pix_fmts[2] = AV_PIX_FMT_NONE;
++    pix_fmts[3] = AV_PIX_FMT_NONE;
++}
++
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++typedef struct CuvidSurfaceRelease {
++    AVBufferRef *in_use_ref;
++    int idx;
++} CuvidSurfaceRelease;
++
++static void cuvid_cuarray_buf_free(void *opaque, uint8_t *data)
++{
++    CuvidSurfaceRelease *rel = opaque;
++    atomic_int *flags = (atomic_int *)rel->in_use_ref->data;
++    atomic_store_explicit(&flags[rel->idx], 0, memory_order_release);
++    av_buffer_unref(&rel->in_use_ref);
++    av_free(rel);
++}
++
++static void cuvid_decoder_cleanup_free(void *opaque, uint8_t *data)
++{
++    CuvidDecoderCleanup *cleanup = opaque;
++
++    if (cleanup && cleanup->hwdevice) {
++        AVHWDeviceContext *device_ctx = (AVHWDeviceContext *)cleanup->hwdevice->data;
++        AVCUDADeviceContext *device_hwctx = device_ctx->hwctx;
++        CudaFunctions *cudl = device_hwctx->internal->cuda_dl;
++        CUcontext dummy;
++
++        cudl->cuCtxPushCurrent(device_hwctx->cuda_ctx);
++
++        if (cleanup->cudecoder && cleanup->cvdl)
++            cleanup->cvdl->cuvidDestroyDecoder(cleanup->cudecoder);
++
++        if (cleanup->cuarray_surfaces) {
++            for (int i = 0; i < cleanup->cuarray_num_surfaces; i++)
++                cudl->cuArrayDestroy(cleanup->cuarray_surfaces[i]);
++        }
++
++        cudl->cuCtxPopCurrent(&dummy);
++        av_buffer_unref(&cleanup->hwdevice);
++    }
++
++    if (cleanup) {
++        av_freep(&cleanup->cuarray_surfaces);
++        cuvid_free_functions(&cleanup->cvdl);
++        av_free(cleanup);
++    }
++
++    av_free(data);
++}
++
++#endif
++
+ static int CUDAAPI cuvid_handle_video_sequence(void *opaque, CUVIDEOFORMAT* format)
+ {
+     AVCodecContext *avctx = opaque;
+@@ -132,13 +255,12 @@ static int CUDAAPI cuvid_handle_video_sequence(void *opaque, CUVIDEOFORMAT* form
+     int surface_fmt;
+     int chroma_444;
+     int old_nb_surfaces, fifo_size_inc, fifo_size_mul = 1;
++    enum AVPixelFormat requested_hw_format;
+ 
+     int old_width = avctx->width;
+     int old_height = avctx->height;
+ 
+-    enum AVPixelFormat pix_fmts[3] = { AV_PIX_FMT_CUDA,
+-                                       AV_PIX_FMT_NONE,  // Will be updated below
+-                                       AV_PIX_FMT_NONE };
++    enum AVPixelFormat pix_fmts[4];
+ 
+     av_log(avctx, AV_LOG_TRACE, "pfnSequenceCallback, progressive_sequence=%d\n", format->progressive_sequence);
+ 
+@@ -146,6 +268,12 @@ static int CUDAAPI cuvid_handle_video_sequence(void *opaque, CUVIDEOFORMAT* form
+ 
+     ctx->internal_error = 0;
+ 
++    surface_fmt = cuvid_get_requested_hw_format(avctx, ctx, &requested_hw_format);
++    if (surface_fmt < 0) {
++        ctx->internal_error = surface_fmt;
++        return 0;
++    }
++
+     avctx->coded_width = cuinfo.ulWidth = format->coded_width;
+     avctx->coded_height = cuinfo.ulHeight = format->coded_height;
+ 
+@@ -252,6 +380,8 @@ static int CUDAAPI cuvid_handle_video_sequence(void *opaque, CUVIDEOFORMAT* form
+         return 0;
+     }
+ 
++    cuvid_prepare_format_list(pix_fmts, requested_hw_format, pix_fmts[1]);
++
+     surface_fmt = ff_get_format(avctx, pix_fmts);
+     if (surface_fmt < 0) {
+         av_log(avctx, AV_LOG_ERROR, "ff_get_format failed: %d\n", surface_fmt);
+@@ -259,13 +389,34 @@ static int CUDAAPI cuvid_handle_video_sequence(void *opaque, CUVIDEOFORMAT* form
+         return 0;
+     }
+ 
++    if (surface_fmt != AV_PIX_FMT_CUDA && surface_fmt != AV_PIX_FMT_CUARRAY) {
++        av_log(avctx, AV_LOG_VERBOSE,
++               "ff_get_format returned %s, overriding to %s\n",
++               av_get_pix_fmt_name(surface_fmt),
++               av_get_pix_fmt_name(requested_hw_format));
++        surface_fmt = requested_hw_format;
++    }
++
+     av_log(avctx, AV_LOG_VERBOSE, "Formats: Original: %s | HW: %s | SW: %s\n",
+            av_get_pix_fmt_name(avctx->pix_fmt),
+            av_get_pix_fmt_name(surface_fmt),
+            av_get_pix_fmt_name(avctx->sw_pix_fmt));
+ 
++    ctx->opaque_output = (surface_fmt == AV_PIX_FMT_CUARRAY);
+     avctx->pix_fmt = surface_fmt;
+ 
++    if (ctx->opaque_output) {
++        switch (avctx->sw_pix_fmt) {
++        case AV_PIX_FMT_YUV444P:      avctx->sw_pix_fmt = AV_PIX_FMT_NV24;  break;
++#if FF_API_NVDEC_OLD_PIX_FMTS
++        case AV_PIX_FMT_YUV444P16:    avctx->sw_pix_fmt = AV_PIX_FMT_P416;  break;
++#endif
++        case AV_PIX_FMT_YUV444P10MSB: avctx->sw_pix_fmt = AV_PIX_FMT_P410;  break;
++        case AV_PIX_FMT_YUV444P12MSB: avctx->sw_pix_fmt = AV_PIX_FMT_P412;  break;
++        default: break;
++        }
++    }
++
+     // Update our hwframe ctx, as the get_format callback might have refreshed it!
+     if (avctx->hw_frames_ctx) {
+         av_buffer_unref(&ctx->hwframe);
+@@ -299,9 +450,12 @@ static int CUDAAPI cuvid_handle_video_sequence(void *opaque, CUVIDEOFORMAT* form
+     else
+         avctx->color_range = AVCOL_RANGE_MPEG;
+ 
+-    avctx->color_primaries = format->video_signal_description.color_primaries;
+-    avctx->color_trc = format->video_signal_description.transfer_characteristics;
+-    avctx->colorspace = format->video_signal_description.matrix_coefficients;
++    if (format->video_signal_description.color_primaries)
++        avctx->color_primaries = format->video_signal_description.color_primaries;
++    if (format->video_signal_description.transfer_characteristics)
++        avctx->color_trc = format->video_signal_description.transfer_characteristics;
++    if (format->video_signal_description.matrix_coefficients)
++        avctx->colorspace = format->video_signal_description.matrix_coefficients;
+ 
+     if (format->bitrate)
+         avctx->bit_rate = format->bitrate;
+@@ -331,12 +485,13 @@ static int CUDAAPI cuvid_handle_video_sequence(void *opaque, CUVIDEOFORMAT* form
+     if (hwframe_ctx->pool && (
+             hwframe_ctx->width < avctx->width ||
+             hwframe_ctx->height < avctx->height ||
+-            hwframe_ctx->format != AV_PIX_FMT_CUDA ||
++            (hwframe_ctx->format != AV_PIX_FMT_CUDA && hwframe_ctx->format != AV_PIX_FMT_CUARRAY) ||
+             hwframe_ctx->sw_format != avctx->sw_pix_fmt)) {
+         av_log(avctx, AV_LOG_ERROR, "AVHWFramesContext is already initialized with incompatible parameters\n");
+         av_log(avctx, AV_LOG_DEBUG, "width: %d <-> %d\n", hwframe_ctx->width, avctx->width);
+         av_log(avctx, AV_LOG_DEBUG, "height: %d <-> %d\n", hwframe_ctx->height, avctx->height);
+-        av_log(avctx, AV_LOG_DEBUG, "format: %s <-> cuda\n", av_get_pix_fmt_name(hwframe_ctx->format));
++        av_log(avctx, AV_LOG_DEBUG, "format: %s <-> %s\n", av_get_pix_fmt_name(hwframe_ctx->format),
++               av_get_pix_fmt_name(avctx->pix_fmt));
+         av_log(avctx, AV_LOG_DEBUG, "sw_format: %s <-> %s\n",
+                av_get_pix_fmt_name(hwframe_ctx->sw_format), av_get_pix_fmt_name(avctx->sw_pix_fmt));
+         ctx->internal_error = AVERROR(EINVAL);
+@@ -365,11 +520,14 @@ static int CUDAAPI cuvid_handle_video_sequence(void *opaque, CUVIDEOFORMAT* form
+         break;
+ #endif
+     case AV_PIX_FMT_YUV444P:
++    case AV_PIX_FMT_NV24:
+         cuinfo.OutputFormat = cudaVideoSurfaceFormat_YUV444;
+         break;
+     case AV_PIX_FMT_YUV444P10MSB:
+     case AV_PIX_FMT_YUV444P12MSB:
+     case AV_PIX_FMT_YUV444P16:
++    case AV_PIX_FMT_P410:
++    case AV_PIX_FMT_P412:
+         cuinfo.OutputFormat = cudaVideoSurfaceFormat_YUV444_16Bit;
+         break;
+     default:
+@@ -377,6 +538,22 @@ static int CUDAAPI cuvid_handle_video_sequence(void *opaque, CUVIDEOFORMAT* form
+         return 0;
+     }
+ 
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++    if (ctx->opaque_output) {
++        switch (cuinfo.OutputFormat) {
++        case cudaVideoSurfaceFormat_NV12:           cuinfo.OutputFormat = cudaVideoSurfaceFormat_NV12_Opaque;           break;
++        case cudaVideoSurfaceFormat_P016:           cuinfo.OutputFormat = cudaVideoSurfaceFormat_P016_Opaque;           break;
++#ifdef NVDEC_HAVE_422_SUPPORT
++        case cudaVideoSurfaceFormat_NV16:           cuinfo.OutputFormat = cudaVideoSurfaceFormat_NV16_Opaque;           break;
++        case cudaVideoSurfaceFormat_P216:           cuinfo.OutputFormat = cudaVideoSurfaceFormat_P216_Opaque;           break;
++#endif
++        case cudaVideoSurfaceFormat_YUV444:         cuinfo.OutputFormat = cudaVideoSurfaceFormat_YUV444_Opaque;         break;
++        case cudaVideoSurfaceFormat_YUV444_16Bit:   cuinfo.OutputFormat = cudaVideoSurfaceFormat_YUV444_16Bit_Opaque;   break;
++        default: break;
++        }
++    }
++#endif
++
+     if (ctx->deint_mode_current != cudaVideoDeinterlaceMode_Weave && !ctx->drop_second_field) {
+         avctx->framerate = av_mul_q(avctx->framerate, (AVRational){2, 1});
+         fifo_size_mul = 2;
+@@ -386,6 +563,11 @@ static int CUDAAPI cuvid_handle_video_sequence(void *opaque, CUVIDEOFORMAT* form
+     ctx->nb_surfaces = FFMAX(ctx->nb_surfaces, format->min_num_decode_surfaces + 3);
+     if (avctx->extra_hw_frames > 0)
+         ctx->nb_surfaces += avctx->extra_hw_frames;
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++    if (ctx->opaque_output && ctx->zero_copy)
++        ctx->nb_surfaces = FFMIN(FFMAX(ctx->nb_surfaces, format->min_num_decode_surfaces + 16),
++                                 MAX_NUM_REGISTERED_DECODE_SURFACES);
++#endif
+ 
+     fifo_size_inc = ctx->nb_surfaces * fifo_size_mul - av_fifo_can_read(ctx->frame_queue) - av_fifo_can_write(ctx->frame_queue);
+     if (fifo_size_inc > 0 && av_fifo_grow2(ctx->frame_queue, fifo_size_inc) < 0) {
+@@ -401,7 +583,7 @@ static int CUDAAPI cuvid_handle_video_sequence(void *opaque, CUVIDEOFORMAT* form
+     }
+ 
+     cuinfo.ulNumDecodeSurfaces = ctx->nb_surfaces;
+-    cuinfo.ulNumOutputSurfaces = 1;
++    cuinfo.ulNumOutputSurfaces = ctx->opaque_output ? 0 : 1;
+     cuinfo.ulCreationFlags = cudaVideoCreate_PreferCUVID;
+     cuinfo.bitDepthMinus8 = format->bit_depth_luma_minus8;
+     cuinfo.DeinterlaceMode = ctx->deint_mode_current;
+@@ -410,11 +592,124 @@ static int CUDAAPI cuvid_handle_video_sequence(void *opaque, CUVIDEOFORMAT* form
+     if (ctx->internal_error < 0)
+         return 0;
+ 
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++    if (ctx->opaque_output) {
++        CUDA_ARRAY3D_DESCRIPTOR arr_desc;
++        CUVIDREGISTERDECODESURFACESINFO reg_info;
++        CUcontext dummy;
++        int i;
++
++        ff_nvdec_fill_cuarray_desc(&arr_desc, avctx, cuinfo.OutputFormat);
++
++        if (ctx->cuarray_surfaces) {
++            if (ctx->decoder_cleanup) {
++                ctx->decoder_cleanup->cuarray_surfaces = NULL;
++                ctx->decoder_cleanup->cuarray_num_surfaces = 0;
++                ctx->decoder_cleanup->cudecoder = NULL;
++                ctx->decoder_cleanup = NULL;
++            }
++            for (i = 0; i < ctx->cuarray_num_surfaces; i++)
++                ctx->cudl->cuArrayDestroy(ctx->cuarray_surfaces[i]);
++            av_freep(&ctx->cuarray_surfaces);
++            av_buffer_unref(&ctx->surface_in_use_ref);
++            ctx->surface_in_use = NULL;
++        }
++        ctx->cuarray_num_surfaces = ctx->nb_surfaces;
++        ctx->cuarray_surfaces = av_calloc(ctx->cuarray_num_surfaces, sizeof(CUarray));
++        if (!ctx->cuarray_surfaces) {
++            ctx->internal_error = AVERROR(ENOMEM);
++            return 0;
++        }
++        {
++            atomic_int *flags = av_calloc(ctx->cuarray_num_surfaces, sizeof(*flags));
++            CuvidDecoderCleanup *cleanup = NULL;
++            if (!flags) {
++                ctx->internal_error = AVERROR(ENOMEM);
++                return 0;
++            }
++            if (ctx->zero_copy) {
++                cleanup = av_mallocz(sizeof(*cleanup));
++                if (!cleanup) {
++                    av_free((void *)flags);
++                    ctx->internal_error = AVERROR(ENOMEM);
++                    return 0;
++                }
++                ctx->decoder_cleanup = cleanup;
++            }
++            ctx->surface_in_use_ref = av_buffer_create(
++                (uint8_t *)flags, ctx->cuarray_num_surfaces * sizeof(*flags),
++                cleanup ? cuvid_decoder_cleanup_free : NULL,
++                cleanup, 0);
++            if (!ctx->surface_in_use_ref) {
++                av_free((void *)flags);
++                av_free(cleanup);
++                ctx->decoder_cleanup = NULL;
++                ctx->internal_error = AVERROR(ENOMEM);
++                return 0;
++            }
++            ctx->surface_in_use = flags;
++        }
++
++        for (i = 0; i < ctx->cuarray_num_surfaces; i++) {
++            ctx->internal_error = CHECK_CU(ctx->cudl->cuArray3DCreate(
++                &ctx->cuarray_surfaces[i], &arr_desc));
++            if (ctx->internal_error < 0) {
++                for (int j = 0; j < i; j++)
++                    ctx->cudl->cuArrayDestroy(ctx->cuarray_surfaces[j]);
++                av_freep(&ctx->cuarray_surfaces);
++                av_buffer_unref(&ctx->surface_in_use_ref);
++                ctx->surface_in_use = NULL;
++                ctx->cuarray_num_surfaces = 0;
++                return 0;
++            }
++        }
++
++        {
++            AVHWDeviceContext *dev_ctx =
++                (AVHWDeviceContext *)ctx->hwdevice->data;
++            AVCUDADeviceContext *dev_hwctx = dev_ctx->hwctx;
++            ctx->internal_error = CHECK_CU(ctx->cudl->cuCtxPushCurrent(
++                dev_hwctx->cuda_ctx));
++        }
++        if (ctx->internal_error < 0)
++            return 0;
++
++        memset(&reg_info, 0, sizeof(reg_info));
++        reg_info.ulNumDecodeSurfaces = ctx->cuarray_num_surfaces;
++        reg_info.pDecodeSurfaces     = ctx->cuarray_surfaces;
++
++        if (ctx->cvdl->cuvidRegisterDecodeSurfaces) {
++            ctx->internal_error = CHECK_CU(
++                ctx->cvdl->cuvidRegisterDecodeSurfaces(
++                    ctx->cudecoder, &reg_info));
++        } else {
++            av_log(avctx, AV_LOG_ERROR, "cuvidRegisterDecodeSurfaces not available in loaded driver\n");
++            ctx->internal_error = AVERROR(ENOSYS);
++        }
++        CHECK_CU(ctx->cudl->cuCtxPopCurrent(&dummy));
++        if (ctx->internal_error < 0)
++            return 0;
++
++        if (ctx->decoder_cleanup) {
++            ctx->decoder_cleanup->cudecoder = ctx->cudecoder;
++            ctx->decoder_cleanup->cuarray_surfaces = ctx->cuarray_surfaces;
++            ctx->decoder_cleanup->cuarray_num_surfaces = ctx->cuarray_num_surfaces;
++        }
++    }
++#endif
++
+     if (!hwframe_ctx->pool) {
+-        hwframe_ctx->format = AV_PIX_FMT_CUDA;
++        hwframe_ctx->format    = avctx->pix_fmt;
+         hwframe_ctx->sw_format = avctx->sw_pix_fmt;
+-        hwframe_ctx->width = avctx->width;
+-        hwframe_ctx->height = avctx->height;
++        hwframe_ctx->width     = avctx->width;
++        hwframe_ctx->height    = avctx->height;
++
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++        if (hwframe_ctx->format == AV_PIX_FMT_CUARRAY) {
++            AVCUDAFramesContext *cuda_hwctx = hwframe_ctx->hwctx;
++            ff_nvdec_fill_cuarray_desc(&cuda_hwctx->cuarray_desc, avctx, cuinfo.OutputFormat);
++        }
++#endif
+ 
+         if ((ctx->internal_error = av_hwframe_ctx_init(ctx->hwframe)) < 0) {
+             av_log(avctx, AV_LOG_ERROR, "av_hwframe_ctx_init failed\n");
+@@ -437,10 +732,34 @@ static int CUDAAPI cuvid_handle_picture_decode(void *opaque, CUVIDPICPARAMS* pic
+ 
+     av_log(avctx, AV_LOG_TRACE, "pfnDecodePicture\n");
+ 
++    if (atomic_load_explicit(&ctx->abort_decode, memory_order_acquire))
++        return 0;
++
+     if(picparams->intra_pic_flag)
+         ctx->key_frame[picparams->CurrPicIdx] = picparams->intra_pic_flag;
+ 
+-    ctx->internal_error = CHECK_CU(ctx->cvdl->cuvidDecodePicture(ctx->cudecoder, picparams));
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++    if (ctx->opaque_output) {
++        if (ctx->surface_in_use &&
++            atomic_load_explicit(&ctx->surface_in_use[picparams->CurrPicIdx],
++                                 memory_order_acquire)) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "CUARRAY surface %d still in use by the encoder. "
++                   "Increase surfaces with -extra_hw_frames or reduce "
++                   "encoder buffering (disable lookahead, reduce B-frames).\n",
++                   picparams->CurrPicIdx);
++            ctx->internal_error = AVERROR_EXTERNAL;
++            atomic_store_explicit(&ctx->abort_decode, 1, memory_order_release);
++            return 0;
++        }
++        if (ctx->cvdl->cuvidDecodePictureAsync)
++            ctx->internal_error = CHECK_CU(ctx->cvdl->cuvidDecodePictureAsync(
++                ctx->cudecoder, picparams, ctx->cuda_stream));
++        else
++            ctx->internal_error = CHECK_CU(ctx->cvdl->cuvidDecodePicture(ctx->cudecoder, picparams));
++    } else
++#endif
++        ctx->internal_error = CHECK_CU(ctx->cvdl->cuvidDecodePicture(ctx->cudecoder, picparams));
+     if (ctx->internal_error < 0)
+         return 0;
+ 
+@@ -454,6 +773,9 @@ static int CUDAAPI cuvid_handle_picture_display(void *opaque, CUVIDPARSERDISPINF
+     CuvidParsedFrame parsed_frame = { { 0 } };
+     int ret;
+ 
++    if (atomic_load_explicit(&ctx->abort_decode, memory_order_acquire))
++        return 0;
++
+     parsed_frame.dispinfo = *dispinfo;
+     ctx->internal_error = 0;
+ 
+@@ -504,6 +826,9 @@ static int cuvid_decode_packet(AVCodecContext *avctx, const AVPacket *avpkt)
+ 
+     av_log(avctx, AV_LOG_TRACE, "cuvid_decode_packet\n");
+ 
++    if (atomic_load_explicit(&ctx->abort_decode, memory_order_acquire))
++        return ctx->internal_error ? ctx->internal_error : AVERROR_EXTERNAL;
++
+     if (is_flush && avpkt && avpkt->size)
+         return AVERROR_EOF;
+ 
+@@ -575,24 +900,26 @@ static int cuvid_output_frame(AVCodecContext *avctx, AVFrame *frame)
+ 
+     av_log(avctx, AV_LOG_TRACE, "cuvid_output_frame\n");
+ 
+-    if (ctx->decoder_flushing) {
+-        ret = cuvid_decode_packet(avctx, NULL);
+-        if (ret < 0 && ret != AVERROR_EOF)
+-            return ret;
+-    }
++    if (!atomic_load_explicit(&ctx->abort_decode, memory_order_acquire)) {
++        if (ctx->decoder_flushing) {
++            ret = cuvid_decode_packet(avctx, NULL);
++            if (ret < 0 && ret != AVERROR_EOF)
++                return ret;
++        }
+ 
+-    if (!cuvid_is_buffer_full(avctx)) {
+-        AVPacket *const pkt = ctx->pkt;
+-        ret = ff_decode_get_packet(avctx, pkt);
+-        if (ret < 0 && ret != AVERROR_EOF)
+-            return ret;
+-        ret = cuvid_decode_packet(avctx, pkt);
+-        av_packet_unref(pkt);
+-        // cuvid_is_buffer_full() should avoid this.
+-        if (ret == AVERROR(EAGAIN))
+-            ret = AVERROR_EXTERNAL;
+-        if (ret < 0 && ret != AVERROR_EOF)
+-            return ret;
++        if (!cuvid_is_buffer_full(avctx)) {
++            AVPacket *const pkt = ctx->pkt;
++            ret = ff_decode_get_packet(avctx, pkt);
++            if (ret < 0 && ret != AVERROR_EOF)
++                return ret;
++            ret = cuvid_decode_packet(avctx, pkt);
++            av_packet_unref(pkt);
++            // cuvid_is_buffer_full() should avoid this.
++            if (ret == AVERROR(EAGAIN))
++                ret = AVERROR_EXTERNAL;
++            if (ret < 0 && ret != AVERROR_EOF)
++                return ret;
++        }
+     }
+ 
+     ret = CHECK_CU(ctx->cudl->cuCtxPushCurrent(cuda_ctx));
+@@ -611,6 +938,132 @@ static int cuvid_output_frame(AVCodecContext *avctx, AVFrame *frame)
+         params.second_field = parsed_frame.second_field;
+         params.top_field_first = parsed_frame.dispinfo.top_field_first;
+ 
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++        if (avctx->pix_fmt == AV_PIX_FMT_CUARRAY) {
++            if (ctx->zero_copy) {
++                int idx = parsed_frame.dispinfo.picture_index;
++
++                if (idx < 0 || idx >= ctx->cuarray_num_surfaces) {
++                    av_log(avctx, AV_LOG_ERROR, "CUARRAY surface index %d out of range [0, %d)\n",
++                           idx, ctx->cuarray_num_surfaces);
++                    ret = AVERROR_BUG;
++                    goto error;
++                }
++
++                ret = ff_decode_frame_props(avctx, frame);
++                if (ret < 0) {
++                    av_log(avctx, AV_LOG_ERROR, "ff_decode_frame_props failed\n");
++                    goto error;
++                }
++
++                frame->hw_frames_ctx = av_buffer_ref(ctx->hwframe);
++                if (!frame->hw_frames_ctx) {
++                    ret = AVERROR(ENOMEM);
++                    goto error;
++                }
++
++                {
++                    CuvidSurfaceRelease *rel = av_malloc(sizeof(*rel));
++                    if (!rel) {
++                        ret = AVERROR(ENOMEM);
++                        goto error;
++                    }
++                    rel->in_use_ref = av_buffer_ref(ctx->surface_in_use_ref);
++                    if (!rel->in_use_ref) {
++                        av_free(rel);
++                        ret = AVERROR(ENOMEM);
++                        goto error;
++                    }
++                    rel->idx = idx;
++                    atomic_store_explicit(&ctx->surface_in_use[idx], 1,
++                                         memory_order_release);
++                    frame->buf[0] = av_buffer_create(
++                        (uint8_t *)ctx->cuarray_surfaces[idx], 0,
++                        cuvid_cuarray_buf_free, rel,
++                        AV_BUFFER_FLAG_READONLY);
++                    if (!frame->buf[0]) {
++                        atomic_store_explicit(&ctx->surface_in_use[idx], 0,
++                                             memory_order_release);
++                        av_buffer_unref(&rel->in_use_ref);
++                        av_free(rel);
++                        ret = AVERROR(ENOMEM);
++                        goto error;
++                    }
++                }
++
++                frame->data[0] = (uint8_t *)ctx->cuarray_surfaces[idx];
++                frame->format = AV_PIX_FMT_CUARRAY;
++
++                for (int p = 0; p < FF_ARRAY_ELEMS(frame->linesize); p++) {
++                    CUDA_ARRAY3D_DESCRIPTOR plane_desc = { 0 };
++                    CUarray plane_array;
++                    int elem_size;
++                    CUresult cures = ctx->cudl->cuArrayGetPlane(
++                        &plane_array, ctx->cuarray_surfaces[idx], p);
++                    if (cures == CUDA_ERROR_INVALID_VALUE)
++                        break;
++                    if (cures != CUDA_SUCCESS) {
++                        ret = CHECK_CU(cures);
++                        goto error;
++                    }
++
++                    ret = CHECK_CU(ctx->cudl->cuArray3DGetDescriptor(
++                        &plane_desc, plane_array));
++                    if (ret < 0)
++                        goto error;
++
++                    elem_size = ff_cuda_cuarray_elem_size(plane_desc.Format);
++                    if (elem_size <= 0) {
++                        av_log(avctx, AV_LOG_ERROR,
++                               "Unknown CUarray element format %d on plane %d\n",
++                               plane_desc.Format, p);
++                        ret = AVERROR_BUG;
++                        goto error;
++                    }
++
++                    frame->linesize[p] = plane_desc.Width *
++                                         plane_desc.NumChannels * elem_size;
++                }
++            } else {
++                int src_idx = parsed_frame.dispinfo.picture_index;
++                AVFrame tmp_frame;
++
++                if (src_idx < 0 || src_idx >= ctx->cuarray_num_surfaces) {
++                    av_log(avctx, AV_LOG_ERROR, "CUARRAY source surface index %d out of range [0, %d)\n",
++                           src_idx, ctx->cuarray_num_surfaces);
++                    ret = AVERROR_BUG;
++                    goto error;
++                }
++
++                ret = av_hwframe_get_buffer(ctx->hwframe, frame, 0);
++                if (ret < 0) {
++                    av_log(avctx, AV_LOG_ERROR, "av_hwframe_get_buffer failed\n");
++                    goto error;
++                }
++
++                ret = ff_decode_frame_props(avctx, frame);
++                if (ret < 0) {
++                    av_log(avctx, AV_LOG_ERROR, "ff_decode_frame_props failed\n");
++                    goto error;
++                }
++
++                memset(&tmp_frame, 0, sizeof(tmp_frame));
++                tmp_frame.format      = AV_PIX_FMT_CUARRAY;
++                tmp_frame.data[0]     = (uint8_t *)ctx->cuarray_surfaces[src_idx];
++                tmp_frame.width       = frame->width;
++                tmp_frame.height      = frame->height;
++                tmp_frame.hw_frames_ctx = ctx->hwframe;
++                memcpy(tmp_frame.linesize, frame->linesize, sizeof(tmp_frame.linesize));
++
++                ret = av_hwframe_transfer_data(frame, &tmp_frame, 0);
++                if (ret < 0) {
++                    av_log(avctx, AV_LOG_ERROR, "CUARRAY transfer failed\n");
++                    goto error;
++                }
++            }
++        } else
++#endif
++        {
+         ret = CHECK_CU(ctx->cvdl->cuvidMapVideoFrame(ctx->cudecoder, parsed_frame.dispinfo.picture_index, &mapped_frame, &pitch, &params));
+         if (ret < 0)
+             goto error;
+@@ -709,6 +1162,7 @@ static int cuvid_output_frame(AVCodecContext *avctx, AVFrame *frame)
+             ret = AVERROR_BUG;
+             goto error;
+         }
++        }
+ 
+         if (ctx->key_frame[parsed_frame.dispinfo.picture_index])
+             frame->flags |= AV_FRAME_FLAG_KEY;
+@@ -744,7 +1198,8 @@ static int cuvid_output_frame(AVCodecContext *avctx, AVFrame *frame)
+ 
+         if ((frame->flags & AV_FRAME_FLAG_INTERLACED) && parsed_frame.dispinfo.top_field_first)
+             frame->flags |= AV_FRAME_FLAG_TOP_FIELD_FIRST;
+-    } else if (ctx->decoder_flushing) {
++    } else if (ctx->decoder_flushing ||
++               atomic_load_explicit(&ctx->abort_decode, memory_order_acquire)) {
+         ret = AVERROR_EOF;
+     } else {
+         ret = AVERROR(EAGAIN);
+@@ -772,16 +1227,48 @@ static av_cold int cuvid_decode_end(AVCodecContext *avctx)
+     AVCUDADeviceContext *device_hwctx = device_ctx ? device_ctx->hwctx : NULL;
+     CUcontext dummy, cuda_ctx = device_hwctx ? device_hwctx->cuda_ctx : NULL;
+ 
++    atomic_store_explicit(&ctx->abort_decode, 1, memory_order_release);
++
+     av_fifo_freep2(&ctx->frame_queue);
+ 
+     if (cuda_ctx) {
+         ctx->cudl->cuCtxPushCurrent(cuda_ctx);
+ 
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++        if (ctx->opaque_output)
++            ctx->cudl->cuCtxSynchronize();
++#endif
++
+         if (ctx->cuparser)
+             ctx->cvdl->cuvidDestroyVideoParser(ctx->cuparser);
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++        if (ctx->decoder_cleanup) {
++            ctx->decoder_cleanup->hwdevice = av_buffer_ref(ctx->hwdevice);
++            ctx->decoder_cleanup->cvdl = ctx->cvdl;
++            ctx->cvdl = NULL;
++            ctx->cudecoder = NULL;
++            ctx->cuarray_surfaces = NULL;
++            ctx->cuarray_num_surfaces = 0;
++            av_buffer_unref(&ctx->surface_in_use_ref);
++            ctx->surface_in_use = NULL;
++            ctx->decoder_cleanup = NULL;
++        } else
++#endif
++        {
++            if (ctx->cudecoder)
++                ctx->cvdl->cuvidDestroyDecoder(ctx->cudecoder);
+ 
+-        if (ctx->cudecoder)
+-            ctx->cvdl->cuvidDestroyDecoder(ctx->cudecoder);
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++            if (ctx->cuarray_surfaces) {
++                for (int i = 0; i < ctx->cuarray_num_surfaces; i++)
++                    ctx->cudl->cuArrayDestroy(ctx->cuarray_surfaces[i]);
++                av_freep(&ctx->cuarray_surfaces);
++                av_buffer_unref(&ctx->surface_in_use_ref);
++                ctx->surface_in_use = NULL;
++                ctx->cuarray_num_surfaces = 0;
++            }
++#endif
++        }
+ 
+         ctx->cudl->cuCtxPopCurrent(&dummy);
+     }
+@@ -911,10 +1398,9 @@ static av_cold int cuvid_decode_init(AVCodecContext *avctx)
+     uint8_t *extradata;
+     int extradata_size;
+     int ret = 0;
++    enum AVPixelFormat requested_hw_format;
+ 
+-    enum AVPixelFormat pix_fmts[3] = { AV_PIX_FMT_CUDA,
+-                                       AV_PIX_FMT_NONE,
+-                                       AV_PIX_FMT_NONE };
++    enum AVPixelFormat pix_fmts[4];
+ 
+     int probed_width = avctx->coded_width ? avctx->coded_width : 1280;
+     int probed_height = avctx->coded_height ? avctx->coded_height : 720;
+@@ -932,6 +1418,10 @@ static av_cold int cuvid_decode_init(AVCodecContext *avctx)
+         is_yuv422 = 1;
+ #endif
+ 
++    ret = cuvid_get_requested_hw_format(avctx, ctx, &requested_hw_format);
++    if (ret < 0)
++        return ret;
++
+     // Pick pixel format based on bit depth and chroma sampling.
+     switch (probed_bit_depth) {
+     case 10:
+@@ -955,16 +1445,40 @@ static av_cold int cuvid_decode_init(AVCodecContext *avctx)
+ 
+     ctx->pkt = avctx->internal->in_pkt;
+     // Accelerated transcoding scenarios with 'ffmpeg' require that the
+-    // pix_fmt be set to AV_PIX_FMT_CUDA early. The sw_pix_fmt, and the
++    // requested hardware pix_fmt be set early. The sw_pix_fmt, and the
+     // pix_fmt for non-accelerated transcoding, do not need to be correct
+     // but need to be set to something.
++    cuvid_prepare_format_list(pix_fmts, requested_hw_format, pix_fmts[1]);
++
+     ret = ff_get_format(avctx, pix_fmts);
+     if (ret < 0) {
+         av_log(avctx, AV_LOG_ERROR, "ff_get_format failed: %d\n", ret);
+         return ret;
+     }
++
++    if (ret != AV_PIX_FMT_CUDA && ret != AV_PIX_FMT_CUARRAY) {
++        av_log(avctx, AV_LOG_VERBOSE,
++               "ff_get_format returned %s, overriding to %s\n",
++               av_get_pix_fmt_name(ret),
++               av_get_pix_fmt_name(requested_hw_format));
++        ret = requested_hw_format;
++    }
++
++    ctx->opaque_output = (ret == AV_PIX_FMT_CUARRAY);
+     avctx->pix_fmt = ret;
+ 
++    if (ctx->opaque_output) {
++        switch (avctx->sw_pix_fmt) {
++        case AV_PIX_FMT_YUV444P:      avctx->sw_pix_fmt = AV_PIX_FMT_NV24;  break;
++#if FF_API_NVDEC_OLD_PIX_FMTS
++        case AV_PIX_FMT_YUV444P16:    avctx->sw_pix_fmt = AV_PIX_FMT_P416;  break;
++#endif
++        case AV_PIX_FMT_YUV444P10MSB: avctx->sw_pix_fmt = AV_PIX_FMT_P410;  break;
++        case AV_PIX_FMT_YUV444P12MSB: avctx->sw_pix_fmt = AV_PIX_FMT_P412;  break;
++        default: break;
++        }
++    }
++
+     if (ctx->resize_expr && sscanf(ctx->resize_expr, "%dx%d",
+                                    &ctx->resize.width, &ctx->resize.height) != 2) {
+         av_log(avctx, AV_LOG_ERROR, "Invalid resize expressions\n");
+@@ -980,6 +1494,27 @@ static av_cold int cuvid_decode_init(AVCodecContext *avctx)
+         goto error;
+     }
+ 
++    if (ctx->opaque_output) {
++        if (ctx->crop_expr) {
++            av_log(avctx, AV_LOG_WARNING,
++                   "Cropping is not supported with cuarray output; "
++                   "crop option will be ignored\n");
++            memset(&ctx->crop, 0, sizeof(ctx->crop));
++        }
++        if (ctx->resize_expr) {
++            av_log(avctx, AV_LOG_WARNING,
++                   "Resizing is not supported with cuarray output; "
++                   "resize option will be ignored\n");
++            av_freep(&ctx->resize_expr);
++        }
++        if (ctx->deint_mode != cudaVideoDeinterlaceMode_Weave) {
++            av_log(avctx, AV_LOG_WARNING,
++                   "Deinterlacing is not supported with cuarray output; "
++                   "deint mode will be forced to weave\n");
++            ctx->deint_mode = cudaVideoDeinterlaceMode_Weave;
++        }
++    }
++
+     ret = cuvid_load_functions(&ctx->cvdl, avctx);
+     if (ret < 0) {
+         av_log(avctx, AV_LOG_ERROR, "Failed loading nvcuvid.\n");
+@@ -1039,6 +1574,8 @@ static av_cold int cuvid_decode_init(AVCodecContext *avctx)
+     cuda_ctx = device_hwctx->cuda_ctx;
+     ctx->cudl = device_hwctx->internal->cuda_dl;
+ 
++    ctx->cuda_stream = device_hwctx->stream;
++
+     memset(&ctx->cuparseinfo, 0, sizeof(ctx->cuparseinfo));
+     memset(&seq_pkt, 0, sizeof(seq_pkt));
+ 
+@@ -1245,6 +1782,12 @@ static const AVOption options[] = {
+     { "drop_second_field", "Drop second field when deinterlacing", OFFSET(drop_second_field), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, VD },
+     { "crop",     "Crop (top)x(bottom)x(left)x(right)", OFFSET(crop_expr), AV_OPT_TYPE_STRING, { .str = NULL }, 0, 0, VD },
+     { "resize",   "Resize (width)x(height)", OFFSET(resize_expr), AV_OPT_TYPE_STRING, { .str = NULL }, 0, 0, VD },
++    { "output_format", "Hardware output format", OFFSET(output_format), AV_OPT_TYPE_INT, { .i64 = AV_PIX_FMT_CUDA }, 0, INT_MAX, VD, .unit = "output_format" },
++    { "cuda",    "CUDA pitch-linear output",          0, AV_OPT_TYPE_CONST, { .i64 = AV_PIX_FMT_CUDA },    0, 0, VD, .unit = "output_format" },
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++    { "cuarray", "CUDA block-linear opaque output",   0, AV_OPT_TYPE_CONST, { .i64 = AV_PIX_FMT_CUARRAY }, 0, 0, VD, .unit = "output_format" },
++    { "zero_copy", "Enable zero-copy opaque decode output (forces output_format=cuarray)", OFFSET(zero_copy), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, VD },
++#endif
+     { NULL }
+ };
+ 
+@@ -1259,6 +1802,18 @@ static const AVCodecHWConfigInternal *const cuvid_hw_configs[] = {
+         },
+         .hwaccel = NULL,
+     },
++#ifdef NVDEC_HAVE_OPAQUE_OUTPUT_SUPPORT
++    &(const AVCodecHWConfigInternal) {
++        .public = {
++            .pix_fmt     = AV_PIX_FMT_CUARRAY,
++            .methods     = AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX |
++                           AV_CODEC_HW_CONFIG_METHOD_HW_FRAMES_CTX |
++                           AV_CODEC_HW_CONFIG_METHOD_INTERNAL,
++            .device_type = AV_HWDEVICE_TYPE_CUDA
++        },
++        .hwaccel = NULL,
++    },
++#endif
+     NULL
+ };
+ 
+-- 
+2.52.0
+
+
+From a9220eea7c002b4b63150d7dbb931d7a07b64317 Mon Sep 17 00:00:00 2001
+From: Diego de Souza <ddesouza@nvidia.com>
+Date: Sat, 14 Mar 2026 01:34:43 +0100
+Subject: [PATCH 6/8] avcodec/nvenc: add CUARRAY (block-linear) input support
+
+Allow NVENC to accept AV_PIX_FMT_CUARRAY frames by registering them
+as NV_ENC_INPUT_RESOURCE_TYPE_CUDAARRAY. This enables zero-copy
+transcode when paired with NVDEC CUARRAY output, avoiding the
+pitched-linear intermediate copy. Also accept semi-planar 444
+formats (NV24, P410, P412, P416) and map them to the corresponding
+NVENC buffer formats when registered as CUarray input resources.
+
+Guarded by NVENC_HAVE_CUDA_ARRAY_INPUT_SUPPORT (SDK 13.1+).
+
+Signed-off-by: Diego de Souza <ddesouza@nvidia.com>
+---
+ libavcodec/nvenc.c | 68 +++++++++++++++++++++++++++++++++++++++-------
+ libavcodec/nvenc.h |  1 +
+ 2 files changed, 59 insertions(+), 10 deletions(-)
+
+diff --git a/libavcodec/nvenc.c b/libavcodec/nvenc.c
+index 257b6d3892..d548631bd6 100644
+--- a/libavcodec/nvenc.c
++++ b/libavcodec/nvenc.c
+@@ -61,6 +61,7 @@ const enum AVPixelFormat ff_nvenc_pix_fmts[] = {
+     AV_PIX_FMT_P010,
+     AV_PIX_FMT_YUV444P,
++    AV_PIX_FMT_NV24,
+     AV_PIX_FMT_P012,      // Truncated to 10bits
+     AV_PIX_FMT_P016,      // Truncated to 10bits
+ #ifdef NVENC_HAVE_422_SUPPORT
+     AV_PIX_FMT_NV16,
+@@ -69,6 +70,9 @@ const enum AVPixelFormat ff_nvenc_pix_fmts[] = {
+     AV_PIX_FMT_YUV444P10MSB,
+     AV_PIX_FMT_YUV444P12MSB, // Truncated to 10bits
+     AV_PIX_FMT_YUV444P16, // Truncated to 10bits
++    AV_PIX_FMT_P410,
++    AV_PIX_FMT_P412,      // Truncated to 10bits
++    AV_PIX_FMT_P416,      // Truncated to 10bits
+     AV_PIX_FMT_0RGB32,
+     AV_PIX_FMT_RGB32,
+     AV_PIX_FMT_0BGR32,
+@@ -79,6 +83,9 @@ const enum AVPixelFormat ff_nvenc_pix_fmts[] = {
+     AV_PIX_FMT_GBRP10MSB,
+     AV_PIX_FMT_GBRP16,    // Truncated to 10bits
+     AV_PIX_FMT_CUDA,
++#ifdef NVENC_HAVE_CUDA_ARRAY_INPUT_SUPPORT
++    AV_PIX_FMT_CUARRAY,
++#endif
+ #if CONFIG_D3D11VA
+     AV_PIX_FMT_D3D11,
+ #endif
+@@ -87,6 +94,9 @@ const enum AVPixelFormat ff_nvenc_pix_fmts[] = {
+ 
+ const AVCodecHWConfigInternal *const ff_nvenc_hw_configs[] = {
+     HW_CONFIG_ENCODER_FRAMES(CUDA,  CUDA),
++#ifdef NVENC_HAVE_CUDA_ARRAY_INPUT_SUPPORT
++    HW_CONFIG_ENCODER_FRAMES(CUARRAY, CUDA),
++#endif
+     HW_CONFIG_ENCODER_DEVICE(NONE,  CUDA),
+ #if CONFIG_D3D11VA
+     HW_CONFIG_ENCODER_FRAMES(D3D11, D3D11VA),
+@@ -101,6 +111,9 @@ const AVCodecHWConfigInternal *const ff_nvenc_hw_configs[] = {
+                             pix_fmt == AV_PIX_FMT_YUV444P10MSB || \
+                             pix_fmt == AV_PIX_FMT_YUV444P12MSB || \
+                             pix_fmt == AV_PIX_FMT_YUV444P16    || \
++                            pix_fmt == AV_PIX_FMT_P410         || \
++                            pix_fmt == AV_PIX_FMT_P412         || \
++                            pix_fmt == AV_PIX_FMT_P416         || \
+                             pix_fmt == AV_PIX_FMT_X2RGB10      || \
+                             pix_fmt == AV_PIX_FMT_X2BGR10      || \
+                             pix_fmt == AV_PIX_FMT_GBRP10MSB    || \
+@@ -114,8 +127,12 @@ const AVCodecHWConfigInternal *const ff_nvenc_hw_configs[] = {
+ 
+ #define IS_YUV444(pix_fmt) (pix_fmt == AV_PIX_FMT_YUV444P      || \
++                            pix_fmt == AV_PIX_FMT_NV24         || \
+                             pix_fmt == AV_PIX_FMT_YUV444P10MSB || \
+                             pix_fmt == AV_PIX_FMT_YUV444P12MSB || \
+                             pix_fmt == AV_PIX_FMT_YUV444P16    || \
++                            pix_fmt == AV_PIX_FMT_P410         || \
++                            pix_fmt == AV_PIX_FMT_P412         || \
++                            pix_fmt == AV_PIX_FMT_P416         || \
+                             pix_fmt == AV_PIX_FMT_GBRP         || \
+                             pix_fmt == AV_PIX_FMT_GBRP10MSB    || \
+                             pix_fmt == AV_PIX_FMT_GBRP16       || \
+@@ -125,6 +142,10 @@ const AVCodecHWConfigInternal *const ff_nvenc_hw_configs[] = {
+                             pix_fmt == AV_PIX_FMT_P212 || \
+                             pix_fmt == AV_PIX_FMT_P216)
+ 
++#define IS_HWACCEL(pix_fmt) (pix_fmt == AV_PIX_FMT_CUDA    || \
++                             pix_fmt == AV_PIX_FMT_CUARRAY  || \
++                             pix_fmt == AV_PIX_FMT_D3D11)
++
+ #define IS_GBRP(pix_fmt) (pix_fmt == AV_PIX_FMT_GBRP      || \
+                           pix_fmt == AV_PIX_FMT_GBRP10MSB || \
+                           pix_fmt == AV_PIX_FMT_GBRP16)
+@@ -814,7 +835,8 @@ static av_cold int nvenc_setup_device(AVCodecContext *avctx)
+ 
+     nvenc_map_preset(ctx);
+ 
+-    if (avctx->pix_fmt == AV_PIX_FMT_CUDA || avctx->pix_fmt == AV_PIX_FMT_D3D11 || avctx->hw_frames_ctx || avctx->hw_device_ctx) {
++    if (IS_HWACCEL(avctx->pix_fmt) ||
++        avctx->hw_frames_ctx || avctx->hw_device_ctx) {
+         AVHWFramesContext   *frames_ctx;
+         AVHWDeviceContext   *hwdev_ctx;
+         AVCUDADeviceContext *cuda_device_hwctx = NULL;
+@@ -825,7 +847,7 @@ static av_cold int nvenc_setup_device(AVCodecContext *avctx)
+ 
+         if (avctx->hw_frames_ctx) {
+             frames_ctx = (AVHWFramesContext*)avctx->hw_frames_ctx->data;
+-            if (frames_ctx->format == AV_PIX_FMT_CUDA)
++            if (frames_ctx->format == AV_PIX_FMT_CUDA || frames_ctx->format == AV_PIX_FMT_CUARRAY)
+                 cuda_device_hwctx = frames_ctx->device_ctx->hwctx;
+ #if CONFIG_D3D11VA
+             else if (frames_ctx->format == AV_PIX_FMT_D3D11)
+@@ -2080,7 +2102,7 @@ static av_cold int nvenc_alloc_surface(AVCodecContext *avctx, int idx)
+     NV_ENC_CREATE_BITSTREAM_BUFFER allocOut = { 0 };
+     allocOut.version = struct_ver_rt(ctx, 1);//NV_ENC_CREATE_BITSTREAM_BUFFER_VER;
+ 
+-    if (avctx->pix_fmt == AV_PIX_FMT_CUDA || avctx->pix_fmt == AV_PIX_FMT_D3D11) {
++    if (IS_HWACCEL(avctx->pix_fmt)) {
+         ctx->surfaces[idx].in_ref = av_frame_alloc();
+         if (!ctx->surfaces[idx].in_ref)
+             return AVERROR(ENOMEM);
+@@ -2112,7 +2134,7 @@ static av_cold int nvenc_alloc_surface(AVCodecContext *avctx, int idx)
+     nv_status = p_nvenc->nvEncCreateBitstreamBuffer(ctx->nvencoder, &allocOut);
+     if (nv_status != NV_ENC_SUCCESS) {
+         int err = nvenc_print_error(avctx, nv_status, "CreateBitstreamBuffer failed");
+-        if (avctx->pix_fmt != AV_PIX_FMT_CUDA && avctx->pix_fmt != AV_PIX_FMT_D3D11)
++        if (!IS_HWACCEL(avctx->pix_fmt))
+             p_nvenc->nvEncDestroyInputBuffer(ctx->nvencoder, ctx->surfaces[idx].input_surface);
+         av_frame_free(&ctx->surfaces[idx].in_ref);
+         return err;
+@@ -2235,7 +2257,7 @@ av_cold int ff_nvenc_encode_close(AVCodecContext *avctx)
+         av_freep(&ctx->frame_data_array);
+     }
+ 
+-    if (ctx->surfaces && (avctx->pix_fmt == AV_PIX_FMT_CUDA || avctx->pix_fmt == AV_PIX_FMT_D3D11)) {
++    if (ctx->surfaces && IS_HWACCEL(avctx->pix_fmt)) {
+         for (i = 0; i < ctx->nb_registered_frames; i++) {
+             if (ctx->registered_frames[i].mapped)
+                 p_nvenc->nvEncUnmapInputResource(ctx->nvencoder, ctx->registered_frames[i].in_map.mappedResource);
+@@ -2247,7 +2269,7 @@ av_cold int ff_nvenc_encode_close(AVCodecContext *avctx)
+ 
+     if (ctx->surfaces) {
+         for (i = 0; i < ctx->nb_surfaces; ++i) {
+-            if (avctx->pix_fmt != AV_PIX_FMT_CUDA && avctx->pix_fmt != AV_PIX_FMT_D3D11)
++            if (!IS_HWACCEL(avctx->pix_fmt))
+                 p_nvenc->nvEncDestroyInputBuffer(ctx->nvencoder, ctx->surfaces[i].input_surface);
+             av_frame_free(&ctx->surfaces[i].in_ref);
+             p_nvenc->nvEncDestroyBitstreamBuffer(ctx->nvencoder, ctx->surfaces[i].output_surface);
+@@ -2295,7 +2317,7 @@ av_cold int ff_nvenc_encode_init(AVCodecContext *avctx)
+     NvencContext *ctx = avctx->priv_data;
+     int ret;
+ 
+-    if (avctx->pix_fmt == AV_PIX_FMT_CUDA || avctx->pix_fmt == AV_PIX_FMT_D3D11) {
++    if (IS_HWACCEL(avctx->pix_fmt)) {
+         AVHWFramesContext *frames_ctx;
+         if (!avctx->hw_frames_ctx) {
+             av_log(avctx, AV_LOG_ERROR,
+@@ -2428,7 +2450,9 @@ static int nvenc_register_frame(AVCodecContext *avctx, const AVFrame *frame)
+     int i, idx, ret;
+ 
+     for (i = 0; i < ctx->nb_registered_frames; i++) {
+-        if (avctx->pix_fmt == AV_PIX_FMT_CUDA && ctx->registered_frames[i].ptr == frame->data[0])
++        if ((avctx->pix_fmt == AV_PIX_FMT_CUDA ||
++             avctx->pix_fmt == AV_PIX_FMT_CUARRAY) &&
++            ctx->registered_frames[i].ptr == frame->data[0])
+             return i;
+         else if (avctx->pix_fmt == AV_PIX_FMT_D3D11 && ctx->registered_frames[i].ptr == frame->data[0] && ctx->registered_frames[i].ptr_index == (intptr_t)frame->data[1])
+             return i;
+@@ -2446,6 +2470,12 @@ static int nvenc_register_frame(AVCodecContext *avctx, const AVFrame *frame)
+ 
+     if (avctx->pix_fmt == AV_PIX_FMT_CUDA) {
+         reg.resourceType   = NV_ENC_INPUT_RESOURCE_TYPE_CUDADEVICEPTR;
++#ifdef NVENC_HAVE_CUDA_ARRAY_INPUT_SUPPORT
++    } else if (avctx->pix_fmt == AV_PIX_FMT_CUARRAY) {
++        const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(frames_ctx->sw_format);
++        reg.resourceType = NV_ENC_INPUT_RESOURCE_TYPE_CUDAARRAY;
++        reg.pitch = frames_ctx->width * (desc && desc->comp[0].depth > 8 ? 2 : 1);
++#endif
+     }
+     else if (avctx->pix_fmt == AV_PIX_FMT_D3D11) {
+         reg.resourceType     = NV_ENC_INPUT_RESOURCE_TYPE_DIRECTX;
+@@ -2453,6 +2483,23 @@ static int nvenc_register_frame(AVCodecContext *avctx, const AVFrame *frame)
+     }
+ 
+     reg.bufferFormat       = nvenc_map_buffer_format(frames_ctx->sw_format);
++#ifdef NVENC_HAVE_CUDA_ARRAY_INPUT_SUPPORT
++    if (reg.bufferFormat == NV_ENC_BUFFER_FORMAT_UNDEFINED &&
++        reg.resourceType == NV_ENC_INPUT_RESOURCE_TYPE_CUDAARRAY) {
++        switch (frames_ctx->sw_format) {
++        case AV_PIX_FMT_NV24:
++            reg.bufferFormat = NV_ENC_BUFFER_FORMAT_YUV444;
++            break;
++        case AV_PIX_FMT_P410:
++        case AV_PIX_FMT_P412:
++        case AV_PIX_FMT_P416:
++            reg.bufferFormat = NV_ENC_BUFFER_FORMAT_YUV444_10BIT;
++            break;
++        default:
++            break;
++        }
++    }
++#endif
+     if (reg.bufferFormat == NV_ENC_BUFFER_FORMAT_UNDEFINED) {
+         av_log(avctx, AV_LOG_FATAL, "Invalid input pixel format: %s\n",
+                av_get_pix_fmt_name(frames_ctx->sw_format));
+@@ -2468,6 +2515,7 @@ static int nvenc_register_frame(AVCodecContext *avctx, const AVFrame *frame)
+     ctx->registered_frames[idx].ptr       = frame->data[0];
+     ctx->registered_frames[idx].ptr_index = reg.subResourceIndex;
+     ctx->registered_frames[idx].regptr    = reg.registeredResource;
++
+     return idx;
+ }
+ 
+@@ -2481,7 +2529,7 @@ static int nvenc_upload_frame(AVCodecContext *avctx, const AVFrame *frame,
+     int res;
+     NVENCSTATUS nv_status;
+ 
+-    if (avctx->pix_fmt == AV_PIX_FMT_CUDA || avctx->pix_fmt == AV_PIX_FMT_D3D11) {
++    if (IS_HWACCEL(avctx->pix_fmt)) {
+         int reg_idx = nvenc_register_frame(avctx, frame);
+         if (reg_idx < 0) {
+             av_log(avctx, AV_LOG_ERROR, "Could not register an input HW frame\n");
+@@ -2799,7 +2847,7 @@ static int process_output_surface(AVCodecContext *avctx, AVPacket *pkt, NvencSur
+     }
+ 
+ 
+-    if (avctx->pix_fmt == AV_PIX_FMT_CUDA || avctx->pix_fmt == AV_PIX_FMT_D3D11) {
++    if (IS_HWACCEL(avctx->pix_fmt)) {
+         ctx->registered_frames[tmpoutsurf->reg_idx].mapped -= 1;
+         if (ctx->registered_frames[tmpoutsurf->reg_idx].mapped == 0) {
+             nv_status = p_nvenc->nvEncUnmapInputResource(ctx->nvencoder, ctx->registered_frames[tmpoutsurf->reg_idx].in_map.mappedResource);
+diff --git a/libavcodec/nvenc.h b/libavcodec/nvenc.h
+index 32d4648f75..2aa0ff8c2d 100644
+--- a/libavcodec/nvenc.h
++++ b/libavcodec/nvenc.h
+@@ -115,6 +115,7 @@ typedef void ID3D11Device;
+ #if NVENCAPI_CHECK_VERSION(13, 1)
+ #define NVENC_NEW_COUNTING_TYPE
+ #define NVENC_HAVE_AV1_HGOP_SUPPORT
++#define NVENC_HAVE_CUDA_ARRAY_INPUT_SUPPORT
+ #endif
+ 
+ typedef struct NvencSurface
+-- 
+2.52.0
+
+
+From 071e8e6972756ff8c77b68afa4f6e1a430c589f4 Mon Sep 17 00:00:00 2001
+From: Diego de Souza <ddesouza@nvidia.com>
+Date: Sat, 14 Mar 2026 01:38:17 +0100
+Subject: [PATCH 7/8] fftools/ffmpeg_dec: improve hwaccel format negotiation
+ for CUARRAY
+
+Adjust get_format() to prefer the exact hwaccel_output_format requested
+by the user when multiple hardware formats are available (e.g. both
+AV_PIX_FMT_CUDA and AV_PIX_FMT_CUARRAY). Previously, the loop would
+break on the first matching device type, ignoring the user's preferred
+output format.
+
+When the preferred format is not available, the code now falls back
+gracefully and emits a warning.
+
+Signed-off-by: Diego de Souza <ddesouza@nvidia.com>
+---
+ fftools/ffmpeg_dec.c | 26 +++++++++++++++++++++++++-
+ 1 file changed, 25 insertions(+), 1 deletion(-)
+
+diff --git a/fftools/ffmpeg_dec.c b/fftools/ffmpeg_dec.c
+index e424c0b17d..0611ec0849 100644
+--- a/fftools/ffmpeg_dec.c
++++ b/fftools/ffmpeg_dec.c
+@@ -1330,6 +1330,8 @@ static enum AVPixelFormat get_format(AVCodecContext *s, const enum AVPixelFormat
+         return AV_PIX_FMT_NONE;
+     }
+ 
++    dp->hwaccel_pix_fmt = AV_PIX_FMT_NONE;
++
+     for (p = pix_fmts; *p != AV_PIX_FMT_NONE; p++) {
+         const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(*p);
+         const AVCodecHWConfig  *config = NULL;
+@@ -1352,10 +1354,32 @@ static enum AVPixelFormat get_format(AVCodecContext *s, const enum AVPixelFormat
+         }
+         if (config && config->device_type == dp->hwaccel_device_type) {
+             dp->hwaccel_pix_fmt = *p;
+-            break;
++            /* Stop at the first matching hardware format unless the user
++             * explicitly requested a different *hardware* output format
++             * (e.g. CUARRAY vs CUDA, which share a device type) - in that
++             * case keep scanning for the exact match. A software
++             * hwaccel_output_format requests a download and imposes no such
++             * preference, so it must not switch us off the default (first)
++             * hardware format. */
++            if (dp->hwaccel_output_format == AV_PIX_FMT_NONE ||
++                dp->hwaccel_output_format == *p ||
++                !(av_pix_fmt_desc_get(dp->hwaccel_output_format)->flags & AV_PIX_FMT_FLAG_HWACCEL))
++                break;
+         }
+     }
+ 
++    if (dp->hwaccel_pix_fmt != AV_PIX_FMT_NONE) {
++        if (dp->hwaccel_output_format != AV_PIX_FMT_NONE &&
++            dp->hwaccel_output_format != dp->hwaccel_pix_fmt &&
++            (av_pix_fmt_desc_get(dp->hwaccel_output_format)->flags & AV_PIX_FMT_FLAG_HWACCEL))
++            av_log(dp, AV_LOG_WARNING,
++                   "Requested hwaccel output format '%s' not available, "
++                   "falling back to '%s'\n",
++                   av_get_pix_fmt_name(dp->hwaccel_output_format),
++                   av_get_pix_fmt_name(dp->hwaccel_pix_fmt));
++        return dp->hwaccel_pix_fmt;
++    }
++
+     return *p;
+ }
+ 
+-- 
+2.52.0
+
+
+From 3ba0632b376f05c22881bc5ef2257a3965650020 Mon Sep 17 00:00:00 2001
+From: Diego de Souza <ddesouza@nvidia.com>
+Date: Wed, 18 Mar 2026 23:56:43 +0100
+Subject: [PATCH 8/8] avfilter/hwupload_cuda: add CUARRAY output and
+ semi-planar 444 format support
+
+Add an output_format option (cuda | cuarray) so the filter can produce
+either pitched-linear (AV_PIX_FMT_CUDA, default) or block-linear
+(AV_PIX_FMT_CUARRAY) device frames.  This enables host-to-device
+upload directly into CUarray surfaces for the CUARRAY transcode
+pipeline.
+
+Also extend the accepted input pixel format list with semi-planar 444
+formats (NV24, P410, P416) and the planar MSB variants (YUV444P10MSB,
+YUV444P12MSB).  Semi-planar 444 formats are rejected with a clear
+error when output_format=cuda, as they are only supported by the
+CUarray allocation path.
+
+Signed-off-by: Diego de Souza <ddesouza@nvidia.com>
+---
+ libavfilter/vf_hwupload_cuda.c | 50 ++++++++++++++++++++++++++++++++--
+ 1 file changed, 47 insertions(+), 3 deletions(-)
+
+diff --git a/libavfilter/vf_hwupload_cuda.c b/libavfilter/vf_hwupload_cuda.c
+index 8acfe5c5f9..988271c9c6 100644
+--- a/libavfilter/vf_hwupload_cuda.c
++++ b/libavfilter/vf_hwupload_cuda.c
+@@ -18,17 +18,25 @@
+ 
+ #include "libavutil/buffer.h"
+ #include "libavutil/hwcontext.h"
++#include "libavutil/hwcontext_cuda.h"
+ #include "libavutil/log.h"
+ #include "libavutil/opt.h"
++#include "libavutil/pixdesc.h"
+ 
+ #include "avfilter.h"
+ #include "filters.h"
+ #include "formats.h"
+ #include "video.h"
+ 
++enum {
++    CUDAUPLOAD_FMT_CUDA,
++    CUDAUPLOAD_FMT_CUARRAY,
++};
++
+ typedef struct CudaUploadContext {
+     const AVClass *class;
+     int device_idx;
++    int output_format;
+ 
+     AVBufferRef *hwdevice;
+     AVBufferRef *hwframe;
+@@ -56,20 +64,29 @@ static int cudaupload_query_formats(const AVFilterContext *ctx,
+                                     AVFilterFormatsConfig **cfg_in,
+                                     AVFilterFormatsConfig **cfg_out)
+ {
++    const CudaUploadContext *s = ctx->priv;
+     int ret;
+ 
+     static const enum AVPixelFormat input_pix_fmts[] = {
+         AV_PIX_FMT_NV12, AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUVA420P, AV_PIX_FMT_NV16, AV_PIX_FMT_YUV422P, AV_PIX_FMT_YUV444P,
+         AV_PIX_FMT_P010, AV_PIX_FMT_P016, AV_PIX_FMT_P210, AV_PIX_FMT_P216, AV_PIX_FMT_YUV420P10, AV_PIX_FMT_YUV422P10, AV_PIX_FMT_YUV444P10, AV_PIX_FMT_YUV444P16,
++        AV_PIX_FMT_YUV444P10MSB, AV_PIX_FMT_YUV444P12MSB,
++        AV_PIX_FMT_NV24, AV_PIX_FMT_P410, AV_PIX_FMT_P416,
+         AV_PIX_FMT_0RGB32, AV_PIX_FMT_0BGR32, AV_PIX_FMT_RGB32, AV_PIX_FMT_BGR32,
+ #if CONFIG_VULKAN
+         AV_PIX_FMT_VULKAN,
+ #endif
+         AV_PIX_FMT_NONE,
+     };
+-    static const enum AVPixelFormat output_pix_fmts[] = {
++    static const enum AVPixelFormat output_cuda_fmts[] = {
+         AV_PIX_FMT_CUDA, AV_PIX_FMT_NONE,
+     };
++    static const enum AVPixelFormat output_cuarray_fmts[] = {
++        AV_PIX_FMT_CUARRAY, AV_PIX_FMT_NONE,
++    };
++    const enum AVPixelFormat *output_pix_fmts = s->output_format == CUDAUPLOAD_FMT_CUARRAY
++                                                ? output_cuarray_fmts
++                                                : output_cuda_fmts;
+     AVFilterFormats *in_fmts  = ff_make_pixel_format_list(input_pix_fmts);
+     AVFilterFormats *out_fmts;
+ 
+@@ -103,7 +120,8 @@ static int cudaupload_config_output(AVFilterLink *outlink)
+         return AVERROR(ENOMEM);
+ 
+     hwframe_ctx            = (AVHWFramesContext*)s->hwframe->data;
+-    hwframe_ctx->format    = AV_PIX_FMT_CUDA;
++    hwframe_ctx->format    = s->output_format == CUDAUPLOAD_FMT_CUARRAY
++                           ? AV_PIX_FMT_CUARRAY : AV_PIX_FMT_CUDA;
+     if (inl->hw_frames_ctx) {
+         AVHWFramesContext *in_hwframe_ctx = (AVHWFramesContext*)inl->hw_frames_ctx->data;
+         hwframe_ctx->sw_format = in_hwframe_ctx->sw_format;
+@@ -113,9 +131,32 @@ static int cudaupload_config_output(AVFilterLink *outlink)
+     hwframe_ctx->width     = inlink->w;
+     hwframe_ctx->height    = inlink->h;
+ 
++    if (s->output_format == CUDAUPLOAD_FMT_CUDA) {
++        switch (hwframe_ctx->sw_format) {
++        case AV_PIX_FMT_NV24:
++        case AV_PIX_FMT_P410:
++        case AV_PIX_FMT_P412:
++        case AV_PIX_FMT_P416:
++            av_log(ctx, AV_LOG_ERROR,
++                   "Pixel format %s is not supported with "
++                   "output_format=cuda (pitch-linear). "
++                   "Use output_format=cuarray instead.\n",
++                   av_get_pix_fmt_name(hwframe_ctx->sw_format));
++            return AVERROR(EINVAL);
++        default:
++            break;
++        }
++    }
++
+     ret = av_hwframe_ctx_init(s->hwframe);
+-    if (ret < 0)
++    if (ret < 0) {
++        if (s->output_format == CUDAUPLOAD_FMT_CUARRAY)
++            av_log(ctx, AV_LOG_ERROR,
++                   "Pixel format %s is not supported with "
++                   "output_format=cuarray. Try output_format=cuda instead.\n",
++                   av_get_pix_fmt_name(hwframe_ctx->sw_format));
+         return ret;
++    }
+ 
+     outl->hw_frames_ctx = av_buffer_ref(s->hwframe);
+     if (!outl->hw_frames_ctx)
+@@ -164,6 +205,9 @@ fail:
+ #define FLAGS (AV_OPT_FLAG_FILTERING_PARAM | AV_OPT_FLAG_VIDEO_PARAM)
+ static const AVOption cudaupload_options[] = {
+     { "device", "Number of the device to use", OFFSET(device_idx), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, INT_MAX, FLAGS },
++    { "output_format", "Output frame format", OFFSET(output_format), AV_OPT_TYPE_INT, { .i64 = CUDAUPLOAD_FMT_CUDA }, 0, 1, FLAGS, .unit = "output_format" },
++        { "cuda",    "Pitch-linear device memory (default)", 0, AV_OPT_TYPE_CONST, { .i64 = CUDAUPLOAD_FMT_CUDA },    .flags = FLAGS, .unit = "output_format" },
++        { "cuarray", "Block-linear CUDA array",              0, AV_OPT_TYPE_CONST, { .i64 = CUDAUPLOAD_FMT_CUARRAY }, .flags = FLAGS, .unit = "output_format" },
+     { NULL },
+ };
+ 
