@@ -280,12 +280,165 @@ if [[ -f "$NVENC_DISPATCH_SRC" ]]; then
     # Дописываем реализации функций-заглушек v130 в конец файла nvenc_dispatch.c,
     # Hotfix upstream NVENC v13.0 symbols for MinGW static compilation
 #include "avcodec.h"
-    cat << 'EOF' >> "$NVENC_DISPATCH_SRC"
-extern "C" {
-    int ff_nvenc_encode_init130(AVCodecContext *avctx) { return 0; }
-    int ff_nvenc_encode_close130(AVCodecContext *avctx) { return 0; }
-    int ff_nvenc_receive_packet130(AVCodecContext *avctx, AVPacket *avpkt) { return 0; }
-    int ff_nvenc_encode_flush130(AVCodecContext *avctx) { return 0; }
+    cat << 'EOF' > "$NVENC_DISPATCH_SRC"
+#include "nvenc.h"
+
+int ff_nvenc_encode_init131(AVCodecContext *avctx);
+int ff_nvenc_encode_close131(AVCodecContext *avctx);
+int ff_nvenc_receive_packet131(AVCodecContext *avctx, AVPacket *pkt);
+void ff_nvenc_encode_flush131(AVCodecContext *avctx);
+
+int ff_nvenc_encode_init121(AVCodecContext *avctx);
+int ff_nvenc_encode_close121(AVCodecContext *avctx);
+int ff_nvenc_receive_packet121(AVCodecContext *avctx, AVPacket *pkt);
+void ff_nvenc_encode_flush121(AVCodecContext *avctx);
+
+int ff_nvenc_encode_init120(AVCodecContext *avctx);
+int ff_nvenc_encode_close120(AVCodecContext *avctx);
+int ff_nvenc_receive_packet120(AVCodecContext *avctx, AVPacket *pkt);
+void ff_nvenc_encode_flush120(AVCodecContext *avctx);
+
+int ff_nvenc_encode_init111(AVCodecContext *avctx);
+int ff_nvenc_encode_close111(AVCodecContext *avctx);
+int ff_nvenc_receive_packet111(AVCodecContext *avctx, AVPacket *pkt);
+void ff_nvenc_encode_flush111(AVCodecContext *avctx);
+
+#if !__has_include(<nv-codec-headers-12.1/include/ffnvcodec/nvEncodeAPI.h>)
+av_cold int ff_nvenc_encode_init121(AVCodecContext *avctx) { return AVERROR_EXTERNAL; }
+av_cold int ff_nvenc_encode_close121(AVCodecContext *avctx) { return AVERROR_EXTERNAL; }
+int ff_nvenc_receive_packet121(AVCodecContext *avctx, AVPacket *pkt) { return AVERROR_EXTERNAL; }
+av_cold void ff_nvenc_encode_flush121(AVCodecContext *avctx) {}
+#endif
+
+#if !__has_include(<nv-codec-headers-12.0/include/ffnvcodec/nvEncodeAPI.h>)
+av_cold int ff_nvenc_encode_init120(AVCodecContext *avctx) { return AVERROR_EXTERNAL; }
+av_cold int ff_nvenc_encode_close120(AVCodecContext *avctx) { return AVERROR_EXTERNAL; }
+int ff_nvenc_receive_packet120(AVCodecContext *avctx, AVPacket *pkt) { return AVERROR_EXTERNAL; }
+av_cold void ff_nvenc_encode_flush120(AVCodecContext *avctx) {}
+#endif
+
+#if !__has_include(<nv-codec-headers-11.1/include/ffnvcodec/nvEncodeAPI.h>)
+av_cold int ff_nvenc_encode_init111(AVCodecContext *avctx) { return AVERROR_EXTERNAL; }
+av_cold int ff_nvenc_encode_close111(AVCodecContext *avctx) { return AVERROR_EXTERNAL; }
+int ff_nvenc_receive_packet111(AVCodecContext *avctx, AVPacket *pkt) { return AVERROR_EXTERNAL; }
+av_cold void ff_nvenc_encode_flush111(AVCodecContext *avctx) {}
+#endif
+
+static const char* nvenc_driver_requirement(float api)
+{
+    const struct {
+        float api;
+        const char* win;
+        const  char* linux;
+    } requirements[] = {
+        {13.2f, "(unknown)", "(unknown)"},
+        {13.1f, "610.00", "610.00"},
+        {13.0f, "570.0", "570.0"},
+        {12.2f, "551.76", "550.54.14"},
+        {12.1f, "531.61", "530.41.03"},
+        {12.0f, "522.25", "520.56.06"},
+        {11.1f, "471.41", "470.57.02"},
+        {11.0f, "456.71", "455.28"},
+        {10.0f, "450.51", "445.87"},
+        {9.1f,  "436.15", "435.21"},
+        {9.0f,  "418.81", "418.30"},
+        {8.2f,  "397.93", "396.24"},
+        {8.1f,  "390.77", "390.25"},
+        {8.0f,  "378.66", "378.13"},
+    };
+
+    for (int i = 0; i < FF_ARRAY_ELEMS(requirements); i++) {
+        if (requirements[i].api <= api) {
+#if defined(_WIN32) || defined(__CYGWIN__)
+            return requirements[i].win;
+#else
+            return requirements[i].linux;
+#endif
+        }
+    }
+    return "(unknown)";
+}
+
+static av_cold int nvenc_load_api(AVCodecContext *avctx)
+{
+    NvencContext *ctx            = avctx->priv_data;
+    NvencDynLoadFunctions *dl_fn = &ctx->nvenc_dload_funcs;
+    NVENCSTATUS err;
+    uint32_t nvenc_max_ver;
+    uint32_t nvenc_max_major;
+    uint32_t nvenc_max_minor;
+    int ret;
+    ret = nvenc_load_functions(&dl_fn->nvenc_dl, avctx);
+    if (ret < 0) {
+        av_log(avctx, AV_LOG_ERROR, "nvenc_load_functions error\n");
+        return ret;
+    }
+
+    err = dl_fn->nvenc_dl->NvEncodeAPIGetMaxSupportedVersion(&nvenc_max_ver);
+    if (err != NV_ENC_SUCCESS) {
+        av_log(avctx, AV_LOG_ERROR, "Failed to query nvenc max version\n");
+        return AVERROR_UNKNOWN;
+    }
+    nvenc_max_major = nvenc_max_ver >> 4;
+    nvenc_max_minor = nvenc_max_ver & 0xf;
+
+    if (ctx->apiver_req <= 0) {
+        ctx->apiver_req = nvenc_max_major + nvenc_max_minor / 10.0f;
+    }
+    if (ctx->apiver_req > nvenc_max_major + nvenc_max_minor / 10.0f) {
+        av_log(avctx, AV_LOG_ERROR, "Requested nvenc API version %.1f is not supported, the minimum required Nvidia driver is %s\n", ctx->apiver_req, nvenc_driver_requirement(ctx->apiver_req));
+        return AVERROR(ENOSYS);
+    }
+    return 0;
+}
+
+av_cold int ff_nvenc_encode_init(AVCodecContext *avctx)
+{
+    nvenc_load_api(avctx); // don't return error, a future version may be supported
+    NvencContext *ctx = avctx->priv_data;
+    if (ctx->apiver_req >= 12.2f)
+        return ff_nvenc_encode_init131(avctx);
+    if (ctx->apiver_req >= 12.1f)
+        return ff_nvenc_encode_init121(avctx);
+    if (ctx->apiver_req >= 12.0f)
+        return ff_nvenc_encode_init120(avctx);
+    return ff_nvenc_encode_init111(avctx);
+}
+
+av_cold int ff_nvenc_encode_close(AVCodecContext *avctx)
+{
+    NvencContext *ctx = avctx->priv_data;
+    if (ctx->apiver_req >= 12.2f)
+        return ff_nvenc_encode_close131(avctx);
+    if (ctx->apiver_req >= 12.1f)
+        return ff_nvenc_encode_close121(avctx);
+    if (ctx->apiver_req >= 12.0f)
+        return ff_nvenc_encode_close120(avctx);
+    return ff_nvenc_encode_close111(avctx);
+}
+
+int ff_nvenc_receive_packet(AVCodecContext *avctx, AVPacket *pkt)
+{
+    NvencContext *ctx = avctx->priv_data;
+    if (ctx->apiver_req >= 12.2f)
+        return ff_nvenc_receive_packet131(avctx, pkt);
+    if (ctx->apiver_req >= 12.1f)
+        return ff_nvenc_receive_packet121(avctx, pkt);
+    if (ctx->apiver_req >= 12.0f)
+        return ff_nvenc_receive_packet120(avctx, pkt);
+    return ff_nvenc_receive_packet111(avctx, pkt);
+}
+
+av_cold void ff_nvenc_encode_flush(AVCodecContext *avctx)
+{
+    NvencContext *ctx = avctx->priv_data;
+    if (ctx->apiver_req >= 12.2f)
+        return ff_nvenc_encode_flush131(avctx);
+    if (ctx->apiver_req >= 12.1f)
+        return ff_nvenc_encode_flush121(avctx);
+    if (ctx->apiver_req >= 12.0f)
+        return ff_nvenc_encode_flush120(avctx);
+    return ff_nvenc_encode_flush111(avctx);
 }
 EOF
     log_info "nvenc_dispatch.c successfully patched for NVENC 13.0."
@@ -439,7 +592,7 @@ FINAL_LIBS=$(echo "$FINAL_LIBS" | xargs)
 # =======================================
 log_debug "${SEARCH_MARK} Scanning FFmpeg configuration for enabled components..."
 # Список компонентов для проверки
-COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract openssl amf frei0r whisper liblcevc_dec)
+COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract openssl frei0r whisper liblcevc_dec)
 # Создаем имя переменной libtesseract -> HAS_LIBTESSERACT
 for comp in "${COMPONENTS[@]}"; do
     clean_name="${comp^^}"
@@ -731,15 +884,17 @@ CONF_FLAGS=(
     --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
-    "${FF_CONF_ARR[@]}"
     --enable-runtime-cpudetect
-    --disable-w32threads --enable-pthreads
+    --enable-cross-compile
+    --disable-w32threads
+    --enable-pthreads
+    --enable-filter=all
     --enable-opengl
-    --enable-dxva2
     --enable-mediafoundation
     --enable-pic
     # --disable-ffprobe
     --disable-ffplay
+    "${FF_CONF_ARR[@]}"
     --cc="$CC"
     --cxx="$CXX"
     --ar="$AR"
@@ -763,8 +918,8 @@ fi
     CONF_FLAGS+=( --disable-audiotoolbox --disable-videotoolbox )
 [[ "$HAS_OPENSSL" == "0" ]] && \
     CONF_FLAGS+=( --disable-securetransport )
-[[ "$HAS_AMF" == "1" ]] && \
-    CONF_FLAGS+=( --enable-filter=vpp_amf --enable-filter=sr_amf )
+[[ "$TARGET" == "win*" ]] && \
+    CONF_FLAGS+=( --enable-dxva2 --enable-d3d11va --enable-d3d12va )
 [[ "${USE_AVX512}" != "1" ]] && \
     CONF_FLAGS+=( --disable-avx512 --disable-avx512icl )
 [[ "$DEBUG_MODE" == "1" ]] && \
