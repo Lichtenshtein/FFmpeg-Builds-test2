@@ -1,7 +1,7 @@
-From 65db4902d75ad4e8ba37019d2bf2e26e0d670ea7 Mon Sep 17 00:00:00 2001
+From af9150f4c24cb9c8c7436cfa016ea4b772a8d2ec Mon Sep 17 00:00:00 2001
 From: wang-bin <wbsecg1@gmail.com>
 Date: Sun, 11 Aug 2024 10:27:43 +0800
-Subject: [PATCH 27/35] Revert "avutil/timestamp: change precision of
+Subject: [PATCH 26/35] Revert "avutil/timestamp: change precision of
  av_ts_make_time_string()"
 
 This reverts commit 8c936e9b437aaed0ca10f3ec2edebf06cad6a5b5.
@@ -25,7 +25,7 @@ index fa53a46b98..7e6da894df 100644
 +    else                      snprintf(buf, AV_TS_MAX_STRING_SIZE, "%.6g", av_q2d(*tb) * ts);
 +    return buf;
  }
-
+ 
  /**
 diff --git a/tests/ref/fate/filter-metadata-scdet b/tests/ref/fate/filter-metadata-scdet
 index d385920fcd..ca5dbaaefc 100644
@@ -60,5 +60,6 @@ index e66ffe5fdd..bc53fea047 100644
  pts=92160
  pts=138240
  pts=184320
---
-2.50.1 (Apple Git-155)
+-- 
+2.53.0
+

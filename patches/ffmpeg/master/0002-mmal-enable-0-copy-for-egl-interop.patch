@@ -1,4 +1,4 @@
-From 1b926d717c3ba3ba86ffebb91ac911695f7946c4 Mon Sep 17 00:00:00 2001
+From b375c99b5623927eafd12a1e47cfca5d16365e67 Mon Sep 17 00:00:00 2001
 From: wang-bin <wbsecg1@gmail.com>
 Date: Sun, 29 Oct 2017 23:19:07 +0800
 Subject: [PATCH 02/35] mmal: enable 0-copy for egl interop
@@ -13,7 +13,7 @@ index e42591110f..44f2916413 100644
 +++ b/libavcodec/mmaldec.c
 @@ -305,6 +305,8 @@ static int ffmal_update_format(AVCodecContext *avctx)
          goto fail;
-
+ 
      if (avctx->pix_fmt == AV_PIX_FMT_MMAL) {
 +        if ((status = mmal_port_parameter_set_boolean(decoder->output[0], MMAL_PARAMETER_ZERO_COPY, 1)))
 +            goto fail;
@@ -30,5 +30,6 @@ index e42591110f..44f2916413 100644
                                             decoder->output[0]->buffer_size);
      if (!ctx->pool_out->pool) {
          ret = AVERROR(ENOMEM);
---
-2.50.1 (Apple Git-155)
+-- 
+2.53.0
+
