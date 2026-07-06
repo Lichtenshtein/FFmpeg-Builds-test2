@@ -1410,9 +1410,11 @@ strip_files() {
             done
     else
         log_info "${BROOM_MARK} Stripping $stage_name from debug symbols: [Size: ${GREY_B}$size_before${NC}]"
-        find "$target_dir" -type f \
-            \( -name "*.exe" -o -name "*.dll" -o -name "*.a" -o -name "*.so*" \) \
-            ! -name "*.dll.a" -exec "$_strip_cmd" --strip-debug {} + 2>/dev/null || true
+        # Для .exe и .dll используем жесткий --strip-all (или --strip-unneeded)
+        find "$target_dir" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "$_strip_cmd" --strip-unneeded {} + 2>/dev/null || true
+        # Для статических библиотек .a оставляем --strip-debug
+        find "$target_dir" -type f \( -name "*.a" -o -name "*.so*" \) \
+                    ! -name "*.dll.a" -exec "$_strip_cmd" --strip-debug {} + 2>/dev/null || true
     fi
 
     local size_after=$(du -sh "$target_dir" | cut -f1)
