@@ -29,6 +29,13 @@ ffbuild_dockerbuild() {
         fi
     fi
 
+    # Disable compilation and installation of aacs_info.exe
+    log_info "Disabling aacs_info compilation and installation..."
+    if [[ -f "Makefile.am" ]]; then
+        # Move aacs_info from installed (bin_PROGRAMS) to test/non-installable (noinst_PROGRAMS)
+        sed -i 's/bin_PROGRAMS = aacs_info/noinst_PROGRAMS += aacs_info/g' Makefile.am
+    fi
+
     ./bootstrap || return 1
 
     local DEP_LIBS="-lgcrypt -lgpg-error"
@@ -38,7 +45,6 @@ ffbuild_dockerbuild() {
         --libdir="${FFBUILD_PREFIX}/lib"
         --host="$FFBUILD_TOOLCHAIN"
         --with-pic
-        --disable-doc
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
@@ -67,6 +73,7 @@ ffbuild_dockerbuild() {
         fi
     fi
     if ! grep -qF -- "-lstdc++" "$PC_FILE"; then
-        echo "Libs.private: -lstdc++" >> "$PC_FILE"
+        sed -i "/^Libs.private:/ s/$/ -lstdc++/" "$PC_FILE"
     fi
+    sed -i "s|^Cflags:.*|& -I\${includedir}/libaacs|" "$PC_FILE"
 }

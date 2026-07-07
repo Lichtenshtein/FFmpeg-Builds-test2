@@ -19,6 +19,26 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Patching conflicts with videolan libaacs (resolving duplicate symbol errors)
+    log_info "Renaming duplicate VideoLAN infrastructure symbols in libbdplus..."
+
+    # Isolate string functions (strutl.c)
+    find . -type f \( -name "*.c" -o -name "*.h" -o -name "Makefile.am" \) -exec sed -i \
+        -e 's/\bstr_dup\b/bdplus_str_dup/g' \
+        -e 's/\bstr_printf\b/bdplus_str_printf/g' \
+        -e 's/\bstr_next_line\b/bdplus_str_next_line/g' \
+        -e 's/\bstr_print_hex\b/bdplus_str_print_hex/g' {} +
+
+    # Isolating the file system abstraction functions (file_win32.c)
+    find . -type f \( -name "*.c" -o -name "*.h" \) -exec sed -i \
+        -e 's/\bfile_path_exists\b/bdplus_file_path_exists/g' \
+        -e 's/\bfile_mkdir\b/bdplus_file_mkdir/g' \
+        -e 's/\bfile_open\b/bdplus_file_open/g' {} +
+
+    # Isolate the general cryptography initialization function
+    find . -type f \( -name "*.c" -o -name "*.h" \) -exec sed -i \
+        -e 's/\bcrypto_init\b/bdplus_crypto_init/g' {} +
+
     ./bootstrap || return 1
 
     local DEP_LIBS="-lgcrypt -lgpg-error"
@@ -28,7 +48,6 @@ ffbuild_dockerbuild() {
         --libdir="${FFBUILD_PREFIX}/lib"
         --host="$FFBUILD_TOOLCHAIN"
         --with-pic
-        --disable-doc
         --with-libgcrypt-prefix="$FFBUILD_PREFIX"
         --with-gpg-error-prefix="$FFBUILD_PREFIX"
         # --without-libaacs
