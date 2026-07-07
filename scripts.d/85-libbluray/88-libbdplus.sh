@@ -79,6 +79,7 @@ ffbuild_dockerbuild() {
         fi
     fi
     if ! grep -qF -- "-lstdc++" "$PC_FILE"; then
-        echo "Libs.private: -lstdc++" >> "$PC_FILE"
+        sed -i "/^Libs.private:/ s/$/ -lstdc++/" "$PC_FILE"
     fi
+    sed -i "s|^Cflags:.*|& -I\${includedir}/libbdplus|" "$PC_FILE"
 }
