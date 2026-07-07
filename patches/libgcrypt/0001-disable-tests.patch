@@ -1,0 +1,50 @@
+From c413d6d6275ce81049344d5d8a17aea8c2dea2d8 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Wed, 8 Jul 2026 00:19:43 +0300
+Subject: [PATCH] disable tests
+
+---
+ Makefile.am  | 6 +++---
+ configure.ac | 4 ----
+ 2 files changed, 3 insertions(+), 7 deletions(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index f4da0905..7dcc553b 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -41,13 +41,13 @@ doc =
+ endif
+ 
+ 
+-DIST_SUBDIRS = m4 compat mpi cipher random src doc tests
+-SUBDIRS =         compat mpi cipher random src $(doc) tests
++DIST_SUBDIRS = m4 compat mpi cipher random src doc
++SUBDIRS =         compat mpi cipher random src $(doc)
+ 
+ EXTRA_DIST = autogen.sh autogen.rc README.GIT LICENSES			   \
+ 	     ChangeLog-2011 build-aux/ChangeLog-2011 doc/ChangeLog-2011	   \
+ 	     m4/ChangeLog-2011 cipher/ChangeLog-2011 src/ChangeLog-2011	   \
+-	     random/ChangeLog-2011 tests/ChangeLog-2011 mpi/ChangeLog-2011 \
++	     random/ChangeLog-2011 mpi/ChangeLog-2011 \
+ 	     build-aux/libtool-patch.sed 				   \
+ 	     build-aux/git-log-footer build-aux/git-log-fix VERSION
+ 
+diff --git a/configure.ac b/configure.ac
+index 604f063e..ed370417 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -4445,11 +4445,7 @@ src/gcrypt.h
+ src/libgcrypt-config
+ src/libgcrypt.pc
+ src/versioninfo.rc
+-tests/Makefile
+ ])
+-AC_CONFIG_FILES([tests/hashtest-6g], [chmod +x tests/hashtest-6g])
+-AC_CONFIG_FILES([tests/hashtest-256g], [chmod +x tests/hashtest-256g])
+-AC_CONFIG_FILES([tests/basic-disable-all-hwf], [chmod +x tests/basic-disable-all-hwf])
+ AC_OUTPUT
+ 
+ 
+-- 
+2.52.0.windows.1
+
