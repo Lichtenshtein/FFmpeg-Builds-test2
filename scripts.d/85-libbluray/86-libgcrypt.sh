@@ -19,17 +19,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Disable compilation of utility binaries and configuration scripts
-    if [[ "${PREFER_SHARED}" != "1" ]]; then
-        log_info "Disabling libgcrypt utility binaries and scripts compilation..."
-        if [[ -f "src/Makefile.am" ]]; then
-            # Move utilities from installed ones (bin_PROGRAMS) to non-installed ones (noinst_PROGRAMS)
-            sed -i 's/bin_PROGRAMS = dumpsexp hmac256 mpicalc/noinst_PROGRAMS += dumpsexp hmac256 mpicalc/g' src/Makefile.am
-            # Move libgcrypt-config to noinst so that it is not installed in /opt/ffbuild/bin/
-            sed -i 's/bin_SCRIPTS = libgcrypt-config/noinst_SCRIPTS += libgcrypt-config/g' src/Makefile.am
-        fi
-    fi
-
     ./autogen.sh || return 1
 
     local DEP_LIBS="-lgpg-error"
@@ -58,7 +47,7 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" bin_PROGRAMS="" bin_SCRIPTS="" || return 1
 
     local PC_FILE="$PC_DIR/libgcrypt.pc"
 
