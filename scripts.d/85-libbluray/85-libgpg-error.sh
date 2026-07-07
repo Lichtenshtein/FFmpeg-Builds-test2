@@ -3,6 +3,11 @@
 SCRIPT_REPO="https://github.com/gpg/libgpg-error.git"
 SCRIPT_COMMIT="bfdf7b0b7b62f4463451a7d5f8408cec75520dca"
 
+ffbuild_depends() {
+    echo libiconv
+    echo gettext
+}
+
 ffbuild_enabled() {
     return 0
 }
@@ -13,6 +18,11 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    # local DEP_LIBS=" -lintl -liconv -lcharset"
+    if [[ $TARGET == win64 ]]; then
+        DEP_LIBS="-lws2_32$DEP_LIBS"
+    fi
 
     ./autogen.sh || return 1
 
@@ -30,11 +40,16 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    CFLAGS="$CFLAGS ${USELTO:-}${USELTO_C:-}" \
+    local target_cppflags="$CPPFLAGS"
+    if [[ $TARGET == win64 ]]; then
+        target_cppflags="$target_cppflags -DNTDDI_VERSION=0x0A000000"
+    fi
+
+    CFLAGS="$CFLAGS -Wno-error=implicit-function-declaration ${USELTO:-}${USELTO_C:-}" \
     CPPFLAGS="$CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS ${USELTO:-}${USELTO_C:-}" \
     LDFLAGS="$LDFLAGS ${USELTO:-}${USELTO_L:-}" \
-    LIBS="$LIBS" \
+    LIBS="$DEP_LIBS $LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
