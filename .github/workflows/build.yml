@@ -407,10 +407,9 @@ jobs:
         uses: actions/cache/restore@v5.0.5
         with:
           path: .cache/ffmpeg
-            ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}
+          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}
           restore-keys: |
             ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-
-            ffmpeg-src-
 
       - name: Get FFmpeg latest version
         id: ffmpeg-info
