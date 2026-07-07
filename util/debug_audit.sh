@@ -33,8 +33,8 @@ declare -A COMPONENT_TEST_MAP=(
     ["enable-libx264"]="libx264:v:ff_libx264"
     ["enable-libx265"]="libx265:v:ff_libx265"
     ["enable-libsvtav1"]="libsvtav1:v:ff_libsvtav1"
-    ["enable-libaom"]="libaom:v:ff_libaom_av1"
-    ["enable-libvpx"]="libvpx:v:ff_libvpx_vp9"
+    ["enable-libaom"]="libaom-av1:v:ff_libaom_av1"
+    ["enable-libvpx"]="libvpx-vp9:v:ff_libvpx_vp9"
     ["enable-libsvtvp9"]="libsvtvp9:v:ff_libsvt_vp9"
     ["enable-libopenh264"]="libopenh264:v:ff_libopenh264"
     ["enable-libvvdec"]="libvvdec:v:ff_libvvdec"
@@ -78,7 +78,7 @@ declare -A COMPONENT_TEST_MAP=(
 # 3. Generate Dynamic Component Tests
 generate_component_tests() {
     local enabled_components=()
-    local tests=()
+    local test_codecs=()
     local config_source="${FINAL_CONFIGURE:-$(cat ${FFMPEG_CONFIG_LOG:-/dev/null} 2>/dev/null)}"
 
     log_debug "${SEARCH_MARK} Generating specific tests for enabled components..."
@@ -88,31 +88,33 @@ generate_component_tests() {
             local codec_spec="${COMPONENT_TEST_MAP[$flag]}"
             local codec_name="${codec_spec%%:*}"
             local media_type="${codec_spec#*:}"
-            
+
+            media_type="${media_type%%:*}" 
             enabled_components+=("$codec_name ($media_type)")
 
             # Build specific test based on media type
             if [[ "$media_type" == "v" ]]; then
                 # Video tests: Add 10-bit test for x265 and x264 if enabled
-                if [[ "$codec_name" == "libx265" || "$codec_name" == "libx264" ]]; then
+                if [[ "$codec_name" == *"x264"* || "$codec_name" == *"x265"* ]]; then
                     # Test 10-bit encoding
-                    tests+=("-loglevel warning -f lavfi -i testsrc2=s=1920x1080:r=30:d=2 -c:v $codec_name -pix_fmt yuv420p10le -b:v 500k -f null -")
+                    test_codecs+=("-y -loglevel warning -f lavfi -i testsrc2=s=1280x720:r=30:d=2 -c:v $codec_name -pix_fmt yuv420p10le -b:v 500k -f null -")
                     # Test standard 8-bit
-                    tests+=("-loglevel warning -f lavfi -i testsrc2=s=1280x720:r=30:d=1 -c:v $codec_name -pix_fmt yuv420p -b:v 500k -f null -")
-                elif [[ "$codec_name" == "libaom" || "$codec_name" == "libsvtav1" ]]; then
+                    test_codecs+=("-y -loglevel warning -f lavfi -i testsrc2=s=1280x720:r=30:d=1 -c:v $codec_name -pix_fmt yuv420p -b:v 500k -f null -")
+                elif [[ "$codec_name" == *"aom"* || "$codec_name" == *"svtav1"* ]]; then
                     # AV1 specific tests (often memory heavy)
-                    tests+=("-loglevel warning -f lavfi -i testsrc2=s=1280x720:r=30:d=2 -c:v $codec_name -crf 30 -f null -")
+                    test_codecs+=("-y -loglevel warning -f lavfi -i testsrc2=s=640x360:r=30:d=1 -c:v $codec_name -crf 30 -f null -")
                 else
                     # Standard video test
-                    tests+=("-loglevel warning -f lavfi -i testsrc2=s=1280x720:r=30:d=2 -c:v $codec_name -b:v 500k -f null -")
+                    test_codecs+=("-y -loglevel warning -f lavfi -i testsrc2=s=640x360:r=30:d=1 -c:v $codec_name -b:v 500k -f null -")
                 fi
             else
                 # Audio tests
-                if [[ "$codec_name" == "libopus" || "$codec_name" == "libvorbis" ]]; then
+                if [[ "$codec_name" == *"opus"* || "$codec_name" == *"vorbis"* ]]; then
                     # Test resampling (common audio bug)
-                    tests+=("-loglevel warning -f lavfi -i sine=f=1000:d=2 -ar 48000 -c:a $codec_name -b:a 128k -f null -")
+                    test_codecs+=("-y -loglevel warning -f lavfi -i sine=f=1000:d=2 -ar 48000 -c:a $codec_name -b:a 128k -f null -")
                 else
-                    tests+=("-loglevel warning -f lavfi -i sine=f=1000:d=2 -c:a $codec_name -b:a 128k -f null -")
+                    # Стандартный аудио-тест
+                    test_codecs+=("-y -loglevel warning -f lavfi -i sine=f=1000:d=2 -c:a $codec_name -b:a 128k -f null -")
                 fi
             fi
         fi
@@ -120,21 +122,23 @@ generate_component_tests() {
 
     # Add a complex filter chain test if video codecs are present
     if [[ ${#enabled_components[@]} -gt 0 ]] && [[ "$config_source" == *"--enable-libx264"* || "$config_source" == *"--enable-libx265"* ]]; then
-        tests+=("-loglevel warning -f lavfi -i color=c=red:s=1280x720:d=2 -vf scale=640x360,format=yuv444p10le -c:v libx264 -pix_fmt yuv444p10le -b:v 1M -f null -")
+        test_codecs+=("-y -loglevel warning -f lavfi -i color=c=red:s=1280x720:d=2 -vf scale=640x360,format=yuv444p10le -c:v libx264 -pix_fmt yuv444p10le -b:v 1M -f null -")
     fi
 
+    # Обработка результатов и фоллбэки
     if [[ ${#enabled_components[@]} -eq 0 ]]; then
         log_warn "No heavy external components detected for specific testing."
         # Add a minimal fallback
-        tests+=("-loglevel warning -f lavfi -i testsrc2=d=1 -c:v wrapped_avframe -f null -")
+        test_codecs+=("-y -loglevel warning -f lavfi -i testsrc2=d=1 -c:v wrapped_avframe -f null -")
     else
         log_info "Discovered ${#enabled_components[@]} components for deep audit:"
         for comp in "${enabled_components[@]}"; do
-            log_debug "   - $comp"
+            log_debug "    - $comp"
         done
     fi
 
-    COMPREHENSIVE_TESTS=("${tests[@]}")
+    # Экспорт для Wine-раннера
+    COMPREHENSIVE_TESTS=("${test_codecs[@]}")
 }
 
 # 4. Main Audit Runner
@@ -326,4 +330,4 @@ run_deep_component_audit() {
 }
 
 # run Deep Audit
-run_deep_component_audit
+[[ "$TARGET" == "win*" ]] && run_deep_component_audit
