@@ -47,7 +47,7 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" bin_PROGRAMS="" bin_SCRIPTS="" || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" bin_PROGRAMS="" || return 1
 
     local PC_FILE="$PC_DIR/libgcrypt.pc"
 
