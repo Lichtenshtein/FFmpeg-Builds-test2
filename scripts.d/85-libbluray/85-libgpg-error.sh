@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
         --disable-doc
         --disable-languages
         --disable-tests
-        --disable-install-gpg-error-config
+        --enable-install-gpg-error-config
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
