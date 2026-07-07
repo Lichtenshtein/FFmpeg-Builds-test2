@@ -28,7 +28,7 @@ ffbuild_dockerbuild() {
     # Disable compilation of the gpg-error.exe utility binary and configuration scripts
     log_info "Disabling libgpg-error utility binary and config scripts installation..."
     if [[ -f "src/Makefile.am" ]]; then
-        sed -i 's/bin_PROGRAMS = gpg-error/noinst_PROGRAMS += gpg-error/g' src/Makefile.am
+        sed -i 's/bin_PROGRAMS = gpg-error/noinst_PROGRAMS = gpg-error/g' src/Makefile.am
         sed -i 's/bin_SCRIPTS = gpgrt-config gpg-error-config/noinst_SCRIPTS += gpgrt-config gpg-error-config/g' src/Makefile.am
         sed -i 's/bin_SCRIPTS = gpgrt-config/noinst_SCRIPTS += gpgrt-config/g' src/Makefile.am
     fi
