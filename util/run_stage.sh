@@ -548,7 +548,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
     fi
 )
 
-if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     # Диагностика созданных файлов
     log_debug "${DIRS_MARK} Current files in $VARS_DIR:"
     ls -1 "$VARS_DIR" | grep ".vars" || log_warn "No .vars files created in this stage."

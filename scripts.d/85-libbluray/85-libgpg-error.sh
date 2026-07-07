@@ -19,7 +19,21 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # local DEP_LIBS=" -lintl -liconv -lcharset"
+    # Patching the implicit declaration of inet_pton under mingw
+    log_info "Patching missing ws2tcpip.h include for inet_pton in logging.c..."
+    if [[ -f "src/logging.c" ]]; then
+        sed -i '/#include <config.h>/a #ifdef _WIN32\n# include <ws2tcpip.h>\n#endif' src/logging.c
+    fi
+
+    # Disable compilation of the gpg-error.exe utility binary and configuration scripts
+    log_info "Disabling libgpg-error utility binary and config scripts installation..."
+    if [[ -f "src/Makefile.am" ]]; then
+        sed -i 's/bin_PROGRAMS = gpg-error/noinst_PROGRAMS += gpg-error/g' src/Makefile.am
+        sed -i 's/bin_SCRIPTS = gpgrt-config gpg-error-config/noinst_SCRIPTS += gpgrt-config gpg-error-config/g' src/Makefile.am
+        sed -i 's/bin_SCRIPTS = gpgrt-config/noinst_SCRIPTS += gpgrt-config/g' src/Makefile.am
+    fi
+
+    local DEP_LIBS=" -lintl -liconv -lcharset"
     if [[ $TARGET == win64 ]]; then
         DEP_LIBS="-lws2_32$DEP_LIBS"
     fi
@@ -33,7 +47,7 @@ ffbuild_dockerbuild() {
         --disable-doc
         --disable-languages
         --disable-tests
-        --enable-install-gpg-error-config
+        --disable-install-gpg-error-config
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
@@ -45,7 +59,7 @@ ffbuild_dockerbuild() {
         target_cppflags="$target_cppflags -DNTDDI_VERSION=0x0A000000"
     fi
 
-    CFLAGS="$CFLAGS -Wno-error=implicit-function-declaration ${USELTO:-}${USELTO_C:-}" \
+    CFLAGS="$CFLAGS ${USELTO:-}${USELTO_C:-}" \
     CPPFLAGS="$CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS ${USELTO:-}${USELTO_C:-}" \
     LDFLAGS="$LDFLAGS ${USELTO:-}${USELTO_L:-}" \
@@ -55,7 +69,7 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    local PC_FILE="$PC_DIR/libgpg-error.pc"
+    local PC_FILE="$PC_DIR/gpg-error.pc"
 
     if [[ ! -f "$PC_FILE" ]]; then
         log_warn "libgpg-error.pc not found. Generating fallback pkg-config descriptor."
@@ -80,7 +94,7 @@ ffbuild_dockerbuild() {
             fi
         fi
         if ! grep -qF -- "-lstdc++" "$PC_FILE"; then
-            echo "Libs.private: -lstdc++" >> "$PC_FILE"
+            sed -i "/^Libs.private:/ s/$/ -lstdc++/" "$PC_FILE"
         fi
     fi
 }

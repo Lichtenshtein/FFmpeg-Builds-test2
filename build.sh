@@ -31,8 +31,8 @@ cleanup() {
 
     log_info "Running cleanup (Exit code: $exit_code)..."
 
-    # Удаляем временную папку сборки (pkgroot, временные логи и т.д.)
-    rm -rf "$FFMPEG_PKG_ROOT" "$VARS_DIR" 2>/dev/null
+    # Удаляем временную папку сборки (pkgroot, временные логи и т.д.); "$VARS_DIR"
+    rm -rf "$FFMPEG_PKG_ROOT" 2>/dev/null
 
     # Если сборка упала, можно оставить лог конфига в доступном месте
     if [[ $exit_code -ne 0 && -f "$FFMPEG_CONFIG_LOG" ]]; then

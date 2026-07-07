@@ -91,8 +91,11 @@ ffbuild_dockerbuild() {
                 sed -i "/^Libs:/ s/$/ -lws2_32/" "$PC_FILE"
             fi
         fi
+        if ! grep -qF -- "-lstdc++" "$PC_FILE"; then
+            sed -i "/^Libs.private:/ s/$/ -lstdc++/" "$PC_FILE"
+        fi
         if ! grep -qF -- "-laacs" "$PC_FILE"; then
-            echo "Libs.private: -lstdc++ $PRIVATE_LIBS" >> "$PC_FILE"
+            sed -i "/^Libs.private:/ s/$/ -laacs -lbdplus -lgcrypt -lgpg-error/" "$PC_FILE"
         fi
     else
         log_error "Critical Error: libbluray.pc was not found in $PC_DIR"
