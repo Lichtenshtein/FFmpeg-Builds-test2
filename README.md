@@ -415,7 +415,7 @@ All of those can be optionally combined with any combination of addins:
 
 full
 
-06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|12-libffi|14-freetype|15-pcre2|16-glib2|17-harfbuzz|39-fontconfig|85-libgpg-error|85-libudfread|86-libdvdcss|86-libdvdread|86-libgcrypt|87-libdvdnav|88-libaacs|88-libbdplus|88-libbluray
+06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|39-fontconfig|85-libgpg-error|85-libudfread|86-libdvdcss|86-libdvdread|86-libgcrypt|87-libdvdnav|88-libaacs|88-libbdplus|88-libbluray
 ```
 
 ### Logs reading
