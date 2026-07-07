@@ -88,85 +88,151 @@ if [[ -z "${FFMPEG_REPO:-https://git.ffmpeg.org/ffmpeg.git}" || -z "${FFMPEG_BRA
     exit 1
 fi
 
-# Получаем хеш последнего коммита в удаленной ветке (без клонирования)
+# We ONLY look at the actual .git folder. We DO NOT read the .current_commit file yet.
+LOCAL_HASH="none"
+LOCAL_VALID=false
+
+if [[ -d "$FFMPEG_DIR/.git" ]]; then
+    # Run git rev-parse INSIDE the directory to get the REAL current hash
+    cd "$FFMPEG_DIR"
+    HASH_FROM_GIT=$(git rev-parse HEAD 2>/dev/null)
+    if [[ -n "$HASH_FROM_GIT" ]]; then
+        LOCAL_HASH="$HASH_FROM_GIT"
+        LOCAL_VALID=true
+        log_debug "Local .git folder valid. Hash: ${LOCAL_HASH:0:7}"
+    else
+        log_warn "Local .git folder exists but is corrupted (empty HEAD). Resetting."
+        rm -rf "$FFMPEG_DIR/.git" # Remove bad git data, keep source files
+    fi
+fi
+
+# FALLBACK: Check FFmpeg Hash File if .git is missing or invalid
+# This happens if the cache restored files but missed the .git folder
+if [[ "$LOCAL_VALID" == "false" ]]; then
+    if [[ -f "$FFMPEG_HASH_FILE" ]]; then
+        FILE_HASH=$(cat "$FFMPEG_HASH_FILE" 2>/dev/null)
+        if [[ -n "$FILE_HASH" && ${#FILE_HASH} -ge 7 ]]; then
+            log_debug "Local .git missing. Using hash from file: ${FILE_HASH:0:7}"
+            LOCAL_HASH="$FILE_HASH"
+            # We assume the files are valid if the hash matches the expected remote
+            # We cannot verify with git, but we can proceed if hashes match
+            log_warn "Running in 'File-Only' mode. Git verification skipped."
+        fi
+    else
+        log_debug "No .git folder and no hash file found."
+    fi
+fi
+
+# 3. Get the hash of the last commit in the remote branch (without cloning)
 REMOTE_HASH=$(git ls-remote "$FFMPEG_REPO" "refs/heads/$FFMPEG_BRANCH" | cut -f1)
+
 if [[ -z "$REMOTE_HASH" ]]; then
     log_error "Failed to fetch remote hash for $FFMPEG_REPO"
-    # Если не удалось проверить, но папка есть - работаем с тем, что есть
-    [[ ! -d "$FFMPEG_DIR/.git" ]] && exit 1
-else
-    # Читаем локальный хеш (если файл существует)
-    LOCAL_HASH=$(cat "$FFMPEG_HASH_FILE" 2>/dev/null || echo "none")
-
-    # Visual hash comparison
-    separator_box "─" "HASH COMPARISON" "top"
-    if [[ "$REMOTE_HASH" == "$LOCAL_HASH" ]]; then
-        printf '  %-8s  %b%s%b\n' "local"  "$LOG_INFO"  "${LOCAL_HASH:0:12}"  "$NC" >&2
-        printf '  %-8s  %b%s%b\n' "remote" "$LOG_INFO"  "${REMOTE_HASH:0:12}" "$NC" >&2
-        printf '  %-8s  %b%s%b\n' "match"  "$LOG_INFO"  "✔ up to date"        "$NC" >&2
-    else
-        # Highlight differing characters individually
-        _print_hash_diff() {
-            local a="$1" b="$2" label_a="$3" label_b="$4"
-            local i ca cb out_a="" out_b=""
-            local len=${#a}
-            for (( i=0; i<len; i++ )); do
-                ca="${a:$i:1}"; cb="${b:$i:1}"
-                if [[ "$ca" == "$cb" ]]; then
-                    out_a+="$ca"; out_b+="$cb"
-                else
-                    out_a+="${LOG_WARN}${ca:-.}${NC}"
-                    out_b+="${LOG_WARN}${cb:-.}${NC}"
-                fi
-            done
-            printf '  %-8s  %b\n' "$label_a" "$out_a" >&2
-            printf '  %-8s  %b\n' "$label_b" "$out_b" >&2
-        }
-        _print_hash_diff "$LOCAL_HASH" "$REMOTE_HASH" "local" "remote"
-        printf '  %-8s  %b%s%b\n' "status" "$LOG_WARN" "⚠️ update available" "$NC" >&2
+    # If we have a local hash (from file), we might proceed, but it's risky
+    if [[ "$LOCAL_HASH" == "none" ]]; then
+        exit 1
     fi
-    separator_box "─" "" "bottom"
+    log_warn "Remote unreachable. Proceeding with cached version: ${LOCAL_HASH:0:7}"
+else
+    # 4. VISUAL COMPARISON
+    if [[ "$LOCAL_HASH" != "none" ]]; then
+        separator_box "─" "HASH COMPARISON" "top"
+        if [[ "$LOCAL_HASH" == "$REMOTE_HASH" ]]; then
+            printf '  %-8s  %b%s%b\n' "local"  "$LOG_INFO"  "${LOCAL_HASH:0:12}"  "$NC" >&2
+            printf '  %-8s  %b%s%b\n' "remote" "$LOG_INFO"  "${REMOTE_HASH:0:12}" "$NC" >&2
+            printf '  %-8s  %b%s%b\n' "status" "$LOG_INFO"  "✔ up to date"        "$NC" >&2
+        else
+            _print_hash_diff() {
+                local a="$1" b="$2" label_a="$3" label_b="$4"
+                local i ca cb out_a="" out_b=""
+                local len=${#a}
+                for (( i=0; i<len; i++ )); do
+                    ca="${a:$i:1}"; cb="${b:$i:1}"
+                    if [[ "$ca" == "$cb" ]]; then
+                        out_a+="$ca"; out_b+="$cb"
+                    else
+                        out_a+="${LOG_WARN}${ca:-.}${NC}"
+                        out_b+="${LOG_WARN}${cb:-.}${NC}"
+                    fi
+                done
+                printf '  %-8s  %b\n' "$label_a" "$out_a" >&2
+                printf '  %-8s  %b\n' "$label_b" "$out_b" >&2
+            }
+            _print_hash_diff "$LOCAL_HASH" "$REMOTE_HASH" "local" "remote"
+            printf '  %-8s  %b%s%b\n' "status" "$LOG_WARN" "⚠️ update needed" "$NC" >&2
+        fi
+        separator_box "─" "" "bottom"
+    fi
 
-    if [[ "$REMOTE_HASH" == "$LOCAL_HASH" && -f "$FFMPEG_DIR/configure" ]]; then
-        log_info "${CHECK_MARK} FFmpeg is up to date (Commit: ${REMOTE_HASH:0:7}). Skipping clone."
-    elif [[ "${FFMPEG_UPDATE}" != "0" ]]; then
-        log_warn "New version detected or source missing. ${SYNC_MARK} Fetching FFmpeg ${FFMPEG_BRANCH} → ${REMOTE_HASH:0:7}..."
-        # FFmpeg update (--quiet для чистоты логов)
-        # Используем переменные FFMPEG_REPO и FFMPEG_BRANCH из workflow.yaml
-        if [[ ! -d "$FFMPEG_DIR/.git" ]]; then
-            # Очистка перед клонированием на случай мусора от прошлых попыток
+    # 5. EXECUTION LOGIC
+    # Case A: Hashes match and we have a valid .git -> Perfect Skip
+    if [[ "$LOCAL_HASH" == "$REMOTE_HASH" && "$LOCAL_VALID" == "true" && -f "$FFMPEG_DIR/configure" ]]; then
+        log_info "${CHECK_MARK} FFmpeg is up to date (Commit: ${REMOTE_HASH:0:7}). Skipping."
+        
+    # Case B: Hashes match, but we only have the file (no .git) -> Safe Skip (Assume valid)
+    elif [[ "$LOCAL_HASH" == "$REMOTE_HASH" && "$LOCAL_VALID" == "false" && -f "$FFMPEG_DIR/configure" ]]; then
+        log_info "${CHECK_MARK} FFmpeg matches remote (${REMOTE_HASH:0:7}). Skipping (File-only mode)."
+        
+    # Case C: Update disabled -> Use whatever we have
+    elif [[ "${FFMPEG_UPDATE:-1}" == "0" ]]; then
+        if [[ "$LOCAL_HASH" == "none" ]]; then
+            log_error "FFmpeg update disabled but no source found."
+            exit 1
+        fi
+        log_warn "Updates disabled. Using cached version: ${LOCAL_HASH:0:7}"
+        
+    # Case D: Need to update or clone
+    else
+        if [[ "$LOCAL_HASH" == "none" ]]; then
+            # Case D1: No cache at all -> Full Clone
+            log_warn "No local cache found. Cloning fresh..."
             rm -rf "$FFMPEG_DIR"
             mkdir -p "$FFMPEG_DIR"
             git clone --progress --depth=1 --branch="$FFMPEG_BRANCH" \
-                "$FFMPEG_REPO" "$FFMPEG_DIR" 2>&1 \
-                | while IFS= read -r line; do log_debug "$line"; done
+                "$FFMPEG_REPO" "$FFMPEG_DIR" 2>&1 | while IFS= read -r line; do log_debug "$line"; done
+            
             if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
-                log_error "git clone failed for $FFMPEG_REPO. Cleaning up..."
+                log_error "git clone failed."
                 rm -rf "$FFMPEG_DIR"
                 exit 1
             fi
+            log_info "${CHECK_MARK} FFmpeg cloned to: $(cd "$FFMPEG_DIR" && git rev-parse HEAD | cut -c1-7)"
+            
         else
-            # Удаление локов перед обновлением
-            [[ -f "$FFMPEG_DIR/.git/index.lock" ]] && rm -f "$FFMPEG_DIR/.git/index.lock"
-            ( cd "$FFMPEG_DIR" && \
-              git remote set-url origin "$FFMPEG_REPO" && \
-              git fetch --quiet --depth=1 --force origin "refs/heads/$FFMPEG_BRANCH:refs/remotes/origin/$FFMPEG_BRANCH" && \
-              git reset --hard FETCH_HEAD && \
-              git clean -df && \
-              git reflog expire --expire=now --all && \
-              git gc --prune=now --aggressive ) 2>&1 \
-                | while IFS= read -r line; do log_debug "$line"; done
+            # Case D2: Cache exists but is old OR .git is missing but hash file exists
+            # If .git is missing, we MUST re-clone or re-init.
+            if [[ "$LOCAL_VALID" == "false" ]]; then
+                log_warn "Hash file found but .git missing. Re-cloning to restore git metadata..."
+                rm -rf "$FFMPEG_DIR"
+                mkdir -p "$FFMPEG_DIR"
+                git clone --progress --depth=1 --branch="$FFMPEG_BRANCH" \
+                    "$FFMPEG_REPO" "$FFMPEG_DIR" 2>&1 | while IFS= read -r line; do log_debug "$line"; done
+            else
+                # .git exists but is old -> Fast Update
+                log_warn "Cache exists but stale. Updating ${LOCAL_HASH:0:7} → ${REMOTE_HASH:0:7}..."
+                [[ -f "$FFMPEG_DIR/.git/index.lock" ]] && rm -f "$FFMPEG_DIR/.git/index.lock"
+                ( cd "$FFMPEG_DIR" && \
+                  git remote set-url origin "$FFMPEG_REPO" && \
+                  git fetch --quiet --depth=1 --force origin "refs/heads/$FFMPEG_BRANCH:refs/remotes/origin/$FFMPEG_BRANCH" && \
+                  git reset --hard FETCH_HEAD && \
+                  git clean -df ) 2>&1 | while IFS= read -r line; do log_debug "$line"; done
+            fi
+
             if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
-                log_error "git fetch/reset failed for $FFMPEG_REPO"
+                log_error "git update/clone failed."
                 exit 1
             fi
+            log_info "${CHECK_MARK} FFmpeg updated to: $(cd "$FFMPEG_DIR" && git rev-parse HEAD | cut -c1-7)"
         fi
-        # Сохраняем новый хеш после успешного обновления
-        echo "$REMOTE_HASH" > "$FFMPEG_HASH_FILE"
-        log_info "${CHECK_MARK} FFmpeg updated to: ${REMOTE_HASH:0:7}"
-    else
-        log_warn "FFmpeg updates manually disabled."
     fi
+fi
+
+# 6. SAVE THE CURRENT HASH
+# We write the ACTUAL current hash (from the directory) to the file.
+if [[ -d "$FFMPEG_DIR/.git" ]]; then
+    ACTUAL_HASH=$(cd "$FFMPEG_DIR" && git rev-parse HEAD)
+    echo "$ACTUAL_HASH" > "$FFMPEG_HASH_FILE"
+    log_debug "Saved current commit to $FFMPEG_HASH_FILE: ${ACTUAL_HASH:0:7}"
 fi
 
 phase_footer "✔ All downloads completed."
