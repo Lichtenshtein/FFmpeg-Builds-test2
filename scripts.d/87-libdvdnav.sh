@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://code.videolan.org/videolan/libdvdnav.git"
-SCRIPT_COMMIT="cf112772bf626f76a913efca5b883a381e4c123a"
+SCRIPT_COMMIT="9c5f2278eb5b23cdcd0575065f5d575c4e6602a4"
 
 ffbuild_depends() {
     echo libudfread
@@ -28,6 +28,7 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
+        --cross-file="$FFBUILD_MESON_CROSS"
         --prefix="$FFBUILD_PREFIX"
         -Ddefault_library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=gnu++20
@@ -35,12 +36,6 @@ ffbuild_dockerbuild() {
         -Denable_docs=false
         -Denable_examples=false
     )
-
-    if [[ $TARGET == win* || $TARGET == linux* ]]; then
-        myconf+=(
-            --cross-file="$FFBUILD_MESON_CROSS"
-        )
-    fi
 
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \

@@ -86,7 +86,6 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --libdir=lib
         --cross-compile-prefix="$FFBUILD_CROSS_PREFIX"
-        --openssldir="$FFBUILD_PREFIX/etc/ssl"
     )
 
     if has_library "zstd"; then
@@ -109,9 +108,16 @@ ffbuild_dockerbuild() {
         myconf+=( no-shared )
 
     if [[ $TARGET == win64 ]]; then
-        myconf+=( mingw64 )
+        myconf+=(
+            mingw64
+            --openssldir="$FFBUILD_PREFIX/etc/ssl"
+        )
     elif [[ $TARGET == linux64 ]]; then
-        myconf+=( linux-x86_64 enable-tfo )
+        myconf+=(
+            --openssldir=/etc/ssl
+            linux-x86_64
+            enable-tfo
+        )
     fi
 
     ./Configure "${myconf[@]}" \
