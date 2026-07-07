@@ -25,14 +25,6 @@ ffbuild_dockerbuild() {
         sed -i '/#include <config.h>/a #ifdef _WIN32\n# include <ws2tcpip.h>\n#endif' src/logging.c
     fi
 
-    # Disable compilation of the gpg-error.exe utility binary and configuration scripts
-    log_info "Disabling libgpg-error utility binary and config scripts installation..."
-    if [[ -f "src/Makefile.am" ]]; then
-        sed -i 's/bin_PROGRAMS = gpg-error/noinst_PROGRAMS = gpg-error/g' src/Makefile.am
-        sed -i 's/bin_SCRIPTS = gpgrt-config gpg-error-config/noinst_SCRIPTS += gpgrt-config gpg-error-config/g' src/Makefile.am
-        sed -i 's/bin_SCRIPTS = gpgrt-config/noinst_SCRIPTS += gpgrt-config/g' src/Makefile.am
-    fi
-
     local DEP_LIBS=" -lintl -liconv -lcharset"
     if [[ $TARGET == win64 ]]; then
         DEP_LIBS="-lws2_32$DEP_LIBS"
@@ -67,7 +59,7 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" bin_PROGRAMS="" bin_SCRIPTS="" || return 1
 
     local PC_FILE="$PC_DIR/gpg-error.pc"
 
