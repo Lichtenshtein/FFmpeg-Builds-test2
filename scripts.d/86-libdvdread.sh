@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://code.videolan.org/videolan/libdvdread.git"
-SCRIPT_COMMIT="6acfc10af09b780b8357c880f89a788d246e520b"
+SCRIPT_COMMIT="8c1c65fbbb2944cd0201c404cd72859a18a3bbf8"
 
 ffbuild_depends() {
     echo libudfread
@@ -37,9 +37,11 @@ ffbuild_dockerbuild() {
         -Dwerror=false
     )
 
+    local C_FLAGS="-Dfile_open_default=libdvdread_file_open_default -Ddir_open_default=libdvdread_dir_open_default"
+
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${C_FLAGS}" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${C_FLAGS}" \
         -Dc_link_args="$LDFLAGS ${USELTO}${USELTO_L}" \
         -Dcpp_link_args="$LDFLAGS ${USELTO}${USELTO_L}" || return 1
 
@@ -47,6 +49,9 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     sed -i "s|^Cflags:.*|& -I\${includedir}/dvdread|" "$PC_DIR/dvdread.pc"
+    if [[ $TARGET == linux* ]]; then
+        echo 'Cflags: ' >> "$PC_DIR/dvdread.pc"
+    fi
 }
 
 ffbuild_configure() {
