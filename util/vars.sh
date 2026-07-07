@@ -39,7 +39,9 @@ export LOCK_MARK='🔒'
 export SYNC_MARK="${GREEN}♻${NC}"
 export TARGET_MARK='🎯'
 export DOWN_MARK="${GREEN}🡇${NC}"
-export LOGS_MARK="${LOG_DEBUG}🗎${NC}"
+export LOGS_MARK='📝'
+export STAT_MARK='📊'
+export TEST_MARK='🧪'
 
 # Функции для логирования пишут в stderr (>&2)
 log_info()  { echo -e "${LOG_INFO}[INFO]${NC}  $*" >&2; }
@@ -1411,7 +1413,11 @@ strip_files() {
     else
         log_info "${BROOM_MARK} Stripping $stage_name from debug symbols: [Size: ${GREY_B}$size_before${NC}]"
         # Для .exe и .dll используем жесткий --strip-all (или --strip-unneeded)
-        find "$target_dir" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "$_strip_cmd" --strip-unneeded {} + 2>/dev/null || true
+        if [[ "${FFMPEG_BUILD_STAGE:-0}" == "1" ]]; then
+            find "$target_dir" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "$_strip_cmd" --strip-unneeded {} + 2>/dev/null || true
+        else
+            find "$target_dir" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "$_strip_cmd" --strip-debug {} + 2>/dev/null || true
+        fi
         # Для статических библиотек .a оставляем --strip-debug
         find "$target_dir" -type f \( -name "*.a" -o -name "*.so*" \) \
                     ! -name "*.dll.a" -exec "$_strip_cmd" --strip-debug {} + 2>/dev/null || true
