@@ -99,7 +99,7 @@ if [[ -d "$FFMPEG_DIR/.git" ]]; then
     if [[ -n "$HASH_FROM_GIT" ]]; then
         LOCAL_HASH="$HASH_FROM_GIT"
         LOCAL_VALID=true
-        log_debug "Local .git folder valid. Hash: ${LOCAL_HASH:0:7}"
+        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "Local .git folder valid. Hash: ${LOCAL_HASH:0:7}"
     else
         log_warn "Local .git folder exists but is corrupted (empty HEAD). Resetting."
         rm -rf "$FFMPEG_DIR/.git" # Remove bad git data, keep source files
@@ -112,7 +112,7 @@ if [[ "$LOCAL_VALID" == "false" ]]; then
     if [[ -f "$FFMPEG_HASH_FILE" ]]; then
         FILE_HASH=$(cat "$FFMPEG_HASH_FILE" 2>/dev/null)
         if [[ -n "$FILE_HASH" && ${#FILE_HASH} -ge 7 ]]; then
-            log_debug "Local .git missing. Using hash from file: ${FILE_HASH:0:7}"
+            [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "Local .git missing. Using hash from file: ${FILE_HASH:0:7}"
             LOCAL_HASH="$FILE_HASH"
             # We assume the files are valid if the hash matches the expected remote
             # We cannot verify with git, but we can proceed if hashes match
@@ -230,9 +230,10 @@ fi
 # 6. SAVE THE CURRENT HASH
 # We write the ACTUAL current hash (from the directory) to the file.
 if [[ -d "$FFMPEG_DIR/.git" ]]; then
-    ACTUAL_HASH=$(cd "$FFMPEG_DIR" && git rev-parse HEAD)
+    cd "$FFMPEG_DIR"
+    ACTUAL_HASH=$(git rev-parse HEAD 2>/dev/null)
     echo "$ACTUAL_HASH" > "$FFMPEG_HASH_FILE"
-    log_debug "Saved current commit to $FFMPEG_HASH_FILE: ${ACTUAL_HASH:0:7}"
+    [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "Saved current commit to $FFMPEG_HASH_FILE: ${ACTUAL_HASH:0:7}"
 fi
 
 phase_footer "✔ All downloads completed."

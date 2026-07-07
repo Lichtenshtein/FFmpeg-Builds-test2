@@ -407,7 +407,7 @@ jobs:
         uses: actions/cache/restore@v5.0.5
         with:
           path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}
+            ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}
           restore-keys: |
             ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-
             ffmpeg-src-
@@ -533,7 +533,7 @@ jobs:
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg_commit.outputs.commit }}
+          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg_commit.outputs.commit }}-${{ github.run_id }}
 
       - name: Cleanup Old Caches
         if: github.event.inputs.regularClean == 'true' && !cancelled()
