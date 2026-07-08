@@ -14,7 +14,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    mkdir -p build "${INSTALL_ROOT}/{include,lib}" "$PC_DIR" && cd build
+    mkdir -p build "${INSTALL_ROOT}/include" "${INSTALL_ROOT}/lib" "$PC_DIR" && cd build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"

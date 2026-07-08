@@ -230,11 +230,17 @@ fi
 
 # 6. SAVE THE CURRENT HASH
 # We write the ACTUAL current hash (from the directory) to the file.
-if [[ -d "$FFMPEG_DIR/.git" ]]; then
-    cd "$FFMPEG_DIR"
-    ACTUAL_HASH=$(git rev-parse HEAD 2>/dev/null)
-    echo "$ACTUAL_HASH" > "$FFMPEG_HASH_FILE"
-    [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "Saved current commit to $FFMPEG_HASH_FILE: ${ACTUAL_HASH:0:7}"
+if [[ -d "$FFMPEG_DIR" ]]; then
+    if [[ -d "$FFMPEG_DIR/.git" ]]; then
+        ACTUAL_HASH=$(cd "$FFMPEG_DIR" && git rev-parse HEAD 2>/dev/null)
+    else
+        ACTUAL_HASH="$REMOTE_HASH"
+    fi
+    if [[ -n "$ACTUAL_HASH" ]]; then
+        mkdir -p "$(dirname "$FFMPEG_HASH_FILE")"
+        echo "$ACTUAL_HASH" > "$FFMPEG_HASH_FILE"
+        log_info "Saved full commit to cache meta: ${ACTUAL_HASH:0:12}"
+    fi
 fi
 
 phase_footer "✔ All downloads completed."

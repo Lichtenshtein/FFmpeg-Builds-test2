@@ -125,7 +125,8 @@ env:
   CCACHE_DEPEND: "1"
   CCACHE_COMPILERCHECK: "content"
   CCACHE_PATH_MGMT: "true"
-  CCACHE_SLOPPINESS: "file_macro,time_macros,include_file_ctime,include_file_mtime,locale,random_seed,conf_tests"
+  CCACHE_SLOPPINESS: "file_macro,time_macros,include_file_ctime,include_file_mtime,locale,conf_tests"
+  # CCACHE_SLOPPINESS: "file_macro,time_macros,include_file_ctime,include_file_mtime,locale,random_seed,conf_tests"
   # Списки исключений
   # Список для хранения .git от очистки (в download.sh)
   # Some patches apply only with git am...
@@ -425,8 +426,8 @@ jobs:
         with:
           path: .cache/ffmpeg
           key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg-info.outputs.commit }}
-          # restore-keys: |
-            # ffmpeg-src-
+          restore-keys: |
+            ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-
 
       - name: Restore TensorFlow Models Cache
         if: env.USE_TENSORFLOW == '1'
