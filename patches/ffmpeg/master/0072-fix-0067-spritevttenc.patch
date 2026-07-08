@@ -1,23 +1,35 @@
-From 07dfbb4d032c8502e65c576bd57d82200304a10f Mon Sep 17 00:00:00 2001
+From 3f8e8542b099eb5d47f65624a4a8703ecbf90a91 Mon Sep 17 00:00:00 2001
 From: Lichtenshtein <altruumann@protonmail.com>
-Date: Thu, 9 Jul 2026 01:57:23 +0300
+Date: Thu, 9 Jul 2026 02:41:05 +0300
 Subject: [PATCH] fix spritevttenc
 
 ---
- libavformat/spritevttenc.c | 11 +++++++----
- 1 file changed, 7 insertions(+), 4 deletions(-)
+ libavformat/spritevttenc.c | 19 +++++++++++++------
+ 1 file changed, 13 insertions(+), 6 deletions(-)
 
 diff --git a/libavformat/spritevttenc.c b/libavformat/spritevttenc.c
-index 548179b..f69ee3f 100644
+index 548179b..aec3831 100644
 --- a/libavformat/spritevttenc.c
 +++ b/libavformat/spritevttenc.c
-@@ -388,9 +388,12 @@ static int spritevtt_write_trailer(AVFormatContext *s)
+@@ -382,15 +382,23 @@ static int spritevtt_write_trailer(AVFormatContext *s)
+         goto cleanup;
+     }
  
-     /* Check if canvas pixel format is supported by the encoder */
++    enc_ctx = avcodec_alloc_context3(enc);
++    if (!enc_ctx) {
++        ret = AVERROR(ENOMEM);
++        goto cleanup;
++    }
++
+     enc_ctx->width     = grid_w;
+     enc_ctx->height    = grid_h;
+     enc_ctx->time_base = (AVRational){ 1, 1 };
+ 
+-    /* Check if canvas pixel format is supported by the encoder */
      fmt_ok = 0;
 -    if (enc->pix_fmts) {
 +    const enum AVPixelFormat *pix_fmts = NULL;
-+    int ret_conf = avcodec_get_supported_config(enc_ctx, NULL, AV_CODEC_CONFIG_PIX_FMT, 0, (const void **)&pix_fmts, NULL);
++    int ret_conf = avcodec_get_supported_config(enc_ctx, NULL, AV_CODEC_CONFIG_PIX_FORMAT, 0, (const void **)&pix_fmts, NULL);
 +
 +    if (ret_conf >= 0 && pix_fmts) {
          const enum AVPixelFormat *p_fmt;
@@ -26,10 +38,11 @@ index 548179b..f69ee3f 100644
              if (*p_fmt == ctx->pix_fmt) {
                  fmt_ok = 1;
                  break;
-@@ -402,13 +405,13 @@ static int spritevtt_write_trailer(AVFormatContext *s)
+@@ -401,14 +409,13 @@ static int spritevtt_write_trailer(AVFormatContext *s)
+     if (fmt_ok) {
          enc_ctx->pix_fmt = ctx->pix_fmt;
      } else {
-         /* Use first supported format and convert with swscale */
+-        /* Use first supported format and convert with swscale */
 -        if (!enc->pix_fmts || enc->pix_fmts[0] == AV_PIX_FMT_NONE) {
 +        if (ret_conf < 0 || !pix_fmts || pix_fmts[0] == AV_PIX_FMT_NONE) {
              av_log(s, AV_LOG_ERROR,
