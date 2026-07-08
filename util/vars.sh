@@ -294,7 +294,7 @@ should_apply_lto() {
             return 0
             ;;
         # прочее
-        *"cdio"|*"cdiowpar"|*"lensfun"|*"libaribb24"|*"libaribcaption"|*"libass"|*"zvbi"|*"qrencode"|*"quirc"|*"amf"|*"libklvanc"|*"vidstab"|*"libcaca"|*"libudfread"|*"libdvdcss"|*"libdvdread"|*"libdvdnav"|*"libbluray")
+        *"cdio"|*"cdiowpar"|*"lensfun"|*"libaribb24"|*"libaribcaption"|*"libass"|*"zvbi"|*"qrencode"|*"quirc"|*"amf"|*"libklvanc"|*"vidstab"|*"libcaca"|*"libudfread"|*"libdvdcss"|*"libdvdread"|*"libdvdnav"|*"libbluray"|*"libomnidrive")
             return 0
             ;;
         # Все остальные компоненты собираются БЕЗ LTO
