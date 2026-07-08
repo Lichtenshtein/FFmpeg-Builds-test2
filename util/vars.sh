@@ -278,7 +278,7 @@ should_apply_lto() {
             return 0
             ;;
         # Основные тяжелые видеокодеки
-        *"rav1e"|*"aom"|*"lcevcdec"|*"libtheora"|*"libvpx"|*"openapv"|*"openh264"|*"svthevc"|*"svtvp9"|*"vvdec"|*"vvenc"|*"x264"|*"x265"|*"xeve"|*"xevd")
+        *"rav1e"|*"aom"|*"lcevcdec"|*"libtheora"|*"libvpx"|*"openapv"|*"openh264"|*"svthevc"|*"svtvp9"|*"vvdec"|*"vvenc"|*"x264"|*"x265"|*"xeve"|*"xevd"|*"dav1d"|*"dav2d")
             return 0
             ;;
         # Аудиокодеки и обработка звука

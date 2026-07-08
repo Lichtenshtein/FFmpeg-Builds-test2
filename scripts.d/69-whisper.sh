@@ -99,6 +99,8 @@ EOF
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0 -DOPENVINO_STATIC_LIBRARY"
 
+    mkdir build && cd build
+
     cat <<EOF > main-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Windows)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
@@ -127,11 +129,9 @@ EOF
     sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${OPENMP_C}${USELTO}${USELTO_C} $static_flags|g" main-toolchain.cmake
     sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}${USELTO_L}|g" main-toolchain.cmake
 
-    mkdir build && cd build
-
     local myconf=(
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
-        -DCMAKE_TOOLCHAIN_FILE="$(pwd)/../main-toolchain.cmake"
+        -DCMAKE_TOOLCHAIN_FILE="$(pwd)/main-toolchain.cmake"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
@@ -184,7 +184,7 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 EOF
         myconf+=(
             -DGGML_VULKAN=ON
-            -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/../host-fix-toolchain.cmake"
+            -DGGML_VULKAN_SHADERS_GEN_TOOLCHAIN="$(pwd)/host-fix-toolchain.cmake"
             -DVulkan_GLSLC_EXECUTABLE="/opt/glslc"
             -DVulkan_INCLUDE_DIR="$FFBUILD_PREFIX/include"
             -DVulkan_LIBRARY="$FFBUILD_PREFIX/lib/libvulkan.${lib_ext}"
@@ -222,7 +222,7 @@ EOF
         log_info "OpenBLAS library detected. Building with OpenBLAS support..."
         myconf+=(
             -DGGML_BLAS=ON
-            -DBLAS_VENDOR=OpenBLAS
+            -DGGML_BLAS_VENDOR=OpenBLAS
             -DBLAS_LIBRARIES="${FFBUILD_PREFIX}/lib/libopenblas.${lib_ext}"
             -DBLAS_INCLUDE_DIRS="${FFBUILD_PREFIX}/include/openblas"
         )
