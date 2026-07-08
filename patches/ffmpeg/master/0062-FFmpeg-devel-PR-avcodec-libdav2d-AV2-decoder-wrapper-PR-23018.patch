@@ -49,7 +49,7 @@ index 9bce658932..6d71a6f3df 100755
  enabled libcodec2         && require libcodec2 codec2/codec2.h codec2_create -lcodec2
  enabled libdav1d          && require_pkg_config libdav1d "dav1d >= 1.0.0" "dav1d/dav1d.h" dav1d_version
  enabled libdatachannel    && require libdatachannel rtc/rtc.h rtcCreatePeerConnection -ldatachannel
-+enabled libdav2d          && require_pkg_config libdav2d "dav2d >= 1.0.0" "dav2d/dav2d.h" dav2d_version
++enabled libdav2d          && require_pkg_config libdav2d "dav2d >= 0.0.1" "dav2d/dav2d.h" dav2d_version
  enabled libdavs2          && require_pkg_config libdavs2 "davs2 >= 1.6.0" davs2.h davs2_decoder_open
  enabled libdc1394         && require_pkg_config libdc1394 libdc1394-2 dc1394/dc1394.h dc1394_new
  enabled libdrm            && check_pkg_config libdrm libdrm xf86drm.h drmGetVersion
