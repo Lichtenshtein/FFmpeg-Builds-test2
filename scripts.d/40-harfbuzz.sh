@@ -31,16 +31,13 @@ ffbuild_dockerbuild() {
         --buildtype=release
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
-        -Dfreetype=enabled
         -Dcpp_std=gnu++20
         -Dc_std=gnu17
         -Dwith_libstdcxx=true
         -Draster=enabled
         -Dvector=enabled
         -Dsubset=enabled
-        -Dglib=enabled
-        -Dgobject=disabled
-        -Dcairo=enabled
+        -Dgobject=enabled
         -Dchafa=disabled
         -Dtests=disabled
         -Dintrospection=disabled
@@ -52,26 +49,60 @@ ffbuild_dockerbuild() {
         -Dbenchmark=disabled
     )
 
-    local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
-
-    # Проверяем наличие библиотеки libicudt
-    if has_library "icudt"; then
-        log_info "ICU library detected. Building with ICU support..."
-        local DEP_LIBS="-lcairo-gobject -lcairo -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lz -lfreetype -licuin -licuuc -licudt"
-        myconf+=( "-Dicu=enabled" )
-    else
-        log_warn "ICU library not found. Building without ICU for faster testing..."
-        local DEP_LIBS="-lcairo-gobject -lcairo -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lz -lfreetype"
-        myconf+=( "-Dicu=disabled" )
-    fi
+    local FREETYPE_LIBS=""
+    local GLIB_LIBS=""
+    local CAIRO_LIBS=""
+    local ICU_LIBS=""
 
     export static_flags=""
     export self_static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DCAIRO_WIN32_STATIC_BUILD -DICU_STATIC -DU_STATIC_IMPLEMENTATION" && self_static_flags="-DHARFBUZZ_STATIC"
+    [[ "${PREFER_SHARED}" != "1" ]] && self_static_flags="-DHARFBUZZ_STATIC"
+
+    if has_library "freetype"; then
+        log_info "Freetype library detected. Building Harfbuzz with Freetype support..."
+        myconf+=( -Dfreetype=enabled )
+        local FREETYPE_LIBS="-lfreetype"
+        local FT_C_FLAGS"-I$FFBUILD_PREFIX/include/freetype2"
+    else
+        log_warn "Freetype library not found. Building Harfbuzz without Freetype..."
+        myconf+=( -Dfreetype=disabled )
+    fi
+    if has_library "glib-2.0"; then
+        log_info "GLib2 library detected. Building Harfbuzz with GLib support..."
+        myconf+=( -Dglib=enabled )
+        local GLIB_LIBS="-lgio-2.0 -lgthread-2.0 -lglib-2.0"
+    else
+        log_warn "GLib2 library not found. Building Harfbuzz without GLib..."
+        myconf+=( -Dglib=disabled )
+    fi
+    if has_library "cairo"; then
+        log_info "Cairo library detected. Building Harfbuzz with Cairo support..."
+        myconf+=( -Dcairo=enabled )
+        local CAIRO_LIBS="-lcairo-gobject -lcairo"
+        [[ "${PREFER_SHARED}" != "1" ]] && static_flags="$static_flags -DCAIRO_WIN32_STATIC_BUILD"
+    else
+        log_warn "Cairo library not found. Building Harfbuzz without Cairo..."
+        myconf+=( -Dcairo=disabled )
+    fi
+    if has_library "icudt"; then
+        log_info "ICU library detected. Building Harfbuzz with ICU support..."
+        myconf+=( -Dicu=enabled )
+        local ICU_LIBS="-licuin -licuuc -licudt"
+        [[ "${PREFER_SHARED}" != "1" ]] && static_flags="$static_flags -DICU_STATIC -DU_STATIC_IMPLEMENTATION"
+    else
+        log_warn "ICU library not found. Building Harfbuzz without ICU..."
+        myconf+=( -Dicu=disabled )
+    fi
+
+    local DEP_LIBS="-Wl,--start-group ${CAIRO_LIBS} ${GLIB_LIBS} ${FREETYPE_LIBS} ${ICU_LIBS} -lz -Wl,--end-group"
+
+    local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
+
+    log_info "Configuring Harfbuzz with dynamic feature set..."
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -I$FFBUILD_PREFIX/include/freetype2 $self_static_flags $static_flags -Wno-redundant-decls" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -I$FFBUILD_PREFIX/include/freetype2 $self_static_flags $static_flags -Wno-redundant-decls" \
+        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${FT_C_FLAGS} $self_static_flags $static_flags -Wno-redundant-decls" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${FT_C_FLAGS} $self_static_flags $static_flags -Wno-redundant-decls" \
         -Dc_link_args="$LDFLAGS ${USELTO}${USELTO_L} $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS ${USELTO}${USELTO_L} $DEP_LIBS $WIN_LIBS" || return 1
 

@@ -31,11 +31,9 @@ ffbuild_dockerbuild() {
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=gnu++20
         -Dc_std=gnu17
-        -Dfreetype=enabled
         -Draster=enabled
         -Dvector=enabled
         -Dsubset=enabled
-        -Dglib=enabled
         -Dgobject=enabled
         -Dcairo=disabled
         -Dchafa=disabled
@@ -49,27 +47,50 @@ ffbuild_dockerbuild() {
         -Dbenchmark=disabled
     )
 
-    local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
-
-    # проверяем наличие библиотеки libicudt
-    if has_library "icudt"; then
-        log_info "ICU library detected. Building with ICU support..."
-        local DEP_LIBS="-lfreetype -licuin -licuuc -licudt"
-        myconf+=( "-Dicu=enabled" )
-    else
-        log_warn "ICU library not found. Building without ICU for faster testing..."
-        local DEP_LIBS="-lfreetype"
-        myconf+=( "-Dicu=disabled" )
-    fi
-
     [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
+    local FREETYPE_LIBS=""
+    local GLIB_LIBS=""
+    local ICU_LIBS=""
+
     export static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DHARFBUZZ_STATIC -DICU_STATIC -DU_STATIC_IMPLEMENTATION"
+    export self_static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && self_static_flags="-DHARFBUZZ_STATIC"
+
+    if has_library "freetype"; then
+        log_info "Freetype library detected. Building Harfbuzz with Freetype support..."
+        myconf+=( -Dfreetype=enabled )
+        local FREETYPE_LIBS="-lfreetype"
+        local FT_C_FLAGS"-I$FFBUILD_PREFIX/include/freetype2"
+    else
+        log_warn "Freetype library not found. Building Harfbuzz without Freetype..."
+        myconf+=( -Dfreetype=disabled )
+    fi
+    if has_library "glib-2.0"; then
+        log_info "GLib2 library detected. Building Harfbuzz with GLib support..."
+        myconf+=( -Dglib=enabled )
+        local GLIB_LIBS="-lgio-2.0 -lgthread-2.0 -lglib-2.0"
+    else
+        log_warn "GLib2 library not found. Building Harfbuzz without GLib..."
+        myconf+=( -Dglib=disabled )
+    fi
+    if has_library "icudt"; then
+        log_info "ICU library detected. Building Harfbuzz with ICU support..."
+        myconf+=( -Dicu=enabled )
+        local ICU_LIBS="-licuin -licuuc -licudt"
+        [[ "${PREFER_SHARED}" != "1" ]] && static_flags="$static_flags -DICU_STATIC -DU_STATIC_IMPLEMENTATION"
+    else
+        log_warn "ICU library not found. Building Harfbuzz without ICU..."
+        myconf+=( -Dicu=disabled )
+    fi
+
+    local DEP_LIBS="-Wl,--start-group ${GLIB_LIBS} ${FREETYPE_LIBS} ${ICU_LIBS} -lz -Wl,--end-group"
+
+    local WIN_LIBS="-lusp10 -lgdi32 -lrpcrt4 $LIBS"
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -I$FFBUILD_PREFIX/include/freetype2 $static_flags -Wno-redundant-decls" \
-        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -I$FFBUILD_PREFIX/include/freetype2 $static_flags -Wno-redundant-decls" \
+        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${FT_C_FLAGS} $self_static_flags $static_flags -Wno-redundant-decls" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${FT_C_FLAGS} $self_static_flags $static_flags -Wno-redundant-decls" \
         -Dc_link_args="$LDFLAGS ${USELTO}${USELTO_L} $DEP_LIBS $WIN_LIBS" \
         -Dcpp_link_args="$LDFLAGS ${USELTO}${USELTO_L} $DEP_LIBS $WIN_LIBS" || return 1
 
@@ -81,7 +102,7 @@ ffbuild_dockerbuild() {
             [[ -e "$pc" ]] || continue
             if [[ -n "$static_flags" ]]; then
                 if ! grep -qF -- "$static_flags" "$pc"; then
-                    sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
+                    sed -i "/^Cflags:/ s/$/ $self_static_flags $static_flags/" "$pc"
                 fi
             fi
         done

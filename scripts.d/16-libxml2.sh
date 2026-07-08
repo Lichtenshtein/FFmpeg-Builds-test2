@@ -36,8 +36,6 @@ ffbuild_dockerbuild() {
         --with-pic
         --with-thread-alloc
         --with-winpath
-        --with-zlib
-        --with-iconv
         --with-tls
     )
 
@@ -45,40 +43,62 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    # Проверяем наличие статической библиотеки libicudt.a
+    local LZMA_LIBS=""
+    local Z_LIBS=""
+    local ICONV_LIBS=""
+    local ICU_LIBS=""
+
+    if has_library "z"; then
+        log_info "ZLIB library detected. Building libxml2 with ZLIB support..."
+        myconf+=( --with-zlib )
+        local Z_LIBS="-lz"
+    else
+        log_warn "ZLIB library not found. Building libxml2 without ZLIB..."
+        myconf+=( --without-zlib )
+    fi
+    if has_library "iconv"; then
+        log_info "Iconv library detected. Building libxml2 with Iconv support..."
+        myconf+=( --with-iconv )
+        local ICONV_LIBS="-liconv -lcharset"
+    else
+        log_warn "Iconv library not found. Building libxml2 without Iconv..."
+        myconf+=( --without-iconv )
+    fi
     if has_library "icudt"; then
         log_info "ICU library detected. Building libxml2 with ICU support..."
-        local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset -licuin -licuuc -licudt $LIBS"
-        myconf+=( "--with-icu" )
+        myconf+=( --with-icu )
+        local ICU_LIBS="-licuin -licuuc -licudt"
     else
-        log_warn "ICU library not found. Building libxml2 without ICU for faster testing..."
-        local DEP_LIBS="-llzma -lz -lintl -liconv -lcharset $LIBS"
-        myconf+=( "--without-icu" )
+        log_warn "ICU library not found. Building libxml2 without ICU..."
+        myconf+=( --without-icu )
     fi
+
+    local DEP_LIBS="-Wl,--start-group ${LZMA_LIBS} ${Z_LIBS} ${ICONV_LIBS} -lintl ${ICU_LIBS} -Wl,--end-group $LIBS"
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBXML_STATIC -DXML_STATIC"
 
-    # Принудительно задаем AR как gcc-ar для стабильности архивации
+    log_info "Configuring libxml2 with Autotools..."
+
     ./autogen.sh "${myconf[@]}" \
         CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
         CPPFLAGS="$CPPFLAGS $static_flags" \
         CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}${USELTO_C}" \
         LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
         LIBS="$DEP_LIBS" \
-        AR="${FFBUILD_TOOLCHAIN}-gcc-ar" \
-        NM="${FFBUILD_TOOLCHAIN}-gcc-nm" \
-        RANLIB="${FFBUILD_TOOLCHAIN}-gcc-ranlib" \
-        CC="${FFBUILD_TOOLCHAIN}-gcc" \
-        CXX="${FFBUILD_TOOLCHAIN}-g++" || return 1
+        AR="${AR}" \
+        NM="${NM}" \
+        RANLIB="${RANLIB}" \
+        CC="${CC}" \
+        CXX="${CXX}" || return 1
 
+    # Compilation attempt with handling of xmllint/xmlcatalog utilities crash due to linking
     make -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++" || {
-    # Tool executables (xmllint/xmlcatalog) may fail due to libstdc++ conflict
-    # The library itself (libxml2.a) is built correctly — proceed with install
-    log_warn "make failed (likely xmllint/xmlcatalog tool linking) — checking if libxml2.a exists..."
-    [[ -f ".libs/libxml2.a" ]] || { log_error "libxml2.a not built!"; return 1; }
-    log_warn "libxml2.a confirmed present, proceeding with install."
-} || return 1
+        log_warn "make failed (likely xmllint/xmlcatalog tool linking) — checking if libxml2.a exists..."
+        [[ -f ".libs/libxml2.${lib_ext}" ]] || { log_error "libxml2.${lib_ext} not built!"; return 1; }
+        log_warn "libxml2.${lib_ext} confirmed present, proceeding with install."
+    } || return 1
+
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     local PC_FILE="$PC_DIR/libxml-2.0.pc"

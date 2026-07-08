@@ -57,7 +57,7 @@ ffbuild_dockerbuild() {
             fi
         fi
         if [[ "${USE_OPENMP}" == "1" ]]; then
-            sed -i '/^Libs.private:/ s/$/ -lgomp/' "$PC_FILE"
+            sed -i '/^Libs.private:/ s/$/ ${OPENMP_LIB}/' "$PC_FILE"
         fi
     fi
 }

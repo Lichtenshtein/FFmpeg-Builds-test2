@@ -23,16 +23,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    if has_library "icudt"; then
-        log_info "ICU library detected."
-        local ICU_LIBS="-licuin -licuuc -licudt"
-        local ICU_H_LIBS="-lharfbuzz-icu"
-    fi
-
-    local DEP_LIBS="-Wl,--start-group ${ICU_H_LIBS} -lharfbuzz-subset -lharfbuzz-cairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lcairo-gobject -lcairo -lfontconfig -lfreetype -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfribidi -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset ${ICU_LIBS} -Wl,--end-group"
-    local WIN_LIBS="-lrpcrt4 -lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -luuid $LIBS -lstdc++"
-    local LDFLAGS=$(echo "$LDFLAGS" | sed 's/-lssp//g')
-
     mkdir -p build && cd build
 
     local myconf=(
@@ -45,14 +35,32 @@ ffbuild_dockerbuild() {
         -Dcpp_std=gnu++20
         -Dc_std=gnu17
         -Dintrospection=disabled
-        -Dfontconfig=enabled
-        -Dfreetype=enabled
         -Dsysprof=disabled
         -Ddocumentation=false
         -Dbuild-testsuite=false
         -Dbuild-examples=false
         -Dman-pages=false
     )
+
+    if has_library "freetype"; then
+        log_info "Freetype library detected. Building with Freetype support..."
+        myconf+=( -Dfreetype=enabled )
+        local FREETYPE_LIBS="-lfreetype"
+    fi
+    if has_library "fontconfig"; then
+        log_info "Fontconfig library detected. Building with Fontconfig support..."
+        myconf+=( -Dfontconfig=enabled )
+        local FONTCONF_LIBS="-lfontconfig"
+    fi
+    if has_library "icudt"; then
+        log_info "ICU library detected."
+        local ICU_LIBS="-licuin -licuuc -licudt"
+        local ICU_H_LIBS="-lharfbuzz-icu"
+    fi
+
+    local DEP_LIBS="-Wl,--start-group ${ICU_H_LIBS} -lharfbuzz-subset -lharfbuzz-cairo -lharfbuzz-vector -lharfbuzz-raster -lharfbuzz -lcairo-gobject -lcairo ${FONTCONF_LIBS} ${FREETYPE_LIBS} -lgio-2.0 -lgthread-2.0 -lglib-2.0 -lfribidi -lbz2 -lbrotlienc -lbrotlidec -lbrotlicommon -lz -lintl -liconv -lcharset ${ICU_LIBS} -Wl,--end-group"
+    local WIN_LIBS="-lrpcrt4 -lusp10 -lgdi32 -lmsimg32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -luuid $LIBS -lstdc++"
+    local LDFLAGS=$(echo "$LDFLAGS" | sed 's/-lssp//g')
 
     export static_flags=""
     export self_static_flags=""
@@ -70,23 +78,16 @@ ffbuild_dockerbuild() {
         ninja $NINJA_V || return 1
         DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
     else
-        # Собираем только библиотеки (because building exes crashes with LTO)
+        # only compile libraries (because building exes crashes with LTO)
         ninja pango/libpango-1.0.a \
               pango/libpangocairo-1.0.a \
               pango/libpangoft2-1.0.a \
               pango/libpangowin32-1.0.a || return 1
 
-        # Создаем структуру директорий в DESTDIR
         mkdir -p "$PC_DIR" "$INSTALL_ROOT/include/pango-1.0/pango"
-
-        # Копируем собранные библиотеки вручную
         cp pango/*.a "$INSTALL_ROOT/lib/"
-
-        # Копируем заголовочные файлы
         cp ../pango/*.h "$INSTALL_ROOT/include/pango-1.0/pango/" 2>/dev/null || true
         cp pango/*.h "$INSTALL_ROOT/include/pango-1.0/pango/" 2>/dev/null || true
-
-        # Копируем и правим pkg-config файлы
         cp meson-private/*pango*.pc "$PC_DIR/"
     fi
 
