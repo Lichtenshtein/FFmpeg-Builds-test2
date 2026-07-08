@@ -7,7 +7,7 @@ on:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
         # default: '70-xavs|70-xavs2|71-davs2|71-uavs3e|72-uavs3d'
-        default: '06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|39-fontconfig|85-libgpg-error|85-libudfread|86-libdvdcss|86-libdvdread|86-libgcrypt|87-libdvdnav|88-libaacs|88-libbdplus|88-libbluray'
+        default: '44-dav2d'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
