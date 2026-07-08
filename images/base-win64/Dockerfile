@@ -52,13 +52,13 @@ RUN \
     MOLD_VERSION=$(curl -fL "https://api.github.com/repos/rui314/mold/releases/latest" | jq -r .tag_name | sed 's/^v//') && \
     echo "=== Mold version found: ${MOLD_VERSION} ===" && \
     curl -fL -o mold.tar.gz "https://github.com/rui314/mold/releases/latest/download/mold-${MOLD_VERSION}-x86_64-linux.tar.gz" && \
-    echo "=== download complete. creating directory... ===" && \
+    echo "✅ Download complete. Creating directory..." && \
     mkdir -p /opt/mold && \
-    echo "=== unpacking archive (file list): ===" && \
+    echo "=== Unpacking archive (file list): ===" && \
     tar -x -f mold.tar.gz --strip-components=1 -C /opt/mold && \
-    echo "=== removing archive: ===" && \
+    echo "🧹 Removing archive:" && \
     rm mold.tar.gz && \
-    echo "=== vesion check: ===" && \
+    echo "✅ Version check:" && \
     /opt/mold/bin/mold --version && \
     \
     echo "🔄 Installing Meson & Ninja via pip" && \
@@ -89,7 +89,7 @@ RUN \
     echo "🧹 Cleaning up..." && \
     apt-get autoremove -y >/dev/null 2>&1 && \
     apt-get autoclean -y >/dev/null 2>&1 && \
-    apt-get clean -y >/dev/null 2>&1 \
+    apt-get clean -y >/dev/null 2>&1 && \
     npm cache clean --force && \
     rm -rf /opt/cargo/registry /opt/cargo/git /opt/rustup/downloads /opt/rustup/tmp && \
     rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/info/* && \
