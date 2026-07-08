@@ -274,7 +274,7 @@ should_apply_lto() {
     # LTO включится ТОЛЬКО для этих библиотек.
     case "$STAGENAME" in
         # Основные либы
-        *"mingw"|*"zlib"|*"tbbmalloc"|*"fftw3"|*"freeglut")
+        *"mingw"|*"zlib"|*"tbbmalloc"|*"fftw3"|*"freeglut"|*"openblas")
             return 0
             ;;
         # Основные тяжелые видеокодеки
@@ -286,7 +286,7 @@ should_apply_lto() {
             return 0
             ;;
         # Ключевые графические фильтры высокого уровня
-        *"zimg"|*"libtesseract"|*"leptonica"|*"libplacebo"|*"opencl"|*"openvino"|*"opencv"|*"nnedi3")
+        *"zimg"|*"libtesseract"|*"leptonica"|*"libplacebo"|*"opencl"|*"openvino"|*"opencv"|*"nnedi3"|*"whisper")
             return 0
             ;;
         # легковесные кодеки
