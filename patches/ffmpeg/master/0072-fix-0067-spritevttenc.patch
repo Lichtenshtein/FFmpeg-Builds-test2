@@ -1,0 +1,47 @@
+From 07dfbb4d032c8502e65c576bd57d82200304a10f Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Thu, 9 Jul 2026 01:57:23 +0300
+Subject: [PATCH] fix spritevttenc
+
+---
+ libavformat/spritevttenc.c | 11 +++++++----
+ 1 file changed, 7 insertions(+), 4 deletions(-)
+
+diff --git a/libavformat/spritevttenc.c b/libavformat/spritevttenc.c
+index 548179b..f69ee3f 100644
+--- a/libavformat/spritevttenc.c
++++ b/libavformat/spritevttenc.c
+@@ -388,9 +388,12 @@ static int spritevtt_write_trailer(AVFormatContext *s)
+ 
+     /* Check if canvas pixel format is supported by the encoder */
+     fmt_ok = 0;
+-    if (enc->pix_fmts) {
++    const enum AVPixelFormat *pix_fmts = NULL;
++    int ret_conf = avcodec_get_supported_config(enc_ctx, NULL, AV_CODEC_CONFIG_PIX_FMT, 0, (const void **)&pix_fmts, NULL);
++
++    if (ret_conf >= 0 && pix_fmts) {
+         const enum AVPixelFormat *p_fmt;
+-        for (p_fmt = enc->pix_fmts; *p_fmt != AV_PIX_FMT_NONE; p_fmt++) {
++        for (p_fmt = pix_fmts; *p_fmt != AV_PIX_FMT_NONE; p_fmt++) {
+             if (*p_fmt == ctx->pix_fmt) {
+                 fmt_ok = 1;
+                 break;
+@@ -402,13 +405,13 @@ static int spritevtt_write_trailer(AVFormatContext *s)
+         enc_ctx->pix_fmt = ctx->pix_fmt;
+     } else {
+         /* Use first supported format and convert with swscale */
+-        if (!enc->pix_fmts || enc->pix_fmts[0] == AV_PIX_FMT_NONE) {
++        if (ret_conf < 0 || !pix_fmts || pix_fmts[0] == AV_PIX_FMT_NONE) {
+             av_log(s, AV_LOG_ERROR,
+                    "Encoder has no supported pixel formats\n");
+             ret = AVERROR(EINVAL);
+             goto cleanup;
+         }
+-        enc_ctx->pix_fmt = enc->pix_fmts[0];
++        enc_ctx->pix_fmt = pix_fmts[0];
+ 
+         av_log(s, AV_LOG_INFO,
+                "Converting pixel format %s -> %s for %s encoder\n",
+-- 
+2.52.0.windows.1
+
