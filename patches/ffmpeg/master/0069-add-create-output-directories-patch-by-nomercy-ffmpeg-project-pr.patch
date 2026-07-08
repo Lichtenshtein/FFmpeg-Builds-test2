@@ -1,0 +1,119 @@
+From c015af8430af8aa839149bf0403f7598c1f106ae Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Wed, 8 Jul 2026 23:54:23 +0300
+Subject: [PATCH] add create output directories patch by nomercy-ffmpeg project
+
+#/**************************************/#
+#/*  NoMercy Entertainment — Auto      */#
+#/*  create output directories         */#
+#/**************************************/#
+
+# Patch io_open_default in libavformat/options.c to auto-create parent
+# directories when opening files for writing. This is the actual entry
+# point used by muxers (image2, mp4, mkv, etc.) — NOT avio_open2.
+#
+# Works cross-platform: uses _mkdir on Windows, mkdir on Unix.
+https://github.com/NoMercy-Entertainment/nomercy-ffmpeg/blob/master/scripts/55-auto-create-dirs.sh
+
+---
+ libavformat/options.c | 77 +++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 77 insertions(+)
+
+diff --git a/libavformat/options.c b/libavformat/options.c
+index 4b743bb..59d366b 100644
+--- a/libavformat/options.c
++++ b/libavformat/options.c
+@@ -43,6 +43,82 @@ FF_DISABLE_DEPRECATION_WARNINGS
+ #include "options_table.h"
+ FF_ENABLE_DEPRECATION_WARNINGS
+ 
++/* --- NoMercy: auto-create output directories --- */
++#include <sys/stat.h>
++#include <errno.h>
++#ifdef _WIN32
++#  include <direct.h>
++#  define ff_local_mkdir(p) _mkdir(p)
++#else
++#  define ff_local_mkdir(p) mkdir(p, 0755)
++#endif
++
++/**
++ * Recursively create parent directories for a file path.
++ * Only operates on local file paths (no protocol prefix).
++ * Safe to call when directories already exist (ignores EEXIST).
++ */
++static void ff_ensure_dir_exists(const char *url, int flags)
++{
++    char *tmp;
++    const char *sep;
++
++    /* Only create dirs for output files */
++    if (!(flags & AVIO_FLAG_WRITE))
++        return;
++
++    /* Skip non-local paths (URLs with protocol) */
++    if (!url || strstr(url, "://"))
++        return;
++
++    /* Find the last directory separator */
++    sep = NULL;
++    for (const char *p = url; *p; p++) {
++        if (*p == '/' || *p == '\\')
++            sep = p;
++    }
++
++    /* No directory component — file is in current dir */
++    if (!sep || sep == url)
++        return;
++
++    tmp = av_strndup(url, sep - url);
++    if (!tmp)
++        return;
++
++    /* Recursively create directories, ignoring EEXIST.
++     * Skip root prefixes so we don't try to mkdir "C:" or "\\server". */
++    char *start = tmp + 1;
++#ifdef _WIN32
++    /* Drive letter prefix: skip past "C:\\" */
++    if (((tmp[0] >= 'A' && tmp[0] <= 'Z') || (tmp[0] >= 'a' && tmp[0] <= 'z'))
++        && tmp[1] == ':' && (tmp[2] == '/' || tmp[2] == '\\'))
++        start = tmp + 3;
++    /* UNC prefix: skip past "\\server\share" */
++    else if ((tmp[0] == '/' || tmp[0] == '\\') && tmp[0] == tmp[1]) {
++        int slashes = 0;
++        for (start = tmp + 2; *start && slashes < 2; start++)
++            if (*start == '/' || *start == '\\') slashes++;
++    }
++#endif
++    for (char *p = start; *p; p++) {
++        if (*p == '/' || *p == '\\') {
++            char saved = *p;
++            *p = '\0';
++            if (ff_local_mkdir(tmp) != 0 && errno != EEXIST) {
++                av_free(tmp);
++                return;
++            }
++            *p = saved;
++        }
++    }
++    if (ff_local_mkdir(tmp) != 0 && errno != EEXIST) {
++        /* best-effort: don't fail the open */
++    }
++    av_free(tmp);
++}
++/* --- End NoMercy patch --- */
++
+ static const char* format_to_name(void* ptr)
+ {
+     AVFormatContext* fc = (AVFormatContext*) ptr;
+@@ -141,6 +217,7 @@ static const AVClass av_format_context_class = {
+ static int io_open_default(AVFormatContext *s, AVIOContext **pb,
+                            const char *url, int flags, AVDictionary **options)
+ {
++    ff_ensure_dir_exists(url, flags);
+     int loglevel;
+ 
+     if (!strcmp(url, s->url) ||
+-- 
+2.52.0.windows.1
+

@@ -1,0 +1,217 @@
+From 89f38285ca0eb0da6076f314b73d5a97e7903209 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Thu, 9 Jul 2026 00:25:38 +0300
+Subject: [PATCH] add OmniDrive library support
+
+---
+ configure               |   3 +
+ libavformat/Makefile    |   1 +
+ libavformat/omnidrive.c | 143 ++++++++++++++++++++++++++++++++++++++++
+ libavformat/protocols.c |   1 +
+ 4 files changed, 148 insertions(+)
+ create mode 100644 libavformat/omnidrive.c
+
+diff --git a/configure b/configure
+index 2c19250..2f25a94 100755
+--- a/configure
++++ b/configure
+@@ -2192,6 +2192,7 @@ EXTERNAL_LIBRARY_LIST="
+     vulkan_static
+     whisper
+     wolfssl
++    libomnidrive
+ "
+ 
+ HWACCEL_AUTODETECT_LIBRARY_LIST="
+@@ -4188,6 +4189,7 @@ libssh_protocol_deps="libssh"
+ libtls_conflict="openssl gnutls mbedtls wolfssl"
+ libzmq_protocol_deps="libzmq"
+ libzmq_protocol_select="network"
++omnidrive_protocol_deps="libomnidrive"
+ 
+ # filters
+ ametadata_filter_deps="avformat"
+@@ -7531,6 +7533,7 @@ enabled libopus           && {
+         require_pkg_config libopus opus opus_multistream.h opus_multistream_surround_encoder_create
+     }
+ }
++enabled libomnidrive      && require libomnidrive omnidrive.h omnidrive_open -lomnidrive
+ enabled libplacebo        && require_pkg_config libplacebo "libplacebo >= 7.351.0" libplacebo/vulkan.h pl_vulkan_create
+ enabled libpulse          && require_pkg_config libpulse libpulse pulse/pulseaudio.h pa_context_new
+ enabled libqrencode       && require_pkg_config libqrencode libqrencode qrencode.h QRcode_encodeString
+diff --git a/libavformat/Makefile b/libavformat/Makefile
+index e26fd3d..73454b1 100644
+--- a/libavformat/Makefile
++++ b/libavformat/Makefile
+@@ -744,6 +744,7 @@ OBJS-$(CONFIG_DTLS_PROTOCOL)             += tls.o $(TLS-OBJS-yes)
+ OBJS-$(CONFIG_UDP_PROTOCOL)              += udp.o ip.o
+ OBJS-$(CONFIG_UDPLITE_PROTOCOL)          += udp.o ip.o
+ OBJS-$(CONFIG_UNIX_PROTOCOL)             += unix.o
++OBJS-$(CONFIG_OMNIDRIVE_PROTOCOL)        += omnidrive.o
+ 
+ # external library protocols
+ OBJS-$(CONFIG_LIBAMQP_PROTOCOL)          += libamqp.o
+diff --git a/libavformat/omnidrive.c b/libavformat/omnidrive.c
+new file mode 100644
+index 0000000..4d88f96
+--- /dev/null
++++ b/libavformat/omnidrive.c
+@@ -0,0 +1,143 @@
++/*
++ * OmniDrive URL protocol for FFmpeg.
++ *
++ * Reads an OmniDrive-flashed optical drive as a flat byte stream of 2048-byte
++ * user sectors, so a disc can be dumped to ISO with:
++ *
++ *     ffmpeg -i omnidrive:\\.\E: game.iso          (Windows)
++ *     ffmpeg -i omnidrive:/dev/sr0 game.iso        (Linux)
++ *     ffmpeg -i omnidrive:mock:test.iso out.iso    (no hardware)
++ *
++ * This file is a thin wrapper over libomnidrive; copy it to libavformat/ and
++ * apply omnidrive-ffmpeg.patch. Build with --enable-libomnidrive.
++ */
++
++#include "libavformat/avformat.h"
++#include "libavformat/url.h"
++#include "libavutil/avstring.h"
++#include "libavutil/error.h"
++#include "libavutil/mem.h"
++
++#include <omnidrive.h>
++
++typedef struct OmniDriveContext {
++    omnidrive_t *od;
++    int64_t      pos;    /* current byte offset */
++    int64_t      size;   /* total bytes = sectors * 2048 */
++} OmniDriveContext;
++
++static int omnidrive_map_err(int rc)
++{
++    switch (rc) {
++    case OMNIDRIVE_OK:               return 0;
++    case OMNIDRIVE_E_ARG:            return AVERROR(EINVAL);
++    case OMNIDRIVE_E_OPEN:           return AVERROR(ENOENT);
++    case OMNIDRIVE_E_NOT_OMNIDRIVE:  return AVERROR(EINVAL);
++    case OMNIDRIVE_E_UNSUPPORTED:    return AVERROR(ENOSYS);
++    case OMNIDRIVE_E_NOMEM:          return AVERROR(ENOMEM);
++    case OMNIDRIVE_E_RANGE:          return AVERROR(EINVAL);
++    default:                         return AVERROR(EIO);
++    }
++}
++
++static int omni_open(URLContext *h, const char *url, int flags)
++{
++    OmniDriveContext *c = h->priv_data;
++    const char *p = url;
++
++    if ((flags & AVIO_FLAG_WRITE))
++        return AVERROR(ENOSYS);          /* read-only device */
++
++    av_strstart(url, "omnidrive:", &p);  /* strip scheme if present */
++
++    int rc = omnidrive_open(p, &c->od);
++    if (rc != OMNIDRIVE_OK) {
++        av_log(h, AV_LOG_ERROR, "omnidrive: %s ('%s')\n",
++               omnidrive_strerror(rc), p);
++        return omnidrive_map_err(rc);
++    }
++
++    uint64_t sectors = 0; uint32_t ssize = 0;
++    omnidrive_get_capacity(c->od, &sectors, &ssize);
++    c->size = (int64_t)sectors * OMNIDRIVE_SECTOR;
++    c->pos  = 0;
++
++    omnidrive_disc_t dt = OMNIDRIVE_DISC_UNKNOWN;
++    omnidrive_get_disc_type(c->od, &dt);
++    av_log(h, AV_LOG_INFO, "omnidrive: %llu sectors (%lld bytes), disc type %d\n",
++           (unsigned long long)sectors, (long long)c->size, (int)dt);
++    return 0;
++}
++
++static int omni_read(URLContext *h, unsigned char *buf, int size)
++{
++    OmniDriveContext *c = h->priv_data;
++
++    if (c->pos >= c->size)
++        return AVERROR_EOF;
++    if (size <= 0)
++        return 0;
++    if (c->pos + size > c->size)
++        size = (int)(c->size - c->pos);
++
++    uint64_t first_lba = (uint64_t)(c->pos / OMNIDRIVE_SECTOR);
++    uint32_t off       = (uint32_t)(c->pos % OMNIDRIVE_SECTOR);
++    uint64_t last_lba  = (uint64_t)((c->pos + size - 1) / OMNIDRIVE_SECTOR);
++    uint32_t nsect     = (uint32_t)(last_lba - first_lba + 1);
++
++    uint8_t *tmp = av_malloc((size_t)nsect * OMNIDRIVE_SECTOR);
++    if (!tmp)
++        return AVERROR(ENOMEM);
++
++    int rc = omnidrive_read_sector(c->od, first_lba, nsect, tmp);
++    if (rc != OMNIDRIVE_OK) {
++        av_free(tmp);
++        av_log(h, AV_LOG_ERROR, "omnidrive: read failed at lba %llu: %s\n",
++               (unsigned long long)first_lba, omnidrive_strerror(rc));
++        return omnidrive_map_err(rc);
++    }
++
++    memcpy(buf, tmp + off, (size_t)size);
++    av_free(tmp);
++    c->pos += size;
++    return size;
++}
++
++static int64_t omni_seek(URLContext *h, int64_t pos, int whence)
++{
++    OmniDriveContext *c = h->priv_data;
++
++    if (whence == AVSEEK_SIZE)
++        return c->size;
++
++    switch (whence) {
++    case SEEK_SET: break;
++    case SEEK_CUR: pos += c->pos;  break;
++    case SEEK_END: pos += c->size; break;
++    default:       return AVERROR(EINVAL);
++    }
++    if (pos < 0)
++        return AVERROR(EINVAL);
++    c->pos = pos;
++    return c->pos;
++}
++
++static int omni_close(URLContext *h)
++{
++    OmniDriveContext *c = h->priv_data;
++    if (c->od) {
++        omnidrive_close(c->od);
++        c->od = NULL;
++    }
++    return 0;
++}
++
++const URLProtocol ff_omnidrive_protocol = {
++    .name              = "omnidrive",
++    .url_open          = omni_open,
++    .url_read          = omni_read,
++    .url_seek          = omni_seek,
++    .url_close         = omni_close,
++    .priv_data_size    = sizeof(OmniDriveContext),
++    .default_whitelist = "omnidrive,mock",
++};
+diff --git a/libavformat/protocols.c b/libavformat/protocols.c
+index 257b419..82fd00f 100644
+--- a/libavformat/protocols.c
++++ b/libavformat/protocols.c
+@@ -64,6 +64,7 @@ extern const URLProtocol ff_tcp_protocol;
+ extern const URLProtocol ff_tls_protocol;
+ extern const URLProtocol ff_dtls_protocol;
+ extern const URLProtocol ff_udp_protocol;
++extern const URLProtocol ff_omnidrive_protocol;
+ extern const URLProtocol ff_udplite_protocol;
+ extern const URLProtocol ff_unix_protocol;
+ extern const URLProtocol ff_libamqp_protocol;
+-- 
+2.52.0.windows.1
+
