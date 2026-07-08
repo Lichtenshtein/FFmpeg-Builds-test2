@@ -7,7 +7,7 @@ on:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
         # default: '70-xavs|70-xavs2|71-davs2|71-uavs3e|72-uavs3d'
-        default: '04-tbbmalloc|15-openblas|44-dav2d|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|59-opencl|69-whisper|70-xvid'
+        default: '44-dav2d'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
@@ -119,13 +119,13 @@ env:
   VARIANT: nonfree
   # ccache
   CCACHE_MAXSIZE: "2G"
-  CCACHE_COMPILERCHECK: "none"
-  CCACHE_DEPEND: "1"
   CCACHE_COMPRESS: "1"
   CCACHE_COMPRESSLEVEL: "6"
-  CCACHE_NOHASHDIR: "1"
   CCACHE_NLEVELS: "4"
-  CCACHE_SLOPPINESS: "file_macro,time_macros,include_file_ctime,include_file_mtime,locale,system_headers,pch_defines"
+  CCACHE_DEPEND: "1"
+  CCACHE_COMPILERCHECK: "content"
+  CCACHE_PATH_MGMT: "true"
+  CCACHE_SLOPPINESS: "file_macro,time_macros,include_file_ctime,include_file_mtime,locale,random_seed,conf_tests"
   # Списки исключений
   # Список для хранения .git от очистки (в download.sh)
   # Some patches apply only with git am...
