@@ -14,6 +14,9 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # unbrake ffmpeg linking
+    sed -i 's/#if 0/#if 1/g' src/lib.c
+
     mkdir build && cd build
 
     local myconf=(
