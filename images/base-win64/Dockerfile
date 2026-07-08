@@ -21,8 +21,8 @@ RUN \
     --mount=type=cache,target=/root/.cache/pip \
     apt-get -y update >/dev/null 2>&1 && \
     apt-get -y dist-upgrade >/dev/null 2>&1 && \
-    && echo "? Updating completed successfully" \
-    && echo "?? Installing dependencies" \
+    echo "? Updating completed successfully" && \
+    echo "?? Installing dependencies" && \
     apt-get -y install --no-install-recommends \
         ca-certificates curl gnupg build-essential yasm nasm pv ccache \
         xxd pkgconf wget unzip zip git subversion rsync jq bc \
@@ -61,7 +61,7 @@ RUN \
     echo "=== vesion check: ===" && \
     /opt/mold/bin/mold --version && \
     \
-    && echo "?? Installing Meson & Ninja via pip" \
+    echo "?? Installing Meson & Ninja via pip" && \
     pip3 install --break-system-packages --no-cache-dir --upgrade --ignore-installed \
         meson cmake ninja Cython pytest build PythonLibs && \
     \
@@ -74,17 +74,17 @@ RUN \
     apt-get -y install nodejs && \
     npm install -g @napi-ffi/ffi-napi && \
     \
-    && echo "?? Configuring Git" \
+    echo "?? Configuring Git" && \
     git config --global user.email "builder@localhost" && \
     git config --global user.name "Builder" && \
     git config --global advice.detachedHead false && \
     git config --global core.autocrlf false && \
     git config --global --add safe.directory "*" && \
     \
-    && echo "?? Start downloading and installing Rust and Cargo" \
+    echo "?? Start downloading and installing Rust and Cargo" && \
     curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path && \
     curl -fsSL "https://github.com/lu-zero/cargo-c/releases/download/v${CARGO_C_VERSION}/cargo-c-x86_64-unknown-linux-musl.tar.gz" | tar -xz -C /opt/cargo/bin && \
-    echo "? Installations completed successfully"
+    echo "? Installations completed successfully" && \
     \
     echo "?? Cleaning up..." && \
     apt-get autoremove -y >/dev/null 2>&1 && \
