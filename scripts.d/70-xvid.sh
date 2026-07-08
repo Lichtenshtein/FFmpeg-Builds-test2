@@ -35,7 +35,7 @@ ffbuild_dockerbuild() {
     )
 
     # Xvid падает с LTO
-    CFLAGS="$CFLAGS ${NOLTO} -fcommon" \
+    CFLAGS="$CFLAGS ${NOLTO} -fcommon -fomit-frame-pointer" \
     CPPFLAGS="$CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS ${NOLTO}" \
     LDFLAGS="$LDFLAGS ${NOLTO}" \

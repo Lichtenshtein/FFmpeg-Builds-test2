@@ -28,6 +28,15 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Disable functions that cause threading issues on Windows
+    if [[ $TARGET == win64 ]]; then
+        sed -i '/THREAD_POWER_THROTTLING_STATE/,/}/ { /#endif/!s/^/\/\// }' ggml/src/ggml-cpu/ggml-cpu.c
+    fi
+
+    # Increase n_threads from 4 to 8
+    log_info "Increasing number of threads used from 4 to 8 for whisper.cpp..."
+    sed -i 's/\/\*\.n_threads         =\*\/\s*std::min(4,/\/\*\.n_threads         =\*\/\ std::min(8,/g' src/whisper.cpp
+
     if [[ "${BUILD_VINO}" == "1" ]]; then
         log_info "Applying OpenVINO pkg-config patch for Whisper..."
         # Создаем файл-заплатку, который вытягивает флаги через pkg-config
@@ -36,14 +45,14 @@ find_package(PkgConfig REQUIRED)
 pkg_check_modules(OV REQUIRED openvino)
 pkg_check_modules(TBB REQUIRED tbb)
 
-# 1. Creating a fake CMake target openvino::runtime
+# Creating a fake CMake target openvino::runtime
 if(NOT TARGET openvino::runtime)
     add_library(openvino::runtime INTERFACE IMPORTED)
     target_link_libraries(openvino::runtime INTERFACE ${OV_LIBRARIES} ${TBB_LIBRARIES})
     target_include_directories(openvino::runtime INTERFACE ${OV_INCLUDE_DIRS} ${TBB_INCLUDE_DIRS})
 endif()
 
-# 2. Creating a fake CMake target openvino::threading (Fix for new ggml)
+# Creating a fake CMake target openvino::threading (Fix for new ggml)
 if(NOT TARGET openvino::threading)
     add_library(openvino_threading INTERFACE)
     target_link_libraries(openvino_threading INTERFACE ${TBB_LIBRARIES})
@@ -51,14 +60,14 @@ if(NOT TARGET openvino::threading)
     add_library(openvino::threading ALIAS openvino_threading)
 endif()
 
-# 3. Creating a fake CMake target TBB::tbb
+# Creating a fake CMake target TBB::tbb
 if(NOT TARGET TBB::tbb)
     add_library(TBB::tbb INTERFACE IMPORTED)
     target_link_libraries(TBB::tbb INTERFACE ${TBB_LIBRARIES})
     target_include_directories(TBB::tbb INTERFACE ${TBB_INCLUDE_DIRS})
 endif()
 
-# 4. Creating a fake CMake target OpenCL::OpenCL (Required by ggml-openvino)
+# Creating a fake CMake target OpenCL::OpenCL (Required by ggml-openvino)
 if(NOT TARGET OpenCL::OpenCL)
     add_library(OpenCL_cl INTERFACE)
     target_link_libraries(OpenCL_cl INTERFACE OpenCL)
@@ -112,10 +121,10 @@ set(ENV{PKG_CONFIG_LIBDIR} "/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgcon
 EOF
 
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CFLAGS@|${CFLAGS} ${USELTO}${USELTO_C} $static_flags|g" main-toolchain.cmake
+    sed -i "s|@CFLAGS@|${CFLAGS} ${OPENMP_C}${USELTO}${USELTO_C} $static_flags|g" main-toolchain.cmake
     sed -i "s|@CPPFLAGS@|${CPPFLAGS}|g" main-toolchain.cmake
     sed -i "s|@TRIPLE@|${FFBUILD_TOOLCHAIN}|g" main-toolchain.cmake
-    sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${USELTO}${USELTO_C} $static_flags|g" main-toolchain.cmake
+    sed -i "s|@CXXFLAGS@|${CXXFLAGS} ${OPENMP_C}${USELTO}${USELTO_C} $static_flags|g" main-toolchain.cmake
     sed -i "s|@LDFLAGS@|${LDFLAGS} ${USELTO}${USELTO_L}|g" main-toolchain.cmake
 
     mkdir build && cd build
@@ -209,6 +218,15 @@ EOF
             -DGGML_OPENVINO_SKIP_TBB_FIND=ON # don't delete
         )
     fi
+    if has_library "openblas"; then
+        log_info "OpenBLAS library detected. Building with OpenBLAS support..."
+        myconf+=(
+            -DGGML_BLAS=ON
+            -DBLAS_VENDOR=OpenBLAS
+            -DBLAS_LIBRARIES="${FFBUILD_PREFIX}/lib/libopenblas.${lib_ext}"
+            -DBLAS_INCLUDE_DIRS="${FFBUILD_PREFIX}/include/openblas"
+        )
+    fi
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
@@ -239,7 +257,7 @@ EOF
     if [[ -f "$PC_FILE" ]]; then
         log_info "Updating $PC_FILE with backend libraries..."
         local GGML_INTERNAL="-lggml-cpu -lggml -lggml-base"
-        local SYS_LIBS="-lstdc++ -lsetupapi -lws2_32 -lshlwapi -lbcrypt -pthread"
+        local SYS_LIBS="-lstdc++ -lsetupapi -lws2_32 -lshlwapi -lbcrypt ${OPENMP_LIB}-pthread"
 
         sed -i '/^Libs.private:/d' "$PC_FILE"
         echo "Libs.private: ${GGML_INTERNAL} ${SYS_LIBS}" >> "$PC_FILE"
@@ -248,6 +266,9 @@ EOF
         fi
         if [[ "${myconf[@]}" =~ "-DGGML_VULKAN=ON" ]]; then
             sed -i '/^Libs.private:/ s/$/ -lggml-vulkan -lshaderc_combined/' "$PC_FILE"
+        fi
+        if [[ "${myconf[@]}" =~ "-DGGML_BLAS=ON" ]]; then
+            sed -i '/^Libs.private:/ s/$/ -lggml-blas/' "$PC_FILE"
         fi
         if [[ "${myconf[@]}" =~ "-DGGML_OPENVINO=ON" ]]; then
             echo "Requires.private: openvino" >> "$PC_FILE"

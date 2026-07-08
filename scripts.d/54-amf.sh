@@ -1,7 +1,7 @@
 #!/bin/bash
 export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git"
-SCRIPT_COMMIT="eadd00804d5f7e5cd8c85d540073198312870776"
+SCRIPT_COMMIT="c35f613aea2e5057a688c979e75b1cf24253297e"
 
 ffbuild_enabled() {
     return 0
@@ -9,7 +9,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "rm -rf Thirdparty"
+    echo "rm -rf Thirdparty amf/public/samples amf/public/src amf/doc"
     if [[ -d ".git" ]]; then
         git add .
     fi
@@ -17,6 +17,26 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
+    # FFmpeg 8's libavfilter/vsrc_amf.c (built as C) transitively includes these
+    # AMF component headers, but the headers ship an unguarded
+    #   extern "C"
+    #   { ... }
+    # block. Wrap each one in #ifdef __cplusplus so C compilation succeeds —
+    # the declarations reference C++ namespace types (amf::AMFContext*) and were
+    # never C-callable to begin with.
+    for h in amf/public/include/components/Ambisonic2SRenderer.h \
+             amf/public/include/components/AudioCapture.h \
+             amf/public/include/components/ChromaKey.h \
+             amf/public/include/components/DisplayCapture.h \
+             amf/public/include/components/VideoCapture.h \
+             amf/public/include/components/ZCamLiveStream.h; do
+        awk '
+            /^extern "C"$/ && !in_block { print "#ifdef __cplusplus"; print; in_block = 1; next }
+            in_block && /^}$/ { print; print "#endif"; in_block = 0; next }
+            { print }
+        ' "$h" > "$h.new" && mv "$h.new" "$h"
+    done
 
     mkdir -p "$INSTALL_ROOT"/include
     mv amf/public/include "$INSTALL_ROOT"/include/AMF
