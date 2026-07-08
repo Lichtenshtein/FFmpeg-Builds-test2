@@ -51,13 +51,13 @@ RUN \
     \
     MOLD_VERSION=$(curl -fL "https://api.github.com/repos/rui314/mold/releases/latest" | jq -r .tag_name | sed 's/^v//') && \
     echo "=== Mold version found: ${MOLD_VERSION} ===" && \
-    curl -fL -v -o mold.tar.gz "https://github.com/rui314/mold/releases/latest/download/mold-${MOLD_VERSION}-x86_64-linux.tar.gz" && \
+    curl -fL -o mold.tar.gz "https://github.com/rui314/mold/releases/latest/download/mold-${MOLD_VERSION}-x86_64-linux.tar.gz" && \
     echo "=== download complete. creating directory... ===" && \
     mkdir -p /opt/mold && \
     echo "=== unpacking archive (file list): ===" && \
-    tar -x -v -f mold.tar.gz --strip-components=1 -C /opt/mold && \
+    tar -x -f mold.tar.gz --strip-components=1 -C /opt/mold && \
     echo "=== removing archive: ===" && \
-    rm -v mold.tar.gz && \
+    rm mold.tar.gz && \
     echo "=== vesion check: ===" && \
     /opt/mold/bin/mold --version && \
     \
