@@ -130,7 +130,7 @@ new file mode 100644
 index 0000000000..0e63f34efe
 --- /dev/null
 +++ b/libavcodec/libdav2d.c
-@@ -0,0 +1,706 @@
+@@ -0,0 +1,708 @@
 +/*
 + * Copyright (c) 2018 Ronald S. Bultje <rsbultje gmail com>
 + * Copyright (c) 2018 James Almer <jamrial gmail com>
@@ -638,11 +638,13 @@ index 0000000000..0e63f34efe
 +    frame->linesize[1] = p->stride[1];
 +    frame->linesize[2] = p->stride[1];
 +
-+    dav2d_get_event_flags(dav2d->c, &event_flags);
++    /* ORIGINAL CALL REMOVED DUE TO BUFFERING IN VERSION 0.0.1 LIBDAV2D */
++    /* dav2d_get_event_flags(dav2d->c, &event_flags); */
++    event_flags = 0; 
++
 +    if (c->pix_fmt == AV_PIX_FMT_NONE || event_flags & DAV2D_EVENT_FLAG_NEW_SEQUENCE)
 +        libdav2d_init_params(c, p->seq_hdr);
 +
-+    
 +    if (p->ci) {
 +        switch (p->ci->chr[0]) {
 +        case DAV2D_CHR_LEFT:

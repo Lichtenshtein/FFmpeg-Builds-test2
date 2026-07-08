@@ -14,7 +14,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    mkdir -p build && cd build
+    mkdir -p build "${INSTALL_ROOT}/{include,lib}" "$PC_DIR" && cd build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -32,14 +32,21 @@ ffbuild_dockerbuild() {
 
     if [[ "${PREFER_SHARED}" == "1" ]]; then
         ninja omnidrive_shared || return 1
-        DESTDIR="$FFBUILD_DESTDIR" cmake --install . --component Runtime || return 1
-        DESTDIR="$FFBUILD_DESTDIR" cmake --install . --component Library || return 1
+        if [[ -f "libomnidrive.dll" ]]; then
+            mkdir -p "$INSTALL_ROOT/bin"
+            cp libomnidrive.dll "$INSTALL_ROOT/bin/"
+        fi
+        if [[ -f "libomnidrive.dll.a" ]]; then
+            cp libomnidrive.dll.a "$INSTALL_ROOT/lib/"
+        elif [[ -f "libomnidrive.lib" ]]; then
+            cp libomnidrive.lib "$INSTALL_ROOT/lib/libomnidrive.dll.a"
+        fi
     else
         ninja omnidrive || return 1
-        DESTDIR="$FFBUILD_DESTDIR" cmake --install . --component Archive || return 1
+        log_info "Copying static library libomnidrive.a to destination..."
+        cp libomnidrive.a "$INSTALL_ROOT/lib/"
     fi
 
-    mkdir -p "${INSTALL_ROOT}/include" "$PC_DIR"
     cp ../include/omnidrive.h "${INSTALL_ROOT}/include/"
 
     log_info "Generating omnidrive.pc for FFmpeg integration..."
