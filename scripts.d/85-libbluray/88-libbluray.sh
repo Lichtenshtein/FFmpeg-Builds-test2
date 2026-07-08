@@ -26,25 +26,25 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Заменяем базовые утилиты работы со строками, чтобы избежать коллизий при статической линковке
-    log_info "Patching conflicting string functions in source tree..."
-    find . -type f \( -name "*.c" -o -name "*.h" -o -name "meson.build" \) -exec sed -i \
-        -e 's/\bstr_dup\b/libbluray_str_dup/g' \
-        -e 's/\bstr_printf\b/libbluray_str_printf/g' \
-        -e 's/\bstr_print_hex\b/libbluray_str_print_hex/g' {} +
+    # # Заменяем базовые утилиты работы со строками, чтобы избежать коллизий при статической линковке
+    # log_info "Patching conflicting string functions in source tree..."
+    # find . -type f \( -name "*.c" -o -name "*.h" -o -name "meson.build" \) -exec sed -i \
+        # -e 's/\bstr_dup\b/libbluray_str_dup/g' \
+        # -e 's/\bstr_printf\b/libbluray_str_printf/g' \
+        # -e 's/\bstr_print_hex\b/libbluray_str_print_hex/g' {} +
 
-    # Переименование структуры/функции инициализации декодера dec_init
-    log_info "Patching dec_init symbol signature..."
-    if [[ -f "src/libbluray/disc/dec.c" ]]; then
-        sed -i 's/\bdec_init\b/libbluray_dec_init/g' src/libbluray/disc/dec.c
-        sed -i 's/\bdec_init\b/libbluray_dec_init/g' src/libbluray/disc/dec.h
-        sed -i 's/\bdec_init\b/libbluray_dec_init/g' src/libbluray/disc/disc.c
-    fi
+    # # Переименование структуры/функции инициализации декодера dec_init
+    # log_info "Patching dec_init symbol signature..."
+    # if [[ -f "src/libbluray/disc/dec.c" ]]; then
+        # sed -i 's/\bdec_init\b/libbluray_dec_init/g' src/libbluray/disc/dec.c
+        # sed -i 's/\bdec_init\b/libbluray_dec_init/g' src/libbluray/disc/dec.h
+        # sed -i 's/\bdec_init\b/libbluray_dec_init/g' src/libbluray/disc/disc.c
+    # fi
 
     # stop the static library from exporting symbols when linked into a shared lib
     sed -i 's/-DBLURAY_API_EXPORT/-DBLURAY_API_EXPORT_DISABLED/g' src/meson.build
 
-    local PRIVATE_LIBS="-laacs -lbdplus -lgcrypt -lgpg-error"
+    # local PRIVATE_LIBS="-laacs -lbdplus -lgcrypt -lgpg-error"
 
     mkdir -p build && cd build
 
@@ -94,9 +94,9 @@ ffbuild_dockerbuild() {
         if ! grep -qF -- "-lstdc++" "$PC_FILE"; then
             sed -i "/^Libs.private:/ s/$/ -lstdc++/" "$PC_FILE"
         fi
-        if ! grep -qF -- "-laacs" "$PC_FILE"; then
-            sed -i "/^Libs.private:/ s/$/ -laacs -lbdplus -lgcrypt -lgpg-error/" "$PC_FILE"
-        fi
+        # if ! grep -qF -- "-laacs" "$PC_FILE"; then
+            # sed -i "/^Libs.private:/ s/$/ -laacs -lbdplus -lgcrypt -lgpg-error/" "$PC_FILE"
+        # fi
     else
         log_error "Critical Error: libbluray.pc was not found in $PC_DIR"
     fi

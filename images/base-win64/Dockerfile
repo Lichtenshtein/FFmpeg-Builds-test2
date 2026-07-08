@@ -19,8 +19,10 @@ RUN \
     --mount=type=cache,target=/var/cache/apt,sharing=locked \
     --mount=type=cache,target=/var/lib/apt,sharing=locked \
     --mount=type=cache,target=/root/.cache/pip \
-    apt-get -y update && \
-    apt-get -y dist-upgrade && \
+    apt-get -y update >/dev/null 2>&1 && \
+    apt-get -y dist-upgrade >/dev/null 2>&1 && \
+    && echo "? Updating completed successfully" \
+    && echo "?? Installing dependencies" \
     apt-get -y install --no-install-recommends \
         ca-certificates curl gnupg build-essential yasm nasm pv ccache \
         xxd pkgconf wget unzip zip git subversion rsync jq bc \
@@ -33,7 +35,7 @@ RUN \
         dos2unix re2c bsdmainutils p7zip-full tree \
         patchutils ed osslsigncode python3-fonttools python3-mako \
         python3-wheel iputils-ping dnsutils \
-        $([ "$DEBUG_MODE" = "1" ] || [ "$USE_WINE" = "1" ] && echo wine) && \
+        $([ "$DEBUG_MODE" = "1" ] || [ "$USE_WINE" = "1" ] && echo wine) >/dev/null 2>&1 && \
     \
     rm -f /etc/apt/sources.list.d/llvm-trunk.list && \
     DOMAIN="apt.llvm.org" && \
@@ -43,7 +45,7 @@ RUN \
     echo "Suites: llvm-toolchain-resolute" >> /etc/apt/sources.list.d/llvm-trunk.sources && \
     echo "Components: main" >> /etc/apt/sources.list.d/llvm-trunk.sources && \
     echo "Signed-By: /etc/apt/trusted.gpg.d/apt.llvm.org.asc" >> /etc/apt/sources.list.d/llvm-trunk.sources && \
-    apt-get -y update && \
+    apt-get -y update >/dev/null 2>&1 && \
     apt-get -y install --no-install-recommends lld-23 && \
     ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
     \
@@ -59,7 +61,8 @@ RUN \
     echo "=== vesion check: ===" && \
     /opt/mold/bin/mold --version && \
     \
-    pip3 install --break-system-packages --upgrade --ignore-installed \
+    && echo "?? Installing Meson & Ninja via pip" \
+    pip3 install --break-system-packages --no-cache-dir --upgrade --ignore-installed \
         meson cmake ninja Cython pytest build PythonLibs && \
     \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100 && \
@@ -71,20 +74,26 @@ RUN \
     apt-get -y install nodejs && \
     npm install -g @napi-ffi/ffi-napi && \
     \
+    && echo "?? Configuring Git" \
     git config --global user.email "builder@localhost" && \
     git config --global user.name "Builder" && \
     git config --global advice.detachedHead false && \
     git config --global core.autocrlf false && \
     git config --global --add safe.directory "*" && \
     \
+    && echo "?? Start downloading and installing Rust and Cargo" \
     curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path && \
     curl -fsSL "https://github.com/lu-zero/cargo-c/releases/download/v${CARGO_C_VERSION}/cargo-c-x86_64-unknown-linux-musl.tar.gz" | tar -xz -C /opt/cargo/bin && \
+    echo "? Installations completed successfully"
     \
-    apt-get -y clean && \
+    echo "?? Cleaning up..." && \
+    apt-get autoremove -y >/dev/null 2>&1 && \
+    apt-get autoclean -y >/dev/null 2>&1 && \
+    apt-get clean -y >/dev/null 2>&1 \
     npm cache clean --force && \
     rm -rf /opt/cargo/registry /opt/cargo/git /opt/rustup/downloads /opt/rustup/tmp && \
     rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/info/* && \
-    rm -rf /var/lib/apt/lists/*
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 # ==========================================
 # STAGE 2: Toolchain Compilation (Isolating Waste)
@@ -102,7 +111,7 @@ RUN \
     cp /.config .config && \
     ./ct-ng build && \
     \
-    echo "Cleaning up toolchain artifacts..." && \
+    echo "?? Cleaning up toolchain artifacts..." && \
     # Удаляем документацию, мануалы и локали из готового тулчейна
     rm -rf /ct-ng/.obj /ct-ng/.build /ct-ng/src /ct-ng/build && \
     rm -rf /opt/ct-ng/share/doc /opt/ct-ng/share/info /opt/ct-ng/share/man /opt/ct-ng/share/locale && \
