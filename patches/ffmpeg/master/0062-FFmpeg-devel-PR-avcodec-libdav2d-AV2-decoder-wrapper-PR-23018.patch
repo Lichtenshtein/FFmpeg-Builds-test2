@@ -118,13 +118,13 @@ index 6529f0a6bc..2037bec17c 100644
 --- a/libavcodec/codec_id.h
 +++ b/libavcodec/codec_id.h
 @@ -282,6 +282,7 @@ enum AVCodecID {
-     AV_CODEC_ID_CLEARVIDEO,
-     AV_CODEC_ID_XPM,
-     AV_CODEC_ID_AV1,
+     AV_CODEC_ID_MCRAW,
+     AV_CODEC_ID_DYUV,
+     AV_CODEC_ID_BRAW,
 +    AV_CODEC_ID_AV2,
-     AV_CODEC_ID_BITPACKED,
-     AV_CODEC_ID_MSCC,
-     AV_CODEC_ID_SRGC,
+
+     /* various PCM "codecs" */
+     AV_CODEC_ID_FIRST_AUDIO = 0x10000,     ///< A dummy id pointing at the start of audio codecs
 diff --git a/libavcodec/libdav2d.c b/libavcodec/libdav2d.c
 new file mode 100644
 index 0000000000..0e63f34efe
