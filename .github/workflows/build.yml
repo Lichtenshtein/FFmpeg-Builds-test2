@@ -160,7 +160,7 @@ env:
   CPU_ARCH:        ${{ github.event.inputs.cpu_arch || 'broadwell' }}
   CPU_TUNE:        ${{ github.event.inputs.cpu_tune || 'broadwell' }}
   # Strict params
-  SEC_PROTO:      "openssl" # openssl/gnutls/mbedtls/schannel
+  SEC_PROTO:      "openssl" # openssl/gnutls/mbedtls/schannel/wolfssl
   DEDUPE_FLAGS:   '1' # Deduplicate LDFLAGS/LIBS
   OLDER_FFNV:     '0' # Install older ffnvcodec version (8.1)
   USE_TENSORFLOW: '1'
@@ -402,15 +402,6 @@ jobs:
             ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}-
             ffmpeg-downloads-
 
-      - name: Restore FFmpeg Source Tree
-        id: restore_ffmpeg
-        uses: actions/cache/restore@v5.0.5
-        with:
-          path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}
-          restore-keys: |
-            ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-
-
       - name: Get FFmpeg latest version
         id: ffmpeg-info
         run: |
@@ -420,8 +411,22 @@ jobs:
           echo "version=${version}" >> $GITHUB_OUTPUT
           echo "FFMPEG_API_VERSION=${version}" >> $GITHUB_ENV
           echo "Current FFmpeg version: ${FFMPEG_API_VERSION}"
+
+          # Find out the exact commit hash of this branch/tag in the FFmpeg repository
+          REMOTE_COMMIT=$(git ls-remote "$FFMPEG_REPO" refs/heads/master | cut -f1)
+          echo "commit=${REMOTE_COMMIT:0:12}" >> $GITHUB_OUTPUT
+          echo "🎯 Remote FFmpeg Commit: ${REMOTE_COMMIT:0:12}"
         env:
           GH_TOKEN: ${{ secrets.TOKEN_REPO }}
+
+      - name: Restore FFmpeg Source Tree
+        id: restore_ffmpeg
+        uses: actions/cache/restore@v5.0.5
+        with:
+          path: .cache/ffmpeg
+          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg-info.outputs.commit }}
+          # restore-keys: |
+            # ffmpeg-src-
 
       - name: Restore TensorFlow Models Cache
         if: env.USE_TENSORFLOW == '1'
@@ -519,20 +524,12 @@ jobs:
           path: .cache/downloads
           key: ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}
 
-      - name: Get Final FFmpeg Commit for Cache Key
-        id: ffmpeg_commit
-        if: always()
-        run: |
-          COMMIT=$(cat .cache/ffmpeg/.current_commit 2>/dev/null || echo "none")
-          echo "commit=${COMMIT:0:12}" >> $GITHUB_OUTPUT
-          echo "🎯 Detected FFmpeg Commit: ${COMMIT:0:12}"
-
       - name: Save FFmpeg Source Tree
-        if: always() && steps.ffmpeg_commit.outputs.commit != 'none'
+        if: always() && steps.restore_ffmpeg.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg_commit.outputs.commit }}-${{ github.run_id }}
+          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg-info.outputs.commit }}
 
       - name: Cleanup Old Caches
         if: github.event.inputs.regularClean == 'true' && !cancelled()
