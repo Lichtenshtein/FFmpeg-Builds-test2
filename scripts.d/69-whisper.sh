@@ -13,6 +13,7 @@ ffbuild_depends() {
     echo openvino
     echo curl
     echo sdl
+    echo openblas
 }
 
 ffbuild_enabled() {
