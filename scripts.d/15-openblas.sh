@@ -51,12 +51,15 @@ ffbuild_dockerbuild() {
     if ls "$PC_DIR"/*openblas*.pc >/dev/null 2>&1; then
         for PC_FILE in "$PC_DIR"/*openblas*.pc; do
             [[ -e "$PC_FILE" ]] || continue
-            if ! grep -qF "-pthread" "$PC_FILE"; then
+            sed -i "s|^Libs.private:.*|Libs.private: $LIBS|" "$PC_FILE"
+            if ! grep -qF -- "-pthread" "$PC_FILE"; then
                 sed -i "/^Libs.private:/ s/$/ -pthread/" "$PC_FILE"
             fi
-            if [[ "${myconf[@]}" =~ "-DCPP_THREAD_SAFETY_USE_OPENMP=ON" ]]; then
+            if [[ "${myconf[@]}" =~ "CPP_THREAD_SAFETY_USE_OPENMP=ON" ]]; then
                 sed -i "/^Libs.private:/ s/$/ ${OPENMP_LIB}/" "$PC_FILE"
             fi
+            sed -i "s|^Libs:.*|Libs: -L\${libdir} -lopenblas|" "$PC_FILE"
+            sed -i "s|^Cflags:.*|& -I\${includedir}/openblas|" "$PC_FILE"
         done
     fi
 }

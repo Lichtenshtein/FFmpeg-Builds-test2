@@ -32,9 +32,7 @@ ffbuild_dockerbuild() {
         -Dlogging=true
     )
 
-    [[ "$USE_LTO" == "1" ]]; then
-        myconf+=( -Db_lto=true )
-    fi
+    [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     meson setup "${myconf[@]}" .. \
         -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
