@@ -26,11 +26,7 @@ ffbuild_dockerbuild() {
 
     mkdir -p _build && cd _build
 
-    # почему-то нужен для libwebp
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
-
-    local DEP_LIBS="-ltiffxx -ltiff -lturbojpeg -ljpeg -lpng -lgif -ljbig -lzstd -llzma -lz"
-    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 $LIBS"
 
     local myconf=(
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
@@ -59,6 +55,34 @@ ffbuild_dockerbuild() {
         -DWEBP_ENABLE_SWAP_16BIT_CSP=OFF # Enable byte swap for 16 bit colorspaces
         -DWEBP_UNICODE=ON
     )
+
+    if has_library "z"; then
+        local Z_LIB="-lz"
+    fi
+    if has_library "jpeg"; then
+        local JPEG_LIBS="-lturbojpeg -ljpeg"
+    fi
+    if has_library "jbig"; then
+        local JBIG_LIB="-ljbig"
+    fi
+    if has_library "zstd"; then
+        local ZSTD_LIB="-lzstd"
+    fi
+    if has_library "lzma"; then
+        local LZMA_LIB="-llzma"
+    fi
+    if has_library "gif"; then
+        local GIF_LIB="-lgif"
+    fi
+    if has_library "tiff"; then
+        local TIFF_LIB="-ltiffxx -ltiff"
+    fi
+    if has_library "png"; then
+        local PNG_LIB="-lpng"
+    fi
+
+    local DEP_LIBS="${TIFF_LIB} ${JPEG_LIBS} ${PNG_LIB} ${GIF_LIB} ${JBIG_LIB} ${ZSTD_LIB} ${LZMA_LIB} ${Z_LIB}"
+    local WIN_LIBS="-lgdi32 -lmsimg32 -ldwrite -ld2d1 -lwindowscodecs -lopengl32 $LIBS"
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DWEBP_STATIC"

@@ -22,9 +22,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Fontconfig требует либо expat, либо libxml2.
-    local DEP_LIBS="-lxml2 -lfreetype -lintl -liconv -lcharset"
-    local WIN_LIBS="-luuid $LIBS"
+    mkdir -p _build && cd _build
 
     local myconf=(
         --cross-file="$FFBUILD_MESON_CROSS"
@@ -38,8 +36,6 @@ ffbuild_dockerbuild() {
         -Dtests=disabled
         -Dtools=disabled
         -Dcache-build=disabled
-        -Dxml-backend=libxml2
-        -Diconv=enabled
         -Ddefault-sub-pixel-rendering=rgb
     )
 
@@ -50,7 +46,24 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    mkdir -p _build && cd _build
+    if has_library "xml2"; then
+        log_info "LibXML2 library detected. Building with LibXML2 support..."
+        myconf+=( -Dxml-backend=libxml2 )
+        local XML2_LIB="-lxml2"
+        local XML2_C_FLAGS="-DLIBXML_STATIC -DXML_STATIC"
+    fi
+    if has_library "iconv"; then
+        log_info "Iconv library detected. Building libxml2 with Iconv support..."
+        myconf+=( -Diconv=enabled )
+        local ICONV_LIBS="-liconv -lcharset"
+    else
+        log_warn "Iconv library not found. Building libxml2 without Iconv..."
+        myconf+=( -Diconv=disabled )
+    fi
+
+    # Fontconfig requires either expat or libxml2.
+    local DEP_LIBS="${XML2_LIB} -lfreetype -lintl ${ICONV_LIBS}"
+    local WIN_LIBS="-luuid $LIBS"
 
     meson setup .. "${myconf[@]}" \
         -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \

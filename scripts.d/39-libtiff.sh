@@ -24,10 +24,6 @@ ffbuild_dockerbuild() {
 
     mkdir -p tiff_build && cd tiff_build
 
-    export WebP_LIBRARY="$INSTALL_ROOT/lib/libwebp.a;$INSTALL_ROOT/lib/libsharpyuv.a"
-    
-    local DEP_LIBS="-lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv -lturbojpeg -ljpeg -ljbig -lzstd -llzma -lz"
-
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
@@ -41,19 +37,63 @@ ffbuild_dockerbuild() {
         -Dtiff-contrib=OFF
         -Dtiff-docs=OFF
         -Dtiff-opengl=ON
-        -Djpeg=ON
-        -Dzstd=ON
-        -Dzlib=ON
-        -Dlzma=ON
-        -Dwebp=ON
-        -Djbig=ON
-        -DWebP_LIBRARY="$WebP_LIBRARY"
     )
+
+    if has_library "z"; then
+        log_info "Zlib library detected. Building with Zlib support..."
+        myconf+=(
+            -Dzlib=ON
+        )
+        local Z_LIB="-lz"
+        local ZLIB_PC="zlib"
+    fi
+    if has_library "webp"; then
+        log_info "WebP library detected. Building with WebP support..."
+        myconf+=(
+            -Dwebp=ON
+            -DWebP_LIBRARY="$INSTALL_ROOT/lib/libwebp.${lib_ext};$INSTALL_ROOT/lib/libsharpyuv.${lib_ext}"
+        )
+        local WEBP_LIBS="-lwebpmux -lwebpdemux -lwebp -lwebpdecoder -lsharpyuv"
+        local WEBP_PC="webp"
+    fi
+    if has_library "jpeg"; then
+        log_info "JPEG library detected. Building with JPEG support..."
+        myconf+=(
+            -Djpeg=ON
+        )
+        local JPEG_LIBS="-lturbojpeg -ljpeg"
+        local JPEG_PC="libjpeg libturbojpeg"
+    fi
+    if has_library "jbig"; then
+        log_info "JBig library detected. Building with JBig support..."
+        myconf+=(
+            -Djbig=ON
+        )
+        local JBIG_LIB="-ljbig"
+    fi
+    if has_library "zstd"; then
+        log_info "ZSTD library detected. Building with ZSTD support..."
+        myconf+=(
+            -Dzstd=ON
+        )
+        local ZSTD_LIB="-lzstd"
+        local ZSTD_PC="zstd"
+    fi
+    if has_library "lzma"; then
+        log_info "LZMA library detected. Building with lZMA support..."
+        myconf+=(
+            -Dlzma=ON
+        )
+        local LZMA_LIB="-llzma"
+        local LZMA_PC="lzma"
+    fi
+
+    local DEP_LIBS="${WEBP_LIBS} ${JPEG_LIBS} ${JBIG_LIB} ${ZSTD_LIB} ${LZMA_LIB} ${Z_LIB}"
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBTIFF_STATIC"
 
-    local FLAGS="-DTIFF_DO_NOT_USE_NON_EXT_ALLOC_FUNCTIONS -D_FILE_OFFSET_BITS=64 -Dtiff_EXPORTS -Wall -Winline -Wformat-security -Wpointer-arith -Wdisabled-optimization -Wno-unknown-pragmas -fstrict-aliasing"
+    local FLAGS="-DTIFF_DO_NOT_USE_NON_EXT_ALLOC_FUNCTIONS -D_FILE_OFFSET_BITS=64 -Dtiff_EXPORTS -Wno-unknown-pragmas"
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags $FLAGS" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags $FLAGS" \
@@ -65,7 +105,7 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/libtiff-4.pc"
     if [[ -f "$PC_FILE" ]]; then
-        sed -i 's/^Requires.private:.*/Requires.private: zlib libjpeg liblzma libzstd libwebp/' "$PC_FILE"
+        sed -i 's/^Requires:.*/Requires: ${ZLIB_PC} ${JPEG_PC} ${LZMA_PC} ${ZSTD_PC} ${WEBP_PC}/' "$PC_FILE"
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
                 sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"

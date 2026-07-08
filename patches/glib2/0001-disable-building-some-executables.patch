@@ -1,0 +1,66 @@
+From 0b926bda82ea3a5b0812e3b744448702e7229e77 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Wed, 8 Jul 2026 19:31:42 +0300
+Subject: [PATCH] disable building some executables
+
+---
+ 0001-disable-building-some-executables.patch | 111 +++++++++++++++++++
+ glib/meson.build                             |  24 +---
+ gobject/meson.build                          |   5 +-
+ 3 files changed, 113 insertions(+), 27 deletions(-)
+ create mode 100644 0001-disable-building-some-executables.patch
+
+diff --git a/glib/meson.build b/glib/meson.build
+index 0fb6e2696..c91038275 100644
+--- a/glib/meson.build
++++ b/glib/meson.build
+@@ -507,29 +507,7 @@ meson.override_dependency('glib-2.0', libglib_dep)
+ gspawn_helpers = []
+ # On Windows, glib needs a spawn helper for g_spawn* API
+ if host_system == 'windows'
+-  if host_machine.cpu_family() == 'x86'
+-    gspawn_helpers += executable('gspawn-win32-helper', 'gspawn-win32-helper.c',
+-      install : true,
+-      win_subsystem : 'windows',
+-      include_directories : configinc,
+-      dependencies : [libglib_dep, app_profile_dep])
+-    gspawn_helpers += executable('gspawn-win32-helper-console', 'gspawn-win32-helper.c',
+-      install : true,
+-      c_args : ['-DHELPER_CONSOLE'],
+-      include_directories : configinc,
+-      dependencies : [libglib_dep, app_profile_dep])
+-  else
+-    gspawn_helpers += executable('gspawn-win64-helper', 'gspawn-win32-helper.c',
+-      install : true,
+-      win_subsystem : 'windows',
+-      include_directories : configinc,
+-      dependencies : [libglib_dep, app_profile_dep])
+-    gspawn_helpers += executable('gspawn-win64-helper-console', 'gspawn-win32-helper.c',
+-      install : true,
+-      c_args : ['-DHELPER_CONSOLE'],
+-      include_directories : configinc,
+-      dependencies : [libglib_dep, app_profile_dep])
+-  endif
++# Helpers disabled
+ else
+   gtester = executable('gtester', 'gtester.c',
+     install : true,
+diff --git a/gobject/meson.build b/gobject/meson.build
+index 9690e7c45..867152fcc 100644
+--- a/gobject/meson.build
++++ b/gobject/meson.build
+@@ -176,10 +176,7 @@ libgobject_dep = declare_dependency(link_with : libgobject,
+ )
+ meson.override_dependency('gobject-2.0', libgobject_dep)
+ 
+-gobject_query = executable('gobject-query', 'gobject-query.c',
+-  install : true,
+-  install_tag : 'bin-devel',
+-  dependencies : [libglib_dep, libgobject_dep, app_profile_dep])
++gobject_query = disabler()
+ 
+ install_data('gobject_gdb.py',
+   install_dir : glib_pkgdatadir / 'gdb',
+-- 
+2.52.0.windows.1
+

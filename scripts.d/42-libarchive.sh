@@ -55,6 +55,7 @@ ffbuild_dockerbuild() {
             -DCMAKE_REQUIRED_LIBRARIES="-lxml2"
         )
         local XML2_LIB="-lxml2"
+        local XML2_C_FLAGS="-DLIBXML_STATIC -DXML_STATIC"
     else
         myconf+=(
             -DENABLE_LIBXML2=OFF
@@ -143,7 +144,7 @@ ffbuild_dockerbuild() {
 
     export static_flags=""
     export self_static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBXML_STATIC -DXML_STATIC" && self_static_flags="-DARCHIVE_STATIC"
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="${XML2_C_FLAGS}" && self_static_flags="-DARCHIVE_STATIC"
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $self_static_flags $static_flags" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $self_static_flags $static_flags" \
