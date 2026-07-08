@@ -21,8 +21,8 @@ RUN \
     --mount=type=cache,target=/root/.cache/pip \
     apt-get -y update >/dev/null 2>&1 && \
     apt-get -y dist-upgrade >/dev/null 2>&1 && \
-    echo "? Updating completed successfully" && \
-    echo "?? Installing dependencies" && \
+    echo "âœ… Updating completed successfully" && \
+    echo "ðŸ”§ Installing dependencies" && \
     apt-get -y install --no-install-recommends \
         ca-certificates curl gnupg build-essential yasm nasm pv ccache \
         xxd pkgconf wget unzip zip git subversion rsync jq bc \
@@ -61,7 +61,7 @@ RUN \
     echo "=== vesion check: ===" && \
     /opt/mold/bin/mold --version && \
     \
-    echo "?? Installing Meson & Ninja via pip" && \
+    echo "ðŸ”„ Installing Meson & Ninja via pip" && \
     pip3 install --break-system-packages --no-cache-dir --upgrade --ignore-installed \
         meson cmake ninja Cython pytest build PythonLibs && \
     \
@@ -74,19 +74,19 @@ RUN \
     apt-get -y install nodejs && \
     npm install -g @napi-ffi/ffi-napi && \
     \
-    echo "?? Configuring Git" && \
+    echo "ðŸ”„ Configuring Git" && \
     git config --global user.email "builder@localhost" && \
     git config --global user.name "Builder" && \
     git config --global advice.detachedHead false && \
     git config --global core.autocrlf false && \
     git config --global --add safe.directory "*" && \
     \
-    echo "?? Start downloading and installing Rust and Cargo" && \
+    echo "ðŸ”„ Start downloading and installing Rust and Cargo" && \
     curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path && \
     curl -fsSL "https://github.com/lu-zero/cargo-c/releases/download/v${CARGO_C_VERSION}/cargo-c-x86_64-unknown-linux-musl.tar.gz" | tar -xz -C /opt/cargo/bin && \
-    echo "? Installations completed successfully" && \
+    echo "âœ… Installations completed successfully" && \
     \
-    echo "?? Cleaning up..." && \
+    echo "ðŸ§¹ Cleaning up..." && \
     apt-get autoremove -y >/dev/null 2>&1 && \
     apt-get autoclean -y >/dev/null 2>&1 && \
     apt-get clean -y >/dev/null 2>&1 \
@@ -111,11 +111,11 @@ RUN \
     cp /.config .config && \
     ./ct-ng build && \
     \
-    echo "?? Cleaning up toolchain artifacts..." && \
-    # Óäàëÿåì äîêóìåíòàöèþ, ìàíóàëû è ëîêàëè èç ãîòîâîãî òóë÷åéíà
+    echo "ðŸ§¹ Cleaning up toolchain artifacts..." && \
+    # Ð£Ð´Ð°Ð»ÑÐµÐ¼ Ð´Ð¾ÐºÑƒÐ¼ÐµÐ½Ñ‚Ð°Ñ†Ð¸ÑŽ, Ð¼Ð°Ð½ÑƒÐ°Ð»Ñ‹ Ð¸ Ð»Ð¾ÐºÐ°Ð»Ð¸ Ð¸Ð· Ð³Ð¾Ñ‚Ð¾Ð²Ð¾Ð³Ð¾ Ñ‚ÑƒÐ»Ñ‡ÐµÐ¹Ð½Ð°
     rm -rf /ct-ng/.obj /ct-ng/.build /ct-ng/src /ct-ng/build && \
     rm -rf /opt/ct-ng/share/doc /opt/ct-ng/share/info /opt/ct-ng/share/man /opt/ct-ng/share/locale && \
-    # Âûðåçàåì îòëàäî÷íóþ èíôîðìàöèþ (strip) èç âñåõ áèíàðíèêîâ êîìïèëÿòîðà
+    # Ð’Ñ‹Ñ€ÐµÐ·Ð°ÐµÐ¼ Ð¾Ñ‚Ð»Ð°Ð´Ð¾Ñ‡Ð½ÑƒÑŽ Ð¸Ð½Ñ„Ð¾Ñ€Ð¼Ð°Ñ†Ð¸ÑŽ (strip) Ð¸Ð· Ð²ÑÐµÑ… Ð±Ð¸Ð½Ð°Ñ€Ð½Ð¸ÐºÐ¾Ð² ÐºÐ¾Ð¼Ð¿Ð¸Ð»ÑÑ‚Ð¾Ñ€Ð°
     find /opt/ct-ng/bin /opt/ct-ng/libexec /opt/ct-ng/x86_64-w64-mingw32/bin -type f -executable -exec strip --strip-all {} + 2>/dev/null || true
 
 # ==========================================
