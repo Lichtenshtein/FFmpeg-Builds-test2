@@ -42,13 +42,6 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
-
-    if ls "$PC_DIR"/*dav2d*.pc >/dev/null 2>&1; then
-        for PC_FILE in "$PC_DIR"/*dav2d*.pc; do
-            [[ -e "$PC_FILE" ]] || continue
-            sed -i "s|^Cflags:.*|& -I\${includedir}/dav2d|" "$PC_FILE"
-        done
-    fi
 }
 
 ffbuild_configure() {

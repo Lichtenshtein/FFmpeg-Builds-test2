@@ -311,6 +311,13 @@ FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
 # чтобы если компонент принес свою версию, она вытеснила базовую в конец (право).
 FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
 
+# Enable wolfssl if the corresponding patch is applied
+if [[ "${FFMPEG_PATCHES}" == "1" ]]; then
+    [[ "$SEC_PROTO" == "wolfssl" ]] && \
+        FINAL_CONFIGURE=$(echo "$FINAL_CONFIGURE" | sed -E 's/--enable-(gnutls|openssl|mbedtls|libtls|schannel|securetransport)\b/--disable-\1/g') && \
+        FINAL_CONFIGURE="$FINAL_CONFIGURE --enable-wolfssl"
+fi
+
 # =======================================
 # GENERATION OF COMPONENT STATE VARIABLES
 # =======================================
@@ -629,13 +636,9 @@ CONF_FLAGS=(
 )
 
 if [[ "${PREFER_SHARED}" != "1" ]]; then
-    CONF_FLAGS+=(
-        --pkg-config-flags="--static --libs-only-l"
-    )
+    CONF_FLAGS+=( --pkg-config-flags="--static --libs-only-l" )
 else
-    CONF_FLAGS+=(
-        --pkg-config-flags=""
-    )
+    CONF_FLAGS+=( --pkg-config-flags="" )
 fi
 
 [[ "$HAS_AUDIOTOOLBOX" == "0" ]] && \

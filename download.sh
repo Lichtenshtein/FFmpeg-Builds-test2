@@ -188,7 +188,8 @@ else
             log_warn "No local cache found. Cloning fresh..."
             rm -rf "$FFMPEG_DIR"
             mkdir -p "$FFMPEG_DIR"
-            git clone --progress --depth=1 --branch="$FFMPEG_BRANCH" \
+            # --quiet or --progress
+            git clone --depth=1 --branch="$FFMPEG_BRANCH" \
                 "$FFMPEG_REPO" "$FFMPEG_DIR" 2>&1 | while IFS= read -r line; do log_debug "$line"; done
             
             if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
@@ -205,7 +206,7 @@ else
                 log_warn "Hash file found but .git missing. Re-cloning to restore git metadata..."
                 rm -rf "$FFMPEG_DIR"
                 mkdir -p "$FFMPEG_DIR"
-                git clone --progress --depth=1 --branch="$FFMPEG_BRANCH" \
+                git clone --depth=1 --branch="$FFMPEG_BRANCH" \
                     "$FFMPEG_REPO" "$FFMPEG_DIR" 2>&1 | while IFS= read -r line; do log_debug "$line"; done
             else
                 # .git exists but is old -> Fast Update
@@ -213,7 +214,7 @@ else
                 [[ -f "$FFMPEG_DIR/.git/index.lock" ]] && rm -f "$FFMPEG_DIR/.git/index.lock"
                 ( cd "$FFMPEG_DIR" && \
                   git remote set-url origin "$FFMPEG_REPO" && \
-                  git fetch --quiet --depth=1 --force origin "refs/heads/$FFMPEG_BRANCH:refs/remotes/origin/$FFMPEG_BRANCH" && \
+                  git fetch --depth=1 --force origin "refs/heads/$FFMPEG_BRANCH:refs/remotes/origin/$FFMPEG_BRANCH" && \
                   git reset --hard FETCH_HEAD && \
                   git clean -df ) 2>&1 | while IFS= read -r line; do log_debug "$line"; done
             fi
