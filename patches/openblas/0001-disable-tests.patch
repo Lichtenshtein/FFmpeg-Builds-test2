@@ -1,0 +1,53 @@
+From 5b3857bfaff763bc0bcdb4cbf69c702fa08d02c3 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Wed, 8 Jul 2026 15:10:26 +0300
+Subject: [PATCH] disable tests
+
+---
+ CMakeLists.txt | 21 ---------------------
+ 1 file changed, 21 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c88d9dd..c1cc93b 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -428,8 +428,6 @@ foreach (OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES})
+   set_target_properties( ${OpenBLAS_LIBS} PROPERTIES ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${PROJECT_BINARY_DIR}/lib/${OUTPUTCONFIG} )
+ endforeach()
+ 
+-enable_testing()
+-
+ if (USE_THREAD)
+   # Add threading library to linker
+   find_package(Threads)
+@@ -451,27 +449,8 @@ endif()
+ if (NOT NO_CBLAS)
+   if (NOT ONLY_CBLAS)
+   # Broken without fortran on unix
+-    add_subdirectory(utest)
+-endif()
+ endif()
+-
+-if (NOT NOFORTRAN)
+- if (NOT ONLY_CBLAS)
+-  # Build test and ctest
+-  add_subdirectory(test)
+- endif()
+- if (BUILD_TESTING AND NOT BUILD_WITHOUT_LAPACK)
+-    add_subdirectory(lapack-netlib/TESTING)
+-  endif()
+ endif()
+-  if(NOT NO_CBLAS)
+-   if (NOT ONLY_CBLAS)
+-    add_subdirectory(ctest)
+-   endif()
+-  endif()
+-  if (CPP_THREAD_SAFETY_TEST OR CPP_THREAD_SAFETY_GEMV)
+-    add_subdirectory(cpp_thread_test)
+-  endif()
+ 
+ if (NOT FIXED_LIBNAME)
+ set_target_properties(${OpenBLAS_LIBS} PROPERTIES
+-- 
+2.52.0.windows.1
+

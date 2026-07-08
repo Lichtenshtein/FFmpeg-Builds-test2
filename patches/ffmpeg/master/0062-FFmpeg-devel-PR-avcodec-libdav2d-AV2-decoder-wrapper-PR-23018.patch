@@ -1,0 +1,840 @@
+From: AdityaTeltia <teltia.aditya22@gmail.com>
+Date: Sun, 3 May 2026 12:12:22 +0530
+Subject: [PATCH] avcodec: libdav2d AV2 decoder wrapper
+
+Modeled after the libdav1d AV1 decoder implementation.
+---
+ Changelog                 |   1 +
+ configure                 |   5 +
+ doc/general_contents.texi |   7 +
+ libavcodec/Makefile       |   1 +
+ libavcodec/allcodecs.c    |   1 +
+ libavcodec/codec_desc.c   |   7 +
+ libavcodec/codec_id.h     |   1 +
+ libavcodec/libdav2d.c     | 706 ++++++++++++++++++++++++++++++++++++++
+ libavcodec/version.h      |   2 +-
+ 9 files changed, 730 insertions(+), 1 deletion(-)
+ create mode 100644 libavcodec/libdav2d.c
+
+diff --git a/configure b/configure
+index 9bce658932..6d71a6f3df 100755
+--- a/configure
++++ b/configure
+@@ -226,6 +226,7 @@ External library support:
+   --enable-libcodec2       enable codec2 en/decoding using libcodec2 [no]
+   --enable-libdatachannel  enable WHIP/WHEP muxing/demuxing via libdatachannel [no]
+   --enable-libdav1d        enable AV1 decoding via libdav1d [no]
++  --enable-libdav2d        enable AV2 decoding via libdav2d [no]
+   --enable-libdavs2        enable AVS2 decoding via libdavs2 [no]
+   --enable-libdc1394       enable IIDC-1394 grabbing using libdc1394
+                            and libraw1394 [no]
+@@ -2088,6 +2089,7 @@ EXTERNAL_LIBRARY_LIST="
+     libcodec2
+     libdatachannel
+     libdav1d
++    libdav2d
+     libdc1394
+     libflite
+     libfontconfig
+@@ -3822,6 +3824,8 @@ libcodec2_decoder_deps="libcodec2"
+ libcodec2_encoder_deps="libcodec2"
+ libdav1d_decoder_deps="libdav1d"
+ libdav1d_decoder_select="itut_t35"
++libdav2d_decoder_deps="libdav2d"
++libdav2d_decoder_select="atsc_a53 dovi_rpudec"
+ libdavs2_decoder_deps="libdavs2"
+ libdavs2_decoder_select="avs2_parser"
+ libfdk_aac_decoder_deps="libfdk_aac"
+@@ -7319,6 +7323,7 @@ enabled libcelt           && require libcelt celt/celt.h celt_decode -lcelt0 &&
+ enabled libcodec2         && require libcodec2 codec2/codec2.h codec2_create -lcodec2
+ enabled libdav1d          && require_pkg_config libdav1d "dav1d >= 1.0.0" "dav1d/dav1d.h" dav1d_version
+ enabled libdatachannel    && require libdatachannel rtc/rtc.h rtcCreatePeerConnection -ldatachannel
++enabled libdav2d          && require_pkg_config libdav2d "dav2d >= 1.0.0" "dav2d/dav2d.h" dav2d_version
+ enabled libdavs2          && require_pkg_config libdavs2 "davs2 >= 1.6.0" davs2.h davs2_decoder_open
+ enabled libdc1394         && require_pkg_config libdc1394 libdc1394-2 dc1394/dc1394.h dc1394_new
+ enabled libdrm            && check_pkg_config libdrm libdrm xf86drm.h drmGetVersion
+diff --git a/doc/general_contents.texi b/doc/general_contents.texi
+index 47ac1989f2..651825fbd8 100644
+--- a/doc/general_contents.texi
++++ b/doc/general_contents.texi
+@@ -105,6 +105,13 @@ FFmpeg can make use of the dav1d library for AV1 video decoding.
+ Go to @url{https://code.videolan.org/videolan/dav1d} and follow the instructions for
+ installing the library. Then pass @code{--enable-libdav1d} to configure to enable it.
+ 
++@section dav2d
++
++FFmpeg can make use of the dav2d library for AV2 video decoding.
++
++Go to @url{https://code.videolan.org/videolan/dav2d} and follow the instructions for
++installing the library. Then pass @code{--enable-libdav2d} to configure to enable it.
++
+ @section davs2
+ 
+ FFmpeg can make use of the davs2 library for AVS2-P2/IEEE1857.4 video decoding.
+diff --git a/libavcodec/Makefile b/libavcodec/Makefile
+index 85d35913f3..fa8b01458a 100644
+--- a/libavcodec/Makefile
++++ b/libavcodec/Makefile
+@@ -1176,6 +1176,7 @@ OBJS-$(CONFIG_LIBCELT_DECODER)            += libcelt_dec.o
+ OBJS-$(CONFIG_LIBCODEC2_DECODER)          += libcodec2.o
+ OBJS-$(CONFIG_LIBCODEC2_ENCODER)          += libcodec2.o
+ OBJS-$(CONFIG_LIBDAV1D_DECODER)           += libdav1d.o av1_parse.o
++OBJS-$(CONFIG_LIBDAV2D_DECODER)           += libdav2d.o
+ OBJS-$(CONFIG_LIBDAVS2_DECODER)           += libdavs2.o
+ OBJS-$(CONFIG_LIBFDK_AAC_DECODER)         += libfdk-aacdec.o
+ OBJS-$(CONFIG_LIBFDK_AAC_ENCODER)         += libfdk-aacenc.o
+diff --git a/libavcodec/allcodecs.c b/libavcodec/allcodecs.c
+index 5e798c1430..e9ca5fc4e4 100644
+--- a/libavcodec/allcodecs.c
++++ b/libavcodec/allcodecs.c
+@@ -789,6 +789,7 @@ extern const FFCodec ff_libcelt_decoder;
+ extern const FFCodec ff_libcodec2_encoder;
+ extern const FFCodec ff_libcodec2_decoder;
+ extern const FFCodec ff_libdav1d_decoder;
++extern const FFCodec ff_libdav2d_decoder;
+ extern const FFCodec ff_libdavs2_decoder;
+ extern const FFCodec ff_libfdk_aac_encoder;
+ extern const FFCodec ff_libfdk_aac_decoder;
+diff --git a/libavcodec/codec_desc.c b/libavcodec/codec_desc.c
+index a9f21f8152..a7d72a8a14 100644
+--- a/libavcodec/codec_desc.c
++++ b/libavcodec/codec_desc.c
+@@ -1651,6 +1651,13 @@ static const AVCodecDescriptor codec_descriptors[] = {
+         .props     = AV_CODEC_PROP_LOSSY | AV_CODEC_PROP_LOSSLESS,
+         .profiles  = NULL_IF_CONFIG_SMALL(ff_av1_profiles),
+     },
++    {
++        .id        = AV_CODEC_ID_AV2,
++        .type      = AVMEDIA_TYPE_VIDEO,
++        .name      = "av2",
++        .long_name = NULL_IF_CONFIG_SMALL("Alliance for Open Media AV2"),
++        .props     = AV_CODEC_PROP_LOSSY | AV_CODEC_PROP_LOSSLESS,
++    },
+     {
+         .id        = AV_CODEC_ID_BITPACKED,
+         .type      = AVMEDIA_TYPE_VIDEO,
+diff --git a/libavcodec/codec_id.h b/libavcodec/codec_id.h
+index 6529f0a6bc..2037bec17c 100644
+--- a/libavcodec/codec_id.h
++++ b/libavcodec/codec_id.h
+@@ -282,6 +282,7 @@ enum AVCodecID {
+     AV_CODEC_ID_CLEARVIDEO,
+     AV_CODEC_ID_XPM,
+     AV_CODEC_ID_AV1,
++    AV_CODEC_ID_AV2,
+     AV_CODEC_ID_BITPACKED,
+     AV_CODEC_ID_MSCC,
+     AV_CODEC_ID_SRGC,
+diff --git a/libavcodec/libdav2d.c b/libavcodec/libdav2d.c
+new file mode 100644
+index 0000000000..0e63f34efe
+--- /dev/null
++++ b/libavcodec/libdav2d.c
+@@ -0,0 +1,706 @@
++/*
++ * Copyright (c) 2018 Ronald S. Bultje <rsbultje gmail com>
++ * Copyright (c) 2018 James Almer <jamrial gmail com>
++ *
++ * This file is part of FFmpeg.
++ *
++ * FFmpeg is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * FFmpeg is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with FFmpeg; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ */
++
++#include <dav2d/dav2d.h>
++
++#include "libavutil/avassert.h"
++#include "libavutil/cpu.h"
++#include "libavutil/film_grain_params.h"
++#include "libavutil/hdr_dynamic_metadata.h"
++#include "libavutil/mastering_display_metadata.h"
++#include "libavutil/imgutils.h"
++#include "libavutil/opt.h"
++
++#include "atsc_a53.h"
++static AVRational ff_av2_framerate(int64_t ticks_per_frame, int64_t units_per_tick,
++                                   int64_t time_scale)
++{
++    AVRational fr;
++
++    if (ticks_per_frame && units_per_tick && time_scale &&
++        ticks_per_frame < INT64_MAX / units_per_tick    &&
++        av_reduce(&fr.den, &fr.num, units_per_tick * ticks_per_frame,
++                  time_scale, INT_MAX))
++        return fr;
++
++    return (AVRational){ 0, 1 };
++}
++#include "avcodec.h"
++#include "bytestream.h"
++#include "codec_internal.h"
++#include "decode.h"
++#include "dovi_rpu.h"
++#include "internal.h"
++#include "itut35.h"
++
++#define FF_DAV2D_VERSION_AT_LEAST(x,y) \
++    (DAV2D_API_VERSION_MAJOR > (x) || DAV2D_API_VERSION_MAJOR == (x) && DAV2D_API_VERSION_MINOR >= (y))
++
++typedef struct Libdav2dContext {
++    AVClass *class;
++    Dav2dContext *c;
++    AVBufferPool *pool;
++    DOVIContext dovi;
++    int pool_size;
++
++    Dav2dData data;
++    int max_frame_delay;
++    int apply_grain;
++    int operating_point;
++    int all_layers;
++} Libdav2dContext;
++
++static const enum AVPixelFormat pix_fmt[][3] = {
++    [DAV2D_PIXEL_LAYOUT_I400] = { AV_PIX_FMT_GRAY8,   AV_PIX_FMT_GRAY10,    AV_PIX_FMT_GRAY12 },
++    [DAV2D_PIXEL_LAYOUT_I420] = { AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV420P10, AV_PIX_FMT_YUV420P12 },
++    [DAV2D_PIXEL_LAYOUT_I422] = { AV_PIX_FMT_YUV422P, AV_PIX_FMT_YUV422P10, AV_PIX_FMT_YUV422P12 },
++    [DAV2D_PIXEL_LAYOUT_I444] = { AV_PIX_FMT_YUV444P, AV_PIX_FMT_YUV444P10, AV_PIX_FMT_YUV444P12 },
++};
++
++static const enum AVPixelFormat pix_fmt_rgb[3] = {
++    AV_PIX_FMT_GBRP, AV_PIX_FMT_GBRP10, AV_PIX_FMT_GBRP12,
++};
++
++static void libdav2d_log_callback(void *opaque, const char *fmt, va_list vl)
++{
++    AVCodecContext *c = opaque;
++
++    av_vlog(c, AV_LOG_ERROR, fmt, vl);
++}
++
++static int libdav2d_picture_allocator(Dav2dPicture *p, void *cookie)
++{
++    Libdav2dContext *dav2d = cookie;
++    enum AVPixelFormat format = pix_fmt[p->p.layout][p->seq_hdr->hbd];
++    int ret, linesize[4], h = FFALIGN(p->p.h, 128), w = FFALIGN(p->p.w, 128);
++    uint8_t *aligned_ptr, *data[4];
++    AVBufferRef *buf;
++
++    ret = av_image_get_buffer_size(format, w, h, DAV2D_PICTURE_ALIGNMENT);
++    if (ret < 0)
++        return ret;
++
++    if (ret != dav2d->pool_size) {
++        av_buffer_pool_uninit(&dav2d->pool);
++        // Use twice the amount of required padding bytes for aligned_ptr below.
++        dav2d->pool = av_buffer_pool_init(ret + DAV2D_PICTURE_ALIGNMENT * 2, NULL);
++        if (!dav2d->pool) {
++            dav2d->pool_size = 0;
++            return AVERROR(ENOMEM);
++        }
++        dav2d->pool_size = ret;
++    }
++    buf = av_buffer_pool_get(dav2d->pool);
++    if (!buf)
++        return AVERROR(ENOMEM);
++
++    // libdav2d requires DAV2D_PICTURE_ALIGNMENT aligned buffers, which av_malloc()
++    // doesn't guarantee for example when AVX is disabled at configure time.
++    // Use the extra DAV2D_PICTURE_ALIGNMENT padding bytes in the buffer to align it
++    // if required.
++    aligned_ptr = (uint8_t *)FFALIGN((uintptr_t)buf->data, DAV2D_PICTURE_ALIGNMENT);
++    ret = av_image_fill_arrays(data, linesize, aligned_ptr, format, w, h,
++                               DAV2D_PICTURE_ALIGNMENT);
++    if (ret < 0) {
++        av_buffer_unref(&buf);
++        return ret;
++    }
++
++    p->data[0] = data[0];
++    p->data[1] = data[1];
++    p->data[2] = data[2];
++    p->stride[0] = linesize[0];
++    p->stride[1] = linesize[1];
++    p->allocator_data = buf;
++
++    return 0;
++}
++
++static void libdav2d_picture_release(Dav2dPicture *p, void *cookie)
++{
++    AVBufferRef *buf = p->allocator_data;
++
++    av_buffer_unref(&buf);
++}
++
++static void libdav2d_init_params(AVCodecContext *c, const Dav2dSequenceHeader *seq)
++{
++    c->profile = seq->profile;
++    c->level = seq->level;
++
++    if (seq->layout == DAV2D_PIXEL_LAYOUT_I444 && c->colorspace == AVCOL_SPC_RGB)
++        c->pix_fmt = pix_fmt_rgb[seq->hbd];
++    else
++        c->pix_fmt = pix_fmt[seq->layout][seq->hbd];
++}
++
++static av_cold int libdav2d_parse_extradata(AVCodecContext *c)
++{
++    Dav2dSequenceHeader seq;
++    size_t offset = 0;
++    int res;
++
++    if (!c->extradata || c->extradata_size <= 0)
++        return 0;
++
++    if (c->extradata[0] & 0x80) {
++        int version = c->extradata[0] & 0x7F;
++
++        if (version != 1 || c->extradata_size < 4) {
++            int explode = !!(c->err_recognition & AV_EF_EXPLODE);
++            av_log(c, explode ? AV_LOG_ERROR : AV_LOG_WARNING,
++                   "Error decoding extradata\n");
++            return explode ? AVERROR_INVALIDDATA : 0;
++        }
++
++        // Do nothing if there are no configOBUs to parse
++        if (c->extradata_size == 4)
++            return 0;
++
++        offset = 4;
++    }
++
++    res = dav2d_parse_sequence_header(&seq, c->extradata + offset,
++                                      c->extradata_size  - offset);
++    if (res < 0)
++        return 0; // Assume no seqhdr OBUs are present
++
++    libdav2d_init_params(c, &seq);
++    res = ff_set_dimensions(c, seq.max_width, seq.max_height);
++    if (res < 0)
++        return res;
++
++    return 0;
++}
++
++static av_cold int libdav2d_init(AVCodecContext *c)
++{
++    Libdav2dContext *dav2d = c->priv_data;
++    Dav2dSettings s;
++    int threads = c->thread_count;
++    const AVPacketSideData *sd;
++    int res;
++
++    av_log(c, AV_LOG_VERBOSE, "libdav2d %s\n", dav2d_version());
++
++    dav2d_default_settings(&s);
++    s.logger.cookie = c;
++    s.logger.callback = libdav2d_log_callback;
++    s.allocator.cookie = dav2d;
++    s.allocator.alloc_picture_callback = libdav2d_picture_allocator;
++    s.allocator.release_picture_callback = libdav2d_picture_release;
++    s.frame_size_limit = c->max_pixels;
++    if (dav2d->apply_grain >= 0)
++        s.apply_grain = dav2d->apply_grain;
++    else
++        s.apply_grain = !(c->export_side_data & AV_CODEC_EXPORT_DATA_FILM_GRAIN);
++
++    s.all_layers = dav2d->all_layers;
++    if (dav2d->operating_point >= 0)
++        s.operating_point = dav2d->operating_point;
++    s.strict_std_compliance = c->strict_std_compliance > 0;
++
++    s.n_threads = FFMIN(threads, DAV2D_MAX_THREADS);
++    if (dav2d->max_frame_delay > 0 && (c->flags & AV_CODEC_FLAG_LOW_DELAY))
++        av_log(c, AV_LOG_WARNING, "Low delay mode requested, forcing max_frame_delay 1\n");
++    s.max_frame_delay = (c->flags & AV_CODEC_FLAG_LOW_DELAY) ? 1 : dav2d->max_frame_delay;
++    av_log(c, AV_LOG_DEBUG, "Using %d threads, %d max_frame_delay\n",
++           s.n_threads, s.max_frame_delay);
++
++#if FF_DAV2D_VERSION_AT_LEAST(6,8)
++    if (c->skip_frame >= AVDISCARD_NONKEY)
++        s.decode_frame_type = DAV2D_DECODEFRAMETYPE_KEY;
++    else if (c->skip_frame >= AVDISCARD_NONINTRA)
++        s.decode_frame_type = DAV2D_DECODEFRAMETYPE_INTRA;
++    else if (c->skip_frame >= AVDISCARD_NONREF)
++        s.decode_frame_type = DAV2D_DECODEFRAMETYPE_REFERENCE;
++#endif
++
++    res = libdav2d_parse_extradata(c);
++    if (res < 0)
++        return res;
++
++    res = dav2d_open(&dav2d->c, &s);
++    if (res < 0)
++        return AVERROR(ENOMEM);
++
++#if FF_DAV2D_VERSION_AT_LEAST(6,7)
++    res = dav2d_get_frame_delay(&s);
++    if (res < 0) // Should not happen
++        return AVERROR_EXTERNAL;
++
++    // When dav2d_get_frame_delay() returns 1, there's no delay whatsoever
++    c->delay = res > 1 ? res : 0;
++#endif
++
++    dav2d->dovi.logctx = c;
++    dav2d->dovi.cfg.dv_profile = 10; // default for AV2
++    sd = ff_get_coded_side_data(c, AV_PKT_DATA_DOVI_CONF);
++    if (sd && sd->size >= sizeof(dav2d->dovi.cfg))
++        dav2d->dovi.cfg = *(AVDOVIDecoderConfigurationRecord *) sd->data;
++    return 0;
++}
++
++static void libdav2d_flush(AVCodecContext *c)
++{
++    Libdav2dContext *dav2d = c->priv_data;
++
++    dav2d_data_unref(&dav2d->data);
++    dav2d_flush(dav2d->c);
++}
++
++static void libdav2d_data_free(const uint8_t *data, void *opaque) {
++    AVBufferRef *buf = opaque;
++
++    av_buffer_unref(&buf);
++}
++
++static void libdav2d_user_data_free(const uint8_t *data, void *opaque) {
++    AVPacket *pkt = opaque;
++    av_assert0(data == opaque);
++    av_packet_free(&pkt);
++}
++
++static int libdav2d_receive_frame_internal(AVCodecContext *c, Dav2dPicture *p)
++{
++    Libdav2dContext *dav2d = c->priv_data;
++    Dav2dData *data = &dav2d->data;
++    int res;
++
++    if (!data->sz) {
++        AVPacket *pkt = av_packet_alloc();
++
++        if (!pkt)
++            return AVERROR(ENOMEM);
++
++        res = ff_decode_get_packet(c, pkt);
++        if (res < 0 && res != AVERROR_EOF) {
++            av_packet_free(&pkt);
++            return res;
++        }
++
++        if (pkt->size) {
++            res = dav2d_data_wrap(data, pkt->data, pkt->size,
++                                  libdav2d_data_free, pkt->buf);
++            if (res < 0) {
++                av_packet_free(&pkt);
++                return res;
++            }
++
++            pkt->buf = NULL;
++
++            res = dav2d_data_wrap_user_data(data, (const uint8_t *)pkt,
++                                            libdav2d_user_data_free, pkt);
++            if (res < 0) {
++                av_packet_free(&pkt);
++                dav2d_data_unref(data);
++                return res;
++            }
++            pkt = NULL;
++        } else {
++            av_packet_free(&pkt);
++            if (res >= 0)
++                return AVERROR(EAGAIN);
++        }
++    }
++
++    res = dav2d_send_data(dav2d->c, data);
++    if (res < 0) {
++        if (res == AVERROR(EINVAL))
++            res = AVERROR_INVALIDDATA;
++        if (res != AVERROR(EAGAIN)) {
++            dav2d_data_unref(data);
++            return res;
++        }
++    }
++
++    res = dav2d_get_picture(dav2d->c, p);
++    if (res < 0) {
++        if (res == AVERROR(EINVAL)) {
++            dav2d_data_unref(data);
++            res = AVERROR_INVALIDDATA;
++        } else if (res == AVERROR(EAGAIN))
++            res = c->internal->draining ? AVERROR_EOF : 1;
++    }
++
++    return res;
++}
++
++static int parse_itut_t35_metadata(Libdav2dContext *dav2d, Dav2dPicture *p,
++                                   const Dav2dITUTT35 *itut_t35, AVCodecContext *c,
++                                   AVFrame *frame) {
++    GetByteContext gb;
++    int provider_code, country_code;
++    int res;
++
++    bytestream2_init(&gb, itut_t35->payload, itut_t35->payload_size);
++
++    country_code = itut_t35->country_code;
++    switch (country_code) {
++    case ITU_T_T35_COUNTRY_CODE_US:
++        if (bytestream2_get_bytes_left(&gb) < 2)
++            return AVERROR_INVALIDDATA;
++        provider_code = bytestream2_get_be16u(&gb);
++
++        switch (provider_code) {
++        case ITU_T_T35_PROVIDER_CODE_ATSC: {
++            uint32_t user_identifier = bytestream2_get_be32(&gb);
++            switch (user_identifier) {
++            case MKBETAG('G', 'A', '9', '4'): { // closed captions
++                AVBufferRef *buf = NULL;
++
++                res = ff_parse_a53_cc(&buf, gb.buffer, bytestream2_get_bytes_left(&gb));
++                if (res < 0)
++                    return res;
++                if (!res)
++                    return 0;  // no cc found, ignore
++
++                res = ff_frame_new_side_data_from_buf(c, frame, AV_FRAME_DATA_A53_CC, &buf);
++                if (res < 0)
++                    return res;
++
++
++                break;
++            }
++            default: // ignore unsupported identifiers
++                break;
++            }
++            break;
++        }
++        case ITU_T_T35_PROVIDER_CODE_SAMSUNG: {
++            AVDynamicHDRPlus *hdrplus;
++            int provider_oriented_code = bytestream2_get_be16(&gb);
++            int application_identifier = bytestream2_get_byte(&gb);
++
++            if (provider_oriented_code != 1 || application_identifier != 4)
++                return 0; // ignore
++
++            hdrplus = av_dynamic_hdr_plus_create_side_data(frame);
++            if (!hdrplus)
++                return AVERROR(ENOMEM);
++
++            res = av_dynamic_hdr_plus_from_t35(hdrplus, gb.buffer,
++                                                bytestream2_get_bytes_left(&gb));
++            if (res < 0)
++                return res;
++            break;
++        }
++        case ITU_T_T35_PROVIDER_CODE_DOLBY: {
++            int provider_oriented_code = bytestream2_get_be32(&gb);
++            if (provider_oriented_code != 0x800)
++                return 0; // ignore
++
++            res = ff_dovi_rpu_parse(&dav2d->dovi, gb.buffer, bytestream2_get_bytes_left(&gb),
++                                    c->err_recognition);
++            if (res < 0) {
++                av_log(c, AV_LOG_WARNING, "Error parsing DOVI OBU.\n");
++                return 0; // ignore
++            }
++
++            res = ff_dovi_attach_side_data(&dav2d->dovi, frame);
++            if (res < 0)
++                return res;
++            break;
++        }
++        case ITU_T_T35_PROVIDER_CODE_SMPTE: {
++            AVDynamicHDRSmpte2094App5 *hdr_smpte2094_app5;
++            int provider_oriented_code = bytestream2_get_be16(&gb);
++            if (provider_oriented_code != 1)
++                return 0; // ignore
++
++            hdr_smpte2094_app5 = av_dynamic_hdr_smpte2094_app5_create_side_data(frame);
++            if (!hdr_smpte2094_app5)
++                return AVERROR(ENOMEM);
++
++            res = av_dynamic_hdr_smpte2094_app5_from_t35(hdr_smpte2094_app5, gb.buffer,
++                                                         bytestream2_get_bytes_left(&gb));
++            if (res < 0)
++                return res;
++            break;
++        }
++        default:
++            break;
++        }
++        break;
++    case ITU_T_T35_COUNTRY_CODE_UK:
++        bytestream2_skipu(&gb, 1); // t35_uk_country_code_second_octet
++        if (bytestream2_get_bytes_left(&gb) < 2)
++            return AVERROR_INVALIDDATA;
++
++        provider_code = bytestream2_get_be16u(&gb);
++        switch (provider_code) {
++        case ITU_T_T35_PROVIDER_CODE_VNOVA: {
++            AVFrameSideData *sd;
++            if (bytestream2_get_bytes_left(&gb) < 2)
++                return AVERROR_INVALIDDATA;
++
++            res = ff_frame_new_side_data(c, frame, AV_FRAME_DATA_LCEVC,
++                                         bytestream2_get_bytes_left(&gb), &sd);
++            if (res < 0)
++                return res;
++            if (!sd)
++                break;
++
++            bytestream2_get_bufferu(&gb, sd->data, sd->size);
++            break;
++        }
++        default:
++            break;
++        }
++        break;
++
++    default:
++        // ignore unsupported provider codes
++        break;
++    }
++    return 0;
++}
++
++static int libdav2d_receive_frame(AVCodecContext *c, AVFrame *frame)
++{
++    Libdav2dContext *dav2d = c->priv_data;
++    Dav2dPicture pic = { 0 }, *p = &pic;
++    const AVPacket *pkt;
++    enum Dav2dEventFlags event_flags = 0;
++    int res;
++
++    do {
++        res = libdav2d_receive_frame_internal(c, p);
++    } while (res > 0);
++
++    if (res < 0)
++        return res;
++
++    av_assert0(p->data[0] && p->allocator_data);
++
++    // This requires the custom allocator above
++    frame->buf[0] = av_buffer_ref(p->allocator_data);
++    if (!frame->buf[0]) {
++        dav2d_picture_unref(p);
++        return AVERROR(ENOMEM);
++    }
++
++    frame->data[0] = p->data[0];
++    frame->data[1] = p->data[1];
++    frame->data[2] = p->data[2];
++    frame->linesize[0] = p->stride[0];
++    frame->linesize[1] = p->stride[1];
++    frame->linesize[2] = p->stride[1];
++
++    dav2d_get_event_flags(dav2d->c, &event_flags);
++    if (c->pix_fmt == AV_PIX_FMT_NONE || event_flags & DAV2D_EVENT_FLAG_NEW_SEQUENCE)
++        libdav2d_init_params(c, p->seq_hdr);
++
++    
++    if (p->ci) {
++        switch (p->ci->chr[0]) {
++        case DAV2D_CHR_LEFT:
++            c->chroma_sample_location = AVCHROMA_LOC_LEFT;
++            break;
++        case DAV2D_CHR_TOPLEFT:
++            c->chroma_sample_location = AVCHROMA_LOC_TOPLEFT;
++            break;
++        default:
++            break;
++        }
++        if (p->ci->color_description_present) {
++            c->colorspace      = (enum AVColorSpace) p->ci->color.mtrx;
++            c->color_primaries = (enum AVColorPrimaries) p->ci->color.pri;
++            c->color_trc       = (enum AVColorTransferCharacteristic) p->ci->color.trc;
++        }
++        c->color_range = p->ci->color.range ? AVCOL_RANGE_JPEG : AVCOL_RANGE_MPEG;
++
++        if (p->ci->timing_info_present) {
++            c->framerate = ff_av2_framerate(p->ci->timing.num_ticks_per_elemental_duration,
++                                            p->ci->timing.num_units_in_display_tick,
++                                            p->ci->timing.time_scale);
++        }
++    }
++
++    res = ff_decode_frame_props(c, frame);
++    if (res < 0)
++        goto fail;
++
++    frame->width = p->p.w;
++    frame->height = p->p.h;
++    if (c->width != p->p.w || c->height != p->p.h) {
++        res = ff_set_dimensions(c, p->p.w, p->p.h);
++        if (res < 0)
++            goto fail;
++    }
++
++    av_reduce(&frame->sample_aspect_ratio.num,
++              &frame->sample_aspect_ratio.den,
++              frame->height * (int64_t)p->frame_hdr->width,
++              frame->width  * (int64_t)p->frame_hdr->height,
++              INT_MAX);
++    ff_set_sar(c, frame->sample_aspect_ratio);
++
++    pkt = (const AVPacket *)p->m.user_data.data;
++
++    // match timestamps and packet size
++    res = ff_decode_frame_props_from_pkt(c, frame, pkt);
++    if (res < 0)
++        goto fail;
++
++    frame->pkt_dts = pkt->pts;
++    if (p->frame_hdr->frame_type == DAV2D_FRAME_TYPE_KEY)
++        frame->flags |= AV_FRAME_FLAG_KEY;
++    else
++        frame->flags &= ~AV_FRAME_FLAG_KEY;
++
++    switch (p->frame_hdr->frame_type) {
++    case DAV2D_FRAME_TYPE_KEY:
++    case DAV2D_FRAME_TYPE_INTRA:
++        frame->pict_type = AV_PICTURE_TYPE_I;
++        break;
++    case DAV2D_FRAME_TYPE_INTER:
++        frame->pict_type = AV_PICTURE_TYPE_P;
++        break;
++    case DAV2D_FRAME_TYPE_SWITCH:
++        frame->pict_type = AV_PICTURE_TYPE_SP;
++        break;
++    default:
++        res = AVERROR_INVALIDDATA;
++        goto fail;
++    }
++
++    if (p->mastering_display) {
++        AVMasteringDisplayMetadata *mastering;
++
++        res = ff_decode_mastering_display_new(c, frame, &mastering);
++        if (res < 0)
++            goto fail;
++
++        if (mastering) {
++            for (int i = 0; i < 3; i++) {
++                mastering->display_primaries[i][0] = av_make_q(p->mastering_display->primaries[i][0], 1 << 16);
++                mastering->display_primaries[i][1] = av_make_q(p->mastering_display->primaries[i][1], 1 << 16);
++            }
++            mastering->white_point[0] = av_make_q(p->mastering_display->white_point[0], 1 << 16);
++            mastering->white_point[1] = av_make_q(p->mastering_display->white_point[1], 1 << 16);
++
++            mastering->max_luminance = av_make_q(p->mastering_display->max_luminance, 1 << 8);
++            mastering->min_luminance = av_make_q(p->mastering_display->min_luminance, 1 << 14);
++
++            mastering->has_primaries = 1;
++            mastering->has_luminance = 1;
++        }
++    }
++    if (p->content_light) {
++        AVContentLightMetadata *light;
++
++        res = ff_decode_content_light_new(c, frame, &light);
++        if (res < 0)
++            goto fail;
++
++        if (light) {
++            light->MaxCLL = p->content_light->max_content_light_level;
++            light->MaxFALL = p->content_light->max_frame_average_light_level;
++        }
++    }
++    if (p->itut_t35) {
++#if FF_DAV2D_VERSION_AT_LEAST(6,9)
++        for (size_t i = 0; i < p->n_itut_t35; i++) {
++            const Dav2dITUTT35 *itut_t35 = &p->itut_t35[i];
++#else
++        const Dav2dITUTT35 *itut_t35 = p->itut_t35;
++#endif
++        res = parse_itut_t35_metadata(dav2d, p, itut_t35, c, frame);
++        if (res < 0)
++            goto fail;
++#if FF_DAV2D_VERSION_AT_LEAST(6,9)
++        }
++#endif
++    }
++    // Film grain export logic is disabled for AV2 until AV_FILM_GRAIN_PARAMS_AV2 is introduced
++    if (p->frame_hdr->film_grain.present && (!dav2d->apply_grain ||
++        (c->export_side_data & AV_CODEC_EXPORT_DATA_FILM_GRAIN))) {
++        av_log(c, AV_LOG_WARNING, "Film grain export not supported for AV2 yet.\n");
++    }
++
++    res = ff_attach_decode_data(c, frame);
++    if (res < 0)
++        return res;
++
++    res = 0;
++fail:
++    dav2d_picture_unref(p);
++    if (res < 0)
++        av_frame_unref(frame);
++    return res;
++}
++
++static av_cold int libdav2d_close(AVCodecContext *c)
++{
++    Libdav2dContext *dav2d = c->priv_data;
++
++    av_buffer_pool_uninit(&dav2d->pool);
++    ff_dovi_ctx_unref(&dav2d->dovi);
++    dav2d_data_unref(&dav2d->data);
++    dav2d_close(&dav2d->c);
++
++    return 0;
++}
++
++#ifndef DAV2D_MAX_FRAME_THREADS
++#define DAV2D_MAX_FRAME_THREADS DAV2D_MAX_THREADS
++#endif
++#ifndef DAV2D_MAX_TILE_THREADS
++#define DAV2D_MAX_TILE_THREADS DAV2D_MAX_THREADS
++#endif
++#ifndef DAV2D_MAX_FRAME_DELAY
++#define DAV2D_MAX_FRAME_DELAY DAV2D_MAX_FRAME_THREADS
++#endif
++
++#define OFFSET(x) offsetof(Libdav2dContext, x)
++#define VD AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_DECODING_PARAM
++static const AVOption libdav2d_options[] = {
++    { "max_frame_delay", "Max frame delay", OFFSET(max_frame_delay), AV_OPT_TYPE_INT, { .i64 = 0 }, 0, DAV2D_MAX_FRAME_DELAY, VD },
++    { "filmgrain", "Apply Film Grain", OFFSET(apply_grain), AV_OPT_TYPE_BOOL, { .i64 = -1 }, -1, 1, VD | AV_OPT_FLAG_DEPRECATED },
++    { "oppoint",  "Select an operating point of the scalable bitstream", OFFSET(operating_point), AV_OPT_TYPE_INT, { .i64 = -1 }, -1, 31, VD },
++    { "alllayers", "Output all spatial layers", OFFSET(all_layers), AV_OPT_TYPE_BOOL, { .i64 = 0 }, 0, 1, VD },
++    { NULL }
++};
++
++static const AVClass libdav2d_class = {
++    .class_name = "libdav2d decoder",
++    .item_name  = av_default_item_name,
++    .option     = libdav2d_options,
++    .version    = LIBAVUTIL_VERSION_INT,
++};
++
++const FFCodec ff_libdav2d_decoder = {
++    .p.name         = "libdav2d",
++    CODEC_LONG_NAME("dav2d AV2 decoder by VideoLAN"),
++    .p.type         = AVMEDIA_TYPE_VIDEO,
++    .p.id           = AV_CODEC_ID_AV2,
++    .priv_data_size = sizeof(Libdav2dContext),
++    .init           = libdav2d_init,
++    .close          = libdav2d_close,
++    .flush          = libdav2d_flush,
++    FF_CODEC_RECEIVE_FRAME_CB(libdav2d_receive_frame),
++    .p.capabilities = AV_CODEC_CAP_DELAY | AV_CODEC_CAP_OTHER_THREADS,
++    .caps_internal  = FF_CODEC_CAP_SETS_FRAME_PROPS |
++                      FF_CODEC_CAP_AUTO_THREADS,
++    .p.priv_class   = &libdav2d_class,
++    .p.wrapper_name = "libdav2d",
++};
+
