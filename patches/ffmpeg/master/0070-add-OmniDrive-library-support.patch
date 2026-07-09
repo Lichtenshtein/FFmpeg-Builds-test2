@@ -15,6 +15,14 @@ diff --git a/configure b/configure
 index 2c19250..2f25a94 100755
 --- a/configure
 +++ b/configure
+@@ -358,6 +358,7 @@ External library support:
+   --disable-xlib           disable xlib [autodetect]
+   --disable-zlib           disable zlib [autodetect]
+   --enable-libsvthevc      enable HEVC encoding via svt [no]
++  --enable-libomnidrive    enable OmniDrive disc dumping protocol [no]
+ 
+   The following libraries provide various hardware acceleration features:
+   --disable-amf            disable AMF video encoding code [autodetect]
 @@ -2192,6 +2192,7 @@ EXTERNAL_LIBRARY_LIST="
      vulkan_static
      whisper
