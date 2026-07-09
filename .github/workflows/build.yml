@@ -125,6 +125,7 @@ env:
   CCACHE_COMPILERCHECK: "content"
   CCACHE_PATH_MGMT: "true"
   CCACHE_SLOPPINESS: "file_macro,time_macros,include_file_ctime,include_file_mtime,locale,random_seed,conf_tests"
+  CCACHE_DIR: "/root/.cache/ccache"
   # Списки исключений
   # Список для хранения .git от очистки (в download.sh)
   # Some patches apply only with git am...

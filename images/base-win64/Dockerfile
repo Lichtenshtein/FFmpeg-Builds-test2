@@ -16,9 +16,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
     HOST_CXX="g++-15"
 
 RUN \
-    --mount=type=cache,target=/var/cache/apt,sharing=locked \
-    --mount=type=cache,target=/var/lib/apt,sharing=locked \
-    --mount=type=cache,target=/root/.cache/pip \
     apt-get -y update >/dev/null 2>&1 && \
     apt-get -y dist-upgrade >/dev/null 2>&1 && \
     echo "✅ Updating completed successfully" && \
@@ -148,30 +145,7 @@ ENV \
     CPU_ARCH="${CPU_ARCH}" \
     CPU_TUNE="${CPU_TUNE}" \
     PATH="/opt/mold/bin:/opt/ct-ng/bin:/opt/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
-    FFBUILD_TARGET_FLAGS="--pkg-config=pkgconf --cross-prefix=x86_64-w64-mingw32- --arch=x86_64 --target-os=mingw32" \
-    FFBUILD_CROSS_PREFIX=x86_64-w64-mingw32- \
-    FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake \
-    CHOST="x86_64-w64-mingw32" \
-    STRIP="x86_64-w64-mingw32-strip" \
-    WINDRES="x86_64-w64-mingw32-windres" \
-    DLLTOOL="x86_64-w64-mingw32-dlltool" \
-    OBJDUMP="x86_64-w64-mingw32-objdump" \
-    GENDEF="x86_64-w64-mingw32-gendef"
-
-# Inject toolchain configuration profiles
-COPY images/base-win64/cross.meson                 /cross.meson
-COPY images/base-win64/cross_shared.meson          /cross_shared.meson
-COPY images/base-win64/cross_wine.meson            /cross_wine.meson
-COPY images/base-win64/cross_wine_shared.meson     /cross_wine_shared.meson
-COPY images/base-win64/cross_lto.meson             /cross_lto.meson
-COPY images/base-win64/cross_shared_lto.meson      /cross_shared_lto.meson
-COPY images/base-win64/cross_wine_lto.meson        /cross_wine_lto.meson
-COPY images/base-win64/cross_wine_shared_lto.meson /cross_wine_shared_lto.meson
-
-COPY images/base-win64/toolchain.cmake             /toolchain.cmake
-COPY images/base-win64/toolchain_shared.cmake      /toolchain_shared.cmake
-COPY images/base-win64/toolchain_lto.cmake         /toolchain_lto.cmake
-COPY images/base-win64/toolchain_shared_lto.cmake  /toolchain_shared_lto.cmake
+    FFBUILD_CROSS_PREFIX=x86_64-w64-mingw32-
 
 RUN rustup target add "$FFBUILD_RUST_TARGET" && \
     printf "[target.%s]\nlinker = \"%s-gcc\"\nar = \"%s-gcc-ar\"\n" "$FFBUILD_RUST_TARGET" "$FFBUILD_TOOLCHAIN" "$FFBUILD_TOOLCHAIN" > "$CARGO_HOME"/config.toml && \
