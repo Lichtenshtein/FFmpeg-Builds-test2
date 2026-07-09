@@ -145,7 +145,7 @@ if [[ -d "$FFBUILD_DESTDIR" ]]; then
     log_info "${BROOM_MARK} Cleaning up temporary DESTDIR: $FFBUILD_DESTDIR"
     rm -rf "${FFBUILD_DESTDIR:?}"/*
 fi
-mkdir -p "$FFBUILD_DESTDIR" "$FFBUILD_DESTPREFIX"
+mkdir -p "$FFBUILD_DESTDIR" "${INSTALL_ROOT}"
 
 log_info "${SEARCH_MARK} Searching source for $STAGENAME"
 
