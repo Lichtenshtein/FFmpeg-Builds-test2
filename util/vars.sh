@@ -756,9 +756,9 @@ clean_val() {
 dedupe_logic() {
     local input="$1"
     local mode="$2"
-    # Split on whitespace, filter garbage words and empty lines
+    # Split on whitespace, filter garbage words, group flags, and empty lines
     local clean=$(echo "$input" | tr ' ' '\n' | \
-        grep -vE "^(Package .* not found|No package .* found)$|^$")
+        grep -vE "^(Package .* not found|No package .* found)$|^$|^-Wl,--(start|end)-group$|^-Wl,--(no-)?as-needed$")
     if [[ "$mode" == "last" ]]; then
         # Keep LAST occurrence (important for linker order)
         echo "$clean" | tac | awk '!x[$0]++' | tac
@@ -775,7 +775,9 @@ smart_dedupe() {
     if [[ "$DEDUPE_FLAGS" == "1" ]]; then
         dedupe_logic "$input" "first" | tr '\n' ' ' | xargs -r
     else
-        echo "$input" | tr '\n' ' ' | xargs -r
+        echo "$input" | tr ' ' '\n' | \
+            grep -vE "^-Wl,--(start|end)-group$|^-Wl,--(no-)?as-needed$" | \
+            tr '\n' ' ' | xargs -r
     fi
 }
 
@@ -786,7 +788,7 @@ smart_libs_dedupe() {
     # унифицируем pthread: заменяем -lpthread на -pthread
     # чистим мусор и ПУТИ, убираем -lstdc++
     local filtered=$(echo "$input" | tr ' ' '\n' | \
-        grep -vE "^-L|^-lstdc\+\+$" | \
+        grep -vE "^-L|^-lstdc\+\+$|^-Wl,--(start|end)-group$|^-Wl,--(no-)?as-needed$" | \
         sed 's/^-lpthread$/-pthread/')
     # склеиваем в одну строку без удаления дублей?
     if [[ "$DEDUPE_FLAGS" == "1" ]]; then
