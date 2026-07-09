@@ -20,13 +20,13 @@ set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 # GLOBAL VISIBILITY OVERRIDE (Forcing static links transparency)
 # =============================================================================
 
-# форсируем дефолтную (видимую) видимость символов в кэше
+# С„РѕСЂСЃРёСЂСѓРµРј РґРµС„РѕР»С‚РЅСѓСЋ (РІРёРґРёРјСѓСЋ) РІРёРґРёРјРѕСЃС‚СЊ СЃРёРјРІРѕР»РѕРІ РІ РєСЌС€Рµ
 # set(CMAKE_C_VISIBILITY_PRESET "default" CACHE INTERNAL "Global override" FORCE)
 # set(CMAKE_CXX_VISIBILITY_PRESET "default" CACHE INTERNAL "Global override" FORCE)
 # set(CMAKE_VISIBILITY_INLINES_HIDDEN 0 CACHE INTERNAL "Global override" FORCE)
 
-# Защита от переопределения свойств конкретных таргетов (set_target_properties)
-# CMake позволяет задать глобальное поведение для всех создаваемых таргетов по умолчанию
+# Р—Р°С‰РёС‚Р° РѕС‚ РїРµСЂРµРѕРїСЂРµРґРµР»РµРЅРёСЏ СЃРІРѕР№СЃС‚РІ РєРѕРЅРєСЂРµС‚РЅС‹С… С‚Р°СЂРіРµС‚РѕРІ (set_target_properties)
+# CMake РїРѕР·РІРѕР»СЏРµС‚ Р·Р°РґР°С‚СЊ РіР»РѕР±Р°Р»СЊРЅРѕРµ РїРѕРІРµРґРµРЅРёРµ РґР»СЏ РІСЃРµС… СЃРѕР·РґР°РІР°РµРјС‹С… С‚Р°СЂРіРµС‚РѕРІ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ
 # set(CMAKE_C_VISIBILITY_PRESET_INIT "default")
 # set(CMAKE_CXX_VISIBILITY_PRESET_INIT "default")
 # set(CMAKE_VISIBILITY_INLINES_HIDDEN_INIT 0)

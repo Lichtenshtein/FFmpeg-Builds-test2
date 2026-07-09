@@ -62,7 +62,7 @@ ffbuild_dockerbuild() {
         log_info "Freetype library detected. Building Harfbuzz with Freetype support..."
         myconf+=( -Dfreetype=enabled )
         local FREETYPE_LIBS="-lfreetype"
-        local FT_C_FLAGS"-I$FFBUILD_PREFIX/include/freetype2"
+        local FT_C_FLAGS="-I$FFBUILD_PREFIX/include/freetype2"
     else
         log_warn "Freetype library not found. Building Harfbuzz without Freetype..."
         myconf+=( -Dfreetype=disabled )
