@@ -102,20 +102,22 @@ export ROOT_DIR
 # Prefer positional args, fall back to ENV
 export TARGET="${1:-$TARGET}"
 export VARIANT="${2:-$VARIANT}"
-# use env vars with broadwell fallback
-if [[ "$TARGET" == *"linux"* ]]; then
-    export CPU_ARCH="${CPU_ARCH:-haswell}"
-    export CPU_TUNE="${CPU_TUNE:-haswell}"
-else
-    export CPU_ARCH="${CPU_ARCH:-broadwell}"
-    export CPU_TUNE="${CPU_TUNE:-broadwell}"
-fi
+# use env vars
+CPU_FAMILY="x86-64"
+export CPU_ARCH="${CPU_ARCH:-x86-64-v3}"
+export CPU_TUNE="${CPU_TUNE:-x86-64-v3}"
 # Build variables (inside the container)
 # just duplicate from Dockerfile for convenience
 export TOOLCHAIN_BIN="/opt/ct-ng/bin"
 export FFBUILD_RUST_TARGET="x86_64-pc-windows-gnu"
 export FFBUILD_TOOLCHAIN="x86_64-w64-mingw32"
 export FFBUILD_CROSS_PREFIX="x86_64-w64-mingw32-"
+export CHOST="${FFBUILD_TOOLCHAIN}"
+export STRIP="${FFBUILD_CROSS_PREFIX}strip"
+export WINDRES="${FFBUILD_CROSS_PREFIX}windres"
+export DLLTOOL="${FFBUILD_CROSS_PREFIX}dlltool"
+export OBJDUMP="${FFBUILD_CROSS_PREFIX}objdump"
+export GENDEF="${FFBUILD_CROSS_PREFIX}gendef"
 export AS="${FFBUILD_CROSS_PREFIX}as"
 export CC="${FFBUILD_CROSS_PREFIX}gcc"
 export CXX="${FFBUILD_CROSS_PREFIX}g++"
@@ -126,17 +128,19 @@ export CXX="${FFBUILD_CROSS_PREFIX}g++"
 # referenced by /ct-ng/build/x86_64-w64-mingw32/src/mingw-w64/mingw-w64-crt/crt/crtexewin.c:66
 # libmingw32.a(lib64_libmingw32_a-crtexewin.o):(.text.startup)
 export LD="ld.lld"
+HOST_LD="mold"
+BUILD_LD="lld"
 # export LD="mold"
-export STRIP="${FFBUILD_CROSS_PREFIX}strip"
+
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
 export FFBUILD_DESTDIR="/opt/ffdest"
-export FFBUILD_DESTPREFIX="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}"
 export INSTALL_ROOT="${FFBUILD_DESTDIR}${FFBUILD_PREFIX}" # single less confusing source of truth
 # directory for saving .pc files from components
 export PC_DIR="${INSTALL_ROOT}/lib/pkgconfig"
 # directory for storing .vars files with
 # component variables and flags collected between stages
 export VARS_DIR="${FFBUILD_PREFIX}/config_vars"
+
 # pkg-config variables
 export PKG_CONFIG="pkgconf"
 export PKG_CONFIG_PATH="" # don't touch
@@ -145,14 +149,14 @@ export PKG_CONFIG_ALLOW_SYSTEM_CFLAGS=0
 export PKG_CONFIG_ALLOW_SYSTEM_LIBS=0
 export PKG_CONFIG_ALLOW_CROSS=1
 # pkg-config libs collector options for final ffmpeg
-# * --libs                                   — only -l and -L paths
-# * --libs-only-l                            — only -l (-lSdl2) WITHOUT -L paths
-# * --libs-only-other                        — only flags WITHOUT -l (-pthread)
-# * --static --libs                          — -L/opt/lib -lfftw3
-# * --static --libs-only-l                   — only -l from Libs + Libs.private
-# * --static --libs-only-other               — any~ flags WITHOUT -L paths
-# * --cflags                                 — any~ flags WITH -I paths
-# * --cflags-only-other                      — only flags WITHOUT -I paths
+# * --libs                      — only -l and -L paths
+# * --libs-only-l               — only -l (-lSdl2) WITHOUT -L paths
+# * --libs-only-other           — only flags WITHOUT -l (-pthread)
+# * --static --libs             — -L/opt/lib -lfftw3
+# * --static --libs-only-l      — only -l from Libs + Libs.private
+# * --static --libs-only-other  — any~ flags WITHOUT -L paths
+# * --cflags                    — any~ flags WITH -I paths
+# * --cflags-only-other         — only flags WITHOUT -I paths
 # without --static the Libs.private field will be ignored
 if [[ "$PREFER_SHARED" == "1" ]]; then
     export PKG_CONFIG_ALL_DYNAMIC=1
@@ -165,6 +169,9 @@ else
     export PKG_CONFIG_LIBS="--static --libs-only-l"
     export PKG_CONFIG_ALL_LIBS="--static --libs-only-l --libs-only-other"
 fi
+
+export FFBUILD_TARGET_FLAGS="--pkg-config=${PKG_CONFIG} --cross-prefix=${FFBUILD_CROSS_PREFIX} --arch=${CPU_FAMILY} --target-os=mingw32"
+
 # Shared project folders
 export ADDINS_DIR="${ROOT_DIR}/addins"
 export CCACHE_DIR="/root/.cache/ccache"
@@ -173,6 +180,7 @@ export SCRIPTS_DIR="${ROOT_DIR}/scripts.d"
 export TMP_DIR="${ROOT_DIR}/.cache/tmp"
 export UTIL_DIR="${ROOT_DIR}/util"
 export VARIANTS_DIR="${ROOT_DIR}/variants"
+
 # ffmpeg paths
 export FFMPEG_DIR="${ROOT_DIR}/.cache/ffmpeg"
 export FFMPEG_BUILD_ROOT="${ROOT_DIR}/ffbuild"
@@ -194,7 +202,7 @@ export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
 # ccache
 export PATH="/opt/ccache-links:${PATH}"
 export CCACHE_PATH="/opt/ct-ng/bin:/usr/bin"
-export CCACHE_DIR="/root/.cache/ccache"
+export CCACHE_DIR="${CCACHE_DIR}:-/root/.cache/ccache"
 export CCACHE_BASEDIR="${CONTAINER_ROOT}"
 export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-2G}"
 export CCACHE_COMPILERCHECK="${CCACHE_COMPILERCHECK:-content}"
@@ -374,7 +382,7 @@ export -f to_rust_flags
 # * -Wl,-z,noexecstack: Прямой аналог --nxcompat. Запрещает выполнение кода в стеке.
 HOST_LINUX_LDFLAGS=(
     "-pipe"
-    "-fuse-ld=mold"
+    "-fuse-ld=${HOST_LD}"
     "-Wl,-z,relro"
     "-Wl,-z,now"
     "-Wl,-z,noexecstack"
@@ -432,7 +440,7 @@ if [[ "$TARGET" == "win64" ]]; then
 
     BASE_LD_FLAGS=(
         "-pipe"
-        "-fuse-ld=lld"
+        "-fuse-ld=${BUILD_LD}"
         "-Wl,--high-entropy-va"
         "-Wl,--nxcompat"
         "-Wl,--dynamicbase"
@@ -452,49 +460,17 @@ if [[ "$TARGET" == "win64" ]]; then
         export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
         RUST_STATIC_CFG=""
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
-
-        if [[ "$USE_LTO" == "1"  ]]; then
-            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared_lto.cmake
-        else
-            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
-        fi
-
-        if [[ "${USE_WINE}" == "1" && "$USE_LTO" == "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_wine_shared_lto.meson
-        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" == "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_shared_lto.meson
-        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" != "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_shared.meson
-        elif [[ "${USE_WINE}" == "1" && "$USE_LTO" != "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_wine_shared.meson
-        fi
     else
         export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
         export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
         MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
-
-        if [[ "$USE_LTO" == "1"  ]]; then
-            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_lto.cmake
-        else
-            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
-        fi
-
-        if [[ "${USE_WINE}" == "1" && "$USE_LTO" == "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_wine_lto.meson
-        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" == "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_lto.meson
-        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" != "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross.meson
-        elif [[ "${USE_WINE}" == "1" && "$USE_LTO" != "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_wine.meson
-        fi
     fi
 
     export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${MAIN_LDFLAGS[@]}")"
     export LIBS="${LIBS:-$SYSTEM_LIBS}"
-    export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="${FFBUILD_CROSS_PREFIX}gcc"
+    export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="${CC}"
 
     # Отключаем ASLR и High Entropy VA, чтобы зафиксировать базовый адрес PE
     if [[ "$DEBUG_MODE" == "1" ]]; then
@@ -520,44 +496,12 @@ elif [[ "$TARGET" == "linux64" ]]; then
         export STAGE_CXXFLAGS="-fno-semantic-interposition"
         RUST_STATIC_CFG=""
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
-
-        if [[ "$USE_LTO" == "1"  ]]; then
-            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared_lto.cmake
-        else
-            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_shared.cmake
-        fi
-
-        if [[ "${USE_WINE}" == "1" && "$USE_LTO" == "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_wine_lto_shared.meson
-        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" == "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_lto_shared.meson
-        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" != "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_shared.meson
-        elif [[ "${USE_WINE}" == "1" && "$USE_LTO" != "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_wine_shared.meson
-        fi
     else
         export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
         export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
         MAIN_LDFLAGS=("-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
-
-        if [[ "$USE_LTO" == "1"  ]]; then
-            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain_lto.cmake
-        else
-            export FFBUILD_CMAKE_TOOLCHAIN=/toolchain.cmake
-        fi
-
-        if [[ "${USE_WINE}" == "1" && "$USE_LTO" == "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_wine_lto.meson
-        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" == "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_lto.meson
-        elif [[ "${USE_WINE}" != "1" && "$USE_LTO" != "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross.meson
-        elif [[ "${USE_WINE}" == "1" && "$USE_LTO" != "1" ]]; then
-            export FFBUILD_MESON_CROSS=/cross_wine.meson
-        fi
     fi
 
     export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${MAIN_LDFLAGS[@]}")"
@@ -568,6 +512,134 @@ elif [[ "$TARGET" == "linux64" ]]; then
 fi
 
 export CPPFLAGS="-I${FFBUILD_PREFIX}/include ${BASE_CPPFLAGS}"
+
+generate_meson_cross() {
+
+    local extra_c_links=""
+    local extra_cpp_links=""
+    local def_lib="static"
+    local exe_wrap_line=""
+
+    if [[ "$PREFER_SHARED" != "1" ]]; then
+        extra_c_links=", '-static', '-static-libgcc'"
+        extra_cpp_links=", '-static', '-static-libgcc', '-static-libstdc++'"
+        def_lib="static"
+    else
+        def_lib="shared"
+    fi
+
+    [[ "$USE_WINE" == "1" ]] && exe_wrap_line="exe_wrapper = 'wine'"
+
+    cat <<EOF > /cross.meson
+[binaries]
+c = '${CC}'
+cpp = '${CXX}'
+ar = '${AR}'
+ranlib = '${RANLIB}'
+nm = '${NM}'
+strip = '${STRIP}'
+windres = '${WINDRES}'
+dlltool = '${DLLTOOL}'
+nasm = 'nasm'
+ld = '/usr/bin/ld.lld'
+c_ld = '${BUILD_LD}'
+cpp_ld = '${BUILD_LD}'
+${exe_wrap_line}
+
+[properties]
+pkg_config_static = $( [[ "$PREFER_SHARED" == "1" ]] && echo "false" || echo "true" )
+needs_exe_wrapper = $( [[ "$USE_WINE" == "1" ]] && echo "false" || echo "true" )
+sys_root = '/'
+pkg_config_libdir = '${PKG_CONFIG_LIBDIR}'
+
+[built-in options]
+# flags can be passed like this globally, but passed individially
+# c_args = ['-I${FFBUILD_PREFIX}/include', $(echo "${CFLAGS}" | sed "s/ /', '/g" | sed "s/^/'/;s/$/'/")]
+c_args = ['-I${FFBUILD_PREFIX}/include']
+cpp_args = ['-I${FFBUILD_PREFIX}/include']
+c_link_args = ['-L${FFBUILD_PREFIX}/lib'${extra_c_links}]
+cpp_link_args = ['-L${FFBUILD_PREFIX}/lib'${extra_cpp_links}]
+default_library = '${def_lib}'
+
+[host_machine]
+system = 'windows'
+cpu_family = '${CPU_FAMILY}'
+cpu = '${CPU_FAMILY}'
+endian = 'little'
+
+[build_machine]
+system = 'linux'
+cpu_family = '${CPU_FAMILY}'
+cpu = '${CPU_FAMILY}'
+endian = 'little'
+c_ld = '${HOST_LD}'
+cpp_ld = '${HOST_LD}'
+
+EOF
+
+    export FFBUILD_MESON_CROSS="/cross.meson"
+}
+export -f generate_meson_cross
+
+generate_cmake_toolchain() {
+    local base_ld_init="-fuse-ld=${BUILD_LD}"
+
+    cat <<EOF > /toolchain.cmake
+set(CMAKE_SYSTEM_NAME Windows)
+set(CMAKE_SYSTEM_PROCESSOR ${CPU_FAMILY})
+set(CMAKE_SYSTEM_VERSION 10.0)
+
+set(CMAKE_SYSROOT /opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot)
+set(CMAKE_FIND_ROOT_PATH ${FFBUILD_PREFIX} /opt/ct-ng/${FFBUILD_TOOLCHAIN}/sysroot /opt/ct-ng)
+
+set(CMAKE_C_COMPILER ${CC})
+set(CMAKE_CXX_COMPILER ${CXX})
+set(CMAKE_RC_COMPILER ${WINDRES})
+set(CMAKE_RANLIB ${RANLIB} CACHE FILEPATH "Forced RANLIB")
+set(CMAKE_AR ${AR} CACHE FILEPATH "Forced AR")
+set(CMAKE_NM ${NM} CACHE FILEPATH "Forced NM")
+
+# =============================================================================
+# FLAGS INJECTION (Safe initialization preventing project overrides)
+# =============================================================================
+
+# set(CMAKE_C_FLAGS_INIT "${CFLAGS} ${CPPFLAGS}")
+# set(CMAKE_CXX_FLAGS_INIT "${CXXFLAGS} ${CPPFLAGS}")
+# set(CMAKE_EXE_LINKER_FLAGS_INIT ${LDFLAGS}")
+
+set(CMAKE_EXE_LINKER_FLAGS_INIT    "${base_ld_init}")
+set(CMAKE_SHARED_LINKER_FLAGS_INIT "${base_ld_init}")
+set(CMAKE_MODULE_LINKER_FLAGS_INIT "${base_ld_init}")
+
+set(CMAKE_LINKER "${LD}" CACHE FILEPATH "Forced Linker")
+set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build" FORCE)
+
+set(BUILD_SHARED_LIBS $( [[ "$PREFER_SHARED" == "1" ]] && echo "ON" || echo "OFF" ) CACHE BOOL "Build shared libraries" FORCE)
+
+# =============================================================================
+# ROOT PATH & PKG-CONFIG CONFIGURATION
+# =============================================================================
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+
+set(ENV{PKG_CONFIG_SYSROOT_DIR} "/")
+set(ENV{PKG_CONFIG_PATH} "")
+set(ENV{PKG_CONFIG_LIBDIR} "${PKG_CONFIG_LIBDIR}")
+
+set(PKG_CONFIG_ARGN "$( [[ "$PREFER_SHARED" != "1" ]] && echo "--static" )")
+
+if(NOT DEFINED CMAKE_INSTALL_PREFIX)
+    set(CMAKE_INSTALL_PREFIX "${INSTALL_ROOT}" CACHE PATH "")
+endif()
+
+set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
+EOF
+
+    export FFBUILD_CMAKE_TOOLCHAIN="/toolchain.cmake"
+}
+export -f generate_cmake_toolchain
 
 # Validate TARGET and VARIANT only enforce when called directly OR when
 # arguments were explicitly passed (sourced scripts may not pass args)
@@ -607,10 +679,15 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     export OP_VERB="-v" # mv and cp operations verbocity
     export OP_V="v"
     export OP_VERB2="--verbose"
+    export GIT_VERB="--progress"
 else
     export MAKE_V=""
     export NINJA_V=""
     export CARGO_V=""
+    export OP_VERB=""
+    export OP_V=""
+    export OP_VERB2=""
+    export GIT_VERB="--quiet"
 fi
 
 get_stage_hash() {

@@ -47,25 +47,7 @@ set(ENV{PKG_CONFIG_LIBDIR} "/opt/ffbuild/lib/pkgconfig:/opt/ffbuild/share/pkgcon
 set(PKG_CONFIG_ARGN "--static")
 
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
-    set(CMAKE_INSTALL_PREFIX "$ENV{FFBUILD_DESTPREFIX}" CACHE PATH "")
+    set(CMAKE_INSTALL_PREFIX "$ENV{INSTALL_ROOT}" CACHE PATH "")
 endif()
 
 set(CMAKE_WARN_DEPRECATED OFF CACHE BOOL "" FORCE)
-
-# =============================================================================
-# GLOBAL VISIBILITY OVERRIDE (Forcing static links transparency)
-# =============================================================================
-
-# форсируем дефолтную (видимую) видимость символов в кэше
-# set(CMAKE_C_VISIBILITY_PRESET "default" CACHE INTERNAL "Global override" FORCE)
-# set(CMAKE_CXX_VISIBILITY_PRESET "default" CACHE INTERNAL "Global override" FORCE)
-# set(CMAKE_VISIBILITY_INLINES_HIDDEN 0 CACHE INTERNAL "Global override" FORCE)
-
-# Защита от переопределения свойств конкретных таргетов (set_target_properties)
-# CMake позволяет задать глобальное поведение для всех создаваемых таргетов по умолчанию
-# set(CMAKE_C_VISIBILITY_PRESET_INIT "default")
-# set(CMAKE_CXX_VISIBILITY_PRESET_INIT "default")
-# set(CMAKE_VISIBILITY_INLINES_HIDDEN_INIT 0)
-
-# set(CMAKE_STATIC_LIBRARY_CXX_FLAGS "${CMAKE_STATIC_LIBRARY_CXX_FLAGS} -fvisibility=default")
-# set(CMAKE_STATIC_LIBRARY_C_FLAGS "${CMAKE_STATIC_LIBRARY_C_FLAGS} -fvisibility=default")

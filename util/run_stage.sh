@@ -39,6 +39,9 @@ if declare -F apply_lto_policy >/dev/null; then
     apply_lto_policy
 fi
 
+# generate dynamic cross-build toolchain files
+generate_meson_cross && generate_cmake_toolchain
+
 # Очистка при выходе. Удаляем старые файлы, если они остались от прошлых запусков
 stage_cleanup() {
     local exit_code=$?
