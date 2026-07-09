@@ -103,7 +103,7 @@ export ROOT_DIR
 export TARGET="${1:-$TARGET}"
 export VARIANT="${2:-$VARIANT}"
 # use env vars
-CPU_FAMILY="x86-64"
+export CPU_FAMILY="x86-64"
 export CPU_ARCH="${CPU_ARCH:-x86-64-v3}"
 export CPU_TUNE="${CPU_TUNE:-x86-64-v3}"
 # Build variables (inside the container)
@@ -128,8 +128,8 @@ export CXX="${FFBUILD_CROSS_PREFIX}g++"
 # referenced by /ct-ng/build/x86_64-w64-mingw32/src/mingw-w64/mingw-w64-crt/crt/crtexewin.c:66
 # libmingw32.a(lib64_libmingw32_a-crtexewin.o):(.text.startup)
 export LD="ld.lld"
-HOST_LD="mold"
-BUILD_LD="lld"
+export HOST_LD="mold"
+export BUILD_LD="lld"
 # export LD="mold"
 
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
@@ -607,9 +607,9 @@ set(CMAKE_NM ${NM} CACHE FILEPATH "Forced NM")
 # set(CMAKE_CXX_FLAGS_INIT "${CXXFLAGS} ${CPPFLAGS}")
 # set(CMAKE_EXE_LINKER_FLAGS_INIT ${LDFLAGS}")
 
-set(CMAKE_EXE_LINKER_FLAGS_INIT    "${base_ld_init}")
-set(CMAKE_SHARED_LINKER_FLAGS_INIT "${base_ld_init}")
-set(CMAKE_MODULE_LINKER_FLAGS_INIT "${base_ld_init}")
+# set(CMAKE_EXE_LINKER_FLAGS_INIT    "${base_ld_init}")
+# set(CMAKE_SHARED_LINKER_FLAGS_INIT "${base_ld_init}")
+# set(CMAKE_MODULE_LINKER_FLAGS_INIT "${base_ld_init}")
 
 set(CMAKE_LINKER "${LD}" CACHE FILEPATH "Forced Linker")
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build" FORCE)
