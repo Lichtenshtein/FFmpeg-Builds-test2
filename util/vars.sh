@@ -103,7 +103,7 @@ export ROOT_DIR
 export TARGET="${1:-$TARGET}"
 export VARIANT="${2:-$VARIANT}"
 # use env vars
-export CPU_FAMILY="x86-64"
+export CPU_FAMILY="x86_64"
 export CPU_ARCH="${CPU_ARCH:-x86-64-v3}"
 export CPU_TUNE="${CPU_TUNE:-x86-64-v3}"
 # Build variables (inside the container)
@@ -572,6 +572,7 @@ system = 'linux'
 cpu_family = '${CPU_FAMILY}'
 cpu = '${CPU_FAMILY}'
 endian = 'little'
+ld = '/opt/mold/bin/mold'
 c_ld = '${HOST_LD}'
 cpp_ld = '${HOST_LD}'
 
