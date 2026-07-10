@@ -471,7 +471,7 @@ if [[ "$TARGET" == "win64" ]]; then
     if [[ $is_lld -eq 1 ]]; then
         BASE_LD_FLAGS+=(
             # "-Wl,--thinlto-jobs=all" # only for no fat lto
-            "-Wl,--lldtailmerge"
+            "-Wl,-mllvm,-lldtailmerge"
         )
     else
         BASE_LD_FLAGS+=( "-Wl,--reduce-memory-overheads" )
@@ -503,7 +503,7 @@ if [[ "$TARGET" == "win64" ]]; then
         [[ "$flag" == *"-plugin"* ]] && continue
         [[ "$flag" == *"-fuse-ld="* ]] && continue
         [[ "$flag" == *"--thinlto-jobs"* ]] && continue
-        [[ "$flag" == *"--lldtailmerge"* ]] && continue
+        [[ "$flag" == *"-lldtailmerge"* ]] && continue
         [[ "$flag" == *"--subsystem"* ]] && continue
         rust_link_args+=("$flag")
     done
