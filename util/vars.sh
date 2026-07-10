@@ -202,7 +202,7 @@ export CACHE_DIR="${ROOT_DIR}/.cache/downloads"
 # ccache
 export PATH="/opt/ccache-links:${PATH}"
 export CCACHE_PATH="/opt/ct-ng/bin:/usr/bin"
-export CCACHE_DIR="${CCACHE_DIR}:-/root/.cache/ccache"
+export CCACHE_DIR="${CCACHE_DIR:-/root/.cache/ccache}"
 export CCACHE_BASEDIR="${CONTAINER_ROOT}"
 export CCACHE_MAXSIZE="${CCACHE_MAXSIZE:-2G}"
 export CCACHE_COMPILERCHECK="${CCACHE_COMPILERCHECK:-content}"

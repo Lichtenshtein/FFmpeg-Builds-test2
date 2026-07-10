@@ -12,6 +12,15 @@ diff --git a/Makefile.in b/Makefile.in
 index d4e2a052..341011cf 100644
 --- a/Makefile.in
 +++ b/Makefile.in
+@@ -20,8 +20,6 @@ OPT_NETTLE_SOURCES = @OPT_NETTLE_SOURCES@
+ FAT_OVERRIDE_LIST = @FAT_OVERRIDE_LIST@
+ FAT_EMULATE_LIST = @FAT_EMULATE_LIST@
+ 
+-SUBDIRS = testsuite tools examples
+-
+ include config.make
+ 
+ PRE_CPPFLAGS = -I. -I$(srcdir)
 @@ -59,24 +59,6 @@ clean distclean mostlyclean maintainer-clean tags:
  check-here:
  	true
