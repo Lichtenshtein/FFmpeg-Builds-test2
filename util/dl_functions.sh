@@ -534,6 +534,7 @@ download_stage() {
         local CONF_HASH_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.confhash"
         local CONF_OPTIONS_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.confopts"
         local new_conf_hash=$(confhash_compute "$WORK_DIR") || true
+
         if [[ -n "$new_conf_hash" ]]; then
             if [[ -f "$CONF_HASH_FILE" ]]; then
                 local old_conf_hash=$(cat "$CONF_HASH_FILE")
@@ -542,39 +543,46 @@ download_stage() {
                 else
                     log_warn "${XCLAM_MARK} Config options CHANGED for $STAGENAME"
                     log_warn "  old: ${old_conf_hash}  →  new: ${new_conf_hash}"
-                    # Verbose=2: show which options appeared/disappeared
+
+                    # Verbose=1: show which options appeared/disappeared
+                    # If the options have been updated, calculate the diff and print ONLY new/deleted lines
                     if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-                        local old_opts_file="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.confopts.prev"
-
-                        # Recover old option list if it was saved
-                        if [[ -f "$CONF_OPTIONS_FILE" ]]; then
-                            cp "$CONF_OPTIONS_FILE" "$old_opts_file"
-                        fi
-
                         local new_opts=$(confhash_extract_options "$WORK_DIR") || true
-                        if [[ -f "$old_opts_file" && -n "$new_opts" ]]; then
+
+                        if [[ -f "$CONF_OPTIONS_FILE" && -n "$new_opts" ]]; then
                             local added removed
-                            added=$(comm  -13 <(sort "$old_opts_file") <(echo "$new_opts" | sort))
-                            removed=$(comm -23 <(sort "$old_opts_file") <(echo "$new_opts" | sort))
+                            added=$(comm -13 <(sort "$CONF_OPTIONS_FILE") <(echo "$new_opts" | sort))
+                            removed=$(comm -23 <(sort "$CONF_OPTIONS_FILE") <(echo "$new_opts" | sort))
+
                             if [[ -n "$added" ]]; then
-                                log_debug "${LOG_INFO}  ++ NEW options:${NC}"
+                                log_debug "${LOG_INFO}  ++ NEW options detected:${NC}"
                                 while IFS= read -r opt; do
-                                    log_debug "     ${LOG_INFO}+${NC} $opt"
+                                    local sys="${opt%%:*}"
+                                    local name="${opt#*:}"
+                                    log_debug "  ${LOG_INFO}+${NC} ${BLUE}${sys}${NC}: ${name}"
                                 done <<< "$added"
                             fi
+
                             if [[ -n "$removed" ]]; then
                                 log_debug "${LOG_WARN}  -- REMOVED options:${NC}"
                                 while IFS= read -r opt; do
-                                    log_debug "     ${LOG_WARN}-${NC} $opt"
+                                    local sys="${opt%%:*}"
+                                    local name="${opt#*:}"
+                                    log_debug "  ${LOG_WARN}-${NC} ${BLUE}${sys}${NC}: ${name}"
                                 done <<< "$removed"
                             fi
                             rm -f "$old_opts_file"
+
                         elif [[ -n "$new_opts" ]]; then
                             log_debug "  (no previous option list saved — diff unavailable)"
                         fi
+
                         # Save new option list for next run
-                        printf '%s\n' "$new_opts" > "$CONF_OPTIONS_FILE"
+                        if [[ -n "$new_opts" ]]; then
+                            echo "$new_opts" > "$CONF_OPTIONS_FILE"
+                        fi
                     fi
+
                     # Overwrite with new hash
                     printf '%s' "$new_conf_hash" > "$CONF_HASH_FILE"
                 fi
@@ -582,23 +590,23 @@ download_stage() {
                 # First time seeing this component — just save, no comparison
                 printf '%s' "$new_conf_hash" > "$CONF_HASH_FILE"
                 local current_opts=$(confhash_extract_options "$WORK_DIR") || true
+
                 if [[ -n "$current_opts" ]]; then
                     echo "$current_opts" > "$CONF_OPTIONS_FILE"
                     log_info "${SAVE_MARK} Config option hash saved for $STAGENAME (${new_conf_hash})"
-                    # Принудительный вывод найденных опций в лог (уровень INFO или DEBUG)
+
+                    # display the full list ONCE only during the first initialization of the options cache
                     if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-                        log_debug "${SEARCH_MARK} Detected options for $STAGENAME:"
+                        log_debug "${SEARCH_MARK} First time load. Detected options for $STAGENAME:"
                         while IFS= read -r opt; do
-                            # Подсветка: синим название системы, обычным — опция
                             local sys="${opt%%:*}"
                             local name="${opt#*:}"
-                            log_debug "${BLUE}${sys}${NC}: ${name}"
+                            log_debug "  ${BLUE}${sys}${NC}: ${name}"
                         done <<< "$current_opts"
                     fi
                 else
-                    log_info "${SAVE_MARK} Hash saved (no options found)."
+                    log_info "${SAVE_MARK} Hash saved for $STAGENAME (no options found)."
                 fi
-                log_info "${SAVE_MARK} Config option hash saved for $STAGENAME (${new_conf_hash})"
             fi
         else
             log_debug "No recognisable config files found for $STAGENAME — skipping confhash"

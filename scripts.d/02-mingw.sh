@@ -73,7 +73,7 @@ ffbuild_dockerbuild() {
             local PTHREAD_CFLAGS="$CRT_CFLAGS"
         fi
 
-        CFLAGS="$PTHREAD_CFLAGS" CPPFLAGS="$CLEAN_CPPFLAGS" ./configure \
+        CFLAGS="$PTHREAD_CFLAGS" CPPFLAGS="$CLEAN_CPPFLAGS -D_WIN32_WINNT=0x0A00" ./configure \
           --prefix="$SYSROOT" \
           --host="$FFBUILD_TOOLCHAIN" \
           --with-pic \
@@ -94,20 +94,23 @@ ffbuild_dockerbuild() {
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
         # Копируем libwinpthread.a и делаем алиас libpthread.a
-        cp -a "$SYSROOT/lib/libwinpthread.a" "$INSTALL_ROOT/lib/"
-        ln -sf libwinpthread.a "$INSTALL_ROOT/lib/libpthread.a"
+        cp -a "$SYSROOT/lib/libwinpthread.${lib_ext}" "$INSTALL_ROOT/lib/"
+        ln -sf libwinpthread.${lib_ext} "$INSTALL_ROOT/lib/libpthread.${lib_ext}"
 
         log_info "Isolating compiler runtime static libraries for FFmpeg..."
         # Находим, где в недрах вашего ct-ng GCC спрятана оригинальная статическая libssp.a
-        local COMPILER_LIB_DIR=$(${FFBUILD_TOOLCHAIN}-gcc -print-file-name=libssp.a)
+        local COMPILER_LIB_DIR=$(${FFBUILD_TOOLCHAIN}-gcc -print-file-name=libssp.${lib_ext})
         if [ -f "$COMPILER_LIB_DIR" ]; then
             local COMPILER_DIR=$(dirname "$COMPILER_LIB_DIR")
             log_info "Found compiler runtime directory at: ${COMPILER_DIR}"
             # Копируем ssp статику во внешний префикс ffbuild
-            cp -a "${COMPILER_DIR}/libssp.a" "$INSTALL_ROOT/lib/"
-            cp -a "${COMPILER_DIR}/libssp_nonshared.a" "$INSTALL_ROOT/lib/" 2>/dev/null || true
+            cp -a "${COMPILER_DIR}/libssp.${lib_ext}" "$INSTALL_ROOT/lib/"
+            cp -a "${COMPILER_DIR}/libssp_nonshared.${lib_ext}" "$INSTALL_ROOT/lib/" 2>/dev/null || true
+            if [ -f "${COMPILER_DIR}/libatomic.${lib_ext}" ]; then
+                cp -a "${COMPILER_DIR}/libatomic.${lib_ext}" "$INSTALL_ROOT/lib/"
+            fi
         else
-            log_warn "Could not pinpoint libssp.a path via GCC wrapper."
+            log_warn "Could not pinpoint libssp.${lib_ext} path via GCC wrapper."
         fi
 
         # в sysroot не должно быть копий, мешающих линковке

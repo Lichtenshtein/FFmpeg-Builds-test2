@@ -25,6 +25,11 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    if [[ -f "subprojects/dlg/meson_options.txt" ]]; then
+        log_info "Patching subprojects/dlg to always use color..."
+        sed -i "s/option('default_output_always_color', type: 'boolean', value: false)/option('default_output_always_color', type: 'boolean', value: true)/" subprojects/dlg/meson_options.txt
+    fi
+
     ./autogen.sh
 
     local myconf=(

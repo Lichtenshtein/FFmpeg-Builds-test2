@@ -22,34 +22,43 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    ./autogen.sh
+    if [[ -f "subprojects/dlg/meson_options.txt" ]]; then
+        log_info "Patching subprojects/dlg to always use color..."
+        sed -i "s/option('default_output_always_color', type: 'boolean', value: false)/option('default_output_always_color', type: 'boolean', value: true)/" subprojects/dlg/meson_options.txt
+    fi
+
+    mkdir build && cd build
 
     local myconf=(
+        --cross-file="$FFBUILD_MESON_CROSS"
         --prefix="$FFBUILD_PREFIX"
-        --host="$FFBUILD_TOOLCHAIN"
-        --with-pic
-        --without-harfbuzz
-        --without-png
-        --with-zlib
-        --with-bzip2
-        --with-brotli
+        --libdir=lib
+        --buildtype=release
+        --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
+        -Dcpp_std=gnu++20
+        -Dc_std=gnu17
+        -Dharfbuzz=auto
+        -Dpng=auto
+        -Dzlib=external
+        -Dbzip2=auto
+        -Dbrotli=auto
+        -Dtests=disabled
+        -Dmmap=auto
     )
+
+    [[ "$USE_LTO" == "1" ]] && myconf+=( -Db_lto=true )
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DFT2_BUILD_LIBRARY"
-    [[ "${PREFER_SHARED}" == "1" ]] && \
-        myconf+=( --disable-static --enable-shared ) || \
-        myconf+=( --enable-static --disable-shared )
 
-    CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
-    CPPFLAGS="$CPPFLAGS $static_flags" \
-    CXXFLAGS="$CXXFLAGS $static_flags ${USELTO}${USELTO_C}" \
-    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
-    LIBS="$LIBS" \
-    ./configure "${myconf[@]}" || return 1
+    meson setup "${myconf[@]}" .. \
+        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+        -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+        -Dc_link_args="$LDFLAGS ${USELTO}${USELTO_L} $LIBS" \
+        -Dcpp_link_args="$LDFLAGS ${USELTO}${USELTO_L} $LIBS" || return 1
 
-    make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    ninja $NINJA_V || return 1
+    DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     for pc in "$PC_DIR"/{freetype,freetype2}.pc; do
         [[ -f "$pc" ]] || continue
