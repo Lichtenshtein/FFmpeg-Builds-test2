@@ -8,6 +8,32 @@ Subject: [PATCH] disable tests
  configure.ac |  4 ----
  2 files changed, 20 deletions(-)
 
+diff --git a/configure b/configure
+index ab9ef6f..17417c6 100644
+--- a/configure
++++ b/configure
+@@ -38501,12 +38501,6 @@ ac_config_files="$ac_config_files po/Makefile.in"
+ 
+ ac_config_files="$ac_config_files man/Makefile"
+ 
+-if test -d "${srcdir}/tests"; then
+-  ac_config_files="$ac_config_files tests/Makefile"
+-
+-fi
+-ac_config_files="$ac_config_files install-tests/Makefile"
+-
+ ac_config_files="$ac_config_files include/iconv.h:include/iconv.h.build.in"
+ 
+ ac_config_files="$ac_config_files include/iconv.h.inst:include/iconv.h.in"
+@@ -39713,8 +39707,6 @@ do
+     "src/Makefile") CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
+     "po/Makefile.in") CONFIG_FILES="$CONFIG_FILES po/Makefile.in" ;;
+     "man/Makefile") CONFIG_FILES="$CONFIG_FILES man/Makefile" ;;
+-    "tests/Makefile") CONFIG_FILES="$CONFIG_FILES tests/Makefile" ;;
+-    "install-tests/Makefile") CONFIG_FILES="$CONFIG_FILES install-tests/Makefile" ;;
+     "include/iconv.h") CONFIG_FILES="$CONFIG_FILES include/iconv.h:include/iconv.h.build.in" ;;
+     "include/iconv.h.inst") CONFIG_FILES="$CONFIG_FILES include/iconv.h.inst:include/iconv.h.in" ;;
+ 
 diff --git a/Makefile.in b/Makefile.in
 index 32d9f07..e61e54d 100644
 --- a/Makefile.in
