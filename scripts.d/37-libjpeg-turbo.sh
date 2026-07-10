@@ -22,11 +22,19 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        -DWITH_JPEG8=ON
         -DWITH_SIMD=ON
+        -DREQUIRE_SIMD=ON
         -DWITH_TOOLS=OFF
         -DWITH_TESTS=OFF
+        -DWITH_ARITH_ENC=ON
+        -DWITH_ARITH_DEC=ON
         -DWITH_TURBOJPEG=ON
+        -DWITH_JNA=OFF
+        -DWITH_SYSTEM_SPNG=OFF
+        -DWITH_SYSTEM_ZLIB=ON
+        # Break compatibility with libjpeg v6b
+        -DWITH_JPEG7=OFF
+        -DWITH_JPEG8=OFF
     )
 
     export static_flags=""
@@ -42,6 +50,10 @@ ffbuild_dockerbuild() {
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+        find /build/$STAGENAME -type f -name "*.${lib_ext}" -printf "%p (%s bytes)\n"
+    fi
 
     for pc in "$PC_DIR"/*jpeg*.pc; do
         [[ -e "$pc" ]] || continue

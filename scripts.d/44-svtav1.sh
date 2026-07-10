@@ -7,7 +7,7 @@ export USE_VERS_FINDER=1
 # SCRIPT_COMMIT2="16b4c9449883298c87dde012a76e64ec0d8c78da"
 
 SCRIPT_REPO3="https://github.com/Uranite/svt-av1-tritium.git"
-SCRIPT_COMMIT3="c94dfe66b96027022f84c97e196ab618de4c6cde"
+SCRIPT_COMMIT3="1e8bdde190e40d4a6cb38b60205118a4ede07781"
 
 # SCRIPT_REPO4="https://github.com/BlueSwordM/svt-av1-hdr.git"
 # SCRIPT_COMMIT4="f6e65133f2317b996a95f413e964289300d6dbfd"
@@ -31,7 +31,7 @@ svt-av1-tritium/Docs/img"
 ffbuild_dockerbuild() {
     set -e
 
-    rm -rf _build && mkdir _build && cd _build
+    mkdir _build && cd _build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -46,26 +46,17 @@ ffbuild_dockerbuild() {
         -DUSE_FFMS2=OFF # Install FFMS2 first
         -DENABLE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         -DNATIVE=OFF
+        -DSVT_AV1_LTO=OFF # something passes -fno-fat-lto-objects
     )
 
-    if [[ "$USE_LTO" == "1" ]]; then
-        myconf+=( -DSVT_AV1_LTO=OFF ) # something passes -fno-fat-lto-objects
-        export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}"
-        export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}"
-        export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
-    else
-        myconf+=( -DSVT_AV1_LTO=OFF )
-        export CFLAGS="$CFLAGS $CPPFLAGS"
-        export CXXFLAGS="$CXXFLAGS $CPPFLAGS"
-        export LDFLAGS="$LDFLAGS"
-    fi
-
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # SVT-AV1 иногда генерирует SvtAv1Enc.pc вместо svtav1.pc
     mkdir -p "$PC_DIR"
     if [[ -f "$PC_DIR/SvtAv1Enc.pc" ]]; then
         cp  "$PC_DIR/SvtAv1Enc.pc"  "$PC_DIR/svtav1.pc"

@@ -34,13 +34,13 @@ ffbuild_dockerbuild() {
     cat <<EOF > fix_targets.cmake
 add_library(sharpyuv::sharpyuv STATIC IMPORTED GLOBAL)
 set_target_properties(sharpyuv::sharpyuv PROPERTIES 
-    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libsharpyuv.a"
+    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libsharpyuv.${lib_ext}"
     INTERFACE_INCLUDE_DIRECTORIES "\${CMAKE_CURRENT_SOURCE_DIR}/include"
     AVIF_LOCAL OFF)
 
 add_library(LibXml2 STATIC IMPORTED GLOBAL)
 set_target_properties(LibXml2 PROPERTIES 
-    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libxml2.a"
+    IMPORTED_LOCATION "$FFBUILD_PREFIX/lib/libxml2.${lib_ext}"
     INTERFACE_INCLUDE_DIRECTORIES "$XML2_INC"
     AVIF_LOCAL OFF)
 target_compile_definitions(LibXml2 INTERFACE LIBXML_STATIC)
