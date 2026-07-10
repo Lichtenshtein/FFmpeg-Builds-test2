@@ -46,16 +46,6 @@ RUN \
     apt-get -y install --no-install-recommends lld-23 && \
     ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
     \
-    echo "🔄 Downloading latest GNU Tar binary (x86_64)..." && \
-    DOMAIN_TAR="alpha.gnu.org" && \
-    TAR_LATEST=$(curl -s "https://${DOMAIN_TAR}/gnu/tar/" | grep -o 'tar-[0-9.]*\.x86_64-static\.pgz' | sort -V | tail -n 1) && \
-    curl -fL -o tar_latest.pgz "https://${DOMAIN_TAR}/gnu/tar/${TAR_LATEST}" && \
-    gzip -d tar_latest.pgz && \
-    mv tar_latest /usr/local/bin/tar && \
-    chmod +x /usr/local/bin/tar && \
-    echo "✅ Tar upgraded successfully:" && \
-    /usr/local/bin/tar --version && \
-    \
     MOLD_VERSION=$(curl -fL "https://api.github.com/repos/rui314/mold/releases/latest" | jq -r .tag_name | sed 's/^v//') && \
     echo "=== Mold version found: ${MOLD_VERSION} ===" && \
     curl -fL -o mold.tar.gz "https://github.com/rui314/mold/releases/latest/download/mold-${MOLD_VERSION}-x86_64-linux.tar.gz" && \
