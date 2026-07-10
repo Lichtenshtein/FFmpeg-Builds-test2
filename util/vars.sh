@@ -1897,6 +1897,27 @@ get_stage_version() {
         fi
     fi
 
+    # giflib: Parse GIFLIB_MAJOR, MINOR, RELEASE from gif_lib.h
+    if [[ "$STAGENAME" == *"giflib"* ]]; then
+        local h_file="gif_lib.h"
+        [[ ! -f "$h_file" ]] && h_file=$(find . -maxdepth 3 -name "gif_lib.h" 2>/dev/null | head -n1)
+
+        if [[ -n "$h_file" && -f "$h_file" ]]; then
+            local maj=$(grep -E '^#define\s+GIFLIB_MAJOR\s+' "$h_file" 2>/dev/null | awk '{print $NF}' || true)
+            local min=$(grep -E '^#define\s+GIFLIB_MINOR\s+' "$h_file" 2>/dev/null | awk '{print $NF}' || true)
+            local pat=$(grep -E '^#define\s+GIFLIB_RELEASE\s+' "$h_file" 2>/dev/null | awk '{print $NF}' || true)
+
+            maj=$(echo "$maj" | grep -oE '[0-9]+' | head -n1)
+            min=$(echo "$min" | grep -oE '[0-9]+' | head -n1)
+            pat=$(echo "$pat" | grep -oE '[0-9]+' | head -n1)
+
+            if [[ -n "$maj" && -n "$min" ]]; then
+                ver="${maj}.${min}.${pat:-0}"
+                ver_log "Found giflib version in $h_file: ${LOG_INFO}$ver${NC}"
+            fi
+        fi
+    fi
+
     # svt-av1
     if [[ "$STAGENAME" == *"svtav1"* ]]; then
         # local svtav1="svt-av1-tritium/CMakeLists.txt"
