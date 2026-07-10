@@ -606,8 +606,10 @@ download_stage() {
 
         # Упаковка
         mkdir -p "$(dirname "$STAGE_CACHE_FILE")"
-        # -c: создать, -f: файл, -I 'zstd -T0 -3': -T0 задействует все ядра, -3 — оптимальный баланс скорости/сжатия
-        tar -I 'zstd -T0 -3' -cf "$STAGE_CACHE_FILE" -C "$WORK_DIR" .
+        ZSTD_CLEVEL=5 tar --sort-names \
+            --owner=0 --group=0 --numeric-owner \
+            -I 'zstd -T0 --long=23' \
+            -cf "$STAGE_CACHE_FILE" -C "$WORK_DIR" .
         ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
         local final_size=$(du -sh "$STAGE_CACHE_FILE" | cut -f1)
         # Update the result line from miss → cached (overwrite by appending corrected line)

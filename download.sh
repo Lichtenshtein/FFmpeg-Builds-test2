@@ -26,8 +26,9 @@ JOBLOG=$(mktemp)
 
 phase_header "🡇" "SOURCE DOWNLOADS  [$TARGET-$VARIANT]"
 
-# очистка временной папки и файлов
-trap 'rm -f "$JOBLOG"; rm -rf "$TMP_DIR"' EXIT
+rm -rf "$TMP_DIR" && mkdir -p "$TMP_DIR"
+
+trap 'rm -f "$JOBLOG"' EXIT
 
 if [[ ! -d "$CACHE_DIR" ]]; then
     log_warn "Cache directory $CACHE_DIR not found!"
@@ -72,6 +73,7 @@ download_stage {}"
 # Render the collected results as one aligned table after all jobs finish
 render_dl_table "$DL_RESULT_FILE"
 rm -f "$DL_RESULT_FILE"
+rm -rf "$TMP_DIR"
 
 if [[ -f "$JOBLOG" ]]; then
     # Извлекаем список команд ($NF) для строк, где статус ($7) не равен 0
