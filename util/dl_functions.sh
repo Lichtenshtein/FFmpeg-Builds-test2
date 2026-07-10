@@ -614,7 +614,7 @@ download_stage() {
 
         # Упаковка
         mkdir -p "$(dirname "$STAGE_CACHE_FILE")"
-        ZSTD_CLEVEL=5 tar --sort-names \
+        ZSTD_CLEVEL=5 tar --sort-name \
             --owner=0 --group=0 --numeric-owner \
             -I 'zstd -T0 --long=23' \
             -cf "$STAGE_CACHE_FILE" -C "$WORK_DIR" .
