@@ -1,6 +1,6 @@
 #!/bin/bash
 SCRIPT_REPO="https://gitlab.gnome.org/GNOME/pango.git"
-SCRIPT_COMMIT="fa2ba89e7ed0907c8852add50cb13edefe93e66e"
+SCRIPT_COMMIT="2b3ad511996d75b8d26bc0fae4f75374dfce9ffa"
 
 ffbuild_depends() {
     echo fontconfig

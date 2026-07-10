@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/AcademySoftwareFoundation/OpenColorIO.git"
-SCRIPT_COMMIT="f660cee6127011fdb03e0d227572901631435d3c"
+SCRIPT_COMMIT="5a808fb57a94c7229640a97835c420c9a1fbd1fe"
 
 ffbuild_depends() {
     echo zlib

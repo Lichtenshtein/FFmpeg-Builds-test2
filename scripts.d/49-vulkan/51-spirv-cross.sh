@@ -1,7 +1,7 @@
 #!/bin/bash
 export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/KhronosGroup/SPIRV-Cross.git"
-SCRIPT_COMMIT="146679ff8255a6068518685599d7fb8761d1b570"
+SCRIPT_COMMIT="6c09849fe88c48eaed08413aa022aaa136a3a057"
 
 ffbuild_depends() {
     echo vulkan-headers

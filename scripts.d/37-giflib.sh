@@ -1,7 +1,7 @@
 #!/bin/bash
 export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/arthenica/giflib.git"
-SCRIPT_COMMIT="edff4aed17f857442ab0cac31566572ba08f93d3"
+SCRIPT_COMMIT="a8e3114a81f0987a61d06a41c99fd7cc2d58232c"
 
 ffbuild_enabled() {
     return 0

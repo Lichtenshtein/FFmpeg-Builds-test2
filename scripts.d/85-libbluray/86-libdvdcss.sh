@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://code.videolan.org/videolan/libdvdcss.git"
-SCRIPT_COMMIT="2682a4a7ed782e700a5b920f6f85c4f9736921c3"
+SCRIPT_COMMIT="f73dc860cb71f81f3126a08a6deffcaea3f64e55"
 
 ffbuild_depends() {
     echo libudfread

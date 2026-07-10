@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/webmproject/libwebp.git"
-SCRIPT_COMMIT="b43b2caa710c0c997c066cb32c7fea1391fad70a"
+SCRIPT_COMMIT="733c91e461c18cf1127c9ed0a80dccbcfed599d3"
 
 ffbuild_depends() {
     echo libpng

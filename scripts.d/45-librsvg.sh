@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/GNOME/librsvg.git"
-SCRIPT_COMMIT="f7976944494b49518604cc03c36b7341db939010"
+SCRIPT_COMMIT="1a830b1e34bab5c69aec7c5cf86812376b4e53e2"
 
 ffbuild_depends() {
     echo zlib

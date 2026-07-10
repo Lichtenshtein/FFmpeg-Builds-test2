@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/uxlfoundation/oneTBB.git"
-SCRIPT_COMMIT="3436ab394421d1390e28ff36d1ef50cb87ecc6b9"
+SCRIPT_COMMIT="d2addf4f7bc23db3e9c8c0e8b1464274134fd8e5"
 
 ffbuild_enabled() {
     return 0

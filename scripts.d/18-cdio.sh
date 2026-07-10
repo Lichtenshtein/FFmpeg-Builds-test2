@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libcdio/libcdio.git"
-SCRIPT_COMMIT="349ac71462108791a464837002dbd372584f934e"
+SCRIPT_COMMIT="fe4f6077d8ea165e65552218d9aeff23684c23d7"
 
 # SCRIPT_REPO2="https://git.savannah.gnu.org/git/libcdio.git"
 

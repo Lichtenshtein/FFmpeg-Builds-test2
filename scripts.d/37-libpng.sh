@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/pnggroup/libpng.git"
-SCRIPT_COMMIT="99652c99876997c701b9113ce509e2eb7707b9d2"
+SCRIPT_COMMIT="cae474558968f015124d7369556a4b1016276e3a"
 SCRIPT_BRANCH="libpng16"
 
 ffbuild_depends() {
