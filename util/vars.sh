@@ -1523,7 +1523,7 @@ strip_files() {
     else
         # Для .exe и .dll используем жесткий --strip-all (или --strip-unneeded)
         if [[ "${FFMPEG_BUILD_STAGE:-0}" == "1" ]]; then
-            log_info "${BROOM_MARK} Stripping $stage_name from unneded symbols: [Size: ${GREY_B}$size_before${NC}]"
+            log_info "${BROOM_MARK} Stripping $stage_name from unneeded symbols: [Size: ${GREY_B}$size_before${NC}]"
             find "$target_dir" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "$_strip_cmd" --strip-unneeded {} + 2>/dev/null || true
         else
             log_info "${BROOM_MARK} Stripping $stage_name from debug symbols: [Size: ${GREY_B}$size_before${NC}]"
