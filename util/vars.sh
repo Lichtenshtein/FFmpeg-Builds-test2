@@ -465,7 +465,7 @@ if [[ "$TARGET" == "win64" ]]; then
         "-Wl,--dynamicbase"
         "-Wl,--stack,8388608"
         "-Wl,--as-needed"
-        "-Wl,--subsystem,console"
+        "-Wl,--subsystem=console"
     )
 
     if [[ $is_lld -eq 1 ]]; then
