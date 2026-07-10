@@ -518,7 +518,7 @@ jobs:
           provenance: false
 
       - name: Save Third-Party Downloads
-        if: success() && steps.download_step.outcome == 'success'
+        if: success() && steps.download_step.outcome == 'success' && steps.restore_downloads.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/downloads
