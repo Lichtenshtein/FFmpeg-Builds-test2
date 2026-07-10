@@ -21,7 +21,7 @@ RUN \
     echo "✅ Updating completed successfully" && \
     echo "🔧 Installing dependencies" && \
     apt-get -y install --no-install-recommends \
-        ca-certificates curl gnupg build-essential yasm nasm pv ccache \
+        ca-certificates curl gnupg build-essential yasm nasm pv \
         xxd pkgconf wget unzip zip git subversion rsync jq bc \
         autoconf automake libtool libtool-bin gettext qemu-user \
         texinfo texi2html help2man flex bison groff pkg-config \
@@ -35,16 +35,26 @@ RUN \
         $([ "$DEBUG_MODE" = "1" ] || [ "$USE_WINE" = "1" ] && echo wine) >/dev/null 2>&1 && \
     \
     rm -f /etc/apt/sources.list.d/llvm-trunk.list && \
-    DOMAIN="apt.llvm.org" && \
-    curl -fsSL https://${DOMAIN}/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc && \
+    DOMAIN_LLVM="apt.llvm.org" && \
+    curl -fsSL https://${DOMAIN_LLVM}/llvm-snapshot.gpg.key | tee /etc/apt/trusted.gpg.d/apt.llvm.org.asc && \
     echo "Types: deb" > /etc/apt/sources.list.d/llvm-trunk.sources && \
-    echo "URIs: https://${DOMAIN}/resolute/" >> /etc/apt/sources.list.d/llvm-trunk.sources && \
+    echo "URIs: https://${DOMAIN_LLVM}/resolute/" >> /etc/apt/sources.list.d/llvm-trunk.sources && \
     echo "Suites: llvm-toolchain-resolute" >> /etc/apt/sources.list.d/llvm-trunk.sources && \
     echo "Components: main" >> /etc/apt/sources.list.d/llvm-trunk.sources && \
     echo "Signed-By: /etc/apt/trusted.gpg.d/apt.llvm.org.asc" >> /etc/apt/sources.list.d/llvm-trunk.sources && \
     apt-get -y update >/dev/null 2>&1 && \
     apt-get -y install --no-install-recommends lld-23 && \
     ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
+    \
+    echo "🔄 Downloading latest GNU Tar binary (x86_64)..." && \
+    DOMAIN_TAR="alpha.gnu.org" && \
+    TAR_LATEST=$(curl -s "https://${DOMAIN_TAR}/gnu/tar/" | grep -o 'tar-[0-9.]*\.x86_64-static\.pgz' | sort -V | tail -n 1) && \
+    curl -fL -o tar_latest.pgz "https://${DOMAIN_TAR}/gnu/tar/${TAR_LATEST}" && \
+    gzip -d tar_latest.pgz && \
+    mv tar_latest /usr/local/bin/tar && \
+    chmod +x /usr/local/bin/tar && \
+    echo "✅ Tar upgraded successfully:" && \
+    /usr/local/bin/tar --version && \
     \
     MOLD_VERSION=$(curl -fL "https://api.github.com/repos/rui314/mold/releases/latest" | jq -r .tag_name | sed 's/^v//') && \
     echo "=== Mold version found: ${MOLD_VERSION} ===" && \
@@ -57,6 +67,19 @@ RUN \
     rm mold.tar.gz && \
     echo "✅ Version check:" && \
     /opt/mold/bin/mold --version && \
+    \
+    echo "🔄 Downloading latest Ccache static binary (x86_64)..." && \
+    DOMAIN_GH="github.com" && \
+    CCACHE_LATEST_TAG=$(curl -sIL -o /dev/null -w '%{url_effective}' "https://github.com/ccache/ccache/releases/latest" | awk -F'/' '{print $NF}') && \
+    echo "=== Ccache version found: ${CCACHE_LATEST_TAG} ===" && \
+    curl -fL -o ccache.tar.xz "https://${DOMAIN_GH}/ccache/ccache/releases/download/${CCACHE_LATEST_TAG}/ccache-${CCACHE_LATEST_TAG#v}-linux-x86_64.tar.xz" && \
+    mkdir -p /tmp/ccache_unpack && \
+    tar -xJf ccache.tar.xz -C /tmp/ccache_unpack --strip-components=1 && \
+    mv /tmp/ccache_unpack/ccache /usr/local/bin/ccache && \
+    chmod +x /usr/local/bin/ccache && \
+    rm -rf ccache.tar.xz /tmp/ccache_unpack && \
+    echo "✅ Ccache upgraded successfully:" && \
+    /usr/local/bin/ccache --version && \
     \
     echo "🔄 Installing Meson & Ninja via pip" && \
     pip3 install --break-system-packages --no-cache-dir --upgrade --ignore-installed \
