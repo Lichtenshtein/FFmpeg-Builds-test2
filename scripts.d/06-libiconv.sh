@@ -10,6 +10,7 @@ ffbuild_dockerdl() {
     echo "download_file \"$SCRIPT_REPO\" \"libiconv.tar.gz\""
     echo "tar -xaf libiconv.tar.gz --strip-components=1"
     echo "rm libiconv.tar.gz"
+    echo "rm -rf tests install-tests"
 }
 
 ffbuild_dockerbuild() {

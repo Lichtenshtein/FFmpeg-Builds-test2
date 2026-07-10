@@ -1,0 +1,54 @@
+From 607f4e4d9398b1c87162d2d5d44ff541f8ef3ddd Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sat, 11 Jul 2026 00:12:25 +0300
+Subject: [PATCH] disable build test and tools
+
+---
+ Makefile.in  | 18 ------------------
+ configure.ac |  1 -
+ 2 files changed, 19 deletions(-)
+
+diff --git a/Makefile.in b/Makefile.in
+index d4e2a052..341011cf 100644
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -59,24 +59,6 @@ clean distclean mostlyclean maintainer-clean tags:
+ check-here:
+ 	true
+ 
+-# Tries different settings of NETTLE_FAT_OVERRIDE. Note that this
+-# requires that corresponding processor features are available on the
+-# test machine.
+-check-fat-override:
+-	[ -z "$(FAT_OVERRIDE_LIST)" ] || \
+-	  set -e; cd testsuite && for f in $(FAT_OVERRIDE_LIST) ; do \
+-	    echo NETTLE_FAT_OVERRIDE=$$f ; \
+-	    NETTLE_FAT_OVERRIDE=$$f $(MAKE) check TS_ALL='$$(TS_FAT)' ; \
+-	  done
+-
+-# Emulate for multiple cpu flavors; -cpu is the right flag for qemu.
+-EMULATOR_CPU_FLAG = -cpu
+-check-fat-emulate:
+-	[ -z "$(FAT_EMULATE_LIST)" ] || [ -z "$(EMULATOR)" ] || \
+-	  set -e; cd testsuite && for f in $(FAT_EMULATE_LIST) ; do \
+-	    echo Emulating: $$f ; \
+-            $(MAKE) check EMULATOR="$(EMULATOR) $(EMULATOR_CPU_FLAG) $$f" TS_ALL='$$(TS_FAT)' ; \
+-	  done
+ 
+ all-here: $(TARGETS) $(DOCTARGETS)
+ 
+diff --git a/configure.ac b/configure.ac
+index c49462cb..28465a1f 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -1176,7 +1176,6 @@ if test x$GCC = xyes ; then
+ fi
+ 
+ AC_CONFIG_FILES([config.make config.m4 Makefile version.h])
+-AC_CONFIG_FILES([tools/Makefile testsuite/Makefile examples/Makefile])
+ AC_CONFIG_FILES([nettle.pc hogweed.pc libnettle.map libhogweed.map])
+ 
+ AC_OUTPUT
+-- 
+2.52.0.windows.1
+

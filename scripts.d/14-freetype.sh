@@ -37,9 +37,9 @@ ffbuild_dockerbuild() {
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=gnu++20
         -Dc_std=gnu17
-        -Dharfbuzz=auto
-        -Dpng=auto
-        -Dzlib=external
+        -Dharfbuzz=disabled
+        -Dpng=disabled
+        -Dzlib=enabled
         -Dbzip2=auto
         -Dbrotli=auto
         -Dtests=disabled

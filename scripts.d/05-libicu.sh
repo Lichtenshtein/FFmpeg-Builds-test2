@@ -43,7 +43,7 @@ ffbuild_dockerbuild() {
 
     log_info "${BUILD_MARK} Building ICU Host tools..."
     # Нам НУЖНЫ tools на хосте, чтобы создать icupkg
-    CC=gcc CXX=g++ AR=ar RANLIB=ranlib CFLAGS="" CXXFLAGS="" LDFLAGS="" \
+    CC=gcc CXX=g++ AR=ar RANLIB=ranlib LD=${HOST_LD} CFLAGS="" CXXFLAGS="" LDFLAGS="" \
     ../runConfigureICU Linux --prefix="$(pwd)/install" \
         --enable-tools \
         --disable-release \

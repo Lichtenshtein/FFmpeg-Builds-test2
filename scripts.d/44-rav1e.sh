@@ -28,10 +28,10 @@ ffbuild_dockerbuild() {
     RTARCH="${RTARCH^^}"
 
     # Принудительно задаем компилятор для ТАРГЕТА
-    export "CC_${RTARCH}"="${FFBUILD_CROSS_PREFIX}gcc"
-    export "CXX_${RTARCH}"="${FFBUILD_CROSS_PREFIX}g++"
-    export "AR_${RTARCH}"="${FFBUILD_CROSS_PREFIX}gcc-ar"
-    export "RANLIB_${RTARCH}"="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
+    export "CC_${RTARCH}"="${CC}"
+    export "CXX_${RTARCH}"="${CXX}"
+    export "AR_${RTARCH}"="${AR}"
+    export "RANLIB_${RTARCH}"="${RANLIB}"
 
     # Флаги для ТАРГЕТА
     export "CFLAGS_${RTARCH}"="$CFLAGS $BASE_CPPFLAGS"
@@ -41,6 +41,7 @@ ffbuild_dockerbuild() {
     # Настройка для хостовой сборки
     # Используем стандартный GCC образа, без лишних инклудов
     export CC_host="gcc"
+    export LD_host="${HOST_LD}"
     export CFLAGS_host="$HOST_CFLAGS"
     export CXXFLAGS_host="$HOST_CXXFLAGS"
     export LDFLAGS_host="$HOST_LDFLAGS"

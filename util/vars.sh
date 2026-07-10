@@ -130,7 +130,7 @@ export CXX="${FFBUILD_CROSS_PREFIX}g++"
 # libmingw32.a(lib64_libmingw32_a-crtexewin.o):(.text.startup)
 export LD="/usr/bin/ld.lld"
 export HOST_LD="mold"
-export TARGET_LD="lld" # bfd
+export TARGET_LD="lld" # or bfd
 
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
 export FFBUILD_DESTDIR="/opt/ffdest"
@@ -444,6 +444,8 @@ apply_lto_policy() {
     export CFLAGS_FOR_BUILD="${HOST_CFLAGS} ${HOST_CPPFLAGS}"
     export CXXFLAGS_FOR_BUILD="${HOST_CXXFLAGS} ${HOST_CPPFLAGS}"
     export LDFLAGS_FOR_BUILD="${HOST_LDFLAGS}"
+    export CC_LD_FOR_BUILD="${HOST_LD}"
+    export CXX_LD_FOR_BUILD="${HOST_LD}"
 }
 export -f apply_lto_policy
 

@@ -14,6 +14,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf examples testsuite tools"
 }
 
 ffbuild_dockerbuild() {
