@@ -59,10 +59,10 @@ RUN \
     /opt/mold/bin/mold --version && \
     \
     echo "🔄 Downloading latest Ccache static binary (x86_64)..." && \
-    DOMAIN_GH="github.com" && \
-    CCACHE_LATEST_TAG=$(curl -sIL -o /dev/null -w '%{url_effective}' "https://github.com/ccache/ccache/releases/latest" | awk -F'/' '{print $NF}') && \
+    DOMAIN_CC="github.com" && \
+    CCACHE_LATEST_TAG=$(curl -sIL -o /dev/null -w '%{url_effective}' "https://${DOMAIN_CC}/ccache/ccache/releases/latest" | awk -F'/' '{print $NF}') && \
     echo "=== Ccache version found: ${CCACHE_LATEST_TAG} ===" && \
-    curl -fL -o ccache.tar.xz "https://${DOMAIN_GH}/ccache/ccache/releases/download/${CCACHE_LATEST_TAG}/ccache-${CCACHE_LATEST_TAG#v}-linux-x86_64.tar.xz" && \
+    curl -fL -o ccache.tar.xz "https://${DOMAIN_CC}/ccache/ccache/releases/download/${CCACHE_LATEST_TAG}/ccache-${CCACHE_LATEST_TAG#v}-linux-x86_64-glibc.tar.xz" && \
     mkdir -p /tmp/ccache_unpack && \
     tar -xJf ccache.tar.xz -C /tmp/ccache_unpack --strip-components=1 && \
     mv /tmp/ccache_unpack/ccache /usr/local/bin/ccache && \
