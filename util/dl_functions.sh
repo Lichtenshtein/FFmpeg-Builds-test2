@@ -529,6 +529,8 @@ download_stage() {
             find "$WORK_DIR" -maxdepth 8 -type f \( -name ".gitignore" -o -name ".gitattributes" -o -name ".gitmodules" \) -exec rm -f {} + 2>/dev/null || true
         fi
 
+        sync
+
         # Config option changes tracing and hashing
         # Path for the hash file sits next to the .tar.zst, never inside it
         local CONF_HASH_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.confhash"
@@ -559,7 +561,7 @@ download_stage() {
                                 while IFS= read -r opt; do
                                     local sys="${opt%%:*}"
                                     local name="${opt#*:}"
-                                    log_debug "  ${LOG_INFO}+${NC} ${BLUE}${sys}${NC}: ${name}"
+                                    log_debug "${LOG_INFO}+${NC} ${BLUE}${sys}${NC}: ${name}"
                                 done <<< "$added"
                             fi
 
@@ -568,7 +570,7 @@ download_stage() {
                                 while IFS= read -r opt; do
                                     local sys="${opt%%:*}"
                                     local name="${opt#*:}"
-                                    log_debug "  ${LOG_WARN}-${NC} ${BLUE}${sys}${NC}: ${name}"
+                                    log_debug "${LOG_WARN}-${NC} ${BLUE}${sys}${NC}: ${name}"
                                 done <<< "$removed"
                             fi
                             rm -f "$old_opts_file"
@@ -601,7 +603,7 @@ download_stage() {
                         while IFS= read -r opt; do
                             local sys="${opt%%:*}"
                             local name="${opt#*:}"
-                            log_debug "  ${BLUE}${sys}${NC}: ${name}"
+                            log_debug "${BLUE}${sys}${NC}: ${name}"
                         done <<< "$current_opts"
                     fi
                 else
