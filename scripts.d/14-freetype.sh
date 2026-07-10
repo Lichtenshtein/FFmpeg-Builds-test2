@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://gitlab.freedesktop.org/freetype/freetype.git"
-SCRIPT_COMMIT="25a08f24cfc0da879d1938352d026532f280b77e"
+SCRIPT_COMMIT="5336c0d4da22a13dab3389eb153b12672fdf841c"
 
 ffbuild_depends() {
     echo zlib

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/tukaani-project/xz.git"
-SCRIPT_COMMIT="1aab7e9cab1293c2b8a481ed1beac94da21ef04f"
+SCRIPT_COMMIT="f3b5688159c60495f48db3942a36509671dfce89"
 
 export SKIP_CONF_FINDER=1  # Выключаем авто-поиск
 

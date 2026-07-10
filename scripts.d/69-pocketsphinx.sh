@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/cmusphinx/pocketsphinx.git"
-SCRIPT_COMMIT="5436249ffb63e18a28d6db41a45571d8983e7d36"
+SCRIPT_COMMIT="511126b492dcb267cf30d49d631946d7b61a9530"
 
 ffbuild_enabled() {
     return 0

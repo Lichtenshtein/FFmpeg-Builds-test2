@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/facebook/zstd.git"
-SCRIPT_COMMIT="5233c58e6ca0b1c4c6b353ad79649191ed195bdc"
+SCRIPT_COMMIT="5c7b7bad26808e6b40ac3b3d0075466e27738a9d"
 
 ffbuild_enabled() {
     return 0

@@ -1,6 +1,6 @@
 #!/bin/bash
 SCRIPT_REPO="https://github.com/lensfun/lensfun.git"
-SCRIPT_COMMIT="2277ad69cdcdff33707a1338ee33e8d4f834acff"
+SCRIPT_COMMIT="698a39eea69be00f4f25b6da6c1ad34b1f162b50"
 
 ffbuild_depends() {
     echo base

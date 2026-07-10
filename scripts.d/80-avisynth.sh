@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/AviSynth/AviSynthPlus.git"
-SCRIPT_COMMIT="345a00034c6f167662119c129b06a1f65b72b619"
+SCRIPT_COMMIT="fcb9c8a205c1b01ee1ea491adba50e2217594598"
 
 ffbuild_depends() {
     echo soundtouch

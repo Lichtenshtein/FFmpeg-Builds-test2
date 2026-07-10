@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/KhronosGroup/SPIRV-Headers.git"
-SCRIPT_COMMIT="1e770e7de8373a8dd49f23416cf7ca4001d01040"
+SCRIPT_COMMIT="29981f65241605e08b0ede4cfeb999fe3b723c6a"
 
 ffbuild_depends() {
     echo vulkan-headers
