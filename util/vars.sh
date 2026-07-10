@@ -130,7 +130,7 @@ export CXX="${FFBUILD_CROSS_PREFIX}g++"
 # libmingw32.a(lib64_libmingw32_a-crtexewin.o):(.text.startup)
 export LD="/usr/bin/ld.lld"
 export HOST_LD="mold"
-export TARGET_LD="lld"
+export TARGET_LD="lld" # bfd
 
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
 export FFBUILD_DESTDIR="/opt/ffdest"
@@ -407,7 +407,7 @@ apply_lto_policy() {
 
         export RUSTLTO=" -C lto=fat"
         export USELTO="-flto=4 -flto-partition=balanced"
-        export USELTO_C=" -ffat-lto-objects"
+        export USELTO_C=" -ffat-lto-objects -fmerge-all-constants"
         # -O3 optimization will be added to LDFLAGS as well
         if [[ $is_lld -eq 0 ]]; then
             GCC_LTO_PLUGIN=$("${CC}" -print-prog-name=liblto_plugin.so)
@@ -468,14 +468,14 @@ if [[ "$TARGET" == "win64" ]]; then
         "-Wl,--subsystem=console"
     )
 
-    # if [[ $is_lld -eq 1 ]]; then
-        # BASE_LD_FLAGS+=(
-            # "-Wl,--thinlto-jobs=all" # only for no fat lto
-            # "-Wl,-mllvm,-lldtailmerge"
-        # )
-    # else
-        # BASE_LD_FLAGS+=( "-Wl,--reduce-memory-overheads" )
-    # fi
+    if [[ $is_lld -eq 1 ]]; then
+        BASE_LD_FLAGS+=(
+            # # "-Wl,--thinlto-jobs=all" # only for no fat lto
+            # "-Wl,-mllvm,-lldtailmerge" # clang flags
+        )
+    else
+        BASE_LD_FLAGS+=( "-Wl,--reduce-memory-overheads" )
+    fi
 
     [[ "$PREFER_SHARED" != "1" ]] && BASE_LD_FLAGS+=( "-Wl,--gc-sections" )
 
