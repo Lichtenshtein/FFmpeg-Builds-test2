@@ -10,6 +10,10 @@ ffbuild_configure() {
     echo "--enable-lto"
 }
 
+if [[ "${TARGET_LD}" == "lld" || "${TARGET_LD}" == *"ld.lld"* ]]; then
+    lld_ldflags=" -Wl,--thinlto-jobs=all"
+fi
+
 # -ffat-lto-objects позволит библиотекам содержать как LTO-код, так и обычный объектный код. Это увеличит размер промежуточных библиотек, но сделает линковку более стабильной
 # ${USELTO_C//-ffat-lto-objects/-fno-fat-lto-objects} 
 # Переключаем GCC на среднюю модель памяти. 
@@ -23,7 +27,7 @@ ffbuild_cxxflags() {
     echo "${USELTO}${USELTO_C//-ffat-lto-objects/-fno-fat-lto-objects} -mcmodel=medium -mstackrealign"
 }
 ffbuild_ldflags() {
-    echo "${USELTO}${USELTO_L}"
+    echo "${USELTO}${USELTO_L}${lld_ldflags}"
 }
 
 for tool in AR NM RANLIB; do

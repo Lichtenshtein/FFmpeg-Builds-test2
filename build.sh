@@ -237,14 +237,14 @@ if [ -f "$THPENC_C" ]; then
 fi
 
 # TARGET_SEARCH_DIR="${FFBUILD_PREFIX}/lib"
-# OBJDUMP="x86_64-w64-mingw32-objdump"
-# OBJCOPY="x86_64-w64-mingw32-objcopy"
+# OBJDUMP="${OBJDUMP}"
+# OBJCOPY="${OBJCOPY}"
 # log_info "🔎 Starting automatic search for hidden subsystem directives in ${TARGET_SEARCH_DIR}..."
 # DYNAMIC_POISON_LIBS=()
 # cd "${TARGET_SEARCH_DIR}" || exit 1
 # echo "🔎 Searching for object files that request or declare WinMain..."
 # for lib in *.a; do
-    # RES=$("x86_64-w64-mingw32-nm" -A "$lib" 2>/dev/null | grep -i "WinMain" || true)
+    # RES=$("${NM}" -A "$lib" 2>/dev/null | grep -i "WinMain" || true)
     # if [ ! -z "$RES" ]; then
         # echo -e "\n📦 Library: \033[1;33m$lib\033[0m"
         # echo "$RES"
@@ -252,7 +252,7 @@ fi
 # done
 
 # for lib in *.a; do
-    # if "${FFBUILD_CROSS_PREFIX}nm" "$lib" 2>/dev/null | grep -qi "WinMain" || \
+    # if "${NM}" "$lib" 2>/dev/null | grep -qi "WinMain" || \
        # strings "$lib" 2>/dev/null | grep -qi "subsystem,windows"; then
         # log_warn "The $lib library contains a reference to WinMain or subsystem:windows!"
         # FOUND_POISONERS+=("$lib")
@@ -562,35 +562,32 @@ read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
 read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 
 # Считаем физическую память и Swap (в ГБ)
-MEM_PHYS=$(awk '/MemTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)
-SWAP_TOTAL=$(awk '/SwapTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)
-TOTAL_VIRTUAL=$(( MEM_PHYS + SWAP_TOTAL ))
-# Лимиты для LTO:
-# На этапе линковки каждый поток LTO требует много RAM.
-# Для 7GB RAM + 32GB Swap оптимально не превышать 4 потока, 
-# иначе диск не будет успевать за подкачкой.
-if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
+# MEM_PHYS=$(awk '/MemTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)
+# SWAP_TOTAL=$(awk '/SwapTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)
+# TOTAL_VIRTUAL=$(( MEM_PHYS + SWAP_TOTAL ))
+# if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
+    # if [[ $TOTAL_VIRTUAL -gt 16 ]]; then
+        # MAKE_JOBS=4
+        # log_warn "LTO & High Swap: Using 4 threads for stability."
+    # else
+        # MAKE_JOBS=2
+        # log_warn "LTO & Low Memory: Forcing dual-thread build to avoid OOM."
+    # fi
+# else
+    # MEM_AVAIL=$(awk '/MemAvailable/ {printf "%d", $2/1024/1024}' /proc/meminfo)
+    # MEM_JOBS=$(( MEM_AVAIL * 10 / 15 ))
+    # [[ $MEM_JOBS -lt 1 ]] && MEM_JOBS=1
+    # CPU_CORES=$(nproc)
+    # MAKE_JOBS=$(( CPU_CORES < MEM_JOBS ? CPU_CORES : MEM_JOBS ))
+    # log_info "Non-LTO build: Setting MAKE_JOBS=${MAKE_JOBS} based on availability."
+# fi
 
-    # Если виртуальной памяти много, можно позволить 4 потока.
-    # Если мало (менее 16ГБ общего), лучше оставить 2.
-    if [[ $TOTAL_VIRTUAL -gt 16 ]]; then
-        MAKE_JOBS=4
-        log_warn "LTO & High Swap: Using 4 threads for stability."
-    else
-        MAKE_JOBS=2
-        log_warn "LTO & Low Memory: Forcing dual-thread build to avoid OOM."
-    fi
-else
-    # Обычная сборка (не LTO) ориентируемся на MemAvailable
-    MEM_AVAIL=$(awk '/MemAvailable/ {printf "%d", $2/1024/1024}' /proc/meminfo)
-    # 1 поток на 1.5 ГБ доступной памяти для обычной компиляции
-    MEM_JOBS=$(( MEM_AVAIL * 10 / 15 ))
-    [[ $MEM_JOBS -lt 1 ]] && MEM_JOBS=1
+# log_info_line
+# log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
 
-    CPU_CORES=$(nproc)
-    MAKE_JOBS=$(( CPU_CORES < MEM_JOBS ? CPU_CORES : MEM_JOBS ))
-    log_info "Non-LTO build: Setting MAKE_JOBS=${MAKE_JOBS} based on availability."
-fi
+log_info_line
+log_info "### ${START_MARK} Launching FFmpeg Configure..."
+log_info_line
 
 chmod +x configure
 
@@ -601,7 +598,7 @@ chmod +x configure
 # -fno-use-linker-plugin
 
 # lld linker is broken, use ld
-FINAL_LDFLAGS="${FINAL_LDFLAGS// -fuse-ld=lld/}"
+# FINAL_LDFLAGS="${FINAL_LDFLAGS// -fuse-ld=lld/}"
 
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
@@ -658,13 +655,6 @@ fi
 # flags added by ffmpeg patches, not from mainline FFmpeg
 [[ "$FFMPEG_PATCHES" == "1" ]] && \
     CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
-
-log_info_line
-log_info "### ${CACHE_MARK} HOST INFO: MEM: ${MEM_PHYS}GB + SWAP: ${SWAP_TOTAL}GB = Total: ${TOTAL_VIRTUAL}GB; JOBS=${MAKE_JOBS}"
-
-log_info_line
-log_info "### ${START_MARK} Launching FFmpeg Configure..."
-log_info_line
 
 # Функция проверки и валидации флагов ffmpeg SAFE_CONFIGURE
 check_and_fix_configure && printf "  %s\n" "${CONF_FLAGS[@]}"
@@ -821,7 +811,7 @@ fi
 # FFMPEG MAKE & INSTALL
 # =======================================
 # Сборка и установка ffmpeg
-make -j"$MAKE_JOBS" ${MAKE_V:+$MAKE_V}
+make -j$(nproc) ${MAKE_V}
 make install
 make install-doc || log_warn "install-doc failed, but proceeding."
 
@@ -888,7 +878,7 @@ if [[ "$SKIP_POST_STRIP" != "1" ]]; then
         strip_files "${PKG_DIR}/bin" "ffmpeg"
     else
         log_warn "strip_files function not found, falling back to basic strip"
-        find "${PKG_DIR}/bin" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "${FFBUILD_CROSS_PREFIX}strip" --strip-unneeded {} \;
+        find "${PKG_DIR}/bin" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "${STRIP}" --strip-unneeded {} \;
     fi
 fi
 

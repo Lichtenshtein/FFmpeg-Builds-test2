@@ -117,6 +117,7 @@ export STRIP="${FFBUILD_CROSS_PREFIX}strip"
 export WINDRES="${FFBUILD_CROSS_PREFIX}windres"
 export DLLTOOL="${FFBUILD_CROSS_PREFIX}dlltool"
 export OBJDUMP="${FFBUILD_CROSS_PREFIX}objdump"
+export OBJCOPY="${FFBUILD_CROSS_PREFIX}objcopy"
 export GENDEF="${FFBUILD_CROSS_PREFIX}gendef"
 export AS="${FFBUILD_CROSS_PREFIX}as"
 export CC="${FFBUILD_CROSS_PREFIX}gcc"
@@ -127,10 +128,9 @@ export CXX="${FFBUILD_CROSS_PREFIX}g++"
 # ld.lld: error: undefined symbol: WinMain
 # referenced by /ct-ng/build/x86_64-w64-mingw32/src/mingw-w64/mingw-w64-crt/crt/crtexewin.c:66
 # libmingw32.a(lib64_libmingw32_a-crtexewin.o):(.text.startup)
-export LD="ld.lld"
+export LD="/usr/bin/ld.lld"
 export HOST_LD="mold"
-export BUILD_LD="lld"
-# export LD="mold"
+export TARGET_LD="lld"
 
 export FFBUILD_PREFIX="/opt/ffbuild" # persistent installed compoents storage
 export FFBUILD_DESTDIR="/opt/ffdest"
@@ -395,6 +395,11 @@ HOST_LINUX_LDFLAGS=(
 
 # Динамически перестраиваем переменные окружения
 apply_lto_policy() {
+    local is_lld=0
+    if [[ "${TARGET_LD}" == "lld" || "${TARGET_LD}" == *"ld.lld"* ]]; then
+        is_lld=1
+    fi
+
     if should_apply_lto; then
         log_info "⚡ [LTO ENABLED] Applying Link-Time Optimization for: $STAGENAME"
         # Locate the cross-compiler's LTO plugin path automatically
@@ -404,7 +409,12 @@ apply_lto_policy() {
         export USELTO="-flto=4 -flto-partition=balanced"
         export USELTO_C=" -ffat-lto-objects"
         # -O3 optimization will be added to LDFLAGS as well
-        export USELTO_L=" ${OPT_LEVEL} -Wl,-plugin,${GCC_LTO_PLUGIN}"
+        if [[ $is_lld -eq 0 ]]; then
+            GCC_LTO_PLUGIN=$("${CC}" -print-prog-name=liblto_plugin.so)
+            export USELTO_L=" ${OPT_LEVEL} -Wl,-plugin,${GCC_LTO_PLUGIN}"
+        else
+            export USELTO_L=" ${OPT_LEVEL}"
+        fi
         export NOLTO="-fno-lto"
         # Переключаемся на плагины GCC, корректно обрабатывающие LTO байт-код
         export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
@@ -430,6 +440,10 @@ apply_lto_policy() {
     export HOST_CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -fno-plt -pipe ${G_FLAGS} -ffunction-sections -fdata-sections -std=gnu23 ${USELTO}${USELTO_C}"
     export HOST_CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -fno-plt -pipe ${G_FLAGS} -ffunction-sections -fdata-sections -std=gnu++20 ${USELTO}${USELTO_C}"
     export HOST_CPPFLAGS="-D_FORTIFY_SOURCE=2"
+    # Force for the native Linux compiler, which calls Meson
+    export CFLAGS_FOR_BUILD="${HOST_CFLAGS} ${HOST_CPPFLAGS}"
+    export CXXFLAGS_FOR_BUILD="${HOST_CXXFLAGS} ${HOST_CPPFLAGS}"
+    export LDFLAGS_FOR_BUILD="${HOST_LDFLAGS}"
 }
 export -f apply_lto_policy
 
@@ -438,41 +452,67 @@ if [[ "$TARGET" == "win64" ]]; then
     export BASE_CFLAGS="-mms-bitfields${STACK_FLAGS} -Wno-attributes"
     export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
 
+    is_lld=0
+    if [[ "${TARGET_LD}" == "lld" || "${TARGET_LD}" == *"ld.lld"* ]]; then
+        is_lld=1
+    fi
+
     BASE_LD_FLAGS=(
         "-pipe"
-        "-fuse-ld=${BUILD_LD}"
+        "-fuse-ld=${TARGET_LD}"
         "-Wl,--high-entropy-va"
         "-Wl,--nxcompat"
         "-Wl,--dynamicbase"
-        # "-Wl,--reduce-memory-overheads" # not supported by lld
-        # "-Wl,--no-keep-memory" # reread from disk not ram
         "-Wl,--stack,8388608"
         "-Wl,--as-needed"
+        "-Wl,--subsystem,console"
     )
+
+    if [[ $is_lld -eq 1 ]]; then
+        BASE_LD_FLAGS+=(
+            # "-Wl,--thinlto-jobs=all" # only for no fat lto
+            "-Wl,--lldtailmerge"
+        )
+    else
+        BASE_LD_FLAGS+=( "-Wl,--reduce-memory-overheads" )
+    fi
 
     [[ "$PREFER_SHARED" != "1" ]] && BASE_LD_FLAGS+=( "-Wl,--gc-sections" )
 
     MAIN_LDFLAGS=("${BASE_LD_FLAGS[@]}")
     MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
 
+    console_flag=" -mconsole"
+
     if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}${console_flag}"
+        export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}${console_flag}"
         RUST_STATIC_CFG=""
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
     else
-        export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
+        export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}${console_flag}"
+        export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}${console_flag}"
         MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
         RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
     fi
 
-    export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${MAIN_LDFLAGS[@]}")"
+    # RUST SAFE INJECTION
+    rust_link_args=()
+    for flag in "${MAIN_LDFLAGS[@]}"; do
+        [[ "$flag" == *"-plugin"* ]] && continue
+        [[ "$flag" == *"-fuse-ld="* ]] && continue
+        [[ "$flag" == *"--thinlto-jobs"* ]] && continue
+        [[ "$flag" == *"--lldtailmerge"* ]] && continue
+        [[ "$flag" == *"--subsystem"* ]] && continue
+        rust_link_args+=("$flag")
+    done
+
+    export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${rust_link_args[@]}")"
     export LIBS="${LIBS:-$SYSTEM_LIBS}"
     export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="${CC}"
 
-    # Отключаем ASLR и High Entropy VA, чтобы зафиксировать базовый адрес PE
+    # Disable ASLR and High Entropy VA to fix the PE base address
     if [[ "$DEBUG_MODE" == "1" ]]; then
         log_info "Adjusting LDFLAGS locally for FFmpeg to allow precise debugging..."
         export LDFLAGS=$(echo " ${LDFLAGS} " | sed \
@@ -542,8 +582,8 @@ windres = '${WINDRES}'
 dlltool = '${DLLTOOL}'
 nasm = 'nasm'
 ld = '/usr/bin/ld.lld'
-c_ld = '${BUILD_LD}'
-cpp_ld = '${BUILD_LD}'
+c_ld = '${TARGET_LD}'
+cpp_ld = '${TARGET_LD}'
 ${exe_wrap_line}
 
 [properties]
@@ -566,16 +606,6 @@ system = 'windows'
 cpu_family = '${CPU_FAMILY}'
 cpu = '${CPU_FAMILY}'
 endian = 'little'
-
-[build_machine]
-system = 'linux'
-cpu_family = '${CPU_FAMILY}'
-cpu = '${CPU_FAMILY}'
-endian = 'little'
-ld = '/opt/mold/bin/mold'
-c_ld = '${HOST_LD}'
-cpp_ld = '${HOST_LD}'
-
 EOF
 
     export FFBUILD_MESON_CROSS="/cross.meson"
@@ -583,7 +613,7 @@ EOF
 export -f generate_meson_cross
 
 generate_cmake_toolchain() {
-    local base_ld_init="-fuse-ld=${BUILD_LD}"
+    local base_ld_init="-fuse-ld=${TARGET_LD}"
 
     cat <<EOF > /toolchain.cmake
 set(CMAKE_SYSTEM_NAME Windows)
@@ -1460,8 +1490,8 @@ strip_files() {
 
     [[ ! -d "$target_dir" ]] && return 0
 
-    local _strip_cmd="${FFBUILD_CROSS_PREFIX}strip"
-    local _objcopy_cmd="${FFBUILD_CROSS_PREFIX}objcopy"
+    local _strip_cmd="${STRIP}"
+    local _objcopy_cmd="${OBJCOPY}"
     local size_before=$(du -sh "$target_dir" | cut -f1) # Замеряем размер ДО
 
     if [[ "$DEBUG_MODE" == "1" ]]; then
@@ -1491,11 +1521,12 @@ strip_files() {
                 fi
             done
     else
-        log_info "${BROOM_MARK} Stripping $stage_name from debug symbols: [Size: ${GREY_B}$size_before${NC}]"
         # Для .exe и .dll используем жесткий --strip-all (или --strip-unneeded)
         if [[ "${FFMPEG_BUILD_STAGE:-0}" == "1" ]]; then
+            log_info "${BROOM_MARK} Stripping $stage_name from unneded symbols: [Size: ${GREY_B}$size_before${NC}]"
             find "$target_dir" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "$_strip_cmd" --strip-unneeded {} + 2>/dev/null || true
         else
+            log_info "${BROOM_MARK} Stripping $stage_name from debug symbols: [Size: ${GREY_B}$size_before${NC}]"
             find "$target_dir" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "$_strip_cmd" --strip-debug {} + 2>/dev/null || true
         fi
         # Для статических библиотек .a оставляем --strip-debug
