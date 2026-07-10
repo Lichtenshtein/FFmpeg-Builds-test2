@@ -468,14 +468,14 @@ if [[ "$TARGET" == "win64" ]]; then
         "-Wl,--subsystem=console"
     )
 
-    if [[ $is_lld -eq 1 ]]; then
-        BASE_LD_FLAGS+=(
+    # if [[ $is_lld -eq 1 ]]; then
+        # BASE_LD_FLAGS+=(
             # "-Wl,--thinlto-jobs=all" # only for no fat lto
-            "-Wl,-mllvm,-lldtailmerge"
-        )
-    else
-        BASE_LD_FLAGS+=( "-Wl,--reduce-memory-overheads" )
-    fi
+            # "-Wl,-mllvm,-lldtailmerge"
+        # )
+    # else
+        # BASE_LD_FLAGS+=( "-Wl,--reduce-memory-overheads" )
+    # fi
 
     [[ "$PREFER_SHARED" != "1" ]] && BASE_LD_FLAGS+=( "-Wl,--gc-sections" )
 
