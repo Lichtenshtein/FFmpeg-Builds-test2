@@ -1,7 +1,7 @@
 #!/bin/bash
 export USE_VERS_FINDER=1
 SCRIPT_REPO="https://github.com/madebr/mpg123.git"
-SCRIPT_COMMIT="febfff51f762e644e8620536fc847af4c6b741bb"
+SCRIPT_COMMIT="200dfc97bd263d6da1a5b1dad8a9dccc91e78932"
 
 ffbuild_enabled() {
     return 0

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/alanxz/rabbitmq-c.git"
-SCRIPT_COMMIT="8b7471eab8d09536b3c104dbb30a65699cf48104"
+SCRIPT_COMMIT="df773fde0177fcd135bbcda4160950ae3ee19477"
 
 ffbuild_depends() {
     echo openssl

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/tesseract-ocr/tesseract.git"
-SCRIPT_COMMIT="f4afb2cc9545f622a07812b09e1b72fc78f85a64"
+SCRIPT_COMMIT="7757f87194e59e6ad81d44566fa2615165406a1c"
 
 ffbuild_depends() {
     echo leptonica

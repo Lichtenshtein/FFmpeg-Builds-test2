@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://forgejo.phillippepelzer.me/FiLL/omnidrive.git"
-SCRIPT_COMMIT="3a18741afe"
+SCRIPT_COMMIT="3a18741afe19e6825b801414ffdccb5ccda6b58e"
 
 ffbuild_enabled() {
     return 0

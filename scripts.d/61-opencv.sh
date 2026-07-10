@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/opencv/opencv.git"
-SCRIPT_COMMIT="af1e2232cd13603699932ca40c258e0203ba3e3a"
+SCRIPT_COMMIT="7507accf2e506f162cfe48a46e3be45e999f1ebe"
 
 export SKIP_POST_PC_PATCH=1
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/KhronosGroup/Vulkan-Headers.git"
-SCRIPT_COMMIT="45834b722e29ca6968f3811ae930eae7bb73e9e8"
+SCRIPT_COMMIT="8d6039a455a7ecc7d2a592ff97f62db4e59b70bf"
 
 ffbuild_enabled() {
     return 0

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libffi/libffi.git"
-SCRIPT_COMMIT="c5abbdad2f930f806791942776ccd45beeff1613"
+SCRIPT_COMMIT="c2c2e538c7c5403bd4edc3e77220bbe25a3ad47f"
 
 ffbuild_enabled() {
     return 0

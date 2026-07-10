@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libgme/game-music-emu.git"
-SCRIPT_COMMIT="dd3182a8bdae3ff761438632aace418fbcaed439"
+SCRIPT_COMMIT="ae10a8f05479e3c8f80429e7a59759fed06f8c13"
 
 ffbuild_depends() {
     echo zlib

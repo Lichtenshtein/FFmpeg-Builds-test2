@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/gnutls/gnutls.git"
-SCRIPT_COMMIT="0b9fcb47c734191695b7b7812a0ba30a5c712b9f"
+SCRIPT_COMMIT="3bc844849437e9bb927e10bc0abe5c2f8e18953b"
 
 ffbuild_depends() {
     echo zlib
