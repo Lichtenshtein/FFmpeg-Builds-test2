@@ -529,8 +529,6 @@ download_stage() {
             find "$WORK_DIR" -maxdepth 8 -type f \( -name ".gitignore" -o -name ".gitattributes" -o -name ".gitmodules" \) -exec rm -f {} + 2>/dev/null || true
         fi
 
-        sync
-
         # Config option changes tracing and hashing
         # Path for the hash file sits next to the .tar.zst, never inside it
         local CONF_HASH_FILE="${CACHE_DIR}/${STAGENAME}_${STAGE_HASH}.confhash"
@@ -616,10 +614,21 @@ download_stage() {
 
         # Упаковка
         mkdir -p "$(dirname "$STAGE_CACHE_FILE")"
+
+        sync && sleep 0.5
+
+        local tar_status=0
         ZSTD_CLEVEL=5 tar --sort=name \
             --owner=0 --group=0 --numeric-owner \
             -I 'zstd -T0 --long=23' \
-            -cf "$STAGE_CACHE_FILE" -C "$WORK_DIR" .
+            -cf "$STAGE_CACHE_FILE" -C "$WORK_DIR" . || tar_status=$?
+        if [[ $tar_status -ne 0 && $tar_status -ne 1 ]]; then
+            log_error "Tar failed with unrecoverable error code: $tar_status"
+            rm -rf "$WORK_DIR"
+            return 1
+        fi
+        tar_status=0
+
         ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK"
         local final_size=$(du -sh "$STAGE_CACHE_FILE" | cut -f1)
         # Update the result line from miss → cached (overwrite by appending corrected line)
