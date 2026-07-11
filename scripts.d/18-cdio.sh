@@ -11,6 +11,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf doc test example"
 }
 
 ffbuild_dockerbuild() {

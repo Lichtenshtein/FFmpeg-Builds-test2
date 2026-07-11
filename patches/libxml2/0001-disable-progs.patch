@@ -1,0 +1,25 @@
+From 0736a9746190d796e305d340f0bc980dfc037d04 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sat, 11 Jul 2026 15:53:54 +0300
+Subject: [PATCH] disable progs
+
+---
+ Makefile.am | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index 0a2a729..8596857 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -30,7 +30,7 @@ check_PROGRAMS = \
+ 	testparser \
+ 	testrecurse
+ 
+-bin_PROGRAMS = xmllint
++bin_PROGRAMS =
+ 
+ bin_SCRIPTS = xml2-config
+ 
+-- 
+2.52.0.windows.1
+

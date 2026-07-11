@@ -1,0 +1,22 @@
+From bc328c1a04edac2d54783d4c8e13f0cb1197e207 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sat, 11 Jul 2026 16:22:27 +0300
+Subject: [PATCH] disable tests
+
+---
+ libarchive/CMakeLists.txt | 2 --
+ 1 file changed, 2 deletions(-)
+
+diff --git a/libarchive/CMakeLists.txt b/libarchive/CMakeLists.txt
+index b296637..5974f8c 100644
+--- a/libarchive/CMakeLists.txt
++++ b/libarchive/CMakeLists.txt
+@@ -289,5 +289,3 @@ IF(ENABLE_INSTALL)
+   INSTALL_MAN(${libarchive_MANS})
+   INSTALL(FILES ${include_HEADERS} DESTINATION include)
+ ENDIF()
+-
+-add_subdirectory(test)
+-- 
+2.52.0.windows.1
+

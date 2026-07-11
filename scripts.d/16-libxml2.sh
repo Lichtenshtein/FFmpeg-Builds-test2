@@ -99,7 +99,7 @@ ffbuild_dockerbuild() {
         log_warn "libxml2.${lib_ext} confirmed present, proceeding with install."
     } || return 1
 
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" bin_PROGRAMS="" || return 1
 
     local PC_FILE="$PC_DIR/libxml-2.0.pc"
     if [[ -f "$PC_FILE" ]]; then

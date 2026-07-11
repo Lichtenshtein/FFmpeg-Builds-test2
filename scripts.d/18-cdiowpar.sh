@@ -13,6 +13,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf doc test example"
 }
 
 ffbuild_dockerbuild() {
@@ -44,7 +45,7 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" bin_PROGRAMS="" || return 1
 
     mkdir -p "$PC_DIR"
     if [ -d "$PC_DIR" ]; then

@@ -1,4 +1,5 @@
 #!/bin/bash
+
 SCRIPT_REPO="https://github.com/lensfun/lensfun.git"
 SCRIPT_COMMIT="698a39eea69be00f4f25b6da6c1ad34b1f162b50"
 
@@ -15,6 +16,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf sourceforge-archive docs"
 }
 
 ffbuild_dockerbuild() {

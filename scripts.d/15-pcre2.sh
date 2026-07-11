@@ -28,6 +28,7 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
+        --disable-maintainer-mode
         --enable-pcre2-8
         #--enable-pcre2-16
         #--enable-pcre2-32
@@ -53,7 +54,7 @@ ffbuild_dockerbuild() {
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
-    make install DESTDIR="$FFBUILD_DESTDIR" || return 1
+    make install DESTDIR="$FFBUILD_DESTDIR" bin_PROGRAMS="" || return 1
 
     for pc in "$PC_DIR"/*pcre2*.pc; do
         [[ -e "$pc" ]] || continue

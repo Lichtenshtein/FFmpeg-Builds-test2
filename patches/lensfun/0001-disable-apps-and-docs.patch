@@ -1,0 +1,35 @@
+From 46e847970475ae79ea285862382fd688591b9860 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sat, 11 Jul 2026 16:16:07 +0300
+Subject: [PATCH] disable apps and docs
+
+---
+ CMakeLists.txt | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index c5e49cf..305ae3e 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -174,7 +174,6 @@ ENDIF()
+ IF(BUILD_LENSTOOL)
+     FIND_PACKAGE(PNG REQUIRED)
+ ENDIF()
+-ADD_SUBDIRECTORY(apps)
+ 
+ # install include files
+ INSTALL(FILES ${CMAKE_BINARY_DIR}/lensfun.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lensfun)
+@@ -188,10 +187,6 @@ INSTALL(FILES data/db/timestamp.txt DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/len
+ FILE(GLOB DATABASE_DTD data/db/*.dtd data/db/*.xsd)
+ INSTALL(FILES ${DATABASE_DTD} DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/lensfun/version_${LENSFUN_DB_VERSION})
+ 
+-# build documentation
+-IF(BUILD_DOC)
+-  ADD_SUBDIRECTORY(docs)
+-ENDIF()
+ 
+ IF(WIN32 AND NOT BUILD_STATIC)
+   FIND_FILE(GLIB2_DLL
+-- 
+2.52.0.windows.1
+

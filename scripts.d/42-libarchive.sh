@@ -21,6 +21,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf libarchive/test"
 }
 
 ffbuild_dockerbuild() {
@@ -42,7 +43,7 @@ ffbuild_dockerbuild() {
         -DENABLE_TAR=OFF
         -DENABLE_CPIO=OFF
         -DENABLE_CAT=OFF
-        -DENABLE_UNZIP=ON
+        -DENABLE_UNZIP=OFF # builds bsdunzip.exe
     )
 
     if has_library "xml2"; then
