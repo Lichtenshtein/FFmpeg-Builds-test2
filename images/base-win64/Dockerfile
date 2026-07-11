@@ -165,5 +165,6 @@ RUN rustup target add "$FFBUILD_RUST_TARGET" && \
     \
     mkdir -p /opt/ccache-links && \
     for tool in gcc g++ cpp c++ gcc-ar gcc-nm gcc-ranlib ranlib; do \
-        ln -sf /usr/bin/ccache "/opt/ccache-links/x86_64-w64-mingw32-${tool}"; \
+        ln -sf /usr/local/bin/ccache "/opt/ccache-links/x86_64-w64-mingw32-${tool}"; \
+        ln -sf /usr/local/bin/ccache "/opt/ccache-links/${tool}"; \
     done
