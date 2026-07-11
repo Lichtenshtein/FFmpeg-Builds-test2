@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 # SCRIPT_REPO="https://code.videolan.org/videolan/x264.git"
 # SCRIPT_COMMIT="0480cb05fa188d37ae87e8f4fd8f1aea3711f7ee"
 

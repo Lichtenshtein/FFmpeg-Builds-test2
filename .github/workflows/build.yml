@@ -134,8 +134,6 @@ env:
   DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|mfx|opencv|leptonica|audiotoolbox|avisynth|vapoursynth|frei0r|nnedi3|whisper"
   # List to keep static .a from cleaning (in run_stage.sh)
   LIB_PRESERVE_LIST:
-  # List of components to which strip does not apply (openvino, cuda-llvm)
-  STRIP_EXCLUDE_LIST:
   # Boolean conversion for bash scripts
   DEBUG_NO_HASH:  ${{ github.event.inputs.debug_no_hash  == 'true' && '1' || '0' }}
   FFMPEG_PATCHES: ${{ github.event.inputs.patch_ffmpeg   == 'true' && '1' || '0' }}

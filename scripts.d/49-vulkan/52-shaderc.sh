@@ -6,9 +6,6 @@
 SCRIPT_REPO="https://github.com/google/shaderc.git"
 SCRIPT_COMMIT="cb6f1ef84daaa5e0369e0e6d82008438d42c93b5"
 
-# patch skipper
-# export SKIP_PRE_PATCH=1
-
 ffbuild_enabled() {
     return 0
 }
@@ -35,10 +32,6 @@ ffbuild_dockerdl() {
     # Run dependency synchronization.
     # It will now use our updated DEPS file with the new hashes.
     echo "./utils/git-sync-deps || exit $?"
-
-    if [[ -d ".git" ]]; then
-        git add .
-    fi
 }
 
 ffbuild_dockerbuild() {

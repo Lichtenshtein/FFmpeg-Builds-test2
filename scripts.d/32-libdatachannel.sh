@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 SCRIPT_REPO="https://github.com/paullouisageneau/libdatachannel.git"
 SCRIPT_COMMIT="188ec93f6a0b01c2032ddb4c8c013118f7f30232" 
 

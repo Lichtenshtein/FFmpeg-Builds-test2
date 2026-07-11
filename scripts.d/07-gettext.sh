@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 SCRIPT_REPO="https://ftp.gnu.org/pub/gnu/gettext/gettext-1.0.tar.gz"
 
 ffbuild_enabled() {

@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 SCRIPT_REPO="https://github.com/KhronosGroup/SPIRV-Cross.git"
 SCRIPT_COMMIT="6c09849fe88c48eaed08413aa022aaa136a3a057"
 

@@ -1,11 +1,7 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 SCRIPT_REPO="https://github.com/mpeg5/xevd.git"
 SCRIPT_COMMIT="4087f635624cf4ee6ebe3f9ea165ff939b32117f"
-
-# SCRIPT_REPO="https://github.com/jamrial/xevd.git"
-# SCRIPT_COMMIT="1f7a2e79544ecdc71bbb51e938f392e5d00aa5b7"
-# SCRIPT_BRANCH="rbsp_fix"
 
 ffbuild_enabled() {
     [[ $TARGET == *arm64 ]] && return 1

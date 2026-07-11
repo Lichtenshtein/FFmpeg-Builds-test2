@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 SCRIPT_REPO="https://github.com/Multicorewareinc/x265.git"
 SCRIPT_COMMIT="4455762664ec10070a061a9c15faa0b83cee72f7"
 

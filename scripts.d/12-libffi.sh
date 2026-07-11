@@ -14,8 +14,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # export USE_CONF_FINDER=1
-
     cd "/build/$STAGENAME"
 
     # fixing broken ffi configure

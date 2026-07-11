@@ -1,12 +1,10 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 SCRIPT_REPO="https://github.com/MartinEesmaa/libgsm.git"
 SCRIPT_COMMIT="0f915c8872786fed91bb67837e3ad0c7a7144c1e"
 
 # SCRIPT_REPO="https://github.com/maekawa-mugi/libgsm-playground.git"
 # SCRIPT_COMMIT="f7fed756ba3c28792b876236cfbc69524ca048c7"
-
-export SKIP_PRE_PATCH=1
 
 ffbuild_enabled() {
     return 0
@@ -25,10 +23,10 @@ ffbuild_dockerbuild() {
     export CPPFLAGS="$CPPFLAGS"
     export CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}"
     export INSTALL_ROOT="$INSTALL_ROOT"
-    export CC="${FFBUILD_TOOLCHAIN}-gcc"
+    export CC="${CC}"
 
     make libgsm -j$(nproc) $MAKE_V || return 1
-    
+
     mkdir -p "$INSTALL_ROOT/include/gsm"
     mkdir -p "$INSTALL_ROOT/lib"
     cp lib/libgsm.a "$INSTALL_ROOT/lib/"

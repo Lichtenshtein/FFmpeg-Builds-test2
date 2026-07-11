@@ -3,8 +3,6 @@
 SCRIPT_REPO="https://github.com/uclouvain/openjpeg.git"
 SCRIPT_COMMIT="402ef5862195b177ea0a7788f2a6ef2804e62285"
 
-# export SKIP_POST_PC_PATCH=1
-
 ffbuild_depends() {
     echo libtiff
     echo libpng

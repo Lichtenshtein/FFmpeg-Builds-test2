@@ -22,8 +22,8 @@ ffbuild_dockerbuild() {
     unset PKG_CONFIG_LIBDIR
 
     # Force use of cross-tools
-    export CC="${FFBUILD_TOOLCHAIN}-gcc"
-    export CXX="${FFBUILD_TOOLCHAIN}-g++"
+    export CC="${CC}"
+    export CXX="${CXX}"
 
     local CRT_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe -g0 -fno-lto"
 
@@ -43,8 +43,9 @@ ffbuild_dockerbuild() {
 
     # 2. CRT
     cd mingw-w64-crt
-        export AR="${FFBUILD_TOOLCHAIN}-ar"
-        export RANLIB="${FFBUILD_TOOLCHAIN}-ranlib"
+        export AR="${AR}"
+        export NM="${NM}"
+        export RANLIB="${RANLIB}"
         local CLEAN_CPPFLAGS=$(echo "$BASE_CPPFLAGS" | sed 's/-D__USE_MINGW_ANSI_STDIO=1//g')
 
         CFLAGS="$CRT_CFLAGS" CPPFLAGS="$CLEAN_CPPFLAGS" ./configure \
@@ -63,13 +64,8 @@ ffbuild_dockerbuild() {
     # 3. Winpthreads
     cd mingw-w64-libraries/winpthreads
         if [[ "$USE_LTO" == "1" ]]; then
-            export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
-            export NM="${FFBUILD_CROSS_PREFIX}gcc-nm"
-            export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
             local PTHREAD_CFLAGS="-O3 -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe -g0 ${USELTO}${USELTO_C}"
         else
-            export AR="${FFBUILD_TOOLCHAIN}-ar"
-            export RANLIB="${FFBUILD_TOOLCHAIN}-ranlib"
             local PTHREAD_CFLAGS="$CRT_CFLAGS"
         fi
 

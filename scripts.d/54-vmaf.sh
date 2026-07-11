@@ -6,8 +6,6 @@ SCRIPT_COMMIT="ec3b1161a5fbdffb59795937f9208cb5fdbd3c3c"
 # SCRIPT_REPO="https://github.com/lusoris/vmaf.git"
 # SCRIPT_COMMIT="49c738b0584337a45048429581214063e80831e2"
 
-# export SKIP_PRE_PATCH=1
-
 ffbuild_enabled() {
     return 0
 }

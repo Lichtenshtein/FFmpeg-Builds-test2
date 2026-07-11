@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 # SCRIPT_REPO="https://github.com/sezero/libmad.git"
 # SCRIPT_COMMIT="486f902c6c686eafced3450851849527e29bc7f6"
 

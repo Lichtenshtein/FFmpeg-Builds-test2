@@ -223,15 +223,12 @@ if [[ -n "$DL_COMMANDS" ]]; then
     fi
 
     # АВТО-ПОИСК корня проекта (если архив распаковался в подпапку)
-    if [[ "$USE_CONF_FINDER" != "1" ]] && [[ ! -f "Configure" && ! -f "configure" && ! -f "CMakeLists.txt" && ! -f "meson.build" ]]; then
+    if [[ ! -f "Configure" && ! -f "configure" && ! -f "CMakeLists.txt" && ! -f "meson.build" ]]; then
         log_warn "No build file in root. ${SEARCH_MARK} Searching one level deeper..."
         CANDIDATE=$(find . -maxdepth 2 \( -name "Configure" -o -name "configure" -o -name "CMakeLists.txt" -o -name "meson.build" \) -printf '%h\n' | head -n 1)
         if [[ -n "$CANDIDATE" ]]; then
             log_info "${DIRS_MARK} Project root found at $CANDIDATE. Entering..."
             cd "$CANDIDATE"
-        # else # this is harming
-            # USE_CONF_FINDER=1
-            # conf_finder # try to regenerate conf
         fi
     fi
 
@@ -241,17 +238,8 @@ if [[ -n "$DL_COMMANDS" ]]; then
         exit 1
     fi
 
-    # АВТО-ПАТЧИНГ
-    if [[ "$SKIP_PRE_PATCH" == "0" ]]; then
-        log_info "${SEARCH_MARK} Checking for patches for ${STAGENAME}..."
-        if [[ -d "$PATCHES_DIR/$COMPONENT_NAME" ]]; then
-            apply_patches 
-        else
-            log_info "${CHECK_MARK} No patches found."
-        fi
-    else
-        log_info "Skipping patches for $STAGENAME"
-    fi
+    # AUTO-PATCHING
+    apply_patches
 
     if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
         log_debug "${DIRS_MARK} Contents of $(pwd) (current build directory):"
@@ -295,7 +283,10 @@ build_cmd="ffbuild_dockerbuild"
 setup_wine_env
 
 # Manually determining the component version
-[[ "$USE_VERS_FINDER" == "1" ]] && export VER_FULL=$(get_stage_version)
+if ! should_skip_version_finder; then
+    export VER_FULL=$(get_stage_version)
+    log_info "${TARGET_MARK} Stage version initialized: VER_FULL=${LOG_INFO}${VER_FULL}${NC}"
+fi
 
 log_info_line
 log_info "### ${START_MARK} ${LOG_INFO}STARTING STAGE: $STAGENAME${NC}"
@@ -361,7 +352,7 @@ if [[ -d "$INSTALL_ROOT" ]]; then
         fi
 
         # clean .la files (libtool archives)
-        [[ "$SKIP_POST_CLEAN" != "1" ]] && clean_la_files
+        clean_la_files
 
         # remove unwanted DLLs or static libs
         # список стадий, которым РАЗРЕШЕНО иметь DLL импортируется из workflow.yaml
@@ -406,19 +397,17 @@ if [[ -d "$INSTALL_ROOT" ]]; then
         fi
 
         # strip debug symbols
-        [[ "$SKIP_POST_STRIP" != "1" ]] && strip_files "$INSTALL_ROOT" "$STAGENAME"
+        strip_files "$INSTALL_ROOT" "$STAGENAME"
 
-        # patch .pc files (пути, зависимости, Requires.private)
-        # Флаг SKIP_POST_PC_PATCH=1 в скрипте может это отключить при необходимости
-        [[ "$SKIP_POST_PC_PATCH" != "1" ]] && patch_pc_files
+        # patch .pc files (paths, dependencies, Requires)
+        patch_pc_files
 
         # sync to persistent prefix (So the next script sees them)
         # Using -u (update) to avoid overwriting newer files if layers run out of order
-        rsync -a --checksum "$INSTALL_ROOT/" "$FFBUILD_PREFIX/"
-        log_info "${CHECK_MARK} Sync completed and $STAGENAME is now available for dependencies."
+        rsync -a --checksum "$INSTALL_ROOT/" "$FFBUILD_PREFIX/" && log_info "${CHECK_MARK} Sync completed and $STAGENAME is now available for dependencies."
 
-        # audit зависимостей (verbose only)
-        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && get_deps_list
+        # audit dependencies (verbose only)
+        get_deps_list
     fi
 else
     log_debug "${DIRS_MARK} No standard prefix directory found for $STAGENAME"

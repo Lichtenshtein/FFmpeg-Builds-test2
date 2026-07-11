@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 SCRIPT_REPO="https://github.com/zdenop/jbigkit.git"
 SCRIPT_COMMIT="4690140176ddbc3943d2b794d4b31993d7a509e1"
 
@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
     # Исправляем странное именование CMake (liblibjbig.a -> libjbig.a)
     pushd "$INSTALL_ROOT/lib"
     for f in liblibjbig*.a; do
-        mv "$f" "${f#lib}" 2>/dev/null || true
+        mv ${OP_VERB} "$f" "${f#lib}" 2>/dev/null || true
     done
     popd
 

@@ -30,8 +30,6 @@ rsvg/tests/resources"
 ffbuild_dockerbuild() {
     set -e
 
-    export SKIP_POST_STRIP=1
-
     export CARGO_HOME="/opt/cargo"
     export RUSTUP_HOME="/opt/rustup"
     export PKG_CONFIG_ALLOW_CROSS=1

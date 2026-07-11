@@ -184,9 +184,7 @@ fi
 pushd "$FFMPEG_SOURCE_DIR"
 
 # АВТО-ПАТЧИНГ
-if [[ "$FFMPEG_PATCHES" == "1" ]]; then
-    apply_ffmpeg_patches
-fi
+apply_ffmpeg_patches
 
 # =======================================
 # FFMPEG SOURCE PATCHING SECTION 1

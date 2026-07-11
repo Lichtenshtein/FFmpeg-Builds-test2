@@ -3,8 +3,6 @@
 SCRIPT_REPO="https://github.com/dyne/frei0r.git"
 SCRIPT_COMMIT="253addfd4bea3c90b0bf765589ca28ea18f3ddc0"
 
-# export SKIP_PRE_PATCH=1
-
 ffbuild_depends() {
     echo opencv
     echo cairo

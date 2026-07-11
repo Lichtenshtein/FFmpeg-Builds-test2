@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 SCRIPT_REPO="https://github.com/AOMediaCodec/libavif.git"
 SCRIPT_COMMIT="d0605c98085e2fe4830ed248c8b00df7e6f80643"
 

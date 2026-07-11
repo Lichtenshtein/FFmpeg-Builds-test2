@@ -2,7 +2,7 @@
 
 SCRIPT_REPO="https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-python-pytorch-2.12.0-4-any.pkg.tar.zst"
 
-# сбор сателлитных DLL
+# collecting satellite DLLs
 GCC_LINK="https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-gcc-libs-16.1.0-5-any.pkg.tar.zst"
 GLOG_LINK="https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-glog-0.7.1-10-any.pkg.tar.zst"
 SLEEF_LINK="https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-sleef-3.9.0-2-any.pkg.tar.zst"
@@ -14,11 +14,9 @@ VULKAN_LINK="https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-vulkan-lo
 ZLIB_LINK="https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-zlib-1.3.2-2-any.pkg.tar.zst"
 FORTRAN_LINK="https://repo.msys2.org/mingw/ucrt64/mingw-w64-ucrt-x86_64-gcc-libgfortran-16.1.0-5-any.pkg.tar.zst"
 
-export SKIP_POST_PC_PATCH=1
-
 ffbuild_enabled() {
-# конфликт версий рантайма C++ (libstdc++-6.dll) между кросс-компилятором и бинарным пакетом
-# Символ _ZSt15__get_once_callv (std::__get_once_call()) символ стандартной библиотеки C++ (libstdc++) для реализации std::call_once
+# C++ runtime version conflict (libstdc++-6.dll) between the cross-compiler and the binary package
+# Symbol _ZSt15__get_once_callv (std::__get_once_call()) is a symbol in the C++ standard library (libstdc++) for the implementation of std::call_once
     [[ "$USE_LIBTORCH" == "1" ]] && return 0
     return 1
 }

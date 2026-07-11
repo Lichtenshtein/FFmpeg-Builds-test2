@@ -17,15 +17,11 @@ ffbuild_dockerdl() {
     # echo "mkdir -p apple_dlls"
     # echo "7z x qtfiles64.7z -o\"apple_dlls\""
     # echo "rm -f qtfiles64.7z"
-    # if [[ -d ".git" ]]; then
-        # git add .
-    # fi
 }
 
 ffbuild_dockerbuild() {
     set -e
 
-    # Поднимаем минимальную версию CMake до 3.5, чтобы не злить современный бинарник
     sed -i 's/cmake_minimum_required (VERSION 3.0)/cmake_minimum_required (VERSION 3.5)/' CMakeLists.txt
 
     mkdir build && cd build
@@ -63,11 +59,11 @@ EOF
     # cd ..
 
     # Создаем папку bin в префиксе назначения, если её нет
-    # mkdir -p "$INSTALL_ROOT/bin"
+    # mkdir -p "$INSTALL_ROOT/bin/QTfiles64"
 
-    # Копируем все DLL из папки QTfiles64 напрямую в bin префикса
+    # Копируем все DLL из папки QTfiles64 в bin префикса
     # Согласно инструкции, они должны лежать рядом с ffmpeg.exe
-    # cp ${OP_VERB} apple_dlls/QTfiles64/*.dll "$INSTALL_ROOT/bin/"
+    # cp ${OP_VERB} apple_dlls/QTfiles64/*.dll "$INSTALL_ROOT/bin/QTfiles64/"
 
     # Удаляем ldwrapper, так как он нужен только для сборки самого враппера
     # rm -f "$INSTALL_ROOT/bin/atw_ldwrapper"

@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 SCRIPT_REPO="https://github.com/DanBloomberg/leptonica.git"
 SCRIPT_COMMIT="8cf07fcab4e1bd202716bcb465452faac198e81e"
 

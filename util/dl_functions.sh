@@ -513,8 +513,10 @@ download_stage() {
             source "${ROOT_DIR}/${STAGE}" 2>/dev/null || true
         fi
 
-        if [[ "${USE_VERS_FINDER:-0}" == "1" ]]; then
-            log_info "Running version auto-detection for ${STAGENAME}..."
+        if ! should_skip_version_finder; then
+            log_info "${SEARCH_MARK} Running version auto-detection and caching for ${STAGENAME}..."
+            # local detected_version=$(get_stage_version)
+            # log_info "${CHECK_MARK} Version captured during download: ${LOG_INFO}${detected_version}${NC}"
             get_stage_version > /dev/null
         fi
         )

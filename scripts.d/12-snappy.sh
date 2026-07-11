@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 SCRIPT_REPO="https://github.com/google/snappy.git"
 SCRIPT_COMMIT="3ac3722e1bee4b99860a282fb779e8e72fa18163"
 

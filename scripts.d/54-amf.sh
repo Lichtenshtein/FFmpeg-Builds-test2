@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 SCRIPT_REPO="https://github.com/GPUOpen-LibrariesAndSDKs/AMF.git"
 SCRIPT_COMMIT="c35f613aea2e5057a688c979e75b1cf24253297e"
 
@@ -10,9 +10,6 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
     echo "rm -rf Thirdparty amf/public/samples amf/public/src amf/doc"
-    if [[ -d ".git" ]]; then
-        git add .
-    fi
 }
 
 ffbuild_dockerbuild() {
@@ -39,7 +36,7 @@ ffbuild_dockerbuild() {
     done
 
     mkdir -p "$INSTALL_ROOT"/include
-    mv amf/public/include "$INSTALL_ROOT"/include/AMF
+    mv ${OP_VERB} amf/public/include "$INSTALL_ROOT"/include/AMF
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/amf.pc"

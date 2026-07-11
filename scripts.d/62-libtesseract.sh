@@ -70,7 +70,7 @@ ffbuild_dockerbuild() {
     local WRAPPER_DIR="${TMP_DIR}/tesseract_wrapper"
     mkdir -p "$WRAPPER_DIR"
     local LOCAL_GXX="${WRAPPER_DIR}/g++"
-    local REAL_GXX="${FFBUILD_TOOLCHAIN}-g++"
+    local REAL_GXX="${CXX}"
 
     # Create wrapper
     cat > "$LOCAL_GXX" << 'WRAPPER_EOF'
@@ -122,7 +122,7 @@ WRAPPER_EOF
         -DLeptonica_DIR=OFF # Leptonica use our manual path, not CMake target
         # Explicit library paths so CMake's try_compile doesn't fail
         -DCMAKE_CXX_COMPILER="$LOCAL_GXX" # <--- Use local wrapper
-        -DCMAKE_C_COMPILER="${FFBUILD_TOOLCHAIN}-gcc"
+        -DCMAKE_C_COMPILER="${CC}"
         -DCMAKE_FIND_ROOT_PATH="$FFBUILD_PREFIX" # <--- Isolate search paths
         -DCMAKE_PREFIX_PATH="$FFBUILD_PREFIX"
         -DCMAKE_FIND_LIBRARY_SUFFIXES=".${lib_ext}"

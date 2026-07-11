@@ -1,11 +1,11 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 SCRIPT_REPO="https://github.com/vapoursynth/vapoursynth.git"
 SCRIPT_COMMIT="177e8f8a83b44e91af1bc867fafd6bb14dbe8f28"
 
 PY_VER="3.14"
 PY_FULL_VER="3.14.1"
-PY_LIB="python314" # Без точки для линковки
+PY_LIB="python314"
 
 ffbuild_depends() {
     echo zlib

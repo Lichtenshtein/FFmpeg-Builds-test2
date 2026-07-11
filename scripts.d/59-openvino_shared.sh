@@ -2,8 +2,6 @@
 
 SCRIPT_REPO="https://storage.openvinotoolkit.org/repositories/openvino/packages/2026.1/windows/openvino_toolkit_windows_2026.1.0.21367.63e31528c62_x86_64.zip"
 
-export SKIP_POST_PC_PATCH=1
-
 ffbuild_depends() {
     echo tbbmalloc
 }

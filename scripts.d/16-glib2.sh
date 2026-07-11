@@ -95,23 +95,23 @@ gapplication = disabler()' gio/meson.build
     cat <<EOF > glib_cross.txt
 [host_machine]
 system = 'windows'
-cpu_family = 'x86_64'
-cpu = 'x86_64'
+cpu_family = '${CPU_FAMILY}'
+cpu = '${CPU_FAMILY}'
 endian = 'little'
 
 [binaries]
 # exe_wrapper = ['wine']
-c = '${FFBUILD_TOOLCHAIN}-gcc'
-cpp = '${FFBUILD_TOOLCHAIN}-g++'
-ar = '${FFBUILD_CROSS_PREFIX}ar'
+c = '${CC}'
+cpp = '${CXX}'
+ar = '${AR}'
 pkg-config = 'pkgconf'
-strip = '${FFBUILD_TOOLCHAIN}-strip'
-windres = '${FFBUILD_TOOLCHAIN}-windres'
-nm = '${FFBUILD_CROSS_PREFIX}nm'
-ranlib = '${FFBUILD_CROSS_PREFIX}ranlib'
-nasm = '/usr/bin/nasm'
-c_ld = 'lld'
-cpp_ld = 'lld'
+strip = '${STRIP}'
+windres = '${WINDRES}'
+nm = '${NM}'
+ranlib = '${RANLIB}'
+nasm = 'nasm'
+c_ld = '${TARGET_LD}'
+cpp_ld = '${TARGET_LD}'
 
 [properties]
 have_c99_snprintf = true

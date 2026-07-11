@@ -232,13 +232,13 @@ export LOG_INSTALLED="${LOG_INSTALLED:-85}" # shown number of installed files in
 
 # Helper hooks to skip .la files, dependancies and .pc files auditing and patching
 # Can be added individually to any component script
-export SKIP_PRE_PATCH=0  # inside main, to the top of the script
-export SKIP_POST_PC_PATCH=0 # inside main to disable .pc files normalization
-export SKIP_POST_CLEAN=0
-export SKIP_POST_AUDIT=0
-export USE_CONF_FINDER=0 # inside main; 1 for crooked autogen scripts 
+export GLOBAL_SKIP_PRE_PATCH=0  # inside main, to the top of the script
+export GLOBAL_SKIP_POST_PC_PATCH=0 # inside main to disable .pc files normalization
+export GLOBAL_SKIP_POST_CLEAN_LA_FILES=0
+export GLOBAL_SKIP_POST_DEP_AUDIT=0
 export USE_VERS_FINDER="${USE_VERS_FINDER:-0}" # inside main; enables component version lookup
-export SKIP_POST_STRIP=0 # inside dockerbuild
+export GLOGAL_SKIP_POST_STRIP=0 # inside dockerbuild
+export GLOBAL_DISABLE_CONF_FINDER=0
 
 mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
 
@@ -715,12 +715,12 @@ fi
 
 export ADDINS_STR="${ADDINS_STR:-}"
 
-REPO="${GITHUB_REPOSITORY:-lichtenshtein/ffmpeg-build}"
-REPO="${REPO,,}"
-REGISTRY="${REGISTRY_OVERRIDE:-ghcr.io}"
-BASE_IMAGE="${REGISTRY}/${REPO}/base:latest"
-# TARGET_IMAGE="${TARGET_IMAGE:-${REGISTRY}/${REPO}/base-${TARGET}:latest}"
-IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:latest"
+export REPO="${GITHUB_REPOSITORY:-lichtenshtein/ffmpeg-build}"
+export REPO="${REPO,,}"
+export REGISTRY="${REGISTRY_OVERRIDE:-ghcr.io}"
+export BASE_IMAGE="${REGISTRY}/${REPO}/base:latest"
+# export TARGET_IMAGE="${TARGET_IMAGE:-${REGISTRY}/${REPO}/base-${TARGET}:latest}"
+export IMAGE="${REGISTRY}/${REPO}/${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}:latest"
 
 # 2 for verbose logs, 0 for brief
 # FFBUILD_VERBOSE value from Docker ENV
@@ -877,11 +877,53 @@ ffbuild_unlibs()       { return 0; }
 # Экспортируем функции, чтобы они были доступны внутри run_stage и других подпроцессов
 export -f ffbuild_enabled ffbuild_depends ffbuild_configure ffbuild_cflags ffbuild_cppflags ffbuild_cxxflags ffbuild_ldflags ffbuild_ldexeflags ffbuild_libs ffbuild_unconfigure ffbuild_uncflags ffbuild_uncxxflags ffbuild_unldexeflags ffbuild_unldflags ffbuild_unlibs
 
+# ==============================
+# PKG-CONFIG CORRECTION POLICY
+# ==============================
+
+should_skip_post_pc_patch() {
+    [[ -z "$STAGENAME" ]] && return 1
+
+    [[ "${GLOBAL_SKIP_POST_PC_PATCH:-0}" == "1" ]] && return 0
+
+    case "$STAGENAME" in
+        *"libtorch"|*"opencv"|*"openvino_shared")
+            return 0 # Skip .pc fix
+            ;;
+        *) 
+            return 1 # perform the correction for all other components
+            ;;
+    esac
+}
+export -f should_skip_post_pc_patch
+
 patch_pc_files() {
-    log_info "${TARGET_MARK} Correcting $STAGENAME .pc files..."
+    # Check the centralized bypass hook
+    if should_skip_post_pc_patch; then
+        log_info "${LOCK_MARK} Post-PC patching skipped for $STAGENAME"
+        return 0
+    fi
+
+    # Check the physical presence of the pkgconfig directory
     local pc_dir="$PC_DIR"
+    if [[ ! -d "$pc_dir" ]]; then
+        log_debug "No pkgconfig directory found at $pc_dir for $STAGENAME — skipping audit."
+        return 0
+    fi
+
+    # Count the number of .pc files in the directory before outputting the log
+    shopt -s nullglob
+    local pc_files=("$pc_dir"/*.pc)
+    shopt -u nullglob
+
+    if [[ ${#pc_files[@]} -eq 0 ]]; then
+        log_debug "No .pc files found in $pc_dir — skipping audit."
+        return 0
+    fi
+
+    log_info "${TARGET_MARK} Correcting $STAGENAME .pc files..."
+
     local sl="--follow-symlinks"
-    [[ -d "$pc_dir" ]] || return 0
 
     # Locate build-system root (for dependency scanning)
     local src_root="."
@@ -1150,11 +1192,43 @@ patch_pc_files() {
 }
 export -f patch_pc_files
 
+# ========================
+# DEPENDENCY AUDIT POLICY
+# ========================
+
+# By default, auditing is ALWAYS performed (return 1) because it is too useful
+should_skip_post_audit() {
+    [[ -z "$STAGENAME" ]] && return 1
+
+    [[ "${GLOBAL_SKIP_POST_DEP_AUDIT:-0}" == "1" ]] && return 0
+
+    case "$STAGENAME" in
+        # add here rare components that do not generate binaries/libraries
+        # like header components
+        *"vulkan-headers"|*"spirv-headers"|*"mingw-std-threads"|*"ffnvcodec"|*"decklink"|*"zz-final")
+            return 0 # Yes, SKIP audit for this component
+            ;;
+        *) 
+            return 1 # No, for everyone else, DO NOT skip (perform audit)
+            ;;
+    esac
+}
+export -f should_skip_post_audit
+
 get_deps_list() {
     set +o pipefail 
+
+    if should_skip_post_audit; then
+        return 0
+    fi
+
     if [[ "${FFBUILD_VERBOSE:-0}" -lt 1 ]]; then
         return 0
     fi
+
+    [[ ! -d "$INSTALL_ROOT" ]] && return 0
+
+    log_info "${LOGS_MARK} Starting dependency audit for stage: $STAGENAME"
 
     local name="${STAGENAME:-${0##*/}}"
     local lib_dir="$INSTALL_ROOT/lib"
@@ -1470,79 +1544,109 @@ generate_implibs() {
 }
 export -f generate_implibs
 
+# ======================================
+# LIBTOOL ARCHIVES CLEANUP POLICY (.la)
+# ======================================
+
+should_skip_post_clean_la_files() {
+    # If the stage name is not defined, DO NOT skip
+    [[ -z "$STAGENAME" ]] && return 1
+
+    # always skip
+    [[ "${GLOBAL_SKIP_POST_CLEAN_LA_FILES:-0}" == "1" ]] && return 0
+
+    case "$STAGENAME" in
+        *"example-component"*)
+            return 0
+            ;;
+        *) 
+            return 1
+            ;;
+    esac
+}
+export -f should_skip_post_clean_la_files
+
 clean_la_files() {
     if [[ "$PREFER_SHARED" == "1" ]]; then
         return 0
     fi
 
+    if should_skip_post_clean_la_files; then
+        log_info "${LOCK_MARK} Cleanup of .la files skipped for $STAGENAME"
+        return 0
+    fi
+
     local target_dir="$INSTALL_ROOT"
     [[ ! -d "$target_dir" ]] && return 0
-    log_info "${BROOM_MARK} Cleaning up libtool archives (.la) in $target_dir"
-    local la_files=$(find "$target_dir" -name "*.la" \( -type f -o -type l \) 2>/dev/null)
-    if [[ -n "$la_files" ]]; then
-        local count=$(echo "$la_files" | wc -l)
-        echo "$la_files" | xargs rm -f 2>/dev/null
+
+    shopt -s nullglob
+    local la_files=()
+    while IFS= read -r -d '' file; do
+        la_files+=("$file")
+    done < <(find "$target_dir" -name "*.la" \( -type f -o -type l \) -print0 2>/dev/null)
+    shopt -u nullglob
+
+    local count=${#la_files[@]}
+
+    if [[ $count -gt 0 ]]; then
+        log_info "${BROOM_MARK} Cleaning up libtool archives (.la) in $target_dir"
+        rm -f "${la_files[@]}" 2>/dev/null
         log_info "${CHECK_MARK} Removed $count .la files (including symlinks) from prefix."
     else
-        log_info "${CHECK_MARK} No .la files found to clean."
+        log_debug "No .la files found to clean for $STAGENAME."
     fi
 }
 export -f clean_la_files
+
+# =================
+# STRIPING POLICY
+# =================
+
+should_skip_post_strip() {
+    [[ -z "$STAGENAME" ]] && return 1
+
+    [[ "${GLOBAL_SKIP_POST_STRIP:-0}" == "1" ]] && return 0
+
+    case "$STAGENAME" in
+        *"rav1e"|*"librsvg") 
+            return 0 
+            ;;
+        *) 
+            return 1 
+            ;;
+    esac
+}
+export -f should_skip_post_strip
 
 strip_files() {
     local target_dir="$1"
     local stage_name="$2"
 
-    if [[ "$SKIP_POST_STRIP" == "1" ]]; then
-        log_info "${LOCK_MARK} Stripping skipped (global/manual flag)"
+    if should_skip_post_strip; then
+        log_info "${LOCK_MARK} Stripping skipped for $stage_name"
         return 0
     fi
-
-    # Проверка списка исключений
-    local IFS_ORIG="$IFS"
-    IFS=',' read -ra _excl_arr <<< "$STRIP_EXCLUDE_LIST"
-    IFS="$IFS_ORIG"
-    for _excl in "${_excl_arr[@]}"; do
-        if [[ "${_excl// /}" == "$stage_name" ]]; then # trim spaces
-            log_info "${LOCK_MARK} Stripping skipped for $stage_name (exclude list)"
-            return 0
-        fi
-    done
 
     [[ ! -d "$target_dir" ]] && return 0
 
     local _strip_cmd="${STRIP}"
     local _objcopy_cmd="${OBJCOPY}"
-    local size_before=$(du -sh "$target_dir" | cut -f1) # Замеряем размер ДО
+    local size_before=$(du -sh "$target_dir" | cut -f1)
 
     if [[ "$DEBUG_MODE" == "1" ]]; then
         log_info "${BROOM_MARK} Extracting symbols from $stage_name... [Size: ${GREY_B}$size_before${NC}]"
-
-        # Находим все исполняемые файлы и статические библиотеки
         find "$target_dir" -type f \
             \( -name "*.exe" -o -name "*.dll" -o -name "*.so*" \) | while read -r file; do
-
-                # Проверяем, есть ли вообще в файле отладочные символы, чтобы не плодить пустые пустышки
                 if $_objcopy_cmd --help | grep -q "only-keep-debug" 2>/dev/null; then
-
-                    # Имя файла для внешних символов (например, libfdk-aac.a.debug)
                     local debug_file="${file}.debug"
-
-                    # Копируем ТОЛЬКО отладочные символы во внешний файл
                     "$_objcopy_cmd" --only-keep-debug "$file" "$debug_file" 2>/dev/null || continue
-
-                    # Вырезаем отладочные символы из оригинального файла бинарника/библиотеки
                     "$_strip_cmd" --strip-debug "$file" 2>/dev/null || continue
-
-                    # Добавляем в оригинальный файл ссылку на внешний файл с дебагом (.gnu_debuglink)
-                    # Когда Wine или GDB загрузят этот файл, они увидят ссылку и автоматически подгрузят .debug файл
                     cd "$(dirname "$file")"
                     "$_objcopy_cmd" --add-gnu-debuglink="$(basename "$debug_file")" "$(basename "$file")" 2>/dev/null || true
                     cd - >/dev/null
                 fi
             done
     else
-        # Для .exe и .dll используем жесткий --strip-all (или --strip-unneeded)
         if [[ "${FFMPEG_BUILD_STAGE:-0}" == "1" ]]; then
             log_info "${BROOM_MARK} Stripping $stage_name from unneeded symbols: [Size: ${GREY_B}$size_before${NC}]"
             find "$target_dir" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "$_strip_cmd" --strip-unneeded {} + 2>/dev/null || true
@@ -1550,9 +1654,7 @@ strip_files() {
             log_info "${BROOM_MARK} Stripping $stage_name from debug symbols: [Size: ${GREY_B}$size_before${NC}]"
             find "$target_dir" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "$_strip_cmd" --strip-debug {} + 2>/dev/null || true
         fi
-        # Для статических библиотек .a оставляем --strip-debug
-        find "$target_dir" -type f \( -name "*.a" -o -name "*.so*" \) \
-                    ! -name "*.dll.a" -exec "$_strip_cmd" --strip-debug {} + 2>/dev/null || true
+        find "$target_dir" -type f \( -name "*.a" -o -name "*.so*" \) ! -name "*.dll.a" -exec "$_strip_cmd" --strip-debug {} + 2>/dev/null || true
     fi
 
     local size_after=$(du -sh "$target_dir" | cut -f1)
@@ -1565,17 +1667,59 @@ strip_files() {
 }
 export -f strip_files
 
+# =======================
+# AUTO-PATCHING POLICY
+# =======================
+
+should_skip_pre_patch() {
+    [[ -z "$STAGENAME" ]] && return 1
+
+    [[ "${GLOBAL_SKIP_PRE_PATCH:-0}" == "1" ]] && return 0
+
+    case "$STAGENAME" in
+        *"libgsm")
+            return 0 # Skip applying patches for libgsm
+            ;;
+        *) 
+            return 1 # For everyone else, try applying patches
+            ;;
+    esac
+}
+export -f should_skip_pre_patch
+
 # 1. Standard
 # 2. Binary (for CRLF issues)
 # 3. Ignore Whitespace
 # 4. Max Fuzz (fuzz=3)
 apply_patches() {
-    local PATCH_DIR="$PATCHES_DIR/$COMPONENT_NAME"
-    [[ -d "$PATCH_DIR" ]] || { log_info "${CHECK_MARK} No patches found for $COMPONENT_NAME"; return 0; }
+    if should_skip_pre_patch; then
+        log_info "${LOCK_MARK} Patching skipped for $STAGENAME"
+        return 0
+    fi
 
-    # Сохраняем текущую папку (куда нас завел авто-поиск корня)
+    log_info "${SEARCH_MARK} Checking for patches for ${STAGENAME}..."
+
+    local PATCH_DIR="$PATCHES_DIR/$COMPONENT_NAME"
+    if [[ ! -d "$PATCH_DIR" ]]; then
+        log_info "${CHECK_MARK} No patches folder found for $COMPONENT_NAME"
+        return 0
+    fi
+
+    # Count the number of .patch files in the folder
+    shopt -s nullglob
+    local patches_files=("$PATCH_DIR"/*.patch)
+    shopt -u nullglob
+
+    if [[ ${#patches_files[@]} -eq 0 ]]; then
+        log_info "${CHECK_MARK} No .patch files found in $PATCH_DIR"
+        return 0
+    fi
+
+    log_info "${SEARCH_MARK} Executing patching chain for ${STAGENAME}..."
+
+    # Save the current folder (where the auto-search for the root took us)
     local CURRENT_ROOT=$(pwd)
-    # Сохраняем базовую папку билда
+    # Save the base build folder
     local BUILD_BASE="/build/$STAGENAME"
 
     shopt -s nullglob
@@ -1587,7 +1731,7 @@ apply_patches() {
         local success=false
         local last_output=""
 
-        # ПЕРЕБОР ДИРЕКТОРИЙ. сначала текущая (из авто-поиска), потом базовая
+        # DIRECTORY SEQUENCE. First the current one (from auto-search), then the base one
         for try_dir in "$CURRENT_ROOT" "$BUILD_BASE"; do
             [[ -d "$try_dir" ]] || continue
             pushd "$try_dir" &>/dev/null
@@ -1651,7 +1795,7 @@ apply_patches() {
                 "-p1 -N -r - -l --fuzz=3" "-p0 -N -r - -l --fuzz=3"
             do
                 log_debug "Trying: patch $patch_opts"
-                # Сначала проверяем, применится ли патч без изменения файлов
+                # First check whether the patch will be applied without changing files
                 if patch --dry-run --silent $patch_opts < "$patch" &>/dev/null; then
                     # 'if' suppresses set -e on patch exit code
                     if last_output=$(patch $patch_opts < "$patch" 2>&1); then
@@ -1687,6 +1831,10 @@ apply_patches() {
 export -f apply_patches
 
 apply_ffmpeg_patches() {
+    if [[ "$FFMPEG_PATCHES" != "1" ]]; then
+        return 0
+    fi
+
     local FFMPEG_PATCH_DIR="$PATCHES_DIR/ffmpeg/$FFMPEG_BRANCH"
 
     [[ -d "$FFMPEG_PATCH_DIR" ]] || { log_info "${CHECK_MARK} No patches found for branch: $FFMPEG_BRANCH"; return 0; }
@@ -1716,6 +1864,62 @@ apply_ffmpeg_patches() {
 }
 export -f apply_ffmpeg_patches
 
+# ===========================================================================
+# REGENERATION POLICY FOR CONFIGURATION SCRIPTS (AUTOCONF/BOOTSTRAP/AUTOGEN)
+# ===========================================================================
+
+should_skip_conf_finder() {
+    [[ -z "$STAGENAME" ]] && return 0
+
+    [[ "${GLOBAL_DISABLE_CONF_FINDER:-0}" == "1" ]] && return 0
+
+    case "$STAGENAME" in
+        # WHITELIST (Opt-In): Regeneration is ALLOWED only for these libraries.
+        # The function will return 1 (False to skip -> run conf_finder).
+        *"some-broken-legacy-lib"*)
+            return 1 
+            ;;
+        # For ALL other libraries, regeneration is DISABLED/SKIPPED by default.
+        *) 
+            return 0 
+            ;;
+    esac
+}
+export -f should_skip_conf_finder
+
+conf_finder() {
+    if should_skip_conf_finder; then
+        return 0
+    fi
+
+    # If configure is not present, or is old (configure.ac is newer), run regeneration
+    if [[ ! -f "configure" || "configure.ac" -nt "configure" ]]; then
+        log_info "${SYNC_MARK} conf_finder: Regenerating build files for $STAGENAME..."
+
+        # Create a folder for macros if it is registered, but it does not exist (a common error with libffi)
+        local m4_dir=$(grep -oP 'AC_CONFIG_MACRO_DIRS?\(\[\K[^\]]+' configure.ac 2>/dev/null || echo "m4")
+        mkdir -p "$m4_dir"
+
+        # try autoreconf first, since it's the most standardized.
+        # -f (force), -i (install missing), -v (verbose)
+        if autoreconf -fiv; then
+            log_info "${CHECK_MARK} autoreconf: Success"
+        elif [[ -f "autogen.sh" ]]; then
+            log_warn "autoreconf failed, trying ./autogen.sh..."
+            chmod +x autogen.sh
+            ./autogen.sh || { log_error "autogen.sh failed"; return 1; }
+        elif [[ -f "bootstrap" ]]; then
+            log_warn "autoreconf failed, trying ./bootstrap..."
+            chmod +x bootstrap
+            ./bootstrap || { log_error "bootstrap failed"; return 1; }
+        else
+            log_error "conf_finder: All regeneration attempts failed for $STAGENAME."
+            return 1
+        fi
+    fi
+}
+export -f conf_finder
+
 # checking flags validity for final FFmpeg build; if found we just drop them and continue
 check_and_fix_configure() {
     if [[ "$SAFE_CONFIGURE" != "1" ]]; then
@@ -1728,21 +1932,21 @@ check_and_fix_configure() {
     local dropped=()
     local fixed=()
 
-    # Кэшируем справку. Используем расширенный поиск.
+    # Cache help by using advanced search
     local help_output=$(./configure --help)
 
     for flag in "${CONF_FLAGS[@]}"; do
-        # Извлекаем чистое имя опции для проверки (убираем --enable-/--disable- и всё что после =)
+        # Extract the clear option name for checking (remove --enable-/--disable- and everything after =)
         local clean_opt=$(echo "$flag" | sed -E 's/--[a-z]+-//; s/=.*//')
         local action=$(echo "$flag" | grep -oE "^--(enable|disable)")
         
-        # Если это не стандартный переключатель (например --prefix, --cc), проверяем и пропускаем
+        # If it's not a standard switch (e.g. --prefix, --cc), check and skip
         if [[ ! "$flag" =~ ^--enable- ]] && [[ ! "$flag" =~ ^--disable- ]]; then
             new_flags+=("$flag")
             continue
         fi
 
-        # Блок автозамены (Aliasing)
+        # Aliasing Block
         local opt_name="$clean_opt"
         case "$opt_name" in
             zstd)          opt_name="libzstd" ;;
@@ -1759,25 +1963,25 @@ check_and_fix_configure() {
             vpx)           opt_name="libvpx" ;;
             webp)          opt_name="libwebp" ;;
             xml2)          opt_name="libxml2" ;;
-            # Можно добавить другие частые ошибки здесь
+            # add other common errors here
         esac
 
-        # Собираем флаг обратно (сохраняя аргумент после =, если он был)
+        # Put flag back (keeping the argument after =, if there was one)
         local suffix=$(echo "$flag" | grep -oE "=.*$" || true)
-        # Формируем потенциально исправленный флаг
+        # Generate a potentially corrected flag
         local current_flag="${action}-${opt_name}${suffix}"
 
-        # Валидация через grep
-        # Ищем в help: --enable-opt_name, --enable-opt_name[=arg], или описание начинающееся с opt_name
-        # Используем [[:punct:]]? чтобы поймать опциональные скобки [=arg]
+        # Validation via grep
+        # Search help for: --enable-opt_name, --enable-opt_name[=arg], or a description starting with opt_name
+        # Use [[:punct:]]? to catch optional [=arg] brackets
         if echo "$help_output" | grep -qE "\--(en|dis)able-${opt_name}([[:punct:]]|=|[[:space:]]|$)"; then
             if [[ "$current_flag" != "$flag" ]]; then
                 fixed+=("$flag -> $current_flag")
             fi
             new_flags+=("$current_flag")
         else
-            # Если это специфический компонент (энкодер/декодер), проверяем его наличие в списках
-            # Но ТОЛЬКО если это действительно точное совпадение слова, а не часть другого флага
+            # If it's a specific component (encoder/decoder), check for its presence in the lists
+            # But ONLY if it's an exact word match, and not part of another flag
             if echo "$help_output" | grep -qiwE "${opt_name}"; then
                  new_flags+=("$current_flag")
             else
@@ -1786,7 +1990,7 @@ check_and_fix_configure() {
         fi
     done
 
-    # Вывод отчета
+    # Report output
     [ ${#fixed[@]} -ne 0 ] && log_info "${BUILD_MARK} FIXED flags: ${fixed[*]}"
     [ ${#dropped[@]} -ne 0 ] && log_warn "DROPPED invalid flags: ${dropped[*]}"
 
@@ -1794,8 +1998,37 @@ check_and_fix_configure() {
 }
 export -f check_and_fix_configure
 
-# Получаем версию VER_FULL=$(get_stage_version)
+# ===============================
+# VERSION FINDER POLICY (OPT-IN)
+# ===============================
+
+# By default is disabled for everyone (return 0) except for whitelisted
+should_skip_version_finder() {
+    [[ -z "$STAGENAME" ]] && return 0
+
+    # if need to temporarily turn it off everywhere
+    [[ "${GLOBAL_DISABLE_VERSION_FINDER:-0}" == "1" ]] && return 0
+
+    case "$STAGENAME" in
+        # WHITELIST (Opt-In): Here we list the components that need version searching
+        # The function will return 1 (False to skip -> run get_stage_version).
+        *"libiconv"|*"gettext"|*"jbigkit"|*"snappy"|*"libxxhash"|*"libdatachannel"|*"libmpg123"*|*"cryptopp"|*"giflib"|*"svtav1"|*"libavif"|*"quirc"|*"spirv-cross"|*"amf"|*"leptonica"|*"opencl"|*"openvino"|*"soundtouch"|*"libcodec2"|*"libgsm"|*"libmad"|*"libmp3lame"|*"libmpeghdec"|*"mpeghe"|*"flite"|*"x264"|*"x265"|*"xvid"|*"xevd"|*"vapoursynth")
+            return 1 
+            ;;
+        # For all others, skip by default (search is disabled)
+        *) 
+            return 0 
+            ;;
+    esac
+}
+export -f should_skip_version_finder
+
+# Get the version VER_FULL=$(get_stage_version)
 get_stage_version() {
+    if should_skip_version_finder; then
+        return 0
+    fi
+
     local version_file=".ffbuild_version"
     local global_version_file=""
 
@@ -1806,16 +2039,16 @@ get_stage_version() {
         fi
     fi
 
-    # Если глобальный путь вычислить не удалось, ищем файл вверх по дереву
+    # If the global path could not be calculated or there is no file, search for the file up the tree
     if [[ -z "$global_version_file" || ! -f "$global_version_file" ]]; then
         local current_dir="$PWD"
-        # Поднимаемся максимум на 3 уровня вверх в поисках файла
+        # go up a maximum of 3 levels in search of a file
         for _ in {1..3}; do
             if [[ -f "${current_dir}/${version_file}" ]]; then
                 global_version_file="${current_dir}/${version_file}"
                 break
             fi
-            # Предотвращаем выход за пределы корня системы
+            # Preventing system root access
             [[ "$current_dir" == "/" ]] && break
             current_dir=$(dirname "$current_dir")
         done
@@ -1823,8 +2056,7 @@ get_stage_version() {
 
     # 1. Check for cached version first
     if [[ -n "$global_version_file" && -f "$global_version_file" ]]; then
-        local cached_ver
-        cached_ver=$(cat "$global_version_file")
+        local cached_ver=$(cat "$global_version_file" 2>/dev/null | xargs)
         if [[ -n "$cached_ver" ]]; then
             echo "$cached_ver"
             return 0
@@ -2233,24 +2465,24 @@ get_stage_version() {
         ver_log "No tags found anywhere, defaulting to commit hash: ${LOG_INFO}$ver${NC}"
     fi
 
-    # Фоллбэк на имя папки
+    # Fallback to folder name
     if [[ -z "$ver" ]]; then
         ver=$(basename "$PWD" | grep -oE '[0-9]+(\.[0-9]+)+[^ ]*' 2>/dev/null | head -n 1 || true)
         [[ -n "$ver" ]] && ver_log "Fallback to folder name: ${LOG_INFO}$ver${NC}"
     fi
 
-    # Дефолт дефолтов
+    # Default of defaults
     if [[ -z "$ver" ]]; then
         ver="0.0.1"
     fi
 
-    # Финальная очистка строк не ломает хэш, если он остался
+    # Final string cleanup does not break the hash if it remains
     if [[ "$ver" == "git-"* ]]; then
-        # Если это хэш, сохраняем префикс git- аккуратно
+        # If it's a hash, keep the git- prefix carefully
         local hash_part="${ver#git-}"
         ver="git-$(echo "$hash_part" | tr -d '"' | tr -d "'" | xargs)"
     else
-        # Для обычных версий срезаем буквы
+        # For regular versions, cut off the letters
         ver=$(echo "$ver" | sed -E 's/^[a-zA-Z_-]+//' | tr -d '"' | tr -d "'" | xargs)
     fi
 
@@ -2387,41 +2619,6 @@ setup_wine_env() {
     eval "$errexit_state"
 }
 export -f setup_wine_env
-
-conf_finder() {
-    # Opt-IN: only run if script explicitly requests it
-    [[ "$USE_CONF_FINDER" != "1" ]] && return 0
-
-    # Если configure нет, или он старый (configure.ac новее), запускаем регенерацию
-    if [[ ! -f "configure" || "configure.ac" -nt "configure" ]]; then
-        log_debug "${SYNC_MARK} conf_finder: Regenerating build files..."
-
-        # Создаем папку для макросов, если она прописана, но её нет (частая ошибка libffi)
-        local m4_dir=$(grep -oP 'AC_CONFIG_MACRO_DIRS?\(\[\K[^\]]+' configure.ac 2>/dev/null || echo "m4")
-        mkdir -p "$m4_dir"
-
-        # Пытаемся сначала autoreconf, так как он наиболее стандартизирован
-        # -f (force), -i (install missing), -v (verbose)
-        if autoreconf -fiv; then
-            log_info "${CHECK_MARK} autoreconf: Success"
-        elif [[ -f "autogen.sh" ]]; then
-            log_warn "autoreconf failed, trying ./autogen.sh..."
-            chmod +x autogen.sh
-            ./autogen.sh || { log_error "autogen.sh failed"; return 1; }
-        elif [[ -f "bootstrap" ]]; then
-            log_warn "autoreconf failed, trying ./bootstrap..."
-            chmod +x bootstrap
-            ./bootstrap || { log_error "bootstrap failed"; return 1; }
-        else
-            log_error "conf_finder: All regeneration attempts failed."
-            return 1
-        fi
-    fi
-}
-export -f conf_finder
-
-# экспорт важных переменных MinGW, чтобы они пробрасывались в download.sh и run_stage.sh:
-export TARGET VARIANT REPO REGISTRY BASE_IMAGE TARGET_IMAGE IMAGE
 
 # ---------------------------------------------------------------------------
 # Terminal width — used for separators; falls back to 72 if tput unavailable

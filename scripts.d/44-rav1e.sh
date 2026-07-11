@@ -15,8 +15,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    export SKIP_POST_STRIP=1
-
     # Исправляем проблему с libgit2-sys: запрещаем использовать системный libgit2
     unset PKG_CONFIG_LIBDIR
     export LIBGIT2_NO_PKG_CONFIG=1

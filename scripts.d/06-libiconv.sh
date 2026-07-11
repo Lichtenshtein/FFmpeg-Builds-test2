@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 SCRIPT_REPO="https://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.19.tar.gz"
 
 ffbuild_enabled() {

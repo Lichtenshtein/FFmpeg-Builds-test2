@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 # SCRIPT_REPO="https://github.com/arancormonk/codec2.git"
 # SCRIPT_COMMIT="6a787012632b8941aa24a4ea781440b61de40f57"
 

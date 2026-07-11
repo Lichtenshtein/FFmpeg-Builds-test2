@@ -12,8 +12,6 @@ SCRIPT_REPO4="https://github.com/FFmpeg/nv-codec-headers.git"
 SCRIPT_COMMIT4="09e12e3d803ce79c327a9709233e8cd858e59d9e"
 SCRIPT_BRANCH4="sdk/8.1"
 
-# export SKIP_POST_PC_PATCH=1
-
 ffbuild_enabled() {
     [[ $TARGET == winarm64 ]] && return 1
     return 0

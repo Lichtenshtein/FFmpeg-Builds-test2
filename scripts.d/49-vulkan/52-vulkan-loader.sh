@@ -12,7 +12,7 @@ SCRIPT_COMMIT2="8d6039a455a7ecc7d2a592ff97f62db4e59b70bf"
 
 if [[ $TARGET != win64 ]]; then
     # patches will not apply due to folder contains patches for original loader
-    export SKIP_PRE_PATCH=1
+    export GLOBAL_SKIP_PRE_PATCH=1
 fi
 
 ffbuild_depends() {

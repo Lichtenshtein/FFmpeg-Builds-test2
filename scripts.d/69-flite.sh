@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 SCRIPT_REPO="https://github.com/Tomotz/flite.git"
 SCRIPT_COMMIT="6ff94c999339a26281180c8b4ba3c89f2e1fcdf9"
 SCRIPT_BRANCH="tomm-dump-ipa"
@@ -14,9 +14,6 @@ ffbuild_dockerdl() {
     cat <<EOF
 sed -i '1s/^\xEF\xBB\xBF//' flite.sln
 EOF
-    if [[ -d ".git" ]]; then
-        git add .
-    fi
 }
 
 ffbuild_dockerbuild() {

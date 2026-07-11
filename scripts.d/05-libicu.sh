@@ -1,12 +1,7 @@
 #!/bin/bash
 
-# SCRIPT_REPO="https://github.com/winlibs/icu4c.git"
-# SCRIPT_COMMIT="25b56cd344f49183b7c20909cb0558bf81d93673"
-
 SCRIPT_REPO="https://github.com/unicode-org/icu.git"
 SCRIPT_COMMIT="a4d2bb712e2f9181f2abead7ff99a5d471230f4c"
-
-export USE_CONF_FINDER=0
 
 ffbuild_enabled() {
     return 0
@@ -33,7 +28,7 @@ docs/userguide"
 
 ffbuild_dockerbuild() {
     set -e
-    # [[ -d "source" ]] && cd source
+
     cd icu4c/source
 
     unset CC CXX LD AR CPP LIBS CCAS

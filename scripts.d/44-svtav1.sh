@@ -1,5 +1,5 @@
 #!/bin/bash
-export USE_VERS_FINDER=1
+
 # SCRIPT_REPO="https://gitlab.com/AOMediaCodec/SVT-AV1.git"
 # SCRIPT_COMMIT="b7328c60c417ede0d3673119eeee305cce82c215"
 
