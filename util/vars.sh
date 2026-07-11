@@ -231,13 +231,12 @@ export LOG_FF_SIZES="${FF_LOG_SIZES:-1000}" # number of lines displayed in ffmpe
 export LOG_INSTALLED="${LOG_INSTALLED:-85}" # shown number of installed files in DESTDIR prefix
 
 # Helper hooks to skip .la files, dependancies and .pc files auditing and patching
-# Can be added individually to any component script
-export GLOBAL_SKIP_PRE_PATCH=0  # inside main, to the top of the script
-export GLOBAL_SKIP_POST_PC_PATCH=0 # inside main to disable .pc files normalization
+export GLOBAL_SKIP_PRE_PATCH=0
+export GLOBAL_SKIP_POST_PC_PATCH=0
 export GLOBAL_SKIP_POST_CLEAN_LA_FILES=0
 export GLOBAL_SKIP_POST_DEP_AUDIT=0
-export USE_VERS_FINDER="${USE_VERS_FINDER:-0}" # inside main; enables component version lookup
-export GLOGAL_SKIP_POST_STRIP=0 # inside dockerbuild
+export GLOBAL_DISABLE_VERSION_FINDER=0
+export GLOGAL_SKIP_POST_STRIP=0
 export GLOBAL_DISABLE_CONF_FINDER=0
 
 mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
@@ -357,9 +356,6 @@ fi
 
 OPT_LEVEL="-O3"
 
-# Общие настройки Rust; codegen-units = 16 (default)
-COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=${RUST_STRIP_POLICY} -C codegen-units=1 -C opt-level=3 ${RUSTLTO}"
-
 # Общие и дополнительные либы
 SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
 export ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -lntdll -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lkernel32 -lnormaliz -lwsock32 -lcomctl32 -lshell32 -loleaut32 -lmingwex -lgcc_eh -lgcc -ld3d11 -ld3d12 -ldxgi -ldxguid -lmfplat -lmfuuid -lmfreadwrite -lgomp"
@@ -372,27 +368,6 @@ to_rust_flags() {
 }
 export -f to_rust_flags
 
-# Флаги для ХОСТА (Linux), которые всегда нужны для нативных сборок
-# * -Wl,--hash-style=gnu: Создает более быстрые таблицы символов (GNU-style), что ускоряет запуск программы (актуально для инструментов, которые вызываются тысячи раз за сборку).
-# * -Wl,--strip-all (или просто -s): Удаляет отладочные символы, значительно уменьшая размер бинарника.
-# * -Wl,--gc-sections: Удаляет неиспользуемый код из бинарника. Работает в паре с -ffunction-sections -fdata-sections в CFLAGS. Полезно, чтобы нативный инструмент был компактным.
-# * -Wl,-O1: Включает оптимизации самого линковщика (например, сокращение таблиц хешей).
-# * -Wl,--as-needed: Игнорирует библиотеки, которые были указаны в командной строке, но фактически не используются кодом. Это предотвращает лишние зависимости.
-# * -Wl,-z,relro -Wl,-z,now: Это «Full RELRO». Аналог --dynamicbase. Делает таблицу функций (GOT) только для чтения, что предотвращает многие эксплойты.
-# * -Wl,-z,noexecstack: Прямой аналог --nxcompat. Запрещает выполнение кода в стеке.
-HOST_LINUX_LDFLAGS=(
-    "-pipe"
-    "-fuse-ld=${HOST_LD}"
-    "-Wl,-z,relro"
-    "-Wl,-z,now"
-    "-Wl,-z,noexecstack"
-    "-Wl,--hash-style=gnu"
-    # "-Wl,--no-keep-memory" # reread from disk not ram
-    "-Wl,-O1"
-    "-Wl,--as-needed"
-)
-[[ "$PREFER_SHARED" != "1" ]] && HOST_LINUX_LDFLAGS+=( "-Wl,--gc-sections" )
-
 # Динамически перестраиваем переменные окружения
 apply_lto_policy() {
     local is_lld=0
@@ -402,39 +377,58 @@ apply_lto_policy() {
 
     if should_apply_lto; then
         log_info "⚡ [LTO ENABLED] Applying Link-Time Optimization for: $STAGENAME"
-        # Locate the cross-compiler's LTO plugin path automatically
-        GCC_LTO_PLUGIN=$("${FFBUILD_CROSS_PREFIX}gcc" -print-prog-name=liblto_plugin.so)
 
         export RUSTLTO=" -C lto=fat"
         export USELTO="-flto=4 -flto-partition=balanced"
         export USELTO_C=" -ffat-lto-objects -fmerge-all-constants"
+
         # -O3 optimization will be added to LDFLAGS as well
         if [[ $is_lld -eq 0 ]]; then
-            GCC_LTO_PLUGIN=$("${CC}" -print-prog-name=liblto_plugin.so)
+            local GCC_LTO_PLUGIN=$("${CC}" -print-prog-name=liblto_plugin.so)
             export USELTO_L=" ${OPT_LEVEL} -Wl,-plugin,${GCC_LTO_PLUGIN}"
         else
             export USELTO_L=" ${OPT_LEVEL}"
         fi
+
         export NOLTO="-fno-lto"
-        # Переключаемся на плагины GCC, корректно обрабатывающие LTO байт-код
         export AR="${FFBUILD_CROSS_PREFIX}gcc-ar"
         export NM="${FFBUILD_CROSS_PREFIX}gcc-nm"
         export RANLIB="${FFBUILD_CROSS_PREFIX}gcc-ranlib"
     else
-        # Принудительно гасим LTO для стадии без LTO
         export RUSTLTO=""
         export USELTO="-fno-lto"
         export USELTO_C=""
         export USELTO_L=""
         export NOLTO="-fno-lto"
-        # Возвращаем стандартные утилиты сборки без LTO плагинов
         export AR="${FFBUILD_CROSS_PREFIX}ar"
         export NM="${FFBUILD_CROSS_PREFIX}nm"
         export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
     fi
 
-    # Пересчитываем хостовые флаги с учетом нового статуса LTO
-    # Настраиваем HOST_RUSTFLAGS (всегда Linux ELF)
+    # Флаги для ХОСТА (Linux), которые всегда нужны для нативных сборок
+    # * -Wl,--hash-style=gnu: Создает более быстрые таблицы символов (GNU-style), что ускоряет запуск программы (актуально для инструментов, которые вызываются тысячи раз за сборку).
+    # * -Wl,--strip-all (или просто -s): Удаляет отладочные символы, значительно уменьшая размер бинарника.
+    # * -Wl,--gc-sections: Удаляет неиспользуемый код из бинарника. Работает в паре с -ffunction-sections -fdata-sections в CFLAGS. Полезно, чтобы нативный инструмент был компактным.
+    # * -Wl,-O1: Включает оптимизации самого линковщика (например, сокращение таблиц хешей).
+    # * -Wl,--as-needed: Игнорирует библиотеки, которые были указаны в командной строке, но фактически не используются кодом. Это предотвращает лишние зависимости.
+    # * -Wl,-z,relro -Wl,-z,now: Это «Full RELRO». Аналог --dynamicbase. Делает таблицу функций (GOT) только для чтения, что предотвращает многие эксплойты.
+    # * -Wl,-z,noexecstack: Прямой аналог --nxcompat. Запрещает выполнение кода в стеке.
+    local HOST_LINUX_LDFLAGS=(
+        "-pipe"
+        "-fuse-ld=${HOST_LD}"
+        "-Wl,-z,relro"
+        "-Wl,-z,now"
+        "-Wl,-z,noexecstack"
+        "-Wl,--hash-style=gnu"
+        # "-Wl,--no-keep-memory" # reread from disk not ram
+        "-Wl,-O1"
+        "-Wl,--as-needed"
+    )
+    [[ "$PREFER_SHARED" != "1" ]] && HOST_LINUX_LDFLAGS+=( "-Wl,--gc-sections" )
+
+    # Общие настройки Rust; codegen-units = 16 (default)
+    local COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=${RUST_STRIP_POLICY} -C codegen-units=1 -C opt-level=3 ${RUSTLTO}"
+
     export HOST_RUSTFLAGS="${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${HOST_LINUX_LDFLAGS[@]}") -C embed-bitcode=yes"
     export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]} ${USELTO}${USELTO_L}"
     export HOST_CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -fno-plt -pipe ${G_FLAGS} -ffunction-sections -fdata-sections -std=gnu23 ${USELTO}${USELTO_C}"
@@ -446,133 +440,134 @@ apply_lto_policy() {
     export LDFLAGS_FOR_BUILD="${HOST_LDFLAGS}"
     export CC_LD_FOR_BUILD="${HOST_LD}"
     export CXX_LD_FOR_BUILD="${HOST_LD}"
+
+    # Ветвление по TARGET
+    if [[ "$TARGET" == "win64" ]]; then
+        export BASE_CFLAGS="-mms-bitfields${STACK_FLAGS} -Wno-attributes"
+        export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
+
+        local console_flag=" -mconsole"
+        local BASE_LD_FLAGS=(
+            "-pipe"
+            "-fuse-ld=${TARGET_LD}"
+            "-Wl,--high-entropy-va"
+            "-Wl,--nxcompat"
+            "-Wl,--dynamicbase"
+            "-Wl,--stack,8388608"
+            "-Wl,--as-needed"
+            "-Wl,--subsystem=console"
+        )
+
+        if [[ $is_lld -eq 1 ]]; then
+            BASE_LD_FLAGS+=(
+                # # "-Wl,--thinlto-jobs=all" # only for no fat lto
+                # "-Wl,-mllvm,-lldtailmerge" # clang flags
+            )
+        else
+            BASE_LD_FLAGS+=( "-Wl,--reduce-memory-overheads" )
+        fi
+
+        [[ "$PREFER_SHARED" != "1" ]] && BASE_LD_FLAGS+=( "-Wl,--gc-sections" )
+
+        local MAIN_LDFLAGS=("${BASE_LD_FLAGS[@]}")
+        MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
+
+        if [[ "$PREFER_SHARED" == "1" ]]; then
+            export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}${console_flag}"
+            export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}${console_flag}"
+            local RUST_STATIC_CFG=""
+            export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
+        else
+            export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}${console_flag}"
+            export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}${console_flag}"
+            MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
+            local RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
+            export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
+        fi
+
+        # RUST SAFE INJECTION
+        local rust_link_args=()
+        for flag in "${MAIN_LDFLAGS[@]}"; do
+            [[ "$flag" == *"-plugin"* ]] && continue
+            [[ "$flag" == *"-fuse-ld="* ]] && continue
+            [[ "$flag" == *"--thinlto-jobs"* ]] && continue
+            [[ "$flag" == *"-lldtailmerge"* ]] && continue
+            [[ "$flag" == *"--subsystem"* ]] && continue
+            rust_link_args+=("$flag")
+        done
+
+        export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${rust_link_args[@]}")"
+        export LIBS="${LIBS:-$SYSTEM_LIBS}"
+        export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="${CC}"
+
+        # Disable ASLR and High Entropy VA to fix the PE base address
+        if [[ "$DEBUG_MODE" == "1" ]]; then
+            log_info "Adjusting LDFLAGS locally for FFmpeg to allow precise debugging..."
+            export LDFLAGS=$(echo " ${LDFLAGS} " | sed \
+                -e 's/ -Wl,--dynamicbase / /g' \
+                -e 's/ -Wl,--high-entropy-va / /g' \
+                -e 's/ -Wl,--stack,8388608 / /g' | xargs)
+        fi
+
+        # Strict Injection for Cargo Target (Overrides hidden cargo-c defaults)
+        local RTARCH="${FFBUILD_RUST_TARGET//-/_}"
+        export "CARGO_TARGET_${RTARCH^^}_RUSTFLAGS"="${RUSTFLAGS}"
+
+    elif [[ "$TARGET" == "linux64" ]]; then
+        export BASE_CFLAGS="${STACK_FLAGS} -Wno-attributes"
+        export BASE_CPPFLAGS="-D_FORTIFY_SOURCE=2"
+
+        # Используем Linux-специфичные LDFLAGS
+        local MAIN_LDFLAGS=("${HOST_LINUX_LDFLAGS[@]}")
+        MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
+
+        if [[ "$PREFER_SHARED" == "1" ]]; then
+            export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
+            export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
+            export STAGE_CFLAGS="-fno-semantic-interposition"
+            export STAGE_CXXFLAGS="-fno-semantic-interposition"
+            local RUST_STATIC_CFG=""
+            export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
+        else
+            export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
+            export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
+            MAIN_LDFLAGS=("-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
+            local RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
+            export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
+        fi
+
+        # RUST SAFE INJECTION
+        local rust_link_args=()
+        for flag in "${MAIN_LDFLAGS[@]}"; do
+            [[ "$flag" == *"-plugin"* ]] && continue
+            [[ "$flag" == *"-fuse-ld="* ]] && continue
+            [[ "$flag" == *"--thinlto-jobs"* ]] && continue
+            [[ "$flag" == *"-lldtailmerge"* ]] && continue
+            [[ "$flag" == *"--subsystem"* ]] && continue
+            rust_link_args+=("$flag")
+        done
+
+        export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${rust_link_args[@]}")"
+        export LIBS="${LIBS} -ldl -lrt"
+        export CUDA_PATH=/usr/lib/nvidia-cuda-toolkit
+        export PATH="${PATH}:/usr/local/cuda/bin"
+
+        # Disable ASLR and High Entropy VA to fix the PE base address
+        if [[ "$DEBUG_MODE" == "1" ]]; then
+            log_info "Adjusting LDFLAGS locally for FFmpeg to allow precise debugging..."
+            export LDFLAGS=$(echo " ${LDFLAGS} " | sed \
+                -e 's/ -Wl,--dynamicbase / /g' \
+                -e 's/ -Wl,--high-entropy-va / /g' \
+                -e 's/ -Wl,--stack,8388608 / /g' | xargs)
+        fi
+        # Strict Injection for Cargo Target (Overrides hidden cargo-c defaults)
+        local RTARCH="${FFBUILD_RUST_TARGET//-/_}"
+        export "CARGO_TARGET_${RTARCH^^}_RUSTFLAGS"="${RUSTFLAGS}"
+    fi
+
+    export CPPFLAGS="-I${FFBUILD_PREFIX}/include ${BASE_CPPFLAGS}"
 }
 export -f apply_lto_policy
-
-# Ветвление по TARGET
-if [[ "$TARGET" == "win64" ]]; then
-    export BASE_CFLAGS="-mms-bitfields${STACK_FLAGS} -Wno-attributes"
-    export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
-
-    is_lld=0
-    if [[ "${TARGET_LD}" == "lld" || "${TARGET_LD}" == *"ld.lld"* ]]; then
-        is_lld=1
-    fi
-
-    BASE_LD_FLAGS=(
-        "-pipe"
-        "-fuse-ld=${TARGET_LD}"
-        "-Wl,--high-entropy-va"
-        "-Wl,--nxcompat"
-        "-Wl,--dynamicbase"
-        "-Wl,--stack,8388608"
-        "-Wl,--as-needed"
-        "-Wl,--subsystem=console"
-    )
-
-    if [[ $is_lld -eq 1 ]]; then
-        BASE_LD_FLAGS+=(
-            # # "-Wl,--thinlto-jobs=all" # only for no fat lto
-            # "-Wl,-mllvm,-lldtailmerge" # clang flags
-        )
-    else
-        BASE_LD_FLAGS+=( "-Wl,--reduce-memory-overheads" )
-    fi
-
-    [[ "$PREFER_SHARED" != "1" ]] && BASE_LD_FLAGS+=( "-Wl,--gc-sections" )
-
-    MAIN_LDFLAGS=("${BASE_LD_FLAGS[@]}")
-    MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
-
-    console_flag=" -mconsole"
-
-    if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}${console_flag}"
-        export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}${console_flag}"
-        RUST_STATIC_CFG=""
-        export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
-    else
-        export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}${console_flag}"
-        export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}${console_flag}"
-        MAIN_LDFLAGS=("-Wl,-Bstatic" "-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
-        RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
-        export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
-    fi
-
-    # RUST SAFE INJECTION
-    rust_link_args=()
-    for flag in "${MAIN_LDFLAGS[@]}"; do
-        [[ "$flag" == *"-plugin"* ]] && continue
-        [[ "$flag" == *"-fuse-ld="* ]] && continue
-        [[ "$flag" == *"--thinlto-jobs"* ]] && continue
-        [[ "$flag" == *"-lldtailmerge"* ]] && continue
-        [[ "$flag" == *"--subsystem"* ]] && continue
-        rust_link_args+=("$flag")
-    done
-
-    export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${rust_link_args[@]}")"
-    export LIBS="${LIBS:-$SYSTEM_LIBS}"
-    export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER="${CC}"
-
-    # Disable ASLR and High Entropy VA to fix the PE base address
-    if [[ "$DEBUG_MODE" == "1" ]]; then
-        log_info "Adjusting LDFLAGS locally for FFmpeg to allow precise debugging..."
-        export LDFLAGS=$(echo " ${LDFLAGS} " | sed \
-            -e 's/ -Wl,--dynamicbase / /g' \
-            -e 's/ -Wl,--high-entropy-va / /g' \
-            -e 's/ -Wl,--stack,16777216 / /g' | xargs)
-    fi
-
-elif [[ "$TARGET" == "linux64" ]]; then
-    export BASE_CFLAGS="${STACK_FLAGS} -Wno-attributes"
-    export BASE_CPPFLAGS="-D_FORTIFY_SOURCE=2"
-
-    # Используем Linux-специфичные LDFLAGS
-    MAIN_LDFLAGS=("${HOST_LINUX_LDFLAGS[@]}")
-    MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
-
-    if [[ "$PREFER_SHARED" == "1" ]]; then
-        export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -fPIC -std=gnu++20${ASAN_CXXFLAGS}"
-        export STAGE_CFLAGS="-fno-semantic-interposition"
-        export STAGE_CXXFLAGS="-fno-semantic-interposition"
-        RUST_STATIC_CFG=""
-        export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
-    else
-        export CFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu17${ASAN_CFLAGS}"
-        export CXXFLAGS="${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -pipe ${G_FLAGS} ${BASE_CFLAGS} -ffunction-sections -fdata-sections -std=gnu++20${ASAN_CXXFLAGS}"
-        MAIN_LDFLAGS=("-static" "-static-libgcc" "-static-libstdc++" "${MAIN_LDFLAGS[@]}")
-        RUST_STATIC_CFG="-C target-feature=+crt-static -C embed-bitcode=yes"
-        export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
-    fi
-
-    # RUST SAFE INJECTION
-    rust_link_args=()
-    for flag in "${MAIN_LDFLAGS[@]}"; do
-        [[ "$flag" == *"-plugin"* ]] && continue
-        [[ "$flag" == *"-fuse-ld="* ]] && continue
-        [[ "$flag" == *"--thinlto-jobs"* ]] && continue
-        [[ "$flag" == *"-lldtailmerge"* ]] && continue
-        [[ "$flag" == *"--subsystem"* ]] && continue
-        rust_link_args+=("$flag")
-    done
-
-    export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${rust_link_args[@]}")"
-    export LIBS="${LIBS} -ldl -lrt"
-    export CUDA_PATH=/usr/lib/nvidia-cuda-toolkit
-    export PATH="${PATH}:/usr/local/cuda/bin"
-
-    # Disable ASLR and High Entropy VA to fix the PE base address
-    if [[ "$DEBUG_MODE" == "1" ]]; then
-        log_info "Adjusting LDFLAGS locally for FFmpeg to allow precise debugging..."
-        export LDFLAGS=$(echo " ${LDFLAGS} " | sed \
-            -e 's/ -Wl,--dynamicbase / /g' \
-            -e 's/ -Wl,--high-entropy-va / /g' \
-            -e 's/ -Wl,--stack,16777216 / /g' | xargs)
-    fi
-fi
-
-export CPPFLAGS="-I${FFBUILD_PREFIX}/include ${BASE_CPPFLAGS}"
 
 generate_meson_cross() {
 
