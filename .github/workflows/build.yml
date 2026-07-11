@@ -524,26 +524,15 @@ jobs:
           path: .cache/downloads
           key: ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}
 
-      - name: Check FFmpeg Cache Content
-        id: check_ffmpeg
-        run: |
-          if [ -f ".cache/ffmpeg/.current_commit" ]; then
-            echo "ffmpeg_has_data=true" >> $GITHUB_OUTPUT
-            echo "✅ FFmpeg sources found. Ready to cache."
-          else
-            echo "ffmpeg_has_data=false" >> $GITHUB_OUTPUT
-            echo "⚠️ FFmpeg sources folder is empty or broken. Skipping cache save!"
-          fi
-
       - name: Save FFmpeg Source Tree
         if: |
           always() && 
           steps.download_step.outcome == 'success' && 
-          (steps.restore_downloads.outputs.cache-hit != 'true' || github.run_attempt > 1)
+          steps.restore_downloads.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg-info.outputs.commit }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg-info.outputs.commit }}
 
       - name: Cleanup Old Caches
         if: github.event.inputs.regularClean == 'true' && !cancelled()
