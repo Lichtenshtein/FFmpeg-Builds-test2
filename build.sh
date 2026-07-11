@@ -183,7 +183,7 @@ fi
 
 pushd "$FFMPEG_SOURCE_DIR"
 
-# АВТО-ПАТЧИНГ
+# AUTO-PATCHING
 apply_ffmpeg_patches
 
 # =======================================
@@ -319,22 +319,35 @@ fi
 # =======================================
 # GENERATION OF COMPONENT STATE VARIABLES
 # =======================================
-log_debug "${SEARCH_MARK} Scanning FFmpeg configuration for enabled components..."
-# Список компонентов для проверки
+
+[[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "${SEARCH_MARK} Scanning FFmpeg configuration for enabled components (fast-scan)..."
+
+declare -A ENABLED_COMPONENTS
+for flag in $FINAL_CONFIGURE; do
+    if [[ "$flag" =~ ^--enable-([^=[:space:]]+) ]]; then
+        ENABLED_COMPONENTS["${BASH_REMATCH[1]}"]=1
+    fi
+done
+
+# List of components to check
 COMPONENTS=(libtorch libopenvino libflite audiotoolbox libtensorflow libtesseract openssl frei0r whisper liblcevc_dec)
-# Создаем имя переменной libtesseract -> HAS_LIBTESSERACT
+
+# Create a variable name libtesseract -> HAS_LIBTESSERACT
 for comp in "${COMPONENTS[@]}"; do
     clean_name="${comp^^}"
     clean_name="${clean_name//-/_}"
     var_name="HAS_${clean_name}"
-    if [[ "$FINAL_CONFIGURE" == *"--enable-$comp"* ]]; then
+
+    if [[ -n "${ENABLED_COMPONENTS[$comp]}" ]]; then
         export "$var_name=1"
-        log_debug "Component $comp: ${GREEN}ENABLED${NC} (${var_name}=1)"
+        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "Component $comp: ${GREEN}ENABLED${NC} (${var_name}=1)"
     else
         export "$var_name=0"
-        log_debug "Component $comp: ${RED}DISABLED${NC} (${var_name}=0)"
+        [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "Component $comp: ${RED}DISABLED${NC} (${var_name}=0)"
     fi
 done
+
+unset ENABLED_COMPONENTS
 
 # ==================================
 # OPENVINO PROCESSING (If enabled)
