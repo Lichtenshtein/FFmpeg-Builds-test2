@@ -6,7 +6,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '06-libiconv|07-gettext|08-zlib|11-bzlib|11-brotli|11-xz|12-libffi|15-pcre2|16-libxml2|16-glib2|18-cdio|18-cdiowpar|37-giflib|37-libpng|37-libjpeg-turbo|37-libtiff|38-libwebp|40-lensfun|40-lcms2|44-dav1d|44-svtav1|45-libavif|45-libjxl'
+        default: '06-libiconv|07-gettext|08-zlib|11-bzlib|11-brotli|11-xz|12-libffi|15-pcre2|16-libxml2|16-glib2|18-cdio|18-cdiowpar|37-giflib|37-libpng|37-libjpeg-turbo|37-libtiff|38-libwebp|40-lensfun|40-lcms2|44-dav1d|44-rav1e.sh|44-svtav1|45-libavif|45-libjxl'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
@@ -346,7 +346,7 @@ jobs:
       - name: Compute Unified Dockerfile Hash
         id: docker_hash
         run: |
-          HASH=$(sha256sum images/base-win64/Dockerfile images/base-win64/toolchain.cmake images/base-win64/cross.meson 2>/dev/null | sha256sum | cut -c1-16)
+          HASH=$(sha256sum images/base-win64/Dockerfile 2>/dev/null | sha256sum | cut -c1-16)
           echo "hash=$HASH" >> $GITHUB_OUTPUT
 
       - name: Check if Base Image Already Exists
@@ -383,21 +383,27 @@ jobs:
           cache-from: ${{ github.event.inputs.rebuild_base != 'true' && 'type=gha,scope=ffmpeg-base-cache' || '' }}
           cache-to: ${{ github.event.inputs.rebuild_base != 'true' && 'type=gha,mode=max,scope=ffmpeg-base-cache' || '' }}
 
-      - name: Get Download Cache Key (Stable)
-        id: dl_cache
+      - name: Get Cache Keys (Separated)
+        id: cache_keys
         run: |
           chmod +x ./util/state_hash.sh
-          KEY=$(./util/state_hash.sh)
-          echo "stable_key=dl_cache-${KEY}" >> $GITHUB_OUTPUT
+
+          # Generate a key strictly for third-party libraries
+          DEPS_KEY=$(./util/state_hash.sh deps)
+          echo "stable_key=dl_cache-${DEPS_KEY}" >> $GITHUB_OUTPUT
+
+          # Ggenerate a key strictly for configuring FFmpeg itself.
+          FF_KEY=$(./util/state_hash.sh ffmpeg)
+          echo "ffmpeg_hash=${FF_KEY}" >> $GITHUB_OUTPUT
 
       - name: Restore Third-Party Downloads
         id: restore_downloads
         uses: actions/cache/restore@v5.0.5
         with:
           path: .cache/downloads
-          key: ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}
+          # cache of deps depends ONLY on the script code and their patches
+          key: ffmpeg-downloads-${{ steps.cache_keys.outputs.stable_key }}
           restore-keys: |
-            ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}-
             ffmpeg-downloads-
 
       - name: Get FFmpeg latest version
@@ -422,9 +428,10 @@ jobs:
         uses: actions/cache/restore@v5.0.5
         with:
           path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg-info.outputs.commit }}
+          # cache depends on: its patch/branch hash + current commit in master
+          key: ffmpeg-src-${{ steps.cache_keys.outputs.ffmpeg_hash }}-${{ steps.ffmpeg-info.outputs.commit }}
           restore-keys: |
-            ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-
+            ffmpeg-src-${{ steps.cache_keys.outputs.ffmpeg_hash }}-
 
       - name: Restore TensorFlow Models Cache
         if: env.USE_TENSORFLOW == '1'
@@ -520,7 +527,7 @@ jobs:
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/downloads
-          key: ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}
+          key: ffmpeg-downloads-${{ steps.cache_keys.outputs.stable_key }}
 
       - name: Save FFmpeg Source Tree
         if: |
@@ -530,7 +537,7 @@ jobs:
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg-info.outputs.commit }}
+          key: ffmpeg-src-${{ steps.cache_keys.outputs.ffmpeg_hash }}-${{ steps.ffmpeg-info.outputs.commit }}
 
       - name: Cleanup Old Caches
         if: github.event.inputs.regularClean == 'true' && !cancelled()
