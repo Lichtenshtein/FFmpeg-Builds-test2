@@ -6,8 +6,8 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '08-zlib|09-gmp|11-brotli|11-zstd|31-nettle|32-gnutls'
-        # default: '.*'
+        # default: '08-zlib|09-gmp|11-brotli|11-zstd|31-nettle|32-gnutls'
+        default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
@@ -536,11 +536,14 @@ jobs:
           fi
 
       - name: Save FFmpeg Source Tree
-        if: always() && steps.check_ffmpeg.outputs.ffmpeg_has_data == 'true' && steps.restore_ffmpeg.outputs.cache-hit != 'true'
+        if: |
+          always() && 
+          steps.download_step.outcome == 'success' && 
+          (steps.restore_downloads.outputs.cache-hit != 'true' || github.run_attempt > 1)
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg-info.outputs.commit }}-${{ github.run_id }}
+          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg-info.outputs.commit }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Cleanup Old Caches
         if: github.event.inputs.regularClean == 'true' && !cancelled()
