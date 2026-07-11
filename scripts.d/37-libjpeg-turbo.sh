@@ -51,10 +51,6 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-        find /build/$STAGENAME -type f -name "*.${lib_ext}" -printf "%p (%s bytes)\n"
-    fi
-
     for pc in "$PC_DIR"/*jpeg*.pc; do
         [[ -e "$pc" ]] || continue
         if [[ -n "$static_flags" ]]; then
