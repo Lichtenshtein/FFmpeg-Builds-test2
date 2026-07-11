@@ -6,8 +6,8 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        # default: '06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|12-libffi|14-freetype|15-pcre2|16-glib2|16-libxml2|17-harfbuzz|37-libpng|38-libwebp|39-fontconfig|39-fribidi|39-pixman|40-cairo|40-harfbuzz|41-freetype|43-pango|44-dav1d|44-svtav1|45-libavif|45-librsvg'
-        default: '.*'
+        default: '08-zlib|09-gmp|11-brotli|11-zstd|31-nettle|32-gnutls'
+        # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
@@ -107,13 +107,13 @@ on:
         type: boolean
         default: true
 env:
-  # Общие настройки локали
+  # General locale settings
   LANG: C.UTF-8
   LC_ALL: C.UTF-8
-  # Системные настройки Docker
+  # Docker System Settings
   DOCKER_BUILDKIT: 1
   DOCKER_BUILD_SUMMARY: false
-  # Параметры сборки
+  # Build parameters
   TARGET: win64
   VARIANT: nonfree
   # ccache
@@ -125,18 +125,18 @@ env:
   CCACHE_COMPILERCHECK: "content"
   CCACHE_PATH_MGMT: "true"
   CCACHE_SLOPPINESS: "file_macro,time_macros,include_file_ctime,include_file_mtime,locale,random_seed,conf_tests"
-  CCACHE_DIR: "/root/.cache/ccache"
-  # Списки исключений
-  # Список для хранения .git от очистки (в download.sh)
+  # CCACHE_DIR: "/root/.cache/ccache"
+  # Exclusion Lists
+  # List to keep .git files from being pruned (in download.sh)
   # Some patches apply only with git am...
   GIT_PRESERVE_LIST: "ffmpeg|x265|vulkan-loader|twolame|gme|pango|dav1d"
-  # Список для сохранения DLL (в run_stage.sh)
+  # List to keep DLLs from cleaning (in run_stage.sh)
   DLL_PRESERVE_LIST: "openvino|torch|tensorflow|vulkan|mfx|opencv|leptonica|audiotoolbox|avisynth|vapoursynth|frei0r|nnedi3|whisper"
-  # Список для сохранения статики .a (в run_stage.sh)
+  # List to keep static .a from cleaning (in run_stage.sh)
   LIB_PRESERVE_LIST:
-  # Список компонентов к которым strip не применяется (openvino,cuda-llvm)
+  # List of components to which strip does not apply (openvino, cuda-llvm)
   STRIP_EXCLUDE_LIST:
-  # Преобразование boolean для bash-скриптов
+  # Boolean conversion for bash scripts
   DEBUG_NO_HASH:  ${{ github.event.inputs.debug_no_hash  == 'true' && '1' || '0' }}
   FFMPEG_PATCHES: ${{ github.event.inputs.patch_ffmpeg   == 'true' && '1' || '0' }}
   FFMPEG_UPDATE:  ${{ github.event.inputs.ffmpeg_update  == 'true' && '1' || '0' }}
@@ -524,12 +524,23 @@ jobs:
           path: .cache/downloads
           key: ffmpeg-downloads-${{ steps.dl_cache.outputs.stable_key }}-${{ github.run_id }}
 
+      - name: Check FFmpeg Cache Content
+        id: check_ffmpeg
+        run: |
+          if [ -f ".cache/ffmpeg/.current_commit" ]; then
+            echo "ffmpeg_has_data=true" >> $GITHUB_OUTPUT
+            echo "✅ FFmpeg sources found. Ready to cache."
+          else
+            echo "ffmpeg_has_data=false" >> $GITHUB_OUTPUT
+            echo "⚠️ FFmpeg sources folder is empty or broken. Skipping cache save!"
+          fi
+
       - name: Save FFmpeg Source Tree
-        if: always() && steps.restore_ffmpeg.outputs.cache-hit != 'true'
+        if: always() && steps.check_ffmpeg.outputs.ffmpeg_has_data == 'true' && steps.restore_ffmpeg.outputs.cache-hit != 'true'
         uses: actions/cache/save@v5.0.5
         with:
           path: .cache/ffmpeg
-          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg-info.outputs.commit }}
+          key: ffmpeg-src-${{ steps.dl_cache.outputs.stable_key }}-${{ steps.ffmpeg-info.outputs.commit }}-${{ github.run_id }}
 
       - name: Cleanup Old Caches
         if: github.event.inputs.regularClean == 'true' && !cancelled()

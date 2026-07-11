@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/gnutls/gnutls.git"
-SCRIPT_COMMIT="0b9fcb47c734191695b7b7812a0ba30a5c712b9f"
+SCRIPT_COMMIT="3bc844849437e9bb927e10bc0abe5c2f8e18953b"
 
 ffbuild_depends() {
     echo zlib
@@ -28,13 +28,13 @@ ffbuild_dockerbuild() {
 
     sed -i 's/use_git=false/use_git=true/g' bootstrap || true
 
-    # 2. Перехватываем хук в bootstrap.conf и заменяем флаг --with-tests на --without-tests для ggl-модулей
+    # intercept the hook in bootstrap.conf and replace the --with-tests flag with --without-tests for ggl modules
     sed -i 's/--macro-prefix=ggl --with-tests/--macro-prefix=ggl --without-tests/g' bootstrap.conf || true
 
-    # вырезаем инклуд cligen.mk из Makefile.am, который вешал automake
+    # We remove the cligen.mk inclusion from Makefile.am, which was hanging automake
     sed -i '/cligen\.mk/d' Makefile.am || true
 
-    # Удаляем блок тестов, документации и утилит, чтобы configure даже не пытался их создать
+    # We remove the block of tests, documentation, and utilities so that configure doesn't even try to create them.
     sed -i '/doc\/Makefile/,/doc\/scripts\/Makefile/d' configure.ac
     sed -i '/tests\/Makefile/,/fuzz\/Makefile/d' configure.ac
     sed -i '/src\/Makefile/d' configure.ac
@@ -42,7 +42,7 @@ ffbuild_dockerbuild() {
     sed -i '/src\/gl\/tests\/Makefile/d' configure.ac
     sed -i '/po\/Makefile.in/d' configure.ac
 
-    # Очищаем корневой Makefile.am от всех вырезанных подпапок
+    # Clear the root Makefile.am from all deleted subfolders
     sed -i 's/^SUBDIRS = .*/SUBDIRS = gl lib/g' Makefile.am
     sed -i '/SUBDIRS +=/d' Makefile.am
     sed -i '/if ENABLE_DANE/,/endif/ { /SUBDIRS +=/s/+=/=/; /libdane/p; d }' Makefile.am
@@ -73,15 +73,15 @@ ffbuild_dockerbuild() {
 
     if has_library "zstd"; then
         log_info "ZSTD library detected. Building GnuTLS with ZSTD support..."
-        myconf+=( "--with-zstd=link" )
+        myconf+=( --with-zstd=link )
     fi
     if has_library "z"; then
         log_info "ZLib library detected. Building GnuTLS with ZLib support..."
-        myconf+=( "--with-zlib=link" )
+        myconf+=( --with-zlib=link )
     fi
     if has_library "brotlienc"; then
         log_info "Brotli library detected. Building GnuTLS with Brotli support..."
-        myconf+=( "--with-brotli=link" )
+        myconf+=( --with-brotli=link )
     fi
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
@@ -89,7 +89,7 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-shared --enable-static )
 
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
-    CPPFLAGS="$CPPFLAGS" \
+    CPPFLAGS="$CPPFLAGS -D_UCRT=1" \
     CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     LIBS="$LIBS $DEP_LIBS" \
