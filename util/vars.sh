@@ -546,11 +546,30 @@ elif [[ "$TARGET" == "linux64" ]]; then
         export LDFLAGS="${ASAN_LDFLAGS}${MAIN_LDFLAGS[*]}"
     fi
 
-    export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${MAIN_LDFLAGS[@]}")"
+    # RUST SAFE INJECTION
+    rust_link_args=()
+    for flag in "${MAIN_LDFLAGS[@]}"; do
+        [[ "$flag" == *"-plugin"* ]] && continue
+        [[ "$flag" == *"-fuse-ld="* ]] && continue
+        [[ "$flag" == *"--thinlto-jobs"* ]] && continue
+        [[ "$flag" == *"-lldtailmerge"* ]] && continue
+        [[ "$flag" == *"--subsystem"* ]] && continue
+        rust_link_args+=("$flag")
+    done
+
+    export RUSTFLAGS="${RUST_STATIC_CFG} ${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${rust_link_args[@]}")"
     export LIBS="${LIBS} -ldl -lrt"
     export CUDA_PATH=/usr/lib/nvidia-cuda-toolkit
     export PATH="${PATH}:/usr/local/cuda/bin"
 
+    # Disable ASLR and High Entropy VA to fix the PE base address
+    if [[ "$DEBUG_MODE" == "1" ]]; then
+        log_info "Adjusting LDFLAGS locally for FFmpeg to allow precise debugging..."
+        export LDFLAGS=$(echo " ${LDFLAGS} " | sed \
+            -e 's/ -Wl,--dynamicbase / /g' \
+            -e 's/ -Wl,--high-entropy-va / /g' \
+            -e 's/ -Wl,--stack,16777216 / /g' | xargs)
+    fi
 fi
 
 export CPPFLAGS="-I${FFBUILD_PREFIX}/include ${BASE_CPPFLAGS}"
