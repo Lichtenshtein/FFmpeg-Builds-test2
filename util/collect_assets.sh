@@ -6,12 +6,14 @@ URL_TESS_BASE="https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/ref
 URL_TESS_BASE2="https://raw.githubusercontent.com/NoMercy-Entertainment/nomercy-tesseract/refs/heads/master/tessdata"
 URL_TESS_SCRIPT="https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/refs/heads/main/script"
 # OpenVINO (ESPCN)
-URL_OV_BASE="https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/single-image-super-resolution-1033/FP32"
+URL_VINO_BASE="https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/single-image-super-resolution-1033/FP32"
 # URL_OV_BASE2="https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/single-image-super-resolution-1033/FP16"
 # LibTorch (EDSR)
 URL_TORCH_EDSR="https://github.com/pytorch/examples/raw/main/super_resolution/model.pth"
 # APPLE AUDIOTOOLBOX
 QTFILES_URL="https://github.com/AnimMouse/QTFiles/releases/download/v12.13.9.1/QTfiles64.7z"
+# Whisper
+URL_WHISPER_MODELS="https://github.com/NoMercy-Entertainment/nomercy-whisper-models"
 
 # =========================================================
 
@@ -194,14 +196,14 @@ fi
 log_info "${SYNC_MARK} Coping build log file..."
 cp ${OP_VERB} "$FFMPEG_CONFIG_LOG" "${PKG_DIR}/config.log" || true
 
+[[ "$DEBUG_MODE" == "0" && "$GRAB_MODELS" == "1" ]] && log_info "${START_MARK} Starting AI/OCR model and conditional asset collection..."
+
 # ==========================================
 # TESSERACT PROCESSING
 # ==========================================
 
-log_info "${START_MARK} Starting AI/OCR model and conditional asset collection..."
-
 # TESSERACT MODELS (OCR)
-if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBTESSERACT" == "1" ]]; then
+if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBTESSERACT" == "1" && "$GRAB_MODELS" == "1" ]]; then
     log_info "${DOWN_MARK} Downloading Tesseract OCR models (tessdata_best)"
     TESS_DEST="${PKG_DIR}/bin/tessdata"
     mkdir -p "$TESS_DEST/script"
@@ -262,19 +264,20 @@ fi
 # ==========================================
 
 # TENSORFLOW / DNN MODELS (Super Resolution)
-if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBTENSORFLOW" == "1" ]]; then
+if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBTENSORFLOW" == "1" && "$GRAB_MODELS" == "1" ]]; then
+
     log_info "${SYNC_MARK} Collecting TensorFlow SR models from build context..."
 
     TARGET_MODEL_DIR="${ASSETS_DIR}/tensorflow"
-    INTERNAL_MODELS_DIR="${FFBUILD_PREFIX}/share/tensorflow_models"
+    TENSOR_MODEL_DIR="${FFBUILD_PREFIX}/share/tensorflow_models"
 
     mkdir -p "$TARGET_MODEL_DIR"
 
-    if [[ -d "$INTERNAL_MODELS_DIR" && "$(ls -A "$INTERNAL_MODELS_DIR" 2>/dev/null)" ]]; then
-        cp ${OP_VERB} "$INTERNAL_MODELS_DIR"/*.pb "$TARGET_MODEL_DIR/"
+    if [[ -d "$TENSOR_MODEL_DIR" && "$(ls -A "$TENSOR_MODEL_DIR" 2>/dev/null)" ]]; then
+        cp ${OP_VERB} "$TENSOR_MODEL_DIR"/*.pb "$TARGET_MODEL_DIR/"
         log_info "${CHECK_MARK} TensorFlow SR models successfully bundled into package!"
     else
-        log_error "TensorFlow SR models not found in internal storage ($INTERNAL_MODELS_DIR)!"
+        log_error "TensorFlow SR models not found in internal storage ($TENSOR_MODEL_DIR)!"
         # exit 1
     fi
 fi
@@ -285,35 +288,90 @@ fi
 
 # OPENVINO MODELS (VPP_OPENVINO)
 # OpenVINO Models (ESPCN - Super Resolution x2) работают через vpp_openvino
-if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBOPENVINO" == "1" ]]; then
-    log_info "${DOWN_MARK} Downloading OpenVINO models..."
+if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBOPENVINO" == "1" && "$GRAB_MODELS" == "1" ]]; then
+
     mkdir -p "${ASSETS_DIR}/openvino"
-    LINK_OV=$(echo "$URL_OV_BASE" | tr -d ' ')
-    download_file "$LINK_OV/single-image-super-resolution-1033.xml" "${ASSETS_DIR}/openvino/sr_model.xml" ""
-    download_file "$LINK_OV/single-image-super-resolution-1033.bin" "${ASSETS_DIR}/openvino/sr_model.bin" ""
+
+    log_info "${DOWN_MARK} Downloading OpenVINO models..."
+
+    LINK_VINO=$(echo "$URL_VINO_BASE" | tr -d ' ')
+
+    download_file "$LINK_VINO/single-image-super-resolution-1033.xml" "${ASSETS_DIR}/openvino/sr_model.xml" ""
+    download_file "$LINK_VINO/single-image-super-resolution-1033.bin" "${ASSETS_DIR}/openvino/sr_model.bin" ""
 fi
 
 # ==========================================
 # WHISPER PROCESSING
 # ==========================================
 
-if [[ "$DEBUG_MODE" == "0" && "$HAS_WHISPER" == "1" ]]; then
+if [[ "$DEBUG_MODE" == "0" && "$HAS_WHISPER" == "1" && "$GRAB_MODELS" == "1" ]]; then
+
+    # Valid options: base, small, medium, large-v3
+    WHISPER_MODEL="${WHISPER_MODEL:-small}"
+
     mkdir -p "${ASSETS_DIR}/whisper"
 
     WHISPER_MODEL_DIR="${ASSETS_DIR}/whisper"
 
-    WHISPER_LATEST_TAG=$(curl -sIL -o /dev/null -w '%{url_effective}' "https://github.com/NoMercy-Entertainment/nomercy-whisper-models/releases/latest" | awk -F'/' '{print $NF}')
+    # Getting the current release tag
+    WHISPER_LATEST_TAG=$(curl -sIL -o /dev/null -w '%{url_effective}' "${URL_WHISPER_MODELS}/releases/latest" | awk -F'/' '{print $NF}')
 
     log_info "Whisper model version found: ${WHISPER_LATEST_TAG}"
-    log_info "${DOWN_MARK} Downloading Whisper models..."
+    log_info "Selected Whisper model configuration: ${WHISPER_MODEL}"
 
-    download_file "https://github.com/NoMercy-Entertainment/nomercy-whisper-models/releases/download/${WHISPER_LATEST_TAG}/ggml-small.bin" "${WHISPER_MODEL_DIR}/ggml-small.bin"  ""
+    DOWNLOAD_SUCCESS=0
 
-    if ls "${WHISPER_MODEL_DIR}/ggml-small.bin" >/dev/null 2>&1; then
-        log_info "${CHECK_MARK} Whisper model successfully deployed to:\n${WHISPER_MODEL_DIR}"
+    case "${WHISPER_MODEL}" in
+        base|small|medium)
+            WHISPER_MODEL_FILE="ggml-${WHISPER_MODEL}.bin"
+            WHISPER_DOWNLOAD_URL="${URL_WHISPER_MODELS}/releases/download/${WHISPER_LATEST_TAG}/${WHISPER_MODEL_FILE}"
+
+            log_info "${DOWN_MARK} Downloading Whisper ${WHISPER_MODEL} model..."
+            if download_file "${WHISPER_DOWNLOAD_URL}" "${WHISPER_MODEL_DIR}/${WHISPER_MODEL_FILE}" ""; then
+                DOWNLOAD_SUCCESS=1
+            fi
+            ;;
+
+        large-v3)
+            WHISPER_MODEL_FILE="ggml-large-v3.bin"
+            PART_A="${WHISPER_MODEL_FILE}.part-aa"
+            PART_B="${WHISPER_MODEL_FILE}.part-ab"
+
+            log_info "${DOWN_MARK} Downloading parts for Whisper large-v3 model..."
+
+            mkdir -p "${TMP_DIR}/whisper_parts"
+
+            if download_file "${URL_WHISPER_MODELS}/releases/download/${WHISPER_LATEST_TAG}/${PART_A}" "${TMP_DIR}/whisper_parts/${PART_A}" "" && \
+               download_file "${URL_WHISPER_MODELS}/releases/download/${WHISPER_LATEST_TAG}/${PART_B}" "${TMP_DIR}/whisper_parts/${PART_B}" ""; then
+
+                log_info "${BUILD_MARK} Reassembling Whisper large-v3 model from parts..."
+
+                # Glue the parts directly into the target file
+                if cat "${TMP_DIR}/whisper_parts/${PART_A}" "${TMP_DIR}/whisper_parts/${PART_B}" > "${WHISPER_MODEL_DIR}/${WHISPER_MODEL_FILE}"; then
+                    DOWNLOAD_SUCCESS=1
+
+                    rm -rf "${TMP_DIR}/whisper_parts"
+                else
+                    log_error "Failed to glue large-v3 model parts together!"
+                fi
+            else
+                log_error "Failed to download all required parts for large-v3 model."
+            fi
+            ;;
+
+        *)
+            log_error "Unknown WHISPER_MODEL option: '${WHISPER_MODEL}'. Valid types: base, small, medium, large-v3"
+            exit 1
+            ;;
+    esac
+
+    if [[ ${DOWNLOAD_SUCCESS} -eq 1 ]] && [[ -s "${WHISPER_MODEL_DIR}/${WHISPER_MODEL_FILE}" ]]; then
+        log_info "${CHECK_MARK} Whisper model (${WHISPER_MODEL_FILE}) successfully deployed to:\n${WHISPER_MODEL_DIR}"
     else
         log_error "Whisper model deployment verification failed!"
+        # exit 1
     fi
+
 fi
 
 # ==========================================
@@ -334,6 +392,7 @@ fi
 
 # APPLE AUDIOTOOLBOX DLLS (Special handling)
 if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then
+
     QT_DIR="${PKG_DIR}/bin/QTfiles64"
     mkdir -p "${QT_DIR}"
 
@@ -353,6 +412,7 @@ if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then
     else
         log_warn "Assets download failed, but continuing..."
     fi
+
 fi
 
 log_info "${CHECK_MARK} All models and asset collection finished for enabled components."

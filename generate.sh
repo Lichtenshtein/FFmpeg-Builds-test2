@@ -74,6 +74,7 @@ log_info "${CHECK_MARK} Active addins: ${GREY_B}${ADDINS_STR:-none}${NC}"
 [[ "$USE_LIBTORCH" == "1" ]]   && log_info "${XCLAM_MARK} LibTorch component is enabled."
 [[ "$USE_ASAN" == "1" ]]       && log_info "${XCLAM_MARK} Address Sanitizer (ASAN) is enabled."
 [[ "$DEBUG_MODE" == "1" ]]     && log_info "${XCLAM_MARK} Debug mode is enabled. Stripping will be disabled. Binary sizes will increase."
+[[ "$GRAB_MODELS" == "1" ]]    && log_info "${XCLAM_MARK} Will download AI model asset files."
 if [[ "$SEC_PROTO" == "openssl"  ]]; then
     log_info "${XCLAM_MARK} OpenSSL secure transport protocol is chosen."
 elif [[ "$SEC_PROTO" == "gnutls"  ]]; then
@@ -126,6 +127,8 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     USE_AVX512=\"${USE_AVX512}\" \\
     PREFER_SHARED=\"${PREFER_SHARED:-0}\" \\
     OLDER_FFNV=\"${OLDER_FFNV}\" \\
+    GRAB_MODELS=\"${GRAB_MODELS}\" \\
+    WHISPER_MODL_SIZE=\"${WHISPER_MODL_SIZE}\" \\
     BUILD_VINO=\"${BUILD_VINO}\" \\
     DIR_NUMBERS=\"${DIR_NUMBERS}\" \\
     USE_LTO=\"${USE_LTO}\" \\
