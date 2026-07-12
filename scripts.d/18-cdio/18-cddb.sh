@@ -20,13 +20,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    if [[ -f "bootstrap" ]]; then
-        chmod +x bootstrap
-        ./bootstrap
-    elif [[ -f "configure.ac" || -f "configure.in" ]]; then
-        log_info "Generating configure script via autoreconf..."
-        autoreconf -fi
-    fi
+    log_info "Generating configure script via autoreconf..."
+    autoreconf -fi
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
