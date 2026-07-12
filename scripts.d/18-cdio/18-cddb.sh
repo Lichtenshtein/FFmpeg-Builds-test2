@@ -41,6 +41,14 @@ ffbuild_dockerbuild() {
         sed -i 's|#endif /* HAVE_REGEX_H */||g' include/cddb/cddb_regex.h
     fi
 
+    log_info "Creating system regex.h wrapper to bypass name collisions..."
+    cat <<EOF > regex.h
+#ifndef FFBUILD_SYSTEM_REGEX_H
+#define FFBUILD_SYSTEM_REGEX_H
+#include_next <regex.h>
+#endif
+EOF
+
     log_info "Generating configure script via autoreconf..."
     autoreconf -fi
 
@@ -66,7 +74,7 @@ ffbuild_dockerbuild() {
     fi
 
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
-    CPPFLAGS="$CPPFLAGS -DHAVE_REGEX_H=1" \
+    CPPFLAGS="-I. $CPPFLAGS -DHAVE_REGEX_H=1" \
     CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS $DEP_LIBS ${USELTO}${USELTO_L}" \
     LIBS="${ICONV_LIBS} $LIBS" \
