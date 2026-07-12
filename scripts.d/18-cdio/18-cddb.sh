@@ -169,6 +169,6 @@ Libs.private: ${ICONV_LIBS}
 Cflags: -I\${includedir} -I\${includedir}/cddb
 EOF
     else
-        sed -i "s|^Cflags:.*|& -I\${includedir}/cddb|" "$PC_FILE"
+        sed -i "s|^Cflags:.*|& -I\${includedir}/cddb|" "${PC_DIR}/libcddb.pc"
     fi
 }
