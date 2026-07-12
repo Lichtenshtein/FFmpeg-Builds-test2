@@ -17,7 +17,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    autoreconf -if
+    # autoreconf -if
 
     # вставляем макросы прямо в заголовочный файл, который включают все
     find include/cdio -name "*.h" -exec sed -i '1i#ifndef _POSIX_C_SOURCE\n#define _POSIX_C_SOURCE 199309L\n#endif' {} +

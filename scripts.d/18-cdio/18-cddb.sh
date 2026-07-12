@@ -166,7 +166,9 @@ Description: CDDB server access library
 Version: 1.3.2
 Libs: -L\${libdir} -lcddb
 Libs.private: ${ICONV_LIBS}
-Cflags: -I\${includedir}
+Cflags: -I\${includedir} -I\${includedir}/cddb
 EOF
+    else
+        sed -i "s|^Cflags:.*|& -I\${includedir}/cddb|" "$PC_FILE"
     fi
 }
