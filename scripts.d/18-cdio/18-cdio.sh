@@ -23,6 +23,20 @@ ffbuild_dockerbuild() {
         sed -i 's|example/README||g' Makefile.am
     fi
 
+    if [[ -f "configure.ac" ]]; then
+        log_info "Purging missing test, doc, and example paths/commands from configure.ac..."
+        sed -i '/example\/Makefile/d' configure.ac
+        sed -i '/example\/C++/d' configure.ac
+        sed -i '/doc\/doxygen/d' configure.ac
+        sed -i '/doc\/Makefile/d' configure.ac
+        sed -i '/test\/check_common_fn/d' configure.ac
+        sed -i '/test\/data\/Makefile/d' configure.ac
+        sed -i '/test\/driver\/Makefile/d' configure.ac
+        sed -i '/test\/Makefile/d' configure.ac
+        sed -i '/AC_CONFIG_COMMANDS(\[checks\]/,/\])/d' configure.ac
+        sed -i '/AC_CONFIG_FILES(\[test\/check_/d' configure.ac
+    fi
+
     autoreconf -if
 
     find include/cdio -name "*.h" -exec sed -i '1i#ifndef _POSIX_C_SOURCE\n#define _POSIX_C_SOURCE 199309L\n#endif' {} +
@@ -39,8 +53,15 @@ ffbuild_dockerbuild() {
         --without-cd-read
         --without-iso-info
         --without-iso-read
+        --disable-cxx # Disable C++ bindings
         --disable-cpp-progs
     )
+
+    if [[ $TARGET == win64 ]]; then
+        myconf+=(
+            --without-versioned-libs
+        )
+    fi
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
