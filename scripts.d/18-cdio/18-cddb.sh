@@ -34,9 +34,31 @@ ffbuild_dockerbuild() {
         sed -i 's|CDDB_LOH_NI_H|CDDB_LOG_NI_H|g' include/cddb/cddb_log_ni.h
     fi
 
-    log_info "Forcing pcre2posix.h redirection in all project headers..."
-    find . -type f \( -name "*.h" -o -name "*.c" \) -exec sed -i 's|<regex.h>|<pcre2posix.h>|g' {} +
-    find . -type f \( -name "*.h" -o -name "*.c" \) -exec sed -i 's|"regex.h"|<pcre2posix.h>|g' {} +
+    cat <<EOF > include/cddb/cddb_regex.h
+#ifndef CDDB_REGEX_H
+#define CDDB_REGEX_H 1
+#include <stdlib.h>
+
+void cddb_regex_init(void);
+void cddb_regex_destroy(void);
+int cddb_regex_get_int(const char *s, void *matches, int idx);
+unsigned long cddb_regex_get_hex(const char *s, void *matches, int idx);
+double cddb_regex_get_float(const char *s, void *matches, int idx);
+char *cddb_regex_get_string(const char *s, void *matches, int idx);
+
+#endif
+EOF
+
+    cat <<EOF > lib/cddb_regex.c
+#include "cddb/cddb_regex.h"
+
+void cddb_regex_init(void) {}
+void cddb_regex_destroy(void) {}
+int cddb_regex_get_int(const char *s, void *matches, int idx) { return 0; }
+unsigned long cddb_regex_get_hex(const char *s, void *matches, int idx) { return 0; }
+double cddb_regex_get_float(const char *s, void *matches, int idx) { return 0.0; }
+char *cddb_regex_get_string(const char *s, void *matches, int idx) { return NULL; }
+EOF
 
     log_info "Generating configure script via autoreconf..."
     autoreconf -fi
@@ -63,16 +85,14 @@ ffbuild_dockerbuild() {
     fi
 
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
-    CPPFLAGS="$CPPFLAGS -DPCRE2_STATIC -DHAVE_REGEX_H=1" \
+    CPPFLAGS="$CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS $DEP_LIBS ${USELTO}${USELTO_L}" \
-    LIBS="${ICONV_LIBS} -lpcre2-posix -lpcre2-8 $LIBS" \
-    ac_cv_func_regcomp=yes \
+    LIBS="${ICONV_LIBS} $LIBS" \
     ./configure "${myconf[@]}" || return 1
 
-    if [[ -f "config.h" ]]; then
-        sed -i 's|.*pcreposix.*||g' config.h
-        echo "#define HAVE_REGEX_H 1" >> config.h
+    if [[ -f "Makefile" ]]; then
+        sed -i 's|SUBDIRS = include lib examples po|SUBDIRS = include lib po|g' Makefile
     fi
 
     make -j$(nproc) $MAKE_V || return 1
