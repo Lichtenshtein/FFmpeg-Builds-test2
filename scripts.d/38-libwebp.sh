@@ -24,6 +24,14 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    if [[ -f "${PATCHES_DIR}/libwebp/0003-apply-changes-from-libwebp-turbo-fork.patch" ]]; then
+        if [[ -f "src/utils/thread_utils.c" ]]; then
+            log_info "Forcing native pthread.h layout in thread_utils.c for MinGW..."
+            sed -i 's|#if defined(_WIN32)|#if defined(_WIN32_DISABLED_FOR_MINGW_PTHREADS)|g' src/utils/thread_utils.c
+            sed -i 's|#else  // !_WIN32|#else // !_WIN32\n#include <pthread.h>|g' src/utils/thread_utils.c
+        fi
+    fi
+
     mkdir -p _build && cd _build
 
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$PKG_CONFIG_PATH"
