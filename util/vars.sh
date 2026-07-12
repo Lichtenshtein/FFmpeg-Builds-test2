@@ -1722,7 +1722,7 @@ apply_patches() {
     local patch_failed_any=false
 
     for patch in "$PATCH_DIR"/*.patch; do
-        log_info "${TARGET_MARK} APPLYING PATCH: $(basename "$patch")"
+        log_info "${TARGET_MARK} APPLYING PATCH: ${GREY_B}$(basename "$patch")${NC}"
 
         local success=false
         local last_output=""
@@ -1743,7 +1743,7 @@ apply_patches() {
                 log_debug "Trying: $git_opts"
                 # 'if' suppresses set -e on the command
                 if last_output=$(eval "$git_opts" < "$patch" 2>&1); then
-                    log_info "${CHECK_MARK} SUCCESS: Applied with [$git_opts]"
+                    log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied with [${GREY_B}$git_opts${NC}]"
                     success=true
                     break
                 else
@@ -1769,7 +1769,7 @@ apply_patches() {
             do
                 log_debug "Trying: git apply $apply_opts"
                 if last_output=$(git apply $apply_opts "$patch" 2>&1); then
-                    log_info "${CHECK_MARK} SUCCESS: Applied with [git apply $apply_opts]"
+                    log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied with [${GREY_B}git apply $apply_opts${NC}]"
                     success=true
                     break
                 fi
@@ -1795,7 +1795,7 @@ apply_patches() {
                 if patch --dry-run --silent $patch_opts < "$patch" &>/dev/null; then
                     # 'if' suppresses set -e on patch exit code
                     if last_output=$(patch $patch_opts < "$patch" 2>&1); then
-                        log_info "${CHECK_MARK} SUCCESS: Applied with [patch $patch_opts]"
+                        log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied with [${GREY_B}patch $patch_opts${NC}]"
                         success=true
                         break
                     fi
@@ -1808,7 +1808,7 @@ apply_patches() {
         done
 
         if [[ "$success" == "false" ]]; then
-            log_error "FAILED: All attempts to apply $(basename "$patch") failed."
+            log_error "${RED}FAILED${NC}: All attempts to apply ${GREY_B}$(basename "$patch")${NC} failed."
             log_debug "Last attempt output:\n${last_output}"
             patch_failed_any=true
             # Uncomment to make patch failure fatal:
@@ -1844,13 +1844,13 @@ apply_ffmpeg_patches() {
 
     shopt -s nullglob
     for patch in "$FFMPEG_PATCH_DIR"/*.patch; do
-        log_info "${TARGET_MARK} APPLYING: $(basename "$patch")"
+        log_info "${TARGET_MARK} APPLYING PATCH: ${GREY_B}$(basename "$patch")${NC}"
 
         if git apply --ignore-whitespace --intent-to-add "$patch" 2>/dev/null; then
-            log_info "${CHECK_MARK} SUCCESS: Applied $(basename "$patch")"
+            log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied ${GREY_B}$(basename "$patch")${NC}"
             git add -A || true
         else
-            log_error "FAILED: $(basename "$patch") - skipping"
+            log_error "${RED}FAILED${NC}: ${GREY_B}$(basename "$patch")${NC} - skipping"
             git reset -q HEAD -- . || true
         fi
     done
