@@ -327,38 +327,6 @@ export -f should_apply_lto
 # Tip: use -Wa,-mbig-obj for c(xx)flags if see 'too many sections' and 'file too big'
 # Tip: add -Wl,--whole-archive $LIBS -Wl,--no-whole-archive $OTHER_LIBS in 'Libs:' section in .pc file to incapsulate more libs (voices or other) when using LTO for static builds
 
-# these flags appear to conflict with pthread and other threading implementations and cannot be used simultaneously. They should only be used selectively where supported by the libraries themselves
-[[ "$USE_OPENMP" == "1" ]] && \
-export OPENMP_C="-fopenmp " && \
-export OPENMP_LIB="-lgomp "
-
-# Флаги санитайзера замедляют работу ffmpeg в 2-3 раза (плохо)
-# Без части из них ffmpeg не слинкуется, нужно прокидывать и для него (плохо)
-# -fno-sanitize-recover=all при малейшей ошибке в fdk-aac FFmpeg мгновенно завершит работу без шанса на продолжение (плохо)
-# если оставить только -fsanitize=undefined (UBSan), то это даёт гораздо меньше оверхеда, чем address. Но это все равно замедляет работу, хоть и не в 3 раза (плохо)
-if [[ "$USE_ASAN" == "1" ]]; then
-    ASAN_CFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
-    ASAN_CXXFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
-    ASAN_LDFLAGS="-static-libasan -fsanitize=address,undefined "
-    STACK_FLAGS=" -fstack-protector-strong"
-else
-    STACK_FLAGS=" -fstack-protector-strong" # -mstackrealign
-fi
-
-if [[ "$DEBUG_MODE" == "1" ]]; then
-    G_FLAGS="-g1"
-    RUST_STRIP_POLICY="none"
-else
-    # -g0 -fno-var-tracking-assignments - для компилятора GCC/G++: не раздувать отладочную информацию (даже скрытую)
-    G_FLAGS="-g0 -fno-var-tracking-assignments"
-    RUST_STRIP_POLICY="debuginfo"
-fi
-
-OPT_LEVEL="-O3"
-
-# Общие и дополнительные либы
-SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
-export ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -lntdll -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lkernel32 -lnormaliz -lwsock32 -lcomctl32 -lshell32 -loleaut32 -lmingwex -lgcc_eh -lgcc -ld3d11 -ld3d12 -ldxgi -ldxguid -lmfplat -lmfuuid -lmfreadwrite -lgomp"
 
 # Функция для сборки строки RUSTFLAGS из массива
 # Принимает префикс (например "-C link-arg=") и имя массива
@@ -404,6 +372,39 @@ apply_lto_policy() {
         export NM="${FFBUILD_CROSS_PREFIX}nm"
         export RANLIB="${FFBUILD_CROSS_PREFIX}ranlib"
     fi
+
+    # these flags appear to conflict with pthread and other threading implementations and cannot be used simultaneously. They should only be used selectively where supported by the libraries themselves
+    [[ "$USE_OPENMP" == "1" ]] && \
+    export OPENMP_C="-fopenmp " && \
+    export OPENMP_LIB="-lgomp "
+    
+    # Флаги санитайзера замедляют работу ffmpeg в 2-3 раза (плохо)
+    # Без части из них ffmpeg не слинкуется, нужно прокидывать и для него (плохо)
+    # -fno-sanitize-recover=all при малейшей ошибке в fdk-aac FFmpeg мгновенно завершит работу без шанса на продолжение (плохо)
+    # если оставить только -fsanitize=undefined (UBSan), то это даёт гораздо меньше оверхеда, чем address. Но это все равно замедляет работу, хоть и не в 3 раза (плохо)
+    if [[ "$USE_ASAN" == "1" ]]; then
+        local ASAN_CFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
+        local ASAN_CXXFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
+        local ASAN_LDFLAGS="-static-libasan -fsanitize=address,undefined "
+        local STACK_FLAGS=" -fstack-protector-strong"
+    else
+        local STACK_FLAGS=" -fstack-protector-strong" # -mstackrealign
+    fi
+    
+    if [[ "$DEBUG_MODE" == "1" ]]; then
+        local G_FLAGS="-g1"
+        local RUST_STRIP_POLICY="none"
+    else
+        # -g0 -fno-var-tracking-assignments - для компилятора GCC/G++: не раздувать отладочную информацию (даже скрытую)
+        local G_FLAGS="-g0 -fno-var-tracking-assignments"
+        local RUST_STRIP_POLICY="debuginfo"
+    fi
+
+    local OPT_LEVEL="-O3"
+
+    # Общие и дополнительные либы
+    local SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
+    export ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -lntdll -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lkernel32 -lnormaliz -lwsock32 -lcomctl32 -lshell32 -loleaut32 -lmingwex -lgcc_eh -lgcc -ld3d11 -ld3d12 -ldxgi -ldxguid -lmfplat -lmfuuid -lmfreadwrite -lgomp"
 
     # Флаги для ХОСТА (Linux), которые всегда нужны для нативных сборок
     # * -Wl,--hash-style=gnu: Создает более быстрые таблицы символов (GNU-style), что ускоряет запуск программы (актуально для инструментов, которые вызываются тысячи раз за сборку).

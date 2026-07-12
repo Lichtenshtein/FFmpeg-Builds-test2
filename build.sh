@@ -18,7 +18,7 @@ if declare -F apply_lto_policy >/dev/null; then
 fi
 
 # Сброс статистики для чистого лога
-ccache -z > /dev/null
+# ccache -z > /dev/null
 # Сбрасываем счетчик секунд в начале этапа
 SECONDS=0
 

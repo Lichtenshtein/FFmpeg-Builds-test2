@@ -21,7 +21,7 @@ if ! declare -F default_dl >/dev/null; then
 fi
 
 # Обнуляем статистику
-ccache -z > /dev/null
+# ccache -z > /dev/null
 
 # Сбрасываем счетчик секунд в начале этапа
 SECONDS=0

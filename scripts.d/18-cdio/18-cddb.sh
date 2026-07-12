@@ -20,10 +20,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # if [[ -f ".bootstrap" ]]; then
-        # chmod +x .bootstrap
-        # ./.bootstrap
-    # fi
+    if [[ -f ".bootstrap" ]]; then
+        chmod +x .bootstrap
+        ./.bootstrap
+    fi
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
