@@ -20,6 +20,27 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    # Fixing type incompatibility in getsockopt for Windows MinGW
+    if grep -q "getsockopt" lib/cddb_net.c; then
+        log_info "Patching getsockopt calls in cddb_net.c for Win32 API compatibility..."
+        # Cast &rv to type (char *)&rv, as required by winsock2.h
+        sed -i 's|&rv, &l|(char *)\&rv, \&l|g' lib/cddb_net.c
+    fi
+
+    # Fixing header guard warnings/errors in header files (LOH -> LOG)
+    if [[ -f "include/cddb/cddb_log.h" ]]; then
+        log_info "Patching header guards typos..."
+        sed -i 's|CDDB_LOH_H|CDDB_LOG_H|g' include/cddb/cddb_log.h
+        sed -i 's|CDDB_LOH_NI_H|CDDB_LOG_NI_H|g' include/cddb/cddb_log_ni.h
+    fi
+
+    # remove the conditional wrapper so that mask definitions are always available
+    if [[ -f "lib/cddb_regex.h" ]]; then
+        log_info "Forcing POSIX regex definitions in cddb_regex.h for Windows build..."
+        sed -i 's|#ifdef HAVE_REGEX_H||g' include/cddb/cddb_regex.h
+        sed -i 's|#endif /* HAVE_REGEX_H */||g' include/cddb/cddb_regex.h
+    fi
+
     log_info "Generating configure script via autoreconf..."
     autoreconf -fi
 
@@ -45,10 +66,10 @@ ffbuild_dockerbuild() {
     fi
 
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
-    CPPFLAGS="$CPPFLAGS" \
+    CPPFLAGS="$CPPFLAGS -DHAVE_REGEX_H=1" \
     CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS $DEP_LIBS ${USELTO}${USELTO_L}" \
-    LIBS="$LIBS ${ICONV_LIBS}" \
+    LIBS="${ICONV_LIBS} $LIBS -lregex" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
