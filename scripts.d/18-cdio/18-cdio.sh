@@ -11,15 +11,20 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "rm -rf doc test example"
+    echo "rm -rf test"
 }
 
 ffbuild_dockerbuild() {
     set -e
 
-    # autoreconf -if
+    if [[ -f "Makefile.am" ]]; then
+        log_info "Tweaking SUBDIRS in Makefile.am to skip examples, tests and docs..."
+        sed -i 's|SUBDIRS = doc include lib src test example|SUBDIRS = include lib src|g' Makefile.am
+        sed -i 's|example/README||g' Makefile.am
+    fi
 
-    # вставляем макросы прямо в заголовочный файл, который включают все
+    autoreconf -if
+
     find include/cdio -name "*.h" -exec sed -i '1i#ifndef _POSIX_C_SOURCE\n#define _POSIX_C_SOURCE 199309L\n#endif' {} +
 
     local myconf=(
