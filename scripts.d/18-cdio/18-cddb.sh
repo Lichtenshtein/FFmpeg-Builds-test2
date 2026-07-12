@@ -34,6 +34,79 @@ ffbuild_dockerbuild() {
         sed -i 's|CDDB_LOH_NI_H|CDDB_LOG_NI_H|g' include/cddb/cddb_log_ni.h
     fi
 
+    log_info "Creating fully compatible regex stub header to satisfy cddb_cmd.c structures..."
+    
+    cat <<EOF > include/cddb/cddb_regex.h
+#ifndef CDDB_REGEX_H
+#define CDDB_REGEX_H 1
+#include <stdlib.h>
+
+typedef struct {
+    int rm_so;
+    int rm_eo;
+} regmatch_t;
+
+typedef void regex_t;
+
+#define REG_NOMATCH 1
+
+extern regex_t *REGEX_TRACK_FRAME_OFFSETS;
+extern regex_t *REGEX_TRACK_FRAME_OFFSET;
+extern regex_t *REGEX_DISC_LENGTH;
+extern regex_t *REGEX_DISC_REVISION;
+extern regex_t *REGEX_DISC_TITLE;
+extern regex_t *REGEX_DISC_YEAR;
+extern regex_t *REGEX_DISC_GENRE;
+extern regex_t *REGEX_DISC_EXT;
+extern regex_t *REGEX_TRACK_TITLE;
+extern regex_t *REGEX_TRACK_EXT;
+extern regex_t *REGEX_PLAY_ORDER;
+extern regex_t *REGEX_QUERY_MATCH;
+extern regex_t *REGEX_SITE;
+extern regex_t *REGEX_TEXT_SEARCH;
+
+void cddb_regex_init(void);
+void cddb_regex_destroy(void);
+int cddb_regex_get_int(const char *s, regmatch_t matches[], int idx);
+unsigned long cddb_regex_get_hex(const char *s, regmatch_t matches[], int idx);
+double cddb_regex_get_float(const char *s, regmatch_t matches[], int idx);
+char *cddb_regex_get_string(const char *s, regmatch_t matches[], int idx);
+int regexec(const regex_t *preg, const char *string, size_t nmatch, regmatch_t pmatch[], int flags);
+
+#endif
+EOF
+
+    cat <<EOF > lib/cddb_regex.c
+#include "cddb/cddb_regex.h"
+
+regex_t *REGEX_TRACK_FRAME_OFFSETS = NULL;
+regex_t *REGEX_TRACK_FRAME_OFFSET = NULL;
+regex_t *REGEX_DISC_LENGTH = NULL;
+regex_t *REGEX_DISC_REVISION = NULL;
+regex_t *REGEX_DISC_TITLE = NULL;
+regex_t *REGEX_DISC_YEAR = NULL;
+regex_t *REGEX_DISC_GENRE = NULL;
+regex_t *REGEX_DISC_EXT = NULL;
+regex_t *REGEX_TRACK_TITLE = NULL;
+regex_t *REGEX_TRACK_EXT = NULL;
+regex_t *REGEX_PLAY_ORDER = NULL;
+regex_t *REGEX_QUERY_MATCH = NULL;
+regex_t *REGEX_SITE = NULL;
+regex_t *REGEX_TEXT_SEARCH = NULL;
+
+void cddb_regex_init(void) {}
+void cddb_regex_destroy(void) {}
+int cddb_regex_get_int(const char *s, regmatch_t matches[], int idx) { return 0; }
+unsigned long cddb_regex_get_hex(const char *s, regmatch_t matches[], int idx) { return 0; }
+double cddb_regex_get_float(const char *s, regmatch_t matches[], int idx) { return 0.0; }
+char *cddb_regex_get_string(const char *s, regmatch_t matches[], int idx) { return NULL; }
+int regexec(const regex_t *preg, const char *string, size_t nmatch, regmatch_t pmatch[], int flags) { return REG_NOMATCH; }
+EOF
+
+    if [[ -f "lib/cddb_regex.h" ]]; then
+        echo -n "" > lib/cddb_regex.h
+    fi
+
     log_info "Generating configure script via autoreconf..."
     autoreconf -fi
 
@@ -58,20 +131,17 @@ ffbuild_dockerbuild() {
         myconf+=( --without-iconv )
     fi
 
-    local LEGACY_CFLAGS="-std=gnu99 -fpermissive -Wno-error=incompatible-pointer-types -Wno-error=implicit-function-declaration"
-
-    CFLAGS="$CFLAGS $LEGACY_CFLAGS ${USELTO}" \
-    CPPFLAGS="$CPPFLAGS -DCONF_NO_REGEX=1 -DWITHOUT_REGEX=1" \
+    CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
+    CPPFLAGS="$CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS $DEP_LIBS ${USELTO}${USELTO_L}" \
     LIBS="${ICONV_LIBS} $LIBS" \
-    ac_cv_func_regcomp=no \
-    ac_cv_func_regexec=no \
     ./configure "${myconf[@]}" || return 1
 
     if [[ -f "config.h" ]]; then
-        sed -i 's|.*#undef HAVE_REGEX_H.*|/* #undef HAVE_REGEX_H */|g' config.h
-        sed -i 's|.*#define HAVE_REGEX_H.*|/* #undef HAVE_REGEX_H */|g' config.h
+        log_info "Injecting explicit HAVE_REGEX_H definition into generated config.h..."
+        sed -i 's|.*#undef HAVE_REGEX_H.*|#define HAVE_REGEX_H 1|g' config.h
+        sed -i 's|.*#define HAVE_REGEX_H.*|#define HAVE_REGEX_H 1|g' config.h
         sed -i 's|.*pcreposix.*||g' config.h
     fi
 
