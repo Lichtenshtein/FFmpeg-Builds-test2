@@ -6,7 +6,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '06-libiconv|07-gettext|08-zlib|11-bzlib|11-brotli|11-xz|12-libffi|15-pcre2|16-libxml2|16-glib2|18-cddb|18-cdio|18-cdiowpar|37-giflib|37-libpng|37-libjpeg-turbo|37-libtiff|38-libwebp|40-lensfun|40-lcms2|44-dav1d|44-rav1e|44-svtav1|45-libavif|45-libjxl|69-flite'
+        default: '06-libiconv|18-cddb|18-cdio|18-cdiowpar'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'

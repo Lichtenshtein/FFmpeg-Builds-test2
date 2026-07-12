@@ -20,9 +20,12 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    if [[ -f ".bootstrap" ]]; then
-        chmod +x .bootstrap
-        ./.bootstrap
+    if [[ -f "bootstrap" ]]; then
+        chmod +x bootstrap
+        ./bootstrap
+    elif [[ -f "configure.ac" || -f "configure.in" ]]; then
+        log_info "Generating configure script via autoreconf..."
+        autoreconf -fi
     fi
 
     local myconf=(
@@ -38,11 +41,11 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-static --disable-shared )
 
     if has_library "iconv"; then
-        log_info "Iconv library detected. Building libxml2 with Iconv support..."
+        log_info "Iconv library detected. Building libcddb with Iconv support..."
         myconf+=( --with-iconv )
         local ICONV_LIBS="-liconv -lcharset"
     else
-        log_warn "Iconv library not found. Building libxml2 without Iconv..."
+        log_warn "Iconv library not found. Building libcddb without Iconv..."
         myconf+=( --without-iconv )
     fi
 
