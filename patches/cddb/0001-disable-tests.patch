@@ -1,0 +1,52 @@
+From 321689d40c8d3ec68a2589d60850ff6cb5444de9 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sun, 12 Jul 2026 15:25:17 +0300
+Subject: [PATCH] disable tests
+
+---
+ Makefile.am  | 3 +--
+ configure.ac | 9 +++------
+ 2 files changed, 4 insertions(+), 8 deletions(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index f555e17..11b272a 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -1,6 +1,5 @@
+ 
+-SUBDIRS	= include lib examples tests
+-EXTRA_DIST = doc/doxygen.conf misc/$(PACKAGE).ebuild
++SUBDIRS	= include lib
+ 
+ dist-hook:
+ 	cp $(top_srcdir)/misc/$(PACKAGE).ebuild $(distdir)/misc/$(PACKAGE)-$(VERSION).ebuild
+diff --git a/configure.ac b/configure.ac
+index 2041d41..b1e07da 100644
+--- a/configure.ac
++++ b/configure.ac
+@@ -9,10 +9,7 @@ AC_CONFIG_FILES([Makefile              \
+                  include/cddb/Makefile \
+                  include/cddb/cddb_config.h \
+                  include/cddb/version.h \
+-                 lib/Makefile          \
+-                 examples/Makefile     \
+-                 tests/Makefile        \
+-                 tests/settings.sh])
++                 lib/Makefile
+ AM_INIT_AUTOMAKE([dist-bzip2])
+ AM_MAINTAINER_MODE
+ 
+@@ -150,8 +147,8 @@ else
+     WARN_CFLAGS="-Wall -Wchar-subscripts -Wmissing-prototypes -Wmissing-declarations"
+     WARN_CFLAGS="$WARN_CFLAGS -Wunused -Wpointer-arith -Wwrite-strings -Wnested-externs"
+     WARN_CFLAGS="$WARN_CFLAGS -Wno-sign-compare"
+-dnl MAINTAINER_CFLAGS="-std=c99 -pedantic -Werror -O0"
+-dnl MAINTAINER_CFLAGS="-Werror -O0"
++dnl MAINTAINER_CFLAGS="-std=c99 -pedantic -Werror"
++dnl MAINTAINER_CFLAGS="-Werror"
+     MAINTAINER_CFLAGS="-Werror"
+ 
+     if test "x$enable_maintainer_mode" = "xyes"; then
+-- 
+2.52.0.windows.1
+

@@ -1,0 +1,36 @@
+From 321689d40c8d3ec68a2589d60850ff6cb5444de9 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sun, 12 Jul 2026 15:25:17 +0300
+Subject: [PATCH] Never use valgrind
+
+---
+--- nettle-3.10.1/aclocal.m4	2024-12-30 16:02:31.000000000 +0000
++++ nettle-3.10.1/aclocal.m4	2025-01-01 10:31:11.541607697 +0000
+@@ -549,25 +549,7 @@
+ 
+ # Check if valgrind supports the platform we are compiling for.
+ AC_DEFUN([NETTLE_PROG_VALGRIND],
+-[AC_CACHE_CHECK([if valgrind is working],
+-  nettle_cv_prog_valgrind,
+-  [AC_LINK_IFELSE([AC_LANG_PROGRAM([], [])], [
+-    # Valgrind is known to work poorly and sometimes hang indefinitely
+-    # on executables built with gcc's leak-sanitizer and
+-    # address-sanitizer, and with clang's memory sanitizer. Attempt to
+-    # work around. See https://bugs.kde.org/show_bug.cgi?id=492255
+-    if "$NM" ./conftest$EXEEXT 2>&AS_MESSAGE_LOG_FD |
+-       grep '_lsan_\|_msan_\|_asan_' >/dev/null; then
+-      nettle_cv_prog_valgrind=no
+-    elif valgrind -q ./conftest$EXEEXT 2>&AS_MESSAGE_LOG_FD; then
+-      nettle_cv_prog_valgrind=yes
+-    else
+-      nettle_cv_prog_valgrind=no
+-    fi], [nettle_cv_prog_valgrind=no])])
+-  if test "$nettle_cv_prog_valgrind" = yes ; then
+-    IF_VALGRIND=''
+-  else
+-    IF_VALGRIND='#'
+-  fi
++[
++  IF_VALGRIND='#'
+   AC_SUBST(IF_VALGRIND)
+ ])

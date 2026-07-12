@@ -1,0 +1,31 @@
+From 321689d40c8d3ec68a2589d60850ff6cb5444de9 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sun, 12 Jul 2026 15:25:17 +0300
+Subject: [PATCH] fix double free
+
+---
+diff -uNr  examples/cd_access.c.org examples/cd_access.c
+--- a/examples/cd_access.c.org	2006-09-30 01:01:42.000000000 +0900
++++ b/examples/cd_access.c	2013-03-24 19:21:46.000000000 +0900
+@@ -44,10 +44,11 @@
+     track_t cnt, t;             /* track counters */
+     lba_t lba;                  /* Logical Block Address */
+     int *foffset = NULL;        /* list of frame offsets */
++    char *default_device = NULL;/* name of the default CD-ROM device */
+ 
+     /* Get the name of the default CD-ROM device. */
+     if (!device) {
+-        device = cdio_get_default_device(NULL);
++        device = default_device = cdio_get_default_device(NULL);
+         if (!device) {
+             libcdio_error_exit("unable to get default CD device");
+         }
+@@ -103,7 +104,7 @@
+ 
+     /* more clean up */
+     FREE_NOT_NULL(foffset);
+-    FREE_NOT_NULL(device);
++    FREE_NOT_NULL(default_device);
+ 
+ #endif
+ 

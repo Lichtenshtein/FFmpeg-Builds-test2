@@ -35,7 +35,7 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    # Удаляем флаг -fforce-mem, который GCC 14 не поддерживает
+    # Remove the -fforce-mem flag, which GCC 14 does not support
     sed -i 's/-fforce-mem//g' configure
 
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
@@ -49,7 +49,9 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     mkdir -p "${PC_DIR}"
-    cat <<EOF > "${PC_DIR}/mad.pc"
+
+    if [[ ! -f "${PC_DIR}/mad.pc" ]]; then
+        cat <<EOF > "${PC_DIR}/mad.pc"
 prefix=${FFBUILD_PREFIX}
 exec_prefix=\${prefix}
 libdir=\${exec_prefix}/lib
@@ -62,6 +64,7 @@ Libs: -L\${libdir} -lmad
 Libs.private: -lm
 Cflags: -I\${includedir}
 EOF
+    fi
 }
 
 ffbuild_configure() {

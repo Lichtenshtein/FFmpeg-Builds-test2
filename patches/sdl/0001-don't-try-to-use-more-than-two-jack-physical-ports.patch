@@ -1,0 +1,20 @@
+From 321689d40c8d3ec68a2589d60850ff6cb5444de9 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sun, 12 Jul 2026 15:25:17 +0300
+Subject: [PATCH] Don't try to use more than two JACK physical ports
+
+A multichannel sound device (e.g. my UMC1820) might have 20 or so, but that
+doesn't mean it's expecting 20-channel output.
+---
+--- SDL2-2.0.22/src/audio/jack/SDL_jackaudio.c	2022-04-09 02:19:19.000000000 +0100
++++ SDL2-2.0.22/src/audio/jack/SDL_jackaudio.c	2022-08-09 00:12:24.899052443 +0100
+@@ -330,6 +330,9 @@
+         /* See if type ends with "audio" */
+         if (len >= 5 && !SDL_memcmp(type + len - 5, "audio", 5)) {
+             audio_ports[channels++] = i;
++            if (channels == 2) {
++                break;
++            }
+         }
+     }
+     if (channels == 0) {

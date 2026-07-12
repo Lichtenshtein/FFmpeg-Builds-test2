@@ -23,9 +23,7 @@ normalize_and_hash() {
     grep -v '^[[:space:]]*#' "$file_path" 2>/dev/null \
         | sed -e 's/[[:space:]]*$//' -e 's/^[[:space:]]*//' \
         | grep -v '^[[:space:]]*$' \
-        | tr -d '\r' \
-
-        | sha256sum | cut -d" " -f1
+        | tr -d '\r' | sha256sum | cut -d" " -f1
 }
 
 if [[ "$MODE" == "ffmpeg" ]]; then

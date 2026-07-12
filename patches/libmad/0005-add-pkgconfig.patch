@@ -1,0 +1,53 @@
+From 321689d40c8d3ec68a2589d60850ff6cb5444de9 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sun, 12 Jul 2026 15:25:17 +0300
+Subject: [PATCH] Add pkgconfig support
+
+---
+--- libmad-0.15.1b/Makefile.am	2004-02-17 02:02:03.000000000 +0000
++++ libmad-0.15.1b/Makefile.am	2005-04-13 23:12:21.000000000 +0100
+@@ -24,6 +24,9 @@
+ SUBDIRS =		
+ DIST_SUBDIRS =		msvc++
+ 
++pkgconfigdir =		$(libdir)/pkgconfig
++pkgconfig_DATA =	mad.pc
++
+ lib_LTLIBRARIES =	libmad.la
+ include_HEADERS =	mad.h
+ 
+@@ -34,7 +37,7 @@
+ minimad_LDADD =		libmad.la
+ 
+ EXTRA_DIST =		mad.h.sed Version_script libmad.def libmad.exports \
+-			CHANGES COPYRIGHT CREDITS README TODO VERSION
++			CHANGES COPYRIGHT CREDITS README TODO VERSION mad.pc.in
+ 
+ exported_headers =	version.h fixed.h bit.h timer.h stream.h frame.h layer3.h \
+ 			synth.h decoder.h
+--- libmad-0.15.1b/configure.ac	2004-01-23 09:41:32.000000000 +0000
++++ libmad-0.15.1b/configure.ac	2005-04-13 23:12:21.000000000 +0100
+@@ -429,5 +429,5 @@
+ 
+ AC_CONFIG_HEADERS([config.h])
+ AC_CONFIG_FILES([Makefile msvc++/Makefile  \
+-	libmad.list])
++	libmad.list mad.pc])
+ AC_OUTPUT
+--- libmad-0.15.1b/mad.pc.in	1970-01-01 01:00:00.000000000 +0100
++++ libmad-0.15.1b/mad.pc.in	2005-04-13 23:12:21.000000000 +0100
+@@ -0,0 +1,14 @@
++# libmad pkg-config source file
++
++prefix=@prefix@
++exec_prefix=@exec_prefix@
++libdir=@libdir@
++includedir=@includedir@
++
++Name: MAD
++Description: MPEG Audio Decoder
++Version: @VERSION@
++Requires:
++Conflicts:
++Libs: -L${libdir} -lmad -lm
++Cflags: -I${includedir}
