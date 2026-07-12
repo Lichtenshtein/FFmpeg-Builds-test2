@@ -13,13 +13,34 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "rm -rf doc test example"
+    echo "rm -rf test"
 }
 
 ffbuild_dockerbuild() {
     set -e
 
     local DEP_LIBS="-liconv -lcharset"
+
+    if [[ -f "Makefile.am" ]]; then
+        log_info "Tweaking SUBDIRS in Makefile.am for libcdio-paranoia..."
+        sed -i 's|SUBDIRS = doc include lib src test example|SUBDIRS = include lib src|g' Makefile.am
+    fi
+
+    if [[ -f "configure.ac" ]]; then
+        log_info "Purging missing test, doc, and example paths from configure.ac..."
+        sed -i '/doc\/Makefile/d' configure.ac
+        sed -i '/doc\/doxygen/d' configure.ac
+        sed -i '/doc\/en\//d' configure.ac
+        sed -i '/doc\/ja\//d' configure.ac
+        sed -i '/example\/Makefile/d' configure.ac
+        sed -i '/example\/C++/d' configure.ac
+        sed -i '/test\/data\/Makefile/d' configure.ac
+        sed -i '/test\/cdda_interface\/Makefile/d' configure.ac
+        sed -i '/test\/cdda_interface\/toc.c/d' configure.ac
+        sed -i '/test\/Makefile/d' configure.ac
+        sed -i '/AC_CONFIG_FILES(\[test\/check_/d' configure.ac
+        sed -i '/AC_CONFIG_FILES(\[test\/endian.sh/d' configure.ac
+    fi
 
     autoreconf -if
 
@@ -28,20 +49,28 @@ ffbuild_dockerbuild() {
         --host="$FFBUILD_TOOLCHAIN"
         --disable-example-progs
         --disable-maintainer-mode
+        --disable-cpp-progs
         --enable-cpp-progs=no
+        --disable-cxx # Disable C++ bindings
         --with-pic
-        ac_cv_func_clock_gettime=no
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
+    if [[ $TARGET == win64 ]]; then
+        myconf+=(
+            --without-versioned-libs
+        )
+    fi
+
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS $DEP_LIBS ${USELTO}${USELTO_L}" \
     LIBS="$LIBS $DEP_LIBS" \
+    ac_cv_func_clock_gettime=no \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1

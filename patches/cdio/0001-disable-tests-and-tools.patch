@@ -1,0 +1,31 @@
+From 7bb7f8c71ce8f8b544e3bbc2946f2d917b341de9 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sat, 11 Jul 2026 16:05:02 +0300
+Subject: [PATCH] disable tests and tools
+
+---
+ Makefile.am     | 28 +++-------------------------
+ configure.ac    | 11 +----------
+ src/Makefile.am |  7 +------
+ 3 files changed, 5 insertions(+), 41 deletions(-)
+
+diff --git a/src/Makefile.am b/src/Makefile.am
+index dcea939..7833956 100644
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -81,12 +81,7 @@ man_iso_read     = iso-read.1
+ check_programs  += iso-read
+ endif
+ 
+-mmc_tool_SOURCES = mmc-tool.c util.c util.h $(GETOPT_C)
+-mmc_tool_LDADD   = $(LIBISO9660_LIBS) $(LIBCDIO_LIBS) $(LTLIBICONV)
+-bin_mmc_tool     = mmc-tool
+-check_programs  += mmc-tool
+-
+-bin_PROGRAMS = $(bin_cd_drive) $(bin_cd_info)  $(bin_cdinfo_linux) $(bin_cd_read) $(bin_iso_info) $(bin_iso_read) $(bin_cdda_player) $(bin_mmc_tool)
++bin_PROGRAMS = $(bin_cd_drive) $(bin_cd_info)  $(bin_cdinfo_linux) $(bin_cd_read) $(bin_iso_info) $(bin_iso_read) $(bin_cdda_player)
+ 
+ AM_CPPFLAGS = -I$(top_srcdir) $(LIBCDIO_CFLAGS) $(VCDINFO_CFLAGS) $(CDDB_CFLAGS)
+ 
+-- 
+2.52.0.windows.1
