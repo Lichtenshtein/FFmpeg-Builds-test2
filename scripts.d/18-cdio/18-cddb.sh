@@ -69,7 +69,7 @@ ffbuild_dockerbuild() {
     CPPFLAGS="$CPPFLAGS -DHAVE_REGEX_H=1" \
     CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS $DEP_LIBS ${USELTO}${USELTO_L}" \
-    LIBS="${ICONV_LIBS} $LIBS -lregex" \
+    LIBS="${ICONV_LIBS} $LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     make -j$(nproc) $MAKE_V || return 1
