@@ -1,5 +1,20 @@
 #!/bin/bash
 
+# Tesseract (tessdata_best)
+URL_TESS_BASE="https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/refs/heads/main"
+# NoMercy-Entertainment subs trained models
+URL_TESS_BASE2="https://raw.githubusercontent.com/NoMercy-Entertainment/nomercy-tesseract/refs/heads/master/tessdata"
+URL_TESS_SCRIPT="https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/refs/heads/main/script"
+# OpenVINO (ESPCN)
+URL_OV_BASE="https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/single-image-super-resolution-1033/FP32"
+# URL_OV_BASE2="https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/single-image-super-resolution-1033/FP16"
+# LibTorch (EDSR)
+URL_TORCH_EDSR="https://github.com/pytorch/examples/raw/main/super_resolution/model.pth"
+# APPLE AUDIOTOOLBOX
+QTFILES_URL="https://github.com/AnimMouse/QTFiles/releases/download/v12.13.9.1/QTfiles64.7z"
+
+# =========================================================
+
 set -e
 
 # Загружаем функции
@@ -32,9 +47,9 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_debug "${DIRS_MARK} FFmpeg package directory:\n${PKG_DIR}"
 fi
 
-# ====================
-# # ASSET COLLECTION
-# ====================
+# ==========================================
+# ASSET COLLECTION
+# ==========================================
 
 # Копируем лицензию ПЕРЕД упаковкой
 log_info "${SYNC_MARK} Adding licenses to package..."
@@ -179,27 +194,9 @@ fi
 log_info "${SYNC_MARK} Coping build log file..."
 cp ${OP_VERB} "$FFMPEG_CONFIG_LOG" "${PKG_DIR}/config.log" || true
 
-# ===================
-# TERRITORY OF LINKS
-# ===================
-
-# Tesseract (tessdata_best)
-URL_TESS_BASE="https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/refs/heads/main"
-URL_TESS_SCRIPT="https://raw.githubusercontent.com/tesseract-ocr/tessdata_best/refs/heads/main/script"
-
-# OpenVINO (ESPCN)
-URL_OV_BASE="https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/single-image-super-resolution-1033/FP32"
-# URL_OV_BASE2="https://storage.openvinotoolkit.org/repositories/open_model_zoo/2023.0/models_bin/1/single-image-super-resolution-1033/FP16"
-
-# LibTorch (EDSR)
-URL_TORCH_EDSR="https://github.com/pytorch/examples/raw/main/super_resolution/model.pth"
-
-# APPLE AUDIOTOOLBOX
-QTFILES_URL="https://github.com/AnimMouse/QTFiles/releases/download/v12.13.9.1/QTfiles64.7z"
-
-# ===================
-# DOWNLOADING LOGIC
-# ===================
+# ==========================================
+# TESSERACT PROCESSING
+# ==========================================
 
 log_info "${START_MARK} Starting AI/OCR model and conditional asset collection..."
 
@@ -209,15 +206,14 @@ if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBTESSERACT" == "1" ]]; then
     TESS_DEST="${PKG_DIR}/bin/tessdata"
     mkdir -p "$TESS_DEST/script"
 
-    # Список необходимых файлов
     TESS_FILES=(
-"eng.traineddata"
-"rus.traineddata"
-"osd.traineddata" # Важен для определения ориентации
+# "eng.traineddata"
+# "rus.traineddata"
+"osd.traineddata" # Important for determining orientation
 # "chi_sim.traineddata"
 # "chi_sim_vert.traineddata"
-"jpn.traineddata"
-"jpn_vert.traineddata"
+# "jpn.traineddata"
+# "jpn_vert.traineddata"
 "pdf.ttf"
     )
 
@@ -227,8 +223,16 @@ if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBTESSERACT" == "1" ]]; then
 "Japanese_vert.traineddata"
     )
 
-    # Чистим ссылки от пробелов перед использованием
+    TESS_FILES3=(
+"eng.traineddata"
+"rus.traineddata"
+"jpn.traineddata"
+"jpn_vert.traineddata"
+    )
+
+    # Clean links from spaces before using
     LINK_BASE=$(echo "$URL_TESS_BASE" | tr -d ' ')
+    LINK_BASE2=$(echo "$URL_TESS_BASE2" | tr -d ' ')
     LINK_SCRIPT=$(echo "$URL_TESS_SCRIPT" | tr -d ' ')
 
     for file in "${TESS_FILES[@]}"; do
@@ -239,15 +243,23 @@ if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBTESSERACT" == "1" ]]; then
         download_file "$LINK_SCRIPT/$file" "$TESS_DEST/script/$file" ""
     done
 
+    for file in "${TESS_FILES3[@]}"; do
+        download_file "$LINK_BASE2/$file" "$TESS_DEST/$file" ""
+    done
+
     log_info "${SYNC_MARK} Coping tessdata configs..."
     if [ -d "${FFBUILD_PREFIX}/share/tessdata" ]; then
-        # -a (archive) включает рекурсию (-r) и сохраняет все права/структуру файлов
-        # -v (verbose) покажет в логах, какие файлы копируются
+        # -a (archive) enables recursion (-r) and preserves all file permissions/structure
+        # -v (verbose) shows in the logs which files are being copied
         cp -a${OP_V} "${FFBUILD_PREFIX}/share/tessdata"/* "$TESS_DEST/"
     else
         log_warn "Source tessdata configs directory not found in ${FFBUILD_PREFIX}/share/tessdata"
     fi
 fi
+
+# ==========================================
+# TENSORFLOW PROCESSING
+# ==========================================
 
 # TENSORFLOW / DNN MODELS (Super Resolution)
 if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBTENSORFLOW" == "1" ]]; then
@@ -267,6 +279,10 @@ if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBTENSORFLOW" == "1" ]]; then
     fi
 fi
 
+# ==================================
+# OPENVINO PROCESSING
+# ==================================
+
 # OPENVINO MODELS (VPP_OPENVINO)
 # OpenVINO Models (ESPCN - Super Resolution x2) работают через vpp_openvino
 if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBOPENVINO" == "1" ]]; then
@@ -277,6 +293,33 @@ if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBOPENVINO" == "1" ]]; then
     download_file "$LINK_OV/single-image-super-resolution-1033.bin" "${ASSETS_DIR}/openvino/sr_model.bin" ""
 fi
 
+# ==========================================
+# WHISPER PROCESSING
+# ==========================================
+
+if [[ "$DEBUG_MODE" == "0" && "$HAS_WHISPER" == "1" ]]; then
+    mkdir -p "${ASSETS_DIR}/whisper"
+
+    WHISPER_MODEL_DIR="${ASSETS_DIR}/whisper"
+
+    WHISPER_LATEST_TAG=$(curl -sIL -o /dev/null -w '%{url_effective}' "https://github.com/NoMercy-Entertainment/nomercy-whisper-models/releases/latest" | awk -F'/' '{print $NF}')
+
+    log_info "Whisper model version found: ${WHISPER_LATEST_TAG}"
+    log_info "${DOWN_MARK} Downloading Whisper models..."
+
+    download_file "https://github.com/NoMercy-Entertainment/nomercy-whisper-models/releases/download/${WHISPER_LATEST_TAG}/ggml-small.bin" "${WHISPER_MODEL_DIR}/ggml-small.bin"  ""
+
+    if ls "${WHISPER_MODEL_DIR}/ggml-small.bin" >/dev/null 2>&1; then
+        log_info "${CHECK_MARK} Whisper model successfully deployed to:\n${WHISPER_MODEL_DIR}"
+    else
+        log_error "Whisper model deployment verification failed!"
+    fi
+fi
+
+# ==========================================
+# LIBTORCH PROCESSING
+# ==========================================
+
 # LIBTORCH MODELS (EDSR) Модели .torch для фильтра 'sr'
 # if [[ "$HAS_LIBTORCH" == "1" ]]; then
     # log_info "${DOWN_MARK} Downloading LibTorch models..."
@@ -284,6 +327,10 @@ fi
     # LINK_TORCH=$(echo "$URL_TORCH_EDSR" | tr -d ' ')
     # download_file "$LINK_TORCH" "${ASSETS_DIR}/torch/edsr_x2.torch" ""
 # fi
+
+# ==========================================
+# AUDIOTOOLBOX PROCESSING
+# ==========================================
 
 # APPLE AUDIOTOOLBOX DLLS (Special handling)
 if [[ "$HAS_AUDIOTOOLBOX" == "1" ]]; then

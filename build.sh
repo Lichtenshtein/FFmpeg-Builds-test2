@@ -9,9 +9,6 @@ cd "$(dirname "$0")"
 source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
     || { echo "ERROR: vars.sh failed in build.sh" >&2; exit 1; }
 
-export CCACHE_PATH="${CCACHE_PATH}"
-export CCACHE_BASEDIR="${CONTAINER_ROOT}"
-
 # a hook announcing that we're at the final stage
 export FFMPEG_BUILD_STAGE="1"
 export STAGENAME="FFmpeg"
