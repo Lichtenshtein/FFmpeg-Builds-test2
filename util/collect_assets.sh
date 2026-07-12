@@ -378,7 +378,7 @@ fi
 # LIBTORCH PROCESSING
 # ==========================================
 
-# LIBTORCH MODELS (EDSR) Модели .torch для фильтра 'sr'
+# LIBTORCH MODELS (EDSR) Модели .torch для фильтра 'sr'. TorchScript.
 # if [[ "$HAS_LIBTORCH" == "1" ]]; then
     # log_info "${DOWN_MARK} Downloading LibTorch models..."
     # mkdir -p "${ASSETS_DIR}/torch"
