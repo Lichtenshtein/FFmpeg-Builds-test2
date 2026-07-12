@@ -34,6 +34,11 @@ ffbuild_dockerbuild() {
         sed -i 's|CDDB_LOH_NI_H|CDDB_LOG_NI_H|g' include/cddb/cddb_log_ni.h
     fi
 
+    if [[ -f "include/cddb/cddb_regex.h" ]]; then
+        log_info "Redirecting native <regex.h> to available <pcre2posix.h>..."
+        sed -i 's|<regex.h>|<pcre2posix.h>|g' include/cddb/cddb_regex.h
+    fi
+
     log_info "Generating configure script via autoreconf..."
     autoreconf -fi
 
@@ -59,19 +64,19 @@ ffbuild_dockerbuild() {
     fi
 
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
-    CPPFLAGS="$CPPFLAGS" \
+    CPPFLAGS="$CPPFLAGS -DPCRE2_STATIC -DHAVE_REGEX_H=1" \
     CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
     LDFLAGS="$LDFLAGS $DEP_LIBS ${USELTO}${USELTO_L}" \
-    LIBS="${ICONV_LIBS} $LIBS" \
+    LIBS="${ICONV_LIBS} -lpcre2-posix -lpcre2-8 $LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     # force the use the standard <regex.h> and cut out pcreposix.
-    if [[ -f "config.h" ]]; then
-        log_info "Forcing native regex.h definitions inside generated config.h..."
-        sed -i 's|.*#undef HAVE_REGEX_H.*|#define HAVE_REGEX_H 1|g' config.h
-        sed -i 's|.*#define HAVE_REGEX_H.*|#define HAVE_REGEX_H 1|g' config.h
-        sed -i 's|.*pcreposix.*||g' config.h
-    fi
+    # if [[ -f "config.h" ]]; then
+        # log_info "Forcing native regex.h definitions inside generated config.h..."
+        # sed -i 's|.*#undef HAVE_REGEX_H.*|#define HAVE_REGEX_H 1|g' config.h
+        # sed -i 's|.*#define HAVE_REGEX_H.*|#define HAVE_REGEX_H 1|g' config.h
+        # sed -i 's|.*pcreposix.*||g' config.h
+    # fi
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" bin_PROGRAMS="" || return 1
