@@ -34,7 +34,6 @@ if [[ "$MODE" == "ffmpeg" ]]; then
         if [[ -d "patches/ffmpeg" ]]; then
             # take patches only from the ffmpeg folder
             find patches/ffmpeg -type f 2>/dev/null | sort | while read -r patch_file; do
-                local p_hash
                 p_hash=$(normalize_and_hash "$patch_file")
                 echo "$p_hash  $patch_file"
             done
@@ -47,7 +46,6 @@ else
 
         # Scan and normalize scripts in scripts.d
         find scripts.d -type f -name "*.sh" 2>/dev/null | sort | while read -r script_file; do
-            local s_hash
             s_hash=$(normalize_and_hash "$script_file")
             echo "$s_hash  $script_file"
         done
@@ -55,7 +53,6 @@ else
         # Scan scripts.d and ALL patches EXCEPT the patches/ffmpeg folder
         if [[ -d "patches" ]]; then
             find patches -type f -name "*.patch" ! -path "patches/ffmpeg/*" 2>/dev/null | sort | while read -r patch_file; do
-                local p_hash
                 p_hash=$(normalize_and_hash "$patch_file")
                 echo "$p_hash  $patch_file"
             done
