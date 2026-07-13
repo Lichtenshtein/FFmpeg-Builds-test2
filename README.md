@@ -311,7 +311,7 @@ All of those can be optionally combined with any combination of addins:
 * `The System Core` (Foundation; always build first). Without this, nothing will work.
 
 ```
-01-mingw-std-threads|02-mingw|03-base|08-zlib|27-freeglut
+01-mingw-std-threads|02-mingw|08-zlib|27-freeglut
 ```
 
 * `glib2`

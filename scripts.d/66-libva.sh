@@ -4,7 +4,6 @@ SCRIPT_REPO="https://github.com/intel/libva.git"
 SCRIPT_COMMIT="f13ba3b3817fd8ef3cb23525916fb447aa844feb"
 
 ffbuild_depends() {
-    echo base
     echo x11
 }
 
@@ -58,10 +57,10 @@ ffbuild_dockerbuild() {
     fi
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="$RAW_CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+        -Dc_args="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
         -Dcpp_args="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-        -Dc_link_args="$RAW_LDFLAGS ${USELTO}${USELTO_L}" \
-        -Dcpp_link_args="$RAW_LDFLAGS ${USELTO}${USELTO_L}" || return 1
+        -Dc_link_args="$LDFLAGS ${USELTO}${USELTO_L}" \
+        -Dcpp_link_args="$LDFLAGS ${USELTO}${USELTO_L}" || return 1
 
     ninja -j"$(nproc)" $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1

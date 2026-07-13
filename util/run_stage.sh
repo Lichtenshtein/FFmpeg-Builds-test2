@@ -256,23 +256,6 @@ else
     log_info "No source archive required for $STAGENAME (meta-package)."
 fi
 
-# Запоминаем "чистые" системные флаги из vars.sh ОДИН РАЗ.
-# Если они уже были сохранены ранее, не трогаем их.
-if [[ -z "$RAW_CFLAGS" ]]; then
-    export RAW_CFLAGS="$CFLAGS"
-    export RAW_CPPFLAGS="$CPPFLAGS"
-    export RAW_CXXFLAGS="$CXXFLAGS"
-    export RAW_LDFLAGS="$LDFLAGS"
-fi
-# Формируем флаги ТОЛЬКО для этой конкретной стадии.
-# берем системную базу и добавляем к ней специфичные флаги стадии.
-# НЕ экспортируем их обратно в глобальные RAW_ переменные.
-export CFLAGS="$(echo $RAW_CFLAGS $STAGE_CFLAGS | xargs)"
-# Аналогично для CPPFLAGS (часто пусты)
-export CPPFLAGS="$(echo ${CPPFLAGS} $STAGE_CPPFLAGS | xargs)"
-export CXXFLAGS="$(echo $RAW_CXXFLAGS $STAGE_CXXFLAGS | xargs)"
-export LDFLAGS="$(echo $RAW_LDFLAGS $STAGE_LDFLAGS | xargs)"
-
 [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]] && log_debug "${STAGENAME}-specific CFLAGS:\n$CFLAGS" && log_debug "${STAGENAME}-specific LDFLAGS:\n$LDFLAGS" && log_debug "${STAGENAME}-specific RUSTFLAGS:\n$RUSTFLAGS"
 
 # Выполняем сборку ОДИН РАЗ с проверкой статуса

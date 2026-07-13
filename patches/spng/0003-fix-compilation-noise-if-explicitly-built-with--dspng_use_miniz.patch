@@ -1,0 +1,24 @@
+From 4c83f210ef82262fe462704d61dea1da2710b911 Mon Sep 17 00:00:00 2001
+From: Fabian Greffrath <fabian@greffrath.com>
+Date: Wed, 4 Feb 2026 13:24:14 +0100
+Subject: [PATCH] fix compilation noise if explicitly built with
+ `-DSPNG_USE_MINIZ`
+
+Fixes #270
+---
+ spng/spng.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/spng/spng.c b/spng/spng.c
+index b22b711..a8f297c 100644
+--- a/spng/spng.c
++++ b/spng/spng.c
+@@ -1208,7 +1208,7 @@ static int spng__inflate_init(spng_ctx *ctx, int window_bits)
+ 
+     if(inflateValidate(&ctx->zstream, validate)) return SPNG_EZLIB_INIT;
+ 
+-#else /* This requires zlib >= 1.2.11 */
++#elif !defined(SPNG_USE_MINIZ) /* This requires zlib >= 1.2.11 */
+     #pragma message ("inflateValidate() not available, SPNG_CTX_IGNORE_ADLER32 will be ignored")
+ #endif
+ 

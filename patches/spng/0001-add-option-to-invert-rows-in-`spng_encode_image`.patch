@@ -1,0 +1,49 @@
+From 4d5f9a34fe0bc15c3812be026808dc3441cc22e1 Mon Sep 17 00:00:00 2001
+From: Toby Bell <tbell@stanford.edu>
+Date: Mon, 9 Sep 2024 15:42:11 -0700
+Subject: [PATCH] Add option to invert rows in `spng_encode_image`
+
+---
+ spng/spng.c | 9 ++++++++-
+ spng/spng.h | 1 +
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+diff --git a/spng/spng.c b/spng/spng.c
+index b22b711..ea38917 100644
+--- a/spng/spng.c
++++ b/spng/spng.c
+@@ -4761,6 +4761,13 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
+         if(len != ctx->image_size) return SPNG_EBUFSIZ;
+     }
+ 
++    ssize_t row_stride = (ssize_t) ctx->image_width;
++    if(flags & SPNG_ENCODE_INVERT_ROWS)
++    {
++        img = (char const*) img + (ctx->ihdr.height - 1) * ctx->image_width;
++        row_stride = -row_stride;
++    }
++
+     ret = spng_encode_chunks(ctx);
+     if(ret) return encode_err(ctx, ret);
+ 
+@@ -4864,7 +4871,7 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
+ 
+     do
+     {
+-        size_t ioffset = ri->row_num * ctx->image_width;
++        ssize_t ioffset = ri->row_num * row_stride;
+ 
+         ret = encode_row(ctx, (unsigned char*)img + ioffset, ctx->image_width);
+ 
+diff --git a/spng/spng.h b/spng/spng.h
+index 8f94633..08ce76c 100644
+--- a/spng/spng.h
++++ b/spng/spng.h
+@@ -216,6 +216,7 @@ enum spng_encode_flags
+ {
+     SPNG_ENCODE_PROGRESSIVE = 1, /* Initialize for progressive writes */
+     SPNG_ENCODE_FINALIZE = 2, /* Finalize PNG after encoding image */
++    SPNG_ENCODE_INVERT_ROWS = 4, /* Interpret rows as being bottom-to-top */
+ };
+ 
+ struct spng_ihdr

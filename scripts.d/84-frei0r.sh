@@ -36,7 +36,7 @@ ffbuild_dockerbuild() {
     local DEP_LIBS=$(get_pc_libs opencv4 cairo gavl)
     local WIN_SYS_LIBS="-lstdc++"
     local LINKER_GROUP="-Wl,--start-group ${DEP_LIBS} ${WIN_SYS_LIBS} ${LIBS} ${ADDITIONAL_LIBS} -Wl,--end-group"
-    local RAW_LDFLAGS=$(echo "$LDFLAGS" | sed 's/-Wl,-Bstatic\b//g')
+    local LDFLAGS=$(echo "$LDFLAGS" | sed 's/-Wl,-Bstatic\b//g')
 
     mkdir build && cd build
 
@@ -61,7 +61,7 @@ ffbuild_dockerbuild() {
 # -Wl,--unresolved-symbols=ignore-all
     CFLAGS="$CFLAGS $CPPFLAGS ${NOLTO} -fcommon $static_flags" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${NOLTO} -fcommon $static_flags" \
-    LDFLAGS="$RAW_LDFLAGS ${NOLTO} -Wl,--allow-multiple-definition" \
+    LDFLAGS="$LDFLAGS ${NOLTO} -Wl,--allow-multiple-definition" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

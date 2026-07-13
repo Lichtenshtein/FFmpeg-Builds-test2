@@ -1,0 +1,4205 @@
+From 51cfb99704f798f85f99151def0f7aa8514503c4 Mon Sep 17 00:00:00 2001
+From: felixbuenemann <felix.buenemann@gmail.com>
+Date: Tue, 10 Mar 2026 23:46:54 +0100
+Subject: [PATCH] Add APNG read/write support
+
+Core library changes (spng.h, spng.c):
+- Add acTL, fcTL structs and dispose_op/blend_op enums
+- Add spng_decode_frame() and spng_encode_frame() APIs
+- Add spng_get_actl(), spng_set_actl(), spng_get_frame_fctl()
+- Add APNG error codes and state machine extensions
+- Add fdAT read/write paths alongside existing IDAT paths
+- Validate fcTL against the spec: overflow-safe bounds checks,
+  canvas-sized first frame, single fcTL before IDAT
+- Require the same format for all frames of an image
+- Reject encoding more frames than declared in acTL
+- Fix progressive encode for frame 0 (don't clobber encode state)
+
+Build system:
+- Upgrade libpng subproject from 1.6.37 to 1.6.55
+- Vendor APNG patch for libpng and fix hIST chunk ordering bug
+- Add APNG fallback logic to detect and use patched libpng
+
+Tests:
+- Add APNG roundtrip test (3-frame encode/decode with pixel verification)
+- Add sub-frame regions test (different frame dimensions and offsets)
+- Add error cases test (invalid acTL/fcTL values, non-APNG decode)
+- Add progressive decode test (compare scanline-by-scanline vs one-shot)
+- Add progressive encode roundtrip test
+- Add buffer vs stream encode comparison test
+- Add malformed APNG decode tests (duplicate acTL, acTL after IDAT,
+  bad sequence numbers)
+- Update read fuzzer to exercise spng_decode_frame() on APNG inputs
+- Update write fuzzer to optionally encode multi-frame APNG
+
+Docs:
+- Update README feature table (APNG no longer "Planned")
+- Add testing section to build docs
+---
+ .gitignore                                    |    3 +
+ README.md                                     |    2 +-
+ docs/build.md                                 |   15 +
+ spng/spng.c                                   |  705 ++++++-
+ spng/spng.h                                   |   48 +
+ subprojects/libpng.wrap                       |   19 +-
+ subprojects/packagefiles/libpng-apng.patch    | 1743 +++++++++++++++++
+ .../libpng-fix-hist-out-of-place.patch        |   21 +
+ tests/meson.build                             |   22 +
+ tests/spng_read_fuzzer.c                      |   11 +
+ tests/spng_write_fuzzer.c                     |   30 +-
+ tests/testsuite.c                             | 1221 ++++++++++++
+ 12 files changed, 3825 insertions(+), 15 deletions(-)
+ create mode 100644 subprojects/packagefiles/libpng-apng.patch
+ create mode 100644 subprojects/packagefiles/libpng-fix-hist-out-of-place.patch
+
+diff --git a/.gitignore b/.gitignore
+index 76962154..538c49be 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -7,6 +7,9 @@
+ /check_build/
+ /benchmark_images/
+ /subprojects/*/
++!/subprojects/packagefiles
++/subprojects/.wraplock
++/.cache/
+ /.vscode/
+ /.frama-c/
+ /trash/
+diff --git a/README.md b/README.md
+index df67e37f..812de2ba 100644
+--- a/README.md
++++ b/README.md
+@@ -32,7 +32,7 @@ it outperforms the reference implementation in common use cases.
+ | Parses all standard chunks           | ✅      |  ✅               | ❌       | ❌      |
+ | Doesn't require zlib<sup>[2]</sup>   | ✅      |  ❌               | ✅       | ✅      |
+ | Encoding                             | ✅      |  ✅               | ✅       | ✅      |
+-| Animated PNG                         | Planned  |  ✅<sup>[3]</sup> | ❌       | ❌      |
++| Animated PNG                         | ✅      |  ✅<sup>[3]</sup> | ❌       | ❌      |
+ 
+ <sup>[1]</sup> The project is fuzz tested on [OSS-Fuzz](https://github.com/google/oss-fuzz) and vulnerabilities are fixed before they become public.
+ 
+diff --git a/docs/build.md b/docs/build.md
+index 2fecbcb3..6acdbf6a 100644
+--- a/docs/build.md
++++ b/docs/build.md
+@@ -30,6 +30,21 @@ ninja
+ ninja install
+ ```
+ 
++## Testing
++
++Tests require [libpng](http://libpng.org/pub/png/libpng.html) with Animated PNG (APNG) support
++and are enabled through the `dev_build` option:
++
++```bash
++meson setup build -Ddev_build=true
++cd build
++meson test
++```
++
++If the system libpng does not include APNG support, a fallback is provided
++that downloads libpng 1.6 and applies the APNG patch automatically.
++This requires Meson 0.63 or newer.
++
+ ## Embedding the source code
+ 
+ The source files `spng.c`/`spng.h` can be embedded in a project without
+diff --git a/spng/spng.c b/spng/spng.c
+index b22b7110..e210d421 100644
+--- a/spng/spng.c
++++ b/spng/spng.c
+@@ -95,6 +95,7 @@ enum spng_state
+     SPNG_STATE_EOI, /* Reached the last scanline/row */
+     SPNG_STATE_LAST_IDAT, /* Reached last IDAT, set at end of decode_image() */
+     SPNG_STATE_AFTER_IDAT, /*  */
++    SPNG_STATE_FRAME_IDLE, /* Between APNG frames */
+     SPNG_STATE_IEND, /* Reached IEND */
+ };
+ 
+@@ -194,6 +195,8 @@ struct spng_chunk_bitfield
+     unsigned offs: 1;
+     unsigned exif: 1;
+     unsigned unknown: 1;
++    unsigned actl: 1;
++    unsigned fctl: 1;
+ };
+ 
+ /* Packed sample iterator */
+@@ -361,6 +364,13 @@ struct spng_ctx
+     struct spng_row_info row_info;
+ 
+     struct encode_flags encode_flags;
++
++    /* APNG state */
++    struct spng_actl actl;
++    struct spng_fctl fctl;       /* current frame's fctl */
++    uint32_t next_seq_num;       /* APNG sequence number counter */
++    uint32_t num_frames_encoded; /* frames encoded so far */
++    unsigned fdat_stream: 1;     /* current frame's image data is fdAT, not IDAT */
+ };
+ 
+ static const uint32_t spng_u32max = INT32_MAX;
+@@ -395,6 +405,10 @@ static const uint8_t type_time[4] = { 116, 73, 77, 69 };
+ static const uint8_t type_offs[4] = { 111, 70, 70, 115 };
+ static const uint8_t type_exif[4] = { 101, 88, 73, 102 };
+ 
++static const uint8_t type_actl[4] = { 97, 99, 84, 76 };    /* acTL */
++static const uint8_t type_fctl[4] = { 102, 99, 84, 76 };   /* fcTL */
++static const uint8_t type_fdat[4] = { 102, 100, 65, 84 };   /* fdAT */
++
+ static inline void *spng__malloc(spng_ctx *ctx,  size_t size)
+ {
+     return ctx->alloc.malloc_fn(size);
+@@ -1386,6 +1400,47 @@ static int read_idat_bytes(spng_ctx *ctx, uint32_t *bytes_read)
+     return ret;
+ }
+ 
++/* Read at least one byte from the fdAT stream, skipping the 4-byte sequence number */
++static int read_fdat_bytes(spng_ctx *ctx, uint32_t *bytes_read)
++{
++    if(ctx == NULL || bytes_read == NULL) return SPNG_EINTERNAL;
++    if(memcmp(ctx->current_chunk.type, type_fdat, 4)) return SPNG_EIDAT_TOO_SHORT;
++
++    int ret;
++    uint32_t len;
++
++    while(!ctx->cur_chunk_bytes_left)
++    {
++        ret = read_header(ctx);
++        if(ret) return ret;
++
++        if(memcmp(ctx->current_chunk.type, type_fdat, 4)) return SPNG_EIDAT_TOO_SHORT;
++
++        /* Skip the 4-byte sequence number at the start of each fdAT chunk */
++        if(ctx->cur_chunk_bytes_left < 4) return SPNG_EAPNG;
++
++        ret = read_chunk_bytes(ctx, 4);
++        if(ret) return ret;
++
++        uint32_t seq = read_u32(ctx->data);
++        if(seq != ctx->next_seq_num) return SPNG_EAPNG;
++        ctx->next_seq_num++;
++    }
++
++    if(ctx->streaming)
++    {
++        len = SPNG_READ_SIZE;
++        if(len > ctx->cur_chunk_bytes_left) len = ctx->cur_chunk_bytes_left;
++    }
++    else len = ctx->cur_chunk_bytes_left;
++
++    ret = read_chunk_bytes(ctx, len);
++
++    *bytes_read = len;
++
++    return ret;
++}
++
+ static int read_scanline_bytes(spng_ctx *ctx, unsigned char *dest, size_t len)
+ {
+     if(ctx == NULL || dest == NULL) return SPNG_EINTERNAL;
+@@ -1408,9 +1463,10 @@ static int read_scanline_bytes(spng_ctx *ctx, unsigned char *dest, size_t len)
+         {
+             if(zstream->avail_out != 0) return SPNG_EIDAT_TOO_SHORT;
+         }
+-        else if(ret == Z_BUF_ERROR) /* Read more IDAT bytes */
++        else if(ret == Z_BUF_ERROR) /* Read more IDAT/fdAT bytes */
+         {
+-            ret = read_idat_bytes(ctx, &bytes_read);
++            if(ctx->fdat_stream) ret = read_fdat_bytes(ctx, &bytes_read);
++            else ret = read_idat_bytes(ctx, &bytes_read);
+             if(ret) return ret;
+ 
+             zstream->avail_in = bytes_read;
+@@ -2202,6 +2258,42 @@ static int check_exif(const struct spng_exif *exif)
+     return 0;
+ }
+ 
++static int check_fctl(const struct spng_fctl *fctl, const struct spng_ihdr *ihdr, int first_frame)
++{
++    if(!fctl->width || !fctl->height) return SPNG_EFCTL;
++
++    if(fctl->width > spng_u32max || fctl->height > spng_u32max) return SPNG_EFCTL;
++    if(fctl->x_offset > spng_u32max || fctl->y_offset > spng_u32max) return SPNG_EFCTL;
++
++    /* The additions cannot overflow, all values are limited to INT32_MAX */
++    if(fctl->x_offset + fctl->width > ihdr->width) return SPNG_EFCTL;
++    if(fctl->y_offset + fctl->height > ihdr->height) return SPNG_EFCTL;
++
++    if(fctl->dispose_op > SPNG_DISPOSE_OP_PREVIOUS) return SPNG_EFCTL;
++    if(fctl->blend_op > SPNG_BLEND_OP_OVER) return SPNG_EFCTL;
++
++    if(first_frame)
++    {/* The first frame doubles as the static image, it must cover the canvas */
++        if(fctl->width != ihdr->width || fctl->height != ihdr->height) return SPNG_EFCTL;
++        if(fctl->x_offset || fctl->y_offset) return SPNG_EFCTL;
++    }
++
++    return 0;
++}
++
++/* Parse an fcTL chunk's fields following the 4-byte sequence number */
++static void parse_fctl(struct spng_fctl *fctl, const unsigned char *data)
++{
++    fctl->width = read_u32(data + 4);
++    fctl->height = read_u32(data + 8);
++    fctl->x_offset = read_u32(data + 12);
++    fctl->y_offset = read_u32(data + 16);
++    fctl->delay_num = read_u16(data + 20);
++    fctl->delay_den = read_u16(data + 22);
++    fctl->dispose_op = data[24];
++    fctl->blend_op = data[25];
++}
++
+ /* Validate PNG keyword */
+ static int check_png_keyword(const char *str)
+ {
+@@ -2259,6 +2351,8 @@ static int is_small_chunk(uint8_t type[4])
+     else if(!memcmp(type, type_phys, 4)) return 1;
+     else if(!memcmp(type, type_time, 4)) return 1;
+     else if(!memcmp(type, type_offs, 4)) return 1;
++    else if(!memcmp(type, type_actl, 4)) return 1;
++    else if(!memcmp(type, type_fctl, 4)) return 1;
+     else return 0;
+ }
+ 
+@@ -2439,7 +2533,7 @@ static int read_non_idat_chunks(spng_ctx *ctx)
+             }
+             else if(!memcmp(chunk.type, type_iend, 4))
+             {
+-                if(ctx->state == SPNG_STATE_AFTER_IDAT)
++                if(ctx->state == SPNG_STATE_AFTER_IDAT || ctx->state == SPNG_STATE_FRAME_IDLE)
+                 {
+                     if(chunk.length) return SPNG_ECHUNK_SIZE;
+ 
+@@ -3039,6 +3133,55 @@ static int read_non_idat_chunks(spng_ctx *ctx)
+ 
+                 ctx->stored.splt = 1;
+             }
++            else if(!memcmp(chunk.type, type_actl, 4))
++            {
++                if(ctx->state == SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
++                if(ctx->file.actl) return SPNG_EDUP_ACTL;
++
++                if(chunk.length != 8) return SPNG_ECHUNK_SIZE;
++
++                ctx->actl.num_frames = read_u32(data);
++                ctx->actl.num_plays = read_u32(data + 4);
++
++                if(!ctx->actl.num_frames) return SPNG_EACTL;
++                if(ctx->actl.num_frames > spng_u32max) return SPNG_EACTL;
++                if(ctx->actl.num_plays > spng_u32max) return SPNG_EACTL;
++
++                ctx->file.actl = 1;
++                ctx->stored.actl = 1;
++            }
++            else if(!memcmp(chunk.type, type_fctl, 4))
++            {
++                /* fcTL is only handled before IDAT here (frame 0).
++                   Post-IDAT fcTL is handled by spng_decode_frame(). */
++                if(ctx->state >= SPNG_STATE_AFTER_IDAT) goto discard;
++
++                if(!ctx->file.actl) return SPNG_ECHUNK_POS; /* fcTL without acTL */
++                if(ctx->file.fctl) return SPNG_ECHUNK_POS; /* only one fcTL may precede IDAT */
++
++                if(chunk.length != 26) return SPNG_ECHUNK_SIZE;
++
++                uint32_t seq = read_u32(data);
++                if(seq != ctx->next_seq_num) return SPNG_EAPNG;
++
++                struct spng_fctl fctl;
++                parse_fctl(&fctl, data);
++
++                ret = check_fctl(&fctl, &ctx->ihdr, 1);
++                if(ret) return ret;
++
++                ctx->next_seq_num++;
++
++                ctx->fctl = fctl;
++                ctx->file.fctl = 1;
++                ctx->stored.fctl = 1;
++            }
++            else if(!memcmp(chunk.type, type_fdat, 4))
++            {
++                /* fdAT before IDAT is invalid; post-IDAT is handled by spng_decode_frame() */
++                if(ctx->state < SPNG_STATE_AFTER_IDAT) return SPNG_ECHUNK_POS;
++                goto discard;
++            }
+             else /* Unknown chunk */
+             {
+                 ctx->file.unknown = 1;
+@@ -3126,10 +3269,16 @@ static int read_chunks(spng_ctx *ctx, int only_ihdr)
+ 
+     if(ctx->state == SPNG_STATE_EOI)
+     {
++        /* For APNG, don't read post-IDAT chunks here;
++           spng_decode_frame() handles fcTL/fdAT sequentially */
++        if(ctx->file.actl) return 0;
++
+         ctx->state = SPNG_STATE_AFTER_IDAT;
+         ctx->prev_was_idat = 1;
+     }
+ 
++    if(ctx->state == SPNG_STATE_FRAME_IDLE) return 0;
++
+     while(ctx->state < SPNG_STATE_FIRST_IDAT || ctx->state == SPNG_STATE_AFTER_IDAT)
+     {
+         ret = read_non_idat_chunks(ctx);
+@@ -3158,6 +3307,10 @@ static int read_chunks(spng_ctx *ctx, int only_ihdr)
+                 case SPNG_EDUP_TIME:
+                 case SPNG_EDUP_OFFS:
+                 case SPNG_EDUP_EXIF:
++                case SPNG_EDUP_ACTL:
++                case SPNG_EACTL:
++                case SPNG_EFCTL:
++                case SPNG_EAPNG:
+                 case SPNG_ECHRM:
+                 case SPNG_ETRNS_COLOR_TYPE:
+                 case SPNG_ETRNS_NO_PLTE:
+@@ -4006,6 +4159,215 @@ int spng_decode_image(spng_ctx *ctx, void *out, size_t len, int fmt, int flags)
+     return 0;
+ }
+ 
++/* Set up the subimage for an APNG frame, frames are never interlaced */
++static int calculate_frame_subimages(spng_ctx *ctx, uint32_t frame_width, uint32_t frame_height)
++{
++    struct spng_subimage *sub = ctx->subimage;
++    int i;
++
++    for(i = 0; i < 7; i++) memset(&sub[i], 0, sizeof(struct spng_subimage));
++
++    ctx->widest_pass = 0;
++    ctx->last_pass = 0;
++
++    sub[0].width = frame_width;
++    sub[0].height = frame_height;
++
++    return calculate_scanline_width(&ctx->ihdr, frame_width, &sub[0].scanline_width);
++}
++
++int spng_decode_frame(spng_ctx *ctx, void *out, size_t len, int fmt, int flags, struct spng_fctl *fctl)
++{
++    if(ctx == NULL || fctl == NULL) return 1;
++    if(ctx->encode_only) return SPNG_ECTXTYPE;
++
++    /* Must have decoded the default image first */
++    if(ctx->state < SPNG_STATE_EOI) return SPNG_EBADSTATE;
++    if(!ctx->file.actl) return SPNG_ECHUNKAVAIL;
++
++    /* Frames are decoded with the same format as the default image */
++    if(fmt != ctx->fmt) return SPNG_EFMT;
++
++    int ret;
++
++    /* Transition from EOI/LAST_IDAT to FRAME_IDLE */
++    if(ctx->state == SPNG_STATE_EOI || ctx->state == SPNG_STATE_LAST_IDAT ||
++       ctx->state == SPNG_STATE_AFTER_IDAT)
++    {
++        ctx->fdat_stream = 0;
++        ctx->state = SPNG_STATE_FRAME_IDLE;
++    }
++
++    if(ctx->state == SPNG_STATE_IEND) return SPNG_EOI;
++    if(ctx->state != SPNG_STATE_FRAME_IDLE) return SPNG_EBADSTATE;
++
++    /* Read chunks until we find fcTL or IEND */
++    struct spng_chunk chunk;
++
++    for(;;)
++    {
++        ret = read_header(ctx);
++        if(ret) return decode_err(ctx, ret);
++
++        chunk = ctx->current_chunk;
++
++        if(!memcmp(chunk.type, type_iend, 4))
++        {
++            ctx->state = SPNG_STATE_IEND;
++            return SPNG_EOI;
++        }
++
++        if(!memcmp(chunk.type, type_fctl, 4))
++        {
++            if(chunk.length != 26) return decode_err(ctx, SPNG_ECHUNK_SIZE);
++
++            ret = read_chunk_bytes(ctx, chunk.length);
++            if(ret) return decode_err(ctx, ret);
++
++            const unsigned char *data = ctx->data;
++
++            uint32_t seq = read_u32(data);
++            if(seq != ctx->next_seq_num) return decode_err(ctx, SPNG_EAPNG);
++            ctx->next_seq_num++;
++
++            parse_fctl(&ctx->fctl, data);
++
++            ret = check_fctl(&ctx->fctl, &ctx->ihdr, 0);
++            if(ret) return decode_err(ctx, ret);
++
++            ctx->stored.fctl = 1;
++            break;
++        }
++
++        /* Skip other chunks (ancillary post-IDAT chunks, extra IDATs) */
++        ret = discard_chunk_bytes(ctx, ctx->cur_chunk_bytes_left);
++        if(ret) return decode_err(ctx, ret);
++    }
++
++    *fctl = ctx->fctl;
++
++    /* Calculate the frame's dimensions and output size */
++    ret = calculate_frame_subimages(ctx, ctx->fctl.width, ctx->fctl.height);
++    if(ret) return decode_err(ctx, ret);
++
++    size_t frame_pixel_size = 4; /* SPNG_FMT_RGBA8 */
++    if(fmt == SPNG_FMT_RGBA16) frame_pixel_size = 8;
++    else if(fmt == SPNG_FMT_RGB8) frame_pixel_size = 3;
++    else if(fmt == SPNG_FMT_G8) frame_pixel_size = 1;
++    else if(fmt == SPNG_FMT_GA8) frame_pixel_size = 2;
++    else if(fmt == SPNG_FMT_GA16) frame_pixel_size = 4;
++
++    struct spng_subimage *sub = ctx->subimage;
++
++    if(fmt & (SPNG_FMT_PNG | SPNG_FMT_RAW)) ctx->image_width = sub[0].scanline_width - 1;
++    else ctx->image_width = (size_t)ctx->fctl.width * frame_pixel_size;
++
++    sub[0].out_width = ctx->image_width;
++
++    if(ctx->image_width > SIZE_MAX / ctx->fctl.height) return decode_err(ctx, SPNG_EOVERFLOW);
++
++    size_t frame_size = ctx->image_width * ctx->fctl.height;
++
++    if( !(flags & SPNG_DECODE_PROGRESSIVE) )
++    {
++        if(out == NULL) return 1;
++        if(len < frame_size) return SPNG_EBUFSIZ;
++    }
++
++    /* Now read the first fdAT chunk */
++    ret = read_header(ctx);
++    if(ret) return decode_err(ctx, ret);
++
++    if(memcmp(ctx->current_chunk.type, type_fdat, 4)) return decode_err(ctx, SPNG_EAPNG);
++
++    /* Skip sequence number in first fdAT */
++    if(ctx->cur_chunk_bytes_left < 4) return decode_err(ctx, SPNG_EAPNG);
++
++    ret = read_chunk_bytes(ctx, 4);
++    if(ret) return decode_err(ctx, ret);
++
++    uint32_t seq = read_u32(ctx->data);
++    if(seq != ctx->next_seq_num) return decode_err(ctx, SPNG_EAPNG);
++    ctx->next_seq_num++;
++
++    ctx->fdat_stream = 1;
++
++    /* Read remaining fdAT data as initial inflate input */
++    uint32_t bytes_read;
++    if(ctx->cur_chunk_bytes_left)
++    {
++        if(ctx->streaming)
++        {
++            bytes_read = SPNG_READ_SIZE;
++            if(bytes_read > ctx->cur_chunk_bytes_left) bytes_read = ctx->cur_chunk_bytes_left;
++        }
++        else bytes_read = ctx->cur_chunk_bytes_left;
++
++        ret = read_chunk_bytes(ctx, bytes_read);
++        if(ret) return decode_err(ctx, ret);
++    }
++    else
++    {
++        /* Need to read the next chunk for data */
++        ret = read_fdat_bytes(ctx, &bytes_read);
++        if(ret) return decode_err(ctx, ret);
++    }
++
++    /* Reset zlib for new frame */
++    ret = spng__inflate_init(ctx, ctx->image_options.window_bits);
++    if(ret) return decode_err(ctx, ret);
++
++    ctx->zstream.avail_in = bytes_read;
++    ctx->zstream.next_in = ctx->data;
++
++    /* Reallocate scanline buffers for the new frame width */
++    size_t scanline_buf_size = ctx->subimage[ctx->widest_pass].scanline_width + 32;
++    if(scanline_buf_size < 32) return decode_err(ctx, SPNG_EOVERFLOW);
++
++    spng__free(ctx, ctx->scanline_buf);
++    spng__free(ctx, ctx->prev_scanline_buf);
++    spng__free(ctx, ctx->row_buf);
++
++    ctx->scanline_buf = spng__malloc(ctx, scanline_buf_size);
++    ctx->prev_scanline_buf = spng__malloc(ctx, scanline_buf_size);
++
++    ctx->scanline = ctx->scanline_buf;
++    ctx->prev_scanline = ctx->prev_scanline_buf;
++    ctx->row_buf = NULL;
++    ctx->row = NULL;
++
++    if(ctx->scanline == NULL || ctx->prev_scanline == NULL)
++        return decode_err(ctx, SPNG_EMEM);
++
++    /* Reset row info for new frame */
++    memset(&ctx->row_info, 0, sizeof(struct spng_row_info));
++
++    ctx->state = SPNG_STATE_DECODE_INIT;
++
++    /* Read first filter byte */
++    ret = read_scanline_bytes(ctx, &ctx->row_info.filter, 1);
++    if(ret) return decode_err(ctx, ret);
++
++    if(ctx->row_info.filter > 4) return decode_err(ctx, SPNG_EFILTER);
++
++    if(flags & SPNG_DECODE_PROGRESSIVE) return 0;
++
++    /* One-shot frame decode */
++    do
++    {
++        size_t ioffset = ctx->row_info.row_num * ctx->image_width;
++
++        ret = spng_decode_row(ctx, (unsigned char*)out + ioffset, ctx->image_width);
++    }while(!ret);
++
++    if(ret != SPNG_EOI) return decode_err(ctx, ret);
++
++    ctx->state = SPNG_STATE_FRAME_IDLE;
++    ctx->fdat_stream = 0;
++
++    return 0;
++}
++
+ int spng_get_row_info(spng_ctx *ctx, struct spng_row_info *row_info)
+ {
+     if(ctx == NULL || row_info == NULL || ctx->state < SPNG_STATE_DECODE_INIT) return 1;
+@@ -4043,6 +4405,15 @@ static int write_chunks_before_idat(spng_ctx *ctx)
+     ret = write_chunk(ctx, type_ihdr, data, 13);
+     if(ret) return ret;
+ 
++    if(ctx->stored.actl)
++    {
++        write_u32(data, ctx->actl.num_frames);
++        write_u32(data + 4, ctx->actl.num_plays);
++
++        ret = write_chunk(ctx, type_actl, data, 8);
++        if(ret) return ret;
++    }
++
+     if(ctx->stored.chrm)
+     {
+         write_u32(data,      ctx->chrm_int.white_point_x);
+@@ -4559,6 +4930,32 @@ static int finish_idat(spng_ctx *ctx)
+     return finish_chunk(ctx);
+ }
+ 
++static int write_fdat_bytes(spng_ctx *ctx, const void *scanline, size_t len, int flush);
++static int finish_fdat(spng_ctx *ctx);
++
++/* Write an fcTL chunk with the next sequence number */
++static int write_fctl(spng_ctx *ctx, const struct spng_fctl *fctl)
++{
++    unsigned char data[26];
++
++    write_u32(data, ctx->next_seq_num);
++    write_u32(data + 4, fctl->width);
++    write_u32(data + 8, fctl->height);
++    write_u32(data + 12, fctl->x_offset);
++    write_u32(data + 16, fctl->y_offset);
++    write_u16(data + 20, fctl->delay_num);
++    write_u16(data + 22, fctl->delay_den);
++    data[24] = fctl->dispose_op;
++    data[25] = fctl->blend_op;
++
++    int ret = write_chunk(ctx, type_fctl, data, 26);
++    if(ret) return ret;
++
++    ctx->next_seq_num++;
++
++    return 0;
++}
++
+ static int encode_scanline(spng_ctx *ctx, const void *scanline, size_t len)
+ {
+     if(ctx == NULL || scanline == NULL) return SPNG_EINTERNAL;
+@@ -4598,7 +4995,10 @@ static int encode_scanline(spng_ctx *ctx, const void *scanline, size_t len)
+         if(ret) return encode_err(ctx, ret);
+     }
+ 
+-    ret = write_idat_bytes(ctx, filtered_scanline - 1, scanline_width, Z_NO_FLUSH);
++    if(ctx->fdat_stream)
++        ret = write_fdat_bytes(ctx, filtered_scanline - 1, scanline_width, Z_NO_FLUSH);
++    else
++        ret = write_idat_bytes(ctx, filtered_scanline - 1, scanline_width, Z_NO_FLUSH);
+     if(ret) return encode_err(ctx, ret);
+ 
+     /* The previous scanline is always unfiltered */
+@@ -4610,7 +5010,9 @@ static int encode_scanline(spng_ctx *ctx, const void *scanline, size_t len)
+ 
+     if(ret == SPNG_EOI)
+     {
+-        int error = finish_idat(ctx);
++        int error;
++        if(ctx->fdat_stream) error = finish_fdat(ctx);
++        else error = finish_idat(ctx);
+         if(error) encode_err(ctx, error);
+ 
+         if(f.finalize)
+@@ -4722,7 +5124,7 @@ int spng_encode_chunks(spng_ctx *ctx)
+     {
+         return 0;
+     }
+-    else if(ctx->state == SPNG_STATE_EOI)
++    else if(ctx->state == SPNG_STATE_EOI || ctx->state == SPNG_STATE_FRAME_IDLE)
+     {
+         ret = write_chunks_after_idat(ctx);
+         if(ret) return encode_err(ctx, ret);
+@@ -4830,6 +5232,13 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
+ 	zng_stream *zstream = &ctx->zstream;
+     zstream->avail_out = SPNG_WRITE_SIZE;
+ 
++    /* Write fcTL for frame 0 (before IDAT) if this is an APNG */
++    if(ctx->stored.fctl)
++    {
++        ret = write_fctl(ctx, &ctx->fctl);
++        if(ret) return encode_err(ctx, ret);
++    }
++
+     ret = write_header(ctx, type_idat, zstream->avail_out, &zstream->next_out);
+     if(ret) return encode_err(ctx, ret);
+ 
+@@ -4875,6 +5284,252 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
+     return 0;
+ }
+ 
++/* Compress and write scanline to fdAT stream */
++static int write_fdat_bytes(spng_ctx *ctx, const void *scanline, size_t len, int flush)
++{
++    if(ctx == NULL || scanline == NULL) return SPNG_EINTERNAL;
++    if(len > UINT_MAX) return SPNG_EINTERNAL;
++
++    int ret = 0;
++    unsigned char *data = NULL;
++    z_stream *zstream = &ctx->zstream;
++    uint32_t fdat_length = SPNG_WRITE_SIZE;
++
++    zstream->next_in = scanline;
++    zstream->avail_in = (uInt)len;
++
++    do
++    {
++        ret = deflate(zstream, flush);
++
++        if(zstream->avail_out == 0)
++        {
++            ret = finish_chunk(ctx);
++            if(ret) return encode_err(ctx, ret);
++
++            ret = write_header(ctx, type_fdat, fdat_length + 4, &data);
++            if(ret) return encode_err(ctx, ret);
++
++            /* Write sequence number at the start of each fdAT chunk */
++            write_u32(data, ctx->next_seq_num++);
++
++            zstream->next_out = data + 4;
++            zstream->avail_out = fdat_length;
++        }
++
++    }while(zstream->avail_in);
++
++    if(ret != Z_OK) return SPNG_EZLIB;
++
++    return 0;
++}
++
++static int finish_fdat(spng_ctx *ctx)
++{
++    int ret = 0;
++    unsigned char *data = NULL;
++    z_stream *zstream = &ctx->zstream;
++    uint32_t fdat_length = SPNG_WRITE_SIZE;
++
++    while(ret != Z_STREAM_END)
++    {
++        ret = deflate(zstream, Z_FINISH);
++
++        if(ret)
++        {
++            if(ret == Z_STREAM_END) break;
++
++            if(ret != Z_BUF_ERROR) return SPNG_EZLIB;
++        }
++
++        if(zstream->avail_out == 0)
++        {
++            ret = finish_chunk(ctx);
++            if(ret) return encode_err(ctx, ret);
++
++            ret = write_header(ctx, type_fdat, fdat_length + 4, &data);
++            if(ret) return encode_err(ctx, ret);
++
++            write_u32(data, ctx->next_seq_num++);
++
++            zstream->next_out = data + 4;
++            zstream->avail_out = fdat_length;
++        }
++    }
++
++    uint32_t trimmed_length = fdat_length - zstream->avail_out + 4; /* +4 for seq num */
++
++    ret = trim_chunk(ctx, trimmed_length);
++    if(ret) return ret;
++
++    return finish_chunk(ctx);
++}
++
++int spng_encode_frame(spng_ctx *ctx, const void *img, size_t len, int fmt, int flags, struct spng_fctl *fctl)
++{
++    if(ctx == NULL || fctl == NULL) return 1;
++    if(!ctx->state) return SPNG_EBADSTATE;
++    if(!ctx->encode_only) return SPNG_ECTXTYPE;
++    if(!ctx->stored.ihdr) return SPNG_ENOIHDR;
++    if(!ctx->stored.actl) return SPNG_EACTL;
++    if( !(fmt == SPNG_FMT_PNG || fmt == SPNG_FMT_RAW) ) return SPNG_EFMT;
++
++    if(ctx->num_frames_encoded >= ctx->actl.num_frames) return SPNG_EOPSTATE;
++
++    int ret = check_fctl(fctl, &ctx->ihdr, ctx->num_frames_encoded == 0);
++    if(ret) return ret;
++
++    if(ctx->num_frames_encoded == 0)
++    {
++        /* First frame: store fctl and use spng_encode_image to write IDAT */
++        ctx->fctl = *fctl;
++        ctx->stored.fctl = 1;
++
++        /* Don't finalize — we need to write more frames */
++        ret = spng_encode_image(ctx, img, len, fmt, flags & ~SPNG_ENCODE_FINALIZE);
++        if(ret) return ret;
++
++        ctx->num_frames_encoded++;
++
++        if(flags & SPNG_ENCODE_PROGRESSIVE)
++        {
++            /* Progressive: leave state as-is so caller can write scanlines.
++               State transitions to FRAME_IDLE after SPNG_EOI from encode_row(). */
++            return 0;
++        }
++
++        ctx->state = SPNG_STATE_FRAME_IDLE;
++
++        if(flags & SPNG_ENCODE_FINALIZE)
++        {
++            ret = write_chunks_after_idat(ctx);
++            if(ret) return encode_err(ctx, ret);
++            ctx->state = SPNG_STATE_IEND;
++        }
++
++        return 0;
++    }
++
++    /* Subsequent frames: write fcTL + fdAT */
++    if(ctx->state != SPNG_STATE_FRAME_IDLE && ctx->state != SPNG_STATE_EOI)
++        return SPNG_EOPSTATE;
++
++    /* Frames are encoded with the same format as the first frame */
++    if(fmt != ctx->fmt) return SPNG_EFMT;
++
++    if(ctx->state == SPNG_STATE_EOI)
++        ctx->state = SPNG_STATE_FRAME_IDLE;
++
++    ret = write_fctl(ctx, fctl);
++    if(ret) return encode_err(ctx, ret);
++
++    ctx->fctl = *fctl;
++
++    ret = calculate_frame_subimages(ctx, fctl->width, fctl->height);
++    if(ret) return encode_err(ctx, ret);
++
++    struct spng_subimage *sub = ctx->subimage;
++
++    /* fmt is SPNG_FMT_PNG or SPNG_FMT_RAW */
++    ctx->image_width = sub[0].scanline_width - 1;
++
++    if(ctx->image_width > SIZE_MAX / fctl->height) ctx->image_size = 0;
++    else ctx->image_size = ctx->image_width * fctl->height;
++
++    if(!(flags & SPNG_ENCODE_PROGRESSIVE))
++    {
++        if(img == NULL) return 1;
++        if(!ctx->image_size) return SPNG_EOVERFLOW;
++        if(len != ctx->image_size) return SPNG_EBUFSIZ;
++    }
++
++    /* Reset zlib deflate */
++    ret = spng__deflate_init(ctx, &ctx->image_options);
++    if(ret) return encode_err(ctx, ret);
++
++    /* Reallocate scanline buffers */
++    size_t scanline_buf_size = sub[0].scanline_width + 32;
++    if(scanline_buf_size < 32) return SPNG_EOVERFLOW;
++
++    spng__free(ctx, ctx->scanline_buf);
++    spng__free(ctx, ctx->prev_scanline_buf);
++    spng__free(ctx, ctx->filtered_scanline_buf);
++
++    ctx->scanline_buf = spng__malloc(ctx, scanline_buf_size);
++    ctx->prev_scanline_buf = spng__malloc(ctx, scanline_buf_size);
++
++    if(ctx->scanline_buf == NULL || ctx->prev_scanline_buf == NULL) return encode_err(ctx, SPNG_EMEM);
++
++    ctx->scanline = ctx->scanline_buf + 16;
++    ctx->prev_scanline = ctx->prev_scanline_buf + 16;
++
++    struct encode_flags *encode_flags = &ctx->encode_flags;
++
++    if(encode_flags->filter_choice)
++    {
++        ctx->filtered_scanline_buf = spng__malloc(ctx, scanline_buf_size);
++        if(ctx->filtered_scanline_buf == NULL) return encode_err(ctx, SPNG_EMEM);
++        ctx->filtered_scanline = ctx->filtered_scanline_buf + 16;
++    }
++    else
++    {
++        ctx->filtered_scanline_buf = NULL;
++    }
++
++    /* Write first fdAT header with sequence number */
++    z_stream *zstream = &ctx->zstream;
++    uint32_t fdat_chunk_length = SPNG_WRITE_SIZE + 4; /* +4 for seq num */
++    unsigned char *chunk_data;
++
++    ret = write_header(ctx, type_fdat, fdat_chunk_length, &chunk_data);
++    if(ret) return encode_err(ctx, ret);
++
++    write_u32(chunk_data, ctx->next_seq_num++);
++
++    zstream->avail_out = SPNG_WRITE_SIZE;
++    zstream->next_out = chunk_data + 4;
++
++    memset(&ctx->row_info, 0, sizeof(struct spng_row_info));
++
++    if(flags & SPNG_ENCODE_FINALIZE) encode_flags->finalize = 1;
++    else encode_flags->finalize = 0;
++
++    ctx->fdat_stream = 1; /* Tells encode_scanline to use fdAT */
++    ctx->state = SPNG_STATE_ENCODE_INIT;
++
++    if(flags & SPNG_ENCODE_PROGRESSIVE)
++    {
++        encode_flags->progressive = 1;
++        ctx->num_frames_encoded++;
++        return 0;
++    }
++
++    /* One-shot encode */
++    struct spng_row_info *ri = &ctx->row_info;
++
++    do
++    {
++        size_t ioffset = ri->row_num * ctx->image_width;
++
++        ret = encode_scanline(ctx, (unsigned char*)img + ioffset, ctx->image_width);
++
++    }while(!ret);
++
++    if(ret != SPNG_EOI) return encode_err(ctx, ret);
++
++    ctx->num_frames_encoded++;
++    ctx->state = SPNG_STATE_FRAME_IDLE;
++
++    if(flags & SPNG_ENCODE_FINALIZE)
++    {
++        ret = write_chunks_after_idat(ctx);
++        if(ret) return encode_err(ctx, ret);
++        ctx->state = SPNG_STATE_IEND;
++    }
++
++    return 0;
++}
++
+ spng_ctx *spng_ctx_new(int flags)
+ {
+     struct spng_alloc alloc =
+@@ -6038,6 +6693,40 @@ int spng_set_exif(spng_ctx *ctx, struct spng_exif *exif)
+     return 0;
+ }
+ 
++int spng_get_actl(spng_ctx *ctx, struct spng_actl *actl)
++{
++    SPNG_GET_CHUNK_BOILERPLATE(actl);
++
++    *actl = ctx->actl;
++
++    return 0;
++}
++
++int spng_set_actl(spng_ctx *ctx, struct spng_actl *actl)
++{
++    SPNG_SET_CHUNK_BOILERPLATE(actl);
++
++    if(ctx->stored.actl) return SPNG_EDUP_ACTL;
++
++    if(!actl->num_frames) return SPNG_EACTL;
++
++    ctx->actl = *actl;
++
++    ctx->stored.actl = 1;
++    ctx->user.actl = 1;
++
++    return 0;
++}
++
++int spng_get_frame_fctl(spng_ctx *ctx, struct spng_fctl *fctl)
++{
++    SPNG_GET_CHUNK_BOILERPLATE(fctl);
++
++    *fctl = ctx->fctl;
++
++    return 0;
++}
++
+ const char *spng_strerror(int err)
+ {
+     switch(err)
+@@ -6130,6 +6819,10 @@ const char *spng_strerror(int err)
+         case SPNG_ENODST: return "PNG output not set";
+         case SPNG_EOPSTATE: return "invalid operation for state";
+         case SPNG_ENOTFINAL: return "PNG not finalized";
++        case SPNG_EACTL: return "invalid acTL";
++        case SPNG_EFCTL: return "invalid fcTL";
++        case SPNG_EDUP_ACTL: return "duplicate acTL";
++        case SPNG_EAPNG: return "APNG error";
+         default: return "unknown error";
+     }
+ }
+diff --git a/spng/spng.h b/spng/spng.h
+index 8f946337..70395b39 100644
+--- a/spng/spng.h
++++ b/spng/spng.h
+@@ -120,6 +120,24 @@ enum spng_errno
+     SPNG_ENODST,
+     SPNG_EOPSTATE,
+     SPNG_ENOTFINAL,
++
++    SPNG_EACTL,         /* invalid acTL */
++    SPNG_EFCTL,         /* invalid fcTL */
++    SPNG_EDUP_ACTL,     /* duplicate acTL */
++    SPNG_EAPNG,         /* generic APNG error (bad seq num, etc.) */
++};
++
++enum spng_dispose_op
++{
++    SPNG_DISPOSE_OP_NONE = 0,
++    SPNG_DISPOSE_OP_BACKGROUND = 1,
++    SPNG_DISPOSE_OP_PREVIOUS = 2
++};
++
++enum spng_blend_op
++{
++    SPNG_BLEND_OP_SOURCE = 0,
++    SPNG_BLEND_OP_OVER = 1
+ };
+ 
+ enum spng_text_type
+@@ -369,6 +387,24 @@ struct spng_exif
+     char *data;
+ };
+ 
++struct spng_actl
++{
++    uint32_t num_frames;
++    uint32_t num_plays;    /* 0 = infinite */
++};
++
++struct spng_fctl
++{
++    uint32_t width;
++    uint32_t height;
++    uint32_t x_offset;
++    uint32_t y_offset;
++    uint16_t delay_num;
++    uint16_t delay_den;    /* 0 treated as 100 */
++    uint8_t dispose_op;
++    uint8_t blend_op;
++};
++
+ struct spng_chunk
+ {
+     size_t offset;
+@@ -503,6 +539,15 @@ SPNG_API int spng_get_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *c
+ SPNG_API int spng_get_offs(spng_ctx *ctx, struct spng_offs *offs);
+ SPNG_API int spng_get_exif(spng_ctx *ctx, struct spng_exif *exif);
+ 
++/* APNG */
++SPNG_API int spng_get_actl(spng_ctx *ctx, struct spng_actl *actl);
++SPNG_API int spng_get_frame_fctl(spng_ctx *ctx, struct spng_fctl *fctl);
++
++SPNG_API int spng_decode_frame(spng_ctx *ctx, void *out, size_t len,
++                               int fmt, int flags, struct spng_fctl *fctl);
++
++SPNG_API int spng_encode_frame(spng_ctx *ctx, const void *img, size_t len,
++                               int fmt, int flags, struct spng_fctl *fctl);
+ 
+ SPNG_API int spng_set_ihdr(spng_ctx *ctx, struct spng_ihdr *ihdr);
+ SPNG_API int spng_set_plte(spng_ctx *ctx, struct spng_plte *plte);
+@@ -526,6 +571,9 @@ SPNG_API int spng_set_unknown_chunks(spng_ctx *ctx, struct spng_unknown_chunk *c
+ SPNG_API int spng_set_offs(spng_ctx *ctx, struct spng_offs *offs);
+ SPNG_API int spng_set_exif(spng_ctx *ctx, struct spng_exif *exif);
+ 
++/* APNG */
++SPNG_API int spng_set_actl(spng_ctx *ctx, struct spng_actl *actl);
++
+ 
+ SPNG_API const char *spng_strerror(int err);
+ SPNG_API const char *spng_version_string(void);
+diff --git a/subprojects/libpng.wrap b/subprojects/libpng.wrap
+index b7af9091..6b5c3070 100644
+--- a/subprojects/libpng.wrap
++++ b/subprojects/libpng.wrap
+@@ -1,10 +1,15 @@
+ [wrap-file]
+-directory = libpng-1.6.37
++directory = libpng-1.6.55
+ 
+-source_url = https://github.com/glennrp/libpng/archive/v1.6.37.tar.gz
+-source_filename = libpng-1.6.37.tar.gz
+-source_hash = ca74a0dace179a8422187671aee97dd3892b53e168627145271cad5b5ac81307
++source_url = https://github.com/pnggroup/libpng/archive/refs/tags/v1.6.55.tar.gz
++source_filename = libpng-1.6.55.tar.gz
++source_hash = 71a2c5b1218f60c4c6d2f1954c7eb20132156cae90bdb90b566c24db002782a6
+ 
+-patch_url = https://wrapdb.mesonbuild.com/v1/projects/libpng/1.6.37/1/get_zip
+-patch_filename = libpng-1.6.37-1-wrap.zip
+-patch_hash = 9a863ae8a5657315a484c94c51f9f636b1fb9f49a15196cc896b72e5f21d78f0
++patch_url = https://wrapdb.mesonbuild.com/v2/libpng_1.6.55-1/get_patch
++patch_filename = libpng_1.6.55-1_patch.zip
++patch_hash = d5754df441e93e2e2f1dc176cc86f45ec0ef2914e9c77c1e8013c68b106d0ff5
++
++diff_files = libpng-apng.patch, libpng-fix-hist-out-of-place.patch
++
++[provide]
++libpng = libpng_dep
+diff --git a/subprojects/packagefiles/libpng-apng.patch b/subprojects/packagefiles/libpng-apng.patch
+new file mode 100644
+index 00000000..123d958a
+--- /dev/null
++++ b/subprojects/packagefiles/libpng-apng.patch
+@@ -0,0 +1,1743 @@
++diff -Naru libpng-1.6.55.org/png.h libpng-1.6.55/png.h
++--- libpng-1.6.55.org/png.h	2026-02-12 18:45:55.033069005 +0900
+++++ libpng-1.6.55/png.h	2026-02-12 18:51:47.369016798 +0900
++@@ -328,6 +328,10 @@
++ #   include "pnglibconf.h"
++ #endif
++ 
+++#define PNG_APNG_SUPPORTED
+++#define PNG_READ_APNG_SUPPORTED
+++#define PNG_WRITE_APNG_SUPPORTED
+++
++ #ifndef PNG_VERSION_INFO_ONLY
++ /* Machine specific configuration. */
++ #  include "pngconf.h"
++@@ -423,6 +427,17 @@
++  * See pngconf.h for base types that vary by machine/system
++  */
++ 
+++#ifdef PNG_APNG_SUPPORTED
+++/* dispose_op flags from inside fcTL */
+++#define PNG_DISPOSE_OP_NONE        0x00U
+++#define PNG_DISPOSE_OP_BACKGROUND  0x01U
+++#define PNG_DISPOSE_OP_PREVIOUS    0x02U
+++
+++/* blend_op flags from inside fcTL */
+++#define PNG_BLEND_OP_SOURCE        0x00U
+++#define PNG_BLEND_OP_OVER          0x01U
+++#endif /* PNG_APNG_SUPPORTED */
+++
++ /* This triggers a compiler error in png.c, if png.c and png.h
++  * do not agree upon the version number.
++  */
++@@ -801,6 +816,10 @@
++    (png_structp, png_infop));
++ typedef PNG_CALLBACK(void, *png_progressive_end_ptr,
++    (png_structp, png_infop));
+++#ifdef PNG_APNG_SUPPORTED
+++typedef PNG_CALLBACK(void, *png_progressive_frame_ptr,
+++   (png_structp, png_uint_32));
+++#endif
++ 
++ /* The following callback receives png_uint_32 row_number, int pass for the
++  * png_bytep data of the row.  When transforming an interlaced image the
++@@ -3506,6 +3525,81 @@
++  *  END OF HARDWARE AND SOFTWARE OPTIONS
++  ******************************************************************************/
++ 
+++#ifdef PNG_APNG_SUPPORTED
+++PNG_EXPORT(260, png_uint_32, png_get_acTL,
+++   (png_structp png_ptr, png_infop info_ptr,
+++    png_uint_32 *num_frames, png_uint_32 *num_plays));
+++
+++PNG_EXPORT(261, png_uint_32, png_set_acTL,
+++   (png_structp png_ptr, png_infop info_ptr,
+++    png_uint_32 num_frames, png_uint_32 num_plays));
+++
+++PNG_EXPORT(262, png_uint_32, png_get_num_frames,
+++   (png_structp png_ptr, png_infop info_ptr));
+++
+++PNG_EXPORT(263, png_uint_32, png_get_num_plays,
+++   (png_structp png_ptr, png_infop info_ptr));
+++
+++PNG_EXPORT(264, png_uint_32, png_get_next_frame_fcTL,
+++   (png_structp png_ptr, png_infop info_ptr,
+++    png_uint_32 *width, png_uint_32 *height,
+++    png_uint_32 *x_offset, png_uint_32 *y_offset,
+++    png_uint_16 *delay_num, png_uint_16 *delay_den,
+++    png_byte *dispose_op, png_byte *blend_op));
+++
+++PNG_EXPORT(265, png_uint_32, png_set_next_frame_fcTL,
+++   (png_structp png_ptr, png_infop info_ptr,
+++    png_uint_32 width, png_uint_32 height,
+++    png_uint_32 x_offset, png_uint_32 y_offset,
+++    png_uint_16 delay_num, png_uint_16 delay_den,
+++    png_byte dispose_op, png_byte blend_op));
+++
+++PNG_EXPORT(266, png_uint_32, png_get_next_frame_width,
+++   (png_structp png_ptr, png_infop info_ptr));
+++PNG_EXPORT(267, png_uint_32, png_get_next_frame_height,
+++   (png_structp png_ptr, png_infop info_ptr));
+++PNG_EXPORT(268, png_uint_32, png_get_next_frame_x_offset,
+++   (png_structp png_ptr, png_infop info_ptr));
+++PNG_EXPORT(269, png_uint_32, png_get_next_frame_y_offset,
+++   (png_structp png_ptr, png_infop info_ptr));
+++PNG_EXPORT(270, png_uint_16, png_get_next_frame_delay_num,
+++   (png_structp png_ptr, png_infop info_ptr));
+++PNG_EXPORT(271, png_uint_16, png_get_next_frame_delay_den,
+++   (png_structp png_ptr, png_infop info_ptr));
+++PNG_EXPORT(272, png_byte, png_get_next_frame_dispose_op,
+++   (png_structp png_ptr, png_infop info_ptr));
+++PNG_EXPORT(273, png_byte, png_get_next_frame_blend_op,
+++   (png_structp png_ptr, png_infop info_ptr));
+++PNG_EXPORT(274, png_byte, png_get_first_frame_is_hidden,
+++   (png_structp png_ptr, png_infop info_ptr));
+++PNG_EXPORT(275, png_uint_32, png_set_first_frame_is_hidden,
+++   (png_structp png_ptr, png_infop info_ptr, png_byte is_hidden));
+++
+++#ifdef PNG_READ_APNG_SUPPORTED
+++PNG_EXPORT(276, void, png_read_frame_head,
+++   (png_structp png_ptr, png_infop info_ptr));
+++#ifdef PNG_PROGRESSIVE_READ_SUPPORTED
+++PNG_EXPORT(277, void, png_set_progressive_frame_fn,
+++   (png_structp png_ptr,
+++    png_progressive_frame_ptr frame_info_fn,
+++    png_progressive_frame_ptr frame_end_fn));
+++#endif /* PNG_PROGRESSIVE_READ_SUPPORTED */
+++#endif /* PNG_READ_APNG_SUPPORTED */
+++
+++#ifdef PNG_WRITE_APNG_SUPPORTED
+++PNG_EXPORT(278, void, png_write_frame_head,
+++   (png_structp png_ptr, png_infop info_ptr,
+++    png_bytepp row_pointers,
+++    png_uint_32 width, png_uint_32 height,
+++    png_uint_32 x_offset, png_uint_32 y_offset,
+++    png_uint_16 delay_num, png_uint_16 delay_den,
+++    png_byte dispose_op, png_byte blend_op));
+++
+++PNG_EXPORT(279, void, png_write_frame_tail,
+++   (png_structp png_ptr, png_infop info_ptr));
+++#endif /* PNG_WRITE_APNG_SUPPORTED */
+++#endif /* PNG_APNG_SUPPORTED */
+++
++ /* Maintainer: Put new public prototypes here ^, in libpng.3, in project
++  * defs, and in scripts/symbols.def.
++  */
++@@ -3514,7 +3608,11 @@
++  * one to use is one more than this.)
++  */
++ #ifdef PNG_EXPORT_LAST_ORDINAL
+++#ifdef PNG_APNG_SUPPORTED
+++   PNG_EXPORT_LAST_ORDINAL(279);
+++#else
++    PNG_EXPORT_LAST_ORDINAL(259);
+++#endif /* PNG_APNG_SUPPORTED */
++ #endif
++ 
++ #ifdef __cplusplus
++diff -Naru libpng-1.6.55.org/pngget.c libpng-1.6.55/pngget.c
++--- libpng-1.6.55.org/pngget.c	2026-01-15 09:54:33.410881877 +0900
+++++ libpng-1.6.55/pngget.c	2026-02-12 18:51:47.370016804 +0900
++@@ -1366,4 +1366,166 @@
++ #  endif
++ #endif
++ 
+++#ifdef PNG_APNG_SUPPORTED
+++png_uint_32 PNGAPI
+++png_get_acTL(png_structp png_ptr, png_infop info_ptr,
+++             png_uint_32 *num_frames, png_uint_32 *num_plays)
+++{
+++   png_debug1(1, "in %s retrieval function", "acTL");
+++
+++   if (png_ptr != NULL && info_ptr != NULL &&
+++       (info_ptr->valid & PNG_INFO_acTL) &&
+++       num_frames != NULL && num_plays != NULL)
+++   {
+++      *num_frames = info_ptr->num_frames;
+++      *num_plays = info_ptr->num_plays;
+++      return 1;
+++   }
+++
+++   return 0;
+++}
+++
+++png_uint_32 PNGAPI
+++png_get_num_frames(png_structp png_ptr, png_infop info_ptr)
+++{
+++   png_debug(1, "in png_get_num_frames");
+++
+++   if (png_ptr != NULL && info_ptr != NULL)
+++      return info_ptr->num_frames;
+++   return 0;
+++}
+++
+++png_uint_32 PNGAPI
+++png_get_num_plays(png_structp png_ptr, png_infop info_ptr)
+++{
+++   png_debug(1, "in png_get_num_plays");
+++
+++   if (png_ptr != NULL && info_ptr != NULL)
+++      return info_ptr->num_plays;
+++   return 0;
+++}
+++
+++png_uint_32 PNGAPI
+++png_get_next_frame_fcTL(png_structp png_ptr, png_infop info_ptr,
+++                        png_uint_32 *width, png_uint_32 *height,
+++                        png_uint_32 *x_offset, png_uint_32 *y_offset,
+++                        png_uint_16 *delay_num, png_uint_16 *delay_den,
+++                        png_byte *dispose_op, png_byte *blend_op)
+++{
+++   png_debug1(1, "in %s retrieval function", "fcTL");
+++
+++   if (png_ptr != NULL && info_ptr != NULL &&
+++       (info_ptr->valid & PNG_INFO_fcTL) &&
+++       width != NULL && height != NULL &&
+++       x_offset != NULL && y_offset != NULL &&
+++       delay_num != NULL && delay_den != NULL &&
+++       dispose_op != NULL && blend_op != NULL)
+++   {
+++      *width = info_ptr->next_frame_width;
+++      *height = info_ptr->next_frame_height;
+++      *x_offset = info_ptr->next_frame_x_offset;
+++      *y_offset = info_ptr->next_frame_y_offset;
+++      *delay_num = info_ptr->next_frame_delay_num;
+++      *delay_den = info_ptr->next_frame_delay_den;
+++      *dispose_op = info_ptr->next_frame_dispose_op;
+++      *blend_op = info_ptr->next_frame_blend_op;
+++      return 1;
+++   }
+++
+++   return 0;
+++}
+++
+++png_uint_32 PNGAPI
+++png_get_next_frame_width(png_structp png_ptr, png_infop info_ptr)
+++{
+++   png_debug(1, "in png_get_next_frame_width");
+++
+++   if (png_ptr != NULL && info_ptr != NULL)
+++      return info_ptr->next_frame_width;
+++   return 0;
+++}
+++
+++png_uint_32 PNGAPI
+++png_get_next_frame_height(png_structp png_ptr, png_infop info_ptr)
+++{
+++   png_debug(1, "in png_get_next_frame_height");
+++
+++   if (png_ptr != NULL && info_ptr != NULL)
+++      return info_ptr->next_frame_height;
+++   return 0;
+++}
+++
+++png_uint_32 PNGAPI
+++png_get_next_frame_x_offset(png_structp png_ptr, png_infop info_ptr)
+++{
+++   png_debug(1, "in png_get_next_frame_x_offset");
+++
+++   if (png_ptr != NULL && info_ptr != NULL)
+++      return info_ptr->next_frame_x_offset;
+++   return 0;
+++}
+++
+++png_uint_32 PNGAPI
+++png_get_next_frame_y_offset(png_structp png_ptr, png_infop info_ptr)
+++{
+++   png_debug(1, "in png_get_next_frame_y_offset");
+++
+++   if (png_ptr != NULL && info_ptr != NULL)
+++      return info_ptr->next_frame_y_offset;
+++   return 0;
+++}
+++
+++png_uint_16 PNGAPI
+++png_get_next_frame_delay_num(png_structp png_ptr, png_infop info_ptr)
+++{
+++   png_debug(1, "in png_get_next_frame_delay_num");
+++
+++   if (png_ptr != NULL && info_ptr != NULL)
+++      return info_ptr->next_frame_delay_num;
+++   return 0;
+++}
+++
+++png_uint_16 PNGAPI
+++png_get_next_frame_delay_den(png_structp png_ptr, png_infop info_ptr)
+++{
+++   png_debug(1, "in png_get_next_frame_delay_den");
+++
+++   if (png_ptr != NULL && info_ptr != NULL)
+++      return info_ptr->next_frame_delay_den;
+++   return 0;
+++}
+++
+++png_byte PNGAPI
+++png_get_next_frame_dispose_op(png_structp png_ptr, png_infop info_ptr)
+++{
+++   png_debug(1, "in png_get_next_frame_dispose_op");
+++
+++   if (png_ptr != NULL && info_ptr != NULL)
+++      return info_ptr->next_frame_dispose_op;
+++   return 0;
+++}
+++
+++png_byte PNGAPI
+++png_get_next_frame_blend_op(png_structp png_ptr, png_infop info_ptr)
+++{
+++   png_debug(1, "in png_get_next_frame_blend_op");
+++
+++   if (png_ptr != NULL && info_ptr != NULL)
+++      return info_ptr->next_frame_blend_op;
+++   return 0;
+++}
+++
+++png_byte PNGAPI
+++png_get_first_frame_is_hidden(png_structp png_ptr, png_infop info_ptr)
+++{
+++   png_debug(1, "in png_first_frame_is_hidden");
+++
+++   if (png_ptr != NULL)
+++      return (png_byte)(png_ptr->apng_flags & PNG_FIRST_FRAME_HIDDEN);
+++
+++   PNG_UNUSED(info_ptr)
+++
+++   return 0;
+++}
+++#endif /* PNG_APNG_SUPPORTED */
++ #endif /* READ || WRITE */
++diff -Naru libpng-1.6.55.org/pnginfo.h libpng-1.6.55/pnginfo.h
++--- libpng-1.6.55.org/pnginfo.h	2025-05-11 18:44:02.085040902 +0900
+++++ libpng-1.6.55/pnginfo.h	2026-02-12 18:51:47.370016804 +0900
++@@ -259,5 +259,18 @@
++ #ifdef PNG_sRGB_SUPPORTED
++    int rendering_intent;
++ #endif
+++
+++#ifdef PNG_APNG_SUPPORTED
+++   png_uint_32 num_frames; /* including default image */
+++   png_uint_32 num_plays;
+++   png_uint_32 next_frame_width;
+++   png_uint_32 next_frame_height;
+++   png_uint_32 next_frame_x_offset;
+++   png_uint_32 next_frame_y_offset;
+++   png_uint_16 next_frame_delay_num;
+++   png_uint_16 next_frame_delay_den;
+++   png_byte next_frame_dispose_op;
+++   png_byte next_frame_blend_op;
+++#endif
++ };
++ #endif /* PNGINFO_H */
++diff -Naru libpng-1.6.55.org/pngpread.c libpng-1.6.55/pngpread.c
++--- libpng-1.6.55.org/pngpread.c	2025-07-06 11:06:43.933735454 +0900
+++++ libpng-1.6.55/pngpread.c	2026-02-12 18:51:47.370016804 +0900
++@@ -200,6 +200,105 @@
++ 
++    chunk_name = png_ptr->chunk_name;
++ 
+++#ifdef PNG_READ_APNG_SUPPORTED
+++   if (png_ptr->num_frames_read > 0 &&
+++       png_ptr->num_frames_read < info_ptr->num_frames)
+++   {
+++      if (chunk_name == png_IDAT)
+++      {
+++         /* Discard trailing IDATs for the first frame. */
+++         if (png_ptr->mode & PNG_HAVE_fcTL || png_ptr->num_frames_read > 1)
+++            png_error(png_ptr, "Misplaced IDAT in APNG stream");
+++
+++         if (png_ptr->push_length + 4 > png_ptr->buffer_size)
+++         {
+++            png_push_save_buffer(png_ptr);
+++            return;
+++         }
+++
+++         png_ptr->mode &= ~PNG_HAVE_CHUNK_HEADER;
+++         return;
+++      }
+++      else if (chunk_name == png_fdAT)
+++      {
+++         if (png_ptr->buffer_size < 4)
+++         {
+++            png_push_save_buffer(png_ptr);
+++            return;
+++         }
+++
+++         png_ensure_sequence_number(png_ptr, 4);
+++
+++         if (!(png_ptr->mode & PNG_HAVE_fcTL))
+++         {
+++            /* Discard trailing fdATs for frames other than the first. */
+++            if (png_ptr->num_frames_read < 2)
+++               png_error(png_ptr, "Misplaced fdAT in APNG stream");
+++
+++            if (png_ptr->push_length + 4 > png_ptr->buffer_size)
+++            {
+++               png_push_save_buffer(png_ptr);
+++               return;
+++            }
+++
+++            png_ptr->mode &= ~PNG_HAVE_CHUNK_HEADER;
+++            return;
+++         }
+++
+++         else
+++         {
+++            /* Frame data follows. */
+++            png_ptr->idat_size = png_ptr->push_length - 4;
+++            png_ptr->mode |= PNG_HAVE_IDAT;
+++            png_ptr->process_mode = PNG_READ_IDAT_MODE;
+++
+++            return;
+++         }
+++      }
+++
+++      else if (chunk_name == png_fcTL)
+++      {
+++         if (png_ptr->push_length + 4 > png_ptr->buffer_size)
+++         {
+++            png_push_save_buffer(png_ptr);
+++            return;
+++         }
+++
+++         png_read_reset(png_ptr);
+++         png_ptr->mode &= ~PNG_HAVE_fcTL;
+++
+++         png_handle_fcTL(png_ptr, info_ptr, png_ptr->push_length);
+++
+++         if (!(png_ptr->mode & PNG_HAVE_fcTL))
+++            png_error(png_ptr, "Missing required fcTL chunk in APNG stream");
+++
+++         png_read_reinit(png_ptr, info_ptr);
+++         png_progressive_read_reset(png_ptr);
+++
+++         if (png_ptr->frame_info_fn != NULL)
+++            (*(png_ptr->frame_info_fn))(png_ptr, png_ptr->num_frames_read);
+++
+++         png_ptr->mode &= ~PNG_HAVE_CHUNK_HEADER;
+++
+++         return;
+++      }
+++
+++      else
+++      {
+++         if (png_ptr->push_length + 4 > png_ptr->buffer_size)
+++         {
+++            png_push_save_buffer(png_ptr);
+++            return;
+++         }
+++         png_warning(png_ptr, "Ignoring unexpected chunk in APNG sequence");
+++         png_ptr->mode &= ~PNG_HAVE_CHUNK_HEADER;
+++         return;
+++      }
+++
+++      return;
+++   }
+++#endif /* PNG_READ_APNG_SUPPORTED */
+++
++    if (chunk_name == png_IDAT)
++    {
++       if ((png_ptr->mode & PNG_AFTER_IDAT) != 0)
++@@ -268,6 +367,9 @@
++ 
++    else if (chunk_name == png_IDAT)
++    {
+++#ifdef PNG_READ_APNG_SUPPORTED
+++      png_have_info(png_ptr, info_ptr);
+++#endif
++       png_ptr->idat_size = png_ptr->push_length;
++       png_ptr->process_mode = PNG_READ_IDAT_MODE;
++       png_push_have_info(png_ptr, info_ptr);
++@@ -278,6 +380,31 @@
++       return;
++    }
++ 
+++#ifdef PNG_READ_APNG_SUPPORTED
+++   else if (chunk_name == png_acTL)
+++   {
+++      if (png_ptr->push_length + 4 > png_ptr->buffer_size)
+++      {
+++         png_push_save_buffer(png_ptr);
+++         return;
+++      }
+++
+++      png_handle_acTL(png_ptr, info_ptr, png_ptr->push_length);
+++   }
+++
+++   else if (chunk_name == png_fcTL)
+++   {
+++      if (png_ptr->push_length + 4 > png_ptr->buffer_size)
+++      {
+++         png_push_save_buffer(png_ptr);
+++         return;
+++      }
+++
+++      png_handle_fcTL(png_ptr, info_ptr, png_ptr->push_length);
+++   }
+++
+++#endif /* PNG_READ_APNG_SUPPORTED */
+++
++    else
++    {
++       PNG_PUSH_SAVE_BUFFER_IF_FULL
++@@ -409,7 +536,11 @@
++       png_byte chunk_tag[4];
++ 
++       /* TODO: this code can be commoned up with the same code in push_read */
+++#ifdef PNG_READ_APNG_SUPPORTED
+++      PNG_PUSH_SAVE_BUFFER_IF_LT(12)
+++#else
++       PNG_PUSH_SAVE_BUFFER_IF_LT(8)
+++#endif
++       png_push_fill_buffer(png_ptr, chunk_length, 4);
++       png_ptr->push_length = png_get_uint_31(png_ptr, chunk_length);
++       png_reset_crc(png_ptr);
++@@ -417,17 +548,63 @@
++       png_ptr->chunk_name = PNG_CHUNK_FROM_STRING(chunk_tag);
++       png_ptr->mode |= PNG_HAVE_CHUNK_HEADER;
++ 
+++#ifdef PNG_READ_APNG_SUPPORTED
+++      if (png_ptr->chunk_name != png_fdAT && png_ptr->num_frames_read > 0)
+++      {
+++         if (png_ptr->flags & PNG_FLAG_ZSTREAM_ENDED)
+++         {
+++            png_ptr->process_mode = PNG_READ_CHUNK_MODE;
+++            if (png_ptr->frame_end_fn != NULL)
+++               (*(png_ptr->frame_end_fn))(png_ptr, png_ptr->num_frames_read);
+++            png_ptr->num_frames_read++;
+++            return;
+++         }
+++         else
+++         {
+++            if (png_ptr->chunk_name == png_IEND)
+++               png_error(png_ptr, "Not enough image data");
+++            if (png_ptr->push_length + 4 > png_ptr->buffer_size)
+++            {
+++               png_push_save_buffer(png_ptr);
+++               return;
+++            }
+++            png_warning(png_ptr, "Ignoring unexpected chunk in APNG sequence");
+++            png_crc_finish(png_ptr, png_ptr->push_length);
+++            png_ptr->mode &= ~PNG_HAVE_CHUNK_HEADER;
+++            return;
+++         }
+++      }
+++      else
+++#endif
+++#ifdef PNG_READ_APNG_SUPPORTED
+++      if (png_ptr->chunk_name != png_IDAT && png_ptr->num_frames_read == 0)
+++#else
++       if (png_ptr->chunk_name != png_IDAT)
+++#endif
++       {
++          png_ptr->process_mode = PNG_READ_CHUNK_MODE;
++ 
++          if ((png_ptr->flags & PNG_FLAG_ZSTREAM_ENDED) == 0)
++             png_error(png_ptr, "Not enough compressed data");
++ 
+++#ifdef PNG_READ_APNG_SUPPORTED
+++         if (png_ptr->frame_end_fn != NULL)
+++            (*(png_ptr->frame_end_fn))(png_ptr, png_ptr->num_frames_read);
+++         png_ptr->num_frames_read++;
+++#endif
+++
++          return;
++       }
++ 
++       png_ptr->idat_size = png_ptr->push_length;
+++
+++#ifdef PNG_READ_APNG_SUPPORTED
+++      if (png_ptr->num_frames_read > 0)
+++      {
+++         png_ensure_sequence_number(png_ptr, 4);
+++         png_ptr->idat_size -= 4;
+++      }
+++#endif
++    }
++ 
++    if (png_ptr->idat_size != 0 && png_ptr->save_buffer_size != 0)
++@@ -501,6 +678,15 @@
++    if (!(buffer_length > 0) || buffer == NULL)
++       png_error(png_ptr, "No IDAT data (internal error)");
++ 
+++#ifdef PNG_READ_APNG_SUPPORTED
+++   /* If the app is not APNG-aware, decode only the first frame. */
+++   if (!(png_ptr->apng_flags & PNG_APNG_APP) && png_ptr->num_frames_read > 0)
+++   {
+++      png_ptr->flags |= PNG_FLAG_ZSTREAM_ENDED;
+++      return;
+++   }
+++#endif
+++
++    /* This routine must process all the data it has been given
++     * before returning, calling the row callback as required to
++     * handle the uncompressed results.
++@@ -934,6 +1120,18 @@
++    png_set_read_fn(png_ptr, progressive_ptr, png_push_fill_buffer);
++ }
++ 
+++#ifdef PNG_READ_APNG_SUPPORTED
+++void PNGAPI
+++png_set_progressive_frame_fn(png_structp png_ptr,
+++                             png_progressive_frame_ptr frame_info_fn,
+++                             png_progressive_frame_ptr frame_end_fn)
+++{
+++   png_ptr->frame_info_fn = frame_info_fn;
+++   png_ptr->frame_end_fn = frame_end_fn;
+++   png_ptr->apng_flags |= PNG_APNG_APP;
+++}
+++#endif
+++
++ png_voidp PNGAPI
++ png_get_progressive_ptr(png_const_structrp png_ptr)
++ {
++diff -Naru libpng-1.6.55.org/pngpriv.h libpng-1.6.55/pngpriv.h
++--- libpng-1.6.55.org/pngpriv.h	2026-01-15 09:54:33.411881875 +0900
+++++ libpng-1.6.55/pngpriv.h	2026-02-12 18:51:47.370016804 +0900
++@@ -653,6 +653,10 @@
++ #define PNG_HAVE_CHUNK_AFTER_IDAT 0x2000U /* Have another chunk after IDAT */
++ #define PNG_WROTE_eXIf            0x4000U
++ #define PNG_IS_READ_STRUCT        0x8000U /* Else is a write struct */
+++#ifdef PNG_APNG_SUPPORTED
+++#define PNG_HAVE_acTL            0x10000U
+++#define PNG_HAVE_fcTL            0x20000U
+++#endif
++ 
++ /* Flags for the transformations the PNG library does on the image data */
++ #define PNG_BGR                 0x0001U
++@@ -917,6 +921,13 @@
++ #define png_tRNS PNG_U32(116,  82,  78,  83)
++ #define png_zTXt PNG_U32(122,  84,  88, 116)
++ 
+++#ifdef PNG_APNG_SUPPORTED
+++
+++/* For png_struct.apng_flags: */
+++#define PNG_FIRST_FRAME_HIDDEN       0x0001U
+++#define PNG_APNG_APP                 0x0002U
+++#endif
+++
++ /* The following will work on (signed char*) strings, whereas the get_uint_32
++  * macro will fail on top-bit-set values because of the sign extension.
++  */
++@@ -1880,6 +1891,68 @@
++    PNG_EMPTY);
++ #endif /* PROGRESSIVE_READ */
++ 
+++#ifdef PNG_APNG_SUPPORTED
+++PNG_INTERNAL_FUNCTION(void, png_ensure_fcTL_is_valid,
+++   (png_structp png_ptr,
+++    png_uint_32 width, png_uint_32 height,
+++    png_uint_32 x_offset, png_uint_32 y_offset,
+++    png_uint_16 delay_num, png_uint_16 delay_den,
+++    png_byte dispose_op, png_byte blend_op),
+++   PNG_EMPTY);
+++
+++#ifdef PNG_READ_APNG_SUPPORTED
+++PNG_INTERNAL_FUNCTION(void, png_handle_acTL,
+++   (png_structp png_ptr, png_infop info_ptr, png_uint_32 length),
+++   PNG_EMPTY);
+++PNG_INTERNAL_FUNCTION(void, png_handle_fcTL,
+++   (png_structp png_ptr, png_infop info_ptr, png_uint_32 length),
+++   PNG_EMPTY);
+++PNG_INTERNAL_FUNCTION(void, png_handle_fdAT,
+++   (png_structp png_ptr, png_infop info_ptr, png_uint_32 length),
+++   PNG_EMPTY);
+++PNG_INTERNAL_FUNCTION(void, png_have_info,
+++   (png_structp png_ptr, png_infop info_ptr),
+++   PNG_EMPTY);
+++PNG_INTERNAL_FUNCTION(void, png_ensure_sequence_number,
+++   (png_structp png_ptr, png_uint_32 length),
+++   PNG_EMPTY);
+++PNG_INTERNAL_FUNCTION(void, png_read_reset,
+++   (png_structp png_ptr),
+++   PNG_EMPTY);
+++PNG_INTERNAL_FUNCTION(void, png_read_reinit,
+++   (png_structp png_ptr, png_infop info_ptr),
+++   PNG_EMPTY);
+++#ifdef PNG_PROGRESSIVE_READ_SUPPORTED
+++PNG_INTERNAL_FUNCTION(void, png_progressive_read_reset,
+++   (png_structp png_ptr),
+++   PNG_EMPTY);
+++#endif /* PNG_PROGRESSIVE_READ_SUPPORTED */
+++#endif /* PNG_READ_APNG_SUPPORTED */
+++
+++#ifdef PNG_WRITE_APNG_SUPPORTED
+++PNG_INTERNAL_FUNCTION(void, png_write_acTL,
+++   (png_structp png_ptr, png_uint_32 num_frames, png_uint_32 num_plays),
+++   PNG_EMPTY);
+++PNG_INTERNAL_FUNCTION(void, png_write_fcTL,
+++   (png_structp png_ptr,
+++    png_uint_32 width, png_uint_32 height,
+++    png_uint_32 x_offset, png_uint_32 y_offset,
+++    png_uint_16 delay_num, png_uint_16 delay_den,
+++    png_byte dispose_op, png_byte blend_op),
+++   PNG_EMPTY);
+++PNG_INTERNAL_FUNCTION(void, png_write_fdAT,
+++   (png_structp png_ptr, png_const_bytep data, png_size_t length),
+++   PNG_EMPTY);
+++PNG_INTERNAL_FUNCTION(void, png_write_reset,
+++   (png_structp png_ptr),
+++   PNG_EMPTY);
+++PNG_INTERNAL_FUNCTION(void, png_write_reinit,
+++   (png_structp png_ptr, png_infop info_ptr,
+++    png_uint_32 width, png_uint_32 height),
+++   PNG_EMPTY);
+++#endif /* PNG_WRITE_APNG_SUPPORTED */
+++#endif /* PNG_APNG_SUPPORTED */
+++
++ #ifdef PNG_iCCP_SUPPORTED
++ /* Routines for checking parts of an ICC profile. */
++ #ifdef PNG_READ_iCCP_SUPPORTED
++diff -Naru libpng-1.6.55.org/pngread.c libpng-1.6.55/pngread.c
++--- libpng-1.6.55.org/pngread.c	2026-01-15 09:54:33.412881873 +0900
+++++ libpng-1.6.55/pngread.c	2026-02-12 18:51:47.371016809 +0900
++@@ -157,16 +157,95 @@
++ 
++       else if (chunk_name == png_IDAT)
++       {
+++#ifdef PNG_READ_APNG_SUPPORTED
+++         png_have_info(png_ptr, info_ptr);
+++#endif
++          png_ptr->idat_size = length;
++          break;
++       }
++ 
+++#ifdef PNG_READ_APNG_SUPPORTED
+++      else if (chunk_name == png_acTL)
+++         png_handle_acTL(png_ptr, info_ptr, length);
+++
+++      else if (chunk_name == png_fcTL)
+++         png_handle_fcTL(png_ptr, info_ptr, length);
+++
+++      else if (chunk_name == png_fdAT)
+++         png_handle_fdAT(png_ptr, info_ptr, length);
+++#endif
+++
++       else
++          png_handle_chunk(png_ptr, info_ptr, length);
++    }
++ }
++ #endif /* SEQUENTIAL_READ */
++ 
+++#ifdef PNG_READ_APNG_SUPPORTED
+++void PNGAPI
+++png_read_frame_head(png_structp png_ptr, png_infop info_ptr)
+++{
+++   png_byte have_chunk_after_DAT; /* after IDAT or after fdAT */
+++
+++   png_debug(1, "Reading frame head");
+++
+++   if (!(png_ptr->mode & PNG_HAVE_acTL))
+++      png_error(png_ptr, "Cannot read APNG frame: missing acTL");
+++
+++   /* Do nothing for the main IDAT. */
+++   if (png_ptr->num_frames_read == 0)
+++      return;
+++
+++   png_read_reset(png_ptr);
+++   png_ptr->flags &= ~PNG_FLAG_ROW_INIT;
+++   png_ptr->mode &= ~PNG_HAVE_fcTL;
+++
+++   have_chunk_after_DAT = 0;
+++   for (;;)
+++   {
+++      png_uint_32 length = png_read_chunk_header(png_ptr);
+++
+++      if (png_ptr->chunk_name == png_IDAT)
+++      {
+++         /* Discard trailing IDATs for the first frame. */
+++         if (have_chunk_after_DAT || png_ptr->num_frames_read > 1)
+++            png_error(png_ptr, "Misplaced IDAT in APNG stream");
+++         png_crc_finish(png_ptr, length);
+++      }
+++      else if (png_ptr->chunk_name == png_fcTL)
+++      {
+++         png_handle_fcTL(png_ptr, info_ptr, length);
+++         have_chunk_after_DAT = 1;
+++      }
+++      else if (png_ptr->chunk_name == png_fdAT)
+++      {
+++         png_ensure_sequence_number(png_ptr, length);
+++
+++         /* Discard trailing fdATs for all frames except the first. */
+++         if (!have_chunk_after_DAT && png_ptr->num_frames_read > 1)
+++         {
+++            png_crc_finish(png_ptr, length - 4);
+++         }
+++         else if (png_ptr->mode & PNG_HAVE_fcTL)
+++         {
+++            png_ptr->idat_size = length - 4;
+++            png_ptr->mode |= PNG_HAVE_IDAT;
+++            break;
+++         }
+++         else
+++         {
+++            png_error(png_ptr, "Misplaced fdAT in APNG stream");
+++         }
+++      }
+++      else
+++      {
+++         png_warning(png_ptr, "Ignoring unexpected chunk in APNG sequence");
+++         png_crc_finish(png_ptr, length);
+++      }
+++   }
+++}
+++#endif /* PNG_READ_APNG_SUPPORTED */
+++
++ /* Optional call to update the users info_ptr structure */
++ void PNGAPI
++ png_read_update_info(png_structrp png_ptr, png_inforp info_ptr)
++diff -Naru libpng-1.6.55.org/pngrutil.c libpng-1.6.55/pngrutil.c
++--- libpng-1.6.55.org/pngrutil.c	2026-01-15 09:54:33.413881871 +0900
+++++ libpng-1.6.55/pngrutil.c	2026-02-12 18:51:47.371016809 +0900
++@@ -922,6 +922,11 @@
++    filter_type = buf[11];
++    interlace_type = buf[12];
++ 
+++#ifdef PNG_READ_APNG_SUPPORTED
+++   png_ptr->first_frame_width = width;
+++   png_ptr->first_frame_height = height;
+++#endif
+++
++    /* Set internal variables */
++    png_ptr->width = width;
++    png_ptr->height = height;
++@@ -2718,6 +2723,184 @@
++ #  define png_handle_iTXt NULL
++ #endif
++ 
+++#ifdef PNG_READ_APNG_SUPPORTED
+++void /* PRIVATE */
+++png_handle_acTL(png_structp png_ptr, png_infop info_ptr, png_uint_32 length)
+++{
+++   png_byte data[8];
+++   png_uint_32 num_frames;
+++   png_uint_32 num_plays;
+++
+++   png_debug(1, "in png_handle_acTL");
+++
+++   if (!(png_ptr->mode & PNG_HAVE_IHDR))
+++   {
+++      png_error(png_ptr, "Missing IHDR before acTL");
+++   }
+++   else if (png_ptr->mode & PNG_HAVE_IDAT)
+++   {
+++      png_warning(png_ptr, "Ignoring misplaced acTL after IDAT");
+++      png_crc_finish(png_ptr, length);
+++      return;
+++   }
+++   else if (png_ptr->mode & PNG_HAVE_acTL)
+++   {
+++      png_warning(png_ptr, "Ignoring duplicate acTL");
+++      png_crc_finish(png_ptr, length);
+++      return;
+++   }
+++   else if (length != 8)
+++   {
+++      png_warning(png_ptr, "Ignoring acTL with incorrect length");
+++      png_crc_finish(png_ptr, length);
+++      return;
+++   }
+++
+++   png_crc_read(png_ptr, data, 8);
+++   png_crc_finish(png_ptr, 0);
+++
+++   num_frames = png_get_uint_31(png_ptr, data);
+++   num_plays = png_get_uint_31(png_ptr, data + 4);
+++
+++   /* The set function will do error checking on num_frames. */
+++   if (png_set_acTL(png_ptr, info_ptr, num_frames, num_plays))
+++      png_ptr->mode |= PNG_HAVE_acTL;
+++}
+++
+++void /* PRIVATE */
+++png_handle_fcTL(png_structp png_ptr, png_infop info_ptr, png_uint_32 length)
+++{
+++   png_byte data[22];
+++   png_uint_32 width;
+++   png_uint_32 height;
+++   png_uint_32 x_offset;
+++   png_uint_32 y_offset;
+++   png_uint_16 delay_num;
+++   png_uint_16 delay_den;
+++   png_byte dispose_op;
+++   png_byte blend_op;
+++
+++   png_debug(1, "in png_handle_fcTL");
+++
+++   png_ensure_sequence_number(png_ptr, length);
+++
+++   if (!(png_ptr->mode & PNG_HAVE_IHDR))
+++   {
+++      png_error(png_ptr, "Missing IHDR before fcTL");
+++   }
+++   else if (png_ptr->mode & PNG_HAVE_IDAT)
+++   {
+++      /* For any frames other then the first this message may be misleading,
+++       * but correct. PNG_HAVE_IDAT is unset before the frame head is read.
+++       * I can't think of a better message.
+++       */
+++      png_warning(png_ptr, "Ignoring invalid fcTL after IDAT");
+++      png_crc_finish(png_ptr, length-4);
+++      return;
+++   }
+++   else if (png_ptr->mode & PNG_HAVE_fcTL)
+++   {
+++      png_warning(png_ptr, "Ignoring duplicate fcTL within one frame");
+++      png_crc_finish(png_ptr, length-4);
+++      return;
+++   }
+++   else if (length != 26)
+++   {
+++      png_warning(png_ptr, "Ignoring fcTL with incorrect length");
+++      png_crc_finish(png_ptr, length-4);
+++      return;
+++   }
+++
+++   png_crc_read(png_ptr, data, 22);
+++   png_crc_finish(png_ptr, 0);
+++
+++   width = png_get_uint_31(png_ptr, data);
+++   height = png_get_uint_31(png_ptr, data + 4);
+++   x_offset = png_get_uint_31(png_ptr, data + 8);
+++   y_offset = png_get_uint_31(png_ptr, data + 12);
+++   delay_num = png_get_uint_16(data + 16);
+++   delay_den = png_get_uint_16(data + 18);
+++   dispose_op = data[20];
+++   blend_op = data[21];
+++
+++   if (png_ptr->num_frames_read == 0 && (x_offset != 0 || y_offset != 0))
+++   {
+++      png_warning(png_ptr, "Ignoring leading fcTL with non-zero frame offset");
+++      return;
+++   }
+++
+++   if (info_ptr != NULL)
+++   {
+++      if (png_ptr->num_frames_read == 0 &&
+++          (width != info_ptr->width || height != info_ptr->height))
+++      {
+++         png_warning(png_ptr,
+++                     "Ignoring leading fcTL with incorrect frame size");
+++         return;
+++      }
+++
+++      /* The set function will do more error checking. */
+++      png_set_next_frame_fcTL(png_ptr, info_ptr, width, height,
+++                              x_offset, y_offset, delay_num, delay_den,
+++                              dispose_op, blend_op);
+++
+++      png_read_reinit(png_ptr, info_ptr);
+++
+++      png_ptr->mode |= PNG_HAVE_fcTL;
+++   }
+++}
+++
+++void /* PRIVATE */
+++png_have_info(png_structp png_ptr, png_infop info_ptr)
+++{
+++   if ((info_ptr->valid & PNG_INFO_acTL) && !(info_ptr->valid & PNG_INFO_fcTL))
+++   {
+++      png_ptr->apng_flags |= PNG_FIRST_FRAME_HIDDEN;
+++      info_ptr->num_frames++;
+++   }
+++}
+++
+++void /* PRIVATE */
+++png_handle_fdAT(png_structp png_ptr, png_infop info_ptr, png_uint_32 length)
+++{
+++   png_ensure_sequence_number(png_ptr, length);
+++
+++   /* This function is called only from png_read_end(), png_read_info(),
+++    * and png_push_read_chunk(). This means one of the following:
+++    * - The user doesn't want to read this frame.
+++    * - This is an out-of-place fdAT.
+++    * In either case, it is safe to ignore the chunk with a warning.
+++    */
+++   png_warning(png_ptr, "Ignoring fdAT chunk");
+++   png_crc_finish(png_ptr, length - 4);
+++   PNG_UNUSED(info_ptr)
+++}
+++
+++void /* PRIVATE */
+++png_ensure_sequence_number(png_structp png_ptr, png_uint_32 length)
+++{
+++   png_byte data[4];
+++   png_uint_32 sequence_number;
+++
+++   if (length < 4)
+++   {
+++      /* TODO: Write a more precise message. */
+++      png_error(png_ptr, "Invalid fcTL or fdAT chunk");
+++   }
+++
+++   png_crc_read(png_ptr, data, 4);
+++   sequence_number = png_get_uint_31(png_ptr, data);
+++
+++   if (sequence_number != png_ptr->next_seq_num)
+++   {
+++      /* TODO: Write a more precise message. */
+++      png_error(png_ptr, "Out-of-order sequence number in fcTL or fdAT");
+++   }
+++
+++   png_ptr->next_seq_num++;
+++}
+++#endif /* PNG_READ_APNG_SUPPORTED */
+++
++ #ifdef PNG_READ_UNKNOWN_CHUNKS_SUPPORTED
++ /* Utility function for png_handle_unknown; set up png_ptr::unknown_chunk */
++ static int
++@@ -4200,7 +4383,38 @@
++       {
++          uInt avail_in;
++          png_bytep buffer;
+++#ifdef PNG_READ_APNG_SUPPORTED
+++         png_uint_32 bytes_to_skip = 0;
+++
+++         while (png_ptr->idat_size == 0 || bytes_to_skip != 0)
+++         {
+++            png_crc_finish(png_ptr, bytes_to_skip);
+++            bytes_to_skip = 0;
+++
+++            png_ptr->idat_size = png_read_chunk_header(png_ptr);
+++            if (png_ptr->num_frames_read == 0)
+++            {
+++               if (png_ptr->chunk_name != png_IDAT)
+++                  png_error(png_ptr, "Not enough image data");
+++            }
+++            else
+++            {
+++               if (png_ptr->chunk_name == png_IEND)
+++                  png_error(png_ptr, "Not enough image data");
+++               if (png_ptr->chunk_name != png_fdAT)
+++               {
+++                  png_warning(png_ptr,
+++                              "Ignoring unexpected chunk in APNG sequence");
+++                  bytes_to_skip = png_ptr->idat_size;
+++                  continue;
+++               }
+++
+++               png_ensure_sequence_number(png_ptr, png_ptr->idat_size);
++ 
+++               png_ptr->idat_size -= 4;
+++            }
+++         }
+++#else
++          while (png_ptr->idat_size == 0)
++          {
++             png_crc_finish(png_ptr, 0);
++@@ -4212,7 +4426,7 @@
++             if (png_ptr->chunk_name != png_IDAT)
++                png_error(png_ptr, "Not enough image data");
++          }
++-
+++#endif /* PNG_READ_APNG_SUPPORTED */
++          avail_in = png_ptr->IDAT_read_size;
++ 
++          if (avail_in > png_chunk_max(png_ptr))
++@@ -4283,6 +4497,9 @@
++ 
++          png_ptr->mode |= PNG_AFTER_IDAT;
++          png_ptr->flags |= PNG_FLAG_ZSTREAM_ENDED;
+++#ifdef PNG_READ_APNG_SUPPORTED
+++         png_ptr->num_frames_read++;
+++#endif
++ 
++          if (png_ptr->zstream.avail_in > 0 || png_ptr->idat_size > 0)
++             png_chunk_benign_error(png_ptr, "Extra compressed data");
++@@ -4692,4 +4909,82 @@
++ 
++    png_ptr->flags |= PNG_FLAG_ROW_INIT;
++ }
+++
+++#ifdef PNG_READ_APNG_SUPPORTED
+++/* This function should be called after the main IDAT sequence has been read
+++ * and before a new fdAT is about to be read. It resets some parts of png_ptr
+++ * to make them usable by the read functions again.
+++ */
+++void /* PRIVATE */
+++png_read_reset(png_structp png_ptr)
+++{
+++   png_ptr->mode &= ~PNG_HAVE_IDAT;
+++   png_ptr->mode &= ~PNG_AFTER_IDAT;
+++   png_ptr->row_number = 0;
+++   png_ptr->pass = 0;
+++}
+++
+++void /* PRIVATE */
+++png_read_reinit(png_structp png_ptr, png_infop info_ptr)
+++{
+++   png_ptr->width = info_ptr->next_frame_width;
+++   png_ptr->height = info_ptr->next_frame_height;
+++   png_ptr->rowbytes = PNG_ROWBYTES(png_ptr->pixel_depth,png_ptr->width);
+++   png_ptr->info_rowbytes = PNG_ROWBYTES(info_ptr->pixel_depth,
+++        png_ptr->width);
+++   if (png_ptr->prev_row)
+++      memset(png_ptr->prev_row, 0, png_ptr->rowbytes + 1);
+++}
+++
+++#ifdef PNG_PROGRESSIVE_READ_SUPPORTED
+++/* Same as png_read_reset(), but for the progressive reader. */
+++void /* PRIVATE */
+++png_progressive_read_reset(png_structp png_ptr)
+++{
+++#ifdef PNG_READ_INTERLACING_SUPPORTED
+++   /* Arrays to facilitate easy interlacing - use pass (0 - 6) as index */
+++
+++   /* Start of interlace block */
+++   const int png_pass_start[] = {0, 4, 0, 2, 0, 1, 0};
+++
+++   /* Offset to next interlace block */
+++   const int png_pass_inc[] = {8, 8, 4, 4, 2, 2, 1};
+++
+++   /* Start of interlace block in the y direction */
+++   const int png_pass_ystart[] = {0, 0, 4, 0, 2, 0, 1};
+++
+++   /* Offset to next interlace block in the y direction */
+++   const int png_pass_yinc[] = {8, 8, 8, 4, 4, 2, 2};
+++
+++   if (png_ptr->interlaced)
+++   {
+++      if (!(png_ptr->transformations & PNG_INTERLACE))
+++         png_ptr->num_rows = (png_ptr->height + png_pass_yinc[0] - 1 -
+++                              png_pass_ystart[0]) /
+++                             png_pass_yinc[0];
+++      else
+++         png_ptr->num_rows = png_ptr->height;
+++
+++      png_ptr->iwidth = (png_ptr->width +
+++                         png_pass_inc[png_ptr->pass] - 1 -
+++                         png_pass_start[png_ptr->pass]) /
+++                        png_pass_inc[png_ptr->pass];
+++   }
+++   else
+++#endif /* PNG_READ_INTERLACING_SUPPORTED */
+++   {
+++      png_ptr->num_rows = png_ptr->height;
+++      png_ptr->iwidth = png_ptr->width;
+++   }
+++   png_ptr->flags &= ~PNG_FLAG_ZSTREAM_ENDED;
+++   if (inflateReset(&(png_ptr->zstream)) != Z_OK)
+++      png_error(png_ptr, "inflateReset failed");
+++   png_ptr->zstream.avail_in = 0;
+++   png_ptr->zstream.next_in = 0;
+++   png_ptr->zstream.next_out = png_ptr->row_buf;
+++   png_ptr->zstream.avail_out =
+++      (uInt)PNG_ROWBYTES(png_ptr->pixel_depth, png_ptr->iwidth) + 1;
+++}
+++#endif /* PNG_PROGRESSIVE_READ_SUPPORTED */
+++#endif /* PNG_READ_APNG_SUPPORTED */
++ #endif /* READ */
++diff -Naru libpng-1.6.55.org/pngset.c libpng-1.6.55/pngset.c
++--- libpng-1.6.55.org/pngset.c	2025-05-11 18:44:02.087040907 +0900
+++++ libpng-1.6.55/pngset.c	2026-02-12 18:51:47.371016809 +0900
++@@ -460,6 +460,13 @@
++    info_ptr->pixel_depth = (png_byte)(info_ptr->channels * info_ptr->bit_depth);
++ 
++    info_ptr->rowbytes = PNG_ROWBYTES(info_ptr->pixel_depth, width);
+++
+++#ifdef PNG_APNG_SUPPORTED
+++   /* Assume a non-animated PNG in the beginning. This may be overridden after
+++    * seeing an acTL chunk later.
+++    */
+++   info_ptr->num_frames = 1;
+++#endif
++ }
++ 
++ #ifdef PNG_oFFs_SUPPORTED
++@@ -1315,6 +1322,145 @@
++ }
++ #endif /* sPLT */
++ 
+++#ifdef PNG_APNG_SUPPORTED
+++png_uint_32 PNGAPI
+++png_set_acTL(png_structp png_ptr, png_infop info_ptr,
+++             png_uint_32 num_frames, png_uint_32 num_plays)
+++{
+++   png_debug1(1, "in %s storage function", "acTL");
+++
+++   if (png_ptr == NULL || info_ptr == NULL)
+++   {
+++      png_warning(png_ptr,
+++                  "Ignoring call to png_set_acTL with NULL libpng object args");
+++      return 0;
+++   }
+++   if (num_frames == 0)
+++   {
+++      png_warning(png_ptr,
+++                  "Ignoring attempt to set acTL with num_frames zero");
+++      return 0;
+++   }
+++   if (num_frames > PNG_UINT_31_MAX)
+++   {
+++      png_warning(png_ptr,
+++                  "Ignoring attempt to set acTL with num_frames > 2^31-1");
+++      return 0;
+++   }
+++   if (num_plays > PNG_UINT_31_MAX)
+++   {
+++      png_warning(png_ptr,
+++                  "Ignoring attempt to set acTL with num_plays > 2^31-1");
+++      return 0;
+++   }
+++
+++   info_ptr->num_frames = num_frames;
+++   info_ptr->num_plays = num_plays;
+++
+++   info_ptr->valid |= PNG_INFO_acTL;
+++
+++   return 1;
+++}
+++
+++/* delay_num and delay_den can hold any 16-bit values including zero */
+++png_uint_32 PNGAPI
+++png_set_next_frame_fcTL(png_structp png_ptr, png_infop info_ptr,
+++                        png_uint_32 width, png_uint_32 height,
+++                        png_uint_32 x_offset, png_uint_32 y_offset,
+++                        png_uint_16 delay_num, png_uint_16 delay_den,
+++                        png_byte dispose_op, png_byte blend_op)
+++{
+++   png_debug1(1, "in %s storage function", "fcTL");
+++
+++   if (png_ptr == NULL || info_ptr == NULL)
+++   {
+++      png_warning(png_ptr,
+++                  "Ignoring call to png_set_fcTL with NULL libpng object args");
+++      return 0;
+++   }
+++
+++   png_ensure_fcTL_is_valid(png_ptr, width, height, x_offset, y_offset,
+++                            delay_num, delay_den, dispose_op, blend_op);
+++
+++   /* No checking is required for delay_num and delay_den.
+++    * They can hold any 16-bit value, including zero.
+++    */
+++
+++   if (blend_op == PNG_BLEND_OP_OVER)
+++   {
+++      if (!(png_ptr->color_type & PNG_COLOR_MASK_ALPHA) &&
+++          !(png_get_valid(png_ptr, info_ptr, PNG_INFO_tRNS)))
+++      {
+++         png_warning(png_ptr,
+++                     "Ignoring wasteful fcTL BLEND_OP_OVER in opaque images");
+++         blend_op = PNG_BLEND_OP_SOURCE;
+++      }
+++   }
+++
+++   info_ptr->next_frame_width = width;
+++   info_ptr->next_frame_height = height;
+++   info_ptr->next_frame_x_offset = x_offset;
+++   info_ptr->next_frame_y_offset = y_offset;
+++   info_ptr->next_frame_delay_num = delay_num;
+++   info_ptr->next_frame_delay_den = delay_den;
+++   info_ptr->next_frame_dispose_op = dispose_op;
+++   info_ptr->next_frame_blend_op = blend_op;
+++
+++   info_ptr->valid |= PNG_INFO_fcTL;
+++
+++   return 1;
+++}
+++
+++void /* PRIVATE */
+++png_ensure_fcTL_is_valid(png_structp png_ptr,
+++                         png_uint_32 width, png_uint_32 height,
+++                         png_uint_32 x_offset, png_uint_32 y_offset,
+++                         png_uint_16 delay_num, png_uint_16 delay_den,
+++                         png_byte dispose_op, png_byte blend_op)
+++{
+++   if (width == 0 || width > PNG_UINT_31_MAX)
+++      png_error(png_ptr, "Invalid frame width in fcTL");
+++   if (height == 0 || height > PNG_UINT_31_MAX)
+++      png_error(png_ptr, "Invalid frame height in fcTL");
+++   if (x_offset > PNG_UINT_31_MAX || y_offset > PNG_UINT_31_MAX)
+++      png_error(png_ptr, "Invalid frame offset in fcTL");
+++   if (width + x_offset > png_ptr->first_frame_width ||
+++       height + y_offset > png_ptr->first_frame_height)
+++      png_error(png_ptr, "Oversized frame in fcTL");
+++
+++   if (dispose_op != PNG_DISPOSE_OP_NONE &&
+++       dispose_op != PNG_DISPOSE_OP_BACKGROUND &&
+++       dispose_op != PNG_DISPOSE_OP_PREVIOUS)
+++      png_error(png_ptr, "Invalid dispose_op in fcTL");
+++
+++   if (blend_op != PNG_BLEND_OP_SOURCE &&
+++       blend_op != PNG_BLEND_OP_OVER)
+++      png_error(png_ptr, "Invalid blend_op in fcTL");
+++
+++   PNG_UNUSED(delay_num)
+++   PNG_UNUSED(delay_den)
+++}
+++
+++png_uint_32 PNGAPI
+++png_set_first_frame_is_hidden(png_structp png_ptr, png_infop info_ptr,
+++                              png_byte is_hidden)
+++{
+++   png_debug(1, "in png_first_frame_is_hidden");
+++
+++   if (png_ptr == NULL)
+++      return 0;
+++
+++   if (is_hidden)
+++      png_ptr->apng_flags |= PNG_FIRST_FRAME_HIDDEN;
+++   else
+++      png_ptr->apng_flags &= ~PNG_FIRST_FRAME_HIDDEN;
+++
+++   PNG_UNUSED(info_ptr)
+++
+++   return 1;
+++}
+++#endif /* PNG_APNG_SUPPORTED */
+++
++ #ifdef PNG_STORE_UNKNOWN_CHUNKS_SUPPORTED
++ static png_byte
++ check_location(png_const_structrp png_ptr, int location)
++diff -Naru libpng-1.6.55.org/pngstruct.h libpng-1.6.55/pngstruct.h
++--- libpng-1.6.55.org/pngstruct.h	2025-12-06 20:00:54.866030732 +0900
+++++ libpng-1.6.55/pngstruct.h	2026-02-12 18:51:47.371016809 +0900
++@@ -391,6 +391,27 @@
++    png_byte filter_type;
++ #endif
++ 
+++#ifdef PNG_APNG_SUPPORTED
+++   png_uint_32 apng_flags;
+++   png_uint_32 next_seq_num;         /* next fcTL/fdAT chunk sequence number */
+++   png_uint_32 first_frame_width;
+++   png_uint_32 first_frame_height;
+++
+++#ifdef PNG_READ_APNG_SUPPORTED
+++   png_uint_32 num_frames_read;      /* incremented after all image data of */
+++                                     /* a frame is read */
+++#ifdef PNG_PROGRESSIVE_READ_SUPPORTED
+++   png_progressive_frame_ptr frame_info_fn; /* frame info read callback */
+++   png_progressive_frame_ptr frame_end_fn;  /* frame data read callback */
+++#endif
+++#endif
+++
+++#ifdef PNG_WRITE_APNG_SUPPORTED
+++   png_uint_32 num_frames_to_write;
+++   png_uint_32 num_frames_written;
+++#endif
+++#endif /* PNG_APNG_SUPPORTED */
+++
++ /* New members added in libpng-1.2.0 */
++ 
++ /* New members added in libpng-1.0.2 but first enabled by default in 1.2.0 */
++diff -Naru libpng-1.6.55.org/pngtest.c libpng-1.6.55/pngtest.c
++--- libpng-1.6.55.org/pngtest.c	2026-02-12 18:45:55.034069016 +0900
+++++ libpng-1.6.55/pngtest.c	2026-02-12 18:51:47.372016815 +0900
++@@ -877,6 +877,10 @@
++    int bit_depth, color_type;
++    user_chunk_info my_user_chunk_data;
++    int pass, num_passes;
+++#ifdef PNG_APNG_SUPPORTED
+++   png_uint_32 num_frames;
+++   png_uint_32 num_plays;
+++#endif
++ 
++    row_buf = NULL;
++    error_parameters.file_name = inname;
++@@ -1437,6 +1441,22 @@
++       }
++    }
++ #endif
+++
+++#ifdef PNG_APNG_SUPPORTED
+++   if (png_get_valid(read_ptr, read_info_ptr, PNG_INFO_acTL))
+++   {
+++      if (png_get_acTL(read_ptr, read_info_ptr, &num_frames, &num_plays))
+++      {
+++         png_byte is_hidden;
+++         pngtest_debug2("Handling acTL chunks (frames %ld, plays %ld)",
+++                        num_frames, num_plays);
+++         png_set_acTL(write_ptr, write_info_ptr, num_frames, num_plays);
+++         is_hidden = png_get_first_frame_is_hidden(read_ptr, read_info_ptr);
+++         png_set_first_frame_is_hidden(write_ptr, write_info_ptr, is_hidden);
+++      }
+++   }
+++#endif
+++
++ #ifdef PNG_WRITE_UNKNOWN_CHUNKS_SUPPORTED
++    {
++       png_unknown_chunkp unknowns;
++@@ -1496,6 +1516,111 @@
++    t_misc += (t_stop - t_start);
++    t_start = t_stop;
++ #endif
+++#ifdef PNG_APNG_SUPPORTED
+++   if (png_get_valid(read_ptr, read_info_ptr, PNG_INFO_acTL))
+++   {
+++      png_uint_32 frame;
+++      for (frame = 0; frame < num_frames; frame++)
+++      {
+++         png_uint_32 frame_width;
+++         png_uint_32 frame_height;
+++         png_uint_32 x_offset;
+++         png_uint_32 y_offset;
+++         png_uint_16 delay_num;
+++         png_uint_16 delay_den;
+++         png_byte dispose_op;
+++         png_byte blend_op;
+++         png_read_frame_head(read_ptr, read_info_ptr);
+++         if (png_get_valid(read_ptr, read_info_ptr, PNG_INFO_fcTL))
+++         {
+++            png_get_next_frame_fcTL(read_ptr, read_info_ptr,
+++                                    &frame_width, &frame_height,
+++                                    &x_offset, &y_offset,
+++                                    &delay_num, &delay_den,
+++                                    &dispose_op, &blend_op);
+++         }
+++         else
+++         {
+++            frame_width = width;
+++            frame_height = height;
+++            x_offset = 0;
+++            y_offset = 0;
+++            delay_num = 1;
+++            delay_den = 1;
+++            dispose_op = PNG_DISPOSE_OP_NONE;
+++            blend_op = PNG_BLEND_OP_SOURCE;
+++         }
+++#ifdef PNG_WRITE_APNG_SUPPORTED
+++         png_write_frame_head(write_ptr, write_info_ptr, (png_bytepp)&row_buf,
+++                              frame_width, frame_height,
+++                              x_offset, y_offset,
+++                              delay_num, delay_den,
+++                              dispose_op, blend_op);
+++#endif
+++         for (pass = 0; pass < num_passes; pass++)
+++         {
+++#           ifdef calc_pass_height
+++               png_uint_32 pass_height;
+++
+++               if (num_passes == 7) /* interlaced */
+++               {
+++                  if (PNG_PASS_COLS(frame_width, pass) > 0)
+++                     pass_height = PNG_PASS_ROWS(frame_height, pass);
+++
+++                  else
+++                     pass_height = 0;
+++               }
+++
+++               else /* not interlaced */
+++                  pass_height = frame_height;
+++#           else
+++#              define pass_height frame_height
+++#           endif
+++
+++            pngtest_debug1("Writing row data for pass %d", pass);
+++            for (y = 0; y < pass_height; y++)
+++            {
+++#ifndef SINGLE_ROWBUF_ALLOC
+++               pngtest_debug2("Allocating row buffer (pass %d, y = %u)...",
+++                              pass, y);
+++
+++               row_buf = (png_bytep)png_malloc(read_ptr,
+++                  png_get_rowbytes(read_ptr, read_info_ptr));
+++
+++               pngtest_debug2("\t0x%08lx (%lu bytes)", (unsigned long)row_buf,
+++                  (unsigned long)png_get_rowbytes(read_ptr, read_info_ptr));
+++
+++#endif /* !SINGLE_ROWBUF_ALLOC */
+++               png_read_rows(read_ptr, (png_bytepp)&row_buf, NULL, 1);
+++
+++#ifdef PNG_WRITE_SUPPORTED
+++#ifdef PNGTEST_TIMING
+++               t_stop = (float)clock();
+++               t_decode += (t_stop - t_start);
+++               t_start = t_stop;
+++#endif
+++               png_write_rows(write_ptr, (png_bytepp)&row_buf, 1);
+++#ifdef PNGTEST_TIMING
+++               t_stop = (float)clock();
+++               t_encode += (t_stop - t_start);
+++               t_start = t_stop;
+++#endif
+++#endif /* PNG_WRITE_SUPPORTED */
+++
+++#ifndef SINGLE_ROWBUF_ALLOC
+++               pngtest_debug2("Freeing row buffer (pass %d, y = %u)", pass, y);
+++               png_free(read_ptr, row_buf);
+++               row_buf = NULL;
+++#endif /* !SINGLE_ROWBUF_ALLOC */
+++            }
+++         }
+++#ifdef PNG_WRITE_APNG_SUPPORTED
+++         png_write_frame_tail(write_ptr, write_info_ptr);
+++#endif
+++      }
+++   }
+++   else
+++#endif
++    for (pass = 0; pass < num_passes; pass++)
++    {
++ #     ifdef calc_pass_height
++diff -Naru libpng-1.6.55.org/pngwrite.c libpng-1.6.55/pngwrite.c
++--- libpng-1.6.55.org/pngwrite.c	2026-01-15 09:54:33.413881871 +0900
+++++ libpng-1.6.55/pngwrite.c	2026-02-12 18:51:47.372016815 +0900
++@@ -127,6 +127,11 @@
++        * the application continues writing the PNG.  So check the 'invalid'
++        * flag here too.
++        */
+++#ifdef PNG_WRITE_APNG_SUPPORTED
+++         if ((info_ptr->valid & PNG_INFO_acTL) != 0)
+++            png_write_acTL(png_ptr, info_ptr->num_frames, info_ptr->num_plays);
+++#endif
+++
++ #ifdef PNG_WRITE_UNKNOWN_CHUNKS_SUPPORTED
++          /* Write unknown chunks first; PNG v3 establishes a precedence order
++           * for colourspace chunks.  It is certain therefore that new
++@@ -405,6 +410,11 @@
++       png_benign_error(png_ptr, "Wrote palette index exceeding num_palette");
++ #endif
++ 
+++#ifdef PNG_WRITE_APNG_SUPPORTED
+++   if (png_ptr->num_frames_written != png_ptr->num_frames_to_write)
+++      png_error(png_ptr, "Not enough frames written");
+++#endif
+++
++    /* See if user wants us to write information chunks */
++    if (info_ptr != NULL)
++    {
++@@ -1517,6 +1527,45 @@
++ }
++ #endif
++ 
+++#ifdef PNG_WRITE_APNG_SUPPORTED
+++void PNGAPI
+++png_write_frame_head(png_structp png_ptr, png_infop info_ptr,
+++                     png_bytepp row_pointers,
+++                     png_uint_32 width, png_uint_32 height,
+++                     png_uint_32 x_offset, png_uint_32 y_offset,
+++                     png_uint_16 delay_num, png_uint_16 delay_den,
+++                     png_byte dispose_op, png_byte blend_op)
+++{
+++   png_debug(1, "in png_write_frame_head");
+++
+++   /* There is a chance this has been set after png_write_info was called,
+++    * so it would be set but not written. Is there a way to be sure?
+++    */
+++   if (!(info_ptr->valid & PNG_INFO_acTL))
+++      png_error(png_ptr, "Cannot write APNG frame: missing acTL");
+++
+++   png_write_reset(png_ptr);
+++
+++   png_write_reinit(png_ptr, info_ptr, width, height);
+++
+++   if (!(png_ptr->num_frames_written == 0 &&
+++         (png_ptr->apng_flags & PNG_FIRST_FRAME_HIDDEN)))
+++      png_write_fcTL(png_ptr, width, height, x_offset, y_offset,
+++                     delay_num, delay_den, dispose_op, blend_op);
+++
+++   PNG_UNUSED(row_pointers)
+++}
+++
+++void PNGAPI
+++png_write_frame_tail(png_structp png_ptr, png_infop info_ptr)
+++{
+++   png_debug(1, "in png_write_frame_tail");
+++
+++   png_ptr->num_frames_written++;
+++
+++   PNG_UNUSED(info_ptr)
+++}
+++#endif /* PNG_WRITE_APNG_SUPPORTED */
++ 
++ #ifdef PNG_SIMPLIFIED_WRITE_SUPPORTED
++ /* Initialize the write structure - general purpose utility. */
++diff -Naru libpng-1.6.55.org/pngwutil.c libpng-1.6.55/pngwutil.c
++--- libpng-1.6.55.org/pngwutil.c	2026-01-15 09:54:33.414881869 +0900
+++++ libpng-1.6.55/pngwutil.c	2026-02-12 18:51:47.372016815 +0900
++@@ -838,6 +838,11 @@
++    /* Write the chunk */
++    png_write_complete_chunk(png_ptr, png_IHDR, buf, 13);
++ 
+++#ifdef PNG_WRITE_APNG_SUPPORTED
+++   png_ptr->first_frame_width = width;
+++   png_ptr->first_frame_height = height;
+++#endif
+++
++    if ((png_ptr->do_filter) == PNG_NO_FILTERS)
++    {
++       if (png_ptr->color_type == PNG_COLOR_TYPE_PALETTE ||
++@@ -1020,7 +1025,17 @@
++ #endif
++ 
++          if (size > 0)
+++         {
+++#ifdef PNG_WRITE_APNG_SUPPORTED
+++            if (png_ptr->num_frames_written == 0)
+++               png_write_complete_chunk(png_ptr, png_IDAT, data, size);
+++            else
+++               png_write_fdAT(png_ptr, data, size);
+++#else
++             png_write_complete_chunk(png_ptr, png_IDAT, data, size);
+++#endif /* PNG_WRITE_APNG_SUPPORTED */
+++         }
+++
++          png_ptr->mode |= PNG_HAVE_IDAT;
++ 
++          png_ptr->zstream.next_out = data;
++@@ -1067,7 +1082,17 @@
++ #endif
++ 
++          if (size > 0)
+++         {
+++#ifdef PNG_WRITE_APNG_SUPPORTED
+++            if (png_ptr->num_frames_written == 0)
+++               png_write_complete_chunk(png_ptr, png_IDAT, data, size);
+++            else
+++               png_write_fdAT(png_ptr, data, size);
+++#else
++             png_write_complete_chunk(png_ptr, png_IDAT, data, size);
+++#endif /* PNG_WRITE_APNG_SUPPORTED */
+++         }
+++
++          png_ptr->zstream.avail_out = 0;
++          png_ptr->zstream.next_out = NULL;
++          png_ptr->mode |= PNG_HAVE_IDAT | PNG_AFTER_IDAT;
++@@ -1969,6 +1994,82 @@
++ }
++ #endif
++ 
+++#ifdef PNG_WRITE_APNG_SUPPORTED
+++void /* PRIVATE */
+++png_write_acTL(png_structp png_ptr,
+++               png_uint_32 num_frames, png_uint_32 num_plays)
+++{
+++   png_byte buf[8];
+++
+++   png_debug(1, "in png_write_acTL");
+++
+++   png_ptr->num_frames_to_write = num_frames;
+++
+++   if (png_ptr->apng_flags & PNG_FIRST_FRAME_HIDDEN)
+++      num_frames--;
+++
+++   png_save_uint_32(buf, num_frames);
+++   png_save_uint_32(buf + 4, num_plays);
+++
+++   png_write_complete_chunk(png_ptr, png_acTL, buf, (png_size_t)8);
+++}
+++
+++void /* PRIVATE */
+++png_write_fcTL(png_structp png_ptr,
+++               png_uint_32 width, png_uint_32 height,
+++               png_uint_32 x_offset, png_uint_32 y_offset,
+++               png_uint_16 delay_num, png_uint_16 delay_den,
+++               png_byte dispose_op, png_byte blend_op)
+++{
+++   png_byte buf[26];
+++
+++   png_debug(1, "in png_write_fcTL");
+++
+++   if (png_ptr->num_frames_written == 0 && (x_offset != 0 || y_offset != 0))
+++      png_error(png_ptr, "Non-zero frame offset in leading fcTL");
+++   if (png_ptr->num_frames_written == 0 &&
+++       (width != png_ptr->first_frame_width ||
+++        height != png_ptr->first_frame_height))
+++      png_error(png_ptr, "Incorrect frame size in leading fcTL");
+++
+++   /* More error checking. */
+++   png_ensure_fcTL_is_valid(png_ptr, width, height, x_offset, y_offset,
+++                            delay_num, delay_den, dispose_op, blend_op);
+++
+++   png_save_uint_32(buf, png_ptr->next_seq_num);
+++   png_save_uint_32(buf + 4, width);
+++   png_save_uint_32(buf + 8, height);
+++   png_save_uint_32(buf + 12, x_offset);
+++   png_save_uint_32(buf + 16, y_offset);
+++   png_save_uint_16(buf + 20, delay_num);
+++   png_save_uint_16(buf + 22, delay_den);
+++   buf[24] = dispose_op;
+++   buf[25] = blend_op;
+++
+++   png_write_complete_chunk(png_ptr, png_fcTL, buf, (png_size_t)26);
+++
+++   png_ptr->next_seq_num++;
+++}
+++
+++void /* PRIVATE */
+++png_write_fdAT(png_structp png_ptr,
+++               png_const_bytep data, png_size_t length)
+++{
+++   png_byte buf[4];
+++
+++   png_write_chunk_header(png_ptr, png_fdAT, (png_uint_32)(4 + length));
+++
+++   png_save_uint_32(buf, png_ptr->next_seq_num);
+++   png_write_chunk_data(png_ptr, buf, 4);
+++
+++   png_write_chunk_data(png_ptr, data, length);
+++
+++   png_write_chunk_end(png_ptr);
+++
+++   png_ptr->next_seq_num++;
+++}
+++#endif /* PNG_WRITE_APNG_SUPPORTED */
+++
++ /* Initializes the row writing capability of libpng */
++ void /* PRIVATE */
++ png_write_start_row(png_structrp png_ptr)
++@@ -2822,4 +2923,37 @@
++    }
++ #endif /* WRITE_FLUSH */
++ }
+++
+++#ifdef PNG_WRITE_APNG_SUPPORTED
+++void /* PRIVATE */
+++png_write_reset(png_structp png_ptr)
+++{
+++   png_ptr->row_number = 0;
+++   png_ptr->pass = 0;
+++   png_ptr->mode &= ~PNG_HAVE_IDAT;
+++}
+++
+++void /* PRIVATE */
+++png_write_reinit(png_structp png_ptr, png_infop info_ptr,
+++                 png_uint_32 width, png_uint_32 height)
+++{
+++   if (png_ptr->num_frames_written == 0 &&
+++       (width != png_ptr->first_frame_width ||
+++        height != png_ptr->first_frame_height))
+++      png_error(png_ptr, "Incorrect frame size in leading fcTL");
+++   if (width > png_ptr->first_frame_width ||
+++       height > png_ptr->first_frame_height)
+++      png_error(png_ptr, "Oversized frame in fcTL");
+++
+++   png_set_IHDR(png_ptr, info_ptr, width, height,
+++                info_ptr->bit_depth, info_ptr->color_type,
+++                info_ptr->interlace_type, info_ptr->compression_type,
+++                info_ptr->filter_type);
+++
+++   png_ptr->width = width;
+++   png_ptr->height = height;
+++   png_ptr->rowbytes = PNG_ROWBYTES(png_ptr->pixel_depth, width);
+++   png_ptr->usr_width = png_ptr->width;
+++}
+++#endif /* PNG_WRITE_APNG_SUPPORTED */
++ #endif /* WRITE */
++diff -Naru libpng-1.6.55.org/scripts/symbols.def libpng-1.6.55/scripts/symbols.def
++--- libpng-1.6.55.org/scripts/symbols.def	2025-01-26 08:07:01.594606745 +0900
+++++ libpng-1.6.55/scripts/symbols.def	2026-02-12 18:51:47.372016815 +0900
++@@ -263,3 +263,23 @@
++  png_get_mDCV_fixed @257
++  png_set_mDCV @258
++  png_set_mDCV_fixed @259
+++ png_get_acTL @260
+++ png_set_acTL @261
+++ png_get_num_frames @262
+++ png_get_num_plays @263
+++ png_get_next_frame_fcTL @264
+++ png_set_next_frame_fcTL @265
+++ png_get_next_frame_width @266
+++ png_get_next_frame_height @267
+++ png_get_next_frame_x_offset @268
+++ png_get_next_frame_y_offset @269
+++ png_get_next_frame_delay_num @270
+++ png_get_next_frame_delay_den @271
+++ png_get_next_frame_dispose_op @272
+++ png_get_next_frame_blend_op @273
+++ png_get_first_frame_is_hidden @274
+++ png_set_first_frame_is_hidden @275
+++ png_read_frame_head @276
+++ png_set_progressive_frame_fn @277
+++ png_write_frame_head @278
+++ png_write_frame_tail @279
+diff --git a/subprojects/packagefiles/libpng-fix-hist-out-of-place.patch b/subprojects/packagefiles/libpng-fix-hist-out-of-place.patch
+new file mode 100644
+index 00000000..4b964fa0
+--- /dev/null
++++ b/subprojects/packagefiles/libpng-fix-hist-out-of-place.patch
+@@ -0,0 +1,21 @@
++Fix hIST chunk ordering check in table-driven dispatch
++
++The CDhIST definition has pos_before=hPLTE which rejects hIST if PLTE
++has been seen. But per the PNG spec, hIST MUST appear after PLTE (it is
++a histogram of palette entries). The correct definition requires hIST to
++appear after PLTE (pos_after=hPLTE) and before IDAT (pos_before=hIDAT).
++
++This is a regression from the table-driven chunk dispatch refactor in
++libpng 1.6.55. The old code had an explicit check inside the handler.
++
++--- a/pngrutil.c
+++++ b/pngrutil.c
++@@ -3257,7 +3257,7 @@
++ #  define CDiTXt  NoCheck,    6U,      0, hIHDR,        1
++       /* Allocates 'length+1'; checked in the handler */
++ #  define CDbKGD       6U,    1U,  hIDAT, hIHDR,        0
++-#  define CDhIST    1024U,    0U,  hPLTE, hIHDR,        0
+++#  define CDhIST    1024U,    0U,  hIDAT, hPLTE,        0
++ #  define CDpHYs       9U,    9U,  hIDAT, hIHDR,        0
++ #  define CDsPLT  NoCheck,    3U,  hIDAT, hIHDR,        1
++       /* Allocates 'length+1'; checked in the handler */
+diff --git a/tests/meson.build b/tests/meson.build
+index 568c7663..6aebeb97 100644
+--- a/tests/meson.build
++++ b/tests/meson.build
+@@ -27,11 +27,33 @@ write_fuzzer_exe = executable('fuzz_write_repro',
+ 
+ png_dep = dependency('libpng', version : '>=1.6.0', fallback : ['libpng', 'png_dep'])
+ 
++can_apply_patch = meson.version().version_compare('>= 0.63.0')
++apng_note = 'Tests require libpng with Animated PNG (APNG) support, see build documentation'
++meson_too_old_msg = 'Meson version is too old to use libpng fallback'
++
++if png_dep.type_name() != 'internal'
++    if not cc.has_function('png_get_acTL', prefix : '#include <png.h>', dependencies : png_dep)
++        warning(apng_note)
++
++        if not can_apply_patch
++            error(meson_too_old_msg)
++        endif
++
++        warning('Local version of libpng does not support APNG, attempting to use fallback option...')
++        png_dep = subproject('libpng').get_variable('png_dep')
++    endif
++else
++    if not can_apply_patch
++        warning(meson_too_old_msg)
++    endif
++endif
++
+ test_deps = [ spng_dep, png_dep ]
+ 
+ test_exe = executable('testsuite', 'testsuite.c', dependencies : test_deps)
+ 
+ test('info', test_exe, args : 'info')
++test('apng', test_exe, args : 'apng')
+ 
+ cpp_exe = executable('cpp_exe', 'test.cpp', dependencies : spng_dep)
+ test('cpp_test', cpp_exe)
+diff --git a/tests/spng_read_fuzzer.c b/tests/spng_read_fuzzer.c
+index 8e5ea8c8..247b0c98 100644
+--- a/tests/spng_read_fuzzer.c
++++ b/tests/spng_read_fuzzer.c
+@@ -190,6 +190,17 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+     }
+     else if(spng_decode_image(ctx, out, out_size, fmt, flags)) goto err;
+ 
++    /* Exercise APNG frame decode path */
++    struct spng_actl actl;
++    if(!spng_get_actl(ctx, &actl))
++    {
++        struct spng_fctl fctl;
++        while(!spng_decode_frame(ctx, out, out_size, fmt, 0, &fctl))
++        {
++            /* Successfully decoded a frame */
++        }
++    }
++
+     spng_get_time(ctx, &time);
+ 
+ err:
+diff --git a/tests/spng_write_fuzzer.c b/tests/spng_write_fuzzer.c
+index 71550784..8769f72d 100644
+--- a/tests/spng_write_fuzzer.c
++++ b/tests/spng_write_fuzzer.c
+@@ -52,6 +52,8 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+     int progressive = params[3] & 2;
+     //int file_stream = params[3] & 4;
+     int get_buffer = params[3] & 8;
++    int apng_mode = params[0] & 1;
++    int num_extra_frames = (params[0] >> 1) & 3; /* 0-3 extra frames */
+ 
+     int ret;
+     size_t png_size = 0;
+@@ -148,7 +150,33 @@ int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size)
+ 
+     img = (unsigned char*)data;
+ 
+-    if(progressive)
++    if(apng_mode && num_extra_frames > 0)
++    {
++        /* APNG encode path: use spng_encode_frame() */
++        int total_frames = 1 + num_extra_frames;
++        struct spng_actl actl = {0};
++        actl.num_frames = total_frames;
++        if(spng_set_actl(ctx, &actl)) goto err;
++
++        struct spng_fctl fctl = {
++            .width = ihdr.width,
++            .height = ihdr.height,
++            .dispose_op = SPNG_DISPOSE_OP_NONE,
++            .blend_op = SPNG_BLEND_OP_SOURCE
++        };
++
++        /* Encode frame 0 */
++        if(spng_encode_frame(ctx, img, img_size, fmt, 0, &fctl)) goto err;
++
++        /* Encode extra frames (reuse same image data) */
++        int f;
++        for(f = 1; f < total_frames; f++)
++        {
++            int finalize = (f == total_frames - 1) ? SPNG_ENCODE_FINALIZE : 0;
++            if(spng_encode_frame(ctx, img, img_size, fmt, finalize, &fctl)) goto err;
++        }
++    }
++    else if(progressive)
+     {
+         if(spng_encode_image(ctx, NULL, 0, fmt, SPNG_ENCODE_PROGRESSIVE | SPNG_ENCODE_FINALIZE)) goto err;
+ 
+diff --git a/tests/testsuite.c b/tests/testsuite.c
+index fc0c87e5..d4c57b5c 100644
+--- a/tests/testsuite.c
++++ b/tests/testsuite.c
+@@ -1271,6 +1271,1202 @@ static int get_image_info(FILE *f, struct spng_ihdr *ihdr)
+     return ret;
+ }
+ 
++static int stream_write_checked(spng_ctx *ctx, void *user, void *data, size_t len);
++
++static int apng_tests(void)
++{
++    int ret = 0;
++    spng_ctx *enc = NULL;
++    spng_ctx *dec = NULL;
++    unsigned char *encoded = NULL;
++    unsigned char *frame0 = NULL;
++    unsigned char *frame1 = NULL;
++    unsigned char *frame2 = NULL;
++    unsigned char *dec_buf = NULL;
++    unsigned char *frame_buf = NULL;
++
++    const uint32_t w = 8, h = 8;
++    const int num_frames = 3;
++    const size_t frame_size = w * h * 4; /* RGBA8 = 4 bytes/pixel */
++
++    /* Generate known pixel data for 3 frames */
++    frame0 = malloc(frame_size);
++    frame1 = malloc(frame_size);
++    frame2 = malloc(frame_size);
++    if(!frame0 || !frame1 || !frame2) { ret = 1; goto cleanup; }
++
++    /* Frame 0: solid red */
++    uint32_t i;
++    for(i = 0; i < w * h; i++)
++    {
++        frame0[i*4+0] = 255; frame0[i*4+1] = 0;   frame0[i*4+2] = 0;   frame0[i*4+3] = 255;
++    }
++    /* Frame 1: solid green */
++    for(i = 0; i < w * h; i++)
++    {
++        frame1[i*4+0] = 0;   frame1[i*4+1] = 255; frame1[i*4+2] = 0;   frame1[i*4+3] = 255;
++    }
++    /* Frame 2: solid blue */
++    for(i = 0; i < w * h; i++)
++    {
++        frame2[i*4+0] = 0;   frame2[i*4+1] = 0;   frame2[i*4+2] = 255; frame2[i*4+3] = 255;
++    }
++
++    /* === ENCODE === */
++    printf("  APNG encode: 3-frame %ux%u RGBA8...\n", w, h);
++
++    enc = spng_ctx_new(SPNG_CTX_ENCODER);
++    if(!enc) { printf("    spng_ctx_new(ENCODER) failed\n"); ret = 1; goto cleanup; }
++
++    spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
++
++    struct spng_ihdr ihdr = {
++        .width = w,
++        .height = h,
++        .bit_depth = 8,
++        .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA
++    };
++    ret = spng_set_ihdr(enc, &ihdr);
++    if(ret) { printf("    spng_set_ihdr: %s\n", spng_strerror(ret)); goto cleanup; }
++
++    struct spng_actl actl = { .num_frames = num_frames, .num_plays = 0 };
++    ret = spng_set_actl(enc, &actl);
++    if(ret) { printf("    spng_set_actl: %s\n", spng_strerror(ret)); goto cleanup; }
++
++    /* Encode frame 0 (writes fcTL + IDAT) */
++    struct spng_fctl fctl0 = {
++        .width = w, .height = h,
++        .delay_num = 100, .delay_den = 1000,
++        .dispose_op = SPNG_DISPOSE_OP_NONE,
++        .blend_op = SPNG_BLEND_OP_SOURCE
++    };
++    ret = spng_encode_frame(enc, frame0, frame_size, SPNG_FMT_PNG, 0, &fctl0);
++    if(ret) { printf("    encode frame 0: %s\n", spng_strerror(ret)); goto cleanup; }
++
++    /* Encode frame 1 (writes fcTL + fdAT) */
++    struct spng_fctl fctl1 = {
++        .width = w, .height = h,
++        .delay_num = 200, .delay_den = 1000,
++        .dispose_op = SPNG_DISPOSE_OP_NONE,
++        .blend_op = SPNG_BLEND_OP_SOURCE
++    };
++    ret = spng_encode_frame(enc, frame1, frame_size, SPNG_FMT_PNG, 0, &fctl1);
++    if(ret) { printf("    encode frame 1: %s\n", spng_strerror(ret)); goto cleanup; }
++
++    /* Encode frame 2 (last frame, finalize) */
++    struct spng_fctl fctl2 = {
++        .width = w, .height = h,
++        .delay_num = 300, .delay_den = 1000,
++        .dispose_op = SPNG_DISPOSE_OP_NONE,
++        .blend_op = SPNG_BLEND_OP_SOURCE
++    };
++    ret = spng_encode_frame(enc, frame2, frame_size, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE, &fctl2);
++    if(ret) { printf("    encode frame 2: %s\n", spng_strerror(ret)); goto cleanup; }
++
++    size_t encoded_len;
++    encoded = spng_get_png_buffer(enc, &encoded_len, &ret);
++    if(!encoded) { printf("    get_png_buffer: %s\n", spng_strerror(ret)); ret = 1; goto cleanup; }
++
++    printf("    encoded %zu bytes\n", encoded_len);
++
++    spng_ctx_free(enc);
++    enc = NULL;
++
++    /* === DECODE === */
++    printf("  APNG decode...\n");
++
++    dec = spng_ctx_new(0);
++    if(!dec) { ret = 1; goto cleanup; }
++
++    ret = spng_set_png_buffer(dec, encoded, encoded_len);
++    if(ret) { printf("    set_png_buffer: %s\n", spng_strerror(ret)); goto cleanup; }
++
++    /* Decode default image (IDAT = frame 0) */
++    struct spng_ihdr dec_ihdr;
++    ret = spng_get_ihdr(dec, &dec_ihdr);
++    if(ret) { printf("    get_ihdr: %s\n", spng_strerror(ret)); goto cleanup; }
++
++    if(dec_ihdr.width != w || dec_ihdr.height != h)
++    {
++        printf("    IHDR mismatch: %ux%u\n", dec_ihdr.width, dec_ihdr.height);
++        ret = 1; goto cleanup;
++    }
++
++    /* Check acTL */
++    struct spng_actl dec_actl;
++    ret = spng_get_actl(dec, &dec_actl);
++    if(ret) { printf("    get_actl: %s\n", spng_strerror(ret)); goto cleanup; }
++
++    if(dec_actl.num_frames != (uint32_t)num_frames)
++    {
++        printf("    acTL num_frames mismatch: %u (expected %d)\n", dec_actl.num_frames, num_frames);
++        ret = 1; goto cleanup;
++    }
++    printf("    acTL: num_frames=%u, num_plays=%u\n", dec_actl.num_frames, dec_actl.num_plays);
++
++    /* Check frame 0 fcTL */
++    struct spng_fctl dec_fctl;
++    ret = spng_get_frame_fctl(dec, &dec_fctl);
++    if(ret) { printf("    get_frame_fctl (frame 0): %s\n", spng_strerror(ret)); goto cleanup; }
++
++    if(dec_fctl.width != w || dec_fctl.height != h || dec_fctl.delay_num != 100 || dec_fctl.delay_den != 1000)
++    {
++        printf("    frame 0 fctl mismatch: %ux%u delay=%u/%u\n",
++               dec_fctl.width, dec_fctl.height, dec_fctl.delay_num, dec_fctl.delay_den);
++        ret = 1; goto cleanup;
++    }
++
++    /* Decode default image */
++    size_t image_size;
++    ret = spng_decoded_image_size(dec, SPNG_FMT_RGBA8, &image_size);
++    if(ret) { printf("    decoded_image_size: %s\n", spng_strerror(ret)); goto cleanup; }
++
++    dec_buf = malloc(image_size);
++    if(!dec_buf) { ret = 1; goto cleanup; }
++
++    ret = spng_decode_image(dec, dec_buf, image_size, SPNG_FMT_RGBA8, 0);
++    if(ret) { printf("    decode_image: %s\n", spng_strerror(ret)); goto cleanup; }
++
++    /* Verify frame 0 pixels */
++    if(memcmp(dec_buf, frame0, frame_size))
++    {
++        printf("    FAIL: frame 0 pixels do not match\n");
++        ret = 1; goto cleanup;
++    }
++    printf("    frame 0: pixels match\n");
++
++    /* Decode subsequent frames */
++    frame_buf = malloc(image_size);
++    if(!frame_buf) { ret = 1; goto cleanup; }
++
++    /* Frame 1 */
++    struct spng_fctl frame_fctl;
++    ret = spng_decode_frame(dec, frame_buf, image_size, SPNG_FMT_RGBA8, 0, &frame_fctl);
++    if(ret) { printf("    decode_frame (frame 1): %s\n", spng_strerror(ret)); goto cleanup; }
++
++    if(frame_fctl.delay_num != 200 || frame_fctl.delay_den != 1000)
++    {
++        printf("    frame 1 fctl mismatch: delay=%u/%u\n", frame_fctl.delay_num, frame_fctl.delay_den);
++        ret = 1; goto cleanup;
++    }
++
++    if(memcmp(frame_buf, frame1, frame_size))
++    {
++        printf("    FAIL: frame 1 pixels do not match\n");
++        /* Print first differing pixel */
++        for(i = 0; i < w * h; i++)
++        {
++            if(memcmp(frame_buf + i*4, frame1 + i*4, 4))
++            {
++                printf("    pixel %u: got (%u,%u,%u,%u) expected (%u,%u,%u,%u)\n", i,
++                       frame_buf[i*4], frame_buf[i*4+1], frame_buf[i*4+2], frame_buf[i*4+3],
++                       frame1[i*4], frame1[i*4+1], frame1[i*4+2], frame1[i*4+3]);
++                break;
++            }
++        }
++        ret = 1; goto cleanup;
++    }
++    printf("    frame 1: pixels match\n");
++
++    /* Frame 2 */
++    ret = spng_decode_frame(dec, frame_buf, image_size, SPNG_FMT_RGBA8, 0, &frame_fctl);
++    if(ret) { printf("    decode_frame (frame 2): %s\n", spng_strerror(ret)); goto cleanup; }
++
++    if(frame_fctl.delay_num != 300 || frame_fctl.delay_den != 1000)
++    {
++        printf("    frame 2 fctl mismatch: delay=%u/%u\n", frame_fctl.delay_num, frame_fctl.delay_den);
++        ret = 1; goto cleanup;
++    }
++
++    if(memcmp(frame_buf, frame2, frame_size))
++    {
++        printf("    FAIL: frame 2 pixels do not match\n");
++        for(i = 0; i < w * h; i++)
++        {
++            if(memcmp(frame_buf + i*4, frame2 + i*4, 4))
++            {
++                printf("    pixel %u: got (%u,%u,%u,%u) expected (%u,%u,%u,%u)\n", i,
++                       frame_buf[i*4], frame_buf[i*4+1], frame_buf[i*4+2], frame_buf[i*4+3],
++                       frame2[i*4], frame2[i*4+1], frame2[i*4+2], frame2[i*4+3]);
++                break;
++            }
++        }
++        ret = 1; goto cleanup;
++    }
++    printf("    frame 2: pixels match\n");
++
++    /* No more frames */
++    ret = spng_decode_frame(dec, frame_buf, image_size, SPNG_FMT_RGBA8, 0, &frame_fctl);
++    if(ret != SPNG_EOI)
++    {
++        printf("    expected EOI after last frame, got: %s\n", spng_strerror(ret));
++        ret = 1; goto cleanup;
++    }
++    printf("    EOI after last frame: OK\n");
++
++    /* === STATIC PNG BACKWARD COMPAT === */
++    printf("  static PNG backward compatibility...\n");
++    {
++        spng_ctx *static_ctx = spng_ctx_new(0);
++        /* Re-decode the same buffer — spng_get_actl should work, frame decode should too */
++        spng_set_png_buffer(static_ctx, encoded, encoded_len);
++
++        struct spng_actl tmp_actl;
++        int r = spng_get_actl(static_ctx, &tmp_actl);
++        if(r) { printf("    get_actl on APNG failed: %s\n", spng_strerror(r)); ret = 1; }
++        else printf("    get_actl on APNG: OK\n");
++
++        spng_ctx_free(static_ctx);
++    }
++
++    ret = 0;
++    printf("  APNG roundtrip: PASS\n");
++
++cleanup:
++    free(frame0);
++    free(frame1);
++    free(frame2);
++    free(dec_buf);
++    free(frame_buf);
++    /* encoded is owned by enc context, don't free if enc still alive */
++    spng_ctx_free(enc);
++    spng_ctx_free(dec);
++
++    return ret;
++}
++
++static int apng_subframe_tests(void)
++{
++    int ret = 0;
++    spng_ctx *enc = NULL;
++    spng_ctx *dec = NULL;
++    unsigned char *encoded = NULL;
++    unsigned char *canvas_pixels = NULL;
++    unsigned char *sub_pixels = NULL;
++    unsigned char *dec_buf = NULL;
++    unsigned char *frame_buf = NULL;
++
++    const uint32_t cw = 16, ch = 16; /* canvas */
++    const uint32_t sw = 8, sh = 8;   /* sub-frame */
++    const uint32_t sx = 4, sy = 4;   /* sub-frame offset */
++    const size_t canvas_size = cw * ch * 4;
++    const size_t sub_size = sw * sh * 4;
++
++    canvas_pixels = malloc(canvas_size);
++    sub_pixels = malloc(sub_size);
++    if(!canvas_pixels || !sub_pixels) { ret = 1; goto sub_cleanup; }
++
++    /* Frame 0: full canvas, solid white */
++    uint32_t i;
++    for(i = 0; i < cw * ch; i++)
++    {
++        canvas_pixels[i*4+0] = 255; canvas_pixels[i*4+1] = 255;
++        canvas_pixels[i*4+2] = 255; canvas_pixels[i*4+3] = 255;
++    }
++
++    /* Frame 1: 8x8 sub-region at (4,4), solid magenta */
++    for(i = 0; i < sw * sh; i++)
++    {
++        sub_pixels[i*4+0] = 255; sub_pixels[i*4+1] = 0;
++        sub_pixels[i*4+2] = 255; sub_pixels[i*4+3] = 255;
++    }
++
++    /* === ENCODE === */
++    enc = spng_ctx_new(SPNG_CTX_ENCODER);
++    if(!enc) { ret = 1; goto sub_cleanup; }
++
++    spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
++
++    struct spng_ihdr ihdr = {
++        .width = cw, .height = ch,
++        .bit_depth = 8,
++        .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA
++    };
++    ret = spng_set_ihdr(enc, &ihdr);
++    if(ret) { printf("    set_ihdr: %s\n", spng_strerror(ret)); goto sub_cleanup; }
++
++    struct spng_actl actl = { .num_frames = 2, .num_plays = 0 };
++    ret = spng_set_actl(enc, &actl);
++    if(ret) { printf("    set_actl: %s\n", spng_strerror(ret)); goto sub_cleanup; }
++
++    /* Frame 0: full canvas */
++    struct spng_fctl fctl0 = {
++        .width = cw, .height = ch,
++        .delay_num = 100, .delay_den = 1000,
++        .dispose_op = SPNG_DISPOSE_OP_NONE,
++        .blend_op = SPNG_BLEND_OP_SOURCE
++    };
++    ret = spng_encode_frame(enc, canvas_pixels, canvas_size, SPNG_FMT_PNG, 0, &fctl0);
++    if(ret) { printf("    encode frame 0: %s\n", spng_strerror(ret)); goto sub_cleanup; }
++
++    /* Frame 1: sub-region */
++    struct spng_fctl fctl1 = {
++        .width = sw, .height = sh,
++        .x_offset = sx, .y_offset = sy,
++        .delay_num = 200, .delay_den = 1000,
++        .dispose_op = SPNG_DISPOSE_OP_NONE,
++        .blend_op = SPNG_BLEND_OP_SOURCE
++    };
++    ret = spng_encode_frame(enc, sub_pixels, sub_size, SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE, &fctl1);
++    if(ret) { printf("    encode frame 1: %s\n", spng_strerror(ret)); goto sub_cleanup; }
++
++    size_t encoded_len;
++    encoded = spng_get_png_buffer(enc, &encoded_len, &ret);
++    if(!encoded) { printf("    get_png_buffer: %s\n", spng_strerror(ret)); ret = 1; goto sub_cleanup; }
++
++    spng_ctx_free(enc);
++    enc = NULL;
++
++    /* === DECODE === */
++    dec = spng_ctx_new(0);
++    if(!dec) { ret = 1; goto sub_cleanup; }
++
++    ret = spng_set_png_buffer(dec, encoded, encoded_len);
++    if(ret) { printf("    set_png_buffer: %s\n", spng_strerror(ret)); goto sub_cleanup; }
++
++    size_t image_size;
++    ret = spng_decoded_image_size(dec, SPNG_FMT_RGBA8, &image_size);
++    if(ret) { printf("    decoded_image_size: %s\n", spng_strerror(ret)); goto sub_cleanup; }
++
++    dec_buf = malloc(image_size);
++    if(!dec_buf) { ret = 1; goto sub_cleanup; }
++
++    ret = spng_decode_image(dec, dec_buf, image_size, SPNG_FMT_RGBA8, 0);
++    if(ret) { printf("    decode_image: %s\n", spng_strerror(ret)); goto sub_cleanup; }
++
++    /* Verify frame 0 (full canvas white) */
++    if(memcmp(dec_buf, canvas_pixels, canvas_size))
++    {
++        printf("    FAIL: frame 0 pixels do not match\n");
++        ret = 1; goto sub_cleanup;
++    }
++    printf("    frame 0 (full canvas): pixels match\n");
++
++    /* Decode frame 1 (sub-region) */
++    frame_buf = malloc(image_size); /* over-allocate, that's fine */
++    if(!frame_buf) { ret = 1; goto sub_cleanup; }
++
++    struct spng_fctl dec_fctl;
++    ret = spng_decode_frame(dec, frame_buf, image_size, SPNG_FMT_RGBA8, 0, &dec_fctl);
++    if(ret) { printf("    decode_frame (frame 1): %s\n", spng_strerror(ret)); goto sub_cleanup; }
++
++    /* Verify fctl dimensions and offsets */
++    if(dec_fctl.width != sw || dec_fctl.height != sh ||
++       dec_fctl.x_offset != sx || dec_fctl.y_offset != sy)
++    {
++        printf("    FAIL: fctl mismatch: %ux%u+%u+%u (expected %ux%u+%u+%u)\n",
++               dec_fctl.width, dec_fctl.height, dec_fctl.x_offset, dec_fctl.y_offset,
++               sw, sh, sx, sy);
++        ret = 1; goto sub_cleanup;
++    }
++    printf("    frame 1 fctl: %ux%u+%u+%u OK\n", dec_fctl.width, dec_fctl.height,
++           dec_fctl.x_offset, dec_fctl.y_offset);
++
++    /* Verify frame 1 pixel data (only sw*sh pixels) */
++    if(memcmp(frame_buf, sub_pixels, sub_size))
++    {
++        printf("    FAIL: frame 1 pixels do not match\n");
++        ret = 1; goto sub_cleanup;
++    }
++    printf("    frame 1 (sub-region): pixels match\n");
++
++    /* No more frames */
++    ret = spng_decode_frame(dec, frame_buf, image_size, SPNG_FMT_RGBA8, 0, &dec_fctl);
++    if(ret != SPNG_EOI)
++    {
++        printf("    expected EOI, got: %s\n", spng_strerror(ret));
++        ret = 1; goto sub_cleanup;
++    }
++    printf("    EOI: OK\n");
++
++    ret = 0;
++    printf("  APNG sub-frame: PASS\n");
++
++sub_cleanup:
++    free(canvas_pixels);
++    free(sub_pixels);
++    free(dec_buf);
++    free(frame_buf);
++    spng_ctx_free(enc);
++    spng_ctx_free(dec);
++
++    return ret;
++}
++
++static int apng_error_tests(void)
++{
++    int ret;
++    spng_ctx *ctx = NULL;
++
++    /* Test: acTL with num_frames=0 */
++    printf("  error: acTL num_frames=0...\n");
++    ctx = spng_ctx_new(SPNG_CTX_ENCODER);
++    spng_set_option(ctx, SPNG_ENCODE_TO_BUFFER, 1);
++    struct spng_ihdr ihdr = {
++        .width = 4, .height = 4, .bit_depth = 8,
++        .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA
++    };
++    spng_set_ihdr(ctx, &ihdr);
++    struct spng_actl bad_actl = { .num_frames = 0 };
++    ret = spng_set_actl(ctx, &bad_actl);
++    if(ret != SPNG_EACTL)
++    {
++        printf("    FAIL: expected SPNG_EACTL, got %s\n", spng_strerror(ret));
++        spng_ctx_free(ctx);
++        return 1;
++    }
++    printf("    OK (%s)\n", spng_strerror(ret));
++    spng_ctx_free(ctx);
++
++    /* Test: fcTL with out-of-bounds region */
++    printf("  error: fcTL out-of-bounds...\n");
++    ctx = spng_ctx_new(SPNG_CTX_ENCODER);
++    spng_set_option(ctx, SPNG_ENCODE_TO_BUFFER, 1);
++    spng_set_ihdr(ctx, &ihdr);
++    struct spng_actl actl = { .num_frames = 1 };
++    spng_set_actl(ctx, &actl);
++
++    unsigned char pixels[4 * 4 * 4];
++    memset(pixels, 128, sizeof(pixels));
++
++    struct spng_fctl bad_fctl = {
++        .width = 4, .height = 4,
++        .x_offset = 2, .y_offset = 0, /* 2+4=6 > 4 canvas width */
++        .dispose_op = SPNG_DISPOSE_OP_NONE,
++        .blend_op = SPNG_BLEND_OP_SOURCE
++    };
++    ret = spng_encode_frame(ctx, pixels, sizeof(pixels), SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE, &bad_fctl);
++    if(ret != SPNG_EFCTL)
++    {
++        printf("    FAIL: expected SPNG_EFCTL, got %s\n", spng_strerror(ret));
++        spng_ctx_free(ctx);
++        return 1;
++    }
++    printf("    OK (%s)\n", spng_strerror(ret));
++    spng_ctx_free(ctx);
++
++    /* Test: fcTL with invalid dispose_op */
++    printf("  error: fcTL bad dispose_op...\n");
++    ctx = spng_ctx_new(SPNG_CTX_ENCODER);
++    spng_set_option(ctx, SPNG_ENCODE_TO_BUFFER, 1);
++    spng_set_ihdr(ctx, &ihdr);
++    spng_set_actl(ctx, &actl);
++
++    struct spng_fctl bad_dispose = {
++        .width = 4, .height = 4,
++        .dispose_op = 5, /* invalid */
++        .blend_op = SPNG_BLEND_OP_SOURCE
++    };
++    ret = spng_encode_frame(ctx, pixels, sizeof(pixels), SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE, &bad_dispose);
++    if(ret != SPNG_EFCTL)
++    {
++        printf("    FAIL: expected SPNG_EFCTL, got %s\n", spng_strerror(ret));
++        spng_ctx_free(ctx);
++        return 1;
++    }
++    printf("    OK (%s)\n", spng_strerror(ret));
++    spng_ctx_free(ctx);
++
++    /* Test: fcTL with invalid blend_op */
++    printf("  error: fcTL bad blend_op...\n");
++    ctx = spng_ctx_new(SPNG_CTX_ENCODER);
++    spng_set_option(ctx, SPNG_ENCODE_TO_BUFFER, 1);
++    spng_set_ihdr(ctx, &ihdr);
++    spng_set_actl(ctx, &actl);
++
++    struct spng_fctl bad_blend = {
++        .width = 4, .height = 4,
++        .dispose_op = SPNG_DISPOSE_OP_NONE,
++        .blend_op = 3 /* invalid */
++    };
++    ret = spng_encode_frame(ctx, pixels, sizeof(pixels), SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE, &bad_blend);
++    if(ret != SPNG_EFCTL)
++    {
++        printf("    FAIL: expected SPNG_EFCTL, got %s\n", spng_strerror(ret));
++        spng_ctx_free(ctx);
++        return 1;
++    }
++    printf("    OK (%s)\n", spng_strerror(ret));
++    spng_ctx_free(ctx);
++
++    /* Test: fcTL with zero dimensions */
++    printf("  error: fcTL zero width...\n");
++    ctx = spng_ctx_new(SPNG_CTX_ENCODER);
++    spng_set_option(ctx, SPNG_ENCODE_TO_BUFFER, 1);
++    spng_set_ihdr(ctx, &ihdr);
++    spng_set_actl(ctx, &actl);
++
++    struct spng_fctl zero_dim = {
++        .width = 0, .height = 4,
++        .dispose_op = SPNG_DISPOSE_OP_NONE,
++        .blend_op = SPNG_BLEND_OP_SOURCE
++    };
++    ret = spng_encode_frame(ctx, pixels, sizeof(pixels), SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE, &zero_dim);
++    if(ret != SPNG_EFCTL)
++    {
++        printf("    FAIL: expected SPNG_EFCTL, got %s\n", spng_strerror(ret));
++        spng_ctx_free(ctx);
++        return 1;
++    }
++    printf("    OK (%s)\n", spng_strerror(ret));
++    spng_ctx_free(ctx);
++
++    /* Test: decode_frame on non-APNG */
++    printf("  error: decode_frame on non-APNG...\n");
++    {
++        /* Encode a normal static PNG */
++        spng_ctx *senc = spng_ctx_new(SPNG_CTX_ENCODER);
++        spng_set_option(senc, SPNG_ENCODE_TO_BUFFER, 1);
++        spng_set_ihdr(senc, &ihdr);
++        spng_encode_image(senc, pixels, sizeof(pixels), SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE);
++
++        size_t slen;
++        unsigned char *sbuf = spng_get_png_buffer(senc, &slen, &ret);
++
++        spng_ctx *sdec = spng_ctx_new(0);
++        spng_set_png_buffer(sdec, sbuf, slen);
++
++        unsigned char dimg[4 * 4 * 4];
++        spng_decode_image(sdec, dimg, sizeof(dimg), SPNG_FMT_RGBA8, 0);
++
++        struct spng_fctl fctl;
++        ret = spng_decode_frame(sdec, dimg, sizeof(dimg), SPNG_FMT_RGBA8, 0, &fctl);
++        if(ret == 0)
++        {
++            printf("    FAIL: decode_frame should fail on non-APNG\n");
++            spng_ctx_free(senc);
++            spng_ctx_free(sdec);
++            return 1;
++        }
++        printf("    OK (%s)\n", spng_strerror(ret));
++
++        spng_ctx_free(senc);
++        spng_ctx_free(sdec);
++    }
++
++    printf("  APNG error cases: PASS\n");
++    return 0;
++}
++
++/* Helper: encode a 3-frame 8x8 RGBA8 APNG to buffer.
++   frames[0..2] must each be w*h*4 bytes. Caller frees *out_enc context. */
++static int encode_test_apng(unsigned char *frames[3], uint32_t w, uint32_t h,
++                            unsigned char **out_buf, size_t *out_len, spng_ctx **out_enc)
++{
++    int ret;
++    size_t frame_size = w * h * 4;
++
++    spng_ctx *enc = spng_ctx_new(SPNG_CTX_ENCODER);
++    if(!enc) return 1;
++
++    spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
++
++    struct spng_ihdr ihdr = {
++        .width = w, .height = h, .bit_depth = 8,
++        .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA
++    };
++    ret = spng_set_ihdr(enc, &ihdr);
++    if(ret) goto fail;
++
++    struct spng_actl actl = { .num_frames = 3, .num_plays = 0 };
++    ret = spng_set_actl(enc, &actl);
++    if(ret) goto fail;
++
++    struct spng_fctl fctl = {
++        .width = w, .height = h,
++        .delay_num = 100, .delay_den = 1000,
++        .dispose_op = SPNG_DISPOSE_OP_NONE,
++        .blend_op = SPNG_BLEND_OP_SOURCE
++    };
++
++    int i;
++    for(i = 0; i < 3; i++)
++    {
++        fctl.delay_num = (i + 1) * 100;
++        int flags = (i == 2) ? SPNG_ENCODE_FINALIZE : 0;
++        ret = spng_encode_frame(enc, frames[i], frame_size, SPNG_FMT_PNG, flags, &fctl);
++        if(ret) goto fail;
++    }
++
++    *out_buf = spng_get_png_buffer(enc, out_len, &ret);
++    if(!*out_buf) goto fail;
++
++    *out_enc = enc;
++    return 0;
++
++fail:
++    spng_ctx_free(enc);
++    return ret;
++}
++
++static void fill_solid(unsigned char *buf, uint32_t w, uint32_t h,
++                       uint8_t r, uint8_t g, uint8_t b)
++{
++    uint32_t i;
++    for(i = 0; i < w * h; i++)
++    {
++        buf[i*4+0] = r; buf[i*4+1] = g;
++        buf[i*4+2] = b; buf[i*4+3] = 255;
++    }
++}
++
++static int apng_progressive_decode_test(void)
++{
++    int ret = 0;
++    spng_ctx *enc = NULL;
++    spng_ctx *dec1 = NULL;
++    spng_ctx *dec2 = NULL;
++    unsigned char *encoded = NULL;
++    unsigned char *frame_data[3] = {NULL, NULL, NULL};
++    unsigned char *oneshot_buf = NULL;
++    unsigned char *prog_buf = NULL;
++
++    const uint32_t w = 8, h = 8;
++    const size_t frame_size = w * h * 4;
++
++    int i;
++    for(i = 0; i < 3; i++)
++    {
++        frame_data[i] = malloc(frame_size);
++        if(!frame_data[i]) { ret = 1; goto prog_dec_cleanup; }
++    }
++    fill_solid(frame_data[0], w, h, 255, 0, 0);
++    fill_solid(frame_data[1], w, h, 0, 255, 0);
++    fill_solid(frame_data[2], w, h, 0, 0, 255);
++
++    size_t encoded_len;
++    ret = encode_test_apng(frame_data, w, h, &encoded, &encoded_len, &enc);
++    if(ret) { printf("    encode failed: %s\n", spng_strerror(ret)); goto prog_dec_cleanup; }
++    spng_ctx_free(enc); enc = NULL;
++
++    /* One-shot decode for reference */
++    dec1 = spng_ctx_new(0);
++    spng_set_png_buffer(dec1, encoded, encoded_len);
++
++    size_t image_size;
++    spng_decoded_image_size(dec1, SPNG_FMT_RGBA8, &image_size);
++
++    oneshot_buf = malloc(image_size);
++    prog_buf = malloc(image_size);
++    if(!oneshot_buf || !prog_buf) { ret = 1; goto prog_dec_cleanup; }
++
++    spng_decode_image(dec1, oneshot_buf, image_size, SPNG_FMT_RGBA8, 0);
++
++    /* Progressive decode for comparison */
++    dec2 = spng_ctx_new(0);
++    spng_set_png_buffer(dec2, encoded, encoded_len);
++
++    ret = spng_decode_image(dec2, NULL, 0, SPNG_FMT_RGBA8, SPNG_DECODE_PROGRESSIVE);
++    if(ret) { printf("    progressive init failed: %s\n", spng_strerror(ret)); goto prog_dec_cleanup; }
++
++    struct spng_row_info ri;
++    size_t out_width = image_size / h;
++
++    do
++    {
++        ret = spng_get_row_info(dec2, &ri);
++        if(ret) break;
++        ret = spng_decode_row(dec2, prog_buf + ri.row_num * out_width, out_width);
++    }while(!ret);
++
++    if(ret != SPNG_EOI) { printf("    progressive IDAT decode error: %s\n", spng_strerror(ret)); goto prog_dec_cleanup; }
++
++    if(memcmp(oneshot_buf, prog_buf, image_size))
++    {
++        printf("    FAIL: progressive IDAT differs from one-shot\n");
++        ret = 1; goto prog_dec_cleanup;
++    }
++    printf("    frame 0 (progressive vs one-shot): match\n");
++
++    /* Now decode subsequent frames progressively */
++    unsigned char *oneshot_frame = malloc(image_size);
++    unsigned char *prog_frame = malloc(image_size);
++    if(!oneshot_frame || !prog_frame) { free(oneshot_frame); free(prog_frame); ret = 1; goto prog_dec_cleanup; }
++
++    for(i = 1; i < 3; i++)
++    {
++        struct spng_fctl fctl1, fctl2;
++
++        /* One-shot */
++        ret = spng_decode_frame(dec1, oneshot_frame, image_size, SPNG_FMT_RGBA8, 0, &fctl1);
++        if(ret) { printf("    one-shot frame %d: %s\n", i, spng_strerror(ret)); free(oneshot_frame); free(prog_frame); goto prog_dec_cleanup; }
++
++        /* Progressive */
++        ret = spng_decode_frame(dec2, NULL, 0, SPNG_FMT_RGBA8, SPNG_DECODE_PROGRESSIVE, &fctl2);
++        if(ret) { printf("    progressive frame %d init: %s\n", i, spng_strerror(ret)); free(oneshot_frame); free(prog_frame); goto prog_dec_cleanup; }
++
++        size_t frame_out_width = fctl2.width * 4;
++        size_t frame_total = frame_out_width * fctl2.height;
++
++        do
++        {
++            ret = spng_get_row_info(dec2, &ri);
++            if(ret) break;
++            ret = spng_decode_row(dec2, prog_frame + ri.row_num * frame_out_width, frame_out_width);
++        }while(!ret);
++
++        if(ret != SPNG_EOI) { printf("    progressive frame %d decode: %s\n", i, spng_strerror(ret)); free(oneshot_frame); free(prog_frame); goto prog_dec_cleanup; }
++
++        if(memcmp(oneshot_frame, prog_frame, frame_total))
++        {
++            printf("    FAIL: frame %d progressive differs from one-shot\n", i);
++            free(oneshot_frame); free(prog_frame);
++            ret = 1; goto prog_dec_cleanup;
++        }
++        printf("    frame %d (progressive vs one-shot): match\n", i);
++    }
++
++    free(oneshot_frame);
++    free(prog_frame);
++    ret = 0;
++    printf("  APNG progressive decode: PASS\n");
++
++prog_dec_cleanup:
++    for(i = 0; i < 3; i++) free(frame_data[i]);
++    free(oneshot_buf);
++    free(prog_buf);
++    spng_ctx_free(enc);
++    spng_ctx_free(dec1);
++    spng_ctx_free(dec2);
++    return ret;
++}
++
++static int apng_progressive_encode_test(void)
++{
++    int ret = 0;
++    spng_ctx *enc = NULL;
++    spng_ctx *dec = NULL;
++    unsigned char *encoded = NULL;
++    unsigned char *frame_data[3] = {NULL, NULL, NULL};
++    unsigned char *dec_buf = NULL;
++    unsigned char *frame_buf = NULL;
++
++    const uint32_t w = 8, h = 8;
++    const size_t frame_size = w * h * 4;
++
++    int i;
++    for(i = 0; i < 3; i++)
++    {
++        frame_data[i] = malloc(frame_size);
++        if(!frame_data[i]) { ret = 1; goto prog_enc_cleanup; }
++    }
++    fill_solid(frame_data[0], w, h, 255, 0, 0);
++    fill_solid(frame_data[1], w, h, 0, 255, 0);
++    fill_solid(frame_data[2], w, h, 0, 0, 255);
++
++    /* Encode progressively */
++    enc = spng_ctx_new(SPNG_CTX_ENCODER);
++    if(!enc) { ret = 1; goto prog_enc_cleanup; }
++
++    spng_set_option(enc, SPNG_ENCODE_TO_BUFFER, 1);
++
++    struct spng_ihdr ihdr = {
++        .width = w, .height = h, .bit_depth = 8,
++        .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA
++    };
++    ret = spng_set_ihdr(enc, &ihdr);
++    if(ret) { printf("    set_ihdr: %s\n", spng_strerror(ret)); goto prog_enc_cleanup; }
++
++    struct spng_actl actl = { .num_frames = 3, .num_plays = 0 };
++    ret = spng_set_actl(enc, &actl);
++    if(ret) { printf("    set_actl: %s\n", spng_strerror(ret)); goto prog_enc_cleanup; }
++
++    struct spng_fctl fctl = {
++        .width = w, .height = h,
++        .delay_num = 100, .delay_den = 1000,
++        .dispose_op = SPNG_DISPOSE_OP_NONE,
++        .blend_op = SPNG_BLEND_OP_SOURCE
++    };
++
++    for(i = 0; i < 3; i++)
++    {
++        fctl.delay_num = (i + 1) * 100;
++        int flags = SPNG_ENCODE_PROGRESSIVE;
++        if(i == 2) flags |= SPNG_ENCODE_FINALIZE;
++
++        ret = spng_encode_frame(enc, NULL, 0, SPNG_FMT_PNG, flags, &fctl);
++        if(ret) { printf("    encode_frame %d init: %s\n", i, spng_strerror(ret)); goto prog_enc_cleanup; }
++
++        /* Write scanlines */
++        struct spng_row_info ri;
++
++        /* For FMT_PNG with RGBA8, image_width = width * channels * (bit_depth/8) */
++        size_t img_width = (size_t)w * 4;
++
++        do
++        {
++            ret = spng_get_row_info(enc, &ri);
++            if(ret) break;
++            ret = spng_encode_row(enc, frame_data[i] + ri.row_num * img_width, img_width);
++        }while(!ret);
++
++        if(ret != SPNG_EOI) { printf("    encode_row frame %d: %s\n", i, spng_strerror(ret)); goto prog_enc_cleanup; }
++    }
++
++    size_t encoded_len;
++    encoded = spng_get_png_buffer(enc, &encoded_len, &ret);
++    if(!encoded) { printf("    get_png_buffer: %s\n", spng_strerror(ret)); ret = 1; goto prog_enc_cleanup; }
++
++    spng_ctx_free(enc); enc = NULL;
++
++    /* Decode and verify */
++    dec = spng_ctx_new(0);
++    spng_set_png_buffer(dec, encoded, encoded_len);
++
++    size_t image_size;
++    spng_decoded_image_size(dec, SPNG_FMT_RGBA8, &image_size);
++
++    dec_buf = malloc(image_size);
++    if(!dec_buf) { ret = 1; goto prog_enc_cleanup; }
++
++    ret = spng_decode_image(dec, dec_buf, image_size, SPNG_FMT_RGBA8, 0);
++    if(ret) { printf("    decode_image: %s\n", spng_strerror(ret)); goto prog_enc_cleanup; }
++
++    if(memcmp(dec_buf, frame_data[0], frame_size))
++    {
++        printf("    FAIL: frame 0 pixels mismatch\n");
++        ret = 1; goto prog_enc_cleanup;
++    }
++    printf("    frame 0: pixels match\n");
++
++    frame_buf = malloc(image_size);
++    if(!frame_buf) { ret = 1; goto prog_enc_cleanup; }
++
++    for(i = 1; i < 3; i++)
++    {
++        struct spng_fctl dec_fctl;
++        ret = spng_decode_frame(dec, frame_buf, image_size, SPNG_FMT_RGBA8, 0, &dec_fctl);
++        if(ret) { printf("    decode_frame %d: %s\n", i, spng_strerror(ret)); goto prog_enc_cleanup; }
++
++        if(memcmp(frame_buf, frame_data[i], frame_size))
++        {
++            printf("    FAIL: frame %d pixels mismatch\n", i);
++            ret = 1; goto prog_enc_cleanup;
++        }
++        printf("    frame %d: pixels match\n", i);
++    }
++
++    ret = 0;
++    printf("  APNG progressive encode: PASS\n");
++
++prog_enc_cleanup:
++    for(i = 0; i < 3; i++) free(frame_data[i]);
++    free(dec_buf);
++    free(frame_buf);
++    spng_ctx_free(enc);
++    spng_ctx_free(dec);
++    return ret;
++}
++
++static int apng_buffer_stream_test(void)
++{
++    int ret = 0;
++    spng_ctx *enc_buf = NULL;
++    spng_ctx *enc_stream = NULL;
++    unsigned char *buf_encoded = NULL;
++    unsigned char *frame_data[3] = {NULL, NULL, NULL};
++
++    const uint32_t w = 8, h = 8;
++    const size_t frame_size = w * h * 4;
++
++    int i;
++    for(i = 0; i < 3; i++)
++    {
++        frame_data[i] = malloc(frame_size);
++        if(!frame_data[i]) { ret = 1; goto bs_cleanup; }
++    }
++    fill_solid(frame_data[0], w, h, 255, 0, 0);
++    fill_solid(frame_data[1], w, h, 0, 255, 0);
++    fill_solid(frame_data[2], w, h, 0, 0, 255);
++
++    /* Encode to buffer */
++    size_t buf_len;
++    ret = encode_test_apng(frame_data, w, h, &buf_encoded, &buf_len, &enc_buf);
++    if(ret) { printf("    buffer encode failed: %s\n", spng_strerror(ret)); goto bs_cleanup; }
++    spng_ctx_free(enc_buf); enc_buf = NULL;
++
++    /* Encode to stream, comparing against buffer output */
++    enc_stream = spng_ctx_new(SPNG_CTX_ENCODER);
++    if(!enc_stream) { ret = 1; goto bs_cleanup; }
++
++    struct buf_state state = { .data = buf_encoded, .bytes_left = buf_len };
++    spng_set_png_stream(enc_stream, stream_write_checked, &state);
++
++    struct spng_ihdr ihdr = {
++        .width = w, .height = h, .bit_depth = 8,
++        .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA
++    };
++    spng_set_ihdr(enc_stream, &ihdr);
++
++    struct spng_actl actl = { .num_frames = 3, .num_plays = 0 };
++    spng_set_actl(enc_stream, &actl);
++
++    struct spng_fctl fctl = {
++        .width = w, .height = h,
++        .delay_num = 100, .delay_den = 1000,
++        .dispose_op = SPNG_DISPOSE_OP_NONE,
++        .blend_op = SPNG_BLEND_OP_SOURCE
++    };
++
++    for(i = 0; i < 3; i++)
++    {
++        fctl.delay_num = (i + 1) * 100;
++        int flags = (i == 2) ? SPNG_ENCODE_FINALIZE : 0;
++        ret = spng_encode_frame(enc_stream, frame_data[i], frame_size, SPNG_FMT_PNG, flags, &fctl);
++        if(ret) { printf("    stream encode frame %d: %s\n", i, spng_strerror(ret)); goto bs_cleanup; }
++    }
++
++    if(state.bytes_left)
++    {
++        printf("    FAIL: stream shorter by %zu bytes\n", state.bytes_left);
++        ret = 1; goto bs_cleanup;
++    }
++
++    ret = 0;
++    printf("  APNG buffer vs stream: PASS\n");
++
++bs_cleanup:
++    for(i = 0; i < 3; i++) free(frame_data[i]);
++    spng_ctx_free(enc_buf);
++    spng_ctx_free(enc_stream);
++    return ret;
++}
++
++static int apng_malformed_decode_tests(void)
++{
++    int ret;
++
++    /* All tests craft raw PNG byte sequences and feed to decoder */
++
++    /* PNG signature */
++    const unsigned char sig[8] = {137, 80, 78, 71, 13, 10, 26, 10};
++
++    /* Helper: write a chunk into buf. Returns bytes written. */
++    #define WRITE_CHUNK(buf, pos, type4, data, datalen) do { \
++        uint32_t _len = (datalen); \
++        (buf)[(pos)+0] = (_len >> 24) & 0xff; \
++        (buf)[(pos)+1] = (_len >> 16) & 0xff; \
++        (buf)[(pos)+2] = (_len >> 8) & 0xff; \
++        (buf)[(pos)+3] = (_len) & 0xff; \
++        memcpy((buf)+(pos)+4, (type4), 4); \
++        if(_len) memcpy((buf)+(pos)+8, (data), _len); \
++        /* CRC: just zero it, we'll use SPNG_CTX_IGNORE_ADLER32 and CRC_USE */ \
++        uint32_t _crc = 0; \
++        memcpy((buf)+(pos)+8+_len, &_crc, 4); \
++        (pos) += 12 + _len; \
++    } while(0)
++
++    /* Test: duplicate acTL, the duplicate is discarded and the first acTL kept */
++    printf("  malformed: duplicate acTL...\n");
++    {
++        unsigned char png[512];
++        int pos = 0;
++
++        memcpy(png, sig, 8); pos = 8;
++
++        /* IHDR: 4x4 RGBA8 */
++        unsigned char ihdr[13] = {0,0,0,4, 0,0,0,4, 8, 6, 0, 0, 0};
++        WRITE_CHUNK(png, pos, "IHDR", ihdr, 13);
++
++        /* acTL: num_frames=1, num_plays=0 */
++        unsigned char actl[8] = {0,0,0,1, 0,0,0,0};
++        WRITE_CHUNK(png, pos, "acTL", actl, 8);
++
++        /* Duplicate acTL with different values */
++        unsigned char actl2[8] = {0,0,0,9, 0,0,0,9};
++        WRITE_CHUNK(png, pos, "acTL", actl2, 8);
++
++        /* IDAT (contents never read, parsing stops at the first IDAT) */
++        unsigned char idat[4] = {0};
++        WRITE_CHUNK(png, pos, "IDAT", idat, 4);
++
++        WRITE_CHUNK(png, pos, "IEND", NULL, 0);
++
++        spng_ctx *ctx = spng_ctx_new(0);
++        spng_set_crc_action(ctx, SPNG_CRC_USE, SPNG_CRC_USE);
++        spng_set_png_buffer(ctx, png, pos);
++
++        struct spng_actl dec_actl;
++        ret = spng_get_actl(ctx, &dec_actl);
++
++        if(ret || dec_actl.num_frames != 1)
++        {
++            printf("    FAIL: expected first acTL to be kept, got %s (num_frames=%u)\n",
++                   spng_strerror(ret), ret ? 0 : dec_actl.num_frames);
++            spng_ctx_free(ctx);
++            return 1;
++        }
++        printf("    OK (first acTL kept, duplicate discarded)\n");
++
++        spng_ctx_free(ctx);
++    }
++
++    /* Test: acTL after IDAT is rejected */
++    printf("  malformed: acTL after IDAT...\n");
++    {
++        /* Encode a valid static PNG, then insert an acTL chunk before IEND */
++        spng_ctx *senc = spng_ctx_new(SPNG_CTX_ENCODER);
++        spng_set_option(senc, SPNG_ENCODE_TO_BUFFER, 1);
++        struct spng_ihdr ihdr = { .width = 4, .height = 4, .bit_depth = 8,
++                                  .color_type = SPNG_COLOR_TYPE_TRUECOLOR_ALPHA };
++        spng_set_ihdr(senc, &ihdr);
++        unsigned char pixels[4*4*4];
++        memset(pixels, 128, sizeof(pixels));
++        spng_encode_image(senc, pixels, sizeof(pixels), SPNG_FMT_PNG, SPNG_ENCODE_FINALIZE);
++
++        size_t slen;
++        unsigned char *sbuf = spng_get_png_buffer(senc, &slen, &ret);
++        if(!sbuf) { spng_ctx_free(senc); return 1; }
++
++        /* IEND is the last 12 bytes, insert acTL before it */
++        unsigned char *mod = malloc(slen + 20);
++        if(!mod) { spng_ctx_free(senc); return 1; }
++
++        int mpos = (int)(slen - 12);
++        memcpy(mod, sbuf, mpos);
++
++        unsigned char actl[8] = {0,0,0,1, 0,0,0,0};
++        WRITE_CHUNK(mod, mpos, "acTL", actl, 8);
++
++        memcpy(mod + mpos, sbuf + slen - 12, 12);
++        mpos += 12;
++
++        spng_ctx *sdec = spng_ctx_new(0);
++        spng_set_crc_action(sdec, SPNG_CRC_USE, SPNG_CRC_USE);
++        spng_set_png_buffer(sdec, mod, mpos);
++
++        unsigned char dimg[4*4*4];
++        ret = spng_decode_image(sdec, dimg, sizeof(dimg), SPNG_FMT_RGBA8, 0);
++        if(ret)
++        {
++            printf("    FAIL: decode_image: %s\n", spng_strerror(ret));
++            free(mod); spng_ctx_free(senc); spng_ctx_free(sdec);
++            return 1;
++        }
++
++        /* Reading post-IDAT chunks must not accept the late acTL */
++        struct spng_actl dec_actl;
++        ret = spng_get_actl(sdec, &dec_actl);
++        if(ret != SPNG_ECHUNKAVAIL)
++        {
++            printf("    FAIL: expected SPNG_ECHUNKAVAIL, got %s\n", spng_strerror(ret));
++            free(mod); spng_ctx_free(senc); spng_ctx_free(sdec);
++            return 1;
++        }
++        printf("    OK (late acTL rejected)\n");
++
++        free(mod);
++        spng_ctx_free(senc);
++        spng_ctx_free(sdec);
++    }
++
++    /* Test: out-of-order sequence number in fcTL */
++    printf("  malformed: bad sequence number...\n");
++    {
++        unsigned char *frames[3] = {NULL, NULL, NULL};
++        const uint32_t w = 8, h = 8;
++        const size_t frame_size = w * h * 4;
++        int i;
++        int failed = 0;
++
++        for(i = 0; i < 3; i++) frames[i] = malloc(frame_size);
++
++        if(!frames[0] || !frames[1] || !frames[2])
++        {
++            for(i = 0; i < 3; i++) free(frames[i]);
++            return 1;
++        }
++
++        fill_solid(frames[0], w, h, 255, 0, 0);
++        fill_solid(frames[1], w, h, 0, 255, 0);
++        fill_solid(frames[2], w, h, 0, 0, 255);
++
++        unsigned char *encoded;
++        size_t encoded_len;
++        spng_ctx *enc = NULL;
++
++        ret = encode_test_apng(frames, w, h, &encoded, &encoded_len, &enc);
++        if(ret)
++        {
++            printf("    encode failed: %s\n", spng_strerror(ret));
++            for(i = 0; i < 3; i++) free(frames[i]);
++            return 1;
++        }
++
++        /* Corrupt the second fcTL's sequence number,
++           the first fcTL precedes IDAT and belongs to frame 0.
++           Chunk layout: length(4), type(4), seq(4), ... */
++        unsigned char *fctl_chunk = NULL;
++        int fctl_count = 0;
++
++        for(i = 0; i + 4 <= (int)encoded_len; i++)
++        {
++            if(!memcmp(encoded + i, "fcTL", 4))
++            {
++                fctl_count++;
++                if(fctl_count == 2)
++                {
++                    fctl_chunk = encoded + i;
++                    break;
++                }
++            }
++        }
++
++        if(fctl_chunk == NULL)
++        {
++            printf("    FAIL: second fcTL not found in encoded APNG\n");
++            failed = 1;
++        }
++        else
++        {
++            fctl_chunk[7] = 0xff; /* seq LSB, breaks the sequence */
++
++            spng_ctx *dec = spng_ctx_new(0);
++            /* The seq edit invalidates the chunk's CRC */
++            spng_set_crc_action(dec, SPNG_CRC_USE, SPNG_CRC_USE);
++            spng_set_png_buffer(dec, encoded, encoded_len);
++
++            unsigned char *dec_buf = malloc(frame_size);
++            if(!dec_buf) failed = 1;
++
++            if(!failed)
++            {
++                ret = spng_decode_image(dec, dec_buf, frame_size, SPNG_FMT_RGBA8, 0);
++                if(ret)
++                {
++                    printf("    FAIL: decode_image: %s\n", spng_strerror(ret));
++                    failed = 1;
++                }
++            }
++
++            if(!failed)
++            {
++                struct spng_fctl fctl;
++                ret = spng_decode_frame(dec, dec_buf, frame_size, SPNG_FMT_RGBA8, 0, &fctl);
++                if(ret != SPNG_EAPNG)
++                {
++                    printf("    FAIL: expected SPNG_EAPNG, got %s\n", spng_strerror(ret));
++                    failed = 1;
++                }
++                else printf("    OK (SPNG_EAPNG on bad sequence)\n");
++            }
++
++            free(dec_buf);
++            spng_ctx_free(dec);
++        }
++
++        for(i = 0; i < 3; i++) free(frames[i]);
++        spng_ctx_free(enc);
++
++        if(failed) return 1;
++    }
++
++    #undef WRITE_CHUNK
++
++    printf("  APNG malformed decode: PASS\n");
++    return 0;
++}
++
+ int main(int argc, char **argv)
+ {
+     if(argc < 2)
+@@ -1281,6 +2477,31 @@ int main(int argc, char **argv)
+ 
+     char *filename = argv[1];
+ 
++    if(!strcmp(filename, "apng"))
++    {
++        printf("Running APNG tests\n");
++        int r = apng_tests();
++        if(r) return r;
++        printf("\n");
++        r = apng_subframe_tests();
++        if(r) return r;
++        printf("\n");
++        r = apng_error_tests();
++        if(r) return r;
++        printf("\n");
++        r = apng_progressive_decode_test();
++        if(r) return r;
++        printf("\n");
++        r = apng_progressive_encode_test();
++        if(r) return r;
++        printf("\n");
++        r = apng_buffer_stream_test();
++        if(r) return r;
++        printf("\n");
++        r = apng_malformed_decode_tests();
++        return r;
++    }
++
+     if(!strcmp(filename, "info"))
+     {
+         unsigned int png_ver = png_access_version_number();

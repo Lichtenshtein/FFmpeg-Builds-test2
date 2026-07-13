@@ -297,7 +297,7 @@ should_apply_lto() {
             return 0
             ;;
         # легковесные кодеки
-        *"giflib"|*"libjpeg-turbo"|*"libpng"|*"libtiff"|*"openjpeg"|*"svtjpegxs"|*"libwebp"|*"libavif"|*"libjxl")
+        *"giflib"|*"spng"|*"libjpeg-turbo"|*"libpng"|*"libtiff"|*"openjpeg"|*"svtjpegxs"|*"libwebp"|*"libavif"|*"libjxl")
             return 0
             ;;
         # прочее
@@ -2771,7 +2771,7 @@ get_component_group() {
         25)                     echo "X11 Extensions" ;; # libxext, libxrender
         26|27)                  echo "OpenGL & Display Drivers" ;; # libglvnd, libxrandr
         30|31|32|33|34)         echo "Net" ;; # OpenSSL, Curl
- 14|17|37|38|39|40|41|43|45|46) echo "Core Graphics & Fonts" ;; # PNG, Cairo
+ 14|17|36|37|38|39|40|41|43|45|46) echo "Core Graphics & Fonts" ;; # PNG, Cairo
         47)                     echo "Subtitles & Teletext" ;; # libass, zvbi
         48)                     echo "QR-Codes" ;; # quirc, qrencode
         49|50|51|52|53)         echo "Vulkan & Shaders" ;; # SPIR-V, Glslang
