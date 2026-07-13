@@ -64,7 +64,7 @@ ffbuild_dockerbuild() {
     unset CC CXX AS AR RANLIB LD CFLAGS CXXFLAGS LDFLAGS CPPFLAGS
 
     # Force dependencies to be updated to avoid bugs in older versions of cc-rs
-    # cargo update -p cc
+    cargo update -p cc
 
     local myconf=(
         --prefix="${FFBUILD_PREFIX}"
