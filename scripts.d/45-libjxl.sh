@@ -55,11 +55,13 @@ tools/benchmark"
 
 ffbuild_dockerbuild() {
     set -e
-
+    
     if [[ -f "third_party/highway/CMakeLists.txt" ]]; then
-        log_info "Purging test definitions and targets from Highway sub-CMakeLists..."
+        log_info "Strictly purging all test definitions, tools, and targets from Highway sub-CMakeLists..."
         sed -i '/set(HWY_TEST_SOURCES/,/)/d' third_party/highway/CMakeLists.txt
-        sed -i '/add_executable(hwy_list_targets/,/target_link_libraries(hwy_list_targets PRIVATE hwy)/d' third_party/highway/CMakeLists.txt
+        sed -i '/add_executable(hwy_list_targets/,/endif()  # HWY_ENABLE_CONTRIB/ {
+            /endif()  # HWY_ENABLE_CONTRIB/!d
+        }' third_party/highway/CMakeLists.txt
         sed -i '/if (HWY_ENABLE_TESTS)/,/endif()  # HWY_ENABLE_TESTS/d' third_party/highway/CMakeLists.txt
         sed -i '/if (HWY_ENABLE_TESTS)/,/endif()  # HWY_ENABLE_TESTS/d' third_party/highway/CMakeLists.txt
         sed -i '/set(HWY_SYSTEM_GTEST/,/set(HWY_TEST_LIBS/d' third_party/highway/CMakeLists.txt
