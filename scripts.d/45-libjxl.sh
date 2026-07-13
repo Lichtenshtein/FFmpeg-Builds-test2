@@ -59,9 +59,9 @@ ffbuild_dockerbuild() {
     if [ -d "third_party/highway" ]; then
         log_info "Applying highway tests patch using native patch utility..."
         cd third_party/highway
-        patch -p1 -N < "${PATCHES_DIR}/libjxl/0002-highway-disable-tests.patch" || {
+        patch -p3 -N < "${PATCHES_DIR}/libjxl/0002-highway-disable-tests.patch" || {
             log_warn "Standard patch failed, forcing patch with loose whitespaces..."
-            patch -p1 -N -l < "${PATCHES_DIR}/libjxl/0002-highway-disable-tests.patch"
+            patch -p3 -N -l < "${PATCHES_DIR}/libjxl/0002-highway-disable-tests.patch"
         }
         cd -
     fi
