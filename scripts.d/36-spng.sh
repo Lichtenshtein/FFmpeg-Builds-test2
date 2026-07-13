@@ -14,6 +14,8 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
 
+    echo "rm -rf tests"
+
     local COMPONENT_NAME="spng"
     local PATCHES_DIR="${PATCHES_DIR}"
     local CUSTOM_CMAKELISTS="${PATCHES_DIR}/${COMPONENT_NAME}/CMakeLists.txt"
