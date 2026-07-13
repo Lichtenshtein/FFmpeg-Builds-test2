@@ -1,7 +1,7 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/GerHobbelt/libspng.git"
-SCRIPT_COMMIT="0273066de898a7afccb5368b69197fe056ead6b3"
+SCRIPT_REPO="https://github.com/DeepTulip/libspng.git"
+SCRIPT_COMMIT="588a43d12f92a27195af237ec24ec5b6417ab41c"
 
 ffbuild_depends() {
     echo zlib
