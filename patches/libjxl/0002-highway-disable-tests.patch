@@ -7,7 +7,7 @@ Subject: [PATCH] disable tests
  CMakeLists.txt | 89 --------------------------------------------------
  1 file changed, 89 deletions(-)
 
-diff --git a/CMakeLists.txt b/CMakeLists.txt
+diff --git a/third_party/highway/CMakeLists.txt b/third_party/highway/CMakeLists.txt
 index ea8b330..6757f4b 100644
 --- a/third_party/highway/CMakeLists.txt
 +++ b/third_party/highway/CMakeLists.txt
