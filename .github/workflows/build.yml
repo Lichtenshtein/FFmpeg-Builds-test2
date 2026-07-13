@@ -188,7 +188,7 @@ jobs:
       - name: Fix Line Endings (CRLF to LF)
         run: find scripts.d util addins images variants -type f -name "*.sh" -exec sed -i 's/\r$//' {} +
 
-      - name: Guarantee Cache Directories Existence
+      - name: Create Directories
         run: |
           mkdir -p .cache/downloads artifacts
           chmod -R u+r patches/ || true

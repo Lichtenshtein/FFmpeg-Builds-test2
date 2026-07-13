@@ -428,7 +428,7 @@ apply_lto_policy() {
     [[ "$PREFER_SHARED" != "1" ]] && HOST_LINUX_LDFLAGS+=( "-Wl,--gc-sections" )
 
     # Общие настройки Rust; codegen-units = 16 (default)
-    local COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=${RUST_STRIP_POLICY} -C codegen-units=1 -C opt-level=3 ${RUSTLTO}"
+    local COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=${RUST_STRIP_POLICY} -C codegen-units=1 -C opt-level=3${RUSTLTO}"
 
     export HOST_RUSTFLAGS="${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${HOST_LINUX_LDFLAGS[@]}") -C embed-bitcode=yes"
     export HOST_LDFLAGS="${HOST_LINUX_LDFLAGS[*]} ${USELTO}${USELTO_L}"
@@ -1743,7 +1743,7 @@ apply_patches() {
                 log_debug "Trying: $git_opts"
                 # 'if' suppresses set -e on the command
                 if last_output=$(eval "$git_opts" < "$patch" 2>&1); then
-                    log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied with [${GREY_B}$git_opts${NC}]"
+                    log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied with [$git_opts]"
                     success=true
                     break
                 else
@@ -1769,7 +1769,7 @@ apply_patches() {
             do
                 log_debug "Trying: git apply $apply_opts"
                 if last_output=$(git apply $apply_opts "$patch" 2>&1); then
-                    log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied with [${GREY_B}git apply $apply_opts${NC}]"
+                    log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied with [git apply $apply_opts]"
                     success=true
                     break
                 fi
@@ -1795,7 +1795,7 @@ apply_patches() {
                 if patch --dry-run --silent $patch_opts < "$patch" &>/dev/null; then
                     # 'if' suppresses set -e on patch exit code
                     if last_output=$(patch $patch_opts < "$patch" 2>&1); then
-                        log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied with [${GREY_B}patch $patch_opts${NC}]"
+                        log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied with [patch $patch_opts]"
                         success=true
                         break
                     fi

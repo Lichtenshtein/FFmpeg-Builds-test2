@@ -19,6 +19,7 @@ ffbuild_dockerdl() {
     COMPONENT_NAME="${STAGENAME#*-}"
     CUSTOM_CMAKELISTS="${PATCHES_DIR}/${COMPONENT_NAME}/CMakeLists.txt"
     if [[ -f "$CUSTOM_CMAKELISTS" ]]; then
+        echo "log_info 'Replacing shaderc CMakeLists with custom version from patches...'"
         echo "cat $(printf '%q' "$CUSTOM_CMAKELISTS") > ./CMakeLists.txt"
     fi
 }
@@ -35,7 +36,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DSPNG_ENABLE_OPT=ON
-        -DSPNG_BUILD_EXAMPLES=OFF
         -DSPNG_INSTALL=ON
     )
 
