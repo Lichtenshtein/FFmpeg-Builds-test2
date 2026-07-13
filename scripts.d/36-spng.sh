@@ -27,8 +27,8 @@ ffbuild_dockerbuild() {
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DSPNG_ENABLE_OPT=ON
-        -SPNG_BUILD_EXAMPLES=OFF
-        -SPNG_INSTALL=ON
+        -DSPNG_BUILD_EXAMPLES=OFF
+        -DSPNG_INSTALL=ON
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \

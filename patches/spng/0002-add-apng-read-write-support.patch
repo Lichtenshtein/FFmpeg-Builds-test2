@@ -52,20 +52,6 @@ Docs:
  create mode 100644 subprojects/packagefiles/libpng-apng.patch
  create mode 100644 subprojects/packagefiles/libpng-fix-hist-out-of-place.patch
 
-diff --git a/.gitignore b/.gitignore
-index 76962154..538c49be 100644
---- a/.gitignore
-+++ b/.gitignore
-@@ -7,6 +7,9 @@
- /check_build/
- /benchmark_images/
- /subprojects/*/
-+!/subprojects/packagefiles
-+/subprojects/.wraplock
-+/.cache/
- /.vscode/
- /.frama-c/
- /trash/
 diff --git a/README.md b/README.md
 index df67e37f..812de2ba 100644
 --- a/README.md
