@@ -80,7 +80,7 @@ ffbuild_dockerbuild() {
     if has_library "lcms2"; then
         log_info "Lcms2 library detected. Building with Lcms2 support..."
         myconf+=( -DJPEGXL_FORCE_SYSTEM_LCMS2=ON -DJPEGXL_ENABLE_SKCMS=OFF )
-        local LCMS_PC="lcms2 libjxl_cms"
+        local LCMS_PC="lcms2"
     else
         log_info "Building with google's Scms support..."
         myconf+=( -DJPEGXL_ENABLE_SKCMS=ON ) # Google LCMS alternative 
