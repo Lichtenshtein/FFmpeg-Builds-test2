@@ -20,7 +20,7 @@ ffbuild_dockerdl() {
 
     if [[ -f "$CUSTOM_CMAKELISTS" ]]; then
         log_info "Replacing CMakeLists.txt with custom version from patches..."
-        echo "cp -rfv '$CUSTOM_CMAKELISTS' './CMakeLists.txt'"
+        echo "cp -rf${OP_V} '$CUSTOM_CMAKELISTS' './CMakeLists.txt'"
     else
         log_warn "Custom CMakeLists.txt not found at $CUSTOM_CMAKELISTS. Using default."
     fi

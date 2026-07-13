@@ -20,28 +20,6 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
 
-    # donor-file for aom
-if [[ "${PREFER_SHARED}" != "1" ]]; then
-    cat << 'EOF'
-mkdir -p lib/include/jxl
-curl -fsSL "https://raw.githubusercontent.com/libjxl/libjxl/26494266bae545dc2084746a1fb22e805e119e85/lib/include/jxl/butteraugli.h" \
-    -o "lib/include/jxl/butteraugli.h"
-sed -i '1s/^/#define JXL_STATIC_DEFINE 1\n/' "lib/include/jxl/butteraugli.h"
-if [[ -d ".git" ]]; then
-    git add lib/include/jxl/butteraugli.h
-fi
-EOF
-else
-    cat << 'EOF'
-mkdir -p lib/include/jxl
-curl -fsSL "https://raw.githubusercontent.com/libjxl/libjxl/26494266bae545dc2084746a1fb22e805e119e85/lib/include/jxl/butteraugli.h" \
-    -o "lib/include/jxl/butteraugli.h"
-if [[ -d ".git" ]]; then
-    git add lib/include/jxl/butteraugli.h
-fi
-EOF
-fi
-
     # echo "git-submodule-clone"
     echo "mkdir -p testdata"
     echo "git-mini-clone \"https://github.com/google/highway.git\" \"master\" third_party/highway"
@@ -53,19 +31,22 @@ third_party/highway/hwy/tests \
 tools/benchmark"
 
     # because it constantly fails to patch it normally
-    local STAGENAME COMPONENT_NAME CUSTOM_CMAKELISTS
-    STAGENAME="$(basename "$STAGE" .sh)"
-    COMPONENT_NAME="${STAGENAME#*-}"
-    CUSTOM_CMAKELISTS="${PATCHES_DIR}/${COMPONENT_NAME}/CMakeLists.txt"
+    local COMPONENT_NAME="libjxl"
+    local PATCHES_DIR="${PATCHES_DIR}"
+    local CUSTOM_CMAKELISTS="${PATCHES_DIR}/${COMPONENT_NAME}/CMakeLists.txt"
+
     if [[ -f "$CUSTOM_CMAKELISTS" ]]; then
-        echo "cat $(printf '%q' "$CUSTOM_CMAKELISTS") > ./third_party/highway/CMakeLists.txt"
+        log_info "Replacing CMakeLists.txt with custom version from patches..."
+        echo "cp -rf${OP_V} '$CUSTOM_CMAKELISTS' './third_party/highway/CMakeLists.txt'"
+    else
+        log_warn "Custom CMakeLists.txt not found at $CUSTOM_CMAKELISTS. Using default."
     fi
 }
 
 ffbuild_dockerbuild() {
     set -e
 
-    mkdir -p build && cd build
+    mkdir -p build "$PC_DIR" && cd build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -74,7 +55,7 @@ ffbuild_dockerbuild() {
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DJPEGXL_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
-        -DJPEGXL_BUNDLE_LIBPNG=OFF
+
         -DJPEGXL_EMSCRIPTEN=OFF
         -DJPEGXL_ENABLE_BENCHMARK=OFF
         -DJPEGXL_ENABLE_DEVTOOLS=OFF
@@ -87,12 +68,29 @@ ffbuild_dockerbuild() {
         -DJPEGXL_ENABLE_TOOLS=OFF
         -DJPEGXL_ENABLE_VIEWERS=OFF
         -DJPEGXL_ENABLE_WASM_THREADS=ON
-        -DJPEGXL_FORCE_SYSTEM_BROTLI=ON
-        -DJPEGXL_FORCE_SYSTEM_LCMS2=ON
         -DJPEGXL_FORCE_SYSTEM_HWY=OFF
         # -DJPEGXL_ENABLE_LTO=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DBUILD_TESTING=OFF
     )
+
+    if has_library "brotlidec"; then
+        log_info "Brotli library detected. Building with Brotli support..."
+        myconf+=( -DJPEGXL_FORCE_SYSTEM_BROTLI=ON )
+    fi
+    if has_library "lcms2"; then
+        log_info "Lcms2 library detected. Building with Lcms2 support..."
+        myconf+=( -DJPEGXL_FORCE_SYSTEM_LCMS2=ON -DJPEGXL_ENABLE_SKCMS=OFF )
+        local LCMS_PC="lcms2 libjxl_cms"
+    else
+        log_info "Building with google's Scms support..."
+        myconf+=( -DJPEGXL_ENABLE_SKCMS=ON ) # Google LCMS alternative 
+    fi
+    if has_library "png"; then
+        log_info "PNG library detected. Building with PNG support..."
+        myconf+=( -DJPEGXL_BUNDLE_LIBPNG=OFF )
+    else
+        myconf+=( -DJPEGXL_BUNDLE_LIBPNG=ON )
+    fi
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DJXL_STATIC_DEFINE"
@@ -117,16 +115,16 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Извлекаем butteraugli.h
-    log_info "Copying butteraugli.h for the AOM compiler..."
-    mkdir -p "${INSTALL_ROOT}/include/jxl"
-    cp "../lib/include/jxl/butteraugli.h" "${INSTALL_ROOT}/include/jxl/butteraugli.h"
-    if [ ! -s "${INSTALL_ROOT}/include/jxl/butteraugli.h" ]; then
-        log_error "Failed to verify butteraugli.h in installation directory"
-        return 1
+    local PC_FILE="$PC_DIR/libjxl_cms.pc"
+
+    if [[ "${myconf[@]}" =~ "-DJPEGXL_FORCE_SYSTEM_LCMS2=ON" ]]; then
+        if ! grep -q "Requires.private:" "$PC_FILE"; then
+            sed -i "/^Libs:/i Requires.private: ${LCMS_PC} libhwy" "$PC_FILE"
+        elif ! grep -q "Requires.private:.*lcms" "$PC_FILE"; then
+            sed -i "/^Requires.private:/s/$/ ${LCMS_PC} libhwy/" "$PC_FILE"
+        fi
     fi
 
-    sed -i "s/^Requires.private: /Requires.private: lcms2 libhwy libjxl_cms /" "$PC_DIR/libjxl_cms.pc"
     sed -i 's/Libs:/Libs: -lhwy/' "$PC_DIR/libjxl.pc"
     sed -i "s|^Cflags:.*|& -I\${includedir}/jxl|" "$PC_DIR/libjxl_threads.pc"
     sed -i "s|^Cflags:.*|& -I\${includedir}/jxl|" "$PC_DIR/libjxl.pc"

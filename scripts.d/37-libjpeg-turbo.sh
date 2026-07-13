@@ -35,12 +35,19 @@ ffbuild_dockerbuild() {
         -DWITH_ARITH_DEC=ON
         -DWITH_TURBOJPEG=ON
         -DWITH_JNA=OFF
-        -DWITH_SYSTEM_SPNG=ON
-        -DWITH_SYSTEM_ZLIB=ON
         # Break compatibility with libjpeg v6b
         -DWITH_JPEG7=OFF
         -DWITH_JPEG8=OFF
     )
+
+    if has_library "z"; then
+        log_info "ZLIB library detected. Building with ZLIB support..."
+        myconf+=( -DWITH_SYSTEM_ZLIB=ON )
+    fi
+    if has_library "spng"; then
+        log_info "SPNG library detected. Building with SPNG support..."
+        myconf+=( -DWITH_SYSTEM_SPNG=ON )
+    fi
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBJPEG_STATIC"
@@ -61,6 +68,13 @@ ffbuild_dockerbuild() {
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$pc"; then
                 sed -i "/^Cflags:/ s/$/ $static_flags/" "$pc"
+            fi
+        fi
+        if [[ "${myconf[@]}" =~ "-DWITH_SYSTEM_SPNG=ON" ]]; then
+            if ! grep -q "^Libs.private:" "$PC_FILE"; then
+                sed -i '/^Libs:/i Libs.private: -lspng' "$PC_FILE"
+            elif ! grep -q "^Libs.private:.*-lspng" "$PC_FILE"; then
+                sed -i 's/^\(Libs.private:[[:space:]]*\)/\1-lspng /' "$PC_FILE"
             fi
         fi
     done

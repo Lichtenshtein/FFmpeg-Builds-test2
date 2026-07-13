@@ -4,7 +4,6 @@ SCRIPT_REPO="https://github.com/GNOME/libxml2.git"
 SCRIPT_COMMIT="c8eaf2236ff16667970f96f3f01e119c99d38ab2"
 
 ffbuild_depends() {
-    echo base
     echo libiconv
     echo zlib
     echo libicu

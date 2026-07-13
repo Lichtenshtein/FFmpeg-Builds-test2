@@ -14,18 +14,15 @@ ffbuild_dockerdl() {
     default_dl .
 
     if [[ "$SHADERC_UPDATE" == "1" ]]; then
-        local STAGENAME COMPONENT_NAME CUSTOM_DEPS
-        STAGENAME="$(basename "$STAGE" .sh)"
-        COMPONENT_NAME="${STAGENAME#*-}"
-        # Replace the DEPS file with the file from the patches folder.
-        CUSTOM_DEPS="${PATCHES_DIR}/${COMPONENT_NAME}/DEPS"
+        local COMPONENT_NAME="shaderc"
+        local PATCHES_DIR="${PATCHES_DIR}"
+        local CUSTOM_DEPS="${PATCHES_DIR}/${COMPONENT_NAME}/DEPS"
+
         if [[ -f "$CUSTOM_DEPS" ]]; then
-            # The destination ./DEPS is relative to WORK_DIR (correct Ч runs after clone)
-            # Use cat instead of cp to avoid permission issues on read-only source
-            echo "log_info '${SYNC_MARK} Replacing shaderc DEPS with custom version from patches...'"
-            echo "cat $(printf '%q' "$CUSTOM_DEPS") > ./DEPS"
+            log_info "Replacing DEPS with custom version from patches..."
+            echo "cp -rf${OP_V} '$CUSTOM_DEPS' './DEPS'"
         else
-            log_warn "Custom DEPS not found at ${CUSTOM_DEPS}, using default."
+            log_warn "Custom DEPS not found at $CUSTOM_DEPS. Using default."
         fi
     fi
 
