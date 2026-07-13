@@ -14,13 +14,15 @@ ffbuild_enabled() {
 ffbuild_dockerdl() {
     default_dl .
 
-    local STAGENAME COMPONENT_NAME CUSTOM_CMAKELISTS
-    STAGENAME="$(basename "$STAGE" .sh)"
-    COMPONENT_NAME="${STAGENAME#*-}"
-    CUSTOM_CMAKELISTS="${PATCHES_DIR}/${COMPONENT_NAME}/CMakeLists.txt"
+    local COMPONENT_NAME="spng"
+    local PATCHES_DIR="${PATCHES_DIR}"
+    local CUSTOM_CMAKELISTS="${PATCHES_DIR}/${COMPONENT_NAME}/CMakeLists.txt"
+
     if [[ -f "$CUSTOM_CMAKELISTS" ]]; then
-        echo "log_info 'Replacing shaderc CMakeLists with custom version from patches...'"
-        echo "cat $(printf '%q' "$CUSTOM_CMAKELISTS") > ./CMakeLists.txt"
+        log_info "Replacing CMakeLists.txt with custom version from patches..."
+        echo "cp -rfv '$CUSTOM_CMAKELISTS' './CMakeLists.txt'"
+    else
+        log_warn "Custom CMakeLists.txt not found at $CUSTOM_CMAKELISTS. Using default."
     fi
 }
 
