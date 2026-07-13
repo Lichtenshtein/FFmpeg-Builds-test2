@@ -609,8 +609,8 @@ index b22b7110..e210d421 100644
  {
      if(ctx == NULL || scanline == NULL) return SPNG_EINTERNAL;
 @@ -4598,7 +4995,10 @@ static int encode_scanline(spng_ctx *ctx, const void *scanline, size_t len)
-         if(ret) return encode_err(ctx, ret);
-     }
+     filter_scanline(filtered_scanline, ctx->scanline, ctx->prev_scanline,
+                     scanline, scanline_width, ctx->bytes_per_pixel, filter);
  
 -    ret = write_idat_bytes(ctx, filtered_scanline - 1, scanline_width, Z_NO_FLUSH);
 +    if(ctx->fdat_stream)
@@ -641,7 +641,7 @@ index b22b7110..e210d421 100644
          ret = write_chunks_after_idat(ctx);
          if(ret) return encode_err(ctx, ret);
 @@ -4830,6 +5232,13 @@ int spng_encode_image(spng_ctx *ctx, const void *img, size_t len, int fmt, int f
- 	zng_stream *zstream = &ctx->zstream;
+     z_stream *zstream = &ctx->zstream;
      zstream->avail_out = SPNG_WRITE_SIZE;
  
 +    /* Write fcTL for frame 0 (before IDAT) if this is an APNG */

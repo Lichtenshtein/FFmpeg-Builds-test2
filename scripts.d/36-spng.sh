@@ -13,6 +13,14 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+
+    local STAGENAME COMPONENT_NAME CUSTOM_CMAKELISTS
+    STAGENAME="$(basename "$STAGE" .sh)"
+    COMPONENT_NAME="${STAGENAME#*-}"
+    CUSTOM_CMAKELISTS="${PATCHES_DIR}/${COMPONENT_NAME}/CMakeLists.txt"
+    if [[ -f "$CUSTOM_CMAKELISTS" ]]; then
+        echo "cat $(printf '%q' "$CUSTOM_CMAKELISTS") > ./CMakeLists.txt"
+    fi
 }
 
 ffbuild_dockerbuild() {

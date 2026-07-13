@@ -1,0 +1,25 @@
+From cf66f9d11d140dfacc003387fd6b47e522722d89 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Mon, 13 Jul 2026 18:22:55 +0300
+Subject: [PATCH] add spng enc.c to cmakelists
+
+---
+ CMakeLists.txt | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 7a3c64b..1df942e 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -43,7 +43,7 @@ if(NOT SPNG_ENABLE_OPT)
+ endif()
+ 
+ set(spng_TARGETS "")
+-set(spng_SOURCES spng/spng.c)
++set(spng_SOURCES spng/spng.c spng/enc.c)
+ 
+ if(SPNG_SHARED)
+     add_library(spng SHARED ${spng_SOURCES})
+-- 
+2.52.0.windows.1
+

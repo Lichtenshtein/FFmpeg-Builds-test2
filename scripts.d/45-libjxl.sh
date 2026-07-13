@@ -51,20 +51,19 @@ third_party/sjpeg/tests \
 third_party/highway/g3doc \
 third_party/highway/hwy/tests \
 tools/benchmark"
+
+    # because it constantly fails to patch it normally
+    local STAGENAME COMPONENT_NAME CUSTOM_CMAKELISTS
+    STAGENAME="$(basename "$STAGE" .sh)"
+    COMPONENT_NAME="${STAGENAME#*-}"
+    CUSTOM_CMAKELISTS="${PATCHES_DIR}/${COMPONENT_NAME}/CMakeLists.txt"
+    if [[ -f "$CUSTOM_CMAKELISTS" ]]; then
+        echo "cat $(printf '%q' "$CUSTOM_CMAKELISTS") > ./third_party/highway/CMakeLists.txt"
+    fi
 }
 
 ffbuild_dockerbuild() {
     set -e
-
-    if [ -d "third_party/highway" ]; then
-        log_info "Applying highway tests patch using native patch utility..."
-        cd third_party/highway
-        patch -p3 -N < "${PATCHES_DIR}/libjxl/0002-highway-disable-tests.patch" || {
-            log_warn "Standard patch failed, forcing patch with loose whitespaces..."
-            patch -p3 -N -l < "${PATCHES_DIR}/libjxl/0002-highway-disable-tests.patch"
-        }
-        cd -
-    fi
 
     mkdir -p build && cd build
 

@@ -35,7 +35,7 @@ ffbuild_dockerbuild() {
         -DWITH_ARITH_DEC=ON
         -DWITH_TURBOJPEG=ON
         -DWITH_JNA=OFF
-        -DWITH_SYSTEM_SPNG=OFF
+        -DWITH_SYSTEM_SPNG=ON
         -DWITH_SYSTEM_ZLIB=ON
         # Break compatibility with libjpeg v6b
         -DWITH_JPEG7=OFF
