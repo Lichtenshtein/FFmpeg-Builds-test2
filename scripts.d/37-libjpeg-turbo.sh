@@ -3,6 +3,11 @@
 SCRIPT_REPO="https://github.com/libjpeg-turbo/libjpeg-turbo.git"
 SCRIPT_COMMIT="1db93c29599cf64e5193297b6e2de069c1838d04"
 
+ffbuild_depends() {
+    echo zlib
+    echo spng
+}
+
 ffbuild_enabled() {
     return 0
 }
@@ -30,7 +35,7 @@ ffbuild_dockerbuild() {
         -DWITH_ARITH_DEC=ON
         -DWITH_TURBOJPEG=ON
         -DWITH_JNA=OFF
-        -DWITH_SYSTEM_SPNG=OFF
+        -DWITH_SYSTEM_SPNG=ON
         -DWITH_SYSTEM_ZLIB=ON
         # Break compatibility with libjpeg v6b
         -DWITH_JPEG7=OFF
