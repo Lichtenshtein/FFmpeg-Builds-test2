@@ -9,7 +9,8 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
-    echo "rm -rf lapack-netlib ctest cpp_thread_test utest test"
+    # lapack-netlib
+    echo "rm -rf ctest cpp_thread_test utest test"
 }
 
 ffbuild_dockerbuild() {
