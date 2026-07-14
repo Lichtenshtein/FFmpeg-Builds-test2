@@ -121,6 +121,16 @@ EOF
 VAPOURSYNTH_VERSION = ${VER_FULL}-release
 EOF
 
+    log_info "Patching meson.build to remove target-Python module compilation..."
+    # Disable the Cython compiler requirement at the project level to avoid triggering tests
+    sed -i "s/project('VapourSynth', 'c', 'cpp', 'cython'/project('VapourSynth', 'c', 'cpp'/g" meson.build
+    # Remove the calls to py.extension_module(...) and py.install_sources(...), which crash the build
+    # Replace the vaporsynth module's build block with an empty stub
+    sed -i "/py.extension_module/,/^)/c # Cut by cross-assembler" meson.build
+    sed -i "/py.install_sources/,/^)/c # Cut by cross-assembler" meson.build
+    # Cut out the vspipe build, as it depends on vsscript_dep, which pulls in py_dep
+    sed -i "/executable('vspipe'/,/^)/c # Cut by cross-assembler" meson.build
+
     # Clearing system paths so Meson doesn't see Linux headers
     export PKG_CONFIG_LIBDIR="${CUR_DIR}/fake_pkgconfig"
     export PKG_CONFIG_PATH=""
@@ -175,7 +185,7 @@ EOF
     mkdir -p "$INSTALL_ROOT/bin"
     find ../python_win -maxdepth 2 -name "*.dll" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \;
     find ../python_win -maxdepth 2 -name "python3*.zip" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \;
-    find ../python_win -maxdepth 2 -name "*.pyd" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \; 2>/dev/null || true
+    # find ../python_win -maxdepth 2 -name "*.pyd" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \; 2>/dev/null || true
 
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/vapoursynth.pc"
