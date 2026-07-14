@@ -21,7 +21,7 @@ ffbuild_dockerdl() {
     default_dl .
 
     # Cleaning before downloading
-    echo "git clean -fdx"
+    # echo "git clean -fdx"
     # Windows version of Python (embed); we'll grab the dll and libraries for cross-compilation
     echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}-embed-amd64.zip\" \"python_embed.zip\""
     # Headers from the official repository
@@ -41,7 +41,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    local VER_FULL="${VER_FULL:-78}"
+    local VER_NUMERIC=$(echo "${VER_FULL:-78}" | grep -oE '^[0-9]+')
     local CUR_DIR=$(pwd)
 
     # Fix Windows.h registry
@@ -117,8 +117,8 @@ python = '/usr/bin/python3'
 cython = '/usr/local/bin/cython'
 EOF
 
-   cat <<EOF > VAPOURSYNTH_VERSION
-VAPOURSYNTH_VERSION = ${VER_FULL}-release
+    cat <<EOF > VAPOURSYNTH_VERSION
+#define VAPOURSYNTH_VERSION ${VER_NUMERIC}
 EOF
 
     log_info "Patching meson.build to remove target-Python module compilation..."
@@ -130,6 +130,10 @@ EOF
     sed -i "/py.install_sources/,/^)/c # Cut by cross-assembler" meson.build
     # Cut out the vspipe build, as it depends on vsscript_dep, which pulls in py_dep
     sed -i "/executable('vspipe'/,/^)/c # Cut by cross-assembler" meson.build
+    # Replace the dynamic call to run_command with pure number
+    sed -i "s/vs_current_release = run_command.*/vs_current_release = '${VER_NUMERIC}'/g" meson.build
+    sed -i "/_current_release/ {n;d;}" meson.build
+    sed -i "/_current_release/ {n;d;}" meson.build
 
     # Clearing system paths so Meson doesn't see Linux headers
     export PKG_CONFIG_LIBDIR="${CUR_DIR}/fake_pkgconfig"
