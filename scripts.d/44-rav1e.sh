@@ -56,8 +56,8 @@ ffbuild_dockerbuild() {
       "CXX_${RTARCH}=${CXX}" \
       "AR_${RTARCH}=${AR}" \
       "RANLIB_${RTARCH}=${RANLIB}" \
-      "CFLAGS_${RTARCH}=$CFLAGS $BASE_CPPFLAGS" \
-      "CXXFLAGS_${RTARCH}=$CXXFLAGS $BASE_CPPFLAGS" \
+      "CFLAGS_${RTARCH}=${CFLAGS//-mconsole/} $BASE_CPPFLAGS" \
+      "CXXFLAGS_${RTARCH}=${CXXFLAGS//-mconsole/} $BASE_CPPFLAGS" \
       "LDFLAGS_${RTARCH}=$HOST_LDFLAGS" \
       "CARGO_TARGET_${RTARCH}_RUSTFLAGS=${RUSTFLAGS}" \
       CC_host="gcc" \
