@@ -130,10 +130,6 @@ EOF
     sed -i "/py.install_sources/,/^)/c # Cut by cross-assembler" meson.build
     # Cut out the vspipe build, as it depends on vsscript_dep, which pulls in py_dep
     sed -i "/executable('vspipe'/,/^)/c # Cut by cross-assembler" meson.build
-    # Replace the dynamic call to run_command with pure number
-    sed -i "s/vs_current_release = run_command.*/vs_current_release = '${VER_NUMERIC}'/g" meson.build
-    sed -i "/_current_release/ {n;d;}" meson.build
-    sed -i "/_current_release/ {n;d;}" meson.build
 
     # Clearing system paths so Meson doesn't see Linux headers
     export PKG_CONFIG_LIBDIR="${CUR_DIR}/fake_pkgconfig"
