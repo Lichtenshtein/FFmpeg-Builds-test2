@@ -113,11 +113,9 @@ python = '/usr/bin/python3'
 cython = '/usr/local/bin/cython'
 EOF
 
-    # Replace the custom run_command call with a static variable
-    sed -i "s/vs_current_release = run_command.*/vs_current_release = '${VER_FULL}'/g" meson.build
-    # cut out the lines of parsing of this command, which are no longer needed
-    sed -i "/_current_release/ {n;d;}" meson.build
-    sed -i "/_current_release/ {n;d;}" meson.build
+   cat <<EOF > VAPOURSYNTH_VERSION
+VAPOURSYNTH_VERSION = ${VER_FULL}-release
+EOF
 
     # Clearing system paths so Meson doesn't see Linux headers
     export PKG_CONFIG_LIBDIR="${CUR_DIR}/fake_pkgconfig"
