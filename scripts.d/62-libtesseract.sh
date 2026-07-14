@@ -43,28 +43,32 @@ ffbuild_dockerbuild() {
     # Backing up "poisoned" CMake-конфиги TIFF и других либ, 
     # которые заставляют линкер искать ZLIB::ZLIB
     # This prevents CMake from appending its own -l flags OUTSIDE our group.
-    local cmake_backup="/tmp/cmake_backup_tesseract"
-    mkdir -p "$cmake_backup"
-    log_debug "Backing up existing CMake configs to prevent interference..."
-    find "$FFBUILD_PREFIX/lib/cmake" \
-        \( -name "*Config.cmake" \
-           -o -name "*-config.cmake" \
-           -o -name "*Targets*.cmake" \
-           -o -name "*targets*.cmake" \) \
-        -exec mv -t "$cmake_backup" {} + 2>/dev/null || true
+    # local cmake_root="$FFBUILD_PREFIX/lib/cmake"
+    # local tesseract_hide_dir="$TMP_DIR/tesseract_cmake_hide"
 
-    # Восстанавливаем cmake файлы
-    restore() {
-        log_debug "Executing absolute fallback config restoration..."
-        if [ -d "$cmake_backup" ]; then
-            cp -n "$cmake_backup"/* "$FFBUILD_PREFIX/lib/cmake/" 2>/dev/null || true
-            rm -rf "$cmake_backup"
-        fi
-        if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-            ls -lh "$FFBUILD_PREFIX/lib/cmake/"
-        fi
-    }
-    trap restore EXIT
+    # restore_tesseract_cmake() {
+        # if [ -d "$tesseract_hide_dir" ]; then
+            # log_info "Restoring CMake configs..."
+            # cp -a "$tesseract_hide_dir"/* "$cmake_root/" 2>/dev/null || true
+            # rm -rf "$tesseract_hide_dir"
+        # fi
+    # }
+
+    # local previous_trap=$(trap -p EXIT)
+    # trap "restore_tesseract_cmake; ${previous_trap#trap -- * EXIT}" EXIT
+
+    # local targets_to_hide=("tiff" "leptonica" "ZLIB")
+
+    # mkdir -p "$tesseract_hide_dir"
+
+    # for item in "${targets_to_hide[@]}"; do
+        # find "$cmake_root" -maxdepth 1 -iname "$item" -type d | while read -r target_dir; do
+            # if [ -d "$target_dir" ]; then
+                # log_debug "Hiding CMake directory: $(basename "$target_dir")"
+                # mv "$target_dir" "$tesseract_hide_dir/"
+            # fi
+        # done
+    done
 
     # Create a LOCAL wrapper script
     local WRAPPER_DIR="${TMP_DIR}/tesseract_wrapper"
@@ -127,6 +131,9 @@ WRAPPER_EOF
         -DCMAKE_PREFIX_PATH="$FFBUILD_PREFIX"
         -DCMAKE_FIND_LIBRARY_SUFFIXES=".${lib_ext}"
         -DPKG_CONFIG_EXECUTABLE="$(command -v ${PKG_CONFIG})"
+        -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
+        -DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON
+        -DCMAKE_IGNORE_PREFIX_PATH="$FFBUILD_PREFIX"
     )
 
     export static_flags=""
@@ -193,14 +200,6 @@ WRAPPER_EOF
         -DCMAKE_SHARED_LINKER_FLAGS="$LDFLAGS ${USELTO}${USELTO_L} -Wl,--allow-multiple-definition" \
         .. || return 1
 
-    # Clear INTERFACE_LINK_LIBRARIES (belt and suspenders)
-    # find . -name "TesseractTargets.cmake" -o -name "*Targets*.cmake" 2>/dev/null \
-    # | xargs grep -l "INTERFACE_LINK_LIBRARIES" 2>/dev/null \
-    # | while read -r f; do
-        # log_debug "Clearing INTERFACE_LINK_LIBRARIES in $f"
-        # sed -i 's/INTERFACE_LINK_LIBRARIES "[^"]*"/INTERFACE_LINK_LIBRARIES ""/g' "$f"
-    # done
-
     # Собираем только библиотеку
     ninja $NINJA_V libtesseract || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
@@ -214,6 +213,10 @@ WRAPPER_EOF
             sed -i '/^Requires.private:.*/ s/$/ pangocairo icu-uc/' "$PC_FILE"
         fi
     fi
+
+    # log_info "Explicitly restoring CMake files before successful exit..."
+    # restore_tesseract_cmake
+    # trap - EXIT
 
     # log_debug "=== linkLibs.rsp full content ==="
     # cd ..

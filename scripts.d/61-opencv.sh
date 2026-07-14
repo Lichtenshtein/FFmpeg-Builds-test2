@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/opencv/opencv.git"
-SCRIPT_COMMIT="7507accf2e506f162cfe48a46e3be45e999f1ebe"
+SCRIPT_COMMIT="06574736b35bc3f6682c3e8d52624fcac64532b9"
 
 ffbuild_depends() {
     echo vulkan-headers
@@ -38,6 +38,9 @@ data/vec_files"
 
 ffbuild_dockerbuild() {
     set -e
+
+    log_info "${BROOM_MARK} Patching CMake scripts to suppress warnings..."
+    find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wundef/-Wno-undef/g' 2>/dev/null || true
 
     PYTHON_ROOT=$(python3 -c "import sys; print(sys.prefix)")
     NUMPY_PATH=$(python3 -c "import numpy; print(numpy.get_include())")
@@ -101,32 +104,44 @@ ffbuild_dockerbuild() {
         -DVIDEOIO_ENABLE_PLUGINS=ON
     )
 
+    if has_library "openblas"; then
+        log_info "OpenBLAS library detected. Building with OpenBLAS support..."
+        myconf+=(
+            -DWITH_LAPACK=ON
+            -DOpenBLAS_LIBRARIES="$FFBUILD_PREFIX/lib/libopenblas.${lib_ext}"
+            -DOpenBLAS_INCLUDE_DIRS="$FFBUILD_PREFIX/include/openblas"
+            -DOpenBLAS_LAPACKE_DIR="$FFBUILD_PREFIX/lib/cmake/OpenBLAS"
+            -DLAPACK_INCLUDE_DIR="$FFBUILD_PREFIX/include/openblas"
+            -DLAPACK_LIBRARIES="$FFBUILD_PREFIX/lib/libopenblas.${lib_ext}"
+        )
+    fi
     if has_library "tiff"; then
         log_info "TIFF library detected. Building with TIFF support..."
 
         # Temporarily moving "poisoned" .cmake tiff files
-        local TIFF_CMAKE_DIR="$FFBUILD_PREFIX/lib/cmake/tiff"
-        local TIFF_HIDE_DIR="$TMP_DIR/tiff_hide"
+        # local TIFF_CMAKE_DIR="$FFBUILD_PREFIX/lib/cmake/tiff"
+        # local TIFF_HIDE_DIR="$TMP_DIR/tiff_hide"
 
-        if [ -d "$TIFF_CMAKE_DIR" ]; then
-            log_info "Hiding TIFF CMake configs to force raw library usage..."
-            mkdir -p "$TIFF_HIDE_DIR"
-            mv "$TIFF_CMAKE_DIR"/* "$TIFF_HIDE_DIR/"
-        fi
+        # mkdir -p "$TIFF_HIDE_DIR"
 
-        restore() {
-            if [ -n "${TIFF_HIDE_DIR}" ] && [ -d "${TIFF_HIDE_DIR}" ]; then
-                log_info "Restoring TIFF CMake files..."
-                shopt -s nullglob
-                local files=("${TIFF_HIDE_DIR}"/*)
-                if [ ${#files[@]} -gt 0 ]; then
-                    mv "${TIFF_HIDE_DIR}"/* "${TIFF_CMAKE_DIR}/"
-                fi
-                shopt -u nullglob
-                rm -rf "${TIFF_HIDE_DIR}"
-            fi
-        }
-        trap restore EXIT
+        # if [ -d "$TIFF_CMAKE_DIR" ]; then
+            # log_info "Hiding TIFF CMake configs to force raw library usage..."
+            # mv "$TIFF_CMAKE_DIR"/* "$TIFF_HIDE_DIR/"
+        # fi
+
+        # restore() {
+            # if [ -n "${TIFF_HIDE_DIR}" ] && [ -d "${TIFF_HIDE_DIR}" ]; then
+                # log_info "Restoring TIFF CMake files..."
+                # shopt -s nullglob
+                # local files=("${TIFF_HIDE_DIR}"/*)
+                # if [ ${#files[@]} -gt 0 ]; then
+                    # mv "${TIFF_HIDE_DIR}"/* "${TIFF_CMAKE_DIR}/"
+                # fi
+                # shopt -u nullglob
+                # rm -rf "${TIFF_HIDE_DIR}"
+            # fi
+        # }
+        # trap restore EXIT
 
         myconf+=(
             -DBUILD_TIFF=OFF
@@ -234,7 +249,6 @@ ffbuild_dockerbuild() {
             -DTBB_INCLUDE_DIRS="$FFBUILD_PREFIX/include"
             -DTBB_LIB_DIR="$FFBUILD_PREFIX/lib"
         )
-        local TBB_C_FLAG="-Wno-undef"
     elif [[ "${USE_OPENMP}" == "1" ]]; then
         log_info "Enabling OpenMP threading..."
         myconf+=(
@@ -273,8 +287,8 @@ ffbuild_dockerbuild() {
     [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-Wa,-mbig-obj"
 
     # -D_WIN32_WINNT=0x0600
-    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} $LTO_FLAGS $static_flags ${TBB_C_FLAG}" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} $LTO_FLAGS $static_flags ${TBB_C_FLAG}" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} $LTO_FLAGS $static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} $LTO_FLAGS $static_flags" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     LIBS="${JBIG_LIB} ${OPENMP_LIB}$LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
@@ -446,24 +460,24 @@ EOF
         sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"
     fi
 
-    if has_library "tiff"; then
-        log_info "Explicitly restoring TIFF CMake files before successful exit..."
-        restore # Call the recovery function manually
+    # if has_library "tiff"; then
+        # log_info "Explicitly restoring TIFF CMake files before successful exit..."
+        # restore # Call the recovery function manually
 
         # Reset the trap so it doesn't execute again
-        trap - EXIT 
+        # trap - EXIT 
 
         # File restore check block
-        if [ -d "$FFBUILD_PREFIX/lib/cmake/tiff" ]; then
-            log_info "Verification: $FFBUILD_PREFIX/lib/cmake/tiff directory exists."
-            if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-                log_info "Content of TIFF CMake directory:"
-                ls -lh "$FFBUILD_PREFIX/lib/cmake/tiff/"
-            fi
-        else
-            log_warn "Verification failed: $FFBUILD_PREFIX/lib/cmake/tiff directory was NOT restored!"
-        fi
-    fi
+        # if [ -d "$FFBUILD_PREFIX/lib/cmake/tiff" ]; then
+            # log_info "Verification: $FFBUILD_PREFIX/lib/cmake/tiff directory exists."
+            # if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+                # log_info "Content of TIFF CMake directory:"
+                # ls -lh "$FFBUILD_PREFIX/lib/cmake/tiff/"
+            # fi
+        # else
+            # log_warn "Verification failed: $FFBUILD_PREFIX/lib/cmake/tiff directory was NOT restored!"
+        # fi
+    # fi
 
     return 0
 }
