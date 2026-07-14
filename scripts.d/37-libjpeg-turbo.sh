@@ -40,6 +40,12 @@ ffbuild_dockerbuild() {
         -DWITH_JPEG8=OFF
     )
 
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags+="-DLIBJPEG_STATIC"
+    [[ "${PREFER_SHARED}" == "1" ]] && \
+        myconf+=( -DENABLE_STATIC=OFF -DENABLE_SHARED=ON ) || \
+        myconf+=( -DENABLE_STATIC=ON -DENABLE_SHARED=OFF )
+
     if has_library "z"; then
         log_info "ZLIB library detected. Building with ZLIB support..."
         myconf+=( -DWITH_SYSTEM_ZLIB=ON )
@@ -47,13 +53,8 @@ ffbuild_dockerbuild() {
     if has_library "spng"; then
         log_info "SPNG library detected. Building with SPNG support..."
         myconf+=( -DWITH_SYSTEM_SPNG=ON )
+        [[ "${PREFER_SHARED}" != "1" ]] && static_flags+="-DSPNG_STATIC"
     fi
-
-    export static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DLIBJPEG_STATIC"
-    [[ "${PREFER_SHARED}" == "1" ]] && \
-        myconf+=( -DENABLE_STATIC=OFF -DENABLE_SHARED=ON ) || \
-        myconf+=( -DENABLE_STATIC=ON -DENABLE_SHARED=OFF )
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \

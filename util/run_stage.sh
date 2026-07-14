@@ -241,7 +241,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
     # AUTO-PATCHING
     apply_patches
 
-    if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
         log_debug "${DIRS_MARK} Contents of $(pwd) (current build directory):"
         # Собираем список: сначала папки (с /), потом файлы
         # -F добавляет / к папкам, -1 выводит в один столбец

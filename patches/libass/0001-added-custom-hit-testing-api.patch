@@ -285,9 +285,8 @@ diff --git a/libass/ass_render.c b/libass/ass_render.c
 index c291d26..66fc4e4 100644
 --- a/libass/ass_render.c
 +++ b/libass/ass_render.c
-@@ -48,6 +48,110 @@
+@@ -48,5 +48,109 @@
  /* #define ASS_RND_DEBUG */
- 
  
 +static inline bool is_harfbuzz_ignorable(unsigned symbol) {
 +    switch (symbol >> 8) {
@@ -393,9 +392,9 @@ index c291d26..66fc4e4 100644
 +    return true;
 +}
 +
- static bool text_info_init(TextInfo* text_info)
+ void ass_free_glyph_render_resources(GlyphInfo *info)
  {
-     text_info->max_bitmaps = MAX_BITMAPS_INITIAL;
+     if (!info)
 @@ -153,6 +257,9 @@ ASS_Renderer *ass_renderer_init(ASS_Library *library)
      if (!render_context_init(&priv->state, priv))
          goto fail;
@@ -604,10 +603,10 @@ index c291d26..66fc4e4 100644
 +    
 +    collect_character_boxes(state, event);
  
-     if (state->border_style == 4)
+     if (state->bs4_box_mode)
          add_background(state, event_images,
 @@ -3090,6 +3376,8 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
-     render_priv->frame_needs_rgba = false;
+     render_priv->mangetsu_gradient_debug = (MangetsuGradientDebugState) {0};
 
      ass_lazy_track_init(render_priv->library, render_priv->track);
 +
@@ -616,8 +615,8 @@ index c291d26..66fc4e4 100644
      if (render_priv->library->num_fontdata != render_priv->num_emfonts) {
          assert(render_priv->library->num_fontdata > render_priv->num_emfonts);
 @@ -3099,6 +3387,7 @@ ass_start_frame(ASS_Renderer *render_priv, ASS_Track *track,
- 
      setup_shaper(render_priv->state.shaper, render_priv);
+     setup_shaper(render_priv->state.furi_shaper, render_priv);
  
 +
      // PAR correction
@@ -635,16 +634,6 @@ index 1ed343e..2353baa 100644
  
  #define cmp_event_layer ass_cmp_event_layer
  #define fix_collisions ass_fix_collisions
-@@ -49,6 +50,9 @@
- #define PARSED_FADE (1<<0)
- #define PARSED_A    (1<<1)
- 
-+
-+
-+
- typedef struct {
-     ASS_Image result;
-     CompositeHashValue *source;
 @@ -180,6 +184,48 @@ typedef struct glyph_info {
      struct glyph_info *next;
  } GlyphInfo;
@@ -691,9 +680,9 @@ index 1ed343e..2353baa 100644
 +} CharacterBoxStorage;
 +
 +
- typedef struct {
-     double asc, desc;
-     int offset, len;
+ /* Release renderer-owned dynamic resources embedded in a glyph. The shaper
+  * uses this before freeing temporary chain nodes, and renderer teardown uses
+  * it for the persistent root nodes. */
 @@ -335,6 +381,7 @@ struct ass_renderer {
  
      RenderContext state;

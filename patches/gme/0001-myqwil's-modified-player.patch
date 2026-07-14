@@ -1620,7 +1620,7 @@ index e99b6fd..4dd7c1b 100644
  
  	static const char* const names [osc_count] = {
 @@ -57,7 +56,7 @@ static byte const* get_data( Ay_Emu::file_t const& file, byte const* ptr, int mi
- 	assert( (unsigned long) pos <= (unsigned long) file_size - 2 );
+ 		return 0; // Don't read farther than buffer allows
  	int offset = (int16_t) get_be16( ptr );
  	if ( !offset || uint32_t (pos + offset) > uint32_t (file_size - min_size) )
 -		return 0;

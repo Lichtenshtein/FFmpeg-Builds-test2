@@ -24,7 +24,7 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
-    # нужно передать ДВА пути к инклудам Glib
+    # need to pass TWO paths to Glib includes
     local GLIB_INCLUDES="-I$FFBUILD_PREFIX/include/glib-2.0 -I$FFBUILD_PREFIX/lib/glib-2.0/include"
 
     local myconf=(
@@ -33,7 +33,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
-        # Добавляем пути к glibconfig.h через C_FLAGS
         -DBUILD_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DBUILD_TESTS=OFF
         -DBUILD_LENSTOOL=OFF
@@ -41,11 +40,11 @@ ffbuild_dockerbuild() {
         -DBUILD_FOR_SSE=ON
         -DBUILD_FOR_SSE2=ON
         -DINSTALL_HELPER_SCRIPTS=ON # OFF
-        # Отключаем Python принудительно
+        # Forcefully disabling Python
         -DINSTALL_PYTHON_MODULE=OFF # OFF; Install Python module for the helper scripts
         # -DPYTHON_EXECUTABLE=OFF
-        # Уточняем пути для CMake-модуля поиска Glib
-        -DGLIB2_LIBRARIES="$FFBUILD_PREFIX/lib/libglib-2.0.a"
+        # Specifying paths for the CMake Glib search module
+        -DGLIB2_LIBRARIES="$FFBUILD_PREFIX/lib/libglib-2.0.${lib_ext}"
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $GLIB_INCLUDES" \
@@ -59,7 +58,6 @@ ffbuild_dockerbuild() {
     local PC_FILE="$PC_DIR/lensfun.pc"
     if [[ -f "$PC_FILE" ]]; then
         log_info "Patching lensfun.pc for static MinGW build..."
-        # Добавляем glib-2.0 в зависимости, чтобы пути -I подтянулись автоматически
         if ! grep -q "Requires:" "$PC_FILE"; then
             sed -i '/^Requires:/ s/$/ glib-2.0/' "$PC_FILE"
         fi

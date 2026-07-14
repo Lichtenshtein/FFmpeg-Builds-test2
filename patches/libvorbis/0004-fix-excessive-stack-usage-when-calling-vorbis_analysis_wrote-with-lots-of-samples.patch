@@ -1,0 +1,84 @@
+From 9fd6e8853c651260856e34ba7ba29576590e0cee Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Alejandro=20Gonz=C3=A1lez?= <me@alegon.dev>
+Date: Sat, 25 Nov 2023 18:44:12 +0100
+Subject: [PATCH] Fix excessive stack usage when calling
+ `vorbis_analysis_wrote` with lots of samples
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+`vorbis_analysis_wrote` increments `v->pcm_current` by `vals`, and this
+incremented value can be used by `_preextrapolate_helper` right after to
+allocate a float array in the stack `v->pcm_current` positions large.
+Clearly, since `alloca` does not check that there is enough stack space
+available to satisfy the allocation request, this can lead to a stack
+overflow and memory corruption, which at best have no effect, more
+likely cause segmentation faults, and at worst introduce security risks.
+
+The documentation for `vorbis_analysis_buffer` and
+`vorbis_analysis_wrote` does not specify a maximum value for `vals`. It
+states that "1024 is a reasonable choice", but callers are free to use
+larger or smaller counts as they wish. Therefore, `libvorbis` not
+handling this case is undesirable behavior.
+
+To better handle this case without throwing the performance benefits of
+`alloca` out the window, let's check whether the allocation would exceed
+256 KiB (an estimate for the minimum stack space available is 1 MiB,
+which is [the default on Windows
+platforms](https://learn.microsoft.com/en-us/windows/win32/procthread/thread-stack-size)),
+and if so fall back to a heap allocated array. The heap array that may
+be allocated for this purpose is freed when `vorbis_dsp_clear` is
+called. `_preextrapolate_helper` takes neglible execution time
+compared to the encoding process for usual sample block sizes, though.
+
+Signed-off-by: Alejandro González <me@alegon.dev>
+---
+ include/vorbis/codec.h |  1 +
+ lib/block.c            | 12 ++++++++++--
+ 2 files changed, 11 insertions(+), 2 deletions(-)
+
+diff --git a/include/vorbis/codec.h b/include/vorbis/codec.h
+index f8a912bc2..211a91527 100644
+--- a/include/vorbis/codec.h
++++ b/include/vorbis/codec.h
+@@ -61,6 +61,7 @@ typedef struct vorbis_dsp_state{
+ 
+   float **pcm;
+   float **pcmret;
++  float *preextrapolate_work;
+   int      pcm_storage;
+   int      pcm_current;
+   int      pcm_returned;
+diff --git a/lib/block.c b/lib/block.c
+index baabb929b..020640124 100644
+--- a/lib/block.c
++++ b/lib/block.c
+@@ -394,6 +394,7 @@ void vorbis_dsp_clear(vorbis_dsp_state *v){
+           if(v->pcm[i])_ogg_free(v->pcm[i]);
+       _ogg_free(v->pcm);
+       if(v->pcmret)_ogg_free(v->pcmret);
++      if(v->preextrapolate_work)_ogg_free(v->preextrapolate_work);
+     }
+ 
+     if(b){
+@@ -439,11 +440,18 @@ static void _preextrapolate_helper(vorbis_dsp_state *v){
+   int i;
+   int order=16;
+   float *lpc=alloca(order*sizeof(*lpc));
+-  float *work=alloca(v->pcm_current*sizeof(*work));
++  float *work;
++  int workbuf=v->pcm_current*sizeof(*work);
+   long j;
+   v->preextrapolate=1;
+ 
+-  if(v->pcm_current-v->centerW>order*2){ /* safety */
++  if(workbuf<256*1024)
++    work=alloca(workbuf);
++  else
++    /* workbuf is too big to safely allocate on the stack */
++    work=v->preextrapolate_work=_ogg_realloc(v->preextrapolate_work,workbuf);
++
++  if(v->pcm_current-v->centerW>order*2 && work){ /* safety */
+     for(i=0;i<v->vi->channels;i++){
+       /* need to run the extrapolation in reverse! */
+       for(j=0;j<v->pcm_current;j++)

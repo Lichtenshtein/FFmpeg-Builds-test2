@@ -1,0 +1,28 @@
+From 7c450e905913a944cbb15686b9b19446938f054c Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Tue, 14 Jul 2026 01:30:03 +0300
+Subject: [PATCH] re-enable tiff support for static linking
+
+---
+ cmake/deps.cmake | 5 -----
+ 1 file changed, 5 deletions(-)
+
+diff --git a/cmake/deps.cmake b/cmake/deps.cmake
+index 3c6537b..03c00b8 100644
+--- a/cmake/deps.cmake
++++ b/cmake/deps.cmake
+@@ -75,11 +75,6 @@ endif()
+ set(WEBP_DEP_IMG_LIBRARIES)
+ if(WEBP_FIND_IMG_LIBS)
+   foreach(I_LIB PNG JPEG TIFF)
+-    # Disable tiff when compiling in static mode as it is failing on Ubuntu.
+-    if(WEBP_LINK_STATIC AND ${I_LIB} STREQUAL "TIFF")
+-      message(STATUS "TIFF is disabled when statically linking.")
+-      continue()
+-    endif()
+     find_package(${I_LIB})
+     set(WEBP_HAVE_${I_LIB} ${${I_LIB}_FOUND})
+     if(${I_LIB}_FOUND)
+-- 
+2.52.0.windows.1
+

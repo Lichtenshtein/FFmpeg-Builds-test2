@@ -1604,7 +1604,12 @@ should_skip_post_strip() {
     [[ "${GLOBAL_SKIP_POST_STRIP:-0}" == "1" ]] && return 0
 
     case "$STAGENAME" in
-        *"rav1e"|*"librsvg") 
+        # rust libs
+        *"rav1e"|*"librsvg")
+            return 0 
+            ;;
+        # headers
+        *"vulkan-headers"|*"spirv-headers"|*"mingw-std-threads"|*"ffnvcodec"|*"decklink"|*"zz-final")
             return 0 
             ;;
         *) 

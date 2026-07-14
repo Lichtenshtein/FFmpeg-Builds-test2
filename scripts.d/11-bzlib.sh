@@ -35,8 +35,8 @@ ffbuild_dockerbuild() {
         myconf+=( -DENABLE_STATIC_LIB=OFF -DENABLE_SHARED_LIB=ON ) || \
         myconf+=( -DENABLE_STATIC_LIB=ON -DENABLE_SHARED_LIB=OFF -DENABLE_STATIC_LIB_IS_PIC=ON )
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-conversion" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-conversion" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-conversion -Wno-sign-conversion -Wno-undef" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-conversion -Wno-sign-conversion -Wno-undef" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 

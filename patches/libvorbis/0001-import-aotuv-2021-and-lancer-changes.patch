@@ -994,21 +994,21 @@ index 7a0c206..7229ee4 100644
 +#endif
  }
  
- STIN long decode_packed_entry_number(codebook *book, oggpack_buffer *b){
-   int  read=book->dec_maxlength;
+ STIN long decode_packed_entry_number(dec_codebook *book, oggpack_buffer *b){
+   ogg_uint32_t testword;
+   int  read=book->maxlength;
    long lo,hi;
--  long lok = oggpack_look(b,book->dec_firsttablen);
-+  long lok = vorbis_oggpack_look(b,book->dec_firsttablen);
+-  long lok = oggpack_look(b,book->firsttablen);
++  long lok = vorbis_oggpack_look(b,book->firsttablen);
  
    if (lok >= 0) {
-     long entry = book->dec_firsttable[lok];
-@@ -303,7 +458,7 @@ STIN long decode_packed_entry_number(codebook *book, oggpack_buffer *b){
-       lo=(entry>>15)&0x7fff;
-       hi=book->used_entries-(entry&0x7fff);
+@@ -303,7 +458,7 @@ STIN long decode_packed_entry_number(dec_codebook *book, oggpack_buffer *b){
+       lo=((entry>>15)&0x7fff)<<book->hint_shift;
+       hi=book->hi_max-((entry&0x7fff)<<book->hint_shift);
      }else{
--      oggpack_adv(b, book->dec_codelengths[entry-1]);
-+      vorbis_oggpack_adv(b, book->dec_codelengths[entry-1]);
-       return(entry-1);
+-      oggpack_adv(b, (int)(entry&0x3f));
++      vorbis_oggpack_adv(b, (int)(entry&0x3f));
+       return(entry>>6);
      }
    }else{
 @@ -317,10 +472,10 @@ STIN long decode_packed_entry_number(codebook *book, oggpack_buffer *b){
@@ -1023,13 +1023,13 @@ index 7a0c206..7229ee4 100644
 +    lok = vorbis_oggpack_look(b, --read);
    if(lok<0)return -1;
  
-   /* bisect search for the codeword in the ordered list */
+  testword=bitreverse((ogg_uint32_t)lok);
 @@ -335,12 +490,12 @@ STIN long decode_packed_entry_number(codebook *book, oggpack_buffer *b){
        }
  
-     if(book->dec_codelengths[lo]<=read){
--      oggpack_adv(b, book->dec_codelengths[lo]);
-+      vorbis_oggpack_adv(b, book->dec_codelengths[lo]);
+     if(book->codelengths[lo]<=read){
+-      oggpack_adv(b, book->codelengths[lo]);
++      vorbis_oggpack_adv(b, book->codelengths[lo]);
        return(lo);
      }
    }
@@ -1041,7 +1041,7 @@ index 7a0c206..7229ee4 100644
  }
 @@ -442,6 +597,322 @@ long vorbis_book_decodevv_add(codebook *book,float **a,long offset,int ch,
    int chptr=0;
-   if(book->used_entries>0){
+   if(book->codelist){
      int m=(offset+n)/ch;
 +#ifdef __SSE__												/* SSE Optimize */
 +	if(ch==2)

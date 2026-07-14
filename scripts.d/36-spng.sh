@@ -31,7 +31,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    mkdir -p build && cd build
+    mkdir -p build "$PC_DIR" && cd build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -47,11 +47,23 @@ ffbuild_dockerbuild() {
         myconf+=( -DSPNG_SHARED=ON -DSPNG_STATIC=OFF ) || \
         myconf+=( -DSPNG_SHARED=OFF -DSPNG_STATIC=ON )
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    local static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DSPNG_STATIC"
+
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${static_flags}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${static_flags}" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
+
+    local PC_FILE="$PC_DIR/spng.pc"
+    if [[ -f "$PC_FILE" ]]; then
+        if [[ -n "$static_flags" ]]; then
+            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
+            fi
+        fi
+    fi
 }

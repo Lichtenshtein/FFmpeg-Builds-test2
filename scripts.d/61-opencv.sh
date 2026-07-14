@@ -58,11 +58,12 @@ ffbuild_dockerbuild() {
         -DCPU_DISPATCH=AVX2
         -DENABLE_PIC=ON
         -DOPENCV_ENABLE_NONFREE=ON
-        # Используем то, что уже собрали
+        # don't build what we've already built
         -DBUILD_OPENEXR=ON
         -DBUILD_JASPER=ON # jpeg2k
         -DBUILD_PNG=OFF
-        # Отключаем лишнее для ускорения сборки
+        -DBUILD_SPNG=OFF
+        # Disabling unnecessary components to speed up the build
         -DBUILD_EXAMPLES=OFF
         -DBUILD_PACKAGE=OFF
         -DBUILD_DOCS=OFF
@@ -80,9 +81,10 @@ ffbuild_dockerbuild() {
         # -DPYTHON3_LIBRARIES="$PYTHON_ROOT/lib/libpython3.12.so"
         # -DPYTHON3_NUMPY_INCLUDE_DIRS="$NUMPY_PATH"
         # -DOPENCV_SKIP_PYTHON_LOADER=ON
-        # Включаем форматы
+        # Enable formats
         -DWITH_MSMF_DXVA=ON
         -DWITH_PNG=ON
+        -DWITH_SPNG=OFF
         -DWITH_JASPER=ON # build it
         -DWITH_OPENEXR=ON # build it
         -DWITH_OPENGL=ON
@@ -91,7 +93,7 @@ ffbuild_dockerbuild() {
         -DWITH_IPP=ON
         -DOPENCV_IPP_ENABLE_ALL=ON
         -DIPP_IW_DISABLE_SEH=ON
-        # Отключаем загрузку готовых DLL FFmpeg
+        # Disable loading of ready-made FFmpeg DLLs
         -DOPENCV_FFMPEG_SKIP_DOWNLOAD=ON
         -DWITH_FFMPEG=OFF # ON if standalone
         # plugins
@@ -102,7 +104,7 @@ ffbuild_dockerbuild() {
     if has_library "tiff"; then
         log_info "TIFF library detected. Building with TIFF support..."
 
-        # временно перемещаем "отравленные" .cmake файлы tiff
+        # Temporarily moving "poisoned" .cmake tiff files
         local TIFF_CMAKE_DIR="$FFBUILD_PREFIX/lib/cmake/tiff"
         local TIFF_HIDE_DIR="$TMP_DIR/tiff_hide"
 
@@ -201,7 +203,7 @@ ffbuild_dockerbuild() {
         # export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
         export OpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
         myconf+=(
-            # Включаем интеграцию с OpenVINO (Inference Engine)
+            # Enabling integration with OpenVINO (Inference Engine)
             -DWITH_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
             -DOPENVINO_STATIC_COMPILATION=$([[ "${PREFER_SHARED}" != "1" && "${BUILD_VINO}" == "1" ]] && echo ON || echo OFF)
             -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
@@ -232,6 +234,7 @@ ffbuild_dockerbuild() {
             -DTBB_INCLUDE_DIRS="$FFBUILD_PREFIX/include"
             -DTBB_LIB_DIR="$FFBUILD_PREFIX/lib"
         )
+        local TBB_C_FLAG="-Wno-undef"
     elif [[ "${USE_OPENMP}" == "1" ]]; then
         log_info "Enabling OpenMP threading..."
         myconf+=(
@@ -259,7 +262,7 @@ ffbuild_dockerbuild() {
         # -DOPENCV_DNN_CUDA=ON
         # -DWITH_NVCUVID=ON
         # -DWITH_NVCUVENC=ON
-        # -DCUDA_ARCH_BIN=6.1 # Например, для Pascal
+        # -DCUDA_ARCH_BIN=6.1 # For example, for Pascal
         # -DCUDA_ARCH_PTX=6.1
         )
     fi
@@ -270,8 +273,8 @@ ffbuild_dockerbuild() {
     [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-Wa,-mbig-obj"
 
     # -D_WIN32_WINNT=0x0600
-    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} $LTO_FLAGS $static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} $LTO_FLAGS $static_flags" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} $LTO_FLAGS $static_flags ${TBB_C_FLAG}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} $LTO_FLAGS $static_flags ${TBB_C_FLAG}" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     LIBS="${JBIG_LIB} ${OPENMP_LIB}$LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
@@ -289,7 +292,7 @@ ffbuild_dockerbuild() {
         log_warn "IPP ICV files not found at $IPP_PATH"
     fi
 
-    # ПАТЧ IPP IW
+    # IPP IW PATCH
     local IPP_IW_FILE="3rdparty/ippicv/ippicv_win/iw/src/iw_own.cpp"
     if [ -f "$IPP_IW_FILE" ]; then
         log_info "Surgically removing SEH from IPP IW ($IPP_IW_FILE)..."
@@ -310,7 +313,7 @@ ffbuild_dockerbuild() {
     if [[ "${myconf[@]}" =~ "-DWITH_OPENVINO=ON" ]]; then
         if ! grep -qiE "OPENVINO:.*(YES|ON|TRUE)" CMakeCache.txt && ! grep -qi "HAVE_OPENVINO:INTERNAL=ON" CMakeCache.txt; then
             log_error "OpenVINO was not detected in CMakeCache.txt!"
-            grep -i "OPENVINO" CMakeCache.txt # Выведем для отладки, что там на самом деле
+            grep -i "OPENVINO" CMakeCache.txt # print out for debugging what's actually there
             return 1
         fi
     fi
@@ -334,7 +337,7 @@ ffbuild_dockerbuild() {
         rm -rf "${INSTALL_ROOT}/lib/opencv4"
     fi
 
-    # исправление имен liblib -> lib
+    # fix liblib names -> lib
     pushd "${DEST_LIB}" || return 1
 
     shopt -s nullglob
@@ -359,7 +362,7 @@ ffbuild_dockerbuild() {
     shopt -u nullglob
     popd
 
-    # Удаляем системные дубликаты, если они пришли из OpenCV 3rdparty
+    # Remove system duplicates if they came from OpenCV 3rd party
     for duplicate in libpng.${lib_ext} libprotobuf.${lib_ext} libz.${lib_ext} libjpeg.${lib_ext} libtiff.${lib_ext} libquirc.${lib_ext}; do
         if [ -f "${FFBUILD_PREFIX}/lib/${duplicate}" ] && [ -f "${DEST_LIB}/${duplicate}" ]; then
              log_info "Removing duplicate ${duplicate} from OpenCV build"
@@ -367,9 +370,9 @@ ffbuild_dockerbuild() {
         fi
     done
 
-    # Исправляем пути к 3rdparty либам в .cmake конфигах OpenCV
-    # Заменяем относительный путь 'lib/opencv4/3rdparty' на просто 'lib'
-    # исправляем названия библиотек с liblib -> lib
+    # Correcting paths to 3rdparty libraries in OpenCV .cmake configs
+    # Replacing the relative path 'lib/opencv4/3rdparty' with just 'lib'
+    # Correcting library names from liblib -> lib
     if [ -d "${DEST_LIB}/cmake/opencv4" ]; then
         log_info "Fixing paths and names in .cmake files..."
         find "${DEST_LIB}/cmake/opencv4" -name "*.cmake" -exec sed -i \
@@ -377,11 +380,11 @@ ffbuild_dockerbuild() {
             -e 's|liblib|lib|g' {} +
     fi
 
-    # Создаем симлинк, чтобы заголовочные файлы находились по стандартному пути
+    # Create a symlink so that the header files are located in the standard path
     # ln -sfn opencv4/opencv2 "${INSTALL_ROOT}/include/opencv2"
 
     log_info "Creating MSVC security cookie stubs for IPP..."
-    # Создаем исходник заглушки
+    # Create a stub source code
     cat <<EOF > msvc_stub.c
 #include <stdint.h>
 #include <stdlib.h>
@@ -404,7 +407,7 @@ long long _time64(long long* t) {
 } 
 EOF
 
-    # Компилируем в объектный файл и упаковываем в статическую либу
+    # compile it into an object file and package it into a static library
     ${FFBUILD_CROSS_PREFIX}gcc $CFLAGS -c msvc_stub.c -o msvc_stub.o
     ${FFBUILD_CROSS_PREFIX}ar rcs "${DEST_LIB}/libmsvc_stub.${lib_ext}" msvc_stub.o
 
@@ -412,22 +415,22 @@ EOF
         log_info "Fixing includedir path in opencv4.pc..."
         sed -i "s|^includedir=.*|includedir=\${prefix}/include/opencv4|g" "$PC_FILE"
         log_info "Cleaning up OpenCV pkg-config file..."
-        # Вытаскиваем версию для регулярки (динамически)
+        # extract the version for the regular expression (dynamically)
         local OPENCV_VER_SUFFIX=$(find "${DEST_LIB}" -name "libopencv_core*.${lib_ext}" | grep -oE "[0-9]+.${lib_ext}$" | sed "s/.${lib_ext}//")
-        # переносим все модули opencv из Libs.private в основные Libs
+        # move all OpenCV modules from Libs.private to the main Libs
         local ACTUAL_LIBS=$(find "${DEST_LIB}" -name "libopencv_*.${lib_ext}" -printf "%f\n" | sed "s/^lib//;s/\.${lib_ext}$//" | xargs -I{} echo -l{} | tr '\n' ' ')
-        # Удаляем путь к 3rdparty, так как мы перенесли либы в общий корень
+        # remove the path to 3rdparty, since the libraries moved to the root
         sed -i 's|-L${exec_prefix}/lib/opencv4/3rdparty||g' "$PC_FILE"
         sed -i "s/Requires.private:.*/Requires.private: /" "$PC_FILE"
-        # Формируем чистую строку Libs
+        # generating a clean Libs string
         local OLD_PRIVATES=$(grep "Libs.private:" "$PC_FILE" | cut -d':' -f2-)
-        # Убираем любые упоминания -lopencv_* из текущего файла, чтобы избежать дублей
-        # Чистим зависимости: liblib -> lib, абсолютные пути, мусор
+        # Remove any references to -lopencv_* from the current file to avoid duplicates
+        # Clean up dependencies: liblib -> lib, absolute paths, garbage
         local CLEAN_PRIVATES=$(echo "$OLD_PRIVATES" | sed -E "s/-llib/-l/g; s|-L/[^ ]*||g; s/-lRunTmChk.${lib_ext}//g; s/-lntdll.${lib_ext}//g; s/-lopencv_[^ ]*//g")
-        # Записываем в файл
+        # Write to file
         sed -i "s|^Libs:.*|Libs: -L\${libdir} ${ACTUAL_LIBS}|" "$PC_FILE"
         sed -i "s|^Libs.private:.*|Libs.private: ${CLEAN_PRIVATES}|" "$PC_FILE"
-        # Добавляем необходимые либы
+        # Add the necessary libraries
         if [[ "${myconf[@]}" =~ "-DWITH_OPENVINO=ON" ]]; then
             # sed -i '/^Libs.private:/ s/$/ -lopenvino/' "$PC_FILE"
             sed -i "s|^Requires.private:.*|Requires.private: openvino|" "$PC_FILE"
@@ -439,18 +442,18 @@ EOF
             sed -i 's|^Libs.private: |Libs.private: -lmsvc_stub -lippicv |' "$PC_FILE"
             sed -i 's/-lippicvmt//g; s/-lippicv -lippicv/-lippicv/g' "$PC_FILE"
         fi
-        # Удаляем лишние пробелы
+        # Removing extra spaces
         sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"
     fi
 
     if has_library "tiff"; then
         log_info "Explicitly restoring TIFF CMake files before successful exit..."
-        restore # Вызываем функцию восстановления вручную
+        restore # Call the recovery function manually
 
-        # Сбрасываем trap, чтобы он не выполнялся повторно
+        # Reset the trap so it doesn't execute again
         trap - EXIT 
 
-        # Блок проверки возврата файлов
+        # File restore check block
         if [ -d "$FFBUILD_PREFIX/lib/cmake/tiff" ]; then
             log_info "Verification: $FFBUILD_PREFIX/lib/cmake/tiff directory exists."
             if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then

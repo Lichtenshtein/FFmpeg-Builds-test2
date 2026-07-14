@@ -19,6 +19,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     default_dl .
+    echo "rm -rf webp_js"
 }
 
 ffbuild_dockerbuild() {

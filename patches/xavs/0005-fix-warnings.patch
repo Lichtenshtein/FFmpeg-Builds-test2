@@ -31,7 +31,7 @@ index a3f99ff..48cd19a 100644
 -        dctf->sub16x16_dct8 = xavs_sub16x16_dct8_sse2;
 -        dctf->add8x8_idct8 = xavs_add8x8_idct8_sse2;
 -        dctf->add16x16_idct8 = xavs_add16x16_idct8_sse2;
-+        // Ïðèâåäåíèå òèïîâ äëÿ óñòðàíåíèÿ îøèáêè incompatible-pointer-types
++        // ÐŸÑ€Ð¸Ð²ÐµÐ´ÐµÐ½Ð¸Ðµ Ñ‚Ð¸Ð¿Ð¾Ð² Ð´Ð»Ñ ÑƒÑÑ‚Ñ€Ð°Ð½ÐµÐ½Ð¸Ñ Ð¾ÑˆÐ¸Ð±ÐºÐ¸ incompatible-pointer-types
 +        dctf->sub8x8_dct8 = (void (*)(int16_t (*)[8], uint8_t *, uint8_t *))xavs_sub8x8_dct8_sse2;
 +        dctf->sub16x16_dct8 = (void (*)(int16_t (*)[8][8], uint8_t *, uint8_t *))xavs_sub16x16_dct8_sse2;
 +        dctf->add8x8_idct8 = (void (*)(uint8_t *, int16_t (*)[8]))xavs_add8x8_idct8_sse2;
@@ -64,8 +64,7 @@ index a3f99ff..48cd19a 100644
        }
  #endif
  }
-@@ -337,7 +337,7 @@ void xavs_dct_init (int cpu, xavs_dct_function_t * dctf)
- }
+@@ -338,6 +338,6 @@ void xavs_dct_init (int cpu, xavs_dct_function_t * dctf)
  
  // gcc pessimizes multi-dimensional arrays here, even with constant indices
 -#define ZIG(i,y,x) level[i] = dct[0][y*8+x];

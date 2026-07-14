@@ -19,17 +19,6 @@ index c5e49cf..305ae3e 100644
  
  # install include files
  INSTALL(FILES ${CMAKE_BINARY_DIR}/lensfun.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/lensfun)
-@@ -188,10 +187,6 @@ INSTALL(FILES data/db/timestamp.txt DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/len
- FILE(GLOB DATABASE_DTD data/db/*.dtd data/db/*.xsd)
- INSTALL(FILES ${DATABASE_DTD} DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/lensfun/version_${LENSFUN_DB_VERSION})
- 
--# build documentation
--IF(BUILD_DOC)
--  ADD_SUBDIRECTORY(docs)
--ENDIF()
- 
- IF(WIN32 AND NOT BUILD_STATIC)
-   FIND_FILE(GLIB2_DLL
 -- 
 2.52.0.windows.1
 

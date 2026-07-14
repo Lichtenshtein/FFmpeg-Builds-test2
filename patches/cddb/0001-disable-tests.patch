@@ -35,7 +35,7 @@ index 2041d41..b1e07da 100644
 +                 lib/Makefile])
  AM_INIT_AUTOMAKE([dist-bzip2])
  AM_MAINTAINER_MODE
- 
+ AM_SILENT_RULES([yes])
 @@ -150,8 +147,8 @@ else
      WARN_CFLAGS="-Wall -Wchar-subscripts -Wmissing-prototypes -Wmissing-declarations"
      WARN_CFLAGS="$WARN_CFLAGS -Wunused -Wpointer-arith -Wwrite-strings -Wnested-externs"
