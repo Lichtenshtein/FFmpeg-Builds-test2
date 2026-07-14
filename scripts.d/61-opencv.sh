@@ -422,8 +422,8 @@ long long _time64(long long* t) {
 EOF
 
     # compile it into an object file and package it into a static library
-    ${FFBUILD_CROSS_PREFIX}gcc $CFLAGS -c msvc_stub.c -o msvc_stub.o
-    ${FFBUILD_CROSS_PREFIX}ar rcs "${DEST_LIB}/libmsvc_stub.${lib_ext}" msvc_stub.o
+    ${CC} $CFLAGS -c msvc_stub.c -o msvc_stub.o
+    ${AR} rcs "${DEST_LIB}/libmsvc_stub.${lib_ext}" msvc_stub.o
 
     if [ -f "$PC_FILE" ]; then
         log_info "Fixing includedir path in opencv4.pc..."

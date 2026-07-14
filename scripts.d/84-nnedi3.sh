@@ -21,6 +21,11 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        log_info "Patching meson.build to force static plugin generation for vsznedi3..."
+        sed -i "s/shared_module('vsznedi3'/static_library('vsznedi3'/g" meson.build
+    fi
+
     mkdir build && cd build
 
     local myconf=(
@@ -43,14 +48,18 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    log_info "Copying the weights file nnedi3_weights.bin to the installation prefix..."
+    # Add -lvsznedi3 to the Libs line in znedi3.pc
+    local PC_FILE="$PC_DIR/znedi3.pc"
+    if [[ "${PREFER_SHARED}" != "1" && -f "${PC_FILE}" ]]; then
+        log_info "Fixing pkg-config to include both core and plugin archives..."
+        sed -i 's/Libs: -L${libdir} -lznedi3/Libs: -L${libdir} -lznedi3 -lvsznedi3/g' "${PC_FILE}"
+    fi
 
-    # Копируем в общую папку хранения бинарников (откуда ваша система забирает файлы)
+    log_info "Copying the weights file nnedi3_weights.bin to the installation prefix..."
     mkdir -p "${INSTALL_ROOT}/bin"
     cp "../nnedi3_weights.bin" "${INSTALL_ROOT}/bin/nnedi3_weights.sign" 2>/dev/null || true
     cp "../nnedi3_weights.bin" "${INSTALL_ROOT}/bin/nnedi3_weights.bin"
 
-    # Проверяем, что файл успешно скопирован и не пустой
     if [ ! -s "${INSTALL_ROOT}/bin/nnedi3_weights.bin" ]; then
         log_warn "nnedi3_weights.bin was not found or is empty in the target folder!"
     fi

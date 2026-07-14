@@ -133,9 +133,11 @@ EOF
     # Cut out the vspipe build, as it depends on vsscript_dep, which pulls in py_dep
     sed -i "/executable('vspipe'/,/^)/c # Cut by cross-assembler" meson.build
 
-    log_info "Patching meson.build to force static compilation for filters..."
-    sed -i "s/shared_module(v\['name'\]/static_library(v\['name'\]/g" meson.build
-    sed -i "s/shared_module('libvapoursynthfilters'/static_library('libvapoursynthfilters'/g" meson.build
+    if [[ "${PREFER_SHARED}" != "1" ]]; then
+        log_info "Patching meson.build to force static compilation for filters..."
+        sed -i "s/shared_module(v\['name'\]/static_library(v\['name'\]/g" meson.build
+        sed -i "s/shared_module('libvapoursynthfilters'/static_library('libvapoursynthfilters'/g" meson.build
+    fi
 
     # Clearing system paths so Meson doesn't see Linux headers
     export PKG_CONFIG_LIBDIR="${CUR_DIR}/fake_pkgconfig"
@@ -148,7 +150,7 @@ EOF
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DVAPOURSYNTH_STATIC"
 
-    mkdir -p build "$INSTALL_ROOT"/{lib/pkgconfig,include/vapoursynth} && cd build
+    mkdir -p build "$INSTALL_ROOT"/{lib/pkgconfig,include/vapoursynth,bin} "$PC_DIR" && cd build
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -180,27 +182,33 @@ EOF
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    log_info "Moving compiled static libraries to correct system directories..."
-    local WRONG_PATH=$(find "$FFBUILD_DESTDIR" -type d -name "vapoursynth" | head -n 1)
-    if [[ -d "$WRONG_PATH" ]]; then
-        find "$WRONG_PATH" -maxdepth 2 -name "*.${lib_ext}" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/lib/" \;
-        find "$WRONG_PATH" -maxdepth 2 -name "*filters*.${lib_ext}" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/lib/" \;
+    local FILTER_LIBS=""
+    local WRONG_VS_DIR="${INSTALL_ROOT}/lib/python${PY_VER}/site-packages/vapoursynth"
+    if [[ -d "$WRONG_VS_DIR" ]]; then
+        # collect the names of libs containing *synthfilters*
+        # 'libvapoursynthfilters_avx2.a' -> '-lvapoursynthfilters_avx2'
+        while read -r filter_file; do
+            local lib_base=$(basename "$filter_file" ".${lib_ext}")
+            lib_base=${lib_base#lib} # Remove the 'lib' prefix
+            FILTER_LIBS="${FILTER_LIBS} -l${lib_base}"
+        done < <(find "$WRONG_VS_DIR" -maxdepth 1 -name "*synthfilters*.${lib_ext}")
+
+        log_info "Moving compiled libraries to correct system directories..."
+        find "$WRONG_VS_DIR" -maxdepth 1 -name "*.${lib_ext}"  -exec mv ${OP_VERB} {} "$INSTALL_ROOT/lib/" \;
+
+        log_info "Manually installing headers..."
+        mv ${OP_VERB} "$WRONG_VS_DIR/include"/* "$INSTALL_ROOT/include/vapoursynth/"
+
+        log_info "Removing python site-packages artifacts from target prefix..."
+        rm -rf "${INSTALL_ROOT}/lib/python${PY_VER}"
     fi
 
-    log_info "Manually installing headers..."
-    mkdir -p "$INSTALL_ROOT/include/vapoursynth"
-    cp ${OP_VERB} ../include/VapourSynth4.h "$INSTALL_ROOT/include/vapoursynth/"
-    cp ${OP_VERB} ../include/VSScript4.h "$INSTALL_ROOT/include/vapoursynth/"
-    cp ${OP_VERB} ../include/VSHelper4.h "$INSTALL_ROOT/include/vapoursynth/" 2>/dev/null || true
-    cp ${OP_VERB} ../include/VSConstants4.h "$INSTALL_ROOT/include/vapoursynth/" 2>/dev/null || true
-
     log_info "Copying Python runtime DLLs and ZIP..."
-    mkdir -p "$INSTALL_ROOT/bin"
     find ../python_win -maxdepth 2 -name "*.dll" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \;
     find ../python_win -maxdepth 2 -name "python3*.zip" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \;
     # find ../python_win -maxdepth 2 -name "*.pyd" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \; 2>/dev/null || true
 
-    mkdir -p "$PC_DIR"
+    log_info "Generating dynamic vapoursynth.pc with filters:\n${FILTER_LIBS}"
     cat <<EOF > "$PC_DIR/vapoursynth.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
@@ -211,10 +219,11 @@ Name: vapoursynth
 Description: A script-based video processing frameserver for the 21st century
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lvapoursynth
-Libs.private: -lstdc++ -lwinmm
+Libs.private: -lstdc++ -lwinmm ${FILTER_LIBS}
 Cflags: -I\${includedir} -I\${includedir}/vapoursynth $static_flags
 EOF
 
+    log_info "Generating clean vapoursynth-script.pc..."
     cat <<EOF > "$PC_DIR/vapoursynth-script.pc"
 prefix=$FFBUILD_PREFIX
 exec_prefix=\${prefix}
