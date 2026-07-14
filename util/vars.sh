@@ -293,7 +293,7 @@ should_apply_lto() {
             return 0
             ;;
         # Ключевые графические фильтры высокого уровня
-        *"zimg"|*"libtesseract"|*"leptonica"|*"libplacebo"|*"opencl"|*"openvino"|*"opencv"|*"nnedi3"|*"whisper")
+        *"zimg"|*"libtesseract"|*"leptonica"|*"libplacebo"|*"opencl"|*"openvino"|*"opencv"|*"nnedi3"|*"whisper"|*"vapoursynth")
             return 0
             ;;
         # легковесные кодеки

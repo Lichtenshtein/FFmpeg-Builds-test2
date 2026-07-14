@@ -7,7 +7,7 @@ on:
 
 env:
   # Список исключений для обновления
-  UPDATE_PRESERVE_LIST: "quiche mbedtls gnutls"
+  UPDATE_PRESERVE_LIST: "quiche mbedtls gnutls vapoursynth"
   TARGET: win64
   VARIANT: nonfree
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"

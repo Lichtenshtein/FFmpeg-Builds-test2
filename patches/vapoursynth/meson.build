@@ -1,5 +1,5 @@
 project('VapourSynth', 'c', 'cpp',
-    default_options: ['buildtype=release', 'b_ndebug=if-release', 'c_std=c11', 'cpp_std=c++20'],
+    default_options: ['buildtype=release', 'b_ndebug=if-release', 'c_std=c99', 'cpp_std=c++17'],
     license: 'LGPL-2.1-or-later',
     license_files: 'COPYING.LESSER',
     meson_version: '>=1.3.0',
@@ -13,45 +13,23 @@ cxx = meson.get_compiler('cpp')
 
 if cxx.get_argument_syntax() == 'gcc'
     avx2_args = '-march=x86-64-v3'
-    avx512_args = '-march=x86-64-v4'
-    znver4_args = ['-march=znver4', '-mno-sse4a', '-mno-avx512bf16']
-    math_errno_args = ['-fno-math-errno']
 elif cxx.get_id() == 'clang-cl'
     avx2_args = '/clang:-march=x86-64-v3'
-    avx512_args = '/clang:-march=x86-64-v4'
-    znver4_args = ['/clang:-march=znver4', '/clang:-mno-sse4a', '/clang:-mno-avx512bf16']
-    math_errno_args = ['/clang:-fno-math-errno']
 else
     avx2_args = '/arch:AVX2'
-    avx512_args = '/arch:AVX512'
-    znver4_args = ['/arch:AVX512']
-    math_errno_args = []
 endif
 
-if math_errno_args.length() > 0
-    add_project_arguments(math_errno_args, language: ['c', 'cpp'])
-endif
-if cxx.get_argument_syntax() == 'gcc'
-    add_project_arguments('-fno-char8_t', language: 'cpp')
-else
-    add_project_arguments('/Zc:char8_t-', language: 'cpp')
-endif
 host_system = host_machine.system()
-host_cpu_family = host_machine.cpu_family()
 is_win = host_system in ['cygwin', 'windows']
 
 if is_win
     dl_dep = dependency('', required: false)
-    libp2p_dep = dependency('libp2p', required: false)
+    libp2p_dep = dependency('libp2p', static: true, required: false)
 else
     dl_dep = dependency('dl')
 endif
 
-if host_cpu_family.startswith('riscv')
-    add_project_arguments('-DVS_TARGET_CPU_RISCV', language: ['c', 'cpp'])
-endif
-
-if not host_cpu_family.startswith('x86')
+if not host_machine.cpu_family().startswith('x86')
     enable_x86_asm = false
 endif
 
@@ -61,13 +39,8 @@ incdir = include_directories('include')
 # But we do need a dependency for linking vsscript.
 
 py_dep = dependency('python3', method: 'pkg-config')
-install_dir = py.get_install_dir() / 'vapoursynth'
+
 vs_current_release = '${VER_FULL}' 
-if get_option('buildtype') == 'release'
-    if cxx.get_id() == 'clang-cl'
-        add_project_arguments('/clang:-O3', language: ['c', 'cpp'])
-    endif
-endif
 
 add_project_arguments(
     cxx.get_supported_arguments(
@@ -94,64 +67,66 @@ if enable_guard_pattern
     add_project_arguments('-DVS_FRAME_GUARD', language: ['c', 'cpp'])
 endif
 
-if host_system not in ['cygwin', 'windows']
-    code = '''
-#define _GNU_SOURCE
-#include <sched.h>
-
-int main() {
-    cpu_set_t affinity;
-    sched_getaffinity(0, sizeof(cpu_set_t), &affinity);
-    int count = CPU_COUNT(&affinity);
-}
-'''
-
-    if cxx.links(code, name: 'sched_getaffinity')
-        add_project_arguments('-DHAVE_SCHED_GETAFFINITY', language: ['c', 'cpp'])
-    endif
-
-    code = '''
-#include <sys/param.h>
-#include <sys/_cpuset.h>
-#include <sys/cpuset.h>
-
-int main() {
-    cpuset_t affinity;
-    cpuset_getaffinity(CPU_LEVEL_WHICH, CPU_WHICH_PID, -1, sizeof(cpuset_t), &affinity);
-    int count = CPU_COUNT(&affinity);
-}
-'''
-
-    if cxx.links(code, name: 'cpuset_getaffinity')
-        add_project_arguments('-DHAVE_CPUSET_GETAFFINITY', language: ['c', 'cpp'])
-    endif
-endif
-
 deps = [
     dl_dep,
     dependency('threads'),
-    dependency('zimg', version: '>=3.0.5'),
+    dependency('zimg', static: true, version: '>=3.0.5'),
 ]
 
-soversion = is_win ? '' : run_command(
-    'grep',
-    '-m',
-    '1',
-    'VAPOURSYNTH_API_MAJOR',
-    'include/VapourSynth4.h',
-    check: true,
-).stdout().strip().split()[2]
+libs = []
 
 if enable_x86_asm
     add_project_arguments('-DVS_TARGET_CPU_X86', language: ['c', 'cpp'])
+
+    libs += static_library('core_sse2',
+        files(
+            'src/core/expr/jitcompiler_x86.cpp',
+            'src/core/kernel/x86/average_sse2.c',
+            'src/core/kernel/x86/convolution_sse2.cpp',
+            'src/core/kernel/x86/generic_sse2.cpp',
+            'src/core/kernel/x86/merge_sse2.c',
+            'src/core/kernel/x86/planestats_sse2.c',
+            'src/core/kernel/x86/transpose_sse2.c',
+        ),
+        gnu_symbol_visibility: 'hidden',
+        include_directories: incdir,
+    )
+
+    libs += static_library('core_avx2',
+        files(
+            'src/core/kernel/x86/convolution_avx2.cpp',
+            'src/core/kernel/x86/generic_avx2.cpp',
+            'src/core/kernel/x86/merge_avx2.c',
+            'src/core/kernel/x86/planestats_avx2.c',
+        ),
+        c_args: avx2_args,
+        cpp_args: avx2_args,
+        gnu_symbol_visibility: 'hidden',
+        include_directories: incdir,
+    )
 endif
 
-libvapoursynth = library('libvapoursynth',
+libvapoursynth = library('vapoursynth',
     files(
-        'src/core/cpufeatures.cpp',
-        'src/core/internalfilters.cpp',
+        'src/core/expr/expr.cpp',
+        'src/core/expr/jitcompiler.cpp',
+        'src/core/kernel/average.cpp',
         'src/core/kernel/cpulevel.cpp',
+        'src/core/kernel/generic.cpp',
+        'src/core/kernel/merge.c',
+        'src/core/kernel/planestats.c',
+        'src/core/kernel/transpose.c',
+        'src/core/audiofilters.cpp',
+        'src/core/averageframesfilter.cpp',
+        'src/core/boxblurfilter.cpp',
+        'src/core/cpufeatures.cpp',
+        'src/core/exprfilter.cpp',
+        'src/core/genericfilters.cpp',
+        'src/core/lutfilters.cpp',
         'src/core/memoryuse.cpp',
+        'src/core/mergefilters.cpp',
+        'src/core/reorderfilters.cpp',
+        'src/core/simplefilters.cpp',
         'src/core/textfilter.cpp',
         'src/core/vsapi.cpp',
         'src/core/vscore.cpp',
@@ -165,36 +140,7 @@ libvapoursynth = library('libvapoursynth',
     gnu_symbol_visibility: 'hidden',
     include_directories: incdir,
     install: true,
-    install_dir: install_dir,
-    name_prefix: '',
-    soversion: soversion,
-)
-
-vapoursynth_dep = declare_dependency(
-    include_directories: incdir,
-    link_with: vapoursynth,
-)
-
-py.extension_module('vapoursynth',
-    files('src/common/wave.cpp', 'src/cython/vapoursynth.pyx'),
-    dependencies: [py_dep, vapoursynth_dep],
-    install: true,
-    install_rpath: '$ORIGIN',
-    limited_api: '3.12',
-    override_options: 'cython_language=cpp',
-    subdir: 'vapoursynth',
-)
-
-py.install_sources(
-    files(
-        'src/py/__init__.py',
-        'src/py/__main__.py',
-        'src/py/_cli.py',
-        'src/py/_shell.py',
-        'src/py/_utils.py',
-        'src/py/vapoursynth.pyi',
-    ),
-    subdir: 'vapoursynth',
+    link_with: libs,
 )
 
 libvsscript = library('vsscript',
@@ -204,200 +150,21 @@ libvsscript = library('vsscript',
     gnu_symbol_visibility: 'hidden',
     include_directories: incdir,
     install: true,
-    install_dir: install_dir,
 )
 
-vsscript_dep = declare_dependency(
-    include_directories: incdir,
-    link_with: libvsscript,
-)
-
-link_args = []
-
-if cxx.get_argument_syntax() == 'gcc' and is_win
-    link_args += '-municode'
-elif cxx.get_argument_syntax() == 'msvc'
-    link_args += ['/MANIFEST:EMBED', '/MANIFESTINPUT:' + (meson.project_source_root() / 'src/vspipe/vspipe.manifest')]
-endif
-
-executable('vspipe',
-    files(
-        'src/common/wave.cpp',
-        'src/vspipe/printgraph.cpp',
-        'src/vspipe/vsjson.cpp',
-        'src/vspipe/vspipe.cpp',
-    ),
-    dependencies: vsscript_dep,
-    gnu_symbol_visibility: 'hidden',
-    install: true,
-    install_dir: install_dir,
-    install_rpath: '$ORIGIN',
-    link_args: link_args,
-)
-
-if cxx.get_argument_syntax() == 'msvc'
-    vsvfw = library('vsvfw',
-        files(
-            'src/common/fourcc.cpp',
-            'src/common/wave.cpp',
-            'src/vfw/vsvfw.cpp',
-        ),
-        dependencies: [libp2p_dep, vsscript_dep],
-        gnu_symbol_visibility: 'hidden',
-        install: true,
-        install_dir: install_dir,
-        vs_module_defs: 'src/vfw/vsvfw.def',
-    )
-
-    avscompat = shared_module('avscompat',
-        files(
-            'src/avisynth/avisynth_compat.cpp',
-            'src/avisynth/interface.cpp',
-            'src/core/cpufeatures.cpp',
-        ),
-        cpp_args: '-DBUILDING_AVSCORE',
-        dependencies: libp2p_dep,
-        gnu_symbol_visibility: 'hidden',
-        include_directories: [incdir, include_directories('src/avisynth')],
-        install: true,
-        install_dir: install_dir / 'plugins',
-    )
-endif
-
-# --- libvapoursynthfilters -------------------------------------------------
-# The standard filters ship as a standalone plugin. On x86 it is built in several
-# whole-program ISA variants: every variant still
-# contains the runtime-dispatched AVX2/AVX-512 kernels, but the rest of the plugin is
-# compiled for a progressively higher CPU baseline.
-
-# Cross-platform sources (the kernel/*.{c,cpp} dispatchers carry scalar fallbacks).
-filters_sources = files(
-    'src/core/audiofilters.cpp',
-    'src/core/averageframesfilter.cpp',
-    'src/core/boxblurfilter.cpp',
-    'src/core/coreplugins.cpp',
-    'src/core/cpufeatures.cpp',
-    'src/core/exprfilter.cpp',
-    'src/core/expr/expr.cpp',
-    'src/core/expr/jitcompiler.cpp',
-    'src/core/genericfilters.cpp',
-    'src/core/kernel/cpulevel.cpp',
-    'src/core/kernel/generic.cpp',
-    'src/core/kernel/merge.cpp',
-    'src/core/kernel/planestats.cpp',
-    'src/core/kernel/transpose.cpp',
-    'src/core/lutfilters.cpp',
-    'src/core/mergefilters.cpp',
-    'src/core/reorderfilters.cpp',
-    'src/core/simplefilters.cpp',
-)
-
-if enable_x86_asm
-    # Per-ISA hand-written kernels. They are runtime-dispatched, so even a baseline
-    # build contains them. SSE2 is the x86-64 baseline and rides along with the main
-    # sources; the AVX2/AVX-512 kernels go into their own per-variant static libs.
-    sse2_kernel_sources = files(
-        'src/core/expr/jitcompiler_x86.cpp',
-        'src/core/kernel/x86/convolution_sse2.cpp',
-        'src/core/kernel/x86/generic_sse2.cpp',
-        'src/core/kernel/x86/merge_sse2.cpp',
-        'src/core/kernel/x86/planestats_sse2.cpp',
-        'src/core/kernel/x86/transpose_sse2.cpp',
-    )
-    avx2_kernel_sources = files(
-        'src/core/kernel/x86/convolution_avx2.cpp',
-        'src/core/kernel/x86/generic_avx2.cpp',
-        'src/core/kernel/x86/merge_avx2.cpp',
-        'src/core/kernel/x86/planestats_avx2.cpp',
-    )
-    avx512_kernel_sources = files(
-        'src/core/kernel/x86/convolution_avx512.cpp',
-        'src/core/kernel/x86/generic_avx512.cpp',
-        'src/core/kernel/x86/lut_avx512.cpp',
-        'src/core/kernel/x86/merge_avx512.cpp',
-    )
-
-    # ISA ladder. The effective -march of a translation unit is the HIGHEST of (its
-    # own minimum level, the variant's level).
-    march_levels = {
-        '0': [],             # baseline (generic x86-64, SSE2)
-        '1': [avx2_args],    # AVX2    (x86-64-v3)
-        '2': [avx512_args],  # AVX-512 (x86-64-v4)
-        '3': znver4_args,    # Zen4 whole-program, highest level
-    }
-    avx2_min_level = 1
-    avx512_min_level = 2
-
-    # All variants are always compiled and installed alongside libvapoursynth.
-    # They share the com.vapoursynth.std plugin id; the core picks the one matching
-    # the running CPU and ignores the rest.
-    variants = [
-        { 'name': 'libvapoursynthfilters',        'tag': 'baseline', 'level': 0 },
-        { 'name': 'libvapoursynthfilters_avx2',   'tag': 'avx2',     'level': 1 },
-        { 'name': 'libvapoursynthfilters_zn4',    'tag': 'znver4',   'level': 3 },
-    ]
-
-    foreach v : variants
-        g = v['level']
-        tag = v['tag']
-
-        avx2_level = (avx2_min_level > g) ? avx2_min_level : g
-        avx512_level = (avx512_min_level > g) ? avx512_min_level : g
-
-        vlibs = []
-
-        vlibs += static_library('vsfilters_avx2_' + tag,
-            avx2_kernel_sources,
-            c_args: march_levels[avx2_level.to_string()],
-            cpp_args: march_levels[avx2_level.to_string()],
-            gnu_symbol_visibility: 'hidden',
-            include_directories: incdir,
-        )
-
-        vlibs += static_library('vsfilters_avx512_' + tag,
-            avx512_kernel_sources,
-            c_args: march_levels[avx512_level.to_string()],
-            cpp_args: march_levels[avx512_level.to_string()],
-            gnu_symbol_visibility: 'hidden',
-            include_directories: incdir,
-        )
-
-        shared_module(v['name'],
-            filters_sources + sse2_kernel_sources,
-            c_args: march_levels[g.to_string()],
-            cpp_args: march_levels[g.to_string()],
-            gnu_symbol_visibility: 'hidden',
-            include_directories: incdir,
-            link_with: vlibs,
-            name_prefix: '',
-            install: true,
-            install_dir: install_dir,
-        )
-    endforeach
-else
-    shared_module('libvapoursynthfilters',
-        filters_sources,
-        gnu_symbol_visibility: 'hidden',
-        include_directories: incdir,
-        name_prefix: '',
-        install: true,
-        install_dir: install_dir,
-    )
-endif
-
-install_subdir(
-    'include',
-    exclude_directories: 'cython',
-    exclude_files: ['VapourSynth.h', 'VSHelper.h'],
-    install_dir: install_dir,
-)
+libdir = get_option('libdir')
+includedir = get_option('includedir')
 
 pc_data = configuration_data()
 pc_data.set('version', meson.project_version())
+pc_data.set('prefix', get_option('prefix'))
+pc_data.set('libdir', get_option('prefix') / libdir)
+pc_data.set('includedir', get_option('prefix') / includedir)
+
 configure_file(
     configuration: pc_data,
     input: 'vapoursynth.pc.in',
     install: true,
-    install_dir: install_dir / 'pkgconfig',
+    install_dir: libdir / 'pkgconfig',
     output: 'vapoursynth.pc',
 )
