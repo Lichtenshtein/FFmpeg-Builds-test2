@@ -133,6 +133,10 @@ EOF
     # Cut out the vspipe build, as it depends on vsscript_dep, which pulls in py_dep
     sed -i "/executable('vspipe'/,/^)/c # Cut by cross-assembler" meson.build
 
+    log_info "Patching meson.build to force static compilation for filters..."
+    sed -i "s/shared_module(v\['name'\]/static_library(v\['name'\]/g" meson.build
+    sed -i "s/shared_module('libvapoursynthfilters'/static_library('libvapoursynthfilters'/g" meson.build
+
     # Clearing system paths so Meson doesn't see Linux headers
     export PKG_CONFIG_LIBDIR="${CUR_DIR}/fake_pkgconfig"
     export PKG_CONFIG_PATH=""
@@ -144,7 +148,7 @@ EOF
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DVAPOURSYNTH_STATIC"
 
-    mkdir -p build && cd build
+    mkdir -p build "$INSTALL_ROOT"/{lib/pkgconfig,include/vapoursynth} && cd build
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
@@ -176,12 +180,19 @@ EOF
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Fixing Headers Installation
+    log_info "Moving compiled static libraries to correct system directories..."
+    local WRONG_PATH=$(find "$FFBUILD_DESTDIR" -type d -name "vapoursynth" | head -n 1)
+    if [[ -d "$WRONG_PATH" ]]; then
+        find "$WRONG_PATH" -maxdepth 2 -name "*.${lib_ext}" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/lib/" \;
+        find "$WRONG_PATH" -maxdepth 2 -name "*filters*.${lib_ext}" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/lib/" \;
+    fi
+
     log_info "Manually installing headers..."
     mkdir -p "$INSTALL_ROOT/include/vapoursynth"
     cp ${OP_VERB} ../include/VapourSynth4.h "$INSTALL_ROOT/include/vapoursynth/"
     cp ${OP_VERB} ../include/VSScript4.h "$INSTALL_ROOT/include/vapoursynth/"
     cp ${OP_VERB} ../include/VSHelper4.h "$INSTALL_ROOT/include/vapoursynth/" 2>/dev/null || true
+    cp ${OP_VERB} ../include/VSConstants4.h "$INSTALL_ROOT/include/vapoursynth/" 2>/dev/null || true
 
     log_info "Copying Python runtime DLLs and ZIP..."
     mkdir -p "$INSTALL_ROOT/bin"
