@@ -36,24 +36,12 @@ ffbuild_dockerdl() {
     echo "cp ${OP_VERB} temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true"
 
     echo "rm -rf temp_hdrs python_embed.zip python_hdrs.zip"
-
-    local COMPONENT_NAME="vapoursynth"
-    local PATCHES_DIR="${PATCHES_DIR}"
-    local CUSTOM_MESON_BUILD="${PATCHES_DIR}/${COMPONENT_NAME}/meson.build"
-
-    if [[ -f "$CUSTOM_MESON_BUILD" ]]; then
-        log_info "Replacing meson.build with custom version from patches..."
-        echo "cp -rf${OP_V} '$CUSTOM_MESON_BUILD' './meson.build'"
-    else
-        log_warn "Custom meson.build not found at $CUSTOM_MESON_BUILD. Using default."
-    fi
 }
 
 ffbuild_dockerbuild() {
     set -e
 
     local VER_FULL="${VER_FULL:-78}"
-
     local CUR_DIR=$(pwd)
 
     # Fix Windows.h registry
@@ -84,6 +72,7 @@ ffbuild_dockerbuild() {
 #endif
 EOF
 
+    # Generate a fake pkg-config file for the Python target
     mkdir -p fake_pkgconfig
     cat <<EOF > fake_pkgconfig/python3.pc
 prefix=${CUR_DIR}/python_win
@@ -99,6 +88,7 @@ EOF
 
     ln -sf python3.pc fake_pkgconfig/python-${PY_VER}.pc
 
+    # Meson cross-file for Python (Target)
     cat <<EOF > python_fix.ini
 [binaries]
 pkg-config = '${PKG_CONFIG}'
@@ -115,6 +105,19 @@ cpp_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
 c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
 EOF
+
+    # Meson Native File (Host). Tells Meson to use Linux Python and Cython.
+    cat <<EOF > native.meson
+[binaries]
+python = '/usr/bin/python3'
+cython = '/usr/local/bin/cython'
+EOF
+
+    # Replace the custom run_command call with a static variable
+    sed -i "s/vs_current_release = run_command.*/vs_current_release = '${VER_FULL}'/g" meson.build
+    # cut out the lines of parsing of this command, which are no longer needed
+    sed -i "/_current_release/ {n;d;}" meson.build
+    sed -i "/_current_release/ {n;d;}" meson.build
 
     # Clearing system paths so Meson doesn't see Linux headers
     export PKG_CONFIG_LIBDIR="${CUR_DIR}/fake_pkgconfig"
@@ -133,18 +136,15 @@ EOF
         --prefix="$FFBUILD_PREFIX"
         --cross-file="$FFBUILD_MESON_CROSS"
         --cross-file ../python_fix.ini
+        --native-file ../native.meson
         --buildtype release
         --default-library $([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Db_lto=$([ "${USE_LTO}" == "1" ] && echo true || echo false)
-        -Dcpp_std=gnu++17 # -std=gnu++20 crashes
-        -Dc_std=gnu17
-        # -Denable_vsscript=true
-        # -Denable_vspipe=false
+        -Dcpp_std=gnu++20
+        -Dc_std=gnu11
         -Denable_x86_asm=true
-        # -Denable_core=true
-        -Dpython.platlibdir="${CUR_DIR}/python_win"
-        -Dpython.purelibdir="${CUR_DIR}/python_win"
-        # -Denable_python_module=false
+        -Dpython.platlibdir="${FFBUILD_PREFIX}/lib/python${PY_VER}/site-packages"
+        -Dpython.purelibdir="${FFBUILD_PREFIX}/lib/python${PY_VER}/site-packages"
         -Dpython.install_env=auto
         -Dpython.bytecompile=0
     )
@@ -154,8 +154,8 @@ EOF
     unset CPLUS_INCLUDE_PATH
 
     meson setup "${myconf[@]}" .. \
-        -Dc_args="${CFLAGS/-std=gnu17/} $CPPFLAGS ${USELTO}${USELTO_C} $FIX_FLAGS $static_flags" \
-        -Dcpp_args="${CXXFLAGS/-std=gnu++20/} $CPPFLAGS ${USELTO}${USELTO_C} $FIX_FLAGS $static_flags" \
+        -Dc_args="${CFLAGS} $CPPFLAGS ${USELTO}${USELTO_C} $FIX_FLAGS $static_flags" \
+        -Dcpp_args="${CXXFLAGS} $CPPFLAGS ${USELTO}${USELTO_C} $FIX_FLAGS $static_flags" \
         -Dc_link_args="$LDFLAGS ${USELTO}${USELTO_L}" \
         -Dcpp_link_args="$LDFLAGS ${USELTO}${USELTO_L}" || return 1
 
@@ -170,10 +170,7 @@ EOF
     cp ${OP_VERB} ../include/VSHelper4.h "$INSTALL_ROOT/include/vapoursynth/" 2>/dev/null || true
 
     log_info "Copying Python runtime DLLs and ZIP..."
-    # Copy the DLL and Python runtime
     mkdir -p "$INSTALL_ROOT/bin"
-
-    # look for the DLL and ZIP in the python_win root, since the embed version does not have a bin folder
     find ../python_win -maxdepth 2 -name "*.dll" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \;
     find ../python_win -maxdepth 2 -name "python3*.zip" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \;
     find ../python_win -maxdepth 2 -name "*.pyd" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \; 2>/dev/null || true

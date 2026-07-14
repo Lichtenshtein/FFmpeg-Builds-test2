@@ -6,7 +6,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '44-rav1e'
+        default: '08-zlib|15-openblas|40-zimg|44-rav1e|64-soundtouch|80-avisynth|83-vapoursynth|84-nnedi3'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
