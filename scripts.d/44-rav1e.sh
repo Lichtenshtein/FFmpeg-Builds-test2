@@ -30,39 +30,6 @@ ffbuild_dockerbuild() {
         fi
     fi
 
-    # Fixing the issue with libgit2-sys: Disabling the use of the system libgit2
-    unset PKG_CONFIG_LIBDIR
-    export LIBGIT2_NO_PKG_CONFIG=1
-    export LIBSSH2_SYS_USE_PKG_CONFIG=1
-
-    # Cargo uses different variables for Host and Target when cross-compiling.
-    # Convert x86_64-pc-windows-gnu to X86_64_PC_WINDOWS_GNU
-    local RTARCH="${FFBUILD_RUST_TARGET//-/_}"
-    RTARCH="${RTARCH^^}"
-
-    # Force the compiler to be used for the TARGET
-    export "CC_${RTARCH}"="${CC}"
-    export "CXX_${RTARCH}"="${CXX}"
-    export "AR_${RTARCH}"="${AR}"
-    export "RANLIB_${RTARCH}"="${RANLIB}"
-
-    # Flags for TARGET
-    export "CFLAGS_${RTARCH}"="$CFLAGS $BASE_CPPFLAGS"
-    export "CXXFLAGS_${RTARCH}"="$CXXFLAGS $BASE_CPPFLAGS"
-    export "LDFLAGS_${RTARCH}"="$HOST_LDFLAGS"
-
-    # Setting up for a hosted build
-    # Using the standard GCC image, without any extra inclusions
-    export CC_host="gcc"
-    export LD_host="${HOST_LD}"
-    export CFLAGS_host="$HOST_CFLAGS"
-    export CXXFLAGS_host="$HOST_CXXFLAGS"
-    export LDFLAGS_host="$HOST_LDFLAGS"
-
-    # Reset shared variables so Cargo uses
-    # the standard system GCC to build its internal utilities (build.rs)
-    unset CC CXX AS AR RANLIB LD CFLAGS CXXFLAGS LDFLAGS CPPFLAGS
-
     # Force dependencies to be updated to avoid bugs in older versions of cc-rs
     cargo update -p cc
 
@@ -84,7 +51,23 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    cargo cinstall $CARGO_V "${myconf[@]}" || return 1
+    env \
+      "CC_${RTARCH}=${CC}" \
+      "CXX_${RTARCH}=${CXX}" \
+      "AR_${RTARCH}=${AR}" \
+      "RANLIB_${RTARCH}=${RANLIB}" \
+      "CFLAGS_${RTARCH}=$CFLAGS $BASE_CPPFLAGS" \
+      "CXXFLAGS_${RTARCH}=$CXXFLAGS $BASE_CPPFLAGS" \
+      "LDFLAGS_${RTARCH}=$HOST_LDFLAGS" \
+      "CARGO_TARGET_${RTARCH}_RUSTFLAGS=${RUSTFLAGS}" \
+      CC_host="gcc" \
+      LD_host="${HOST_LD}" \
+      CFLAGS_host="$HOST_CFLAGS" \
+      CXXFLAGS_host="$HOST_CXXFLAGS" \
+      LDFLAGS_host="$HOST_LDFLAGS" \
+      LIBGIT2_NO_PKG_CONFIG=1 \
+      LIBSSH2_SYS_USE_PKG_CONFIG=1 \
+      cargo cinstall $CARGO_V "${myconf[@]}" || return 1
 
     chmod 644 "${INSTALL_ROOT}"/lib/*rav1e* || true
 }

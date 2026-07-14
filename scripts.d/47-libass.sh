@@ -1,11 +1,14 @@
 #!/bin/bash
 
-# SCRIPT_REPO="https://github.com/libass/libass.git"
-# SCRIPT_COMMIT="fadc390583f24eb5cf98f16925fd3adee50bca88"
-
 SCRIPT_REPO="https://github.com/amanosatosi/libassmod.git"
-SCRIPT_COMMIT="54e05315014b8430d3a187d65500f1ee07553dc6"
+SCRIPT_COMMIT="9c8aa3ebc7499f033b6939aa4d315b97e6b872f8"
 SCRIPT_BRANCH="mangetsu"
+
+# SCRIPT_REPO3="https://github.com/libass/libass.git"
+# SCRIPT_COMMIT3="fadc390583f24eb5cf98f16925fd3adee50bca88"
+
+# SCRIPT_REPO2="https://github.com/edde746/libass.git"
+# SCRIPT_COMMIT2="76cdb2bc174828aac74a458d38a0786cb7af922d"
 
 ffbuild_depends() {
     echo base

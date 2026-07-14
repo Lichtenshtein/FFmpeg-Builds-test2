@@ -43,7 +43,7 @@ export LOGS_MARK='📝'
 export STAT_MARK='📊'
 export TEST_MARK='🧪'
 
-# Функции для логирования пишут в stderr (>&2)
+# Logging functions write to stderr (>&2)
 log_info()  { echo -e "${LOG_INFO}[INFO]${NC}  $*" >&2; }
 log_warn()  { echo -e "${LOG_WARN}[WARN]${NC}  ${XCLAM_MARK} $*" >&2; }
 log_error() { echo -e "${LOG_ERROR}[ERROR]${NC} ${CROSS_MARK} $*" >&2; }
@@ -222,7 +222,7 @@ if [[ "${USE_WINE:-0}" = "1" ]]; then
     export WINEDLLOVERRIDES="mscoree,mshtml="
 fi
 
-# Заставляет glibc выводить подробный бэктрейс в stderr при срабатывании fortify/overflow
+# Forces glibc to print a verbose backtrace to stderr when fortify/overflow is triggered
 export LIBC_FATAL_STDERR_=1
 
 export LOG_RAW_SYMB="${LOG_RAW_SYMB:-20}" # number of lines displaying external library deps
@@ -256,62 +256,56 @@ unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS RUSTFLAGS LIBS
 # Tip: RUST may use -C lto=thin
 # Tip: add -Wa,-mbig-obj to cflags to accept non-PE-COFF file format
 should_apply_lto() {
-    # Если глобальный флаг LTO выключен, оптимизация не применяется
+    # If the global LTO flag is turned off, no optimization is applied
     [[ "$USE_LTO" != "1" ]] && return 1
 
-    # Если это точно финальный билд FFmpeg — LTO разрешен
+    # If this is definitely the final build of FFmpeg - LTO is allowed
     [[ "$FFMPEG_BUILD_STAGE" == "1" ]] && return 0
 
-    # Если имя стадии не определено ниже или вообще
+    # If the stage name is not defined below or at all
     [[ -z "$STAGENAME" ]] && return 1
 
-    # ========================================
-    # ЧЕРНЫЙ СПИСОК (Blacklist): LTO запрещён
-    # ========================================
-    # Библиотеки, которые ломают таблицы символов линкера
+    # Blacklist: LTO is prohibited for libraries that break linker symbol tables
     case "$STAGENAME" in
         *"libicu"|*"glib2"|*"libxml2"|*"libiconv"|*"gettext"|*"bzlib"|*"xz"|*"zstd"|*"libffi"|*"pcre2"|*"openssl"|*"libssh"|*"curl"|*"libtensorflow"|*"libtorch"|*"librsvg"|*"cairo"|*"pango"|*"spirv-cross"|*"shaderc"|*"spirv-tools"|*"glslang"|*"openmpt"|*"cryptopp"|*"kvazaar")
             return 1
             ;;
     esac
 
-    # ========================================
-    # БЕЛОЙ СПИСОК (WHITELIST): LTO разрешен
-    # ========================================
-    # LTO включится ТОЛЬКО для этих библиотек.
+    # WHITELIST: LTO will ONLY be enabled for these libraries.
     case "$STAGENAME" in
-        # Основные либы
+        # Basic libs
         *"mingw"|*"zlib"|*"tbbmalloc"|*"fftw3"|*"freeglut"|*"openblas")
             return 0
             ;;
-        # Основные тяжелые видеокодеки
+        # Major heavy video codecs
         *"rav1e"|*"aom"|*"lcevcdec"|*"libtheora"|*"libvpx"|*"openapv"|*"openh264"|*"svthevc"|*"svtvp9"|*"vvdec"|*"vvenc"|*"x264"|*"x265"|*"xeve"|*"xevd"|*"dav1d"|*"dav2d")
             return 0
             ;;
-        # Аудиокодеки и обработка звука
+        # Audio codecs and audio processing
         *"libogg"|*"bs2b"|*"chromaprint"|*"libmysofa"|*"libsamplerate"|*"soundtouch"|*"soxr"|*"speex"|*"rubberband"|*"libmpg123"|*"audiotoolbox"|*"fdk-aac"|*"ilbc"|*"lc3"|*"libcelt"|*"libcodec2"|*"libgsm"|*"libmad"|*"libmp3lame"|*"libmpeghdec"|*"libopus"|*"mp3shine"|*"mpeghe"|*"opencore-amr"|*"twolame"|*"vo-amrwb"|*"gme"|*"modplug")
             return 0
             ;;
-        # Ключевые графические фильтры высокого уровня
+        # Key High Level Graphics Filters
         *"zimg"|*"libtesseract"|*"leptonica"|*"libplacebo"|*"opencl"|*"openvino"|*"opencv"|*"nnedi3"|*"whisper"|*"vapoursynth")
             return 0
             ;;
-        # легковесные кодеки
+        # lightweight codecs
         *"giflib"|*"spng"|*"libjpeg-turbo"|*"libpng"|*"libtiff"|*"openjpeg"|*"svtjpegxs"|*"libwebp"|*"libavif"|*"libjxl")
             return 0
             ;;
-        # прочее
+        # other
         *"cdio"|*"cdiowpar"|*"cddb"|*"lensfun"|*"libaribb24"|*"libaribcaption"|*"libass"|*"zvbi"|*"qrencode"|*"quirc"|*"amf"|*"libklvanc"|*"vidstab"|*"libcaca"|*"libudfread"|*"libdvdcss"|*"libdvdread"|*"libdvdnav"|*"libbluray"|*"libomnidrive")
             return 0
             ;;
-        # Все остальные компоненты собираются БЕЗ LTO
+        # All other components are assembled WITHOUT LTO
         *)
             return 1
             ;;
     esac
 
-    # ВАРИАНТ Б: Включить LTO для всего, кроме черного списка.
-    # (Раскомментировать строку ниже, блок Варианта А закомментировать)
+    # OPTION B: Enable LTO for everything except blacklist. 
+    # (Uncomment the line below, comment out the Option A block)
 
     # return 0
 }
@@ -327,16 +321,15 @@ export -f should_apply_lto
 # Tip: use -Wa,-mbig-obj for c(xx)flags if see 'too many sections' and 'file too big'
 # Tip: add -Wl,--whole-archive $LIBS -Wl,--no-whole-archive $OTHER_LIBS in 'Libs:' section in .pc file to incapsulate more libs (voices or other) when using LTO for static builds
 
-
-# Функция для сборки строки RUSTFLAGS из массива
-# Принимает префикс (например "-C link-arg=") и имя массива
+# Function to assemble the string RUSTFLAGS from an array
+# Accepts a prefix (eg "-C link-arg=") and an array name
 to_rust_flags() {
     local prefix="$1"; shift
     printf " ${prefix}%s" "$@"
 }
 export -f to_rust_flags
 
-# Динамически перестраиваем переменные окружения
+# Dynamically rearrange environment variables
 apply_lto_policy() {
     local is_lld=0
     if [[ "${TARGET_LD}" == "lld" || "${TARGET_LD}" == *"ld.lld"* ]]; then
@@ -377,11 +370,11 @@ apply_lto_policy() {
     [[ "$USE_OPENMP" == "1" ]] && \
     export OPENMP_C="-fopenmp " && \
     export OPENMP_LIB="-lgomp "
-    
-    # Флаги санитайзера замедляют работу ffmpeg в 2-3 раза (плохо)
-    # Без части из них ffmpeg не слинкуется, нужно прокидывать и для него (плохо)
-    # -fno-sanitize-recover=all при малейшей ошибке в fdk-aac FFmpeg мгновенно завершит работу без шанса на продолжение (плохо)
-    # если оставить только -fsanitize=undefined (UBSan), то это даёт гораздо меньше оверхеда, чем address. Но это все равно замедляет работу, хоть и не в 3 раза (плохо)
+
+    # Sanitizer flags slow down ffmpeg by 2-3 times (bad) 
+    # Without some of them, ffmpeg will not link, you need to forward it for it too (bad) 
+    # -fno-sanitize-recover=all at the slightest error in fdk-aac FFmpeg will immediately exit without a chance to continue (bad) 
+    # if you leave only -fsanitize=undefined (UBSan), then this gives much less overhead than address. But it still slows down the work, although not 3 times (bad)
     if [[ "$USE_ASAN" == "1" ]]; then
         local ASAN_CFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
         local ASAN_CXXFLAGS=" -fsanitize=address,undefined -fno-omit-frame-pointer"
@@ -395,25 +388,27 @@ apply_lto_policy() {
         local G_FLAGS="-g1"
         local RUST_STRIP_POLICY="none"
     else
-        # -g0 -fno-var-tracking-assignments - для компилятора GCC/G++: не раздувать отладочную информацию (даже скрытую)
+        # -g0 -fno-var-tracking-assignments: for the GCC/G++ compiler:
+        # Do not inflate debugging information (even hidden ones)
         local G_FLAGS="-g0 -fno-var-tracking-assignments"
         local RUST_STRIP_POLICY="debuginfo"
     fi
 
     local OPT_LEVEL="-O3"
 
-    # Общие и дополнительные либы
+    # General and additional libs
     local SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
     export ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -lntdll -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lkernel32 -lnormaliz -lwsock32 -lcomctl32 -lshell32 -loleaut32 -lmingwex -lgcc_eh -lgcc -ld3d11 -ld3d12 -ldxgi -ldxguid -lmfplat -lmfuuid -lmfreadwrite -lgomp"
 
-    # Флаги для ХОСТА (Linux), которые всегда нужны для нативных сборок
-    # * -Wl,--hash-style=gnu: Создает более быстрые таблицы символов (GNU-style), что ускоряет запуск программы (актуально для инструментов, которые вызываются тысячи раз за сборку).
-    # * -Wl,--strip-all (или просто -s): Удаляет отладочные символы, значительно уменьшая размер бинарника.
-    # * -Wl,--gc-sections: Удаляет неиспользуемый код из бинарника. Работает в паре с -ffunction-sections -fdata-sections в CFLAGS. Полезно, чтобы нативный инструмент был компактным.
-    # * -Wl,-O1: Включает оптимизации самого линковщика (например, сокращение таблиц хешей).
-    # * -Wl,--as-needed: Игнорирует библиотеки, которые были указаны в командной строке, но фактически не используются кодом. Это предотвращает лишние зависимости.
-    # * -Wl,-z,relro -Wl,-z,now: Это «Full RELRO». Аналог --dynamicbase. Делает таблицу функций (GOT) только для чтения, что предотвращает многие эксплойты.
-    # * -Wl,-z,noexecstack: Прямой аналог --nxcompat. Запрещает выполнение кода в стеке.
+    # Flags for HOST (Linux), which are always needed for native builds 
+    # * -Wl,--hash-style=gnu: Creates faster symbol tables (GNU-style), which speeds up program launch (relevant for tools that are called thousands of times per build). 
+    # * -Wl,--strip-all (or just -s): Removes debugging symbols, significantly reducing the size of the binary. 
+    # * -Wl,--gc-sections: Removes unused code from the binary. Works in tandem with -ffunction-sections -fdata-sections in CFLAGS. It is useful for a native tool to be compact. 
+    # * -Wl,-O1: Enables optimizations of the linker itself (for example, reduction of hash tables). 
+    # * -Wl,--as-needed: Ignores libraries that were specified on the command line but are not actually used by the code. This prevents unnecessary dependencies. 
+    # * -Wl,-z,relro -Wl,-z,now: This is “Full RELRO”. Analogous to --dynamicbase. Makes the function table (GOT) read-only, which prevents many exploits. 
+    # * -Wl,-z,noexecstack: Direct analogue of --nxcompat. Prevents code from being executed on the stack.
+    # * -Wl,--no-keep-memory: reread from disk not ram
     local HOST_LINUX_LDFLAGS=(
         "-pipe"
         "-fuse-ld=${HOST_LD}"
@@ -421,13 +416,12 @@ apply_lto_policy() {
         "-Wl,-z,now"
         "-Wl,-z,noexecstack"
         "-Wl,--hash-style=gnu"
-        # "-Wl,--no-keep-memory" # reread from disk not ram
         "-Wl,-O1"
         "-Wl,--as-needed"
     )
     [[ "$PREFER_SHARED" != "1" ]] && HOST_LINUX_LDFLAGS+=( "-Wl,--gc-sections" )
 
-    # Общие настройки Rust; codegen-units = 16 (default)
+    # General Rust settings; codegen-units = 16 (default)
     local COMMON_RUST_OPTS="-C target-cpu=${CPU_ARCH} -C strip=${RUST_STRIP_POLICY} -C codegen-units=1 -C opt-level=3${RUSTLTO}"
 
     export HOST_RUSTFLAGS="${COMMON_RUST_OPTS} $(to_rust_flags "-C link-arg=" "${HOST_LINUX_LDFLAGS[@]}") -C embed-bitcode=yes"
@@ -442,7 +436,7 @@ apply_lto_policy() {
     export CC_LD_FOR_BUILD="${HOST_LD}"
     export CXX_LD_FOR_BUILD="${HOST_LD}"
 
-    # Ветвление по TARGET
+    # Branching by TARGET
     if [[ "$TARGET" == "win64" ]]; then
         export BASE_CFLAGS="-mms-bitfields${STACK_FLAGS} -Wno-attributes"
         export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
@@ -518,7 +512,7 @@ apply_lto_policy() {
         export BASE_CFLAGS="${STACK_FLAGS} -Wno-attributes"
         export BASE_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
-        # Используем Linux-специфичные LDFLAGS
+        # Use Linux-specific LDFLAGS
         local MAIN_LDFLAGS=("${HOST_LINUX_LDFLAGS[@]}")
         MAIN_LDFLAGS+=("-L${FFBUILD_PREFIX}/lib")
 
@@ -738,6 +732,10 @@ else
     export GIT_VERB="--quiet"
 fi
 
+# =================
+# HELPER FUNCTIONS
+# =================
+
 get_stage_hash() {
     local STAGE_PATH="$1"
 
@@ -761,16 +759,8 @@ get_stage_hash() {
 }
 export -f get_stage_hash
 
-# ---------------------------------------------------------------------------
-# Stage-specific variables.
-# These are intentionally NOT set here at source time because $STAGE and
-# $STAGE_HASH are unknown until a specific stage is being processed.
-# Each consumer (dl_functions.sh, run_stage.sh, clean_cache.sh, generate.sh)
-# must derive them locally after setting $STAGE.
-#
 # Helper function — call after we have set $STAGE:
-#   eval "$(stage_vars "$STAGE")"
-# ---------------------------------------------------------------------------
+# eval "$(stage_vars "$STAGE")"
 stage_vars() {
     local stage_path="$1"
     local _hash
@@ -786,12 +776,148 @@ stage_vars() {
 }
 export -f stage_vars
 
-# подставляем пути к библиотекам в зависимости от PREFER_SHARED
+# Substitute paths to libraries depending on PREFER_SHARED state
 export lib_ext=$([ "${PREFER_SHARED}" == "1" ] && echo "dll.a" || echo "a")
 
-# Удаляем ANSI цвета
-# Удаляем переносы строк (заменяем на пробел)
-# xargs схлопнет лишние пробелы в одну строку
+# Script usage: local DEP_LIBS=$(get_pc_libs tesseract lept libarchive libcurl)
+get_pc_libs() {
+    local libs=""
+    for lib in "$@"; do
+        if "${PKG_CONFIG}" --exists "$lib"; then
+            libs="$libs $lib"
+        fi
+    done
+    "${PKG_CONFIG}" --static --libs $libs
+}
+export -f get_pc_libs
+
+# Checks for the presence of a static or dynamic library by its base name
+has_library() {
+    local lib_name="$1"
+    local lib_dir="${FFBUILD_PREFIX}/lib"
+    if [ -e "${lib_dir}/lib${lib_name}.a" ] || \
+       [ -e "${lib_dir}/lib${lib_name}.dll" ] || \
+       [ -e "${lib_dir}/lib${lib_name}.dll.a" ] || \
+       compgen -G "${lib_dir}/lib${lib_name}.so*" >/dev/null 2>&1; then
+        return 0
+    fi
+    return 1
+}
+export -f has_library
+
+# Function for cleaning files with logging
+# Arguments: 1 - description (for the log), 2 - search conditions (find expression)
+clean_unwanted_libs() {
+    local label="$1"
+    local find_expr="$2"
+    local DELETED_FILES
+
+    # Perform deletion and grab the list
+    DELETED_FILES=$(eval "find \"$INSTALL_ROOT\" -type f $find_expr -print -delete 2>/dev/null" | sed "s|$FFBUILD_DESTDIR||g")
+
+    if [[ -n "$DELETED_FILES" ]]; then
+        log_debug "${BROOM_MARK} Removing $label for ${STAGENAME}:\n$DELETED_FILES"
+    else
+        log_info "${CHECK_MARK} No unwanted $label found."
+    fi
+}
+export -f clean_unwanted_libs
+
+# Generates .a files from .dll files for dynamic libraries we want to link.
+# Typically called for components in DLL_PRESERVE_LIST
+generate_implibs() {
+    local target_dir="${1:-$INSTALL_ROOT}"
+    [[ ! -d "$target_dir" ]] && return 0
+
+    log_info "${TARGET_MARK} Generating clean import libraries for DLLs..."
+
+    find "$target_dir" -name "*.dll" -type f | while read -r dll_file; do
+        local dll_name=$(basename "$dll_file")
+        local base_name="${dll_name%.dll}"
+        if [[ "$base_name" == lib* ]]; then
+            base_name="${base_name#lib}"
+        fi
+        local lib_name="lib${base_name}.a"
+        local dll_dir=$(dirname "$dll_file")
+
+        local lib_out_dir="$dll_dir"
+        [[ "$dll_dir" == *"/bin" ]] && lib_out_dir="${dll_dir%/bin}/lib"
+        mkdir -p "$lib_out_dir"
+
+        local out_lib="$lib_out_dir/$lib_name"
+
+        # Exceptions
+        if [[ "$dll_name" == "tensorflow.dll" ]]; then
+            log_info "${CACHE_MARK} Using pre-packaged MSVC import lib for tensorflow.dll"
+            continue
+        fi
+
+        if [[ -f "$out_lib" ]]; then
+            # List of stages where we ALWAYS force imports to be rebuilt
+            if [[ "$dll_name" == "openvino.dll" || "$dll_name" == "openvino_c.dll" || "$STAGENAME" == *"opencv"* ]]; then
+                log_warn "Forcing regeneration of $lib_name for MinGW compatibility..."
+                rm -f "$out_lib"
+            else
+                local current_size=$(stat -c%s "$out_lib" 2>/dev/null)
+                if [[ $current_size -gt 4096 ]]; then
+                    log_debug "${CACHE_MARK} Skipping: A valid import for $dll_name already exists"
+                    continue
+                fi
+            fi
+        fi
+
+        log_debug "${BUILD_MARK} Creating import lib for $dll_name"
+
+        local tmp_build=$(mktemp -d)
+        cp "$dll_file" "$tmp_build/"
+        pushd "$tmp_build" > /dev/null
+
+        local def_file="${base_name}.def"
+        echo "EXPORTS" > "$def_file"
+
+        # Try to use the official gendef (for PE32+)
+        if command -v gendef &>/dev/null; then
+            gendef - "$dll_name" 2>/dev/null | grep -v '^;' >> "$def_file"
+        else
+            # If there is no gendef, parse objdump using grep -o
+            # Pull out the words at the very end of the lines of the Export Table section.
+            # The pattern covers C, C++ GCC (_Z) and C++ MSVC (?).
+            objdump -p "$dll_name" 2>/dev/null | \
+            sed -n '/\[Ordinal\/Name Pointer\] Table/,/^$/p' | \
+            grep -oE '[A-Za-z0-9_?@$]+$' | \
+            grep -vE '^[0-9]+$' | sort -u >> "$def_file"
+        fi
+
+        # Strict flags for 64-bit Windows environment
+        # -k (--kill-at) protects C++ mangling from damage by the dlltool utility
+        local DLLTOOL_FLAGS="-m i386:x86-64 --as-flags=--64 -k"
+
+        if $DLLTOOL ${DLLTOOL_FLAGS} -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
+            local size=$(stat -c%s "$lib_name" 2>/dev/null)
+            if [[ $size -gt 1024 && $size -lt 52428800 ]]; then
+                cp "$lib_name" "$out_lib"
+                log_info "${CHECK_MARK} Successfully created Win64 import: $out_lib"
+            else
+                log_warn "The generated import file is invalid in size. Deleting."
+                rm -f "$lib_name"
+            fi
+        else
+            log_error "dlltool failed with error for $dll_name"
+        fi
+
+        popd > /dev/null
+        rm -rf "$tmp_build"
+    done
+}
+export -f generate_implibs
+
+# ===================
+# FLAG DEDUPLICATORS
+# ===================
+
+# Remove ANSI colors
+# Remove line breaks (replace with spaces)
+# xargs will collapse extra spaces into one line
 clean_val() {
     echo "$*" | \
         sed -r "s/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]//g" | \
@@ -832,13 +958,14 @@ smart_dedupe() {
 smart_libs_dedupe() {
     local input=$(clean_val "$*")
     [[ -z "$input" ]] && return
-    # Специфичная чистка для библиотек
-    # унифицируем pthread: заменяем -lpthread на -pthread
-    # чистим мусор и ПУТИ, убираем -lstdc++
+    # Specific cleaning for libraries 
+    # unify pthread: replace -lpthread with -pthread 
+    # clean garbage and PATH, remove -lstdc++
+    # Remove -Wl flags
     local filtered=$(echo "$input" | tr ' ' '\n' | \
         grep -vE "^-L|^-lstdc\+\+$|^-Wl,--(start|end)-group$|^-Wl,--(no-)?as-needed$" | \
         sed 's/^-lpthread$/-pthread/')
-    # склеиваем в одну строку без удаления дублей?
+    # Merge into one line without removing duplicates?
     if [[ "$DEDUPE_FLAGS" == "1" ]]; then
         dedupe_logic "$filtered" "last" | tr '\n' ' ' | xargs -r
     else
@@ -846,32 +973,6 @@ smart_libs_dedupe() {
     fi
 }
 export -f clean_val dedupe_logic smart_dedupe smart_libs_dedupe
-
-ffbuild_dockerdl() {
-    [[ -n "$SCRIPT_REPO" ]] && default_dl .
-}
-
-# These are DEFAULT implementations component scripts override them.
-# Each prints its contribution to stdout. run_stage.sh owns accumulation.
-# собирают флаги от всех скриптов в scripts.d для финального ./configure
-ffbuild_enabled()      { return 0; }
-ffbuild_depends()      { echo "base"; }
-ffbuild_configure()    { return 0; }
-ffbuild_cflags()       { return 0; }
-ffbuild_cppflags()     { return 0; }
-ffbuild_cxxflags()     { return 0; }
-ffbuild_ldflags()      { return 0; }
-ffbuild_ldexeflags()   { return 0; }
-ffbuild_libs()         { return 0; }
-ffbuild_uncflags()     { return 0; }
-ffbuild_unconfigure()  { return 0; }
-ffbuild_uncxxflags()   { return 0; }
-ffbuild_unldexeflags() { return 0; }
-ffbuild_unldflags()    { return 0; }
-ffbuild_unlibs()       { return 0; }
-
-# Экспортируем функции, чтобы они были доступны внутри run_stage и других подпроцессов
-export -f ffbuild_enabled ffbuild_depends ffbuild_configure ffbuild_cflags ffbuild_cppflags ffbuild_cxxflags ffbuild_ldflags ffbuild_ldexeflags ffbuild_libs ffbuild_unconfigure ffbuild_uncflags ffbuild_uncxxflags ffbuild_unldexeflags ffbuild_unldflags ffbuild_unlibs
 
 # ==============================
 # PKG-CONFIG CORRECTION POLICY
@@ -1421,124 +1522,6 @@ get_deps_list() {
     rm -f "$tmp_out"
 }
 export -f get_deps_list
-
-# Function for cleaning files with logging
-# Arguments: 1 - description (for the log), 2 - search conditions (find expression)
-clean_unwanted_libs() {
-    local label="$1"
-    local find_expr="$2"
-    local DELETED_FILES
-
-    # Выполняем удаление и захватываем список
-    DELETED_FILES=$(eval "find \"$INSTALL_ROOT\" -type f $find_expr -print -delete 2>/dev/null" | sed "s|$FFBUILD_DESTDIR||g")
-
-    if [[ -n "$DELETED_FILES" ]]; then
-        log_debug "${BROOM_MARK} Removing $label for ${STAGENAME}:\n$DELETED_FILES"
-    else
-        log_info "${CHECK_MARK} No unwanted $label found."
-    fi
-}
-export -f clean_unwanted_libs
-
-# Использование в скрипте: local DEP_LIBS=$(get_pc_libs tesseract lept libarchive libcurl)
-get_pc_libs() {
-    local libs=""
-    for lib in "$@"; do
-        if "${PKG_CONFIG}" --exists "$lib"; then
-            libs="$libs $lib"
-        fi
-    done
-    "${PKG_CONFIG}" --static --libs $libs
-}
-export -f get_pc_libs
-
-# Generates .a files from .dll files for dynamic libraries we want to link.
-# Typically called for components in DLL_PRESERVE_LIST
-generate_implibs() {
-    local target_dir="${1:-$INSTALL_ROOT}"
-    [[ ! -d "$target_dir" ]] && return 0
-
-    log_info "${TARGET_MARK} Generating clean import libraries for DLLs..."
-
-    find "$target_dir" -name "*.dll" -type f | while read -r dll_file; do
-        local dll_name=$(basename "$dll_file")
-        local base_name="${dll_name%.dll}"
-        if [[ "$base_name" == lib* ]]; then
-            base_name="${base_name#lib}"
-        fi
-        local lib_name="lib${base_name}.a"
-        local dll_dir=$(dirname "$dll_file")
-
-        local lib_out_dir="$dll_dir"
-        [[ "$dll_dir" == *"/bin" ]] && lib_out_dir="${dll_dir%/bin}/lib"
-        mkdir -p "$lib_out_dir"
-
-        local out_lib="$lib_out_dir/$lib_name"
-
-        # исключения
-        if [[ "$dll_name" == "tensorflow.dll" ]]; then
-            log_info "${CACHE_MARK} Using pre-packaged MSVC import lib for tensorflow.dll"
-            continue
-        fi
-
-        if [[ -f "$out_lib" ]]; then
-            # Список стадий, где мы ВСЕГДА принудительно пересобираем импорт
-            if [[ "$dll_name" == "openvino.dll" || "$dll_name" == "openvino_c.dll" || "$STAGENAME" == *"opencv"* ]]; then
-                log_warn "Forcing regeneration of $lib_name for MinGW compatibility..."
-                rm -f "$out_lib"
-            else
-                local current_size=$(stat -c%s "$out_lib" 2>/dev/null)
-                if [[ $current_size -gt 4096 ]]; then
-                    log_debug "${CACHE_MARK} Skipping: A valid import for $dll_name already exists"
-                    continue
-                fi
-            fi
-        fi
-
-        log_debug "${BUILD_MARK} Creating import lib for $dll_name"
-
-        local tmp_build=$(mktemp -d)
-        cp "$dll_file" "$tmp_build/"
-        pushd "$tmp_build" > /dev/null
-
-        local def_file="${base_name}.def"
-        echo "EXPORTS" > "$def_file"
-
-        # Пытаемся использовать официальный gendef (он идеален для PE32+)
-        if command -v gendef &>/dev/null; then
-            gendef - "$dll_name" 2>/dev/null | grep -v '^;' >> "$def_file"
-        else
-            # Если gendef нет, парсим objdump с помощью grep -o
-            # Выдергиваем слова в самом конце строк секции Export Table.
-            # Паттерн захватывает Си, C++ GCC (_Z) и C++ MSVC (?).
-            objdump -p "$dll_name" 2>/dev/null | \
-            sed -n '/\[Ordinal\/Name Pointer\] Table/,/^$/p' | \
-            grep -oE '[A-Za-z0-9_?@$]+$' | \
-            grep -vE '^[0-9]+$' | sort -u >> "$def_file"
-        fi
-
-        # Строгие флаги для 64-битной Windows среды (целевая архитектура Broadwell/Win64)
-        # -k (--kill-at) защищает C++ манглинг от порчи утилитой dlltool
-        local DLLTOOL_FLAGS="-m i386:x86-64 --as-flags=--64 -k"
-
-        if $DLLTOOL ${DLLTOOL_FLAGS} -d "$def_file" -l "$lib_name" -D "$dll_name" 2>/dev/null; then
-            local size=$(stat -c%s "$lib_name" 2>/dev/null)
-            if [[ $size -gt 1024 && $size -lt 52428800 ]]; then
-                cp "$lib_name" "$out_lib"
-                log_info "${CHECK_MARK} Successfully created Win64 import: $out_lib"
-            else
-                log_warn "The generated import file is invalid in size. Deleting."
-                rm -f "$lib_name"
-            fi
-        else
-            log_error "dlltool failed with error for $dll_name"
-        fi
-
-        popd > /dev/null
-        rm -rf "$tmp_build"
-    done
-}
-export -f generate_implibs
 
 # ======================================
 # LIBTOOL ARCHIVES CLEANUP POLICY (.la)
@@ -2500,34 +2483,20 @@ get_stage_version() {
 }
 export -f get_stage_version
 
-# Проверяет наличие статической или динамической библиотеки по её базовому имени
-has_library() {
-    local lib_name="$1"
-    local lib_dir="${FFBUILD_PREFIX}/lib"
-    if [ -e "${lib_dir}/lib${lib_name}.a" ] || \
-       [ -e "${lib_dir}/lib${lib_name}.dll" ] || \
-       [ -e "${lib_dir}/lib${lib_name}.dll.a" ] || \
-       compgen -G "${lib_dir}/lib${lib_name}.so*" >/dev/null 2>&1; then
-        return 0
-    fi
-    return 1
-}
-export -f has_library
-
 if [[ "${USE_WINE:-0}" = "1" ]]; then
-    # Динамическое определение путей для wine
+    # Dynamically determining paths for wine
     if [ -d "/opt/ct-ng" ]; then
         MINGW_BIN_PATH="/opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/bin"
         if [[ ! -d "$MINGW_BIN_PATH" ]]; then
-            # Фолбэк на быстрый поиск, если путь другой
+            # Fallback to quick search if the path is different
             MINGW_BIN_PATH=$(find /opt/ct-ng -type d -path "*/x86_64-w64-mingw32/bin" -print -quit)
         fi
-        # Если WINEPATH уже задан (например, в предыдущем слое или вызове), пропускаем тяжелые вычисления
+        # If WINEPATH is already set (for example, in a previous layer or call), skip heavy calculations
         if [[ -z "$WINEPATH" ]]; then
             MINGW_BIN_PATH=$(find /opt/ct-ng -maxdepth 5 -type d -name "bin" | grep "x86_64-w64-mingw32/bin" | head -n 1)
     
             if command -v winepath &>/dev/null; then
-                # Выполняем трансляцию путей только один раз
+                # We translate paths only once
                 _p_bin=$(winepath -w "${FFBUILD_PREFIX}/bin" 2>/dev/null | tr -d '\r\n')
                 _p_lib=$(winepath -w "${FFBUILD_PREFIX}/lib" 2>/dev/null | tr -d '\r\n')
                 _m_bin=$(winepath -w "${MINGW_BIN_PATH}" 2>/dev/null | tr -d '\r\n')
@@ -2535,25 +2504,24 @@ if [[ "${USE_WINE:-0}" = "1" ]]; then
                 if [[ -n "$_p_bin" && -n "$_p_lib" ]]; then
                     export WINEPATH="${_p_bin};${_p_lib};${_m_bin}"
                 else
-                    # Fallback для окружений без запущенного Wine (например, генерация на хосте)
+                    # Fallback for environments without Wine running (for example, generation on the host)
                     export WINEPATH="winepath -w ${FFBUILD_PREFIX}/bin:${FFBUILD_PREFIX}/lib:${MINGW_BIN_PATH}"
                 fi
             else
                 export WINEPATH="winepath -w ${FFBUILD_PREFIX}/bin:${FFBUILD_PREFIX}/lib:${MINGW_BIN_PATH}"
             fi
-            # Выводим инфо о WINEPATH только при его создании
+            # Display information about WINEPATH only when it is created
             [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_raw "${DIRS_MARK} WINEPATH (Windows style):" "$WINEPATH"
         fi
     fi
 fi
 
-# Определяем режим работы Wine (берем из ENV или ставим auto по умолчанию)
-# may not work from here because $STAGE is set in run_stage.sh before setup_wine_env is called; might need to be moved to top of run_stage.sh
+# Determine the operating mode of Wine (take it from ENV or set auto by default)
 USE_WINE="${USE_WINE:-1}"
 setup_wine_env() {
-    # Сохраняем текущее состояние set -e
+    # Save the current state set -e
     local errexit_state=$([[ $- =~ e ]] && echo "set -e" || echo "set +e")
-    set +e # Временно отключаем остановку при ошибках
+    set +e # Temporarily disable stopping on errors
 
     # Wine globally disabled
     if [[ "${USE_WINE:-0}" != "1" ]]; then
@@ -2566,7 +2534,7 @@ setup_wine_env() {
     fi
 
     # Scan the stage script for patterns that indicate Wine is needed.
-    # We search for:
+    # Search for:
     #   - explicit wine invocations
     #   - test runner calls that require executing Windows binaries
     #   - direct .exe execution
@@ -2598,7 +2566,7 @@ setup_wine_env() {
     # Start virtual display if not already running
     if ! pgrep -x "Xvfb" > /dev/null 2>&1; then
         log_info "${START_MARK} Initializing Xvfb on :99 for Wine tests..."
-        # Запуск на дисплее 99 без xvfb-run (меньше оверхед)
+        # Run on display 99 without xvfb-run (less overhead)
         ( Xvfb :99 -screen 0 1024x768x16 >/dev/null 2>&1 & )
         local retry=0
         while [[ $retry -lt 50 ]]; do
@@ -2620,6 +2588,31 @@ setup_wine_env() {
     eval "$errexit_state"
 }
 export -f setup_wine_env
+
+ffbuild_dockerdl() {
+    [[ -n "$SCRIPT_REPO" ]] && default_dl .
+}
+
+# These are DEFAULT implementations component scripts override them.
+# Each prints its contribution to stdout. run_stage.sh owns accumulation.
+# Collect flags from all scripts in scripts.d for the final ./configure
+ffbuild_enabled()      { return 0; }
+ffbuild_depends()      { return 0; }
+ffbuild_configure()    { return 0; }
+ffbuild_cflags()       { return 0; }
+ffbuild_cppflags()     { return 0; }
+ffbuild_cxxflags()     { return 0; }
+ffbuild_ldflags()      { return 0; }
+ffbuild_ldexeflags()   { return 0; }
+ffbuild_libs()         { return 0; }
+ffbuild_uncflags()     { return 0; }
+ffbuild_unconfigure()  { return 0; }
+ffbuild_uncxxflags()   { return 0; }
+ffbuild_unldexeflags() { return 0; }
+ffbuild_unldflags()    { return 0; }
+ffbuild_unlibs()       { return 0; }
+
+export -f ffbuild_enabled ffbuild_depends ffbuild_configure ffbuild_cflags ffbuild_cppflags ffbuild_cxxflags ffbuild_ldflags ffbuild_ldexeflags ffbuild_libs ffbuild_unconfigure ffbuild_uncflags ffbuild_uncxxflags ffbuild_unldexeflags ffbuild_unldflags ffbuild_unlibs
 
 # ---------------------------------------------------------------------------
 # Terminal width — used for separators; falls back to 72 if tput unavailable
