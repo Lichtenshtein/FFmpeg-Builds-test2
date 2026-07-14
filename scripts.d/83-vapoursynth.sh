@@ -61,13 +61,17 @@ ffbuild_dockerbuild() {
 #define _WIN64
 #define MS_WINDOWS
 #define Py_ENABLE_SHARED
+
+#define _THREAD_TARGET Windows
+#define NT_THREADS
+#define SIZEOF_PTHREAD_T 0
+
 #define SIZEOF_VOID_P 8
 #define SIZEOF_SIZE_T 8
 #define SIZEOF_LONG 4
 #define SIZEOF_LONG_LONG 8
 #define SIZEOF_WCHAR_T 2
-#define WIN32_THREADS 1
-#define WITH_THREAD 1
+
 #include <patchlevel.h>
 #endif
 EOF
@@ -102,8 +106,8 @@ pkg_config_static = $( [[ "$PREFER_SHARED" == "1" ]] && echo "false" || echo "tr
 [built-in options]
 c_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
 cpp_args = ['-I${CUR_DIR}/python_win/include', '-DMS_WIN64', '-DMS_WINDOWS']
-c_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
-cpp_link_args = ['-L${CUR_DIR}', '-l${PY_LIB}']
+c_link_args = ['-L${CUR_DIR}']
+cpp_link_args = ['-L${CUR_DIR}']
 EOF
 
     # Meson Native File (Host). Tells Meson to use Linux Python and Cython.

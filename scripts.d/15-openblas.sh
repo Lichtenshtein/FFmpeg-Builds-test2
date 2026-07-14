@@ -16,6 +16,10 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    log_info "${BROOM_MARK} Patching CMake scripts to suppress warnings..."
+    find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wunused-function/-Wno-unused-function/g' 2>/dev/null || true
+    find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wunused-variable/-Wno-unused-variable/g' 2>/dev/null || true
+
     mkdir -p build && cd build
 
     local myconf=(
