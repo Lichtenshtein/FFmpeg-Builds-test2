@@ -122,6 +122,8 @@ EOF
 EOF
 
     log_info "Patching meson.build to remove target-Python module compilation..."
+    # Force Meson search for Python through pkg-config and ignore host system
+    sed -i "s/py_dep = py.dependency.*/py_dep = dependency('python3', method: 'pkg-config')/g" meson.build
     # Disable the Cython compiler requirement at the project level to avoid triggering tests
     sed -i "s/project('VapourSynth', 'c', 'cpp', 'cython'/project('VapourSynth', 'c', 'cpp'/g" meson.build
     # Remove the calls to py.extension_module(...) and py.install_sources(...), which crash the build
