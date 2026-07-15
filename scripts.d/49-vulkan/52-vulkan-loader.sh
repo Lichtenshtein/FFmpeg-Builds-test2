@@ -25,7 +25,7 @@ ffbuild_enabled() {
 
 ffbuild_dockerdl() {
     echo "git-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_COMMIT\" ."
-    SCRIPT_BRANCH="" # Сбрасываем, чтобы не мешала первой загрузке
+    SCRIPT_BRANCH="" # Reset it so it doesn't interfere with the first boot
     echo "git-mini-clone \"$SCRIPT_REPO2\" \"$SCRIPT_COMMIT2\" Vulkan-Headers"
 }
 
@@ -52,13 +52,13 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
 if [[ "${PREFER_SHARED}" != "1" ]]; then
-    # Путь к скомпилированной статической библиотеке
+    # Path to the compiled static library
     local TARGET_LIB="${INSTALL_ROOT}/lib/libvulkan-1.a"
 
     if [[ -f "$TARGET_LIB" ]]; then
         log_info "${CHECK_MARK} libvulkan-1.a successfully compiled and installed."
 
-        # Массив функций, которые мы обязаны были прокинуть для lcevc
+        # An array of functions that we have to pass to lcevc
         local LCEVC_CHECK_LIST=(
             "vkGetPhysicalDeviceSurfaceSupportKHR"
             "vkDestroySwapchainKHR"
@@ -73,27 +73,29 @@ if [[ "${PREFER_SHARED}" != "1" ]]; then
         log_info "${SEARCH_MARK} Verifying required KHR extensions for LCEVC inside library..."
         local found_count=0
 
+        local LIB_SYMBOLS=$(${NM} "$TARGET_LIB" | tr -d '\r')
+
         for func in "${LCEVC_CHECK_LIST[@]}"; do
-            # Ищем символ указателя или функции через кросс-компиляторный nm
-            if ${FFBUILD_CROSS_PREFIX}nm "$TARGET_LIB" | grep -q "ptr_${func}"; then
-                log_debug "  ${CHECK_MARK} Found: ${func}"
+            # Search for a pointer or function symbol using cross-compiler nm
+            if echo "$LIB_SYMBOLS" | grep -qE "(\\\$| )ptr_${func}$"; then
+                log_debug "${CHECK_MARK} Found: ${func}"
                 ((found_count++))
             else
-                log_warn "  Missing required function symbol: ${func}"
+                log_warn "Missing required function symbol: ${func}"
             fi
         done
 
-        # Выводим красивый финальный статус сборки патча
+        # We display a nice final build status of the patch
         if [[ $found_count -eq ${#LCEVC_CHECK_LIST[@]} ]]; then
             log_info "${SYNC_MARK} Vulkan-Shim patch verification: SUCCESS (${found_count}/${#LCEVC_CHECK_LIST[@]} extensions active)."
         else
             log_warn "Vulkan-Shim patch verification: PARTIAL ($found_count/${#LCEVC_CHECK_LIST[@]} found). Final linking might fail!"
         fi
 
-        # Если включен глубокий дебаг, вываливаем весь список символов 'vk'
+        # If high vebocity is enabled, dump the entire list of 'vk' symbols
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
             log_debug "${LOGS_MARK} Detailed library symbols dumping:"
-            ${FFBUILD_CROSS_PREFIX}nm "$TARGET_LIB" | grep -i "ptr_vk" || true
+            ${NM} "$TARGET_LIB" | grep -i "ptr_vk" || true
         fi
     else
         log_error "Failed to verify library: libvulkan-1.a not found at ${TARGET_LIB}"

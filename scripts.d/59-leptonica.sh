@@ -27,16 +27,15 @@ ffbuild_dockerbuild() {
     set -e
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # Принудительно отключаем SHARED в самом коде Leptonica
         sed -i 's/SHARED/STATIC/g' src/CMakeLists.txt
     fi
 
-    # Убеждаемся, что она не пытается выставлять суффиксы версий вроде libleptonica-1.88.0.a
+    # make sure it does not try to set version suffixes like libleptonica-1.88.0.a
     log_info "Forcing static library target properties in CMakeLists.txt..."
     sed -i 's/set_target_properties.*PROPERTIES.*OUTPUT_NAME.*//g' src/CMakeLists.txt
 
-    # Временно перемещаем "ядовитые" CMake-конфиги TIFF и других либ,
-    # которые заставляют линкер искать ZLIB::ZLIB
+    # Temporarily moving "poisonous" CMake configs TIFF and other libraries,
+    # which force the linker to look for ZLIB::ZLIB
     local LEPT_BACKUP="/tmp/leptonica_deps_backup"
     mkdir -p "$LEPT_BACKUP"
     local TARGETS=(tiff OpenJPEG libwebp WebP lcms2 TIFF)
@@ -48,7 +47,7 @@ ffbuild_dockerbuild() {
         fi
     done
 
-    # Восстанавливаем cmake файлы
+    # Restoring CMake files
     restore() {
         log_debug "Executing Leptonica backup restoration trap..."
         if [ -d "$LEPT_BACKUP" ] && [ "$(ls -A "$LEPT_BACKUP" 2>/dev/null)" ]; then
@@ -198,14 +197,13 @@ ffbuild_dockerbuild() {
                 return 1
             fi
         fi
-        # симлинк на случай, если Tesseract жестко ищет флаг -llept
+        # symlink in case Tesseract hard-looks for the -llept flag
         ln -sf${OP_V} libleptonica.a "${INSTALL_ROOT}/lib/liblept.a"
     fi
 
-    # Удаляем все автосгенерированные конфиги
+    # Delete all auto-generated configs
     rm -f "$PC_DIR"/lept*.pc
 
-    # Генерируем "чистый" pkg-config файл
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/lept.pc"
 prefix=$FFBUILD_PREFIX
@@ -222,6 +220,8 @@ Libs.private: ${LIBS} -lm
 Cflags: -I\${includedir} -I\${includedir}/leptonica
 EOF
 
-    # Всё равно создаем симлинк, если Tesseract ищет leptonica.pc вместо lept.pc и флаг -DSYM_LINK=ON не сработал
-    ln -sf lept.pc "$PC_DIR/leptonica.pc"
+    # Create a symlink if Tesseract searches for leptonica.pc instead of lept.pc and the -DSYM_LINK=ON flag doesn't work.
+    if [[ ! -f "${PC_DIR}/leptonica.pc" ]]; then
+        ln -sf lept.pc "$PC_DIR/leptonica.pc"
+    fi
 }

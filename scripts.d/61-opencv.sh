@@ -3,6 +3,11 @@
 SCRIPT_REPO="https://github.com/opencv/opencv.git"
 SCRIPT_COMMIT="06574736b35bc3f6682c3e8d52624fcac64532b9"
 
+PY_VER="3.14"
+PY_FULL_VER="3.14.1"
+PY_LIB="python314"
+NUMPY_VER="2.5.1"
+
 ffbuild_depends() {
     echo vulkan-headers
     echo vulkan-loader
@@ -34,6 +39,27 @@ samples doc \
 data/haarcascades_cuda \
 data/vec_files"
 # haarcascades_cuda may need manual installation instead of cleaning if build on linux and cuda SDK is installed
+
+    # Windows Python (embed) for cross-compilation
+    echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}-embed-amd64.zip\" \"python_embed.zip\""
+    # Headers from the official repository
+    echo "download_file \"https://github.com/python/cpython/archive/refs/tags/v${PY_FULL_VER}.zip\" \"python_hdrs.zip\""
+
+    echo "mkdir -p python_win/bin python_win/include/numpy temp_hdrs temp_numpy"
+
+    echo "unzip -qo python_embed.zip -d python_win/bin"
+    echo "unzip -qo python_hdrs.zip -d temp_hdrs"
+    echo "cp -r${OP_V} temp_hdrs/cpython-*/Include/* python_win/include/"
+    echo "cp ${OP_VERB} temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true"
+
+    # numpy
+    echo "download_file \"https://github.com/numpy/numpy/archive/refs/tags/v${NUMPY_VER}/numpy-${NUMPY_VER}.tar.gz\" \"numpy.tar.gz\""
+
+    echo "tar -xzf${OP_V} numpy.tar.gz -C temp_numpy --strip-components=1"
+    # Copy the core C include directory to target layout
+    echo "cp -r${OP_V} temp_numpy/numpy/_core/include/numpy/* python_win/include/numpy/ 2>/dev/null"
+
+    echo "rm -rf temp_hdrs python_embed.zip python_hdrs.zip temp_numpy numpy.tar.gz"
 }
 
 ffbuild_dockerbuild() {
@@ -42,10 +68,8 @@ ffbuild_dockerbuild() {
     log_info "${BROOM_MARK} Patching CMake scripts to suppress warnings..."
     find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wundef/-Wno-undef/g' 2>/dev/null || true
 
-    PYTHON_ROOT=$(python3 -c "import sys; print(sys.prefix)")
-    NUMPY_PATH=$(python3 -c "import numpy; print(numpy.get_include())")
-
-    mkdir -p build && cd build
+    # PYTHON_ROOT=$(python3 -c "import sys; print(sys.prefix)")
+    # NUMPY_PATH=$(python3 -c "import numpy; print(numpy.get_include())")
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -57,6 +81,10 @@ ffbuild_dockerbuild() {
         -DOPENCV_CHECK_COMPILER_FLAGS=OFF
         -DCMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release
         -DCMAKE_POLICY_DEFAULT_CMP0091=NEW
+        -DCMAKE_POLICY_DEFAULT_CMP0219=NEW
+        -DCMAKE_POLICY_DEFAULT_CMP0177=NEW
+        -DCMAKE_POLICY_DEFAULT_CMP0218=NEW
+        -Wno-deprecated
         -DCPU_BASELINE=AVX2
         -DCPU_DISPATCH=AVX2
         -DENABLE_PIC=ON
@@ -79,7 +107,7 @@ ffbuild_dockerbuild() {
         -DBUILD_opencv_python2=OFF
         -DBUILD_opencv_java=OFF
         # installed version of numpy not suitable
-        -DBUILD_opencv_python3=OFF
+        # -DBUILD_opencv_python3=OFF
         # -DPYTHON3_INCLUDE_PATH="$PYTHON_ROOT/include/python3.12"
         # -DPYTHON3_LIBRARIES="$PYTHON_ROOT/lib/libpython3.12.so"
         # -DPYTHON3_NUMPY_INCLUDE_DIRS="$NUMPY_PATH"
@@ -104,6 +132,22 @@ ffbuild_dockerbuild() {
         -DVIDEOIO_ENABLE_PLUGINS=ON
     )
 
+    if [[ -d "python_win" ]]; then
+        log_info "Python for windows is detected..."
+
+        # Generating Python Import Libraries
+        ${GENDEF} python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
+        ${DLLTOOL} -d ${PY_LIB}.def -l lib${PY_LIB}.a -D ${PY_LIB}.dll
+
+        myconf+=(
+            -DBUILD_opencv_python3=ON
+            -DOPENCV_PYTHON_SKIP_DETECTION=ON
+            -DOPENCV_SKIP_PYTHON_LOADER=ON
+            -DPYTHON3_INCLUDE_PATH="$PWD/python_win/include"
+            -DPYTHON3_LIBRARIES="$PWD/lib${PY_LIB}.a"
+            -DPYTHON3_NUMPY_INCLUDE_DIRS="$PWD/python_win/include"
+        )
+    fi
     if has_library "openblas"; then
         log_info "OpenBLAS library detected. Building with OpenBLAS support..."
         myconf+=(
@@ -280,6 +324,8 @@ ffbuild_dockerbuild() {
         # -DCUDA_ARCH_PTX=6.1
         )
     fi
+
+    mkdir -p build && cd build
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0 -DOPENVINO_STATIC_LIBRARY"
@@ -461,24 +507,22 @@ EOF
         sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"
     fi
 
-    if has_library "tiff"; then
-        log_info "Explicitly restoring TIFF CMake files before successful exit..."
-        restore # Call the recovery function manually
+    # if has_library "tiff"; then
+        # log_info "Explicitly restoring TIFF CMake files before successful exit..."
+        # restore # Call the recovery function manually
 
-        # Reset the trap so it doesn't execute again
-        trap - EXIT
+        # trap - EXIT # # Reset the trap so it doesn't execute again
 
-        # File restore check block
-        if [ -d "$FFBUILD_PREFIX/lib/cmake/tiff" ]; then
-            log_info "Verification: $FFBUILD_PREFIX/lib/cmake/tiff directory exists."
-            if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-                log_info "Content of TIFF CMake directory:"
-                ls -lh "$FFBUILD_PREFIX/lib/cmake/tiff/"
-            fi
-        else
-            log_warn "Verification failed: $FFBUILD_PREFIX/lib/cmake/tiff directory was NOT restored!"
-        fi
-    fi
+        # if [ -d "$FFBUILD_PREFIX/lib/cmake/tiff" ]; then
+            # log_info "Verification: $FFBUILD_PREFIX/lib/cmake/tiff directory exists."
+            # if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+                # log_info "Content of TIFF CMake directory:"
+                # ls -lh "$FFBUILD_PREFIX/lib/cmake/tiff/"
+            # fi
+        # else
+            # log_warn "Verification failed: $FFBUILD_PREFIX/lib/cmake/tiff directory was NOT restored!"
+        # fi
+    # fi
 
     return 0
 }

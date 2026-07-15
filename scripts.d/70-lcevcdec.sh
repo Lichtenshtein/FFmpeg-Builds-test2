@@ -71,7 +71,9 @@ if [[ "${myconf[@]}" =~ "-DVN_SDK_PIPELINE_VULKAN=ON" ]]; then
             # We are looking for a critical function required for the LCEVC Vulkan Pipeline to work
             log_info "${SEARCH_MARK} Checking libvulkan-1.a for KHR WSI extensions..."
 
-            if ! "${FFBUILD_CROSS_PREFIX}nm" "$TARGET_SHIM_LIB" | grep -q "vkCreateSwapchainKHR"; then
+            local LIB_SYMBOLS=$("${NM}" "$TARGET_SHIM_LIB" | tr -d '\r')
+
+            if ! echo "$LIB_SYMBOLS" | grep -qE "(\\\$| )ptr_vkCreateSwapchainKHR$"; then
 
                 log_warn "Critical KHR symbols not found in stub! Generating a native proxy for Vulkan KHR functions..."
 
@@ -140,34 +142,15 @@ EOF
 fi
 # ==============================================================================
 
-    # if [[ "${myconf[@]}" =~ "-DVN_SDK_PIPELINE_LEGACY=ON" ]]; then
-        # local SDK_PIPELINE_LEGACY="-llcevc_dec_legacy"
-    # fi
-
-    # local PC_FILE="$PC_DIR/lcevc_dec.pc"
-    # cat <<EOF > "$PC_FILE"
-# prefix=$FFBUILD_PREFIX
-# exec_prefix=\${prefix}
-# libdir=\${prefix}/lib
-# includedir=\${prefix}/include
-
-# Name: lcevc_dec
-# Description: LCEVC Decoder SDK (Static Combined)
-# Version: ${VER_FULL}
-# Libs: -L\${libdir} -llcevc_dec_api -llcevc_dec_api_utility -llcevc_dec_common -llcevc_dec_enhancement -llcevc_dec_extract $SDK_PIPELINE_LEGACY -llcevc_dec_overlay_images -llcevc_dec_pipeline -llcevc_dec_pipeline_cpu -llcevc_dec_pipeline_legacy -llcevc_dec_pipeline_vulkan -llcevc_dec_pixel_processing -llcevc_dec_sequencer
-# Libs.private: -lstdc++ -lm
-# Cflags: -I\${includedir} -I\${includedir}/LCEVC -DVNEnablePublicAPIExport
-# EOF
-
     local PC_FILE="$PC_DIR/lcevc_dec.pc"
     if [[ -f "$PC_FILE" ]]; then
         sed -i 's|^Libs.private:.*|& -llcevc_dec_extract|' "$PC_FILE"
         sed -i "s|^Cflags:.*|& -I\${includedir}/LCEVC|" "$PC_FILE"
 
-        # Вырезаем glfw3 из строки Requires.private
+        # Remove glfw3 from the Requires.private line.
         sed -i 's/glfw3//g' "$PC_FILE"
 
-        # Подчищаем возможные висячие пробелы, чтобы строка осталась валидной
+        # clean up any possible hanging spaces to ensure the string remains valid
         sed -i 's/Requires.private:  /Requires.private: /g' "$PC_FILE"
 
         if [[ "${myconf[@]}" =~ "-DVN_SDK_PIPELINE_VULKAN=ON" ]]; then
@@ -175,7 +158,7 @@ fi
         fi
     fi
 
-    # Удаляем лишние/кривые .pc файлы, чтобы pkg-config не путался
+    # Remove unnecessary .pc files so that pkg-config does not get confused
     rm -f "$PC_DIR"/lcevc_dec_utility.pc "$PC_DIR"/lcevc_dec_extract.pc
 
     rm -rf "${INSTALL_ROOT}"/share

@@ -73,7 +73,7 @@ RUN \
     \
     echo "🔄 Installing Meson & Ninja via pip" && \
     pip3 install --break-system-packages --no-cache-dir --upgrade --ignore-installed \
-        meson cmake ninja Cython pytest build PythonLibs && \
+        meson cmake ninja Cython pytest build numpy && \
     \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100 && \
     update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-15 100 && \

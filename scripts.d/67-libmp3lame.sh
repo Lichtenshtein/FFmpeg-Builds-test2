@@ -20,14 +20,14 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Принудительно чиним конфиг для современных систем
+    # Forced config repair for modern systems
     if [ -f configure.ac ]; then
         sed -i 's/AC_PREREQ(2.69)/AC_PREREQ(2.71)/' configure.ac || true
     fi
 
-    # Исправляем баг в Makefile, чтобы не собирать лишнее
-    # Важно оставить libmp3lame и include.
-    # mpglib нужен, если не используется внешняя библиотека для декодирования
+    # Avoid building unnecessary stuff
+    # It's important to keep libmp3lame and include
+    # mpglib is needed if you don't use an external library for decoding
     sed -i '/SUBDIRS = mpglib/,/vc_solution/c\SUBDIRS = mpglib libmp3lame include' Makefile.am
 
     autoreconf -fi
@@ -50,7 +50,6 @@ ffbuild_dockerbuild() {
 
     local FLAGS="-ffast-math -Wno-implicit-function-declaration -Wno-int-conversion -Wno-error=incompatible-pointer-types"
 
-    # GCC 14 требует более мягких проверок для старого кода LAME
     CFLAGS="$CFLAGS $FLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS -DNDEBUG -D_ALLOW_INTERNAL_OPTIONS" \
     CXXFLAGS="$CXXFLAGS $FLAGS ${USELTO}${USELTO_C}" \
