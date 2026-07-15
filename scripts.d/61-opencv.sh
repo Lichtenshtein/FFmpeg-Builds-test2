@@ -60,8 +60,8 @@ data/vec_files"
     echo "cp -r${OP_V} temp_numpy/numpy/_core/include/numpy python_win/include/"
 
     # Run NumPy generators to create __multiarray_api.h and __ufunc_api.h
-    echo "python3 -m temp_numpy.code_generators.generate_numpy_api -o python_win/include/numpy"
-    echo "python3 -m temp_numpy.code_generators.generate_ufunc_api -o python_win/include/numpy"
+    echo "PYTHONPATH=\$PWD/temp_numpy python3 temp_numpy/numpy/_core/code_generators/generate_numpy_api.py -o python_win/include/numpy"
+    echo "PYTHONPATH=\$PWD/temp_numpy python3 temp_numpy/numpy/_core/code_generators/generate_ufunc_api.py -o python_win/include/numpy"
 
     # Create a generated _numpyconfig.h for Windows x86_64
     echo "cat << 'NPYEOF' > python_win/include/numpy/_numpyconfig.h
