@@ -40,8 +40,8 @@ ffbuild_dockerbuild() {
         sed -i 's/check_cxx_compiler_flag("-mavx512f" HAVE_AVX512F)/set(HAVE_AVX512F FALSE)/g' CMakeLists.txt
     fi
 
-    # Backing up "poisoned" CMake-конфиги TIFF и других либ, 
-    # которые заставляют линкер искать ZLIB::ZLIB
+    # Backing up "poisoned" CMake configs for TIFF and other libraries,
+    # which force the linker to look for ZLIB::ZLIB
     # This prevents CMake from appending its own -l flags OUTSIDE our group.
     # local cmake_root="$FFBUILD_PREFIX/lib/cmake"
     # local tesseract_hide_dir="$TMP_DIR/tesseract_cmake_hide"
@@ -68,7 +68,7 @@ ffbuild_dockerbuild() {
                 # mv "$target_dir" "$tesseract_hide_dir/"
             # fi
         # done
-    done
+    # done
 
     # Create a LOCAL wrapper script
     local WRAPPER_DIR="${TMP_DIR}/tesseract_wrapper"
@@ -131,9 +131,6 @@ WRAPPER_EOF
         -DCMAKE_PREFIX_PATH="$FFBUILD_PREFIX"
         -DCMAKE_FIND_LIBRARY_SUFFIXES=".${lib_ext}"
         -DPKG_CONFIG_EXECUTABLE="$(command -v ${PKG_CONFIG})"
-        -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
-        -DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON
-        -DCMAKE_IGNORE_PREFIX_PATH="$FFBUILD_PREFIX"
     )
 
     export static_flags=""
@@ -158,6 +155,8 @@ WRAPPER_EOF
             -DDISABLE_TIFF=OFF
             -DLEPT_TIFF_RESULT=0
             -DLEPT_TIFF_COMPILE_SUCCESS=ON
+            -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
+            -DCMAKE_DISABLE_FIND_PACKAGE_Tiff=ON
         )
         local TIFF_PC="tiff"
     else

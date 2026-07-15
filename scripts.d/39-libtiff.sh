@@ -114,4 +114,7 @@ ffbuild_dockerbuild() {
     fi
 
     ln -sf "$PC_FILE" "$PC_DIR/tiff.pc"
+
+    # remove poisoned cmake configs
+    rm -rf "$INSTALL_ROOT"/lib/cmake/tiff*
 }

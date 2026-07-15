@@ -48,7 +48,6 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     local myconf=(
-        -DCMAKE_IGNORE_PREFIX_PATH="$FFBUILD_PREFIX/lib/cmake" 
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
@@ -109,7 +108,7 @@ ffbuild_dockerbuild() {
         log_info "OpenBLAS library detected. Building with OpenBLAS support..."
         myconf+=(
             -DWITH_LAPACK=ON
-            # -DOpenBLAS_LIBRARIES="$FFBUILD_PREFIX/lib/libopenblas.${lib_ext}"
+            -DOpenBLAS_LIBRARIES="$FFBUILD_PREFIX/lib/libopenblas.${lib_ext}"
             # -DOpenBLAS_INCLUDE_DIRS="$FFBUILD_PREFIX/include/openblas"
             # -DOpenBLAS_LAPACKE_DIR="$FFBUILD_PREFIX/lib/cmake/OpenBLAS"
             # -DLAPACK_INCLUDE_DIR="$FFBUILD_PREFIX/include/openblas"
@@ -149,7 +148,8 @@ ffbuild_dockerbuild() {
             -DWITH_TIFF=ON
             -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
             -DTIFF_LIBRARIES="$FFBUILD_PREFIX/lib/libtiff.${lib_ext};$FFBUILD_PREFIX/lib/libtiffxx.${lib_ext}"
-            # -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
+            -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
+            -DCMAKE_DISABLE_FIND_PACKAGE_Tiff=ON
         )
     fi
     if has_library "avif"; then
@@ -221,8 +221,8 @@ ffbuild_dockerbuild() {
             # Enabling integration with OpenVINO (Inference Engine)
             -DWITH_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
             -DOPENVINO_STATIC_COMPILATION=$([[ "${PREFER_SHARED}" != "1" && "${BUILD_VINO}" == "1" ]] && echo ON || echo OFF)
-            # -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-            # -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
+            -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+            -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
         )
     fi
     if has_library "quirc"; then
@@ -461,24 +461,24 @@ EOF
         sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"
     fi
 
-    # if has_library "tiff"; then
-        # log_info "Explicitly restoring TIFF CMake files before successful exit..."
-        # restore # Call the recovery function manually
+    if has_library "tiff"; then
+        log_info "Explicitly restoring TIFF CMake files before successful exit..."
+        restore # Call the recovery function manually
 
         # Reset the trap so it doesn't execute again
-        # trap - EXIT 
+        trap - EXIT
 
         # File restore check block
-        # if [ -d "$FFBUILD_PREFIX/lib/cmake/tiff" ]; then
-            # log_info "Verification: $FFBUILD_PREFIX/lib/cmake/tiff directory exists."
-            # if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-                # log_info "Content of TIFF CMake directory:"
-                # ls -lh "$FFBUILD_PREFIX/lib/cmake/tiff/"
-            # fi
-        # else
-            # log_warn "Verification failed: $FFBUILD_PREFIX/lib/cmake/tiff directory was NOT restored!"
-        # fi
-    # fi
+        if [ -d "$FFBUILD_PREFIX/lib/cmake/tiff" ]; then
+            log_info "Verification: $FFBUILD_PREFIX/lib/cmake/tiff directory exists."
+            if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+                log_info "Content of TIFF CMake directory:"
+                ls -lh "$FFBUILD_PREFIX/lib/cmake/tiff/"
+            fi
+        else
+            log_warn "Verification failed: $FFBUILD_PREFIX/lib/cmake/tiff directory was NOT restored!"
+        fi
+    fi
 
     return 0
 }
