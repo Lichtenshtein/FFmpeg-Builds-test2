@@ -73,11 +73,11 @@ if [[ "${PREFER_SHARED}" != "1" ]]; then
         log_info "${SEARCH_MARK} Verifying required KHR extensions for LCEVC inside library..."
         local found_count=0
 
-        local LIB_SYMBOLS=$(${NM} "$TARGET_LIB" | tr -d '\r')
+        local LIB_SYMBOLS=$(${NM} "$TARGET_LIB" | tr -d '\r' | tr -s ' ')
 
         for func in "${LCEVC_CHECK_LIST[@]}"; do
             # Search for a pointer or function symbol using cross-compiler nm
-            if echo "$LIB_SYMBOLS" | grep -qE "(\\\$| )ptr_${func}$"; then
+            if echo "$LIB_SYMBOLS" | grep -q "ptr_${func}"; then
                 log_debug "${CHECK_MARK} Found: ${func}"
                 ((++found_count))
             else

@@ -59,6 +59,35 @@ data/vec_files"
     # Copy the core C include directory to target layout
     echo "cp -r${OP_V} temp_numpy/numpy/_core/include/numpy python_win/include/"
 
+    # Create a generated _numpyconfig.h for Windows x86_64
+    echo "cat << 'NPYEOF' > python_win/include/numpy/_numpyconfig.h
+#ifndef NUMPY_CORE_INCLUDE_NUMPY__NUMPYCONFIG_H_
+#define NUMPY_CORE_INCLUDE_NUMPY__NUMPYCONFIG_H_
+
+#define NPY_D_SIZEOF_LONG 4
+#define NPY_D_SIZEOF_PY_LONG_LONG 8
+#define NPY_D_SIZEOF_PY_INTPTR_T 8
+
+#define NPY_SIZEOF_SHORT 2
+#define NPY_SIZEOF_INT 4
+#define NPY_SIZEOF_LONG 4
+#define NPY_SIZEOF_LONGLONG 8
+#define NPY_SIZEOF_FLOAT 4
+#define NPY_SIZEOF_DOUBLE 8
+#define NPY_SIZEOF_LONGDOUBLE 12
+#define NPY_SIZEOF_PY_INTPTR_T 8
+#define NPY_SIZEOF_OFF_T 8
+
+#define NPY_ABI_VERSION 0x02000000
+#define NPY_API_VERSION 0x00000012
+
+#ifndef __STDC_FORMAT_MACROS
+#define __STDC_FORMAT_MACROS 1
+#endif
+
+#endif
+NPYEOF"
+
     echo "rm -rf temp_hdrs python_embed.zip python_hdrs.zip temp_numpy numpy.tar.gz"
 }
 
