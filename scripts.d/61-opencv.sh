@@ -55,9 +55,13 @@ data/vec_files"
     # numpy
     echo "download_file \"https://github.com/numpy/numpy/archive/refs/tags/v${NUMPY_VER}/numpy-${NUMPY_VER}.tar.gz\" \"numpy.tar.gz\""
 
-    echo "tar -xz${OP_V}f numpy.tar.gz -C temp_numpy --strip-components=1"
+    echo "tar -xzf numpy.tar.gz -C temp_numpy --strip-components=1"
     # Copy the core C include directory to target layout
     echo "cp -r${OP_V} temp_numpy/numpy/_core/include/numpy python_win/include/"
+
+    # Run NumPy generators to create __multiarray_api.h and __ufunc_api.h
+    echo "python3 -m temp_numpy.code_generators.generate_numpy_api -o python_win/include/numpy"
+    echo "python3 -m temp_numpy.code_generators.generate_ufunc_api -o python_win/include/numpy"
 
     # Create a generated _numpyconfig.h for Windows x86_64
     echo "cat << 'NPYEOF' > python_win/include/numpy/_numpyconfig.h
@@ -77,6 +81,11 @@ data/vec_files"
 #define NPY_SIZEOF_LONGDOUBLE 12
 #define NPY_SIZEOF_PY_INTPTR_T 8
 #define NPY_SIZEOF_OFF_T 8
+
+#define NPY_INTP_FMT \"lld\"
+#define NPY_UINTP_FMT \"llu\"
+typedef long long npy_intp;
+typedef unsigned long long npy_uintp;
 
 #define NPY_ABI_VERSION 0x02000000
 #define NPY_API_VERSION 0x00000012
