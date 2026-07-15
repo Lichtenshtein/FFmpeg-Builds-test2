@@ -79,7 +79,7 @@ if [[ "${PREFER_SHARED}" != "1" ]]; then
             # Search for a pointer or function symbol using cross-compiler nm
             if echo "$LIB_SYMBOLS" | grep -qE "(\\\$| )ptr_${func}$"; then
                 log_debug "${CHECK_MARK} Found: ${func}"
-                ((found_count++))
+                ((++found_count))
             else
                 log_warn "Missing required function symbol: ${func}"
             fi

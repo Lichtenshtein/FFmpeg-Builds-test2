@@ -65,6 +65,9 @@ data/vec_files"
 ffbuild_dockerbuild() {
     set -e
 
+    # get major and minor versions from PY_VER
+    IFS='.' read -r PY_MAJOR PY_MINOR <<< "$PY_VER"
+
     log_info "${BROOM_MARK} Patching CMake scripts to suppress warnings..."
     find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wundef/-Wno-undef/g' 2>/dev/null || true
 
@@ -146,6 +149,9 @@ ffbuild_dockerbuild() {
             -DPYTHON3_INCLUDE_PATH="$PWD/python_win/include"
             -DPYTHON3_LIBRARIES="$PWD/lib${PY_LIB}.a"
             -DPYTHON3_NUMPY_INCLUDE_DIRS="$PWD/python_win/include"
+            -DPYTHON3_VERSION_MAJOR=$PY_MAJOR
+            -DPYTHON3_VERSION_MINOR=$PY_MINOR
+            -DOPENCV_PYTHON3_INSTALL_PATH="$INSTALL_ROOT/bin"
         )
     fi
     if has_library "openblas"; then
@@ -325,7 +331,7 @@ ffbuild_dockerbuild() {
         )
     fi
 
-    mkdir -p build && cd build
+    mkdir -p build "$INSTALL_ROOT"/{include,bin,lib/pkgconfig} && cd build
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0 -DOPENVINO_STATIC_LIBRARY"
@@ -338,8 +344,6 @@ ffbuild_dockerbuild() {
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     LIBS="${JBIG_LIB} ${OPENMP_LIB}$LIBS $ADDITIONAL_LIBS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
-
-    mkdir -p "$INSTALL_ROOT"/{include,bin,lib/pkgconfig}
 
     local IPP_PATH="3rdparty/ippicv/ippicv_win/icv"
     if [ -f "$IPP_PATH/lib/intel64/ippicvmt.lib" ]; then
@@ -397,6 +401,11 @@ ffbuild_dockerbuild() {
     pushd "${DEST_LIB}" || return 1
 
     shopt -s nullglob
+
+    log_info "Copying Python runtime DLLs, ZIP and OpenCV bindings..."
+    find ../python_win -maxdepth 2 -name "*.dll" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \;
+    find ../python_win -maxdepth 2 -name "python3*.zip" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \;
+    find ../python_win -maxdepth 2 -name "*.pyd" -exec cp ${OP_VERB} {} "$INSTALL_ROOT/bin/" \;
 
     for f in liblib*.a; do
         if [ -f "$f" ]; then
