@@ -55,9 +55,9 @@ data/vec_files"
     # numpy
     echo "download_file \"https://github.com/numpy/numpy/archive/refs/tags/v${NUMPY_VER}/numpy-${NUMPY_VER}.tar.gz\" \"numpy.tar.gz\""
 
-    echo "tar -xzf${OP_V} numpy.tar.gz -C temp_numpy --strip-components=1"
+    echo "tar -xz${OP_V}f numpy.tar.gz -C temp_numpy --strip-components=1"
     # Copy the core C include directory to target layout
-    echo "cp -r${OP_V} temp_numpy/numpy/_core/include/numpy/* python_win/include/numpy/ 2>/dev/null"
+    echo "cp -r${OP_V} temp_numpy/numpy/_core/include/numpy python_win/include/"
 
     echo "rm -rf temp_hdrs python_embed.zip python_hdrs.zip temp_numpy numpy.tar.gz"
 }
