@@ -48,6 +48,7 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     local myconf=(
+        -DCMAKE_IGNORE_PREFIX_PATH="$FFBUILD_PREFIX/lib/cmake" 
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_BUILD_TYPE=Release
@@ -56,7 +57,7 @@ ffbuild_dockerbuild() {
         -DOPENCV_GENERATE_PKGCONFIG=ON
         -DOPENCV_CHECK_COMPILER_FLAGS=OFF
         -DCMAKE_MAP_IMPORTED_CONFIG_DEBUG=Release
-        -DCMAKE_POLICY_DEFAULT_CMP0091=NEW 
+        -DCMAKE_POLICY_DEFAULT_CMP0091=NEW
         -DCPU_BASELINE=AVX2
         -DCPU_DISPATCH=AVX2
         -DENABLE_PIC=ON
@@ -108,11 +109,11 @@ ffbuild_dockerbuild() {
         log_info "OpenBLAS library detected. Building with OpenBLAS support..."
         myconf+=(
             -DWITH_LAPACK=ON
-            -DOpenBLAS_LIBRARIES="$FFBUILD_PREFIX/lib/libopenblas.${lib_ext}"
-            -DOpenBLAS_INCLUDE_DIRS="$FFBUILD_PREFIX/include/openblas"
-            -DOpenBLAS_LAPACKE_DIR="$FFBUILD_PREFIX/lib/cmake/OpenBLAS"
-            -DLAPACK_INCLUDE_DIR="$FFBUILD_PREFIX/include/openblas"
-            -DLAPACK_LIBRARIES="$FFBUILD_PREFIX/lib/libopenblas.${lib_ext}"
+            # -DOpenBLAS_LIBRARIES="$FFBUILD_PREFIX/lib/libopenblas.${lib_ext}"
+            # -DOpenBLAS_INCLUDE_DIRS="$FFBUILD_PREFIX/include/openblas"
+            # -DOpenBLAS_LAPACKE_DIR="$FFBUILD_PREFIX/lib/cmake/OpenBLAS"
+            # -DLAPACK_INCLUDE_DIR="$FFBUILD_PREFIX/include/openblas"
+            # -DLAPACK_LIBRARIES="$FFBUILD_PREFIX/lib/libopenblas.${lib_ext}"
         )
     fi
     if has_library "tiff"; then
@@ -148,7 +149,7 @@ ffbuild_dockerbuild() {
             -DWITH_TIFF=ON
             -DTIFF_INCLUDE_DIR="$FFBUILD_PREFIX/include"
             -DTIFF_LIBRARIES="$FFBUILD_PREFIX/lib/libtiff.${lib_ext};$FFBUILD_PREFIX/lib/libtiffxx.${lib_ext}"
-            -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
+            # -DCMAKE_DISABLE_FIND_PACKAGE_TIFF=ON
         )
     fi
     if has_library "avif"; then
@@ -175,7 +176,6 @@ ffbuild_dockerbuild() {
             -DZLIB_INCLUDE_DIR="$FFBUILD_PREFIX/include"
             -DZLIB_LIBRARY="$FFBUILD_PREFIX/lib/libz.${lib_ext}"
             -DZLIB_LIBRARIES="$FFBUILD_PREFIX/lib/libz.${lib_ext}"
-            # -DCMAKE_DISABLE_FIND_PACKAGE_ZLIB=ON
             # -DWITH_ZLIB_NG=ON
         )
     fi
@@ -221,8 +221,8 @@ ffbuild_dockerbuild() {
             # Enabling integration with OpenVINO (Inference Engine)
             -DWITH_OPENVINO=$([ "${BUILD_VINO}" == "1" ] && echo ON || echo OFF)
             -DOPENVINO_STATIC_COMPILATION=$([[ "${PREFER_SHARED}" != "1" && "${BUILD_VINO}" == "1" ]] && echo ON || echo OFF)
-            -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
-            -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
+            # -DOpenVINO_DIR="$FFBUILD_PREFIX/lib/cmake"
+            # -DInferenceEngine_DIR="$FFBUILD_PREFIX/lib/cmake"
         )
     fi
     if has_library "quirc"; then
@@ -341,13 +341,9 @@ ffbuild_dockerbuild() {
 
     if [ -d "$SRC_3RDPARTY" ]; then
         log_info "Moving OpenCV 3rdparty libs to main lib directory..."
-        if [[ "${PREFER_SHARED}" == "1" ]]; then
-            mv "$SRC_3RDPARTY"/*.dll "$DEST_LIB/" 2>/dev/null || true
-        else
-            mv "$SRC_3RDPARTY"/*.a "$DEST_LIB/" 2>/dev/null || true
-            log_info "Searching for IPP ICV library..."
-            find . -name "libippicv*.${lib_ext}" -exec cp {} "${DEST_LIB}/" \; || true
-        fi
+        mv ${OP_VERB} "$SRC_3RDPARTY"/*.${lib_ext} "$DEST_LIB/" 2>/dev/null || true
+        log_info "Searching for IPP ICV library..."
+        find . -name "libippicv*.${lib_ext}" -exec cp ${OP_VERB} {} "${DEST_LIB}/" \; || true
         rm -rf "${INSTALL_ROOT}/lib/opencv4"
     fi
 
@@ -383,6 +379,11 @@ ffbuild_dockerbuild() {
              rm -f "${DEST_LIB}/${duplicate}"
         fi
     done
+
+    # find what is actually built in this mess
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+        find /build/$STAGENAME -type f -name "*.${lib_ext}" -printf "%p (%s bytes)\n"
+    fi
 
     # Correcting paths to 3rdparty libraries in OpenCV .cmake configs
     # Replacing the relative path 'lib/opencv4/3rdparty' with just 'lib'

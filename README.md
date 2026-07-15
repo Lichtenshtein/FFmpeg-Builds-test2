@@ -371,7 +371,7 @@ All of those can be optionally combined with any combination of addins:
 
 * `opencv`
 ```
-04-tbbmalloc|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|37-openjpeg|38-libwebp|39-libtiff|40-lcms2|44-dav1d|44-svtav1|45-libavif|45-libjxl|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|59-opencl|59-openvino|61-opencv
+04-tbbmalloc|06-libiconv|07-gettext|08-zlib|11-brotli|11-bzlib|11-xz|11-zstd|12-jbigkit|15-openblas|37-giflib|37-libjpeg-turbo|37-libpng|37-libtiff|37-openjpeg|38-libwebp|39-libtiff|40-lcms2|44-dav1d|44-svtav1|45-libavif|45-libjxl|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|59-opencl|59-openvino|61-opencv
 ```
 
 * `gavl`
