@@ -440,7 +440,9 @@ fi
 
 # Используем группы для решения проблем циклических зависимостей
 # прокидываем библиотеку обработки исключений LTO за пределы основной группы
-FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group ${GCC_RUNTIME} -lstdc++"
+FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group  -lstdc++"
+
+# ${GCC_RUNTIME}
 
 # =======================================
 # FFMPEG AND TOOLCHAIN PARAMS DEBUG
@@ -673,7 +675,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="-L${FFBUILD_PREFIX}/lib ${FINAL_LDFLAGS} ${SAFE_WIN_FLAGS} -Wl,--allow-multiple-definition"
+    --extra-ldflags="-L${FFBUILD_PREFIX}/lib ${FINAL_LDFLAGS} -Wl,-v ${SAFE_WIN_FLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     --enable-runtime-cpudetect
