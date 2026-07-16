@@ -639,7 +639,7 @@ FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto-partition=balanced/}"
 
 # FINAL_LDFLAGS="${FINAL_LDFLAGS} -fno-use-linker-plugin"
 
-# file /opt/ct-ng/libexec/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.so
+file /opt/ct-ng/libexec/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.so
 
 # ${NM} "$($CC -print-file-name=libmingw32.a)" | grep -E "mainCRTStartup|WinMain"
 
@@ -652,7 +652,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--undefined=mainCRTStartup -Wl,-v -Wl,--allow-multiple-definition"
+    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--defsym=WinMain=main -Wl,-v -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     --enable-runtime-cpudetect
@@ -795,60 +795,50 @@ if [[ "$TARGET" == "win64" ]]; then
 fi
 
 # Очистка хедера ffmpeg
-if [ -f "config.h" ]; then
+# if [ -f "config.h" ]; then
 
-    if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-        log_info "${LOGS_MARK} >>> [BEFORE] config.h target line:"
-        grep "#define FFMPEG_CONFIGURATION" config.h || echo "Line not found"
-    fi
+    # if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+        # log_info "${LOGS_MARK} >>> [BEFORE] config.h target line:"
+        # grep "#define FFMPEG_CONFIGURATION" config.h || echo "Line not found"
+    # fi
 
-    # Извлекаем только контент внутри кавычек макроса
-    RAW_CONFIG=$(sed -n 's/^#define FFMPEG_CONFIGURATION "\(.*\)"/\1/p' config.h)
+    # RAW_CONFIG=$(sed -n 's/^#define FFMPEG_CONFIGURATION "\(.*\)"/\1/p' config.h)
 
-    if [ -n "$RAW_CONFIG" ]; then
-        # парсим строку в настоящий массив. 
-        # Оболочка сама разберется с вложенными кавычками типа '--extra-cflags=...'
-        eval "FINAL_ARGS=($RAW_CONFIG)"
+    # if [ -n "$RAW_CONFIG" ]; then
+        # eval "FINAL_ARGS=($RAW_CONFIG)"
 
-        CLEANED_ARGS=()
+        # CLEANED_ARGS=()
 
-        # Фильтруем аргументы, исключая все тяжелые флаги и пути к компиляторам
-        for arg in "${FINAL_ARGS[@]}"; do
-            case "$arg" in
-                --host-cflags=*|--host-ldflags=*|--extra-cflags=*|--extra-cxxflags=*|--extra-ldflags=*|--extra-ldexeflags=*|--extra-libs=*)
-                    # Пропускаем флаги компиляции и линковки
-                    continue
-                    ;;
-                --pkg-config-flags=*|--cc=*|--cxx=*|--ar=*|--ranlib=*|--nm=*|--as=*)
-                    # Пропускаем пути к тулчейну
-                    continue
-                    ;;
-                *)
-                    # Сохраняем только эстетичные и полезные опции (--enable-...)
-                    # Если аргумент содержит пробелы, мы вернем ему одинарные кавычки для красоты
-                    if [[ "$arg" == *" "* ]]; then
-                        CLEANED_ARGS+=("'$arg'")
-                    else
-                        CLEANED_ARGS+=("$arg")
-                    fi
-                    ;;
-            esac
-        done
+        # for arg in "${FINAL_ARGS[@]}"; do
+            # case "$arg" in
+                # --host-cflags=*|--host-ldflags=*|--extra-cflags=*|--extra-cxxflags=*|--extra-ldflags=*|--extra-ldexeflags=*|--extra-libs=*)
+                    # continue
+                    # ;;
+                # --pkg-config-flags=*|--cc=*|--cxx=*|--ar=*|--ranlib=*|--nm=*|--as=*)
+                    # continue
+                    # ;;
+                # *)
+                    # if [[ "$arg" == *" "* ]]; then
+                        # CLEANED_ARGS+=("'$arg'")
+                    # else
+                        # CLEANED_ARGS+=("$arg")
+                    # fi
+                    # ;;
+            # esac
+        # done
 
-        # Собираем элементы обратно в красивую строку через один пробел
-        CLEANED_CONFIG="${CLEANED_ARGS[*]}"
+        # CLEANED_CONFIG="${CLEANED_ARGS[*]}"
 
-        # Жестко перезаписываем строку в файле, гарантируя идеальный пробел перед кавычкой (ISO C99)
-        sed -i "s|^#define FFMPEG_CONFIGURATION.*|#define FFMPEG_CONFIGURATION \"${CLEANED_CONFIG}\"|" config.h
-    else
-        log_warn "Failed to parse FFMPEG_CONFIGURATION content for cleaning."
-    fi
+        # sed -i "s|^#define FFMPEG_CONFIGURATION.*|#define FFMPEG_CONFIGURATION \"${CLEANED_CONFIG}\"|" config.h
+    # else
+        # log_warn "Failed to parse FFMPEG_CONFIGURATION content for cleaning."
+    # fi
 
-    if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-        log_info "${LOGS_MARK} <<< [AFTER] config.h target line:"
-        grep "#define FFMPEG_CONFIGURATION" config.h
-    fi
-fi
+    # if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+        # log_info "${LOGS_MARK} <<< [AFTER] config.h target line:"
+        # grep "#define FFMPEG_CONFIGURATION" config.h
+    # fi
+# fi
 
 # =======================================
 # FFMPEG MAKE & INSTALL
