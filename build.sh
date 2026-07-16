@@ -612,6 +612,18 @@ chmod +x configure
 # FINAL_CFLAGS="${FINAL_CFLAGS// -mconsole/}"
 # FINAL_CXXFLAGS="${FINAL_CXXFLAGS// -mconsole/}"
 
+FINAL_LDFLAGS="${FINAL_LDFLAGS//-Wl,--stack,8388608/}"
+FINAL_LDFLAGS="${FINAL_LDFLAGS//--stack 8388608/}"
+FINAL_LDFLAGS="${FINAL_LDFLAGS//-Wl,--subsystem=console/}"
+FINAL_LDFLAGS="${FINAL_LDFLAGS//-Wl,--high-entropy-va/}"
+FINAL_LDFLAGS="${FINAL_LDFLAGS//-Wl,--nxcompat/}"
+FINAL_LDFLAGS="${FINAL_LDFLAGS//-Wl,--dynamicbase/}"
+FINAL_LDFLAGS="${FINAL_LDFLAGS//-Wl,--gc-sections/}"
+
+SAFE_WIN_FLAGS="-Wl,--high-entropy-va,--nxcompat,--dynamicbase,--subsystem=console,--stack=8388608,--gc-sections,--entry=mainCRTStartup,--defsym,WinMain=main"
+
+FINAL_LDFLAGS="$(smart_dedupe "$LDFLAGS" "$TOTAL_FF_LDFLAGS" "$VARIANT_FF_LDFLAGS")"
+
 HOST_CFLAGS="${HOST_CFLAGS//-flto=4/}"
 HOST_CFLAGS="${HOST_CFLAGS//-flto-partition=balanced/}"
 HOST_CFLAGS="${HOST_CFLAGS//-fno-fat-lto-objects/}"
@@ -652,7 +664,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--defsym,WinMain=main -Wl,-v -Wl,--allow-multiple-definition"
+    --extra-ldflags="${FINAL_LDFLAGS} ${SAFE_WIN_FLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     --enable-runtime-cpudetect
