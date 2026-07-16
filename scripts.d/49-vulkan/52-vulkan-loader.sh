@@ -74,9 +74,10 @@ if [[ "${PREFER_SHARED}" != "1" ]]; then
         local found_count=0
 
         for func in "${LCEVC_CHECK_LIST[@]}"; do
-            if ${NM} "$TARGET_LIB" | tr -d '\r' | grep -q "ptr_${func}"; then
+            # Search for a pointer or function symbol using cross-compiler nm
+            if ${NM} "$TARGET_LIB" | grep -q "ptr_${func}"; then
                 log_debug "${CHECK_MARK} Found: ${func}"
-                ((++found_count))
+                ((found_count++))
             else
                 log_warn "Missing required function symbol: ${func}"
             fi

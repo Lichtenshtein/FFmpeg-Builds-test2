@@ -88,6 +88,19 @@ index f4416d1..abfe724 100755
  
      commands.append((ret_type, name, params, param_names))
  
+@@ -133,7 +133,12 @@ for ret_type, name, params, param_names in commands:
+     decl_params = ", ".join(params) if params else "void"
+     args = ", ".join(param_names) if param_names else ""
+ 
++    print(f"#ifdef _WIN32")
++    print(f"__declspec(dllexport) {ret_type} VKAPI_CALL {name}({decl_params}) {{")
++    print(f"#else")
+     print(f"{ret_type} VKAPI_CALL {name}({decl_params}) {{")
++    print(f"#endif")
++
+ 
+     print(f"    if (likely(ptr_{name})) {{")
+     if ret_type == "void":
 -- 
 2.52.0.windows.1
 
