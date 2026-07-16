@@ -623,7 +623,7 @@ CONF_FLAGS=(
     --extra-cxxflags="${FINAL_CXXFLAGS}"
     --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
-    --extra-libs="${FINAL_LIBS_GROUPED}"
+    # --extra-libs="${FINAL_LIBS_GROUPED}"
     --enable-runtime-cpudetect
     --enable-cross-compile
     --disable-w32threads
