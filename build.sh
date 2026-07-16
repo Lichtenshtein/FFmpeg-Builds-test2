@@ -734,6 +734,15 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     exit 1
 fi
 
+if [ -f "ffbuild/config.mak" ]; then
+    log_info "Applying LLD patch: Disabling LTO flags for fftools objects..."
+    echo 'fftools/%.o: CFLAGS := $(filter-out -flto% -fno-fat-lto-objects -ffat-lto-objects, $(CFLAGS)) -fno-lto' >> ffbuild/config.mak
+    echo 'fftools/textformat/%.o: CFLAGS := $(filter-out -flto% -fno-fat-lto-objects -ffat-lto-objects, $(CFLAGS)) -fno-lto' >> ffbuild/config.mak
+    echo 'fftools/graph/%.o: CFLAGS := $(filter-out -flto% -fno-fat-lto-objects -ffat-lto-objects, $(CFLAGS)) -fno-lto' >> ffbuild/config.mak
+    echo 'fftools/resources/%.o: CFLAGS := $(filter-out -flto% -fno-fat-lto-objects -ffat-lto-objects, $(CFLAGS)) -fno-lto' >> ffbuild/config.mak
+fi
+
+
 # =======================================
 # FFMPEG SOURCE PATCHING SECTION 2
 # =======================================
