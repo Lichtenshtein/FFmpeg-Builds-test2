@@ -608,6 +608,10 @@ chmod +x configure
 # lld linker is broken, use ld
 # FINAL_LDFLAGS="${FINAL_LDFLAGS// -fuse-ld=lld/}"
 
+FINAL_LDFLAGS="${FINAL_LDFLAGS// -Wl,--subsystem=console/}"
+FINAL_LDFLAGS="${FINAL_CXXFLAGS// -mconsole/}"
+FINAL_LDFLAGS="${FINAL_CFLAGS// -mconsole/}"
+
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"

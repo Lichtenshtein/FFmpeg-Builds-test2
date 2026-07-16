@@ -1846,10 +1846,10 @@ apply_ffmpeg_patches() {
         log_info "${TARGET_MARK} APPLYING PATCH: ${GREY_B}$(basename "$patch")${NC}"
 
         if git apply --ignore-whitespace --intent-to-add "$patch" 2>/dev/null; then
-            log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied ${GREY_B}$(basename "$patch")${NC}"
+            log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied $(basename "$patch")"
             git add -A || true
         else
-            log_error "${RED}FAILED${NC}: ${GREY_B}$(basename "$patch")${NC} - skipping"
+            log_error "${RED}FAILED${NC}: $(basename "$patch") - skipping"
             git reset -q HEAD -- . || true
         fi
     done

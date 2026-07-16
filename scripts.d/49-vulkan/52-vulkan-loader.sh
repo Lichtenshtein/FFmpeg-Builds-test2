@@ -43,9 +43,9 @@ ffbuild_dockerbuild() {
         -DVULKAN_SHIM_IMPERSONATE=ON
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fno-function-sections -fno-data-sections" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -fno-function-sections -fno-data-sections" \
+    LDFLAGS="${LDFLAGS//-Wl,--gc-sections/} -Wl,--no-gc-sections ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
@@ -75,7 +75,7 @@ if [[ "${PREFER_SHARED}" != "1" ]]; then
 
         for func in "${LCEVC_CHECK_LIST[@]}"; do
             # Search for a pointer or function symbol using cross-compiler nm
-            if ${NM} "$TARGET_LIB" | grep -q "ptr_${func}"; then
+            if ${NM} "$TARGET_LIB" | tr -d '\r' | grep -qE " [Tt] _?${func}$"; then
                 log_debug "${CHECK_MARK} Found: ${func}"
                 ((found_count++))
             else
