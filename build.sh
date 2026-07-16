@@ -609,8 +609,8 @@ chmod +x configure
 # FINAL_LDFLAGS="${FINAL_LDFLAGS// -fuse-ld=lld/}"
 
 FINAL_LDFLAGS="${FINAL_LDFLAGS// -Wl,--subsystem=console/}"
-FINAL_LDFLAGS="${FINAL_CXXFLAGS// -mconsole/}"
-FINAL_LDFLAGS="${FINAL_CFLAGS// -mconsole/}"
+FINAL_CFLAGS="${FINAL_CFLAGS// -mconsole/}"
+FINAL_CXXFLAGS="${FINAL_CXXFLAGS// -mconsole/}"
 
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
