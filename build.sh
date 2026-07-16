@@ -636,6 +636,8 @@ HOST_LDFLAGS="${HOST_LDFLAGS//-flto-partition=balanced/}"
 FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto=4/}"
 FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto-partition=balanced/}"
 
+FINAL_LDFLAGS="${FINAL_LDFLAGS} -Wl,--entry=mainCRTStartup"
+
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"

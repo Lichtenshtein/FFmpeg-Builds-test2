@@ -44,9 +44,9 @@ if [[ -z "${PKG_DIR}" && -n "${ASSETS_DIR}" ]]; then
 fi
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-    log_debug "${DIRS_MARK} FFmpeg source directory:\n${FFMPEG_SOURCE_DIR}"
-    log_debug "${DIRS_MARK} FFmpeg assets directory:\n${ASSETS_DIR}"
-    log_debug "${DIRS_MARK} FFmpeg package directory:\n${PKG_DIR}"
+    log_debug "${DIRS_MARK} FFmpeg source directory:\n ${FFMPEG_SOURCE_DIR}"
+    log_debug "${DIRS_MARK} FFmpeg assets directory:\n ${ASSETS_DIR}"
+    log_debug "${DIRS_MARK} FFmpeg package directory:\n ${PKG_DIR}"
 fi
 
 # ==========================================

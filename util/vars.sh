@@ -827,7 +827,7 @@ clean_unwanted_libs() {
     DELETED_FILES=$(eval "find \"$INSTALL_ROOT\" -type f $find_expr -print -delete 2>/dev/null" | sed "s|$FFBUILD_DESTDIR||g")
 
     if [[ -n "$DELETED_FILES" ]]; then
-        log_debug "${BROOM_MARK} Removing $label for ${STAGENAME}:\n$DELETED_FILES"
+        log_debug "${BROOM_MARK} Removing $label for ${STAGENAME}:\n $DELETED_FILES"
     else
         log_info "${CHECK_MARK} No unwanted $label found."
     fi
@@ -1114,7 +1114,7 @@ patch_pc_files() {
     mapfile -t PC_FILES < <(find "$pc_dir" -maxdepth 1 -name "*.pc")
     [[ ${#PC_FILES[@]} -eq 0 ]] && return 0
     for pc in "${PC_FILES[@]}"; do
-        echo "$pc" >&2
+        echo " $pc" >&2
     done
 
     find "$pc_dir" -maxdepth 2 -name "*.pc" | while read -r pc; do

@@ -256,7 +256,7 @@ else
     log_info "No source archive required for $STAGENAME (meta-package)."
 fi
 
-[[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]] && log_debug "${STAGENAME}-specific CFLAGS:\n$CFLAGS" && log_debug "${STAGENAME}-specific LDFLAGS:\n$LDFLAGS" && log_debug "${STAGENAME}-specific RUSTFLAGS:\n$RUSTFLAGS"
+[[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]] && log_debug "${STAGENAME}-specific CFLAGS:\n $CFLAGS" && log_debug "${STAGENAME}-specific LDFLAGS:\n $LDFLAGS" && log_debug "${STAGENAME}-specific RUSTFLAGS:\n $RUSTFLAGS"
 
 # Выполняем сборку ОДИН РАЗ с проверкой статуса
 build_cmd="ffbuild_dockerbuild"
@@ -325,7 +325,7 @@ if [[ -d "$INSTALL_ROOT" ]]; then
             # Show everything that was installed in a pretty way
             log_debug "${DIRS_MARK} Installed ${#NEW_FILES[@]} files to prefix:"
             # Очищаем пути от DESTDIR; можно попытаться и с "grep -Po"
-            CLEAN_LIST=$(printf "%s\n" "${NEW_FILES[@]}" | sed "s|^$FFBUILD_DESTDIR||")
+            CLEAN_LIST=$(printf "%s\n" " ${NEW_FILES[@]}" | sed "s|^$FFBUILD_DESTDIR||")
             (
                 echo "$CLEAN_LIST" | grep -E "/lib/pkgconfig/|/lib/cmake/|/lib/[^/]+\.a$" | sort
                 echo "$CLEAN_LIST" | grep -vE "/lib/pkgconfig/|/lib/cmake/|/lib/[^/]+\.a$" | sort

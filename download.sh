@@ -34,7 +34,7 @@ if [[ ! -d "$CACHE_DIR" ]]; then
     log_warn "Cache directory $CACHE_DIR not found!"
     exit 0
 else
-    log_debug "${DIRS_MARK} Cache directory:\n$CACHE_DIR"
+    log_debug "${DIRS_MARK} Cache directory:\n $CACHE_DIR"
 fi
 
 # If ONLY_STAGE is set, only download matching stages
