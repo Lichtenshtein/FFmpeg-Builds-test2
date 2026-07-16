@@ -40,72 +40,72 @@ data/haarcascades_cuda \
 data/vec_files"
 # haarcascades_cuda may need manual installation instead of cleaning if build on linux and cuda SDK is installed
 
-    # Windows Python (embed) for cross-compilation
-    echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}-embed-amd64.zip\" \"python_embed.zip\""
-    # Headers from the official repository
-    echo "download_file \"https://github.com/python/cpython/archive/refs/tags/v${PY_FULL_VER}.zip\" \"python_hdrs.zip\""
-
-    echo "mkdir -p python_win/bin python_win/include/numpy temp_hdrs temp_numpy"
-
-    echo "unzip -qo python_embed.zip -d python_win/bin"
-    echo "unzip -qo python_hdrs.zip -d temp_hdrs"
-    echo "cp -r${OP_V} temp_hdrs/cpython-*/Include/* python_win/include/"
-    echo "cp ${OP_VERB} temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true"
-
-    # numpy
-    echo "download_file \"https://github.com/numpy/numpy/archive/refs/tags/v${NUMPY_VER}/numpy-${NUMPY_VER}.tar.gz\" \"numpy.tar.gz\""
-
-    echo "tar -xzf numpy.tar.gz -C temp_numpy --strip-components=1"
-    # Copy the core C include directory to target layout
-    echo "cp -r${OP_V} temp_numpy/numpy/_core/include/numpy python_win/include/"
-
-    # Run NumPy generators to create __multiarray_api.h and __ufunc_api.h
-    echo "PYTHONPATH=\$PWD/temp_numpy/numpy/_core python3 -m code_generators.generate_numpy_api -o python_win/include/numpy"
-    echo "PYTHONPATH=\$PWD/temp_numpy/numpy/_core python3 -m code_generators.generate_ufunc_api -o python_win/include/numpy"
-
-    # Create a generated _numpyconfig.h for Windows x86_64
-    echo "cat << 'NPYEOF' > python_win/include/numpy/_numpyconfig.h
-#ifndef NUMPY_CORE_INCLUDE_NUMPY__NUMPYCONFIG_H_
-#define NUMPY_CORE_INCLUDE_NUMPY__NUMPYCONFIG_H_
-
-#define NPY_SIZEOF_SHORT 2
-#define NPY_SIZEOF_INT 4
-#define NPY_SIZEOF_LONG 4
-#define NPY_SIZEOF_LONGLONG 8
-#define NPY_SIZEOF_FLOAT 4
-#define NPY_SIZEOF_DOUBLE 8
-#define NPY_SIZEOF_LONGDOUBLE 16
-#define NPY_SIZEOF_WCHAR_T 2
-#define NPY_SIZEOF_OFF_T 8
-
-#define NPY_SIZEOF_INTP 8
-#define NPY_SIZEOF_UINTP 8
-#define NPY_SIZEOF_PY_INTPTR_T 8
-#define NPY_SIZEOF_PY_LONG_LONG 8
-
-#define NPY_INTP_FMT \"I64d\"
-#define NPY_UINTP_FMT \"I64u\"
-typedef long long npy_intp;
-typedef unsigned long long npy_uintp;
-#define NPY_TYPES_DEFINED
-
-#define HAVE_LDOUBLE_INTEL_EXTENDED_16_BYTES_LE 1
-
-#define NPY_VISIBILITY_HIDDEN
-#define NPY_API_SYMBOL_ATTRIBUTE __declspec(dllexport)
-#define NPY_INTERNAL_SYMBOL_ATTRIBUTE
-
-#define NPY_ABI_VERSION 0x02000000
-#define NPY_API_VERSION 0x00000012
-
-#ifndef __STDC_FORMAT_MACROS
-#define __STDC_FORMAT_MACROS 1
-#endif
-
-#endif
-NPYEOF"
-
-    echo "rm -rf temp_hdrs python_embed.zip python_hdrs.zip temp_numpy numpy.tar.gz"
+#    # Windows Python (embed) for cross-compilation
+#    echo "download_file \"https://www.python.org/ftp/python/${PY_FULL_VER}/python-${PY_FULL_VER}-embed-amd64.zip\" \"python_embed.zip\""
+#    # Headers from the official repository
+#    echo "download_file \"https://github.com/python/cpython/archive/refs/tags/v${PY_FULL_VER}.zip\" \"python_hdrs.zip\""
+# 
+#    echo "mkdir -p python_win/bin python_win/include/numpy temp_hdrs temp_numpy"
+# 
+#    echo "unzip -qo python_embed.zip -d python_win/bin"
+#    echo "unzip -qo python_hdrs.zip -d temp_hdrs"
+#    echo "cp -r${OP_V} temp_hdrs/cpython-*/Include/* python_win/include/"
+#    echo "cp ${OP_VERB} temp_hdrs/cpython-*/PC/pyconfig.h python_win/include/ 2>/dev/null || true"
+# 
+#    # numpy
+#    echo "download_file \"https://github.com/numpy/numpy/archive/refs/tags/v${NUMPY_VER}/numpy-${NUMPY_VER}.tar.gz\" \"numpy.tar.gz\""
+# 
+#    echo "tar -xzf numpy.tar.gz -C temp_numpy --strip-components=1"
+#    # Copy the core C include directory to target layout
+#    echo "cp -r${OP_V} temp_numpy/numpy/_core/include/numpy python_win/include/"
+# 
+#    # Run NumPy generators to create __multiarray_api.h and __ufunc_api.h
+#    echo "PYTHONPATH=\$PWD/temp_numpy/numpy/_core python3 -m code_generators.generate_numpy_api -o python_win/include/numpy"
+#    echo "PYTHONPATH=\$PWD/temp_numpy/numpy/_core python3 -m code_generators.generate_ufunc_api -o python_win/include/numpy"
+# 
+#    # Create a generated _numpyconfig.h for Windows x86_64
+#    echo "cat << 'NPYEOF' > python_win/include/numpy/_numpyconfig.h
+# #ifndef NUMPY_CORE_INCLUDE_NUMPY__NUMPYCONFIG_H_
+# #define NUMPY_CORE_INCLUDE_NUMPY__NUMPYCONFIG_H_
+# 
+# #define NPY_SIZEOF_SHORT 2
+# #define NPY_SIZEOF_INT 4
+# #define NPY_SIZEOF_LONG 4
+# #define NPY_SIZEOF_LONGLONG 8
+# #define NPY_SIZEOF_FLOAT 4
+# #define NPY_SIZEOF_DOUBLE 8
+# #define NPY_SIZEOF_LONGDOUBLE 16
+# #define NPY_SIZEOF_WCHAR_T 2
+# #define NPY_SIZEOF_OFF_T 8
+# 
+# #define NPY_SIZEOF_INTP 8
+# #define NPY_SIZEOF_UINTP 8
+# #define NPY_SIZEOF_PY_INTPTR_T 8
+# #define NPY_SIZEOF_PY_LONG_LONG 8
+# 
+# #define NPY_INTP_FMT \"I64d\"
+# #define NPY_UINTP_FMT \"I64u\"
+# typedef long long npy_intp;
+# typedef unsigned long long npy_uintp;
+# #define NPY_TYPES_DEFINED
+# 
+# #define HAVE_LDOUBLE_INTEL_EXTENDED_16_BYTES_LE 1
+# 
+# #define NPY_VISIBILITY_HIDDEN
+# #define NPY_API_SYMBOL_ATTRIBUTE __declspec(dllexport)
+# #define NPY_INTERNAL_SYMBOL_ATTRIBUTE
+# 
+# #define NPY_ABI_VERSION 0x02000000
+# #define NPY_API_VERSION 0x00000012
+# 
+# #ifndef __STDC_FORMAT_MACROS
+# #define __STDC_FORMAT_MACROS 1
+# #endif
+# 
+# #endif
+# NPYEOF"
+# 
+#     echo "rm -rf temp_hdrs python_embed.zip python_hdrs.zip temp_numpy numpy.tar.gz"
 }
 
 ffbuild_dockerbuild() {
