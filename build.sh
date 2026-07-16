@@ -612,6 +612,30 @@ chmod +x configure
 # FINAL_CFLAGS="${FINAL_CFLAGS// -mconsole/}"
 # FINAL_CXXFLAGS="${FINAL_CXXFLAGS// -mconsole/}"
 
+HOST_CFLAGS="${HOST_CFLAGS//-flto=4/}"
+HOST_CFLAGS="${HOST_CFLAGS//-flto-partition=balanced/}"
+HOST_CFLAGS="${HOST_CFLAGS//-fno-fat-lto-objects/}"
+HOST_CFLAGS="${HOST_CFLAGS//-ffat-lto-objects/}"
+HOST_CFLAGS="${HOST_CFLAGS//-fmerge-all-constants/}"
+
+FINAL_CFLAGS="${FINAL_CFLAGS//-flto=4/}"
+FINAL_CFLAGS="${FINAL_CFLAGS//-flto-partition=balanced/}"
+FINAL_CFLAGS="${FINAL_CFLAGS//-fno-fat-lto-objects/}"
+FINAL_CFLAGS="${FINAL_CFLAGS//-ffat-lto-objects/}"
+FINAL_CFLAGS="${FINAL_CFLAGS//-fmerge-all-constants/}"
+
+FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-flto=4/}"
+FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-flto-partition=balanced/}"
+FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-fno-fat-lto-objects/}"
+FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-ffat-lto-objects/}"
+FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-fmerge-all-constants/}"
+
+HOST_LDFLAGS="${HOST_LDFLAGS//-flto=4/}"
+HOST_LDFLAGS="${HOST_LDFLAGS//-flto-partition=balanced/}"
+
+FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto=4/}"
+FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto-partition=balanced/}"
+
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
     "${TARGET_FLAGS_ARR[@]}"

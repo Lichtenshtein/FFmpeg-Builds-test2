@@ -345,10 +345,10 @@ apply_lto_policy() {
 
         # -O3 optimization will be added to LDFLAGS as well
         if [[ $is_lld -eq 0 ]]; then
+            export USELTO_L=" ${OPT_LEVEL}"
+        else
             local GCC_LTO_PLUGIN=$("${CC}" -print-prog-name=liblto_plugin.so)
             export USELTO_L=" ${OPT_LEVEL} -Wl,-plugin,${GCC_LTO_PLUGIN}"
-        else
-            export USELTO_L=" ${OPT_LEVEL}"
         fi
 
         export NOLTO="-fno-lto"
