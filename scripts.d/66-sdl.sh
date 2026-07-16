@@ -158,7 +158,7 @@ ffbuild_dockerbuild() {
                 sed -i '/^Libs:/a Libs.private:' "$PC_FILE"
             fi
 
-            sed -i 's|^Libs.private:[[:space:]]*|Libs.private: -lmingw32 |' "$PC_FILE"
+            # sed -i 's|^Libs.private:[[:space:]]*|Libs.private: -lmingw32 |' "$PC_FILE"
             sed -i 's|^Libs.private:.*|& -lkernel32 -luser32 -lgdi32 -lwinmm -limm32 -lole32 -loleaut32 -lversion -luuid -ladvapi32 -lsetupapi -lshell32 -ldinput8 -lbcrypt -lm -lshlwapi -ldbghelp -lws2_32|' "$PC_FILE"
         fi
 

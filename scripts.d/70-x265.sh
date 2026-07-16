@@ -147,6 +147,7 @@ EOF
         fi
     fi
 
+# -lgcc -lmingwex -lmingw32
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/x265.pc"
 prefix=$FFBUILD_PREFIX
@@ -158,7 +159,7 @@ Name: x265
 Description: H.265/HEVC (High Efficiency Video Coding) video encoder
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lx265
-Libs.private: -lstdc++ -lm -lgcc -lmingwex -lmingw32 -luser32 -ladvapi32 -lshell32
+Libs.private: -lstdc++ -lm -luser32 -ladvapi32 -lshell32
 Cflags: -I\${includedir}
 EOF
 }

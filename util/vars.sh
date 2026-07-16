@@ -397,8 +397,9 @@ apply_lto_policy() {
     local OPT_LEVEL="-O3"
 
     # General and additional libs
+    # -lkernel32 -lmingwex -lgcc_eh -lgcc
     local SYSTEM_LIBS="-lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread"
-    export ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -lntdll -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lkernel32 -lnormaliz -lwsock32 -lcomctl32 -lshell32 -loleaut32 -lmingwex -lgcc_eh -lgcc -ld3d11 -ld3d12 -ldxgi -ldxguid -lmfplat -lmfuuid -lmfreadwrite -lgomp"
+    export ADDITIONAL_LIBS="-lusp10 -lmsimg32 -lcfgmgr32 -lruntimeobject -ldwrite -ld2d1 -lwindowscodecs -lopengl32 -lssp -lgdi32 -lrpcrt4 -lntdll -luserenv -liphlpapi -lwinmm -luuid -ldnsapi -lcrypt32 -lwldap32 -lnormaliz -lwsock32 -lcomctl32 -lshell32 -loleaut32 -ld3d11 -ld3d12 -ldxgi -ldxguid -lmfplat -lmfuuid -lmfreadwrite -lgomp"
 
     # Flags for HOST (Linux), which are always needed for native builds 
     # * -Wl,--hash-style=gnu: Creates faster symbol tables (GNU-style), which speeds up program launch (relevant for tools that are called thousands of times per build). 

@@ -290,21 +290,30 @@ fi
 
 [[ "$DEDUPE_FLAGS" == "1" ]] && log_info "${BROOM_MARK} Deduplicating ALL flags..."
 
-# Подготовка ФИНАЛЬНЫХ флагов (Dedupe + Combine)
-# объединяем базовые флаги из vars.sh и накопленные из компонентов
-# Конфигурация: сначала базовые, потом специфичные для варианта
+# Preparing FINAL flags (Dedupe + Combine)
+# Combine base flags from vars.sh and accumulated flags from components
+# Configuration: base flags first, then variant-specific flags
 FINAL_CONFIGURE=$(smart_dedupe "$TOTAL_FF_CONFIGURE" "$VARIANT_FF_CONFIGURE")
-# CFLAGS: Сначала кладем CPPFLAGS, затем CFLAGS компонентов, затем варианта.
-# Так как мы оставляем ПЕРВОЕ вхождение, самые важные флаги должны быть левее.
+# CFLAGS: First, we put CPPFLAGS, then component CFLAGS, then variant CFLAGS.
+# keeping the FIRST occurrence, the most important flags should be on the left.
 FINAL_CFLAGS=$(smart_dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CFLAGS" "$VARIANT_FF_CPPFLAGS" | sed 's/-std=gnu17/-std=gnu23/g')
 FINAL_CXXFLAGS=$(smart_dedupe "$CXXFLAGS" "$CPPFLAGS" "$TOTAL_FF_CXXFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CXXFLAGS" "$VARIANT_FF_CPPFLAGS")
-# LDFLAGS: Аналогично флагам компиляции
+# LDFLAGS: Similar to compilation flags
 FINAL_LDFLAGS=$(smart_dedupe "$LDFLAGS" "$TOTAL_FF_LDFLAGS" "$VARIANT_FF_LDFLAGS")
 FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
-# LIBS: ОБРАТНАЯ логика; smart_libs_dedupe оставляет ПОСЛЕДНЕЕ вхождение, 
-# базовые системные либы ($LIBS) лучше ставить в начало списка аргументов, 
-# чтобы если компонент принес свою версию, она вытеснила базовую в конец (право).
+# LIBS: REVERSE logic; smart_libs_dedupe retains the LAST occurrence.
+# best to put base system libs ($LIBS) at the beginning of the argument list.
+# So that if a component brings its own version, it will push the base one to the end (to the right).
 FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
+# Remove absolutely all references to mingw, gcc, and base build libraries
+GCC_RUNTIME=""
+for lib in -lmingw32 -lmingwex -lgcc -lgcc_eh -lmsvcrt -lkernel32; do
+    if [[ " ${FINAL_LIBS} " == *" ${lib} "* ]]; then
+        GCC_RUNTIME="${GCC_RUNTIME} ${lib}"
+        FINAL_LIBS="${FINAL_LIBS// $lib / }"
+        FINAL_LIBS="${FINAL_LIBS//$lib/}" # cleaning up the remains
+    fi
+done
 
 # Enable wolfssl if the corresponding patch is applied
 if [[ "${FFMPEG_PATCHES}" == "1" ]]; then
@@ -431,7 +440,7 @@ fi
 
 # Используем группы для решения проблем циклических зависимостей
 # прокидываем библиотеку обработки исключений LTO за пределы основной группы
-FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++"
+FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group ${GCC_RUNTIME} -lstdc++"
 
 # =======================================
 # FFMPEG AND TOOLCHAIN PARAMS DEBUG
