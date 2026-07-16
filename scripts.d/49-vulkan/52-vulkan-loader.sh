@@ -93,7 +93,8 @@ if [[ "${PREFER_SHARED}" != "1" ]]; then
         # If high vebocity is enabled, dump the entire list of 'vk' symbols
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
             log_debug "${LOGS_MARK} Detailed library symbols dumping:"
-            ${NM} "$TARGET_LIB" | grep -i "ptr_vk" || true
+            # ${NM} "$TARGET_LIB" | grep -i "ptr_vk" || true
+            ${NM} "$TARGET_LIB" | tr -d '\r' | grep -E " [Tt] vk" || true
         fi
     else
         log_error "Failed to verify library: libvulkan-1.a not found at ${TARGET_LIB}"

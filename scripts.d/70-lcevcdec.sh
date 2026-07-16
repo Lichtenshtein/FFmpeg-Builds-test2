@@ -71,9 +71,7 @@ if [[ "${myconf[@]}" =~ "-DVN_SDK_PIPELINE_VULKAN=ON" ]]; then
             # We are looking for a critical function required for the LCEVC Vulkan Pipeline to work
             log_info "${SEARCH_MARK} Checking libvulkan-1.a for KHR WSI extensions..."
 
-            local LIB_SYMBOLS=$("${NM}" "$TARGET_SHIM_LIB" | tr -d '\r' | tr -s ' ')
-
-            if ! echo "$LIB_SYMBOLS" | grep -q "ptr_vkCreateSwapchainKHR"; then
+            if ! "${NM}" "$TARGET_SHIM_LIB" | tr -d '\r' | grep -qE " [Tt] _?vkCreateSwapchainKHR$"; then
 
                 log_warn "Critical KHR symbols not found in stub! Generating a native proxy for Vulkan KHR functions..."
 

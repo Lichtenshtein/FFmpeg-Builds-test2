@@ -6,7 +6,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '52-vulkan-loader'
+        default: '08-zlib|49-vulkan-headers|52-vulkan-loader|70-lcevcdec'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
