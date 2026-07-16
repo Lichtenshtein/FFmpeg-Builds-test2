@@ -639,9 +639,9 @@ FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto-partition=balanced/}"
 
 # FINAL_LDFLAGS="${FINAL_LDFLAGS} -fno-use-linker-plugin"
 
-file /opt/ct-ng/libexec/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.so
+# file /opt/ct-ng/libexec/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.so
 
-${NM} "$($CC -print-file-name=libmingw32.a)" | grep -E "mainCRTStartup|WinMain"
+# ${NM} "$($CC -print-file-name=libmingw32.a)" | grep -E "mainCRTStartup|WinMain"
 
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
@@ -652,7 +652,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition"
+    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--undefined=main -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     --enable-runtime-cpudetect
