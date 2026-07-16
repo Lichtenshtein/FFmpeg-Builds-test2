@@ -2,7 +2,7 @@
 
 log_info "${XCLAM_MARK} LTO Addin: Enabling Link Time Optimization..."
 
-export HOST_CFLAGS="${HOST_CFLAGS//-ffat-lto-objects/-fno-fat-lto-objects}"
+# export HOST_CFLAGS="${HOST_CFLAGS//-ffat-lto-objects/-fno-fat-lto-objects}"
 
 # Флаг для FFmpeg
 # --enable-lto=full (default); --enable-lto=thin (to save build time)
@@ -17,10 +17,10 @@ ffbuild_configure() {
 # что полностью решает проблему lto1: internal compiler error: in choose_baseaddr
 # Если medium не поможет то -mcmodel=large
 ffbuild_cflags() {
-    echo "${USELTO}${USELTO_C//-ffat-lto-objects/-fno-fat-lto-objects} -mcmodel=medium -mstackrealign"
+    echo "${USELTO}${USELTO_C} -mcmodel=medium -mstackrealign"
 }
 ffbuild_cxxflags() {
-    echo "${USELTO}${USELTO_C//-ffat-lto-objects/-fno-fat-lto-objects} -mcmodel=medium -mstackrealign"
+    echo "${USELTO}${USELTO_C} -mcmodel=medium -mstackrealign"
 }
 ffbuild_ldflags() {
     echo "${USELTO}${USELTO_L}"

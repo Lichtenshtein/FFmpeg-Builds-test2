@@ -449,7 +449,7 @@ apply_lto_policy() {
             "-Wl,--high-entropy-va"
             "-Wl,--nxcompat"
             "-Wl,--dynamicbase"
-            "-Wl,--stack,8388608"
+            "-Wl,--stack=8388608"
             "-Wl,--as-needed"
             "-Wl,--subsystem=console"
         )
@@ -502,7 +502,7 @@ apply_lto_policy() {
             export LDFLAGS=$(echo " ${LDFLAGS} " | sed \
                 -e 's/ -Wl,--dynamicbase / /g' \
                 -e 's/ -Wl,--high-entropy-va / /g' \
-                -e 's/ -Wl,--stack,8388608 / /g' | xargs)
+                -e 's/ -Wl,--stack=8388608 / /g' | xargs)
         fi
 
         # Strict Injection for Cargo Target (Overrides hidden cargo-c defaults)
@@ -554,7 +554,7 @@ apply_lto_policy() {
             export LDFLAGS=$(echo " ${LDFLAGS} " | sed \
                 -e 's/ -Wl,--dynamicbase / /g' \
                 -e 's/ -Wl,--high-entropy-va / /g' \
-                -e 's/ -Wl,--stack,8388608 / /g' | xargs)
+                -e 's/ -Wl,--stack=8388608 / /g' | xargs)
         fi
         # Strict Injection for Cargo Target (Overrides hidden cargo-c defaults)
         local RTARCH="${FFBUILD_RUST_TARGET//-/_}"

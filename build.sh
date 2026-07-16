@@ -305,6 +305,7 @@ FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
 # best to put base system libs ($LIBS) at the beginning of the argument list.
 # So that if a component brings its own version, it will push the base one to the end (to the right).
 FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
+
 # Remove absolutely all references to mingw, gcc, and base build libraries
 GCC_RUNTIME=""
 for lib in -lmingw32 -lmingwex -lgcc -lgcc_eh -lmsvcrt -lkernel32; do
@@ -440,9 +441,8 @@ fi
 
 # Используем группы для решения проблем циклических зависимостей
 # прокидываем библиотеку обработки исключений LTO за пределы основной группы
-FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group  -lstdc++"
+FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group  -lstdc++ ${GCC_RUNTIME}"
 
-# ${GCC_RUNTIME}
 
 # =======================================
 # FFMPEG AND TOOLCHAIN PARAMS DEBUG
@@ -513,6 +513,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     # mold --version | head -n 1
     x86_64-w64-mingw32-as --version | head -n 1
     ccache --version | head -n 1
+    file /opt/ct-ng/libexec/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.so
 
     # Если AS или LD показывают /usr/bin/... вместо /opt/ct-ng/... — это 100% причина ошибок и проблем со ненайденными заголовками
     # Версии кросс-инструментов должны совпадать с ct-ng (2.46.0 / 15.2.0), а не Ubuntu (2.42).
@@ -623,48 +624,33 @@ chmod +x configure
 # FINAL_CFLAGS="${FINAL_CFLAGS// -mconsole/}"
 # FINAL_CXXFLAGS="${FINAL_CXXFLAGS// -mconsole/}"
 
-FINAL_LDFLAGS="${FINAL_LDFLAGS//-Wl,-plugin*/}"
+# FINAL_LDFLAGS="${FINAL_LDFLAGS//-Wl,-plugin*/}"
 
-FINAL_LDFLAGS="${FINAL_LDFLAGS//-Wl,--stack,8388608/}"
-FINAL_LDFLAGS="${FINAL_LDFLAGS//--stack 8388608/}"
-FINAL_LDFLAGS="${FINAL_LDFLAGS//-Wl,--subsystem=console/}"
-FINAL_LDFLAGS="${FINAL_LDFLAGS//-Wl,--high-entropy-va/}"
-FINAL_LDFLAGS="${FINAL_LDFLAGS//-Wl,--nxcompat/}"
-FINAL_LDFLAGS="${FINAL_LDFLAGS//-Wl,--dynamicbase/}"
-FINAL_LDFLAGS="${FINAL_LDFLAGS//-Wl,--gc-sections/}"
+# HOST_CFLAGS="${HOST_CFLAGS//-flto=4/}"
+# HOST_CFLAGS="${HOST_CFLAGS//-flto-partition=balanced/}"
+# HOST_CFLAGS="${HOST_CFLAGS//-fno-fat-lto-objects/}"
+# HOST_CFLAGS="${HOST_CFLAGS//-ffat-lto-objects/}"
+# HOST_CFLAGS="${HOST_CFLAGS//-fmerge-all-constants/}"
 
-HOST_CFLAGS="${HOST_CFLAGS//-flto=4/}"
-HOST_CFLAGS="${HOST_CFLAGS//-flto-partition=balanced/}"
-HOST_CFLAGS="${HOST_CFLAGS//-fno-fat-lto-objects/}"
-HOST_CFLAGS="${HOST_CFLAGS//-ffat-lto-objects/}"
-HOST_CFLAGS="${HOST_CFLAGS//-fmerge-all-constants/}"
+# FINAL_CFLAGS="${FINAL_CFLAGS//-flto=4/}"
+# FINAL_CFLAGS="${FINAL_CFLAGS//-flto-partition=balanced/}"
+# FINAL_CFLAGS="${FINAL_CFLAGS//-fno-fat-lto-objects/}"
+# FINAL_CFLAGS="${FINAL_CFLAGS//-ffat-lto-objects/}"
+# FINAL_CFLAGS="${FINAL_CFLAGS//-fmerge-all-constants/}"
 
-FINAL_CFLAGS="${FINAL_CFLAGS//-flto=4/}"
-FINAL_CFLAGS="${FINAL_CFLAGS//-flto-partition=balanced/}"
-FINAL_CFLAGS="${FINAL_CFLAGS//-fno-fat-lto-objects/}"
-FINAL_CFLAGS="${FINAL_CFLAGS//-ffat-lto-objects/}"
-FINAL_CFLAGS="${FINAL_CFLAGS//-fmerge-all-constants/}"
+# FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-flto=4/}"
+# FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-flto-partition=balanced/}"
+# FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-fno-fat-lto-objects/}"
+# FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-ffat-lto-objects/}"
+# FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-fmerge-all-constants/}"
 
-FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-flto=4/}"
-FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-flto-partition=balanced/}"
-FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-fno-fat-lto-objects/}"
-FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-ffat-lto-objects/}"
-FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-fmerge-all-constants/}"
+# HOST_LDFLAGS="${HOST_LDFLAGS//-flto=4/}"
+# HOST_LDFLAGS="${HOST_LDFLAGS//-flto-partition=balanced/}"
 
-HOST_LDFLAGS="${HOST_LDFLAGS//-flto=4/}"
-HOST_LDFLAGS="${HOST_LDFLAGS//-flto-partition=balanced/}"
-
-FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto=4/}"
-FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto-partition=balanced/}"
-
-SAFE_WIN_FLAGS="-Wl,--high-entropy-va,--nxcompat,--dynamicbase,--subsystem=console,--stack=8388608,--gc-sections"
+# FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto=4/}"
+# FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto-partition=balanced/}"
 
 
-# FINAL_LDFLAGS="${FINAL_LDFLAGS} -fno-use-linker-plugin"
-
-file /opt/ct-ng/libexec/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.so
-
-# ${NM} "$($CC -print-file-name=libmingw32.a)" | grep -E "mainCRTStartup|WinMain"
 
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
@@ -675,7 +661,7 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="-L${FFBUILD_PREFIX}/lib ${FINAL_LDFLAGS} -Wl,-v ${SAFE_WIN_FLAGS} -Wl,--allow-multiple-definition"
+    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-v"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     --enable-runtime-cpudetect
@@ -746,34 +732,6 @@ fi
 # =======================================
 # FFMPEG SOURCE PATCHING SECTION 2
 # =======================================
-# if [[ "$HAS_LIBLCEVC_DEC" == "1" ]]; then
-    # log_info "Applying precise LCEVC SDK 4.0.0 migration patches..."
-
-    # if [[ -f "libavfilter/vf_lcevc.c" ]]; then
-        # Удаляем флаг discontinuity (0) из LCEVC_SendDecoderEnhancementData
-        # sed -i 's|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size)|g' libavfilter/vf_lcevc.c
-
-        # Удаляем флаг discontinuity (0) из LCEVC_SendDecoderBase, сдвигая picture и оставляя -1 на месте timeoutUs
-        # sed -i 's|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, in)|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, in)|g' libavfilter/vf_lcevc.c
-
-        # log_info "Successfully patched libavfilter/vf_lcevc.c"
-    # else
-        # log_warn "File libavfilter/vf_lcevc.c not found, skipping."
-    # fi
-
-    # if [[ -f "libavcodec/lcevcdec.c" ]]; then
-        # Удаляем флаг discontinuity (0) из LCEVC_SendDecoderEnhancementData
-        # sed -i 's|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, 0, sd->data, sd->size)|LCEVC_SendDecoderEnhancementData(lcevc->decoder, in->pts, sd->data, sd->size)|g' libavcodec/lcevcdec.c
-
-        # Удаляем флаг discontinuity (0) из LCEVC_SendDecoderBase, сдвигая picture и оставляя -1 на месте timeoutUs
-        # sed -i 's|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, 0, picture, -1, opaque)|LCEVC_SendDecoderBase(lcevc->decoder, in->pts, picture, -1, opaque)|g' libavcodec/lcevcdec.c
-
-        # log_info "Successfully patched libavcodec/lcevcdec.c"
-    # else
-        # log_error "libavcodec/lcevcdec.c not found!"
-    # fi
-# fi
-
 if [[ "$TARGET" == "win64" ]]; then
     log_info "Adjusting the generated config.h: forcibly disabling HAVE_FCNTL for Windows..."
 
@@ -827,12 +785,12 @@ if [[ "$TARGET" == "win64" ]]; then
 fi
 
 # Очистка хедера ffmpeg
-# if [ -f "config.h" ]; then
+if [ -f "config.h" ]; then
 
-    # if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-        # log_info "${LOGS_MARK} >>> [BEFORE] config.h target line:"
-        # grep "#define FFMPEG_CONFIGURATION" config.h || echo "Line not found"
-    # fi
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+        log_info "${LOGS_MARK} >>> [BEFORE] config.h target line:"
+        grep "#define FFMPEG_CONFIGURATION" config.h || echo "Line not found"
+    fi
 
     # RAW_CONFIG=$(sed -n 's/^#define FFMPEG_CONFIGURATION "\(.*\)"/\1/p' config.h)
 
@@ -866,11 +824,17 @@ fi
         # log_warn "Failed to parse FFMPEG_CONFIGURATION content for cleaning."
     # fi
 
-    # if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
-        # log_info "${LOGS_MARK} <<< [AFTER] config.h target line:"
-        # grep "#define FFMPEG_CONFIGURATION" config.h
-    # fi
-# fi
+    sed -i -E 's/--(host-cflags|host-ldflags|extra-cflags|extra-cxxflags|extra-ldflags|extra-ldexeflags|extra-libs|pkg-config-flags|cc|cxx|ar|ranlib|nm|as)=([^[:space:]]*|\x27[^\x27]*\x27|"[^"]*")[[:space:]]*//g' config.h
+
+    sed -i -E 's/[[:space:]]+/ /g' config.h
+
+    sed -i 's/ "$/"/' config.h
+
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+        log_info "${LOGS_MARK} <<< [AFTER] config.h target line:"
+        grep "#define FFMPEG_CONFIGURATION" config.h
+    fi
+fi
 
 # =======================================
 # FFMPEG MAKE & INSTALL
