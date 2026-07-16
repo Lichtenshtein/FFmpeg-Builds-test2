@@ -636,14 +636,12 @@ HOST_LDFLAGS="${HOST_LDFLAGS//-flto-partition=balanced/}"
 FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto=4/}"
 FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto-partition=balanced/}"
 
-FINAL_LDFLAGS="${FINAL_LDFLAGS} -Wl,--entry=mainCRTStartup"
 
-FINAL_LDFLAGS="${FINAL_LDFLAGS} -fno-use-linker-plugin"
+# FINAL_LDFLAGS="${FINAL_LDFLAGS} -fno-use-linker-plugin"
 
 file /opt/ct-ng/libexec/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.so
 
-x86_64-w64-mingw32-gcc-nm /opt/ct-ng/x86_64-w64-mingw32/sysroot/usr/lib/libmingw32.a | grep -E "mainCRTStartup|WinMain"
-
+${NM} "$($CC -print-file-name=libmingw32.a)" | grep -E "mainCRTStartup|WinMain"
 
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"

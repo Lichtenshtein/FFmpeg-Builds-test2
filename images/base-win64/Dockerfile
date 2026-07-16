@@ -122,11 +122,13 @@ RUN \
     ./ct-ng build && \
     \
     echo "🧹 Cleaning up toolchain artifacts..." && \
-    # Удаляем документацию, мануалы и локали из готового тулчейна
+    # Remove documentation, manuals, and locales from the finished toolchain
     rm -rf /ct-ng/.obj /ct-ng/.build /ct-ng/src /ct-ng/build && \
     rm -rf /opt/ct-ng/share/doc /opt/ct-ng/share/info /opt/ct-ng/share/man /opt/ct-ng/share/locale && \
-    # Вырезаем отладочную информацию (strip) из всех бинарников компилятора
-    find /opt/ct-ng/bin /opt/ct-ng/libexec /opt/ct-ng/x86_64-w64-mingw32/bin -type f -executable -exec strip --strip-all {} + 2>/dev/null || true
+    # Strip debug information from all compiler binaries
+    find /opt/ct-ng/bin /opt/ct-ng/x86_64-w64-mingw32/bin -type f -executable -exec strip --strip-all {} + 2>/dev/null || true && \
+    # For libraries and plugins in libexec, use ONLY safe strip-debug
+    find /opt/ct-ng/libexec -type f -executable -exec strip --strip-debug {} + 2>/dev/null || true
 
 # ==========================================
 # STAGE 3: Final Clean Image
