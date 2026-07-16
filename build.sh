@@ -646,7 +646,7 @@ HOST_LDFLAGS="${HOST_LDFLAGS//-flto-partition=balanced/}"
 FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto=4/}"
 FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto-partition=balanced/}"
 
-SAFE_WIN_FLAGS="-Wl,--high-entropy-va,--nxcompat,--dynamicbase,--subsystem=console,--stack=8388608,--gc-sections,--entry=mainCRTStartup,--defsym,WinMain=main"
+SAFE_WIN_FLAGS="-Wl,--high-entropy-va,--nxcompat,--dynamicbase,--subsystem=console,--stack=8388608,--gc-sections,--entry=mainCRTStartup,-Wl,/ALTERNATENAME:WinMain=main"
 
 
 # FINAL_LDFLAGS="${FINAL_LDFLAGS} -fno-use-linker-plugin"
