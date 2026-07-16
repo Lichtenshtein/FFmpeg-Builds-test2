@@ -111,14 +111,8 @@ NPYEOF"
 ffbuild_dockerbuild() {
     set -e
 
-    # get major and minor versions from PY_VER
-    IFS='.' read -r PY_MAJOR PY_MINOR <<< "$PY_VER"
-
     log_info "${BROOM_MARK} Patching CMake scripts to suppress warnings..."
     find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wundef/-Wno-undef/g' 2>/dev/null || true
-
-    # PYTHON_ROOT=$(python3 -c "import sys; print(sys.prefix)")
-    # NUMPY_PATH=$(python3 -c "import numpy; print(numpy.get_include())")
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -153,14 +147,7 @@ ffbuild_dockerbuild() {
         -DBUILD_JAVA=OFF
         -DBUILD_opencv_model_diagnostics=OFF
         -DBUILD_opencv_apps=OFF
-        -DBUILD_opencv_python2=OFF
         -DBUILD_opencv_java=OFF
-        # installed version of numpy not suitable
-        # -DBUILD_opencv_python3=OFF
-        # -DPYTHON3_INCLUDE_PATH="$PYTHON_ROOT/include/python3.12"
-        # -DPYTHON3_LIBRARIES="$PYTHON_ROOT/lib/libpython3.12.so"
-        # -DPYTHON3_NUMPY_INCLUDE_DIRS="$NUMPY_PATH"
-        # -DOPENCV_SKIP_PYTHON_LOADER=ON
         # Enable formats
         -DWITH_MSMF_DXVA=ON
         -DWITH_PNG=ON
@@ -181,12 +168,20 @@ ffbuild_dockerbuild() {
         -DVIDEOIO_ENABLE_PLUGINS=ON
     )
 
+    # python crap
     if [[ -d "python_win" ]]; then
         log_info "Python for windows is detected..."
+
+        # get major and minor versions from PY_VER
+        IFS='.' read -r PY_MAJOR PY_MINOR <<< "$PY_VER"
+
+        LOCAL_PY_ROOT=$(python3 -c "import sys; print(sys.prefix)")
 
         # Generating Python Import Libraries
         ${GENDEF} python_win/bin/${PY_LIB}.dll > ${PY_LIB}.def
         ${DLLTOOL} -d ${PY_LIB}.def -l lib${PY_LIB}.a -D ${PY_LIB}.dll
+
+        sed -i 's/#error "Failed to correctly define NPY_INTP and NPY_UINTP"/typedef long long npy_intp; typedef unsigned long long npy_uintp; #define NPY_TYPES_DEFINED/g' python_win/include/numpy/npy_common.h
 
         myconf+=(
             -DBUILD_opencv_python3=ON
@@ -198,8 +193,28 @@ ffbuild_dockerbuild() {
             -DPYTHON3_VERSION_MAJOR=$PY_MAJOR
             -DPYTHON3_VERSION_MINOR=$PY_MINOR
             -DOPENCV_PYTHON3_INSTALL_PATH="$INSTALL_ROOT/bin"
+            # host Python
+            -DPYTHON3_EXECUTABLE="/usr/bin/python3"
+            -DPYTHON3_INCLUDE_DIR="$LOCAL_PY_ROOT/include/python3.14"
+        )
+    elif [[ $TARGET == linux64 ]]; then
+        # LOCAL_PY_ROOT=$(python3 -c "import sys; print(sys.prefix)")
+        # NUMPY_PATH=$(python3 -c "import numpy; print(numpy.get_include())")
+        myconf+=(
+            # -DBUILD_opencv_python3=ON
+            # -DPYTHON3_INCLUDE_PATH="$LOCAL_PY_ROOT/include/python3.12"
+            # -DPYTHON3_LIBRARIES="$LOCAL_PY_ROOT/lib/libpython3.12.so"
+            # -DPYTHON3_NUMPY_INCLUDE_DIRS="$NUMPY_PATH"
+            # -DOPENCV_SKIP_PYTHON_LOADER=ON
+        )
+    else
+        myconf+=(
+           -DBUILD_opencv_python2=OFF
+           -DBUILD_opencv_python3=OFF
+           -DOPENCV_PYTHON_SKIP_DETECTION=ON
         )
     fi
+
     if has_library "openblas"; then
         log_info "OpenBLAS library detected. Building with OpenBLAS support..."
         myconf+=(
