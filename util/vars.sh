@@ -1598,7 +1598,7 @@ should_skip_post_strip() {
 
     case "$STAGENAME" in
         # rust libs
-        *"rav1e"|*"librsvg")
+        *"rav1e"|*"librsvg"|*"quiche")
             return 0 
             ;;
         # headers

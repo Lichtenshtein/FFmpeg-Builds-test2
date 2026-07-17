@@ -88,16 +88,19 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-shared --disable-static ) || \
         myconf+=( --disable-shared --enable-static )
 
-    CFLAGS="$CFLAGS ${USELTO}${USELTO_C} -fno-function-sections -fno-data-sections" \
+    CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS -D_UCRT=1" \
-    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C} -fno-function-sections -fno-data-sections" \
-    LDFLAGS="${LDFLAGS//-Wl,--gc-sections/} -Wl,--no-gc-sections ${USELTO}${USELTO_L} ${USELTO}${USELTO_L}" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
+    LDFLAGS="${LDFLAGS} ${USELTO}${USELTO_L} ${USELTO}${USELTO_L}" \
     LIBS="$LIBS $DEP_LIBS" \
     ./configure "${myconf[@]}" || return 1
 
     log_info "Touching ASN.1 generated files to skip asn1Parser..."
-    touch lib/pkix_asn1_tab.c
-    touch lib/gnutls_asn1_tab.c
+    # touch lib/pkix_asn1_tab.c
+    # touch lib/gnutls_asn1_tab.c
+
+    asn1Parser lib/minitasn1/gnutls.asn lib/gnutls_asn1_tab.c
+    asn1Parser lib/minitasn1/pkix.asn lib/pkix_asn1_tab.c
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
@@ -106,7 +109,9 @@ ffbuild_dockerbuild() {
         [[ -f "$PC_FILE" ]] || continue
         sed -i "s|^Cflags:.*|& -I\${includedir}/gnutls|" "$PC_FILE"
         log_info "Updated Cflags in $(basename "$PC_FILE")"
-        sed -i '/^Requires\.private:/ {s/ zstd //g; s/ zstd$//; s/: zstd/: /}' "$PC_FILE"
+        # sed -i '/^Requires\.private:/ {s/ zstd //g; s/ zstd$//; s/: zstd/: /}' "$PC_FILE"
+        sed -i 's/libzstd/zstd/g' "$PC_FILE"
+        sed -i 's/  */ /g' "$PC_FILE"
     done
 }
 

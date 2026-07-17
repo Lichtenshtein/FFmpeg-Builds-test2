@@ -28,6 +28,11 @@ quiche/deps/boringssl/src/third_party/wycheproof_testvectors"
 ffbuild_dockerbuild() {
     set -e
 
+    if [[ -f "Cargo.toml" ]]; then
+        log_info "Patching Cargo.toml to disable forced debug symbols in release profile..."
+        sed -i 's|debug = true|debug = false|g' Cargo.toml
+    fi
+
     cd quiche
 
     # Replace crate-type = ["lib", "staticlib", "cdylib"] with ["staticlib"]
@@ -65,7 +70,7 @@ ffbuild_dockerbuild() {
 
     mkdir -p "$INSTALL_ROOT/include/boringssl" "$INSTALL_ROOT/lib" "$PC_DIR"
 
-    local LIB_FILE=$(find target/${FFBUILD_RUST_TARGET}/release/ -maxdepth 1 \( -name "libquiche.a" -o -name "quiche.lib" \))
+    local LIB_FILE=$(find target/${FFBUILD_RUST_TARGET}/release/ -maxdepth 1 \( -name "libquiche.${lib_ext}" -o -name "quiche.lib" \))
     local HEADER_FILE=$(find quiche/include/ -name "quiche.h")
 
     cp "$HEADER_FILE" "$INSTALL_ROOT/include/quiche.h"
