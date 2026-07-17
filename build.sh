@@ -180,42 +180,42 @@ fi
 
 pushd "$FFMPEG_SOURCE_DIR"
 
-# AUTO-PATCHING
-apply_ffmpeg_patches
-
 # =======================================
 # FFMPEG SOURCE PATCHING SECTION 1
 # =======================================
-log_info "Patching FFmpeg vf_libvmaf.c to use Pointer ABI..."
-# Подменяем вызов в исходнике фильтра на передачу адреса структуры
-sed -i 's/err = vmaf_init(\&s->vmaf, cfg);/err = vmaf_init(\&s->vmaf, \&cfg);/g' "libavfilter/vf_libvmaf.c"
-if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-    # На всякий случай жестко проверяем, применился ли патч (выводим строку в лог)
-    grep -n "vmaf_init" "libavfilter/vf_libvmaf.c"
-fi
-log_info "Patching FFmpeg ffprobe ABI bug: Changing avtext_context_open to pass options by pointer..."
-# меняем сигнатуру в заголовочном файле
-sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.h"
-# меняем объявление функции в файле реализации
-sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.c"
-# Меняем только одну строчку присвоения внутри тела avtext_context_open, 
-# чтобы данные разыменовывались из указателя обратно в объект контекста:
-sed -i 's/tctx->opts = options;/tctx->opts = *options;/g' "fftools/textformat/avtextformat.c"
-# Добавляем амперсанд на стороне вызова в fftools/ffprobe.c
-sed -i 's/tf_options, show_data_hash/\&tf_options, show_data_hash/g' "fftools/ffprobe.c"
-# Патчим вызывающую сторону в fftools/graph/graphprint.c (добавляем амперсанд &)
-sed -i 's/tf_options, NULL/\&tf_options, NULL/g' "fftools/graph/graphprint.c"
-# Проверка успешности наката патча в логи сборщика
-if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-    log_debug "Verifying patches application..."
-    grep -n "avtext_context_open" "fftools/textformat/avtextformat.h"
-    grep -n "avtext_context_open" "fftools/textformat/avtextformat.c" | head -n 2
-    grep -n "avtext_context_open" "fftools/ffprobe.c"
-    grep -n "avtext_context_open" "fftools/graph/graphprint.c"
-fi
 
-# if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
-# fi
+# AUTO-PATCHING
+apply_ffmpeg_patches
+
+if has_library "vmaf"; then
+    log_info "Patching FFmpeg vf_libvmaf.c to use Pointer ABI..."
+    # replace the call in the filter source with the transfer of the structure address
+    sed -i 's/err = vmaf_init(\&s->vmaf, cfg);/err = vmaf_init(\&s->vmaf, \&cfg);/g' "libavfilter/vf_libvmaf.c"
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+        # check whether the patch was applied (output a line to the log)
+        grep -n "vmaf_init" "libavfilter/vf_libvmaf.c"
+    fi
+    log_info "Patching FFmpeg ffprobe ABI bug: Changing avtext_context_open to pass options by pointer..."
+    # change the signature in the header file
+    sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.h"
+    # change the function declaration in the implementation file
+    sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.c"
+    # Change only one assignment line inside the body of avtext_context_open,
+    # so that the data is dereferenced from the pointer back to the context object
+    sed -i 's/tctx->opts = options;/tctx->opts = *options;/g' "fftools/textformat/avtextformat.c"
+    # Add an ampersand to the caller in fftools/ffprobe.c
+    sed -i 's/tf_options, show_data_hash/\&tf_options, show_data_hash/g' "fftools/ffprobe.c"
+    # Patch the caller in fftools/graph/graphprint.c (add ampersand &)
+    sed -i 's/tf_options, NULL/\&tf_options, NULL/g' "fftools/graph/graphprint.c"
+    # Checking the success of the patch rollout in the builder logs
+    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+        log_debug "Verifying patches application..."
+        grep -n "avtext_context_open" "fftools/textformat/avtextformat.h"
+        grep -n "avtext_context_open" "fftools/textformat/avtextformat.c" | head -n 2
+        grep -n "avtext_context_open" "fftools/ffprobe.c"
+        grep -n "avtext_context_open" "fftools/graph/graphprint.c"
+    fi
+fi
 
 THPENC_C="libavformat/thpenc.c"
 if [ -f "$THPENC_C" ]; then
@@ -225,11 +225,14 @@ if [ -f "$THPENC_C" ]; then
     sed -i 's/avpriv_packet_list_get/ff_packet_list_get/g' "$THPENC_C"
     sed -i 's/avpriv_packet_list_free/ff_packet_list_free/g' "$THPENC_C"
 
-    # Новые функции ff_packet_list_* требуют инклюд "packet_list.h" вместо старых кодековых.
+    # New ff_packet_list_* functions require "packet_list.h" inclusion instead of old codec ones.
     if ! grep -q '#include "packet_list.h"' "$THPENC_C"; then
         sed -i '2i #include "packet_list.h"' "$THPENC_C"
     fi
 fi
+
+# if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
+# fi
 
 # TARGET_SEARCH_DIR="${FFBUILD_PREFIX}/lib"
 # OBJDUMP="${OBJDUMP}"
@@ -282,7 +285,8 @@ fi
 # =======================================
 # FLAGS AND LIBS PROCESSING SECTION
 # =======================================
-# Удаляем жесткий -static и -Wl,-Bstatic из базовых флагов линковщика
+
+# Remove hard -static and -Wl,-Bstatic from the base linker flags
 # LDFLAGS=$(echo " ${LDFLAGS} " | sed -e 's/ -static / /g' -e 's/ -Wl,-Bstatic / /g' | xargs)
 # FINAL_CONFIGURE=$(echo " ${FINAL_CONFIGURE} " | sed -e 's/ --enable-libsvtjpegxs / /g' | xargs)
 
@@ -359,8 +363,9 @@ unset ENABLED_COMPONENTS
 # ==================================
 # OPENVINO PROCESSING (If enabled)
 # ==================================
+
 # if [[ "$HAS_LIBOPENVINO" == "1" ]]; then
-    # Список библиотек OpenVINO, которые пришли из pkg-config и vars.sh
+    # List of OpenVINO libraries that came from pkg-config and vars.sh
     # cut them out from the general list so that they are not affected by the global -Bstatic
     # accumulate into a dynamic group
     # log_info "${TARGET_MARK} Setting up hybrid linking for OpenVINO..."
@@ -374,6 +379,7 @@ unset ENABLED_COMPONENTS
 # ==========================================
 # TENSORFLOW PROCESSING
 # ==========================================
+
 # if [[ "$HAS_LIBTENSORFLOW" == "1" ]]; then
     # log_info "${TARGET_MARK} Setting up hybrid linking for TensorFlow..."
     # TF_TARGET_LIBS="-ltensorflow"
@@ -386,6 +392,7 @@ unset ENABLED_COMPONENTS
 # ==========================================
 # LIBTORCH PROCESSING
 # ==========================================
+
 # if [[ "$HAS_LIBTORCH" == "1" ]]; then
     # ls -lh ${FFBUILD_PREFIX}/lib/libtorch_cpu.a || true
     # TORCH_LIBS="-ltorch -ltorch_cpu -lc10"
@@ -403,6 +410,7 @@ unset ENABLED_COMPONENTS
 # ==========================================
 # WHISPER PROCESSING
 # ==========================================
+
 # if [[ "$HAS_WHISPER" == "1" ]]; then
     # log_info "${TARGET_MARK} Setting up hybrid dynamic linking for Whisper..."
     # WHISPER_DYNAMIC_LIBS="-lwhisper -lggml"
@@ -427,32 +435,33 @@ fi
 # FINAL LIBS GROUP PROCESSING
 # ==========================================
 
-# Чистим лишние пробелы, которые мог оставить sed
+# Clean up any extra spaces that sed might have left behind.
+
 # FINAL_LIBS=$(echo ${FINAL_LIBS} | xargs)
 
-# Формируем изолированную строку для переключения контекста линкера
-# -Wl,-Bdynamic переключает MinGW ld в режим импорта DLL.
-# -Wl,-Bstatic возвращает линкер в режим сборки честной статики
+# Generate an isolated string for linker context switching
+# -Wl,-Bdynamic switches MinGW ld to DLL import mode.
+# -Wl,-Bstatic returns the linker to pure static build mode.
+
 # DYNAMIC_LIBS_ACCUMULATOR+=""
 # HYBRID_DYNAMIC_FLAGS=""
 # if [[ -n "${DYNAMIC_LIBS_ACCUMULATOR}" ]]; then
     # HYBRID_DYNAMIC_FLAGS="-Wl,-Bdynamic ${DYNAMIC_LIBS_ACCUMULATOR} -Wl,-Bstatic "
 # fi
 
-# Используем группы для решения проблем циклических зависимостей
-# прокидываем библиотеку обработки исключений LTO за пределы основной группы
+# Using groups to solve cyclic dependencies
+# Moving the LTO exception handling library outside the main group
 FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group  -lstdc++ ${GCC_RUNTIME}"
-
 
 # =======================================
 # FFMPEG AND TOOLCHAIN PARAMS DEBUG
 # =======================================
+
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     log_info_line
     log_info "### ${BUILD_MARK} Start of DEBUG audit section"
     log_info_line
 
-    # Проверка путей (PATH)
     log_debug "${DIRS_MARK} Current PATH:\n$PATH"
 
     check_tool() {
@@ -493,21 +502,18 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     echo -n "$FINAL_CFLAGS" | xxd | head -5
     log_debug 'DIAGNOSTIC: FINAL_LDFLAGS bytes:'
     echo -n "$FINAL_LDFLAGS" | xxd | head -5
-    # какие именно as и ld видны в системе первыми
+
     log_debug "PRIORITY: 'as' priority: \n$(which -a as)"
     log_debug "PRIORITY: 'ld' priority: \n$(which -a ld)"
     log_debug "PRIORITY: 'x86_64-w64-mingw32-gcc' priority: \n$(which -a x86_64-w64-mingw32-gcc)"
-    # содержимое папок тулчейна (только имена файлов)
+
     log_debug "${DIRS_MARK} Contents of /opt/ct-ng/bin (first 20 files):"
     ls -F /opt/ct-ng/bin | head -n 20
-    # папки, где могут прятаться "голые" (без префикса) as/ld
-    # If which -a as first outputs something in /opt/ct-ng/... rather than /usr/bin/as, this is the cause of the junk at end of line error.
-    # If in /opt/ct-ng/bin is a file simply as 'as' (without a prefix), then crosstool-ng created symlinks during compilation that poison PATH
-    # If as --version writes "Target: x86_64-w64-mingw32", and it is called from gcc-14 (host), the build will fail
+
     log_debug "${SEARCH_MARK} Search for all 'as' files in /opt/ct-ng/:"
     find /opt/ct-ng -name "as" -type f || true
     log_debug "GNU assembler version:"
-    # что выдает ассемблер на команду версии
+
     as --version | head -n 1
     gcc --version | head -n 1
     # mold --version | head -n 1
@@ -515,8 +521,6 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     ccache --version | head -n 1
     file /opt/ct-ng/libexec/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.so
 
-    # Если AS или LD показывают /usr/bin/... вместо /opt/ct-ng/... — это 100% причина ошибок и проблем со ненайденными заголовками
-    # Версии кросс-инструментов должны совпадать с ct-ng (2.46.0 / 15.2.0), а не Ubuntu (2.42).
     check_tool "CC" "$CC"
     check_tool "CXX" "$CXX"
     check_tool "AS" "x86_64-w64-mingw32-as"
@@ -526,7 +530,6 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     check_tool "LD" "$LD"
     check_tool "STRIP" "x86_64-w64-mingw32-strip"
 
-    # Проверка ccache
     if command -v ccache &>/dev/null; then
         log_info "${CACHE_MARK} ccache found. Configuration:"
         log_debug "CCACHE_PATH: $CCACHE_PATH"
@@ -535,7 +538,6 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
         log_warn "ccache not in use"
     fi
 
-    # Проверка видимости библиотек ffnvcodec (твоя ошибка cuda_llvm)
     log_info "${SEARCH_MARK} Checking ffnvcodec in pkg-config:"
     if "${PKG_CONFIG}" --exists ffnvcodec; then
         log_info "${CHECK_MARK} ffnvcodec found: $("${PKG_CONFIG}" --modversion ffnvcodec)"
@@ -550,11 +552,11 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
         log_info "${SEARCH_MARK} Auditing pkg-config files for overflow triggers..."
         for pc in "${FFBUILD_PREFIX}"/lib/pkgconfig/*.pc; do
             log_debug "Testing pc file: $(basename "$pc")"
-            # Проверяем, не падает ли pkgconf на чтении флагов этой либы
+            # Check if pkgconf crashes while reading flags of this lib
             pkgconf --static --libs "$(basename "$pc" .pc)" >/dev/null 2>&1 && log_info "  $(basename "$pc"): OK" || log_error "  $(basename "$pc"): CRASHED OR FAILED"
         done
     fi
-    # Специфическая проверка для LTO (наличие плагинов)
+
     log_info "${BUILD_MARK} Checking LTO support in AR:"
     if "$AR" --help 2>&1 | grep -q "plugin"; then
         log_info "${CHECK_MARK} AR supports plugins (required for LTO)"
@@ -570,18 +572,18 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     log_info_line
 fi
 
-# экспортируем флаги
+# export flags
 export FINAL_CONFIGURE FINAL_CFLAGS FINAL_CXXFLAGS FINAL_LDFLAGS FINAL_LDEXEFLAGS FINAL_LIBS_GROUPED
-# Очищаем тяжелые переменные, чтобы не мешать запуску процессов
+# Clear heavy variables so as not to interfere with process startup
 unset TOTAL_FF_CONFIGURE TOTAL_FF_LIBS TOTAL_FF_CFLAGS TOTAL_FF_CXXFLAGS TOTAL_FF_CPPFLAGS TOTAL_FF_LDFLAGS
 # Unset cross-compilation flags so host compiler stays clean during configure
 unset CFLAGS CPPFLAGS CXXFLAGS LDFLAGS LDEXEFLAGS ASFLAGS LIBS
 
-# Формируем массив флагов для configure
+# Form an array of flags for configure
 read -ra TARGET_FLAGS_ARR <<< "$FFBUILD_TARGET_FLAGS"
 read -ra FF_CONF_ARR <<< "$FINAL_CONFIGURE"
 
-# Считаем физическую память и Swap (в ГБ)
+# Calculate physical memory and swap (in GB)
 # MEM_PHYS=$(awk '/MemTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)
 # SWAP_TOTAL=$(awk '/SwapTotal/ {printf "%d", $2/1024/1024}' /proc/meminfo)
 # TOTAL_VIRTUAL=$(( MEM_PHYS + SWAP_TOTAL ))
@@ -616,41 +618,9 @@ chmod +x configure
 # -march=x86-64-v3 -mtune=generic
 # --as="$CC"
 # -fno-use-linker-plugin
-
 # lld linker is broken, use ld
 # FINAL_LDFLAGS="${FINAL_LDFLAGS// -fuse-ld=lld/}"
-
-# FINAL_LDFLAGS="${FINAL_LDFLAGS// -Wl,--subsystem=console/}"
-# FINAL_CFLAGS="${FINAL_CFLAGS// -mconsole/}"
-# FINAL_CXXFLAGS="${FINAL_CXXFLAGS// -mconsole/}"
-
 # FINAL_LDFLAGS="${FINAL_LDFLAGS//-Wl,-plugin*/}"
-
-# HOST_CFLAGS="${HOST_CFLAGS//-flto=4/}"
-# HOST_CFLAGS="${HOST_CFLAGS//-flto-partition=balanced/}"
-# HOST_CFLAGS="${HOST_CFLAGS//-fno-fat-lto-objects/}"
-# HOST_CFLAGS="${HOST_CFLAGS//-ffat-lto-objects/}"
-# HOST_CFLAGS="${HOST_CFLAGS//-fmerge-all-constants/}"
-
-# FINAL_CFLAGS="${FINAL_CFLAGS//-flto=4/}"
-# FINAL_CFLAGS="${FINAL_CFLAGS//-flto-partition=balanced/}"
-# FINAL_CFLAGS="${FINAL_CFLAGS//-fno-fat-lto-objects/}"
-# FINAL_CFLAGS="${FINAL_CFLAGS//-ffat-lto-objects/}"
-# FINAL_CFLAGS="${FINAL_CFLAGS//-fmerge-all-constants/}"
-
-# FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-flto=4/}"
-# FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-flto-partition=balanced/}"
-# FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-fno-fat-lto-objects/}"
-# FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-ffat-lto-objects/}"
-# FINAL_CXXFLAGS="${FINAL_CXXFLAGS//-fmerge-all-constants/}"
-
-# HOST_LDFLAGS="${HOST_LDFLAGS//-flto=4/}"
-# HOST_LDFLAGS="${HOST_LDFLAGS//-flto-partition=balanced/}"
-
-# FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto=4/}"
-# FINAL_LDFLAGS="${FINAL_LDFLAGS//-flto-partition=balanced/}"
-
-
 
 CONF_FLAGS=(
     --prefix="$INSTALL_ROOT"
@@ -661,14 +631,14 @@ CONF_FLAGS=(
     --host-ldflags="$HOST_LDFLAGS"
     --extra-cflags="${FINAL_CFLAGS}"
     --extra-cxxflags="${FINAL_CXXFLAGS}"
-    --extra-ldflags="${FINAL_LDFLAGS} -Wl,--allow-multiple-definition -Wl,-v"
+    --extra-ldflags="${FINAL_LDFLAGS}${LINK_VERB} -Wl,--allow-multiple-definition"
     --extra-ldexeflags="${FINAL_LDEXEFLAGS}"
     --extra-libs="${FINAL_LIBS_GROUPED}"
     --enable-runtime-cpudetect
     --enable-cross-compile
     --disable-w32threads
     --enable-pthreads
-    --enable-filter=all
+    # --enable-filter=all
     --enable-opengl
     --enable-mediafoundation
     --enable-pic
@@ -720,33 +690,47 @@ if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     exit 1
 fi
 
-if [ -f "ffbuild/config.mak" ]; then
-    log_info "Applying LLD patch: Disabling LTO flags for fftools objects..."
-    echo 'fftools/%.o: CFLAGS := $(filter-out -flto% -fno-fat-lto-objects -ffat-lto-objects, $(CFLAGS)) -fno-lto' >> ffbuild/config.mak
-    echo 'fftools/textformat/%.o: CFLAGS := $(filter-out -flto% -fno-fat-lto-objects -ffat-lto-objects, $(CFLAGS)) -fno-lto' >> ffbuild/config.mak
-    echo 'fftools/graph/%.o: CFLAGS := $(filter-out -flto% -fno-fat-lto-objects -ffat-lto-objects, $(CFLAGS)) -fno-lto' >> ffbuild/config.mak
-    echo 'fftools/resources/%.o: CFLAGS := $(filter-out -flto% -fno-fat-lto-objects -ffat-lto-objects, $(CFLAGS)) -fno-lto' >> ffbuild/config.mak
-fi
-
-
 # =======================================
 # FFMPEG SOURCE PATCHING SECTION 2
 # =======================================
+
+# lld+ffmpeg bug workaround
+# ld.lld: error: undefined symbol: WinMain
+# referenced by /ct-ng/build/x86_64-w64-mingw32/src/mingw-w64/mingw-w64-crt/crt/crtexewin.c:66
+# libmingw32.a(lib64_libmingw32_a-crtexewin.o):(.text.startup)
+# This works selectively during source code compilation. It forces GCC to compile fftools wrapper files (ffmpeg.c, ffprobe.c, etc.) as standard machine assembler. All internal FFmpeg libraries (libavcodec.a, etc.) and all third-party libraries (libshaderc, lcevc) remain fully-fledged LTO bytecode.
+
+# if [[ "$FINAL_CONFIGURE" =~ --enable-lto ]] || [[ "$USE_LTO" == "1" ]]; then
+    # is_lld=0
+    # if [[ "${TARGET_LD}" == "lld" || "${TARGET_LD}" == *"ld.lld"* ]]; then
+        # is_lld=1
+    # fi
+    # if [[ $is_lld -eq 1 ]]; then
+        # if [ -f "ffbuild/config.mak" ]; then
+            # log_info "Applying LLD patch: Disabling LTO flags for fftools objects..."
+            # echo 'fftools/%.o: CFLAGS := $(filter-out -flto% -fno-fat-lto-objects -ffat-lto-objects, $(CFLAGS)) -fno-lto' >> ffbuild/config.mak
+            # echo 'fftools/textformat/%.o: CFLAGS := $(filter-out -flto% -fno-fat-lto-objects -ffat-lto-objects, $(CFLAGS)) -fno-lto' >> ffbuild/config.mak
+            # echo 'fftools/graph/%.o: CFLAGS := $(filter-out -flto% -fno-fat-lto-objects -ffat-lto-objects, $(CFLAGS)) -fno-lto' >> ffbuild/config.mak
+            # echo 'fftools/resources/%.o: CFLAGS := $(filter-out -flto% -fno-fat-lto-objects -ffat-lto-objects, $(CFLAGS)) -fno-lto' >> ffbuild/config.mak
+        # fi
+    # if 
+# fi
+
 if [[ "$TARGET" == "win64" ]]; then
     log_info "Adjusting the generated config.h: forcibly disabling HAVE_FCNTL for Windows..."
 
     log_info "Searching for and patching all generated config.h files..."
 
-    # Находим все файлы config.h в текущем дереве сборки
+    # Find all config.h files in the current build tree
     CONFIG_FILES=$(find . -type f -name "config.h")
     
     if [[ -n "$CONFIG_FILES" ]]; then
         for cfg in $CONFIG_FILES; do
             log_debug "Patching file: $cfg"
-            # Заменяем "#define HAVE_FCNTL 1" на "#define HAVE_FCNTL 0"
+            # Replace "#define HAVE_FCNTL 1" with "#define HAVE_FCNTL 0"
             sed -i 's/#define HAVE_FCNTL 1/#define HAVE_FCNTL 0/g' "$cfg"
-            # На всякий случай, если он записан как "#undef HAVE_FCNTL", 
-            # но мы хотим жестко гарантировать ноль:
+            # Just in case it's written as "#undef HAVE_FCNTL",
+            # but we want to hard-guarantee zero:
             if ! grep -q "HAVE_FCNTL" "$cfg"; then
                 echo "#define HAVE_FCNTL 0" >> "$cfg"
             fi
@@ -757,7 +741,7 @@ if [[ "$TARGET" == "win64" ]]; then
 
         log_info "Applying 3 patches to remove fcntl from FFmpeg files..."
 
-        # Патчим libavformat/file.c
+        # Patch libavformat/file.c
         if [[ -f "libavformat/file.c" ]]; then
             sed -i 's/#if HAVE_FCNTL/#if HAVE_FCNTL \&\& !defined(_WIN32)/g' libavformat/file.c
             log_info "Patch 1/3 (file.c) applied successfully."
@@ -765,7 +749,7 @@ if [[ "$TARGET" == "win64" ]]; then
             log_warn "The file libavformat/file.c could not be found in this path."
         fi
 
-        # Патчим libavformat/network.c
+        # Patch libavformat/network.c
         if [[ -f "libavformat/network.c" ]]; then
             sed -i 's/#if HAVE_FCNTL/#if HAVE_FCNTL \&\& !defined(_WIN32)/g' libavformat/network.c
             log_info "Patch 2/3 (network.c) applied successfully."
@@ -773,7 +757,7 @@ if [[ "$TARGET" == "win64" ]]; then
             log_warn "The file libavformat/network.c could not be found in this path."
         fi
 
-        # Патчим libavutil/file_open.c
+        # Patch libavutil/file_open.cr
         if [[ -f "libavutil/file_open.c" ]]; then
             sed -i 's/#if HAVE_FCNTL/#if HAVE_FCNTL \&\& !defined(_WIN32)/g' libavutil/file_open.c
             log_info "Patch 3/3 (file_open.c) applied successfully."
@@ -784,7 +768,7 @@ if [[ "$TARGET" == "win64" ]]; then
     fi
 fi
 
-# Очистка хедера ffmpeg
+# Clearing the ffmpeg header
 if [ -f "config.h" ]; then
 
     if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then

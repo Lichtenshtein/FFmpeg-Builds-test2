@@ -124,10 +124,6 @@ export CC="${FFBUILD_CROSS_PREFIX}gcc"
 export CXX="${FFBUILD_CROSS_PREFIX}g++"
 # export LD="${FFBUILD_CROSS_PREFIX}gcc"
 # export LD="${FFBUILD_CROSS_PREFIX}ld"
-# warning: lld+ffmpeg is broken
-# ld.lld: error: undefined symbol: WinMain
-# referenced by /ct-ng/build/x86_64-w64-mingw32/src/mingw-w64/mingw-w64-crt/crt/crtexewin.c:66
-# libmingw32.a(lib64_libmingw32_a-crtexewin.o):(.text.startup)
 export LD="/usr/bin/ld.lld"
 export HOST_LD="mold"
 export TARGET_LD="lld" # or bfd
@@ -734,6 +730,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     export OP_V="v"
     export OP_VERB2="--verbose"
     export GIT_VERB="--progress"
+    export LINK_VERB=" -Wl,-v"
 else
     export MAKE_V=""
     export NINJA_V=""
@@ -742,6 +739,7 @@ else
     export OP_V=""
     export OP_VERB2=""
     export GIT_VERB="--quiet"
+    export LINK_VERB=""
 fi
 
 # =================
@@ -1115,7 +1113,7 @@ patch_pc_files() {
     mapfile -t PC_FILES < <(find "$pc_dir" -maxdepth 1 -name "*.pc")
     [[ ${#PC_FILES[@]} -eq 0 ]] && return 0
     for pc in "${PC_FILES[@]}"; do
-        echo " $pc" >&2
+        echo "$pc" >&2
     done
 
     find "$pc_dir" -maxdepth 2 -name "*.pc" | while read -r pc; do
