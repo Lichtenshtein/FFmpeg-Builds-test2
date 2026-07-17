@@ -22,7 +22,7 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
-    # Создаем файл реализации
+    # Create an implementation file
     cat <<EOF > mingw_fix.c
 #include <string.h>
 #include <stdlib.h>
@@ -36,7 +36,7 @@ char *strndup(const char *s, size_t n) {
 }
 EOF
 
-    # Создаем заголовочный файл
+    # Create a header file
     cat <<EOF > mingw_fix.h
 #ifndef MINGW_FIX_H
 #define MINGW_FIX_H
@@ -45,7 +45,7 @@ char *strndup(const char *s, size_t n);
 #endif
 EOF
 
-    # Компилируем его в объектный файл
+    # compile it into an object file
     $CC $CFLAGS -c mingw_fix.c -o mingw_fix.o
 
     local myconf=(

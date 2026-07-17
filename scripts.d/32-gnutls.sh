@@ -137,6 +137,9 @@ EOF
         sed -i 's/libzstd/zstd/g' "$PC_FILE"
         sed -i 's/  */ /g' "$PC_FILE"
     done
+
+    # try to resolve future symbol collisions with openssl
+    # ${OBJCOPY} --localize-symbol=strndup libgnutls.${lib_ext}
 }
 
 ffbuild_configure() {

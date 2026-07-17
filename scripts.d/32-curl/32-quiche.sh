@@ -30,7 +30,19 @@ ffbuild_dockerbuild() {
 
     if [[ -f "Cargo.toml" ]]; then
         log_info "Patching Cargo.toml to disable forced debug symbols in release profile..."
-        sed -i 's|debug = true|debug = false|g' Cargo.toml
+
+        NEW_RELEASE_PROFILE="[profile.release]
+debug = false
+strip = \"debuginfo\"
+opt-level = 3
+lto = $([ "${USE_LTO}" == "1" ] && echo true || echo false)
+codegen-units = 1"
+
+        sed -i '/^\[profile\.release\]/,/^\s*$/d' Cargo.toml
+        sed -i '/^\[profile\.release\]/,$d' Cargo.toml
+
+        echo -e "\n$NEW_RELEASE_PROFILE" >> Cargo.toml
+
     fi
 
     cd quiche
@@ -98,6 +110,8 @@ Libs.private: -lntdll
 Cflags: -I\${includedir}
 EOF
 
-    # try to resolve future symbol collisions with openssl
-    ${OBJCOPY} --localize-hidden "$INSTALL_ROOT"/lib/libquiche.${lib_ext}
+    # if has_library "ssl"; then
+        # try to resolve future symbol collisions with openssl
+        # ${OBJCOPY} --localize-hidden "$INSTALL_ROOT"/lib/libquiche.${lib_ext}
+    # fi
 }

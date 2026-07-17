@@ -31,14 +31,18 @@ ffbuild_dockerbuild() {
     set -e
 
     if [ -f "Cargo.toml" ]; then
+
         NEW_RELEASE_PROFILE="[profile.release]
+debug = false
 strip = \"debuginfo\"
-opt-level = \"3\"
-lto = fat
+opt-level = 3
+lto = $([ "${USE_LTO}" == "1" ] && echo true || echo false)
 codegen-units = 1"
+
         if ! grep -q "^\[profile\.release\]" Cargo.toml; then
-            echo -e "\n$NEW_RELEASE_PROFILE" >> librsvg/Cargo.toml
+            echo -e "\n$NEW_RELEASE_PROFILE" >> Cargo.toml
         fi
+
     fi
 
     export CARGO_HOME="/opt/cargo"
