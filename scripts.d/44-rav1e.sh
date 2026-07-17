@@ -33,7 +33,7 @@ codegen-units = 1"
         sed -i '/^\[profile\.release\]/,$d' Cargo.toml
 
         echo -e "\n$NEW_RELEASE_PROFILE" >> Cargo.toml
-cat Cargo.toml
+
     fi
 
     # Fixing the issue with libgit2-sys: Disabling the use of the system libgit2

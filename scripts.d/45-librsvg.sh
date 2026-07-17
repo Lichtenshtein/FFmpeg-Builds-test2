@@ -43,6 +43,8 @@ codegen-units = 1"
             echo -e "\n$NEW_RELEASE_PROFILE" >> Cargo.toml
         fi
 
+cat Cargo.toml
+
     fi
 
     export CARGO_HOME="/opt/cargo"
