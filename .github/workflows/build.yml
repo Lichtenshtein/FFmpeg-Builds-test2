@@ -6,8 +6,8 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '08-zlib|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|70-lcevcdec'
-        # default: '.*'
+        # default: '08-zlib|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|70-lcevcdec'
+        default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
@@ -171,7 +171,7 @@ env:
   USE_LIBTORCH:      '1'
   GRAB_MODELS:       '1'
   WHISPER_MODL_SIZE: 'small' # base/small/medium/large-v3
-  BUILD_VINO:        '0' # Build OpenVino
+  BUILD_VINO:        '1' # Build OpenVino
 
 jobs:
   build_all:
