@@ -9,7 +9,7 @@ cd "$(dirname "$0")"
 source util/vars.sh "${1:-$TARGET}" "${2:-$VARIANT}" \
     || { echo "ERROR: vars.sh failed in build.sh" >&2; exit 1; }
 
-# a hook announcing that we're at the final stage
+# A hook announcing that we're at the final stage
 export FFMPEG_BUILD_STAGE="1"
 export STAGENAME="FFmpeg"
 
@@ -17,40 +17,38 @@ if declare -F apply_lto_policy >/dev/null; then
     apply_lto_policy
 fi
 
-# Сброс статистики для чистого лога
+# Reset statistics for a clean log
 # ccache -z > /dev/null
-# Сбрасываем счетчик секунд в начале этапа
+# Reset the seconds counter at the beginning of the stage
 SECONDS=0
 
-# Определяем функцию очистки
+# Define the cleaning function
 cleanup() {
-    local exit_code=$? # Запоминаем код завершения (0 - успех, >0 - ошибка)
+    local exit_code=$? # Remember the exit code (0 - success, >0 - error)
 
     log_info "Running cleanup (Exit code: $exit_code)..."
 
-    # Удаляем временную папку сборки (pkgroot, временные логи и т.д.); "$VARS_DIR"
+    # Delete the temporary build folder (pkgroot, temporary logs, etc.); not "$VARS_DIR"?
     rm -rf "$FFMPEG_PKG_ROOT" 2>/dev/null
 
-    # Если сборка упала, можно оставить лог конфига в доступном месте
+    # If the build fails, leave the config log in an accessible location
     if [[ $exit_code -ne 0 && -f "$FFMPEG_CONFIG_LOG" ]]; then
         cp "$FFMPEG_CONFIG_LOG" "${FFBUILD_DESTDIR}/failed_config.log" 2>/dev/null || true
     else
-    # Просто копируем лог в папку для упаковки
+    # Just copy the log to the folder for packaging
         cp "$FFMPEG_CONFIG_LOG" "${FFBUILD_DESTDIR}/config.log" 2>/dev/null || true
     fi
 
     log_info "Cleanup done."
 
-    # Вывод статистики ccache
     log_info "${CACHE_MARK} CCACHE STATISTICS:"
     ccache -s "${OP_VERB2}"
 }
-# Устанавливаем ловушку
-# EXIT сработает всегда: и при успехе, и при ошибке, и при прерывании
+# EXIT will always be called: on success, on error, and on interruption
 trap cleanup EXIT
 
-# Инициализация локальных (не экспортируемых!) переменных
-# Обнуляем FF_ переменные перед загрузкой, чтобы не было старых хвостов
+# Initializing local (non-exported!) variables
+# Clearing FF_ variables before loading to avoid old values
 TOTAL_FF_CONFIGURE=""
 TOTAL_FF_CFLAGS=""
 TOTAL_FF_CXXFLAGS=""
@@ -61,12 +59,12 @@ TOTAL_FF_LIBS=""
 
 log_info "Loading component variables from cache..."
 
-if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     log_debug "Checking the connection with the variable caches in .vars"
-    # Проверка связи с кэшем (zlib)
-    # Если файл пустой проблема в run_stage.sh или vars.sh во время сборки компонента.
-    # Если файл не пустой, но в configure пусто проблема в build.sh (в команде source или dedupe)
-    # Используем nullglob, чтобы массив был пустым, если файлов нет
+    # Checking the connection to the cache (zlib)
+    # If the file is empty, there's a problem with run_stage.sh or vars.sh during component build.
+    # If the file isn't empty, but configure is empty, there's a problem with build.sh (in the source or dedupe command)
+    # Use nullglob to make the array empty if there are no files.
     shopt -s nullglob
     Z_FILES=("${VARS_DIR}"/[0-9]*-zlib.vars)
     shopt -u nullglob
@@ -84,16 +82,16 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     fi
 fi
 
-# Сортировка важна: зависимости (низкие номера) должны быть в начале для CFLAGS 
-# и в конце для LIBS (но мы это решим дедупликацией tac)
+# Dependencies (low numbers) should be at the beginning for CFLAGS
+# and at the end for LIBS (but we'll solve this with tac deduplication)
 counter=0
 while IFS= read -r f; do
-    # Обнуляем временные переменные перед каждым source
+    # reset temporary variables before each source
     unset FF_CONFIGURE FF_LIBS FF_CFLAGS FF_CXXFLAGS FF_CPPFLAGS FF_LDFLAGS FF_LDEXEFLAGS
     log_debug "Sourcing $f"
     [[ -s "$f" ]] && source "$f"
 
-    # Аккумулируем данные из файла в итоговые переменные
+    # Accumulate data from the file into final variables
     TOTAL_FF_CONFIGURE+=" ${FF_CONFIGURE:-}"
     TOTAL_FF_LIBS+=" ${FF_LIBS:-}"
     TOTAL_FF_CFLAGS+=" ${FF_CFLAGS:-}"
@@ -104,8 +102,8 @@ while IFS= read -r f; do
 
     counter=$((counter + 1))
 
-    # Промежуточная очистка каждых 20 файлов,
-    # чтобы не допустить взрывного роста строк в памяти
+    # Intermediate cleanup every 20 files,
+    # to prevent memory line explosions
     if (( counter % 20 == 0 )); then
         TOTAL_FF_LIBS=$(smart_libs_dedupe "$TOTAL_FF_LIBS")
         TOTAL_FF_CFLAGS=$(smart_dedupe "$TOTAL_FF_CFLAGS")
@@ -125,11 +123,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     fi
 fi
 
-# загружаем целевой вариант со своими --enable флагами ffbuild_configure()
-# source "${VARIANTS_DIR}/${TARGET}-${VARIANT}.sh"
-# for addin in ${ADDINS[*]}; do
-    # source "${ADDINS_STR}/${addin}.sh"
-# done
+# load the target variant with its --enable flags ffbuild_configure()
 if [[ -n "$ADDINS_STR" ]]; then
     IFS='-' read -ra ADDINS_ARRAY <<< "$ADDINS_STR"
     for addin in "${ADDINS_ARRAY[@]}"; do
@@ -145,7 +139,7 @@ if [[ -n "$ADDINS_STR" ]]; then
     done
 fi
 
-# Определяем целевой вариант (они могут добавить свои --enable)
+# Determine the target option (they can add their own --enable)
 VARIANT_SCRIPT="${VARIANTS_DIR}/${TARGET}-${VARIANT}.sh"
 if [[ -f "$VARIANT_SCRIPT" ]]; then
     log_info "Sourcing variant script: $VARIANT_SCRIPT"
@@ -171,7 +165,7 @@ _variant_libs=$(ffbuild_libs 2>/dev/null || true)
 [[ -n "$_variant_ldexeflags" ]] && VARIANT_FF_LDEXEFLAGS="${_variant_ldexeflags}"
 [[ -n "$_variant_libs" ]]       && VARIANT_FF_LIBS="${_variant_libs}"
 
-# Клонирование и патчинг (прямо в текущем слое Docker)
+
 log_info "Using pre-mounted FFmpeg source..."
 if [[ ! -f "$FFMPEG_SOURCE_DIR/configure" ]]; then
     log_error "FFmpeg source not found at $FFMPEG_SOURCE_DIR/configure! Check if it is mounted correctly."
@@ -187,34 +181,32 @@ pushd "$FFMPEG_SOURCE_DIR"
 # AUTO-PATCHING
 apply_ffmpeg_patches
 
-if has_library "vmaf"; then
-    log_info "Patching FFmpeg vf_libvmaf.c to use Pointer ABI..."
-    # replace the call in the filter source with the transfer of the structure address
-    sed -i 's/err = vmaf_init(\&s->vmaf, cfg);/err = vmaf_init(\&s->vmaf, \&cfg);/g' "libavfilter/vf_libvmaf.c"
-    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-        # check whether the patch was applied (output a line to the log)
-        grep -n "vmaf_init" "libavfilter/vf_libvmaf.c"
-    fi
-    log_info "Patching FFmpeg ffprobe ABI bug: Changing avtext_context_open to pass options by pointer..."
-    # change the signature in the header file
-    sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.h"
-    # change the function declaration in the implementation file
-    sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.c"
-    # Change only one assignment line inside the body of avtext_context_open,
-    # so that the data is dereferenced from the pointer back to the context object
-    sed -i 's/tctx->opts = options;/tctx->opts = *options;/g' "fftools/textformat/avtextformat.c"
-    # Add an ampersand to the caller in fftools/ffprobe.c
-    sed -i 's/tf_options, show_data_hash/\&tf_options, show_data_hash/g' "fftools/ffprobe.c"
-    # Patch the caller in fftools/graph/graphprint.c (add ampersand &)
-    sed -i 's/tf_options, NULL/\&tf_options, NULL/g' "fftools/graph/graphprint.c"
-    # Checking the success of the patch rollout in the builder logs
-    if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-        log_debug "Verifying patches application..."
-        grep -n "avtext_context_open" "fftools/textformat/avtextformat.h"
-        grep -n "avtext_context_open" "fftools/textformat/avtextformat.c" | head -n 2
-        grep -n "avtext_context_open" "fftools/ffprobe.c"
-        grep -n "avtext_context_open" "fftools/graph/graphprint.c"
-    fi
+log_info "Patching FFmpeg vf_libvmaf.c to use Pointer ABI..."
+# replace the call in the filter source with the transfer of the structure address
+sed -i 's/err = vmaf_init(\&s->vmaf, cfg);/err = vmaf_init(\&s->vmaf, \&cfg);/g' "libavfilter/vf_libvmaf.c"
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+    # check whether the patch was applied (output a line to the log)
+    grep -n "vmaf_init" "libavfilter/vf_libvmaf.c"
+fi
+log_info "Patching FFmpeg ffprobe ABI bug: Changing avtext_context_open to pass options by pointer..."
+# change the signature in the header file
+sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.h"
+# change the function declaration in the implementation file
+sed -i 's/AVTextFormatOptions options,/const AVTextFormatOptions \*options,/g' "fftools/textformat/avtextformat.c"
+# Change only one assignment line inside the body of avtext_context_open,
+# so that the data is dereferenced from the pointer back to the context object
+sed -i 's/tctx->opts = options;/tctx->opts = *options;/g' "fftools/textformat/avtextformat.c"
+# Add an ampersand to the caller in fftools/ffprobe.c
+sed -i 's/tf_options, show_data_hash/\&tf_options, show_data_hash/g' "fftools/ffprobe.c"
+# Patch the caller in fftools/graph/graphprint.c (add ampersand &)
+sed -i 's/tf_options, NULL/\&tf_options, NULL/g' "fftools/graph/graphprint.c"
+# Checking the success of the patch rollout in the builder logs
+if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+    log_debug "Verifying patches application..."
+    grep -n "avtext_context_open" "fftools/textformat/avtextformat.h"
+    grep -n "avtext_context_open" "fftools/textformat/avtextformat.c" | head -n 2
+    grep -n "avtext_context_open" "fftools/ffprobe.c"
+    grep -n "avtext_context_open" "fftools/graph/graphprint.c"
 fi
 
 THPENC_C="libavformat/thpenc.c"
@@ -451,7 +443,7 @@ fi
 
 # Using groups to solve cyclic dependencies
 # Moving the LTO exception handling library outside the main group
-FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group  -lstdc++ ${GCC_RUNTIME}"
+FINAL_LIBS_GROUPED="-Wl,--start-group ${HYBRID_DYNAMIC_FLAGS}${FINAL_LIBS} -Wl,--end-group -lstdc++ ${GCC_RUNTIME}"
 
 # =======================================
 # FFMPEG AND TOOLCHAIN PARAMS DEBUG
@@ -678,10 +670,10 @@ fi
 [[ "$FFMPEG_PATCHES" == "1" ]] && \
     CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
 
-# Функция проверки и валидации флагов ffmpeg SAFE_CONFIGURE
+# Function for checking and validating ffmpeg SAFE_CONFIGURE flags
 check_and_fix_configure && printf "  %s\n" "${CONF_FLAGS[@]}"
 
-# Перенаправляем stderr в config.log для полноты картины
+# Redirect stderr to config.log for completeness
 if ! ./configure "${CONF_FLAGS[@]}" 2>"$FFMPEG_CONFIG_LOG"; then
     log_error "Configure failed!"
     log_debug "${LOGS_MARK} ▼ CONTENT OF $FFMPEG_CONFIG_LOG ▼"
@@ -823,35 +815,36 @@ fi
 # =======================================
 # FFMPEG MAKE & INSTALL
 # =======================================
-# Сборка и установка ffmpeg
+
+# Building and installing ffmpeg
 make -j$(nproc) ${MAKE_V}
 make install
 make install-doc || log_warn "install-doc failed, but proceeding."
 
 log_info "${DIRS_MARK} Leaving FFmpeg folder..."
-popd # Выход из ffbuild/ffmpeg
+popd # Exit ffbuild/ffmpeg
 
 log_info "${BROOM_MARK} Cleaning up potential prefix pollution..."
-# Удаляем пустые папки или старые логи, если они остались
+# Delete empty folders or old logs if they remain
 find "${FFBUILD_PREFIX}" -type d -empty -delete || true
 
-# Определение версии
+# Version detection
 if [[ -n "$FFMPEG_API_VERSION" ]]; then
     # Если переменная прилетела из GitHub Actions / Docker ENV, используем её
     log_info "Using FFmpeg version from API: ${FFMPEG_API_VERSION}"
     FFMPEG_VERSION="$FFMPEG_API_VERSION"
 elif [[ -f "$FFMPEG_SOURCE_DIR/ffbuild/version.sh" ]]; then
-    # Проверяем наличие официального скрипта определения версии
+    # Check for the presence of an official version detection script
     log_info "Detecting FFmpeg version using official ffbuild/version.sh..."
-    # Запускаем скрипт, передав ему путь к корню исходников FFmpeg
+    # Run the script, passing it the path to the root of the FFmpeg source code
     FFMPEG_VERSION=$(bash "$FFMPEG_SOURCE_DIR/ffbuild/version.sh" "$FFMPEG_SOURCE_DIR")
 else
-    # Фолбэк по дате
+    # Fallback by date
     log_warn "ffbuild/version.sh not found, falling back to basic date-string."
     FFMPEG_VERSION=$(date +%Y-%m-%d)
 fi
 
-# Убираем возможные пробелы или спецсимволы переноса строки из переменной
+# Remove possible spaces or special line break characters from the variable
 FFMPEG_VERSION=$(echo "$FFMPEG_VERSION" | xargs)
 
 BUILD_NAME="ffmpeg-${FFMPEG_VERSION}-${TARGET}-${VARIANT}${ADDINS_STR:+-}${ADDINS_STR}"
@@ -869,13 +862,15 @@ package_variant "$INSTALL_ROOT" "${PKG_DIR}"
 # =======================================
 # FFMPEG ASSETS & PLUGINS COLLECTION
 # =======================================
-# Скачиваем модели и ассеты
+
+# Download models and assets
 log_info "${SYNC_MARK} Collecting additional assets..."
 "$UTIL_DIR"/collect_assets.sh "${ASSETS_DIR}" "$FFMPEG_SOURCE_DIR" || log_warn "Assets download failed, but continuing..."
 
 # =======================================
 # FFMPEG DEBUGGING SECTION
 # =======================================
+
 if [[ "$DEBUG_MODE" == "1" ]]; then
     log_info "${BUILD_MARK} Launching FFmpeg binary and components debug routine..."
     "$UTIL_DIR"/debug_audit.sh || log_warn "Launching debug audit failed, but continuing..."
@@ -884,7 +879,8 @@ fi
 # =======================================
 # FFMPEG FINAL STAGE
 # =======================================
-# Стриппинг бинарников (удаление отладочных символов)
+
+# Stripping binaries (removing debug symbols)
 # --strip-all; --strip-unneeded
 if [[ "$SKIP_POST_STRIP" != "1" ]]; then
     if declare -F strip_files >/dev/null; then
@@ -895,28 +891,28 @@ if [[ "$SKIP_POST_STRIP" != "1" ]]; then
     fi
 fi
 
-# Заходим в pkgroot, чтобы внутри архива не было лишних вложенных папок
+# Go to pkgroot so that there are no extra nested folders inside the archive
 pushd "$FFMPEG_PKG_ROOT"
 
-# Упаковка
+# Package
 log_info "${ARCH_MARK} Creating archive: ${BUILD_NAME}.7z"
 if [[ "$DEBUG_MODE" == "1" ]]; then
     log_info "${SAVE_MARK} Gathering all generated debug files..."
-    # Находим все .debug файлы в девелоперском префиксе и копируем их в структуру релиза к исполняемым файлам
+    # Find all .debug files in the developer prefix and copy them into the release structure to executable files
     find "${FFBUILD_PREFIX}" -type f -name "*.debug" -exec cp {} "./${BUILD_NAME}/bin/" \; 2>/dev/null || true
     log_info "${SAVE_MARK} Packaging external debug symbols separately..."
-    # Находим все созданные .debug файлы и пакуем их отдельно
+    # Find all created .debug files and pack them separately
     7z a -mx7 -mmt=on -r "${FFBUILD_DESTDIR}/${BUILD_NAME}-debug-symbols.7z" "./${BUILD_NAME}/*.debug"
-    # Исключаем файлы .debug из основного пользовательского архива
+    # Exclude .debug files from the main user archive
     7z a -mx7 -mmt=on "${FFBUILD_DESTDIR}/${BUILD_NAME}.7z" "./${BUILD_NAME}/*" -xr!"*.debug"
 else
-    # Обычная сборка без дебаг-файлов
+    # Normal pack without debug files
     7z a -mx7 -mmt=on "${FFBUILD_DESTDIR}/${BUILD_NAME}.7z" "./${BUILD_NAME}/*"
 fi
 
 popd
 
-# Генерация метаданных для GitHub Actions
+# Generating Metadata for GitHub Actions
 if [[ -n "$GITHUB_ACTIONS" ]]; then
     echo "build_name=${BUILD_NAME}" >> "$GITHUB_OUTPUT"
     echo "${BUILD_NAME}.7z" > "${FFBUILD_DESTDIR}/${TARGET}-${VARIANT}.txt"
