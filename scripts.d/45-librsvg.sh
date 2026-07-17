@@ -30,12 +30,22 @@ rsvg/tests/resources"
 ffbuild_dockerbuild() {
     set -e
 
+    if [ -f "Cargo.toml" ]; then
+        NEW_RELEASE_PROFILE="[profile.release]
+strip = \"debuginfo\"
+opt-level = \"3\"
+lto = fat
+codegen-units = 1"
+        if ! grep -q "^\[profile\.release\]" Cargo.toml; then
+            echo -e "\n$NEW_RELEASE_PROFILE" >> librsvg/Cargo.toml
+        fi
+    fi
+
     export CARGO_HOME="/opt/cargo"
     export RUSTUP_HOME="/opt/rustup"
     export PKG_CONFIG_ALLOW_CROSS=1
     export RUSTFLAGS="${RUSTFLAGS}"
 
-    # Создаем директорию сборки
     mkdir -p build
 
     local myconf=(
@@ -47,17 +57,14 @@ ffbuild_dockerbuild() {
         --default-library=$([ "${PREFER_SHARED}" == "1" ] && echo shared || echo static)
         -Dcpp_std=gnu++20
         -Dc_std=gnu17
-        # ОТКЛЮЧАЕМ виновников падения кросс-компиляции
         -Dpixbuf=disabled
         -Dpixbuf-loader=disabled
         -Dintrospection=disabled
         -Dvala=disabled
         -Ddocs=disabled
         -Dtests=false
-        # ВКЛЮЧАЕМ фичи:
         -Davif=enabled
         -Drsvg-convert=disabled
-        # Передаем триплет кросс-компиляции Rust для Meson
         -Dtriplet="${FFBUILD_RUST_TARGET}"
     )
 
@@ -76,7 +83,6 @@ ffbuild_dockerbuild() {
         find "$PC_DIR" -name "*librsvg*.pc" | while read -r PC_FILE; do
             log_info "${SEARCH_MARK} Fixing Meson-generated paths in $PC_FILE..."
             sed -i 's|^Cflags:.*|Cflags: -I${includedir}/librsvg-2.0|' "$PC_FILE"
-            # Очищаем Requires.private от "голых" версий (1.3.0, 20.0.14 и т.д.)
             sed -i 's|^Requires.private:.*|Requires.private: cairo-gobject cairo-png dav1d freetype2 harfbuzz libxml-2.0 pangocairo pangoft2 gmodule-2.0 glib-2.0 gio-2.0|' "$PC_FILE"
         done
         if [ -f "$PC_DIR/librsvg_c.pc" ] && [ ! -f "$PC_DIR/librsvg-2.0.pc" ]; then

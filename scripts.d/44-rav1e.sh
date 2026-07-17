@@ -20,14 +20,20 @@ ffbuild_dockerbuild() {
 
     if [[ -f "Cargo.toml" ]]; then
         log_info "Patching Cargo.toml to disable forced debug symbols in release profile..."
-        # Replace debug = true with debug = false (disables debug information generation)
-        sed -i 's|debug = true|debug = false|g' Cargo.toml
-        # Disable incremental builds for releases to keep object files as monolithic as possible
-        sed -i 's|incremental = true|incremental = false|g' Cargo.toml
-        # Change lto = "thin" to fair lto = "fat"
-        if [[ "$USE_LTO" == "1" ]]; then
-            sed -i 's|lto = "thin"|lto = "fat"|g' Cargo.toml
-        fi
+
+        NEW_RELEASE_PROFILE="[profile.release]
+debug = false
+strip = \"debuginfo\"
+opt-level = 3
+lto = $([ "${USE_LTO}" == "1" ] && echo true || echo false)
+incremental = false
+codegen-units = 1"
+
+        sed -i '/^\[profile\.release\]/,/^\s*$/d' Cargo.toml
+        sed -i '/^\[profile\.release\]/,$d' Cargo.toml
+
+        echo -e "\n$NEW_RELEASE_PROFILE" >> Cargo.toml
+cat Cargo.toml
     fi
 
     # Fixing the issue with libgit2-sys: Disabling the use of the system libgit2

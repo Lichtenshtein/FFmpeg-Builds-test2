@@ -1466,7 +1466,7 @@ get_deps_list() {
         xargs -0 -r -I{} bash -c '
             file="$1"; tc="$2"; x_mark="$3"
 
-            # Сбор внешних зависимостей (IMP)
+            # External Dependency Management (IMP)
             raw_imports=$("${tc}-nm" -uA "$file" 2>/dev/null || true)
             clean_imports=""
             if [[ -n "$raw_imports" ]]; then
@@ -1479,7 +1479,7 @@ get_deps_list() {
                     }" | sort -u | head -n ${LOG_RAW_SYMB})
             fi
 
-            # Сбор реальных экспортов (EXP)
+            # Collecting real exports (EXP)
             raw_exports=$("${tc}-nm" -g --defined-only "$file" 2>/dev/null || true)
             clean_exports=""
             if [[ -n "$raw_exports" ]]; then
@@ -1512,7 +1512,7 @@ get_deps_list() {
     # Output
     local error_count=0
     if [[ -f "$tmp_out" ]]; then
-        # Считаем и MISSING (из pkg-config) и NOT FOUND (из lddtree)
+        # We count both MISSING (from pkg-config) and NOT FOUND (from lddtree)
         error_count=$(grep -cE "MISSING:|NOT FOUND" "$tmp_out" || true)
     fi
     error_count=$(( 10#${error_count:-0} ))
@@ -1597,10 +1597,10 @@ should_skip_post_strip() {
     [[ "${GLOBAL_SKIP_POST_STRIP:-0}" == "1" ]] && return 0
 
     case "$STAGENAME" in
-        # rust libs
-        *"rav1e"|*"librsvg"|*"quiche")
-            return 0 
-            ;;
+        # rust libs; frack it strip anyway
+        # *"rav1e"|*"librsvg"|*"quiche")
+            # return 0 
+            # ;;
         # headers
         *"vulkan-headers"|*"spirv-headers"|*"mingw-std-threads"|*"ffnvcodec"|*"decklink"|*"zz-final")
             return 0 

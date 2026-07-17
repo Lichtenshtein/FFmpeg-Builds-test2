@@ -20,6 +20,7 @@ ffbuild_dockerdl() {
     # echo "git-submodule-clone"
     echo "git-mini-clone \"https://gitlab.com/libidn/gnulib-mirror.git\" \"master\" gnulib"
     echo "git-mini-clone \"https://gitlab.com/gnutls/libtasn1.git\" \"master\" devel/libtasn1"
+
     echo "rm -rf tests fuzz doc po src/gl/tests devel/libtasn1/tests"
 
     local COMPONENT_NAME="gnutls"
@@ -106,22 +107,25 @@ ffbuild_dockerbuild() {
     LIBS="$LIBS $DEP_LIBS" \
     ./configure "${myconf[@]}" || return 1
 
-#     log_info "Generating mock ASN.1 tables with valid structures..."
-#     cat <<EOF > lib/gnutls_asn1_tab.c
-# #include <stddef.h>
-# const void *gnutls_asn1_tab = NULL;
-# EOF
-#     cat <<EOF > lib/pkix_asn1_tab.c
-# #include <stddef.h>
-# const void *pkix_asn1_tab = NULL;
-# EOF
-
-    # update file times
-    touch lib/gnutls_asn1_tab.c lib/pkix_asn1_tab.c
-
-    # or generate manually
-    # asn1Parser lib/minitasn1/gnutls.asn lib/gnutls_asn1_tab.c
-    # asn1Parser lib/minitasn1/pkix.asn lib/pkix_asn1_tab.c
+    if command -v asn1Parser &> /dev/null; then
+        log_info "Generating mock ASN.1 tables with valid structures..."
+        asn1Parser lib/minitasn1/gnutls.asn lib/gnutls_asn1_tab.c
+        asn1Parser lib/minitasn1/pkix.asn lib/pkix_asn1_tab.c
+    elif [[ ! -f "lib/gnutls_asn1_tab.c" ]]; then
+        log_info "Generating mock ASN.1 stubs with valid structures..."
+        cat <<EOF > lib/gnutls_asn1_tab.c
+#include <stddef.h>
+const void *gnutls_asn1_tab = NULL;
+EOF
+        cat <<EOF > lib/pkix_asn1_tab.c
+#include <stddef.h>
+const void *pkix_asn1_tab = NULL;
+EOF
+        touch lib/gnutls_asn1_tab.c lib/pkix_asn1_tab.c
+    elif [[ -f "lib/gnutls_asn1_tab.c" ]]; then
+        # update file times
+        touch lib/gnutls_asn1_tab.c lib/pkix_asn1_tab.c
+    fi
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
@@ -130,7 +134,6 @@ ffbuild_dockerbuild() {
         [[ -f "$PC_FILE" ]] || continue
         sed -i "s|^Cflags:.*|& -I\${includedir}/gnutls|" "$PC_FILE"
         log_info "Updated Cflags in $(basename "$PC_FILE")"
-        # sed -i '/^Requires\.private:/ {s/ zstd //g; s/ zstd$//; s/: zstd/: /}' "$PC_FILE"
         sed -i 's/libzstd/zstd/g' "$PC_FILE"
         sed -i 's/  */ /g' "$PC_FILE"
     done
