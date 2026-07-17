@@ -21,6 +21,17 @@ ffbuild_dockerdl() {
     echo "git-mini-clone \"https://gitlab.com/libidn/gnulib-mirror.git\" \"master\" gnulib"
     echo "git-mini-clone \"https://gitlab.com/gnutls/libtasn1.git\" \"master\" devel/libtasn1"
     echo "rm -rf tests fuzz doc po src/gl/tests devel/libtasn1/tests"
+
+    local COMPONENT_NAME="gnutls"
+    local PATCHES_DIR="${PATCHES_DIR}"
+    local CUSTOM_FILES="${PATCHES_DIR}/${COMPONENT_NAME}/gnutls_asn.zip"
+
+    if [[ -f "$CUSTOM_FILES" ]]; then
+        log_info "Placing gnu files in lib/ from patches..."
+        echo "unzip -qo $CUSTOM_FILES -d lib"
+    else
+        log_warn "Custom gnu files not found at $CUSTOM_FILES"
+    fi
 }
 
 ffbuild_dockerbuild() {
@@ -95,12 +106,20 @@ ffbuild_dockerbuild() {
     LIBS="$LIBS $DEP_LIBS" \
     ./configure "${myconf[@]}" || return 1
 
-    log_info "Touching ASN.1 generated files to skip asn1Parser..."
-    # touch lib/pkix_asn1_tab.c
-    # touch lib/gnutls_asn1_tab.c
+#     log_info "Generating mock ASN.1 tables with valid structures..."
+#     cat <<EOF > lib/gnutls_asn1_tab.c
+# #include <stddef.h>
+# const void *gnutls_asn1_tab = NULL;
+# EOF
+#     cat <<EOF > lib/pkix_asn1_tab.c
+# #include <stddef.h>
+# const void *pkix_asn1_tab = NULL;
+# EOF
+#     touch lib/gnutls_asn1_tab.c lib/pkix_asn1_tab.c
 
-    asn1Parser lib/minitasn1/gnutls.asn lib/gnutls_asn1_tab.c
-    asn1Parser lib/minitasn1/pkix.asn lib/pkix_asn1_tab.c
+    # or generate manually
+    # asn1Parser lib/minitasn1/gnutls.asn lib/gnutls_asn1_tab.c
+    # asn1Parser lib/minitasn1/pkix.asn lib/pkix_asn1_tab.c
 
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
