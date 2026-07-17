@@ -42,9 +42,6 @@ codegen-units = 1"
         if ! grep -q "^\[profile\.release\]" Cargo.toml; then
             echo -e "\n$NEW_RELEASE_PROFILE" >> Cargo.toml
         fi
-
-cat Cargo.toml
-
     fi
 
     export CARGO_HOME="/opt/cargo"

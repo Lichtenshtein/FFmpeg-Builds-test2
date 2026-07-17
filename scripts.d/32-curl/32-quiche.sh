@@ -38,13 +38,11 @@ opt-level = 3
 lto = $([ "${USE_LTO}" == "1" ] && echo true || echo false)
 codegen-units = 1"
 
+        sed -i 's|debug = true|debug = false|g' Cargo.toml
         sed -i '/^\[profile\.release\]/,/^\s*$/d' Cargo.toml
         sed -i '/^\[profile\.release\]/,$d' Cargo.toml
 
         echo -e "\n$NEW_RELEASE_PROFILE" >> Cargo.toml
-
-cat Cargo.toml
-
     fi
 
     cd quiche
