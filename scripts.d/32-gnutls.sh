@@ -115,7 +115,9 @@ ffbuild_dockerbuild() {
 # #include <stddef.h>
 # const void *pkix_asn1_tab = NULL;
 # EOF
-#     touch lib/gnutls_asn1_tab.c lib/pkix_asn1_tab.c
+
+    # update file times
+    touch lib/gnutls_asn1_tab.c lib/pkix_asn1_tab.c
 
     # or generate manually
     # asn1Parser lib/minitasn1/gnutls.asn lib/gnutls_asn1_tab.c

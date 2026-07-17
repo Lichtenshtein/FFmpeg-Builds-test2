@@ -17,6 +17,7 @@ ffbuild_depends() {
     echo spirv-headers
     echo libjxl
     echo quirc
+    echo openblas
 }
 
 ffbuild_enabled() {
