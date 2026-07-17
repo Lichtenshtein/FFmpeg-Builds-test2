@@ -31,10 +31,10 @@ ffbuild_dockerbuild() {
     # intercept the hook in bootstrap.conf and replace the --with-tests flag with --without-tests for ggl modules
     sed -i 's/--macro-prefix=ggl --with-tests/--macro-prefix=ggl --without-tests/g' bootstrap.conf || true
 
-    # We remove the cligen.mk inclusion from Makefile.am, which was hanging automake
+    # Remove the cligen.mk inclusion from Makefile.am, which was hanging automake
     sed -i '/cligen\.mk/d' Makefile.am || true
 
-    # We remove the block of tests, documentation, and utilities so that configure doesn't even try to create them.
+    # Remove the block of tests, documentation, and utilities so that configure doesn't even try to create them
     sed -i '/doc\/Makefile/,/doc\/scripts\/Makefile/d' configure.ac
     sed -i '/tests\/Makefile/,/fuzz\/Makefile/d' configure.ac
     sed -i '/src\/Makefile/d' configure.ac
@@ -88,10 +88,10 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-shared --disable-static ) || \
         myconf+=( --disable-shared --enable-static )
 
-    CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
+    CFLAGS="$CFLAGS ${USELTO}${USELTO_C} -fno-function-sections -fno-data-sections" \
     CPPFLAGS="$CPPFLAGS -D_UCRT=1" \
-    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C}" \
-    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
+    CXXFLAGS="$CXXFLAGS ${USELTO}${USELTO_C} -fno-function-sections -fno-data-sections" \
+    LDFLAGS="${LDFLAGS//-Wl,--gc-sections/} -Wl,--no-gc-sections ${USELTO}${USELTO_L} ${USELTO}${USELTO_L}" \
     LIBS="$LIBS $DEP_LIBS" \
     ./configure "${myconf[@]}" || return 1
 

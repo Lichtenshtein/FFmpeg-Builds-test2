@@ -30,21 +30,21 @@ ffbuild_dockerbuild() {
 
     cd quiche
 
-    # Заменяем crate-type = ["lib", "staticlib", "cdylib"] на ["staticlib"]
+    # Replace crate-type = ["lib", "staticlib", "cdylib"] with ["staticlib"]
     if [[ "${PREFER_SHARED}" == "1" ]]; then
         sed -i 's/crate-type = \[.*\]/crate-type = ["cdylib"]/' Cargo.toml
     else
         sed -i 's/crate-type = \[.*\]/crate-type = ["staticlib"]/' Cargo.toml
     fi
 
-    # Настройка окружения для использования внешнего OpenSSL (через pkg-config)
+    # Configuring the environment to use external OpenSSL (via pkg-config)
     export OPENSSL_NO_VENDOR=1
     export OPENSSL_DIR="$FFBUILD_PREFIX"
     export OPENSSL_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo 0 || echo 1)
 
-    # Сборка через cargo
-    # --features ffi: создаёт C-совместимую библиотеку и заголовки
-    # --features pkg-config: генерирует .pc файл
+    # Building with cargo
+    # --features ffi: Creates a C-compatible library and headers
+    # --features pkg-config: Generates a .pc file
     #  * `boringssl-vendored` (default): Build the vendored BoringSSL library.
     #    --features ffi,pkg-config-meta,http3
 
@@ -69,7 +69,7 @@ ffbuild_dockerbuild() {
     local HEADER_FILE=$(find quiche/include/ -name "quiche.h")
 
     cp "$HEADER_FILE" "$INSTALL_ROOT/include/quiche.h"
-    # Копируем заголовки BoringSSL
+    # Copy BoringSSL headers
     # cp -r quiche/deps/boringssl/src/include/openssl/* "$INSTALL_ROOT/include/boringssl/"
 
     if [[ "$PREFER_SHARED" == "1" ]]; then
@@ -92,4 +92,7 @@ Libs: -L\${libdir} -lquiche
 Libs.private: -lntdll
 Cflags: -I\${includedir}
 EOF
+
+    # try to resolve future symbol collisions with openssl
+    ${OBJCOPY} --localize-hidden "$INSTALL_ROOT"/lib/libquiche.${lib_ext}
 }

@@ -1842,13 +1842,13 @@ apply_ffmpeg_patches() {
 
     shopt -s nullglob
     for patch in "$FFMPEG_PATCH_DIR"/*.patch; do
-        log_info "${TARGET_MARK} APPLYING PATCH: $(basename "$patch")"
+        log_info "${TARGET_MARK} APPLYING PATCH: ${GREY_B}$(basename "$patch")${NC}"
 
         if git apply --ignore-whitespace --intent-to-add "$patch" 2>/dev/null; then
-            log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied ${GREY_B}$(basename "$patch")${NC}"
+            log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}"
             git add -A || true
         else
-            log_error "${RED}FAILED${NC}: ${GREY_B}$(basename "$patch")${NC} - skipping"
+            log_error "${RED}FAILED${NC} - skipping"
             git reset -q HEAD -- . || true
         fi
     done

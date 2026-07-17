@@ -6,8 +6,8 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        # default: '08-zlib|49-vulkan-headers|51-spirv-cross|52-shaderc|52-vulkan-loader|70-lcevcdec'
-        default: '.*'
+        default: '06-libiconv|07-gettext|08-zlib|11-brotli|11-xz|11-zstd|12-libffi|16-libxml2|30-openssl|32-libssh|32-gnutls|32-quiche|33-nghttp2|34-curl'
+        # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
@@ -157,7 +157,7 @@ env:
   CPU_ARCH:          ${{ github.event.inputs.cpu_arch || 'broadwell' }}
   CPU_TUNE:          ${{ github.event.inputs.cpu_tune || 'broadwell' }}
   # Strict params
-  SEC_PROTO:         "openssl" # openssl/gnutls/mbedtls/schannel/wolfssl
+  SEC_PROTO:         "gnutls" # openssl/gnutls/mbedtls/schannel/wolfssl
   DEDUPE_FLAGS:      '1' # Deduplicate LDFLAGS/LIBS
   OLDER_FFNV:        '0' # Install older ffnvcodec version (8.1)
   USE_ASAN:          '0' # Address Sanitizer not supported in ct-ng
