@@ -223,8 +223,9 @@ if [ -f "$THPENC_C" ]; then
     fi
 fi
 
-# if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/xeve.pc" ]]; then
-# fi
+if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/ffnvcodec.pc" ]]; then
+    sed -i 's| -I${includedir}/ffnvcodec||g' "${FFBUILD_PREFIX}/lib/pkgconfig/ffnvcodec.pc"
+fi
 
 # TARGET_SEARCH_DIR="${FFBUILD_PREFIX}/lib"
 # OBJDUMP="${OBJDUMP}"
@@ -290,6 +291,9 @@ fi
 # Combine base flags from vars.sh and accumulated flags from components
 # Configuration: base flags first, then variant-specific flags
 FINAL_CONFIGURE=$(smart_dedupe "$TOTAL_FF_CONFIGURE" "$VARIANT_FF_CONFIGURE")
+
+FINAL_CONFIGURE="${FINAL_CONFIGURE} --enable-cuda"
+
 # CFLAGS: First, we put CPPFLAGS, then component CFLAGS, then variant CFLAGS.
 # keeping the FIRST occurrence, the most important flags should be on the left.
 FINAL_CFLAGS=$(smart_dedupe "$CFLAGS" "$CPPFLAGS" "$TOTAL_FF_CFLAGS" "$TOTAL_FF_CPPFLAGS" "$VARIANT_FF_CFLAGS" "$VARIANT_FF_CPPFLAGS" | sed 's/-std=gnu17/-std=gnu23/g')
