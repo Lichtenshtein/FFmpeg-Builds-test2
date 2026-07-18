@@ -5,14 +5,14 @@ set -e
 
 cd "$(dirname "$0")"
 
-# фикс проблем с git 
+# fix problems with git
 git config --global advice.detachedHead false
 git config --global core.autocrlf false
 git config --global --add safe.directory "*"
-# Если скорость ниже 1Кб/сек в течение 30 секунд — обрываем соединение
+# If the speed is below 1Kb/sec for 30 seconds, close the connection
 git config --global http.lowSpeedLimit 1000
 git config --global http.lowSpeedTime 30
-# Увеличиваем буфер для тяжелых объектов (актуально для ffmpeg/torch)
+# Increase the buffer for heavy objects (relevant for ffmpeg/torch)
 git config --global http.postBuffer 524288000
 
 source util/vars.sh "$TARGET" "$VARIANT" \
@@ -55,8 +55,8 @@ _util_dl=$(printf '%q' "${UTIL_DIR}/dl_functions.sh")
 _dl_result=$(printf '%q' "$DL_RESULT_FILE")
 _target=$(printf '%q' "$TARGET")
 _variant=$(printf '%q' "$VARIANT")
-# --halt now,fail=1 меняем на --halt soon,fail=20%;
-# Это даст шанс остальным докачаться, даже если один упал
+# --halt now,fail=1 change to --halt soon,fail=20%;
+# This will give the others a chance to finish, even if one fails
 echo "$STAGES" | parallel \
 --halt now,fail=1 \
 --jobs 8 \
@@ -76,7 +76,7 @@ rm -f "$DL_RESULT_FILE"
 rm -rf "$TMP_DIR"
 
 if [[ -f "$JOBLOG" ]]; then
-    # Извлекаем список команд ($NF) для строк, где статус ($7) не равен 0
+    # Retrieve a list of commands ($NF) for lines where the status ($7) is not 0
     failed=$(awk 'NR>1 && $7 != 0 {print $NF}' "$JOBLOG")
     [[ -n "$failed" ]] && log_error "Failed downloads:\n$failed"
 fi
@@ -90,7 +90,7 @@ if [[ -z "${FFMPEG_REPO:-https://git.ffmpeg.org/ffmpeg.git}" || -z "${FFMPEG_BRA
     exit 1
 fi
 
-# We ONLY look at the actual .git folder. We DO NOT read the .current_commit file yet.
+# ONLY look at the actual .git folder. DO NOT read the .current_commit file yet
 LOCAL_HASH="none"
 LOCAL_VALID=false
 
@@ -116,7 +116,7 @@ if [[ "$LOCAL_VALID" == "false" ]]; then
         if [[ -n "$FILE_HASH" && ${#FILE_HASH} -ge 7 ]]; then
             [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] && log_debug "Local .git missing. Using hash from file: ${FILE_HASH:0:12}"
             LOCAL_HASH="$FILE_HASH"
-            # We assume the files are valid if the hash matches the expected remote
+            # Assume the files are valid if the hash matches the expected remote
             # We cannot verify with git, but we can proceed if hashes match
             log_warn "Running in 'File-Only' mode. Git verification skipped."
         fi
@@ -230,7 +230,7 @@ else
 fi
 
 # 6. SAVE THE CURRENT HASH
-# We write the ACTUAL current hash (from the directory) to the file.
+# Write the ACTUAL current hash (from the directory) to the file
 if [[ -d "$FFMPEG_DIR" ]]; then
     if [[ -d "$FFMPEG_DIR/.git" ]]; then
         ACTUAL_HASH=$(cd "$FFMPEG_DIR" && git rev-parse HEAD 2>/dev/null)

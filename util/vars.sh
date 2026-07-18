@@ -225,6 +225,7 @@ export LOG_RAW_SYMB="${LOG_RAW_SYMB:-20}" # number of lines displaying external 
 export LOG_SIZES="${LOG_SIZES:-500}" # number of lines displayed in logs
 export LOG_FF_SIZES="${FF_LOG_SIZES:-1000}" # number of lines displayed in ffmpeg logs
 export LOG_INSTALLED="${LOG_INSTALLED:-85}" # shown number of installed files in DESTDIR prefix
+export LOG_PATCH_ERRORS="${FFBUILD_PREFIX}/patch_errors.log"
 
 # Helper hooks to skip .la files, dependancies and .pc files auditing and patching
 export GLOBAL_SKIP_PRE_PATCH=0
@@ -435,7 +436,7 @@ apply_lto_policy() {
 
     # Branching by TARGET
     if [[ "$TARGET" == "win64" ]]; then
-        export BASE_CFLAGS="-mms-bitfields${STACK_FLAGS} -Wno-attributes"
+        export BASE_CFLAGS="-mms-bitfields${STACK_FLAGS} -Wno-attributes -fgraphite-identity -floop-nest-optimize"
         export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
 
         local console_flag=" -mconsole"
@@ -506,7 +507,7 @@ apply_lto_policy() {
         export "CARGO_TARGET_${RTARCH^^}_RUSTFLAGS"="${RUSTFLAGS}"
 
     elif [[ "$TARGET" == "linux64" ]]; then
-        export BASE_CFLAGS="${STACK_FLAGS} -Wno-attributes"
+        export BASE_CFLAGS="${STACK_FLAGS} -Wno-attributes -fgraphite-identity -floop-nest-optimize"
         export BASE_CPPFLAGS="-D_FORTIFY_SOURCE=2"
 
         # Use Linux-specific LDFLAGS
@@ -1547,7 +1548,7 @@ should_skip_version_finder() {
     case "$STAGENAME" in
         # WHITELIST (Opt-In): Here we list the components that need version searching
         # The function will return 1 (False to skip -> run get_stage_version).
-        *"libiconv"|*"gettext"|*"jbigkit"|*"snappy"|*"libxxhash"|*"libdatachannel"|*"libmpg123"*|*"cryptopp"|*"giflib"|*"svtav1"|*"libavif"|*"quirc"|*"spirv-cross"|*"amf"|*"leptonica"|*"opencl"|*"openvino"|*"soundtouch"|*"libcodec2"|*"libgsm"|*"libmad"|*"libmp3lame"|*"libmpeghdec"|*"mpeghe"|*"flite"|*"x264"|*"x265"|*"xvid"|*"xevd"|*"vapoursynth"|*"ffnvcodec")
+        *"libiconv"|*"gettext"|*"jbigkit"|*"snappy"|*"libxxhash"|*"libdatachannel"|*"libmpg123"*|*"cryptopp"|*"giflib"|*"svtav1"|*"libavif"|*"quirc"|*"spirv-cross"|*"amf"|*"leptonica"|*"opencl"|*"openvino"|*"soundtouch"|*"libcodec2"|*"libgsm"|*"libmad"|*"libmp3lame"|*"libmpeghdec"|*"mpeghe"|*"flite"|*"x264"|*"x265"|*"xvid"|*"xevd"|*"vapoursynth")
             return 1 
             ;;
         # For all others, skip by default (search is disabled)
@@ -2231,15 +2232,16 @@ apply_patches() {
     local CURRENT_ROOT=$(pwd)
     # Save the base build folder
     local BUILD_BASE="/build/$STAGENAME"
-
-    shopt -s nullglob
     local patch_failed_any=false
 
+    shopt -s nullglob
     for patch in "$PATCH_DIR"/*.patch; do
-        log_info "${TARGET_MARK} APPLYING PATCH: ${GREY_B}$(basename "$patch")${NC}"
+        local patch_name=$(basename "$patch")
+        log_info "${TARGET_MARK} APPLYING PATCH: ${GREY_B}${patch_name}${NC}"
 
         local success=false
         local last_output=""
+        local last_method=""
 
         # DIRECTORY SEQUENCE. First the current one (from auto-search), then the base one
         for try_dir in "$CURRENT_ROOT" "$BUILD_BASE"; do
@@ -2248,18 +2250,19 @@ apply_patches() {
             log_debug "Attempting patch in: $(pwd)"
 
         # Try git am first
-        if [[ -d ".git" ]]; then
+        if [[ -d ".git" && "$success" == "false" ]]; then
             local git_opts
             for git_opts in \
                 "git am --ignore-space-change --whitespace=fix" \
                 "git am --ignore-space-change --whitespace=fix --reject"
             do
+                last_method="${git_opts}"
                 log_debug "Trying: $git_opts"
                 # 'if' suppresses set -e on the command
                 if last_output=$(eval "$git_opts" < "$patch" 2>&1); then
                     log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied with [$git_opts]"
                     success=true
-                    break
+                    break 2
                 else
                     git am --abort 2>/dev/null || true
                 fi
@@ -2281,11 +2284,12 @@ apply_patches() {
                 "--ignore-space-change --ignore-whitespace --3way" \
                 "--ignore-space-change --ignore-whitespace --recount"
             do
+                last_method="git apply ${apply_opts}"
                 log_debug "Trying: git apply $apply_opts"
                 if last_output=$(git apply $apply_opts "$patch" 2>&1); then
                     log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied with [git apply $apply_opts]"
                     success=true
-                    break
+                    break 2
                 fi
             done
 
@@ -2304,9 +2308,10 @@ apply_patches() {
                 "-p1 -N -r - -l" "-p0 -N -r - -l" \
                 "-p1 -N -r - -l --fuzz=3" "-p0 -N -r - -l --fuzz=3"
             do
+                last_method="patch ${patch_opts}"
                 log_debug "Trying: patch $patch_opts"
-                # First check whether the patch will be applied without changing files
-                if patch --dry-run --silent $patch_opts < "$patch" &>/dev/null; then
+                # First check whether the patch will be applied without changing files; &>/dev/null
+                if last_output=$(patch --dry-run --silent $patch_opts < "$patch" 2>&1); then
                     # 'if' suppresses set -e on patch exit code
                     if last_output=$(patch $patch_opts < "$patch" 2>&1); then
                         log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied with [patch $patch_opts]"
@@ -2322,9 +2327,21 @@ apply_patches() {
         done
 
         if [[ "$success" == "false" ]]; then
-            log_error "${RED}FAILED${NC}: All attempts to apply ${GREY_B}$(basename "$patch")${NC} failed."
+            log_error "${RED}FAILED${NC}: All attempts to apply ${GREY_B}${patch_name}${NC} failed."
             log_debug "Last attempt output:\n${last_output}"
             patch_failed_any=true
+
+            # Write a detailed error to the global accumulator
+            mkdir -p "$(dirname "$PATCH_ERRORS_LOG")"
+            {
+                log_err_line "--------------------------------------------------------"
+                log_error "COMPONENT: $COMPONENT_NAME | PATCH: $patch_name"
+                log_error "FAILED METHOD: $last_method"
+                log_error "OUTPUT ERROR:"
+                log_error "$last_output"
+                log_err_line "--------------------------------------------------------"
+            } >> "$PATCH_ERRORS_LOG"
+
             # Uncomment to make patch failure fatal:
             # return 1
         fi
@@ -2373,6 +2390,18 @@ apply_ffmpeg_patches() {
     return 0
 }
 export -f apply_ffmpeg_patches
+
+# Function to display the final patch report at the end of the build
+show_patch_summary() {
+    if [[ -f "$LOG_PATCH_ERRORS" && -s "$LOG_PATCH_ERRORS" ]]; then
+        log_info "${TARGET_MARK} ${LOG_ERROR}=== PATCHING FAILURE SUMMARY ===${NC}"
+        cat "$PATCH_ERRORS_LOG" >&2
+        log_info "${LOG_ERROR}=================================${NC}"
+    else
+        log_info "${CHECK_MARK} All patches applied or verified successfully across all components!"
+    fi
+}
+export -f show_patch_summary
 
 # ===========================================================================
 # REGENERATION POLICY FOR CONFIGURATION SCRIPTS (AUTOCONF/BOOTSTRAP/AUTOGEN)

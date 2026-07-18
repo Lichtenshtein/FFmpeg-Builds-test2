@@ -6,11 +6,11 @@ set -e
 shopt -s globstar
 cd "$(dirname "$0")"
 
-# Забираем аргументы из workflow.yaml для локального использования
+# Take arguments from workflow.yaml for local use
 TARGET="${1:-$TARGET}"
 VARIANT="${2:-$VARIANT}"
 
-# Загружаем переменные
+# Load variables
 source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
     echo "ERROR: vars.sh failed (TARGET=$TARGET VARIANT=$VARIANT)" >&2
     exit 1
@@ -84,11 +84,11 @@ elif [[ "$SEC_PROTO" == "schannel"  ]]; then
     log_info "${XCLAM_MARK} SChannel secure transport protocol is chosen."
 fi
 
-echo -n "" > Dockerfile # Явно очищаем файл перед началом записи
+echo -n "" > Dockerfile # Explicitly clear the file before starting
 to_df() { echo "$*" >> Dockerfile; }
 
 # Making ENV from workflow avaliable inside Docker 
-# Объединяем все ENV в одну команду для оптимизации слоев
+# Combine all ENVs into one command to optimize layers
 COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_STR=\"$ADDINS_STR\" \\
     ROOT_DIR=\"${CONTAINER_ROOT}\" \\
     CACHE_DIR=\"${CONTAINER_ROOT}/.cache/downloads\" \\
@@ -157,10 +157,10 @@ if [[ "${USE_TENSORFLOW}" == "1" ]]; then
     to_df "    cp -fRP /tmp/tf_ctx/. /opt/ffbuild/share/tensorflow_models/"
 fi
 
-# Очищаем содержимое перед хешированием:
-# 1. Берем только переменные, влияющие на бинарный код
-# 2. Удаляем комментарии и лишние пробелы
-# 3. Сортируем (чтобы порядок строк в файле не влиял на хеш)
+# Clear the contents before hashing:
+# 1. Take only variables that affect the binary code
+# 2. Remove comments and extra spaces
+# 3. Sort (so that the order of the lines in the file does not affect the hash)
 ENV_HASH=$({
     grep -E "^(CFLAGS|CXXFLAGS|LDFLAGS|CPPFLAGS|RUSTFLAGS|BASE_CFLAGS|LIBS)=" "$UTIL_DIR/vars.sh" \
         | grep -v "^#" \
@@ -189,21 +189,21 @@ if [[ "$DEBUG_NO_HASH" == "1" ]]; then
     LOGIC_HASH="logic_static"
 fi
 
-# кумулятивный хэш цепочки для инвалидации последующих слоев
+# cumulative hash of the chain to invalidate subsequent layers
 CHAIN_HASH="${ENV_HASH}_${LOGIC_HASH}"
 
-# Сборка и фильтрация активных скриптов
+# Build and filter active scripts
 if [[ "$DIR_NUMBERS" == "1" ]]; then
-    # учитывать нумерацию только базового имени
+    # Only consider numbering of the base name
     mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" -printf "%f\t%p\n" | sort -n | cut -f2)
 else
-    # Учитывать нумерацию в папках
+    # Take into account numbering in folder names
     mapfile -t SCRIPTS < <(find scripts.d -name "*.sh" | sort)
 fi
 
 active_scripts=()
 for STAGE in "${SCRIPTS[@]}"; do
-    # Фильтрация по регулярному выражению ONLY_STAGE
+    # Filter by regular expression ONLY_STAGE
     # Match against basename only, with anchored component name
     STAGE_BASE="$(basename "$STAGE" .sh)"
     if [[ -n "$ONLY_STAGE" ]]; then
@@ -220,7 +220,7 @@ for STAGE in "${SCRIPTS[@]}"; do
         done
         [[ $matched -eq 0 ]] && continue
     fi
-    # Проверка на принудительное отключение внутри скрипта
+    # Check for forced shutdown inside the script
     # Source in a clean subshell and call ffbuild_enabled
     if ! (
         source "$ROOT_DIR/util/vars.sh" "$TARGET" "$VARIANT" 2>/dev/null
@@ -237,30 +237,34 @@ if [[ ${#active_scripts[@]} -eq 0 ]]; then
     log_warn "No active scripts matched ONLY_STAGE=${ONLY_STAGE}"
 fi
 
-# Генерируем блоки RUN для каждой стадии
+# Generate RUN blocks for each stage
 for STAGE in "${active_scripts[@]}"; do
     unset STAGE_HASH STAGENAME COMPONENT_NAME STAGE_CACHE_FILE STAGE_LATEST_LINK
     eval "$(stage_vars "$STAGE")"
-    # Гранулярный поиск патчей
-    # Для библиотек ищем в patches/zlib/ и т.д.
+
+    # Granular patch search 
+    # For libraries, look in patches/zlib/ etc.
     PATCH_PATH="${PATCHES_DIR}/${COMPONENT_NAME}"
     if [[ ! -d "${PATCH_PATH}" ]] && [[ -d "${PATCHES_DIR}/${COMPONENT_NAME%%-*}" ]]; then
         log_debug "No patches for $COMPONENT_NAME (base patches exist at ${COMPONENT_NAME%%-*})"
     fi
-    # Для FFmpeg ищем в patches/ffmpeg/master/ (или другой ветке)
+
+    # For FFmpeg, look in patches/ffmpeg/master/ (or another branch)
     [[ "${COMPONENT_NAME}" == "ffmpeg" ]] && PATCH_PATH="${PATCHES_DIR}/ffmpeg/${FFMPEG_BRANCH}"
-    # Считаем хеш только если папка существует, иначе "none"
+
+    # Calculate the hash only if the folder exists, otherwise "none"
     if [[ -d "${PATCH_PATH}" ]]; then
         PATCH_HASH=$(find "${PATCH_PATH}" -type f -exec md5sum {} + | sort | md5sum | cut -c1-8)
     else
         PATCH_HASH="none"
     fi
+
     # Combine them into a unique ID for this specific layer
     # If you change a log message in vars.sh, ENV_HASH stays the same -> NO REBUILD.
     # If you change CFLAGS in vars.sh, ENV_HASH changes -> GLOBAL REBUILD.
     # LAYER_ID="E:${ENV_HASH}_L:${LOGIC_HASH}_S:${STAGE_HASH}_P:${PATCH_HASH}"
 
-    # Добавляем хэш текущего компонента в кумулятивную цепочку
+    # Add the hash of the current component to the cumulative chain
     CHAIN_HASH=$(echo "${CHAIN_HASH}_${STAGE_HASH}_${PATCH_HASH}" | sha256sum | cut -c1-16)
     LAYER_ID="CH:${CHAIN_HASH}"
 
@@ -276,6 +280,8 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    --mount=type=bind,source=addins,target=${CONTAINER_ROOT}/addins \\"
     to_df "    export _H=\${CACHE_BYPASS_${STAGENAME}} && . ${CONTAINER_ROOT}/util/vars.sh \"${TARGET}\" \"${VARIANT}\" && run_stage ${CONTAINER_ROOT}/${STAGE}"
 done
+
+show_patch_summary
 
 # FINAL FFMPEG BUILD STAGE
 to_df "FROM ${TARGET_IMAGE} AS final_build"

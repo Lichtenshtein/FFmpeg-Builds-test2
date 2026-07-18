@@ -7,7 +7,7 @@ retry-tool() {
 }
 export -f retry-tool
 
-# Вспомогательная функция для надежного выполнения сетевых команд
+# Helper function for reliably executing network commands
 _retry() {
     local n=1
     local max=3
@@ -56,7 +56,7 @@ git-mini-clone() {
         fi
     done
 
-    # Пропуск если SVN
+    # Skip if SVN
     [[ -n "$SCRIPT_REV" ]] && { log_warn "SVN detected, skipping git-mini-clone"; return 0; }
 
     mkdir -p "$TARGET_DIR"
@@ -65,16 +65,15 @@ git-mini-clone() {
     # Cleanup on return regardless of exit path
     trap "cd '$OLD_PWD'" RETURN
 
-    # Удаляем возможные локи от прошлых неудачных запусков
+    # We remove possible locks from past unsuccessful launches
     [[ -d ".git" ]] && rm -f .git/index.lock
-    # Инициализируем один раз
+    # Initialize once
     [[ ! -d ".git" ]] && git init -q
 
     # TAGFILTER resolution (against primary repo only)
     if [[ -n "$TAGFILTER" ]]; then
         log_debug "Resolving tag with filter: $TAGFILTER"
-        local RESOLVED_COMMIT
-        RESOLVED_COMMIT=$(git ls-remote --tags --sort="v:refname" "$REPO" "$TAGFILTER" \
+        local RESOLVED_COMMIT=$(git ls-remote --tags --sort="v:refname" "$REPO" "$TAGFILTER" \
             | tail -n1 | awk '{print $1}')
         if [[ -n "$RESOLVED_COMMIT" ]]; then
             COMMIT="$RESOLVED_COMMIT"
@@ -160,11 +159,11 @@ download_file() {
 
     log_info "${DOWN_MARK} Downloading: $(basename "$DEST")"
 
-    # -f (fail silently) возвращает код 22 при 404 и триггерит _retry
-    # -I информация
-    # -L (location) следовать редиректам SourceForge
+    # -f (fail silently) returns code 22 for 404 and triggers _retry 
+    # -I information 
+    # -L (location) follow SourceForge redirects
 
-    # если первая попытка провалилась (или нет pv) запускаем _retry
+    # if the first attempt fails (or there is no pv) run _retry
     if ! _retry curl -A "$useragent" \
             -fsSL --connect-timeout 15 \
             "$URL" -o "$DEST"; then
@@ -197,27 +196,27 @@ export -f download_file
 git-submodule-clone() {
     log_info "${START_MARK} Starting robust submodule synchronization..."
 
-    # Принудительно обновляем URL подмодулей из файла .gitmodules
-    # Это решает проблему, если в репозитории изменились адреса подмодулей
+    # Force the URL of submodules to be updated from the .gitmodules file 
+    # This solves the problem if the addresses of submodules in the repository have changed
     log_info "${SYNC_MARK} Syncing submodules..."
     git submodule sync --recursive
 
-    # Попытка стандартного обновления
-    # --force поможет, если локально были внесены небольшие изменения
+    # Attempt standard update 
+    # --force will help if small changes have been made locally
     log_info "${SYNC_MARK} Attempting standard update..."
     if _retry git submodule update --quiet --init --recursive --depth 1 --single-branch; then
         log_info "${CHECK_MARK} Submodules synchronized successfully via standard update."
         return 0
     fi
 
-    # Если не помогло, пробуем более агрессивный метод
+    # If it doesn't help, try a more aggressive method
     log_warn "Standard submodule update failed, trying manual foreach..."
 
-    # используем || return 1, чтобы если foreach упадет, функция сразу вернула ошибку
-    # 1. Сброс локальных изменений, которые могут мешать checkout
-    # 2. Получаем данные напрямую
-    # 3. Пытаемся переключиться на нужный коммит (записанный в основном репозитории)
-    # Обычно это FETCH_HEAD после fetch, если мы тянем конкретный коммит
+    # use || return 1 so that if foreach fails, the function will immediately return an error 
+    # 1. Reset local changes that may interfere with checkout 
+    # 2. Receive data directly 
+    # 3. Trying to switch to the desired commit (recorded in the main repository) 
+    # Usually this is FETCH_HEAD after fetch if we are pulling a specific commit
     if git submodule foreach --recursive bash -c "
         source \"\$UTIL_DIR/vars.sh\" \"\$TARGET\" \"\$VARIANT\" 2>/dev/null
         source \"\$UTIL_DIR/dl_functions.sh\"
@@ -251,8 +250,8 @@ svn-mini-clone() {
     log_info "Fetching SVN: $REPO@$REV"
     mkdir -p "$TARGET_DIR"
 
-    # Добавляем --username 'anonymous' и --password ''
-    # Добавляем --trust-server-cert для обхода проблем с SSL
+    # Add --username 'anonymous' and --password '' 
+    # Add --trust-server-cert to bypass problems with SSL
     if _retry svn export --non-interactive \
         --username 'anonymous' --password '' \
         --trust-server-cert \
@@ -269,13 +268,13 @@ svn-mini-clone() {
 default_dl() {
     local TARGET_DIR="${1:-.}"
 
-    # Если задан SVN
+    # If SVN is specified
     if [[ -n "$SCRIPT_REV" ]]; then
         echo "svn-mini-clone \"$SCRIPT_REPO\" \"$SCRIPT_REV\" \"$TARGET_DIR\""
         return 0
     fi
 
-    # Иначе работаем с Git
+    # Otherwise we work with Git
     local CMDS=()
     
     # Primary repo → TARGET_DIR
@@ -303,9 +302,9 @@ default_dl() {
         CMDS+=( "git-mini-clone \"${!r_var}\" \"$sub_commit\" \"$sub_dir\"" )
     done
 
-    # Валидация
+    # Validation
     if [[ ${#CMDS[@]} -eq 0 ]]; then
-        # Пишем в stderr, чтобы не сломать eval/stdout
+        # We write to stderr so as not to break eval/stdout
         log_error "No SCRIPT_REPO defined for stage!" >&2
         return 1
     fi
@@ -357,7 +356,7 @@ confhash_compute() {
     fi
 
     if [[ -z "$raw_options" ]]; then
-        # Если файлов нет совсем — возвращаем 1
+        # If there are no files at all, return 1
         local found_files=$(find "$src_dir" -maxdepth 6 \( -name "configure.ac" -o -name "CMakeLists.txt" -o -name "meson_options.txt" -o -name "CMakeOptions.txt" -o -name "DefineOptions.cmake" \) | wc -l)
         [[ "$found_files" -eq 0 ]] && return 1
 
@@ -444,7 +443,7 @@ download_stage() {
         ffbuild_dockerdl
     " 2>"/tmp/dl_cmd_err_${STAGENAME}" || true)"
 
-    # Если команд нет — это стадия без исходников (мета-пакет), выходим
+    # If no commands, this is a stage without sources (meta-package), exit
     if [[ -z "$DL_COMMANDS" ]]; then
         # Log any real error from the subshell
         [[ -s "/tmp/dl_cmd_err_${STAGENAME}" ]] && \
@@ -455,7 +454,7 @@ download_stage() {
     fi
     rm -f "/tmp/dl_cmd_err_${STAGENAME}"
 
-    # Проверяем, что у нас есть путь к кэшу, иначе упадем на mkdir/tar
+    # Check that we have a path to the cache, otherwise we will fall on mkdir/tar
     if [[ -z "$CACHE_DIR" ]]; then
         log_error "CACHE_DIR is empty! Check if vars.sh is sourced."
         # return 1
@@ -497,7 +496,7 @@ download_stage() {
     # Use subshell for cleanup isolation — avoids clobbering EXIT trap
     local WORK_DIR=$(mktemp -d -p "$TMP_DIR")
 
-    # Выполняем загрузку
+    # Downloading
     local dl_status=0
     (   cd "$WORK_DIR" || exit 1
         eval "$DL_COMMANDS"
@@ -521,13 +520,13 @@ download_stage() {
         fi
         )
 
-        # Whitelist метаданных .git (список подгружается из workflow.yaml). 
+        # Whitelist of .git metadata (the list is loaded from workflow.yaml).
         if [[ "$STAGENAME" =~ $GIT_PRESERVE_LIST ]]; then
             log_info "${LOCK_MARK} Preserving Git metadata for $STAGENAME (Whitelist match)"
         else
             log_debug "${BROOM_MARK} Stripping Git metadata for $STAGENAME to save cache space"
             find "$WORK_DIR" -maxdepth 8 -type d -name ".git" -exec rm -rf {} + 2>/dev/null || true
-            # Точечно удаляем только конкретные служебные файлы Git, не трогая .gitlab
+            # Specifically delete only specific Git service files, without touching .gitlab
             find "$WORK_DIR" -maxdepth 8 -type f \( -name ".gitignore" -o -name ".gitattributes" -o -name ".gitmodules" \) -exec rm -f {} + 2>/dev/null || true
         fi
 
@@ -614,7 +613,7 @@ download_stage() {
             log_debug "No recognisable config files found for $STAGENAME — skipping confhash"
         fi
 
-        # Упаковка
+        # Packaging
         mkdir -p "$(dirname "$STAGE_CACHE_FILE")"
 
         sync && sleep 0.5

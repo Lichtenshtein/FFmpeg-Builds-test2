@@ -262,11 +262,11 @@ jobs:
           echo "=== Initial Disk Space ==="
           df -h /
 
-          # Получаем доступное место в мегабайтах
+          # Get the available space in megabytes
           AVAILABLE_SPACE=$(df -m / | awk 'NR==2 {print $4}')
           echo "available_space_mb=$AVAILABLE_SPACE" >> $GITHUB_OUTPUT
 
-          # Если места меньше 35840 МБ (35 ГБ), взводим флаг паники
+          # If the space is less than 35840 MB (35 GB), raise the panic flag
           if [ "$AVAILABLE_SPACE" -lt 35840 ]; then
             echo "🚨 Low disk space detected! Forcing auto-clean."
             echo "trigger_clean=true" >> $GITHUB_OUTPUT
@@ -288,7 +288,7 @@ jobs:
           large-packages: true # clang или llvm-ar на host
           docker-images: false
           swap-storage: false
-          codeql-images: true # гитхабовский сканер уязвимостей CodeQ
+          codeql-images: true # GitHub vulnerability scanner CodeQ
 
       # This cleans ~400Mb
       - name: Final Deep Clean and Space Check
@@ -311,7 +311,7 @@ jobs:
           CURRENT_SPACE=$(df -m / | awk 'NR==2 {print $4}')
           echo "Current space after potential clean: $CURRENT_SPACE MB"
 
-          # Если места критически мало (меньше 30 ГБ / 30720 МБ)
+          # If space is critically low (less than 30 GB / 30720 MB)
           if [ "$CURRENT_SPACE" -lt 30720 ]; then
             echo "⚠️ Post-clean disk space is critically tight ($CURRENT_SPACE MB)."
             sudo swapoff -a || true
@@ -319,7 +319,7 @@ jobs:
             echo "=== Allocating safe 6GB Swap File to preserve disk cache ==="
             sudo fallocate -l 6G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=6096
 
-          # Если места умеренно мало (меньше 55 ГБ / 56320 МБ)
+          # If space is moderately low (less than 55 GB / 56320 MB)
           elif [ "$CURRENT_SPACE" -lt 56320 ]; then
             echo "ℹ️ Moderate disk space available ($CURRENT_SPACE MB). 32GB Swap is dangerous."
             sudo swapoff -a || true
@@ -327,7 +327,7 @@ jobs:
             echo "=== Allocating balanced 12GB Swap File ==="
             sudo fallocate -l 12G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=12288
 
-          # Если места действительно много (больше 55 ГБ)
+          # If there is really a lot of space (more than 55 GB)
           else
             echo "✅ Abundant disk space available ($CURRENT_SPACE MB). Safe for maximum swap."
             sudo swapoff -a || true
@@ -374,7 +374,7 @@ jobs:
           file: images/base-win64/Dockerfile
           no-cache: ${{ github.event.inputs.rebuild_base == 'true' }}
           build-args: |
-            CARGO_C_VERSION=0.10.22
+            CARGO_C_VERSION=0.10.24
             CPU_ARCH=${{ env.CPU_ARCH }}
             CPU_TUNE=${{ env.CPU_TUNE }}
           push: true

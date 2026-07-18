@@ -3,8 +3,7 @@
 # ==========================================
 FROM ubuntu:26.04 AS stage-os-base
 
-ARG CARGO_C_VERSION=0.10.22
-ARG SHFMT_VERSION="v3.9.0"
+ARG CARGO_C_VERSION=0.10.24
 ARG DEBUG_MODE=0
 ARG USE_WINE=0
 
@@ -31,7 +30,8 @@ RUN \
         python3-setuptools python3-pip python3-venv python3-jinja2 python3-jsonschema python3-apt python3-dev python-is-python3 \
         dos2unix re2c bsdmainutils p7zip-full tree \
         patchutils ed osslsigncode python3-fonttools python3-mako \
-        python3-wheel iputils-ping dnsutils \
+        python3-wheel iputils-ping dnsutils libtasn1-bin \
+        gfortran \
         $([ "$DEBUG_MODE" = "1" ] || [ "$USE_WINE" = "1" ] && echo wine) >/dev/null 2>&1 && \
     \
     rm -f /etc/apt/sources.list.d/llvm-trunk.list && \
@@ -43,8 +43,12 @@ RUN \
     echo "Components: main" >> /etc/apt/sources.list.d/llvm-trunk.sources && \
     echo "Signed-By: /etc/apt/trusted.gpg.d/apt.llvm.org.asc" >> /etc/apt/sources.list.d/llvm-trunk.sources && \
     apt-get -y update >/dev/null 2>&1 && \
-    apt-get -y install --no-install-recommends lld-23 && \
+    \
+    echo "🔧 Installing latest LLD, Clang, and LLVM packages" && \
+    apt-get -y install --no-install-recommends lld-23 clang-23 llvm-23 && \
     ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
+    ln -sf /usr/bin/clang-23 /usr/bin/clang && \
+    ln -sf /usr/bin/clang++-23 /usr/bin/clang++ && \
     \
     MOLD_VERSION=$(curl -fL "https://api.github.com/repos/rui314/mold/releases/latest" | jq -r .tag_name | sed 's/^v//') && \
     echo "=== Mold version found: ${MOLD_VERSION} ===" && \
@@ -101,9 +105,30 @@ RUN \
     apt-get autoclean -y >/dev/null 2>&1 && \
     apt-get clean -y >/dev/null 2>&1 && \
     npm cache clean --force && \
-    rm -rf /opt/cargo/registry /opt/cargo/git /opt/rustup/downloads /opt/rustup/tmp && \
-    rm -rf /usr/share/doc/* /usr/share/man/* /usr/share/info/* && \
-    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
+    rm -rf \
+        /opt/cargo/registry \
+        /opt/cargo/git \
+        /opt/rustup/downloads \
+        /opt/rustup/tmp \
+        \
+        /usr/share/doc/* \
+        /usr/share/man/* \
+        /usr/share/info/* \
+        /usr/share/groff/* \
+        /usr/share/lintian/* \
+        /usr/share/locale/* \
+        /var/cache/debconf/*-old \
+        /var/cache/apk/* \
+        /root/.cache/* \
+        /var/lib/apt/lists/* \
+        /var/cache/apt/archives/* \
+        /tmp/* \
+        /var/tmp/* \
+        /var/log/apt/* \
+        /var/log/dpkg.log \
+        /var/log/alternatives.log \
+        /var/tmp/* \
+        /root/.npm/_cacache
 
 # ==========================================
 # STAGE 2: Toolchain Compilation (Isolating Waste)
@@ -162,7 +187,7 @@ RUN rustup target add "$FFBUILD_RUST_TARGET" && \
     printf "[target.%s]\nlinker = \"%s-gcc\"\nar = \"%s-gcc-ar\"\n" "$FFBUILD_RUST_TARGET" "$FFBUILD_TOOLCHAIN" "$FFBUILD_TOOLCHAIN" > "$CARGO_HOME"/config.toml && \
     \
     mkdir -p /opt/ccache-links && \
-    for tool in gcc g++ cpp c++ gcc-ar gcc-nm gcc-ranlib ranlib; do \
+    for tool in gcc g++ cpp c++ gcc-ar gcc-nm gcc-ranlib ranlib clang clang++; do \
         ln -sf /usr/local/bin/ccache "/opt/ccache-links/x86_64-w64-mingw32-${tool}"; \
         ln -sf /usr/local/bin/ccache "/opt/ccache-links/${tool}"; \
     done

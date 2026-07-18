@@ -2,11 +2,11 @@ name: Auto-Bump Dependencies
 
 on:
   # schedule:
-    # - cron: '0 0 * * 0' # Каждое воскресенье в полночь
+    # - cron: '0 0 * * 0' # Every Sunday at midnight
   workflow_dispatch:
 
 env:
-  # Список исключений для обновления
+  # List of exceptions to update
   UPDATE_PRESERVE_LIST: "quiche mbedtls gnutls"
   TARGET: win64
   VARIANT: nonfree
@@ -30,7 +30,7 @@ jobs:
           chmod +x util/update_scripts.sh
           ./util/update_scripts.sh
 
-        # Проверяем наличие изменений в папке scripts.d
+        # Check for changes in the scripts.d folder
       - name: Check for changes
         id: git-check
         run: |

@@ -8,8 +8,8 @@ source util/vars.sh "$TARGET" "$VARIANT" 2>&1 || {
     exit 1
 }
 
-# Читаем список из ENV или используем пустой, если переменная не задана
-# Превращаем строку "zlib base" в массив (zlib base)
+# Read the list from ENV or use an empty one if the variable is not set
+# Turn the string "zlib base" into an array (zlib base)
 IFS=', ' read -ra EXCLUDE_COMPONENTS <<< "${UPDATE_PRESERVE_LIST:-}"
 
 [[ ${#EXCLUDE_COMPONENTS[@]} -gt 0 ]] && \
@@ -17,10 +17,10 @@ IFS=', ' read -ra EXCLUDE_COMPONENTS <<< "${UPDATE_PRESERVE_LIST:-}"
 
 cd "$(dirname "$0")"/..
 
-# Можно передать конкретный файл: ./util/update_scripts_test.sh "scripts.d/50-x264.sh"
+# Сan pass a specific file: ./util/update_scripts_test.sh "scripts.d/50-x264.sh"
 SEARCH_PATTERN="${1:-scripts.d/**/*.sh}"
 
-# Используем временные файлы для сбора отчетов, чтобы обойти проблему subshell в пайпах
+# Use temporary files to collect reports to bypass the subshell problem in pipes
 TMP_REPORT=$(mktemp)
 trap 'rm -f "$TMP_REPORT"' EXIT
 
@@ -45,12 +45,12 @@ update_shaderc_deps() {
 
     log_info "${SEARCH_MARK} Checking Shaderc dependencies in: \n${deps_file}..."
 
-    # Создаем временную копию
+    # Create a temporary copy
     local tmp_deps
     tmp_deps=$(mktemp)
     cp "$deps_file" "$tmp_deps"
 
-    # Базовые URL репозиториев (извлекаем из файла DEPS)
+    # Base URLs of the repositories (extracted from the DEPS file)
     local abseil_git google_git khronos_git
     abseil_git=$(grep "'abseil_git':" "$deps_file" | cut -d"'" -f4)
     google_git=$(grep "'google_git':" "$deps_file" | cut -d"'" -f4)
@@ -105,14 +105,14 @@ for STAGE in $SEARCH_PATTERN; do
     STAGENAME="$(basename "$STAGE" .sh)"
     COMPONENT_NAME="${STAGENAME#*-}"
 
-    # Проверка на вхождение в массив исключений
+    # Checking for inclusion in an exception array
     skip_this=0
     for exc in "${EXCLUDE_COMPONENTS[@]}"; do
         [[ "$COMPONENT_NAME" == "$exc" ]] && skip_this=1 && break
     done
     [[ $skip_this -eq 1 ]] && log_info "${LOCK_MARK} Skipping: ${STAGENAME} (In exclusion list)" && continue
 
-    # Пропускаем помеченные скрипты
+    # Skip marked scripts
     if grep -q 'SCRIPT_SKIP="1"' "$STAGE"; then
         log_debug "${LOCK_MARK} Skipping ${STAGENAME} (SCRIPT_SKIP active)"
         continue
@@ -121,7 +121,7 @@ for STAGE in $SEARCH_PATTERN; do
     log_info "${SEARCH_MARK} Checking ${STAGENAME}..."
     cp "$STAGE" "${STAGE}.bak"
 
-    # Создаем изолированный файл задач для текущего скрипта
+    # Create an isolated task file for the current script
     STAGE_TASKS=$(mktemp)
 
     # Process in subshell to avoid polluting the main environment
@@ -150,7 +150,7 @@ for STAGE in $SEARCH_PATTERN; do
             CUR_BRANCH="${!BRANCH_VAR:-}"
             CUR_TAG="${!TAG_VAR:-}"
 
-            # Если имя репозитория пустое или не похоже на URL, останавливаем
+            # If the repository name is empty or does not resemble a URL, stop
             if [[ -z "${CUR_REPO}" || ! "${CUR_REPO}" =~ ^(https?|git|svn):// ]]; then
                 break
             fi
@@ -201,7 +201,7 @@ for STAGE in $SEARCH_PATTERN; do
 
             # Update if new value differs from current
             if [[ -n "$NEW_VAL" && "$NEW_VAL" != "${!TARGET_VAR}" ]]; then
-                # Вместо запуска sed, записываем параметры во временный файл задач
+                # Instead of running sed, we write the parameters to a temporary task file
                 echo "${TARGET_VAR}|${!TARGET_VAR}|${NEW_VAL}" >> "$STAGE_TASKS"
             fi
         done
@@ -213,16 +213,16 @@ for STAGE in $SEARCH_PATTERN; do
           if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
             log_debug "DEBUG_REPLACE: File=[${STAGE##*/}] Var=[${t_var}] Old=[${old_val}] New=[${new_val}]"
           fi
-            # Проверяем на пустые значения, чтобы не портить файлы
+            # Check for empty values so as not to spoil files
             if [[ -z "$t_var" || -z "$new_val" ]]; then
                 log_warn "DEBUG_ALERT: Skipped execution because variable name or new hash is empty!"
                 continue
             fi
           if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-            # Показываем точную команду sed перед её выполнением
+            # Showing the exact sed command before executing it
             log_debug "DEBUG_CMD: sed -i \"s@^${t_var}=\\\"[^\\\"]*\\\"@${t_var}=\\\"${new_val}\\\"@g\" \"${STAGE}\""
           fi
-            # Применяем атомарный sed
+            # Using atomic sed
             sed -i "s@^${t_var}=\"[^\"]*\"@${t_var}=\"${new_val}\"@g" "${STAGE}"
             sed -i "s@^${t_var}='[^']*'@${t_var}='${new_val}'@g" "${STAGE}"
             
@@ -242,7 +242,7 @@ for STAGE in $SEARCH_PATTERN; do
     fi
 done
 
-# --- ФИНАЛЬНЫЙ ОТЧЕТ ---
+# --- FINAL REPORT ---
 
 # Process Shaderc DEPS (must be after regular scripts so report is complete)
 update_shaderc_deps

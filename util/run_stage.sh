@@ -4,13 +4,13 @@ set -e
 
 STAGE="$1"
 
-# Сначала убедимся, что путь к скрипту вообще есть
+# make sure that there is a path to the script at all
 if [[ -z "$STAGE" || ! -f "$STAGE" ]]; then
     echo "ERROR: Usage: run_stage <STAGE>" >&2
     exit 1
 fi
 
-# Подгружаем утилиты, используя абсолютный путь
+# Load utilities using absolute path
 if ! declare -F log_info >/dev/null; then
     . /builder/util/vars.sh "$TARGET" "$VARIANT" 2>/dev/null \
         || { echo "ERROR: vars.sh failed in run_stage for $TARGET/$VARIANT" >&2; exit 1; }
@@ -20,10 +20,10 @@ if ! declare -F default_dl >/dev/null; then
     . "$UTIL_DIR"/dl_functions.sh > /dev/null 2>&1 || true
 fi
 
-# Обнуляем статистику
+# Reset statistics
 # ccache -z > /dev/null
 
-# Сбрасываем счетчик секунд в начале этапа
+# Reset the seconds counter at the beginning of the stage
 SECONDS=0
 STAGE_START_TIME=$(date +%s)
 STAGE_LOG="/tmp/stage_build_${STAGENAME}.log"
@@ -42,7 +42,8 @@ fi
 # generate dynamic cross-build toolchain files
 generate_meson_cross && generate_cmake_toolchain
 
-# Очистка при выходе. Удаляем старые файлы, если они остались от прошлых запусков
+# Cleanup on exit
+# Delete old files if they remain from previous launches
 stage_cleanup() {
     local exit_code=$?
     local duration=$SECONDS
@@ -50,13 +51,13 @@ stage_cleanup() {
     local BUILD_DIR="/build/${STAGENAME}"
 
     if [[ $exit_code -eq 0 ]]; then
-        # Успех: чистим всё; NOTE: Should keep "$VARS_DIR" & "$OUTFILE"
+        # Success: clean everything; NOTE: Should keep "$VARS_DIR" & "$OUTFILE"
         cd /
         [[ -n "$STAGENAME" ]] && rm -rf "$BUILD_DIR"
         rm -f "$STAGE_LOG" "$TIMESTAMP_FILE"
         log_info "${CHECK_MARK} Build ${GREEN}SUCCEEDED${NC} for ${STAGENAME} [Time: ${GREY_B}${elapsed}${NC}]"
     else
-        # Неудача: дампим логи
+        # Failure: dumping logs
         log_error "Build ${LOG_ERROR}FAILED${NC} for ${STAGENAME} after ${GREY_B}${elapsed}${NC}"
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
             log_debug "${BUILD_MARK} Current stage file: ${STAGE}"
@@ -64,7 +65,7 @@ stage_cleanup() {
             cd /build
             LOG_FILES=$(find "$BUILD_DIR" -maxdepth 4 \( -name "config.log" -o -name "meson-log.txt" -o -name "CMakeError.log" -o -name "CMakeOutput.log" \) 2>/dev/null)
             if [[ -n "$LOG_FILES" ]]; then
-                # Удача: выводим найденные логи систем сборки
+                # Luck: displaying found build system logs
                 for logfile in $LOG_FILES; do
                     # Skip if this is the same as STAGE_LOG (already captured)
                     if [[ "$(readlink -f "$logfile")" == "$(readlink -f "$STAGE_LOG")" ]]; then
@@ -75,17 +76,17 @@ stage_cleanup() {
                     log_debug "${LOGS_MARK} ▲ END OF $(basename "$logfile") ▲"
                 done
             else
-                # Неудача: системных логов нет, ищем общий лог
+                # Failure: no system logs, looking for a general log
                 if [[ -f "$STAGE_LOG" ]]; then
                     log_debug "${LOGS_MARK} ▼ System logs missing. Falling back to STAGE_LOG ($STAGE_LOG) ▼"
                     tail -n ${LOG_SIZES} "$STAGE_LOG" >&2
                 else
-                    # Ничего не нашли
+                    # Found nothing
                     if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
                         log_warn "No logs found.${DIRS_MARK} Listing directory content of $BUILD_DIR:"
                         # 1) use find
-                        # -maxdepth 2 чтобы не выводить тысячи файлов из подпапок
-                        # sed добавляет отступы для имитации дерева
+                        # -maxdepth 2 to avoid listing thousands of files from subfolders 
+                        # sed adds padding to simulate a tree
                         # find "$BUILD_DIR" -maxdepth 2 -not -path '*/.*' | sed -e "s|^$BUILD_DIR||" -e "s|^/||" | sort | while read -r line; do
                             # [[ -z "$line" ]] && continue
                             # full_path="${BUILD_DIR}/${line}"
@@ -100,8 +101,8 @@ stage_cleanup() {
                         # 2) or use ls
                         # ls -F -C --color=always --group-directories-first "$BUILD_DIR" >&2
                         # 3) better use tree (need rebuild)
-                        # -F добавляет / к папкам, -L 2 ограничивает глубину, чтобы не спамить
-                        # --dirsfirst группирует папки в начале
+                        # -F adds / to folders, -L 2 limits depth to avoid spamming 
+                        # --dirsfirst groups folders at the beginning
                         tree -F -L 2 --dirsfirst "$BUILD_DIR" >&2
                     else
                         log_warn "No logs were found."
@@ -117,30 +118,33 @@ stage_cleanup() {
                 log_warn "Log file $STAGE_LOG is missing!"
             fi
         fi
+
+        show_patch_summary
+
         cd /
-        # Чистка после падения
-        rm -rf "$BUILD_DIR" "$VARS_DIR" "$STAGE_LOG" "$TIMESTAMP_FILE" "$OUTFILE"
+        # Cleaning after a fail
+        rm -rf "$BUILD_DIR" "$VARS_DIR" "$STAGE_LOG" "$TIMESTAMP_FILE" "$OUTFILE" "$LOG_PATCH_ERRORS"
     fi
 }
 trap stage_cleanup EXIT
 
-# Создаем и входим в директории сборки ДО загрузки скрипта
+# Create and enter the build directory BEFORE loading the script
 log_info "${DIRS_MARK} Creating the base folder structure if it doesn't exist..."
 mkdir -p "$VARS_DIR" "$FFBUILD_DESTDIR" "$INSTALL_ROOT"/{include,bin,lib/pkgconfig} "/build/$STAGENAME" && cd "/build/$STAGENAME"
 
-# Подгружаем скрипт заранее, чтобы проверить SCRIPT_SKIP
-# любые $(pwd) или относительные пути внутри скрипта будут указывать на /build/STAGENAME
-# Используем абсолютный путь к скрипту, так как мы уже сменили cd
+# Load the script in advance to check SCRIPT_SKIP
+# Any $(pwd) or relative paths inside the script will point to /build/STAGENAME
+# Use the absolute path to the script, since we have already changed the cd
 source "$(readlink -f "$STAGE")"
 
-# Проверка на пропуск (теперь переменная SCRIPT_SKIP подгружена в контексте нужной папки)
+# Check for skipping (now the SCRIPT_SKIP variable is loaded in the context of the desired folder)
 if [[ "$SCRIPT_SKIP" == "1" ]]; then
     log_info "Skipping stage $STAGENAME as requested by script."
     exit 0
 fi
 
-# Очищаем временный приемник файлов, чтобы избежать "паразитного" копирования 
-# артефактов из предыдущих слоев Docker (если они попали в кэш слоя)
+# Clear the temporary file destination to avoid parasitic copying
+# artifacts from previous Docker layers (if they are in the layer cache)
 if [[ -d "$FFBUILD_DESTDIR" ]]; then
     log_info "${BROOM_MARK} Cleaning up temporary DESTDIR: $FFBUILD_DESTDIR"
     rm -rf "${FFBUILD_DESTDIR:?}"/*
@@ -149,20 +153,19 @@ mkdir -p "$FFBUILD_DESTDIR" "${INSTALL_ROOT}"
 
 log_info "${SEARCH_MARK} Searching source for $STAGENAME"
 
-# Проверяем, доступна ли папка кэша на запись
+# Check if the cache folder is writable
 if [ ! -w "$CACHE_DIR" ]; then
-    # Если кэш Read-Only (BuildKit context), перенаправляем декоративные ссылки в /tmp,
-    # чтобы утилита ln не пыталась писать в защищенную память.
+    # If the cache is Read-Only (BuildKit context), redirect decorative links to /tmp, so that the ln utility does not try to write to protected memory
     STAGE_LATEST_LINK="/tmp/$(basename "$STAGE_LATEST_LINK")"
 fi
 
-# Ищем точное совпадение (Имя_Хеш)
+# Looking for an exact match (Name_Hash)
 if [[ -f "$STAGE_CACHE_FILE" ]]; then
     REAL_CACHE="$STAGE_CACHE_FILE"
     log_info "${CHECK_MARK} Exact cache match found: $(basename "$REAL_CACHE")"
     rm -f "$STAGE_LATEST_LINK"
     ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK" || true
-# Ищем по хешу (если скрипт переименован, например 25-glib2 -> 24-glib2)
+# Searching by hash (if the script is renamed, for example 25-glib2 -> 24-glib2)
 else
     EXISTING_BY_HASH=$(find "$CACHE_DIR" -maxdepth 1 -name "*_${STAGE_HASH}.tar.zst" -print -quit)
     if [[ -n "$EXISTING_BY_HASH" ]]; then
@@ -170,44 +173,46 @@ else
         log_info "${CHECK_MARK} Found cache with matching hash but different name: $(basename "$REAL_CACHE")"
         rm -f "$STAGE_LATEST_LINK"
         ln -sf "$(basename "$REAL_CACHE")" "$STAGE_LATEST_LINK" || true
-# Откат к последней ссылке (LATEST), если точный хеш не найден
+# Fall back to the last link (LATEST) if the exact hash is not found
     elif [[ -L "$STAGE_LATEST_LINK" && -f "$STAGE_LATEST_LINK" ]]; then
         REAL_CACHE=$(readlink -f "$STAGE_LATEST_LINK")
         log_warn "Exact hash $STAGE_HASH not found. Falling back to latest symlink: $(basename "$REAL_CACHE")"
     fi
 fi
 
-# Проверяем, нужны ли вообще исходники для этой стадии (или это мета-стадия), и выходим
+# Check whether the sources are needed at all for this stage (or is it a meta stage), and exit
 DL_COMMANDS=$(ffbuild_dockerdl 2>/dev/null) || {
     log_error "ffbuild_dockerdl failed for $STAGENAME"
     exit 1
 }
 
 if [[ -n "$DL_COMMANDS" ]]; then
-    # Если кэш не найден ни одним способом
+    # If the cache is not found in any way
     if [[ -z "$REAL_CACHE" || ! -f "$REAL_CACHE" ]]; then
         log_warn "Source cache NOT FOUND for $STAGENAME. Attempting direct download..."
         log_debug "Expected hash: $STAGE_HASH | Target file: $STAGE_CACHE_FILE"
 
-        # Пытаемся скачать исходники "на лету"
+        # Trying to download the sources on the fly
         if eval "$DL_COMMANDS"; then
             log_info "${CHECK_MARK} Direct download successful for $STAGENAME."
-            # Очистка перед сохранением в кэш
+            # Clearing before saving to cache
             if [[ -d ".git" ]]; then
                 log_debug "${BROOM_MARK} Running git clean -fdx for $STAGENAME..."
-                # Исключаем папки или файлы из очистки, напр. -e "lib/include/*"
+                # Exclude folders or files from cleaning, for example. -e "lib/include/*"
                 git clean -fdx
             fi
-            # Сразу создаем архив в кэше, чтобы в следующий раз он подхватился мгновенно
+            # immediately create an archive in the cache so that next time it will be picked up instantly
             if [ -w "$CACHE_DIR" ]; then
                 log_info "${ARCH_MARK} Creating new cache archive for $STAGENAME..."
-                tar -I 'zstd -T0 -3' -cf "$STAGE_CACHE_FILE" .
+                ZSTD_CLEVEL=5 tar --sort=name \
+                    --owner=0 --group=0 --numeric-owner \
+                -I 'zstd -T0 --long=23' -cf "$STAGE_CACHE_FILE" .
             fi
 
             rm -f "$STAGE_LATEST_LINK"
             ln -sf "$(basename "$STAGE_CACHE_FILE")" "$STAGE_LATEST_LINK" || true
         else
-            # блок ошибки, срабатывает только если загрузка провалилась.
+            # error block, only fires if the download fails
             log_error "No source cache and download failed for $STAGENAME"
             log_info "Expected hash: $STAGE_HASH"
             if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
@@ -217,12 +222,12 @@ if [[ -n "$DL_COMMANDS" ]]; then
             exit 1
         fi
     else
-        # Если REAL_CACHE был найден (одним из 3-х способов выше)
+        # If REAL_CACHE was found (by one of the 3 methods above)
         log_info "${EXTR_MARK} Unpacking $STAGENAME from $(basename "$REAL_CACHE")..."
         if ! tar -I 'zstd -d -T0' -xaf "$REAL_CACHE" -C . ; then log_error "Failed to unpack $(basename "$REAL_CACHE")"; exit 1; fi
     fi
 
-    # АВТО-ПОИСК корня проекта (если архив распаковался в подпапку)
+    # AUTO-SEARCH for the project root (if archive is unpacked into a subfolder)
     if [[ ! -f "Configure" && ! -f "configure" && ! -f "CMakeLists.txt" && ! -f "meson.build" ]]; then
         log_warn "No build file in root. ${SEARCH_MARK} Searching one level deeper..."
         CANDIDATE=$(find . -maxdepth 2 \( -name "Configure" -o -name "configure" -o -name "CMakeLists.txt" -o -name "meson.build" \) -printf '%h\n' | head -n 1)
@@ -232,7 +237,7 @@ if [[ -n "$DL_COMMANDS" ]]; then
         fi
     fi
 
-    # Проверка, что после всех манипуляций папка не пуста
+    # Checking that after all manipulations the folder is not empty
     if [[ -z "$(ls -A)" ]]; then
         log_error "Build directory is empty after unpacking/downloading $STAGENAME!"
         exit 1
@@ -243,13 +248,13 @@ if [[ -n "$DL_COMMANDS" ]]; then
 
     if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
         log_debug "${DIRS_MARK} Contents of $(pwd) (current build directory):"
-        # Собираем список: сначала папки (с /), потом файлы
-        # -F добавляет / к папкам, -1 выводит в один столбец
-                # paste объединяет их через табуляцию, чтобы column понял разделитель
+        # Collect the list: first folders (with /), then files
+        # -F adds / to folders, -1 outputs to one column 
+        # paste concatenates them via tabs so that column understands the delimiter
         paste <(ls -ad .*/ */ 2>/dev/null | grep -v '^\./\?$' | head -n 17) \
               <(ls -AF 2>/dev/null | grep -v / | head -n 17) | \
               column -t -s $'\t' -N "DIRECTORIES","FILES" | \
-              sed 's/^/ /' # Добавляем отступ слева для красоты
+              sed 's/^/ /' # Add left padding for beauty
     fi
 
 else
@@ -258,7 +263,7 @@ fi
 
 [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]] && log_debug "${STAGENAME}-specific CFLAGS:\n$CFLAGS" && log_debug "${STAGENAME}-specific LDFLAGS:\n$LDFLAGS" && log_debug "${STAGENAME}-specific RUSTFLAGS:\n$RUSTFLAGS"
 
-# Выполняем сборку ОДИН РАЗ с проверкой статуса
+# Perform the build ONCE and check the status
 build_cmd="ffbuild_dockerbuild"
 [[ -n "$2" ]] && build_cmd="$2"
 
@@ -292,7 +297,8 @@ log_info_line
 log_info "### ${SYNC_MARK} POST-BUILD AUDIT AND AUTOMATION: $STAGENAME"
 log_info_line
 
-# Каждый скрипт в scripts.d обязан устанавливать файлы (make install) в путь, начинающийся с $FFBUILD_DESTDIR$FFBUILD_PREFIX (обычно это /opt/ffdest/opt/ffbuild), иначе система не увидит установленную библиотеку для следующего этапа.
+# Each script in scripts.d must install files (make install) to the path starting with $FFBUILD_DESTDIR$FFBUILD_PREFIX (usually /opt/ffdest/opt/ffbuild), otherwise the system will not see the installed library for the next step.
+
 # The key constraint is: strip before sync, clean before strip, patch .pc before sync.
 # build_cmd runs
 # ▼
@@ -314,6 +320,7 @@ log_info_line
 # [SYNC]    rsync DESTPREFIX → PREFIX  ← only clean, stripped, patched files go to cache
 # ▼
 # [AUDIT]   get_deps_list           ← audit what landed in PREFIX (verbose only)
+
 if [[ -d "$INSTALL_ROOT" ]]; then
     # Identify what was actually built
     mapfile -t NEW_FILES < <(find "$INSTALL_ROOT" -type f -o -type l)
@@ -324,7 +331,7 @@ if [[ -d "$INSTALL_ROOT" ]]; then
         if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
             # Show everything that was installed in a pretty way
             log_debug "${DIRS_MARK} Installed ${#NEW_FILES[@]} files to prefix:"
-            # Очищаем пути от DESTDIR; можно попытаться и с "grep -Po"
+            # Clearing paths from DESTDIR; can also try with "grep -Po"
             CLEAN_LIST=$(printf "%s\n" "${NEW_FILES[@]}" | sed "s|^$FFBUILD_DESTDIR||")
             (
                 echo "$CLEAN_LIST" | grep -E "/lib/pkgconfig/|/lib/cmake/|/lib/[^/]+\.a$" | sort
@@ -338,8 +345,8 @@ if [[ -d "$INSTALL_ROOT" ]]; then
         clean_la_files
 
         # remove unwanted DLLs or static libs
-        # список стадий, которым РАЗРЕШЕНО иметь DLL импортируется из workflow.yaml
-        # библиотеки MinGW создают libимя.dll.a (implib) даже для статики
+        # list of STAGES that are ALLOWED to have DLLs - imported from workflow.yaml 
+        # MinGW libraries create libname.dll.a (implib) even for static ones
         # added .exe files for clean-up
         if [[ "$TARGET" == "win64" ]]; then
             if [[ "$PREFER_SHARED" != "1" ]]; then
@@ -366,7 +373,7 @@ if [[ -d "$INSTALL_ROOT" ]]; then
             else
                 # PREFER_SHARED=1
                 if [[ -n "$LIB_PRESERVE_LIST" && ! "$STAGENAME" =~ $LIB_PRESERVE_LIST ]]; then
-                    # Чистим статику .a и .lib, оставляя .dll.a (импортные либы)
+                    # Clean static .a and .lib, leaving .dll.a (imported libs)
                     clean_unwanted_libs "static libs" "\( -name '*.a' -o -name '*.lib' -o -name '*.def' -o -name '*.exp' -o -name '*.exe' \) ! -name '*.dll.a'"
                 else
                     log_info "${LOCK_MARK} Preserving static libs for $STAGENAME"
@@ -396,7 +403,7 @@ else
     log_debug "${DIRS_MARK} No standard prefix directory found for $STAGENAME"
 fi
 
-# Сохраняем переменные для текущего слоя в файл 
+# Save variables for the current layer to a file
 OUTFILE="$VARS_DIR/${STAGENAME}.vars"
 
 # Completely isolated subshell, no inherited FF_* state
@@ -437,16 +444,16 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
         [[ -e "$pc" ]] || continue
         [[ "$pc" -nt "$TIMESTAMP_FILE" ]] || continue
 
-        # Добавляем папку, где лежит этот .pc, в PKG_CONFIG_PATH для текущего вызова
+        # Add the folder where this .pc is located to PKG_CONFIG_PATH for the current call
         export PKG_CONFIG_PATH="$(dirname "$pc"):$PKG_CONFIG_LIBDIR"
-        # Собираем только если имя .pc файла соответствует или связано с компонентом
+        # Collect only if the name of the .pc file matches or is associated with the component
         pc_name="$(basename "$pc" .pc)"
 
-        # Извлекаем путь к инклудам напрямую из модуля
+        # Extracting the path to includes directly from the module
         actual_inc=$(pkg-config --variable=includedir "$pc_name" 2>/dev/null)
-        # Если путь существует и он "глубже" стандартного (содержит подпапку)
+        # If the path exists and it is "deeper" than the standard one (contains a subfolder)
         if [[ -n "$actual_inc" && "$actual_inc" != "$FFBUILD_PREFIX/include" ]]; then
-            # Добавляем его в CFLAGS, если еще не видели
+            # Add it to CFLAGS if haven't seen it yet
             if [[ -z "${_seen_pc_cflags["-I$actual_inc"]:-}" ]]; then
                 _seen_pc_cflags["-I$actual_inc"]=1
                 _pc_cflags="$_pc_cflags -I$actual_inc"
@@ -460,10 +467,10 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
                 _seen_pc_cflags["$flag"]=1
                 _pc_cflags="$_pc_cflags $flag"
             fi
-        # просто pkg-config --cflags сохраняет с путями
+        # just pkg-config --cflags saves with paths
         done < <(pkg-config $PKG_CONFIG_CFLAGS "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
 
-        # Сначала собираем сами библиотеки (-l)
+        # First, collect the libraries themselves (-l)
         # while IFS= read -r flag; do
             # [[ -z "$flag" ]] && continue
             # if [[ -z "${_seen_pc_libs[$flag]:-}" ]]; then
@@ -472,7 +479,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
             # fi
         # done < <(pkg-config $PKG_CONFIG_LIBS "$pc_name" 2>/dev/null | tr ' ' '\n' | grep -v '^$')
 
-        # Затем собираем системные флаги (-pthread и т.д.)
+        # Then collect system flags (-pthread, etc.)
         while IFS= read -r flag; do
             [[ -z "$flag" ]] && continue
             if [[ -z "${_seen_pc_libs[$flag]:-}" ]]; then
@@ -502,7 +509,7 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
     [[ -n "$FF_LIBS" ]]       && VARS_CONTENT+="export FF_LIBS='${FF_LIBS}'\n"
 
     # Write only non-empty values to .vars
-    # Если есть хоть один экспорт пишем в файл
+    # If there is at least one export, write it to a file
     if [[ -n "$VARS_CONTENT" ]]; then
         # printf '%b' is safe — no format string injection
         printf '%b' "$VARS_CONTENT" | tr -d '\r' > "$OUTFILE"
@@ -524,13 +531,13 @@ log_info "${SAVE_MARK} Saving build variables for $STAGENAME..."
 )
 
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
-    # Диагностика созданных файлов
+    # Diagnostics of created files
     log_debug "${DIRS_MARK} Current files in $VARS_DIR:"
     ls -1 "$VARS_DIR" | grep ".vars" || log_warn "No .vars files created in this stage."
 fi
 
-# Вывод статистики в конце каждой стадии
-# Это покажет Hit Rate прямо в логах GitHub
+# Display statistics at the end of each stage
+# This will show the Hit Rate directly in the GitHub logs
 log_info "${CACHE_MARK} CCACHE STATISTICS:"
 ccache -s "${OP_VERB2}"
 

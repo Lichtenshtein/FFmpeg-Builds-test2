@@ -104,7 +104,7 @@ done
 # Summary of decisions (one line, not 80)
 log_info "${LOCK_MARK} Protected: ${count_active_enabled} active+enabled, ${count_inactive_kept} inactive+kept, ${count_skipped} skipped."
 
-# Сначала наполняем финальный список
+# First fill the final list
 # Build O(1) lookup set
 sort -u "$RAW_KEEP_LIST" | tr -d '\r' | sed 's/[[:space:]]*$//' > "$FINAL_KEEP_LIST"
 

@@ -19,13 +19,13 @@ URL_WHISPER_MODELS="https://github.com/NoMercy-Entertainment/nomercy-whisper-mod
 
 set -e
 
-# Загружаем функции
+# Loading functions
 source util/dl_functions.sh
 
 ASSETS_DIR="${1:-${ASSETS_DIR}}"
 FFMPEG_SOURCE_DIR="${2:-$FFMPEG_SOURCE_DIR}"
 
-# На всякий случай восстанавливаем путь, если FFMPEG_SOURCE_DIR внезапно оказалась пустой
+# Just in case, restore the path if FFMPEG_SOURCE_DIR suddenly turns out to be empty
 if [[ -z "${FFMPEG_SOURCE_DIR:-}" ]]; then
     if [[ -d "${ROOT_DIR}/ffbuild/ffmpeg" ]]; then
         FFMPEG_SOURCE_DIR="${ROOT_DIR}/ffbuild/ffmpeg"
@@ -38,7 +38,7 @@ fi
 
 mkdir -p "${ASSETS_DIR}" "${FFBUILD_PREFIX}/bin"
 
-# ASSETS_DIR это ".../bin/assets", поднимаемся на 2 уровня вверх, чтобы получить корень пакета
+# ASSETS_DIR is ".../bin/assets", go up 2 levels to get the root of the package
 if [[ -z "${PKG_DIR}" && -n "${ASSETS_DIR}" ]]; then
     PKG_DIR=$(dirname $(dirname "${ASSETS_DIR}"))
 fi
@@ -49,23 +49,23 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     log_debug "${DIRS_MARK} FFmpeg package directory:\n${PKG_DIR}"
 fi
 
-# ==========================================
+# =================
 # ASSET COLLECTION
-# ==========================================
+# =================
 
-# Копируем лицензию ПЕРЕД упаковкой
+# Copy the license BEFORE packaging
 log_info "${SYNC_MARK} Adding licenses to package..."
 LICENSE_FILES=("COPYING.GPLv3" "COPYING.LGPLv3" "LICENSE.md")
 for lic in "${LICENSE_FILES[@]}"; do
-    # Формируем полный абсолютный путь к файлу лицензии
+    # Form the full absolute path to the license file
     FULL_LIC_PATH="${FFMPEG_SOURCE_DIR}/${lic}"
 
     if [[ -f "$FULL_LIC_PATH" ]]; then
-        # Копируем файл в корень архива (${PKG_DIR})
+        # Copy the file to the root of the archive (${PKG_DIR})
         cp ${OP_VERB} "$FULL_LIC_PATH" "${PKG_DIR}/"
         log_info "${CHECK_MARK} License bundled successfully from ${FFMPEG_SOURCE_DIR}: $lic"
     else
-        # Если не нашли в основной папке, ищем в текущей рабочей директории
+        # If not found it in main folder, look in the current working directory
         if [[ -f "./$lic" ]]; then
             cp ${OP_VERB} "./$lic" "${PKG_DIR}/"
             log_info "${CHECK_MARK} License bundled from current dir: $lic"
@@ -75,7 +75,7 @@ for lic in "${LICENSE_FILES[@]}"; do
     fi
 done
 
-# Плагины лежат в lib/frei0r-1, а для работы в Windows должны быть в bin/frei0r-1
+# Plugins are in lib/frei0r-1, but to work on Windows they must be in bin/frei0r-1
 if [[ -d "${FFBUILD_PREFIX}/lib/frei0r-1" ]]; then
     log_info "${SYNC_MARK} Collecting frei0r plugins..."
     mkdir -p "${PKG_DIR}/bin/frei0r-1"
@@ -84,7 +84,7 @@ else
     log_warn "Frei0r plugins not found in ${FFBUILD_PREFIX}/lib/frei0r-1"
 fi
 
-# Модели pocketsphinx
+# pocketsphinx models
 if [[ -d "${FFBUILD_PREFIX}/share/pocketsphinx" ]]; then
     log_info "${SYNC_MARK} Collecting pocketsphinx models..."
     mkdir -p "${ASSETS_DIR}/pocketsphinx"
@@ -93,7 +93,7 @@ else
     log_warn "Pocketsphinx models not found in ${FFBUILD_PREFIX}/share/pocketsphinx"
 fi
 
-# Модели opencv
+# Opencv models
 if [[ -d "${FFBUILD_PREFIX}/share/opencv4" ]]; then
     log_info "${SYNC_MARK} Collecting OpenCV models..."
     mkdir -p "${ASSETS_DIR}/opencv4"/{haarcascades,lbpcascades}
@@ -102,7 +102,7 @@ else
     log_warn "OpenCV models not found in ${FFBUILD_PREFIX}/share/opencv4"
 fi
 
-# Плагин nnedi3
+# nnedi3 plugin
 if [[ -f "${FFBUILD_PREFIX}/lib/libvsznedi3.dll" ]]; then
     log_info "${SYNC_MARK} Moving nnedi3 plugin..."
     cp ${OP_VERB} "${FFBUILD_PREFIX}/lib/libvsznedi3.dll" "${PKG_DIR}/bin/libvsznedi3.dll"
@@ -112,7 +112,7 @@ else
     log_warn "nnedi3 plugin not found in ${FFBUILD_PREFIX}/lib"
 fi
 
-# Плагины avisynth
+# Avisynth plugins
 if [[ -d "${FFBUILD_PREFIX}/lib/avisynth" ]]; then
     log_info "${SYNC_MARK} Collecting avisynth plugins..."
     find "${FFBUILD_PREFIX}/lib/avisynth" -name "*.dll" -exec cp ${OP_VERB} {} "${PKG_DIR}/bin/" \; || true
@@ -120,7 +120,7 @@ else
     log_warn "avisynth plugins not found in ${FFBUILD_PREFIX}/lib/avisynth"
 fi
 
-# Плагины lensfun
+# lensfun plugins
 if [[ -d "${FFBUILD_PREFIX}/share/lensfun" ]]; then
     log_info "${SYNC_MARK} Collecting lensfun profiles..."
     mkdir -p "${ASSETS_DIR}/lensfun/version_2"
@@ -130,53 +130,53 @@ else
     log_warn "lensfun profiles not found in ${FFBUILD_PREFIX}/share/lensfun"
 fi
 
-# Пылесосим все оставшиеся DLL изсборочного префикса в папку с бинарниками
+# Vacuum all remaining DLLs from the build prefix into the binaries folder
 log_info "${SYNC_MARK} Collecting external component DLLs if present..."
 find "${FFBUILD_PREFIX}" -maxdepth 3 \( -name '*.dll' -o -name '*.pyd' -o -name '*.bin' -o -name '*.sign' -o -name '*.zip' \) -exec cp ${OP_VERB} {} "${PKG_DIR}/bin/" \; 2>/dev/null || true
 
-# Автопоиск и упаковка системного рантайма MinGW (SSP, WinPthreads, GCC)
+# Auto search and packaging of MinGW system runtimes (SSP, WinPthreads, GCC)
 log_info "${SYNC_MARK} Analyzing binaries for missing MinGW runtime DLLs..."
 if [[ -d "${PKG_DIR}/bin" ]]; then
-    # Находим sysroot и бинарную директорию тулчейна, где живут системные DLL
+    # Find the sysroot and toolchain binary directory where the system DLLs live
     TOOLCHAIN_SYSROOT=$(${FFBUILD_TOOLCHAIN}-gcc -print-sysroot)
     TOOLCHAIN_BIN_DIR=$(dirname "$(${FFBUILD_TOOLCHAIN}-gcc -print-file-name=libssp.a)")
 
-    # Массив стандартных рантайм-библиотек MinGW, которые могут потребоваться
+    # An array of standard MinGW runtime libraries that may be required
     RUNTIME_DLLS=("libssp-0.dll" "libwinpthread-1.dll" "libstdc++-6.dll" "libgcc_s_seh-1.dll" "libgomp-1.dll")
 
-    # Динамически определяем список файлов для анализа
+    # Dynamically determine the list of files for analysis
     FILES_TO_CHECK=()
     if [[ "$HAS_LIBTORCH" == "1" || "$HAS_LIBTENSORFLOW" == "1" ]]; then
-        # берем все .exe и .dll
-        # nullglob предотвращает ошибку, если файлов какого-то типа нет
+        # take all .exe and .dll 
+        # nullglob prevents an error if there are no files of some type
         shopt -s nullglob
         FILES_TO_CHECK=("${PKG_DIR}/bin"/*.{exe,dll})
         shopt -u nullglob
     else
-        # Иначе проверяем строго только ffmpeg.exe, если он существует
+        # Otherwise, strictly check only ffmpeg.exe, if it exists
         if [[ -f "${PKG_DIR}/bin/ffmpeg.exe" ]]; then
             FILES_TO_CHECK=("${PKG_DIR}/bin/ffmpeg.exe")
         fi
     fi
 
-    # Запускаем проверку только если есть файлы для анализа
+    # Run the scan only if there are files to analyze
     if [[ ${#FILES_TO_CHECK[@]} -gt 0 ]]; then
         for dll in "${RUNTIME_DLLS[@]}"; do
-            # Сканируем определенные выше файлы на наличие зависимости
+            # Scan the files defined above for dependencies
             if ${FFBUILD_CROSS_PREFIX}objdump -p "${FILES_TO_CHECK[@]}" 2>/dev/null | grep -q -i "$dll"; then
-                # Проверяем, не скопировали ли мы её уже ранее
+                # Check if we copied it earlier
                 if [[ -f "${PKG_DIR}/bin/$dll" ]]; then
                     continue
                 fi
                 log_warn "Detected dynamic dependency: $dll. Searching toolchain directories..."
-                # Ищем DLL в sysroot или в папках компилятора
+                # look for DLLs in sysroot or in the compiler folders
                 FOUND_DLL=""
                 if [[ -f "${TOOLCHAIN_SYSROOT}/bin/$dll" ]]; then
                     FOUND_DLL="${TOOLCHAIN_SYSROOT}/bin/$dll"
                 elif [[ -f "${TOOLCHAIN_BIN_DIR}/$dll" ]]; then
                     FOUND_DLL="${TOOLCHAIN_BIN_DIR}/$dll"
                 else
-                    # Глобальный поиск по всему каталогу ct-ng на крайний случай
+                    # Search throughout the entire ct-ng dir as a last resort
                     FOUND_DLL=$(find /opt/ct-ng -name "$dll" -type f -print -quit)
                 fi
                 if [[ -n "$FOUND_DLL" ]]; then
@@ -192,7 +192,7 @@ if [[ -d "${PKG_DIR}/bin" ]]; then
     fi
 fi
 
-# Копируем лог сборки
+# Copy the build log
 log_info "${SYNC_MARK} Coping build log file..."
 cp ${OP_VERB} "$FFMPEG_CONFIG_LOG" "${PKG_DIR}/config.log" || true
 
@@ -417,7 +417,7 @@ fi
 
 log_info "${CHECK_MARK} All models and asset collection finished for enabled components."
 
-# Проверяем наличие критических библиотек (для отладки в логах)
+# Check for the presence of critical libraries (for debugging in logs)
 if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]]; then
     ls -lh "${PKG_DIR}/bin/"
 fi
