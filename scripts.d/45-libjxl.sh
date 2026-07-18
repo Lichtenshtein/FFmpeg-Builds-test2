@@ -33,11 +33,11 @@ tools/benchmark"
     # because it constantly fails to patch it normally
     local COMPONENT_NAME="libjxl"
     local PATCHES_DIR="${PATCHES_DIR}"
-    local CUSTOM_CMAKELISTS="${PATCHES_DIR}/${COMPONENT_NAME}/CMakeLists.zip"
+    local CUSTOM_CMAKELISTS="${PATCHES_DIR}/${COMPONENT_NAME}/CMakeLists.txt"
 
     if [[ -f "$CUSTOM_CMAKELISTS" ]]; then
         log_info "Replacing CMakeLists.txt with custom version from patches..."
-        echo "unzip -qo $CUSTOM_CMAKELISTS -d third_party/highway"
+        echo "cp -rf${OP_V} '$CUSTOM_CMAKELISTS' './third_party/highway/CMakeLists.txt'"
     else
         log_warn "Custom CMakeLists.txt not found at $CUSTOM_CMAKELISTS. Using default."
     fi
