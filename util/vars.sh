@@ -1547,7 +1547,7 @@ should_skip_version_finder() {
     case "$STAGENAME" in
         # WHITELIST (Opt-In): Here we list the components that need version searching
         # The function will return 1 (False to skip -> run get_stage_version).
-        *"libiconv"|*"gettext"|*"jbigkit"|*"snappy"|*"libxxhash"|*"libdatachannel"|*"libmpg123"*|*"cryptopp"|*"giflib"|*"svtav1"|*"libavif"|*"quirc"|*"spirv-cross"|*"amf"|*"leptonica"|*"opencl"|*"openvino"|*"soundtouch"|*"libcodec2"|*"libgsm"|*"libmad"|*"libmp3lame"|*"libmpeghdec"|*"mpeghe"|*"flite"|*"x264"|*"x265"|*"xvid"|*"xevd"|*"vapoursynth"|*"ffnvcodec"))
+        *"libiconv"|*"gettext"|*"jbigkit"|*"snappy"|*"libxxhash"|*"libdatachannel"|*"libmpg123"*|*"cryptopp"|*"giflib"|*"svtav1"|*"libavif"|*"quirc"|*"spirv-cross"|*"amf"|*"leptonica"|*"opencl"|*"openvino"|*"soundtouch"|*"libcodec2"|*"libgsm"|*"libmad"|*"libmp3lame"|*"libmpeghdec"|*"mpeghe"|*"flite"|*"x264"|*"x265"|*"xvid"|*"xevd"|*"vapoursynth"|*"ffnvcodec")
             return 1 
             ;;
         # For all others, skip by default (search is disabled)
