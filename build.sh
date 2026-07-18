@@ -304,6 +304,8 @@ FINAL_LDEXEFLAGS=$(smart_dedupe "$LDEXEFLAGS" "$TOTAL_FF_LDEXEFLAGS")
 FINAL_LIBS=$(smart_libs_dedupe "$LIBS" "$TOTAL_FF_LIBS" "$ADDITIONAL_LIBS" "$VARIANT_FF_LIBS")
 
 FINAL_CONFIGURE=$(echo " ${FINAL_CONFIGURE} " | sed -e 's/ --enable-cuda / /g' | xargs)
+sed -i 's| -DCUDA_VERSION=7050||g' "${FFBUILD_PREFIX}/lib/pkgconfig/ffnvcodec.pc"
+FINAL_CFLAGS=$(echo " ${FINAL_CFLAGS} " | sed -e 's/ -DCUDA_VERSION=7050 / /g' | xargs)
 
 # Remove absolutely all references to mingw, gcc, and base build libraries
 GCC_RUNTIME=""
