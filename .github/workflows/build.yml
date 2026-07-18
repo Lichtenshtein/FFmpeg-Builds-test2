@@ -175,7 +175,7 @@ env:
 jobs:
   build_all:
     name: Build FFmpeg Win64
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     permissions:
       packages: write
       contents: write

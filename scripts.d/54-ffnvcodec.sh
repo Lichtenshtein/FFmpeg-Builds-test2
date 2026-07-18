@@ -23,8 +23,7 @@ ffbuild_dockerbuild() {
 
     mkdir -p "$PC_DIR"
     if [ -f "$PC_DIR/ffnvcodec.pc" ]; then
-        sed -i "s|^Cflags:.*|& -I\${includedir}/ffnvcodec|" "$PC_DIR/ffnvcodec.pc"
-        log_info "Cflags paths have been updated."
+        sed -i "s|^Cflags:.*|& -DCUDA_VERSION=${VER_FULL}|" "$PC_DIR/ffnvcodec.pc"
     fi
 }
 
@@ -35,7 +34,7 @@ ffbuild_configure() {
         echo "--enable-ffnvcodec --enable-cuda-llvm"
     else
         log_warn "LLVM/Clang not found. We use standard CUDA components."
-        echo "--enable-ffnvcodec --enable-nvenc --enable-nvdec --enable-cuvid"
+        echo "--enable-ffnvcodec --enable-cuda --enable-nvenc --enable-nvdec --enable-cuvid"
     fi
 }
 

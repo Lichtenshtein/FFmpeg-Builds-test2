@@ -101,7 +101,7 @@ Name: shaderc
 Description: Tools and libraries for Vulkan shader compilation (Static Combined)
 Version: 2026.1
 Libs: -L\${libdir} -lshaderc_combined -lshaderc_util -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent -lSPIRV -lSPIRV-Tools-opt -lSPIRV-Tools-link -lSPIRV-Tools
-Libs.private: -lstdc++ -lgomp -lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread
+Libs.private: -lstdc++ -lsetupapi -lm -lole32 -lshlwapi -luser32 -ladvapi32 -ldbghelp -lws2_32 -lbcrypt -pthread
 Cflags: -I\${includedir} -I\${includedir}/shaderc
 EOF
 
@@ -118,12 +118,9 @@ Libs: -L\${libdir} -lglslang -lMachineIndependent -lGenericCodeGen -lOSDependent
 Cflags: -I\${includedir} -I\${includedir}/glslang
 EOF
 
-    # дублируем его в shaderc_combined.pc и shaderc_static.pc для совместимости
+    # duplicate it in shaderc_combined.pc and shaderc_static.pc for compatibility
     cp ${OP_VERB} "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_combined.pc"
     cp ${OP_VERB} "$PC_DIR/shaderc.pc" "$PC_DIR/shaderc_static.pc"
-
-    sed -i '/^Libs:/ s/$/ -lstdc++/' "$PC_DIR/shaderc_combined.pc"
-    sed -i '/^Libs:/ s/$/ -lstdc++/' "$PC_DIR/shaderc_static.pc"
 
     cp ${OP_VERB} "$PC_DIR"/{shaderc_combined,shaderc}.pc
 
@@ -150,14 +147,14 @@ EOF
             -DSPIRV_SKIP_EXECUTABLES=OFF \
             .. || exit 1
 
-        # собираем цель glslc_exe в последних версиях бинарник привязан к ней
+        # build the glslc_exe target; in the latest versions, the binary is tied to it
         log_info "Building native glslc..."
         ninja $NINJA_V glslc glslc_exe || true
         log_info "Building native glslang..."
         ninja $NINJA_V glslang-standalone || true
 
-        # Массив инструментов для проверки и копирования
-        # Формат: "имя_бинарника|целевое_имя_в_системе"
+        # Array of tools for checking and copying
+        # Format: "binary_name|target_system_name"
         local TOOLS_TO_COPY=("glslc|glslc" "glslang|glslang")
         local FOUND_ANY=0
 
@@ -169,10 +166,10 @@ EOF
             if [[ -n "$BIN_PATH" && -f "$BIN_PATH" ]]; then
                 log_info "Found $BIN_NAME at $BIN_PATH. Copying..."
                 cp ${OP_VERB} "$BIN_PATH" "/usr/local/bin/$DEST_NAME"
-                # Дополнительная копия для Whisper
+                # Extra copy for Whisper
                 [[ "$BIN_NAME" == "glslc" ]] && cp ${OP_VERB} "$BIN_PATH" /opt/glslc
                 FOUND_ANY=1
-                # Создаем критически важный симлинк для LCEVC
+                # Create a critical symlink for LCEVC
                 ln -sf /usr/local/bin/glslang /usr/local/bin/glslangValidator
                 log_info "Native glslang and glslangValidator (symlink) installed."
             else
