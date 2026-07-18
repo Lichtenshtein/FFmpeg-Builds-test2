@@ -40,7 +40,7 @@ ffbuild_dockerbuild() {
 
     if [[ "${BUILD_VINO}" == "1" ]]; then
         log_info "Applying OpenVINO pkg-config patch for Whisper..."
-        # Создаем файл-заплатку, который вытягивает флаги через pkg-config
+        # Create a patch file that pulls flags through pkg-config
         cat << 'EOF' > patch-openvino.cmake
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(OV REQUIRED openvino)
@@ -88,10 +88,10 @@ macro(find_package name)
 endmacro()
 EOF
 
-        # Внедряем заплатку в САМЫЙ КОРЕНЬ проекта (главный CMakeLists.txt) на первую строку
+        # implement the patch in the VERY ROOT of the project (the main CMakeLists.txt) on the first line
         sed -i '1i include("${CMAKE_CURRENT_SOURCE_DIR}/patch-openvino.cmake")' CMakeLists.txt
 
-        # Вырезаем хардкод TBBConfig из всех подпапок ggml
+        # Cut the TBBConfig hardcode from all ggml subfolders
         find ggml/ -name "CMakeLists.txt" -exec sed -i 's|include(.*TBBConfig.cmake")|# cut|g' {} +
     else
         log_info "OpenVINO is disabled. Skipping patch."
@@ -169,7 +169,7 @@ EOF
 
     if has_library "vulkan-1"; then
         log_info "Vulkan library detected. Building with Vulkan support..."
-        # Создаем хост-тулчейн для сборщика шейдеров
+        # Create a host toolchain for the shader builder
         cat <<EOF > host-fix-toolchain.cmake
 set(CMAKE_SYSTEM_NAME Linux)
 set(CMAKE_C_COMPILER gcc)
@@ -234,7 +234,7 @@ EOF
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Ручная очистка артефактов Vulkan/Shaderc после whisper
+    # Manually cleaning Vulkan/Shaderc artifacts after whisper
     if [[ -f "$INSTALL_ROOT/bin/glslc.exe" ]]; then
         log_info "Final cleanup of Vulkan/Shaderc build tools..."
         find "$INSTALL_ROOT/bin" -name "glslc.exe" -delete
@@ -244,9 +244,9 @@ EOF
         fi
     fi
 
-    # CMake в Windows часто сохраняет их как ggml-base.a, а линковщик ищет -lggml-base (т.е. libggml-base.a)
+    # CMake often saves them as ggml-base.a, and the linker looks for -lggml-base (i.e. libggml-base.a)
     log_info "Fixing library prefixes for MinGW..."
-    # CMake часто создает 'ggml.a' вместо 'libggml.a'
+    # CMake often produces 'ggml.a' instead of 'libggml.a'
     find "$INSTALL_ROOT/lib" -name "ggml*.${lib_ext}" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
     find "$INSTALL_ROOT/lib" -name "whisper.${lib_ext}" -not -name "lib*" -exec bash -c 'mv "$1" "${1%/*}/lib${1##*/}"' -- {} \;
 

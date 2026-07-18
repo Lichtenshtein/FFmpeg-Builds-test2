@@ -51,8 +51,8 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # У libffi очень странная привычка ставить хедеры в $(libdir)/libffi-$(version)/include
-    # Нам нужно вытащить их в стандартное место
+    # Libffi has a very strange habit of putting headers in $(libdir)/libffi-$(version)/include
+    # Extract them to a standard location
     local FFI_INC_DIR=$(find "$INSTALL_ROOT/lib" -name "ffi.h" -exec dirname {} \;)
     if [[ -n "$FFI_INC_DIR" ]]; then
         log_info "Moving libffi headers from $FFI_INC_DIR"
@@ -63,9 +63,7 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/libffi.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Исправляем путь в pc файле, чтобы он указывал на корень include
         sed -i "s|^includedir=.*|includedir=\${prefix}/include|" "$PC_FILE"
-        # Убираем лишние подпапки из Cflags, если они там остались
         sed -i "s|-I\${libdir}/libffi-[^/ ]*/include|-I\${includedir}|g" "$PC_FILE"
         
         if [[ -n "$static_flags" ]]; then

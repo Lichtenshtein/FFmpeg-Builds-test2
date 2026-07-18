@@ -32,22 +32,16 @@ ffbuild_dockerbuild() {
         # -DTBBMALLOC_PROXY_BUILD=ON
         -DTBB_INSTALL=ON
         -DTBB_DISABLE_HWLOC_AUTOMATIC_SEARCH=ON
-        # Если при сборке самого FFmpeg возникнут ошибки "undefined reference
-        # -DTBB_USE_DEBUG_BUILD_FLAGS=OFF
-        -DCMAKE_CXX_STANDARD=20 # Синхронизируем стандарт C++
+        -DCMAKE_CXX_STANDARD=20
         -DCMAKE_CXX_STANDARD_REQUIRED=ON
+        # "$USE_LTO" == "1"; pass LTO manually
+        -DTBB_ENABLE_IPO=OFF
     )
-
-    if [[ "$USE_LTO" == "1" ]]; then
-        myconf+=( -DTBB_ENABLE_IPO=ON )
-    else
-        myconf+=( -DTBB_ENABLE_IPO=OFF )
-    fi
 
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0"
 
-    # oneTBB иногда игнорирует стандартные CFLAGS, прокидываем их через CMAKE
+    # oneTBB sometimes ignores standard CFLAGS, pass them through CMAKE
     cmake -G Ninja "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-undef $static_flags" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wno-undef $static_flags" \
@@ -58,9 +52,9 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # Создаем симлинки для совместимости, если их нет
+        # Create symlinks for compatibility if don't exist
         ln -s libtbb12.a "${INSTALL_ROOT}/lib/libtbb.a" || true
-        # Если tbbmalloc тоже имеет суффикс
+        # If tbbmalloc also has a suffix
         if [ -f "${INSTALL_ROOT}/lib/libtbbmalloc12.a" ]; then
             ln -s libtbbmalloc12.a "${INSTALL_ROOT}/lib/libtbbmalloc.a" || true
         fi
@@ -74,7 +68,3 @@ ffbuild_dockerbuild() {
         log_info "Cflags paths have been updated."
     fi
 }
-
-# ffbuild_libs() {
-    # echo "-ltbb -ltbb12 -ltbbmalloc"
-# }

@@ -29,17 +29,17 @@ ffbuild_dockerbuild() {
     if [[ -n "$TARGET_TAG_FILE" ]]; then
         log_info "Found yaml-cpp installer configuration at: ${TARGET_TAG_FILE}"
         log_info "Forcing yaml-cpp update to manual commit (v0.9.0) and disabling shallow clone..."
-        # прописываем коммит в переменную тега
+        # write the commit into the tag variable
         sed -i 's/set(yaml-cpp_GIT_TAG .*/set(yaml-cpp_GIT_TAG "2decf96e915d2b0c26c68c1659665789dfef2633")/g' "$TARGET_TAG_FILE"
         sed -i 's/set(yaml-cpp_VERSION .*/set(yaml-cpp_VERSION "0.9.0")/g' "$TARGET_TAG_FILE"
-        # разрешить Git скачать глубокую историю коммитов
+        # allow Git to download deep commit history
         sed -i '/GIT_SHALLOW/d' "$TARGET_TAG_FILE"
     fi
 
     if [[ -f "$YAML_CPP_FILE" ]]; then
         log_warn "Attempting direct sed on Installyaml-cpp.cmake"
         sed -i 's/set(yaml-cpp_GIT_TAG .*/set(yaml-cpp_GIT_TAG "2decf96e915d2b0c26c68c1659665789dfef2633")/g' "$YAML_CPP_FILE"
-        # вырезаем shallow clone на случай, если сработает этот путь
+        # cut out shallow clone in case this path works
         sed -i '/GIT_SHALLOW/d' "$YAML_CPP_FILE"
 
         log_info "Injecting -include cstdint directly into yaml-cpp compile flags..."
@@ -48,7 +48,7 @@ ffbuild_dockerbuild() {
         log_warn "Target template file $YAML_CPP_FILE not found for flag injection!"
     fi
 
-    # Патч FileTransform.cpp для совместимости std::wstring
+    # Patch FileTransform.cpp for std::wstring compatibility
     local FILE_TRANSFORM_SRC="src/OpenColorIO/transforms/FileTransform.cpp"
     if [[ -f "$FILE_TRANSFORM_SRC" ]]; then
         log_info "Patching FileTransform.cpp for MinGW GCC 15 std::wstring compatibility..."
@@ -58,7 +58,7 @@ ffbuild_dockerbuild() {
         log_warn "Could not find $FILE_TRANSFORM_SRC to apply the c_str() patch!"
     fi
 
-    # Отключаем проверки старого opengl (glew/glut) для mingw
+    # Disable old opengl (glew/glut) checks for mingw
     local GL_CHECK_FILE="share/cmake/utils/CheckSupportGL.cmake"
     if [[ -f "$GL_CHECK_FILE" ]]; then
         log_info "Patching CheckSupportGL.cmake to bypass GLEW/GLUT checks for Vulkan/DX12..."
@@ -66,7 +66,7 @@ ffbuild_dockerbuild() {
         sed -i 's/message(WARNING "GPU rendering disabled")/# message(WARNING "GPU rendering disabled")/g' "$GL_CHECK_FILE"
     fi
 
-    # игнорируем флаг OCIO_BUILD_APPS=OFF и заставляем CMake собрать хелперы
+    # ignore the OCIO_BUILD_APPS=OFF flag and force CMake to build helpers
     local LIBUTILS_CMAKE="src/libutils/CMakeLists.txt"
     if [[ -f "$LIBUTILS_CMAKE" ]]; then
         log_info "Forcing unconditional activation of oglapphelpers..."
@@ -77,7 +77,7 @@ EOF
         log_warn "Could not find $LIBUTILS_CMAKE to patch!"
     fi
 
-    # Изолируем папку приложений 
+    # Isolate the application folder
     local SRC_CMAKE_FILE="src/CMakeLists.txt"
     if [[ -f "$SRC_CMAKE_FILE" ]]; then
         log_info "Disabling the apps subdirectory to isolate oglapphelpers compilation..."
@@ -90,23 +90,22 @@ EOF
     if [[ -f "$DXAPP_SRC" ]]; then
         log_info "Applying deep MinGW compatibility patches to dxapp.cpp..."
 
-        # Патч _uuidof
+        # Patch _uuidof
         sed -i 's/_uuidof(ID3D12Device)/IID_ID3D12Device/g' "$DXAPP_SRC"
-        # патч для ВСЕХ вызовов GetCPUDescriptorHandleForHeapStart()
+        # patch for ALL calls to GetCPUDescriptorHandleForHeapStart()
         sed -i 's/\([a-zA-Z0-9_]*\)->GetCPUDescriptorHandleForHeapStart()/([\&](){ D3D12_CPU_DESCRIPTOR_HANDLE h; \1->GetCPUDescriptorHandleForHeapStart(\&h); return h; })()/g' "$DXAPP_SRC"
 
-        # патч для вызова GetGPUDescriptorHandleForHeapStart()
+        # patch to GetGPUDescriptorHandleForHeapStart() call
         sed -i 's/\([a-zA-Z0-9_]*\)->GetGPUDescriptorHandleForHeapStart()/([\&](){ D3D12_GPU_DESCRIPTOR_HANDLE h; \1->GetGPUDescriptorHandleForHeapStart(\&h); return h; })()/g' "$DXAPP_SRC"
         log_info "dxapp.cpp successfully patched in all 6 locations."
     fi
 
-    # патч поиска glslang с эмуляцией внутренних CMake-таргетов
-    # Безопасный патч поиска glslang с эмуляцией внутренних CMake-таргетов
+    # glslang search patch with emulation of internal CMake targets
     local OGL_HELPERS_CMAKE="src/libutils/oglapphelpers/CMakeLists.txt"
     if [[ -f "$OGL_HELPERS_CMAKE" ]]; then
         log_info "Injecting bulletproof glslang PkgConfig emulator into ${OGL_HELPERS_CMAKE}..."
 
-        # Создаем временный файл с новым содержимым для блока Vulkan
+        # Create a temporary file with new content for the Vulkan block
         cat << 'EOF' > /tmp/vulkan_patch.cmake
 if(OCIO_VULKAN_ENABLED)
     find_package(Vulkan REQUIRED)
@@ -133,7 +132,7 @@ if(OCIO_VULKAN_ENABLED)
 endif()
 EOF
 
-        # меняем плейсхолдер на реальное значение переменной
+        # change the placeholder to the actual value of the variable
         sed -i "s|@LIB_EXT@|${lib_ext}|g" /tmp/vulkan_patch.cmake
 
         awk '
@@ -187,7 +186,7 @@ EOF
         -DOCIO_BUILD_PYTHON=OFF
         -DOCIO_BUILD_JAVA=OFF
         -DOCIO_WARNING_AS_ERROR=OFF
-        # Настройки SIMD-оптимизаций
+        # SIMD optimization settings
         -DOCIO_USE_SIMD=ON
         -DOCIO_USE_SSE2=ON
         -DOCIO_USE_SSE3=ON
@@ -233,9 +232,9 @@ EOF
         )
     fi
 
-    # -DOpenColorIO_SKIP_IMPORTS (Убирает __imp_ с функций OCIO в FFmpeg)
-    # -DXML_STATIC               (статический импорт для expat)
-    # -DYAML_CPP_STATIC_DEFINE   (статический импорт для yaml-cpp)
+    # -DOpenColorIO_SKIP_IMPORTS (Removes __imp_ from OCIO functions in FFmpeg)
+    # -DXML_STATIC (static import for expat)
+    # -DYAML_CPP_STATIC_DEFINE (static import for yaml-cpp)
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DOpenColorIO_SKIP_IMPORTS -DXML_STATIC -DYAML_CPP_STATIC_DEFINE"
 
@@ -254,17 +253,17 @@ EOF
     log_info "Dynamically collecting and installing OpenColorIO donor libraries..."
 
     local EXT_DIST_INC="ext/dist/include"
-    # Копируем заголовки expat на случай использования другими компонентами
+    # Copy expat headers in case they are used by other components
     if [[ -d "${EXT_DIST_INC}" ]]; then
         cp -rf${OP_V} "${EXT_DIST_INC}"/* "${INSTALL_ROOT}/include/"
     fi
 
-    # Находим все статические библиотеки, собранные внутри этой стадии
-    # Фильтруем оригинальную libOpenColorIO.a
+    # Find all static libraries built within this stage
+    # Filter the original libOpenColorIO.a
     local OCIO_STATIC_LIBS=$(find /build/$STAGENAME -type f -name "*.${lib_ext}" ! -name "libOpenColorIO.${lib_ext}" -printf "%f\n" | \
                  sed "s/^lib//; s/\.${lib_ext}$//" | sort -u | xargs -I{} echo -l{} | tr '\n' ' ')
 
-    # Переносим все найденные .a библиотеки-доноры в префикс
+    # Move all found .a donor libraries to the prefix
     find /build/$STAGENAME -type f -name "*.${lib_ext}" -exec cp -f${OP_V} {} "${INSTALL_ROOT}/lib/" \;
 
     local PC_FILE="$PC_DIR/OpenColorIO.pc"
@@ -275,20 +274,38 @@ EOF
     local DEP_LIBS="${OCIO_STATIC_LIBS} ${Z_FLAG} ${DIRECTX_LIBS} -lshlwapi -lstdc++"
     if [[ -f "$PC_FILE" ]]; then
         log_info "Patching OpenColorIO.pc with dynamic donor list"
-        # вырезаем любые расширения .a
+        # cut out any .a extensions
         sed -i 's/\.a\b//g' "$PC_FILE"
-        # Добавляем собранные системные зависимости
+        # Add system dependencies
         if grep -q "Libs.private:" "$PC_FILE"; then
             sed -i "/^Libs.private:/ s/$/ ${DEP_LIBS}/" "$PC_FILE"
         else
             echo "Libs.private: ${DEP_LIBS} -pthread" >> "$PC_FILE"
         fi
+
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
-                sed -i "/^Cflags:/ s/$/ $static_flags ${VULKAN_FLAG} ${DIRECTX_FLAG}/" "$PC_FILE"
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
             fi
         fi
-        # Финальная чистка двойных расширений .a.a
+
+        if [[ -n "${VULKAN_FLAG}" ]]; then
+            for flag in ${VULKAN_FLAG}; do
+                if ! grep -qF -- "$flag" "$PC_FILE"; then
+                    sed -i "/^Cflags:/ s/$/ $flag/" "$PC_FILE"
+                fi
+            done
+        fi
+
+        if [[ -n "${DIRECTX_FLAG}" ]]; then
+            for flag in ${DIRECTX_FLAG}; do
+                if ! grep -qF -- "$flag" "$PC_FILE"; then
+                    sed -i "/^Cflags:/ s/$/ $flag/" "$PC_FILE"
+                fi
+            done
+        fi
+
+        # Final cleaning of double .a.a extensions
         sed -i -E 's/\.a([[:space:]]|$)/\1/g' "$PC_FILE"
         sed -i -E 's/\.a\b//g' "$PC_FILE"
         sed -i 's/[[:space:]]\+/ /g' "$PC_FILE"

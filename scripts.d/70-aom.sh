@@ -30,7 +30,7 @@ ffbuild_dockerbuild() {
     # Add an ampersand (&) before cfg in the vmaf_init call
     sed -i 's/if (vmaf_init(vmaf_context, cfg))/if (vmaf_init(vmaf_context, \&cfg))/g' "aom_dsp/vmaf.c"
 
-    # Если есть файл с hwy, принудительно ставим ему язык CXX
+    # If there is a file with hwy, force it to use the CXX language
     echo "set_target_properties(aom_hwy PROPERTIES LINKER_LANGUAGE CXX)" >> CMakeLists.txt
 
     mkdir -p _build && cd _build
@@ -66,9 +66,8 @@ ffbuild_dockerbuild() {
         -DCONFIG_PIC=1
         -DCONFIG_RUNTIME_CPU_DETECT=1
         -DCONFIG_AV1_HIGHBITDEPTH=1
-        # можно выключить и не тянуть лишний код контейнеров внутрь библиотеки
         -DCONFIG_WEBM_IO=1
-        # Попытка вылечить "can not determine linker language"
+        # Attempting to fix "cannot determine linker language"
         -DCMAKE_CXX_STANDARD=17 
         -DCMAKE_CXX_STANDARD_REQUIRED=ON
     )
@@ -91,9 +90,9 @@ ffbuild_dockerbuild() {
     fi
 
     if ! grep -q "libvmaf" "$PC_DIR/aom.pc"; then
-        # Удаляем старую строку Requires, если была
+        # Remove the old Requires line, if there was one
         sed -i '/^Requires:/d' "$PC_DIR/aom.pc"
-        # Прописываем зависимости в Requires.private, чтобы они линковались ПОСЛЕ -laom
+        # register deps in Requires.private so that they are linked AFTER -laom
         sed -i "/^Description:/a Requires.private: libvmaf${JXL_LIBS}" "$PC_DIR/aom.pc"
     fi
     sed -i "s|^Cflags:.*|& -I\${includedir}/aom|" "$PC_DIR/aom.pc"

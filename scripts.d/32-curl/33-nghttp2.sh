@@ -30,7 +30,7 @@ ffbuild_dockerbuild() {
         -DENABLE_HPACK_TOOLS=OFF
         -DENABLE_EXAMPLES=OFF
         -DENABLE_FAILMALLOC=OFF
-        -DENABLE_HTTP3=OFF # OFF; HTTP/3 будет уровне curl в связке с quiche
+        -DENABLE_HTTP3=OFF # OFF; HTTP/3 will be at the curl level in conjunction with quiche
         -DENABLE_DOC=OFF
         -DENABLE_LIB_ONLY=ON
         -DENABLE_APP=OFF

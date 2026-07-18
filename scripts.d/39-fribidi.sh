@@ -2,8 +2,6 @@
 
 SCRIPT_REPO="https://github.com/fribidi/fribidi.git"
 SCRIPT_COMMIT="069a7e3d31e6aa74f2068a8e0804106ce7906639"
-# SCRIPT_REPO="https://github.com/Treata11/fribidi.git"
-# SCRIPT_COMMIT="1a1ac31d25eeee9efd3d496b04b3b29ae81b8809"
 
 ffbuild_enabled() {
     return 0

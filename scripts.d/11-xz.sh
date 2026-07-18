@@ -3,8 +3,6 @@
 SCRIPT_REPO="https://github.com/tukaani-project/xz.git"
 SCRIPT_COMMIT="f3b5688159c60495f48db3942a36509671dfce89"
 
-export SKIP_CONF_FINDER=1  # Выключаем авто-поиск
-
 ffbuild_depends() {
     echo base
     echo libiconv
@@ -22,12 +20,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Удаляем старые вспомогательные файлы, чтобы libtoolize и autoconf пересоздали их
-    # rm -rf build-aux
-    # mkdir -p build-aux
-
-    # В xz autogen.sh сам вызывает все нужные инструменты в правильном порядке
-    # Мы пропускаем генерацию документации и переводов для скорости
     ./autogen.sh --no-po4a --no-doxygen || return 1
 
     local DEP_LIBS="-lintl -liconv -lcharset $LIBS"

@@ -31,7 +31,6 @@ ffbuild_dockerbuild() {
     set -e
 
     if [ -f "Cargo.toml" ]; then
-
         NEW_RELEASE_PROFILE="[profile.release]
 debug = false
 strip = \"debuginfo\"
@@ -95,9 +94,9 @@ codegen-units = 1"
 }
 
 ffbuild_configure() {
-    echo "--enable-librsvg"
+    echo --enable-librsvg
 }
 
 ffbuild_unconfigure() {
-    echo "--disable-librsvg"
+    echo --disable-librsvg
 }

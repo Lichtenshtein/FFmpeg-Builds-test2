@@ -172,11 +172,18 @@ ffbuild_dockerbuild() {
 
         if [[ -n "$static_flags" ]]; then
             if ! grep -qF -- "$static_flags" "$PC_FILE"; then
-                sed -i "/^Cflags:/ s/$/ ${SDL_C_FLAGS} $static_flags/" "$PC_FILE"
+                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
             fi
-        else
-            sed -i "/^Cflags:/ s/$/ ${SDL_C_FLAGS}/" "$PC_FILE"
         fi
+
+        if [[ -n "${SDL_C_FLAGS}" ]]; then
+            for flag in ${SDL_C_FLAGS}; do
+                if ! grep -qF -- "$flag" "$PC_FILE"; then
+                    sed -i "/^Cflags:/ s/$/ $flag/" "$PC_FILE"
+                fi
+            done
+        fi
+
         sed -i 's/  */ /g' "$PC_FILE"
         log_info "${CHECK_MARK} sdl2.pc processed successfully."
     fi

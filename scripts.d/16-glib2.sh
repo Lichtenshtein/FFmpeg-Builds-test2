@@ -30,24 +30,24 @@ ffbuild_dockerbuild() {
     sed -i "s|gnome = import('gnome')|# gnome = import('gnome')|g" meson.build
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # Патчим генератор макросов, убирая __attribute__ visibility
+        # patch the macro generator by removing __attribute__ visibility
         if [ -f "tools/gen-visibility-macros.py" ]; then
             sed -i 's/visibility("default")//g' tools/gen-visibility-macros.py
             sed -i 's/visibility("hidden")//g' tools/gen-visibility-macros.py
         fi
-        # Ищем по всему дереву исходников 'gnu_symbol_visibility' и удаляем эти строки
+        # Search the entire source tree for 'gnu_symbol_visibility' and delete these lines
         find . -name "meson.build" -type f -exec sed -i "/gnu_symbol_visibility/d" {} +
-        # Находим определение макроса во внутренних заголовочных файлах GLib и принудительно зануляем его
+        # find the macro definition in the internal GLib header files and force it to be zeroed out
         find . -name "*.h" -o -name "*.h.in" -type f -exec sed -i 's/#define G_GNUC_INTERNAL.*/#define G_GNUC_INTERNAL/g' {} +
-        # Принудительно гасим внутренние переменные видимости в корневом meson.build
+        # Forcefully suppress internal visibility variables in the root meson.build
         sed -i "s/glib_have_gnuc_visibility = .*/glib_have_gnuc_visibility = false/g" meson.build 2>/dev/null || true
         sed -i "s/have_visibility_hidden = .*/have_visibility_hidden = false/g" meson.build 2>/dev/null || true
     fi
 
     if [ -f "gio/meson.build" ]; then
-        # Вставляем объявление деактивации в самое начало файла.
-        # Переопределяем массивы исходников и зависимости в disabler().
-        # Это заставит Meson штатно отключить сборку самих .exe.
+        # Insert the deactivation declaration at the very beginning of the file
+        # Override the source and dependency arrays in disabler()
+        # This will force Meson to disable the build of the .exe files themselves
         sed -i '1i \
 gio_tool_sources = disabler() \
 gresource_tool_sources = disabler() \
@@ -59,7 +59,7 @@ gdbus_tool_sources = disabler() \
 gapplication_tool_sources = disabler() \
 app_profile_dep = disabler()' gio/meson.build
 
-        # переопределяем переменные, которые используются ниже по коду
+        # override variables used in the code below
         sed -i '1i \
 gio_tool = disabler() \
 gresource = disabler() \
@@ -73,7 +73,7 @@ gapplication = disabler()' gio/meson.build
         sed -i "s/subdir('tests')/# subdir('tests')/g" gio/meson.build
     fi
 
-    # Отключаем создание симлинков для многоархитектурных бинарников, так как они нам не нужны
+    # Disable the creation of symlinks for multi-architecture binaries, since we don't need them
     sed -i "s/if multiarch_bindir != get_option('bindir')/if false/g" gio/meson.build
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
@@ -125,7 +125,7 @@ printf_has_glibc_res1 = true
 printf_has_glibc_res2 = true
 EOF
 
-    # патч glib gio для изоляции stack smashing из реестра windows
+    # CRITICAL Glib Gio patch to isolate stack smashing from the Windows registry
     # *** stack smashing detected ***:  terminated / Illegal instruction
     local GWIN32_APPINFO="gio/gwin32appinfo.c"
     if [ -f "$GWIN32_APPINFO" ]; then
@@ -135,10 +135,6 @@ EOF
     fi
 
     mkdir -p _build
-
-    # pcre2 требует zlib/bz2 в некоторых конфигах
-    # local DEP_LIBS="-lpcre2-posix -lpcre2-8 -lffi -lintl -liconv -lcharset -lz"
-    # local WIN_LIBS="-luserenv -liphlpapi -lwinmm -luuid -ldnsapi $LIBS"
 
     local myconf=(
         --prefix="$FFBUILD_PREFIX"

@@ -13,11 +13,10 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
-    # Исправляем CMakeLists.txt ПЕРЕД запуском, чтобы избежать ошибки CXX
-    # Добавляем CXX в список языков проекта
+
+    # Add CXX to the project language list
     sed -i '/LANGUAGES C/s/C/C CXX/' build/cmake/CMakeLists.txt
 
-    # zstd требует запуска CMake из поддиректории build/cmake
     cd build/cmake
     rm -rf builddir && mkdir builddir && cd builddir
 
@@ -41,9 +40,6 @@ ffbuild_dockerbuild() {
         myconf+=( -DZSTD_BUILD_STATIC=OFF -DZSTD_BUILD_SHARED=ON ) || \
         myconf+=( -DZSTD_BUILD_STATIC=ON -DZSTD_BUILD_SHARED=OFF )
 
-    # Добавляем -DCMAKE_CXX_COMPILER, чтобы CMake инициализировал CXX
-    # и не падал на проверке флагов AddZstdCompilationFlags
-    # Принудительно передаем CXX компилятор
     cmake -G Ninja "${myconf[@]}" \
         -DCMAKE_C_FLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -DZSTD_MULTITHREAD $static_flags" \
         -DCMAKE_CXX_FLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -DZSTD_MULTITHREAD $static_flags" \
@@ -71,17 +67,3 @@ ffbuild_dockerbuild() {
 
     ln -sf libzstd.pc "$PC_DIR/zstd.pc"
 }
-
-# no such flags :\
-
-# ffbuild_cppflags() {
-    # echo "$static_flags -DZSTD_MULTITHREAD"
-# }
-
-# ffbuild_configure() {
-    # echo --enable-zstd
-# }
-
-# ffbuild_unconfigure() {
-    # echo --disable-zstd
-# }

@@ -67,7 +67,6 @@ log_info "${CHECK_MARK} Active addins: ${GREY_B}${ADDINS_STR:-none}${NC}"
 [[ "$SKIP_FFMPEG" == "1" ]]    && log_info "${XCLAM_MARK} Component test mode activated! FFmpeg compilation will be skipped."
 [[ "$USE_OPENMP" == "1" ]]     && log_info "${XCLAM_MARK} Open Multi-Processing runtime for shared-memory parallel programming is enabled!"
 [[ "$SHADERC_UPDATE" == "1" ]] && log_info "${XCLAM_MARK} Shaderc dependencies will be updated from the local DEPS file."
-[[ "$OLDER_FFNV" == "1" ]]     && log_info "${XCLAM_MARK} FFNVcodec sdk version 8.1 will be installed."
 [[ "$DIR_NUMBERS" == "1" ]]    && log_info "${XCLAM_MARK} Script collector will ignore numbering of folders."
 [[ "$BUILD_VINO" == "1" ]]     && log_info "${XCLAM_MARK} Will build OpenVINO from source. You'll gonna carry that weight..."
 [[ "$USE_TENSORFLOW" == "1" ]] && log_info "${XCLAM_MARK} TensorFlow component is enabled."
@@ -126,7 +125,6 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     USE_WINE=\"${USE_WINE}\" \\
     USE_AVX512=\"${USE_AVX512}\" \\
     PREFER_SHARED=\"${PREFER_SHARED:-0}\" \\
-    OLDER_FFNV=\"${OLDER_FFNV}\" \\
     GRAB_MODELS=\"${GRAB_MODELS}\" \\
     WHISPER_MODL_SIZE=\"${WHISPER_MODL_SIZE}\" \\
     BUILD_VINO=\"${BUILD_VINO}\" \\

@@ -39,7 +39,7 @@ ffbuild_dockerbuild() {
         -DENABLE_TEST=OFF
         -DENABLE_COVERAGE=OFF
         -DENABLE_INSTALL=ON
-        # Отключаем исполняемые файлы (bsdtar, bsdcpio), нам нужна только либа
+        # Disable executable files (bsdtar, bsdcpio), we only need lib
         -DENABLE_TAR=OFF
         -DENABLE_CPIO=OFF
         -DENABLE_CAT=OFF
@@ -132,7 +132,6 @@ ffbuild_dockerbuild() {
     fi
 
     if [[ $TARGET == win* ]]; then
-        # Windows-специфичные опции
         myconf+=(
         -DENABLE_CNG=ON
         -DENABLE_ACL=ON

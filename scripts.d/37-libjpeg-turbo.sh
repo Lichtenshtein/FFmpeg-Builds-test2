@@ -41,7 +41,7 @@ ffbuild_dockerbuild() {
     )
 
     export static_flags=""
-    [[ "${PREFER_SHARED}" != "1" ]] && static_flags+="-DLIBJPEG_STATIC"
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags+=" -DLIBJPEG_STATIC"
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( -DENABLE_STATIC=OFF -DENABLE_SHARED=ON ) || \
         myconf+=( -DENABLE_STATIC=ON -DENABLE_SHARED=OFF )
@@ -53,11 +53,11 @@ ffbuild_dockerbuild() {
     if has_library "spng"; then
         log_info "SPNG library detected. Building with SPNG support..."
         myconf+=( -DWITH_SYSTEM_SPNG=ON )
-        [[ "${PREFER_SHARED}" != "1" ]] && static_flags+="-DSPNG_STATIC"
+        [[ "${PREFER_SHARED}" != "1" ]] && static_flags+=" -DSPNG_STATIC"
     fi
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} $static_flags" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}$static_flags" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}$static_flags" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
@@ -66,11 +66,15 @@ ffbuild_dockerbuild() {
 
     for PC_FILE in "$PC_DIR"/*jpeg*.pc; do
         [[ -e "$PC_FILE" ]] || continue
+
         if [[ -n "$static_flags" ]]; then
-            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
-                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
-            fi
+            for flag in $static_flags; do
+                if ! grep -qF -- "$flag" "$PC_FILE"; then
+                    sed -i "/^Cflags:/ s/$/ $flag/" "$PC_FILE"
+                fi
+            done
         fi
+
         if [[ "${myconf[@]}" =~ "-DWITH_SYSTEM_SPNG=ON" ]]; then
             if ! grep -q "^Libs.private:" "$PC_FILE"; then
                 sed -i '/^Libs:/i Libs.private: -lspng' "$PC_FILE"

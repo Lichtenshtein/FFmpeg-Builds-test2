@@ -33,7 +33,7 @@ ffbuild_dockerbuild() {
     export PKG_CONFIG_PATH="$FFBUILD_PREFIX/lib/pkgconfig:$FFBUILD_PREFIX/share/pkgconfig"
     export PKG_CONFIG_ALLOW_CROSS=1
 
-    # Выделяем из CFLAGS только флаги компилятора (без -D и -I)
+    # Extract only compiler flags from CFLAGS (without -D and -I)
     local CLEAN_CFLAGS=$(echo "$CFLAGS" | sed 's/-[DU][^ ]*//g; s/-I[^ ]*//g')
 
     local myconf=(
@@ -105,8 +105,9 @@ ffbuild_dockerbuild() {
         local HTTP2_LIBS="-lnghttp2"
     fi
 
-    # Собираем системные либы для Windows (OpenSSL требует bcrypt и advapi32)
-    # Порядок: curl -> (+crypto, quiche) -> ssh -> openssl -> [zstd, brotli, zlib] -> [системные]
+    # Collect system libraries for Windows (OpenSSL requires bcrypt and advapi32)
+    # Order: curl -> (+crypto, quiche) -> ssh -> openssl -> [zstd, brotli, zlib] -> [system]
+
     local DEP_LIBS="${SSH_LIBS} ${QUICHE_LIBS} ${HTTP2_LIBS} ${SSL_LIBS} ${ZSTD_LIBS} ${BROTLI_LIBS} ${Z_LIBS}"
     local WIN_LIBS="-luserenv -lcrypt32 -liphlpapi -lntdll -lsetupapi"
 
@@ -121,10 +122,10 @@ ffbuild_dockerbuild() {
         myconf+=( --disable-static --enable-shared )
     fi
 
-    # curl и gcc 15.2 захлёбываются на LTO и уходят в segmentation fault при компиляции бинарника
+    # curl and gcc 15.2 choke on LTO and get segmentation faults when compiling the binary
     # [[ "${USE_LTO}" = "1" ]] && local LTO_FIX=" -fno-ipa-icf"
 
-    # конфликт boringssl и openssl; -Wl,--allow-multiple-definition
+    # boringssl and openssl conflict; -Wl,--allow-multiple-definition
 
     CFLAGS="$CLEAN_CFLAGS ${USELTO}${USELTO_C}${LTO_FIX}" \
     CPPFLAGS="$CPPFLAGS $self_static_flags $static_flags" \
@@ -136,27 +137,27 @@ ffbuild_dockerbuild() {
     # make -j$(nproc) $MAKE_V || return 1
     # make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # собираем только библиотеку так как segmentation fault происходит на curl.exe
+    # compile lib only, as the segmentation fault occurs on curl.exe
     make -C lib -j$(nproc) $MAKE_V
     make -C lib install DESTDIR="$FFBUILD_DESTDIR"
     make -C include install DESTDIR="$FFBUILD_DESTDIR"
 
-    # Устанавливаем pkg-config файл вручную (он генерируется в корне)
+    # Install the pkg-config file manually (it is generated in the root directory)
     mkdir -p "$PC_DIR"
     cp libcurl.pc "$PC_DIR/"
 
     local PC_FILE="$PC_DIR/libcurl.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Очищаем Libs (оставляем только саму либу)
+        # Clear Libs (leaving only the lib itself)
         sed -i "s|^Libs:.*|Libs: -L\${libdir} -lcurl|" "$PC_FILE"
-        # Очищаем Requires, чтобы pkg-config не падал из-за отсутствующих имен .pc
+        # Clearing Requires so pkg-config doesn't crash due to missing .pc names
         sed -i "s|^Requires:.*|Requires:|" "$PC_FILE"
         sed -i "s|^Requires.private:.*|Requires.private:|" "$PC_FILE"
-        # Перезаписываем Libs.private; хз куда пропадает -lz
+        # Overwriting Libs.private; I don't know where -lz goes
         sed -i "/^Libs\.private:/d" "$PC_FILE"
         echo "Libs.private: $DEP_LIBS $WIN_LIBS" >> "$PC_FILE"
         sed -i "s|^Cflags:.*|& -I\${includedir}/curl|" "$PC_FILE"
-        # Убеждаемся, что макрос статики на месте
+        # Make sure the static macro is in place
         if [[ -n "$self_static_flags" ]]; then
             if ! grep -qF -- "$self_static_flags" "$PC_FILE"; then
                 sed -i "/^Cflags:/ s/$/ $self_static_flags/" "$PC_FILE"
@@ -164,21 +165,3 @@ ffbuild_dockerbuild() {
         fi
     fi
 }
-
-# that's odd; i thought ffmpeg used to support libcurl natively
-
-# ffbuild_libs() {
-    # echo "-lquiche -lnghttp2 -lcrypt32 -lwldap32 -lnormaliz -liphlpapi"
-# }
-
-# ffbuild_cppflags() {
-    # echo "$static_flags $self_static_flags"
-# }
-
-# ffbuild_configure() {
-    # echo --enable-libcurl
-# }
-
-# ffbuild_unconfigure() {
-    # echo --disable-libcurl
-# }

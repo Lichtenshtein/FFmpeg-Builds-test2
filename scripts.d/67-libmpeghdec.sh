@@ -30,8 +30,11 @@ ffbuild_dockerbuild() {
         -Dmpeghdec_BUILD_BINARIES=OFF
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
+    export static_flags=""
+    [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-DMPEGHDEC_STATIC"
+
+    CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${static_flags}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} ${static_flags}" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
@@ -51,7 +54,7 @@ Description: Fraunhofer MPEG-H 3D Audio Decoder library
 Version: ${VER_FULL}
 Libs: -L\${libdir} -lmpeghdec
 Libs.private: -lstdc++
-Cflags: -I\${includedir} -I\${includedir}/mpeghdec
+Cflags: -I\${includedir} -I\${includedir}/mpeghdec ${static_flags}
 EOF
     else
         sed -i "s|^Cflags:.*|& -I\${includedir}/mpeghdec|" "$PC_DIR/mpeghdec.pc"

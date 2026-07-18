@@ -33,11 +33,12 @@ ffbuild_dockerbuild() {
 
     unset CC CXX LD AR CPP LIBS CCAS
     unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS
-    # Используем runConfigureICU для правильной инициализации под Linux
+
+    # Use runConfigureICU for proper initialization under Linux
     mkdir -p host-build target-build "$INSTALL_ROOT"/{include,bin,lib/pkgconfig} && cd host-build
 
     log_info "${BUILD_MARK} Building ICU Host tools..."
-    # Нам НУЖНЫ tools на хосте, чтобы создать icupkg
+    # We NEED tools on the host to create icupkg
     CC=gcc CXX=g++ AR=ar RANLIB=ranlib LD=${HOST_LD} CFLAGS="" CXXFLAGS="" LDFLAGS="" \
     ../runConfigureICU Linux --prefix="$(pwd)/install" \
         --enable-tools \
@@ -56,12 +57,12 @@ ffbuild_dockerbuild() {
         --disable-$([ "${PREFER_SHARED}" == "1" ] && echo static || echo shared) \
         || return 1
     
-    # Собираем только самое необходимое для инструментов
+    # Compile only the most necessary tools
     make -j$(nproc) $MAKE_V || return 1
     make install || return 1
     cd ..
 
-    # Проверка: если icupkg не собрался, дальше идти нет смысла
+    # Check: If icupkg doesn't build, there's no point in going any further
     if [[ ! -f "host-build/bin/icupkg" ]]; then
         log_error "icupkg not found in host-build/bin!"
         return 1
@@ -69,7 +70,7 @@ ffbuild_dockerbuild() {
 
     log_info "${BUILD_MARK} Building ICU Target (Win64)..."
 
-    # Теперь основная сборка под Windows (Target)
+    # Now the main build for Windows (Target)
     cd target-build
 
     local myconf=(
@@ -111,24 +112,24 @@ ffbuild_dockerbuild() {
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # Переходим в директорию скомпилированных библиотек
+        # Go to the directory of compiled libraries
         cd "$INSTALL_ROOT/lib" || return 1
-        # Исправляем странное поведение ICU, когда данные улетают в bin
+        # Fixing strange ICU behavior where data is dumped to bin
         if [[ -f "$INSTALL_ROOT/bin/sicudt.a" ]]; then
             mv ${OP_VERB} "$INSTALL_ROOT/bin/sicudt.a" "$INSTALL_ROOT/lib/libicudt.a"
         fi
         log_info "Renaming libraries in $(pwd)..."
-        # Приводим все к стандарту libicu*.a
+        # bring everything to the libicu*.a standard
         for f in libsicu*.a; do
             if [[ -f "$f" ]]; then
                 mv ${OP_VERB} "$f" "libicu${f#libsicu}"
             fi
         done
-        # обрабатываем файлы, которые могли создаться без lib (sicudt.a, sicuuc.a)
+        # process files that could have been created without lib (sicudt.a, sicuuc.a)
         for f in sicu*.a; do
             [[ -e "$f" ]] && mv ${OP_VERB} "$f" "libicu${f#sicu}" 2>/dev/null || true
         done
-        # проверка наличия критически важных компонентов
+        # checking the availability of critical components
         if [[ ! -f "libicuuc.a" ]]; then
             log_error "ICU core library (libicuuc.a) not found!"
             ls -la .
@@ -139,23 +140,27 @@ ffbuild_dockerbuild() {
     local ICU_SYS_LIBS="-lstdc++ -pthread -lm -ladvapi32 -lws2_32"
     for PC_FILE in "$PC_DIR"/icu-*.pc; do
         [[ -e "$PC_FILE" ]] || continue
-        # стандартные имена -licu
+        # standard names -licu
         sed -i 's/-lsicu/-licu/g' "$PC_FILE"
-        # Добавляем макросы статики в Cflags
+
+        # add static macros to Cflags
         if [[ -n "$static_flags" ]]; then
-            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
-                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
-            fi
+            for flag in $static_flags; do
+                if ! grep -qF -- "$flag" "$PC_FILE"; then
+                    sed -i "/^Cflags:/ s/$/ $flag/" "$PC_FILE"
+                fi
+            done
         fi
-        # Вычищаем мусор из основной строки Libs
+
+        # clearing out garbage from the main Libs line
         sed -i 's/\${baselibs}//g; s/-lpthread//g; s/-lm//g' "$PC_FILE"
-        # прописываем системные зависимости Windows в Libs.private
+        # register Windows system dependencies in Libs.private
         if grep -q "^Libs.private:" "$PC_FILE"; then
             sed -i "s|^Libs.private:.*|Libs.private: $ICU_SYS_LIBS|" "$PC_FILE"
         else
             sed -i "/^Libs:/ a Libs.private: $ICU_SYS_LIBS" "$PC_FILE"
         fi
-        # Добавляем библиотеку данных (-licudt) в строку линковки, если её там нет
+        # add the data library (-licudt) to the link line if it is not there
         if ! grep -q -- "-licudt" "$PC_FILE"; then
             sed -i '/^Libs:/ s/$/ -licudt/' "$PC_FILE"
         fi

@@ -15,7 +15,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Очищаем CMakeLists для приложений, чтобы не собирать лишний мусор
+    # Clean up CMakeLists for applications to avoid building unnecessary garbage
     echo > app/CMakeLists.txt
 
     mkdir -p build && cd build
@@ -57,11 +57,11 @@ ffbuild_dockerbuild() {
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # Перемещаем статику из подпапки в корень lib
+        # Move static files from the subfolder to the root lib
         if [[ -f "$INSTALL_ROOT/lib/oapv/liboapv.a" ]]; then
             mv "$INSTALL_ROOT/lib/oapv/liboapv.a" "$INSTALL_ROOT/lib/liboapv.a"
         fi
-        # Удаляем мусор только при статической сборке
+        # Remove garbage only during static compilation
         rm -rf "$INSTALL_ROOT"/bin "$INSTALL_ROOT"/lib/oapv
     fi
 
@@ -73,11 +73,15 @@ ffbuild_dockerbuild() {
         if [[ "${PREFER_SHARED}" != "1" ]]; then
             sed -i 's|-L${libdir}/oapv|-L${libdir}|g' "$PC_FILE"
         fi
+
         if [[ -n "$static_flags" ]]; then
-            if ! grep -qF -- "$static_flags" "$PC_FILE"; then
-                sed -i "/^Cflags:/ s/$/ $static_flags/" "$PC_FILE"
-            fi
+            for flag in $static_flags; do
+                if ! grep -qF -- "$flag" "$PC_FILE"; then
+                    sed -i "/^Cflags:/ s/$/ $flag/" "$PC_FILE"
+                fi
+            done
         fi
+
     fi
 }
 

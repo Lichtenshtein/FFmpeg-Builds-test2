@@ -24,15 +24,15 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Патчим CMakeLists.txt, чтобы он искал OpenCV через pkg-config вместо cmake find_package
+    # Patch CMakeLists.txt so it searches for OpenCV via pkg-config instead of cmake find_package
     sed -i '1i find_package(PkgConfig REQUIRED)' CMakeLists.txt
     sed -i 's/find_package (OpenCV REQUIRED)/pkg_check_modules(OpenCV REQUIRED opencv4)/g' CMakeLists.txt
-    # Исправляем переменные (pkg_check_modules наполняет OpenCV_LIBRARIES, а не OpenCV_LIBS)
+    # Fix variables (pkg_check_modules populates OpenCV_LIBRARIES, not OpenCV_LIBS)
     find . -name "CMakeLists.txt" -exec sed -i 's/${OpenCV_LIBS}/${OpenCV_LIBRARIES}/g' {} +
-    # Вырезаем тесты because no dlfcn exist
+    # cut tests because no dlfcn exists
     sed -i '/add_subdirectory (test)/d' CMakeLists.txt
 
-    # Формируем список либ через pkg-config
+    # Generate a list of libs via pkg-config
     local DEP_LIBS=$(get_pc_libs opencv4 cairo gavl)
     local WIN_SYS_LIBS="-lstdc++"
     local LINKER_GROUP="-Wl,--start-group ${DEP_LIBS} ${WIN_SYS_LIBS} ${LIBS} ${ADDITIONAL_LIBS} -Wl,--end-group"

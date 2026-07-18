@@ -112,17 +112,17 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        # Отключаем ВСЕ фронтенды
-        -DENABLE_OV_IR_FRONTEND=ON # Оставляем только базовый парсер IR XML/BIN
+        # Disable ALL frontends
+        -DENABLE_OV_IR_FRONTEND=ON # leave only the basic IR XML/BIN parser
         -DENABLE_OV_ONNX_FRONTEND=OFF
         -DENABLE_OV_PADDLE_FRONTEND=OFF
         -DENABLE_OV_TF_FRONTEND=OFF
         -DENABLE_OV_TF_LITE_FRONTEND=OFF
         -DENABLE_OV_PYTORCH_FRONTEND=OFF
         -DENABLE_OV_JAX_FRONTEND=OFF
-        # Отключаем плагины и тяжелые зависимости
-        -DENABLE_INTEL_CPU=ON # Оставляем только CPU плагин
-        -DENABLE_INTEL_GPU=OFF # GPU требует OpenCL/Vulkan заголовков; it's for integrated (iGPU) and discrete (dGPU) Intel graphics cards; build works
+        # Disable plugins and heavy dependencies
+        -DENABLE_INTEL_CPU=ON # leave only the CPU plugin
+        -DENABLE_INTEL_GPU=OFF # GPU requires OpenCL/Vulkan headers; it's for integrated (iGPU) and discrete (dGPU) Intel graphics cards; build works
         -DENABLE_INTEL_NPU=OFF
         -DENABLE_HETERO=OFF
         -DENABLE_MULTI=OFF
@@ -135,7 +135,7 @@ ffbuild_dockerbuild() {
         -DENABLE_SYSTEM_PROTOBUF=OFF # OFF; for ONNX, PaddlePaddle, TensorFlow
         -DENABLE_SYSTEM_FLATBUFFERS=OFF # ON; for Tensorflow Lite frontend
         -DENABLE_SYSTEM_OPENCL=ON # ON; use OpenCL installed on the system
-        # Оптимизации размера и сборки
+        # Size and build optimizations
         -DENABLE_JS=OFF
         -DENABLE_SAMPLES=OFF
         -DENABLE_TESTS=OFF
@@ -145,17 +145,17 @@ ffbuild_dockerbuild() {
         -DENABLE_WHEEL=OFF
         -DENABLE_CLANG_FORMAT=OFF
         -DENABLE_PROFILING_ITT=OFF
-        # Включаем аппаратные инструкции
+        # hardware instructions
         -DENABLE_SSE42=ON
         -DENABLE_AVX2=ON
         -DENABLE_AVX512F=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
         -DENABLE_FASTER_BUILD=OFF # OFF; precompiled headers and unity build
-        # кросс-компиляция
-        -DENABLE_API_VALIDATOR=OFF # поиск Windows SDK / apivalidator.exe
-        -DENABLE_INTEL_ITT=OFF # убирает привязку к Windows ITT/VTune API
-        -DENABLE_CPPLINT=OFF # не ищет python-линтеры
-        -DENABLE_NCC_STYLE=OFF # Отключает проверку стилей OpenVINO
-        # Дополнительно
+        # cross-compilation
+        -DENABLE_API_VALIDATOR=OFF # search Windows SDK / apivalidator.exe
+        -DENABLE_INTEL_ITT=OFF # removes the binding to the Windows ITT/VTune API
+        -DENABLE_CPPLINT=OFF # doesn't search for Python linters
+        -DENABLE_NCC_STYLE=OFF # disables OpenVINO style checking
+        # Additional
         -DCMAKE_CXX_STANDARD=20
         -DCMAKE_CXX_STANDARD_REQUIRED=ON
         -DCMAKE_COMPILE_WARNING_AS_ERROR=OFF
@@ -166,7 +166,7 @@ ffbuild_dockerbuild() {
         myconf+=(
             -DTHREADING=$([ "${USE_OPENMP}" == "1" ] && echo OMP || echo TBB)
             -DENABLE_SYSTEM_TBB=$([ "${USE_OPENMP}" == "1" ] && echo OFF || echo ON)
-            -DENABLE_TBBBIND_2_5=OFF # Выключаем гибридный шедулер
+            -DENABLE_TBBBIND_2_5=OFF # Disable the hybrid scheduler
             -DTBB_DIR="${FFBUILD_PREFIX}/lib/cmake/TBB"
         )
     elif [[ "${USE_OPENMP}" == "1" ]]; then
@@ -193,56 +193,56 @@ ffbuild_dockerbuild() {
 
     log_info "Moving and restructuring OpenVINO layout..."
 
-    # нужно превратить include/c/ в include/openvino/c/
+    # need to turn include/c/ into include/openvino/c/
     mkdir -p "${INSTALL_ROOT}/include/openvino"
 
-    # Переносим внутренние папки (c, core, frontend, op, opsets, pass, runtime) в папку openvino
+    # Move the internal folders (c, core, frontend, op, opsets, pass, runtime) to the openvino folder
     find "${INSTALL_ROOT}/runtime/include/" -mindepth 1 -maxdepth 1 | while read -r src_dir; do
         mv "$src_dir" "${INSTALL_ROOT}/include/"
     done
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # Собираем все статические .a библиотеки, разбросанные по папкам, в единый lib
+        # collect all static .a libraries scattered across folders into a single lib
         mkdir -p "${INSTALL_ROOT}/lib"
         find "${INSTALL_ROOT}/runtime/lib" -name "*.a" -exec mv {} "${INSTALL_ROOT}/lib/" \;
 
-        # Чистим LTO-секции из статических библиотек, чтобы сбросить вес с 1.7Гб до ~100Мб
+        # clean LTO sections from static libraries to reduce the size from 1.7 GB to ~100 MB
         log_info "Stripping heavy GCC LTO sections from .a files to optimize size..."
         find "${INSTALL_ROOT}" -name "*.a" | while read -r LIB_FILE; do
-            "${FFBUILD_CROSS_PREFIX}objcopy" --remove-section=.gnu.lto_* "$LIB_FILE" || true
+            ${OBJCOPY} --remove-section=.gnu.lto_* "$LIB_FILE" || true
         done
     fi
 
-    # Переносим файлы CMake в правильную стандартную директорию
+    # Move the CMake files to the correct default directory
     mkdir -p "${INSTALL_ROOT}/lib/cmake"
     mv "${INSTALL_ROOT}/runtime/cmake" "${INSTALL_ROOT}/lib/"
     rm -rf "${INSTALL_ROOT}/runtime"
 
-    # Патчим относительные пути внутри перенесенных CMake файлов
+    # Patching relative paths inside migrated CMake files
     log_info "Performing massive absolute path patching inside OpenVINO CMake files..."
     find "${INSTALL_ROOT}/lib/cmake" -name "*.cmake" -type f | while read -r CMAKE_FILE; do
-        # Намертво фиксируем PACKAGE_PREFIX_DIR на наш абсолютный корень кросс-компиляции
+        # fixt PACKAGE_PREFIX_DIR to absolute cross-compilation root
         sed -i 's|get_filename_component(PACKAGE_PREFIX_DIR "${CMAKE_CURRENT_LIST_DIR}/../../" ABSOLUTE)|set(PACKAGE_PREFIX_DIR "/opt/ffbuild")|g' "$CMAKE_FILE"
 
-        # Ссылки на проверки путей, если ACL (ARM Compute Library) или onednn_gpu_lib_root вызываются
+        # Links to path checks if ACL (ARM Compute Library) or onednn_gpu_lib_root is called
         sed -i 's|"${PACKAGE_PREFIX_DIR}/runtime/lib/intel64/Release"|"/opt/ffbuild/lib"|g' "$CMAKE_FILE"
 
-        # Сначала убираем вычисление относительного префикса в Targets, чтобы он не перезаписывал пути
-        sed -i 's|get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)|# Использован абсолютный путь|g' "$CMAKE_FILE"
+        # remove the relative prefix calculation in Targets so that it doesn't overwrite paths
+        sed -i 's|get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)|# Absolute path used|g' "$CMAKE_FILE"
 
-        # Заменяем все хитрые относительные конструкции Intel на жесткий абсолютный путь
+        # replace all of Intel's tricky relative constructs with a hard absolute path
         sed -i 's|"\${_IMPORT_PREFIX}/runtime/lib/intel64/Release/|"/opt/ffbuild/lib/|g' "$CMAKE_FILE"
         sed -i 's|"\${_IMPORT_PREFIX}/runtime/lib/intel64/Debug/|"/opt/ffbuild/lib/|g' "$CMAKE_FILE"
         sed -i 's|"\${_IMPORT_PREFIX}/runtime/lib/|"/opt/ffbuild/lib/|g' "$CMAKE_FILE"
         sed -i 's|"\${_IMPORT_PREFIX}/runtime/include|"/opt/ffbuild/include/openvino|g' "$CMAKE_FILE"
         sed -i 's|"\${_IMPORT_PREFIX}/runtime/bin/|"/opt/ffbuild/bin/|g' "$CMAKE_FILE"
 
-        # Исправляем расширения и структуры под GCC/MinGW статику
+        # Fixing extensions and structures for GCC/MinGW statics
         sed -i 's|\.lib|.a|g' "$CMAKE_FILE"
         sed -i 's|liblib|lib|g' "$CMAKE_FILE"
         sed -i 's|/intel64/Release/||g' "$CMAKE_FILE"
         sed -i 's|/intel64/Debug/||g' "$CMAKE_FILE"
-        # Синхронизируем дебажные суффиксы, если они где-то проскочили
+        # synchronize debug suffixes if they slipped through somewhere
         sed -i -e 's/d\.a/.a/g' -e 's/fronten\.a/frontend.a/g' "$CMAKE_FILE"
         sed -i -e 's/Debug/Release/g' -e 's/DEBUG/RELEASE/g' "$CMAKE_FILE"
     done
@@ -261,8 +261,8 @@ ffbuild_dockerbuild() {
         # cat "${INSTALL_ROOT}/lib/cmake/OpenVINOTargets-release.cmake" >&2
     # fi
 
-    # Фикс для старых проверок FFmpeg (Inference Engine C-API Wrapper)
-    # Перенаправляем старый вызов c_api/ie_c_api.h на современный openvino/c/openvino.h
+    # Fix for old FFmpeg checks (Inference Engine C-API Wrapper)
+    # Redirect the old c_api/ie_c_api.h call to the modern openvino/c/openvino.h
     if [[ ! -f "$INSTALL_ROOT/include/c_api/ie_c_api.h" ]]; then
     mkdir -p "$INSTALL_ROOT/include/c_api"
     cat <<EOF > "$INSTALL_ROOT/include/c_api/ie_c_api.h"
@@ -277,30 +277,30 @@ static __attribute__((unused)) const char* ie_c_api_version(void) {
 EOF
     fi
 
-    # Создаем пустую библиотеку-пустышку libinference_engine_c_api.a, 
-    # чтобы удовлетворить жесткий фоллбэк линковщика FFmpeg (-linference_engine_c_api)
+    # Create an empty dummy library, libinference_engine_c_api.a,
+    # to satisfy the FFmpeg linker's hard fallback (-linference_engine_c_api)
     log_info "Creating inference_engine_c_api fallback stub for FFmpeg configure..."
     rm -f "$INSTALL_ROOT/lib/libinference_engine_c_api.a"
     ar rcs "$INSTALL_ROOT/lib/libinference_engine_c_api.a"
 
-    # собираем все либы
+    # collect all libs
     log_info "Dynamically collecting installed OpenVINO libraries..."
 
-    # Собираем главные интерфейсные либы, которые должны быть первыми в очереди линковки
+    # collect the main interface libs, which should be first in the linking queue
     local CORE_LIBS=""
     for main_lib in libopenvino.a libopenvino_c.a; do
         if [ -f "${INSTALL_ROOT}/lib/${main_lib}" ]; then
             CORE_LIBS="${CORE_LIBS} -l${main_lib%.a}"
-            CORE_LIBS="${CORE_LIBS#lib}" # убираем префикс lib для флага -l
+            CORE_LIBS="${CORE_LIBS#lib}" # remove the lib prefix for the -l flag
         fi
     done
-    # Исправляем строку (превращаем -llibopenvino в -lopenvino)
+    # Fix the line (convert -llibopenvino to -lopenvino)
     CORE_LIBS=$(echo "$CORE_LIBS" | sed 's/-llib/-l/g')
 
-    # Собираем все остальные внутренние компоненты OpenVINO, исключая уже добавленные и сторонние (tbb, pugixml)
+    # collect all the remaining internal OpenVINO components, excluding those already added and third-party ones (tbb, pugixml)
     local COMPONENT_LIBS=$(find "${INSTALL_ROOT}/lib" -name "libopenvino_*.a" | sed "s|.*/lib\(.*\)\.a|-l\1|" | xargs)
 
-    # Принудительно добавляем pugixml, если он собрался внутри OpenVINO
+    # Force adding pugixml if it was built inside OpenVINO
     local PUGI_LIB=""
     [ -f "${INSTALL_ROOT}/lib/libpugixml.a" ] && PUGI_LIB="-lpugixml"
 
