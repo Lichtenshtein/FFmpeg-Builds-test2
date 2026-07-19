@@ -134,7 +134,7 @@ FROM ubuntu:26.04 AS stage-toolchain-builder
 COPY images/base-win64/ct-ng-config /.config
 
 RUN \
-    apt-get -y update && apt-get -y install --no-install-recommends git ca-certificates build-essential bison flex texinfo help2man gawk libtool-bin libtool automake autoconf libncurses-dev python3-dev unzip && \
+    apt-get -y update && apt-get -y install --no-install-recommends git ca-certificates build-essential bison flex texinfo help2man gawk libtool-bin libtool automake autoconf libncurses-dev python3-dev unzip rsync cvs patch && \
     git clone --filter=blob:none --depth=1 https://github.com/crosstool-ng/crosstool-ng.git /ct-ng && \
     cd /ct-ng && \
     ./bootstrap && \
@@ -142,7 +142,13 @@ RUN \
     make -j$(nproc) && \
     cp /.config .config && \
     \
-    ./ct-ng build && \
+    ./ct-ng alldefconfig && \
+    export CT_ALLOW_BUILD_AS_ROOT=1 && \
+    if ! ./ct-ng build; then \
+        echo "❌ ct-ng build FAILED! Printing end of error log:"; \
+        tail -n 100 build.log; \
+        exit 1; \
+    fi && \
     \
     echo "🧹 Cleaning up toolchain artifacts..." && \
     # Remove documentation, manuals, and locales from the finished toolchain
