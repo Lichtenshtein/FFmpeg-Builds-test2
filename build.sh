@@ -513,10 +513,12 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
 
     as --version | head -n 1
     gcc --version | head -n 1
-    # mold --version | head -n 1
+    mold --version | head -n 1  || true
     x86_64-w64-mingw32-as --version | head -n 1
     ccache --version | head -n 1
-    file /opt/ct-ng/libexec/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.so
+    file /opt/ct-ng/libexec/gcc/x86_64-w64-mingw32/15.2.0/liblto_plugin.so || true
+    command -v clang || true
+    command -v llvm-config || true
 
     check_tool "CC" "$CC"
     check_tool "CXX" "$CXX"

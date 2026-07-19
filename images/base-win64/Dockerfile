@@ -49,6 +49,7 @@ RUN \
     ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
     ln -sf /usr/bin/clang-23 /usr/bin/clang && \
     ln -sf /usr/bin/clang++-23 /usr/bin/clang++ && \
+    ln -sf /usr/bin/llvm-config-23 /usr/bin/llvm-config && \
     \
     MOLD_VERSION=$(curl -fL "https://api.github.com/repos/rui314/mold/releases/latest" | jq -r .tag_name | sed 's/^v//') && \
     echo "=== Mold version found: ${MOLD_VERSION} ===" && \
@@ -187,7 +188,8 @@ RUN rustup target add "$FFBUILD_RUST_TARGET" && \
     printf "[target.%s]\nlinker = \"%s-gcc\"\nar = \"%s-gcc-ar\"\n" "$FFBUILD_RUST_TARGET" "$FFBUILD_TOOLCHAIN" "$FFBUILD_TOOLCHAIN" > "$CARGO_HOME"/config.toml && \
     \
     mkdir -p /opt/ccache-links && \
-    for tool in gcc g++ cpp c++ gcc-ar gcc-nm gcc-ranlib ranlib clang clang++; do \
+    for tool in gcc g++ cpp c++ gcc-ar gcc-nm gcc-ranlib ranlib clang clang++ gfortran; do \
         ln -sf /usr/local/bin/ccache "/opt/ccache-links/x86_64-w64-mingw32-${tool}"; \
         ln -sf /usr/local/bin/ccache "/opt/ccache-links/${tool}"; \
-    done
+    done && \
+    ln -sf /usr/bin/llvm-config /opt/ccache-links/llvm-config
