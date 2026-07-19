@@ -2273,7 +2273,7 @@ apply_patches() {
         if [[ "$success" == "false" ]]; then
             local temp_git=false
             if [[ ! -d ".git" ]]; then
-                if git init -q && git add -A && git commit -qm "temp_init" 2>/dev/null; then; then
+                if git init -q && git add -A && git commit -qm "temp_init" 2>/dev/null; then
                     temp_git=true
                 fi
             fi
