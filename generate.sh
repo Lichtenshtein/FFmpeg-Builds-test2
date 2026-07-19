@@ -287,6 +287,7 @@ done
 to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
 to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
 to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\"
+to_df "    --mount=type=bind,source=variants,target=${CONTAINER_ROOT}/variants \\"
 to_df "    . ${CONTAINER_ROOT}/util/vars.sh \"${TARGET}\" \"${VARIANT}\" && show_patch_summary"
 
 # FINAL FFMPEG BUILD STAGE
