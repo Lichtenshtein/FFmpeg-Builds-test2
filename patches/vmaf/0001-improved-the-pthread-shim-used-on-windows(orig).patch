@@ -10,10 +10,10 @@ This replaces the very problematic `#define`-based pthread replacement with a mu
 - Notably does **not** implement the entire surface area of functions. They will emit failures if certain arguments (unused by VMAF) are used.
 - Biggest remaining issue with this implementation is if a thread is started, detached, and the process exits soon after, you can hit some UB (read: crash) related to not joining the thread and it executing after important things are destroyed via `main` exit
 ---
-diff --git a/libvmaf/meson.build b/libvmaf/meson.build
+diff --git a/meson.build b/meson.build
 index 6809c493..d8ba772e 100644
---- a/libvmaf/meson.build
-+++ b/libvmaf/meson.build
+--- a/meson.build
++++ b/meson.build
 @@ -49,7 +49,32 @@ if not cc.check_header('stdatomic.h')
      endif
  endif
@@ -48,10 +48,10 @@ index 6809c493..d8ba772e 100644
 +    subdir('tools')
 +endif
  subdir('doc')
-diff --git a/libvmaf/meson_options.txt b/libvmaf/meson_options.txt
+diff --git a/meson_options.txt b/meson_options.txt
 index f1601f77..f3aadfad 100644
---- a/libvmaf/meson_options.txt
-+++ b/libvmaf/meson_options.txt
+--- a/meson_options.txt
++++ b/meson_options.txt
 @@ -37,3 +37,8 @@ option('enable_nvtx',
      type: 'boolean',
      value: true,
@@ -62,11 +62,11 @@ index f1601f77..f3aadfad 100644
 +    value: false,
 +    description: 'Enabled discord-specfic quirks in the codebase')
 \ No newline at end of file
-diff --git a/libvmaf/src/compat/discord_win/pthread.c b/libvmaf/src/compat/discord_win/pthread.c
+diff --git a/src/compat/discord_win/pthread.c b/src/compat/discord_win/pthread.c
 new file mode 100644
 index 00000000..b7889665
 --- /dev/null
-+++ b/libvmaf/src/compat/discord_win/pthread.c
++++ b/src/compat/discord_win/pthread.c
 @@ -0,0 +1,119 @@
 +#include "pthread.h"
 +
@@ -187,11 +187,11 @@ index 00000000..b7889665
 +
 +    return 0;
 +}
-diff --git a/libvmaf/src/compat/discord_win/pthread.h b/libvmaf/src/compat/discord_win/pthread.h
+diff --git a/src/compat/discord_win/pthread.h b/src/compat/discord_win/pthread.h
 new file mode 100644
 index 00000000..42269545
 --- /dev/null
-+++ b/libvmaf/src/compat/discord_win/pthread.h
++++ b/src/compat/discord_win/pthread.h
 @@ -0,0 +1,23 @@
 +#ifndef __PTHREAD_H
 +#define __PTHREAD_H
@@ -216,11 +216,11 @@ index 00000000..42269545
 +int pthread_detach(pthread_t thread);
 +
 +#endif
-diff --git a/libvmaf/src/compat/discord_win/unistd.h b/libvmaf/src/compat/discord_win/unistd.h
+diff --git a/src/compat/discord_win/unistd.h b/src/compat/discord_win/unistd.h
 new file mode 100644
 index 00000000..c3772e1a
 --- /dev/null
-+++ b/libvmaf/src/compat/discord_win/unistd.h
++++ b/src/compat/discord_win/unistd.h
 @@ -0,0 +1,10 @@
 +#ifndef _UNISTD_H
 +#define _UNISTD_H
@@ -233,10 +233,10 @@ index 00000000..c3772e1a
 +
 +#endif
 \ No newline at end of file
-diff --git a/libvmaf/src/compat/msvc/stdatomic.h b/libvmaf/src/compat/msvc/stdatomic.h
+diff --git a/src/compat/msvc/stdatomic.h b/src/compat/msvc/stdatomic.h
 index 979ee2ba..033ec818 100644
---- a/libvmaf/src/compat/msvc/stdatomic.h
-+++ b/libvmaf/src/compat/msvc/stdatomic.h
+--- a/src/compat/msvc/stdatomic.h
++++ b/src/compat/msvc/stdatomic.h
 @@ -39,7 +39,10 @@
  
  #include <windows.h>
@@ -248,10 +248,10 @@ index 979ee2ba..033ec818 100644
  
  typedef volatile LONG  __declspec(align(32)) atomic_int;
  typedef volatile ULONG __declspec(align(32)) atomic_uint;
-diff --git a/libvmaf/src/feature/adm.c b/libvmaf/src/feature/adm.c
+diff --git a/src/feature/adm.c b/src/feature/adm.c
 index 99dc142c..8b8534f7 100644
---- a/libvmaf/src/feature/adm.c
-+++ b/libvmaf/src/feature/adm.c
+--- a/src/feature/adm.c
++++ b/src/feature/adm.c
 @@ -49,7 +49,9 @@ static char *init_dwt_band(adm_dwt_band_t *band, char *data_top, size_t buf_sz_o
      return data_top;
  }
@@ -262,10 +262,10 @@ index 99dc142c..8b8534f7 100644
  static char *init_dwt_band_d(adm_dwt_band_t_d *band, char *data_top, size_t buf_sz_one)
  {
      band->band_a = (double *)data_top; data_top += buf_sz_one;
-diff --git a/libvmaf/src/feature/ciede.c b/libvmaf/src/feature/ciede.c
+diff --git a/src/feature/ciede.c b/src/feature/ciede.c
 index 7bbfa8f6..6e874ff7 100644
---- a/libvmaf/src/feature/ciede.c
-+++ b/libvmaf/src/feature/ciede.c
+--- a/src/feature/ciede.c
++++ b/src/feature/ciede.c
 @@ -43,6 +43,9 @@ SOFTWARE.
  */
  
@@ -276,10 +276,10 @@ index 7bbfa8f6..6e874ff7 100644
  #include <math.h>
  #include <stddef.h>
  #include <string.h>
-diff --git a/libvmaf/src/feature/integer_adm.c b/libvmaf/src/feature/integer_adm.c
+diff --git a/src/feature/integer_adm.c b/src/feature/integer_adm.c
 index 269dbb5e..e36cd8ab 100644
---- a/libvmaf/src/feature/integer_adm.c
-+++ b/libvmaf/src/feature/integer_adm.c
+--- a/src/feature/integer_adm.c
++++ b/src/feature/integer_adm.c
 @@ -22,6 +22,8 @@
  #include "feature_extractor.h"
  #include "feature_name.h"
@@ -289,10 +289,10 @@ index 269dbb5e..e36cd8ab 100644
  #include "log.h"
  
  #if ARCH_X86
-diff --git a/libvmaf/src/feature/integer_vif.c b/libvmaf/src/feature/integer_vif.c
+diff --git a/src/feature/integer_vif.c b/src/feature/integer_vif.c
 index 534a7b59..5b69b04e 100644
---- a/libvmaf/src/feature/integer_vif.c
-+++ b/libvmaf/src/feature/integer_vif.c
+--- a/src/feature/integer_vif.c
++++ b/src/feature/integer_vif.c
 @@ -643,7 +643,7 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
      const size_t data_sz =
          2 * (pad_size + frame_size + pad_size) + 2 * (h * s->public.buf.stride_16) +
@@ -302,10 +302,10 @@ index 534a7b59..5b69b04e 100644
      if (!data) return -ENOMEM;
      memset(data, 0, data_sz);
  
-diff --git a/libvmaf/src/feature/integer_vif.h b/libvmaf/src/feature/integer_vif.h
+diff --git a/src/feature/integer_vif.h b/src/feature/integer_vif.h
 index a8135cdb..9e272208 100644
---- a/libvmaf/src/feature/integer_vif.h
-+++ b/libvmaf/src/feature/integer_vif.h
+--- a/src/feature/integer_vif.h
++++ b/src/feature/integer_vif.h
 @@ -130,6 +130,25 @@ VifResiduals vif_compute_line_residuals(VifPublicState *s, unsigned from,
  #ifdef _MSC_VER
  #include <intrin.h>
@@ -341,10 +341,10 @@ index a8135cdb..9e272208 100644
  static inline int32_t log2_32(const uint16_t *log2_table, uint32_t temp)
  {
      int k = __builtin_clz(temp);
-diff --git a/libvmaf/src/feature/mkdirp.c b/libvmaf/src/feature/mkdirp.c
+diff --git a/src/feature/mkdirp.c b/src/feature/mkdirp.c
 index 16fe966b..0eefe112 100644
---- a/libvmaf/src/feature/mkdirp.c
-+++ b/libvmaf/src/feature/mkdirp.c
+--- a/src/feature/mkdirp.c
++++ b/src/feature/mkdirp.c
 @@ -12,6 +12,10 @@
  #include <string.h>
  #include "mkdirp.h"
@@ -369,10 +369,10 @@ index 16fe966b..0eefe112 100644
    #else
      int rc = mkdir(pathname, mode);
    #endif
-diff --git a/libvmaf/src/feature/mkdirp.h b/libvmaf/src/feature/mkdirp.h
+diff --git a/src/feature/mkdirp.h b/src/feature/mkdirp.h
 index 02371fb5..15e99e03 100644
---- a/libvmaf/src/feature/mkdirp.h
-+++ b/libvmaf/src/feature/mkdirp.h
+--- a/src/feature/mkdirp.h
++++ b/src/feature/mkdirp.h
 @@ -12,6 +12,10 @@
  #include <sys/types.h>
  #include <sys/stat.h>
@@ -384,10 +384,10 @@ index 02371fb5..15e99e03 100644
  /*
   * Recursively `mkdir(path, mode)`
   */
-diff --git a/libvmaf/src/libvmaf.c b/libvmaf/src/libvmaf.c
+diff --git a/src/libvmaf.c b/src/libvmaf.c
 index 3fbb050c..5f832b3e 100644
---- a/libvmaf/src/libvmaf.c
-+++ b/libvmaf/src/libvmaf.c
+--- a/src/libvmaf.c
++++ b/src/libvmaf.c
 @@ -864,7 +864,8 @@ int vmaf_score_pooled_model_collection(VmafContext *vmaf,
      const char *suffix_stddev = "_stddev";
      const size_t name_sz =
@@ -406,10 +406,10 @@ index 3fbb050c..5f832b3e 100644
      return err;
  }
  
-diff --git a/libvmaf/src/meson.build b/libvmaf/src/meson.build
+diff --git a/src/meson.build b/src/meson.build
 index 94e2f4d7..a7c9dc28 100644
---- a/libvmaf/src/meson.build
-+++ b/libvmaf/src/meson.build
+--- a/src/meson.build
++++ b/src/meson.build
 @@ -123,21 +123,27 @@ cdata.set10('VMAF_FLOAT_FEATURES', float_enabled)
              error('xxd with support for -n option is required building as a subproject. Please install a newer version of xxd or disable built-in models.')
          endif
@@ -471,10 +471,10 @@ index 94e2f4d7..a7c9dc28 100644
      objects: common_cuda_objects
  )
  
-diff --git a/libvmaf/src/model.c b/libvmaf/src/model.c
+diff --git a/src/model.c b/src/model.c
 index 4661ec14..d852e898 100644
---- a/libvmaf/src/model.c
-+++ b/libvmaf/src/model.c
+--- a/src/model.c
++++ b/src/model.c
 @@ -43,6 +43,13 @@ extern const int src_vmaf_4k_v0_6_1neg_json_len;
  #endif
  
@@ -497,10 +497,10 @@ index 4661ec14..d852e898 100644
  #endif
      { 0 }
  };
-diff --git a/libvmaf/src/predict.c b/libvmaf/src/predict.c
+diff --git a/src/predict.c b/src/predict.c
 index ee25dca7..ba483273 100644
---- a/libvmaf/src/predict.c
-+++ b/libvmaf/src/predict.c
+--- a/src/predict.c
++++ b/src/predict.c
 @@ -354,7 +354,8 @@ static int vmaf_bootstrap_predict_score_at_index(
                                          VmafModelCollectionScore *score)
  {
@@ -562,10 +562,10 @@ index ee25dca7..ba483273 100644
      return err;
  }
  
-diff --git a/libvmaf/src/read_json_model.c b/libvmaf/src/read_json_model.c
+diff --git a/src/read_json_model.c b/src/read_json_model.c
 index 4022b8e7..d1d962b5 100644
---- a/libvmaf/src/read_json_model.c
-+++ b/libvmaf/src/read_json_model.c
+--- a/src/read_json_model.c
++++ b/src/read_json_model.c
 @@ -486,10 +486,10 @@ static int model_collection_parse(json_stream *s, VmafModel **model,
      if (!c.name) return -ENOMEM;
  
@@ -614,10 +614,10 @@ index 4022b8e7..d1d962b5 100644
      if (!(*model_collection)) return -EINVAL;
      return err;
  }
-diff --git a/libvmaf/src/x86/cpu.c b/libvmaf/src/x86/cpu.c
+diff --git a/src/x86/cpu.c b/src/x86/cpu.c
 index ec2059af..30d50c7e 100644
---- a/libvmaf/src/x86/cpu.c
-+++ b/libvmaf/src/x86/cpu.c
+--- a/src/x86/cpu.c
++++ b/src/x86/cpu.c
 @@ -35,13 +35,18 @@ typedef struct {
      uint32_t eax, ebx, ecx, edx;
  } CpuidRegisters;
@@ -655,10 +655,10 @@ index ec2059af..30d50c7e 100644
                              if (X(r.ebx, 0xd0030000))
                                  flags |= VMAF_X86_CPU_FLAG_AVX512;
                              if (X(r.ebx, 0xd0230000) && X(r.ecx, 0x00005f42))
-diff --git a/libvmaf/src/x86/cpuid.asm b/libvmaf/src/x86/cpuid.asm
+diff --git a/src/x86/cpuid.asm b/src/x86/cpuid.asm
 index c08df502..0a2abd2d 100644
---- a/libvmaf/src/x86/cpuid.asm
-+++ b/libvmaf/src/x86/cpuid.asm
+--- a/src/x86/cpuid.asm
++++ b/src/x86/cpuid.asm
 @@ -44,11 +44,10 @@ cglobal cpu_cpuid, 0, 5, 0, regs, leaf, subleaf
  %endif
      RET

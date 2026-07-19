@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/Netflix/vmaf.git"
-SCRIPT_COMMIT="ec3b1161a5fbdffb59795937f9208cb5fdbd3c3c"
+SCRIPT_COMMIT="78e11b52c8fc1fcc6d15afd6c7479394fb3bc6af"
 
 # SCRIPT_REPO="https://github.com/lusoris/vmaf.git"
 # SCRIPT_COMMIT="49c738b0584337a45048429581214063e80831e2"
@@ -24,28 +24,26 @@ ffbuild_dockerbuild() {
 
     log_info "Fixing Netflix Broken Windows ABI: Changing vmaf_init to pass configuration by pointer..."
 
-    # Изменяем сигнатуру в заголовке (убрали префикс папки)
     sed -i 's/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration cfg);/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration \*cfg);/g' "include/libvmaf/libvmaf.h"
 
-    # Изменяем сигнатуру и логику в исходнике (убрали префикс папки)
     sed -i 's/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration cfg)/int vmaf_init(VmafContext \*\*vmaf, VmafConfiguration \*cfg)/g' "src/libvmaf.c"
     sed -i 's/v->cfg = cfg;/v->cfg = *cfg;/g' "src/libvmaf.c"
     sed -i 's/vmaf_set_cpu_flags_mask(~cfg.cpumask);/vmaf_set_cpu_flags_mask(~cfg->cpumask);/g' "src/libvmaf.c"
     sed -i 's/vmaf_set_log_level(cfg.log_level);/vmaf_set_log_level(cfg->log_level);/g' "src/libvmaf.c"
 
-    # Временная отладочная проверка: выведет в лог результат патча, чтобы убедиться на 100%
+    # Temporary debug check: will log the patch result to be 100% sure
     log_info "Verifying header patch..."
     grep -n "vmaf_init" "include/libvmaf/libvmaf.h"
 
     if [[ "${USE_AVX512}" != "1" ]]; then
-        # создаем заглушку avx-512
+        # Create an avx-512 stub
         log_info "Creating AVX-512 stubs for libvmaf..."
         cat <<EOF > vmaf_avx512_stubs.c
 void cambi_increment_range_avx512() {}
 void cambi_decrement_range_avx512() {}
 void get_derivative_data_for_row_avx512() {}
 EOF
-        # Компилируем объектный файл тем же кросс-компилятором
+        # compile the object file using the same cross-compiler
         $CC $CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -c vmaf_avx512_stubs.c -o vmaf_avx512_stubs.o
     fi
 
@@ -81,7 +79,7 @@ EOF
     fi
 
     # added by patch
-    # Проверяем наличие опции enable_discord_mode в meson_options.txt
+    # Check presence of the enable_discord_mode option in meson_options.txt
     if grep -q "enable_discord_mode" "../meson_options.txt" 2>/dev/null || grep -q "enable_discord_mode" "../libvmaf/meson_options.txt" 2>/dev/null; then
         log_info "Found enable_discord_mode option, enabling Discord mode..."
         myconf+=("-Denable_discord_mode=true")
@@ -96,7 +94,7 @@ EOF
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # вшиваем заглушку для avx512 в библиотеку
+    # adding a stub for avx512 to the library
     if [[ "${PREFER_SHARED}" != "1" ]]; then
         if [[ "${USE_AVX512}" != "1" ]]; then
         log_info "Injecting stubs into libvmaf.a"
@@ -105,12 +103,12 @@ EOF
     fi
 
     # log_info "Installing missing headers for FFmpeg compatibility..."
-    # Копируем из исходников в папку установки только ОТСУТСТВУЮЩИЕ файлы
-    # используем путь от корня репозитория vmaf, где лежат исходные .h
+    # Copy only the MISSING files from the source files to the installation folder
+    # Use the path from the root of the vmaf repository, where the source .h files are located
     # cp ${OP_VERB}n ../libvmaf/include/libvmaf/*.h "$INSTALL_ROOT/include/libvmaf/" || true
 
-    # если dnn.h или vulkan.h всё еще нет
-    # создаем их как пустые заглушки, чтобы configure FFmpeg не падал
+    # if dnn.h or vulkan.h is still missing
+    # create them as empty placeholders so that FFmpeg configure doesn't crash.
     # for header in dnn.h libvmaf_vulkan.h libvmaf_cuda.h libvmaf_sycl.h; do
         # if [ ! -f "$INSTALL_ROOT/include/libvmaf/$header" ]; then
             # touch "$INSTALL_ROOT/include/libvmaf/$header"

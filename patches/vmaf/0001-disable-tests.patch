@@ -7,10 +7,10 @@ Subject: [PATCH] disable tests
  libvmaf/meson.build | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/libvmaf/meson.build b/libvmaf/meson.build
+diff --git a/meson.build b/meson.build
 index cf20cecb..ea5f5add 100644
---- a/libvmaf/meson.build
-+++ b/libvmaf/meson.build
+--- a/meson.build
++++ b/meson.build
 @@ -50,4 +50,4 @@ subdir('include')
  subdir('src')
  subdir('tools')

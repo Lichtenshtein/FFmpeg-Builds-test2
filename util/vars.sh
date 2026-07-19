@@ -333,6 +333,8 @@ apply_lto_policy() {
         is_lld=1
     fi
 
+    local OPT_LEVEL="-O3"
+
     if should_apply_lto; then
         log_info "⚡ [LTO ENABLED] Applying Link-Time Optimization for: $STAGENAME"
 
@@ -390,8 +392,6 @@ apply_lto_policy() {
         local G_FLAGS="-g0 -fno-var-tracking-assignments"
         local RUST_STRIP_POLICY="debuginfo"
     fi
-
-    local OPT_LEVEL="-O3"
 
     # General and additional libs
     # -lkernel32 -lmingwex -lgcc_eh -lgcc
@@ -590,7 +590,7 @@ strip = '${STRIP}'
 windres = '${WINDRES}'
 dlltool = '${DLLTOOL}'
 nasm = 'nasm'
-ld = '/usr/bin/ld.lld'
+# ld = '/usr/bin/ld.lld'
 c_ld = '${TARGET_LD}'
 cpp_ld = '${TARGET_LD}'
 ${exe_wrap_line}
@@ -651,7 +651,7 @@ set(CMAKE_NM ${NM} CACHE FILEPATH "Forced NM")
 # set(CMAKE_SHARED_LINKER_FLAGS_INIT "${base_ld_init}")
 # set(CMAKE_MODULE_LINKER_FLAGS_INIT "${base_ld_init}")
 
-set(CMAKE_LINKER "${LD}" CACHE FILEPATH "Forced Linker")
+# set(CMAKE_LINKER "${LD}" CACHE FILEPATH "Forced Linker")
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build" FORCE)
 
 set(BUILD_SHARED_LIBS $( [[ "$PREFER_SHARED" == "1" ]] && echo "ON" || echo "OFF" ) CACHE BOOL "Build shared libraries" FORCE)
@@ -2262,7 +2262,7 @@ apply_patches() {
                 if last_output=$(eval "$git_opts" < "$patch" 2>&1); then
                     log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied with [$git_opts]"
                     success=true
-                    break 2
+                    break
                 else
                     git am --abort 2>/dev/null || true
                 fi
@@ -2273,7 +2273,7 @@ apply_patches() {
         if [[ "$success" == "false" ]]; then
             local temp_git=false
             if [[ ! -d ".git" ]]; then
-                if git init -q && git add -A && git commit -qm "temp_init"; then
+                if git init -q && git add -A && git commit -qm "temp_init" 2>/dev/null; then; then
                     temp_git=true
                 fi
             fi
@@ -2289,7 +2289,7 @@ apply_patches() {
                 if last_output=$(git apply $apply_opts "$patch" 2>&1); then
                     log_info "${CHECK_MARK} ${GREEN}SUCCESS${NC}: Applied with [git apply $apply_opts]"
                     success=true
-                    break 2
+                    break
                 fi
             done
 
@@ -2303,10 +2303,10 @@ apply_patches() {
         if [[ "$success" == "false" ]]; then
             local patch_opts
             for patch_opts in \
-                "-p1 -N -r -" "-p0 -N -r -" \
-                "-p1 -N -r - --binary" "-p0 -N -r - --binary" \
-                "-p1 -N -r - -l" "-p0 -N -r - -l" \
-                "-p1 -N -r - -l --fuzz=3" "-p0 -N -r - -l --fuzz=3"
+                "-p1 -t -N -r -" "-p0 -t -N -r -" \
+                "-p1 -t -N -r - --binary" "-p0 -t -N -r - --binary" \
+                "-p1 -t -N -r - -l" "-p0 -t -N -r - -l" \
+                "-p1 -t -N -r - -l --fuzz=3" "-p0 -t -N -r - -l --fuzz=3"
             do
                 last_method="patch ${patch_opts}"
                 log_debug "Trying: patch $patch_opts"
@@ -2332,15 +2332,15 @@ apply_patches() {
             patch_failed_any=true
 
             # Write a detailed error to the global accumulator
-            mkdir -p "$(dirname "$PATCH_ERRORS_LOG")"
+            mkdir -p "$(dirname "$LOG_PATCH_ERRORS")"
             {
-                log_err_line "--------------------------------------------------------"
-                log_error "COMPONENT: $COMPONENT_NAME | PATCH: $patch_name"
-                log_error "FAILED METHOD: $last_method"
-                log_error "OUTPUT ERROR:"
-                log_error "$last_output"
-                log_err_line "--------------------------------------------------------"
-            } >> "$PATCH_ERRORS_LOG"
+                echo "--------------------------------------------------------"
+                echo "COMPONENT: $COMPONENT_NAME | PATCH: $patch_name"
+                echo "FAILED METHOD: $last_method"
+                echo "OUTPUT ERROR:"
+                echo "$last_output"
+                echo "--------------------------------------------------------"
+            } >> "$LOG_PATCH_ERRORS"
 
             # Uncomment to make patch failure fatal:
             # return 1
@@ -2395,7 +2395,7 @@ export -f apply_ffmpeg_patches
 show_patch_summary() {
     if [[ -f "$LOG_PATCH_ERRORS" && -s "$LOG_PATCH_ERRORS" ]]; then
         log_info "${TARGET_MARK} ${LOG_ERROR}=== PATCHING FAILURE SUMMARY ===${NC}"
-        cat "$PATCH_ERRORS_LOG" >&2
+        cat "$LOG_PATCH_ERRORS" >&2
         log_info "${LOG_ERROR}=================================${NC}"
     else
         log_info "${CHECK_MARK} All patches applied or verified successfully across all components!"

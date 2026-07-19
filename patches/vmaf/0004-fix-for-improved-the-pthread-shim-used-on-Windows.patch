@@ -7,10 +7,10 @@ Subject: [PATCH] fix for improved the pthread shim used on Windows
  libvmaf/src/feature/integer_vif.c | 28 ++++++++++++++--------------
  1 file changed, 14 insertions(+), 14 deletions(-)
 
-diff --git a/libvmaf/src/feature/integer_vif.c b/libvmaf/src/feature/integer_vif.c
+diff --git a/src/feature/integer_vif.c b/src/feature/integer_vif.c
 index 069423ad..1077ae03 100644
---- a/libvmaf/src/feature/integer_vif.c
-+++ b/libvmaf/src/feature/integer_vif.c
+--- a/src/feature/integer_vif.c
++++ b/src/feature/integer_vif.c
 @@ -644,20 +644,20 @@ static int init(VmafFeatureExtractor *fex, enum VmafPixelFormat pix_fmt,
      s->public.buf.data = data; data += pad_size;
      s->public.buf.ref = data; data += frame_size + pad_size + pad_size;
