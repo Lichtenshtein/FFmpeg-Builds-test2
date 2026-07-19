@@ -285,6 +285,7 @@ for STAGE in "${active_scripts[@]}"; do
 done
 
 to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
+to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
 to_df "    . ${CONTAINER_ROOT}/util/vars.sh \"${TARGET}\" \"${VARIANT}\" && show_patch_summary"
 
 # FINAL FFMPEG BUILD STAGE
