@@ -3,8 +3,8 @@
 SCRIPT_REPO="https://github.com/Netflix/vmaf.git"
 SCRIPT_COMMIT="78e11b52c8fc1fcc6d15afd6c7479394fb3bc6af"
 
-# SCRIPT_REPO="https://github.com/lusoris/vmaf.git"
-# SCRIPT_COMMIT="49c738b0584337a45048429581214063e80831e2"
+# SCRIPT_REPO2="https://github.com/VMAFx/vmafx.git"
+# SCRIPT_COMMIT2="e8881bb4c6c7f22283ad01ea6e6a8d577c8ff09c"
 
 ffbuild_enabled() {
     return 0
