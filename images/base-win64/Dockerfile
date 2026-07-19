@@ -15,8 +15,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     HOST_CXX="g++-15"
 
 RUN \
-    apt-get -y update >/dev/null 2>&1 && \
-    apt-get -y dist-upgrade >/dev/null 2>&1 && \
+    apt-get -y update && \
+    apt-get -y dist-upgrade && \
     echo "✅ Updating completed successfully" && \
     echo "🔧 Installing dependencies" && \
     apt-get -y install --no-install-recommends \
@@ -31,7 +31,6 @@ RUN \
         dos2unix re2c bsdmainutils p7zip-full tree \
         patchutils ed osslsigncode python3-fonttools python3-mako \
         python3-wheel iputils-ping dnsutils libtasn1-bin \
-        gfortran \
         $([ "$DEBUG_MODE" = "1" ] || [ "$USE_WINE" = "1" ] && echo wine) >/dev/null 2>&1 && \
     \
     rm -f /etc/apt/sources.list.d/llvm-trunk.list && \
@@ -44,12 +43,13 @@ RUN \
     echo "Signed-By: /etc/apt/trusted.gpg.d/apt.llvm.org.asc" >> /etc/apt/sources.list.d/llvm-trunk.sources && \
     apt-get -y update >/dev/null 2>&1 && \
     \
-    echo "🔧 Installing latest LLD, Clang, and LLVM packages" && \
-    apt-get -y install --no-install-recommends lld-23 clang-23 llvm-23 && \
+    echo "🔧 Installing latest LLD, Clang, Flang, and LLVM packages" && \
+    apt-get -y install --no-install-recommends lld-23 clang-23 llvm-23 flang-23 && \
     ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
     ln -sf /usr/bin/clang-23 /usr/bin/clang && \
     ln -sf /usr/bin/clang++-23 /usr/bin/clang++ && \
     ln -sf /usr/bin/llvm-config-23 /usr/bin/llvm-config && \
+    ln -sf /usr/bin/flang-23 /usr/bin/flang && \
     \
     MOLD_VERSION=$(curl -fL "https://api.github.com/repos/rui314/mold/releases/latest" | jq -r .tag_name | sed 's/^v//') && \
     echo "=== Mold version found: ${MOLD_VERSION} ===" && \
@@ -79,11 +79,6 @@ RUN \
     echo "🔄 Installing Meson & Ninja via pip" && \
     pip3 install --break-system-packages --no-cache-dir --upgrade --ignore-installed \
         meson cmake ninja Cython pytest build && \
-    \
-    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-15 100 && \
-    update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-15 100 && \
-    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-15 100 && \
-    update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-15 100 && \
     \
     curl -fsSL https://deb.nodesource.com/setup_24.x | bash - && \
     apt-get -y install nodejs && \
@@ -134,17 +129,19 @@ RUN \
 # ==========================================
 # STAGE 2: Toolchain Compilation (Isolating Waste)
 # ==========================================
-FROM stage-os-base AS stage-toolchain-builder
+FROM ubuntu:26.04 AS stage-toolchain-builder
 
 COPY images/base-win64/ct-ng-config /.config
 
 RUN \
+    apt-get -y update && apt-get -y install --no-install-recommends git ca-certificates build-essential bison flex texinfo help2man gawk libtool-bin libtool automake autoconf libncurses-dev python3-dev && \
     git clone --filter=blob:none --depth=1 https://github.com/crosstool-ng/crosstool-ng.git /ct-ng && \
     cd /ct-ng && \
     ./bootstrap && \
     ./configure --enable-local && \
     make -j$(nproc) && \
     cp /.config .config && \
+    \
     ./ct-ng build && \
     \
     echo "🧹 Cleaning up toolchain artifacts..." && \
@@ -188,8 +185,14 @@ RUN rustup target add "$FFBUILD_RUST_TARGET" && \
     printf "[target.%s]\nlinker = \"%s-gcc\"\nar = \"%s-gcc-ar\"\n" "$FFBUILD_RUST_TARGET" "$FFBUILD_TOOLCHAIN" "$FFBUILD_TOOLCHAIN" > "$CARGO_HOME"/config.toml && \
     \
     mkdir -p /opt/ccache-links && \
-    for tool in gcc g++ cpp c++ gcc-ar gcc-nm gcc-ranlib ranlib clang clang++ gfortran; do \
+    for tool in gcc g++ cpp c++ gcc-ar gcc-nm gcc-ranlib ranlib clang clang++ flang; do \
         ln -sf /usr/local/bin/ccache "/opt/ccache-links/x86_64-w64-mingw32-${tool}"; \
         ln -sf /usr/local/bin/ccache "/opt/ccache-links/${tool}"; \
     done && \
-    ln -sf /usr/bin/llvm-config /opt/ccache-links/llvm-config
+    \
+    ln -sf /usr/bin/llvm-config /opt/ccache-links/llvm-config && \
+    \
+    printf '#!/bin/bash\nexec /usr/local/bin/ccache /usr/bin/flang-23 --target=x86_64-w64-mingw32 "$@"\n' > /opt/ccache-links/x86_64-w64-mingw32-gfortran && \
+    chmod +x /opt/ccache-links/x86_64-w64-mingw32-gfortran && \
+    \
+    ln -sfn /opt/ccache-links/x86_64-w64-mingw32-gfortran /opt/ccache-links/gfortran

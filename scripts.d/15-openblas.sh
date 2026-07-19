@@ -53,6 +53,25 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
+
+    local fortran_libs=""
+
+    if [[ "${myconf[@]}" =~ "-DBUILD_WITHOUT_LAPACK=OFF" ]]; then
+        if command -v "${FC}" &>/dev/null || command -v gfortran &>/dev/null; then
+            if grep -q "ONLY_C=0" "config.h" 2>/dev/null || grep -q "#define TRN_MANUAL" "config.h" 2>/dev/null || [ ! -f "config.h" ]; then
+                log_info "${TARGET_MARK} GNU Fortran detected. Adding -lgfortran -lquadmath to Libs.private"
+                fortran_libs=" -lgfortran -lquadmath"
+            fi
+        elif command -v flang &>/dev/null || command -v "${FFBUILD_CROSS_PREFIX}flang" &>/dev/null; then
+            if grep -q "ONLY_C=0" "config.h" 2>/dev/null || grep -q "#define TRN_MANUAL" "config.h" 2>/dev/null || [ ! -f "config.h" ]; then
+                log_info "${TARGET_MARK} LLVM Flang detected. Adding -lflang -lflangrti to Libs.private"
+                fortran_libs=" -lflang -lflangrti"
+            fi
+        else
+            log_warn "No Fortran compiler found during post-build check. OpenBLAS probably used a C wrapper."
+        fi
+    fi
+
     if ls "$PC_DIR"/*openblas*.pc >/dev/null 2>&1; then
         for PC_FILE in "$PC_DIR"/*openblas*.pc; do
             [[ -e "$PC_FILE" ]] || continue
@@ -62,6 +81,9 @@ ffbuild_dockerbuild() {
             fi
             if [[ "${myconf[@]}" =~ "CPP_THREAD_SAFETY_USE_OPENMP=ON" ]]; then
                 sed -i "/^Libs.private:/ s/$/ ${OPENMP_LIB}/" "$PC_FILE"
+            fi
+            if [[ -n "$fortran_libs" ]]; then
+                sed -i "/^Libs.private:/ s/$/${fortran_libs}/" "$PC_FILE"
             fi
             sed -i "s|^Libs:.*|Libs: -L\${libdir} -lopenblas|" "$PC_FILE"
             sed -i "s|^Cflags:.*|& -I\${includedir}/openblas|" "$PC_FILE"

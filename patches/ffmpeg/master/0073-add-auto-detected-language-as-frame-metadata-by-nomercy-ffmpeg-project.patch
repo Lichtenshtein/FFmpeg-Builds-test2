@@ -1,0 +1,174 @@
+From 2552914672f2247e853c60eb08121c6b4772f178 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Mon, 20 Jul 2026 02:05:29 +0300
+Subject: [PATCH] add auto-detected language as frame metadata by nomercy
+ ffmpeg project
+
+# Replace the upstream whisper filter with our patched version that exposes
+# the auto-detected language as frame metadata (lavfi.whisper.language +
+# lavfi.whisper.language_confidence) and as a leading JSON detection object.
+# See: https://github.com/NoMercy-Entertainment/nomercy-ffmpeg/issues/38
+
+https://github.com/NoMercy-Entertainment/nomercy-ffmpeg/raw/64764d1f582476ec13d8aeb731a5339a6f8185fe/scripts/includes/af_whisper.c
+
+---
+
+ libavfilter/af_whisper.c | 86 ++++++++++++++++++++++++++++++----------
+ 1 file changed, 66 insertions(+), 20 deletions(-)
+
+diff --git a/libavfilter/af_whisper.c b/libavfilter/af_whisper.c
+index 75103ce..2e83ad9 100644
+--- a/libavfilter/af_whisper.c
++++ b/libavfilter/af_whisper.c
+@@ -41,9 +41,7 @@
+ typedef struct WhisperContext {
+     const AVClass *class;
+     char *model_path;
+-    const char *language;
+-    char *language_str;
+-    bool translate;
++    char *language;
+     bool use_gpu;
+     int gpu_device;
+     char *vad_model_path;
+@@ -71,6 +69,9 @@ typedef struct WhisperContext {
+ 
+     AVIOContext *avio_context;
+     int index;
++
++    const char *detected_language;
++    float language_confidence;
+ } WhisperContext;
+ 
+ static void cb_log(enum ggml_log_level level, const char *text, void *user_data)
+@@ -152,19 +153,6 @@ static int init(AVFilterContext *ctx)
+         wctx->avio_context->direct = AVIO_FLAG_DIRECT;
+     }
+ 
+-    if (!whisper_is_multilingual(wctx->ctx_wsp)) {
+-        if (!wctx->translate && strcmp(wctx->language_str, "auto") == 0) {
+-            av_log(ctx, AV_LOG_WARNING,
+-                   "Multilingual model not provided. Non-English audio may not be correctly transcribed.\n");
+-        } else if (wctx->translate || (strcmp(wctx->language_str, "auto") != 0 && strcmp(wctx->language_str, "en") != 0)) {
+-            av_log(ctx, AV_LOG_ERROR,
+-                   "%s requested but multilingual model not provided.\n", wctx->translate ? "Translation" : "Transcription");
+-            return AVERROR(ENOSYS);
+-        }
+-        wctx->language = "en";
+-    } else
+-        wctx->language = wctx->language_str;
+-
+     av_log(ctx, AV_LOG_INFO,
+            "Whisper filter initialized: model: %s lang: %s queue: %" PRId64 " ms\n",
+            wctx->model_path, wctx->language, wctx->queue / 1000);
+@@ -198,6 +186,57 @@ static void uninit(AVFilterContext *ctx)
+         avio_closep(&wctx->avio_context);
+ }
+ 
++// Resolve the spoken language once, on the first transcription window that
++// produced actual speech. With an explicit 'language' option the configured
++// value is reported with confidence 1.0; with 'auto' the detection reuses the
++// mel spectrogram of the whisper_full() call that produced the current window,
++// costing one extra encoder pass exactly once per filter instance.
++static void resolve_language(AVFilterContext *ctx)
++{
++    WhisperContext *wctx = ctx->priv;
++
++    if (wctx->detected_language)
++        return;
++
++    if (wctx->language && wctx->language[0] && strcmp(wctx->language, "auto")) {
++        wctx->detected_language = wctx->language;
++        wctx->language_confidence = 1.0f;
++    } else if (!whisper_is_multilingual(wctx->ctx_wsp)) {
++        // English-only models cannot auto-detect; whisper transcribes as English
++        wctx->detected_language = "en";
++        wctx->language_confidence = 1.0f;
++    } else {
++        const int max_id = whisper_lang_max_id();
++        float *lang_probs = av_calloc(max_id + 1, sizeof(*lang_probs));
++        int lang_id;
++
++        if (!lang_probs)
++            return;
++
++        lang_id = whisper_lang_auto_detect(wctx->ctx_wsp, 0, ff_filter_get_nb_threads(ctx), lang_probs);
++        if (lang_id >= 0 && lang_id <= max_id) {
++            wctx->detected_language = whisper_lang_str(lang_id);
++            wctx->language_confidence = lang_probs[lang_id];
++        }
++        av_freep(&lang_probs);
++
++        if (!wctx->detected_language)
++            return;
++    }
++
++    av_log(ctx, AV_LOG_INFO, "detected language: %s (confidence: %.6f)\n",
++           wctx->detected_language, wctx->language_confidence);
++
++    if (wctx->avio_context && !av_strcasecmp(wctx->format, "json")) {
++        char *buf = av_asprintf("{\"detected_language\":\"%s\",\"language_confidence\":%.6f}\n",
++                                wctx->detected_language, wctx->language_confidence);
++        if (buf) {
++            avio_write(wctx->avio_context, buf, strlen(buf));
++            av_freep(&buf);
++        }
++    }
++}
++
+ static void run_transcription(AVFilterContext *ctx, AVFrame *frame, int samples)
+ {
+     WhisperContext *wctx = ctx->priv;
+@@ -215,7 +254,6 @@ static void run_transcription(AVFilterContext *ctx, AVFrame *frame, int samples)
+ 
+     struct whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
+     params.language = wctx->language;
+-    params.translate = wctx->translate;
+     params.n_threads = ff_filter_get_nb_threads(ctx);
+     params.print_special = 0;
+     params.print_progress = 0;
+@@ -223,7 +261,6 @@ static void run_transcription(AVFilterContext *ctx, AVFrame *frame, int samples)
+     params.print_timestamps = 0;
+     params.max_len = wctx->max_len;
+     params.token_timestamps = (wctx->max_len > 0);
+-    params.split_on_word = (wctx->max_len > 0);
+ 
+     if (whisper_full(wctx->ctx_wsp, params, wctx->audio_buffer, samples) != 0) {
+         av_log(ctx, AV_LOG_ERROR, "Failed to process audio with whisper.cpp\n");
+@@ -252,6 +289,11 @@ static void run_transcription(AVFilterContext *ctx, AVFrame *frame, int samples)
+             continue;
+         }
+ 
++        // Real speech in this window: resolve the language before the first
++        // segment is written so a JSON destination gets a leading detection
++        // object. No-op once resolved; never reached for blank-only windows.
++        resolve_language(ctx);
++
+         const bool turn = whisper_full_get_segment_speaker_turn_next(wctx->ctx_wsp, i);
+         const int64_t t0_ms = whisper_full_get_segment_t0(wctx->ctx_wsp, i) * 10;
+         const int64_t t1_ms = whisper_full_get_segment_t1(wctx->ctx_wsp, i) * 10;
+@@ -300,6 +342,11 @@ static void run_transcription(AVFilterContext *ctx, AVFrame *frame, int samples)
+         av_dict_set(metadata, "lavfi.whisper.text", segments_text, 0);
+         char *duration_text = av_asprintf("%f", duration);
+         av_dict_set(metadata, "lavfi.whisper.duration", duration_text, AV_DICT_DONT_STRDUP_VAL);
++        if (wctx->detected_language) {
++            av_dict_set(metadata, "lavfi.whisper.language", wctx->detected_language, 0);
++            char *confidence_text = av_asprintf("%f", wctx->language_confidence);
++            av_dict_set(metadata, "lavfi.whisper.language_confidence", confidence_text, AV_DICT_DONT_STRDUP_VAL);
++        }
+     }
+     av_freep(&segments_text);
+ 
+@@ -459,8 +506,7 @@ static int query_formats(const AVFilterContext *ctx,
+ 
+ static const AVOption whisper_options[] = {
+     { "model", "Path to the whisper.cpp model file", OFFSET(model_path), AV_OPT_TYPE_STRING,.flags = FLAGS },
+-    { "language", "Language for transcription ('auto' for auto-detect)", OFFSET(language_str), AV_OPT_TYPE_STRING, {.str = "auto"}, .flags = FLAGS },
+-    { "translate", "Translate from source language to English", OFFSET(translate), AV_OPT_TYPE_BOOL, {.i64 = 0}, 0, 1, .flags = FLAGS },
++    { "language", "Language for transcription ('auto' for auto-detect)", OFFSET(language), AV_OPT_TYPE_STRING, {.str = "auto"}, .flags = FLAGS },
+     { "queue", "Audio queue size", OFFSET(queue), AV_OPT_TYPE_DURATION, {.i64 = 3000000}, 20000, HOURS, .flags = FLAGS },
+     { "use_gpu", "Use GPU for processing", OFFSET(use_gpu), AV_OPT_TYPE_BOOL, {.i64 = 1}, 0, 1, .flags = FLAGS },
+     { "gpu_device", "GPU device to use", OFFSET(gpu_device), AV_OPT_TYPE_INT, {.i64 = 0}, 0, INT_MAX, .flags = FLAGS },
+-- 
+2.52.0.windows.1
+
