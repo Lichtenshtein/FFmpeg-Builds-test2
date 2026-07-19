@@ -142,11 +142,10 @@ RUN \
     make -j$(nproc) && \
     cp /.config .config && \
     \
-    ./ct-ng alldefconfig && \
     export CT_ALLOW_BUILD_AS_ROOT=1 && \
     if ! ./ct-ng build; then \
         echo "❌ ct-ng build FAILED! Printing end of error log:"; \
-        tail -n 100 build.log; \
+        [ -f build.log ] && tail -n 100 build.log || echo "build.log not found"; \
         exit 1; \
     fi && \
     \
