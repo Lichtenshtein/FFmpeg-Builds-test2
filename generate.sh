@@ -157,6 +157,9 @@ if [[ "${USE_TENSORFLOW}" == "1" ]]; then
     to_df "    cp -fRP /tmp/tf_ctx/. /opt/ffbuild/share/tensorflow_models/"
 fi
 
+# Clear the log before starting a new component build
+to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache rm -f /root/.cache/ccache/patch_errors.log"
+
 # Clear the contents before hashing:
 # 1. Take only variables that affect the binary code
 # 2. Remove comments and extra spaces
@@ -281,7 +284,8 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    export _H=\${CACHE_BYPASS_${STAGENAME}} && . ${CONTAINER_ROOT}/util/vars.sh \"${TARGET}\" \"${VARIANT}\" && run_stage ${CONTAINER_ROOT}/${STAGE}"
 done
 
-show_patch_summary
+to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
+to_df "    . ${CONTAINER_ROOT}/util/vars.sh \"${TARGET}\" \"${VARIANT}\" && show_patch_summary"
 
 # FINAL FFMPEG BUILD STAGE
 to_df "FROM ${TARGET_IMAGE} AS final_build"
