@@ -7,7 +7,7 @@ SCRIPT_COMMIT="78e11b52c8fc1fcc6d15afd6c7479394fb3bc6af"
 # SCRIPT_COMMIT2="e8881bb4c6c7f22283ad01ea6e6a8d577c8ff09c"
 
 ffbuild_enabled() {
-    return 0
+    return 1
 }
 
 ffbuild_dockerdl() {
