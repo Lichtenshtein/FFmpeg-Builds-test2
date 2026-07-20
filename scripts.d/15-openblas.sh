@@ -85,7 +85,7 @@ ffbuild_dockerbuild() {
     flang_fflags="--target=${FFBUILD_TOOLCHAIN} $flang_fflags"
 
 
-    local mingw_sysroot="/opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/sys-root/mingw"
+    local ct_ng_base="/opt/ct-ng/x86_64-w64-mingw32"
     local gcc_runtime_dir="/opt/ct-ng/lib/gcc/x86_64-w64-mingw32/15.2.0"
     local orig_env_ldflags="$LDFLAGS"
 
@@ -117,7 +117,14 @@ ffbuild_dockerbuild() {
         flang_ldflags="$flang_ldflags $flag"
     done
 
-    flang_ldflags="-B${mingw_sysroot}/lib -B${gcc_runtime_dir} -L${mingw_sysroot}/lib $flang_ldflags"
+    flang_ldflags="-B${ct_ng_base}/x86_64-w64-mingw32/lib \
+-B${ct_ng_base}/sysroot/lib \
+-B${gcc_runtime_dir} \
+-L${ct_ng_base}/x86_64-w64-mingw32/lib \
+-L${ct_ng_base}/sysroot/lib \
+-L${gcc_runtime_dir} \
+-L/usr/lib/llvm-23/lib \
+$flang_ldflags"
 
     CFLAGS="$CFLAGS" \
     CXXFLAGS="$CXXFLAGS" \
