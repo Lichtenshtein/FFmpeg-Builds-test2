@@ -67,6 +67,7 @@ ffbuild_dockerbuild() {
         [[ "$flag" == *"-fno-var-tracking-assignments"* ]] && continue
         [[ "$flag" == *"-fgraphite-identity"* ]] && continue
         [[ "$flag" == *"-floop-nest-optimize"* ]] && continue
+        [[ "$flag" == *"-std=gnu17"* ]] && continue
 
         # if [[ "$flag" == *"-fgraphite-identity"* || "$flag" == *"-floop-nest-optimize"* ]]; then
             # [[ "$flang_fflags" == *"-mllvm -polly"* ]] || flang_fflags="$flang_fflags -mllvm -polly -mllvm -polly-vectorizer=stripmine"
