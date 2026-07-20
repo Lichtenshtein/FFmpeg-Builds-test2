@@ -20,14 +20,7 @@ ffbuild_dockerbuild() {
     find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wunused-function/-Wno-unused-function/g' 2>/dev/null || true
     find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wunused-variable/-Wno-unused-variable/g' 2>/dev/null || true
 
-    local orig_cflags="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1"
-    local orig_cxxflags="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1"
-    local orig_ldflags="$LDFLAGS ${USELTO}${USELTO_L}"
-
-    local flang_fflags="--target=${FFBUILD_TOOLCHAIN} ${OPT_LEVEL} -march=${CPU_ARCH} -mtune=${CPU_TUNE} -g0 -ffunction-sections -fdata-sections -DNO_AFFINITY=1 -D_FORTIFY_SOURCE=2 -flto"
-    local flang_ldflags="--target=${FFBUILD_TOOLCHAIN} -flto -fuse-ld=lld -L${FFBUILD_PREFIX}/lib -Wl,--as-needed -Wl,--gc-sections"
-
-    unset CFLAGS CXXFLAGS FFLAGS LDFLAGS
+    local fc_compiler="${FC:-x86_64-w64-mingw32-gfortran}"
 
     mkdir -p build && cd build
 
@@ -46,13 +39,6 @@ ffbuild_dockerbuild() {
         -DBUILD_WITHOUT_LAPACKE=OFF
         -DC_LAPACK=OFF # Build from C sources instead of Fortran
         -DCMAKE_Fortran_COMPILER="$FC"
-        -DCMAKE_C_FLAGS="$orig_cflags"
-        -DCMAKE_CXX_FLAGS="$orig_cxxflags"
-        -DCMAKE_EXE_LINKER_FLAGS="$orig_ldflags"
-        -DCMAKE_SHARED_LINKER_FLAGS="$orig_ldflags"
-        -DCMAKE_Fortran_FLAGS_INIT="$flang_fflags"
-        -DCMAKE_Fortran_FLAGS="$flang_fflags"
-        -DCMAKE_Fortran_LINK_FLAGS="$flang_ldflags"
         # -DCMAKE_Fortran_COMPILER_WORKS=ON
         -DBUILD_WITHOUT_CBLAS=OFF
         -DBUILD_TESTING=OFF
@@ -64,11 +50,73 @@ ffbuild_dockerbuild() {
         -DCPP_THREAD_SAFETY_USE_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
     )
 
-    cmake -G Ninja "${myconf[@]}" .. || return 1
+    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1"
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1"
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
 
-    # export CFLAGS="$orig_cflags"
-    # export CXXFLAGS="$orig_cxxflags"
-    # export LDFLAGS="$orig_ldflags"
+    local flang_fflags=""
+    for flag in $CFLAGS; do
+        if [[ "$flag" == *"-flto="* ]]; then
+            flang_fflags="$flang_fflags -flto"
+            continue
+        fi
+        [[ "$flag" == *"-ffat-lto-objects"* ]] && continue
+        [[ "$flag" == *"-flto-partition"* ]] && continue
+        [[ "$flag" == *"-ffat-lto-objects"* ]] && continue
+        [[ "$flag" == *"-fmerge-all-constants"* ]] && continue
+        [[ "$flag" == *"-fno-var-tracking-assignments"* ]] && continue
+        [[ "$flag" == *"-fgraphite-identity"* ]] && continue
+        [[ "$flag" == *"-floop-nest-optimize"* ]] && continue
+        [[ "$flag" == *"-std=gnu17"* ]] && continue
+
+        # if [[ "$flag" == *"-fgraphite-identity"* || "$flag" == *"-floop-nest-optimize"* ]]; then
+            # [[ "$flang_fflags" == *"-mllvm -polly"* ]] || flang_fflags="$flang_fflags -mllvm -polly -mllvm -polly-vectorizer=stripmine"
+            # continue
+        # fi
+
+        [[ "$flag" == *"-pipe"* ]] && continue
+        [[ "$flag" == *"-fstack-protector-strong"* ]] && continue
+        [[ "$flag" == *"-mms-bitfields"* ]] && continue
+        [[ "$flag" == *"-Wno-attributes"* ]] && continue
+        [[ "$flag" == *"-mconsole"* ]] && continue
+        flang_fflags="$flang_fflags $flag"
+    done
+
+    flang_fflags="--target=${FFBUILD_TOOLCHAIN} $flang_fflags"
+
+    local flang_ldflags=""
+    for flag in $LDLAGS; do
+        if [[ "$flag" == *"-flto="* ]]; then
+            flang_fflags="$flang_fflags -flto"
+            continue
+        fi
+        [[ "$flag" == *"-static-libgcc"* ]] && continue
+        [[ "$flag" == *"-static-libstdc++"* ]] && continue
+        [[ "$flag" == *"-flto-partition=balanced"* ]] && continue
+        [[ "$flag" == *"-pipe"* ]] && continue
+        # [[ "$flag" == *"-fmerge-all-constants"* ]] && continue
+        # [[ "$flag" == *"-fno-var-tracking-assignments"* ]] && continue
+        # [[ "$flag" == *"-fgraphite-identity"* ]] && continue
+        # [[ "$flag" == *"-floop-nest-optimize"* ]] && continue
+        # [[ "$flag" == *"-std=gnu17"* ]] && continue
+
+        # if [[ "$flag" == *"-fgraphite-identity"* || "$flag" == *"-floop-nest-optimize"* ]]; then
+            # [[ "$flang_fflags" == *"-mllvm -polly"* ]] || flang_fflags="$flang_fflags -mllvm -polly -mllvm -polly-vectorizer=stripmine"
+            # continue
+        # fi
+
+        # [[ "$flag" == *"-fstack-protector-strong"* ]] && continue
+        # [[ "$flag" == *"-mms-bitfields"* ]] && continue
+        # [[ "$flag" == *"-Wno-attributes"* ]] && continue
+        # [[ "$flag" == *"-mconsole"* ]] && continue
+        flang_ldflags="$flang_ldflags $flag"
+    done
+
+    CFLAGS="$CFLAGS" \
+    CXXFLAGS="$CXXFLAGS" \
+    FFLAGS="$flang_fflags" \
+    LDFLAGS="$flang_ldflags" \
+    cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
