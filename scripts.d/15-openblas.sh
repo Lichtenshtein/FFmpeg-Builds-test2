@@ -39,6 +39,7 @@ ffbuild_dockerbuild() {
         -DBUILD_WITHOUT_LAPACKE=OFF
         -DC_LAPACK=OFF # Build from C sources instead of Fortran
         -DCMAKE_Fortran_COMPILER="$FC"
+        # -DCMAKE_Fortran_COMPILER_WORKS=ON
         -DBUILD_WITHOUT_CBLAS=OFF
         -DBUILD_TESTING=OFF
         -DBUILD_BENCHMARKS=OFF
@@ -49,10 +50,49 @@ ffbuild_dockerbuild() {
         -DCPP_THREAD_SAFETY_USE_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
-    FFLAGS="$CFLAGS" \
-    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1"
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1"
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
+
+    local flang_fflags=""
+    for flag in $CFLAGS; do
+        if [[ "$flag" == *"-flto="* ]]; then
+            flang_fflags="$flang_fflags -flto"
+            continue
+        fi
+        [[ "$flag" == *"-ffat-lto-objects"* ]] && flang_fflags="$flang_fflags -fembed-bitcode" && continue
+        [[ "$flag" == *"-flto-partition"* ]] && continue
+        [[ "$flag" == *"-ffat-lto-objects"* ]] && continue
+        [[ "$flag" == *"-fmerge-all-constants"* ]] && continue
+        [[ "$flag" == *"-fno-var-tracking-assignments"* ]] && continue
+        [[ "$flag" == *"-fgraphite-identity"* ]] && continue
+        [[ "$flag" == *"-floop-nest-optimize"* ]] && continue
+
+        # if [[ "$flag" == *"-fgraphite-identity"* || "$flag" == *"-floop-nest-optimize"* ]]; then
+            # [[ "$flang_fflags" == *"-mllvm -polly"* ]] || flang_fflags="$flang_fflags -mllvm -polly -mllvm -polly-vectorizer=stripmine"
+            # continue
+        # fi
+
+        if [[ "$flag" == *"-pipe"* ]]; then
+            flang_fflags="$flang_fflags -pipe"
+            continue
+        fi
+        if [[ "$flag" == *"-fstack-protector-strong"* ]]; then
+            flang_fflags="$flang_fflags -fstack-protector-strong"
+            continue
+        fi
+        [[ "$flag" == *"-mms-bitfields"* ]] && continue
+        [[ "$flag" == *"-Wno-attributes"* ]] && continue
+        [[ "$flag" == *"-mconsole"* ]] && continue
+        flang_fflags="$flang_fflags $flag"
+    done
+
+    flang_fflags="--target=${FFBUILD_TOOLCHAIN} $flang_fflags"
+
+    CFLAGS="$CFLAGS" \
+    CXXFLAGS="$CXXFLAGS" \
+    FFLAGS="$flang_fflags" \
+    LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
