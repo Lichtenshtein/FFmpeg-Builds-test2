@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/OpenMathLib/OpenBLAS.git"
-SCRIPT_COMMIT="7c991951a5f3b1dbdd27f200f2bd4557b4c51a3d"
+SCRIPT_COMMIT="f959027a068f1a12e473377aa94b53395fc0064c"
 
 ffbuild_enabled() {
     return 0
@@ -20,6 +20,8 @@ ffbuild_dockerbuild() {
     find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wunused-function/-Wno-unused-function/g' 2>/dev/null || true
     find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wunused-variable/-Wno-unused-variable/g' 2>/dev/null || true
 
+    local fc_compiler="${FC:-x86_64-w64-mingw32-gfortran}"
+
     mkdir -p build && cd build
 
     local myconf=(
@@ -35,6 +37,8 @@ ffbuild_dockerbuild() {
         -DNUM_THREADS=64
         -DBUILD_WITHOUT_LAPACK=OFF
         -DBUILD_WITHOUT_LAPACKE=OFF
+        -DC_LAPACK=OFF # Build from C sources instead of Fortran
+        -DCMAKE_Fortran_COMPILER="$FC"
         -DBUILD_WITHOUT_CBLAS=OFF
         -DBUILD_TESTING=OFF
         -DBUILD_BENCHMARKS=OFF
@@ -47,28 +51,28 @@ ffbuild_dockerbuild() {
 
     CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
+    FFLAGS="$CFLAGS" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-
     local fortran_libs=""
 
     if [[ "${myconf[@]}" =~ "-DBUILD_WITHOUT_LAPACK=OFF" ]]; then
-        if command -v "${FC}" &>/dev/null || command -v gfortran &>/dev/null; then
-            if grep -q "ONLY_C=0" "config.h" 2>/dev/null || grep -q "#define TRN_MANUAL" "config.h" 2>/dev/null || [ ! -f "config.h" ]; then
-                log_info "${TARGET_MARK} GNU Fortran detected. Adding -lgfortran -lquadmath to Libs.private"
-                fortran_libs=" -lgfortran -lquadmath"
-            fi
-        elif command -v flang &>/dev/null || command -v "${FFBUILD_CROSS_PREFIX}flang" &>/dev/null; then
-            if grep -q "ONLY_C=0" "config.h" 2>/dev/null || grep -q "#define TRN_MANUAL" "config.h" 2>/dev/null || [ ! -f "config.h" ]; then
-                log_info "${TARGET_MARK} LLVM Flang detected. Adding -lflang -lflangrti to Libs.private"
+        if grep -q "ONLY_C=0" "config.h" 2>/dev/null || grep -q "#define TRN_MANUAL" "config.h" 2>/dev/null || [ ! -f "config.h" ]; then
+            if grep -E "^CMAKE_Fortran_COMPILER:FILEPATH=" CMakeCache.txt | grep -E -iq "flang|clang"; then
+                log_info "${TARGET_MARK} LLVM Flang detected via CMakeCache. Adding -lflang -lflangrti to Libs.private"
                 fortran_libs=" -lflang -lflangrti"
+            elif grep -E "^CMAKE_Fortran_COMPILER:FILEPATH=" CMakeCache.txt | grep -E -iq "gfortran|gcc"; then
+                log_info "${TARGET_MARK} GNU Fortran detected via CMakeCache. Adding -lgfortran -lquadmath to Libs.private"
+                fortran_libs=" -lgfortran -lquadmath"
+            else
+                log_warn "Unknown Fortran compiler identity in CMakeCache.txt. Skipping library injection."
             fi
         else
-            log_warn "No Fortran compiler found during post-build check. OpenBLAS probably used a C wrapper."
+            log_warn "OpenBLAS build log shows C-only LAPACK wrapper was used. No Fortran runtime injected."
         fi
     fi
 
