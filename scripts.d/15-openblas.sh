@@ -35,7 +35,7 @@ ffbuild_dockerbuild() {
         -DNUM_THREADS=64
         -DBUILD_WITHOUT_LAPACK=OFF
         -DBUILD_WITHOUT_LAPACKE=OFF
-        -DC_LAPACK=OFF # Build from C sources instead of Fortran
+        -DC_LAPACK=ON # Build from C sources instead of Fortran
         -DBUILD_WITHOUT_CBLAS=OFF
         -DBUILD_TESTING=OFF
         -DBUILD_BENCHMARKS=OFF
@@ -82,9 +82,9 @@ ffbuild_dockerbuild() {
             if [[ "${myconf[@]}" =~ "CPP_THREAD_SAFETY_USE_OPENMP=ON" ]]; then
                 sed -i "/^Libs.private:/ s/$/ ${OPENMP_LIB}/" "$PC_FILE"
             fi
-            if [[ -n "$fortran_libs" ]]; then
-                sed -i "/^Libs.private:/ s/$/${fortran_libs}/" "$PC_FILE"
-            fi
+            # if [[ -n "$fortran_libs" ]]; then
+                # sed -i "/^Libs.private:/ s/$/${fortran_libs}/" "$PC_FILE"
+            # fi
             sed -i "s|^Libs:.*|Libs: -L\${libdir} -lopenblas|" "$PC_FILE"
             sed -i "s|^Cflags:.*|& -I\${includedir}/openblas|" "$PC_FILE"
         done
