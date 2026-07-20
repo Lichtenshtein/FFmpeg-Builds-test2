@@ -44,12 +44,11 @@ RUN \
     apt-get -y update >/dev/null 2>&1 && \
     \
     echo "🔧 Installing latest LLD, Clang, Flang, and LLVM packages" && \
-    apt-get -y install --no-install-recommends lld-23 clang-23 llvm-23 flang-23 && \
+    apt-get -y install --no-install-recommends lld-23 clang-23 llvm-23 && \
     ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
     ln -sf /usr/bin/clang-23 /usr/bin/clang && \
     ln -sf /usr/bin/clang++-23 /usr/bin/clang++ && \
     ln -sf /usr/bin/llvm-config-23 /usr/bin/llvm-config && \
-    ln -sf /usr/bin/flang-23 /usr/bin/flang && \
     \
     MOLD_VERSION=$(curl -fL "https://api.github.com/repos/rui314/mold/releases/latest" | jq -r .tag_name | sed 's/^v//') && \
     echo "=== Mold version found: ${MOLD_VERSION} ===" && \
@@ -190,14 +189,8 @@ RUN rustup target add "$FFBUILD_RUST_TARGET" && \
     printf "[target.%s]\nlinker = \"%s-gcc\"\nar = \"%s-gcc-ar\"\n" "$FFBUILD_RUST_TARGET" "$FFBUILD_TOOLCHAIN" "$FFBUILD_TOOLCHAIN" > "$CARGO_HOME"/config.toml && \
     \
     mkdir -p /opt/ccache-links && \
-    for tool in gcc g++ cpp c++ gcc-ar gcc-nm gcc-ranlib ranlib clang clang++ flang; do \
+    for tool in gcc g++ cpp c++ gcc-ar gcc-nm gcc-ranlib ranlib clang clang++; do \
         ln -sf /usr/local/bin/ccache "/opt/ccache-links/x86_64-w64-mingw32-${tool}"; \
         ln -sf /usr/local/bin/ccache "/opt/ccache-links/${tool}"; \
     done && \
-    \
-    ln -sf /usr/bin/llvm-config /opt/ccache-links/llvm-config && \
-    \
-    printf '#!/bin/bash\nexec /usr/local/bin/ccache /usr/bin/flang-23 --target=x86_64-w64-mingw32 "$@"\n' > /opt/ccache-links/x86_64-w64-mingw32-gfortran && \
-    chmod +x /opt/ccache-links/x86_64-w64-mingw32-gfortran && \
-    \
-    ln -sfn /opt/ccache-links/x86_64-w64-mingw32-gfortran /opt/ccache-links/gfortran
+    ln -sf /usr/bin/llvm-config /opt/ccache-links/llvm-config

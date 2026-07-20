@@ -20,8 +20,6 @@ ffbuild_dockerbuild() {
     find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wunused-function/-Wno-unused-function/g' 2>/dev/null || true
     find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wunused-variable/-Wno-unused-variable/g' 2>/dev/null || true
 
-    local fc_compiler="${FC:-x86_64-w64-mingw32-gfortran}"
-
     mkdir -p build && cd build
 
     local myconf=(
@@ -38,8 +36,6 @@ ffbuild_dockerbuild() {
         -DBUILD_WITHOUT_LAPACK=OFF
         -DBUILD_WITHOUT_LAPACKE=OFF
         -DC_LAPACK=OFF # Build from C sources instead of Fortran
-        -DCMAKE_Fortran_COMPILER="$FC"
-        # -DCMAKE_Fortran_COMPILER_WORKS=ON
         -DBUILD_WITHOUT_CBLAS=OFF
         -DBUILD_TESTING=OFF
         -DBUILD_BENCHMARKS=OFF
@@ -50,110 +46,31 @@ ffbuild_dockerbuild() {
         -DCPP_THREAD_SAFETY_USE_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
     )
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1"
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1"
-    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
-
-    local flang_fflags=""
-    for flag in $CFLAGS; do
-        if [[ "$flag" == *"-flto="* ]]; then
-            flang_fflags="$flang_fflags -flto"
-            continue
-        fi
-        [[ "$flag" == *"-ffat-lto-objects"* ]] && continue
-        [[ "$flag" == *"-flto-partition"* ]] && continue
-        [[ "$flag" == *"-ffat-lto-objects"* ]] && continue
-        [[ "$flag" == *"-fmerge-all-constants"* ]] && continue
-        [[ "$flag" == *"-fno-var-tracking-assignments"* ]] && continue
-        [[ "$flag" == *"-fgraphite-identity"* ]] && continue
-        [[ "$flag" == *"-floop-nest-optimize"* ]] && continue
-        [[ "$flag" == *"-std=gnu17"* ]] && continue
-
-        # if [[ "$flag" == *"-fgraphite-identity"* || "$flag" == *"-floop-nest-optimize"* ]]; then
-            # [[ "$flang_fflags" == *"-mllvm -polly"* ]] || flang_fflags="$flang_fflags -mllvm -polly -mllvm -polly-vectorizer=stripmine"
-            # continue
-        # fi
-
-        [[ "$flag" == *"-pipe"* ]] && continue
-        [[ "$flag" == *"-fstack-protector-strong"* ]] && continue
-        [[ "$flag" == *"-mms-bitfields"* ]] && continue
-        [[ "$flag" == *"-Wno-attributes"* ]] && continue
-        [[ "$flag" == *"-mconsole"* ]] && continue
-        flang_fflags="$flang_fflags $flag"
-    done
-
-    flang_fflags="--target=${FFBUILD_TOOLCHAIN} $flang_fflags"
-
-
-    local ct_ng_base="/opt/ct-ng/x86_64-w64-mingw32"
-    local gcc_runtime_dir="/opt/ct-ng/lib/gcc/x86_64-w64-mingw32/15.2.0"
-    local orig_env_ldflags="$LDFLAGS"
-
-    local flang_ldflags=""
-    for flag in $LDFLAGS; do
-        if [[ "$flag" == *"-flto="* ]]; then
-            flang_ldflags="$flang_ldflags -flto"
-            continue
-        fi
-        [[ "$flag" == *"-static-libgcc"* ]] && continue
-        [[ "$flag" == *"-static-libstdc++"* ]] && continue
-        [[ "$flag" == *"-flto-partition=balanced"* ]] && continue
-        [[ "$flag" == *"-pipe"* ]] && continue
-        # [[ "$flag" == *"-fmerge-all-constants"* ]] && continue
-        # [[ "$flag" == *"-fno-var-tracking-assignments"* ]] && continue
-        # [[ "$flag" == *"-fgraphite-identity"* ]] && continue
-        # [[ "$flag" == *"-floop-nest-optimize"* ]] && continue
-        # [[ "$flag" == *"-std=gnu17"* ]] && continue
-
-        # if [[ "$flag" == *"-fgraphite-identity"* || "$flag" == *"-floop-nest-optimize"* ]]; then
-            # [[ "$flang_fflags" == *"-mllvm -polly"* ]] || flang_fflags="$flang_fflags -mllvm -polly -mllvm -polly-vectorizer=stripmine"
-            # continue
-        # fi
-
-        # [[ "$flag" == *"-fstack-protector-strong"* ]] && continue
-        # [[ "$flag" == *"-mms-bitfields"* ]] && continue
-        # [[ "$flag" == *"-Wno-attributes"* ]] && continue
-        # [[ "$flag" == *"-mconsole"* ]] && continue
-        flang_ldflags="$flang_ldflags $flag"
-    done
-
-    flang_ldflags="-B${ct_ng_base}/x86_64-w64-mingw32/lib \
--B${ct_ng_base}/sysroot/lib \
--B${gcc_runtime_dir} \
--L${ct_ng_base}/x86_64-w64-mingw32/lib \
--L${ct_ng_base}/sysroot/lib \
--L${gcc_runtime_dir} \
--L/usr/lib/llvm-23/lib \
-$flang_ldflags"
-
-    CFLAGS="$CFLAGS" \
-    CXXFLAGS="$CXXFLAGS" \
-    FFLAGS="$flang_fflags" \
-    LDFLAGS="$flang_ldflags" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
-
-    export LDFLAGS="$orig_env_ldflags"
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    local fortran_libs=""
+    # local fortran_libs=""
 
-    if [[ "${myconf[@]}" =~ "-DBUILD_WITHOUT_LAPACK=OFF" ]]; then
-        if grep -q "ONLY_C=0" "config.h" 2>/dev/null || grep -q "#define TRN_MANUAL" "config.h" 2>/dev/null || [ ! -f "config.h" ]; then
-            if grep -E "^CMAKE_Fortran_COMPILER:FILEPATH=" CMakeCache.txt | grep -E -iq "flang|clang"; then
-                log_info "${TARGET_MARK} LLVM Flang detected via CMakeCache. Adding -lflang -lflangrti to Libs.private"
-                fortran_libs=" -lflang -lflangrti"
-            elif grep -E "^CMAKE_Fortran_COMPILER:FILEPATH=" CMakeCache.txt | grep -E -iq "gfortran|gcc"; then
-                log_info "${TARGET_MARK} GNU Fortran detected via CMakeCache. Adding -lgfortran -lquadmath to Libs.private"
-                fortran_libs=" -lgfortran -lquadmath"
-            else
-                log_warn "Unknown Fortran compiler identity in CMakeCache.txt. Skipping library injection."
-            fi
-        else
-            log_warn "OpenBLAS build log shows C-only LAPACK wrapper was used. No Fortran runtime injected."
-        fi
-    fi
+    # if [[ "${myconf[@]}" =~ "-DBUILD_WITHOUT_LAPACK=OFF" ]]; then
+        # if grep -q "ONLY_C=0" "config.h" 2>/dev/null || grep -q "#define TRN_MANUAL" "config.h" 2>/dev/null || [ ! -f "config.h" ]; then
+            # if grep -E "^CMAKE_Fortran_COMPILER:FILEPATH=" CMakeCache.txt | grep -E -iq "flang|clang"; then
+                # log_info "${TARGET_MARK} LLVM Flang detected via CMakeCache. Adding -lflang -lflangrti to Libs.private"
+                # fortran_libs=" -lflang -lflangrti"
+            # elif grep -E "^CMAKE_Fortran_COMPILER:FILEPATH=" CMakeCache.txt | grep -E -iq "gfortran|gcc"; then
+                # log_info "${TARGET_MARK} GNU Fortran detected via CMakeCache. Adding -lgfortran -lquadmath to Libs.private"
+                # fortran_libs=" -lgfortran -lquadmath"
+            # else
+                # log_warn "Unknown Fortran compiler identity in CMakeCache.txt. Skipping library injection."
+            # fi
+        # else
+            # log_warn "OpenBLAS build log shows C-only LAPACK wrapper was used. No Fortran runtime injected."
+        # fi
+    # fi
 
     if ls "$PC_DIR"/*openblas*.pc >/dev/null 2>&1; then
         for PC_FILE in "$PC_DIR"/*openblas*.pc; do
