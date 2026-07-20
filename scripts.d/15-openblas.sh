@@ -60,7 +60,7 @@ ffbuild_dockerbuild() {
             flang_fflags="$flang_fflags -flto"
             continue
         fi
-        [[ "$flag" == *"-ffat-lto-objects"* ]] && flang_fflags="$flang_fflags -fembed-bitcode" && continue
+        [[ "$flag" == *"-ffat-lto-objects"* ]] && continue
         [[ "$flag" == *"-flto-partition"* ]] && continue
         [[ "$flag" == *"-ffat-lto-objects"* ]] && continue
         [[ "$flag" == *"-fmerge-all-constants"* ]] && continue
@@ -73,14 +73,8 @@ ffbuild_dockerbuild() {
             # continue
         # fi
 
-        if [[ "$flag" == *"-pipe"* ]]; then
-            flang_fflags="$flang_fflags -pipe"
-            continue
-        fi
-        if [[ "$flag" == *"-fstack-protector-strong"* ]]; then
-            flang_fflags="$flang_fflags -fstack-protector-strong"
-            continue
-        fi
+        [[ "$flag" == *"-pipe"* ]] && continue
+        [[ "$flag" == *"-fstack-protector-strong"* ]] && continue
         [[ "$flag" == *"-mms-bitfields"* ]] && continue
         [[ "$flag" == *"-Wno-attributes"* ]] && continue
         [[ "$flag" == *"-mconsole"* ]] && continue
