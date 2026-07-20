@@ -33,10 +33,12 @@ ffbuild_dockerbuild() {
         -DTARGET=HASWELL
         -DDYNAMIC_ARCH=OFF
         -DNUM_THREADS=64
+        -DC_LAPACK=ON # Build from C sources instead of Fortran
         -DBUILD_WITHOUT_LAPACK=OFF
         -DBUILD_WITHOUT_LAPACKE=OFF
-        -DC_LAPACK=ON # Build from C sources instead of Fortran
         -DBUILD_WITHOUT_CBLAS=OFF
+        -DCMAKE_Fortran_COMPILER=OFF # Explicitly block Fortran compiler search
+        -DBUILD_LAPACK_DEPRECATED=OFF # Drops hundreds of unneeded f2c files
         -DBUILD_TESTING=OFF
         -DBUILD_BENCHMARKS=OFF
         -DUTEST_CHECK=OFF
