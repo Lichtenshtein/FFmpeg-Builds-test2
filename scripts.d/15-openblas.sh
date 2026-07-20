@@ -66,9 +66,9 @@ ffbuild_dockerbuild() {
 
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
-    export CFLAGS="$orig_cflags"
-    export CXXFLAGS="$orig_cxxflags"
-    export LDFLAGS="$orig_ldflags"
+    # export CFLAGS="$orig_cflags"
+    # export CXXFLAGS="$orig_cxxflags"
+    # export LDFLAGS="$orig_ldflags"
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
