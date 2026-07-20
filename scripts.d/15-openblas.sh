@@ -84,6 +84,11 @@ ffbuild_dockerbuild() {
 
     flang_fflags="--target=${FFBUILD_TOOLCHAIN} $flang_fflags"
 
+
+    local mingw_sysroot="/opt/ct-ng/x86_64-w64-mingw32/x86_64-w64-mingw32/sys-root/mingw"
+    local gcc_runtime_dir="/opt/ct-ng/lib/gcc/x86_64-w64-mingw32/15.2.0"
+    local orig_env_ldflags="$LDFLAGS"
+
     local flang_ldflags=""
     for flag in $LDLAGS; do
         if [[ "$flag" == *"-flto="* ]]; then
@@ -112,11 +117,15 @@ ffbuild_dockerbuild() {
         flang_ldflags="$flang_ldflags $flag"
     done
 
+    flang_ldflags="-B${mingw_sysroot}/lib -B${gcc_runtime_dir} -L${mingw_sysroot}/lib $flang_fflags"
+
     CFLAGS="$CFLAGS" \
     CXXFLAGS="$CXXFLAGS" \
     FFLAGS="$flang_fflags" \
     LDFLAGS="$flang_ldflags" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
+
+    export LDFLAGS="$orig_env_ldflags"
 
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
