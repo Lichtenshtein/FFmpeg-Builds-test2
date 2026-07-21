@@ -1,10 +1,7 @@
 #!/bin/bash
 set -xe
-# SCRIPT_REPO="https://github.com/stenzek/shaderc.git"
-# SCRIPT_COMMIT="d72697bfc353b547efc58421ad54ac0345441bf4"
-
-SCRIPT_REPO2="https://github.com/google/shaderc.git"
-SCRIPT_COMMIT2="e68868016406f1b53a0fbf09402b79b846e8bca4"
+SCRIPT_REPO="https://github.com/google/shaderc.git"
+SCRIPT_COMMIT="e68868016406f1b53a0fbf09402b79b846e8bca4"
 
 ffbuild_enabled() {
     return 0
