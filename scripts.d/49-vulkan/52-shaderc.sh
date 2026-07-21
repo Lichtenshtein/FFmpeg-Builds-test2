@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -xe
 # SCRIPT_REPO="https://github.com/stenzek/shaderc.git"
 # SCRIPT_COMMIT="d72697bfc353b547efc58421ad54ac0345441bf4"
 
@@ -19,7 +19,10 @@ ffbuild_dockerdl() {
         local CUSTOM_DEPS="${PATCHES_DIR}/${COMPONENT_NAME}/DEPS"
 
         if [[ -f "$CUSTOM_DEPS" ]]; then
-            echo "cp -rf '$CUSTOM_DEPS' './DEPS'"
+            log_info "Replacing DEPS with custom version from patches..."
+            echo "cp -rf${OP_V} '$CUSTOM_DEPS' './DEPS'"
+        else
+            log_warn "Custom DEPS not found at $CUSTOM_DEPS. Using default."
         fi
     fi
 
