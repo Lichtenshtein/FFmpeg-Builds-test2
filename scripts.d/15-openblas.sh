@@ -64,13 +64,15 @@ ffbuild_dockerbuild() {
     for flag in $CFLAGS; do
         [[ "$flag" == *"-std="* ]] && continue
         [[ "$flag" == *"-mms-bitfields"* ]] && continue
+        [[ "$flag" == *"-mconsole"* ]] && continue
         flang_fflags="$flang_fflags $flag"
     done
 
     flang_fflags="$flang_fflags -frecursive"
 
-    FFLAGS="$flang_fflags" \
-    FCFLAGS="$flang_fflags" \
+    # FCFLAGS="$flang_fflags"
+
+    FFLAGS="$flang_fflags $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
     CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
