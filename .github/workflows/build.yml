@@ -497,7 +497,7 @@ jobs:
             base-win64=docker-image://${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
             cache_ffmpeg_ctx=${{ github.workspace }}/.cache/ffmpeg
             cache_downloads_ctx=${{ github.workspace }}/.cache/downloads
-            tf_models_ctx=${{ github.workspace }}/host_tensorflow_models
+            ${{ env.USE_TENSORFLOW == '1' && format('tf_models_ctx={0}/host_tensorflow_models', github.workspace) || '' }}
           provenance: false
 
       - name: Final FFmpeg Compilation
@@ -518,7 +518,7 @@ jobs:
           build-contexts: |
             base-win64=docker-image://${{ steps.images.outputs.repo_lc }}/base-win64:${{ steps.docker_hash.outputs.hash }}
             components_build=docker-image://${{ steps.images.outputs.repo_lc }}/components-cache:latest
-            tf_models_ctx=${{ github.workspace }}/host_tensorflow_models
+            ${{ env.USE_TENSORFLOW == '1' && format('tf_models_ctx={0}/host_tensorflow_models', github.workspace) || '' }}
             cache_downloads_ctx=${{ github.workspace }}/.cache/downloads
             cache_ffmpeg_ctx=${{ github.workspace }}/.cache/ffmpeg
           provenance: false
