@@ -569,7 +569,7 @@ CT_CC_LANG_FORTRAN=y
 # CT_CC_LANG_JIT is not set
 # CT_CC_LANG_ADA is not set
 # CT_CC_LANG_D is not set
-# CT_CC_LANG_OBJC is not set
+CT_CC_LANG_OBJC=y
 # CT_CC_LANG_OBJCXX is not set
 # CT_CC_LANG_GOLANG is not set
 CT_CC_LANG_OTHERS=""
