@@ -22,6 +22,14 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
+    local use_fortran=OFF
+    if [ -n "$FC" ] && command -v "$FC" >/dev/null 2>&1; then
+        log_info "${TARGET_MARK} Fortran compiler found at $FC. Activating native Fortran LAPACK."
+        use_fortran=ON
+    else
+        log_warn "Fortran compiler ($FC) NOT found. Falling back to C-only LAPACK."
+    fi
+
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
@@ -33,12 +41,12 @@ ffbuild_dockerbuild() {
         -DTARGET=HASWELL
         -DDYNAMIC_ARCH=OFF
         -DNUM_THREADS=64
-        -DC_LAPACK=ON # Build from C sources instead of Fortran
+        -DC_LAPACK=$([ "$use_fortran" == "ON" ] && echo OFF || echo ON) # Build from C sources instead of Fortran
+        -DCMAKE_Fortran_COMPILER=$([ "$use_fortran" == "ON" ] && echo "$FC" || echo OFF)
+        -DBUILD_LAPACK_DEPRECATED=$([ "$use_fortran" == "ON" ] && echo ON || echo OFF) # Drops hundreds of unneeded f2c files
         -DBUILD_WITHOUT_LAPACK=OFF
         -DBUILD_WITHOUT_LAPACKE=OFF
         -DBUILD_WITHOUT_CBLAS=OFF
-        -DCMAKE_Fortran_COMPILER=OFF # Explicitly block Fortran compiler search
-        -DBUILD_LAPACK_DEPRECATED=OFF # Drops hundreds of unneeded f2c files
         -DBUILD_TESTING=OFF
         -DBUILD_BENCHMARKS=OFF
         -DUTEST_CHECK=OFF
@@ -56,7 +64,12 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # local fortran_libs=""
+    local fortran_libs=""
+
+    if [ "$use_fortran" == "ON" ]; then
+        log_info "${TARGET_MARK} Injecting GNU Fortran runtime libraries into pkg-config."
+        fortran_libs=" -lgfortran -lquadmath"
+    fi
 
     # if [[ "${myconf[@]}" =~ "-DBUILD_WITHOUT_LAPACK=OFF" ]]; then
         # if grep -q "ONLY_C=0" "config.h" 2>/dev/null || grep -q "#define TRN_MANUAL" "config.h" 2>/dev/null || [ ! -f "config.h" ]; then
@@ -84,9 +97,9 @@ ffbuild_dockerbuild() {
             if [[ "${myconf[@]}" =~ "CPP_THREAD_SAFETY_USE_OPENMP=ON" ]]; then
                 sed -i "/^Libs.private:/ s/$/ ${OPENMP_LIB}/" "$PC_FILE"
             fi
-            # if [[ -n "$fortran_libs" ]]; then
-                # sed -i "/^Libs.private:/ s/$/${fortran_libs}/" "$PC_FILE"
-            # fi
+            if [[ -n "$fortran_libs" ]]; then
+                sed -i "/^Libs.private:/ s/$/${fortran_libs}/" "$PC_FILE"
+            fi
             sed -i "s|^Libs:.*|Libs: -L\${libdir} -lopenblas|" "$PC_FILE"
             sed -i "s|^Cflags:.*|& -I\${includedir}/openblas|" "$PC_FILE"
         done
