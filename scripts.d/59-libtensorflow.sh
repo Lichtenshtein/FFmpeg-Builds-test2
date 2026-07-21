@@ -24,13 +24,13 @@ ffbuild_dockerbuild() {
 
     mkdir -p "$INSTALL_ROOT"/{include/tensorflow/c,bin,lib/pkgconfig}
 
-    # Копируем заголовки
+    # Copy the headers
     cp -r include/* "$INSTALL_ROOT/include/"
 
-    # DLL идет строго в bin к ffmpeg.exe
+    # The DLL goes strictly to the bin directory of ffmpeg.exe
     cp lib/tensorflow.dll "$INSTALL_ROOT/bin/"
 
-    # Библиотеку импорта кладем в lib, чтобы отработал флаг -ltensorflow
+    # Put the import library in lib so that the -ltensorflow flag works
     cp lib/tensorflow.lib "$INSTALL_ROOT/lib/libtensorflow.a"
 
     mkdir -p "$PC_DIR"

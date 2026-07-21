@@ -17,7 +17,7 @@ ffbuild_dockerbuild() {
 
     cd xvidcore/build/generic
 
-    # The original code fails on a two-digit major...
+    # The original code fails on a two-digit major
     sed -i 's/GCC_MAJOR=.*/GCC_MAJOR=4/' configure.in
     sed -i 's/GCC_MINOR=.*/GCC_MINOR=0/' configure.in
 
@@ -34,7 +34,7 @@ ffbuild_dockerbuild() {
         #--disable-pthread
     )
 
-    # Xvid падает с LTO
+    # Xvid crashes with LTO
     CFLAGS="$CFLAGS ${NOLTO} -fcommon -fomit-frame-pointer" \
     CPPFLAGS="$CPPFLAGS" \
     CXXFLAGS="$CXXFLAGS ${NOLTO}" \

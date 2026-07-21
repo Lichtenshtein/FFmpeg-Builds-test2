@@ -21,7 +21,7 @@ ffbuild_dockerbuild() {
     set -e
 
     if [[ $TARGET == win* ]]; then
-        # исправление ошибок LARGE_INTEGER и QueryPerformanceCounter
+        # Fixes for LARGE_INTEGER and QueryPerformanceCounter errors
         sed -i '/#if SYS_WINDOWS/a #include <windows.h>' source/common/common.c
         sed -i '1i#ifdef _WIN32\n#define WIN32_LEAN_AND_MEAN\n#include <windows.h>\n#endif' source/common/osdep.h
     fi
@@ -30,12 +30,12 @@ ffbuild_dockerbuild() {
 
     cd /build/${STAGENAME}/build/linux
 
-    # Фикс для современных компиляторов (json11)
-    # Ищем файл во всем дереве, так как путь может варьироваться
+    # Fix for modern compilers (json11)
+    # Search for the file in the entire tree, since the path may vary
     find . -name "json11.cpp" -exec sed -i '1i#include <cstdint>' {} +
     find . -name "api.cpp" -exec sed -i 's/payload = NULL;//g' {} +
 
-    # Фикс проверки endianness
+    # Fix for endianness check
     sed -i -e 's/EGIB/bss/g' -e 's/naidnePF/bss/g' configure
 
     sed -i 's/HIGH_BIT_DEPTH=NO/HIGH_BIT_DEPTH=YES/g' configure || true

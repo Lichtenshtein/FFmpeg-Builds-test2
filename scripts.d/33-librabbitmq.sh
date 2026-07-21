@@ -18,13 +18,12 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Исправляем регистр для WinSock2.h -> winsock2.h
+    # Fixing the registry for WinSock2.h -> winsock2.h
     grep -rli "winsock2.h" . | xargs sed -i 's/[Ww][Ii][Nn][Ss][Oo][Cc][Kk]2\.h/winsock2.h/g'
 
     mkdir -p build && cd build
 
     local myconf=(
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
@@ -51,7 +50,7 @@ ffbuild_dockerbuild() {
 
     local DEST_LIB="${INSTALL_ROOT}/lib"
     if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # исправление имен liblib -> lib
+        # fix liblib names -> lib
         pushd "${DEST_LIB}"
         for f in liblib*.a; do
             if [ -f "$f" ]; then
@@ -60,7 +59,7 @@ ffbuild_dockerbuild() {
                 mv -f "$f" "$newname"
             fi
         done
-        # Удаляем мажорную версию из имени файла (.4.a -> .a)
+        # Remove the major version from the file name (.4.a -> .a)
         for f in librabbitmq.*.a; do
             if [ -f "$f" ]; then
                 log_info "Fixing versioned static library name: $f to librabbitmq.a"

@@ -20,7 +20,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_POLICY_DEFAULT_CMP0069=NEW
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
@@ -36,7 +35,7 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Исправляем странное именование CMake (liblibjbig.a -> libjbig.a)
+    # Fixing strange CMake naming (liblibjbig.a -> libjbig.a)
     pushd "$INSTALL_ROOT/lib"
     for f in liblibjbig*.a; do
         mv ${OP_VERB} "$f" "${f#lib}" 2>/dev/null || true

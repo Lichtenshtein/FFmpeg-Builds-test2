@@ -17,7 +17,7 @@ IFS=', ' read -ra EXCLUDE_COMPONENTS <<< "${UPDATE_PRESERVE_LIST:-}"
 
 cd "$(dirname "$0")"/..
 
-# Сan pass a specific file: ./util/update_scripts_test.sh "scripts.d/50-x264.sh"
+# Can pass a specific file: ./util/update_scripts_test.sh "scripts.d/50-x264.sh"
 SEARCH_PATTERN="${1:-scripts.d/**/*.sh}"
 
 # Use temporary files to collect reports to bypass the subshell problem in pipes

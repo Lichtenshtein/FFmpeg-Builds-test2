@@ -15,7 +15,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Явно передаем инструменты, чтобы quirc не собрался под хост (Linux)
+    # Explicitly pass the tools so that quirc won't build for the host (Linux)
     make libquirc.a $MAKE_V -j$(nproc) CC="${CC}" AR="${AR}" CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" || return 1
     
     mkdir -p "$INSTALL_ROOT/lib/" "$INSTALL_ROOT/include/"

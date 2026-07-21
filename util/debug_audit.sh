@@ -113,7 +113,7 @@ generate_component_tests() {
                     # Test resampling (common audio bug)
                     test_codecs+=("-y -loglevel warning -f lavfi -i sine=f=1000:d=2 -ar 48000 -c:a $codec_name -b:a 128k -f null -")
                 else
-                    # Стандартный аудио-тест
+                    # Standard audio test
                     test_codecs+=("-y -loglevel warning -f lavfi -i sine=f=1000:d=2 -c:a $codec_name -b:a 128k -f null -")
                 fi
             fi
@@ -125,7 +125,7 @@ generate_component_tests() {
         test_codecs+=("-y -loglevel warning -f lavfi -i color=c=red:s=1280x720:d=2 -vf scale=640x360,format=yuv444p10le -c:v libx264 -pix_fmt yuv444p10le -b:v 1M -f null -")
     fi
 
-    # Обработка результатов и фоллбэки
+    # Processing results and fallbacks
     if [[ ${#enabled_components[@]} -eq 0 ]]; then
         log_warn "No heavy external components detected for specific testing."
         # Add a minimal fallback
@@ -137,7 +137,7 @@ generate_component_tests() {
         done
     fi
 
-    # Экспорт для Wine-раннера
+    # Export for Wine Runner
     COMPREHENSIVE_TESTS=("${test_codecs[@]}")
 }
 
@@ -193,7 +193,7 @@ run_deep_component_audit() {
 
         if winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$PHASE1_LOG" 2>&1; then
             log_debug "Test completed (winedbg exit 0)."
-            # ! Выводим лог успешного смок-теста на экран в сером цвете
+            # ! display the log of a successful smoke test on the screen in gray
             sed 's/^/  /' "$PHASE1_LOG" >&2
         else
             log_error "Test failed (winedbg exit non-zero). Checking for crash details..."
@@ -211,7 +211,7 @@ run_deep_component_audit() {
     done
 
     # --- STAGE 2: Collecting backtraces when basic parameters drop ---
-    # Сбрасываем счётчик для второго этапа
+    # Reset the counter for the second stage
     local TEST_INDEX=0
 
     if [[ $CRASH_FOUND -eq 0 ]]; then
@@ -234,7 +234,7 @@ run_deep_component_audit() {
         done
     fi
 
-    # Вывод результатов бэктрейса смок-тестов
+    # Output of backtrace results of smoke tests
     if [[ -f "$CRASH_AUDIT_LOG" && -s "$CRASH_AUDIT_LOG" ]]; then
         if [[ $CRASH_FOUND -eq 1 ]]; then
             log_error "CRASH DETECTED IN SMOKE TESTS."
@@ -272,11 +272,11 @@ run_deep_component_audit() {
         local PHASE_LOG="${TMP_DIR}/audit_phase_${TEST_NUM}.log"
         rm -f "$PHASE_LOG"
 
-        # Запуск теста кодека через нативный winedbg --auto с ограничением времени
+        # Running a codec test via native winedbg --auto with a time limit
         if timeout 60s winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$PHASE_LOG" 2>&1; then
             log_info "    -> Passed (Exit 0)"
 
-            # ! Печатаем содержимое успешного теста кодека
+            # ! Printing the contents of a successful codec test
             if [[ "${FFBUILD_VERBOSE:-0}" -ge 1 ]] || [[ "$DEBUG_MODE" == "1" ]]; then
                 log_debug "--- [${CODEC_NAME}] Success Log Target ---"
                 sed 's/^/    /' "$PHASE_LOG" >&2

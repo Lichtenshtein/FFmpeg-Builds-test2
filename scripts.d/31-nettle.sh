@@ -20,7 +20,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # В Nettle используется .bootstrap вместо autogen.sh
+    # Nettle uses .bootstrap instead of autogen.sh
     if [[ -f ".bootstrap" ]]; then
         chmod +x .bootstrap
         ./.bootstrap
@@ -30,7 +30,7 @@ ffbuild_dockerbuild() {
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
         --disable-openssl
-        # --disable-assembler # если будут ошибки в x86_64/*.asm
+        # --disable-assembler # if there are errors in x86_64/*.asm
         --disable-documentation
         # --enable-mini-gmp # enable mini-gmp, used instead of libgmp
     )

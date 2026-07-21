@@ -8,7 +8,7 @@ ffbuild_depends() {
     # checks for support libraries and headers:
     # echo libpng
     # echo cairo # only for --enable-telemetry (visual debugging of vector motion)
-    # echo sdl # SDL 1.2 (not SDL2-3) for player_example (демо-плеера)
+    # echo sdl # SDL 1.2 (not SDL2-3) for player_example (demo player)
     # echo vorbis
     # echo libtiff # only for the png2theora utility; -ltiff cannot be found
     # echo libogg

@@ -25,23 +25,23 @@ ffbuild_dockerbuild() {
     local myconf=(
         --prefix="$FFBUILD_PREFIX"
         --host="$FFBUILD_TOOLCHAIN"
-        --disable-programs    # Нам не нужны mpg123.exe и прочие утилиты
-        --disable-components  # Выключает дефолтное "собирать всё"
-        --enable-libmpg123    # Собираем только саму библиотеку декодирования
-        --disable-libout123   # Библиотека вывода звука
-        --disable-libsyn123   # Библиотека синтеза/ресемплинга
+        --disable-programs    # We don't need mpg123.exe or other utilities
+        --disable-components  # Disables the default "compile everything"
+        --enable-libmpg123    # Build only the decoding library itself
+        --disable-libout123   # Audio output library
+        --disable-libsyn123   # Synthesis/resampling library
         --with-cpu=x86-64
         --with-optimization=3
-        --with-audio=dummy    # Отключаем системные аудио-движки (Win32/WASAPI)
-        --disable-debug       # Убираем отладочный мусор
-        --with-seektable=1000 # Стандартный размер таблицы поиска
+        --with-audio=dummy    # Disable system audio engines (Win32/WASAPI)
+        --disable-debug       # Removing debugging garbage
+        --with-seektable=1000 # Standard size of lookup table
     )
 
     [[ "${PREFER_SHARED}" == "1" ]] && \
         myconf+=( --disable-static --enable-shared ) || \
         myconf+=( --enable-static --disable-shared )
 
-    # may need ${NOLTO}, так как mpg123 плохо дружит с LTO в ассемблере
+    # may need ${NOLTO}, since mpg123 doesn't play well with LTO in assembler
     CFLAGS="$CFLAGS ${USELTO}${USELTO_C}" \
     CPPFLAGS="$CPPFLAGS" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \

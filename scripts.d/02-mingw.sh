@@ -14,6 +14,7 @@ ffbuild_dockerdl() {
 
 ffbuild_dockerbuild() {
     set -e
+
     # Use the toolchain's internal sysroot as the target, but install to a temp dir first
     local SYSROOT=$(${FFBUILD_TOOLCHAIN}-gcc -print-sysroot)
 
@@ -37,7 +38,7 @@ ffbuild_dockerbuild() {
           --enable-idl \
           --enable-sdk=all || return 1
         make install DESTDIR="/opt/mingw" || return 1
-        # Копируем из DESTDIR в реальный SYSROOT тулчейна
+        # Copy from DESTDIR to the actual SYSROOT of the toolchain
         cp -a /opt/mingw/"$SYSROOT"/. "$SYSROOT/"
     cd ..
 
@@ -57,7 +58,7 @@ ffbuild_dockerbuild() {
           --enable-lib64 || return 1
         make -j$(nproc) $MAKE_V || return 1
         make install DESTDIR="/opt/mingw" || return 1
-        # Копируем из DESTDIR в реальный SYSROOT тулчейна
+        # Copy from DESTDIR to the actual SYSROOT of the toolchain
         cp -a /opt/mingw/"$SYSROOT"/. "$SYSROOT/"
     cd ..
 
@@ -79,27 +80,27 @@ ffbuild_dockerbuild() {
         make install DESTDIR="/opt/mingw" || return 1
         cp -a /opt/mingw/"$SYSROOT"/. "$SYSROOT/"
 
-        # Создаем необходимые директории в persistent storage
+        # Create the necessary directories in persistent storage
         mkdir -p "$INSTALL_ROOT/include" "$INSTALL_ROOT/lib"
 
-        # Копируем заголовки и библиотеки во внешний префикс ffbuild для сборки ffmpeg
+        # Copy headers and libraries to the external ffbuild prefix for ffmpeg
         cp -a "$SYSROOT/include/pthread"* "$INSTALL_ROOT/include/"
         cp -a "$SYSROOT/include/sched.h" "$INSTALL_ROOT/include/"
 
     cd ../..
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # Копируем libwinpthread.a и делаем алиас libpthread.a
+        # Copy libwinpthread.a and create an alias libpthread.a
         cp -a "$SYSROOT/lib/libwinpthread.${lib_ext}" "$INSTALL_ROOT/lib/"
         ln -sf libwinpthread.${lib_ext} "$INSTALL_ROOT/lib/libpthread.${lib_ext}"
 
         log_info "Isolating compiler runtime static libraries for FFmpeg..."
-        # Находим, где в недрах вашего ct-ng GCC спрятана оригинальная статическая libssp.a
-        local COMPILER_LIB_DIR=$(${FFBUILD_TOOLCHAIN}-gcc -print-file-name=libssp.${lib_ext})
+        # Finding where the static libssp.a is hidden in the depths of ct-ng GCC
+        local COMPILER_LIB_DIR=$(${CC} -print-file-name=libssp.${lib_ext})
         if [ -f "$COMPILER_LIB_DIR" ]; then
             local COMPILER_DIR=$(dirname "$COMPILER_LIB_DIR")
             log_info "Found compiler runtime directory at: ${COMPILER_DIR}"
-            # Копируем ssp статику во внешний префикс ffbuild
+            # Copying ssp statics to the external ffbuild prefix
             cp -a "${COMPILER_DIR}/libssp.${lib_ext}" "$INSTALL_ROOT/lib/"
             cp -a "${COMPILER_DIR}/libssp_nonshared.${lib_ext}" "$INSTALL_ROOT/lib/" 2>/dev/null || true
             if [ -f "${COMPILER_DIR}/libatomic.${lib_ext}" ]; then
@@ -109,40 +110,11 @@ ffbuild_dockerbuild() {
             log_warn "Could not pinpoint libssp.${lib_ext} path via GCC wrapper."
         fi
 
-        # в sysroot не должно быть копий, мешающих линковке
+        # There should be no copies in the sysroot that interfere with linking
         log_info "Purging conflicting runtime DLL references from target folders..."
-        # удаляем случайные .dll winpthread/ssp из $SYSROOT/lib $INSTALL_ROOT/lib
+        # Remove random .dll winpthread/ssp from $SYSROOT/lib $INSTALL_ROOT/lib
         rm -f "$INSTALL_ROOT/lib/libwinpthread.dll.a" "$INSTALL_ROOT/lib/libwinpthread-1.dll"
         rm -f "$INSTALL_ROOT/lib/libssp.dll.a" "$INSTALL_ROOT/lib/libssp-0.dll"
         log_info "Runtime static isolation complete."
     fi
-
-    # Объектные файлы (Нужны для финальной линковки .exe)
-    # crt2.o это точка входа для консольных приложений Windows
-    # cp -a "$SYSROOT/lib/crt2.o" "$INSTALL_ROOT/lib/"
-
-    # Копируем заголовки полностью
-    # cp -a "$SYSROOT/include/." "$INSTALL_ROOT/include/"
-
-    # Удаляем конфликтные файлы, если они случайно попали
-    # (GCC должен использовать свои встроенные версии)
-    # for f in stddef.h stdint.h float.h stdarg.h stdbool.h varargs.h; do
-        # rm -f "$INSTALL_ROOT/include/$f"
-    # done
-
-    # Копируем объекты инициализации CRT (crt2.o и т.д.)
-    # Они нужны для финальной стадии линковки .exe в статике
-    # cp -f "$SYSROOT/lib/"*.o "$INSTALL_ROOT/lib/" 2>/dev/null || true
-
-    # Копируем только статические библиотеки
-    # Исключаем .dll.a (библиотеки импорта) и .la (метаданные libtool)
-    # find "$SYSROOT/lib" -maxdepth 1 -name "*.a" ! -name "*.dll.a" -exec cp -a {} "$INSTALL_ROOT/lib/" \;
-
-    # Очистка динамики внутри префикса
-    # find "$INSTALL_ROOT/lib" -name "*.la" -delete
-    # find "$INSTALL_ROOT/lib" -name "*.dll.a" -delete
 }
-
-# ffbuild_configure() {
-    # echo "--disable-w32threads --enable-pthreads"
-# }

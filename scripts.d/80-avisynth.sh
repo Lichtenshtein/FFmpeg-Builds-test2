@@ -35,7 +35,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DHEADERS_ONLY=OFF # ON=Install only the Headers; OFF=Build lib
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
@@ -54,7 +53,7 @@ ffbuild_dockerbuild() {
         mkdir -p avs_core
         cp ../avs_core/core/version.h.in avs_core/version.h
     else
-        # VersionGen должна быть собрана перед инсталляцией
+        # VersionGen must be built before installation
         ninja $NINJA_V VersionGen || return 1
     fi
 

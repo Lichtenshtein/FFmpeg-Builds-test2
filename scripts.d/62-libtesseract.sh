@@ -111,7 +111,6 @@ WRAPPER_EOF
     mkdir -p build && cd build
 
     local myconf=(
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
@@ -199,7 +198,7 @@ WRAPPER_EOF
         -DCMAKE_SHARED_LINKER_FLAGS="$LDFLAGS ${USELTO}${USELTO_L} -Wl,--allow-multiple-definition" \
         .. || return 1
 
-    # Собираем только библиотеку
+    # Build only the library
     ninja $NINJA_V libtesseract || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 

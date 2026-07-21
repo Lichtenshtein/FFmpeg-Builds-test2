@@ -81,7 +81,7 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # Исправление для LTO
+    # Fix for LTO
     # Work around strip breaking LTO symbol index
     "$RANLIB" "$INSTALL_ROOT/lib/libvpx.a"
 

@@ -20,22 +20,22 @@ ffbuild_dockerbuild() {
 
     cd encoder
 
-    # Компиляция объектов с поддержкой LTO (через $CFLAGS)
+    # Compiling LTO-enabled objects (via $CFLAGS)
     log_info "Compiling MPEG-H HE Audio Encoder objects..."
     for mpeghe in *.c; do
         $CC -Wall -Wsequence-point $CFLAGS ${USELTO}${USELTO_C} $CPPFLAGS -I. "$mpeghe" -c -o "${mpeghe%.c}.o"
     done
 
-    # Создание статической библиотеки. 
-    # Используем $AR для поддержки LTO
+    # Creating a static library
+    # Using $AR to support LTO
     log_info "Creating static library with LTO wrapper..."
     $AR rcs libia_mpegh.a *.o
     $RANLIB libia_mpegh.a
 
-    # Установка бинарников и заголовков
+    # Installing binaries and headers
     log_info "Installing built artifacts..."
-    cp libia_mpegh.a "$INSTALL_ROOT"/lib
-    cp *.h "$INSTALL_ROOT"/include/ia_mpegh/
+    cp ${OP_VERB} libia_mpegh.a "$INSTALL_ROOT"/lib
+    cp ${OP_VERB} *.h "$INSTALL_ROOT"/include/ia_mpegh/
 
     log_info "Generating pkg-config files..."
     cat << EOF > "$PC_DIR/ia_mpegh.pc"
@@ -54,7 +54,7 @@ EOF
 
     ln -sf  "$PC_DIR/ia_mpegh.pc" "$PC_DIR/mpegh.pc"
 
-    # Очистка
+    # Cleaning
     rm -f *.o libia_mpegh.a
 }
 

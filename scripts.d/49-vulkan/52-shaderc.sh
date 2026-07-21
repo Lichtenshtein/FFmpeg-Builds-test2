@@ -3,8 +3,8 @@
 # SCRIPT_REPO="https://github.com/stenzek/shaderc.git"
 # SCRIPT_COMMIT="d72697bfc353b547efc58421ad54ac0345441bf4"
 
-SCRIPT_REPO="https://github.com/google/shaderc.git"
-SCRIPT_COMMIT="cb6f1ef84daaa5e0369e0e6d82008438d42c93b5"
+SCRIPT_REPO2="https://github.com/google/shaderc.git"
+SCRIPT_COMMIT2="cb6f1ef84daaa5e0369e0e6d82008438d42c93b5"
 
 ffbuild_enabled() {
     return 0
@@ -39,7 +39,6 @@ ffbuild_dockerbuild() {
     local myconf=(
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_BUILD_TYPE=Release
         -DENABLE_EXCEPTIONS=ON

@@ -90,7 +90,7 @@ ffbuild_dockerbuild() {
         CXX="${CXX}" || return 1
 
     # Compilation attempt with handling of xmllint/xmlcatalog utilities crash due to linking
-    make -j$(nproc) $MAKE_V CCLD="${FFBUILD_TOOLCHAIN}-g++" || {
+    make -j$(nproc) $MAKE_V CCLD="${CXX}" || {
         log_warn "make failed (likely xmllint/xmlcatalog tool linking) — checking if libxml2.a exists..."
         [[ -f ".libs/libxml2.${lib_ext}" ]] || { log_error "libxml2.${lib_ext} not built!"; return 1; }
         log_warn "libxml2.${lib_ext} confirmed present, proceeding with install."

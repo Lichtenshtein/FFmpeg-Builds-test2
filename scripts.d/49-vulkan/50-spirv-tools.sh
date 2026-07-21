@@ -17,7 +17,6 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     local myconf=(
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
@@ -31,7 +30,7 @@ ffbuild_dockerbuild() {
         -DSPIRV_TOOLS_BUILD_STATIC=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DSPIRV_TOOLS_LIBRARY_TYPE=$([ "${PREFER_SHARED}" == "1" ] && echo SHARED || echo STATIC)
         -DSPIRV_WARN_EVERYTHING=OFF
-        -DSPIRV_WERROR=OFF # Указываем путь к уже собранным spirv-headers
+        -DSPIRV_WERROR=OFF # Specify the path to the spirv-headers
         -DSPIRV-Headers_SOURCE_DIR="$FFBUILD_PREFIX"
     )
 
@@ -43,7 +42,7 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Удаляем ненужный .pc файл
+    # Delete the unnecessary .pc file
     rm -f "$INSTALL_ROOT/lib/pkgconfig/SPIRV-Tools-shared.pc" || true
 }
 

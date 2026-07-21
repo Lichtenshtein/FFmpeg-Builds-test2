@@ -18,7 +18,7 @@ ffbuild_dockerbuild() {
 
     mkdir -p build && cd build
 
-    # -fpermissive нужен для некоторых версий GCC при сборке VVC
+    # -fpermissive is needed for some versions of GCC when building VVC
     local FLAGS="-fpermissive -Wno-error=uninitialized -Wno-error=maybe-uninitialized"
 
     local myconf=(

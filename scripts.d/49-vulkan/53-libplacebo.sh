@@ -28,8 +28,8 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Исправляем meson.build, добавляя dirs: vulkan_lib_dirs в поиск glslang и MachineIndependent
-    # В оригинале они ищутся только в системных путях, игнорируя vulkan-sdk префикс
+    # Fix meson.build by adding dirs: vulkan_lib_dirs to the search for glslang and MachineIndependent
+    # In the original, they are searched only in system paths, ignoring the vulkan-sdk prefix
     sed -i "s/find_library('glslang', required: required/find_library('glslang', required: required, dirs: vulkan_lib_dirs/g" src/glsl/meson.build
     sed -i "s/find_library('MachineIndependent',/find_library('MachineIndependent', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
     sed -i "s/find_library('OSDependent',/find_library('OSDependent', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
@@ -37,8 +37,8 @@ ffbuild_dockerbuild() {
     sed -i "s/find_library('SPIRV-Tools',/find_library('SPIRV-Tools', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
     sed -i "s/find_library('SPIRV-Tools-opt',/find_library('SPIRV-Tools-opt', dirs: vulkan_lib_dirs,/g" src/glsl/meson.build
 
-    # Вырезаем поиск OGLCompiler, так как в новых glslang его больше нет
-    # Мы заменяем его на пустую зависимость (disabler), чтобы не ломать логику массива glslang_deps
+    # Removing the OGLCompiler search, as it's no longer present in the new glslangs
+    # Replacing it with an empty dependency (disabler) to avoid breaking the glslang_deps array logic
     sed -i "s/cxx.find_library('OGLCompiler',.*/disabler(),/g" src/glsl/meson.build
 
     mkdir -p build && cd build

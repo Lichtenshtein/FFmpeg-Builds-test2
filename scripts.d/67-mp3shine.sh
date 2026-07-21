@@ -3,9 +3,9 @@
 # SCRIPT_REPO="https://github.com/toots/shine.git"
 # SCRIPT_COMMIT="ab5e3526b64af1a2eaa43aa6f441a7312e013519"
 
-SCRIPT_REPO="https://github.com/wshon/shine.git"
-SCRIPT_COMMIT="e4f41742513caad76739fac666c4f7b7f1fb955b"
-SCRIPT_BRANCH="debug"
+SCRIPT_REPO2="https://github.com/wshon/shine.git"
+SCRIPT_COMMIT2="e4f41742513caad76739fac666c4f7b7f1fb955b"
+SCRIPT_BRANCH2="debug"
 
 ffbuild_enabled() {
     return 0

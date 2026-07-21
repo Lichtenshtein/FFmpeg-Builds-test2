@@ -22,7 +22,6 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     local myconf=(
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_POLICY_DEFAULT_CMP0069=NEW
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -48,9 +47,9 @@ ffbuild_dockerbuild() {
 
     if [ -d "$PC_DIR" ]; then
         find "$PC_DIR" -name "*srt*.pc" | while read -r PC_FILE; do
-            # Заменяем абсолютный путь к libstdc++.a
+            # Replace the absolute path to libstdc++.a
             sed -i 's|/opt/ct-ng/[^ ]*/libstdc++.a|-lstdc++|g' "$PC_FILE"
-            # На всякий случай удаляем любые кавычки
+            # Just in case, remove any quotation marks
             sed -i 's|["'\'']||g' "$PC_FILE"
         done
     fi

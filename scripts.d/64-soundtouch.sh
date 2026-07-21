@@ -17,15 +17,14 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     local myconf=(
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
-        -DINTEGER_SAMPLES=OFF # FFmpeg/Avisynth предпочитают Float
-        -DSOUNDSTRETCH=OFF    # Утилита не нужна, только библиотека
-        -DSOUNDTOUCH_DLL=OFF  # Нам нужна основная либа, а не C-wrapper DLL
+        -DINTEGER_SAMPLES=OFF # FFmpeg/Avisynth prefer Float
+        -DSOUNDSTRETCH=OFF    # No utility is needed, just a library
+        -DSOUNDTOUCH_DLL=OFF  # We need the main lib, not the C-wrapper DLL
         -DNEON=OFF
     )
 

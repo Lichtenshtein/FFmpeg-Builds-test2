@@ -1,7 +1,5 @@
 ## FFmpeg Custom Build
 
-This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubuntu 26.04.
-
   ╭─[ Base Integration ]  
   │ libunibreak  
   │ fftw3  
@@ -43,8 +41,8 @@ This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubunt
   │ lensfun  
   │ zimg  
   │ freetype  
-  │ libjxl / with avif dec/enc support  
-  │ librsvg / with avif support  
+  │ libjxl  
+  │ librsvg  
   ╰-  
   ╭─[ Subtitles & Teletext ]  
   │ libaribb24  
@@ -78,7 +76,7 @@ This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubunt
   ╭─[ Compute & Vision ]  
   │ libtensorflow  
   │ opencl  
-  │ openvino / built and linked statically with Intel CPU and working (optional) Intel GPU support  
+  │ openvino  
   │ opencv  
   │ libtesseract  
   │ libtorch  
@@ -86,7 +84,7 @@ This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubunt
   ╰-  
   ╭─[ Audio API & Codecs ]  
   │ libogg  
-  │ libvorbis / with aoTuV 2021 and Lancer patch  
+  │ libvorbis  
   │ bs2b  
   │ chromaprint  
   │ libmysofa  
@@ -103,9 +101,9 @@ This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubunt
   │ libcodec2  
   │ libgsm  
   │ libmad  
-  │ libmp3lame / with libmpg123 as a decoder and SIMD Optimized LAME encoder  
+  │ libmp3lame  
   │ libmpeghdec  
-  │ libopus / with DRED, OSCE and custom modes enabled  
+  │ libopus  
   │ mp3shine  
   │ mpeghe  
   │ opencore-amr  
@@ -117,16 +115,16 @@ This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubunt
   ╰-  
   ╭─[ Speech Recognition ]  
   │ flite  
-  │ pocketsphinx / with models  
-  │ whisper / with Vulkan and OpenVINO support   
+  │ pocketsphinx  
+  │ whisper  
   ╰-  
   ╭─[ Software Codecs ]  
   │ dav1d  
   │ rav1e  
   │ svtav1  
   │ aom  
-  │ kvazaar / with Crypto++ support.  
-  │ lcevcdec / with a natively generated SPIR-V shaders and compiled with full Vulkan pipeline  
+  │ kvazaar  
+  │ lcevcdec  
   │ libtheora  
   │ libvpx  
   │ openapv  
@@ -136,7 +134,7 @@ This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubunt
   │ vvdec  
   │ vvenc  
   │ x264  
-  │ x265 / with optional SVT-HEVC 1.5.1 as core for compliant bitstreams [Link](https://bitbucket.org/multicoreware/x265_git/src/master/doc/reST/svthevc.rst)  
+  │ x265  
   │ xavs  
   │ xavs2  
   │ xvid  
@@ -149,8 +147,8 @@ This fork is an advanced FFmpeg build system architecture using GCC 15 and Ubunt
   ╭─[ Frameservers & Filtering ]  
   │ avisynth  
   │ vidstab  
-  │ vapoursynth / v77 compiled core + VSScript + Python-runtime  
-  │ frei0r / with facerecognition plugins + all OpenCV/Cairo/Gavl filters  
+  │ vapoursynth  
+  │ frei0r  
   │ nnedi3  
   ╰-  
   ╭─[ Video Extensions ]  

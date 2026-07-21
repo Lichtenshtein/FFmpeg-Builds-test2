@@ -149,11 +149,11 @@ ffbuild_dockerbuild() {
 
     log_info "Preparing LibTorch headers for GCC 15 compatibility..."
 
-    # Прописываем базовые типы в заголовки C10/Torch, чтобы GCC 15 не падал на uint64_t или std::string
+    # Write base types in C10/Torch headers so that GCC 15 doesn't crash on uint64_t or std::string
     find include/ -name "*.h" -o -name "*.hpp" -exec sed -i '1i #include <cstdint>\n#include <string>\n#include <stdexcept>' {} + 2>/dev/null || true
 
-    # Решение abi/api конфликта glog
-    # Создаем преамбулу, которая активирует родной export.h и отключает опасные макросы
+    # Resolving the abi/api glog conflict
+    # Create a preamble that activates native export.h and disables dangerous macros
     if [[ -d "include/glog" ]]; then
         log_info "Injecting official macro triggers into glog master headers..."
 
@@ -172,19 +172,19 @@ ffbuild_dockerbuild() {
 #endif // FFMPEG_GLOG_FIX_H_
 EOF
 
-        # Инжектируем преамбулу первой строкой во ВСЕ заголовки glog
+        # Inject the preamble as the first line into ALL glog headers
         find include/glog/ -name "*.h" ! -name "ffmpeg_glog_fix.h" -exec sed -i '1i #include "ffmpeg_glog_fix.h"' {} +
     fi
 
-    # Раскладываем заголовочные файлы
+    # Laying out header files
     cp -rf include/* "${INSTALL_ROOT}/include/"
 
     log_info "Distributing LibTorch and glog libraries..."
-    # Копируем динамические .dll (они уйдут в финальный дистрибутив ffmpeg)
+    # Copy the dynamic .dll files (they will be included in the final ffmpeg distribution)
     cp -f${OP_V} lib/*.dll "${INSTALL_ROOT}/bin/" 2>/dev/null || true
 
-    # Копируем библиотеки импорта. 
-    # В MSYS2 они называются *.dll.a, копируем их с переименованием в lib*.a
+    # Copy the import libraries
+    # In MSYS2, they are called *.dll.a. Copy them and rename them to lib*.a
     for libfile in lib/*.dll.a; do
         if [[ -f "$libfile" ]]; then
             local filename=$(basename "$libfile")
@@ -197,7 +197,7 @@ EOF
         fi
     done
 
-    # делаем копию libglog.a, чтобы линкер понимал как -lglog, так и -lglog-2
+    # Make a copy of libglog.a so that the linker understands both -lglog and -lglog-2
     if [[ -f "${INSTALL_ROOT}/lib/libglog.a" ]]; then
         cp -f${OP_V} "${INSTALL_ROOT}/lib/libglog.a" "${INSTALL_ROOT}/lib/libglog-2.a"
     elif [[ -f "${INSTALL_ROOT}/lib/libglog-2.a" ]]; then

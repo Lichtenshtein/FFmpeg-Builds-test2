@@ -21,7 +21,6 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     local myconf=(
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
@@ -46,9 +45,7 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/libgme.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Удаляем существующую строку Libs.private целиком
         sed -i '/^[Ll]ibs\.[Pp]rivate:/d' "$PC_FILE"
-        # Записываем новую чистую строку
         sed -i '/^Libs:/a Libs.private: -lssp -lmingwthrd -lgcc -lstdc++' "$PC_FILE"
         sed -i "s|^Cflags:.*|& -I\${includedir}/gme|" "$PC_FILE"
     fi

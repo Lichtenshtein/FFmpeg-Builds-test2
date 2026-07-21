@@ -3,9 +3,9 @@
 # SCRIPT_REPO="https://github.com/xiph/ogg.git"
 # SCRIPT_COMMIT="0288fadac3ac62d453409dfc83e9c4ab617d2472"
 
-SCRIPT_REPO="https://github.com/sezero/ogg.git"
-SCRIPT_COMMIT="b7069ef0ee3e2819cda3b60be79655d88cdb67ab"
-SCRIPT_BRANCH="sezero"
+SCRIPT_REPO2="https://github.com/sezero/ogg.git"
+SCRIPT_COMMIT2="b7069ef0ee3e2819cda3b60be79655d88cdb67ab"
+SCRIPT_BRANCH2="sezero"
 
 ffbuild_enabled() {
     return 0
@@ -21,7 +21,6 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     local myconf=(
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"

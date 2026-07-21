@@ -31,17 +31,17 @@ if [[ $TARGET == win64 ]]; then
 #include <stdint.h>
 #include <string.h>
 
-// Подключаем типы gavl, чтобы сигнатуры совпали
+// Connect gavl types so that the signatures match
 typedef struct gavl_thread_pool_s gavl_thread_pool_t;
 
-// Логи и отладка
+// Logs and debugging
 void gavl_log_translate(int l) {}
 void gavl_dprintf(const char *format, ...) {}
 void gavl_diprintf(int indent, const char *format, ...) {}
 void gavl_hexdump(const uint8_t * d, int len, int max_len) {}
 void gavl_hexdumpi(int indent, const uint8_t * d, int len, int max_len) {}
 
-// Строковые утилиты
+// String utilities
 char * gavl_strdup(const char * s) { return s ? strdup(s) : NULL; }
 char * gavl_strtrim(char * s) { return s; }
 char ** gavl_strbreak(const char * s, const char * delim) { return NULL; }
@@ -54,7 +54,7 @@ void gavl_hw_destroy_packet(void *p) {}
 int gavl_hw_ctx_get_type(void *c) { return 0; }
 const char * gavl_hw_type_to_string(int t) { return "none"; }
 
-// Thread Pool (Исправлено под лог ошибки)
+// Thread Pool
 int gavl_thread_pool_get_num_threads(gavl_thread_pool_t *p) { return 1; }
 
 void gavl_thread_pool_run(void (*func)(void*, int, int), void *arg, 
@@ -64,15 +64,15 @@ void gavl_thread_pool_run(void (*func)(void*, int, int), void *arg,
 
 void gavl_thread_pool_stop(void * client_data, int thread) {}
 
-// Time / Benchmark (Исправлено под лог ошибки)
+// Time / Benchmark
 int64_t gavl_time_unscale(int scale, int64_t t) { return t; }
 uint64_t gavl_benchmark_get_time(int flags) { return 0; }
 EOF
 
-    # Добавляем файл в список сборки Makefile.am вручную
+    # Adding a file to the Makefile.am build list manually
     sed -i 's/libgavl_la_SOURCES = /libgavl_la_SOURCES = gavl_stubs.c /' gavl/Makefile.am
 
-    # исправляем фатальные ошибки
+    # Fix fatal errors
     sed -i 's/AC_MSG_ERROR("getaddrinfo_a not found in libanl")/echo "Skipping libanl"/g' configure.ac
     sed -i 's/PKG_CHECK_MODULES(DRM, libdrm, have_drm="true")/have_drm="false"; DRM_CFLAGS=""; DRM_LIBS=""/g' configure.ac
     sed -i 's/LIBGAVL_LIBS="-lrt"/LIBGAVL_LIBS=""/g' configure.ac
@@ -80,7 +80,7 @@ EOF
     sed -i 's/AC_MSG_ERROR(\[EGL not found\])/have_EGL="false"/g' m4/check_funcs.m4
     sed -i "s/-march=native -mtune=native//g" m4/lqt_opt_cflags.m4
     find . -name "Makefile.am" -exec sed -i 's/@DRM_CFLAGS@//g' {} + || true
-    # Фикс qsort_r для MinGW
+    # Fix qsort_r for MinGW
     log_info "Neutralizing gavl_array_sort to avoid qsort_r issues on Windows..."
     sed -i 's/qsort_r(/ \/\/ qsort_r(/g' gavl/array.c
 
@@ -124,7 +124,7 @@ static inline int access(const char *path, int mode) { return 0; }
 #include <stdlib.h>
 EOF
 
-    # Склеиваем основные заголовки
+    # Gluing together the main headings
     cat include/gavl/gavl_version.h.in \
         include/gavl/gavl_types.h \
         include/gavl/gavl.h >> gavl_fix.h
@@ -144,7 +144,7 @@ fi
         --host="$FFBUILD_TOOLCHAIN"
         --with-pic
         --without-doxygen
-        # если будут ошибки ассемблера
+        # if there are assembler errors
         # --disable-simd
     )
 

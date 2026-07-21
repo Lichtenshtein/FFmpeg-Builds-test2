@@ -20,15 +20,15 @@ ffbuild_dockerbuild() {
 
     ./bootstrap
 
-    # Отключаем попытку собрать плагины, которые требуют нативного X11/GL во время кросс-компиляции
+    # Disable the attempt to build plugins that require native X11/GL during cross-compilation
     export ac_cv_header_x11_xlib_h=no
     # export ac_cv_header_gl_gl_h=no
 
-    # Исправляем жестко зашитые имена либ в configure для MinGW
+    # Fixing hard-coded lib names in MinGW configure
     sed -i 's/-lGL -lGLU/-lopengl32 -lglu32/g' configure
 
-    # Устраняем конфликты безопасных строковых функций с MinGW
-    # Мы переименовываем ВСЕ внутренние реализации libcaca, чтобы они не мешали системным
+    # Eliminate conflicts between secure string functions and MinGW
+    # Rename ALL internal libcaca implementations so they don't interfere with system functions
     log_info "Renaming conflicting safe string functions in libcaca source..."
     find . -type f -name "*.c" -exec sed -i 's/\bsprintf_s\b/caca_sprintf_s/g' {} +
     find . -type f -name "*.c" -exec sed -i 's/\bvsnprintf_s\b/caca_vsnprintf_s/g' {} +
@@ -40,7 +40,7 @@ ffbuild_dockerbuild() {
     # Strip tests out of the sub-makefile
     sed -i 's/^SUBDIRS =.*/SUBDIRS = ./' caca/Makefile.am
 
-    # Чтобы не тратить время на ошибки в тестах, мы просто обнуляем Makefile в папке с тестами
+    # To avoid wasting time on errors in tests, simply reset the Makefile in the tests folder
     echo "all:" > caca/t/Makefile.am
     echo "install:" >> caca/t/Makefile.am
 
@@ -92,7 +92,7 @@ ffbuild_dockerbuild() {
     make -j$(nproc) $MAKE_V || return 1
     make install DESTDIR="$FFBUILD_DESTDIR" || return 1
 
-    # Установка заголовочных файлов из корня (они нужны FFmpeg)
+    # Installing header files from the root
     mkdir -p "$INSTALL_ROOT/include"
     cp caca/caca.h caca/caca0.h caca/caca_conio.h caca/caca_types.h "$INSTALL_ROOT/include/"
 
@@ -103,11 +103,9 @@ ffbuild_dockerbuild() {
         echo "#endif" >> "$INSTALL_ROOT/include/caca_types.h"
     fi
 
-    # libcaca иногда кладет .pc файл в странные места или пишет туда мусор
     local PC_FILE="$PC_DIR/caca.pc"
     if [[ -f "$PC_FILE" ]]; then
         sed -i "s|^prefix=.*|prefix=$FFBUILD_PREFIX|" "$PC_FILE"
-        # FFmpeg требует явного указания системных либ для статики
         sed -i '/^Libs.private:/ s/$/ -lgdi32 -lwinmm/' "$PC_FILE"
         if [[ -n "$self_static_flags" ]]; then
             if ! grep -qF -- "$self_static_flags" "$PC_FILE"; then

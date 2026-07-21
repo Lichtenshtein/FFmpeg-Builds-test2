@@ -16,12 +16,12 @@ ffbuild_dockerbuild() {
     set -e
 
     if [[ $TARGET == win64 ]]; then
-        # Исправляем errno и сокеты для MinGW
+        # Fixing errno and sockets for MinGW
         grep -rl "sys/errno.h" . | xargs sed -i 's|sys/errno.h|errno.h|g'
         grep -rl "sys/socket.h" . | xargs sed -i 's|sys/socket.h|winsock2.h|g'
         grep -rl "netinet/in.h" . | xargs sed -i 's|netinet/in.h|ws2tcpip.h|g'
         grep -rl "arpa/inet.h" . | xargs sed -i 's|arpa/inet.h|ws2tcpip.h|g'
-        # отключаем сборку инструментов (tools), так как они требуют POSIX-сокеты
+        # Disable the compilation of tools, as they require POSIX sockets
         sed -i 's/SUBDIRS = src tools/SUBDIRS = src/g' Makefile.am
     fi
 

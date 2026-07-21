@@ -26,14 +26,14 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # # Заменяем базовые утилиты работы со строками, чтобы избежать коллизий при статической линковке
+    # # Replace basic string handling utilities to avoid collisions during static linking
     # log_info "Patching conflicting string functions in source tree..."
     # find . -type f \( -name "*.c" -o -name "*.h" -o -name "meson.build" \) -exec sed -i \
         # -e 's/\bstr_dup\b/libbluray_str_dup/g' \
         # -e 's/\bstr_printf\b/libbluray_str_printf/g' \
         # -e 's/\bstr_print_hex\b/libbluray_str_print_hex/g' {} +
 
-    # # Переименование структуры/функции инициализации декодера dec_init
+    # # Renaming the decoder initialization structure/function dec_init
     # log_info "Patching dec_init symbol signature..."
     # if [[ -f "src/libbluray/disc/dec.c" ]]; then
         # sed -i 's/\bdec_init\b/libbluray_dec_init/g' src/libbluray/disc/dec.c
@@ -41,7 +41,7 @@ ffbuild_dockerbuild() {
         # sed -i 's/\bdec_init\b/libbluray_dec_init/g' src/libbluray/disc/disc.c
     # fi
 
-    # stop the static library from exporting symbols when linked into a shared lib
+    # Stop the static library from exporting symbols when linked into a shared lib
     sed -i 's/-DBLURAY_API_EXPORT/-DBLURAY_API_EXPORT_DISABLED/g' src/meson.build
 
     # local PRIVATE_LIBS="-laacs -lbdplus -lgcrypt -lgpg-error"

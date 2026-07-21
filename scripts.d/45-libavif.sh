@@ -61,7 +61,6 @@ EOF
     mkdir -p build && cd build
 
     local myconf=(
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
@@ -71,21 +70,21 @@ EOF
         -DAVIF_BUILD_TESTS=OFF
         -DAVIF_BUILD_APPS=OFF
         -DAVIF_BUILD_EXAMPLES=OFF
-        # Включаем поддержку внешнего декодера dav1d
-        -DAVIF_CODEC_DAV1D=SYSTEM # Декодер
+        # Enable support for the external dav1d decoder
+        -DAVIF_CODEC_DAV1D=SYSTEM # Decoder
         -DAVIF_CODEC_DAV1D_ENABLED=ON
         -DAVIF_LIBSHARPYUV=SYSTEM # stupidly fails if no .cmake files found
         -DAVIF_LIBXML2=SYSTEM # convert JPEG with gain maps to AVIF using avifenc
         -DAVIF_JPEG=SYSTEM
         -DAVIF_ZLIBPNG=SYSTEM
-        # aom создаёт проблему курицы и яйца
+        # aom creates a chicken and egg problem
         -DAVIF_CODEC_AOM=OFF
-        -DAVIF_CODEC_SVT=SYSTEM # Используем SVT-AV1 как энкодер!
-        -DAVIF_LIBYUV=LOCAL # Донор libyuv для aom
+        -DAVIF_CODEC_SVT=SYSTEM # Using SVT-AV1 as an encoder
+        -DAVIF_LIBYUV=LOCAL # Donor libyuv for aom
         # use rav1e instead of AOM or SVT
         #-DAVIF_CODEC_RAV1E=SYSYEM
         #-DAVIF_CODEC_RAV1E_ENABLED=ON
-        -DAVIF_OPTIMIZE_RAV1E_FOR_SIZE=ON
+        #-DAVIF_OPTIMIZE_RAV1E_FOR_SIZE=ON
     )
 
     CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
@@ -96,12 +95,11 @@ EOF
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Извлекаем libyuv.a для послудующих стадий (она лежит в _deps/libyuv-build/)
+    # Extract libyuv.a for subsequent stages (it is located in _deps/libyuv-build/)
     cp ${OP_VERB} "_deps/libyuv-build/libyuv.a" "$INSTALL_ROOT/lib/"
     mkdir -p "$INSTALL_ROOT/include/libyuv"
     cp -r${OP_V} "_deps/libyuv-src/include/"* "$INSTALL_ROOT/include/"
 
-    # Создаем pkg-config файл вручную, чтобы aom и avif-v2 его нашли
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/libyuv.pc"
 prefix=$FFBUILD_PREFIX

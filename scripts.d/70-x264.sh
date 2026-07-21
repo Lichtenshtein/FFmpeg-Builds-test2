@@ -3,12 +3,12 @@
 # SCRIPT_REPO="https://code.videolan.org/videolan/x264.git"
 # SCRIPT_COMMIT="0480cb05fa188d37ae87e8f4fd8f1aea3711f7ee"
 
-# SCRIPT_REPO="https://github.com/jpsdr/x264.git"
-# SCRIPT_COMMIT="ba817a33001f0179d5905eb25b8b64214d95341c"
-# SCRIPT_BRANCH="t_mod_New"
+# SCRIPT_REPO2="https://github.com/jpsdr/x264.git"
+# SCRIPT_COMMIT2="ba817a33001f0179d5905eb25b8b64214d95341c"
+# SCRIPT_BRANCH2="t_mod_New"
 
-SCRIPT_REPO="https://github.com/neil1123-cc/x264.git"
-SCRIPT_COMMIT="2d0302bb5665ca3716bb5370cbfbf8a2a2475e6e"
+SCRIPT_REPO3="https://github.com/neil1123-cc/x264.git"
+SCRIPT_COMMIT3="2d0302bb5665ca3716bb5370cbfbf8a2a2475e6e"
 
 SCRIPT_REPO4="https://github.com/Olde-Skuul/quicktime7windows.git"
 SCRIPT_COMMIT4="8c1181141c1e08ed6b26335238b6d1fc0e065b12"
@@ -100,15 +100,15 @@ EOF
         myconf+=( --enable-static )
     # [[ "$USE_LTO" == "1" ]] && myconf+=( --enable-lto )
 
-    # явно указываем инструменты для стабильности
+    # Clearly indicate the tools for stability
     export AS="nasm"
-    export CC="${FFBUILD_CROSS_PREFIX}gcc"
+    export CC="${CC}"
 
     ./configure "${myconf[@]}" \
         --extra-cflags="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" \
         --extra-ldflags="$LDFLAGS ${USELTO}${USELTO_L}" || return 1
 
-    # если в config.log написано "asm: no", значит nasm не подцепился
+    # If config.log says "asm: no", then nasm is not connected
     if grep -q "asm: no" config.log; then
         log_error "x264 configured WITHOUT assembly! Check config.log."
         return 1

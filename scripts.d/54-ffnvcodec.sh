@@ -3,9 +3,9 @@
 SCRIPT_REPO="https://github.com/FFmpeg/nv-codec-headers.git"
 SCRIPT_COMMIT="15ee32753c92faddbabbff11676779618fc6db7e"
 
-# SCRIPT_REPO="https://github.com/FFmpeg/nv-codec-headers.git"
-# SCRIPT_COMMIT="33a9ede8d9914299d9262539c576a15bd0a19621"
-# SCRIPT_BRANCH="sdk/13.0"
+# SCRIPT_REPO2="https://github.com/FFmpeg/nv-codec-headers.git"
+# SCRIPT_COMMIT2="33a9ede8d9914299d9262539c576a15bd0a19621"
+# SCRIPT_BRANCH2="sdk/13.0"
 
 ffbuild_enabled() {
     [[ $TARGET == winarm64 ]] && return 1

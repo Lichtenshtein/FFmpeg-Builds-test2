@@ -25,7 +25,6 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     local myconf=(
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -53,9 +52,9 @@ ffbuild_dockerbuild() {
 
     local PC_FILE="$PC_DIR/libaribcaption.pc"
     if [ -f "$PC_FILE" ]; then
-        # Вырезаем абсолютный путь к libstdc++.a
+        # Cut the absolute path to libstdc++.a
         sed -i "s|/opt/ct-ng/[^ ]*libstdc++.a||g" "$PC_FILE"
-        # Добавляем необходимые зависимости, если их там нет
+        # Add the necessary dependencies if they are not there.
         sed -i "/^Libs.private:/ s/$/ -lstdc++ -lcrypto/" "$PC_FILE"
         sed -i "s|^Cflags:.*|& -I\${includedir}/aribcaption|" "$PC_FILE"
     fi

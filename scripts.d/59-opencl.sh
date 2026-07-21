@@ -22,29 +22,28 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Возвращаемся в реальный корень этапа, если "умный поиск" зашел в /loader или /CLHPP
+    # Return to the actual root of the stage if the "smart search" entered /loader or /CLHPP
     if [[ "$(basename "$PWD")" == "loader" || "$(basename "$PWD")" == "CLHPP" ]]; then
         cd ..
     fi
 
-    # 1. Установка базовых C-хедеров OpenCL
+    # Installing OpenCL base C headers
     log_info "Installing OpenCL C headers..."
     mkdir -p "$INSTALL_ROOT/include/CL"
     cp -r headers/CL/* "$INSTALL_ROOT/include/CL/."
 
-    # 2. Сборка и установка OpenCL ICD Loader
+    # Building and installing OpenCL ICD Loader
     log_info "Building OpenCL ICD Loader..."
     cd loader
-    # Удаляем старый build если остался, и создаем чистый
-    rm -rf build && mkdir build && cd build
+
+    mkdir build && cd build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        # Указываем путь к только что скопированным хедерам
+        # Specify the path to the headers we just copied
         -DOPENCL_ICD_LOADER_HEADERS_DIR="$INSTALL_ROOT/include"
         -DOPENCL_ICD_LOADER_BUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DENABLE_OPENCL_LAYERS=ON # support for OpenCL layers in the ICD loader
@@ -64,7 +63,7 @@ ffbuild_dockerbuild() {
 
     cd ../..
 
-    # 3. Установка C++ хедеров OpenCL (CLHPP)
+    # Installing OpenCL C++ Headers (CLHPP)
     log_info "Installing OpenCL C++ headers (CLHPP)..."
     cd CLHPP
 
@@ -77,9 +76,9 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        # Указываем путь к C-хедерам, чтобы сработал внутренний IF в CMakeLists
+        # Specify the path to the C headers so that the internal IF in CMakeLists is triggered
         -DOPENCL_INCLUDE_DIR="$INSTALL_ROOT/include"
-        # Отключаем сборку тестов, примеров и документации
+        # Disable the compilation of tests, examples, and documentation
         -DBUILD_DOCS=OFF
         -DBUILD_EXAMPLES=OFF
         -DOPENCL_CLHPP_BUILD_TESTING=OFF

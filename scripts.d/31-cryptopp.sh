@@ -17,7 +17,6 @@ ffbuild_dockerbuild() {
     mkdir -p build && cd build
 
     local myconf=(
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -26,7 +25,7 @@ ffbuild_dockerbuild() {
         -DCRYPTOPP_BUILD_TESTING=OFF
         -DCRYPTOPP_BUILD_DOCUMENTATION=OFF
         -DCRYPTOPP_USE_OPENMP=$([ "$USE_OPENMP" == "1" ] && echo ON || echo OFF)
-        # Отключаем промежуточный таргет объектов
+        # Disabling intermediate object targeting
         -DCRYPTOPP_USE_INTERMEDIATE_OBJECTS_TARGET=OFF
     )
 

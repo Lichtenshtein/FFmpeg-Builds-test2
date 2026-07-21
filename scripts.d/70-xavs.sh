@@ -1,10 +1,10 @@
 #!/bin/bash
 
-SCRIPT_REPO="https://github.com/cntrump/xavs.git"
-SCRIPT_COMMIT="1df4f285b28c5296d050bfa1d7a7520143f3f4ce"
-
 # SCRIPT_REPO="https://svn.code.sf.net/p/xavs/code/trunk"
 # SCRIPT_REV="55"
+
+SCRIPT_REPO2="https://github.com/cntrump/xavs.git"
+SCRIPT_COMMIT2="1df4f285b28c5296d050bfa1d7a7520143f3f4ce"
 
 ffbuild_enabled() {
     return 0

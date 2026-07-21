@@ -21,46 +21,45 @@ ffbuild_dockerbuild() {
     set -e
 
     log_info "Patching x265 to match VMAF Pointer ABI..."
-    # Ищем файлы, где встречается vmaf_init, и точечно правим вызов на передачу адреса &cfg
+    # Search for files where vmaf_init is encountered and precisely correct the call to transfer the address &cfg
     find . -type f \( -name "encoder.cpp" -o -name "api.cpp" -o -name "*vmaf*" \) -exec sed -i 's/vmaf_init(\&vmafContext, cfg)/vmaf_init(\&vmafContext, \&cfg)/g' {} + || true
     find . -type f \( -name "encoder.cpp" -o -name "api.cpp" -o -name "*vmaf*" \) -exec sed -i 's/vmaf_init(vmaf_context, cfg)/vmaf_init(vmaf_context, \&cfg)/g' {} + || true
 
     if [[ ! -d "/build/${STAGENAME}/.git" ]]; then
         log_debug ".git directory is MISSING in $(pwd)."
-        # Если .git нет, создаем файл версии, чтобы CMake не падал
+        # If there is no .git, create a version file so that CMake does not crash
         echo "${VER_FULL}" > "x265_version.txt"
     else
         log_debug ".git directory found. Version should be detected automatically."
     fi
 
-    # Полностью вырезаем блок определения версии в CMakeLists.txt, 
-    # который вызывает ошибку "list GET"
+    # Completely remove the version definition block from CMakeLists.txt,
+    # which causes the "list GET" error
     sed -i '/if(X265_LATEST_TAG)/,/endif(X265_LATEST_TAG)/d' "CMakeLists.txt"
     sed -i 's/list(GET /#list(GET /g' "CMakeLists.txt"
 
-    # Фикс заголовка json11
+    # Fix header json11
     find . -name "json11.cpp" -exec sed -i '1i#include <cstdint>' {} +
 
-    # Фикс совместимости x265 с SVT-HEVC 1.5.0+ (изменение EB_SEI_MESSAGE)
-    # Заменяем аллокацию на memcpy (так как payload теперь массив)
+    # Fix x265 compatibility with SVT-HEVC 1.5.0+ (EB_SEI_MESSAGE change)
+    # Change allocation to memcpy (since payload is now an array)
     sed -i 's/inputData->dolbyVisionRpu.payload = X265_MALLOC(uint8_t, 1024);/memset(inputData->dolbyVisionRpu.payload, 0, 1024);/g' "encoder/api.cpp"
 
-    # Убираем попытки обнуления указателя (статический массив нельзя занулить)
+    # Remove attempts to zero out a pointer (a static array cannot be zeroed out)
     sed -i 's/inputData->dolbyVisionRpu.payload = NULL;//g' "encoder/api.cpp"
 
-    # Убираем X265_FREE, так как массив не нужно освобождать
+    # Remove X265_FREE, since the array does not need to be freed
     sed -i 's/if (inputData->dolbyVisionRpu.payload) X265_FREE(inputData->dolbyVisionRpu.payload);//g' "encoder/api.cpp"
 
-    # Исправление потенциального крэша в парсинге параметров SVT-HEVC
+    # Fix for a potential crash in SVT-HEVC parameter parsing
     # sed -i 's/else { if (!strcmp(temp1, "\*"))/else { temp1 = pools; if (!strcmp(temp1, "\*"))/' "common/param.cpp"
 
-    # Дополнительно исправляем варнинг сравнения типов в threading.h (Win64)
+    # Additionally, corrected the type comparison warning in threading.h (Win64)
     sed -i 's/rt != WAIT_TIMEOUT \&\& rt != WAIT_FAILED/rt != (DWORD)WAIT_TIMEOUT \&\& rt != (DWORD)WAIT_FAILED/g' "common/threading.h"
     sed -i 's/int32_t rt = WaitForSingleObject/DWORD rt = WaitForSingleObject/g' "common/threading.h"
 
     local myconf=(
         -G Ninja
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
@@ -101,7 +100,7 @@ ffbuild_dockerbuild() {
         ninja -C 10bit -j$(nproc) $NINJA_V || return 1
 
         log_info "Building 8-bit x265 (combined)..."
-        # Копируем либы для финальной линковки
+        # Copying libraries for final linking
         cp 12bit/libx265.a 8bit/libx265_main12.a
         cp 10bit/libx265.a 8bit/libx265_main10.a
 
@@ -114,8 +113,8 @@ ffbuild_dockerbuild() {
             -S . -B 8bit || return 1
         ninja -C 8bit -j$(nproc) $NINJA_V || return 1
 
-        # Объединяем библиотеки через MRI скрипт для ar
-        # используем кросс-архивный AR
+        # Combining libraries via an MRI script for AR
+        # Using cross-archive AR
         cd 8bit
         mv libx265.a libx265_8bit.a
         ${AR} -M <<EOF
@@ -126,7 +125,7 @@ ADDLIB libx265_main12.a
 SAVE
 END
 EOF
-        # Возвращаемся в корень билда
+        # Return to the root of the build
         cd ..
     else
         log_info "Building 8-bit x265 (32-bit target)..."
@@ -137,7 +136,7 @@ EOF
         ninja -C 8bit -j$(nproc) $NINJA_V || return 1
     fi
 
-    # Установка из папки 8bit (которая содержит объединенную либу)
+    # Installing from the 8bit folder (which contains the merged lib)
     DESTDIR="$FFBUILD_DESTDIR" ninja -C 8bit install || return 1
 
     # I guess this is just a copy
@@ -147,7 +146,6 @@ EOF
         fi
     fi
 
-# -lgcc -lmingwex -lmingw32
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/x265.pc"
 prefix=$FFBUILD_PREFIX

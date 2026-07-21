@@ -19,7 +19,7 @@ EOF
 ffbuild_dockerbuild() {
     set -e
 
-    # Патчим корневой Makefile.in, чтобы не собирать утилиты (main) и тесты
+    # Patch the root Makefile.in to avoid building utilities (main) and tests
     if [ -f Makefile.in ]; then
         log_info "Patching Makefile.in to skip binaries generation..."
         sed -i 's/SUBDIRS = .*/SUBDIRS =  src lang/g' Makefile.in
@@ -42,7 +42,7 @@ ffbuild_dockerbuild() {
         myconf+=( --enable-shared=yes ) || \
         myconf+=( --enable-shared=no --disable-shared )
 
-    # Принудительно отключаем sockets для стабильности
+    # Forcefully disabling sockets for stability
     export DEFS="-DCST_NO_SOCKETS -DUNDER_WINDOWS -DWIN32"
 
     CC_FOR_BUILD="gcc" \
@@ -53,15 +53,15 @@ ffbuild_dockerbuild() {
     LIBS="$LIBS" \
     ./configure "${myconf[@]}" || return 1
 
-    # Предварительное создание структуры
+    # Preliminary creation of the structure
     mkdir -p build/${FFBUILD_TOOLCHAIN}/obj "$INSTALL_ROOT"/{lib/pkgconfig,include/flite}
 
-    # Генерируем flite_voice_list.c и каталоги в строго один поток.
+    # Generate flite_voice_list.c and directories in exactly one thread
     make -j1 $MAKE_V || return 1
 
     # make install DESTDIR="$FFBUILD_DESTDIR"
 
-    # Динамический поиск папки с либами (fix для x86_64-mingw32 vs x86_64-w64-mingw32)
+    # Dynamic search for the lib folder (fix for x86_64-mingw32 vs x86_64-w64-mingw32)
     local BUILDIR=$(find build -maxdepth 3 -type d -name "lib" | head -n 1)
     if [[ -d "$BUILDIR" ]]; then
         log_info "Found build libraries in $BUILDIR"
@@ -71,11 +71,11 @@ ffbuild_dockerbuild() {
         return 1
     fi
 
-    # Копируем заголовки
-    cp -v include/*.h "$INSTALL_ROOT/include/flite/"
+    # Copy the headers
+    cp ${OP_VERB} include/*.h "$INSTALL_ROOT/include/flite/"
 
-    # Собираем список всех библиотек для Libs (согласно flite.pc.in и реальности)
-    # Порядок важен: сначала голоса и лексиконы, в конце -lflite
+    # Compile a list of all libraries for Libs (according to flite.pc.in and reality)
+    # The order is important: voices and lexicons first, -lflite last
     local VOX_LIBS=$(find "$INSTALL_ROOT/lib" -name "libflite_*.a" | sed "s|.*/lib\(flite_.*\)\.a|-l\1|" | xargs)
 
     cat <<EOF > "$PC_DIR/flite.pc"
@@ -96,11 +96,11 @@ EOF
 }
 
 ffbuild_configure() {
-    echo "--enable-libflite"
+    echo --enable-libflite
 }
 
 ffbuild_unconfigure() {
-    echo "--disable-libflite"
+    echo --disable-libflite
 }
 
 ffbuild_libs() {

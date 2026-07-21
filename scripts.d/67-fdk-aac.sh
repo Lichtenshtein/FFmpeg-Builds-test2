@@ -3,8 +3,8 @@
 # SCRIPT_REPO="https://github.com/mstorsjo/fdk-aac.git"
 # SCRIPT_COMMIT="d8e6b1a3aa606c450241632b64b703f21ea31ce3"
 
-SCRIPT_REPO="https://github.com/Rancemxn/fdk-aac.git"
-SCRIPT_COMMIT="d05a2f3e7678d987bde2a2c10101c7cb91711905"
+SCRIPT_REPO2="https://github.com/Rancemxn/fdk-aac.git"
+SCRIPT_COMMIT2="d05a2f3e7678d987bde2a2c10101c7cb91711905"
 
 ffbuild_enabled() {
     [[ $VARIANT == nonfree* ]] || return 1
@@ -24,7 +24,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
         -DBUILD_PROGRAMS=OFF

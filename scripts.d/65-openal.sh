@@ -21,7 +21,6 @@ ffbuild_dockerbuild() {
     mkdir -p cm_build && cd cm_build
 
     local myconf=(
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF )
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
@@ -84,9 +83,9 @@ ffbuild_dockerbuild() {
     local PRIVATE_LIBS="-lwinpthread -lavrt -ldsound -latomic -lm -luuid -lwinmm -lz -lstdc++"
     local PC_FILE="$PC_DIR/openal.pc"
     if [[ -f "$PC_FILE" ]]; then
-        # Удаляем существующую строку Libs.private целиком
+        # Delete the entire existing Libs.private line
         sed -i '/^Libs.private:/d' "$PC_FILE"
-        # Записываем новую чистую строку
+        # Write a new line
         echo "Libs.private: $PRIVATE_LIBS" >> "$PC_FILE"
     fi
 }

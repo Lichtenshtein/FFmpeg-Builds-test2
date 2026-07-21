@@ -10,9 +10,9 @@ ffbuild_dockerdl() {
     echo "download_file \"$SCRIPT_REPO\" \"gettext.tar.gz\""
     echo "tar -xaf gettext.tar.gz --strip-components=1"
     echo "rm -f gettext.tar.gz"
-    # Агрессивная очистка неиспользуемых тяжелых компонентов
+    # Aggressive cleaning of unused heavy components
     echo "rm -rf gnulib-local libtextstyle"
-    # Очищаем gettext-tools, но подменяем Makefile, чтобы верхний configure не падал
+    # clean up gettext-tools, but replace the Makefile so that the top configure doesn't crash
     echo "rm -rf gettext-tools/*"
     echo "mkdir -p gettext-tools"
     echo "echo 'all: ;' > gettext-tools/Makefile.in"
@@ -22,7 +22,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Собираем только из подпапки gettext-runtime, чтобы не собирать тяжелые Java/C# компоненты
+    # Build only from the gettext-runtime subfolder to avoid building heavy Java/C# components
     cd gettext-runtime
 
     local myconf=(

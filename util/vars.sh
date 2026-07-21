@@ -1963,7 +1963,7 @@ get_stage_version() {
                                 fi
                             fi
 
-                            # OpenVINO (Ищет теги вида 2026.2.0 или v2026.2.0)
+                            # OpenVINO (Looks for tags like 2026.2.0 or v2026.2.0)
                             if [[ "$STAGENAME" == *"openvino"* ]]; then
                                 local vino_tag
                                 vino_tag=$(echo "$remote_refs" | grep -E "refs/tags/v?[0-9]+\.[0-9]+\.[0-9]+" | tail -n1 | awk -F'/' '{print $NF}' | sed 's/\^{}$//' || true)
@@ -2722,7 +2722,7 @@ separator_box() {
             if [[ -z "$label" ]]; then
                 printf '┌%s┐\n' "$(_repeat_char "$inner" "$char")" >&2
             else
-                # Автоматически добавляем скобки, если их нет
+                # Automatically add parentheses if they are missing
                 if [[ ! "$label" =~ ^\[.*\]$ ]]; then
                     label="[ $label ]"
                 fi
@@ -2733,7 +2733,7 @@ separator_box() {
 
                 local left=$(( fill / 2 ))
                 local right=$(( fill - left ))
-                # Печатаем без лишних пробелов, так как они теперь внутри label
+                # print without extra spaces, since they are now inside the label
                 printf '┌%s%s%s┐\n' \
                     "$(_repeat_char "$left" "$char")" \
                     "$label" \

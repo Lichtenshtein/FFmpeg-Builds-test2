@@ -14,7 +14,6 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # копируем заголовки в префикс, чтобы лоадер и другие (libplacebo) их видели
     mkdir -p "$INSTALL_ROOT"/include
     cp -r include/* "$INSTALL_ROOT"/include/
     mkdir -p "$INSTALL_ROOT"/share/vulkan/registry

@@ -837,7 +837,7 @@ find "${FFBUILD_PREFIX}" -type d -empty -delete || true
 
 # Version detection
 if [[ -n "$FFMPEG_API_VERSION" ]]; then
-    # Если переменная прилетела из GitHub Actions / Docker ENV, используем её
+    # If the variable came from GitHub Actions / Docker ENV, we use it
     log_info "Using FFmpeg version from API: ${FFMPEG_API_VERSION}"
     FFMPEG_VERSION="$FFMPEG_API_VERSION"
 elif [[ -f "$FFMPEG_SOURCE_DIR/ffbuild/version.sh" ]]; then

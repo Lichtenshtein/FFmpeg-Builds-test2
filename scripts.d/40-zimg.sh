@@ -17,7 +17,7 @@ ffbuild_dockerbuild() {
     set -e
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
-        # вырезаем макрос скрытия видимости -fvisibility=hidden из configure.ac
+        # Remove the visibility hiding macro -fvisibility=hidden from configure.ac
         sed -i '/-fvisibility=hidden/,/\])/d' configure.ac
     fi
 

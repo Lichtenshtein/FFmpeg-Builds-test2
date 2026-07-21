@@ -24,14 +24,14 @@ ffbuild_dockerbuild() {
 
     log_info "Applying deep MinGW fixes to OpenVINO headers..."
 
-    # Заменяем BOOLEAN на OV_BOOLEAN_TYPE во всех заголовочных файлах C-API
-    # Это исключит конфликт с typedef BYTE BOOLEAN в winnt.h
+    # Replace BOOLEAN with OV_BOOLEAN_TYPE in all C-API header files
+    # This will eliminate the conflict with the BYTE BOOLEAN typedef in winnt.h
     find runtime/include/openvino/c -type f -exec sed -i 's/\bBOOLEAN\b/OV_BOOLEAN_TYPE/g' {} +
 
-    # Убираем опасный дефайн в openvino.h, который мы переименовали выше
+    # Remove the dangerous define in openvino.h, which we renamed above.
     sed -i '/#define BOOLEAN OV_BOOLEAN/d' runtime/include/openvino/c/openvino.h
 
-    # Фикс дубликатов свойств (уже был)
+    # Fixed duplicate properties (already there)
     sed -i '/OPENVINO_C_VAR(const char\*) ov_property_key_intel_gpu_config_file;/d' runtime/include/openvino/c/gpu/gpu_plugin_properties.h
 
     mkdir -p "$INSTALL_ROOT"/{include,lib,bin,lib/cmake}
@@ -41,7 +41,7 @@ ffbuild_dockerbuild() {
     mkdir -p "$INSTALL_ROOT/lib/cmake"
     cp -r runtime/cmake/* "$INSTALL_ROOT/lib/cmake/"
 
-    # Копируем ВСЕ библиотеки фронтендов, иначе OpenCV не соберется
+    # Copy ALL frontend libraries, otherwise OpenCV won't build.
     find runtime/lib/intel64/Release/ -name "*.lib" | while read -r f; do
         name=$(basename "$f" .lib)
         cp "$f" "$INSTALL_ROOT/lib/lib${name}.a"
@@ -51,15 +51,15 @@ ffbuild_dockerbuild() {
     # TBB (Intel Threading Building Blocks)
     if [ -f "${FFBUILD_PREFIX}/lib/libtbb.a" ]; then
         log_info "Custom static TBB detected. Skipping OpenVINO's bundled TBB to avoid conflicts."
-        # Удаляем TBB из исходников OpenVINO, чтобы CMake его даже не пытался найти там
+        # Remove TBB from the OpenVINO sources so that CMake doesn't even try to find it there
         rm -rf runtime/3rdparty/tbb
-        # Очистка INSTALL_ROOT от случайных следов DLL-версий TBB
+        # Cleaning INSTALL_ROOT from random traces of TBB DLL versions
         rm -f "${INSTALL_ROOT}/bin/tbb"*".dll" || true
         rm -f "${INSTALL_ROOT}/lib/libtbb"*".dll.a" || true
-        # Удаляем CMake-конфиги TBB от OpenVINO, они ведут к DLL
+        # Remove CMake configs for TBB from OpenVINO, they lead to DLLs
         rm -f "${INSTALL_ROOT}/lib/cmake/TBB"*".cmake" || true
     else
-        # Если своей либы нет, используем то, что дали (но это будет динамика)
+        # If we don't have own, we'll use what's given to us (but it will be dynamic)
         log_warn "No custom TBB found, using OpenVINO bundled TBB."
         if [[ -d "runtime/3rdparty/tbb" ]]; then
             find runtime/3rdparty/tbb/bin/ -name "*.dll" ! -name "*_debug.dll" -exec cp {} "$INSTALL_ROOT/bin/" \;
@@ -68,7 +68,7 @@ ffbuild_dockerbuild() {
         fi
     fi
 
-    # Массированный патч путей и типов файлов
+    # Massive patch of file paths and types
     find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
         -e "s|runtime/lib/intel64/Release/|lib/lib|g" \
         -e "s|runtime/lib/intel64/Debug/|lib/lib|g" \
@@ -79,18 +79,17 @@ ffbuild_dockerbuild() {
         -e "s|liblib|lib|g" \
         {} +
 
-    # код для удаления суффикса 'd'
-    # Мы обрабатываем и .a, и .dll, и текстовые упоминания конфигураций
+    # code to remove the 'd' suffix
+    # process both .a and .dll files, as well as text references to configurations
     find "$INSTALL_ROOT/lib/cmake" -name "*.cmake" -type f -exec sed -i \
         -e 's/d\.a/.a/g' -e 's/fronten\.a/frontend.a/g' \
         -e 's/d\.dll/.dll/g' -e 's/fronten\.dll/frontend.dll/g' \
         -e 's/Debug/Release/g' -e 's/DEBUG/RELEASE/g' \
         {} +
 
-    # Удаляем проверки существования файлов, которые часто ломают find_package в кросс-компиляции
+    # Removing file existence checks that often break find_package in cross-compilation
     find "$INSTALL_ROOT/lib/cmake" -name "OpenVINOTargets-*.cmake" -exec sed -i '/_cmake_import_check_files_for_.* exists/d' {} +
 
-    # Корректный pkg-config для динамической линковки
     mkdir -p "$PC_DIR"
     cat <<EOF > "$PC_DIR/openvino.pc"
 prefix=$FFBUILD_PREFIX
@@ -104,10 +103,6 @@ Libs.private: -lopenvino_onnx_frontend -lopenvino_pytorch_frontend -lopenvino_te
 Cflags: -I\${includedir} -I\${includedir}/openvino
 EOF
 }
-
-# ffbuild_libs() {
-    # echo "-lopenvino_c -ltbb12 -lopenvino"
-# }
 
 ffbuild_configure() {
     echo --enable-libopenvino

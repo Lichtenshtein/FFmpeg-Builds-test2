@@ -3,9 +3,9 @@
 # SCRIPT_REPO="https://github.com/sezero/libmad.git"
 # SCRIPT_COMMIT="486f902c6c686eafced3450851849527e29bc7f6"
 
-SCRIPT_REPO="https://github.com/dpw13/libmad.git"
-SCRIPT_COMMIT="7d04821ae3580d994664a8eb98dda873609578ed"
-SCRIPT_BRANCH="dev/dwagner"
+SCRIPT_REPO2="https://github.com/dpw13/libmad.git"
+SCRIPT_COMMIT2="7d04821ae3580d994664a8eb98dda873609578ed"
+SCRIPT_BRANCH2="dev/dwagner"
 
 ffbuild_enabled() {
     return 0

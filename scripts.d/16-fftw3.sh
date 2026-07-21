@@ -14,13 +14,13 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Исправление для ocaml/genfft
+    # Fix for ocaml/genfft
     if [ -f genfft/Makefile.am ]; then
         sed -i 's/-libs nums/-use-ocamlfind -package num/' genfft/Makefile.am
     fi
     sed -i 's/windows.h/process.h/' configure.ac
 
-    # отключаем сборку бинарников, скриптов и мануалов в директории tools
+    # Disable the compilation of binaries, scripts, and manuals in the tools directory
     if [ -f tools/Makefile.am ]; then
         sed -i 's/^bin_PROGRAMS =.*/bin_PROGRAMS =/' tools/Makefile.am
         sed -i 's/^bin_SCRIPTS =.*/bin_SCRIPTS =/' tools/Makefile.am
@@ -55,16 +55,16 @@ ffbuild_dockerbuild() {
     if [[ $TARGET == win* || $TARGET == linux* ]]; then
         myconf+=(
             --host="$FFBUILD_TOOLCHAIN"
-            # гарантирует выравнивание памяти по границе 16/32 байта
+            # guarantees memory alignment on a 16/32 byte boundary
             --with-our-malloc
         )
     fi
 
-    # Запуск автогенерации скриптов (один раз)
+    # Run auto-generated scripts (one time)
     ./bootstrap.sh
 
-    # Список точностей: "double" (стандарт) и "float" (одинарная)
-    # FFTW для float требует флаг --enable-single
+    # List of precisions: "double" (standard) and "float" (single)
+    # FFTW requires the --enable-single flag for float
     for precision in double float; do
         local myconf=("${myconf[@]}")
 
@@ -75,7 +75,7 @@ ffbuild_dockerbuild() {
             log_info "Building FFTW3 in DOUBLE precision..."
         fi
 
-        # Чистим перед пересборкой другой точности
+        # Cleaning before rebuild a different precision
         make distclean || true
 
         CFLAGS="${CFLAGS} ${OPENMP_C}${USELTO}${USELTO_C}" \

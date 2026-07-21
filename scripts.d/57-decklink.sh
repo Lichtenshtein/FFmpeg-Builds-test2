@@ -21,7 +21,7 @@ ffbuild_dockerbuild() {
 
     make PREFIX="$INSTALL_ROOT" install || return 1
 
-    # —оздаем DeckLinkAPI_v14_2_1.h, который просто перенаправл€ет на новый DeckLinkAPI.h
+    # Create DeckLinkAPI_v14_2_1.h, which simply redirects to the new DeckLinkAPI.h
     echo '#include <DeckLinkAPI.h>' > "$INSTALL_ROOT/include/DeckLinkAPI_v14_2_1.h"
 
     log_info "DeckLink 15.3 headers installed with FFmpeg compatibility bypass."

@@ -3,20 +3,12 @@
 SCRIPT_REPO="https://github.com/cynagenautes/AudioToolboxWrapper.git"
 SCRIPT_COMMIT="191aa1bf840e093cad48a5d34c961086641bacbd"
 
-# Apple (CoreAudio)
-# QTFILES_URL="https://github.com/AnimMouse/QTFiles/releases/download/v12.13.9.1/QTfiles64.7z"
-
 ffbuild_enabled() {
     return 0
 }
 
 ffbuild_dockerdl() {
     default_dl .
-    # echo "git clean -fdx"
-    # echo "download_file \"$QTFILES_URL\" \"qtfiles64.7z\""
-    # echo "mkdir -p apple_dlls"
-    # echo "7z x qtfiles64.7z -o\"apple_dlls\""
-    # echo "rm -f qtfiles64.7z"
 }
 
 ffbuild_dockerbuild() {
@@ -30,7 +22,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo 1 || echo 0)
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
     )
 
@@ -55,18 +46,6 @@ Version: 1.0
 Libs: -L\${libdir} -lAudioToolboxWrapper
 Cflags: -I\${includedir} -I\${includedir}/AudioToolbox
 EOF
-
-    # cd ..
-
-    # Создаем папку bin в префиксе назначения, если её нет
-    # mkdir -p "$INSTALL_ROOT/bin/QTfiles64"
-
-    # Копируем все DLL из папки QTfiles64 в bin префикса
-    # Согласно инструкции, они должны лежать рядом с ffmpeg.exe
-    # cp ${OP_VERB} apple_dlls/QTfiles64/*.dll "$INSTALL_ROOT/bin/QTfiles64/"
-
-    # Удаляем ldwrapper, так как он нужен только для сборки самого враппера
-    # rm -f "$INSTALL_ROOT/bin/atw_ldwrapper"
 }
 
 ffbuild_configure() {

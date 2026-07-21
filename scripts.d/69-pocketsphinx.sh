@@ -34,7 +34,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DFIXED_POINT=OFF # Build using fixed-point math
         -DPS_THREAD_LOCAL_RNG=ON # Use thread-local storage for random number generator
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DBUILD_SHARED_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo ON || echo OFF)
     )
 
@@ -43,7 +42,7 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    cp -f ../include/pocketsphinx.h "$INSTALL_ROOT"/include/pocketsphinx/
+    cp -f${OP_V} ../include/pocketsphinx.h "$INSTALL_ROOT"/include/pocketsphinx/
     rm -f "$INSTALL_ROOT"/bin/pocketsphin*
 }
 

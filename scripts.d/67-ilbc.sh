@@ -3,8 +3,8 @@
 # SCRIPT_REPO="https://github.com/TimothyGu/libilbc.git"
 # SCRIPT_COMMIT="6adb26d4a4e159cd66d4b4c5e411cd3de0ab6b5e"
 
-SCRIPT_REPO="https://github.com/mal359/libilbc.git"
-SCRIPT_COMMIT="92453650e3dc53c0ca209dbf04d3153a5517a91d"
+SCRIPT_REPO2="https://github.com/mal359/libilbc.git"
+SCRIPT_COMMIT2="92453650e3dc53c0ca209dbf04d3153a5517a91d"
 
 ffbuild_enabled() {
     return 0
@@ -18,7 +18,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    # Вырезаем сборку тестовых исполняемых файлов из CMakeLists.txt
+    # Cut the build of test executables from CMakeLists.txt
     sed -i '/add_executable[[:space:]]*(ilbc_test/,/)/d' CMakeLists.txt
     sed -i '/target_link_libraries[[:space:]]*(ilbc_test/,/)/d' CMakeLists.txt
     sed -i '/add_executable[[:space:]]*(ilbc_test2/,/)/d' CMakeLists.txt
@@ -26,7 +26,7 @@ ffbuild_dockerbuild() {
     sed -i '/add_custom_target[[:space:]]*(ilbc_test-sample/,/)/d' CMakeLists.txt
     sed -i '/add_custom_target[[:space:]]*(ilbc_test2-sample/,/)/d' CMakeLists.txt
 
-    # Убираем упоминание ilbc_test из секции инсталляции
+    # Remove the ilbc_test reference from the installation section
     sed -i 's/install[[:space:]]*([[:space:]]*TARGETS[[:space:]]\+ilbc[[:space:]]\+ilbc_test/install(TARGETS ilbc/g' CMakeLists.txt
 
     mkdir -p _build && cd _build
@@ -39,7 +39,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
         -DWITH_NEON=OFF # Enable NEON optimization
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
     )
 
     local EXTRA_CFLAGS="-Wno-error=implicit-function-declaration"
@@ -52,9 +51,9 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # сносим строку
+    # Cut the line
     sed -i '/^Cflags:/d' "$PC_DIR/libilbc.pc"
-    # записываем новую чистую строку
+    # Write a new clean line
     echo "Cflags: -I\${includedir}" >> "$PC_DIR/libilbc.pc"
 }
 

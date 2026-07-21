@@ -287,7 +287,7 @@ fi
 # ==================================
 
 # OPENVINO MODELS (VPP_OPENVINO)
-# OpenVINO Models (ESPCN - Super Resolution x2) работают через vpp_openvino
+# OpenVINO Models (ESPCN - Super Resolution x2) work via vpp_openvino
 if [[ "$DEBUG_MODE" == "0" && "$HAS_LIBOPENVINO" == "1" && "$GRAB_MODELS" == "1" ]]; then
 
     mkdir -p "${ASSETS_DIR}/openvino"
@@ -378,7 +378,7 @@ fi
 # LIBTORCH PROCESSING
 # ==========================================
 
-# LIBTORCH MODELS (EDSR) Модели .torch для фильтра 'sr'. TorchScript.
+# LIBTORCH MODELS (EDSR) Torch models for the 'sr' filter. TorchScript.
 # if [[ "$HAS_LIBTORCH" == "1" ]]; then
     # log_info "${DOWN_MARK} Downloading LibTorch models..."
     # mkdir -p "${ASSETS_DIR}/torch"

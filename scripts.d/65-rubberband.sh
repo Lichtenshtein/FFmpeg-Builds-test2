@@ -3,8 +3,8 @@
 # SCRIPT_REPO="https://github.com/breakfastquay/rubberband.git"
 # SCRIPT_COMMIT="e4296ac80b1170018a110bc326fd0d45a0eb27d6"
 
-SCRIPT_REPO="https://github.com/pwnified/rubberband.git"
-SCRIPT_COMMIT="1928d99f31536a28a485a9c90bb82ed942fa7049"
+SCRIPT_REPO2="https://github.com/pwnified/rubberband.git"
+SCRIPT_COMMIT2="1928d99f31536a28a485a9c90bb82ed942fa7049"
 
 ffbuild_depends() {
     echo base

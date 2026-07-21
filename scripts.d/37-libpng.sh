@@ -26,7 +26,6 @@ ffbuild_dockerbuild() {
         -DCMAKE_BUILD_TYPE=Release
         -DCMAKE_INSTALL_PREFIX="$FFBUILD_PREFIX"
         -DCMAKE_POSITION_INDEPENDENT_CODE=ON
-        # -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=$([ "${USE_LTO}" == "1" ] && echo ON || echo OFF)
         -DPNG_TESTS=OFF
         -DPNG_FRAMEWORK=OFF
         -DPNG_TOOLS=OFF
@@ -46,7 +45,7 @@ ffbuild_dockerbuild() {
     ninja $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    # Многие старые пакеты ищут libpng16.pc или libpng.pc; pixman looks for png.pc
+    # Many older packages look for libpng16.pc or libpng.pc; pixman looks for png.pc
     ln -sf libpng16.pc "$PC_DIR/libpng.pc"
     ln -sf libpng16.pc "$PC_DIR/png.pc"
 }

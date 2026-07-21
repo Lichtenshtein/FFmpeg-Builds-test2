@@ -15,7 +15,7 @@ on:
       verbosity:
         description: 'Log Verbosity (2: Full, 0: Quiet)'
         required: false
-        default: '1'
+        default: '0'
       cpu_arch:
         description: 'CPU march target (x86-64-v3/znver3)'
         required: false
@@ -166,8 +166,8 @@ env:
   LOG_INSTALLED:     '500' # shown number of installed files in DESTDIR prefix
   DEBUG_MODE:        '0' # use with verbose=2; disables stripping, enables some commands
   # Neural nets
-  USE_TENSORFLOW:    '1'
-  USE_LIBTORCH:      '1'
+  USE_TENSORFLOW:    '0'
+  USE_LIBTORCH:      '0'
   GRAB_MODELS:       '1'
   WHISPER_MODL_SIZE: 'small' # base/small/medium/large-v3
   BUILD_VINO:        '1' # Build OpenVino
@@ -285,7 +285,7 @@ jobs:
           android: true
           dotnet: true
           haskell: true
-          large-packages: true # clang или llvm-ar на host
+          large-packages: true # clang or llvm-ar on host
           docker-images: false
           swap-storage: false
           codeql-images: true # GitHub vulnerability scanner CodeQ

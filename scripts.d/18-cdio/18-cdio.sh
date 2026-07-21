@@ -3,8 +3,6 @@
 SCRIPT_REPO="https://github.com/libcdio/libcdio.git"
 SCRIPT_COMMIT="fe4f6077d8ea165e65552218d9aeff23684c23d7"
 
-# SCRIPT_REPO2="https://git.savannah.gnu.org/git/libcdio.git"
-
 ffbuild_enabled() {
     return 0
 }
