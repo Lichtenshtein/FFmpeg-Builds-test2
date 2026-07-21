@@ -1,5 +1,5 @@
 #!/bin/bash
-set -xe
+
 SCRIPT_REPO="https://github.com/google/shaderc.git"
 SCRIPT_COMMIT="e68868016406f1b53a0fbf09402b79b846e8bca4"
 

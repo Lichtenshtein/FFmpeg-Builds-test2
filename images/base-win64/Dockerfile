@@ -128,20 +128,19 @@ RUN \
 # ==========================================
 # STAGE 2: Toolchain Compilation (Isolating Waste)
 # ==========================================
-FROM ubuntu:26.04 AS stage-toolchain-builder
-
-COPY images/base-win64/ct-ng-config /.config
+FROM stage-os-base AS stage-toolchain-builder
 
 RUN \
-    apt-get -y update && apt-get -y install --no-install-recommends git ca-certificates build-essential bison flex texinfo help2man gawk libtool-bin libtool automake autoconf wget libncurses-dev python3-dev unzip rsync cvs patch cmake ninja-build && \
-    git clone --filter=blob:none --depth=1 https://github.com/crosstool-ng/crosstool-ng.git /ct-ng && \
-    cd /ct-ng && \
-    ./bootstrap && \
-    ./configure --enable-local && \
-    make -j$(nproc) && \
-    cp /.config .config && \
-    \
-    export CT_ALLOW_BUILD_AS_ROOT=1 && \
+    git clone --filter=blob:none --depth=1 https://github.com/crosstool-ng/crosstool-ng.git /ct-ng
+
+WORKDIR /ct-ng
+
+RUN ./bootstrap && ./configure --enable-local && make -j$(nproc)
+
+COPY images/base-win64/ct-ng-config .config
+
+RUN export CT_ALLOW_BUILD_AS_ROOT=1 && \
+    ./ct-ng oldconfig && \
     if ! ./ct-ng build; then \
         echo "❌ ct-ng build FAILED! Printing end of error log:"; \
         [ -f build.log ] && tail -n 100 build.log || echo "build.log not found"; \
@@ -150,8 +149,14 @@ RUN \
     \
     echo "🧹 Cleaning up toolchain artifacts..." && \
     # Remove documentation, manuals, and locales from the finished toolchain
-    rm -rf /ct-ng/.obj /ct-ng/.build /ct-ng/src /ct-ng/build && \
-    rm -rf /opt/ct-ng/share/doc /opt/ct-ng/share/info /opt/ct-ng/share/man /opt/ct-ng/share/locale
+    rm -rf \
+        /ct-ng/.obj/ct-ng/.build \
+        /ct-ng/src \
+        /ct-ng/build \
+        /opt/ct-ng/share/doc \
+        /opt/ct-ng/share/info \
+        /opt/ct-ng/share/man \
+        /opt/ct-ng/share/locale
 
 # ==========================================
 # STAGE 3: Final Clean Image
