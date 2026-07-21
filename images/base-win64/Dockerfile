@@ -44,7 +44,7 @@ RUN \
     apt-get -y update >/dev/null 2>&1 && \
     \
     echo "🔧 Installing latest LLD, Clang, Flang, and LLVM packages" && \
-    apt-get -y install --no-install-recommends lld-23 clang-23 llvm-23 && \
+    apt-get -y install --no-install-recommends lld-23 clang-23 llvm-23 libpolly-23-dev && \
     ln -sf /usr/bin/ld.lld-23 /usr/bin/ld.lld && \
     ln -sf /usr/bin/clang-23 /usr/bin/clang && \
     ln -sf /usr/bin/clang++-23 /usr/bin/clang++ && \
