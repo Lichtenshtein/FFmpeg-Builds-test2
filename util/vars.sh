@@ -293,7 +293,7 @@ should_apply_lto() {
             return 0
             ;;
         # other
-        *"cdio"|*"cdiowpar"|*"cddb"|*"lensfun"|*"libaribb24"|*"libaribcaption"|*"libass"|*"zvbi"|*"qrencode"|*"quirc"|*"amf"|*"libklvanc"|*"vidstab"|*"libcaca"|*"libudfread"|*"libdvdcss"|*"libdvdread"|*"libdvdnav"|*"libbluray"|*"libomnidrive"|*"libdatachannel")
+        *"cdio"|*"cdiowpar"|*"cddb"|*"lensfun"|*"libaribb24"|*"libaribcaption"|*"libass"|*"zvbi"|*"qrencode"|*"quirc"|*"amf"|*"libklvanc"|*"vidstab"|*"libcaca"|*"libudfread"|*"libdvdcss"|*"libdvdread"|*"libdvdnav"|*"libbluray"|*"libomnidrive"|*"libdatachannel"|*"libxxhash")
             return 0
             ;;
         # All other components are assembled WITHOUT LTO

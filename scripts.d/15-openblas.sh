@@ -60,6 +60,17 @@ ffbuild_dockerbuild() {
         -DCPP_THREAD_SAFETY_USE_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
     )
 
+    local flang_fflags=""
+    for flag in $CFLAGS; do
+        [[ "$flag" == *"-std="* ]] && continue
+        [[ "$flag" == *"-mms-bitfields"* ]] && continue
+        flang_fflags="$flang_fflags $flag"
+    done
+
+    flang_fflags="$flang_fflags -frecursive"
+
+    FFLAGS="$flang_fflags" \
+    FCFLAGS="$flang_fflags" \
     CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \

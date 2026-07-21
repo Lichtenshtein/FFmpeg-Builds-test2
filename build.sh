@@ -505,7 +505,7 @@ if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
     log_debug "PRIORITY: 'x86_64-w64-mingw32-gcc' priority: \n$(which -a x86_64-w64-mingw32-gcc)"
 
     log_debug "${DIRS_MARK} Contents of /opt/ct-ng/bin (first 20 files):"
-    ls -F /opt/ct-ng/bin | head -n 20
+    ls -F /opt/ct-ng/bin | head -n 30
 
     log_debug "${SEARCH_MARK} Search for all 'as' files in /opt/ct-ng/:"
     find /opt/ct-ng -name "as" -type f || true
