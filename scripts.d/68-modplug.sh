@@ -3,8 +3,8 @@
 #SCRIPT_REPO="https://github.com/Konstanty/libmodplug"
 #SCRIPT_COMMIT="d1b97ed0020bc620a059d3675d1854b40bd2608d"
 
-SCRIPT_REPO2="https://github.com/mywave82/libmodplug.git"
-SCRIPT_COMMIT2="dadf7058372c04ab28ee1fb5475d05e5e191e72e"
+SCRIPT_REPO="https://github.com/mywave82/libmodplug.git"
+SCRIPT_COMMIT="dadf7058372c04ab28ee1fb5475d05e5e191e72e"
 
 ffbuild_enabled() {
     return 0

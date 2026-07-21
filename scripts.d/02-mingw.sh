@@ -16,7 +16,7 @@ ffbuild_dockerbuild() {
     set -e
 
     # Use the toolchain's internal sysroot as the target, but install to a temp dir first
-    local SYSROOT=$(${FFBUILD_TOOLCHAIN}-gcc -print-sysroot)
+    local SYSROOT=$(${CC} -print-sysroot)
 
     unset CC CXX LD AR CPP LIBS CCAS
     # unset CFLAGS CXXFLAGS LDFLAGS CPPFLAGS CCASFLAGS

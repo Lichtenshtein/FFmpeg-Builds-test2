@@ -3,8 +3,8 @@
 # SCRIPT_REPO="https://github.com/drowe67/codec2.git"
 # SCRIPT_COMMIT="96e8a19c2487fd83bd981ce570f257aef42618f9"
 
-SCRIPT_REPO3="https://github.com/Alex-Pennington/codec2.git"
-SCRIPT_COMMIT3="19571e0a2b42340597fd762803f6eb9d030ee4c5"
+SCRIPT_REPO="https://github.com/Alex-Pennington/codec2.git"
+SCRIPT_COMMIT="19571e0a2b42340597fd762803f6eb9d030ee4c5"
 
 ffbuild_enabled() {
     return 0

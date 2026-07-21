@@ -3,9 +3,9 @@
 # SCRIPT_REPO="https://github.com/xiph/ogg.git"
 # SCRIPT_COMMIT="0288fadac3ac62d453409dfc83e9c4ab617d2472"
 
-SCRIPT_REPO2="https://github.com/sezero/ogg.git"
-SCRIPT_COMMIT2="b7069ef0ee3e2819cda3b60be79655d88cdb67ab"
-SCRIPT_BRANCH2="sezero"
+SCRIPT_REPO="https://github.com/sezero/ogg.git"
+SCRIPT_COMMIT="b7069ef0ee3e2819cda3b60be79655d88cdb67ab"
+SCRIPT_BRANCH="sezero"
 
 ffbuild_enabled() {
     return 0

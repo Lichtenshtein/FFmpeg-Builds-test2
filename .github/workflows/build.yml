@@ -44,14 +44,6 @@ on:
         description: 'Enable FFmpeg custom patches'
         type: boolean
         default: true
-      safe_config:
-        description: 'Enable FFmpeg flags validation'
-        type: boolean
-        default: true
-      debug_no_hash:
-        description: 'Static ENV_HASH (Preserve Docker cache)'
-        type: boolean
-        default: true
       clean_inactive:
         description: 'Clean sources for inactive components'
         type: boolean
@@ -78,19 +70,10 @@ on:
         description: 'Nuke all cache before build (Full Rebuild)'
         type: boolean
         default: false
-      use_wine:
-        description: 'Enable Wine for tests/conftest'
-        type: boolean
-        default: false
       doRelease:
         description: 'Publish new release'
         type: boolean
         default: false
-        required: false
-      dir_numbers:
-        description: 'Ignore script folder numbering'
-        type: boolean
-        default: true
         required: false
       ffmpeg_repo:
         description: 'FFmpeg Repository URL'
@@ -98,10 +81,6 @@ on:
       ffmpeg_branch:
         description: 'FFmpeg Branch'
         default: 'master'
-      ffmpeg_update:
-        description: 'Enable FFmpeg Updating'
-        type: boolean
-        default: true
 env:
   # General locale settings
   LANG: C.UTF-8
@@ -130,18 +109,13 @@ env:
   # List to keep static .a from cleaning (in run_stage.sh)
   LIB_PRESERVE_LIST:
   # Boolean conversion for bash scripts
-  DEBUG_NO_HASH:     ${{ github.event.inputs.debug_no_hash  == 'true' && '1' || '0' }}
   FFMPEG_PATCHES:    ${{ github.event.inputs.patch_ffmpeg   == 'true' && '1' || '0' }}
-  FFMPEG_UPDATE:     ${{ github.event.inputs.ffmpeg_update  == 'true' && '1' || '0' }}
   SKIP_FFMPEG:       ${{ github.event.inputs.skip_ffmpeg    == 'true' && '1' || '0' }}
-  SAFE_CONFIGURE:    ${{ github.event.inputs.safe_config    == 'true' && '1' || '0' }}
   USE_AVX512:        ${{ github.event.inputs.use_avx512     == 'true' && '1' || '0' }}
   USE_LTO:           ${{ github.event.inputs.use_lto        == 'true' && '1' || '0' }}
-  USE_WINE:          ${{ github.event.inputs.use_wine       == 'true' && '1' || '0' }}
   USE_OPENMP:        ${{ github.event.inputs.use_openmp     == 'true' && '1' || '0' }}
   CLEAN_INACTIVE:    ${{ github.event.inputs.clean_inactive == 'true' && '1' || '0' }}
   PREFER_SHARED:     ${{ github.event.inputs.prefer_shared  == 'true' && '1' || '0' }}
-  DIR_NUMBERS:       ${{ github.event.inputs.dir_numbers    == 'true' && '1' || '0' }}
   RESET_CCACHE:      ${{ github.event.inputs.reset_ccache   == 'true' && '1' || '0' }}
   # Inputs -> Env mapping for all dynamic values
   FFMPEG_REPO:       ${{ github.event.inputs.ffmpeg_repo || 'https://github.com/MartinEesmaa/FFmpeg-Plus.git' }}
@@ -153,20 +127,25 @@ env:
   CPU_TUNE:          ${{ github.event.inputs.cpu_tune || 'broadwell' }}
   # Strict params
   SEC_PROTO:         "openssl" # openssl/gnutls/mbedtls/schannel/wolfssl
+  SAFE_CONFIGURE:    "1" # Enable FFmpeg flags validation
+  FFMPEG_UPDATE:     "1" # Enable FFmpeg Sources Updating
   SHADERC_UPDATE:    "1" # Use own Shaderc DEPS file
+  DIR_NUMBERS:       "1" # Ignore script folder numbering
   DEDUPE_FLAGS:      '1' # Deduplicate LDFLAGS/LIBS
+  USE_WINE:          '0' # Enable Wine for tests/conftest
   USE_ASAN:          '0' # Address Sanitizer not supported in ct-ng
   LOG_RAW_SYMB:      '20' # number of lines displaying external library deps
   LOG_SIZES:         '650' # number of lines displayed in logs
   LOG_FF_SIZES:      '1000' # number of lines displayed in ffmpeg logs
   LOG_INSTALLED:     '500' # shown number of installed files in DESTDIR prefix
+  DEBUG_NO_HASH:     "1" # Static ENV_HASH (Preserve Docker cache)
   DEBUG_MODE:        '0' # use with verbose=2; disables stripping, enables some commands
   # Neural nets
-  USE_TENSORFLOW:    '0'
-  USE_LIBTORCH:      '0'
-  GRAB_MODELS:       '1'
+  USE_TENSORFLOW:    '0' # Enable external TensorFlow shared library support
+  USE_LIBTORCH:      '0' # Enable external Torch shared library support
+  GRAB_MODELS:       '1' # Download external assets for enabled components
   WHISPER_MODL_SIZE: 'small' # base/small/medium/large-v3
-  BUILD_VINO:        '1' # Build OpenVino
+  BUILD_VINO:        '1' # Build OpenVINO
 
 jobs:
   build_all:

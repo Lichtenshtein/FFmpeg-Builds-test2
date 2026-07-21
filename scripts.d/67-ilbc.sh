@@ -3,8 +3,8 @@
 # SCRIPT_REPO="https://github.com/TimothyGu/libilbc.git"
 # SCRIPT_COMMIT="6adb26d4a4e159cd66d4b4c5e411cd3de0ab6b5e"
 
-SCRIPT_REPO2="https://github.com/mal359/libilbc.git"
-SCRIPT_COMMIT2="92453650e3dc53c0ca209dbf04d3153a5517a91d"
+SCRIPT_REPO="https://github.com/mal359/libilbc.git"
+SCRIPT_COMMIT="92453650e3dc53c0ca209dbf04d3153a5517a91d"
 
 ffbuild_enabled() {
     return 0

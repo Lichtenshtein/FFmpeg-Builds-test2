@@ -3,8 +3,8 @@
 # SCRIPT_REPO="https://github.com/IObundle/twolame.git"
 # SCRIPT_COMMIT="b995218213887a57a702334730ed86f82749348e"
 
-SCRIPT_REPO2="https://github.com/njh/twolame.git"
-SCRIPT_COMMIT2="6fced852d4d5cfad58cf9dbe3ea619b08e87d398"
+SCRIPT_REPO="https://github.com/njh/twolame.git"
+SCRIPT_COMMIT="6fced852d4d5cfad58cf9dbe3ea619b08e87d398"
 
 ffbuild_enabled() {
     return 0

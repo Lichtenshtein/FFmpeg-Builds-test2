@@ -3,8 +3,8 @@
 # SCRIPT_REPO="https://github.com/mstorsjo/fdk-aac.git"
 # SCRIPT_COMMIT="d8e6b1a3aa606c450241632b64b703f21ea31ce3"
 
-SCRIPT_REPO2="https://github.com/Rancemxn/fdk-aac.git"
-SCRIPT_COMMIT2="d05a2f3e7678d987bde2a2c10101c7cb91711905"
+SCRIPT_REPO="https://github.com/Rancemxn/fdk-aac.git"
+SCRIPT_COMMIT="d05a2f3e7678d987bde2a2c10101c7cb91711905"
 
 ffbuild_enabled() {
     [[ $VARIANT == nonfree* ]] || return 1

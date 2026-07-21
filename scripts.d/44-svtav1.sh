@@ -3,18 +3,18 @@
 # SCRIPT_REPO="https://gitlab.com/AOMediaCodec/SVT-AV1.git"
 # SCRIPT_COMMIT="b7328c60c417ede0d3673119eeee305cce82c215"
 
-# SCRIPT_REPO2="https://github.com/juliobbv-p/svt-av1-hdr.git"
-# SCRIPT_COMMIT2="16b4c9449883298c87dde012a76e64ec0d8c78da"
+# SCRIPT_REPO="https://github.com/juliobbv-p/svt-av1-hdr.git"
+# SCRIPT_COMMIT="16b4c9449883298c87dde012a76e64ec0d8c78da"
 
-SCRIPT_REPO3="https://github.com/Uranite/svt-av1-tritium.git"
-SCRIPT_COMMIT3="1e8bdde190e40d4a6cb38b60205118a4ede07781"
+SCRIPT_REPO="https://github.com/Uranite/svt-av1-tritium.git"
+SCRIPT_COMMIT="1e8bdde190e40d4a6cb38b60205118a4ede07781"
 
-# SCRIPT_REPO4="https://github.com/BlueSwordM/svt-av1-hdr.git"
-# SCRIPT_COMMIT4="f6e65133f2317b996a95f413e964289300d6dbfd"
+# SCRIPT_REPO="https://github.com/BlueSwordM/svt-av1-hdr.git"
+# SCRIPT_COMMIT="f6e65133f2317b996a95f413e964289300d6dbfd"
 
-# SCRIPT_REPO5="https://github.com/Khaoklong51/SVT-AV1-Essential.git"
-# SCRIPT_COMMIT5="56b82f6df10809165f29d982b705bf40bce1c880"
-# SCRIPT_BRANCH5="ffms2_v3_PSYfeat2"
+# SCRIPT_REPO="https://github.com/Khaoklong51/SVT-AV1-Essential.git"
+# SCRIPT_COMMIT="56b82f6df10809165f29d982b705bf40bce1c880"
+# SCRIPT_BRANCH="ffms2_v3_PSYfeat2"
 
 ffbuild_enabled() {
     return 0

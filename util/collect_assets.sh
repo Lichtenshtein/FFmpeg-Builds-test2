@@ -115,7 +115,8 @@ fi
 # Avisynth plugins
 if [[ -d "${FFBUILD_PREFIX}/lib/avisynth" ]]; then
     log_info "${SYNC_MARK} Collecting avisynth plugins..."
-    find "${FFBUILD_PREFIX}/lib/avisynth" -name "*.dll" -exec cp ${OP_VERB} {} "${PKG_DIR}/bin/" \; || true
+    mkdir -p "${PKG_DIR}/bin/avisynth"
+    find "${FFBUILD_PREFIX}/lib/avisynth" -name "*.dll" -exec cp ${OP_VERB} {} "${PKG_DIR}/bin/avisynth/" \; || true
 else
     log_warn "avisynth plugins not found in ${FFBUILD_PREFIX}/lib/avisynth"
 fi
@@ -138,8 +139,8 @@ find "${FFBUILD_PREFIX}" -maxdepth 3 \( -name '*.dll' -o -name '*.pyd' -o -name 
 log_info "${SYNC_MARK} Analyzing binaries for missing MinGW runtime DLLs..."
 if [[ -d "${PKG_DIR}/bin" ]]; then
     # Find the sysroot and toolchain binary directory where the system DLLs live
-    TOOLCHAIN_SYSROOT=$(${FFBUILD_TOOLCHAIN}-gcc -print-sysroot)
-    TOOLCHAIN_BIN_DIR=$(dirname "$(${FFBUILD_TOOLCHAIN}-gcc -print-file-name=libssp.a)")
+    TOOLCHAIN_SYSROOT=$(${CC} -print-sysroot)
+    TOOLCHAIN_BIN_DIR=$(dirname "$(${CC} -print-file-name=libssp.a)")
 
     # An array of standard MinGW runtime libraries that may be required
     RUNTIME_DLLS=("libssp-0.dll" "libwinpthread-1.dll" "libstdc++-6.dll" "libgcc_s_seh-1.dll" "libgomp-1.dll")

@@ -261,7 +261,7 @@ else
     log_info "No source archive required for $STAGENAME (meta-package)."
 fi
 
-[[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]] && log_debug "${STAGENAME}-specific CFLAGS:\n$CFLAGS" && log_debug "${STAGENAME}-specific LDFLAGS:\n$LDFLAGS" && log_debug "${STAGENAME}-specific RUSTFLAGS:\n$RUSTFLAGS"
+[[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]] && log_debug "${STAGENAME}-specific CFLAGS:\n$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C}" && log_debug "${STAGENAME}-specific LDFLAGS:\n$LDFLAGS ${USELTO}${USELTO_L}" && log_debug "${STAGENAME}-specific RUSTFLAGS:\n$RUSTFLAGS"
 
 # Perform the build ONCE and check the status
 build_cmd="ffbuild_dockerbuild"

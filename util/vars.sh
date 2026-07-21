@@ -317,7 +317,6 @@ export -f should_apply_lto
 # Tip: don't use cflags -ffunction-sections, -fdata-sections, linker flag -Wl,--gc-sections with non-static and non GCC builds
 # Tip: don't use -fno-plt flag other than Linux host
 # Tip: use -Wa,-mbig-obj for c(xx)flags if see 'too many sections' and 'file too big'
-# Tip: add -Wl,--whole-archive $LIBS -Wl,--no-whole-archive $OTHER_LIBS in 'Libs:' section in .pc file to incapsulate more libs (voices or other) when using LTO for static builds
 
 # Function to assemble the string RUSTFLAGS from an array
 # Accepts a prefix (eg "-C link-arg=") and an array name

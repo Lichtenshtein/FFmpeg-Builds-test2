@@ -3,8 +3,8 @@
 # SCRIPT_REPO="https://github.com/libsdl-org/aom.git"
 # SCRIPT_COMMIT="dc0b27cfbc498aa8ecb2fd23c46b2b734314f3ea"
 
-SCRIPT_REPO2="https://gitlab.com/damian101/aom-psy101.git"
-SCRIPT_COMMIT2="74890d72b1850fe013ec574d721001f0db8176bb"
+SCRIPT_REPO="https://gitlab.com/damian101/aom-psy101.git"
+SCRIPT_COMMIT="74890d72b1850fe013ec574d721001f0db8176bb"
 
 ffbuild_depends() {
     echo vmaf
