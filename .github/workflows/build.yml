@@ -6,8 +6,8 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        # default: '08-zlib|15-openblas|54-vmaf|54-ffnvcodec'
-        default: '.*'
+        default: '08-zlib|15-openblas'
+        # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'
         type: boolean
@@ -15,7 +15,7 @@ on:
       verbosity:
         description: 'Log Verbosity (2: Full, 0: Quiet)'
         required: false
-        default: '0'
+        default: '2'
       cpu_arch:
         description: 'CPU march target (x86-64-v3/znver3)'
         required: false
