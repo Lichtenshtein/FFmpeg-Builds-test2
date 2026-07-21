@@ -28,6 +28,10 @@ ffbuild_dockerbuild() {
         use_fortran=ON
     else
         log_warn "Fortran compiler ($FC) NOT found. Falling back to C-only LAPACK."
+        if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+            log_debug "${DIRS_MARK} Contents of /opt/ct-ng/bin (first 20 files):"
+            ls -F /opt/ct-ng/bin | head -n 30
+        fi
     fi
 
     local myconf=(
