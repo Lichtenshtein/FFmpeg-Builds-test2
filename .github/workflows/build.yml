@@ -15,7 +15,7 @@ on:
       verbosity:
         description: 'Log Verbosity (2: Full, 0: Quiet)'
         required: false
-        default: '2'
+        default: '0'
       cpu_arch:
         description: 'CPU march target (x86-64-v3/znver3)'
         required: false
