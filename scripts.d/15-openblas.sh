@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/OpenMathLib/OpenBLAS.git"
-SCRIPT_COMMIT="8c1535b8d94d563b55a14759bb495f0c51c424b7"
+SCRIPT_COMMIT="e0166008be8e466242aa76b2ff75ce3f0fbf574a"
 
 ffbuild_enabled() {
     return 0
@@ -16,9 +16,7 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    log_info "${BROOM_MARK} Patching CMake scripts to suppress warnings..."
-    find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wunused-function/-Wno-unused-function/g' 2>/dev/null || true
-    find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wunused-variable/-Wno-unused-variable/g' 2>/dev/null || true
+    local NO_WARN="-Wno-unused-function -Wno-unused-variable"
 
     mkdir -p build && cd build
 
@@ -78,8 +76,8 @@ ffbuild_dockerbuild() {
         export FFLAGS=""
     fi
 
-    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
-    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1 ${NO_WARN}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1 ${NO_WARN}" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
