@@ -44,7 +44,7 @@ ffbuild_dockerbuild() {
         -DBINARY=64
         -DTARGET=HASWELL
         -DDYNAMIC_ARCH=OFF
-        -DNUM_THREADS=32
+        -DNUM_THREADS=64
         -DC_LAPACK=$([ "$use_fortran" == "ON" ] && echo OFF || echo ON) # Build from C sources instead of Fortran
         -DCMAKE_Fortran_COMPILER=$([ "$use_fortran" == "ON" ] && echo "$FC" || echo OFF)
         -DBUILD_LAPACK_DEPRECATED=$([ "$use_fortran" == "ON" ] && echo ON || echo OFF) # Drops hundreds of unneeded f2c files
@@ -61,22 +61,24 @@ ffbuild_dockerbuild() {
     )
 
     local flang_fflags=""
-    for flag in $CFLAGS; do
-        [[ "$flag" == *"-std="* ]] && continue
-        [[ "$flag" == *"-mms-bitfields"* ]] && continue
-        [[ "$flag" == *"-mconsole"* ]] && continue
-        [[ "$flag" == *"-Wno-attributes"* ]] && continue
-        [[ "$flag" == *"-floop-nest-optimize"* ]] && continue
 
-        flang_fflags="$flang_fflags $flag"
-    done
+    if [ "$use_fortran" == "ON" ]; then
+        log_info "${TARGET_MARK} Preparing FFLAGS for GNU Fortran..."
+        for flag in $CFLAGS; do
+            [[ "$flag" == *"-std="* ]] && continue
+            [[ "$flag" == *"-mms-bitfields"* ]] && continue
+            [[ "$flag" == *"-mconsole"* ]] && continue
+            flang_fflags="$flang_fflags $flag"
+        done
+        flang_fflags="$flang_fflags -frecursive"
 
-    flang_fflags="$flang_fflags -frecursive"
+        export FFLAGS="$flang_fflags $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1"
+    else
+        log_info "${BROOM_MARK} Fortran is disabled. Keeping FFLAGS empty."
+        export FFLAGS=""
+    fi
 
-    # FCFLAGS="$flang_fflags"
-
-    FFLAGS="-O3" \
-    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1 -mpreferred-stack-boundary=4" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
