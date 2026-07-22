@@ -44,7 +44,7 @@ ffbuild_dockerbuild() {
         -DBINARY=64
         -DTARGET=HASWELL
         -DDYNAMIC_ARCH=OFF
-        -DNUM_THREADS=64
+        -DNUM_THREADS=32
         -DC_LAPACK=$([ "$use_fortran" == "ON" ] && echo OFF || echo ON) # Build from C sources instead of Fortran
         -DCMAKE_Fortran_COMPILER=$([ "$use_fortran" == "ON" ] && echo "$FC" || echo OFF)
         -DBUILD_LAPACK_DEPRECATED=$([ "$use_fortran" == "ON" ] && echo ON || echo OFF) # Drops hundreds of unneeded f2c files
@@ -75,8 +75,8 @@ ffbuild_dockerbuild() {
 
     # FCFLAGS="$flang_fflags"
 
-    FFLAGS="$flang_fflags" \
-    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
+    FFLAGS="-O3" \
+    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1 -mpreferred-stack-boundary=4" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
