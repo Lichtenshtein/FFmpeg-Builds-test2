@@ -139,13 +139,13 @@ env:
   LOG_FF_SIZES:      '1000' # number of lines displayed in ffmpeg logs
   LOG_INSTALLED:     '500' # shown number of installed files in DESTDIR prefix
   DEBUG_NO_HASH:     "1" # Static ENV_HASH (Preserve Docker cache)
-  DEBUG_MODE:        '0' # use with verbose=2; disables stripping, enables some commands
+  DEBUG_MODE:        '1' # use with verbose=2; disables stripping, enables some commands
   # Neural nets
   USE_TENSORFLOW:    '0' # Enable external TensorFlow shared library support
   USE_LIBTORCH:      '0' # Enable external Torch shared library support
-  GRAB_MODELS:       '1' # Download external assets for enabled components
+  GRAB_MODELS:       '0' # Download external assets for enabled components
   WHISPER_MODL_SIZE: 'small' # base/small/medium/large-v3
-  BUILD_VINO:        '1' # Build OpenVINO
+  BUILD_VINO:        '0' # Build OpenVINO
 
 jobs:
   build_all:
