@@ -114,10 +114,10 @@ EOF
     fi
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
-        if [[ -f "${INSTALL_ROOT}/lib/libOpenCL.a" ]]; then
-            log_info "${SYNC_MARK} Creating symbolic link for libOpenCL.a..."
+        if [[ -f "${INSTALL_ROOT}/lib/OpenCL.a" ]]; then
+            log_info "${SYNC_MARK} Creating symbolic link for OpenCL.a..."
             cd "${INSTALL_ROOT}/lib"
-            ln -sf "libOpenCL.a" "OpenCL.a"
+            ln -sf "OpenCL.a" "libOpenCL.a" 
             cd - >/dev/null
         fi
     fi
