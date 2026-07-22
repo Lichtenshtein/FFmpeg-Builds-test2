@@ -234,7 +234,7 @@ export GLOBAL_SKIP_POST_PC_PATCH=0
 export GLOBAL_SKIP_POST_CLEAN_LA_FILES=0
 export GLOBAL_SKIP_POST_DEP_AUDIT=0
 export GLOBAL_DISABLE_VERSION_FINDER=0
-export GLOGAL_SKIP_POST_STRIP=0
+export GLOGAL_SKIP_POST_STRIP=1
 export GLOBAL_DISABLE_CONF_FINDER=0
 
 mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
@@ -340,7 +340,7 @@ apply_lto_policy() {
 
         export RUSTLTO=" -C lto=fat"
         export USELTO="-flto=4 -flto-partition=balanced"
-        export USELTO_C=" -ffat-lto-objects -fmerge-all-constants"
+        export USELTO_C=" -ffat-lto-objects"
 
         # -O3 optimization will be added to LDFLAGS as well
         if [[ $is_lld -eq 0 ]]; then
@@ -436,7 +436,7 @@ apply_lto_policy() {
 
     # Branching by TARGET
     if [[ "$TARGET" == "win64" ]]; then
-        export BASE_CFLAGS="-mms-bitfields${STACK_FLAGS} -Wno-attributes -fgraphite-identity -floop-nest-optimize"
+        export BASE_CFLAGS="-mms-bitfields${STACK_FLAGS} -Wno-attributes -floop-nest-optimize"
         export BASE_CPPFLAGS="-D__USE_MINGW_ANSI_STDIO=1 -U_WIN32_WINNT -D_WIN32_WINNT=0x0A00 -D_WIN32 -D_FORTIFY_SOURCE=2"
 
         local console_flag=" -mconsole"
@@ -2115,9 +2115,9 @@ should_skip_post_strip() {
 
     case "$STAGENAME" in
         # rust libs; frack it strip anyway
-        # *"rav1e"|*"librsvg"|*"quiche")
-            # return 0 
-            # ;;
+        *"rav1e"|*"librsvg"|*"quiche")
+            return 0 
+            ;;
         # headers
         *"vulkan-headers"|*"spirv-headers"|*"mingw-std-threads"|*"ffnvcodec"|*"decklink"|*"zz-final")
             return 0 
@@ -2163,7 +2163,7 @@ strip_files() {
             find "$target_dir" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "$_strip_cmd" --strip-unneeded {} + 2>/dev/null || true
         else
             log_info "${BROOM_MARK} Stripping $stage_name from debug symbols: [Size: ${GREY_B}$size_before${NC}]"
-            find "$target_dir" -type f \( -name "*.exe" -o -name "*.dll" \) -exec "$_strip_cmd" --strip-debug {} + 2>/dev/null || true
+            find "$target_dir" -type f \( -iname "*.exe" -o -iname "*.dll" \) -exec "$_strip_cmd" --strip-debug {} + 2>/dev/null || true
         fi
         find "$target_dir" -type f \( -name "*.a" -o -name "*.so*" \) ! -name "*.dll.a" -exec "$_strip_cmd" --strip-debug {} + 2>/dev/null || true
     fi

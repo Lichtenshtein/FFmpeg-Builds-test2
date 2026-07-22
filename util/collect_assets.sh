@@ -79,7 +79,7 @@ done
 if [[ -d "${FFBUILD_PREFIX}/lib/frei0r-1" ]]; then
     log_info "${SYNC_MARK} Collecting frei0r plugins..."
     mkdir -p "${PKG_DIR}/bin/frei0r-1"
-    find "${FFBUILD_PREFIX}/lib/frei0r-1" -name "*.dll" -exec cp ${OP_VERB} {} "${PKG_DIR}/bin/frei0r-1/" \; || true
+    find "${FFBUILD_PREFIX}/lib/frei0r-1" -name "*.dll" -exec mv ${OP_VERB} {} "${PKG_DIR}/bin/frei0r-1/" \; || true
 else
     log_warn "Frei0r plugins not found in ${FFBUILD_PREFIX}/lib/frei0r-1"
 fi
@@ -87,8 +87,8 @@ fi
 # pocketsphinx models
 if [[ -d "${FFBUILD_PREFIX}/share/pocketsphinx" ]]; then
     log_info "${SYNC_MARK} Collecting pocketsphinx models..."
-    mkdir -p "${ASSETS_DIR}/pocketsphinx"
-    cp -${OP_V}r "${FFBUILD_PREFIX}/share/pocketsphinx" "${ASSETS_DIR}/"
+    mkdir -p "${ASSETS_DIR}"
+    mv ${OP_VERB2} "${FFBUILD_PREFIX}/share/pocketsphinx" "${ASSETS_DIR}/"
 else
     log_warn "Pocketsphinx models not found in ${FFBUILD_PREFIX}/share/pocketsphinx"
 fi
@@ -96,8 +96,8 @@ fi
 # Opencv models
 if [[ -d "${FFBUILD_PREFIX}/share/opencv4" ]]; then
     log_info "${SYNC_MARK} Collecting OpenCV models..."
-    mkdir -p "${ASSETS_DIR}/opencv4"/{haarcascades,lbpcascades}
-    cp -${OP_V}r "${FFBUILD_PREFIX}/share/opencv4" "${ASSETS_DIR}/"
+    mkdir -p "${ASSETS_DIR}"
+    mv ${OP_VERB2} "${FFBUILD_PREFIX}/share/opencv4" "${ASSETS_DIR}/"
 else
     log_warn "OpenCV models not found in ${FFBUILD_PREFIX}/share/opencv4"
 fi
@@ -105,7 +105,8 @@ fi
 # nnedi3 plugin
 if [[ -f "${FFBUILD_PREFIX}/lib/libvsznedi3.dll" ]]; then
     log_info "${SYNC_MARK} Moving nnedi3 plugin..."
-    cp ${OP_VERB} "${FFBUILD_PREFIX}/lib/libvsznedi3.dll" "${PKG_DIR}/bin/libvsznedi3.dll"
+    mkdir -p "${PKG_DIR}/bin"
+    mv ${OP_VERB} "${FFBUILD_PREFIX}/lib/libvsznedi3.dll" "${PKG_DIR}/bin/libvsznedi3.dll"
 elif [[ -f "${FFBUILD_PREFIX}/lib/libznedi3.a" ]]; then
     log_info "Found static libznedi3.a instead of libvsznedi3.dll in ${FFBUILD_PREFIX}/lib"
 else
@@ -115,25 +116,24 @@ fi
 # Avisynth plugins
 if [[ -d "${FFBUILD_PREFIX}/lib/avisynth" ]]; then
     log_info "${SYNC_MARK} Collecting avisynth plugins..."
-    mkdir -p "${PKG_DIR}/bin/avisynth"
-    find "${FFBUILD_PREFIX}/lib/avisynth" -name "*.dll" -exec cp ${OP_VERB} {} "${PKG_DIR}/bin/avisynth/" \; || true
+    mkdir -p "${PKG_DIR}/bin"
+    find "${FFBUILD_PREFIX}/lib/avisynth" -name "*.dll" -exec mv ${OP_VERB} {} "${PKG_DIR}/bin/" \; || true
 else
     log_warn "avisynth plugins not found in ${FFBUILD_PREFIX}/lib/avisynth"
 fi
 
 # lensfun plugins
 if [[ -d "${FFBUILD_PREFIX}/share/lensfun" ]]; then
-    log_info "${SYNC_MARK} Collecting lensfun profiles..."
-    mkdir -p "${ASSETS_DIR}/lensfun/version_2"
-    # find "${FFBUILD_PREFIX}/share/lensfun/version_2" -name "*.xml" -exec cp ${OP_VERB} {} "${ASSETS_DIR}/lensfun/" \; || true
-    cp -${OP_V}r "${FFBUILD_PREFIX}/share/lensfun" "${ASSETS_DIR}/"
+    log_info "${SYNC_MARK} Moving lensfun profiles..."
+    mkdir -p "${ASSETS_DIR}"
+    mv ${OP_VERB2} "${FFBUILD_PREFIX}/share/lensfun" "${ASSETS_DIR}/"
 else
     log_warn "lensfun profiles not found in ${FFBUILD_PREFIX}/share/lensfun"
 fi
 
-# Vacuum all remaining DLLs from the build prefix into the binaries folder
+# Vacuum all remaining DLLs from the build prefix into the binaries folder; -o -name '*.sign'
 log_info "${SYNC_MARK} Collecting external component DLLs if present..."
-find "${FFBUILD_PREFIX}" -maxdepth 3 \( -name '*.dll' -o -name '*.pyd' -o -name '*.bin' -o -name '*.sign' -o -name '*.zip' \) -exec cp ${OP_VERB} {} "${PKG_DIR}/bin/" \; 2>/dev/null || true
+find "${FFBUILD_PREFIX}" -maxdepth 3 \( -name '*.dll' -o -name '*.pyd' -o -name '*.bin' -o -name '*.zip' \) -exec cp ${OP_VERB} {} "${PKG_DIR}/bin/" \; 2>/dev/null || true
 
 # Auto search and packaging of MinGW system runtimes (SSP, WinPthreads, GCC)
 log_info "${SYNC_MARK} Analyzing binaries for missing MinGW runtime DLLs..."
