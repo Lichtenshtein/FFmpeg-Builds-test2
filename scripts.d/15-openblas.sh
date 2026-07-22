@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/OpenMathLib/OpenBLAS.git"
-SCRIPT_COMMIT="f959027a068f1a12e473377aa94b53395fc0064c"
+SCRIPT_COMMIT="8c1535b8d94d563b55a14759bb495f0c51c424b7"
 
 ffbuild_enabled() {
     return 0
@@ -65,15 +65,17 @@ ffbuild_dockerbuild() {
         [[ "$flag" == *"-std="* ]] && continue
         [[ "$flag" == *"-mms-bitfields"* ]] && continue
         [[ "$flag" == *"-mconsole"* ]] && continue
+        [[ "$flag" == *"-Wno-attributes"* ]] && continue
+        [[ "$flag" == *"-floop-nest-optimize"* ]] && continue
+
         flang_fflags="$flang_fflags $flag"
     done
 
-    flang_fflags="$flang_fflags"
+    flang_fflags="$flang_fflags -frecursive"
 
- # -frecursive
     # FCFLAGS="$flang_fflags"
 
-    FFLAGS="$flang_fflags $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
+    FFLAGS="$flang_fflags ${USELTO}" \
     CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
