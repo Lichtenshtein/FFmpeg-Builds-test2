@@ -75,7 +75,7 @@ ffbuild_dockerbuild() {
 
     # FCFLAGS="$flang_fflags"
 
-    FFLAGS="$flang_fflags ${USELTO}" \
+    FFLAGS="$flang_fflags" \
     CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \
     LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
