@@ -23,9 +23,7 @@ ffbuild_dockerbuild() {
     set -e
 
     # Return to the actual root of the stage if the "smart search" entered /loader or /CLHPP
-    if [[ "$(basename "$PWD")" == "loader" || "$(basename "$PWD")" == "CLHPP" ]]; then
-        cd ..
-    fi
+    cd /build/$STAGENAME
 
     # Installing OpenCL base C headers
     log_info "Installing OpenCL C headers..."
@@ -36,7 +34,7 @@ ffbuild_dockerbuild() {
     log_info "Building OpenCL ICD Loader..."
     cd loader
 
-    mkdir build && cd build
+    rm -rf build && mkdir build && cd build
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -61,7 +59,7 @@ ffbuild_dockerbuild() {
     ninja -j$(nproc) $NINJA_V || return 1
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
 
-    cd ../..
+    cd /build/$STAGENAME
 
     # Installing OpenCL C++ Headers (CLHPP)
     log_info "Installing OpenCL C++ headers (CLHPP)..."
@@ -91,8 +89,8 @@ ffbuild_dockerbuild() {
     cmake -G Ninja "${myconf_hpp[@]}" .. || return 1
 
     DESTDIR="$FFBUILD_DESTDIR" ninja install || return 1
-    
-    cd ../..
+
+    cd /build/$STAGENAME
 
     log_info "Generating OpenCL.pc and final post-processing..."
     mkdir -p "$PC_DIR"
@@ -116,7 +114,12 @@ EOF
     fi
 
     if [[ "${PREFER_SHARED}" != "1" ]]; then
-        cp "${INSTALL_ROOT}/lib/OpenCL.a" "${INSTALL_ROOT}/lib/libOpenCL.a"
+        if [[ -f "${INSTALL_ROOT}/lib/libOpenCL.a" ]]; then
+            log_info "${SYNC_MARK} Creating symbolic link for libOpenCL.a..."
+            cd "${INSTALL_ROOT}/lib"
+            ln -sf "libOpenCL.a" "OpenCL.a"
+            cd - >/dev/null
+        fi
     fi
 }
 
