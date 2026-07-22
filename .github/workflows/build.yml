@@ -132,7 +132,7 @@ env:
   SHADERC_UPDATE:    "1" # Use own Shaderc DEPS file
   DIR_NUMBERS:       "1" # Ignore script folder numbering
   DEDUPE_FLAGS:      '1' # Deduplicate LDFLAGS/LIBS
-  USE_WINE:          '0' # Enable Wine for tests/conftest
+  USE_WINE:          '1' # Enable Wine for tests/conftest
   USE_ASAN:          '0' # Address Sanitizer not supported in ct-ng
   LOG_RAW_SYMB:      '20' # number of lines displaying external library deps
   LOG_SIZES:         '650' # number of lines displayed in logs
