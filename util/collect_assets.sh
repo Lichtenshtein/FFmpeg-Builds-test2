@@ -116,8 +116,8 @@ fi
 # Avisynth plugins
 if [[ -d "${FFBUILD_PREFIX}/lib/avisynth" ]]; then
     log_info "${SYNC_MARK} Collecting avisynth plugins..."
-    mkdir -p "${PKG_DIR}/bin"
-    find "${FFBUILD_PREFIX}/lib/avisynth" -name "*.dll" -exec mv ${OP_VERB} {} "${PKG_DIR}/bin/" \; || true
+    mkdir -p "${PKG_DIR}/bin/avisynth"
+    find "${FFBUILD_PREFIX}/lib/avisynth" -name "*.dll" -exec mv ${OP_VERB} {} "${PKG_DIR}/bin/avisynth/" \; || true
 else
     log_warn "avisynth plugins not found in ${FFBUILD_PREFIX}/lib/avisynth"
 fi

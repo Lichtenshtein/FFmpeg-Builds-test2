@@ -68,8 +68,9 @@ ffbuild_dockerbuild() {
         flang_fflags="$flang_fflags $flag"
     done
 
-    flang_fflags="$flang_fflags -frecursive"
+    flang_fflags="$flang_fflags"
 
+ # -frecursive
     # FCFLAGS="$flang_fflags"
 
     FFLAGS="$flang_fflags $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1" \

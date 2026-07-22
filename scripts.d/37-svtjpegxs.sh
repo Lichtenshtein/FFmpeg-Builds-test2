@@ -17,11 +17,6 @@ ffbuild_dockerbuild() {
     # Remove the -flto flag, which breaks the classic linker
     sed -i 's/check_both_flags_add(-flto)//g' CMakeLists.txt || true
 
-    if [[ "${PREFER_SHARED}" != "1" ]]; then
-         sed -i 's/set(CMAKE_C_VISIBILITY_PRESET hidden)//g' CMakeLists.txt || true
-         sed -i 's/set_target_properties(SvtJpegxsLib PROPERTIES C_VISIBILITY_PRESET hidden)//g' Source/Lib/CMakeLists.txt || true
-    fi
-
     # Disable automatic host architecture detection
     # To prevent it from picking up GitHub runner processor flags
     sed -i 's/-march=native//g' CMakeLists.txt || true
