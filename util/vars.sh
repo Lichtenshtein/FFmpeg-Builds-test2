@@ -119,7 +119,7 @@ export DLLTOOL="${FFBUILD_CROSS_PREFIX}dlltool"
 export OBJDUMP="${FFBUILD_CROSS_PREFIX}objdump"
 export OBJCOPY="${FFBUILD_CROSS_PREFIX}objcopy"
 export GENDEF="${FFBUILD_CROSS_PREFIX}gendef"
-export FC="${FFBUILD_CROSS_PREFIX}gfortran"
+# export FC="${FFBUILD_CROSS_PREFIX}gfortran"
 export AS="${FFBUILD_CROSS_PREFIX}as"
 export CC="${FFBUILD_CROSS_PREFIX}gcc"
 export CXX="${FFBUILD_CROSS_PREFIX}g++"
@@ -226,7 +226,7 @@ export LOG_RAW_SYMB="${LOG_RAW_SYMB:-20}" # number of lines displaying external 
 export LOG_SIZES="${LOG_SIZES:-500}" # number of lines displayed in logs
 export LOG_FF_SIZES="${FF_LOG_SIZES:-1000}" # number of lines displayed in ffmpeg logs
 export LOG_INSTALLED="${LOG_INSTALLED:-85}" # shown number of installed files in DESTDIR prefix
-export LOG_PATCH_ERRORS="${FFBUILD_PREFIX}/patch_errors.log"
+export LOG_PATCH_ERRORS="/root/.cache/ccache/patch_errors.log"
 
 # Helper hooks to skip .la files, dependancies and .pc files auditing and patching
 export GLOBAL_SKIP_PRE_PATCH=0
