@@ -110,6 +110,12 @@ ffbuild_dockerbuild() {
     if ls "$PC_DIR"/*openblas*.pc >/dev/null 2>&1; then
         for PC_FILE in "$PC_DIR"/*openblas*.pc; do
             [[ -e "$PC_FILE" ]] || continue
+
+            if ! grep -q "^Libs.private:" "$PC_FILE"; then
+                log_info "${LOGS_MARK} Libs.private not found in $(basename "$PC_FILE"). Adding placeholder..."
+                sed -i '/^Libs:/a Libs.private:' "$PC_FILE"
+            fi
+
             sed -i "s|^Libs.private:.*|Libs.private: $LIBS|" "$PC_FILE"
             if ! grep -qF -- "-pthread" "$PC_FILE"; then
                 sed -i "/^Libs.private:/ s/$/ -pthread/" "$PC_FILE"
