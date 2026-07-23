@@ -130,9 +130,12 @@ RUN \
 # ==========================================
 FROM ubuntu:26.04 AS stage-toolchain-builder
 
+ARG CPU_ARCH=${CPU_TUNE:-broadwell}
+ARG CPU_TUNE=${CPU_ARCH:-broadwell}
+
 RUN \
-    apt-get -y update && apt-get -y install --no-install-recommends git ca-certificates build-essential bison flex texinfo help2man gawk libtool-bin libtool automake autoconf wget libncurses-dev python3-dev unzip rsync cvs patch cmake ninja-build && \
-    git clone --filter=blob:none --depth=1 https://github.com/gfunkmonk/crosstool-ng.git /ct-ng
+    apt-get -y update && apt-get -y install --no-install-recommends git ca-certificates build-essential bison flex texinfo help2man gawk libtool-bin libtool automake autoconf wget libncurses-dev python3-dev unzip rsync cvs patch cmake ninja-build libisl-dev zstd zlib && \
+    git clone --filter=blob:none --depth=1 https://github.com/crosstool-ng/crosstool-ng.git /ct-ng
 
 WORKDIR /ct-ng
 
@@ -164,9 +167,6 @@ RUN \
 # ==========================================
 FROM stage-os-base AS stage-final
 
-ARG CPU_ARCH=${CPU_TUNE:-broadwell}
-ARG CPU_TUNE=${CPU_ARCH:-broadwell}
-
 # Copy ONLY the finalized toolchain binary tree, leaving all ct-ng sources behind
 COPY --from=stage-toolchain-builder /opt/ct-ng /opt/ct-ng
 
@@ -186,8 +186,6 @@ ENV \
     TOOLCHAIN_INTERNAL="/opt/ct-ng/x86_64-w64-mingw32/bin" \
     FFBUILD_TOOLCHAIN=x86_64-w64-mingw32 \
     FFBUILD_RUST_TARGET=x86_64-pc-windows-gnu \
-    CPU_ARCH="${CPU_ARCH}" \
-    CPU_TUNE="${CPU_TUNE}" \
     PATH="/opt/mold/bin:/opt/ct-ng/bin:/opt/cargo/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
     FFBUILD_CROSS_PREFIX=x86_64-w64-mingw32-
 
