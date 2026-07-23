@@ -38,7 +38,7 @@ ffbuild_dockerbuild() {
         -DBUILD_STATIC_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DCROSS=ON
         -DBINARY=64
-        -DTARGET=${CPU_ARCH:-HASWELL}
+        -DTARGET=HASWELL
         -DDYNAMIC_ARCH=OFF
         -DC_LAPACK=$([ "$use_fortran" == "ON" ] && echo OFF || echo ON) # Build from C sources instead of Fortran
         -DCMAKE_Fortran_COMPILER=$([ "$use_fortran" == "ON" ] && echo "$FC" || echo OFF)
