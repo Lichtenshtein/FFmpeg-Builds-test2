@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/OpenMathLib/OpenBLAS.git"
-SCRIPT_COMMIT="62bcfb0dc9f1cfa685fc04135c50e2780c303137"
+SCRIPT_COMMIT="c3de327dd5248c820eb177c50886bfe6eed1654b"
 
 ffbuild_enabled() {
     return 0
@@ -16,9 +16,19 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
-    local NO_WARN="-Wno-unused-function -Wno-unused-variable"
-
     mkdir -p build && cd build
+
+    local use_fortran=OFF
+    if [ -n "$FC" ] && command -v "$FC" >/dev/null 2>&1; then
+        log_info "${TARGET_MARK} Fortran compiler found at $FC. Activating native Fortran LAPACK."
+        use_fortran=ON
+    else
+        log_warn "Fortran compiler ($FC) NOT found. Falling back to C-only LAPACK."
+        if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+            log_debug "${DIRS_MARK} Contents of /opt/ct-ng/bin (first 20 files):"
+            ls -F /opt/ct-ng/bin | head -n 30
+        fi
+    fi
 
     local myconf=(
         -DCMAKE_TOOLCHAIN_FILE="$FFBUILD_CMAKE_TOOLCHAIN"
@@ -28,24 +38,49 @@ ffbuild_dockerbuild() {
         -DBUILD_STATIC_LIBS=$([ "${PREFER_SHARED}" == "1" ] && echo OFF || echo ON)
         -DCROSS=ON
         -DBINARY=64
-        -DTARGET=HASWELL
+        -DTARGET=${CPU_ARCH:-HASWELL}
         -DDYNAMIC_ARCH=OFF
-        -DNUM_THREADS=64
+        -DC_LAPACK=$([ "$use_fortran" == "ON" ] && echo OFF || echo ON) # Build from C sources instead of Fortran
+        -DCMAKE_Fortran_COMPILER=$([ "$use_fortran" == "ON" ] && echo "$FC" || echo OFF)
+        -DBUILD_LAPACK_DEPRECATED=$([ "$use_fortran" == "ON" ] && echo ON || echo OFF) # Drops hundreds of unneeded f2c files
         -DBUILD_WITHOUT_LAPACK=OFF
         -DBUILD_WITHOUT_LAPACKE=OFF
         -DBUILD_WITHOUT_CBLAS=OFF
         -DBUILD_TESTING=OFF
         -DBUILD_BENCHMARKS=OFF
         -DUTEST_CHECK=OFF
-        -DNO_AFFINITY=ON
-        -DUSE_LOCKING=ON
         -DHOSTCC=gcc
+        # MULTITHREADING FIX
         -DCPP_THREAD_SAFETY_USE_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
+        -DUSE_LOCKING=ON
+        -DNUM_THREADS=64
+        -DNO_AFFINITY=ON
+        -DUSE_THREAD=OFF # to avoid *** stack smashing *** at blas_server_win32.c
     )
 
-    CFLAGS="-O3 -march=broadwell -mtune=broadwell -pipe -g1 -fstack-protector-strong -Wno-attributes -I/opt/ffbuild/include ${NO_WARN}" \
-    CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -pipe -g1 -mms-bitfields -fstack-protector-strong -Wno-attributes -I/opt/ffbuild/include ${NO_WARN}" \
-    LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -pipe -fuse-ld=lld -Wl,--as-needed -L/opt/ffbuild/lib" \
+    local NO_WARN="-Wno-unused-function -Wno-unused-variable"
+
+    local flang_fflags=""
+
+    if [ "$use_fortran" == "ON" ]; then
+        log_info "${TARGET_MARK} Preparing FFLAGS for GNU Fortran..."
+        for flag in $CFLAGS; do
+            [[ "$flag" == *"-std="* ]] && continue
+            [[ "$flag" == *"-mms-bitfields"* ]] && continue
+            [[ "$flag" == *"-mconsole"* ]] && continue
+            flang_fflags="$flang_fflags $flag"
+        done
+        flang_fflags="$flang_fflags -frecursive"
+
+        export FFLAGS="$flang_fflags $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1 ${NO_WARN}"
+    else
+        log_info "${BROOM_MARK} Fortran is disabled. Keeping FFLAGS empty."
+        export FFLAGS=""
+    fi
+
+    CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1 ${NO_WARN}" \
+    CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1 ${NO_WARN}" \
+    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1

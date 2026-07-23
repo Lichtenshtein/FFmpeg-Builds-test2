@@ -132,7 +132,7 @@ FROM ubuntu:26.04 AS stage-toolchain-builder
 
 RUN \
     apt-get -y update && apt-get -y install --no-install-recommends git ca-certificates build-essential bison flex texinfo help2man gawk libtool-bin libtool automake autoconf wget libncurses-dev python3-dev unzip rsync cvs patch cmake ninja-build && \
-    git clone --filter=blob:none --depth=1 https://github.com/crosstool-ng/crosstool-ng.git /ct-ng
+    git clone --filter=blob:none --depth=1 https://github.com/gfunkmonk/crosstool-ng.git /ct-ng
 
 WORKDIR /ct-ng
 
@@ -140,7 +140,7 @@ RUN ./bootstrap && ./configure --enable-local && make -j$(nproc)
 
 COPY images/base-win64/ct-ng-config .config
 
-RUN export CT_ALLOW_BUILD_AS_ROOT=1 && \
+RUN \
     ./ct-ng oldconfig && \
     if ! ./ct-ng build; then \
         echo "❌ ct-ng build FAILED! Printing end of error log:"; \
