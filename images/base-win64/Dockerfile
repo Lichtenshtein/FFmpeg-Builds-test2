@@ -134,7 +134,7 @@ ARG CPU_ARCH=${CPU_TUNE:-broadwell}
 ARG CPU_TUNE=${CPU_ARCH:-broadwell}
 
 RUN \
-    apt-get -y update && apt-get -y install --no-install-recommends git ca-certificates build-essential bison flex texinfo help2man gawk libtool-bin libtool automake autoconf wget libncurses-dev python3-dev unzip rsync cvs patch cmake ninja-build libisl-dev zstd zlib && \
+    apt-get -y update && apt-get -y install --no-install-recommends git ca-certificates build-essential bison flex texinfo help2man gawk libtool-bin libtool automake autoconf wget libncurses-dev python3-dev unzip rsync cvs patch cmake ninja-build libisl-dev zstd zlib1g && \
     git clone --filter=blob:none --depth=1 https://github.com/crosstool-ng/crosstool-ng.git /ct-ng
 
 WORKDIR /ct-ng
