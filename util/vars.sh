@@ -209,6 +209,7 @@ export CCACHE_COMPRESSLEVEL="${CCACHE_COMPRESSLEVEL:-6}"
 export CCACHE_PATH_MGMT="${CCACHE_PATH_MGMT:-true}"
 export CCACHE_NLEVELS="${CCACHE_NLEVELS:-4}"
 export CCACHE_SLOPPINESS="${CCACHE_SLOPPINESS}"
+export CCACHE_REMAPPATH="true" 
 
 # wine
 if [[ "${USE_WINE:-0}" = "1" ]]; then
@@ -226,7 +227,7 @@ export LOG_RAW_SYMB="${LOG_RAW_SYMB:-20}" # number of lines displaying external 
 export LOG_SIZES="${LOG_SIZES:-500}" # number of lines displayed in logs
 export LOG_FF_SIZES="${FF_LOG_SIZES:-1000}" # number of lines displayed in ffmpeg logs
 export LOG_INSTALLED="${LOG_INSTALLED:-85}" # shown number of installed files in DESTDIR prefix
-export LOG_PATCH_ERRORS="/root/.cache/ccache/patch_errors.log"
+export LOG_PATCH_ERRORS="/tmp/patch_logs/patch_errors.log"
 
 # Helper hooks to skip .la files, dependancies and .pc files auditing and patching
 export GLOBAL_SKIP_PRE_PATCH=0

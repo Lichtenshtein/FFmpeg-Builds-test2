@@ -92,13 +92,14 @@ env:
   TARGET: win64
   VARIANT: nonfree
   # ccache
-  CCACHE_MAXSIZE: "2G"
+  CCACHE_MAXSIZE: "20G"
   CCACHE_COMPRESS: "1"
   CCACHE_COMPRESSLEVEL: "6"
   CCACHE_NLEVELS: "4"
   CCACHE_DEPEND: "1"
   CCACHE_COMPILERCHECK: "content"
   CCACHE_PATH_MGMT: "true"
+  CCACHE_REMAPPATH="true"
   CCACHE_SLOPPINESS: "file_macro,time_macros,include_file_ctime,include_file_mtime,locale,random_seed,conf_tests"
   CCACHE_DIR: "/root/.cache/ccache"
   # Exclusion Lists

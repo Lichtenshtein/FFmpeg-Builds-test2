@@ -102,6 +102,7 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     CCACHE_COMPILERCHECK=\"${CCACHE_COMPILERCHECK:-content}\" \\
     CCACHE_NLEVELS=\"${CCACHE_NLEVELS:-4}\" \\
     CCACHE_SLOPPINESS=\"${CCACHE_SLOPPINESS}\" \\
+    CCACHE_REMAPPATH=\"${CCACHE_REMAPPATH}\" \\
     FFMPEG_DIR=\"${CONTAINER_ROOT}/.cache/ffmpeg\" \\
     FFMPEG_BUILD_ROOT=\"${CONTAINER_ROOT}/ffbuild\" \\
     FFMPEG_SOURCE_DIR=\"${CONTAINER_ROOT}/ffbuild/ffmpeg\" \\
@@ -134,6 +135,7 @@ COMMON_ENV="ENV TARGET=\"$TARGET\" VARIANT=\"$VARIANT\" REPO=\"$REPO\" ADDINS_ST
     LOG_SIZES=\"${LOG_SIZES}\" \\
     LOG_FF_SIZES=\"${LOG_FF_SIZES}\" \\
     LOG_INSTALLED=\"${LOG_INSTALLED}\" \\
+    LOG_PATCH_ERRORS=\"${LOG_PATCH_ERRORS}\" \\
     USE_TENSORFLOW=\"${USE_TENSORFLOW}\" \\
     USE_LIBTORCH=\"${USE_LIBTORCH}\" \\
     USE_ASAN=\"${USE_ASAN}\" \\
@@ -158,7 +160,7 @@ if [[ "${USE_TENSORFLOW}" == "1" ]]; then
 fi
 
 # Clear the log before starting a new component build
-to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache rm -f /root/.cache/ccache/patch_errors.log"
+to_df "RUN --mount=type=cache,id=patchlogs-${TARGET},target=/tmp/patch_logs rm -f /tmp/patch_logs/patch_errors.log"
 
 # Clear the contents before hashing:
 # 1. Take only variables that affect the binary code
@@ -275,6 +277,7 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "ARG CACHE_BYPASS_${STAGENAME}=\"${LAYER_ID}\""
 
     to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
+    to_df "    --mount=type=cache,id=patchlogs-${TARGET},target=/tmp/patch_logs \\"
     to_df "    --mount=type=bind,from=cache_downloads_ctx,source=/,target=${CONTAINER_ROOT}/.cache/downloads,ro \\"
     to_df "    --mount=type=bind,source=scripts.d,target=${CONTAINER_ROOT}/scripts.d \\"
     to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
@@ -284,7 +287,7 @@ for STAGE in "${active_scripts[@]}"; do
     to_df "    export _H=\${CACHE_BYPASS_${STAGENAME}} && . ${CONTAINER_ROOT}/util/vars.sh \"${TARGET}\" \"${VARIANT}\" && run_stage ${CONTAINER_ROOT}/${STAGE}"
 done
 
-to_df "RUN --mount=type=cache,id=ccache-${TARGET},target=/root/.cache/ccache \\"
+to_df "RUN --mount=type=cache,id=patchlogs-${TARGET},target=/tmp/patch_logs \\"
 to_df "    --mount=type=bind,source=util,target=${CONTAINER_ROOT}/util \\"
 to_df "    --mount=type=bind,source=patches,target=${CONTAINER_ROOT}/patches \\"
 to_df "    --mount=type=bind,source=variants,target=${CONTAINER_ROOT}/variants \\"
