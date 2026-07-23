@@ -99,7 +99,7 @@ env:
   CCACHE_DEPEND: "1"
   CCACHE_COMPILERCHECK: "content"
   CCACHE_PATH_MGMT: "true"
-  CCACHE_REMAPPATH="true"
+  CCACHE_REMAPPATH: "true"
   CCACHE_SLOPPINESS: "file_macro,time_macros,include_file_ctime,include_file_mtime,locale,random_seed,conf_tests"
   CCACHE_DIR: "/root/.cache/ccache"
   # Exclusion Lists
