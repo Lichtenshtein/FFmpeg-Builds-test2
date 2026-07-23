@@ -75,9 +75,9 @@ ffbuild_dockerbuild() {
         export FFLAGS=""
     fi
 
-    CFLAGS="${CFLAGS//-floop-nest-optimize/} $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1 ${NO_WARN}" \
-    CXXFLAGS="${CXXFLAGS//-floop-nest-optimize/} $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} -DNO_AFFINITY=1 ${NO_WARN}" \
-    LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}" \
+    CFLAGS="-O3 -march=broadwell -mtune=broadwell -pipe -g1 -mms-bitfields -fstack-protector-strong -Wno-attributes $CPPFLAGS -DNO_AFFINITY=1 ${NO_WARN}" \
+    CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -pipe -g1 -mms-bitfields -fstack-protector-strong -Wno-attributes $CPPFLAGS -DNO_AFFINITY=1 ${NO_WARN}" \
+    LDFLAGS="$LDFLAGS" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
 
     ninja $NINJA_V || return 1
