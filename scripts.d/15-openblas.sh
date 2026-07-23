@@ -43,7 +43,7 @@ ffbuild_dockerbuild() {
         -DCPP_THREAD_SAFETY_USE_OPENMP=$([ "${USE_OPENMP}" == "1" ] && echo ON || echo OFF)
     )
 
-    CFLAGS="-O3 -march=broadwell -mtune=broadwell -pipe -g1 -mms-bitfields -fstack-protector-strong -Wno-attributes -I/opt/ffbuild/include ${NO_WARN}" \
+    CFLAGS="-O3 -march=broadwell -mtune=broadwell -pipe -g1 -fstack-protector-strong -Wno-attributes -I/opt/ffbuild/include ${NO_WARN}" \
     CXXFLAGS="-O3 -march=broadwell -mtune=broadwell -pipe -g1 -mms-bitfields -fstack-protector-strong -Wno-attributes -I/opt/ffbuild/include ${NO_WARN}" \
     LDFLAGS="-Wl,-Bstatic -static -static-libgcc -static-libstdc++ -pipe -fuse-ld=lld -Wl,--as-needed -L/opt/ffbuild/lib" \
     cmake -G Ninja "${myconf[@]}" .. || return 1
