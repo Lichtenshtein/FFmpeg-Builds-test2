@@ -1,0 +1,796 @@
+From 5031fb96fa12706f75389a6a753890853f61d0cb Mon Sep 17 00:00:00 2001
+From: Phillippe Pelzer <phil.pelzer@gmail.com>
+Date: Wed, 22 Jul 2026 14:13:35 +0200
+Subject: [PATCH] Add HLS playlist generation functions
+
+This commit introduces a new header file `hlsplaylist.h` and its corresponding implementation file `hlsplaylist.c` for generating Apple HTTP Live Streaming (HLS) playlists. The new functions include:
+
+- `ff_hls_write_playlist_version`: Writes the playlist version.
+- `ff_hls_write_audio_rendition`: Writes audio rendition information.
+- `ff_hls_write_subtitle_rendition`: Writes subtitle rendition information.
+- `ff_hls_write_stream_info`: Writes stream information including bandwidth and resolution.
+- `ff_hls_write_playlist_header`: Writes the header for the HLS playlist.
+- `ff_hls_write_init_file`: Writes initialization file information.
+- `ff_hls_write_file_entry`: Writes individual file entries in the playlist.
+- `ff_hls_write_end_list`: Marks the end of the playlist.
+
+These functions facilitate the creation of HLS playlists, adhering to the specifications outlined in RFC 8216.
+
+#/**************************************/#
+#/*  NoMercy Entertainment — HLS       */#
+#/*  master playlist spec compliance   */#
+#/**************************************/#
+
+# Replace the upstream HLS muxer sources with patched versions that complete
+# the master playlist for Apple HLS spec compliance:
+#   - FRAME-RATE and VIDEO-RANGE (SDR/PQ/HLG) on #EXT-X-STREAM-INF
+#   - aname: var_stream_map key for a custom audio rendition NAME
+#   - auto-set the hvc1 tag on HEVC streams instead of silently
+#     dropping the CODECS attribute
+#   - HEVC codec string from hvcC extradata (stream copies from MP4/MOV)
+#   - loud warning when a CODECS attribute cannot be built
+# See: https://github.com/NoMercy-Entertainment/nomercy-ffmpeg/issues/12
+
+---
+ libavformat/codecstring.c |  35 ++++--
+ libavformat/dashenc.c     |   4 +-
+ libavformat/hlsenc.c      | 225 +++++++++++++++++++++++++-------------
+ libavformat/hlsplaylist.c |  67 ++++++++++--
+ libavformat/hlsplaylist.h |   9 +-
+ 5 files changed, 241 insertions(+), 99 deletions(-)
+
+diff --git a/libavformat/codecstring.c b/libavformat/codecstring.c
+index b0ccb93..308254b 100644
+--- a/libavformat/codecstring.c
++++ b/libavformat/codecstring.c
+@@ -29,7 +29,6 @@
+ #include "avc.h"
+ #include "avformat.h"
+ #include "internal.h"
+-#include "lcevc.h"
+ #include "nal.h"
+ #include "vpcc.h"
+ 
+@@ -164,6 +163,32 @@ int ff_make_codec_str(void *logctx, const AVCodecParameters *par,
+             }
+             data++;
+         }
++        /* No annex-B SPS found: fall back to hvcC extradata (ISO/IEC
++         * 14496-15). Bytes 1..12 of HEVCDecoderConfigurationRecord carry
++         * the same profile_tier_level layout the SPS parse above reads,
++         * so stream copies from MP4/MOV sources also get a CODECS string. */
++        if (tier == 0 && par->extradata && par->extradata_size >= 13 &&
++            par->extradata[0] == 1) {
++            const uint8_t *cfg = par->extradata;
++            uint32_t compat_flags;
++            uint8_t high_nibble;
++
++            tier = (cfg[1] & 0x20) == 0 ? 'L' : 'H';
++            profile = cfg[1] & 0x1f;
++            /* general_profile_compatibility_flags in reverse bit order,
++             * same transformation as the SPS path above */
++            compat_flags = AV_RB32(cfg + 2);
++            compat_flags = ((compat_flags & 0x55555555U) << 1) | ((compat_flags >> 1) & 0x55555555U);
++            compat_flags = ((compat_flags & 0x33333333U) << 2) | ((compat_flags >> 2) & 0x33333333U);
++            compat_flags = ((compat_flags & 0x0F0F0F0FU) << 4) | ((compat_flags >> 4) & 0x0F0F0F0FU);
++            compat_flags = ((compat_flags & 0x00FF00FFU) << 8) | ((compat_flags >> 8) & 0x00FF00FFU);
++            profile_compatibility = (compat_flags << 16) | (compat_flags >> 16);
++            high_nibble = cfg[7] >> 4;
++            snprintf(constraints, sizeof(constraints),
++                     high_nibble ? "%02x.%x" : "%02x",
++                     cfg[6], high_nibble);
++            level = cfg[12];
++        }
+         if (par->codec_tag == MKTAG('h','v','c','1') &&
+             profile != AV_PROFILE_UNKNOWN &&
+             profile_compatibility != AV_PROFILE_UNKNOWN &&
+@@ -175,14 +200,6 @@ int ff_make_codec_str(void *logctx, const AVCodecParameters *par,
+                        profile_compatibility, tier, level, constraints);
+         } else
+             return AVERROR(EINVAL);
+-    } else if (par->codec_id == AV_CODEC_ID_LCEVC) {
+-        LCEVCDecoderConfigurationRecord lvcc;
+-        int err;
+-        if (!par->extradata_size)
+-            return AVERROR(EINVAL);
+-        if ((err = ff_lcvec_parse_config_record(&lvcc, par->extradata, par->extradata_size)) < 0)
+-            return err;
+-        av_bprintf(out, "lvc1.vprf%u.vlev%u", lvcc.profile_idc, lvcc.level_idc);
+     } else if (par->codec_id == AV_CODEC_ID_AV1) {
+         // https://aomediacodec.github.io/av1-isobmff/#codecsparam
+         AV1SequenceParameters seq;
+diff --git a/libavformat/dashenc.c b/libavformat/dashenc.c
+index 406ee2c..2132fdb 100644
+--- a/libavformat/dashenc.c
++++ b/libavformat/dashenc.c
+@@ -1166,8 +1166,8 @@ static int write_manifest(AVFormatContext *s, int final)
+                     continue;
+                 get_hls_playlist_name(playlist_file, sizeof(playlist_file), NULL, i);
+                 ff_hls_write_audio_rendition(c->m3u8_out, audio_group,
+-                                             playlist_file, NULL, i, is_default,
+-                                             s->streams[i]->codecpar->ch_layout.nb_channels);
++                                             playlist_file, NULL, NULL, i, is_default,
++                                             s->streams[i]->codecpar->ch_layout.nb_channels, -1, NULL);
+                 max_audio_bitrate = FFMAX(st->codecpar->bit_rate +
+                                           os->muxer_overhead, max_audio_bitrate);
+                 if (!av_strnstr(audio_codec_str, os->codec_str, sizeof(audio_codec_str))) {
+diff --git a/libavformat/hlsenc.c b/libavformat/hlsenc.c
+index 0b69ae4..70b8609 100644
+--- a/libavformat/hlsenc.c
++++ b/libavformat/hlsenc.c
+@@ -36,7 +36,6 @@
+ #include "libavutil/intreadwrite.h"
+ #include "libavutil/mem.h"
+ #include "libavutil/opt.h"
+-#include "libavutil/parseutils.h"
+ #include "libavutil/log.h"
+ #include "libavutil/random_seed.h"
+ #include "libavutil/time.h"
+@@ -75,21 +74,21 @@ typedef enum {
+ #define POSTFIX_PATTERN "_%d"
+ 
+ typedef struct HLSSegment {
+-    const char *filename;
+-    const char *sub_filename;
++    char filename[MAX_URL_SIZE];
++    char sub_filename[MAX_URL_SIZE];
+     double duration; /* in seconds */
+     int discont;
+     int64_t pos;
+     int64_t size;
++    int64_t keyframe_pos;
++    int64_t keyframe_size;
+     unsigned var_stream_idx;
+ 
+-    const char *key_uri;
++    char key_uri[LINE_BUFFER_SIZE + 1];
+     char iv_string[KEYSIZE*2 + 1];
+ 
+     struct HLSSegment *next;
+     double discont_program_date_time;
+-
+-    char buf[]; /* for filename, sub_filename and key_uri */
+ } HLSSegment;
+ 
+ typedef enum HLSFlags {
+@@ -140,6 +139,8 @@ typedef struct VariantStream {
+     int64_t start_pts;
+     int64_t end_pts;
+     int64_t video_lastpos;
++    int64_t video_keyframe_pos;
++    int64_t video_keyframe_size;
+     double duration;      // last segment duration computed so far, in seconds
+     int64_t start_pos;    // last segment starting position
+     int64_t size;         // last segment size
+@@ -188,6 +189,10 @@ typedef struct VariantStream {
+     const char *ccgroup;  /* closed caption group name */
+     const char *varname;  /* variant name */
+     const char *subtitle_varname;  /* subtitle variant name */
++    const char *audio_varname;  /* audio rendition name */
++    int autoselect;       /* rendition AUTOSELECT: 0 unset, 1 yes, 2 no */
++    int subtitle_forced;  /* subtitle rendition FORCED flag */
++    const char *characteristics;  /* rendition CHARACTERISTICS string */
+ } VariantStream;
+ 
+ typedef struct ClosedCaptionsStream {
+@@ -371,6 +376,10 @@ static void write_codec_attr(AVStream *st, VariantStream *vs)
+     return;
+ 
+ fail:
++    av_log(vs->avf, AV_LOG_WARNING,
++           "Unable to determine an RFC 6381 codec string for stream %d, "
++           "the CODECS attribute will be omitted from this variant's "
++           "#EXT-X-STREAM-INF.\n", st->index);
+     vs->codec_attr[0] = '\0';
+     vs->attr_status = CODEC_ATTRIBUTE_WILL_NOT_BE_WRITTEN;
+     return;
+@@ -792,7 +801,6 @@ static int hls_mux_init(AVFormatContext *s, VariantStream *vs)
+     oc->io_open                  = s->io_open;
+     oc->io_close2                = s->io_close2;
+     oc->strict_std_compliance    = s->strict_std_compliance;
+-    oc->flags                    = s->flags;
+     av_dict_copy(&oc->metadata, s->metadata, 0);
+ 
+     if (vs->vtt_oformat) {
+@@ -800,7 +808,6 @@ static int hls_mux_init(AVFormatContext *s, VariantStream *vs)
+         if (ret < 0)
+             return ret;
+         vtt_oc          = vs->vtt_avf;
+-        vtt_oc->flags   = s->flags;
+         av_dict_copy(&vtt_oc->metadata, s->metadata, 0);
+     }
+ 
+@@ -831,14 +838,6 @@ static int hls_mux_init(AVFormatContext *s, VariantStream *vs)
+         st->id = vs->streams[i]->id;
+     }
+ 
+-    for (i = 0; i < s->nb_programs; i++) {
+-        ret = av_program_copy(oc, (const AVFormatContext *)s, s->programs[i]->id, 0);
+-        if (ret < 0) {
+-            av_log(s, AV_LOG_ERROR, "unable to transfer program %d to child muxer\n", s->programs[i]->id);
+-            return ret;
+-        }
+-    }
+-
+     vs->start_pos = 0;
+     vs->new_start = 1;
+ 
+@@ -905,7 +904,7 @@ static HLSSegment *find_segment_by_filename(HLSSegment *segment, const char *fil
+ }
+ 
+ static int sls_flags_filename_process(struct AVFormatContext *s, HLSContext *hls,
+-                                      VariantStream *vs,
++                                      VariantStream *vs, HLSSegment *en,
+                                       double duration, int64_t pos, int64_t size)
+ {
+     if ((hls->flags & (HLS_SECOND_LEVEL_SEGMENT_SIZE | HLS_SECOND_LEVEL_SEGMENT_DURATION)) &&
+@@ -1042,12 +1041,13 @@ static int hls_append_segment(struct AVFormatContext *s, HLSContext *hls,
+                               VariantStream *vs, double duration, int64_t pos,
+                               int64_t size)
+ {
+-    HLSSegment en0 = {0};
+-    HLSSegment *en = &en0;
++    HLSSegment *en = av_malloc(sizeof(*en));
+     const char  *filename;
+     int byterange_mode = (hls->flags & HLS_SINGLE_FILE) || (hls->max_seg_size > 0);
+     int ret;
+-    AVBPrint bp;
++
++    if (!en)
++        return AVERROR(ENOMEM);
+ 
+     vs->total_size += size;
+     vs->total_duration += duration;
+@@ -1062,9 +1062,11 @@ static int hls_append_segment(struct AVFormatContext *s, HLSContext *hls,
+         vs->avg_bitrate = (int)(8 * vs->total_size / vs->total_duration);
+ 
+     en->var_stream_idx = vs->var_stream_idx;
+-    ret = sls_flags_filename_process(s, hls, vs, duration, pos, size);
+-    if (ret < 0)
++    ret = sls_flags_filename_process(s, hls, vs, en, duration, pos, size);
++    if (ret < 0) {
++        av_freep(&en);
+         return ret;
++    }
+ 
+     filename = av_basename(vs->avf->url);
+ 
+@@ -1075,14 +1077,21 @@ static int hls_append_segment(struct AVFormatContext *s, HLSContext *hls,
+         && !byterange_mode) {
+         av_log(hls, AV_LOG_WARNING, "Duplicated segment filename detected: %s\n", filename);
+     }
++    av_strlcpy(en->filename, filename, sizeof(en->filename));
+ 
+-    av_bprint_init(&bp, 0, AV_BPRINT_SIZE_UNLIMITED);
+-    av_bprintf(&bp, "%s%c", filename, 0);
+-    av_bprintf(&bp, "%s%c", vs->has_subtitle ? av_basename(vs->vtt_avf->url) : "", 0);
++    if (vs->has_subtitle)
++        av_strlcpy(en->sub_filename, av_basename(vs->vtt_avf->url), sizeof(en->sub_filename));
++    else
++        en->sub_filename[0] = '\0';
+ 
+     en->duration = duration;
+     en->pos      = pos;
+     en->size     = size;
++    en->keyframe_pos      = vs->video_keyframe_pos;
++    en->keyframe_size     = vs->video_keyframe_size;
++    en->next     = NULL;
++    en->discont  = 0;
++    en->discont_program_date_time = 0;
+ 
+     if (vs->discontinuity) {
+         en->discont = 1;
+@@ -1090,21 +1099,10 @@ static int hls_append_segment(struct AVFormatContext *s, HLSContext *hls,
+     }
+ 
+     if (hls->key_info_file || hls->encrypt) {
+-        av_bprintf(&bp, "%s%c", vs->key_uri, 0);
++        av_strlcpy(en->key_uri, vs->key_uri, sizeof(en->key_uri));
+         av_strlcpy(en->iv_string, vs->iv_string, sizeof(en->iv_string));
+-    } else {
+-        av_bprint_chars(&bp, 0, 1);
+     }
+ 
+-    en = ff_bprint_finalize_as_fam(&bp, &en0, offsetof(HLSSegment, buf));
+-    if (!en)
+-        return AVERROR(ENOMEM);
+-#define NEXT(s) ((s) + strlen(s) + 1)
+-    en->filename = en->buf;
+-    en->sub_filename = NEXT(en->filename);
+-    en->key_uri = NEXT(en->sub_filename);
+-#undef NEXT
+-
+     if (!vs->segments)
+         vs->segments = en;
+     else
+@@ -1219,26 +1217,23 @@ static int parse_playlist(AVFormatContext *s, const char *url, VariantStream *vs
+                 }
+             }
+         } else if (av_strstart(line, "#EXT-X-PROGRAM-DATE-TIME:", &ptr)) {
+-            struct tm program_date_time = { 0 };
+-            double ms = 0;
+-            char *q = av_small_strptime(ptr, "%Y-%m-%dT%H:%M:%S", &program_date_time);
+-
+-            if (!q) {
++            struct tm program_date_time;
++            int y,M,d,h,m,s;
++            double ms;
++            if (sscanf(ptr, "%d-%d-%dT%d:%d:%d.%lf", &y, &M, &d, &h, &m, &s, &ms) != 7) {
+                 ret = AVERROR_INVALIDDATA;
+                 goto fail;
+             }
+-            if (*q == '.')
+-                ms = atof(q + 1);
+-            program_date_time.tm_isdst = -1;
+ 
+-            errno = 0;
+-            time_t t = mktime(&program_date_time);
+-            if (t == (time_t)-1 && errno == EOVERFLOW) {
+-                ret = AVERROR_INVALIDDATA;
+-                goto fail;
+-            }
+-            discont_program_date_time = t;
++            program_date_time.tm_year = y - 1900;
++            program_date_time.tm_mon = M - 1;
++            program_date_time.tm_mday = d;
++            program_date_time.tm_hour = h;
++            program_date_time.tm_min = m;
++            program_date_time.tm_sec = s;
++            program_date_time.tm_isdst = -1;
+ 
++            discont_program_date_time = mktime(&program_date_time);
+             discont_program_date_time += (double)(ms / 1000);
+         } else if (av_strstart(line, "#", NULL)) {
+             continue;
+@@ -1393,6 +1388,11 @@ static int create_master_playlist(AVFormatContext *s,
+ 
+     ff_hls_write_playlist_version(hls->m3u8_out, hls->version);
+ 
++    /* Apple requires this tag in the multivariant playlist when segments
++     * start with keyframes; hls_flags independent_segments asserts that. */
++    if (hls->flags & HLS_INDEPENDENT_SEGMENTS)
++        avio_printf(hls->m3u8_out, "#EXT-X-INDEPENDENT-SEGMENTS\n");
++
+     for (i = 0; i < hls->nb_ccstreams; i++) {
+         ccs = &(hls->cc_streams[i]);
+         avio_printf(hls->m3u8_out, "#EXT-X-MEDIA:TYPE=CLOSED-CAPTIONS");
+@@ -1421,7 +1421,8 @@ static int create_master_playlist(AVFormatContext *s,
+                 if (vs->streams[j]->codecpar->ch_layout.nb_channels > nb_channels)
+                     nb_channels = vs->streams[j]->codecpar->ch_layout.nb_channels;
+ 
+-        ff_hls_write_audio_rendition(hls->m3u8_out, vs->agroup, m3u8_rel_name, vs->language, i, hls->has_default_key ? vs->is_default : 1, nb_channels);
++        ff_hls_write_audio_rendition(hls->m3u8_out, vs->agroup, m3u8_rel_name, vs->language, vs->audio_varname, i, hls->has_default_key ? vs->is_default : 1, nb_channels,
++                                     vs->autoselect == 1 ? 1 : (vs->autoselect == 2 ? 0 : -1), vs->characteristics);
+     }
+ 
+     /* For variant streams with video add #EXT-X-STREAM-INF tag with attributes*/
+@@ -1472,7 +1473,6 @@ static int create_master_playlist(AVFormatContext *s,
+             avg_bandwidth = vs->avg_bitrate;
+         } else {
+             bandwidth = 0;
+-            avg_bandwidth = 0;
+             if (vid_st)
+                 bandwidth += get_stream_bit_rate(vid_st);
+             if (aud_st)
+@@ -1495,6 +1495,11 @@ static int create_master_playlist(AVFormatContext *s,
+                         vs->ccgroup);
+         }
+ 
++        /* Apple requires CLOSED-CAPTIONS=NONE on every variant when the
++         * presentation has no closed captions at all. */
++        if (!hls->nb_ccstreams)
++            ccgroup = "NONE";
++
+         if (vid_st && vs->sgroup) {
+             sgroup = vs->sgroup;
+             vtt_m3u8_rel_name = get_relative_url(hls->master_m3u8_url, vs->vtt_m3u8_name);
+@@ -1504,7 +1509,9 @@ static int create_master_playlist(AVFormatContext *s,
+             }
+ 
+             ff_hls_write_subtitle_rendition(hls->m3u8_out, sgroup, vtt_m3u8_rel_name, vs->language,
+-                    vs->subtitle_varname, i, hls->has_default_key ? vs->is_default : 1);
++                    vs->subtitle_varname, i, hls->has_default_key ? vs->is_default : 1,
++                    vs->autoselect == 1 ? 1 : (vs->autoselect == 2 ? 0 : -1),
++                    vs->subtitle_forced, vs->characteristics);
+         }
+ 
+         if (!hls->has_default_key || !hls->has_video_m3u8) {
+@@ -1540,7 +1547,7 @@ static int hls_window(AVFormatContext *s, int last, VariantStream *vs)
+     int is_file_proto = proto && !strcmp(proto, "file");
+     int use_temp_file = is_file_proto && ((hls->flags & HLS_TEMP_FILE) || !(hls->pl_type == PLAYLIST_TYPE_VOD));
+     static unsigned warned_non_file;
+-    const char *key_uri = NULL;
++    char *key_uri = NULL;
+     char *iv_string = NULL;
+     AVDictionary *options = NULL;
+     double prog_date_time = vs->initial_prog_date_time;
+@@ -1617,7 +1624,7 @@ static int hls_window(AVFormatContext *s, int last, VariantStream *vs)
+                                       en->size, en->pos, hls->baseurl,
+                                       en->filename,
+                                       en->discont_program_date_time ? &en->discont_program_date_time : prog_date_time_p,
+-                                      hls->flags & HLS_I_FRAMES_ONLY);
++                                      en->keyframe_size, en->keyframe_pos, hls->flags & HLS_I_FRAMES_ONLY);
+         if (en->discont_program_date_time)
+             en->discont_program_date_time -= en->duration;
+         if (ret < 0) {
+@@ -1641,7 +1648,7 @@ static int hls_window(AVFormatContext *s, int last, VariantStream *vs)
+         for (en = vs->segments; en; en = en->next) {
+             ret = ff_hls_write_file_entry(hls->sub_m3u8_out, en->discont, byterange_mode,
+                                           en->duration, 0, en->size, en->pos,
+-                                          hls->baseurl, en->sub_filename, NULL, 0);
++                                          hls->baseurl, en->sub_filename, NULL, 0, 0, 0);
+             if (ret < 0) {
+                 av_log(s, AV_LOG_WARNING, "ff_hls_write_file_entry get error\n");
+             }
+@@ -1994,6 +2001,26 @@ static int get_nth_codec_stream_index(AVFormatContext *s,
+     return -1;
+ }
+ 
++/* Decode %XX escapes in place. The var_stream_map syntax is split on
++ * spaces, so values that need a space (e.g. aname:English%205.1) use
++ * percent-encoding instead. */
++static void percent_decode_inplace(char *str)
++{
++    char *w = str;
++    const char *r = str;
++
++    while (*r) {
++        if (r[0] == '%' && av_isxdigit(r[1]) && av_isxdigit(r[2])) {
++            char hex[3] = { r[1], r[2], '\0' };
++            *w++ = (char)strtol(hex, NULL, 16);
++            r += 3;
++        } else {
++            *w++ = *r++;
++        }
++    }
++    *w = '\0';
++}
++
+ static int parse_variant_stream_mapstring(AVFormatContext *s)
+ {
+     HLSContext *hls = s->priv_data;
+@@ -2018,6 +2045,17 @@ static int parse_variant_stream_mapstring(AVFormatContext *s)
+      *
+      * agroup: is key to specify audio group. A string can be given as value.
+      * sgroup: is key to specify subtitle group. A string can be given as value.
++     * aname: is key to specify the audio rendition NAME written to the
++     * EXT-X-MEDIA tag in the master playlist. A string can be given as
++     * value; %XX percent-escapes are decoded (e.g. aname:English%205.1
++     * gives NAME="English 5.1") since the map syntax is space-separated.
++     * autoselect: is key to set AUTOSELECT on the variant's EXT-X-MEDIA
++     * rendition. Allowed values are yes/1 and no/0. DEFAULT=YES and
++     * FORCED=YES renditions always get AUTOSELECT=YES as the spec requires.
++     * sforced: is key to mark the subtitle rendition FORCED (yes/1).
++     * characteristics: is key to set the rendition CHARACTERISTICS string
++     * (e.g. characteristics:public.accessibility.describes-video). %XX
++     * escapes are decoded, use %2C for the comma between multiple values.
+      */
+     p = av_strdup(hls->var_stream_map);
+     if (!p)
+@@ -2079,8 +2117,25 @@ static int parse_variant_stream_mapstring(AVFormatContext *s)
+                 vs->varname  = val;
+                 continue;
+             } else if (av_strstart(keyval, "sname:", &val)) {
++                percent_decode_inplace((char *)val);
+                 vs->subtitle_varname  = val;
+                 continue;
++            } else if (av_strstart(keyval, "aname:", &val)) {
++                percent_decode_inplace((char *)val);
++                vs->audio_varname  = val;
++                continue;
++            } else if (av_strstart(keyval, "autoselect:", &val)) {
++                vs->autoselect = (!av_strncasecmp(val, "YES", strlen("YES")) ||
++                                  !av_strncasecmp(val, "1", strlen("1"))) ? 1 : 2;
++                continue;
++            } else if (av_strstart(keyval, "sforced:", &val)) {
++                vs->subtitle_forced = (!av_strncasecmp(val, "YES", strlen("YES")) ||
++                                       !av_strncasecmp(val, "1", strlen("1")));
++                continue;
++            } else if (av_strstart(keyval, "characteristics:", &val)) {
++                percent_decode_inplace((char *)val);
++                vs->characteristics = val;
++                continue;
+             } else if (av_strstart(keyval, "agroup:", &val)) {
+                 vs->agroup   = val;
+                 continue;
+@@ -2460,16 +2515,13 @@ static int hls_write_packet(AVFormatContext *s, AVPacket *pkt)
+     }
+ 
+     if (vs->start_pts == AV_NOPTS_VALUE) {
+-        vs->start_pts = av_rescale_q(pkt->pts, st->time_base, AV_TIME_BASE_Q);
++        vs->start_pts = pkt->pts;
+         if (st->codecpar->codec_type == AVMEDIA_TYPE_AUDIO)
+             vs->start_pts_from_audio = 1;
+     }
+-    if (vs->start_pts_from_audio && st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
+-        int64_t video_start = av_rescale_q(pkt->pts, st->time_base, AV_TIME_BASE_Q);
+-        if (vs->start_pts > video_start) {
+-            vs->start_pts = video_start;
+-            vs->start_pts_from_audio = 0;
+-        }
++    if (vs->start_pts_from_audio && st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO && vs->start_pts > pkt->pts) {
++        vs->start_pts = pkt->pts;
++        vs->start_pts_from_audio = 0;
+     }
+ 
+     if (vs->has_video) {
+@@ -2500,8 +2552,8 @@ static int hls_write_packet(AVFormatContext *s, AVPacket *pkt)
+     }
+ 
+     can_split = can_split && (pkt->pts - vs->end_pts > 0);
+-    if (vs->packets_written && can_split && (av_rescale_q(pkt->pts, st->time_base, AV_TIME_BASE_Q) - vs->start_pts
+-                                                          >= end_pts)) {
++    if (vs->packets_written && can_split && av_compare_ts(pkt->pts - vs->start_pts, st->time_base,
++                                                          end_pts, AV_TIME_BASE_Q) >= 0) {
+         int64_t new_start_pos;
+         int byterange_mode = (hls->flags & HLS_SINGLE_FILE) || (hls->max_seg_size > 0);
+         double cur_duration;
+@@ -2679,6 +2731,12 @@ static int hls_write_packet(AVFormatContext *s, AVPacket *pkt)
+     vs->packets_written++;
+     if (oc->pb) {
+         ret = ff_write_chained(oc, stream_index, pkt, s, 0);
++        vs->video_keyframe_size += pkt->size;
++        if ((st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) && (pkt->flags & AV_PKT_FLAG_KEY)) {
++            vs->video_keyframe_size = avio_tell(oc->pb);
++        } else {
++            vs->video_keyframe_pos = avio_tell(vs->out);
++        }
+         if (hls->ignore_io_errors)
+             ret = 0;
+     }
+@@ -2759,17 +2817,18 @@ static int hls_write_trailer(struct AVFormatContext *s)
+         }
+ 
+         if (hls->segment_type == SEGMENT_TYPE_FMP4) {
++            int range_length = 0;
+             if (!vs->init_range_length) {
+                 uint8_t *buffer = NULL;
+                 av_write_frame(oc, NULL); /* Flush any buffered data */
+ 
+-                int init_range_length = avio_close_dyn_buf(oc->pb, &buffer);
+-                avio_write(vs->out, buffer, init_range_length);
++                range_length = avio_close_dyn_buf(oc->pb, &buffer);
++                avio_write(vs->out, buffer, range_length);
+                 av_freep(&buffer);
+-                vs->init_range_length = init_range_length;
++                vs->init_range_length = range_length;
+                 avio_open_dyn_buf(&oc->pb);
+                 vs->packets_written = 0;
+-                vs->start_pos = init_range_length;
++                vs->start_pos = range_length;
+                 byterange_mode = (hls->flags & HLS_SINGLE_FILE) || (hls->max_seg_size > 0);
+                 if (!byterange_mode) {
+                     ff_format_io_close(s, &vs->out);
+@@ -2868,6 +2927,7 @@ static int hls_init(AVFormatContext *s)
+     const char *pattern;
+     VariantStream *vs = NULL;
+     const char *vtt_pattern = hls->flags & HLS_SINGLE_FILE ? ".vtt" : "%d.vtt";
++    char *p = NULL;
+     int http_base_proto = ff_is_http_proto(s->url);
+     int fmp4_init_filename_len = strlen(hls->fmp4_init_filename) + 1;
+     double initial_program_date_time = av_gettime() / 1000000.0;
+@@ -2975,17 +3035,26 @@ static int hls_init(AVFormatContext *s)
+                 vs->reference_stream_index = vs->streams[j]->index;
+             }
+             vs->has_subtitle += vs->streams[j]->codecpar->codec_type == AVMEDIA_TYPE_SUBTITLE;
++
++            /* Apple HLS requires the hvc1 sample entry for HEVC; without the
++             * tag the CODECS attribute is silently dropped from the master
++             * playlist. Set it here, before the submuxer copies codecpar. */
++            if (vs->streams[j]->codecpar->codec_id == AV_CODEC_ID_HEVC &&
++                vs->streams[j]->codecpar->codec_tag != MKTAG('h','v','c','1')) {
++                av_log(s, AV_LOG_WARNING,
++                       "HEVC stream %d does not use the 'hvc1' tag, "
++                       "auto-setting it for HLS compatibility. "
++                       "Use -tag:v hvc1 to silence this warning.\n",
++                       vs->streams[j]->index);
++                vs->streams[j]->codecpar->codec_tag = MKTAG('h','v','c','1');
++            }
+         }
+ 
+         if (vs->has_video > 1)
+             av_log(s, AV_LOG_WARNING, "More than a single video stream present, expect issues decoding it.\n");
+         if (hls->segment_type == SEGMENT_TYPE_FMP4) {
+-#if CONFIG_MP4_MUXER
+             EXTERN const FFOutputFormat ff_mp4_muxer;
+             vs->oformat = &ff_mp4_muxer.p;
+-#else
+-            return AVERROR_MUXER_NOT_FOUND;
+-#endif
+         } else {
+             EXTERN const FFOutputFormat ff_mpegts_muxer;
+             vs->oformat = &ff_mpegts_muxer.p;
+@@ -2996,7 +3065,7 @@ static int hls_init(AVFormatContext *s)
+             if (ret < 0)
+                 return ret;
+         } else {
+-            char *p = strrchr(vs->m3u8_name, '.');
++            p = strrchr(vs->m3u8_name, '.');
+             if (p)
+                 *p = '\0';
+ 
+@@ -3046,7 +3115,7 @@ static int hls_init(AVFormatContext *s)
+                     vs->fmp4_init_filename = expanded;
+                 }
+ 
+-                char *p = strrchr(vs->m3u8_name, '/');
++                p = strrchr(vs->m3u8_name, '/');
+                 if (p) {
+                     char tmp = *(++p);
+                     *p = '\0';
+@@ -3069,7 +3138,7 @@ static int hls_init(AVFormatContext *s)
+             EXTERN const FFOutputFormat ff_webvtt_muxer;
+             vs->vtt_oformat = &ff_webvtt_muxer.p;
+ 
+-            char *p = strrchr(vs->m3u8_name, '.');
++            p = strrchr(vs->m3u8_name, '.');
+             if (p)
+                 *p = '\0';
+ 
+diff --git a/libavformat/hlsplaylist.c b/libavformat/hlsplaylist.c
+index 774bc5a..e51e4b4 100644
+--- a/libavformat/hlsplaylist.c
++++ b/libavformat/hlsplaylist.c
+@@ -22,6 +22,7 @@
+ 
+ #include "config.h"
+ #include <stdint.h>
++#include <string.h>
+ #include <time.h>
+ 
+ #include "libavutil/time_internal.h"
+@@ -37,18 +38,40 @@ void ff_hls_write_playlist_version(AVIOContext *out, int version)
+     avio_printf(out, "#EXT-X-VERSION:%d\n", version);
+ }
+ 
++/* autoselect: 1 = YES, 0 = NO, -1 = unset. RFC 8216 requires AUTOSELECT=YES
++ * when DEFAULT=YES, and Apple requires it for FORCED renditions, so those
++ * override an unset or contradicting value. */
++static void write_rendition_autoselect(AVIOContext *out, int autoselect,
++                                       int is_default, int forced)
++{
++    if (is_default || forced || autoselect == 1)
++        avio_printf(out, "AUTOSELECT=YES,");
++    else if (autoselect == 0)
++        avio_printf(out, "AUTOSELECT=NO,");
++}
++
+ void ff_hls_write_audio_rendition(AVIOContext *out, const char *agroup,
+                                   const char *filename, const char *language,
+-                                  int name_id, int is_default, int nb_channels)
++                                  const char *aname, int name_id, int is_default,
++                                  int nb_channels, int autoselect,
++                                  const char *characteristics)
+ {
+     if (!out || !agroup || !filename)
+         return;
+ 
+-    avio_printf(out, "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"group_%s\"", agroup);
+-    avio_printf(out, ",NAME=\"audio_%d\",DEFAULT=%s,", name_id, is_default ? "YES" : "NO");
++    avio_printf(out, "#EXT-X-MEDIA:TYPE=AUDIO,GROUP-ID=\"%s\"", agroup);
++    if (aname) {
++        avio_printf(out, ",NAME=\"%s\",DEFAULT=%s,", aname, is_default ? "YES" : "NO");
++    } else {
++        avio_printf(out, ",NAME=\"audio_%d\",DEFAULT=%s,", name_id, is_default ? "YES" : "NO");
++    }
++    write_rendition_autoselect(out, autoselect, is_default, 0);
+     if (language) {
+         avio_printf(out, "LANGUAGE=\"%s\",", language);
+     }
++    if (characteristics && characteristics[0]) {
++        avio_printf(out, "CHARACTERISTICS=\"%s\",", characteristics);
++    }
+     if (nb_channels) {
+         avio_printf(out, "CHANNELS=\"%d\",", nb_channels);
+     }
+@@ -57,7 +80,9 @@ void ff_hls_write_audio_rendition(AVIOContext *out, const char *agroup,
+ 
+ void ff_hls_write_subtitle_rendition(AVIOContext *out, const char *sgroup,
+                                      const char *filename, const char *language,
+-                                     const char *sname, int name_id, int is_default)
++                                     const char *sname, int name_id, int is_default,
++                                     int autoselect, int forced,
++                                     const char *characteristics)
+ {
+     if (!out || !filename)
+         return;
+@@ -69,9 +94,14 @@ void ff_hls_write_subtitle_rendition(AVIOContext *out, const char *sgroup,
+         avio_printf(out, ",NAME=\"subtitle_%d\",", name_id);
+     }
+     avio_printf(out, "DEFAULT=%s,", is_default ? "YES" : "NO");
++    write_rendition_autoselect(out, autoselect, is_default, forced);
++    avio_printf(out, "FORCED=%s,", forced ? "YES" : "NO");
+     if (language) {
+         avio_printf(out, "LANGUAGE=\"%s\",", language);
+     }
++    if (characteristics && characteristics[0]) {
++        avio_printf(out, "CHARACTERISTICS=\"%s\",", characteristics);
++    }
+     avio_printf(out, "URI=\"%s\"\n", filename);
+ }
+ 
+@@ -96,12 +126,31 @@ void ff_hls_write_stream_info(AVStream *st, AVIOContext *out, int bandwidth,
+     if (st && st->codecpar->width > 0 && st->codecpar->height > 0)
+         avio_printf(out, ",RESOLUTION=%dx%d", st->codecpar->width,
+                 st->codecpar->height);
++    if (st && st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO &&
++        st->avg_frame_rate.num > 0 && st->avg_frame_rate.den > 0) {
++        /* RFC 8216 4.3.4.2: decimal-floating-point, rounded to three
++         * decimal places (23.976, 24.000, 29.970) */
++        avio_printf(out, ",FRAME-RATE=%.3f", av_q2d(st->avg_frame_rate));
++    }
+     if (codecs && codecs[0])
+         avio_printf(out, ",CODECS=\"%s\"", codecs);
++    if (st && st->codecpar->codec_type == AVMEDIA_TYPE_VIDEO) {
++        const char *video_range = "SDR";
++        if (st->codecpar->color_trc == AVCOL_TRC_SMPTE2084)
++            video_range = "PQ";
++        else if (st->codecpar->color_trc == AVCOL_TRC_ARIB_STD_B67)
++            video_range = "HLG";
++        avio_printf(out, ",VIDEO-RANGE=%s", video_range);
++    }
+     if (agroup && agroup[0])
+-        avio_printf(out, ",AUDIO=\"group_%s\"", agroup);
+-    if (ccgroup && ccgroup[0])
+-        avio_printf(out, ",CLOSED-CAPTIONS=\"%s\"", ccgroup);
++        avio_printf(out, ",AUDIO=\"%s\"", agroup);
++    if (ccgroup && ccgroup[0]) {
++        /* NONE is an enumerated value and must not be quoted */
++        if (!strcmp(ccgroup, "NONE"))
++            avio_printf(out, ",CLOSED-CAPTIONS=NONE");
++        else
++            avio_printf(out, ",CLOSED-CAPTIONS=\"%s\"", ccgroup);
++    }
+     if (sgroup && sgroup[0])
+         avio_printf(out, ",SUBTITLES=\"%s\"", sgroup);
+     avio_printf(out, "\n%s\n\n", filename);
+@@ -147,6 +196,7 @@ int ff_hls_write_file_entry(AVIOContext *out, int insert_discont,
+                             int64_t pos /* Used only if HLS_SINGLE_FILE flag is set */,
+                             const char *baseurl /* Ignored if NULL */,
+                             const char *filename, double *prog_date_time,
++                            int64_t video_keyframe_size, int64_t video_keyframe_pos,
+                             int iframe_mode)
+ {
+     if (!out || !filename)
+@@ -160,7 +210,8 @@ int ff_hls_write_file_entry(AVIOContext *out, int insert_discont,
+     else
+         avio_printf(out, "#EXTINF:%f,\n", duration);
+     if (byterange_mode)
+-        avio_printf(out, "#EXT-X-BYTERANGE:%"PRId64"@%"PRId64"\n", size, pos);
++        avio_printf(out, "#EXT-X-BYTERANGE:%"PRId64"@%"PRId64"\n", iframe_mode ? video_keyframe_size : size,
++                    iframe_mode ? video_keyframe_pos : pos);
+ 
+     if (prog_date_time) {
+         time_t tt, wrongsecs;
+diff --git a/libavformat/hlsplaylist.h b/libavformat/hlsplaylist.h
+index a9f8bab..3d0c859 100644
+--- a/libavformat/hlsplaylist.h
++++ b/libavformat/hlsplaylist.h
+@@ -38,10 +38,14 @@ typedef enum {
+ void ff_hls_write_playlist_version(AVIOContext *out, int version);
+ void ff_hls_write_audio_rendition(AVIOContext *out, const char *agroup,
+                                   const char *filename, const char *language,
+-                                  int name_id, int is_default, int nb_channels);
++                                  const char *aname, int name_id, int is_default,
++                                  int nb_channels, int autoselect,
++                                  const char *characteristics);
+ void ff_hls_write_subtitle_rendition(AVIOContext *out, const char *sgroup,
+                                      const char *filename, const char *language,
+-                                     const char *sname, int name_id, int is_default);
++                                     const char *sname, int name_id, int is_default,
++                                     int autoselect, int forced,
++                                     const char *characteristics);
+ void ff_hls_write_stream_info(AVStream *st, AVIOContext *out, int bandwidth,
+                               int avg_bandwidth,
+                               const char *filename, const char *agroup,
+@@ -58,6 +62,7 @@ int ff_hls_write_file_entry(AVIOContext *out, int insert_discont,
+                             int64_t pos /* Used only if HLS_SINGLE_FILE flag is set */,
+                             const char *baseurl /* Ignored if NULL */,
+                             const char *filename, double *prog_date_time,
++                            int64_t video_keyframe_size, int64_t video_keyframe_pos,
+                             int iframe_mode);
+ void ff_hls_write_end_list (AVIOContext *out);
+ 
+-- 
+2.52.0.windows.1
+

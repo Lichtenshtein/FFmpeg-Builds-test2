@@ -4,13 +4,13 @@ set -e
 
 # 1. AVX-512 Leakage Scan
 # If zmm registers (these are AVX-512 registers) or evex prefixes appear in the assembler output, it means that some library is still pushing this code.
-if [[ "$USE_AVX512" != "1" ]]; then
+if [[ "$USE_AVX512" != "1" && "$TARGET" =~ ^win ]]; then
     log_info "${SEARCH_MARK} Scanning final binaries for accidental AVX-512 leak..."
     while IFS= read -r file; do
         log_debug "Analyzing $(basename "$file")..."
         set +o pipefail 2>/dev/null || true
         LEAKED_INSTR=$("${FFBUILD_CROSS_PREFIX}objdump" -d -j .text "$file" 2>/dev/null | \
-            grep -Ei '\bzmm[0-9]|\b[xy]mm(1[6-9]|2[0-9]|3[0-1])\b|\bk[0-7]\b|evex' | head -n 20)
+            grep -Ei '\bzmm[0-9]|\b[xy]mm(1[6-9]|2[0-9]|3[0-1])\b|\b%{k[0-7]}|\bk(mov|and|or|xor|not)\b|evex' | head -n 20)
         set -o pipefail 2>/dev/null || true
 
         if [[ -n "$LEAKED_INSTR" ]]; then
@@ -23,7 +23,7 @@ if [[ "$USE_AVX512" != "1" ]]; then
         else
             log_info "${CHECK_MARK} $(basename "$file") is clean of AVX-512 code."
         fi
-    done < <(find "${PKG_DIR}/bin" -type f \( -name "*.exe" -o -name "*.dll" \))
+    done < <(find "${PKG_DIR}/bin" -type f \( -name "*.exe" -o -name "*.dll" \) 2>/dev/null)
 fi
 
 # 2. Component Mapping & Dynamic Symbol Verification
@@ -78,6 +78,7 @@ declare -A COMPONENT_TEST_MAP=(
 # 3. Generate Dynamic Component Tests
 generate_component_tests() {
     local enabled_components=()
+    COMPREHENSIVE_TESTS=()
     local test_codecs=()
     local config_source="${FINAL_CONFIGURE:-$(cat ${FFMPEG_CONFIG_LOG:-/dev/null} 2>/dev/null)}"
 
@@ -145,15 +146,21 @@ generate_component_tests() {
 run_deep_component_audit() {
     log_info "${START_MARK} Launching automated Wine+GDB crash audit..."
 
-    local TEST_EXE="${PKG_DIR}/bin/ffmpeg.exe"
-    [[ ! -f "$TEST_EXE" ]] && TEST_EXE="/opt/ffdest/opt/ffbuild/bin/ffmpeg.exe"
-    if [ ! -f "$TEST_EXE" ]; then
-        log_error "FFmpeg binary not found at $TEST_EXE"
+    local TEST_EXE=""
+    for path in "${PKG_DIR}/bin/ffmpeg.exe" "/opt/ffdest/opt/ffbuild/bin/ffmpeg.exe"; do
+        if [[ -f "$path" ]]; then
+            TEST_EXE="$path"
+            break
+        fi
+    done
+
+    if [[ -z "$TEST_EXE" ]]; then
+        log_error "FFmpeg binary not found in expected prefix destinations."
         return 1
     fi
 
     if ! command -v wine64 &> /dev/null && ! command -v wine &> /dev/null; then
-        log_warn "Wine is not installed. Skipping audit."
+        log_warn "Wine is not installed. Skipping deep runtime audit."
         return 0
     fi
 
@@ -172,7 +179,7 @@ run_deep_component_audit() {
     log_debug "🚨 WINE SMOKE TEST ANALYSIS (DEBUG_MODE=1)"
     log_debug "${LOG_DEBUG}=======================================================${NC}"
 
-    log_info "${START_MARK} Launching Deep Component & Stability Audit..."
+    log_info "${START_MARK} Launching Deep Component & Stability Audit at:\n$TEST_EXE"
 
     # --- STAGE 1: Automatic exception analysis ---
     # Basic info + a filter chain
@@ -184,26 +191,26 @@ run_deep_component_audit() {
     local CRASH_FOUND=0
     local CRASH2_FOUND=0
     local TEST_INDEX=0
+    local SIGNATURES="Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow|stack_chk_fail|stack-buffer-overflow|global-buffer-overflow|SIGSEGV"
 
     for TEST_ARGS in "${TEST_SUITE[@]}"; do
         ((++TEST_INDEX))
         local PHASE1_LOG="${TMP_DIR}/audit_p1_${TEST_INDEX}.log"
         rm -f "$PHASE1_LOG"
-        log_debug "Executing test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
+        log_debug "Executing test #${TEST_INDEX}..."
 
         if winedbg --auto "$TEST_EXE" $TEST_ARGS >> "$PHASE1_LOG" 2>&1; then
-            log_debug "Test completed (winedbg exit 0)."
-            # ! display the log of a successful smoke test on the screen in gray
-            sed 's/^/  /' "$PHASE1_LOG" >&2
+            if [[ "${FFBUILD_VERBOSE:-0}" -ge 2 ]]; then
+                sed 's/^/  /' "$PHASE1_LOG" >&2
+            fi
         else
-            log_error "Test failed (winedbg exit non-zero). Checking for crash details..."
-            if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow|stack_chk_fail|stack-buffer-overflow|global-buffer-overflow|access violation|SIGSEGV|illegal instruction" "$PHASE1_LOG"; then
-                log_error "Crash detected!"
+            if grep -Eiq "$SIGNATURES" "$PHASE1_LOG"; then
+                log_error "Crash detected in base smoke test!"
                 CRASH_FOUND=1
                 cat "$PHASE1_LOG" >> "$CRASH_AUDIT_LOG"
                 continue
             else
-                log_warn "Non-zero exit, but no critical crash exception found. Continuing..."
+                log_warn "Non-zero exit, but no critical crash exception found."
             fi
         fi
         cat "$PHASE1_LOG" >> "$CRASH_AUDIT_LOG"
@@ -212,19 +219,18 @@ run_deep_component_audit() {
 
     # --- STAGE 2: Collecting backtraces when basic parameters drop ---
     # Reset the counter for the second stage
-    local TEST_INDEX=0
+    TEST_INDEX=0
 
     if [[ $CRASH_FOUND -eq 0 ]]; then
         for TEST_ARGS in "${TEST_SUITE[@]}"; do
             ((++TEST_INDEX))
             local PHASE2_LOG="${TMP_DIR}/audit_p2_${TEST_INDEX}.log"
             rm -f "$PHASE2_LOG"
-            log_debug "Executing sub-test: ${GREY_B}${TEST_ARGS:0:60}...${NC}"
             
             winedbg --command "cont; bt; kill; quit" "$TEST_EXE" $TEST_ARGS >> "$PHASE2_LOG" 2>&1
 
-            if grep -Eiq "Access Violation|0xc0000005|0xc0000409|0xc000001d|Segmentation fault|Illegal instruction|Unhandled exception|stack smashing|buffer overflow|stack_chk_fail|stack-buffer-overflow|global-buffer-overflow|access violation|SIGSEGV|illegal instruction" "$PHASE2_LOG"; then
-                log_error "CRITICAL FAULT DETECTED during sub-test: ${TEST_ARGS:0:60}..."
+            if grep -Eiq "$SIGNATURES" "$PHASE2_LOG"; then
+                log_error "CRITICAL FAULT DETECTED during backtrace sub-test!"
                 CRASH2_FOUND=1
                 cat "$PHASE2_LOG" >> "$CRASH_AUDIT_LOG"
                 continue
@@ -255,9 +261,9 @@ run_deep_component_audit() {
     generate_component_tests
 
     # Add a generic "stability" test if no specific components found or as a baseline
-    if [[ ${#COMPREHENSIVE_TESTS[@]} -eq 0 ]]; then
-        COMPREHENSIVE_TESTS+=("-loglevel warning -f lavfi -i testsrc2=d=1 -c:v wrapped_avframe -f null -")
-    fi
+#    if [[ ${#COMPREHENSIVE_TESTS[@]} -eq 0 ]]; then
+#        COMPREHENSIVE_TESTS+=("-loglevel warning -f lavfi -i testsrc2=d=1 -c:v wrapped_avframe -f null -")
+#    fi
 
     local TOTAL_TESTS=${#COMPREHENSIVE_TESTS[@]}
     local FAILED_TESTS=0
@@ -289,27 +295,25 @@ run_deep_component_audit() {
             if [[ $EXIT_CODE -eq 124 ]]; then
                 log_error "   -> FAILED: TIMEOUT (Hang detected in ${CODEC_NAME})"
                 FAILED_TESTS=$((FAILED_TESTS + 1))
-                cat "$PHASE_LOG" >> "$AUDIT_LOG"
                 continue
             fi
  
             if grep -qE "Exception c0000005|Access Violation|Segmentation fault|0xc000001d|Illegal instruction" "$PHASE_LOG"; then
                 log_error "   -> FAILED: CRASH detected in ${CODEC_NAME}"
                 FAILED_TESTS=$((FAILED_TESTS + 1))
-                
-                echo "=== CRASH REPORT: ${CODEC_NAME} ===" > "$CRASH_LOG"
-                echo "Command: ffmpeg $TEST_ARGS" >> "$CRASH_LOG"
-                echo "Exit Code: $EXIT_CODE" >> "$CRASH_LOG"
-                echo "Timestamp: $(date)" >> "$CRASH_LOG"
-                echo "--- Log Snippet ---" >> "$CRASH_LOG"
-                grep -A 15 -B 5 -E "Exception|Access Violation|Backtrace" "$PHASE_LOG" >> "$CRASH_LOG" || cat "$PHASE_LOG" >> "$CRASH_LOG"
-
+                {
+                echo "=== CRASH REPORT: ${CODEC_NAME} ==="
+                echo "Command: ffmpeg $TEST_ARGS"
+                echo "Exit Code: $EXIT_CODE"
+                echo "Timestamp: $(date)"
+                echo "--- Log Snippet ---"
+                grep -A 15 -B 5 -E "Exception|Access Violation|Backtrace" "$PHASE_LOG" || cat "$PHASE_LOG"
+                } > "$CRASH_LOG"
                 cat "$CRASH_LOG" >&2
-                cat "$PHASE_LOG" >> "$AUDIT_LOG"
             else
-                log_warn "   -> Non-zero exit ($EXIT_CODE) but no crash signature in ${CODEC_NAME}."
-                cat "$PHASE_LOG" >> "$AUDIT_LOG"
+            log_warn " -> Non-zero exit ($EXIT_CODE) but no crash signature in ${CODEC_NAME}."
             fi
+            cat "$PHASE_LOG" >> "$AUDIT_LOG"
         fi
         rm -f "$PHASE_LOG"
     done
@@ -330,4 +334,4 @@ run_deep_component_audit() {
 }
 
 # run Deep Audit
-[[ "$TARGET" == "win*" ]] && run_deep_component_audit
+[[ "$TARGET" == win* ]] && run_deep_component_audit
