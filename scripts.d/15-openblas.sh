@@ -43,9 +43,8 @@ ffbuild_dockerbuild() {
         -DTARGET=HASWELL
         -DDYNAMIC_ARCH=OFF
         -DNUM_THREADS=64
-        -DC_LAPACK=$([ "$use_fortran" == "ON" ] && echo OFF || echo ON) # Build from C sources instead of Fortran
+        # -DC_LAPACK=$([ "$use_fortran" == "ON" ] && echo OFF || echo ON)
         -DCMAKE_Fortran_COMPILER=$([ "$use_fortran" == "ON" ] && echo "$FC" || echo OFF)
-        -DBUILD_LAPACK_DEPRECATED=$([ "$use_fortran" == "ON" ] && echo ON || echo OFF) # Drops hundreds of unneeded f2c files
         -DBUILD_WITHOUT_LAPACK=OFF
         -DBUILD_WITHOUT_LAPACKE=OFF
         -DBUILD_WITHOUT_CBLAS=OFF
