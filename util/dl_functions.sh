@@ -92,22 +92,22 @@ git-mini-clone() {
         log_info "${DOWN_MARK} Fetching $(basename "$url") @ ${commit:0:12}..."
 
         # Direct shallow fetch of the exact commit
-        if _retry git fetch --quiet --no-tags --depth=1 origin "$commit" >/dev/null 2>&1; then
+        if _retry git fetch --config filter.lfs.smudge=false --quiet --no-tags --depth=1 origin "$commit" >/dev/null 2>&1; then
             git checkout --quiet FETCH_HEAD && return 0
         fi
 
         # Via branch name
         if [[ -n "$branch" ]]; then
             log_warn "Direct fetch failed, trying branch '$branch' from $url"
-            if _retry git fetch --quiet --no-tags --depth=1 origin "$branch" >/dev/null 2>&1; then
+            if _retry git fetch --config filter.lfs.smudge=false --quiet --no-tags --depth=1 origin "$branch" >/dev/null 2>&1; then
                 git checkout --quiet "$commit" 2>/dev/null && return 0
             fi
         fi
 
         # Full fetch fallback
         log_warn "Shallow fetch failed, performing full fetch from $url (may be slow)..."
-        if _retry git fetch --quiet --tags origin >/dev/null 2>&1 \
-        || _retry git fetch --quiet origin >/dev/null 2>&1; then
+        if _retry git fetch --config filter.lfs.smudge=false --quiet --tags origin >/dev/null 2>&1 \
+        || _retry git fetch --config filter.lfs.smudge=false --quiet origin >/dev/null 2>&1; then
             git checkout --quiet "$commit" && return 0
         fi
 

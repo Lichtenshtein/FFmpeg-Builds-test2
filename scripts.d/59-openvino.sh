@@ -103,8 +103,8 @@ ffbuild_dockerbuild() {
     echo "return()" | cat - src/core/template_extension/CMakeLists.txt > temp && mv temp src/core/template_extension/CMakeLists.txt
 
     log_info "${BROOM_MARK} Patching OpenVINO and submodules CMake scripts to suppress warnings..."
-    find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wformat/-Wno-format/g' 2>/dev/null || true
-    find . -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wundef/-Wno-undef/g' 2>/dev/null || true
+    find /build/$STAGENAME -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wformat/-Wno-format/g' 2>/dev/null || true
+    find /build/$STAGENAME -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-Wundef/-Wno-undef/g' 2>/dev/null || true
 
     export TBBROOT="$FFBUILD_PREFIX"
 
@@ -186,7 +186,14 @@ ffbuild_dockerbuild() {
     export static_flags=""
     [[ "${PREFER_SHARED}" != "1" ]] && static_flags="-D__TBB_DYNAMIC_LOAD_ENABLED=0" && self_static_flags="-DOPENVINO_STATIC_LIBRARY"
 
-    [[ "${USE_LTO}" == "1" ]] && LTO_FLAGS="-Wno-odr -Wa,-mbig-obj -fno-lto-odr-type-merging"
+    if [[ "${USE_LTO}" == "1" ]]; then
+        find /build/$STAGENAME -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-fno-fat-lto-objects/-ffat-lto-objects/g' 2>/dev/null || true
+        find /build/$STAGENAME -name "CMakeLists.txt" -o -name "*.cmake" | xargs sed -i 's/-flto=thin/-flto=fat/g' 2>/dev/null || true
+        myconf+=(
+            -DENABLE_LTO=ON
+        )
+        local LTO_FLAGS="-Wno-odr -Wa,-mbig-obj -fno-lto-odr-type-merging"
+    fi
 
     CFLAGS="$CFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} ${NO_WARNS} $LTO_FLAGS $self_static_flags" \
     CXXFLAGS="$CXXFLAGS $CPPFLAGS ${OPENMP_C}${USELTO}${USELTO_C} ${NO_WARNS} $LTO_FLAGS $static_flags $self_static_flags -DWINAPI_PARTITION_SYSTEM=1" \
