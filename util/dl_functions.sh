@@ -70,6 +70,9 @@ git-mini-clone() {
     # Initialize once
     [[ ! -d ".git" ]] && git init -q
 
+    git config filter.lfs.smudge false
+    git config filter.lfs.required false
+
     # TAGFILTER resolution (against primary repo only)
     if [[ -n "$TAGFILTER" ]]; then
         log_debug "Resolving tag with filter: $TAGFILTER"
