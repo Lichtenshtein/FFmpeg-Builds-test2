@@ -311,7 +311,7 @@ run_deep_component_audit() {
                 } > "$CRASH_LOG"
                 cat "$CRASH_LOG" >&2
             else
-            log_warn " -> Non-zero exit ($EXIT_CODE) but no crash signature in ${CODEC_NAME}."
+                log_warn " -> Non-zero exit ($EXIT_CODE) but no crash signature in ${CODEC_NAME}."
             fi
             cat "$PHASE_LOG" >> "$AUDIT_LOG"
         fi
