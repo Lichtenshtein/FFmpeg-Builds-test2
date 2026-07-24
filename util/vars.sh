@@ -235,7 +235,7 @@ export GLOBAL_SKIP_POST_PC_PATCH=0
 export GLOBAL_SKIP_POST_CLEAN_LA_FILES=0
 export GLOBAL_SKIP_POST_DEP_AUDIT=0
 export GLOBAL_DISABLE_VERSION_FINDER=0
-export GLOGAL_SKIP_POST_STRIP=1
+export GLOBAL_SKIP_POST_STRIP=0
 export GLOBAL_DISABLE_CONF_FINDER=0
 
 mkdir -p "$CACHE_DIR" "$TMP_DIR" "$FFMPEG_BUILD_ROOT" "$FFMPEG_DIR"
@@ -828,7 +828,7 @@ clean_unwanted_libs() {
     DELETED_FILES=$(eval "find \"$INSTALL_ROOT\" -type f $find_expr -print -delete 2>/dev/null" | sed "s|$FFBUILD_DESTDIR||g")
 
     if [[ -n "$DELETED_FILES" ]]; then
-        log_debug "${BROOM_MARK} Removing $label for ${STAGENAME}:\n $DELETED_FILES"
+        log_debug "${BROOM_MARK} Removing $label for ${STAGENAME}:\n$DELETED_FILES"
     else
         log_info "${CHECK_MARK} No unwanted $label found."
     fi
@@ -2120,7 +2120,7 @@ should_skip_post_strip() {
             return 0 
             ;;
         # headers
-        *"vulkan-headers"|*"spirv-headers"|*"mingw-std-threads"|*"ffnvcodec"|*"decklink"|*"zz-final")
+        *"vulkan-headers"|*"spirv-headers"|*"mingw-std-threads"|*"ffnvcodec"|*"decklink")
             return 0 
             ;;
         *) 

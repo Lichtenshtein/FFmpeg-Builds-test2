@@ -103,6 +103,15 @@ diff --git a/libavformat/dashenc.c b/libavformat/dashenc.c
 index 406ee2c..2132fdb 100644
 --- a/libavformat/dashenc.c
 +++ b/libavformat/dashenc.c
+@@ -436,7 +436,7 @@ static void write_hls_media_playlist(OutputStream *os, AVFormatContext *s,
+                                 (double) seg->duration / timescale, 0,
+                                 seg->range_length, seg->start_pos, NULL,
+                                 c->single_file ? os->initfile : seg->file,
+-                                &prog_date_time, 0);
++                                &prog_date_time, 0, 0, 0);
+         if (ret < 0) {
+             av_log(os->ctx, AV_LOG_WARNING, "ff_hls_write_file_entry get error\n");
+         }
 @@ -1166,8 +1166,8 @@ static int write_manifest(AVFormatContext *s, int final)
                      continue;
                  get_hls_playlist_name(playlist_file, sizeof(playlist_file), NULL, i);

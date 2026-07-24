@@ -223,7 +223,6 @@ if [ -f "$THPENC_C" ]; then
     fi
 fi
 
-sed -i 's/\&prog_date_time, 0);/\&prog_date_time, 0, 0, 0);/g' libavformat/dashenc.c
 
 # if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/ffnvcodec.pc" ]]; then
     # sed -i 's| -I${includedir}/ffnvcodec||g' "${FFBUILD_PREFIX}/lib/pkgconfig/ffnvcodec.pc"
@@ -421,14 +420,6 @@ unset ENABLED_COMPONENTS
     # done
     # DYNAMIC_LIBS_ACCUMULATOR+="-Wl,-Bdynamic ${WHISPER_DYNAMIC_LIBS} -Wl,-Bstatic "
 # fi
-
-# ==========================================
-# FREI0R PROCESSING
-# ==========================================
-if [[ "$HAS_FREI0R" == "1" && "$TARGET" == "win64" ]]; then
-    log_info "${TARGET_MARK} Patching FFmpeg source to change frei0r plugins default location..."
-    sed -i '/static const char\* const frei0r_pathlist\[\] = {/,/};/c\    static const char* const frei0r_pathlist[] = {\n        "frei0r-1/"\n    };' libavfilter/vf_frei0r.c
-fi
 
 # ==========================================
 # FINAL LIBS GROUP PROCESSING

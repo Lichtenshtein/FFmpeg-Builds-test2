@@ -14,6 +14,9 @@ git config --global http.lowSpeedLimit 1000
 git config --global http.lowSpeedTime 30
 # Increase the buffer for heavy objects (relevant for ffmpeg/torch)
 git config --global http.postBuffer 524288000
+# Do not attempt to validate LFS objects
+git config --global filter.lfs.smudge false
+export GIT_LFS_SKIP_SMUDGE=1
 
 source util/vars.sh "$TARGET" "$VARIANT" \
     || { echo "ERROR: vars.sh failed. TARGET=$TARGET VARIANT=$VARIANT" >&2; exit 1; }

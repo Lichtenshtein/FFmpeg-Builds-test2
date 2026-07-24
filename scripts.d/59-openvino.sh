@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/openvinotoolkit/openvino.git"
-SCRIPT_COMMIT="3dd09b2f61093429aa0ac963842fc1858cae3643"
+SCRIPT_COMMIT="070e0629ebddf6037886c511604b84aab74fafe3"
 
 ffbuild_depends() {
     echo tbbmalloc
@@ -20,6 +20,10 @@ ffbuild_dockerdl() {
     echo "git-submodule-clone"
     # can probably clean more from /thirdparty folder
     echo "rm -rf .github samples \
+\
+docs/articles_en/physical-ai/assets/* \
+docs/articles_en/assets/images/* \
+\
 tests \
 src/core/tests \
 src/tests \
