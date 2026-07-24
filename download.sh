@@ -16,6 +16,7 @@ git config --global http.lowSpeedTime 30
 git config --global http.postBuffer 524288000
 # Do not attempt to validate LFS objects
 git config --global filter.lfs.smudge false
+git config --global filter.lfs.required false
 export GIT_LFS_SKIP_SMUDGE=1
 
 source util/vars.sh "$TARGET" "$VARIANT" \
