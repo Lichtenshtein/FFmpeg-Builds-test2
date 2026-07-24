@@ -223,6 +223,8 @@ if [ -f "$THPENC_C" ]; then
     fi
 fi
 
+sed -i 's/\&prog_date_time, 0);/\&prog_date_time, 0, 0, 0);/g' libavformat/dashenc.c
+
 # if [[ -f "${FFBUILD_PREFIX}/lib/pkgconfig/ffnvcodec.pc" ]]; then
     # sed -i 's| -I${includedir}/ffnvcodec||g' "${FFBUILD_PREFIX}/lib/pkgconfig/ffnvcodec.pc"
 # fi
