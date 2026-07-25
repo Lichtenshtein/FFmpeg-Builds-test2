@@ -9,27 +9,33 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Delete old package versions
-        uses: actions/delete-package-versions@v5
-        with:
-          # Your GitHub username or organization name
-          owner: ${{ github.repository_owner }}
-
-          package-name: 'ffmpeg-builds-test2/base-win64'
-
+      # --- FIRST PACKAGE ---
+      # - name: Delete old versions of base-win64
+        # uses: actions/delete-package-versions@v5
+        # with:
+          # owner: ${{ github.repository_owner }}
+          # package-name: 'ffmpeg-builds-test2/base-win64'
           # Options: npm, maven, rubygems, nuget, docker, container
-          package-type: 'container'
-
-          # Authenticate using your custom Personal Access Token
-          token: ${{ secrets.DELETE_PACKAGES_TOKEN }}
-
+          # package-type: 'container'
+          # token: ${{ secrets.DELETE_PACKAGES_TOKEN }}
           # Number of oldest versions to delete during this specific run
           # num-old-versions-to-delete: 100
-
-          # Ensure you always keep the most recent versions (e.g., keep 5)
-          min-versions-to-keep: 5
-
+          # Ensure yalways keep the most recent versions (e.g., keep 5)
+          # min-versions-to-keep: 5
           # Prevent specific vital versions (like master, main, or prod) from being deleted
-          ignore-versions: '^(latest|main|master|v1\.0\.0)$'
+          # ignore-versions: '^(latest|main|master|v1\.0\.0)$'
+          # delete-only-untagged-versions: true
 
+      # --- SECOND PACKAGE ---
+      - name: Delete old versions of components-cache
+        uses: actions/delete-package-versions@v5
+        with:
+          owner: ${{ github.repository_owner }}
+          # Update this to your second package's full name
+          package-name: 'ffmpeg-builds-test2/components-cache'
+          package-type: 'container'
+          token: ${{ secrets.DELETE_PACKAGES_TOKEN }}
+          # num-old-versions-to-delete: 100
+          min-versions-to-keep: 5
+          ignore-versions: '^(latest|main|master|v1\.0\.0)$'
           # delete-only-untagged-versions: true
