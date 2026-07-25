@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Delete old package versions
-        uses: seantis/delete-package-versions@v5
+        uses: seantis/delete-package-versions
         with:
           # Your GitHub username or organization name
           owner: ${{ github.repository_owner }}
