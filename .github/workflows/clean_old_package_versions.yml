@@ -15,7 +15,7 @@ jobs:
           # Your GitHub username or organization name
           owner: ${{ github.repository_owner }}
 
-          package-name: 'base-win64'
+          package-name: 'ffmpeg-builds-test2/base-win64'
 
           # Options: npm, maven, rubygems, nuget, docker, container
           package-type: 'container'
@@ -24,7 +24,7 @@ jobs:
           token: ${{ secrets.DELETE_PACKAGES_TOKEN }}
 
           # Number of oldest versions to delete during this specific run
-          # num-old-versions-to-delete: 10
+          num-old-versions-to-delete: 500
 
           # Ensure you always keep the most recent versions (e.g., keep 5)
           min-versions-to-keep: 5
