@@ -1,0 +1,33 @@
+name: Clean Old Package Versions
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old package versions
+        uses: actions/delete-package-versions@v5
+        with:
+          # Your GitHub username or organization name
+          owner: ${{ github.repository_owner }}
+
+          package-name: 'base-win64'
+
+          # Options: npm, maven, rubygems, nuget, docker, container
+          package-type: 'container'
+
+          # Authenticate using your custom Personal Access Token
+          token: ${{ secrets.DELETE_PACKAGES_TOKEN }}
+
+          # Number of oldest versions to delete during this specific run
+          # num-old-versions-to-delete: 10
+
+          # Ensure you always keep the most recent versions (e.g., keep 5)
+          min-versions-to-keep: 5
+
+          # Prevent specific vital versions (like master, main, or prod) from being deleted
+          ignore-versions: '^(latest|main|master|v1\.0\.0)$'
