@@ -1,0 +1,50 @@
+From 26694308cf83a2716385bf305bf1ef6980aeb8ed Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Wed, 8 Jul 2026 23:34:36 +0300
+Subject: [PATCH] add support for HEVC alpha layer decoding and reporting
+
+# Optional follow-up patch (NoMercy-only, not upstream): make ffprobe report
+# yuva420p at stream level instead of the base-layer yuv420p. Delete
+# hevc-alpha-stream-pixfmt.patch to fall back to upstream behaviour -- the
+# alpha layer still decodes correctly without it, only the advertised stream
+# format differs.
+
+https://github.com/NoMercy-Entertainment/nomercy-ffmpeg/commit/a5eb1b87ee97d4db8c1972b5f59e39b63a2da8dc#diff-5f24d5c619a6118cb81627fedbe0c838e6083f5aa34ccac3f9e0c5fb9b3e5643
+
+--- a/libavcodec/hevc/hevcdec.c
++++ b/libavcodec/hevc/hevcdec.c
+@@ -328,6 +328,10 @@
+     return 0;
+ }
+ 
++/* Defined below; forward-declared so export_stream_params() can reach it. */
++static enum AVPixelFormat map_to_alpha_format(HEVCContext *s,
++                                              enum AVPixelFormat pix_fmt);
++
+ static void export_stream_params(HEVCContext *s, const HEVCSPS *sps)
+ {
+     AVCodecContext *avctx = s->avctx;
+@@ -336,6 +340,23 @@
+     unsigned int num = 0, den = 0;
+ 
+     avctx->pix_fmt             = sps->pix_fmt;
++
++    /* avformat_find_stream_info() resolves stream parameters straight from the
++     * extradata and returns without ever decoding a slice, so get_format() --
++     * where the auxiliary alpha layer is normally picked up -- has not run at
++     * this point. Advertise the alpha pixel format here too, otherwise ffprobe
++     * reports the base-layer format for HEVC-with-alpha video while the frames
++     * it actually decodes are yuva*. Mirrors the condition in
++     * ff_hevc_is_alpha_video(), which cannot be reused here because it reads
++     * s->vps -- only bound later, in set_sps().
++     */
++    if (vps && vps->nb_layers == 2 && vps->layer_id_in_nuh[1] &&
++        (vps->scalability_mask_flag & HEVC_SCALABILITY_AUXILIARY)) {
++        enum AVPixelFormat alpha_fmt = map_to_alpha_format(s, sps->pix_fmt);
++
++        if (alpha_fmt != AV_PIX_FMT_NONE)
++            avctx->pix_fmt = alpha_fmt;
++    }
+     avctx->coded_width         = sps->width;
+     avctx->coded_height        = sps->height;
+     avctx->width               = sps->width  - ow->left_offset - ow->right_offset;
