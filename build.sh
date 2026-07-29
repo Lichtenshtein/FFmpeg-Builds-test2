@@ -666,9 +666,20 @@ fi
 if command -v clang &>/dev/null && command -v llvm-config &>/dev/null; then
     CONF_FLAGS+=( --nvcc=clang )
 fi
-# flags added by ffmpeg patches, not from mainline FFmpeg
-[[ "$FFMPEG_PATCHES" == "1" ]] && \
-    CONF_FLAGS+=( --h264-max-bit-depth=14 --h265-bit-depths=8,9,10,12 )
+
+# flags added by ffmpeg patches
+
+[[ "$FFMPEG_PATCHES" == "1" && -f ${PATCHES_DIR}/ffmpeg/${FFMPEG_BRANCH}/0022-add-h264-max-bit-depth-to-disable-rarely-used-depths.patch ]] && \
+    CONF_FLAGS+=( --h264-max-bit-depth=14 )
+
+[[ "$FFMPEG_PATCHES" == "1" && -f ${PATCHES_DIR}/ffmpeg/${FFMPEG_BRANCH}/0031-add-h265-bit-depths.patch ]] && \
+    CONF_FLAGS+=( --h265-bit-depths=8,9,10,12 )
+
+[[ "$FFMPEG_PATCHES" == "1" && -f ${PATCHES_DIR}/ffmpeg/${FFMPEG_BRANCH}/0077-add-rig-mode-implementation-for-seamless-stitching-of-multi-camera-v360-setups.patch ]] && \
+    CONF_FLAGS+=( --enable-filter=v360 )
+
+[[ "$FFMPEG_PATCHES" == "1" && -f ${PATCHES_DIR}/ffmpeg/${FFMPEG_BRANCH}/0078-add-extended-vpp_amf-filter-with-d3d11-based-deinterlace-and-crop-for-ffmpeg.patch ]] && \
+    FINAL_CFLAGS+=( -DVF_VPP_AMF_D3D11_HWACCEL )
 
 # Function for checking and validating ffmpeg SAFE_CONFIGURE flags
 check_and_fix_configure && printf "  %s\n" "${CONF_FLAGS[@]}"
