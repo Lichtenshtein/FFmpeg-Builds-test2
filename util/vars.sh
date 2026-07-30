@@ -2189,8 +2189,8 @@ should_skip_pre_patch() {
     [[ "${GLOBAL_SKIP_PRE_PATCH:-0}" == "1" ]] && return 0
 
     case "$STAGENAME" in
-        *"libgsm")
-            return 0 # Skip applying patches for libgsm
+        *"libgsm"|*"libbluray")
+            return 0 # Skip applying patches
             ;;
         *) 
             return 1 # For everyone else, try applying patches

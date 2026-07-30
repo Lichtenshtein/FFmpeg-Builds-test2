@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/Fraunhofer-IIS/mpeghdec.git"
-SCRIPT_COMMIT="c08b803dec53ee6e968253d6b031f8d14ce936ec"
+SCRIPT_COMMIT="4448b69738da2fa5f2f2f2b0ce29eea32509e046"
 
 ffbuild_enabled() {
     return 0
@@ -27,6 +27,7 @@ ffbuild_dockerbuild() {
         -Dmpeghdec_BUILD_DOC=OFF
         -DUSE_PKGCONFIG_DEPS=ON
         -Dmpeghdec_BUILD_BINARIES=OFF
+        -Dmpeghdec_SYMBOL_PREFIX=ON
     )
 
     export static_flags=""
