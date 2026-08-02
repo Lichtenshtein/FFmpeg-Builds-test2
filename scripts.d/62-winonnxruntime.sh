@@ -61,6 +61,7 @@ ffbuild_dockerbuild() {
         "CMAKE_INSTALL_PREFIX=$FFBUILD_PREFIX"
         "CMAKE_BUILD_TYPE=Release"
 
+        "CMAKE_COMPILE_WARNING_AS_ERROR=OFF"
         "CMAKE_WARN_DEPRECATED=OFF"
         "CMAKE_POLICY_DEFAULT_CMP0091=NEW"
         "CMAKE_POLICY_DEFAULT_CMP0169=OLD"
@@ -90,6 +91,11 @@ ffbuild_dockerbuild() {
         "onnxruntime_USE_TELEMETRY=OFF"
     )
 
+    if has_library "openvino"; then
+        log_info "OpenVINO library detected. Building with OpenVINO support..."
+        cmake_args+=( "onnxruntime_USE_OPENVINO=ON" )
+    fi
+
     local myconf=(
         --build_dir build
         --allow_running_as_root
@@ -99,6 +105,7 @@ ffbuild_dockerbuild() {
         --parallel
         --skip_submodule_sync
         --skip_tests
+        --compile_no_warning_as_error
     )
 
     if [[ "${PREFER_SHARED}" == "1" ]]; then

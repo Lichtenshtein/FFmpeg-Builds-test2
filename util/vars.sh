@@ -286,7 +286,7 @@ should_apply_lto() {
             return 0
             ;;
         # Key High Level Graphics Filters
-        *"zimg"|*"libtesseract"|*"leptonica"|*"libplacebo"|*"opencl"|*"openvino"|*"opencv"|*"nnedi3"|*"whisper"|*"vapoursynth"|*"libdf")
+        *"zimg"|*"libtesseract"|*"leptonica"|*"libplacebo"|*"opencl"|*"openvino"|*"opencv"|*"nnedi3"|*"whisper"|*"vapoursynth"|*"libdf"|*"winonnxruntime")
             return 0
             ;;
         # lightweight codecs
