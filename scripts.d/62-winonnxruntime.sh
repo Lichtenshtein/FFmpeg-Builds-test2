@@ -48,10 +48,13 @@ ffbuild_dockerbuild() {
         --update
         --build
         --parallel
-        --build_shared_lib=$([ "${PREFER_SHARED}" == "1" ] && echo "ON" || echo "OFF")
         --skip_submodule_sync
         --skip_tests
     )
+
+    if [[ "${PREFER_SHARED}" == "1" ]]; then
+        myconf+=( --build_shared_lib )
+    fi
 
     local additional_cmake_defines=""
     for flag in "${cmake_args[@]}"; do
