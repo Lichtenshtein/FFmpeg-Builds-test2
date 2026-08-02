@@ -33,10 +33,24 @@ ffbuild_dockerbuild() {
         sed -i 's/#ifdef _MSC_VER/#if defined(_MSC_VER) || defined(__MINGW32__)/g' onnxruntime/core/mlas/lib/mlasi.h
     fi
 
-    log_info "${BROOM_MARK} Isolating MSVC compile options in MLAS CMake configuration..."
+    log_info "${BROOM_MARK} Isolating MSVC warning flags under if(MSVC) blocks..."
+    if [[ -f "cmake/CMakeLists.txt" ]]; then
+        sed -i 's/if (WIN32)/if (MSVC)/g' cmake/CMakeLists.txt
+    elif [[ -f "CMakeLists.txt" ]]; then
+        sed -i 's/if (WIN32)/if (MSVC)/g' CMakeLists.txt
+    fi
     if [[ -f "cmake/onnxruntime_mlas.cmake" ]]; then
         sed -i 's/if (WIN32)/if (MSVC)/g' cmake/onnxruntime_mlas.cmake
     fi
+    if [[ -f "cmake/onnxruntime_providers_nv.cmake" ]]; then
+        sed -i 's/if (WIN32)/if (MSVC)/g' cmake/onnxruntime_providers_nv.cmake
+    fi
+    find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i \
+        -e 's|"/wd[0-9]*"|""|g' \
+        -e 's|"/w1[0-9]*"|""|g' \
+        -e 's|/wd[0-9]*| |g' \
+        -e 's|/w1[0-9]*| |g' \
+        {} +
 
     export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
     export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
