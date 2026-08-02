@@ -72,6 +72,11 @@ ffbuild_dockerbuild() {
         sed -i 's|\.type[[:space:]]*\\FunctionName\\(),@function||g' onnxruntime/core/mlas/lib/x86/asmmacro.h
     fi
 
+    log_info "${BROOM_MARK} Removing Linux-specific .hidden pseudo-ops from assembly files..."
+    if [[ -d "onnxruntime/core/mlas/lib/x86_64" ]]; then
+        find onnxruntime/core/mlas/lib/x86_64/ -type f \( -name "*.S" -o -name "*.h" \) -exec sed -i 's/^[[:space:]]*\.hidden[[:space:]].*//g' {} +
+    fi
+
     export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
     export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
     export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
