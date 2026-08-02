@@ -60,7 +60,8 @@ ffbuild_dockerbuild() {
         status_header="onnxruntime/core/common/status.h"
     fi
     if [[ -n "$status_header" ]]; then
-        sed -i '/#ifdef _WIN32/i #if defined(__MINGW32__)\n#include <winerror.h>\n#endif' "$status_header"
+        sed -i '/winerror.h/d' "$status_header"
+        sed -i '/#ifdef _WIN32/i #if defined(__MINGW32__)\n#ifndef WIN32_LEAN_AND_MEAN\n#define WIN32_LEAN_AND_MEAN\n#endif\n#include <windows.h>\n#endif' "$status_header"
     fi
 
     export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
