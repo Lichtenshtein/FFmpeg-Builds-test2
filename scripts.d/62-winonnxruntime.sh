@@ -33,6 +33,11 @@ ffbuild_dockerbuild() {
         sed -i 's/#ifdef _MSC_VER/#if defined(_MSC_VER) || defined(__MINGW32__)/g' onnxruntime/core/mlas/lib/mlasi.h
     fi
 
+    log_info "${BROOM_MARK} Isolating MSVC compile options in MLAS CMake configuration..."
+    if [[ -f "cmake/onnxruntime_mlas.cmake" ]]; then
+        sed -i 's/if (WIN32)/if (MSVC)/g' cmake/onnxruntime_mlas.cmake
+    fi
+
     export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
     export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
     export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
