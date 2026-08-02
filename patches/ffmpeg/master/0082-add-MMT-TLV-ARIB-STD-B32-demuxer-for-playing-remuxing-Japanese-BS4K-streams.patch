@@ -53,7 +53,7 @@ new file mode 100644
 index 0000000..f501665
 --- /dev/null
 +++ b/libavformat/mmtp.c
-@@ -0,0 +1,1705 @@
+@@ -0,0 +1,1706 @@
 +/*
 + * MPEG Media Transport Protocol (MMTP) parser, as defined in ISO/IEC 23008-1.
 + * Copyright (c) 2025 SuperFashi
@@ -1443,10 +1443,11 @@ index 0000000..f501665
 +        st->offset = -1;
 +        st->flags  = 0;
 +
-+        consumed = st->parser->parser->parser_parse(
++        consumed = av_parser_parse2(
 +            st->parser, ffstream(st->stream)->avctx,
 +            &out_data, &out_size,
-+            data, size
++            data, size,
++            AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0
 +        );
 +        size -= consumed;
 +
