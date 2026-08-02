@@ -64,6 +64,14 @@ ffbuild_dockerbuild() {
         sed -i '/#ifdef _WIN32/i #if defined(__MINGW32__)\n#ifndef WIN32_LEAN_AND_MEAN\n#define WIN32_LEAN_AND_MEAN\n#endif\n#include <windows.h>\n#endif' "$status_header"
     fi
 
+    log_info "${BROOM_MARK} Fixing MLAS assembly macro syntax for Windows PE-COFF (MinGW)..."
+    if [[ -f "onnxruntime/core/mlas/lib/x86_64/asmmacro.h" ]]; then
+        sed -i 's|\.type[[:space:]]*\\FunctionName\\(),@function||g' onnxruntime/core/mlas/lib/x86_64/asmmacro.h
+    fi
+    if [[ -f "onnxruntime/core/mlas/lib/x86/asmmacro.h" ]]; then
+        sed -i 's|\.type[[:space:]]*\\FunctionName\\(),@function||g' onnxruntime/core/mlas/lib/x86/asmmacro.h
+    fi
+
     export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
     export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
     export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
