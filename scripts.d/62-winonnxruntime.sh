@@ -23,6 +23,15 @@ ffbuild_dockerbuild() {
         sed -i 's|target_link_options(onnxruntime PRIVATE /DELAYLOAD:# target_link_options(onnxruntime PRIVATE /DELAYLOAD:|g' cmake/onnxruntime.cmakecmake/onnxruntime.cmake
     fi
 
+    log_info "${BROOM_MARK} Patching ONNX Runtime C++ source files for MinGW compatibility..."
+    # Fixing a SAL macro conflict in onnxruntime_c_api.h to use native macros from sal.h
+    if [[ -f "include/onnxruntime/core/session/onnxruntime_c_api.h" ]]; then
+        sed -i '3i #if defined(__GNUC__) || defined(__clang__)\n#pragma GCC diagnostic ignored "-Wmacro-redefined"\n#endif' include/onnxruntime/core/session/onnxruntime_c_api.h
+    fi
+    if [[ -f "onnxruntime/core/mlas/lib/mlasi.h" ]]; then
+        sed -i 's/#ifdef _MSC_VER/#if defined(_MSC_VER) || defined(__MINGW32__)/g' onnxruntime/core/mlas/lib/mlasi.h
+    fi
+
     export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
     export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
     export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
