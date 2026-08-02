@@ -1,0 +1,170 @@
+From 31951d5e86c66703bbeba1da4f1b8b7dcc47d392 Mon Sep 17 00:00:00 2001
+From: Jyotiraditya Panda <devpandaxda@gmail.com>
+Date: Sat, 1 Aug 2026 16:31:50 +0000
+Subject: [PATCH] dmt: update AC-4 decoder
+
+The AC-4 decoder is not mine and not FFmpeg's. It was written by Paul B Mahol
+in 2019 and is maintained in Librempeg, his fork of FFmpeg:
+https://github.com/librempeg/librempeg
+
+Upstream FFmpeg has only an AC-4 demuxer and codec id, no decoder. Two changes
+were needed to build Librempeg's against mainline: FF_KBD_WINDOW_MAX raised to
+2048, and a local copy of vector_fmul_reverse_c since mainline keeps it static
+- its scalar path is required, float_dsp.h documents len as multiple of 16.
+
+GPLv3 while FFmpeg is LGPL-2.1+, so gated behind gpl+version3 in configure.
+
+https://github.com/imjyotiraditya/dmt-ffmpeg/commit/31951d5e86c66703bbeba1da4f1b8b7dcc47d392#diff-b874b5c2eb9b57e2eba0808c84b8063574081ce076cb55af565888abcc9f39cc
+---
+ DMT-README.md            |   49 +
+ configure                |    1 +
+ libavcodec/Makefile      |    2 +
+ libavcodec/ac4_parser.c  |   97 +
+ libavcodec/ac4dec.c      | 6769 ++++++++++++++++++++++++++++++++++++++
+ libavcodec/ac4dec_data.h | 1688 ++++++++++
+ libavcodec/allcodecs.c   |    1 +
+ libavcodec/kbdwin.h      |    2 +-
+ libavcodec/parsers.c     |    1 +
+ 9 files changed, 8609 insertions(+), 1 deletion(-)
+ create mode 100644 DMT-README.md
+ create mode 100644 libavcodec/ac4_parser.c
+ create mode 100644 libavcodec/ac4dec.c
+ create mode 100644 libavcodec/ac4dec_data.h
+
+diff --git a/DMT-README.md b/DMT-README.md
+new file mode 100644
+index 0000000..b742480
+--- /dev/null
++++ b/DMT-README.md
+@@ -0,0 +1,49 @@
++# dmt-ffmpeg
++
++ffmpeg for [dmt](https://github.com/imjyotiraditya/dmt), with a dolby ac-4
++decoder bolted on.
++
++one branch, `main`: upstream ffmpeg plus one commit. it sits on `release/9.0`
++right now. when upstream moves i rebase, rather than keeping a branch per
++version.
++
++## the decoder isn't mine
++
++paul b mahol wrote it in 2019 and still maintains it in librempeg
++(https://github.com/librempeg/librempeg), his own fork of ffmpeg. mainline
++ffmpeg has an ac-4 demuxer and a codec id but nothing to decode with, so
++`ffmpeg` just says `no decoder found for: ac4`.
++
++it went to ffmpeg-devel once, in 2020, marked `[RFC][WIP]`. review caught a
++missing `kbdwin.o`, fate failed, and it was never resubmitted. it's lived in
++the fork ever since.
++
++two things needed changing to build it here:
++
++- `FF_KBD_WINDOW_MAX` 1024 -> 2048. ac-4 uses 2048 point kbd windows and
++  mainline asserts on anything bigger, so it dies on the first frame.
++- a local copy of `vector_fmul_reverse_c`. librempeg exports it, mainline
++  keeps it `static`. don't be tempted to drop the scalar branch and always
++  call the vtable - `float_dsp.h` says `len` must be a multiple of 16, and the
++  simd version will happily run off the end of the buffer if it isn't.
++
++## licence
++
++librempeg is gplv3, ffmpeg is lgpl-2.1+. `ac4dec.c`, `ac4dec_data.h` and
++`ac4_parser.c` carry gplv3 headers, so anything built with them is gplv3.
++
++they're gated in configure:
++
++    ac4_decoder_deps="gpl version3"
++
++no `--enable-gpl --enable-version3`, no decoder, and the tree stays honestly
++lgpl. everything else here is untouched upstream ffmpeg.
++
++also worth remembering ac-4 is still a live dolby patent. fine on your own
++phone; think twice before handing builds to other people.
++
++## keeping up with upstream
++
++    git remote add upstream https://github.com/FFmpeg/FFmpeg.git
++    git fetch upstream release/9.0
++    git rebase upstream/release/9.0
+diff --git a/configure b/configure
+index 374bd5c..bd50cc8 100755
+--- a/configure
++++ b/configure
+@@ -3121,6 +3121,7 @@ aac_decoder_select="adts_header mpeg4audio sinewin"
+ aac_fixed_decoder_select="adts_header mpeg4audio"
+ aac_encoder_select="audio_frame_queue lpc sinewin"
+ aac_latm_decoder_select="aac_decoder aac_latm_parser"
++ac4_decoder_deps="gpl version3"
+ ac3_decoder_select="ac3_parser ac3dsp bswapdsp fmtconvert"
+ ac3_fixed_decoder_select="ac3_parser ac3dsp bswapdsp"
+ ac3_encoder_select="ac3dsp audiodsp me_cmp"
+diff --git a/libavcodec/Makefile b/libavcodec/Makefile
+index 95ba308..d70c22b 100644
+--- a/libavcodec/Makefile
++++ b/libavcodec/Makefile
+@@ -211,6 +211,7 @@ OBJS-$(CONFIG_AAC_ENCODER)             += aacenc.o aaccoder.o aacenctab.o    \
+ OBJS-$(CONFIG_AAC_MEDIACODEC_DECODER)  += mediacodecdec.o
+ OBJS-$(CONFIG_AAC_MF_ENCODER)          += mfenc.o mf_utils.o
+ OBJS-$(CONFIG_AASC_DECODER)            += aasc.o msrledec.o
++OBJS-$(CONFIG_AC4_DECODER)             += ac4dec.o kbdwin.o
+ OBJS-$(CONFIG_AC3_DECODER)             += ac3dec_float.o ac3dec_data.o ac3.o \
+                                           kbdwin.o ac3tab.o ac3_channel_layout_tab.o
+ OBJS-$(CONFIG_AC3_FIXED_DECODER)       += ac3dec_fixed.o ac3dec_data.o ac3.o \
+@@ -1233,6 +1234,7 @@ OBJS-$(CONFIG_LIBZVBI_TELETEXT_DECODER)   += libzvbi-teletextdec.o ass.o
+ 
+ # parsers
+ OBJS-$(CONFIG_AAC_LATM_PARSER)         += latm_parser.o
++OBJS-$(CONFIG_AC4_PARSER)              += ac4_parser.o
+ OBJS-$(CONFIG_AAC_PARSER)              += aac_parser.o aac_ac3_parser.o
+ OBJS-$(CONFIG_AC3_PARSER)              += aac_ac3_parser.o ac3tab.o \
+                                           ac3_channel_layout_tab.o
+diff --git a/libavcodec/ac4dec.c b/libavcodec/ac4dec.c
+index 163fec4..d9a0072 100644
+--- a/libavcodec/ac4dec.c
++++ b/libavcodec/ac4dec.c
+@@ -39,6 +39,14 @@
+ #include "kbdwin.h"
+ #include "unary.h"
+ 
++static void ac4_vector_fmul_reverse_c(float *dst, const float *src0,
++                                      const float *src1, int len)
++{
++    src1 += len - 1;
++    for (int i = 0; i < len; i++)
++        dst[i] = src0[i] * src1[-i];
++}
++
+ #define MAX_QMF_TSLOTS 32
+ #define MAX_QMF_BANDS 64
+ #define MAX_SBG_NOISE 5
+@@ -761,7 +769,7 @@ static av_cold int ac4_decode_init(AVCodecContext *avctx)
+         for (int i = 0; i < 5; i++) {
+             int N_w = transf_lengths[i];
+             float alpha = kbd_window_alpha[j][i];
+-            float scale = 1.f / N_w;
++            float scale = -1.f / N_w;
+ 
+             if ((ret = av_tx_init(&s->tx_ctx[j][i], &s->tx_fn[j][i],
+                                   AV_TX_FLOAT_MDCT, 1, N_w, &scale, AV_TX_FULL_IMDCT)))
+@@ -5390,7 +5398,7 @@ static void spectral_synthesis(AC4DecodeContext *s, SubstreamChannel *ssch)
+                 s->fdsp->vector_fmul_reverse(overlap + nskip_prev,
+                                              overlap + nskip_prev, swinr, N_prev);
+             else
+-                ff_vector_fmul_reverse_c(overlap + nskip_prev,
++                ac4_vector_fmul_reverse_c(overlap + nskip_prev,
+                                          overlap + nskip_prev, swinr, N_prev);
+ 
+             for (int n = 0; n < N; n++)
+diff --git a/libavcodec/ac4dec_data.h b/libavcodec/ac4dec_data.h
+index aa653a2..a0e3dbc 100644
+--- a/libavcodec/ac4dec_data.h
++++ b/libavcodec/ac4dec_data.h
+@@ -1284,7 +1284,7 @@ static const uint32_t acpl_hcb_gamma_fine_dt_codes[81] = {
+     0x031e10,
+ };
+ 
+-DECLARE_ASM_CONST(16, float, qwin)[640] = {
++DECLARE_ASM_CONST(32, float, qwin)[640] = {
+     0,
+     1.990318758627504e-004,  2.494762615491542e-004,  3.021769445225078e-004,
+     3.548460080857985e-004,  4.058915811480806e-004,  4.546408052001889e-004,
