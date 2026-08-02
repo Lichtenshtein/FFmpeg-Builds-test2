@@ -14,6 +14,13 @@ ffbuild_dockerdl() {
 ffbuild_dockerbuild() {
     set -e
 
+    cd /build/$STAGENAME
+
+    log_info "${BROOM_MARK} Patching ONNX Runtime CMake files for CMake 4.4+ compatibility..."
+    if [[ -f "cmake/onnxruntime.cmake" ]]; then
+        sed -i 's/target_link_options(\${_target} INTERFACE/target_link_options(\${_target} PRIVATE/g' cmake/onnxruntime.cmake
+    fi
+
     export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
     export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
     export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
@@ -22,7 +29,14 @@ ffbuild_dockerbuild() {
         "CMAKE_TOOLCHAIN_FILE=$FFBUILD_CMAKE_TOOLCHAIN"
         "CMAKE_INSTALL_PREFIX=$FFBUILD_PREFIX"
         "CMAKE_BUILD_TYPE=Release"
+
+        "CMAKE_WARN_DEPRECATED=OFF"
         "CMAKE_POLICY_DEFAULT_CMP0091=NEW"
+        "CMAKE_POLICY_DEFAULT_CMP0169=OLD"
+        "CMAKE_POLICY_DEFAULT_CMP0146=OLD"
+
+        "onnxruntime_USE_SVE=OFF"
+        "onnxruntime_USE_KLEIDIAI=OFF"
 
         # "Iconv_IS_BUILT_IN=TRUE"
         # "CMAKE_DISABLE_FIND_PACKAGE_Iconv=ON"
@@ -30,8 +44,7 @@ ffbuild_dockerbuild() {
 
         "onnxruntime_USE_AVX=ON"
         "onnxruntime_USE_AVX2=ON"
-        "onnxruntime_USE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
-"
+        "onnxruntime_USE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)"
 
         # Isolation and stabilization under MinGW (getting rid of Abseil crashes)
         "onnxruntime_DISABLE_ABSEIL=ON"
@@ -62,8 +75,6 @@ ffbuild_dockerbuild() {
     fi
 
     log_info "Running ONNX Runtime build automation wrapper via Python..."
-
-    cd /build/$STAGENAME
 
     mkdir -p build/Release "$INSTALL_ROOT/include/onnxruntime" "$INSTALL_ROOT/lib" "$PC_DIR"
 
