@@ -17,11 +17,18 @@ ffbuild_dockerbuild() {
     cd /build/$STAGENAME
 
     log_info "${BROOM_MARK} Patching Windows resource files to fix windres syntax errors..."
+    # if [[ -f "onnxruntime/core/dll/onnxruntime.rc" ]]; then
+        # sed -i 's|<Winver.h>|<winver.h>|g' onnxruntime/core/dll/onnxruntime.rc
+        # sed -i 's|<Ntstatus.h>|<ntstatus.h>|g' onnxruntime/core/dll/onnxruntime.rc
+        # sed -i 's|\\251|(c)|g' onnxruntime/core/dll/onnxruntime.rc
+    # fi
     if [[ -f "onnxruntime/core/dll/onnxruntime.rc" ]]; then
-        sed -i 's|<Winver.h>|<winver.h>|g' onnxruntime/core/dll/onnxruntime.rc
-        sed -i 's|<Ntstatus.h>|<ntstatus.h>|g' onnxruntime/core/dll/onnxruntime.rc
-        sed -i 's|.*"LegalCopyright".*|            VALUE "LegalCopyright",   "(c) Microsoft Corporation. All rights reserved."|g' onnxruntime/core/dll/onnxruntime.rc
+        echo "" > onnxruntime/core/dll/onnxruntime.rc
     fi
+    mkdir -p build/Release/onnxruntime/core/dll
+    mkdir -p build/onnxruntime/core/dll
+    echo "" > build/Release/onnxruntime/core/dll/onnxruntime.rc 2>/dev/null || true
+    echo "" > build/onnxruntime/core/dll/onnxruntime.rc 2>/dev/null || true
 
     log_info "${BROOM_MARK} Patching ONNX Runtime CMake files for CMake 4.4+ compatibility..."
     if [[ -f "cmake/onnxruntime.cmake" ]]; then
