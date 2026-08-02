@@ -44,6 +44,7 @@ ffbuild_dockerbuild() {
     )
 
     local myconf=(
+        --build_dir build
         --config Release
         --update
         --build
@@ -66,13 +67,13 @@ ffbuild_dockerbuild() {
 
     cd /build/$STAGENAME
 
+    mkdir -p build/Release "$INSTALL_ROOT/include/onnxruntime" "$INSTALL_ROOT/lib" "$PC_DIR"
+
     python3 tools/ci_build/build.py \
         "${myconf[@]}" \
         --cmake_extra_defines "${additional_cmake_defines}" || return 1
 
-    cd build/Linux/Release
-
-    mkdir -p "$INSTALL_ROOT/include/onnxruntime" "$INSTALL_ROOT/lib" "$PC_DIR"
+    cd build/Release
 
     # log_info "Deploying ONNX Runtime headers and libraries..."
 
