@@ -3,6 +3,10 @@
 SCRIPT_REPO="https://github.com/ismailivanov/DeepFilterNetPlus.git"
 SCRIPT_COMMIT="c379acf323d3ac7dac26b66a61b13c3a52457502"
 
+ffbuild_depends() {
+    echo iconv
+}
+
 ffbuild_enabled() {
     return 0
 }

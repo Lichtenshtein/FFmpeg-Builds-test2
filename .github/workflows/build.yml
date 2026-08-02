@@ -6,7 +6,7 @@ on:
       only_stage:
         description: 'Regex for ONLY_STAGE: 10-mingw|50-x264'
         required: false
-        default: '08-zlib|62-winonnxruntime'
+        default: '06-libiconv|08-zlib|62-winonnxruntime'
         # default: '.*'
       skip_ffmpeg:
         description: 'Skip FFmpeg compilation (Component test only)'

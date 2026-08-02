@@ -19,28 +19,31 @@ ffbuild_dockerbuild() {
     export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
 
     local cmake_args=(
-        "-DCMAKE_TOOLCHAIN_FILE=$FFBUILD_CMAKE_TOOLCHAIN"
-        "-DCMAKE_INSTALL_PREFIX=$FFBUILD_PREFIX"
-        "-DCMAKE_BUILD_TYPE=Release"
-        "-DCMAKE_POLICY_DEFAULT_CMP0091=NEW"
-        "-Wno-deprecated"
+        "CMAKE_TOOLCHAIN_FILE=$FFBUILD_CMAKE_TOOLCHAIN"
+        "CMAKE_INSTALL_PREFIX=$FFBUILD_PREFIX"
+        "CMAKE_BUILD_TYPE=Release"
+        "CMAKE_POLICY_DEFAULT_CMP0091=NEW"
 
-        "-Donnxruntime_USE_AVX=ON"
-        "-Donnxruntime_USE_AVX2=ON"
-        "-Donnxruntime_USE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
+        # "Iconv_IS_BUILT_IN=TRUE"
+        # "CMAKE_DISABLE_FIND_PACKAGE_Iconv=ON"
+        # "CMAKE_DISABLE_FIND_PACKAGE_LibIconv=ON"
+
+        "onnxruntime_USE_AVX=ON"
+        "onnxruntime_USE_AVX2=ON"
+        "onnxruntime_USE_AVX512=$([ "${USE_AVX512}" == "1" ] && echo ON || echo OFF)
 "
 
         # Isolation and stabilization under MinGW (getting rid of Abseil crashes)
-        "-Donnxruntime_DISABLE_ABSEIL=ON"
-        "-Donnxruntime_CROSS_COMPILING=ON"
+        "onnxruntime_DISABLE_ABSEIL=ON"
+        "onnxruntime_CROSS_COMPILING=ON"
 
         # Disable heavy and unnecessary modules for FFmpeg
-        "-Donnxruntime_BUILD_UNIT_TESTS=OFF"
-        "-Donnxruntime_BUILD_BENCHMARKS=OFF"
-        "-Donnxruntime_ENABLE_TRAINING=OFF"
-        "-Donnxruntime_ENABLE_TRAINING_APIS=OFF"
-        "-Donnxruntime_ENABLE_TRAINING_OPS=OFF"
-        "-Donnxruntime_USE_TELEMETRY=OFF"
+        "onnxruntime_BUILD_UNIT_TESTS=OFF"
+        "onnxruntime_BUILD_BENCHMARKS=OFF"
+        "onnxruntime_ENABLE_TRAINING=OFF"
+        "onnxruntime_ENABLE_TRAINING_APIS=OFF"
+        "onnxruntime_ENABLE_TRAINING_OPS=OFF"
+        "onnxruntime_USE_TELEMETRY=OFF"
     )
 
     local myconf=(
@@ -58,12 +61,6 @@ ffbuild_dockerbuild() {
         myconf+=( --build_shared_lib )
     fi
 
-    local additional_cmake_defines=""
-    for flag in "${cmake_args[@]}"; do
-        additional_cmake_defines="${additional_cmake_defines} ${flag}"
-    done
-    additional_cmake_defines=$(echo "$additional_cmake_defines" | xargs)
-
     log_info "Running ONNX Runtime build automation wrapper via Python..."
 
     cd /build/$STAGENAME
@@ -72,7 +69,7 @@ ffbuild_dockerbuild() {
 
     python3 tools/ci_build/build.py \
         "${myconf[@]}" \
-        --cmake_extra_defines "${additional_cmake_defines}" || return 1
+        --cmake_extra_defines "${cmake_args[@]}" || return 1
 
     cd build/Release
 
