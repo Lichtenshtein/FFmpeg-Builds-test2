@@ -74,6 +74,14 @@ EOF
         -e 's|/w1[0-9]*| |g' \
         {} +
 
+    log_info "${BROOM_MARK} Patching Exception Handling flags (/EHsc) in both Python and CMake..."
+    if [[ -f "tools/ci_build/build.py" ]]; then
+        sed -i 's/cxxflags.append("\/EHsc")/cxxflags = cxxflags/g' tools/ci_build/build.py
+    fi
+    if [[ -f "cmake/onnxruntime_graph.cmake" ]]; then
+        sed -i 's/if (WIN32)/if (MSVC)/g' cmake/onnxruntime_graph.cmake
+    fi
+
     log_info "${BROOM_MARK} Patching status.h to include winerror.h for MinGW..."
     local status_header=""
     if [[ -f "include/onnxruntime/core/common/status.h" ]]; then
