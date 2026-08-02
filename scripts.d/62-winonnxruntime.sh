@@ -22,6 +22,17 @@ ffbuild_dockerbuild() {
         -e 's|"Windows.h"|"windows.h"|g' \
         {} +
 
+    log_info "${BROOM_MARK} Globally disabling winmeta.h dependency across all source files..."
+    find . -type f \( -name "*.h" -o -name "*.cc" -o -name "*.cpp" \) -exec sed -i \
+        -e 's|#include <winmeta.h>|// #include <winmeta.h>|g' \
+        -e 's|#include "winmeta.h"|// #include "winmeta.h"|g' \
+        {} +
+
+    log_info "${BROOM_MARK} Patching execution_providers.h to bypass winmeta.h dependency..."
+    if [[ -f "onnxruntime/core/framework/execution_providers.h" ]]; then
+        sed -i 's|#include <winmeta.h>|// #include <winmeta.h>|g' onnxruntime/core/framework/execution_providers.h
+    fi
+
     log_info "${BROOM_MARK} Patching Windows resource files to fix windres syntax errors..."
     if [[ -f "onnxruntime/core/dll/onnxruntime.rc" ]]; then
         cat << 'EOF' > onnxruntime/core/dll/onnxruntime.rc
