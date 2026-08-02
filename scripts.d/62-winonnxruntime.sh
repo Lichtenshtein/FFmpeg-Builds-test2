@@ -16,6 +16,12 @@ ffbuild_dockerbuild() {
 
     cd /build/$STAGENAME
 
+    log_info "${BROOM_MARK} Patching Windows resource files for case-sensitive Linux host..."
+    if [[ -f "onnxruntime/core/dll/onnxruntime.rc" ]]; then
+        sed -i 's|<Winver.h>|<winver.h>|g' onnxruntime/core/dll/onnxruntime.rc
+        sed -i 's|<Ntstatus.h>|<ntstatus.h>|g' onnxruntime/core/dll/onnxruntime.rc
+    fi
+
     log_info "${BROOM_MARK} Patching ONNX Runtime CMake files for CMake 4.4+ compatibility..."
     if [[ -f "cmake/onnxruntime.cmake" ]]; then
         # Remove lines related to the /DELAYLOAD and target_link_options bug on line 341
