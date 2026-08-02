@@ -17,24 +17,32 @@ ffbuild_dockerbuild() {
     cd /build/$STAGENAME
 
     log_info "${BROOM_MARK} Patching Windows resource files to fix windres syntax errors..."
-    # if [[ -f "onnxruntime/core/dll/onnxruntime.rc" ]]; then
-        # sed -i 's|<Winver.h>|<winver.h>|g' onnxruntime/core/dll/onnxruntime.rc
-        # sed -i 's|<Ntstatus.h>|<ntstatus.h>|g' onnxruntime/core/dll/onnxruntime.rc
-        # sed -i 's|\\251|(c)|g' onnxruntime/core/dll/onnxruntime.rc
-    # fi
     if [[ -f "onnxruntime/core/dll/onnxruntime.rc" ]]; then
-        echo "" > onnxruntime/core/dll/onnxruntime.rc
-    fi
+        cat << 'EOF' > onnxruntime/core/dll/onnxruntime.rc
+#include <winver.h>
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION     1,0,0,0
+PRODUCTVERSION  1,0,0,0
+FILEFLAGSMASK   0x3fL
+FILEFLAGS       0x0L
+FILEOS          0x40004L
+FILETYPE        0x2L
+FILESUBTYPE     0x0L
+BEGIN
+
+END
+EOF
     mkdir -p build/Release/onnxruntime/core/dll
     mkdir -p build/onnxruntime/core/dll
-    echo "" > build/Release/onnxruntime/core/dll/onnxruntime.rc 2>/dev/null || true
-    echo "" > build/onnxruntime/core/dll/onnxruntime.rc 2>/dev/null || true
+    cp onnxruntime/core/dll/onnxruntime.rc build/Release/onnxruntime/core/dll/onnxruntime.rc 2>/dev/null || true
+    cp onnxruntime/core/dll/onnxruntime.rc build/onnxruntime/core/dll/onnxruntime.rc 2>/dev/null || true
+    fi
 
     log_info "${BROOM_MARK} Patching ONNX Runtime CMake files for CMake 4.4+ compatibility..."
     if [[ -f "cmake/onnxruntime.cmake" ]]; then
         # Remove lines related to the /DELAYLOAD and target_link_options bug on line 341
         sed -i 's/if (WIN32 AND NOT CMAKE_CXX_STANDARD_LIBRARIES MATCHES kernel32.lib)/if (FALSE)/g' cmake/onnxruntime.cmake
-        sed -i 's|target_link_options(onnxruntime PRIVATE /DELAYLOAD:# target_link_options(onnxruntime PRIVATE /DELAYLOAD:|g' cmake/onnxruntime.cmakecmake/onnxruntime.cmake
+        # sed -i 's|target_link_options(onnxruntime PRIVATE /DELAYLOAD:# target_link_options(onnxruntime PRIVATE /DELAYLOAD:|g' cmake/onnxruntime.cmake
     fi
 
     log_info "${BROOM_MARK} Patching ONNX Runtime C++ source files for MinGW compatibility..."
