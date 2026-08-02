@@ -61,6 +61,8 @@ ffbuild_dockerbuild() {
 
     log_info "Running ONNX Runtime build automation wrapper via Python..."
 
+    cd /build/$STAGENAME
+
     python3 tools/ci_build/build.py \
         "${myconf[@]}" \
         --cmake_extra_defines "${additional_cmake_defines}" || return 1
