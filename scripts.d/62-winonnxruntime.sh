@@ -16,10 +16,11 @@ ffbuild_dockerbuild() {
 
     cd /build/$STAGENAME
 
-    log_info "${BROOM_MARK} Patching Windows resource files for case-sensitive Linux host..."
+    log_info "${BROOM_MARK} Patching Windows resource files to fix windres syntax errors..."
     if [[ -f "onnxruntime/core/dll/onnxruntime.rc" ]]; then
         sed -i 's|<Winver.h>|<winver.h>|g' onnxruntime/core/dll/onnxruntime.rc
         sed -i 's|<Ntstatus.h>|<ntstatus.h>|g' onnxruntime/core/dll/onnxruntime.rc
+        sed -i 's|\\251|(c)|g' onnxruntime/core/dll/onnxruntime.rc
     fi
 
     log_info "${BROOM_MARK} Patching ONNX Runtime CMake files for CMake 4.4+ compatibility..."
