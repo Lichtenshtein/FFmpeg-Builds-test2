@@ -31,6 +31,22 @@ ffbuild_dockerbuild() {
         # sed -i 's|#include <winmeta.h>|// #include <winmeta.h>|g' onnxruntime/core/framework/execution_providers.h
     # fi
 
+    log_info "${BROOM_MARK} Fixing STL container compatibility and PathString ifstream for MinGW..."
+    if [[ -f "onnxruntime/core/framework/ort_value_name_idx_map.h" ]]; then
+        sed -i 's/map_.find(name)/map_.find(std::string(name))/g' onnxruntime/core/framework/ort_value_name_idx_map.h
+    fi
+
+
+
+
+    if [[ -f "onnxruntime/core/framework/allocation_planner.cc" ]]; then
+        sed -i 's/std::ifstream if_stream(config_file_);/std::ifstream if_stream(onnxruntime::ToUTF8String(config_file_).c_str());/g' onnxruntime/core/framework/allocation_planner.cc
+        sed -i 's/std::ifstream if_stream(config_file_);/std::wifstream if_stream(config_file_.c_str());/g' onnxruntime/core/framework/allocation_planner.cc
+    fi
+
+
+
+
     log_info "${BROOM_MARK} Patching tracing.h to stub TraceLogging dependencies for MinGW..."
     if [[ -f "include/onnxruntime/core/platform/tracing.h" ]]; then
         sed -i '1i #ifndef __MINGW32__' include/onnxruntime/core/platform/tracing.h
