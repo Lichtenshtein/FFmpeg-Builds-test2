@@ -16,21 +16,28 @@ ffbuild_dockerbuild() {
 
     cd /build/$STAGENAME
 
-    log_info "${BROOM_MARK} Running global case-sensitivity cleanup..."
+    log_info "${BROOM_MARK} Running global case-sensitivity & dependency  cleanup..."
     find . -type f \( -name "*.h" -o -name "*.cc" -o -name "*.cpp" -o -name "*.c" \) -exec sed -i \
         -e 's|<Windows.h>|<windows.h>|g' \
         -e 's|"Windows.h"|"windows.h"|g' \
-        {} +
-
-    log_info "${BROOM_MARK} Globally disabling winmeta.h dependency across all source files..."
-    find . -type f \( -name "*.h" -o -name "*.cc" -o -name "*.cpp" \) -exec sed -i \
         -e 's|#include <winmeta.h>|// #include <winmeta.h>|g' \
         -e 's|#include "winmeta.h"|// #include "winmeta.h"|g' \
+        -e 's|#include <TraceLoggingProvider.h>|// #include <TraceLoggingProvider.h>|g' \
+        -e 's|#include "TraceLoggingProvider.h"|// #include "TraceLoggingProvider.h"|g' \
         {} +
 
-    log_info "${BROOM_MARK} Patching execution_providers.h to bypass winmeta.h dependency..."
-    if [[ -f "onnxruntime/core/framework/execution_providers.h" ]]; then
-        sed -i 's|#include <winmeta.h>|// #include <winmeta.h>|g' onnxruntime/core/framework/execution_providers.h
+    # log_info "${BROOM_MARK} Patching execution_providers.h to bypass winmeta.h dependency..."
+    # if [[ -f "onnxruntime/core/framework/execution_providers.h" ]]; then
+        # sed -i 's|#include <winmeta.h>|// #include <winmeta.h>|g' onnxruntime/core/framework/execution_providers.h
+    # fi
+
+    log_info "${BROOM_MARK} Patching tracing.h to stub TraceLogging dependencies for MinGW..."
+    if [[ -f "include/onnxruntime/core/platform/tracing.h" ]]; then
+        sed -i '1i #ifndef __MINGW32__' include/onnxruntime/core/platform/tracing.h
+        echo "#endif" >> include/onnxruntime/core/platform/tracing.h
+    elif [[ -f "onnxruntime/core/platform/tracing.h" ]]; then
+        sed -i '1i #ifndef __MINGW32__' onnxruntime/core/platform/tracing.h
+        echo "#endif" >> onnxruntime/core/platform/tracing.h
     fi
 
     log_info "${BROOM_MARK} Patching Windows resource files to fix windres syntax errors..."
