@@ -1445,7 +1445,7 @@ index 0000000..f501665
 +
 +        consumed = av_parser_parse2(
 +            st->parser, ffstream(st->stream)->avctx,
-+            &out_data, &out_size,
++            (uint8_t **)&out_data, &out_size,
 +            data, size,
 +            AV_NOPTS_VALUE, AV_NOPTS_VALUE, 0
 +        );
