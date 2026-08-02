@@ -20,7 +20,7 @@ ffbuild_dockerbuild() {
     if [[ -f "onnxruntime/core/dll/onnxruntime.rc" ]]; then
         sed -i 's|<Winver.h>|<winver.h>|g' onnxruntime/core/dll/onnxruntime.rc
         sed -i 's|<Ntstatus.h>|<ntstatus.h>|g' onnxruntime/core/dll/onnxruntime.rc
-        sed -i 's|\\251|(c)|g' onnxruntime/core/dll/onnxruntime.rc
+        sed -i 's|.*"LegalCopyright".*|            VALUE "LegalCopyright",   "(c) Microsoft Corporation. All rights reserved."|g' onnxruntime/core/dll/onnxruntime.rc
     fi
 
     log_info "${BROOM_MARK} Patching ONNX Runtime CMake files for CMake 4.4+ compatibility..."
