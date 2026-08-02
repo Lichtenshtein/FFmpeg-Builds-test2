@@ -77,6 +77,13 @@ ffbuild_dockerbuild() {
         find onnxruntime/core/mlas/lib/x86_64/ -type f \( -name "*.S" -o -name "*.h" \) -exec sed -i 's/^[[:space:]]*\.hidden[[:space:]].*//g' {} +
     fi
 
+    log_info "${BROOM_MARK} Disabling Intel AMX kernels in MLAS..."
+    if [[ -f "cmake/onnxruntime_mlas.cmake" ]]; then
+        sed -i 's|${MLAS_SRC_DIR}/qgemm_kernel_amx.cpp||g' cmake/onnxruntime_mlas.cmake
+        sed -i 's|${MLAS_SRC_DIR}/amd64/QgemmU8S8KernelAmx.asm||g' cmake/onnxruntime_mlas.cmake
+        sed -i 's/if(NOT APPLE)/if(FALSE)/g' cmake/onnxruntime_mlas.cmake
+    fi
+
     export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
     export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
     export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
