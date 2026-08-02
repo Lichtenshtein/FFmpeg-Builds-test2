@@ -111,3 +111,7 @@ Cflags: -I\${includedir}
 EOF
     fi
 }
+
+ffbuild_configure() {
+    echo --enable-libdeep_filter
+}

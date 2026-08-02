@@ -104,14 +104,7 @@ new file mode 100644
 index 0000000..b91cede
 --- /dev/null
 +++ b/libavfilter/af_dnenhance.c
-@@ -0,0 +1,424 @@
-+/*
-+ * SPDX-FileCopyrightText: 2026 Sveriges Television AB
-+ *
-+ * SPDX-License-Identifier: LGPL-2.1-or-later
-+ */
-+
-+#include <dlfcn.h>
+@@ -0,0 +1,288 @@
 +#include <stdint.h>
 +#include <string.h>
 +#include <strings.h>
@@ -125,61 +118,32 @@ index 0000000..b91cede
 +#include "filters.h"
 +#include "formats.h"
 +
-+// Models like DFN3 have algorithmic lookahead (max of conv_lookahead and
-+// df_lookahead in libDF's DfTract). df_process_frame returns the enhanced
-+// version of a hop received `lookahead` calls ago; the first `lookahead`
-+// outputs after init are "enhanced zeros" and must be discarded, and at
-+// EOF we push `lookahead` hops of silence to drain real audio that would
-+// otherwise stay locked in the model's internal buffers.
-+//
-+// DFN3 standard: lookahead=2 (20 ms latency).
-+// DFN3-LL:       lookahead=0 (no latency, lower quality).
-+// Other models:  read `df_lookahead` and `conv_lookahead` from the model's
-+//                config.ini and pick max(df_lookahead, conv_lookahead).
-+//
-+// The value is per-instance (an AVOption), not a #define, because callers
-+// may swap models without recompiling.
++#include <deep_filter.h>
 +
-+// Upper bound for the PTS ring. Must be > the max supported lookahead.
 +#define DFN_PTS_QUEUE 16
 +#define DFN_LOOKAHEAD_MAX 8
 +
-+// DFN3 default post-filter strength (Valin/Schmidt et al.). 0.0 disables.
 +#define POST_FILTER_BETA_ON 0.02f
 +
 +typedef struct DnEnhanceContext {
 +    const AVClass *class;
 +
-+    // options
 +    char  *model_path;
-+    int    post_filter;        // bool 0/1
-+    float  attenuation_limit;  // dB; 100 is effectively unlimited
-+    char  *log_level;          // libdf log level string
-+    int    lookahead_hops;     // priming-discard + EOF-drain count
++    int    post_filter;
++    float  attenuation_limit;
++    char  *log_level;
++    int    lookahead_hops;
 +
-+    // libdf dynamic linkage. df_set_atten_lim isn't loaded — df_create takes
-+    // the attenuation limit at construction and we don't expose a runtime
-+    // update path, so the setter would be dead weight.
-+    void  *libdf_handle;
-+    void *(*df_create)(const char *, float, const char *);
-+    size_t (*df_get_frame_length)(void *);
-+    float  (*df_process_frame)(void *, float *, float *);
-+    void   (*df_set_post_filter_beta)(void *, float);
-+    void   (*df_free)(void *);
++    DFState  *df_state;
++    int    hop;
 +
-+    void  *df_state;
-+    int    hop;                 // libdf-reported frame length (480 at 48 kHz)
-+
-+    // PTS queue: ring of pending input PTS values waiting for their
-+    // delayed enhanced output.
 +    int64_t pts_queue[DFN_PTS_QUEUE];
 +    int     pts_head;
 +    int     pts_count;
-+    int     primed;             // discarded lookahead startup hops?
++    int     primed;
 +
-+    // EOF drain state
 +    int     draining;
-+    int     drain_remaining;    // hops of silence still to push
++    int     drain_remaining;
 +    int64_t eof_pts;
 +} DnEnhanceContext;
 +
@@ -188,8 +152,8 @@ index 0000000..b91cede
 +
 +static const AVOption dnenhance_options[] = {
 +    { "model",
-+      "path to DeepFilterNet 3 model (.tar.gz)",
-+      OFFSET(model_path), AV_OPT_TYPE_STRING, {.str = NULL}, 0, 0, AF },
++      "path to DeepFilterNet 3 model directory",
++      OFFSET(model_path), AV_OPT_TYPE_STRING, {.str = ""}, 0, 0, AF }, // default пустая строка, а не NULL
 +    { "post_filter",
 +      "enable DFN3 post-filter (extra suppression refinement)",
 +      OFFSET(post_filter), AV_OPT_TYPE_BOOL,  {.i64 = 1}, 0, 1, AF },
@@ -232,117 +196,28 @@ index 0000000..b91cede
 +    return ff_set_common_channel_layouts2(ctx, cfg_in, cfg_out, layouts);
 +}
 +
-+static int load_sym(AVFilterContext *ctx, void *handle, const char *name,
-+                    void **out)
-+{
-+    *out = dlsym(handle, name);
-+    if (!*out) {
-+        av_log(ctx, AV_LOG_ERROR, "libdf missing symbol %s: %s\n",
-+               name, dlerror());
-+        return AVERROR(EINVAL);
-+    }
-+    return 0;
-+}
-+
-+static int open_libdf(AVFilterContext *ctx)
-+{
-+    DnEnhanceContext *s = ctx->priv;
-+    static const char *const candidates[] = {
-+        // bare names — resolved via LD_LIBRARY_PATH / DYLD_LIBRARY_PATH /
-+        // system search path
-+        "libdf.so",
-+        "libdf.dylib",
-+        "libdf.so.0",
-+        // common Homebrew install prefixes so a brew-installed libdf works
-+        // without any environment variables
-+        "/opt/homebrew/lib/libdf.dylib",
-+        "/usr/local/lib/libdf.dylib",
-+        "/opt/homebrew/lib/libdf.so",
-+        "/usr/local/lib/libdf.so",
-+        "/home/linuxbrew/.linuxbrew/lib/libdf.so",
-+        NULL,
-+    };
-+    for (int i = 0; candidates[i]; i++) {
-+        s->libdf_handle = dlopen(candidates[i], RTLD_LAZY | RTLD_LOCAL);
-+        if (s->libdf_handle)
-+            break;
-+    }
-+    if (!s->libdf_handle) {
-+        const char *err = dlerror();
-+        av_log(ctx, AV_LOG_ERROR,
-+               "cannot load libdf (set LD_LIBRARY_PATH or DYLD_LIBRARY_PATH): %s\n",
-+               err ? err : "unknown");
-+        return AVERROR(EINVAL);
-+    }
-+
-+    int ret;
-+    if ((ret = load_sym(ctx, s->libdf_handle, "df_create",
-+                        (void **)&s->df_create)) < 0) return ret;
-+    if ((ret = load_sym(ctx, s->libdf_handle, "df_get_frame_length",
-+                        (void **)&s->df_get_frame_length)) < 0) return ret;
-+    if ((ret = load_sym(ctx, s->libdf_handle, "df_process_frame",
-+                        (void **)&s->df_process_frame)) < 0) return ret;
-+    if ((ret = load_sym(ctx, s->libdf_handle, "df_set_post_filter_beta",
-+                        (void **)&s->df_set_post_filter_beta)) < 0) return ret;
-+    if ((ret = load_sym(ctx, s->libdf_handle, "df_free",
-+                        (void **)&s->df_free)) < 0) return ret;
-+    return 0;
-+}
-+
 +static av_cold int init(AVFilterContext *ctx)
 +{
 +    DnEnhanceContext *s = ctx->priv;
-+    int ret;
 +
-+    // Resolve the model path. If the user didn't pass one, fall back to the
-+    // standard brew install location of libdf's DFN3 tarball. Lets a brew-
-+    // installed libdf "just work" without anyone typing a path.
-+    const char *model_path = s->model_path;
-+    if (!model_path || !*model_path) {
-+        static const char *const default_model_paths[] = {
-+            "/opt/homebrew/share/libdf/DeepFilterNet3.tar.gz",
-+            "/usr/local/share/libdf/DeepFilterNet3.tar.gz",
-+            "/home/linuxbrew/.linuxbrew/share/libdf/DeepFilterNet3.tar.gz",
-+            NULL,
-+        };
-+        for (int i = 0; default_model_paths[i]; i++) {
-+            if (access(default_model_paths[i], R_OK) == 0) {
-+                model_path = default_model_paths[i];
-+                av_log(ctx, AV_LOG_VERBOSE,
-+                       "dnenhance: model option not set, using %s\n", model_path);
-+                break;
-+            }
-+        }
-+        if (!model_path || !*model_path) {
-+            av_log(ctx, AV_LOG_ERROR,
-+                   "the 'model' option is required (no DFN3 tarball found at "
-+                   "any standard brew prefix; install libdf or pass model=<path>)\n");
-+            return AVERROR(EINVAL);
-+        }
-+    }
++    const char *model_path = s->model_path ? s->model_path : "";
 +
-+    if ((ret = open_libdf(ctx)) < 0)
-+        return ret;
-+
-+    // libdf's log_level parser accepts off/error/warn/info/debug/trace, or
-+    // NULL to disable. Translate "None"/empty (the convention used by the
-+    // Python wrapper) to NULL so log_level=None disables logging cleanly.
 +    const char *libdf_log_level = s->log_level;
 +    if (libdf_log_level &&
 +        (*libdf_log_level == '\0' || strcasecmp(libdf_log_level, "None") == 0)) {
 +        libdf_log_level = NULL;
 +    }
-+    s->df_state = s->df_create(model_path, s->attenuation_limit,
-+                               libdf_log_level);
++
++    s->df_state = df_create(model_path, s->attenuation_limit, libdf_log_level);
 +    if (!s->df_state) {
 +        av_log(ctx, AV_LOG_ERROR,
 +               "df_create failed for model '%s'\n", model_path);
 +        return AVERROR_EXTERNAL;
 +    }
-+    s->df_set_post_filter_beta(s->df_state,
-+                               s->post_filter ? POST_FILTER_BETA_ON : 0.0f);
 +
-+    s->hop = (int)s->df_get_frame_length(s->df_state);
++    df_set_post_filter_beta(s->df_state, s->post_filter ? POST_FILTER_BETA_ON : 0.0f);
++
++    s->hop = (int)df_get_frame_length(s->df_state);
 +    if (s->hop <= 0) {
 +        av_log(ctx, AV_LOG_ERROR,
 +               "df_get_frame_length returned %d\n", s->hop);
@@ -358,18 +233,12 @@ index 0000000..b91cede
 +static av_cold void uninit(AVFilterContext *ctx)
 +{
 +    DnEnhanceContext *s = ctx->priv;
-+    if (s->df_state && s->df_free) {
-+        s->df_free(s->df_state);
++    if (s->df_state) {
++        df_free(s->df_state);
 +        s->df_state = NULL;
-+    }
-+    if (s->libdf_handle) {
-+        dlclose(s->libdf_handle);
-+        s->libdf_handle = NULL;
 +    }
 +}
 +
-+// Push exactly `hop` samples through libdf. Allocates and (after priming)
-+// emits one delayed output frame.
 +static int push_hop(AVFilterContext *ctx, const float *in_samples,
 +                    int64_t pts_in)
 +{
@@ -381,21 +250,16 @@ index 0000000..b91cede
 +    if (!out)
 +        return AVERROR(ENOMEM);
 +
-+    s->df_process_frame(s->df_state,
++    df_process_frame(s->df_state,
 +                        (float *)in_samples,
 +                        (float *)out->extended_data[0]);
 +
-+    // Unreachable in normal operation: DFN_PTS_QUEUE > DFN_LOOKAHEAD_MAX + 1,
-+    // so the ring can never fill during priming or steady state. The assert
-+    // turns any future misconfiguration (e.g. raising the lookahead cap) into
-+    // a clear crash instead of silently corrupting output PTS.
 +    av_assert0(s->pts_count < DFN_PTS_QUEUE);
 +    s->pts_queue[(s->pts_head + s->pts_count) % DFN_PTS_QUEUE] = pts_in;
 +    s->pts_count++;
 +
 +    if (!s->primed) {
 +        if (s->pts_count <= s->lookahead_hops) {
-+            // Output is enhanced zeros from the model's cold-start buffer.
 +            av_frame_free(&out);
 +            return 0;
 +        }
@@ -439,13 +303,13 @@ index 0000000..b91cede
 +    s->eof_pts = pts;
 +    s->draining = 1;
 +
-+    // Drain any sub-hop tail by zero-padding to a full hop.
 +    int tail = ff_inlink_queued_samples(inlink);
 +    if (tail > 0) {
 +        AVFrame *partial = NULL;
 +        int ret = ff_inlink_consume_samples(inlink, 1, tail, &partial);
 +        if (ret < 0)
 +            return ret;
++
 +        if (ret > 0 && partial) {
 +            float *scratch = av_calloc(s->hop, sizeof(float));
 +            if (!scratch) {
@@ -541,6 +405,34 @@ index cbb1bde..b2ccb7f 100644
  
  extern const FFFilter ff_asrc_aevalsrc;
  extern const FFFilter ff_asrc_afdelaysrc;
+diff --git a/configure b/configure
+index 792646b..6b3cb6b 100755
+--- a/configure
++++ b/configure
+@@ -2161,6 +2161,7 @@ EXTERNAL_LIBRARY_LIST="
+     whisper
+     wolfssl
+     libomnidrive
++    libdeep_filter
+ "
+ 
+ HWACCEL_AUTODETECT_LIBRARY_LIST="
+@@ -4369,6 +4370,7 @@ xstack_qsv_filter_select="qsvvpp"
+ pad_vaapi_filter_deps="vaapi_1"
+ drawbox_vaapi_filter_deps="vaapi_1"
+ whisper_filter_deps="whisper"
++dnenhance_filter_deps="libdeep_filter"
+ 
+ # examples
+ avio_http_serve_files_deps="avformat avutil fork"
+@@ -7433,6 +7435,7 @@ enabled libkvazaar        && require_pkg_config libkvazaar "kvazaar >= 2.0.0" kv
+ enabled liblc3            && require_pkg_config liblc3 "lc3 >= 1.1.0" lc3.h lc3_hr_setup_encoder
+ enabled liblensfun        && require_pkg_config liblensfun lensfun lensfun.h lf_db_create
+ enabled liblcevc_dec      && require_pkg_config liblcevc_dec "lcevc_dec >= 2.0.0" "LCEVC/lcevc_dec.h" LCEVC_CreateDecoder
++enabled libdeep_filter    && require_pkg_config libdeep_filter deep_filter deep_filter.h df_create
+ 
+ if enabled libmfx && enabled libvpl; then
+    die "ERROR: can not use libmfx and libvpl together"
 -- 
 2.52.0.windows.1
 
