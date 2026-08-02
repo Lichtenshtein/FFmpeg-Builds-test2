@@ -409,6 +409,14 @@ diff --git a/configure b/configure
 index 792646b..6b3cb6b 100755
 --- a/configure
 +++ b/configure
+@@ -358,6 +358,7 @@ External library support:
+   --disable-zlib           disable zlib [autodetect]
+   --enable-libsvthevc      enable HEVC encoding via svt [no]
+   --enable-libomnidrive    enable OmniDrive disc dumping protocol [no]
++  --enable-libdeep_filter  enable dnenhance audio filter that performs neural dialogue enhancement via libdf [no]
+ 
+   The following libraries provide various hardware acceleration features:
+   --disable-amf            disable AMF video encoding code [autodetect]
 @@ -2161,6 +2161,7 @@ EXTERNAL_LIBRARY_LIST="
      whisper
      wolfssl

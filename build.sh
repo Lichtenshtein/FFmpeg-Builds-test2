@@ -325,6 +325,9 @@ if [[ "${FFMPEG_PATCHES}" == "1" ]]; then
         FINAL_CONFIGURE="$FINAL_CONFIGURE --enable-wolfssl"
 fi
 
+[[ "$FFMPEG_PATCHES" == "1" && -f ${PATCHES_DIR}/ffmpeg/${FFMPEG_BRANCH}/0078-add-extended-vpp_amf-filter-with-d3d11-based-deinterlace-and-crop-for-ffmpeg.patch ]] && \
+    FINAL_CFLAGS="$FINAL_CFLAGS -DVF_VPP_AMF_D3D11_HWACCEL"
+
 # =======================================
 # GENERATION OF COMPONENT STATE VARIABLES
 # =======================================
@@ -677,9 +680,6 @@ fi
 
 [[ "$FFMPEG_PATCHES" == "1" && -f ${PATCHES_DIR}/ffmpeg/${FFMPEG_BRANCH}/0077-add-rig-mode-implementation-for-seamless-stitching-of-multi-camera-v360-setups.patch ]] && \
     CONF_FLAGS+=( --enable-filter=v360 )
-
-[[ "$FFMPEG_PATCHES" == "1" && -f ${PATCHES_DIR}/ffmpeg/${FFMPEG_BRANCH}/0078-add-extended-vpp_amf-filter-with-d3d11-based-deinterlace-and-crop-for-ffmpeg.patch ]] && \
-    FINAL_CFLAGS+=( -DVF_VPP_AMF_D3D11_HWACCEL )
 
 # Function for checking and validating ffmpeg SAFE_CONFIGURE flags
 check_and_fix_configure && printf "  %s\n" "${CONF_FLAGS[@]}"
