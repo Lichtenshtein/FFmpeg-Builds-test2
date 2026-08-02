@@ -72,12 +72,13 @@ codegen-units = 1"
 extern "C" {
 #endif
 
-typedef struct DfState DfState;
+typedef struct DFState DFState;
 
-DfState* df_create(uint32_t sample_rate);
-void df_free(DfState* state);
-void df_process(DfState* state, const float* input, float* output);
-size_t df_get_frame_size(DfState* state);
+DFState* df_create(const char* path, float atten_lim, const char* log_level);
+size_t df_get_frame_length(DFState* st);
+float df_process_frame(DFState* st, float* input, float* output);
+void df_set_post_filter_beta(DFState* st, float beta);
+void df_free(DFState* model);
 
 #ifdef __cplusplus
 }

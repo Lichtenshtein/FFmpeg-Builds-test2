@@ -153,7 +153,7 @@ index 0000000..b91cede
 +static const AVOption dnenhance_options[] = {
 +    { "model",
 +      "path to DeepFilterNet 3 model directory",
-+      OFFSET(model_path), AV_OPT_TYPE_STRING, {.str = ""}, 0, 0, AF }, // default пустая строка, а не NULL
++      OFFSET(model_path), AV_OPT_TYPE_STRING, {.str = ""}, 0, 0, AF },
 +    { "post_filter",
 +      "enable DFN3 post-filter (extra suppression refinement)",
 +      OFFSET(post_filter), AV_OPT_TYPE_BOOL,  {.i64 = 1}, 0, 1, AF },
