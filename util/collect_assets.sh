@@ -386,7 +386,7 @@ if [[ "$DEBUG_MODE" == "0" && "$FFMPEG_PATCHES" == "1" && -f "${FFBUILD_PREFIX}/
     DF_DEST="${ASSETS_DIR}/onnx"
     mkdir -p "$DF_DEST"
 
-    DF_REPO_URL="https://github.com/ismailivanov/DeepFilterNetPlus/blob/main/models"
+    DF_REPO_URL="https://github.com/ismailivanov/DeepFilterNetPlus/raw/refs/heads/main/models/"
 
     if download_file "$DF_REPO_URL/DeepFilterNet3.zip" "$DF_DEST/DeepFilterNet3.zip" ""; then
         log_info "Downloaded DeepFilterNet3.zip"
