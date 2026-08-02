@@ -45,6 +45,7 @@ ffbuild_dockerbuild() {
 
     local myconf=(
         --build_dir build
+        --allow_running_as_root
         --config Release
         --update
         --build
