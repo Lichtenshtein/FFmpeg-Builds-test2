@@ -26,7 +26,8 @@ ffbuild_dockerbuild() {
     log_info "${BROOM_MARK} Patching ONNX Runtime C++ source files for MinGW compatibility..."
     # Fixing a SAL macro conflict in onnxruntime_c_api.h to use native macros from sal.h
     if [[ -f "include/onnxruntime/core/session/onnxruntime_c_api.h" ]]; then
-        sed -i '3i #if defined(__GNUC__) || defined(__clang__)\n#pragma GCC diagnostic ignored "-Wmacro-redefined"\n#endif' include/onnxruntime/core/session/onnxruntime_c_api.h
+        sed -i '/#define _Check_return_/i #ifndef __MINGW32__' include/onnxruntime/core/session/onnxruntime_c_api.h
+        sed -i '/#define _Outptr_result_buffer_maybenull_(X)/a #endif \/* __MINGW32__ *\/' include/onnxruntime/core/session/onnxruntime_c_api.h
     fi
     if [[ -f "onnxruntime/core/mlas/lib/mlasi.h" ]]; then
         sed -i 's/#ifdef _MSC_VER/#if defined(_MSC_VER) || defined(__MINGW32__)/g' onnxruntime/core/mlas/lib/mlasi.h
