@@ -19,8 +19,8 @@ ffbuild_dockerbuild() {
     log_info "${BROOM_MARK} Patching ONNX Runtime CMake files for CMake 4.4+ compatibility..."
     if [[ -f "cmake/onnxruntime.cmake" ]]; then
         # Remove lines related to the /DELAYLOAD and target_link_options bug on line 341
-        sed -i '/Workaround STL bug/,/endif()/d' cmake/onnxruntime.cmake
-        sed -i 's/target_link_options(onnxruntime PRIVATE \/DELAYLOAD.*//g' cmake/onnxruntime.cmake
+        sed -i 's/if (WIN32 AND NOT CMAKE_CXX_STANDARD_LIBRARIES MATCHES kernel32.lib)/if (FALSE)/g' cmake/onnxruntime.cmake
+        sed -i 's|target_link_options(onnxruntime PRIVATE /DELAYLOAD:# target_link_options(onnxruntime PRIVATE /DELAYLOAD:|g' cmake/onnxruntime.cmakecmake/onnxruntime.cmake
     fi
 
     export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
