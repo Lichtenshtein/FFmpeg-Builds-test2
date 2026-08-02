@@ -52,6 +52,17 @@ ffbuild_dockerbuild() {
         -e 's|/w1[0-9]*| |g' \
         {} +
 
+    log_info "${BROOM_MARK} Patching status.h to include winerror.h for MinGW..."
+    local status_header=""
+    if [[ -f "include/onnxruntime/core/common/status.h" ]]; then
+        status_header="include/onnxruntime/core/common/status.h"
+    elif [[ -f "onnxruntime/core/common/status.h" ]]; then
+        status_header="onnxruntime/core/common/status.h"
+    fi
+    if [[ -n "$status_header" ]]; then
+        sed -i '/#ifdef _WIN32/i #if defined(__MINGW32__)\n#include <winerror.h>\n#endif' "$status_header"
+    fi
+
     export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
     export CXXFLAGS="$CXXFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
     export LDFLAGS="$LDFLAGS ${USELTO}${USELTO_L}"
