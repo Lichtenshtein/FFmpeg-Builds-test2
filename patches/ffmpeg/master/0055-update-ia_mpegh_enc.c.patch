@@ -1,0 +1,37 @@
+From a2edc1b1488b69ba7236619f73ddf4faba7012f7 Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Sun, 2 Aug 2026 13:37:29 +0300
+Subject: [PATCH] Fix ia_mpegh_enc.c
+
+---
+ libavcodec/ia_mpegh_enc.c | 7 +++----
+ 1 file changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/libavcodec/ia_mpegh_enc.c b/libavcodec/ia_mpegh_enc.c
+index e89120c..acf8b7f 100644
+--- a/libavcodec/ia_mpegh_enc.c
++++ b/libavcodec/ia_mpegh_enc.c
+@@ -169,8 +169,8 @@ static const AVClass ia_mpegh_enc_class = {
+ };
+ 
+ //
+-extern VOID impeghe_error_handler_init();
+-extern VOID impeghe_testbench_error_handler_init();
++extern VOID impeghe_error_handler_init(void);
++extern VOID impeghe_testbench_error_handler_init(void);
+ 
+ extern ia_error_info_struct ia_testbench_error_info;
+ extern ia_error_info_struct ia_mpeghe_error_info;
+@@ -1243,8 +1243,7 @@ static int ia_mpegh_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
+ 		memcpy(avpkt->data, ctx->pb_out_buf, i_out_bytes);
+ 	}
+ 	// Get the next frame pts and duration
+-	ff_af_queue_remove(&ctx->afq, avctx->frame_size, &avpkt->pts,
+-		&avpkt->duration);
++	ff_af_queue_remove(&ctx->afq, avctx->frame_size, avpkt);
+ 	if(flag)
+ 	{
+ 		avpkt->size = i_out_bytes + ctx->LEN;
+-- 
+2.52.0.windows.1
+
