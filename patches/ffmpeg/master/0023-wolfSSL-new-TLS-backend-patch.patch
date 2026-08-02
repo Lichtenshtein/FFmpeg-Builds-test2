@@ -146,9 +146,9 @@ index f2f4f8991f..de7fb6fdde 100644
 --- a/libavformat/tls.h
 +++ b/libavformat/tls.h
 @@ -128,6 +128,9 @@ void ff_gnutls_deinit(void);
- int ff_openssl_init(void);
- void ff_openssl_deinit(void);
- 
+ void ff_gnutls_init(void);
+ void ff_gnutls_deinit(void);
+
 +void ff_wolfssl_init(void);
 +void ff_wolfssl_deinit(void);
 +

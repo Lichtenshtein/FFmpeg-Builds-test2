@@ -165,3 +165,11 @@ ffbuild_dockerbuild() {
         fi
     fi
 }
+
+ffbuild_configure() {
+    echo --enable-libcurl
+}
+
+ffbuild_unconfigure() {
+    echo --disable-libcurl
+}

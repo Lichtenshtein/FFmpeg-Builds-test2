@@ -376,6 +376,41 @@ if [[ "$DEBUG_MODE" == "0" && "$HAS_WHISPER" == "1" && "$GRAB_MODELS" == "1" ]];
 fi
 
 # ==========================================
+# ONNX MODELS PROCESSING
+# ==========================================
+
+if [[ "$DEBUG_MODE" == "0" && "$FFMPEG_PATCHES" == "1" && -f "${FFBUILD_PREFIX}/lib/pkgconfig/deep_filter.pc" && "$GRAB_MODELS" == "1" ]]; then
+
+    log_info "${DOWN_MARK} Downloading and deploying DeepFilterNet models..."
+
+    DF_DEST="${ASSETS_DIR}/onnx"
+    mkdir -p "$DF_DEST"
+
+    DF_REPO_URL="https://github.com/ismailivanov/DeepFilterNetPlus/blob/main/models"
+
+    if download_file "$DF_REPO_URL/DeepFilterNet3.zip" "$DF_DEST/DeepFilterNet3.zip" ""; then
+        log_info "Downloaded DeepFilterNet3.zip"
+    else
+        log_error "Failed to download DeepFilterNet3.zip"
+    fi
+
+    if download_file "$DF_REPO_URL/DeepFilterNet3_onnx.tar.gz" "$DF_DEST/DeepFilterNet3_onnx.tar.gz" ""; then
+        log_info "Downloaded DeepFilterNet3_onnx.tar.gz"
+    else
+        log_error "Failed to download DeepFilterNet3_onnx.tar.gz"
+    fi
+
+    if download_file "$DF_REPO_URL/DeepFilterNet3_ll_onnx.tar.gz" "$DF_DEST/DeepFilterNet3_ll_onnx.tar.gz" ""; then
+        log_info "Downloaded DeepFilterNet3_ll_onnx.tar.gz..."
+    else
+        log_error "Failed to download DeepFilterNet3_ll_onnx.tar.gz"
+    fi
+
+    log_info "${CHECK_MARK} DeepFilterNet models successfully integrated into release package."
+
+fi
+
+# ==========================================
 # LIBTORCH PROCESSING
 # ==========================================
 

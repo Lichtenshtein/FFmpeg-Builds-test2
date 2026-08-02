@@ -153,7 +153,7 @@ index 1c931d43af..24ec143ec4 100644
 -    allocOut.version = NV_ENC_CREATE_BITSTREAM_BUFFER_VER;
 +    allocOut.version = struct_ver_rt(ctx, 1);//NV_ENC_CREATE_BITSTREAM_BUFFER_VER;
  
-     if (avctx->pix_fmt == AV_PIX_FMT_CUDA || avctx->pix_fmt == AV_PIX_FMT_D3D11) {
+     if (IS_HWACCEL(avctx->pix_fmt)) {
          ctx->surfaces[idx].in_ref = av_frame_alloc();
 @@ -1897,7 +1918,7 @@ static av_cold int nvenc_alloc_surface(AVCodecContext *avctx, int idx)
              return AVERROR(EINVAL);

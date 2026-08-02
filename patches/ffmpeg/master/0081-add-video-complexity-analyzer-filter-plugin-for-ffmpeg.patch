@@ -58,9 +58,9 @@ index 705ac72..ddaa213 100644
  
 +OBJS-$(CONFIG_VCA_FILTER)                    += vf_vca.o vca_dct.o
 +
- # vulkan libs
- OBJS-$(CONFIG_LIBGLSLANG)                    += vulkan_glslang.o vulkan.o
- OBJS-$(CONFIG_LIBSHADERC)                    += vulkan_shaderc.o vulkan.o
+ # Objects duplicated from other libraries for shared builds
+ SHLIBOBJS                                    += log2_tab.o
+ 
 diff --git a/libavfilter/allfilters.c b/libavfilter/allfilters.c
 index 4d05bbc..83ea883 100644
 --- a/libavfilter/allfilters.c
