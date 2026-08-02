@@ -16,6 +16,12 @@ ffbuild_dockerbuild() {
 
     cd /build/$STAGENAME
 
+    log_info "${BROOM_MARK} Running global case-sensitivity cleanup..."
+    find . -type f \( -name "*.h" -o -name "*.cc" -o -name "*.cpp" -o -name "*.c" \) -exec sed -i \
+        -e 's|<Windows.h>|<windows.h>|g' \
+        -e 's|"Windows.h"|"windows.h"|g' \
+        {} +
+
     log_info "${BROOM_MARK} Patching Windows resource files to fix windres syntax errors..."
     if [[ -f "onnxruntime/core/dll/onnxruntime.rc" ]]; then
         cat << 'EOF' > onnxruntime/core/dll/onnxruntime.rc
@@ -68,6 +74,10 @@ EOF
         sed -i 's/if (WIN32)/if (MSVC)/g' cmake/onnxruntime_providers_nv.cmake
     fi
     find . \( -name "CMakeLists.txt" -o -name "*.cmake" \) -type f -exec sed -i \
+        -e 's/if (WIN32)/if (MSVC)/g' \
+        -e 's/Ws2_32/ws2_32/g' \
+        -e 's/ws2_32/ws2_32/g' \
+        -e 's/Winmm/winmm/g' \
         -e 's|"/wd[0-9]*"|""|g' \
         -e 's|"/w1[0-9]*"|""|g' \
         -e 's|/wd[0-9]*| |g' \
@@ -112,6 +122,11 @@ EOF
         sed -i 's|${MLAS_SRC_DIR}/qgemm_kernel_amx.cpp||g' cmake/onnxruntime_mlas.cmake
         sed -i 's|${MLAS_SRC_DIR}/amd64/QgemmU8S8KernelAmx.asm||g' cmake/onnxruntime_mlas.cmake
         sed -i 's/if(NOT APPLE)/if(FALSE)/g' cmake/onnxruntime_mlas.cmake
+    fi
+
+    log_info "${BROOM_MARK} Fixing Case-sensitivity and ERROR-macro conflicts for MinGW..."
+    if [[ -f "include/onnxruntime/core/common/logging/macros.h" ]]; then
+        sed -i '3i #ifdef ERROR\n#undef ERROR\n#endif' include/onnxruntime/core/common/logging/macros.h
     fi
 
     export CFLAGS="$CFLAGS $CPPFLAGS ${USELTO}${USELTO_C} -Wa,-mbig-obj"
