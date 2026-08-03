@@ -3,8 +3,12 @@
 SCRIPT_REPO="https://github.com/microsoft/onnxruntime.git"
 SCRIPT_COMMIT="86af0f166f80f022e61a03164f2ff7809bf4f7e2"
 
-ffbuild_enabled() {
-    return 0
+ffbuild_enabled(){
+    # it uses a custom build script
+    # and seem to copy/download deps in the middle of build
+    # which require applying the same patches
+    # everything written in this script to fix the build system is being ignored
+    return -1
 }
 
 ffbuild_dockerdl() {
