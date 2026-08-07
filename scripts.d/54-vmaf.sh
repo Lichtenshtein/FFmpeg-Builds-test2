@@ -35,6 +35,11 @@ ffbuild_dockerbuild() {
     log_info "Verifying header patch..."
     grep -n "vmaf_init" "include/libvmaf/libvmaf.h"
 
+    log_info "Hotpatch libvmaf for compatiblity with latest libc++"
+    sed -i -E 's/([^.>:_[:alnum:]])swap\(/\1libsvm_swap(/g' libvmaf/src/svm.cpp
+    sed -i -E 's/([^.>:_[:alnum:]])min\(/\1libsvm_min(/g' libvmaf/src/svm.cpp
+    sed -i -E 's/([^.>:_[:alnum:]])max\(/\1libsvm_max(/g' libvmaf/src/svm.cpp
+
     if [[ "${USE_AVX512}" != "1" ]]; then
         # Create an avx-512 stub
         log_info "Creating AVX-512 stubs for libvmaf..."
