@@ -22,16 +22,6 @@ index e89120c..acf8b7f 100644
  
  extern ia_error_info_struct ia_testbench_error_info;
  extern ia_error_info_struct ia_mpeghe_error_info;
-@@ -1243,8 +1243,7 @@ static int ia_mpegh_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
- 		memcpy(avpkt->data, ctx->pb_out_buf, i_out_bytes);
- 	}
- 	// Get the next frame pts and duration
--	ff_af_queue_remove(&ctx->afq, avctx->frame_size, &avpkt->pts,
--		&avpkt->duration);
-+	ff_af_queue_remove(&ctx->afq, avctx->frame_size, avpkt);
- 	if(flag)
- 	{
- 		avpkt->size = i_out_bytes + ctx->LEN;
 -- 
 2.52.0.windows.1
 

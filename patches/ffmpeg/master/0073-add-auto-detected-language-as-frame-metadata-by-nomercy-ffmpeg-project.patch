@@ -17,21 +17,10 @@ https://github.com/NoMercy-Entertainment/nomercy-ffmpeg/raw/64764d1f582476ec13d8
  1 file changed, 66 insertions(+), 20 deletions(-)
 
 diff --git a/libavfilter/af_whisper.c b/libavfilter/af_whisper.c
-index 75103ce..2e83ad9 100644
+index 75103ce..e2324f8 100644
 --- a/libavfilter/af_whisper.c
 +++ b/libavfilter/af_whisper.c
-@@ -41,9 +41,7 @@
- typedef struct WhisperContext {
-     const AVClass *class;
-     char *model_path;
--    const char *language;
--    char *language_str;
--    bool translate;
-+    char *language;
-     bool use_gpu;
-     int gpu_device;
-     char *vad_model_path;
-@@ -71,6 +69,9 @@ typedef struct WhisperContext {
+@@ -71,6 +71,9 @@ typedef struct WhisperContext {
  
      AVIOContext *avio_context;
      int index;
@@ -41,27 +30,7 @@ index 75103ce..2e83ad9 100644
  } WhisperContext;
  
  static void cb_log(enum ggml_log_level level, const char *text, void *user_data)
-@@ -152,19 +153,6 @@ static int init(AVFilterContext *ctx)
-         wctx->avio_context->direct = AVIO_FLAG_DIRECT;
-     }
- 
--    if (!whisper_is_multilingual(wctx->ctx_wsp)) {
--        if (!wctx->translate && strcmp(wctx->language_str, "auto") == 0) {
--            av_log(ctx, AV_LOG_WARNING,
--                   "Multilingual model not provided. Non-English audio may not be correctly transcribed.\n");
--        } else if (wctx->translate || (strcmp(wctx->language_str, "auto") != 0 && strcmp(wctx->language_str, "en") != 0)) {
--            av_log(ctx, AV_LOG_ERROR,
--                   "%s requested but multilingual model not provided.\n", wctx->translate ? "Translation" : "Transcription");
--            return AVERROR(ENOSYS);
--        }
--        wctx->language = "en";
--    } else
--        wctx->language = wctx->language_str;
--
-     av_log(ctx, AV_LOG_INFO,
-            "Whisper filter initialized: model: %s lang: %s queue: %" PRId64 " ms\n",
-            wctx->model_path, wctx->language, wctx->queue / 1000);
-@@ -198,6 +186,57 @@ static void uninit(AVFilterContext *ctx)
+@@ -198,6 +201,57 @@ static void uninit(AVFilterContext *ctx)
          avio_closep(&wctx->avio_context);
  }
  
@@ -119,23 +88,7 @@ index 75103ce..2e83ad9 100644
  static void run_transcription(AVFilterContext *ctx, AVFrame *frame, int samples)
  {
      WhisperContext *wctx = ctx->priv;
-@@ -215,7 +254,6 @@ static void run_transcription(AVFilterContext *ctx, AVFrame *frame, int samples)
- 
-     struct whisper_full_params params = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
-     params.language = wctx->language;
--    params.translate = wctx->translate;
-     params.n_threads = ff_filter_get_nb_threads(ctx);
-     params.print_special = 0;
-     params.print_progress = 0;
-@@ -223,7 +261,6 @@ static void run_transcription(AVFilterContext *ctx, AVFrame *frame, int samples)
-     params.print_timestamps = 0;
-     params.max_len = wctx->max_len;
-     params.token_timestamps = (wctx->max_len > 0);
--    params.split_on_word = (wctx->max_len > 0);
- 
-     if (whisper_full(wctx->ctx_wsp, params, wctx->audio_buffer, samples) != 0) {
-         av_log(ctx, AV_LOG_ERROR, "Failed to process audio with whisper.cpp\n");
-@@ -252,6 +289,11 @@ static void run_transcription(AVFilterContext *ctx, AVFrame *frame, int samples)
+@@ -252,6 +306,11 @@ static void run_transcription(AVFilterContext *ctx, AVFrame *frame, int samples)
              continue;
          }
  
@@ -147,7 +100,7 @@ index 75103ce..2e83ad9 100644
          const bool turn = whisper_full_get_segment_speaker_turn_next(wctx->ctx_wsp, i);
          const int64_t t0_ms = whisper_full_get_segment_t0(wctx->ctx_wsp, i) * 10;
          const int64_t t1_ms = whisper_full_get_segment_t1(wctx->ctx_wsp, i) * 10;
-@@ -300,6 +342,11 @@ static void run_transcription(AVFilterContext *ctx, AVFrame *frame, int samples)
+@@ -300,6 +359,11 @@ static void run_transcription(AVFilterContext *ctx, AVFrame *frame, int samples)
          av_dict_set(metadata, "lavfi.whisper.text", segments_text, 0);
          char *duration_text = av_asprintf("%f", duration);
          av_dict_set(metadata, "lavfi.whisper.duration", duration_text, AV_DICT_DONT_STRDUP_VAL);
@@ -159,16 +112,6 @@ index 75103ce..2e83ad9 100644
      }
      av_freep(&segments_text);
  
-@@ -459,8 +506,7 @@ static int query_formats(const AVFilterContext *ctx,
- 
- static const AVOption whisper_options[] = {
-     { "model", "Path to the whisper.cpp model file", OFFSET(model_path), AV_OPT_TYPE_STRING,.flags = FLAGS },
--    { "language", "Language for transcription ('auto' for auto-detect)", OFFSET(language_str), AV_OPT_TYPE_STRING, {.str = "auto"}, .flags = FLAGS },
--    { "translate", "Translate from source language to English", OFFSET(translate), AV_OPT_TYPE_BOOL, {.i64 = 0}, 0, 1, .flags = FLAGS },
-+    { "language", "Language for transcription ('auto' for auto-detect)", OFFSET(language), AV_OPT_TYPE_STRING, {.str = "auto"}, .flags = FLAGS },
-     { "queue", "Audio queue size", OFFSET(queue), AV_OPT_TYPE_DURATION, {.i64 = 3000000}, 20000, HOURS, .flags = FLAGS },
-     { "use_gpu", "Use GPU for processing", OFFSET(use_gpu), AV_OPT_TYPE_BOOL, {.i64 = 1}, 0, 1, .flags = FLAGS },
-     { "gpu_device", "GPU device to use", OFFSET(gpu_device), AV_OPT_TYPE_INT, {.i64 = 0}, 0, INT_MAX, .flags = FLAGS },
 -- 
 2.52.0.windows.1
 
