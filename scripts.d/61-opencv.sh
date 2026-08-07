@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/opencv/opencv.git"
-SCRIPT_COMMIT="06574736b35bc3f6682c3e8d52624fcac64532b9"
+SCRIPT_COMMIT="77dfa297d08fdecdc509fc01ad92a2e9ec776a57"
 
 PY_VER="3.14"
 PY_FULL_VER="3.14.1"

@@ -8,7 +8,7 @@
 # SCRIPT_BRANCH="t_mod_New"
 
 SCRIPT_REPO="https://github.com/neil1123-cc/x264.git"
-SCRIPT_COMMIT="2d0302bb5665ca3716bb5370cbfbf8a2a2475e6e"
+SCRIPT_COMMIT="0350671054e4d1e762525459004cdba5e5c01e2d"
 
 SCRIPT_REPO4="https://github.com/Olde-Skuul/quicktime7windows.git"
 SCRIPT_COMMIT4="8c1181141c1e08ed6b26335238b6d1fc0e065b12"

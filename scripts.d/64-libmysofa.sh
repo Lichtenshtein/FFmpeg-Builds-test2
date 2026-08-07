@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/hoene/libmysofa.git"
-SCRIPT_COMMIT="3b7427c295d063724601f175ca05f81e29e3cc1a"
+SCRIPT_COMMIT="90531bdb0b485dd36e8a14b3e37ce1c47c54d669"
 
 ffbuild_depends() {
     echo zlib

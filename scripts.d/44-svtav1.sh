@@ -7,7 +7,7 @@
 # SCRIPT_COMMIT="16b4c9449883298c87dde012a76e64ec0d8c78da"
 
 SCRIPT_REPO="https://github.com/Uranite/svt-av1-tritium.git"
-SCRIPT_COMMIT="1e8bdde190e40d4a6cb38b60205118a4ede07781"
+SCRIPT_COMMIT="d4d06e127575952747fbfb8541fd926fb8998875"
 
 # SCRIPT_REPO="https://github.com/BlueSwordM/svt-av1-hdr.git"
 # SCRIPT_COMMIT="f6e65133f2317b996a95f413e964289300d6dbfd"

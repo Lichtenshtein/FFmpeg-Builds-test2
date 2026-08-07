@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libsdl-org/libtiff.git"
-SCRIPT_COMMIT="d01a94be176f5f6a87f7ee1c0b32e65416aa2b4d"
+SCRIPT_COMMIT="2c792de61332ee4778eaecb6d88801e776cdd93e"
 
 ffbuild_depends() {
     echo zlib

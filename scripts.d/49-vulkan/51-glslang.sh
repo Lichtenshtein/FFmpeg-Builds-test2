@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/KhronosGroup/glslang.git"
-SCRIPT_COMMIT="c8253623e6e67943babcdeaa26f6457511f419ff"
+SCRIPT_COMMIT="90afccfbd49dff0349d86a41762e9de24e1df811"
 
 ffbuild_depends() {
     echo vulkan-headers

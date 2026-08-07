@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/openvinotoolkit/openvino.git"
-SCRIPT_COMMIT="070e0629ebddf6037886c511604b84aab74fafe3"
+SCRIPT_COMMIT="c372c062137b94f862798d97f198f3af07e81fb5"
 
 ffbuild_depends() {
     echo tbbmalloc

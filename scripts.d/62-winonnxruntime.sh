@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/microsoft/onnxruntime.git"
-SCRIPT_COMMIT="86af0f166f80f022e61a03164f2ff7809bf4f7e2"
+SCRIPT_COMMIT="cf5e9eba49b07b4b4ab71ed7903cded9f1446690"
 
 ffbuild_enabled(){
     # it uses a custom build script

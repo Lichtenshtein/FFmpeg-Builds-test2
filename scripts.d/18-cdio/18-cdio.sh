@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libcdio/libcdio.git"
-SCRIPT_COMMIT="fe4f6077d8ea165e65552218d9aeff23684c23d7"
+SCRIPT_COMMIT="94174a7c1634d48912131686a9eafa77c53a325e"
 
 ffbuild_enabled() {
     return 0

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/libjpeg-turbo/libjpeg-turbo.git"
-SCRIPT_COMMIT="1db93c29599cf64e5193297b6e2de069c1838d04"
+SCRIPT_COMMIT="b9132f0ad099e06d951867e2b6f3d358eebc1f19"
 
 ffbuild_depends() {
     echo zlib

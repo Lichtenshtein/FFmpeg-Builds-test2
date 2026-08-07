@@ -5,13 +5,13 @@ vars = {
   'google_git':  'https://github.com/google',
   'khronos_git': 'https://github.com/KhronosGroup',
 
-  'abseil_revision': '7e1af334ee9c85a930070393184aa2806af8a94c',
+  'abseil_revision': 'a4f5ffe3058eff0c1e974f45965ca025e75ed25a',
   'effcee_revision': '910ed15722d5d05c9d71ecf36c1a22243cb79b02',
-  'glslang_revision': 'c8253623e6e67943babcdeaa26f6457511f419ff',
-  'googletest_revision': '8240fa7d62f73e01c7af27d61ed965d6d66698fa',
+  'glslang_revision': '90afccfbd49dff0349d86a41762e9de24e1df811',
+  'googletest_revision': '4cb0ab12a15aa95649cb59c4063c206e3f2ee9ba',
   're2_revision': '972a15cedd008d846f1a39b2e88ce48d7f166cbd',
-  'spirv_headers_revision': '29981f65241605e08b0ede4cfeb999fe3b723c6a',
-  'spirv_tools_revision': '502666433f77439bece5b4c5c7e67bff90af2350',
+  'spirv_headers_revision': '942fe4b988359a0750b79f0ae7ed735994d3147d',
+  'spirv_tools_revision': '5b5a25231a3543559b4f2cb27fe725a08b76b5d0',
 }
 
 deps = {

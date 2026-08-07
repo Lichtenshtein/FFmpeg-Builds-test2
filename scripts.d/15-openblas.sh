@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/OpenMathLib/OpenBLAS.git"
-SCRIPT_COMMIT="c3de327dd5248c820eb177c50886bfe6eed1654b"
+SCRIPT_COMMIT="ad7a417489608b9b94fb697ebf169c1f579ab268"
 
 ffbuild_enabled() {
     return 0

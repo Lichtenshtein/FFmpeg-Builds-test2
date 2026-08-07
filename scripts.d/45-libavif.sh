@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/AOMediaCodec/libavif.git"
-SCRIPT_COMMIT="d0605c98085e2fe4830ed248c8b00df7e6f80643"
+SCRIPT_COMMIT="25a6d23f872f37c91a3df15b75e1a97f590d7c46"
 
 ffbuild_depends() {
     echo libwebp # libsharpyuv

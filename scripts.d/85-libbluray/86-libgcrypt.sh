@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/gpg/libgcrypt.git"
-SCRIPT_COMMIT="35f4e5abf22c8a1cb07314914d29b11c63decb5b"
+SCRIPT_COMMIT="70ecc4e943c6d5a83c4099b2a5105f38c16b35d7"
 
 ffbuild_depends() {
     echo libgpg-error

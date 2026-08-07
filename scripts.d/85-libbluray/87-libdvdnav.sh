@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://code.videolan.org/videolan/libdvdnav.git"
-SCRIPT_COMMIT="9c5f2278eb5b23cdcd0575065f5d575c4e6602a4"
+SCRIPT_COMMIT="e0c02b973c62081ee8dc109726e511e94c10f70e"
 
 ffbuild_depends() {
     echo libudfread

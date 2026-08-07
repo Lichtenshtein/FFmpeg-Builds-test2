@@ -4,7 +4,7 @@ SCRIPT_REPO="https://github.com/BtbN/Vulkan-Shim-Loader.git"
 SCRIPT_COMMIT="65b3936528cd92eb4ea3de485d03f858a3850484"
 
 SCRIPT_REPO2="https://github.com/KhronosGroup/Vulkan-Headers.git"
-SCRIPT_COMMIT2="8d6039a455a7ecc7d2a592ff97f62db4e59b70bf"
+SCRIPT_COMMIT2="f9973cd97e6f3584707e7ef1c425e336f1b92a5b"
 
 # original loader
 # SCRIPT_REPO3="https://github.com/KhronosGroup/Vulkan-Loader.git"
