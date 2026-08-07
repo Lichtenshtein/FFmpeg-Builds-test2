@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/harfbuzz/harfbuzz.git"
-SCRIPT_COMMIT="5e887d36722abfef1c02a11ab15a369d7745027e"
+SCRIPT_COMMIT="9f2f03173b7fee860cc00d999857d09fa4a362e2"
 
 ffbuild_depends() {
     echo freetype

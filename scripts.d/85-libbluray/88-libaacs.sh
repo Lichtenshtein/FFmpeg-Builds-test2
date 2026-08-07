@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://code.videolan.org/videolan/libaacs.git"
-SCRIPT_COMMIT="bf52e06197a715581a477c5cf265fa80fe5b25e7"
+SCRIPT_COMMIT="55be92be9e80a654b7c98d29fec5769b1b1493d9"
 
 ffbuild_depends() {
     echo libgpg-error

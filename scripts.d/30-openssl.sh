@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/openssl/openssl.git"
-SCRIPT_COMMIT="234845aaabbcfef5f58a00835f0383ceabe469b5"
+SCRIPT_COMMIT="def638aa2d6895d36648cbccfb16444e24311683"
 
 ffbuild_depends() {
     echo base

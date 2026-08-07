@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/vapoursynth/vapoursynth.git"
-SCRIPT_COMMIT="5985c5a76002b8322b60ac3453fff91d6d636cb0"
+SCRIPT_COMMIT="acabf605b2205b32d65859bb2736405719d2fafd"
 
 PY_VER="3.14"
 PY_FULL_VER="3.14.1"

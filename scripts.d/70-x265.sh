@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/Multicorewareinc/x265.git"
-SCRIPT_COMMIT="4455762664ec10070a061a9c15faa0b83cee72f7"
+SCRIPT_COMMIT="5ab552e6247875fb25389ff8fedb696037ed2e6c"
 
 ffbuild_depends() {
     echo svthevc

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/sekrit-twc/znedi3.git"
-SCRIPT_COMMIT="3f800876a1e87da1ffb77881207bcd95dc15bf48"
+SCRIPT_COMMIT="e2016a0ca8cc438ec3e5d0cccafc565092d1a3a5"
 
 ffbuild_depends() {
     echo avisynth

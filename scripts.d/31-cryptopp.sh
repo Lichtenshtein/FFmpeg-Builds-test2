@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/abdes/cryptopp-cmake.git"
-SCRIPT_COMMIT="866aceb8b13b6427a3c4541288ff412ad54f11ea"
+SCRIPT_COMMIT="bc994d990b8c00b4b70c56bc5c438f6cf32c463c"
 
 ffbuild_enabled() {
     return 0

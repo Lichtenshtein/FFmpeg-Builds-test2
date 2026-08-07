@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/unicode-org/icu.git"
-SCRIPT_COMMIT="a4d2bb712e2f9181f2abead7ff99a5d471230f4c"
+SCRIPT_COMMIT="44e1e3fab2b1c0f505951b11639f164b54920278"
 
 ffbuild_enabled() {
     return 0

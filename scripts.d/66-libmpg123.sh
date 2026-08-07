@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/madebr/mpg123.git"
-SCRIPT_COMMIT="200dfc97bd263d6da1a5b1dad8a9dccc91e78932"
+SCRIPT_COMMIT="d231db9b598e6f81018b5e20c664df45cb90c94f"
 
 ffbuild_enabled() {
     return 0

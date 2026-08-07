@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/google/shaderc.git"
-SCRIPT_COMMIT="e68868016406f1b53a0fbf09402b79b846e8bca4"
+SCRIPT_COMMIT="7060a6615a1c6e2515e696651eea685524ecadb5"
 
 # SCRIPT_REPO="https://github.com/stenzek/shaderc.git"
 # SCRIPT_COMMIT="d72697bfc353b547efc58421ad54ac0345441bf4"

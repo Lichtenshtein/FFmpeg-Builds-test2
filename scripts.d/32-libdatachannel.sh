@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/paullouisageneau/libdatachannel.git"
-SCRIPT_COMMIT="188ec93f6a0b01c2032ddb4c8c013118f7f30232" 
+SCRIPT_COMMIT="46f8e7c6275193308811d2d2b4026cc84792fd74" 
 
 ffbuild_depends() {
     echo openssl # 1 of 2

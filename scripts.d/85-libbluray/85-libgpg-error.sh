@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/gpg/libgpg-error.git"
-SCRIPT_COMMIT="bfdf7b0b7b62f4463451a7d5f8408cec75520dca"
+SCRIPT_COMMIT="9cc750a816554e46d3e1496533f927b17ef3fcef"
 
 ffbuild_depends() {
     echo libiconv

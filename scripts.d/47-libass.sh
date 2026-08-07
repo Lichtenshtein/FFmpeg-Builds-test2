@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/amanosatosi/libassmod.git"
-SCRIPT_COMMIT="9c8aa3ebc7499f033b6939aa4d315b97e6b872f8"
+SCRIPT_COMMIT="b673d8f286eab02c117ce060330890908dd8726e"
 SCRIPT_BRANCH="mangetsu"
 
 # SCRIPT_REPO3="https://github.com/libass/libass.git"

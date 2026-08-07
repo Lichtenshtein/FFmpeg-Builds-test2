@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/mpeg5/xeve.git"
-SCRIPT_COMMIT="429c18a7736ffc010e1c550e8015ff18a242d06c"
+SCRIPT_COMMIT="4d2e268fefada02d258fb43842c9f7161bfedf02"
 
 ffbuild_enabled() {
     [[ $TARGET == *arm64 ]] && return 1

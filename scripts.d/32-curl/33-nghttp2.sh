@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SCRIPT_REPO="https://github.com/nghttp2/nghttp2.git"
-SCRIPT_COMMIT="a25ec3de429d038f08f334cd3dc3b637f05fe7bf"
+SCRIPT_COMMIT="692c8d8fce4f31ba2a9449b903877543043b0e3f"
 
 ffbuild_depends() {
     echo zlib
