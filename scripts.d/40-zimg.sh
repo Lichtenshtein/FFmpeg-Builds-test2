@@ -32,6 +32,8 @@ ffbuild_dockerbuild() {
     fi
     # it still uses -mavx512f -mavx512cd -mavx512vl -mavx512bw -mavx512dq flags
 
+    sed -i '1i #include <exception>' src/zimg/api/zimg.cpp
+
     ./autogen.sh
 
     local myconf=(
