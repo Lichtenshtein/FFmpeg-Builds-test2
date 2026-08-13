@@ -28,7 +28,6 @@ ffbuild_dockerbuild() {
         -Dtests=false
         -Dvalgrind=disabled
         -Dexynos=disabled
-        -Dfreedreno=disabled
         -Domap=disabled
         -Detnaviv=disabled
         -Dintel=enabled
