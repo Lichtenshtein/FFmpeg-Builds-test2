@@ -64,6 +64,12 @@ ffbuild_dockerbuild() {
         rm -rf "$INSTALL_ROOT"/bin "$INSTALL_ROOT"/lib/oapv
     fi
 
+    printf '\n%s\n%s\n%s\n%s\n' \
+        '#ifndef OLD_APV_API_MACRO' \
+        '#define OLD_APV_API_MACRO' \
+        '#define oapvm_create(err) oapvm_create(&(oapvm_cdesc_t){ 0 }, (err))' \
+        '#endif' >> "$FFBUILD_DESTPREFIX"/include/oapv/oapv.h
+
     local PC_FILE="$PC_DIR/oapv.pc"
     if [[ -f "$PC_FILE" ]]; then
         sed -i "s|^Cflags:.*|& -I\${includedir}/oapv|" "$PC_FILE"
