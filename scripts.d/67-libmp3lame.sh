@@ -3,6 +3,10 @@
 SCRIPT_REPO="https://github.com/Luiz-Monad/liblame.git"
 SCRIPT_COMMIT="fe309eb331421ee6534ba795dbc298e19093f96f"
 
+# Original repo
+# SCRIPT_REPO2="https://svn.code.sf.net/p/lame/svn/trunk/lame"
+# SCRIPT_REV2="6761"
+
 ffbuild_depends() {
     echo base
     echo libiconv
