@@ -1,0 +1,3749 @@
+From b52fa52a21c3378f0ddc953e27c4182f2734fefa Mon Sep 17 00:00:00 2001
+From: Lichtenshtein <altruumann@protonmail.com>
+Date: Wed, 26 Aug 2026 03:32:06 +0300
+Subject: [PATCH] theogbob's ffmpeg-hvqm2 fork changes
+
+https://github.com/theogbob/ffmpeg-hvqm2
+
+Adds read/write support for Hudson's HVQM2 1.0 video format — the .hvqm container used on the Nintendo 64 (Hybrid Vector Quantization, the codec behind games' full-motion video).
+
+The original Hudson toolchain shipped a slow Windows-only encoder (hvqm2enc.exe). This fork replaces it with a fast, native FFmpeg encoder plus a complete container implementation, so you can produce and play .hvqm files with the standard ffmpeg/ffprobe tools on any platform.
+
+---
+ doc/decoders.texi        |   11 +
+ doc/demuxers.texi        |    8 +
+ doc/encoders.texi        |   31 +
+ doc/muxers.texi          |    9 +
+ libavcodec/Makefile      |    3 +
+ libavcodec/adpcm.c       |   24 +-
+ libavcodec/adpcmenc.c    |   51 ++
+ libavcodec/allcodecs.c   |    3 +
+ libavcodec/codec_desc.c  |    7 +
+ libavcodec/codec_id.h    |    1 +
+ libavcodec/hvqm2dec.c    |  973 ++++++++++++++++++++
+ libavcodec/hvqm2enc.c    | 1824 ++++++++++++++++++++++++++++++++++++++
+ libavformat/Makefile     |    2 +
+ libavformat/allformats.c |    2 +
+ libavformat/hvqmdec.c    |  263 ++++++
+ libavformat/hvqmenc.c    |  292 ++++++
+ 16 files changed, 3494 insertions(+), 10 deletions(-)
+ create mode 100644 libavcodec/hvqm2dec.c
+ create mode 100644 libavcodec/hvqm2enc.c
+ create mode 100644 libavformat/hvqmdec.c
+ create mode 100644 libavformat/hvqmenc.c
+
+diff --git a/doc/decoders.texi b/doc/decoders.texi
+index c8177c1..93d2dbb 100644
+--- a/doc/decoders.texi
++++ b/doc/decoders.texi
+@@ -83,6 +83,17 @@ this option.
+ 
+ @end table
+ 
++@section hvqm2
++
++Hudson HVQM2 (Hybrid Vector Quantization) video decoder, for the @code{.hvqm}
++container used on the Nintendo 64. It decodes the codec's key, predict and hold
++frames.
++
++The decoder outputs @code{rgba}: the codec's final stage is a YUV-to-RGBA
++conversion, so RGBA is its native output (this is why @command{ffprobe} reports
++@code{pix_fmt=rgba}). Insert a format/scale filter to obtain any other pixel
++format.
++
+ @section rawvideo
+ 
+ Raw video decoder.
+diff --git a/doc/demuxers.texi b/doc/demuxers.texi
+index a1dd879..3f33f23 100644
+--- a/doc/demuxers.texi
++++ b/doc/demuxers.texi
+@@ -603,6 +603,14 @@ Maximum number of times to reload a segment on error, useful when segment skip o
+ Default value is 0.
+ @end table
+ 
++@section hvqm
++Hudson HVQM2 (@code{.hvqm}) demuxer.
++
++This demuxer reads the HVQM2 1.0 container used on the Nintendo 64, exposing its
++@code{hvqm2} video stream and, when present, its mono @code{adpcm_ima_hvqm2}
++audio stream. FFmpeg ships an HVQM2 audio decoder but no HVQM2 @emph{video}
++decoder, so video packets can be identified and stream-copied but not decoded.
++
+ @section image2
+ 
+ Image file demuxer.
+diff --git a/doc/encoders.texi b/doc/encoders.texi
+index 605638e..b77a728 100644
+--- a/doc/encoders.texi
++++ b/doc/encoders.texi
+@@ -1503,6 +1503,37 @@ Default value is @option{snappy}.
+ 
+ @end table
+ 
++@section HVQM2
++
++Hudson HVQM2 (Hybrid Vector Quantization) video encoder, the codec used by the
++@code{.hvqm} container on the Nintendo 64. It accepts @code{yuv420p} ("4:1:1",
++2x2 chroma) and @code{yuv422p} input; dimensions must be multiples of 8, at
++least 144x80 and at most 640x480.
++
++@subsection Options
++
++@table @option
++@item quality @var{integer}
++Matching-pursuit threshold @var{Z} (Hudson's @code{-q}). Higher values use fewer
++Adaptive Orthogonal Transform basis vectors, giving smaller, blockier frames.
++Default is 400.
++
++@item me_range @var{integer}
++Motion-estimation search range in pixels for inter (P) frames (Hudson's
++@code{-r}), from 0 to 63. @code{0} disables motion (zero-vector only). Default
++is 32.
++
++@item scene @var{integer}
++Scene-change keyframe sensitivity (Hudson's @code{-a}), from 0 to 100. @code{0}
++makes every frame a keyframe; @code{100} never inserts a scene-change keyframe.
++In between, a keyframe is inserted when more than @var{scene} percent of the
++macroblocks are poorly motion-compensated. Default is 80.
++@end table
++
++The keyframe interval is set with the generic @option{-g} option (Hudson's
++@code{-k}); the HVQM2 default is 30. @code{-g 0} disables periodic keyframes,
++leaving only scene-change keyframes.
++
+ @section jpeg2000
+ 
+ The native jpeg 2000 encoder is lossy by default, the @code{-q:v}
+diff --git a/doc/muxers.texi b/doc/muxers.texi
+index 03f0bcd..286d8af 100644
+--- a/doc/muxers.texi
++++ b/doc/muxers.texi
+@@ -2537,6 +2537,15 @@ Ignore IO errors during open, write and delete. Useful for long-duration runs wi
+ Set custom HTTP headers, can override built in default headers. Applicable only for HTTP output.
+ @end table
+ 
++@section hvqm
++Hudson HVQM2 (@code{.hvqm}) muxer.
++
++This muxer writes the HVQM2 1.0 container used on the Nintendo 64: a big-endian
++file header followed by interleaved video and audio records. It takes one
++@code{hvqm2} video stream and, optionally, one mono @code{adpcm_ima_hvqm2} audio
++stream. The output must be seekable, as the header's record counters are
++backfilled when the trailer is written.
++
+ @section iamf
+ Immersive Audio Model and Formats (IAMF) muxer.
+ 
+diff --git a/libavcodec/Makefile b/libavcodec/Makefile
+index 95ba308..de42c0e 100644
+--- a/libavcodec/Makefile
++++ b/libavcodec/Makefile
+@@ -489,6 +489,8 @@ OBJS-$(CONFIG_HQ_HQA_DECODER)          += hq_hqa.o hq_hqadsp.o hq_common.o canop
+ OBJS-$(CONFIG_HQX_DECODER)             += hqx.o hqxdsp.o hq_common.o canopus.o
+ OBJS-$(CONFIG_HUFFYUV_DECODER)         += huffyuv.o huffyuvdec.o
+ OBJS-$(CONFIG_HUFFYUV_ENCODER)         += huffyuv.o huffyuvenc.o
++OBJS-$(CONFIG_HVQM2_DECODER)           += hvqm2dec.o
++OBJS-$(CONFIG_HVQM2_ENCODER)           += hvqm2enc.o
+ OBJS-$(CONFIG_HYMT_DECODER)            += huffyuv.o huffyuvdec.o
+ OBJS-$(CONFIG_IDCIN_DECODER)           += idcinvideo.o
+ OBJS-$(CONFIG_IDF_DECODER)             += bintext.o cga_data.o
+@@ -993,6 +995,7 @@ OBJS-$(CONFIG_ADPCM_IMA_DK4_DECODER)      += adpcm.o adpcm_data.o
+ OBJS-$(CONFIG_ADPCM_IMA_EA_EACS_DECODER)  += adpcm.o adpcm_data.o
+ OBJS-$(CONFIG_ADPCM_IMA_EA_SEAD_DECODER)  += adpcm.o adpcm_data.o
+ OBJS-$(CONFIG_ADPCM_IMA_ESCAPE_DECODER)   += adpcm.o adpcm_data.o
++OBJS-$(CONFIG_ADPCM_IMA_HVQM2_ENCODER)    += adpcmenc.o adpcm_data.o
+ OBJS-$(CONFIG_ADPCM_IMA_HVQM2_DECODER)    += adpcm.o adpcm_data.o
+ OBJS-$(CONFIG_ADPCM_IMA_HVQM4_DECODER)    += adpcm.o adpcm_data.o
+ OBJS-$(CONFIG_ADPCM_IMA_ISS_DECODER)      += adpcm.o adpcm_data.o
+diff --git a/libavcodec/adpcm.c b/libavcodec/adpcm.c
+index 74af2cb..eb75e6a 100644
+--- a/libavcodec/adpcm.c
++++ b/libavcodec/adpcm.c
+@@ -588,17 +588,15 @@ static void decode_adpcm_ima_hvqm2(AVCodecContext *avctx, int16_t *outbuf, int s
+     uint8_t nibble;
+ 
+     for (int ch = 0; ch < avctx->ch_layout.nb_channels; ch++) {
+-        unsigned tmp;
+-
+         switch (frame_format) {
+-        case 0: /* combined hist+index */
+-            tmp = bytestream2_get_be16(gb);
+-            c->status[ch].predictor  = sign_extend(tmp & 0xFF80, 16);
+-            c->status[ch].step_index = tmp & 0x7f;
+-            *outbuf++ = c->status[ch].predictor;
+-            samples_to_do--;
++        case 0: /* key record: separate predictor + step_index preamble, each BE16
++                 * (real HVQM2 1.0 layout, as produced by Hudson's encoder and our
++                 * muxer; cold start is 0x00000000). The preamble carries state only —
++                 * it does NOT emit a sample; every nb_samples value is nibble-coded. */
++            c->status[ch].predictor  = sign_extend(bytestream2_get_be16(gb), 16);
++            c->status[ch].step_index = bytestream2_get_be16(gb);
+             break;
+-        default:
++        default: /* continuation record: ADPCM state carries over from the previous one */
+             break;
+         }
+ 
+@@ -1889,8 +1887,14 @@ static int adpcm_decode_frame(AVCodecContext *avctx, AVFrame *frame,
+         ) /* End of CASE */
+     CASE(ADPCM_IMA_HVQM2,
+         int format = bytestream2_get_be16(&gb);
++        /* mono only: format 0 carries a 4-byte predictor+step preamble, then nb_samples
++         * nibbles (ceil(N/2) bytes). Reject a packet too short for that, so a corrupt
++         * record can't silently decode fabricated zero samples. */
++        int need = (format == 0 ? 4 : 0) + (nb_samples + 1) / 2;
+ 
+-        bytestream2_skip(&gb, 4);
++        bytestream2_skip(&gb, 4);                  /* [reserved][nb_samples] */
++        if (bytestream2_get_bytes_left(&gb) < need)
++            return AVERROR_INVALIDDATA;
+         decode_adpcm_ima_hvqm2(avctx, samples, nb_samples, format, &gb);
+         ) /* End of CASE */
+     CASE(ADPCM_IMA_HVQM4,
+diff --git a/libavcodec/adpcmenc.c b/libavcodec/adpcmenc.c
+index cd6b330..b779879 100644
+--- a/libavcodec/adpcmenc.c
++++ b/libavcodec/adpcmenc.c
+@@ -69,6 +69,7 @@ typedef struct TrellisNode {
+ typedef struct ADPCMEncodeContext {
+     AVClass *class;
+     int block_size;
++    int hvqm2_started;          /* HVQM2: first audio record (format 0) already written */
+ 
+     ADPCMChannelStatus status[6];
+     TrellisPath *paths;
+@@ -141,6 +142,16 @@ static av_cold int adpcm_encode_init(AVCodecContext *avctx)
+         avctx->frame_size  = 64;
+         avctx->block_align = 34 * channels;
+         ) /* End of CASE */
++    CASE(ADPCM_IMA_HVQM2,
++        if (channels != 1) {
++            av_log(avctx, AV_LOG_ERROR, "HVQM2 ADPCM is mono only\n");
++            return AVERROR(EINVAL);
++        }
++        avctx->frame_size  = s->block_size;                  /* samples per audio record */
++        avctx->block_align = 10 + (s->block_size + 1) / 2;   /* max packet: 6B record header
++                                                              * + 4B fmt-0 preamble + nibbles */
++        s->hvqm2_started   = 0;
++        ) /* End of CASE */
+     CASE(ADPCM_MS,
+         uint8_t *extradata;
+         /* each 16 bits sample gives one nibble
+@@ -601,6 +612,10 @@ static int adpcm_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
+         pkt_size = (frame->nb_samples * channels + 1) / 2;
+     } else if (avctx->codec_id == AV_CODEC_ID_ADPCM_IMA_SMJPEG) {
+         pkt_size = 4 * channels + ((frame->nb_samples - channels) * channels + 1) / 2;
++    } else if (avctx->codec_id == AV_CODEC_ID_ADPCM_IMA_HVQM2)
++        /* 6-byte record header [format][reserved][nb_samples] + fmt-0 4B state preamble
++         * (first record only) + ceil(N/2) nibble bytes. */
++        pkt_size = 6 + (c->hvqm2_started ? 0 : 4) + (frame->nb_samples + 1) / 2;
+     } else {
+         pkt_size = avctx->block_align;
+     }
+@@ -681,6 +696,41 @@ static int adpcm_encode_frame(AVCodecContext *avctx, AVPacket *avpkt,
+ 
+         flush_put_bits(&pb);
+         ) /* End of CASE */
++    CASE(ADPCM_IMA_HVQM2,
++        /* Mono IMA-QT ADPCM. Each packet is one self-describing .hvqm audio record:
++         * a 6-byte header [format u16][reserved u16 = 0][nb_samples u16] followed by the
++         * body. format 0 (the first record) carries a 4-byte state preamble (initial
++         * predictor BE16 + step_index BE16, both 0 at a cold start) ahead of the nibbles;
++         * format 1 records are pure continuation nibbles. Nibbles in sample order:
++         * even -> high, odd -> low. The muxer lifts the format word into the 8-byte record
++         * header and writes the rest of the body verbatim (so demux + remux round-trip). */
++        ADPCMChannelStatus *status = &c->status[0];
++        uint8_t *p = dst;
++        int parity = 0;
++        uint8_t cur = 0;
++        int first  = !c->hvqm2_started;
++        if (frame->nb_samples > UINT16_MAX) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "HVQM2 audio record of %d samples exceeds 65535.\n", frame->nb_samples);
++            return AVERROR(EINVAL);
++        }
++        bytestream_put_be16(&p, first ? 0 : 1);          /* record format: 0 = key, 1 = cont */
++        bytestream_put_be16(&p, 0);                      /* reserved (always 0) */
++        bytestream_put_be16(&p, frame->nb_samples);      /* samples in this record */
++        if (first) {
++            bytestream_put_be16(&p, status->prev_sample & 0xFFFF);   /* initial predictor */
++            bytestream_put_be16(&p, status->step_index  & 0xFFFF);   /* initial step index */
++            c->hvqm2_started = 1;
++            avpkt->flags |= AV_PKT_FLAG_KEY;             /* also flag the record as a sync point */
++        }
++        for (int i = 0; i < frame->nb_samples; i++) {
++            int nib = adpcm_ima_qt_compress_sample(status, samples[i]);
++            if (!parity) cur = nib << 4;
++            else         *p++ = cur | nib;
++            parity ^= 1;
++        }
++        if (parity) *p++ = cur;                          /* trailing high nibble, low = 0 */
++        ) /* End of CASE */
+     CASE(ADPCM_IMA_SSI,
+         PutBitContext pb;
+         init_put_bits(&pb, dst, pkt_size);
+@@ -1013,6 +1063,7 @@ ADPCM_ENCODER(ADPCM_IMA_AMV, adpcm_ima_amv, sample_fmts,   0,
+ ADPCM_ENCODER(ADPCM_IMA_APM, adpcm_ima_apm, sample_fmts,   AV_CODEC_CAP_SMALL_LAST_FRAME, "ADPCM IMA Ubisoft APM",                  MONO_STEREO, AVCLASS)
+ ADPCM_ENCODER(ADPCM_IMA_ALP, adpcm_ima_alp, sample_fmts,   AV_CODEC_CAP_SMALL_LAST_FRAME, "ADPCM IMA High Voltage Software ALP",    MONO_STEREO, AVCLASS)
+ ADPCM_ENCODER(ADPCM_IMA_QT,  adpcm_ima_qt,  sample_fmts_p, 0,                             "ADPCM IMA QuickTime",                    MONO_STEREO)
++ADPCM_ENCODER(ADPCM_IMA_HVQM2, adpcm_ima_hvqm2, sample_fmts, AV_CODEC_CAP_SMALL_LAST_FRAME, "ADPCM IMA HVQM2",                      CODEC_CH_LAYOUTS(AV_CHANNEL_LAYOUT_MONO), AVCLASS)
+ ADPCM_ENCODER(ADPCM_IMA_SSI, adpcm_ima_ssi, sample_fmts,   AV_CODEC_CAP_SMALL_LAST_FRAME, "ADPCM IMA Simon & Schuster Interactive", MONO_STEREO, AVCLASS)
+ ADPCM_ENCODER(ADPCM_IMA_WAV, adpcm_ima_wav, sample_fmts_p, 0,                             "ADPCM IMA WAV",                          MONO_STEREO, AVCLASS)
+ ADPCM_ENCODER(ADPCM_IMA_WS,  adpcm_ima_ws,  sample_fmts,   AV_CODEC_CAP_SMALL_LAST_FRAME, "ADPCM IMA Westwood",                     MONO_STEREO, AVCLASS)
+diff --git a/libavcodec/allcodecs.c b/libavcodec/allcodecs.c
+index 47eded2..0dc7d82 100644
+--- a/libavcodec/allcodecs.c
++++ b/libavcodec/allcodecs.c
+@@ -166,6 +166,8 @@ extern const FFCodec ff_hnm4_video_decoder;
+ extern const FFCodec ff_hq_hqa_decoder;
+ extern const FFCodec ff_hqx_decoder;
+ extern const FFCodec ff_huffyuv_encoder;
++extern const FFCodec ff_hvqm2_decoder;
++extern const FFCodec ff_hvqm2_encoder;
+ extern const FFCodec ff_huffyuv_decoder;
+ extern const FFCodec ff_hymt_decoder;
+ extern const FFCodec ff_idcin_decoder;
+@@ -671,6 +673,7 @@ extern const FFCodec ff_adpcm_ima_dk4_decoder;
+ extern const FFCodec ff_adpcm_ima_ea_eacs_decoder;
+ extern const FFCodec ff_adpcm_ima_ea_sead_decoder;
+ extern const FFCodec ff_adpcm_ima_escape_decoder;
++extern const FFCodec ff_adpcm_ima_hvqm2_encoder;
+ extern const FFCodec ff_adpcm_ima_hvqm2_decoder;
+ extern const FFCodec ff_adpcm_ima_hvqm4_decoder;
+ extern const FFCodec ff_adpcm_ima_iss_decoder;
+diff --git a/libavcodec/codec_desc.c b/libavcodec/codec_desc.c
+index 81c095b..bd874d0 100644
+--- a/libavcodec/codec_desc.c
++++ b/libavcodec/codec_desc.c
+@@ -3839,6 +3839,13 @@ static const AVCodecDescriptor codec_descriptors[] = {
+         .name      = "smpte_436m_anc",
+         .long_name = NULL_IF_CONFIG_SMALL("MXF SMPTE-436M ANC"),
+     },
++    {
++        .id        = AV_CODEC_ID_HVQM2,
++        .type      = AVMEDIA_TYPE_VIDEO,
++        .name      = "hvqm2",
++        .long_name = NULL_IF_CONFIG_SMALL("Hudson HVQM2 VQ video"),
++        .props     = AV_CODEC_PROP_LOSSY,
++    },
+     {
+         .id        = AV_CODEC_ID_ITUT_T35,
+         .type      = AVMEDIA_TYPE_DATA,
+diff --git a/libavcodec/codec_id.h b/libavcodec/codec_id.h
+index 668a068..9e1c9df 100644
+--- a/libavcodec/codec_id.h
++++ b/libavcodec/codec_id.h
+@@ -607,6 +607,7 @@ enum AVCodecID {
+     AV_CODEC_ID_LCEVC,
+     AV_CODEC_ID_SMPTE_436M_ANC,
+     AV_CODEC_ID_ITUT_T35,
++    AV_CODEC_ID_HVQM2,
+ 
+ 
+     AV_CODEC_ID_PROBE = 0x19000, ///< codec_id is not known (like AV_CODEC_ID_NONE) but lavf should attempt to identify it
+diff --git a/libavcodec/hvqm2dec.c b/libavcodec/hvqm2dec.c
+new file mode 100644
+index 0000000..2a36540
+--- /dev/null
++++ b/libavcodec/hvqm2dec.c
+@@ -0,0 +1,973 @@
++/*
++ * Hudson HVQM2 (Hybrid Vector Quantization) video decoder
++ *
++ * Copyright (c) 2026 FFmpeg HVQM2 port
++ * Derived from Tilka's reference HVQM2 decoder (MIT licensed); the VQ/AOT
++ * reconstruction math is reproduced bit-for-bit so output matches that decoder.
++ *
++ * This file is part of FFmpeg.
++ *
++ * FFmpeg is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * FFmpeg is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with FFmpeg; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ */
++
++/**
++ * @file
++ * Hudson HVQM2 1.0 (N64) video decoder.
++ *
++ * Decodes the VQ frames of the .hvqm container (key / predict / hold) to RGBA.
++ * The codec's display stage is YUV->RGBA (yuv2rgba), so RGBA is the native
++ * decoded output; the intermediate YUV is never exposed. The demuxer
++ * (libavformat/hvqmdec.c) feeds one record body per packet and signals the
++ * frame type via AV_PKT_FLAG_KEY (keyframe), pkt->size == 0 (hold), else predict.
++ *
++ * Profile (y_shiftnum, video_quantize_shift) arrives as 2-byte extradata; the
++ * 60-byte file header is parsed by the demuxer, not here.
++ */
++
++#include "libavutil/intreadwrite.h"
++#include "libavutil/mem.h"
++#include "avcodec.h"
++#include "codec_internal.h"
++#include "decode.h"
++
++#define HVQM2_KEYFRAME 0
++#define HVQM2_PREDICT  1
++#define HVQM2_HOLD     2
++/* A keyframe/predict body begins with the 52-byte HVQM2Frame offset table, so any
++ * video packet smaller than that is a HOLD marker (the demuxer emits 1 byte). */
++#define HVQM2_FRAME_MIN 52
++
++#define HVQM2_NEST_L   70
++#define HVQM2_NEST_S   38
++#define HVQM2_NESTSIZE (HVQM2_NEST_L * HVQM2_NEST_S)   /* 2660 */
++
++typedef struct HVQM2Tree {
++    int16_t  root;
++    uint16_t array[2][0x200];
++} HVQM2Tree;
++
++/* Bit reader: reads 32 big-endian bits at a time, MSB first (matches the
++ * reference decoder). Reads past `end` yield zero bits. */
++typedef struct HVQM2BitBuf {
++    uint32_t       bit;
++    uint32_t       value;
++    const uint8_t *pos;
++    const uint8_t *end;
++} HVQM2BitBuf;
++
++/* Per-plane "weight code" walk state (basis/DC of the block grid). */
++typedef struct RWcode {
++    uint8_t *basis_prev_line, *dcbuf_prev_line;
++    uint8_t *basis_curr_line, *dcbuf_curr_line;
++    uint8_t *basis_next_line, *dcbuf_next_line;
++    uint8_t  basis_next, dcbuf_next, basis_curr, dcbuf_curr, dcbuf_prev;
++} RWcode;
++
++typedef struct HVQM2DecContext {
++    int im_width, im_height, fb_width;
++    int mcu411;                       /* 1 = 4:1:1 (yuv420p), 0 = 4:2:2 (yuv422p) */
++    int mcu_h_pix, mcu_v_pix, next_macroblk_line;
++    int lum_hblocks, lum_vblocks, lum_total;
++    int col_hblocks, col_vblocks, col_total;
++    int nest_w, nest_h;
++    uint8_t  yshift, video_quantize_shift, pix_alpha;
++    int16_t  dc_min, dc_max;
++    uint32_t divT[0x200];
++
++    HVQM2BitBuf macroblock_buf, movevector_buf;
++    HVQM2BitBuf basisnum_buf[2], basisnumrun_buf[2];
++    HVQM2BitBuf scale_buf[3], dcval_buf[3], dcrun_buf[3];
++    const uint8_t *fixvl[3];
++    const uint8_t *body_end;
++
++    HVQM2Tree dcval_tree, basisnum_tree, basisnumrun_tree, scale_tree, movevector_tree;
++    uint16_t  huff_nodeno;
++
++    uint8_t  *workbuf;                /* 2*lum_total + 4*col_total */
++    uint8_t  *basis[3], *dcbuf[3];
++    uint8_t   nest[HVQM2_NESTSIZE];
++
++    RWcode    u_wcode, v_wcode, y0wcode, y1wcode;
++    uint16_t  pix_y[4][16], pix_u[16], pix_v[16];
++
++    uint32_t *fb[2];                  /* RGBA framebuffers, fb_width*height */
++    int       fb_idx;
++    int       have_prev;
++} HVQM2DecContext;
++
++/* ---- bit / huffman primitives (reference: getBit/getByte/readHuffTree/...) ---- */
++
++static unsigned hvqm2_get_bit(HVQM2BitBuf *b)
++{
++    unsigned bit = b->bit;
++    if (bit == 0) {
++        if (b->pos && b->pos + 4 <= b->end) {
++            b->value = AV_RB32(b->pos);
++            b->pos  += 4;
++        } else {
++            b->value = 0;
++        }
++        bit = 0x80000000u;
++    }
++    b->bit = bit >> 1;
++    return (b->value & bit) ? 1 : 0;
++}
++
++static unsigned hvqm2_get_byte(HVQM2BitBuf *b)
++{
++    unsigned result = 0;
++    for (int i = 7; i >= 0; --i)
++        result |= hvqm2_get_bit(b) << i;
++    return result;
++}
++
++static int16_t hvqm2_read_huff_tree(HVQM2DecContext *s, HVQM2BitBuf *src, HVQM2Tree *dst)
++{
++    if (hvqm2_get_bit(src) == 0)
++        return hvqm2_get_byte(src);                  /* leaf */
++    /* internal node; cap node count to the array bound to stay in-buffer */
++    if (s->huff_nodeno >= 0x200)
++        return 0;
++    int16_t pos = s->huff_nodeno++;
++    dst->array[0][pos] = hvqm2_read_huff_tree(s, src, dst);
++    dst->array[1][pos] = hvqm2_read_huff_tree(s, src, dst);
++    return pos;
++}
++
++static void hvqm2_set_code(HVQM2DecContext *s, HVQM2BitBuf *b, const uint8_t *p)
++{
++    uint32_t size = (p && p + 4 <= s->body_end) ? AV_RB32(p) : 0;
++    b->pos = size ? p + 4 : NULL;
++    b->bit = 0;
++    b->end = s->body_end;
++}
++
++static void hvqm2_read_tree(HVQM2DecContext *s, HVQM2BitBuf *b, HVQM2Tree *tree)
++{
++    s->huff_nodeno = 0x100;
++    if (b->pos)
++        tree->root = hvqm2_read_huff_tree(s, b, tree);
++}
++
++static int16_t hvqm2_decode_huff(HVQM2BitBuf *b, HVQM2Tree *tree)
++{
++    int16_t pos = tree->root;
++    while (pos >= 0x100)
++        pos = tree->array[hvqm2_get_bit(b)][pos];
++    return pos;
++}
++
++static int16_t hvqm2_decode_huff2(HVQM2BitBuf *b, HVQM2Tree *tree)
++{
++    int16_t pos = hvqm2_decode_huff(b, tree);
++    return tree->array[0][pos];
++}
++
++static int16_t hvqm2_decode_dc(HVQM2DecContext *s, HVQM2BitBuf *b)
++{
++    int16_t value = hvqm2_decode_huff2(b, &s->dcval_tree);
++    int16_t sum = value;
++    if (value == s->dc_min || value == s->dc_max) {
++        /* Bound the escape chain: on an exhausted/hostile stream decode_huff2 can
++         * keep returning a sentinel forever. Valid chains are a handful of symbols;
++         * 4096 is far beyond that and stops the hang. */
++        int guard = 4096;
++        do {
++            value = hvqm2_decode_huff2(b, &s->dcval_tree);
++            sum  += value;
++        } while ((value <= s->dc_min || value >= s->dc_max) && --guard > 0);
++    }
++    return sum;
++}
++
++static uint8_t hvqm2_get_delta_bn(HVQM2DecContext *s, uint8_t *rle,
++                                  HVQM2BitBuf *val_buf, HVQM2BitBuf *rle_buf)
++{
++    if (*rle) {
++        --*rle;
++        return 0;
++    }
++    uint8_t value = hvqm2_decode_huff(val_buf, &s->basisnum_tree);
++    if (value == 0)
++        *rle = hvqm2_decode_huff(rle_buf, &s->basisnumrun_tree);
++    return value;
++}
++
++/* ---- block reconstruction (reference: WeightImBlock / decBlockCPU) ---- */
++
++static void hvqm2_weight_block(uint16_t *pix, uint8_t curr, uint8_t top,
++                               uint8_t bottom, uint8_t left, uint8_t right)
++{
++    uint32_t tmb = top - bottom;
++    uint32_t lmr = left - right;
++    uint32_t vph = tmb + lmr;
++    uint32_t vmh = tmb - lmr;
++    uint32_t c2  = curr * 2;
++    uint32_t c8  = (curr * 8) + 4;
++
++    uint32_t tpl = top + left  - c2;
++    uint32_t tpr = top + right - c2;
++    uint32_t bpr = bottom + right - c2;
++    uint32_t bpl = bottom + left  - c2;
++
++    uint32_t tml = top - left;
++    uint32_t tmr = top - right;
++    uint32_t bmr = bottom - right;
++    uint32_t bml = bottom - left;
++
++    pix[0]  = (c8 + vph + tpl) / 8;
++    pix[1]  = (c8 + vph + tml) / 8;
++    pix[2]  = (c8 + vmh + tmr) / 8;
++    pix[3]  = (c8 + vmh + tpr) / 8;
++    pix[4]  = (c8 + vph - tml) / 8;
++    pix[5]  = (c8 - bpr)       / 8;
++    pix[6]  = (c8 - bpl)       / 8;
++    pix[7]  = (c8 + vmh - tmr) / 8;
++    pix[8]  = (c8 - vmh - bml) / 8;
++    pix[9]  = (c8 - tpr)       / 8;
++    pix[10] = (c8 - tpl)       / 8;
++    pix[11] = (c8 - vph - bmr) / 8;
++    pix[12] = (c8 - vmh + bpl) / 8;
++    pix[13] = (c8 - vmh + bml) / 8;
++    pix[14] = (c8 - vph + bmr) / 8;
++    pix[15] = (c8 - vph + bpr) / 8;
++}
++
++static unsigned hvqm2_fixvl16(HVQM2DecContext *s, int plane)
++{
++    const uint8_t *p = s->fixvl[plane];
++    unsigned v = (p + 2 <= s->body_end) ? AV_RB16(p) : 0;
++    s->fixvl[plane] = p + 2;
++    return v;
++}
++
++static void hvqm2_dec_block(HVQM2DecContext *s, uint16_t *pix, RWcode *w, int plane)
++{
++    if (w->basis_curr == 0) {
++        uint8_t curr   =  w->dcbuf_curr;
++        uint8_t right  =  w->basis_next      == 0 ?  w->dcbuf_next      : curr;
++        uint8_t top    = *w->basis_prev_line == 0 ? *w->dcbuf_prev_line : curr;
++        uint8_t bottom = *w->basis_next_line == 0 ? *w->dcbuf_next_line : curr;
++        uint8_t left   =  w->dcbuf_prev;
++        hvqm2_weight_block(pix, curr, top, bottom, left, right);
++        w->dcbuf_prev = w->dcbuf_curr;
++    } else if (w->basis_curr == 8) {
++        const uint8_t *src = s->fixvl[plane];
++        for (int i = 0; i < 16; ++i)
++            pix[i] = (src + i < s->body_end) ? src[i] : 0;
++        s->fixvl[plane] += 16;
++        w->dcbuf_prev = w->dcbuf_next;
++    } else {
++        for (int i = 0; i < 16; ++i)
++            pix[i] = w->dcbuf_curr;
++        for (int i = 0; i < w->basis_curr; ++i) {
++            unsigned bits = hvqm2_fixvl16(s, plane);
++            unsigned x_stride = ((bits >> 0) & 1) + 1;
++            unsigned y_stride = ((bits >> 1) & 1) + 1;
++            unsigned nest_pos_x, nest_pos_y;
++            if (s->yshift == 8) {                    /* landscape nest */
++                nest_pos_y = (bits >> 8) & 0x1F;
++                nest_pos_x = (bits >> 2) & 0x3F;
++            } else {                                 /* portrait nest */
++                nest_pos_y = (bits >> 7) & 0x3F;
++                nest_pos_x = (bits >> 2) & 0x1F;
++            }
++            int16_t tmp[4][4];
++            const uint8_t *nest = s->nest + nest_pos_y * s->nest_w + nest_pos_x;
++            int32_t sum = 0;
++            for (int y = 0; y < 4; ++y)
++                for (int x = 0; x < 4; ++x) {
++                    uint8_t nv = nest[y * y_stride * s->nest_w + x * x_stride];
++                    tmp[y][x] = nv;
++                    sum += nv;
++                }
++            int32_t mean = (sum + 8) >> 4;
++            int16_t max = -1;
++            for (int y = 0; y < 4; ++y)
++                for (int x = 0; x < 4; ++x) {
++                    tmp[y][x] -= mean;
++                    int16_t v = tmp[y][x] < 0 ? -tmp[y][x] : tmp[y][x];
++                    if (max < v)
++                        max = v;
++                }
++            if (max < 0)                             /* flat patch contributes 0 either way */
++                max = 0;
++            int32_t beta_q = (bits >> 13) & 7;
++            int32_t scale  = hvqm2_decode_huff2(&s->scale_buf[plane], &s->scale_tree);
++            int32_t div    = s->divT[max];
++            int32_t bar    = (beta_q + scale) * div;
++            for (int y = 0; y < 4; ++y)
++                for (int x = 0; x < 4; ++x)
++                    pix[y * 4 + x] += (tmp[y][x] * bar + 512) >> 10;
++        }
++        w->dcbuf_prev = w->dcbuf_next;
++    }
++    w->basis_prev_line++;
++    w->dcbuf_prev_line++;
++    w->basis_next_line++;
++    w->dcbuf_next_line++;
++}
++
++/* ---- colour conversion (reference: yuv2rgba / ColorConv411|422) ---- */
++
++static uint32_t hvqm2_yuv2rgba(int16_t y, int16_t u, int16_t v, uint8_t a)
++{
++    u -= 128;
++    v -= 128;
++    int32_t y6  = y << 6;
++    int16_t r16 = 0x4020 + v * 90;
++    int16_t g16 = 0x4020 - v * 46 - u * 22;
++    int16_t b16 = 0x4020 + u * 113;
++    int32_t rr  = (y6 + r16) >> 6;
++    int32_t gg  = (y6 + g16) >> 6;
++    int32_t bb  = (y6 + b16) >> 6;
++    rr -= 0x100; gg -= 0x100; bb -= 0x100;
++    uint8_t r = rr < 0 ? 0 : rr > 0xff ? 0xff : rr;
++    uint8_t g = gg < 0 ? 0 : gg > 0xff ? 0xff : gg;
++    uint8_t b = bb < 0 ? 0 : bb > 0xff ? 0xff : bb;
++    return (uint32_t)a << 24 | (uint32_t)b << 16 | (uint32_t)g << 8 | r;
++}
++
++static void hvqm2_color_conv_422(HVQM2DecContext *s, uint32_t *outbuf,
++                                 const uint16_t *py, const uint16_t *pu, const uint16_t *pv)
++{
++    const uint16_t *y0 = py, *y1 = py + 16;
++    uint8_t a = s->pix_alpha;
++    for (int i = 0; i < 4; ++i) {
++        uint32_t *out = outbuf;
++        for (int j = 0; j < 2; ++j) {
++            *out++ = hvqm2_yuv2rgba(*y0++, *pu,   *pv,   a);
++            *out++ = hvqm2_yuv2rgba(*y0++, *pu++, *pv++, a);
++        }
++        for (int j = 0; j < 2; ++j) {
++            *out++ = hvqm2_yuv2rgba(*y1++, *pu,   *pv,   a);
++            *out++ = hvqm2_yuv2rgba(*y1++, *pu++, *pv++, a);
++        }
++        outbuf += s->fb_width;
++    }
++}
++
++static void hvqm2_color_conv_411(HVQM2DecContext *s, uint32_t *outbuf,
++                                 const uint16_t *py, const uint16_t *pu, const uint16_t *pv)
++{
++    const uint16_t *y0 = py, *y1 = py + 16;
++    uint8_t a = s->pix_alpha;
++    for (int k = 0; k < 2; ++k) {
++        for (int i = 0; i < 2; ++i) {
++            for (int n = 0; n < 2; ++n) {
++                uint32_t *out = outbuf;
++                const uint16_t *u = pu, *v = pv;
++                for (int j = 0; j < 2; ++j) {
++                    *out++ = hvqm2_yuv2rgba(*y0++, *u,   *v,   a);
++                    *out++ = hvqm2_yuv2rgba(*y0++, *u++, *v++, a);
++                }
++                for (int j = 0; j < 2; ++j) {
++                    *out++ = hvqm2_yuv2rgba(*y1++, *u,   *v,   a);
++                    *out++ = hvqm2_yuv2rgba(*y1++, *u++, *v++, a);
++                }
++                outbuf += s->fb_width;
++            }
++            pu += 4;
++            pv += 4;
++        }
++        y0 += 16;
++        y1 += 16;
++    }
++}
++
++static void hvqm2_color_conv(HVQM2DecContext *s, uint32_t *outbuf,
++                             const uint16_t *py, const uint16_t *pu, const uint16_t *pv)
++{
++    if (s->mcu411)
++        hvqm2_color_conv_411(s, outbuf, py, pu, pv);
++    else
++        hvqm2_color_conv_422(s, outbuf, py, pu, pv);
++}
++
++/* ---- per-line / per-frame walk (reference: advance_wcode/update_wcode/decLine/decFrame) ---- */
++
++static void hvqm2_advance_wcode(RWcode *w, int amount)
++{
++    w->basis_prev_line += amount; w->dcbuf_prev_line += amount;
++    w->basis_curr_line += amount; w->dcbuf_curr_line += amount;
++    w->basis_next_line += amount; w->dcbuf_next_line += amount;
++}
++
++static void hvqm2_update_wcode(RWcode *w)
++{
++    w->basis_curr = w->basis_next;
++    w->dcbuf_curr = w->dcbuf_next;
++    w->basis_curr_line++;
++    w->dcbuf_curr_line++;
++    w->basis_next = *w->basis_curr_line;
++    w->dcbuf_next = *w->dcbuf_curr_line;
++}
++
++static void hvqm2_dec_line(HVQM2DecContext *s, uint32_t *outbuf)
++{
++    RWcode *y0 = &s->y0wcode, *y1 = &s->y1wcode, *u = &s->u_wcode, *v = &s->v_wcode;
++
++    u->basis_next = *u->basis_curr_line; u->dcbuf_prev = *u->dcbuf_curr_line; u->dcbuf_next = *u->dcbuf_curr_line;
++    v->basis_next = *v->basis_curr_line; v->dcbuf_prev = *v->dcbuf_curr_line; v->dcbuf_next = *v->dcbuf_curr_line;
++    y0->basis_next = *y0->basis_curr_line; y0->dcbuf_prev = *y0->dcbuf_curr_line; y0->dcbuf_next = *y0->dcbuf_curr_line;
++    if (s->mcu411) {
++        y1->basis_next = *y1->basis_curr_line; y1->dcbuf_prev = *y1->dcbuf_curr_line; y1->dcbuf_next = *y1->dcbuf_curr_line;
++    }
++
++    for (int i = 0; i < s->col_hblocks - 1; ++i) {
++        if (y0->basis_next == 0x80) {
++            hvqm2_advance_wcode(y0, 2);
++            y0->basis_next = *y0->basis_curr_line; y0->dcbuf_prev = *y0->dcbuf_curr_line; y0->dcbuf_next = *y0->dcbuf_curr_line;
++            if (s->mcu411) {
++                hvqm2_advance_wcode(y1, 2);
++                y1->basis_next = *y1->basis_curr_line; y1->dcbuf_prev = *y1->dcbuf_curr_line; y1->dcbuf_next = *y1->dcbuf_curr_line;
++            }
++            hvqm2_advance_wcode(u, 1);
++            u->basis_next = *u->basis_curr_line; u->dcbuf_prev = *u->dcbuf_curr_line; u->dcbuf_next = *u->dcbuf_curr_line;
++            hvqm2_advance_wcode(v, 1);
++            v->basis_next = *v->basis_curr_line; v->dcbuf_prev = *v->dcbuf_curr_line; v->dcbuf_next = *v->dcbuf_curr_line;
++        } else {
++            hvqm2_update_wcode(y0); hvqm2_dec_block(s, s->pix_y[0], y0, 0);
++            hvqm2_update_wcode(y0); hvqm2_dec_block(s, s->pix_y[1], y0, 0);
++            if (s->mcu411) {
++                hvqm2_update_wcode(y1); hvqm2_dec_block(s, s->pix_y[2], y1, 0);
++                hvqm2_update_wcode(y1); hvqm2_dec_block(s, s->pix_y[3], y1, 0);
++            }
++            hvqm2_update_wcode(u); hvqm2_dec_block(s, s->pix_u, u, 1);
++            hvqm2_update_wcode(v); hvqm2_dec_block(s, s->pix_v, v, 2);
++            hvqm2_color_conv(s, outbuf, s->pix_y[0], s->pix_u, s->pix_v);
++        }
++        outbuf += s->mcu_h_pix;
++    }
++
++    /* last column: next == curr */
++    if (y0->basis_next == 0x80) {
++        hvqm2_advance_wcode(y0, 2);
++        if (s->mcu411) hvqm2_advance_wcode(y1, 2);
++        hvqm2_advance_wcode(u, 1);
++        hvqm2_advance_wcode(v, 1);
++    } else {
++        hvqm2_update_wcode(y0); hvqm2_dec_block(s, s->pix_y[0], y0, 0);
++        y0->basis_curr = y0->basis_next; y0->dcbuf_curr = y0->dcbuf_next;
++        y0->basis_curr_line++; y0->dcbuf_curr_line++;
++        hvqm2_dec_block(s, s->pix_y[1], y0, 0);
++        if (s->mcu411) {
++            hvqm2_update_wcode(y1); hvqm2_dec_block(s, s->pix_y[2], y1, 0);
++            y1->basis_curr = y1->basis_next; y1->dcbuf_curr = y1->dcbuf_next;
++            y1->basis_curr_line++; y1->dcbuf_curr_line++;
++            hvqm2_dec_block(s, s->pix_y[3], y1, 0);
++        }
++        u->basis_curr = u->basis_next; u->dcbuf_curr = u->dcbuf_next;
++        u->basis_curr_line++; u->dcbuf_curr_line++;
++        hvqm2_dec_block(s, s->pix_u, u, 1);
++        v->basis_curr = v->basis_next; v->dcbuf_curr = v->dcbuf_next;
++        v->basis_curr_line++; v->dcbuf_curr_line++;
++        hvqm2_dec_block(s, s->pix_v, v, 2);
++        hvqm2_color_conv(s, outbuf, s->pix_y[0], s->pix_u, s->pix_v);
++    }
++}
++
++static void hvqm2_dec_frame(HVQM2DecContext *s, uint32_t *outbuf)
++{
++    RWcode *y0 = &s->y0wcode, *y1 = &s->y1wcode, *u = &s->u_wcode, *v = &s->v_wcode;
++    uint8_t *b0 = s->basis[0], *d0 = s->dcbuf[0];
++    uint8_t *b1 = s->basis[1], *d1 = s->dcbuf[1];
++    uint8_t *b2 = s->basis[2], *d2 = s->dcbuf[2];
++
++    u->basis_prev_line = b1; u->dcbuf_prev_line = d1; u->basis_curr_line = b1; u->dcbuf_curr_line = d1;
++    u->basis_next_line = b1 + s->col_hblocks; u->dcbuf_next_line = d1 + s->col_hblocks;
++    v->basis_prev_line = b2; v->dcbuf_prev_line = d2; v->basis_curr_line = b2; v->dcbuf_curr_line = d2;
++    v->basis_next_line = b2 + s->col_hblocks; v->dcbuf_next_line = d2 + s->col_hblocks;
++    y0->basis_prev_line = b0; y0->dcbuf_prev_line = d0; y0->basis_curr_line = b0; y0->dcbuf_curr_line = d0;
++    y0->basis_next_line = b0 + s->lum_hblocks; y0->dcbuf_next_line = d0 + s->lum_hblocks;
++    if (s->mcu411) {
++        y1->basis_prev_line = b0; y1->dcbuf_prev_line = d0;
++        y1->basis_curr_line = b0 + s->lum_hblocks; y1->dcbuf_curr_line = d0 + s->lum_hblocks;
++        y1->basis_next_line = b0 + 2 * s->lum_hblocks; y1->dcbuf_next_line = d0 + 2 * s->lum_hblocks;
++    }
++    hvqm2_dec_line(s, outbuf);
++
++    outbuf += s->mcu_v_pix;
++    u->basis_prev_line = b1; u->dcbuf_prev_line = d1;
++    v->basis_prev_line = b2; v->dcbuf_prev_line = d2;
++    if (s->mcu411) {
++        y0->basis_curr_line += s->lum_hblocks; y0->dcbuf_curr_line += s->lum_hblocks;
++        y0->basis_next_line += s->lum_hblocks; y0->dcbuf_next_line += s->lum_hblocks;
++        hvqm2_advance_wcode(y1, s->lum_hblocks);
++    } else {
++        y0->basis_prev_line = b0; y0->dcbuf_prev_line = d0;
++    }
++
++    for (int line = 1; line < s->col_vblocks - 1; ++line) {
++        hvqm2_dec_line(s, outbuf);
++        outbuf += s->mcu_v_pix;
++        if (s->mcu411) {
++            hvqm2_advance_wcode(y0, s->lum_hblocks);
++            hvqm2_advance_wcode(y1, s->lum_hblocks);
++        }
++    }
++
++    /* last line: next == curr */
++    u->basis_next_line = u->basis_curr_line; u->dcbuf_next_line = u->dcbuf_curr_line;
++    v->basis_next_line = v->basis_curr_line; v->dcbuf_next_line = v->dcbuf_curr_line;
++    if (s->mcu411) {
++        y1->basis_next_line = y1->basis_curr_line; y1->dcbuf_next_line = y1->dcbuf_curr_line;
++    } else {
++        y0->basis_next_line = y0->basis_curr_line; y0->dcbuf_next_line = y0->dcbuf_curr_line;
++    }
++    hvqm2_dec_line(s, outbuf);
++}
++
++/* ---- intra (reference: Ipic_BasisNumDec/getDeltaDC/IpicDcvDec/MakeNest/HVQMDecodeIpic) ---- */
++
++static void hvqm2_ipic_basisnum(HVQM2DecContext *s)
++{
++    uint8_t rle = 0;
++    for (int i = 0; i < s->lum_total; ++i) {
++        if (rle) {
++            s->basis[0][i] = 0;
++            --rle;
++        } else {
++            uint8_t value = hvqm2_decode_huff(&s->basisnum_buf[0], &s->basisnum_tree);
++            if (value == 0)
++                rle = hvqm2_decode_huff(&s->basisnumrun_buf[0], &s->basisnumrun_tree);
++            s->basis[0][i] = value;
++        }
++    }
++    rle = 0;
++    for (int i = 0; i < s->col_total; ++i) {
++        if (rle) {
++            s->basis[1][i] = 0;
++            s->basis[2][i] = 0;
++            --rle;
++        } else {
++            uint8_t value = hvqm2_decode_huff(&s->basisnum_buf[1], &s->basisnum_tree);
++            if (value == 0)
++                rle = hvqm2_decode_huff(&s->basisnumrun_buf[1], &s->basisnumrun_tree);
++            s->basis[1][i] = value & 0xF;
++            s->basis[2][i] = value >> 4;
++        }
++    }
++}
++
++static int16_t hvqm2_get_delta_dc(HVQM2DecContext *s, int plane, int *rle)
++{
++    if (*rle == 0) {
++        int16_t delta = hvqm2_decode_dc(s, &s->dcval_buf[plane]);
++        if (delta == 0)
++            *rle = hvqm2_decode_huff(&s->dcrun_buf[plane], &s->basisnumrun_tree);
++        return delta;
++    }
++    --*rle;
++    return 0;
++}
++
++static unsigned hvqm2_mean(unsigned a, unsigned b)
++{
++    return (a + b) / 2;
++}
++
++static void hvqm2_ipic_dcv(HVQM2DecContext *s)
++{
++    uint8_t dcvalY = 0, dcvalU = 0, dcvalV = 0;
++    int rleY = 0, rleU = 0, rleV = 0;
++    uint8_t *dY = s->dcbuf[0], *dU = s->dcbuf[1], *dV = s->dcbuf[2];
++    uint8_t *pY = s->dcbuf[0], *pU = s->dcbuf[1], *pV = s->dcbuf[2];
++
++    for (int h = 0; h < s->col_hblocks; ++h) {
++        dcvalY += hvqm2_get_delta_dc(s, 0, &rleY); *dY++ = dcvalY;
++        dcvalY += hvqm2_get_delta_dc(s, 0, &rleY); *dY++ = dcvalY;
++        dcvalU += hvqm2_get_delta_dc(s, 1, &rleU); *dU++ = dcvalU;
++        dcvalV += hvqm2_get_delta_dc(s, 2, &rleV); *dV++ = dcvalV;
++    }
++    dcvalY = *pY++; dcvalU = *pU++; dcvalV = *pV++;
++    if (s->mcu411) {
++        for (int h = 0; h < s->col_hblocks; ++h) {
++            dcvalY += hvqm2_get_delta_dc(s, 0, &rleY); *dY++ = dcvalY; dcvalY = hvqm2_mean(dcvalY, *pY++);
++            dcvalY += hvqm2_get_delta_dc(s, 0, &rleY); *dY++ = dcvalY; dcvalY = hvqm2_mean(dcvalY, *pY++);
++        }
++    }
++    for (int vline = 0; vline < s->col_vblocks - 1; ++vline) {
++        dcvalY = *(pY - 1); dcvalU = *(pU - 1); dcvalV = *(pV - 1);
++        for (int h = 0; h < s->col_hblocks; ++h) {
++            dcvalY += hvqm2_get_delta_dc(s, 0, &rleY); *dY++ = dcvalY; dcvalY = hvqm2_mean(dcvalY, *pY++);
++            dcvalY += hvqm2_get_delta_dc(s, 0, &rleY); *dY++ = dcvalY; dcvalY = hvqm2_mean(dcvalY, *pY++);
++            dcvalU += hvqm2_get_delta_dc(s, 1, &rleU); *dU++ = dcvalU; dcvalU = hvqm2_mean(dcvalU, *pU++);
++            dcvalV += hvqm2_get_delta_dc(s, 2, &rleV); *dV++ = dcvalV; dcvalV = hvqm2_mean(dcvalV, *pV++);
++        }
++        dcvalY = *(pY - 1);
++        if (s->mcu411) {
++            for (int h = 0; h < s->col_hblocks; ++h) {
++                dcvalY += hvqm2_get_delta_dc(s, 0, &rleY); *dY++ = dcvalY; dcvalY = hvqm2_mean(dcvalY, *pY++);
++                dcvalY += hvqm2_get_delta_dc(s, 0, &rleY); *dY++ = dcvalY; dcvalY = hvqm2_mean(dcvalY, *pY++);
++            }
++        }
++    }
++}
++
++static void hvqm2_make_nest(HVQM2DecContext *s, unsigned nest_start_x, unsigned nest_start_y)
++{
++    unsigned h_nest, v_nest, h_mirror, v_mirror, h_empty, v_empty;
++    if (s->lum_hblocks < s->nest_w) {
++        h_nest   = s->lum_hblocks;
++        h_mirror = s->lum_hblocks < s->nest_w - s->lum_hblocks ? s->lum_hblocks : s->nest_w - s->lum_hblocks;
++        h_empty  = s->nest_w - (h_nest + h_mirror);
++    } else {
++        h_nest = s->nest_w; h_mirror = 0; h_empty = 0;
++    }
++    if (s->lum_vblocks < s->nest_h) {
++        v_nest   = s->lum_vblocks;
++        v_mirror = s->lum_vblocks < s->nest_h - s->lum_vblocks ? s->lum_vblocks : s->nest_h - s->lum_vblocks;
++        v_empty  = s->nest_w - (v_nest + v_mirror);   /* reference quirk: uses nest_w here */
++    } else {
++        v_nest = s->nest_h; v_mirror = 0; v_empty = 0;
++    }
++    /* nest_start comes from the untrusted keyframe header; keep the read window
++     * inside dcbuf[0] (valid streams use (0,0)). */
++    unsigned max_x = s->lum_hblocks > h_nest ? s->lum_hblocks - h_nest : 0;
++    unsigned max_y = s->lum_vblocks > v_nest ? s->lum_vblocks - v_nest : 0;
++    if (nest_start_x > max_x) nest_start_x = max_x;
++    if (nest_start_y > max_y) nest_start_y = max_y;
++    uint8_t *nest = s->nest;
++    const uint8_t *ptr = s->dcbuf[0] + s->lum_hblocks * nest_start_y + nest_start_x;
++    for (unsigned i = 0; i < v_nest; ++i) {
++        const uint8_t *p = ptr;
++        for (unsigned j = 0; j < h_nest; ++j)   *nest++ = *p++;
++        for (unsigned j = 0; j < h_mirror; ++j) *nest++ = *--p;
++        for (unsigned j = 0; j < h_empty; ++j)  *nest++ = 0;
++        ptr += s->lum_hblocks;
++    }
++    const uint8_t *nest2 = nest - s->nest_w;
++    for (unsigned i = 0; i < v_mirror; ++i) {
++        for (unsigned j = 0; j < (unsigned)s->nest_w; ++j) *nest++ = nest2[j];
++        nest2 -= s->nest_w;
++    }
++    for (unsigned i = 0; i < v_empty; ++i)
++        for (unsigned j = 0; j < (unsigned)s->nest_w; ++j) *nest++ = 0;
++}
++
++static void hvqm2_decode_ipic(HVQM2DecContext *s, const uint8_t *code, const uint8_t *kf)
++{
++    for (int i = 0; i < 3; ++i)
++        hvqm2_set_code(s, &s->dcrun_buf[i], code + AV_RB32(kf + i * 4));
++    hvqm2_ipic_basisnum(s);
++    hvqm2_ipic_dcv(s);
++    /* The nest is only used (and only well-formed) when the DC image is at least
++     * nest-sized; for smaller frames it is unused (DC-only) and the reference's
++     * mirror/empty math underflows. Skip it there — output is unchanged. */
++    if (s->lum_hblocks >= s->nest_w && s->lum_vblocks >= s->nest_h)
++        hvqm2_make_nest(s, AV_RB16(kf + 12), AV_RB16(kf + 14));
++}
++
++/* ---- inter (reference: HVQMDecodePpic / HVQMDecodeHpic) ---- */
++
++static void hvqm2_decode_ppic(HVQM2DecContext *s, const uint8_t *code, const uint8_t *pf,
++                              uint32_t *outbuf, const uint32_t *previm)
++{
++    hvqm2_set_code(s, &s->movevector_buf, code + AV_RB32(pf + 0));
++    hvqm2_read_tree(s, &s->movevector_buf, &s->movevector_tree);
++    hvqm2_set_code(s, &s->macroblock_buf, code + AV_RB32(pf + 4));
++
++    RWcode *y0 = &s->y0wcode, *u = &s->u_wcode, *v = &s->v_wcode;
++    y0->basis_curr_line = s->basis[0]; y0->dcbuf_curr_line = s->dcbuf[0];
++    u->basis_curr_line  = s->basis[1]; u->dcbuf_curr_line  = s->dcbuf[1];
++    v->basis_curr_line  = s->basis[2]; v->dcbuf_curr_line  = s->dcbuf[2];
++    y0->basis_next_line = s->basis[0] + s->lum_hblocks; y0->dcbuf_next_line = s->dcbuf[0] + s->lum_hblocks;
++    if (!s->mcu411) {
++        u->basis_next_line = s->basis[1] + s->col_hblocks; u->dcbuf_next_line = s->dcbuf[1] + s->col_hblocks;
++        v->basis_next_line = s->basis[2] + s->col_hblocks; v->dcbuf_next_line = s->dcbuf[2] + s->col_hblocks;
++    }
++
++    uint8_t rle_lum = 0, rle_col = 0;
++    uint8_t dc_y = 0, dc_u = 0, dc_v = 0;
++    int8_t  mv_x = 0, mv_y = 0;
++    uint32_t *outbuf_line = outbuf;
++
++    for (int y = 0; y < s->im_height; y += 8) {
++        uint32_t *outbuf_pos = outbuf_line;
++        for (int x = 0; x < s->im_width; x += 8) {
++            if (hvqm2_get_bit(&s->macroblock_buf)) {
++                if (hvqm2_get_bit(&s->macroblock_buf)) {        /* intra DC-only MB */
++                    dc_y += hvqm2_decode_dc(s, &s->dcval_buf[0]);
++                    dc_u += hvqm2_decode_dc(s, &s->dcval_buf[1]);
++                    dc_v += hvqm2_decode_dc(s, &s->dcval_buf[2]);
++                    *y0->basis_curr_line++ = 0; *y0->basis_curr_line++ = 0;
++                    *y0->dcbuf_curr_line++ = dc_y; *y0->dcbuf_curr_line++ = dc_y;
++                    *y0->basis_next_line++ = 0; *y0->basis_next_line++ = 0;
++                    *y0->dcbuf_next_line++ = dc_y; *y0->dcbuf_next_line++ = dc_y;
++                    *u->basis_curr_line++ = 0; *u->dcbuf_curr_line++ = dc_u;
++                    *v->basis_curr_line++ = 0; *v->dcbuf_curr_line++ = dc_v;
++                    if (!s->mcu411) {
++                        *u->basis_next_line++ = 0; *u->dcbuf_next_line++ = dc_u;
++                        *v->basis_next_line++ = 0; *v->dcbuf_next_line++ = dc_v;
++                    }
++                } else {                                        /* intra full MB */
++                    *y0->basis_curr_line++ = hvqm2_get_delta_bn(s, &rle_lum, &s->basisnum_buf[0], &s->basisnumrun_buf[0]);
++                    *y0->basis_curr_line++ = hvqm2_get_delta_bn(s, &rle_lum, &s->basisnum_buf[0], &s->basisnumrun_buf[0]);
++                    *y0->dcbuf_curr_line++ = (dc_y += hvqm2_decode_dc(s, &s->dcval_buf[0]));
++                    *y0->dcbuf_curr_line++ = (dc_y += hvqm2_decode_dc(s, &s->dcval_buf[0]));
++                    *y0->basis_next_line++ = hvqm2_get_delta_bn(s, &rle_lum, &s->basisnum_buf[0], &s->basisnumrun_buf[0]);
++                    *y0->basis_next_line++ = hvqm2_get_delta_bn(s, &rle_lum, &s->basisnum_buf[0], &s->basisnumrun_buf[0]);
++                    *y0->dcbuf_next_line++ = (dc_y += hvqm2_decode_dc(s, &s->dcval_buf[0]));
++                    *y0->dcbuf_next_line++ = (dc_y += hvqm2_decode_dc(s, &s->dcval_buf[0]));
++                    uint8_t bn = hvqm2_get_delta_bn(s, &rle_col, &s->basisnum_buf[1], &s->basisnumrun_buf[1]);
++                    *u->basis_curr_line++ = (bn >> 0) & 0xF;
++                    *v->basis_curr_line++ = (bn >> 4) & 0xF;
++                    *u->dcbuf_curr_line++ = (dc_u += hvqm2_decode_dc(s, &s->dcval_buf[1]));
++                    *v->dcbuf_curr_line++ = (dc_v += hvqm2_decode_dc(s, &s->dcval_buf[2]));
++                    if (!s->mcu411) {
++                        bn = hvqm2_get_delta_bn(s, &rle_col, &s->basisnum_buf[1], &s->basisnumrun_buf[1]);
++                        *u->basis_next_line++ = (bn >> 0) & 0xF;
++                        *v->basis_next_line++ = (bn >> 4) & 0xF;
++                        *u->dcbuf_next_line++ = (dc_u += hvqm2_decode_dc(s, &s->dcval_buf[1]));
++                        *v->dcbuf_next_line++ = (dc_v += hvqm2_decode_dc(s, &s->dcval_buf[2]));
++                    }
++                }
++            } else {                                            /* inter (motion comp) MB */
++                mv_x += hvqm2_decode_huff(&s->movevector_buf, &s->movevector_tree);
++                mv_y += hvqm2_decode_huff(&s->movevector_buf, &s->movevector_tree);
++
++                int src_x = x + mv_x, src_y = y + mv_y;
++                if (src_x < 0) src_x = 0; else if (src_x > s->im_width  - 8) src_x = s->im_width  - 8;
++                if (src_y < 0) src_y = 0; else if (src_y > s->im_height - 8) src_y = s->im_height - 8;
++
++                const uint32_t *src = previm + src_x + (size_t)src_y * s->fb_width;
++                uint32_t *dst = outbuf_pos;
++                for (int i = 0; i < 8; ++i) {
++                    for (int j = 0; j < 8; ++j)
++                        dst[j] = src[j];
++                    src += s->fb_width;
++                    dst += s->fb_width;
++                }
++
++                *y0->basis_curr_line++ = 0x80; *y0->basis_curr_line++ = 0x80; y0->dcbuf_curr_line += 2;
++                *y0->basis_next_line++ = 0x80; *y0->basis_next_line++ = 0x80; y0->dcbuf_next_line += 2;
++                *u->basis_curr_line++ = 0x80; u->dcbuf_curr_line++;
++                *v->basis_curr_line++ = 0x80; v->dcbuf_curr_line++;
++                if (!s->mcu411) {
++                    *u->basis_next_line++ = 0x80; u->dcbuf_next_line++;
++                    *v->basis_next_line++ = 0x80; v->dcbuf_next_line++;
++                }
++            }
++            outbuf_pos += 8;
++        }
++        y0->basis_curr_line += s->lum_hblocks; y0->dcbuf_curr_line += s->lum_hblocks;
++        y0->basis_next_line += s->lum_hblocks; y0->dcbuf_next_line += s->lum_hblocks;
++        if (!s->mcu411) {
++            u->basis_curr_line += s->col_hblocks; u->dcbuf_curr_line += s->col_hblocks;
++            u->basis_next_line += s->col_hblocks; u->dcbuf_next_line += s->col_hblocks;
++            v->basis_curr_line += s->col_hblocks; v->dcbuf_curr_line += s->col_hblocks;
++            v->basis_next_line += s->col_hblocks; v->dcbuf_next_line += s->col_hblocks;
++        }
++        outbuf_line += s->next_macroblk_line;
++    }
++}
++
++/* ---- top-level dispatch (reference: my_hvqm2Decode2) ---- */
++
++static int hvqm2_decode2(HVQM2DecContext *s, const uint8_t *code, int size, int format,
++                         uint32_t *outbuf, const uint32_t *previm)
++{
++    if (format == HVQM2_HOLD) {
++        for (int i = 0; i < s->im_height; ++i)
++            memcpy(outbuf + (size_t)i * s->fb_width, previm + (size_t)i * s->fb_width,
++                   s->im_width * sizeof(*outbuf));
++        return 0;
++    }
++
++    /* offset table (HVQM2Frame, 52 bytes) + sub-header must fit. */
++    int sub = format == HVQM2_KEYFRAME ? 16 : 8;
++    if (size < 52 + sub)
++        return AVERROR_INVALIDDATA;
++
++    /* The 13 stream offsets are file-controlled; a bad one would form an
++     * out-of-bounds pointer (undefined behaviour) before any read-time bounds
++     * check. Validate them all up front (size >= 60 here, so no underflow). The
++     * three fixvl pointers (indices 7..9) are advanced by +4 past a size prefix. */
++    for (int i = 0; i < 13; ++i) {
++        uint32_t off  = AV_RB32(code + i * 4);
++        unsigned tail = (i >= 7 && i <= 9) ? 4 : 0;
++        if (off > (uint32_t)size - tail)
++            return AVERROR_INVALIDDATA;
++    }
++
++    uint8_t *wb = s->workbuf;
++    s->basis[0] = wb; wb += s->lum_total;
++    s->dcbuf[0] = wb; wb += s->lum_total;
++    s->basis[1] = wb; wb += s->col_total;
++    s->dcbuf[1] = wb; wb += s->col_total;
++    s->basis[2] = wb; wb += s->col_total;
++    s->dcbuf[2] = wb;
++
++    for (int i = 0; i < 2; ++i) {
++        hvqm2_set_code(s, &s->basisnum_buf[i],    code + AV_RB32(code + i * 4));
++        hvqm2_set_code(s, &s->basisnumrun_buf[i], code + AV_RB32(code + 8 + i * 4));
++    }
++    for (int i = 0; i < 3; ++i) {
++        hvqm2_set_code(s, &s->scale_buf[i], code + AV_RB32(code + 16 + i * 4));
++        hvqm2_set_code(s, &s->dcval_buf[i], code + AV_RB32(code + 40 + i * 4));
++        s->fixvl[i] = code + AV_RB32(code + 28 + i * 4) + 4;   /* skip 4-byte size prefix */
++    }
++    hvqm2_read_tree(s, &s->basisnum_buf[0],    &s->basisnum_tree);
++    hvqm2_read_tree(s, &s->basisnumrun_buf[0], &s->basisnumrun_tree);
++    hvqm2_read_tree(s, &s->scale_buf[0],       &s->scale_tree);
++    hvqm2_read_tree(s, &s->dcval_buf[0],       &s->dcval_tree);
++
++    if (format == HVQM2_KEYFRAME) {
++        hvqm2_decode_ipic(s, code, code + 52);
++        hvqm2_dec_frame(s, outbuf);
++    } else {
++        hvqm2_decode_ppic(s, code, code + 52, outbuf, previm);
++        hvqm2_dec_frame(s, outbuf);
++    }
++    return 0;
++}
++
++/* ---- FFmpeg glue ---- */
++
++static av_cold int hvqm2_decode_init(AVCodecContext *avctx)
++{
++    HVQM2DecContext *s = avctx->priv_data;
++
++    if (avctx->width <= 0 || avctx->height <= 0 ||
++        (avctx->width & 7) || (avctx->height & 7)) {
++        av_log(avctx, AV_LOG_ERROR, "HVQM2 needs positive dimensions that are "
++               "multiples of 8 (got %dx%d).\n", avctx->width, avctx->height);
++        return AVERROR_INVALIDDATA;
++    }
++
++    s->yshift                = 8;
++    s->video_quantize_shift  = 0;
++    if (avctx->extradata_size >= 2) {
++        s->yshift               = avctx->extradata[0];
++        s->video_quantize_shift = avctx->extradata[1];
++    }
++    s->pix_alpha = 0xFF;
++    /* Chroma sampling comes from extradata[2] (v_sampling: 2 = 4:1:1/yuv420p,
++     * 1 = 4:2:2/yuv422p). avctx->pix_fmt can't be trusted here: this decoder
++     * outputs RGBA, and find_stream_info writes that back into the stream's
++     * codecpar, so a second open would see RGBA instead of the container format. */
++    if (avctx->extradata_size >= 3)
++        s->mcu411 = avctx->extradata[2] != 1;
++    else
++        s->mcu411 = avctx->pix_fmt != AV_PIX_FMT_YUV422P;
++    avctx->pix_fmt = AV_PIX_FMT_RGBA;
++
++    s->im_width  = avctx->width;
++    s->im_height = avctx->height;
++    s->fb_width  = avctx->width;
++    s->mcu_h_pix = (s->mcu411 ? 2 : 2) * 4;               /* h_sampling_rate (2) * 4 */
++    s->mcu_v_pix = (s->mcu411 ? 2 : 1) * 4 * s->fb_width; /* v_sampling_rate * 4 * fb_width */
++    s->next_macroblk_line = s->fb_width * 8;
++    s->lum_hblocks = avctx->width  >> 2;
++    s->lum_vblocks = avctx->height >> 2;
++    s->lum_total   = s->lum_hblocks * s->lum_vblocks;
++    s->col_hblocks = avctx->width  >> 3;
++    s->col_vblocks = avctx->height >> (s->mcu411 ? 3 : 2);
++    s->col_total   = s->col_hblocks * s->col_vblocks;
++    if (s->yshift == 8) { s->nest_w = HVQM2_NEST_L; s->nest_h = HVQM2_NEST_S; }
++    else                { s->nest_w = HVQM2_NEST_S; s->nest_h = HVQM2_NEST_L; }
++
++    /* video_quantize_shift is an untrusted byte; clamp to the legal range so the
++     * shifts stay well-defined (a count >= the int width is UB). Valid streams use 0. */
++    if (s->video_quantize_shift > 8)
++        s->video_quantize_shift = 8;
++    s->dc_min = (int16_t)(0xFF80 << s->video_quantize_shift);
++    s->dc_max = (int16_t)(0x007F << s->video_quantize_shift);
++    for (int i = 0; i < 0x100; ++i) {
++        /* multiply rather than left-shift a possibly-negative (int8_t)i (which is UB). */
++        s->scale_tree.array[0][i] = (int8_t)i * 8;
++        s->dcval_tree.array[0][i] = (int8_t)i * (1 << s->video_quantize_shift);
++    }
++    s->divT[0] = 0;
++    for (int i = 1; i < 0x200; ++i)
++        s->divT[i] = 0x1000 / i;
++
++    s->workbuf = av_malloc(2 * (size_t)s->lum_total + 4 * (size_t)s->col_total);
++    s->fb[0]   = av_malloc((size_t)s->fb_width * s->im_height * sizeof(uint32_t));
++    s->fb[1]   = av_malloc((size_t)s->fb_width * s->im_height * sizeof(uint32_t));
++    if (!s->workbuf || !s->fb[0] || !s->fb[1])
++        return AVERROR(ENOMEM);
++    s->fb_idx    = 0;
++    s->have_prev = 0;
++    return 0;
++}
++
++static int hvqm2_decode_frame(AVCodecContext *avctx, AVFrame *frame,
++                              int *got_frame, AVPacket *avpkt)
++{
++    HVQM2DecContext *s = avctx->priv_data;
++    int format, ret;
++
++    if (avpkt->size < HVQM2_FRAME_MIN)
++        format = HVQM2_HOLD;
++    else if (avpkt->flags & AV_PKT_FLAG_KEY)
++        format = HVQM2_KEYFRAME;
++    else
++        format = HVQM2_PREDICT;
++
++    if (format != HVQM2_KEYFRAME && !s->have_prev) {
++        av_log(avctx, AV_LOG_ERROR, "HVQM2 non-keyframe before any keyframe.\n");
++        return AVERROR_INVALIDDATA;
++    }
++
++    uint32_t *cur  = s->fb[s->fb_idx ^ 1];
++    uint32_t *prev = s->fb[s->fb_idx];
++
++    s->body_end = avpkt->data + avpkt->size;
++    ret = hvqm2_decode2(s, avpkt->data, avpkt->size, format, cur, prev);
++    if (ret < 0)
++        return ret;
++
++    if ((ret = ff_get_buffer(avctx, frame, 0)) < 0)
++        return ret;
++
++    for (int y = 0; y < s->im_height; ++y)
++        memcpy(frame->data[0] + (size_t)y * frame->linesize[0],
++               cur + (size_t)y * s->fb_width, (size_t)s->im_width * sizeof(uint32_t));
++
++    frame->pict_type = format == HVQM2_KEYFRAME ? AV_PICTURE_TYPE_I : AV_PICTURE_TYPE_P;
++    if (format == HVQM2_KEYFRAME)
++        frame->flags |= AV_FRAME_FLAG_KEY;
++    else
++        frame->flags &= ~AV_FRAME_FLAG_KEY;
++
++    s->fb_idx   ^= 1;
++    s->have_prev = 1;
++    *got_frame   = 1;
++    return avpkt->size;
++}
++
++static av_cold int hvqm2_decode_close(AVCodecContext *avctx)
++{
++    HVQM2DecContext *s = avctx->priv_data;
++    av_freep(&s->workbuf);
++    av_freep(&s->fb[0]);
++    av_freep(&s->fb[1]);
++    return 0;
++}
++
++const FFCodec ff_hvqm2_decoder = {
++    .p.name         = "hvqm2",
++    CODEC_LONG_NAME("Hudson HVQM2 VQ video"),
++    .p.type         = AVMEDIA_TYPE_VIDEO,
++    .p.id           = AV_CODEC_ID_HVQM2,
++    .p.capabilities = AV_CODEC_CAP_DR1,
++    .priv_data_size = sizeof(HVQM2DecContext),
++    .init           = hvqm2_decode_init,
++    .close          = hvqm2_decode_close,
++    FF_CODEC_DECODE_CB(hvqm2_decode_frame),
++    .caps_internal  = FF_CODEC_CAP_INIT_CLEANUP,
++};
+diff --git a/libavcodec/hvqm2enc.c b/libavcodec/hvqm2enc.c
+new file mode 100644
+index 0000000..f4199ed
+--- /dev/null
++++ b/libavcodec/hvqm2enc.c
+@@ -0,0 +1,1824 @@
++/*
++ * Hudson HVQM2 video encoder
++ *
++ * Copyright (c) 2026 FFmpeg HVQM2 port
++ *
++ * This file is part of FFmpeg.
++ *
++ * FFmpeg is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * FFmpeg is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with FFmpeg; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ */
++
++/**
++ * @file
++ * Hudson HVQM2 (N64-era "Hybrid Vector Quantization") video encoder.
++ *
++ * Every frame is an intra keyframe. Each 4x4 block is coded as one of:
++ *   - basis number 0  -> DC only; the decoder bilinearly interpolates the block
++ *                        from its DC mean and its neighbours' (WeightImBlock).
++ *   - basis number N   -> flat DC plus N "AOT" (Adaptive Orthogonal Transform)
++ *                        basis vectors selected by greedy matching pursuit from a
++ *                        self-derived nest (a window of this frame's luma DC image).
++ *
++ * The bitstream mirrors the reference decoder (src/reference/hvqm2/hvqm2.c) exactly:
++ * decBlockCPU's AOT reconstruction is inverted bit-for-bit so the chosen basis
++ * vectors decode to the intended pixels. See docs/research/hvqm2-encoder-spec.md
++ * and the Phase-A handoff for the derivation.
++ *
++ * Fixed profile (must match libavformat/hvqmenc.c):
++ *   y_shiftnum = 8 (landscape nest 70x38), video_quantize_shift = 0,
++ *   pix_fmt yuv420p (4:1:1) / yuv422p (4:2:2).
++ *
++ * Inter (P/H) frames and motion are a later stage; here every frame is a keyframe.
++ */
++
++#include <limits.h>
++#include <string.h>
++#ifdef HVQM2_DUMP_RECON
++#include <stdio.h>
++#include <stdlib.h>
++#endif
++
++#include "libavutil/avassert.h"
++#include "libavutil/intreadwrite.h"
++#include "libavutil/mem.h"
++#include "libavutil/opt.h"
++#include "avcodec.h"
++#include "codec_internal.h"
++#include "encode.h"
++#include "internal.h"
++#include "put_bits.h"
++
++/* video_quantize_shift == 0: DC symbol i maps to value (int8_t)i; bounds -128/+127. */
++#define HVQM2_DC_MIN (-128)
++#define HVQM2_DC_MAX ( 127)
++
++/* Landscape nest (y_shiftnum == 8): width 70, height 38 (HVQM2_NESTSIZE_L/S). */
++#define HVQM2_NEST_W 70
++#define HVQM2_NEST_H 38
++
++/* Per-block AOT basis cap. Basis 8 means "raw block" in the format; we stay <= 6 so
++ * luma byte and chroma nibble both fit and we never emit a raw block. */
++#define HVQM2_MAXB 6
++
++/* The reference decoder reads each record into a fixed buffer and rejects any record
++ * body larger than this (HVQM_DATASIZE_MAX). Every record we emit must fit. */
++#define HVQM2_DATASIZE_MAX 30000
++
++/* Nest sampling grid: nest_pos_x in 0..63 (6 bits), nest_pos_y in 0..31 (5 bits),
++ * x_stride/y_stride in {1,2}. A 4x4 patch at stride 2 reads pos+6, within 70x38. */
++#define HVQM2_ATOM_PX 64
++#define HVQM2_ATOM_PY 32
++#define HVQM2_NATOMS  (HVQM2_ATOM_PX * HVQM2_ATOM_PY * 4)
++
++/* A macroblock whose best motion-compensated luma SAD (over 64 px) still exceeds this is
++ * "poorly predicted" -- ~4/px residual. Fixed (not tied to sad_thresh/-quality) so the
++ * scene cut point doesn't move with quality. Calibrated so that at the default scene=80
++ * (key when >80% of MBs are bad) the cut placement matches Hudson's hvqm2enc -a 80 on
++ * corona to ~0.83 recall / 0.97 precision against its 41 scene-cut frames. */
++#define HVQM2_SCENE_MB_SAD 256
++
++/* HOLD threshold: a non-key frame whose whole-frame zero-motion luma mean-abs-diff from the
++ * previous reconstructed frame is <= this (per pixel, x256 fixed-point) is emitted as a HOLD
++ * record (empty body -> decoder repeats the previous frame). Strict, since HOLD cannot do
++ * motion; calibrated to Hudson's 26 H frames on corona. */
++#define HVQM2_HOLD_MAD_Q8 384      /* 384/256 = 1.5 mean abs diff per luma pixel */
++
++typedef struct HVQM2EncContext {
++    const AVClass *class;
++    int quality;                /* matching-pursuit threshold Z (higher -> fewer bases) */
++
++    int lum_hblocks, lum_vblocks, lum_total;
++    int col_hblocks, col_vblocks, col_total;
++    int mcu411;                 /* 1 = 4:1:1 (yuv420p), 0 = 4:2:2 (yuv422p) */
++    int aot;                    /* 1 if the frame is large enough for a valid nest */
++
++    uint8_t *dc[3];             /* per-block DC means (row-major per plane) */
++
++    /* nest + precomputed AOT atoms (rebuilt per frame) */
++    uint8_t  *nest;             /* HVQM2_NEST_W * HVQM2_NEST_H */
++    int16_t  *atom_tmp;         /* [HVQM2_NATOMS][16] de-meaned 4x4 nest patch */
++    int      *atom_norm2;       /* [HVQM2_NATOMS] sum of squares of atom_tmp */
++    float    *atom_inv;         /* [HVQM2_NATOMS] 1/norm2 (selection metric; 0 if flat) */
++    int      *atom_div;         /* [HVQM2_NATOMS] divT[max] = 4096/max, 0 if flat */
++    uint8_t  *atom_px, *atom_py, *atom_xs, *atom_ys;
++
++    /* per-block AOT results (raster order per plane) */
++    uint8_t  *bn[3];            /* basis number per block */
++    uint16_t *fixw[3];          /* [block*MAXB + k] packed fixvl word */
++    uint8_t  *scl[3];           /* [block*MAXB + k] scale symbol index */
++
++    /* symbol scratch for stream assembly */
++    int      *dcd[3];           /* DC deltas in IpicDcvDec traversal order */
++    uint8_t  *dcsym[3], *dcrun[3];
++    uint8_t  *bnval[2], *bnrun[2];
++    uint8_t  *oscl[3];          /* scale symbols in decode (consumption) order */
++    uint16_t *ofix[3];          /* fixvl words in consumption order */
++
++    uint8_t *pktbuf;            /* assembled record body */
++    int pktbuf_size;
++
++    /* ---- inter (P) frame state (Phase B) ---- */
++    int width, height;
++    int gop_size;              /* keyframe interval (Hudson -k, via avctx->gop_size/-g) */
++    int me_range;              /* motion search range in px (Hudson -r) */
++    int scene;                 /* scene-change key sensitivity, Hudson -a (0..100) */
++    int sad_thresh;            /* 8x8 SAD at/below which a MB is coded INTER */
++    int frame_index;           /* frames seen so far */
++    int have_prev;             /* a reconstructed reference frame is available */
++    int mb_w, mb_h, nmb;       /* 8x8 macroblock grid */
++    int pf_nbad;               /* P-frame ME result: #MBs poorly motion-compensated */
++    uint8_t  *mvsym;           /* movevector DPCM delta symbols (decode order) */
++    uint8_t  *mbbits;          /* scratch for the raw macroblock type-bit stream */
++
++    /* ---- closed-loop reconstruction (Phase B2b) ----
++     * The encoder reconstructs every frame bit-identically to the oracle decoder so
++     * motion estimation references exactly what the decoder will hold (kills drift).
++     * Reference is RGBA (the decoder copies RGBA on INTER); a parallel luma plane is
++     * captured for the luma-SAD motion search. Both are double-buffered. */
++    int       buf_cur;         /* index of the frame being reconstructed; prev = ^1 */
++    uint32_t *ref_rgba[2];     /* reconstructed RGBA framebuffers (== decoder output) */
++    uint8_t  *ref_y[2];        /* reconstructed luma planes (== decoder displayed luma) */
++    const uint8_t *me_ref;     /* luma ref the current ME reads (ref_y of prev frame) */
++    uint8_t  *rbn[3];          /* reconstruction basis per block (0x80 inter, capped) */
++    uint8_t  *rdc[3];          /* reconstruction DC image per block (P-frames) */
++    int       divT[0x200];     /* 4096/i table for AOT scale (matches decoder divT) */
++
++    /* ---- AOT in P-frames (Phase B3) ---- */
++    uint8_t  *mb_mode;         /* per-MB coding mode: PF_INTER / PF_INTRA_DC / PF_INTRA_FULL */
++    uint8_t  *pf_bnl;          /* scratch: MB-interleaved luma basisnum sequence */
++    uint8_t  *pf_bnc;          /* scratch: MB-interleaved packed-chroma basisnum sequence */
++} HVQM2EncContext;
++
++/* ============================ Huffman ================================= */
++
++typedef struct HuffNode {
++    uint64_t freq;
++    int sym;                    /* >=0 for a leaf, -1 for an internal node */
++    int left, right;
++} HuffNode;
++
++/* Build a Huffman tree from freq[256]; fill code/len and the node pool.
++ * Returns the root node index (-1 if no symbols are used). */
++static int hvqm2_build_huff(const uint64_t freq[256], HuffNode nodes[512],
++                            uint32_t code[256], uint8_t len[256])
++{
++    int heap[256], hn = 0, nn = 0;
++
++    memset(code, 0, 256 * sizeof(*code));
++    memset(len,  0, 256 * sizeof(*len));
++
++    for (int i = 0; i < 256; i++) {
++        if (freq[i]) {
++            nodes[nn].freq = freq[i];
++            nodes[nn].sym  = i;
++            nodes[nn].left = nodes[nn].right = -1;
++            heap[hn++] = nn++;
++        }
++    }
++    if (hn == 0)
++        return -1;
++
++    while (hn > 1) {
++        int a = 0, b, ia, ib;
++        for (int i = 1; i < hn; i++)
++            if (nodes[heap[i]].freq < nodes[heap[a]].freq)
++                a = i;
++        ia = heap[a]; heap[a] = heap[--hn];
++        b = 0;
++        for (int i = 1; i < hn; i++)
++            if (nodes[heap[i]].freq < nodes[heap[b]].freq)
++                b = i;
++        ib = heap[b]; heap[b] = heap[--hn];
++
++        nodes[nn].freq  = nodes[ia].freq + nodes[ib].freq;
++        nodes[nn].sym   = -1;
++        nodes[nn].left  = ia;
++        nodes[nn].right = ib;
++        heap[hn++] = nn++;
++    }
++    return heap[0];
++}
++
++static void hvqm2_assign_codes(const HuffNode *nodes, int idx, uint64_t cur,
++                               int depth, uint32_t code[256], uint8_t len[256])
++{
++    if (nodes[idx].sym >= 0) {
++        /* Dimensions are capped at 640x480, so symbol counts are bounded and the
++         * optimal Huffman depth stays well under put_bits()'s 31-bit limit. */
++        av_assert0(depth <= 31);
++        code[nodes[idx].sym] = cur;
++        len [nodes[idx].sym] = depth;     /* single-symbol tree -> depth 0, no bits */
++        return;
++    }
++    hvqm2_assign_codes(nodes, nodes[idx].left,  cur << 1,       depth + 1, code, len);
++    hvqm2_assign_codes(nodes, nodes[idx].right, (cur << 1) | 1, depth + 1, code, len);
++}
++
++static void hvqm2_serialize_tree(PutBitContext *pb, const HuffNode *nodes, int idx)
++{
++    if (nodes[idx].sym >= 0) {            /* leaf: 0 then 8-bit symbol */
++        put_bits(pb, 1, 0);
++        put_bits(pb, 8, nodes[idx].sym);
++        return;
++    }
++    put_bits(pb, 1, 1);                   /* internal: 1 then 0-side, then 1-side */
++    hvqm2_serialize_tree(pb, nodes, nodes[idx].left);
++    hvqm2_serialize_tree(pb, nodes, nodes[idx].right);
++}
++
++/* A built Huffman codebook plus its node pool, so streams can share one tree. */
++typedef struct HVQM2Huff {
++    HuffNode nodes[512];
++    uint32_t code[256];
++    uint8_t  len[256];
++    int      root;              /* <0 -> no symbols */
++} HVQM2Huff;
++
++static void hvqm2_huff_init(HVQM2Huff *h, const uint64_t freq[256])
++{
++    h->root = hvqm2_build_huff(freq, h->nodes, h->code, h->len);
++    if (h->root >= 0)
++        hvqm2_assign_codes(h->nodes, h->root, 0, 0, h->code, h->len);
++}
++
++/* ===================== stream framing =====================
++ * Each stream is [u32 BE size][payload padded to a multiple of 4]. size == 0 is a
++ * NULL/empty stream the decoder never reads from. */
++
++/* Entropy stream: optional serialized tree (when with_tree), then code bits. */
++static int hvqm2_put_estream(uint8_t *buf, int pos, int cap, const HVQM2Huff *h,
++                             int with_tree, const uint8_t *sym, int nsym)
++{
++    PutBitContext pb;
++    int nbytes;
++
++    init_put_bits(&pb, buf + pos + 4, cap - pos - 4);
++    if (with_tree && h->root >= 0)
++        hvqm2_serialize_tree(&pb, h->nodes, h->root);
++    for (int i = 0; i < nsym; i++)
++        if (h->len[sym[i]])
++            put_bits(&pb, h->len[sym[i]], h->code[sym[i]]);
++    flush_put_bits(&pb);
++
++    nbytes = put_bytes_output(&pb);
++    while (nbytes & 3)
++        buf[pos + 4 + nbytes++] = 0;
++    av_assert0(pos + 4 + nbytes <= cap);
++    AV_WB32(buf + pos, nbytes);
++    return pos + 4 + nbytes;
++}
++
++/* Raw stream of big-endian 16-bit words (fixvl). */
++static int hvqm2_put_words(uint8_t *buf, int pos, int cap,
++                           const uint16_t *words, int n)
++{
++    int nbytes = 2 * n;
++    av_assert0(pos + 4 + ((nbytes + 3) & ~3) <= cap);
++    for (int i = 0; i < n; i++)
++        AV_WB16(buf + pos + 4 + 2 * i, words[i]);
++    while (nbytes & 3)
++        buf[pos + 4 + nbytes++] = 0;
++    AV_WB32(buf + pos, nbytes);
++    return pos + 4 + nbytes;
++}
++
++/* =========================== DC ============================ */
++
++static void hvqm2_compute_dc(HVQM2EncContext *s, const AVFrame *f)
++{
++    for (int by = 0; by < s->lum_vblocks; by++)
++        for (int bx = 0; bx < s->lum_hblocks; bx++) {
++            const uint8_t *p = f->data[0] + (by * 4) * f->linesize[0] + bx * 4;
++            int sum = 0;
++            for (int dy = 0; dy < 4; dy++, p += f->linesize[0])
++                for (int dx = 0; dx < 4; dx++)
++                    sum += p[dx];
++            s->dc[0][by * s->lum_hblocks + bx] = (sum + 8) >> 4;
++        }
++
++    for (int pl = 1; pl <= 2; pl++)
++        for (int by = 0; by < s->col_vblocks; by++)
++            for (int bx = 0; bx < s->col_hblocks; bx++) {
++                const uint8_t *p = f->data[pl] + (by * 4) * f->linesize[pl] + bx * 4;
++                int sum = 0;
++                for (int dy = 0; dy < 4; dy++, p += f->linesize[pl])
++                    for (int dx = 0; dx < 4; dx++)
++                        sum += p[dx];
++                s->dc[pl][by * s->col_hblocks + bx] = (sum + 8) >> 4;
++            }
++}
++
++static inline int hvqm2_mean(int a, int b) { return (a + b) / 2; }   /* truncate, matches decoder */
++
++/* Fill per-plane DC delta arrays in IpicDcvDec traversal order. Deltas are taken
++ * mod 256 into [-128,127]; the decoder accumulates u8 so the reconstruction wraps
++ * identically. dcd[0] has lum_total entries, dcd[1]/dcd[2] col_total each. */
++static void hvqm2_dc_deltas(HVQM2EncContext *s)
++{
++    const uint8_t *dcY = s->dc[0], *dcU = s->dc[1], *dcV = s->dc[2];
++    int *oY = s->dcd[0], *oU = s->dcd[1], *oV = s->dcd[2];
++    int Yw = 0, yp = 0, Uw = 0, up = 0, Vw = 0, vp = 0;
++    int kY = 0, kU = 0, kV = 0;
++    int dY = 0, dU = 0, dV = 0;
++    const int ch = s->col_hblocks, cv = s->col_vblocks;
++
++#define DELTA(P) do { int t = dc##P[P##w]; int b = (t - d##P) & 0xff; \
++                      o##P[k##P++] = (b >= 128 ? b - 256 : b); \
++                      d##P = t; P##w++; } while (0)
++
++    for (int h = 0; h < ch; h++) {            /* row 0: pure left prediction */
++        DELTA(Y); DELTA(Y); DELTA(U); DELTA(V);
++    }
++    dY = dcY[yp++]; dU = dcU[up++]; dV = dcV[vp++];
++    if (s->mcu411) {                          /* 4:1:1 second luma sub-row */
++        for (int h = 0; h < ch; h++) {
++            DELTA(Y); dY = hvqm2_mean(dY, dcY[yp++]);
++            DELTA(Y); dY = hvqm2_mean(dY, dcY[yp++]);
++        }
++    }
++    for (int v = 0; v < cv - 1; v++) {
++        dY = dcY[yp - 1]; dU = dcU[up - 1]; dV = dcV[vp - 1];
++        for (int h = 0; h < ch; h++) {
++            DELTA(Y); dY = hvqm2_mean(dY, dcY[yp++]);
++            DELTA(Y); dY = hvqm2_mean(dY, dcY[yp++]);
++            DELTA(U); dU = hvqm2_mean(dU, dcU[up++]);
++            DELTA(V); dV = hvqm2_mean(dV, dcV[vp++]);
++        }
++        dY = dcY[yp - 1];
++        if (s->mcu411) {
++            for (int h = 0; h < ch; h++) {
++                DELTA(Y); dY = hvqm2_mean(dY, dcY[yp++]);
++                DELTA(Y); dY = hvqm2_mean(dY, dcY[yp++]);
++            }
++        }
++    }
++#undef DELTA
++}
++
++/* Append the dcval symbol(s) for a non-zero delta D (in [-128,127]). freq may be NULL
++ * when the caller recomputes frequencies later (the P-frame cap loop). */
++static inline void hvqm2_emit_dc_value(uint8_t *sym, int *n, uint64_t freq[256], int D)
++{
++    int i = D & 0xFF;
++    sym[(*n)++] = i;
++    if (freq) freq[i]++;
++    if (D == HVQM2_DC_MIN || D == HVQM2_DC_MAX) {  /* boundary -> escape, add interior 0 */
++        sym[(*n)++] = 0;
++        if (freq) freq[0]++;
++    }
++}
++
++/* Run-length encode one plane's DC delta sequence (decodeDC + dcrun semantics):
++ * a zero delta emits dcval symbol 0 then a dcrun run R (the next R deltas are 0). */
++static void hvqm2_rle_dc(const int *d, int n, uint8_t *dcsym, int *ndc,
++                         uint8_t *run, int *nrun, uint64_t dcfreq[256],
++                         uint64_t runfreq[256])
++{
++    int i = 0;
++    while (i < n) {
++        if (d[i] == 0) {
++            int R = 0;
++            dcsym[(*ndc)++] = 0; dcfreq[0]++;
++            while (R < 255 && i + 1 + R < n && d[i + 1 + R] == 0)
++                R++;
++            run[(*nrun)++] = R; runfreq[R]++;
++            i += 1 + R;
++        } else {
++            hvqm2_emit_dc_value(dcsym, ndc, dcfreq, d[i]);
++            i++;
++        }
++    }
++}
++
++/* Run-length encode a basis-number value sequence (Ipic_BasisNumDec semantics):
++ * a zero value emits value symbol 0 then a run R (the next R values are 0). */
++static void hvqm2_rle_bn(const uint8_t *v, int n, uint8_t *val, int *nv,
++                         uint8_t *run, int *nrun, uint64_t valfreq[256],
++                         uint64_t runfreq[256])
++{
++    int i = 0;
++    while (i < n) {
++        val[(*nv)++] = v[i]; valfreq[v[i]]++;
++        if (v[i] == 0) {
++            int R = 0;
++            while (R < 255 && i + 1 + R < n && v[i + 1 + R] == 0)
++                R++;
++            run[(*nrun)++] = R; runfreq[R]++;
++            i += 1 + R;
++        } else {
++            i++;
++        }
++    }
++}
++
++/* =========================== nest + AOT atoms ============================ */
++
++/* Build the nest as a direct 70x38 window of the luma DC image at (0,0).
++ * Only called when lum_hblocks >= 70 && lum_vblocks >= 38, where MakeNest reduces
++ * to this copy (no mirror/empty padding, so the decoder's small-frame bug can't
++ * trigger). nest_start is therefore fixed at (0,0). */
++static void hvqm2_build_nest(HVQM2EncContext *s)
++{
++    for (int y = 0; y < HVQM2_NEST_H; y++)
++        memcpy(s->nest + y * HVQM2_NEST_W,
++               s->dc[0] + y * s->lum_hblocks, HVQM2_NEST_W);
++}
++
++/* Precompute every candidate AOT atom: de-mean a strided 4x4 nest patch exactly as
++ * decBlockCPU does, and cache its de-meaned values, sum-of-squares and divT[max]. */
++static void hvqm2_build_atoms(HVQM2EncContext *s)
++{
++    int a = 0;
++    for (int py = 0; py < HVQM2_ATOM_PY; py++)
++        for (int px = 0; px < HVQM2_ATOM_PX; px++)
++            for (int ys = 1; ys <= 2; ys++)
++                for (int xs = 1; xs <= 2; xs++, a++) {
++                    const uint8_t *nest = s->nest + py * HVQM2_NEST_W + px;
++                    int16_t *tmp = s->atom_tmp + a * 16;
++                    int sum = 0, mean, max = 0, norm2 = 0;
++                    for (int y = 0; y < 4; y++)
++                        for (int x = 0; x < 4; x++) {
++                            int nv = nest[y * ys * HVQM2_NEST_W + x * xs];
++                            tmp[y * 4 + x] = nv;
++                            sum += nv;
++                        }
++                    mean = (sum + 8) >> 4;
++                    for (int i = 0; i < 16; i++) {
++                        int t = tmp[i] - mean, av = t < 0 ? -t : t;
++                        tmp[i] = t;
++                        if (av > max) max = av;
++                        norm2 += t * t;
++                    }
++                    s->atom_norm2[a] = norm2;
++                    s->atom_inv[a]   = norm2 ? 1.0f / norm2 : 0.0f;
++                    s->atom_div[a]   = max ? 4096 / max : 0;
++                    s->atom_px[a] = px; s->atom_py[a] = py;
++                    s->atom_xs[a] = xs; s->atom_ys[a] = ys;
++                }
++}
++
++/* Score the 4 stride combos at one nest position (px,py) against the residual,
++ * keeping the best atom seen so far. inv == 0 (flat atom) yields metric 0, so flat
++ * atoms are never selected. */
++static inline void hvqm2_scan_cell(const HVQM2EncContext *s, const int16_t *res16,
++                                   int px, int py, float *best, int *best_a, int *best_dot)
++{
++    int base = (py * HVQM2_ATOM_PX + px) * 4;   /* 4 consecutive atoms: 2 strides x 2 */
++    for (int s4 = 0; s4 < 4; s4++) {
++        int a = base + s4;
++        const int16_t *tmp = s->atom_tmp + a * 16;
++        int dot = 0;
++        float m;
++        for (int i = 0; i < 16; i++)
++            dot += res16[i] * tmp[i];
++        m = (float)dot * dot * s->atom_inv[a];
++        if (m > *best) { *best = m; *best_a = a; *best_dot = dot; }
++    }
++}
++
++/* Greedy matching pursuit for one 4x4 block. src[16] are the source pixels, dc the
++ * transmitted block DC. Fills fixw[]/scl[] (up to MAXB) and returns the basis count.
++ *
++ * Selection metric dot^2/norm2 is the energy a basis captures; by Cauchy-Schwarz it
++ * is <= the residual energy, so a block whose residual energy is <= Z can be skipped
++ * entirely (it stays basis 0 / DC). For each chosen atom the optimal integer
++ * coefficient is round(1024*dot/(div*norm2)) clamped to [-1024,1023]; the exact
++ * integer reconstruction is then subtracted so later bases see the true residual. */
++static int hvqm2_search_block(HVQM2EncContext *s, const uint8_t *src, int dc,
++                              uint16_t *fixw, uint8_t *scl)
++{
++    const float Z = (float)s->quality;
++    int res[16], energy = 0, nb = 0;
++    int16_t res16[16];
++
++    for (int i = 0; i < 16; i++) {
++        res[i] = (int)src[i] - dc;
++        energy += res[i] * res[i];
++    }
++    if ((float)energy <= Z)
++        return 0;
++
++    while (nb < HVQM2_MAXB) {
++        float best = Z;
++        int best_a = -1, best_dot = 0, bpx, bpy;
++
++        for (int i = 0; i < 16; i++)
++            res16[i] = res[i];
++
++        /* Coarse-to-fine selection: the metric dot^2/norm2 varies smoothly with nest
++         * position (neighbouring positions share 3 of every 4 samples), so scan a
++         * stride-2 grid then refine the 3x3 neighbourhood of the winner. ~4x fewer
++         * atoms than exhaustive, with negligible quality loss. */
++        for (int py = 0; py < HVQM2_ATOM_PY; py += 2)
++            for (int px = 0; px < HVQM2_ATOM_PX; px += 2)
++                hvqm2_scan_cell(s, res16, px, py, &best, &best_a, &best_dot);
++        if (best_a < 0)
++            break;
++        bpx = s->atom_px[best_a]; bpy = s->atom_py[best_a];
++        for (int dy = -1; dy <= 1; dy++)
++            for (int dx = -1; dx <= 1; dx++) {
++                int px = bpx + dx, py = bpy + dy;
++                if (px >= 0 && px < HVQM2_ATOM_PX && py >= 0 && py < HVQM2_ATOM_PY)
++                    hvqm2_scan_cell(s, res16, px, py, &best, &best_a, &best_dot);
++            }
++
++        {
++            const int16_t *tmp = s->atom_tmp + best_a * 16;
++            int div = s->atom_div[best_a], n2 = s->atom_norm2[best_a];
++            double c = 1024.0 * best_dot / ((double)div * n2);
++            int coef = (int)(c < 0 ? c - 0.5 : c + 0.5);
++            int beta_q, scale_idx, bar;
++
++            if (coef >  1023) coef =  1023;
++            if (coef < -1024) coef = -1024;
++            if (coef == 0)
++                break;
++
++            bar = coef * div;
++            for (int i = 0; i < 16; i++)
++                res[i] -= (tmp[i] * bar + 512) >> 10;
++
++            beta_q    = coef & 7;
++            scale_idx = (coef >> 3) & 0xFF;
++            fixw[nb]  = (s->atom_xs[best_a] - 1)
++                      | ((s->atom_ys[best_a] - 1) << 1)
++                      | (s->atom_px[best_a] << 2)
++                      | (s->atom_py[best_a] << 8)
++                      | (beta_q << 13);
++            scl[nb]   = scale_idx;
++            nb++;
++        }
++    }
++    return nb;
++}
++
++/* Run AOT analysis over every block of every plane (raster order). */
++static void hvqm2_aot_analyze(HVQM2EncContext *s, const AVFrame *f)
++{
++    uint8_t src[16];
++
++    for (int by = 0; by < s->lum_vblocks; by++)
++        for (int bx = 0; bx < s->lum_hblocks; bx++) {
++            int idx = by * s->lum_hblocks + bx;
++            const uint8_t *p = f->data[0] + (by * 4) * f->linesize[0] + bx * 4;
++            for (int dy = 0; dy < 4; dy++)
++                for (int dx = 0; dx < 4; dx++)
++                    src[dy * 4 + dx] = p[dy * f->linesize[0] + dx];
++            s->bn[0][idx] = hvqm2_search_block(s, src, s->dc[0][idx],
++                                               s->fixw[0] + idx * HVQM2_MAXB,
++                                               s->scl[0]  + idx * HVQM2_MAXB);
++        }
++
++    for (int pl = 1; pl <= 2; pl++)
++        for (int by = 0; by < s->col_vblocks; by++)
++            for (int bx = 0; bx < s->col_hblocks; bx++) {
++                int idx = by * s->col_hblocks + bx;
++                const uint8_t *p = f->data[pl] + (by * 4) * f->linesize[pl] + bx * 4;
++                for (int dy = 0; dy < 4; dy++)
++                    for (int dx = 0; dx < 4; dx++)
++                        src[dy * 4 + dx] = p[dy * f->linesize[pl] + dx];
++                s->bn[pl][idx] = hvqm2_search_block(s, src, s->dc[pl][idx],
++                                                    s->fixw[pl] + idx * HVQM2_MAXB,
++                                                    s->scl[pl]  + idx * HVQM2_MAXB);
++            }
++}
++
++/* Append one block's bases (at most `cap`) to a plane's consumption-order lists. */
++static inline void hvqm2_append_block(HVQM2EncContext *s, int pl, int idx, int cap,
++                                      int *nscl, int *nfix)
++{
++    int nb = s->bn[pl][idx];
++    if (nb > cap)
++        nb = cap;
++    for (int k = 0; k < nb; k++) {
++        s->oscl[pl][(*nscl)++] = s->scl[pl][idx * HVQM2_MAXB + k];
++        s->ofix[pl][(*nfix)++] = s->fixw[pl][idx * HVQM2_MAXB + k];
++    }
++}
++
++/* Order luma scale/fixvl in decBlockCPU consumption order. In 4:1:1 each MCU emits
++ * the two y0 blocks of one row then the two y1 blocks of the row below; in 4:2:2 it
++ * is plain raster. Chroma is one block per MCU = raster, handled by the caller. */
++static void hvqm2_order_luma(HVQM2EncContext *s, int cap, int *nscl, int *nfix)
++{
++    const int lh = s->lum_hblocks, ch = s->col_hblocks, cv = s->col_vblocks;
++    *nscl = *nfix = 0;
++    if (s->mcu411) {
++        for (int r = 0; r < cv; r++)
++            for (int c = 0; c < ch; c++) {
++                hvqm2_append_block(s, 0, (2 * r)     * lh + 2 * c,     cap, nscl, nfix);
++                hvqm2_append_block(s, 0, (2 * r)     * lh + 2 * c + 1, cap, nscl, nfix);
++                hvqm2_append_block(s, 0, (2 * r + 1) * lh + 2 * c,     cap, nscl, nfix);
++                hvqm2_append_block(s, 0, (2 * r + 1) * lh + 2 * c + 1, cap, nscl, nfix);
++            }
++    } else {
++        for (int r = 0; r < cv; r++)            /* cv == lum_vblocks for 4:2:2 */
++            for (int c = 0; c < ch; c++) {
++                hvqm2_append_block(s, 0, r * lh + 2 * c,     cap, nscl, nfix);
++                hvqm2_append_block(s, 0, r * lh + 2 * c + 1, cap, nscl, nfix);
++            }
++    }
++}
++
++/* =========================== frame ============================ */
++
++/* Assemble the keyframe body into s->pktbuf using at most `cap` bases per block, and
++ * return the body size. Cheap (no AOT re-search): it re-runs only RLE/ordering/Huffman
++ * off the already-computed per-block results, so it can be retried with a smaller cap
++ * to satisfy the per-record size limit. Depends on hvqm2_dc_deltas() having been run. */
++static int hvqm2_assemble_body(HVQM2EncContext *s, int cap)
++{
++    uint8_t *buf = s->pktbuf;
++    HVQM2Huff dc_h, bn_h, run_h, scale_h;
++    uint64_t dcfreq[256] = { 0 }, bnfreq[256] = { 0 }, runfreq[256] = { 0 },
++             scfreq[256] = { 0 };
++    int ndc[3] = { 0 }, ndcrun[3] = { 0 };
++    int nbnval[2] = { 0 }, nbnrun[2] = { 0 };
++    int nscl[3] = { 0 }, nfix[3] = { 0 };
++    int pos;
++    uint32_t off_bn[2], off_bnr[2], off_sc[3], off_fx[3], off_dc[3], off_dcr[3];
++
++    /* ---- DC streams (RLE; independent of cap) ---- */
++    hvqm2_rle_dc(s->dcd[0], s->lum_total, s->dcsym[0], &ndc[0], s->dcrun[0], &ndcrun[0], dcfreq, runfreq);
++    hvqm2_rle_dc(s->dcd[1], s->col_total, s->dcsym[1], &ndc[1], s->dcrun[1], &ndcrun[1], dcfreq, runfreq);
++    hvqm2_rle_dc(s->dcd[2], s->col_total, s->dcsym[2], &ndc[2], s->dcrun[2], &ndcrun[2], dcfreq, runfreq);
++
++    /* ---- basis-number streams (RLE; chroma packs U|V<<4), capped at `cap` ---- */
++    {
++        uint8_t *lcap = s->oscl[0];              /* scratch: luma scale order built later */
++        for (int i = 0; i < s->lum_total; i++) {
++            int v = s->bn[0][i];
++            lcap[i] = v < cap ? v : cap;
++        }
++        hvqm2_rle_bn(lcap, s->lum_total, s->bnval[0], &nbnval[0], s->bnrun[0], &nbnrun[0], bnfreq, runfreq);
++    }
++    {
++        uint8_t *packed = s->oscl[1];            /* scratch: chroma scale order built later */
++        for (int i = 0; i < s->col_total; i++) {
++            int u = s->bn[1][i], v = s->bn[2][i];
++            packed[i] = (u < cap ? u : cap) | ((v < cap ? v : cap) << 4);
++        }
++        hvqm2_rle_bn(packed, s->col_total, s->bnval[1], &nbnval[1], s->bnrun[1], &nbnrun[1], bnfreq, runfreq);
++    }
++
++    /* ---- scale + fixvl in consumption order, capped ---- */
++    hvqm2_order_luma(s, cap, &nscl[0], &nfix[0]);
++    for (int by = 0; by < s->col_vblocks; by++)
++        for (int bx = 0; bx < s->col_hblocks; bx++)
++            hvqm2_append_block(s, 1, by * s->col_hblocks + bx, cap, &nscl[1], &nfix[1]);
++    for (int by = 0; by < s->col_vblocks; by++)
++        for (int bx = 0; bx < s->col_hblocks; bx++)
++            hvqm2_append_block(s, 2, by * s->col_hblocks + bx, cap, &nscl[2], &nfix[2]);
++    for (int pl = 0; pl < 3; pl++)
++        for (int i = 0; i < nscl[pl]; i++)
++            scfreq[s->oscl[pl][i]]++;
++
++    /* ---- build the four shared trees ---- */
++    hvqm2_huff_init(&dc_h,    dcfreq);
++    hvqm2_huff_init(&bn_h,    bnfreq);
++    hvqm2_huff_init(&run_h,   runfreq);
++    hvqm2_huff_init(&scale_h, scfreq);
++
++    /* ---- write the streams ---- */
++    memset(buf, 0, 68);                          /* HVQM2Frame(52) + HVQM2KeyFrame(16) */
++    pos = 68;
++
++    off_bn[0]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &bn_h,    1, s->bnval[0], nbnval[0]);
++    off_bn[1]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &bn_h,    0, s->bnval[1], nbnval[1]);
++    off_bnr[0] = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &run_h,   1, s->bnrun[0], nbnrun[0]);
++    off_bnr[1] = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &run_h,   0, s->bnrun[1], nbnrun[1]);
++
++    off_sc[0]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &scale_h, 1, s->oscl[0], nscl[0]);
++    off_sc[1]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &scale_h, 0, s->oscl[1], nscl[1]);
++    off_sc[2]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &scale_h, 0, s->oscl[2], nscl[2]);
++
++    off_fx[0]  = pos; pos = hvqm2_put_words(buf, pos, s->pktbuf_size, s->ofix[0], nfix[0]);
++    off_fx[1]  = pos; pos = hvqm2_put_words(buf, pos, s->pktbuf_size, s->ofix[1], nfix[1]);
++    off_fx[2]  = pos; pos = hvqm2_put_words(buf, pos, s->pktbuf_size, s->ofix[2], nfix[2]);
++
++    off_dc[0]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &dc_h,    1, s->dcsym[0], ndc[0]);
++    off_dc[1]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &dc_h,    0, s->dcsym[1], ndc[1]);
++    off_dc[2]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &dc_h,    0, s->dcsym[2], ndc[2]);
++
++    /* dcrun shares the basisnumrun tree (no tree of its own). */
++    off_dcr[0] = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &run_h,   0, s->dcrun[0], ndcrun[0]);
++    off_dcr[1] = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &run_h,   0, s->dcrun[1], ndcrun[1]);
++    off_dcr[2] = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &run_h,   0, s->dcrun[2], ndcrun[2]);
++
++    /* HVQM2Frame offset table (big-endian, relative to body start). */
++    AV_WB32(buf +  0, off_bn[0]);  AV_WB32(buf +  4, off_bn[1]);    /* basisnum[0],[1]  */
++    AV_WB32(buf +  8, off_bnr[0]); AV_WB32(buf + 12, off_bnr[1]);   /* basnumrn[0],[1]  */
++    AV_WB32(buf + 16, off_sc[0]);  AV_WB32(buf + 20, off_sc[1]);  AV_WB32(buf + 24, off_sc[2]);
++    AV_WB32(buf + 28, off_fx[0]);  AV_WB32(buf + 32, off_fx[1]);  AV_WB32(buf + 36, off_fx[2]);
++    AV_WB32(buf + 40, off_dc[0]);  AV_WB32(buf + 44, off_dc[1]);  AV_WB32(buf + 48, off_dc[2]);
++    /* HVQM2KeyFrame: dcrun[0..2], nest at (0,0). */
++    AV_WB32(buf + 52, off_dcr[0]); AV_WB32(buf + 56, off_dcr[1]); AV_WB32(buf + 60, off_dcr[2]);
++    AV_WB16(buf + 64, 0);  AV_WB16(buf + 66, 0);
++
++    return pos;                                  /* body_size */
++}
++
++/* ===================== closed-loop reconstruction (Phase B2b) =====================
++ *
++ * A faithful port of the oracle decoder's reconstruction path
++ * (src/reference/hvqm2/hvqm2.c: decFrame / decLine / decBlockCPU / WeightImBlock /
++ * ColorConv411|422 / yuv2rgba), driven by the encoder's own quantized per-block arrays
++ * instead of a re-parsed bitstream. Because it is the decoder's own math fed the same
++ * values the encoder serialized, the result is bit-identical to what the decoder
++ * produces (verified by diffing against output/video_*.ppm). It writes a reconstructed
++ * RGBA framebuffer (the decoder's reference for INTER copies) and captures the
++ * reconstructed luma plane (the decoder's displayed luma) for the luma-SAD motion search.
++ *
++ * Profile assumptions baked in (match libavformat/hvqmenc.c): y_shiftnum == 8 (landscape
++ * nest, nest_pos_x 6 bits / nest_pos_y 5 bits), video_quantize_shift == 0, basis <= 6
++ * (never the format's "raw block" code 8). */
++
++typedef struct RWcode {
++    uint8_t *basis_prev_line, *dcbuf_prev_line;
++    uint8_t *basis_curr_line, *dcbuf_curr_line;
++    uint8_t *basis_next_line, *dcbuf_next_line;
++    uint8_t  basis_next, dcbuf_next, basis_curr, dcbuf_curr, dcbuf_prev;
++} RWcode;
++
++typedef struct HVQM2Recon {
++    int fbw;                      /* framebuffer width (== image width; no padding) */
++    int im_width, im_height;
++    int lum_hblocks, col_hblocks, col_vblocks;
++    int mcu411;
++    int mcu_h_pix, mcu_v_pix;     /* pixel advance per MCU column / row (in fbw units) */
++    uint8_t *basis[3];            /* capped basis / 0x80, raster per plane */
++    uint8_t *dcbuf[3];            /* DC image, raster per plane */
++    const uint16_t *fixp[3];      /* advancing fixvl word stream (consumption order) */
++    const uint8_t  *sclp[3];      /* advancing scale-index stream (consumption order) */
++    const uint8_t  *nest;
++    int nest_w;
++    const int *divT;
++    uint32_t *out;                /* RGBA destination (the only reconstruction state) */
++    RWcode u_wcode, v_wcode, y0wcode, y1wcode;
++    uint16_t pix_y[4][16], pix_u[16], pix_v[16];
++} HVQM2Recon;
++
++/* y/u/v are int16_t (not int) on purpose: WeightImBlock writes u16 pixels that wrap to
++ * ~65535 on a strongly-negative gradient, and the decoder's yuv2rgba takes s16 -- so it
++ * reinterprets such a pixel as a small negative value. Matching the type here reproduces
++ * that exactly; a plain int would zero-extend to ~65535 and diverge (white vs near-black). */
++static uint32_t hvqm2_yuv2rgba(int16_t y, int16_t u, int16_t v)
++{
++    int y6, r16, g16, b16, rr, gg, bb, r, g, b;
++    u -= 128;
++    v -= 128;
++    y6  = y << 6;
++    r16 = (int16_t)(0x4020 + v * 90);
++    g16 = (int16_t)(0x4020 - v * 46 - u * 22);
++    b16 = (int16_t)(0x4020 + u * 113);
++    rr = ((y6 + r16) >> 6) - 0x100;
++    gg = ((y6 + g16) >> 6) - 0x100;
++    bb = ((y6 + b16) >> 6) - 0x100;
++    r = rr < 0 ? 0 : rr > 0xff ? 0xff : rr;
++    g = gg < 0 ? 0 : gg > 0xff ? 0xff : gg;
++    b = bb < 0 ? 0 : bb > 0xff ? 0xff : bb;
++    return 0xffu << 24 | (unsigned)b << 16 | (unsigned)g << 8 | (unsigned)r;
++}
++
++static void hvqm2_colorconv422(HVQM2Recon *r, uint32_t *out)
++{
++    const uint16_t *y0 = r->pix_y[0], *y1 = r->pix_y[0] + 16;
++    const uint16_t *pu = r->pix_u, *pv = r->pix_v;
++    for (int i = 0; i < 4; i++) {
++        uint32_t *o = out;
++        for (int j = 0; j < 2; j++) {
++            *o++ = hvqm2_yuv2rgba(*y0++, pu[0], pv[0]);
++            *o++ = hvqm2_yuv2rgba(*y0++, pu[0], pv[0]); pu++; pv++;
++        }
++        for (int j = 0; j < 2; j++) {
++            *o++ = hvqm2_yuv2rgba(*y1++, pu[0], pv[0]);
++            *o++ = hvqm2_yuv2rgba(*y1++, pu[0], pv[0]); pu++; pv++;
++        }
++        out += r->fbw;
++    }
++}
++
++static void hvqm2_colorconv411(HVQM2Recon *r, uint32_t *out)
++{
++    const uint16_t *y0 = r->pix_y[0], *y1 = r->pix_y[0] + 16;
++    const uint16_t *pu = r->pix_u, *pv = r->pix_v;
++    for (int k = 0; k < 2; k++) {
++        for (int i = 0; i < 2; i++) {
++            for (int n = 0; n < 2; n++) {
++                uint32_t *o = out;
++                const uint16_t *u = pu, *v = pv;
++                for (int j = 0; j < 2; j++) {
++                    *o++ = hvqm2_yuv2rgba(*y0++, u[0], v[0]);
++                    *o++ = hvqm2_yuv2rgba(*y0++, u[0], v[0]); u++; v++;
++                }
++                for (int j = 0; j < 2; j++) {
++                    *o++ = hvqm2_yuv2rgba(*y1++, u[0], v[0]);
++                    *o++ = hvqm2_yuv2rgba(*y1++, u[0], v[0]); u++; v++;
++                }
++                out += r->fbw;
++            }
++            pu += 4; pv += 4;
++        }
++        y0 += 16; y1 += 16;
++    }
++}
++
++static void hvqm2_weight_imblock(uint16_t *pix, int curr, int top, int bottom,
++                                 int left, int right)
++{
++    int tmb = top - bottom, lmr = left - right;
++    int vph = tmb + lmr, vmh = tmb - lmr;
++    int c2 = curr * 2, c8 = curr * 8 + 4;
++    int tpl = top + left - c2,  tpr = top + right - c2;
++    int bpr = bottom + right - c2, bpl = bottom + left - c2;
++    int tml = top - left,  tmr = top - right;
++    int bmr = bottom - right, bml = bottom - left;
++    pix[0]  = (unsigned)(c8 + vph + tpl) / 8;
++    pix[1]  = (unsigned)(c8 + vph + tml) / 8;
++    pix[2]  = (unsigned)(c8 + vmh + tmr) / 8;
++    pix[3]  = (unsigned)(c8 + vmh + tpr) / 8;
++    pix[4]  = (unsigned)(c8 + vph - tml) / 8;
++    pix[5]  = (unsigned)(c8 - bpr) / 8;
++    pix[6]  = (unsigned)(c8 - bpl) / 8;
++    pix[7]  = (unsigned)(c8 + vmh - tmr) / 8;
++    pix[8]  = (unsigned)(c8 - vmh - bml) / 8;
++    pix[9]  = (unsigned)(c8 - tpr) / 8;
++    pix[10] = (unsigned)(c8 - tpl) / 8;
++    pix[11] = (unsigned)(c8 - vph - bmr) / 8;
++    pix[12] = (unsigned)(c8 - vmh + bpl) / 8;
++    pix[13] = (unsigned)(c8 - vmh + bml) / 8;
++    pix[14] = (unsigned)(c8 - vph + bmr) / 8;
++    pix[15] = (unsigned)(c8 - vph + bpr) / 8;
++}
++
++static void hvqm2_dec_block(HVQM2Recon *r, uint16_t *pix, RWcode *w, int plane)
++{
++    if (w->basis_curr == 0) {
++        int curr   = w->dcbuf_curr;
++        int right  =  w->basis_next      == 0 ?  w->dcbuf_next      : curr;
++        int top    = *w->basis_prev_line == 0 ? *w->dcbuf_prev_line : curr;
++        int bottom = *w->basis_next_line == 0 ? *w->dcbuf_next_line : curr;
++        int left   =  w->dcbuf_prev;
++        hvqm2_weight_imblock(pix, curr, top, bottom, left, right);
++        w->dcbuf_prev = w->dcbuf_curr;
++    } else {
++        for (int i = 0; i < 16; i++)
++            pix[i] = w->dcbuf_curr;
++        for (int b = 0; b < w->basis_curr; b++) {
++            unsigned bits = *r->fixp[plane]++;
++            int x_stride = (bits & 1) + 1, y_stride = ((bits >> 1) & 1) + 1;
++            int nest_pos_y = (bits >> 8) & 0x1F, nest_pos_x = (bits >> 2) & 0x3F;
++            const uint8_t *nest = r->nest + nest_pos_y * r->nest_w + nest_pos_x;
++            int16_t tmp[16];
++            int sum = 0, mean, max = -1, beta_q, scale, div, bar;
++            for (int y = 0; y < 4; y++)
++                for (int x = 0; x < 4; x++) {
++                    int nv = nest[y * y_stride * r->nest_w + x * x_stride];
++                    tmp[y * 4 + x] = nv;
++                    sum += nv;
++                }
++            mean = (sum + 8) >> 4;
++            for (int i = 0; i < 16; i++) {
++                int t = tmp[i] - mean, av = t < 0 ? -t : t;
++                tmp[i] = t;
++                if (av > max) max = av;
++            }
++            beta_q = (bits >> 13) & 7;
++            scale  = (int8_t)(*r->sclp[plane]++) << 3;
++            div    = r->divT[max];
++            bar    = (beta_q + scale) * div;
++            for (int i = 0; i < 16; i++)
++                pix[i] += (tmp[i] * bar + 512) >> 10;
++        }
++        w->dcbuf_prev = w->dcbuf_next;
++    }
++    w->basis_prev_line++; w->dcbuf_prev_line++;
++    w->basis_next_line++; w->dcbuf_next_line++;
++}
++
++static void hvqm2_advance_wcode(RWcode *w, int amount)
++{
++    w->basis_prev_line += amount; w->dcbuf_prev_line += amount;
++    w->basis_curr_line += amount; w->dcbuf_curr_line += amount;
++    w->basis_next_line += amount; w->dcbuf_next_line += amount;
++}
++
++static void hvqm2_update_wcode(RWcode *w)
++{
++    w->basis_curr = w->basis_next;
++    w->dcbuf_curr = w->dcbuf_next;
++    w->basis_curr_line++; w->dcbuf_curr_line++;
++    w->basis_next = *w->basis_curr_line;
++    w->dcbuf_next = *w->dcbuf_curr_line;
++}
++
++static void hvqm2_dec_line(HVQM2Recon *r, uint32_t *out)
++{
++    RWcode *y0 = &r->y0wcode, *y1 = &r->y1wcode, *u = &r->u_wcode, *v = &r->v_wcode;
++    u->basis_next = *u->basis_curr_line; u->dcbuf_prev = *u->dcbuf_curr_line; u->dcbuf_next = *u->dcbuf_curr_line;
++    v->basis_next = *v->basis_curr_line; v->dcbuf_prev = *v->dcbuf_curr_line; v->dcbuf_next = *v->dcbuf_curr_line;
++    y0->basis_next = *y0->basis_curr_line; y0->dcbuf_prev = *y0->dcbuf_curr_line; y0->dcbuf_next = *y0->dcbuf_curr_line;
++    if (r->mcu411) {
++        y1->basis_next = *y1->basis_curr_line; y1->dcbuf_prev = *y1->dcbuf_curr_line; y1->dcbuf_next = *y1->dcbuf_curr_line;
++    }
++    for (int i = 0; i < r->col_hblocks - 1; i++) {
++        if (y0->basis_next == 0x80) {                       /* INTER MCU: leave the copy */
++            hvqm2_advance_wcode(y0, 2);
++            y0->basis_next = *y0->basis_curr_line; y0->dcbuf_prev = *y0->dcbuf_curr_line; y0->dcbuf_next = *y0->dcbuf_curr_line;
++            if (r->mcu411) {
++                hvqm2_advance_wcode(y1, 2);
++                y1->basis_next = *y1->basis_curr_line; y1->dcbuf_prev = *y1->dcbuf_curr_line; y1->dcbuf_next = *y1->dcbuf_curr_line;
++            }
++            hvqm2_advance_wcode(u, 1);
++            u->basis_next = *u->basis_curr_line; u->dcbuf_prev = *u->dcbuf_curr_line; u->dcbuf_next = *u->dcbuf_curr_line;
++            hvqm2_advance_wcode(v, 1);
++            v->basis_next = *v->basis_curr_line; v->dcbuf_prev = *v->dcbuf_curr_line; v->dcbuf_next = *v->dcbuf_curr_line;
++        } else {
++            hvqm2_update_wcode(y0); hvqm2_dec_block(r, r->pix_y[0], y0, 0);
++            hvqm2_update_wcode(y0); hvqm2_dec_block(r, r->pix_y[1], y0, 0);
++            if (r->mcu411) {
++                hvqm2_update_wcode(y1); hvqm2_dec_block(r, r->pix_y[2], y1, 0);
++                hvqm2_update_wcode(y1); hvqm2_dec_block(r, r->pix_y[3], y1, 0);
++            }
++            hvqm2_update_wcode(u); hvqm2_dec_block(r, r->pix_u, u, 1);
++            hvqm2_update_wcode(v); hvqm2_dec_block(r, r->pix_v, v, 2);
++            if (r->mcu411) hvqm2_colorconv411(r, out); else hvqm2_colorconv422(r, out);
++        }
++        out += r->mcu_h_pix;
++    }
++    if (y0->basis_next == 0x80) {                           /* last MCU in the row */
++        hvqm2_advance_wcode(y0, 2);
++        if (r->mcu411) hvqm2_advance_wcode(y1, 2);
++        hvqm2_advance_wcode(u, 1);
++        hvqm2_advance_wcode(v, 1);
++    } else {
++        hvqm2_update_wcode(y0); hvqm2_dec_block(r, r->pix_y[0], y0, 0);
++        y0->basis_curr = y0->basis_next; y0->dcbuf_curr = y0->dcbuf_next;
++        y0->basis_curr_line++; y0->dcbuf_curr_line++;
++        hvqm2_dec_block(r, r->pix_y[1], y0, 0);
++        if (r->mcu411) {
++            hvqm2_update_wcode(y1); hvqm2_dec_block(r, r->pix_y[2], y1, 0);
++            y1->basis_curr = y1->basis_next; y1->dcbuf_curr = y1->dcbuf_next;
++            y1->basis_curr_line++; y1->dcbuf_curr_line++;
++            hvqm2_dec_block(r, r->pix_y[3], y1, 0);
++        }
++        u->basis_curr = u->basis_next; u->dcbuf_curr = u->dcbuf_next;
++        u->basis_curr_line++; u->dcbuf_curr_line++;
++        hvqm2_dec_block(r, r->pix_u, u, 1);
++        v->basis_curr = v->basis_next; v->dcbuf_curr = v->dcbuf_next;
++        v->basis_curr_line++; v->dcbuf_curr_line++;
++        hvqm2_dec_block(r, r->pix_v, v, 2);
++        if (r->mcu411) hvqm2_colorconv411(r, out); else hvqm2_colorconv422(r, out);
++    }
++}
++
++/* Reconstruct the whole frame into r->out (RGBA). INTER MCUs (basis 0x80) must already be
++ * copied into r->out; this fills every intra MCU. Mirrors the oracle's decFrame wcode
++ * line-pointer setup exactly. */
++static void hvqm2_dec_frame(HVQM2Recon *r)
++{
++    const int lh = r->lum_hblocks, ch = r->col_hblocks;
++    uint32_t *out = r->out;
++    RWcode *y0 = &r->y0wcode, *y1 = &r->y1wcode, *u = &r->u_wcode, *v = &r->v_wcode;
++
++    u->basis_prev_line = u->basis_curr_line = r->basis[1]; u->basis_next_line = r->basis[1] + ch;
++    u->dcbuf_prev_line = u->dcbuf_curr_line = r->dcbuf[1]; u->dcbuf_next_line = r->dcbuf[1] + ch;
++    v->basis_prev_line = v->basis_curr_line = r->basis[2]; v->basis_next_line = r->basis[2] + ch;
++    v->dcbuf_prev_line = v->dcbuf_curr_line = r->dcbuf[2]; v->dcbuf_next_line = r->dcbuf[2] + ch;
++    y0->basis_prev_line = y0->basis_curr_line = r->basis[0]; y0->basis_next_line = r->basis[0] + lh;
++    y0->dcbuf_prev_line = y0->dcbuf_curr_line = r->dcbuf[0]; y0->dcbuf_next_line = r->dcbuf[0] + lh;
++    if (r->mcu411) {
++        y1->basis_prev_line = r->basis[0]; y1->basis_curr_line = r->basis[0] + lh; y1->basis_next_line = r->basis[0] + 2 * lh;
++        y1->dcbuf_prev_line = r->dcbuf[0]; y1->dcbuf_curr_line = r->dcbuf[0] + lh; y1->dcbuf_next_line = r->dcbuf[0] + 2 * lh;
++    }
++    hvqm2_dec_line(r, out);
++    out += r->mcu_v_pix;
++
++    u->basis_prev_line = r->basis[1]; u->dcbuf_prev_line = r->dcbuf[1];
++    v->basis_prev_line = r->basis[2]; v->dcbuf_prev_line = r->dcbuf[2];
++    if (r->mcu411) {
++        y0->basis_curr_line += lh; y0->dcbuf_curr_line += lh;
++        y0->basis_next_line += lh; y0->dcbuf_next_line += lh;
++        hvqm2_advance_wcode(y1, lh);
++    } else {
++        y0->basis_prev_line = r->basis[0]; y0->dcbuf_prev_line = r->dcbuf[0];
++    }
++
++    for (int line = 1; line < r->col_vblocks - 1; line++) {
++        hvqm2_dec_line(r, out);
++        out += r->mcu_v_pix;
++        if (r->mcu411) {
++            hvqm2_advance_wcode(y0, lh);
++            hvqm2_advance_wcode(y1, lh);
++        }
++    }
++
++    u->basis_next_line = u->basis_curr_line; u->dcbuf_next_line = u->dcbuf_curr_line;
++    v->basis_next_line = v->basis_curr_line; v->dcbuf_next_line = v->dcbuf_curr_line;
++    if (r->mcu411) {
++        y1->basis_next_line = y1->basis_curr_line; y1->dcbuf_next_line = y1->dcbuf_curr_line;
++    } else {
++        y0->basis_next_line = y0->basis_curr_line; y0->dcbuf_next_line = y0->dcbuf_curr_line;
++    }
++    hvqm2_dec_line(r, out);
++}
++
++/* Fill the per-frame geometry of a reconstruction context. basis/dcbuf and the AOT
++ * streams are set by the caller (key vs P differ). */
++static void hvqm2_recon_init(HVQM2EncContext *s, HVQM2Recon *r, uint32_t *out)
++{
++    memset(r, 0, sizeof(*r));
++    r->fbw = s->width;
++    r->im_width = s->width; r->im_height = s->height;
++    r->lum_hblocks = s->lum_hblocks;
++    r->col_hblocks = s->col_hblocks; r->col_vblocks = s->col_vblocks;
++    r->mcu411 = s->mcu411;
++    r->mcu_h_pix = 8;
++    r->mcu_v_pix = (s->mcu411 ? 8 : 4) * s->width;
++    r->nest = s->nest; r->nest_w = HVQM2_NEST_W;
++    r->divT = s->divT;
++    r->out = out;
++}
++
++/* Derive the ME luma plane from the reconstructed RGBA reference, so motion estimation
++ * scores against exactly the frame the decoder holds (the decoder keeps RGBA only; there
++ * is no separate luma state to drift from it). BT.601 luma weights invert the decoder's
++ * (near-BT.601) yuv2rgba well enough to recover ~Y for the source-vs-reference SAD. */
++static void hvqm2_extract_luma(HVQM2EncContext *s)
++{
++    const uint32_t *fb = s->ref_rgba[s->buf_cur];
++    uint8_t *y = s->ref_y[s->buf_cur];
++    int n = s->width * s->height;
++    for (int i = 0; i < n; i++) {
++        uint32_t px = fb[i];                                  /* packed a<<24|b<<16|g<<8|r */
++        int r = px & 0xff, g = (px >> 8) & 0xff, b = (px >> 16) & 0xff;   /* endian-safe */
++        y[i] = (77 * r + 150 * g + 29 * b) >> 8;
++    }
++}
++
++/* Reconstruct a keyframe (all intra) from the encoder's quantized arrays, using at most
++ * `cap` bases per block (the same cap the body was assembled with). After this the body's
++ * scale/fixvl consumption order (s->oscl / s->ofix) is the reconstruction stream order. */
++static void hvqm2_recon_keyframe(HVQM2EncContext *s, int cap)
++{
++    HVQM2Recon r;
++    int nblk[3] = { s->lum_total, s->col_total, s->col_total };
++
++    for (int pl = 0; pl < 3; pl++)
++        for (int i = 0; i < nblk[pl]; i++) {
++            int b = s->bn[pl][i];
++            s->rbn[pl][i] = b < cap ? b : cap;
++        }
++
++    hvqm2_recon_init(s, &r, s->ref_rgba[s->buf_cur]);
++    for (int pl = 0; pl < 3; pl++) {
++        r.basis[pl] = s->rbn[pl];
++        r.dcbuf[pl] = s->dc[pl];
++        r.fixp[pl]  = s->ofix[pl];
++        r.sclp[pl]  = s->oscl[pl];
++    }
++    hvqm2_dec_frame(&r);
++}
++
++/* =========================== inter (P) frames — Phase B (B2a) ============================ */
++
++/* Raw byte payload stream: [u32 size][bytes padded to 4]. Used for the macroblock
++ * type-bit stream (no Huffman tree). */
++static int hvqm2_put_raw(uint8_t *buf, int pos, int cap, const uint8_t *src, int n)
++{
++    int nbytes = n;
++    av_assert0(pos + 4 + ((nbytes + 3) & ~3) <= cap);
++    memcpy(buf + pos + 4, src, n);
++    while (nbytes & 3)
++        buf[pos + 4 + nbytes++] = 0;
++    AV_WB32(buf + pos, nbytes);
++    return pos + 4 + nbytes;
++}
++
++/* SAD of the current 8x8 luma block at (cx,cy) against prev_y shifted by (mvx,mvy). */
++static int hvqm2_sad8(const uint8_t *cur, int cls, const uint8_t *prev, int pw,
++                      int cx, int cy, int mvx, int mvy)
++{
++    const uint8_t *c = cur  + cy * cls + cx;
++    const uint8_t *p = prev + (cy + mvy) * pw + (cx + mvx);
++    int sad = 0;
++    for (int i = 0; i < 8; i++, c += cls, p += pw)
++        for (int j = 0; j < 8; j++)
++            sad += FFABS((int)c[j] - (int)p[j]);
++    return sad;
++}
++
++/* Integer-pel motion search for one 8x8 MB. Predictor-seeded (running MV, zero), then a
++ * small-diamond refine. Candidates are clamped so the 8x8 source stays fully in bounds
++ * (the decoder does no bounds check) and within +/- me_range. Returns best SAD. */
++static int hvqm2_me(HVQM2EncContext *s, const uint8_t *cur, int cls, int cx, int cy,
++                    int run_mvx, int run_mvy, int *bmvx, int *bmvy)
++{
++    const uint8_t *prev = s->me_ref;     /* previous *reconstructed* luma (closed loop) */
++    const int W = s->width, H = s->height, R = s->me_range;
++    const int lox = FFMAX(-cx, -R), hix = FFMIN(W - 8 - cx, R);
++    const int loy = FFMAX(-cy, -R), hiy = FFMIN(H - 8 - cy, R);
++    int best = INT_MAX, bx = 0, by = 0;
++    int cand[2][2] = { { 0, 0 }, { run_mvx, run_mvy } };
++
++    for (int k = 0; k < 2; k++) {
++        int mx = av_clip(cand[k][0], lox, hix), my = av_clip(cand[k][1], loy, hiy);
++        int sad = hvqm2_sad8(cur, cls, prev, W, cx, cy, mx, my);
++        if (sad < best) { best = sad; bx = mx; by = my; }
++    }
++    for (int iter = 0; iter < 16; iter++) {           /* small-diamond descent */
++        static const int dxy[4][2] = { { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } };
++        int moved = 0;
++        for (int d = 0; d < 4; d++) {
++            int mx = bx + dxy[d][0], my = by + dxy[d][1];
++            if (mx < lox || mx > hix || my < loy || my > hiy)
++                continue;
++            int sad = hvqm2_sad8(cur, cls, prev, W, cx, cy, mx, my);
++            if (sad < best) { best = sad; bx = mx; by = my; moved = 1; }
++        }
++        if (!moved)
++            break;
++    }
++    *bmvx = bx; *bmvy = by;
++    return best;
++}
++
++/* Mean of a w x h region of a plane. */
++static int hvqm2_region_mean(const uint8_t *p, int ls, int x0, int y0, int w, int h)
++{
++    int sum = 0;
++    for (int i = 0; i < h; i++)
++        for (int j = 0; j < w; j++)
++            sum += p[(y0 + i) * ls + x0 + j];
++    return (sum + (w * h) / 2) / (w * h);
++}
++
++enum { PF_INTER, PF_INTRA_DC, PF_INTRA_FULL };
++
++/* AOT matching-pursuit for one 4x4 block of a plane (luma or chroma), addressed by raster
++ * index within that plane's `hb`-wide block grid. Fills s->bn/scl/fixw at `idx` and returns
++ * the basis count. Mirrors hvqm2_aot_analyze's per-block call, reused for P INTRA-FULL. */
++static int hvqm2_search_plane_block(HVQM2EncContext *s, const AVFrame *f, int pl, int idx, int hb)
++{
++    uint8_t src[16];
++    const int ls = f->linesize[pl];
++    const uint8_t *p = f->data[pl] + (idx / hb) * 4 * ls + (idx % hb) * 4;
++    for (int dy = 0; dy < 4; dy++)
++        for (int dx = 0; dx < 4; dx++)
++            src[dy * 4 + dx] = p[dy * ls + dx];
++    return hvqm2_search_block(s, src, s->dc[pl][idx],
++                              s->fixw[pl] + idx * HVQM2_MAXB, s->scl[pl] + idx * HVQM2_MAXB);
++}
++
++/* Emit the cap-dependent P-frame streams: basisnum[0,1] + basnumrn[0,1] (MB-interleaved,
++ * capped at `cap` bases/block) and scale[0..2] + fixvl[0..2] (decLine consumption order,
++ * capped), alongside the cap-independent dcval[0..2], movevector and macroblock streams,
++ * then fill the HVQM2Frame + HVQM2PredictFrame offset table. Also sets the reconstruction
++ * basis s->rbn for INTRA-FULL blocks at this cap (INTER=0x80 / INTRA-DC=0 were set during
++ * analysis). Returns the body size. Trees are built one-per-category (embedded in stream
++ * [0]); empty categories degrade to zero-size streams the decoder never reads from. */
++static int hvqm2_pframe_emit(HVQM2EncContext *s, int cap, int nmv, const int ndc[3], int mbbytes)
++{
++    uint8_t *buf = s->pktbuf;
++    const int lh = s->lum_hblocks, ch = s->col_hblocks;
++    HVQM2Huff bn_h, run_h, scale_h, dc_h, mv_h;
++    uint64_t bnfreq[256] = { 0 }, runfreq[256] = { 0 }, scfreq[256] = { 0 },
++             dcfreq[256] = { 0 }, mvfreq[256] = { 0 };
++    int nbnval[2] = { 0 }, nbnrun[2] = { 0 }, nscl[3] = { 0 }, nfix[3] = { 0 };
++    int nbl = 0, nbc = 0, pos;
++    uint32_t off_bn[2], off_bnr[2], off_sc[3], off_fx[3], off_dc[3], off_mv, off_mb;
++
++    /* ---- MB-interleaved basisnum (luma b0,b1,b2,b3 then packed chroma U|V<<4), capped,
++     *      then RLE. Only INTRA-FULL MBs contribute; INTER/INTRA-DC read no basisnum. Set
++     *      the capped reconstruction basis for those blocks here (cap-dependent). ---- */
++    for (int mby = 0; mby < s->mb_h; mby++)
++        for (int mbx = 0; mbx < s->mb_w; mbx++) {
++            int l0, l1, c0, c1, bl[4], u, v;
++            if (s->mb_mode[mby * s->mb_w + mbx] != PF_INTRA_FULL)
++                continue;
++            l0 = (2 * mby) * lh + 2 * mbx; l1 = (2 * mby + 1) * lh + 2 * mbx;
++            c0 = s->mcu411 ? mby * ch + mbx : (2 * mby) * ch + mbx;
++            c1 = (2 * mby + 1) * ch + mbx;
++            bl[0] = FFMIN(s->bn[0][l0], cap);     bl[1] = FFMIN(s->bn[0][l0 + 1], cap);
++            bl[2] = FFMIN(s->bn[0][l1], cap);     bl[3] = FFMIN(s->bn[0][l1 + 1], cap);
++            for (int k = 0; k < 4; k++)
++                s->pf_bnl[nbl++] = bl[k];
++            s->rbn[0][l0] = bl[0]; s->rbn[0][l0 + 1] = bl[1];
++            s->rbn[0][l1] = bl[2]; s->rbn[0][l1 + 1] = bl[3];
++            u = FFMIN(s->bn[1][c0], cap); v = FFMIN(s->bn[2][c0], cap);
++            s->pf_bnc[nbc++] = u | (v << 4);
++            s->rbn[1][c0] = u; s->rbn[2][c0] = v;
++            if (!s->mcu411) {
++                u = FFMIN(s->bn[1][c1], cap); v = FFMIN(s->bn[2][c1], cap);
++                s->pf_bnc[nbc++] = u | (v << 4);
++                s->rbn[1][c1] = u; s->rbn[2][c1] = v;
++            }
++        }
++    hvqm2_rle_bn(s->pf_bnl, nbl, s->bnval[0], &nbnval[0], s->bnrun[0], &nbnrun[0], bnfreq, runfreq);
++    hvqm2_rle_bn(s->pf_bnc, nbc, s->bnval[1], &nbnval[1], s->bnrun[1], &nbnrun[1], bnfreq, runfreq);
++
++    /* ---- scale + fixvl in decLine consumption order, capped. s->bn is 0 for INTER and
++     *      INTRA-DC blocks (cleared in analysis), so only INTRA-FULL blocks contribute and
++     *      the ordering matches what decFrame consumes (INTER MCUs are skipped). ---- */
++    hvqm2_order_luma(s, cap, &nscl[0], &nfix[0]);
++    for (int by = 0; by < s->col_vblocks; by++)
++        for (int bx = 0; bx < s->col_hblocks; bx++)
++            hvqm2_append_block(s, 1, by * s->col_hblocks + bx, cap, &nscl[1], &nfix[1]);
++    for (int by = 0; by < s->col_vblocks; by++)
++        for (int bx = 0; bx < s->col_hblocks; bx++)
++            hvqm2_append_block(s, 2, by * s->col_hblocks + bx, cap, &nscl[2], &nfix[2]);
++    for (int pl = 0; pl < 3; pl++)
++        for (int i = 0; i < nscl[pl]; i++)
++            scfreq[s->oscl[pl][i]]++;
++
++    /* ---- cap-independent symbol frequencies (DC, MV), recomputed from the stored syms ---- */
++    for (int pl = 0; pl < 3; pl++)
++        for (int i = 0; i < ndc[pl]; i++)
++            dcfreq[s->dcsym[pl][i]]++;
++    for (int i = 0; i < nmv; i++)
++        mvfreq[s->mvsym[i]]++;
++
++    hvqm2_huff_init(&bn_h,    bnfreq);
++    hvqm2_huff_init(&run_h,   runfreq);
++    hvqm2_huff_init(&scale_h, scfreq);
++    hvqm2_huff_init(&dc_h,    dcfreq);
++    hvqm2_huff_init(&mv_h,    mvfreq);
++
++    memset(buf, 0, 60);                               /* HVQM2Frame(52) + HVQM2PredictFrame(8) */
++    pos = 60;
++
++    off_bn[0]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &bn_h,    1, s->bnval[0], nbnval[0]);
++    off_bn[1]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &bn_h,    0, s->bnval[1], nbnval[1]);
++    off_bnr[0] = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &run_h,   1, s->bnrun[0], nbnrun[0]);
++    off_bnr[1] = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &run_h,   0, s->bnrun[1], nbnrun[1]);
++
++    off_sc[0]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &scale_h, 1, s->oscl[0], nscl[0]);
++    off_sc[1]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &scale_h, 0, s->oscl[1], nscl[1]);
++    off_sc[2]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &scale_h, 0, s->oscl[2], nscl[2]);
++
++    off_fx[0]  = pos; pos = hvqm2_put_words(buf, pos, s->pktbuf_size, s->ofix[0], nfix[0]);
++    off_fx[1]  = pos; pos = hvqm2_put_words(buf, pos, s->pktbuf_size, s->ofix[1], nfix[1]);
++    off_fx[2]  = pos; pos = hvqm2_put_words(buf, pos, s->pktbuf_size, s->ofix[2], nfix[2]);
++
++    off_dc[0]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &dc_h,    1, s->dcsym[0], ndc[0]);
++    off_dc[1]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &dc_h,    0, s->dcsym[1], ndc[1]);
++    off_dc[2]  = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &dc_h,    0, s->dcsym[2], ndc[2]);
++
++    off_mv     = pos; pos = hvqm2_put_estream(buf, pos, s->pktbuf_size, &mv_h,    1, s->mvsym, nmv);
++    off_mb     = pos; pos = hvqm2_put_raw(buf, pos, s->pktbuf_size, s->mbbits, mbbytes);
++
++    /* HVQM2Frame offset table (big-endian, relative to body start). */
++    AV_WB32(buf +  0, off_bn[0]);  AV_WB32(buf +  4, off_bn[1]);
++    AV_WB32(buf +  8, off_bnr[0]); AV_WB32(buf + 12, off_bnr[1]);
++    AV_WB32(buf + 16, off_sc[0]);  AV_WB32(buf + 20, off_sc[1]);  AV_WB32(buf + 24, off_sc[2]);
++    AV_WB32(buf + 28, off_fx[0]);  AV_WB32(buf + 32, off_fx[1]);  AV_WB32(buf + 36, off_fx[2]);
++    AV_WB32(buf + 40, off_dc[0]);  AV_WB32(buf + 44, off_dc[1]);  AV_WB32(buf + 48, off_dc[2]);
++    /* HVQM2PredictFrame at +52: movevector_offset, macroblock_offset. */
++    AV_WB32(buf + 52, off_mv);  AV_WB32(buf + 56, off_mb);
++
++    return pos;
++}
++
++/* Assemble a P-frame body (INTER + INTRA-DC + INTRA-FULL). First a cap-independent analysis
++ * pass decides each MB's mode, runs AOT for INTRA-FULL blocks, builds the running-predictor
++ * DC/MV/macroblock streams and the INTER 8x8 RGBA copies (+ rbn/rdc for reconstruction).
++ * Then a cap loop emits the basisnum/scale/fixvl streams, dropping the least-important AOT
++ * bases until the record fits HVQM2_DATASIZE_MAX. Returns body size, or -1 if even cap 0
++ * overflows (caller then falls back to a keyframe).
++ *
++ * Mode pick: INTER if SAD <= threshold; else AOT-search the 4 luma blocks against the kept
++ * keyframe nest -- any basis found -> INTRA-FULL, else INTRA-DC. // deliberate: greedy,
++ * -quality-driven DC/FULL split (no RD compare of DC vs full); revisit for rate control. */
++static int hvqm2_assemble_pframe(HVQM2EncContext *s, const AVFrame *f)
++{
++    const uint8_t *cy = f->data[0];
++    const int cls = f->linesize[0];
++    const int cuw = 4, cuh = s->mcu411 ? 4 : 8;       /* chroma rect per MB (INTRA-DC) */
++    const int lh = s->lum_hblocks, ch = s->col_hblocks, fbw = s->width;
++    uint32_t *ref_cur = s->ref_rgba[s->buf_cur], *ref_prev = s->ref_rgba[s->buf_cur ^ 1];
++    int nmv = 0, ndc[3] = { 0, 0, 0 }, n_bad = 0;
++    int run_mvx = 0, run_mvy = 0, run_dc[3] = { 0, 0, 0 };
++    PutBitContext mbpb;
++    int mbbytes, cap, body_size;
++
++    /* Per-block source DC (per-4x4 luma + chroma) for INTRA-FULL; overwrites s->dc but not
++     * s->nest/atoms (kept from the last keyframe -- the reference the decoder still holds). */
++    hvqm2_compute_dc(s, f);
++    /* s->bn drives the scale/fixvl ordering and basisnum; default 0 so INTER + INTRA-DC
++     * blocks contribute nothing and stale keyframe basis counts can't leak in. */
++    memset(s->bn[0], 0, s->lum_total);
++    memset(s->bn[1], 0, s->col_total);
++    memset(s->bn[2], 0, s->col_total);
++
++    init_put_bits(&mbpb, s->mbbits, s->nmb);          /* <= 2 bits/MB <= nmb bytes */
++
++    for (int mby = 0; mby < s->mb_h; mby++)
++        for (int mbx = 0; mbx < s->mb_w; mbx++) {
++            int cx = mbx * 8, cyy = mby * 8, mvx, mvy, nb_lum = 0, mb = mby * s->mb_w + mbx;
++            int sad = hvqm2_me(s, cy, cls, cx, cyy, run_mvx, run_mvy, &mvx, &mvy);
++            if (sad > HVQM2_SCENE_MB_SAD)         /* scene metric: poorly-predicted MB */
++                n_bad++;
++            int l0 = (2 * mby) * lh + 2 * mbx, l1 = (2 * mby + 1) * lh + 2 * mbx;
++            int li[4] = { l0, l0 + 1, l1, l1 + 1 };
++            int c0 = s->mcu411 ? mby * ch + mbx : (2 * mby) * ch + mbx;
++            int c1 = (2 * mby + 1) * ch + mbx;        /* 4:2:2 only (second chroma row) */
++
++            if (sad <= s->sad_thresh) {               /* INTER: type bit 0 */
++                int dx = (mvx - run_mvx) & 0xFF, dy = (mvy - run_mvy) & 0xFF;
++                const uint32_t *sp = ref_prev + (cyy + mvy) * fbw + (cx + mvx);
++                uint32_t *dp = ref_cur + cyy * fbw + cx;
++                put_bits(&mbpb, 1, 0);
++                s->mvsym[nmv++] = dx; s->mvsym[nmv++] = dy;
++                run_mvx = mvx; run_mvy = mvy;
++                s->mb_mode[mb] = PF_INTER;
++                s->rbn[0][l0] = s->rbn[0][l0 + 1] = s->rbn[0][l1] = s->rbn[0][l1 + 1] = 0x80;
++                s->rbn[1][c0] = s->rbn[2][c0] = 0x80;
++                if (!s->mcu411) s->rbn[1][c1] = s->rbn[2][c1] = 0x80;
++                for (int i = 0; i < 8; i++, sp += fbw, dp += fbw)   /* exact RGBA copy */
++                    memcpy(dp, sp, 8 * sizeof(*dp));
++                continue;
++            }
++
++            /* Not INTER -> intra. AOT-search the 4 luma blocks against the kept nest; any
++             * basis found means codeable detail -> INTRA-FULL, else cheap INTRA-DC. */
++            if (s->aot)
++                for (int k = 0; k < 4; k++)
++                    nb_lum += (s->bn[0][li[k]] = hvqm2_search_plane_block(s, f, 0, li[k], lh));
++
++            if (nb_lum > 0) {                         /* INTRA-FULL: type bits 1,0 */
++                put_bits(&mbpb, 1, 1);
++                put_bits(&mbpb, 1, 0);
++                s->mb_mode[mb] = PF_INTRA_FULL;
++                for (int k = 0; k < 4; k++) {         /* 4 luma DC deltas, b0..b3 order */
++                    int vY = s->dc[0][li[k]], bY = (vY - run_dc[0]) & 0xFF;
++                    hvqm2_emit_dc_value(s->dcsym[0], &ndc[0], NULL, bY >= 128 ? bY - 256 : bY);
++                    run_dc[0] = vY;
++                    s->rdc[0][li[k]] = vY;
++                }
++                s->bn[1][c0] = hvqm2_search_plane_block(s, f, 1, c0, ch);
++                s->bn[2][c0] = hvqm2_search_plane_block(s, f, 2, c0, ch);
++                {                                     /* chroma c0 DC (U then V) */
++                    int vU = s->dc[1][c0], bU = (vU - run_dc[1]) & 0xFF;
++                    int vV = s->dc[2][c0], bV = (vV - run_dc[2]) & 0xFF;
++                    hvqm2_emit_dc_value(s->dcsym[1], &ndc[1], NULL, bU >= 128 ? bU - 256 : bU);
++                    hvqm2_emit_dc_value(s->dcsym[2], &ndc[2], NULL, bV >= 128 ? bV - 256 : bV);
++                    run_dc[1] = vU; run_dc[2] = vV;
++                    s->rdc[1][c0] = vU; s->rdc[2][c0] = vV;
++                }
++                if (!s->mcu411) {                     /* 4:2:2 second chroma row */
++                    int vU, bU, vV, bV;
++                    s->bn[1][c1] = hvqm2_search_plane_block(s, f, 1, c1, ch);
++                    s->bn[2][c1] = hvqm2_search_plane_block(s, f, 2, c1, ch);
++                    vU = s->dc[1][c1]; bU = (vU - run_dc[1]) & 0xFF;
++                    vV = s->dc[2][c1]; bV = (vV - run_dc[2]) & 0xFF;
++                    hvqm2_emit_dc_value(s->dcsym[1], &ndc[1], NULL, bU >= 128 ? bU - 256 : bU);
++                    hvqm2_emit_dc_value(s->dcsym[2], &ndc[2], NULL, bV >= 128 ? bV - 256 : bV);
++                    run_dc[1] = vU; run_dc[2] = vV;
++                    s->rdc[1][c1] = vU; s->rdc[2][c1] = vV;
++                }
++                /* rbn for these blocks is set per-cap in hvqm2_pframe_emit. */
++            } else {                                  /* INTRA-DC: type bits 1,1 */
++                int dcy = hvqm2_region_mean(cy, cls, cx, cyy, 8, 8);
++                int dcu = hvqm2_region_mean(f->data[1], f->linesize[1], mbx * 4, mby * cuh, cuw, cuh);
++                int dcv = hvqm2_region_mean(f->data[2], f->linesize[2], mbx * 4, mby * cuh, cuw, cuh);
++                int dc3[3] = { dcy, dcu, dcv };
++                put_bits(&mbpb, 1, 1);
++                put_bits(&mbpb, 1, 1);
++                s->mb_mode[mb] = PF_INTRA_DC;
++                for (int pl = 0; pl < 3; pl++) {
++                    int b = (dc3[pl] - run_dc[pl]) & 0xFF;
++                    hvqm2_emit_dc_value(s->dcsym[pl], &ndc[pl], NULL, b >= 128 ? b - 256 : b);
++                    run_dc[pl] = dc3[pl];
++                }
++                s->bn[0][l0] = s->bn[0][l0 + 1] = s->bn[0][l1] = s->bn[0][l1 + 1] = 0;
++                s->rbn[0][l0] = s->rbn[0][l0 + 1] = s->rbn[0][l1] = s->rbn[0][l1 + 1] = 0;
++                s->rdc[0][l0] = s->rdc[0][l0 + 1] = s->rdc[0][l1] = s->rdc[0][l1 + 1] = dcy;
++                s->rbn[1][c0] = 0; s->rdc[1][c0] = dcu;
++                s->rbn[2][c0] = 0; s->rdc[2][c0] = dcv;
++                if (!s->mcu411) {
++                    s->rbn[1][c1] = 0; s->rdc[1][c1] = dcu;
++                    s->rbn[2][c1] = 0; s->rdc[2][c1] = dcv;
++                }
++            }
++        }
++
++    flush_put_bits(&mbpb);
++    mbbytes = put_bytes_output(&mbpb);
++    s->pf_nbad = n_bad;                            /* hand the scene metric to the controller */
++
++    /* Cap loop: drop the least-important AOT bases until the record fits (cheap -- no AOT
++     * re-search; DC/MV/macroblock streams are cap-independent). */
++    for (cap = HVQM2_MAXB; ; cap--) {
++        body_size = hvqm2_pframe_emit(s, cap, nmv, ndc, mbbytes);
++        if (body_size <= HVQM2_DATASIZE_MAX || cap == 0)
++            break;
++    }
++    return body_size > HVQM2_DATASIZE_MAX ? -1 : body_size;
++}
++
++/* Reconstruct a P-frame's intra MCUs into the current reference. The INTER 8x8 copies and
++ * the rbn/rdc arrays were already produced by hvqm2_assemble_pframe; decFrame skips the
++ * INTER (0x80) MCUs (leaving the copies), fills INTRA-DC MCUs via WeightImBlock, and runs
++ * the AOT path for INTRA-FULL blocks (B3) -- consuming s->ofix/s->oscl in decLine order
++ * against the kept keyframe nest, exactly as the decoder does. */
++static void hvqm2_recon_pframe(HVQM2EncContext *s)
++{
++    HVQM2Recon r;
++    hvqm2_recon_init(s, &r, s->ref_rgba[s->buf_cur]);
++    for (int pl = 0; pl < 3; pl++) {
++        r.basis[pl] = s->rbn[pl];
++        r.dcbuf[pl] = s->rdc[pl];
++        r.fixp[pl]  = s->ofix[pl];        /* unused (no basis > 0), kept valid */
++        r.sclp[pl]  = s->oscl[pl];
++    }
++    hvqm2_dec_frame(&r);
++}
++
++#ifdef HVQM2_DUMP_RECON
++/* Debug: dump the reconstructed reference as a P6 RGB PPM, byte-identical in format to the
++ * oracle's output/video_*.ppm, so a round-trip diff proves bit-exact reconstruction. */
++static void hvqm2_dump_recon(HVQM2EncContext *s, char type)
++{
++    const char *dir = getenv("HVQM2_DUMP_RECON");
++    char path[512];
++    FILE *fp;
++    const uint32_t *fb = s->ref_rgba[s->buf_cur];
++    int n = s->width * s->height;
++    if (!dir) return;
++    snprintf(path, sizeof(path), "%s/recon_%d_%c.ppm", dir, s->frame_index, type);
++    fp = fopen(path, "wb");
++    if (!fp) return;
++    fprintf(fp, "P6\n%d %d\n255\n", s->width, s->height);
++    for (int i = 0; i < n; i++) {
++        const uint8_t *p = (const uint8_t *)&fb[i];
++        fwrite(p, 3, 1, fp);          /* r,g,b (drop alpha), matching the oracle dump */
++    }
++    fclose(fp);
++}
++#endif
++
++/* =========================== rate control ============================ */
++
++/* Scene-change keyframe decision (Hudson -a), run after a P-frame's motion estimation.
++ * s->scene in [0,100]: 0 => every frame is a key, 100 => never insert a scene key; in
++ * between, key when more than 'scene' percent of macroblocks are poorly predicted (the
++ * frame changed too much to inter-code well). The two extremes match the manual exactly;
++ * the in-between curve is a documented monotonic approximation (Hudson's is internal). */
++static int hvqm2_scene_cut(const HVQM2EncContext *s)
++{
++    if (s->scene <= 0)   return 1;
++    if (s->scene >= 100) return 0;
++    return 100 * s->pf_nbad > s->scene * s->nmb;   // deliberate: > so scene=100 path is unreachable here
++}
++
++/* HOLD test: is the current source luma close enough to the previous reconstructed luma
++ * (at zero motion) to just repeat that frame? Whole-frame mean-abs-diff vs HVQM2_HOLD_MAD_Q8,
++ * with early-out once the budget is blown. Only valid when no MB needs motion -- a HOLD is a
++ * pure copy of the previous displayed frame. */
++static int hvqm2_is_hold(const HVQM2EncContext *s, const AVFrame *f)
++{
++    const uint8_t *cur = f->data[0], *prev = s->me_ref;
++    const int W = s->width, H = s->height, cls = f->linesize[0];
++    const int64_t budget = (int64_t)HVQM2_HOLD_MAD_Q8 * W * H / 256;
++    int64_t sad = 0;
++    for (int y = 0; y < H; y++) {
++        const uint8_t *c = cur + (size_t)y * cls, *p = prev + (size_t)y * W;
++        for (int x = 0; x < W; x++)
++            sad += FFABS((int)c[x] - (int)p[x]);
++        if (sad > budget)
++            return 0;
++    }
++    return 1;
++}
++
++/* =========================== frame ============================ */
++
++static int hvqm2_encode_frame(AVCodecContext *avctx, AVPacket *pkt,
++                              const AVFrame *frame, int *got_packet)
++{
++    HVQM2EncContext *s = avctx->priv_data;
++    int body_size = -1, cap, ret, is_key, is_hold = 0;
++
++    if (!frame) {
++        *got_packet = 0;
++        return 0;
++    }
++
++    /* First frame and every gop_size-th frame are keyframes; the rest are P-frames. */
++    is_key = !s->have_prev ||
++             (s->gop_size > 0 && s->frame_index % s->gop_size == 0);
++
++    /* Closed loop: motion estimation references the previous *reconstructed* frame. */
++    s->me_ref = s->ref_y[s->buf_cur ^ 1];
++
++    if (!is_key && hvqm2_is_hold(s, frame)) {
++        is_hold = 1;                        /* static frame -> empty HOLD record */
++    } else if (!is_key) {
++        body_size = hvqm2_assemble_pframe(s, frame);
++        if (body_size < 0)                  /* P record over the cap -> force a keyframe */
++            is_key = 1;
++        else if (hvqm2_scene_cut(s))        /* -scene: too much changed -> keyframe */
++            is_key = 1;                      /* recon_keyframe fully overwrites the discarded P */
++    }
++
++    if (is_hold) {
++        /* HOLD: the decoder repeats the previous displayed frame. Copy its RGBA so
++         * extract_luma rederives the held luma and the next frame's ME references exactly
++         * what the decoder will show. body stays empty (0 bytes). */
++        memcpy(s->ref_rgba[s->buf_cur], s->ref_rgba[s->buf_cur ^ 1],
++               (size_t)s->width * s->height * sizeof(*s->ref_rgba[0]));
++        body_size = 0;
++    } else if (is_key) {
++        hvqm2_compute_dc(s, frame);
++        if (s->aot) {                       /* AOT analysis (only when the nest is valid) */
++            hvqm2_build_nest(s);
++            hvqm2_build_atoms(s);
++            hvqm2_aot_analyze(s, frame);
++        } else {
++            memset(s->bn[0], 0, s->lum_total);
++            memset(s->bn[1], 0, s->col_total);
++            memset(s->bn[2], 0, s->col_total);
++        }
++        hvqm2_dc_deltas(s);
++
++        /* Every record must fit HVQM2_DATASIZE_MAX. If a high-detail keyframe overflows,
++         * drop the least-important bases (uniform cap; matching pursuit stores bases in
++         * importance order) and re-assemble -- cheap, no AOT re-search. Fail loudly only
++         * if even DC-only (cap 0) won't fit. */
++        for (cap = HVQM2_MAXB; ; cap--) {
++            body_size = hvqm2_assemble_body(s, cap);
++            if (body_size <= HVQM2_DATASIZE_MAX || cap == 0)
++                break;
++        }
++        if (body_size > HVQM2_DATASIZE_MAX) {
++            av_log(avctx, AV_LOG_ERROR,
++                   "HVQM2 keyframe body is %d bytes (DC-only), over the %d-byte per-record "
++                   "limit. Reduce resolution.\n", body_size, HVQM2_DATASIZE_MAX);
++            return AVERROR(EINVAL);
++        }
++        hvqm2_recon_keyframe(s, cap);       /* reconstruct into ref_rgba[buf_cur] */
++    } else {
++        hvqm2_recon_pframe(s);              /* fill INTRA-DC MCUs (INTER already copied) */
++    }
++    hvqm2_extract_luma(s);                  /* ME luma plane for the next frame's search */
++
++    if ((ret = ff_get_encode_buffer(avctx, pkt, body_size, 0)) < 0)
++        return ret;
++    if (body_size)                          /* HOLD has an empty body */
++        memcpy(pkt->data, s->pktbuf, body_size);
++    if (is_key)
++        pkt->flags |= AV_PKT_FLAG_KEY;
++
++#ifdef HVQM2_DUMP_RECON
++    hvqm2_dump_recon(s, is_hold ? 'h' : is_key ? 'i' : 'p');
++#endif
++    /* The frame just reconstructed becomes the reference for the next frame. */
++    s->buf_cur  ^= 1;
++    s->have_prev = 1;
++    s->frame_index++;
++
++    *got_packet = 1;
++    return 0;
++}
++
++/* =========================== lifecycle ============================ */
++
++/* Fixed encoding profile, surfaced to the muxer (and any stream-copy remux) via 2-byte
++ * extradata so the container header stays in sync with the encoder. Must match the
++ * fallback in libavformat/hvqmenc.c. */
++#define HVQM2_Y_SHIFTNUM            8
++#define HVQM2_VIDEO_QUANTIZE_SHIFT  0
++
++static av_cold int hvqm2_encode_init(AVCodecContext *avctx)
++{
++    HVQM2EncContext *s = avctx->priv_data;
++    int lt, ct, maxb;
++
++    if ((avctx->width & 7) || (avctx->height & 7)) {
++        av_log(avctx, AV_LOG_ERROR,
++               "HVQM2 requires width and height to be multiples of 8 (got %dx%d).\n",
++               avctx->width, avctx->height);
++        return AVERROR(EINVAL);
++    }
++    if (avctx->width < 144 || avctx->height < 80) {
++        av_log(avctx, AV_LOG_ERROR,
++               "HVQM2 requires at least 144x80 (got %dx%d).\n",
++               avctx->width, avctx->height);
++        return AVERROR(EINVAL);
++    }
++    if (avctx->width > 640 || avctx->height > 480) {
++        av_log(avctx, AV_LOG_ERROR,
++               "HVQM2 supports at most 640x480 (got %dx%d).\n",
++               avctx->width, avctx->height);
++        return AVERROR(EINVAL);
++    }
++
++    s->mcu411      = avctx->pix_fmt == AV_PIX_FMT_YUV420P;   /* else yuv422p */
++    s->lum_hblocks = avctx->width  >> 2;
++    s->lum_vblocks = avctx->height >> 2;
++    s->lum_total   = s->lum_hblocks * s->lum_vblocks;
++    s->col_hblocks = avctx->width  >> 3;
++    s->col_vblocks = avctx->height >> (s->mcu411 ? 3 : 2);
++    s->col_total   = s->col_hblocks * s->col_vblocks;
++    lt = s->lum_total; ct = s->col_total;
++
++    /* AOT needs a full 70x38 nest window; smaller frames would hit the decoder's
++     * MakeNest mirror/empty bug, so they stay DC-only. */
++    s->aot = s->lum_hblocks >= HVQM2_NEST_W && s->lum_vblocks >= HVQM2_NEST_H;
++
++    s->dc[0] = av_malloc(lt);
++    s->dc[1] = av_malloc(ct);
++    s->dc[2] = av_malloc(ct);
++
++    s->nest       = av_malloc(HVQM2_NEST_W * HVQM2_NEST_H);
++    s->atom_tmp   = av_malloc(HVQM2_NATOMS * 16 * sizeof(*s->atom_tmp));
++    s->atom_norm2 = av_malloc(HVQM2_NATOMS * sizeof(*s->atom_norm2));
++    s->atom_inv   = av_malloc(HVQM2_NATOMS * sizeof(*s->atom_inv));
++    s->atom_div   = av_malloc(HVQM2_NATOMS * sizeof(*s->atom_div));
++    s->atom_px    = av_malloc(HVQM2_NATOMS);
++    s->atom_py    = av_malloc(HVQM2_NATOMS);
++    s->atom_xs    = av_malloc(HVQM2_NATOMS);
++    s->atom_ys    = av_malloc(HVQM2_NATOMS);
++
++    s->bn[0] = av_malloc(lt); s->bn[1] = av_malloc(ct); s->bn[2] = av_malloc(ct);
++    for (int pl = 0; pl < 3; pl++) {
++        int nblk = pl ? ct : lt;
++        s->fixw[pl] = av_malloc(nblk * HVQM2_MAXB * sizeof(*s->fixw[pl]));
++        s->scl[pl]  = av_malloc(nblk * HVQM2_MAXB);
++        s->oscl[pl] = av_malloc(nblk * HVQM2_MAXB);
++        s->ofix[pl] = av_malloc(nblk * HVQM2_MAXB * sizeof(*s->ofix[pl]));
++        s->dcd[pl]   = av_malloc(nblk * sizeof(*s->dcd[pl]));
++        s->dcsym[pl] = av_malloc(2 * nblk);
++        s->dcrun[pl] = av_malloc(nblk);
++    }
++    s->bnval[0] = av_malloc(lt); s->bnrun[0] = av_malloc(lt);
++    s->bnval[1] = av_malloc(ct); s->bnrun[1] = av_malloc(ct);
++
++    /* ---- inter (P) frame state ---- */
++    s->width  = avctx->width;
++    s->height = avctx->height;
++    s->mb_w   = avctx->width  >> 3;
++    s->mb_h   = avctx->height >> 3;
++    s->nmb    = s->mb_w * s->mb_h;
++    /* Keyframe interval = -g (Hudson -k); codec default 30 via hvqm2_defaults[]. -g <= 0
++     * means no periodic keyframes (infinite GOP -> scene cuts only). me_range/scene come
++     * straight from the private options. */
++    s->gop_size = avctx->gop_size;
++    /* 8x8 SAD threshold for choosing INTER; scales with -quality (~per-pixel error). */
++    s->sad_thresh = av_clip(s->quality, 64, 64 * 64);
++    s->frame_index = 0;
++    s->have_prev   = 0;
++    s->mvsym   = av_malloc(2 * s->nmb);
++    s->mbbits  = av_malloc(s->nmb);
++    s->mb_mode = av_malloc(s->nmb);
++    s->pf_bnl  = av_malloc(lt);                 /* <= 4 luma basisnum / MB == lum_total */
++    s->pf_bnc  = av_malloc(ct);                 /* <= 1 (4:1:1) / 2 (4:2:2) per MB == col_total */
++    if (!s->mvsym || !s->mbbits || !s->mb_mode || !s->pf_bnl || !s->pf_bnc)
++        return AVERROR(ENOMEM);
++
++    /* ---- closed-loop reconstruction (Phase B2b) ---- */
++    s->buf_cur = 0;
++    s->divT[0] = 0;
++    for (int i = 1; i < 0x200; i++)
++        s->divT[i] = 4096 / i;
++    for (int i = 0; i < 2; i++) {
++        s->ref_rgba[i] = av_malloc((size_t)s->width * s->height * sizeof(*s->ref_rgba[i]));
++        s->ref_y[i]    = av_mallocz((size_t)s->width * s->height);   /* z: clean ME ref */
++        if (!s->ref_rgba[i] || !s->ref_y[i])
++            return AVERROR(ENOMEM);
++    }
++    s->rbn[0] = av_malloc(lt); s->rbn[1] = av_malloc(ct); s->rbn[2] = av_malloc(ct);
++    s->rdc[0] = av_malloc(lt); s->rdc[1] = av_malloc(ct); s->rdc[2] = av_malloc(ct);
++    for (int pl = 0; pl < 3; pl++)
++        if (!s->rbn[pl] || !s->rdc[pl])
++            return AVERROR(ENOMEM);
++
++    /* body = 68B headers + 16 framed streams; bound payloads generously. */
++    maxb = HVQM2_MAXB;
++    s->pktbuf_size = 8192 + 80 * (lt + 2 * ct) + 4 * (lt + 2 * ct) * maxb;
++    s->pktbuf = av_malloc(s->pktbuf_size);
++
++    if (!s->dc[0] || !s->dc[1] || !s->dc[2] || !s->nest || !s->atom_tmp ||
++        !s->atom_norm2 || !s->atom_inv || !s->atom_div || !s->atom_px || !s->atom_py ||
++        !s->atom_xs || !s->atom_ys || !s->bn[0] || !s->bn[1] || !s->bn[2] ||
++        !s->bnval[0] || !s->bnrun[0] || !s->bnval[1] || !s->bnrun[1] || !s->pktbuf)
++        return AVERROR(ENOMEM);
++    for (int pl = 0; pl < 3; pl++)
++        if (!s->fixw[pl] || !s->scl[pl] || !s->oscl[pl] || !s->ofix[pl] ||
++            !s->dcd[pl] || !s->dcsym[pl] || !s->dcrun[pl])
++            return AVERROR(ENOMEM);
++
++    /* Surface the fixed profile (y_shiftnum, video_quantize_shift) to the muxer so the
++     * container header — and any later stream-copy remux — matches what we encoded. */
++    avctx->extradata = av_mallocz(2 + AV_INPUT_BUFFER_PADDING_SIZE);
++    if (!avctx->extradata)
++        return AVERROR(ENOMEM);
++    avctx->extradata[0]   = HVQM2_Y_SHIFTNUM;
++    avctx->extradata[1]   = HVQM2_VIDEO_QUANTIZE_SHIFT;
++    avctx->extradata_size = 2;
++
++    avctx->bits_per_coded_sample = 12;
++    avctx->bit_rate              = ff_guess_coded_bitrate(avctx);
++    return 0;
++}
++
++static av_cold int hvqm2_encode_close(AVCodecContext *avctx)
++{
++    HVQM2EncContext *s = avctx->priv_data;
++    for (int i = 0; i < 3; i++) {
++        av_freep(&s->dc[i]);
++        av_freep(&s->bn[i]);
++        av_freep(&s->fixw[i]);
++        av_freep(&s->scl[i]);
++        av_freep(&s->oscl[i]);
++        av_freep(&s->ofix[i]);
++        av_freep(&s->dcd[i]);
++        av_freep(&s->dcsym[i]);
++        av_freep(&s->dcrun[i]);
++    }
++    for (int i = 0; i < 2; i++) {
++        av_freep(&s->bnval[i]);
++        av_freep(&s->bnrun[i]);
++        av_freep(&s->ref_rgba[i]);
++        av_freep(&s->ref_y[i]);
++    }
++    for (int i = 0; i < 3; i++) {
++        av_freep(&s->rbn[i]);
++        av_freep(&s->rdc[i]);
++    }
++    av_freep(&s->nest);
++    av_freep(&s->atom_tmp);
++    av_freep(&s->atom_norm2);
++    av_freep(&s->atom_inv);
++    av_freep(&s->atom_div);
++    av_freep(&s->atom_px);
++    av_freep(&s->atom_py);
++    av_freep(&s->atom_xs);
++    av_freep(&s->atom_ys);
++    av_freep(&s->pktbuf);
++    av_freep(&s->mvsym);
++    av_freep(&s->mbbits);
++    av_freep(&s->mb_mode);
++    av_freep(&s->pf_bnl);
++    av_freep(&s->pf_bnc);
++    return 0;
++}
++
++#define OFFSET(x) offsetof(HVQM2EncContext, x)
++#define VE (AV_OPT_FLAG_VIDEO_PARAM | AV_OPT_FLAG_ENCODING_PARAM)
++/* Rate control mirrors Hudson's hvqm2enc knobs:
++ *   -q  -> quality (matching-pursuit threshold Z)   |  -k -> -g (keyframe interval)
++ *   -r  -> me_range (motion search range)           |  -a -> scene (scene-change keys) */
++static const AVOption hvqm2_options[] = {
++    { "quality", "compression quality / matching-pursuit threshold; higher = fewer AOT bases, "
++      "more compression (Hudson -q)",
++      OFFSET(quality), AV_OPT_TYPE_INT, { .i64 = 400 }, 0, INT_MAX, VE },
++    { "me_range", "motion search range in pixels for P-frames; 0 = no motion (Hudson -r)",
++      OFFSET(me_range), AV_OPT_TYPE_INT, { .i64 = 32 }, 0, 63, VE },
++    { "scene", "scene-change keyframe sensitivity: 0 = every frame is a key, 100 = never "
++      "insert one (Hudson -a)",
++      OFFSET(scene), AV_OPT_TYPE_INT, { .i64 = 80 }, 0, 100, VE },
++    { NULL },
++};
++
++static const AVClass hvqm2_class = {
++    .class_name = "hvqm2 encoder",
++    .item_name  = av_default_item_name,
++    .option     = hvqm2_options,
++    .version    = LIBAVUTIL_VERSION_INT,
++};
++
++/* Codec-specific default for the generic GOP option: Hudson's -k default is 30
++ * (FFmpeg's generic -g default is 12). User -g still overrides. */
++static const FFCodecDefault hvqm2_defaults[] = {
++    { "g", "30" },
++    { NULL },
++};
++
++const FFCodec ff_hvqm2_encoder = {
++    .p.name         = "hvqm2",
++    CODEC_LONG_NAME("Hudson HVQM2 VQ video"),
++    .p.type         = AVMEDIA_TYPE_VIDEO,
++    .p.id           = AV_CODEC_ID_HVQM2,
++    .p.capabilities = AV_CODEC_CAP_DR1,
++    .p.priv_class   = &hvqm2_class,
++    .priv_data_size = sizeof(HVQM2EncContext),
++    .init           = hvqm2_encode_init,
++    FF_CODEC_ENCODE_CB(hvqm2_encode_frame),
++    .close          = hvqm2_encode_close,
++    .defaults       = hvqm2_defaults,
++    CODEC_PIXFMTS(AV_PIX_FMT_YUV420P, AV_PIX_FMT_YUV422P),
++    .caps_internal  = FF_CODEC_CAP_INIT_CLEANUP,
++};
+diff --git a/libavformat/Makefile b/libavformat/Makefile
+index 752436c..069ae04 100644
+--- a/libavformat/Makefile
++++ b/libavformat/Makefile
+@@ -276,6 +276,8 @@ OBJS-$(CONFIG_EVC_DEMUXER)               += evcdec.o rawdec.o
+ OBJS-$(CONFIG_EVC_MUXER)                 += rawenc.o
+ OBJS-$(CONFIG_HLS_DEMUXER)               += hls.o hls_sample_encryption.o
+ OBJS-$(CONFIG_HLS_MUXER)                 += hlsenc.o hlsplaylist.o
++OBJS-$(CONFIG_HVQM_DEMUXER)              += hvqmdec.o
++OBJS-$(CONFIG_HVQM_MUXER)                += hvqmenc.o
+ OBJS-$(CONFIG_HNM_DEMUXER)               += hnm.o
+ OBJS-$(CONFIG_HXVS_DEMUXER)              += hxvs.o
+ OBJS-$(CONFIG_IAMF_DEMUXER)              += iamfdec.o
+diff --git a/libavformat/allformats.c b/libavformat/allformats.c
+index af7eea5..2da2ed1 100644
+--- a/libavformat/allformats.c
++++ b/libavformat/allformats.c
+@@ -215,6 +215,8 @@ extern const FFInputFormat  ff_hevc_demuxer;
+ extern const FFOutputFormat ff_hevc_muxer;
+ extern const FFInputFormat  ff_hls_demuxer;
+ extern const FFOutputFormat ff_hls_muxer;
++extern const FFInputFormat  ff_hvqm_demuxer;
++extern const FFOutputFormat ff_hvqm_muxer;
+ extern const FFInputFormat  ff_hnm_demuxer;
+ extern const FFInputFormat  ff_hxvs_demuxer;
+ extern const FFInputFormat  ff_iamf_demuxer;
+diff --git a/libavformat/hvqmdec.c b/libavformat/hvqmdec.c
+new file mode 100644
+index 0000000..6822f50
+--- /dev/null
++++ b/libavformat/hvqmdec.c
+@@ -0,0 +1,263 @@
++/*
++ * Hudson HVQM2 (.hvqm) demuxer
++ *
++ * Copyright (c) 2026 FFmpeg HVQM2 port
++ *
++ * This file is part of FFmpeg.
++ *
++ * FFmpeg is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * FFmpeg is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with FFmpeg; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ */
++
++/**
++ * @file
++ * Hudson HVQM2 1.0 container demuxer.
++ *
++ * Layout (big-endian): a 60-byte file header followed by a linear sequence of
++ * records, each an 8-byte header (type u16, format u16, body size u32) + body.
++ * Video records carry HVQM2 VQ frames (key/predict/hold); audio records carry
++ * ADPCM. See libavformat/hvqmenc.c (the muxer) for the byte-exact header layout.
++ *
++ * Audio is handed to the in-tree adpcm_ima_hvqm2 decoder by prepending the
++ * record's 2-byte format word to the body, yielding the packet layout that
++ * decoder expects: [format u16][reserved u16][nb_samples u16][ADPCM payload].
++ *
++ * Video packets carry codec id AV_CODEC_ID_HVQM2 and are decoded by the in-tree
++ * hvqm2 decoder (libavcodec/hvqm2dec.c). A HOLD frame is emitted as a 1-byte
++ * marker rather than a zero-size packet, because FFmpeg drops empty packets
++ * before the decoder; the decoder and the muxer treat any video packet smaller
++ * than the 52-byte HVQM2Frame offset table as a HOLD (repeat previous frame).
++ */
++
++#include "libavutil/channel_layout.h"
++#include "libavutil/intreadwrite.h"
++#include "avformat.h"
++#include "demux.h"
++#include "internal.h"
++
++#define HVQM2_HEADER_SIZE       60
++#define HVQM2_RECORD_HEADER     8
++#define HVQM2_RECORD_AUDIO      0
++#define HVQM2_RECORD_VIDEO      1
++#define HVQM2_VIDEO_KEYFRAME    0
++#define HVQM2_VIDEO_PREDICT     1
++#define HVQM2_VIDEO_HOLD        2
++/* Sanity ceiling on a record body. Video is hard-capped at 30000 by the decoder;
++ * audio records are far smaller. Anything larger means a corrupt/oversized file. */
++#define HVQM2_RECORD_BODY_MAX   (1 << 20)
++
++typedef struct HVQM2DemuxContext {
++    int      video_index;
++    int      audio_index;       ///< -1 when the file has no audio
++    int64_t  video_pts;         ///< running video frame index
++    int64_t  audio_pts;         ///< running audio sample position
++} HVQM2DemuxContext;
++
++static int hvqm2_probe(const AVProbeData *p)
++{
++    if (p->buf_size < 16)
++        return 0;
++    if (memcmp(p->buf, "HVQM2 1.0", 9))
++        return 0;
++    return AVPROBE_SCORE_MAX;
++}
++
++static int hvqm2_read_header(AVFormatContext *s)
++{
++    HVQM2DemuxContext *c = s->priv_data;
++    AVIOContext *pb = s->pb;
++    AVStream *st, *ast;
++    char magic[16];
++    int width, height, v_sampling, y_shiftnum, vqs, audio_format, ret;
++    uint32_t total_frames, usec_per_frame, sample_rate;
++    enum AVPixelFormat pix_fmt;
++
++    if (avio_read(pb, magic, sizeof(magic)) != sizeof(magic) ||
++        memcmp(magic, "HVQM2 1.0", 9))
++        return AVERROR_INVALIDDATA;
++
++    avio_rb32(pb);                              /* file_size (ignored) */
++    width      = avio_rb16(pb);
++    height     = avio_rb16(pb);
++    avio_r8(pb);                                /* h_sampling_rate (always 2) */
++    v_sampling = avio_r8(pb);
++    y_shiftnum = avio_r8(pb);
++    vqs        = avio_r8(pb);                    /* video_quantize_shift */
++    total_frames   = avio_rb32(pb);
++    usec_per_frame = avio_rb32(pb);
++    avio_rb32(pb);                              /* max_frame_size (ignored) */
++    avio_rb32(pb);                              /* max_sp_packets (ignored) */
++    audio_format = avio_r8(pb);
++    avio_r8(pb);                                /* channels (mono) */
++    avio_r8(pb);                                /* sample_bits */
++    avio_r8(pb);                                /* audio_quantize_step */
++    avio_rb32(pb);                              /* total_audio_records (ignored) */
++    sample_rate = avio_rb32(pb);
++    avio_rb32(pb);                              /* max_audio_record_size (ignored) */
++
++    if (avio_feof(pb))
++        return AVERROR_INVALIDDATA;
++    if (width <= 0 || height <= 0 || (width & 7) || (height & 7)) {
++        av_log(s, AV_LOG_ERROR, "Invalid HVQM2 dimensions %dx%d.\n", width, height);
++        return AVERROR_INVALIDDATA;
++    }
++    if (!usec_per_frame) {
++        av_log(s, AV_LOG_ERROR, "HVQM2 frame interval is zero.\n");
++        return AVERROR_INVALIDDATA;
++    }
++    switch (v_sampling) {
++    case 2:  pix_fmt = AV_PIX_FMT_YUV420P; break;   /* "4:1:1" = 2x2 chroma */
++    case 1:  pix_fmt = AV_PIX_FMT_YUV422P; break;
++    default:
++        av_log(s, AV_LOG_ERROR, "Unsupported HVQM2 chroma sampling %d.\n", v_sampling);
++        return AVERROR_INVALIDDATA;
++    }
++
++    st = avformat_new_stream(s, NULL);
++    if (!st)
++        return AVERROR(ENOMEM);
++    st->codecpar->codec_type = AVMEDIA_TYPE_VIDEO;
++    st->codecpar->codec_id   = AV_CODEC_ID_HVQM2;
++    st->codecpar->width      = width;
++    st->codecpar->height     = height;
++    st->codecpar->format     = pix_fmt;
++    st->nb_frames            = total_frames;
++    st->start_time           = 0;
++    st->duration             = total_frames;
++    avpriv_set_pts_info(st, 64, usec_per_frame, 1000000);
++    /* Profile for the decoder and a stream-copy muxer: [y_shiftnum][video_quantize_shift]
++     * [v_sampling]. v_sampling (chroma) matters because the decoder outputs RGBA, which
++     * find_stream_info writes back into codecpar->format, losing the container's pixel
++     * format; extradata survives that, so both the decoder and the muxer read it here. */
++    if ((ret = ff_alloc_extradata(st->codecpar, 3)) < 0)
++        return ret;
++    st->codecpar->extradata[0] = y_shiftnum;
++    st->codecpar->extradata[1] = vqs;
++    st->codecpar->extradata[2] = v_sampling;
++    c->video_index = st->index;
++
++    c->audio_index = -1;
++    if (audio_format) {
++        ast = avformat_new_stream(s, NULL);
++        if (!ast)
++            return AVERROR(ENOMEM);
++        ast->codecpar->codec_type  = AVMEDIA_TYPE_AUDIO;
++        ast->codecpar->codec_id    = AV_CODEC_ID_ADPCM_IMA_HVQM2;
++        ast->codecpar->ch_layout   = (AVChannelLayout)AV_CHANNEL_LAYOUT_MONO;
++        ast->codecpar->sample_rate = sample_rate;
++        ast->codecpar->bits_per_coded_sample = 4;
++        if (!sample_rate) {
++            av_log(s, AV_LOG_ERROR, "HVQM2 audio sample rate is zero.\n");
++            return AVERROR_INVALIDDATA;
++        }
++        avpriv_set_pts_info(ast, 64, 1, sample_rate);
++        c->audio_index = ast->index;
++    }
++
++    return 0;
++}
++
++static int hvqm2_read_packet(AVFormatContext *s, AVPacket *pkt)
++{
++    HVQM2DemuxContext *c = s->priv_data;
++    AVIOContext *pb = s->pb;
++
++    for (;;) {
++        int64_t pos = avio_tell(pb);
++        unsigned type, format, size;
++        int ret;
++
++        type   = avio_rb16(pb);
++        format = avio_rb16(pb);
++        size   = avio_rb32(pb);
++        if (avio_feof(pb))
++            return AVERROR_EOF;
++        if (size > HVQM2_RECORD_BODY_MAX) {
++            av_log(s, AV_LOG_ERROR, "HVQM2 record body %u too large.\n", size);
++            return AVERROR_INVALIDDATA;
++        }
++
++        if (type == HVQM2_RECORD_VIDEO) {
++            if (format == HVQM2_VIDEO_HOLD || size == 0) {
++                /* HOLD = repeat the previous frame; the record body is empty. FFmpeg
++                 * drops zero-size packets before the decoder, so emit a 1-byte marker
++                 * (a body too small to hold a frame header) that the decoder and a
++                 * stream-copy muxer both treat as HOLD. */
++                if ((ret = av_new_packet(pkt, 1)) < 0)
++                    return ret;
++                pkt->data[0] = 0;
++                if (size && avio_skip(pb, size) < 0) {
++                    av_packet_unref(pkt);
++                    return AVERROR_INVALIDDATA;
++                }
++            } else {
++                if ((ret = av_get_packet(pb, pkt, size)) < 0)
++                    return ret;
++                if (ret != (int)size) {            /* body truncated by EOF */
++                    av_packet_unref(pkt);
++                    return AVERROR_INVALIDDATA;
++                }
++                if (format == HVQM2_VIDEO_KEYFRAME)
++                    pkt->flags |= AV_PKT_FLAG_KEY;
++            }
++            pkt->stream_index = c->video_index;
++            pkt->pos          = pos;
++            pkt->pts          = pkt->dts = c->video_pts++;
++            pkt->duration     = 1;
++            return 0;
++        }
++
++        if (type == HVQM2_RECORD_AUDIO && c->audio_index >= 0) {
++            /* Prepend the 2-byte record format word so the body becomes the packet
++             * the in-tree decoder reads: [format][reserved][nb_samples][payload]. */
++            if (size < 4) {
++                av_log(s, AV_LOG_ERROR, "HVQM2 audio record too short (%u).\n", size);
++                return AVERROR_INVALIDDATA;
++            }
++            if ((ret = av_new_packet(pkt, size + 2)) < 0)
++                return ret;
++            AV_WB16(pkt->data, format);
++            ret = avio_read(pb, pkt->data + 2, size);
++            if (ret != (int)size) {
++                av_packet_unref(pkt);
++                return ret < 0 ? ret : AVERROR_EOF;
++            }
++            pkt->stream_index = c->audio_index;
++            pkt->pos          = pos;
++            if (format == 0)
++                pkt->flags |= AV_PKT_FLAG_KEY;
++            pkt->pts       = pkt->dts = c->audio_pts;
++            pkt->duration  = AV_RB16(pkt->data + 4);   /* nb_samples in this record */
++            c->audio_pts  += pkt->duration;
++            return 0;
++        }
++
++        /* Unknown or audio-without-stream record: skip its body and continue. */
++        if (avio_skip(pb, size) < 0)
++            return AVERROR_INVALIDDATA;
++        if (avio_feof(pb))
++            return AVERROR_EOF;
++    }
++}
++
++const FFInputFormat ff_hvqm_demuxer = {
++    .p.name         = "hvqm",
++    .p.long_name    = NULL_IF_CONFIG_SMALL("Hudson HVQM2"),
++    .p.extensions   = "hvqm",
++    .p.flags        = AVFMT_GENERIC_INDEX,
++    .priv_data_size = sizeof(HVQM2DemuxContext),
++    .read_probe     = hvqm2_probe,
++    .read_header    = hvqm2_read_header,
++    .read_packet    = hvqm2_read_packet,
++};
+diff --git a/libavformat/hvqmenc.c b/libavformat/hvqmenc.c
+new file mode 100644
+index 0000000..04f6638
+--- /dev/null
++++ b/libavformat/hvqmenc.c
+@@ -0,0 +1,292 @@
++/*
++ * Hudson HVQM2 (.hvqm) muxer
++ *
++ * Copyright (c) 2026 FFmpeg HVQM2 port
++ *
++ * This file is part of FFmpeg.
++ *
++ * FFmpeg is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU Lesser General Public
++ * License as published by the Free Software Foundation; either
++ * version 2.1 of the License, or (at your option) any later version.
++ *
++ * FFmpeg is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * Lesser General Public License for more details.
++ *
++ * You should have received a copy of the GNU Lesser General Public
++ * License along with FFmpeg; if not, write to the Free Software
++ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
++ */
++
++/**
++ * @file
++ * Hudson HVQM2 1.0 container muxer.
++ *
++ * Layout (big-endian): a 60-byte file header followed by a linear sequence of
++ * records, each an 8-byte header (type, format, body size) + body. Video records
++ * carry HVQM2 VQ frames (key/predict/hold); audio records carry mono IMA ADPCM.
++ * Video and audio are interleaved by DTS by the generic muxer.
++ *
++ * The encoding profile (y_shiftnum, video_quantize_shift) comes from the encoder
++ * via 2-byte stream extradata; it falls back to the fixed Phase-1 profile
++ * (y_shiftnum = 8, video_quantize_shift = 0) when extradata is absent.
++ */
++
++#include "libavutil/avutil.h"
++#include "libavutil/intreadwrite.h"
++#include "libavutil/mathematics.h"
++#include "libavutil/opt.h"
++#include "libavutil/pixfmt.h"
++#include "libavutil/rational.h"
++#include "avformat.h"
++#include "avio_internal.h"
++#include "mux.h"
++
++/* Phase-1 fixed profile — keep in sync with the encoder. */
++#define HVQM2_Y_SHIFTNUM            8
++#define HVQM2_VIDEO_QUANTIZE_SHIFT  0
++
++/* Record type / video format (HVQM2File.h). */
++#define HVQM2_RECORD_AUDIO          0
++#define HVQM2_RECORD_VIDEO          1
++#define HVQM2_VIDEO_KEYFRAME        0
++#define HVQM2_VIDEO_PREDICT         1
++#define HVQM2_VIDEO_HOLD            2
++
++typedef struct HVQM2MuxContext {
++    int64_t file_size_pos;       ///< header offset of file_size (u32)
++    int64_t total_frames_pos;    ///< header offset of total_frames (u32)
++    int64_t max_frame_pos;       ///< header offset of max_frame_size (u32)
++    int64_t total_audio_pos;     ///< header offset of total_audio_records (u32)
++    int64_t max_audio_pos;       ///< header offset of max_audio_record_size (u32)
++    uint32_t nb_video;
++    uint32_t max_frame_size;     ///< largest video record body written
++    uint32_t nb_audio;
++    uint32_t max_audio_size;     ///< largest audio record body written
++} HVQM2MuxContext;
++
++static int hvqm_write_header(AVFormatContext *s)
++{
++    HVQM2MuxContext *c = s->priv_data;
++    AVStream *st = NULL, *ast = NULL;
++    AVCodecParameters *par;
++    AVRational rate;
++
++    for (int i = 0; i < s->nb_streams; i++) {     /* one video + optional one audio */
++        enum AVMediaType t = s->streams[i]->codecpar->codec_type;
++        if (t == AVMEDIA_TYPE_VIDEO)      st  = s->streams[i];
++        else if (t == AVMEDIA_TYPE_AUDIO) ast = s->streams[i];
++    }
++    if (!st) {
++        av_log(s, AV_LOG_ERROR, "HVQM2 requires a video stream.\n");
++        return AVERROR(EINVAL);
++    }
++    par = st->codecpar;
++    if (ast && ast->codecpar->ch_layout.nb_channels != 1) {
++        av_log(s, AV_LOG_ERROR, "HVQM2 audio must be mono.\n");
++        return AVERROR(EINVAL);
++    }
++    int64_t usec_per_frame;
++    int v_sampling_rate;
++    /* Profile comes from the encoder (or a stream-copy source) via 2-byte extradata;
++     * fall back to the fixed Phase-1 profile when it is absent. */
++    int y_shiftnum           = HVQM2_Y_SHIFTNUM;
++    int video_quantize_shift = HVQM2_VIDEO_QUANTIZE_SHIFT;
++    if (par->extradata_size >= 2) {
++        y_shiftnum           = par->extradata[0];
++        video_quantize_shift = par->extradata[1];
++    }
++
++    if (!(s->pb->seekable & AVIO_SEEKABLE_NORMAL)) {
++        av_log(s, AV_LOG_ERROR, "HVQM2 muxer requires seekable output "
++               "(header counters are backfilled in the trailer).\n");
++        return AVERROR(EINVAL);
++    }
++
++    if ((par->width & 7) || (par->height & 7) ||
++        par->width < 144 || par->height < 80 ||
++        par->width > 65535 || par->height > 65535) {
++        av_log(s, AV_LOG_ERROR, "HVQM2 needs dimensions that are multiples of 8, "
++               "at least 144x80 and at most 65535 (got %dx%d).\n",
++               par->width, par->height);
++        return AVERROR(EINVAL);
++    }
++
++    switch (par->format) {
++    case AV_PIX_FMT_YUV420P: v_sampling_rate = 2; break; /* "4:1:1" mode = 2x2 chroma */
++    case AV_PIX_FMT_YUV422P: v_sampling_rate = 1; break; /* 4:2:2 */
++    default:
++        /* A stream-copied HVQM2 video carries its chroma in extradata[2] (the in-tree
++         * decoder reports RGBA, so par->format is not the container format). */
++        if (par->extradata_size >= 3 &&
++            (par->extradata[2] == 1 || par->extradata[2] == 2)) {
++            v_sampling_rate = par->extradata[2];
++            break;
++        }
++        av_log(s, AV_LOG_ERROR, "HVQM2 requires yuv420p or yuv422p input.\n");
++        return AVERROR(EINVAL);
++    }
++
++    rate = st->avg_frame_rate;
++    if (!rate.num || !rate.den)
++        rate = av_inv_q(st->time_base);
++    if (rate.num <= 0 || rate.den <= 0) {
++        av_log(s, AV_LOG_ERROR, "A valid frame rate is required for HVQM2 output.\n");
++        return AVERROR(EINVAL);
++    }
++    usec_per_frame = av_rescale(1000000, rate.den, rate.num);
++    if (usec_per_frame <= 0 || usec_per_frame > UINT32_MAX) {
++        av_log(s, AV_LOG_ERROR, "Frame rate %d/%d is out of range for HVQM2 "
++               "(frame interval must be a positive 32-bit microsecond value).\n",
++               rate.num, rate.den);
++        return AVERROR(EINVAL);
++    }
++
++    avio_write(s->pb, "HVQM2 1.0\0\0\0\0\0\0", 16);   /* file_version (ASCIIZ, padded) */
++    c->file_size_pos = avio_tell(s->pb);
++    avio_wb32(s->pb, 0);                              /* file_size (backfilled) */
++    avio_wb16(s->pb, par->width);
++    avio_wb16(s->pb, par->height);
++    avio_w8(s->pb, 2);                                /* h_sampling_rate */
++    avio_w8(s->pb, v_sampling_rate);
++    avio_w8(s->pb, y_shiftnum);
++    avio_w8(s->pb, video_quantize_shift);
++    c->total_frames_pos = avio_tell(s->pb);
++    avio_wb32(s->pb, 0);                              /* total_frames (backfilled) */
++    avio_wb32(s->pb, (uint32_t)usec_per_frame);
++    c->max_frame_pos = avio_tell(s->pb);
++    avio_wb32(s->pb, 0);                              /* max_frame_size (backfilled) */
++    avio_wb32(s->pb, 0);                              /* max_sp_packets (CPU decode: unused) */
++    avio_w8(s->pb, ast ? 1 : 0);                      /* audio_format: 1 = ADPCM */
++    avio_w8(s->pb, ast ? 1 : 0);                      /* channels (mono) */
++    avio_w8(s->pb, ast ? 16 : 0);                     /* sample_bits (ADPCM -> 16-bit PCM) */
++    avio_w8(s->pb, 0);                                /* audio_quantize_step */
++    c->total_audio_pos = avio_tell(s->pb);
++    avio_wb32(s->pb, 0);                              /* total_audio_records (backfilled) */
++    avio_wb32(s->pb, ast ? ast->codecpar->sample_rate : 0);  /* samples_per_sec */
++    c->max_audio_pos = avio_tell(s->pb);
++    avio_wb32(s->pb, 0);                              /* max_audio_record_size (backfilled) */
++
++    if (c->file_size_pos < 0 || c->total_frames_pos < 0 || c->max_frame_pos < 0 ||
++        c->total_audio_pos < 0 || c->max_audio_pos < 0)
++        return AVERROR(EIO);
++    return 0;
++}
++
++static int hvqm_write_packet(AVFormatContext *s, AVPacket *pkt)
++{
++    HVQM2MuxContext *c = s->priv_data;
++    AVCodecParameters *par = s->streams[pkt->stream_index]->codecpar;
++    unsigned pad, body;
++
++    if (pkt->size < 0 || (unsigned)pkt->size > UINT32_MAX - 8)
++        return AVERROR_INVALIDDATA;
++
++    if (par->codec_type == AVMEDIA_TYPE_AUDIO) {
++        /* The adpcm_ima_hvqm2 packet is one self-describing audio record:
++         * [format u16][reserved u16 = 0][nb_samples u16] + ADPCM body. We lift the format
++         * word into the 8-byte record header and write the rest of the packet verbatim as
++         * the record body, so a demux -> remux preserves the bytes exactly. format 0 is the
++         * first (key) record, format 1 a continuation. Body padded to a 4-byte multiple. */
++        unsigned afmt, abody, apad;
++        if (pkt->size < 6) {
++            av_log(s, AV_LOG_ERROR, "HVQM2 audio packet too short (%d bytes).\n", pkt->size);
++            return AVERROR(EINVAL);
++        }
++        afmt  = AV_RB16(pkt->data);
++        abody = (unsigned)pkt->size - 2;              /* strip the format word from the body */
++        apad  = (~abody + 1) & 3;
++        avio_wb16(s->pb, HVQM2_RECORD_AUDIO);
++        avio_wb16(s->pb, afmt);
++        avio_wb32(s->pb, abody + apad);
++        avio_write(s->pb, pkt->data + 2, abody);      /* [reserved][nb_samples] + ADPCM body */
++        if (apad)
++            ffio_fill(s->pb, 0, apad);
++        if (abody + apad > c->max_audio_size)
++            c->max_audio_size = abody + apad;
++        c->nb_audio++;
++        return 0;
++    }
++
++    /* A KEY/PREDICT body always carries the 52-byte HVQM2Frame offset table, so any
++     * video packet smaller than that is a HOLD (repeat previous frame): the encoder
++     * emits an empty packet, the demuxer a 1-byte marker. Either way the record body
++     * is empty. */
++    if (pkt->size < 52) {
++        avio_wb16(s->pb, HVQM2_RECORD_VIDEO);
++        avio_wb16(s->pb, HVQM2_VIDEO_HOLD);
++        avio_wb32(s->pb, 0);
++        c->nb_video++;
++        return 0;
++    }
++
++    /* Record bodies must be a multiple of 4 bytes. */
++    pad  = (~(unsigned)pkt->size + 1) & 3;
++    body = (unsigned)pkt->size + pad;
++
++    avio_wb16(s->pb, HVQM2_RECORD_VIDEO);
++    avio_wb16(s->pb, (pkt->flags & AV_PKT_FLAG_KEY) ? HVQM2_VIDEO_KEYFRAME
++                                                    : HVQM2_VIDEO_PREDICT);
++    avio_wb32(s->pb, body);
++    avio_write(s->pb, pkt->data, pkt->size);
++    if (pad)
++        ffio_fill(s->pb, 0, pad);
++
++    if (body > c->max_frame_size)
++        c->max_frame_size = body;
++    c->nb_video++;
++    return 0;
++}
++
++static int hvqm_write_trailer(AVFormatContext *s)
++{
++    HVQM2MuxContext *c = s->priv_data;
++    int64_t file_size = avio_tell(s->pb);
++    int64_t ret;
++
++    if (file_size < 0)
++        return AVERROR(EIO);
++    if (file_size > UINT32_MAX) {
++        av_log(s, AV_LOG_ERROR, "Output exceeds the 4 GiB HVQM2 file-size limit.\n");
++        return AVERROR(EINVAL);
++    }
++
++    if ((ret = avio_seek(s->pb, c->file_size_pos, SEEK_SET)) < 0)
++        return ret;
++    avio_wb32(s->pb, (uint32_t)file_size);
++    if ((ret = avio_seek(s->pb, c->total_frames_pos, SEEK_SET)) < 0)
++        return ret;
++    avio_wb32(s->pb, c->nb_video);
++    if ((ret = avio_seek(s->pb, c->max_frame_pos, SEEK_SET)) < 0)
++        return ret;
++    avio_wb32(s->pb, c->max_frame_size);
++    if ((ret = avio_seek(s->pb, c->total_audio_pos, SEEK_SET)) < 0)
++        return ret;
++    avio_wb32(s->pb, c->nb_audio);
++    if ((ret = avio_seek(s->pb, c->max_audio_pos, SEEK_SET)) < 0)
++        return ret;
++    avio_wb32(s->pb, c->max_audio_size);
++
++    if ((ret = avio_seek(s->pb, file_size, SEEK_SET)) < 0)
++        return ret;
++    return 0;
++}
++
++const FFOutputFormat ff_hvqm_muxer = {
++    .p.name           = "hvqm",
++    .p.long_name      = NULL_IF_CONFIG_SMALL("Hudson HVQM2"),
++    .p.extensions     = "hvqm",
++    .p.audio_codec    = AV_CODEC_ID_ADPCM_IMA_HVQM2,
++    .p.video_codec    = AV_CODEC_ID_HVQM2,
++    .p.subtitle_codec = AV_CODEC_ID_NONE,
++    .priv_data_size   = sizeof(HVQM2MuxContext),
++    /* No AVFMT_NOTIMESTAMPS: audio+video records are interleaved by the generic muxer in
++     * DTS order, which needs the packet timestamps the encoders provide. */
++    .flags_internal   = FF_OFMT_FLAG_MAX_ONE_OF_EACH |
++                        FF_OFMT_FLAG_ONLY_DEFAULT_CODECS,
++    .write_header     = hvqm_write_header,
++    .write_packet     = hvqm_write_packet,
++    .write_trailer    = hvqm_write_trailer,
++};
+-- 
+2.52.0.windows.1
+
