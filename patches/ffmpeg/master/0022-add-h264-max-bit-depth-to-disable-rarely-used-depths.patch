@@ -293,26 +293,26 @@ index c64d35b73d..d9546bc64d 100644
  av_cold void ff_h264qpel_init(H264QpelContext *c, int bit_depth)
 @@ -82,18 +91,26 @@ av_cold void ff_h264qpel_init(H264QpelContext *c, int bit_depth)
      default:
-         SET_QPEL(8);
+         SET_QPEL(dspfunc2, 8);
          break;
 +#if H264_MAX_BIT_DEPTH >= 9
      case 9:
-         SET_QPEL(9);
+         SET_QPEL(dspfunc2, 9);
          break;
 +#endif
 +#if H264_MAX_BIT_DEPTH >= 10
      case 10:
-         SET_QPEL(10);
+         SET_QPEL(dspfunc2, 10);
          break;
 +#endif
 +#if H264_MAX_BIT_DEPTH >= 12
      case 12:
-         SET_QPEL(12);
+         SET_QPEL(dspfunc2, 12);
          break;
 +#endif
 +#if H264_MAX_BIT_DEPTH >= 14
      case 14:
-         SET_QPEL(14);
+         SET_QPEL(dspfunc2, 14);
          break;
 +#endif
      }
@@ -327,9 +327,9 @@ index b5d82694a2..08dedf8f24 100644
          }
      } else if (bit_depth == 10) {
 +#if H264_MAX_BIT_DEPTH >= 10
-         if (EXTERNAL_MMXEXT(cpu_flags)) {
-             h->pred4x4[DC_PRED             ] = ff_pred4x4_dc_10_mmxext;
-             h->pred4x4[HOR_UP_PRED         ] = ff_pred4x4_horizontal_up_10_mmxext;
+         if (EXTERNAL_SSE2(cpu_flags)) {
+             h->pred4x4[DC_PRED             ] = ff_pred4x4_dc_10_sse2;
+             h->pred4x4[DIAG_DOWN_LEFT_PRED ] = ff_pred4x4_down_left_10_sse2;
 @@ -329,5 +330,6 @@ av_cold void ff_h264_pred_init_x86(H264PredContext *h, int codec_id,
              h->pred8x8l[VERT_RIGHT_PRED     ] = ff_pred8x8l_vertical_right_10_avx;
              h->pred8x8l[HOR_UP_PRED         ] = ff_pred8x8l_horizontal_up_10_avx;
